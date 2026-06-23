@@ -1,0 +1,24 @@
+operations:
+  - create_table:
+      name: teams
+      columns:
+        - name: id
+          type: uuid
+          pk: true
+          default: gen_random_uuid()
+        - name: name
+          type: text
+          nullable: false
+        - name: created_at
+          type: timestamptz
+          default: now()
+  - add_column:
+      table: users
+      column:
+        name: team_id
+        type: uuid
+        nullable: true
+        references:
+          name: fk_users_team_id
+          table: teams
+          column: id

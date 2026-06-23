@@ -1,0 +1,105 @@
+// Tipos compartilhados do domínio. (Os dados agora vêm de stores reais / APIs.)
+// Migrar para Prisma/types gerados quando o backend nascer.
+
+export type ConnectionStatus = "connected" | "disconnected" | "connecting";
+
+export type Engagement = "alto" | "medio" | "baixo";
+
+export type Group = {
+  id: string;
+  name: string;
+  whatsappGroupId: string;
+  members: number;
+  capacity: number;
+  selected: boolean;
+  engagement: Engagement;
+  /** Link de convite REAL do grupo. Destino do roteamento "Campanha que lota sozinho". */
+  inviteUrl?: string;
+};
+
+export type CampaignStatus = "draft" | "scheduled" | "queued" | "running" | "sent" | "failed";
+
+export type Campaign = {
+  id: string;
+  name: string;
+  status: CampaignStatus;
+  message: string;
+  groupIds: string[];
+  /** Mídia anexada (foto/vídeo) — enviada com a mensagem como legenda. */
+  mediaId?: string;
+  mediaType?: "image" | "video";
+  /** Marcar todos os membros do grupo (@) — força a notificação. */
+  mentionAll?: boolean;
+  /** Enquete: se presente, dispara uma enquete em vez de mensagem comum. */
+  poll?: { question: string; options: string[] };
+  sent: number;
+  total: number;
+  createdAt: string;
+  /** Erro do último disparo, se houve (reportado pela engine). */
+  error?: string;
+  /** Quando a engine terminou o disparo. */
+  dispatchedAt?: string;
+  /** Quando a engine começou a disparar (p/ detectar job preso). */
+  runningSince?: string;
+  /** Último ack de progresso da engine (p/ detectar job preso). */
+  lastAckAt?: string;
+};
+
+export type ScheduleStatus = "pending" | "running" | "done" | "failed";
+
+export type Schedule = {
+  id: string;
+  /** Oferta (broadcast) que será disparada no horário. */
+  campaignId?: string;
+  campaignName: string;
+  scheduledAt: string;
+  recurrence: "none" | "daily" | "weekly";
+  status: ScheduleStatus;
+  /** Último horário em que o agendamento disparou. */
+  lastRunAt?: string;
+};
+
+export type MessageTemplate = {
+  id: string;
+  name: string;
+  category: "drop" | "promocao" | "reativacao" | "pos-venda";
+  body: string;
+  uses: number;
+};
+
+export type AdStatus = "rascunho" | "ativa" | "pausada";
+
+export type AdCampaign = {
+  id: string;
+  name: string;
+  targetGroupId: string;
+  targetGroupName: string;
+  status: AdStatus;
+  objective: string;
+  budgetDaily: number;
+  audience: string;
+  primaryText: string;
+  headline: string;
+  description: string;
+  script: string;
+  creativeIdeas: string[];
+  linkSlug: string;
+  /** Link de convite REAL do grupo (destino do anúncio). */
+  inviteUrl: string;
+  spend: number;
+  clicks: number;
+  entries: number;
+  cpl: number;
+};
+
+export type LeadStatus = "novo" | "ativo" | "comprou";
+
+export type Lead = {
+  id: string;
+  name: string;
+  phone: string;
+  sourceGroup: string;
+  sourceCampaign: string;
+  status: LeadStatus;
+  enteredAt: string;
+};

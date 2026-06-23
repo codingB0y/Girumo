@@ -1,0 +1,39 @@
+# Dependências
+node_modules
+
+# engine runtime
+engine-state.json
+
+# Build
+.next
+dist
+build
+
+# Ambiente
+.env
+.env.*
+.env.local
+.env.production
+
+# Logs
+logs
+*.log
+
+# Cache
+.cache
+
+# VS Code
+.vscode
+
+# Banco local
+*.db
+
+# Coverage
+coverage
+
+# Mac
+.DS_Store
+
+# system
+.DS_Store
+Thumbs.db

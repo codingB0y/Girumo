@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Lotar Mega Stock Infantil #172",
+    "targetGroupId": "120363318630822613@g.us",
+    "targetGroupName": "Mega Stock Infantil #172",
+    "status": "ativa",
+    "objective": "Entradas no grupo",
+    "budgetDaily": 30,
+    "audience": "Localização: Brasil (ou um raio de 30–50km da sua cidade) · Idade: 23–50 · Gênero: Mulheres · Interesses: revenda de roupas, sacoleira, brechó, moda feminina, empreendedorismo feminino, renda extra, Shein/Shopee · Posicionamentos: Reels e Stories do Instagram (melhor custo).",
+    "primaryText": "👜 Grupo fechado só para revendedoras. Preço de atacado, novidade toda semana e vagas limitadas. Bora garantir a sua?",
+    "headline": "Grupo VIP de revendedoras",
+    "description": "Vagas limitadas no grupo",
+    "script": "Entrada → mensagem de regra do grupo → oferta de primeira compra.",
+    "creativeIdeas": [
+      "Print do grupo movimentado (gatilho de FOMO)",
+      "Depoimento em vídeo de uma revendedora atual"
+    ],
+    "linkSlug": "mega-stock-infantil--c2g8",
+    "inviteUrl": "https://chat.whatsapp.com/J5jturlc4zBC4SJacDolaO",
+    "spend": 0,
+    "clicks": 0,
+    "entries": 0,
+    "cpl": 0,
+    "id": "62fceb4b-6013-4f48-b2d4-5c7df29ac221"
+  }
+]

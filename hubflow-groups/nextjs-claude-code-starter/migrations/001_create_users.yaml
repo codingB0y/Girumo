@@ -1,0 +1,17 @@
+operations:
+  - create_table:
+      name: users
+      columns:
+        - name: id
+          type: uuid
+          pk: true
+          default: gen_random_uuid()
+        - name: email
+          type: text
+          unique: true
+          nullable: false
+        - name: name
+          type: text
+        - name: created_at
+          type: timestamptz
+          default: now()

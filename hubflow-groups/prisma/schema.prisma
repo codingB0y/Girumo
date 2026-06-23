@@ -1,0 +1,112 @@
+// Domínio de CONTAS + BILLING (login, cadastro, plano, assinatura, pagamento, vencimento).
+// Fase híbrida: este domínio nasce no Postgres; o operacional (leads/grupos/disparo) segue
+// em file-store até a migração completa. Account = tenant (base p/ multi-tenant futuro).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// CONTA = um cliente/loja. Login por e-mail. É o tenant de todo o resto.
+model Account {
+  id              String         @id @default(cuid())
+  name            String // nome da loja/responsável
+  email           String         @unique // usado no login
+  passwordHash    String
+  status          AccountStatus  @default(ACTIVE) // SUSPENDED = corte por atraso
+  asaasCustomerId String?        @unique // id do cliente no Asaas (quando integrar)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  subscriptions   Subscription[]
+  invoices        Invoice[]
+
+  @@index([status])
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  CANCELED
+}
+
+// PLANO = catálogo (Essencial/Growth/Performance). Espelha system/PRICING.md.
+model Plan {
+  id            String          @id @default(cuid())
+  code          String          @unique // "essencial" | "growth" | "performance"
+  name          String
+  priceCents    Int // 19700, 29700, 49700
+  interval      BillingInterval @default(MONTHLY)
+  active        Boolean         @default(true)
+  subscriptions Subscription[]
+}
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+}
+
+// ASSINATURA = vínculo conta↔plano, com o vencimento do período corrente.
+model Subscription {
+  id                  String             @id @default(cuid())
+  accountId           String
+  account             Account            @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  planId              String
+  plan                Plan               @relation(fields: [planId], references: [id])
+  status              SubscriptionStatus @default(ACTIVE) // PAST_DUE = atrasada
+  startedAt           DateTime           @default(now())
+  currentPeriodEnd    DateTime // vencimento do ciclo atual
+  canceledAt          DateTime?
+  asaasSubscriptionId String?            @unique
+  invoices            Invoice[]
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@index([accountId])
+  @@index([status])
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  TRIALING
+}
+
+// FATURA / COBRANÇA = uma cobrança com vencimento. Base do "financeiro" e do "vencimento".
+model Invoice {
+  id             String         @id @default(cuid())
+  accountId      String
+  account        Account        @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  subscriptionId String?
+  subscription   Subscription?  @relation(fields: [subscriptionId], references: [id])
+  amountCents    Int
+  dueDate        DateTime // vencimento
+  status         InvoiceStatus  @default(OPEN) // OVERDUE = vencida sem pagar
+  paidAt         DateTime?
+  method         PaymentMethod? // como foi pago
+  asaasPaymentId String?        @unique
+  invoiceUrl     String? // link de pagamento (PIX/boleto) gerado pelo Asaas
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([accountId])
+  @@index([status, dueDate])
+}
+
+enum InvoiceStatus {
+  OPEN
+  PAID
+  OVERDUE
+  CANCELED
+}
+
+enum PaymentMethod {
+  PIX
+  BOLETO
+  CARD
+  MANUAL
+}

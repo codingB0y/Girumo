@@ -1,0 +1,134 @@
+[
+  {
+    "name": "t3",
+    "message": "⚡ SÓ HOJE: {desconto} OFF na {nome_loja}!\nAproveita antes de acabar 👉 {link_catalogo}",
+    "groupIds": [
+      "556293138551-1566934154@g.us"
+    ],
+    "mentionAll": true,
+    "status": "sent",
+    "sent": 1,
+    "total": 1,
+    "createdAt": "2026-06-23T01:14:56.469Z",
+    "id": "056ab93a-ebb8-4dc7-8506-14ed5ee7285e",
+    "runningSince": "2026-06-23T01:15:03.276Z",
+    "lastAckAt": "2026-06-23T01:15:04.050Z",
+    "dispatchedAt": "2026-06-23T01:15:04.050Z"
+  },
+  {
+    "name": "t1 (cópia) (cópia)",
+    "message": "Oi {nome}! Faz tempo que não te vejo por aqui 👀\nSeparei novidades na {nome_loja} que são a sua cara.\nDá uma olhada 👉 {link_catalogo}",
+    "groupIds": [
+      "556293138551-1566934154@g.us"
+    ],
+    "mediaId": "d268b81d-0fb9-412d-94c7-378f3328668d.mp4",
+    "mediaType": "video",
+    "mentionAll": true,
+    "status": "sent",
+    "sent": 1,
+    "total": 1,
+    "createdAt": "2026-06-23T01:13:59.166Z",
+    "id": "54b7f570-4597-4f97-8672-a7f190595ef4",
+    "runningSince": "2026-06-23T01:14:03.237Z",
+    "lastAckAt": "2026-06-23T01:14:05.168Z",
+    "dispatchedAt": "2026-06-23T01:14:05.168Z"
+  },
+  {
+    "name": "t1",
+    "message": "Oi {nome}! Faz tempo que não te vejo por aqui 👀\nSeparei novidades na {nome_loja} que são a sua cara.\nDá uma olhada 👉 {link_catalogo}",
+    "groupIds": [
+      "556293138551-1566934154@g.us"
+    ],
+    "mentionAll": false,
+    "poll": {
+      "question": "test",
+      "options": [
+        "1",
+        "1"
+      ]
+    },
+    "status": "sent",
+    "sent": 1,
+    "total": 1,
+    "createdAt": "2026-06-23T01:13:02.866Z",
+    "id": "e2a6508d-ebf1-4ab4-b54e-4c7458129ab2",
+    "runningSince": "2026-06-23T01:13:23.217Z",
+    "lastAckAt": "2026-06-23T01:13:23.640Z",
+    "dispatchedAt": "2026-06-23T01:13:23.640Z"
+  },
+  {
+    "name": "t1 (cópia)",
+    "message": "Oi {nome}! Faz tempo que não te vejo por aqui 👀\nSeparei novidades na {nome_loja} que são a sua cara.\nDá uma olhada 👉 {link_catalogo}",
+    "groupIds": [
+      "556293138551-1566934154@g.us"
+    ],
+    "mentionAll": true,
+    "status": "sent",
+    "sent": 1,
+    "total": 1,
+    "createdAt": "2026-06-23T01:12:31.148Z",
+    "id": "6d8803ef-c907-4d24-ac6c-2ef9c1f542ce",
+    "runningSince": "2026-06-23T01:12:43.173Z",
+    "lastAckAt": "2026-06-23T01:12:45.047Z",
+    "dispatchedAt": "2026-06-23T01:12:45.047Z"
+  },
+  {
+    "name": "t1",
+    "message": "Oi {nome}! Faz tempo que não te vejo por aqui 👀\nSeparei novidades na {nome_loja} que são a sua cara.\nDá uma olhada 👉 {link_catalogo}",
+    "groupIds": [],
+    "mediaId": "d3ce42b8-a525-4957-8b90-7cc0481efe52.mp4",
+    "mediaType": "video",
+    "mentionAll": true,
+    "status": "draft",
+    "sent": 0,
+    "total": 0,
+    "createdAt": "2026-06-23T01:10:55.719Z",
+    "id": "c5414b64-5b08-4ff5-aceb-3ce08fe9eba1"
+  },
+  {
+    "name": "test",
+    "message": "🔥 CHEGOU COISA NOVA NA {nome_loja}!\nPeças a partir de {preco}.\nGaranta a sua 👉 {link_catalogo}",
+    "groupIds": [
+      "556293138551-1566934154@g.us"
+    ],
+    "mediaId": "f3c57013-031c-4907-b3b3-981f81d7154d.png",
+    "mediaType": "image",
+    "mentionAll": true,
+    "status": "sent",
+    "sent": 1,
+    "total": 1,
+    "createdAt": "2026-06-22T12:49:47.039Z",
+    "id": "d16ae033-7dc1-454a-a3ae-11790c865470",
+    "runningSince": "2026-06-22T12:49:58.052Z",
+    "lastAckAt": "2026-06-22T12:50:02.265Z",
+    "dispatchedAt": "2026-06-22T12:50:02.265Z"
+  },
+  {
+    "name": "test2",
+    "message": "Seja bem-vinda à {nome_loja}! 💛\nAqui você recebe os drops e promoções em primeira mão.\nCatálogo 👉 {link_catalogo}",
+    "groupIds": [
+      "556293138551-1566934154@g.us"
+    ],
+    "status": "sent",
+    "sent": 1,
+    "total": 1,
+    "createdAt": "2026-06-21T02:06:23.970Z",
+    "id": "5cf4d01e-e08f-4d14-9a81-a6a0a9bfcff2",
+    "runningSince": "2026-06-23T01:07:33.017Z",
+    "lastAckAt": "2026-06-23T01:07:35.749Z",
+    "dispatchedAt": "2026-06-23T01:07:35.749Z"
+  },
+  {
+    "name": "test",
+    "message": "Oi {nome}, obrigada pela compra na {nome_loja}! 🥰\nQualquer coisa é só chamar aqui. E fica de olho nos próximos drops do grupo!",
+    "groupIds": [
+      "120363318630822613@g.us"
+    ],
+    "status": "sent",
+    "sent": 1,
+    "total": 1,
+    "createdAt": "2026-06-21T02:05:47.913Z",
+    "id": "c90cbebd-779b-4625-8620-5db1eeb3a158",
+    "dispatchedAt": "2026-06-21T02:06:02.976Z"
+  }
+]
