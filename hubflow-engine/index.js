@@ -1,17 +1,24 @@
-import makeWASocket, {
+const baileys = require("@whiskeysockets/baileys");
+
+const {
   useMultiFileAuthState,
   DisconnectReason,
   fetchLatestBaileysVersion,
   jidNormalizedUser,
-} from "@whiskeysockets/baileys";
-import qrcode from "qrcode-terminal";
-import pino from "pino";
-import { rm } from "fs/promises";
-import { readFileSync, writeFileSync, renameSync } from "fs";
-import { AntiBanQueue } from "./anti-ban-queue.js";
-import { WarmUp } from "./warmup.js";
-import { GroupOperationGuard, classifyGroupOpError } from "./group-guard.js";
-import { DeliveryTracker } from "./delivery-tracker.js";
+} = baileys;
+
+const makeWASocket = baileys.default || baileys;
+
+const qrcode = require("qrcode-terminal");
+const pino = require("pino");
+
+const { rm } = require("fs/promises");
+const { readFileSync, writeFileSync, renameSync } = require("fs");
+
+const { AntiBanQueue } = require("./anti-ban-queue.js");
+const { WarmUp } = require("./warmup.js");
+const { GroupOperationGuard, classifyGroupOpError } = require("./group-guard.js");
+const { DeliveryTracker } = require("./delivery-tracker.js");
 
 // Logger silencioso (Baileys é verboso). Suba para "info" se quiser depurar.
 const logger = pino({ level: "silent" });
@@ -841,9 +848,6 @@ async function resyncGroupsIfNeeded() {
   await postGroups(lastGroupsPayload, { quiet: true });
   if (groupsSynced) console.log(`   ↳ grupos re-sincronizados no painel (app voltou ao ar).`);
 }
-
-const express = require("express");
-const app = express();
 
 app.get("/", (req, res) => {
   res.send("API rodando");
