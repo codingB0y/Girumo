@@ -1,3 +1,17 @@
+
+const express = require("express");
+const app = express();
+
+app.get("/", (req, res) => {
+  res.status(200).send("DevZap Engine online");
+});
+
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Healthcheck ativo na porta ${PORT}`);
+});
+
 const baileys = require("@whiskeysockets/baileys");
 
 const {
@@ -22,6 +36,7 @@ const { DeliveryTracker } = require("./delivery-tracker.js");
 
 // Logger silencioso (Baileys é verboso). Suba para "info" se quiser depurar.
 const logger = pino({ level: "silent" });
+
 
 // Estado anti-ban PERSISTIDO — sem isto, um restart zera o contador do dia e o
 // warmup acha que pode mandar tudo de novo (risco real de estourar o limite/ban).
