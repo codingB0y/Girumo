@@ -158,7 +158,7 @@ async function fetchMedia(mediaId) {
 }
 
 // URL do app que recebe os leads (Caminho A). Ajuste via env APP_URL.
-const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
+const APP_URL = process.env.APP_URL;
 // Token compartilhado com o app (deve bater com ENGINE_TOKEN do .env.local do app).
 const ENGINE_TOKEN = process.env.ENGINE_TOKEN ?? "dz_dev_engine_token";
 
@@ -848,36 +848,6 @@ async function resyncGroupsIfNeeded() {
   await postGroups(lastGroupsPayload, { quiet: true });
   if (groupsSynced) console.log(`   ↳ grupos re-sincronizados no painel (app voltou ao ar).`);
 }
-
-const express = require("express");
-const app = express();
-
-app.use(express.json());
-
-// 👇 COLOCA AS ROTAS AQUI
-app.post("/api/groups", (req, res) => {
-  console.log("sync groups:", req.body);
-  res.json({ ok: true });
-});
-
-app.post("/api/session", (req, res) => {
-  res.json({ ok: true });
-});
-
-app.post("/api/leads", (req, res) => {
-  res.json({ ok: true });
-});
-
-// rota básica
-app.get("/", (req, res) => {
-  res.send("API rodando");
-});
-
-const PORT = process.env.PORT;
-
-app.listen(PORT, () => {
-  console.log("Servidor rodando na porta", PORT);
-});
 
 
 start().catch((err) => {
