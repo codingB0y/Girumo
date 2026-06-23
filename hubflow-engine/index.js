@@ -864,3 +864,4 @@ start().catch((err) => {
   console.error("Erro fatal:", err);
   process.exit(1);
 });
+console.log("DEPLOY NOVO RODANDO AQUI");
