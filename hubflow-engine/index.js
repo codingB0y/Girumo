@@ -841,7 +841,11 @@ async function resyncGroupsIfNeeded() {
   await postGroups(lastGroupsPayload, { quiet: true });
   if (groupsSynced) console.log(`   ↳ grupos re-sincronizados no painel (app voltou ao ar).`);
 }
+const PORT = process.env.PORT || 3000;
 
+app.listen(PORT, () => {
+  console.log("Servidor rodando na porta " + PORT);
+});
 start().catch((err) => {
   console.error("Erro fatal:", err);
   process.exit(1);
