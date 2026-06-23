@@ -841,17 +841,25 @@ async function resyncGroupsIfNeeded() {
   await postGroups(lastGroupsPayload, { quiet: true });
   if (groupsSynced) console.log(`   ↳ grupos re-sincronizados no painel (app voltou ao ar).`);
 }
-const PORT = process.env.PORT || 3000;
 
+const express = require("express");
+const app = express(); // 👈 primeiro cria o app
+
+app.use(express.json());
+
+// rotas
 app.get("/", (req, res) => {
   res.send("API rodando");
 });
 
+// depois define porta
+const PORT = process.env.PORT || 3000;
+
+// e só no final inicia servidor
 app.listen(PORT, () => {
   console.log("Servidor rodando na porta " + PORT);
 });
-const express = require("express");
-const app = express();
+
 start().catch((err) => {
   console.error("Erro fatal:", err);
   process.exit(1);
