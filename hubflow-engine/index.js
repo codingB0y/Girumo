@@ -852,6 +852,23 @@ async function resyncGroupsIfNeeded() {
 const express = require("express");
 const app = express();
 
+app.use(express.json());
+
+// 👇 COLOCA AS ROTAS AQUI
+app.post("/api/groups", (req, res) => {
+  console.log("sync groups:", req.body);
+  res.json({ ok: true });
+});
+
+app.post("/api/session", (req, res) => {
+  res.json({ ok: true });
+});
+
+app.post("/api/leads", (req, res) => {
+  res.json({ ok: true });
+});
+
+// rota básica
 app.get("/", (req, res) => {
   res.send("API rodando");
 });
@@ -859,11 +876,11 @@ app.get("/", (req, res) => {
 const PORT = process.env.PORT;
 
 app.listen(PORT, () => {
-  console.log("Servidor rodando na porta " + PORT);
+  console.log("Servidor rodando na porta", PORT);
 });
+
 
 start().catch((err) => {
   console.error("Erro fatal:", err);
   process.exit(1);
 });
-console.log("DEPLOY NOVO RODANDO AQUI");
