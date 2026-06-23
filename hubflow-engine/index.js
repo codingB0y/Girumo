@@ -843,9 +843,15 @@ async function resyncGroupsIfNeeded() {
 }
 const PORT = process.env.PORT || 3000;
 
+app.get("/", (req, res) => {
+  res.send("API rodando");
+});
+
 app.listen(PORT, () => {
   console.log("Servidor rodando na porta " + PORT);
 });
+const express = require("express");
+const app = express();
 start().catch((err) => {
   console.error("Erro fatal:", err);
   process.exit(1);
