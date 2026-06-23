@@ -843,19 +843,14 @@ async function resyncGroupsIfNeeded() {
 }
 
 const express = require("express");
-const app = express(); // 👈 primeiro cria o app
+const app = express();
 
-app.use(express.json());
-
-// rotas
 app.get("/", (req, res) => {
   res.send("API rodando");
 });
 
-// depois define porta
 const PORT = process.env.PORT || 3000;
 
-// e só no final inicia servidor
 app.listen(PORT, () => {
   console.log("Servidor rodando na porta " + PORT);
 });

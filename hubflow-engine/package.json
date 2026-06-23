@@ -2,7 +2,6 @@
   "name": "devzap-engine",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "description": "PoC da engine de WhatsApp (Baileys) do DevZap Groups",
   "scripts": {
     "start": "node index.js"
