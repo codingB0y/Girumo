@@ -849,13 +849,18 @@ async function resyncGroupsIfNeeded() {
   if (groupsSynced) console.log(`   ↳ grupos re-sincronizados no painel (app voltou ao ar).`);
 }
 
+const express = require("express");
+const app = express();
+
 app.get("/", (req, res) => {
   res.send("API rodando");
 });
 
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT);
+app.listen(PORT, () => {
+  console.log("Servidor rodando na porta " + PORT);
+});
 
 start().catch((err) => {
   console.error("Erro fatal:", err);
