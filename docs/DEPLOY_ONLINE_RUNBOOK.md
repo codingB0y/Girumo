@@ -18,6 +18,12 @@ Nao usar Prisma. Nao criar uma nova pasta `engine/`. A engine oficial e `hubflow
 
 Objetivo: garantir que o repo esta limpo o suficiente para ir ao GitHub/Vercel.
 
+Indice dos guias de deploy:
+
+```txt
+deploy/README.md
+```
+
 Executar:
 
 ```powershell
@@ -209,6 +215,12 @@ Ou via script:
 npm run verify:online -- -AppUrl "https://app.seudominio.com"
 ```
 
+O script tambem valida landing, login, signup e recuperacao de senha. Para validar apenas healthchecks:
+
+```powershell
+npm run verify:online -- -AppUrl "https://app.seudominio.com" -SkipPublicPages
+```
+
 Esperado:
 
 ```json
@@ -282,6 +294,12 @@ Esperado:
 
 ## Fase Online 6 - Teste E2E Minimo
 
+Guia detalhado:
+
+```txt
+deploy/e2e/README.md
+```
+
 Executar nesta ordem:
 
 1. Criar conta nova no app online.
@@ -297,6 +315,12 @@ Executar nesta ordem:
 11. Confirmar eventos em Auditoria.
 
 ## Fase Online 7 - Go/No-Go
+
+Checklist operacional:
+
+```txt
+deploy/GO_NO_GO.md
+```
 
 Liberar primeiro cliente pago somente se:
 

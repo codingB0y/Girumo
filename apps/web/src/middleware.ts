@@ -17,7 +17,7 @@ function isEngineRoute(path: string) {
   return ENGINE_ROUTES.some((route) => path === route || path.startsWith(`${route}/`));
 }
 
-export async function proxy(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (pathname === "/") return NextResponse.next();

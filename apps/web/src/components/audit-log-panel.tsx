@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ClipboardList, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,7 @@ export function AuditLogPanel() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
 
-  async function loadLogs() {
+  const loadLogs = useCallback(async () => {
     setLoading(true);
     try {
       const res = await authenticatedFetch("/api/logs?limit=20");
@@ -42,11 +42,11 @@ export function AuditLogPanel() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [toast]);
 
   useEffect(() => {
     loadLogs();
-  }, []);
+  }, [loadLogs]);
 
   return (
     <Card className="lg:col-span-2">

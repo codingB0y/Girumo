@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Loader2, Plus, RefreshCw, Smartphone } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,7 +36,7 @@ export function InstancesPanel() {
   const [creating, setCreating] = useState(false);
   const [refreshingId, setRefreshingId] = useState<string | null>(null);
 
-  async function loadInstances() {
+  const loadInstances = useCallback(async () => {
     setLoading(true);
     try {
       const res = await authenticatedFetch("/api/instances");
@@ -47,11 +47,11 @@ export function InstancesPanel() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [toast]);
 
   useEffect(() => {
     loadInstances();
-  }, []);
+  }, [loadInstances]);
 
   async function createInstance(e: React.FormEvent) {
     e.preventDefault();

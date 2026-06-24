@@ -3,7 +3,10 @@ param(
   [string] $AppUrl,
 
   [Parameter(Mandatory = $false)]
-  [string] $EngineUrl
+  [string] $EngineUrl,
+
+  [Parameter(Mandatory = $false)]
+  [switch] $SkipPublicPages
 )
 
 $ErrorActionPreference = "Stop"
@@ -19,8 +22,40 @@ function Read-JsonEndpoint {
   try {
     return Invoke-RestMethod -Method Get -Uri $Url -TimeoutSec 20
   } catch {
-    throw "Falha ao consultar $Url. $($_.Exception.Message)"
+    $body = ""
+    if ($_.ErrorDetails -and $_.ErrorDetails.Message) {
+      $body = " Body: $($_.ErrorDetails.Message)"
+    }
+    throw "Falha ao consultar $Url. $($_.Exception.Message)$body"
   }
+}
+
+function Read-Page {
+  param([Parameter(Mandatory = $true)][string] $Url)
+
+  try {
+    return Invoke-WebRequest -Method Get -Uri $Url -TimeoutSec 20 -MaximumRedirection 5
+  } catch {
+    throw "Falha ao abrir pagina $Url. $($_.Exception.Message)"
+  }
+}
+
+function Assert-PageOk {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string] $Url,
+    [Parameter(Mandatory = $true)]
+    [string] $Name
+  )
+
+  Write-Host "==> Validando pagina publica: $Name ($Url)"
+  $response = Read-Page $Url
+
+  if ($response.StatusCode -lt 200 -or $response.StatusCode -ge 400) {
+    throw "Pagina publica $Name retornou status $($response.StatusCode)."
+  }
+
+  return $response
 }
 
 $app = Normalize-Url $AppUrl
@@ -39,6 +74,23 @@ if ($appHealth.status -ne "ok") {
 }
 
 Write-Host "App web OK."
+
+if (-not $SkipPublicPages) {
+  $landing = Assert-PageOk "$app/" "landing"
+  Assert-PageOk "$app/login" "login" | Out-Null
+  Assert-PageOk "$app/signup" "signup" | Out-Null
+  Assert-PageOk "$app/forgot-password" "recuperacao de senha" | Out-Null
+
+  if ($landing.Content -match "DevZap|DevZapp|VIP Growth OS|5511999999999") {
+    throw "Landing contem marca, slogan ou telefone legado."
+  }
+
+  if ($landing.Content -notmatch "HUBFLOW") {
+    throw "Landing nao contem a marca HUBFLOW."
+  }
+
+  Write-Host "Paginas publicas OK."
+}
 
 if ($EngineUrl) {
   $engine = Normalize-Url $EngineUrl

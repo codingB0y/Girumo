@@ -367,7 +367,7 @@ Achados principais:
 
 1. O frontend atual esta em `hubflow-groups`.
 2. A engine atual esta em `hubflow-engine`.
-3. O app atual usa Next.js 16, nao Next.js 15.
+3. O app foi alinhado para Next.js 15 conforme decisao arquitetural.
 4. O operacional ainda usa arquivos JSON/NDJSON em `hubflow-groups/data`.
 5. Existe Prisma/PostgreSQL parcial para contas e billing.
 6. A autenticacao atual usa cookie assinado proprio.
@@ -408,7 +408,7 @@ Status: concluida em auditoria inicial.
 ### Fase 3 - Refatoracao
 
 - Reorganizar projeto.
-- Migrar para Next.js 15, se essa decisao for mantida.
+- Manter Next.js 15 como versao alvo do app web.
 - Introduzir TypeScript padronizado.
 - Introduzir Tailwind + shadcn/ui.
 - Criar camada de tenant context.
@@ -463,7 +463,7 @@ Status: concluida em auditoria inicial.
 ## Decisoes Pendentes
 
 1. Confirmar se o nome tecnico sera padronizado como `hubflow`.
-2. Confirmar se Next.js 15 sera obrigatorio ou se Next.js 16 atual sera mantido.
+2. Manter Next.js 15 no `apps/web` e validar build antes de deploy.
 3. Confirmar projeto Supabase e ambientes.
 4. Confirmar se Redis sera usado agora ou adiado.
 5. Confirmar VPS/Coolify de deploy da engine.

@@ -3,7 +3,7 @@ const express = require("express");
 const app = express();
 
 app.get("/", (req, res) => {
-  res.status(200).send("DevZap Engine online");
+  res.status(200).send("HUBFLOW Engine online");
 });
 
 app.get("/health", (req, res) => {
@@ -637,13 +637,13 @@ async function start() {
     }
   }
   const version = cachedVersion ?? undefined; // undefined → Baileys usa a versão embutida
-  console.log(`\n🚀 DevZap Engine — Baileys (protocolo WhatsApp${version ? ` v${version.join(".")}` : ""})`);
+  console.log(`\n🚀 HUBFLOW Engine — Baileys (protocolo WhatsApp${version ? ` v${version.join(".")}` : ""})`);
 
   const sock = makeWASocket({
     version,
     auth: state,
     logger,
-    browser: ["DevZap Groups", "Chrome", "1.0.0"],
+    browser: ["HUBFLOW", "Chrome", "1.0.0"],
   });
 
   // Salva credenciais sempre que mudam (essencial para persistir a sessão).

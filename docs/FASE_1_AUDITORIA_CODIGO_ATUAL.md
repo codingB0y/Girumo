@@ -1350,6 +1350,298 @@ Decisao/resultados:
 - `tsc --noEmit --project tsconfig.json` passou;
 - `npm --prefix apps/web run build` passou sem warnings.
 
+### 2026-06-24 - Pos-Fase 8 - Indice Unificado De Deploy
+
+Area afetada:
+
+- deploy;
+- documentacao operacional;
+- runbook online.
+
+Tipo de alteracao:
+
+- melhoria de navegacao dos guias de publicacao.
+
+Resumo:
+
+- criado `deploy/README.md` como indice dos guias GitHub, Supabase, Stripe, Vercel, Coolify, E2E e Go/No-Go;
+- runbook online passou a referenciar o indice logo no preflight;
+- indice reforca stack atual e status `NO-GO` ate validacao real.
+
+Impacto:
+
+- reduz dispersao da documentacao de deploy;
+- facilita seguir a ordem correta para publicar online;
+- deixa claro que o ambiente so deve ir para cliente pago depois do E2E e Go/No-Go.
+
+Arquivos principais:
+
+- `deploy/README.md`
+- `docs/DEPLOY_ONLINE_RUNBOOK.md`
+- `docs/FASE_1_AUDITORIA_CODIGO_ATUAL.md`
+
+Decisao/resultados:
+
+- alteracao documental, sem impacto de runtime.
+
+### 2026-06-24 - Pos-Fase 8 - Diagnostico De PSQL No Apply Supabase
+
+Area afetada:
+
+- Supabase;
+- scripts de deploy;
+- DX operacional em Windows.
+
+Tipo de alteracao:
+
+- melhoria de erro operacional.
+
+Resumo:
+
+- `infra/scripts/apply-supabase-sql.ps1` passou a verificar se `psql` existe no PATH antes de aplicar migrations;
+- quando `psql` nao esta instalado, o script informa as duas opcoes: instalar PostgreSQL client ou aplicar os SQLs pelo Supabase SQL Editor;
+- chamada ao binario passou a usar o caminho resolvido por `Get-Command`.
+
+Impacto:
+
+- evita erro confuso de PowerShell durante setup do Supabase;
+- facilita continuar o deploy online mesmo sem cliente PostgreSQL instalado localmente;
+- nao altera schema nem runtime do app.
+
+Arquivos principais:
+
+- `infra/scripts/apply-supabase-sql.ps1`
+- `docs/FASE_1_AUDITORIA_CODIGO_ATUAL.md`
+
+Decisao/resultados:
+
+- ajuste feito apos falha local por ausencia de `psql` no Windows.
+
+### 2026-06-24 - Pos-Fase 8 - Alinhamento Final Para Next.js 15
+
+Area afetada:
+
+- app web;
+- dependencias;
+- middleware de autenticacao;
+- lint/build;
+- scripts de verificacao;
+- documentacao de arquitetura.
+
+Tipo de alteracao:
+
+- alinhamento da stack instalada com a arquitetura alvo.
+
+Resumo:
+
+- `apps/web` foi alterado de Next.js 16 para Next.js 15;
+- `eslint-config-next` foi alinhado para a mesma linha de versao;
+- protecao de borda voltou de `proxy.ts` para `middleware.ts`, compativel com Next.js 15;
+- `eslint.config.mjs` passou a usar `FlatCompat` para consumir presets Next.js 15 com ESLint 9;
+- avisos de hooks nos paineis de auditoria, billing, instancias e membros foram resolvidos com `useCallback`;
+- `infra/scripts/verify-local.ps1` passou a resolver `tsc` via `npm exec`, evitando fragilidade com dependencias hoistadas;
+- arquitetura e Fase 3 foram atualizadas para refletir que Next.js 15 agora e decisao implementada.
+
+Impacto:
+
+- Vercel passa a buildar o app dentro da versao pedida originalmente;
+- middleware de autenticacao fica ativo no padrao esperado do Next.js 15;
+- `apps/web/package-lock.json` foi regravado para evitar reinstalar Next.js 16 no install da Vercel;
+- lint fica sem warnings do produto ativo.
+
+Arquivos principais:
+
+- `apps/web/package.json`
+- `apps/web/package-lock.json`
+- `package-lock.json`
+- `apps/web/src/middleware.ts`
+- `apps/web/src/proxy.ts`
+- `apps/web/eslint.config.mjs`
+- `apps/web/tsconfig.json`
+- `apps/web/src/components/audit-log-panel.tsx`
+- `apps/web/src/components/billing-panel.tsx`
+- `apps/web/src/components/instances-panel.tsx`
+- `apps/web/src/components/members-panel.tsx`
+- `infra/scripts/verify-local.ps1`
+- `docs/ARQUITETURA_MIGRACAO_HUBFLOW.md`
+- `docs/FASE_3_REFATORACAO.md`
+- `docs/FASE_1_AUDITORIA_CODIGO_ATUAL.md`
+
+Decisao/resultados:
+
+- `npm run lint` passou sem warnings do produto ativo;
+- `npm run verify:local` passou;
+- build reportou `Next.js 15.5.19` e `Middleware` ativo;
+- `npm audit` reportou 2 vulnerabilidades moderadas em dependencias, mas a consulta detalhada foi bloqueada por risco de envio de metadados ao registry externo;
+- Go/No-Go passou a exigir auditoria de dependencias em ambiente autorizado antes de liberar producao.
+
+### 2026-06-24 - Pos-Fase 8 - Rebrand HUBFLOW E CTA Comercial Online
+
+Area afetada:
+
+- branding;
+- landing page;
+- navegacao;
+- healthcheck;
+- envs de producao;
+- documentacao Vercel.
+
+Tipo de alteracao:
+
+- remocao de referencias antigas de marca e parametrizacao de CTA comercial.
+
+Resumo:
+
+- removidas referencias ativas a `DevZap Groups` e `DevZapp` no app web;
+- substituido subtitulo legado `VIP Growth OS` por `WhatsApp Growth OS`;
+- removido telefone fixo de exemplo da landing;
+- criado `NEXT_PUBLIC_SALES_WHATSAPP_URL` para configurar CTA comercial em producao;
+- CTA principal da landing usa `/signup` como fallback quando a URL comercial nao estiver definida;
+- healthcheck passou a reportar `salesWhatsappUrl` como check informativo, sem bloquear deploy.
+
+Impacto:
+
+- app publicado deixa de expor marca ou telefone legado;
+- producao pode apontar o CTA para WhatsApp comercial real sem alterar codigo;
+- ambiente de homologacao continua funcional mesmo sem URL comercial configurada;
+- healthcheck ajuda a detectar configuracao comercial pendente antes do go-live.
+
+Arquivos principais:
+
+- `apps/web/src/app/page.tsx`
+- `apps/web/src/components/mobile-nav.tsx`
+- `apps/web/src/components/sidebar.tsx`
+- `apps/web/src/components/auth-shell.tsx`
+- `apps/web/src/lib/campanhas-store.ts`
+- `apps/web/src/app/(app)/groups/page.tsx`
+- `apps/web/src/app/api/health/route.ts`
+- `apps/web/.env.example`
+- `deploy/vercel/.env.production.example`
+- `deploy/vercel/README.md`
+- `docs/FASE_1_AUDITORIA_CODIGO_ATUAL.md`
+
+Decisao/resultados:
+
+- `npm run verify:local` passou;
+- busca por marcas antigas em codigo ativo nao encontrou referencias de produto legado;
+- `NEXT_PUBLIC_SALES_WHATSAPP_URL` ficou opcional para nao travar preview/deploy.
+
+### 2026-06-24 - Pos-Fase 8 - Checklist E2E E Go/No-Go Online
+
+Area afetada:
+
+- deploy;
+- validacao online;
+- checklist producao;
+- documentacao operacional.
+
+Tipo de alteracao:
+
+- consolidacao de criterios finais para liberar ambiente online.
+
+Resumo:
+
+- criado roteiro E2E online com healthchecks, registro, RLS, storage, Stripe, engine e auditoria;
+- criado documento Go/No-Go com status inicial `NO-GO` ate validacao real de dominios, credenciais e webhooks;
+- Fase 8 passou a referenciar os documentos antes do primeiro cliente pago;
+- runbook online passou a apontar para os guias detalhados de E2E e Go/No-Go.
+
+Impacto:
+
+- reduziu risco de liberar producao sem validar isolamento multi-tenant;
+- deixou explicito que o codigo esta preparado, mas o ambiente real ainda precisa de validacao externa;
+- criou uma sequencia objetiva para validar Vercel, Supabase, Stripe e Coolify/VPS.
+
+Arquivos principais:
+
+- `deploy/e2e/README.md`
+- `deploy/GO_NO_GO.md`
+- `docs/FASE_8_CHECKLIST_PRODUCAO.md`
+- `docs/DEPLOY_ONLINE_RUNBOOK.md`
+- `docs/FASE_1_AUDITORIA_CODIGO_ATUAL.md`
+
+Decisao/resultados:
+
+- status de producao permanece `NO-GO` ate execucao real do E2E online;
+- os novos guias nao alteram runtime, apenas reduzem ambiguidade operacional.
+
+### 2026-06-24 - Pos-Fase 8 - Verify Online Valida Paginas Publicas
+
+Area afetada:
+
+- deploy;
+- verificacao online;
+- branding;
+- documentacao operacional.
+
+Tipo de alteracao:
+
+- ampliacao do script de smoke test online.
+
+Resumo:
+
+- `infra/scripts/verify-online.ps1` passou a validar landing, login, signup e recuperacao de senha;
+- script detecta referencias legadas na landing como `DevZap`, `DevZapp`, `VIP Growth OS` e telefone fixo de exemplo;
+- adicionado parametro `-SkipPublicPages` para validar apenas healthchecks quando necessario;
+- guias de E2E, Fase 8 e runbook online foram atualizados.
+
+Impacto:
+
+- erros simples de roteamento publico em Vercel passam a ser detectados antes do teste manual;
+- reduz risco de publicar marca/telefone legado no dominio final;
+- mantem alternativa rapida para validar apenas `/api/health` e `/health`.
+
+Arquivos principais:
+
+- `infra/scripts/verify-online.ps1`
+- `deploy/e2e/README.md`
+- `docs/DEPLOY_ONLINE_RUNBOOK.md`
+- `docs/FASE_8_CHECKLIST_PRODUCAO.md`
+- `docs/FASE_1_AUDITORIA_CODIGO_ATUAL.md`
+
+Decisao/resultados:
+
+- validacao online segue dependente de URLs reais;
+- parametro `-SkipPublicPages` evita falso bloqueio em janelas de manutencao do frontend publico.
+
+### 2026-06-24 - Pos-Fase 8 - Rebrand Runtime Da Engine HUBFLOW
+
+Area afetada:
+
+- engine Baileys;
+- logs operacionais;
+- health/status publico da engine;
+- documentacao da engine.
+
+Tipo de alteracao:
+
+- remocao de marca legada em runtime da engine.
+
+Resumo:
+
+- endpoint raiz da engine passou a responder `HUBFLOW Engine online`;
+- log de inicializacao passou a usar `HUBFLOW Engine`;
+- identificador `browser` do Baileys passou de marca legada para `HUBFLOW`;
+- README/CLAUDE locais da engine foram atualizados mecanicamente para a marca atual.
+
+Impacto:
+
+- deploy da engine em Coolify/VPS nao expõe mais marca antiga no endpoint raiz;
+- logs de producao ficam alinhados ao produto atual;
+- reduz confusao operacional entre engine antiga e arquitetura HUBFLOW.
+
+Arquivos principais:
+
+- `hubflow-engine/index.js`
+- `hubflow-engine/README.md`
+- `hubflow-engine/CLAUDE.md`
+- `docs/FASE_1_AUDITORIA_CODIGO_ATUAL.md`
+
+Decisao/resultados:
+
+- `agent-orchestrator` dentro de `hubflow-engine` nao foi alterado por parecer subprojeto/ruido separado;
+- exemplos de telefone em documentacao de fase permanecem apenas como placeholders tecnicos.
+
 ### 2026-06-24 - Pos-Fase 8 - Engine Atualiza Status Da Instancia No Banco
 
 Area afetada:

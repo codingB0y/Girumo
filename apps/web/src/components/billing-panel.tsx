@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { CreditCard, ExternalLink, Gauge, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -55,7 +55,7 @@ export function BillingPanel() {
 
   const sortedPlans = useMemo(() => plans.filter((plan) => plan.code !== "FREE"), [plans]);
 
-  async function loadBilling() {
+  const loadBilling = useCallback(async () => {
     setLoading(true);
     try {
       const [plansRes, subscriptionRes] = await Promise.all([
@@ -70,11 +70,11 @@ export function BillingPanel() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [toast]);
 
   useEffect(() => {
     loadBilling();
-  }, []);
+  }, [loadBilling]);
 
   async function openCheckout(planCode: string) {
     setBusyPlan(planCode);

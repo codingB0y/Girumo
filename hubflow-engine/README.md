@@ -1,6 +1,6 @@
-# DevZap Engine — PoC (Baileys)
+# HUBFLOW Engine — PoC (Baileys)
 
-Prova de conceito da engine de WhatsApp do **DevZap Groups**. Valida o risco crítico do produto:
+Prova de conceito da engine de WhatsApp do **HUBFLOW**. Valida o risco crítico do produto:
 conectar, manter a sessão e **detectar quem entra nos grupos** (o evento que fecha o loop
 `clique no anúncio → entrada no grupo`).
 

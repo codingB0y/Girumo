@@ -139,11 +139,12 @@ Concluido nesta etapa:
 - adicionados `.gitkeep` para preservar diretorios vazios;
 - movidos os arquivos rastreados do app web de `hubflow-groups` para `apps/web`;
 - `hubflow-groups/data`, `hubflow-groups/node_modules` e `hubflow-groups/.next` ficaram fora da nova pasta;
-- `hubflow-engine` permanece como engine oficial.
+- `hubflow-engine` permanece como engine oficial;
+- app web alinhado para Next.js 15 e `middleware.ts`;
+- `npm run verify:local` aprovado com build Next.js 15.
 
 Proximo passo recomendado:
 
-- ajustar scripts/workspace para operar a partir de `apps/web`;
-- instalar dependencias em `apps/web`, se necessario;
-- substituir o legado Prisma por Supabase Postgres com RLS antes de exigir build final;
-- validar `lint` e `build` do app no novo caminho depois da remocao do Prisma legado.
+- executar validacao online com Vercel/Supabase/Stripe/Coolify reais;
+- manter Prisma fora do caminho operacional;
+- manter auditoria atualizada a cada alteracao grave.

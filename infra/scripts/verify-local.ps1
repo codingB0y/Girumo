@@ -31,7 +31,7 @@ Run-Step "Scan de secrets" {
 
 Run-Step "TypeScript web" {
   Set-Location (Join-Path $root "apps\web")
-  .\node_modules\.bin\tsc.cmd --noEmit --project tsconfig.json
+  npm.cmd exec tsc -- --noEmit --project tsconfig.json
   Set-Location $root
 }
 

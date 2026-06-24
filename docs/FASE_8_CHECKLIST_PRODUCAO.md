@@ -66,6 +66,7 @@ ENGINE_TOKEN
 - `npm run verify:local` aprovado antes de deploy.
 - `npm run scan:secrets` aprovado antes de push/deploy.
 - `npm run verify:online -- -AppUrl "https://app.seudominio.com"` aprovado apos deploy Vercel.
+- Landing, login, signup e recuperacao de senha abrindo no dominio final.
 - Rotas API protegidas por Supabase Auth e tenant context.
 
 ## Checklist Supabase
@@ -176,6 +177,18 @@ state
   - falha de RLS/testes de isolamento.
 
 ## Checklist Antes Do Primeiro Cliente Pago
+
+- Executar o roteiro E2E online:
+
+```txt
+deploy/e2e/README.md
+```
+
+- Preencher e aprovar o Go/No-Go:
+
+```txt
+deploy/GO_NO_GO.md
+```
 
 - Testar registro completo.
 - Testar convite de membro.
