@@ -1,4 +1,4 @@
-# DECISIONS — Anti-ban (devzap-engine)
+# DECISIONS — Anti-ban (hubflow-engine)
 
 Fonte avaliada: `kobie3717/baileys-antiban` (clonado e lido em 2026-06-20).
 Critério: implementar **controle operacional seguro** (fazer menos, mais devagar, monitorar);

@@ -1,0 +1,33 @@
+services:
+  hubflow-engine:
+    build:
+      context: ../../hubflow-engine
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${ENGINE_PORT:-3001}:3001"
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      APP_URL: ${APP_URL}
+      ENGINE_TOKEN: ${ENGINE_TOKEN}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      ENGINE_COMMAND_POLL_MS: ${ENGINE_COMMAND_POLL_MS:-3000}
+      ENGINE_COMMAND_BATCH_SIZE: ${ENGINE_COMMAND_BATCH_SIZE:-5}
+      ENGINE_STATE_FILE: /app/state/engine-state.json
+    volumes:
+      - hubflow_engine_auth:/app/auth
+      - hubflow_engine_sessions:/app/sessions
+      - hubflow_engine_state:/app/state
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  hubflow_engine_auth:
+  hubflow_engine_sessions:
+  hubflow_engine_state:

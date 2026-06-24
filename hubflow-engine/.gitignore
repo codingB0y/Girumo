@@ -1,1 +1,7 @@
 node_modules
+auth/
+sessions/
+engine-state.json
+*.tmp
+.env
+.env.local

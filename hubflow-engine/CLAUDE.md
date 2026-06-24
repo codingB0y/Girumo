@@ -1,7 +1,7 @@
-# DevZap Engine — primer da lane (Chat 2 / Backend)
+# HUBFLOW Engine — primer da lane (Chat 2 / Backend)
 
 > Carregado automaticamente pelo Claude Code ao abrir esta pasta. É o escopo desta lane.
-> **Não toque no app `devzap-groups`** — a engine só consome a API dele via HTTP.
+> **Não toque no app `apps/web`** — a engine só consome a API dele via HTTP.
 
 **O que é:** o serviço Node que fala com o WhatsApp. Stack: Node ESM + Baileys 7. Roda com `node index.js`.
 Sem banco — sessão em `auth/`, estado anti-ban em `engine-state.json`.
@@ -34,7 +34,7 @@ Este arquivo + [DECISIONS.md](DECISIONS.md) + [README.md](README.md) + o módulo
 
 ## Fronteira / handoff
 Precisa de endpoint novo ou mudar payload? **Não mexa no app daqui.** Especifique o contrato desejado e
-registre o handoff p/ o **Chat 3** em `C:\Users\Igor\Desktop\devzap-groups\system\NEXT.md`. A engine só
+registre o handoff p/ o **Chat 3** em `C:\Users\Igor\Desktop\apps/web\system\NEXT.md`. A engine só
 passa a usar quando o contrato existir. Para detalhes do lado-app, consulte por caminho completo:
-`C:\Users\Igor\Desktop\devzap-groups\system\API_CONTRACTS.md`.
+`C:\Users\Igor\Desktop\apps/web\system\API_CONTRACTS.md`.
 </content>
