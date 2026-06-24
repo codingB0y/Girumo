@@ -78,6 +78,17 @@ Depois atualizar:
 - Stripe webhook URL;
 - `APP_URL` no Coolify da engine.
 
+## Deployment Protection
+
+Para o app publico funcionar, desativar protecao de deploy da Vercel no ambiente usado por clientes:
+
+```txt
+Settings -> Deployment Protection
+Vercel Authentication: Disabled
+```
+
+Se essa protecao ficar ativa, rotas como `/signup`, `/api/auth/signup`, `/api/health` e `/api/billing/webhook` podem redirecionar para `vercel.com/sso-api`, quebrando cadastro, healthcheck e webhook Stripe.
+
 ## Validacao Pos-Deploy
 
 Rodar:

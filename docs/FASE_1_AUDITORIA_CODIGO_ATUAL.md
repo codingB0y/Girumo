@@ -1424,6 +1424,76 @@ Decisao/resultados:
 
 - ajuste feito apos log Vercel indicar `No Next.js version detected` no root do repo.
 
+### 2026-06-24 - Pos-Fase 8 - Documentacao De Deployment Protection Vercel
+
+Area afetada:
+
+- Vercel;
+- signup;
+- healthcheck;
+- Stripe webhook;
+- documentacao operacional.
+
+Tipo de alteracao:
+
+- documentacao de bloqueador de ambiente online.
+
+Resumo:
+
+- identificado que deployment publicado estava redirecionando `/api/health` para `vercel.com/sso-api`;
+- isso indica Vercel Authentication/Deployment Protection ativa no ambiente;
+- guia Vercel e runbook online passaram a instruir desativar protecao no ambiente publico.
+
+Impacto:
+
+- evita que signup, healthcheck e webhook Stripe sejam interceptados pela autenticao da Vercel;
+- deixa claro que a protecao pode ser util para preview privado, mas nao para ambiente de cliente ou webhook externo.
+
+Arquivos principais:
+
+- `deploy/vercel/README.md`
+- `docs/DEPLOY_ONLINE_RUNBOOK.md`
+- `docs/FASE_1_AUDITORIA_CODIGO_ATUAL.md`
+
+Decisao/resultados:
+
+- ajuste documental feito apos diagnostico do endpoint publicado.
+
+### 2026-06-24 - Pos-Fase 8 - Login Usa Supabase Anon Para Autenticacao
+
+Area afetada:
+
+- autenticacao;
+- Supabase Auth;
+- API web;
+- sessao.
+
+Tipo de alteracao:
+
+- endurecimento do fluxo de login.
+
+Resumo:
+
+- `POST /api/auth/login` passou a autenticar e-mail/senha com cliente Supabase anon server-side;
+- service role permanece apenas para consultar membership ativa apos autenticacao;
+- criado helper `getSupabaseServerAnon()`.
+
+Impacto:
+
+- separa autenticacao de usuario do cliente administrativo;
+- reduz risco de comportamento inesperado ao usar service role para `signInWithPassword`;
+- mantem RLS e consultas administrativas controladas no backend.
+
+Arquivos principais:
+
+- `apps/web/src/app/api/auth/login/route.ts`
+- `apps/web/src/lib/supabase/server.ts`
+- `docs/FASE_1_AUDITORIA_CODIGO_ATUAL.md`
+
+Decisao/resultados:
+
+- ajuste feito apos cadastro funcionar, mas login nao persistir no ambiente online.
+
 ### 2026-06-24 - Pos-Fase 8 - Diagnostico De PSQL No Apply Supabase
 
 Area afetada:
