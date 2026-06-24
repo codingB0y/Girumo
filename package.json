@@ -1,4 +1,23 @@
 {
+  "name": "hubflow-platform",
+  "private": true,
+  "workspaces": [
+    "apps/web",
+    "hubflow-engine"
+  ],
+  "scripts": {
+    "web:dev": "npm --workspace apps/web run dev",
+    "web:build": "npm --workspace apps/web run build",
+    "web:lint": "npm --workspace apps/web run lint",
+    "supabase:apply:ps": "powershell -ExecutionPolicy Bypass -File infra/scripts/apply-supabase-sql.ps1",
+    "verify:local": "powershell -ExecutionPolicy Bypass -File infra/scripts/verify-local.ps1",
+    "verify:online": "powershell -ExecutionPolicy Bypass -File infra/scripts/verify-online.ps1",
+    "check:env:vercel": "powershell -ExecutionPolicy Bypass -File infra/scripts/check-env-template.ps1 -Path deploy/vercel/.env.production.example -Profile vercel",
+    "check:env:coolify": "powershell -ExecutionPolicy Bypass -File infra/scripts/check-env-template.ps1 -Path deploy/coolify/.env.example -Profile coolify",
+    "scan:secrets": "powershell -ExecutionPolicy Bypass -File infra/scripts/scan-secrets.ps1",
+    "engine:start": "npm --workspace hubflow-engine run start",
+    "engine:docker:build": "docker build -t hubflow-engine ./hubflow-engine"
+  },
   "dependencies": {
     "express": "^5.2.1"
   }

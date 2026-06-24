@@ -1,8 +1,8 @@
 {
-  "name": "devzap-engine",
+  "name": "hubflow-engine",
   "version": "0.1.0",
   "private": true,
-  "description": "PoC da engine de WhatsApp (Baileys) do DevZap Groups",
+  "description": "Engine WhatsApp Baileys desacoplada do HUBFLOW",
   "scripts": {
     "start": "node index.js"
   },

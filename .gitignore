@@ -3,6 +3,8 @@ node_modules
 
 # engine runtime
 engine-state.json
+hubflow-engine/auth/
+hubflow-engine/engine-state.json
 
 # Build
 .next
@@ -14,6 +16,7 @@ build
 .env.*
 .env.local
 .env.production
+!.env.example
 
 # Logs
 logs
@@ -27,6 +30,8 @@ logs
 
 # Banco local
 *.db
+hubflow-groups/data/
+apps/web/data/
 
 # Coverage
 coverage
@@ -37,3 +42,4 @@ coverage
 # system
 .DS_Store
 Thumbs.db
+node_modules

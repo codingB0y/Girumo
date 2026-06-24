@@ -6,6 +6,16 @@ app.get("/", (req, res) => {
   res.status(200).send("DevZap Engine online");
 });
 
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    ok: true,
+    service: "hubflow-engine",
+    whatsappConnected: Boolean(currentSocket?.user),
+    supabaseWorker: supabaseCommandWorkerStarted,
+    uptime: process.uptime(),
+  });
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, "0.0.0.0", () => {
@@ -33,6 +43,7 @@ const { AntiBanQueue } = require("./anti-ban-queue.js");
 const { WarmUp } = require("./warmup.js");
 const { GroupOperationGuard, classifyGroupOpError } = require("./group-guard.js");
 const { DeliveryTracker } = require("./delivery-tracker.js");
+const { createSupabaseCommandWorker } = require("./queues/supabase-command-worker.js");
 
 // Logger silencioso (Baileys é verboso). Suba para "info" se quiser depurar.
 const logger = pino({ level: "silent" });
@@ -40,7 +51,7 @@ const logger = pino({ level: "silent" });
 
 // Estado anti-ban PERSISTIDO — sem isto, um restart zera o contador do dia e o
 // warmup acha que pode mandar tudo de novo (risco real de estourar o limite/ban).
-const STATE_FILE = "engine-state.json";
+const STATE_FILE = process.env.ENGINE_STATE_FILE ?? "engine-state.json";
 function loadState() {
   try {
     return JSON.parse(readFileSync(STATE_FILE, "utf8"));
@@ -109,6 +120,7 @@ let shuttingDown = false;
 function shutdown() {
   if (shuttingDown) return; // evita salvar 2x se os dois sinais chegarem
   shuttingDown = true;
+  supabaseCommandWorker.stop();
   saveState();
   process.exit(0);
 }
@@ -189,6 +201,13 @@ let heartbeat = null; // intervalo que mantém o status "ao vivo" no painel
 let dispatchTimer = null; // intervalo que puxa ofertas a disparar do app
 let connectedSince = null; // quando a sessão atual abriu (p/ "conectado há X dias")
 let reconnectAttempts = 0; // p/ backoff exponencial — zera ao conectar de fato
+let currentSocket = null; // socket Baileys ativo, usado pelo worker Supabase
+let supabaseCommandWorkerStarted = false;
+const supabaseCommandWorker = createSupabaseCommandWorker({
+  getSocket: () => currentSocket,
+  sendText,
+  logger: console,
+});
 
 /** Atraso da próxima reconexão: backoff exponencial (3s→60s) + jitter. */
 function nextReconnectDelay() {
@@ -660,6 +679,7 @@ async function start() {
 
     if (connection === "open") {
       console.log("\n✅ Conectado ao WhatsApp!");
+      currentSocket = sock;
       reconnectAttempts = 0; // conectou — reseta o backoff
       connectedSince = connectedSince ?? new Date().toISOString(); // mantém na reconexão transitória
       const w = warmup.status();
@@ -685,9 +705,14 @@ async function start() {
       }, 10_000);
       pollDispatches(sock); // tenta já na conexão
       pollGrow(sock);
+      supabaseCommandWorker.start();
+      supabaseCommandWorkerStarted = true;
     }
 
     if (connection === "close") {
+      currentSocket = null;
+      supabaseCommandWorker.stop();
+      supabaseCommandWorkerStarted = false;
       const code = lastDisconnect?.error?.output?.statusCode;
       const loggedOut = code === DisconnectReason.loggedOut;
       if (loggedOut) {
