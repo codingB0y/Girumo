@@ -1,6 +1,6 @@
 # HUBFLOW Web - Deploy Vercel
 
-Este guia publica `apps/web` na Vercel usando o repo raiz.
+Este guia publica `apps/web` na Vercel usando Root Directory `apps/web`.
 
 ## Preflight
 
@@ -14,12 +14,18 @@ npm run verify:local
 
 1. Criar projeto na Vercel.
 2. Conectar o repositorio GitHub raiz.
-3. Manter `vercel.json` como fonte dos comandos:
+3. Configurar **Root Directory** como:
 
 ```txt
-installCommand: cd apps/web && npm install
-buildCommand: cd apps/web && npm run build
-outputDirectory: apps/web/.next
+apps/web
+```
+
+4. Manter `apps/web/vercel.json` como fonte dos comandos:
+
+```txt
+installCommand: npm install
+buildCommand: npm run build
+outputDirectory: .next
 framework: nextjs
 ```
 

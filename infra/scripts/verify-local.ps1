@@ -17,7 +17,7 @@ function Run-Step {
 Set-Location $root
 
 Run-Step "Validando JSON" {
-  node -e "for (const f of ['package.json','apps/web/package.json','hubflow-engine/package.json','hubflow-engine/package-lock.json','vercel.json']) JSON.parse(require('fs').readFileSync(f,'utf8')); console.log('json ok')"
+  node -e "for (const f of ['package.json','apps/web/package.json','apps/web/vercel.json','hubflow-engine/package.json','hubflow-engine/package-lock.json']) JSON.parse(require('fs').readFileSync(f,'utf8')); console.log('json ok')"
 }
 
 Run-Step "Validando templates de ambiente" {

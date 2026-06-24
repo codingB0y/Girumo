@@ -161,14 +161,20 @@ Validar:
 
 Objetivo: publicar frontend + API.
 
-Conectar GitHub na Vercel usando o repo raiz.
+Conectar GitHub na Vercel usando o repo, mas configurar o app web como raiz do projeto.
 
-O `vercel.json` usa:
+Root Directory:
 
 ```txt
-installCommand: cd apps/web && npm install
-buildCommand: cd apps/web && npm run build
-outputDirectory: apps/web/.next
+apps/web
+```
+
+O `apps/web/vercel.json` usa:
+
+```txt
+installCommand: npm install
+buildCommand: npm run build
+outputDirectory: .next
 ```
 
 Configurar envs:

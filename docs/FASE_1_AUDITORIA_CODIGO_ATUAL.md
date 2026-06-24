@@ -1384,6 +1384,46 @@ Decisao/resultados:
 
 - alteracao documental, sem impacto de runtime.
 
+### 2026-06-24 - Pos-Fase 8 - Config Vercel Por Root Directory Apps Web
+
+Area afetada:
+
+- Vercel;
+- deploy do app web;
+- documentacao operacional;
+- scripts de preflight.
+
+Tipo de alteracao:
+
+- correcao de configuracao de monorepo para Vercel.
+
+Resumo:
+
+- criado `apps/web/vercel.json` com comandos relativos ao app web;
+- removido `vercel.json` da raiz para evitar detecao de Next.js no `package.json` errado;
+- documentacao passou a orientar Root Directory `apps/web`;
+- comandos esperados na Vercel passaram a ser `npm install`, `npm run build` e output `.next`;
+- `verify-local.ps1` passou a validar `apps/web/vercel.json`.
+
+Impacto:
+
+- deploy preview passa a usar o `package.json` correto do app Next.js;
+- elimina ambiguidade entre repo root e app root;
+- reduz risco de `cd apps/web` duplicado ou detecao de framework no diretorio errado.
+
+Arquivos principais:
+
+- `apps/web/vercel.json`
+- `vercel.json`
+- `deploy/vercel/README.md`
+- `docs/DEPLOY_ONLINE_RUNBOOK.md`
+- `infra/scripts/verify-local.ps1`
+- `docs/FASE_1_AUDITORIA_CODIGO_ATUAL.md`
+
+Decisao/resultados:
+
+- ajuste feito apos log Vercel indicar `No Next.js version detected` no root do repo.
+
 ### 2026-06-24 - Pos-Fase 8 - Diagnostico De PSQL No Apply Supabase
 
 Area afetada:
