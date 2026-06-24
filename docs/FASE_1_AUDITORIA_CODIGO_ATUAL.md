@@ -1528,6 +1528,39 @@ Decisao/resultados:
 
 - ajuste feito apos `/api/auth/login` retornar `accessToken`, `refreshToken`, `tenantId` e `role`, mas a UI cair no `catch`.
 
+### 2026-06-24 - Pos-Fase 8 - Healthcheck Storage Com Fallback SQL
+
+Area afetada:
+
+- healthcheck;
+- Supabase Storage;
+- deploy online.
+
+Tipo de alteracao:
+
+- reducao de falso negativo no check de storage.
+
+Resumo:
+
+- `/api/health` continua tentando validar o bucket `uploads` via Supabase Storage API;
+- se `storage.getBucket("uploads")` retornar erro, o health faz fallback consultando `storage.buckets`;
+- bucket e considerado `ok` quando existe com `id = uploads` e `public = false`.
+
+Impacto:
+
+- evita health `degraded` quando o bucket existe no mesmo projeto, mas a Storage API retorna `Bucket not found`;
+- mantem a validacao de bucket privado;
+- nao altera fluxo de upload nem policies.
+
+Arquivos principais:
+
+- `apps/web/src/app/api/health/route.ts`
+- `docs/FASE_1_AUDITORIA_CODIGO_ATUAL.md`
+
+Decisao/resultados:
+
+- ajuste feito apos confirmacao manual de que o bucket `uploads` existia no Supabase.
+
 ### 2026-06-24 - Pos-Fase 8 - Diagnostico De PSQL No Apply Supabase
 
 Area afetada:
