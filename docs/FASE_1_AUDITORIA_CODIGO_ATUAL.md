@@ -1494,6 +1494,40 @@ Decisao/resultados:
 
 - ajuste feito apos cadastro funcionar, mas login nao persistir no ambiente online.
 
+### 2026-06-24 - Pos-Fase 8 - Login Nao Bloqueia Por Persistencia Client-Side
+
+Area afetada:
+
+- frontend;
+- login;
+- Supabase client;
+- sessao.
+
+Tipo de alteracao:
+
+- correcao de tolerancia no fluxo de login.
+
+Resumo:
+
+- `persistSupabaseSession()` passou a salvar `tenantId` antes de tentar persistir a sessao Supabase no navegador;
+- falha em `supabase.auth.setSession()` passou a ser logada no console, sem bloquear o login;
+- cookie server-side `dz_session` continua sendo a fonte de autenticacao para middleware e rotas protegidas.
+
+Impacto:
+
+- evita erro generico "Erro ao entrar. Tente de novo." quando a API de login autenticou corretamente;
+- permite redirecionar para a area autenticada mesmo se o storage/sessao client-side do Supabase falhar;
+- mantem dados suficientes para o frontend enviar `x-tenant-id` em chamadas autenticadas.
+
+Arquivos principais:
+
+- `apps/web/src/lib/supabase/client.ts`
+- `docs/FASE_1_AUDITORIA_CODIGO_ATUAL.md`
+
+Decisao/resultados:
+
+- ajuste feito apos `/api/auth/login` retornar `accessToken`, `refreshToken`, `tenantId` e `role`, mas a UI cair no `catch`.
+
 ### 2026-06-24 - Pos-Fase 8 - Diagnostico De PSQL No Apply Supabase
 
 Area afetada:

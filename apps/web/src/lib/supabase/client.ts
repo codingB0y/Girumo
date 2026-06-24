@@ -38,14 +38,18 @@ export async function persistSupabaseSession(data: {
   refreshToken?: string | null;
   tenantId?: string | null;
 }) {
+  setActiveTenantId(data.tenantId);
+
   if (!data.accessToken || !data.refreshToken) return;
 
-  await getSupabaseBrowserClient().auth.setSession({
-    access_token: data.accessToken,
-    refresh_token: data.refreshToken,
-  });
-
-  setActiveTenantId(data.tenantId);
+  try {
+    await getSupabaseBrowserClient().auth.setSession({
+      access_token: data.accessToken,
+      refresh_token: data.refreshToken,
+    });
+  } catch (error) {
+    console.error("Nao foi possivel persistir sessao Supabase no navegador.", error);
+  }
 }
 
 export async function authenticatedFetch(input: RequestInfo | URL, init: RequestInit = {}) {
