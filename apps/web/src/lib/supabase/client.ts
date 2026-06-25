@@ -5,19 +5,16 @@ import { createClient } from "@supabase/supabase-js";
 let browserClient: ReturnType<typeof createClient> | null = null;
 const ACTIVE_TENANT_KEY = "hubflow_active_tenant_id";
 
-function requirePublicEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Variavel publica obrigatoria ausente: ${name}`);
-  return value;
-}
-
 export function getSupabaseBrowserClient() {
   if (browserClient) return browserClient;
 
-  browserClient = createClient(
-    requirePublicEnv("NEXT_PUBLIC_SUPABASE_URL"),
-    requirePublicEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
-  );
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl) throw new Error("Variavel publica obrigatoria ausente: NEXT_PUBLIC_SUPABASE_URL");
+  if (!supabaseAnonKey) throw new Error("Variavel publica obrigatoria ausente: NEXT_PUBLIC_SUPABASE_ANON_KEY");
+
+  browserClient = createClient(supabaseUrl, supabaseAnonKey);
 
   return browserClient;
 }

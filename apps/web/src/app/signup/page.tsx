@@ -1,11 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { AuthShell } from "@/components/auth-shell";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { persistSupabaseSession } from "@/lib/supabase/client";
 
 export default function SignupPage() {
@@ -19,25 +19,26 @@ export default function SignupPage() {
   const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
   const valid = name.trim().length > 0 && emailOk && password.length >= 6;
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
     if (!valid) return;
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/auth/signup", {
+      const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password }),
       });
-      if (res.ok) {
-        const data = await res.json().catch(() => ({}));
+
+      if (response.ok) {
+        const data = await response.json().catch(() => ({}));
         await persistSupabaseSession(data);
         router.replace("/hoje");
         router.refresh();
       } else {
-        const data = await res.json().catch(() => ({}));
-        setError(data.error || "Não foi possível criar a conta.");
+        const data = await response.json().catch(() => ({}));
+        setError(data.error || "Nao foi possivel criar a conta.");
       }
     } catch {
       setError("Erro ao criar conta. Tente de novo.");
@@ -49,10 +50,11 @@ export default function SignupPage() {
   return (
     <AuthShell
       title="Criar sua conta"
-      subtitle="Comece a lotar seus grupos hoje"
+      subtitle="Comece gratis e configure sua operacao em poucos passos"
+      context="Depois da conta, voce entra no painel para conectar o WhatsApp, revisar o plano e criar a primeira oferta."
       footer={
         <>
-          Já tem conta?{" "}
+          Ja tem conta?{" "}
           <Link href="/login" className="font-medium text-brand-600 hover:text-brand-700">
             Entrar
           </Link>
@@ -65,7 +67,7 @@ export default function SignupPage() {
           <Input
             placeholder="Ex: Maria da Silva"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(event) => setName(event.target.value)}
             autoFocus
             autoComplete="name"
           />
@@ -76,27 +78,33 @@ export default function SignupPage() {
             type="email"
             placeholder="voce@email.com"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(event) => setEmail(event.target.value)}
             autoComplete="email"
           />
+          {email.length > 0 && !emailOk && (
+            <p className="mt-1 text-xs text-amber-600">Digite um e-mail valido para acessar sua organizacao.</p>
+          )}
         </div>
         <div>
           <label className="mb-1.5 block text-sm font-medium text-slate-700">Senha</label>
           <Input
             type="password"
-            placeholder="Mínimo 6 caracteres"
+            placeholder="Minimo 6 caracteres"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(event) => setPassword(event.target.value)}
             autoComplete="new-password"
           />
           {password.length > 0 && password.length < 6 && (
             <p className="mt-1 text-xs text-amber-600">A senha precisa de pelo menos 6 caracteres.</p>
           )}
         </div>
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
         <Button className="w-full" type="submit" disabled={loading || !valid}>
           {loading ? "Criando..." : "Criar conta"}
         </Button>
+        <p className="text-center text-xs leading-5 text-slate-500">
+          Ao criar conta, seus dados ficam separados da base de outros clientes por tenant.
+        </p>
       </form>
     </AuthShell>
   );

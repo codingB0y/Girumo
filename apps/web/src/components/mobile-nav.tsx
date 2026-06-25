@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, MessageCircle } from "lucide-react";
-import { nav } from "./sidebar";
+import { navSections } from "./sidebar";
 import { cn } from "@/lib/utils";
 
 export function MobileNav() {
@@ -23,7 +23,7 @@ export function MobileNav() {
           <Menu className="h-5 w-5" />
         </button>
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-brand">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-600 text-white shadow-brand">
             <MessageCircle className="h-4 w-4" />
           </div>
           <span className="font-semibold tracking-tight text-slate-900">HUBFLOW</span>
@@ -45,24 +45,35 @@ export function MobileNav() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <nav className="flex-1 space-y-1 p-3">
-              {nav.map(({ href, label, icon: Icon }) => {
-                const active = pathname.startsWith(href);
-                return (
-                  <Link
-                    key={href}
-                    href={href}
-                    onClick={() => setOpen(false)}
-                    className={cn(
-                      "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                      active ? "bg-brand-50 text-brand-700" : "text-slate-600 hover:bg-slate-100",
-                    )}
-                  >
-                    <Icon className={cn("h-[18px] w-[18px]", active ? "text-brand-600" : "text-slate-400")} />
-                    {label}
-                  </Link>
-                );
-              })}
+            <nav className="flex-1 space-y-5 overflow-y-auto p-3">
+              {navSections.map((section) => (
+                <div key={section.label}>
+                  <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                    {section.label}
+                  </p>
+                  <div className="space-y-0.5">
+                    {section.items.map(({ href, label, icon: Icon }) => {
+                      const active = pathname.startsWith(href);
+                      return (
+                        <Link
+                          key={href}
+                          href={href}
+                          onClick={() => setOpen(false)}
+                          className={cn(
+                            "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                            active ? "bg-brand-50 text-brand-700" : "text-slate-600 hover:bg-slate-100",
+                          )}
+                        >
+                          <Icon
+                            className={cn("h-[18px] w-[18px]", active ? "text-brand-600" : "text-slate-400")}
+                          />
+                          {label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </nav>
           </aside>
         </div>
