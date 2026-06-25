@@ -29,6 +29,7 @@ import {
   type CampaignOperationalStatus,
   type CampaignPrimaryAction,
 } from "@/lib/campaign-groups-overview";
+import { getCreateWizardGroups } from "@/lib/campaign-create-wizard";
 import { getCampaignNextStep } from "@/lib/campaign-next-step";
 import { type Group } from "@/lib/mock-data";
 import { useCampanhas, type Campanha } from "@/lib/use-campanhas";
@@ -59,6 +60,9 @@ export default function CampanhasPage() {
   const [name, setName] = useState("");
   const [loja, setLoja] = useState("");
   const [openCreate, setOpenCreate] = useState(false);
+  const [createStep, setCreateStep] = useState<1 | 2>(1);
+  const [createGroupQuery, setCreateGroupQuery] = useState("");
+  const [selectedCreateGroupIds, setSelectedCreateGroupIds] = useState<string[]>([]);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -101,18 +105,45 @@ export default function CampanhasPage() {
     );
   }, [overviews]);
 
+  const createWizardGroups = useMemo(() => getCreateWizardGroups(groups), [groups]);
+  const filteredCreateGroups = useMemo(() => {
+    const q = createGroupQuery.trim().toLowerCase();
+    return createWizardGroups.available.filter((group) => !q || group.name.toLowerCase().includes(q));
+  }, [createGroupQuery, createWizardGroups.available]);
+
   async function criar() {
-    if (!name.trim()) return;
+    if (!name.trim() || selectedCreateGroupIds.length === 0) return;
     await fetch("/api/campanhas", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, loja: loja || "Minha loja" }),
+      body: JSON.stringify({ name, loja: loja || "Minha loja", groupIds: selectedCreateGroupIds }),
     });
+    resetCreateWizard();
+    await reload();
+    toast("Campanha criada com grupos escolhidos.");
+  }
+
+  function resetCreateWizard() {
     setName("");
     setLoja("");
+    setCreateStep(1);
+    setCreateGroupQuery("");
+    setSelectedCreateGroupIds([]);
     setOpenCreate(false);
-    await reload();
-    toast("Campanha criada. Agora escolha os grupos.");
+  }
+
+  function toggleCreateWizard() {
+    if (openCreate) {
+      resetCreateWizard();
+      return;
+    }
+    setOpenCreate(true);
+  }
+
+  function toggleCreateGroup(groupId: string) {
+    setSelectedCreateGroupIds((current) =>
+      current.includes(groupId) ? current.filter((id) => id !== groupId) : [...current, groupId],
+    );
   }
 
   async function toggleGrupo(c: CampanhaWithSlug, groupId: string) {
@@ -162,7 +193,7 @@ export default function CampanhasPage() {
                 evita grupo cheio e mostra onde voce precisa corrigir convites.
               </p>
             </div>
-            <Button size="sm" onClick={() => setOpenCreate((o) => !o)}>
+            <Button size="sm" onClick={toggleCreateWizard}>
               <Plus className="h-4 w-4" />
               Nova campanha
             </Button>
@@ -179,18 +210,104 @@ export default function CampanhasPage() {
           <Card>
             <CardHeader>
               <CardTitle>Nova campanha</CardTitle>
+              <p className="text-sm text-slate-500">
+                Passo {createStep} de 2: {createStep === 1 ? "diga o nome" : "escolha os grupos"}
+              </p>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <Input
-                placeholder="Nome da campanha (ex: Grupos VIP Inverno)"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="sm:col-span-2"
-              />
-              <Input placeholder="Loja (ex: Virei Moda)" value={loja} onChange={(e) => setLoja(e.target.value)} />
-              <Button className="sm:col-span-3" onClick={criar} disabled={!name.trim()}>
-                Criar campanha
-              </Button>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-2">
+                <div className={cn("h-1.5 rounded-full", createStep >= 1 ? "bg-brand-600" : "bg-slate-200")} />
+                <div className={cn("h-1.5 rounded-full", createStep >= 2 ? "bg-brand-600" : "bg-slate-200")} />
+              </div>
+
+              {createStep === 1 ? (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="sm:col-span-2">
+                    <label className="mb-1.5 block text-sm font-medium text-slate-700">Nome da campanha</label>
+                    <Input
+                      placeholder="Ex: Grupos VIP Inverno"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-slate-700">Loja</label>
+                    <Input placeholder="Ex: Virei Moda" value={loja} onChange={(e) => setLoja(e.target.value)} />
+                  </div>
+                  <div className="flex flex-col gap-2 sm:col-span-3 sm:flex-row sm:justify-end">
+                    <Button variant="outline" onClick={resetCreateWizard}>
+                      Cancelar
+                    </Button>
+                    <Button onClick={() => setCreateStep(2)} disabled={!name.trim()}>
+                      Continuar
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-brand-200 bg-brand-50/70 p-4">
+                    <p className="text-sm font-semibold text-slate-950">Escolha os grupos que vao receber novas revendedoras</p>
+                    <p className="mt-1 text-sm text-slate-600">
+                      Mostramos primeiro apenas grupos com convite e vaga. Isso evita erro na divulgacao.
+                    </p>
+                  </div>
+
+                  <label className="relative block">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Input
+                      aria-label="Buscar grupo para campanha"
+                      value={createGroupQuery}
+                      onChange={(e) => setCreateGroupQuery(e.target.value)}
+                      placeholder="Buscar grupo..."
+                      className="pl-9"
+                    />
+                  </label>
+
+                  {createWizardGroups.available.length === 0 && (
+                    <div className="rounded-lg border border-dashed border-slate-200 p-5 text-sm text-slate-500">
+                      Nenhum grupo pronto para usar. Sincronize grupos ou corrija convites antes de criar a campanha.
+                    </div>
+                  )}
+
+                  {createWizardGroups.available.length > 0 && filteredCreateGroups.length === 0 && (
+                    <div className="rounded-lg border border-dashed border-slate-200 p-5 text-sm text-slate-500">
+                      Nenhum grupo encontrado com essa busca.
+                    </div>
+                  )}
+
+                  <div className="max-h-80 space-y-2 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2">
+                    {filteredCreateGroups.map((group) => (
+                      <CreateWizardGroupOption
+                        key={group.id}
+                        group={group}
+                        selected={selectedCreateGroupIds.includes(group.id)}
+                        onToggle={() => toggleCreateGroup(group.id)}
+                      />
+                    ))}
+                  </div>
+
+                  {createWizardGroups.needsAttention.length > 0 && (
+                    <p className="text-xs text-slate-400">
+                      {createWizardGroups.needsAttention.length} grupo(s) ficaram de fora por estarem cheios ou sem convite.
+                    </p>
+                  )}
+
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm text-slate-500">
+                      {selectedCreateGroupIds.length} grupo(s) selecionado(s)
+                    </p>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Button variant="outline" onClick={() => setCreateStep(1)}>
+                        Voltar
+                      </Button>
+                      <Button onClick={criar} disabled={selectedCreateGroupIds.length === 0}>
+                        Criar campanha
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -484,6 +601,42 @@ function GroupPicker({
         );
       })}
     </div>
+  );
+}
+
+function CreateWizardGroupOption({
+  group,
+  selected,
+  onToggle,
+}: {
+  group: Group;
+  selected: boolean;
+  onToggle: () => void;
+}) {
+  const fillPct = group.capacity > 0 ? Math.round((group.members * 100) / group.capacity) : 0;
+
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-slate-50"
+    >
+      <span
+        className={cn(
+          "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2",
+          selected ? "border-brand-600 bg-brand-600 text-white" : "border-slate-300",
+        )}
+      >
+        {selected && <Check className="h-3.5 w-3.5" />}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium text-slate-800">{group.name}</span>
+        <span className="text-xs text-slate-400">
+          {group.members.toLocaleString("pt-BR")} de {group.capacity.toLocaleString("pt-BR")} membros
+        </span>
+      </span>
+      <Badge tone="green">{fillPct}% ocupado</Badge>
+    </button>
   );
 }
 
