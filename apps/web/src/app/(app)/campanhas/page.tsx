@@ -31,6 +31,7 @@ import {
 } from "@/lib/campaign-groups-overview";
 import { getCreateWizardGroups } from "@/lib/campaign-create-wizard";
 import { getCampaignNextStep } from "@/lib/campaign-next-step";
+import { getGroupDisplayName, hasInternalGroupName } from "@/lib/group-display-name";
 import { type Group } from "@/lib/mock-data";
 import { useCampanhas, type Campanha } from "@/lib/use-campanhas";
 import { cn } from "@/lib/utils";
@@ -582,9 +583,9 @@ function GroupPicker({
               {on && <Check className="h-3.5 w-3.5" />}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium text-slate-800">{group.name}</span>
+              <span className="block truncate text-sm font-medium text-slate-800">{getGroupDisplayName(group)}</span>
               <span className="text-xs text-slate-400">
-                {group.members.toLocaleString("pt-BR")} de {group.capacity.toLocaleString("pt-BR")} membros
+                {hasInternalGroupName(group) ? `WhatsApp: ${group.name}` : `${group.members.toLocaleString("pt-BR")} de ${group.capacity.toLocaleString("pt-BR")} membros`}
               </span>
             </span>
             <span
@@ -630,9 +631,9 @@ function CreateWizardGroupOption({
         {selected && <Check className="h-3.5 w-3.5" />}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium text-slate-800">{group.name}</span>
+        <span className="block truncate text-sm font-medium text-slate-800">{getGroupDisplayName(group)}</span>
         <span className="text-xs text-slate-400">
-          {group.members.toLocaleString("pt-BR")} de {group.capacity.toLocaleString("pt-BR")} membros
+          {hasInternalGroupName(group) ? `WhatsApp: ${group.name}` : `${group.members.toLocaleString("pt-BR")} de ${group.capacity.toLocaleString("pt-BR")} membros`}
         </span>
       </span>
       <Badge tone="green">{fillPct}% ocupado</Badge>

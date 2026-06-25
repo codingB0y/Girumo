@@ -18,6 +18,7 @@ import {
   type CampaignOperationalStatus,
 } from "@/lib/campaign-groups-overview";
 import { getCampaignNextStep } from "@/lib/campaign-next-step";
+import { getGroupDisplayName, hasInternalGroupName } from "@/lib/group-display-name";
 import { type Group } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
@@ -335,11 +336,15 @@ function CampaignGroupRow({
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate text-sm font-semibold text-slate-900">{item.group?.name ?? item.id}</p>
+            <p className="truncate text-sm font-semibold text-slate-900">
+              {item.group ? getGroupDisplayName(item.group) : item.id}
+            </p>
             <Badge tone={status.tone}>{status.label}</Badge>
           </div>
           <p className="mt-1 text-xs text-slate-400">
-            {item.members.toLocaleString("pt-BR")} de {item.capacity.toLocaleString("pt-BR")} membros
+            {item.group && hasInternalGroupName(item.group)
+              ? `WhatsApp: ${item.group.name}`
+              : `${item.members.toLocaleString("pt-BR")} de ${item.capacity.toLocaleString("pt-BR")} membros`}
           </p>
         </div>
         <Button type="button" variant="outline" size="sm" disabled={saving} onClick={onRemove}>
@@ -381,9 +386,11 @@ function AvailableGroupRow({ group, saving, onAdd }: { group: Group; saving: boo
     <div className="rounded-lg border border-slate-200 p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-slate-900">{group.name}</p>
+          <p className="truncate text-sm font-medium text-slate-900">{getGroupDisplayName(group)}</p>
           <p className="mt-1 text-xs text-slate-400">
-            {group.members.toLocaleString("pt-BR")} de {group.capacity.toLocaleString("pt-BR")} membros
+            {hasInternalGroupName(group)
+              ? `WhatsApp: ${group.name}`
+              : `${group.members.toLocaleString("pt-BR")} de ${group.capacity.toLocaleString("pt-BR")} membros`}
           </p>
           <Badge tone={copy.tone} className="mt-2">
             {copy.label}

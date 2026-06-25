@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Search, RefreshCw, Users, CheckCheck } from "lucide-react";
+import { Search, RefreshCw, Users, CheckCheck, Pencil } from "lucide-react";
 import { Topbar } from "@/components/topbar";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/components/toast";
+import { getGroupDisplayName, hasInternalGroupName } from "@/lib/group-display-name";
 import { type Engagement, type Group } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
@@ -48,8 +50,12 @@ function KpiChip({
 }
 
 export default function GroupsPage() {
+  const toast = useToast();
   const [groups, setGroups] = useState<Group[]>([]);
   const [query, setQuery] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [displayNameBase, setDisplayNameBase] = useState("");
+  const [displayNumber, setDisplayNumber] = useState("");
   const [live, setLive] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [loaded, setLoaded] = useState(false); // 1º fetch concluído (mostra skeleton até lá)
@@ -103,6 +109,39 @@ export default function GroupsPage() {
     const allSelected = filtered.every((g) => g.selected);
     const ids = new Set(filtered.map((g) => g.id));
     setGroups((prev) => prev.map((g) => (ids.has(g.id) ? { ...g, selected: !allSelected } : g)));
+  }
+
+  function startEdit(group: Group) {
+    setEditingId(group.id);
+    setDisplayNameBase(group.displayNameBase ?? "");
+    setDisplayNumber(group.displayNumber ? String(group.displayNumber) : "");
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setDisplayNameBase("");
+    setDisplayNumber("");
+  }
+
+  async function saveGroupName(group: Group) {
+    try {
+      const response = await fetch("/api/groups", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: group.whatsappGroupId,
+          displayNameBase,
+          displayNumber: displayNumber ? Number(displayNumber) : 0,
+        }),
+      });
+      if (!response.ok) throw new Error("PATCH failed");
+      const updated = await response.json();
+      setGroups((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      cancelEdit();
+      toast("Nome interno salvo");
+    } catch {
+      toast("Nao foi possivel salvar o nome interno", "error");
+    }
   }
 
   return (
@@ -170,40 +209,74 @@ export default function GroupsPage() {
           {filtered.map((g) => {
             const pct = Math.min(100, Math.round((g.members / Math.max(1, g.capacity)) * 100));
             const barColor = pct >= 95 ? "bg-red-500" : pct >= 80 ? "bg-amber-500" : "bg-emerald-500";
+            const editing = editingId === g.id;
             return (
-            <button
-              key={g.id}
-              onClick={() => toggle(g.id)}
-              className="flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-slate-50"
-            >
-              <div
-                className={cn(
-                  "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors",
-                  g.selected ? "border-brand-600 bg-brand-600 text-white" : "border-slate-300",
+              <div key={g.id} className="px-5 py-4 transition-colors hover:bg-slate-50">
+                <div className="flex w-full items-center gap-4 text-left">
+                  <button
+                    type="button"
+                    onClick={() => toggle(g.id)}
+                    className={cn(
+                      "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors",
+                      g.selected ? "border-brand-600 bg-brand-600 text-white" : "border-slate-300",
+                    )}
+                    aria-label="Selecionar grupo"
+                  >
+                    {g.selected && <CheckCheck className="h-3.5 w-3.5" />}
+                  </button>
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                    <Users className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate font-medium text-slate-900">{getGroupDisplayName(g)}</p>
+                      <Badge tone={engagementTone[g.engagement]}>{engagementLabel[g.engagement]}</Badge>
+                    </div>
+                    <p className="truncate text-xs text-slate-400">
+                      {hasInternalGroupName(g) ? `WhatsApp: ${g.name}` : g.whatsappGroupId}
+                    </p>
+                  </div>
+                  <div className="w-28 shrink-0">
+                    <div className="flex items-baseline justify-end gap-1">
+                      <span className="text-sm font-medium text-slate-700">{g.members.toLocaleString("pt-BR")}</span>
+                      <span className="text-xs text-slate-400">/ {g.capacity}</span>
+                    </div>
+                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100" title={`${pct}% da capacidade`}>
+                      <div className={cn("h-full rounded-full", barColor)} style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" onClick={() => startEdit(g)}>
+                    <Pencil className="h-4 w-4" />
+                    Nome
+                  </Button>
+                </div>
+                {editing && (
+                  <div className="mt-4 grid grid-cols-1 gap-3 rounded-lg border border-brand-200 bg-brand-50/60 p-3 sm:grid-cols-[1fr_120px_auto] sm:items-end">
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-slate-600">Nome interno</label>
+                      <Input value={displayNameBase} onChange={(event) => setDisplayNameBase(event.target.value)} placeholder="Ex: Promocoes" />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-slate-600">Numero</label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={displayNumber}
+                        onChange={(event) => setDisplayNumber(event.target.value)}
+                        placeholder="1"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button type="button" variant="outline" size="sm" onClick={cancelEdit}>
+                        Cancelar
+                      </Button>
+                      <Button type="button" size="sm" onClick={() => saveGroupName(g)}>
+                        Salvar
+                      </Button>
+                    </div>
+                  </div>
                 )}
-              >
-                {g.selected && <CheckCheck className="h-3.5 w-3.5" />}
               </div>
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
-                <Users className="h-5 w-5" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="truncate font-medium text-slate-900">{g.name}</p>
-                  <Badge tone={engagementTone[g.engagement]}>{engagementLabel[g.engagement]}</Badge>
-                </div>
-                <p className="truncate text-xs text-slate-400">{g.whatsappGroupId}</p>
-              </div>
-              <div className="w-28 shrink-0">
-                <div className="flex items-baseline justify-end gap-1">
-                  <span className="text-sm font-medium text-slate-700">{g.members.toLocaleString("pt-BR")}</span>
-                  <span className="text-xs text-slate-400">/ {g.capacity}</span>
-                </div>
-                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100" title={`${pct}% da capacidade`}>
-                  <div className={cn("h-full rounded-full", barColor)} style={{ width: `${pct}%` }} />
-                </div>
-              </div>
-            </button>
             );
           })}
           {loaded && filtered.length === 0 && (
