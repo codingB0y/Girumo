@@ -29,6 +29,7 @@ import {
   type CampaignOperationalStatus,
   type CampaignPrimaryAction,
 } from "@/lib/campaign-groups-overview";
+import { getCampaignNextStep } from "@/lib/campaign-next-step";
 import { type Group } from "@/lib/mock-data";
 import { useCampanhas, type Campanha } from "@/lib/use-campanhas";
 import { cn } from "@/lib/utils";
@@ -299,6 +300,7 @@ function CampaignCard({
   const fillTone = getFillTone(overview.operationalStatus);
   const masterLink = overview.masterLink;
   const copyLink = origin && masterLink ? `${origin}${masterLink}` : "";
+  const nextStep = getCampaignNextStep(overview.operationalStatus);
 
   return (
     <Card className={cn("overflow-hidden", active && "ring-2 ring-brand-500/30")}>
@@ -335,6 +337,22 @@ function CampaignCard({
               >
                 <Trash2 className="h-4 w-4" />
               </button>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-brand-200 bg-brand-50/70 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Proximo passo</p>
+            <p className="mt-2 text-base font-semibold text-slate-950">{nextStep.title}</p>
+            <p className="mt-1 text-sm text-slate-600">{nextStep.description}</p>
+            <div className="mt-3">
+              {overview.primaryAction.kind === "copy_link" ? (
+                <CopyLinkButton url={copyLink} disabled={!copyLink} variant="primary" label={nextStep.actionLabel} />
+              ) : (
+                <Button size="sm" onClick={onPrimaryAction}>
+                  {nextStep.actionLabel}
+                  <ChevronDown className={cn("h-4 w-4 transition", expanded && "rotate-180")} />
+                </Button>
+              )}
             </div>
           </div>
 
@@ -376,10 +394,16 @@ function CampaignCard({
 
           <div className="flex flex-col gap-2 sm:flex-row">
             {overview.primaryAction.kind === "copy_link" ? (
-              <CopyLinkButton url={copyLink} disabled={!copyLink} className="sm:flex-1" variant="primary" />
+              <CopyLinkButton
+                url={copyLink}
+                disabled={!copyLink}
+                className="sm:flex-1"
+                variant="primary"
+                label={nextStep.actionLabel}
+              />
             ) : (
               <Button className="sm:flex-1" onClick={onPrimaryAction}>
-                {getActionLabel(overview.primaryAction)}
+                {nextStep.actionLabel}
                 <ChevronDown className={cn("h-4 w-4 transition", expanded && "rotate-180")} />
               </Button>
             )}
@@ -479,13 +503,6 @@ function Metric({ label, value }: { label: string; value: string | number }) {
       <p className="mt-1 text-sm font-semibold text-slate-900">{value}</p>
     </div>
   );
-}
-
-function getActionLabel(action: CampaignPrimaryAction) {
-  if (action.kind === "choose_groups") return "Escolher grupos";
-  if (action.kind === "configure_invites") return "Corrigir convites";
-  if (action.kind === "add_groups") return "Adicionar grupos";
-  return "Copiar link";
 }
 
 function getStatusHint(status: CampaignOperationalStatus) {

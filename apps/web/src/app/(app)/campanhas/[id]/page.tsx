@@ -17,6 +17,7 @@ import {
   type CampaignGroupStatus,
   type CampaignOperationalStatus,
 } from "@/lib/campaign-groups-overview";
+import { getCampaignNextStep } from "@/lib/campaign-next-step";
 import { type Group } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
@@ -132,6 +133,10 @@ export default function CampanhaDetailPage() {
     toast("Campanha ativada. O app agora opera os grupos dela.");
   }
 
+  function scrollToGroups() {
+    document.getElementById("campaign-groups-workspace")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   if (!loaded) {
     return (
       <>
@@ -175,6 +180,7 @@ export default function CampanhaDetailPage() {
   const status = statusCopy[overview.operationalStatus];
   const isActive = activeId === campanha.id;
   const copyLink = origin && overview.masterLink ? `${origin}${overview.masterLink}` : "";
+  const nextStep = getCampaignNextStep(overview.operationalStatus);
 
   return (
     <>
@@ -210,6 +216,21 @@ export default function CampanhaDetailPage() {
           </div>
         </section>
 
+        <section className="rounded-xl border border-brand-200 bg-brand-50/70 p-5 shadow-card">
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Proximo passo</p>
+          <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold tracking-tight text-slate-950">{nextStep.title}</h2>
+              <p className="mt-1 text-sm text-slate-600">{nextStep.description}</p>
+            </div>
+            {overview.primaryAction.kind === "copy_link" ? (
+              <CopyLinkButton url={copyLink} disabled={!copyLink} variant="primary" label={nextStep.actionLabel} />
+            ) : (
+              <Button onClick={scrollToGroups}>{nextStep.actionLabel}</Button>
+            )}
+          </div>
+        </section>
+
         <section className="grid grid-cols-2 gap-3 lg:grid-cols-6">
           <KpiCard label="Grupos" value={overview.groupCount} />
           <KpiCard label="Disponiveis" value={overview.availableCount} />
@@ -219,7 +240,7 @@ export default function CampanhaDetailPage() {
           <KpiCard label="Cliques" value={overview.clicks.toLocaleString("pt-BR")} />
         </section>
 
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div id="campaign-groups-workspace" className="grid scroll-mt-6 grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="space-y-5">
             <Card>
               <CardHeader>
