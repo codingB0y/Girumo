@@ -446,62 +446,65 @@ function CampaignSetupChecklist({
   if (!nextStep) return null;
 
   const doneCount = steps.filter((step) => step.done).length;
+  const nextStepIndex = steps.findIndex((step) => !step.done);
+  const progress = (doneCount / steps.length) * 100;
+
+  const actionClassName =
+    "inline-flex h-10 items-center justify-center rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white shadow-card transition hover:bg-brand-700";
+  const stepNumber = nextStepIndex + 1;
 
   return (
     <Card className="border-brand-200 bg-brand-50/70">
       <CardContent className="p-4">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-slate-950">Comece por aqui</p>
-            <p className="mt-1 text-sm text-slate-600">{nextStep.help}</p>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-sm font-semibold text-slate-950">Comece por aqui</p>
+              <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-brand-700 shadow-card">
+                Passo {stepNumber} de {steps.length}
+              </span>
+            </div>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
+              <div className="h-full rounded-full bg-brand-600 transition-all" style={{ width: `${progress}%` }} />
+            </div>
+            <div className="mt-4">
+              <p className="text-lg font-semibold text-slate-950">
+                Passo {stepNumber}: {nextStep.label}
+              </p>
+              <p className="mt-1 text-sm text-slate-600">{nextStep.help}</p>
+            </div>
           </div>
-          <span className="text-xs font-medium text-slate-500">{doneCount}/{steps.length} passos</span>
+          <div className="shrink-0">
+            {nextStep.onClick ? (
+              <button type="button" onClick={nextStep.onClick} className={actionClassName}>
+                {nextStep.action}
+              </button>
+            ) : (
+              <Link href={nextStep.href} className={actionClassName}>
+                {nextStep.action}
+              </Link>
+            )}
+          </div>
         </div>
         <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-4">
-          {steps.map((step) => {
-            const content = (
-              <>
-                {step.done ? (
-                  <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600" />
-                ) : (
-                  <CircleAlert className="h-5 w-5 shrink-0 text-brand-600" />
-                )}
-                <span className="min-w-0 flex-1">
-                  <span className={cn("block text-sm font-medium", step.done ? "text-slate-400 line-through" : "text-slate-900")}>
-                    {step.label}
-                  </span>
-                  {!step.done && <span className="block text-xs text-slate-500">{step.action}</span>}
-                </span>
-              </>
-            );
-
-            const className = cn(
-              "flex items-center gap-3 rounded-xl border px-3 py-3 text-left transition",
-              step.done ? "border-green-100 bg-white/60" : "border-brand-200 bg-white shadow-card hover:bg-brand-50",
-            );
-
-            if (step.onClick && !step.done) {
-              return (
-                <button key={step.label} type="button" onClick={step.onClick} className={className}>
-                  {content}
-                </button>
-              );
-            }
-
-            if (!step.href) {
-              return (
-                <div key={step.label} className={className}>
-                  {content}
-                </div>
-              );
-            }
-
-            return (
-              <Link key={step.label} href={step.href} className={className}>
-                {content}
-              </Link>
-            );
-          })}
+          {steps.map((step, index) => (
+            <div
+              key={step.label}
+              className={cn(
+                "flex items-center gap-2 rounded-lg border px-3 py-2",
+                step.done ? "border-green-100 bg-white/70 text-slate-400" : "border-brand-200 bg-white text-slate-700",
+              )}
+            >
+              {step.done ? (
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600" />
+              ) : (
+                <CircleAlert className="h-4 w-4 shrink-0 text-brand-600" />
+              )}
+              <span className="truncate text-xs font-medium">
+                {index + 1}. {step.label}
+              </span>
+            </div>
+          ))}
         </div>
       </CardContent>
     </Card>
