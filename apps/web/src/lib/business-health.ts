@@ -184,11 +184,11 @@ export async function getResultsOverview(): Promise<ResultsOverview> {
       tone: "amber",
     };
   } else if (entradasSemana < 10) {
-    nextAction = { text: "Poucas pessoas estão entrando nos seus grupos.", cta: "Atrair revendedoras", href: "/acquisition", tone: "amber" };
+    nextAction = { text: "Poucas pessoas estão entrando nos seus grupos.", cta: "Divulgar campanha", href: "/campanhas", tone: "amber" };
   } else if (entradasSemana < entradasPrev || gruposParados > 0) {
-    nextAction = { text: "Seu grupo perdeu ritmo. Bora reaquecer com uma oferta.", cta: "Enviar uma oferta", href: "/campaigns", tone: "amber" };
+    nextAction = { text: "Seu grupo perdeu ritmo. Revise a campanha e divulgue o link principal.", cta: "Ver campanhas", href: "/campanhas", tone: "amber" };
   } else {
-    nextAction = { text: "Seu grupo está crescendo bem. Mantenha a estratégia!", cta: "Ver resultados", href: "/reports", tone: "green" };
+    nextAction = { text: "Seu grupo está crescendo bem. Mantenha a estratégia!", cta: "Ver campanhas", href: "/campanhas", tone: "green" };
   }
 
   const funnel: FunnelStage[] = [
@@ -207,7 +207,7 @@ export async function getResultsOverview(): Promise<ResultsOverview> {
   if (!live) {
     funnelInsight = { tone: "red", text: "Conecte o WhatsApp para o funil começar a medir seus resultados.", cta: "Conectar", href: "/settings" };
   } else if (trafego === 0) {
-    funnelInsight = { tone: "amber", text: "Ninguém clicou no seu anúncio ainda. O funil começa atraindo pessoas.", cta: "Atrair revendedoras", href: "/acquisition" };
+    funnelInsight = { tone: "amber", text: "Ninguém clicou no link ainda. O funil começa divulgando a campanha.", cta: "Ver campanhas", href: "/campanhas" };
   } else {
     // maior queda percentual entre etapas medidas consecutivas
     let worst = { from: "", to: "", lossPct: -1 };
@@ -219,11 +219,11 @@ export async function getResultsOverview(): Promise<ResultsOverview> {
       if (lossPct > worst.lossPct) worst = { from: prev.short, to: curr.short, lossPct };
     }
     if (worst.lossPct >= 80 && worst.from === "Entraram") {
-      funnelInsight = { tone: "amber", text: `Muita gente entra, mas pouca compra (${worst.lossPct}% não fecham pedido). Mande uma oferta pro grupo.`, cta: "Enviar oferta", href: "/campaigns" };
+      funnelInsight = { tone: "amber", text: `Muita gente entra, mas pouca compra (${worst.lossPct}% não fecham pedido). Revise sua campanha e abordagem.`, cta: "Ver campanhas", href: "/campanhas" };
     } else if (worst.from === "Viram o anúncio" && worst.lossPct >= 90) {
-      funnelInsight = { tone: "amber", text: `Muitos cliques, poucas entradas (${worst.lossPct}% não entram). Revise o convite e a página de captura.`, cta: "Ver origem das entradas", href: "/links" };
+      funnelInsight = { tone: "amber", text: `Muitos cliques, poucas entradas (${worst.lossPct}% não entram). Revise os grupos e o link da campanha.`, cta: "Ver campanhas", href: "/campanhas" };
     } else {
-      funnelInsight = { tone: "green", text: "Boa retenção no funil. Seu próximo ganho está em trazer mais gente pro topo.", cta: "Atrair mais", href: "/acquisition" };
+      funnelInsight = { tone: "green", text: "Boa retenção no funil. Seu próximo ganho está em divulgar mais a campanha.", cta: "Ver campanhas", href: "/campanhas" };
     }
   }
 

@@ -84,11 +84,11 @@ export default async function HojePage() {
                     </p>
                   </div>
                   <Link
-                    href="/acquisition"
+                    href="/campanhas"
                     className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white shadow-brand transition hover:bg-brand-700"
                   >
                     <TrendingUp className="h-4 w-4" />
-                    Atrair leads
+                    Ver campanhas
                   </Link>
                 </div>
 
@@ -140,10 +140,10 @@ export default async function HojePage() {
                   </span>
                 </CardTitle>
                 <Link
-                  href="/campaigns"
+                  href="/campanhas"
                   className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-amber-500 px-3 text-sm font-semibold text-white transition hover:bg-amber-600"
                 >
-                  Enviar oferta
+                  Ver campanhas
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </CardHeader>
