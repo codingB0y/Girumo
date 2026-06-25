@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { SESSION_COOKIE, signSession, sessionCookieOptions } from "@/lib/auth";
-import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { getSupabaseAdmin, getSupabaseServerAnon } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,13 +20,14 @@ export async function POST(req: Request) {
     return Response.json({ error: "Informe e-mail e senha." }, { status: 400 });
   }
 
-  const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  const auth = getSupabaseServerAnon();
+  const { data, error } = await auth.auth.signInWithPassword({ email, password });
 
   if (error || !data.user || !data.session) {
     return Response.json({ error: "E-mail ou senha incorretos." }, { status: 401 });
   }
 
+  const supabase = getSupabaseAdmin();
   const { data: membership } = await supabase
     .from("memberships")
     .select("tenant_id, role")
@@ -49,4 +50,3 @@ export async function POST(req: Request) {
     refreshToken: data.session.refresh_token,
   });
 }
-

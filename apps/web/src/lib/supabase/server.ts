@@ -2,6 +2,7 @@ import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 let adminClient: SupabaseClient | null = null;
+let anonClient: SupabaseClient | null = null;
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -26,6 +27,23 @@ export function getSupabaseAdmin(): SupabaseClient {
   return adminClient;
 }
 
+export function getSupabaseServerAnon(): SupabaseClient {
+  if (anonClient) return anonClient;
+
+  anonClient = createClient(
+    requireEnv("SUPABASE_URL"),
+    requireEnv("SUPABASE_ANON_KEY"),
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    },
+  );
+
+  return anonClient;
+}
+
 export function getSupabaseAnonForToken(accessToken: string): SupabaseClient {
   return createClient(requireEnv("SUPABASE_URL"), requireEnv("SUPABASE_ANON_KEY"), {
     global: {
@@ -39,4 +57,3 @@ export function getSupabaseAnonForToken(accessToken: string): SupabaseClient {
     },
   });
 }
-

@@ -41,8 +41,18 @@ export async function GET() {
       }
 
       const { data: bucket, error: bucketError } = await supabase.storage.getBucket("uploads");
-      if (bucketError) storageError = bucketError.message;
-      else storage = bucket?.public === false ? "ok" : "degraded";
+      if (bucketError) {
+        const { data: bucketRow, error: bucketRowError } = await supabase
+          .schema("storage")
+          .from("buckets")
+          .select("id, public")
+          .eq("id", "uploads")
+          .maybeSingle();
+
+        if (bucketRowError) storageError = `${bucketError.message}; ${bucketRowError.message}`;
+        else if (bucketRow?.public === false) storage = "ok";
+        else storageError = bucketError.message;
+      } else storage = bucket?.public === false ? "ok" : "degraded";
     } catch (error) {
       databaseError = error instanceof Error ? error.message : "Erro desconhecido.";
     }

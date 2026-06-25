@@ -177,6 +177,15 @@ buildCommand: npm run build
 outputDirectory: .next
 ```
 
+Desativar protecao de deploy para o ambiente publico:
+
+```txt
+Settings -> Deployment Protection
+Vercel Authentication: Disabled
+```
+
+Se a protecao ficar ativa, `/api/health`, signup e webhook Stripe podem redirecionar para login da Vercel em vez de responder pelo HUBFLOW.
+
 Configurar envs:
 
 ```txt

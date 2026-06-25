@@ -1424,6 +1424,143 @@ Decisao/resultados:
 
 - ajuste feito apos log Vercel indicar `No Next.js version detected` no root do repo.
 
+### 2026-06-24 - Pos-Fase 8 - Documentacao De Deployment Protection Vercel
+
+Area afetada:
+
+- Vercel;
+- signup;
+- healthcheck;
+- Stripe webhook;
+- documentacao operacional.
+
+Tipo de alteracao:
+
+- documentacao de bloqueador de ambiente online.
+
+Resumo:
+
+- identificado que deployment publicado estava redirecionando `/api/health` para `vercel.com/sso-api`;
+- isso indica Vercel Authentication/Deployment Protection ativa no ambiente;
+- guia Vercel e runbook online passaram a instruir desativar protecao no ambiente publico.
+
+Impacto:
+
+- evita que signup, healthcheck e webhook Stripe sejam interceptados pela autenticao da Vercel;
+- deixa claro que a protecao pode ser util para preview privado, mas nao para ambiente de cliente ou webhook externo.
+
+Arquivos principais:
+
+- `deploy/vercel/README.md`
+- `docs/DEPLOY_ONLINE_RUNBOOK.md`
+- `docs/FASE_1_AUDITORIA_CODIGO_ATUAL.md`
+
+Decisao/resultados:
+
+- ajuste documental feito apos diagnostico do endpoint publicado.
+
+### 2026-06-24 - Pos-Fase 8 - Login Usa Supabase Anon Para Autenticacao
+
+Area afetada:
+
+- autenticacao;
+- Supabase Auth;
+- API web;
+- sessao.
+
+Tipo de alteracao:
+
+- endurecimento do fluxo de login.
+
+Resumo:
+
+- `POST /api/auth/login` passou a autenticar e-mail/senha com cliente Supabase anon server-side;
+- service role permanece apenas para consultar membership ativa apos autenticacao;
+- criado helper `getSupabaseServerAnon()`.
+
+Impacto:
+
+- separa autenticacao de usuario do cliente administrativo;
+- reduz risco de comportamento inesperado ao usar service role para `signInWithPassword`;
+- mantem RLS e consultas administrativas controladas no backend.
+
+Arquivos principais:
+
+- `apps/web/src/app/api/auth/login/route.ts`
+- `apps/web/src/lib/supabase/server.ts`
+- `docs/FASE_1_AUDITORIA_CODIGO_ATUAL.md`
+
+Decisao/resultados:
+
+- ajuste feito apos cadastro funcionar, mas login nao persistir no ambiente online.
+
+### 2026-06-24 - Pos-Fase 8 - Login Nao Bloqueia Por Persistencia Client-Side
+
+Area afetada:
+
+- frontend;
+- login;
+- Supabase client;
+- sessao.
+
+Tipo de alteracao:
+
+- correcao de tolerancia no fluxo de login.
+
+Resumo:
+
+- `persistSupabaseSession()` passou a salvar `tenantId` antes de tentar persistir a sessao Supabase no navegador;
+- falha em `supabase.auth.setSession()` passou a ser logada no console, sem bloquear o login;
+- cookie server-side `dz_session` continua sendo a fonte de autenticacao para middleware e rotas protegidas.
+
+Impacto:
+
+- evita erro generico "Erro ao entrar. Tente de novo." quando a API de login autenticou corretamente;
+- permite redirecionar para a area autenticada mesmo se o storage/sessao client-side do Supabase falhar;
+- mantem dados suficientes para o frontend enviar `x-tenant-id` em chamadas autenticadas.
+
+Arquivos principais:
+
+- `apps/web/src/lib/supabase/client.ts`
+- `docs/FASE_1_AUDITORIA_CODIGO_ATUAL.md`
+
+Decisao/resultados:
+
+- ajuste feito apos `/api/auth/login` retornar `accessToken`, `refreshToken`, `tenantId` e `role`, mas a UI cair no `catch`.
+
+### 2026-06-24 - Pos-Fase 8 - Healthcheck Storage Com Fallback SQL
+
+Area afetada:
+
+- healthcheck;
+- Supabase Storage;
+- deploy online.
+
+Tipo de alteracao:
+
+- reducao de falso negativo no check de storage.
+
+Resumo:
+
+- `/api/health` continua tentando validar o bucket `uploads` via Supabase Storage API;
+- se `storage.getBucket("uploads")` retornar erro, o health faz fallback consultando `storage.buckets`;
+- bucket e considerado `ok` quando existe com `id = uploads` e `public = false`.
+
+Impacto:
+
+- evita health `degraded` quando o bucket existe no mesmo projeto, mas a Storage API retorna `Bucket not found`;
+- mantem a validacao de bucket privado;
+- nao altera fluxo de upload nem policies.
+
+Arquivos principais:
+
+- `apps/web/src/app/api/health/route.ts`
+- `docs/FASE_1_AUDITORIA_CODIGO_ATUAL.md`
+
+Decisao/resultados:
+
+- ajuste feito apos confirmacao manual de que o bucket `uploads` existia no Supabase.
+
 ### 2026-06-24 - Pos-Fase 8 - Diagnostico De PSQL No Apply Supabase
 
 Area afetada:
