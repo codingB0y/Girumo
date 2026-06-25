@@ -1561,6 +1561,41 @@ Decisao/resultados:
 
 - ajuste feito apos confirmacao manual de que o bucket `uploads` existia no Supabase.
 
+### 2026-06-24 - Pos-Fase 8 - Corrige Caminho Absoluto De Dados Legados Na Vercel
+
+Area afetada:
+
+- app web;
+- dashboard `/hoje`;
+- stores legados em arquivo;
+- runtime Vercel.
+
+Tipo de alteracao:
+
+- correcao de path runtime para dados legados.
+
+Resumo:
+
+- `legacyDataPath()` deixou de remover barras iniciais do diretorio base;
+- `HUBFLOW_DATA_DIR=/tmp/hubflow` agora permanece absoluto em vez de virar `tmp/hubflow`;
+- em producao, o fallback padrao dos stores legados passou a ser `/tmp/hubflow`;
+- caminhos agora usam `path.join`.
+
+Impacto:
+
+- evita `ENOENT`/falhas server-side ao carregar `/hoje` em ambiente Vercel;
+- mantem stores legados funcionando de forma efemera enquanto a migracao completa para Supabase nao termina;
+- nao altera schema nem dados Supabase.
+
+Arquivos principais:
+
+- `apps/web/src/lib/legacy-data-dir.ts`
+- `docs/FASE_1_AUDITORIA_CODIGO_ATUAL.md`
+
+Decisao/resultados:
+
+- ajuste feito apos logs Vercel indicarem erro `ENOENT` em `GET /hoje`.
+
 ### 2026-06-24 - Pos-Fase 8 - Diagnostico De PSQL No Apply Supabase
 
 Area afetada:
