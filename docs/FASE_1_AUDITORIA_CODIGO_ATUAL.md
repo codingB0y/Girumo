@@ -1601,6 +1601,95 @@ Decisao/resultados:
 - build Next.js 15.5.19 concluiu sem erros;
 - proxima etapa recomendada: revisar `/groups`, `/templates`, `/schedules` e `/reports` para completar o padrao visual das rotas operacionais.
 
+### 2026-06-24 - Pos-Fase 8 - Auditoria De Produto Com Evidencia Visual
+
+Area afetada:
+
+- produto publico;
+- home;
+- login;
+- cadastro;
+- rotas protegidas;
+- documentacao de produto.
+
+Tipo de alteracao:
+
+- criacao de auditoria UX/acessibilidade em pasta local com screenshots.
+
+Resumo:
+
+- capturadas evidencias visuais da home publica, login, cadastro e barreira de rotas protegidas;
+- identificado desalinhamento entre identidade publica promocional e direcao operacional do painel interno;
+- identificado que o login wall preserva `next`, mas nao explica o contexto da rota desejada;
+- identificado que cadastro precisa comunicar melhor o que acontece apos criar conta;
+- rotas internas nao foram auditadas visualmente por falta de sessao autenticada durante a captura.
+
+Impacto:
+
+- cria base de decisao para priorizar redesign de login, cadastro e home;
+- separa achados baseados em evidencia visual de hipoteses sobre telas internas;
+- prepara uma segunda auditoria autenticada das rotas do app.
+
+Arquivos principais:
+
+- `docs/design-audit/hubflow-product-audit-2026-06-24/AUDIT.md`
+- `docs/design-audit/hubflow-product-audit-2026-06-24/01-home-viewport.png`
+- `docs/design-audit/hubflow-product-audit-2026-06-24/02-login-viewport.png`
+- `docs/design-audit/hubflow-product-audit-2026-06-24/03-signup-viewport.png`
+- `docs/design-audit/hubflow-product-audit-2026-06-24/04-protected-hoje-login-wall.png`
+- `docs/design-audit/hubflow-product-audit-2026-06-24/05-protected-campaigns-login-wall.png`
+- `docs/FASE_1_AUDITORIA_CODIGO_ATUAL.md`
+
+Decisao/resultados:
+
+- auditoria salva localmente;
+- nenhuma credencial, token ou dado sensivel foi enviado durante a captura;
+- proxima etapa recomendada: redesenhar login/cadastro e repetir auditoria com sessao autenticada para as telas internas.
+
+### 2026-06-24 - Pos-Fase 8 - Redesign De Login E Cadastro Apos Auditoria
+
+Area afetada:
+
+- login;
+- cadastro;
+- recuperacao de senha;
+- reset de senha;
+- auth shell compartilhado;
+- seguranca de redirect `next`.
+
+Tipo de alteracao:
+
+- melhoria de UX/autenticacao orientada pela auditoria visual de produto.
+
+Resumo:
+
+- `AuthShell` deixou de usar fundo escuro promocional e passou a usar layout SaaS operacional com painel de contexto;
+- login agora mostra contexto quando o usuario vem de rota protegida via `next`;
+- login sanitiza `next` para aceitar apenas caminhos internos iniciados por `/`;
+- cadastro explica o que acontece apos criar conta: entrar no painel, conectar WhatsApp, revisar plano e criar primeira oferta;
+- cadastro reforca isolamento por tenant;
+- mensagens com encoding quebrado foram substituidas por texto ASCII consistente.
+
+Impacto:
+
+- reduz a quebra visual entre entrada publica e painel interno;
+- melhora confianca antes do cadastro;
+- torna o login wall mais claro para usuarios vindos de links internos;
+- reduz risco de redirect indevido por parametro `next` manipulado.
+
+Arquivos principais:
+
+- `apps/web/src/components/auth-shell.tsx`
+- `apps/web/src/app/login/page.tsx`
+- `apps/web/src/app/signup/page.tsx`
+- `docs/FASE_1_AUDITORIA_CODIGO_ATUAL.md`
+
+Decisao/resultados:
+
+- `npm run verify:local` passou;
+- build Next.js 15.5.19 concluiu sem erros;
+- proxima etapa recomendada: capturar novamente login/cadastro e depois rodar auditoria autenticada das telas internas.
+
 ### 2026-06-24 - Pos-Fase 8 - Indice Unificado De Deploy
 
 Area afetada:

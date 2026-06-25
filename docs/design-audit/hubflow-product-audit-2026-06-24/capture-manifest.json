@@ -1,0 +1,395 @@
+[
+  {
+    "name": "01-home",
+    "requestedUrl": "https://hubflow-groups.vercel.app/",
+    "finalUrl": "https://hubflow-groups.vercel.app/",
+    "title": "HUBFLOW — Lote seus grupos de WhatsApp e venda mais, no automático",
+    "file": "C:/Users/Igor/Desktop/HubFlow-platform/docs/design-audit/hubflow-product-audit-2026-06-24/01-home.png",
+    "info": {
+      "bodyTextStart": "HUBFLOWWhatsApp Growth OSPlanosEntrarCriar contaFeito para atacadista de moda — Brás, Madrugada, Mega ModaEncha seus grupos de revendedora nova e venda todo dia — no piloto automático, do seu celularO HUBFLOW conecta o SEU WhatsApp, traz revendedora nova, dispara suas ofertas e mostra quem comprou e",
+      "controls": [
+        {
+          "href": "#planos",
+          "tag": "a",
+          "text": "Planos",
+          "type": null
+        },
+        {
+          "href": "/login",
+          "tag": "a",
+          "text": "Entrar",
+          "type": null
+        },
+        {
+          "href": "/signup",
+          "tag": "a",
+          "text": "Criar conta",
+          "type": null
+        },
+        {
+          "href": "/signup",
+          "tag": "a",
+          "text": "Quero encher meus grupos e vender mais",
+          "type": null
+        },
+        {
+          "href": "#como-funciona",
+          "tag": "a",
+          "text": "Ver como funciona ↓",
+          "type": null
+        },
+        {
+          "href": "/signup",
+          "tag": "a",
+          "text": "Falar no WhatsApp",
+          "type": null
+        },
+        {
+          "href": "/signup",
+          "tag": "a",
+          "text": "Falar no WhatsApp",
+          "type": null
+        },
+        {
+          "href": "/signup",
+          "tag": "a",
+          "text": "Falar no WhatsApp",
+          "type": null
+        },
+        {
+          "href": "/signup",
+          "tag": "a",
+          "text": "Quero encher meus grupos e vender mais",
+          "type": null
+        },
+        {
+          "href": "/signup",
+          "tag": "a",
+          "text": "Quero encher meus grupos",
+          "type": null
+        },
+        {
+          "href": "/login",
+          "tag": "a",
+          "text": "Entrar",
+          "type": null
+        },
+        {
+          "href": "/signup",
+          "tag": "a",
+          "text": "Falar no WhatsApp",
+          "type": null
+        }
+      ],
+      "h1": "Encha seus grupos de revendedora nova e venda todo dia — no piloto automático, do seu celular",
+      "mainText": "HUBFLOWWhatsApp Growth OSPlanosEntrarCriar contaFeito para atacadista de moda — Brás, Madrugada, Mega ModaEncha seus grupos de revendedora nova e venda todo dia — no piloto automático, do seu celularO HUBFLOW conecta o SEU WhatsApp, traz revendedora nova, dispara suas ofertas e mostra quem comprou e quanto você vendeu. Tudo simples, do jeito do lojista — sem planilha, sem gestor caro.Quero encher meus grupos e vender maisVer como funciona ↓Conecta em 2 minutos · Funciona no seu número · Seus contatos são seus · Conforme LGPDBom dia! Hoje, no seu negócio: Seu negócio está crescendo+38revendedoras12pedidosR$4.240na semanaO caminho até a vendaViram o anúncio1.842Entraram no grupo264Interagiram1",
+      "navText": ""
+    }
+  },
+  {
+    "name": "02-login",
+    "requestedUrl": "https://hubflow-groups.vercel.app/login",
+    "finalUrl": "https://hubflow-groups.vercel.app/login",
+    "title": "HUBFLOW - Broadcast & Gestao de Grupos",
+    "file": "C:/Users/Igor/Desktop/HubFlow-platform/docs/design-audit/hubflow-product-audit-2026-06-24/02-login.png",
+    "info": {
+      "bodyTextStart": "HUBFLOWEntrarAcesse sua central de crescimentoE-mailSenhaEsqueci minha senhaEntrarNão tem conta? Criar contaWhatsApp Growth OS(self.__next_f=self.__next_f||[]).push([0])self.__next_f.push([1,\"1:\\\"$Sreact.fragment\\\"\\n2:I[9766,[],\\\"\\\"]\\n3:I[8924,[],\\\"\\\"]\\n4:I[1959,[],\\\"ClientPageRoot\\\"]\\n5:I[17,[\\\"573",
+      "controls": [
+        {
+          "href": "/",
+          "tag": "a",
+          "text": "",
+          "type": null
+        },
+        {
+          "href": null,
+          "tag": "input",
+          "text": "voce@email.com",
+          "type": "email"
+        },
+        {
+          "href": null,
+          "tag": "input",
+          "text": "••••••••",
+          "type": "password"
+        },
+        {
+          "href": "/forgot-password",
+          "tag": "a",
+          "text": "Esqueci minha senha",
+          "type": null
+        },
+        {
+          "href": null,
+          "tag": "button",
+          "text": "Entrar",
+          "type": "submit"
+        },
+        {
+          "href": "/signup",
+          "tag": "a",
+          "text": "Criar conta",
+          "type": null
+        }
+      ],
+      "h1": "Entrar",
+      "mainText": "HUBFLOWEntrarAcesse sua central de crescimentoE-mailSenhaEsqueci minha senhaEntrarNão tem conta? Criar contaWhatsApp Growth OS(self.__next_f=self.__next_f||[]).push([0])self.__next_f.push([1,\"1:\\\"$Sreact.fragment\\\"\\n2:I[9766,[],\\\"\\\"]\\n3:I[8924,[],\\\"\\\"]\\n4:I[1959,[],\\\"ClientPageRoot\\\"]\\n5:I[17,[\\\"5730\\\",\\\"static/chunks/44530001-a2d65df546af1ff5.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"2151\\\",\\\"static/chunks/2151-07355ae14ac08cc6.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"5\\\",\\\"static/chunks/5-7d8467ebd0cd97cc.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"445\\\",\\\"static/chunks/445-bb6a4e9f6953b066.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"4520\\\",\\\"static/chunks/app/login/page-4adad6a20568d",
+      "navText": ""
+    }
+  },
+  {
+    "name": "03-hoje",
+    "requestedUrl": "https://hubflow-groups.vercel.app/hoje",
+    "finalUrl": "https://hubflow-groups.vercel.app/login?next=%2Fhoje",
+    "title": "HUBFLOW - Broadcast & Gestao de Grupos",
+    "file": "C:/Users/Igor/Desktop/HubFlow-platform/docs/design-audit/hubflow-product-audit-2026-06-24/03-hoje.png",
+    "info": {
+      "bodyTextStart": "HUBFLOWEntrarAcesse sua central de crescimentoE-mailSenhaEsqueci minha senhaEntrarNão tem conta? Criar contaWhatsApp Growth OS(self.__next_f=self.__next_f||[]).push([0])self.__next_f.push([1,\"1:\\\"$Sreact.fragment\\\"\\n2:I[9766,[],\\\"\\\"]\\n3:I[8924,[],\\\"\\\"]\\n4:I[1959,[],\\\"ClientPageRoot\\\"]\\n5:I[17,[\\\"573",
+      "controls": [
+        {
+          "href": "/",
+          "tag": "a",
+          "text": "",
+          "type": null
+        },
+        {
+          "href": null,
+          "tag": "input",
+          "text": "voce@email.com",
+          "type": "email"
+        },
+        {
+          "href": null,
+          "tag": "input",
+          "text": "••••••••",
+          "type": "password"
+        },
+        {
+          "href": "/forgot-password",
+          "tag": "a",
+          "text": "Esqueci minha senha",
+          "type": null
+        },
+        {
+          "href": null,
+          "tag": "button",
+          "text": "Entrar",
+          "type": "submit"
+        },
+        {
+          "href": "/signup",
+          "tag": "a",
+          "text": "Criar conta",
+          "type": null
+        }
+      ],
+      "h1": "Entrar",
+      "mainText": "HUBFLOWEntrarAcesse sua central de crescimentoE-mailSenhaEsqueci minha senhaEntrarNão tem conta? Criar contaWhatsApp Growth OS(self.__next_f=self.__next_f||[]).push([0])self.__next_f.push([1,\"1:\\\"$Sreact.fragment\\\"\\n2:I[9766,[],\\\"\\\"]\\n3:I[8924,[],\\\"\\\"]\\n4:I[1959,[],\\\"ClientPageRoot\\\"]\\n5:I[17,[\\\"5730\\\",\\\"static/chunks/44530001-a2d65df546af1ff5.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"2151\\\",\\\"static/chunks/2151-07355ae14ac08cc6.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"5\\\",\\\"static/chunks/5-7d8467ebd0cd97cc.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"445\\\",\\\"static/chunks/445-bb6a4e9f6953b066.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"4520\\\",\\\"static/chunks/app/login/page-4adad6a20568d",
+      "navText": ""
+    }
+  },
+  {
+    "name": "04-leads",
+    "requestedUrl": "https://hubflow-groups.vercel.app/leads",
+    "finalUrl": "https://hubflow-groups.vercel.app/login?next=%2Fleads",
+    "title": "HUBFLOW - Broadcast & Gestao de Grupos",
+    "file": "C:/Users/Igor/Desktop/HubFlow-platform/docs/design-audit/hubflow-product-audit-2026-06-24/04-leads.png",
+    "info": {
+      "bodyTextStart": "HUBFLOWEntrarAcesse sua central de crescimentoE-mailSenhaEsqueci minha senhaEntrarNão tem conta? Criar contaWhatsApp Growth OS(self.__next_f=self.__next_f||[]).push([0])self.__next_f.push([1,\"1:\\\"$Sreact.fragment\\\"\\n2:I[9766,[],\\\"\\\"]\\n3:I[8924,[],\\\"\\\"]\\n4:I[1959,[],\\\"ClientPageRoot\\\"]\\n5:I[17,[\\\"573",
+      "controls": [
+        {
+          "href": "/",
+          "tag": "a",
+          "text": "",
+          "type": null
+        },
+        {
+          "href": null,
+          "tag": "input",
+          "text": "voce@email.com",
+          "type": "email"
+        },
+        {
+          "href": null,
+          "tag": "input",
+          "text": "••••••••",
+          "type": "password"
+        },
+        {
+          "href": "/forgot-password",
+          "tag": "a",
+          "text": "Esqueci minha senha",
+          "type": null
+        },
+        {
+          "href": null,
+          "tag": "button",
+          "text": "Entrar",
+          "type": "submit"
+        },
+        {
+          "href": "/signup",
+          "tag": "a",
+          "text": "Criar conta",
+          "type": null
+        }
+      ],
+      "h1": "Entrar",
+      "mainText": "HUBFLOWEntrarAcesse sua central de crescimentoE-mailSenhaEsqueci minha senhaEntrarNão tem conta? Criar contaWhatsApp Growth OS(self.__next_f=self.__next_f||[]).push([0])self.__next_f.push([1,\"1:\\\"$Sreact.fragment\\\"\\n2:I[9766,[],\\\"\\\"]\\n3:I[8924,[],\\\"\\\"]\\n4:I[1959,[],\\\"ClientPageRoot\\\"]\\n5:I[17,[\\\"5730\\\",\\\"static/chunks/44530001-a2d65df546af1ff5.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"2151\\\",\\\"static/chunks/2151-07355ae14ac08cc6.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"5\\\",\\\"static/chunks/5-7d8467ebd0cd97cc.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"445\\\",\\\"static/chunks/445-bb6a4e9f6953b066.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"4520\\\",\\\"static/chunks/app/login/page-4adad6a20568d",
+      "navText": ""
+    }
+  },
+  {
+    "name": "05-campaigns",
+    "requestedUrl": "https://hubflow-groups.vercel.app/campaigns",
+    "finalUrl": "https://hubflow-groups.vercel.app/login?next=%2Fcampaigns",
+    "title": "HUBFLOW - Broadcast & Gestao de Grupos",
+    "file": "C:/Users/Igor/Desktop/HubFlow-platform/docs/design-audit/hubflow-product-audit-2026-06-24/05-campaigns.png",
+    "info": {
+      "bodyTextStart": "HUBFLOWEntrarAcesse sua central de crescimentoE-mailSenhaEsqueci minha senhaEntrarNão tem conta? Criar contaWhatsApp Growth OS(self.__next_f=self.__next_f||[]).push([0])self.__next_f.push([1,\"1:\\\"$Sreact.fragment\\\"\\n2:I[9766,[],\\\"\\\"]\\n3:I[8924,[],\\\"\\\"]\\n4:I[1959,[],\\\"ClientPageRoot\\\"]\\n5:I[17,[\\\"573",
+      "controls": [
+        {
+          "href": "/",
+          "tag": "a",
+          "text": "",
+          "type": null
+        },
+        {
+          "href": null,
+          "tag": "input",
+          "text": "voce@email.com",
+          "type": "email"
+        },
+        {
+          "href": null,
+          "tag": "input",
+          "text": "••••••••",
+          "type": "password"
+        },
+        {
+          "href": "/forgot-password",
+          "tag": "a",
+          "text": "Esqueci minha senha",
+          "type": null
+        },
+        {
+          "href": null,
+          "tag": "button",
+          "text": "Entrar",
+          "type": "submit"
+        },
+        {
+          "href": "/signup",
+          "tag": "a",
+          "text": "Criar conta",
+          "type": null
+        }
+      ],
+      "h1": "Entrar",
+      "mainText": "HUBFLOWEntrarAcesse sua central de crescimentoE-mailSenhaEsqueci minha senhaEntrarNão tem conta? Criar contaWhatsApp Growth OS(self.__next_f=self.__next_f||[]).push([0])self.__next_f.push([1,\"1:\\\"$Sreact.fragment\\\"\\n2:I[9766,[],\\\"\\\"]\\n3:I[8924,[],\\\"\\\"]\\n4:I[1959,[],\\\"ClientPageRoot\\\"]\\n5:I[17,[\\\"5730\\\",\\\"static/chunks/44530001-a2d65df546af1ff5.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"2151\\\",\\\"static/chunks/2151-07355ae14ac08cc6.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"5\\\",\\\"static/chunks/5-7d8467ebd0cd97cc.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"445\\\",\\\"static/chunks/445-bb6a4e9f6953b066.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"4520\\\",\\\"static/chunks/app/login/page-4adad6a20568d",
+      "navText": ""
+    }
+  },
+  {
+    "name": "06-crescer",
+    "requestedUrl": "https://hubflow-groups.vercel.app/crescer",
+    "finalUrl": "https://hubflow-groups.vercel.app/login?next=%2Fcrescer",
+    "title": "HUBFLOW - Broadcast & Gestao de Grupos",
+    "file": "C:/Users/Igor/Desktop/HubFlow-platform/docs/design-audit/hubflow-product-audit-2026-06-24/06-crescer.png",
+    "info": {
+      "bodyTextStart": "HUBFLOWEntrarAcesse sua central de crescimentoE-mailSenhaEsqueci minha senhaEntrarNão tem conta? Criar contaWhatsApp Growth OS(self.__next_f=self.__next_f||[]).push([0])self.__next_f.push([1,\"1:\\\"$Sreact.fragment\\\"\\n2:I[9766,[],\\\"\\\"]\\n3:I[8924,[],\\\"\\\"]\\n4:I[1959,[],\\\"ClientPageRoot\\\"]\\n5:I[17,[\\\"573",
+      "controls": [
+        {
+          "href": "/",
+          "tag": "a",
+          "text": "",
+          "type": null
+        },
+        {
+          "href": null,
+          "tag": "input",
+          "text": "voce@email.com",
+          "type": "email"
+        },
+        {
+          "href": null,
+          "tag": "input",
+          "text": "••••••••",
+          "type": "password"
+        },
+        {
+          "href": "/forgot-password",
+          "tag": "a",
+          "text": "Esqueci minha senha",
+          "type": null
+        },
+        {
+          "href": null,
+          "tag": "button",
+          "text": "Entrar",
+          "type": "submit"
+        },
+        {
+          "href": "/signup",
+          "tag": "a",
+          "text": "Criar conta",
+          "type": null
+        }
+      ],
+      "h1": "Entrar",
+      "mainText": "HUBFLOWEntrarAcesse sua central de crescimentoE-mailSenhaEsqueci minha senhaEntrarNão tem conta? Criar contaWhatsApp Growth OS(self.__next_f=self.__next_f||[]).push([0])self.__next_f.push([1,\"1:\\\"$Sreact.fragment\\\"\\n2:I[9766,[],\\\"\\\"]\\n3:I[8924,[],\\\"\\\"]\\n4:I[1959,[],\\\"ClientPageRoot\\\"]\\n5:I[17,[\\\"5730\\\",\\\"static/chunks/44530001-a2d65df546af1ff5.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"2151\\\",\\\"static/chunks/2151-07355ae14ac08cc6.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"5\\\",\\\"static/chunks/5-7d8467ebd0cd97cc.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"445\\\",\\\"static/chunks/445-bb6a4e9f6953b066.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"4520\\\",\\\"static/chunks/app/login/page-4adad6a20568d",
+      "navText": ""
+    }
+  },
+  {
+    "name": "07-settings",
+    "requestedUrl": "https://hubflow-groups.vercel.app/settings",
+    "finalUrl": "https://hubflow-groups.vercel.app/login?next=%2Fsettings",
+    "title": "HUBFLOW - Broadcast & Gestao de Grupos",
+    "file": "C:/Users/Igor/Desktop/HubFlow-platform/docs/design-audit/hubflow-product-audit-2026-06-24/07-settings.png",
+    "info": {
+      "bodyTextStart": "HUBFLOWEntrarAcesse sua central de crescimentoE-mailSenhaEsqueci minha senhaEntrarNão tem conta? Criar contaWhatsApp Growth OS(self.__next_f=self.__next_f||[]).push([0])self.__next_f.push([1,\"1:\\\"$Sreact.fragment\\\"\\n2:I[9766,[],\\\"\\\"]\\n3:I[8924,[],\\\"\\\"]\\n4:I[1959,[],\\\"ClientPageRoot\\\"]\\n5:I[17,[\\\"573",
+      "controls": [
+        {
+          "href": "/",
+          "tag": "a",
+          "text": "",
+          "type": null
+        },
+        {
+          "href": null,
+          "tag": "input",
+          "text": "voce@email.com",
+          "type": "email"
+        },
+        {
+          "href": null,
+          "tag": "input",
+          "text": "••••••••",
+          "type": "password"
+        },
+        {
+          "href": "/forgot-password",
+          "tag": "a",
+          "text": "Esqueci minha senha",
+          "type": null
+        },
+        {
+          "href": null,
+          "tag": "button",
+          "text": "Entrar",
+          "type": "submit"
+        },
+        {
+          "href": "/signup",
+          "tag": "a",
+          "text": "Criar conta",
+          "type": null
+        }
+      ],
+      "h1": "Entrar",
+      "mainText": "HUBFLOWEntrarAcesse sua central de crescimentoE-mailSenhaEsqueci minha senhaEntrarNão tem conta? Criar contaWhatsApp Growth OS(self.__next_f=self.__next_f||[]).push([0])self.__next_f.push([1,\"1:\\\"$Sreact.fragment\\\"\\n2:I[9766,[],\\\"\\\"]\\n3:I[8924,[],\\\"\\\"]\\n4:I[1959,[],\\\"ClientPageRoot\\\"]\\n5:I[17,[\\\"5730\\\",\\\"static/chunks/44530001-a2d65df546af1ff5.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"2151\\\",\\\"static/chunks/2151-07355ae14ac08cc6.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"5\\\",\\\"static/chunks/5-7d8467ebd0cd97cc.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"445\\\",\\\"static/chunks/445-bb6a4e9f6953b066.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"4520\\\",\\\"static/chunks/app/login/page-4adad6a20568d",
+      "navText": ""
+    }
+  }
+]

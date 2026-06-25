@@ -1,0 +1,42 @@
+[
+  {
+    "name": "01-home-viewport",
+    "file": "C:/Users/Igor/Desktop/HubFlow-platform/docs/design-audit/hubflow-product-audit-2026-06-24/01-home-viewport.png",
+    "h1": "Encha seus grupos de revendedora nova e venda todo dia — no piloto automático, do seu celular",
+    "text": "HUBFLOWWhatsApp Growth OSPlanosEntrarCriar contaFeito para atacadista de moda — Brás, Madrugada, Mega ModaEncha seus grupos de revendedora nova e venda todo dia — no piloto automático, do seu celularO HUBFLOW conecta o SEU WhatsApp, traz revendedora nova, dispara suas ofertas e mostra quem comprou e quanto você vendeu. Tudo simples, do jeito do lojista — sem planilha, sem gestor caro.Quero encher meus grupos e vender maisVer como funciona ↓Conecta em 2 minutos · Funciona no seu número · Seus con",
+    "title": "HUBFLOW — Lote seus grupos de WhatsApp e venda mais, no automático",
+    "url": "https://hubflow-groups.vercel.app/"
+  },
+  {
+    "name": "02-login-viewport",
+    "file": "C:/Users/Igor/Desktop/HubFlow-platform/docs/design-audit/hubflow-product-audit-2026-06-24/02-login-viewport.png",
+    "h1": "Entrar",
+    "text": "HUBFLOWEntrarAcesse sua central de crescimentoE-mailSenhaEsqueci minha senhaEntrarNão tem conta? Criar contaWhatsApp Growth OS(self.__next_f=self.__next_f||[]).push([0])self.__next_f.push([1,\"1:\\\"$Sreact.fragment\\\"\\n2:I[9766,[],\\\"\\\"]\\n3:I[8924,[],\\\"\\\"]\\n4:I[1959,[],\\\"ClientPageRoot\\\"]\\n5:I[17,[\\\"5730\\\",\\\"static/chunks/44530001-a2d65df546af1ff5.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"2151\\\",\\\"static/chunks/2151-07355ae14ac08cc6.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"5\\\",\\\"static/chunks/5",
+    "title": "HUBFLOW - Broadcast & Gestao de Grupos",
+    "url": "https://hubflow-groups.vercel.app/login"
+  },
+  {
+    "name": "03-signup-viewport",
+    "file": "C:/Users/Igor/Desktop/HubFlow-platform/docs/design-audit/hubflow-product-audit-2026-06-24/03-signup-viewport.png",
+    "h1": "Criar sua conta",
+    "text": "HUBFLOWCriar sua contaComece a lotar seus grupos hojeSeu nomeE-mailSenhaCriar contaJá tem conta? EntrarWhatsApp Growth OS(self.__next_f=self.__next_f||[]).push([0])self.__next_f.push([1,\"1:\\\"$Sreact.fragment\\\"\\n2:I[9766,[],\\\"\\\"]\\n3:I[8924,[],\\\"\\\"]\\n4:I[1959,[],\\\"ClientPageRoot\\\"]\\n5:I[4180,[\\\"5730\\\",\\\"static/chunks/44530001-a2d65df546af1ff5.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"2151\\\",\\\"static/chunks/2151-07355ae14ac08cc6.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"5\\\",\\\"static/chunks/5-7d",
+    "title": "HUBFLOW - Broadcast & Gestao de Grupos",
+    "url": "https://hubflow-groups.vercel.app/signup"
+  },
+  {
+    "name": "04-protected-hoje-login-wall",
+    "file": "C:/Users/Igor/Desktop/HubFlow-platform/docs/design-audit/hubflow-product-audit-2026-06-24/04-protected-hoje-login-wall.png",
+    "h1": "Entrar",
+    "text": "HUBFLOWEntrarAcesse sua central de crescimentoE-mailSenhaEsqueci minha senhaEntrarNão tem conta? Criar contaWhatsApp Growth OS(self.__next_f=self.__next_f||[]).push([0])self.__next_f.push([1,\"1:\\\"$Sreact.fragment\\\"\\n2:I[9766,[],\\\"\\\"]\\n3:I[8924,[],\\\"\\\"]\\n4:I[1959,[],\\\"ClientPageRoot\\\"]\\n5:I[17,[\\\"5730\\\",\\\"static/chunks/44530001-a2d65df546af1ff5.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"2151\\\",\\\"static/chunks/2151-07355ae14ac08cc6.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"5\\\",\\\"static/chunks/5",
+    "title": "HUBFLOW - Broadcast & Gestao de Grupos",
+    "url": "https://hubflow-groups.vercel.app/login?next=%2Fhoje"
+  },
+  {
+    "name": "05-protected-campaigns-login-wall",
+    "file": "C:/Users/Igor/Desktop/HubFlow-platform/docs/design-audit/hubflow-product-audit-2026-06-24/05-protected-campaigns-login-wall.png",
+    "h1": "Entrar",
+    "text": "HUBFLOWEntrarAcesse sua central de crescimentoE-mailSenhaEsqueci minha senhaEntrarNão tem conta? Criar contaWhatsApp Growth OS(self.__next_f=self.__next_f||[]).push([0])self.__next_f.push([1,\"1:\\\"$Sreact.fragment\\\"\\n2:I[9766,[],\\\"\\\"]\\n3:I[8924,[],\\\"\\\"]\\n4:I[1959,[],\\\"ClientPageRoot\\\"]\\n5:I[17,[\\\"5730\\\",\\\"static/chunks/44530001-a2d65df546af1ff5.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"2151\\\",\\\"static/chunks/2151-07355ae14ac08cc6.js?dpl=dpl_Ab8sCzpLXvrmYrqHSiveNwAB1YBN\\\",\\\"5\\\",\\\"static/chunks/5",
+    "title": "HUBFLOW - Broadcast & Gestao de Grupos",
+    "url": "https://hubflow-groups.vercel.app/login?next=%2Fcampaigns"
+  }
+]
