@@ -579,10 +579,12 @@ function CampaignCard({
           </div>
 
           <div className="rounded-xl border border-brand-200 bg-brand-50/70 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Proximo passo</p>
-            <p className="mt-2 text-base font-semibold text-slate-950">{nextStep.title}</p>
-            <p className="mt-1 text-sm text-slate-600">{nextStep.description}</p>
-            <div className="mt-3">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Acao principal</p>
+                <p className="mt-2 text-base font-semibold text-slate-950">{nextStep.title}</p>
+                <p className="mt-1 text-sm text-slate-600">{nextStep.description}</p>
+              </div>
               {overview.primaryAction.kind === "copy_link" ? (
                 <CopyLinkButton url={copyLink} disabled={!copyLink} variant="primary" label={nextStep.actionLabel} />
               ) : (
@@ -592,16 +594,15 @@ function CampaignCard({
                 </Button>
               )}
             </div>
-          </div>
 
-          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Link da campanha</p>
-            <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
-              <code className="min-w-0 flex-1 truncate rounded-lg bg-white px-3 py-2 text-xs text-slate-600 ring-1 ring-slate-200">
-                {masterLink || "Link sendo preparado"}
-              </code>
-              <CopyLinkButton url={copyLink} disabled={!copyLink} />
-            </div>
+            {overview.primaryAction.kind === "copy_link" && (
+              <div className="mt-3 rounded-lg bg-white p-2 ring-1 ring-brand-100">
+                <p className="text-xs font-medium text-slate-500">Link para divulgar</p>
+                <code className="mt-1 block truncate text-xs text-slate-700">
+                  {copyLink || masterLink || "Link sendo preparado"}
+                </code>
+              </div>
+            )}
           </div>
 
           <div>
@@ -631,23 +632,9 @@ function CampaignCard({
           )}
 
           <div className="flex flex-col gap-2 sm:flex-row">
-            {overview.primaryAction.kind === "copy_link" ? (
-              <CopyLinkButton
-                url={copyLink}
-                disabled={!copyLink}
-                className="sm:flex-1"
-                variant="primary"
-                label={nextStep.actionLabel}
-              />
-            ) : (
-              <Button className="sm:flex-1" onClick={onPrimaryAction}>
-                {nextStep.actionLabel}
-                <ChevronDown className={cn("h-4 w-4 transition", expanded && "rotate-180")} />
-              </Button>
-            )}
             <Button variant="outline" className="sm:flex-1" onClick={onToggleExpand}>
               <Users className="h-4 w-4" />
-              Grupos
+              {expanded ? "Ocultar grupos" : "Ver grupos"}
               <ChevronDown className={cn("h-4 w-4 transition", expanded && "rotate-180")} />
             </Button>
             <Link
