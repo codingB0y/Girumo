@@ -1596,6 +1596,39 @@ Decisao/resultados:
 
 - ajuste feito apos logs Vercel indicarem erro `ENOENT` em `GET /hoje`.
 
+### 2026-06-24 - Pos-Fase 8 - Env Publica Supabase No Bundle Client
+
+Area afetada:
+
+- frontend;
+- Supabase client;
+- billing/plano e assinatura;
+- runtime Vercel.
+
+Tipo de alteracao:
+
+- correcao de leitura de env publica no client bundle.
+
+Resumo:
+
+- `getSupabaseBrowserClient()` deixou de ler env publica por chave dinamica `process.env[name]`;
+- passou a acessar diretamente `process.env.NEXT_PUBLIC_SUPABASE_URL` e `process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY`;
+- isso permite que o Next.js injete os valores no bundle client.
+
+Impacto:
+
+- corrige erro `Variavel publica obrigatoria ausente: NEXT_PUBLIC_SUPABASE_URL` ao abrir areas client-side como Plano e assinatura;
+- nao altera envs server-side nem Supabase Auth.
+
+Arquivos principais:
+
+- `apps/web/src/lib/supabase/client.ts`
+- `docs/FASE_1_AUDITORIA_CODIGO_ATUAL.md`
+
+Decisao/resultados:
+
+- ajuste feito apos login funcionar, mas painel de plano/assinatura falhar no browser.
+
 ### 2026-06-24 - Pos-Fase 8 - Diagnostico De PSQL No Apply Supabase
 
 Area afetada:
