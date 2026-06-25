@@ -1629,6 +1629,41 @@ Decisao/resultados:
 
 - ajuste feito apos login funcionar, mas painel de plano/assinatura falhar no browser.
 
+### 2026-06-24 - Pos-Fase 8 - Tenant Context Aceita Cookie De Sessao
+
+Area afetada:
+
+- billing;
+- APIs autenticadas;
+- tenant context;
+- sessao.
+
+Tipo de alteracao:
+
+- compatibilidade de autenticacao server-side.
+
+Resumo:
+
+- `getTenantContext()` continua aceitando `Authorization: Bearer <access_token>`;
+- quando Bearer nao existe, a funcao agora valida o cookie `dz_session`;
+- se autenticado por cookie, busca e-mail via Supabase Admin Auth para criar customer Stripe;
+- membership continua sendo validada no banco antes de liberar tenant/role.
+
+Impacto:
+
+- corrige falhas em chamadas como checkout quando a sessao Supabase client-side nao foi persistida;
+- mantem isolamento por tenant e permissao Owner/Admin;
+- aproveita o mesmo cookie usado pelo middleware.
+
+Arquivos principais:
+
+- `apps/web/src/lib/supabase/tenant-context.ts`
+- `docs/FASE_1_AUDITORIA_CODIGO_ATUAL.md`
+
+Decisao/resultados:
+
+- ajuste feito apos planos carregarem, mas checkout retornar indisponivel.
+
 ### 2026-06-24 - Pos-Fase 8 - Diagnostico De PSQL No Apply Supabase
 
 Area afetada:

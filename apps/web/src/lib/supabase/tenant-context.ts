@@ -1,5 +1,6 @@
 import "server-only";
 import { getSupabaseAdmin, getSupabaseAnonForToken } from "@/lib/supabase/server";
+import { SESSION_COOKIE, verifySession } from "@/lib/auth";
 
 export type TenantRole = "owner" | "admin" | "operator";
 
@@ -18,24 +19,48 @@ function getBearerToken(req: Request): string | null {
   return token;
 }
 
+function getCookie(req: Request, name: string): string | null {
+  const cookie = req.headers.get("cookie");
+  if (!cookie) return null;
+
+  for (const part of cookie.split(";")) {
+    const [key, ...value] = part.trim().split("=");
+    if (key === name) return decodeURIComponent(value.join("="));
+  }
+
+  return null;
+}
+
 export async function getTenantContext(req: Request): Promise<TenantContext> {
   const accessToken = getBearerToken(req);
-  if (!accessToken) throw new Response("Nao autenticado.", { status: 401 });
+  const supabase = getSupabaseAdmin();
+  let authUserId: string | null = null;
+  let email: string | null = null;
 
-  const authClient = getSupabaseAnonForToken(accessToken);
-  const { data: userData, error: userError } = await authClient.auth.getUser(accessToken);
+  if (accessToken) {
+    const authClient = getSupabaseAnonForToken(accessToken);
+    const { data: userData, error: userError } = await authClient.auth.getUser(accessToken);
 
-  if (userError || !userData.user) {
-    throw new Response("Sessao Supabase invalida.", { status: 401 });
+    if (userError || !userData.user) {
+      throw new Response("Sessao Supabase invalida.", { status: 401 });
+    }
+
+    authUserId = userData.user.id;
+    email = userData.user.email ?? null;
+  } else {
+    authUserId = await verifySession(getCookie(req, SESSION_COOKIE));
+    if (!authUserId) throw new Response("Nao autenticado.", { status: 401 });
+
+    const { data: userData } = await supabase.auth.admin.getUserById(authUserId);
+    email = userData.user?.email ?? null;
   }
 
   const requestedTenantId = req.headers.get("x-tenant-id");
-  const supabase = getSupabaseAdmin();
 
   let query = supabase
     .from("memberships")
     .select("tenant_id, role")
-    .eq("user_id", userData.user.id)
+    .eq("user_id", authUserId)
     .not("accepted_at", "is", null)
     .order("created_at", { ascending: true })
     .limit(1);
@@ -50,8 +75,8 @@ export async function getTenantContext(req: Request): Promise<TenantContext> {
   }
 
   return {
-    authUserId: userData.user.id,
-    email: userData.user.email ?? null,
+    authUserId,
+    email,
     tenantId: membership.tenant_id,
     role: membership.role,
   };
@@ -62,4 +87,3 @@ export function assertBillingRole(ctx: TenantContext): void {
     throw new Response("Sem permissao para billing.", { status: 403 });
   }
 }
-
