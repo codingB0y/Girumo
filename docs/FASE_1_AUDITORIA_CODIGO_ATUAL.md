@@ -1350,6 +1350,257 @@ Decisao/resultados:
 - `tsc --noEmit --project tsconfig.json` passou;
 - `npm --prefix apps/web run build` passou sem warnings.
 
+### 2026-06-24 - Pos-Fase 8 - Base Visual Operacional E Navegacao Agrupada
+
+Area afetada:
+
+- design system;
+- navegacao desktop;
+- navegacao mobile;
+- topbar;
+- experiencia operacional do app.
+
+Tipo de alteracao:
+
+- refinamento visual e reorganizacao da navegacao principal.
+
+Resumo:
+
+- reduzidos gradientes, fundos decorativos e sombras fortes para aproximar o produto de um SaaS operacional;
+- tokens globais passaram a usar fundo neutro, sombras discretas e raio base de 8px;
+- cards, botoes e inputs foram ajustados para componentes mais densos e consistentes;
+- menu lateral passou a ser organizado por secoes: Operacao, Crescimento, WhatsApp, Campanhas e Sistema;
+- navegacao mobile passou a refletir os mesmos grupos do desktop;
+- topbar foi simplificada com status de WhatsApp, seletor de campanha em telas largas e avatar mais compacto.
+
+Impacto:
+
+- melhora a leitura rapida do produto para uso diario;
+- reduz a sensacao de landing page dentro do painel;
+- deixa a estrutura pronta para redesenhar telas criticas como `settings` e `hoje` com padrao visual mais maduro.
+
+Arquivos principais:
+
+- `apps/web/src/app/globals.css`
+- `apps/web/src/components/ui/card.tsx`
+- `apps/web/src/components/ui/button.tsx`
+- `apps/web/src/components/ui/input.tsx`
+- `apps/web/src/components/sidebar.tsx`
+- `apps/web/src/components/mobile-nav.tsx`
+- `apps/web/src/components/topbar.tsx`
+- `docs/FASE_1_AUDITORIA_CODIGO_ATUAL.md`
+
+Decisao/resultados:
+
+- `npm run verify:local` passou;
+- build Next.js 15.5.19 concluiu sem erros;
+- proxima etapa recomendada: redesenhar `settings`, por concentrar billing, plano, instancias, membros e auditoria.
+
+### 2026-06-24 - Pos-Fase 8 - Redesign Operacional De Configuracoes
+
+Area afetada:
+
+- tela `/settings`;
+- billing;
+- membros;
+- instancias;
+- auditoria;
+- LGPD e opt-out;
+- configuracao de boas-vindas.
+
+Tipo de alteracao:
+
+- redesign de tela critica pos-login sem alterar contratos de API.
+
+Resumo:
+
+- `settings` passou a ter resumo operacional no topo para WhatsApp, boas-vindas e opt-out;
+- textos corrompidos por encoding foram substituidos por copys ASCII consistentes;
+- cards internos foram reorganizados em layout mais escaneavel para plano, equipe, instancias e logs;
+- conexao WhatsApp, limites de envio, boas-vindas e LGPD passaram a seguir o novo padrao visual neutro;
+- seletor de perfil em membros foi ajustado para raio visual consistente com o design system.
+
+Impacto:
+
+- reduz friccao para operar assinatura, equipe e conexao WhatsApp depois do login;
+- preserva comportamento existente de `/api/session`, `/api/welcome`, `/api/optout`, billing, membros, instancias e logs;
+- melhora legibilidade e responsividade sem introduzir dependencia nova.
+
+Arquivos principais:
+
+- `apps/web/src/app/(app)/settings/page.tsx`
+- `apps/web/src/components/members-panel.tsx`
+- `docs/FASE_1_AUDITORIA_CODIGO_ATUAL.md`
+
+Decisao/resultados:
+
+- `npm run verify:local` passou;
+- build Next.js 15.5.19 concluiu sem erros;
+- proxima etapa recomendada: redesenhar `/hoje`, por ser a tela principal de operacao diaria.
+
+### 2026-06-24 - Pos-Fase 8 - Redesign Operacional Da Tela Hoje
+
+Area afetada:
+
+- tela `/hoje`;
+- painel diario;
+- funil operacional;
+- score de negocio;
+- recompra;
+- rotina diaria.
+
+Tipo de alteracao:
+
+- redesign da tela principal de operacao diaria sem alterar fonte de dados.
+
+Resumo:
+
+- removido hero escuro com gradientes, glows e estetica promocional;
+- tela passou a abrir com painel operacional neutro, KPIs e meta semanal;
+- textos corrompidos por encoding foram substituidos por copys ASCII consistentes;
+- metricas principais foram reorganizadas em tiles densos;
+- bloco de recompra, funil, proxima acao, saude do negocio e rotina diaria foram mantidos com visual mais escaneavel;
+- a pagina segue usando `getResultsOverview()` e os componentes existentes de funil, saude e checklist.
+
+Impacto:
+
+- melhora a usabilidade da primeira tela pos-login;
+- reduz ruido visual e deixa a operacao mais rapida de ler;
+- preserva comportamento e contratos existentes.
+
+Arquivos principais:
+
+- `apps/web/src/app/(app)/hoje/page.tsx`
+- `docs/FASE_1_AUDITORIA_CODIGO_ATUAL.md`
+
+Decisao/resultados:
+
+- `npm run verify:local` passou;
+- build Next.js 15.5.19 concluiu sem erros;
+- proxima etapa recomendada: revisar telas de crescimento/leads/campanhas para alinhar o restante do produto ao novo padrao.
+
+### 2026-06-24 - Pos-Fase 8 - Redesign Operacional De Leads
+
+Area afetada:
+
+- tela `/leads`;
+- filtros de status;
+- tabela de leads;
+- acoes de pedido, status e exclusao;
+- privacidade visual de telefone.
+
+Tipo de alteracao:
+
+- redesign de tela operacional sem alterar contratos de API.
+
+Resumo:
+
+- tela de revendedoras passou a usar fundo neutro e largura maxima consistente com o painel;
+- cards de resumo foram padronizados para Novo, Ativo e Comprou;
+- filtros e acoes foram agrupados em uma barra dedicada;
+- tabela recebeu cabecalho neutro, skeletons ajustados e controles com raio visual consistente;
+- textos corrompidos por encoding foram substituidos por copys ASCII;
+- comportamento existente de `/api/leads`, `/api/groups` e `/api/orders` foi preservado.
+
+Impacto:
+
+- melhora escaneabilidade da lista de revendedoras;
+- reduz ruido visual em uma tela de uso recorrente;
+- mantem privacidade de telefone mascarado e exclusao local.
+
+Arquivos principais:
+
+- `apps/web/src/app/(app)/leads/page.tsx`
+- `docs/FASE_1_AUDITORIA_CODIGO_ATUAL.md`
+
+Decisao/resultados:
+
+- `npm run verify:local` passou;
+- build Next.js 15.5.19 concluiu sem erros;
+- proxima etapa recomendada: redesenhar `/campaigns` e `/crescer`, que ainda possuem gradientes fortes e textos com encoding quebrado.
+
+### 2026-06-24 - Pos-Fase 8 - Redesign Operacional De Campanhas
+
+Area afetada:
+
+- tela `/campaigns`;
+- criacao de ofertas;
+- lista de campanhas;
+- upload de midia;
+- enquete;
+- marcacao de todos;
+- fila de envio.
+
+Tipo de alteracao:
+
+- redesign de tela operacional sem alterar contratos de API.
+
+Resumo:
+
+- pagina passou a usar layout de console com resumo, lista de campanhas e painel lateral de criacao;
+- removidos textos corrompidos por encoding e emojis quebrados;
+- cards de campanhas receberam estados, progresso e acoes mais claros;
+- criador de oferta manteve nome, mensagem, midia, previa, grupos, enquete e marcar todos;
+- upload continua usando `/api/media`, campanhas usam `/api/broadcasts` e envio usa `/api/dispatch`;
+- controles foram padronizados com raio de 8px e visual neutro.
+
+Impacto:
+
+- melhora a rotina de criacao e envio de ofertas;
+- reduz risco de erro operacional ao separar fila/lista de formulario;
+- preserva comportamento existente da engine e dos endpoints.
+
+Arquivos principais:
+
+- `apps/web/src/app/(app)/campaigns/page.tsx`
+- `docs/FASE_1_AUDITORIA_CODIGO_ATUAL.md`
+
+Decisao/resultados:
+
+- `npm run verify:local` passou;
+- build Next.js 15.5.19 concluiu sem erros;
+- proxima etapa recomendada: redesenhar `/crescer` para remover wizard promocional e alinhar o fluxo ao padrao operacional.
+
+### 2026-06-24 - Pos-Fase 8 - Redesign Operacional Do Fluxo Crescer
+
+Area afetada:
+
+- tela `/crescer`;
+- selecao de objetivo;
+- wizard de venda;
+- wizard de reativacao;
+- agendamento;
+- revisao antes do envio.
+
+Tipo de alteracao:
+
+- redesign de fluxo guiado sem alterar contratos de API.
+
+Resumo:
+
+- removidos gradientes fortes, cards grandes promocionais e textos corrompidos por encoding;
+- selecao inicial passou a separar trafego novo, venda para base atual e reativacao;
+- wizard passou a exibir etapas laterais com progresso claro;
+- fluxo manteve escolha de grupo, templates, mensagem, destinos, envio imediato/agendado e revisao;
+- criacao continua usando `/api/broadcasts`, agendamento usa `/api/schedules` e envio imediato usa `/api/dispatch`.
+
+Impacto:
+
+- melhora previsibilidade do fluxo de crescimento;
+- reduz aparencia de landing dentro do app;
+- preserva a operacao existente da engine e das campanhas.
+
+Arquivos principais:
+
+- `apps/web/src/app/(app)/crescer/page.tsx`
+- `docs/FASE_1_AUDITORIA_CODIGO_ATUAL.md`
+
+Decisao/resultados:
+
+- `npm run verify:local` passou;
+- build Next.js 15.5.19 concluiu sem erros;
+- proxima etapa recomendada: revisar `/groups`, `/templates`, `/schedules` e `/reports` para completar o padrao visual das rotas operacionais.
+
 ### 2026-06-24 - Pos-Fase 8 - Indice Unificado De Deploy
 
 Area afetada:

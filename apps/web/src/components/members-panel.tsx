@@ -84,7 +84,7 @@ export function MembersPanel() {
           <select
             value={role}
             onChange={(event) => setRole(event.target.value as "admin" | "operator")}
-            className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
+            className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
           >
             <option value="operator">Operator</option>
             <option value="admin">Admin</option>

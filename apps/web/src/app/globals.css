@@ -21,27 +21,23 @@
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 
   /* Sombras em camadas — profundidade premium */
-  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 12px 28px -14px rgba(16, 24, 40, 0.14);
-  --shadow-card-hover: 0 1px 2px rgba(16, 24, 40, 0.05), 0 20px 40px -16px rgba(16, 24, 40, 0.22);
-  --shadow-brand: 0 8px 20px -8px rgba(124, 92, 255, 0.5);
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-card-hover: 0 1px 2px rgba(15, 23, 42, 0.08);
+  --shadow-brand: 0 1px 2px rgba(88, 54, 201, 0.18);
 
   /* Cantos */
-  --radius-xl: 0.85rem;
-  --radius-2xl: 1.1rem;
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.5rem;
 }
 
 :root {
-  --background: #f6f7fb;
+  --background: #f7f8fb;
   --foreground: #0f1222;
 }
 
 html,
 body {
-  background:
-    radial-gradient(1200px 600px at 100% -10%, rgba(124, 92, 255, 0.06), transparent 60%),
-    radial-gradient(900px 500px at -10% 110%, rgba(34, 197, 94, 0.05), transparent 55%),
-    var(--background);
-  background-attachment: fixed;
+  background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
