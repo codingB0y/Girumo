@@ -218,17 +218,30 @@ export default function CampanhaDetailPage() {
         </section>
 
         <section className="rounded-xl border border-brand-200 bg-brand-50/70 p-5 shadow-card">
-          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Proximo passo</p>
-          <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-950">{nextStep.title}</h2>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
+                {overview.primaryAction.kind === "copy_link" ? "Central de divulgacao" : "Acao principal"}
+              </p>
+              <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950">{nextStep.title}</h2>
               <p className="mt-1 text-sm text-slate-600">{nextStep.description}</p>
+
+              {overview.primaryAction.kind === "copy_link" && (
+                <div className="mt-4 rounded-xl bg-white p-3 ring-1 ring-brand-100">
+                  <p className="text-xs font-medium text-slate-500">Link para enviar as clientes</p>
+                  <code className="mt-2 block truncate rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-800 ring-1 ring-slate-200">
+                    {copyLink || overview.masterLink || "Link sendo preparado"}
+                  </code>
+                </div>
+              )}
             </div>
-            {overview.primaryAction.kind === "copy_link" ? (
-              <CopyLinkButton url={copyLink} disabled={!copyLink} variant="primary" label={nextStep.actionLabel} />
-            ) : (
-              <Button onClick={scrollToGroups}>{nextStep.actionLabel}</Button>
-            )}
+            <div className="shrink-0">
+              {overview.primaryAction.kind === "copy_link" ? (
+                <CopyLinkButton url={copyLink} disabled={!copyLink} variant="primary" label={nextStep.actionLabel} />
+              ) : (
+                <Button onClick={scrollToGroups}>{nextStep.actionLabel}</Button>
+              )}
+            </div>
           </div>
         </section>
 
@@ -243,20 +256,6 @@ export default function CampanhaDetailPage() {
 
         <div id="campaign-groups-workspace" className="grid scroll-mt-6 grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="space-y-5">
-            <Card>
-              <CardHeader>
-                <CardTitle>Link da campanha</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <code className="min-w-0 flex-1 truncate rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700 ring-1 ring-slate-200">
-                    {overview.masterLink || "Link sendo preparado"}
-                  </code>
-                  <CopyLinkButton url={copyLink} disabled={!copyLink} />
-                </div>
-              </CardContent>
-            </Card>
-
             <Card>
               <CardHeader className="flex flex-col gap-1">
                 <CardTitle>Grupos desta campanha</CardTitle>
