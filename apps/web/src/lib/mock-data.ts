@@ -8,6 +8,10 @@ export type Engagement = "alto" | "medio" | "baixo";
 export type Group = {
   id: string;
   name: string;
+  /** Nome interno usado no painel, sem alterar o nome real do WhatsApp. */
+  displayNameBase?: string;
+  /** Numero sequencial para familias de grupos: Promocoes 1, Promocoes 2... */
+  displayNumber?: number;
   whatsappGroupId: string;
   members: number;
   capacity: number;

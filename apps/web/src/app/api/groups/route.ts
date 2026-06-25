@@ -44,9 +44,11 @@ export async function PATCH(req: Request) {
   }
   const id = String(b.id ?? "");
   if (!id) return Response.json({ error: "id obrigatório." }, { status: 400 });
-  const patch: { inviteUrl?: string; capacity?: number } = {};
+  const patch: { inviteUrl?: string; capacity?: number; displayNameBase?: string; displayNumber?: number } = {};
   if (typeof b.inviteUrl === "string") patch.inviteUrl = b.inviteUrl.trim();
   if (b.capacity !== undefined && Number(b.capacity) > 0) patch.capacity = Number(b.capacity);
+  if (typeof b.displayNameBase === "string") patch.displayNameBase = b.displayNameBase.trim();
+  if (b.displayNumber !== undefined) patch.displayNumber = Number(b.displayNumber) > 0 ? Number(b.displayNumber) : 0;
   const updated = await updateGroup(id, patch);
   if (!updated) return Response.json({ error: "Grupo não encontrado." }, { status: 404 });
   return Response.json(updated);

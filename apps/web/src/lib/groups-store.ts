@@ -50,6 +50,8 @@ export async function replaceGroups(input: SyncGroupInput[]): Promise<Group[]> {
         selected: old?.selected ?? false,
         engagement: old?.engagement ?? "medio",
         inviteUrl: g.inviteUrl ?? old?.inviteUrl,
+        displayNameBase: old?.displayNameBase,
+        displayNumber: old?.displayNumber,
       };
     });
     await writeFileAtomic(GROUPS_FILE, JSON.stringify(groups, null, 2));
@@ -60,7 +62,7 @@ export async function replaceGroups(input: SyncGroupInput[]): Promise<Group[]> {
 /** Painel define o convite/capacidade de um grupo (necessário p/ o roteamento). */
 export async function updateGroup(
   id: string,
-  patch: Partial<Pick<Group, "inviteUrl" | "capacity">>,
+  patch: Partial<Pick<Group, "inviteUrl" | "capacity" | "displayNameBase" | "displayNumber">>,
 ): Promise<Group | null> {
   return withFileLock(GROUPS_FILE, async () => {
     const groups = await listGroups();
@@ -68,6 +70,8 @@ export async function updateGroup(
     if (!g) return null;
     if (patch.inviteUrl !== undefined) g.inviteUrl = patch.inviteUrl || undefined;
     if (patch.capacity !== undefined && patch.capacity > 0) g.capacity = patch.capacity;
+    if (patch.displayNameBase !== undefined) g.displayNameBase = patch.displayNameBase.trim() || undefined;
+    if (patch.displayNumber !== undefined) g.displayNumber = patch.displayNumber > 0 ? patch.displayNumber : undefined;
     await writeFileAtomic(GROUPS_FILE, JSON.stringify(groups, null, 2));
     return g;
   });
