@@ -3,20 +3,11 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  BarChart3,
-  CalendarClock,
-  FileText,
-  Gift,
   Layers,
-  LayoutDashboard,
-  Link2,
   LogOut,
   MessageCircle,
-  Rocket,
-  Send,
   Settings,
   Sun,
-  Target,
   UserPlus,
   Users,
 } from "lucide-react";
@@ -25,36 +16,12 @@ import { getSupabaseBrowserClient, setActiveTenantId } from "@/lib/supabase/clie
 
 export const navSections = [
   {
-    label: "Operacao",
+    label: "Principal",
     items: [
       { href: "/hoje", label: "Hoje", icon: Sun },
-      { href: "/dashboard", label: "Visao geral", icon: LayoutDashboard },
-      { href: "/reports", label: "Resultados", icon: BarChart3 },
-    ],
-  },
-  {
-    label: "Crescimento",
-    items: [
-      { href: "/crescer", label: "Crescer", icon: Rocket },
-      { href: "/acquisition", label: "Atrair leads", icon: Target },
-      { href: "/links", label: "Origem das entradas", icon: Link2 },
-      { href: "/indicacao", label: "Indicacao", icon: Gift },
-    ],
-  },
-  {
-    label: "WhatsApp",
-    items: [
+      { href: "/campanhas", label: "Campanhas", icon: Layers },
       { href: "/groups", label: "Grupos", icon: Users },
       { href: "/leads", label: "Contatos", icon: UserPlus },
-    ],
-  },
-  {
-    label: "Campanhas",
-    items: [
-      { href: "/campanhas", label: "Campanhas", icon: Layers },
-      { href: "/campaigns", label: "Ofertas", icon: Send },
-      { href: "/templates", label: "Modelos", icon: FileText },
-      { href: "/schedules", label: "Agendamentos", icon: CalendarClock },
     ],
   },
   {

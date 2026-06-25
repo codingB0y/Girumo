@@ -7,9 +7,8 @@ import { listGroups } from "@/lib/groups-store";
 import { listLeads } from "@/lib/leads-store";
 import { listLinks } from "@/lib/store";
 import { listOrders } from "@/lib/orders-store";
-import { referralsColl } from "@/lib/referrals-store";
 import { collection } from "@/lib/json-collection";
-import type { AdCampaign, Campaign } from "@/lib/mock-data";
+import type { Campaign } from "@/lib/mock-data";
 
 type Step = { label: string; help: string; cta: string; href: string; done: boolean };
 
@@ -19,13 +18,11 @@ type Step = { label: string; help: string; cta: string; href: string; done: bool
  * destaca a PRÓXIMA ação única com botão. Some sozinho quando tudo conclui.
  */
 export async function OnboardingChecklist() {
-  const [session, groups, links, leads, ads, refs, broadcasts, orders] = await Promise.all([
+  const [session, groups, links, leads, broadcasts, orders] = await Promise.all([
     getSession(),
     listGroups(),
     listLinks(),
     listLeads(),
-    collection<AdCampaign>("ad-campaigns.json").list(),
-    referralsColl.list(),
     collection<Campaign>("broadcasts.json").list(),
     listOrders(),
   ]);
@@ -33,9 +30,9 @@ export async function OnboardingChecklist() {
   const steps: Step[] = [
     { label: "Conectar o WhatsApp", help: "Rode a engine e escaneie o QR Code — leva 2 minutos.", cta: "Conectar", href: "/settings", done: isLive(session) },
     { label: "Sincronizar seus grupos", help: "A engine puxa os grupos onde você é admin.", cta: "Ver grupos", href: "/groups", done: groups.length > 0 },
-    { label: "Atrair revendedora nova", help: "Monte um anúncio pronto ou gere um link de indicação.", cta: "Atrair agora", href: "/acquisition", done: ads.length > 0 || refs.length > 0 || links.length > 0 },
+    { label: "Criar sua primeira campanha", help: "Escolha os grupos e gere o link para divulgar.", cta: "Criar campanha", href: "/campanhas", done: links.length > 0 },
     { label: "Captar a 1ª revendedora", help: "Quando alguém entra no grupo, aparece aqui automático.", cta: "Ver revendedoras", href: "/leads", done: leads.length > 0 },
-    { label: "Enviar a 1ª oferta", help: "Escolha um modelo e dispare pros seus grupos.", cta: "Criar oferta", href: "/campaigns", done: broadcasts.length > 0 },
+    { label: "Divulgar o link da campanha", help: "Copie o link e envie para suas clientes.", cta: "Ver campanhas", href: "/campanhas", done: broadcasts.length > 0 },
     { label: "Registrar o 1º pedido", help: "Marque uma venda — é assim que você mede o resultado de verdade.", cta: "Registrar pedido", href: "/leads", done: orders.length > 0 },
   ];
 
