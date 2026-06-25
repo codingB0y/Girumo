@@ -313,6 +313,12 @@ export default function CampanhasPage() {
           </Card>
         )}
 
+        <CampaignSetupChecklist
+          groups={groups}
+          overviews={overviews}
+          onCreateCampaign={() => setOpenCreate(true)}
+        />
+
         <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-card lg:flex-row lg:items-center">
           <label className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -388,6 +394,117 @@ export default function CampanhasPage() {
         </div>
       </main>
     </>
+  );
+}
+
+function CampaignSetupChecklist({
+  groups,
+  overviews,
+  onCreateCampaign,
+}: {
+  groups: Group[];
+  overviews: CampaignGroupsOverview[];
+  onCreateCampaign: () => void;
+}) {
+  const hasGroups = groups.length > 0;
+  const hasOrganizedGroups = groups.some((group) => hasInternalGroupName(group));
+  const hasCampaign = overviews.length > 0;
+  const readyCampaign = overviews.find((overview) => overview.operationalStatus === "ready");
+
+  const steps = [
+    {
+      label: "Conectar ou sincronizar grupos",
+      help: "Traga os grupos do WhatsApp para escolher com seguranca.",
+      done: hasGroups,
+      href: "/groups",
+      action: "Ver grupos",
+    },
+    {
+      label: "Organizar nomes dos grupos",
+      help: "Use nomes como Promocoes 1, VIP 2 ou Atacado 3.",
+      done: hasOrganizedGroups,
+      href: "/groups",
+      action: "Organizar",
+    },
+    {
+      label: "Criar campanha",
+      help: "Escolha os grupos que vao receber novas clientes.",
+      done: hasCampaign,
+      onClick: onCreateCampaign,
+      action: "Criar campanha",
+    },
+    {
+      label: "Copiar link e divulgar",
+      help: "Quando a campanha estiver pronta, copie o link e envie para suas clientes.",
+      done: !!readyCampaign,
+      href: readyCampaign ? `/campanhas/${readyCampaign.campaign.id}` : "/campanhas",
+      action: "Copiar link",
+    },
+  ];
+
+  const nextStep = steps.find((step) => !step.done);
+  if (!nextStep) return null;
+
+  const doneCount = steps.filter((step) => step.done).length;
+
+  return (
+    <Card className="border-brand-200 bg-brand-50/70">
+      <CardContent className="p-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-slate-950">Comece por aqui</p>
+            <p className="mt-1 text-sm text-slate-600">{nextStep.help}</p>
+          </div>
+          <span className="text-xs font-medium text-slate-500">{doneCount}/{steps.length} passos</span>
+        </div>
+        <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-4">
+          {steps.map((step) => {
+            const content = (
+              <>
+                {step.done ? (
+                  <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600" />
+                ) : (
+                  <CircleAlert className="h-5 w-5 shrink-0 text-brand-600" />
+                )}
+                <span className="min-w-0 flex-1">
+                  <span className={cn("block text-sm font-medium", step.done ? "text-slate-400 line-through" : "text-slate-900")}>
+                    {step.label}
+                  </span>
+                  {!step.done && <span className="block text-xs text-slate-500">{step.action}</span>}
+                </span>
+              </>
+            );
+
+            const className = cn(
+              "flex items-center gap-3 rounded-xl border px-3 py-3 text-left transition",
+              step.done ? "border-green-100 bg-white/60" : "border-brand-200 bg-white shadow-card hover:bg-brand-50",
+            );
+
+            if (step.onClick && !step.done) {
+              return (
+                <button key={step.label} type="button" onClick={step.onClick} className={className}>
+                  {content}
+                </button>
+              );
+            }
+
+            if (!step.href) {
+              return (
+                <div key={step.label} className={className}>
+                  {content}
+                </div>
+              );
+            }
+
+            return (
+              <Link key={step.label} href={step.href} className={className}>
+                {content}
+              </Link>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
