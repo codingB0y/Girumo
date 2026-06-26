@@ -313,6 +313,12 @@ export default function CampanhasPage() {
           </Card>
         )}
 
+        <CampaignSetupChecklist
+          groups={groups}
+          overviews={overviews}
+          onCreateCampaign={() => setOpenCreate(true)}
+        />
+
         <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-card lg:flex-row lg:items-center">
           <label className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -391,6 +397,120 @@ export default function CampanhasPage() {
   );
 }
 
+function CampaignSetupChecklist({
+  groups,
+  overviews,
+  onCreateCampaign,
+}: {
+  groups: Group[];
+  overviews: CampaignGroupsOverview[];
+  onCreateCampaign: () => void;
+}) {
+  const hasGroups = groups.length > 0;
+  const hasOrganizedGroups = groups.some((group) => hasInternalGroupName(group));
+  const hasCampaign = overviews.length > 0;
+  const readyCampaign = overviews.find((overview) => overview.operationalStatus === "ready");
+
+  const steps = [
+    {
+      label: "Conectar ou sincronizar grupos",
+      help: "Traga os grupos do WhatsApp para escolher com seguranca.",
+      done: hasGroups,
+      href: "/groups",
+      action: "Ver grupos",
+    },
+    {
+      label: "Organizar nomes dos grupos",
+      help: "Use nomes como Promocoes 1, VIP 2 ou Atacado 3.",
+      done: hasOrganizedGroups,
+      href: "/groups",
+      action: "Organizar",
+    },
+    {
+      label: "Criar campanha",
+      help: "Escolha os grupos que vao receber novas clientes.",
+      done: hasCampaign,
+      onClick: onCreateCampaign,
+      action: "Criar campanha",
+    },
+    {
+      label: "Copiar link e divulgar",
+      help: "Quando a campanha estiver pronta, copie o link e envie para suas clientes.",
+      done: !!readyCampaign,
+      href: readyCampaign ? `/campanhas/${readyCampaign.campaign.id}` : "/campanhas",
+      action: "Copiar link",
+    },
+  ];
+
+  const nextStep = steps.find((step) => !step.done);
+  if (!nextStep) return null;
+
+  const doneCount = steps.filter((step) => step.done).length;
+  const nextStepIndex = steps.findIndex((step) => !step.done);
+  const progress = (doneCount / steps.length) * 100;
+
+  const actionClassName =
+    "inline-flex h-10 items-center justify-center rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white shadow-card transition hover:bg-brand-700";
+  const stepNumber = nextStepIndex + 1;
+
+  return (
+    <Card className="border-brand-200 bg-brand-50/70">
+      <CardContent className="p-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-sm font-semibold text-slate-950">Comece por aqui</p>
+              <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-brand-700 shadow-card">
+                Passo {stepNumber} de {steps.length}
+              </span>
+            </div>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
+              <div className="h-full rounded-full bg-brand-600 transition-all" style={{ width: `${progress}%` }} />
+            </div>
+            <div className="mt-4">
+              <p className="text-lg font-semibold text-slate-950">
+                Passo {stepNumber}: {nextStep.label}
+              </p>
+              <p className="mt-1 text-sm text-slate-600">{nextStep.help}</p>
+            </div>
+          </div>
+          <div className="shrink-0">
+            {nextStep.onClick ? (
+              <button type="button" onClick={nextStep.onClick} className={actionClassName}>
+                {nextStep.action}
+              </button>
+            ) : (
+              <Link href={nextStep.href} className={actionClassName}>
+                {nextStep.action}
+              </Link>
+            )}
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-4">
+          {steps.map((step, index) => (
+            <div
+              key={step.label}
+              className={cn(
+                "flex items-center gap-2 rounded-lg border px-3 py-2",
+                step.done ? "border-green-100 bg-white/70 text-slate-400" : "border-brand-200 bg-white text-slate-700",
+              )}
+            >
+              {step.done ? (
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600" />
+              ) : (
+                <CircleAlert className="h-4 w-4 shrink-0 text-brand-600" />
+              )}
+              <span className="truncate text-xs font-medium">
+                {index + 1}. {step.label}
+              </span>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function CampaignCard({
   overview,
   groups,
@@ -459,10 +579,12 @@ function CampaignCard({
           </div>
 
           <div className="rounded-xl border border-brand-200 bg-brand-50/70 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Proximo passo</p>
-            <p className="mt-2 text-base font-semibold text-slate-950">{nextStep.title}</p>
-            <p className="mt-1 text-sm text-slate-600">{nextStep.description}</p>
-            <div className="mt-3">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Acao principal</p>
+                <p className="mt-2 text-base font-semibold text-slate-950">{nextStep.title}</p>
+                <p className="mt-1 text-sm text-slate-600">{nextStep.description}</p>
+              </div>
               {overview.primaryAction.kind === "copy_link" ? (
                 <CopyLinkButton url={copyLink} disabled={!copyLink} variant="primary" label={nextStep.actionLabel} />
               ) : (
@@ -472,16 +594,15 @@ function CampaignCard({
                 </Button>
               )}
             </div>
-          </div>
 
-          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Link da campanha</p>
-            <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
-              <code className="min-w-0 flex-1 truncate rounded-lg bg-white px-3 py-2 text-xs text-slate-600 ring-1 ring-slate-200">
-                {masterLink || "Link sendo preparado"}
-              </code>
-              <CopyLinkButton url={copyLink} disabled={!copyLink} />
-            </div>
+            {overview.primaryAction.kind === "copy_link" && (
+              <div className="mt-3 rounded-lg bg-white p-2 ring-1 ring-brand-100">
+                <p className="text-xs font-medium text-slate-500">Link para divulgar</p>
+                <code className="mt-1 block truncate text-xs text-slate-700">
+                  {copyLink || masterLink || "Link sendo preparado"}
+                </code>
+              </div>
+            )}
           </div>
 
           <div>
@@ -511,23 +632,9 @@ function CampaignCard({
           )}
 
           <div className="flex flex-col gap-2 sm:flex-row">
-            {overview.primaryAction.kind === "copy_link" ? (
-              <CopyLinkButton
-                url={copyLink}
-                disabled={!copyLink}
-                className="sm:flex-1"
-                variant="primary"
-                label={nextStep.actionLabel}
-              />
-            ) : (
-              <Button className="sm:flex-1" onClick={onPrimaryAction}>
-                {nextStep.actionLabel}
-                <ChevronDown className={cn("h-4 w-4 transition", expanded && "rotate-180")} />
-              </Button>
-            )}
             <Button variant="outline" className="sm:flex-1" onClick={onToggleExpand}>
               <Users className="h-4 w-4" />
-              Grupos
+              {expanded ? "Ocultar grupos" : "Ver grupos"}
               <ChevronDown className={cn("h-4 w-4 transition", expanded && "rotate-180")} />
             </Button>
             <Link

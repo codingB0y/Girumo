@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Search, RefreshCw, Users, CheckCheck, Pencil } from "lucide-react";
 import { Topbar } from "@/components/topbar";
@@ -12,6 +13,15 @@ import { useToast } from "@/components/toast";
 import { getGroupDisplayName, hasInternalGroupName } from "@/lib/group-display-name";
 import { type Engagement, type Group } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+
+type GroupFilter = "all" | "unnamed" | "available" | "full";
+
+const groupFilters: Array<{ value: GroupFilter; label: string }> = [
+  { value: "all", label: "Todos" },
+  { value: "unnamed", label: "Sem nome interno" },
+  { value: "available", label: "Disponiveis" },
+  { value: "full", label: "Cheios" },
+];
 
 const engagementTone: Record<Engagement, "green" | "amber" | "slate"> = {
   alto: "green",
@@ -53,6 +63,7 @@ export default function GroupsPage() {
   const toast = useToast();
   const [groups, setGroups] = useState<Group[]>([]);
   const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<GroupFilter>("all");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [displayNameBase, setDisplayNameBase] = useState("");
   const [displayNumber, setDisplayNumber] = useState("");
@@ -88,8 +99,15 @@ export default function GroupsPage() {
     () =>
       groups
         .filter((g) => g.name.toLowerCase().includes(query.toLowerCase()))
+        .filter((g) => {
+          const pct = g.members / Math.max(1, g.capacity);
+          if (filter === "unnamed") return !hasInternalGroupName(g);
+          if (filter === "available") return pct < 0.95;
+          if (filter === "full") return pct >= 0.95;
+          return true;
+        })
         .sort((a, b) => b.members - a.members), // maiores primeiro
-    [groups, query],
+    [groups, query, filter],
   );
 
   const selectedCount = groups.filter((g) => g.selected).length;
@@ -100,6 +118,8 @@ export default function GroupsPage() {
   // Lotação (paridade com o painel do HUBFLOW): cheio ≥ 95% da capacidade (cap ~1024 do WhatsApp).
   const cheios = groups.filter((g) => g.members / Math.max(1, g.capacity) >= 0.95).length;
   const disponiveis = groups.length - cheios;
+  const namedCount = groups.filter((g) => hasInternalGroupName(g)).length;
+  const unnamedCount = groups.length - namedCount;
 
   function toggle(id: string) {
     setGroups((prev) => prev.map((g) => (g.id === id ? { ...g, selected: !g.selected } : g)));
@@ -151,6 +171,27 @@ export default function GroupsPage() {
         subtitle={live ? "Grupos reais onde você é admin" : "Aguardando sincronização da engine"}
       />
       <main className="flex-1 space-y-4 p-6">
+        <Card className="border-brand-200 bg-brand-50/70 p-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-slate-950">Organize seus grupos para campanhas</p>
+              <p className="mt-1 text-sm text-slate-600">
+                De nomes simples como Promocoes 1, Promocoes 2 ou VIP 1 para evitar escolher grupo errado.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:min-w-64">
+              <div className="rounded-lg bg-white px-3 py-2 shadow-card">
+                <p className="text-xs text-slate-500">Organizados</p>
+                <p className="text-lg font-semibold text-green-700">{namedCount}</p>
+              </div>
+              <div className="rounded-lg bg-white px-3 py-2 shadow-card">
+                <p className="text-xs text-slate-500">Faltam nome</p>
+                <p className="text-lg font-semibold text-amber-700">{unnamedCount}</p>
+              </div>
+            </div>
+          </div>
+        </Card>
+
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full sm:max-w-xs">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -173,6 +214,24 @@ export default function GroupsPage() {
           </div>
         </div>
 
+        <div className="flex flex-wrap gap-2">
+          {groupFilters.map((item) => (
+            <button
+              key={item.value}
+              type="button"
+              onClick={() => setFilter(item.value)}
+              className={cn(
+                "rounded-full border px-3 py-1.5 text-sm font-medium transition",
+                filter === item.value
+                  ? "border-brand-600 bg-brand-600 text-white"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300",
+              )}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+
         {/* Lotação dos grupos (cheios x disponíveis) — base do "lotar sozinho" */}
         <div className="grid grid-cols-3 gap-3">
           <KpiChip label="Grupos" value={groups.length} tone="slate" loading={!loaded} />
@@ -187,9 +246,9 @@ export default function GroupsPage() {
               <span className="font-semibold">{selectedMembers.toLocaleString("pt-BR")}</span> membros
               no alcance
             </p>
-            <a href="/campaigns">
+            <Link href="/campanhas">
               <Button size="sm">Criar campanha</Button>
-            </a>
+            </Link>
           </div>
         )}
 
@@ -247,7 +306,7 @@ export default function GroupsPage() {
                   </div>
                   <Button type="button" variant="outline" size="sm" onClick={() => startEdit(g)}>
                     <Pencil className="h-4 w-4" />
-                    Nome
+                    Organizar nome
                   </Button>
                 </div>
                 {editing && (

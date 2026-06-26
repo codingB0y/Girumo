@@ -11,7 +11,8 @@ import { persistSupabaseSession } from "@/lib/supabase/client";
 const routeLabels: Record<string, string> = {
   "/hoje": "Hoje",
   "/leads": "Revendedoras",
-  "/campaigns": "Ofertas",
+  "/campaigns": "Campanhas",
+  "/campanhas": "Campanhas",
   "/crescer": "Crescer",
   "/settings": "Configuracoes",
   "/groups": "Grupos",

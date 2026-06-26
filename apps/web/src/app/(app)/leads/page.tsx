@@ -160,10 +160,10 @@ export default function LeadsPage() {
                   <RefreshCw className={cn("h-4 w-4", syncing && "animate-spin")} />
                   Atualizar
                 </Button>
-                <Link href="/campaigns">
+                <Link href="/campanhas">
                   <Button size="sm" variant="outline">
                     <Send className="h-4 w-4" />
-                    Mensagem em massa
+                    Ver campanhas
                   </Button>
                 </Link>
               </div>

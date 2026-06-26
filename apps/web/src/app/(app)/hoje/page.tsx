@@ -2,14 +2,10 @@ import Link from "next/link";
 import {
   Activity,
   ArrowRight,
-  DollarSign,
   Filter,
   HeartPulse,
   ListChecks,
   RotateCcw,
-  ShoppingBag,
-  Target,
-  TrendingUp,
   UserPlus,
 } from "lucide-react";
 import { DailyChecklist, type ChecklistItem } from "@/components/daily-checklist";
@@ -76,54 +72,38 @@ export default async function HojePage() {
                       <span className={`h-2.5 w-2.5 rounded-full ${tone.dot}`} />
                       <p className="text-sm font-medium text-slate-600">{statusText}</p>
                     </div>
-                    <h1 className="mt-2 text-2xl font-semibold tracking-normal text-slate-950">
-                      Painel de controle do dia
-                    </h1>
+                    <h1 className="mt-2 text-2xl font-semibold tracking-normal text-slate-950">O que fazer agora</h1>
                     <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-                      Acompanhe entradas, pedidos, faturamento e gargalos antes de disparar novas campanhas.
+                      Veja a proxima acao para manter seus grupos recebendo clientes.
                     </p>
                   </div>
                   <Link
-                    href="/acquisition"
+                    href={r.nextAction.href}
                     className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white shadow-brand transition hover:bg-brand-700"
                   >
-                    <TrendingUp className="h-4 w-4" />
-                    Atrair leads
+                    {r.nextAction.cta}
+                    <ArrowRight className="h-4 w-4" />
                   </Link>
                 </div>
 
                 <div className="mt-5 grid gap-3 sm:grid-cols-3">
                   <MetricTile icon={UserPlus} label="Entradas hoje" value={`+${r.entradasHoje}`} />
-                  <MetricTile icon={ShoppingBag} label="Pedidos na semana" value={r.pedidosSemana} />
-                  <MetricTile
-                    icon={DollarSign}
-                    label="Faturamento semanal"
-                    value={`R$ ${Math.round(r.faturamentoSemana).toLocaleString("pt-BR")}`}
-                  />
+                  <MetricTile icon={UserPlus} label="Entradas em 7 dias" value={`+${r.entradasSemana}`} />
+                  <MetricTile icon={HeartPulse} label="Grupos parados" value={r.gruposParados} />
                 </div>
               </div>
 
               <div className="p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-medium text-slate-900">Meta da semana</p>
-                    <p className="text-xs text-slate-500">
-                      {r.meta.current} de {r.meta.goal} revendedoras
-                    </p>
-                  </div>
-                  <span className="text-lg font-semibold text-slate-950">{r.meta.pct}%</span>
-                </div>
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
-                  <div className="h-full rounded-full bg-brand-600 transition-all duration-700" style={{ width: `${r.meta.pct}%` }} />
-                </div>
-                <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Score</p>
-                  <div className="mt-2 flex items-end gap-2">
-                    <span className={`text-4xl font-semibold ${tone.text}`}>{r.score.value}</span>
-                    <span className="pb-1 text-sm text-slate-400">/ 100</span>
-                  </div>
-                  <p className={`mt-1 text-sm font-medium ${tone.text}`}>{tone.label}</p>
-                  <p className="mt-2 text-xs leading-5 text-slate-500">{r.score.reason}</p>
+                <div className={`rounded-lg border p-4 ${ACTION_TONE[r.nextAction.tone]}`}>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Proxima acao</p>
+                  <p className="mt-2 text-base font-semibold leading-6 text-slate-900">{r.nextAction.text}</p>
+                  <Link
+                    href={r.nextAction.href}
+                    className="mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
+                  >
+                    {r.nextAction.cta}
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
                 </div>
               </div>
             </div>
@@ -140,10 +120,10 @@ export default async function HojePage() {
                   </span>
                 </CardTitle>
                 <Link
-                  href="/campaigns"
+                  href="/campanhas"
                   className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-amber-500 px-3 text-sm font-semibold text-white transition hover:bg-amber-600"
                 >
-                  Enviar oferta
+                  Ver campanhas
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </CardHeader>
@@ -191,26 +171,7 @@ export default async function HojePage() {
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-            <Card className={`border ${ACTION_TONE[r.nextAction.tone]} lg:col-span-2`}>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="h-4 w-4 text-slate-500" />
-                  Proxima acao
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <p className="max-w-xl text-base font-medium leading-6 text-slate-800">{r.nextAction.text}</p>
-                <Link
-                  href={r.nextAction.href}
-                  className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
-                >
-                  {r.nextAction.cta}
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </CardContent>
-            </Card>
-
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
