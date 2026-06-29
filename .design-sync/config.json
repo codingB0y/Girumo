@@ -1,0 +1,15 @@
+{
+  "projectId": "45c3d5c2-43d7-4587-a692-908095f5ad3a",
+  "shape": "package",
+  "pkg": "hubflow-web",
+  "globalName": "HubFlow",
+  "srcDir": "src",
+  "tsconfig": "tsconfig.json",
+  "cssEntry": ".ds-styles.css",
+  "guidelinesGlob": [],
+  "componentSrcMap": {
+    "Logo": "src/components/landing/logo.tsx",
+    "LogoSymbol": "src/components/landing/logo.tsx"
+  },
+  "readmeHeader": ".design-sync/conventions.md"
+}
