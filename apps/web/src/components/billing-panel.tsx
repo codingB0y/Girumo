@@ -112,7 +112,7 @@ export function BillingPanel() {
     <Card className="lg:col-span-2">
       <CardHeader className="flex items-center justify-between">
         <CardTitle className="flex items-center gap-2">
-          <CreditCard className="h-4 w-4 text-brand-500" />
+          <CreditCard className="h-4 w-4 text-iris" />
           Plano e assinatura
         </CardTitle>
         <Button variant="outline" size="sm" onClick={openPortal} disabled={portalBusy || loading}>
@@ -121,17 +121,17 @@ export function BillingPanel() {
         </Button>
       </CardHeader>
       <CardContent>
-        <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-slate-600">
+        <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-aco">
           <span>Plano atual:</span>
           <Badge tone={currentPlanCode === "FREE" ? "slate" : "brand"}>{subscription?.plans?.name ?? "Free"}</Badge>
           {subscription?.status && <Badge tone="green">{subscription.status}</Badge>}
-          {renewalDate && <span className="text-slate-400">Renova em {renewalDate}</span>}
+          {renewalDate && <span className="text-aco/50">Renova em {renewalDate}</span>}
         </div>
 
         {loading ? (
           <div className="grid gap-3 md:grid-cols-3">
             {Array.from({ length: 3 }).map((_, index) => (
-              <div key={index} className="h-44 rounded-lg border border-slate-200 bg-slate-50" />
+              <div key={index} className="h-44 rounded-lg border border-breu/10 bg-bruma" />
             ))}
           </div>
         ) : (
@@ -141,18 +141,18 @@ export function BillingPanel() {
               const limits = plan.limits ?? {};
 
               return (
-                <div key={plan.id} className="rounded-lg border border-slate-200 bg-white p-4">
+                <div key={plan.id} className="rounded-lg border border-breu/10 bg-white p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-semibold text-slate-900">{plan.name}</p>
-                      <p className="mt-1 text-xs leading-5 text-slate-500">{planCopy[plan.code] ?? "Plano pago HubFlow."}</p>
+                      <p className="font-semibold text-breu">{plan.name}</p>
+                      <p className="mt-1 text-xs leading-5 text-aco/70">{planCopy[plan.code] ?? "Plano pago HubFlow."}</p>
                     </div>
                     {current && <Badge tone="green">Atual</Badge>}
                   </div>
 
-                  <div className="mt-4 space-y-2 text-sm text-slate-600">
+                  <div className="mt-4 space-y-2 text-sm text-aco">
                     <p className="flex items-center gap-2">
-                      <Gauge className="h-4 w-4 text-slate-400" />
+                      <Gauge className="h-4 w-4 text-aco/50" />
                       {formatLimit(limits.instances, " instancia(s)")}
                     </p>
                     <p>Contatos: {formatLimit(limits.contacts)}</p>

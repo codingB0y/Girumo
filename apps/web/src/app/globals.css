@@ -17,8 +17,9 @@
   --color-brand-dark: #5836c9;
   --color-brand-light: #e9e5ff;
 
-  --font-sans: Arial, Helvetica, sans-serif;
-  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  /* Fonte da marca como padrão do app (IBM Plex Sans via next/font). */
+  --font-sans: var(--font-plex-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: var(--font-plex-mono), "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 
   /* Sombras em camadas — profundidade premium */
   --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04);
@@ -161,6 +162,137 @@ body {
 /* Respeita quem prefere menos animação (a11y) */
 @media (prefers-reduced-motion: reduce) {
   .dz-aurora, .dz-aurora-slow, .dz-shimmer, .dz-float, .dz-pulse-glow, .dz-rise {
+    animation: none;
+  }
+}
+
+/* ======================================================================
+   DIREÇÃO B / CORRENTE — sistema visual da landing (HubFlow Brand Kit)
+   Tokens e utilitários NOVOS, isolados do design system do app (brand-*).
+   Fonte da verdade: Brand/design-tokens.css + guia-de-marca.md
+   ====================================================================== */
+@theme inline {
+  /* Cores 60/30/10 */
+  --color-breu: #0b0d1a;        /* base/fundo premium */
+  --color-breu-2: #11142a;      /* superfície elevada no escuro */
+  --color-iris: #6a4bf0;        /* acento único: CTA, ativo, destaque */
+  --color-iris-claro: #8a6cff;  /* hover / realce no escuro */
+  --color-iris-escuro: #3d1fb0; /* fim de gradiente / íris sobre claro */
+  --color-bruma: #ecebf5;       /* fundo claro de seções */
+
+  /* Neutros */
+  --color-aco: #3a3f5c;         /* texto secundário */
+  --color-ardosia: #5b6172;     /* texto terciário / labels */
+
+  /* Semânticas (verde distinto do íris — nunca como ação) */
+  --color-sucesso: #1e8e5a;
+  --color-atencao: #d99b2a;
+  --color-alerta: #d84040;
+
+  /* Tipografia da marca (variáveis injetadas pelo next/font no <html>) */
+  --font-display: var(--font-bricolage);   /* font-display → Bricolage 700/800 */
+  --font-body: var(--font-plex-sans);      /* font-body → IBM Plex Sans */
+  --font-data: var(--font-plex-mono);      /* font-data → IBM Plex Mono */
+  --font-editorial: var(--font-instrument);/* font-editorial → Instrument Serif */
+
+  /* Sombras da marca */
+  --shadow-iris: 0 10px 30px -8px rgba(106, 75, 240, 0.45);
+  --shadow-deep: 0 30px 70px -20px rgba(0, 0, 0, 0.55);
+}
+
+/* Gradiente da marca (135°, A78CFF→6A4BF0→3D1FB0) */
+.hf-gradient {
+  background-image: linear-gradient(135deg, #a78cff 0%, #6a4bf0 50%, #3d1fb0 100%);
+}
+.hf-gradient-text {
+  background-image: linear-gradient(120deg, #a78cff 0%, #8a6cff 40%, #6a4bf0 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Tratamento de foto/screenshot da marca: overlay breu + brilho íris de canto */
+.hf-shot {
+  position: relative;
+  border-radius: var(--hf-raio-lg, 16px);
+  box-shadow: var(--shadow-deep);
+}
+
+/* Reveal editorial no scroll — discreto, 1x. Controlado por .hf-reveal-watch (JS). */
+.hf-reveal {
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+.hf-reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Brilho íris que respira lento (muito sutil, sem aurora pesada) */
+@keyframes hf-breathe {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.72; }
+}
+.hf-breathe {
+  animation: hf-breathe 8s ease-in-out infinite;
+}
+
+/* Linha-fluxo que se desenha (mecanismo / hero). Use pathLength="1" no <path>. */
+@keyframes hf-draw {
+  to { stroke-dashoffset: 0; }
+}
+.hf-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: hf-draw 1.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Nó/elo que surge em sequência (fade + scale) */
+@keyframes hf-pop {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: scale(1); }
+}
+.hf-pop {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  animation: hf-pop 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Entrada de página/painel — fade + rise sutil ao montar */
+@keyframes hf-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.hf-enter { animation: hf-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Deriva lenta dos pontos de "caos" */
+@keyframes hf-drift {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(0, -6px); }
+}
+.hf-drift { animation: hf-drift 7s ease-in-out infinite; transform-box: fill-box; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hf-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .hf-breathe,
+  .hf-drift,
+  .hf-enter {
+    animation: none;
+  }
+  .hf-draw {
+    stroke-dashoffset: 0;
+    animation: none;
+  }
+  .hf-pop {
+    opacity: 1;
     animation: none;
   }
 }

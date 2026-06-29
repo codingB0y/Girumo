@@ -182,7 +182,7 @@ export default function CampaignsPage() {
   return (
     <>
       <Topbar title="Ofertas" subtitle="Criacao, fila e envio para grupos" />
-      <main className="flex-1 bg-slate-50/70 px-4 py-5 sm:px-6 lg:px-8">
+      <main className="flex-1 bg-bruma/70 px-4 py-5 sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-7xl gap-5">
           <section className="grid gap-3 md:grid-cols-3">
             <StatCard label="Campanhas" value={stats.total} />
@@ -193,7 +193,7 @@ export default function CampaignsPage() {
           <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_430px]">
             <div className="grid gap-3">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Campanhas salvas</h2>
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-aco/70">Campanhas salvas</h2>
                 <Badge tone={hasActive ? "amber" : "slate"}>{hasActive ? "fila ativa" : "sem disparo ativo"}</Badge>
               </div>
 
@@ -212,7 +212,7 @@ export default function CampaignsPage() {
                 ))}
 
               {loaded && campaigns.length === 0 && (
-                <Card className="border-dashed p-8 text-center text-sm text-slate-400">
+                <Card className="border-dashed p-8 text-center text-sm text-aco/50">
                   Nenhuma campanha ainda. Crie a primeira no painel ao lado.
                 </Card>
               )}
@@ -223,19 +223,19 @@ export default function CampaignsPage() {
                   <Card key={campaign.id} className="p-4">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                       <div className="flex min-w-0 items-start gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-iris/10 text-iris">
                           <Megaphone className="h-5 w-5" />
                         </div>
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-medium text-slate-900">{campaign.name}</p>
+                            <p className="font-medium text-breu">{campaign.name}</p>
                             {campaign.mediaId && <Badge tone="blue">midia</Badge>}
                             {campaign.mentionAll && <Badge tone="brand">@todos</Badge>}
                           </div>
-                          <p className="mt-1 line-clamp-1 max-w-2xl text-sm text-slate-500">
+                          <p className="mt-1 line-clamp-1 max-w-2xl text-sm text-aco/70">
                             {campaign.message || (campaign.mediaId ? "(somente midia)" : "")}
                           </p>
-                          <p className="mt-1 text-xs text-slate-400">
+                          <p className="mt-1 text-xs text-aco/50">
                             {campaign.groupIds.length} grupos - {campaign.total} destinatarios
                           </p>
                         </div>
@@ -245,13 +245,13 @@ export default function CampaignsPage() {
 
                     {(campaign.status === "running" || campaign.status === "queued" || campaign.status === "sent") && (
                       <div className="mt-4 flex items-center gap-3">
-                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-bruma">
                           <div
                             className={cn("h-full rounded-full", campaign.status === "queued" ? "bg-blue-400" : "bg-emerald-500")}
                             style={{ width: `${campaign.status === "queued" ? 100 : pct}%` }}
                           />
                         </div>
-                        <span className="text-xs text-slate-400">
+                        <span className="text-xs text-aco/50">
                           {campaign.status === "queued" ? "na fila" : `${campaign.sent}/${campaign.total}`}
                         </span>
                       </div>
@@ -306,12 +306,12 @@ export default function CampaignsPage() {
 
                 <Field label="Template">
                   <div className="flex flex-wrap gap-1.5">
-                    {templates.length === 0 && <p className="text-xs text-slate-400">Nenhum template carregado.</p>}
+                    {templates.length === 0 && <p className="text-xs text-aco/50">Nenhum template carregado.</p>}
                     {templates.map((template) => (
                       <button
                         key={template.id}
                         onClick={() => setMessage(template.body)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600 hover:border-brand-300 hover:text-brand-700"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-breu/10 bg-white px-2 py-1 text-xs font-medium text-aco hover:border-iris/30 hover:text-iris-escuro"
                       >
                         <FileText className="h-3 w-3" />
                         {template.name}
@@ -331,24 +331,24 @@ export default function CampaignsPage() {
 
                 <Field label="Midia opcional">
                   {mediaId ? (
-                    <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                    <div className="flex items-center gap-3 rounded-lg border border-breu/10 bg-bruma p-2">
                       {mediaKind === "video" ? (
                         <video src={`/api/media/${mediaId}`} className="h-16 w-16 rounded-lg object-cover" muted />
                       ) : (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={`/api/media/${mediaId}`} alt="midia" className="h-16 w-16 rounded-lg object-cover" />
                       )}
-                      <span className="flex-1 text-xs text-slate-500">{mediaKind === "video" ? "Video" : "Foto"} anexado.</span>
+                      <span className="flex-1 text-xs text-aco/70">{mediaKind === "video" ? "Video" : "Foto"} anexado.</span>
                       <button
                         onClick={() => setMediaId(null)}
-                        className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                        className="rounded-lg p-1.5 text-aco/50 hover:bg-red-50 hover:text-red-600"
                         title="Remover"
                       >
                         <X className="h-4 w-4" />
                       </button>
                     </div>
                   ) : (
-                    <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-sm font-medium text-slate-500 transition hover:border-brand-300 hover:text-brand-700">
+                    <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-aco/30 bg-bruma px-3 py-3 text-sm font-medium text-aco/70 transition hover:border-iris/30 hover:text-iris-escuro">
                       <ImageIcon className="h-4 w-4" />
                       {uploading ? "Enviando..." : "Anexar imagem ou video"}
                       <input
@@ -367,7 +367,7 @@ export default function CampaignsPage() {
                 </Field>
 
                 <Field label="Previa">
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <div className="rounded-lg border border-breu/10 bg-bruma p-3">
                     <div className="max-w-[88%] overflow-hidden rounded-lg rounded-tl-none bg-white shadow-sm">
                       {mediaId &&
                         (mediaKind === "video" ? (
@@ -377,19 +377,19 @@ export default function CampaignsPage() {
                           <img src={`/api/media/${mediaId}`} alt="previa" className="max-h-48 w-full object-cover" />
                         ))}
                       <div className="p-2.5">
-                        <p className="whitespace-pre-wrap text-sm text-slate-800">
+                        <p className="whitespace-pre-wrap text-sm text-breu">
                           {message || (mediaId ? "" : "Sua mensagem aparece aqui...")}
                         </p>
-                        <p className="mt-1 text-right text-[10px] text-slate-400">12:30</p>
+                        <p className="mt-1 text-right text-[10px] text-aco/50">12:30</p>
                       </div>
                     </div>
                   </div>
                 </Field>
 
                 <Field label="Grupos de destino">
-                  <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-slate-200 bg-white p-2">
+                  <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-breu/10 bg-white p-2">
                     {groups.length === 0 && (
-                      <p className="px-2 py-3 text-xs text-slate-400">Nenhum grupo sincronizado.</p>
+                      <p className="px-2 py-3 text-xs text-aco/50">Nenhum grupo sincronizado.</p>
                     )}
                     {groups.map((group) => {
                       const on = selected.includes(group.id);
@@ -397,26 +397,26 @@ export default function CampaignsPage() {
                         <button
                           key={group.id}
                           onClick={() => toggleGroup(group.id)}
-                          className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-slate-50"
+                          className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-bruma"
                         >
                           <span
                             className={cn(
                               "flex h-4 w-4 items-center justify-center rounded border-2",
-                              on ? "border-brand-600 bg-brand-600 text-white" : "border-slate-300",
+                              on ? "border-iris bg-iris text-white" : "border-aco/30",
                             )}
                           >
                             {on && <Check className="h-3 w-3" />}
                           </span>
-                          <span className="flex-1 truncate text-sm text-slate-700">{group.name}</span>
-                          <span className="text-xs text-slate-400">{group.members}</span>
+                          <span className="flex-1 truncate text-sm text-aco">{group.name}</span>
+                          <span className="text-xs text-aco/50">{group.members}</span>
                         </button>
                       );
                     })}
                   </div>
                   {selected.length > 0 && (
-                    <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
+                    <p className="mt-2 flex items-center gap-1.5 text-xs text-aco/70">
                       <UsersRound className="h-3.5 w-3.5" />
-                      Alcance estimado: <span className="font-semibold text-brand-700">{reach.toLocaleString("pt-BR")}</span>
+                      Alcance estimado: <span className="font-semibold text-iris-escuro">{reach.toLocaleString("pt-BR")}</span>
                     </p>
                   )}
                 </Field>
@@ -428,7 +428,7 @@ export default function CampaignsPage() {
                   description="Cria uma pergunta com opcoes para aumentar resposta no grupo."
                 />
                 {pollOn && (
-                  <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <div className="space-y-2 rounded-lg border border-breu/10 bg-bruma p-3">
                     <Input
                       placeholder="Pergunta"
                       value={pollQuestion}
@@ -446,7 +446,7 @@ export default function CampaignsPage() {
                         {pollOptions.length > 2 && (
                           <button
                             onClick={() => setPollOptions((prev) => prev.filter((_, itemIndex) => itemIndex !== index))}
-                            className="rounded-lg p-1.5 text-slate-400 hover:text-red-600"
+                            className="rounded-lg p-1.5 text-aco/50 hover:text-red-600"
                           >
                             <X className="h-4 w-4" />
                           </button>
@@ -454,7 +454,7 @@ export default function CampaignsPage() {
                       </div>
                     ))}
                     {pollOptions.length < 6 && (
-                      <button onClick={() => setPollOptions((prev) => [...prev, ""])} className="text-xs font-medium text-brand-600">
+                      <button onClick={() => setPollOptions((prev) => [...prev, ""])} className="text-xs font-medium text-iris">
                         + adicionar opcao
                       </button>
                     )}
@@ -476,7 +476,7 @@ export default function CampaignsPage() {
                   <Send className="h-4 w-4" />
                   {saving ? "Salvando..." : "Salvar oferta"}
                 </Button>
-                <p className="text-center text-xs leading-5 text-slate-400">
+                <p className="text-center text-xs leading-5 text-aco/50">
                   Depois de salvar, envie pela fila da engine para respeitar o ritmo anti-ban.
                 </p>
               </CardContent>
@@ -491,8 +491,8 @@ export default function CampaignsPage() {
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
     <Card className="p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-2 text-2xl font-semibold text-slate-950">{value}</p>
+      <p className="text-xs font-medium uppercase tracking-wide text-aco/70">{label}</p>
+      <p className="mt-2 text-2xl font-semibold text-breu">{value}</p>
     </Card>
   );
 }
@@ -500,7 +500,7 @@ function StatCard({ label, value }: { label: string; value: number }) {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="mb-1.5 block text-sm font-medium text-slate-700">{label}</label>
+      <label className="mb-1.5 block text-sm font-medium text-aco">{label}</label>
       {children}
     </div>
   );
@@ -520,14 +520,14 @@ function ToggleRow({
   return (
     <button
       onClick={onClick}
-      className="flex w-full items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 text-left transition hover:bg-slate-50"
+      className="flex w-full items-center gap-3 rounded-lg border border-breu/10 bg-white p-3 text-left transition hover:bg-bruma"
     >
-      <span className={cn("relative h-5 w-9 shrink-0 rounded-full transition", checked ? "bg-brand-600" : "bg-slate-300")}>
+      <span className={cn("relative h-5 w-9 shrink-0 rounded-full transition", checked ? "bg-iris" : "bg-aco/30")}>
         <span className={cn("absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all", checked ? "left-4" : "left-0.5")} />
       </span>
       <span className="min-w-0">
-        <span className="block text-sm font-medium text-slate-800">{title}</span>
-        <span className="block text-xs text-slate-400">{description}</span>
+        <span className="block text-sm font-medium text-breu">{title}</span>
+        <span className="block text-xs text-aco/50">{description}</span>
       </span>
     </button>
   );

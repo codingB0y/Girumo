@@ -37,19 +37,19 @@ export function ConnectionBanner() {
   if (live !== false || !sawLive || dismissed) return null;
 
   return (
-    <div className="flex items-center gap-3 border-b border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-800">
+    <div className="flex items-center gap-3 border-b border-alerta/20 bg-alerta/[0.06] px-4 py-2.5 text-sm text-alerta">
       <WifiOff className="h-4 w-4 shrink-0" />
-      <span className="flex-1">
-        <strong>WhatsApp desconectado.</strong> Você não está captando entradas nem enviando
+      <span className="flex-1 text-breu/80">
+        <strong className="text-breu">WhatsApp desconectado.</strong> Você não está captando entradas nem enviando
         boas-vindas. Rode a engine e reconecte.
       </span>
-      <Link href="/settings" className="shrink-0 font-medium underline hover:text-red-900">
+      <Link href="/settings" className="shrink-0 font-medium text-alerta underline hover:opacity-80">
         Reconectar
       </Link>
       <button
         onClick={() => setDismissed(true)}
         aria-label="Dispensar aviso"
-        className="shrink-0 rounded p-0.5 hover:bg-red-100"
+        className="shrink-0 rounded p-0.5 text-alerta hover:bg-alerta/10"
       >
         <X className="h-4 w-4" />
       </button>

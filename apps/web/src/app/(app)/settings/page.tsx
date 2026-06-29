@@ -102,7 +102,7 @@ export default function SettingsPage() {
   return (
     <>
       <Topbar title="Configuracoes" subtitle="Plano, equipe, WhatsApp e seguranca operacional" />
-      <main className="flex-1 bg-slate-50/70 px-4 py-5 sm:px-6 lg:px-8">
+      <main className="flex-1 bg-bruma/70 px-4 py-5 sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-7xl gap-5">
           <section className="grid gap-3 md:grid-cols-3">
             <StatusTile
@@ -134,13 +134,13 @@ export default function SettingsPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Smartphone className="h-4 w-4 text-brand-500" />
+                  <Smartphone className="h-4 w-4 text-iris" />
                   Conexao do WhatsApp
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {!loaded ? (
-                  <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-4">
+                  <div className="flex items-center gap-3 rounded-lg border border-breu/10 bg-white p-4">
                     <Skeleton className="h-8 w-8 rounded-lg" />
                     <div className="flex-1 space-y-2">
                       <Skeleton className="h-4 w-24" />
@@ -158,11 +158,11 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-4">
-                    <WifiOff className="mt-0.5 h-6 w-6 text-slate-400" />
+                  <div className="flex items-start gap-3 rounded-lg border border-breu/10 bg-white p-4">
+                    <WifiOff className="mt-0.5 h-6 w-6 text-aco/50" />
                     <div>
-                      <p className="font-medium text-slate-800">Desconectado</p>
-                      <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-500">
+                      <p className="font-medium text-breu">Desconectado</p>
+                      <p className="mt-1 flex items-center gap-1.5 text-sm text-aco/70">
                         <QrCode className="h-4 w-4" />
                         A engine precisa estar online para gerar QR e atualizar status.
                       </p>
@@ -175,7 +175,7 @@ export default function SettingsPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Clock3 className="h-4 w-4 text-brand-500" />
+                  <Clock3 className="h-4 w-4 text-iris" />
                   Limites de envio
                 </CardTitle>
               </CardHeader>
@@ -185,7 +185,7 @@ export default function SettingsPage() {
                   <LimitField label="Max/min" value="8" />
                   <LimitField label="Max/dia" value="800" />
                 </div>
-                <p className="mt-3 text-xs leading-5 text-slate-500">
+                <p className="mt-3 text-xs leading-5 text-aco/70">
                   Numeros novos devem entrar em aquecimento gradual antes de campanhas maiores.
                 </p>
               </CardContent>
@@ -198,7 +198,7 @@ export default function SettingsPage() {
                   Boas-vindas automaticas
                 </CardTitle>
                 <label className="flex cursor-pointer items-center gap-2 text-sm">
-                  <span className={welcome.enabled ? "font-medium text-emerald-700" : "text-slate-400"}>
+                  <span className={welcome.enabled ? "font-medium text-emerald-700" : "text-aco/50"}>
                     {welcome.enabled ? "Ligado" : "Desligado"}
                   </span>
                   <button
@@ -208,7 +208,7 @@ export default function SettingsPage() {
                     onClick={() => saveWelcome({ ...welcome, enabled: !welcome.enabled })}
                     disabled={savingWelcome}
                     className={`relative h-6 w-11 rounded-full transition ${
-                      welcome.enabled ? "bg-emerald-500" : "bg-slate-300"
+                      welcome.enabled ? "bg-emerald-500" : "bg-aco/30"
                     }`}
                   >
                     <span
@@ -227,10 +227,10 @@ export default function SettingsPage() {
                     onChange={(event) => setWelcome({ ...welcome, message: event.target.value })}
                     placeholder="Oi {nome}! Seja bem-vindo ao grupo..."
                   />
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
-                    <p className="font-medium text-slate-800">Variavel disponivel</p>
-                    <code className="mt-2 inline-flex rounded bg-white px-2 py-1 text-xs text-slate-700">{"{nome}"}</code>
-                    <p className="mt-3 text-xs leading-5 text-slate-500">
+                  <div className="rounded-lg border border-breu/10 bg-bruma p-3 text-sm text-aco">
+                    <p className="font-medium text-breu">Variavel disponivel</p>
+                    <code className="mt-2 inline-flex rounded bg-white px-2 py-1 text-xs text-aco">{"{nome}"}</code>
+                    <p className="mt-3 text-xs leading-5 text-aco/70">
                       A mensagem passa pela fila da engine e respeita a lista de opt-out.
                     </p>
                   </div>
@@ -271,7 +271,7 @@ export default function SettingsPage() {
                   </p>
                 </div>
                 {!loaded ? (
-                  <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+                  <div className="divide-y divide-bruma rounded-lg border border-breu/10 bg-white">
                     {Array.from({ length: 3 }).map((_, index) => (
                       <div key={`sk-${index}`} className="flex items-center gap-2 px-4 py-3">
                         <Skeleton className="h-4 w-4 rounded" />
@@ -283,25 +283,25 @@ export default function SettingsPage() {
                     ))}
                   </div>
                 ) : optout.length === 0 ? (
-                  <p className="rounded-lg border border-dashed border-slate-200 bg-white py-6 text-center text-sm text-slate-400">
+                  <p className="rounded-lg border border-dashed border-breu/10 bg-white py-6 text-center text-sm text-aco/50">
                     Nenhum numero na lista.
                   </p>
                 ) : (
-                  <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+                  <div className="divide-y divide-bruma rounded-lg border border-breu/10 bg-white">
                     {optout.map((item) => (
                       <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <Smartphone className="h-4 w-4 text-slate-400" />
+                          <Smartphone className="h-4 w-4 text-aco/50" />
                           <div>
-                            <p className="text-sm font-medium text-slate-800">{item.phone}</p>
-                            <p className="text-xs text-slate-400">{item.reason}</p>
+                            <p className="text-sm font-medium text-breu">{item.phone}</p>
+                            <p className="text-xs text-aco/50">{item.reason}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="text-xs text-slate-400">{formatDateTime(item.date)}</span>
+                          <span className="text-xs text-aco/50">{formatDateTime(item.date)}</span>
                           <button
                             onClick={() => removeOptout(item.id)}
-                            className="rounded-lg p-1 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                            className="rounded-lg p-1 text-aco/50 transition hover:bg-red-50 hover:text-red-600"
                             title="Remover da lista"
                           >
                             <X className="h-4 w-4" />
@@ -332,25 +332,25 @@ function StatusTile({
   state: "ok" | "warn" | "muted";
 }) {
   const dotClass =
-    state === "ok" ? "bg-emerald-500" : state === "warn" ? "bg-amber-500" : "bg-slate-300";
+    state === "ok" ? "bg-emerald-500" : state === "warn" ? "bg-amber-500" : "bg-aco/30";
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-card">
+    <div className="rounded-lg border border-breu/10 bg-white px-4 py-3 shadow-card">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
+        <p className="text-xs font-medium uppercase tracking-wide text-aco/70">{label}</p>
         <span className={`h-2 w-2 rounded-full ${dotClass}`} />
       </div>
-      <p className="mt-2 text-lg font-semibold text-slate-900">{value}</p>
-      <p className="mt-1 truncate text-xs text-slate-500">{detail}</p>
+      <p className="mt-2 text-lg font-semibold text-breu">{value}</p>
+      <p className="mt-1 truncate text-xs text-aco/70">{detail}</p>
     </div>
   );
 }
 
 function LimitField({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-3 py-3 text-center">
-      <p className="text-lg font-semibold text-slate-900">{value}</p>
-      <p className="text-xs text-slate-400">{label}</p>
+    <div className="rounded-lg border border-breu/10 bg-white px-3 py-3 text-center">
+      <p className="text-lg font-semibold text-breu">{value}</p>
+      <p className="text-xs text-aco/50">{label}</p>
     </div>
   );
 }

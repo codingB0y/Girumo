@@ -1,0 +1,40 @@
+/* Entrada Tailwind v4 para compilar o styles.css da Direção B (tokens + utilitários).
+   Sem preflight (não resetar o documento das telas do agente) — só theme + utilities.
+   Compilado para apps/web/.ds-styles.css (cssEntry do converter). */
+
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap');
+
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+/* source(none): só geramos utilitárias das fontes @source abaixo — nada de escanear o repo inteiro. */
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+
+@theme {
+  /* Cores 60/30/10 */
+  --color-breu: #0b0d1a;
+  --color-breu-2: #11142a;
+  --color-iris: #6a4bf0;
+  --color-iris-claro: #8a6cff;
+  --color-iris-escuro: #3d1fb0;
+  --color-bruma: #ecebf5;
+  --color-aco: #3a3f5c;
+  --color-ardosia: #5b6172;
+  --color-sucesso: #1e8e5a;
+  --color-atencao: #d99b2a;
+  --color-alerta: #d84040;
+
+  /* Tipografia */
+  --font-display: 'Bricolage Grotesque', sans-serif;
+  --font-body: 'IBM Plex Sans', sans-serif;
+  --font-data: 'IBM Plex Mono', monospace;
+  --font-editorial: 'Instrument Serif', serif;
+
+  /* Sombras */
+  --shadow-iris: 0 10px 30px -8px rgba(106, 75, 240, 0.45);
+  --shadow-deep: 0 30px 70px -20px rgba(0, 0, 0, 0.55);
+}
+
+/* Fontes de classes a incluir no build: o Logo + os previews + a paleta-base. */
+@source "../apps/web/src/components/landing/logo.tsx";
+@source "./previews";
+@source "./ds-safelist.html";

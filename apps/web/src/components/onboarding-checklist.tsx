@@ -49,17 +49,17 @@ export async function OnboardingChecklist() {
         : "Você está no caminho — continue ativando";
 
   return (
-    <Card className="border-brand-200 bg-brand-50/50">
+    <Card className="border-iris/20 bg-iris/10/50">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
-            <Rocket className="h-4 w-4 text-brand-600" />
+            <Rocket className="h-4 w-4 text-iris" />
             {titulo}
           </CardTitle>
-          <span className="text-xs font-medium text-slate-500">{doneCount}/{steps.length}</span>
+          <span className="text-xs font-medium text-aco/70">{doneCount}/{steps.length}</span>
         </div>
         <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/70">
-          <div className="h-full rounded-full bg-gradient-to-r from-brand-500 to-emerald-400 transition-all duration-500" style={{ width: `${pct}%` }} />
+          <div className="h-full rounded-full bg-gradient-to-r from-iris to-emerald-400 transition-all duration-500" style={{ width: `${pct}%` }} />
         </div>
       </CardHeader>
       <CardContent className="space-y-1">
@@ -70,22 +70,22 @@ export async function OnboardingChecklist() {
               key={s.label}
               href={s.href}
               className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 transition ${
-                isNext ? "bg-white shadow-card ring-1 ring-brand-200" : "hover:bg-white/70"
+                isNext ? "bg-white shadow-card ring-1 ring-iris/20" : "hover:bg-white/70"
               }`}
             >
               {s.done ? (
                 <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600" />
               ) : (
-                <Circle className={`h-5 w-5 shrink-0 ${isNext ? "text-brand-500" : "text-slate-300"}`} />
+                <Circle className={`h-5 w-5 shrink-0 ${isNext ? "text-iris" : "text-aco/30"}`} />
               )}
               <div className="min-w-0 flex-1">
-                <p className={`text-sm font-medium ${s.done ? "text-slate-400 line-through" : isNext ? "text-slate-900" : "text-slate-500"}`}>
+                <p className={`text-sm font-medium ${s.done ? "text-aco/50 line-through" : isNext ? "text-breu" : "text-aco/70"}`}>
                   {s.label}
                 </p>
-                {isNext && <p className="text-xs text-slate-500">{s.help}</p>}
+                {isNext && <p className="text-xs text-aco/70">{s.help}</p>}
               </div>
               {isNext && (
-                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-gradient-to-b from-brand-500 to-brand-600 px-3 py-1.5 text-xs font-semibold text-white shadow-brand">
+                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-gradient-to-b from-iris to-iris px-3 py-1.5 text-xs font-semibold text-white shadow-brand">
                   {s.cta}
                   <ArrowRight className="h-3.5 w-3.5" />
                 </span>
@@ -94,7 +94,7 @@ export async function OnboardingChecklist() {
           );
         })}
         {doneCount >= 1 && nextIdx === steps.length - 1 && (
-          <p className="flex items-center justify-center gap-1.5 pt-2 text-xs text-brand-600">
+          <p className="flex items-center justify-center gap-1.5 pt-2 text-xs text-iris">
             <PartyPopper className="h-3.5 w-3.5" /> Quase lá! Esse último passo destrava seu painel de resultados.
           </p>
         )}

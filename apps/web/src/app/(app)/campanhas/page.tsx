@@ -185,11 +185,11 @@ export default function CampanhasPage() {
     <>
       <Topbar title="Campanhas de grupos" subtitle="Controle links, ocupacao e grupos de cada campanha" />
       <main className="flex-1 space-y-5 p-6">
-        <section className="rounded-xl border border-brand-200 bg-white p-4 shadow-card">
+        <section className="rounded-xl border border-iris/20 bg-white p-4 shadow-card">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-sm font-semibold text-slate-900">Painel operacional</p>
-              <p className="mt-1 max-w-3xl text-sm text-slate-500">
+              <p className="text-sm font-semibold text-breu">Painel operacional</p>
+              <p className="mt-1 max-w-3xl text-sm text-aco/70">
                 Cada campanha tem um link mestre. O HUBFLOW envia a revendedora para um grupo disponivel,
                 evita grupo cheio e mostra onde voce precisa corrigir convites.
               </p>
@@ -211,20 +211,20 @@ export default function CampanhasPage() {
           <Card>
             <CardHeader>
               <CardTitle>Nova campanha</CardTitle>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-aco/70">
                 Passo {createStep} de 2: {createStep === 1 ? "diga o nome" : "escolha os grupos"}
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-2">
-                <div className={cn("h-1.5 rounded-full", createStep >= 1 ? "bg-brand-600" : "bg-slate-200")} />
-                <div className={cn("h-1.5 rounded-full", createStep >= 2 ? "bg-brand-600" : "bg-slate-200")} />
+                <div className={cn("h-1.5 rounded-full", createStep >= 1 ? "bg-iris" : "bg-breu/10")} />
+                <div className={cn("h-1.5 rounded-full", createStep >= 2 ? "bg-iris" : "bg-breu/10")} />
               </div>
 
               {createStep === 1 ? (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <div className="sm:col-span-2">
-                    <label className="mb-1.5 block text-sm font-medium text-slate-700">Nome da campanha</label>
+                    <label className="mb-1.5 block text-sm font-medium text-aco">Nome da campanha</label>
                     <Input
                       placeholder="Ex: Grupos VIP Inverno"
                       value={name}
@@ -232,7 +232,7 @@ export default function CampanhasPage() {
                     />
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-sm font-medium text-slate-700">Loja</label>
+                    <label className="mb-1.5 block text-sm font-medium text-aco">Loja</label>
                     <Input placeholder="Ex: Virei Moda" value={loja} onChange={(e) => setLoja(e.target.value)} />
                   </div>
                   <div className="flex flex-col gap-2 sm:col-span-3 sm:flex-row sm:justify-end">
@@ -247,15 +247,15 @@ export default function CampanhasPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="rounded-xl border border-brand-200 bg-brand-50/70 p-4">
-                    <p className="text-sm font-semibold text-slate-950">Escolha os grupos que vao receber novas revendedoras</p>
-                    <p className="mt-1 text-sm text-slate-600">
+                  <div className="rounded-xl border border-iris/20 bg-iris/10/70 p-4">
+                    <p className="text-sm font-semibold text-breu">Escolha os grupos que vao receber novas revendedoras</p>
+                    <p className="mt-1 text-sm text-aco">
                       Mostramos primeiro apenas grupos com convite e vaga. Isso evita erro na divulgacao.
                     </p>
                   </div>
 
                   <label className="relative block">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-aco/50" />
                     <Input
                       aria-label="Buscar grupo para campanha"
                       value={createGroupQuery}
@@ -266,18 +266,18 @@ export default function CampanhasPage() {
                   </label>
 
                   {createWizardGroups.available.length === 0 && (
-                    <div className="rounded-lg border border-dashed border-slate-200 p-5 text-sm text-slate-500">
+                    <div className="rounded-lg border border-dashed border-breu/10 p-5 text-sm text-aco/70">
                       Nenhum grupo pronto para usar. Sincronize grupos ou corrija convites antes de criar a campanha.
                     </div>
                   )}
 
                   {createWizardGroups.available.length > 0 && filteredCreateGroups.length === 0 && (
-                    <div className="rounded-lg border border-dashed border-slate-200 p-5 text-sm text-slate-500">
+                    <div className="rounded-lg border border-dashed border-breu/10 p-5 text-sm text-aco/70">
                       Nenhum grupo encontrado com essa busca.
                     </div>
                   )}
 
-                  <div className="max-h-80 space-y-2 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2">
+                  <div className="max-h-80 space-y-2 overflow-y-auto rounded-xl border border-breu/10 bg-white p-2">
                     {filteredCreateGroups.map((group) => (
                       <CreateWizardGroupOption
                         key={group.id}
@@ -289,13 +289,13 @@ export default function CampanhasPage() {
                   </div>
 
                   {createWizardGroups.needsAttention.length > 0 && (
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-aco/50">
                       {createWizardGroups.needsAttention.length} grupo(s) ficaram de fora por estarem cheios ou sem convite.
                     </p>
                   )}
 
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm text-aco/70">
                       {selectedCreateGroupIds.length} grupo(s) selecionado(s)
                     </p>
                     <div className="flex flex-col gap-2 sm:flex-row">
@@ -319,9 +319,9 @@ export default function CampanhasPage() {
           onCreateCampaign={() => setOpenCreate(true)}
         />
 
-        <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-card lg:flex-row lg:items-center">
+        <div className="flex flex-col gap-3 rounded-xl border border-breu/10 bg-white p-3 shadow-card lg:flex-row lg:items-center">
           <label className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-aco/50" />
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -338,8 +338,8 @@ export default function CampanhasPage() {
                 className={cn(
                   "rounded-lg px-3 py-2 text-sm font-medium transition",
                   filter === item.value
-                    ? "bg-slate-900 text-white"
-                    : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+                    ? "bg-breu text-white"
+                    : "border border-breu/10 bg-white text-aco hover:bg-bruma",
                 )}
               >
                 {item.label}
@@ -362,8 +362,8 @@ export default function CampanhasPage() {
 
         {loaded && overviews.length === 0 && (
           <Card className="p-8 text-center">
-            <p className="text-base font-semibold text-slate-900">Nenhuma campanha ainda</p>
-            <p className="mt-1 text-sm text-slate-500">Crie a primeira campanha e escolha os grupos da sua loja.</p>
+            <p className="text-base font-semibold text-breu">Nenhuma campanha ainda</p>
+            <p className="mt-1 text-sm text-aco/70">Crie a primeira campanha e escolha os grupos da sua loja.</p>
             <Button className="mt-4" onClick={() => setOpenCreate(true)}>
               <Plus className="h-4 w-4" />
               Criar campanha
@@ -372,7 +372,7 @@ export default function CampanhasPage() {
         )}
 
         {loaded && overviews.length > 0 && filteredOverviews.length === 0 && (
-          <Card className="p-8 text-center text-sm text-slate-500">Nenhuma campanha encontrada com esse filtro.</Card>
+          <Card className="p-8 text-center text-sm text-aco/70">Nenhuma campanha encontrada com esse filtro.</Card>
         )}
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -450,28 +450,28 @@ function CampaignSetupChecklist({
   const progress = (doneCount / steps.length) * 100;
 
   const actionClassName =
-    "inline-flex h-10 items-center justify-center rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white shadow-card transition hover:bg-brand-700";
+    "inline-flex h-10 items-center justify-center rounded-lg bg-iris px-4 text-sm font-semibold text-white shadow-card transition hover:bg-iris-escuro";
   const stepNumber = nextStepIndex + 1;
 
   return (
-    <Card className="border-brand-200 bg-brand-50/70">
+    <Card className="border-iris/20 bg-iris/10/70">
       <CardContent className="p-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-3">
-              <p className="text-sm font-semibold text-slate-950">Comece por aqui</p>
-              <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-brand-700 shadow-card">
+              <p className="text-sm font-semibold text-breu">Comece por aqui</p>
+              <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-iris-escuro shadow-card">
                 Passo {stepNumber} de {steps.length}
               </span>
             </div>
             <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
-              <div className="h-full rounded-full bg-brand-600 transition-all" style={{ width: `${progress}%` }} />
+              <div className="h-full rounded-full bg-iris transition-all" style={{ width: `${progress}%` }} />
             </div>
             <div className="mt-4">
-              <p className="text-lg font-semibold text-slate-950">
+              <p className="text-lg font-semibold text-breu">
                 Passo {stepNumber}: {nextStep.label}
               </p>
-              <p className="mt-1 text-sm text-slate-600">{nextStep.help}</p>
+              <p className="mt-1 text-sm text-aco">{nextStep.help}</p>
             </div>
           </div>
           <div className="shrink-0">
@@ -492,13 +492,13 @@ function CampaignSetupChecklist({
               key={step.label}
               className={cn(
                 "flex items-center gap-2 rounded-lg border px-3 py-2",
-                step.done ? "border-green-100 bg-white/70 text-slate-400" : "border-brand-200 bg-white text-slate-700",
+                step.done ? "border-green-100 bg-white/70 text-aco/50" : "border-iris/20 bg-white text-aco",
               )}
             >
               {step.done ? (
                 <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600" />
               ) : (
-                <CircleAlert className="h-4 w-4 shrink-0 text-brand-600" />
+                <CircleAlert className="h-4 w-4 shrink-0 text-iris" />
               )}
               <span className="truncate text-xs font-medium">
                 {index + 1}. {step.label}
@@ -541,7 +541,7 @@ function CampaignCard({
   const nextStep = getCampaignNextStep(overview.operationalStatus);
 
   return (
-    <Card className={cn("overflow-hidden", active && "ring-2 ring-brand-500/30")}>
+    <Card className={cn("overflow-hidden", active && "ring-2 ring-iris/30")}>
       <CardContent className="p-5">
         <div className="flex flex-col gap-4">
           <div className="flex items-start justify-between gap-3">
@@ -555,8 +555,8 @@ function CampaignCard({
                   </Badge>
                 )}
               </div>
-              <h2 className="mt-3 truncate text-lg font-semibold text-slate-950">{overview.campaign.name}</h2>
-              <p className="mt-1 flex items-center gap-1 text-sm text-slate-500">
+              <h2 className="mt-3 truncate text-lg font-semibold text-breu">{overview.campaign.name}</h2>
+              <p className="mt-1 flex items-center gap-1 text-sm text-aco/70">
                 <Store className="h-3.5 w-3.5" />
                 {overview.campaign.loja || "Minha loja"}
               </p>
@@ -570,7 +570,7 @@ function CampaignCard({
               <button
                 type="button"
                 onClick={onDelete}
-                className="rounded-md p-2 text-slate-300 transition hover:bg-red-50 hover:text-red-600"
+                className="rounded-md p-2 text-aco/30 transition hover:bg-red-50 hover:text-red-600"
                 aria-label="Excluir campanha"
               >
                 <Trash2 className="h-4 w-4" />
@@ -578,12 +578,12 @@ function CampaignCard({
             </div>
           </div>
 
-          <div className="rounded-xl border border-brand-200 bg-brand-50/70 p-4">
+          <div className="rounded-xl border border-iris/20 bg-iris/10/70 p-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Acao principal</p>
-                <p className="mt-2 text-base font-semibold text-slate-950">{nextStep.title}</p>
-                <p className="mt-1 text-sm text-slate-600">{nextStep.description}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-iris-escuro">Acao principal</p>
+                <p className="mt-2 text-base font-semibold text-breu">{nextStep.title}</p>
+                <p className="mt-1 text-sm text-aco">{nextStep.description}</p>
               </div>
               {overview.primaryAction.kind === "copy_link" ? (
                 <CopyLinkButton url={copyLink} disabled={!copyLink} variant="primary" label={nextStep.actionLabel} />
@@ -596,9 +596,9 @@ function CampaignCard({
             </div>
 
             {overview.primaryAction.kind === "copy_link" && (
-              <div className="mt-3 rounded-lg bg-white p-2 ring-1 ring-brand-100">
-                <p className="text-xs font-medium text-slate-500">Link para divulgar</p>
-                <code className="mt-1 block truncate text-xs text-slate-700">
+              <div className="mt-3 rounded-lg bg-white p-2 ring-1 ring-iris/10">
+                <p className="text-xs font-medium text-aco/70">Link para divulgar</p>
+                <code className="mt-1 block truncate text-xs text-aco">
                   {copyLink || masterLink || "Link sendo preparado"}
                 </code>
               </div>
@@ -607,10 +607,10 @@ function CampaignCard({
 
           <div>
             <div className="mb-2 flex items-center justify-between text-sm">
-              <span className="font-medium text-slate-700">Ocupacao dos grupos</span>
-              <span className="font-semibold text-slate-900">{overview.fillPct}%</span>
+              <span className="font-medium text-aco">Ocupacao dos grupos</span>
+              <span className="font-semibold text-breu">{overview.fillPct}%</span>
             </div>
-            <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+            <div className="h-2 overflow-hidden rounded-full bg-bruma">
               <div className={cn("h-full rounded-full", fillTone)} style={{ width: `${Math.min(100, overview.fillPct)}%` }} />
             </div>
           </div>
@@ -639,7 +639,7 @@ function CampaignCard({
             </Button>
             <Link
               href={`/campanhas/${overview.campaign.id}`}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-aco/30 bg-white px-4 text-sm font-medium text-aco transition hover:border-aco/50 hover:bg-bruma"
             >
               Ver detalhes
               <ArrowRight className="h-4 w-4" />
@@ -667,9 +667,9 @@ function GroupPicker({
   const selected = new Set(overview.campaign.groupIds);
 
   return (
-    <div className="max-h-80 space-y-2 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2">
+    <div className="max-h-80 space-y-2 overflow-y-auto rounded-xl border border-breu/10 bg-white p-2">
       {groups.length === 0 && (
-        <p className="px-3 py-4 text-sm text-slate-400">Nenhum grupo sincronizado. Rode a engine para carregar grupos.</p>
+        <p className="px-3 py-4 text-sm text-aco/50">Nenhum grupo sincronizado. Rode a engine para carregar grupos.</p>
       )}
       {[...groups].sort((a, b) => b.members - a.members).map((group) => {
         const on = selected.has(group.id);
@@ -679,19 +679,19 @@ function GroupPicker({
             key={group.id}
             type="button"
             onClick={() => onToggleGroup(group.id)}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-slate-50"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-bruma"
           >
             <span
               className={cn(
                 "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2",
-                on ? "border-brand-600 bg-brand-600 text-white" : "border-slate-300",
+                on ? "border-iris bg-iris text-white" : "border-aco/30",
               )}
             >
               {on && <Check className="h-3.5 w-3.5" />}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium text-slate-800">{getGroupDisplayName(group)}</span>
-              <span className="text-xs text-slate-400">
+              <span className="block truncate text-sm font-medium text-breu">{getGroupDisplayName(group)}</span>
+              <span className="text-xs text-aco/50">
                 {hasInternalGroupName(group) ? `WhatsApp: ${group.name}` : `${group.members.toLocaleString("pt-BR")} de ${group.capacity.toLocaleString("pt-BR")} membros`}
               </span>
             </span>
@@ -727,19 +727,19 @@ function CreateWizardGroupOption({
     <button
       type="button"
       onClick={onToggle}
-      className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-slate-50"
+      className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-bruma"
     >
       <span
         className={cn(
           "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2",
-          selected ? "border-brand-600 bg-brand-600 text-white" : "border-slate-300",
+          selected ? "border-iris bg-iris text-white" : "border-aco/30",
         )}
       >
         {selected && <Check className="h-3.5 w-3.5" />}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium text-slate-800">{getGroupDisplayName(group)}</span>
-        <span className="text-xs text-slate-400">
+        <span className="block truncate text-sm font-medium text-breu">{getGroupDisplayName(group)}</span>
+        <span className="text-xs text-aco/50">
           {hasInternalGroupName(group) ? `WhatsApp: ${group.name}` : `${group.members.toLocaleString("pt-BR")} de ${group.capacity.toLocaleString("pt-BR")} membros`}
         </span>
       </span>
@@ -750,18 +750,18 @@ function CreateWizardGroupOption({
 
 function MiniStat({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-      <p className="text-xs text-slate-500">{label}</p>
-      <p className="mt-1 text-lg font-semibold text-slate-950">{value}</p>
+    <div className="rounded-lg border border-breu/10 bg-bruma px-3 py-2">
+      <p className="text-xs text-aco/70">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-breu">{value}</p>
     </div>
   );
 }
 
 function Metric({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-lg bg-slate-50 px-3 py-2">
-      <p className="text-xs text-slate-400">{label}</p>
-      <p className="mt-1 text-sm font-semibold text-slate-900">{value}</p>
+    <div className="rounded-lg bg-bruma px-3 py-2">
+      <p className="text-xs text-aco/50">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-breu">{value}</p>
     </div>
   );
 }
@@ -776,6 +776,6 @@ function getStatusHint(status: CampaignOperationalStatus) {
 function getFillTone(status: CampaignOperationalStatus) {
   if (status === "full") return "bg-red-500";
   if (status === "needs_invites") return "bg-amber-500";
-  if (status === "empty") return "bg-slate-300";
-  return "bg-brand-600";
+  if (status === "empty") return "bg-aco/30";
+  return "bg-iris";
 }

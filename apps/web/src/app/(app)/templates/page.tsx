@@ -144,7 +144,7 @@ export default function TemplatesPage() {
         {/* Lista */}
         <div className="space-y-3 xl:col-span-3">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-slate-900">Sua biblioteca</h2>
+            <h2 className="font-semibold text-breu">Sua biblioteca</h2>
             {templates.length > 0 && (
               <Button size="sm" variant="ghost" onClick={seedStarters} disabled={saving}>
                 <Sparkles className="h-3.5 w-3.5" />
@@ -168,7 +168,7 @@ export default function TemplatesPage() {
           {loaded && templates.length === 0 && (
             <Card className="flex flex-col items-center gap-3 p-8 text-center">
               <Sparkles className="h-8 w-8 text-green-400" />
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-aco/70">
                 Sua biblioteca está vazia. Comece com modelos prontos para atacado de moda
                 <br />ou crie o seu ao lado.
               </p>
@@ -182,20 +182,20 @@ export default function TemplatesPage() {
             <Card key={t.id} className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-bruma text-aco/70">
                     <FileText className="h-5 w-5" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <p className="font-medium text-slate-900">{t.name}</p>
+                      <p className="font-medium text-breu">{t.name}</p>
                       <Badge tone={categoryTone[t.category]}>{categoryLabel[t.category]}</Badge>
                     </div>
-                    <p className="mt-1 whitespace-pre-wrap text-sm text-slate-500">{t.body}</p>
-                    <p className="mt-2 text-xs text-slate-400">Usado {t.uses}x</p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-aco/70">{t.body}</p>
+                    <p className="mt-2 text-xs text-aco/50">Usado {t.uses}x</p>
                   </div>
                 </div>
               </div>
-              <div className="mt-3 flex gap-2 border-t border-slate-100 pt-3">
+              <div className="mt-3 flex gap-2 border-t border-bruma pt-3">
                 <Button
                   size="sm"
                   variant="ghost"
@@ -230,7 +230,7 @@ export default function TemplatesPage() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-700">Nome</label>
+                  <label className="mb-1.5 block text-sm font-medium text-aco">Nome</label>
                   <Input
                     placeholder="Ex: Drop de sexta"
                     value={name}
@@ -238,11 +238,11 @@ export default function TemplatesPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-700">Categoria</label>
+                  <label className="mb-1.5 block text-sm font-medium text-aco">Categoria</label>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value as MessageTemplate["category"])}
-                    className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/15"
+                    className="h-10 w-full rounded-lg border border-aco/30 bg-white px-3 text-sm text-breu outline-none focus:border-iris-claro focus:ring-2 focus:ring-iris/15"
                   >
                     <option value="drop">Drop</option>
                     <option value="promocao">Promoção</option>
@@ -252,36 +252,36 @@ export default function TemplatesPage() {
                 </div>
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">Mensagem</label>
+                <label className="mb-1.5 block text-sm font-medium text-aco">Mensagem</label>
                 <Textarea rows={5} value={body} onChange={(e) => setBody(e.target.value)} />
               </div>
 
               <div>
-                <p className="mb-1.5 text-sm font-medium text-slate-700">Inserir variável</p>
+                <p className="mb-1.5 text-sm font-medium text-aco">Inserir variável</p>
                 <div className="flex flex-wrap gap-1.5">
                   {VARIABLES.map((v) => (
                     <button
                       key={v}
                       onClick={() => insertVar(v)}
-                      className="rounded-md bg-brand-50 px-2 py-1 text-xs font-medium text-brand-700 hover:bg-brand-100"
+                      className="rounded-md bg-iris/10 px-2 py-1 text-xs font-medium text-iris-escuro hover:bg-iris/10"
                     >
                       {v}
                     </button>
                   ))}
                 </div>
-                <p className="mt-1.5 text-xs text-slate-400">
+                <p className="mt-1.5 text-xs text-aco/50">
                   Variáveis são preenchidas automaticamente no envio.
                 </p>
               </div>
 
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                <label className="mb-1.5 block text-sm font-medium text-aco">
                   Prévia (com exemplos)
                 </label>
                 <div className="rounded-lg bg-[#e5ddd5] p-4">
                   <div className="max-w-[85%] rounded-lg rounded-tl-none bg-white p-2.5 shadow-sm">
-                    <p className="whitespace-pre-wrap text-sm text-slate-800">{preview}</p>
-                    <p className="mt-1 text-right text-[10px] text-slate-400">12:30 ✓✓</p>
+                    <p className="whitespace-pre-wrap text-sm text-breu">{preview}</p>
+                    <p className="mt-1 text-right text-[10px] text-aco/50">12:30 ✓✓</p>
                   </div>
                 </div>
               </div>

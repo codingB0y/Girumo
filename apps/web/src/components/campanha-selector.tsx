@@ -15,7 +15,7 @@ export function CampanhaSelector() {
     return (
       <Link
         href="/campanhas"
-        className="hidden items-center gap-1.5 rounded-full border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 hover:bg-brand-100 sm:inline-flex"
+        className="hidden items-center gap-1.5 rounded-full border border-iris/20 bg-iris/10 px-3 py-1.5 text-xs font-medium text-iris-escuro hover:bg-iris/10 sm:inline-flex"
       >
         <Layers className="h-3.5 w-3.5" /> Criar campanha
       </Link>
@@ -27,25 +27,25 @@ export function CampanhaSelector() {
       <button
         onClick={() => setOpen((o) => !o)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
-        className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+        className="flex items-center gap-2 rounded-full border border-breu/10 bg-white px-3 py-1.5 text-xs font-medium text-aco hover:bg-bruma"
       >
-        <Layers className="h-3.5 w-3.5 text-brand-500" />
+        <Layers className="h-3.5 w-3.5 text-iris" />
         <span className="max-w-[160px] truncate">{active ? active.name : "Todas as campanhas"}</span>
-        <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+        <ChevronDown className="h-3.5 w-3.5 text-aco/50" />
       </button>
       {open && (
-        <div className="absolute right-0 z-30 mt-1 w-64 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card">
+        <div className="absolute right-0 z-30 mt-1 w-64 overflow-hidden rounded-xl border border-breu/10 bg-white shadow-card">
           <button
             onMouseDown={() => {
               setActiveCampanhaId(null);
               location.reload();
             }}
-            className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-slate-50"
+            className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-bruma"
           >
-            <span className="text-slate-600">Todas as campanhas</span>
-            {!active && <Check className="h-4 w-4 text-brand-600" />}
+            <span className="text-aco">Todas as campanhas</span>
+            {!active && <Check className="h-4 w-4 text-iris" />}
           </button>
-          <div className="max-h-64 overflow-y-auto border-t border-slate-100">
+          <div className="max-h-64 overflow-y-auto border-t border-bruma">
             {campanhas.map((c) => (
               <button
                 key={c.id}
@@ -53,17 +53,17 @@ export function CampanhaSelector() {
                   setActiveCampanhaId(c.id);
                   location.reload();
                 }}
-                className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-slate-50"
+                className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-bruma"
               >
                 <span className="min-w-0">
-                  <span className={cn("block truncate", active?.id === c.id ? "font-medium text-slate-900" : "text-slate-700")}>{c.name}</span>
-                  <span className="block truncate text-xs text-slate-400">{c.loja} · {c.groupIds.length} grupos</span>
+                  <span className={cn("block truncate", active?.id === c.id ? "font-medium text-breu" : "text-aco")}>{c.name}</span>
+                  <span className="block truncate text-xs text-aco/50">{c.loja} · {c.groupIds.length} grupos</span>
                 </span>
-                {active?.id === c.id && <Check className="h-4 w-4 shrink-0 text-brand-600" />}
+                {active?.id === c.id && <Check className="h-4 w-4 shrink-0 text-iris" />}
               </button>
             ))}
           </div>
-          <Link href="/campanhas" className="flex items-center gap-1.5 border-t border-slate-100 px-3 py-2 text-xs font-medium text-brand-600 hover:bg-brand-50">
+          <Link href="/campanhas" className="flex items-center gap-1.5 border-t border-bruma px-3 py-2 text-xs font-medium text-iris hover:bg-iris/10">
             <Settings2 className="h-3.5 w-3.5" /> Gerenciar campanhas
           </Link>
         </div>

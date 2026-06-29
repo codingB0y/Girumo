@@ -92,17 +92,17 @@ export default async function DashboardPage() {
                 <EmptyState icon={UserPlus} text="Nenhuma entrada ainda. Conecte a engine e lote um grupo." />
               )}
               {leads.slice(0, 8).map((l) => (
-                <div key={l.id} className="flex items-center justify-between rounded-lg border border-slate-100 p-3">
+                <div key={l.id} className="flex items-center justify-between rounded-lg border border-bruma p-3">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-50 text-brand-600">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-iris/10 text-iris">
                       <UserPlus className="h-4 w-4" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-slate-900">{l.name}</p>
-                      <p className="text-xs text-slate-400">{l.sourceGroup}</p>
+                      <p className="text-sm font-medium text-breu">{l.name}</p>
+                      <p className="text-xs text-aco/50">{l.sourceGroup}</p>
                     </div>
                   </div>
-                  <span className="text-xs text-slate-400">{formatDateTime(l.enteredAt)}</span>
+                  <span className="text-xs text-aco/50">{formatDateTime(l.enteredAt)}</span>
                 </div>
               ))}
             </CardContent>
@@ -121,26 +121,26 @@ export default async function DashboardPage() {
                   <Trophy className="h-4 w-4 text-amber-400" />
                   Top grupos por entradas
                 </CardTitle>
-                <span className="text-xs text-slate-400">Acumulado</span>
+                <span className="text-xs text-aco/50">Acumulado</span>
               </CardHeader>
               <CardContent className="space-y-3">
                 {ranking.every((r) => r.entries === 0) ? (
-                  <p className="py-4 text-center text-sm text-slate-400">
+                  <p className="py-4 text-center text-sm text-aco/50">
                     Nenhuma entrada registrada ainda.
                   </p>
                 ) : (
                   ranking.map((g, i) => (
                     <div key={g.id}>
                       <div className="mb-1 flex items-center justify-between text-sm">
-                        <span className="flex items-center gap-2 font-medium text-slate-700">
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-xs text-slate-500">
+                        <span className="flex items-center gap-2 font-medium text-aco">
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-bruma text-xs text-aco/70">
                             {i + 1}
                           </span>
                           {g.name}
                         </span>
-                        <span className="text-slate-400">{g.entries} entradas</span>
+                        <span className="text-aco/50">{g.entries} entradas</span>
                       </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                      <div className="h-2 overflow-hidden rounded-full bg-bruma">
                         <div
                           className="h-full rounded-full bg-amber-400"
                           style={{ width: `${Math.round((g.entries / maxEntries) * 100)}%` }}
@@ -159,23 +159,23 @@ export default async function DashboardPage() {
                   <Snowflake className="h-4 w-4 text-blue-400" />
                   Grupos parados
                 </CardTitle>
-                <span className="text-xs text-slate-400">Sem entradas há {COLD_DAYS}+ dias</span>
+                <span className="text-xs text-aco/50">Sem entradas há {COLD_DAYS}+ dias</span>
               </CardHeader>
               <CardContent className="space-y-2">
               {coldGroups.length === 0 ? (
-                <p className="py-4 text-center text-sm text-slate-400">
+                <p className="py-4 text-center text-sm text-aco/50">
                   Nenhum grupo parado — todos receberam entradas nos últimos {COLD_DAYS} dias. 👏
                 </p>
               ) : (
                 coldGroups.map((g) => (
-                  <div key={g.id} className="flex items-center justify-between rounded-lg border border-slate-100 p-3">
+                  <div key={g.id} className="flex items-center justify-between rounded-lg border border-bruma p-3">
                     <div className="flex items-center gap-3">
                       <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-500">
                         <Megaphone className="h-4 w-4" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-slate-800">{g.name}</p>
-                        <p className="text-xs text-slate-400">{g.members} membros</p>
+                        <p className="text-sm font-medium text-breu">{g.name}</p>
+                        <p className="text-xs text-aco/50">{g.members} membros</p>
                       </div>
                     </div>
                     <Badge tone="blue">
@@ -204,12 +204,12 @@ export default async function DashboardPage() {
               return (
                 <div key={g.id}>
                   <div className="mb-1 flex items-center justify-between text-sm">
-                    <span className="font-medium text-slate-700">{g.name}</span>
-                    <span className={full ? "text-red-500" : "text-slate-400"}>
+                    <span className="font-medium text-aco">{g.name}</span>
+                    <span className={full ? "text-red-500" : "text-aco/50"}>
                       {g.members}/{g.capacity} {full && "• cheio"}
                     </span>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-2 overflow-hidden rounded-full bg-bruma">
                     <div
                       className={cn("h-full rounded-full", full ? "bg-red-500" : "bg-green-500")}
                       style={{ width: `${pct}%` }}
@@ -228,8 +228,8 @@ export default async function DashboardPage() {
 function EmptyState({ icon: Icon, text }: { icon: typeof UserPlus; text: string }) {
   return (
     <div className="flex flex-col items-center gap-2 py-8 text-center">
-      <Icon className="h-8 w-8 text-slate-300" />
-      <p className="max-w-xs text-sm text-slate-400">{text}</p>
+      <Icon className="h-8 w-8 text-aco/30" />
+      <p className="max-w-xs text-sm text-aco/50">{text}</p>
     </div>
   );
 }

@@ -1,0 +1,6 @@
+rag_storage/
+.venv/
+.index_manifest.json
+__pycache__/
+*.pyc
+.env.local

@@ -1,0 +1,206 @@
+{
+  "main": {
+    "id": "57a49ab9bdc827b7",
+    "type": "split",
+    "children": [
+      {
+        "id": "21178fc1708c439f",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "478fd4ba3498184c",
+            "type": "leaf",
+            "state": {
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "Visualização em gráfico"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "bb323cd7071d41d8",
+    "type": "split",
+    "children": [
+      {
+        "id": "c5124417f8c68568",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "97cba0e04f776a29",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Explorador de arquivos"
+            }
+          },
+          {
+            "id": "56248fa6a66b05d8",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Procurar"
+            }
+          },
+          {
+            "id": "08efad97c6ca9390",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Marcadores"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "7fa2925293248e7e",
+    "type": "split",
+    "children": [
+      {
+        "id": "b6948818d7c0ee56",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "a7db9c8d050185e0",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Links inversos"
+            }
+          },
+          {
+            "id": "be8e6606c25dcda7",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Links de saída"
+            }
+          },
+          {
+            "id": "87fa23753157a81b",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Etiquetas"
+            }
+          },
+          {
+            "id": "128da649459fdf6d",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "Todas as propriedades"
+            }
+          },
+          {
+            "id": "0ec4b8938134adab",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Sumário"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Abrir a troca rápida": false,
+      "graph:Abrir visualização em gráfico": false,
+      "canvas:Criar novo canvas": false,
+      "daily-notes:Abrir a nota de hoje": false,
+      "templates:Inserir modelo": false,
+      "command-palette:Abrir paleta de comandos": false,
+      "bases:Criar nova base": false
+    }
+  },
+  "active": "478fd4ba3498184c",
+  "lastOpenFiles": [
+    "tools/lightrag/rag_storage/kv_store_doc_status.json.tmp.27444.24932.1782691969488097100",
+    "tools/lightrag/rag_storage/kv_store_doc_status.json.tmp.27444.24932.1782691820700181500",
+    "tools/lightrag/rag_storage/kv_store_doc_status.json.tmp.27444.24932.1782691820671176200",
+    "tools/lightrag/rag_storage/kv_store_doc_status.json.tmp.27444.24932.1782691820651672400",
+    "tools/lightrag/rag_storage/kv_store_doc_status.json.tmp.27444.24932.1782691820623321800",
+    "tools/lightrag/rag_storage/kv_store_doc_status.json.tmp.27444.24932.1782691820597912200",
+    "tools/lightrag/rag_storage/kv_store_doc_status.json.tmp.27444.24932.1782691667069633300",
+    "tools/lightrag/rag_storage/kv_store_doc_status.json.tmp.27444.24932.1782691667051505100",
+    "tools/lightrag/rag_storage/kv_store_doc_status.json.tmp.27444.24932.1782691667019000500",
+    "tools/lightrag/rag_storage/kv_store_doc_status.json.tmp.27444.24932.1782691666995911400",
+    "tools/lightrag/rag_storage/kv_store_doc_status.json.tmp.27444.24932.1782691529634249700",
+    "apps/web/src/app/apple-icon.png",
+    "apps/web/src/app/icon.svg",
+    "apps/web/public/brand/symbol-iris-gradient.svg",
+    "apps/web/public/brand/lockup-horizontal-dark.png",
+    "apps/web/public/brand/lockup-horizontal-light.png",
+    "apps/web/public/product/preview-onboarding.png",
+    "apps/web/public/product/preview-grupos.png",
+    "apps/web/public/product/preview-campanhas.png",
+    "apps/web/public/product/preview-dashboard.png",
+    "hubflow-groups/node_modules/next/dist/docs/01-app/02-guides/production-checklist.md",
+    "node_modules/ms/license.md",
+    "RAG_INIT.md",
+    "Sem título.canvas"
+  ]
+}

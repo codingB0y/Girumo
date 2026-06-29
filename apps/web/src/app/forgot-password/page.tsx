@@ -33,14 +33,14 @@ export default function ForgotPasswordPage() {
       title="Recuperar senha"
       subtitle="Receba um link seguro para criar uma nova senha"
       footer={
-        <Link href="/login" className="font-medium text-brand-600 hover:text-brand-700">
+        <Link href="/login" className="font-medium text-iris hover:text-iris-escuro">
           Voltar para login
         </Link>
       }
     >
       <form className="space-y-4" onSubmit={submit}>
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">E-mail</label>
+          <label className="mb-1.5 block text-sm font-medium text-aco">E-mail</label>
           <Input
             type="email"
             placeholder="voce@email.com"

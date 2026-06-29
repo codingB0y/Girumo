@@ -192,7 +192,7 @@ export default function AcquisitionPage() {
       <main className="grid flex-1 grid-cols-1 gap-6 p-6 xl:grid-cols-5">
         {/* Lista de campanhas */}
         <div className="space-y-3 xl:col-span-3">
-          <h2 className="font-semibold text-slate-900">Suas campanhas de anúncio</h2>
+          <h2 className="font-semibold text-breu">Suas campanhas de anúncio</h2>
           {!loaded &&
             Array.from({ length: 2 }).map((_, i) => (
               <Card key={`sk-${i}`} className="p-4">
@@ -206,7 +206,7 @@ export default function AcquisitionPage() {
               </Card>
             ))}
           {loaded && adCampaigns.length === 0 && (
-            <Card className="p-8 text-center text-sm text-slate-400">
+            <Card className="p-8 text-center text-sm text-aco/50">
               Nenhuma campanha ainda. Monte o kit ao lado — em 2 min você tem tudo pra subir no Meta.
             </Card>
           )}
@@ -215,12 +215,12 @@ export default function AcquisitionPage() {
             <Card key={c.id} className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-iris/10 text-iris">
                     <Target className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="font-medium text-slate-900">{c.name}</p>
-                    <p className="text-xs text-slate-400">
+                    <p className="font-medium text-breu">{c.name}</p>
+                    <p className="text-xs text-aco/50">
                       Destino: {c.targetGroupName} · R${c.budgetDaily}/dia
                     </p>
                   </div>
@@ -228,19 +228,19 @@ export default function AcquisitionPage() {
                 <Badge tone={statusTone[c.status]}>{c.status}</Badge>
               </div>
 
-              <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-100 pt-3 text-center">
+              <div className="mt-3 grid grid-cols-3 gap-2 border-t border-bruma pt-3 text-center">
                 <Metric icon={MousePointerClick} label="Cliques no link" value={c.clicks} />
                 <Metric icon={UserPlus} label="Entradas no grupo" value={c.entries} highlight />
                 <Metric icon={Target} label="Custo/lead" value={c.cpl > 0 ? `R$${c.cpl.toFixed(2)}` : "—"} />
               </div>
 
-              <div className="mt-3 flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
-                <Link2 className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                <span className="flex-1 truncate font-mono text-xs text-slate-500">
+              <div className="mt-3 flex items-center gap-2 rounded-lg bg-bruma px-3 py-2">
+                <Link2 className="h-3.5 w-3.5 shrink-0 text-aco/50" />
+                <span className="flex-1 truncate font-mono text-xs text-aco/70">
                   {origin}/r/{c.linkSlug}
                 </span>
                 <CopyBtn text={`${origin}/r/${c.linkSlug}`} onCopy={() => toast("Link copiado")} />
-                <button onClick={() => remove(c.id)} className="text-slate-300 hover:text-red-500" title="Excluir">
+                <button onClick={() => remove(c.id)} className="text-aco/30 hover:text-red-500" title="Excluir">
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </div>
@@ -253,7 +253,7 @@ export default function AcquisitionPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Megaphone className="h-4 w-4 text-brand-500" />
+                <Megaphone className="h-4 w-4 text-iris" />
                 Montar kit de anúncio
               </CardTitle>
             </CardHeader>
@@ -263,7 +263,7 @@ export default function AcquisitionPage() {
                   <select
                     value={groupId}
                     onChange={(e) => setGroupId(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/15"
+                    className="h-10 w-full rounded-lg border border-aco/30 bg-white px-3 text-sm text-breu outline-none focus:border-iris-claro focus:ring-2 focus:ring-iris/15"
                   >
                     {groups.length === 0 && <option>Conecte a engine</option>}
                     {groups.map((g) => (
@@ -285,7 +285,7 @@ export default function AcquisitionPage() {
                   value={inviteUrl}
                   onChange={(e) => setInviteUrl(e.target.value)}
                 />
-                <p className="mt-1 text-xs text-slate-400">
+                <p className="mt-1 text-xs text-aco/50">
                   No WhatsApp: abra o grupo → Convidar via link → Copiar. Eu gero um link rastreável a partir dele.
                 </p>
               </Field>
@@ -297,19 +297,19 @@ export default function AcquisitionPage() {
                   onChange={(e) => setPixelId(e.target.value)}
                   inputMode="numeric"
                 />
-                <p className="mt-1 text-xs text-slate-400">
+                <p className="mt-1 text-xs text-aco/50">
                   Com o Pixel, o Meta otimiza o anúncio por quem REALMENTE entra no grupo (dispara o evento &quot;Lead&quot;).
                 </p>
               </Field>
 
               <div>
-                <p className="mb-1.5 text-sm font-medium text-slate-700">Usar modelo do método</p>
+                <p className="mb-1.5 text-sm font-medium text-aco">Usar modelo do método</p>
                 <div className="flex flex-wrap gap-1.5">
                   {AD_TEMPLATES.map((t) => (
                     <button
                       key={t.label}
                       onClick={() => applyTemplate(t)}
-                      className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600 hover:border-brand-300 hover:text-brand-700"
+                      className="rounded-md border border-breu/10 bg-white px-2 py-1 text-xs font-medium text-aco hover:border-iris/30 hover:text-iris-escuro"
                     >
                       {t.label}
                     </button>
@@ -341,9 +341,9 @@ export default function AcquisitionPage() {
               />
 
               {/* Estimativa */}
-              <div className="flex items-start gap-2 rounded-xl border border-brand-200 bg-brand-50 p-3">
-                <TrendingUp className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
-                <p className="text-xs text-brand-800">
+              <div className="flex items-start gap-2 rounded-xl border border-iris/20 bg-iris/10 p-3">
+                <TrendingUp className="mt-0.5 h-4 w-4 shrink-0 text-iris" />
+                <p className="text-xs text-iris-escuro">
                   Com <strong>R${budget}/dia</strong>, estimativa grosseira: ~<strong>{cliquesDia} cliques</strong> e ~
                   <strong>{entradasDia} entradas</strong> por dia no grupo. O número real aparece nas métricas acima.
                 </p>
@@ -359,12 +359,12 @@ export default function AcquisitionPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-sm">
-                <ListChecks className="h-4 w-4 text-slate-400" />
+                <ListChecks className="h-4 w-4 text-aco/50" />
                 Como subir no Gerenciador de Anúncios
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ol className="space-y-2 text-sm text-slate-600">
+              <ol className="space-y-2 text-sm text-aco">
                 {[
                   "Objetivo: Tráfego (ou Engajamento).",
                   "Destino → Site: cole o link rastreável gerado no card da campanha.",
@@ -374,7 +374,7 @@ export default function AcquisitionPage() {
                   "Publique. Cliques e entradas aparecem aqui automaticamente.",
                 ].map((step, i) => (
                   <li key={i} className="flex gap-2">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-600 text-[11px] font-medium text-white">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-iris text-[11px] font-medium text-white">
                       {i + 1}
                     </span>
                     {step}
@@ -392,7 +392,7 @@ export default function AcquisitionPage() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="mb-1.5 block text-sm font-medium text-slate-700">{label}</label>
+      <label className="mb-1.5 block text-sm font-medium text-aco">{label}</label>
       {children}
     </div>
   );
@@ -416,7 +416,7 @@ function CopyField({
   return (
     <div>
       <div className="mb-1.5 flex items-center justify-between">
-        <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+        <label className="flex items-center gap-1.5 text-sm font-medium text-aco">
           {icon}
           {label}
         </label>
@@ -441,7 +441,7 @@ function CopyBtn({ text, onCopy, label }: { text: string; onCopy: () => void; la
         onCopy();
         setTimeout(() => setDone(false), 1500);
       }}
-      className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-brand-600 hover:bg-brand-50"
+      className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-iris hover:bg-iris/10"
     >
       {done ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
       {label}
@@ -462,9 +462,9 @@ function Metric({
 }) {
   return (
     <div>
-      <Icon className={`mx-auto h-4 w-4 ${highlight ? "text-brand-600" : "text-slate-400"}`} />
-      <p className={`mt-1 text-sm font-semibold ${highlight ? "text-brand-600" : "text-slate-900"}`}>{value}</p>
-      <p className="text-[11px] text-slate-400">{label}</p>
+      <Icon className={`mx-auto h-4 w-4 ${highlight ? "text-iris" : "text-aco/50"}`} />
+      <p className={`mt-1 text-sm font-semibold ${highlight ? "text-iris" : "text-breu"}`}>{value}</p>
+      <p className="text-[11px] text-aco/50">{label}</p>
     </div>
   );
 }

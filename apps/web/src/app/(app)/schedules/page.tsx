@@ -87,7 +87,7 @@ export default function SchedulesPage() {
               <select
                 value={campaignId}
                 onChange={(e) => setCampaignId(e.target.value)}
-                className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/15 sm:col-span-2"
+                className="h-10 rounded-lg border border-aco/30 bg-white px-3 text-sm outline-none focus:border-iris-claro focus:ring-2 focus:ring-iris/15 sm:col-span-2"
               >
                 <option value="">Escolha uma oferta…</option>
                 {campaigns.map((c) => (
@@ -104,7 +104,7 @@ export default function SchedulesPage() {
               <select
                 value={recurrence}
                 onChange={(e) => setRecurrence(e.target.value as Schedule["recurrence"])}
-                className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/15"
+                className="h-10 rounded-lg border border-aco/30 bg-white px-3 text-sm outline-none focus:border-iris-claro focus:ring-2 focus:ring-iris/15"
               >
                 <option value="none">Única</option>
                 <option value="daily">Diária</option>
@@ -138,7 +138,7 @@ export default function SchedulesPage() {
           </div>
         )}
         {loaded && schedules.length === 0 && (
-          <Card className="p-8 text-center text-sm text-slate-400">
+          <Card className="p-8 text-center text-sm text-aco/50">
             Nenhum agendamento. Crie o primeiro acima.
           </Card>
         )}
@@ -152,8 +152,8 @@ export default function SchedulesPage() {
                     <CalendarClock className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="font-medium text-slate-900">{s.campaignName}</p>
-                    <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                    <p className="font-medium text-breu">{s.campaignName}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-aco/70">
                       <span className="flex items-center gap-1">
                         <Clock className="h-3.5 w-3.5" />
                         {formatDateTime(s.scheduledAt)}
@@ -167,7 +167,7 @@ export default function SchedulesPage() {
                 </div>
                 <Badge tone={statusTone[s.status]}>{statusLabel[s.status]}</Badge>
               </div>
-              <div className="mt-4 flex gap-2 border-t border-slate-100 pt-3">
+              <div className="mt-4 flex gap-2 border-t border-bruma pt-3">
                 <Button
                   size="sm"
                   variant="ghost"
@@ -182,7 +182,7 @@ export default function SchedulesPage() {
           ))}
         </div>
 
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-aco/50">
           No horário, a engine dispara a oferta automaticamente pela fila anti-ban. Recorrentes
           reprogramam sozinhos para a próxima data. A engine precisa estar conectada.
         </p>

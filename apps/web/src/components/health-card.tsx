@@ -70,7 +70,7 @@ export function HealthCard() {
     <Card>
       <CardHeader className="flex items-center justify-between">
         <CardTitle className="flex items-center gap-2">
-          <HeartPulse className="h-4 w-4 text-slate-400" />
+          <HeartPulse className="h-4 w-4 text-aco/50" />
           Saúde do número
         </CardTitle>
         <span className={`flex items-center gap-1.5 rounded-full ${t.bg} px-2.5 py-1 text-xs font-medium ${t.text}`}>
@@ -92,13 +92,13 @@ export function HealthCard() {
 
         {limit !== null && (
           <div>
-            <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
+            <div className="mb-1 flex items-center justify-between text-xs text-aco/70">
               <span>Envios de hoje (limite seguro)</span>
               <span>
                 {sent}/{limit}
               </span>
             </div>
-            <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+            <div className="h-2 overflow-hidden rounded-full bg-bruma">
               <div
                 className={`h-full rounded-full ${densityPct >= 90 ? "bg-amber-500" : "bg-green-500"}`}
                 style={{ width: `${densityPct}%` }}
@@ -113,10 +113,10 @@ export function HealthCard() {
 
 function Metric({ icon: Icon, label, value }: { icon: typeof Clock; label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-3">
-      <Icon className="mx-auto mb-1 h-4 w-4 text-slate-400" />
-      <p className="text-base font-semibold text-slate-900">{value}</p>
-      <p className="text-[11px] text-slate-400">{label}</p>
+    <div className="rounded-lg border border-breu/10 bg-bruma px-2 py-3">
+      <Icon className="mx-auto mb-1 h-4 w-4 text-aco/50" />
+      <p className="text-base font-semibold text-breu">{value}</p>
+      <p className="text-[11px] text-aco/50">{label}</p>
     </div>
   );
 }

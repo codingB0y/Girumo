@@ -120,7 +120,7 @@ export default function IndicacaoPage() {
         <div className="space-y-3 xl:col-span-3">
           <div className="flex items-center gap-2">
             <Trophy className="h-5 w-5 text-amber-500" />
-            <h2 className="font-semibold text-slate-900">Ranking de quem mais traz</h2>
+            <h2 className="font-semibold text-breu">Ranking de quem mais traz</h2>
           </div>
 
           {!loaded &&
@@ -136,7 +136,7 @@ export default function IndicacaoPage() {
               </Card>
             ))}
           {loaded && ranking.length === 0 && (
-            <Card className="p-8 text-center text-sm text-slate-400">
+            <Card className="p-8 text-center text-sm text-aco/50">
               Nenhuma indicação ainda. Gere o link pessoal de uma revendedora ao lado e mande pra ela.
             </Card>
           )}
@@ -145,11 +145,11 @@ export default function IndicacaoPage() {
             <Card key={r.id} className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-bold ${i === 0 && r.entradas > 0 ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"}`}>
+                  <div className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-bold ${i === 0 && r.entradas > 0 ? "bg-amber-100 text-amber-700" : "bg-bruma text-aco/70"}`}>
                     {i === 0 && r.entradas > 0 ? "🏆" : i + 1}
                   </div>
                   <div>
-                    <p className="flex items-center gap-1.5 font-medium text-slate-900">
+                    <p className="flex items-center gap-1.5 font-medium text-breu">
                       {r.referrerName}
                       {r.atingiu && (
                         <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-semibold text-green-700 ring-1 ring-inset ring-green-600/15">
@@ -157,29 +157,29 @@ export default function IndicacaoPage() {
                         </span>
                       )}
                     </p>
-                    <p className="text-xs text-slate-400">{r.group}</p>
+                    <p className="text-xs text-aco/50">{r.group}</p>
                   </div>
                 </div>
-                <button onClick={() => remove(r.id)} className="text-slate-300 hover:text-red-500" title="Remover">
+                <button onClick={() => remove(r.id)} className="text-aco/30 hover:text-red-500" title="Remover">
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
 
-              <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 text-center">
+              <div className="mt-3 grid grid-cols-2 gap-2 border-t border-bruma pt-3 text-center">
                 <div>
-                  <p className="text-lg font-bold text-slate-900">{r.entradas}</p>
-                  <p className="text-[11px] text-slate-400">entradas (prováveis)</p>
+                  <p className="text-lg font-bold text-breu">{r.entradas}</p>
+                  <p className="text-[11px] text-aco/50">entradas (prováveis)</p>
                 </div>
                 <div>
-                  <p className="text-lg font-bold text-brand-600">{r.cliques}</p>
-                  <p className="text-[11px] text-slate-400">cliques no link</p>
+                  <p className="text-lg font-bold text-iris">{r.cliques}</p>
+                  <p className="text-[11px] text-aco/50">cliques no link</p>
                 </div>
               </div>
 
               <div className="mt-3 flex items-center gap-2">
-                <div className="flex flex-1 items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
-                  <Link2 className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                  <span className="flex-1 truncate font-mono text-xs text-slate-500">{origin}/r/{r.slug}</span>
+                <div className="flex flex-1 items-center gap-2 rounded-lg bg-bruma px-3 py-2">
+                  <Link2 className="h-3.5 w-3.5 shrink-0 text-aco/50" />
+                  <span className="flex-1 truncate font-mono text-xs text-aco/70">{origin}/r/{r.slug}</span>
                 </div>
                 <CopyBtn label="Link" text={`${origin}/r/${r.slug}`} onCopy={() => toast("Link copiado")} />
                 <CopyBtn
@@ -198,17 +198,17 @@ export default function IndicacaoPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Gift className="h-4 w-4 text-brand-500" />
+                <Gift className="h-4 w-4 text-iris" />
                 A recompensa
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">Prêmio para quem indicar</label>
+                <label className="mb-1.5 block text-sm font-medium text-aco">Prêmio para quem indicar</label>
                 <Input value={config.reward} onChange={(e) => setConfig({ ...config, reward: e.target.value })} placeholder="Ex: Frete grátis no próximo pedido" />
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">Quantas indicações para ganhar</label>
+                <label className="mb-1.5 block text-sm font-medium text-aco">Quantas indicações para ganhar</label>
                 <Input type="number" min={1} value={config.goal} onChange={(e) => setConfig({ ...config, goal: Number(e.target.value) })} />
               </div>
               <Button variant="outline" className="w-full" onClick={saveConfig}>
@@ -221,21 +221,21 @@ export default function IndicacaoPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Users2 className="h-4 w-4 text-brand-500" />
+                <Users2 className="h-4 w-4 text-iris" />
                 Gerar link de uma revendedora
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">Nome da revendedora</label>
+                <label className="mb-1.5 block text-sm font-medium text-aco">Nome da revendedora</label>
                 <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Maria" />
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">Grupo de destino</label>
+                <label className="mb-1.5 block text-sm font-medium text-aco">Grupo de destino</label>
                 <select
                   value={groupId}
                   onChange={(e) => setGroupId(e.target.value)}
-                  className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/15"
+                  className="h-10 w-full rounded-lg border border-aco/30 bg-white px-3 text-sm text-breu outline-none focus:border-iris-claro focus:ring-2 focus:ring-iris/15"
                 >
                   {groups.length === 0 && <option>Conecte a engine</option>}
                   {groups.map((g) => (
@@ -244,13 +244,13 @@ export default function IndicacaoPage() {
                 </select>
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">Link de convite do grupo</label>
+                <label className="mb-1.5 block text-sm font-medium text-aco">Link de convite do grupo</label>
                 <Input value={inviteUrl} onChange={(e) => setInviteUrl(e.target.value)} placeholder="https://chat.whatsapp.com/..." />
               </div>
               <Button className="w-full" onClick={gerar} disabled={saving}>
                 {saving ? "Gerando..." : "Gerar link pessoal"}
               </Button>
-              <p className="text-center text-xs text-slate-400">
+              <p className="text-center text-xs text-aco/50">
                 Depois é só copiar a <strong>mensagem</strong> no ranking e mandar pra ela compartilhar.
               </p>
             </CardContent>
@@ -271,7 +271,7 @@ function CopyBtn({ text, onCopy, label, icon }: { text: string; onCopy: () => vo
         onCopy();
         setTimeout(() => setDone(false), 1500);
       }}
-      className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-medium text-slate-600 transition hover:border-brand-300 hover:text-brand-700"
+      className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-breu/10 px-2.5 py-2 text-xs font-medium text-aco transition hover:border-iris/30 hover:text-iris-escuro"
     >
       {done ? <Check className="h-3.5 w-3.5" /> : (icon ?? <Copy className="h-3.5 w-3.5" />)}
       {label}
