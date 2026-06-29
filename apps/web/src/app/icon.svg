@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <defs><mask id="bb2f"><rect width="32" height="32" fill="white"></rect><path d="M15 12.5 a6 6 0 0 1 0 7" fill="none" stroke="black" stroke-width="4.5"></path></mask></defs>
+  <g mask="url(#bb2f)">
+    <rect x="4" y="6.5" width="13" height="19" rx="6" fill="none" stroke="#6A4BF0" stroke-width="4.5"></rect>
+    <rect x="15" y="6.5" width="13" height="19" rx="6" fill="none" stroke="#6A4BF0" stroke-width="4.5"></rect>
+  </g>
+  <path d="M15 12.5 a6 6 0 0 1 0 7" fill="none" stroke="#6A4BF0" stroke-width="4.5"></path>
+</svg>
