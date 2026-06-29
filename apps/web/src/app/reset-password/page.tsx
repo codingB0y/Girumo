@@ -38,7 +38,7 @@ export default function ResetPasswordPage() {
     <AuthShell title="Nova senha" subtitle="Defina uma senha segura para sua conta">
       <form className="space-y-4" onSubmit={submit}>
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">Nova senha</label>
+          <label className="mb-1.5 block text-sm font-medium text-aco">Nova senha</label>
           <Input
             type="password"
             placeholder="Minimo 6 caracteres"
@@ -49,7 +49,7 @@ export default function ResetPasswordPage() {
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">Confirmar senha</label>
+          <label className="mb-1.5 block text-sm font-medium text-aco">Confirmar senha</label>
           <Input
             type="password"
             placeholder="Repita a nova senha"

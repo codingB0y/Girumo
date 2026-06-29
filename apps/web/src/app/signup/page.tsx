@@ -55,7 +55,7 @@ export default function SignupPage() {
       footer={
         <>
           Ja tem conta?{" "}
-          <Link href="/login" className="font-medium text-brand-600 hover:text-brand-700">
+          <Link href="/login" className="font-medium text-iris hover:text-iris-escuro">
             Entrar
           </Link>
         </>
@@ -63,7 +63,7 @@ export default function SignupPage() {
     >
       <form className="space-y-4" onSubmit={submit}>
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">Seu nome</label>
+          <label className="mb-1.5 block text-sm font-medium text-aco">Seu nome</label>
           <Input
             placeholder="Ex: Maria da Silva"
             value={name}
@@ -73,7 +73,7 @@ export default function SignupPage() {
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">E-mail</label>
+          <label className="mb-1.5 block text-sm font-medium text-aco">E-mail</label>
           <Input
             type="email"
             placeholder="voce@email.com"
@@ -86,7 +86,7 @@ export default function SignupPage() {
           )}
         </div>
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">Senha</label>
+          <label className="mb-1.5 block text-sm font-medium text-aco">Senha</label>
           <Input
             type="password"
             placeholder="Minimo 6 caracteres"
@@ -102,7 +102,7 @@ export default function SignupPage() {
         <Button className="w-full" type="submit" disabled={loading || !valid}>
           {loading ? "Criando..." : "Criar conta"}
         </Button>
-        <p className="text-center text-xs leading-5 text-slate-500">
+        <p className="text-center text-xs leading-5 text-aco/70">
           Ao criar conta, seus dados ficam separados da base de outros clientes por tenant.
         </p>
       </form>

@@ -124,16 +124,16 @@ export default function LeadsPage() {
         title="Revendedoras"
         subtitle={live ? "Leads capturados pelos grupos" : "Aguardando primeiras entradas"}
       />
-      <main className="flex-1 bg-slate-50/70 px-4 py-5 sm:px-6 lg:px-8">
+      <main className="flex-1 bg-bruma/70 px-4 py-5 sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-7xl gap-5">
           <section className="grid gap-3 md:grid-cols-3">
             {(["novo", "ativo", "comprou"] as LeadStatus[]).map((status) => (
               <Card key={status} className="p-4">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{statusLabel[status]}</p>
+                  <p className="text-xs font-medium uppercase tracking-wide text-aco/70">{statusLabel[status]}</p>
                   <Badge tone={statusTone[status]}>{statusLabel[status]}</Badge>
                 </div>
-                <p className="mt-2 text-2xl font-semibold text-slate-950">
+                <p className="mt-2 text-2xl font-semibold text-breu">
                   {scoped.filter((lead) => lead.status === status).length}
                 </p>
               </Card>
@@ -148,7 +148,7 @@ export default function LeadsPage() {
                     key={tab}
                     onClick={() => setFilter(tab)}
                     className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                      filter === tab ? "bg-brand-600 text-white shadow-brand" : "text-slate-600 hover:bg-slate-100"
+                      filter === tab ? "bg-iris text-white shadow-brand" : "text-aco hover:bg-bruma"
                     }`}
                   >
                     {tab === "todos" ? "Todos" : statusLabel[tab]}
@@ -174,7 +174,7 @@ export default function LeadsPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                  <tr className="border-b border-bruma bg-bruma text-left text-xs uppercase tracking-wide text-aco/70">
                     <th className="px-5 py-3 font-medium">Contato</th>
                     <th className="px-5 py-3 font-medium">Grupo</th>
                     <th className="px-5 py-3 font-medium">Origem</th>
@@ -183,7 +183,7 @@ export default function LeadsPage() {
                     <th className="px-5 py-3 font-medium">Acoes</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 bg-white">
+                <tbody className="divide-y divide-bruma bg-white">
                   {!loaded &&
                     Array.from({ length: 5 }).map((_, index) => (
                       <tr key={`sk-${index}`}>
@@ -205,32 +205,32 @@ export default function LeadsPage() {
                     ))}
                   {loaded && filtered.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="px-5 py-10 text-center text-sm text-slate-400">
+                      <td colSpan={6} className="px-5 py-10 text-center text-sm text-aco/50">
                         Nenhum lead encontrado neste filtro.
                       </td>
                     </tr>
                   )}
                   {filtered.map((lead) => (
-                    <tr key={lead.id} className="hover:bg-slate-50">
+                    <tr key={lead.id} className="hover:bg-bruma">
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-iris/10 text-iris">
                             <UserPlus className="h-4 w-4" />
                           </div>
                           <div>
-                            <p className="font-medium text-slate-900">{lead.name}</p>
-                            <p className="text-xs text-slate-400" title="Numero protegido">
+                            <p className="font-medium text-breu">{lead.name}</p>
+                            <p className="text-xs text-aco/50" title="Numero protegido">
                               {lead.phone ? maskPhone(lead.phone) : "Numero oculto"}
                             </p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-5 py-3 text-slate-600">{lead.sourceGroup}</td>
-                      <td className="px-5 py-3 text-slate-600">{lead.sourceCampaign}</td>
+                      <td className="px-5 py-3 text-aco">{lead.sourceGroup}</td>
+                      <td className="px-5 py-3 text-aco">{lead.sourceCampaign}</td>
                       <td className="px-5 py-3">
                         <Badge tone={statusTone[lead.status]}>{statusLabel[lead.status]}</Badge>
                       </td>
-                      <td className="px-5 py-3 text-xs text-slate-400">{formatDateTime(lead.enteredAt)}</td>
+                      <td className="px-5 py-3 text-xs text-aco/50">{formatDateTime(lead.enteredAt)}</td>
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-2">
                           <button
@@ -244,7 +244,7 @@ export default function LeadsPage() {
                           <select
                             value={lead.status}
                             onChange={(event) => setStatus(lead.id, event.target.value as LeadStatus)}
-                            className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-600 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/15"
+                            className="h-8 rounded-lg border border-breu/10 bg-white px-2 text-xs text-aco outline-none focus:border-iris-claro focus:ring-2 focus:ring-iris/15"
                             title="Mudar status"
                           >
                             <option value="novo">Novo</option>
@@ -253,7 +253,7 @@ export default function LeadsPage() {
                           </select>
                           <button
                             onClick={() => del(lead.id)}
-                            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                            className="rounded-lg p-1.5 text-aco/50 transition hover:bg-red-50 hover:text-red-600"
                             title="Excluir"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -267,7 +267,7 @@ export default function LeadsPage() {
             </div>
           </Card>
 
-          <p className="flex items-center gap-1.5 text-xs text-slate-400">
+          <p className="flex items-center gap-1.5 text-xs text-aco/50">
             <Filter className="h-3.5 w-3.5" />
             Telefones aparecem mascarados por privacidade. A exclusao remove o contato da base local.
           </p>

@@ -66,7 +66,7 @@ function LoginForm() {
   return (
     <form className="space-y-4" onSubmit={submit}>
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-slate-700">E-mail</label>
+        <label className="mb-1.5 block text-sm font-medium text-aco">E-mail</label>
         <Input
           type="email"
           placeholder="voce@email.com"
@@ -77,7 +77,7 @@ function LoginForm() {
         />
       </div>
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-slate-700">Senha</label>
+        <label className="mb-1.5 block text-sm font-medium text-aco">Senha</label>
         <Input
           type="password"
           placeholder="Sua senha"
@@ -86,7 +86,7 @@ function LoginForm() {
           autoComplete="current-password"
         />
         <div className="mt-1 text-right">
-          <Link href="/forgot-password" className="text-xs font-medium text-brand-600 hover:text-brand-700">
+          <Link href="/forgot-password" className="text-xs font-medium text-iris hover:text-iris-escuro">
             Esqueci minha senha
           </Link>
         </div>
@@ -95,7 +95,7 @@ function LoginForm() {
       <Button className="w-full" type="submit" disabled={loading || !email || !password}>
         {loading ? "Entrando..." : "Entrar"}
       </Button>
-      <p className="text-center text-xs leading-5 text-slate-500">
+      <p className="text-center text-xs leading-5 text-aco/70">
         Ao entrar, voce volta para {destination}.
       </p>
     </form>
@@ -123,7 +123,7 @@ function LoginPageContent() {
       footer={
         <>
           Nao tem conta?{" "}
-          <Link href="/signup" className="font-medium text-brand-600 hover:text-brand-700">
+          <Link href="/signup" className="font-medium text-iris hover:text-iris-escuro">
             Criar conta
           </Link>
         </>

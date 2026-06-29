@@ -27,8 +27,8 @@ export default async function ReportsPage() {
     <>
       <Topbar title="Resultados" subtitle="Quanto seu negócio cresceu" />
       <main className="flex-1 space-y-6 p-6">
-        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
-          <CalendarDays className="h-4 w-4 text-slate-400" />
+        <div className="flex items-center gap-2 rounded-lg border border-breu/10 bg-white px-3 py-2 text-sm text-aco">
+          <CalendarDays className="h-4 w-4 text-aco/50" />
           Acumulado
         </div>
 
@@ -51,23 +51,23 @@ export default async function ReportsPage() {
           </CardHeader>
           <CardContent>
             {rows.length === 0 ? (
-              <p className="py-8 text-center text-sm text-slate-400">
+              <p className="py-8 text-center text-sm text-aco/50">
                 Sem cliques ainda. Crie um link rastreado e use como destino do anúncio.
               </p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400">
+                    <tr className="border-b border-bruma text-left text-xs uppercase tracking-wide text-aco/50">
                       <th className="py-3 pr-4 font-medium">Campanha</th>
                       <th className="py-3 pl-4 font-medium text-right">Cliques</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-50">
+                  <tbody className="divide-y divide-bruma">
                     {rows.map((r) => (
                       <tr key={r.campaign}>
-                        <td className="py-3 pr-4 font-medium text-slate-800">{r.campaign}</td>
-                        <td className="py-3 pl-4 text-right text-slate-700">{r.clicks.toLocaleString("pt-BR")}</td>
+                        <td className="py-3 pr-4 font-medium text-breu">{r.campaign}</td>
+                        <td className="py-3 pl-4 text-right text-aco">{r.clicks.toLocaleString("pt-BR")}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -77,7 +77,7 @@ export default async function ReportsPage() {
           </CardContent>
         </Card>
 
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-aco/50">
           Cliques e entradas são <strong>números reais</strong>. A conversão clique→entrada é{" "}
           <strong>estimada</strong>: pelo Caminho A não dá para cravar que cada entrada veio de um
           clique específico. Investido / custo por lead aparecem quando a integração com o

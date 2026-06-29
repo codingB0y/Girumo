@@ -59,27 +59,27 @@ export default async function HojePage() {
   return (
     <>
       <Topbar title="Hoje" subtitle="Operacao, crescimento e acoes do dia" />
-      <main className="flex-1 bg-slate-50/70 px-4 py-5 sm:px-6 lg:px-8">
+      <main className="flex-1 bg-bruma/70 px-4 py-5 sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-7xl gap-5">
           <OnboardingChecklist />
 
-          <section className="rounded-lg border border-slate-200 bg-white shadow-card">
+          <section className="rounded-lg border border-breu/10 bg-white shadow-card">
             <div className="grid gap-0 lg:grid-cols-[1fr_320px]">
-              <div className="border-b border-slate-200 p-4 lg:border-b-0 lg:border-r">
+              <div className="border-b border-breu/10 p-4 lg:border-b-0 lg:border-r">
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                   <div>
                     <div className="flex items-center gap-2">
                       <span className={`h-2.5 w-2.5 rounded-full ${tone.dot}`} />
-                      <p className="text-sm font-medium text-slate-600">{statusText}</p>
+                      <p className="text-sm font-medium text-aco">{statusText}</p>
                     </div>
-                    <h1 className="mt-2 text-2xl font-semibold tracking-normal text-slate-950">O que fazer agora</h1>
-                    <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+                    <h1 className="mt-2 text-2xl font-semibold tracking-normal text-breu">O que fazer agora</h1>
+                    <p className="mt-1 max-w-2xl text-sm leading-6 text-aco/70">
                       Veja a proxima acao para manter seus grupos recebendo clientes.
                     </p>
                   </div>
                   <Link
                     href={r.nextAction.href}
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white shadow-brand transition hover:bg-brand-700"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-iris px-4 text-sm font-semibold text-white shadow-brand transition hover:bg-iris-escuro"
                   >
                     {r.nextAction.cta}
                     <ArrowRight className="h-4 w-4" />
@@ -95,11 +95,11 @@ export default async function HojePage() {
 
               <div className="p-4">
                 <div className={`rounded-lg border p-4 ${ACTION_TONE[r.nextAction.tone]}`}>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Proxima acao</p>
-                  <p className="mt-2 text-base font-semibold leading-6 text-slate-900">{r.nextAction.text}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-aco/70">Proxima acao</p>
+                  <p className="mt-2 text-base font-semibold leading-6 text-breu">{r.nextAction.text}</p>
                   <Link
                     href={r.nextAction.href}
-                    className="mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
+                    className="mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-breu px-4 text-sm font-semibold text-white transition hover:bg-breu"
                   >
                     {r.nextAction.cta}
                     <ArrowRight className="h-4 w-4" />
@@ -128,7 +128,7 @@ export default async function HojePage() {
                 </Link>
               </CardHeader>
               <CardContent>
-                <p className="mb-3 text-sm text-slate-600">
+                <p className="mb-3 text-sm text-aco">
                   Pessoas que ja compraram costumam custar menos para converter de novo.
                 </p>
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -138,10 +138,10 @@ export default async function HojePage() {
                       className="flex items-center justify-between rounded-lg border border-amber-100 bg-white px-3 py-2"
                     >
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-slate-800">
+                        <p className="truncate text-sm font-medium text-breu">
                           {item.phone ? maskPhone(item.phone) : "Numero oculto"}
                         </p>
-                        {item.group && <p className="truncate text-xs text-slate-400">{item.group}</p>}
+                        {item.group && <p className="truncate text-xs text-aco/50">{item.group}</p>}
                       </div>
                       <span className="ml-2 shrink-0 text-xs font-medium text-amber-700">ha {item.dias}d</span>
                     </div>
@@ -154,13 +154,13 @@ export default async function HojePage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-slate-400" />
+                <Filter className="h-4 w-4 text-aco/50" />
                 Caminho ate a venda
               </CardTitle>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-aco/70">
                 Onde o fluxo perde resultado.
                 {r.atividade.medida && (
-                  <span className="ml-1 text-slate-400">
+                  <span className="ml-1 text-aco/50">
                     {r.atividade.mensagensHoje} mensagens hoje em {r.atividade.gruposAtivos} grupo(s)
                   </span>
                 )}
@@ -175,18 +175,18 @@ export default async function HojePage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <HeartPulse className="h-4 w-4 text-slate-400" />
+                  <HeartPulse className="h-4 w-4 text-aco/50" />
                   Saude do negocio
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-end gap-2">
                   <span className={`text-4xl font-semibold ${tone.text}`}>{r.score.value}</span>
-                  <span className="pb-1 text-sm text-slate-400">/ 100</span>
+                  <span className="pb-1 text-sm text-aco/50">/ 100</span>
                 </div>
                 <p className={`mt-1 text-sm font-medium ${tone.text}`}>{r.score.label}</p>
-                <p className="mt-2 text-xs leading-5 text-slate-500">{r.score.reason}</p>
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
+                <p className="mt-2 text-xs leading-5 text-aco/70">{r.score.reason}</p>
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-bruma">
                   <div className={`h-full rounded-full ${tone.bar}`} style={{ width: `${r.score.value}%` }} />
                 </div>
               </CardContent>
@@ -199,7 +199,7 @@ export default async function HojePage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <ListChecks className="h-4 w-4 text-slate-400" />
+                  <ListChecks className="h-4 w-4 text-aco/50" />
                   Rotina de hoje
                 </CardTitle>
               </CardHeader>
@@ -224,12 +224,12 @@ function MetricTile({
   value: string | number;
 }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+    <div className="rounded-lg border border-breu/10 bg-bruma px-3 py-3">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
-        <Icon className="h-4 w-4 text-slate-400" />
+        <p className="text-xs font-medium uppercase tracking-wide text-aco/70">{label}</p>
+        <Icon className="h-4 w-4 text-aco/50" />
       </div>
-      <p className="mt-2 text-xl font-semibold text-slate-950">{value}</p>
+      <p className="mt-2 text-xl font-semibold text-breu">{value}</p>
     </div>
   );
 }

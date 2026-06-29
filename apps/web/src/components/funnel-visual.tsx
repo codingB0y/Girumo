@@ -56,16 +56,16 @@ export function FunnelVisual({ funnel, insight, entradasVar }: Props) {
     <div>
       {/* Toggle simples / detalhado */}
       <div className="mb-4 flex justify-end">
-        <div className="inline-flex rounded-lg border border-slate-200 p-0.5 text-xs">
+        <div className="inline-flex rounded-lg border border-breu/10 p-0.5 text-xs">
           <button
             onClick={() => setDetailed(false)}
-            className={`rounded-md px-3 py-1 font-medium transition ${!detailed ? "bg-slate-900 text-white" : "text-slate-500 hover:text-slate-700"}`}
+            className={`rounded-md px-3 py-1 font-medium transition ${!detailed ? "bg-breu text-white" : "text-aco/70 hover:text-aco"}`}
           >
             Simples
           </button>
           <button
             onClick={() => setDetailed(true)}
-            className={`rounded-md px-3 py-1 font-medium transition ${detailed ? "bg-slate-900 text-white" : "text-slate-500 hover:text-slate-700"}`}
+            className={`rounded-md px-3 py-1 font-medium transition ${detailed ? "bg-breu text-white" : "text-aco/70 hover:text-aco"}`}
           >
             Detalhado
           </button>
@@ -81,14 +81,14 @@ export function FunnelVisual({ funnel, insight, entradasVar }: Props) {
               {/* Camada */}
               <div
                 className={`mx-auto flex items-center justify-between rounded-xl px-4 py-3 text-white shadow-sm transition-all ${
-                  locked ? "bg-slate-200 text-slate-400" : `${s.color}`
+                  locked ? "bg-breu/10 text-aco/50" : `${s.color}`
                 }`}
                 style={{ width: `${Math.round(frac * 100)}%`, minWidth: "180px" }}
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-lg leading-none">{locked ? "🔒" : s.icon}</span>
                   <div className="min-w-0">
-                    <p className={`truncate text-sm font-semibold ${locked ? "text-slate-500" : "text-white"}`}>
+                    <p className={`truncate text-sm font-semibold ${locked ? "text-aco/70" : "text-white"}`}>
                       {s.short}
                     </p>
                     {locked && <p className="text-[11px] leading-tight">em breve</p>}
@@ -114,9 +114,9 @@ export function FunnelVisual({ funnel, insight, entradasVar }: Props) {
               {/* Conector + perda entre etapas */}
               {i < rows.length - 1 && (
                 <div className="flex items-center justify-center gap-2 py-1">
-                  <ArrowDown className="h-3.5 w-3.5 text-slate-300" />
+                  <ArrowDown className="h-3.5 w-3.5 text-aco/30" />
                   {loss !== null && loss > 0 && (
-                    <span className="text-[11px] text-slate-400">−{loss.toLocaleString("pt-BR")} no caminho</span>
+                    <span className="text-[11px] text-aco/50">−{loss.toLocaleString("pt-BR")} no caminho</span>
                   )}
                 </div>
               )}
@@ -139,7 +139,7 @@ export function FunnelVisual({ funnel, insight, entradasVar }: Props) {
         </Link>
       </div>
 
-      <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-xs text-slate-400">
+      <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-xs text-aco/50">
         <TrendingUp className="h-3.5 w-3.5 shrink-0" />
         Voltaram e cliente fiel acendem quando você registra pedidos (recompra). Interagiram = membros que
         conversaram no grupo (medido pela engine).

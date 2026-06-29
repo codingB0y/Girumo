@@ -43,7 +43,7 @@ export default function CrescerPage() {
   return (
     <>
       <Topbar title="Crescer" subtitle="Escolha um objetivo e execute com fila segura" />
-      <main className="flex-1 bg-slate-50/70 px-4 py-5 sm:px-6 lg:px-8">
+      <main className="flex-1 bg-bruma/70 px-4 py-5 sm:px-6 lg:px-8">
         <Suspense>
           <CrescerFlow />
         </Suspense>
@@ -63,18 +63,18 @@ function CrescerFlow() {
     return (
       <div className="mx-auto grid max-w-5xl gap-5">
         <div>
-          <h1 className="text-2xl font-semibold tracking-normal text-slate-950">O que precisa acontecer agora?</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <h1 className="text-2xl font-semibold tracking-normal text-breu">O que precisa acontecer agora?</h1>
+          <p className="mt-1 text-sm text-aco/70">
             Separe trafego novo, venda para base atual e reativacao. Cada caminho usa a ferramenta certa.
           </p>
         </div>
 
         <div className="grid gap-3 md:grid-cols-3">
-          <Link href={LOTAR.href} className="group rounded-lg border border-brand-200 bg-white p-4 shadow-card hover:shadow-card-hover">
+          <Link href={LOTAR.href} className="group rounded-lg border border-iris/20 bg-white p-4 shadow-card hover:shadow-card-hover">
             <GoalIcon icon={LOTAR.icon} />
-            <p className="mt-3 font-semibold text-slate-900">{LOTAR.title}</p>
-            <p className="mt-1 text-sm leading-5 text-slate-500">{LOTAR.desc}</p>
-            <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-brand-700">
+            <p className="mt-3 font-semibold text-breu">{LOTAR.title}</p>
+            <p className="mt-1 text-sm leading-5 text-aco/70">{LOTAR.desc}</p>
+            <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-iris-escuro">
               Montar anuncio
               <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
             </span>
@@ -84,12 +84,12 @@ function CrescerFlow() {
             <button
               key={objetivoItem.id}
               onClick={() => setObjetivo(objetivoItem.id)}
-              className="group rounded-lg border border-slate-200 bg-white p-4 text-left shadow-card hover:shadow-card-hover"
+              className="group rounded-lg border border-breu/10 bg-white p-4 text-left shadow-card hover:shadow-card-hover"
             >
               <GoalIcon icon={objetivoItem.icon} />
-              <p className="mt-3 font-semibold text-slate-900">{objetivoItem.title}</p>
-              <p className="mt-1 text-sm leading-5 text-slate-500">{objetivoItem.desc}</p>
-              <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-brand-700">
+              <p className="mt-3 font-semibold text-breu">{objetivoItem.title}</p>
+              <p className="mt-1 text-sm leading-5 text-aco/70">{objetivoItem.desc}</p>
+              <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-iris-escuro">
                 Comecar
                 <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
               </span>
@@ -206,22 +206,22 @@ function Wizard({ objetivo, onReset }: { objetivo: Objetivo; onReset: () => void
 
   return (
     <div className="mx-auto grid max-w-5xl gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
-      <aside className="self-start rounded-lg border border-slate-200 bg-white p-4 shadow-card">
+      <aside className="self-start rounded-lg border border-breu/10 bg-white p-4 shadow-card">
         <GoalIcon icon={meta.icon} />
-        <p className="mt-3 font-semibold text-slate-900">{meta.title}</p>
-        <p className="mt-1 text-sm leading-5 text-slate-500">{meta.desc}</p>
+        <p className="mt-3 font-semibold text-breu">{meta.title}</p>
+        <p className="mt-1 text-sm leading-5 text-aco/70">{meta.desc}</p>
         <div className="mt-5 space-y-2">
           {steps.map((item, index) => (
             <div key={item} className="flex items-center gap-2">
               <span
                 className={cn(
                   "flex h-6 w-6 items-center justify-center rounded-lg text-xs font-semibold",
-                  index <= step ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-400",
+                  index <= step ? "bg-iris text-white" : "bg-bruma text-aco/50",
                 )}
               >
                 {index + 1}
               </span>
-              <span className={cn("text-sm", index <= step ? "font-medium text-slate-800" : "text-slate-400")}>
+              <span className={cn("text-sm", index <= step ? "font-medium text-breu" : "text-aco/50")}>
                 {stepLabel(item)}
               </span>
             </div>
@@ -244,7 +244,7 @@ function Wizard({ objetivo, onReset }: { objetivo: Objetivo; onReset: () => void
                   <button
                     key={template.id}
                     onClick={() => setMensagem(template.body)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600 hover:border-brand-300 hover:text-brand-700"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-breu/10 bg-white px-2 py-1 text-xs font-medium text-aco hover:border-iris/30 hover:text-iris-escuro"
                   >
                     <FileText className="h-3 w-3" />
                     {template.name}
@@ -314,7 +314,7 @@ function stepLabel(step: string) {
 
 function GoalIcon({ icon: Icon }: { icon: typeof Rocket }) {
   return (
-    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
+    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-iris/10 text-iris-escuro">
       <Icon className="h-5 w-5" />
     </div>
   );
@@ -323,8 +323,8 @@ function GoalIcon({ icon: Icon }: { icon: typeof Rocket }) {
 function Step({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
   return (
     <div>
-      <h2 className="text-xl font-semibold tracking-normal text-slate-950">{title}</h2>
-      {hint && <p className="mt-1 text-sm text-slate-500">{hint}</p>}
+      <h2 className="text-xl font-semibold tracking-normal text-breu">{title}</h2>
+      {hint && <p className="mt-1 text-sm text-aco/70">{hint}</p>}
       <div className="mt-4">{children}</div>
     </div>
   );
@@ -342,11 +342,11 @@ function GroupPicker({ groups, value, onPick }: { groups: Group[]; value?: strin
           onClick={() => onPick(group)}
           className={cn(
             "flex w-full items-center justify-between rounded-lg border p-3 text-left transition-colors",
-            value === group.id ? "border-brand-400 bg-brand-50" : "border-slate-200 bg-white hover:bg-slate-50",
+            value === group.id ? "border-iris-claro bg-iris/10" : "border-breu/10 bg-white hover:bg-bruma",
           )}
         >
-          <span className="truncate text-sm font-medium text-slate-800">{group.name}</span>
-          <span className="ml-2 shrink-0 text-xs text-slate-400">{group.members} membros</span>
+          <span className="truncate text-sm font-medium text-breu">{group.name}</span>
+          <span className="ml-2 shrink-0 text-xs text-aco/50">{group.members} membros</span>
         </button>
       ))}
     </div>
@@ -365,13 +365,13 @@ function GroupMulti({ groups, selected, onToggle }: { groups: Group[]; selected:
           <button
             key={group.id}
             onClick={() => onToggle(group.id)}
-            className="flex w-full items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 text-left hover:bg-slate-50"
+            className="flex w-full items-center gap-3 rounded-lg border border-breu/10 bg-white p-3 text-left hover:bg-bruma"
           >
-            <span className={cn("flex h-5 w-5 items-center justify-center rounded border-2", on ? "border-brand-600 bg-brand-600 text-white" : "border-slate-300")}>
+            <span className={cn("flex h-5 w-5 items-center justify-center rounded border-2", on ? "border-iris bg-iris text-white" : "border-aco/30")}>
               {on && <Check className="h-3 w-3" />}
             </span>
-            <span className="flex-1 truncate text-sm font-medium text-slate-800">{group.name}</span>
-            <span className="text-xs text-slate-400">{group.members}</span>
+            <span className="flex-1 truncate text-sm font-medium text-breu">{group.name}</span>
+            <span className="text-xs text-aco/50">{group.members}</span>
           </button>
         );
       })}
@@ -431,18 +431,18 @@ function PickCard({
       onClick={onClick}
       className={cn(
         "flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors",
-        active ? "border-brand-400 bg-brand-50" : "border-slate-200 bg-white hover:bg-slate-50",
+        active ? "border-iris-claro bg-iris/10" : "border-breu/10 bg-white hover:bg-bruma",
       )}
     >
-      <span className={cn("mt-0.5 flex h-5 w-5 items-center justify-center rounded border-2", active ? "border-brand-600 bg-brand-600 text-white" : "border-slate-300 text-transparent")}>
+      <span className={cn("mt-0.5 flex h-5 w-5 items-center justify-center rounded border-2", active ? "border-iris bg-iris text-white" : "border-aco/30 text-transparent")}>
         <Check className="h-3 w-3" />
       </span>
       <span className="min-w-0">
-        <span className="flex items-center gap-1.5 text-sm font-medium text-slate-800">
+        <span className="flex items-center gap-1.5 text-sm font-medium text-breu">
           {icon}
           {title}
         </span>
-        <span className="mt-0.5 block text-xs text-slate-500">{desc}</span>
+        <span className="mt-0.5 block text-xs text-aco/70">{desc}</span>
       </span>
     </button>
   );
@@ -470,17 +470,17 @@ function ReviewList({
 
   return (
     <div className="grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
-      <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+      <div className="divide-y divide-bruma rounded-lg border border-breu/10 bg-white">
         {rows.map(([key, value]) => (
           <div key={key} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm">
-            <span className="text-slate-500">{key}</span>
-            <span className="text-right font-medium text-slate-800">{value}</span>
+            <span className="text-aco/70">{key}</span>
+            <span className="text-right font-medium text-breu">{value}</span>
           </div>
         ))}
       </div>
-      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <div className="rounded-lg border border-breu/10 bg-bruma p-3">
         <div className="max-w-[90%] rounded-lg rounded-tl-none bg-white p-2.5 shadow-sm">
-          <p className="whitespace-pre-wrap text-sm text-slate-800">{mensagem || "Sua mensagem aparece aqui..."}</p>
+          <p className="whitespace-pre-wrap text-sm text-breu">{mensagem || "Sua mensagem aparece aqui..."}</p>
         </div>
       </div>
     </div>
@@ -489,12 +489,12 @@ function ReviewList({
 
 function SuccessView({ done, onReset }: { done: { agendado?: boolean; grupos?: number }; onReset: () => void }) {
   return (
-    <div className="mx-auto max-w-md rounded-lg border border-slate-200 bg-white p-6 text-center shadow-card">
-      <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
+    <div className="mx-auto max-w-md rounded-lg border border-breu/10 bg-white p-6 text-center shadow-card">
+      <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-iris/10 text-iris-escuro">
         <PartyPopper className="h-6 w-6" />
       </div>
-      <h2 className="text-xl font-semibold tracking-normal text-slate-950">Fluxo ativado</h2>
-      <p className="mt-1 text-sm leading-5 text-slate-500">
+      <h2 className="text-xl font-semibold tracking-normal text-breu">Fluxo ativado</h2>
+      <p className="mt-1 text-sm leading-5 text-aco/70">
         {done.agendado
           ? "Sua divulgacao esta agendada para a engine disparar no horario definido."
           : `A engine esta disparando para ${done.grupos} grupo(s) pela fila segura.`}

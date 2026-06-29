@@ -46,10 +46,10 @@ function KpiChip({
   tone: "slate" | "emerald" | "amber";
   loading?: boolean;
 }) {
-  const color = tone === "emerald" ? "text-emerald-600" : tone === "amber" ? "text-amber-600" : "text-slate-900";
+  const color = tone === "emerald" ? "text-emerald-600" : tone === "amber" ? "text-amber-600" : "text-breu";
   return (
     <Card className="p-3">
-      <p className="text-xs text-slate-500">{label}</p>
+      <p className="text-xs text-aco/70">{label}</p>
       {loading ? (
         <Skeleton className="mt-1 h-6 w-10" />
       ) : (
@@ -171,21 +171,21 @@ export default function GroupsPage() {
         subtitle={live ? "Grupos reais onde você é admin" : "Aguardando sincronização da engine"}
       />
       <main className="flex-1 space-y-4 p-6">
-        <Card className="border-brand-200 bg-brand-50/70 p-4">
+        <Card className="border-iris/20 bg-iris/10/70 p-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-sm font-semibold text-slate-950">Organize seus grupos para campanhas</p>
-              <p className="mt-1 text-sm text-slate-600">
+              <p className="text-sm font-semibold text-breu">Organize seus grupos para campanhas</p>
+              <p className="mt-1 text-sm text-aco">
                 De nomes simples como Promocoes 1, Promocoes 2 ou VIP 1 para evitar escolher grupo errado.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-2 sm:min-w-64">
               <div className="rounded-lg bg-white px-3 py-2 shadow-card">
-                <p className="text-xs text-slate-500">Organizados</p>
+                <p className="text-xs text-aco/70">Organizados</p>
                 <p className="text-lg font-semibold text-green-700">{namedCount}</p>
               </div>
               <div className="rounded-lg bg-white px-3 py-2 shadow-card">
-                <p className="text-xs text-slate-500">Faltam nome</p>
+                <p className="text-xs text-aco/70">Faltam nome</p>
                 <p className="text-lg font-semibold text-amber-700">{unnamedCount}</p>
               </div>
             </div>
@@ -194,7 +194,7 @@ export default function GroupsPage() {
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full sm:max-w-xs">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-aco/50" />
             <Input
               className="pl-9"
               placeholder="Buscar grupo..."
@@ -223,8 +223,8 @@ export default function GroupsPage() {
               className={cn(
                 "rounded-full border px-3 py-1.5 text-sm font-medium transition",
                 filter === item.value
-                  ? "border-brand-600 bg-brand-600 text-white"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300",
+                  ? "border-iris bg-iris text-white"
+                  : "border-breu/10 bg-white text-aco hover:border-aco/30",
               )}
             >
               {item.label}
@@ -252,7 +252,7 @@ export default function GroupsPage() {
           </div>
         )}
 
-        <Card className="divide-y divide-slate-100">
+        <Card className="divide-y divide-bruma">
           {!loaded &&
             Array.from({ length: 5 }).map((_, i) => (
               <div key={`sk-${i}`} className="flex items-center gap-4 px-5 py-4">
@@ -270,37 +270,37 @@ export default function GroupsPage() {
             const barColor = pct >= 95 ? "bg-red-500" : pct >= 80 ? "bg-amber-500" : "bg-emerald-500";
             const editing = editingId === g.id;
             return (
-              <div key={g.id} className="px-5 py-4 transition-colors hover:bg-slate-50">
+              <div key={g.id} className="px-5 py-4 transition-colors hover:bg-bruma">
                 <div className="flex w-full items-center gap-4 text-left">
                   <button
                     type="button"
                     onClick={() => toggle(g.id)}
                     className={cn(
                       "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors",
-                      g.selected ? "border-brand-600 bg-brand-600 text-white" : "border-slate-300",
+                      g.selected ? "border-iris bg-iris text-white" : "border-aco/30",
                     )}
                     aria-label="Selecionar grupo"
                   >
                     {g.selected && <CheckCheck className="h-3.5 w-3.5" />}
                   </button>
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-bruma text-aco/70">
                     <Users className="h-5 w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="truncate font-medium text-slate-900">{getGroupDisplayName(g)}</p>
+                      <p className="truncate font-medium text-breu">{getGroupDisplayName(g)}</p>
                       <Badge tone={engagementTone[g.engagement]}>{engagementLabel[g.engagement]}</Badge>
                     </div>
-                    <p className="truncate text-xs text-slate-400">
+                    <p className="truncate text-xs text-aco/50">
                       {hasInternalGroupName(g) ? `WhatsApp: ${g.name}` : g.whatsappGroupId}
                     </p>
                   </div>
                   <div className="w-28 shrink-0">
                     <div className="flex items-baseline justify-end gap-1">
-                      <span className="text-sm font-medium text-slate-700">{g.members.toLocaleString("pt-BR")}</span>
-                      <span className="text-xs text-slate-400">/ {g.capacity}</span>
+                      <span className="text-sm font-medium text-aco">{g.members.toLocaleString("pt-BR")}</span>
+                      <span className="text-xs text-aco/50">/ {g.capacity}</span>
                     </div>
-                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100" title={`${pct}% da capacidade`}>
+                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-bruma" title={`${pct}% da capacidade`}>
                       <div className={cn("h-full rounded-full", barColor)} style={{ width: `${pct}%` }} />
                     </div>
                   </div>
@@ -310,13 +310,13 @@ export default function GroupsPage() {
                   </Button>
                 </div>
                 {editing && (
-                  <div className="mt-4 grid grid-cols-1 gap-3 rounded-lg border border-brand-200 bg-brand-50/60 p-3 sm:grid-cols-[1fr_120px_auto] sm:items-end">
+                  <div className="mt-4 grid grid-cols-1 gap-3 rounded-lg border border-iris/20 bg-iris/10/60 p-3 sm:grid-cols-[1fr_120px_auto] sm:items-end">
                     <div>
-                      <label className="mb-1.5 block text-xs font-medium text-slate-600">Nome interno</label>
+                      <label className="mb-1.5 block text-xs font-medium text-aco">Nome interno</label>
                       <Input value={displayNameBase} onChange={(event) => setDisplayNameBase(event.target.value)} placeholder="Ex: Promocoes" />
                     </div>
                     <div>
-                      <label className="mb-1.5 block text-xs font-medium text-slate-600">Numero</label>
+                      <label className="mb-1.5 block text-xs font-medium text-aco">Numero</label>
                       <Input
                         type="number"
                         min={1}
@@ -339,7 +339,7 @@ export default function GroupsPage() {
             );
           })}
           {loaded && filtered.length === 0 && (
-            <p className="px-5 py-10 text-center text-sm text-slate-400">Nenhum grupo encontrado.</p>
+            <p className="px-5 py-10 text-center text-sm text-aco/50">Nenhum grupo encontrado.</p>
           )}
         </Card>
       </main>

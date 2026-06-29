@@ -40,7 +40,7 @@ export default async function LinksPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400">
+                <tr className="border-b border-bruma text-left text-xs uppercase tracking-wide text-aco/50">
                   <th className="px-5 py-3 font-medium">Link</th>
                   <th className="px-5 py-3 font-medium">Grupo destino</th>
                   <th className="px-5 py-3 font-medium">Campanha</th>
@@ -49,26 +49,26 @@ export default async function LinksPage() {
                   <th className="px-5 py-3 font-medium text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
+              <tbody className="divide-y divide-bruma">
                 {rows.map((l) => (
-                  <tr key={l.id} className="hover:bg-slate-50">
+                  <tr key={l.id} className="hover:bg-bruma">
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2">
-                        <Link2 className="h-3.5 w-3.5 text-slate-400" />
+                        <Link2 className="h-3.5 w-3.5 text-aco/50" />
                         <NextLink
                           href={`/links/${l.slug}`}
-                          className="font-mono text-xs text-slate-700 hover:text-brand-700 hover:underline"
+                          className="font-mono text-xs text-aco hover:text-iris-escuro hover:underline"
                         >
                           {base}/r/{l.slug}
                         </NextLink>
                       </div>
                     </td>
-                    <td className="px-5 py-3 text-slate-600">{l.targetGroupName || "—"}</td>
-                    <td className="px-5 py-3 text-slate-600">{l.campaignName || "—"}</td>
-                    <td className="px-5 py-3 text-right font-semibold text-slate-900">
+                    <td className="px-5 py-3 text-aco">{l.targetGroupName || "—"}</td>
+                    <td className="px-5 py-3 text-aco">{l.campaignName || "—"}</td>
+                    <td className="px-5 py-3 text-right font-semibold text-breu">
                       {l.clicks.toLocaleString("pt-BR")}
                     </td>
-                    <td className="px-5 py-3 text-xs text-slate-400">{formatDateTime(l.createdAt)}</td>
+                    <td className="px-5 py-3 text-xs text-aco/50">{formatDateTime(l.createdAt)}</td>
                     <td className="px-5 py-3">
                       <LinkActions url={`${base}/r/${l.slug}`} />
                     </td>
@@ -76,7 +76,7 @@ export default async function LinksPage() {
                 ))}
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-5 py-10 text-center text-sm text-slate-400">
+                    <td colSpan={6} className="px-5 py-10 text-center text-sm text-aco/50">
                       Nenhum link ainda. Crie o primeiro em “Novo link”.
                     </td>
                   </tr>
@@ -86,7 +86,7 @@ export default async function LinksPage() {
           </div>
         </Card>
 
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-aco/50">
           O clique é registrado e contado de verdade ao abrir o link <code>/r/slug</code>, que
           redireciona pro grupo. A coluna “Entradas” fica vazia até a engine do WhatsApp estar
           conectada para confirmar quem realmente entrou.
@@ -109,13 +109,13 @@ function Summary({
 }) {
   return (
     <Card className="flex items-center gap-3 p-5">
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-iris/10 text-iris">
         <Icon className="h-5 w-5" />
       </div>
       <div>
-        <p className="text-sm text-slate-500">{label}</p>
-        <p className="text-xl font-semibold text-slate-900">{value}</p>
-        {hint && <p className="text-xs text-slate-400">{hint}</p>}
+        <p className="text-sm text-aco/70">{label}</p>
+        <p className="text-xl font-semibold text-breu">{value}</p>
+        {hint && <p className="text-xs text-aco/50">{hint}</p>}
       </div>
     </Card>
   );

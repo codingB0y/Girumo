@@ -143,12 +143,12 @@ export default function CampanhaDetailPage() {
       <>
         <Topbar title="Campanha" subtitle="Carregando visao geral" />
         <main className="flex-1 space-y-5 p-6">
-          <div className="h-6 w-40 rounded bg-slate-100" />
+          <div className="h-6 w-40 rounded bg-bruma" />
           <Card className="p-6">
-            <div className="h-6 w-72 rounded bg-slate-100" />
+            <div className="h-6 w-72 rounded bg-bruma" />
             <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-6">
               {Array.from({ length: 6 }).map((_, index) => (
-                <div key={index} className="h-20 rounded-lg bg-slate-50" />
+                <div key={index} className="h-20 rounded-lg bg-bruma" />
               ))}
             </div>
           </Card>
@@ -163,11 +163,11 @@ export default function CampanhaDetailPage() {
         <Topbar title="Campanha nao encontrada" subtitle="Verifique se o link esta correto" />
         <main className="flex-1 p-6">
           <Card className="p-8 text-center">
-            <p className="text-base font-semibold text-slate-900">Campanha nao encontrada</p>
-            <p className="mt-1 text-sm text-slate-500">Esta campanha pode ter sido removida ou o link esta incorreto.</p>
+            <p className="text-base font-semibold text-breu">Campanha nao encontrada</p>
+            <p className="mt-1 text-sm text-aco/70">Esta campanha pode ter sido removida ou o link esta incorreto.</p>
             <Link
               href="/campanhas"
-              className="mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+              className="mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-aco/30 bg-white px-4 text-sm font-medium text-aco transition hover:border-aco/50 hover:bg-bruma"
             >
               <ArrowLeft className="h-4 w-4" />
               Voltar para campanhas
@@ -187,12 +187,12 @@ export default function CampanhaDetailPage() {
     <>
       <Topbar title={campanha.name} subtitle="Visao geral da campanha e grupos" />
       <main className="flex-1 space-y-5 p-6">
-        <Link href="/campanhas" className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900">
+        <Link href="/campanhas" className="inline-flex items-center gap-2 text-sm font-medium text-aco/70 hover:text-breu">
           <ArrowLeft className="h-4 w-4" />
           Voltar para campanhas
         </Link>
 
-        <section className="rounded-xl border border-brand-200 bg-white p-5 shadow-card">
+        <section className="rounded-xl border border-iris/20 bg-white p-5 shadow-card">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
@@ -202,8 +202,8 @@ export default function CampanhaDetailPage() {
                   {isActive ? "Ativa" : "Inativa"}
                 </Badge>
               </div>
-              <h1 className="mt-3 truncate text-2xl font-semibold tracking-tight text-slate-950">{campanha.name}</h1>
-              <p className="mt-2 flex items-center gap-1 text-sm text-slate-500">
+              <h1 className="mt-3 truncate text-2xl font-semibold tracking-tight text-breu">{campanha.name}</h1>
+              <p className="mt-2 flex items-center gap-1 text-sm text-aco/70">
                 <Store className="h-4 w-4" />
                 {campanha.loja || "Minha loja"}
               </p>
@@ -217,19 +217,19 @@ export default function CampanhaDetailPage() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-brand-200 bg-brand-50/70 p-5 shadow-card">
+        <section className="rounded-xl border border-iris/20 bg-iris/10/70 p-5 shadow-card">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
+              <p className="text-xs font-semibold uppercase tracking-wide text-iris-escuro">
                 {overview.primaryAction.kind === "copy_link" ? "Central de divulgacao" : "Acao principal"}
               </p>
-              <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950">{nextStep.title}</h2>
-              <p className="mt-1 text-sm text-slate-600">{nextStep.description}</p>
+              <h2 className="mt-2 text-xl font-semibold tracking-tight text-breu">{nextStep.title}</h2>
+              <p className="mt-1 text-sm text-aco">{nextStep.description}</p>
 
               {overview.primaryAction.kind === "copy_link" && (
-                <div className="mt-4 rounded-xl bg-white p-3 ring-1 ring-brand-100">
-                  <p className="text-xs font-medium text-slate-500">Link para enviar as clientes</p>
-                  <code className="mt-2 block truncate rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-800 ring-1 ring-slate-200">
+                <div className="mt-4 rounded-xl bg-white p-3 ring-1 ring-iris/10">
+                  <p className="text-xs font-medium text-aco/70">Link para enviar as clientes</p>
+                  <code className="mt-2 block truncate rounded-lg bg-bruma px-3 py-2 text-sm text-breu ring-1 ring-breu/10">
                     {copyLink || overview.masterLink || "Link sendo preparado"}
                   </code>
                 </div>
@@ -259,11 +259,11 @@ export default function CampanhaDetailPage() {
             <Card>
               <CardHeader className="flex flex-col gap-1">
                 <CardTitle>Grupos desta campanha</CardTitle>
-                <p className="text-sm text-slate-500">Acompanhe ocupacao, convites e disponibilidade do pool.</p>
+                <p className="text-sm text-aco/70">Acompanhe ocupacao, convites e disponibilidade do pool.</p>
               </CardHeader>
               <CardContent className="space-y-3">
                 {overview.groups.length === 0 && (
-                  <div className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
+                  <div className="rounded-lg border border-dashed border-breu/10 p-6 text-center text-sm text-aco/70">
                     Esta campanha ainda nao tem grupos. Adicione grupos pela lista ao lado.
                   </div>
                 )}
@@ -283,10 +283,10 @@ export default function CampanhaDetailPage() {
             <CardHeader className="flex flex-col gap-3">
               <div>
                 <CardTitle>Adicionar grupos</CardTitle>
-                <p className="mt-1 text-sm text-slate-500">Grupos fora desta campanha.</p>
+                <p className="mt-1 text-sm text-aco/70">Grupos fora desta campanha.</p>
               </div>
               <label className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-aco/50" />
                 <Input
                   aria-label="Buscar grupo"
                   value={query}
@@ -298,7 +298,7 @@ export default function CampanhaDetailPage() {
             </CardHeader>
             <CardContent className="max-h-[560px] space-y-2 overflow-y-auto">
               {availableGroups.length === 0 && (
-                <p className="rounded-lg border border-dashed border-slate-200 p-4 text-sm text-slate-500">
+                <p className="rounded-lg border border-dashed border-breu/10 p-4 text-sm text-aco/70">
                   Nenhum grupo disponivel para adicionar.
                 </p>
               )}
@@ -331,16 +331,16 @@ function CampaignGroupRow({
   const pct = item.capacity > 0 ? Math.min(100, Math.round((item.members * 100) / item.capacity)) : 0;
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
+    <div className="rounded-xl border border-breu/10 bg-white p-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate text-sm font-semibold text-slate-900">
+            <p className="truncate text-sm font-semibold text-breu">
               {item.group ? getGroupDisplayName(item.group) : item.id}
             </p>
             <Badge tone={status.tone}>{status.label}</Badge>
           </div>
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="mt-1 text-xs text-aco/50">
             {item.group && hasInternalGroupName(item.group)
               ? `WhatsApp: ${item.group.name}`
               : `${item.members.toLocaleString("pt-BR")} de ${item.capacity.toLocaleString("pt-BR")} membros`}
@@ -352,11 +352,11 @@ function CampaignGroupRow({
         </Button>
       </div>
       <div className="mt-3">
-        <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
+        <div className="mb-1 flex items-center justify-between text-xs text-aco/70">
           <span>Ocupacao</span>
-          <span className="font-semibold text-slate-700">{pct}%</span>
+          <span className="font-semibold text-aco">{pct}%</span>
         </div>
-        <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+        <div className="h-2 overflow-hidden rounded-full bg-bruma">
           <div className={cn("h-full rounded-full", getGroupFillTone(item.status))} style={{ width: `${pct}%` }} />
         </div>
       </div>
@@ -365,7 +365,7 @@ function CampaignGroupRow({
           href={item.inviteUrl}
           target="_blank"
           rel="noreferrer"
-          className="mt-3 inline-flex max-w-full items-center gap-1 truncate text-xs font-medium text-brand-700 hover:text-brand-800"
+          className="mt-3 inline-flex max-w-full items-center gap-1 truncate text-xs font-medium text-iris-escuro hover:text-iris-escuro"
         >
           <ExternalLink className="h-3.5 w-3.5 shrink-0" />
           <span className="truncate">{item.inviteUrl}</span>
@@ -382,11 +382,11 @@ function AvailableGroupRow({ group, saving, onAdd }: { group: Group; saving: boo
   const copy = groupStatusCopy[status];
 
   return (
-    <div className="rounded-lg border border-slate-200 p-3">
+    <div className="rounded-lg border border-breu/10 p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-slate-900">{getGroupDisplayName(group)}</p>
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="truncate text-sm font-medium text-breu">{getGroupDisplayName(group)}</p>
+          <p className="mt-1 text-xs text-aco/50">
             {hasInternalGroupName(group)
               ? `WhatsApp: ${group.name}`
               : `${group.members.toLocaleString("pt-BR")} de ${group.capacity.toLocaleString("pt-BR")} membros`}
@@ -407,8 +407,8 @@ function AvailableGroupRow({ group, saving, onAdd }: { group: Group; saving: boo
 function KpiCard({ label, value }: { label: string; value: string | number }) {
   return (
     <Card className="p-4">
-      <p className="text-xs font-medium text-slate-500">{label}</p>
-      <p className="mt-2 text-xl font-semibold text-slate-950">{value}</p>
+      <p className="text-xs font-medium text-aco/70">{label}</p>
+      <p className="mt-2 text-xl font-semibold text-breu">{value}</p>
     </Card>
   );
 }
@@ -416,6 +416,6 @@ function KpiCard({ label, value }: { label: string; value: string | number }) {
 function getGroupFillTone(status: CampaignGroupStatus) {
   if (status === "full") return "bg-red-500";
   if (status === "missing_invite") return "bg-amber-500";
-  if (status === "unknown") return "bg-slate-300";
-  return "bg-brand-600";
+  if (status === "unknown") return "bg-aco/30";
+  return "bg-iris";
 }
