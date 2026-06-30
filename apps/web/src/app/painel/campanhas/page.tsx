@@ -1,58 +1,105 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus, Search, MessageCircle, MoreHorizontal, Users, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CopyLink } from "@/components/painel/copy-link";
+import {
+  buildCampaignGroupsOverview,
+  type CampaignOperationalStatus,
+} from "@/lib/campaign-groups-overview";
+import type { Group } from "@/lib/mock-data";
 
-type Campaign = {
-  slug: string;
+type Campanha = {
+  id: string;
   name: string;
-  code: string;
-  emoji?: string;
-  grupos: number;
-  limite: number;
-  membros: number;
-  cliques: number;
+  loja?: string;
+  groupIds: string[];
+  slug?: string;
+  createdAt: string;
+};
+type TrackedLink = { slug: string; campaignName?: string; clicks: number };
+
+const STATUS: Record<CampaignOperationalStatus, { label: string; pill: string }> = {
+  ready: { label: "Pronta", pill: "bg-sucesso/10 text-sucesso" },
+  needs_invites: { label: "Precisa de convites", pill: "bg-atencao/10 text-atencao" },
+  full: { label: "Grupos cheios", pill: "bg-iris/10 text-iris-escuro" },
+  empty: { label: "Sem grupos", pill: "bg-bruma text-aco/60" },
 };
 
-const CAMPAIGNS: Campaign[] = [
-  { slug: "manychat-captacao", name: "ManyChat · Captação Grupos", code: "28966", grupos: 17, limite: 17000, membros: 6538, cliques: 9684 },
-  { slug: "captacao-apenas-grupos", name: "Captação apenas Grupos", code: "28087", grupos: 60, limite: 60000, membros: 8107, cliques: 19348 },
-  { slug: "saldao-mega-stock", name: "Saldão Mega Stock Atacado", code: "24227", emoji: "🛍️", grupos: 5, limite: 5000, membros: 4538, cliques: 56064 },
-  { slug: "grupos-gerais-atual", name: "Grupos Gerais · Atual", code: "9059", grupos: 10, limite: 10000, membros: 6547, cliques: 14210 },
+const FILTERS: { value: "all" | CampaignOperationalStatus; label: string }[] = [
+  { value: "all", label: "Todas" },
+  { value: "ready", label: "Prontas" },
+  { value: "needs_invites", label: "Sem convite" },
+  { value: "full", label: "Cheias" },
+  { value: "empty", label: "Sem grupos" },
 ];
-
-const FILTERS = ["Todas", "Enchendo", "Quase cheias"] as const;
-type Filter = (typeof FILTERS)[number];
-
-const fillOf = (c: Campaign) => (c.membros / c.limite) * 100;
 
 export default function PainelCampanhas() {
   const router = useRouter();
-  const [filter, setFilter] = useState<Filter>("Todas");
+  const [campanhas, setCampanhas] = useState<Campanha[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [links, setLinks] = useState<TrackedLink[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<"all" | CampaignOperationalStatus>("all");
   const [q, setQ] = useState("");
+  const [origin, setOrigin] = useState("");
 
-  const counts = useMemo(
-    () => ({
-      Todas: CAMPAIGNS.length,
-      Enchendo: CAMPAIGNS.filter((c) => fillOf(c) < 85).length,
-      "Quase cheias": CAMPAIGNS.filter((c) => fillOf(c) >= 85).length,
-    }),
-    [],
+  useEffect(() => {
+    setOrigin(window.location.origin);
+    (async () => {
+      try {
+        const [c, g, l] = await Promise.all([
+          fetch("/api/campanhas").then((r) => r.json()).catch(() => []),
+          fetch("/api/groups").then((r) => r.json()).catch(() => []),
+          fetch("/api/links").then((r) => r.json()).catch(() => []),
+        ]);
+        setCampanhas(Array.isArray(c) ? c : []);
+        setGroups(Array.isArray(g) ? g : []);
+        setLinks(Array.isArray(l) ? l : []);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const clicksByName = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const l of links) {
+      if (!l.campaignName) continue;
+      m.set(l.campaignName, (m.get(l.campaignName) ?? 0) + (l.clicks ?? 0));
+    }
+    return m;
+  }, [links]);
+
+  const overviews = useMemo(
+    () =>
+      campanhas.map((c) =>
+        buildCampaignGroupsOverview({
+          campaign: c,
+          groups,
+          clicks: clicksByName.get(c.name) ?? 0,
+        }),
+      ),
+    [campanhas, groups, clicksByName],
   );
+
+  const counts = useMemo(() => {
+    const c: Record<string, number> = { all: overviews.length };
+    for (const o of overviews) c[o.operationalStatus] = (c[o.operationalStatus] ?? 0) + 1;
+    return c;
+  }, [overviews]);
 
   const rows = useMemo(
     () =>
-      CAMPAIGNS.filter((c) => {
-        const f = fillOf(c);
-        const byFilter =
-          filter === "Todas" ? true : filter === "Enchendo" ? f < 85 : f >= 85;
-        return byFilter && c.name.toLowerCase().includes(q.toLowerCase());
-      }),
-    [filter, q],
+      overviews.filter(
+        (o) =>
+          (filter === "all" || o.operationalStatus === filter) &&
+          o.campaign.name.toLowerCase().includes(q.toLowerCase()),
+      ),
+    [overviews, filter, q],
   );
 
   return (
@@ -78,16 +125,16 @@ export default function PainelCampanhas() {
         <div className="flex flex-wrap gap-1 rounded-xl border border-breu/10 bg-white p-1">
           {FILTERS.map((f) => (
             <button
-              key={f}
-              onClick={() => setFilter(f)}
+              key={f.value}
+              onClick={() => setFilter(f.value)}
               className={cn(
                 "rounded-lg px-3.5 py-1.5 text-sm font-medium transition",
-                filter === f ? "bg-breu text-white" : "text-aco/70 hover:text-breu",
+                filter === f.value ? "bg-breu text-white" : "text-aco/70 hover:text-breu",
               )}
             >
-              {f}
-              <span className={cn("font-data ml-1.5 text-[11px]", filter === f ? "text-bruma/60" : "text-aco/40")}>
-                {counts[f]}
+              {f.label}
+              <span className={cn("font-data ml-1.5 text-[11px]", filter === f.value ? "text-bruma/60" : "text-aco/40")}>
+                {counts[f.value] ?? 0}
               </span>
             </button>
           ))}
@@ -103,39 +150,68 @@ export default function PainelCampanhas() {
         </div>
       </div>
 
-      {/* Cards de campanha */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {rows.map((c) => {
-          const fill = fillOf(c);
-          const quase = fill >= 85;
-          return (
-            <div
-              key={c.slug}
-              onClick={() => router.push(`/painel/campanhas/${c.slug}`)}
-              className="group flex cursor-pointer flex-col rounded-3xl border border-breu/[0.08] bg-white p-5 transition hover:-translate-y-0.5 hover:border-iris/30 hover:shadow-[0_12px_32px_-14px_rgba(11,13,26,0.18)]"
+      {/* Conteúdo */}
+      {loading ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-64 animate-pulse rounded-3xl border border-breu/[0.08] bg-white" />
+          ))}
+        </div>
+      ) : rows.length === 0 ? (
+        <div className="rounded-3xl border border-breu/[0.08] bg-white px-5 py-16 text-center">
+          <p className="font-display text-lg font-bold text-breu">
+            {campanhas.length === 0 ? "Nenhuma campanha ainda" : "Nenhuma campanha aqui"}
+          </p>
+          <p className="mt-1 text-sm text-aco/60">
+            {campanhas.length === 0 ? "Crie a primeira pra começar a captar." : "Ajuste o filtro ou a busca."}
+          </p>
+          {campanhas.length === 0 && (
+            <Link
+              href="/painel/campanhas/nova"
+              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-iris px-4 py-2.5 text-sm font-medium text-white shadow-iris transition hover:-translate-y-0.5 hover:bg-iris-claro"
             >
-              {/* topo */}
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-3">
-                  <Avatar emoji={c.emoji} />
-                  <p className="font-display text-[15px] font-bold leading-tight text-breu">{c.name}</p>
+              <Plus className="h-4 w-4" /> Nova campanha
+            </Link>
+          )}
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {rows.map((o) => {
+            const c = o.campaign;
+            const fill = o.fillPct;
+            const quase = fill >= 85;
+            const to = `/painel/campanhas/${c.slug ?? c.id}`;
+            const masterUrl = c.slug ? `${origin}/r/${c.slug}` : "";
+            return (
+              <div
+                key={c.id}
+                onClick={() => router.push(to)}
+                className="group flex cursor-pointer flex-col rounded-3xl border border-breu/[0.08] bg-white p-5 transition hover:-translate-y-0.5 hover:border-iris/30 hover:shadow-[0_12px_32px_-14px_rgba(11,13,26,0.18)]"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#25D366] text-white">
+                      <MessageCircle className="h-6 w-6" />
+                    </span>
+                    <p className="font-display text-[15px] font-bold leading-tight text-breu">{c.name}</p>
+                  </div>
+                  <Link
+                    href={to}
+                    onClick={(e) => e.stopPropagation()}
+                    aria-label="Abrir"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-aco/40 transition hover:bg-bruma hover:text-breu"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Link>
                 </div>
-                <Link
-                  href={`/painel/campanhas/${c.slug}`}
-                  onClick={(e) => e.stopPropagation()}
-                  aria-label="Ações"
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-aco/40 transition hover:bg-bruma hover:text-breu"
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                </Link>
-              </div>
 
-              {/* link */}
-              <CopyLink url={`meugrupo.vip/c/${c.code}`} className="mt-4" />
+                {masterUrl ? (
+                  <CopyLink url={masterUrl} className="mt-4" />
+                ) : (
+                  <p className="font-data mt-4 text-xs text-aco/40">link sendo gerado…</p>
+                )}
 
-              {/* preenchimento */}
-              <div className="mt-3">
-                <div className="flex items-center gap-3">
+                <div className="mt-3 flex items-center gap-3">
                   <div className="h-2 flex-1 overflow-hidden rounded-full bg-bruma">
                     <div
                       className="h-full rounded-full transition-all"
@@ -143,54 +219,35 @@ export default function PainelCampanhas() {
                     />
                   </div>
                   <span className={cn("font-data text-sm font-medium tabular-nums", quase ? "text-atencao" : "text-iris")}>
-                    {fill.toFixed(2).replace(".", ",")}%
+                    {fill}%
                   </span>
                 </div>
+
+                <dl className="mt-4 space-y-1.5">
+                  <Stat label="Grupos" value={o.groupCount.toLocaleString("pt-BR")} />
+                  <Stat label="Limite de membros" value={o.totalCapacity.toLocaleString("pt-BR")} />
+                  <Stat label="Membros" value={o.totalMembers.toLocaleString("pt-BR")} strong />
+                  <Stat label="Cliques" value={o.clicks.toLocaleString("pt-BR")} />
+                </dl>
+
+                <div className="mt-4 flex items-center justify-between">
+                  <span className={cn("font-data rounded-full px-2.5 py-1 text-[10px] uppercase tracking-wider", STATUS[o.operationalStatus].pill)}>
+                    {STATUS[o.operationalStatus].label}
+                  </span>
+                  <Link
+                    href={to}
+                    onClick={(e) => e.stopPropagation()}
+                    className="font-data inline-flex items-center gap-1 text-[11px] uppercase tracking-wider text-iris transition group-hover:gap-1.5"
+                  >
+                    <Users className="h-3.5 w-3.5" /> Ver grupos <ArrowRight className="h-3 w-3" />
+                  </Link>
+                </div>
               </div>
-
-              {/* stats */}
-              <dl className="mt-4 space-y-1.5">
-                <Stat label="Grupos" value={c.grupos.toLocaleString("pt-BR")} />
-                <Stat label="Limite de membros" value={c.limite.toLocaleString("pt-BR")} />
-                <Stat label="Membros" value={c.membros.toLocaleString("pt-BR")} strong />
-                <Stat label="Cliques" value={c.cliques.toLocaleString("pt-BR")} />
-              </dl>
-
-              {/* ação */}
-              <Link
-                href={`/painel/campanhas/${c.slug}`}
-                onClick={(e) => e.stopPropagation()}
-                className="mt-5 flex items-center justify-center gap-2 rounded-xl bg-iris/10 py-2.5 text-sm font-medium text-iris transition group-hover:bg-iris group-hover:text-white"
-              >
-                <Users className="h-4 w-4" /> Ver grupos
-                <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
-              </Link>
-            </div>
-          );
-        })}
-      </div>
-
-      {rows.length === 0 && (
-        <div className="rounded-3xl border border-breu/[0.08] bg-white px-5 py-16 text-center">
-          <p className="font-display text-lg font-bold text-breu">Nenhuma campanha aqui</p>
-          <p className="mt-1 text-sm text-aco/60">Ajuste o filtro ou crie uma nova.</p>
+            );
+          })}
         </div>
       )}
     </div>
-  );
-}
-
-function Avatar({ emoji }: { emoji?: string }) {
-  if (emoji)
-    return (
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-iris-claro to-iris-escuro text-xl">
-        {emoji}
-      </span>
-    );
-  return (
-    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#25D366] text-white">
-      <MessageCircle className="h-6 w-6" />
-    </span>
   );
 }
 
