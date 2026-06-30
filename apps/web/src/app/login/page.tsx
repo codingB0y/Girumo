@@ -119,7 +119,7 @@ function LoginPageContent() {
     <AuthShell
       title="Entrar"
       subtitle="Acesse sua central de operacao"
-      context={next !== "/painel" ? `Entre para continuar para ${destination}.` : undefined}
+      context={next !== "/hoje" ? `Entre para continuar para ${destination}.` : undefined}
       footer={
         <>
           Nao tem conta?{" "}

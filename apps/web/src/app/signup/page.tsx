@@ -34,7 +34,7 @@ export default function SignupPage() {
       if (response.ok) {
         const data = await response.json().catch(() => ({}));
         await persistSupabaseSession(data);
-        router.replace("/hoje");
+        router.replace("/painel");
         router.refresh();
       } else {
         const data = await response.json().catch(() => ({}));
