@@ -189,20 +189,25 @@ function FormatChip({ x, y, label }: { x: number; y: number; label: string }) {
   );
 }
 
-/** Bolha de grupo de WhatsApp: balão verde com 3 pontinhos + rabinho. */
+/** Nó de grupo: símbolo do WhatsApp (balão verde com rabinho + telefone branco). */
 function WhatsBubble({ x, y, s, delay, born }: { x: number; y: number; s: number; delay: number; born?: boolean }) {
   return (
     <g transform={`translate(${x} ${y}) scale(${s})`}>
       <g className="hf-drift" style={{ animationDelay: `${delay}s` }}>
         <g className="hf-pop" style={{ animationDelay: born ? "2.6s" : `${0.2 + delay * 0.14}s` }}>
-          <rect x="-20" y="-17" width="40" height="32" rx="13" fill="#25D366" />
-          <path d="M-9 13 L-18 22 L-3 16 Z" fill="#25D366" />
-          <circle cx="-9" cy="-1" r="2.6" fill="#ffffff" />
-          <circle cx="0" cy="-1" r="2.6" fill="#ffffff" />
-          <circle cx="9" cy="-1" r="2.6" fill="#ffffff" />
+          {/* logo do WhatsApp: borda branca (camada de baixo) */}
+          <path d="M-9.5 16.5 L-20 22 L-15.5 12.5 Z" fill="#ffffff" />
+          <circle r="20.5" fill="#ffffff" />
+          {/* balão verde com rabinho (camada de cima) */}
+          <path d="M-8.5 14.5 L-16.5 18.5 L-13.5 11.5 Z" fill="#25D366" />
+          <circle r="18" fill="#25D366" />
+          {/* telefone branco do WhatsApp, centralizado no balão */}
+          <g transform="translate(-8.5 -9) scale(0.72)" fill="#ffffff">
+            <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" />
+          </g>
           {/* selo "+" de grupo recém-criado automaticamente */}
           {born && (
-            <g transform="translate(15 -15)">
+            <g transform="translate(16 -16)">
               <circle r="8" fill="#6A4BF0" stroke="#ffffff" strokeWidth="1.5" />
               <path d="M-3.5 0 H3.5 M0 -3.5 V3.5" stroke="#ffffff" strokeWidth="1.6" strokeLinecap="round" />
             </g>

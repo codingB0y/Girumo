@@ -1,87 +1,62 @@
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowRight,
   BarChart3,
   CalendarClock,
   Check,
-  Images,
   Library,
-  MessageCircle,
   Network,
   Plus,
-  QrCode,
   Send,
   ShieldCheck,
   Sparkles,
-  TrendingUp,
-  Wallet,
+  Star,
+  StarHalf,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/landing/logo";
 import { FlowVisual } from "@/components/landing/flow-visual";
-import { Counter, Reveal } from "@/components/landing/interactive";
+import { Reveal } from "@/components/landing/interactive";
 import { ProductFrame } from "@/components/landing/product-frame";
 import { Pricing } from "@/components/landing/pricing";
+import { WhatsAppIcon } from "@/components/landing/icons";
 
 export const metadata = {
   title: "HubFlow — Gerencie e venda em todos os seus grupos de WhatsApp",
   description:
-    "Dispare texto, vídeo e áudio para todos os seus grupos de WhatsApp com um clique. Agende a semana, monitore tudo e crie grupos no automático. Conecta em 2 minutos, no seu número.",
+    "Dispare texto, vídeo e áudio para todos os seus grupos de WhatsApp com um clique. Agende a semana, monitore tudo e crie grupos no automático.",
 };
 
 /* Ação primária = criar conta. Secundária = WhatsApp de vendas. */
 const SIGNUP_URL = "/signup";
-const WHATSAPP_URL = process.env.NEXT_PUBLIC_SALES_WHATSAPP_URL || "/signup";
+const WHATSAPP_URL =
+  process.env.NEXT_PUBLIC_SALES_WHATSAPP_URL ||
+  "https://wa.me/5562998191314?text=Ol%C3%A1!%20Quero%20saber%20mais%20sobre%20o%20HubFlow.";
 
-/* ⚠️ PROVA REAL — SUBSTITUIR antes de publicar. Valores em [colchetes] são placeholders. */
-const PROOF = {
-  quote:
-    "[Depoimento real: o que mudou no dia a dia gerenciando os grupos e nas vendas depois do HubFlow — 2 ou 3 frases, na voz do cliente.]",
-  name: "[Nome do cliente]",
-  store: "[Loja] · [Cidade–UF]",
-  stats: [
-    { value: 0, prefix: "", suffix: "", label: "[grupos gerenciados]" },
-    { value: 0, prefix: "", suffix: "s", label: "[tempo por disparo]" },
-    { value: 0, prefix: "R$ ", suffix: "", label: "[faturamento / semana]" },
-  ],
-};
-
-const FEATURES = [
+/* ⚠️ DEPOIMENTOS FICTÍCIOS (placeholder de demonstração) — SUBSTITUIR por reais antes de publicar. */
+const TESTIMONIALS = [
   {
-    icon: Send,
-    eyebrow: "Disparo em massa",
-    title: "Uma oferta. Todos os grupos. Um clique.",
-    body: "Mande texto, vídeo, áudio e imagem para todos os seus grupos de uma vez — no ritmo seguro pro seu número não cair.",
+    quote:
+      "Eu perdia a manhã copiando a mesma oferta grupo por grupo. Agora é um clique e tá em todos. Sobrou tempo pra vender de verdade.",
+    name: "Carla Menezes",
+    store: "Atacado da Moda · Fortaleza–CE",
+    rating: 4.5,
   },
   {
-    icon: CalendarClock,
-    eyebrow: "Agendamento",
-    title: "Programe a semana inteira em 1 clique.",
-    body: "Monte a rotina de ofertas uma vez e deixe rodar. O HubFlow envia sozinho, nos dias e horários certos.",
+    quote:
+      "Dobrei o faturamento sem aumentar equipe. Disparo pros 40 grupos de uma vez e a agenda da semana roda sozinha enquanto eu durmo.",
+    name: "Rodrigo Albuquerque",
+    store: "RA Importados · Curitiba–PR",
+    rating: 5,
+    highlight: true,
   },
   {
-    icon: Library,
-    eyebrow: "Biblioteca de criativos",
-    title: "Criativos e copy prontos pra disparar.",
-    body: "Criativos pra anúncio e copies de oferta, promoção e reativação. Escolha, personalize e mande pra todos os grupos.",
-  },
-  {
-    icon: Images,
-    eyebrow: "Config em massa",
-    title: "Nome e foto de todos os grupos num clique.",
-    body: "Padronize a sua marca em dezenas de grupos de uma vez. Nome, foto e descrição deixam de ser tarde inteira.",
-  },
-  {
-    icon: Plus,
-    eyebrow: "Auto-criação",
-    title: "Grupo encheu? Ele cria o próximo.",
-    body: "O HubFlow abre o próximo grupo sozinho e direciona a galera nova. Você nunca perde venda por falta de espaço.",
-  },
-  {
-    icon: BarChart3,
-    eyebrow: "Monitoramento",
-    title: "Todos os grupos vivos, num painel só.",
-    body: "Membros, saúde da conversa, quem lotou e o que precisa de atenção — acompanhado sem você conferir na mão.",
+    quote:
+      "Quando um grupo lota, ele já abre o próximo sozinho. Nunca mais perdi cliente por falta de vaga — e meu número nunca caiu.",
+    name: "Patrícia Lima",
+    store: "Bazar da Paty · Goiânia–GO",
+    rating: 4.5,
   },
 ];
 
@@ -96,11 +71,11 @@ export default function LandingPage() {
             <a href="#recursos" className="text-sm text-bruma/60 transition hover:text-white">
               Recursos
             </a>
-            <a href="#como" className="text-sm text-bruma/60 transition hover:text-white">
-              Como funciona
-            </a>
             <a href="#planos" className="text-sm text-bruma/60 transition hover:text-white">
               Planos
+            </a>
+            <a href="#duvidas" className="text-sm text-bruma/60 transition hover:text-white">
+              Dúvidas
             </a>
           </nav>
           <div className="flex items-center gap-4">
@@ -131,9 +106,8 @@ export default function LandingPage() {
             <br className="hidden sm:block" />{" "}
             <span className="hf-gradient-text">Um clique só.</span>
           </h1>
-          <p className="mx-auto mt-6 max-w-xl text-lg text-bruma/65">
-            Dispare texto, vídeo e áudio para todos os grupos de uma vez, agende a semana inteira e
-            deixe o HubFlow encher, monitorar e criar grupos no automático.
+          <p className="mx-auto mt-6 max-w-md text-lg text-bruma/65">
+            Dispare pra todos os grupos de uma vez, agende a semana e deixe o resto no automático.
           </p>
           <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Cta href={SIGNUP_URL} size="lg">
@@ -143,11 +117,11 @@ export default function LandingPage() {
               href={WHATSAPP_URL}
               className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.03] px-6 py-3.5 text-sm font-medium text-white transition hover:border-white/30 hover:bg-white/[0.06]"
             >
-              <MessageCircle className="h-4 w-4 text-iris-claro" /> Falar no WhatsApp
+              <WhatsAppIcon className="h-4 w-4 text-[#25D366]" /> Falar no WhatsApp
             </a>
           </div>
           <p className="font-data mt-7 text-xs uppercase tracking-wider text-bruma/40">
-            Conecta em 2 min · Seu número · Seus contatos são seus · LGPD
+            Conecta em 2 min · Seu número · Seus contatos são seus
           </p>
         </div>
 
@@ -167,14 +141,42 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ============ MECANISMO (animação grupos → hub) — logo abaixo do herói pra impacto ============ */}
+      <section className="relative overflow-hidden border-y border-white/10 bg-white/[0.02]">
+        <div className="hf-eclipse pointer-events-none absolute -right-40 top-1/2 h-[36rem] w-[36rem] -translate-y-1/2 opacity-40" />
+        <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-5 py-24 sm:py-28 lg:grid-cols-[0.9fr_1.1fr]">
+          <div>
+            <Eyebrow n="01">O mecanismo</Eyebrow>
+            <h2 className="font-display max-w-md text-3xl font-bold tracking-[-0.03em] text-white sm:text-[2.6rem] sm:leading-[1.05]">
+              Um maestro pra todos os grupos de WhatsApp.
+            </h2>
+            <p className="mt-5 max-w-md text-bruma/60">
+              De um ponto só, o HubFlow dispara, agenda e monitora todos os grupos ao mesmo tempo. Quando um enche, outro nasce no <span className="hf-gradient-text font-semibold">automático</span>.
+            </p>
+            <div className="mt-7 flex flex-wrap gap-2.5">
+              {["dispara", "agenda", "monitora", "cria no automático"].map((c) => (
+                <span
+                  key={c}
+                  className="font-data inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-bruma/70"
+                >
+                  <WhatsAppIcon className="h-3.5 w-3.5 text-[#25D366]" />
+                  {c}
+                </span>
+              ))}
+            </div>
+          </div>
+          <FlowVisual className="mx-auto w-full max-w-lg" />
+        </div>
+      </section>
+
       {/* TRUST STRIP */}
       <section className="border-y border-white/10 bg-white/[0.02]">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-8 gap-y-3 px-5 py-5">
           {[
             "1 clique = todos os grupos",
             "texto · vídeo · áudio",
-            "agenda 7 dias por semana",
-            "número protegido (anti-ban)",
+            "agenda recorrente",
+            "número protegido",
           ].map((t) => (
             <span key={t} className="font-data flex items-center gap-2 text-xs uppercase tracking-wider text-bruma/50">
               <Check className="h-3.5 w-3.5 text-emerald-400" />
@@ -184,227 +186,94 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ============ FUNCIONALIDADES (grid bento) ============ */}
+      {/* ============ BENTO — recursos com telas reais ============ */}
       <section id="recursos" className="relative">
         <div className="mx-auto max-w-6xl px-5 py-24 sm:py-28">
-          <div className="mx-auto max-w-2xl text-center">
-            <Eyebrow n="01" center>
+          <div className="mx-auto max-w-xl text-center">
+            <Eyebrow n="02" center>
               Na prática
             </Eyebrow>
             <h2 className="font-display text-3xl font-bold tracking-[-0.03em] text-white sm:text-[2.8rem] sm:leading-[1.05]">
-              Faça menos. <span className="hf-gradient-text">Venda mais.</span>
+              Um fluxo que <span className="hf-gradient-text">simplesmente funciona.</span>
             </h2>
-            <p className="mt-5 text-bruma/60">
-              Tudo que dava uma manhã de trabalho — copiar oferta grupo por grupo, trocar foto, abrir
-              grupo novo — vira um clique.
-            </p>
           </div>
 
-          <div className="mt-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {FEATURES.map((f, i) => (
-              <Reveal key={f.title} delay={(i % 3) * 80}>
-                <FeatureCard feature={f} />
-              </Reveal>
-            ))}
+          <div className="mt-14 grid gap-4 lg:grid-cols-6">
+            {/* Disparo + agenda (estreito) */}
+            <Reveal className="lg:col-span-2">
+              <BentoCard icon={Send} title="Disparo em massa" line="Texto, vídeo e áudio pra todos os grupos num clique.">
+                <div className="flex flex-wrap gap-2">
+                  {["Texto", "Vídeo", "Áudio", "Imagem"].map((c) => (
+                    <span key={c} className="font-data rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-bruma/70">
+                      {c}
+                    </span>
+                  ))}
+                </div>
+                <p className="font-data mt-3 flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-iris-claro/80">
+                  <ArrowRight className="h-3.5 w-3.5" /> todos os grupos de uma vez
+                </p>
+              </BentoCard>
+            </Reveal>
+
+            {/* Multi-grupo (largo, tela real) */}
+            <Reveal className="lg:col-span-4" delay={80}>
+              <BentoCard icon={Network} title="Todos os grupos num painel" line="Veja membros, saúde da conversa e quem lotou — e dispare direto da lista.">
+                <BentoShot src="/product/painel-grupos.png" alt="Painel multi-grupo do HubFlow" />
+              </BentoCard>
+            </Reveal>
+
+            {/* Resultados (largo, tela real) */}
+            <Reveal className="lg:col-span-4" delay={80}>
+              <BentoCard icon={BarChart3} title="Resultados sem planilha" line="Funil real e receita por campanha, em português claro.">
+                <BentoShot src="/product/painel-resultados.png" alt="Painel de resultados do HubFlow" />
+              </BentoCard>
+            </Reveal>
+
+            {/* Automático (estreito) */}
+            <Reveal className="lg:col-span-2" delay={160}>
+              <BentoCard icon={Plus} title="No automático" line="O HubFlow toca a operação enquanto você vende.">
+                <ul className="space-y-2">
+                  {["Cria grupo quando enche", "Nome e foto em massa", "Monitora sozinho"].map((b) => (
+                    <li key={b} className="flex items-start gap-2 text-sm text-bruma/70">
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+                      {b}
+                    </li>
+                  ))}
+                </ul>
+              </BentoCard>
+            </Reveal>
+          </div>
+
+          {/* faixa de extras enxuta */}
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <MiniCard icon={CalendarClock} title="Agenda semanal recorrente">
+              Monte a rotina de ofertas uma vez. Ele envia sozinho, nos dias e horários certos.
+            </MiniCard>
+            <MiniCard icon={Library} title="Biblioteca de criativos e copy">
+              Criativos e copies de oferta, promoção e reativação prontos pra disparar.
+            </MiniCard>
           </div>
         </div>
       </section>
 
-      {/* ============ MECANISMO (animação grupos → hub) ============ */}
-      <section className="relative overflow-hidden border-y border-white/10 bg-white/[0.02]">
-        <div className="hf-eclipse pointer-events-none absolute -right-40 top-1/2 h-[36rem] w-[36rem] -translate-y-1/2 opacity-40" />
-        <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-5 py-24 sm:py-28 lg:grid-cols-[0.9fr_1.1fr]">
-          <div>
-            <Eyebrow n="02">O mecanismo</Eyebrow>
-            <h2 className="font-display max-w-md text-3xl font-bold tracking-[-0.03em] text-white sm:text-[2.6rem] sm:leading-[1.05]">
-              Um maestro pra todos os grupos.
-            </h2>
-            <p className="mt-5 max-w-md text-bruma/60">
-              Cada grupo é um nó. O HubFlow centraliza todos e, de um ponto só, dispara, agenda e
-              monitora — texto, vídeo e áudio chegando em todos ao mesmo tempo. Quando um enche, outro
-              nasce sozinho.
-            </p>
-            <ul className="mt-8 space-y-3">
-              {[
-                "Disparo simultâneo pra dezenas de grupos",
-                "Auto-criação quando o grupo lota",
-                "Monitoramento contínuo, sem você conferir",
-              ].map((b) => (
-                <li key={b} className="flex items-start gap-2.5 text-sm text-bruma/70">
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
-                  {b}
-                </li>
-              ))}
-            </ul>
-          </div>
-          <FlowVisual className="mx-auto w-full max-w-lg" />
-        </div>
-      </section>
-
-      {/* ============ SHOWCASE MULTI-GRUPO (tela real) ============ */}
-      <section className="relative">
-        <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-24 sm:py-28 lg:grid-cols-2 lg:gap-16">
-          <div>
-            <Eyebrow n="03">Multi-grupo</Eyebrow>
-            <h2 className="font-display text-3xl font-bold tracking-[-0.02em] text-white sm:text-4xl">
-              Gerencie mil grupos como se fosse um.
-            </h2>
-            <p className="mt-5 text-bruma/60">
-              Todos os grupos lado a lado, ao vivo. Veja membros, saúde da conversa, quem está lotado
-              e o que precisa de atenção — e dispare pra qualquer grupo direto da lista.
-            </p>
-            <ul className="mt-7 space-y-2.5">
-              {[
-                "Saúde da conversa por grupo",
-                "Quem lotou e quem precisa de atenção",
-                "Disparar e lotar grupos na hora",
-              ].map((b) => (
-                <li key={b} className="flex items-start gap-2.5 text-sm text-bruma/70">
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
-                  {b}
-                </li>
-              ))}
-            </ul>
-          </div>
-          <Reveal>
-            <ProductFrame
-              src="/product/painel-grupos.png"
-              alt="Painel multi-grupo do HubFlow"
-              chrome="hubflow · grupos"
-              className="hf-glow"
-            />
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ============ COMO FUNCIONA (passos) ============ */}
-      <section id="como" className="relative overflow-hidden border-y border-white/10 bg-white/[0.02]">
-        <div className="mx-auto max-w-6xl px-5 py-24 sm:py-28">
-          <div className="mx-auto max-w-2xl text-center">
-            <Eyebrow n="04" center>
-              Como funciona
-            </Eyebrow>
-            <h2 className="font-display text-3xl font-bold tracking-[-0.03em] text-white sm:text-[2.6rem] sm:leading-[1.05]">
-              Do caos ao controle em 4 passos.
-            </h2>
-            <p className="mt-5 text-bruma/60">
-              Você conecta lendo um QR Code — em 2 minutos. Daí o HubFlow assume o peso: centraliza,
-              dispara e mede.
-            </p>
-          </div>
-          <div className="mt-16 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Step n="01" icon={QrCode} title="Conecta">
-              Leia o QR Code: seu número de sempre, sem chip novo, sem burocracia.
-            </Step>
-            <Step n="02" icon={Network} title="Centraliza">
-              Importe ou crie seus grupos e veja todos num painel só.
-            </Step>
-            <Step n="03" icon={Send} title="Dispara">
-              Uma oferta vai pra todos os grupos — texto, vídeo e áudio.
-            </Step>
-            <Step n="04" icon={BarChart3} title="Mede">
-              O resultado de cada grupo volta pra você, em português.
-            </Step>
-          </div>
-        </div>
-      </section>
-
-      {/* ============ AUTOMAÇÃO ============ */}
-      <section className="relative">
-        <div className="mx-auto max-w-6xl px-5 py-24 sm:py-28">
-          <Eyebrow n="05">No automático</Eyebrow>
-          <h2 className="font-display max-w-3xl text-3xl font-bold tracking-[-0.03em] text-white sm:text-[2.6rem] sm:leading-[1.05]">
-            Enquanto você vende, ele cuida da operação.
-          </h2>
-          <div className="mt-14 grid gap-5 sm:grid-cols-3">
-            <DarkCard icon={Plus} title="Auto-criação de grupos">
-              Grupo encheu? O HubFlow cria o próximo sozinho e já direciona a galera nova pra ele.
-            </DarkCard>
-            <DarkCard icon={BarChart3} title="Monitoramento contínuo">
-              Ele acompanha seus grupos sem parar e te avisa o que precisa de atenção.
-            </DarkCard>
-            <DarkCard icon={ShieldCheck} title="Número protegido">
-              Ritmo seguro de envio e número mascarado pra reduzir risco de bloqueio.
-            </DarkCard>
-          </div>
-
-          <div className="mt-12 grid gap-5 md:grid-cols-3">
-            <Pillar icon={TrendingUp} title="Encher">
-              Mais grupos, mais gente, mais espaço pra vender — com criação automática quando lotam.
-            </Pillar>
-            <Pillar icon={Send} title="Vender">
-              Sua oferta na frente de todos os grupos, todo dia, no piloto automático.
-            </Pillar>
-            <Pillar icon={Wallet} title="Medir">
-              Saber o que entrou e de onde — sem planilha, em português claro.
-            </Pillar>
-          </div>
-        </div>
-      </section>
-
-      {/* ============ RESULTADOS (tela real) ============ */}
-      <section className="relative overflow-hidden border-y border-white/10 bg-white/[0.02]">
-        <div className="mx-auto max-w-5xl px-5 py-24 sm:py-28">
-          <div className="mx-auto max-w-2xl text-center">
-            <Eyebrow n="06" center>
-              O número real
-            </Eyebrow>
-            <h2 className="font-display text-3xl font-bold tracking-[-0.03em] text-white sm:text-[2.6rem] sm:leading-[1.05]">
-              O caminho até a venda, sem número inflado.
-            </h2>
-            <p className="mt-5 text-bruma/60">
-              Funil real, receita por campanha e quanto cada real de anúncio virou venda — em
-              português, sem planilha.
-            </p>
-          </div>
-          <Reveal className="mt-12">
-            <ProductFrame
-              src="/product/painel-resultados.png"
-              alt="Painel HubFlow — resultados e funil"
-              chrome="hubflow · resultados"
-              aspect="1220 / 862"
-              className="hf-glow"
-            />
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ============ PROVA ============ */}
-      <section className="relative">
-        <div className="mx-auto max-w-6xl px-5 py-24 sm:py-28">
-          <div className="mx-auto max-w-2xl text-center">
-            <Eyebrow n="07" center>
+      {/* ============ PROVA (depoimentos) ============ */}
+      <section className="relative overflow-hidden">
+        <div className="hf-eclipse pointer-events-none absolute left-1/2 top-1/2 h-[34rem] w-[34rem] -translate-x-1/2 -translate-y-1/2 opacity-25" />
+        <div className="relative mx-auto max-w-6xl px-5 py-24 sm:py-28">
+          <div className="mx-auto max-w-xl text-center">
+            <Eyebrow n="03" center>
               Quem botou método
             </Eyebrow>
+            <h2 className="font-display text-3xl font-bold tracking-[-0.03em] text-white sm:text-[2.6rem] sm:leading-[1.05]">
+              Lojistas que pararam de tocar na mão.
+            </h2>
           </div>
-          <div className="mt-10 grid gap-12 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
-            <div>
-              <blockquote className="font-editorial text-3xl italic leading-snug text-white sm:text-4xl">
-                “{PROOF.quote}”
-              </blockquote>
-              <div className="mt-7 flex items-center gap-3">
-                {/* TODO: foto real do cliente */}
-                <div className="h-11 w-11 shrink-0 rounded-full bg-white/10" aria-hidden />
-                <div>
-                  <p className="font-medium text-white">{PROOF.name}</p>
-                  <p className="font-data text-xs uppercase tracking-wider text-bruma/45">
-                    {PROOF.store}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-4 lg:grid-cols-1">
-              {PROOF.stats.map((s) => (
-                <div key={s.label} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                  <p className="font-display text-3xl font-extrabold text-iris-claro sm:text-4xl">
-                    <Counter to={s.value} prefix={s.prefix} suffix={s.suffix} />
-                  </p>
-                  <p className="font-data mt-1 text-xs uppercase tracking-wider text-bruma/45">
-                    {s.label}
-                  </p>
-                </div>
-              ))}
-            </div>
+          <div className="mt-14 grid gap-5 lg:grid-cols-3">
+            {TESTIMONIALS.map((t, i) => (
+              <Reveal key={i} delay={(i % 3) * 80}>
+                <TestimonialCard t={t} />
+              </Reveal>
+            ))}
           </div>
         </div>
       </section>
@@ -413,62 +282,36 @@ export default function LandingPage() {
       <section id="planos" className="relative overflow-hidden border-y border-white/10 bg-white/[0.02]">
         <div className="hf-eclipse pointer-events-none absolute left-1/2 top-0 h-[40rem] w-[40rem] -translate-x-1/2 -translate-y-1/2 opacity-30" />
         <div className="relative mx-auto max-w-6xl px-5 py-24 sm:py-28">
-          <div className="mx-auto max-w-2xl text-center">
-            <Eyebrow n="08" center>
+          <div className="mx-auto max-w-xl text-center">
+            <Eyebrow n="04" center>
               Planos
             </Eyebrow>
             <h2 className="font-display text-3xl font-bold tracking-[-0.03em] text-white sm:text-[2.6rem] sm:leading-[1.05]">
               Planos que crescem com você.
             </h2>
-            <p className="mt-5 text-bruma/60">
-              Menos que um funcionário pra tocar os grupos na mão. Sobe de plano quando crescer, sem
-              fidelidade.
-            </p>
           </div>
           <div className="mt-12">
             <Pricing signupUrl={SIGNUP_URL} whatsappUrl={WHATSAPP_URL} />
           </div>
-          <p className="font-data mt-8 text-center text-xs uppercase tracking-wider text-bruma/45">
-            Sem fidelidade · Cancela quando quiser · Garantia de 30 dias
+          <p className="font-data mt-8 flex flex-wrap justify-center gap-x-6 gap-y-2 text-center text-xs uppercase tracking-wider text-bruma/45">
+            <span className="flex items-center gap-1.5">
+              <ShieldCheck className="h-4 w-4 text-emerald-400" /> Garantia de 30 dias
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Check className="h-4 w-4 text-emerald-400" /> Sem fidelidade
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Check className="h-4 w-4 text-emerald-400" /> Seus contatos são seus
+            </span>
           </p>
         </div>
       </section>
 
-      {/* ============ GARANTIA ============ */}
-      <section className="relative">
-        <div className="mx-auto max-w-3xl px-5 py-20">
-          <div className="rounded-3xl border border-emerald-400/25 bg-emerald-400/[0.05] p-8 text-center sm:p-12">
-            <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500 text-white">
-              <ShieldCheck className="h-6 w-6" />
-            </div>
-            <h2 className="font-display text-2xl font-bold tracking-[-0.03em] text-white sm:text-3xl">
-              O risco é nosso.
-            </h2>
-            <p className="mx-auto mt-3 max-w-xl text-bruma/60">
-              Garantia de <strong className="text-white">30 dias</strong>: se em um mês você não
-              estiver disparando pra todos os seus grupos com o número protegido, devolvemos a
-              mensalidade.
-            </p>
-            <div className="font-data mt-6 flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs uppercase tracking-wider text-bruma/55">
-              <span className="flex items-center gap-1.5">
-                <Check className="h-4 w-4 text-emerald-400" /> Sem fidelidade
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Check className="h-4 w-4 text-emerald-400" /> Seus contatos são seus
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Check className="h-4 w-4 text-emerald-400" /> Suporte de gente
-              </span>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* ============ FAQ ============ */}
-      <section className="relative">
+      <section id="duvidas" className="relative">
         <div className="mx-auto max-w-3xl px-5 py-24 sm:py-28">
-          <div className="mx-auto max-w-2xl text-center">
-            <Eyebrow n="09" center>
+          <div className="mx-auto max-w-xl text-center">
+            <Eyebrow n="05" center>
               Dúvidas
             </Eyebrow>
             <h2 className="font-display text-3xl font-bold tracking-[-0.03em] text-white sm:text-[2.6rem] sm:leading-[1.05]">
@@ -477,12 +320,11 @@ export default function LandingPage() {
           </div>
           <div className="mt-12 space-y-3">
             {[
-              ["Preciso trocar de número?", "Não. Funciona com o seu número de sempre, lendo um QR Code. Sem chip novo, sem burocracia."],
-              ["É difícil? Não entendo de tecnologia.", "Se você usa WhatsApp, usa o HubFlow. Tudo em português, com modelos prontos e suporte de gente."],
-              ["Quantos grupos posso gerenciar?", "No Growth, grupos ilimitados — todos num painel só. E quando um enche, o HubFlow cria o próximo sozinho."],
-              ["Dá pra enviar vídeo e áudio pra todos?", "Sim. O disparo é multi-formato: texto, imagem, vídeo e áudio vão pra todos os grupos com um clique."],
-              ["Meu número corre risco de bloqueio?", "O HubFlow envia num ritmo seguro (anti-ban) e com número mascarado pra reduzir o risco. Seu ativo, protegido."],
-              ["Meus contatos ficam comigo se eu cancelar?", "Sim. É o seu número, seus contatos são seus. Cancelou, leva tudo. Sem fidelidade, sem multa."],
+              ["Preciso trocar de número?", "Não. Funciona com o seu número de sempre, lendo um QR Code. Sem chip novo."],
+              ["É difícil de usar?", "Se você usa WhatsApp, usa o HubFlow. Tudo em português, com modelos prontos e suporte de gente."],
+              ["Quantos grupos posso gerenciar?", "No Growth, grupos ilimitados — todos num painel só. E quando um enche, ele cria o próximo sozinho."],
+              ["Meu número corre risco de bloqueio?", "O HubFlow envia num ritmo seguro (anti-ban) e com número mascarado pra reduzir o risco."],
+              ["Meus contatos ficam comigo se eu cancelar?", "Sim. É o seu número, seus contatos são seus. Sem fidelidade, sem multa."],
             ].map(([q, a]) => (
               <details
                 key={q}
@@ -511,9 +353,8 @@ export default function LandingPage() {
           <h2 className="font-display mx-auto mt-7 max-w-2xl text-3xl font-extrabold tracking-[-0.04em] text-white sm:text-5xl">
             Pare de tocar os grupos na mão.
           </h2>
-          <p className="mx-auto mt-5 max-w-xl text-bruma/65">
-            Conecte em 2 minutos e dispare pra todos os seus grupos hoje mesmo — no seu próprio
-            número, no automático.
+          <p className="mx-auto mt-5 max-w-md text-bruma/65">
+            Conecte em 2 minutos e dispare pra todos os seus grupos hoje mesmo.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Cta href={SIGNUP_URL} size="lg">
@@ -523,12 +364,9 @@ export default function LandingPage() {
               href={WHATSAPP_URL}
               className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.03] px-6 py-3.5 text-sm font-medium text-white transition hover:border-white/30 hover:bg-white/[0.06]"
             >
-              <MessageCircle className="h-4 w-4 text-iris-claro" /> Falar no WhatsApp
+              <WhatsAppIcon className="h-4 w-4 text-[#25D366]" /> Falar no WhatsApp
             </a>
           </div>
-          <p className="font-data mt-7 text-xs uppercase tracking-wider text-bruma/40">
-            Teste sem risco · Cancela quando quiser · Seus contatos continuam seus
-          </p>
         </div>
       </section>
 
@@ -543,34 +381,38 @@ export default function LandingPage() {
         <a
           href={WHATSAPP_URL}
           aria-label="Falar no WhatsApp"
-          className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/15 text-white"
+          className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/15 text-[#25D366]"
         >
-          <MessageCircle className="h-5 w-5" />
+          <WhatsAppIcon className="h-5 w-5" />
         </a>
       </div>
 
       {/* FOOTER */}
       <footer className="border-t border-white/10 bg-breu">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-5 px-5 py-12 pb-28 text-bruma/50 sm:flex-row sm:pb-12">
-          <div className="text-center sm:text-left">
+        <div className="mx-auto grid max-w-6xl gap-10 px-5 py-14 pb-28 sm:grid-cols-2 sm:pb-14 lg:grid-cols-[1.5fr_1fr_1fr_1fr]">
+          <div>
             <Logo wordmarkClassName="text-white" />
-            <p className="font-data mt-2 text-xs uppercase tracking-wider text-bruma/40">
-              O fluxo que vende.
+            <p className="mt-3 max-w-xs text-sm text-bruma/50">
+              Gerencie e venda em todos os seus grupos de WhatsApp — num clique só.
             </p>
           </div>
-          <div className="flex gap-6 text-sm">
-            <a href="#recursos" className="transition hover:text-white">
-              Recursos
-            </a>
-            <a href="#planos" className="transition hover:text-white">
-              Planos
-            </a>
-            <Link href="/login" className="transition hover:text-white">
-              Entrar
-            </Link>
-            <a href={WHATSAPP_URL} className="transition hover:text-white">
-              WhatsApp
-            </a>
+          <FooterCol title="Produto" links={[
+            ["Recursos", "#recursos"],
+            ["Planos", "#planos"],
+            ["Dúvidas", "#duvidas"],
+          ]} />
+          <FooterCol title="Conta" links={[
+            ["Entrar", "/login"],
+            ["Criar conta", SIGNUP_URL],
+          ]} />
+          <FooterCol title="Contato" links={[
+            ["WhatsApp", WHATSAPP_URL],
+          ]} />
+        </div>
+        <div className="border-t border-white/10">
+          <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-5 py-6 text-xs text-bruma/40 sm:flex-row">
+            <span>© {new Date().getFullYear()} HubFlow. Todos os direitos reservados.</span>
+            <span className="font-data uppercase tracking-wider">O fluxo que vende.</span>
           </div>
         </div>
       </footer>
@@ -634,46 +476,41 @@ function Eyebrow({
   );
 }
 
-function FeatureCard({ feature }: { feature: (typeof FEATURES)[number] }) {
-  const { icon: Icon, eyebrow, title, body } = feature;
-  return (
-    <div className="group h-full rounded-2xl border border-white/10 bg-white/[0.03] p-7 transition hover:border-iris/40 hover:bg-white/[0.05]">
-      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-iris/15 text-iris-claro transition group-hover:bg-iris group-hover:text-white">
-        <Icon className="h-5 w-5" />
-      </span>
-      <p className="font-data mt-5 text-xs uppercase tracking-wider text-iris-claro/80">{eyebrow}</p>
-      <p className="font-display mt-2 text-xl font-bold text-white">{title}</p>
-      <p className="mt-2 text-sm text-bruma/60">{body}</p>
-    </div>
-  );
-}
-
-function Step({
-  n,
+function BentoCard({
   icon: Icon,
   title,
+  line,
   children,
 }: {
-  n: string;
   icon: typeof Send;
   title: string;
+  line: string;
   children: React.ReactNode;
 }) {
   return (
-    <div className="group rounded-2xl border border-white/10 bg-white/[0.03] p-7 transition hover:border-iris/40">
-      <div className="flex items-center justify-between">
-        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-iris/15 text-iris-claro transition group-hover:bg-iris group-hover:text-white">
+    <div className="flex h-full flex-col rounded-3xl border border-white/10 bg-white/[0.03] p-6 transition hover:border-iris/40 sm:p-7">
+      <div className="flex items-center gap-3">
+        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-iris/15 text-iris-claro">
           <Icon className="h-5 w-5" />
         </span>
-        <span className="font-data text-sm tabular-nums text-bruma/30">{n}</span>
+        <p className="font-display text-lg font-bold text-white">{title}</p>
       </div>
-      <p className="font-display mt-6 text-xl font-bold text-white">{title}</p>
-      <p className="mt-2 text-sm text-bruma/60">{children}</p>
+      <p className="mt-3 text-sm text-bruma/60">{line}</p>
+      <div className="mt-5 flex-1">{children}</div>
     </div>
   );
 }
 
-function DarkCard({
+/** Screenshot limpo (sem chrome) dentro de um card bento. */
+function BentoShot({ src, alt }: { src: string; alt: string }) {
+  return (
+    <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl border border-white/10 bg-breu-2">
+      <Image src={src} alt={alt} fill className="object-cover object-top" sizes="(max-width: 1024px) 100vw, 640px" />
+    </div>
+  );
+}
+
+function MiniCard({
   icon: Icon,
   title,
   children,
@@ -683,32 +520,100 @@ function DarkCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-7 transition hover:border-iris/40">
-      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-iris/15 text-iris-claro">
+    <div className="flex items-start gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-6 transition hover:border-iris/40">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-iris/15 text-iris-claro">
         <Icon className="h-5 w-5" />
       </span>
-      <p className="font-display mt-5 text-xl font-bold text-white">{title}</p>
-      <p className="mt-2 text-bruma/60">{children}</p>
+      <div>
+        <p className="font-display text-base font-bold text-white">{title}</p>
+        <p className="mt-1 text-sm text-bruma/60">{children}</p>
+      </div>
     </div>
   );
 }
 
-function Pillar({
-  icon: Icon,
-  title,
-  children,
+/** Estrelas com meia-estrela — nota de 0 a 5 (ex.: 4.5). */
+function Stars({ rating }: { rating: number }) {
+  const full = Math.floor(rating);
+  const half = rating - full >= 0.5;
+  return (
+    <div className="flex items-center gap-1" aria-label={`${rating} de 5 estrelas`}>
+      <div className="flex gap-0.5 text-amber-400">
+        {Array.from({ length: 5 }).map((_, i) => {
+          if (i < full) return <Star key={i} className="h-4 w-4 fill-current" />;
+          if (i === full && half) return <StarHalf key={i} className="h-4 w-4 fill-current" />;
+          return <Star key={i} className="h-4 w-4 text-white/15" />;
+        })}
+      </div>
+      <span className="font-data text-xs text-bruma/45">{rating.toFixed(1)}</span>
+    </div>
+  );
+}
+
+/** Iniciais (2 letras) a partir do nome, pro avatar. */
+function initials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
+}
+
+function TestimonialCard({
+  t,
 }: {
-  icon: typeof Send;
-  title: string;
-  children: React.ReactNode;
+  t: (typeof TESTIMONIALS)[number];
 }) {
   return (
-    <div className="rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.05] to-transparent p-8">
-      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-iris/15 text-iris-claro">
-        <Icon className="h-6 w-6" />
-      </span>
-      <p className="font-display mt-6 text-2xl font-bold text-white">{title}</p>
-      <p className="mt-2 text-bruma/60">{children}</p>
+    <figure
+      className={cn(
+        "flex h-full flex-col rounded-3xl border p-7 transition",
+        t.highlight
+          ? "border-iris/50 bg-iris/[0.07] shadow-iris hf-glow lg:-mt-4 lg:pb-9"
+          : "border-white/10 bg-white/[0.03] hover:border-iris/40",
+      )}
+    >
+      <Stars rating={t.rating} />
+      <blockquote className="font-editorial mt-4 flex-1 text-xl italic leading-snug text-white">
+        “{t.quote}”
+      </blockquote>
+      <figcaption className="mt-6 flex items-center gap-3">
+        <span
+          className="font-display flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-iris-claro to-iris-escuro text-sm font-bold text-white"
+          aria-hidden
+        >
+          {initials(t.name)}
+        </span>
+        <div>
+          <p className="text-sm font-medium text-white">{t.name}</p>
+          <p className="font-data text-xs uppercase tracking-wider text-bruma/45">{t.store}</p>
+        </div>
+      </figcaption>
+    </figure>
+  );
+}
+
+function FooterCol({
+  title,
+  links,
+}: {
+  title: string;
+  links: [string, string][];
+}) {
+  return (
+    <div>
+      <p className="font-data text-xs uppercase tracking-wider text-bruma/40">{title}</p>
+      <ul className="mt-4 space-y-2.5">
+        {links.map(([label, href]) => (
+          <li key={label}>
+            <a href={href} className="text-sm text-bruma/60 transition hover:text-white">
+              {label}
+            </a>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
