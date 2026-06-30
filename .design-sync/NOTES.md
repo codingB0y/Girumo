@@ -42,6 +42,12 @@
   nada foi cacheado.
 
 ## Re-sync risks (o que pode ficar obsoleto)
+- **Churn benigno (re-sync 2026-06-30):** o driver acusou `Logo`/`LogoSymbol` como `changed` e
+  `upload.any:true`, mas `renderHashes` + `styleSha` + conteúdo de `prompt.md`/`.d.ts` eram
+  IDÊNTICOS à âncora; só `bundleSha12`/`sourceKey`/`auxSha` divergiram (bytes — provável CRLF/LF
+  ou não-determinismo do esbuild). Fonte git-idêntica desde `2cdd3be1`. Usuário optou por NÃO
+  re-ancorar. Logo: diffs "changed" só por esses 3 hashes, com renderHash/styleSha iguais, são
+  ruído — não exigem re-verificação visual. Re-ancorar (subir com `--no-render-check`) zera o ruído.
 - Se o `apps/web/src/app/globals.css` (`@theme`) mudar os valores de Breu/Íris/Bruma, o
   `.design-sync/ds-input.css` (cópia paralela dos tokens) PRECISA ser atualizado manualmente —
   não há link automático entre os dois. Mesmo risco para `apps/web/src/components/landing/logo.tsx`

@@ -103,9 +103,12 @@ export default function PainelConectar() {
         <Link href="/painel" className="text-sm text-aco/60 transition hover:text-breu">
           Pular por agora
         </Link>
-        <button className="inline-flex items-center gap-2 rounded-xl border border-breu/15 bg-white px-4 py-2.5 text-sm font-medium text-breu transition hover:border-iris hover:text-iris">
-          <Smartphone className="h-4 w-4" /> Conectar por número
-        </button>
+        <Link
+          href="/settings"
+          className="inline-flex items-center gap-2 rounded-xl bg-iris px-5 py-2.5 text-sm font-medium text-white shadow-iris transition hover:-translate-y-0.5 hover:bg-iris-claro"
+        >
+          <Smartphone className="h-4 w-4" /> Conectar no WhatsApp
+        </Link>
       </div>
     </div>
   );

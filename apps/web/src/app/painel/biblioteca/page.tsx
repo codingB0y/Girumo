@@ -1,149 +1,110 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Upload, Play, Image as ImageIcon, Search, Send, MoreHorizontal } from "lucide-react";
+import { useState } from "react";
+import { Upload, Image as ImageIcon, Play, Check, Loader2, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type Collection = "Ofertas" | "Lançamentos" | "Catálogo" | "Vídeos";
-type Media = {
-  name: string;
-  collection: Collection;
-  type: "image" | "video";
-  headline?: string;
-  grad: string;
-  used: number;
-};
-
-const MEDIA: Media[] = [
-  { name: "Oferta −30% Inverno", collection: "Ofertas", type: "image", headline: "−30% HOJE", grad: "linear-gradient(135deg,#3D1FB0,#6A4BF0)", used: 4 },
-  { name: "Lançamento Lote 12", collection: "Lançamentos", type: "image", headline: "LOTE 12 CHEGOU", grad: "linear-gradient(135deg,#11142A,#3D1FB0)", used: 2 },
-  { name: "Catálogo Verão", collection: "Catálogo", type: "image", headline: "NOVO CATÁLOGO", grad: "linear-gradient(135deg,#6A4BF0,#8A6CFF)", used: 6 },
-  { name: "Reels Bastidores", collection: "Vídeos", type: "video", grad: "linear-gradient(135deg,#0B0D1A,#3A3F5C)", used: 1 },
-  { name: "Promo Relâmpago", collection: "Ofertas", type: "image", headline: "SÓ HOJE", grad: "linear-gradient(135deg,#3D1FB0,#A78CFF)", used: 3 },
-  { name: "Boas-vindas VIP", collection: "Lançamentos", type: "image", headline: "BEM-VINDA", grad: "linear-gradient(135deg,#11142A,#6A4BF0)", used: 5 },
-  { name: "Catálogo Atacado", collection: "Catálogo", type: "image", headline: "ATACADO", grad: "linear-gradient(135deg,#6A4BF0,#3D1FB0)", used: 2 },
-  { name: "Vídeo Unboxing", collection: "Vídeos", type: "video", grad: "linear-gradient(135deg,#0B0D1A,#11142A)", used: 0 },
-  { name: "Black Friday Teaser", collection: "Ofertas", type: "image", headline: "BLACK FRIDAY", grad: "linear-gradient(135deg,#0B0D1A,#6A4BF0)", used: 0 },
-];
-
-const TABS = ["Tudo", "Ofertas", "Lançamentos", "Catálogo", "Vídeos"] as const;
-type Tab = (typeof TABS)[number];
+type Sent = { name: string; url: string; type: "image" | "video" };
 
 export default function PainelBiblioteca() {
-  const [tab, setTab] = useState<Tab>("Tudo");
-  const [q, setQ] = useState("");
+  const [sent, setSent] = useState<Sent[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const items = useMemo(
-    () =>
-      MEDIA.filter(
-        (m) =>
-          (tab === "Tudo" || m.collection === tab) &&
-          m.name.toLowerCase().includes(q.toLowerCase()),
-      ),
-    [tab, q],
-  );
+  async function upload(file: File) {
+    setError(null);
+    setBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/media", { method: "POST", body: fd });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j?.error ?? "Falha no envio.");
+      }
+      setSent((s) => [
+        { name: file.name, url: URL.createObjectURL(file), type: file.type.startsWith("video") ? "video" : "image" },
+        ...s,
+      ]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erro ao enviar.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-6 px-4 py-6 sm:px-6">
-      {/* Cabeçalho */}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-display text-3xl font-extrabold tracking-[-0.03em]">Biblioteca</h1>
-          <p className="font-data mt-1 text-xs uppercase tracking-wider text-aco/60">
-            Seus criativos prontos pra reutilizar
-          </p>
-        </div>
-        <button className="group inline-flex items-center gap-2 rounded-xl bg-iris px-5 py-2.5 text-sm font-medium text-white shadow-iris transition hover:-translate-y-0.5 hover:bg-iris-claro">
-          <Upload className="h-4 w-4" /> Enviar criativo
-        </button>
+      <div>
+        <h1 className="font-display text-3xl font-extrabold tracking-[-0.03em]">Biblioteca</h1>
+        <p className="font-data mt-1 text-xs uppercase tracking-wider text-aco/60">
+          Seus criativos pra reutilizar nas campanhas
+        </p>
       </div>
 
-      {/* Filtros + busca */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-1 rounded-xl border border-breu/10 bg-white p-1">
-          {TABS.map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={cn(
-                "rounded-lg px-3.5 py-1.5 text-sm font-medium transition",
-                tab === t ? "bg-breu text-white" : "text-aco/70 hover:text-breu",
-              )}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-aco/40" />
+      {/* Nota honesta */}
+      <div className="flex items-center gap-3 rounded-2xl border border-iris/20 bg-iris/[0.05] px-4 py-3.5">
+        <Info className="h-5 w-5 shrink-0 text-iris" />
+        <p className="text-sm text-aco">
+          A galeria completa de criativos chega em breve. Por ora, o que você envia aqui fica
+          disponível pra anexar nos disparos das suas campanhas.
+        </p>
+      </div>
+
+      {/* Upload */}
+      <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        <label
+          className={cn(
+            "group flex aspect-[4/5] cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed text-aco/50 transition",
+            busy ? "border-iris/40" : "border-breu/15 hover:border-iris/40 hover:text-iris",
+          )}
+        >
           <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar criativo…"
-            className="w-full rounded-xl border border-breu/10 bg-white py-2.5 pl-9 pr-3 text-sm text-breu outline-none transition placeholder:text-aco/40 focus:border-iris/40 focus:ring-4 focus:ring-iris/10 sm:w-60"
+            type="file"
+            accept="image/*,video/*"
+            className="hidden"
+            disabled={busy}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) upload(f);
+            }}
           />
-        </div>
-      </div>
-
-      {/* Grid */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-        {/* Dropzone */}
-        <button className="group flex aspect-[4/5] flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-breu/15 text-aco/50 transition hover:border-iris/40 hover:text-iris">
           <span className="flex h-11 w-11 items-center justify-center rounded-full bg-bruma transition group-hover:bg-iris/10">
-            <Upload className="h-5 w-5" />
+            {busy ? <Loader2 className="h-5 w-5 animate-spin text-iris" /> : <Upload className="h-5 w-5" />}
           </span>
-          <span className="text-xs font-medium">Arraste ou clique</span>
+          <span className="text-xs font-medium">{busy ? "Enviando…" : "Arraste ou clique"}</span>
           <span className="font-data text-[10px] text-aco/40">JPG · PNG · MP4</span>
-        </button>
+        </label>
 
-        {items.map((m) => (
-          <div
-            key={m.name}
-            className="group overflow-hidden rounded-2xl border border-breu/[0.08] bg-white"
-          >
-            {/* Thumbnail */}
-            <div
-              className="relative flex aspect-[4/5] flex-col justify-between p-3 text-white"
-              style={{ background: m.grad }}
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-data inline-flex items-center gap-1 rounded-md bg-black/25 px-1.5 py-0.5 text-[9px] uppercase tracking-wider backdrop-blur">
-                  {m.type === "video" ? <Play className="h-2.5 w-2.5" /> : <ImageIcon className="h-2.5 w-2.5" />}
-                  {m.type === "video" ? "Vídeo" : "Imagem"}
-                </span>
-              </div>
-              {m.headline && (
-                <p className="font-display text-lg font-extrabold leading-tight tracking-tight drop-shadow">
-                  {m.headline}
-                </p>
+        {sent.map((m, i) => (
+          <div key={i} className="overflow-hidden rounded-2xl border border-breu/[0.08] bg-white">
+            <div className="relative flex aspect-[4/5] items-center justify-center bg-breu-2">
+              {m.type === "video" ? (
+                <>
+                  <video src={m.url} className="h-full w-full object-cover" />
+                  <Play className="absolute h-8 w-8 fill-white text-white" />
+                </>
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={m.url} alt={m.name} className="h-full w-full object-cover" />
               )}
-              {m.type === "video" && (
-                <span className="absolute left-1/2 top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 backdrop-blur">
-                  <Play className="h-5 w-5 fill-white" />
-                </span>
-              )}
-              {/* Overlay hover */}
-              <div className="absolute inset-0 flex items-end justify-center bg-breu/60 p-3 opacity-0 backdrop-blur-[2px] transition group-hover:opacity-100">
-                <button className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-white py-2 text-xs font-medium text-breu transition hover:bg-iris hover:text-white">
-                  <Send className="h-3.5 w-3.5" /> Usar em campanha
-                </button>
-              </div>
+              <span className="absolute right-2 top-2 flex items-center gap-1 rounded-md bg-sucesso/90 px-1.5 py-0.5 font-data text-[9px] uppercase tracking-wider text-white">
+                <Check className="h-2.5 w-2.5" /> enviado
+              </span>
             </div>
-            {/* Meta */}
-            <div className="flex items-center justify-between px-3 py-2.5">
-              <div className="min-w-0">
-                <p className="truncate text-xs font-medium text-breu">{m.name}</p>
-                <p className="font-data text-[10px] text-aco/50">
-                  {m.used > 0 ? `usado em ${m.used} campanha${m.used > 1 ? "s" : ""}` : "nunca usado"}
-                </p>
-              </div>
-              <button className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-aco/40 transition hover:bg-bruma hover:text-breu">
-                <MoreHorizontal className="h-4 w-4" />
-              </button>
+            <div className="flex items-center gap-1.5 px-3 py-2.5">
+              {m.type === "video" ? <Play className="h-3.5 w-3.5 text-aco/50" /> : <ImageIcon className="h-3.5 w-3.5 text-aco/50" />}
+              <p className="truncate text-xs font-medium text-breu">{m.name}</p>
             </div>
           </div>
         ))}
       </div>
+
+      {error && <p className="rounded-xl bg-alerta/10 px-4 py-3 text-sm text-alerta">{error}</p>}
+
+      {sent.length === 0 && !busy && (
+        <p className="text-center text-sm text-aco/55">Nenhum criativo enviado nesta sessão ainda.</p>
+      )}
     </div>
   );
 }
