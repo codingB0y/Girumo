@@ -3,367 +3,488 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  Plus,
   Users,
-  Clock,
-  ChevronRight,
-  Megaphone,
+  MousePointerClick,
+  TrendingUp,
+  Layers,
+  Send,
+  UserPlus,
   Wifi,
   WifiOff,
-  Layers,
-  MousePointerClick,
+  ArrowUpRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getCampaignGroupStatus } from "@/lib/campaign-groups-overview";
-import { AnimatedNumber } from "@/components/painel/animated-number";
-import type { Group } from "@/lib/mock-data";
 
-type Campanha = { id: string; name: string; groupIds: string[]; slug?: string };
-type TrackedLink = { clicks: number };
-type Schedule = { id: string; campaignName: string; scheduledAt: string; status: string };
+// ---------- Types ----------
+
+type Group = {
+  id: string;
+  name: string;
+  members: number;
+  capacity: number;
+  engagement: string;
+  inviteUrl?: string;
+};
+
+type Campanha = {
+  id: string;
+  name: string;
+  groupIds: string[];
+  slug?: string;
+};
+
+type TrackedLink = {
+  slug: string;
+  campaignName?: string;
+  clicks: number;
+};
+
+type Lead = {
+  id: string;
+  status: "novo" | "ativo" | "comprou";
+  enteredAt: string;
+};
+
 type Session = {
   live?: boolean;
   phone?: string | null;
-  profileName?: string | null;
-  stats?: {
-    queue?: { enviadasHoje?: number };
-    warmup?: { day?: number; totalDays?: number; todaySent?: number; todayLimit?: number };
-  };
 };
 
-type Lead = { id: string; status?: string };
+type DashboardData = {
+  groups: Group[];
+  campanhas: Campanha[];
+  links: TrackedLink[];
+  leads: Lead[];
+  session: Session;
+};
 
-export default function PainelHoje() {
-  const [campanhas, setCampanhas] = useState<Campanha[]>([]);
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [links, setLinks] = useState<TrackedLink[]>([]);
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [session, setSession] = useState<Session>({});
+// ---------- Component ----------
+
+export default function PainelPage() {
+  const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
-        const [c, g, l, le, sc, s] = await Promise.all([
-          fetch("/api/campanhas").then((r) => r.json()).catch(() => []),
+        const [groups, campanhas, links, leads, session] = await Promise.all([
           fetch("/api/groups").then((r) => r.json()).catch(() => []),
+          fetch("/api/campanhas").then((r) => r.json()).catch(() => []),
           fetch("/api/links").then((r) => r.json()).catch(() => []),
           fetch("/api/leads").then((r) => r.json()).catch(() => []),
-          fetch("/api/schedules").then((r) => r.json()).catch(() => []),
           fetch("/api/session").then((r) => r.json()).catch(() => ({})),
         ]);
-        setCampanhas(Array.isArray(c) ? c : []);
-        setGroups(Array.isArray(g) ? g : []);
-        setLinks(Array.isArray(l) ? l : []);
-        setLeads(Array.isArray(le) ? le : []);
-        setSchedules(Array.isArray(sc) ? sc : []);
-        setSession(s ?? {});
+        setData({
+          groups: Array.isArray(groups) ? groups : [],
+          campanhas: Array.isArray(campanhas) ? campanhas : [],
+          links: Array.isArray(links) ? links : [],
+          leads: Array.isArray(leads) ? leads : [],
+          session: session ?? {},
+        });
+      } catch {
+        setData({ groups: [], campanhas: [], links: [], leads: [], session: {} });
       } finally {
         setLoading(false);
       }
     })();
   }, []);
 
-  const totalMembers = useMemo(() => groups.reduce((a, g) => a + (g.members ?? 0), 0), [groups]);
-  const totalClicks = useMemo(() => links.reduce((a, l) => a + (l.clicks ?? 0), 0), [links]);
-  const live = session.live === true;
-  const firstName = (session.profileName ?? "").split(" ")[0] || "lojista";
-
-  const upcoming = useMemo(
-    () =>
-      schedules
-        .filter((s) => s.status === "pending")
-        .sort((a, b) => +new Date(a.scheduledAt) - +new Date(b.scheduledAt))
-        .slice(0, 4),
-    [schedules],
-  );
-
-  // grupo mais perto de lotar (com convite, ainda com vaga)
-  const closest = useMemo(() => {
-    return groups
-      .filter((g) => g.inviteUrl && g.capacity > 0 && g.members < g.capacity)
-      .sort((a, b) => b.members / b.capacity - a.members / a.capacity)[0];
-  }, [groups]);
-
-  const topGroups = useMemo(
-    () => [...groups].sort((a, b) => (b.members ?? 0) - (a.members ?? 0)).slice(0, 5),
-    [groups],
-  );
-
-  const dateLabel = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
-
   if (loading) {
     return (
       <div className="mx-auto max-w-[1200px] space-y-5 px-4 py-6 sm:px-6">
-        <div className="h-10 w-64 animate-pulse rounded-lg bg-white" />
-        <div className="h-32 animate-pulse rounded-3xl bg-breu/90" />
-        <div className="grid gap-5 lg:grid-cols-3">
-          <div className="h-72 animate-pulse rounded-3xl bg-white lg:col-span-2" />
-          <div className="h-72 animate-pulse rounded-3xl bg-white" />
+        <div className="h-10 w-56 animate-pulse rounded-lg bg-white" />
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-24 animate-pulse rounded-2xl bg-white" />
+          ))}
         </div>
+        <div className="h-64 animate-pulse rounded-3xl bg-white" />
       </div>
     );
   }
 
+  if (!data) return null;
+
+  const { groups, campanhas, links, leads, session } = data;
+  const isConnected = session.live === true;
+  const hasCampaigns = campanhas.length > 0;
+  const hasMembers = groups.reduce((a, g) => a + (g.members ?? 0), 0) > 0;
+
+  // Onboarding: progressive empty states
+  if (!isConnected) {
+    return <OnboardingConnect />;
+  }
+  if (!hasCampaigns) {
+    return <OnboardingCampaign />;
+  }
+  if (!hasMembers) {
+    return <OnboardingShare campanhas={campanhas} />;
+  }
+
+  // Full dashboard with real data
+  return <FullDashboard groups={groups} campanhas={campanhas} links={links} leads={leads} />;
+}
+
+// ---------- Onboarding States ----------
+
+function OnboardingConnect() {
   return (
-    <div className="mx-auto max-w-[1200px] space-y-6 px-4 py-6 sm:px-6">
-      {/* Cabeçalho */}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-display text-3xl font-extrabold capitalize tracking-[-0.03em]">
-            Olá, {firstName} <span className="align-middle">👋</span>
-          </h1>
-          <p className="font-data mt-1 text-xs uppercase tracking-wider text-aco/60">{dateLabel} · visão geral</p>
-        </div>
-        <Link
-          href="/painel/campanhas/nova"
-          className="group inline-flex items-center gap-2 rounded-xl bg-iris px-5 py-2.5 text-sm font-medium text-white shadow-iris transition hover:-translate-y-0.5 hover:bg-iris-claro"
-        >
-          <Plus className="h-4 w-4" /> Nova campanha
-        </Link>
+    <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6">
+      <div>
+        <h1 className="font-display text-3xl font-extrabold tracking-[-0.03em]">Bem-vindo ao HubFlow</h1>
+        <p className="font-data mt-1 text-xs uppercase tracking-wider text-aco/60">
+          Vamos começar em 3 passos
+        </p>
       </div>
 
-      {/* Estado do negócio */}
-      <section className="relative overflow-hidden rounded-3xl bg-breu p-6 text-white sm:p-7">
-        <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-iris/20 blur-[90px]" />
-        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="shrink-0">
-            {live ? (
-              <span className="inline-flex items-center gap-2 rounded-full bg-sucesso/15 px-3 py-1 text-xs font-medium text-[#5ED9A0]">
-                <Wifi className="h-3.5 w-3.5" /> WhatsApp conectado
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-2 rounded-full bg-alerta/15 px-3 py-1 text-xs font-medium text-[#F08C8C]">
-                <WifiOff className="h-3.5 w-3.5" /> WhatsApp desconectado
-              </span>
-            )}
-            <p className="mt-3 max-w-xs text-sm text-bruma/55">
-              {live
-                ? "Tudo rodando. Sua captação está ativa e enchendo os grupos."
-                : "Reconecte o WhatsApp pra voltar a captar e disparar."}
+      <div className="mt-8 rounded-3xl border border-breu/[0.08] bg-white p-8">
+        <div className="flex flex-col items-center gap-6 text-center lg:flex-row lg:text-left">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-alerta/10">
+            <WifiOff className="h-8 w-8 text-alerta" />
+          </div>
+          <div className="flex-1">
+            <h2 className="font-display text-xl font-bold text-breu">Conecte seu WhatsApp</h2>
+            <p className="mt-2 text-sm text-aco/70">
+              É o seu número de sempre. Leva 2 minutos, sem nada técnico. Depois disso seus grupos
+              aparecem aqui automaticamente.
             </p>
           </div>
-          <div className="grid flex-1 grid-cols-2 gap-px overflow-hidden rounded-2xl bg-white/[0.06] sm:grid-cols-4">
-            <HeroStat label="Grupos" value={groups.length} />
-            <HeroStat label="Membros" value={totalMembers} />
-            <HeroStat label="Campanhas" value={campanhas.length} />
-            <HeroStat label="Cliques" value={totalClicks} />
+          <Link
+            href="/painel/conectar"
+            className="inline-flex items-center gap-2 rounded-xl bg-iris px-6 py-3 text-sm font-medium text-white shadow-iris transition hover:-translate-y-0.5 hover:bg-iris-claro"
+          >
+            <Wifi className="h-4 w-4" /> Conectar agora
+          </Link>
+        </div>
+
+        {/* Stepper */}
+        <div className="mt-8 grid grid-cols-3 gap-4">
+          <Step n={1} label="Conectar WhatsApp" active />
+          <Step n={2} label="Criar campanha" />
+          <Step n={3} label="Ver resultados" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OnboardingCampaign() {
+  return (
+    <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6">
+      <div>
+        <h1 className="font-display text-3xl font-extrabold tracking-[-0.03em]">Início</h1>
+        <p className="font-data mt-1 text-xs uppercase tracking-wider text-aco/60">
+          WhatsApp conectado — agora crie sua primeira campanha
+        </p>
+      </div>
+
+      <div className="mt-8 rounded-3xl border border-breu/[0.08] bg-white p-8">
+        <div className="flex flex-col items-center gap-6 text-center lg:flex-row lg:text-left">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-iris/10">
+            <Layers className="h-8 w-8 text-iris" />
+          </div>
+          <div className="flex-1">
+            <h2 className="font-display text-xl font-bold text-breu">Crie sua primeira campanha</h2>
+            <p className="mt-2 text-sm text-aco/70">
+              Uma campanha gera um link. Quem clica entra direto no seu grupo. Você enche os grupos
+              no automático.
+            </p>
+          </div>
+          <Link
+            href="/painel/campanhas/nova"
+            className="inline-flex items-center gap-2 rounded-xl bg-iris px-6 py-3 text-sm font-medium text-white shadow-iris transition hover:-translate-y-0.5 hover:bg-iris-claro"
+          >
+            <Layers className="h-4 w-4" /> Nova campanha
+          </Link>
+        </div>
+
+        <div className="mt-8 grid grid-cols-3 gap-4">
+          <Step n={1} label="Conectar WhatsApp" done />
+          <Step n={2} label="Criar campanha" active />
+          <Step n={3} label="Ver resultados" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OnboardingShare({ campanhas }: { campanhas: Campanha[] }) {
+  const first = campanhas[0];
+  return (
+    <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6">
+      <div>
+        <h1 className="font-display text-3xl font-extrabold tracking-[-0.03em]">Início</h1>
+        <p className="font-data mt-1 text-xs uppercase tracking-wider text-aco/60">
+          Campanha criada — agora compartilhe o link
+        </p>
+      </div>
+
+      <div className="mt-8 rounded-3xl border border-breu/[0.08] bg-white p-8">
+        <div className="flex flex-col items-center gap-6 text-center lg:flex-row lg:text-left">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-sucesso/10">
+            <Send className="h-8 w-8 text-sucesso" />
+          </div>
+          <div className="flex-1">
+            <h2 className="font-display text-xl font-bold text-breu">Compartilhe o link da campanha</h2>
+            <p className="mt-2 text-sm text-aco/70">
+              Mande o link pra clientes, poste nas redes ou coloque no seu cartão digital. Cada
+              clique é um possível membro no grupo.
+            </p>
+          </div>
+          <Link
+            href={`/painel/campanhas/${first?.slug ?? first?.id ?? ""}`}
+            className="inline-flex items-center gap-2 rounded-xl bg-iris px-6 py-3 text-sm font-medium text-white shadow-iris transition hover:-translate-y-0.5 hover:bg-iris-claro"
+          >
+            <Send className="h-4 w-4" /> Ver campanha
+          </Link>
+        </div>
+
+        <div className="mt-8 grid grid-cols-3 gap-4">
+          <Step n={1} label="Conectar WhatsApp" done />
+          <Step n={2} label="Criar campanha" done />
+          <Step n={3} label="Ver resultados" active />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Step({ n, label, active, done }: { n: number; label: string; active?: boolean; done?: boolean }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <span
+        className={cn(
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-data text-sm font-medium",
+          done
+            ? "bg-sucesso/10 text-sucesso"
+            : active
+              ? "bg-iris text-white shadow-iris"
+              : "bg-bruma text-aco/40",
+        )}
+      >
+        {done ? "✓" : n}
+      </span>
+      <span className={cn("text-sm", active ? "font-medium text-breu" : done ? "text-aco/70" : "text-aco/40")}>
+        {label}
+      </span>
+    </div>
+  );
+}
+
+// ---------- Full Dashboard ----------
+
+function FullDashboard({
+  groups,
+  campanhas,
+  links,
+  leads,
+}: {
+  groups: Group[];
+  campanhas: Campanha[];
+  links: TrackedLink[];
+  leads: Lead[];
+}) {
+  const totalMembers = useMemo(() => groups.reduce((a, g) => a + (g.members ?? 0), 0), [groups]);
+  const totalClicks = useMemo(() => links.reduce((a, l) => a + (l.clicks ?? 0), 0), [links]);
+  const totalContatos = leads.length;
+  const conversion = totalClicks > 0 ? Math.round((totalMembers / totalClicks) * 100) : 0;
+
+  // Today's leads (entered today)
+  const today = new Date().toISOString().slice(0, 10);
+  const leadsToday = useMemo(
+    () => leads.filter((l) => l.enteredAt?.startsWith(today)).length,
+    [leads, today],
+  );
+
+  // Groups almost full (>= 90%)
+  const almostFull = useMemo(
+    () => groups.filter((g) => g.capacity > 0 && g.members / g.capacity >= 0.9),
+    [groups],
+  );
+
+  const stats = [
+    {
+      label: "Membros nos grupos",
+      value: totalMembers.toLocaleString("pt-BR"),
+      icon: Users,
+      href: "/painel/grupos",
+    },
+    {
+      label: "Cliques nas campanhas",
+      value: totalClicks.toLocaleString("pt-BR"),
+      icon: MousePointerClick,
+      href: "/painel/campanhas",
+    },
+    {
+      label: "Contatos captados",
+      value: totalContatos.toLocaleString("pt-BR"),
+      icon: UserPlus,
+      href: "/painel/contatos",
+    },
+    {
+      label: "Conversão clique→grupo",
+      value: `${conversion}%`,
+      icon: TrendingUp,
+      href: "/painel/resultados",
+    },
+  ];
+
+  return (
+    <div className="mx-auto max-w-[1200px] space-y-6 px-4 py-6 sm:px-6">
+      {/* Header */}
+      <div>
+        <h1 className="font-display text-3xl font-extrabold tracking-[-0.03em]">Início</h1>
+        <p className="font-data mt-1 text-xs uppercase tracking-wider text-aco/60">
+          Visão geral do seu negócio
+        </p>
+      </div>
+
+      {/* Today's highlight */}
+      {leadsToday > 0 && (
+        <div className="flex items-center gap-3 rounded-2xl border border-sucesso/20 bg-sucesso/[0.05] px-5 py-3">
+          <ArrowUpRight className="h-5 w-5 text-sucesso" />
+          <p className="text-sm text-breu">
+            <span className="font-bold">{leadsToday}</span>{" "}
+            {leadsToday === 1 ? "novo contato" : "novos contatos"} entraram hoje nos seus grupos
+          </p>
+        </div>
+      )}
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {stats.map((s) => (
+          <Link
+            key={s.label}
+            href={s.href}
+            className="group rounded-2xl border border-breu/[0.08] bg-white p-4 transition hover:-translate-y-0.5 hover:border-iris/30 hover:shadow-sm"
+          >
+            <div className="flex items-center gap-2">
+              <s.icon className="h-4 w-4 text-iris" />
+              <span className="font-data text-[10px] uppercase tracking-wider text-aco/55">
+                {s.label}
+              </span>
+            </div>
+            <p className="font-display mt-2 text-2xl font-extrabold tracking-tight text-breu">
+              {s.value}
+            </p>
+          </Link>
+        ))}
+      </div>
+
+      {/* Alert: groups almost full */}
+      {almostFull.length > 0 && (
+        <div className="rounded-2xl border border-atencao/20 bg-atencao/[0.05] px-5 py-4">
+          <p className="text-sm font-medium text-breu">
+            ⚠️ {almostFull.length} {almostFull.length === 1 ? "grupo está" : "grupos estão"} quase
+            cheio{almostFull.length > 1 ? "s" : ""}
+          </p>
+          <p className="mt-1 text-xs text-aco/60">
+            {almostFull.map((g) => g.name).join(", ")} — crie novos grupos pra não perder captação.
+          </p>
+          <Link
+            href="/painel/grupos"
+            className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-atencao transition hover:text-breu"
+          >
+            Ver grupos →
+          </Link>
+        </div>
+      )}
+
+      {/* Quick actions + Campaigns overview */}
+      <div className="grid gap-5 lg:grid-cols-2">
+        {/* Quick Actions */}
+        <div className="rounded-3xl border border-breu/[0.08] bg-white p-6">
+          <h2 className="font-display text-base font-bold text-breu">Ações rápidas</h2>
+          <div className="mt-4 grid gap-2">
+            <QuickAction
+              href="/painel/campanhas/nova"
+              icon={Layers}
+              label="Nova campanha"
+              color="text-iris"
+            />
+            <QuickAction
+              href="/painel/contatos"
+              icon={UserPlus}
+              label="Ver contatos"
+              color="text-sucesso"
+            />
+            <QuickAction
+              href="/painel/resultados"
+              icon={TrendingUp}
+              label="Ver resultados"
+              color="text-iris"
+            />
           </div>
         </div>
-      </section>
 
-      {/* Banner ROI do mês */}
-      {(leads.length > 0 || totalClicks > 0) && (
-        <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <RoiCard label="Leads este mês" value={leads.length} suffix="capturados" />
-          <RoiCard label="Cliques" value={totalClicks} suffix="nos links" />
-          <RoiCard label="Taxa de entrada" value={totalClicks > 0 ? Math.round((totalMembers / totalClicks) * 100) : 0} suffix="%" />
-          <RoiCard label="Disparos" value={session.stats?.queue?.enviadasHoje ?? 0} suffix="hoje" />
-        </section>
-      )}
-
-      <div className="grid gap-5 lg:grid-cols-3">
-        {/* Esquerda */}
-        <div className="space-y-5 lg:col-span-2">
-          {/* Grupos */}
-          <Card>
-            <CardHead title="Grupos com mais gente" hint={`${groups.length} grupos`} href="/painel/grupos" />
-            {topGroups.length === 0 ? (
-              <Empty text="Nenhum grupo sincronizado ainda. Conecte o WhatsApp." />
-            ) : (
-              <div className="divide-y divide-breu/[0.06]">
-                {topGroups.map((g) => {
-                  const st = getCampaignGroupStatus(g);
-                  return (
-                    <div key={g.id} className="flex items-center gap-3 px-5 py-3.5">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-iris/10 text-iris">
-                        <Users className="h-4 w-4" />
+        {/* Campaigns summary */}
+        <div className="rounded-3xl border border-breu/[0.08] bg-white p-6">
+          <div className="flex items-center justify-between">
+            <h2 className="font-display text-base font-bold text-breu">Campanhas ativas</h2>
+            <Link
+              href="/painel/campanhas"
+              className="font-data text-[11px] uppercase tracking-wider text-iris transition hover:text-iris-escuro"
+            >
+              Ver todas →
+            </Link>
+          </div>
+          {campanhas.length === 0 ? (
+            <p className="mt-4 text-sm text-aco/60">Nenhuma campanha ainda.</p>
+          ) : (
+            <div className="mt-4 space-y-3">
+              {campanhas.slice(0, 4).map((c) => {
+                const campClicks = links
+                  .filter((l) => l.campaignName === c.name)
+                  .reduce((a, l) => a + (l.clicks ?? 0), 0);
+                return (
+                  <Link
+                    key={c.id}
+                    href={`/painel/campanhas/${c.slug ?? c.id}`}
+                    className="flex items-center justify-between rounded-xl px-3 py-2.5 transition hover:bg-bruma/50"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-iris/10 text-iris">
+                        <Layers className="h-4 w-4" />
                       </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-breu">{g.name}</p>
+                      <div>
+                        <p className="text-sm font-medium text-breu">{c.name}</p>
                         <p className="font-data text-[11px] text-aco/55">
-                          {(g.members ?? 0).toLocaleString("pt-BR")} membros
+                          {c.groupIds?.length ?? 0} grupo{(c.groupIds?.length ?? 0) !== 1 ? "s" : ""}
                         </p>
                       </div>
-                      <GroupStatusPill status={st} />
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </Card>
-
-          {/* Agenda */}
-          <Card>
-            <CardHead title="Próximos disparos" hint={`${upcoming.length} agendados`} href="/painel/campanhas" />
-            {upcoming.length === 0 ? (
-              <Empty text="Nada agendado. Crie uma campanha e agende um disparo." />
-            ) : (
-              <div className="space-y-1 p-3">
-                {upcoming.map((a) => (
-                  <div key={a.id} className="flex items-center gap-4 rounded-xl px-2 py-2.5 transition hover:bg-bruma/50">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-breu text-iris-claro">
-                      <Megaphone className="h-4 w-4" />
+                    <span className="font-data text-sm tabular-nums text-aco">
+                      {campClicks} cliques
                     </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-breu">{a.campaignName}</p>
-                      <p className="font-data text-[11px] text-aco/55">
-                        {new Date(a.scheduledAt).toLocaleString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
-                      </p>
-                    </div>
-                    <span className="font-data rounded-full bg-iris/[0.07] px-2.5 py-1 text-[10px] uppercase tracking-wider text-iris">
-                      Agendado
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
-        </div>
-
-        {/* Direita */}
-        <div className="space-y-5">
-          {/* Crescimento */}
-          {closest ? (
-            <section className="hf-gradient relative overflow-hidden rounded-3xl p-6 text-white">
-              <div className="pointer-events-none absolute -right-10 -bottom-12 h-40 w-40 rounded-full bg-white/15 blur-2xl" />
-              <p className="font-data text-[10px] uppercase tracking-[0.2em] text-white/70">Crescimento</p>
-              <p className="mt-3 text-lg font-medium leading-snug">
-                Faltam <span className="font-display text-2xl font-extrabold">{Math.max(closest.capacity - closest.members, 0)}</span> pra lotar “{closest.name}”.
-              </p>
-              <div className="mt-4">
-                <div className="h-2 w-full overflow-hidden rounded-full bg-white/20">
-                  <div className="h-full rounded-full bg-white" style={{ width: `${Math.round((closest.members / closest.capacity) * 100)}%` }} />
-                </div>
-                <p className="mt-2 flex justify-between font-data text-[11px] text-white/70">
-                  <span>{closest.members.toLocaleString("pt-BR")} / {closest.capacity.toLocaleString("pt-BR")}</span>
-                  <span>{Math.round((closest.members / closest.capacity) * 100)}%</span>
-                </p>
-              </div>
-              <Link href="/painel/campanhas" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white/15 py-2.5 text-sm font-medium text-white backdrop-blur transition hover:bg-white/25">
-                Ver campanhas <ChevronRight className="h-4 w-4" />
-              </Link>
-            </section>
-          ) : (
-            <Card>
-              <div className="p-6 text-center">
-                <Layers className="mx-auto h-8 w-8 text-aco/30" />
-                <p className="font-display mt-3 text-sm font-bold text-breu">Comece a captar</p>
-                <p className="mt-1 text-xs text-aco/60">Crie uma campanha pra encher seus grupos.</p>
-                <Link href="/painel/campanhas/nova" className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-iris px-3 py-1.5 text-xs font-medium text-white">
-                  <Plus className="h-3.5 w-3.5" /> Nova campanha
-                </Link>
-              </div>
-            </Card>
-          )}
-
-          {/* Número / disparos */}
-          <Card>
-            <div className="p-5">
-              <p className="font-data text-[10px] uppercase tracking-wider text-aco/55">Seu número hoje</p>
-              <div className="mt-3 flex items-center gap-2">
-                {live ? <Wifi className="h-4 w-4 text-sucesso" /> : <WifiOff className="h-4 w-4 text-alerta" />}
-                <p className="text-sm font-medium text-breu">{session.phone ?? (live ? "Conectado" : "Desconectado")}</p>
-              </div>
-              <div className="mt-4 flex items-center gap-2 rounded-xl bg-bruma/60 px-3 py-2.5">
-                <MousePointerClick className="h-4 w-4 text-iris" />
-                <p className="text-xs text-aco">
-                  <strong className="text-breu">{(session.stats?.queue?.enviadasHoje ?? 0).toLocaleString("pt-BR")}</strong> disparos hoje
-                </p>
-              </div>
-              {session.stats?.warmup?.totalDays ? (
-                <div className="mt-3">
-                  <p className="font-data flex justify-between text-[11px] text-aco/55">
-                    <span>Aquecimento</span>
-                    <span>dia {session.stats.warmup.day}/{session.stats.warmup.totalDays}</span>
-                  </p>
-                  <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-bruma">
-                    <div className="h-full rounded-full bg-iris" style={{ width: `${Math.round(((session.stats.warmup.day ?? 0) / (session.stats.warmup.totalDays || 1)) * 100)}%` }} />
-                  </div>
-                </div>
-              ) : !live ? (
-                <Link href="/painel/conectar" className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-alerta/30 py-2 text-xs font-medium text-alerta transition hover:bg-alerta/10">
-                  <WifiOff className="h-3.5 w-3.5" /> Reconectar
-                </Link>
-              ) : null}
+                  </Link>
+                );
+              })}
             </div>
-          </Card>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-/* ---------- partes ---------- */
-
-function HeroStat({ label, value }: { label: string; value: number }) {
+function QuickAction({
+  href,
+  icon: Icon,
+  label,
+  color,
+}: {
+  href: string;
+  icon: typeof Layers;
+  label: string;
+  color: string;
+}) {
   return (
-    <div className="bg-breu px-4 py-4">
-      <p className="font-data text-[10px] uppercase tracking-wider text-bruma/40">{label}</p>
-      <p className="font-display mt-1.5 text-2xl font-extrabold tracking-tight">
-        <AnimatedNumber value={value} />
-      </p>
-    </div>
-  );
-}
-
-function Card({ children }: { children: React.ReactNode }) {
-  return <div className="overflow-hidden rounded-3xl border border-breu/[0.08] bg-white shadow-[0_1px_2px_rgba(11,13,26,0.04)]">{children}</div>;
-}
-
-function CardHead({ title, hint, href }: { title: string; hint?: string; href?: string }) {
-  return (
-    <div className="flex items-center justify-between border-b border-breu/[0.06] px-5 py-4">
-      <div className="flex items-center gap-2.5">
-        <h2 className="font-display text-base font-bold text-breu">{title}</h2>
-        {hint && <span className="font-data rounded-full bg-bruma px-2 py-0.5 text-[10px] uppercase tracking-wider text-aco/55">{hint}</span>}
-      </div>
-      {href && (
-        <a href={href} className="font-data inline-flex items-center gap-1 text-[11px] uppercase tracking-wider text-iris transition hover:gap-1.5">
-          Ver todos <ChevronRight className="h-3.5 w-3.5" />
-        </a>
-      )}
-    </div>
-  );
-}
-
-function Empty({ text }: { text: string }) {
-  return (
-    <div className="flex items-center gap-3 px-5 py-8 text-sm text-aco/60">
-      <Clock className="h-4 w-4 shrink-0 text-aco/30" /> {text}
-    </div>
-  );
-}
-
-function GroupStatusPill({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    available: "bg-sucesso/10 text-sucesso",
-    full: "bg-iris/10 text-iris-escuro",
-    missing_invite: "bg-atencao/10 text-atencao",
-    unknown: "bg-bruma text-aco/60",
-  };
-  const label: Record<string, string> = {
-    available: "Ativo",
-    full: "Cheio",
-    missing_invite: "Sem convite",
-    unknown: "—",
-  };
-  return (
-    <span className={cn("font-data hidden rounded-full px-2.5 py-1 text-[10px] uppercase tracking-wider sm:inline-block", map[status] ?? map.unknown)}>
-      {label[status] ?? "—"}
-    </span>
-  );
-}
-
-function RoiCard({ label, value, suffix }: { label: string; value: number; suffix: string }) {
-  return (
-    <div className="rounded-2xl border border-breu/[0.08] bg-white p-4">
-      <p className="font-data text-[10px] uppercase tracking-wider text-aco/55">{label}</p>
-      <p className="font-display mt-1.5 text-2xl font-extrabold tracking-tight text-breu">
-        <AnimatedNumber value={value} />
-        <span className="ml-1 text-sm font-normal text-aco/50">{suffix}</span>
-      </p>
-    </div>
+    <Link
+      href={href}
+      className="flex items-center gap-3 rounded-xl border border-breu/[0.06] px-4 py-3 transition hover:border-iris/20 hover:bg-bruma/30"
+    >
+      <Icon className={cn("h-4 w-4", color)} />
+      <span className="text-sm font-medium text-breu">{label}</span>
+    </Link>
   );
 }

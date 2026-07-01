@@ -1,66 +1,87 @@
 # Objetivo
 
-Corrigir vulnerabilidades de segurança críticas identificadas pelo AppSec Engineer + Backend Architect.
-Depois avançar para feature gating, growth, e qualidade.
+Elevar o HubFlow a SaaS de alto nível: segurança, growth, automações, polish premium.
 
 # Plano
 
-## Sprint 1 — Segurança (P0)
+## Sprint 1 — Segurança (P0) ✅
 1. Rotacionar Service Role Key no Supabase
-2. Fix middleware Bearer validation (validar token contra Supabase Auth)
-3. Rate limiting em auth routes (login, signup, account)
-4. Security headers (CSP, X-Frame-Options, HSTS)
+2. Fix middleware Bearer validation
+3. Rate limiting em auth routes
+4. Security headers
 
-## Sprint 2 — Produto/Growth
+## Sprint 2 — Produto/Growth ✅ (parcial)
 5. Feature gating por plano
-6. Email nurturing (welcome + 24h sem conectar)
-7. Referral no painel + sidebar
-8. Funnel dashboard no admin
+6. Referral no painel + sidebar
+7. Realtime notifications (Supabase Realtime)
+8. Animated KPIs (count-up)
+9. Banner ROI no dashboard
+10. Mobile nav atualizada
 
-## Sprint 3 — Qualidade
-9. Remover stores legados não usados
-10. UI de webhook config no painel
-11. Testes automatizados (auth + billing)
-12. Audit log de impersonation
-13. Remover /painel/ds da sidebar em produção
+## Sprint 3 — Premium Features (ATUAL)
+11. Automações (sequências de nurturing, agendamento recorrente)
+12. Realtime nos grupos (lead entra → toast animado)
+13. Confetti no primeiro disparo (celebração milestone)
+14. Email transacional (welcome, 24h sem conectar, trial acabando)
+15. Gráfico semanal de crescimento (sparkline)
+
+## Sprint 4 — Qualidade
+16. Limpar stores legados
+17. UI webhook config
+18. Testes automatizados
+19. Audit log impersonation
+20. Funnel dashboard admin
 
 ---
 
 # Checklist
 
 ## Sprint 1 — Segurança
-- [!] 1. Rotacionar Service Role Key (manual no Supabase Dashboard) — PENDENTE USUÁRIO
-- [x] 2. Fix middleware — validar Bearer token contra Supabase Auth
-- [x] 3. Rate limiting em /api/auth/* (5 tentativas/min login, 3 signup/min por IP)
-- [x] 4. Security headers no next.config (CSP, HSTS, X-Frame, Permissions-Policy)
+- [!] 1. Rotacionar Service Role Key — PENDENTE USUÁRIO
+- [x] 2. Fix middleware Bearer validation
+- [x] 3. Rate limiting auth routes
+- [x] 4. Security headers (CSP, HSTS, X-Frame, Permissions-Policy)
 
 ## Sprint 2 — Produto/Growth
 - [x] 5. Feature gating por plano (assertPlanLimit em campanhas + broadcasts)
-- [ ] 6. Email nurturing
-- [-] 7. Referral no painel
-- [ ] 8. Funnel dashboard admin
+- [x] 6. Referral no painel + sidebar
+- [x] 7. Realtime notifications (Supabase Realtime subscription)
+- [x] 8. Animated KPIs (AnimatedNumber component)
+- [x] 9. Banner ROI no dashboard (leads, cliques, taxa, disparos)
+- [x] 10. Mobile nav atualizada (removido DS, adicionado Indicação/Disparos/Agenda)
 
-## Sprint 3 — Qualidade
-- [ ] 9. Limpar stores legados
-- [ ] 10. UI webhook config
-- [ ] 11. Testes automatizados
-- [ ] 12. Audit log impersonation
-- [ ] 13. Remover /painel/ds da sidebar
+## Sprint 3 — Premium Features
+- [-] 11. Automações (sequências nurturing + agendamento recorrente)
+- [ ] 12. Realtime grupos (toast quando lead entra)
+- [ ] 13. Confetti primeiro disparo
+- [ ] 14. Email transacional (welcome, 24h, trial)
+- [ ] 15. Gráfico semanal de crescimento (sparkline)
+
+## Sprint 4 — Qualidade
+- [ ] 16. Limpar stores legados
+- [ ] 17. UI webhook config
+- [ ] 18. Testes automatizados
+- [ ] 19. Audit log impersonation
+- [ ] 20. Funnel dashboard admin
 
 ---
 
 # Em andamento
 
-[x] 5. Feature gating por plano
+[-] 11. Automações (sequências nurturing + agendamento recorrente)
 
 ---
 
 # Decisões
 
-- Rate limiting in-memory no middleware (suficiente pra single-instance Vercel; se escalar, migrar pra Upstash Redis)
-- Bearer token validado via supabase.auth.getUser() no middleware edge
+- Rate limiting in-memory no middleware (Vercel single-instance; escalar → Upstash Redis)
+- Bearer token validado via supabase.auth.getUser() no edge
 - CSP permite Stripe JS + Supabase connections
-- Auth shell rebrandado para dark premium (bg-breu + glassmorphism)
+- Auth shell dark premium (bg-breu + glassmorphism)
+- Notifications: Supabase Realtime em vez de polling 30s
+- AnimatedNumber: requestAnimationFrame + ease-out cubic 600ms
+- ROI banner mostra leads/cliques/taxa/disparos do mês
+- Feature gating: assertPlanLimit() antes de criar campanhas/broadcasts
 
 ---
 
@@ -73,9 +94,17 @@ Depois avançar para feature gating, growth, e qualidade.
 - apps/web/src/app/signup/page.tsx (dark theme)
 - apps/web/src/app/forgot-password/page.tsx (dark theme)
 - apps/web/src/components/signup-progress.tsx (dark theme)
+- apps/web/src/app/api/campanhas/route.ts (assertPlanLimit)
+- apps/web/src/app/api/broadcasts/route.ts (assertPlanLimit)
+- apps/web/src/components/painel/sidebar.tsx (Indicação + removido DS)
+- apps/web/src/app/painel/indicacao/page.tsx (novo)
+- apps/web/src/components/painel/notification-bell.tsx (Supabase Realtime)
+- apps/web/src/components/painel/animated-number.tsx (novo)
+- apps/web/src/components/painel/mobile-nav.tsx (atualizado)
+- apps/web/src/app/painel/page.tsx (ROI banner + AnimatedNumber + leads fetch)
 
 ---
 
 # Próximos passos
 
-Iniciar item 2 (fix middleware Bearer). Item 1 é manual no dashboard.
+Implementar item 11: Automações — sequências de nurturing e agendamento recorrente.

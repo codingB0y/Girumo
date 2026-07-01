@@ -8,49 +8,22 @@ import {
   Users,
   UserPlus,
   TrendingUp,
-  Image as ImageIcon,
   Settings,
   Sparkles,
-  Wifi,
-  Send,
-  CalendarDays,
-  Gift,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/landing/logo";
 
-const SECTIONS: { label: string; items: { href: string; label: string; icon: typeof Sun }[] }[] = [
-  {
-    label: "Principal",
-    items: [
-      { href: "/painel", label: "Hoje", icon: Sun },
-      { href: "/painel/campanhas", label: "Campanhas", icon: Layers },
-      { href: "/painel/grupos", label: "Grupos", icon: Users },
-      { href: "/painel/contatos", label: "Contatos", icon: UserPlus },
-    ],
-  },
-  {
-    label: "Análise",
-    items: [
-      { href: "/painel/disparos", label: "Disparos", icon: Send },
-      { href: "/painel/agenda", label: "Agenda", icon: CalendarDays },
-      { href: "/painel/resultados", label: "Resultados", icon: TrendingUp },
-      { href: "/painel/biblioteca", label: "Biblioteca", icon: ImageIcon },
-    ],
-  },
-  {
-    label: "Crescimento",
-    items: [
-      { href: "/painel/indicacao", label: "Indicação", icon: Gift },
-    ],
-  },
-  {
-    label: "Sistema",
-    items: [
-      { href: "/painel/conectar", label: "Conectar", icon: Wifi },
-      { href: "/painel/configuracoes", label: "Configurações", icon: Settings },
-    ],
-  },
+const NAV_ITEMS = [
+  { href: "/painel", label: "Início", icon: Sun },
+  { href: "/painel/campanhas", label: "Campanhas", icon: Layers },
+  { href: "/painel/grupos", label: "Grupos", icon: Users },
+  { href: "/painel/contatos", label: "Contatos", icon: UserPlus },
+  { href: "/painel/resultados", label: "Resultados", icon: TrendingUp },
+];
+
+const BOTTOM_ITEMS = [
+  { href: "/painel/configuracoes", label: "Configurações", icon: Settings },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -65,38 +38,57 @@ export function PainelSidebar() {
         <Logo wordmarkClassName="text-white" symbolClassName="h-6 w-6" />
       </div>
 
-      <nav className="flex-1 space-y-5 px-3 py-4">
-        {SECTIONS.map((section) => (
-          <div key={section.label}>
-            <p className="font-data px-3 pb-2 text-[10px] uppercase tracking-[0.2em] text-bruma/30">
-              {section.label}
-            </p>
-            <div className="space-y-1">
-              {section.items.map(({ href, label, icon: Icon }) => {
-                const active = isActive(pathname, href);
-                return (
-                  <Link
-                    key={href}
-                    href={href}
-                    className={cn(
-                      "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition",
-                      active
-                        ? "bg-white/[0.06] font-medium text-white"
-                        : "text-bruma/55 hover:bg-white/[0.03] hover:text-bruma",
-                    )}
-                  >
-                    {active && (
-                      <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-iris" />
-                    )}
-                    <Icon className={cn("h-[18px] w-[18px]", active ? "text-iris-claro" : "")} />
-                    {label}
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        ))}
+      <nav className="flex-1 px-3 py-4">
+        <div className="space-y-1">
+          {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+            const active = isActive(pathname, href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={cn(
+                  "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition",
+                  active
+                    ? "bg-white/[0.06] font-medium text-white"
+                    : "text-bruma/55 hover:bg-white/[0.03] hover:text-bruma",
+                )}
+              >
+                {active && (
+                  <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-iris" />
+                )}
+                <Icon className={cn("h-[18px] w-[18px]", active ? "text-iris-claro" : "")} />
+                {label}
+              </Link>
+            );
+          })}
+        </div>
       </nav>
+
+      <div className="border-t border-white/5 px-3 py-4">
+        <div className="space-y-1">
+          {BOTTOM_ITEMS.map(({ href, label, icon: Icon }) => {
+            const active = isActive(pathname, href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={cn(
+                  "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition",
+                  active
+                    ? "bg-white/[0.06] font-medium text-white"
+                    : "text-bruma/55 hover:bg-white/[0.03] hover:text-bruma",
+                )}
+              >
+                {active && (
+                  <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-iris" />
+                )}
+                <Icon className={cn("h-[18px] w-[18px]", active ? "text-iris-claro" : "")} />
+                {label}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
 
       <div className="px-3 pb-4">
         <div className="rounded-2xl border border-iris/20 bg-iris/[0.07] p-4">
@@ -110,15 +102,6 @@ export function PainelSidebar() {
           >
             Gerenciar plano
           </Link>
-        </div>
-        <div className="mt-3 flex items-center gap-3 px-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-iris/20 font-data text-xs font-medium text-iris-claro">
-            IG
-          </div>
-          <div className="min-w-0">
-            <p className="truncate text-xs font-medium text-bruma/90">Igor · Moda Brás</p>
-            <p className="truncate font-data text-[10px] text-bruma/40">igor@modabras.com</p>
-          </div>
         </div>
       </div>
     </aside>

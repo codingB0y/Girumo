@@ -6,6 +6,7 @@ import { PageTransition } from "@/components/painel/page-transition";
 import { CommandPalette } from "@/components/painel/command-palette";
 import { ToastProvider } from "@/components/toast";
 import { RoleProvider } from "@/components/painel/role-provider";
+import { RealtimeToasts } from "@/components/painel/realtime-toasts";
 
 export const metadata: Metadata = {
   title: "Painel — HubFlow",
@@ -25,6 +26,7 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
           </div>
           <PainelMobileNav />
           <CommandPalette />
+          <RealtimeToasts />
         </div>
       </ToastProvider>
     </RoleProvider>

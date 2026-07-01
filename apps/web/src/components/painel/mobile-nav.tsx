@@ -11,32 +11,25 @@ import {
   TrendingUp,
   Menu,
   X,
-  Image as ImageIcon,
   Settings,
-  Gift,
   Sparkles,
-  Send,
-  CalendarDays,
-  Wifi,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/landing/logo";
 
 const PRIMARY = [
-  { href: "/painel", label: "Hoje", icon: Sun },
+  { href: "/painel", label: "Início", icon: Sun },
   { href: "/painel/campanhas", label: "Campanhas", icon: Layers },
   { href: "/painel/grupos", label: "Grupos", icon: Users },
   { href: "/painel/resultados", label: "Resultados", icon: TrendingUp },
 ];
 
 const ALL = [
-  ...PRIMARY,
+  { href: "/painel", label: "Início", icon: Sun },
+  { href: "/painel/campanhas", label: "Campanhas", icon: Layers },
+  { href: "/painel/grupos", label: "Grupos", icon: Users },
   { href: "/painel/contatos", label: "Contatos", icon: UserPlus },
-  { href: "/painel/disparos", label: "Disparos", icon: Send },
-  { href: "/painel/agenda", label: "Agenda", icon: CalendarDays },
-  { href: "/painel/biblioteca", label: "Biblioteca", icon: ImageIcon },
-  { href: "/painel/indicacao", label: "Indicação", icon: Gift },
-  { href: "/painel/conectar", label: "Conectar", icon: Wifi },
+  { href: "/painel/resultados", label: "Resultados", icon: TrendingUp },
   { href: "/painel/configuracoes", label: "Configurações", icon: Settings },
 ];
 

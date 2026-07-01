@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Send, CheckCircle2, XCircle, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/painel/empty-state";
+import { Confetti } from "@/components/painel/confetti";
 
 type Broadcast = {
   id: string;
@@ -38,13 +39,21 @@ export default function PainelDisparos() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "completed" | "pending" | "failed">("all");
+  const [showConfetti, setShowConfetti] = useState(false);
 
   useEffect(() => {
     fetch("/api/broadcasts/history?limit=50")
       .then((r) => r.json())
       .then((d) => {
-        setBroadcasts(d.items ?? []);
+        const items = d.items ?? [];
+        setBroadcasts(items);
         setTotal(d.total ?? 0);
+        // Confetti no primeiro disparo concluído
+        const completed = items.filter((b: Broadcast) => b.status === "completed");
+        if (completed.length === 1 && !localStorage.getItem("hf_confetti_shown")) {
+          setShowConfetti(true);
+          localStorage.setItem("hf_confetti_shown", "1");
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -89,6 +98,8 @@ export default function PainelDisparos() {
   }
 
   return (
+    <>
+    <Confetti show={showConfetti} onDone={() => setShowConfetti(false)} />
     <div className="mx-auto max-w-[1200px] space-y-6 px-4 py-6 sm:px-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
@@ -160,6 +171,7 @@ export default function PainelDisparos() {
         </div>
       </div>
     </div>
+    </>
   );
 }
 
