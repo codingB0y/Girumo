@@ -10,11 +10,11 @@ import {
   TrendingUp,
   Image as ImageIcon,
   Settings,
-  Palette,
   Sparkles,
   Wifi,
   Send,
   CalendarDays,
+  Gift,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/landing/logo";
@@ -39,11 +39,16 @@ const SECTIONS: { label: string; items: { href: string; label: string; icon: typ
     ],
   },
   {
+    label: "Crescimento",
+    items: [
+      { href: "/painel/indicacao", label: "Indicação", icon: Gift },
+    ],
+  },
+  {
     label: "Sistema",
     items: [
       { href: "/painel/conectar", label: "Conectar", icon: Wifi },
       { href: "/painel/configuracoes", label: "Configurações", icon: Settings },
-      { href: "/painel/ds", label: "Design System", icon: Palette },
     ],
   },
 ];

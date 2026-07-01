@@ -35,9 +35,9 @@ Depois avançar para feature gating, growth, e qualidade.
 - [x] 4. Security headers no next.config (CSP, HSTS, X-Frame, Permissions-Policy)
 
 ## Sprint 2 — Produto/Growth
-- [ ] 5. Feature gating por plano
+- [x] 5. Feature gating por plano (assertPlanLimit em campanhas + broadcasts)
 - [ ] 6. Email nurturing
-- [ ] 7. Referral no painel
+- [-] 7. Referral no painel
 - [ ] 8. Funnel dashboard admin
 
 ## Sprint 3 — Qualidade
@@ -51,7 +51,7 @@ Depois avançar para feature gating, growth, e qualidade.
 
 # Em andamento
 
-[-] 5. Feature gating por plano
+[x] 5. Feature gating por plano
 
 ---
 
