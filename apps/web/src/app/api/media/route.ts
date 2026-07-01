@@ -53,11 +53,13 @@ export async function POST(req: Request) {
 
   const isImage = file.type.startsWith("image/");
   const isVideo = file.type.startsWith("video/");
-  if (!isImage && !isVideo) return Response.json({ error: "Envie uma imagem ou video." }, { status: 400 });
+  const isAudio = file.type.startsWith("audio/");
 
-  const limit = isVideo ? 20_000_000 : 6_000_000;
+  // Limites: vídeo 20MB, áudio 16MB, imagem 6MB, arquivo genérico 30MB
+  const limit = isVideo ? 20_000_000 : isAudio ? 16_000_000 : isImage ? 6_000_000 : 30_000_000;
   if (file.size > limit) {
-    return Response.json({ error: `Arquivo grande demais (max ${isVideo ? "20MB" : "6MB"}).` }, { status: 413 });
+    const maxLabel = isVideo ? "20MB" : isAudio ? "16MB" : isImage ? "6MB" : "30MB";
+    return Response.json({ error: `Arquivo grande demais (max ${maxLabel}).` }, { status: 413 });
   }
 
   try {

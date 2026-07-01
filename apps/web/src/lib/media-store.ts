@@ -13,6 +13,16 @@ const MIME_EXT: Record<string, string> = {
   "video/quicktime": "mov",
   "video/webm": "webm",
   "video/3gpp": "3gp",
+  "audio/mpeg": "mp3",
+  "audio/mp3": "mp3",
+  "audio/ogg": "ogg",
+  "audio/opus": "opus",
+  "audio/wav": "wav",
+  "audio/aac": "aac",
+  "application/pdf": "pdf",
+  "application/zip": "zip",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
 };
 
 const EXT_MIME: Record<string, string> = {
@@ -24,9 +34,19 @@ const EXT_MIME: Record<string, string> = {
   mov: "video/quicktime",
   webm: "video/webm",
   "3gp": "video/3gpp",
+  mp3: "audio/mpeg",
+  ogg: "audio/ogg",
+  opus: "audio/opus",
+  wav: "audio/wav",
+  aac: "audio/aac",
+  pdf: "application/pdf",
+  zip: "application/zip",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 };
 
 const VIDEO_EXT = new Set(["mp4", "mov", "webm", "3gp"]);
+const AUDIO_EXT = new Set(["mp3", "ogg", "opus", "wav", "aac"]);
 
 function encodeMediaId(storagePath: string): string {
   return Buffer.from(storagePath, "utf8").toString("base64url");
@@ -35,7 +55,7 @@ function encodeMediaId(storagePath: string): string {
 function decodeMediaId(id: string): string | null {
   try {
     const decoded = Buffer.from(id, "base64url").toString("utf8");
-    if (!/^[0-9a-f-]{36}\/media\/[0-9a-f-]+\.[a-z0-9]+$/i.test(decoded)) return null;
+    if (!/^[0-9a-f-]{36}\/media\/[0-9a-f-]+\.[a-z0-9]{2,5}$/i.test(decoded)) return null;
     return decoded;
   } catch {
     return null;
@@ -47,7 +67,7 @@ export async function saveMedia(
   mime: string,
   tenantId: string,
   authUserId: string,
-): Promise<{ id: string; type: "image" | "video" }> {
+): Promise<{ id: string; type: "image" | "video" | "audio" | "file" }> {
   const supabase = getSupabaseAdmin();
   const ext = MIME_EXT[mime] ?? "jpg";
   const filename = `${crypto.randomUUID()}.${ext}`;
@@ -77,7 +97,14 @@ export async function saveMedia(
     throw new Error(metadataError.message);
   }
 
-  return { id: encodeMediaId(storagePath), type: VIDEO_EXT.has(ext) ? "video" : "image" };
+  const mediaType: "video" | "audio" | "image" | "file" = VIDEO_EXT.has(ext)
+    ? "video"
+    : AUDIO_EXT.has(ext)
+      ? "audio"
+      : mime.startsWith("image/")
+        ? "image"
+        : "file";
+  return { id: encodeMediaId(storagePath), type: mediaType };
 }
 
 export async function readMedia(id: string): Promise<{ buffer: Buffer; contentType: string } | null> {

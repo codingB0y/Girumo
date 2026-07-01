@@ -26,11 +26,12 @@ import {
   type CampaignGroupsOverview,
 } from "@/lib/campaign-groups-overview";
 import type { Group } from "@/lib/mock-data";
+import { MessagesTab } from "@/components/painel/messages";
 
 type Campanha = { id: string; name: string; loja?: string; groupIds: string[]; slug?: string; createdAt: string };
 type TrackedLink = { campaignName?: string; clicks: number };
 
-const TABS = ["Grupos", "Visão geral", "Resultados"] as const;
+const TABS = ["Grupos", "Mensagens", "Visão geral", "Resultados"] as const;
 type Tab = (typeof TABS)[number];
 
 const ACTIONS = [
@@ -218,6 +219,10 @@ export default function CampanhaDetalhe() {
               {o.groups.map((g) => <GroupCard key={g.id} g={g} live={live} origin={origin} />)}
             </div>
           )
+        )}
+
+        {tab === "Mensagens" && (
+          <MessagesTab campaignSlug={campanha.slug ?? campanha.id} groupIds={campanha.groupIds} />
         )}
 
         {tab === "Visão geral" && (
