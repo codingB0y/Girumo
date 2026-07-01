@@ -51,11 +51,11 @@ Elevar o HubFlow a SaaS de alto nível: segurança, growth, automações, polish
 - [x] 10. Mobile nav atualizada (removido DS, adicionado Indicação/Disparos/Agenda)
 
 ## Sprint 3 — Premium Features
-- [-] 11. Automações (sequências nurturing + agendamento recorrente)
-- [ ] 12. Realtime grupos (toast quando lead entra)
-- [ ] 13. Confetti primeiro disparo
-- [ ] 14. Email transacional (welcome, 24h, trial)
-- [ ] 15. Gráfico semanal de crescimento (sparkline)
+- [x] 11. Automações (store + API + página /painel/automacoes + templates)
+- [x] 12. Realtime grupos (RealtimeToasts — toast quando lead entra)
+- [x] 13. Confetti primeiro disparo (Confetti component + localStorage flag)
+- [x] 14. Email transacional (Resend: welcome, nudge 24h, trial ending + cron diário)
+- [x] 15. Gráfico semanal de crescimento (Sparkline SVG component no dashboard)
 
 ## Sprint 4 — Qualidade
 - [ ] 16. Limpar stores legados
@@ -68,7 +68,7 @@ Elevar o HubFlow a SaaS de alto nível: segurança, growth, automações, polish
 
 # Em andamento
 
-[-] 11. Automações (sequências nurturing + agendamento recorrente)
+(nenhum — Sprint 3 completo)
 
 ---
 
