@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { SESSION_COOKIE, ENGINE_TOKEN, verifySession } from "@/lib/auth";
 
 const ENGINE_ROUTES = [
@@ -17,28 +18,88 @@ function isEngineRoute(path: string) {
   return ENGINE_ROUTES.some((route) => path === route || path.startsWith(`${route}/`));
 }
 
+const RATE_LIMIT_WINDOW = 60_000; // 1 minuto
+const RATE_LIMITS: Record<string, number> = {
+  "/api/auth/login": 5,
+  "/api/auth/signup": 3,
+  "/api/auth/account": 10,
+};
+
+const ipAttempts = new Map<string, { count: number; resetAt: number }>();
+
+function isRateLimited(ip: string, path: string): boolean {
+  const limit = Object.entries(RATE_LIMITS).find(([route]) => path.startsWith(route));
+  if (!limit) return false;
+
+  const maxAttempts = limit[1];
+  const key = `${ip}:${limit[0]}`;
+  const now = Date.now();
+  const entry = ipAttempts.get(key);
+
+  if (!entry || now > entry.resetAt) {
+    ipAttempts.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
+    return false;
+  }
+
+  entry.count++;
+  if (entry.count > maxAttempts) return true;
+  return false;
+}
+
+async function validateBearerToken(token: string): Promise<boolean> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) return false;
+
+  try {
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const { data, error } = await supabase.auth.getUser(token);
+    return !error && !!data.user;
+  } catch {
+    return false;
+  }
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // Public routes
   if (pathname === "/") return NextResponse.next();
-
   if (pathname === "/api/health") return NextResponse.next();
-
   if (pathname === "/api/billing/webhook") return NextResponse.next();
-
-  // Allow posts OG image generation without auth
   if (pathname.startsWith("/posts/og")) return NextResponse.next();
 
+  // Engine routes (x-engine-token)
   if (isEngineRoute(pathname)) {
     const token = req.headers.get("x-engine-token");
     if (token && token === ENGINE_TOKEN) return NextResponse.next();
   }
 
-  const bearer = req.headers.get("authorization");
-  if (pathname.startsWith("/api/") && bearer?.toLowerCase().startsWith("bearer ")) {
-    return NextResponse.next();
+  // Rate limiting on auth routes
+  if (pathname.startsWith("/api/auth/") && req.method === "POST") {
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    if (isRateLimited(ip, pathname)) {
+      return NextResponse.json(
+        { error: "Muitas tentativas. Aguarde 1 minuto." },
+        { status: 429 },
+      );
+    }
   }
 
+  // Bearer token validation (Supabase Auth)
+  const bearer = req.headers.get("authorization");
+  if (pathname.startsWith("/api/") && bearer?.toLowerCase().startsWith("bearer ")) {
+    const token = bearer.slice(7);
+    const valid = await validateBearerToken(token);
+    if (valid) return NextResponse.next();
+    return NextResponse.json({ error: "Token invalido." }, { status: 401 });
+  }
+
+  // Session cookie validation
   const authed = await verifySession(req.cookies.get(SESSION_COOKIE)?.value);
 
   if (pathname.startsWith("/api/")) {
@@ -46,6 +107,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.json({ error: "Nao autenticado." }, { status: 401 });
   }
 
+  // Page routes: redirect to login if not authed
   if (!authed) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
