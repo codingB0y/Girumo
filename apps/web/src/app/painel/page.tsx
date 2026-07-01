@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getCampaignGroupStatus } from "@/lib/campaign-groups-overview";
+import { AnimatedNumber } from "@/components/painel/animated-number";
 import type { Group } from "@/lib/mock-data";
 
 type Campanha = { id: string; name: string; groupIds: string[]; slug?: string };
@@ -30,10 +31,13 @@ type Session = {
   };
 };
 
+type Lead = { id: string; status?: string };
+
 export default function PainelHoje() {
   const [campanhas, setCampanhas] = useState<Campanha[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [links, setLinks] = useState<TrackedLink[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [session, setSession] = useState<Session>({});
   const [loading, setLoading] = useState(true);
@@ -41,16 +45,18 @@ export default function PainelHoje() {
   useEffect(() => {
     (async () => {
       try {
-        const [c, g, l, sc, s] = await Promise.all([
+        const [c, g, l, le, sc, s] = await Promise.all([
           fetch("/api/campanhas").then((r) => r.json()).catch(() => []),
           fetch("/api/groups").then((r) => r.json()).catch(() => []),
           fetch("/api/links").then((r) => r.json()).catch(() => []),
+          fetch("/api/leads").then((r) => r.json()).catch(() => []),
           fetch("/api/schedules").then((r) => r.json()).catch(() => []),
           fetch("/api/session").then((r) => r.json()).catch(() => ({})),
         ]);
         setCampanhas(Array.isArray(c) ? c : []);
         setGroups(Array.isArray(g) ? g : []);
         setLinks(Array.isArray(l) ? l : []);
+        setLeads(Array.isArray(le) ? le : []);
         setSchedules(Array.isArray(sc) ? sc : []);
         setSession(s ?? {});
       } finally {
@@ -139,13 +145,23 @@ export default function PainelHoje() {
             </p>
           </div>
           <div className="grid flex-1 grid-cols-2 gap-px overflow-hidden rounded-2xl bg-white/[0.06] sm:grid-cols-4">
-            <HeroStat label="Grupos" value={groups.length.toLocaleString("pt-BR")} />
-            <HeroStat label="Membros" value={totalMembers.toLocaleString("pt-BR")} />
-            <HeroStat label="Campanhas" value={campanhas.length.toLocaleString("pt-BR")} />
-            <HeroStat label="Cliques" value={totalClicks.toLocaleString("pt-BR")} />
+            <HeroStat label="Grupos" value={groups.length} />
+            <HeroStat label="Membros" value={totalMembers} />
+            <HeroStat label="Campanhas" value={campanhas.length} />
+            <HeroStat label="Cliques" value={totalClicks} />
           </div>
         </div>
       </section>
+
+      {/* Banner ROI do mês */}
+      {(leads.length > 0 || totalClicks > 0) && (
+        <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <RoiCard label="Leads este mês" value={leads.length} suffix="capturados" />
+          <RoiCard label="Cliques" value={totalClicks} suffix="nos links" />
+          <RoiCard label="Taxa de entrada" value={totalClicks > 0 ? Math.round((totalMembers / totalClicks) * 100) : 0} suffix="%" />
+          <RoiCard label="Disparos" value={session.stats?.queue?.enviadasHoje ?? 0} suffix="hoje" />
+        </section>
+      )}
 
       <div className="grid gap-5 lg:grid-cols-3">
         {/* Esquerda */}
@@ -281,11 +297,13 @@ export default function PainelHoje() {
 
 /* ---------- partes ---------- */
 
-function HeroStat({ label, value }: { label: string; value: string }) {
+function HeroStat({ label, value }: { label: string; value: number }) {
   return (
     <div className="bg-breu px-4 py-4">
       <p className="font-data text-[10px] uppercase tracking-wider text-bruma/40">{label}</p>
-      <p className="font-display mt-1.5 text-2xl font-extrabold tracking-tight">{value}</p>
+      <p className="font-display mt-1.5 text-2xl font-extrabold tracking-tight">
+        <AnimatedNumber value={value} />
+      </p>
     </div>
   );
 }
@@ -335,5 +353,17 @@ function GroupStatusPill({ status }: { status: string }) {
     <span className={cn("font-data hidden rounded-full px-2.5 py-1 text-[10px] uppercase tracking-wider sm:inline-block", map[status] ?? map.unknown)}>
       {label[status] ?? "—"}
     </span>
+  );
+}
+
+function RoiCard({ label, value, suffix }: { label: string; value: number; suffix: string }) {
+  return (
+    <div className="rounded-2xl border border-breu/[0.08] bg-white p-4">
+      <p className="font-data text-[10px] uppercase tracking-wider text-aco/55">{label}</p>
+      <p className="font-display mt-1.5 text-2xl font-extrabold tracking-tight text-breu">
+        <AnimatedNumber value={value} />
+        <span className="ml-1 text-sm font-normal text-aco/50">{suffix}</span>
+      </p>
+    </div>
   );
 }

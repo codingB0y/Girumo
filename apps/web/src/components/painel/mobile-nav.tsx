@@ -13,8 +13,11 @@ import {
   X,
   Image as ImageIcon,
   Settings,
-  Palette,
+  Gift,
   Sparkles,
+  Send,
+  CalendarDays,
+  Wifi,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/landing/logo";
@@ -29,9 +32,12 @@ const PRIMARY = [
 const ALL = [
   ...PRIMARY,
   { href: "/painel/contatos", label: "Contatos", icon: UserPlus },
+  { href: "/painel/disparos", label: "Disparos", icon: Send },
+  { href: "/painel/agenda", label: "Agenda", icon: CalendarDays },
   { href: "/painel/biblioteca", label: "Biblioteca", icon: ImageIcon },
+  { href: "/painel/indicacao", label: "Indicação", icon: Gift },
+  { href: "/painel/conectar", label: "Conectar", icon: Wifi },
   { href: "/painel/configuracoes", label: "Configurações", icon: Settings },
-  { href: "/painel/ds", label: "Design System", icon: Palette },
 ];
 
 function isActive(pathname: string, href: string) {
