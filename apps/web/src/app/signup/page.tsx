@@ -4,8 +4,6 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AuthShell } from "@/components/auth-shell";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { SignupProgress } from "@/components/signup-progress";
 import { persistSupabaseSession } from "@/lib/supabase/client";
 
@@ -19,6 +17,8 @@ function GoogleIcon() {
     </svg>
   );
 }
+
+const inputClass = "h-11 w-full rounded-xl border border-white/[0.08] bg-white/[0.05] px-4 text-sm text-white placeholder:text-bruma/30 outline-none transition focus:border-iris/50 focus:ring-2 focus:ring-iris/20";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -50,7 +50,7 @@ export default function SignupPage() {
         router.refresh();
       } else {
         const data = await response.json().catch(() => ({}));
-        setError(data.error || "Nao foi possivel criar a conta.");
+        setError(data.error || "Não foi possível criar a conta.");
       }
     } catch {
       setError("Erro ao criar conta. Tente de novo.");
@@ -66,8 +66,8 @@ export default function SignupPage() {
       context="Depois de criar sua conta, você conecta o WhatsApp em 2 minutos e já pode disparar para todos os grupos."
       footer={
         <>
-          Ja tem conta?{" "}
-          <Link href="/login" className="font-medium text-iris hover:text-iris-escuro">
+          Já tem conta?{" "}
+          <Link href="/login" className="font-medium text-iris-claro hover:text-iris">
             Entrar
           </Link>
         </>
@@ -76,64 +76,73 @@ export default function SignupPage() {
       <SignupProgress current={1} />
       <form className="space-y-4" onSubmit={submit}>
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-aco">Seu nome</label>
-          <Input
+          <label className="mb-1.5 block text-sm font-medium text-bruma/60">Seu nome</label>
+          <input
             placeholder="Ex: Maria da Silva"
             value={name}
-            onChange={(event) => setName(event.target.value)}
+            onChange={(e) => setName(e.target.value)}
             autoFocus
             autoComplete="name"
+            className={inputClass}
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-aco">E-mail</label>
-          <Input
+          <label className="mb-1.5 block text-sm font-medium text-bruma/60">E-mail</label>
+          <input
             type="email"
             placeholder="voce@email.com"
             value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
+            className={inputClass}
           />
           {email.length > 0 && !emailOk && (
-            <p className="mt-1 text-xs text-amber-600">Digite um e-mail valido para acessar sua organizacao.</p>
+            <p className="mt-1 text-xs text-atencao">Digite um e-mail válido.</p>
           )}
         </div>
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-aco">Senha</label>
-          <Input
+          <label className="mb-1.5 block text-sm font-medium text-bruma/60">Senha</label>
+          <input
             type="password"
-            placeholder="Minimo 6 caracteres"
+            placeholder="Mínimo 6 caracteres"
             value={password}
-            onChange={(event) => setPassword(event.target.value)}
+            onChange={(e) => setPassword(e.target.value)}
             autoComplete="new-password"
+            className={inputClass}
           />
           {password.length > 0 && password.length < 6 && (
-            <p className="mt-1 text-xs text-amber-600">A senha precisa de pelo menos 6 caracteres.</p>
+            <p className="mt-1 text-xs text-atencao">A senha precisa de pelo menos 6 caracteres.</p>
           )}
         </div>
-        {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-        <Button className="w-full" type="submit" disabled={loading || !valid}>
-          {loading ? "Criando..." : "Criar conta"}
-        </Button>
 
-        <div className="relative my-1">
+        {error && <p className="rounded-lg border border-alerta/30 bg-alerta/10 px-3 py-2 text-sm text-alerta">{error}</p>}
+
+        <button
+          type="submit"
+          disabled={loading || !valid}
+          className="flex h-11 w-full items-center justify-center rounded-xl bg-iris text-sm font-medium text-white shadow-iris transition hover:bg-iris-claro disabled:pointer-events-none disabled:opacity-50"
+        >
+          {loading ? "Criando..." : "Criar conta"}
+        </button>
+
+        <div className="relative my-2">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-breu/10" />
+            <div className="w-full border-t border-white/[0.06]" />
           </div>
           <div className="relative flex justify-center">
-            <span className="bg-white px-3 text-xs text-aco/50">ou</span>
+            <span className="bg-transparent px-3 text-xs text-bruma/30">ou</span>
           </div>
         </div>
 
         <a
           href="/api/auth/google?next=/onboarding"
-          className="inline-flex w-full items-center justify-center gap-2.5 rounded-xl border border-breu/10 bg-white px-4 py-2.5 text-sm font-medium text-breu transition hover:border-iris/40 hover:bg-bruma"
+          className="flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.05] text-sm font-medium text-white transition hover:border-white/[0.15] hover:bg-white/[0.08]"
         >
           <GoogleIcon />
           Criar conta com Google
         </a>
 
-        <p className="text-center text-xs leading-5 text-aco/70">
+        <p className="text-center text-xs leading-5 text-bruma/40">
           Seus dados ficam protegidos e só você tem acesso. Cancele quando quiser.
         </p>
       </form>

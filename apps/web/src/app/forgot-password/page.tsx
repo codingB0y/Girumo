@@ -2,10 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Mail } from "lucide-react";
+import { Mail, ArrowLeft } from "lucide-react";
 import { AuthShell } from "@/components/auth-shell";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export default function ForgotPasswordPage() {
@@ -44,7 +42,7 @@ export default function ForgotPasswordPage() {
       footer={
         <>
           Lembrou a senha?{" "}
-          <Link href="/login" className="font-medium text-iris hover:text-iris-escuro">
+          <Link href="/login" className="font-medium text-iris-claro hover:text-iris">
             Entrar
           </Link>
         </>
@@ -52,40 +50,45 @@ export default function ForgotPasswordPage() {
     >
       {sent ? (
         <div className="space-y-4 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50">
-            <Mail className="h-7 w-7 text-emerald-600" />
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-iris/20">
+            <Mail className="h-7 w-7 text-iris-claro" />
           </div>
-          <h2 className="text-lg font-semibold text-breu">E-mail enviado!</h2>
-          <p className="text-sm text-aco/70">
-            Se <strong className="text-breu">{email}</strong> estiver cadastrado, você receberá um link para redefinir sua senha.
+          <h2 className="font-display text-lg font-bold text-white">E-mail enviado!</h2>
+          <p className="text-sm text-bruma/50">
+            Se <strong className="text-white">{email}</strong> estiver cadastrado, você receberá um link para redefinir sua senha.
           </p>
-          <p className="text-xs text-aco/50">
+          <p className="text-xs text-bruma/30">
             Não recebeu? Verifique a caixa de spam ou tente novamente em alguns minutos.
           </p>
           <Link
             href="/login"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-iris hover:text-iris-escuro"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-iris-claro hover:text-iris"
           >
-            ← Voltar para login
+            <ArrowLeft className="h-3.5 w-3.5" /> Voltar para login
           </Link>
         </div>
       ) : (
         <form className="space-y-4" onSubmit={submit}>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-aco">E-mail da conta</label>
-            <Input
+            <label className="mb-1.5 block text-sm font-medium text-bruma/60">E-mail da conta</label>
+            <input
               type="email"
               placeholder="voce@email.com"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
               autoFocus
+              className="h-11 w-full rounded-xl border border-white/[0.08] bg-white/[0.05] px-4 text-sm text-white placeholder:text-bruma/30 outline-none transition focus:border-iris/50 focus:ring-2 focus:ring-iris/20"
             />
           </div>
-          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-          <Button className="w-full" type="submit" disabled={loading || !emailOk}>
+          {error && <p className="rounded-lg border border-alerta/30 bg-alerta/10 px-3 py-2 text-sm text-alerta">{error}</p>}
+          <button
+            type="submit"
+            disabled={loading || !emailOk}
+            className="flex h-11 w-full items-center justify-center rounded-xl bg-iris text-sm font-medium text-white shadow-iris transition hover:bg-iris-claro disabled:pointer-events-none disabled:opacity-50"
+          >
             {loading ? "Enviando..." : "Enviar link de recuperação"}
-          </Button>
+          </button>
         </form>
       )}
     </AuthShell>
