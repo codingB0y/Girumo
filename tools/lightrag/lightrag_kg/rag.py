@@ -22,9 +22,12 @@ async def get_rag() -> LightRAG:
             embedding_dim=config.EMBEDDING_DIM,
             func=embedding_func,
         ),
-        llm_model_max_async=2,
-        max_parallel_insert=1,
-        embedding_batch_num=8,
+        llm_model_max_async=1,              # free tier: 1 LLM call at a time
+        max_parallel_insert=1,              # free tier: sequential inserts
+        embedding_batch_num=50,             # large batch = fewer API calls per flush
+        embedding_func_max_async=1,         # free tier: 1 embed call at a time (sequential)
+        default_embedding_timeout=900,      # 15 min timeout per embedding batch
+        default_llm_timeout=300,            # 5 min timeout for LLM
         chunk_token_size=1200,
         chunk_overlap_token_size=100,
     )

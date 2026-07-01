@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import { getStripe } from "@/lib/billing/stripe";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -113,6 +114,18 @@ export async function POST(req: Request) {
     if (session.subscription) {
       const subscription = await getStripe().subscriptions.retrieve(String(session.subscription));
       await upsertSubscription(subscription);
+
+      // Track payment funnel event
+      const tenantId = subscription.metadata.tenant_id;
+      const userId = subscription.metadata.user_id;
+      if (tenantId) {
+        trackFunnelEvent({
+          tenantId,
+          userId: userId ?? "system",
+          event: "payment_completed",
+          metadata: { plan_code: subscription.metadata.plan_code, stripe_subscription_id: subscription.id },
+        });
+      }
     }
   }
 

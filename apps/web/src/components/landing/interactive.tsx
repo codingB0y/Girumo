@@ -105,6 +105,82 @@ export function Counter({
   );
 }
 
+/** Tilt 3D sutil seguindo o mouse (parallax). Desktop-only; respeita reduced-motion. */
+export function Tilt({
+  children,
+  className,
+  max = 7,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  max?: number;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const reduced = useRef(false);
+
+  useEffect(() => {
+    reduced.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }, []);
+
+  const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const el = ref.current;
+    if (!el || reduced.current) return;
+    const rect = el.getBoundingClientRect();
+    const px = (e.clientX - rect.left) / rect.width;
+    const py = (e.clientY - rect.top) / rect.height;
+    const ry = (px - 0.5) * max * 2;
+    const rx = (0.5 - py) * max * 2;
+    el.style.transform = `rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg)`;
+  };
+
+  const reset = () => {
+    if (ref.current) ref.current.style.transform = "rotateX(0deg) rotateY(0deg)";
+  };
+
+  return (
+    <div
+      className={className}
+      style={{ perspective: "1200px" }}
+      onMouseMove={onMove}
+      onMouseLeave={reset}
+    >
+      <div
+        ref={ref}
+        className="transition-transform duration-200 ease-out will-change-transform"
+        style={{ transformStyle: "preserve-3d" }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** Card com brilho íris que segue o cursor. Vira o <div> raiz do card. */
+export function SpotlightCard({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const el = ref.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    el.style.setProperty("--mx", `${e.clientX - rect.left}px`);
+    el.style.setProperty("--my", `${e.clientY - rect.top}px`);
+  };
+
+  return (
+    <div ref={ref} onMouseMove={onMove} className={cn("hf-spotlight relative isolate", className)}>
+      <span className="hf-spotlight-glow pointer-events-none absolute inset-0 -z-10 rounded-[inherit]" aria-hidden />
+      {children}
+    </div>
+  );
+}
+
 type Shot = { src: string; label: string; caption: string };
 
 /** Showcase do produto: abas em mono trocam a tela grande com cross-fade. Telas reais (Brand/UI). */

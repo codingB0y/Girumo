@@ -1,9 +1,17 @@
 import argparse
 import asyncio
 import json
-import subprocess
+import os
 import sys
 from pathlib import Path
+
+# Force UTF-8 output on Windows to avoid cp1252 encoding errors with rich
+if sys.platform == "win32":
+    os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8")
 
 from rich.console import Console
 from rich.markdown import Markdown
@@ -12,7 +20,7 @@ from rich.table import Table
 from . import config
 from . import rag as rag_mod
 
-console = Console()
+console = Console(force_terminal=True)
 
 
 async def cmd_search(args) -> None:
@@ -41,7 +49,7 @@ async def cmd_top(args) -> None:
     graph = rag.chunk_entity_relation_graph
     nx_graph = await graph.get_graph() if hasattr(graph, "get_graph") else None
     if nx_graph is None:
-        console.print("[red]Não foi possível ler o grafo.[/red]")
+        console.print("[red]Nao foi possivel ler o grafo.[/red]")
         return
     degrees = sorted(nx_graph.degree, key=lambda x: x[1], reverse=True)[: args.n]
     if args.json:
@@ -49,7 +57,7 @@ async def cmd_top(args) -> None:
         return
     table = Table(title=f"Top {args.n} entidades")
     table.add_column("Entidade")
-    table.add_column("Conexões")
+    table.add_column("Conexoes")
     for n, d in degrees:
         table.add_row(str(n), str(d))
     console.print(table)
@@ -72,7 +80,7 @@ async def cmd_show(args) -> None:
     graph = rag.chunk_entity_relation_graph
     nx_graph = await graph.get_graph() if hasattr(graph, "get_graph") else None
     if nx_graph is None or args.entity not in nx_graph.nodes:
-        console.print(f"[red]Entidade '{args.entity}' não encontrada.[/red]")
+        console.print(f"[red]Entidade '{args.entity}' nao encontrada.[/red]")
         return
     data = nx_graph.nodes[args.entity]
     neighbors = list(nx_graph.neighbors(args.entity))
@@ -90,7 +98,7 @@ async def cmd_insert(args) -> None:
 
 
 async def cmd_shell(args) -> None:
-    console.print("RAG shell — /local /global /chunks /stats /top /find /show /exit")
+    console.print("RAG shell -- /local /global /chunks /stats /top /find /show /exit")
     while True:
         try:
             line = input("rag> ").strip()
@@ -130,28 +138,29 @@ def cmd_mcp_check(args) -> None:
     mcp_path = config.REPO_ROOT / ".mcp.json"
     ok = True
     if not mcp_path.exists():
-        console.print("[red]✗ .mcp.json não encontrado[/red]")
+        console.print("[red][X] .mcp.json nao encontrado[/red]")
         ok = False
     else:
         data = json.loads(mcp_path.read_text(encoding="utf-8"))
         entry = data.get("mcpServers", {}).get("lightrag")
         if not entry:
-            console.print("[red]✗ entry 'lightrag' não encontrada em .mcp.json[/red]")
+            console.print("[red][X] entry 'lightrag' nao encontrada em .mcp.json[/red]")
             ok = False
         else:
-            console.print("[green]✓ .mcp.json tem entry 'lightrag'[/green]")
+            console.print("[green][OK] .mcp.json tem entry 'lightrag'[/green]")
             project_arg = entry.get("args", [])
-            if any(str(config.PACKAGE_DIR) in a for a in project_arg):
-                console.print("[green]✓ caminho absoluto correto[/green]")
+            pkg_dir_str = str(config.PACKAGE_DIR).replace("\\", "/")
+            if any(pkg_dir_str in a.replace("\\", "/") for a in project_arg):
+                console.print("[green][OK] caminho absoluto correto[/green]")
             else:
-                console.print("[red]✗ caminho do --project não aponta para tools/lightrag[/red]")
+                console.print("[red][X] caminho do --project nao aponta para tools/lightrag[/red]")
                 ok = False
     try:
         from . import server  # noqa: F401
 
-        console.print("[green]✓ lightrag_kg.server importa sem erro[/green]")
+        console.print("[green][OK] lightrag_kg.server importa sem erro[/green]")
     except Exception as exc:
-        console.print(f"[red]✗ falha ao importar server: {exc}[/red]")
+        console.print(f"[red][X] falha ao importar server: {exc}[/red]")
         ok = False
     if not ok:
         sys.exit(1)

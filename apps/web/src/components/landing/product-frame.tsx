@@ -14,12 +14,14 @@ export function ProductFrame({
   chrome = "app.hubflow.com.br",
   aspect = "16 / 10",
   className,
+  priority = false,
 }: {
   src?: string;
   alt: string;
   chrome?: string;
   aspect?: string;
   className?: string;
+  priority?: boolean;
 }) {
   return (
     <div
@@ -40,7 +42,14 @@ export function ProductFrame({
 
       <div className="relative w-full" style={{ aspectRatio: aspect }}>
         {src ? (
-          <Image src={src} alt={alt} fill className="object-cover object-top" sizes="(max-width: 1024px) 100vw, 560px" />
+          <Image
+            src={src}
+            alt={alt}
+            fill
+            priority={priority}
+            className="object-cover object-top"
+            sizes="(min-width: 1024px) 1024px, 100vw"
+          />
         ) : (
           <Placeholder label={alt} />
         )}

@@ -68,6 +68,14 @@ export function FlowVisual({ className }: { className?: string }) {
         {/* halo do hub */}
         <circle cx={HUB.x} cy={HUB.y} r="128" fill="url(#hf-hub-glow)" className="hf-breathe" />
 
+        {/* pulso de brilho que irradia a cada disparo (sincronizado com o broadcast) */}
+        {motion && (
+          <circle cx={HUB.x} cy={HUB.y} fill="url(#hf-hub-glow)">
+            <animate attributeName="r" dur="2s" begin="1.8s" repeatCount="indefinite" values="66;150" keyTimes="0;1" calcMode="spline" keySplines="0.22 1 0.36 1" />
+            <animate attributeName="opacity" dur="2s" begin="1.8s" repeatCount="indefinite" values="0.9;0" keyTimes="0;1" />
+          </circle>
+        )}
+
         {/* ligações: cada grupo flui até o hub (desenham em sequência) */}
         {GROUPS.map((g, i) => (
           <path

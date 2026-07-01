@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { SESSION_COOKIE, signSession, sessionCookieOptions } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -97,6 +98,9 @@ export async function POST(req: Request) {
   const { data: sessionData } = await supabase.auth.signInWithPassword({ email, password });
   const token = await signSession(authUserId);
   (await cookies()).set(SESSION_COOKIE, token, sessionCookieOptions);
+
+  // Track funnel event (non-blocking)
+  trackFunnelEvent({ tenantId, userId: authUserId, event: "signup", metadata: { source: "web" } });
 
   return Response.json(
     {

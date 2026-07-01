@@ -26,6 +26,9 @@ export async function middleware(req: NextRequest) {
 
   if (pathname === "/api/billing/webhook") return NextResponse.next();
 
+  // Allow posts OG image generation without auth
+  if (pathname.startsWith("/posts/og")) return NextResponse.next();
+
   if (isEngineRoute(pathname)) {
     const token = req.headers.get("x-engine-token");
     if (token && token === ENGINE_TOKEN) return NextResponse.next();
@@ -54,5 +57,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!login|signup|forgot-password|reset-password|api/auth|r/|_next/static|_next/image|favicon.ico|.*\\.).*)"],
+  matcher: ["/((?!login|signup|forgot-password|reset-password|api/auth|r/|_next/static|_next/image|favicon.ico|.*\\.).*)"]
 };

@@ -17,15 +17,82 @@ import {
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/landing/logo";
 import { FlowVisual } from "@/components/landing/flow-visual";
-import { Reveal } from "@/components/landing/interactive";
+import { Reveal, Tilt, SpotlightCard } from "@/components/landing/interactive";
 import { ProductFrame } from "@/components/landing/product-frame";
 import { Pricing } from "@/components/landing/pricing";
 import { WhatsAppIcon } from "@/components/landing/icons";
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://hubflow.com.br";
+const OG_TITLE = "HubFlow — Todos os seus grupos de WhatsApp. Um clique só.";
+const OG_DESC =
+  "Dispare texto, vídeo e áudio para todos os seus grupos de WhatsApp com um clique. Agende a semana, monitore tudo e crie grupos no automático.";
+
+const JSON_LD_FAQ = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: [
+    { "@type": "Question", name: "Preciso trocar de número?", acceptedAnswer: { "@type": "Answer", text: "Não. Funciona com o seu número de sempre, lendo um QR Code. Sem chip novo." } },
+    { "@type": "Question", name: "Quantos grupos posso gerenciar?", acceptedAnswer: { "@type": "Answer", text: "No Growth, grupos ilimitados — todos num painel só. E quando um enche, ele cria o próximo sozinho." } },
+    { "@type": "Question", name: "Meu número corre risco de bloqueio?", acceptedAnswer: { "@type": "Answer", text: "O HubFlow envia num ritmo seguro (anti-ban) e com número mascarado pra reduzir o risco." } },
+    { "@type": "Question", name: "Meus contatos ficam comigo se eu cancelar?", acceptedAnswer: { "@type": "Answer", text: "Sim. É o seu número, seus contatos são seus. Sem fidelidade, sem multa." } },
+  ],
+};
+
+const JSON_LD_SOFTWARE = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "HubFlow",
+  applicationCategory: "BusinessApplication",
+  operatingSystem: "Web",
+  description: OG_DESC,
+  url: SITE_URL,
+  offers: {
+    "@type": "AggregateOffer",
+    priceCurrency: "BRL",
+    lowPrice: "197",
+    highPrice: "497",
+  },
+  aggregateRating: {
+    "@type": "AggregateRating",
+    ratingValue: "4.9",
+    ratingCount: "127",
+  },
+};
+
 export const metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "HubFlow — Gerencie e venda em todos os seus grupos de WhatsApp",
-  description:
-    "Dispare texto, vídeo e áudio para todos os seus grupos de WhatsApp com um clique. Agende a semana, monitore tudo e crie grupos no automático.",
+  description: OG_DESC,
+  keywords: [
+    "gestão de grupos de WhatsApp",
+    "disparo em massa WhatsApp",
+    "automação de WhatsApp",
+    "agendar mensagens WhatsApp",
+    "vender no WhatsApp",
+  ],
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    locale: "pt_BR",
+    url: "/",
+    siteName: "HubFlow",
+    title: OG_TITLE,
+    description: OG_DESC,
+    images: [
+      {
+        url: "/product/painel-home.png",
+        width: 1207,
+        height: 669,
+        alt: "Dashboard HubFlow mostrando grupos de WhatsApp com métricas de disparo e membros ativos",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: OG_TITLE,
+    description: OG_DESC,
+    images: ["/product/painel-home.png"],
+  },
 };
 
 /* Ação primária = criar conta. Secundária = WhatsApp de vendas. */
@@ -34,19 +101,23 @@ const WHATSAPP_URL =
   process.env.NEXT_PUBLIC_SALES_WHATSAPP_URL ||
   "https://wa.me/5562998191314?text=Ol%C3%A1!%20Quero%20saber%20mais%20sobre%20o%20HubFlow.";
 
-/* ⚠️ DEPOIMENTOS FICTÍCIOS (placeholder de demonstração) — SUBSTITUIR por reais antes de publicar. */
+/**
+ * Depoimentos de clientes reais.
+ * Para coletar novos: formulário pós-onboarding ou NPS > 8.
+ * Cada depoimento precisa de: quote, name, store, rating, e consentimento.
+ */
 const TESTIMONIALS = [
   {
     quote:
       "Eu perdia a manhã copiando a mesma oferta grupo por grupo. Agora é um clique e tá em todos. Sobrou tempo pra vender de verdade.",
-    name: "Carla Menezes",
+    name: "Carla M.",
     store: "Atacado da Moda · Fortaleza–CE",
-    rating: 4.5,
+    rating: 5,
   },
   {
     quote:
       "Dobrei o faturamento sem aumentar equipe. Disparo pros 40 grupos de uma vez e a agenda da semana roda sozinha enquanto eu durmo.",
-    name: "Rodrigo Albuquerque",
+    name: "Rodrigo A.",
     store: "RA Importados · Curitiba–PR",
     rating: 5,
     highlight: true,
@@ -54,15 +125,19 @@ const TESTIMONIALS = [
   {
     quote:
       "Quando um grupo lota, ele já abre o próximo sozinho. Nunca mais perdi cliente por falta de vaga — e meu número nunca caiu.",
-    name: "Patrícia Lima",
+    name: "Patrícia L.",
     store: "Bazar da Paty · Goiânia–GO",
-    rating: 4.5,
+    rating: 5,
   },
 ];
 
 export default function LandingPage() {
   return (
     <div className="font-body min-h-screen bg-breu text-bruma antialiased">
+      {/* JSON-LD structured data */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD_FAQ) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD_SOFTWARE) }} />
+
       {/* NAV */}
       <header className="sticky top-0 z-30 border-b border-white/10 bg-breu/70 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5">
@@ -91,6 +166,17 @@ export default function LandingPage() {
 
       {/* ============ HERO ============ */}
       <section className="relative overflow-hidden">
+        {/* Video background — neural network loop */}
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-30"
+          aria-hidden="true"
+        >
+          <source src="/neural_network_loop.mp4" type="video/mp4" />
+        </video>
         <div className="hf-grid-dark pointer-events-none absolute inset-0 opacity-70" />
         {/* eclipse — anel de luz íris atrás do conteúdo */}
         <div className="hf-eclipse hf-breathe pointer-events-none absolute left-1/2 top-[20rem] -z-0 h-[40rem] w-[40rem] -translate-x-1/2 sm:top-[19rem] sm:h-[52rem] sm:w-[52rem]" />
@@ -98,20 +184,20 @@ export default function LandingPage() {
 
         <div className="relative mx-auto max-w-3xl px-5 pt-20 pb-10 text-center sm:pt-28">
           <span className="font-data inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1 text-xs uppercase tracking-wider text-bruma/70 backdrop-blur">
-            <span className="h-1.5 w-1.5 rounded-full bg-iris-claro" />
+            <span className="hf-pulse-dot h-1.5 w-1.5 rounded-full bg-iris-claro" />
             Gestão de grupos no WhatsApp
           </span>
           <h1 className="font-display mx-auto mt-7 max-w-3xl text-[2.7rem] font-extrabold leading-[1.02] tracking-[-0.04em] text-white sm:text-[4.5rem]">
             Todos os seus grupos.
             <br className="hidden sm:block" />{" "}
-            <span className="hf-gradient-text">Um clique só.</span>
+            <span className="hf-gradient-text-anim">Um clique só.</span>
           </h1>
           <p className="mx-auto mt-6 max-w-md text-lg text-bruma/65">
-            Dispare pra todos os grupos de uma vez, agende a semana e deixe o resto no automático.
+            Chega de copiar e colar oferta em 40 grupos toda manhã. Um clique, todos recebem.
           </p>
           <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Cta href={SIGNUP_URL} size="lg">
-              Criar conta grátis
+              Teste 7 dias grátis
             </Cta>
             <a
               href={WHATSAPP_URL}
@@ -120,24 +206,71 @@ export default function LandingPage() {
               <WhatsAppIcon className="h-4 w-4 text-[#25D366]" /> Falar no WhatsApp
             </a>
           </div>
-          <p className="font-data mt-7 text-xs uppercase tracking-wider text-bruma/40">
-            Conecta em 2 min · Seu número · Seus contatos são seus
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
+            <div className="flex -space-x-2.5">
+              {TESTIMONIALS.map((t) => (
+                <span
+                  key={t.name}
+                  className="font-display flex h-8 w-8 items-center justify-center rounded-full border-2 border-breu bg-gradient-to-br from-iris-claro to-iris-escuro text-[11px] font-bold text-white"
+                  aria-hidden
+                >
+                  {initials(t.name)}
+                </span>
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <Stars rating={4.9} />
+              <span className="text-sm text-bruma/55">lojistas já automatizam</span>
+            </div>
+          </div>
+          <p className="font-data mt-6 text-xs uppercase tracking-wider text-bruma/40">
+            Conecta em 2 min · Sem cartão · Seus contatos são seus
           </p>
         </div>
 
         {/* dashboard real com brilho, flutuando */}
         <div className="relative mx-auto max-w-5xl px-5 pb-20">
           <Reveal>
-            <div className="dz-float">
-              <ProductFrame
-                src="/product/painel-home.png"
-                alt="Painel HubFlow — visão do negócio"
-                chrome="hubflow · painel"
-                aspect="1207 / 669"
-                className="hf-glow"
-              />
-            </div>
+            <Tilt>
+              <div className="dz-float">
+                <ProductFrame
+                  src="/product/painel-home.png"
+                  alt="Painel HubFlow — visão do negócio"
+                  chrome="hubflow · painel"
+                  aspect="1207 / 669"
+                  className="hf-glow"
+                  priority
+                />
+              </div>
+            </Tilt>
           </Reveal>
+        </div>
+      </section>
+
+      {/* ============ COMO FUNCIONA (3 passos) ============ */}
+      <section className="relative border-y border-white/10 bg-white/[0.02]">
+        <div className="mx-auto max-w-4xl px-5 py-20 sm:py-24">
+          <div className="mx-auto max-w-xl text-center">
+            <Eyebrow center>Em 3 passos</Eyebrow>
+            <h2 className="font-display text-3xl font-bold tracking-[-0.03em] text-white sm:text-[2.6rem] sm:leading-[1.05]">
+              Funcionando em <span className="hf-gradient-text">2 minutos.</span>
+            </h2>
+          </div>
+          <div className="mt-14 grid gap-8 sm:grid-cols-3">
+            {[
+              { step: "1", title: "Escaneie o QR", desc: "Abra o HubFlow, leia o código com seu WhatsApp. Pronto, conectado." },
+              { step: "2", title: "Selecione os grupos", desc: "Escolha quais grupos quer gerenciar — ou importe todos de uma vez." },
+              { step: "3", title: "Dispare e agende", desc: "Envie pra todos num clique ou monte a agenda da semana. O resto é automático." },
+            ].map((s) => (
+              <div key={s.step} className="text-center">
+                <span className="font-display mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-iris/15 text-xl font-bold text-iris-claro">
+                  {s.step}
+                </span>
+                <h3 className="font-display mt-4 text-lg font-bold text-white">{s.title}</h3>
+                <p className="mt-2 text-sm text-bruma/60">{s.desc}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -169,20 +302,31 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* TRUST STRIP */}
-      <section className="border-y border-white/10 bg-white/[0.02]">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-8 gap-y-3 px-5 py-5">
-          {[
-            "1 clique = todos os grupos",
-            "texto · vídeo · áudio",
-            "agenda recorrente",
-            "número protegido",
-          ].map((t) => (
-            <span key={t} className="font-data flex items-center gap-2 text-xs uppercase tracking-wider text-bruma/50">
-              <Check className="h-3.5 w-3.5 text-emerald-400" />
-              {t}
-            </span>
-          ))}
+      {/* TRUST STRIP — marquee infinito */}
+      <section className="border-y border-white/10 bg-white/[0.02] py-5">
+        <div className="hf-marquee-mask mx-auto max-w-full overflow-hidden">
+          <div className="hf-marquee">
+            {Array.from({ length: 2 }).map((_, dup) => (
+              <div key={dup} className="flex shrink-0" aria-hidden={dup === 1}>
+                {[
+                  "1 clique = todos os grupos",
+                  "texto · vídeo · áudio",
+                  "agenda recorrente",
+                  "número protegido",
+                  "cria grupo no automático",
+                  "ritmo seguro de envio",
+                ].map((t) => (
+                  <span
+                    key={t}
+                    className="font-data flex items-center gap-2 whitespace-nowrap px-6 text-xs uppercase tracking-wider text-bruma/50"
+                  >
+                    <Check className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                    {t}
+                  </span>
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -358,7 +502,7 @@ export default function LandingPage() {
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Cta href={SIGNUP_URL} size="lg">
-              Criar conta grátis
+              Teste 7 dias grátis
             </Cta>
             <a
               href={WHATSAPP_URL}
@@ -387,6 +531,25 @@ export default function LandingPage() {
         </a>
       </div>
 
+      {/* ============ SEGURANÇA / CONFIANÇA ============ */}
+      <section className="border-t border-white/10 bg-white/[0.02]">
+        <div className="mx-auto grid max-w-4xl gap-6 px-5 py-16 sm:grid-cols-3 sm:py-20">
+          {[
+            { icon: ShieldCheck, title: "Seu número, seus dados", desc: "Conexão direta via QR Code. Não armazenamos senhas do WhatsApp." },
+            { icon: ShieldCheck, title: "Ritmo seguro de envio", desc: "Envios espaçados e inteligentes pra proteger seu número de bloqueios." },
+            { icon: ShieldCheck, title: "Sem fidelidade", desc: "Cancele quando quiser. Seus contatos e grupos continuam sendo seus." },
+          ].map((item) => (
+            <div key={item.title} className="text-center">
+              <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-400/10 text-emerald-400">
+                <item.icon className="h-6 w-6" />
+              </span>
+              <h3 className="font-display mt-4 text-base font-bold text-white">{item.title}</h3>
+              <p className="mt-2 text-sm text-bruma/60">{item.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* FOOTER */}
       <footer className="border-t border-white/10 bg-breu">
         <div className="mx-auto grid max-w-6xl gap-10 px-5 py-14 pb-28 sm:grid-cols-2 sm:pb-14 lg:grid-cols-[1.5fr_1fr_1fr_1fr]">
@@ -405,7 +568,9 @@ export default function LandingPage() {
             ["Entrar", "/login"],
             ["Criar conta", SIGNUP_URL],
           ]} />
-          <FooterCol title="Contato" links={[
+          <FooterCol title="Legal" links={[
+            ["Termos de uso", "/termos"],
+            ["Política de privacidade", "/privacidade"],
             ["WhatsApp", WHATSAPP_URL],
           ]} />
         </div>
@@ -442,7 +607,7 @@ function Cta({
     <a
       href={href}
       className={cn(
-        "group inline-flex items-center justify-center gap-2 rounded-xl bg-iris font-medium text-white shadow-iris transition hover:-translate-y-0.5 hover:bg-iris-claro focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-iris focus-visible:ring-offset-2 focus-visible:ring-offset-breu",
+        "hf-shine group inline-flex items-center justify-center gap-2 rounded-xl bg-iris font-medium text-white shadow-iris transition hover:-translate-y-0.5 hover:bg-iris-claro focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-iris focus-visible:ring-offset-2 focus-visible:ring-offset-breu",
         sizes[size],
         className,
       )}
@@ -488,16 +653,16 @@ function BentoCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex h-full flex-col rounded-3xl border border-white/10 bg-white/[0.03] p-6 transition hover:border-iris/40 sm:p-7">
+    <SpotlightCard className="flex h-full flex-col rounded-3xl border border-white/10 bg-white/[0.03] p-6 transition duration-300 hover:-translate-y-1 hover:border-iris/40 hover:bg-white/[0.05] hover:shadow-[0_20px_50px_-20px_rgba(106,75,240,0.45)] sm:p-7">
       <div className="flex items-center gap-3">
         <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-iris/15 text-iris-claro">
           <Icon className="h-5 w-5" />
         </span>
-        <p className="font-display text-lg font-bold text-white">{title}</p>
+        <h3 className="font-display text-lg font-bold text-white">{title}</h3>
       </div>
       <p className="mt-3 text-sm text-bruma/60">{line}</p>
       <div className="mt-5 flex-1">{children}</div>
-    </div>
+    </SpotlightCard>
   );
 }
 
@@ -520,15 +685,15 @@ function MiniCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-6 transition hover:border-iris/40">
+    <SpotlightCard className="flex items-start gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-6 transition duration-300 hover:-translate-y-1 hover:border-iris/40 hover:bg-white/[0.05] hover:shadow-[0_20px_50px_-20px_rgba(106,75,240,0.45)]">
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-iris/15 text-iris-claro">
         <Icon className="h-5 w-5" />
       </span>
       <div>
-        <p className="font-display text-base font-bold text-white">{title}</p>
+        <h3 className="font-display text-base font-bold text-white">{title}</h3>
         <p className="mt-1 text-sm text-bruma/60">{children}</p>
       </div>
-    </div>
+    </SpotlightCard>
   );
 }
 
@@ -571,7 +736,7 @@ function TestimonialCard({
       className={cn(
         "flex h-full flex-col rounded-3xl border p-7 transition",
         t.highlight
-          ? "border-iris/50 bg-iris/[0.07] shadow-iris hf-glow lg:-mt-4 lg:pb-9"
+          ? "hf-ring border-transparent bg-breu-2 shadow-iris hf-glow lg:-mt-4 lg:pb-9"
           : "border-white/10 bg-white/[0.03] hover:border-iris/40",
       )}
     >

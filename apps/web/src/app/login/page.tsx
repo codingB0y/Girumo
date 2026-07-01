@@ -9,20 +9,16 @@ import { Input } from "@/components/ui/input";
 import { persistSupabaseSession } from "@/lib/supabase/client";
 
 const routeLabels: Record<string, string> = {
-  "/hoje": "Hoje",
-  "/leads": "Revendedoras",
-  "/campaigns": "Campanhas",
-  "/campanhas": "Campanhas",
-  "/crescer": "Crescer",
-  "/settings": "Configuracoes",
-  "/groups": "Grupos",
-  "/templates": "Modelos",
-  "/schedules": "Agendamentos",
-  "/reports": "Resultados",
+  "/painel": "Painel",
+  "/painel/grupos": "Grupos",
+  "/painel/campanhas": "Campanhas",
+  "/painel/resultados": "Resultados",
+  "/painel/conectar": "Conectar",
+  "/painel/configuracoes": "Configurações",
 };
 
 function getSafeNext(value: string | null) {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/hoje";
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/painel";
   return value;
 }
 
@@ -30,7 +26,7 @@ function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const next = getSafeNext(params.get("next"));
-  const destination = routeLabels[next] ?? "a area solicitada";
+  const destination = routeLabels[next] ?? "a área solicitada";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -54,7 +50,7 @@ function LoginForm() {
         router.refresh();
       } else {
         const data = await response.json().catch(() => ({}));
-        setError(data.error || "Nao foi possivel entrar.");
+        setError(data.error || "Não foi possível entrar.");
       }
     } catch {
       setError("Erro ao entrar. Tente de novo.");
@@ -96,7 +92,7 @@ function LoginForm() {
         {loading ? "Entrando..." : "Entrar"}
       </Button>
       <p className="text-center text-xs leading-5 text-aco/70">
-        Ao entrar, voce volta para {destination}.
+        Ao entrar, você volta para {destination}.
       </p>
     </form>
   );
@@ -113,16 +109,16 @@ export default function LoginPage() {
 function LoginPageContent() {
   const params = useSearchParams();
   const next = getSafeNext(params.get("next"));
-  const destination = routeLabels[next] ?? "a area solicitada";
+  const destination = routeLabels[next] ?? "a área solicitada";
 
   return (
     <AuthShell
       title="Entrar"
-      subtitle="Acesse sua central de operacao"
-      context={next !== "/hoje" ? `Entre para continuar para ${destination}.` : undefined}
+      subtitle="Acesse sua central de operação"
+      context={next !== "/painel" ? `Entre para continuar para ${destination}.` : undefined}
       footer={
         <>
-          Nao tem conta?{" "}
+          Não tem conta?{" "}
           <Link href="/signup" className="font-medium text-iris hover:text-iris-escuro">
             Criar conta
           </Link>

@@ -36,6 +36,12 @@
   --foreground: #0f1222;
 }
 
+html {
+  /* rolagem suave nos âncoras + offset pro header fixo (~64px) não cobrir a seção */
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
+}
+
 html,
 body {
   background: var(--background);
@@ -44,6 +50,10 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
 }
 
 * {
@@ -324,7 +334,109 @@ body {
 }
 .hf-drift { animation: hf-drift 7s ease-in-out infinite; transform-box: fill-box; }
 
+/* ===== Premium FX ===== */
+
+/* Texto gradiente com brilho que desliza (destaque do herói/CTA) */
+@keyframes hf-gradient-move {
+  to { background-position: 200% center; }
+}
+.hf-gradient-text-anim {
+  background-image: linear-gradient(
+    110deg,
+    #a78cff 0%,
+    #8a6cff 28%,
+    #ffffff 50%,
+    #8a6cff 72%,
+    #6a4bf0 100%
+  );
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: hf-gradient-move 6s linear infinite;
+}
+
+/* Sweep de luz atravessando botões/cards no hover */
+.hf-shine { position: relative; overflow: hidden; }
+.hf-shine::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 45%;
+  background: linear-gradient(
+    100deg,
+    transparent,
+    rgba(255, 255, 255, 0.28),
+    transparent
+  );
+  transform: translateX(-150%) skewX(-15deg);
+  pointer-events: none;
+}
+@keyframes hf-shine-move {
+  0% { transform: translateX(-150%) skewX(-15deg); }
+  100% { transform: translateX(320%) skewX(-15deg); }
+}
+.hf-shine:hover::after {
+  animation: hf-shine-move 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Borda viva (conic girando) no card de destaque */
+@keyframes hf-spin { to { transform: rotate(1turn); } }
+.hf-ring { position: relative; isolation: isolate; }
+.hf-ring::before {
+  content: "";
+  position: absolute;
+  inset: -1.5px;
+  z-index: -1;
+  border-radius: inherit;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0%,
+    rgba(167, 140, 255, 0.9) 18%,
+    transparent 42%,
+    rgba(106, 75, 240, 0.8) 68%,
+    transparent 92%
+  );
+  animation: hf-spin 7s linear infinite;
+}
+
+/* Marquee infinito (faixa de prova/recursos) */
+@keyframes hf-marquee {
+  to { transform: translateX(-50%); }
+}
+.hf-marquee {
+  display: flex;
+  width: max-content;
+  animation: hf-marquee 28s linear infinite;
+}
+.hf-marquee-mask {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+}
+
+/* Glow pulsante (pontos/badges) */
+@keyframes hf-pulse-dot {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(138, 108, 255, 0.55); }
+  50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(138, 108, 255, 0); }
+}
+.hf-pulse-dot { animation: hf-pulse-dot 2.4s ease-in-out infinite; }
+
+/* Spotlight que segue o cursor dentro do card (--mx/--my via JS) */
+.hf-spotlight-glow {
+  background: radial-gradient(
+    240px circle at var(--mx, 50%) var(--my, 50%),
+    rgba(138, 108, 255, 0.18),
+    transparent 62%
+  );
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+.hf-spotlight:hover .hf-spotlight-glow { opacity: 1; }
+
 @media (prefers-reduced-motion: reduce) {
+  .hf-spotlight-glow { display: none; }
   .hf-reveal {
     opacity: 1;
     transform: none;
@@ -343,4 +455,11 @@ body {
     opacity: 1;
     animation: none;
   }
+  .hf-gradient-text-anim,
+  .hf-ring::before,
+  .hf-marquee,
+  .hf-pulse-dot {
+    animation: none;
+  }
+  .hf-shine:hover::after { animation: none; }
 }
