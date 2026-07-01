@@ -1,6 +1,7 @@
-import { Bell, ChevronDown, Smartphone } from "lucide-react";
+import { ChevronDown, Smartphone } from "lucide-react";
 import { LogoSymbol } from "@/components/landing/logo";
 import { CommandTrigger } from "@/components/painel/command-palette";
+import { NotificationBell } from "@/components/painel/notification-bell";
 
 export function PainelTopbar() {
   return (
@@ -23,13 +24,7 @@ export function PainelTopbar() {
       {/* busca / ⌘K */}
       <CommandTrigger />
 
-      <button
-        className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-breu/10 bg-white text-aco transition hover:border-iris/30"
-        aria-label="Notificações"
-      >
-        <Bell className="h-[18px] w-[18px]" />
-        <span className="absolute right-2.5 top-2.5 h-1.5 w-1.5 rounded-full bg-iris ring-2 ring-white" />
-      </button>
+      <NotificationBell />
     </header>
   );
 }

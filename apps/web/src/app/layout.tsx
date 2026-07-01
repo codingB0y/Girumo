@@ -38,9 +38,12 @@ const instrument = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: "HubFlow — O fluxo que vende",
+  title: {
+    default: "HubFlow — O fluxo que vende",
+    template: "%s | HubFlow",
+  },
   description:
-    "O painel que transforma seus grupos de WhatsApp em canal de vendas previsível. Atrai revendedora nova, dispara ofertas e mostra o resultado — no seu número, em 2 minutos.",
+    "Gerencie e venda em todos os seus grupos de WhatsApp — num clique só.",
 };
 
 export default function RootLayout({

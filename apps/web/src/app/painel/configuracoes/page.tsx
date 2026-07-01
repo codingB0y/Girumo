@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { AccountSection } from "@/components/painel/account-section";
 import { Smartphone, Users, CreditCard, User, ShieldCheck, RefreshCw, Wifi, WifiOff, Check, Loader2, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { authenticatedFetch } from "@/lib/supabase/client";
@@ -261,26 +262,13 @@ export default function PainelConfiguracoes() {
               </div>
             </Panel>
           )}
-
           {section === "Conta" && (
             <Panel title="Conta" desc="Seus dados de acesso.">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Perfil" value={session.profileName ?? "—"} />
-                <Field label="Número" value={session.phone ?? "—"} />
-              </div>
-              <div className="mt-5 flex items-center gap-3">
-                <button
-                  onClick={() => {
-                    fetch("/api/auth/logout", { method: "POST" }).then(() => router.push("/login"));
-                  }}
-                  className="inline-flex items-center gap-2 rounded-xl border border-alerta/30 px-4 py-2.5 text-sm font-medium text-alerta transition hover:bg-alerta/10"
-                >
-                  Sair da conta
-                </button>
-              </div>
+              <AccountSection />
             </Panel>
           )}
         </div>
+
       </div>
     </div>
   );
@@ -298,11 +286,3 @@ function Panel({ title, desc, children }: { title: string; desc?: string; childr
   );
 }
 
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl bg-bruma/40 px-3.5 py-2.5">
-      <p className="font-data text-[10px] uppercase tracking-wider text-aco/55">{label}</p>
-      <p className="mt-0.5 text-sm font-medium text-breu">{value}</p>
-    </div>
-  );
-}

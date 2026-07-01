@@ -51,7 +51,43 @@ Este projeto tem um grafo de conhecimento em `tools/lightrag/`.
 - Rodar build/lint após mudanças pra validar
 - Commits atômicos com mensagens descritivas (feat/fix/refactor)
 
-## Comandos úteis
+## Comandos rápidos (diga isso no chat)
+
+### /kg
+Quando eu disser `/kg`:
+1. Rode `kg_stats` pra ver o tamanho do grafo
+2. Rode `kg_query("resumo geral do sistema e módulos principais", mode="global")`
+3. Mostre top 10 entidades mais conectadas
+4. Liste decisões arquiteturais registradas
+
+### /review
+Quando eu disser `/review`:
+1. Rode `npm run web:lint`
+2. Leia `git diff` vs main
+3. Consulte `kg_query` pra verificar se alguma mudança contradiz decisões
+4. Liste problemas com severidade (critical/warning/info)
+5. Sugira fixes
+
+### /decide <texto>
+Quando eu disser `/decide <texto>`:
+1. Insira no grafo via `kg_insert_text(texto, source="decisao-YYYY-MM-DD")`
+2. Confirme o que foi inserido
+3. Sugira `rag export --clean` se relevante pro Obsidian
+
+### /map <módulo>
+Quando eu disser `/map <módulo>`:
+1. Rode `kg_query("como funciona <módulo>, quais componentes, fluxo de dados", mode="local")`
+2. Liste arquivos envolvidos
+3. Mostre diagrama simplificado do fluxo
+
+### /status
+Quando eu disser `/status`:
+1. Rode `kg_stats`
+2. Mostre git status resumido
+3. Liste TODOs/FIXMEs no código (`grep -r`)
+4. Verifique se build passa
+
+## Comandos úteis (terminal)
 
 ```bash
 npm run web:dev          # dev server

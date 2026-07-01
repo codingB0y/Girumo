@@ -13,6 +13,8 @@ import {
   Palette,
   Sparkles,
   Wifi,
+  Send,
+  CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/landing/logo";
@@ -30,6 +32,8 @@ const SECTIONS: { label: string; items: { href: string; label: string; icon: typ
   {
     label: "Análise",
     items: [
+      { href: "/painel/disparos", label: "Disparos", icon: Send },
+      { href: "/painel/agenda", label: "Agenda", icon: CalendarDays },
       { href: "/painel/resultados", label: "Resultados", icon: TrendingUp },
       { href: "/painel/biblioteca", label: "Biblioteca", icon: ImageIcon },
     ],
