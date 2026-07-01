@@ -11,15 +11,22 @@ export async function POST() {
     const supabase = getSupabaseAdmin();
 
     // Check if already seeded
-    const { count } = await supabase
+    const { count, error: countErr } = await supabase
       .from("squads")
       .select("*", { count: "exact", head: true });
+
+    if (countErr) {
+      return NextResponse.json(
+        { error: `Tabela squads não encontrada: ${countErr.message}`, detail: countErr },
+        { status: 500 },
+      );
+    }
 
     if (count && count > 0) {
       return NextResponse.json({ message: "Already seeded", count }, { status: 200 });
     }
 
-    // Seed agents first (squads reference them)
+    // Seed agents first
     const agents = [
       { workspace_id: "default", name: "Luna", specialty: "Product Management", cost_per_run: 0.03, speed_rating: 8, context_window: 200000, reputation: 88, allowed_areas: ["product", "roadmap", "backlog"], limits: { max_concurrent: 3 }, history: [] },
       { workspace_id: "default", name: "Atlas", specialty: "Growth & Acquisition", cost_per_run: 0.04, speed_rating: 7, context_window: 200000, reputation: 76, allowed_areas: ["growth", "marketing", "experiments"], limits: { max_concurrent: 2 }, history: [] },
@@ -36,23 +43,28 @@ export async function POST() {
       .insert(agents)
       .select("id, name");
 
-    if (agentsErr) throw agentsErr;
+    if (agentsErr) {
+      return NextResponse.json(
+        { error: `Falha ao inserir agents: ${agentsErr.message}`, code: agentsErr.code, detail: agentsErr.details },
+        { status: 500 },
+      );
+    }
 
     // Map agent names to IDs
     const agentMap = Object.fromEntries(
       (insertedAgents ?? []).map((a) => [a.name, a.id]),
     );
 
-    // Seed squads
+    // Seed squads (sem leader_agent_id inicialmente pra evitar FK issues)
     const squads = [
-      { workspace_id: "default", name: "Product Squad", slug: "product", leader_agent_id: agentMap["Luna"] ?? null, objective: "Definir escopo, priorização e roadmap do HubFlow", status: "executing", health: 92, context: {}, last_delivery: "PRD v2 — módulo automações", next_action: "Priorizar backlog Q3", reputation_score: 88 },
-      { workspace_id: "default", name: "Growth Squad", slug: "growth", leader_agent_id: agentMap["Atlas"] ?? null, objective: "Aumentar aquisição e retenção de usuários", status: "researching", health: 85, context: {}, last_delivery: "Análise de funil — signup→ativação", next_action: "Testar onboarding simplificado", reputation_score: 76 },
-      { workspace_id: "default", name: "Frontend Squad", slug: "frontend", leader_agent_id: agentMap["Pixel"] ?? null, objective: "Implementar interface premium e responsiva", status: "executing", health: 94, context: {}, last_delivery: "Admin panel + sidebar refactor", next_action: "Módulo automações UI", reputation_score: 91 },
-      { workspace_id: "default", name: "Backend Squad", slug: "backend", leader_agent_id: agentMap["Forge"] ?? null, objective: "API robusta, Supabase RLS, Edge Functions", status: "executing", health: 90, context: {}, last_delivery: "Rate limiting + security headers", next_action: "Webhooks Stripe multi-tenant", reputation_score: 89 },
-      { workspace_id: "default", name: "Brand Squad", slug: "brand", leader_agent_id: agentMap["Muse"] ?? null, objective: "Posicionamento premium, criativos e copy", status: "completed", health: 96, context: {}, last_delivery: "Rebranding v3 — iris/breu palette", next_action: "Social media kit Q3", reputation_score: 93 },
-      { workspace_id: "default", name: "Data Squad", slug: "data", leader_agent_id: agentMap["Prism"] ?? null, objective: "Métricas, analytics e relatórios de negócio", status: "planning", health: 78, context: {}, last_delivery: null, next_action: "Definir north star metric", reputation_score: 60 },
-      { workspace_id: "default", name: "QA Squad", slug: "qa", leader_agent_id: agentMap["Shield"] ?? null, objective: "Testes, qualidade e estabilidade", status: "planning", health: 70, context: {}, last_delivery: null, next_action: "Setup test framework", reputation_score: 50 },
-      { workspace_id: "default", name: "Operations Squad", slug: "operations", leader_agent_id: agentMap["Ops"] ?? null, objective: "Processos, deploy, monitoramento", status: "executing", health: 88, context: {}, last_delivery: "CI/CD Vercel + env vars configurados", next_action: "Alertas de health check", reputation_score: 82 },
+      { workspace_id: "default", name: "Product Squad", slug: "product", objective: "Definir escopo, priorização e roadmap do HubFlow", status: "executing", health: 92, context: {}, last_delivery: "PRD v2 — módulo automações", next_action: "Priorizar backlog Q3", reputation_score: 88 },
+      { workspace_id: "default", name: "Growth Squad", slug: "growth", objective: "Aumentar aquisição e retenção de usuários", status: "researching", health: 85, context: {}, last_delivery: "Análise de funil — signup→ativação", next_action: "Testar onboarding simplificado", reputation_score: 76 },
+      { workspace_id: "default", name: "Frontend Squad", slug: "frontend", objective: "Implementar interface premium e responsiva", status: "executing", health: 94, context: {}, last_delivery: "Admin panel + sidebar refactor", next_action: "Módulo automações UI", reputation_score: 91 },
+      { workspace_id: "default", name: "Backend Squad", slug: "backend", objective: "API robusta, Supabase RLS, Edge Functions", status: "executing", health: 90, context: {}, last_delivery: "Rate limiting + security headers", next_action: "Webhooks Stripe multi-tenant", reputation_score: 89 },
+      { workspace_id: "default", name: "Brand Squad", slug: "brand", objective: "Posicionamento premium, criativos e copy", status: "completed", health: 96, context: {}, last_delivery: "Rebranding v3 — iris/breu palette", next_action: "Social media kit Q3", reputation_score: 93 },
+      { workspace_id: "default", name: "Data Squad", slug: "data", objective: "Métricas, analytics e relatórios de negócio", status: "planning", health: 78, context: {}, last_delivery: null, next_action: "Definir north star metric", reputation_score: 60 },
+      { workspace_id: "default", name: "QA Squad", slug: "qa", objective: "Testes, qualidade e estabilidade", status: "planning", health: 70, context: {}, last_delivery: null, next_action: "Setup test framework", reputation_score: 50 },
+      { workspace_id: "default", name: "Operations Squad", slug: "operations", objective: "Processos, deploy, monitoramento", status: "executing", health: 88, context: {}, last_delivery: "CI/CD Vercel + env vars configurados", next_action: "Alertas de health check", reputation_score: 82 },
     ];
 
     const { data: insertedSquads, error: squadsErr } = await supabase
@@ -60,12 +72,38 @@ export async function POST() {
       .insert(squads)
       .select("id, slug");
 
-    if (squadsErr) throw squadsErr;
+    if (squadsErr) {
+      return NextResponse.json(
+        { error: `Falha ao inserir squads: ${squadsErr.message}`, code: squadsErr.code, detail: squadsErr.details },
+        { status: 500 },
+      );
+    }
 
-    // Map squad slugs to IDs
+    // Update squads with leader_agent_id
+    const leaderMap: Record<string, string> = {
+      product: agentMap["Luna"],
+      growth: agentMap["Atlas"],
+      frontend: agentMap["Pixel"],
+      backend: agentMap["Forge"],
+      brand: agentMap["Muse"],
+      data: agentMap["Prism"],
+      qa: agentMap["Shield"],
+      operations: agentMap["Ops"],
+    };
+
     const squadMap = Object.fromEntries(
       (insertedSquads ?? []).map((s) => [s.slug, s.id]),
     );
+
+    // Set leaders (non-blocking)
+    for (const [slug, agentId] of Object.entries(leaderMap)) {
+      if (squadMap[slug] && agentId) {
+        await supabase
+          .from("squads")
+          .update({ leader_agent_id: agentId })
+          .eq("id", squadMap[slug]);
+      }
+    }
 
     // Seed missions
     const missions = [
@@ -77,17 +115,27 @@ export async function POST() {
     ];
 
     const { error: missionsErr } = await supabase.from("missions").insert(missions);
-    if (missionsErr) throw missionsErr;
+    if (missionsErr) {
+      return NextResponse.json(
+        { error: `Falha ao inserir missions: ${missionsErr.message}`, code: missionsErr.code, detail: missionsErr.details },
+        { status: 500 },
+      );
+    }
 
     // Seed decisions
     const decisions = [
-      { workspace_id: "default", product_id: null, squad_id: null, title: "Supabase RLS como isolamento multi-tenant", rationale: "Mais seguro e escalável que middleware custom", category: "architecture", confidence: 95, status: "active" },
-      { workspace_id: "default", product_id: null, squad_id: null, title: "Next.js App Router + React 19", rationale: "Server components, streaming, melhor DX", category: "architecture", confidence: 92, status: "active" },
-      { workspace_id: "default", product_id: null, squad_id: null, title: "Pricing freemium com tiers por volume", rationale: "Reduz atrito de entrada, monetiza por uso", category: "product", confidence: 87, status: "active" },
+      { workspace_id: "default", title: "Supabase RLS como isolamento multi-tenant", rationale: "Mais seguro e escalável que middleware custom", category: "architecture", confidence: 95, status: "active" },
+      { workspace_id: "default", title: "Next.js App Router + React 19", rationale: "Server components, streaming, melhor DX", category: "architecture", confidence: 92, status: "active" },
+      { workspace_id: "default", title: "Pricing freemium com tiers por volume", rationale: "Reduz atrito de entrada, monetiza por uso", category: "product", confidence: 87, status: "active" },
     ];
 
     const { error: decisionsErr } = await supabase.from("decisions").insert(decisions);
-    if (decisionsErr) throw decisionsErr;
+    if (decisionsErr) {
+      return NextResponse.json(
+        { error: `Falha ao inserir decisions: ${decisionsErr.message}`, code: decisionsErr.code, detail: decisionsErr.details },
+        { status: 500 },
+      );
+    }
 
     return NextResponse.json({
       message: "Seed complete",
@@ -96,8 +144,9 @@ export async function POST() {
       missions: missions.length,
       decisions: decisions.length,
     }, { status: 201 });
-  } catch (err) {
-    console.error("[squad-os/seed] Error:", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : JSON.stringify(err);
+    console.error("[squad-os/seed] Error:", message);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
