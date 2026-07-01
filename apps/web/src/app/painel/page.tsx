@@ -267,7 +267,7 @@ export default function PainelHoje() {
                   </div>
                 </div>
               ) : !live ? (
-                <Link href="/settings" className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-alerta/30 py-2 text-xs font-medium text-alerta transition hover:bg-alerta/10">
+                <Link href="/painel/conectar" className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-alerta/30 py-2 text-xs font-medium text-alerta transition hover:bg-alerta/10">
                   <WifiOff className="h-3.5 w-3.5" /> Reconectar
                 </Link>
               ) : null}

@@ -12,6 +12,7 @@ import {
   Settings,
   Palette,
   Sparkles,
+  Wifi,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/landing/logo";
@@ -36,6 +37,7 @@ const SECTIONS: { label: string; items: { href: string; label: string; icon: typ
   {
     label: "Sistema",
     items: [
+      { href: "/painel/conectar", label: "Conectar", icon: Wifi },
       { href: "/painel/configuracoes", label: "Configurações", icon: Settings },
       { href: "/painel/ds", label: "Design System", icon: Palette },
     ],
@@ -93,9 +95,12 @@ export function PainelSidebar() {
             <Sparkles className="h-3 w-3" /> Plano Growth
           </p>
           <p className="mt-2 text-xs text-bruma/60">Grupos VIP ilimitados · suporte no WhatsApp.</p>
-          <button className="mt-3 w-full rounded-lg bg-white/5 py-2 text-xs font-medium text-white transition hover:bg-white/10">
+          <Link
+            href="/painel/configuracoes"
+            className="mt-3 flex w-full items-center justify-center rounded-lg bg-white/5 py-2 text-xs font-medium text-white transition hover:bg-white/10"
+          >
             Gerenciar plano
-          </button>
+          </Link>
         </div>
         <div className="mt-3 flex items-center gap-3 px-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-iris/20 font-data text-xs font-medium text-iris-claro">

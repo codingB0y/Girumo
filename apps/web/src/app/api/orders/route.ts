@@ -1,16 +1,16 @@
-import { listOrders, addOrder, removeOrder } from "@/lib/orders-store";
-import { updateLeadStatus } from "@/lib/leads-store";
+import { listOrders, addOrder, removeOrder } from "@/lib/stores/orders";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// GET /api/orders — lista pedidos registrados.
 export async function GET() {
-  return Response.json(await listOrders());
+  try {
+    return Response.json(await listOrders());
+  } catch (e) {
+    return Response.json({ error: (e as Error).message }, { status: 500 });
+  }
 }
 
-// POST /api/orders — registra um pedido. Body { value, phone?, leadId?, group? }
-// Ao registrar, marca o lead como "comprou" (o pedido é a venda real).
 export async function POST(req: Request) {
   let b: Record<string, unknown>;
   try {
@@ -22,20 +22,26 @@ export async function POST(req: Request) {
   if (!value || value <= 0) {
     return Response.json({ error: "Informe o valor do pedido." }, { status: 400 });
   }
-  const order = await addOrder({
-    value,
-    phone: b.phone ? String(b.phone) : undefined,
-    leadId: b.leadId ? String(b.leadId) : undefined,
-    group: b.group ? String(b.group) : undefined,
-  });
-  if (b.leadId) await updateLeadStatus(String(b.leadId), "comprou");
-  return Response.json(order, { status: 201 });
+  try {
+    const order = await addOrder({
+      value,
+      phone: b.phone ? String(b.phone) : undefined,
+      leadId: b.leadId ? String(b.leadId) : undefined,
+      group: b.group ? String(b.group) : undefined,
+    });
+    return Response.json(order, { status: 201 });
+  } catch (e) {
+    return Response.json({ error: (e as Error).message }, { status: 500 });
+  }
 }
 
-// DELETE /api/orders?id= — remove um pedido.
 export async function DELETE(req: Request) {
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return Response.json({ error: "id obrigatório." }, { status: 400 });
-  const ok = await removeOrder(id);
-  return Response.json({ ok });
+  try {
+    const ok = await removeOrder(id);
+    return Response.json({ ok });
+  } catch (e) {
+    return Response.json({ error: (e as Error).message }, { status: 500 });
+  }
 }

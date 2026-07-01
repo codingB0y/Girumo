@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Smartphone, Users, CreditCard, User, ShieldCheck, RefreshCw, Wifi, WifiOff, Check } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Smartphone, Users, CreditCard, User, ShieldCheck, RefreshCw, Wifi, WifiOff, Check, Loader2, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { authenticatedFetch } from "@/lib/supabase/client";
 
 type Section = "Conexão" | "Equipe" | "Plano" | "Conta";
 const NAV: { key: Section; icon: typeof Smartphone }[] = [
@@ -15,25 +17,88 @@ const NAV: { key: Section; icon: typeof Smartphone }[] = [
 
 type Session = { live?: boolean; phone?: string | null; profileName?: string | null; stats?: { warmup?: { day?: number; totalDays?: number } } };
 type Membership = { id: string; role: string; invited_email?: string | null; accepted_at?: string | null };
-type Plan = { id: string; code: string; name: string; priceCents: number; interval: string };
+type Plan = { id: string; code: string; name: string; limits?: Record<string, number | boolean | null>; stripe_price_id?: string | null };
+type Subscription = { status?: string; plans?: { name?: string; code?: string } | null; plan?: { name?: string; code?: string } } | null;
 
 export default function PainelConfiguracoes() {
+  const router = useRouter();
   const [section, setSection] = useState<Section>("Conexão");
   const [session, setSession] = useState<Session>({});
   const [members, setMembers] = useState<Membership[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
-  const [sub, setSub] = useState<{ plans?: { name?: string; code?: string }; plan?: { name?: string; code?: string } } | null>(null);
+  const [sub, setSub] = useState<Subscription>(null);
+  const [busyPlan, setBusyPlan] = useState<string | null>(null);
+  const [portalBusy, setPortalBusy] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/session").then((r) => r.json()).then(setSession).catch(() => {});
     fetch("/api/members").then((r) => r.json()).then((d) => setMembers(Array.isArray(d) ? d : d?.members ?? [])).catch(() => {});
     fetch("/api/plans").then((r) => r.json()).then((d) => setPlans(Array.isArray(d) ? d : [])).catch(() => {});
-    fetch("/api/subscription").then((r) => (r.ok ? r.json() : null)).then(setSub).catch(() => {});
+    authenticatedFetch("/api/subscription").then((r) => (r.ok ? r.json() : null)).then(setSub).catch(() => {});
   }, []);
 
   const live = session.live === true;
   const currentPlanCode = sub?.plans?.code ?? sub?.plan?.code ?? null;
   const currentPlanName = sub?.plans?.name ?? sub?.plan?.name ?? null;
+
+  async function openCheckout(planCode: string) {
+    setBusyPlan(planCode);
+    try {
+      const res = await authenticatedFetch("/api/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planCode }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.url) throw new Error(data.error || "Checkout indisponível.");
+      window.location.href = data.url;
+    } catch {
+      // silently fail
+    } finally {
+      setBusyPlan(null);
+    }
+  }
+
+  async function openPortal() {
+    setPortalBusy(true);
+    try {
+      const res = await authenticatedFetch("/api/billing/portal", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.url) return;
+      window.location.href = data.url;
+    } catch {
+      // silently fail
+    } finally {
+      setPortalBusy(false);
+    }
+  }
+
+  async function inviteMember() {
+    if (!inviteEmail.trim()) return;
+    setInviteBusy(true);
+    setInviteError(null);
+    try {
+      const res = await authenticatedFetch("/api/members", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: inviteEmail.trim(), role: "operator" }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || "Erro ao convidar.");
+      }
+      const newMember = await res.json();
+      setMembers((prev) => [...prev, newMember]);
+      setInviteEmail("");
+    } catch (e) {
+      setInviteError(e instanceof Error ? e.message : "Erro ao convidar.");
+    } finally {
+      setInviteBusy(false);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-6 px-4 py-6 sm:px-6">
@@ -75,7 +140,10 @@ export default function PainelConfiguracoes() {
                     </p>
                   </div>
                 </div>
-                <Link href="/settings" className="inline-flex items-center gap-2 rounded-xl border border-breu/15 bg-white px-4 py-2.5 text-sm font-medium text-breu transition hover:border-iris hover:text-iris">
+                <Link
+                  href="/painel/conectar"
+                  className="inline-flex items-center gap-2 rounded-xl border border-breu/15 bg-white px-4 py-2.5 text-sm font-medium text-breu transition hover:border-iris hover:text-iris"
+                >
                   <RefreshCw className="h-4 w-4" /> {live ? "Gerenciar" : "Conectar"}
                 </Link>
               </div>
@@ -88,10 +156,34 @@ export default function PainelConfiguracoes() {
 
           {section === "Equipe" && (
             <Panel title="Equipe" desc="Quem pode operar o painel com você.">
+              {/* Invite form */}
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="email@exemplo.com"
+                  className="w-full rounded-xl border border-breu/10 bg-white px-3.5 py-2.5 text-sm text-breu outline-none transition placeholder:text-aco/40 focus:border-iris/40 focus:ring-4 focus:ring-iris/10 sm:w-64"
+                  onKeyDown={(e) => e.key === "Enter" && inviteMember()}
+                />
+                <button
+                  onClick={inviteMember}
+                  disabled={inviteBusy || !inviteEmail.trim()}
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white transition",
+                    inviteBusy || !inviteEmail.trim() ? "cursor-not-allowed bg-iris/40" : "bg-iris shadow-iris hover:-translate-y-0.5 hover:bg-iris-claro",
+                  )}
+                >
+                  {inviteBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Convidar
+                </button>
+              </div>
+              {inviteError && <p className="mt-2 text-sm text-alerta">{inviteError}</p>}
+
               {members.length === 0 ? (
-                <p className="text-sm text-aco/60">Carregando equipe… ou só você por enquanto.</p>
+                <p className="mt-4 text-sm text-aco/60">Só você por enquanto. Convide alguém acima.</p>
               ) : (
-                <div className="divide-y divide-breu/[0.06]">
+                <div className="mt-4 divide-y divide-breu/[0.06]">
                   {members.map((m) => (
                     <div key={m.id} className="flex items-center gap-3 py-3.5 first:pt-0 last:pb-0">
                       <span className="flex h-9 w-9 items-center justify-center rounded-full bg-iris/10 font-data text-xs font-medium text-iris">
@@ -113,21 +205,55 @@ export default function PainelConfiguracoes() {
 
           {section === "Plano" && (
             <Panel title="Plano e cobrança" desc={currentPlanName ? `Você está no plano ${currentPlanName}.` : "Escolha um plano pra liberar tudo."}>
+              {/* Portal button */}
+              {currentPlanCode && currentPlanCode !== "FREE" && (
+                <div className="mb-4 flex items-center justify-between rounded-2xl bg-bruma/60 px-4 py-3">
+                  <p className="text-sm text-aco">Gerenciar faturas, método de pagamento ou cancelar:</p>
+                  <button
+                    onClick={openPortal}
+                    disabled={portalBusy}
+                    className="inline-flex items-center gap-2 rounded-lg border border-breu/15 bg-white px-3 py-2 text-xs font-medium text-breu transition hover:border-iris hover:text-iris"
+                  >
+                    {portalBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}
+                    Portal Stripe
+                  </button>
+                </div>
+              )}
               <div className="grid gap-3 sm:grid-cols-3">
-                {plans.map((p) => {
+                {plans.filter((p) => p.code !== "FREE").map((p) => {
                   const atual = p.code === currentPlanCode;
                   return (
                     <div key={p.id} className={cn("rounded-2xl border p-4 text-center", atual ? "border-iris/40 bg-iris/[0.05]" : "border-breu/[0.08]")}>
                       <p className="font-display text-sm font-bold text-breu">{p.name}</p>
-                      <p className="font-display mt-1 text-xl font-extrabold text-breu">
-                        R$ {(p.priceCents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
-                      </p>
-                      <Link
-                        href="/settings"
-                        className={cn("mt-3 flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium transition", atual ? "cursor-default bg-iris/10 text-iris" : "border border-breu/15 text-breu hover:border-iris hover:text-iris")}
+                      {p.limits && (
+                        <p className="font-data mt-1 text-[11px] text-aco/55">
+                          {typeof p.limits.campaigns === "number" && p.limits.campaigns > 0
+                            ? `${p.limits.campaigns} campanhas`
+                            : p.limits.campaigns === -1
+                              ? "Campanhas ilimitadas"
+                              : ""}
+                        </p>
+                      )}
+                      <button
+                        onClick={() => !atual && openCheckout(p.code)}
+                        disabled={atual || busyPlan === p.code}
+                        className={cn(
+                          "mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-medium transition",
+                          atual
+                            ? "cursor-default bg-iris/10 text-iris"
+                            : busyPlan === p.code
+                              ? "cursor-wait bg-iris/30 text-white"
+                              : "border border-breu/15 text-breu hover:border-iris hover:bg-iris hover:text-white",
+                        )}
                       >
-                        {atual ? <><Check className="h-3.5 w-3.5" /> Plano atual</> : "Mudar"}
-                      </Link>
+                        {atual ? (
+                          <><Check className="h-3.5 w-3.5" /> Plano atual</>
+                        ) : busyPlan === p.code ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          "Assinar"
+                        )}
+                      </button>
                     </div>
                   );
                 })}
@@ -142,7 +268,16 @@ export default function PainelConfiguracoes() {
                 <Field label="Perfil" value={session.profileName ?? "—"} />
                 <Field label="Número" value={session.phone ?? "—"} />
               </div>
-              <p className="mt-4 text-xs text-aco/55">Edição de perfil e segurança ficam em <Link href="/settings" className="text-iris hover:underline">Configurações da conta</Link>.</p>
+              <div className="mt-5 flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    fetch("/api/auth/logout", { method: "POST" }).then(() => router.push("/login"));
+                  }}
+                  className="inline-flex items-center gap-2 rounded-xl border border-alerta/30 px-4 py-2.5 text-sm font-medium text-alerta transition hover:bg-alerta/10"
+                >
+                  Sair da conta
+                </button>
+              </div>
             </Panel>
           )}
         </div>

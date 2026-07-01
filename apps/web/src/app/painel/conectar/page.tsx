@@ -104,7 +104,7 @@ export default function PainelConectar() {
           Pular por agora
         </Link>
         <Link
-          href="/settings"
+          href="/painel/conectar"
           className="inline-flex items-center gap-2 rounded-xl bg-iris px-5 py-2.5 text-sm font-medium text-white shadow-iris transition hover:-translate-y-0.5 hover:bg-iris-claro"
         >
           <Smartphone className="h-4 w-4" /> Conectar no WhatsApp

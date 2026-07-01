@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
   MessageCircle,
@@ -14,9 +14,8 @@ import {
   AlertTriangle,
   Pencil,
   RefreshCw,
-  QrCode,
-  FileBarChart,
-  Archive,
+  Trash2,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CopyLink } from "@/components/painel/copy-link";
@@ -34,16 +33,9 @@ type TrackedLink = { campaignName?: string; clicks: number };
 const TABS = ["Grupos", "Mensagens", "Visão geral", "Resultados"] as const;
 type Tab = (typeof TABS)[number];
 
-const ACTIONS = [
-  { label: "Editar", icon: Pencil },
-  { label: "Atualizar membros", icon: RefreshCw },
-  { label: "QR Code", icon: QrCode },
-  { label: "Relatórios", icon: FileBarChart },
-  { label: "Arquivar", icon: Archive },
-];
-
 export default function CampanhaDetalhe() {
   const params = useParams<{ slug: string }>();
+  const router = useRouter();
   const key = params?.slug ?? "";
 
   const [campanhas, setCampanhas] = useState<Campanha[]>([]);
@@ -54,30 +46,35 @@ export default function CampanhaDetalhe() {
   const [origin, setOrigin] = useState("");
   const [tab, setTab] = useState<Tab>("Grupos");
   const [menu, setMenu] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  async function loadData() {
+    try {
+      const [c, g, l, s] = await Promise.all([
+        fetch("/api/campanhas").then((r) => r.json()).catch(() => []),
+        fetch("/api/groups").then((r) => r.json()).catch(() => []),
+        fetch("/api/links").then((r) => r.json()).catch(() => []),
+        fetch("/api/session").then((r) => r.json()).catch(() => ({})),
+      ]);
+      const list: Campanha[] = Array.isArray(c) ? c : [];
+      setCampanhas(list);
+      setGroups(Array.isArray(g) ? g : []);
+      setLive(Boolean(s?.live));
+      const camp = list.find((x) => x.slug === key || x.id === key);
+      if (camp) {
+        const ls: TrackedLink[] = Array.isArray(l) ? l : [];
+        setClicks(ls.filter((x) => x.campaignName === camp.name).reduce((a, x) => a + (x.clicks ?? 0), 0));
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
     setOrigin(window.location.origin);
-    (async () => {
-      try {
-        const [c, g, l, s] = await Promise.all([
-          fetch("/api/campanhas").then((r) => r.json()).catch(() => []),
-          fetch("/api/groups").then((r) => r.json()).catch(() => []),
-          fetch("/api/links").then((r) => r.json()).catch(() => []),
-          fetch("/api/session").then((r) => r.json()).catch(() => ({})),
-        ]);
-        const list: Campanha[] = Array.isArray(c) ? c : [];
-        setCampanhas(list);
-        setGroups(Array.isArray(g) ? g : []);
-        setLive(Boolean(s?.live));
-        const camp = list.find((x) => x.slug === key || x.id === key);
-        if (camp) {
-          const ls: TrackedLink[] = Array.isArray(l) ? l : [];
-          setClicks(ls.filter((x) => x.campaignName === camp.name).reduce((a, x) => a + (x.clicks ?? 0), 0));
-        }
-      } finally {
-        setLoading(false);
-      }
-    })();
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
   const campanha = useMemo(() => campanhas.find((c) => c.slug === key || c.id === key) ?? null, [campanhas, key]);
@@ -85,6 +82,26 @@ export default function CampanhaDetalhe() {
     () => (campanha ? buildCampaignGroupsOverview({ campaign: campanha, groups, clicks }) : null),
     [campanha, groups, clicks],
   );
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    setMenu(false);
+    await loadData();
+    setRefreshing(false);
+  }
+
+  async function handleDelete() {
+    if (!campanha) return;
+    if (!confirm(`Excluir a campanha "${campanha.name}"? Essa ação não pode ser desfeita.`)) return;
+    setDeleting(true);
+    setMenu(false);
+    try {
+      await fetch(`/api/campanhas?id=${campanha.id}`, { method: "DELETE" });
+      router.push("/painel/campanhas");
+    } catch {
+      setDeleting(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -146,17 +163,28 @@ export default function CampanhaDetalhe() {
               <>
                 <button className="fixed inset-0 z-10 cursor-default" onClick={() => setMenu(false)} aria-label="Fechar" />
                 <div className="hf-enter absolute right-0 top-12 z-20 w-52 overflow-hidden rounded-2xl border border-breu/10 bg-white py-1.5 shadow-deep">
-                  {ACTIONS.map((a) => {
-                    const Icon = a.icon;
-                    const cls = "flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-aco transition hover:bg-bruma/60 hover:text-breu";
-                    return a.label === "Editar" ? (
-                      <Link key={a.label} href={`/painel/campanhas/${campanha.slug ?? campanha.id}/editar`} className={cls}>
-                        <Icon className="h-4 w-4 text-aco/50" /> {a.label}
-                      </Link>
-                    ) : (
-                      <button key={a.label} className={cls}><Icon className="h-4 w-4 text-aco/50" /> {a.label}</button>
-                    );
-                  })}
+                  <Link
+                    href={`/painel/campanhas/${campanha.slug ?? campanha.id}/editar`}
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-aco transition hover:bg-bruma/60 hover:text-breu"
+                  >
+                    <Pencil className="h-4 w-4 text-aco/50" /> Editar
+                  </Link>
+                  <button
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-aco transition hover:bg-bruma/60 hover:text-breu"
+                  >
+                    {refreshing ? <Loader2 className="h-4 w-4 animate-spin text-aco/50" /> : <RefreshCw className="h-4 w-4 text-aco/50" />}
+                    Atualizar dados
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-alerta transition hover:bg-alerta/5"
+                  >
+                    {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    Excluir campanha
+                  </button>
                 </div>
               </>
             )}
@@ -190,7 +218,7 @@ export default function CampanhaDetalhe() {
                 <><strong className="text-breu">{semConvite} grupos sem convite</strong> — não recebem leads até configurar o link.</>
               )}
             </p>
-            <Link href="/settings" className="rounded-lg bg-alerta px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90">
+            <Link href="/painel/conectar" className="rounded-lg bg-alerta px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90">
               {offline ? "Reconectar" : "Configurar"}
             </Link>
           </div>
@@ -213,6 +241,12 @@ export default function CampanhaDetalhe() {
             <div className="rounded-3xl border border-breu/[0.08] bg-white px-5 py-16 text-center">
               <p className="font-display text-lg font-bold text-breu">Sem grupos ainda</p>
               <p className="mt-1 text-sm text-aco/60">Adicione grupos pra essa campanha começar a captar.</p>
+              <Link
+                href={`/painel/campanhas/${campanha.slug ?? campanha.id}/editar`}
+                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-iris px-4 py-2.5 text-sm font-medium text-white shadow-iris transition hover:-translate-y-0.5 hover:bg-iris-claro"
+              >
+                <Users className="h-4 w-4" /> Adicionar grupos
+              </Link>
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -293,7 +327,6 @@ function GroupCard({ g, live, origin }: { g: CampaignGroupOverview; live: boolea
   const quase = cap >= 80;
   const conectado = live !== false && g.status !== "missing_invite";
   const name = g.group?.name ?? "Grupo";
-  const invite = g.inviteUrl ? g.inviteUrl.replace(/^https?:\/\//, "") : "";
 
   return (
     <div className={cn("rounded-3xl border bg-white p-5", conectado ? "border-breu/[0.08]" : "border-alerta/20")}>
@@ -334,7 +367,7 @@ function GroupCard({ g, live, origin }: { g: CampaignGroupOverview; live: boolea
         <p className="font-data mt-1 text-[10px] text-aco/45">{g.members.toLocaleString("pt-BR")} membros · limite {g.capacity.toLocaleString("pt-BR")}</p>
       </div>
 
-      {invite ? (
+      {g.inviteUrl ? (
         <CopyLink url={origin && !g.inviteUrl.startsWith("http") ? `${origin}${g.inviteUrl}` : g.inviteUrl} className="mt-3" />
       ) : (
         <p className="font-data mt-3 text-[11px] text-atencao">Configure o link de convite</p>
