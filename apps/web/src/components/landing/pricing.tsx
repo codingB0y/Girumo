@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, Check, MessageCircle, Sparkles } from "lucide-react";
+import { ArrowRight, Check, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { WhatsAppIcon } from "@/components/landing/icons";
 
 type Plan = {
   name: string;
@@ -107,7 +108,7 @@ export function Pricing({
               className={cn(
                 "relative rounded-3xl border p-7 transition",
                 p.highlight
-                  ? "border-iris/50 bg-iris/[0.07] shadow-iris hf-glow lg:-mt-4 lg:pb-9"
+                  ? "hf-ring border-transparent bg-breu-2 shadow-iris hf-glow lg:-mt-4 lg:pb-9"
                   : "border-white/10 bg-white/[0.03] hover:border-iris/40",
               )}
             >
@@ -137,7 +138,7 @@ export function Pricing({
               <a
                 href={signupUrl}
                 className={cn(
-                  "mt-7 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium transition",
+                  "hf-shine mt-7 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium transition",
                   p.highlight
                     ? "bg-iris text-white shadow-iris hover:-translate-y-0.5 hover:bg-iris-claro"
                     : "border border-white/15 text-white hover:border-iris hover:text-iris-claro",
@@ -150,7 +151,7 @@ export function Pricing({
                 href={whatsappUrl}
                 className="mt-2.5 flex items-center justify-center gap-1.5 text-xs text-bruma/55 transition hover:text-iris-claro"
               >
-                <MessageCircle className="h-3.5 w-3.5" /> Falar no WhatsApp
+                <WhatsAppIcon className="h-3.5 w-3.5 text-[#25D366]" /> Falar no WhatsApp
               </a>
             </div>
           );
