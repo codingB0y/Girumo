@@ -1,0 +1,488 @@
+// ============================================================
+// SQUAD OS — Data Store (Supabase real)
+// ============================================================
+
+import type {
+  Squad,
+  Agent,
+  Skill,
+  Mission,
+  Decision,
+  Memory,
+  Handoff,
+} from "@/lib/types/squad-os";
+
+// ---------- Helpers ----------
+
+async function supaFetch<T>(path: string, fallback: T): Promise<T> {
+  try {
+    const res = await fetch(`/api/squad-os/${path}`);
+    if (!res.ok) return fallback;
+    const data = await res.json();
+    return (Array.isArray(data) && data.length === 0) ? fallback : data;
+  } catch {
+    return fallback;
+  }
+}
+
+// ---------- Default Seeds (used only when DB is empty) ----------
+
+function generateId(): string {
+  return crypto.randomUUID();
+}
+
+const SEED_SQUADS: Squad[] = [
+  {
+    id: generateId(),
+    workspace_id: "default",
+    product_id: "hubflow",
+    name: "Product Squad",
+    slug: "product",
+    leader_agent_id: null,
+    objective: "Definir escopo, priorização e roadmap do HubFlow",
+    status: "executing",
+    health: 92,
+    context: {},
+    last_delivery: "PRD v2 — módulo automações",
+    next_action: "Priorizar backlog Q3",
+    reputation_score: 88,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: generateId(),
+    workspace_id: "default",
+    product_id: "hubflow",
+    name: "Growth Squad",
+    slug: "growth",
+    leader_agent_id: null,
+    objective: "Aumentar aquisição e retenção de usuários",
+    status: "researching",
+    health: 85,
+    context: {},
+    last_delivery: "Análise de funil — signup→ativação",
+    next_action: "Testar onboarding simplificado",
+    reputation_score: 76,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: generateId(),
+    workspace_id: "default",
+    product_id: "hubflow",
+    name: "Frontend Squad",
+    slug: "frontend",
+    leader_agent_id: null,
+    objective: "Implementar interface premium e responsiva",
+    status: "executing",
+    health: 94,
+    context: {},
+    last_delivery: "Admin panel + sidebar refactor",
+    next_action: "Módulo automações UI",
+    reputation_score: 91,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: generateId(),
+    workspace_id: "default",
+    product_id: "hubflow",
+    name: "Backend Squad",
+    slug: "backend",
+    leader_agent_id: null,
+    objective: "API robusta, Supabase RLS, Edge Functions",
+    status: "executing",
+    health: 90,
+    context: {},
+    last_delivery: "Rate limiting + security headers",
+    next_action: "Webhooks Stripe multi-tenant",
+    reputation_score: 89,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: generateId(),
+    workspace_id: "default",
+    product_id: "hubflow",
+    name: "Brand Squad",
+    slug: "brand",
+    leader_agent_id: null,
+    objective: "Posicionamento premium, criativos e copy",
+    status: "completed",
+    health: 96,
+    context: {},
+    last_delivery: "Rebranding v3 — iris/breu palette",
+    next_action: "Social media kit Q3",
+    reputation_score: 93,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: generateId(),
+    workspace_id: "default",
+    product_id: "hubflow",
+    name: "Data Squad",
+    slug: "data",
+    leader_agent_id: null,
+    objective: "Métricas, analytics e relatórios de negócio",
+    status: "planning",
+    health: 78,
+    context: {},
+    last_delivery: null,
+    next_action: "Definir north star metric",
+    reputation_score: 60,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: generateId(),
+    workspace_id: "default",
+    product_id: "hubflow",
+    name: "QA Squad",
+    slug: "qa",
+    leader_agent_id: null,
+    objective: "Testes, qualidade e estabilidade",
+    status: "planning",
+    health: 70,
+    context: {},
+    last_delivery: null,
+    next_action: "Setup test framework",
+    reputation_score: 50,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: generateId(),
+    workspace_id: "default",
+    product_id: "hubflow",
+    name: "Operations Squad",
+    slug: "operations",
+    leader_agent_id: null,
+    objective: "Processos, deploy, monitoramento",
+    status: "executing",
+    health: 88,
+    context: {},
+    last_delivery: "CI/CD Vercel + env vars configurados",
+    next_action: "Alertas de health check",
+    reputation_score: 82,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
+const SEED_AGENTS: Agent[] = [
+  {
+    id: generateId(),
+    workspace_id: "default",
+    name: "Luna",
+    specialty: "Product Management",
+    avatar_url: null,
+    cost_per_run: 0.03,
+    speed_rating: 8,
+    context_window: 200000,
+    reputation: 88,
+    allowed_areas: ["product", "roadmap", "backlog"],
+    limits: { max_concurrent: 3 },
+    history: [],
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: generateId(),
+    workspace_id: "default",
+    name: "Atlas",
+    specialty: "Growth & Acquisition",
+    avatar_url: null,
+    cost_per_run: 0.04,
+    speed_rating: 7,
+    context_window: 200000,
+    reputation: 76,
+    allowed_areas: ["growth", "marketing", "experiments"],
+    limits: { max_concurrent: 2 },
+    history: [],
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: generateId(),
+    workspace_id: "default",
+    name: "Pixel",
+    specialty: "Frontend Development",
+    avatar_url: null,
+    cost_per_run: 0.05,
+    speed_rating: 9,
+    context_window: 200000,
+    reputation: 91,
+    allowed_areas: ["frontend", "ui", "components"],
+    limits: { max_concurrent: 3 },
+    history: [],
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: generateId(),
+    workspace_id: "default",
+    name: "Forge",
+    specialty: "Backend & Infrastructure",
+    avatar_url: null,
+    cost_per_run: 0.05,
+    speed_rating: 8,
+    context_window: 200000,
+    reputation: 89,
+    allowed_areas: ["backend", "api", "database", "infra"],
+    limits: { max_concurrent: 2 },
+    history: [],
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: generateId(),
+    workspace_id: "default",
+    name: "Muse",
+    specialty: "Brand & Creative",
+    avatar_url: null,
+    cost_per_run: 0.03,
+    speed_rating: 7,
+    context_window: 200000,
+    reputation: 93,
+    allowed_areas: ["brand", "copy", "design"],
+    limits: { max_concurrent: 2 },
+    history: [],
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: generateId(),
+    workspace_id: "default",
+    name: "Prism",
+    specialty: "Data & Analytics",
+    avatar_url: null,
+    cost_per_run: 0.04,
+    speed_rating: 8,
+    context_window: 200000,
+    reputation: 60,
+    allowed_areas: ["data", "metrics", "reports"],
+    limits: { max_concurrent: 2 },
+    history: [],
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: generateId(),
+    workspace_id: "default",
+    name: "Shield",
+    specialty: "QA & Testing",
+    avatar_url: null,
+    cost_per_run: 0.03,
+    speed_rating: 9,
+    context_window: 200000,
+    reputation: 50,
+    allowed_areas: ["qa", "testing", "security"],
+    limits: { max_concurrent: 3 },
+    history: [],
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: generateId(),
+    workspace_id: "default",
+    name: "Ops",
+    specialty: "DevOps & Operations",
+    avatar_url: null,
+    cost_per_run: 0.03,
+    speed_rating: 9,
+    context_window: 200000,
+    reputation: 82,
+    allowed_areas: ["ops", "deploy", "monitoring"],
+    limits: { max_concurrent: 2 },
+    history: [],
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
+const SEED_MISSIONS: Mission[] = [
+  {
+    id: generateId(),
+    squad_id: "product",
+    workspace_id: "default",
+    title: "Definir PRD do módulo Automações",
+    description: "Escrever PRD completo com user stories, critérios de aceite e prioridades",
+    status: "completed",
+    priority: 1,
+    assigned_agent_id: null,
+    started_at: "2026-06-28T10:00:00Z",
+    completed_at: "2026-06-29T14:00:00Z",
+    result: { artifact: "prd-automacoes-v2" },
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: generateId(),
+    squad_id: "frontend",
+    workspace_id: "default",
+    title: "Implementar página de automações",
+    description: "UI completa com lista, criação e edição de automações",
+    status: "active",
+    priority: 1,
+    assigned_agent_id: null,
+    started_at: "2026-07-01T08:00:00Z",
+    completed_at: null,
+    result: {},
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: generateId(),
+    squad_id: "growth",
+    workspace_id: "default",
+    title: "Análise de funil signup→ativação",
+    description: "Mapear onde usuários abandonam e propor 3 hipóteses de melhoria",
+    status: "active",
+    priority: 2,
+    assigned_agent_id: null,
+    started_at: "2026-07-01T09:00:00Z",
+    completed_at: null,
+    result: {},
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: generateId(),
+    squad_id: "backend",
+    workspace_id: "default",
+    title: "Webhooks Stripe para multi-tenant",
+    description: "Endpoint seguro que roteia eventos Stripe para o tenant correto",
+    status: "pending",
+    priority: 2,
+    assigned_agent_id: null,
+    started_at: null,
+    completed_at: null,
+    result: {},
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: generateId(),
+    squad_id: "operations",
+    workspace_id: "default",
+    title: "Configurar alertas de health check",
+    description: "Monitorar uptime da API e notificar em caso de falha",
+    status: "pending",
+    priority: 3,
+    assigned_agent_id: null,
+    started_at: null,
+    completed_at: null,
+    result: {},
+    created_at: new Date().toISOString(),
+  },
+];
+
+const SEED_DECISIONS: Decision[] = [
+  {
+    id: generateId(),
+    workspace_id: "default",
+    product_id: "hubflow",
+    squad_id: null,
+    title: "Supabase RLS como isolamento multi-tenant",
+    rationale: "Mais seguro e escalável que middleware custom",
+    category: "architecture",
+    confidence: 95,
+    status: "active",
+    superseded_by: null,
+    created_at: "2026-06-15T10:00:00Z",
+  },
+  {
+    id: generateId(),
+    workspace_id: "default",
+    product_id: "hubflow",
+    squad_id: null,
+    title: "Next.js App Router + React 19",
+    rationale: "Server components, streaming, melhor DX",
+    category: "architecture",
+    confidence: 92,
+    status: "active",
+    superseded_by: null,
+    created_at: "2026-06-10T10:00:00Z",
+  },
+  {
+    id: generateId(),
+    workspace_id: "default",
+    product_id: "hubflow",
+    squad_id: null,
+    title: "Pricing freemium com tiers por volume",
+    rationale: "Reduz atrito de entrada, monetiza por uso",
+    category: "product",
+    confidence: 87,
+    status: "active",
+    superseded_by: null,
+    created_at: "2026-06-20T10:00:00Z",
+  },
+];
+
+// ---------- API (reads from Supabase, falls back to seed) ----------
+
+export async function getSquads(): Promise<Squad[]> {
+  return supaFetch<Squad[]>("squads", SEED_SQUADS);
+}
+
+export async function getAgents(): Promise<Agent[]> {
+  return supaFetch<Agent[]>("agents", SEED_AGENTS);
+}
+
+export async function getMissions(): Promise<Mission[]> {
+  return supaFetch<Mission[]>("missions", SEED_MISSIONS);
+}
+
+export async function getSquadBySlug(slug: string): Promise<Squad | null> {
+  const squads = await getSquads();
+  return squads.find((s) => s.slug === slug) ?? null;
+}
+
+export async function getDecisions(): Promise<Decision[]> {
+  return supaFetch<Decision[]>("decisions", SEED_DECISIONS);
+}
+
+export async function getMemories(): Promise<Memory[]> {
+  return supaFetch<Memory[]>("memories", []);
+}
+
+export async function getHandoffs(): Promise<Handoff[]> {
+  return supaFetch<Handoff[]>("handoffs", []);
+}
+
+// ---------- Stats ----------
+
+export interface SquadOSStats {
+  totalSquads: number;
+  activeSquads: number;
+  totalAgents: number;
+  totalMissions: number;
+  activeMissions: number;
+  completedMissions: number;
+  avgHealth: number;
+  decisions: number;
+}
+
+export async function getStats(): Promise<SquadOSStats> {
+  const [squads, agents, missions, decisions] = await Promise.all([
+    getSquads(),
+    getAgents(),
+    getMissions(),
+    getDecisions(),
+  ]);
+
+  const activeSquads = squads.filter((s) => s.status !== "completed").length;
+  const activeMissions = missions.filter((m) => m.status === "active").length;
+  const completedMissions = missions.filter((m) => m.status === "completed").length;
+  const avgHealth = Math.round(
+    squads.reduce((a, s) => a + s.health, 0) / (squads.length || 1),
+  );
+
+  return {
+    totalSquads: squads.length,
+    activeSquads,
+    totalAgents: agents.length,
+    totalMissions: missions.length,
+    activeMissions,
+    completedMissions,
+    avgHealth,
+    decisions: decisions.length,
+  };
+}
