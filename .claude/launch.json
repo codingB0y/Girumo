@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "HubFlow Web (Next.js)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--workspace", "apps/web", "run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "HubFlow Engine (Baileys/Express)",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["hubflow-engine/index.js"],
+      "port": 3001
+    }
+  ]
+}

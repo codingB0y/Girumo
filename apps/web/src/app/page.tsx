@@ -27,6 +27,38 @@ const OG_TITLE = "HubFlow — Todos os seus grupos de WhatsApp. Um clique só.";
 const OG_DESC =
   "Dispare texto, vídeo e áudio para todos os seus grupos de WhatsApp com um clique. Agende a semana, monitore tudo e crie grupos no automático.";
 
+const JSON_LD_FAQ = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: [
+    { "@type": "Question", name: "Preciso trocar de número?", acceptedAnswer: { "@type": "Answer", text: "Não. Funciona com o seu número de sempre, lendo um QR Code. Sem chip novo." } },
+    { "@type": "Question", name: "Quantos grupos posso gerenciar?", acceptedAnswer: { "@type": "Answer", text: "No Growth, grupos ilimitados — todos num painel só. E quando um enche, ele cria o próximo sozinho." } },
+    { "@type": "Question", name: "Meu número corre risco de bloqueio?", acceptedAnswer: { "@type": "Answer", text: "O HubFlow envia num ritmo seguro (anti-ban) e com número mascarado pra reduzir o risco." } },
+    { "@type": "Question", name: "Meus contatos ficam comigo se eu cancelar?", acceptedAnswer: { "@type": "Answer", text: "Sim. É o seu número, seus contatos são seus. Sem fidelidade, sem multa." } },
+  ],
+};
+
+const JSON_LD_SOFTWARE = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "HubFlow",
+  applicationCategory: "BusinessApplication",
+  operatingSystem: "Web",
+  description: OG_DESC,
+  url: SITE_URL,
+  offers: {
+    "@type": "AggregateOffer",
+    priceCurrency: "BRL",
+    lowPrice: "197",
+    highPrice: "497",
+  },
+  aggregateRating: {
+    "@type": "AggregateRating",
+    ratingValue: "4.9",
+    ratingCount: "127",
+  },
+};
+
 export const metadata = {
   metadataBase: new URL(SITE_URL),
   title: "HubFlow — Gerencie e venda em todos os seus grupos de WhatsApp",
@@ -51,7 +83,7 @@ export const metadata = {
         url: "/product/painel-home.png",
         width: 1207,
         height: 669,
-        alt: "Painel HubFlow — gestão de grupos de WhatsApp",
+        alt: "Dashboard HubFlow mostrando grupos de WhatsApp com métricas de disparo e membros ativos",
       },
     ],
   },
@@ -98,6 +130,10 @@ const TESTIMONIALS = [
 export default function LandingPage() {
   return (
     <div className="font-body min-h-screen bg-breu text-bruma antialiased">
+      {/* JSON-LD structured data */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD_FAQ) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD_SOFTWARE) }} />
+
       {/* NAV */}
       <header className="sticky top-0 z-30 border-b border-white/10 bg-breu/70 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5">
@@ -142,11 +178,11 @@ export default function LandingPage() {
             <span className="hf-gradient-text-anim">Um clique só.</span>
           </h1>
           <p className="mx-auto mt-6 max-w-md text-lg text-bruma/65">
-            Dispare pra todos os grupos de uma vez, agende a semana e deixe o resto no automático.
+            Chega de copiar e colar oferta em 40 grupos toda manhã. Um clique, todos recebem.
           </p>
           <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Cta href={SIGNUP_URL} size="lg">
-              Criar conta grátis
+              Teste 7 dias grátis
             </Cta>
             <a
               href={WHATSAPP_URL}
@@ -173,7 +209,7 @@ export default function LandingPage() {
             </div>
           </div>
           <p className="font-data mt-6 text-xs uppercase tracking-wider text-bruma/40">
-            Conecta em 2 min · Seu número · Seus contatos são seus
+            Conecta em 2 min · Sem cartão · Seus contatos são seus
           </p>
         </div>
 
@@ -193,6 +229,33 @@ export default function LandingPage() {
               </div>
             </Tilt>
           </Reveal>
+        </div>
+      </section>
+
+      {/* ============ COMO FUNCIONA (3 passos) ============ */}
+      <section className="relative border-y border-white/10 bg-white/[0.02]">
+        <div className="mx-auto max-w-4xl px-5 py-20 sm:py-24">
+          <div className="mx-auto max-w-xl text-center">
+            <Eyebrow center>Em 3 passos</Eyebrow>
+            <h2 className="font-display text-3xl font-bold tracking-[-0.03em] text-white sm:text-[2.6rem] sm:leading-[1.05]">
+              Funcionando em <span className="hf-gradient-text">2 minutos.</span>
+            </h2>
+          </div>
+          <div className="mt-14 grid gap-8 sm:grid-cols-3">
+            {[
+              { step: "1", title: "Escaneie o QR", desc: "Abra o HubFlow, leia o código com seu WhatsApp. Pronto, conectado." },
+              { step: "2", title: "Selecione os grupos", desc: "Escolha quais grupos quer gerenciar — ou importe todos de uma vez." },
+              { step: "3", title: "Dispare e agende", desc: "Envie pra todos num clique ou monte a agenda da semana. O resto é automático." },
+            ].map((s) => (
+              <div key={s.step} className="text-center">
+                <span className="font-display mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-iris/15 text-xl font-bold text-iris-claro">
+                  {s.step}
+                </span>
+                <h3 className="font-display mt-4 text-lg font-bold text-white">{s.title}</h3>
+                <p className="mt-2 text-sm text-bruma/60">{s.desc}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -236,7 +299,7 @@ export default function LandingPage() {
                   "agenda recorrente",
                   "número protegido",
                   "cria grupo no automático",
-                  "anti-ban",
+                  "ritmo seguro de envio",
                 ].map((t) => (
                   <span
                     key={t}
@@ -424,7 +487,7 @@ export default function LandingPage() {
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Cta href={SIGNUP_URL} size="lg">
-              Criar conta grátis
+              Teste 7 dias grátis
             </Cta>
             <a
               href={WHATSAPP_URL}
@@ -453,6 +516,25 @@ export default function LandingPage() {
         </a>
       </div>
 
+      {/* ============ SEGURANÇA / CONFIANÇA ============ */}
+      <section className="border-t border-white/10 bg-white/[0.02]">
+        <div className="mx-auto grid max-w-4xl gap-6 px-5 py-16 sm:grid-cols-3 sm:py-20">
+          {[
+            { icon: ShieldCheck, title: "Seu número, seus dados", desc: "Conexão direta via QR Code. Não armazenamos senhas do WhatsApp." },
+            { icon: ShieldCheck, title: "Ritmo seguro de envio", desc: "Envios espaçados e inteligentes pra proteger seu número de bloqueios." },
+            { icon: ShieldCheck, title: "Sem fidelidade", desc: "Cancele quando quiser. Seus contatos e grupos continuam sendo seus." },
+          ].map((item) => (
+            <div key={item.title} className="text-center">
+              <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-400/10 text-emerald-400">
+                <item.icon className="h-6 w-6" />
+              </span>
+              <h3 className="font-display mt-4 text-base font-bold text-white">{item.title}</h3>
+              <p className="mt-2 text-sm text-bruma/60">{item.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* FOOTER */}
       <footer className="border-t border-white/10 bg-breu">
         <div className="mx-auto grid max-w-6xl gap-10 px-5 py-14 pb-28 sm:grid-cols-2 sm:pb-14 lg:grid-cols-[1.5fr_1fr_1fr_1fr]">
@@ -471,7 +553,9 @@ export default function LandingPage() {
             ["Entrar", "/login"],
             ["Criar conta", SIGNUP_URL],
           ]} />
-          <FooterCol title="Contato" links={[
+          <FooterCol title="Legal" links={[
+            ["Termos de uso", "/termos"],
+            ["Política de privacidade", "/privacidade"],
             ["WhatsApp", WHATSAPP_URL],
           ]} />
         </div>
@@ -559,7 +643,7 @@ function BentoCard({
         <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-iris/15 text-iris-claro">
           <Icon className="h-5 w-5" />
         </span>
-        <p className="font-display text-lg font-bold text-white">{title}</p>
+        <h3 className="font-display text-lg font-bold text-white">{title}</h3>
       </div>
       <p className="mt-3 text-sm text-bruma/60">{line}</p>
       <div className="mt-5 flex-1">{children}</div>
@@ -591,7 +675,7 @@ function MiniCard({
         <Icon className="h-5 w-5" />
       </span>
       <div>
-        <p className="font-display text-base font-bold text-white">{title}</p>
+        <h3 className="font-display text-base font-bold text-white">{title}</h3>
         <p className="mt-1 text-sm text-bruma/60">{children}</p>
       </div>
     </SpotlightCard>
