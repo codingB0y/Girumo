@@ -123,7 +123,7 @@ export function OnboardingWizard({ userName }: { userName: string }) {
           </div>
           <h2 className="font-display text-xl font-bold text-breu">Conecte seu WhatsApp</h2>
           <p className="text-sm text-aco/70">
-            No painel, clique em "Conectar" e escaneie o QR Code com seu WhatsApp.
+            No painel, clique em &ldquo;Conectar&rdquo; e escaneie o QR Code com seu WhatsApp.
             Sem trocar de número, sem instalar nada.
           </p>
           <div className="rounded-xl border border-dashed border-aco/20 bg-bruma/30 p-8">

@@ -1,6 +1,5 @@
 import { getSessionAccountId } from "@/lib/session";
 import { generateCopy, type CopyInput } from "@/lib/agents/copy-agent";
-import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";

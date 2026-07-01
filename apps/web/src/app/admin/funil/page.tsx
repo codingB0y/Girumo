@@ -1,4 +1,4 @@
-import { BarChart3, TrendingUp, Users, Zap, CreditCard, Send, UserPlus, Radio } from "lucide-react";
+import { TrendingUp, Users, Zap, CreditCard, Send, UserPlus, Radio } from "lucide-react";
 import { AdminStatCard } from "@/components/admin/stat-card";
 import { getFunnelMetrics, type FunnelEvent } from "@/lib/analytics/funnel-events";
 
