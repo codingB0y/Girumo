@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/emails",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/notifications/alerts",
+      "schedule": "0 9 * * *"
     }
   ]
 }

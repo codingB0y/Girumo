@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Search, MessageCircle, MoreHorizontal, Users, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CopyLink } from "@/components/painel/copy-link";
+import { PlanGate } from "@/components/painel/plan-gate";
 import {
   buildCampaignGroupsOverview,
   type CampaignOperationalStatus,
@@ -119,6 +120,9 @@ export default function PainelCampanhas() {
           <Plus className="h-4 w-4" /> Nova campanha
         </Link>
       </div>
+
+      {/* Plan gate */}
+      <PlanGate resource="campaigns" variant="card" />
 
       {/* Filtros + busca */}
       <div className="flex flex-wrap items-center justify-between gap-3">

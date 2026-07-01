@@ -14,6 +14,7 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Minus,
+  Target,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -66,6 +67,10 @@ function getDateStr(daysAgo: number): string {
   const d = new Date();
   d.setDate(d.getDate() - daysAgo);
   return d.toISOString().slice(0, 10);
+}
+
+function getMonthStr(): string {
+  return new Date().toISOString().slice(0, 7); // YYYY-MM
 }
 
 // ---------- Component ----------
@@ -302,6 +307,7 @@ function FullDashboard({
   // Date helpers
   const today = getDateStr(0);
   const yesterday = getDateStr(1);
+  const month = getMonthStr();
 
   // Leads per day
   const leadsToday = useMemo(
@@ -312,6 +318,21 @@ function FullDashboard({
     () => leads.filter((l) => l.enteredAt?.startsWith(yesterday)).length,
     [leads, yesterday],
   );
+
+  // Leads this month
+  const leadsThisMonth = useMemo(
+    () => leads.filter((l) => l.enteredAt?.startsWith(month)).length,
+    [leads, month],
+  );
+
+  // Monthly goal (auto-calculated: double last month or minimum 50)
+  const monthlyGoal = useMemo(() => {
+    const lastMonth = new Date();
+    lastMonth.setMonth(lastMonth.getMonth() - 1);
+    const lastMonthStr = lastMonth.toISOString().slice(0, 7);
+    const lastMonthLeads = leads.filter((l) => l.enteredAt?.startsWith(lastMonthStr)).length;
+    return Math.max(lastMonthLeads > 0 ? Math.round(lastMonthLeads * 1.5) : 50, 20);
+  }, [leads]);
 
   // Groups almost full (>= 90%)
   const almostFull = useMemo(
@@ -382,6 +403,9 @@ function FullDashboard({
           </Link>
         ))}
       </div>
+
+      {/* Monthly progress */}
+      <MonthlyProgress current={leadsThisMonth} goal={monthlyGoal} />
 
       {/* Alert: groups almost full */}
       {almostFull.length > 0 && (
@@ -475,6 +499,46 @@ function FullDashboard({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ---------- Monthly Progress ----------
+
+function MonthlyProgress({ current, goal }: { current: number; goal: number }) {
+  const pct = goal > 0 ? Math.min(Math.round((current / goal) * 100), 100) : 0;
+  const achieved = current >= goal;
+
+  return (
+    <div className="rounded-2xl border border-breu/[0.08] bg-white px-5 py-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Target className="h-4 w-4 text-iris" />
+          <span className="font-data text-[10px] uppercase tracking-wider text-aco/50">
+            Meta do mês
+          </span>
+        </div>
+        <span className={cn(
+          "font-data text-sm font-medium tabular-nums",
+          achieved ? "text-sucesso" : "text-breu",
+        )}>
+          {current}/{goal} contatos
+        </span>
+      </div>
+      <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-bruma">
+        <div
+          className="h-full rounded-full transition-all"
+          style={{
+            width: `${Math.max(pct, 2)}%`,
+            background: achieved ? "#1E8E5A" : pct >= 70 ? "#6A4BF0" : "#6A4BF0",
+          }}
+        />
+      </div>
+      <p className="mt-1.5 text-xs text-aco/55">
+        {achieved
+          ? "🎉 Meta atingida! Continue crescendo."
+          : `Faltam ${goal - current} contatos pra bater a meta.`}
+      </p>
     </div>
   );
 }
