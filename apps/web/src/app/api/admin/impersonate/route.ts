@@ -87,6 +87,21 @@ export async function POST(req: NextRequest) {
   // Gerar sessão como o user alvo
   const sessionToken = await signSession(targetAuthUserId);
 
+  // Audit log: registrar impersonation
+  await supabase.from("logs").insert({
+    tenant_id: org.id,
+    level: "warn",
+    event: "admin.impersonate.start",
+    message: `Admin ${admin.email} iniciou impersonation no tenant "${org.name}"`,
+    metadata: {
+      admin_user_id: admin.authUserId,
+      admin_email: admin.email,
+      target_user_id: targetAuthUserId,
+      tenant_id: org.id,
+      tenant_name: org.name,
+    },
+  });
+
   // Cookie de impersonation (pra poder voltar)
   const impersonateData = JSON.stringify({
     adminAuthUserId: admin.authUserId,
@@ -130,6 +145,16 @@ export async function DELETE(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Invalid impersonate cookie" }, { status: 400 });
   }
+
+  // Audit log: registrar fim de impersonation
+  const supabase = getSupabaseAdmin();
+  await supabase.from("logs").insert({
+    tenant_id: "00000000-0000-0000-0000-000000000001",
+    level: "info",
+    event: "admin.impersonate.end",
+    message: `Admin ${adminData.adminAuthUserId} encerrou impersonation`,
+    metadata: { admin_user_id: adminData.adminAuthUserId },
+  });
 
   // Restaurar sessão do admin
   const adminSession = await signSession(adminData.adminAuthUserId);
