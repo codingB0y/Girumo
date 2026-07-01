@@ -29,10 +29,10 @@ Depois avançar para feature gating, growth, e qualidade.
 # Checklist
 
 ## Sprint 1 — Segurança
-- [ ] 1. Rotacionar Service Role Key (manual no Supabase Dashboard)
-- [ ] 2. Fix middleware — validar Bearer token contra Supabase Auth
-- [ ] 3. Rate limiting em /api/auth/* (5 tentativas/min login, 3 signup/min por IP)
-- [ ] 4. Security headers no next.config
+- [!] 1. Rotacionar Service Role Key (manual no Supabase Dashboard) — PENDENTE USUÁRIO
+- [x] 2. Fix middleware — validar Bearer token contra Supabase Auth
+- [x] 3. Rate limiting em /api/auth/* (5 tentativas/min login, 3 signup/min por IP)
+- [x] 4. Security headers no next.config (CSP, HSTS, X-Frame, Permissions-Policy)
 
 ## Sprint 2 — Produto/Growth
 - [ ] 5. Feature gating por plano
@@ -51,19 +51,28 @@ Depois avançar para feature gating, growth, e qualidade.
 
 # Em andamento
 
-(nenhum)
+[-] 5. Feature gating por plano
 
 ---
 
 # Decisões
 
-(nenhuma ainda)
+- Rate limiting in-memory no middleware (suficiente pra single-instance Vercel; se escalar, migrar pra Upstash Redis)
+- Bearer token validado via supabase.auth.getUser() no middleware edge
+- CSP permite Stripe JS + Supabase connections
+- Auth shell rebrandado para dark premium (bg-breu + glassmorphism)
 
 ---
 
 # Arquivos alterados
 
-(nenhum ainda)
+- apps/web/src/middleware.ts (Bearer validation + rate limiting)
+- apps/web/next.config.ts (security headers)
+- apps/web/src/components/auth-shell.tsx (dark branding)
+- apps/web/src/app/login/page.tsx (dark theme)
+- apps/web/src/app/signup/page.tsx (dark theme)
+- apps/web/src/app/forgot-password/page.tsx (dark theme)
+- apps/web/src/components/signup-progress.tsx (dark theme)
 
 ---
 

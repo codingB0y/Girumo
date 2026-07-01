@@ -5,6 +5,7 @@ import { crudRoute } from "@/lib/crud-route";
 import type { Campaign, CampaignStatus } from "@/lib/mock-data";
 import { getSessionAccountId } from "@/lib/session";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { assertPlanLimit } from "@/lib/billing/entitlements";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -86,6 +87,13 @@ export async function POST(req: Request) {
 
   const tenantId = await resolveTenantId();
   if (!tenantId) return Response.json({ error: "Tenant não encontrado." }, { status: 403 });
+
+  try {
+    await assertPlanLimit(tenantId, "campaigns:send");
+  } catch (e) {
+    if (e instanceof Response) return e;
+    throw e;
+  }
 
   let b: Record<string, unknown>;
   try {
