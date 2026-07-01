@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { AuthShell } from "@/components/auth-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SignupProgress } from "@/components/signup-progress";
 import { persistSupabaseSession } from "@/lib/supabase/client";
 
 function GoogleIcon() {
@@ -72,6 +73,7 @@ export default function SignupPage() {
         </>
       }
     >
+      <SignupProgress current={1} />
       <form className="space-y-4" onSubmit={submit}>
         <div>
           <label className="mb-1.5 block text-sm font-medium text-aco">Seu nome</label>

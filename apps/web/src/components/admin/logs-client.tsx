@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Activity,
   Clock,
@@ -10,6 +11,8 @@ import {
   Search,
   Download,
   TriangleAlert,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -23,9 +26,23 @@ type LogEntry = {
   createdAt: string;
 };
 
+type Pagination = {
+  page: number;
+  totalPages: number;
+  totalCount: number;
+  perPage: number;
+};
+
+type Filters = {
+  level: string;
+  tenant: string;
+};
+
 type Props = {
   logs: LogEntry[];
   tenants: Array<{ id: string; name: string }>;
+  pagination: Pagination;
+  filters: Filters;
 };
 
 const LEVEL_CONFIG: Record<string, { icon: typeof Info; bg: string; text: string; label: string }> = {
@@ -35,34 +52,44 @@ const LEVEL_CONFIG: Record<string, { icon: typeof Info; bg: string; text: string
   error: { icon: TriangleAlert, bg: "bg-red-50", text: "text-red-500", label: "Error" },
 };
 
-export function AdminLogsClient({ logs, tenants }: Props) {
-  const [levelFilter, setLevelFilter] = useState<string>("all");
-  const [tenantFilter, setTenantFilter] = useState<string>("all");
+export function AdminLogsClient({ logs, tenants, pagination, filters }: Props) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
 
-  const filtered = useMemo(() => {
-    return logs.filter((log) => {
-      if (levelFilter !== "all" && log.level !== levelFilter) return false;
-      if (tenantFilter !== "all" && log.tenantId !== tenantFilter) return false;
-      if (search) {
-        const q = search.toLowerCase();
-        const matchEvent = log.event.toLowerCase().includes(q);
-        const matchMessage = log.message?.toLowerCase().includes(q);
-        const matchTenant = log.tenantName?.toLowerCase().includes(q);
-        if (!matchEvent && !matchMessage && !matchTenant) return false;
-      }
-      return true;
-    });
-  }, [logs, levelFilter, tenantFilter, search]);
-
-  // Level counts
-  const levelCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const log of logs) {
-      counts[log.level] = (counts[log.level] ?? 0) + 1;
+  function navigate(params: Record<string, string>) {
+    const sp = new URLSearchParams(searchParams.toString());
+    for (const [k, v] of Object.entries(params)) {
+      if (v) sp.set(k, v);
+      else sp.delete(k);
     }
-    return counts;
-  }, [logs]);
+    router.push(`/admin/logs?${sp.toString()}`);
+  }
+
+  function handleLevelFilter(level: string) {
+    navigate({ level: level === "all" ? "" : level, page: "1" });
+  }
+
+  function handleTenantFilter(tenant: string) {
+    navigate({ tenant: tenant === "all" ? "" : tenant, page: "1" });
+  }
+
+  function handlePage(p: number) {
+    navigate({ page: String(p) });
+  }
+
+  // Client-side search (within current page)
+  const filtered = useMemo(() => {
+    if (!search) return logs;
+    const q = search.toLowerCase();
+    return logs.filter((log) => {
+      return (
+        log.event.toLowerCase().includes(q) ||
+        log.message?.toLowerCase().includes(q) ||
+        log.tenantName?.toLowerCase().includes(q)
+      );
+    });
+  }, [logs, search]);
 
   function handleExport() {
     const csv = [
@@ -82,27 +109,34 @@ export function AdminLogsClient({ logs, tenants }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* Level summary pills */}
+      {/* Level pills */}
       <div className="flex flex-wrap items-center gap-2">
-        {Object.entries(LEVEL_CONFIG).map(([level, config]) => {
-          const count = levelCounts[level] ?? 0;
-          if (count === 0) return null;
-          return (
-            <button
-              key={level}
-              onClick={() => setLevelFilter(levelFilter === level ? "all" : level)}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-data text-[11px] uppercase tracking-wider transition",
-                levelFilter === level
-                  ? `${config.bg} ${config.text} ring-2 ring-offset-1 ring-current/20`
-                  : "bg-white border border-breu/[0.06] text-aco/60 hover:bg-bruma/40",
-              )}
-            >
-              <config.icon className="h-3 w-3" />
-              {config.label} ({count})
-            </button>
-          );
-        })}
+        <button
+          onClick={() => handleLevelFilter("all")}
+          className={cn(
+            "rounded-full px-3 py-1.5 font-data text-[11px] uppercase tracking-wider transition",
+            filters.level === "all"
+              ? "bg-iris/10 text-iris ring-1 ring-iris/20"
+              : "bg-white border border-breu/[0.06] text-aco/60 hover:bg-bruma/40",
+          )}
+        >
+          Todos
+        </button>
+        {Object.entries(LEVEL_CONFIG).map(([level, config]) => (
+          <button
+            key={level}
+            onClick={() => handleLevelFilter(filters.level === level ? "all" : level)}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-data text-[11px] uppercase tracking-wider transition",
+              filters.level === level
+                ? `${config.bg} ${config.text} ring-2 ring-offset-1 ring-current/20`
+                : "bg-white border border-breu/[0.06] text-aco/60 hover:bg-bruma/40",
+            )}
+          >
+            <config.icon className="h-3 w-3" />
+            {config.label}
+          </button>
+        ))}
       </div>
 
       {/* Filters bar */}
@@ -111,12 +145,12 @@ export function AdminLogsClient({ logs, tenants }: Props) {
           <Filter className="h-4 w-4" />
         </div>
 
-        {/* Busca */}
+        {/* Busca (client-side dentro da página) */}
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-aco/40" />
           <input
             type="text"
-            placeholder="Buscar eventos..."
+            placeholder="Filtrar eventos nesta página..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded-lg border border-breu/10 bg-bruma/30 py-2 pl-9 pr-3 font-data text-xs text-breu placeholder:text-aco/40 focus:border-iris/30 focus:outline-none focus:ring-1 focus:ring-iris/20"
@@ -126,8 +160,8 @@ export function AdminLogsClient({ logs, tenants }: Props) {
         {/* Tenant filter */}
         {tenants.length > 1 && (
           <select
-            value={tenantFilter}
-            onChange={(e) => setTenantFilter(e.target.value)}
+            value={filters.tenant}
+            onChange={(e) => handleTenantFilter(e.target.value)}
             className="rounded-lg border border-breu/10 bg-bruma/30 px-3 py-2 font-data text-xs text-breu focus:border-iris/30 focus:outline-none"
           >
             <option value="all">Todos os tenants</option>
@@ -147,7 +181,7 @@ export function AdminLogsClient({ logs, tenants }: Props) {
         </button>
 
         <span className="ml-auto font-data text-[11px] text-aco/45">
-          {filtered.length} de {logs.length}
+          {filtered.length} nesta página · {pagination.totalCount} total
         </span>
       </div>
 
@@ -159,7 +193,7 @@ export function AdminLogsClient({ logs, tenants }: Props) {
             <p className="text-sm text-aco/50">Nenhum log corresponde aos filtros.</p>
           </div>
         ) : (
-          <div className="divide-y divide-breu/[0.04] max-h-[600px] overflow-y-auto">
+          <div className="divide-y divide-breu/[0.04]">
             {filtered.map((log) => {
               const config = LEVEL_CONFIG[log.level] ?? LEVEL_CONFIG.info;
               const Icon = config.icon;
@@ -202,6 +236,48 @@ export function AdminLogsClient({ logs, tenants }: Props) {
           </div>
         )}
       </div>
+
+      {/* Paginação */}
+      {pagination.totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <span className="font-data text-[11px] text-aco/50">
+            Página {pagination.page} de {pagination.totalPages} · {pagination.totalCount} total
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handlePage(pagination.page - 1)}
+              disabled={pagination.page <= 1}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-breu/[0.06] bg-white text-aco transition hover:border-iris/20 disabled:opacity-30"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            {Array.from({ length: Math.min(pagination.totalPages, 7) }, (_, i) => {
+              const p = i + 1;
+              return (
+                <button
+                  key={p}
+                  onClick={() => handlePage(p)}
+                  className={cn(
+                    "inline-flex h-9 w-9 items-center justify-center rounded-lg font-data text-xs transition",
+                    p === pagination.page
+                      ? "bg-iris text-white"
+                      : "border border-breu/[0.06] bg-white text-aco hover:border-iris/20",
+                  )}
+                >
+                  {p}
+                </button>
+              );
+            })}
+            <button
+              onClick={() => handlePage(pagination.page + 1)}
+              disabled={pagination.page >= pagination.totalPages}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-breu/[0.06] bg-white text-aco transition hover:border-iris/20 disabled:opacity-30"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

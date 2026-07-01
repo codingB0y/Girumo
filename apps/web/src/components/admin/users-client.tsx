@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Users,
   Mail,
@@ -9,6 +10,8 @@ import {
   Search,
   ArrowUpDown,
   Download,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -22,38 +25,63 @@ type User = {
   role: string;
 };
 
+type Pagination = {
+  page: number;
+  totalPages: number;
+  totalCount: number;
+  perPage: number;
+};
+
+type Filters = {
+  search: string;
+  role: string;
+};
+
 const ROLE_STYLES: Record<string, string> = {
   owner: "bg-amber-50 text-amber-700",
   admin: "bg-purple-50 text-purple-700",
   operator: "bg-slate-100 text-slate-600",
 };
 
-export function AdminUsersClient({ users }: { users: User[] }) {
-  const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState<string>("all");
+export function AdminUsersClient({
+  users,
+  pagination,
+  filters,
+}: {
+  users: User[];
+  pagination: Pagination;
+  filters: Filters;
+}) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [search, setSearch] = useState(filters.search);
   const [sortField, setSortField] = useState<"name" | "createdAt" | "role">("createdAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
-  const roles = [...new Set(users.map((u) => u.role).filter((r) => r !== "—"))];
-
-  const filtered = useMemo(() => {
-    let result = users;
-
-    if (search) {
-      const q = search.toLowerCase();
-      result = result.filter(
-        (u) =>
-          u.name.toLowerCase().includes(q) ||
-          u.email.toLowerCase().includes(q) ||
-          u.tenantName.toLowerCase().includes(q),
-      );
+  function navigate(params: Record<string, string>) {
+    const sp = new URLSearchParams(searchParams.toString());
+    for (const [k, v] of Object.entries(params)) {
+      if (v) sp.set(k, v);
+      else sp.delete(k);
     }
+    router.push(`/admin/usuarios?${sp.toString()}`);
+  }
 
-    if (roleFilter !== "all") {
-      result = result.filter((u) => u.role === roleFilter);
-    }
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    navigate({ search, page: "1" });
+  }
 
-    result = [...result].sort((a, b) => {
+  function handlePage(p: number) {
+    navigate({ page: String(p) });
+  }
+
+  function handleRoleFilter(role: string) {
+    navigate({ role: role === "all" ? "" : role, page: "1" });
+  }
+
+  const sorted = useMemo(() => {
+    return [...users].sort((a, b) => {
       let cmp = 0;
       switch (sortField) {
         case "name":
@@ -68,9 +96,7 @@ export function AdminUsersClient({ users }: { users: User[] }) {
       }
       return sortDir === "asc" ? cmp : -cmp;
     });
-
-    return result;
-  }, [users, search, roleFilter, sortField, sortDir]);
+  }, [users, sortField, sortDir]);
 
   function toggleSort(field: typeof sortField) {
     if (sortField === field) {
@@ -84,7 +110,7 @@ export function AdminUsersClient({ users }: { users: User[] }) {
   function handleExport() {
     const csv = [
       "nome,email,organização,role,criado_em",
-      ...filtered.map(
+      ...sorted.map(
         (u) => `"${u.name}","${u.email}","${u.tenantName}","${u.role}","${u.createdAt}"`,
       ),
     ].join("\n");
@@ -97,35 +123,35 @@ export function AdminUsersClient({ users }: { users: User[] }) {
     URL.revokeObjectURL(url);
   }
 
+  const roles = ["owner", "admin", "operator"];
+
   return (
     <div className="space-y-4">
       {/* Filters row */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Search */}
-        <div className="relative flex-1 min-w-[220px]">
+        <form onSubmit={handleSearch} className="relative flex-1 min-w-[220px]">
           <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-aco/40" />
           <input
             type="text"
-            placeholder="Buscar por nome, email ou organização..."
+            placeholder="Buscar por nome ou email... (Enter)"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded-xl border border-breu/[0.06] bg-white py-3 pl-11 pr-4 text-sm text-breu shadow-sm placeholder:text-aco/40 focus:border-iris/30 focus:outline-none focus:ring-2 focus:ring-iris/10"
           />
-        </div>
+        </form>
 
         {/* Role filter */}
-        {roles.length > 0 && (
-          <select
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-            className="rounded-xl border border-breu/[0.06] bg-white px-4 py-3 font-data text-xs text-breu shadow-sm focus:border-iris/30 focus:outline-none"
-          >
-            <option value="all">Todas as roles</option>
-            {roles.map((r) => (
-              <option key={r} value={r}>{r}</option>
-            ))}
-          </select>
-        )}
+        <select
+          value={filters.role}
+          onChange={(e) => handleRoleFilter(e.target.value)}
+          className="rounded-xl border border-breu/[0.06] bg-white px-4 py-3 font-data text-xs text-breu shadow-sm focus:border-iris/30 focus:outline-none"
+        >
+          <option value="all">Todas as roles</option>
+          {roles.map((r) => (
+            <option key={r} value={r}>{r}</option>
+          ))}
+        </select>
 
         {/* Export */}
         <button
@@ -137,7 +163,7 @@ export function AdminUsersClient({ users }: { users: User[] }) {
         </button>
 
         <span className="ml-auto font-data text-[11px] text-aco/45">
-          {filtered.length} de {users.length}
+          {users.length} nesta página · {pagination.totalCount} total
         </span>
       </div>
 
@@ -176,7 +202,7 @@ export function AdminUsersClient({ users }: { users: User[] }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-breu/[0.04]">
-              {filtered.map((u) => (
+              {sorted.map((u) => (
                 <tr key={u.id} className="transition hover:bg-bruma/30">
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-3">
@@ -215,17 +241,59 @@ export function AdminUsersClient({ users }: { users: User[] }) {
             </tbody>
           </table>
         </div>
-        {filtered.length === 0 && (
+        {sorted.length === 0 && (
           <div className="flex flex-col items-center gap-2 py-12 text-center">
             <Users className="h-8 w-8 text-aco/30" />
             <p className="text-sm text-aco/50">
-              {search || roleFilter !== "all"
+              {filters.search || filters.role !== "all"
                 ? "Nenhum usuário corresponde aos filtros."
                 : "Nenhum usuário encontrado."}
             </p>
           </div>
         )}
       </div>
+
+      {/* Paginação */}
+      {pagination.totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <span className="font-data text-[11px] text-aco/50">
+            Página {pagination.page} de {pagination.totalPages} · {pagination.totalCount} total
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handlePage(pagination.page - 1)}
+              disabled={pagination.page <= 1}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-breu/[0.06] bg-white text-aco transition hover:border-iris/20 disabled:opacity-30"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            {Array.from({ length: Math.min(pagination.totalPages, 5) }, (_, i) => {
+              const p = i + 1;
+              return (
+                <button
+                  key={p}
+                  onClick={() => handlePage(p)}
+                  className={cn(
+                    "inline-flex h-9 w-9 items-center justify-center rounded-lg font-data text-xs transition",
+                    p === pagination.page
+                      ? "bg-iris text-white"
+                      : "border border-breu/[0.06] bg-white text-aco hover:border-iris/20",
+                  )}
+                >
+                  {p}
+                </button>
+              );
+            })}
+            <button
+              onClick={() => handlePage(pagination.page + 1)}
+              disabled={pagination.page >= pagination.totalPages}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-breu/[0.06] bg-white text-aco transition hover:border-iris/20 disabled:opacity-30"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

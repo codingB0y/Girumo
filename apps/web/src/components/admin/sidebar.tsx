@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -13,6 +14,9 @@ import {
   Shield,
   HeartPulse,
   Bot,
+  Menu,
+  X,
+  Funnel,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/landing/logo";
@@ -26,6 +30,7 @@ const SECTIONS = [
       { href: "/admin/usuarios", label: "Usuários", icon: Users },
       { href: "/admin/instancias", label: "Instâncias", icon: Smartphone },
       { href: "/admin/agentes", label: "Agentes IA", icon: Bot },
+      { href: "/admin/funil", label: "Funil", icon: Funnel },
     ],
   },
   {
@@ -50,9 +55,10 @@ function isActive(pathname: string, href: string) {
 
 export function AdminSidebar({ email }: { email: string }) {
   const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r border-white/5 bg-breu lg:flex">
+  const navContent = (
+    <>
       <div className="flex h-16 items-center gap-3 px-5">
         <Logo wordmarkClassName="text-white" symbolClassName="h-6 w-6" />
         <span className="rounded-md bg-alerta/20 px-2 py-0.5 font-data text-[10px] uppercase tracking-wider text-alerta">
@@ -73,6 +79,7 @@ export function AdminSidebar({ email }: { email: string }) {
                   <Link
                     key={href}
                     href={href}
+                    onClick={() => setMobileOpen(false)}
                     className={cn(
                       "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition",
                       active
@@ -104,6 +111,47 @@ export function AdminSidebar({ email }: { email: string }) {
           </div>
         </div>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-white/5 bg-breu lg:flex">
+        {navContent}
+      </aside>
+
+      {/* Mobile hamburger button */}
+      <button
+        onClick={() => setMobileOpen(true)}
+        className="fixed left-4 top-4 z-50 flex h-10 w-10 items-center justify-center rounded-xl border border-breu/10 bg-white text-breu shadow-md lg:hidden"
+        aria-label="Abrir menu"
+      >
+        <Menu className="h-5 w-5" />
+      </button>
+
+      {/* Mobile drawer */}
+      {mobileOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm lg:hidden"
+            onClick={() => setMobileOpen(false)}
+            aria-hidden
+          />
+          {/* Drawer */}
+          <aside className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-breu shadow-2xl lg:hidden">
+            <button
+              onClick={() => setMobileOpen(false)}
+              className="absolute right-3 top-4 flex h-9 w-9 items-center justify-center rounded-xl text-bruma/60 transition hover:bg-white/10 hover:text-white"
+              aria-label="Fechar menu"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            {navContent}
+          </aside>
+        </>
+      )}
+    </>
   );
 }

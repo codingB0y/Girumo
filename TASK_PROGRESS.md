@@ -133,11 +133,25 @@ Preservar arquitetura. Modificar somente o necessário.
 
 ## Checklist Sprint 2
 
-- [ ] 14. Supabase Google OAuth — config backend
-- [ ] 15. Botão Google no Login
-- [ ] 16. Botão Google no Signup
-- [ ] 17. Página `/forgot-password`
-- [ ] 18. API route reset password
-- [ ] 19. Link do Login → forgot-password
-- [ ] 20. Componente stepper/progress
-- [ ] 21. Integrar stepper no Signup + Onboarding
+- [x] 14. Supabase Google OAuth — API routes (`/api/auth/google` + `/api/auth/callback`)
+- [x] 15. Botão "Entrar com Google" no Login
+- [x] 16. Botão "Criar conta com Google" no Signup
+- [x] 17. Página `/forgot-password` — melhorada com estado de sucesso, checklist, UX polida
+- [x] 18. API route reset password — já existia via Supabase client-side (mantido)
+- [x] 19. Link Login → forgot-password — já existia (confirmado funcional)
+- [x] 20. Componente `SignupProgress` (stepper 3 passos)
+- [x] 21. Integrado no Signup (step 1) e Onboarding (step 2)
+
+**Sprint 2: 8/8 concluídos ✓ Build OK**
+
+## Arquivos alterados Sprint 2
+
+| # | Arquivo | Tipo | Mudança |
+|---|---------|------|--------|
+| 1 | `apps/web/src/app/api/auth/google/route.ts` | NOVO | Inicia fluxo OAuth Google via Supabase |
+| 2 | `apps/web/src/app/api/auth/callback/route.ts` | NOVO | Callback OAuth — troca code, cria org se novo, seta cookie |
+| 3 | `apps/web/src/app/login/page.tsx` | EDITADO | Botão Google + GoogleIcon + divider |
+| 4 | `apps/web/src/app/signup/page.tsx` | EDITADO | Botão Google + GoogleIcon + divider + SignupProgress |
+| 5 | `apps/web/src/app/forgot-password/page.tsx` | EDITADO | UX melhorada: estado de sucesso, checklist, validação |
+| 6 | `apps/web/src/components/signup-progress.tsx` | NOVO | Stepper visual 3 passos (criar conta → conectar → disparar) |
+| 7 | `apps/web/src/app/(app)/onboarding/page.tsx` | EDITADO | SignupProgress integrado (step 2) |

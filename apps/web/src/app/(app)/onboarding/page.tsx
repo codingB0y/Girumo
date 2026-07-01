@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSessionAccountId } from "@/lib/session";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { OnboardingWizard } from "@/components/onboarding-wizard";
+import { SignupProgress } from "@/components/signup-progress";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +42,10 @@ export default async function OnboardingPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-bruma p-4">
-      <OnboardingWizard userName={user?.name ?? ""} />
+      <div className="w-full max-w-lg">
+        <SignupProgress current={2} />
+        <OnboardingWizard userName={user?.name ?? ""} />
+      </div>
     </main>
   );
 }

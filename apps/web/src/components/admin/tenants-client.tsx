@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   Building2,
@@ -9,6 +10,8 @@ import {
   CreditCard,
   Search,
   ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +23,18 @@ type Tenant = {
   members: number;
   subscriptionStatus: string;
   planName: string;
+};
+
+type Pagination = {
+  page: number;
+  totalPages: number;
+  totalCount: number;
+  perPage: number;
+};
+
+type Filters = {
+  search: string;
+  status: string;
 };
 
 type SortField = "name" | "members" | "createdAt" | "subscriptionStatus";
@@ -41,29 +56,46 @@ const STATUS_LABELS: Record<string, string> = {
   past_due: "Inadimplente",
 };
 
-export function AdminTenantsClient({ tenants }: { tenants: Tenant[] }) {
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+export function AdminTenantsClient({
+  tenants,
+  pagination,
+  filters,
+}: {
+  tenants: Tenant[];
+  pagination: Pagination;
+  filters: Filters;
+}) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [search, setSearch] = useState(filters.search);
   const [sortField, setSortField] = useState<SortField>("createdAt");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
-  const filtered = useMemo(() => {
-    let result = tenants;
-
-    if (search) {
-      const q = search.toLowerCase();
-      result = result.filter(
-        (t) =>
-          t.name.toLowerCase().includes(q) ||
-          t.slug.toLowerCase().includes(q),
-      );
+  function navigate(params: Record<string, string>) {
+    const sp = new URLSearchParams(searchParams.toString());
+    for (const [k, v] of Object.entries(params)) {
+      if (v) sp.set(k, v);
+      else sp.delete(k);
     }
+    router.push(`/admin/tenants?${sp.toString()}`);
+  }
 
-    if (statusFilter !== "all") {
-      result = result.filter((t) => t.subscriptionStatus === statusFilter);
-    }
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    navigate({ search, page: "1" });
+  }
 
-    result = [...result].sort((a, b) => {
+  function handleStatusFilter(status: string) {
+    navigate({ status: status === "all" ? "" : status, page: "1" });
+  }
+
+  function handlePage(p: number) {
+    navigate({ page: String(p) });
+  }
+
+  // Client-side sort (within current page)
+  const sorted = useMemo(() => {
+    return [...tenants].sort((a, b) => {
       let cmp = 0;
       switch (sortField) {
         case "name":
@@ -81,9 +113,7 @@ export function AdminTenantsClient({ tenants }: { tenants: Tenant[] }) {
       }
       return sortDir === "asc" ? cmp : -cmp;
     });
-
-    return result;
-  }, [tenants, search, statusFilter, sortField, sortDir]);
+  }, [tenants, sortField, sortDir]);
 
   function toggleSort(field: SortField) {
     if (sortField === field) {
@@ -94,54 +124,51 @@ export function AdminTenantsClient({ tenants }: { tenants: Tenant[] }) {
     }
   }
 
-  // Unique statuses
-  const statuses = [...new Set(tenants.map((t) => t.subscriptionStatus))];
+  // Unique statuses para pills
+  const statuses = ["active", "trialing", "free", "canceled", "past_due"];
 
   return (
     <div className="space-y-4">
       {/* Status pills */}
       <div className="flex flex-wrap items-center gap-2">
         <button
-          onClick={() => setStatusFilter("all")}
+          onClick={() => handleStatusFilter("all")}
           className={cn(
             "rounded-full px-3 py-1.5 font-data text-[11px] uppercase tracking-wider transition",
-            statusFilter === "all"
+            filters.status === "all"
               ? "bg-iris/10 text-iris ring-1 ring-iris/20"
               : "bg-white border border-breu/[0.06] text-aco/60 hover:bg-bruma/40",
           )}
         >
-          Todos ({tenants.length})
+          Todos
         </button>
-        {statuses.map((status) => {
-          const count = tenants.filter((t) => t.subscriptionStatus === status).length;
-          return (
-            <button
-              key={status}
-              onClick={() => setStatusFilter(statusFilter === status ? "all" : status)}
-              className={cn(
-                "rounded-full px-3 py-1.5 font-data text-[11px] uppercase tracking-wider transition",
-                statusFilter === status
-                  ? `${STATUS_STYLES[status] ?? "bg-slate-100 text-slate-600"} ring-1 ring-current/20`
-                  : "bg-white border border-breu/[0.06] text-aco/60 hover:bg-bruma/40",
-              )}
-            >
-              {STATUS_LABELS[status] ?? status} ({count})
-            </button>
-          );
-        })}
+        {statuses.map((status) => (
+          <button
+            key={status}
+            onClick={() => handleStatusFilter(filters.status === status ? "all" : status)}
+            className={cn(
+              "rounded-full px-3 py-1.5 font-data text-[11px] uppercase tracking-wider transition",
+              filters.status === status
+                ? `${STATUS_STYLES[status] ?? "bg-slate-100 text-slate-600"} ring-1 ring-current/20`
+                : "bg-white border border-breu/[0.06] text-aco/60 hover:bg-bruma/40",
+            )}
+          >
+            {STATUS_LABELS[status] ?? status}
+          </button>
+        ))}
       </div>
 
       {/* Search */}
-      <div className="relative">
+      <form onSubmit={handleSearch} className="relative">
         <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-aco/40" />
         <input
           type="text"
-          placeholder="Buscar por nome ou slug..."
+          placeholder="Buscar por nome ou slug... (Enter para buscar)"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full rounded-xl border border-breu/[0.06] bg-white py-3 pl-11 pr-4 text-sm text-breu shadow-sm placeholder:text-aco/40 focus:border-iris/30 focus:outline-none focus:ring-2 focus:ring-iris/10"
         />
-      </div>
+      </form>
 
       {/* Table */}
       <div className="rounded-2xl border border-breu/[0.06] bg-white shadow-sm">
@@ -186,7 +213,7 @@ export function AdminTenantsClient({ tenants }: { tenants: Tenant[] }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-breu/[0.04]">
-              {filtered.map((org) => (
+              {sorted.map((org) => (
                 <tr key={org.id} className="transition hover:bg-bruma/30">
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-3">
@@ -228,17 +255,59 @@ export function AdminTenantsClient({ tenants }: { tenants: Tenant[] }) {
             </tbody>
           </table>
         </div>
-        {filtered.length === 0 && (
+        {sorted.length === 0 && (
           <div className="flex flex-col items-center gap-2 py-12 text-center">
             <Building2 className="h-8 w-8 text-aco/30" />
             <p className="text-sm text-aco/50">
-              {search || statusFilter !== "all"
+              {filters.search || filters.status !== "all"
                 ? "Nenhum tenant corresponde aos filtros."
                 : "Nenhum tenant cadastrado."}
             </p>
           </div>
         )}
       </div>
+
+      {/* Paginação */}
+      {pagination.totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <span className="font-data text-[11px] text-aco/50">
+            Página {pagination.page} de {pagination.totalPages} · {pagination.totalCount} total
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handlePage(pagination.page - 1)}
+              disabled={pagination.page <= 1}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-breu/[0.06] bg-white text-aco transition hover:border-iris/20 disabled:opacity-30"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            {Array.from({ length: Math.min(pagination.totalPages, 5) }, (_, i) => {
+              const p = i + 1;
+              return (
+                <button
+                  key={p}
+                  onClick={() => handlePage(p)}
+                  className={cn(
+                    "inline-flex h-9 w-9 items-center justify-center rounded-lg font-data text-xs transition",
+                    p === pagination.page
+                      ? "bg-iris text-white"
+                      : "border border-breu/[0.06] bg-white text-aco hover:border-iris/20",
+                  )}
+                >
+                  {p}
+                </button>
+              );
+            })}
+            <button
+              onClick={() => handlePage(pagination.page + 1)}
+              disabled={pagination.page >= pagination.totalPages}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-breu/[0.06] bg-white text-aco transition hover:border-iris/20 disabled:opacity-30"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
