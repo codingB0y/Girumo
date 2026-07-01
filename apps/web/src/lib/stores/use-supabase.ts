@@ -1,17 +1,9 @@
 /**
  * Feature flag: use Supabase stores instead of legacy JSON files.
  *
- * Set HUBFLOW_USE_SUPABASE=1 in .env.local to enable.
- * Default: false (legacy JSON stores).
+ * Default: true. All API routes use Supabase stores.
+ * Legacy JSON code kept temporarily for reference but no longer executes.
  *
- * When true, all API routes should import from `@/lib/stores` instead of
- * `@/lib/json-collection` or the old store files.
- *
- * Migration strategy:
- * 1. Deploy with HUBFLOW_USE_SUPABASE=0 (default) — works as before
- * 2. Run the SQL migration on Supabase
- * 3. Run the data migration script to seed Supabase from JSON
- * 4. Set HUBFLOW_USE_SUPABASE=1 — now uses Supabase
- * 5. Remove legacy JSON code once stable
+ * Set HUBFLOW_USE_SUPABASE=0 to fallback to JSON (only for emergency/debugging).
  */
-export const USE_SUPABASE = process.env.HUBFLOW_USE_SUPABASE === "1";
+export const USE_SUPABASE = process.env.HUBFLOW_USE_SUPABASE !== "0";
