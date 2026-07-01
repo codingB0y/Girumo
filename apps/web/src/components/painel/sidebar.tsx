@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   Sun,
   Layers,
@@ -32,6 +33,15 @@ function isActive(pathname: string, href: string) {
 
 export function PainelSidebar() {
   const pathname = usePathname();
+  const [connected, setConnected] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetch("/api/session")
+      .then((r) => r.json())
+      .then((s) => setConnected(s?.live === true))
+      .catch(() => setConnected(false));
+  }, []);
+
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-white/5 bg-breu lg:flex">
       <div className="flex h-16 items-center px-5">
@@ -65,6 +75,22 @@ export function PainelSidebar() {
       </nav>
 
       <div className="border-t border-white/5 px-3 py-4">
+        {/* Connection status */}
+        <Link
+          href="/painel/conectar"
+          className="mb-2 flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition hover:bg-white/[0.03]"
+        >
+          <span
+            className={cn(
+              "h-2 w-2 rounded-full",
+              connected === null ? "bg-bruma/40" : connected ? "bg-sucesso" : "bg-alerta",
+            )}
+          />
+          <span className={cn("text-xs", connected ? "text-bruma/60" : "text-atencao")}>
+            {connected === null ? "Verificando…" : connected ? "WhatsApp conectado" : "WhatsApp desconectado"}
+          </span>
+        </Link>
+
         <div className="space-y-1">
           {BOTTOM_ITEMS.map(({ href, label, icon: Icon }) => {
             const active = isActive(pathname, href);

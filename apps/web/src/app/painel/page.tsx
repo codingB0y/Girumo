@@ -12,6 +12,8 @@ import {
   Wifi,
   WifiOff,
   ArrowUpRight,
+  ArrowDownRight,
+  Minus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -57,6 +59,14 @@ type DashboardData = {
   leads: Lead[];
   session: Session;
 };
+
+// ---------- Helpers ----------
+
+function getDateStr(daysAgo: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  return d.toISOString().slice(0, 10);
+}
 
 // ---------- Component ----------
 
@@ -289,11 +299,18 @@ function FullDashboard({
   const totalContatos = leads.length;
   const conversion = totalClicks > 0 ? Math.round((totalMembers / totalClicks) * 100) : 0;
 
-  // Today's leads (entered today)
-  const today = new Date().toISOString().slice(0, 10);
+  // Date helpers
+  const today = getDateStr(0);
+  const yesterday = getDateStr(1);
+
+  // Leads per day
   const leadsToday = useMemo(
     () => leads.filter((l) => l.enteredAt?.startsWith(today)).length,
     [leads, today],
+  );
+  const leadsYesterday = useMemo(
+    () => leads.filter((l) => l.enteredAt?.startsWith(yesterday)).length,
+    [leads, yesterday],
   );
 
   // Groups almost full (>= 90%)
@@ -301,6 +318,9 @@ function FullDashboard({
     () => groups.filter((g) => g.capacity > 0 && g.members / g.capacity >= 0.9),
     [groups],
   );
+
+  // Delta info
+  const deltaLeads = leadsToday - leadsYesterday;
 
   const stats = [
     {
@@ -339,16 +359,8 @@ function FullDashboard({
         </p>
       </div>
 
-      {/* Today's highlight */}
-      {leadsToday > 0 && (
-        <div className="flex items-center gap-3 rounded-2xl border border-sucesso/20 bg-sucesso/[0.05] px-5 py-3">
-          <ArrowUpRight className="h-5 w-5 text-sucesso" />
-          <p className="text-sm text-breu">
-            <span className="font-bold">{leadsToday}</span>{" "}
-            {leadsToday === 1 ? "novo contato" : "novos contatos"} entraram hoje nos seus grupos
-          </p>
-        </div>
-      )}
+      {/* Desde ontem */}
+      <SinceYesterday leadsToday={leadsToday} deltaLeads={deltaLeads} />
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -466,6 +478,62 @@ function FullDashboard({
     </div>
   );
 }
+
+// ---------- Since Yesterday ----------
+
+function SinceYesterday({ leadsToday, deltaLeads }: { leadsToday: number; deltaLeads: number }) {
+  // Don't show if no activity at all
+  if (leadsToday === 0 && deltaLeads === 0) return null;
+
+  const isUp = deltaLeads > 0;
+  const isDown = deltaLeads < 0;
+
+  return (
+    <div className="rounded-2xl border border-breu/[0.08] bg-white px-5 py-4">
+      <p className="font-data text-[10px] uppercase tracking-wider text-aco/50">Desde ontem</p>
+      <div className="mt-2 flex flex-wrap items-center gap-4">
+        {/* Leads today */}
+        <div className="flex items-center gap-2">
+          <UserPlus className="h-4 w-4 text-iris" />
+          <span className="font-display text-lg font-extrabold tabular-nums text-breu">
+            {leadsToday}
+          </span>
+          <span className="text-sm text-aco/70">
+            {leadsToday === 1 ? "contato novo" : "contatos novos"} hoje
+          </span>
+        </div>
+
+        {/* Delta badge */}
+        {deltaLeads !== 0 && (
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-data text-xs font-medium",
+              isUp && "bg-sucesso/10 text-sucesso",
+              isDown && "bg-alerta/10 text-alerta",
+            )}
+          >
+            {isUp ? (
+              <ArrowUpRight className="h-3 w-3" />
+            ) : (
+              <ArrowDownRight className="h-3 w-3" />
+            )}
+            {isUp ? "+" : ""}
+            {deltaLeads} vs ontem
+          </span>
+        )}
+
+        {deltaLeads === 0 && leadsToday > 0 && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-bruma px-2.5 py-1 font-data text-xs text-aco/60">
+            <Minus className="h-3 w-3" />
+            Igual a ontem
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------- Quick Action ----------
 
 function QuickAction({
   href,

@@ -13,6 +13,7 @@ import {
   X,
   Settings,
   Sparkles,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/landing/logo";
@@ -20,7 +21,7 @@ import { Logo } from "@/components/landing/logo";
 const PRIMARY = [
   { href: "/painel", label: "Início", icon: Sun },
   { href: "/painel/campanhas", label: "Campanhas", icon: Layers },
-  { href: "/painel/grupos", label: "Grupos", icon: Users },
+  { href: "/painel/squad-os", label: "Equipe AI", icon: Bot },
   { href: "/painel/resultados", label: "Resultados", icon: TrendingUp },
 ];
 
@@ -30,6 +31,7 @@ const ALL = [
   { href: "/painel/grupos", label: "Grupos", icon: Users },
   { href: "/painel/contatos", label: "Contatos", icon: UserPlus },
   { href: "/painel/resultados", label: "Resultados", icon: TrendingUp },
+  { href: "/painel/squad-os", label: "Equipe AI", icon: Bot },
   { href: "/painel/configuracoes", label: "Configurações", icon: Settings },
 ];
 
