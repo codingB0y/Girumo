@@ -2,6 +2,7 @@ import { Users, CreditCard, Mail, Shield, ArrowLeft, Smartphone } from "lucide-r
 import Link from "next/link";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
+import { TenantActions } from "@/components/admin/tenant-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ export default async function AdminTenantDetailPage({ params }: Props) {
   // Buscar organização
   const { data: org } = await supabase
     .from("organizations")
-    .select("id, name, slug, created_at, created_by")
+    .select("id, name, slug, created_at, created_by, status")
     .eq("id", id)
     .single();
 
@@ -59,6 +60,8 @@ export default async function AdminTenantDetailPage({ params }: Props) {
     .eq("tenant_id", id)
     .limit(10);
 
+  const isSuspended = org.status === "suspended";
+
   return (
     <div className="mx-auto max-w-[1200px] space-y-6">
       <div className="flex items-center gap-4">
@@ -68,13 +71,30 @@ export default async function AdminTenantDetailPage({ params }: Props) {
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>
-        <div>
-          <h1 className="font-display text-2xl font-extrabold tracking-tight">{org.name}</h1>
+        <div className="flex-1">
+          <div className="flex items-center gap-3">
+            <h1 className="font-display text-2xl font-extrabold tracking-tight">{org.name}</h1>
+            {isSuspended && (
+              <span className="rounded-full bg-red-50 px-2.5 py-1 font-data text-[10px] uppercase tracking-wider text-red-600">
+                Suspenso
+              </span>
+            )}
+          </div>
           <p className="font-data mt-0.5 text-xs uppercase tracking-wider text-aco/55">
             {org.slug} · Criado em {new Date(org.created_at).toLocaleDateString("pt-BR")}
           </p>
         </div>
       </div>
+
+      {/* Ações administrativas */}
+      <section className="rounded-2xl border border-breu/[0.06] bg-white p-5 shadow-sm">
+        <h2 className="font-display mb-4 text-base font-bold">Ações</h2>
+        <TenantActions
+          tenantId={org.id}
+          tenantName={org.name}
+          currentStatus={org.status ?? "active"}
+        />
+      </section>
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Membros */}

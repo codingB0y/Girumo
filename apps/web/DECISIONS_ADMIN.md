@@ -1,0 +1,26 @@
+# DECISIONS_ADMIN.md
+
+## Decisões arquiteturais
+
+### 001 — Auth por email whitelist
+- **Data:** 2026-07-01
+- **Decisão:** Super-admin identificado por env var `PLATFORM_ADMIN_EMAILS` (lista de emails)
+- **Razão:** Simplicidade na fase 1, sem tabela extra. Evita role-based complexity.
+- **Trade-off:** Não escala pra muitos admins — migrar pra tabela `platform_admins` quando necessário.
+
+### 002 — Service role pra queries cross-tenant
+- **Data:** 2026-07-01
+- **Decisão:** Admin usa `getSupabaseAdmin()` (service_role key) pra acessar dados de todos os tenants.
+- **Razão:** RLS bloqueia acesso cross-tenant por design. Admin precisa ver tudo.
+- **Trade-off:** Qualquer bug no admin-guard expõe todos os dados.
+
+### 003 — Client components separados
+- **Data:** 2026-07-01
+- **Decisão:** Tabelas interativas (tenants, users, logs) em components separados `*-client.tsx`.
+- **Razão:** Server components nas páginas pra SSR dos dados, client components pra interatividade.
+- **Trade-off:** Mais arquivos, mas separação clara de responsabilidades.
+
+### 004 — Cor alerta (vermelho) pra admin
+- **Data:** 2026-07-01
+- **Decisão:** Sidebar usa cor `alerta` ao invés de `iris` pra distinguir visualmente do painel tenant.
+- **Razão:** Admin não deve ser confundido com painel do lojista. Vermelho = poder + cuidado.

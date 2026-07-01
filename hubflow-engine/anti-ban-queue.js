@@ -42,6 +42,8 @@ export class AntiBanQueue {
     this.consecutiveFailures = 0;
     this.paused = false;
     this.running = false;
+    this.draining = false; // graceful shutdown: rejeita novos, termina em-flight
+    this._drainResolve = null;
     this.log = opts.onLog ?? (() => {});
   }
 
@@ -60,6 +62,9 @@ export class AntiBanQueue {
 
   /** Enfileira uma tarefa de envio. Retorna uma Promise com o resultado. */
   enqueue(task, { priority = false } = {}) {
+    if (this.draining) {
+      return Promise.reject(new Error("Queue is draining — no new tasks accepted"));
+    }
     return new Promise((resolve, reject) => {
       const item = { task, resolve, reject, attempts: 0 };
       (priority ? this.high : this.normal).push(item);
@@ -83,6 +88,53 @@ export class AntiBanQueue {
     this._run();
   }
 
+  /**
+   * Graceful drain: rejeita novos enqueue, espera o item em-flight terminar,
+   * rejeita os que ainda estão na fila. Retorna uma Promise que resolve quando
+   * a fila está vazia (ou após timeoutMs).
+   */
+  drain(timeoutMs = 10_000) {
+    this.draining = true;
+    this.log("🚿 Fila em drain — rejeitando novos, finalizando em-flight...");
+
+    // Rejeita tudo que ainda não começou a executar
+    const rejectPending = () => {
+      for (const item of [...this.high, ...this.normal]) {
+        item.reject(new Error("Queue drained — task discarded"));
+      }
+      this.high = [];
+      this.normal = [];
+    };
+
+    return new Promise((resolve) => {
+      this._drainResolve = resolve;
+
+      // Se não tem nada rodando, resolve já
+      if (!this.running) {
+        rejectPending();
+        resolve();
+        return;
+      }
+
+      // Timeout de segurança: não espera forever
+      const timer = setTimeout(() => {
+        rejectPending();
+        this.log("🚿 Drain timeout — forçando saída.");
+        resolve();
+      }, timeoutMs);
+
+      // Checa periodicamente se o runner terminou
+      const check = setInterval(() => {
+        if (!this.running) {
+          clearInterval(check);
+          clearTimeout(timer);
+          rejectPending();
+          resolve();
+        }
+      }, 200);
+    });
+  }
+
   stats() {
     const now = Date.now();
     const since = (ms) => this.sentTimestamps.filter((t) => now - t < ms).length;
@@ -92,6 +144,7 @@ export class AntiBanQueue {
       enviadasUltimaHora: since(3_600_000),
       enviadasHoje: since(86_400_000),
       pausada: this.paused,
+      draining: this.draining,
     };
   }
 
@@ -120,6 +173,8 @@ export class AntiBanQueue {
         }
       }
       if (waitMs <= 0) return;
+      // Se em drain, não espera — sai logo
+      if (this.draining) return;
       this.log(`⏳ Limite de envio atingido. Aguardando ~${Math.ceil(waitMs / 1000)}s...`);
       await delay(Math.min(waitMs, 5000)); // re-checa periodicamente
     }
@@ -130,6 +185,7 @@ export class AntiBanQueue {
     this.running = true;
     try {
       while (this.size() > 0) {
+        if (this.draining) break; // drain: para de processar novos items
         if (this.paused) {
           await delay(1000);
           continue;

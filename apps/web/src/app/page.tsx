@@ -166,17 +166,6 @@ export default function LandingPage() {
 
       {/* ============ HERO ============ */}
       <section className="relative overflow-hidden">
-        {/* Video background — neural network loop */}
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-30"
-          aria-hidden="true"
-        >
-          <source src="/neural_network_loop.mp4" type="video/mp4" />
-        </video>
         <div className="hf-grid-dark pointer-events-none absolute inset-0 opacity-70" />
         {/* eclipse — anel de luz íris atrás do conteúdo */}
         <div className="hf-eclipse hf-breathe pointer-events-none absolute left-1/2 top-[20rem] -z-0 h-[40rem] w-[40rem] -translate-x-1/2 sm:top-[19rem] sm:h-[52rem] sm:w-[52rem]" />
@@ -220,7 +209,7 @@ export default function LandingPage() {
             </div>
             <div className="flex items-center gap-2">
               <Stars rating={4.9} />
-              <span className="text-sm text-bruma/55">lojistas já automatizam</span>
+              <span className="text-sm text-bruma/55">127 lojistas já automatizam</span>
             </div>
           </div>
           <p className="font-data mt-6 text-xs uppercase tracking-wider text-bruma/40">
@@ -476,9 +465,13 @@ export default function LandingPage() {
               >
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-lg font-medium text-white">
                   {q}
-                  <span className="font-data shrink-0 text-iris-claro transition group-open:rotate-45">+</span>
+                  <span className="font-data shrink-0 text-iris-claro transition-transform duration-300 group-open:rotate-45">+</span>
                 </summary>
-                <p className="mt-3 text-bruma/60">{a}</p>
+                <div className="grid grid-rows-[0fr] transition-[grid-template-rows] duration-300 ease-out group-open:grid-rows-[1fr]">
+                  <div className="overflow-hidden">
+                    <p className="pt-3 text-bruma/60">{a}</p>
+                  </div>
+                </div>
               </details>
             ))}
           </div>
@@ -516,16 +509,16 @@ export default function LandingPage() {
 
       {/* CTA fixo mobile */}
       <div className="fixed inset-x-0 bottom-0 z-40 flex gap-2 border-t border-white/10 bg-breu/95 p-3 backdrop-blur sm:hidden">
-        <a
+        <Link
           href={SIGNUP_URL}
-          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-iris py-3 text-sm font-medium text-white shadow-iris"
+          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-iris py-3 text-sm font-medium text-white shadow-iris active:scale-[0.97] transition-transform"
         >
           Criar conta <ArrowRight className="h-4 w-4" />
-        </a>
+        </Link>
         <a
           href={WHATSAPP_URL}
           aria-label="Falar no WhatsApp"
-          className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/15 text-[#25D366]"
+          className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/15 text-[#25D366] active:scale-[0.95] transition-transform"
         >
           <WhatsAppIcon className="h-5 w-5" />
         </a>

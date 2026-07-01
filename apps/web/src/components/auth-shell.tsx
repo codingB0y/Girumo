@@ -15,9 +15,9 @@ type AuthShellProps = {
 };
 
 const defaultChecklist = [
-  "Crie sua organizacao",
-  "Conecte o WhatsApp com a engine",
-  "Capture leads e envie ofertas",
+  "Crie sua conta em segundos",
+  "Conecte seu WhatsApp pelo QR Code",
+  "Dispare ofertas para todos os grupos",
 ];
 
 export function AuthShell({
@@ -46,13 +46,12 @@ export function AuthShell({
           </Link>
 
           <div className="mt-14 max-w-xl">
-            <p className="text-sm font-medium text-iris-escuro">Operacao de crescimento para WhatsApp</p>
+            <p className="text-sm font-medium text-iris-escuro">Gestão de grupos no WhatsApp</p>
             <h1 className="mt-3 text-4xl font-semibold tracking-normal text-breu">
-              Entre, conecte a engine e acompanhe tudo em um painel simples.
+              Entre, conecte seu WhatsApp e gerencie tudo num painel só.
             </h1>
             <p className="mt-4 text-base leading-7 text-aco">
-              O HUBFLOW organiza leads, campanhas, membros, planos e logs por tenant para manter cada cliente isolado
-              e pronto para operar.
+              O HubFlow cuida dos disparos, agendamentos e monitoramento dos seus grupos — enquanto você foca em vender.
             </p>
           </div>
 
@@ -81,7 +80,7 @@ export function AuthShell({
             <div className="mb-5">
               <div className="mb-3 inline-flex items-center gap-2 rounded-lg border border-breu/10 bg-bruma px-2.5 py-1 text-xs font-medium text-aco">
                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-                Acesso seguro por organizacao
+                Acesso seguro por organização
               </div>
               <h1 className="text-2xl font-semibold tracking-normal text-breu">{title}</h1>
               <p className="mt-1 text-sm leading-5 text-aco/70">{subtitle}</p>
@@ -96,7 +95,7 @@ export function AuthShell({
 
             <div className="mt-5 flex items-start gap-2 rounded-lg border border-breu/10 bg-bruma px-3 py-2 text-xs leading-5 text-aco/70">
               <LockKeyhole className="mt-0.5 h-3.5 w-3.5 shrink-0 text-aco/50" />
-              <span>Seus dados ficam isolados por tenant com Supabase Auth, Postgres RLS e Storage privado.</span>
+              <span>Seus dados são protegidos e separados de outros negócios. Só você acessa.</span>
             </div>
           </div>
 
