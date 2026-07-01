@@ -15,14 +15,15 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getSquads, getAgents, getMissions, getDecisions } from "@/lib/stores/squad-os";
+import { useRealtimeSquads, useRealtimeMissions, useRealtimeDecisions } from "@/lib/hooks/use-realtime-squad-os";
 import type { Squad, Agent, Mission, Decision } from "@/lib/types/squad-os";
 import { SQUAD_STATUS_CONFIG } from "@/lib/types/squad-os";
 
 export default function SquadOSPage() {
-  const [squads, setSquads] = useState<Squad[]>([]);
+  const [initialSquads, setInitialSquads] = useState<Squad[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [missions, setMissions] = useState<Mission[]>([]);
-  const [decisions, setDecisions] = useState<Decision[]>([]);
+  const [initialMissions, setInitialMissions] = useState<Mission[]>([]);
+  const [initialDecisions, setInitialDecisions] = useState<Decision[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -33,13 +34,18 @@ export default function SquadOSPage() {
         getMissions(),
         getDecisions(),
       ]);
-      setSquads(s);
+      setInitialSquads(s);
       setAgents(a);
-      setMissions(m);
-      setDecisions(d);
+      setInitialMissions(m);
+      setInitialDecisions(d);
       setLoading(false);
     })();
   }, []);
+
+  // Realtime — UI atualiza automaticamente quando o banco muda
+  const squads = useRealtimeSquads(initialSquads);
+  const missions = useRealtimeMissions(initialMissions);
+  const decisions = useRealtimeDecisions(initialDecisions);
 
   if (loading) {
     return (
@@ -103,6 +109,10 @@ export default function SquadOSPage() {
           </h1>
           <p className="font-data mt-1 text-xs uppercase tracking-wider text-aco/60">
             Squad OS · Operando o HubFlow
+            <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-sucesso/10 px-2 py-0.5 text-[9px] text-sucesso">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-sucesso" />
+              Realtime
+            </span>
           </p>
         </div>
         <Link
@@ -119,7 +129,7 @@ export default function SquadOSPage() {
         {stats.map((s) => (
           <div
             key={s.label}
-            className="rounded-2xl border border-breu/[0.08] bg-white p-4"
+            className="rounded-2xl border border-breu/[0.08] bg-white p-4 transition-all"
           >
             <div className="flex items-center gap-2">
               <s.icon className={cn("h-4 w-4", s.color)} />
@@ -221,7 +231,7 @@ export default function SquadOSPage() {
                       {m.title}
                     </p>
                     <p className="font-data text-[11px] text-aco/55">
-                      {squads.find((s) => s.slug === m.squad_id)?.name ?? m.squad_id}
+                      {squads.find((s) => s.id === m.squad_id)?.name ?? m.squad_id}
                     </p>
                   </div>
                   <Clock className="h-4 w-4 shrink-0 text-aco/30" />
