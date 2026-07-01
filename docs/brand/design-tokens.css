@@ -1,0 +1,50 @@
+/* HubFlow — Design Tokens · Direção B · Corrente
+   Cole no seu :root e use as variáveis no projeto. */
+
+:root {
+  /* ░ Cores base (60/30/10) ░ */
+  --hf-breu:        #0B0D1A;  /* base, fundo premium, texto sobre claro */
+  --hf-breu-2:      #11142A;  /* superfície elevada (cards no escuro) */
+  --hf-iris:        #6A4BF0;  /* acento único — CTAs, ativos, destaques */
+  --hf-iris-claro:  #8A6CFF;  /* hover / realce de texto no escuro */
+  --hf-iris-escuro: #3D1FB0;  /* fim de gradiente */
+  --hf-bruma:       #ECEBF5;  /* fundo claro de telas */
+
+  /* ░ Neutros ░ */
+  --hf-aco:         #3A3F5C;  /* texto secundário */
+  --hf-ardosia:     #5B6172;  /* texto terciário / labels */
+
+  /* ░ Semânticas ░ */
+  --hf-sucesso:     #1E8E5A;
+  --hf-atencao:     #D99B2A;
+  --hf-alerta:      #D84040;
+
+  /* ░ Gradiente da marca ░ */
+  --hf-gradiente-iris: linear-gradient(135deg, #A78CFF 0%, #6A4BF0 50%, #3D1FB0 100%);
+
+  /* ░ Tipografia ░ */
+  --hf-fonte-display: 'Bricolage Grotesque', sans-serif;  /* 700/800, tracking -0.03 a -0.04em */
+  --hf-fonte-corpo:   'IBM Plex Sans', sans-serif;        /* 400/500/600 */
+  --hf-fonte-mono:    'IBM Plex Mono', monospace;         /* 400/500 — dados, labels */
+
+  /* ░ Raio e sombra ░ */
+  --hf-raio-sm: 8px;
+  --hf-raio-md: 12px;
+  --hf-raio-lg: 16px;
+  --hf-raio-xl: 20px;
+  --hf-sombra-iris: 0 4px 14px rgba(106,75,240,0.35);
+  --hf-sombra-card: 0 24px 60px rgba(0,0,0,0.22);
+}
+
+/* Exemplo de botão primário */
+.hf-btn {
+  font-family: var(--hf-fonte-corpo);
+  font-weight: 600;
+  background: var(--hf-iris);
+  color: #fff;
+  border: none;
+  border-radius: var(--hf-raio-md);
+  padding: 14px 24px;
+  box-shadow: var(--hf-sombra-iris);
+  cursor: pointer;
+}
