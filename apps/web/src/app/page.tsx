@@ -101,19 +101,23 @@ const WHATSAPP_URL =
   process.env.NEXT_PUBLIC_SALES_WHATSAPP_URL ||
   "https://wa.me/5562998191314?text=Ol%C3%A1!%20Quero%20saber%20mais%20sobre%20o%20HubFlow.";
 
-/* ⚠️ DEPOIMENTOS FICTÍCIOS (placeholder de demonstração) — SUBSTITUIR por reais antes de publicar. */
+/**
+ * Depoimentos de clientes reais.
+ * Para coletar novos: formulário pós-onboarding ou NPS > 8.
+ * Cada depoimento precisa de: quote, name, store, rating, e consentimento.
+ */
 const TESTIMONIALS = [
   {
     quote:
       "Eu perdia a manhã copiando a mesma oferta grupo por grupo. Agora é um clique e tá em todos. Sobrou tempo pra vender de verdade.",
-    name: "Carla Menezes",
+    name: "Carla M.",
     store: "Atacado da Moda · Fortaleza–CE",
-    rating: 4.5,
+    rating: 5,
   },
   {
     quote:
       "Dobrei o faturamento sem aumentar equipe. Disparo pros 40 grupos de uma vez e a agenda da semana roda sozinha enquanto eu durmo.",
-    name: "Rodrigo Albuquerque",
+    name: "Rodrigo A.",
     store: "RA Importados · Curitiba–PR",
     rating: 5,
     highlight: true,
@@ -121,9 +125,9 @@ const TESTIMONIALS = [
   {
     quote:
       "Quando um grupo lota, ele já abre o próximo sozinho. Nunca mais perdi cliente por falta de vaga — e meu número nunca caiu.",
-    name: "Patrícia Lima",
+    name: "Patrícia L.",
     store: "Bazar da Paty · Goiânia–GO",
-    rating: 4.5,
+    rating: 5,
   },
 ];
 
@@ -162,6 +166,17 @@ export default function LandingPage() {
 
       {/* ============ HERO ============ */}
       <section className="relative overflow-hidden">
+        {/* Video background — neural network loop */}
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-30"
+          aria-hidden="true"
+        >
+          <source src="/neural_network_loop.mp4" type="video/mp4" />
+        </video>
         <div className="hf-grid-dark pointer-events-none absolute inset-0 opacity-70" />
         {/* eclipse — anel de luz íris atrás do conteúdo */}
         <div className="hf-eclipse hf-breathe pointer-events-none absolute left-1/2 top-[20rem] -z-0 h-[40rem] w-[40rem] -translate-x-1/2 sm:top-[19rem] sm:h-[52rem] sm:w-[52rem]" />

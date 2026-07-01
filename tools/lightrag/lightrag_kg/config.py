@@ -21,34 +21,31 @@ EMBEDDING_DIM = 3072
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
+# Subset focado: docs + core pages + components + lib + APIs + configs
+# ~130 arquivos — viavel com free tier Gemini (~4-6h)
 INCLUDE_GLOBS = [
-    "apps/web/src/**/*.ts",
-    "apps/web/src/**/*.tsx",
-    "apps/web/src/**/*.js",
-    "apps/web/src/**/*.jsx",
-    "hubflow-groups/**/*.ts",
-    "hubflow-groups/**/*.tsx",
-    "hubflow-engine/**/*.ts",
-    "hubflow-engine/**/*.tsx",
-    "hubflow-engine/**/*.js",
+    # Docs
     "*.md",
     "docs/**/*.md",
-    "apps/**/README.md",
-    "apps/**/package.json",
-    "hubflow-groups/README.md",
-    "hubflow-groups/package.json",
-    "hubflow-engine/README.md",
-    "hubflow-engine/package.json",
-    "deploy/**/README.md",
-    "Brand/**/README.md",
-    "Brand-v2/**/README.md",
-    "tools/lightrag/pyproject.toml",
+    # App pages & layouts (depth-limited)
+    "apps/web/src/app/**/page.tsx",
+    "apps/web/src/app/**/layout.tsx",
+    # API routes
+    "apps/web/src/app/api/**/*.ts",
+    # Components
+    "apps/web/src/components/**/*.tsx",
+    # Lib/utils
+    "apps/web/src/lib/**/*.ts",
+    # Key configs
+    "apps/web/package.json",
+    "package.json",
 ]
 
 EXCLUDE_DIRS = {
     "node_modules", ".next", "dist", "build", ".git", "target",
     "__pycache__", ".venv", "tests", "__tests__", "_generated",
     "tools/lightrag", "docs/knowledge-graph", "coverage", ".turbo",
+    "nextjs-claude-code-starter",
 }
 
 EXCLUDE_SUFFIXES = {".lock", ".tsbuildinfo", ".log", ".png", ".jpg", ".svg", ".ico"}

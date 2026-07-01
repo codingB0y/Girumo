@@ -3,6 +3,7 @@ import * as supaStore from "@/lib/stores/broadcasts";
 import { enqueueDispatch } from "@/lib/dispatch-store";
 import { getSessionAccountId } from "@/lib/session";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,6 +43,13 @@ export async function POST(req: Request) {
 
   const c = await supaStore.enqueueBroadcast(tenantId, String(body.id));
   if (!c) return Response.json({ error: "Oferta não encontrada." }, { status: 404 });
+
+  // Track first dispatch (non-blocking, idempotent)
+  const authUserId = await getSessionAccountId();
+  if (authUserId) {
+    trackFunnelEvent({ tenantId, userId: authUserId, event: "first_dispatch", metadata: { broadcastId: c.id } });
+  }
+
   return Response.json({
     id: c.id,
     name: c.name,
