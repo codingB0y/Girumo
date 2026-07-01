@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Ban, CheckCircle2, Trash2, Loader2 } from "lucide-react";
+import { Ban, CheckCircle2, Trash2, Loader2, LogIn } from "lucide-react";
 
 type Props = {
   tenantId: string;
@@ -39,11 +39,39 @@ export function TenantActions({ tenantId, tenantName, currentStatus }: Props) {
           router.refresh();
         }
       }
-    } catch (err) {
+    } catch {
       setResult({ type: "error", message: "Falha na requisição" });
     } finally {
       setLoading(null);
       setConfirmDelete(false);
+    }
+  }
+
+  async function handleImpersonate() {
+    setLoading("impersonate");
+    setResult(null);
+
+    try {
+      const res = await fetch("/api/admin/impersonate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenantId }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setResult({ type: "error", message: data.error ?? "Erro ao impersonar" });
+      } else {
+        setResult({ type: "success", message: data.message });
+        setTimeout(() => {
+          window.location.href = data.redirectTo ?? "/painel";
+        }, 800);
+      }
+    } catch {
+      setResult({ type: "error", message: "Falha na requisição" });
+    } finally {
+      setLoading(null);
     }
   }
 
@@ -52,6 +80,21 @@ export function TenantActions({ tenantId, tenantName, currentStatus }: Props) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
+        {/* Impersonate */}
+        <button
+          onClick={handleImpersonate}
+          disabled={loading !== null}
+          className="inline-flex items-center gap-2 rounded-xl border border-iris/20 bg-iris/5 px-4 py-2.5 text-sm font-medium text-iris transition hover:bg-iris/10 disabled:opacity-50"
+        >
+          {loading === "impersonate" ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <LogIn className="h-4 w-4" />
+          )}
+          Logar como tenant
+        </button>
+
+        {/* Suspend / Activate */}
         {isSuspended ? (
           <button
             onClick={() => handleAction("activate")}
@@ -80,6 +123,7 @@ export function TenantActions({ tenantId, tenantName, currentStatus }: Props) {
           </button>
         )}
 
+        {/* Delete */}
         {!confirmDelete ? (
           <button
             onClick={() => setConfirmDelete(true)}

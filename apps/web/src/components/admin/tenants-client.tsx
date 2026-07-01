@@ -12,6 +12,11 @@ import {
   ArrowUpDown,
   ChevronLeft,
   ChevronRight,
+  Ban,
+  CheckCircle2,
+  Trash2,
+  Loader2,
+  Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -70,6 +75,9 @@ export function AdminTenantsClient({
   const [search, setSearch] = useState(filters.search);
   const [sortField, setSortField] = useState<SortField>("createdAt");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkResult, setBulkResult] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   function navigate(params: Record<string, string>) {
     const sp = new URLSearchParams(searchParams.toString());
@@ -93,42 +101,142 @@ export function AdminTenantsClient({
     navigate({ page: String(p) });
   }
 
-  // Client-side sort (within current page)
   const sorted = useMemo(() => {
     return [...tenants].sort((a, b) => {
       let cmp = 0;
       switch (sortField) {
-        case "name":
-          cmp = a.name.localeCompare(b.name);
-          break;
-        case "members":
-          cmp = a.members - b.members;
-          break;
-        case "createdAt":
-          cmp = a.createdAt.localeCompare(b.createdAt);
-          break;
-        case "subscriptionStatus":
-          cmp = a.subscriptionStatus.localeCompare(b.subscriptionStatus);
-          break;
+        case "name": cmp = a.name.localeCompare(b.name); break;
+        case "members": cmp = a.members - b.members; break;
+        case "createdAt": cmp = a.createdAt.localeCompare(b.createdAt); break;
+        case "subscriptionStatus": cmp = a.subscriptionStatus.localeCompare(b.subscriptionStatus); break;
       }
       return sortDir === "asc" ? cmp : -cmp;
     });
   }, [tenants, sortField, sortDir]);
 
   function toggleSort(field: SortField) {
-    if (sortField === field) {
-      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    if (sortField === field) setSortDir(sortDir === "asc" ? "desc" : "asc");
+    else { setSortField(field); setSortDir("desc"); }
+  }
+
+  // Selection
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selected.size === sorted.length) {
+      setSelected(new Set());
     } else {
-      setSortField(field);
-      setSortDir("desc");
+      setSelected(new Set(sorted.map((t) => t.id)));
     }
   }
 
-  // Unique statuses para pills
+  async function handleBulkAction(action: "suspend" | "activate" | "delete") {
+    if (selected.size === 0) return;
+    if (action === "delete" && !confirm(`Excluir ${selected.size} tenant(s) permanentemente?`)) return;
+
+    setBulkLoading(true);
+    setBulkResult(null);
+
+    try {
+      const res = await fetch("/api/admin/tenants/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [...selected], action }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setBulkResult({ type: "error", message: data.error ?? "Erro" });
+      } else {
+        setBulkResult({ type: "success", message: data.message });
+        setSelected(new Set());
+        router.refresh();
+      }
+    } catch {
+      setBulkResult({ type: "error", message: "Falha na requisição" });
+    } finally {
+      setBulkLoading(false);
+    }
+  }
+
+  function handleExportSelected() {
+    const items = sorted.filter((t) => selected.has(t.id));
+    const csv = [
+      "nome,slug,membros,plano,status,criado_em",
+      ...items.map((t) => `"${t.name}","${t.slug}",${t.members},"${t.planName}","${t.subscriptionStatus}","${t.createdAt}"`),
+    ].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `tenants-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   const statuses = ["active", "trialing", "free", "canceled", "past_due"];
+  const hasSelection = selected.size > 0;
 
   return (
     <div className="space-y-4">
+      {/* Bulk actions bar */}
+      {hasSelection && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-iris/20 bg-iris/5 px-4 py-3">
+          <span className="text-sm font-medium text-iris">
+            {selected.size} selecionado(s)
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleBulkAction("suspend")}
+              disabled={bulkLoading}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-100 disabled:opacity-50"
+            >
+              <Ban className="h-3 w-3" /> Suspender
+            </button>
+            <button
+              onClick={() => handleBulkAction("activate")}
+              disabled={bulkLoading}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50"
+            >
+              <CheckCircle2 className="h-3 w-3" /> Ativar
+            </button>
+            <button
+              onClick={handleExportSelected}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-breu/[0.08] bg-white px-3 py-1.5 text-xs font-medium text-aco/70 transition hover:border-iris/20 hover:text-iris"
+            >
+              <Download className="h-3 w-3" /> Exportar
+            </button>
+            <button
+              onClick={() => handleBulkAction("delete")}
+              disabled={bulkLoading}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-100 disabled:opacity-50"
+            >
+              <Trash2 className="h-3 w-3" /> Excluir
+            </button>
+            {bulkLoading && <Loader2 className="h-4 w-4 animate-spin text-iris" />}
+          </div>
+          <button
+            onClick={() => setSelected(new Set())}
+            className="ml-auto text-xs text-aco/50 hover:text-breu"
+          >
+            Limpar seleção
+          </button>
+        </div>
+      )}
+
+      {bulkResult && (
+        <div className={`rounded-xl px-4 py-3 text-sm font-medium ${
+          bulkResult.type === "success" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-700 border border-red-200"
+        }`}>
+          {bulkResult.message}
+        </div>
+      )}
+
       {/* Status pills */}
       <div className="flex flex-wrap items-center gap-2">
         <button
@@ -176,36 +284,32 @@ export function AdminTenantsClient({
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-breu/[0.06]">
+                <th className="px-3 py-3.5 w-10">
+                  <input
+                    type="checkbox"
+                    checked={selected.size === sorted.length && sorted.length > 0}
+                    onChange={toggleSelectAll}
+                    className="h-4 w-4 rounded border-breu/20 text-iris focus:ring-iris/20"
+                  />
+                </th>
                 <th className="px-5 py-3.5">
-                  <button
-                    onClick={() => toggleSort("name")}
-                    className="inline-flex items-center gap-1 font-data text-[11px] uppercase tracking-wider text-aco/55 hover:text-breu"
-                  >
+                  <button onClick={() => toggleSort("name")} className="inline-flex items-center gap-1 font-data text-[11px] uppercase tracking-wider text-aco/55 hover:text-breu">
                     Organização <ArrowUpDown className="h-3 w-3" />
                   </button>
                 </th>
                 <th className="px-5 py-3.5 font-data text-[11px] uppercase tracking-wider text-aco/55">Slug</th>
                 <th className="px-5 py-3.5">
-                  <button
-                    onClick={() => toggleSort("members")}
-                    className="inline-flex items-center gap-1 font-data text-[11px] uppercase tracking-wider text-aco/55 hover:text-breu"
-                  >
+                  <button onClick={() => toggleSort("members")} className="inline-flex items-center gap-1 font-data text-[11px] uppercase tracking-wider text-aco/55 hover:text-breu">
                     Membros <ArrowUpDown className="h-3 w-3" />
                   </button>
                 </th>
                 <th className="px-5 py-3.5">
-                  <button
-                    onClick={() => toggleSort("subscriptionStatus")}
-                    className="inline-flex items-center gap-1 font-data text-[11px] uppercase tracking-wider text-aco/55 hover:text-breu"
-                  >
+                  <button onClick={() => toggleSort("subscriptionStatus")} className="inline-flex items-center gap-1 font-data text-[11px] uppercase tracking-wider text-aco/55 hover:text-breu">
                     Plano <ArrowUpDown className="h-3 w-3" />
                   </button>
                 </th>
                 <th className="px-5 py-3.5">
-                  <button
-                    onClick={() => toggleSort("createdAt")}
-                    className="inline-flex items-center gap-1 font-data text-[11px] uppercase tracking-wider text-aco/55 hover:text-breu"
-                  >
+                  <button onClick={() => toggleSort("createdAt")} className="inline-flex items-center gap-1 font-data text-[11px] uppercase tracking-wider text-aco/55 hover:text-breu">
                     Criado em <ArrowUpDown className="h-3 w-3" />
                   </button>
                 </th>
@@ -214,7 +318,15 @@ export function AdminTenantsClient({
             </thead>
             <tbody className="divide-y divide-breu/[0.04]">
               {sorted.map((org) => (
-                <tr key={org.id} className="transition hover:bg-bruma/30">
+                <tr key={org.id} className={cn("transition", selected.has(org.id) ? "bg-iris/[0.03]" : "hover:bg-bruma/30")}>
+                  <td className="px-3 py-3.5">
+                    <input
+                      type="checkbox"
+                      checked={selected.has(org.id)}
+                      onChange={() => toggleSelect(org.id)}
+                      className="h-4 w-4 rounded border-breu/20 text-iris focus:ring-iris/20"
+                    />
+                  </td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-3">
                       <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-iris/10 font-data text-xs font-bold text-iris">
@@ -226,8 +338,7 @@ export function AdminTenantsClient({
                   <td className="px-5 py-3.5 font-data text-xs text-aco/60">{org.slug}</td>
                   <td className="px-5 py-3.5">
                     <span className="inline-flex items-center gap-1.5 text-sm">
-                      <Users className="h-3.5 w-3.5 text-aco/40" />
-                      {org.members}
+                      <Users className="h-3.5 w-3.5 text-aco/40" /> {org.members}
                     </span>
                   </td>
                   <td className="px-5 py-3.5">

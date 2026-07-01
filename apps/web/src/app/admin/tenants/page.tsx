@@ -1,3 +1,4 @@
+import { CreateTenantForm } from "@/components/admin/create-tenant-form";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { AdminTenantsClient } from "@/components/admin/tenants-client";
 
@@ -94,6 +95,7 @@ export default async function AdminTenantsPage({ searchParams }: Props) {
             {totalCount ?? 0} organizações cadastradas
           </p>
         </div>
+        <CreateTenantForm plans={(plans ?? []).map(p => ({ id: p.id, name: p.name ?? p.code, code: p.code }))} />
       </div>
 
       <AdminTenantsClient

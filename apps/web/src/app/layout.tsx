@@ -6,6 +6,7 @@ import {
   Instrument_Serif,
 } from "next/font/google";
 import "./globals.css";
+import { ImpersonateBanner } from "@/components/impersonate-banner";
 
 // Direção B / Corrente — display, corpo, dados e respiro editorial.
 const bricolage = Bricolage_Grotesque({
@@ -56,7 +57,10 @@ export default function RootLayout({
       lang="pt-BR"
       className={`h-full antialiased ${bricolage.variable} ${plexSans.variable} ${plexMono.variable} ${instrument.variable}`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <ImpersonateBanner />
+      </body>
     </html>
   );
 }

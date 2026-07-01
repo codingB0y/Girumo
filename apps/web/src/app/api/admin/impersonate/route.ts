@@ -1,0 +1,150 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { getAdminContext } from "@/lib/admin-guard";
+import { signSession, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
+
+export const dynamic = "force-dynamic";
+
+const IMPERSONATE_COOKIE = "dz_impersonate";
+
+/**
+ * POST — iniciar impersonation
+ * Body: { tenantId: string, userId?: string }
+ * Gera sessão como o owner do tenant (ou userId específico)
+ * Salva cookie de impersonation com dados do admin original
+ */
+export async function POST(req: NextRequest) {
+  const admin = await getAdminContext();
+  if (!admin) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const body = await req.json();
+  const { tenantId, userId } = body as { tenantId: string; userId?: string };
+
+  if (!tenantId) {
+    return NextResponse.json({ error: "tenantId is required" }, { status: 400 });
+  }
+
+  const supabase = getSupabaseAdmin();
+
+  // Verificar tenant existe
+  const { data: org } = await supabase
+    .from("organizations")
+    .select("id, name")
+    .eq("id", tenantId)
+    .single();
+
+  if (!org) {
+    return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
+  }
+
+  // Encontrar user alvo (owner do tenant ou userId específico)
+  let targetAuthUserId: string;
+
+  if (userId) {
+    // Usar user específico
+    const { data: user } = await supabase
+      .from("users")
+      .select("auth_user_id")
+      .eq("id", userId)
+      .single();
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+    targetAuthUserId = user.auth_user_id;
+  } else {
+    // Encontrar owner do tenant
+    const { data: membership } = await supabase
+      .from("memberships")
+      .select("user_id")
+      .eq("tenant_id", tenantId)
+      .eq("role", "owner")
+      .not("accepted_at", "is", null)
+      .limit(1)
+      .single();
+
+    if (!membership) {
+      // Fallback: qualquer membro
+      const { data: anyMember } = await supabase
+        .from("memberships")
+        .select("user_id")
+        .eq("tenant_id", tenantId)
+        .not("accepted_at", "is", null)
+        .limit(1)
+        .single();
+
+      if (!anyMember) {
+        return NextResponse.json({ error: "Tenant has no members" }, { status: 400 });
+      }
+      targetAuthUserId = anyMember.user_id;
+    } else {
+      targetAuthUserId = membership.user_id;
+    }
+  }
+
+  // Gerar sessão como o user alvo
+  const sessionToken = await signSession(targetAuthUserId);
+
+  // Cookie de impersonation (pra poder voltar)
+  const impersonateData = JSON.stringify({
+    adminAuthUserId: admin.authUserId,
+    adminEmail: admin.email,
+    tenantId: org.id,
+    tenantName: org.name,
+    startedAt: new Date().toISOString(),
+  });
+
+  const res = NextResponse.json({
+    success: true,
+    message: `Impersonando tenant "${org.name}"`,
+    redirectTo: "/painel",
+  });
+
+  // Set session cookie (como o user do tenant)
+  res.cookies.set(SESSION_COOKIE, sessionToken, sessionCookieOptions);
+
+  // Set impersonate cookie (pra saber que é admin impersonando)
+  res.cookies.set(IMPERSONATE_COOKIE, impersonateData, {
+    ...sessionCookieOptions,
+    maxAge: 60 * 60 * 2, // 2 horas max
+  });
+
+  return res;
+}
+
+/**
+ * DELETE — encerrar impersonation, voltar ao admin
+ */
+export async function DELETE(req: NextRequest) {
+  const impersonateCookie = req.cookies.get(IMPERSONATE_COOKIE)?.value;
+
+  if (!impersonateCookie) {
+    return NextResponse.json({ error: "Not impersonating" }, { status: 400 });
+  }
+
+  let adminData: { adminAuthUserId: string };
+  try {
+    adminData = JSON.parse(impersonateCookie);
+  } catch {
+    return NextResponse.json({ error: "Invalid impersonate cookie" }, { status: 400 });
+  }
+
+  // Restaurar sessão do admin
+  const adminSession = await signSession(adminData.adminAuthUserId);
+
+  const res = NextResponse.json({
+    success: true,
+    message: "Impersonation encerrada. Voltando ao admin.",
+    redirectTo: "/admin",
+  });
+
+  // Restaurar cookie de sessão do admin
+  res.cookies.set(SESSION_COOKIE, adminSession, sessionCookieOptions);
+
+  // Remover cookie de impersonation
+  res.cookies.delete(IMPERSONATE_COOKIE);
+
+  return res;
+}

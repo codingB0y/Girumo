@@ -1,4 +1,5 @@
-import { Bell, Shield } from "lucide-react";
+import { Shield } from "lucide-react";
+import { AdminAlertsDropdown } from "@/components/admin/alerts-dropdown";
 
 export function AdminTopbar() {
   return (
@@ -13,12 +14,7 @@ export function AdminTopbar() {
 
       <div className="flex-1" />
 
-      <button
-        className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-breu/10 bg-white text-aco transition hover:border-iris/30"
-        aria-label="Notificações"
-      >
-        <Bell className="h-[18px] w-[18px]" />
-      </button>
+      <AdminAlertsDropdown />
     </header>
   );
 }
