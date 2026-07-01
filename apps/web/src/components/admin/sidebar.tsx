@@ -11,6 +11,8 @@ import {
   Activity,
   Settings,
   Shield,
+  HeartPulse,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/landing/logo";
@@ -23,6 +25,7 @@ const SECTIONS = [
       { href: "/admin/tenants", label: "Tenants", icon: Building2 },
       { href: "/admin/usuarios", label: "Usuários", icon: Users },
       { href: "/admin/instancias", label: "Instâncias", icon: Smartphone },
+      { href: "/admin/agentes", label: "Agentes IA", icon: Bot },
     ],
   },
   {
@@ -35,6 +38,7 @@ const SECTIONS = [
     label: "Sistema",
     items: [
       { href: "/admin/logs", label: "Logs & Eventos", icon: Activity },
+      { href: "/admin/saude", label: "Saúde", icon: HeartPulse },
       { href: "/admin/configuracoes", label: "Configurações", icon: Settings },
     ],
   },

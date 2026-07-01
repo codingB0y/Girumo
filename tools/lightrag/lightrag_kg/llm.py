@@ -4,7 +4,7 @@ from collections import deque
 
 import numpy as np
 from google import genai
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 
 from . import config
 
@@ -14,40 +14,41 @@ _RETRYABLE = (Exception,)
 
 
 class _RateLimiter:
-    """Leaky-bucket limiter to stay under the free-tier requests-per-minute quota."""
+    """Leaky-bucket limiter to stay under the free-tier requests-per-minute quota.
 
-    def __init__(self, max_per_minute: int):
-        self._max = max_per_minute
-        self._calls: deque[float] = deque()
+    For Gemini free tier: 5 RPM for LLM, 5 RPM for embeddings.
+    We use 2 RPM (30s between calls) to guarantee we never hit 429.
+    """
+
+    def __init__(self, interval_seconds: float):
+        """interval_seconds = minimum gap between calls."""
+        self._interval = interval_seconds
+        self._last_call: float = 0.0
         self._lock = asyncio.Lock()
 
     async def acquire(self) -> None:
         async with self._lock:
-            while True:
-                now = time.monotonic()
-                while self._calls and now - self._calls[0] > 60:
-                    self._calls.popleft()
-                if len(self._calls) < self._max:
-                    self._calls.append(now)
-                    return
-                wait_for = 60 - (now - self._calls[0]) + 0.5
-                await asyncio.sleep(wait_for)
+            now = time.monotonic()
+            elapsed = now - self._last_call
+            if elapsed < self._interval:
+                await asyncio.sleep(self._interval - elapsed)
+            self._last_call = time.monotonic()
 
 
-# Free tier: gemini-2.5-flash = 5 RPM, embedding-001 = 5 RPM. Stay below to avoid 429s.
-_llm_limiter = _RateLimiter(max_per_minute=4)
-_embed_limiter = _RateLimiter(max_per_minute=4)
+# 30s between calls = max 2 RPM. Very conservative but guarantees no 429.
+_llm_limiter = _RateLimiter(interval_seconds=30.0)
+_embed_limiter = _RateLimiter(interval_seconds=30.0)
 
 
 def _is_retryable(exc: Exception) -> bool:
-    msg = str(exc)
-    return any(code in msg for code in ("429", "500", "503", "504", "UNAVAILABLE"))
+    msg = str(exc).lower()
+    return any(code in msg for code in ("429", "500", "503", "504", "unavailable", "timeout", "resource_exhausted"))
 
 
 @retry(
     retry=retry_if_exception_type(_RETRYABLE),
     stop=stop_after_attempt(5),
-    wait=wait_exponential(multiplier=2, min=5, max=60),
+    wait=wait_fixed(60),  # on retry, wait a full minute
 )
 async def _generate(model: str, prompt: str, system_prompt: str | None) -> str:
     await _llm_limiter.acquire()
@@ -70,7 +71,7 @@ async def llm_model_func(
         return await _generate(config.LLM_MODEL_FALLBACK, prompt, system_prompt)
 
 
-@retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=2, min=5, max=60))
+@retry(stop=stop_after_attempt(5), wait=wait_fixed(60))
 async def _embed(model: str, texts: list[str]) -> np.ndarray:
     await _embed_limiter.acquire()
     response = await _client.aio.models.embed_content(model=model, contents=texts)

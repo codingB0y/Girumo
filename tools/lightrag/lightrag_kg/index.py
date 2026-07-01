@@ -63,6 +63,17 @@ def doc_id(rel_path: str) -> str:
     return f"doc-{hashlib.sha1(rel_path.encode()).hexdigest()[:12]}"
 
 
+def path_as_filename(rel_path: str) -> str:
+    """Convert a relative path to a flat filename that LightRAG won't deduplicate.
+
+    LightRAG's normalize_document_file_path extracts the basename (after last /),
+    so 'apps/web/src/page.tsx' and 'apps/web/admin/page.tsx' both become 'page.tsx'
+    and get deduplicated. By replacing / with -- we keep them unique.
+    Example: 'apps/web/src/app/leads/page.tsx' -> 'apps--web--src--app--leads--page.tsx'
+    """
+    return rel_path.replace("/", "--")
+
+
 async def run_index(full: bool, dry_run: bool) -> None:
     files = discover_files()
     manifest = {} if full else load_manifest()
@@ -100,10 +111,11 @@ async def run_index(full: bool, dry_run: bool) -> None:
         wrapped = f"FILE: {rel}\nLANG: {lang}\n---\n{content}"
         texts.append(wrapped)
         ids.append(doc_id(rel))
-        file_paths.append(rel)
+        # Use flat filename so LightRAG doesn't deduplicate by basename
+        file_paths.append(path_as_filename(rel))
 
     rag = await get_rag()
-    batch_size = 20
+    batch_size = 5  # small batches for free tier rate limits
     total = len(texts)
     for i in range(0, total, batch_size):
         batch_texts = texts[i : i + batch_size]
@@ -117,7 +129,7 @@ async def run_index(full: bool, dry_run: bool) -> None:
         console.print(f"  processed={min(i + batch_size, total)}/{total}")
 
     save_manifest(new_manifest)
-    console.print(f"[green]Indexação concluída: {len(texts)} documentos.[/green]")
+    console.print(f"[green]Indexacao concluida: {len(texts)} documentos.[/green]")
 
 
 def main() -> None:
