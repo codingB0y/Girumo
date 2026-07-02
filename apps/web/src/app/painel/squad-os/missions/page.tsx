@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getSquads, getMissions } from "@/lib/stores/squad-os";
+import { useRealtimeMissions } from "@/lib/hooks/use-realtime-squad-os";
 import type { Squad, Mission, MissionStatus } from "@/lib/types/squad-os";
 import { MISSION_STATUS_CONFIG } from "@/lib/types/squad-os";
 
@@ -19,7 +20,7 @@ const STATUS_ORDER: MissionStatus[] = ["active", "pending", "validating", "compl
 
 export default function MissionsPage() {
   const [squads, setSquads] = useState<Squad[]>([]);
-  const [missions, setMissions] = useState<Mission[]>([]);
+  const [initialMissions, setInitialMissions] = useState<Mission[]>([]);
   const [filter, setFilter] = useState<MissionStatus | "all">("all");
   const [loading, setLoading] = useState(true);
 
@@ -27,10 +28,12 @@ export default function MissionsPage() {
     (async () => {
       const [s, m] = await Promise.all([getSquads(), getMissions()]);
       setSquads(s);
-      setMissions(m);
+      setInitialMissions(m);
       setLoading(false);
     })();
   }, []);
+
+  const missions = useRealtimeMissions(initialMissions);
 
   if (loading) {
     return (
@@ -60,6 +63,15 @@ export default function MissionsPage() {
     completed: missions.filter((m) => m.status === "completed").length,
     failed: missions.filter((m) => m.status === "failed").length,
   };
+
+  // Helper: find squad name by id or slug
+  function getSquadName(squadId: string): string {
+    const byId = squads.find((s) => s.id === squadId);
+    if (byId) return byId.name;
+    const bySlug = squads.find((s) => s.slug === squadId);
+    if (bySlug) return bySlug.name;
+    return squadId;
+  }
 
   return (
     <div className="mx-auto max-w-[1000px] space-y-6 px-4 py-6 sm:px-6">
@@ -125,8 +137,7 @@ export default function MissionsPage() {
         ) : (
           filtered.map((m) => {
             const mCfg = MISSION_STATUS_CONFIG[m.status];
-            const squadName =
-              squads.find((s) => s.slug === m.squad_id)?.name ?? m.squad_id;
+            const squadName = getSquadName(m.squad_id);
 
             return (
               <div
@@ -143,7 +154,7 @@ export default function MissionsPage() {
                     {m.description}
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-3">
-                    <span className="font-data text-[10px] text-aco/40">
+                    <span className="font-data text-[10px] text-iris">
                       {squadName}
                     </span>
                     <span className="font-data text-[10px] text-aco/40">
