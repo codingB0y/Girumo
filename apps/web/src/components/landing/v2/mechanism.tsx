@@ -37,9 +37,9 @@ export function Mechanism() {
       <div>
         {STEPS.map((s, i) => (
           <div key={s.n} className="lp-step relative py-14 pl-8 sm:py-20 lg:min-h-[70vh] lg:py-24">
-            <span className="lp-step-bar absolute left-0 top-14 bottom-14 w-px bg-gradient-to-b from-iris-claro to-zap sm:top-20 sm:bottom-20 lg:top-24 lg:bottom-24" />
-            <p className="font-data text-xs uppercase tracking-[0.3em] text-iris-claro">{s.n}</p>
-            <h3 className="font-editorial mt-4 text-4xl text-white sm:text-5xl">{s.title}</h3>
+            <span className="lp-step-bar absolute left-0 top-14 bottom-14 w-px bg-gradient-to-b from-white/70 to-zap sm:top-20 sm:bottom-20 lg:top-24 lg:bottom-24" />
+            <p className="font-data text-xs uppercase tracking-[0.3em] text-bruma/45">{s.n}</p>
+            <h3 className="font-tech mt-4 text-3xl font-bold tracking-tight text-white sm:text-4xl">{s.title}</h3>
             <p className="mt-5 max-w-md text-base leading-relaxed text-bruma/60 sm:text-lg">{s.body}</p>
             {/* visual embutido — só mobile/tablet */}
             <div className="mt-8 lg:hidden">
@@ -83,7 +83,7 @@ function VisualCampaign() {
   return (
     <div className="w-full max-w-md rounded-3xl border border-white/10 bg-void-2/90 p-6 shadow-deep backdrop-blur">
       <p className="font-data flex items-center gap-2 text-xs uppercase tracking-wider text-bruma/50">
-        <span className="h-2 w-2 rounded-full bg-iris-claro" /> nova campanha
+        <span className="h-2 w-2 rounded-full bg-zap" /> nova campanha
       </p>
       <div className="mt-5 space-y-3">
         <div className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
@@ -101,7 +101,7 @@ function VisualCampaign() {
           </div>
         </div>
       </div>
-      <div className="lp-btn lp-btn-primary mt-5 flex items-center justify-center gap-2 rounded-xl bg-iris py-3 text-sm font-medium text-white">
+      <div className="lp-btn lp-btn-light mt-5 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold">
         <Link2 className="h-4 w-4" /> Gerar link rastreado
       </div>
     </div>
@@ -117,8 +117,8 @@ function VisualLink() {
   ];
   return (
     <div className="w-full max-w-md">
-      <div className="mx-auto flex w-fit items-center gap-3 rounded-2xl border border-iris/40 bg-void-2/90 px-5 py-3.5 shadow-iris backdrop-blur">
-        <Link2 className="h-4 w-4 shrink-0 text-iris-claro" />
+      <div className="mx-auto flex w-fit items-center gap-3 rounded-2xl border border-white/25 bg-void-2/90 px-5 py-3.5 shadow-deep backdrop-blur">
+        <Link2 className="h-4 w-4 shrink-0 text-zap" />
         <span className="font-data text-sm text-white">hubflow.com.br/c/ofertas</span>
         <Copy className="h-4 w-4 shrink-0 text-bruma/40" />
       </div>
@@ -129,7 +129,7 @@ function VisualLink() {
           "M200 4 C 200 50, 200 50, 200 82",
           "M200 4 C 200 40, 330 40, 330 82",
         ].map((d) => (
-          <path key={d} d={d} fill="none" stroke="rgba(138,108,255,0.5)" strokeWidth="1.4" strokeDasharray="4 6" className="lp-dash-run" />
+          <path key={d} d={d} fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="1.4" strokeDasharray="4 6" className="lp-dash-run" />
         ))}
       </svg>
       <div className="grid grid-cols-3 gap-3">
@@ -176,7 +176,7 @@ function VisualGroup() {
         </div>
         <div className="mt-5">
           <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
-            <div className="lp-fill h-full rounded-full bg-gradient-to-r from-iris to-zap" />
+            <div className="lp-fill h-full rounded-full bg-gradient-to-r from-white/50 to-zap" />
           </div>
           <div className="mt-2 flex items-center justify-between">
             <span className="font-data text-xs text-bruma/50">membros</span>
@@ -184,8 +184,8 @@ function VisualGroup() {
           </div>
         </div>
       </div>
-      <div className="lp-dotpop flex items-center gap-3 rounded-2xl border border-iris/35 bg-iris/10 px-5 py-3.5" style={{ ["--d" as string]: "1.5s" }}>
-        <Plus className="h-4 w-4 shrink-0 text-iris-claro" />
+      <div className="lp-dotpop flex items-center gap-3 rounded-2xl border border-zap/30 bg-zap/[0.08] px-5 py-3.5" style={{ ["--d" as string]: "1.5s" }}>
+        <Plus className="h-4 w-4 shrink-0 text-zap" />
         <p className="text-sm text-white">
           <span className="font-medium">VIP 04 criado no automático</span>{" "}
           <span className="text-bruma/50">— mesmo nome, foto e regras.</span>

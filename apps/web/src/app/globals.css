@@ -470,9 +470,10 @@ body {
    Verde #25D366 = pessoas/WhatsApp (semântico). Íris = ação/marca.
    ====================================================================== */
 @theme inline {
-  --color-void: #060814;      /* base da landing v2 — mais funda que o breu */
-  --color-void-2: #0c0f22;    /* superfície elevada */
+  --color-void: #07080f;      /* base da landing v2 — dark neutro (menos roxo) */
+  --color-void-2: #0d0f19;    /* superfície elevada */
   --color-zap: #25d366;       /* verde WhatsApp — pessoas entrando, nunca ação */
+  --font-tech: var(--font-space); /* display SaaS/tech (Space Grotesk) */
 }
 
 /* --- Entrada do hero: CSS puro (zero espera por JS), stagger via --d --- */
@@ -531,7 +532,7 @@ body {
   bottom: -3px;
   height: 1px;
   width: 100%;
-  background: linear-gradient(90deg, #8a6cff, #25d366);
+  background: rgba(255, 255, 255, 0.7);
   transform: scaleX(0);
   transform-origin: right;
   transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
@@ -559,6 +560,7 @@ body {
   transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .lp-step.is-active .lp-step-bar { transform: scaleY(1); }
+
 
 .lp-visual {
   position: absolute;
@@ -629,6 +631,16 @@ body {
   background-color: #8a6cff;
   box-shadow: 0 16px 44px -10px rgba(138, 108, 255, 0.8);
 }
+/* CTA primário claro — confiança (padrão Linear/Vercel): branco sobre dark */
+.lp-btn-light {
+  background: #fff;
+  color: #0a0b12;
+  box-shadow: 0 12px 34px -14px rgba(255, 255, 255, 0.35);
+}
+.lp-btn-light:hover {
+  background: #e8e9f2;
+  box-shadow: 0 16px 44px -14px rgba(255, 255, 255, 0.45);
+}
 .lp-btn::after {
   content: "";
   position: absolute;
@@ -662,12 +674,58 @@ body {
   box-shadow: 0 0 22px -4px rgba(106, 75, 240, 0.5);
 }
 
-/* --- Texto gradiente íris (destaques) --- */
+/* --- Destaque de headline: branco puro; o resto da linha fica dimmed --- */
 .lp-grad {
-  background-image: linear-gradient(115deg, #a78cff 0%, #8a6cff 45%, #6a4bf0 100%);
+  background-image: linear-gradient(115deg, #ffffff 0%, #dcd6ff 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+}
+
+/* Range slider da calculadora */
+.lp-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.12);
+  outline: none;
+}
+.lp-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 18px;
+  width: 18px;
+  border-radius: 9999px;
+  background: #fff;
+  border: 2px solid #07080f;
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.5), 0 4px 12px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.lp-range::-webkit-slider-thumb:hover { transform: scale(1.15); }
+.lp-range::-moz-range-thumb {
+  height: 18px;
+  width: 18px;
+  border-radius: 9999px;
+  background: #fff;
+  border: 2px solid #07080f;
+  cursor: pointer;
+}
+
+/* Anel gradiente sutil (card destaque) — double background: o gradiente só
+   aparece na faixa da borda (border-box), o miolo fica opaco (padding-box). */
+.lp-ring-soft {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(#0d0f19, #0d0f19) padding-box,
+    linear-gradient(
+      165deg,
+      rgba(255, 255, 255, 0.5),
+      rgba(255, 255, 255, 0.14) 35%,
+      rgba(37, 211, 102, 0.45) 70%,
+      rgba(255, 255, 255, 0.1)
+    ) border-box;
 }
 
 /* Palavra sublinhada à mão (serif italic + traço) */

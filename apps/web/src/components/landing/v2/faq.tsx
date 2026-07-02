@@ -34,8 +34,8 @@ export function Faq() {
       {FAQ_ITEMS.map(([q, a]) => (
         <details key={q} className="lp-faq group rounded-2xl border border-white/10 bg-white/[0.02] px-6 py-5">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
-            <span className="font-editorial text-xl text-white sm:text-2xl">{q}</span>
-            <Plus className="h-5 w-5 shrink-0 text-iris-claro transition-transform duration-300 group-open:rotate-45" aria-hidden />
+            <span className="font-tech text-lg font-medium tracking-tight text-white sm:text-xl">{q}</span>
+            <Plus className="h-5 w-5 shrink-0 text-bruma/50 transition-transform duration-300 group-open:rotate-45 group-open:text-zap" aria-hidden />
           </summary>
           <div className="grid grid-rows-[0fr] transition-[grid-template-rows] duration-300 ease-out group-open:grid-rows-[1fr]">
             <div className="overflow-hidden">

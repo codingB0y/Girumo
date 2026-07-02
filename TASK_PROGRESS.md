@@ -152,3 +152,17 @@ scrollytelling do mecanismo, responsivo com fallback leve no mobile, SEO mantido
 ## Resultado
 - `npm run build` ✅ · `tsc --noEmit` ✅ · eslint landing v2 ✅
 - Verificado no preview: hero+canvas, ticker, 3 atos do mecanismo, painel+bento, depoimentos, planos, FAQ, muro de grupos, footer, menu mobile, CTA fixo mobile.
+
+## Iteração v2.1 (feedback Igor, mesma sessão)
+- **Tipografia SaaS/tech:** Instrument Serif → Space Grotesk bold (`--font-tech`) em todos os headings.
+- **Menos íris (ref. zavu.dev):** base neutra `#07080f`, CTA primário BRANCO (padrão Linear/Vercel),
+  headlines two-tone (branco + cinza), partículas do canvas neutras (verde só na chegada), íris restrito à logo.
+- **Prints do painel removidos** → `features.tsx`: bento de mock-UIs feitas à mão (status entregue/na fila,
+  calendário, biblioteca, barras de receita por origem, auto-criação, chat da IA).
+- **Depoimentos removidos** (pareciam falsos) → `compare.tsx`: SEM × COM HubFlow + calculadora interativa
+  de "dinheiro deixado na mesa" (sliders leads/dia, ticket, conversão; premissa 35% declarada).
+- **Nova seção `lp-showcase.tsx`:** modelos de landing page de captação em frame de celular,
+  3 temas de marca trocáveis (Moda/Eletrônicos/Beleza).
+- **Pricing v2.1:** anual default com preço riscado + economia em R$, card destaque com anel gradiente
+  (double background padding-box/border-box — pseudo com z-index -1 pinta ACIMA do bg do pai, não usar).
+- Build ✅ após reforma. Branch `landing-v2-redesign` + PR aberto.
