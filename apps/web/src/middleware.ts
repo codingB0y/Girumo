@@ -119,5 +119,7 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!login|signup|forgot-password|reset-password|api/auth|r/|_next/static|_next/image|favicon.ico|.*\\.).*)"]
+  // p/ = LPs públicas do Flow Pages · api/p/ = endpoints públicos do Flow Pages
+  // (rate-limit próprio nas rotas públicas de lead/track — sessão 4)
+  matcher: ["/((?!login|signup|forgot-password|reset-password|api/auth|api/p/|r/|p/|_next/static|_next/image|favicon.ico|.*\\.).*)"]
 };

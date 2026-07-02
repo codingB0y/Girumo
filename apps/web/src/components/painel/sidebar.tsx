@@ -11,6 +11,7 @@ import {
   TrendingUp,
   Settings,
   Sparkles,
+  PanelsTopLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/landing/logo";
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { href: "/painel/campanhas", label: "Campanhas", icon: Layers },
   { href: "/painel/grupos", label: "Grupos", icon: Users },
   { href: "/painel/contatos", label: "Contatos", icon: UserPlus },
+  { href: "/painel/pages", label: "Páginas", icon: PanelsTopLeft },
   { href: "/painel/resultados", label: "Resultados", icon: TrendingUp },
 ];
 
