@@ -17,6 +17,7 @@ import {
   Target,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SocialProof } from "@/components/painel/social-proof";
 
 // ---------- Types ----------
 
@@ -407,6 +408,8 @@ function FullDashboard({
       {/* Monthly progress */}
       <MonthlyProgress current={leadsThisMonth} goal={monthlyGoal} />
 
+n      {/* Social proof */}
+      <SocialProof campaigns={campanhas.length} />
       {/* Alert: groups almost full */}
       {almostFull.length > 0 && (
         <div className="rounded-2xl border border-atencao/20 bg-atencao/[0.05] px-5 py-4">

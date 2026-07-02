@@ -4,9 +4,11 @@ import {
   IBM_Plex_Sans,
   IBM_Plex_Mono,
   Instrument_Serif,
+  Space_Grotesk,
 } from "next/font/google";
 import "./globals.css";
 import { ImpersonateBanner } from "@/components/impersonate-banner";
+import { DevModeBanner } from "@/components/dev-mode-banner";
 
 // Direção B / Corrente — display, corpo, dados e respiro editorial.
 const bricolage = Bricolage_Grotesque({
@@ -38,6 +40,14 @@ const instrument = Instrument_Serif({
   display: "swap",
 });
 
+// Display tech da landing v2 (SaaS/tech, sem serif)
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  weight: ["500", "700"],
+  variable: "--font-space",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: {
     default: "HubFlow — O fluxo que vende",
@@ -55,9 +65,10 @@ export default function RootLayout({
   return (
     <html
       lang="pt-BR"
-      className={`h-full antialiased ${bricolage.variable} ${plexSans.variable} ${plexMono.variable} ${instrument.variable}`}
+      className={`h-full antialiased ${bricolage.variable} ${plexSans.variable} ${plexMono.variable} ${instrument.variable} ${spaceGrotesk.variable}`}
     >
       <body className="min-h-full flex flex-col">
+        <DevModeBanner />
         {children}
         <ImpersonateBanner />
       </body>

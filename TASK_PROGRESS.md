@@ -108,3 +108,47 @@ Elevar o HubFlow a SaaS de alto nível: segurança, growth, automações, polish
 # Próximos passos
 
 Implementar item 11: Automações — sequências de nurturing e agendamento recorrente.
+
+---
+
+# Sessão 2026-07-02 — Redesign Landing (v2)
+
+> Lane: Frontend+UI · Escopo: `apps/web/src/app/page.tsx` + `src/components/landing/v2/*` + `globals.css`
+
+## Objetivo
+Redesign completo da landing (awwwards-level): micro-animações GSAP, canvas de partículas "o fluxo",
+scrollytelling do mecanismo, responsivo com fallback leve no mobile, SEO mantido/ampliado.
+
+## Restrições
+- Manter: logo/logotipo, íris #6A4BF0 primário (pode complementar).
+- Verde só semântico (WhatsApp/pessoas/sucesso) — nunca ação.
+- Sem copy de "medo de ban" (regra durável da lane).
+- `logo.tsx` e `icons.tsx` intactos (painel/auth-shell usam).
+- Sem Three.js (peso mobile) — canvas 2D custom + GSAP.
+- Fontes: reusar as já carregadas (Instrument Serif display, Plex Sans body, Plex Mono data).
+
+## Etapas
+- [x] Explorar landing atual, tokens, componentes, primer da lane
+- [x] Instalar gsap (apps/web)
+- [x] Tokens/utilities `lp-*` no globals.css
+- [x] Componentes v2: flow-canvas, nav, landing-fx (GSAP central), mechanism, pricing, faq, group-wall
+- [x] Reescrever page.tsx (copy nova + SEO)
+- [x] Build + lint + verificação visual (desktop 1366/1440 + mobile 375)
+
+## Decisões
+- GSAP importado dinamicamente no client pra não pesar LCP; entrada do hero em CSS puro.
+- Canvas do hero: 130 partículas desktop, DPR cap 1.5, pausa fora da viewport; mobile/reduced-motion/deviceMemory≤2 → não monta (glow CSS por trás).
+- Scrollytelling: texto + visual sticky em 3 atos (ScrollTrigger toggla .is-active); mobile → visual embutido em cada ato.
+- **Conflito importante:** `html { scroll-behavior: smooth }` + ScrollTrigger = scrolls fantasmas nos refresh/restore.
+  Fix em landing-fx.tsx: scrollBehavior "auto" enquanto FX ativa + âncoras suaves via JS + `ScrollTrigger.clearScrollMemory("manual")` + `ignoreMobileResize`.
+- Nós do canvas desenhados em source-over (blend "lighter" acumula brilho em elemento estático até estourar).
+- Componentes antigos da landing ficam no lugar sem uso (flow-visual, product-frame, interactive, pricing antigo, etc.); logo.tsx/icons.tsx seguem usados pelo painel. Limpeza em passada futura.
+
+## Fixes colaterais (bloqueavam o build, pré-existentes)
+- `painel/page.tsx`: import faltante de SocialProof.
+- `api/admin/seed/route.ts` + `seed/dev/route.ts`: prefer-const em planIds.
+- `dev-mode-banner.tsx`: useEffect condicional (rules-of-hooks) — early return movido pra depois dos hooks.
+
+## Resultado
+- `npm run build` ✅ · `tsc --noEmit` ✅ · eslint landing v2 ✅
+- Verificado no preview: hero+canvas, ticker, 3 atos do mecanismo, painel+bento, depoimentos, planos, FAQ, muro de grupos, footer, menu mobile, CTA fixo mobile.

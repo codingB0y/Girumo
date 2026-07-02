@@ -4,7 +4,10 @@
   "private": true,
   "description": "Engine WhatsApp Baileys desacoplada do HUBFLOW",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "dev": "node --env-file=.env.dev index-dev.js",
+    "dev:mock": "ENGINE_MODE=mock node index-dev.js",
+    "dev:real": "node --env-file=.env.dev index-dev-real.js"
   },
   "dependencies": {
     "@whiskeysockets/baileys": "^7.0.0-rc13",

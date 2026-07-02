@@ -5,3 +5,11 @@ engine-state.json
 *.tmp
 .env
 .env.local
+
+# Dev sessions (mock data)
+dev-sessions/*.json
+!dev-sessions/.gitkeep
+
+# Env files
+.env.*
+!.env.dev.example

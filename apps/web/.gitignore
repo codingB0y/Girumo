@@ -30,9 +30,13 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files — NUNCA commitar secrets
 .env*
 !.env.example
+!.env.production.example
+
+# dev sessions (engine mock)
+dev-sessions/
 
 # vercel
 .vercel
@@ -41,5 +45,4 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-.vercel
 apps/web/supabase/.temp/
