@@ -6,7 +6,7 @@
     "hubflow-engine"
   ],
   "scripts": {
-    "test": "npm --workspace apps/web test",
+    "test": "npm --workspace apps/web test && tsx --test infra/scripts/migrate-legacy-tenant-data.test.ts",
     "web:dev": "npm --workspace apps/web run dev",
     "web:build": "npm --workspace apps/web run build",
     "web:lint": "npm --workspace apps/web run lint",
@@ -17,7 +17,8 @@
     "check:env:coolify": "powershell -ExecutionPolicy Bypass -File infra/scripts/check-env-template.ps1 -Path deploy/coolify/.env.example -Profile coolify",
     "scan:secrets": "powershell -ExecutionPolicy Bypass -File infra/scripts/scan-secrets.ps1",
     "engine:start": "npm --workspace hubflow-engine run start",
-    "engine:docker:build": "docker build -t hubflow-engine ./hubflow-engine"
+    "engine:docker:build": "docker build -t hubflow-engine ./hubflow-engine",
+    "migrate:legacy-tenant": "tsx infra/scripts/migrate-legacy-tenant-data.ts"
   },
   "dependencies": {
     "express": "^5.2.1"
