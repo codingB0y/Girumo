@@ -5,7 +5,7 @@
   "description": "Engine WhatsApp Baileys desacoplada do HUBFLOW",
   "scripts": {
     "start": "node index.js",
-    "test": "node --test test-module-format.js && node test-modules.js",
+    "test": "node --test test-module-format.js test-health.js && node test-modules.js",
     "dev": "node --env-file=.env.dev index-dev.js",
     "dev:mock": "ENGINE_MODE=mock node index-dev.js",
     "dev:real": "node --env-file=.env.dev index-dev-real.js"
