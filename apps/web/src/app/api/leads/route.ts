@@ -1,5 +1,6 @@
 import { listLeads, addLead, updateLeadStatus, removeLead, type LeadStatus } from "@/lib/leads-store";
 import { isOptedOut } from "@/lib/optout-store";
+import { getRouteTenantContext } from "@/lib/route-tenant-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -7,13 +8,15 @@ export const dynamic = "force-dynamic";
 const VALID: LeadStatus[] = ["novo", "ativo", "comprou"];
 
 // GET /api/leads — lista leads reais (capturados pela engine ao entrar no grupo).
-export async function GET() {
-  return Response.json(await listLeads());
+export async function GET(req: Request) {
+  const { tenantId } = await getRouteTenantContext(req, { allowEngine: true });
+  return Response.json(await listLeads(tenantId));
 }
 
 // POST /api/leads — ingestão de uma entrada de grupo detectada pela engine.
 // Body: { phone, sourceGroup, name?, sourceCampaign? }
 export async function POST(req: Request) {
+  const { tenantId } = await getRouteTenantContext(req, { allowEngine: true });
   let body: Record<string, unknown>;
   try {
     body = await req.json();
@@ -29,11 +32,11 @@ export async function POST(req: Request) {
   }
 
   // LGPD: quem pediu descadastro não é capturado como lead.
-  if (phone && (await isOptedOut(phone))) {
+  if (phone && (await isOptedOut(tenantId, phone))) {
     return Response.json({ skipped: "opt-out" }, { status: 200 });
   }
 
-  const lead = await addLead({
+  const lead = await addLead(tenantId, {
     phone,
     sourceGroup,
     sourceGroupId: body.sourceGroupId ? String(body.sourceGroupId) : undefined,
@@ -45,6 +48,7 @@ export async function POST(req: Request) {
 
 // PATCH /api/leads — muda o status do lead (novo/ativo/comprou). Body { id, status }
 export async function PATCH(req: Request) {
+  const { tenantId } = await getRouteTenantContext(req, { allowEngine: false });
   let body: Record<string, unknown>;
   try {
     body = await req.json();
@@ -56,15 +60,16 @@ export async function PATCH(req: Request) {
   if (!id || !VALID.includes(status)) {
     return Response.json({ error: "id e status válidos são obrigatórios." }, { status: 400 });
   }
-  const lead = await updateLeadStatus(id, status);
+  const lead = await updateLeadStatus(tenantId, id, status);
   if (!lead) return Response.json({ error: "Lead não encontrado." }, { status: 404 });
   return Response.json(lead);
 }
 
 // DELETE /api/leads?id= — exclusão por id (LGPD: direito de eliminação).
 export async function DELETE(req: Request) {
+  const { tenantId } = await getRouteTenantContext(req, { allowEngine: false });
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return Response.json({ error: "id obrigatório." }, { status: 400 });
-  const ok = await removeLead(id);
+  const ok = await removeLead(tenantId, id);
   return Response.json({ ok });
 }

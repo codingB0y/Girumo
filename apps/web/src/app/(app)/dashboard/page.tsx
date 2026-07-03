@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { listGroups } from "@/lib/groups-store";
 import { listLeads } from "@/lib/leads-store";
 import { formatDateTime, cn } from "@/lib/utils";
+import { getSessionTenantId } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,8 @@ const COLD_DAYS = 3;
 const DAY_MS = 86_400_000;
 
 export default async function DashboardPage() {
-  const [groups, leads] = await Promise.all([listGroups(), listLeads()]);
+  const tenantId = await getSessionTenantId();
+  const [groups, leads] = await Promise.all([listGroups(), tenantId ? listLeads(tenantId) : []]);
 
   const now = Date.now();
   const startOfToday = new Date();
