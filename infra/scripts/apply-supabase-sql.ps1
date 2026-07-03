@@ -16,33 +16,30 @@ Opcoes:
 1. Instale o PostgreSQL client no Windows e reabra o terminal.
    Download: https://www.postgresql.org/download/windows/
 
-2. Ou aplique os arquivos manualmente no Supabase SQL Editor, nesta ordem:
-   infra/migrations/202606240001_base_schema.sql
-   infra/rls/202606240002_rls_policies.sql
-   infra/seeds/202606240003_seed_plans.sql
-   infra/rls/202606240004_storage_policies.sql
-   infra/migrations/202606240005_engine_rpc.sql
-   infra/migrations/202606240006_membership_invites.sql
+2. Ou aplique os arquivos manualmente na ordem de deploy/supabase/apply-order.txt.
 "@
 }
 
-$files = @(
-  "infra\migrations\202606240001_base_schema.sql",
-  "infra\rls\202606240002_rls_policies.sql",
-  "infra\seeds\202606240003_seed_plans.sql",
-  "infra\rls\202606240004_storage_policies.sql",
-  "infra\migrations\202606240005_engine_rpc.sql",
-  "infra\migrations\202606240006_membership_invites.sql"
-)
+$orderFile = Join-Path $root "deploy\supabase\apply-order.txt"
+if (-not (Test-Path -LiteralPath $orderFile)) {
+  throw "Fonte canonica de SQL nao encontrada: $orderFile"
+}
+
+$files = @(Get-Content -LiteralPath $orderFile | ForEach-Object { $_.Trim() } | Where-Object { $_ -and -not $_.StartsWith("#") })
+$duplicates = @($files | Group-Object | Where-Object { $_.Count -gt 1 })
+if ($duplicates.Count -gt 0) {
+  throw "Arquivos SQL duplicados em apply-order.txt: $($duplicates.Name -join ', ')"
+}
 
 foreach ($file in $files) {
-  $path = Join-Path $root $file
-  if (-not (Test-Path $path)) {
+  $path = Join-Path $root ($file.Replace("/", "\"))
+  if (-not (Test-Path -LiteralPath $path)) {
     throw "Arquivo SQL nao encontrado: $file"
   }
 
   Write-Host "Aplicando $file"
   & $psql.Source $DatabaseUrl -v ON_ERROR_STOP=1 -f $path
+  if ($LASTEXITCODE -ne 0) { throw "Falha ao aplicar ${file}: exit $LASTEXITCODE" }
 }
 
 Write-Host "SQL Supabase aplicado com sucesso."

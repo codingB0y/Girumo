@@ -16,6 +16,7 @@ if (-not (Test-Path $Path)) {
 $requiredByProfile = @{
   vercel = @(
     "NEXT_PUBLIC_APP_URL",
+    "NEXT_PUBLIC_APP_ENV",
     "AUTH_SECRET",
     "NEXT_PUBLIC_SUPABASE_URL",
     "NEXT_PUBLIC_SUPABASE_ANON_KEY",
@@ -29,12 +30,14 @@ $requiredByProfile = @{
     "STRIPE_PRICE_GROWTH",
     "STRIPE_PRICE_PERFORMANCE_MAX",
     "ENGINE_TOKEN",
+    "CRON_SECRET",
     "HUBFLOW_DATA_DIR"
   )
   coolify = @(
     "ENGINE_PORT",
     "APP_URL",
     "ENGINE_TOKEN",
+    "ENGINE_TENANT_ID",
     "SUPABASE_URL",
     "SUPABASE_SERVICE_ROLE_KEY",
     "ENGINE_COMMAND_POLL_MS",

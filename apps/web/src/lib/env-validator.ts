@@ -36,6 +36,7 @@ const REQUIRED_VARS: Record<string, string[]> = {
     "STRIPE_WEBHOOK_SECRET",
     "AUTH_SECRET",
     "ENGINE_TOKEN",
+    "CRON_SECRET",
   ],
 };
 
