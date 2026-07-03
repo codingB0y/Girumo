@@ -49,6 +49,7 @@ export function classifyRequest(pathname: string, method: string): AccessKind {
   if (ENGINE_ONLY.has(key)) return "engine-only";
 
   if (
+    normalizedMethod === "GET" &&
     SHARED_PREFIXES.some(
       (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
     )

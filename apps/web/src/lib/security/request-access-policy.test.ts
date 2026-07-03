@@ -20,6 +20,13 @@ test("lead reads are shared and ingestion is engine-only", () => {
   assert.equal(classifyRequest("/api/leads", "POST"), "engine-only");
 });
 
+test("user mutations on shared resources do not accept engine credentials", () => {
+  assert.equal(classifyRequest("/api/leads", "PATCH"), "user");
+  assert.equal(classifyRequest("/api/optout", "DELETE"), "user");
+  assert.equal(classifyRequest("/api/welcome", "POST"), "user");
+  assert.equal(classifyRequest("/api/media", "POST"), "user");
+});
+
 test("cron endpoints use handler-level authentication", () => {
   assert.equal(classifyRequest("/api/cron/emails", "GET"), "cron");
   assert.equal(classifyRequest("/api/notifications/alerts", "GET"), "cron");
