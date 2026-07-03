@@ -1,33 +1,18 @@
 import { USE_SUPABASE } from "@/lib/stores/use-supabase";
 import * as supaStore from "@/lib/stores/groups";
 import { listGroups as legacyList, replaceGroups as legacyReplace, updateGroup as legacyUpdate, type SyncGroupInput } from "@/lib/groups-store";
-import { getSessionAccountId } from "@/lib/session";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { getRouteTenantContext } from "@/lib/route-tenant-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-async function resolveTenantId(): Promise<string | null> {
-  const authUserId = await getSessionAccountId();
-  if (!authUserId) return null;
-  const { data } = await getSupabaseAdmin()
-    .from("memberships")
-    .select("tenant_id")
-    .eq("user_id", authUserId)
-    .not("accepted_at", "is", null)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  return data?.tenant_id ?? null;
-}
-
 // GET /api/groups
-export async function GET() {
+export async function GET(req: Request) {
+  const { tenantId } = await getRouteTenantContext(req, { allowEngine: true });
   if (!USE_SUPABASE) {
-    return Response.json(await legacyList());
+    return Response.json(await legacyList(tenantId));
   }
-  const tenantId = await resolveTenantId();
-  if (!tenantId) return Response.json([], { status: 200 });
   const groups = await supaStore.listGroups(tenantId);
   // Map to legacy shape for frontend compatibility
   const mapped = groups.map((g) => ({
@@ -47,6 +32,7 @@ export async function GET() {
 
 // POST /api/groups — sync da engine
 export async function POST(req: Request) {
+  const { tenantId } = await getRouteTenantContext(req, { allowEngine: true });
   let body: { groups?: unknown };
   try {
     body = await req.json();
@@ -67,12 +53,9 @@ export async function POST(req: Request) {
     }));
 
   if (!USE_SUPABASE) {
-    const saved = await legacyReplace(groups);
+    const saved = await legacyReplace(tenantId, groups);
     return Response.json({ count: saved.length }, { status: 201 });
   }
-
-  const tenantId = await resolveTenantId();
-  if (!tenantId) return Response.json({ error: "Tenant não encontrado." }, { status: 403 });
 
   const rows = groups.map((g) => ({
     whatsapp_group_id: g.whatsappGroupId,
@@ -89,6 +72,7 @@ export async function POST(req: Request) {
 
 // PATCH /api/groups
 export async function PATCH(req: Request) {
+  const { tenantId } = await getRouteTenantContext(req, { allowEngine: false });
   let b: Record<string, unknown>;
   try {
     b = await req.json();
@@ -104,13 +88,10 @@ export async function PATCH(req: Request) {
     if (b.capacity !== undefined && Number(b.capacity) > 0) patch.capacity = Number(b.capacity);
     if (typeof b.displayNameBase === "string") patch.displayNameBase = b.displayNameBase.trim();
     if (b.displayNumber !== undefined) patch.displayNumber = Number(b.displayNumber) > 0 ? Number(b.displayNumber) : 0;
-    const updated = await legacyUpdate(id, patch);
+    const updated = await legacyUpdate(tenantId, id, patch);
     if (!updated) return Response.json({ error: "Grupo não encontrado." }, { status: 404 });
     return Response.json(updated);
   }
-
-  const tenantId = await resolveTenantId();
-  if (!tenantId) return Response.json({ error: "Tenant não encontrado." }, { status: 403 });
 
   const patch: Record<string, unknown> = {};
   if (typeof b.inviteUrl === "string") patch.invite_url = b.inviteUrl.trim();

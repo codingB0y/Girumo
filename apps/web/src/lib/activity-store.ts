@@ -1,11 +1,12 @@
 import "server-only";
 import { promises as fs } from "fs";
 import { writeFileAtomic, withFileLock } from "@/lib/atomic-fs";
-import { legacyDataPath } from "@/lib/legacy-data-dir";
+import { LEGACY_DATA_DIR } from "@/lib/legacy-data-dir";
+import { tenantDataPath } from "@/lib/tenant-data-path";
 
 // Atividade dos grupos reportada pela engine (snapshot do dia). Mede "grupo vivo
 // que vende" vs "grupo lotado e morto". Guarda só CONTAGEM (sem PII dos membros).
-const FILE = legacyDataPath("activity.json");
+const activityFile = (tenantId: string) => tenantDataPath(LEGACY_DATA_DIR, tenantId, "activity.json");
 
 export type GroupActivity = {
   groupId: string;
@@ -17,9 +18,9 @@ export type GroupActivity = {
   updatedAt: string;
 };
 
-export async function listActivity(): Promise<GroupActivity[]> {
+export async function listActivity(tenantId: string): Promise<GroupActivity[]> {
   try {
-    return JSON.parse((await fs.readFile(FILE, "utf8")) || "[]") as GroupActivity[];
+    return JSON.parse((await fs.readFile(activityFile(tenantId), "utf8")) || "[]") as GroupActivity[];
   } catch {
     return [];
   }
@@ -35,9 +36,10 @@ export type ActivitySnapshot = {
 };
 
 /** Upsert do snapshot mais recente por grupo (substitui o do mesmo grupo). */
-export async function upsertActivity(snapshots: ActivitySnapshot[]): Promise<void> {
-  return withFileLock(FILE, async () => {
-    const cur = await listActivity();
+export async function upsertActivity(tenantId: string, snapshots: ActivitySnapshot[]): Promise<void> {
+  const file = activityFile(tenantId);
+  return withFileLock(file, async () => {
+    const cur = await listActivity(tenantId);
     const byId = new Map(cur.map((a) => [a.groupId, a]));
     const now = new Date().toISOString();
     for (const s of snapshots) {
@@ -52,6 +54,6 @@ export async function upsertActivity(snapshots: ActivitySnapshot[]): Promise<voi
         updatedAt: now,
       });
     }
-    await writeFileAtomic(FILE, JSON.stringify([...byId.values()], null, 2));
+    await writeFileAtomic(file, JSON.stringify([...byId.values()], null, 2));
   });
 }

@@ -69,12 +69,12 @@ export type ResultsOverview = {
 export async function getResultsOverview(tenantId: string): Promise<ResultsOverview> {
   const [leads, groups, clicks, session, broadcasts, orders, activity] = await Promise.all([
     listLeads(tenantId),
-    listGroups(),
+    listGroups(tenantId),
     clickCounts(),
-    getSession(),
+    getSession(tenantId),
     collection<Campaign>("broadcasts.json").list(),
     listOrders(),
-    listActivity(),
+    listActivity(tenantId),
   ]);
 
   const now = Date.now();

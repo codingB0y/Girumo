@@ -8,7 +8,7 @@ import { listGroups, upsertGroup } from "@/lib/groups-store";
 //   running → engine claimou e está criando no WhatsApp
 //   created → engine criou; grupo registrado no pool e o /r/<campanha> já o roteia
 //   failed  → criação falhou (ou job preso recuperado)
-const coll = collection<GrowJob>("group-grow.json");
+const growColl = (tenantId: string) => collection<GrowJob>(`tenants/${tenantId}/group-grow.json`);
 
 export type GrowJobStatus = "queued" | "running" | "created" | "failed";
 
@@ -47,10 +47,11 @@ export type GrowClaim = Pick<
  * folga (convite + members < 90% cap) e não há job em andamento, enfileira a criação do próximo.
  * Chamado quando a engine puxa a fila — sem timer.
  */
-export async function evaluateAutoGrow(): Promise<void> {
+export async function evaluateAutoGrow(tenantId: string): Promise<void> {
+  const coll = growColl(tenantId);
   const [campanhas, groups, jobs] = await Promise.all([
-    campanhasColl.list(),
-    listGroups(),
+    campanhasColl.list().then((items) => items.filter((item) => item.tenantId === tenantId)),
+    listGroups(tenantId),
     coll.list(),
   ]);
   const byId = new Map(groups.map((g) => [g.whatsappGroupId, g]));
@@ -64,12 +65,13 @@ export async function evaluateAutoGrow(): Promise<void> {
       return !!g && !!g.inviteUrl && g.members < g.capacity * GROW_AHEAD_RATIO;
     });
     if (hasHeadroom) continue;
-    await enqueueGrow(c);
+    await enqueueGrow(tenantId, c);
   }
 }
 
 /** Enfileira 1 job de criação p/ a campanha, numerando o nome pelo growCounter. */
-async function enqueueGrow(c: Campanha): Promise<void> {
+async function enqueueGrow(tenantId: string, c: Campanha): Promise<void> {
+  const coll = growColl(tenantId);
   const t = c.growTemplate!;
   const n = (c.growCounter ?? c.groupIds.length) + 1;
   const subject = t.subjectPattern.includes("{n}")
@@ -93,7 +95,8 @@ async function enqueueGrow(c: Campanha): Promise<void> {
  * A engine reivindica os jobs enfileirados numa transação atômica (sem criação dupla) e,
  * no mesmo passo, recupera jobs "running" presos (engine caiu) → "failed".
  */
-export async function claimGrow(): Promise<GrowClaim[]> {
+export async function claimGrow(tenantId: string): Promise<GrowClaim[]> {
+  const coll = growColl(tenantId);
   return coll.transact<GrowClaim[]>((list) => {
     const now = Date.now();
     let changed = false;
@@ -132,7 +135,7 @@ export async function claimGrow(): Promise<GrowClaim[]> {
  * A engine reporta a criação. Em `created`: registra o grupo no pool (upsert, sem apagar os
  * outros) e adiciona o JID ao groupIds da campanha — assim o /r/<campanha> já roteia p/ ele.
  */
-export async function ackGrow(input: {
+export async function ackGrow(tenantId: string, input: {
   id: string;
   status: "running" | "created" | "failed";
   whatsappGroupId?: string;
@@ -140,7 +143,7 @@ export async function ackGrow(input: {
   inviteLink?: string;
   error?: string | null;
 }): Promise<GrowJob | null> {
-  const job = await coll.update(input.id, {
+  const job = await growColl(tenantId).update(input.id, {
     status: input.status,
     whatsappGroupId: input.whatsappGroupId,
     inviteLink: input.inviteLink,
@@ -148,13 +151,13 @@ export async function ackGrow(input: {
     lastAckAt: new Date().toISOString(),
   });
   if (job && input.status === "created" && input.whatsappGroupId && input.inviteLink) {
-    await upsertGroup({
+    await upsertGroup(tenantId, {
       whatsappGroupId: input.whatsappGroupId,
       name: job.subject,
       members: input.members ?? 0,
       inviteUrl: input.inviteLink,
     });
-    const c = (await campanhasColl.list()).find((x) => x.id === job.campanhaId);
+    const c = (await campanhasColl.list()).find((x) => x.id === job.campanhaId && x.tenantId === tenantId);
     if (c && !c.groupIds.includes(input.whatsappGroupId)) {
       await campanhasColl.update(c.id, { groupIds: [...c.groupIds, input.whatsappGroupId] });
     }

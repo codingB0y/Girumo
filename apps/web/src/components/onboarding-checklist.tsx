@@ -23,8 +23,8 @@ export async function OnboardingChecklist() {
   if (!tenantId) return null;
 
   const [session, groups, links, leads, broadcasts, orders] = await Promise.all([
-    getSession(),
-    listGroups(),
+    getSession(tenantId),
+    listGroups(tenantId),
     listLinks(),
     listLeads(tenantId),
     collection<Campaign>("broadcasts.json").list(),

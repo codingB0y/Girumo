@@ -46,12 +46,13 @@ const DEFAULT: SessionInfo = {
  * Busca o status da sessão da engine.
  * Usa a instância mais recentemente atualizada (single-session por ora).
  */
-export async function getSession(): Promise<SessionInfo> {
+export async function getSession(tenantId: string): Promise<SessionInfo> {
   try {
     const supabase = getSupabaseAdmin();
     const { data } = await supabase
       .from("instances")
       .select("id, phone, status, connected_at, last_seen_at, metadata, updated_at")
+      .eq("tenant_id", tenantId)
       .order("updated_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -77,7 +78,7 @@ export async function getSession(): Promise<SessionInfo> {
  * Atualiza o status da sessão (chamado pela engine via heartbeat POST).
  * Atualiza a instância mais recente; se nenhuma existir, retorna default.
  */
-export async function setSession(info: Partial<SessionInfo>): Promise<SessionInfo> {
+export async function setSession(tenantId: string, info: Partial<SessionInfo>): Promise<SessionInfo> {
   const supabase = getSupabaseAdmin();
   const now = new Date().toISOString();
 
@@ -85,6 +86,7 @@ export async function setSession(info: Partial<SessionInfo>): Promise<SessionInf
   const { data: existing } = await supabase
     .from("instances")
     .select("id, tenant_id, metadata, connected_at")
+    .eq("tenant_id", tenantId)
     .order("updated_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -123,6 +125,7 @@ export async function setSession(info: Partial<SessionInfo>): Promise<SessionInf
     .from("instances")
     .update(updatePayload)
     .eq("id", existing.id)
+    .eq("tenant_id", tenantId)
     .select("id, phone, status, connected_at, last_seen_at, metadata, updated_at")
     .single();
 

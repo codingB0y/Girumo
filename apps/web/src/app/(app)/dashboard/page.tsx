@@ -21,7 +21,10 @@ const DAY_MS = 86_400_000;
 
 export default async function DashboardPage() {
   const tenantId = await getSessionTenantId();
-  const [groups, leads] = await Promise.all([listGroups(), tenantId ? listLeads(tenantId) : []]);
+  const [groups, leads] = await Promise.all([
+    tenantId ? listGroups(tenantId) : [],
+    tenantId ? listLeads(tenantId) : [],
+  ]);
 
   const now = Date.now();
   const startOfToday = new Date();

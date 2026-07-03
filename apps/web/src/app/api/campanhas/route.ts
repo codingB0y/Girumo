@@ -56,11 +56,14 @@ export async function POST(req: Request) {
   }
   const name = String(b.name ?? "").trim();
   if (!name) return Response.json({ error: "Dê um nome à campanha." }, { status: 400 });
+  const tenantId = await resolveTenantId();
+  if (!tenantId) return Response.json({ error: "Tenant não encontrado." }, { status: 403 });
 
   if (!USE_SUPABASE) {
     const [links, campanhas] = await Promise.all([listLinks(), campanhasColl.list()]);
     const taken = new Set<string>([...links.map((l) => l.slug), ...campanhas.map((c) => c.slug).filter(Boolean) as string[]]);
     const rec = await campanhasColl.create({
+      tenantId,
       name,
       loja: String(b.loja ?? "Minha loja").trim() || "Minha loja",
       groupIds: Array.isArray(b.groupIds) ? b.groupIds.map(String) : [],
@@ -69,9 +72,6 @@ export async function POST(req: Request) {
     } as Omit<Campanha, "id">);
     return Response.json(rec, { status: 201 });
   }
-
-  const tenantId = await resolveTenantId();
-  if (!tenantId) return Response.json({ error: "Tenant não encontrado." }, { status: 403 });
 
   try {
     await assertPlanLimit(tenantId, "campaigns:create");
