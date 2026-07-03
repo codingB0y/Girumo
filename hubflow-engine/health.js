@@ -23,4 +23,10 @@ function createHealthHandler(kind, getState) {
   };
 }
 
-module.exports = { buildHealthResponse, createHealthHandler };
+function registerHealthRoutes(app, getState) {
+  app.get("/health/live", createHealthHandler("live", getState));
+  app.get("/health/ready", createHealthHandler("ready", getState));
+  app.get("/health", createHealthHandler("ready", getState));
+}
+
+module.exports = { buildHealthResponse, createHealthHandler, registerHealthRoutes };

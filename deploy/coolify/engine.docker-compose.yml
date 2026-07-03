@@ -22,7 +22,7 @@ services:
       - hubflow_engine_sessions:/app/sessions
       - hubflow_engine_state:/app/state
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/health"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/health/live"]
       interval: 30s
       timeout: 5s
       retries: 3

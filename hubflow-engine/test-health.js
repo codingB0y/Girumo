@@ -1,6 +1,10 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { buildHealthResponse, createHealthHandler } = require("./health.js");
+const {
+  buildHealthResponse,
+  createHealthHandler,
+  registerHealthRoutes,
+} = require("./health.js");
 
 test("liveness independe das integrações", () => {
   const result = buildHealthResponse("live", {
@@ -79,4 +83,24 @@ test("handler aplica status HTTP e snapshot atual", () => {
 
   assert.equal(observed.statusCode, 503);
   assert.equal(observed.body.status, "not_ready");
+});
+
+test("registra liveness, readiness e alias compatível", () => {
+  const routes = new Map();
+  const app = {
+    get(path, handler) {
+      routes.set(path, handler);
+    },
+  };
+
+  registerHealthRoutes(app, () => ({
+    whatsappConnected: false,
+    supabaseWorker: false,
+    uptime: 12,
+  }));
+
+  assert.deepEqual([...routes.keys()], ["/health/live", "/health/ready", "/health"]);
+  assert.equal(typeof routes.get("/health/live"), "function");
+  assert.equal(typeof routes.get("/health/ready"), "function");
+  assert.equal(typeof routes.get("/health"), "function");
 });

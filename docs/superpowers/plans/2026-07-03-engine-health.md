@@ -162,18 +162,14 @@ git commit -m "test: define engine health contract"
 
 - [ ] **Step 1: Integrar as três rotas no Express**
 
-Importar `createHealthHandler` e substituir o handler atual por:
+Importar `registerHealthRoutes` e substituir o handler atual por:
 
 ```js
-const getHealthState = () => ({
+registerHealthRoutes(app, () => ({
     whatsappConnected: Boolean(currentSocket?.user),
     supabaseWorker: supabaseCommandWorkerStarted,
     uptime: process.uptime(),
-});
-
-app.get("/health/live", createHealthHandler("live", getHealthState));
-app.get("/health/ready", createHealthHandler("ready", getHealthState));
-app.get("/health", createHealthHandler("ready", getHealthState));
+}));
 ```
 
 Manter `/health` como alias de readiness. Não alterar as rotas de desenvolvimento.

@@ -1,4 +1,4 @@
-
+const { registerHealthRoutes } = require("./health.js");
 const express = require("express");
 const app = express();
 
@@ -6,15 +6,11 @@ app.get("/", (req, res) => {
   res.status(200).send("HUBFLOW Engine online");
 });
 
-app.get("/health", (req, res) => {
-  res.status(200).json({
-    ok: true,
-    service: "hubflow-engine",
+registerHealthRoutes(app, () => ({
     whatsappConnected: Boolean(currentSocket?.user),
     supabaseWorker: supabaseCommandWorkerStarted,
     uptime: process.uptime(),
-  });
-});
+}));
 
 const PORT = process.env.PORT || 3000;
 
