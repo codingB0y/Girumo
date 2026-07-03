@@ -1,7 +1,9 @@
-import { WarmUp } from "./warmup.js";
-import { GroupOperationGuard } from "./group-guard.js";
-import { DeliveryTracker } from "./delivery-tracker.js";
-import { AntiBanQueue } from "./anti-ban-queue.js";
+const { WarmUp } = require("./warmup.js");
+const { GroupOperationGuard } = require("./group-guard.js");
+const { DeliveryTracker } = require("./delivery-tracker.js");
+const { AntiBanQueue } = require("./anti-ban-queue.js");
+
+async function main() {
 
 let pass = 0;
 let fail = 0;
@@ -58,3 +60,9 @@ assert(sent === 3, `enviou 3 e travou no teto do warmup (sent=${sent})`);
 
 console.log(`\n${fail === 0 ? "✔️  TODOS OK" : "✖️  FALHAS"}: ${pass} passaram, ${fail} falharam.`);
 process.exit(fail === 0 ? 0 : 1);
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
