@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { classifyRequest } from "./request-access-policy";
+import { classifyRequest, decideEngineAccess } from "./request-access-policy";
 
 test("auth POST is public with rate limiting", () => {
   assert.equal(classifyRequest("/api/auth/login", "POST"), "auth-rate-limited");
+});
+
+test("auth callbacks remain public", () => {
+  assert.equal(classifyRequest("/api/auth/callback", "GET"), "public");
+  assert.equal(classifyRequest("/api/auth/google", "GET"), "public");
 });
 
 test("dispatch pending is engine-only", () => {
@@ -18,4 +23,17 @@ test("lead reads are shared and ingestion is engine-only", () => {
 test("cron endpoints use handler-level authentication", () => {
   assert.equal(classifyRequest("/api/cron/emails", "GET"), "cron");
   assert.equal(classifyRequest("/api/notifications/alerts", "GET"), "cron");
+});
+
+test("an invalid engine token never falls through to user auth", () => {
+  assert.equal(decideEngineAccess("shared", "wrong", "expected"), "reject-401");
+});
+
+test("an engine-only method rejects requests without engine credentials", () => {
+  assert.equal(decideEngineAccess("engine-only", null, "expected"), "reject-403");
+});
+
+test("a valid engine token is accepted and shared routes can continue as user", () => {
+  assert.equal(decideEngineAccess("engine-only", "expected", "expected"), "allow-engine");
+  assert.equal(decideEngineAccess("shared", null, "expected"), "continue-user");
 });

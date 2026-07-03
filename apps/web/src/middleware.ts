@@ -1,22 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { SESSION_COOKIE, ENGINE_TOKEN, verifySession } from "@/lib/auth";
-
-const ENGINE_ROUTES = [
-  "/api/session",
-  "/api/groups",
-  "/api/leads",
-  "/api/welcome",
-  "/api/optout",
-  "/api/dispatch/pending",
-  "/api/dispatch/ack",
-  "/api/activity",
-  "/api/media",
-];
-
-function isEngineRoute(path: string) {
-  return ENGINE_ROUTES.some((route) => path === route || path.startsWith(`${route}/`));
-}
+import { classifyRequest, decideEngineAccess } from "@/lib/security/request-access-policy";
 
 const RATE_LIMIT_WINDOW = 60_000; // 1 minuto
 const RATE_LIMITS: Record<string, number> = {
@@ -66,6 +51,7 @@ async function validateBearerToken(token: string): Promise<boolean> {
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const accessKind = classifyRequest(pathname, req.method);
 
   // Public routes
   if (pathname === "/") return NextResponse.next();
@@ -73,20 +59,36 @@ export async function middleware(req: NextRequest) {
   if (pathname === "/api/billing/webhook") return NextResponse.next();
   if (pathname.startsWith("/posts/og")) return NextResponse.next();
 
-  // Engine routes (x-engine-token)
-  if (isEngineRoute(pathname)) {
-    const token = req.headers.get("x-engine-token");
-    if (token && token === ENGINE_TOKEN) return NextResponse.next();
+  // Crons and public auth callbacks authenticate inside their route handlers.
+  if (accessKind === "cron" || (accessKind === "public" && pathname.startsWith("/api/"))) {
+    return NextResponse.next();
   }
 
-  // Rate limiting on auth routes
-  if (pathname.startsWith("/api/auth/") && req.method === "POST") {
+  // Public auth mutations are rate-limited before reaching their handlers.
+  if (accessKind === "auth-rate-limited") {
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
     if (isRateLimited(ip, pathname)) {
       return NextResponse.json(
         { error: "Muitas tentativas. Aguarde 1 minuto." },
         { status: 429 },
       );
+    }
+    return NextResponse.next();
+  }
+
+  // Engine credentials are fail-closed. Invalid tokens never fall back to user auth.
+  if (accessKind === "engine-only" || accessKind === "shared") {
+    const decision = decideEngineAccess(
+      accessKind,
+      req.headers.get("x-engine-token"),
+      ENGINE_TOKEN,
+    );
+    if (decision === "allow-engine") return NextResponse.next();
+    if (decision === "reject-401") {
+      return NextResponse.json({ error: "Token da engine inválido." }, { status: 401 });
+    }
+    if (decision === "reject-403") {
+      return NextResponse.json({ error: "Rota exclusiva da engine." }, { status: 403 });
     }
   }
 
@@ -121,5 +123,5 @@ export async function middleware(req: NextRequest) {
 export const config = {
   // p/ = LPs públicas do Flow Pages · api/p/ = endpoints públicos do Flow Pages
   // (rate-limit próprio nas rotas públicas de lead/track — sessão 4)
-  matcher: ["/((?!login|signup|forgot-password|reset-password|api/auth|api/p/|r/|p/|_next/static|_next/image|favicon.ico|.*\\.).*)"]
+  matcher: ["/((?!login|signup|forgot-password|reset-password|api/p/|r/|p/|_next/static|_next/image|favicon.ico|.*\\.).*)"]
 };

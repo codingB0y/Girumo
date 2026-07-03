@@ -6,6 +6,12 @@ export type AccessKind =
   | "shared"
   | "user";
 
+export type EngineDecision =
+  | "allow-engine"
+  | "continue-user"
+  | "reject-401"
+  | "reject-403";
+
 const ENGINE_ONLY = new Set([
   "POST /api/session",
   "POST /api/groups",
@@ -34,6 +40,8 @@ export function classifyRequest(pathname: string, method: string): AccessKind {
     return "auth-rate-limited";
   }
 
+  if (pathname.startsWith("/api/auth/")) return "public";
+
   if (pathname === "/api/cron/emails" || pathname === "/api/notifications/alerts") {
     return "cron";
   }
@@ -49,4 +57,14 @@ export function classifyRequest(pathname: string, method: string): AccessKind {
   }
 
   return pathname.startsWith("/api/") ? "user" : "public";
+}
+
+export function decideEngineAccess(
+  kind: AccessKind,
+  token: string | null,
+  expectedToken: string,
+): EngineDecision {
+  if (token) return token === expectedToken ? "allow-engine" : "reject-401";
+  if (kind === "engine-only") return "reject-403";
+  return "continue-user";
 }
