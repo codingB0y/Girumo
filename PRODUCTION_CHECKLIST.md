@@ -10,7 +10,7 @@
 
 1. ✅ `GET /api/admin/tenants/list` protegido por `getAdminContext()` (BACKEND BE-1)
 2. ✅ RBAC enforçado nas mutações de campanhas, automações e conta (BACKEND BE-2)
-3. 🔴 Engine: boot **CJS×ESM** depende de Node ≥22.12 + imagem não pinada (ENGINE A-1)
+3. ✅ Engine CommonJS carrega Baileys por `import()` explícito + Node/Alpine pinados (ENGINE A-1)
 4. 🔴 Engine `/health` retorna 200 **deslogado** → orquestrador não reinicia (ENGINE 9)
 5. ✅ `ENGINE_TOKEN`/`AUTH_SECRET`/`CRON_SECRET` falham em produção se ausentes
 6. 🔴 **Service Role Key** não rotacionada (pendente Sprint 1)
@@ -93,7 +93,7 @@
 - [x] multi-stage + `npm ci --omit=dev` + `.dockerignore` (auth/state/env)
 - [ ] 🟠 rodar **non-root** (`USER node`)
 - [ ] 🟠 **resource limits** (`mem_limit`/`cpus`)
-- [ ] 🟠 **pinar** imagem (`node:22.x-alpine` ou digest) (ENGINE A-1)
+- [x] imagem pinada em `node:22.14.0-alpine3.21` nos dois estágios (ENGINE A-1)
 - [x] HEALTHCHECK (no compose)
 
 ## 14. Coolify
@@ -115,7 +115,7 @@
 - [ ] **[EXTERNO]** checkout / portal / cancelamento testados (refletem no Supabase)
 
 ## 17. Engine
-- [ ] 🔴 boot CJS×ESM resolvido + Node pinado (ENGINE A-1)
+- [x] boot determinístico: módulos CommonJS + Baileys via `import()` + Node pinado (ENGINE A-1)
 - [x] estado anti-ban **persistido atômico** (sobrevive a restart, não libera cota nova)
 - [ ] **[EXTERNO]** restart **preserva sessão** (volume `auth/` ok)
 - [ ] ⚠️ **só 1 instância** — NÃO subir réplica do mesmo número (= ban) até multi-socket (V4)
@@ -143,9 +143,9 @@ npm run verify:online -- -AppUrl "https://app.SEUDOMINIO.com" -EngineUrl "https:
 
 ## Resumo
 - **Já OK:** headers/CSP, secrets fora do git, webhook Stripe, RLS presente, storage por tenant, anti-ban persistido, crons, worker.
-- **Gate P0 do repositório:** aprovado (`npm run verify:local`, 23 testes web + 3 do migrador, build e sintaxe).
-- **Bloqueadores ainda abertos:** engine health/Node, rotação externa da service-role e envs externos/incompletos.
+- **Gate P0 do repositório:** aprovado (`npm run verify:local`, testes web/migrador/engine, build e sintaxe).
+- **Bloqueadores ainda abertos:** engine health, rotação externa da service-role e envs externos/incompletos.
 - **[EXTERNO]:** SSL, DNS, backups Supabase, envs na Vercel, testes Stripe — confirmar nos painéis.
 - **Não deployar réplica da engine** até o multi-socket (V4).
 
-*Checklist atualizado após a implementação do gate P0 em 2026-07-03.*
+*Checklist atualizado após o gate de boot determinístico da engine em 2026-07-03.*

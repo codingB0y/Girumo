@@ -12,7 +12,7 @@ detecta = lead → boas-vindas → disparos/campanhas → billing por plano. **E
 
 ## Monorepo (npm workspaces)
 - `apps/web` — Next.js 15 (App Router) + React 19 + Tailwind v4 + TS strict. ⭐ app principal.
-- `hubflow-engine` — Node ESM + Baileys 7. Engine WhatsApp (sem banco).
+- `hubflow-engine` — Node CommonJS + Baileys 7 carregado por `import()` explícito. Engine WhatsApp (sem banco).
 - Resíduos/legado (não mexer sem confirmar): `hubflow-groups/` (projeto predecessor), `api/server.js`,
   `packages/shared`, `apps/web/prisma`, `apps/web/nextjs-claude-code-starter`, `apps/web/apps/web`.
 
@@ -46,8 +46,9 @@ detecta = lead → boas-vindas → disparos/campanhas → billing por plano. **E
   `claim_engine_commands` do Supabase por RPC (poll 3s).
 - **Engine é single-número/single-instance** (`auth/` fixo). NÃO escala horizontal (2 réplicas do mesmo
   número = ban). `supervisor.js` (multi-tenant) é órfão/desalinhado — NÃO roda (`CMD=node index.js`).
-  `connection-watchdog.js` também órfão. `/health` responde 200 mesmo deslogado. Mistura CJS+ESM só sobe
-  em Node ≥22.12. Núcleo anti-ban é forte (não mexer). Detalhes: `hubflow-engine/ENGINE_AUDIT.md`.
+  `connection-watchdog.js` também órfão. `/health` responde 200 mesmo deslogado. O boot CJS×ESM foi
+  corrigido: módulos internos CommonJS, Baileys via `import()` e imagem `node:22.14.0-alpine3.21` pinada.
+  Núcleo anti-ban é forte (não mexer). Detalhes: `hubflow-engine/ENGINE_AUDIT.md`.
 - **Supabase:** 2 projetos — dev `wfju…` (`.env.local`) e prod `nido…` (CLI). Cuidado com drift.
 - **Segredos:** `.gitignore` cobre `.env*`; nada versionado. ✅
 - **Convenções:** arquivos kebab-case, componentes PascalCase, funções camelCase, alias `@/`, Tailwind
@@ -56,7 +57,7 @@ detecta = lead → boas-vindas → disparos/campanhas → billing por plano. **E
 ## Riscos abertos
 Geral (AUDIT_REPORT.md §13-14): RLS×service-role · rotação Service Role Key · drift de migrações ·
 duplicação `(app)`×`painel` · resíduos legados · sem testes de integração · rate-limit in-memory.
-Engine (ENGINE_AUDIT.md): single-número · supervisor/watchdog órfãos · `/health` mente · CJS×ESM.
+Engine (ENGINE_AUDIT.md): single-número · supervisor/watchdog órfãos · `/health` mente. CJS×ESM foi corrigido.
 Backend (BACKEND_AUDIT.md): admin guard, RBAC sensível, IDOR de mídia e stores legados globais foram
 corrigidos no gate P0. Permanecem: paginação por cursor, caching quase ausente e migração definitiva do
 fallback JSON para Postgres.

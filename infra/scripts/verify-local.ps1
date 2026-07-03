@@ -33,6 +33,8 @@ Invoke-NativeStep "Scan de secrets" {
 
 Invoke-NativeStep "Testes" {
   npm.cmd test
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  npm.cmd run engine:test
 }
 
 Invoke-NativeStep "TypeScript web" {
