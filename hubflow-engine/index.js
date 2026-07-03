@@ -22,16 +22,17 @@ app.listen(PORT, "0.0.0.0", () => {
   console.log(`Healthcheck ativo na porta ${PORT}`);
 });
 
-const baileys = require("@whiskeysockets/baileys");
+let useMultiFileAuthState;
+let DisconnectReason;
+let fetchLatestBaileysVersion;
+let jidNormalizedUser;
+let makeWASocket;
 
-const {
-  useMultiFileAuthState,
-  DisconnectReason,
-  fetchLatestBaileysVersion,
-  jidNormalizedUser,
-} = baileys;
-
-const makeWASocket = baileys.default || baileys;
+async function loadBaileys() {
+  const baileys = await import("@whiskeysockets/baileys");
+  ({ useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, jidNormalizedUser } = baileys);
+  makeWASocket = baileys.default;
+}
 
 const qrcode = require("qrcode-terminal");
 const pino = require("pino");
@@ -901,7 +902,12 @@ async function resyncGroupsIfNeeded() {
 }
 
 
-start().catch((err) => {
-  console.error("Erro fatal:", err);
+async function bootstrap() {
+  await loadBaileys();
+  await start();
+}
+
+bootstrap().catch((error) => {
+  console.error("Erro fatal ao iniciar a engine:", error);
   process.exit(1);
 });
