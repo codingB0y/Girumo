@@ -64,4 +64,35 @@ class ConnectionWatchdog {
   }
 }
 
-module.exports = { ConnectionWatchdog };
+function createConnectionWatchdogManager({ Watchdog = ConnectionWatchdog, logger = console } = {}) {
+  let active = null;
+
+  function detach(sock) {
+    if (!active || (sock && active.sock !== sock)) return false;
+    active.watchdog.stop();
+    active = null;
+    return true;
+  }
+
+  function attach(sock) {
+    if (!sock) throw new Error("Socket obrigatório para o watchdog.");
+    if (active?.sock === sock) return active.watchdog;
+    detach();
+    let watchdog;
+    watchdog = new Watchdog({
+      sock,
+      logger,
+      onDead: () => {
+        if (active?.sock !== sock || active.watchdog !== watchdog) return;
+        sock.end(new Error("watchdog detected zombie connection"));
+      },
+    });
+    active = { sock, watchdog };
+    watchdog.start();
+    return watchdog;
+  }
+
+  return { attach, detach, stop: () => detach() };
+}
+
+module.exports = { ConnectionWatchdog, createConnectionWatchdogManager };
