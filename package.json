@@ -6,6 +6,7 @@
     "hubflow-engine"
   ],
   "scripts": {
+    "test": "npm --workspace apps/web test",
     "web:dev": "npm --workspace apps/web run dev",
     "web:build": "npm --workspace apps/web run build",
     "web:lint": "npm --workspace apps/web run lint",
