@@ -26,8 +26,8 @@ V5 Enterprise    → observabilidade, testes, compliance, DR/SLA
 
 ## 🔴 V1 — Correções  *(gate: nenhum 🔴 em aberto)*
 
-**Status em 2026-07-03:** itens 1, 2, 3, 4, 6, 9 e 11 implementados e verificados pelo gate local.
-Itens 5, 7, 8, 10 e 12 continuam abertos ou dependem de configuração externa.
+**Status em 2026-07-03:** itens 1, 2, 3, 4, 6, 7, 9 e 11 implementados e verificados pelo gate local.
+Itens 5, 8, 10 e 12 continuam abertos ou dependem de configuração externa.
 
 Segurança, bugs e falhas silenciosas. É o que impede um cliente pago hoje.
 

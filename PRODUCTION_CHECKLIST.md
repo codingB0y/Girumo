@@ -11,7 +11,7 @@
 1. ✅ `GET /api/admin/tenants/list` protegido por `getAdminContext()` (BACKEND BE-1)
 2. ✅ RBAC enforçado nas mutações de campanhas, automações e conta (BACKEND BE-2)
 3. ✅ Engine CommonJS carrega Baileys por `import()` explícito + Node/Alpine pinados (ENGINE A-1)
-4. 🔴 Engine `/health` retorna 200 **deslogado** → orquestrador não reinicia (ENGINE 9)
+4. ✅ Engine separa liveness (`/health/live`) de readiness (`/health` e `/health/ready` com 503 desconectado)
 5. ✅ `ENGINE_TOKEN`/`AUTH_SECRET`/`CRON_SECRET` falham em produção se ausentes
 6. 🔴 **Service Role Key** não rotacionada (pendente Sprint 1)
 7. ✅ `apply-order.txt` cobre as 15 migrações ativas e é fonte canônica (INFRA-2)
@@ -48,8 +48,8 @@
 
 ## 5. Health Check
 - [x] `/api/health` existe (público no middleware)
-- [x] Engine `/health` + healthcheck no compose
-- [ ] 🔴 Engine `/health` → **503 quando deslogado** (hoje 200 sempre) (ENGINE 9)
+- [x] Engine `/health` e `/health/ready` → **503 quando desconectado** (ENGINE 9)
+- [x] Container usa `/health/live` para evitar loop de restart durante QR/reconexão
 - [ ] 🟠 `connection-watchdog` plugado no `index.js` (hoje órfão) (ENGINE R-1)
 
 ## 6. Rate Limit
@@ -144,8 +144,8 @@ npm run verify:online -- -AppUrl "https://app.SEUDOMINIO.com" -EngineUrl "https:
 ## Resumo
 - **Já OK:** headers/CSP, secrets fora do git, webhook Stripe, RLS presente, storage por tenant, anti-ban persistido, crons, worker.
 - **Gate P0 do repositório:** aprovado (`npm run verify:local`, testes web/migrador/engine, build e sintaxe).
-- **Bloqueadores ainda abertos:** engine health, rotação externa da service-role e envs externos/incompletos.
+- **Bloqueadores ainda abertos:** rotação externa da service-role e envs externos/incompletos.
 - **[EXTERNO]:** SSL, DNS, backups Supabase, envs na Vercel, testes Stripe — confirmar nos painéis.
 - **Não deployar réplica da engine** até o multi-socket (V4).
 
-*Checklist atualizado após o gate de boot determinístico da engine em 2026-07-03.*
+*Checklist atualizado após o gate de liveness/readiness da engine em 2026-07-03.*
