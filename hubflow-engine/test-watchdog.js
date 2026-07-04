@@ -222,6 +222,30 @@ test("attach do socket atual reutiliza watchdog sem reiniciar", () => {
   assert.equal(first.stopCalls, 0);
 });
 
+test("manager propaga rejeição assíncrona de end para o watchdog registrar", async () => {
+  const logs = [];
+  const socket = {
+    sendPresenceUpdate: async () => {
+      throw new Error("stream indisponível");
+    },
+    end: async () => {
+      throw new Error("encerramento falhou");
+    },
+  };
+  const manager = createConnectionWatchdogManager({
+    logger: { log: (message) => logs.push(message) },
+  });
+  const watchdog = manager.attach(socket);
+  watchdog._consecutiveFails = 2;
+
+  try {
+    await assert.doesNotReject(() => watchdog._ping());
+    assert.equal(logs.some((message) => message.includes("encerramento falhou")), true);
+  } finally {
+    manager.stop();
+  }
+});
+
 test("manager mantém apenas o watchdog do socket ativo", () => {
   const instances = [];
   class FakeWatchdog {

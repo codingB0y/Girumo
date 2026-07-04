@@ -138,7 +138,7 @@ function createConnectionWatchdogManager({ Watchdog = ConnectionWatchdog, logger
       logger,
       onDead: () => {
         if (active?.sock !== sock || active.watchdog !== watchdog) return;
-        sock.end(new Error("watchdog detected zombie connection"));
+        return sock.end(new Error("watchdog detected zombie connection"));
       },
     });
     active = { sock, watchdog };
