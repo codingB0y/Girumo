@@ -118,6 +118,14 @@ class ConnectionWatchdog {
   }
 }
 
+async function closeSupersededSocket(sock, logger = console) {
+  try {
+    await sock.end(new Error("superseded connection"));
+  } catch (error) {
+    logger.log(`Erro ao encerrar conexão obsoleta: ${error?.message ?? error}`);
+  }
+}
+
 function createConnectionWatchdogManager({ Watchdog = ConnectionWatchdog, logger = console } = {}) {
   let active = null;
 
@@ -151,6 +159,7 @@ function createConnectionWatchdogManager({ Watchdog = ConnectionWatchdog, logger
 
 function createConnectionLifecycleManager({
   reconnect,
+  getRetryDelay = () => null,
   logger = console,
   setTimeoutFn = setTimeout,
   clearTimeoutFn = clearTimeout,
@@ -180,7 +189,17 @@ function createConnectionLifecycleManager({
       reconnectTimer = null;
       Promise.resolve()
         .then(reconnect)
-        .catch((error) => logger.log(`Erro ao reconectar: ${error?.message ?? error}`));
+        .catch((error) => {
+          logger.log(`Erro ao reconectar: ${error?.message ?? error}`);
+          let retryDelay;
+          try {
+            retryDelay = getRetryDelay(error);
+          } catch (retryError) {
+            logger.log(`Erro ao calcular retry: ${retryError?.message ?? retryError}`);
+            return;
+          }
+          if (Number.isFinite(retryDelay) && retryDelay >= 0) scheduleReconnect(retryDelay);
+        });
     }, delay);
     return true;
   }
@@ -199,6 +218,7 @@ function createConnectionLifecycleManager({
 
 module.exports = {
   ConnectionWatchdog,
+  closeSupersededSocket,
   createConnectionLifecycleManager,
   createConnectionWatchdogManager,
 };

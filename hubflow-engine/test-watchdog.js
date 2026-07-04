@@ -3,6 +3,7 @@ const { readFileSync } = require("node:fs");
 const test = require("node:test");
 const {
   ConnectionWatchdog,
+  closeSupersededSocket,
   createConnectionLifecycleManager,
   createConnectionWatchdogManager,
 } = require("./connection-watchdog.js");
@@ -17,6 +18,8 @@ test("entrypoint conecta watchdog a open, close e shutdown", () => {
   assert.match(source, /connectionLifecycle\.track\(sock\)/);
   assert.match(source, /connectionLifecycle\.release\(sock\)/);
   assert.match(source, /connectionLifecycle\.shutdown\(\)/);
+  assert.match(source, /closeSupersededSocket\(sock, console\)/);
+  assert.match(source, /getRetryDelay:/);
 });
 
 function createTimerHarness() {
@@ -97,13 +100,39 @@ test("timer disparado libera o slot para futuro reconnect", () => {
   assert.equal(timers.scheduled.length, 2);
 });
 
-test("scheduler registra rejeição do reconnect", async () => {
+test("socket obsoleto é encerrado", async () => {
+  const endCalls = [];
+  const socket = { end: async (error) => endCalls.push(error) };
+
+  await closeSupersededSocket(socket, silentLogger);
+
+  assert.equal(endCalls.length, 1);
+  assert.equal(endCalls[0].message, "superseded connection");
+});
+
+test("rejeição ao encerrar socket obsoleto é registrada sem propagar", async () => {
+  const logs = [];
+  const socket = {
+    end: async () => {
+      throw new Error("end falhou");
+    },
+  };
+
+  await assert.doesNotReject(() =>
+    closeSupersededSocket(socket, { log: (message) => logs.push(message) }),
+  );
+
+  assert.equal(logs.some((message) => message.includes("end falhou")), true);
+});
+
+test("scheduler registra rejeição do reconnect e agenda nova tentativa", async () => {
   const timers = createTimerHarness();
   const logs = [];
   const lifecycle = createConnectionLifecycleManager({
     reconnect: async () => {
       throw new Error("start falhou");
     },
+    getRetryDelay: () => 2500,
     logger: { log: (message) => logs.push(message) },
     setTimeoutFn: timers.setTimeoutFn,
     clearTimeoutFn: timers.clearTimeoutFn,
@@ -114,6 +143,52 @@ test("scheduler registra rejeição do reconnect", async () => {
   await new Promise((resolve) => setImmediate(resolve));
 
   assert.equal(logs.some((message) => message.includes("start falhou")), true);
+  assert.equal(timers.scheduled.length, 2);
+  assert.equal(timers.scheduled[1].delay, 2500);
+});
+
+test("shutdown impede retry após reconnect em voo rejeitar", async () => {
+  const timers = createTimerHarness();
+  const reconnectResult = deferred();
+  const lifecycle = createConnectionLifecycleManager({
+    reconnect: () => reconnectResult.promise,
+    getRetryDelay: () => 2500,
+    logger: silentLogger,
+    setTimeoutFn: timers.setTimeoutFn,
+    clearTimeoutFn: timers.clearTimeoutFn,
+  });
+  lifecycle.scheduleReconnect(1000);
+  timers.scheduled[0].callback();
+  await new Promise((resolve) => setImmediate(resolve));
+
+  lifecycle.shutdown();
+  reconnectResult.reject(new Error("start falhou"));
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(timers.scheduled.length, 1);
+});
+
+test("exceção ao calcular retry é registrada sem novo timer", async () => {
+  const timers = createTimerHarness();
+  const logs = [];
+  const lifecycle = createConnectionLifecycleManager({
+    reconnect: async () => {
+      throw new Error("start falhou");
+    },
+    getRetryDelay: () => {
+      throw new Error("delay falhou");
+    },
+    logger: { log: (message) => logs.push(message) },
+    setTimeoutFn: timers.setTimeoutFn,
+    clearTimeoutFn: timers.clearTimeoutFn,
+  });
+  lifecycle.scheduleReconnect(1000);
+
+  timers.scheduled[0].callback();
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(logs.some((message) => message.includes("delay falhou")), true);
+  assert.equal(timers.scheduled.length, 1);
 });
 
 test("shutdown cancela reconnect pendente e bloqueia novos schedules", () => {

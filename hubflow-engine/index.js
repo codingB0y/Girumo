@@ -41,6 +41,7 @@ const { WarmUp } = require("./warmup.js");
 const { GroupOperationGuard, classifyGroupOpError } = require("./group-guard.js");
 const { DeliveryTracker } = require("./delivery-tracker.js");
 const {
+  closeSupersededSocket,
   createConnectionLifecycleManager,
   createConnectionWatchdogManager,
 } = require("./connection-watchdog.js");
@@ -216,7 +217,15 @@ let dispatchTimer = null; // intervalo que puxa ofertas a disparar do app
 let connectedSince = null; // quando a sessão atual abriu (p/ "conectado há X dias")
 let reconnectAttempts = 0; // p/ backoff exponencial — zera ao conectar de fato
 let currentSocket = null; // socket Baileys ativo, usado pelo worker Supabase
-const connectionLifecycle = createConnectionLifecycleManager({ reconnect: start, logger: console });
+const connectionLifecycle = createConnectionLifecycleManager({
+  reconnect: start,
+  getRetryDelay: () => {
+    const wait = nextReconnectDelay();
+    reconnectAttempts++;
+    return wait;
+  },
+  logger: console,
+});
 const connectionWatchdog = createConnectionWatchdogManager({ logger: console });
 let supabaseCommandWorkerStarted = false;
 const supabaseCommandWorker = createSupabaseCommandWorker({
@@ -695,7 +704,10 @@ async function start() {
     }
 
     if (connection === "open") {
-      if (!connectionLifecycle.isLatest(sock)) return;
+      if (!connectionLifecycle.isLatest(sock)) {
+        await closeSupersededSocket(sock, console);
+        return;
+      }
       console.log("\n✅ Conectado ao WhatsApp!");
       currentSocket = sock;
       connectionWatchdog.attach(sock);
