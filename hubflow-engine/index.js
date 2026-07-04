@@ -40,7 +40,10 @@ const { AntiBanQueue } = require("./anti-ban-queue.js");
 const { WarmUp } = require("./warmup.js");
 const { GroupOperationGuard, classifyGroupOpError } = require("./group-guard.js");
 const { DeliveryTracker } = require("./delivery-tracker.js");
-const { createConnectionWatchdogManager } = require("./connection-watchdog.js");
+const {
+  createConnectionLifecycleManager,
+  createConnectionWatchdogManager,
+} = require("./connection-watchdog.js");
 const { createSupabaseCommandWorker } = require("./queues/supabase-command-worker.js");
 const { validateEngineEnvironment } = require("./config/env.js");
 
@@ -124,6 +127,7 @@ let shuttingDown = false;
 function shutdown() {
   if (shuttingDown) return; // evita salvar 2x se os dois sinais chegarem
   shuttingDown = true;
+  connectionLifecycle.shutdown();
   connectionWatchdog.stop();
   supabaseCommandWorker.stop();
   saveState();
@@ -212,6 +216,7 @@ let dispatchTimer = null; // intervalo que puxa ofertas a disparar do app
 let connectedSince = null; // quando a sessão atual abriu (p/ "conectado há X dias")
 let reconnectAttempts = 0; // p/ backoff exponencial — zera ao conectar de fato
 let currentSocket = null; // socket Baileys ativo, usado pelo worker Supabase
+const connectionLifecycle = createConnectionLifecycleManager({ reconnect: start, logger: console });
 const connectionWatchdog = createConnectionWatchdogManager({ logger: console });
 let supabaseCommandWorkerStarted = false;
 const supabaseCommandWorker = createSupabaseCommandWorker({
@@ -656,6 +661,7 @@ async function start() {
     logger,
     browser: ["HUBFLOW", "Chrome", "1.0.0"],
   });
+  connectionLifecycle.track(sock);
 
   // Salva credenciais sempre que mudam (essencial para persistir a sessão).
   sock.ev.on("creds.update", saveCreds);
@@ -689,6 +695,7 @@ async function start() {
     }
 
     if (connection === "open") {
+      if (!connectionLifecycle.isLatest(sock)) return;
       console.log("\n✅ Conectado ao WhatsApp!");
       currentSocket = sock;
       connectionWatchdog.attach(sock);
@@ -723,7 +730,7 @@ async function start() {
 
     if (connection === "close") {
       connectionWatchdog.detach(sock);
-      if (currentSocket && currentSocket !== sock) return;
+      if (!connectionLifecycle.release(sock)) return;
       currentSocket = null;
       supabaseCommandWorker.stop();
       supabaseCommandWorkerStarted = false;
@@ -734,12 +741,12 @@ async function start() {
         console.log("\n🔒 Sessão não autenticada (QR expirado ou auth velha). Limpando e gerando novo QR...");
         connectedSince = null; // sessão acabou de fato — zera o "conectado desde"
         await rm("auth", { recursive: true, force: true });
-        setTimeout(start, 2000);
+        connectionLifecycle.scheduleReconnect(2000);
       } else {
         const wait = nextReconnectDelay();
         reconnectAttempts++;
         console.log(`\n⚠️  Conexão caiu (code ${code}). Reconectando em ${Math.round(wait / 1000)}s...`);
-        setTimeout(start, wait);
+        connectionLifecycle.scheduleReconnect(wait);
       }
     }
   });

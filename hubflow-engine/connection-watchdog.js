@@ -149,4 +149,56 @@ function createConnectionWatchdogManager({ Watchdog = ConnectionWatchdog, logger
   return { attach, detach, stop: () => detach() };
 }
 
-module.exports = { ConnectionWatchdog, createConnectionWatchdogManager };
+function createConnectionLifecycleManager({
+  reconnect,
+  logger = console,
+  setTimeoutFn = setTimeout,
+  clearTimeoutFn = clearTimeout,
+} = {}) {
+  let latestSocket = null;
+  let reconnectTimer = null;
+  let stopped = false;
+
+  function track(sock) {
+    if (!sock) throw new Error("Socket obrigatório para o lifecycle.");
+    latestSocket = sock;
+  }
+
+  function isLatest(sock) {
+    return Boolean(latestSocket && latestSocket === sock);
+  }
+
+  function release(sock) {
+    if (!isLatest(sock)) return false;
+    latestSocket = null;
+    return true;
+  }
+
+  function scheduleReconnect(delay) {
+    if (stopped || reconnectTimer !== null) return false;
+    reconnectTimer = setTimeoutFn(() => {
+      reconnectTimer = null;
+      Promise.resolve()
+        .then(reconnect)
+        .catch((error) => logger.log(`Erro ao reconectar: ${error?.message ?? error}`));
+    }, delay);
+    return true;
+  }
+
+  function shutdown() {
+    stopped = true;
+    latestSocket = null;
+    if (reconnectTimer === null) return false;
+    clearTimeoutFn(reconnectTimer);
+    reconnectTimer = null;
+    return true;
+  }
+
+  return { track, isLatest, release, scheduleReconnect, shutdown };
+}
+
+module.exports = {
+  ConnectionWatchdog,
+  createConnectionLifecycleManager,
+  createConnectionWatchdogManager,
+};

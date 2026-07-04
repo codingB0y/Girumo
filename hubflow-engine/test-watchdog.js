@@ -1,18 +1,123 @@
 const assert = require("node:assert/strict");
-const { readFileSync } = require("node:fs");
 const test = require("node:test");
 const {
   ConnectionWatchdog,
+  createConnectionLifecycleManager,
   createConnectionWatchdogManager,
 } = require("./connection-watchdog.js");
 
 const silentLogger = { log() {} };
 
-test("entrypoint conecta watchdog a open, close e shutdown", () => {
-  const source = readFileSync(require.resolve("./index.js"), "utf8");
-  assert.match(source, /connectionWatchdog\.attach\(sock\)/);
-  assert.match(source, /connectionWatchdog\.detach\(sock\)/);
-  assert.match(source, /connectionWatchdog\.stop\(\)/);
+function createTimerHarness() {
+  const scheduled = [];
+  const cleared = [];
+  return {
+    scheduled,
+    cleared,
+    setTimeoutFn(callback, delay) {
+      const handle = { callback, delay };
+      scheduled.push(handle);
+      return handle;
+    },
+    clearTimeoutFn(handle) {
+      cleared.push(handle);
+    },
+  };
+}
+
+test("lifecycle rastreia o socket mais recente desde a criação", () => {
+  const lifecycle = createConnectionLifecycleManager({ reconnect: async () => {} });
+  const socketA = {};
+  const socketB = {};
+
+  lifecycle.track(socketA);
+  lifecycle.track(socketB);
+
+  assert.equal(lifecycle.isLatest(socketA), false);
+  assert.equal(lifecycle.isLatest(socketB), true);
+});
+
+test("release de socket antigo não afeta o socket atual", () => {
+  const lifecycle = createConnectionLifecycleManager({ reconnect: async () => {} });
+  const socketA = {};
+  const socketB = {};
+  lifecycle.track(socketA);
+  lifecycle.track(socketB);
+
+  assert.equal(lifecycle.release(socketA), false);
+  assert.equal(lifecycle.isLatest(socketB), true);
+});
+
+test("release do socket mais recente antes de open permite reconexão", () => {
+  const lifecycle = createConnectionLifecycleManager({ reconnect: async () => {} });
+  const socket = {};
+  lifecycle.track(socket);
+
+  assert.equal(lifecycle.release(socket), true);
+  assert.equal(lifecycle.isLatest(socket), false);
+});
+
+test("scheduler mantém no máximo um reconnect pendente", () => {
+  const timers = createTimerHarness();
+  const lifecycle = createConnectionLifecycleManager({
+    reconnect: async () => {},
+    setTimeoutFn: timers.setTimeoutFn,
+    clearTimeoutFn: timers.clearTimeoutFn,
+  });
+
+  assert.equal(lifecycle.scheduleReconnect(1000), true);
+  assert.equal(lifecycle.scheduleReconnect(2000), false);
+  assert.equal(timers.scheduled.length, 1);
+  assert.equal(timers.scheduled[0].delay, 1000);
+});
+
+test("timer disparado libera o slot para futuro reconnect", () => {
+  const timers = createTimerHarness();
+  const lifecycle = createConnectionLifecycleManager({
+    reconnect: async () => {},
+    setTimeoutFn: timers.setTimeoutFn,
+    clearTimeoutFn: timers.clearTimeoutFn,
+  });
+  lifecycle.scheduleReconnect(1000);
+
+  timers.scheduled[0].callback();
+
+  assert.equal(lifecycle.scheduleReconnect(2000), true);
+  assert.equal(timers.scheduled.length, 2);
+});
+
+test("scheduler registra rejeição do reconnect", async () => {
+  const timers = createTimerHarness();
+  const logs = [];
+  const lifecycle = createConnectionLifecycleManager({
+    reconnect: async () => {
+      throw new Error("start falhou");
+    },
+    logger: { log: (message) => logs.push(message) },
+    setTimeoutFn: timers.setTimeoutFn,
+    clearTimeoutFn: timers.clearTimeoutFn,
+  });
+  lifecycle.scheduleReconnect(1000);
+
+  timers.scheduled[0].callback();
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(logs.some((message) => message.includes("start falhou")), true);
+});
+
+test("shutdown cancela reconnect pendente e bloqueia novos schedules", () => {
+  const timers = createTimerHarness();
+  const lifecycle = createConnectionLifecycleManager({
+    reconnect: async () => {},
+    setTimeoutFn: timers.setTimeoutFn,
+    clearTimeoutFn: timers.clearTimeoutFn,
+  });
+  lifecycle.scheduleReconnect(1000);
+
+  lifecycle.shutdown();
+
+  assert.deepEqual(timers.cleared, [timers.scheduled[0]]);
+  assert.equal(lifecycle.scheduleReconnect(2000), false);
 });
 
 function deferred() {
