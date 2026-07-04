@@ -11,15 +11,31 @@
  *   wd = new ConnectionWatchdog({ sock: novoSock, ... });
  */
 class ConnectionWatchdog {
-  constructor({ sock, onDead, intervalMs = 45_000, timeoutMs = 15_000, logger = console } = {}) {
+  constructor({
+    sock,
+    onDead,
+    intervalMs = 45_000,
+    timeoutMs = 15_000,
+    logger = console,
+    setIntervalFn = setInterval,
+    clearIntervalFn = clearInterval,
+    setTimeoutFn = setTimeout,
+    clearTimeoutFn = clearTimeout,
+  } = {}) {
     this.sock = sock;
     this.onDead = onDead;
     this.intervalMs = intervalMs;
     this.timeoutMs = timeoutMs;
     this.logger = logger;
+    this._setInterval = setIntervalFn;
+    this._clearInterval = clearIntervalFn;
+    this._setTimeout = setTimeoutFn;
+    this._clearTimeout = clearTimeoutFn;
     this._timer = null;
     this._alive = true;
     this._consecutiveFails = 0;
+    this._generation = 0;
+    this._pingInFlight = null;
     this._maxFails = 3; // 3 falhas seguidas = conexão morta
   }
 
@@ -27,40 +43,62 @@ class ConnectionWatchdog {
     this.stop();
     this._alive = true;
     this._consecutiveFails = 0;
-    this._timer = setInterval(() => this._ping(), this.intervalMs);
+    this._timer = this._setInterval(() => this._ping(), this.intervalMs);
   }
 
   stop() {
-    if (this._timer) {
-      clearInterval(this._timer);
+    this._generation++;
+    if (this._timer !== null) {
+      this._clearInterval(this._timer);
       this._timer = null;
     }
     this._alive = false;
   }
 
-  async _ping() {
-    if (!this._alive) return;
-    try {
-      // sendPresenceUpdate é leve e confirma que o stream está funcional.
-      // Timeout manual garante que não ficamos presos esperando forever.
-      await Promise.race([
-        this.sock.sendPresenceUpdate("available"),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("watchdog timeout")), this.timeoutMs)
-        ),
-      ]);
-      this._consecutiveFails = 0;
-    } catch (err) {
-      this._consecutiveFails++;
-      this.logger.log(
-        `🐕 Watchdog: ping falhou (${this._consecutiveFails}/${this._maxFails}): ${err.message}`
-      );
-      if (this._consecutiveFails >= this._maxFails) {
-        this.logger.log("🐕 Watchdog: conexão zombi detectada. Forçando reconexão...");
-        this.stop();
-        if (this.onDead) this.onDead();
+  _ping() {
+    if (!this._alive) return Promise.resolve();
+    const generation = this._generation;
+    if (this._pingInFlight?.generation === generation) return this._pingInFlight.promise;
+
+    let inFlight;
+    const promise = (async () => {
+      let timeoutHandle;
+      try {
+        // sendPresenceUpdate é leve e confirma que o stream está funcional.
+        // Timeout manual garante que não ficamos presos esperando forever.
+        await Promise.race([
+          this.sock.sendPresenceUpdate("available"),
+          new Promise((_, reject) => {
+            timeoutHandle = this._setTimeout(
+              () => reject(new Error("watchdog timeout")),
+              this.timeoutMs
+            );
+          }),
+        ]);
+        if (!this._alive || this._generation !== generation) return;
+        this._consecutiveFails = 0;
+      } catch (err) {
+        if (!this._alive || this._generation !== generation) return;
+        this._consecutiveFails++;
+        this.logger.log(
+          `🐕 Watchdog: ping falhou (${this._consecutiveFails}/${this._maxFails}): ${err.message}`
+        );
+        if (this._consecutiveFails >= this._maxFails) {
+          this.logger.log("🐕 Watchdog: conexão zombi detectada. Forçando reconexão...");
+          this.stop();
+          if (this.onDead) this.onDead();
+        }
+      } finally {
+        if (timeoutHandle !== undefined) this._clearTimeout(timeoutHandle);
       }
-    }
+    })();
+
+    inFlight = { generation, promise };
+    this._pingInFlight = inFlight;
+    promise.finally(() => {
+      if (this._pingInFlight === inFlight) this._pingInFlight = null;
+    });
+    return promise;
   }
 }
 
