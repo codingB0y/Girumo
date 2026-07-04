@@ -105,6 +105,30 @@ test("stop invalida rejeição de ping em voo sem disparar onDead", async () => 
   assert.equal(deadCalls, 0);
 });
 
+test("stop liquida imediatamente ping que nunca responde e limpa timeout", { timeout: 100 }, async () => {
+  let intervalCallback;
+  const timeoutHandle = { id: "pending-timeout" };
+  const cleared = [];
+  const watchdog = new ConnectionWatchdog({
+    sock: { sendPresenceUpdate: () => new Promise(() => {}) },
+    logger: silentLogger,
+    setIntervalFn: (callback) => {
+      intervalCallback = callback;
+      return 1;
+    },
+    clearIntervalFn() {},
+    setTimeoutFn: () => timeoutHandle,
+    clearTimeoutFn: (handle) => cleared.push(handle),
+  });
+
+  watchdog.start();
+  const ping = intervalCallback();
+  watchdog.stop();
+  await ping;
+
+  assert.deepEqual(cleared, [timeoutHandle]);
+});
+
 test("ping rápido cancela explicitamente seu timeout", async () => {
   const timeoutHandle = { id: "watchdog-timeout" };
   const cleared = [];
@@ -140,6 +164,28 @@ test("pings não se sobrepõem", async () => {
 
   pingResult.resolve();
   await Promise.all([firstPing, secondPing]);
+});
+
+test("onDead que lança é registrado sem rejeitar o ping", async () => {
+  const logs = [];
+  const watchdog = new ConnectionWatchdog({
+    sock: {
+      sendPresenceUpdate: async () => {
+        throw new Error("stream indisponível");
+      },
+    },
+    onDead: () => {
+      throw new Error("recuperação falhou");
+    },
+    logger: { log: (message) => logs.push(message) },
+    timeoutMs: 10,
+  });
+  watchdog._consecutiveFails = 2;
+
+  await assert.doesNotReject(() => watchdog._ping());
+
+  assert.equal(watchdog._alive, false);
+  assert.equal(logs.some((message) => message.includes("recuperação falhou")), true);
 });
 
 test("attach do socket atual reutiliza watchdog sem reiniciar", () => {

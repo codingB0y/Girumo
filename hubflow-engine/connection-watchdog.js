@@ -36,6 +36,7 @@ class ConnectionWatchdog {
     this._consecutiveFails = 0;
     this._generation = 0;
     this._pingInFlight = null;
+    this._cancelPing = null;
     this._maxFails = 3; // 3 falhas seguidas = conexão morta
   }
 
@@ -53,6 +54,7 @@ class ConnectionWatchdog {
       this._timer = null;
     }
     this._alive = false;
+    if (this._cancelPing) this._cancelPing();
   }
 
   _ping() {
@@ -61,6 +63,11 @@ class ConnectionWatchdog {
     if (this._pingInFlight?.generation === generation) return this._pingInFlight.promise;
 
     let inFlight;
+    let cancelPing;
+    const cancellation = new Promise((resolve) => {
+      cancelPing = resolve;
+    });
+    this._cancelPing = cancelPing;
     const promise = (async () => {
       let timeoutHandle;
       try {
@@ -74,6 +81,7 @@ class ConnectionWatchdog {
               this.timeoutMs
             );
           }),
+          cancellation,
         ]);
         if (!this._alive || this._generation !== generation) return;
         this._consecutiveFails = 0;
@@ -86,18 +94,26 @@ class ConnectionWatchdog {
         if (this._consecutiveFails >= this._maxFails) {
           this.logger.log("🐕 Watchdog: conexão zombi detectada. Forçando reconexão...");
           this.stop();
-          if (this.onDead) this.onDead();
+          if (this.onDead) {
+            try {
+              await this.onDead();
+            } catch (onDeadError) {
+              this.logger.log(`🐕 Watchdog: recuperação falhou: ${onDeadError.message}`);
+            }
+          }
         }
       } finally {
         if (timeoutHandle !== undefined) this._clearTimeout(timeoutHandle);
+        if (this._cancelPing === cancelPing) this._cancelPing = null;
       }
     })();
 
     inFlight = { generation, promise };
     this._pingInFlight = inFlight;
-    promise.finally(() => {
+    const cleanup = () => {
       if (this._pingInFlight === inFlight) this._pingInFlight = null;
-    });
+    };
+    promise.then(cleanup, cleanup);
     return promise;
   }
 }
