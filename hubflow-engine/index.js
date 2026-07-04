@@ -40,6 +40,7 @@ const { AntiBanQueue } = require("./anti-ban-queue.js");
 const { WarmUp } = require("./warmup.js");
 const { GroupOperationGuard, classifyGroupOpError } = require("./group-guard.js");
 const { DeliveryTracker } = require("./delivery-tracker.js");
+const { createConnectionWatchdogManager } = require("./connection-watchdog.js");
 const { createSupabaseCommandWorker } = require("./queues/supabase-command-worker.js");
 const { validateEngineEnvironment } = require("./config/env.js");
 
@@ -123,6 +124,7 @@ let shuttingDown = false;
 function shutdown() {
   if (shuttingDown) return; // evita salvar 2x se os dois sinais chegarem
   shuttingDown = true;
+  connectionWatchdog.stop();
   supabaseCommandWorker.stop();
   saveState();
   process.exit(0);
@@ -210,6 +212,7 @@ let dispatchTimer = null; // intervalo que puxa ofertas a disparar do app
 let connectedSince = null; // quando a sessão atual abriu (p/ "conectado há X dias")
 let reconnectAttempts = 0; // p/ backoff exponencial — zera ao conectar de fato
 let currentSocket = null; // socket Baileys ativo, usado pelo worker Supabase
+const connectionWatchdog = createConnectionWatchdogManager({ logger: console });
 let supabaseCommandWorkerStarted = false;
 const supabaseCommandWorker = createSupabaseCommandWorker({
   getSocket: () => currentSocket,
@@ -688,6 +691,7 @@ async function start() {
     if (connection === "open") {
       console.log("\n✅ Conectado ao WhatsApp!");
       currentSocket = sock;
+      connectionWatchdog.attach(sock);
       reconnectAttempts = 0; // conectou — reseta o backoff
       connectedSince = connectedSince ?? new Date().toISOString(); // mantém na reconexão transitória
       const w = warmup.status();
@@ -718,6 +722,8 @@ async function start() {
     }
 
     if (connection === "close") {
+      connectionWatchdog.detach(sock);
+      if (currentSocket && currentSocket !== sock) return;
       currentSocket = null;
       supabaseCommandWorker.stop();
       supabaseCommandWorkerStarted = false;
