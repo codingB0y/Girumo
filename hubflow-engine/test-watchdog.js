@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const { readFileSync } = require("node:fs");
 const test = require("node:test");
 const {
   ConnectionWatchdog,
@@ -7,6 +8,16 @@ const {
 } = require("./connection-watchdog.js");
 
 const silentLogger = { log() {} };
+
+test("entrypoint conecta watchdog a open, close e shutdown", () => {
+  const source = readFileSync(require.resolve("./index.js"), "utf8");
+  assert.match(source, /connectionWatchdog\.attach\(sock\)/);
+  assert.match(source, /connectionWatchdog\.detach\(sock\)/);
+  assert.match(source, /connectionWatchdog\.stop\(\)/);
+  assert.match(source, /connectionLifecycle\.track\(sock\)/);
+  assert.match(source, /connectionLifecycle\.release\(sock\)/);
+  assert.match(source, /connectionLifecycle\.shutdown\(\)/);
+});
 
 function createTimerHarness() {
   const scheduled = [];
