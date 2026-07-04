@@ -13,14 +13,14 @@ const WITHOUT = [
   "2h por dia copiando a mesma oferta, grupo por grupo",
   "Grupo lotou → link morto, lead indo pro concorrente",
   "Venda acontece e você não sabe de qual anúncio veio",
-  "Cliente sumiu e ninguém chama de volta",
+  "Página de captação? Só pagando programador e hospedagem",
 ];
 
 const WITH = [
   "1 clique posta em todos os grupos, no horário certo",
   "Grupo cheio → o próximo nasce e o link nunca morre",
   "Cada venda com origem: anúncio, story ou bio",
-  "Funil reativa quem sumiu, no automático",
+  "Modelos prontos: sua página de captação no ar em minutos",
 ];
 
 /** Premissa declarada: sem redirecionamento automático, ~35% dos cliques se perdem quando o grupo lota. */

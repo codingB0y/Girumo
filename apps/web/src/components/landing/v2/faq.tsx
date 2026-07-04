@@ -7,7 +7,11 @@ export const FAQ_ITEMS: [string, string][] = [
   ],
   [
     "É difícil de usar?",
-    "Se você usa WhatsApp, usa o HubFlow. O painel é em português, a IA sugere as configurações e os modelos já vêm prontos — você quase não configura nada.",
+    "Se você usa WhatsApp, usa o HubFlow. O painel é em português e os modelos — de página, de mensagem e de criativo — já vêm prontos: você quase não configura nada.",
+  ],
+  [
+    "Preciso de site ou programador pra captar leads?",
+    "Não. O HubFlow tem modelos prontos de página de captação: troque logo, cores e fotos, publique no nosso domínio e pronto. O link já sai rastreando cada lead do anúncio até a venda.",
   ],
   [
     "Quantos grupos consigo gerenciar?",

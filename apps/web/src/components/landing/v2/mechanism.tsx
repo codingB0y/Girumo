@@ -14,7 +14,7 @@ const STEPS = [
     n: "ato 01",
     title: "Crie a campanha",
     body:
-      "Dê um nome, escolha os grupos de destino e pronto: o HubFlow gera um link rastreado exclusivo. Sem configuração técnica — a IA preenche o resto.",
+      "Dê um nome, escolha os grupos de destino e pronto: o HubFlow gera um link rastreado exclusivo e uma página de captação com a sua marca. Sem programador, sem configuração técnica.",
   },
   {
     n: "ato 02",

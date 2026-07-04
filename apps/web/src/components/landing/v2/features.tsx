@@ -5,7 +5,7 @@ import {
   Library,
   Plus,
   Send,
-  Sparkles,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WhatsAppIcon } from "@/components/landing/icons";
@@ -96,13 +96,13 @@ export function Features() {
       <Card
         className="lg:col-span-2"
         icon={Library}
-        title="Copys que já converteram"
-        line="Biblioteca de mensagens e criativos testados em quem vende todo dia. Copie, ajuste, dispare."
+        title="Copys e criativos prontos"
+        line="Biblioteca de mensagens e criativos feitos pra vender no grupo. Copie, ajuste, dispare."
       >
         <div className="space-y-2">
           {[
-            ["Oferta relâmpago", "8,2% de conversão"],
-            ["Reativação de sumidos", "5,7% de conversão"],
+            ["Oferta relâmpago", "urgência · oferta"],
+            ["Reativação de sumidos", "recompra · pós-venda"],
           ].map(([t, m]) => (
             <div key={t} className="rounded-xl border border-white/[0.07] bg-void px-3.5 py-3">
               <p className="text-xs font-medium text-white">{t}</p>
@@ -172,23 +172,27 @@ export function Features() {
         </div>
       </Card>
 
-      {/* 6 — IA (narrow) */}
+      {/* 6 — Leads rastreados (narrow) */}
       <Card
         className="lg:col-span-3"
-        icon={Sparkles}
-        title="A IA configura por você"
-        line="Descreva o que quer em português. A IA monta a campanha, a agenda e as mensagens — você só aprova."
+        icon={Users}
+        title="Cada lead com nome e origem"
+        line="Quem entra pelo seu link vira lead identificado: nome, número, de onde veio e o que comprou. Sua base cresce fora do achismo."
       >
-        <div className="space-y-2.5">
-          <p className="ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-md bg-white/[0.07] px-4 py-2.5 text-xs text-white">
-            Monta uma agenda de ofertas pra semana toda?
-          </p>
-          <div className="w-fit max-w-[90%] rounded-2xl rounded-bl-md border border-white/[0.07] bg-void px-4 py-2.5">
-            <p className="text-xs text-bruma/70">
-              Feito ✓ — 5 posts agendados nos 47 grupos: oferta na segunda, esquenta na
-              quarta e fechamento na sexta.
-            </p>
-          </div>
+        <div className="space-y-2">
+          {[
+            { name: "Marina S.", origin: "anúncio · meta", status: "comprou R$ 186", sold: true },
+            { name: "João P.", origin: "story", status: "no VIP 04", sold: false },
+            { name: "Rafaela M.", origin: "bio", status: "no VIP 04", sold: false },
+          ].map((l) => (
+            <div key={l.name} className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-void px-3.5 py-2.5">
+              <span className="text-xs font-medium text-white">{l.name}</span>
+              <span className="font-data text-[10px] uppercase tracking-wider text-bruma/40">{l.origin}</span>
+              <span className={cn("font-data text-[10px] uppercase tracking-wider", l.sold ? "text-zap" : "text-bruma/50")}>
+                {l.status}
+              </span>
+            </div>
+          ))}
         </div>
       </Card>
     </div>

@@ -16,9 +16,9 @@ import { GroupWall } from "@/components/landing/v2/group-wall";
 /* ============================== SEO ============================== */
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://hubflow.com.br";
-const OG_TITLE = "HubFlow — Um link lota o grupo. Um clique posta em todos.";
+const OG_TITLE = "HubFlow — Grupos cheios. Sua oferta em todos. Num clique.";
 const OG_DESC =
-  "Campanhas de WhatsApp com link rastreado que enchem seus grupos no automático — e um painel com IA que agenda, posta e gerencia 100 grupos em 2 cliques.";
+  "A página pronta que enche seu grupo de WhatsApp, copys e criativos de biblioteca — e um clique que publica sua oferta em todos os grupos, com cada venda rastreada até a origem.";
 
 const JSON_LD_FAQ = {
   "@context": "https://schema.org",
@@ -43,11 +43,6 @@ const JSON_LD_SOFTWARE = {
     priceCurrency: "BRL",
     lowPrice: "197",
     highPrice: "497",
-  },
-  aggregateRating: {
-    "@type": "AggregateRating",
-    ratingValue: "4.9",
-    ratingCount: "127",
   },
 };
 
@@ -100,14 +95,20 @@ const WHATSAPP_URL =
 
 const TICKER_ITEMS = [
   "um link rastreado → grupo cheio",
+  "grupo lotou → o próximo nasce sozinho",
+  "1 oferta → todos os grupos",
+  "biblioteca de copys e criativos",
+  "modelos de página de captação",
+  "tracking do anúncio à venda",
+  "agendou → postou",
   "100 grupos · 2 cliques",
-  "1 configuração posta em todos",
-  "calendário que roda sozinho",
-  "copys e criativos que convertem",
-  "lead rastreado do anúncio à venda",
-  "grupo lotou → o próximo já nasce",
-  "a IA configura por você",
 ];
+
+const STEPS_STRIP = [
+  ["01", "Divulgue seu link", "A página de captação lota o grupo — e quando lota, o próximo nasce sozinho."],
+  ["02", "Monte a oferta", "Copys, criativos e modelos prontos. Agende uma vez."],
+  ["03", "Poste em todos num clique", "E veja no painel qual grupo virou venda."],
+] as const;
 
 export default function LandingPage() {
   return (
@@ -138,17 +139,18 @@ export default function LandingPage() {
             className="lp-hero-in font-tech mt-8 text-balance text-[clamp(2.5rem,7vw,5.4rem)] font-bold leading-[1.02] tracking-[-0.04em] text-white"
             style={{ ["--d" as string]: "0.18s" }}
           >
-            Um link lota o grupo.
+            Grupos de WhatsApp cheios.
             <br />
-            <span className="text-bruma/40">Um clique posta em todos.</span>
+            <span className="text-bruma/40">Sua oferta em todos. Num clique.</span>
           </h1>
 
           <p
             className="lp-hero-in mx-auto mt-7 max-w-xl text-pretty text-base leading-relaxed text-bruma/60 sm:text-lg"
             style={{ ["--d" as string]: "0.34s" }}
           >
-            Campanhas com link rastreado que enchem seus grupos no automático — e um painel com IA
-            que agenda, posta e gerencia 100 grupos em 2 cliques.
+            O HubFlow te dá a página pronta que enche seu grupo sozinho, a oferta montada com copys
+            e criativos da biblioteca — e publica em todos os grupos de uma vez, mostrando de onde
+            veio cada venda.
           </p>
 
           <div
@@ -175,13 +177,11 @@ export default function LandingPage() {
             className="lp-hero-in font-data mt-9 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[11px] uppercase tracking-[0.2em] text-bruma/40"
             style={{ ["--d" as string]: "0.62s" }}
           >
-            <span>127 lojistas</span>
-            <span className="text-bruma/25">·</span>
-            <span>avaliação 4.9</span>
-            <span className="text-bruma/25">·</span>
             <span>conecta em 2 min</span>
             <span className="text-bruma/25">·</span>
             <span>sem cartão</span>
+            <span className="text-bruma/25">·</span>
+            <span>cancele quando quiser</span>
           </p>
         </div>
 
@@ -193,6 +193,21 @@ export default function LandingPage() {
         >
           <ArrowDown className="h-5 w-5 animate-bounce" />
         </a>
+      </section>
+
+      {/* ============ 3 PASSOS ============ */}
+      <section aria-label="Como funciona em 3 passos" className="relative py-12 sm:py-14">
+        <ol className="mx-auto grid max-w-6xl gap-8 px-5 sm:grid-cols-3 sm:gap-6">
+          {STEPS_STRIP.map(([n, title, body]) => (
+            <li key={n} className="flex gap-4">
+              <span className="font-data pt-1 text-sm text-zap" aria-hidden>{n}</span>
+              <div>
+                <p className="font-tech text-lg font-bold tracking-tight text-white">{title}</p>
+                <p className="mt-1.5 text-sm leading-relaxed text-bruma/55">{body}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
       </section>
 
       {/* ============ TICKER ============ */}
