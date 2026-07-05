@@ -1,6 +1,191 @@
 const assert = require("node:assert/strict");
+const { readFileSync } = require("node:fs");
 const test = require("node:test");
 const { createConnectionSessionController } = require("./connection-session.js");
+const {
+  commitConfigSnapshot,
+  commitConnectionSnapshot,
+  prepareConfigSnapshot,
+  prepareConnectionSnapshot,
+} = require("./connection-snapshot.js");
+
+test("prepara snapshot isolado com admins, nomes e payload sem mutar estado anterior", async () => {
+  const previousWelcome = { enabled: false, message: "anterior" };
+  const previousOptOut = new Set(["5511999999999"]);
+  const previousAdmins = new Set(["antigo@g.us"]);
+  const previousNames = new Map([["antigo@g.us", "Antigo"]]);
+  const previousState = {
+    welcomeCfg: previousWelcome,
+    optOutDigits: previousOptOut,
+    adminGroupIds: previousAdmins,
+    groupNames: previousNames,
+  };
+  const admin = {
+    id: "admin@g.us",
+    subject: "Administrado",
+    participants: [{ id: "eu@s.whatsapp.net" }, { id: "outro@s.whatsapp.net" }],
+  };
+  const visitor = {
+    id: "visitante@g.us",
+    subject: "Somente participante",
+    participants: [{ id: "terceiro@s.whatsapp.net" }],
+  };
+  const sock = {
+    groupFetchAllParticipating: async () => ({ admin, visitor }),
+  };
+
+  const snapshot = await prepareConnectionSnapshot({
+    sock,
+    fetchWelcome: async () => ({ enabled: 1, message: null }),
+    fetchOptOut: async () => [{ phone: "+55 (11) 98888-7777" }, "551166665555", 551144443333],
+    isAdminOf: (group, mine) => group === admin && mine.has("eu"),
+    myIds: () => new Set(["eu"]),
+    onlyDigits: (value) => String(value).replace(/\D/g, ""),
+    previousState,
+  });
+
+  assert.deepEqual(snapshot.welcomeCfg, { enabled: true, message: "" });
+  assert.deepEqual([...snapshot.optOutDigits], ["5511988887777", "551166665555", "551144443333"]);
+  assert.deepEqual([...snapshot.adminGroupIds], ["admin@g.us"]);
+  assert.deepEqual([...snapshot.groupNames], [
+    ["admin@g.us", "Administrado"],
+    ["visitante@g.us", "Somente participante"],
+  ]);
+  assert.deepEqual(snapshot.adminGroups, [admin]);
+  assert.deepEqual(snapshot.groupsPayload, {
+    groups: [{ whatsappGroupId: "admin@g.us", name: "Administrado", members: 2 }],
+  });
+  assert.equal(previousState.welcomeCfg, previousWelcome);
+  assert.equal(previousState.optOutDigits, previousOptOut);
+  assert.equal(previousState.adminGroupIds, previousAdmins);
+  assert.equal(previousState.groupNames, previousNames);
+  assert.deepEqual([...previousAdmins], ["antigo@g.us"]);
+  assert.deepEqual([...previousNames], [["antigo@g.us", "Antigo"]]);
+});
+
+test("falhas opcionais preservam welcome e opt-out anteriores em novas referências", async () => {
+  const previousState = {
+    welcomeCfg: { enabled: true, message: "Olá" },
+    optOutDigits: new Set(["5511999999999"]),
+  };
+  const snapshot = await prepareConnectionSnapshot({
+    sock: { groupFetchAllParticipating: async () => ({}) },
+    fetchWelcome: async () => { throw new Error("welcome offline"); },
+    fetchOptOut: async () => { throw new Error("opt-out offline"); },
+    isAdminOf: () => false,
+    myIds: () => new Set(),
+    onlyDigits: (value) => String(value).replace(/\D/g, ""),
+    previousState,
+  });
+
+  assert.deepEqual(snapshot.welcomeCfg, previousState.welcomeCfg);
+  assert.notEqual(snapshot.welcomeCfg, previousState.welcomeCfg);
+  assert.deepEqual([...snapshot.optOutDigits], [...previousState.optOutDigits]);
+  assert.notEqual(snapshot.optOutDigits, previousState.optOutDigits);
+});
+
+test("falha ao buscar grupos rejeita a preparação", async () => {
+  const error = new Error("grupos indisponíveis");
+  await assert.rejects(
+    prepareConnectionSnapshot({
+      sock: { groupFetchAllParticipating: async () => { throw error; } },
+      fetchWelcome: async () => ({}),
+      fetchOptOut: async () => [],
+      isAdminOf: () => false,
+      myIds: () => new Set(),
+      onlyDigits: String,
+      previousState: {},
+    }),
+    error,
+  );
+});
+
+test("commit publica todas as referências do snapshot de forma síncrona", () => {
+  const state = {
+    welcomeCfg: {},
+    optOutDigits: new Set(),
+    adminGroupIds: new Set(),
+    groupNames: new Map(),
+    lastGroupsPayload: null,
+    groupsSynced: true,
+  };
+  const snapshot = {
+    welcomeCfg: { enabled: true, message: "Oi" },
+    optOutDigits: new Set(["1"]),
+    adminGroupIds: new Set(["a@g.us"]),
+    groupNames: new Map([["a@g.us", "A"]]),
+    groupsPayload: { groups: [] },
+  };
+
+  const result = commitConnectionSnapshot(state, snapshot);
+
+  assert.equal(result, undefined);
+  assert.equal(state.welcomeCfg, snapshot.welcomeCfg);
+  assert.equal(state.optOutDigits, snapshot.optOutDigits);
+  assert.equal(state.adminGroupIds, snapshot.adminGroupIds);
+  assert.equal(state.groupNames, snapshot.groupNames);
+  assert.equal(state.lastGroupsPayload, snapshot.groupsPayload);
+  assert.equal(state.groupsSynced, false);
+});
+
+test("index prepara snapshot e só faz commit dentro da ativação", () => {
+  const source = readFileSync(require.resolve("./index.js"), "utf8");
+  const openStart = source.indexOf('if (connection === "open")');
+  const closeStart = source.indexOf('if (connection === "close")', openStart);
+  const openBlock = source.slice(openStart, closeStart);
+  const activateStart = openBlock.indexOf("activate:");
+  const activateBlock = openBlock.slice(activateStart);
+
+  assert.notEqual(openStart, -1);
+  assert.notEqual(closeStart, -1);
+  assert.notEqual(activateStart, -1);
+  assert.match(source, /require\("\.\/connection-snapshot\.js"\)/);
+  assert.match(openBlock, /pendingSnapshot\s*=\s*await prepareConnectionSnapshot\(/);
+  assertBefore(activateBlock, "commitConnectionSnapshot(connectionState, pendingSnapshot)", "postGroups(");
+  assertBefore(activateBlock, "commitConnectionSnapshot(connectionState, pendingSnapshot)", "connectionWatchdog.attach(");
+  assertBefore(activateBlock, "commitConnectionSnapshot(connectionState, pendingSnapshot)", "heartbeat = setInterval(");
+  assertBefore(activateBlock, "commitConnectionSnapshot(connectionState, pendingSnapshot)", "dispatchTimer = setInterval(");
+  assertBefore(activateBlock, "commitConnectionSnapshot(connectionState, pendingSnapshot)", "supabaseCommandWorker.start(");
+  assert.doesNotMatch(source, /admin\.length === 0 && list\.length/);
+});
+
+test("snapshot parcial de config preserva fallback e publica somente referências novas", async () => {
+  const state = {
+    welcomeCfg: { enabled: true, message: "Anterior" },
+    optOutDigits: new Set(["5511999999999"]),
+  };
+  const snapshot = await prepareConfigSnapshot({
+    fetchWelcome: async () => { throw new Error("welcome offline"); },
+    fetchOptOut: async () => { throw new Error("opt-out offline"); },
+    onlyDigits: (value) => String(value).replace(/\D/g, ""),
+    previousState: state,
+  });
+
+  assert.deepEqual(snapshot.welcomeCfg, state.welcomeCfg);
+  assert.notEqual(snapshot.welcomeCfg, state.welcomeCfg);
+  assert.deepEqual([...snapshot.optOutDigits], [...state.optOutDigits]);
+  assert.notEqual(snapshot.optOutDigits, state.optOutDigits);
+
+  const result = commitConfigSnapshot(state, snapshot);
+  assert.equal(result, undefined);
+  assert.equal(state.welcomeCfg, snapshot.welcomeCfg);
+  assert.equal(state.optOutDigits, snapshot.optOutDigits);
+});
+
+test("refresh prepara apenas config e revalida socket antes de publicar", () => {
+  const source = readFileSync(require.resolve("./index.js"), "utf8");
+  const refreshStart = source.indexOf("async function refreshConfig(sock)");
+  const nextFunction = source.indexOf("async function welcomeNewMember", refreshStart);
+  const refreshBlock = source.slice(refreshStart, nextFunction);
+
+  assert.notEqual(refreshStart, -1);
+  assert.notEqual(nextFunction, -1);
+  assert.match(refreshBlock, /await prepareConfigSnapshot\(\{[\s\S]*previousState:\s*connectionState/);
+  assert.doesNotMatch(refreshBlock, /groupFetchAllParticipating|prepareConnectionSnapshot/);
+  assert.match(refreshBlock, /if \(!connectionLifecycle\.isLatest\(sock\)\) return false;/);
+  assertBefore(refreshBlock, "await prepareConfigSnapshot(", "connectionLifecycle.isLatest(sock)");
+  assertBefore(refreshBlock, "connectionLifecycle.isLatest(sock)", "commitConfigSnapshot(connectionState, snapshot)");
+});
 
 test("substituir sessão aborta e limpa a geração anterior", () => {
   const controller = createConnectionSessionController({ reconnect: async () => {} });
@@ -577,6 +762,14 @@ test("shutdown fecha a sessão, cancela timer e impede timers futuros", async ()
   assert.equal(timers.active().length, 0);
   assert.equal(controller.scheduleReconnect(200), false);
 });
+
+function assertBefore(source, first, second) {
+  const firstIndex = source.indexOf(first);
+  const secondIndex = source.indexOf(second);
+  assert.notEqual(firstIndex, -1, `esperava encontrar: ${first}`);
+  assert.notEqual(secondIndex, -1, `esperava encontrar: ${second}`);
+  assert.ok(firstIndex < secondIndex, `esperava ${first} antes de ${second}`);
+}
 
 function deferred() {
   let resolve;

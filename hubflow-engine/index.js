@@ -41,6 +41,12 @@ const { WarmUp } = require("./warmup.js");
 const { GroupOperationGuard, classifyGroupOpError } = require("./group-guard.js");
 const { DeliveryTracker } = require("./delivery-tracker.js");
 const {
+  commitConfigSnapshot,
+  commitConnectionSnapshot,
+  prepareConfigSnapshot,
+  prepareConnectionSnapshot,
+} = require("./connection-snapshot.js");
+const {
   closeSupersededSocket,
   createConnectionLifecycleManager,
   createConnectionWatchdogManager,
@@ -312,28 +318,34 @@ async function reportLead(phone, sourceGroup, sourceGroupId) {
 }
 
 // === Boas-vindas automáticas (Sprint 2) ===
-// Config + opt-out vêm do app (self-service). Cache atualizado no heartbeat.
-let welcomeCfg = { enabled: false, message: "" };
-let optOutDigits = new Set(); // só dígitos, p/ comparar com o número que entrou
+// Config, opt-out e grupos da conexão ativa. A referência só muda após revalidar o socket.
+const connectionState = {
+  welcomeCfg: { enabled: false, message: "" },
+  optOutDigits: new Set(),
+  adminGroupIds: new Set(),
+  groupNames: new Map(),
+  lastGroupsPayload: null,
+  groupsSynced: false,
+};
 const welcomed = new Map(); // digits -> timestamp do envio (dedupe + poda diária)
 const welcoming = new Set(); // dígitos com boas-vindas EM ANDAMENTO (evita corrida/duplo envio)
 
 const onlyDigits = (s) => String(s).replace(/\D/g, "");
 
-/** Busca config de boas-vindas + lista de opt-out no app. Fail-silent. */
-async function refreshConfig() {
-  try {
-    const w = await appFetch(`/api/welcome`).then((r) => r.json());
-    welcomeCfg = { enabled: !!w.enabled, message: w.message ?? "" };
-  } catch {
-    // mantém o cache anterior
-  }
-  try {
-    const list = await appFetch(`/api/optout`).then((r) => r.json());
-    optOutDigits = new Set((list ?? []).map((o) => onlyDigits(o.phone)));
-  } catch {
-    // mantém o cache anterior
-  }
+const fetchWelcome = () => appFetch(`/api/welcome`).then((response) => response.json());
+const fetchOptOut = () => appFetch(`/api/optout`).then((response) => response.json());
+
+/** Busca config + opt-out sem publicar até confirmar que o socket ainda é o atual. */
+async function refreshConfig(sock) {
+  const snapshot = await prepareConfigSnapshot({
+    fetchWelcome,
+    fetchOptOut,
+    onlyDigits,
+    previousState: connectionState,
+  });
+  if (!connectionLifecycle.isLatest(sock)) return false;
+  commitConfigSnapshot(connectionState, snapshot);
+  return true;
 }
 
 /**
@@ -341,17 +353,17 @@ async function refreshConfig() {
  * fora do opt-out e ainda não saudado. Vai pela fila anti-ban (lane prioritária).
  */
 async function welcomeNewMember(sock, phone) {
-  if (!welcomeCfg.enabled || !welcomeCfg.message.trim()) return;
+  if (!connectionState.welcomeCfg.enabled || !connectionState.welcomeCfg.message.trim()) return;
   if (!phone) return; // sem telefone real resolvido (LID não mapeado) não dá p/ DM com segurança
   const digits = onlyDigits(phone);
-  if (optOutDigits.has(digits)) {
+  if (connectionState.optOutDigits.has(digits)) {
     console.log(`   ↳ boas-vindas puladas: +${digits} está no opt-out`);
     return;
   }
   if (welcomed.has(digits) || welcoming.has(digits)) return; // já saudado ou em andamento
   welcoming.add(digits);
   const jid = `${digits}@s.whatsapp.net`;
-  const text = welcomeCfg.message.replaceAll("{nome}", "tudo bem"); // sem nome real na entrada
+  const text = connectionState.welcomeCfg.message.replaceAll("{nome}", "tudo bem"); // sem nome real na entrada
   try {
     // Lane NORMAL (não prioritária): boas-vindas em lote não pode furar o ritmo
     // anti-ban — DM a quem nunca te escreveu já é o maior vetor de ban.
@@ -411,7 +423,7 @@ async function ackDispatch(id, status, sent, total, error) {
 async function runDispatch(sock, job) {
   // groupIds do app = JIDs (o sync usa o id do grupo). Vazio = todos os grupos ADMIN
   // (nunca dispara em grupo onde não somos admin).
-  const jids = job.groupIds && job.groupIds.length ? job.groupIds : [...adminGroupIds];
+  const jids = job.groupIds && job.groupIds.length ? job.groupIds : [...connectionState.adminGroupIds];
   const total = jids.length;
   if (total === 0) {
     console.log(`⛔ Disparo "${job.name}" sem grupos de destino.`);
@@ -565,8 +577,8 @@ async function runGrow(sock, job) {
 
   // 4) Passamos a monitorar o grupo novo (somos admin) — captura de lead + boas-vindas.
   //    O próximo sync /api/groups já o inclui; o app preserva o inviteUrl do ack.
-  adminGroupIds.add(jid);
-  groupNames.set(jid, job.subject);
+  connectionState.adminGroupIds.add(jid);
+  connectionState.groupNames.set(jid, job.subject);
 
   await ackGrow(job.id, "created", { whatsappGroupId: jid, members: meta.size ?? 1, inviteLink });
   console.log(`✅ Auto-grow "${job.campaignSlug}" concluído: ${job.subject} → ${inviteLink}`);
@@ -593,11 +605,6 @@ async function pollGrow(sock) {
   }
 }
 
-// Cache de nome dos grupos (id -> nome) para logar entradas de forma legível.
-const groupNames = new Map();
-// Grupos onde SOMOS admin — só monitoramos entradas (leads) destes.
-const adminGroupIds = new Set();
-
 // Atividade por grupo (do dia): mensagens + remetentes únicos + última msg.
 // Mede "grupo vivo que vende" vs "grupo lotado e morto". Guarda só CONTAGEM
 // (não os números dos membros) — privacidade.
@@ -622,7 +629,7 @@ async function reportActivity() {
   for (const [groupId, a] of groupActivity) {
     groups.push({
       whatsappGroupId: groupId,
-      name: groupNames.get(groupId) ?? groupId,
+      name: connectionState.groupNames.get(groupId) ?? groupId,
       date: a.date,
       messages: a.messages,
       activeMembers: a.senders.size,
@@ -695,7 +702,7 @@ async function start() {
     for (const msg of messages) {
       const jid = msg.key?.remoteJid ?? "";
       if (!jid.endsWith("@g.us") || msg.key?.fromMe) continue; // só grupos, não as minhas
-      if (!adminGroupIds.has(jid)) continue; // só grupos admin
+      if (!connectionState.adminGroupIds.has(jid)) continue; // só grupos admin
       recordActivity(jid, msg.key?.participant);
     }
   });
@@ -710,15 +717,28 @@ async function start() {
     }
 
     if (connection === "open") {
+      let pendingSnapshot;
       const initialized = await initializeConnectedSocket({
         sock,
         isLatest: (candidate) => connectionLifecycle.isLatest(candidate),
         steps: [
           () => reportSession(sock),
-          () => refreshConfig(), // carrega boas-vindas + opt-out do app
-          () => listGroups(sock), // popula groupNames ANTES de aceitar disparos
+          async () => {
+            pendingSnapshot = await prepareConnectionSnapshot({
+              sock,
+              fetchWelcome,
+              fetchOptOut,
+              isAdminOf,
+              myIds,
+              onlyDigits,
+              previousState: connectionState,
+            });
+          },
         ],
         activate: () => {
+          commitConnectionSnapshot(connectionState, pendingSnapshot);
+          logPreparedGroups(pendingSnapshot);
+          postGroups(connectionState.lastGroupsPayload);
           console.log("\n✅ Conectado ao WhatsApp!");
           currentSocket = sock;
           connectionWatchdog.attach(sock);
@@ -729,7 +749,7 @@ async function start() {
           clearInterval(heartbeat);
           heartbeat = setInterval(() => {
             reportSession(sock); // mantém o painel "ao vivo"
-            refreshConfig(); // mantém config de boas-vindas + opt-out frescos
+            refreshConfig(sock); // só publica config se esta conexão ainda for a atual
             resyncGroupsIfNeeded(); // re-sync se o app subiu depois da engine
             reportActivity(); // envia o snapshot de atividade dos grupos
             saveState(); // persiste warmup + janelas de envio (sobrevive a restart)
@@ -788,13 +808,13 @@ async function start() {
       const { id, participants = [], action } = update;
 
       // SÓ monitoramos grupos onde somos admin. Ignora todo o resto.
-      if (!adminGroupIds.has(id)) return;
+      if (!connectionState.adminGroupIds.has(id)) return;
 
-      let name = groupNames.get(id);
+      let name = connectionState.groupNames.get(id);
       if (!name) {
         try {
           name = (await sock.groupMetadata(id)).subject;
-          groupNames.set(id, name);
+          connectionState.groupNames.set(id, name);
         } catch {
           name = id;
         }
@@ -858,46 +878,24 @@ function isAdminOf(group, mine) {
   });
 }
 
-async function listGroups(sock) {
-  const groups = await sock.groupFetchAllParticipating();
-  const list = Object.values(groups);
-  const mine = myIds(sock);
+function logPreparedGroups(snapshot) {
+  const admin = snapshot.adminGroups;
+  console.log(`\n📋 ${admin.length} grupo(s) onde VOCÊ é admin (de ${snapshot.groupNames.size} no total):`);
+  for (const g of admin) console.log(`   • ${g.subject} — ${(g.participants ?? []).length} membros`);
 
-  const admin = list.filter((g) => isAdminOf(g, mine));
-
-  // adminGroupIds = ÚNICA fonte de verdade do que monitoramos (captura de leads).
-  // NUNCA cai para "todos": melhor não capturar do que capturar grupo errado.
-  adminGroupIds.clear();
-  for (const g of admin) {
-    adminGroupIds.add(g.id);
-    groupNames.set(g.id, g.subject);
-  }
-  // Nome dos demais grupos serve só p/ log legível (não monitora).
-  for (const g of list) if (!groupNames.has(g.id)) groupNames.set(g.id, g.subject);
-
-  console.log(`\n📋 ${admin.length} grupo(s) onde VOCÊ é admin (de ${list.length} no total):`);
-  for (const g of admin) console.log(`   • ${g.subject} — ${g.participants.length} membros`);
-
-  if (admin.length === 0 && list.length > 0) {
+  if (admin.length === 0 && snapshot.groupNames.size > 0) {
     console.log(
       "\n⚠️  Nenhum grupo admin detectado. NÃO vou monitorar entradas (evita lead de grupo alheio).\n" +
         "   Se você É admin de algum grupo, pode ser o formato LID do Baileys 7 — me avise para investigar.",
     );
   }
 
-  // Sincroniza p/ o painel SÓ os grupos admin (é o universo que o produto opera).
-  await syncGroups(admin);
   console.log("\n👀 Monitorando entradas só nos grupos ADMIN, em tempo real... (Ctrl+C para sair)");
 
   // Exemplo de broadcast SEGURO (passa pela fila anti-ban) — descomente p/ testar:
   // const jids = admin.slice(0, 3).map((g) => g.id);
   // await broadcast(sock, jids, "Olá! Novidades chegando no grupo 👋");
 }
-
-// Último snapshot de grupos admin + se o último POST deu certo. Permite re-sync
-// quando o app subiu DEPOIS da engine (o sync inicial é no connect, one-shot).
-let lastGroupsPayload = null;
-let groupsSynced = false;
 
 /** POST /api/groups com o payload dado. Atualiza groupsSynced. Fail-silent. */
 async function postGroups(payload, { quiet = false } = {}) {
@@ -907,27 +905,15 @@ async function postGroups(payload, { quiet = false } = {}) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    groupsSynced = res.ok;
+    connectionState.groupsSynced = res.ok;
     if (!quiet) {
       if (res.ok) console.log(`   ↳ ${payload.groups.length} grupo(s) sincronizado(s) no painel (${APP_URL}/groups)`);
       else console.log(`   ↳ app respondeu ${res.status} ao sincronizar grupos`);
     }
   } catch {
-    groupsSynced = false;
+    connectionState.groupsSynced = false;
     if (!quiet) console.log(`   ↳ app offline — grupos não sincronizados (${APP_URL})`);
   }
-}
-
-/** Sincroniza a lista de grupos (admin) para o painel. Fail-silent. */
-async function syncGroups(groups) {
-  lastGroupsPayload = {
-    groups: groups.map((g) => ({
-      whatsappGroupId: g.id,
-      name: g.subject,
-      members: (g.participants ?? []).length,
-    })),
-  };
-  await postGroups(lastGroupsPayload);
 }
 
 /**
@@ -935,9 +921,9 @@ async function syncGroups(groups) {
  * Roda no heartbeat e para de tentar assim que sincroniza. Silencioso até dar certo.
  */
 async function resyncGroupsIfNeeded() {
-  if (groupsSynced || !lastGroupsPayload) return;
-  await postGroups(lastGroupsPayload, { quiet: true });
-  if (groupsSynced) console.log(`   ↳ grupos re-sincronizados no painel (app voltou ao ar).`);
+  if (connectionState.groupsSynced || !connectionState.lastGroupsPayload) return;
+  await postGroups(connectionState.lastGroupsPayload, { quiet: true });
+  if (connectionState.groupsSynced) console.log(`   ↳ grupos re-sincronizados no painel (app voltou ao ar).`);
 }
 
 
