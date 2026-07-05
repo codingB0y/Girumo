@@ -80,6 +80,27 @@ test("inicialização válida entrega snapshot à commit e deixa sessão ready",
   assert.equal(session.state, "ready");
 });
 
+test("commit que retorna thenable viola contrato síncrono e recupera", async () => {
+  const timers = createTimerHarness();
+  const endCalls = [];
+  const controller = createConnectionSessionController({
+    reconnect: async () => {},
+    setTimeoutFn: timers.setTimeoutFn,
+    clearTimeoutFn: timers.clearTimeoutFn,
+  });
+  const session = controller.create({ end: async (error) => endCalls.push(error) });
+
+  const initialized = await controller.initialize(session, {
+    prepare: async () => ({ value: 1 }),
+    commit: () => Promise.resolve(),
+  });
+
+  assert.equal(initialized, false);
+  assert.equal(session.state, "closed");
+  assert.equal(endCalls.length, 1);
+  assert.match(endCalls[0].message, /commit.*synchronous/i);
+});
+
 test("erro de inicialização recupera a sessão sem rejeitar", async () => {
   const timers = createTimerHarness();
   const error = new Error("configuração inválida");
@@ -129,19 +150,112 @@ test("cleanup é reverso, idempotente e continua após erro", () => {
 
 test("rejeição assíncrona de cleanup é registrada", async () => {
   const logs = [];
+  const calls = [];
   const controller = createConnectionSessionController({
     reconnect: async () => {},
     logger: { error: (message, error) => logs.push(`${message}: ${error.message}`) },
   });
   const session = controller.create({});
+  session.addCleanup(() => calls.push("cleanup anterior continuou"));
   session.addCleanup(async () => {
     throw new Error("cleanup assíncrono quebrado");
   });
 
   controller.create({});
-  await flushPromises();
+  await session.whenClosed();
 
   assert.equal(logs.some((message) => message.includes("cleanup assíncrono quebrado")), true);
+  assert.deepEqual(calls, ["cleanup anterior continuou"]);
+});
+
+test("cleanup assíncrono preserva ordem reversa e expõe drain", async () => {
+  const gate = deferred();
+  const calls = [];
+  const controller = createConnectionSessionController({ reconnect: async () => {} });
+  const session = controller.create({});
+  session.addCleanup(() => calls.push("primeiro"));
+  session.addCleanup(() => calls.push("segundo"));
+  session.addCleanup(async () => {
+    calls.push("terceiro:start");
+    await gate.promise;
+    calls.push("terceiro:end");
+  });
+
+  controller.create({});
+  assert.equal(session.signal.aborted, true);
+  assert.equal(session.state, "closing");
+  assert.deepEqual(calls, ["terceiro:start"]);
+
+  gate.resolve();
+  await session.whenClosed();
+  assert.deepEqual(calls, ["terceiro:start", "terceiro:end", "segundo", "primeiro"]);
+  assert.equal(session.state, "closed");
+});
+
+test("shutdown só resolve depois de drenar cleanup", async () => {
+  const gate = deferred();
+  const controller = createConnectionSessionController({ reconnect: async () => {} });
+  const session = controller.create({});
+  session.addCleanup(() => gate.promise);
+  let shutdownResolved = false;
+
+  const shuttingDown = controller.shutdown().then(() => {
+    shutdownResolved = true;
+  });
+  await flushPromises();
+  assert.equal(shutdownResolved, false);
+  assert.equal(session.state, "closing");
+
+  gate.resolve();
+  await shuttingDown;
+  assert.equal(shutdownResolved, true);
+  assert.equal(session.state, "closed");
+});
+
+test("cleanup adicionado durante closing executa imediatamente e entra no drain", async () => {
+  const original = deferred();
+  const late = deferred();
+  const calls = [];
+  const controller = createConnectionSessionController({ reconnect: async () => {} });
+  const session = controller.create({});
+  session.addCleanup(() => original.promise);
+  controller.create({});
+
+  session.addCleanup(() => {
+    calls.push("late");
+    return late.promise;
+  });
+  assert.deepEqual(calls, ["late"]);
+
+  original.resolve();
+  await flushPromises();
+  assert.equal(session.state, "closing");
+  late.resolve();
+  await session.whenClosed();
+  assert.equal(session.state, "closed");
+
+  session.addCleanup(() => calls.push("after-closed"));
+  await session.whenClosed();
+  assert.deepEqual(calls, ["late", "after-closed"]);
+});
+
+test("shutdown aguarda cleanup tardio de sessão já closed", async () => {
+  const late = deferred();
+  const controller = createConnectionSessionController({ reconnect: async () => {} });
+  const oldSession = controller.create({});
+  controller.create({});
+  oldSession.addCleanup(() => late.promise);
+  let shutdownResolved = false;
+
+  const shuttingDown = controller.shutdown().then(() => {
+    shutdownResolved = true;
+  });
+  await flushPromises();
+  assert.equal(shutdownResolved, false);
+
+  late.resolve();
+  await shuttingDown;
+  assert.equal(shutdownResolved, true);
 });
 
 test("rejeição de end é registrada e ainda agenda uma única reconexão", async () => {
@@ -170,18 +284,15 @@ test("rejeição de end é registrada e ainda agenda uma única reconexão", asy
   assert.equal(reconnects, 1);
 });
 
-test("scheduler mantém uma reconexão pendente e libera o slot antes de reconnect", async () => {
+test("scheduler mantém no máximo uma reconexão em voo", async () => {
   const timers = createTimerHarness();
-  const logs = [];
-  let controller;
+  const firstReconnect = deferred();
   let reconnects = 0;
-  controller = createConnectionSessionController({
+  const controller = createConnectionSessionController({
     reconnect: async () => {
       reconnects++;
-      assert.equal(controller.scheduleReconnect(50), true);
-      throw new Error("reconnect rejeitado");
+      if (reconnects === 1) await firstReconnect.promise;
     },
-    logger: { log: (message, error) => logs.push(`${message}: ${error.message}`) },
     setTimeoutFn: timers.setTimeoutFn,
     clearTimeoutFn: timers.clearTimeoutFn,
   });
@@ -190,11 +301,97 @@ test("scheduler mantém uma reconexão pendente e libera o slot antes de reconne
   assert.equal(controller.scheduleReconnect(20), false);
   timers.fireNext();
   await flushPromises();
+  assert.equal(reconnects, 1);
+  assert.equal(controller.scheduleReconnect(30), false);
+
+  firstReconnect.resolve();
+  await flushPromises();
+  assert.equal(controller.scheduleReconnect(40), true);
+  timers.fireNext();
+  await flushPromises();
+  assert.equal(reconnects, 2);
+});
+
+test("rejeição de reconnect é registrada e libera o slot após liquidação", async () => {
+  const timers = createTimerHarness();
+  const logs = [];
+  const controller = createConnectionSessionController({
+    reconnect: async () => {
+      throw new Error("reconnect rejeitado");
+    },
+    logger: { log: (message, error) => logs.push(`${message}: ${error.message}`) },
+    setTimeoutFn: timers.setTimeoutFn,
+    clearTimeoutFn: timers.clearTimeoutFn,
+  });
+
+  controller.scheduleReconnect(0);
+  timers.fireNext();
+  await flushPromises();
+
+  assert.equal(logs.some((message) => message.includes("reconnect rejeitado")), true);
+  assert.equal(controller.scheduleReconnect(10), true);
+});
+
+test("recover antigo não agenda reconnect se outra sessão surgir durante end", async () => {
+  const timers = createTimerHarness();
+  const ending = deferred();
+  const controller = createConnectionSessionController({
+    reconnect: async () => {},
+    setTimeoutFn: timers.setTimeoutFn,
+    clearTimeoutFn: timers.clearTimeoutFn,
+  });
+  const a = controller.create({ end: () => ending.promise });
+  const recovering = controller.recover(a, new Error("falha A"), 50);
+  await flushPromises();
+
+  const b = controller.create({});
+  ending.resolve();
+  await recovering;
+
+  assert.equal(b.isActive(), true);
+  assert.equal(timers.active().length, 0);
+});
+
+test("create cancela reconnect pendente de geração anterior", () => {
+  const timers = createTimerHarness();
+  const controller = createConnectionSessionController({
+    reconnect: async () => {},
+    setTimeoutFn: timers.setTimeoutFn,
+    clearTimeoutFn: timers.clearTimeoutFn,
+  });
+  controller.create({});
+  controller.scheduleReconnect(100);
+
+  controller.create({});
+
+  assert.equal(timers.active().length, 0);
+});
+
+test("shutdown durante reconnect em voo bloqueia novas tentativas e create", async () => {
+  const timers = createTimerHarness();
+  const reconnecting = deferred();
+  let reconnects = 0;
+  const controller = createConnectionSessionController({
+    reconnect: async () => {
+      reconnects++;
+      await reconnecting.promise;
+    },
+    setTimeoutFn: timers.setTimeoutFn,
+    clearTimeoutFn: timers.clearTimeoutFn,
+  });
+  controller.scheduleReconnect(0);
+  timers.fireNext();
+  await flushPromises();
+
+  const shuttingDown = controller.shutdown();
+  assert.equal(controller.scheduleReconnect(0), false);
+  assert.throws(() => controller.create({}), /stopped/i);
+  reconnecting.resolve();
+  await shuttingDown;
+  await flushPromises();
 
   assert.equal(reconnects, 1);
-  assert.equal(timers.active().length, 1);
-  assert.equal(timers.active()[0].delay, 50);
-  assert.equal(logs.some((message) => message.includes("reconnect rejeitado")), true);
+  assert.equal(timers.active().length, 0);
 });
 
 test("handleClose fecha a atual e evento tardio não duplica reconnect", () => {
@@ -217,7 +414,7 @@ test("handleClose fecha a atual e evento tardio não duplica reconnect", () => {
   assert.equal(timers.active().length, 1);
 });
 
-test("shutdown fecha a sessão, cancela timer e impede timers futuros", () => {
+test("shutdown fecha a sessão, cancela timer e impede timers futuros", async () => {
   const timers = createTimerHarness();
   let cleaned = 0;
   const controller = createConnectionSessionController({
@@ -229,8 +426,8 @@ test("shutdown fecha a sessão, cancela timer e impede timers futuros", () => {
   session.addCleanup(() => cleaned++);
   controller.scheduleReconnect(100);
 
-  controller.shutdown();
-  controller.shutdown();
+  await controller.shutdown();
+  await controller.shutdown();
 
   assert.equal(session.state, "closed");
   assert.equal(cleaned, 1);
