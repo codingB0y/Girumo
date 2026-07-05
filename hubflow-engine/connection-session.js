@@ -5,10 +5,19 @@ class ControllerStoppedError extends Error {
   }
 }
 
+class SessionAbortedError extends Error {
+  constructor(generation) {
+    super(`Connection session ${generation} is no longer active`);
+    this.name = "SessionAbortedError";
+    this.generation = generation;
+  }
+}
+
 const ABORTED = Symbol("aborted");
 
 function createConnectionSessionController({
   reconnect,
+  getRetryDelay,
   closeTimeoutMs = 10_000,
   logger = console,
   setTimeoutFn = setTimeout,
@@ -138,11 +147,35 @@ function createConnectionSessionController({
       abortController: new AbortController(),
       cleanups: [],
       cleanupPromise: Promise.resolve(),
+      initializationPromise: null,
       get signal() {
         return this.abortController.signal;
       },
       isActive() {
         return current === this && !this.signal.aborted && this.state !== "closed";
+      },
+      assertActive() {
+        if (!this.isActive()) throw new SessionAbortedError(this.generation);
+        return this;
+      },
+      guard(handler) {
+        return (...args) => {
+          if (!this.isActive()) return undefined;
+          return handler(...args);
+        };
+      },
+      guardAsync(handler) {
+        return async (...args) => {
+          if (!this.isActive()) return undefined;
+          try {
+            const result = await handler(...args);
+            if (!this.isActive()) return undefined;
+            return result;
+          } catch (error) {
+            if (error instanceof SessionAbortedError || !this.isActive()) return undefined;
+            throw error;
+          }
+        };
       },
       addCleanup(cleanup) {
         return addCleanup(this, cleanup);
@@ -173,19 +206,39 @@ function createConnectionSessionController({
       let attempt;
       // reconnect(signal) must honor the signal before externally visible effects.
       // Cancellation settles this controller's wrapper but cannot undo effects from a callback.
-      const external = Promise.resolve()
-        .then(() => {
-          if (stopped || token !== lifecycleToken) return;
-          return reconnect(controllerAbortController.signal);
-        })
-        .catch((error) => log("reconnect failed", error));
+      let wrapperSettled = false;
+      const external = Promise.resolve().then(() => {
+        if (stopped || token !== lifecycleToken) return ABORTED;
+        return reconnect(controllerAbortController.signal);
+      });
+      const observedExternal = external.then(
+        (value) => ({ ok: true, value }),
+        (error) => {
+          if (wrapperSettled) log("reconnect failed", error);
+          return { ok: false, error };
+        },
+      );
       attempt = trackOperation(
-        raceWithAbort(external, [controllerAbortController.signal]),
+        raceWithAbort(observedExternal, [controllerAbortController.signal]),
       );
       const release = () => {
         if (reconnectInFlight === attempt) reconnectInFlight = null;
       };
-      attempt.then(release, release);
+      attempt.then((outcome) => {
+        wrapperSettled = true;
+        release();
+        if (outcome === ABORTED || outcome.ok) return;
+        log("reconnect failed", outcome.error);
+        if (stopped || token !== lifecycleToken || typeof getRetryDelay !== "function") return;
+        let delay;
+        try {
+          delay = getRetryDelay(outcome.error);
+        } catch (delayError) {
+          log("failed to calculate reconnect retry delay", delayError);
+          return;
+        }
+        if (Number.isFinite(delay) && delay >= 0) scheduleReconnectForToken(delay, token);
+      });
       reconnectInFlight = attempt;
     }, delay);
     return true;
@@ -234,10 +287,21 @@ function createConnectionSessionController({
   }
 
   function initialize(session, options) {
-    return trackOperation(initializeControlled(session, options));
+    if (!session.isActive()) return Promise.resolve(false);
+    if (session.state === "ready") return Promise.resolve(true);
+    if (session.initializationPromise) return session.initializationPromise;
+    const operation = trackOperation(initializeControlled(session, options));
+    session.initializationPromise = operation;
+    const release = () => {
+      if (session.initializationPromise === operation && session.state !== "ready") {
+        session.initializationPromise = null;
+      }
+    };
+    operation.then(release, release);
+    return operation;
   }
 
-  async function initializeControlled(session, { prepare, commit }) {
+  async function initializeControlled(session, { prepare, commit, getRecoveryDelay = () => 0 }) {
     if (!session.isActive()) return false;
     session.state = "initializing";
     try {
@@ -251,6 +315,9 @@ function createConnectionSessionController({
       ]);
       if (snapshot === ABORTED) return false;
       if (!session.isActive()) return false;
+      // O commit é síncrono; publicar ready aqui permite que os recursos criados
+      // por ele (watchdog/timers/worker) validem o estado sem abrir uma janela assíncrona.
+      session.state = "ready";
       const commitResult = commit(snapshot, session);
       if (commitResult && typeof commitResult.then === "function") {
         Promise.resolve(commitResult).catch((commitError) =>
@@ -259,10 +326,17 @@ function createConnectionSessionController({
         throw new TypeError("connection session commit must be synchronous");
       }
       if (!session.isActive()) return false;
-      session.state = "ready";
       return true;
     } catch (error) {
-      if (session.isActive()) await recover(session, error, 0);
+      if (session.isActive()) {
+        let recoveryDelay = 0;
+        try {
+          recoveryDelay = getRecoveryDelay(error);
+        } catch (delayError) {
+          log("failed to calculate initialization recovery delay", delayError);
+        }
+        await recover(session, error, recoveryDelay);
+      }
       return false;
     }
   }
@@ -311,4 +385,8 @@ function createConnectionSessionController({
   };
 }
 
-module.exports = { ControllerStoppedError, createConnectionSessionController };
+module.exports = {
+  ControllerStoppedError,
+  SessionAbortedError,
+  createConnectionSessionController,
+};

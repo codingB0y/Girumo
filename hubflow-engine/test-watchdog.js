@@ -1,210 +1,30 @@
 const assert = require("node:assert/strict");
 const { readFileSync } = require("node:fs");
 const test = require("node:test");
+const watchdogModule = require("./connection-watchdog.js");
 const {
   ConnectionWatchdog,
-  closeSupersededSocket,
-  createConnectionLifecycleManager,
   createConnectionWatchdogManager,
-  initializeConnectedSocket,
-} = require("./connection-watchdog.js");
+} = watchdogModule;
 
 const silentLogger = { log() {} };
 
-test("entrypoint conecta watchdog a open, close e shutdown", () => {
+test("entrypoint conecta watchdog ao controlador de sessão", () => {
   const source = readFileSync(require.resolve("./index.js"), "utf8");
-  assert.match(source, /connectionWatchdog\.attach\(sock\)/);
-  assert.match(source, /connectionWatchdog\.detach\(sock\)/);
-  assert.match(source, /connectionWatchdog\.stop\(\)/);
-  assert.match(source, /connectionLifecycle\.track\(sock\)/);
-  assert.match(source, /connectionLifecycle\.release\(sock\)/);
-  assert.match(source, /connectionLifecycle\.shutdown\(\)/);
-  assert.match(source, /closeSupersededSocket\(sock, console\)/);
-  assert.match(source, /getRetryDelay:/);
-});
-
-function createTimerHarness() {
-  const scheduled = [];
-  const cleared = [];
-  return {
-    scheduled,
-    cleared,
-    setTimeoutFn(callback, delay) {
-      const handle = { callback, delay };
-      scheduled.push(handle);
-      return handle;
-    },
-    clearTimeoutFn(handle) {
-      cleared.push(handle);
-    },
-  };
-}
-
-test("lifecycle rastreia o socket mais recente desde a criação", () => {
-  const lifecycle = createConnectionLifecycleManager({ reconnect: async () => {} });
-  const socketA = {};
-  const socketB = {};
-
-  lifecycle.track(socketA);
-  lifecycle.track(socketB);
-
-  assert.equal(lifecycle.isLatest(socketA), false);
-  assert.equal(lifecycle.isLatest(socketB), true);
-});
-
-test("release de socket antigo não afeta o socket atual", () => {
-  const lifecycle = createConnectionLifecycleManager({ reconnect: async () => {} });
-  const socketA = {};
-  const socketB = {};
-  lifecycle.track(socketA);
-  lifecycle.track(socketB);
-
-  assert.equal(lifecycle.release(socketA), false);
-  assert.equal(lifecycle.isLatest(socketB), true);
-});
-
-test("release do socket mais recente antes de open permite reconexão", () => {
-  const lifecycle = createConnectionLifecycleManager({ reconnect: async () => {} });
-  const socket = {};
-  lifecycle.track(socket);
-
-  assert.equal(lifecycle.release(socket), true);
-  assert.equal(lifecycle.isLatest(socket), false);
-});
-
-test("scheduler mantém no máximo um reconnect pendente", () => {
-  const timers = createTimerHarness();
-  const lifecycle = createConnectionLifecycleManager({
-    reconnect: async () => {},
-    setTimeoutFn: timers.setTimeoutFn,
-    clearTimeoutFn: timers.clearTimeoutFn,
-  });
-
-  assert.equal(lifecycle.scheduleReconnect(1000), true);
-  assert.equal(lifecycle.scheduleReconnect(2000), false);
-  assert.equal(timers.scheduled.length, 1);
-  assert.equal(timers.scheduled[0].delay, 1000);
-});
-
-test("timer disparado libera o slot para futuro reconnect", () => {
-  const timers = createTimerHarness();
-  const lifecycle = createConnectionLifecycleManager({
-    reconnect: async () => {},
-    setTimeoutFn: timers.setTimeoutFn,
-    clearTimeoutFn: timers.clearTimeoutFn,
-  });
-  lifecycle.scheduleReconnect(1000);
-
-  timers.scheduled[0].callback();
-
-  assert.equal(lifecycle.scheduleReconnect(2000), true);
-  assert.equal(timers.scheduled.length, 2);
-});
-
-test("socket obsoleto é encerrado", async () => {
-  const endCalls = [];
-  const socket = { end: async (error) => endCalls.push(error) };
-
-  await closeSupersededSocket(socket, silentLogger);
-
-  assert.equal(endCalls.length, 1);
-  assert.equal(endCalls[0].message, "superseded connection");
-});
-
-test("rejeição ao encerrar socket obsoleto é registrada sem propagar", async () => {
-  const logs = [];
-  const socket = {
-    end: async () => {
-      throw new Error("end falhou");
-    },
-  };
-
-  await assert.doesNotReject(() =>
-    closeSupersededSocket(socket, { log: (message) => logs.push(message) }),
-  );
-
-  assert.equal(logs.some((message) => message.includes("end falhou")), true);
-});
-
-test("scheduler registra rejeição do reconnect e agenda nova tentativa", async () => {
-  const timers = createTimerHarness();
-  const logs = [];
-  const lifecycle = createConnectionLifecycleManager({
-    reconnect: async () => {
-      throw new Error("start falhou");
-    },
-    getRetryDelay: () => 2500,
-    logger: { log: (message) => logs.push(message) },
-    setTimeoutFn: timers.setTimeoutFn,
-    clearTimeoutFn: timers.clearTimeoutFn,
-  });
-  lifecycle.scheduleReconnect(1000);
-
-  timers.scheduled[0].callback();
-  await new Promise((resolve) => setImmediate(resolve));
-
-  assert.equal(logs.some((message) => message.includes("start falhou")), true);
-  assert.equal(timers.scheduled.length, 2);
-  assert.equal(timers.scheduled[1].delay, 2500);
-});
-
-test("shutdown impede retry após reconnect em voo rejeitar", async () => {
-  const timers = createTimerHarness();
-  const reconnectResult = deferred();
-  const lifecycle = createConnectionLifecycleManager({
-    reconnect: () => reconnectResult.promise,
-    getRetryDelay: () => 2500,
-    logger: silentLogger,
-    setTimeoutFn: timers.setTimeoutFn,
-    clearTimeoutFn: timers.clearTimeoutFn,
-  });
-  lifecycle.scheduleReconnect(1000);
-  timers.scheduled[0].callback();
-  await new Promise((resolve) => setImmediate(resolve));
-
-  lifecycle.shutdown();
-  reconnectResult.reject(new Error("start falhou"));
-  await new Promise((resolve) => setImmediate(resolve));
-
-  assert.equal(timers.scheduled.length, 1);
-});
-
-test("exceção ao calcular retry é registrada sem novo timer", async () => {
-  const timers = createTimerHarness();
-  const logs = [];
-  const lifecycle = createConnectionLifecycleManager({
-    reconnect: async () => {
-      throw new Error("start falhou");
-    },
-    getRetryDelay: () => {
-      throw new Error("delay falhou");
-    },
-    logger: { log: (message) => logs.push(message) },
-    setTimeoutFn: timers.setTimeoutFn,
-    clearTimeoutFn: timers.clearTimeoutFn,
-  });
-  lifecycle.scheduleReconnect(1000);
-
-  timers.scheduled[0].callback();
-  await new Promise((resolve) => setImmediate(resolve));
-
-  assert.equal(logs.some((message) => message.includes("delay falhou")), true);
-  assert.equal(timers.scheduled.length, 1);
-});
-
-test("shutdown cancela reconnect pendente e bloqueia novos schedules", () => {
-  const timers = createTimerHarness();
-  const lifecycle = createConnectionLifecycleManager({
-    reconnect: async () => {},
-    setTimeoutFn: timers.setTimeoutFn,
-    clearTimeoutFn: timers.clearTimeoutFn,
-  });
-  lifecycle.scheduleReconnect(1000);
-
-  lifecycle.shutdown();
-
-  assert.deepEqual(timers.cleared, [timers.scheduled[0]]);
-  assert.equal(lifecycle.scheduleReconnect(2000), false);
+  const operations = readFileSync(require.resolve("./connection-operations.js"), "utf8");
+  const watchdogSource = readFileSync(require.resolve("./connection-watchdog.js"), "utf8");
+  assert.match(source, /connectionWatchdog\.attach\(session\)/);
+  assert.match(source, /connectionWatchdog\.detach\(session\)/);
+  assert.match(source, /connectionController\.create\(sock\)/);
+  assert.match(source, /bindConnectionLifecycle\(\{/);
+  assert.match(operations, /controller\.handleClose\(session, delay\)/);
+  assert.match(source, /connectionController\.shutdown\(\)/);
+  assert.match(source, /connectionController\.recover\(session, error, wait\)/);
+  assert.deepEqual(Object.keys(watchdogModule).sort(), [
+    "ConnectionWatchdog",
+    "createConnectionWatchdogManager",
+  ]);
+  assert.doesNotMatch(watchdogSource, /\bsock\??\.end\b/);
 });
 
 function deferred() {
@@ -216,66 +36,6 @@ function deferred() {
   });
   return { promise, resolve, reject };
 }
-
-test("socket obsoleto antes da inicialização não executa etapas nem ativa", async () => {
-  const calls = [];
-
-  const initialized = await initializeConnectedSocket({
-    sock: {},
-    isLatest: () => false,
-    steps: [async () => calls.push("step")],
-    activate: () => calls.push("activate"),
-  });
-
-  assert.equal(initialized, false);
-  assert.deepEqual(calls, []);
-});
-
-test("socket que fica obsoleto durante etapa pendente não continua nem ativa", async () => {
-  const pendingStep = deferred();
-  const calls = [];
-  let latest = true;
-  const sock = {};
-
-  const initialization = initializeConnectedSocket({
-    sock,
-    isLatest: (candidate) => latest && candidate === sock,
-    steps: [
-      async () => {
-        calls.push("step-1");
-        await pendingStep.promise;
-      },
-      async () => calls.push("step-2"),
-    ],
-    activate: () => calls.push("activate"),
-  });
-  assert.deepEqual(calls, ["step-1"]);
-
-  latest = false;
-  pendingStep.resolve();
-
-  assert.equal(await initialization, false);
-  assert.deepEqual(calls, ["step-1"]);
-});
-
-test("socket atual executa etapas em ordem e ativa uma vez", async () => {
-  const calls = [];
-  const sock = {};
-
-  const initialized = await initializeConnectedSocket({
-    sock,
-    isLatest: (candidate) => candidate === sock,
-    steps: [
-      async () => calls.push("step-1"),
-      async () => calls.push("step-2"),
-      async () => calls.push("step-3"),
-    ],
-    activate: () => calls.push("activate"),
-  });
-
-  assert.equal(initialized, true);
-  assert.deepEqual(calls, ["step-1", "step-2", "step-3", "activate"]);
-});
 
 test("ping bem-sucedido zera falhas consecutivas", async () => {
   const watchdog = new ConnectionWatchdog({
@@ -448,7 +208,7 @@ test("onDead que lança é registrado sem rejeitar o ping", async () => {
   assert.equal(logs.some((message) => message.includes("recuperação falhou")), true);
 });
 
-test("attach do socket atual reutiliza watchdog sem reiniciar", () => {
+test("attach da sessão atual reutiliza watchdog sem reiniciar", () => {
   const instances = [];
   class FakeWatchdog {
     constructor(options) {
@@ -467,14 +227,15 @@ test("attach do socket atual reutiliza watchdog sem reiniciar", () => {
     }
   }
 
-  const socket = {};
+  const session = { sock: {}, generation: 1, isActive: () => true };
   const manager = createConnectionWatchdogManager({
     Watchdog: FakeWatchdog,
     logger: silentLogger,
+    recover: async () => {},
   });
 
-  const first = manager.attach(socket);
-  const second = manager.attach(socket);
+  const first = manager.attach(session);
+  const second = manager.attach(session);
 
   assert.equal(second, first);
   assert.equal(instances.length, 1);
@@ -482,31 +243,32 @@ test("attach do socket atual reutiliza watchdog sem reiniciar", () => {
   assert.equal(first.stopCalls, 0);
 });
 
-test("manager propaga rejeição assíncrona de end para o watchdog registrar", async () => {
+test("manager propaga rejeição assíncrona de recover para o watchdog registrar", async () => {
   const logs = [];
   const socket = {
     sendPresenceUpdate: async () => {
       throw new Error("stream indisponível");
     },
-    end: async () => {
-      throw new Error("encerramento falhou");
-    },
   };
+  const session = { sock: socket, generation: 1, isActive: () => true };
   const manager = createConnectionWatchdogManager({
     logger: { log: (message) => logs.push(message) },
+    recover: async () => {
+      throw new Error("recuperação falhou");
+    },
   });
-  const watchdog = manager.attach(socket);
+  const watchdog = manager.attach(session);
   watchdog._consecutiveFails = 2;
 
   try {
     await assert.doesNotReject(() => watchdog._ping());
-    assert.equal(logs.some((message) => message.includes("encerramento falhou")), true);
+    assert.equal(logs.some((message) => message.includes("recuperação falhou")), true);
   } finally {
     manager.stop();
   }
 });
 
-test("manager mantém apenas o watchdog do socket ativo", () => {
+test("manager mantém somente a sessão ativa e recupera por geração", async () => {
   const instances = [];
   class FakeWatchdog {
     constructor(options) {
@@ -525,33 +287,34 @@ test("manager mantém apenas o watchdog do socket ativo", () => {
     }
   }
 
-  const endCallsA = [];
-  const endCallsB = [];
-  const socketA = { end: (error) => endCallsA.push(error) };
-  const socketB = { end: (error) => endCallsB.push(error) };
+  const recovered = [];
+  const sessionA = { sock: {}, generation: 1, isActive: () => false };
+  const sessionB = { sock: {}, generation: 2, isActive: () => true };
   const manager = createConnectionWatchdogManager({
     Watchdog: FakeWatchdog,
     logger: silentLogger,
+    recover: async (session, error) => recovered.push([session, error]),
   });
 
-  const watchdogA = manager.attach(socketA);
+  const watchdogA = manager.attach(sessionA);
   assert.equal(watchdogA.startCalls, 1);
 
-  const watchdogB = manager.attach(socketB);
+  const watchdogB = manager.attach(sessionB);
   assert.equal(watchdogA.stopCalls, 1);
   assert.equal(watchdogB.startCalls, 1);
 
-  watchdogA.options.onDead();
-  assert.equal(endCallsA.length, 0);
+  await watchdogA.options.onDead();
+  assert.equal(recovered.length, 0);
 
-  assert.equal(manager.detach(socketA), false);
+  assert.equal(manager.detach(sessionA), false);
   assert.equal(watchdogB.stopCalls, 0);
 
-  watchdogB.options.onDead();
-  assert.equal(endCallsB.length, 1);
-  assert.equal(endCallsB[0].message, "watchdog detected zombie connection");
+  await watchdogB.options.onDead();
+  assert.equal(recovered.length, 1);
+  assert.equal(recovered[0][0], sessionB);
+  assert.equal(recovered[0][1].message, "watchdog detected zombie connection");
 
-  assert.equal(manager.detach(socketB), true);
+  assert.equal(manager.detach(sessionB), true);
   assert.equal(watchdogB.stopCalls, 1);
   assert.equal(manager.stop(), false);
   assert.equal(watchdogB.stopCalls, 1);

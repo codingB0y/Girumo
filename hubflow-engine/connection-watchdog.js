@@ -1,14 +1,7 @@
 /**
  * ConnectionWatchdog — detecta conexões "zombi" (socket aberto mas stream morto).
- * Periodicamente envia um presence update ao WhatsApp; se falhar ou expirar o
- * timeout, força reconexão via sock.end() para que o handler de close reconecte.
- *
- * Uso:
- *   const wd = new ConnectionWatchdog({ sock, onDead: () => sock.end() });
- *   wd.start();
- *   // Na reconexão:
- *   wd.stop();
- *   wd = new ConnectionWatchdog({ sock: novoSock, ... });
+ * Periodicamente envia um presence update ao WhatsApp. Após falhas consecutivas,
+ * delega a recuperação ao controlador da sessão ativa por meio de `onDead`.
  */
 class ConnectionWatchdog {
   constructor({
@@ -118,48 +111,45 @@ class ConnectionWatchdog {
   }
 }
 
-async function closeSupersededSocket(sock, logger = console) {
-  try {
-    await sock.end(new Error("superseded connection"));
-  } catch (error) {
-    logger.log(`Erro ao encerrar conexão obsoleta: ${error?.message ?? error}`);
-  }
-}
-
-async function initializeConnectedSocket({ sock, isLatest, steps, activate }) {
-  if (!isLatest(sock)) return false;
-  for (const step of steps) {
-    await step();
-    if (!isLatest(sock)) return false;
-  }
-  activate();
-  return true;
-}
-
-function createConnectionWatchdogManager({ Watchdog = ConnectionWatchdog, logger = console } = {}) {
+function createConnectionWatchdogManager({
+  Watchdog = ConnectionWatchdog,
+  recover,
+  logger = console,
+} = {}) {
   let active = null;
 
-  function detach(sock) {
-    if (!active || (sock && active.sock !== sock)) return false;
+  function detach(session) {
+    if (
+      !active ||
+      (session && (active.session !== session || active.generation !== session.generation))
+    ) return false;
     active.watchdog.stop();
     active = null;
     return true;
   }
 
-  function attach(sock) {
-    if (!sock) throw new Error("Socket obrigatório para o watchdog.");
-    if (active?.sock === sock) return active.watchdog;
+  function attach(session) {
+    if (!session?.sock) throw new Error("Sessão com socket é obrigatória para o watchdog.");
+    if (active?.session === session && active.generation === session.generation) {
+      return active.watchdog;
+    }
     detach();
     let watchdog;
     watchdog = new Watchdog({
-      sock,
+      sock: session.sock,
       logger,
       onDead: () => {
-        if (active?.sock !== sock || active.watchdog !== watchdog) return;
-        return sock.end(new Error("watchdog detected zombie connection"));
+        if (
+          active?.session !== session ||
+          active.generation !== session.generation ||
+          active.watchdog !== watchdog ||
+          !session.isActive()
+        ) return;
+        if (typeof recover !== "function") throw new TypeError("recover callback is required");
+        return recover(session, new Error("watchdog detected zombie connection"));
       },
     });
-    active = { sock, watchdog };
+    active = { session, generation: session.generation, watchdog };
     watchdog.start();
     return watchdog;
   }
@@ -167,69 +157,7 @@ function createConnectionWatchdogManager({ Watchdog = ConnectionWatchdog, logger
   return { attach, detach, stop: () => detach() };
 }
 
-function createConnectionLifecycleManager({
-  reconnect,
-  getRetryDelay = () => null,
-  logger = console,
-  setTimeoutFn = setTimeout,
-  clearTimeoutFn = clearTimeout,
-} = {}) {
-  let latestSocket = null;
-  let reconnectTimer = null;
-  let stopped = false;
-
-  function track(sock) {
-    if (!sock) throw new Error("Socket obrigatório para o lifecycle.");
-    latestSocket = sock;
-  }
-
-  function isLatest(sock) {
-    return Boolean(latestSocket && latestSocket === sock);
-  }
-
-  function release(sock) {
-    if (!isLatest(sock)) return false;
-    latestSocket = null;
-    return true;
-  }
-
-  function scheduleReconnect(delay) {
-    if (stopped || reconnectTimer !== null) return false;
-    reconnectTimer = setTimeoutFn(() => {
-      reconnectTimer = null;
-      Promise.resolve()
-        .then(reconnect)
-        .catch((error) => {
-          logger.log(`Erro ao reconectar: ${error?.message ?? error}`);
-          let retryDelay;
-          try {
-            retryDelay = getRetryDelay(error);
-          } catch (retryError) {
-            logger.log(`Erro ao calcular retry: ${retryError?.message ?? retryError}`);
-            return;
-          }
-          if (Number.isFinite(retryDelay) && retryDelay >= 0) scheduleReconnect(retryDelay);
-        });
-    }, delay);
-    return true;
-  }
-
-  function shutdown() {
-    stopped = true;
-    latestSocket = null;
-    if (reconnectTimer === null) return false;
-    clearTimeoutFn(reconnectTimer);
-    reconnectTimer = null;
-    return true;
-  }
-
-  return { track, isLatest, release, scheduleReconnect, shutdown };
-}
-
 module.exports = {
   ConnectionWatchdog,
-  closeSupersededSocket,
-  createConnectionLifecycleManager,
   createConnectionWatchdogManager,
-  initializeConnectedSocket,
 };

@@ -81,40 +81,73 @@ function createGroupSyncCoordinator({
   };
 }
 
-function createSafeOpenHandler({
-  isLatest,
+function bindConnectionLifecycle({
+  sock,
+  session,
+  controller,
   initialize,
-  release,
-  close,
-  scheduleReconnect,
-  reconnectDelay = 0,
+  getCloseDelay,
+  onQr = () => {},
   logger = console,
-  onSettled = () => {},
 }) {
-  const log = (message, error) => {
-    const write = logger.error ?? logger.log;
-    if (typeof write === "function") write.call(logger, message, error);
-  };
-  const observeClose = (sock) => {
-    Promise.resolve()
-      .then(() => close(sock))
-      .catch((error) => log("connection open cleanup failed", error));
-  };
+  const handleUpdate = session.guard((update) => {
+    const { connection, lastDisconnect, qr } = update;
+    if (qr) onQr(qr);
+    if (connection === "open") {
+      observePromise(
+        controller.initialize(session, initialize),
+        logger,
+        "connection initialization failed",
+      );
+      return;
+    }
+    if (connection === "close") {
+      const closing = (async () => {
+        if (!session.isActive()) return false;
+        const delay = await getCloseDelay(lastDisconnect, session);
+        if (!session.isActive()) return false;
+        return controller.handleClose(session, delay);
+      })();
+      observePromise(closing, logger, "connection close handling failed");
+    }
+  });
+  sock.ev.on("connection.update", handleUpdate);
+  session.addCleanup(() => {
+    const remove = sock.ev.off ?? sock.ev.removeListener;
+    if (typeof remove === "function") remove.call(sock.ev, "connection.update", handleUpdate);
+  });
+  return handleUpdate;
+}
 
-  return function handleOpen(sock) {
-    const operation = Promise.resolve()
-      .then(() => initialize(sock))
-      .then((initialized) => {
-        if (!initialized) observeClose(sock);
-      })
-      .catch((error) => {
-        if (isLatest(sock) && release(sock)) scheduleReconnect(reconnectDelay);
-        observeClose(sock);
-        log("connection open initialization failed", error);
-      });
-    operation
-      .then(() => onSettled())
-      .catch((error) => log("connection open settlement failed", error));
+function createGracefulShutdown({
+  shutdownController,
+  saveState,
+  exit,
+  logger = console,
+  timeoutMs = 10_000,
+  setTimeoutFn = setTimeout,
+  clearTimeoutFn = clearTimeout,
+}) {
+  let shutdownPromise = null;
+  return function shutdown() {
+    if (shutdownPromise) return shutdownPromise;
+    shutdownPromise = (async () => {
+      let timeoutHandle;
+      try {
+        const timeout = new Promise((resolve) => {
+          timeoutHandle = setTimeoutFn(() => {
+            logger.error(`Shutdown excedeu ${timeoutMs / 1000}s; finalizando após fallback.`);
+            resolve();
+          }, timeoutMs);
+        });
+        await Promise.race([Promise.resolve().then(shutdownController), timeout]);
+      } finally {
+        if (timeoutHandle !== undefined) clearTimeoutFn(timeoutHandle);
+        saveState();
+        exit(0);
+      }
+    })();
+    return shutdownPromise;
   };
 }
 
@@ -130,8 +163,9 @@ function observePromise(promise, logger = console, message = "asynchronous opera
 }
 
 module.exports = {
+  bindConnectionLifecycle,
+  createGracefulShutdown,
   createGroupSyncCoordinator,
   createLatestConfigRefresher,
-  createSafeOpenHandler,
   observePromise,
 };

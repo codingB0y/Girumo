@@ -48,17 +48,14 @@ const {
   readOkJson,
 } = require("./connection-snapshot.js");
 const {
+  bindConnectionLifecycle,
+  createGracefulShutdown,
   createGroupSyncCoordinator,
   createLatestConfigRefresher,
-  createSafeOpenHandler,
   observePromise,
 } = require("./connection-operations.js");
-const {
-  closeSupersededSocket,
-  createConnectionLifecycleManager,
-  createConnectionWatchdogManager,
-  initializeConnectedSocket,
-} = require("./connection-watchdog.js");
+const { createConnectionWatchdogManager } = require("./connection-watchdog.js");
+const { SessionAbortedError, createConnectionSessionController } = require("./connection-session.js");
 const { createSupabaseCommandWorker } = require("./queues/supabase-command-worker.js");
 const { validateEngineEnvironment } = require("./config/env.js");
 
@@ -139,22 +136,18 @@ function saveState() {
 // Salva ao sair para não perder o contador do dia / a fase do warmup.
 // SIGINT = Ctrl+C; SIGTERM = pm2/systemd/docker stop (o caminho real em produção).
 let shuttingDown = false;
-function shutdown() {
-  if (shuttingDown) return; // evita salvar 2x se os dois sinais chegarem
+const drainAndExit = createGracefulShutdown({
+  shutdownController: () => connectionController.shutdown(),
+  saveState,
+  exit: (code) => process.exit(code),
+  logger: console,
+});
+async function shutdown() {
   shuttingDown = true;
-  connectionLifecycle.shutdown();
-  connectionWatchdog.stop();
-  clearInterval(heartbeat);
-  heartbeat = null;
-  clearInterval(dispatchTimer);
-  dispatchTimer = null;
-  supabaseCommandWorker.stop();
-  supabaseCommandWorkerStarted = false;
-  saveState();
-  process.exit(0);
+  return drainAndExit();
 }
-process.on("SIGINT", shutdown);
-process.on("SIGTERM", shutdown);
+process.on("SIGINT", () => observePromise(shutdown(), console, "shutdown failed"));
+process.on("SIGTERM", () => observePromise(shutdown(), console, "shutdown failed"));
 // Última linha de defesa: salva o estado anti-ban antes de morrer por exceção não tratada.
 process.on("uncaughtException", (err) => {
   console.error("Exceção não tratada:", err);
@@ -170,10 +163,11 @@ async function resolveMentions(mentions) {
 }
 
 /** Envia texto SEMPRE pela fila anti-ban. Use priority p/ respostas imediatas. */
-function sendText(sock, jid, text, { priority = false, mentions } = {}) {
+function sendText(sock, jid, text, { priority = false, mentions, session } = {}) {
   return queue.enqueue(
     async () => {
       const m = await resolveMentions(mentions);
+      session?.assertActive();
       return sock.sendMessage(jid, { text, ...(m ? { mentions: m } : {}) });
     },
     { priority },
@@ -181,13 +175,14 @@ function sendText(sock, jid, text, { priority = false, mentions } = {}) {
 }
 
 /** Envia FOTO ou VÍDEO (buffer) com legenda pela fila anti-ban. */
-function sendMedia(sock, jid, buffer, caption, mentions, kind) {
+function sendMedia(sock, jid, buffer, caption, mentions, kind, session) {
   const content =
     kind === "video"
       ? { video: buffer, caption: caption || undefined }
       : { image: buffer, caption: caption || undefined };
   return queue.enqueue(async () => {
     const m = await resolveMentions(mentions);
+    session?.assertActive();
     return sock.sendMessage(jid, { ...content, ...(m ? { mentions: m } : {}) });
   });
 }
@@ -236,16 +231,25 @@ let dispatchTimer = null; // intervalo que puxa ofertas a disparar do app
 let connectedSince = null; // quando a sessão atual abriu (p/ "conectado há X dias")
 let reconnectAttempts = 0; // p/ backoff exponencial — zera ao conectar de fato
 let currentSocket = null; // socket Baileys ativo, usado pelo worker Supabase
-const connectionLifecycle = createConnectionLifecycleManager({
+let currentSession = null;
+const connectionController = createConnectionSessionController({
   reconnect: start,
-  getRetryDelay: () => {
+  getRetryDelay: (error) => {
+    console.error("Erro ao reconectar:", error);
     const wait = nextReconnectDelay();
     reconnectAttempts++;
     return wait;
   },
   logger: console,
 });
-const connectionWatchdog = createConnectionWatchdogManager({ logger: console });
+const connectionWatchdog = createConnectionWatchdogManager({
+  logger: console,
+  recover: (session, error) => {
+    const wait = nextReconnectDelay();
+    reconnectAttempts++;
+    return connectionController.recover(session, error, wait);
+  },
+});
 let supabaseCommandWorkerStarted = false;
 const supabaseCommandWorker = createSupabaseCommandWorker({
   getSocket: () => currentSocket,
@@ -310,16 +314,18 @@ async function resolvePhone(sock, jid) {
 }
 
 /** Reporta uma entrada no grupo como lead no app. phone=null → número oculto. Fail-silent. */
-async function reportLead(phone, sourceGroup, sourceGroupId) {
+async function reportLead(phone, sourceGroup, sourceGroupId, session) {
   try {
     const res = await appFetch(`/api/leads`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phone: phone ? `+${phone}` : "", sourceGroup, sourceGroupId }),
     });
+    session?.assertActive();
     if (res.ok) console.log(`   ↳ lead registrado no app (${APP_URL}/leads)`);
     else console.log(`   ↳ app respondeu ${res.status} ao registrar lead`);
-  } catch {
+  } catch (error) {
+    if (error instanceof SessionAbortedError) throw error;
     console.log(`   ↳ app offline — lead não registrado (${APP_URL})`);
   }
 }
@@ -344,7 +350,7 @@ const fetchOptOut = () => appFetch(`/api/optout`).then(readOkJson);
 
 const syncGroups = createGroupSyncCoordinator({
   state: connectionState,
-  isLatest: (sock) => connectionLifecycle.isLatest(sock),
+  isLatest: (sock) => currentSession?.sock === sock && currentSession.isActive(),
   send: (payload, _options, signal) => appFetch(`/api/groups`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -363,7 +369,7 @@ const syncGroups = createGroupSyncCoordinator({
 
 const refreshLatestConfig = createLatestConfigRefresher({
   state: connectionState,
-  isLatest: (sock) => connectionLifecycle.isLatest(sock),
+  isLatest: (sock) => currentSession?.sock === sock && currentSession.isActive(),
   prepare: () => prepareConfigSnapshot({
     fetchWelcome,
     fetchOptOut,
@@ -382,7 +388,7 @@ async function refreshConfig(sock) {
  * Manda a DM de boas-vindas para quem acabou de entrar — SE habilitado,
  * fora do opt-out e ainda não saudado. Vai pela fila anti-ban (lane prioritária).
  */
-async function welcomeNewMember(sock, phone) {
+async function welcomeNewMember(sock, phone, session) {
   if (!connectionState.welcomeCfg.enabled || !connectionState.welcomeCfg.message.trim()) return;
   if (!phone) return; // sem telefone real resolvido (LID não mapeado) não dá p/ DM com segurança
   const digits = onlyDigits(phone);
@@ -397,10 +403,12 @@ async function welcomeNewMember(sock, phone) {
   try {
     // Lane NORMAL (não prioritária): boas-vindas em lote não pode furar o ritmo
     // anti-ban — DM a quem nunca te escreveu já é o maior vetor de ban.
-    await sendText(sock, jid, text);
+    await sendText(sock, jid, text, { session });
+    session?.assertActive();
     welcomed.set(digits, Date.now()); // só marca DEPOIS do envio: falha transitória pode reenviar
     console.log(`   ↳ boas-vindas enviadas (via fila) para +${digits}`);
   } catch (err) {
+    if (err instanceof SessionAbortedError) throw err;
     console.log(`   ↳ falha ao enviar boas-vindas para +${digits}: ${err.message}`);
   } finally {
     welcoming.delete(digits);
@@ -450,7 +458,8 @@ async function ackDispatch(id, status, sent, total, error) {
 }
 
 /** Executa um disparo: 1 mensagem por grupo, com ack de progresso real. */
-async function runDispatch(sock, job) {
+async function runDispatch(sock, job, session) {
+  session.assertActive();
   // groupIds do app = JIDs (o sync usa o id do grupo). Vazio = todos os grupos ADMIN
   // (nunca dispara em grupo onde não somos admin).
   const jids = job.groupIds && job.groupIds.length ? job.groupIds : [...connectionState.adminGroupIds];
@@ -458,17 +467,20 @@ async function runDispatch(sock, job) {
   if (total === 0) {
     console.log(`⛔ Disparo "${job.name}" sem grupos de destino.`);
     await ackDispatch(job.id, "failed", 0, 0, "Nenhum grupo de destino.");
+    session.assertActive();
     return;
   }
   // Baixa a foto UMA vez (se a oferta tem mídia) e reusa em todos os grupos.
   let mediaBuf = null;
   if (job.mediaId) {
     mediaBuf = await fetchMedia(job.mediaId);
+    session.assertActive();
     if (!mediaBuf) console.log(`   ⚠️ não consegui baixar a foto da oferta — envio só o texto.`);
   }
   const tipo = `${mediaBuf ? (job.mediaType === "video" ? "🎬 vídeo" : "📷 foto") : "texto"}${job.mentionAll ? " + @todos" : ""}`;
   console.log(`\n🚀 Disparo "${job.name}" (${tipo}) → ${total} grupo(s). Entrando na fila anti-ban...`);
   await ackDispatch(job.id, "running", 0, total);
+  session.assertActive();
 
   const enviar = (jid) => {
     // "Marcar todos": menção invisível de todos os participantes. Passa como THUNK —
@@ -478,6 +490,7 @@ async function runDispatch(sock, job) {
     if (job.poll?.question && Array.isArray(job.poll.options) && job.poll.options.length >= 2) {
       return queue.enqueue(async () => {
         const m = await resolveMentions(mentions);
+        session.assertActive();
         return sock.sendMessage(jid, {
           poll: { name: job.poll.question, values: job.poll.options, selectableCount: 1 },
           ...(m ? { mentions: m } : {}),
@@ -485,8 +498,8 @@ async function runDispatch(sock, job) {
       });
     }
     return mediaBuf
-      ? sendMedia(sock, jid, mediaBuf, job.message, mentions, job.mediaType)
-      : sendText(sock, jid, job.message, { mentions });
+      ? sendMedia(sock, jid, mediaBuf, job.message, mentions, job.mediaType, session)
+      : sendText(sock, jid, job.message, { mentions, session });
   };
 
   let sent = 0;
@@ -500,31 +513,39 @@ async function runDispatch(sock, job) {
         .catch(() => {
           failed++;
         })
-        .finally(() => ackDispatch(job.id, "running", sent, total)),
+        .finally(() => session.isActive()
+          ? ackDispatch(job.id, "running", sent, total)
+          : undefined),
     ),
   );
+  session.assertActive();
 
   const status = sent === 0 ? "failed" : "sent";
   const error = failed > 0 ? `${failed} de ${total} não enviadas` : null;
   console.log(`✅ Disparo "${job.name}" concluído: ${sent}/${total} enviadas${failed ? ` (${failed} falhas)` : ""}.`);
   await ackDispatch(job.id, status, sent, total, error);
+  session.assertActive();
 }
 
 /** Reivindica ofertas enfileiradas no app e dispara cada uma. Fail-silent. */
-async function pollDispatches(sock) {
+async function pollDispatches(sock, session) {
+  session.assertActive();
   if (dispatching) return;
   dispatching = true;
   try {
     let jobs = [];
     try {
       jobs = await appFetch(`/api/dispatch/pending`, { method: "POST" }).then((r) => r.json());
+      session.assertActive();
     } catch {
       return; // app offline
     }
     if (!Array.isArray(jobs) || jobs.length === 0) return;
     console.log(`\n📥 ${jobs.length} oferta(s) na fila de disparo.`);
     for (const job of jobs) {
-      await runDispatch(sock, job);
+      session.assertActive();
+      await runDispatch(sock, job, session);
+      session.assertActive();
     }
   } finally {
     dispatching = false;
@@ -551,25 +572,31 @@ async function ackGrow(id, status, extra = {}) {
 }
 
 /** Cria + auto-configura UM grupo. Gateia em `create` no group-guard. */
-async function runGrow(sock, job) {
+async function runGrow(sock, job, session) {
+  session.assertActive();
   // create é a operação mais sensível — respeita a janela do group-guard (2/10min).
   const verdict = guard.check("create");
   if (!verdict.allowed) {
     console.log(`⛔ Auto-grow "${job.campaignSlug}" adiado: ${verdict.reason}.`);
     // Não é erro permanente: devolve failed com o motivo p/ o app re-enfileirar depois.
     await ackGrow(job.id, "failed", { error: `group-guard: ${verdict.reason} (retry ${verdict.retryAfterSec}s)` });
+    session.assertActive();
     return;
   }
   await ackGrow(job.id, "running");
+  session.assertActive();
   let meta;
   try {
     // 1) Cria o grupo só com o dono (populamos por link de convite, não por add).
     meta = await sock.groupCreate(job.subject, []);
+    session.assertActive();
     guard.record("create");
   } catch (err) {
+    if (err instanceof SessionAbortedError) throw err;
     const code = classifyGroupOpError(err);
     console.log(`⚠️  Falha ao criar grupo "${job.subject}"${code ? ` (${code})` : ""}: ${err.message}`);
     await ackGrow(job.id, "failed", { error: `groupCreate: ${code ?? err.message}` });
+    session.assertActive();
     return;
   }
   const jid = meta.id;
@@ -578,8 +605,11 @@ async function runGrow(sock, job) {
   // 2) Config best-effort: uma falha aqui não invalida o grupo (o que importa é o link).
   const step = async (label, fn) => {
     try {
+      session.assertActive();
       await fn();
+      session.assertActive();
     } catch (err) {
+      if (err instanceof SessionAbortedError) throw err;
       console.log(`   ⚠️ auto-grow: ${label} falhou (ignorado): ${err.message}`);
     }
   };
@@ -588,6 +618,7 @@ async function runGrow(sock, job) {
   await step("modo de adição", () => sock.groupMemberAddMode(jid, job.memberAddMode || "admin_add"));
   if (job.mediaId) {
     const buf = await fetchMedia(job.mediaId);
+    session.assertActive();
     if (buf) await step("foto", () => sock.updateProfilePicture(jid, buf));
   }
 
@@ -595,13 +626,16 @@ async function runGrow(sock, job) {
   let inviteLink = null;
   try {
     const code = await sock.groupInviteCode(jid);
+    session.assertActive();
     if (code) inviteLink = `https://chat.whatsapp.com/${code}`;
   } catch (err) {
+    if (err instanceof SessionAbortedError) throw err;
     console.log(`   ⚠️ auto-grow: não obtive o link de convite: ${err.message}`);
   }
   if (!inviteLink) {
     // Sem link, o grupo não serve ao pool — reporta failed p/ o app tentar de novo.
     await ackGrow(job.id, "failed", { whatsappGroupId: jid, error: "sem inviteLink (groupInviteCode falhou)" });
+    session.assertActive();
     return;
   }
 
@@ -611,24 +645,29 @@ async function runGrow(sock, job) {
   connectionState.groupNames.set(jid, job.subject);
 
   await ackGrow(job.id, "created", { whatsappGroupId: jid, members: meta.size ?? 1, inviteLink });
+  session.assertActive();
   console.log(`✅ Auto-grow "${job.campaignSlug}" concluído: ${job.subject} → ${inviteLink}`);
 }
 
 /** Reivindica jobs de criação de grupo e executa cada um. Fail-silent. */
-async function pollGrow(sock) {
+async function pollGrow(sock, session) {
+  session.assertActive();
   if (growing) return;
   growing = true;
   try {
     let jobs = [];
     try {
       jobs = await appFetch(`/api/groups/grow/pending`, { method: "POST" }).then((r) => r.json());
+      session.assertActive();
     } catch {
       return; // app offline
     }
     if (!Array.isArray(jobs) || jobs.length === 0) return;
     console.log(`\n🌱 ${jobs.length} grupo(s) a criar (auto-grow).`);
     for (const job of jobs) {
-      await runGrow(sock, job);
+      session.assertActive();
+      await runGrow(sock, job, session);
+      session.assertActive();
     }
   } finally {
     growing = false;
@@ -692,9 +731,11 @@ function pruneMemory() {
 
 let cachedVersion = null; // versão do protocolo — busca 1x, reusa nas reconexões
 
-async function start() {
+async function start(signal = new AbortController().signal) {
+  if (signal.aborted || shuttingDown) return;
   // Persiste a sessão na pasta ./auth — reconecta sem novo QR nas próximas vezes.
   const { state, saveCreds } = await useMultiFileAuthState("auth");
+  if (signal.aborted || shuttingDown) return;
   // A versão muda raramente; evita uma chamada de rede a cada reconexão.
   // Falha na busca (offline) cai no cache anterior, se houver.
   if (!cachedVersion) {
@@ -704,6 +745,7 @@ async function start() {
       // sem rede e sem cache: deixa o Baileys usar a versão embutida (version undefined)
     }
   }
+  if (signal.aborted || shuttingDown) return;
   const version = cachedVersion ?? undefined; // undefined → Baileys usa a versão embutida
   console.log(`\n🚀 HUBFLOW Engine — Baileys (protocolo WhatsApp${version ? ` v${version.join(".")}` : ""})`);
 
@@ -713,23 +755,44 @@ async function start() {
     logger,
     browser: ["HUBFLOW", "Chrome", "1.0.0"],
   });
-  connectionLifecycle.track(sock);
+  const session = connectionController.create(sock);
+  currentSession = session;
+
+  const on = (event, handler, { async = false, message = `${event} handler failed` } = {}) => {
+    const guarded = async ? session.guardAsync(handler) : session.guard(handler);
+    const listener = async
+      ? (...args) => observePromise(guarded(...args), console, message)
+      : guarded;
+    sock.ev.on(event, listener);
+    session.addCleanup(() => {
+      const remove = sock.ev.off ?? sock.ev.removeListener;
+      if (typeof remove === "function") remove.call(sock.ev, event, listener);
+    });
+  };
+  session.addCleanup(() => {
+    if (currentSocket === sock) currentSocket = null;
+    if (currentSession === session) currentSession = null;
+  });
 
   // Salva credenciais sempre que mudam (essencial para persistir a sessão).
-  sock.ev.on("creds.update", saveCreds);
+  on("creds.update", saveCreds, { async: true, message: "credential persistence failed" });
 
   // Recibos de entrega (status 3 = entregue, 4 = lido) alimentam o DeliveryTracker.
-  sock.ev.on("messages.update", (updates) => {
+  on("messages.update", (updates) => {
+    if (session.state !== "ready") return;
     for (const { key, update } of updates) {
+      session.assertActive();
       if (key?.fromMe && update?.status >= 3) delivery.onDeliveryReceipt(key.id);
     }
   });
 
   // Atividade dos grupos: conta mensagens de MEMBROS (não as minhas) nos grupos
   // admin. Alimenta "grupo vivo" e a etapa "Interagiram" do funil.
-  sock.ev.on("messages.upsert", ({ messages = [], type }) => {
+  on("messages.upsert", ({ messages = [], type }) => {
+    if (session.state !== "ready") return;
     if (type !== "notify") return; // só mensagens novas
     for (const msg of messages) {
+      session.assertActive();
       const jid = msg.key?.remoteJid ?? "";
       if (!jid.endsWith("@g.us") || msg.key?.fromMe) continue; // só grupos, não as minhas
       if (!connectionState.adminGroupIds.has(jid)) continue; // só grupos admin
@@ -737,116 +800,122 @@ async function start() {
     }
   });
 
-  const handleOpen = createSafeOpenHandler({
-    isLatest: (candidate) => connectionLifecycle.isLatest(candidate),
-    initialize: async (candidate) => {
-      let pendingSnapshot;
-      return initializeConnectedSocket({
-        sock: candidate,
-        isLatest: (latestCandidate) => connectionLifecycle.isLatest(latestCandidate),
-        steps: [
-          () => reportSession(candidate),
-          async () => {
-            pendingSnapshot = await prepareConnectionSnapshot({
-              sock: candidate,
-              fetchWelcome,
-              fetchOptOut,
-              isAdminOf,
-              myIds,
-              onlyDigits,
-              previousState: connectionState,
-            });
-          },
-        ],
-        activate: () => {
-          commitConnectionSnapshot(connectionState, pendingSnapshot);
-          logPreparedGroups(pendingSnapshot);
-          observePromise(postGroups(candidate, connectionState.lastGroupsPayload), console, "initial group sync failed");
-          console.log("\n✅ Conectado ao WhatsApp!");
-          currentSocket = candidate;
-          connectionWatchdog.attach(sock);
-          reconnectAttempts = 0; // conectou — reseta o backoff
-          connectedSince = connectedSince ?? new Date().toISOString(); // mantém na reconexão transitória
-          const w = warmup.status();
-          console.log(`🔥 Warm-up: ${w.phase} (dia ${w.day}/${w.totalDays}, limite hoje: ${w.todayLimit} msgs)`);
-          clearInterval(heartbeat);
-          heartbeat = setInterval(() => {
-            observePromise(reportSession(candidate), console, "session heartbeat failed");
-            observePromise(refreshConfig(candidate), console, "config refresh failed");
-            observePromise(resyncGroupsIfNeeded(candidate), console, "group resync failed");
-            observePromise(reportActivity(), console, "activity report failed");
-            saveState(); // persiste warmup + janelas de envio (sobrevive a restart)
-            pruneMemory(); // descarta welcomed antigo + atividade de dias passados
-          }, 30_000);
-          // Loop de disparo dedicado (10s) — oferta enfileirada sai rápido. Junto vai o
-          // poll de auto-grow (criar próximo grupo quando a campanha lota).
-          clearInterval(dispatchTimer);
-          dispatchTimer = setInterval(() => {
-            observePromise(pollDispatches(candidate), console, "dispatch poll failed");
-            observePromise(pollGrow(candidate), console, "group growth poll failed");
-          }, 10_000);
-          observePromise(pollDispatches(candidate), console, "initial dispatch poll failed");
-          observePromise(pollGrow(candidate), console, "initial group growth poll failed");
-          supabaseCommandWorker.start();
-          supabaseCommandWorkerStarted = true;
-        },
-      });
-    },
-    release: (candidate) => connectionLifecycle.release(candidate),
-    close: () => closeSupersededSocket(sock, console),
-    scheduleReconnect: (delay) => connectionLifecycle.scheduleReconnect(delay),
-    logger: console,
-  });
+  const initialization = {
+      prepare: async () => {
+        session.assertActive();
+        const snapshot = await prepareConnectionSnapshot({
+          sock,
+          fetchWelcome,
+          fetchOptOut,
+          isAdminOf,
+          myIds,
+          onlyDigits,
+          previousState: connectionState,
+        });
+        session.assertActive();
+        return snapshot;
+      },
+      getRecoveryDelay: () => {
+        const wait = nextReconnectDelay();
+        reconnectAttempts++;
+        return wait;
+      },
+      commit: (pendingSnapshot) => {
+        session.assertActive();
+        commitConnectionSnapshot(connectionState, pendingSnapshot);
+        currentSocket = sock;
+        connectionWatchdog.attach(session);
+        session.addCleanup(() => connectionWatchdog.detach(session));
+        console.log("\n✅ Conectado ao WhatsApp!");
+        reconnectAttempts = 0;
+        connectedSince = connectedSince ?? new Date().toISOString();
+        logPreparedGroups(pendingSnapshot);
+        const w = warmup.status();
+        console.log(`🔥 Warm-up: ${w.phase} (dia ${w.day}/${w.totalDays}, limite hoje: ${w.todayLimit} msgs)`);
 
-  async function handleClose(lastDisconnect) {
-    if (!connectionLifecycle.release(sock)) return;
-    connectionWatchdog.detach(sock);
-    currentSocket = null;
-    clearInterval(heartbeat);
-    heartbeat = null;
-    clearInterval(dispatchTimer);
-    dispatchTimer = null;
-    supabaseCommandWorker.stop();
-    supabaseCommandWorkerStarted = false;
+        const heartbeatHandle = setInterval(session.guard(() => {
+          if (session.state !== "ready") return;
+          observePromise(session.guardAsync(() => reportSession(sock))(), console, "session heartbeat failed");
+          observePromise(session.guardAsync(() => refreshConfig(sock))(), console, "config refresh failed");
+          observePromise(session.guardAsync(() => resyncGroupsIfNeeded(sock))(), console, "group resync failed");
+          observePromise(session.guardAsync(() => reportActivity())(), console, "activity report failed");
+          saveState();
+          pruneMemory();
+        }), 30_000);
+        heartbeat = heartbeatHandle;
+        session.addCleanup(() => {
+          clearInterval(heartbeatHandle);
+          if (heartbeat === heartbeatHandle) heartbeat = null;
+        });
+
+        const dispatchHandle = setInterval(session.guard(() => {
+          if (session.state !== "ready") return;
+          observePromise(session.guardAsync(() => pollDispatches(sock, session))(), console, "dispatch poll failed");
+          observePromise(session.guardAsync(() => pollGrow(sock, session))(), console, "group growth poll failed");
+        }), 10_000);
+        dispatchTimer = dispatchHandle;
+        session.addCleanup(() => {
+          clearInterval(dispatchHandle);
+          if (dispatchTimer === dispatchHandle) dispatchTimer = null;
+        });
+
+        supabaseCommandWorker.start();
+        supabaseCommandWorkerStarted = true;
+        session.addCleanup(() => {
+          if (currentSession && currentSession !== session && currentSession.state === "ready") return;
+          supabaseCommandWorker.stop();
+          supabaseCommandWorkerStarted = false;
+        });
+
+        const afterReady = (operation, message) => observePromise(
+          Promise.resolve().then(session.guardAsync(operation)),
+          console,
+          message,
+        );
+        afterReady(() => reportSession(sock), "initial session report failed");
+        afterReady(() => postGroups(sock, connectionState.lastGroupsPayload), "initial group sync failed");
+        afterReady(() => pollDispatches(sock, session), "initial dispatch poll failed");
+        afterReady(() => pollGrow(sock, session), "initial group growth poll failed");
+      },
+    };
+
+  function getCloseDelay(lastDisconnect) {
     const code = lastDisconnect?.error?.output?.statusCode;
     const loggedOut = code === DisconnectReason.loggedOut;
+    let wait;
     if (loggedOut) {
       // Logout/401: quase sempre QR expirado ou credencial velha. Limpa e gera QR novo.
       console.log("\n🔒 Sessão não autenticada (QR expirado ou auth velha). Limpando e gerando novo QR...");
       connectedSince = null; // sessão acabou de fato — zera o "conectado desde"
-      await rm("auth", { recursive: true, force: true });
-      connectionLifecycle.scheduleReconnect(2000);
+      session.addCleanup(() => rm("auth", { recursive: true, force: true }));
+      wait = 2000;
     } else {
-      const wait = nextReconnectDelay();
+      wait = nextReconnectDelay();
       reconnectAttempts++;
       console.log(`\n⚠️  Conexão caiu (code ${code}). Reconectando em ${Math.round(wait / 1000)}s...`);
-      connectionLifecycle.scheduleReconnect(wait);
     }
+    return wait;
   }
 
-  sock.ev.on("connection.update", (update) => {
-    const { connection, lastDisconnect, qr } = update;
-
-    if (qr) {
+  bindConnectionLifecycle({
+    sock,
+    session,
+    controller: connectionController,
+    initialize: initialization,
+    getCloseDelay,
+    logger: console,
+    onQr: (qr) => {
       console.log("\n📲 Abra o WhatsApp > Aparelhos conectados > Conectar aparelho");
       console.log("   e escaneie o QR Code abaixo:\n");
       qrcode.generate(qr, { small: true });
-    }
-
-    if (connection === "open") {
-      handleOpen(sock);
-      return;
-    }
-
-    if (connection === "close") {
-      observePromise(handleClose(lastDisconnect), console, "connection close handling failed");
-    }
+    },
   });
 
   // === O CORAÇÃO DO POC ===
   // Detecta quem ENTRA e quem SAI dos grupos — é o que fecha o loop clique -> entrada.
-  sock.ev.on("group-participants.update", async (update) => {
+  on("group-participants.update", async (update) => {
     try {
+      if (session.state !== "ready") return;
       const { id, participants = [], action } = update;
 
       // SÓ monitoramos grupos onde somos admin. Ignora todo o resto.
@@ -856,8 +925,10 @@ async function start() {
       if (!name) {
         try {
           name = (await sock.groupMetadata(id)).subject;
+          session.assertActive();
           connectionState.groupNames.set(id, name);
-        } catch {
+        } catch (error) {
+          if (error instanceof SessionAbortedError) throw error;
           name = id;
         }
       }
@@ -868,18 +939,23 @@ async function start() {
         if (action === "add") {
           // Resolve o TELEFONE real (LID→PN). null = número ainda desconhecido.
           const phone = await resolvePhone(sock, jid);
+          session.assertActive();
           console.log(`\n🟢 ENTRADA: ${phone ? `+${phone}` : "(número oculto)"} entrou em "${name}"`);
-          reportLead(phone, name, id); // grava o lead no app (Caminho A) — id = JID do grupo
-          welcomeNewMember(sock, phone); // boas-vindas automáticas (Sprint 2)
+          await reportLead(phone, name, id, session); // grava o lead no app (Caminho A) — id = JID do grupo
+          session.assertActive();
+          await welcomeNewMember(sock, phone, session); // boas-vindas automáticas (Sprint 2)
+          session.assertActive();
         } else if (action === "remove") {
           const phone = await resolvePhone(sock, jid);
+          session.assertActive();
           console.log(`🔴 SAÍDA: ${phone ? `+${phone}` : "(número oculto)"} saiu de "${name}"`);
         }
       }
     } catch (err) {
+      if (err instanceof SessionAbortedError) throw err;
       console.log(`⚠️  Erro ao processar evento de grupo (ignorado): ${err.message}`);
     }
-  });
+  }, { async: true, message: "group participant handling failed" });
 }
 
 /** Só a parte numérica de um JID/LID (remove @dominio e :device). */

@@ -2,11 +2,15 @@ const assert = require("node:assert/strict");
 const { EventEmitter } = require("node:events");
 const { readFileSync } = require("node:fs");
 const test = require("node:test");
-const { createConnectionSessionController } = require("./connection-session.js");
 const {
+  SessionAbortedError,
+  createConnectionSessionController,
+} = require("./connection-session.js");
+const {
+  bindConnectionLifecycle,
+  createGracefulShutdown,
   createGroupSyncCoordinator,
   createLatestConfigRefresher,
-  createSafeOpenHandler,
   observePromise,
 } = require("./connection-operations.js");
 const {
@@ -155,21 +159,21 @@ test("commit publica cópias defensivas do snapshot de forma síncrona", () => {
 
 test("index prepara snapshot e só faz commit dentro da ativação", () => {
   const source = readFileSync(require.resolve("./index.js"), "utf8");
-  const openStart = source.indexOf("const handleOpen = createSafeOpenHandler({");
-  const closeStart = source.indexOf("async function handleClose", openStart);
+  const openStart = source.indexOf("const initialization = {");
+  const closeStart = source.indexOf("function getCloseDelay", openStart);
   const openBlock = source.slice(openStart, closeStart);
-  const activateStart = openBlock.indexOf("activate:");
+  const activateStart = openBlock.indexOf("commit:");
   const activateBlock = openBlock.slice(activateStart);
 
   assert.notEqual(openStart, -1);
   assert.notEqual(closeStart, -1);
   assert.notEqual(activateStart, -1);
   assert.match(source, /require\("\.\/connection-snapshot\.js"\)/);
-  assert.match(openBlock, /pendingSnapshot\s*=\s*await prepareConnectionSnapshot\(/);
+  assert.match(openBlock, /snapshot\s*=\s*await prepareConnectionSnapshot\(/);
   assertBefore(activateBlock, "commitConnectionSnapshot(connectionState, pendingSnapshot)", "postGroups(");
   assertBefore(activateBlock, "commitConnectionSnapshot(connectionState, pendingSnapshot)", "connectionWatchdog.attach(");
-  assertBefore(activateBlock, "commitConnectionSnapshot(connectionState, pendingSnapshot)", "heartbeat = setInterval(");
-  assertBefore(activateBlock, "commitConnectionSnapshot(connectionState, pendingSnapshot)", "dispatchTimer = setInterval(");
+  assertBefore(activateBlock, "commitConnectionSnapshot(connectionState, pendingSnapshot)", "heartbeatHandle = setInterval(");
+  assertBefore(activateBlock, "commitConnectionSnapshot(connectionState, pendingSnapshot)", "dispatchHandle = setInterval(");
   assertBefore(activateBlock, "commitConnectionSnapshot(connectionState, pendingSnapshot)", "supabaseCommandWorker.start(");
   assert.doesNotMatch(source, /admin\.length === 0 && list\.length/);
 });
@@ -243,7 +247,7 @@ test("refresh prepara apenas config e revalida socket antes de publicar", () => 
   assert.notEqual(nextFunction, -1);
   assert.match(refreshBlock, /prepare:\s*\(\) => prepareConfigSnapshot\(\{[\s\S]*previousState:\s*connectionState/);
   assert.doesNotMatch(refreshBlock, /groupFetchAllParticipating|prepareConnectionSnapshot/);
-  assert.match(refreshBlock, /isLatest:\s*\(sock\) => connectionLifecycle\.isLatest\(sock\)/);
+  assert.match(refreshBlock, /isLatest:\s*\(sock\) => currentSession\?\.sock === sock && currentSession\.isActive\(\)/);
   assert.match(refreshBlock, /commit:\s*commitConfigSnapshot/);
   assert.match(refreshBlock, /return refreshLatestConfig\(sock\)/);
 });
@@ -402,72 +406,6 @@ test("timeout do sync ainda atual marca falha e notifica uma vez", async () => {
   assert.equal(timers.active().length, 0);
 });
 
-test("listener seguro recupera uma falha de open sem propagar rejeição", async () => {
-  const emitter = new EventEmitter();
-  const socket = { id: "A" };
-  let latest = socket;
-  let releases = 0;
-  let reconnects = 0;
-  let settled = 0;
-  const closeErrors = [];
-  const handler = createSafeOpenHandler({
-    isLatest: (candidate) => latest === candidate,
-    initialize: async () => {
-      throw new Error("grupos indisponíveis");
-    },
-    release: (candidate) => {
-      if (latest !== candidate) return false;
-      latest = null;
-      releases++;
-      return true;
-    },
-    close: async () => {
-      throw new Error("end rejeitado");
-    },
-    scheduleReconnect: () => reconnects++,
-    logger: { log: (_message, error) => closeErrors.push(error.message) },
-    onSettled: () => settled++,
-  });
-  emitter.on("open", handler);
-
-  assert.equal(emitter.emit("open", socket), true);
-  assert.equal(emitter.emit("open", socket), true);
-  await waitFor(() => settled === 2);
-  await flushPromises();
-
-  assert.equal(releases, 1);
-  assert.equal(reconnects, 1);
-  assert.equal(closeErrors.filter((message) => message === "grupos indisponíveis").length, 2);
-  assert.equal(closeErrors.filter((message) => message === "end rejeitado").length, 2);
-});
-
-test("falha de open obsoleto só encerra o socket antigo", async () => {
-  const oldSocket = { id: "A" };
-  const currentSocket = { id: "B" };
-  let releases = 0;
-  let reconnects = 0;
-  let closes = 0;
-  const settled = deferred();
-  const handler = createSafeOpenHandler({
-    isLatest: (candidate) => candidate === currentSocket,
-    initialize: async () => {
-      throw new Error("falha tardia");
-    },
-    release: () => releases++,
-    close: async () => closes++,
-    scheduleReconnect: () => reconnects++,
-    logger: { log: () => {} },
-    onSettled: settled.resolve,
-  });
-
-  assert.equal(handler(oldSocket), undefined);
-  await settled.promise;
-
-  assert.equal(releases, 0);
-  assert.equal(reconnects, 0);
-  assert.equal(closes, 1);
-});
-
 test("promessa fire-and-forget rejeitada é observada e registrada", async () => {
   const logs = [];
   const unhandled = [];
@@ -496,15 +434,113 @@ test("index conecta handlers seguros, coordenadores e observa trabalhos dos time
   assert.match(source, /createLatestConfigRefresher/);
   assert.match(source, /createGroupSyncCoordinator/);
   assert.match(source, /send:\s*\(payload, _options, signal\) => appFetch\([\s\S]*signal,/);
-  assert.match(source, /createSafeOpenHandler/);
-  assert.match(source, /sock\.ev\.on\("connection\.update", \(update\) =>/);
-  assert.doesNotMatch(source, /sock\.ev\.on\("connection\.update", async/);
-  assert.match(source, /observePromise\(reportSession\(candidate\)/);
-  assert.match(source, /observePromise\(refreshConfig\(candidate\)/);
-  assert.match(source, /observePromise\(resyncGroupsIfNeeded\(candidate\)/);
-  assert.match(source, /observePromise\(reportActivity\(\)/);
-  assert.match(source, /observePromise\(pollDispatches\(candidate\)/);
-  assert.match(source, /observePromise\(pollGrow\(candidate\)/);
+  assert.match(source, /createConnectionSessionController/);
+  assert.match(source, /bindConnectionLifecycle\(\{/);
+  assert.match(source, /session\.guardAsync\(\(\) => reportSession\(sock\)\)/);
+  assert.match(source, /session\.guardAsync\(\(\) => refreshConfig\(sock\)\)/);
+  assert.match(source, /session\.guardAsync\(\(\) => resyncGroupsIfNeeded\(sock\)\)/);
+  assert.match(source, /session\.guardAsync\(\(\) => reportActivity\(\)\)/);
+  assert.match(source, /session\.guardAsync\(\(\) => pollDispatches\(sock, session\)\)/);
+  assert.match(source, /session\.guardAsync\(\(\) => pollGrow\(sock, session\)\)/);
+});
+
+test("index registra o socket imediatamente no controller e não o encerra diretamente", () => {
+  const source = readFileSync(require.resolve("./index.js"), "utf8");
+  const socketCreation = source.indexOf("const sock = makeWASocket(");
+  const sessionCreation = source.indexOf("const session = connectionController.create(sock);", socketCreation);
+  const between = source.slice(socketCreation, sessionCreation);
+
+  assert.notEqual(socketCreation, -1);
+  assert.notEqual(sessionCreation, -1);
+  assert.doesNotMatch(between, /\bawait\b|\bif\s*\(/);
+  assert.doesNotMatch(source, /\bsock\??\.end\b/);
+});
+
+test("wiring real deduplica open e isola recursos e listeners entre sessões", async () => {
+  const controller = createConnectionSessionController({ reconnect: async () => {} });
+  const resources = { timers: [], workers: [], watchdogs: [] };
+  const makeBinding = (id) => {
+    const sock = { id, ev: new EventEmitter() };
+    const session = controller.create(sock);
+    let prepares = 0;
+    bindConnectionLifecycle({
+      sock,
+      session,
+      controller,
+      initialize: {
+        prepare: async () => ++prepares,
+        commit: () => {
+          resources.timers.push(id);
+          resources.workers.push(id);
+          resources.watchdogs.push(id);
+          session.addCleanup(() => resources.timers.splice(resources.timers.indexOf(id), 1));
+          session.addCleanup(() => resources.workers.splice(resources.workers.indexOf(id), 1));
+          session.addCleanup(() => resources.watchdogs.splice(resources.watchdogs.indexOf(id), 1));
+        },
+      },
+      getCloseDelay: () => 0,
+    });
+    return { sock, session, get prepares() { return prepares; } };
+  };
+
+  const a = makeBinding("A");
+  a.sock.ev.emit("connection.update", { connection: "open" });
+  a.sock.ev.emit("connection.update", { connection: "open" });
+  await flushPromises();
+  assert.equal(a.prepares, 1);
+  assert.deepEqual(resources, { timers: ["A"], workers: ["A"], watchdogs: ["A"] });
+
+  const b = makeBinding("B");
+  b.sock.ev.emit("connection.update", { connection: "open" });
+  await flushPromises();
+  assert.deepEqual(resources, { timers: ["B"], workers: ["B"], watchdogs: ["B"] });
+  assert.equal(a.sock.ev.listenerCount("connection.update"), 0);
+  assert.equal(b.sock.ev.listenerCount("connection.update"), 1);
+
+  a.sock.ev.emit("connection.update", { connection: "close" });
+  await flushPromises();
+  assert.equal(b.session.isActive(), true);
+  assert.deepEqual(resources, { timers: ["B"], workers: ["B"], watchdogs: ["B"] });
+});
+
+test("shutdown gracioso salva e sai somente após o controller terminar", async () => {
+  const drain = deferred();
+  const calls = [];
+  const shutdown = createGracefulShutdown({
+    shutdownController: () => drain.promise.then(() => calls.push("controller")),
+    saveState: () => calls.push("save"),
+    exit: (code) => calls.push(`exit:${code}`),
+    logger: { error: (message) => calls.push(message) },
+  });
+
+  const pending = shutdown();
+  await flushPromises();
+  assert.deepEqual(calls, []);
+  drain.resolve();
+  await pending;
+  assert.deepEqual(calls, ["controller", "save", "exit:0"]);
+});
+
+test("fallback do shutdown garante save e exit quando o controller trava", async () => {
+  const timers = createTimerHarness();
+  const calls = [];
+  const shutdown = createGracefulShutdown({
+    shutdownController: () => new Promise(() => {}),
+    saveState: () => calls.push("save"),
+    exit: (code) => calls.push(`exit:${code}`),
+    logger: { error: (message) => calls.push(message) },
+    timeoutMs: 10_000,
+    setTimeoutFn: timers.setTimeoutFn,
+    clearTimeoutFn: timers.clearTimeoutFn,
+  });
+
+  const pending = shutdown();
+  await flushPromises();
+  assert.deepEqual(calls, []);
+  timers.fireNext();
+  await pending;
+
+  assert.deepEqual(calls, ["Shutdown excedeu 10s; finalizando após fallback.", "save", "exit:0"]);
 });
 
 test("substituir sessão aborta e limpa a geração anterior", () => {
@@ -520,6 +556,95 @@ test("substituir sessão aborta e limpa a geração anterior", () => {
   assert.equal(cleaned, 1);
   assert.equal(b.generation, a.generation + 1);
   assert.equal(b.isActive(), true);
+});
+
+test("sessão expõe assert e guards que cercam a geração ativa", async () => {
+  const controller = createConnectionSessionController({ reconnect: async () => {} });
+  const a = controller.create({ id: "a" });
+  const calls = [];
+  const guarded = a.guard((value) => calls.push(`sync:${value}`));
+  const guardedAsync = a.guardAsync(async (gate, value) => {
+    calls.push(`async:start:${value}`);
+    await gate.promise;
+    a.assertActive();
+    calls.push(`async:end:${value}`);
+    return value;
+  });
+
+  assert.equal(a.assertActive(), a);
+  assert.equal(guarded("ativo"), 1);
+  const gate = deferred();
+  const pending = guardedAsync(gate, "antigo");
+  await flushPromises();
+  controller.create({ id: "b" });
+  gate.resolve();
+
+  assert.equal(await pending, undefined);
+  assert.equal(guarded("obsoleto"), undefined);
+  assert.throws(() => a.assertActive(), SessionAbortedError);
+  assert.deepEqual(calls, ["sync:ativo", "async:start:antigo"]);
+});
+
+test("guardAsync propaga erro real somente enquanto a sessão continua ativa", async () => {
+  const controller = createConnectionSessionController({ reconnect: async () => {} });
+  const session = controller.create({});
+  const activeFailure = session.guardAsync(async () => {
+    throw new Error("falha real");
+  });
+  await assert.rejects(activeFailure(), /falha real/);
+
+  const gate = deferred();
+  const staleFailure = session.guardAsync(async () => {
+    await gate.promise;
+    throw new Error("falha obsoleta");
+  });
+  const pending = staleFailure();
+  controller.create({});
+  gate.resolve();
+  assert.equal(await pending, undefined);
+});
+
+test("troca de geração remove listeners e recursos antigos sem afetar a nova sessão", async () => {
+  const controller = createConnectionSessionController({ reconnect: async () => {} });
+  const effects = [];
+  const stopped = [];
+  const gate = deferred();
+  const emitterA = new EventEmitter();
+  const a = controller.create({ id: "a" });
+  const activityA = a.guard(() => effects.push("activity:A"));
+  const leadA = a.guardAsync(async () => {
+    await gate.promise;
+    a.assertActive();
+    effects.push("lead:A");
+  });
+  const observedLeadA = (...args) => observePromise(leadA(...args));
+  emitterA.on("message", activityA);
+  emitterA.on("member", observedLeadA);
+  a.addCleanup(() => emitterA.off("message", activityA));
+  a.addCleanup(() => emitterA.off("member", observedLeadA));
+  a.addCleanup(() => stopped.push("worker:A"));
+
+  emitterA.emit("message");
+  emitterA.emit("member");
+  await flushPromises();
+
+  const emitterB = new EventEmitter();
+  const b = controller.create({ id: "b" });
+  const activityB = b.guard(() => effects.push("activity:B"));
+  emitterB.on("message", activityB);
+  b.addCleanup(() => emitterB.off("message", activityB));
+  b.addCleanup(() => stopped.push("worker:B"));
+  gate.resolve();
+  await flushPromises();
+  emitterA.emit("message");
+  emitterA.emit("member");
+  emitterB.emit("message");
+
+  assert.deepEqual(effects, ["activity:A", "activity:B"]);
+  assert.deepEqual(stopped, ["worker:A"]);
+  assert.equal(emitterA.listenerCount("message"), 0);
+  assert.equal(emitterA.listenerCount("member"), 0);
+  assert.equal(emitterB.listenerCount("message"), 1);
 });
 
 test("inicialização obsoleta não executa commit", async () => {
@@ -583,6 +708,35 @@ test("inicialização válida entrega snapshot à commit e deixa sessão ready",
   assert.equal(initialized, true);
   assert.deepEqual(received, { value: snapshot, candidate: session });
   assert.equal(session.state, "ready");
+});
+
+test("deduplica inicialização concorrente e repetida da mesma sessão", async () => {
+  const controller = createConnectionSessionController({ reconnect: async () => {} });
+  const session = controller.create({ id: "socket" });
+  const gate = deferred();
+  let prepares = 0;
+  let commits = 0;
+  const options = {
+    prepare: async () => {
+      prepares++;
+      await gate.promise;
+      return { value: 1 };
+    },
+    commit: () => commits++,
+  };
+
+  const first = controller.initialize(session, options);
+  const concurrent = controller.initialize(session, options);
+  assert.equal(first, concurrent);
+  await flushPromises();
+  assert.equal(prepares, 1);
+
+  gate.resolve();
+  assert.equal(await first, true);
+  assert.equal(await concurrent, true);
+  assert.equal(await controller.initialize(session, options), true);
+  assert.equal(prepares, 1);
+  assert.equal(commits, 1);
 });
 
 test("commit que retorna thenable viola contrato síncrono e recupera", async () => {
@@ -835,6 +989,64 @@ test("rejeição de reconnect é registrada e libera o slot após liquidação",
 
   assert.equal(logs.some((message) => message.includes("reconnect rejeitado")), true);
   assert.equal(controller.scheduleReconnect(10), true);
+});
+
+test("rejeição de reconnect agenda retry somente depois de liberar o slot", async () => {
+  const timers = createTimerHarness();
+  const reconnecting = deferred();
+  const retryDelayCalls = [];
+  const controller = createConnectionSessionController({
+    reconnect: () => reconnecting.promise,
+    getRetryDelay: (error) => {
+      retryDelayCalls.push(error.message);
+      return 25;
+    },
+    logger: { log() {} },
+    setTimeoutFn: timers.setTimeoutFn,
+    clearTimeoutFn: timers.clearTimeoutFn,
+  });
+
+  controller.scheduleReconnect(0);
+  timers.fireNext();
+  await flushPromises();
+  assert.equal(timers.active().length, 0);
+
+  reconnecting.reject(new Error("start falhou"));
+  await flushPromises();
+
+  assert.deepEqual(retryDelayCalls, ["start falhou"]);
+  assert.equal(timers.active().length, 1);
+  assert.equal(timers.active()[0].delay, 25);
+});
+
+test("shutdown e nova geração impedem retry de reconnect rejeitado", async () => {
+  for (const invalidate of ["shutdown", "generation"]) {
+    const timers = createTimerHarness();
+    const reconnecting = deferred();
+    let retryDelayCalls = 0;
+    const controller = createConnectionSessionController({
+      reconnect: () => reconnecting.promise,
+      getRetryDelay: () => {
+        retryDelayCalls++;
+        return 10;
+      },
+      logger: { log() {} },
+      setTimeoutFn: timers.setTimeoutFn,
+      clearTimeoutFn: timers.clearTimeoutFn,
+    });
+    controller.scheduleReconnect(0);
+    timers.fireNext();
+    await flushPromises();
+
+    const shuttingDown = invalidate === "shutdown" ? controller.shutdown() : null;
+    if (invalidate === "generation") controller.create({ id: "new" });
+    reconnecting.reject(new Error("falha tardia"));
+    if (shuttingDown) await shuttingDown;
+    await flushPromises();
+
+    assert.equal(retryDelayCalls, 0, invalidate);
+    assert.equal(timers.active().length, 0, invalidate);
+  }
 });
 
 test("recover antigo não agenda reconnect se outra sessão surgir durante end", async () => {
