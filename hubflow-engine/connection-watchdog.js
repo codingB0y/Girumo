@@ -126,6 +126,16 @@ async function closeSupersededSocket(sock, logger = console) {
   }
 }
 
+async function initializeConnectedSocket({ sock, isLatest, steps, activate }) {
+  if (!isLatest(sock)) return false;
+  for (const step of steps) {
+    await step();
+    if (!isLatest(sock)) return false;
+  }
+  activate();
+  return true;
+}
+
 function createConnectionWatchdogManager({ Watchdog = ConnectionWatchdog, logger = console } = {}) {
   let active = null;
 
@@ -221,4 +231,5 @@ module.exports = {
   closeSupersededSocket,
   createConnectionLifecycleManager,
   createConnectionWatchdogManager,
+  initializeConnectedSocket,
 };

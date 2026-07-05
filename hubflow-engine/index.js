@@ -44,6 +44,7 @@ const {
   closeSupersededSocket,
   createConnectionLifecycleManager,
   createConnectionWatchdogManager,
+  initializeConnectedSocket,
 } = require("./connection-watchdog.js");
 const { createSupabaseCommandWorker } = require("./queues/supabase-command-worker.js");
 const { validateEngineEnvironment } = require("./config/env.js");
@@ -130,7 +131,12 @@ function shutdown() {
   shuttingDown = true;
   connectionLifecycle.shutdown();
   connectionWatchdog.stop();
+  clearInterval(heartbeat);
+  heartbeat = null;
+  clearInterval(dispatchTimer);
+  dispatchTimer = null;
   supabaseCommandWorker.stop();
+  supabaseCommandWorkerStarted = false;
   saveState();
   process.exit(0);
 }
@@ -704,46 +710,58 @@ async function start() {
     }
 
     if (connection === "open") {
-      if (!connectionLifecycle.isLatest(sock)) {
+      const initialized = await initializeConnectedSocket({
+        sock,
+        isLatest: (candidate) => connectionLifecycle.isLatest(candidate),
+        steps: [
+          () => reportSession(sock),
+          () => refreshConfig(), // carrega boas-vindas + opt-out do app
+          () => listGroups(sock), // popula groupNames ANTES de aceitar disparos
+        ],
+        activate: () => {
+          console.log("\n✅ Conectado ao WhatsApp!");
+          currentSocket = sock;
+          connectionWatchdog.attach(sock);
+          reconnectAttempts = 0; // conectou — reseta o backoff
+          connectedSince = connectedSince ?? new Date().toISOString(); // mantém na reconexão transitória
+          const w = warmup.status();
+          console.log(`🔥 Warm-up: ${w.phase} (dia ${w.day}/${w.totalDays}, limite hoje: ${w.todayLimit} msgs)`);
+          clearInterval(heartbeat);
+          heartbeat = setInterval(() => {
+            reportSession(sock); // mantém o painel "ao vivo"
+            refreshConfig(); // mantém config de boas-vindas + opt-out frescos
+            resyncGroupsIfNeeded(); // re-sync se o app subiu depois da engine
+            reportActivity(); // envia o snapshot de atividade dos grupos
+            saveState(); // persiste warmup + janelas de envio (sobrevive a restart)
+            pruneMemory(); // descarta welcomed antigo + atividade de dias passados
+          }, 30_000);
+          // Loop de disparo dedicado (10s) — oferta enfileirada sai rápido. Junto vai o
+          // poll de auto-grow (criar próximo grupo quando a campanha lota).
+          clearInterval(dispatchTimer);
+          dispatchTimer = setInterval(() => {
+            pollDispatches(sock);
+            pollGrow(sock);
+          }, 10_000);
+          pollDispatches(sock); // tenta já na conexão
+          pollGrow(sock);
+          supabaseCommandWorker.start();
+          supabaseCommandWorkerStarted = true;
+        },
+      });
+      if (!initialized) {
         await closeSupersededSocket(sock, console);
         return;
       }
-      console.log("\n✅ Conectado ao WhatsApp!");
-      currentSocket = sock;
-      connectionWatchdog.attach(sock);
-      reconnectAttempts = 0; // conectou — reseta o backoff
-      connectedSince = connectedSince ?? new Date().toISOString(); // mantém na reconexão transitória
-      const w = warmup.status();
-      console.log(`🔥 Warm-up: ${w.phase} (dia ${w.day}/${w.totalDays}, limite hoje: ${w.todayLimit} msgs)`);
-      await reportSession(sock);
-      await refreshConfig(); // carrega boas-vindas + opt-out do app
-      await listGroups(sock); // popula groupNames ANTES de aceitar disparos
-      clearInterval(heartbeat);
-      heartbeat = setInterval(() => {
-        reportSession(sock); // mantém o painel "ao vivo"
-        refreshConfig(); // mantém config de boas-vindas + opt-out frescos
-        resyncGroupsIfNeeded(); // re-sync se o app subiu depois da engine
-        reportActivity(); // envia o snapshot de atividade dos grupos
-        saveState(); // persiste warmup + janelas de envio (sobrevive a restart)
-        pruneMemory(); // descarta welcomed antigo + atividade de dias passados
-      }, 30_000);
-      // Loop de disparo dedicado (10s) — oferta enfileirada sai rápido. Junto vai o
-      // poll de auto-grow (criar próximo grupo quando a campanha lota).
-      clearInterval(dispatchTimer);
-      dispatchTimer = setInterval(() => {
-        pollDispatches(sock);
-        pollGrow(sock);
-      }, 10_000);
-      pollDispatches(sock); // tenta já na conexão
-      pollGrow(sock);
-      supabaseCommandWorker.start();
-      supabaseCommandWorkerStarted = true;
     }
 
     if (connection === "close") {
-      connectionWatchdog.detach(sock);
       if (!connectionLifecycle.release(sock)) return;
+      connectionWatchdog.detach(sock);
       currentSocket = null;
+      clearInterval(heartbeat);
+      heartbeat = null;
+      clearInterval(dispatchTimer);
+      dispatchTimer = null;
       supabaseCommandWorker.stop();
       supabaseCommandWorkerStarted = false;
       const code = lastDisconnect?.error?.output?.statusCode;

@@ -6,6 +6,7 @@ const {
   closeSupersededSocket,
   createConnectionLifecycleManager,
   createConnectionWatchdogManager,
+  initializeConnectedSocket,
 } = require("./connection-watchdog.js");
 
 const silentLogger = { log() {} };
@@ -215,6 +216,66 @@ function deferred() {
   });
   return { promise, resolve, reject };
 }
+
+test("socket obsoleto antes da inicialização não executa etapas nem ativa", async () => {
+  const calls = [];
+
+  const initialized = await initializeConnectedSocket({
+    sock: {},
+    isLatest: () => false,
+    steps: [async () => calls.push("step")],
+    activate: () => calls.push("activate"),
+  });
+
+  assert.equal(initialized, false);
+  assert.deepEqual(calls, []);
+});
+
+test("socket que fica obsoleto durante etapa pendente não continua nem ativa", async () => {
+  const pendingStep = deferred();
+  const calls = [];
+  let latest = true;
+  const sock = {};
+
+  const initialization = initializeConnectedSocket({
+    sock,
+    isLatest: (candidate) => latest && candidate === sock,
+    steps: [
+      async () => {
+        calls.push("step-1");
+        await pendingStep.promise;
+      },
+      async () => calls.push("step-2"),
+    ],
+    activate: () => calls.push("activate"),
+  });
+  assert.deepEqual(calls, ["step-1"]);
+
+  latest = false;
+  pendingStep.resolve();
+
+  assert.equal(await initialization, false);
+  assert.deepEqual(calls, ["step-1"]);
+});
+
+test("socket atual executa etapas em ordem e ativa uma vez", async () => {
+  const calls = [];
+  const sock = {};
+
+  const initialized = await initializeConnectedSocket({
+    sock,
+    isLatest: (candidate) => candidate === sock,
+    steps: [
+      async () => calls.push("step-1"),
+      async () => calls.push("step-2"),
+      async () => calls.push("step-3"),
+    ],
+    activate: () => calls.push("activate"),
+  });
+
+  assert.equal(initialized, true);
+  assert.deepEqual(calls, ["step-1", "step-2", "step-3", "activate"]);
+});
 
 test("ping bem-sucedido zera falhas consecutivas", async () => {
   const watchdog = new ConnectionWatchdog({
