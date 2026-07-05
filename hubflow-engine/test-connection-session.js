@@ -126,7 +126,7 @@ test("erro de inicialização recupera a sessão sem rejeitar", async () => {
   assert.equal(timers.active()[0].delay, 0);
 });
 
-test("cleanup é reverso, idempotente e continua após erro", () => {
+test("cleanup é reverso, idempotente e continua após erro", async () => {
   const calls = [];
   const logs = [];
   const controller = createConnectionSessionController({
@@ -142,7 +142,7 @@ test("cleanup é reverso, idempotente e continua após erro", () => {
   session.addCleanup(() => calls.push("terceiro"));
 
   controller.create({});
-  assert.equal(controller.handleClose(session, 0), false);
+  assert.equal(await controller.handleClose(session, 0), false);
 
   assert.deepEqual(calls, ["terceiro", "segundo", "primeiro"]);
   assert.equal(logs.some((message) => message.includes("cleanup quebrado")), true);
@@ -275,7 +275,7 @@ test("rejeição de end é registrada e ainda agenda uma única reconexão", asy
   });
 
   assert.equal(await controller.recover(session, new Error("falha"), 25), true);
-  assert.equal(controller.handleClose(session, 25), false);
+  assert.equal(await controller.handleClose(session, 25), false);
   assert.equal(timers.active().length, 1);
   assert.equal(logs.some((message) => message.includes("end rejeitado")), true);
 
@@ -367,14 +367,18 @@ test("create cancela reconnect pendente de geração anterior", () => {
   assert.equal(timers.active().length, 0);
 });
 
-test("shutdown durante reconnect em voo bloqueia novas tentativas e create", async () => {
+test("shutdown cancela wrapper de reconnect bloqueado e sinaliza callback", async () => {
   const timers = createTimerHarness();
   const reconnecting = deferred();
+  let reconnectSignal;
+  let effects = 0;
   let reconnects = 0;
   const controller = createConnectionSessionController({
-    reconnect: async () => {
+    reconnect: async (signal) => {
       reconnects++;
+      reconnectSignal = signal;
       await reconnecting.promise;
+      if (!signal.aborted) effects++;
     },
     setTimeoutFn: timers.setTimeoutFn,
     clearTimeoutFn: timers.clearTimeoutFn,
@@ -386,15 +390,154 @@ test("shutdown durante reconnect em voo bloqueia novas tentativas e create", asy
   const shuttingDown = controller.shutdown();
   assert.equal(controller.scheduleReconnect(0), false);
   assert.throws(() => controller.create({}), /stopped/i);
-  reconnecting.resolve();
   await shuttingDown;
+  assert.equal(reconnectSignal.aborted, true);
+  assert.equal(effects, 0);
+
+  reconnecting.resolve();
   await flushPromises();
 
   assert.equal(reconnects, 1);
+  assert.equal(effects, 0);
   assert.equal(timers.active().length, 0);
 });
 
-test("handleClose fecha a atual e evento tardio não duplica reconnect", () => {
+test("reconnect que ignora abort pode rejeitar tarde sem unhandled", async () => {
+  const timers = createTimerHarness();
+  const reconnecting = deferred();
+  const logs = [];
+  let reconnectSignal;
+  const controller = createConnectionSessionController({
+    reconnect: (signal) => {
+      reconnectSignal = signal;
+      return reconnecting.promise;
+    },
+    logger: { log: (message, error) => logs.push(`${message}: ${error.message}`) },
+    setTimeoutFn: timers.setTimeoutFn,
+    clearTimeoutFn: timers.clearTimeoutFn,
+  });
+  controller.scheduleReconnect(0);
+  timers.fireNext();
+  await flushPromises();
+
+  await controller.shutdown();
+  assert.equal(reconnectSignal.aborted, true);
+  reconnecting.reject(new Error("reconnect tardio"));
+  await flushPromises();
+
+  assert.equal(logs.some((message) => message.includes("reconnect tardio")), true);
+  assert.equal(timers.active().length, 0);
+});
+
+test("shutdown cancela recover travado, limpa closeTimeout e absorve rejeição tardia", async () => {
+  const timers = createTimerHarness();
+  const ending = deferred();
+  const logs = [];
+  const controller = createConnectionSessionController({
+    reconnect: async () => {},
+    logger: { log: (message, error) => logs.push(`${message}: ${error.message}`) },
+    setTimeoutFn: timers.setTimeoutFn,
+    clearTimeoutFn: timers.clearTimeoutFn,
+  });
+  const session = controller.create({ end: () => ending.promise });
+  const recovering = controller.recover(session, new Error("falha"), 0);
+  await flushPromises();
+  assert.equal(timers.active().length, 1);
+
+  await controller.shutdown();
+  assert.equal(await recovering, true);
+  assert.equal(timers.active().length, 0);
+
+  ending.reject(new Error("end tardio"));
+  await flushPromises();
+  assert.equal(logs.some((message) => message.includes("end tardio")), true);
+});
+
+test("shutdown liquida initialize cujo prepare ignora abort sem executar commit", async () => {
+  const preparing = deferred();
+  let commits = 0;
+  let initializationSettled = false;
+  const controller = createConnectionSessionController({ reconnect: async () => {} });
+  const session = controller.create({});
+  const initialization = controller
+    .initialize(session, {
+      prepare: () => preparing.promise,
+      commit: () => commits++,
+    })
+    .then((result) => {
+      initializationSettled = true;
+      return result;
+    });
+  await flushPromises();
+
+  await controller.shutdown();
+  await flushPromises();
+  const settledBeforePrepare = initializationSettled;
+  preparing.reject(new Error("prepare tardio"));
+
+  assert.equal(await initialization, false);
+  assert.equal(settledBeforePrepare, true);
+  assert.equal(commits, 0);
+});
+
+test("shutdown imediato impede prepare ainda não iniciado", async () => {
+  let prepares = 0;
+  const controller = createConnectionSessionController({ reconnect: async () => {} });
+  const session = controller.create({});
+  const initialization = controller.initialize(session, {
+    prepare: async () => prepares++,
+    commit: () => assert.fail("commit não deveria executar"),
+  });
+
+  await controller.shutdown();
+
+  assert.equal(await initialization, false);
+  assert.equal(prepares, 0);
+});
+
+test("shutdown imediato impede sock.end ainda não iniciado", async () => {
+  const timers = createTimerHarness();
+  let endCalls = 0;
+  const controller = createConnectionSessionController({
+    reconnect: async () => {},
+    setTimeoutFn: timers.setTimeoutFn,
+    clearTimeoutFn: timers.clearTimeoutFn,
+  });
+  const session = controller.create({ end: async () => endCalls++ });
+  const recovering = controller.recover(session, new Error("falha"), 0);
+
+  await controller.shutdown();
+
+  assert.equal(await recovering, true);
+  assert.equal(endCalls, 0);
+  assert.equal(timers.active().length, 0);
+});
+
+test("handleClose aguarda cleanup antes de agendar reconnect", async () => {
+  const timers = createTimerHarness();
+  const cleanup = deferred();
+  let reconnects = 0;
+  const controller = createConnectionSessionController({
+    reconnect: async () => reconnects++,
+    setTimeoutFn: timers.setTimeoutFn,
+    clearTimeoutFn: timers.clearTimeoutFn,
+  });
+  const session = controller.create({});
+  session.addCleanup(() => cleanup.promise);
+
+  const closing = controller.handleClose(session, 0);
+  await flushPromises();
+  assert.equal(timers.active().length, 0);
+  cleanup.resolve();
+  assert.equal(await closing, true);
+
+  assert.equal(timers.active().length, 1);
+  timers.fireNext();
+  await flushPromises();
+  assert.equal(reconnects, 1);
+});
+
+test("handleClose fecha a atual e evento tardio não duplica reconnect", async () => {
   const timers = createTimerHarness();
   let cleaned = 0;
   const controller = createConnectionSessionController({
@@ -405,8 +548,8 @@ test("handleClose fecha a atual e evento tardio não duplica reconnect", () => {
   const session = controller.create({});
   session.addCleanup(() => cleaned++);
 
-  assert.equal(controller.handleClose(session, 100), true);
-  assert.equal(controller.handleClose(session, 100), false);
+  assert.equal(await controller.handleClose(session, 100), true);
+  assert.equal(await controller.handleClose(session, 100), false);
 
   assert.equal(session.state, "closed");
   assert.equal(session.signal.aborted, true);
