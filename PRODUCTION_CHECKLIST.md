@@ -6,7 +6,7 @@
 > **Legenda:** `[x]` confirmado OK · `[ ]` pendente · 🔴 **bloqueador** (não deployar) · 🟠 recomendado ·
 > 🟡 aceitável agora · **[EXTERNO]** = confirmar no painel (não verificável pelo repo).
 
-## 🚦 Bloqueadores abertos (resolver antes do deploy) — todos V1 do `ROADMAP.md`
+## 🚦 Gate e bloqueadores V1 — referência: `ROADMAP.md`
 
 1. ✅ `GET /api/admin/tenants/list` protegido por `getAdminContext()` (BACKEND BE-1)
 2. ✅ RBAC enforçado nas mutações de campanhas, automações e conta (BACKEND BE-2)
@@ -50,7 +50,7 @@
 - [x] `/api/health` existe (público no middleware)
 - [x] Engine `/health` e `/health/ready` → **503 quando desconectado** (ENGINE 9)
 - [x] Container usa `/health/live` para evitar loop de restart durante QR/reconexão
-- [x] `connection-watchdog` integrado: pings têm timeout, três falhas consecutivas forçam reconexão e o lifecycle impede socket/timer obsoleto (ENGINE R-1)
+- [x] `connection-watchdog` integrado: pings têm timeout, três falhas consecutivas encerram o socket e o evento `close` agenda reconexão; o lifecycle impede socket/timer obsoleto (ENGINE R-1)
 
 ## 6. Rate Limit
 - [x] Auth routes limitadas (login 5 / signup 3 / account 10 por min)
@@ -144,7 +144,7 @@ npm run verify:online -- -AppUrl "https://app.SEUDOMINIO.com" -EngineUrl "https:
 ## Resumo
 - **Já OK:** headers/CSP, secrets fora do git, webhook Stripe, RLS presente, storage por tenant, anti-ban persistido, crons, worker.
 - **Gate P0 do repositório:** aprovado (`npm run verify:local`, testes web/migrador/engine, build e sintaxe).
-- **Bloqueadores ainda abertos:** rotação externa da service-role e envs externos/incompletos.
+- **Gate ainda não confirmado:** rotação externa da service-role; envs externos/incompletos; reconciliar `GO_NO_GO`; smoke de dois tenants e CI verde em PR ainda não confirmados.
 - **[EXTERNO]:** SSL, DNS, backups Supabase, envs na Vercel, testes Stripe — confirmar nos painéis.
 - **Não deployar réplica da engine** até o multi-socket (V4).
 
