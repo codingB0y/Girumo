@@ -345,10 +345,11 @@ const fetchOptOut = () => appFetch(`/api/optout`).then(readOkJson);
 const syncGroups = createGroupSyncCoordinator({
   state: connectionState,
   isLatest: (sock) => connectionLifecycle.isLatest(sock),
-  send: (payload) => appFetch(`/api/groups`, {
+  send: (payload, _options, signal) => appFetch(`/api/groups`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
+    signal,
   }),
   onResult: ({ response, payload, options }) => {
     if (options.quiet) return;

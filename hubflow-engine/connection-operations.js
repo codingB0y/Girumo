@@ -9,7 +9,17 @@ function createLatestConfigRefresher({ state, isLatest, prepare, commit }) {
   };
 }
 
-function createGroupSyncCoordinator({ state, isLatest, send, onResult = () => {}, onError = () => {} }) {
+function createGroupSyncCoordinator({
+  state,
+  isLatest,
+  send,
+  onResult = () => {},
+  onError = () => {},
+  sendTimeoutMs = 15_000,
+  setTimeoutFn = setTimeout,
+  clearTimeoutFn = clearTimeout,
+  AbortControllerClass = AbortController,
+}) {
   let tail = Promise.resolve();
   const inFlightBySocket = new WeakMap();
 
@@ -28,16 +38,35 @@ function createGroupSyncCoordinator({ state, isLatest, send, onResult = () => {}
 
     const operation = tail.then(async () => {
       if (!isCurrent(sock, payload)) return false;
-      let response;
+      const abortController = new AbortControllerClass();
+      const sending = Promise.resolve()
+        .then(() => send(payload, options, abortController.signal));
+      const observedSend = sending.then(
+        (response) => ({ type: "response", response }),
+        (error) => ({ type: "error", error }),
+      );
+      let timeoutHandle;
+      const timeout = new Promise((resolve) => {
+        timeoutHandle = setTimeoutFn(() => {
+          const error = new Error(`group sync timeout after ${sendTimeoutMs}ms`);
+          resolve({ type: "timeout", error });
+          abortController.abort(error);
+        }, sendTimeoutMs);
+      });
+      let outcome;
       try {
-        response = await send(payload, options);
-      } catch (error) {
-        if (!isCurrent(sock, payload)) return false;
+        outcome = await Promise.race([observedSend, timeout]);
+      } finally {
+        if (timeoutHandle !== undefined) clearTimeoutFn(timeoutHandle);
+      }
+
+      if (!isCurrent(sock, payload)) return false;
+      if (outcome.type !== "response") {
         state.groupsSynced = false;
-        onError({ error, payload, options });
+        onError({ error: outcome.error, payload, options });
         return false;
       }
-      if (!isCurrent(sock, payload)) return false;
+      const { response } = outcome;
       state.groupsSynced = Boolean(response?.ok);
       onResult({ response, payload, options });
       return state.groupsSynced;

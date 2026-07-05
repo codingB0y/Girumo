@@ -314,6 +314,94 @@ test("sync de grupos serializa payloads e só publica o resultado ainda atual", 
   assert.deepEqual(sent.at(-1), payloadB);
 });
 
+test("timeout de sync obsoleto libera o payload atual e observa rejeição tardia", async () => {
+  const timers = createTimerHarness();
+  const requestA = deferred();
+  const requestB = deferred();
+  const payloadA = { groups: [{ name: "A" }] };
+  const payloadB = { groups: [{ name: "B" }] };
+  const socket = { id: "atual" };
+  const state = { lastGroupsPayload: payloadA, groupsSynced: false };
+  const sent = [];
+  const signals = [];
+  const errors = [];
+  const unhandled = [];
+  const onUnhandled = (error) => unhandled.push(error);
+  process.on("unhandledRejection", onUnhandled);
+  try {
+    const sync = createGroupSyncCoordinator({
+      state,
+      isLatest: (candidate) => candidate === socket,
+      sendTimeoutMs: 25,
+      setTimeoutFn: timers.setTimeoutFn,
+      clearTimeoutFn: timers.clearTimeoutFn,
+      send: (payload, _options, signal) => {
+        sent.push(payload);
+        signals.push(signal);
+        return payload === payloadA ? requestA.promise : requestB.promise;
+      },
+      onError: ({ error }) => errors.push(error),
+    });
+
+    const syncingA = sync(socket, payloadA);
+    await flushPromises();
+    state.lastGroupsPayload = payloadB;
+    const syncingB = sync(socket, payloadB);
+    await flushPromises();
+    assert.deepEqual(sent, [payloadA]);
+
+    timers.fireNext();
+    assert.equal(await syncingA, false);
+    await flushPromises();
+    assert.deepEqual(sent, [payloadA, payloadB]);
+    assert.equal(signals[0].aborted, true);
+    assert.deepEqual(errors, []);
+
+    requestA.reject(new Error("A rejeitou tarde"));
+    requestB.resolve({ ok: true, status: 200 });
+    assert.equal(await syncingB, true);
+    await flushPromises();
+
+    assert.deepEqual(unhandled, []);
+    assert.equal(state.groupsSynced, true);
+    assert.equal(timers.active().length, 0);
+  } finally {
+    process.removeListener("unhandledRejection", onUnhandled);
+  }
+});
+
+test("timeout do sync ainda atual marca falha e notifica uma vez", async () => {
+  const timers = createTimerHarness();
+  const payload = { groups: [{ name: "Atual" }] };
+  const socket = { id: "atual" };
+  const state = { lastGroupsPayload: payload, groupsSynced: true };
+  const errors = [];
+  let signal;
+  const sync = createGroupSyncCoordinator({
+    state,
+    isLatest: (candidate) => candidate === socket,
+    sendTimeoutMs: 50,
+    setTimeoutFn: timers.setTimeoutFn,
+    clearTimeoutFn: timers.clearTimeoutFn,
+    send: (_payload, _options, operationSignal) => {
+      signal = operationSignal;
+      return new Promise(() => {});
+    },
+    onError: ({ error }) => errors.push(error),
+  });
+
+  const syncing = sync(socket, payload);
+  await flushPromises();
+  timers.fireNext();
+
+  assert.equal(await syncing, false);
+  assert.equal(state.groupsSynced, false);
+  assert.equal(signal.aborted, true);
+  assert.equal(errors.length, 1);
+  assert.match(errors[0].message, /timeout/i);
+  assert.equal(timers.active().length, 0);
+});
+
 test("listener seguro recupera uma falha de open sem propagar rejeição", async () => {
   const emitter = new EventEmitter();
   const socket = { id: "A" };
@@ -407,6 +495,7 @@ test("index conecta handlers seguros, coordenadores e observa trabalhos dos time
   assert.match(source, /readOkJson/);
   assert.match(source, /createLatestConfigRefresher/);
   assert.match(source, /createGroupSyncCoordinator/);
+  assert.match(source, /send:\s*\(payload, _options, signal\) => appFetch\([\s\S]*signal,/);
   assert.match(source, /createSafeOpenHandler/);
   assert.match(source, /sock\.ev\.on\("connection\.update", \(update\) =>/);
   assert.doesNotMatch(source, /sock\.ev\.on\("connection\.update", async/);
