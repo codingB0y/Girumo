@@ -26,8 +26,8 @@ V5 Enterprise    → observabilidade, testes, compliance, DR/SLA
 
 ## 🔴 V1 — Correções  *(gate: nenhum 🔴 em aberto)*
 
-**Status em 2026-07-03:** itens 1, 2, 3, 4, 6, 7, 9 e 11 implementados e verificados pelo gate local.
-Itens 5, 8, 10 e 12 continuam abertos ou dependem de configuração externa.
+**Status em 2026-07-04:** itens 1, 2, 3, 4, 6, 7, 8, 9 e 11 implementados e verificados pelo gate local.
+Itens 5, 10 e 12 continuam abertos ou dependem de configuração externa.
 
 Segurança, bugs e falhas silenciosas. É o que impede um cliente pago hoje.
 
@@ -40,7 +40,7 @@ Segurança, bugs e falhas silenciosas. É o que impede um cliente pago hoje.
 | 5 | Rotacionar **Service Role Key** (pendente Sprint 1) | AUDIT §12 | painel Supabase |
 | 6 | Engine: boot frágil **CJS×ESM** + **pinar** imagem Node | ENGINE A-1 | `hubflow-engine/*.js`, `Dockerfile` |
 | 7 | Engine `/health` **mente** (200 deslogado) → 503 + live/ready | ENGINE 9 | `hubflow-engine/index.js:9` |
-| 8 | Engine **watchdog órfão** (plugar `connection-watchdog`) | ENGINE R-1 | `hubflow-engine/index.js` |
+| 8 | Engine `connection-watchdog` integrado ao ciclo de conexão | ENGINE R-1 | `hubflow-engine/index.js` |
 | 9 | Runbook de banco **desatualizado** (6 migrações órfãs) | INFRA-2 | `deploy/supabase/apply-order.md` |
 | 10 | Env template incompleto (`RESEND_API_KEY`, `PLATFORM_ADMIN_EMAILS`) → email/admin falham calados | INFRA-4 | `deploy/vercel/.env.production.example` |
 | 11 | CI mínimo: `verify:local` + `scan:secrets` em PR (habilita todo o resto com rede) | INFRA-1/3 | `.github/workflows/` (novo) |

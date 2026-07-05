@@ -50,7 +50,7 @@
 - [x] `/api/health` existe (público no middleware)
 - [x] Engine `/health` e `/health/ready` → **503 quando desconectado** (ENGINE 9)
 - [x] Container usa `/health/live` para evitar loop de restart durante QR/reconexão
-- [ ] 🟠 `connection-watchdog` plugado no `index.js` (hoje órfão) (ENGINE R-1)
+- [x] `connection-watchdog` integrado: pings têm timeout, três falhas consecutivas forçam reconexão e o lifecycle impede socket/timer obsoleto (ENGINE R-1)
 
 ## 6. Rate Limit
 - [x] Auth routes limitadas (login 5 / signup 3 / account 10 por min)
@@ -148,4 +148,4 @@ npm run verify:online -- -AppUrl "https://app.SEUDOMINIO.com" -EngineUrl "https:
 - **[EXTERNO]:** SSL, DNS, backups Supabase, envs na Vercel, testes Stripe — confirmar nos painéis.
 - **Não deployar réplica da engine** até o multi-socket (V4).
 
-*Checklist atualizado após o gate de liveness/readiness da engine em 2026-07-03.*
+*Checklist atualizado após o gate de health (liveness/readiness) + watchdog da engine em 2026-07-04.*
