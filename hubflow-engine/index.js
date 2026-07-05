@@ -45,7 +45,14 @@ const {
   commitConnectionSnapshot,
   prepareConfigSnapshot,
   prepareConnectionSnapshot,
+  readOkJson,
 } = require("./connection-snapshot.js");
+const {
+  createGroupSyncCoordinator,
+  createLatestConfigRefresher,
+  createSafeOpenHandler,
+  observePromise,
+} = require("./connection-operations.js");
 const {
   closeSupersededSocket,
   createConnectionLifecycleManager,
@@ -332,20 +339,42 @@ const welcoming = new Set(); // dígitos com boas-vindas EM ANDAMENTO (evita cor
 
 const onlyDigits = (s) => String(s).replace(/\D/g, "");
 
-const fetchWelcome = () => appFetch(`/api/welcome`).then((response) => response.json());
-const fetchOptOut = () => appFetch(`/api/optout`).then((response) => response.json());
+const fetchWelcome = () => appFetch(`/api/welcome`).then(readOkJson);
+const fetchOptOut = () => appFetch(`/api/optout`).then(readOkJson);
 
-/** Busca config + opt-out sem publicar até confirmar que o socket ainda é o atual. */
-async function refreshConfig(sock) {
-  const snapshot = await prepareConfigSnapshot({
+const syncGroups = createGroupSyncCoordinator({
+  state: connectionState,
+  isLatest: (sock) => connectionLifecycle.isLatest(sock),
+  send: (payload) => appFetch(`/api/groups`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }),
+  onResult: ({ response, payload, options }) => {
+    if (options.quiet) return;
+    if (response.ok) console.log(`   ↳ ${payload.groups.length} grupo(s) sincronizado(s) no painel (${APP_URL}/groups)`);
+    else console.log(`   ↳ app respondeu ${response.status} ao sincronizar grupos`);
+  },
+  onError: ({ options }) => {
+    if (!options.quiet) console.log(`   ↳ app offline — grupos não sincronizados (${APP_URL})`);
+  },
+});
+
+const refreshLatestConfig = createLatestConfigRefresher({
+  state: connectionState,
+  isLatest: (sock) => connectionLifecycle.isLatest(sock),
+  prepare: () => prepareConfigSnapshot({
     fetchWelcome,
     fetchOptOut,
     onlyDigits,
     previousState: connectionState,
-  });
-  if (!connectionLifecycle.isLatest(sock)) return false;
-  commitConfigSnapshot(connectionState, snapshot);
-  return true;
+  }),
+  commit: commitConfigSnapshot,
+});
+
+/** Busca config + opt-out sem publicar até confirmar que o socket ainda é o atual. */
+async function refreshConfig(sock) {
+  return refreshLatestConfig(sock);
 }
 
 /**
@@ -707,25 +736,18 @@ async function start() {
     }
   });
 
-  sock.ev.on("connection.update", async (update) => {
-    const { connection, lastDisconnect, qr } = update;
-
-    if (qr) {
-      console.log("\n📲 Abra o WhatsApp > Aparelhos conectados > Conectar aparelho");
-      console.log("   e escaneie o QR Code abaixo:\n");
-      qrcode.generate(qr, { small: true });
-    }
-
-    if (connection === "open") {
+  const handleOpen = createSafeOpenHandler({
+    isLatest: (candidate) => connectionLifecycle.isLatest(candidate),
+    initialize: async (candidate) => {
       let pendingSnapshot;
-      const initialized = await initializeConnectedSocket({
-        sock,
-        isLatest: (candidate) => connectionLifecycle.isLatest(candidate),
+      return initializeConnectedSocket({
+        sock: candidate,
+        isLatest: (latestCandidate) => connectionLifecycle.isLatest(latestCandidate),
         steps: [
-          () => reportSession(sock),
+          () => reportSession(candidate),
           async () => {
             pendingSnapshot = await prepareConnectionSnapshot({
-              sock,
+              sock: candidate,
               fetchWelcome,
               fetchOptOut,
               isAdminOf,
@@ -738,9 +760,9 @@ async function start() {
         activate: () => {
           commitConnectionSnapshot(connectionState, pendingSnapshot);
           logPreparedGroups(pendingSnapshot);
-          postGroups(connectionState.lastGroupsPayload);
+          observePromise(postGroups(candidate, connectionState.lastGroupsPayload), console, "initial group sync failed");
           console.log("\n✅ Conectado ao WhatsApp!");
-          currentSocket = sock;
+          currentSocket = candidate;
           connectionWatchdog.attach(sock);
           reconnectAttempts = 0; // conectou — reseta o backoff
           connectedSince = connectedSince ?? new Date().toISOString(); // mantém na reconexão transitória
@@ -748,10 +770,10 @@ async function start() {
           console.log(`🔥 Warm-up: ${w.phase} (dia ${w.day}/${w.totalDays}, limite hoje: ${w.todayLimit} msgs)`);
           clearInterval(heartbeat);
           heartbeat = setInterval(() => {
-            reportSession(sock); // mantém o painel "ao vivo"
-            refreshConfig(sock); // só publica config se esta conexão ainda for a atual
-            resyncGroupsIfNeeded(); // re-sync se o app subiu depois da engine
-            reportActivity(); // envia o snapshot de atividade dos grupos
+            observePromise(reportSession(candidate), console, "session heartbeat failed");
+            observePromise(refreshConfig(candidate), console, "config refresh failed");
+            observePromise(resyncGroupsIfNeeded(candidate), console, "group resync failed");
+            observePromise(reportActivity(), console, "activity report failed");
             saveState(); // persiste warmup + janelas de envio (sobrevive a restart)
             pruneMemory(); // descarta welcomed antigo + atividade de dias passados
           }, 30_000);
@@ -759,45 +781,64 @@ async function start() {
           // poll de auto-grow (criar próximo grupo quando a campanha lota).
           clearInterval(dispatchTimer);
           dispatchTimer = setInterval(() => {
-            pollDispatches(sock);
-            pollGrow(sock);
+            observePromise(pollDispatches(candidate), console, "dispatch poll failed");
+            observePromise(pollGrow(candidate), console, "group growth poll failed");
           }, 10_000);
-          pollDispatches(sock); // tenta já na conexão
-          pollGrow(sock);
+          observePromise(pollDispatches(candidate), console, "initial dispatch poll failed");
+          observePromise(pollGrow(candidate), console, "initial group growth poll failed");
           supabaseCommandWorker.start();
           supabaseCommandWorkerStarted = true;
         },
       });
-      if (!initialized) {
-        await closeSupersededSocket(sock, console);
-        return;
-      }
+    },
+    release: (candidate) => connectionLifecycle.release(candidate),
+    close: () => closeSupersededSocket(sock, console),
+    scheduleReconnect: (delay) => connectionLifecycle.scheduleReconnect(delay),
+    logger: console,
+  });
+
+  async function handleClose(lastDisconnect) {
+    if (!connectionLifecycle.release(sock)) return;
+    connectionWatchdog.detach(sock);
+    currentSocket = null;
+    clearInterval(heartbeat);
+    heartbeat = null;
+    clearInterval(dispatchTimer);
+    dispatchTimer = null;
+    supabaseCommandWorker.stop();
+    supabaseCommandWorkerStarted = false;
+    const code = lastDisconnect?.error?.output?.statusCode;
+    const loggedOut = code === DisconnectReason.loggedOut;
+    if (loggedOut) {
+      // Logout/401: quase sempre QR expirado ou credencial velha. Limpa e gera QR novo.
+      console.log("\n🔒 Sessão não autenticada (QR expirado ou auth velha). Limpando e gerando novo QR...");
+      connectedSince = null; // sessão acabou de fato — zera o "conectado desde"
+      await rm("auth", { recursive: true, force: true });
+      connectionLifecycle.scheduleReconnect(2000);
+    } else {
+      const wait = nextReconnectDelay();
+      reconnectAttempts++;
+      console.log(`\n⚠️  Conexão caiu (code ${code}). Reconectando em ${Math.round(wait / 1000)}s...`);
+      connectionLifecycle.scheduleReconnect(wait);
+    }
+  }
+
+  sock.ev.on("connection.update", (update) => {
+    const { connection, lastDisconnect, qr } = update;
+
+    if (qr) {
+      console.log("\n📲 Abra o WhatsApp > Aparelhos conectados > Conectar aparelho");
+      console.log("   e escaneie o QR Code abaixo:\n");
+      qrcode.generate(qr, { small: true });
+    }
+
+    if (connection === "open") {
+      handleOpen(sock);
+      return;
     }
 
     if (connection === "close") {
-      if (!connectionLifecycle.release(sock)) return;
-      connectionWatchdog.detach(sock);
-      currentSocket = null;
-      clearInterval(heartbeat);
-      heartbeat = null;
-      clearInterval(dispatchTimer);
-      dispatchTimer = null;
-      supabaseCommandWorker.stop();
-      supabaseCommandWorkerStarted = false;
-      const code = lastDisconnect?.error?.output?.statusCode;
-      const loggedOut = code === DisconnectReason.loggedOut;
-      if (loggedOut) {
-        // Logout/401: quase sempre QR expirado ou credencial velha. Limpa e gera QR novo.
-        console.log("\n🔒 Sessão não autenticada (QR expirado ou auth velha). Limpando e gerando novo QR...");
-        connectedSince = null; // sessão acabou de fato — zera o "conectado desde"
-        await rm("auth", { recursive: true, force: true });
-        connectionLifecycle.scheduleReconnect(2000);
-      } else {
-        const wait = nextReconnectDelay();
-        reconnectAttempts++;
-        console.log(`\n⚠️  Conexão caiu (code ${code}). Reconectando em ${Math.round(wait / 1000)}s...`);
-        connectionLifecycle.scheduleReconnect(wait);
-      }
+      observePromise(handleClose(lastDisconnect), console, "connection close handling failed");
     }
   });
 
@@ -897,32 +938,18 @@ function logPreparedGroups(snapshot) {
   // await broadcast(sock, jids, "Olá! Novidades chegando no grupo 👋");
 }
 
-/** POST /api/groups com o payload dado. Atualiza groupsSynced. Fail-silent. */
-async function postGroups(payload, { quiet = false } = {}) {
-  try {
-    const res = await appFetch(`/api/groups`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    connectionState.groupsSynced = res.ok;
-    if (!quiet) {
-      if (res.ok) console.log(`   ↳ ${payload.groups.length} grupo(s) sincronizado(s) no painel (${APP_URL}/groups)`);
-      else console.log(`   ↳ app respondeu ${res.status} ao sincronizar grupos`);
-    }
-  } catch {
-    connectionState.groupsSynced = false;
-    if (!quiet) console.log(`   ↳ app offline — grupos não sincronizados (${APP_URL})`);
-  }
+/** POST /api/groups serializado por socket + identidade do payload. */
+function postGroups(sock, payload, options = {}) {
+  return syncGroups(sock, payload, options);
 }
 
 /**
  * Re-tenta o sync de grupos se o inicial falhou (app estava offline no connect).
  * Roda no heartbeat e para de tentar assim que sincroniza. Silencioso até dar certo.
  */
-async function resyncGroupsIfNeeded() {
+async function resyncGroupsIfNeeded(sock) {
   if (connectionState.groupsSynced || !connectionState.lastGroupsPayload) return;
-  await postGroups(connectionState.lastGroupsPayload, { quiet: true });
+  await postGroups(sock, connectionState.lastGroupsPayload, { quiet: true });
   if (connectionState.groupsSynced) console.log(`   ↳ grupos re-sincronizados no painel (app voltou ao ar).`);
 }
 

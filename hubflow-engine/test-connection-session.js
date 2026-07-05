@@ -1,12 +1,20 @@
 const assert = require("node:assert/strict");
+const { EventEmitter } = require("node:events");
 const { readFileSync } = require("node:fs");
 const test = require("node:test");
 const { createConnectionSessionController } = require("./connection-session.js");
+const {
+  createGroupSyncCoordinator,
+  createLatestConfigRefresher,
+  createSafeOpenHandler,
+  observePromise,
+} = require("./connection-operations.js");
 const {
   commitConfigSnapshot,
   commitConnectionSnapshot,
   prepareConfigSnapshot,
   prepareConnectionSnapshot,
+  readOkJson,
 } = require("./connection-snapshot.js");
 
 test("prepara snapshot isolado com admins, nomes e payload sem mutar estado anterior", async () => {
@@ -100,7 +108,7 @@ test("falha ao buscar grupos rejeita a preparação", async () => {
   );
 });
 
-test("commit publica todas as referências do snapshot de forma síncrona", () => {
+test("commit publica cópias defensivas do snapshot de forma síncrona", () => {
   const state = {
     welcomeCfg: {},
     optOutDigits: new Set(),
@@ -114,24 +122,41 @@ test("commit publica todas as referências do snapshot de forma síncrona", () =
     optOutDigits: new Set(["1"]),
     adminGroupIds: new Set(["a@g.us"]),
     groupNames: new Map([["a@g.us", "A"]]),
-    groupsPayload: { groups: [] },
+    groupsPayload: { groups: [{ whatsappGroupId: "a@g.us", name: "A", members: 1 }] },
   };
 
   const result = commitConnectionSnapshot(state, snapshot);
 
   assert.equal(result, undefined);
-  assert.equal(state.welcomeCfg, snapshot.welcomeCfg);
-  assert.equal(state.optOutDigits, snapshot.optOutDigits);
-  assert.equal(state.adminGroupIds, snapshot.adminGroupIds);
-  assert.equal(state.groupNames, snapshot.groupNames);
-  assert.equal(state.lastGroupsPayload, snapshot.groupsPayload);
+  assert.notEqual(state.welcomeCfg, snapshot.welcomeCfg);
+  assert.notEqual(state.optOutDigits, snapshot.optOutDigits);
+  assert.notEqual(state.adminGroupIds, snapshot.adminGroupIds);
+  assert.notEqual(state.groupNames, snapshot.groupNames);
+  assert.notEqual(state.lastGroupsPayload, snapshot.groupsPayload);
+  assert.notEqual(state.lastGroupsPayload.groups, snapshot.groupsPayload.groups);
+  assert.notEqual(state.lastGroupsPayload.groups[0], snapshot.groupsPayload.groups[0]);
   assert.equal(state.groupsSynced, false);
+
+  snapshot.welcomeCfg.message = "Mutado";
+  snapshot.optOutDigits.add("2");
+  snapshot.adminGroupIds.add("b@g.us");
+  snapshot.groupNames.set("b@g.us", "B");
+  snapshot.groupsPayload.groups[0].name = "Mutado";
+  snapshot.groupsPayload.groups.push({ whatsappGroupId: "b@g.us", name: "B", members: 2 });
+
+  assert.deepEqual(state.welcomeCfg, { enabled: true, message: "Oi" });
+  assert.deepEqual([...state.optOutDigits], ["1"]);
+  assert.deepEqual([...state.adminGroupIds], ["a@g.us"]);
+  assert.deepEqual([...state.groupNames], [["a@g.us", "A"]]);
+  assert.deepEqual(state.lastGroupsPayload, {
+    groups: [{ whatsappGroupId: "a@g.us", name: "A", members: 1 }],
+  });
 });
 
 test("index prepara snapshot e só faz commit dentro da ativação", () => {
   const source = readFileSync(require.resolve("./index.js"), "utf8");
-  const openStart = source.indexOf('if (connection === "open")');
-  const closeStart = source.indexOf('if (connection === "close")', openStart);
+  const openStart = source.indexOf("const handleOpen = createSafeOpenHandler({");
+  const closeStart = source.indexOf("async function handleClose", openStart);
   const openBlock = source.slice(openStart, closeStart);
   const activateStart = openBlock.indexOf("activate:");
   const activateBlock = openBlock.slice(activateStart);
@@ -168,23 +193,229 @@ test("snapshot parcial de config preserva fallback e publica somente referência
 
   const result = commitConfigSnapshot(state, snapshot);
   assert.equal(result, undefined);
-  assert.equal(state.welcomeCfg, snapshot.welcomeCfg);
-  assert.equal(state.optOutDigits, snapshot.optOutDigits);
+  assert.notEqual(state.welcomeCfg, snapshot.welcomeCfg);
+  assert.notEqual(state.optOutDigits, snapshot.optOutDigits);
+  snapshot.welcomeCfg.message = "Mutado";
+  snapshot.optOutDigits.add("2");
+  assert.deepEqual(state.welcomeCfg, { enabled: true, message: "Anterior" });
+  assert.deepEqual([...state.optOutDigits], ["5511999999999"]);
+});
+
+test("HTTP sem sucesso rejeita antes de ler JSON e prepare preserva config anterior", async () => {
+  const previousState = {
+    welcomeCfg: { enabled: true, message: "Anterior" },
+    optOutDigits: new Set(["5511999999999"]),
+  };
+  let jsonReads = 0;
+  const failedResponse = {
+    ok: false,
+    status: 401,
+    json: async () => {
+      jsonReads++;
+      return { enabled: false, message: "Nao deve ser usado" };
+    },
+  };
+
+  await assert.rejects(
+    Promise.resolve().then(() => readOkJson(failedResponse)),
+    /HTTP 401/,
+  );
+
+  const snapshot = await prepareConfigSnapshot({
+    fetchWelcome: () => readOkJson(failedResponse),
+    fetchOptOut: () => readOkJson({ ...failedResponse, status: 500 }),
+    onlyDigits: String,
+    previousState,
+  });
+
+  assert.deepEqual(snapshot.welcomeCfg, previousState.welcomeCfg);
+  assert.deepEqual([...snapshot.optOutDigits], [...previousState.optOutDigits]);
+  assert.equal(jsonReads, 0);
 });
 
 test("refresh prepara apenas config e revalida socket antes de publicar", () => {
   const source = readFileSync(require.resolve("./index.js"), "utf8");
-  const refreshStart = source.indexOf("async function refreshConfig(sock)");
+  const refreshStart = source.indexOf("const refreshLatestConfig = createLatestConfigRefresher({");
   const nextFunction = source.indexOf("async function welcomeNewMember", refreshStart);
   const refreshBlock = source.slice(refreshStart, nextFunction);
 
   assert.notEqual(refreshStart, -1);
   assert.notEqual(nextFunction, -1);
-  assert.match(refreshBlock, /await prepareConfigSnapshot\(\{[\s\S]*previousState:\s*connectionState/);
+  assert.match(refreshBlock, /prepare:\s*\(\) => prepareConfigSnapshot\(\{[\s\S]*previousState:\s*connectionState/);
   assert.doesNotMatch(refreshBlock, /groupFetchAllParticipating|prepareConnectionSnapshot/);
-  assert.match(refreshBlock, /if \(!connectionLifecycle\.isLatest\(sock\)\) return false;/);
-  assertBefore(refreshBlock, "await prepareConfigSnapshot(", "connectionLifecycle.isLatest(sock)");
-  assertBefore(refreshBlock, "connectionLifecycle.isLatest(sock)", "commitConfigSnapshot(connectionState, snapshot)");
+  assert.match(refreshBlock, /isLatest:\s*\(sock\) => connectionLifecycle\.isLatest\(sock\)/);
+  assert.match(refreshBlock, /commit:\s*commitConfigSnapshot/);
+  assert.match(refreshBlock, /return refreshLatestConfig\(sock\)/);
+});
+
+test("refresh mais recente vence mesmo quando o anterior termina por último", async () => {
+  const oldRequest = deferred();
+  const newRequest = deferred();
+  const requests = [oldRequest, newRequest];
+  const socket = { id: "atual" };
+  const state = { welcomeCfg: { message: "inicial" } };
+  let requestIndex = 0;
+  const refresh = createLatestConfigRefresher({
+    state,
+    isLatest: (candidate) => candidate === socket,
+    prepare: () => requests[requestIndex++].promise,
+    commit: (target, snapshot) => {
+      target.welcomeCfg = { ...snapshot.welcomeCfg };
+    },
+  });
+
+  const oldRefresh = refresh(socket);
+  const newRefresh = refresh(socket);
+  newRequest.resolve({ welcomeCfg: { message: "nova" } });
+  assert.equal(await newRefresh, true);
+  oldRequest.resolve({ welcomeCfg: { message: "antiga" } });
+
+  assert.equal(await oldRefresh, false);
+  assert.deepEqual(state.welcomeCfg, { message: "nova" });
+});
+
+test("sync de grupos serializa payloads e só publica o resultado ainda atual", async () => {
+  const requestA = deferred();
+  const requestB = deferred();
+  const payloadA = { groups: [{ name: "A" }] };
+  const payloadB = { groups: [{ name: "B" }] };
+  const socket = { id: "atual" };
+  const state = { lastGroupsPayload: payloadA, groupsSynced: false };
+  const sent = [];
+  const published = [];
+  const sync = createGroupSyncCoordinator({
+    state,
+    isLatest: (candidate) => candidate === socket,
+    send: (payload) => {
+      sent.push(payload);
+      return payload === payloadA ? requestA.promise : requestB.promise;
+    },
+    onResult: ({ payload }) => published.push(payload),
+  });
+
+  const syncingA = sync(socket, payloadA);
+  await flushPromises();
+  state.lastGroupsPayload = payloadB;
+  const syncingB = sync(socket, payloadB);
+  const duplicateB = sync(socket, payloadB);
+  assert.equal(syncingB, duplicateB);
+  assert.deepEqual(sent, [payloadA]);
+
+  requestA.resolve({ ok: true, status: 200 });
+  assert.equal(await syncingA, false);
+  await flushPromises();
+  assert.deepEqual(sent, [payloadA, payloadB]);
+  assert.equal(state.groupsSynced, false);
+
+  requestB.resolve({ ok: true, status: 200 });
+  assert.equal(await syncingB, true);
+  assert.equal(state.groupsSynced, true);
+  assert.deepEqual(published, [payloadB]);
+  assert.deepEqual(sent.at(-1), payloadB);
+});
+
+test("listener seguro recupera uma falha de open sem propagar rejeição", async () => {
+  const emitter = new EventEmitter();
+  const socket = { id: "A" };
+  let latest = socket;
+  let releases = 0;
+  let reconnects = 0;
+  let settled = 0;
+  const closeErrors = [];
+  const handler = createSafeOpenHandler({
+    isLatest: (candidate) => latest === candidate,
+    initialize: async () => {
+      throw new Error("grupos indisponíveis");
+    },
+    release: (candidate) => {
+      if (latest !== candidate) return false;
+      latest = null;
+      releases++;
+      return true;
+    },
+    close: async () => {
+      throw new Error("end rejeitado");
+    },
+    scheduleReconnect: () => reconnects++,
+    logger: { log: (_message, error) => closeErrors.push(error.message) },
+    onSettled: () => settled++,
+  });
+  emitter.on("open", handler);
+
+  assert.equal(emitter.emit("open", socket), true);
+  assert.equal(emitter.emit("open", socket), true);
+  await waitFor(() => settled === 2);
+  await flushPromises();
+
+  assert.equal(releases, 1);
+  assert.equal(reconnects, 1);
+  assert.equal(closeErrors.filter((message) => message === "grupos indisponíveis").length, 2);
+  assert.equal(closeErrors.filter((message) => message === "end rejeitado").length, 2);
+});
+
+test("falha de open obsoleto só encerra o socket antigo", async () => {
+  const oldSocket = { id: "A" };
+  const currentSocket = { id: "B" };
+  let releases = 0;
+  let reconnects = 0;
+  let closes = 0;
+  const settled = deferred();
+  const handler = createSafeOpenHandler({
+    isLatest: (candidate) => candidate === currentSocket,
+    initialize: async () => {
+      throw new Error("falha tardia");
+    },
+    release: () => releases++,
+    close: async () => closes++,
+    scheduleReconnect: () => reconnects++,
+    logger: { log: () => {} },
+    onSettled: settled.resolve,
+  });
+
+  assert.equal(handler(oldSocket), undefined);
+  await settled.promise;
+
+  assert.equal(releases, 0);
+  assert.equal(reconnects, 0);
+  assert.equal(closes, 1);
+});
+
+test("promessa fire-and-forget rejeitada é observada e registrada", async () => {
+  const logs = [];
+  const unhandled = [];
+  const onUnhandled = (error) => unhandled.push(error);
+  process.on("unhandledRejection", onUnhandled);
+  try {
+    const observed = observePromise(
+      Promise.reject(new Error("timer rejeitado")),
+      { log: (message, error) => logs.push(`${message}: ${error.message}`) },
+      "heartbeat failed",
+    );
+    assert.equal(await observed, false);
+    await flushPromises();
+  } finally {
+    process.removeListener("unhandledRejection", onUnhandled);
+  }
+
+  assert.deepEqual(unhandled, []);
+  assert.deepEqual(logs, ["heartbeat failed: timer rejeitado"]);
+});
+
+test("index conecta handlers seguros, coordenadores e observa trabalhos dos timers", () => {
+  const source = readFileSync(require.resolve("./index.js"), "utf8");
+
+  assert.match(source, /readOkJson/);
+  assert.match(source, /createLatestConfigRefresher/);
+  assert.match(source, /createGroupSyncCoordinator/);
+  assert.match(source, /createSafeOpenHandler/);
+  assert.match(source, /sock\.ev\.on\("connection\.update", \(update\) =>/);
+  assert.doesNotMatch(source, /sock\.ev\.on\("connection\.update", async/);
+  assert.match(source, /observePromise\(reportSession\(candidate\)/);
+  assert.match(source, /observePromise\(refreshConfig\(candidate\)/);
+  assert.match(source, /observePromise\(resyncGroupsIfNeeded\(candidate\)/);
+  assert.match(source, /observePromise\(reportActivity\(\)/);
+  assert.match(source, /observePromise\(pollDispatches\(candidate\)/);
+  assert.match(source, /observePromise\(pollGrow\(candidate\)/);
 });
 
 test("substituir sessão aborta e limpa a geração anterior", () => {
@@ -811,4 +1042,12 @@ function createTimerHarness() {
 
 function flushPromises() {
   return new Promise((resolve) => setImmediate(resolve));
+}
+
+async function waitFor(predicate, attempts = 20) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    if (predicate()) return;
+    await flushPromises();
+  }
+  assert.fail("condição assíncrona não foi satisfeita");
 }

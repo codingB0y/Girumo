@@ -22,6 +22,11 @@ async function optionalValue(read, fallback, normalize) {
   }
 }
 
+async function readOkJson(response) {
+  if (!response?.ok) throw new Error(`HTTP ${response?.status ?? "unknown"}`);
+  return response.json();
+}
+
 async function prepareConfigSnapshot({ fetchWelcome, fetchOptOut, onlyDigits, previousState = {} }) {
   const [welcomeCfg, optOutDigits] = await Promise.all([
     optionalValue(fetchWelcome, previousState.welcomeCfg, normalizeWelcome),
@@ -68,15 +73,18 @@ async function prepareConnectionSnapshot({
 }
 
 function commitConfigSnapshot(state, snapshot) {
-  state.welcomeCfg = snapshot.welcomeCfg;
-  state.optOutDigits = snapshot.optOutDigits;
+  state.welcomeCfg = { ...snapshot.welcomeCfg };
+  state.optOutDigits = new Set(snapshot.optOutDigits);
 }
 
 function commitConnectionSnapshot(state, snapshot) {
   commitConfigSnapshot(state, snapshot);
-  state.adminGroupIds = snapshot.adminGroupIds;
-  state.groupNames = snapshot.groupNames;
-  state.lastGroupsPayload = snapshot.groupsPayload;
+  state.adminGroupIds = new Set(snapshot.adminGroupIds);
+  state.groupNames = new Map(snapshot.groupNames);
+  state.lastGroupsPayload = {
+    ...snapshot.groupsPayload,
+    groups: (snapshot.groupsPayload?.groups ?? []).map((group) => ({ ...group })),
+  };
   state.groupsSynced = false;
 }
 
@@ -85,4 +93,5 @@ module.exports = {
   commitConnectionSnapshot,
   prepareConfigSnapshot,
   prepareConnectionSnapshot,
+  readOkJson,
 };
