@@ -36,6 +36,7 @@ const REQUIRED_VARS: Record<string, string[]> = {
     "STRIPE_WEBHOOK_SECRET",
     "AUTH_SECRET",
     "ENGINE_TOKEN",
+    "CRON_SECRET",
   ],
 };
 
@@ -151,18 +152,23 @@ export function enforceEnvironmentValidation(): void {
     console.warn(`  ⚠️  ${warning}`);
   }
 
-  // Se inválido, listar erros e abortar
+  // Se inválido, listar erros — mas NÃO derrubar o processo por padrão.
+  // Um process.exit(1) aqui transforma "config incompleta" em OUTAGE TOTAL: toda
+  // rota server-side passa a responder 500 (login/signup inclusive). Logamos em
+  // vermelho e seguimos. Quem quiser o comportamento fail-closed pode setar
+  // ENV_VALIDATION_STRICT=true DEPOIS de garantir que o ambiente está completo.
   if (!result.valid) {
     console.error("\n❌ VALIDAÇÃO DE AMBIENTE FALHOU:");
     for (const error of result.errors) {
       console.error(`  ✗ ${error}`);
     }
-    console.error("\n🛑 Inicialização interrompida. Corrija as variáveis acima.\n");
 
-    // Em produção, interrompe. Em dev, apenas avisa (para não travar setup inicial)
-    if (result.environment === "production") {
+    if (process.env.ENV_VALIDATION_STRICT === "true") {
+      console.error("\n🛑 ENV_VALIDATION_STRICT=true — inicialização interrompida.\n");
       process.exit(1);
     }
+
+    console.error("\n⚠️  Seguindo mesmo assim (config incompleta). Corrija as variáveis acima.\n");
   } else {
     console.log("  ✓ Todas as variáveis validadas\n");
   }

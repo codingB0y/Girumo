@@ -4,11 +4,17 @@ import { StatCard } from "@/components/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { listLinks, clickCounts } from "@/lib/store";
 import { listLeads } from "@/lib/leads-store";
+import { getSessionTenantId } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function ReportsPage() {
-  const [links, counts, leads] = await Promise.all([listLinks(), clickCounts(), listLeads()]);
+  const tenantId = await getSessionTenantId();
+  const [links, counts, leads] = await Promise.all([
+    listLinks(),
+    clickCounts(),
+    tenantId ? listLeads(tenantId) : [],
+  ]);
   const totalClicks = Object.values(counts).reduce((s, n) => s + n, 0);
   const entries = leads.length;
   const conv = totalClicks > 0 ? Math.round((entries / totalClicks) * 100) : 0;

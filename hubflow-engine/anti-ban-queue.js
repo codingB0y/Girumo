@@ -1,4 +1,4 @@
-import { setTimeout as delay } from "timers/promises";
+const { setTimeout: delay } = require("timers/promises");
 
 /**
  * Fila anti-ban — controles operacionais SEGUROS (sem evasão/stealth).
@@ -8,7 +8,7 @@ import { setTimeout as delay } from "timers/promises";
  * Importante: NENHUMA fila garante não-ban. Isto apenas reduz o risco mantendo
  * um ritmo de envio parecido com o humano e dentro de limites por minuto/hora/dia.
  */
-export class AntiBanQueue {
+class AntiBanQueue {
   constructor(opts = {}) {
     // Delay humanizado entre envios (lane normal)
     this.minDelayMs = opts.minDelayMs ?? 2000;
@@ -238,3 +238,5 @@ export class AntiBanQueue {
     }
   }
 }
+
+module.exports = { AntiBanQueue };

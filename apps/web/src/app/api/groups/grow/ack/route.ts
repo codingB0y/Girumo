@@ -1,4 +1,5 @@
 import { ackGrow } from "@/lib/group-grow-store";
+import { getRouteTenantContext } from "@/lib/route-tenant-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -6,6 +7,7 @@ export const dynamic = "force-dynamic";
 // POST /api/groups/grow/ack — a ENGINE reporta a criação de um grupo.
 // body { id, status: "running"|"created"|"failed", whatsappGroupId?, members?, inviteLink?, error? }
 export async function POST(req: Request) {
+  const { tenantId } = await getRouteTenantContext(req, { allowEngine: true });
   let b: Record<string, unknown>;
   try {
     b = await req.json();
@@ -17,7 +19,7 @@ export async function POST(req: Request) {
   if (!id || !["running", "created", "failed"].includes(status)) {
     return Response.json({ error: "id e status válidos são obrigatórios." }, { status: 400 });
   }
-  const job = await ackGrow({
+  const job = await ackGrow(tenantId, {
     id,
     status,
     whatsappGroupId: b.whatsappGroupId ? String(b.whatsappGroupId) : undefined,

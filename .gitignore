@@ -54,3 +54,4 @@ apps/web/.ds-styles.css
 apps/web/.ds-entry.tsx
 .vercel
 .env*
+.firecrawl/

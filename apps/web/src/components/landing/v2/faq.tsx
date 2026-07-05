@@ -7,7 +7,11 @@ export const FAQ_ITEMS: [string, string][] = [
   ],
   [
     "É difícil de usar?",
-    "Se você usa WhatsApp, usa o HubFlow. O painel é em português, a IA sugere as configurações e os modelos já vêm prontos — você quase não configura nada.",
+    "Se você usa WhatsApp, usa o HubFlow. O painel é em português e os modelos — de página, de mensagem e de criativo — já vêm prontos: você quase não configura nada.",
+  ],
+  [
+    "Preciso de site ou programador pra captar leads?",
+    "Não. O HubFlow tem modelos prontos de página de captação: troque logo, cores e fotos, publique no nosso domínio e pronto. O link já sai rastreando cada lead do anúncio até a venda.",
   ],
   [
     "Quantos grupos consigo gerenciar?",
@@ -22,6 +26,10 @@ export const FAQ_ITEMS: [string, string][] = [
     "Sim. O número é seu, os grupos são seus, os contatos são seus. Sem fidelidade, sem multa, sem pegadinha.",
   ],
   [
+    "E se eu não gostar?",
+    "Você tem 30 dias de garantia incondicional. Usou, não curtiu, devolvemos 100% — sem pergunta, sem burocracia. O número, os grupos e os contatos são seus de qualquer jeito.",
+  ],
+  [
     "Como eu sei de onde vieram as vendas?",
     "Cada link de campanha é rastreado. O painel mostra origem por anúncio, bio ou story — você vê qual canal enche grupo e qual gera venda, sem planilha.",
   ],
@@ -34,8 +42,8 @@ export function Faq() {
       {FAQ_ITEMS.map(([q, a]) => (
         <details key={q} className="lp-faq group rounded-2xl border border-white/10 bg-white/[0.02] px-6 py-5">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
-            <span className="font-editorial text-xl text-white sm:text-2xl">{q}</span>
-            <Plus className="h-5 w-5 shrink-0 text-iris-claro transition-transform duration-300 group-open:rotate-45" aria-hidden />
+            <span className="font-tech text-lg font-medium tracking-tight text-white sm:text-xl">{q}</span>
+            <Plus className="h-5 w-5 shrink-0 text-bruma/50 transition-transform duration-300 group-open:rotate-45 group-open:text-zap" aria-hidden />
           </summary>
           <div className="grid grid-rows-[0fr] transition-[grid-template-rows] duration-300 ease-out group-open:grid-rows-[1fr]">
             <div className="overflow-hidden">

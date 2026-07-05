@@ -15,6 +15,7 @@ import { OnboardingChecklist } from "@/components/onboarding-checklist";
 import { Topbar } from "@/components/topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getResultsOverview } from "@/lib/business-health";
+import { getSessionTenantId } from "@/lib/session";
 import { maskPhone } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +33,9 @@ const ACTION_TONE = {
 } as const;
 
 export default async function HojePage() {
-  const r = await getResultsOverview();
+  const tenantId = await getSessionTenantId();
+  if (!tenantId) return null;
+  const r = await getResultsOverview(tenantId);
   const tone = SCORE_TONE[r.score.status];
 
   const checklist: ChecklistItem[] = [

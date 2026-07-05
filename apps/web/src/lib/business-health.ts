@@ -66,15 +66,15 @@ export type ResultsOverview = {
  * (interação, recompra, cliente ativa) vêm marcadas como indisponíveis,
  * em vez de inventar número.
  */
-export async function getResultsOverview(): Promise<ResultsOverview> {
+export async function getResultsOverview(tenantId: string): Promise<ResultsOverview> {
   const [leads, groups, clicks, session, broadcasts, orders, activity] = await Promise.all([
-    listLeads(),
-    listGroups(),
+    listLeads(tenantId),
+    listGroups(tenantId),
     clickCounts(),
-    getSession(),
+    getSession(tenantId),
     collection<Campaign>("broadcasts.json").list(),
     listOrders(),
-    listActivity(),
+    listActivity(tenantId),
   ]);
 
   const now = Date.now();

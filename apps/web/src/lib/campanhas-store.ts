@@ -16,6 +16,7 @@ export type GrowTemplate = {
 
 export type Campanha = {
   id: string;
+  tenantId?: string;
   name: string;
   loja: string; // nome da loja (agrupa campanhas; permite multi-loja)
   groupIds: string[]; // JIDs dos grupos escolhidos p/ esta campanha

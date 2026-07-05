@@ -8,7 +8,7 @@ import { Logo } from "@/components/landing/logo";
 
 const LINKS = [
   ["Mecanismo", "#mecanismo"],
-  ["Painel", "#painel"],
+  ["Recursos", "#recursos"],
   ["Planos", "#planos"],
   ["Dúvidas", "#duvidas"],
 ] as const;
@@ -54,7 +54,7 @@ export function Nav({ signupUrl }: { signupUrl: string }) {
           </Link>
           <a
             href={signupUrl}
-            className="lp-btn lp-btn-primary hidden items-center gap-2 rounded-xl bg-iris px-4 py-2 text-sm font-medium text-white md:inline-flex"
+            className="lp-btn lp-btn-light hidden items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold md:inline-flex"
           >
             Começar grátis <ArrowRight className="h-4 w-4" />
           </a>
@@ -79,7 +79,7 @@ export function Nav({ signupUrl }: { signupUrl: string }) {
                 key={href}
                 href={href}
                 onClick={() => setOpen(false)}
-                className="dz-rise border-b border-white/10 py-5 font-editorial text-3xl text-white"
+                className="dz-rise font-tech border-b border-white/10 py-5 text-3xl font-bold tracking-tight text-white"
                 style={{ animationDelay: `${i * 60}ms` }}
               >
                 {label}
@@ -88,7 +88,7 @@ export function Nav({ signupUrl }: { signupUrl: string }) {
             <div className="mt-8 flex flex-col gap-3">
               <a
                 href={signupUrl}
-                className="lp-btn lp-btn-primary flex items-center justify-center gap-2 rounded-xl bg-iris py-3.5 font-medium text-white"
+                className="lp-btn lp-btn-light flex items-center justify-center gap-2 rounded-xl py-3.5 font-semibold"
               >
                 Começar grátis <ArrowRight className="h-4 w-4" />
               </a>

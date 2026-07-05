@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getTenantContext } from "@/lib/supabase/tenant-context";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { assertPermission } from "@/lib/permissions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,6 +30,7 @@ export async function GET(req: Request) {
 
 export async function PATCH(req: Request) {
   const ctx = await getTenantContext(req);
+  assertPermission(ctx.role, "settings:account");
   const supabase = getSupabaseAdmin();
 
   let body: { name?: string; email?: string; password?: string };
@@ -79,10 +81,7 @@ export async function PATCH(req: Request) {
 
 export async function DELETE(req: Request) {
   const ctx = await getTenantContext(req);
-
-  if (ctx.role !== "owner") {
-    return NextResponse.json({ error: "Apenas o owner pode deletar a conta." }, { status: 403 });
-  }
+  assertPermission(ctx.role, "account:delete");
 
   const supabase = getSupabaseAdmin();
 

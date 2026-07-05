@@ -1,21 +1,9 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Check, Smartphone, ShieldCheck, Zap } from "lucide-react";
+import { Check, Smartphone, ShieldCheck, Zap, Loader2, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-export const metadata = { title: "Conectar WhatsApp — HubFlow" };
-
-const STEPS = [
-  { n: 1, label: "Conectar número", active: true, done: false },
-  { n: 2, label: "Grupos entram", active: false, done: false },
-  { n: 3, label: "Primeira campanha", active: false, done: false },
-];
-
-const INSTRUCTIONS = [
-  "Abra o WhatsApp no seu celular",
-  "Toque em Aparelhos conectados",
-  "Toque em Conectar um aparelho",
-  "Aponte a câmera para o QR Code ao lado",
-];
 
 export default function PainelConectar() {
   return (
@@ -33,72 +21,13 @@ export default function PainelConectar() {
         </p>
       </div>
 
-      {/* Stepper */}
-      <ol className="mx-auto mt-8 flex max-w-xl items-center">
-        {STEPS.map((s, i) => (
-          <li key={s.n} className="flex flex-1 items-center last:flex-none">
-            <div className="flex items-center gap-2.5">
-              <span
-                className={cn(
-                  "flex h-8 w-8 items-center justify-center rounded-full font-data text-sm font-medium",
-                  s.active ? "bg-iris text-white shadow-iris" : "bg-bruma text-aco/50",
-                )}
-              >
-                {s.done ? <Check className="h-4 w-4" /> : s.n}
-              </span>
-              <span
-                className={cn(
-                  "hidden text-sm sm:inline",
-                  s.active ? "font-medium text-breu" : "text-aco/50",
-                )}
-              >
-                {s.label}
-              </span>
-            </div>
-            {i < STEPS.length - 1 && <span className="mx-3 h-px flex-1 bg-breu/10" />}
-          </li>
-        ))}
-      </ol>
+      <Stepper />
 
-      {/* Card de conexão */}
       <div className="mt-10 grid gap-6 overflow-hidden rounded-3xl border border-breu/[0.08] bg-white md:grid-cols-2">
-        {/* Instruções */}
-        <div className="p-7 sm:p-9">
-          <h2 className="font-display text-xl font-bold text-breu">Como conectar</h2>
-          <ol className="mt-5 space-y-4">
-            {INSTRUCTIONS.map((t, i) => (
-              <li key={t} className="flex items-start gap-3">
-                <span className="font-data flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-iris/10 text-xs font-medium text-iris">
-                  {i + 1}
-                </span>
-                <span className="text-sm text-aco">{t}</span>
-              </li>
-            ))}
-          </ol>
-          <div className="mt-7 flex items-center gap-3 rounded-2xl bg-bruma/60 px-4 py-3.5">
-            <ShieldCheck className="h-5 w-5 shrink-0 text-iris" />
-            <p className="text-xs text-aco">
-              Conexão segura e dentro da LGPD. Seus contatos são seus — desconectou, leva tudo.
-            </p>
-          </div>
-        </div>
-
-        {/* QR */}
-        <div className="flex flex-col items-center justify-center gap-5 bg-breu p-7 text-white sm:p-9">
-          <div className="rounded-2xl bg-white p-4">
-            <FauxQR />
-          </div>
-          <div className="flex items-center gap-2 text-sm text-bruma/70">
-            <span className="hf-breathe h-2 w-2 rounded-full bg-iris-claro" />
-            Aguardando leitura…
-          </div>
-          <p className="font-data text-center text-[11px] uppercase tracking-wider text-bruma/40">
-            o código expira em 60s · gera outro automático
-          </p>
-        </div>
+        <Instrucoes />
+        <QRPanel />
       </div>
 
-      {/* Rodapé */}
       <div className="mt-6 flex items-center justify-between">
         <Link href="/painel" className="text-sm text-aco/60 transition hover:text-breu">
           Pular por agora
@@ -107,67 +36,193 @@ export default function PainelConectar() {
           href="/painel/conectar"
           className="inline-flex items-center gap-2 rounded-xl bg-iris px-5 py-2.5 text-sm font-medium text-white shadow-iris transition hover:-translate-y-0.5 hover:bg-iris-claro"
         >
-          <Smartphone className="h-4 w-4" /> Conectar no WhatsApp
+          <Smartphone className="h-4 w-4" /> Atualizar
         </Link>
       </div>
     </div>
   );
 }
 
-/** QR-Code estilizado (placeholder determinístico) — apenas visual. */
-function FauxQR() {
-  const N = 21;
-  const m = 9;
-  const size = N * m;
-  const isFinder = (x: number, y: number) =>
-    (x < 7 && y < 7) || (x >= N - 7 && y < 7) || (x < 7 && y >= N - 7);
+const STEPS = [
+  { n: 1, label: "Conectar número", active: true, done: false },
+  { n: 2, label: "Grupos entram", active: false, done: false },
+  { n: 3, label: "Primeira campanha", active: false, done: false },
+];
 
-  const cells: { x: number; y: number }[] = [];
-  for (let y = 0; y < N; y++) {
-    for (let x = 0; x < N; x++) {
-      if (isFinder(x, y)) continue;
-      if ((x * 3 + y * 7 + x * y) % 3 === 0) cells.push({ x, y });
+function Stepper() {
+  return (
+    <ol className="mx-auto mt-8 flex max-w-xl items-center">
+      {STEPS.map((s, i) => (
+        <li key={s.n} className="flex flex-1 items-center last:flex-none">
+          <div className="flex items-center gap-2.5">
+            <span
+              className={cn(
+                "flex h-8 w-8 items-center justify-center rounded-full font-data text-sm font-medium",
+                s.active ? "bg-iris text-white shadow-iris" : "bg-bruma text-aco/50",
+              )}
+            >
+              {s.done ? <Check className="h-4 w-4" /> : s.n}
+            </span>
+            <span
+              className={cn(
+                "hidden text-sm sm:inline",
+                s.active ? "font-medium text-breu" : "text-aco/50",
+              )}
+            >
+              {s.label}
+            </span>
+          </div>
+          {i < STEPS.length - 1 && <span className="mx-3 h-px flex-1 bg-breu/10" />}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+const INSTRUCTIONS = [
+  "Abra o WhatsApp no seu celular",
+  "Toque em Aparelhos conectados",
+  "Toque em Conectar um aparelho",
+  "Aponte a câmera para o QR Code ao lado",
+];
+
+function Instrucoes() {
+  return (
+    <div className="p-7 sm:p-9">
+      <h2 className="font-display text-xl font-bold text-breu">Como conectar</h2>
+      <ol className="mt-5 space-y-4">
+        {INSTRUCTIONS.map((t, i) => (
+          <li key={t} className="flex items-start gap-3">
+            <span className="font-data flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-iris/10 text-xs font-medium text-iris">
+              {i + 1}
+            </span>
+            <span className="text-sm text-aco">{t}</span>
+          </li>
+        ))}
+      </ol>
+      <div className="mt-7 flex items-center gap-3 rounded-2xl bg-bruma/60 px-4 py-3.5">
+        <ShieldCheck className="h-5 w-5 shrink-0 text-iris" />
+        <p className="text-xs text-aco">
+          Conexão segura e dentro da LGPD. Seus contatos são seus — desconectou, leva tudo.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+type EngineState = {
+  ok: boolean;
+  whatsappConnected: boolean;
+  connectedNumber: string | null;
+  qr: string | null;
+  error?: string;
+};
+
+function QRPanel() {
+  const [state, setState] = useState<EngineState>({
+    ok: false,
+    whatsappConnected: false,
+    connectedNumber: null,
+    qr: null,
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  async function fetchState(showSpinner = false) {
+    if (showSpinner) setLoading(true);
+    try {
+      const r = await fetch("/api/engine?action=status", { cache: "no-store" });
+      const data = (await r.json()) as EngineState;
+      setState(data);
+      setError(data.error ?? null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
     }
   }
 
-  const Finder = ({ ox, oy }: { ox: number; oy: number }) => (
-    <g>
-      <rect x={ox * m} y={oy * m} width={7 * m} height={7 * m} rx={3 * m} fill="#0B0D1A" />
-      <rect
-        x={(ox + 1) * m}
-        y={(oy + 1) * m}
-        width={5 * m}
-        height={5 * m}
-        rx={2.2 * m}
-        fill="#fff"
-      />
-      <rect
-        x={(ox + 2) * m}
-        y={(oy + 2) * m}
-        width={3 * m}
-        height={3 * m}
-        rx={m}
-        fill="#6A4BF0"
-      />
-    </g>
-  );
+  useEffect(() => {
+    fetchState(true);
+    const id = setInterval(() => fetchState(false), 4000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (state.whatsappConnected) {
+    return <ConnectedPanel number={state.connectedNumber} />;
+  }
 
   return (
-    <svg width={150} height={150} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
-      {cells.map((c) => (
-        <rect
-          key={`${c.x}-${c.y}`}
-          x={c.x * m + 1}
-          y={c.y * m + 1}
-          width={m - 2}
-          height={m - 2}
-          rx={2}
-          fill="#0B0D1A"
-        />
-      ))}
-      <Finder ox={0} oy={0} />
-      <Finder ox={N - 7} oy={0} />
-      <Finder ox={0} oy={N - 7} />
-    </svg>
+    <div className="flex flex-col items-center justify-center gap-5 bg-breu p-7 text-white sm:p-9">
+      {error && (
+        <div className="rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-200">
+          Engine offline: {error}
+        </div>
+      )}
+
+      {state.qr ? (
+        <div className="rounded-2xl bg-white p-4">
+          <RealQR data={state.qr} />
+        </div>
+      ) : (
+        <div className="flex h-[150px] w-[150px] items-center justify-center rounded-2xl bg-white/10">
+          {loading ? (
+            <Loader2 className="h-8 w-8 animate-spin text-bruma/60" />
+          ) : (
+            <span className="px-3 text-center font-data text-[11px] uppercase tracking-wider text-bruma/60">
+              Aguardando QR…
+            </span>
+          )}
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 text-sm text-bruma/70">
+        <span className={cn("hf-breathe h-2 w-2 rounded-full", state.qr ? "bg-iris-claro" : "bg-bruma/40")} />
+        {state.qr ? "Escaneie no WhatsApp" : "Aguardando leitura…"}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => fetchState(true)}
+        className="font-data inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-bruma/50 transition hover:text-bruma/80"
+      >
+        <RefreshCw className="h-3 w-3" /> Atualizar agora
+      </button>
+
+      <p className="font-data text-center text-[11px] uppercase tracking-wider text-bruma/40">
+        o código expira em 60s · gera outro automático
+      </p>
+    </div>
+  );
+}
+
+function ConnectedPanel({ number }: { number: string | null }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-5 bg-breu p-7 text-white sm:p-9">
+      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-400/20">
+        <Check className="h-10 w-10 text-emerald-300" strokeWidth={3} />
+      </div>
+      <div className="text-center">
+        <p className="font-display text-lg font-bold">WhatsApp conectado!</p>
+        {number && <p className="font-data mt-1 text-sm text-bruma/70">+{number}</p>}
+      </div>
+      <Link
+        href="/painel"
+        className="inline-flex items-center gap-2 rounded-xl bg-iris px-5 py-2.5 text-sm font-medium text-white shadow-iris transition hover:-translate-y-0.5 hover:bg-iris-claro"
+      >
+        Ir para o painel
+      </Link>
+    </div>
+  );
+}
+
+/** QR Code real a partir do payload da engine. */
+function RealQR({ data }: { data: string }) {
+  // Usa o endpoint público do QuickChart (CDN) para gerar o PNG/SVG.
+  // data vem como string base64-like ("2@abc...,xyz") — URL-encode antes.
+  const url = `https://quickchart.io/qr?text=${encodeURIComponent(data)}&size=300&margin=2`;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={url} alt="QR Code WhatsApp" width={150} height={150} className="h-[150px] w-[150px]" />
   );
 }

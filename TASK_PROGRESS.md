@@ -152,3 +152,56 @@ scrollytelling do mecanismo, responsivo com fallback leve no mobile, SEO mantido
 ## Resultado
 - `npm run build` ✅ · `tsc --noEmit` ✅ · eslint landing v2 ✅
 - Verificado no preview: hero+canvas, ticker, 3 atos do mecanismo, painel+bento, depoimentos, planos, FAQ, muro de grupos, footer, menu mobile, CTA fixo mobile.
+
+## Iteração v2.1 (feedback Igor, mesma sessão)
+- **Tipografia SaaS/tech:** Instrument Serif → Space Grotesk bold (`--font-tech`) em todos os headings.
+- **Menos íris (ref. zavu.dev):** base neutra `#07080f`, CTA primário BRANCO (padrão Linear/Vercel),
+  headlines two-tone (branco + cinza), partículas do canvas neutras (verde só na chegada), íris restrito à logo.
+- **Prints do painel removidos** → `features.tsx`: bento de mock-UIs feitas à mão (status entregue/na fila,
+  calendário, biblioteca, barras de receita por origem, auto-criação, chat da IA).
+- **Depoimentos removidos** (pareciam falsos) → `compare.tsx`: SEM × COM HubFlow + calculadora interativa
+  de "dinheiro deixado na mesa" (sliders leads/dia, ticket, conversão; premissa 35% declarada).
+- **Nova seção `lp-showcase.tsx`:** modelos de landing page de captação em frame de celular,
+  3 temas de marca trocáveis (Moda/Eletrônicos/Beleza).
+- **Pricing v2.1:** anual default com preço riscado + economia em R$, card destaque com anel gradiente
+  (double background padding-box/border-box — pseudo com z-index -1 pinta ACIMA do bg do pai, não usar).
+- Build ✅ após reforma. Branch `landing-v2-redesign` + PR aberto.
+
+---
+
+# Flow Pages — MVP em 4 sessões (briefing aprovado 2026-07-02)
+
+## Sessão 0 — Análise ✅
+Crítica ao briefing (8 pontos), stack confirmada, DDL corrigido, contratos, spec dos templates.
+Decisões aprovadas: campaign_slug→/r/{slug} preferido; slug com sufixo; métricas via events;
+retenção 90d; TikTok só coluna; briefing supersede trava "squads aprovarem".
+
+## Sessão 1 — Schema + render mínimo ✅
+- [x] Migração `20260702120000_flow_pages.sql` (4 tabelas lp_*, RLS padrão organizations/current_setting, RPC, seed 3 templates)
+- [x] `lib/pages/{schema,slug,store}.ts` (validação sem Zod, E.164 BR, slug anti-squatting, store server-only)
+- [x] APIs: GET/POST /api/pages · GET /api/pages/templates · GET /api/p/[slug] · GET /api/p/health
+- [x] `/p/[slug]` ISR (unstable_cache tag lp:{slug}) + BasicTemplate mobile-first
+- [x] Middleware: matcher exclui `p/` e `api/p/` (públicos)
+- [x] Contratos registrados em `system/API_CONTRACTS.md`
+- Divergências do briefing: tabelas `lp_leads`/`lp_tracking_events` (colisão com leads/engine legados);
+  rotas públicas em `/api/p/*` (POST /api/leads JÁ É rota da engine com x-engine-token)
+- CSP: `/p/*` ganhou CSP própria no next.config (img-src https: pra foto do lojista + domínios
+  Meta/GA4 pré-liberados pra sessão 4); global intacta (source `/((?!p/).*)`)
+- Infra descoberta: `.env.local` aponta pro projeto **hubflow-dev** (wfju...), CLI linkado no
+  **hubflow-production** (nido...). Migração aplicada NOS DOIS (dev via link temporário + migration
+  repair das 5 antigas; relinkado em produção no fim)
+- Armadilha PostgREST: `select(head:true)` NÃO retorna erro de tabela inexistente — health usava e mentia
+- LP demo publicada no dev: `/p/loja-demo-hf01` (validação e2e; remover quando quiser)
+
+## Sessão 2 — Templates ✂️ CORTADA (decisão Igor: só o BasicTemplate; registry já mapeia os 3 component_keys pra ele)
+
+## Sessões 3+4 — Editor + Tracking + Métricas ✅ (2026-07-02)
+- [x] GET/PATCH `/api/pages/[id]` (detalhe+métricas+20 leads / edição+publish com revalidateTag)
+- [x] POST `/api/p/track` (beacon PageView/GroupJoin, 204 sempre, bot-filter, rate 30/min)
+- [x] POST `/api/p/lead` (E.164 BR, consent obrigatório + snapshot, ip_hash, honeypot, dedup upsert, rate 5/min) → {redirect_url}
+- [x] `tracking-scripts.tsx` (UTMs→sessionStorage, beacon, Meta Pixel + GA4 condicionais) + `lead-form.tsx` (LGPD, sucesso→Entrar no grupo→GroupJoin)
+- [x] Editor: `/painel/pages/nova` (form 7 campos + preview ao vivo com o componente real), `/painel/pages` (lista), `/painel/pages/[id]` (publicar/pausar/copiar link/métricas/leads/edição), sidebar "Páginas"
+- [x] E2E validado: PageView→Lead→GroupJoin no banco; dedup, sem-consent 400, zap inválido 400, honeypot silencioso, bot 204 sem gravar; lead via UI real com UTM da URL
+- **Bug real encontrado:** CSP da /p sem 'unsafe-eval' mata a hidratação no DEV (Turbopack usa eval) —
+  form degrada pra submit GET nativo. Fix: 'unsafe-eval' só em development no next.config.
+- Build produção EXIT=0 · tsc limpo · eslint limpo

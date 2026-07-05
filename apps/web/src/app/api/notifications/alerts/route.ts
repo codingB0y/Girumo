@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { isCronAuthorized } from "@/lib/cron-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,7 +16,10 @@ export const dynamic = "force-dynamic";
  * 2. Campanha sem cliques em 3 dias → "Campanha parada"
  * 3. Campanha sem link de convite em grupos → "Configure convites"
  */
-export async function POST() {
+export async function GET(req: Request) {
+  if (!isCronAuthorized(req.headers.get("authorization"), process.env.CRON_SECRET ?? "")) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   const supabase = getSupabaseAdmin();
 
   // Get all tenants with active memberships

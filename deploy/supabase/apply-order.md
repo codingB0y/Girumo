@@ -2,14 +2,8 @@
 
 Aplicar no banco Supabase real nesta ordem:
 
-```txt
-infra/migrations/202606240001_base_schema.sql
-infra/rls/202606240002_rls_policies.sql
-infra/seeds/202606240003_seed_plans.sql
-infra/rls/202606240004_storage_policies.sql
-infra/migrations/202606240005_engine_rpc.sql
-infra/migrations/202606240006_membership_invites.sql
-```
+A fonte canônica, lida pelo script de aplicação, é
+[`apply-order.txt`](./apply-order.txt). Não mantenha uma segunda lista manual.
 
 Via script:
 

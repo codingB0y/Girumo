@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight, Check, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WhatsAppIcon } from "@/components/landing/icons";
 
@@ -9,6 +9,7 @@ type Plan = {
   name: string;
   monthly: number;
   tagline: string;
+  bestFor: string;
   features: string[];
   highlight?: boolean;
 };
@@ -17,7 +18,8 @@ const PLANS: Plan[] = [
   {
     name: "Essencial",
     monthly: 197,
-    tagline: "Pra botar pra rodar",
+    tagline: "Pra começar",
+    bestFor: "quem tá botando os primeiros grupos pra rodar",
     features: [
       "1 número de WhatsApp",
       "Até 5 grupos gerenciados",
@@ -31,8 +33,9 @@ const PLANS: Plan[] = [
     monthly: 297,
     highlight: true,
     tagline: "Pra escalar de verdade",
+    bestFor: "quem opera 10, 50, 100+ grupos",
     features: [
-      "Tudo do Essencial +",
+      "Tudo do Essencial",
       "Grupos ilimitados",
       "Disparo multi-formato: texto, vídeo e áudio",
       "Agenda semanal recorrente em 1 clique",
@@ -42,11 +45,12 @@ const PLANS: Plan[] = [
     ],
   },
   {
-    name: "Performance Max",
+    name: "Operação",
     monthly: 497,
     tagline: "A gente opera com você",
+    bestFor: "quem quer um time junto na operação",
     features: [
-      "Tudo do Growth +",
+      "Tudo do Growth",
       "Setup e operação assistidos",
       "Revisão estratégica mensal 1:1",
       "Prioridade no suporte",
@@ -56,6 +60,7 @@ const PLANS: Plan[] = [
 
 /** Equivalente mensal no plano anual: 2 meses grátis (paga 10, leva 12). */
 const annualMonthly = (m: number) => Math.round((m * 10) / 12);
+const fmt = (v: number) => v.toLocaleString("pt-BR");
 
 export function PricingV2({
   signupUrl,
@@ -64,7 +69,7 @@ export function PricingV2({
   signupUrl: string;
   whatsappUrl: string;
 }) {
-  const [annual, setAnnual] = useState(false);
+  const [annual, setAnnual] = useState(true);
 
   return (
     <div>
@@ -80,13 +85,13 @@ export function PricingV2({
               onClick={() => setAnnual(i === 1)}
               className={cn(
                 "font-data flex items-center gap-2 rounded-full px-5 py-2 text-xs uppercase tracking-wider transition",
-                active ? "bg-iris text-white shadow-iris" : "text-bruma/50 hover:text-white",
+                active ? "bg-white font-medium text-void" : "text-bruma/50 hover:text-white",
               )}
             >
               {label}
               {i === 1 && (
-                <span className={cn("rounded-full px-1.5 py-0.5 text-[10px]", active ? "bg-white/20 text-white" : "bg-zap/10 text-zap")}>
-                  −2 meses
+                <span className={cn("rounded-full px-1.5 py-0.5 text-[10px]", active ? "bg-zap/20 text-[#0a5c2e]" : "bg-zap/10 text-zap")}>
+                  2 meses grátis
                 </span>
               )}
             </button>
@@ -97,39 +102,53 @@ export function PricingV2({
       <div className="mt-14 grid items-stretch gap-5 lg:grid-cols-3">
         {PLANS.map((p) => {
           const price = annual ? annualMonthly(p.monthly) : p.monthly;
+          const savings = (p.monthly - annualMonthly(p.monthly)) * 12;
           return (
             <div
               key={p.name}
               className={cn(
-                "lp-card relative flex flex-col rounded-[1.75rem] border p-8",
+                "relative flex flex-col rounded-[1.75rem] p-8",
                 p.highlight
-                  ? "border-iris/50 bg-gradient-to-b from-iris/[0.14] to-white/[0.02] shadow-[0_30px_80px_-30px_rgba(106,75,240,0.6)]"
-                  : "border-white/10 bg-white/[0.03]",
+                  ? "lp-ring-soft border border-transparent bg-void-2 shadow-deep lg:-my-4 lg:py-12"
+                  : "lp-card border border-white/10 bg-white/[0.02]",
               )}
             >
               {p.highlight && (
-                <span className="font-data absolute -top-3.5 left-8 rounded-full bg-iris px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-white shadow-iris">
-                  mais escolhido
+                <span className="font-data absolute -top-3.5 left-1/2 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-[0.15em] text-void shadow-lg">
+                  <Sparkles className="h-3 w-3" /> mais escolhido
                 </span>
               )}
-              <div className="flex items-baseline justify-between">
-                <h3 className="font-editorial text-3xl text-white">{p.name}</h3>
-              </div>
-              <p className="font-data mt-1 text-xs uppercase tracking-wider text-bruma/45">{p.tagline}</p>
 
-              <p className="mt-7 flex items-baseline gap-1.5 text-white">
-                <span className="font-data text-sm text-bruma/50">R$</span>
-                <span className="font-editorial text-6xl leading-none tracking-tight">{price}</span>
-                <span className="font-data text-sm text-bruma/50">/mês</span>
-              </p>
-              <p className="font-data mt-2 h-4 text-[11px] uppercase tracking-wider text-zap">
-                {annual ? `cobrado R$ ${(price * 12).toLocaleString("pt-BR")} por ano` : " "}
+              <div className="flex items-baseline justify-between gap-3">
+                <h3 className="font-tech text-2xl font-bold tracking-tight text-white">{p.name}</h3>
+                <span className="font-data text-[10px] uppercase tracking-wider text-bruma/40">{p.tagline}</span>
+              </div>
+              <p className="mt-2 text-sm text-bruma/50">Pra {p.bestFor}.</p>
+
+              <div className="mt-7 flex items-end gap-3">
+                <p className="flex items-baseline gap-1.5 text-white">
+                  <span className="font-data text-sm text-bruma/50">R$</span>
+                  <span className="font-tech text-6xl font-bold leading-none tracking-tight">{price}</span>
+                  <span className="font-data text-sm text-bruma/50">/mês</span>
+                </p>
+                {annual && (
+                  <span className="font-data pb-1 text-sm text-bruma/35 line-through">R$ {p.monthly}</span>
+                )}
+              </div>
+              <p className="font-data mt-2.5 h-4 text-[11px] uppercase tracking-wider text-zap">
+                {annual ? `economia de R$ ${fmt(savings)} no ano` : " "}
               </p>
 
               <ul className="mt-7 flex-1 space-y-3 border-t border-white/10 pt-7">
-                {p.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2.5 text-sm text-bruma/70">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-zap" />
+                {p.features.map((f, i) => (
+                  <li
+                    key={f}
+                    className={cn(
+                      "flex items-start gap-2.5 text-sm",
+                      i === 0 && p.name !== "Essencial" ? "font-medium text-bruma/45" : "text-bruma/75",
+                    )}
+                  >
+                    <Check className={cn("mt-0.5 h-4 w-4 shrink-0", i === 0 && p.name !== "Essencial" ? "text-bruma/35" : "text-zap")} />
                     {f}
                   </li>
                 ))}
@@ -138,10 +157,10 @@ export function PricingV2({
               <a
                 href={signupUrl}
                 className={cn(
-                  "lp-btn mt-8 flex items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-medium transition",
+                  "lp-btn mt-8 flex items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-semibold transition",
                   p.highlight
-                    ? "lp-btn-primary bg-iris text-white"
-                    : "border border-white/15 text-white hover:border-iris-claro/60 hover:text-iris-claro",
+                    ? "lp-btn-light"
+                    : "border border-white/15 text-white hover:border-white/40",
                 )}
               >
                 Começar com {p.name} <ArrowRight className="h-4 w-4" />

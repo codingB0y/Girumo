@@ -24,6 +24,33 @@ const securityHeaders = [
   },
 ];
 
+/**
+ * CSP das LPs públicas (/p/*) — Flow Pages.
+ * Difere da global: foto vem de URL https arbitrária do lojista (img-src https:)
+ * e a sessão de tracking injeta Meta Pixel + GA4 (script/connect liberados
+ * SÓ pros domínios desses vendors). Sem Stripe, sem frames, sem eval.
+ */
+const publicLpHeaders = [
+  ...securityHeaders.filter((h) => h.key !== "Content-Security-Policy"),
+  {
+    key: "Content-Security-Policy",
+    value: [
+      "default-src 'self'",
+      // 'unsafe-eval' SÓ em dev: os chunks do Turbopack/HMR usam eval;
+      // sem isso a hidratação morre em silêncio (form vira submit GET nativo)
+      `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""} https://connect.facebook.net https://www.googletagmanager.com`,
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: https:",
+      "font-src 'self'",
+      "connect-src 'self' https://www.facebook.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com",
+      "frame-src 'none'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join("; "),
+  },
+];
+
 const nextConfig: NextConfig = {
   turbopack: {
     root: process.cwd(),
@@ -31,8 +58,13 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: "/(.*)",
+        // tudo, exceto /p/* (LPs públicas têm CSP própria abaixo)
+        source: "/((?!p/).*)",
         headers: securityHeaders,
+      },
+      {
+        source: "/p/:path*",
+        headers: publicLpHeaders,
       },
     ];
   },

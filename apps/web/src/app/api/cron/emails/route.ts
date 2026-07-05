@@ -1,6 +1,7 @@
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/email/send";
 import { nudgeConnectEmail, trialEndingEmail } from "@/lib/email/templates";
+import { isCronAuthorized } from "@/lib/cron-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,19 +10,14 @@ const CRON_SECRET = process.env.CRON_SECRET || "";
 
 /**
  * GET /api/cron/emails
- * Chamado por Vercel Cron (vercel.json) ou manualmente com ?secret=...
+ * Chamado por Vercel Cron (vercel.json) com Authorization Bearer.
  *
  * Jobs:
  * 1. Nudge: 24h sem conectar WhatsApp → envia email
  * 2. Trial ending: trial termina em 2 dias → envia email
  */
 export async function GET(req: Request) {
-  // Auth: verifica secret ou Vercel cron header
-  const { searchParams } = new URL(req.url);
-  const secret = searchParams.get("secret");
-  const cronHeader = req.headers.get("authorization");
-
-  if (CRON_SECRET && secret !== CRON_SECRET && cronHeader !== `Bearer ${CRON_SECRET}`) {
+  if (!isCronAuthorized(req.headers.get("authorization"), CRON_SECRET)) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 

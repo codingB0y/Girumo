@@ -9,6 +9,7 @@ import { listLinks } from "@/lib/store";
 import { listOrders } from "@/lib/orders-store";
 import { collection } from "@/lib/json-collection";
 import type { Campaign } from "@/lib/mock-data";
+import { getSessionTenantId } from "@/lib/session";
 
 type Step = { label: string; help: string; cta: string; href: string; done: boolean };
 
@@ -18,11 +19,14 @@ type Step = { label: string; help: string; cta: string; href: string; done: bool
  * destaca a PRÓXIMA ação única com botão. Some sozinho quando tudo conclui.
  */
 export async function OnboardingChecklist() {
+  const tenantId = await getSessionTenantId();
+  if (!tenantId) return null;
+
   const [session, groups, links, leads, broadcasts, orders] = await Promise.all([
-    getSession(),
-    listGroups(),
+    getSession(tenantId),
+    listGroups(tenantId),
     listLinks(),
-    listLeads(),
+    listLeads(tenantId),
     collection<Campaign>("broadcasts.json").list(),
     listOrders(),
   ]);

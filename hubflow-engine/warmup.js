@@ -10,7 +10,7 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export class WarmUp {
+class WarmUp {
   constructor(config = {}, state = null) {
     this.cfg = {
       warmUpDays: 7,
@@ -83,3 +83,5 @@ export class WarmUp {
     };
   }
 }
+
+module.exports = { WarmUp };

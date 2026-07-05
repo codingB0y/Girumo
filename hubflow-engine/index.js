@@ -22,16 +22,17 @@ app.listen(PORT, "0.0.0.0", () => {
   console.log(`Healthcheck ativo na porta ${PORT}`);
 });
 
-const baileys = require("@whiskeysockets/baileys");
+let useMultiFileAuthState;
+let DisconnectReason;
+let fetchLatestBaileysVersion;
+let jidNormalizedUser;
+let makeWASocket;
 
-const {
-  useMultiFileAuthState,
-  DisconnectReason,
-  fetchLatestBaileysVersion,
-  jidNormalizedUser,
-} = baileys;
-
-const makeWASocket = baileys.default || baileys;
+async function loadBaileys() {
+  const baileys = await import("@whiskeysockets/baileys");
+  ({ useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, jidNormalizedUser } = baileys);
+  makeWASocket = baileys.default;
+}
 
 const qrcode = require("qrcode-terminal");
 const pino = require("pino");
@@ -44,6 +45,12 @@ const { WarmUp } = require("./warmup.js");
 const { GroupOperationGuard, classifyGroupOpError } = require("./group-guard.js");
 const { DeliveryTracker } = require("./delivery-tracker.js");
 const { createSupabaseCommandWorker } = require("./queues/supabase-command-worker.js");
+const { validateEngineEnvironment } = require("./config/env.js");
+
+const environment = validateEngineEnvironment();
+if (!environment.valid) {
+  throw new Error(`Configuração inválida da engine: ${environment.errors.join("; ")}`);
+}
 
 // Logger silencioso (Baileys é verboso). Suba para "info" se quiser depurar.
 const logger = pino({ level: "silent" });
@@ -188,12 +195,17 @@ async function fetchMedia(mediaId) {
 const APP_URL = process.env.APP_URL;
 // Token compartilhado com o app (deve bater com ENGINE_TOKEN do .env.local do app).
 const ENGINE_TOKEN = process.env.ENGINE_TOKEN ?? "dz_dev_engine_token";
+const ENGINE_TENANT_ID = process.env.ENGINE_TENANT_ID ?? "";
 
 /** fetch ao app já com a base URL e o header de autenticação da engine. */
 function appFetch(path, opts = {}) {
   return fetch(`${APP_URL}${path}`, {
     ...opts,
-    headers: { "x-engine-token": ENGINE_TOKEN, ...(opts.headers ?? {}) },
+    headers: {
+      "x-engine-token": ENGINE_TOKEN,
+      "x-tenant-id": ENGINE_TENANT_ID,
+      ...(opts.headers ?? {}),
+    },
   });
 }
 
@@ -890,7 +902,12 @@ async function resyncGroupsIfNeeded() {
 }
 
 
-start().catch((err) => {
-  console.error("Erro fatal:", err);
+async function bootstrap() {
+  await loadBaileys();
+  await start();
+}
+
+bootstrap().catch((error) => {
+  console.error("Erro fatal ao iniciar a engine:", error);
   process.exit(1);
 });
