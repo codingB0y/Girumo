@@ -19,6 +19,7 @@ function createConnectionSessionController({
   reconnect,
   getRetryDelay,
   closeTimeoutMs = 10_000,
+  finalizerTimeoutMs = 5_000,
   logger = console,
   setTimeoutFn = setTimeout,
   clearTimeoutFn = clearTimeout,
@@ -89,6 +90,46 @@ function createConnectionSessionController({
     return null;
   }
 
+  function invokeFinalizer(finalizer) {
+    let result;
+    try {
+      result = finalizer();
+    } catch (error) {
+      log("session finalizer failed", error);
+      return null;
+    }
+    if (!result || typeof result.then !== "function") return null;
+
+    let timeoutHandle;
+    const observed = Promise.resolve(result).then(
+      () => undefined,
+      (error) => log("session finalizer failed", error),
+    );
+    const timeout = new Promise((resolve) => {
+      timeoutHandle = setTimeoutFn(() => {
+        log(`session finalizer timed out after ${finalizerTimeoutMs}ms`);
+        resolve();
+      }, finalizerTimeoutMs);
+    });
+    return Promise.race([observed, timeout]).finally(() => {
+      if (timeoutHandle !== undefined) clearTimeoutFn(timeoutHandle);
+    });
+  }
+
+  function trackSessionOperation(session, operation) {
+    const tracked = Promise.resolve(operation);
+    session.operations.add(tracked);
+    const release = () => session.operations.delete(tracked);
+    tracked.then(release, release);
+    return tracked;
+  }
+
+  async function drainSessionOperations(session) {
+    while (session.operations.size > 0) {
+      await Promise.all([...session.operations]);
+    }
+  }
+
   function setCleanupDrain(session, drain, markClosed = true) {
     let finalPromise;
     finalPromise = Promise.resolve(drain).then(() => {
@@ -116,6 +157,14 @@ function createConnectionSessionController({
     return cleanup;
   }
 
+  function addFinalizer(session, finalizer) {
+    if (session.state === "closing" || session.state === "closed") {
+      throw new Error("session finalizers must be registered before closing");
+    }
+    session.finalizers.push(finalizer);
+    return finalizer;
+  }
+
   function closeSession(session) {
     if (!session || session.state === "closing" || session.state === "closed") return false;
     session.state = "closing";
@@ -125,6 +174,15 @@ function createConnectionSessionController({
     for (const cleanup of session.cleanups.splice(0).reverse()) {
       if (drain) drain = drain.then(() => invokeCleanup(cleanup));
       else drain = invokeCleanup(cleanup);
+    }
+    if (session.operations.size > 0) {
+      drain = drain
+        ? drain.then(() => drainSessionOperations(session))
+        : drainSessionOperations(session);
+    }
+    for (const finalizer of session.finalizers.splice(0).reverse()) {
+      if (drain) drain = drain.then(() => invokeFinalizer(finalizer));
+      else drain = invokeFinalizer(finalizer);
     }
     if (drain) setCleanupDrain(session, drain);
     else session.state = "closed";
@@ -146,6 +204,8 @@ function createConnectionSessionController({
       state: "connecting",
       abortController: new AbortController(),
       cleanups: [],
+      finalizers: [],
+      operations: new Set(),
       cleanupPromise: Promise.resolve(),
       initializationPromise: null,
       get signal() {
@@ -165,20 +225,26 @@ function createConnectionSessionController({
         };
       },
       guardAsync(handler) {
-        return async (...args) => {
+        return (...args) => {
           if (!this.isActive()) return undefined;
-          try {
-            const result = await handler(...args);
-            if (!this.isActive()) return undefined;
-            return result;
-          } catch (error) {
-            if (error instanceof SessionAbortedError || !this.isActive()) return undefined;
-            throw error;
-          }
+          const operation = (async () => {
+            try {
+              const result = await handler(...args);
+              if (!this.isActive()) return undefined;
+              return result;
+            } catch (error) {
+              if (error instanceof SessionAbortedError || !this.isActive()) return undefined;
+              throw error;
+            }
+          })();
+          return trackSessionOperation(this, operation);
         };
       },
       addCleanup(cleanup) {
         return addCleanup(this, cleanup);
+      },
+      addFinalizer(finalizer) {
+        return addFinalizer(this, finalizer);
       },
       whenClosed() {
         const observed = this.cleanupPromise;

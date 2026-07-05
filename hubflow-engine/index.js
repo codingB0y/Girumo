@@ -756,6 +756,8 @@ async function start(signal = new AbortController().signal) {
     browser: ["HUBFLOW", "Chrome", "1.0.0"],
   });
   const session = connectionController.create(sock);
+  let removeAuthOnClose = false;
+  session.addFinalizer(() => removeAuthOnClose ? rm("auth", { recursive: true, force: true }) : undefined);
   currentSession = session;
 
   const on = (event, handler, { async = false, message = `${event} handler failed` } = {}) => {
@@ -887,7 +889,7 @@ async function start(signal = new AbortController().signal) {
       // Logout/401: quase sempre QR expirado ou credencial velha. Limpa e gera QR novo.
       console.log("\n🔒 Sessão não autenticada (QR expirado ou auth velha). Limpando e gerando novo QR...");
       connectedSince = null; // sessão acabou de fato — zera o "conectado desde"
-      session.addCleanup(() => rm("auth", { recursive: true, force: true }));
+      removeAuthOnClose = true;
       wait = 2000;
     } else {
       wait = nextReconnectDelay();

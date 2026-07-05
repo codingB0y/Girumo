@@ -456,6 +456,14 @@ test("index registra o socket imediatamente no controller e não o encerra diret
   assert.doesNotMatch(source, /\bsock\??\.end\b/);
 });
 
+test("index registra remoção de auth como finalizer condicional da sessão", () => {
+  const source = readFileSync(require.resolve("./index.js"), "utf8");
+  assert.match(source, /let removeAuthOnClose = false;/);
+  assert.match(source, /session\.addFinalizer\(\(\) => removeAuthOnClose \? rm\("auth", \{ recursive: true, force: true \}\) : undefined\)/);
+  assert.match(source, /removeAuthOnClose = true;/);
+  assert.doesNotMatch(source, /session\.addCleanup\(\(\) => rm\("auth"/);
+});
+
 test("wiring real deduplica open e isola recursos e listeners entre sessões", async () => {
   const controller = createConnectionSessionController({ reconnect: async () => {} });
   const resources = { timers: [], workers: [], watchdogs: [] };
@@ -849,6 +857,116 @@ test("cleanup assíncrono preserva ordem reversa e expõe drain", async () => {
   await session.whenClosed();
   assert.deepEqual(calls, ["terceiro:start", "terceiro:end", "segundo", "primeiro"]);
   assert.equal(session.state, "closed");
+});
+
+test("finalizer de auth pendente roda depois de parar imediatamente todos os recursos", async () => {
+  const removingAuth = deferred();
+  const calls = [];
+  const controller = createConnectionSessionController({ reconnect: async () => {} });
+  const session = controller.create({});
+  session.addFinalizer(async () => {
+    calls.push("auth:start");
+    await removingAuth.promise;
+    calls.push("auth:end");
+  });
+  session.addCleanup(() => calls.push("listener"));
+  session.addCleanup(() => calls.push("timer"));
+  session.addCleanup(() => calls.push("watchdog"));
+  session.addCleanup(() => calls.push("worker"));
+
+  const closing = controller.handleClose(session, 0);
+  await flushPromises();
+
+  assert.deepEqual(calls, ["worker", "watchdog", "timer", "listener", "auth:start"]);
+  assert.equal(session.state, "closing");
+  removingAuth.resolve();
+  await closing;
+  assert.deepEqual(calls, ["worker", "watchdog", "timer", "listener", "auth:start", "auth:end"]);
+});
+
+test("handler assíncrono em voo termina antes do finalizer e abort impede novos handlers", async () => {
+  const saving = deferred();
+  const calls = [];
+  const controller = createConnectionSessionController({ reconnect: async () => {} });
+  const session = controller.create({});
+  const saveCreds = session.guardAsync(async () => {
+    calls.push("save:start");
+    await saving.promise;
+    calls.push("save:end");
+  });
+  session.addFinalizer(() => calls.push("rm-auth"));
+
+  const pendingSave = saveCreds();
+  await flushPromises();
+  const closing = controller.handleClose(session, 0);
+  assert.equal(await saveCreds(), undefined);
+  await flushPromises();
+  assert.deepEqual(calls, ["save:start"]);
+
+  saving.resolve();
+  await pendingSave;
+  await closing;
+  assert.deepEqual(calls, ["save:start", "save:end", "rm-auth"]);
+});
+
+test("timeout de finalizer libera reconnect e observa rejeição tardia sem unhandled", async () => {
+  const timers = createTimerHarness();
+  const removingAuth = deferred();
+  const logs = [];
+  const unhandled = [];
+  const onUnhandled = (error) => unhandled.push(error);
+  process.on("unhandledRejection", onUnhandled);
+  try {
+    const controller = createConnectionSessionController({
+      reconnect: async () => {},
+      finalizerTimeoutMs: 50,
+      logger: { log: (message, error) => logs.push(`${message}: ${error?.message ?? error ?? ""}`) },
+      setTimeoutFn: timers.setTimeoutFn,
+      clearTimeoutFn: timers.clearTimeoutFn,
+    });
+    const session = controller.create({});
+    session.addFinalizer(() => removingAuth.promise);
+
+    const closing = controller.handleClose(session, 25);
+    await flushPromises();
+    assert.equal(timers.active().length, 1);
+    assert.equal(timers.active()[0].delay, 50);
+    timers.fireNext();
+    assert.equal(await closing, true);
+    assert.equal(timers.active().length, 1);
+    assert.equal(timers.active()[0].delay, 25);
+
+    removingAuth.reject(new Error("rm tardio"));
+    await flushPromises();
+  } finally {
+    process.removeListener("unhandledRejection", onUnhandled);
+  }
+  assert.deepEqual(unhandled, []);
+  assert.equal(logs.some((message) => message.includes("timed out")), true);
+  assert.equal(logs.some((message) => message.includes("rm tardio")), true);
+});
+
+test("cleanups normais preservam LIFO antes de operações e finalizers", async () => {
+  const operation = deferred();
+  const calls = [];
+  const controller = createConnectionSessionController({ reconnect: async () => {} });
+  const session = controller.create({});
+  session.addFinalizer(() => calls.push("finalizer"));
+  session.addCleanup(() => calls.push("primeiro"));
+  session.addCleanup(() => calls.push("segundo"));
+  const tracked = session.guardAsync(async () => {
+    await operation.promise;
+    calls.push("operation");
+  })();
+  await flushPromises();
+
+  const closing = controller.handleClose(session, 0);
+  assert.deepEqual(calls, ["segundo", "primeiro"]);
+  operation.resolve();
+  await tracked;
+  await closing;
+
+  assert.deepEqual(calls, ["segundo", "primeiro", "operation", "finalizer"]);
 });
 
 test("shutdown só resolve depois de drenar cleanup", async () => {
