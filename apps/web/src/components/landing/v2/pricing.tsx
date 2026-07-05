@@ -18,8 +18,8 @@ const PLANS: Plan[] = [
   {
     name: "Essencial",
     monthly: 197,
-    tagline: "Pra botar pra rodar",
-    bestFor: "quem tá começando nos grupos",
+    tagline: "Pra começar",
+    bestFor: "quem tá botando os primeiros grupos pra rodar",
     features: [
       "1 número de WhatsApp",
       "Até 5 grupos gerenciados",
@@ -45,7 +45,7 @@ const PLANS: Plan[] = [
     ],
   },
   {
-    name: "Performance Max",
+    name: "Operação",
     monthly: 497,
     tagline: "A gente opera com você",
     bestFor: "quem quer um time junto na operação",

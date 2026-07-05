@@ -105,9 +105,16 @@ const TICKER_ITEMS = [
 ];
 
 const STEPS_STRIP = [
-  ["01", "Divulgue seu link", "A página de captação lota o grupo — e quando lota, o próximo nasce sozinho."],
-  ["02", "Monte a oferta", "Copys, criativos e modelos prontos. Agende uma vez."],
-  ["03", "Poste em todos num clique", "E veja no painel qual grupo virou venda."],
+  ["01", "Divulgue seu link", "A página de captação lota o grupo de revendedores — e quando lota, o próximo nasce sozinho."],
+  ["02", "Poste a novidade", "A grade nova em todos os grupos de uma vez, na hora certa."],
+  ["03", "Veja quem comprou", "De qual grupo e de qual anúncio veio cada pedido."],
+] as const;
+
+const CASE_STATS = [
+  ["R$5k → R$350k", "por mês"],
+  ["12.000", "revendedores"],
+  ["50+", "grupos"],
+  ["20 mil peças", "em evento de 2 dias"],
 ] as const;
 
 export default function LandingPage() {
@@ -132,25 +139,25 @@ export default function LandingPage() {
             style={{ ["--d" as string]: "0.05s" }}
           >
             <span className="lp-pulse h-1.5 w-1.5 rounded-full bg-zap" />
-            plataforma de grupos de WhatsApp
+            grupos de WhatsApp pra atacado de roupa
           </span>
 
           <h1
             className="lp-hero-in font-tech mt-8 text-balance text-[clamp(2.5rem,7vw,5.4rem)] font-bold leading-[1.02] tracking-[-0.04em] text-white"
             style={{ ["--d" as string]: "0.18s" }}
           >
-            Grupos de WhatsApp cheios.
+            Encha seus grupos de revendedor.
             <br />
-            <span className="text-bruma/40">Sua oferta em todos. Num clique.</span>
+            <span className="text-bruma/40">Poste em todos. Venda todo dia.</span>
           </h1>
 
           <p
             className="lp-hero-in mx-auto mt-7 max-w-xl text-pretty text-base leading-relaxed text-bruma/60 sm:text-lg"
             style={{ ["--d" as string]: "0.34s" }}
           >
-            O HubFlow te dá a página pronta que enche seu grupo sozinho, a oferta montada com copys
-            e criativos da biblioteca — e publica em todos os grupos de uma vez, mostrando de onde
-            veio cada venda.
+            O HubFlow lota seus grupos de WhatsApp com revendedores, publica sua oferta em todos de
+            uma vez e mostra de qual grupo veio cada venda. Feito por quem levou um atacado de roupa
+            de R$5 mil a R$350 mil por mês fazendo exatamente isso.
           </p>
 
           <div
@@ -162,7 +169,7 @@ export default function LandingPage() {
               data-magnetic
               className="lp-btn lp-btn-light inline-flex items-center gap-2 rounded-2xl px-8 py-4 text-base font-semibold"
             >
-              Criar minha campanha grátis <ArrowRight className="h-4 w-4" />
+              Criar minha campanha <ArrowRight className="h-4 w-4" />
             </a>
             <a
               href={WHATSAPP_URL}
@@ -177,11 +184,11 @@ export default function LandingPage() {
             className="lp-hero-in font-data mt-9 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[11px] uppercase tracking-[0.2em] text-bruma/40"
             style={{ ["--d" as string]: "0.62s" }}
           >
+            <span>feito por atacadista</span>
+            <span className="text-bruma/25">·</span>
             <span>conecta em 2 min</span>
             <span className="text-bruma/25">·</span>
-            <span>sem cartão</span>
-            <span className="text-bruma/25">·</span>
-            <span>cancele quando quiser</span>
+            <span>30 dias de garantia</span>
           </p>
         </div>
 
@@ -274,6 +281,33 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ============ CASE MEGA STOCK — prova central ============ */}
+      <section id="historia" className="relative border-t border-white/[0.07] py-24 sm:py-32">
+        <div className="mx-auto max-w-6xl px-5">
+          <div className="max-w-3xl" data-reveal>
+            <p className="font-data text-xs uppercase tracking-[0.3em] text-bruma/40">história real</p>
+            <h2 className="font-tech mt-4 text-[clamp(2rem,5vw,3.6rem)] font-bold leading-[1.05] tracking-tight text-white">
+              A gente não vende teoria. <span className="text-bruma/45">Vende o que fez a nossa loja faturar.</span>
+            </h2>
+            <p className="mt-6 max-w-2xl text-pretty text-base leading-relaxed text-bruma/60 sm:text-lg">
+              A Mega Stock começou como um atacado de roupa infantil na região da 44, em Goiânia. Em
+              pouco tempo, saímos de R$5 mil para R$350 mil por mês — com um jeito de vender por grupos
+              de WhatsApp que a gente foi lapidando no dia a dia. Chegamos a 12 mil revendedores em mais
+              de 50 grupos. Num único evento de 2 dias, saíram mais de 20 mil peças. O HubFlow é a
+              ferramenta que a gente construiu pra dar conta de tudo isso — e agora ela é sua.
+            </p>
+          </div>
+          <dl className="mt-12 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/[0.06] sm:grid-cols-4" data-reveal-group>
+            {CASE_STATS.map(([value, label]) => (
+              <div key={label} className="bg-void px-5 py-7 text-center">
+                <dt className="font-tech text-[clamp(1.5rem,3.5vw,2.4rem)] font-bold tracking-tight text-white">{value}</dt>
+                <dd className="font-data mt-1.5 text-[11px] uppercase tracking-[0.18em] text-bruma/45">{label}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </section>
+
       {/* ============ PLANOS ============ */}
       <section id="planos" className="relative border-t border-white/[0.07] py-24 sm:py-32">
         <div className="relative mx-auto max-w-6xl px-5">
@@ -282,6 +316,9 @@ export default function LandingPage() {
             <h2 className="font-tech mt-4 text-[clamp(2rem,5vw,3.6rem)] font-bold leading-[1.05] tracking-tight text-white">
               Comece pequeno, <span className="text-bruma/45">cresça sem trocar de ferramenta.</span>
             </h2>
+            <p className="mt-5 text-bruma/55">
+              A Mega Stock fez R$350 mil por mês com esse jeito de vender. O Growth custa menos que uma grade.
+            </p>
           </div>
           <div className="mt-12" data-reveal>
             <PricingV2 signupUrl={SIGNUP_URL} whatsappUrl={WHATSAPP_URL} />
@@ -327,6 +364,7 @@ export default function LandingPage() {
           </h2>
           <p className="mx-auto mt-6 max-w-md text-bruma/60" data-reveal>
             Conecte seu WhatsApp em 2 minutos, crie a primeira campanha e veja o fluxo trabalhar.
+            30 dias de garantia — usou e não curtiu, devolvemos tudo.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row" data-reveal>
             <a
@@ -334,7 +372,7 @@ export default function LandingPage() {
               data-magnetic
               className="lp-btn lp-btn-light inline-flex items-center gap-2 rounded-2xl px-8 py-4 text-base font-semibold"
             >
-              Teste 7 dias grátis <ArrowRight className="h-4 w-4" />
+              Começar agora <ArrowRight className="h-4 w-4" />
             </a>
             <a
               href={WHATSAPP_URL}
@@ -345,7 +383,7 @@ export default function LandingPage() {
             </a>
           </div>
           <p className="font-data mt-8 text-[11px] uppercase tracking-[0.25em] text-bruma/40" data-reveal>
-            sem cartão · sem fidelidade · seus contatos são seus
+            30 dias de garantia · sem fidelidade · seus contatos são seus
           </p>
         </div>
       </section>

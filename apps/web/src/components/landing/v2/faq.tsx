@@ -26,6 +26,10 @@ export const FAQ_ITEMS: [string, string][] = [
     "Sim. O número é seu, os grupos são seus, os contatos são seus. Sem fidelidade, sem multa, sem pegadinha.",
   ],
   [
+    "E se eu não gostar?",
+    "Você tem 30 dias de garantia incondicional. Usou, não curtiu, devolvemos 100% — sem pergunta, sem burocracia. O número, os grupos e os contatos são seus de qualquer jeito.",
+  ],
+  [
     "Como eu sei de onde vieram as vendas?",
     "Cada link de campanha é rastreado. O painel mostra origem por anúncio, bio ou story — você vê qual canal enche grupo e qual gera venda, sem planilha.",
   ],
