@@ -49,7 +49,7 @@ export const COLOR_STYLES: Record<
  * component_key (banco) → componente React.
  * Sessão 2 troca os três pelo layout final; "basic" é o fallback permanente.
  */
-const TEMPLATE_REGISTRY: Record<string, ComponentType<TemplateProps>> = {
+export const TEMPLATE_REGISTRY: Record<string, ComponentType<TemplateProps>> = {
   basic: BasicTemplate,
   "promo-relampago": BasicTemplate,
   "sorteio-premio": BasicTemplate,

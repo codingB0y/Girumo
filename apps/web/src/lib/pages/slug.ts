@@ -13,7 +13,7 @@ const RESERVED = new Set([
 
 const SUFFIX_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"; // sem 0/O/1/l/i
 
-function slugify(name: string): string {
+export function slugify(name: string): string {
   const base = name
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
@@ -25,7 +25,7 @@ function slugify(name: string): string {
   return base.length >= 3 ? base : `pagina${base ? `-${base}` : ""}`;
 }
 
-function randomSuffix(length = 4): string {
+export function randomSuffix(length = 4): string {
   const bytes = randomBytes(length);
   let out = "";
   for (let i = 0; i < length; i++) {
