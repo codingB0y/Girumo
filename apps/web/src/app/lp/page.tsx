@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { Outfit } from "next/font/google";
 import { ArrowRight, Check } from "lucide-react";
 import { WhatsAppIcon } from "@/components/landing/icons";
@@ -145,8 +146,20 @@ export default function LpExperience() {
               </p>
             </div>
 
-            {/* cluster flutuante — a esteira em miniatura */}
-            <div data-lp-hi className="relative h-[400px] lg:col-span-5 lg:h-[500px]">
+            {/* cluster flutuante — a esteira em miniatura sobre still editorial */}
+            <div data-lp-hi className="relative h-[420px] lg:col-span-5 lg:h-[520px]">
+              <div className="absolute bottom-8 right-0 top-8 w-[76%] rotate-[2deg] overflow-hidden rounded-[2rem] border border-[var(--lp-line)] shadow-[0_50px_100px_-50px_rgba(20,19,16,0.5)]">
+                <Image
+                  src="/lp/still-atacado.webp"
+                  alt=""
+                  width={928}
+                  height={1152}
+                  priority
+                  className="h-full w-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[rgba(244,241,233,0.35)] to-transparent" aria-hidden />
+              </div>
+
               <div className="lp3-card lp3-float-c absolute left-4 top-0 rotate-[-3deg] px-4 py-2.5">
                 <p className="font-mono text-xs">hubflow.com.br/c/novidades</p>
               </div>
