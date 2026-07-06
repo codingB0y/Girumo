@@ -164,6 +164,28 @@ test("migration detecta drift de enum e colunas criticas", () => {
   }
 });
 
+test("migration trata default ausente como drift nas contagens", () => {
+  const sql = readFileSync(migrationPath, "utf8");
+  const catalogValidation = sql.match(/for expected in[\s\S]*?end loop;/i)?.[0] ?? "";
+
+  assert.match(catalogValidation, /expected\.default_expression\s+is\s+not\s+null[\s\S]*actual_default\s+is\s+null/i);
+  assert.match(catalogValidation, /\('attempt_count',[\s\S]*?'0'::text\)/i);
+  assert.match(catalogValidation, /\('max_attempts',[\s\S]*?'3'::text\)/i);
+});
+
+test("migration valida definicao de constraints existentes sem exigir VALIDATE", () => {
+  const sql = readFileSync(migrationPath, "utf8");
+
+  assert.match(sql, /pg_catalog\.pg_constraint/i);
+  assert.match(sql, /pg_catalog\.pg_get_constraintdef/i);
+  assert.match(sql, /engine_commands_attempt_count_nonnegative/i);
+  assert.match(sql, /engine_commands_max_attempts_positive/i);
+  assert.match(sql, /attempt_count\s*>=\s*0/i);
+  assert.match(sql, /max_attempts\s*>\s*0/i);
+  assert.match(sql, /raise exception[^;]*constraint[^;]*schema drift/is);
+  assert.doesNotMatch(sql, /convalidated\s*=\s*true/i);
+});
+
 test("migration reduz bloqueios e documenta validacao operacional posterior", () => {
   const sql = readFileSync(migrationPath, "utf8");
   const guide = readFileSync("deploy/supabase/apply-order.md", "utf8");

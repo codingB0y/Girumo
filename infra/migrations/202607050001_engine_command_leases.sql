@@ -89,9 +89,12 @@ begin
       )
       or (
         expected.default_expression is not null
-        and actual_default not in (
-          expected.default_expression,
-          expected.default_expression || '::integer'
+        and (
+          actual_default is null
+          or actual_default not in (
+            expected.default_expression,
+            expected.default_expression || '::integer'
+          )
         )
       )
     then
@@ -120,6 +123,47 @@ begin
     add constraint engine_commands_max_attempts_positive check (max_attempts > 0) not valid;
 exception
   when duplicate_object then null;
+end
+$$;
+
+-- Duplicate constraint names must not hide a weaker or unrelated definition.
+-- Validation state is intentionally ignored: NOT VALID still protects new rows,
+-- and the historical scan is scheduled separately in the runbook.
+do $$
+declare
+  expected record;
+  actual_definition text;
+begin
+  for expected in
+    select *
+    from (values
+      ('engine_commands_attempt_count_nonnegative', 'checkattempt_count>=0'),
+      ('engine_commands_max_attempts_positive', 'checkmax_attempts>0')
+    ) as expected_constraints(constraint_name, normalized_definition)
+  loop
+    select replace(
+      lower(pg_catalog.regexp_replace(
+        pg_catalog.pg_get_constraintdef(constraint_catalog.oid),
+        '[[:space:]()]+',
+        '',
+        'g'
+      )),
+      'notvalid',
+      ''
+    )
+    into actual_definition
+    from pg_catalog.pg_constraint as constraint_catalog
+    where constraint_catalog.conrelid = 'public.engine_commands'::pg_catalog.regclass
+      and constraint_catalog.conname = expected.constraint_name
+      and constraint_catalog.contype = 'c';
+
+    if actual_definition is distinct from expected.normalized_definition then
+      raise exception 'Constraint % schema drift: definition %, expected %',
+        expected.constraint_name,
+        actual_definition,
+        expected.normalized_definition;
+    end if;
+  end loop;
 end
 $$;
 
