@@ -209,10 +209,18 @@ create table if not exists public.engine_commands (
   claimed_at timestamptz,
   completed_at timestamptz,
   failed_at timestamptz,
+  lease_token uuid,
+  lease_expires_at timestamptz,
+  attempt_count integer not null default 0,
+  max_attempts integer not null default 3,
+  effect_started_at timestamptz,
+  failure_kind public.engine_command_failure_kind,
   error text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint engine_commands_command_id_unique unique (command_id)
+  constraint engine_commands_command_id_unique unique (command_id),
+  constraint engine_commands_attempt_count_nonnegative check (attempt_count >= 0),
+  constraint engine_commands_max_attempts_positive check (max_attempts > 0)
 );
 
 -- ENGINE EVENTS

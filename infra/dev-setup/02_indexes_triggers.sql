@@ -14,7 +14,11 @@ create index if not exists campaigns_tenant_status_idx on public.campaigns (tena
 create index if not exists contacts_tenant_email_idx on public.contacts (tenant_id, email);
 create index if not exists messages_tenant_created_idx on public.messages (tenant_id, created_at desc);
 create index if not exists logs_tenant_created_idx on public.logs (tenant_id, created_at desc);
-create index if not exists engine_commands_claim_idx on public.engine_commands (status, available_at, created_at);
+drop index if exists public.engine_commands_claim_idx;
+create index if not exists engine_commands_claim_idx on public.engine_commands (status, available_at, created_at, id);
+create index if not exists engine_commands_processing_lease_expiry_idx
+  on public.engine_commands (lease_expires_at)
+  where status = 'processing';
 create index if not exists engine_events_status_idx on public.engine_events (status, created_at);
 create index if not exists idx_agent_configs_tenant on agent_configs(tenant_id);
 create index if not exists idx_agent_configs_agent on agent_configs(agent_id);

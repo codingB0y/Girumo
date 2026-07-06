@@ -78,6 +78,11 @@ exception when duplicate_object then null;
 end $$;
 
 do $$ begin
+  create type public.engine_command_failure_kind as enum ('retryable', 'permanent', 'uncertain');
+exception when duplicate_object then null;
+end $$;
+
+do $$ begin
   create type public.engine_event_status as enum ('received', 'processed', 'failed');
 exception when duplicate_object then null;
 end $$;

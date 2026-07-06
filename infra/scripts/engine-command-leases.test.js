@@ -3,6 +3,12 @@ const { readFileSync } = require("node:fs");
 const test = require("node:test");
 
 const migrationPath = "infra/migrations/202607050001_engine_command_leases.sql";
+const devSetupPaths = [
+  "infra/dev-setup/00_full_schema_dev.sql",
+  "infra/dev-setup/01_tables.sql",
+  "infra/dev-setup/02_indexes_triggers.sql",
+  "infra/dev-setup/04_storage_rpc_seed.sql",
+];
 
 function occurrences(value, pattern) {
   return [...value.matchAll(pattern)].length;
@@ -15,6 +21,10 @@ function functionDefinition(sql, functionName, schema = "app") {
   ));
   assert.ok(match, `definicao de ${schema}.${functionName} ausente`);
   return match[0];
+}
+
+function readDevSetupSql() {
+  return devSetupPaths.map((path) => readFileSync(path, "utf8")).join("\n");
 }
 
 test("migration implementa schema aditivo de lease e fencing", () => {
@@ -249,4 +259,61 @@ test("ordem de deploy inclui migration uma vez apos RPC base", () => {
   assert.ok(order.indexOf(migrationEntry) < order.indexOf("infra/migrations/202606240006_membership_invites.sql"));
   assert.match(guide, /202607050001_engine_command_leases\.sql/);
   assert.match(guide, /interromper[\s\S]*workers antigos/i);
+});
+
+test("dev-setup espelha schema de lease dos comandos", () => {
+  const sql = readDevSetupSql();
+
+  assert.match(sql, /create type public\.engine_command_failure_kind\s+as enum\s*\(\s*'retryable'\s*,\s*'permanent'\s*,\s*'uncertain'\s*\)/i);
+  for (const column of [
+    "lease_token uuid",
+    "lease_expires_at timestamptz",
+    "attempt_count integer not null default 0",
+    "max_attempts integer not null default 3",
+    "effect_started_at timestamptz",
+    "failure_kind public.engine_command_failure_kind",
+  ]) {
+    assert.match(sql, new RegExp(column, "i"));
+  }
+  assert.match(sql, /constraint engine_commands_attempt_count_nonnegative\s+check\s*\(attempt_count\s*>=\s*0\)/i);
+  assert.match(sql, /constraint engine_commands_max_attempts_positive\s+check\s*\(max_attempts\s*>\s*0\)/i);
+  assert.match(sql, /engine_commands_processing_lease_expiry_idx[\s\S]*where\s+status\s*=\s*'processing'/i);
+});
+
+test("dev-setup espelha RPCs fenced de lease", () => {
+  const sql = readDevSetupSql();
+
+  for (const [schema, name, signature] of [
+    ["app", "claim_engine_commands", /max_commands integer default 5\s*,\s*lease_seconds integer default 60/i],
+    ["app", "renew_engine_command_lease", /target_command_id uuid\s*,\s*target_lease_token uuid\s*,\s*lease_seconds integer default 60/i],
+    ["app", "mark_engine_command_effect_started", /target_command_id uuid\s*,\s*target_lease_token uuid/i],
+    ["app", "complete_engine_command", /target_command_id uuid\s*,\s*target_lease_token uuid\s*,\s*success boolean\s*,\s*error_message text default null\s*,\s*target_failure_kind public\.engine_command_failure_kind default 'retryable'\s*,\s*retry_delay_seconds integer default 30/i],
+    ["public", "claim_engine_commands", /max_commands integer default 5\s*,\s*lease_seconds integer default 60/i],
+    ["public", "renew_engine_command_lease", /target_command_id uuid\s*,\s*target_lease_token uuid\s*,\s*lease_seconds integer default 60/i],
+    ["public", "mark_engine_command_effect_started", /target_command_id uuid\s*,\s*target_lease_token uuid/i],
+    ["public", "complete_engine_command", /target_command_id uuid\s*,\s*target_lease_token uuid\s*,\s*success boolean\s*,\s*error_message text default null\s*,\s*target_failure_kind public\.engine_command_failure_kind default 'retryable'\s*,\s*retry_delay_seconds integer default 30/i],
+    ["public", "record_engine_event", /target_command_id uuid\s*,\s*target_lease_token uuid\s*,\s*target_tenant_id uuid\s*,\s*target_instance_id uuid\s*,\s*target_type text/i],
+    ["public", "update_instance_status", /target_command_id uuid\s*,\s*target_lease_token uuid\s*,\s*target_tenant_id uuid\s*,\s*target_instance_id uuid\s*,\s*target_status public\.instance_status/i],
+  ]) {
+    assert.match(functionDefinition(sql, name, schema), signature);
+  }
+
+  const claimDefinition = functionDefinition(sql, "claim_engine_commands", "app");
+  assert.match(claimDefinition, /with\s+expired_candidates\s+as/i);
+  assert.match(claimDefinition, /order by command\.lease_expires_at asc\s*,\s*command\.id asc/i);
+  assert.match(claimDefinition, /limit\s+least\s*\(\s*greatest\s*\(\s*coalesce\s*\(\s*max_commands\s*,\s*5\s*\)\s*,\s*1\s*\)\s*,\s*100\s*\)/i);
+  assert.match(claimDefinition, /for update skip locked/i);
+  assert.match(claimDefinition, /from expired_candidates[\s\S]*command\.id\s*=\s*expired_candidates\.id/i);
+
+  for (const name of ["record_engine_event", "update_instance_status"]) {
+    const definition = functionDefinition(sql, name, "public");
+    assert.match(definition, /with\s+owned_command\s+as\s+materialized/i);
+    assert.match(definition, /for update/i);
+    assert.match(definition, /lease_token\s*=\s*target_lease_token/i);
+  }
+
+  assert.match(sql, /drop function if exists public\.record_engine_event\s*\(uuid\s*,\s*uuid\s*,\s*text\s*,\s*jsonb\s*,\s*uuid\)/i);
+  assert.match(sql, /drop function if exists public\.update_instance_status\s*\(uuid\s*,\s*uuid\s*,\s*public\.instance_status\s*,\s*text\s*,\s*text\s*,\s*text\s*,\s*jsonb\)/i);
+  assert.match(sql, /revoke execute on function app\.record_engine_event\(uuid, uuid, text, jsonb, uuid\) from public, anon, authenticated, service_role/i);
+  assert.match(sql, /revoke execute on function app\.update_instance_status\(uuid, uuid, public\.instance_status, text, text, text, jsonb\) from public, anon, authenticated, service_role/i);
 });

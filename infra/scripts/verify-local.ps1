@@ -35,6 +35,8 @@ Invoke-NativeStep "Testes" {
   npm.cmd test
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
   npm.cmd run engine:test
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  node --test infra/scripts/engine-command-leases.test.js
 }
 
 Invoke-NativeStep "TypeScript web" {
