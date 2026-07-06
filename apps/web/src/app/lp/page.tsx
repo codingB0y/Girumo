@@ -122,7 +122,7 @@ export default function LpExperience() {
                 data-lp-hi
                 className="mt-7 max-w-4xl text-balance text-[clamp(2.7rem,5.1vw,4.9rem)] font-extrabold leading-[1.03] tracking-[-0.03em]"
               >
-                Encha seus grupos de revendedor. Poste em todos.{" "}
+                Lote seus grupos de Revendedores, Sacoleiras e Lojistas. Poste em todos.{" "}
                 <span className="lp3-marker">Venda todo dia.</span>
               </h1>
 

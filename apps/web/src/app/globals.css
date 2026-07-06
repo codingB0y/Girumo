@@ -768,6 +768,249 @@ body {
   .lp-visual { opacity: 1; transform: none; position: relative; }
 }
 
+/* ======================================================================
+   PAINEL — "O BALCÃO" · design system do app do cliente (2026-07)
+   Namespace pn-*. Conceito: estoque escuro (sidebar) + balcão claro
+   (conteúdo). Romaneio (mono tabular), etiqueta (canto cortado),
+   fio de íris (ativo), Aurora VIP (1 peça escura por tela).
+   Motion: família ease-fluxo (entra rápido, assenta suave, nunca quica).
+   ====================================================================== */
+@theme inline {
+  /* Superfícies do balcão */
+  --color-balcao: #edeaf1;   /* fundo da página (bruma re-temperada, +quente) */
+  --color-papel: #fcfbfe;    /* card resting — branco com 1% de violeta */
+  --color-poco: #f4f2f7;     /* inset: inputs, barras vazias, áreas de link */
+
+  /* Sombras em camadas (contato + ambiente) */
+  --shadow-pn-1: 0 1px 2px rgba(11, 13, 26, 0.05), 0 2px 8px rgba(11, 13, 26, 0.04);
+  --shadow-pn-2: 0 2px 4px rgba(11, 13, 26, 0.06), 0 10px 28px rgba(11, 13, 26, 0.09);
+  --shadow-pn-3: 0 4px 10px rgba(11, 13, 26, 0.08), 0 28px 72px rgba(11, 13, 26, 0.18);
+  --shadow-pn-escura: 0 8px 32px rgba(61, 31, 176, 0.25);
+}
+
+:root {
+  /* Gramática de motion — assinatura ease-fluxo */
+  --ease-fluxo: cubic-bezier(0.22, 1, 0.36, 1);        /* entradas / reveals */
+  --ease-fluxo-inout: cubic-bezier(0.65, 0, 0.35, 1);  /* deslocamento A→B */
+  --ease-fluxo-snap: cubic-bezier(0.3, 0, 0.7, 0);     /* saídas / press */
+  --ease-fluxo-over: cubic-bezier(0.34, 1.3, 0.44, 1); /* overshoot 4% — raro */
+  --dur-instant: 90ms;
+  --dur-fast: 160ms;
+  --dur-base: 240ms;
+  --dur-slow: 360ms;
+  --dur-story: 600ms;
+}
+
+/* Card do balcão: bancada iluminada de cima (realce interno + 2 sombras) */
+.pn-card {
+  background: var(--color-papel);
+  border: 1px solid rgba(11, 13, 26, 0.07);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), var(--shadow-pn-1);
+}
+.pn-card-hover {
+  transition:
+    transform var(--dur-fast) var(--ease-fluxo),
+    box-shadow var(--dur-fast) var(--ease-fluxo),
+    border-color var(--dur-fast) var(--ease-fluxo);
+}
+.pn-card-hover:hover {
+  transform: translateY(-2px);
+  border-color: rgba(106, 75, 240, 0.18);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), var(--shadow-pn-2);
+}
+.pn-card-hover:active {
+  transform: translateY(0) scale(0.99);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), var(--shadow-pn-1);
+}
+
+/* Poço (inset): inputs, barras vazias — sem realce, é poço, não bancada */
+.pn-poco {
+  background: var(--color-poco);
+  border: 1px solid rgba(11, 13, 26, 0.05);
+}
+
+/* Aurora VIP — SÓ na Peça Escura e no card de plano. Nunca em mais nada. */
+.pn-aurora {
+  background:
+    radial-gradient(120% 140% at 85% -10%, rgba(138, 108, 255, 0.35) 0%, rgba(106, 75, 240, 0.12) 45%, transparent 70%),
+    linear-gradient(160deg, #0b0d1a 0%, #11142a 100%);
+  box-shadow: var(--shadow-pn-escura);
+  transition: box-shadow var(--dur-slow) var(--ease-fluxo);
+}
+.pn-aurora:hover {
+  box-shadow: 0 8px 40px rgba(61, 31, 176, 0.38);
+}
+
+/* Fio de íris — gramática única de "ativo" (nav, card selecionado, step) */
+.pn-ativo {
+  box-shadow: inset 2px 0 0 #6a4bf0;
+  background: rgba(106, 75, 240, 0.06);
+}
+
+/* Etiqueta — chip de status com canto cortado (tag de peça de roupa) */
+.pn-etiqueta {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  clip-path: polygon(9px 0, 100% 0, 100% 100%, 9px 100%, 0 50%);
+  padding: 3px 10px 3px 15px;
+  font-family: var(--font-tech);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.pn-etiqueta::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  width: 3px;
+  height: 3px;
+  transform: translateY(-50%);
+  border-radius: 9999px;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+/* Total de romaneio: borda dupla em cima (somado à mão) */
+.pn-total {
+  border-top: 1px solid rgba(11, 13, 26, 0.25);
+  box-shadow: 0 -3px 0 -2px rgba(11, 13, 26, 0.25);
+}
+
+/* --- Motion --- */
+
+/* Entrada de página: fade + 8px, stagger via --d (CSS-first, sem esperar JS) */
+@keyframes pn-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.pn-rise {
+  opacity: 0;
+  animation: pn-rise var(--dur-base) var(--ease-fluxo) both;
+  animation-delay: var(--d, 0s);
+}
+
+/* Skeleton que respira (organismo aguardando, não scanner) */
+@keyframes pn-breathe {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+.pn-skeleton {
+  background: #e4e1ea;
+  animation: pn-breathe 1.8s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * 150ms);
+}
+
+/* Respiração do status conectado (2.4s, ritmo de repouso).
+   Desconectado NÃO respira — a ausência do movimento é o alarme. */
+@keyframes pn-respira {
+  0%, 100% { opacity: 0.55; box-shadow: 0 0 0 0 rgba(30, 142, 90, 0.25); }
+  50% { opacity: 1; box-shadow: 0 0 0 3px rgba(30, 142, 90, 0.18); }
+}
+.pn-respira { animation: pn-respira 2.4s ease-in-out infinite; }
+
+/* Anel que irradia (celebração média: grupo cheio, meta batida) */
+@keyframes pn-irradia {
+  0% { box-shadow: 0 0 0 0 rgba(30, 142, 90, 0.25); }
+  70% { box-shadow: 0 0 0 8px rgba(30, 142, 90, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(30, 142, 90, 0); }
+}
+.pn-irradia { animation: pn-irradia 0.7s var(--ease-fluxo) 1; }
+
+/* Sheen único na barra que encheu (uma vez, jamais loop) */
+@keyframes pn-sheen {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(340%); }
+}
+.pn-sheen { animation: pn-sheen 0.5s var(--ease-fluxo) 0.1s 1 both; }
+
+/* Shake honesto de erro (roda 1x, 240ms) */
+@keyframes pn-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  55% { transform: translateX(4px); }
+  80% { transform: translateX(-2px); }
+}
+.pn-shake { animation: pn-shake var(--dur-base) var(--ease-fluxo-inout) 1; }
+
+/* Pop de badge/delta (overshoot leve) */
+@keyframes pn-pop {
+  from { opacity: 0; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1); }
+}
+.pn-pop { animation: pn-pop 0.2s var(--ease-fluxo-over) both; }
+
+/* Carimbo (conclusão de fluxo): serif itálico rotacionado assentando */
+@keyframes pn-carimbo {
+  from { opacity: 0; transform: rotate(-2deg) scale(1.15); }
+  to { opacity: 1; transform: rotate(-2deg) scale(1); }
+}
+.pn-carimbo {
+  display: inline-block;
+  font-family: var(--font-editorial);
+  font-style: italic;
+  border: 1.5px solid #1e8e5a;
+  color: #1e8e5a;
+  border-radius: 8px;
+  padding: 2px 12px;
+  transform: rotate(-2deg);
+  animation: pn-carimbo 0.2s var(--ease-fluxo) both;
+}
+
+/* Command palette / modais: entrada 180ms */
+@keyframes pn-palette-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+.pn-palette-in { animation: pn-palette-in 0.18s var(--ease-fluxo) both; }
+
+/* Toast do lead: desliza da borda com overshoot (a mensagem "encosta") */
+@keyframes pn-toast-in {
+  from { opacity: 0; transform: translateX(calc(100% + 16px)); }
+  60% { opacity: 1; transform: translateX(-4px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.pn-toast-in { animation: pn-toast-in 0.32s var(--ease-fluxo-over) both; }
+
+/* Ping do lead chegando (anel verde do avatar, 1x) */
+@keyframes pn-ping {
+  from { opacity: 0.5; transform: scale(1); }
+  to { opacity: 0; transform: scale(1.8); }
+}
+.pn-ping::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 2px solid rgba(30, 142, 90, 0.6);
+  animation: pn-ping 0.5s var(--ease-fluxo) 1 both;
+}
+
+/* Barra de capacidade: enche por scaleX (nunca width) */
+.pn-fill {
+  transform-origin: left;
+  transition: transform var(--dur-story) var(--ease-fluxo), background-color 0.3s ease;
+}
+
+/* Reduced motion: informação nunca mora só no movimento */
+@media (prefers-reduced-motion: reduce) {
+  .pn-rise { animation-duration: 0.15s; animation-name: pn-rise-rm; }
+  .pn-skeleton { animation: none; opacity: 0.8; }
+  .pn-respira, .pn-irradia, .pn-sheen, .pn-shake { animation: none; }
+  .pn-pop, .pn-carimbo, .pn-palette-in, .pn-toast-in { animation-duration: 0.15s; }
+  .pn-ping::after { animation: none; opacity: 0; }
+  .pn-fill { transition: background-color 0.3s ease; }
+  .pn-card-hover, .pn-card-hover:hover, .pn-card-hover:active { transform: none; }
+}
+@keyframes pn-rise-rm {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 /* Confetti animation */
 @keyframes confetti-fall {
   0% {

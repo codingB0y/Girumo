@@ -205,3 +205,30 @@ retenção 90d; TikTok só coluna; briefing supersede trava "squads aprovarem".
 - **Bug real encontrado:** CSP da /p sem 'unsafe-eval' mata a hidratação no DEV (Turbopack usa eval) —
   form degrada pra submit GET nativo. Fix: 'unsafe-eval' só em development no next.config.
 - Build produção EXIT=0 · tsc limpo · eslint limpo
+
+---
+
+# Sessão 2026-07-06 — Redesign premium /painel (ui-ux-pro-max)
+
+> Lane: Frontend+UI · Escopo: `src/app/painel/**`, `src/components/painel/*`, `src/components/ui/*`, `globals.css`
+> Fora de escopo: backend/API, landing, admin.
+
+## Objetivo
+Interface do cliente em nível SaaS premium — usuário sente que "paga barato". Cores, tipografia,
+motion, primitivos. Ideação via subagentes (não-template).
+
+## Etapas
+- [x] 1. Mapeamento (30 páginas painel, primitivos ui/*, tokens hf-* atuais)
+- [x] 2. Design system base via script do skill (guard-rails, não estética)
+- [ ] 3. Ideação subagentes (UI Designer + Whimsy Injector)
+- [ ] 4. Síntese da direção
+- [ ] 5. Tokens + motion layer no globals.css (namespace pn-*)
+- [ ] 6. Primitivos ui/* (button, card, input, badge, skeleton)
+- [ ] 7. Shell (sidebar, topbar, mobile-nav, page-transition, command palette)
+- [ ] 8. Dashboard /painel
+- [ ] 9. Telas quentes (campanhas, resultados, grupos)
+- [ ] 10. A11y + build limpo
+
+## Decisões
+- Íris mantido como âncora de marca (regra durável da lane); verde só sucesso.
+- (mais decisões após ideação)
