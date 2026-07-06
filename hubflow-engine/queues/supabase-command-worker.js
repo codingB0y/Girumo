@@ -1,4 +1,9 @@
-const { hasSupabaseEngineConfig, optionalEnv, requireEnv } = require("../config/env.js");
+const {
+  boundedInteger,
+  hasSupabaseEngineConfig,
+  optionalEnv,
+  requireEnv,
+} = require("../config/env.js");
 
 class WorkerRunAbortedError extends Error {
   constructor(generation) {
@@ -6,6 +11,25 @@ class WorkerRunAbortedError extends Error {
     this.name = "WorkerRunAbortedError";
     this.code = "ENGINE_WORKER_RUN_ABORTED";
     this.generation = generation;
+    this.retryable = false;
+  }
+}
+
+class LeaseLostError extends Error {
+  constructor(commandId, operation) {
+    super(`Lease do comando ${commandId} perdido durante ${operation}`);
+    this.name = "LeaseLostError";
+    this.code = "ENGINE_COMMAND_LEASE_LOST";
+    this.commandId = commandId;
+    this.operation = operation;
+    this.retryable = false;
+  }
+}
+
+class PermanentCommandError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "PermanentCommandError";
     this.retryable = false;
   }
 }
@@ -67,6 +91,33 @@ function toWhatsAppJid(payload) {
   return null;
 }
 
+function compositeRow(result) {
+  if (Array.isArray(result)) return result.length > 0 ? result[0] : null;
+  return result && typeof result === "object" ? result : null;
+}
+
+function leaseBody(command) {
+  return {
+    target_command_id: command.command_id,
+    target_lease_token: command.lease_token,
+  };
+}
+
+function hasLeaseMetadata(command) {
+  return Boolean(
+    command &&
+    command.command_id &&
+    command.lease_token &&
+    Number.isInteger(command.attempt_count) &&
+    command.attempt_count > 0,
+  );
+}
+
+function retryDelayForAttempt(attemptCount, baseSeconds) {
+  const exponent = Math.max(0, Math.min(attemptCount - 1, 10));
+  return Math.min(baseSeconds * (2 ** exponent), 3600);
+}
+
 function createSupabaseCommandWorker({
   enabled = hasSupabaseEngineConfig(),
   client,
@@ -76,6 +127,10 @@ function createSupabaseCommandWorker({
   sleep = abortableSleep,
   pollMs = Number(optionalEnv("ENGINE_COMMAND_POLL_MS") ?? 3000),
   batchSize = Number(optionalEnv("ENGINE_COMMAND_BATCH_SIZE") ?? 5),
+  leaseSeconds = boundedInteger(optionalEnv("ENGINE_COMMAND_LEASE_SECONDS"), 60, 15, 900),
+  retryDelaySeconds = 30,
+  setIntervalFn = setInterval,
+  clearIntervalFn = clearInterval,
 } = {}) {
   if (!enabled) {
     return {
@@ -111,6 +166,10 @@ function createSupabaseCommandWorker({
     return error instanceof WorkerRunAbortedError || !isRunCurrent(run);
   }
 
+  function isLeaseLost(error) {
+    return error instanceof LeaseLostError;
+  }
+
   async function rpc(run, name, body) {
     assertRunActive(run);
     const result = await supabase.rpc(name, body);
@@ -120,7 +179,7 @@ function createSupabaseCommandWorker({
 
   async function recordEvent(run, command, type, payload = {}) {
     if (!command.tenant_id || !command.instance_id) return;
-    await rpc(run, "record_engine_event", {
+    await fencedRpc(run, command, "record_engine_event", {
       target_tenant_id: command.tenant_id,
       target_instance_id: command.instance_id,
       target_type: type,
@@ -130,7 +189,7 @@ function createSupabaseCommandWorker({
 
   async function updateInstance(run, command, status, payload = {}) {
     if (!command.tenant_id || !command.instance_id) return;
-    await rpc(run, "update_instance_status", {
+    await fencedRpc(run, command, "update_instance_status", {
       target_tenant_id: command.tenant_id,
       target_instance_id: command.instance_id,
       target_status: status,
@@ -141,89 +200,179 @@ function createSupabaseCommandWorker({
     });
   }
 
-  async function complete(run, command, success, errorMessage = null) {
-    await rpc(run, "complete_engine_command", {
-      target_command_id: command.command_id,
+  async function fencedRpc(run, command, name, body = {}) {
+    const result = await rpc(run, name, { ...leaseBody(command), ...body });
+    if (!compositeRow(result)) throw new LeaseLostError(command.command_id, name);
+    return result;
+  }
+
+  async function complete(
+    run,
+    command,
+    success,
+    errorMessage = null,
+    failureKind = "retryable",
+    retryDelay = retryDelaySeconds,
+  ) {
+    await fencedRpc(run, command, "complete_engine_command", {
       success,
       error_message: errorMessage,
+      target_failure_kind: failureKind,
+      retry_delay_seconds: retryDelay,
     });
   }
 
-  async function handleCommand(run, command) {
-    const session = assertRunActive(run);
-    const sock = session.sock;
-    const payload = command.payload ?? {};
+  async function withLeaseRenewal(command, run, task) {
+    let renewalPromise = null;
+    let renewalError = null;
+    const intervalMs = Math.max(1000, Math.floor(leaseSeconds * 1000 / 2));
 
-    if (!sock?.user) throw new Error("WhatsApp nao conectado.");
+    const renew = () => {
+      if (renewalPromise) return renewalPromise;
+      renewalPromise = (async () => {
+        assertRunActive(run);
+        await fencedRpc(run, command, "renew_engine_command_lease", {
+          lease_seconds: leaseSeconds,
+        });
+        assertRunActive(run);
+      })()
+        .catch((error) => {
+          renewalError = error;
+        })
+        .finally(() => {
+          renewalPromise = null;
+        });
+      return renewalPromise;
+    };
 
-    if (command.type === "send_message") {
-      const jid = toWhatsAppJid(payload);
-      const text = payload.text || payload.message || payload.body;
-      if (!jid || !text) throw new Error("send_message exige payload.jid ou payload.phone e payload.text.");
+    const assertLeaseActive = () => {
       assertRunActive(run);
-      await sendText(sock, jid, String(text), {
-        session,
-        assertActive: () => assertRunActive(run),
-      });
-      assertRunActive(run);
-      await updateInstance(run, command, "connected", {
-        metadata: { last_command: "send_message", whatsapp_user: sock.user?.id ?? null },
-      });
-      assertRunActive(run);
-      await recordEvent(run, command, "message_sent", { jid, text_length: String(text).length });
-      return;
+      if (renewalError) throw renewalError;
+      return getSession();
+    };
+
+    const interval = setIntervalFn(renew, intervalMs);
+    try {
+      return await task(assertLeaseActive);
+    } finally {
+      clearIntervalFn(interval);
+      if (renewalPromise) await renewalPromise;
     }
-
-    if (command.type === "refresh_status") {
-      await updateInstance(run, command, "connected", {
-        metadata: { whatsapp_user: sock.user?.id ?? null },
-      });
-      assertRunActive(run);
-      await recordEvent(run, command, "instance_status", {
-        status: "connected",
-        whatsapp_user: sock.user?.id ?? null,
-      });
-      return;
-    }
-
-    throw new Error(`Comando de engine nao suportado: ${command.type}`);
   }
 
-  async function processCommand(run, command) {
+  async function failSoft(run, operation) {
     try {
-      await handleCommand(run, command);
-      assertRunActive(run);
+      await operation();
+    } catch (error) {
+      if (isObsolete(run, error) || isLeaseLost(error)) throw error;
+      logger.error(`Efeito auxiliar do worker falhou: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  async function executeCommand(run, command, assertLeaseActive) {
+    let effectStarted = false;
+    try {
+      const session = assertLeaseActive();
+      const sock = session.sock;
+      const payload = command.payload ?? {};
+
+      if (!sock?.user) throw new Error("WhatsApp nao conectado.");
+
+      if (command.type === "send_message") {
+        const jid = toWhatsAppJid(payload);
+        const text = payload.text || payload.message || payload.body;
+        if (!jid || !text) {
+          throw new PermanentCommandError("send_message exige payload.jid ou payload.phone e payload.text.");
+        }
+
+        await fencedRpc(run, command, "mark_engine_command_effect_started");
+        effectStarted = true;
+        assertLeaseActive();
+        await sendText(sock, jid, String(text), {
+          session,
+          assertActive: assertLeaseActive,
+        });
+        assertLeaseActive();
+        await failSoft(run, () => updateInstance(run, command, "connected", {
+          metadata: { last_command: "send_message", whatsapp_user: sock.user?.id ?? null },
+        }));
+        assertLeaseActive();
+        await failSoft(run, () => recordEvent(run, command, "message_sent", {
+          jid,
+          text_length: String(text).length,
+        }));
+      } else if (command.type === "refresh_status") {
+        await fencedRpc(run, command, "mark_engine_command_effect_started");
+        effectStarted = true;
+        assertLeaseActive();
+        await updateInstance(run, command, "connected", {
+          metadata: { whatsapp_user: sock.user?.id ?? null },
+        });
+        assertLeaseActive();
+        await recordEvent(run, command, "instance_status", {
+          status: "connected",
+          whatsapp_user: sock.user?.id ?? null,
+        });
+      } else {
+        throw new PermanentCommandError(`Comando de engine nao suportado: ${command.type}`);
+      }
+
+      assertLeaseActive();
       await complete(run, command, true);
       return true;
     } catch (error) {
-      if (isObsolete(run, error)) return false;
+      if (isObsolete(run, error) || isLeaseLost(error)) throw error;
       const message = error instanceof Error ? error.message : String(error);
       logger.error(`Falha no comando ${command.command_id}: ${message}`);
-      try {
-        try {
-          await updateInstance(run, command, "error", { metadata: { last_error: message } });
-        } catch (updateError) {
-          if (isObsolete(run, updateError)) return false;
-          // Compatibilidade: falha ao refletir status nao pode impedir evento/complete.
-        }
-        assertRunActive(run);
-        await recordEvent(run, command, "engine_error", {
-          command_id: command.command_id,
-          error: message,
-        });
-        assertRunActive(run);
-        await complete(run, command, false, message);
-      } catch (reportError) {
-        if (isObsolete(run, reportError)) return false;
-        throw reportError;
+      assertLeaseActive();
+      if (effectStarted) {
+        await complete(run, command, false, message, "uncertain", 0);
+      } else {
+        const failureKind = error?.retryable === false ? "permanent" : "retryable";
+        await complete(
+          run,
+          command,
+          false,
+          message,
+          failureKind,
+          failureKind === "retryable" ? retryDelayForAttempt(command.attempt_count, retryDelaySeconds) : 0,
+        );
       }
       return true;
     }
   }
 
+  async function processCommand(run, command) {
+    if (!hasLeaseMetadata(command)) {
+      logger.error("Comando ignorado: command_id, lease_token e attempt_count validos sao obrigatorios.");
+      return true;
+    }
+
+    try {
+      return await withLeaseRenewal(
+        command,
+        run,
+        (assertLeaseActive) => executeCommand(run, command, assertLeaseActive),
+      );
+    } catch (error) {
+      if (isObsolete(run, error)) return false;
+      if (isLeaseLost(error)) {
+        logger.error(error.message);
+        return true;
+      }
+      throw error;
+    }
+  }
+
   async function executeTick(run) {
-    const commands = await rpc(run, "claim_engine_commands", { max_commands: batchSize });
-    if (Array.isArray(commands) && commands.length > 0) {
+    const claimResult = await rpc(run, "claim_engine_commands", {
+      max_commands: batchSize,
+      lease_seconds: leaseSeconds,
+    });
+    const commands = Array.isArray(claimResult)
+      ? claimResult
+      : (compositeRow(claimResult) ? [claimResult] : []);
+    if (commands.length > 0) {
       logger.log(`Engine Supabase: ${commands.length} comando(s) recebido(s).`);
     }
 
@@ -322,7 +471,11 @@ function createSupabaseCommandWorker({
 }
 
 module.exports = {
+  LeaseLostError,
+  PermanentCommandError,
   WorkerRunAbortedError,
   abortableSleep,
+  compositeRow,
   createSupabaseCommandWorker,
+  leaseBody,
 };

@@ -512,6 +512,8 @@ revoke execute on function app.update_instance_status(uuid, uuid, public.instanc
 -- PostgREST function resolution ambiguous.
 drop function if exists public.claim_engine_commands(integer);
 drop function if exists public.complete_engine_command(uuid, boolean, text);
+drop function if exists public.record_engine_event(uuid, uuid, text, jsonb, uuid);
+drop function if exists public.update_instance_status(uuid, uuid, public.instance_status, text, text, text, jsonb);
 
 create or replace function public.claim_engine_commands(
   max_commands integer default 5,
@@ -578,6 +580,8 @@ as $$
 $$;
 
 create or replace function public.record_engine_event(
+  target_command_id uuid,
+  target_lease_token uuid,
   target_tenant_id uuid,
   target_instance_id uuid,
   target_type text,
@@ -589,17 +593,29 @@ language sql
 security definer
 set search_path = pg_catalog
 as $$
-  select *
-  from app.record_engine_event(
+  with owned_command as materialized (
+    select command.id
+    from public.engine_commands as command
+    where command.command_id = target_command_id
+      and command.status = 'processing'
+      and command.lease_token = target_lease_token
+      and command.lease_expires_at > pg_catalog.clock_timestamp()
+    for update
+  )
+  select event_row.*
+  from owned_command
+  cross join lateral app.record_engine_event(
     target_tenant_id,
     target_instance_id,
     target_type,
     target_payload,
     target_event_id
-  );
+  ) as event_row;
 $$;
 
 create or replace function public.update_instance_status(
+  target_command_id uuid,
+  target_lease_token uuid,
   target_tenant_id uuid,
   target_instance_id uuid,
   target_status public.instance_status,
@@ -613,8 +629,18 @@ language sql
 security definer
 set search_path = pg_catalog
 as $$
-  select *
-  from app.update_instance_status(
+  with owned_command as materialized (
+    select command.id
+    from public.engine_commands as command
+    where command.command_id = target_command_id
+      and command.status = 'processing'
+      and command.lease_token = target_lease_token
+      and command.lease_expires_at > pg_catalog.clock_timestamp()
+    for update
+  )
+  select instance_row.*
+  from owned_command
+  cross join lateral app.update_instance_status(
     target_tenant_id,
     target_instance_id,
     target_status,
@@ -622,22 +648,22 @@ as $$
     target_qr_code,
     target_engine_node,
     target_metadata
-  );
+  ) as instance_row;
 $$;
 
 revoke execute on function public.claim_engine_commands(integer, integer) from public, anon, authenticated;
 revoke execute on function public.renew_engine_command_lease(uuid, uuid, integer) from public, anon, authenticated;
 revoke execute on function public.mark_engine_command_effect_started(uuid, uuid) from public, anon, authenticated;
 revoke execute on function public.complete_engine_command(uuid, uuid, boolean, text, public.engine_command_failure_kind, integer) from public, anon, authenticated;
-revoke execute on function public.record_engine_event(uuid, uuid, text, jsonb, uuid) from public, anon, authenticated;
-revoke execute on function public.update_instance_status(uuid, uuid, public.instance_status, text, text, text, jsonb) from public, anon, authenticated;
+revoke execute on function public.record_engine_event(uuid, uuid, uuid, uuid, text, jsonb, uuid) from public, anon, authenticated;
+revoke execute on function public.update_instance_status(uuid, uuid, uuid, uuid, public.instance_status, text, text, text, jsonb) from public, anon, authenticated;
 
 grant execute on function public.claim_engine_commands(integer, integer) to service_role;
 grant execute on function public.renew_engine_command_lease(uuid, uuid, integer) to service_role;
 grant execute on function public.mark_engine_command_effect_started(uuid, uuid) to service_role;
 grant execute on function public.complete_engine_command(uuid, uuid, boolean, text, public.engine_command_failure_kind, integer) to service_role;
-grant execute on function public.record_engine_event(uuid, uuid, text, jsonb, uuid) to service_role;
-grant execute on function public.update_instance_status(uuid, uuid, public.instance_status, text, text, text, jsonb) to service_role;
+grant execute on function public.record_engine_event(uuid, uuid, uuid, uuid, text, jsonb, uuid) to service_role;
+grant execute on function public.update_instance_status(uuid, uuid, uuid, uuid, public.instance_status, text, text, text, jsonb) to service_role;
 
 commit;
 

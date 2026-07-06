@@ -113,9 +113,11 @@ test("worker obsoleto sai da fila sem retries e a geracao nova envia", async () 
     enabled: true,
     client: {
       async rpc(name) {
-        if (name !== "claim_engine_commands") return null;
+        if (name !== "claim_engine_commands") return { command_id: `command-${session.generation}` };
         return [{
           command_id: `command-${session.generation}`,
+          lease_token: `lease-${session.generation}`,
+          attempt_count: 1,
           type: "send_message",
           payload: { phone: "5511999999999", text: `generation-${session.generation}` },
         }];

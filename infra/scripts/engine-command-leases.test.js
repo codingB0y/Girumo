@@ -103,8 +103,8 @@ test("RPCs PostgREST publicos delegam para app com assinaturas exatas", () => {
     ["renew_engine_command_lease", /target_command_id uuid\s*,\s*target_lease_token uuid\s*,\s*lease_seconds integer default 60/i],
     ["mark_engine_command_effect_started", /target_command_id uuid\s*,\s*target_lease_token uuid/i],
     ["complete_engine_command", /target_command_id uuid\s*,\s*target_lease_token uuid\s*,\s*success boolean\s*,\s*error_message text default null\s*,\s*target_failure_kind public\.engine_command_failure_kind default 'retryable'\s*,\s*retry_delay_seconds integer default 30/i],
-    ["record_engine_event", /target_tenant_id uuid\s*,\s*target_instance_id uuid\s*,\s*target_type text\s*,\s*target_payload jsonb default '\{\}'::jsonb\s*,\s*target_event_id uuid default gen_random_uuid\(\)/i],
-    ["update_instance_status", /target_tenant_id uuid\s*,\s*target_instance_id uuid\s*,\s*target_status public\.instance_status\s*,\s*target_phone text default null\s*,\s*target_qr_code text default null\s*,\s*target_engine_node text default null\s*,\s*target_metadata jsonb default '\{\}'::jsonb/i],
+    ["record_engine_event", /target_command_id uuid\s*,\s*target_lease_token uuid\s*,\s*target_tenant_id uuid\s*,\s*target_instance_id uuid\s*,\s*target_type text\s*,\s*target_payload jsonb default '\{\}'::jsonb\s*,\s*target_event_id uuid default gen_random_uuid\(\)/i],
+    ["update_instance_status", /target_command_id uuid\s*,\s*target_lease_token uuid\s*,\s*target_tenant_id uuid\s*,\s*target_instance_id uuid\s*,\s*target_status public\.instance_status\s*,\s*target_phone text default null\s*,\s*target_qr_code text default null\s*,\s*target_engine_node text default null\s*,\s*target_metadata jsonb default '\{\}'::jsonb/i],
   ];
 
   for (const [name, signature] of signatures) {
@@ -116,13 +116,25 @@ test("RPCs PostgREST publicos delegam para app com assinaturas exatas", () => {
     assert.match(sql, new RegExp(`revoke execute on function public\\.${name}[^;]+from public, anon, authenticated`, "i"));
     assert.match(sql, new RegExp(`grant execute on function public\\.${name}[^;]+to service_role`, "i"));
   }
+
+  for (const name of ["record_engine_event", "update_instance_status"]) {
+    const definition = functionDefinition(sql, name, "public");
+    assert.match(definition, /with\s+owned_command\s+as\s+materialized/i);
+    assert.match(definition, /lease_token\s*=\s*target_lease_token/i);
+    assert.match(definition, /lease_expires_at\s*>\s*pg_catalog\.clock_timestamp\(\)/i);
+    assert.match(definition, /for update/i);
+  }
 });
 
 test("superficie publica nao preserva conclusao sem fencing", () => {
   const sql = readFileSync(migrationPath, "utf8");
 
   assert.match(sql, /drop function if exists public\.complete_engine_command\s*\(uuid\s*,\s*boolean\s*,\s*text\)/i);
+  assert.match(sql, /drop function if exists public\.record_engine_event\s*\(uuid\s*,\s*uuid\s*,\s*text\s*,\s*jsonb\s*,\s*uuid\)/i);
+  assert.match(sql, /drop function if exists public\.update_instance_status\s*\(uuid\s*,\s*uuid\s*,\s*public\.instance_status\s*,\s*text\s*,\s*text\s*,\s*text\s*,\s*jsonb\)/i);
   assert.equal(occurrences(sql, /function public\.complete_engine_command\s*\(\s*target_command_id uuid\s*,\s*success boolean/gi), 0);
+  assert.equal(occurrences(sql, /function public\.record_engine_event\s*\(\s*target_tenant_id uuid/gi), 0);
+  assert.equal(occurrences(sql, /function public\.update_instance_status\s*\(\s*target_tenant_id uuid/gi), 0);
   assert.match(functionDefinition(sql, "complete_engine_command", "public"), /target_lease_token uuid/i);
 });
 

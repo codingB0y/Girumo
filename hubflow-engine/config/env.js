@@ -8,6 +8,12 @@ function optionalEnv(name) {
   return process.env[name] || null;
 }
 
+function boundedInteger(value, defaultValue, minimum, maximum) {
+  const parsed = value === null || value === undefined || value === "" ? NaN : Number(value);
+  const normalized = Number.isFinite(parsed) ? Math.trunc(parsed) : defaultValue;
+  return Math.max(minimum, Math.min(normalized, maximum));
+}
+
 function hasSupabaseEngineConfig() {
   return Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
 }
@@ -88,6 +94,7 @@ function validateEngineEnvironment() {
 module.exports = {
   requireEnv,
   optionalEnv,
+  boundedInteger,
   hasSupabaseEngineConfig,
   getEngineMode,
   isMockMode,
