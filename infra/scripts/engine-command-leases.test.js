@@ -8,12 +8,12 @@ function occurrences(value, pattern) {
   return [...value.matchAll(pattern)].length;
 }
 
-function functionDefinition(sql, functionName) {
+function functionDefinition(sql, functionName, schema = "app") {
   const match = sql.match(new RegExp(
-    `create or replace function app\\.${functionName}\\s*\\([\\s\\S]*?\\n\\$\\$;`,
+    `create or replace function ${schema}\\.${functionName}\\s*\\([\\s\\S]*?\\n\\$\\$;`,
     "i",
   ));
-  assert.ok(match, `definicao de app.${functionName} ausente`);
+  assert.ok(match, `definicao de ${schema}.${functionName} ausente`);
   return match[0];
 }
 
@@ -36,9 +36,9 @@ test("migration implementa schema aditivo de lease e fencing", () => {
 
   assert.match(sql, /check\s*\(attempt_count\s*>=\s*0\)/i);
   assert.match(sql, /check\s*\(max_attempts\s*>\s*0\)/i);
-  assert.match(sql, /create index if not exists[\s\S]*where\s+status\s*=\s*'processing'/i);
+  assert.match(sql, /create index concurrently[\s\S]*where\s+status\s*=\s*'processing'/i);
   assert.match(sql, /^\s*--[^\n]*\n--[^\n]*\n\s*begin;/i);
-  assert.match(sql, /commit;\s*$/i);
+  assert.match(sql, /commit;/i);
 });
 
 test("migration aposenta comandos processing antigos sem requeue", () => {
@@ -85,18 +85,109 @@ test("RPCs de renovacao, efeito e conclusao exigem lease atual e valido", () => 
     assert.match(definition, /target_lease_token uuid/i);
     assert.match(definition, /where[\s\S]*?status\s*=\s*'processing'/i);
     assert.match(definition, /lease_token\s*=\s*target_lease_token/i);
-    assert.match(definition, /lease_expires_at\s*>\s*now\(\)/i);
+    assert.match(definition, /lease_expires_at\s*>\s*clock_timestamp\(\)/i);
   }
 
   assert.match(sql, /drop function if exists app\.complete_engine_command\s*\(uuid\s*,\s*boolean\s*,\s*text\)/i);
   assert.equal(occurrences(sql, /function app\.complete_engine_command\s*\(\s*target_command_id uuid\s*,\s*success boolean/gi), 0);
   assert.match(sql, /effect_started_at\s+is\s+not\s+null[\s\S]*'uncertain'/i);
   assert.match(sql, /attempt_count\s*>=\s*(?:command\.)?max_attempts[\s\S]*'permanent'/i);
-  assert.match(sql, /available_at\s*=\s*case[\s\S]*then\s+now\(\)\s*\+/i);
+  assert.match(sql, /available_at\s*=\s*case[\s\S]*then\s+clock_timestamp\(\)\s*\+/i);
   assert.match(functionDefinition(sql, "complete_engine_command"), /if\s+success\s+is\s+null\s+then[\s\S]*raise exception/i);
 });
 
-test("funcoes privilegiadas fixam search_path e restringem execucao", () => {
+test("RPCs PostgREST publicos delegam para app com assinaturas exatas", () => {
+  const sql = readFileSync(migrationPath, "utf8");
+  const signatures = [
+    ["claim_engine_commands", /max_commands integer default 5\s*,\s*lease_seconds integer default 60/i],
+    ["renew_engine_command_lease", /target_command_id uuid\s*,\s*target_lease_token uuid\s*,\s*lease_seconds integer default 60/i],
+    ["mark_engine_command_effect_started", /target_command_id uuid\s*,\s*target_lease_token uuid/i],
+    ["complete_engine_command", /target_command_id uuid\s*,\s*target_lease_token uuid\s*,\s*success boolean\s*,\s*error_message text default null\s*,\s*target_failure_kind public\.engine_command_failure_kind default 'retryable'\s*,\s*retry_delay_seconds integer default 30/i],
+    ["record_engine_event", /target_tenant_id uuid\s*,\s*target_instance_id uuid\s*,\s*target_type text\s*,\s*target_payload jsonb default '\{\}'::jsonb\s*,\s*target_event_id uuid default gen_random_uuid\(\)/i],
+    ["update_instance_status", /target_tenant_id uuid\s*,\s*target_instance_id uuid\s*,\s*target_status public\.instance_status\s*,\s*target_phone text default null\s*,\s*target_qr_code text default null\s*,\s*target_engine_node text default null\s*,\s*target_metadata jsonb default '\{\}'::jsonb/i],
+  ];
+
+  for (const [name, signature] of signatures) {
+    const definition = functionDefinition(sql, name, "public");
+    assert.match(definition, signature);
+    assert.match(definition, /security definer/i);
+    assert.match(definition, /set search_path = pg_catalog/i);
+    assert.match(definition, new RegExp(`app\\.${name}\\s*\\(`, "i"));
+    assert.match(sql, new RegExp(`revoke execute on function public\\.${name}[^;]+from public, anon, authenticated`, "i"));
+    assert.match(sql, new RegExp(`grant execute on function public\\.${name}[^;]+to service_role`, "i"));
+  }
+});
+
+test("superficie publica nao preserva conclusao sem fencing", () => {
+  const sql = readFileSync(migrationPath, "utf8");
+
+  assert.match(sql, /drop function if exists public\.complete_engine_command\s*\(uuid\s*,\s*boolean\s*,\s*text\)/i);
+  assert.equal(occurrences(sql, /function public\.complete_engine_command\s*\(\s*target_command_id uuid\s*,\s*success boolean/gi), 0);
+  assert.match(functionDefinition(sql, "complete_engine_command", "public"), /target_lease_token uuid/i);
+});
+
+test("fencing usa relogio de parede e revalida depois do row lock", () => {
+  const sql = readFileSync(migrationPath, "utf8");
+
+  assert.doesNotMatch(sql, /lease_expires_at\s*>\s*now\(\)/i);
+  assert.doesNotMatch(sql, /lease_expires_at\s*<=\s*now\(\)/i);
+  for (const name of [
+    "renew_engine_command_lease",
+    "mark_engine_command_effect_started",
+    "complete_engine_command",
+  ]) {
+    const definition = functionDefinition(sql, name);
+    assert.match(definition, /select[\s\S]*for update/i);
+    assert.match(definition, /lease_expires_at\s*>\s*clock_timestamp\(\)/i);
+  }
+});
+
+test("renovacao nunca reduz a expiracao atual do lease", () => {
+  const definition = functionDefinition(
+    readFileSync(migrationPath, "utf8"),
+    "renew_engine_command_lease",
+  );
+
+  assert.match(definition, /lease_expires_at\s*=\s*greatest\s*\(\s*locked_command\.lease_expires_at\s*,\s*clock_timestamp\(\)\s*\+/i);
+});
+
+test("migration detecta drift de enum e colunas criticas", () => {
+  const sql = readFileSync(migrationPath, "utf8");
+
+  assert.match(sql, /pg_catalog\.pg_enum/i);
+  assert.match(sql, /array_agg\s*\(\s*enum_label\.enumlabel::text\s+order by enum_label\.enumsortorder\s*\)/i);
+  assert.match(sql, /array\s*\[\s*'retryable'\s*,\s*'permanent'\s*,\s*'uncertain'\s*\]/i);
+  assert.match(sql, /pg_catalog\.pg_attribute/i);
+  assert.match(sql, /pg_catalog\.pg_attrdef/i);
+  for (const token of ["format_type", "attnotnull", "pg_get_expr", "raise exception", "schema drift"]) {
+    assert.match(sql, new RegExp(token, "i"));
+  }
+});
+
+test("migration reduz bloqueios e documenta validacao operacional posterior", () => {
+  const sql = readFileSync(migrationPath, "utf8");
+  const guide = readFileSync("deploy/supabase/apply-order.md", "utf8");
+
+  assert.match(sql, /check\s*\(attempt_count\s*>=\s*0\)\s+not valid/i);
+  assert.match(sql, /check\s*\(max_attempts\s*>\s*0\)\s+not valid/i);
+  assert.match(sql, /commit;[\s\S]*drop index concurrently if exists[\s\S]*create index concurrently/i);
+  assert.doesNotMatch(sql, /create index concurrently if not exists/i);
+  assert.match(guide, /validate constraint engine_commands_attempt_count_nonnegative/i);
+  assert.match(guide, /validate constraint engine_commands_max_attempts_positive/i);
+  assert.match(guide, /create index concurrently/i);
+});
+
+test("ordenacoes concorrentes usam id como desempate deterministico", () => {
+  const definition = functionDefinition(
+    readFileSync(migrationPath, "utf8"),
+    "claim_engine_commands",
+  );
+
+  assert.match(definition, /order by command\.lease_expires_at asc\s*,\s*command\.id asc/i);
+  assert.match(definition, /order by command\.created_at asc\s*,\s*command\.id asc/i);
+});
+
+test("implementacoes app fixam search_path e nao sao concedidas diretamente", () => {
   const sql = readFileSync(migrationPath, "utf8");
   const functionNames = [
     "claim_engine_commands",
@@ -110,7 +201,7 @@ test("funcoes privilegiadas fixam search_path e restringem execucao", () => {
     assert.match(definition, /security definer/i);
     assert.match(definition, /set search_path = public, app/i);
     assert.match(sql, new RegExp(`revoke execute on function app\\.${functionName}[^;]+from public`, "i"));
-    assert.match(sql, new RegExp(`grant execute on function app\\.${functionName}[^;]+to service_role`, "i"));
+    assert.doesNotMatch(sql, new RegExp(`grant execute on function app\\.${functionName}[^;]+to service_role`, "i"));
   }
 });
 

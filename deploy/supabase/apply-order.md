@@ -14,6 +14,27 @@ Antes de aplicar essa migration, interromper todos os workers antigos da engine.
 Somente publique e reinicie os workers novos depois que a migration concluir, pois a
 assinatura de conclusão sem lease é removida durante a transação.
 
+A migration confirma explicitamente os tipos, defaults e nullability das colunas
+de lease. Qualquer drift de schema interrompe a aplicação em vez de ser ocultado
+por `IF NOT EXISTS`.
+
+Os dois `CHECK` novos são criados como `NOT VALID`: novas escritas já são
+protegidas, mas a validação do histórico fica para uma janela operacional posterior,
+com os workers ainda parados:
+
+```sql
+alter table public.engine_commands
+  validate constraint engine_commands_attempt_count_nonnegative;
+alter table public.engine_commands
+  validate constraint engine_commands_max_attempts_positive;
+```
+
+O índice parcial é recriado por `DROP INDEX CONCURRENTLY` e
+`CREATE INDEX CONCURRENTLY` depois do commit da parte transacional. Isso reduz
+bloqueios de escrita e remove eventual índice `INVALID` deixado por uma tentativa
+interrompida. Se apenas essa etapa falhar, rerode a migration; com os workers
+parados, a pequena janela sem o índice não afeta o processamento.
+
 Via script:
 
 ```powershell
