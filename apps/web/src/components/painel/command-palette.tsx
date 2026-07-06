@@ -124,7 +124,7 @@ export function CommandPalette() {
         onClick={() => setOpen(false)}
         className="absolute inset-0 bg-breu/50 backdrop-blur-sm"
       />
-      <div className="hf-enter relative w-full max-w-xl overflow-hidden rounded-2xl border border-breu/10 bg-white shadow-deep">
+      <div className="pn-palette-in relative w-full max-w-xl overflow-hidden rounded-2xl border border-breu/10 bg-papel shadow-[var(--shadow-pn-3)]">
         <div className="flex items-center gap-3 border-b border-breu/[0.06] px-4">
           <Search className="h-4 w-4 text-aco/50" />
           <input
@@ -186,7 +186,7 @@ export function CommandTrigger() {
   return (
     <button
       onClick={() => window.dispatchEvent(new Event("hf:command"))}
-      className="ml-auto flex items-center gap-2 rounded-xl border border-breu/10 bg-white px-3 py-2 text-sm text-aco/60 transition hover:border-iris/30"
+      className="ml-auto flex items-center gap-2 rounded-[10px] border border-breu/10 bg-papel px-3 py-2 text-sm text-aco/60 shadow-[var(--shadow-pn-1)] transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] hover:border-iris/30 hover:shadow-[var(--shadow-pn-2)]"
     >
       <Search className="h-4 w-4" />
       <span className="hidden sm:inline">Buscar grupo, campanha…</span>

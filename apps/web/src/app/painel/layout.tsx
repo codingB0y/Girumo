@@ -16,7 +16,7 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
   return (
     <RoleProvider>
       <ToastProvider>
-        <div className="font-body flex min-h-screen w-full bg-bruma text-breu">
+        <div className="pn-root font-body flex min-h-screen w-full bg-balcao text-breu">
           <PainelSidebar />
           <div className="flex min-w-0 flex-1 flex-col">
             <PainelTopbar />

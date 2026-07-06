@@ -231,4 +231,57 @@ motion, primitivos. Ideação via subagentes (não-template).
 
 ## Decisões
 - Íris mantido como âncora de marca (regra durável da lane); verde só sucesso.
-- (mais decisões após ideação)
+- **Conceito "O Balcão"** (UI Designer subagente): estoque escuro (sidebar gradiente breu→breu-2)
+  + balcão claro (conteúdo bg-balcao #edeaf1 re-temperado). Namespace `pn-*` no globals.css.
+- **Assinaturas:** fio de íris (`.pn-ativo`, inset 2px) = único padrão de "ativo"; etiqueta canto-cortado
+  (`.pn-etiqueta`); Aurora VIP (`.pn-aurora`, 1 peça escura/tela: card de plano + Peça Escura do dashboard);
+  romaneio (números Plex Mono tabular); numeração editorial de seção (Instrument Serif itálico 01/02/03).
+- **Tipografia:** número = Plex Mono tabular; voz do produto = Instrument Serif itálico; título = Bricolage;
+  label = Space Grotesk uppercase; corpo = Plex Sans.
+- **Motion "ease-fluxo"** (Whimsy subagente): família de easings + tokens dur-*; skeleton respira,
+  status conectado respira (parado = alarme), toast lead 4 batidas (`pn-toast-in`/`pn-ping` prontos p/ uso).
+- Primitivos ui/* compartilhados c/ admin → mudança sóbria e não-quebrante; ousadia fica nos componentes
+  painel-específicos. Badge mantido pílula (etiqueta é padrão local via `.pn-etiqueta`).
+
+## Resultado
+- `npm run web:build` ✅ (tabela de rotas completa; 2º run deu OOM só por rodar build 2x). `web:lint` ✅ (0 erro).
+- Verificado no preview (localhost, tenant Moda dev): Aurora VIP, card bancada (#fcfbfe + sombra 3 camadas +
+  realce interno), editorial Instrument Serif itálico #5b6172, sidebar gradiente dark, fio de íris no ativo.
+- Armadilha .next dev×build reincidiu (build de prod clobberou .next do dev) → limpeza + restart resolveu.
+- Screenshot trava por animações infinitas (pn-respira) — validação via preview_inspect (mais confiável).
+- NÃO verificado visualmente: FullDashboard conectado (session.live=false no dev) — compila e usa primitivos
+  já verificados. Peça Escura/KPIs/romaneio dependem de sessão WhatsApp ativa.
+
+## Arquivos alterados
+- globals.css (camada pn-* : tokens balcão, sombras, ease-fluxo, etiqueta, aurora, keyframes + reduced-motion)
+- ui/{button,card,input,skeleton}.tsx (primitivos premium; badge mantido)
+- painel/{sidebar,topbar,mobile-nav,page-transition,empty-state}.tsx + command-palette.tsx (shell)
+- painel/layout.tsx (bg-bruma→bg-balcao) · painel/page.tsx (bento Peça Escura + romaneio + editorial + fix typo `n`/emojis→Lucide)
+
+## Iteração 2 (mesma sessão) — Nova paleta COBALTO + telas internas
+
+**Paleta nova (decisão Igor: "ousada"):** roxo íris → **cobalto/azul-índigo elétrico**.
+- Arquitetura: família `iris` saiu do `@theme inline` → foi p/ `@theme` normal (var-based). Default roxo.
+  `.pn-root` (no painel/layout.tsx) sobrescreve p/ cobalto: iris `#3d5af1`, claro `#6b81f7`, escuro `#2237a8`, light `#e9edfe`.
+- **Por que escopo e não trocar o token:** admin usa `iris` em 65 lugares + logo da landing usa. Trocar global
+  quebraria os dois. `.pn-root` recolore SÓ o painel (cascade atinge até primitivos compartilhados); admin/landing ficam roxos.
+- VERIFICADO ao vivo: painel = rgb(61,90,241) cobalto · landing = rgb(106,75,240) roxo intacto.
+- button.tsx virou token-based (hover:brightness, sem hex literal) p/ o escopo funcionar no primitivo compartilhado.
+- Barras de capacidade com `#6A4BF0` literal → `#3D5AF1` (grupos, campanhas x3, plan-gate).
+- pn-* literais roxos → cobalto (aurora, ativo via var, card-hover, shadow-pn-escura).
+
+**Telas internas — status:**
+- ✅ Redesenhadas (O Balcão completo): dashboard (/painel), **grupos**.
+- ⏳ FALTAM (~20, layout antigo mas JÁ em cobalto + primitivos premium): campanhas, campanhas/nova,
+  campanhas/[slug], campanhas/[slug]/editar, resultados, contatos, configuracoes(+webhooks,cancelar),
+  conectar, pages(+nova,[id]), indicacao, biblioteca, agenda, disparos, automacoes, squad-os/*, dev-tools.
+
+**HANDOFF → próxima sessão:** replicar o template de `grupos/page.tsx` nas telas ⏳. Padrão O Balcão:
+  1. container `space-y-8 px-4 py-8 sm:px-8`
+  2. header: `<h1 font-display text-[28px] font-extrabold tracking-[-0.02em] text-breu>` + `<p font-editorial text-[19px] italic text-ardosia>`
+  3. cards `bg-white`/`rounded-3xl` → `pn-card rounded-2xl`; insets/inputs → `bg-poco` `.pn-poco`
+  4. números → `font-data tabular-nums`; labels → `font-data uppercase tracking-[0.08em]`
+  5. listas → `divide-dashed` (romaneio); status → pílula ou `.pn-etiqueta`; barra → `.pn-fill`/`.pn-poco`
+  6. empty/voz do produto → `font-editorial italic`; loading → `.pn-skeleton`
+  7. cor já é automática (tokens iris = cobalto no painel). NÃO usar hex roxo literal.
+  8. build (heap: rodar só 1x) + lint + preview_inspect. Armadilha .next dev×build: se preview 500, `rm -rf apps/web/.next` + restart.

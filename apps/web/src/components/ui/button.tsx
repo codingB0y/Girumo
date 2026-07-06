@@ -4,8 +4,10 @@ type Variant = "primary" | "secondary" | "outline" | "ghost" | "danger";
 type Size = "sm" | "md" | "icon";
 
 const variants: Record<Variant, string> = {
+  // token-based (bg-iris = var): cobalto no .pn-root do painel, roxo no admin.
+  // hover via brightness p/ não depender de hex literal.
   primary:
-    "bg-iris text-white shadow-[0_1px_2px_rgba(61,31,176,0.3)] hover:bg-[#5a3de0] hover:shadow-[0_4px_12px_rgba(106,75,240,0.25)] active:bg-iris-escuro",
+    "bg-iris text-white shadow-sm hover:brightness-110 active:brightness-95 active:bg-iris-escuro",
   secondary: "bg-breu text-white hover:bg-breu-2 active:bg-breu",
   outline: "border border-breu/15 bg-papel text-breu hover:border-iris/40 hover:text-iris",
   ghost: "text-aco hover:bg-poco hover:text-breu",
