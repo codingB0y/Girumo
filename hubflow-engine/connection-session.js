@@ -9,7 +9,9 @@ class SessionAbortedError extends Error {
   constructor(generation) {
     super(`Connection session ${generation} is no longer active`);
     this.name = "SessionAbortedError";
+    this.code = "ENGINE_SESSION_ABORTED";
     this.generation = generation;
+    this.retryable = false;
   }
 }
 

@@ -419,7 +419,9 @@ test("falha de claim preserva backoff maior antes do proximo tick", async () => 
 
 test("entrypoint valida a geracao dentro da fila e associa start e stop a sessao", () => {
   const source = readFileSync(require.resolve("./index.js"), "utf8");
-  assert.match(source, /function sendText\([\s\S]*?assertActive\?\.\(\)[\s\S]*?sock\.sendMessage/);
+  const senderSource = readFileSync(require.resolve("./queued-text-sender.js"), "utf8");
+  assert.match(source, /createQueuedTextSender\(queue,\s*\{\s*resolveMentions\s*\}\)/);
+  assert.match(senderSource, /assertActive\?\.\(\)[\s\S]*?sock\.sendMessage/);
   assert.match(source, /getSession:\s*\(\)\s*=>\s*currentSession\?\.state\s*===\s*["']ready["']/);
   assert.match(source, /supabaseCommandWorker\.start\(session\.generation\)/);
   assert.match(source, /supabaseCommandWorker\.stop\(session\.generation\)/);

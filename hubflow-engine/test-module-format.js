@@ -4,7 +4,13 @@ const { join } = require("node:path");
 const test = require("node:test");
 
 const read = (file) => readFileSync(join(__dirname, file), "utf8");
-const internalModules = ["anti-ban-queue.js", "warmup.js", "group-guard.js", "delivery-tracker.js"];
+const internalModules = [
+  "anti-ban-queue.js",
+  "queued-text-sender.js",
+  "warmup.js",
+  "group-guard.js",
+  "delivery-tracker.js",
+];
 
 test("módulos internos usam CommonJS explícito", () => {
   for (const file of internalModules) {

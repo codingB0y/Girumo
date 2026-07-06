@@ -203,6 +203,10 @@ class AntiBanQueue {
           this.onSent(result); // ex.: WarmUp.record() + DeliveryTracker.onMessageSent()
           item.resolve(result);
         } catch (err) {
+          if (err?.retryable === false) {
+            item.reject(err);
+            continue;
+          }
           item.attempts++;
           if (item.attempts <= this.maxRetries) {
             const backoff = this.backoffBaseMs * 2 ** (item.attempts - 1) + this._rand(0, 500);

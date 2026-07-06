@@ -37,6 +37,7 @@ const { rm } = require("fs/promises");
 const { readFileSync, writeFileSync, renameSync } = require("fs");
 
 const { AntiBanQueue } = require("./anti-ban-queue.js");
+const { createQueuedTextSender } = require("./queued-text-sender.js");
 const { WarmUp } = require("./warmup.js");
 const { GroupOperationGuard, classifyGroupOpError } = require("./group-guard.js");
 const { DeliveryTracker } = require("./delivery-tracker.js");
@@ -163,17 +164,7 @@ async function resolveMentions(mentions) {
 }
 
 /** Envia texto SEMPRE pela fila anti-ban. Use priority p/ respostas imediatas. */
-function sendText(sock, jid, text, { priority = false, mentions, session, assertActive } = {}) {
-  return queue.enqueue(
-    async () => {
-      const m = await resolveMentions(mentions);
-      assertActive?.();
-      session?.assertActive();
-      return sock.sendMessage(jid, { text, ...(m ? { mentions: m } : {}) });
-    },
-    { priority },
-  );
-}
+const sendText = createQueuedTextSender(queue, { resolveMentions });
 
 /** Envia FOTO ou VÍDEO (buffer) com legenda pela fila anti-ban. */
 function sendMedia(sock, jid, buffer, caption, mentions, kind, session) {

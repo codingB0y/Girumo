@@ -4,7 +4,9 @@ class WorkerRunAbortedError extends Error {
   constructor(generation) {
     super(`Supabase command worker generation ${generation} is no longer active`);
     this.name = "WorkerRunAbortedError";
+    this.code = "ENGINE_WORKER_RUN_ABORTED";
     this.generation = generation;
+    this.retryable = false;
   }
 }
 
