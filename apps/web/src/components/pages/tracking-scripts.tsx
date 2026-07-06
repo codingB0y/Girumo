@@ -11,7 +11,7 @@ import { useEffect } from "react";
  * Total ~1KB próprio; pixels são carregados async pelos vendors.
  */
 
-export const LP_ATTRIB_KEY = "hf_lp_attrib";
+const LP_ATTRIB_KEY = "hf_lp_attrib";
 
 declare global {
   interface Window {

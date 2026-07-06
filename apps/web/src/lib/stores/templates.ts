@@ -26,7 +26,6 @@ async function getTenantId(): Promise<string> {
   if (!data) throw new Error("Tenant não encontrado.");
   return data.tenant_id;
 }
-
 export async function listTemplates(): Promise<MessageTemplate[]> {
   const tenantId = await getTenantId();
   const { data, error } = await getSupabaseAdmin()
@@ -63,15 +62,4 @@ export async function deleteTemplate(id: string): Promise<boolean> {
     .eq("id", id)
     .eq("tenant_id", tenantId);
   return !error;
-}
-
-export async function incrementTemplateUse(id: string): Promise<void> {
-  try {
-    await getSupabaseAdmin()
-      .from("templates")
-      .update({ uses: (await getSupabaseAdmin().from("templates").select("uses").eq("id", id).single()).data?.uses + 1 || 1 })
-      .eq("id", id);
-  } catch {
-    // best-effort increment
-  }
 }

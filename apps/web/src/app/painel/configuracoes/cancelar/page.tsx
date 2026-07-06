@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Users, Layers, MousePointerClick, Pause, ArrowLeft } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { authenticatedFetch } from "@/lib/supabase/client";
 
 type Stats = {

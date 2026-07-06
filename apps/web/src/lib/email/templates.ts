@@ -28,7 +28,6 @@ function layout(content: string): string {
 </body>
 </html>`;
 }
-
 function button(text: string, href: string): string {
   return `<a href="${href}" style="display:inline-block;margin-top:20px;padding:12px 28px;background:${BRAND_COLOR};color:#fff;text-decoration:none;border-radius:10px;font-weight:600;font-size:14px">${text}</a>`;
 }
@@ -95,29 +94,6 @@ export function trialEndingEmail(name: string, appUrl: string, daysLeft: number)
         Seus dados ficam guardados por 30 dias após o trial — mas os disparos param.
       </p>
       ${button("Ver planos e assinar", `${appUrl}/painel/configuracoes`)}
-    `),
-  };
-}
-
-// --- Primeiro disparo feito! ---
-export function firstBroadcastEmail(name: string, appUrl: string): { subject: string; html: string } {
-  const firstName = name.split(" ")[0] || "lojista";
-  return {
-    subject: `🎉 Primeiro disparo feito, ${firstName}!`,
-    html: layout(`
-      <h1 style="margin:0 0 12px;font-size:22px;color:#0b0d1a">Parabéns! 🎉</h1>
-      <p style="margin:0 0 8px;font-size:15px;color:#3a3f5c;line-height:1.6">
-        ${firstName}, seu primeiro disparo foi enviado com sucesso!
-      </p>
-      <p style="margin:0 0 8px;font-size:14px;color:#3a3f5c;line-height:1.6">
-        Agora é só acompanhar os resultados no painel. Dicas pra maximizar:
-      </p>
-      <ul style="margin:12px 0;padding-left:20px;font-size:14px;color:#3a3f5c;line-height:1.8">
-        <li>Agende disparos recorrentes (terça e sexta funcionam bem)</li>
-        <li>Use o programa de indicação pra crescer mais rápido</li>
-        <li>Monitore a taxa de entrega — acima de 80% está saudável</li>
-      </ul>
-      ${button("Ver resultados", `${appUrl}/painel/resultados`)}
     `),
   };
 }

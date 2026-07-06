@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { AccountSection } from "@/components/painel/account-section";
 import { Smartphone, Users, CreditCard, User, ShieldCheck, RefreshCw, Wifi, WifiOff, Check, Loader2, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -22,7 +21,6 @@ type Plan = { id: string; code: string; name: string; limits?: Record<string, nu
 type Subscription = { status?: string; plans?: { name?: string; code?: string } | null; plan?: { name?: string; code?: string } } | null;
 
 export default function PainelConfiguracoes() {
-  const router = useRouter();
   const [section, setSection] = useState<Section>("Conexão");
   const [session, setSession] = useState<Session>({});
   const [members, setMembers] = useState<Membership[]>([]);
