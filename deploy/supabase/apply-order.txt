@@ -3,6 +3,7 @@ infra/rls/202606240002_rls_policies.sql
 infra/seeds/202606240003_seed_plans.sql
 infra/rls/202606240004_storage_policies.sql
 infra/migrations/202606240005_engine_rpc.sql
+infra/migrations/202607050001_engine_command_leases.sql
 infra/migrations/202606240006_membership_invites.sql
 infra/migrations/202607010001_groups_broadcasts_schedules.sql
 infra/migrations/202607010010_notifications.sql
