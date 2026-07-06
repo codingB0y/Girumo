@@ -909,6 +909,51 @@ test("handler assíncrono em voo termina antes do finalizer e abort impede novos
   assert.deepEqual(calls, ["save:start", "save:end", "rm-auth"]);
 });
 
+test("rejeição ativa ainda no bookkeeping não quebra close, finalizer ou reconnect", async () => {
+  const timers = createTimerHarness();
+  const error = new Error("saveCreds falhou");
+  const calls = [];
+  const unhandled = [];
+  let reconnects = 0;
+  let closing;
+  const onUnhandled = (reason) => unhandled.push(reason);
+  process.on("unhandledRejection", onUnhandled);
+  try {
+    const controller = createConnectionSessionController({
+      reconnect: async () => reconnects++,
+      setTimeoutFn: timers.setTimeoutFn,
+      clearTimeoutFn: timers.clearTimeoutFn,
+    });
+    const session = controller.create({});
+    session.addFinalizer(() => calls.push("finalizer"));
+    const handler = session.guardAsync(async () => {
+      throw error;
+    });
+
+    const handlerPromise = handler();
+    const callerObserved = assert.rejects(handlerPromise, error);
+    queueMicrotask(() => {
+      closing = controller.handleClose(session, 0);
+    });
+
+    await callerObserved;
+    await flushPromises();
+    assert.ok(closing, "close deveria iniciar antes do release do bookkeeping");
+    assert.equal(await closing, true);
+    await session.whenClosed();
+
+    assert.deepEqual(calls, ["finalizer"]);
+    assert.equal(session.state, "closed");
+    assert.equal(timers.active().length, 1);
+    timers.fireNext();
+    await flushPromises();
+    assert.equal(reconnects, 1);
+  } finally {
+    process.removeListener("unhandledRejection", onUnhandled);
+  }
+  assert.deepEqual(unhandled, []);
+});
+
 test("timeout de finalizer libera reconnect e observa rejeição tardia sem unhandled", async () => {
   const timers = createTimerHarness();
   const removingAuth = deferred();

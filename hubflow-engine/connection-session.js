@@ -126,18 +126,22 @@ function createConnectionSessionController({
 
   async function drainSessionOperations(session) {
     while (session.operations.size > 0) {
-      await Promise.all([...session.operations]);
+      const operations = [...session.operations];
+      await Promise.allSettled(operations);
+      for (const operation of operations) session.operations.delete(operation);
     }
   }
 
   function setCleanupDrain(session, drain, markClosed = true) {
     let finalPromise;
-    finalPromise = Promise.resolve(drain).then(() => {
-      if (session.cleanupPromise === finalPromise) {
-        if (markClosed) session.state = "closed";
-        drainingSessions.delete(session);
-      }
-    });
+    finalPromise = Promise.resolve(drain)
+      .catch((error) => log("session cleanup drain failed", error))
+      .then(() => {
+        if (session.cleanupPromise === finalPromise) {
+          if (markClosed) session.state = "closed";
+          drainingSessions.delete(session);
+        }
+      });
     session.cleanupPromise = finalPromise;
     drainingSessions.add(session);
   }
