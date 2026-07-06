@@ -1,0 +1,652 @@
+import { Archivo, Martian_Mono } from "next/font/google";
+import { ArrowRight, Check, X } from "lucide-react";
+import { WhatsAppIcon } from "@/components/landing/icons";
+import { Lp2Nav } from "@/components/lp2/nav";
+import { Lp2Fx } from "@/components/lp2/fx";
+import { OrderTicker } from "@/components/lp2/order-ticker";
+import { BazarVideo } from "@/components/lp2/video-facade";
+import "./lp2.css";
+
+/* Sistema tipográfico próprio da /lp2 (sem herança de marca, por ordem do Igor):
+   Archivo variable (display expandido via font-stretch) + Martian Mono (etiquetas). */
+const archivo = Archivo({
+  subsets: ["latin"],
+  axes: ["wdth"],
+  variable: "--font-lp4",
+  display: "swap",
+});
+
+const martian = Martian_Mono({
+  subsets: ["latin"],
+  weight: ["400", "600"],
+  variable: "--font-lp4-mono",
+  display: "swap",
+});
+
+/* Experimento de conversão: noindex enquanto roda em paralelo. */
+export const metadata = {
+  title: "HubFlow — Grupos de WhatsApp pra atacado de roupa",
+  description:
+    "O HubFlow lota seus grupos de WhatsApp com revendedores, publica sua oferta em todos de uma vez e mostra de qual grupo veio cada venda. Feito por quem levou um atacado de R$5 mil a R$350 mil por mês.",
+  robots: { index: false, follow: false },
+};
+
+const SIGNUP_URL = "/signup";
+const WHATSAPP_URL =
+  process.env.NEXT_PUBLIC_SALES_WHATSAPP_URL ||
+  "https://wa.me/5562998191314?text=Ol%C3%A1!%20Quero%20saber%20mais%20sobre%20o%20HubFlow.";
+
+const ROTINA = {
+  manual: [
+    "A grade nova sai grupo por grupo, 2h de copiar e colar",
+    "Grupo lotou, link morto — o clique vai pro concorrente",
+    "A venda acontece e ninguém sabe de qual anúncio veio",
+    "Página de captação, só pagando programador",
+  ],
+  hubflow: [
+    "Um clique publica em todos, no horário certo",
+    "Grupo cheio? O próximo nasce sozinho e o link nunca morre",
+    "Cada pedido volta com origem: anúncio, story ou bio",
+    "Modelo de página pronto, no ar em minutos",
+  ],
+};
+
+const METODO = [
+  {
+    n: "01",
+    title: "Captação constante",
+    body: "Link rastreado no anúncio, na bio e no story, apontando pra uma página que só faz uma coisa: colocar revendedor pra dentro do grupo. Lotou, o próximo já nasce.",
+  },
+  {
+    n: "02",
+    title: "Grupo aquecido",
+    body: "Boas-vindas na hora, regra clara, novidade cedo. Grupo com movimento diário vira o primeiro lugar onde o revendedor olha de manhã.",
+  },
+  {
+    n: "03",
+    title: "Oferta todo dia",
+    body: "A grade nova ia pra todos os grupos de uma vez, na hora em que o revendedor monta o pedido. Quem viu cedo, pediu primeiro.",
+  },
+  {
+    n: "04",
+    title: "Evento de 2 dias",
+    body: "Duas vezes por ano, o estoque virava evento avisado só nos grupos: fila na porta e mais de 20 mil peças vendidas em 48 horas.",
+  },
+];
+
+const PLANS = [
+  {
+    name: "Essencial",
+    price: 197,
+    who: "Pra botar os primeiros grupos pra rodar.",
+    features: [
+      "1 número de WhatsApp",
+      "Até 5 grupos gerenciados",
+      "Disparo de texto e imagem",
+      "Agendamento de mensagens",
+    ],
+    featured: false,
+  },
+  {
+    name: "Growth",
+    price: 297,
+    who: "Pra quem opera dezenas de grupos todo dia.",
+    features: [
+      "Grupos ilimitados",
+      "Grupo lotou, o próximo nasce sozinho",
+      "Página de captação com a sua marca",
+      "Agenda semanal em 1 clique",
+      "Cada pedido com origem rastreada",
+    ],
+    featured: true,
+  },
+  {
+    name: "Operação",
+    price: 497,
+    who: "Pra quem quer um time junto na operação.",
+    features: [
+      "Tudo do Growth",
+      "Setup e operação assistidos",
+      "Revisão estratégica mensal 1:1",
+      "Prioridade no suporte",
+    ],
+    featured: false,
+  },
+];
+
+const FAQ = [
+  [
+    "Preciso trocar de número?",
+    "Não. Funciona com o seu número de sempre, lendo um QR Code. Sem chip novo, sem app extra.",
+  ],
+  [
+    "É difícil de usar?",
+    "Se você usa WhatsApp, usa o HubFlow. Painel em português e modelos prontos de página e de mensagem — você quase não configura nada.",
+  ],
+  [
+    "Quantos grupos consigo gerenciar?",
+    "No Growth, ilimitados. 50, 100 ou mais — todos num painel só. E quando um enche, o próximo nasce sozinho.",
+  ],
+  [
+    "E se eu não gostar?",
+    "Você tem 30 dias de garantia incondicional. Usou, não curtiu, devolvemos 100% — sem pergunta, sem burocracia.",
+  ],
+  [
+    "Meus contatos ficam comigo se eu cancelar?",
+    "Sim. O número é seu, os grupos são seus, os contatos são seus. Sem fidelidade, sem multa.",
+  ],
+];
+
+const TIMESTAMPS = [
+  "05h58 · a grade chega",
+  "06h12 · link no ar",
+  "07h04 · grupo lotado",
+  "08h30 · pedidos no painel",
+];
+
+export default function Lp2Page() {
+  return (
+    <div className={`lp4 ${archivo.variable} ${martian.variable} min-h-screen`}>
+      <main className="w-full max-w-full overflow-x-clip">
+        <div className="lp4-grain" aria-hidden />
+        <Lp2Nav signupUrl={SIGNUP_URL} />
+
+        {/* ==================== 1 · HERO ==================== */}
+        <section className="lp4-mesh relative overflow-hidden pb-20 pt-40 md:pb-28">
+          <div className="mx-auto w-full max-w-6xl px-5 text-center">
+            <p data-lp4-hi className="lp4-mono inline-flex items-center gap-2.5 text-[10px] text-[var(--body)]">
+              <span className="lp4-pulse h-1.5 w-1.5 rounded-full bg-[var(--green)]" aria-hidden />
+              grupos de whatsapp pra atacado de roupa
+            </p>
+
+            <h1 data-lp4-hi className="lp4-x mx-auto mt-7 max-w-5xl text-balance text-[clamp(2.6rem,6.4vw,5.5rem)]">
+              Encha seus grupos de revendedor.{" "}
+              <span className="lp4-green">Venda todo dia.</span>
+            </h1>
+
+            <p data-lp4-hi className="mx-auto mt-7 max-w-xl text-pretty text-lg leading-relaxed text-[var(--body)]">
+              O HubFlow lota seus grupos de WhatsApp com revendedores, publica sua oferta em todos
+              de uma vez e mostra de qual grupo veio cada venda. Feito por quem levou um atacado de
+              roupa de R$ 5 mil a R$ 350 mil por mês fazendo exatamente isso.
+            </p>
+
+            <div data-lp4-hi className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <a href={SIGNUP_URL} className="lp4-btn lp4-btn-green">
+                Criar minha campanha <ArrowRight className="h-4 w-4" aria-hidden />
+              </a>
+              <a href={WHATSAPP_URL} className="lp4-btn lp4-btn-ghost">
+                <WhatsAppIcon className="h-4 w-4 text-[var(--green)]" aria-hidden /> Falar no WhatsApp
+              </a>
+            </div>
+
+            <p data-lp4-hi className="lp4-mono mt-8 text-[10px] text-[var(--body)]">
+              feito por atacadista, pra atacadista · 30 dias de garantia
+            </p>
+
+            {/* janela dominante — painel de disparo */}
+            <div data-lp4-hi className="mx-auto mt-16 max-w-4xl">
+              <div data-lp4-w className="lp4-window text-left">
+                <div className="lp4-chrome">
+                  <i /><i /><i />
+                  <span className="lp4-mono ml-2 text-[9px] text-[var(--body)]">hubflow · disparo</span>
+                </div>
+                <div className="grid gap-0 md:grid-cols-[190px_1fr]">
+                  <aside className="hidden border-r border-[var(--line)] p-5 md:block">
+                    {[
+                      ["Grupos", "47"],
+                      ["Campanhas", "3"],
+                      ["Pedidos", "128"],
+                    ].map(([label, n]) => (
+                      <div key={label} className="mb-1 flex items-center justify-between rounded-lg px-3 py-2 text-sm text-[var(--body)] first:bg-[rgba(242,241,234,0.04)] first:text-[var(--display)]">
+                        <span>{label}</span>
+                        <span className="lp4-mono text-[9px]">{n}</span>
+                      </div>
+                    ))}
+                  </aside>
+                  <div className="p-5 md:p-7">
+                    <div className="rounded-xl border border-[var(--line)] bg-[rgba(242,241,234,0.03)] p-4">
+                      <p className="text-sm">
+                        Grade nova 214 — 40 peças. Tabela de atacado no privado, manda um “EU QUERO”.
+                      </p>
+                      <div className="mt-3 flex items-center justify-between gap-3">
+                        <div className="flex gap-1.5">
+                          {["foto", "tabela"].map((c) => (
+                            <span key={c} className="lp4-mono rounded-md border border-[var(--line)] px-2 py-1 text-[8px] text-[var(--body)]">
+                              {c}
+                            </span>
+                          ))}
+                        </div>
+                        <span className="lp4-btn lp4-btn-green px-4 py-2 text-xs">
+                          Disparar pra 47 grupos
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-4 space-y-2 border-t border-[var(--line)] pt-4">
+                      {[
+                        ["VIP 01 · Atacado", "entregue"],
+                        ["VIP 02 · Pronta entrega", "entregue"],
+                        ["VIP 03 · Outlet", "na fila"],
+                      ].map(([g, s]) => (
+                        <div key={g} className="flex items-center justify-between">
+                          <span className="flex items-center gap-2 text-xs text-[var(--body)]">
+                            <WhatsAppIcon className="h-3.5 w-3.5 text-[var(--green)]" aria-hidden /> {g}
+                          </span>
+                          <span className={`lp4-mono flex items-center gap-1.5 text-[9px] ${s === "entregue" ? "text-[var(--green)]" : "text-[var(--body)]"}`}>
+                            {s === "entregue" && <Check className="h-3 w-3" aria-hidden />}
+                            {s}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-6 flex justify-center">
+                <OrderTicker />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ==================== 2 · A ROTINA QUE DÓI ==================== */}
+        <section className="py-24 md:py-40">
+          <div className="mx-auto max-w-6xl px-5">
+            <div data-lp4-r className="max-w-3xl">
+              <h2 className="lp4-x text-[clamp(2rem,4.4vw,3.5rem)]">
+                Postar na mão custa caro.{" "}
+                <span className="text-[var(--body)]">Você só não vê a fatura.</span>
+              </h2>
+            </div>
+            <div className="mt-12 grid gap-4 md:grid-cols-2" data-lp4-r>
+              <div className="rounded-3xl border border-[var(--line)] p-8">
+                <p className="lp4-mono text-[10px] text-[var(--body)]">do jeito que tá</p>
+                <ul className="mt-6 space-y-4">
+                  {ROTINA.manual.map((item) => (
+                    <li key={item} className="flex items-start gap-3 text-[15px] leading-relaxed text-[var(--body)]">
+                      <X className="mt-0.5 h-4 w-4 shrink-0 opacity-50" aria-hidden />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="rounded-3xl border border-[rgba(47,212,107,0.35)] bg-[rgba(15,61,38,0.16)] p-8">
+                <p className="lp4-mono flex items-center gap-2 text-[10px] text-[var(--green)]">
+                  <WhatsAppIcon className="h-3.5 w-3.5" aria-hidden /> com o hubflow
+                </p>
+                <ul className="mt-6 space-y-4">
+                  {ROTINA.hubflow.map((item) => (
+                    <li key={item} className="flex items-start gap-3 text-[15px] font-medium leading-relaxed">
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--green)]" aria-hidden />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ==================== 3 · A ESTEIRA EM 3 JANELAS ==================== */}
+        <section id="metodo-esteira" className="relative border-t border-[var(--line)] py-24 md:py-40">
+          <div className="mx-auto max-w-6xl px-5">
+            <div data-lp4-r className="max-w-3xl">
+              <h2 className="lp4-x text-[clamp(2rem,4.4vw,3.5rem)]">
+                Do link ao pedido, <span className="text-[var(--body)]">sem tocar em nada.</span>
+              </h2>
+            </div>
+
+            <div className="relative mt-16 space-y-16 md:space-y-24">
+              {/* linha da esteira (desktop) */}
+              <svg
+                aria-hidden
+                className="pointer-events-none absolute inset-0 hidden h-full w-full md:block"
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+              >
+                <path
+                  data-lp4-path
+                  d="M 72 2 C 72 18, 28 16, 28 36 C 28 54, 72 50, 72 68 C 72 84, 50 88, 50 99"
+                  fill="none"
+                  stroke="rgba(47,212,107,0.5)"
+                  strokeWidth="1.5"
+                  vectorEffect="non-scaling-stroke"
+                />
+              </svg>
+
+              {/* 01 — o link */}
+              <div className="relative grid items-center gap-8 md:grid-cols-2 md:gap-16">
+                <div data-lp4-r>
+                  <p className="lp4-mono text-[10px] text-[var(--green)]">01 · o link</p>
+                  <h3 className="mt-3 text-2xl font-bold tracking-tight">A página que lota o grupo</h3>
+                  <p className="mt-3 max-w-md leading-relaxed text-[var(--body)]">
+                    Modelo pronto com a sua marca, publicado em minutos. Quem clica no anúncio, na
+                    bio ou no story cai direto no grupo certo — e quando lota, o próximo nasce
+                    sozinho.
+                  </p>
+                </div>
+                <div data-lp4-w className="lp4-window mx-auto w-full max-w-[300px] p-6">
+                  <div className="flex items-center gap-2">
+                    <span className="h-5 w-5 rounded-md bg-[var(--green-deep)]" aria-hidden />
+                    <span className="text-xs font-bold">Sua Loja Atacado</span>
+                  </div>
+                  <p className="mt-4 text-base font-bold leading-snug">
+                    Grade nova toda quarta, antes de todo mundo
+                  </p>
+                  <div className="lp4-btn lp4-btn-green mt-4 w-full justify-center py-2.5 text-xs">
+                    Entrar no grupo VIP
+                  </div>
+                  <p className="lp4-mono mt-2.5 text-center text-[8px] text-[var(--body)]">
+                    restam 43 vagas
+                  </p>
+                </div>
+              </div>
+
+              {/* 02 — a grade */}
+              <div className="relative grid items-center gap-8 md:grid-cols-2 md:gap-16">
+                <div data-lp4-w className="lp4-window order-2 mx-auto w-full max-w-[340px] p-6 md:order-1">
+                  <p className="rounded-lg bg-[rgba(242,241,234,0.04)] px-3.5 py-2.5 text-xs">
+                    Grade nova 214 — 40 peças. Manda “EU QUERO”.
+                  </p>
+                  <div className="mt-3 space-y-1.5">
+                    {["VIP 01", "VIP 02", "VIP 03"].map((g) => (
+                      <div key={g} className="flex items-center justify-between rounded-lg border border-[var(--line)] px-3 py-1.5">
+                        <span className="lp4-mono text-[8px] text-[var(--body)]">{g}</span>
+                        <Check className="h-3 w-3 text-[var(--green)]" aria-hidden />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div data-lp4-r className="order-1 md:order-2">
+                  <p className="lp4-mono text-[10px] text-[var(--green)]">02 · a grade</p>
+                  <h3 className="mt-3 text-2xl font-bold tracking-tight">Um clique posta em todos</h3>
+                  <p className="mt-3 max-w-md leading-relaxed text-[var(--body)]">
+                    Escreva uma vez, escolha os grupos e dispare — ou deixe agendado pro horário em
+                    que o revendedor monta o pedido. Texto, foto, tabela, áudio.
+                  </p>
+                </div>
+              </div>
+
+              {/* 03 — o pedido */}
+              <div className="relative grid items-center gap-8 md:grid-cols-2 md:gap-16">
+                <div data-lp4-r>
+                  <p className="lp4-mono text-[10px] text-[var(--green)]">03 · o pedido</p>
+                  <h3 className="mt-3 text-2xl font-bold tracking-tight">Cada venda volta com origem</h3>
+                  <p className="mt-3 max-w-md leading-relaxed text-[var(--body)]">
+                    O painel mostra de qual grupo e de qual anúncio veio cada pedido. Verba vai pro
+                    canal que vende — decisão com número, não com achismo.
+                  </p>
+                </div>
+                <div data-lp4-w className="lp4-window mx-auto w-full max-w-[340px] p-6">
+                  {[
+                    ["Marina S.", "R$ 186", "anúncio"],
+                    ["Cleide R.", "R$ 342", "grupo vip 12"],
+                    ["Ana Paula", "R$ 518", "story"],
+                  ].map(([n, v, o]) => (
+                    <div key={n} className="mb-2 flex items-center justify-between rounded-xl border border-[var(--line)] px-4 py-2.5 last:mb-0">
+                      <span className="text-xs font-semibold">{n}</span>
+                      <span className="lp4-mono text-[9px] text-[var(--green)]">{v}</span>
+                      <span className="lp4-mono text-[8px] text-[var(--body)]">{o}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ==================== 4 · PROVA MEGA STOCK ==================== */}
+        <section id="prova" className="border-t border-[var(--line)] py-24 md:py-40">
+          <div className="mx-auto max-w-6xl px-5">
+            <div className="grid items-center gap-12 lg:grid-cols-[380px_1fr] lg:gap-20">
+              <div data-lp4-r className="order-2 mx-auto w-full max-w-[340px] lg:order-1">
+                <BazarVideo />
+                <p className="lp4-mono mt-3 text-center text-[9px] text-[var(--body)]">
+                  bazar mega stock · evento avisado nos grupos
+                </p>
+              </div>
+
+              <div className="order-1 lg:order-2">
+                <p data-lp4-r className="lp4-mono text-[10px] text-[var(--body)]">
+                  goiânia · região da 44 · história real
+                </p>
+                <h2 data-lp4-r className="lp4-x mt-5 text-[clamp(2rem,4.4vw,3.5rem)]">
+                  A gente levou a Mega Stock de R$ 5 mil a{" "}
+                  <span className="lp4-green">R$ 350 mil</span> por mês.
+                </h2>
+                <p data-lp4-r className="mt-6 max-w-2xl text-lg leading-relaxed text-[var(--body)]">
+                  Atacado de roupa infantil, balcão na 44, galpão de 800 m² e tudo feito na mão até
+                  cansar. A virada foi transformar o grupo de WhatsApp em canal de venda — página
+                  de captação enchendo grupo, novidade postada cedo, pedido rastreado. O HubFlow é
+                  essa operação virando produto. Agora ele é seu.
+                </p>
+
+                <dl data-lp4-r className="mt-10 grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-4">
+                  <div>
+                    <dt className="lp4-x text-3xl md:text-4xl">
+                      R$ <span data-lp4-c data-to="350">350</span> mil
+                    </dt>
+                    <dd className="lp4-mono mt-1.5 text-[9px] text-[var(--body)]">por mês</dd>
+                  </div>
+                  <div>
+                    <dt className="lp4-x text-3xl md:text-4xl">
+                      <span data-lp4-c data-to="12000" data-sep>12.000</span>
+                    </dt>
+                    <dd className="lp4-mono mt-1.5 text-[9px] text-[var(--body)]">revendedores</dd>
+                  </div>
+                  <div>
+                    <dt className="lp4-x text-3xl md:text-4xl">
+                      <span data-lp4-c data-to="50">50</span>+
+                    </dt>
+                    <dd className="lp4-mono mt-1.5 text-[9px] text-[var(--body)]">grupos ativos</dd>
+                  </div>
+                  <div>
+                    <dt className="lp4-x text-3xl md:text-4xl">
+                      <span data-lp4-c data-to="20">20</span> mil
+                    </dt>
+                    <dd className="lp4-mono mt-1.5 text-[9px] text-[var(--body)]">peças em 2 dias</dd>
+                  </div>
+                </dl>
+
+                <p data-lp4-r className="lp4-mono mt-10 flex flex-wrap gap-x-6 gap-y-2 text-[9px] text-[var(--body)] opacity-80">
+                  {TIMESTAMPS.map((t) => (
+                    <span key={t}>{t}</span>
+                  ))}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ==================== 5 · MÉTODO ==================== */}
+        <section id="metodo" className="border-t border-[var(--line)] py-24 md:py-40">
+          <div className="mx-auto max-w-6xl px-5">
+            <div data-lp4-r className="max-w-3xl">
+              <h2 className="lp4-x text-[clamp(2rem,4.4vw,3.5rem)]">
+                O jeito Mega Stock de vender,{" "}
+                <span className="text-[var(--body)]">do link ao evento.</span>
+              </h2>
+              <p className="mt-5 max-w-xl text-lg text-[var(--body)]">
+                Os quatro movimentos que a gente repetia toda semana — e que a ferramenta executa
+                com você.
+              </p>
+            </div>
+            <div className="mt-14">
+              {METODO.map((m) => (
+                <div key={m.n} data-lp4-r className="grid gap-4 border-t border-[var(--line)] py-9 md:grid-cols-[140px_260px_1fr] md:items-baseline md:gap-10">
+                  <span className="lp4-x text-5xl text-[rgba(242,241,234,0.16)] md:text-6xl" aria-hidden>
+                    {m.n}
+                  </span>
+                  <h3 className="text-xl font-bold tracking-tight">{m.title}</h3>
+                  <p className="max-w-xl leading-relaxed text-[var(--body)]">{m.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ==================== 6 · FAQ ==================== */}
+        <section id="faq" className="border-t border-[var(--line)] py-24 md:py-40">
+          <div className="mx-auto grid max-w-6xl gap-14 px-5 lg:grid-cols-[0.85fr_1.15fr]">
+            <div data-lp4-r>
+              <h2 className="lp4-x text-[clamp(1.9rem,3.8vw,3rem)]">
+                O que perguntam <span className="text-[var(--body)]">antes de começar.</span>
+              </h2>
+              <p className="mt-5 max-w-sm text-[var(--body)]">
+                Não achou a sua? Chama no WhatsApp — gente de verdade responde.
+              </p>
+              <a
+                href={WHATSAPP_URL}
+                className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-[var(--green)] transition-colors hover:text-[var(--green-hover)]"
+              >
+                <WhatsAppIcon className="h-4 w-4" aria-hidden /> Perguntar agora
+                <ArrowRight className="h-4 w-4" aria-hidden />
+              </a>
+            </div>
+            <div data-lp4-r>
+              {FAQ.map(([q, a]) => (
+                <details key={q} className="lp4-faq py-6">
+                  <summary className="flex items-center justify-between gap-4">
+                    <span className="text-lg font-bold tracking-tight md:text-xl">{q}</span>
+                    <span className="lp4-faq-x text-2xl font-light leading-none" aria-hidden>+</span>
+                  </summary>
+                  <p className="mt-4 max-w-2xl leading-relaxed text-[var(--body)]">{a}</p>
+                </details>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ==================== 7 · PLANOS + GARANTIA ==================== */}
+        <section id="planos" className="border-t border-[var(--line)] py-24 md:py-40">
+          <div className="mx-auto max-w-6xl px-5">
+            <div data-lp4-r className="mx-auto max-w-2xl text-center">
+              <h2 className="lp4-x text-[clamp(2rem,4.4vw,3.5rem)]">
+                Menos que uma grade <span className="text-[var(--body)]">por mês.</span>
+              </h2>
+              <p className="mt-5 text-lg text-[var(--body)]">
+                A Mega Stock fez R$ 350 mil num mês com esse jeito de vender. Escolha o tamanho da
+                sua operação — e troque quando crescer.
+              </p>
+            </div>
+
+            <div className="mt-16 grid items-stretch gap-5 md:grid-cols-3">
+              {PLANS.map((p) => (
+                <article
+                  key={p.name}
+                  data-lp4-w
+                  className={`relative flex flex-col rounded-3xl border p-8 ${
+                    p.featured
+                      ? "border-[rgba(47,212,107,0.5)] bg-[var(--bg-2)] shadow-[0_40px_110px_-45px_rgba(47,212,107,0.45)] md:-my-3 md:py-11"
+                      : "border-[var(--line)]"
+                  }`}
+                >
+                  {p.featured && (
+                    <span className="lp4-mono absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[var(--green)] px-4 py-1.5 text-[8px] font-semibold text-[#07230f]">
+                      mais escolhido
+                    </span>
+                  )}
+                  <h3 className="lp4-x text-2xl">{p.name}</h3>
+                  <p className="mt-1.5 text-sm text-[var(--body)]">{p.who}</p>
+                  <p className="mt-7 flex items-baseline gap-1.5">
+                    <span className="lp4-mono text-[10px] text-[var(--body)]">R$</span>
+                    <span className="lp4-x text-6xl">{p.price}</span>
+                    <span className="lp4-mono text-[10px] text-[var(--body)]">/mês</span>
+                  </p>
+                  <ul className="mt-8 flex-1 space-y-3 border-t border-[var(--line)] pt-7">
+                    {p.features.map((f) => (
+                      <li key={f} className="flex items-start gap-2.5 text-sm leading-snug">
+                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--green)]" aria-hidden />
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                  <a
+                    href={SIGNUP_URL}
+                    className={`lp4-btn mt-8 justify-center text-sm ${p.featured ? "lp4-btn-green" : "lp4-btn-ghost"}`}
+                  >
+                    Começar com {p.name}
+                  </a>
+                </article>
+              ))}
+            </div>
+
+            <div data-lp4-r className="mt-14 flex flex-col items-center gap-6 rounded-3xl border border-[var(--line)] bg-[var(--bg-2)] p-9 text-center md:flex-row md:gap-12 md:p-12 md:text-left">
+              <p className="lp4-x text-[5rem] leading-none text-[var(--green)] md:text-[6.5rem]">30</p>
+              <div>
+                <h3 className="text-xl font-bold tracking-tight md:text-2xl">
+                  dias de garantia incondicional
+                </h3>
+                <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--body)] md:text-base">
+                  Usou, não curtiu, devolvemos 100% — sem pergunta, sem burocracia. E os grupos e
+                  contatos continuam seus, de qualquer jeito.
+                </p>
+                <p className="lp4-mono mt-4 text-[9px] text-[var(--body)]">
+                  sem fidelidade · cancele quando quiser
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ==================== 8 · FECHO ==================== */}
+        <section className="border-t border-[var(--line)] py-28 text-center md:py-44">
+          <div className="mx-auto max-w-4xl px-5">
+            <h2 data-lp4-r className="lp4-x text-balance text-[clamp(2.4rem,6vw,4.8rem)]">
+              Seu próximo grupo cheio começa com{" "}
+              <span className="lp4-green">um link.</span>
+            </h2>
+            <p data-lp4-r className="mx-auto mt-6 max-w-md text-lg text-[var(--body)]">
+              Conecte seu WhatsApp em 2 minutos e veja a esteira trabalhar. 30 dias de garantia.
+            </p>
+            <div data-lp4-r className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <a href={SIGNUP_URL} className="lp4-btn lp4-btn-green">
+                Começar agora <ArrowRight className="h-4 w-4" aria-hidden />
+              </a>
+              <a href={WHATSAPP_URL} className="lp4-btn lp4-btn-ghost">
+                <WhatsAppIcon className="h-4 w-4 text-[var(--green)]" aria-hidden /> Falar no WhatsApp
+              </a>
+            </div>
+            <div data-lp4-r className="mt-12 flex justify-center">
+              <OrderTicker />
+            </div>
+          </div>
+        </section>
+
+        {/* ==================== FOOTER ==================== */}
+        <footer className="border-t border-[var(--line)] py-12">
+          <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 px-5 text-center sm:flex-row sm:text-left">
+            <div>
+              <p className="lp4-x text-lg">HubFlow</p>
+              <p className="lp4-mono mt-1.5 text-[8px] text-[var(--body)]">
+                feito por atacadista, pra atacadista
+              </p>
+            </div>
+            <nav className="flex flex-wrap items-center justify-center gap-6 text-sm text-[var(--body)]" aria-label="Links do rodapé">
+              <a className="transition-colors hover:text-[var(--display)]" href="/login">Entrar</a>
+              <a className="transition-colors hover:text-[var(--display)]" href={SIGNUP_URL}>Criar conta</a>
+              <a className="transition-colors hover:text-[var(--display)]" href="/termos">Termos</a>
+              <a className="transition-colors hover:text-[var(--display)]" href="/privacidade">Privacidade</a>
+            </nav>
+            <p className="text-xs text-[var(--body)]">© {new Date().getFullYear()} HubFlow</p>
+          </div>
+        </footer>
+
+        {/* CTA fixo mobile */}
+        <div className="fixed inset-x-0 bottom-0 z-40 flex gap-2 border-t border-[var(--line)] bg-[rgba(12,13,11,0.92)] p-3 backdrop-blur sm:hidden">
+          <a href={SIGNUP_URL} className="lp4-btn lp4-btn-green flex-1 justify-center py-3 text-sm">
+            Começar agora <ArrowRight className="h-4 w-4" aria-hidden />
+          </a>
+          <a
+            href={WHATSAPP_URL}
+            aria-label="Falar no WhatsApp"
+            className="flex h-12 w-12 items-center justify-center rounded-full border border-[var(--hairline)]"
+          >
+            <WhatsAppIcon className="h-5 w-5 text-[var(--green)]" aria-hidden />
+          </a>
+        </div>
+
+        <Lp2Fx />
+      </main>
+    </div>
+  );
+}
