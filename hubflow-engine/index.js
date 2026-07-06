@@ -163,10 +163,11 @@ async function resolveMentions(mentions) {
 }
 
 /** Envia texto SEMPRE pela fila anti-ban. Use priority p/ respostas imediatas. */
-function sendText(sock, jid, text, { priority = false, mentions, session } = {}) {
+function sendText(sock, jid, text, { priority = false, mentions, session, assertActive } = {}) {
   return queue.enqueue(
     async () => {
       const m = await resolveMentions(mentions);
+      assertActive?.();
       session?.assertActive();
       return sock.sendMessage(jid, { text, ...(m ? { mentions: m } : {}) });
     },
@@ -252,7 +253,9 @@ const connectionWatchdog = createConnectionWatchdogManager({
 });
 let supabaseCommandWorkerStarted = false;
 const supabaseCommandWorker = createSupabaseCommandWorker({
-  getSocket: () => currentSocket,
+  getSession: () => currentSession?.state === "ready" && currentSession.isActive()
+    ? currentSession
+    : null,
   sendText,
   logger: console,
 });
@@ -861,12 +864,12 @@ async function start(signal = new AbortController().signal) {
           if (dispatchTimer === dispatchHandle) dispatchTimer = null;
         });
 
-        supabaseCommandWorker.start();
-        supabaseCommandWorkerStarted = true;
+        supabaseCommandWorker.start(session.generation);
+        supabaseCommandWorkerStarted = supabaseCommandWorker.getActiveGeneration() === session.generation;
         session.addCleanup(() => {
-          if (currentSession && currentSession !== session && currentSession.state === "ready") return;
-          supabaseCommandWorker.stop();
-          supabaseCommandWorkerStarted = false;
+          if (supabaseCommandWorker.stop(session.generation)) {
+            supabaseCommandWorkerStarted = false;
+          }
         });
 
         const afterReady = (operation, message) => observePromise(
