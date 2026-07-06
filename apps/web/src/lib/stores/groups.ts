@@ -29,38 +29,6 @@ export async function listGroups(tenantId: string): Promise<Group[]> {
   if (error) throw new Error(error.message);
   return data ?? [];
 }
-
-export async function getGroup(tenantId: string, id: string): Promise<Group | null> {
-  const { data, error } = await getSupabaseAdmin()
-    .from(TABLE)
-    .select("*")
-    .eq("tenant_id", tenantId)
-    .eq("id", id)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  return data;
-}
-
-export async function upsertGroup(
-  tenantId: string,
-  input: Omit<Group, "id" | "tenant_id" | "created_at" | "updated_at" | "metadata"> & { id?: string },
-): Promise<Group> {
-  const { data, error } = await getSupabaseAdmin()
-    .from(TABLE)
-    .upsert(
-      {
-        ...input,
-        tenant_id: tenantId,
-        ...(input.id ? { id: input.id } : {}),
-      },
-      { onConflict: "tenant_id,whatsapp_group_id" },
-    )
-    .select("*")
-    .single();
-  if (error) throw new Error(error.message);
-  return data;
-}
-
 export async function upsertGroupsBatch(
   tenantId: string,
   groups: Array<Omit<Group, "id" | "tenant_id" | "created_at" | "updated_at" | "metadata"> & { id?: string }>,
@@ -87,13 +55,4 @@ export async function updateGroup(tenantId: string, id: string, patch: Partial<G
     .maybeSingle();
   if (error) throw new Error(error.message);
   return data;
-}
-
-export async function deleteGroup(tenantId: string, id: string): Promise<void> {
-  const { error } = await getSupabaseAdmin()
-    .from(TABLE)
-    .delete()
-    .eq("tenant_id", tenantId)
-    .eq("id", id);
-  if (error) throw new Error(error.message);
 }

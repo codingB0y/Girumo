@@ -9,9 +9,9 @@ import { tenantDataPath } from "@/lib/tenant-data-path";
 const groupsFile = (tenantId: string) => tenantDataPath(LEGACY_DATA_DIR, tenantId, "groups.json");
 
 // Capacidade padrão de grupo do WhatsApp (até a engine reportar o limite real).
-export const DEFAULT_CAPACITY = 1024;
+const DEFAULT_CAPACITY = 1024;
 // Grupo é "cheio" ao atingir esta fração da capacidade (deixa folga p/ não estourar).
-export const GROUP_FULL_RATIO = 0.95;
+const GROUP_FULL_RATIO = 0.95;
 
 export type SyncGroupInput = {
   whatsappGroupId: string;
@@ -120,7 +120,7 @@ export async function upsertGroup(tenantId: string, g: {
 }
 
 /** Grupo está disponível p/ receber gente: tem convite e ainda não atingiu 95% da capacidade. */
-export function isGroupAvailable(g: Group): boolean {
+function isGroupAvailable(g: Group): boolean {
   return !!g.inviteUrl && g.members < g.capacity * GROUP_FULL_RATIO;
 }
 

@@ -12,15 +12,7 @@ const AVAILABLE_EVENTS = [
   { id: "warmup_complete", label: "Aquecimento completo", desc: "Número completou o período de warmup" },
 ];
 
-type WebhookConfig = {
-  id?: string;
-  phone: string | null;
-  enabled: boolean;
-  events: string[];
-};
-
 export default function WebhookConfigPage() {
-  const [config, setConfig] = useState<WebhookConfig>({ phone: "", enabled: false, events: [] });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -33,7 +25,6 @@ export default function WebhookConfigPage() {
       .then((r) => r.json())
       .then((data) => {
         if (data) {
-          setConfig(data);
           setPhone(data.phone ?? "");
           setEnabled(data.enabled ?? false);
           setEvents(data.events ?? []);

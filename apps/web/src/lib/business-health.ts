@@ -9,13 +9,13 @@ import { listActivity } from "@/lib/activity-store";
 import type { Campaign } from "@/lib/mock-data";
 
 // Meta semanal de novas revendedoras. Fixa por ora — vira config no backend.
-export const WEEKLY_GOAL = 50;
+const WEEKLY_GOAL = 50;
 
 const DAY_MS = 86_400_000;
 const COLD_DAYS = 7; // V2: grupo "esfriando" = 7 dias sem entrada
 const RECOMPRA_DAYS = 14; // compradora "sumida" = sem comprar há +14 dias
 
-export type RecompraItem = { phone: string; group?: string; dias: number; leadId?: string };
+type RecompraItem = { phone: string; group?: string; dias: number; leadId?: string };
 
 export type FunnelStage = {
   key: string;
@@ -34,7 +34,7 @@ export type FunnelInsight = {
   href: string;
 };
 
-export type NextAction = {
+type NextAction = {
   text: string;
   cta: string;
   href: string;

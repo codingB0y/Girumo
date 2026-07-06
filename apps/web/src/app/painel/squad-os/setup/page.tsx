@@ -10,8 +10,6 @@ import {
   Loader2,
   Rocket,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-
 type SeedResult = {
   message: string;
   agents?: number;

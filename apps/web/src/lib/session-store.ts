@@ -3,7 +3,7 @@ import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 // Status REAL da sessão do WhatsApp, reportado pela engine (heartbeat a cada 30s).
 
-export type SessionStatus = "connected" | "disconnected";
+type SessionStatus = "connected" | "disconnected";
 
 // Stats que a engine JÁ calcula no terminal e agora manda no heartbeat.
 export type EngineStats = {

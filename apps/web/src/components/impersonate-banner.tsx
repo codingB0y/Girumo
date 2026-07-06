@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Shield, X, ArrowLeft } from "lucide-react";
+import { Shield, ArrowLeft } from "lucide-react";
 
 type ImpersonateData = {
   adminEmail: string;

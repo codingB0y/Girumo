@@ -2,7 +2,7 @@ import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 export type AutomationTrigger = "lead_entered" | "signup" | "no_connect_24h" | "trial_ending" | "group_full";
-export type AutomationStepType = "message" | "wait" | "condition";
+type AutomationStepType = "message" | "wait" | "condition";
 
 export type AutomationStep = {
   id: string;
@@ -36,17 +36,6 @@ export async function listAutomations(tenantId: string): Promise<Automation[]> {
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   return data ?? [];
-}
-
-export async function getAutomation(tenantId: string, id: string): Promise<Automation | null> {
-  const { data, error } = await getSupabaseAdmin()
-    .from(TABLE)
-    .select("*")
-    .eq("tenant_id", tenantId)
-    .eq("id", id)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  return data;
 }
 
 export async function createAutomation(
@@ -96,11 +85,6 @@ export async function deleteAutomation(tenantId: string, id: string): Promise<vo
     .eq("tenant_id", tenantId)
     .eq("id", id);
   if (error) throw new Error(error.message);
-}
-
-export async function incrementAutomationRuns(tenantId: string, id: string): Promise<void> {
-  const supabase = getSupabaseAdmin();
-  await supabase.rpc("increment_automation_runs", { p_id: id, p_tenant_id: tenantId });
 }
 
 /**

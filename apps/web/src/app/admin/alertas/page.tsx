@@ -1,16 +1,7 @@
-import { Bell, AlertTriangle, CreditCard, Smartphone, UserPlus, Info } from "lucide-react";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { AdminAlertsClient } from "@/components/admin/alerts-client";
 
 export const dynamic = "force-dynamic";
-
-const TYPE_CONFIG: Record<string, { label: string; icon: typeof Bell }> = {
-  billing: { label: "Financeiro", icon: CreditCard },
-  instance: { label: "Instância", icon: Smartphone },
-  error: { label: "Erro", icon: AlertTriangle },
-  signup: { label: "Novo Signup", icon: UserPlus },
-  info: { label: "Info", icon: Info },
-};
 
 export default async function AdminAlertasPage() {
   const supabase = getSupabaseAdmin();

@@ -29,10 +29,6 @@ export function hasPermission(role: TenantRole, action: Action): boolean {
   return PERMISSIONS[action]?.includes(role) ?? false;
 }
 
-export function canAccess(role: TenantRole, actions: Action[]): boolean {
-  return actions.every((a) => hasPermission(role, a));
-}
-
 export function assertPermission(role: TenantRole, action: Action): void {
   if (!hasPermission(role, action)) {
     throw new Response("Sem permissão para esta ação.", { status: 403 });

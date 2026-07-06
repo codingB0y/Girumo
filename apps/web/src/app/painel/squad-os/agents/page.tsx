@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Bot, Zap, Star, Gauge } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { getAgents } from "@/lib/stores/squad-os";
 import type { Agent } from "@/lib/types/squad-os";
 

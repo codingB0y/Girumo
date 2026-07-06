@@ -1,6 +1,6 @@
 import "server-only";
 import { promises as fs } from "fs";
-import { writeFileAtomic, withFileLock } from "@/lib/atomic-fs";
+import { writeFileAtomic } from "@/lib/atomic-fs";
 import { LEGACY_DATA_DIR, legacyDataPath } from "@/lib/legacy-data-dir";
 
 // Pedidos REAIS (venda registrada pelo lojista). É a fonte de verdade de
@@ -48,38 +48,6 @@ export async function listOrders(): Promise<Order[]> {
   return parse(await fs.readFile(ORDERS_FILE, "utf8")).sort((a, b) =>
     b.createdAt.localeCompare(a.createdAt),
   );
-}
-
-export async function addOrder(input: {
-  phone?: string;
-  leadId?: string;
-  group?: string;
-  value: number;
-}): Promise<Order> {
-  await ensure();
-  return withFileLock(ORDERS_FILE, async () => {
-    const order: Order = {
-      id: crypto.randomUUID(),
-      phone: onlyDigits(input.phone ?? ""),
-      leadId: input.leadId,
-      group: input.group,
-      value: Number(input.value) || 0,
-      createdAt: new Date().toISOString(),
-    };
-    await fs.appendFile(ORDERS_FILE, JSON.stringify(order) + "\n");
-    return order;
-  });
-}
-
-export async function removeOrder(id: string): Promise<boolean> {
-  await ensure();
-  return withFileLock(ORDERS_FILE, async () => {
-    const orders = parse(await fs.readFile(ORDERS_FILE, "utf8"));
-    const next = orders.filter((o) => o.id !== id);
-    if (next.length === orders.length) return false;
-    await writeFileAtomic(ORDERS_FILE, next.map((o) => JSON.stringify(o)).join("\n") + (next.length ? "\n" : ""));
-    return true;
-  });
 }
 
 /** Última compra por telefone (dígitos) → ISO. Base do alerta de recompra. */

@@ -21,30 +21,14 @@ export function getAppEnvironment(): AppEnvironment {
       return "development";
   }
 }
-
 /** True se estamos em ambiente local de desenvolvimento */
 export function isDev(): boolean {
   return getAppEnvironment() === "development";
 }
 
-/** True se estamos em staging */
-export function isStaging(): boolean {
-  return getAppEnvironment() === "staging";
-}
-
 /** True se estamos em produção */
 export function isProduction(): boolean {
   return getAppEnvironment() === "production";
-}
-
-/** True se dev tools estão habilitados */
-export function isDevToolsEnabled(): boolean {
-  return process.env.ENABLE_DEV_TOOLS === "true" && !isProduction();
-}
-
-/** True se mock engine está habilitado */
-export function isMockEngineEnabled(): boolean {
-  return process.env.ENABLE_MOCK_ENGINE === "true" && !isProduction();
 }
 
 /**
@@ -97,17 +81,3 @@ export function detectProductionLeaks(): string[] {
 
   return leaks;
 }
-
-/** Labels para exibição visual */
-export const ENV_LABELS: Record<AppEnvironment, string> = {
-  development: "🟢 LOCAL DEV MODE",
-  staging: "🟡 STAGING",
-  production: "🔴 PRODUCTION",
-};
-
-/** Cores para banners */
-export const ENV_COLORS: Record<AppEnvironment, { bg: string; text: string; border: string }> = {
-  development: { bg: "bg-green-500/10", text: "text-green-400", border: "border-green-500/30" },
-  staging: { bg: "bg-yellow-500/10", text: "text-yellow-400", border: "border-yellow-500/30" },
-  production: { bg: "bg-red-500/10", text: "text-red-400", border: "border-red-500/30" },
-};

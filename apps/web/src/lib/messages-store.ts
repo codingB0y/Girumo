@@ -2,8 +2,8 @@ import "server-only";
 import { collection } from "@/lib/json-collection";
 import { enqueueDispatch } from "@/lib/dispatch-store";
 
-export type MessageType = "text" | "image" | "video" | "audio" | "file" | "poll";
-export type MessageStatus = "draft" | "scheduled" | "queued" | "running" | "sent" | "failed";
+type MessageType = "text" | "image" | "video" | "audio" | "file" | "poll";
+type MessageStatus = "draft" | "scheduled" | "queued" | "running" | "sent" | "failed";
 
 export type CampaignMessage = {
   id: string;
@@ -45,18 +45,10 @@ export type CampaignMessage = {
 
 const coll = collection<CampaignMessage>("messages.json");
 
-export { coll as messagesCollection };
-
 /** Lista mensagens de uma campanha específica */
 export async function listByCampaign(campaignId: string): Promise<CampaignMessage[]> {
   const all = await coll.list();
   return all.filter((m) => m.campaignId === campaignId);
-}
-
-/** Lista mensagens agendadas (pendentes) de todas as campanhas */
-export async function listScheduled(): Promise<CampaignMessage[]> {
-  const all = await coll.list();
-  return all.filter((m) => m.status === "scheduled");
 }
 
 /** Cria uma mensagem e, se não for agendamento, enfileira pra dispatch */
@@ -106,32 +98,6 @@ async function syncToBroadcastAndDispatch(msg: CampaignMessage): Promise<void> {
 
   // Atualiza status local
   await coll.update(msg.id, { status: "queued" });
-}
-
-/** Promove mensagens agendadas vencidas para dispatch */
-export async function processDueMessages(): Promise<void> {
-  const all = await coll.list();
-  const now = Date.now();
-  const DAY_MS = 86_400_000;
-
-  for (const m of all) {
-    if (m.status !== "scheduled") continue;
-    if (!m.scheduledAt || new Date(m.scheduledAt).getTime() > now) continue;
-
-    // Disparar
-    await syncToBroadcastAndDispatch(m);
-
-    // Se recorrente, reprograma; senão, marca como concluído quando dispatch terminar
-    if (m.recurrence !== "none") {
-      const step = m.recurrence === "daily" ? DAY_MS : 7 * DAY_MS;
-      let next = new Date(m.scheduledAt).getTime();
-      do { next += step; } while (next <= now);
-      await coll.update(m.id, {
-        scheduledAt: new Date(next).toISOString(),
-        status: "scheduled",
-      });
-    }
-  }
 }
 
 /** Cancela um agendamento */

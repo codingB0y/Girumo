@@ -6,7 +6,6 @@ import {
   Database,
   RefreshCw,
   Trash2,
-  Zap,
   AlertTriangle,
   Users,
   Activity,

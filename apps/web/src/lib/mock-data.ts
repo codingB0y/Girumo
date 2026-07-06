@@ -1,8 +1,6 @@
 // Tipos compartilhados do dominio. Os dados vem de stores reais/APIs.
 // A fonte alvo e Supabase/PostgreSQL com RLS, sem Prisma.
 
-export type ConnectionStatus = "connected" | "disconnected" | "connecting";
-
 export type Engagement = "alto" | "medio" | "baixo";
 
 export type Group = {
