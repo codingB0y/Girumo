@@ -16,7 +16,8 @@ const securityHeaders = [
       "img-src 'self' data: blob: https://*.supabase.co",
       "font-src 'self'",
       "connect-src 'self' https://*.supabase.co https://api.stripe.com wss://*.supabase.co",
-      "frame-src https://js.stripe.com https://hooks.stripe.com",
+      // player.vimeo.com: vídeo real do bazar Mega Stock no case da /lp
+      "frame-src https://js.stripe.com https://hooks.stripe.com https://player.vimeo.com",
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",

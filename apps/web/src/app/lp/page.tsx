@@ -368,15 +368,33 @@ export default function LpExperience() {
 
             <div className="lp3-stack mt-24">
               <article className="lp3-stack-card lp3-dark-card p-8 md:p-14" style={{ top: "88px" }}>
-                <h3 className="text-2xl font-bold tracking-tight md:text-3xl">A operação era de verdade.</h3>
-                <p className="mt-4 max-w-2xl text-base leading-relaxed text-[rgba(244,241,233,0.65)] md:text-lg">
-                  Galpão de 800 m² na Perimetral, equipe de vendas no balcão e um Instagram com 105
-                  mil seguidores. Não é teoria de palco — é loja que abria cedo e despachava pro
-                  Brasil inteiro.
-                </p>
-                <p className="lp3-mono mt-8 text-[10px] text-[var(--lp-accent)]">
-                  quem nunca operou um atacado não constrói ferramenta pra atacado
-                </p>
+                <div className="grid gap-10 md:grid-cols-[1.15fr_0.85fr] md:items-center">
+                  <div>
+                    <h3 className="text-2xl font-bold tracking-tight md:text-3xl">A operação era de verdade.</h3>
+                    <p className="mt-4 max-w-2xl text-base leading-relaxed text-[rgba(244,241,233,0.65)] md:text-lg">
+                      Galpão de 800 m² na Perimetral, equipe de vendas no balcão e um Instagram com
+                      105 mil seguidores. Não é teoria de palco — é loja que abria cedo e despachava
+                      pro Brasil inteiro. O vídeo aí do lado é um bazar nosso, avisado só nos grupos.
+                    </p>
+                    <p className="lp3-mono mt-8 text-[10px] text-[var(--lp-accent)]">
+                      quem nunca operou um atacado não constrói ferramenta pra atacado
+                    </p>
+                  </div>
+                  <div className="mx-auto w-full max-w-[280px]">
+                    <div className="relative aspect-[9/16] overflow-hidden rounded-[1.75rem] border border-[rgba(244,241,233,0.14)] bg-black shadow-[0_40px_90px_-40px_rgba(0,0,0,0.8)]">
+                      <iframe
+                        src="https://player.vimeo.com/video/1207228037?autoplay=1&muted=1&loop=1&title=0&byline=0&portrait=0&dnt=1"
+                        allow="autoplay; fullscreen; picture-in-picture"
+                        loading="lazy"
+                        title="Bazar Mega Stock — loja cheia durante o evento avisado nos grupos"
+                        className="absolute inset-0 h-full w-full"
+                      />
+                    </div>
+                    <p className="lp3-mono mt-3 text-center text-[9px] text-[rgba(244,241,233,0.45)]">
+                      bazar mega stock · evento avisado nos grupos
+                    </p>
+                  </div>
+                </div>
               </article>
 
               <article className="lp3-stack-card lp3-dark-card p-8 md:p-14" style={{ top: "106px" }}>
