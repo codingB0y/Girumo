@@ -123,5 +123,6 @@ export async function middleware(req: NextRequest) {
 export const config = {
   // p/ = LPs públicas do Flow Pages · api/p/ = endpoints públicos do Flow Pages
   // (rate-limit próprio nas rotas públicas de lead/track — sessão 4)
-  matcher: ["/((?!login|signup|forgot-password|reset-password|api/p/|r/|p/|_next/static|_next/image|favicon.ico|.*\\.).*)"]
+  // lp = landing experimental de conversão (/lp) — pública, sem sessão
+  matcher: ["/((?!login|signup|forgot-password|reset-password|api/p/|r/|p/|lp|_next/static|_next/image|favicon.ico|.*\\.).*)"]
 };
