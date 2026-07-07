@@ -70,13 +70,13 @@ export default function PainelContatos() {
   );
 
   return (
-    <div className="mx-auto max-w-[1200px] space-y-6 px-4 py-6 sm:px-6">
-      <div>
-        <h1 className="font-display text-3xl font-extrabold tracking-[-0.03em]">Contatos</h1>
-        <p className="font-data mt-1 text-xs uppercase tracking-wider text-aco/60">
-          Quem entrou nos seus grupos pelas campanhas
+    <div className="mx-auto max-w-[1200px] space-y-8 px-4 py-8 sm:px-8">
+      <header>
+        <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-breu">Contatos</h1>
+        <p className="font-editorial mt-1 text-[19px] italic text-ardosia">
+          Quem entrou nos seus grupos pelas campanhas.
         </p>
-      </div>
+      </header>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <MiniStat label="Total" value={String(leads.length)} />
@@ -86,18 +86,18 @@ export default function PainelContatos() {
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex gap-1 rounded-xl border border-breu/10 bg-white p-1">
+        <div className="flex gap-1 rounded-xl border border-breu/10 bg-papel p-1">
           {FILTERS.map((f) => (
             <button
               key={f.value}
               onClick={() => setFilter(f.value)}
               className={cn(
-                "rounded-lg px-3.5 py-1.5 text-sm font-medium transition",
+                "cursor-pointer rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors duration-[160ms]",
                 filter === f.value ? "bg-breu text-white" : "text-aco/70 hover:text-breu",
               )}
             >
               {f.label}
-              <span className={cn("font-data ml-1.5 text-[11px]", filter === f.value ? "text-bruma/60" : "text-aco/40")}>
+              <span className={cn("font-data ml-1.5 text-[11px] tabular-nums", filter === f.value ? "text-bruma/60" : "text-aco/40")}>
                 {counts[f.value] ?? 0}
               </span>
             </button>
@@ -109,28 +109,30 @@ export default function PainelContatos() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Buscar contato…"
-            className="w-full rounded-xl border border-breu/10 bg-white py-2.5 pl-9 pr-3 text-sm text-breu outline-none transition placeholder:text-aco/40 focus:border-iris/40 focus:ring-4 focus:ring-iris/10 sm:w-64"
+            aria-label="Buscar contato"
+            className="w-full rounded-[10px] border border-breu/10 bg-poco py-2.5 pl-9 pr-3 text-sm text-breu outline-none transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] placeholder:text-aco/40 focus:border-iris/50 focus:bg-papel focus:shadow-[0_0_0_3px_var(--color-iris-light)] sm:w-64"
           />
         </div>
       </div>
 
       {loading ? (
-        <div className="h-80 animate-pulse rounded-3xl border border-breu/[0.08] bg-white" />
+        <div className="pn-skeleton h-80 rounded-2xl" />
       ) : (
-        <div className="overflow-hidden rounded-3xl border border-breu/[0.08] bg-white">
-          <div className="hidden border-b border-breu/[0.06] bg-bruma/40 px-5 py-3 md:grid md:grid-cols-[1.6fr_1fr_0.8fr_auto] md:gap-4">
+        <div className="pn-card overflow-hidden rounded-2xl">
+          <div className="hidden border-b border-breu/[0.06] bg-poco px-5 py-3 md:grid md:grid-cols-[1.6fr_1fr_0.8fr_auto] md:gap-4">
             {["Contato", "Origem", "Status", ""].map((h) => (
-              <span key={h} className="font-data text-[10px] uppercase tracking-wider text-aco/50">{h}</span>
+              <span key={h} className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/50">{h}</span>
             ))}
           </div>
-          <div className="divide-y divide-breu/[0.06]">
+          {/* régua de romaneio: separadores tracejados */}
+          <div className="divide-y divide-dashed divide-breu/[0.09]">
             {rows.map((l) => {
               const initials = (l.name || l.phone || "?").split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
               const waPhone = l.phone.replace(/\D/g, "");
               return (
                 <div
                   key={l.id}
-                  className="grid grid-cols-1 gap-3 px-5 py-3.5 transition hover:bg-bruma/30 md:grid-cols-[1.6fr_1fr_0.8fr_auto] md:items-center md:gap-4"
+                  className="grid grid-cols-1 gap-3 px-5 py-3.5 transition-colors duration-[160ms] hover:bg-poco md:grid-cols-[1.6fr_1fr_0.8fr_auto] md:items-center md:gap-4"
                 >
                   <div className="flex items-center gap-3">
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-iris/10 font-data text-xs font-medium text-iris">
@@ -146,7 +148,7 @@ export default function PainelContatos() {
                     <p className="font-data text-[10px] text-aco/40">{ago(l.enteredAt)}</p>
                   </div>
                   <div>
-                    <span className={cn("font-data inline-block rounded-full px-2.5 py-1 text-[10px] uppercase tracking-wider", STATUS[l.status]?.pill ?? "bg-bruma text-aco/60")}>
+                    <span className={cn("font-data inline-block rounded-full px-2.5 py-1 text-[10px] uppercase tracking-[0.06em]", STATUS[l.status]?.pill ?? "bg-poco text-aco/60")}>
                       {STATUS[l.status]?.label ?? l.status}
                     </span>
                   </div>
@@ -156,7 +158,7 @@ export default function PainelContatos() {
                         href={`https://wa.me/${waPhone}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-sucesso/10 px-3 py-1.5 text-xs font-medium text-sucesso transition hover:bg-sucesso hover:text-white"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-sucesso/10 px-3 py-1.5 text-xs font-medium text-sucesso transition-colors duration-[160ms] hover:bg-sucesso hover:text-white"
                       >
                         <MessageCircle className="h-3.5 w-3.5" /> Conversar
                       </a>
@@ -169,8 +171,8 @@ export default function PainelContatos() {
             })}
             {rows.length === 0 && (
               <div className="px-5 py-16 text-center">
-                <p className="font-display text-lg font-bold text-breu">
-                  {leads.length === 0 ? "Nenhum contato ainda" : "Nenhum contato aqui"}
+                <p className="font-editorial text-[22px] italic text-breu">
+                  {leads.length === 0 ? "Nenhum contato ainda." : "Nenhum contato aqui."}
                 </p>
                 <p className="mt-1 text-sm text-aco/60">
                   {leads.length === 0 ? "Quando alguém entrar nos grupos pelas campanhas, aparece aqui." : "Ajuste o filtro ou a busca."}
@@ -186,9 +188,9 @@ export default function PainelContatos() {
 
 function MiniStat({ label, value, tone }: { label: string; value: string; tone?: "iris" | "sucesso" }) {
   return (
-    <div className="rounded-2xl border border-breu/[0.08] bg-white px-4 py-3.5">
-      <p className="font-data text-[10px] uppercase tracking-wider text-aco/50">{label}</p>
-      <p className={cn("font-display mt-1 text-2xl font-extrabold tracking-tight", tone === "iris" ? "text-iris" : tone === "sucesso" ? "text-sucesso" : "text-breu")}>
+    <div className="pn-card rounded-2xl px-4 py-3.5">
+      <p className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/55">{label}</p>
+      <p className={cn("font-data mt-2 text-[26px] font-medium tabular-nums tracking-[-0.02em]", tone === "iris" ? "text-iris" : tone === "sucesso" ? "text-sucesso" : "text-breu")}>
         {value}
       </p>
     </div>

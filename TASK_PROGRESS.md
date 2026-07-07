@@ -271,10 +271,50 @@ motion, primitivos. Ideação via subagentes (não-template).
 - pn-* literais roxos → cobalto (aurora, ativo via var, card-hover, shadow-pn-escura).
 
 **Telas internas — status:**
-- ✅ Redesenhadas (O Balcão completo): dashboard (/painel), **grupos**.
-- ⏳ FALTAM (~20, layout antigo mas JÁ em cobalto + primitivos premium): campanhas, campanhas/nova,
-  campanhas/[slug], campanhas/[slug]/editar, resultados, contatos, configuracoes(+webhooks,cancelar),
-  conectar, pages(+nova,[id]), indicacao, biblioteca, agenda, disparos, automacoes, squad-os/*, dev-tools.
+- ✅ Redesenhadas (O Balcão completo): dashboard (/painel), **grupos**, **campanhas (lista)**,
+  **resultados**, **contatos**, **conectar** (onboarding + painel QR escuro).
+- ⏳ FALTAM (~16, layout antigo mas JÁ em cobalto + primitivos premium): campanhas/nova,
+  campanhas/[slug], campanhas/[slug]/editar, configuracoes(+webhooks,cancelar),
+  pages(+nova,[id]), indicacao, biblioteca, agenda, disparos, automacoes, squad-os/*, dev-tools.
+
+## Checklist — Redesign O Balcão (telas internas)
+- [x] dashboard (/painel)
+- [x] grupos
+- [x] campanhas (lista)
+- [x] resultados
+- [x] contatos
+- [x] conectar
+- [ ] campanhas/nova
+- [ ] campanhas/[slug]
+- [ ] campanhas/[slug]/editar
+- [ ] configuracoes
+- [ ] configuracoes/webhooks
+- [ ] configuracoes/cancelar
+- [ ] pages
+- [ ] pages/nova
+- [ ] pages/[id]
+- [ ] indicacao
+- [ ] biblioteca
+- [ ] agenda
+- [ ] disparos
+- [ ] automacoes
+- [ ] squad-os
+- [ ] squad-os/agents
+- [ ] squad-os/knowledge
+- [ ] squad-os/missions
+- [ ] squad-os/setup
+- [ ] squad-os/squads
+- [ ] squad-os/squads/[slug]
+- [ ] dev-tools
+
+## Iteração 3 (Sessão 2026-07-07) — 4 telas quentes no O Balcão
+- campanhas/resultados/contatos/conectar redesenhadas seguindo o template de 8 passos (baseado em grupos).
+- Padrões aplicados: header display+editorial itálico, `pn-card`/`pn-card-hover`, `pn-poco`+`pn-fill` (scaleX)
+  nas barras, `pn-skeleton`, romaneio `divide-dashed` nas tabelas, números `font-data tabular-nums`,
+  empty/voz do produto em `font-editorial italic`, busca com anel `focus:shadow var(--color-iris-light)`.
+- Cor 100% via token (cobalto automático no `.pn-root`); único hex literal trocado: barra funil/campanha → `#3D5AF1`.
+- Botões primários: removido `shadow-iris` (glow roxo literal) → `hover:brightness-110` + ease-fluxo.
+- Verificado: `web:lint` 0 erro · `web:build` EXIT 0 (armadilha .next dev×build reincidiu → `rm -rf .next` + rebuild limpo resolveu). NÃO verificado ao vivo (preview autenticado; sistema pn-* já validado visualmente na sessão anterior).
 
 **HANDOFF → próxima sessão:** replicar o template de `grupos/page.tsx` nas telas ⏳. Padrão O Balcão:
   1. container `space-y-8 px-4 py-8 sm:px-8`
