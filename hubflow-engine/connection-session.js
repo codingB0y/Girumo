@@ -17,6 +17,15 @@ class SessionAbortedError extends Error {
 
 const ABORTED = Symbol("aborted");
 
+function redactSensitive(value) {
+  return String(value)
+    .replace(/\b\d{8,}@(s\.whatsapp\.net|g\.us)\b/gi, "[redacted-jid]")
+    .replace(/\b\d{10,}\b/g, "[redacted-number]")
+    .replace(/\b(bearer\s+)[^\s&]+/gi, "$1[redacted]")
+    .replace(/\b(token|secret|key|password)=([^&\s]+)/gi, "$1=[redacted]")
+    .replace(/\b[A-Za-z0-9_-]{32,}\b/g, "[redacted]");
+}
+
 function createConnectionSessionController({
   reconnect,
   getRetryDelay,
@@ -40,6 +49,11 @@ function createConnectionSessionController({
   function log(message, error) {
     const write = logger.error ?? logger.log;
     if (typeof write === "function") write.call(logger, message, error);
+  }
+
+  function info(entry) {
+    const write = logger.info;
+    if (typeof write === "function") write.call(logger, entry);
   }
 
   function raceWithAbort(promise, signals) {
@@ -327,6 +341,11 @@ function createConnectionSessionController({
   async function recoverControlled(session, error, delay) {
     if (current !== session) return false;
     const token = session.lifecycleToken;
+    info({
+      event: "connection_recovery",
+      generation: session.generation,
+      reason: redactSensitive(error instanceof Error ? error.message : String(error)),
+    });
     closeSession(session);
 
     let timeoutHandle;

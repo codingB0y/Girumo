@@ -83,6 +83,8 @@ Otimização **medida**, não suposta. Rodar baseline antes de mexer.
 | 6 | Engine: **observabilidade** — `pino` estruturado + `/metrics` | ENGINE 4/13 |
 | 7 | Docker **hardening** (non-root, resource limits) | ENGINE 10 / INFRA §5 |
 
+Nota 2026-07-06: eventos estruturados mínimos da engine (`connection_recovery`, `engine_command_outcome` e eventos fenced de ciclo do comando) foram implementados e testados sem payload sensível; `pino`, `/metrics` e alertas externos continuam pendentes.
+
 **Saída V3:** Lighthouse ≥ meta acordada; queries paginadas; engine com logs estruturados e limites de container.
 
 ---

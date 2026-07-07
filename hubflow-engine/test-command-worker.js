@@ -218,7 +218,10 @@ test("troca de geracao enquanto envio esta na fila impede sock.sendMessage", asy
   queueGate.resolve();
   assert.equal(await pending, false);
   assert.equal(socketCalls.length, 0);
-  assert.deepEqual(calls, ["claim_engine_commands", "mark_engine_command_effect_started"]);
+  assert.deepEqual(calls, [
+    "claim_engine_commands",
+    "mark_engine_command_effect_started",
+  ]);
 });
 
 test("geracao obsoleta depois do envio nao atualiza, publica evento ou conclui", async () => {
@@ -249,7 +252,11 @@ test("geracao obsoleta depois do envio nao atualiza, publica evento ou conclui",
   });
 
   assert.equal(await worker.runOnce(9), false);
-  assert.deepEqual(calls, ["claim_engine_commands", "mark_engine_command_effect_started"]);
+  assert.deepEqual(calls, [
+    "claim_engine_commands",
+    "mark_engine_command_effect_started",
+    "record_engine_event",
+  ]);
 });
 
 test("rejeicao tardia de claim obsoleto e observada sem logar erro da geracao antiga", async () => {
@@ -341,7 +348,9 @@ test("run ativo preserva claim, efeitos e complete atuais", async () => {
   assert.deepEqual(calls.map((call) => call.name), [
     "claim_engine_commands",
     "mark_engine_command_effect_started",
+    "record_engine_event",
     "update_instance_status",
+    "record_engine_event",
     "record_engine_event",
     "complete_engine_command",
   ]);
@@ -385,6 +394,7 @@ test("comando nao suportado falha antes do efeito e conclui como permanente", as
   assert.equal(await worker.runOnce(14), true);
   assert.deepEqual(calls.map((call) => call.name), [
     "claim_engine_commands",
+    "record_engine_event",
     "complete_engine_command",
   ]);
   assert.equal(calls.at(-1).body.success, false);
@@ -470,8 +480,10 @@ test("claim envia lease configurado e send_message usa fencing em ordem", async 
   assert.deepEqual(calls.map(({ name }) => name), [
     "claim_engine_commands",
     "mark_engine_command_effect_started",
+    "record_engine_event",
     "sendText",
     "update_instance_status",
+    "record_engine_event",
     "record_engine_event",
     "complete_engine_command",
   ]);
@@ -485,6 +497,56 @@ test("claim envia lease configurado e send_message usa fencing em ordem", async 
     assert.equal(call.body.target_command_id, "command-1");
     assert.equal(call.body.target_lease_token, "lease-1");
   }
+});
+
+test("worker registra outcome estruturado sem payload telefone texto ou lease", async () => {
+  const calls = [];
+  const logger = createLogger();
+  const session = createSession(17);
+  const worker = createSupabaseCommandWorker({
+    enabled: true,
+    client: {
+      async rpc(name, body) {
+        calls.push({ name, body });
+        if (name === "claim_engine_commands") return [leasedCommand()];
+        return successfulCompositeResult();
+      },
+    },
+    getSession: () => session,
+    sendText: async () => calls.push({ name: "sendText" }),
+    logger,
+  });
+
+  assert.equal(await worker.runOnce(17), true);
+  const logEntry = logger.logs
+    .map((args) => args[0])
+    .find((entry) => entry?.event === "engine_command_outcome");
+  assert.deepEqual(logEntry, {
+    event: "engine_command_outcome",
+    generation: 17,
+    command_id: "command-1",
+    attempt_count: 1,
+    outcome: "success",
+  });
+
+  const lifecycleEvents = calls
+    .filter(({ name }) => name === "record_engine_event")
+    .map(({ body }) => body.target_type);
+  assert.deepEqual(lifecycleEvents.filter((type) => type.startsWith("engine_command_")), [
+    "engine_command_started",
+    "engine_command_completion_requested",
+  ]);
+
+  const serialized = JSON.stringify({
+    logs: logger.logs,
+    lifecyclePayloads: calls
+      .filter(({ name }) => name === "record_engine_event")
+      .filter(({ body }) => body.target_type.startsWith("engine_command_"))
+      .map(({ body }) => body.target_payload),
+  });
+  assert.equal(serialized.includes("5511999999999"), false);
+  assert.equal(serialized.includes('"oi"'), false);
+  assert.equal(serialized.includes("lease-1"), false);
 });
 
 test("comando sem metadados obrigatorios de lease nunca executa nem conclui", async () => {
@@ -614,9 +676,14 @@ test("payload invalido antes do mark conclui permanente sem backoff", async () =
   });
 
   assert.equal(await worker.runOnce(21), true);
-  assert.deepEqual(calls.map(({ name }) => name), ["claim_engine_commands", "complete_engine_command"]);
-  assert.equal(calls[1].body.target_failure_kind, "permanent");
-  assert.equal(calls[1].body.retry_delay_seconds, 0);
+  assert.deepEqual(calls.map(({ name }) => name), [
+    "claim_engine_commands",
+    "record_engine_event",
+    "complete_engine_command",
+  ]);
+  const completion = calls.find(({ name }) => name === "complete_engine_command");
+  assert.equal(completion.body.target_failure_kind, "permanent");
+  assert.equal(completion.body.retry_delay_seconds, 0);
 });
 
 test("perda de lease em efeito auxiliar bloqueia eventos posteriores e complete", async () => {
@@ -641,10 +708,12 @@ test("perda de lease em efeito auxiliar bloqueia eventos posteriores e complete"
   assert.deepEqual(calls.map(({ name }) => name), [
     "claim_engine_commands",
     "mark_engine_command_effect_started",
+    "record_engine_event",
     "sendText",
     "update_instance_status",
   ]);
-  assert.equal(calls.some(({ name }) => name === "record_engine_event"), false);
+  const updateIndex = calls.findIndex(({ name }) => name === "update_instance_status");
+  assert.equal(calls.slice(updateIndex + 1).some(({ name }) => name === "record_engine_event"), false);
   assert.equal(calls.some(({ name }) => name === "complete_engine_command"), false);
 });
 
@@ -751,7 +820,9 @@ test("refresh_status marca efeito antes dos auxiliares e conclui sucesso", async
   assert.deepEqual(calls.map(({ name }) => name), [
     "claim_engine_commands",
     "mark_engine_command_effect_started",
+    "record_engine_event",
     "update_instance_status",
+    "record_engine_event",
     "record_engine_event",
     "complete_engine_command",
   ]);
@@ -789,7 +860,9 @@ test("refresh_status com falha de efeito principal conclui como uncertain", asyn
   assert.deepEqual(calls.map(({ name }) => name), [
     "claim_engine_commands",
     "mark_engine_command_effect_started",
+    "record_engine_event",
     "update_instance_status",
+    "record_engine_event",
     "complete_engine_command",
   ]);
   assert.equal(calls.at(-1).body.success, false);

@@ -21,6 +21,48 @@ const {
   readOkJson,
 } = require("./connection-snapshot.js");
 
+test("recuperacao registra geracao e motivo sem payload sensivel", async () => {
+  const entries = [];
+  const controller = createConnectionSessionController({
+    reconnect: async () => {},
+    logger: {
+      info(entry) { entries.push(entry); },
+      error(entry) { entries.push(entry); },
+    },
+  });
+  const session = controller.create({ end: async () => {} });
+
+  assert.equal(await controller.recover(session, new Error("zombie"), 0), true);
+
+  assert.deepEqual(entries.find((entry) => entry.event === "connection_recovery"), {
+    event: "connection_recovery",
+    generation: 1,
+    reason: "zombie",
+  });
+  assert.equal(JSON.stringify(entries).includes("lease"), false);
+});
+
+test("recuperacao mascara segredos e identificadores no motivo", async () => {
+  const entries = [];
+  const controller = createConnectionSessionController({
+    reconnect: async () => {},
+    logger: { info(entry) { entries.push(entry); } },
+  });
+  const session = controller.create({ end: async () => {} });
+
+  await controller.recover(
+    session,
+    new Error("falha token=abc123456789012345678901234567890 5511999999999@s.whatsapp.net bearer abc/def== secret=sk_live_123456789012345678901234567890"),
+    0,
+  );
+
+  const reason = entries.find((entry) => entry.event === "connection_recovery").reason;
+  assert.equal(reason.includes("5511999999999"), false);
+  assert.equal(reason.includes("abc/def"), false);
+  assert.equal(reason.includes("sk_live_123456789012345678901234567890"), false);
+  assert.equal(reason.includes("abc123456789012345678901234567890"), false);
+});
+
 test("prepara snapshot isolado com admins, nomes e payload sem mutar estado anterior", async () => {
   const previousWelcome = { enabled: false, message: "anterior" };
   const previousOptOut = new Set(["5511999999999"]);

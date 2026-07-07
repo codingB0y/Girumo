@@ -38,6 +38,7 @@
 
 ## 3. Logs
 - [x] App grava eventos na tabela `logs` (Supabase, por tenant)
+- [x] Engine emite eventos estruturados sem payload sensível para `connection_recovery` e outcome do `supabase-command-worker`
 - [ ] 🟠 Engine: `pino` estruturado (hoje `console.log`, pino silenciado)
 - [ ] Retenção/rotação de logs definida
 
@@ -128,6 +129,7 @@
 ## 19. Workers
 - [x] `supabase-command-worker` funcional (poll 3s, batch 5, backoff)
 - [x] worker se **autodesativa** sem `SUPABASE_*`
+- [x] worker registra `engine_command_started`/`engine_command_completion_requested`/`engine_command_failed` via RPC fenced, sem payload/telefone/texto/token nos eventos de lifecycle
 - [ ] **[EXTERNO]** RPCs aplicadas no banco (`claim/complete_engine_command`, `record_engine_event`, `update_instance_status`)
 
 ## 20. Redis
@@ -148,4 +150,4 @@ npm run verify:online -- -AppUrl "https://app.SEUDOMINIO.com" -EngineUrl "https:
 - **[EXTERNO]:** SSL, DNS, backups Supabase, envs na Vercel, testes Stripe — confirmar nos painéis.
 - **Não deployar réplica da engine** até o multi-socket (V4).
 
-*Checklist atualizado após o gate de health (liveness/readiness) + watchdog da engine em 2026-07-04.*
+*Checklist atualizado após evidências de lifecycle/worker da engine em 2026-07-06; alertas externos, pino e métricas seguem pendentes.*

@@ -170,6 +170,21 @@ function createSupabaseCommandWorker({
     return error instanceof LeaseLostError;
   }
 
+  function logInfo(entry) {
+    const write = logger.info ?? logger.log;
+    if (typeof write === "function") write.call(logger, entry);
+  }
+
+  function commandTelemetry(run, command, outcome) {
+    return {
+      event: "engine_command_outcome",
+      generation: run.generation,
+      command_id: command.command_id,
+      attempt_count: command.attempt_count,
+      outcome,
+    };
+  }
+
   async function rpc(run, name, body) {
     assertRunActive(run);
     const result = await supabase.rpc(name, body);
@@ -269,6 +284,15 @@ function createSupabaseCommandWorker({
     }
   }
 
+  async function recordCommandLifecycle(run, command, type, outcome = null) {
+    const payload = {
+      command_id: command.command_id,
+      attempt_count: command.attempt_count,
+    };
+    if (outcome) payload.outcome = outcome;
+    await failSoft(run, () => recordEvent(run, command, type, payload));
+  }
+
   async function executeCommand(run, command, assertLeaseActive) {
     let effectStarted = false;
     try {
@@ -288,6 +312,8 @@ function createSupabaseCommandWorker({
         await fencedRpc(run, command, "mark_engine_command_effect_started");
         effectStarted = true;
         assertLeaseActive();
+        await recordCommandLifecycle(run, command, "engine_command_started");
+        assertLeaseActive();
         await sendText(sock, jid, String(text), {
           session,
           assertActive: assertLeaseActive,
@@ -305,6 +331,8 @@ function createSupabaseCommandWorker({
         await fencedRpc(run, command, "mark_engine_command_effect_started");
         effectStarted = true;
         assertLeaseActive();
+        await recordCommandLifecycle(run, command, "engine_command_started");
+        assertLeaseActive();
         await updateInstance(run, command, "connected", {
           metadata: { whatsapp_user: sock.user?.id ?? null },
         });
@@ -318,7 +346,10 @@ function createSupabaseCommandWorker({
       }
 
       assertLeaseActive();
+      await recordCommandLifecycle(run, command, "engine_command_completion_requested", "success");
+      assertLeaseActive();
       await complete(run, command, true);
+      logInfo(commandTelemetry(run, command, "success"));
       return true;
     } catch (error) {
       if (isObsolete(run, error) || isLeaseLost(error)) throw error;
@@ -326,9 +357,14 @@ function createSupabaseCommandWorker({
       logger.error(`Falha no comando ${command.command_id}: ${message}`);
       assertLeaseActive();
       if (effectStarted) {
+        await recordCommandLifecycle(run, command, "engine_command_completion_requested", "uncertain");
+        assertLeaseActive();
         await complete(run, command, false, message, "uncertain", 0);
+        logInfo(commandTelemetry(run, command, "uncertain"));
       } else {
         const failureKind = error?.retryable === false ? "permanent" : "retryable";
+        await recordCommandLifecycle(run, command, "engine_command_failed", failureKind);
+        assertLeaseActive();
         await complete(
           run,
           command,
@@ -337,6 +373,7 @@ function createSupabaseCommandWorker({
           failureKind,
           failureKind === "retryable" ? retryDelayForAttempt(command.attempt_count, retryDelaySeconds) : 0,
         );
+        logInfo(commandTelemetry(run, command, failureKind));
       }
       return true;
     }
