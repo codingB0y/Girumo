@@ -55,8 +55,8 @@ export async function POST(req: Request) {
       mode: "subscription",
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${appUrl}/settings?billing=success`,
-      cancel_url: `${appUrl}/settings?billing=cancelled`,
+      success_url: `${appUrl}/painel/configuracoes?billing=success`,
+      cancel_url: `${appUrl}/painel/configuracoes?billing=cancelled`,
       client_reference_id: ctx.tenantId,
       metadata: {
         tenant_id: ctx.tenantId,

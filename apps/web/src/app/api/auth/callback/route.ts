@@ -81,8 +81,8 @@ export async function GET(req: NextRequest) {
         });
       }
 
-      // Novo usuário → onboarding
-      destination = "/onboarding";
+      // Novo usuário → painel atual
+      destination = "/painel";
     }
   }
 

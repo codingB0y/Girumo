@@ -1,0 +1,24 @@
+version = 1
+project_name = "HubFlow-platform"
+project_root = "C:/Users/Igor/Desktop/HubFlow-platform"
+google_project_label = "HubFlow-LightRAG-Key"
+
+provider = "gemini"
+credential_file = ".lightrag/secrets.env"
+llm_model = "gemini-2.5-flash"
+embedding_model = "gemini-embedding-001"
+embedding_dimension = 768
+
+storage_path = ".lightrag/storage"
+manifest_path = ".lightrag/index-manifest.json"
+cache_path = ".lightrag/cache"
+logs_path = ".lightrag/logs"
+
+vault_enabled = true
+vault_path = "docs/knowledge-graph"
+
+chunk_token_size = 1200
+chunk_overlap_token_size = 100
+llm_model_max_async = 4
+max_parallel_insert = 3
+embedding_batch_num = 16

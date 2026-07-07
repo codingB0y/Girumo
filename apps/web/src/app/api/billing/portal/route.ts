@@ -23,7 +23,7 @@ export async function POST(req: Request) {
 
     const session = await getStripe().billingPortal.sessions.create({
       customer: subscription.stripe_customer_id as string,
-      return_url: `${getAppUrl()}/settings?billing=portal`,
+      return_url: `${getAppUrl()}/painel/configuracoes?billing=portal`,
     });
 
     return Response.json({ url: session.url });
@@ -33,4 +33,3 @@ export async function POST(req: Request) {
     return Response.json({ error: "Erro ao criar portal Stripe." }, { status: 500 });
   }
 }
-

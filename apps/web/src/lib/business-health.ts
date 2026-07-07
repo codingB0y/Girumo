@@ -175,12 +175,12 @@ export async function getResultsOverview(tenantId: string): Promise<ResultsOverv
   // === Próxima ação (UMA só) ===
   let nextAction: NextAction;
   if (!live) {
-    nextAction = { text: "Conecte seu WhatsApp para começar a captar revendedoras.", cta: "Conectar agora", href: "/settings", tone: "red" };
+    nextAction = { text: "Conecte seu WhatsApp para começar a captar revendedoras.", cta: "Conectar agora", href: "/painel/conectar", tone: "red" };
   } else if (recompra.sumidas > 0) {
     nextAction = {
       text: `${recompra.sumidas} revendedora(s) que já compraram sumiram. Reativar é a venda mais barata.`,
       cta: "Reativar quem sumiu",
-      href: "/leads?status=ativo",
+      href: "/painel/contatos?status=ativo",
       tone: "amber",
     };
   } else if (entradasSemana < 10) {
@@ -205,7 +205,7 @@ export async function getResultsOverview(tenantId: string): Promise<ResultsOverv
   const measured = funnel.filter((s) => s.available && s.value !== null) as (FunnelStage & { value: number })[];
   let funnelInsight: FunnelInsight;
   if (!live) {
-    funnelInsight = { tone: "red", text: "Conecte o WhatsApp para o funil começar a medir seus resultados.", cta: "Conectar", href: "/settings" };
+    funnelInsight = { tone: "red", text: "Conecte o WhatsApp para o funil começar a medir seus resultados.", cta: "Conectar", href: "/painel/conectar" };
   } else if (trafego === 0) {
     funnelInsight = { tone: "amber", text: "Ninguém clicou no link ainda. O funil começa divulgando a campanha.", cta: "Ver campanhas", href: "/campanhas" };
   } else {

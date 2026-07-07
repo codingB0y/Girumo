@@ -55,3 +55,10 @@ apps/web/.ds-entry.tsx
 .vercel
 .env*
 .firecrawl/
+# LightRAG global - dados locais e segredos
+.lightrag/secrets.env
+.lightrag/storage/
+.lightrag/cache/
+.lightrag/logs/
+.lightrag/index-manifest.json
+.lightrag/backups/

@@ -46,7 +46,7 @@ export default function SignupPage() {
       if (response.ok) {
         const data = await response.json().catch(() => ({}));
         await persistSupabaseSession(data);
-        router.replace("/onboarding");
+        router.replace("/painel");
         router.refresh();
       } else {
         const data = await response.json().catch(() => ({}));
@@ -135,7 +135,7 @@ export default function SignupPage() {
         </div>
 
         <a
-          href="/api/auth/google?next=/onboarding"
+          href="/api/auth/google?next=/painel"
           className="flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.05] text-sm font-medium text-white transition hover:border-white/[0.15] hover:bg-white/[0.08]"
         >
           <GoogleIcon />

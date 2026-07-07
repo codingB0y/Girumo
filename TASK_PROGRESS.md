@@ -220,14 +220,15 @@ motion, primitivos. Ideação via subagentes (não-template).
 ## Etapas
 - [x] 1. Mapeamento (30 páginas painel, primitivos ui/*, tokens hf-* atuais)
 - [x] 2. Design system base via script do skill (guard-rails, não estética)
-- [ ] 3. Ideação subagentes (UI Designer + Whimsy Injector)
-- [ ] 4. Síntese da direção
-- [ ] 5. Tokens + motion layer no globals.css (namespace pn-*)
-- [ ] 6. Primitivos ui/* (button, card, input, badge, skeleton)
-- [ ] 7. Shell (sidebar, topbar, mobile-nav, page-transition, command palette)
-- [ ] 8. Dashboard /painel
-- [ ] 9. Telas quentes (campanhas, resultados, grupos)
-- [ ] 10. A11y + build limpo
+- [x] 3. Ideação subagentes (UI Designer → conceito "O Balcão" · Whimsy → motion "ease-fluxo")
+- [x] 4. Síntese da direção (O Balcão + assinaturas: fio de íris, etiqueta, Aurora VIP, romaneio)
+- [x] 5. Tokens + motion layer no globals.css (namespace pn-*)
+- [x] 6. Primitivos ui/* (button, card, input, skeleton; badge mantido pílula)
+- [x] 7. Shell (sidebar, topbar, mobile-nav, page-transition, command palette)
+- [x] 8. Dashboard /painel
+- [x] 9. Telas quentes (grupos + campanhas + resultados; extra: contatos, conectar)
+- [~] 10. A11y + build limpo — build/lint limpos ✅; a11y aplicado por tela conforme redesenhadas
+        (aria-label em buscas etc.). Pass final de a11y quando as ~16 telas restantes terminarem.
 
 ## Decisões
 - Íris mantido como âncora de marca (regra durável da lane); verde só sucesso.
