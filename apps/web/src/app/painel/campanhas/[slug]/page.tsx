@@ -105,10 +105,10 @@ export default function CampanhaDetalhe() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-[1100px] space-y-4 px-4 py-6 sm:px-6">
-        <div className="h-40 animate-pulse rounded-3xl bg-white" />
+      <div className="mx-auto max-w-[1100px] space-y-4 px-4 py-8 sm:px-8">
+        <div className="pn-skeleton h-40 rounded-2xl" />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[0, 1, 2].map((i) => <div key={i} className="h-56 animate-pulse rounded-3xl bg-white" />)}
+          {[0, 1, 2].map((i) => <div key={i} className="pn-skeleton h-56 rounded-2xl" />)}
         </div>
       </div>
     );
@@ -116,8 +116,8 @@ export default function CampanhaDetalhe() {
 
   if (!campanha || !o) {
     return (
-      <div className="mx-auto max-w-[1100px] px-4 py-24 text-center sm:px-6">
-        <p className="font-display text-xl font-bold text-breu">Campanha não encontrada</p>
+      <div className="mx-auto max-w-[1100px] px-4 py-24 text-center sm:px-8">
+        <p className="font-editorial text-[22px] italic text-breu">Campanha não encontrada.</p>
         <Link href="/painel/campanhas" className="mt-4 inline-block text-sm text-iris hover:underline">
           ← Voltar pra campanhas
         </Link>
@@ -131,48 +131,48 @@ export default function CampanhaDetalhe() {
   const semConvite = o.missingInviteCount;
 
   return (
-    <div className="mx-auto max-w-[1100px] space-y-6 px-4 py-6 sm:px-6">
+    <div className="mx-auto max-w-[1100px] space-y-6 px-4 py-8 sm:px-8">
       <Link
         href="/painel/campanhas"
-        className="font-data inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-aco/55 transition hover:text-iris"
+        className="font-data inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.08em] text-aco/55 transition-colors duration-[160ms] hover:text-iris"
       >
         <ArrowLeft className="h-3.5 w-3.5" /> Campanhas
       </Link>
 
       {/* Header */}
-      <div className="rounded-3xl border border-breu/[0.08] bg-white p-5 sm:p-6">
+      <div className="pn-card rounded-2xl p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-3.5">
             <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#25D366] text-white"><MessageCircle className="h-6 w-6" /></span>
             <div>
-              <h1 className="font-display text-2xl font-extrabold tracking-[-0.03em]">{campanha.name}</h1>
+              <h1 className="font-display text-2xl font-extrabold tracking-[-0.03em] text-breu">{campanha.name}</h1>
               {masterUrl && <CopyLink url={masterUrl} className="mt-1" />}
             </div>
           </div>
           <div className="relative flex gap-2">
             <Link
               href={`/painel/campanhas/${campanha.slug ?? campanha.id}/editar`}
-              className="inline-flex items-center gap-2 rounded-xl bg-iris px-4 py-2.5 text-sm font-medium text-white shadow-iris transition hover:-translate-y-0.5 hover:bg-iris-claro"
+              className="inline-flex items-center gap-2 rounded-xl bg-iris px-4 py-2.5 text-sm font-medium text-white transition-[transform,filter] duration-[160ms] ease-[var(--ease-fluxo)] hover:-translate-y-0.5 hover:brightness-110"
             >
               <Pencil className="h-4 w-4" /> Editar
             </Link>
-            <button onClick={() => setMenu((v) => !v)} className="flex h-10 w-10 items-center justify-center rounded-xl border border-breu/10 bg-white text-aco transition hover:text-breu">
+            <button onClick={() => setMenu((v) => !v)} aria-label="Mais ações" className="flex h-10 w-10 items-center justify-center rounded-xl border border-breu/10 bg-papel text-aco transition-colors duration-[160ms] hover:text-breu">
               <MoreHorizontal className="h-5 w-5" />
             </button>
             {menu && (
               <>
                 <button className="fixed inset-0 z-10 cursor-default" onClick={() => setMenu(false)} aria-label="Fechar" />
-                <div className="hf-enter absolute right-0 top-12 z-20 w-52 overflow-hidden rounded-2xl border border-breu/10 bg-white py-1.5 shadow-deep">
+                <div className="hf-enter absolute right-0 top-12 z-20 w-52 overflow-hidden rounded-2xl border border-breu/10 bg-papel py-1.5 shadow-deep">
                   <Link
                     href={`/painel/campanhas/${campanha.slug ?? campanha.id}/editar`}
-                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-aco transition hover:bg-bruma/60 hover:text-breu"
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-aco transition-colors duration-[160ms] hover:bg-poco hover:text-breu"
                   >
                     <Pencil className="h-4 w-4 text-aco/50" /> Editar
                   </Link>
                   <button
                     onClick={handleRefresh}
                     disabled={refreshing}
-                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-aco transition hover:bg-bruma/60 hover:text-breu"
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-aco transition-colors duration-[160ms] hover:bg-poco hover:text-breu"
                   >
                     {refreshing ? <Loader2 className="h-4 w-4 animate-spin text-aco/50" /> : <RefreshCw className="h-4 w-4 text-aco/50" />}
                     Atualizar dados
@@ -180,7 +180,7 @@ export default function CampanhaDetalhe() {
                   <button
                     onClick={handleDelete}
                     disabled={deleting}
-                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-alerta transition hover:bg-alerta/5"
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-alerta transition-colors duration-[160ms] hover:bg-alerta/5"
                   >
                     {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                     Excluir campanha
@@ -194,12 +194,12 @@ export default function CampanhaDetalhe() {
         <div className="mt-5 grid gap-4 sm:grid-cols-[1.4fr_1fr_1fr_1fr] sm:items-center">
           <div>
             <div className="flex items-center gap-3">
-              <div className="h-2 flex-1 overflow-hidden rounded-full bg-bruma">
-                <div className="h-full rounded-full" style={{ width: `${fill}%`, background: fill >= 85 ? "#D99B2A" : "#6A4BF0" }} />
+              <div className="pn-poco h-2 flex-1 overflow-hidden rounded-full">
+                <div className="pn-fill h-full w-full rounded-full" style={{ transform: `scaleX(${Math.max(fill / 100, 0.02)})`, background: fill >= 85 ? "#D99B2A" : "#3D5AF1" }} />
               </div>
               <span className={cn("font-data text-sm font-medium tabular-nums", fill >= 85 ? "text-atencao" : "text-iris")}>{fill}%</span>
             </div>
-            <p className="font-data mt-1.5 text-[11px] text-aco/50">
+            <p className="font-data mt-1.5 text-[11px] tabular-nums text-aco/50">
               {o.totalMembers.toLocaleString("pt-BR")} / {o.totalCapacity.toLocaleString("pt-BR")} membros
             </p>
           </div>
@@ -228,7 +228,7 @@ export default function CampanhaDetalhe() {
       {/* Abas */}
       <div className="flex gap-1 overflow-x-auto border-b border-breu/[0.08]">
         {TABS.map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={cn("relative shrink-0 px-4 py-2.5 text-sm font-medium transition", tab === t ? "text-breu" : "text-aco/55 hover:text-breu")}>
+          <button key={t} onClick={() => setTab(t)} className={cn("relative shrink-0 px-4 py-2.5 text-sm font-medium transition-colors duration-[160ms]", tab === t ? "text-breu" : "text-aco/55 hover:text-breu")}>
             {t}
             {tab === t && <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-iris" />}
           </button>
@@ -238,12 +238,12 @@ export default function CampanhaDetalhe() {
       <div className="hf-enter" key={tab}>
         {tab === "Grupos" && (
           o.groups.length === 0 ? (
-            <div className="rounded-3xl border border-breu/[0.08] bg-white px-5 py-16 text-center">
-              <p className="font-display text-lg font-bold text-breu">Sem grupos ainda</p>
+            <div className="pn-card rounded-2xl px-5 py-16 text-center">
+              <p className="font-editorial text-[22px] italic text-breu">Sem grupos ainda.</p>
               <p className="mt-1 text-sm text-aco/60">Adicione grupos pra essa campanha começar a captar.</p>
               <Link
                 href={`/painel/campanhas/${campanha.slug ?? campanha.id}/editar`}
-                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-iris px-4 py-2.5 text-sm font-medium text-white shadow-iris transition hover:-translate-y-0.5 hover:bg-iris-claro"
+                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-iris px-4 py-2.5 text-sm font-medium text-white transition-[transform,filter] duration-[160ms] ease-[var(--ease-fluxo)] hover:-translate-y-0.5 hover:brightness-110"
               >
                 <Users className="h-4 w-4" /> Adicionar grupos
               </Link>
@@ -266,7 +266,7 @@ export default function CampanhaDetalhe() {
               <Tile label="Preenchimento" value={`${fill}%`} tone={fill >= 85 ? "atencao" : "iris"} />
               <Tile label="Cliques" value={o.clicks.toLocaleString("pt-BR")} />
             </div>
-            <div className="rounded-3xl border border-breu/[0.08] bg-white p-6 lg:col-span-2">
+            <div className="pn-card rounded-2xl p-6 lg:col-span-2">
               <h2 className="font-display text-base font-bold text-breu">Como está a campanha</h2>
               <p className="mt-2 text-sm text-aco">
                 Cada clique no link é distribuído pro próximo grupo com vaga. Quando um grupo enche, o
@@ -288,7 +288,7 @@ export default function CampanhaDetalhe() {
               <Tile label="Conversão" value={o.clicks > 0 ? `${Math.round((o.totalMembers / o.clicks) * 100)}%` : "—"} tone="iris" />
               <Tile label="Grupos cheios" value={String(o.fullCount)} tone="atencao" />
             </div>
-            <div className="rounded-3xl border border-breu/[0.08] bg-white p-6">
+            <div className="pn-card rounded-2xl p-6">
               <h2 className="font-display text-base font-bold text-breu">Do clique ao grupo</h2>
               <div className="mt-5 space-y-3">
                 {[
@@ -299,17 +299,17 @@ export default function CampanhaDetalhe() {
                   return (
                     <div key={s.label}>
                       <div className="mb-1.5 flex items-center justify-between">
-                        <span className="flex items-center gap-2 text-sm text-aco"><Icon className="h-4 w-4 text-iris" />{s.label}</span>
-                        <span className="font-display text-base font-extrabold tabular-nums text-breu">{s.value.toLocaleString("pt-BR")}</span>
+                        <span className="flex items-center gap-2 text-sm text-aco"><Icon className="h-4 w-4 text-iris" strokeWidth={1.75} />{s.label}</span>
+                        <span className="font-data text-base font-medium tabular-nums text-breu">{s.value.toLocaleString("pt-BR")}</span>
                       </div>
-                      <div className="h-2.5 w-full overflow-hidden rounded-full bg-bruma">
-                        <div className="hf-gradient h-full rounded-full" style={{ width: `${Math.max(s.pct, 4)}%` }} />
+                      <div className="pn-poco h-2.5 w-full overflow-hidden rounded-full">
+                        <div className="pn-fill h-full w-full rounded-full" style={{ transform: `scaleX(${Math.max(s.pct / 100, 0.04)})`, background: "#3D5AF1" }} />
                       </div>
                     </div>
                   );
                 })}
               </div>
-              <Link href="/painel/resultados" className="font-data mt-5 inline-flex items-center gap-1 text-[11px] uppercase tracking-wider text-iris transition hover:gap-1.5">
+              <Link href="/painel/resultados" className="font-data mt-5 inline-flex items-center gap-1 text-[11px] uppercase tracking-[0.08em] text-iris transition-[gap] duration-[160ms] hover:gap-1.5">
                 Ver resultados completos →
               </Link>
             </div>
@@ -329,7 +329,7 @@ function GroupCard({ g, live, origin }: { g: CampaignGroupOverview; live: boolea
   const name = g.group?.name ?? "Grupo";
 
   return (
-    <div className={cn("rounded-3xl border bg-white p-5", conectado ? "border-breu/[0.08]" : "border-alerta/20")}>
+    <div className={cn("pn-card rounded-2xl p-5", !conectado && "border-alerta/20")}>
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-2.5">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#25D366] text-white"><MessageCircle className="h-5 w-5" /></span>
@@ -361,10 +361,10 @@ function GroupCard({ g, live, origin }: { g: CampaignGroupOverview; live: boolea
           <span className="font-data text-[10px] uppercase tracking-wider text-aco/50">Capacidade</span>
           <span className={cn("font-data text-sm font-medium tabular-nums", quase ? "text-atencao" : "text-iris")}>{Math.round(cap)}%</span>
         </div>
-        <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-bruma">
-          <div className="h-full rounded-full" style={{ width: `${cap}%`, background: quase ? "#D99B2A" : "#6A4BF0" }} />
+        <div className="pn-poco mt-1.5 h-2 w-full overflow-hidden rounded-full">
+          <div className="pn-fill h-full w-full rounded-full" style={{ transform: `scaleX(${Math.max(cap / 100, 0.02)})`, background: quase ? "#D99B2A" : "#3D5AF1" }} />
         </div>
-        <p className="font-data mt-1 text-[10px] text-aco/45">{g.members.toLocaleString("pt-BR")} membros · limite {g.capacity.toLocaleString("pt-BR")}</p>
+        <p className="font-data mt-1 text-[10px] tabular-nums text-aco/45">{g.members.toLocaleString("pt-BR")} membros · limite {g.capacity.toLocaleString("pt-BR")}</p>
       </div>
 
       {g.inviteUrl ? (
@@ -381,25 +381,25 @@ function GroupCard({ g, live, origin }: { g: CampaignGroupOverview; live: boolea
 function HeaderStat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="font-data text-[10px] uppercase tracking-wider text-aco/50">{label}</p>
-      <p className="font-display text-xl font-extrabold tabular-nums text-breu">{value}</p>
+      <p className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/50">{label}</p>
+      <p className="font-data text-xl font-medium tabular-nums text-breu">{value}</p>
     </div>
   );
 }
 
 function Tile({ label, value, tone }: { label: string; value: string; tone?: "iris" | "atencao" }) {
   return (
-    <div className="rounded-2xl border border-breu/[0.08] bg-white p-4">
-      <p className="font-data text-[10px] uppercase tracking-wider text-aco/50">{label}</p>
-      <p className={cn("font-display mt-1 text-2xl font-extrabold tracking-tight", tone === "iris" ? "text-iris" : tone === "atencao" ? "text-atencao" : "text-breu")}>{value}</p>
+    <div className="pn-card rounded-2xl p-4">
+      <p className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/50">{label}</p>
+      <p className={cn("font-data mt-2 text-[26px] font-medium tabular-nums tracking-[-0.02em]", tone === "iris" ? "text-iris" : tone === "atencao" ? "text-atencao" : "text-breu")}>{value}</p>
     </div>
   );
 }
 
 function Mini({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-bruma/50 px-4 py-3">
-      <p className="font-data text-[10px] uppercase tracking-wider text-aco/50">{label}</p>
+    <div className="rounded-2xl bg-poco px-4 py-3">
+      <p className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/50">{label}</p>
       <p className="mt-1 text-sm font-medium text-breu">{value}</p>
     </div>
   );

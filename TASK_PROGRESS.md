@@ -285,9 +285,9 @@ motion, primitivos. Ideação via subagentes (não-template).
 - [x] resultados
 - [x] contatos
 - [x] conectar
-- [ ] campanhas/nova
-- [ ] campanhas/[slug]
-- [ ] campanhas/[slug]/editar
+- [x] campanhas/nova (via CampaignConfig)
+- [x] campanhas/[slug] (detail + tabs Grupos/Mensagens/Visão/Resultados)
+- [x] campanhas/[slug]/editar (via CampaignConfig)
 - [ ] configuracoes
 - [ ] configuracoes/webhooks
 - [ ] configuracoes/cancelar
