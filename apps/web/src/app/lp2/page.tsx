@@ -1,9 +1,11 @@
+import Image from "next/image";
 import { Archivo, Martian_Mono } from "next/font/google";
 import { ArrowRight, Check, X } from "lucide-react";
 import { WhatsAppIcon } from "@/components/landing/icons";
 import { Lp2Nav } from "@/components/lp2/nav";
 import { Lp2Fx } from "@/components/lp2/fx";
 import { OrderTicker } from "@/components/lp2/order-ticker";
+import { PanelMock } from "@/components/lp2/panel-mock";
 import { BazarVideo } from "@/components/lp2/video-facade";
 import "./lp2.css";
 
@@ -71,6 +73,34 @@ const METODO = [
     n: "04",
     title: "Evento de 2 dias",
     body: "Duas vezes por ano, o estoque virava evento avisado só nos grupos: fila na porta e mais de 20 mil peças vendidas em 48 horas.",
+  },
+];
+
+const DIFERENCIAL = [
+  {
+    feat: "A página que enche o grupo",
+    generic: "Você monta na mão — ou paga programador",
+    hub: "Modelo pronto com a sua marca, no ar em minutos",
+  },
+  {
+    feat: "Grupo lotou, e agora?",
+    generic: "Link morto — o clique vira cliente do concorrente",
+    hub: "O próximo grupo nasce sozinho, o link nunca morre",
+  },
+  {
+    feat: "Disparo no horário certo",
+    generic: "Manda tudo igual, sem ler o ritmo do atacado",
+    hub: "Agendado pro momento em que o revendedor monta o pedido",
+  },
+  {
+    feat: "Origem de cada venda",
+    generic: "Some no meio das conversas — você chuta de qual anúncio veio",
+    hub: "Cada pedido volta com a origem: anúncio, story ou grupo",
+  },
+  {
+    feat: "Quem está por trás",
+    generic: "Ferramenta de infoproduto adaptada pra qualquer nicho",
+    hub: "Nasceu de um atacado de roupa de verdade, na 44",
   },
 ];
 
@@ -159,7 +189,7 @@ export default function Lp2Page() {
               grupos de whatsapp pra atacado de roupa
             </p>
 
-            <h1 data-lp4-hi className="lp4-x mx-auto mt-7 max-w-5xl text-balance text-[clamp(2.6rem,6.4vw,5.5rem)]">
+            <h1 data-lp4-split className="lp4-x mx-auto mt-7 max-w-5xl text-balance text-[clamp(2.6rem,6.4vw,5.5rem)]">
               Encha seus grupos de revendedor.{" "}
               <span className="lp4-green">Venda todo dia.</span>
             </h1>
@@ -171,10 +201,10 @@ export default function Lp2Page() {
             </p>
 
             <div data-lp4-hi className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <a href={SIGNUP_URL} className="lp4-btn lp4-btn-green">
+              <a href={SIGNUP_URL} data-lp4-magnetic className="lp4-btn lp4-btn-green">
                 Criar minha campanha <ArrowRight className="h-4 w-4" aria-hidden />
               </a>
-              <a href={WHATSAPP_URL} className="lp4-btn lp4-btn-ghost">
+              <a href={WHATSAPP_URL} data-lp4-magnetic className="lp4-btn lp4-btn-ghost">
                 <WhatsAppIcon className="h-4 w-4 text-[var(--green)]" aria-hidden /> Falar no WhatsApp
               </a>
             </div>
@@ -185,61 +215,12 @@ export default function Lp2Page() {
 
             {/* janela dominante — painel de disparo */}
             <div data-lp4-hi className="mx-auto mt-16 max-w-4xl">
-              <div data-lp4-w className="lp4-window text-left">
+              <div data-lp4-w data-lp4-tilt className="lp4-window text-left">
                 <div className="lp4-chrome">
                   <i /><i /><i />
                   <span className="lp4-mono ml-2 text-[9px] text-[var(--body)]">hubflow · disparo</span>
                 </div>
-                <div className="grid gap-0 md:grid-cols-[190px_1fr]">
-                  <aside className="hidden border-r border-[var(--line)] p-5 md:block">
-                    {[
-                      ["Grupos", "47"],
-                      ["Campanhas", "3"],
-                      ["Pedidos", "128"],
-                    ].map(([label, n]) => (
-                      <div key={label} className="mb-1 flex items-center justify-between rounded-lg px-3 py-2 text-sm text-[var(--body)] first:bg-[rgba(242,241,234,0.04)] first:text-[var(--display)]">
-                        <span>{label}</span>
-                        <span className="lp4-mono text-[9px]">{n}</span>
-                      </div>
-                    ))}
-                  </aside>
-                  <div className="p-5 md:p-7">
-                    <div className="rounded-xl border border-[var(--line)] bg-[rgba(242,241,234,0.03)] p-4">
-                      <p className="text-sm">
-                        Grade nova 214 — 40 peças. Tabela de atacado no privado, manda um “EU QUERO”.
-                      </p>
-                      <div className="mt-3 flex items-center justify-between gap-3">
-                        <div className="flex gap-1.5">
-                          {["foto", "tabela"].map((c) => (
-                            <span key={c} className="lp4-mono rounded-md border border-[var(--line)] px-2 py-1 text-[8px] text-[var(--body)]">
-                              {c}
-                            </span>
-                          ))}
-                        </div>
-                        <span className="lp4-btn lp4-btn-green px-4 py-2 text-xs">
-                          Disparar pra 47 grupos
-                        </span>
-                      </div>
-                    </div>
-                    <div className="mt-4 space-y-2 border-t border-[var(--line)] pt-4">
-                      {[
-                        ["VIP 01 · Atacado", "entregue"],
-                        ["VIP 02 · Pronta entrega", "entregue"],
-                        ["VIP 03 · Outlet", "na fila"],
-                      ].map(([g, s]) => (
-                        <div key={g} className="flex items-center justify-between">
-                          <span className="flex items-center gap-2 text-xs text-[var(--body)]">
-                            <WhatsAppIcon className="h-3.5 w-3.5 text-[var(--green)]" aria-hidden /> {g}
-                          </span>
-                          <span className={`lp4-mono flex items-center gap-1.5 text-[9px] ${s === "entregue" ? "text-[var(--green)]" : "text-[var(--body)]"}`}>
-                            {s === "entregue" && <Check className="h-3 w-3" aria-hidden />}
-                            {s}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                <PanelMock />
               </div>
               <div className="mt-6 flex justify-center">
                 <OrderTicker />
@@ -454,6 +435,67 @@ export default function Lp2Page() {
                 </p>
               </div>
             </div>
+
+            {/* provas reais — equipe, treinamento e os grupos no WhatsApp */}
+            <div className="mt-20">
+              <p data-lp4-r className="lp4-mono text-center text-[10px] text-[var(--body)]">
+                a operação por trás dos números
+              </p>
+
+              <div className="mt-6 grid gap-4 sm:grid-cols-3">
+                {[
+                  ["/lp2/team-a.webp", "Equipe da Mega Stock reunida no galpão em Goiânia", "equipe · galpão em goiânia"],
+                  ["/lp2/team-b.webp", "Time completo da Mega Stock reunido no galpão durante treinamento", "o time completo"],
+                  ["/lp2/team-c.webp", "Treinamento de vendas da equipe da Mega Stock", "treinamento de vendas"],
+                ].map(([src, alt, cap]) => (
+                  <figure
+                    key={src}
+                    data-lp4-photo
+                    className="relative aspect-[4/3] overflow-hidden rounded-3xl border border-[var(--line)]"
+                  >
+                    <Image
+                      src={src}
+                      alt={alt}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 640px) 100vw, 33vw"
+                    />
+                    <figcaption className="lp4-mono absolute bottom-3 left-3 rounded-full bg-[rgba(12,13,11,0.72)] px-3 py-1 text-[8px] text-[var(--display)] backdrop-blur">
+                      {cap}
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+
+              {/* grupos reais */}
+              <div className="mt-4 grid items-center gap-8 rounded-3xl border border-[var(--line)] bg-[var(--bg-2)] p-7 sm:grid-cols-[1fr_auto] md:p-10">
+                <div>
+                  <h3 className="lp4-x text-2xl md:text-3xl">
+                    Mais de 50 grupos, <span className="lp4-green">no WhatsApp de verdade.</span>
+                  </h3>
+                  <p className="mt-3 max-w-sm text-sm leading-relaxed text-[var(--body)]">
+                    Print real da operação — dá pra ver o grupo “Mega stock Goiânia #51”. Nenhum
+                    número inventado: eram dezenas de grupos com milhares de revendedores dentro.
+                  </p>
+                </div>
+                <div className="flex justify-center gap-4">
+                  {[
+                    ["/lp2/grp-1.webp", "Lista de grupos Mega Stock Atacado no WhatsApp"],
+                    ["/lp2/grp-2.webp", "Grupos Mega Stock Goiânia numerados até 51"],
+                  ].map(([src, alt], i) => (
+                    <figure
+                      key={src}
+                      data-lp4-photo
+                      className={`relative aspect-[76/165] w-[124px] overflow-hidden rounded-2xl border border-[var(--hairline)] shadow-[0_30px_60px_-30px_rgba(0,0,0,0.8)] ${
+                        i === 1 ? "hidden sm:block" : ""
+                      }`}
+                    >
+                      <Image src={src} alt={alt} fill className="object-cover object-top" sizes="124px" />
+                    </figure>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -472,8 +514,8 @@ export default function Lp2Page() {
             </div>
             <div className="mt-14">
               {METODO.map((m) => (
-                <div key={m.n} data-lp4-r className="grid gap-4 border-t border-[var(--line)] py-9 md:grid-cols-[140px_260px_1fr] md:items-baseline md:gap-10">
-                  <span className="lp4-x text-5xl text-[rgba(242,241,234,0.16)] md:text-6xl" aria-hidden>
+                <div key={m.n} data-lp4-r className="group grid gap-4 border-t border-[var(--line)] py-9 md:grid-cols-[140px_260px_1fr] md:items-baseline md:gap-10">
+                  <span className="lp4-x text-5xl text-[rgba(242,241,234,0.16)] transition-colors duration-500 group-hover:text-[rgba(47,212,107,0.7)] md:text-6xl" aria-hidden>
                     {m.n}
                   </span>
                   <h3 className="text-xl font-bold tracking-tight">{m.title}</h3>
@@ -481,6 +523,72 @@ export default function Lp2Page() {
                 </div>
               ))}
             </div>
+          </div>
+        </section>
+
+        {/* ==================== 5.5 · DISPARADOR GENÉRICO × HUBFLOW ==================== */}
+        <section id="diferencial" className="border-t border-[var(--line)] py-24 md:py-40">
+          <div className="mx-auto max-w-6xl px-5">
+            <div data-lp4-r className="max-w-3xl">
+              <p className="lp4-mono text-[10px] text-[var(--green)]">por que hubflow</p>
+              <h2 className="lp4-x mt-4 text-[clamp(2rem,4.4vw,3.5rem)]">
+                Um disparador qualquer{" "}
+                <span className="text-[var(--body)]">não foi feito pra isso.</span>
+              </h2>
+              <p className="mt-5 max-w-xl text-lg text-[var(--body)]">
+                Ferramenta genérica só manda mensagem. O HubFlow foi desenhado pra como o atacado
+                de moda vende de verdade — do grupo que lota ao pedido rastreado.
+              </p>
+            </div>
+
+            <div className="mt-14 overflow-hidden rounded-3xl border border-[var(--line)]">
+              {/* cabeçalho — só desktop; no mobile cada linha rotula suas colunas */}
+              <div className="hidden grid-cols-[1.3fr_1fr_1fr] md:grid">
+                <div aria-hidden />
+                <div className="px-6 py-5">
+                  <span className="lp4-mono text-[10px] text-[var(--body)]">disparador genérico</span>
+                </div>
+                <div className="border-l border-[rgba(47,212,107,0.28)] bg-[rgba(15,61,38,0.16)] px-7 py-5">
+                  <span className="lp4-mono flex items-center gap-2 text-[10px] text-[var(--green)]">
+                    <WhatsAppIcon className="h-3.5 w-3.5" aria-hidden /> hubflow
+                  </span>
+                </div>
+              </div>
+
+              {DIFERENCIAL.map((row) => (
+                <div
+                  key={row.feat}
+                  data-lp4-r
+                  className="grid gap-4 border-t border-[var(--line)] p-6 transition-colors duration-300 hover:bg-[rgba(242,241,234,0.02)] md:grid-cols-[1.3fr_1fr_1fr] md:gap-0 md:p-0"
+                >
+                  <div className="md:px-7 md:py-6">
+                    <span className="text-base font-bold tracking-tight md:text-[15px]">{row.feat}</span>
+                  </div>
+                  <div className="flex items-start gap-2.5 md:border-l md:border-[var(--line)] md:px-6 md:py-6">
+                    <X className="mt-0.5 h-4 w-4 shrink-0 opacity-45" aria-hidden />
+                    <span className="text-sm leading-relaxed text-[var(--body)]">
+                      <span className="lp4-mono mr-1.5 text-[8px] text-[var(--body)] opacity-70 md:hidden">
+                        genérico ·
+                      </span>
+                      {row.generic}
+                    </span>
+                  </div>
+                  <div className="flex items-start gap-2.5 border-l border-[rgba(47,212,107,0.28)] bg-[rgba(15,61,38,0.16)] px-4 py-4 md:px-7 md:py-6">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--green)]" aria-hidden />
+                    <span className="text-sm font-medium leading-relaxed">
+                      <span className="lp4-mono mr-1.5 text-[8px] text-[var(--green)] md:hidden">
+                        hubflow ·
+                      </span>
+                      {row.hub}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <p data-lp4-r className="lp4-mono mt-6 text-center text-[9px] text-[var(--body)]">
+              mesma tela do seu whatsapp de sempre · sem chip novo, sem app extra
+            </p>
           </div>
         </section>
 
@@ -534,10 +642,10 @@ export default function Lp2Page() {
                 <article
                   key={p.name}
                   data-lp4-w
-                  className={`relative flex flex-col rounded-3xl border p-8 ${
+                  className={`relative flex flex-col rounded-3xl border p-8 transition-[border-color,box-shadow] duration-500 ${
                     p.featured
                       ? "border-[rgba(47,212,107,0.5)] bg-[var(--bg-2)] shadow-[0_40px_110px_-45px_rgba(47,212,107,0.45)] md:-my-3 md:py-11"
-                      : "border-[var(--line)]"
+                      : "border-[var(--line)] hover:border-[rgba(47,212,107,0.32)] hover:shadow-[0_34px_90px_-52px_rgba(47,212,107,0.4)]"
                   }`}
                 >
                   {p.featured && (

@@ -62,3 +62,13 @@ apps/web/.ds-entry.tsx
 .lightrag/logs/
 .lightrag/index-manifest.json
 .lightrag/backups/
+# LightRAG exact core scope
+.lightrag/storage-core-minimal/
+.lightrag/index-manifest-core-minimal.json
+# LightRAG HubFlow profiles
+.lightrag/storage-core-minimal/
+.lightrag/index-manifest-core-minimal.json
+.lightrag/storage-business/
+.lightrag/index-manifest-business.json
+.lightrag/profile-state.json
+.lightrag/backups/

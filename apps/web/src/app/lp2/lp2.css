@@ -127,6 +127,23 @@
   background: rgba(242, 241, 234, 0.14);
 }
 
+/* ---------- painel mock (dashboard escalado como print) ---------- */
+.lp4-panelfit {
+  position: relative;
+  aspect-ratio: 960 / 600;
+  overflow: hidden;
+}
+.lp4-panelscale {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 960px;
+  height: 600px;
+  transform-origin: top left;
+  /* fallback p/ desktop sem JS; o Lp2Fx recalcula o scale exato por largura */
+  transform: scale(0.92);
+}
+
 /* ---------- régua de pedidos ---------- */
 .lp4-ticker-item {
   animation: lp4-order-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
