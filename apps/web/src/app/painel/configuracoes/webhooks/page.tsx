@@ -58,28 +58,28 @@ export default function WebhookConfigPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-[800px] space-y-5 px-4 py-6 sm:px-6">
-        <div className="h-10 w-64 animate-pulse rounded-lg bg-white" />
-        <div className="h-64 animate-pulse rounded-3xl bg-white" />
+      <div className="mx-auto max-w-[800px] space-y-5 px-4 py-8 sm:px-8">
+        <div className="pn-skeleton h-10 w-64 rounded-lg" />
+        <div className="pn-skeleton h-64 rounded-2xl" />
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-[800px] space-y-6 px-4 py-6 sm:px-6">
-      <div>
-        <h1 className="font-display text-3xl font-extrabold tracking-[-0.03em]">Notificações WhatsApp</h1>
-        <p className="font-data mt-1 text-xs uppercase tracking-wider text-aco/60">
-          Receba alertas importantes direto no seu WhatsApp
+    <div className="mx-auto max-w-[800px] space-y-8 px-4 py-8 sm:px-8">
+      <header>
+        <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-breu">Notificações WhatsApp</h1>
+        <p className="font-editorial mt-1 text-[19px] italic text-ardosia">
+          Alertas importantes chegam direto no seu WhatsApp.
         </p>
-      </div>
+      </header>
 
-      <section className="overflow-hidden rounded-3xl border border-breu/[0.08] bg-white">
+      <section className="pn-card overflow-hidden rounded-2xl">
         <div className="border-b border-breu/[0.06] px-6 py-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-iris/10 text-iris">
-                <Bell className="h-5 w-5" />
+                <Bell className="h-5 w-5" strokeWidth={1.75} />
               </span>
               <div>
                 <h2 className="font-display text-base font-bold text-breu">Alertas via WhatsApp</h2>
@@ -88,14 +88,16 @@ export default function WebhookConfigPage() {
             </div>
             <button
               onClick={() => setEnabled(!enabled)}
+              aria-label={enabled ? "Desativar alertas" : "Ativar alertas"}
+              aria-pressed={enabled}
               className={cn(
-                "relative h-7 w-12 rounded-full transition-colors",
+                "relative h-7 w-12 cursor-pointer rounded-full transition-colors duration-[160ms] ease-[var(--ease-fluxo)]",
                 enabled ? "bg-iris" : "bg-breu/10",
               )}
             >
               <span
                 className={cn(
-                  "absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform",
+                  "absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-[160ms] ease-[var(--ease-fluxo)]",
                   enabled ? "translate-x-6" : "translate-x-1",
                 )}
               />
@@ -106,15 +108,16 @@ export default function WebhookConfigPage() {
         <div className="p-6 space-y-6">
           {/* Número */}
           <div>
-            <label className="mb-1.5 flex items-center gap-2 text-sm font-medium text-aco">
-              <Smartphone className="h-4 w-4" /> Número para receber alertas
+            <label htmlFor="wh-phone" className="mb-1.5 flex items-center gap-2 text-sm font-medium text-aco">
+              <Smartphone className="h-4 w-4" strokeWidth={1.75} /> Número para receber alertas
             </label>
             <input
+              id="wh-phone"
               type="tel"
               placeholder="5511999999999"
               value={phone}
               onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
-              className="h-11 w-full rounded-xl border border-breu/10 bg-bruma/30 px-4 text-sm text-breu placeholder:text-aco/40 outline-none transition focus:border-iris/40 focus:ring-2 focus:ring-iris/10 sm:w-72"
+              className="font-data h-11 w-full rounded-[10px] border border-breu/10 bg-poco px-4 text-sm tabular-nums text-breu placeholder:text-aco/40 outline-none transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] focus:border-iris/50 focus:bg-papel focus:shadow-[0_0_0_3px_var(--color-iris-light)] sm:w-72"
             />
             <p className="mt-1 text-xs text-aco/50">Somente números, com DDD. Ex: 5511999999999</p>
           </div>
@@ -130,11 +133,12 @@ export default function WebhookConfigPage() {
                     key={evt.id}
                     type="button"
                     onClick={() => toggleEvent(evt.id)}
+                    aria-pressed={active}
                     className={cn(
-                      "flex w-full items-center gap-3 rounded-xl border p-3.5 text-left transition",
+                      "flex w-full cursor-pointer items-center gap-3 rounded-xl border p-3.5 text-left transition-colors duration-[160ms] ease-[var(--ease-fluxo)]",
                       active
-                        ? "border-iris/30 bg-iris/[0.04]"
-                        : "border-breu/[0.06] hover:border-iris/20",
+                        ? "border-iris/30 bg-iris/[0.05]"
+                        : "border-breu/[0.06] bg-poco hover:border-iris/20",
                     )}
                   >
                     <span
@@ -160,12 +164,12 @@ export default function WebhookConfigPage() {
             onClick={save}
             disabled={saving || !phone}
             className={cn(
-              "flex h-11 items-center gap-2 rounded-xl px-6 text-sm font-medium text-white transition",
+              "flex h-11 cursor-pointer items-center gap-2 rounded-xl px-6 text-sm font-medium text-white transition ease-[var(--ease-fluxo)]",
               saving || !phone
                 ? "cursor-not-allowed bg-iris/40"
                 : saved
-                  ? "bg-sucesso shadow-none"
-                  : "bg-iris shadow-iris hover:-translate-y-0.5 hover:bg-iris-claro",
+                  ? "bg-sucesso"
+                  : "bg-iris hover:brightness-110",
             )}
           >
             {saving ? (

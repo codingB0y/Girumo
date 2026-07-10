@@ -278,6 +278,41 @@ motion, primitivos. Ideação via subagentes (não-template).
   campanhas/[slug], campanhas/[slug]/editar, configuracoes(+webhooks,cancelar),
   pages(+nova,[id]), indicacao, biblioteca, agenda, disparos, automacoes, squad-os/*, dev-tools.
 
+## ▶ PRÓXIMA SESSÃO — COMEÇA AQUI (atualizado 2026-07-09)
+
+**Frase pra retomar:** "continua o redesign do painel O Balcão — segue o handoff no TASK_PROGRESS".
+**Roda com `ECC_GATEGUARD=off`** — sem isso, cada edit/write/bash exige ciclo "apresentar fatos→retry" e ~dobra o custo.
+
+**Onde parei:** 12/28 telas no O Balcão. Commits desta frente: `971aadd1` (grupos+dashboard), `c3c043e9`
+(campanhas lista, resultados, contatos, conectar), `09b30d82` (campanhas detail + config nova/editar).
+Sessão 2026-07-09 (NÃO commitado ainda): fx.tsx blocker + configuracoes (page, webhooks, cancelar).
+
+**✅ BLOCKER #1 — RESOLVIDO (2026-07-09):** `src/components/lp2/fx.tsx:125` → era `el.style.transformPerspective`
+(prop do GSAP, não CSS do DOM). Corrigido: `gsap.set(el, { transformPerspective: 1000, transformStyle: "preserve-3d" })`.
+Ainda NÃO commitado (WIP da landing). Build não trava mais nessa linha.
+
+**Próximo lote sugerido (ordem por visibilidade):** pages (+nova, +[id]) → indicacao → biblioteca → agenda
+→ disparos → automacoes → squad-os/* → dev-tools.  _(configuracoes ✅ na sessão 2026-07-09)_
+
+**Como replicar (template O Balcão, 8 passos — base `grupos/page.tsx`):**
+1. container `mx-auto max-w-[...] space-y-8 px-4 py-8 sm:px-8`
+2. header: `h1 font-display text-[28px] font-extrabold tracking-[-0.02em] text-breu` + subtítulo `font-editorial text-[19px] italic text-ardosia`
+3. cards: `pn-card` (+`pn-card-hover` se clicável) `rounded-2xl`; insets/inputs → `bg-poco`
+4. números → `font-data tabular-nums`; labels → `font-data text-[10px] uppercase tracking-[0.08em]`
+5. barras: container `pn-poco` + inner `pn-fill` com `transform: scaleX(pct/100)`; cor `#3D5AF1` (nunca `#6A4BF0`); alerta `#D99B2A`
+6. skeleton → `pn-skeleton`; tabelas → separadores `divide-dashed divide-breu/[0.09]`
+7. empty/voz do produto → `font-editorial italic text-ardosia/text-breu`
+8. botões primários `bg-iris` (token=cobalto) + `hover:brightness-110` + `ease-[var(--ease-fluxo)]` — NUNCA `shadow-iris` (glow roxo literal)
+Busca: `bg-poco ... focus:bg-papel focus:shadow-[0_0_0_3px_var(--color-iris-light)]` + `aria-label`.
+
+**Regra de ouro:** cor 100% via token (o `.pn-root` recolore cobalto sozinho); só `#25D366` (WhatsApp) e cores
+semânticas (`sucesso/atencao/alerta` verde/âmbar/vermelho) ficam literais.
+
+**Working tree ao pausar:** commits do painel feitos; NÃO commitados → `fx.tsx` (landing WIP, o blocker),
++ pré-staged não-meus (`pages/templates/index.ts`, `tracking-scripts.tsx`, `lib/pages/slug.ts`, `.obsidian/*`).
+
+---
+
 ## Checklist — Redesign O Balcão (telas internas)
 - [x] dashboard (/painel)
 - [x] grupos
@@ -288,9 +323,9 @@ motion, primitivos. Ideação via subagentes (não-template).
 - [x] campanhas/nova (via CampaignConfig)
 - [x] campanhas/[slug] (detail + tabs Grupos/Mensagens/Visão/Resultados)
 - [x] campanhas/[slug]/editar (via CampaignConfig)
-- [ ] configuracoes
-- [ ] configuracoes/webhooks
-- [ ] configuracoes/cancelar
+- [x] configuracoes
+- [x] configuracoes/webhooks
+- [x] configuracoes/cancelar
 - [ ] pages
 - [ ] pages/nova
 - [ ] pages/[id]
