@@ -1,0 +1,22 @@
+# App.set_updated_at
+
+**Type:** method
+
+A database function designed to update timestamp fields.
+
+## Neighbors
+- [[set_updated_at_contacts|Set_updated_at_contacts]]
+- [[set_updated_at_messages|Set_updated_at_messages]]
+- [[set_updated_at_uploads|Set_updated_at_uploads]]
+- [[set_updated_at_logs|Set_updated_at_logs]]
+- [[set_updated_at_engine_commands|Set_updated_at_engine_commands]]
+- [[set_updated_at_engine_events|Set_updated_at_engine_events]]
+- [[set_updated_at_groups|Set_updated_at_groups]]
+- [[set_updated_at_campaign_groups|Set_updated_at_campaign_groups]]
+- [[set_updated_at_broadcasts|Set_updated_at_broadcasts]]
+- [[set_updated_at_campaign_messages|Set_updated_at_campaign_messages]]
+- [[set_updated_at_schedules|Set_updated_at_schedules]]
+- [[set_updated_at_tracked_links|Set_updated_at_tracked_links]]
+
+## Appears in
+- `02_indexes_triggers.sql`

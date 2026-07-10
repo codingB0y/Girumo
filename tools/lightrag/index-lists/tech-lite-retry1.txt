@@ -1,0 +1,9 @@
+# TECH Lite — retry dos 8 que falharam na primeira leva
+deploy/coolify/README.md
+deploy/vercel/README.md
+deploy/supabase/README.md
+deploy/github/README.md
+apps/web/package.json
+infra/dev-setup/README.md
+infra/dev-setup/03_rls_policies.sql
+infra/migrations/202607010001_groups_broadcasts_schedules.sql

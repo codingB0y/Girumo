@@ -72,3 +72,7 @@ apps/web/.ds-entry.tsx
 .lightrag/index-manifest-business.json
 .lightrag/profile-state.json
 .lightrag/backups/
+
+# Obsidian app config (lixo, não versionar)
+.obsidian/
+*.base
