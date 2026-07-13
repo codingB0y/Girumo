@@ -47,6 +47,45 @@ async def insert_batch(texts: list[str], ids: list[str], file_paths: list[str]):
     await rag.ainsert(texts, ids=ids, file_paths=file_paths)
 
 
+async def purge_stale_records(file_paths: list[str]) -> dict[str, int]:
+    """Remove every doc_status record (original + duplicate stragglers) for
+    the given flattened file_paths, so a retry isn't blocked by LightRAG's
+    filename-basename dedup (which matches on ANY existing record for that
+    file_path regardless of status — see lightrag/pipeline.py
+    get_existing_doc_by_file_basename). Hand-editing kv_store_doc_status.json
+    only removes the "doc-*" original and leaves "dup-*"/"error-*" stragglers
+    behind, which still trip the same dedup check on the next attempt.
+    """
+    from lightrag.base import DocStatus
+    from lightrag.utils_pipeline import doc_status_field
+
+    rag = await get_rag()
+    target_paths = set(file_paths)
+
+    all_docs = await rag.doc_status.get_docs_by_statuses(
+        [DocStatus.FAILED, DocStatus.PENDING, DocStatus.PROCESSING, DocStatus.PROCESSED]
+    )
+    matching_ids = [
+        doc_id
+        for doc_id, doc in all_docs.items()
+        if doc_status_field(doc, "file_path", "") in target_paths
+    ]
+
+    deleted = 0
+    for doc_id in matching_ids:
+        if doc_id.startswith("doc-"):
+            result = await rag.adelete_by_doc_id(doc_id, delete_llm_cache=True)
+            if getattr(result, "status", None) in ("success", "not_found"):
+                deleted += 1
+        else:
+            # "dup-*"/"error-*" markers never had chunks/entities/vectors —
+            # a plain doc_status delete is enough, no adelete_by_doc_id needed.
+            await rag.doc_status.delete([doc_id])
+            deleted += 1
+
+    return {"matched": len(matching_ids), "deleted": deleted}
+
+
 async def insert_text(text: str, source: str):
     rag = await get_rag()
     await rag.ainsert(text, file_paths=[source])

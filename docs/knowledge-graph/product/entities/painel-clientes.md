@@ -2,7 +2,7 @@
 
 **Type:** artifact
 
-A digital interface section previously used for client management.
+A digital interface section previously used for client management.<SEP>A digital interface section previously used for client management.
 
 ## Neighbors
 - [[contatos|Contatos]]

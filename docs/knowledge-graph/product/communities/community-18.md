@@ -1,3 +1,3 @@
 # Community 18
 
-- [[sdr-agent|SDR Agent]]
+- [[content-agent|Content Agent]]

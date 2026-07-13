@@ -2,7 +2,7 @@
 
 **Type:** artifact
 
-A digital interface section representing a messaging system.
+A digital interface section representing a messaging system.<SEP>A digital interface section representing a messaging system.
 
 ## Neighbors
 - [[campanhas|Campanhas]]

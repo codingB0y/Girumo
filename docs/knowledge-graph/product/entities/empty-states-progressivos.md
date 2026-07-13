@@ -2,7 +2,7 @@
 
 **Type:** method
 
-An onboarding technique that adapts the interface based on the user's current progress.
+An onboarding technique that adapts the interface based on the user's current progress.<SEP>An onboarding technique that adapts the interface based on the user's current progress.
 
 ## Neighbors
 - [[feature_backlogmd|Feature_Backlog.md]]

@@ -2,7 +2,7 @@
 
 **Type:** artifact
 
-A navigational element located on the sidebar of the interface.
+A navigational element located on the sidebar of the interface.<SEP>A navigational element located on the sidebar of the interface.
 
 ## Neighbors
 - [[orphan|Orphan]]

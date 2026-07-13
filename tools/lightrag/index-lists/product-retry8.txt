@@ -1,0 +1,9 @@
+# PRODUCT retry — 8 files stuck failed due to daily embedding quota exhaustion cascade
+PROJECT_CONTEXT.md
+docs/contexts/admin-platform.md
+docs/contexts/engine-whatsapp.md
+docs/audit/FEATURE_BACKLOG.md
+docs/audit/UX_NOTES.md
+docs/audit/DECISIONS.md
+docs/audit/CONTEXT_PANEL.md
+docs/audit/PANEL_AUDIT.md
