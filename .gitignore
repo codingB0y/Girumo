@@ -36,6 +36,9 @@ apps/web/data/
 # Coverage
 coverage
 
+# Worktrees locais do Codex/Superpowers
+.worktrees/
+
 # Mac
 .DS_Store
 
