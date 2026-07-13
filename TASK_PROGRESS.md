@@ -4,6 +4,18 @@ Elevar o HubFlow a SaaS de alto nível: segurança, growth, automações, polish
 
 # Plano
 
+## Sprint 5 — Migração Baileys → Evolution API v2 (ATUAL — branch feat/evolution-migration)
+
+Plano aprovado em 2026-07-13 (`~/.claude/plans/quero-migrar-o-hubflow-eager-minsky.md`). Evolution API v2.3.7 (`evoapicloud/evolution-api`, repo `evolution-foundation/evolution-api`) em VPS/Coolify; worker novo `apps/worker` TS; fila única = `engine_commands` estendida; Baileys congela via tag `legacy-baileys-engine`. 0 clientes = sem compat.
+
+- [ ] F0 — Fundação/segurança: 3 migrations (RLS padronizada, provider columns, queue v2), QR local (mata quickchart.io), ENGINE_TOKEN sem default, teste isolamento RLS **(EM ANDAMENTO)**
+- [ ] F1 — Evolution API no Coolify (infra pura + fixtures de payloads reais)
+- [ ] F2 — Lifecycle de instância no web (client, webhook receiver, painel conectar refeito)
+- [ ] F3 — Lead capture via worker mínimo (loop B)
+- [ ] F4 — Worker completo (anti-ban portado, senders, lease/retry, fan-out broadcast)
+- [ ] F5 — Cutover: engine desligado, rotas engine-only deletadas, envs ENGINE_* removidos
+- [ ] F6 — Limpeza: dual-mode JSON removido, SQL consolidado, retenção 30d, docs
+
 ## Sprint 1 — Segurança (P0) ✅
 1. Rotacionar Service Role Key no Supabase
 2. Fix middleware Bearer validation

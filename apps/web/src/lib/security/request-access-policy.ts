@@ -65,7 +65,11 @@ export function decideEngineAccess(
   token: string | null,
   expectedToken: string,
 ): EngineDecision {
-  if (token) return token === expectedToken ? "allow-engine" : "reject-401";
+  // expectedToken vazio = engine desabilitada: nenhum token é aceito e o
+  // request nunca cai no fluxo de usuário carregando um token inválido.
+  if (token) {
+    return expectedToken !== "" && token === expectedToken ? "allow-engine" : "reject-401";
+  }
   if (kind === "engine-only") return "reject-403";
   return "continue-user";
 }

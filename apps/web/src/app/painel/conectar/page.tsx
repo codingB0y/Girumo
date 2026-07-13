@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Check, Smartphone, ShieldCheck, Zap, Loader2, RefreshCw } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { cn } from "@/lib/utils";
 
 export default function PainelConectar() {
@@ -218,11 +219,15 @@ function ConnectedPanel({ number }: { number: string | null }) {
 
 /** QR Code real a partir do payload da engine. */
 function RealQR({ data }: { data: string }) {
-  // Usa o endpoint público do QuickChart (CDN) para gerar o PNG/SVG.
-  // data vem como string base64-like ("2@abc...,xyz") — URL-encode antes.
-  const url = `https://quickchart.io/qr?text=${encodeURIComponent(data)}&size=300&margin=2`;
+  // Renderizado 100% local: o payload de pareamento é credencial de sessão
+  // do WhatsApp e nunca pode sair do browser (antes ia pra quickchart.io).
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={url} alt="QR Code WhatsApp" width={150} height={150} className="h-[150px] w-[150px]" />
+    <QRCodeSVG
+      value={data}
+      size={150}
+      marginSize={2}
+      title="QR Code WhatsApp"
+      className="h-[150px] w-[150px]"
+    />
   );
 }

@@ -19,7 +19,7 @@ export async function getRouteTenantContext(
     if (!options.allowEngine) {
       throw new Response("Rota não permitida para a engine.", { status: 403 });
     }
-    if (engineToken !== ENGINE_TOKEN) {
+    if (ENGINE_TOKEN === "" || engineToken !== ENGINE_TOKEN) {
       throw new Response("Token da engine inválido.", { status: 401 });
     }
 

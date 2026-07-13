@@ -125,8 +125,22 @@ export function validateEnvironment(): EnvValidationResult {
     warnings.push("ENABLE_DEV_TOOLS não está definido — dev tools desabilitados");
   }
 
-  if (env === "development" && process.env.AUTH_SECRET === "dev-secret-local-troque-em-producao") {
+  if (env === "development" && process.env.AUTH_SECRET === "dz-dev-secret-troque-em-producao") {
     warnings.push("AUTH_SECRET está com valor default — ok para dev, troque em staging/prod");
+  }
+
+  if (!process.env.ENGINE_TOKEN) {
+    warnings.push(
+      "ENGINE_TOKEN não definido — rotas da engine ficam fail-closed (nenhum request da engine autentica)",
+    );
+  }
+
+  // Evolution API (migração Baileys→Evolution): opcionais até a F2 do plano.
+  // Config parcial é o único estado inválido — ou tudo ou nada.
+  const evolutionVars = ["EVOLUTION_API_URL", "EVOLUTION_API_KEY", "EVOLUTION_WEBHOOK_SECRET"];
+  const missingEvolution = evolutionVars.filter((name) => !process.env[name]);
+  if (missingEvolution.length > 0 && missingEvolution.length < evolutionVars.length) {
+    warnings.push(`Config Evolution API incompleta — faltam: ${missingEvolution.join(", ")}`);
   }
 
   return {
