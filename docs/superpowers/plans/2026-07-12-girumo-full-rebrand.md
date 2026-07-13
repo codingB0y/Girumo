@@ -6,7 +6,7 @@
 
 **Architecture:** Establish one typed brand contract and one geometry source, generate deterministic SVG/PNG/ICO assets from them, and make React, metadata, email, social, and documentation consumers depend on those sources. Apply Volt Commerce through global tokens and shared primitives first; then migrate shells and public surfaces in isolated reviewable tasks. Preserve `hubflow-web`, `hubflow-engine`, database identifiers, legacy URLs, and old-host allowlists as internal compatibility boundaries.
 
-**Tech Stack:** Next.js 15 App Router, React 19, TypeScript, Tailwind CSS 4, `next/font`, Node test runner via `tsx`, Sharp 0.34.5, Fontkit 2.0.4, `png-to-ico` 3.0.2, `@fontsource-variable/manrope` 5.2.8.
+**Tech Stack:** Next.js 15 App Router, React 19, TypeScript, Tailwind CSS 4, `next/font`, Node test runner via `tsx`, Sharp 0.34.5, Fontkit 2.0.4, `png-to-ico` 3.0.2, `@fontsource/manrope` 5.2.8.
 
 ## Global Constraints
 
@@ -199,7 +199,7 @@ git commit -m "feat: add Girumo brand contract"
 Run:
 
 ```powershell
-npm install --save-dev --workspace apps/web sharp@0.34.5 fontkit@2.0.4 @types/fontkit@2.0.9 png-to-ico@3.0.2 @fontsource-variable/manrope@5.2.8
+npm install --save-dev --workspace apps/web sharp@0.34.5 fontkit@2.0.4 @types/fontkit@2.0.9 png-to-ico@3.0.2 @fontsource/manrope@5.2.8
 ```
 
 Expected: `apps/web/package.json` and root `package-lock.json` change; no runtime dependency is added.
@@ -282,7 +282,7 @@ Expected: FAIL and list the first absent asset.
 
 The exporter must:
 
-1. load Manrope variable WOFF2 through Fontkit and select `wght: 700`;
+1. load the static Manrope 700 Latin WOFF2 through Fontkit and assert its Bold/700 metadata before outlining; this avoids Fontkit 2.0.4's reproducible `getVariation()` corruption on variable WOFF2 while preserving the exact approved weight;
 2. convert each `Girumo` glyph to a real `<path d="…">` element with `-3%` global tracking and the approved pair adjustments;
 3. flip font coordinates onto the SVG baseline, derive the viewBox from the union of transformed glyph bounding boxes, and add 2% safety padding;
 4. compose symbol, horizontal lockup, stacked lockup, and wordmark SVGs using the approved optical proportions;
@@ -307,7 +307,7 @@ import { createRequire } from "node:module";
 import * as fontkit from "fontkit";
 
 const require = createRequire(import.meta.url);
-const MANROPE_PATH = require.resolve("@fontsource-variable/manrope/files/manrope-latin-wght-normal.woff2");
+const MANROPE_PATH = require.resolve("@fontsource/manrope/files/manrope-latin-700-normal.woff2");
 const OUTPUT = path.join(process.cwd(), "public", "brand", "girumo");
 const COLORS = { volt: "#071923", acid: "#A7FF2F", canvas: "#F4F0E7", black: "#000000" } as const;
 const PNG_SIZES = [16, 32, 48, 180, 192, 512, 1024] as const;
@@ -328,15 +328,17 @@ type OutlineFont = {
     glyphs: Array<{ path: { toSVG(): string; bbox: { minX: number; minY: number; maxX: number; maxY: number } } }>;
     positions: Array<{ xOffset: number; xAdvance: number }>;
   };
-  getVariation?: (axes: { wght: number }) => OutlineFont;
 };
 
 const opened = fontkit.openSync(MANROPE_PATH);
 if ("fonts" in opened) throw new Error("Manrope export source must be one font, not a collection");
+if (!/bold|700/i.test(`${opened.subfamilyName} ${opened.postscriptName}`)) {
+  throw new Error("Manrope export source must be the static 700/Bold face");
+}
 const outlineFont = opened as unknown as OutlineFont;
 
 function outlinedWordmarkSvg(font: OutlineFont, color: string) {
-  const bold = font.getVariation ? font.getVariation({ wght: 700 }) : font;
+  const bold = font;
   const run = bold.layout(WORDMARK);
   const tracking = -0.03 * bold.unitsPerEm;
   let penX = 0;
