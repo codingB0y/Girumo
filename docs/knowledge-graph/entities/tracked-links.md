@@ -1,8 +1,8 @@
 # Tracked Links
 
-**Type:** data
+**Type:** artifact
 
-A data collection for monitoring URL clicks, featuring slugs, target URLs, and click counts.<SEP>A database table storing URLs and slugs for link tracking.<SEP>A database table that tracks click metrics for specific URLs associated with campaign groups.<SEP>A database table storing tracked link data, requiring owner or admin roles for write access.
+A data collection for monitoring URL clicks, featuring slugs, target URLs, and click counts.<SEP>A database table storing URLs and slugs for link tracking.<SEP>A database table that tracks click metrics for specific URLs associated with campaign groups.<SEP>A database table storing tracked link data, requiring owner or admin roles for write access.<SEP>A database table designed for tracking interactions and links within the communication infrastructure.
 
 ## Neighbors
 - [[supabase|Supabase]]
@@ -16,3 +16,4 @@ A data collection for monitoring URL clicks, featuring slugs, target URLs, and c
 - `02_indexes_triggers.sql`
 - `01_tables.sql`
 - `03_rls_policies.sql`
+- `202607010001_groups_broadcasts_schedules.sql`

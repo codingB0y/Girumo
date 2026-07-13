@@ -6,7 +6,7 @@ Supabase is a comprehensive, cloud-based backend-as-a-service (BaaS) platform de
 
 In various technical ecosystems, such as HubFlow and the Hubflow-engine, Supabase serves as a primary backend provider for both development and production environments. Its utility extends to specialized tasks such as facilitating data connections, performing data migrations, and the storage of complex datasets—including broadcast information, scheduling data, link structures, and subscription details—as well as the synchronization of events.
 
-While Supabase offers a broad range of infrastructure capabilities as a high-utility solution for organizations looking to streamline the management of their database schemas, logs, and authentication workflows, it is noted that the platform requires users to manage external backup strategies independently. Consequently, Supabase functions as a versatile tool for backend management, balancing automated infrastructure services with the need for user-directed data protection.
+While Supabase offers a broad range of infrastructure capabilities as a high-utility solution for organizations looking to streamline the management of their database schemas, logs, and authentication workflows, it is noted that the platform requires users to manage external backup strategies independently. Consequently, Supabase functions as a versatile tool for backend management, balancing automated infrastructure services with the need for user-directed data protection.<SEP>A backend-as-a-service platform that provides database, authentication, and API services.<SEP>A backend-as-a-service platform providing authentication services and database management.<SEP>A backend-as-a-service platform used for database management, authentication, and administrative operations.
 
 ## Neighbors
 - [[hubflow|Hubflow]]
@@ -36,6 +36,8 @@ While Supabase offers a broad range of infrastructure capabilities as a high-uti
 - [[securityheaders|SecurityHeaders]]
 - [[rls|RLS]]
 - [[hubflow-engine|Hubflow-engine]]
+- [[resetpasswordpage|ResetPasswordPage]]
+- [[routets|Route.ts]]
 
 ## Appears in
 - `DEPLOY_ONLINE_RUNBOOK.md`
@@ -54,3 +56,6 @@ While Supabase offers a broad range of infrastructure capabilities as a high-uti
 - `PROJECT_CONTEXT.md`
 - `GO_NO_GO.md`
 - `engine.docker-compose.yml`
+- `202607010001_groups_broadcasts_schedules.sql`
+- `page.tsx`
+- `route.ts`

@@ -2,7 +2,7 @@
 
 **Type:** data
 
-A database table storing communication records associated with specific tenants.<SEP>Represent communication records sent or received within the system, linked to instances, campaigns, and contacts.<SEP>A database table for message records.<SEP>A database table storing communication logs or message records.<SEP>A database table storing communication logs, indexed by tenant and creation time.<SEP>A database table that logs communication activity, including direction, status, and payload between instances, campaigns, and contacts.<SEP>A database table storing message information, restricted by tenant membership.
+Represent communication records sent or received within the system, linked to instances, campaigns, and contacts.<SEP>A database table storing communication records associated with specific tenants.<SEP>A database table for message records.<SEP>A database table storing communication logs or message records.<SEP>A database table storing communication logs, indexed by tenant and creation time.<SEP>A database table that logs communication activity, including direction, status, and payload between instances, campaigns, and contacts.<SEP>A database table storing message information, restricted by tenant membership.
 
 ## Neighbors
 - [[tenant|Tenant]]

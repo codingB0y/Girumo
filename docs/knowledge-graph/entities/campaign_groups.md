@@ -1,11 +1,13 @@
-# Campaign_groups
+# Campaign_Groups
 
-**Type:** data
+**Type:** artifact
 
-A table within the Supabase database containing information about marketing campaigns.
+A database table representing groupings of marketing campaigns.
 
 ## Neighbors
-- [[migrate-json-to-supabasets|Migrate-json-to-supabase.ts]]
+- [[organizations|Organizations]]
+- [[campaign_messages|Campaign_Messages]]
+- [[tracked_links|Tracked_Links]]
 
 ## Appears in
-- `migrate-json-to-supabase.ts`
+- `202607010001_groups_broadcasts_schedules.sql`

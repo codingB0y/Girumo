@@ -2,9 +2,9 @@
 
 **Type:** data
 
-Contacts represent both a functional database structure and a logical entity within the system. As a database table, the Contacts entity is responsible for storing comprehensive contact information, including names, phone numbers, and email addresses. This data is structured to be indexed by specific tenants and email addresses, ensuring that access is restricted by tenant membership to maintain data isolation across different organizational environments.
+Contacts represent the individuals or entities that interact with a system and are associated with a specific organization. Within the system, these entities serve to identify users or stakeholders for communication and messaging purposes, holding essential identity details such as names, phone numbers, and email addresses.
 
-From a conceptual perspective, the Contacts entity identifies the individuals or external entities that interact with the system. By housing detailed identity information, the entity facilitates essential communication and messaging workflows. Each entry is explicitly associated with an organization, serving as a foundational component for managing and retrieving the contact details necessary for ongoing system interactions and organizational outreach.
+From a technical perspective, Contacts are defined as a database table specifically designed to store this contact information. The architecture of this table is structured to support multi-tenancy, as the data is strictly restricted by tenant membership and indexed by both tenant and email. By organizing information in this manner, the system ensures that contact details are securely managed and effectively retrieved within the context of the respective organization or tenant.
 
 ## Neighbors
 - [[tenant|Tenant]]

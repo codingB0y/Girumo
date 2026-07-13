@@ -1,11 +1,11 @@
-# Auth.uid
+# Auth.uid()
 
 **Type:** method
 
 A function used to retrieve the unique identifier of the currently authenticated user.
 
 ## Neighbors
-- [[owners-and-admins-manage-webhooks|Owners and Admins Manage Webhooks]]
+- [[publicmemberships|Public.memberships]]
 
 ## Appears in
-- `202607010011_tenant_webhooks.sql`
+- `202607010001_groups_broadcasts_schedules.sql`

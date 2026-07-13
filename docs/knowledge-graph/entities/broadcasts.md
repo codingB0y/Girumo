@@ -1,8 +1,12 @@
 # Broadcasts
 
-**Type:** data
+**Type:** artifact
 
-A data collection representing message distributions, including media information, status, and timing details.<SEP>A table within the Supabase database containing records of message broadcasts.<SEP>A database table for managing mass communications or broadcasts.<SEP>A database entity representing a broadcast operation linked to a schedule.<SEP>Communications sent to specific groups or campaign groups, tracking status and engagement metrics.<SEP>A database table storing broadcast information, restricted by tenant membership.
+Broadcasts is a centralized database table within the Supabase architecture designed to store, manage, and track mass communications and bulk messaging campaigns. Serving as a core data entity for the system’s outreach infrastructure, it functions as a repository for records of message distributions, ensuring that broadcast operations are systematically organized and linked to specific schedules.
+
+This table captures comprehensive details regarding each broadcast, including relevant media information, precise timing configurations, and the delivery status of the messages. To support multi-tenant environments, the Broadcasts entity is structured to be restricted by tenant membership, ensuring that communications are securely isolated according to organizational boundaries.
+
+Beyond initial distribution, Broadcasts acts as a tracking mechanism for outgoing communications sent to specific target audiences or designated campaign groups. By recording the status and engagement metrics associated with these operations, the table enables system administrators to monitor the efficacy and reach of their messaging efforts, facilitating the management of large-scale communication cycles from initiation through delivery.
 
 ## Neighbors
 - [[supabase|Supabase]]
@@ -18,3 +22,4 @@ A data collection representing message distributions, including media informatio
 - `02_indexes_triggers.sql`
 - `01_tables.sql`
 - `03_rls_policies.sql`
+- `202607010001_groups_broadcasts_schedules.sql`

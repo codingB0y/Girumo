@@ -1,10 +1,10 @@
 # Memberships
 
-**Type:** organization
+**Type:** artifact
 
 Memberships is a database table located within the public schema that serves as a foundational structure for managing user associations within a system. Its primary purpose is to link individual users to specific organizations or tenants, thereby establishing and validating their access to organizational data.
 
-By defining the relationship between users and these entities, the Memberships table functions as a central authority for assigning and tracking user roles and access levels. In addition to managing active user associations, the table is responsible for overseeing membership records and handling pending invitations, ensuring that role-based permissions are consistently applied across all relevant tenants.
+By defining the relationship between users and these entities, the Memberships table functions as a central authority for assigning and tracking user roles and access levels. In addition to managing active user associations, the table is responsible for overseeing membership records and handling pending invitations, ensuring that role-based permissions are consistently applied across all relevant tenants.<SEP>A database table that maps users to tenants and defines their roles.
 
 ## Neighbors
 - [[hubflow|Hubflow]]
@@ -23,3 +23,4 @@ By defining the relationship between users and these entities, the Memberships t
 - `202606240006_membership_invites.sql`
 - `202607010011_tenant_webhooks.sql`
 - `202607010010_notifications.sql`
+- `202607010001_groups_broadcasts_schedules.sql`

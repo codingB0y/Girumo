@@ -1,13 +1,13 @@
-# Public.Memberships
+# Public.memberships
 
 **Type:** data
 
-A database table mapping users to organizations and their respective roles.
+A database table storing membership associations between users and tenants.
 
 ## Neighbors
-- [[apphas_membership|App.Has_Membership]]
-- [[apphas_role|App.Has_Role]]
-- [[hubflow-dev|Hubflow Dev]]
+- [[publictracked_links|Public.tracked_links]]
+- [[user_id|User_id]]
+- [[authuid|Auth.uid()]]
 
 ## Appears in
-- `03_rls_policies.sql`
+- `202607010001_groups_broadcasts_schedules.sql`

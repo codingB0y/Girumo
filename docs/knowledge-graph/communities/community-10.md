@@ -1,3 +1,3 @@
 # Community 10
 
-- [[project-context|Project Context]]
+- [[landing-components|Landing Components]]

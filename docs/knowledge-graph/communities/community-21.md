@@ -11,7 +11,6 @@
 - [[publiclogs|Public.logs]]
 - [[publicmessages|Public.messages]]
 - [[publicschedules|Public.schedules]]
-- [[publictracked_links|Public.tracked_links]]
 - [[publicuploads|Public.uploads]]
 - [[set_updated_at_broadcasts|Set_updated_at_broadcasts]]
 - [[set_updated_at_campaign_groups|Set_updated_at_campaign_groups]]
@@ -23,5 +22,4 @@
 - [[set_updated_at_logs|Set_updated_at_logs]]
 - [[set_updated_at_messages|Set_updated_at_messages]]
 - [[set_updated_at_schedules|Set_updated_at_schedules]]
-- [[set_updated_at_tracked_links|Set_updated_at_tracked_links]]
 - [[set_updated_at_uploads|Set_updated_at_uploads]]
