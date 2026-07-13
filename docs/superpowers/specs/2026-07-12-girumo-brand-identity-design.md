@@ -158,7 +158,7 @@ Definir `x` como um quarto da largura do símbolo. Nenhum texto, borda, fotograf
 - lockup horizontal digital: `96 px` de largura;
 - lockup horizontal impresso: `24 mm` de largura.
 
-Uma versão micro do símbolo preservará a mesma geometria, com correção óptica apenas nos raios para impedir fechamento da passagem em 16 px.
+Uma versão micro do símbolo preservará a composição e as massas externas do mestre. Exclusivamente em `16 px`, as bordas internas da passagem podem ser afastadas em até `0,25` unidade do viewBox para manter ao menos um pixel transparente em todas as linhas relevantes; nenhuma outra proporção pode mudar.
 
 ### 4.6 Uso de cor
 

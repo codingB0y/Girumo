@@ -287,7 +287,7 @@ The exporter must:
 3. flip font coordinates onto the SVG baseline, derive the viewBox from the union of transformed glyph bounding boxes, and add 2% safety padding;
 4. compose symbol, horizontal lockup, stacked lockup, and wordmark SVGs using the approved optical proportions;
 5. write the same six `{ d, transform }` outlined glyph records, normalized viewBox, and aspect ratio into deterministic `apps/web/src/lib/girumo-wordmark.ts` exports so React preserves baseline flips and pair positions without recreating the wordmark with browser text kerning;
-6. rasterize symbol sizes with Sharp; reuse the master geometry at 16 px only if the transparent passage remains at least one pixel wide, otherwise export a radius-only micro correction from an explicit `GIRUMO_MICRO_PATHS` constant;
+6. rasterize symbol sizes with Sharp; reuse the master geometry at 16 px only if the transparent passage remains at least one pixel wide across every relevant raster row, otherwise export an explicit `GIRUMO_MICRO_PATHS` correction that moves only the internal passage edges by at most `0.25` viewBox unit while preserving all external masses and every other proportion;
 7. create the navy-on-Acid and Canvas-on-Volt Instagram avatars with the symbol fixed at exactly `61%` of the 1080 px canvas before antialiasing;
 8. create the default 1200×630 Volt OG image with Canvas lockup and approved tagline;
 9. rasterize a dedicated opaque 640×160 Volt e-mail header with the Canvas horizontal lockup so transactional templates never depend on external SVG support;
