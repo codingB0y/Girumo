@@ -25,6 +25,7 @@
 - Reserve both `hubflow` and `girumo` as public page slugs.
 - Public copy uses `publique` or `envie`; avoid `disparo em massa`, `IA`, `guru`, and unsupported claims.
 - The worktree can contain unrelated user changes. Record `git status --short` before each task, inspect overlapping files, stage only exact task-owned paths, and never use a broad directory to absorb pre-existing edits.
+- Design-sync build artifacts remain ephemeral by repository convention: validate `apps/web/.ds-entry.tsx`, `apps/web/.ds-styles.css`, and `ds-bundle/**` locally, but do not force-add them through `.gitignore`.
 
 ---
 
@@ -392,7 +393,7 @@ git commit -m "feat: export Girumo brand assets"
 - Create: `apps/web/src/components/brand/logo.tsx`
 - Create: `apps/web/src/components/brand/logo.test.ts`
 - Delete: `apps/web/src/components/landing/logo.tsx`
-- Modify importers: `apps/web/src/app/page.tsx`, `apps/web/src/components/auth-shell.tsx`, `apps/web/src/components/admin/sidebar.tsx`, `apps/web/src/components/painel/{sidebar,topbar,mobile-nav}.tsx`, `apps/web/src/components/landing/v2/nav.tsx`, `apps/web/.ds-entry.tsx`
+- Modify importers: `apps/web/src/app/page.tsx`, `apps/web/src/components/auth-shell.tsx`, `apps/web/src/components/admin/sidebar.tsx`, `apps/web/src/components/painel/{sidebar,topbar,mobile-nav}.tsx`, `apps/web/src/components/landing/v2/nav.tsx`
 - Replace: `apps/web/src/app/icon.svg`, `apps/web/src/app/favicon.ico`, `apps/web/src/app/apple-icon.png`
 - Create: `apps/web/src/app/manifest.ts`
 
@@ -487,7 +488,7 @@ The React lockup consumes the generated six-path wordmark module, so its pair sp
 
 - [ ] **Step 4: Update all importers and remove the old component**
 
-Replace `@/components/landing/logo` with `@/components/brand/logo` in all eight importers. Delete the old file only after `rg -n 'components/landing/logo' apps/web` returns no consumers.
+Replace `@/components/landing/logo` with `@/components/brand/logo` in all tracked importers. Delete the old file only after `rg -n 'components/landing/logo' apps/web` returns no consumers.
 
 - [ ] **Step 5: Wire App Router icons and manifest**
 
@@ -541,7 +542,7 @@ Expected: PASS; generated routes include `/manifest.webmanifest` and no duplicat
 - [ ] **Step 7: Commit the logo integration**
 
 ```powershell
-git add apps/web/src/components/brand/logo.tsx apps/web/src/components/brand/logo.test.ts apps/web/src/app/icon.svg apps/web/src/app/favicon.ico apps/web/src/app/apple-icon.png apps/web/src/app/manifest.ts apps/web/src/app/page.tsx apps/web/src/components/auth-shell.tsx apps/web/src/components/admin/sidebar.tsx apps/web/src/components/painel/sidebar.tsx apps/web/src/components/painel/topbar.tsx apps/web/src/components/painel/mobile-nav.tsx apps/web/src/components/landing/v2/nav.tsx apps/web/.ds-entry.tsx apps/web/src/components/landing/logo.tsx
+git add apps/web/src/components/brand/logo.tsx apps/web/src/components/brand/logo.test.ts apps/web/src/app/icon.svg apps/web/src/app/favicon.ico apps/web/src/app/apple-icon.png apps/web/src/app/manifest.ts apps/web/src/app/page.tsx apps/web/src/components/auth-shell.tsx apps/web/src/components/admin/sidebar.tsx apps/web/src/components/painel/sidebar.tsx apps/web/src/components/painel/topbar.tsx apps/web/src/components/painel/mobile-nav.tsx apps/web/src/components/landing/v2/nav.tsx apps/web/src/components/landing/logo.tsx
 git commit -m "feat: integrate Girumo logo and app icons"
 ```
 
@@ -1101,12 +1102,12 @@ git commit -m "feat: rebrand Girumo social generator"
 - Modify: `.design-sync/conventions.md`
 - Modify: `.design-sync/ds-input.css`
 - Modify: `.design-sync/previews/{Logo,LogoSymbol}.tsx`
-- Modify: `apps/web/.ds-entry.tsx`
-- Regenerate: `ds-bundle/**`
+- Generate locally (ignored): `apps/web/.ds-entry.tsx`
+- Regenerate locally (ignored): `apps/web/.ds-styles.css`, `ds-bundle/**`
 
 **Interfaces:**
 - Consumes: approved spec, generated assets, central logo component, Volt tokens.
-- Produces: human-readable operational guide, exportable PDF, social source templates, commercial starter kit, current design-sync bundle, and explicit legacy archive boundary.
+- Produces: human-readable operational guide, exportable PDF, social source templates, commercial starter kit, versioned design-sync sources, a locally validated ephemeral bundle, and explicit legacy archive boundary.
 
 - [ ] **Step 1: Create the current operational guide**
 
@@ -1156,12 +1157,13 @@ Use the PDF creation skill against `Girumo-Brand-Guide.html`. Save the verified 
 
 - [ ] **Step 9: Update design-sync sources**
 
-Set `globalName` to `Girumo`, point previews to `@/components/brand/logo`, and copy the production Volt tokens into `ds-input.css`. Regenerate and validate:
+Set `globalName` to `Girumo`, point previews to `@/components/brand/logo`, copy the production Volt tokens into `ds-input.css`, and create the ignored `.ds-entry.tsx` only as a local build input. Regenerate and validate with the available local design-sync toolchain:
 
 ```powershell
-./.ds-sync/node_modules/.bin/tailwindcss -i .design-sync/ds-input.css -o apps/web/.ds-styles.css
-node .ds-sync/package-build.mjs --config .design-sync/config.json --node-modules ./node_modules --entry apps/web/.ds-entry.tsx --out ./ds-bundle
-node .ds-sync/package-validate.mjs ./ds-bundle --no-render-check
+$designSyncToolRoot = if (Test-Path ".ds-sync") { (Resolve-Path ".ds-sync").Path } else { (Resolve-Path "..\..\.ds-sync").Path }
+& "$designSyncToolRoot\node_modules\.bin\tailwindcss.cmd" -i .design-sync/ds-input.css -o apps/web/.ds-styles.css
+node "$designSyncToolRoot\package-build.mjs" --config .design-sync/config.json --node-modules ./node_modules --entry apps/web/.ds-entry.tsx --out ./ds-bundle
+node "$designSyncToolRoot\package-validate.mjs" ./ds-bundle --no-render-check
 ```
 
 Expected: bundle validation PASS; exports are `Logo` and `LogoSymbol`; preview shows Girumo.
@@ -1169,11 +1171,11 @@ Expected: bundle validation PASS; exports are `Logo` and `LogoSymbol`; preview s
 - [ ] **Step 10: Commit documentation and design-sync**
 
 ```powershell
-git add docs/brand/girumo/README.md docs/brand/girumo/design-tokens.css docs/brand/girumo/copy-library.md docs/brand/girumo/Girumo-Brand-Guide.html docs/brand/girumo/templates/social/girumo-social-square-1080x1080.svg docs/brand/girumo/templates/social/girumo-social-portrait-1080x1350.svg docs/brand/girumo/templates/social/girumo-social-story-1080x1920.svg docs/brand/girumo/templates/social/girumo-video-cover-1920x1080.svg docs/brand/girumo/templates/social/girumo-customer-proof-1080x1350.svg docs/brand/girumo/templates/social/girumo-metric-card-1080x1350.svg docs/brand/girumo/templates/commercial/girumo-one-page.html docs/brand/girumo/templates/commercial/girumo-email-signature.html docs/brand/girumo/templates/commercial/girumo-digital-card.svg docs/brand/girumo/templates/commercial/girumo-onboarding-cover.svg docs/brand/girumo/templates/commercial/girumo-proposal-template.docx docs/brand/girumo/templates/commercial/girumo-proposal-template.pdf docs/brand/girumo/templates/commercial/girumo-sales-deck.pptx docs/brand/girumo/templates/commercial/girumo-one-page.pdf docs/brand/girumo/templates/commercial/girumo-onboarding-guide.html docs/brand/girumo/templates/commercial/girumo-onboarding-guide.pdf docs/brand/legacy-hubflow/README.md apps/web/public/brand/girumo/girumo-brand-guide.pdf .design-sync/config.json .design-sync/conventions.md .design-sync/ds-input.css .design-sync/previews/Logo.tsx .design-sync/previews/LogoSymbol.tsx apps/web/.ds-entry.tsx
+git add docs/brand/girumo/README.md docs/brand/girumo/design-tokens.css docs/brand/girumo/copy-library.md docs/brand/girumo/Girumo-Brand-Guide.html docs/brand/girumo/templates/social/girumo-social-square-1080x1080.svg docs/brand/girumo/templates/social/girumo-social-portrait-1080x1350.svg docs/brand/girumo/templates/social/girumo-social-story-1080x1920.svg docs/brand/girumo/templates/social/girumo-video-cover-1920x1080.svg docs/brand/girumo/templates/social/girumo-customer-proof-1080x1350.svg docs/brand/girumo/templates/social/girumo-metric-card-1080x1350.svg docs/brand/girumo/templates/commercial/girumo-one-page.html docs/brand/girumo/templates/commercial/girumo-email-signature.html docs/brand/girumo/templates/commercial/girumo-digital-card.svg docs/brand/girumo/templates/commercial/girumo-onboarding-cover.svg docs/brand/girumo/templates/commercial/girumo-proposal-template.docx docs/brand/girumo/templates/commercial/girumo-proposal-template.pdf docs/brand/girumo/templates/commercial/girumo-sales-deck.pptx docs/brand/girumo/templates/commercial/girumo-one-page.pdf docs/brand/girumo/templates/commercial/girumo-onboarding-guide.html docs/brand/girumo/templates/commercial/girumo-onboarding-guide.pdf docs/brand/legacy-hubflow/README.md apps/web/public/brand/girumo/girumo-brand-guide.pdf .design-sync/config.json .design-sync/conventions.md .design-sync/ds-input.css .design-sync/previews/Logo.tsx .design-sync/previews/LogoSymbol.tsx
 git commit -m "docs: publish Girumo brand guide"
 ```
 
-Inspect `git status --short -- ds-bundle` and stage each generated bundle file by its exact path only after confirming it came from Step 9; include those files in the same commit.
+Confirm `git status --ignored --short -- apps/web/.ds-entry.tsx apps/web/.ds-styles.css ds-bundle` reports only ignored build artifacts. Do not stage them.
 
 ---
 
