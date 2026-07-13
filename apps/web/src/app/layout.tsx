@@ -1,20 +1,12 @@
 import type { Metadata } from "next";
-import {
-  Bricolage_Grotesque,
-  IBM_Plex_Sans,
-  IBM_Plex_Mono,
-  Instrument_Serif,
-  Space_Grotesk,
-} from "next/font/google";
+import { IBM_Plex_Mono, IBM_Plex_Sans, Manrope } from "next/font/google";
 import "./globals.css";
 import { ImpersonateBanner } from "@/components/impersonate-banner";
 import { DevModeBanner } from "@/components/dev-mode-banner";
 
-// Direção B / Corrente — display, corpo, dados e respiro editorial.
-const bricolage = Bricolage_Grotesque({
+const manrope = Manrope({
   subsets: ["latin"],
-  weight: ["700", "800"],
-  variable: "--font-bricolage",
+  variable: "--font-manrope",
   display: "swap",
 });
 
@@ -29,22 +21,6 @@ const plexMono = IBM_Plex_Mono({
   subsets: ["latin"],
   weight: ["400", "500"],
   variable: "--font-plex-mono",
-  display: "swap",
-});
-
-const instrument = Instrument_Serif({
-  subsets: ["latin"],
-  weight: "400",
-  style: ["normal", "italic"],
-  variable: "--font-instrument",
-  display: "swap",
-});
-
-// Display tech da landing v2 (SaaS/tech, sem serif)
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  weight: ["500", "700"],
-  variable: "--font-space",
   display: "swap",
 });
 
@@ -65,7 +41,7 @@ export default function RootLayout({
   return (
     <html
       lang="pt-BR"
-      className={`h-full antialiased ${bricolage.variable} ${plexSans.variable} ${plexMono.variable} ${instrument.variable} ${spaceGrotesk.variable}`}
+      className={`${manrope.variable} ${plexSans.variable} ${plexMono.variable}`}
     >
       <body className="min-h-full flex flex-col">
         <DevModeBanner />
