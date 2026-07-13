@@ -6,7 +6,7 @@ Supabase is a comprehensive, cloud-based backend-as-a-service (BaaS) platform en
 
 In various technical ecosystems, such as HubFlow and the Hubflow-engine, Supabase serves as a primary backend provider for both development and production environments. Its utility extends to specialized tasks such as facilitating data connections, performing data migrations, and the storage of complex datasets—including broadcast information, scheduling data, link structures, and subscription details—as well as the synchronization of events. The platform is also frequently utilized for comprehensive user administration and various administrative operations.
 
-While Supabase offers a broad range of infrastructure capabilities as a high-utility solution for organizations looking to streamline the management of their database schemas, logs, and authentication workflows, it is noted that the platform requires users to manage external backup strategies independently. Consequently, Supabase functions as a versatile tool for backend management, balancing automated infrastructure services with the need for user-directed data protection.
+While Supabase offers a broad range of infrastructure capabilities as a high-utility solution for organizations looking to streamline the management of their database schemas, logs, and authentication workflows, it is noted that the platform requires users to manage external backup strategies independently. Consequently, Supabase functions as a versatile tool for backend management, balancing automated infrastructure services with the need for user-directed data protection.<SEP>A backend-as-a-service provider used for authentication, database, and storage services.<SEP>A backend-as-a-service provider used for Postgres database, authentication, storage, and RLS policies.<SEP>A backend-as-a-service platform used via @supabase/supabase-js for database and authentication services.<SEP>A cloud platform used for storing database information including commands, events, and instance statuses.<SEP>A backend-as-a-service platform used for storing secrets and project data.<SEP>A cloud-based platform providing backend-as-a-service features including database, authentication, and storage.
 
 ## Neighbors
 - [[hubflow|Hubflow]]
@@ -43,6 +43,12 @@ While Supabase offers a broad range of infrastructure capabilities as a high-uti
 - [[oauth-callback-route|OAuth Callback Route]]
 - [[login-route|Login Route]]
 - [[signup-api-route|Signup API Route]]
+- [[hubflow-web|HUBFLOW Web]]
+- [[auth|Auth]]
+- [[hubflow-web|Hubflow-web]]
+- [[hubflow-github|Hubflow GitHub]]
+- [[hubflow-dev|Hubflow-Dev]]
+- [[web-application|Web Application]]
 
 ## Appears in
 - `DEPLOY_ONLINE_RUNBOOK.md`
@@ -68,3 +74,9 @@ While Supabase offers a broad range of infrastructure capabilities as a high-uti
 - `apps » web » src » app » api » auth » callback » route.ts`
 - `apps » web » src » app » api » auth » login » route.ts`
 - `apps » web » src » app » api » auth » signup » route.ts`
+- `deploy » vercel » README.md`
+- `deploy » supabase » README.md`
+- `apps » web » package.json`
+- `deploy » coolify » README.md`
+- `deploy » github » README.md`
+- `infra » dev-setup » README.md`

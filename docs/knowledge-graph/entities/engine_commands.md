@@ -1,14 +1,11 @@
-# Engine_Commands
+# Engine_commands
 
 **Type:** data
 
-A database table storing commands for the engine.<SEP>A database table tracking commands issued to the system engine.
+Database records in Supabase used for task distribution between the app and the Hubflow-Engine.
 
 ## Neighbors
-- [[organizations|Organizations]]
-- [[claim_engine_commands|Claim_Engine_Commands]]
-- [[complete_engine_command|Complete_Engine_Command]]
+- [[hubflow-engine|Hubflow-Engine]]
 
 ## Appears in
-- `202606240005_engine_rpc.sql`
-- `202606240002_rls_policies.sql`
+- `deploy » coolify » README.md`

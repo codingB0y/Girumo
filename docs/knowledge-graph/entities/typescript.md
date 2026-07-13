@@ -1,15 +1,11 @@
-# TypeScript
+# Typescript
 
-**Type:** method
+**Type:** artifact
 
-A programming language used for the web application.<SEP>The strict programming language standard enforced for the platform codebase.<SEP>The strict programming language used for the development of the main web application.
+A strongly typed programming language that builds on JavaScript.
 
 ## Neighbors
-- [[hubflow|Hubflow]]
-- [[hubflow-platform|HubFlow Platform]]
-- [[apps-web|Apps/Web]]
+- [[hubflow-web|Hubflow-web]]
 
 ## Appears in
-- `README.md`
-- `CLAUDE.md`
-- `PROJECT_CONTEXT.md`
+- `apps » web » package.json`

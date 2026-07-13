@@ -1,7 +1,8 @@
 # Community 28
 
-- [[authshell|AuthShell]]
-- [[button|Button]]
-- [[input|Input]]
-- [[nextjs|Nextjs]]
-- [[resetpasswordpage|ResetPasswordPage]]
+- [[next|.next]]
+- [[appurl|AppUrl]]
+- [[emails-cron-job|Emails Cron Job]]
+- [[notifications-alerts-cron-job|Notifications Alerts Cron Job]]
+- [[npm|Npm]]
+- [[verceljson|Vercel.json]]

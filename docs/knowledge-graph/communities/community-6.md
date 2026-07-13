@@ -1,3 +1,5 @@
 # Community 6
 
-- [[postcss|PostCSS]]
+- [[tailwindcss-postcss|@tailwindcss/postcss]]
+- [[config|Config]]
+- [[postcssconfigmjs|Postcss.config.mjs]]

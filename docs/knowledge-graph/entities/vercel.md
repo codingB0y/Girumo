@@ -2,9 +2,9 @@
 
 **Type:** organization
 
-Vercel is a comprehensive cloud platform designed for the hosting, deployment, and management of web applications. It serves as the primary infrastructure provider for Hubflow, facilitating the deployment of its frontend and API components. Within the context of the Hubflow-Web application, Vercel acts as the dedicated hosting environment.
+Vercel is a comprehensive cloud platform and infrastructure provider designed for the hosting, deployment, and management of modern web applications. It serves as the primary hosting environment for various projects, including the HubFlow platform, the HubFlow web application, and its associated middleware, frontend, and API components.
 
-Beyond basic hosting and deployment, Vercel provides essential management services that support the operational requirements of these applications. This includes the centralized management of environment variables and the scheduling and execution of cron jobs, ensuring that the application environment remains stable and functional. By integrating these backend and frontend management tasks, Vercel provides a cohesive environment for the lifecycle management of modern web projects.<SEP>A cloud platform used for the deployment of the HubFlow Platform.<SEP>A cloud platform provider used for deployment.<SEP>A cloud platform used for deploying and hosting the HubFlow web application and middleware.<SEP>The hosting platform used for deploying the Apps/Web application.<SEP>A cloud platform and infrastructure provider used for hosting and external DNS/SSL management.<SEP>A cloud platform for hosting and deploying web applications.
+Beyond its role as a fundamental hosting service for web applications and static sites, Vercel functions as a robust infrastructure provider that supports the operational requirements of these projects. This includes the execution of serverless functions and the management of critical backend services. The platform also offers essential administrative features such as the centralized management of environment variables, the scheduling and execution of cron jobs, and the handling of external DNS and SSL configurations. By integrating these backend and frontend management tasks, Vercel provides a cohesive, unified environment for the entire lifecycle management of web projects.<SEP>A cloud platform used for deploying and hosting the Hubflow web application.<SEP>A cloud platform for static sites and Serverless Functions used as a deployment target for the repository.
 
 ## Neighbors
 - [[hubflow|Hubflow]]
@@ -17,6 +17,9 @@ Beyond basic hosting and deployment, Vercel provides essential management servic
 - [[apps-web|Apps/Web]]
 - [[middlewarets|Middleware.ts]]
 - [[prisma|Prisma]]
+- [[hubflow-web|HUBFLOW Web]]
+- [[deployment-protection|Deployment Protection]]
+- [[hubflow-github|Hubflow GitHub]]
 
 ## Appears in
 - `DEPLOY_ONLINE_RUNBOOK.md`
@@ -28,3 +31,6 @@ Beyond basic hosting and deployment, Vercel provides essential management servic
 - `package.json`
 - `PROJECT_CONTEXT.md`
 - `GO_NO_GO.md`
+- `deploy » vercel » README.md`
+- `deploy » supabase » README.md`
+- `deploy » github » README.md`

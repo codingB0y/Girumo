@@ -1,14 +1,24 @@
-# Hubflow-Web
+# Hubflow-web
 
-**Type:** organization
+**Type:** artifact
 
-The web-based application component of the Hubflow platform.
+A web application defined in a package.json file with various dependencies and scripts.
 
 ## Neighbors
-- [[vercel|Vercel]]
 - [[supabase|Supabase]]
 - [[stripe|Stripe]]
-- [[e2e-test|E2E Test]]
+- [[nextjs|Next.js]]
+- [[eslint|Eslint]]
+- [[react|React]]
+- [[tailwindcss|Tailwindcss]]
+- [[resend|Resend]]
+- [[typescript|Typescript]]
+- [[bcryptjs|Bcryptjs]]
+- [[gsap|Gsap]]
+- [[lucide-react|Lucide-react]]
+- [[clsx|Clsx]]
+- [[tailwind-merge|Tailwind-merge]]
+- [[tsx|Tsx]]
 
 ## Appears in
-- `DEPLOY_ONLINE_RUNBOOK.md`
+- `apps » web » package.json`

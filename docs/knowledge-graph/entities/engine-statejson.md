@@ -1,11 +1,11 @@
-# Engine-state.json
+# Engine-State.json
 
 **Type:** data
 
-A state file located at /app/state/engine-state.json used by Hubflow-engine to track its operational state.
+A persistent file used by the Hubflow-Engine to maintain operational state.
 
 ## Neighbors
-- [[hubflow-engine|Hubflow-engine]]
+- [[hubflow-engine|Hubflow-Engine]]
 
 ## Appears in
-- `engine.docker-compose.yml`
+- `deploy » coolify » README.md`

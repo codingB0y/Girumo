@@ -1,15 +1,11 @@
-# Vercel.json
+# vercel.json
 
 **Type:** artifact
 
-A configuration file for a web application deployed on the Vercel platform.
+A configuration file defining deployment settings like install commands, build commands, and output directories.
 
 ## Neighbors
-- [[nextjs|Next.js]]
-- [[npm|Npm]]
-- [[emails-cron-job|Emails Cron Job]]
-- [[notifications-alerts-cron-job|Notifications Alerts Cron Job]]
-- [[next|.next]]
+- [[hubflow-web|HUBFLOW Web]]
 
 ## Appears in
-- `vercel.json`
+- `deploy » vercel » README.md`
