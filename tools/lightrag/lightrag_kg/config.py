@@ -11,9 +11,14 @@ load_dotenv(LIGHTRAG_DIR / ".env")
 
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 
-STORAGE_DIR = LIGHTRAG_DIR / "rag_storage"
-MANIFEST_PATH = LIGHTRAG_DIR / ".index_manifest.json"
-OBSIDIAN_VAULT_DIR = REPO_ROOT / "docs" / "knowledge-graph"
+# Active profile — set via LIGHTRAG_PROFILE env var (default "tech").
+# Each profile has its own storage, manifest and Obsidian vault subfolder,
+# so contexts (tech / business / product / customer / operations) never mix.
+PROFILE = os.environ.get("LIGHTRAG_PROFILE", "tech").strip() or "tech"
+
+STORAGE_DIR = LIGHTRAG_DIR / "rag_storage" / PROFILE
+MANIFEST_PATH = LIGHTRAG_DIR / f".index_manifest-{PROFILE}.json"
+OBSIDIAN_VAULT_DIR = REPO_ROOT / "docs" / "knowledge-graph" / PROFILE
 
 LLM_MODEL_PRIMARY = "gemini-flash-lite-latest"
 LLM_MODEL_FALLBACK = "gemini-flash-latest"
