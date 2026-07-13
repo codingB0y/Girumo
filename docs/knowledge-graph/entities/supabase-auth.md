@@ -1,8 +1,8 @@
 # Supabase Auth
 
-**Type:** organization
+**Type:** method
 
-The authentication service component of Supabase responsible for managing user identities, emails, and passwords.
+The authentication service component of Supabase responsible for managing user identities, emails, and passwords.<SEP>A specific service within Supabase used to manage sign-in via OAuth providers.
 
 ## Neighbors
 - [[routets|Route.ts]]
@@ -11,3 +11,4 @@ The authentication service component of Supabase responsible for managing user i
 
 ## Appears in
 - `route.ts`
+- `apps » web » src » app » api » auth » google » route.ts`

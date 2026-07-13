@@ -1,10 +1,10 @@
 # Organizations
 
-**Type:** organization
+**Type:** data
 
 Organizations serves as a core database entity and a primary table within the application schema of the Supabase database. Functioning as the central tenant or business entity within the Hubflow system, it represents the primary owner of various data records, including instances, funnels, and campaigns.
 
-As a fundamental component of the system architecture, the Organizations table stores essential information required to manage distinct institutional or business tenants. This data includes unique tenant identifiers, slugs, and comprehensive metadata. Furthermore, the entity tracks the status of each organization and retains specific creation details, ensuring effective management and ownership tracking of all associated resources throughout the platform.<SEP>A database table representing organizations to which tenants belong.<SEP>An entity representing an organization that owns notifications within the multi-tenant system.<SEP>A parent entity representing the tenants that own various database resources.<SEP>The primary entity representing a tenant or business entity within the system.
+As a fundamental component of the system architecture, the Organizations table stores essential information required to manage distinct institutional or business tenants. This data includes unique tenant identifiers, slugs, and comprehensive metadata. Furthermore, the entity tracks the status of each organization and retains specific creation details, ensuring effective management and ownership tracking of all associated resources throughout the platform.<SEP>A database table representing organizations to which tenants belong.<SEP>An entity representing an organization that owns notifications within the multi-tenant system.<SEP>A parent entity representing the tenants that own various database resources.<SEP>The primary entity representing a tenant or business entity within the system.<SEP>A database table storing details about tenant organizations, including names, slugs, and ownership information.
 
 ## Neighbors
 - [[tenant|Tenant]]
@@ -45,6 +45,7 @@ As a fundamental component of the system architecture, the Organizations table s
 - [[tracked_links|Tracked_Links]]
 - [[campaign_messages|Campaign_Messages]]
 - [[campaign_groups|Campaign_Groups]]
+- [[signup-api-route|Signup API Route]]
 
 ## Appears in
 - `migrate-json-to-supabase.ts`
@@ -55,3 +56,4 @@ As a fundamental component of the system architecture, the Organizations table s
 - `202607010011_tenant_webhooks.sql`
 - `202607010010_notifications.sql`
 - `202607010001_groups_broadcasts_schedules.sql`
+- `apps » web » src » app » api » auth » signup » route.ts`

@@ -1,0 +1,8 @@
+# Auth e sessão — retry (7 que faltaram na 1a leva)
+apps/web/src/app/api/auth/login/route.ts
+apps/web/src/app/api/auth/signup/route.ts
+apps/web/src/app/api/auth/logout/route.ts
+apps/web/src/app/api/auth/me/route.ts
+apps/web/src/app/api/auth/callback/route.ts
+apps/web/src/app/api/auth/google/route.ts
+apps/web/src/app/api/session/route.ts

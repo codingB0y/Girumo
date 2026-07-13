@@ -1,3 +1,3 @@
 # Community 11
 
-- [[instrument-serif|Instrument Serif]]
+- [[landing-components|Landing Components]]

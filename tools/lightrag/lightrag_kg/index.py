@@ -144,7 +144,10 @@ async def run_index(full: bool, dry_run: bool, list_path: "Path | None" = None):
         wrapped = f"FILE: {rel_str}\nLANG: {lang}\n---\n{content}"
         texts.append(wrapped)
         ids.append(doc_id_for(rel_str))
-        file_paths.append(rel_str)
+        # LightRAG normalizes file_path to its basename for internal dedup,
+        # so plain "dir/route.ts" collides across every route.ts in the repo.
+        # Flatten with a non-path separator to keep it globally unique.
+        file_paths.append(rel_str.replace("/", " » "))
         manifest[rel_str] = file_hash(path)
 
     console.print(f"Indexing {len(texts)} file(s)...")

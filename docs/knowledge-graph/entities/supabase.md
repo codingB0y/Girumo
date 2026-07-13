@@ -2,11 +2,11 @@
 
 **Type:** organization
 
-Supabase is a comprehensive, cloud-based backend-as-a-service (BaaS) platform designed to provide an integrated suite of infrastructure tools for modern application development. At its core, the platform centers on robust PostgreSQL database hosting and management, offering essential capabilities such as database schema design, credential management, and the implementation of Row Level Security (RLS). Beyond its foundational database functions, Supabase provides a variety of critical backend services, including user authentication, managed data storage, image hosting, Edge Functions, tenant management, audit logging, and service role configuration. By consolidating these infrastructure requirements, the platform enables developers to maintain secure, scalable, and performant access to their application data and user sessions.
+Supabase is a comprehensive, cloud-based backend-as-a-service (BaaS) platform engineered to provide an integrated suite of infrastructure tools for modern application development. At its core, the platform centers on robust PostgreSQL database hosting and management, offering essential capabilities such as database schema design, credential management, and the implementation of Row Level Security (RLS). Beyond its foundational database functions, Supabase provides a variety of critical backend services, including authentication, API services, managed data storage, image hosting, Edge Functions, tenant management, audit logging, and service role configuration. By consolidating these infrastructure requirements, the platform enables developers to maintain secure, scalable, and performant access to their application data and user sessions.
 
-In various technical ecosystems, such as HubFlow and the Hubflow-engine, Supabase serves as a primary backend provider for both development and production environments. Its utility extends to specialized tasks such as facilitating data connections, performing data migrations, and the storage of complex datasets—including broadcast information, scheduling data, link structures, and subscription details—as well as the synchronization of events.
+In various technical ecosystems, such as HubFlow and the Hubflow-engine, Supabase serves as a primary backend provider for both development and production environments. Its utility extends to specialized tasks such as facilitating data connections, performing data migrations, and the storage of complex datasets—including broadcast information, scheduling data, link structures, and subscription details—as well as the synchronization of events. The platform is also frequently utilized for comprehensive user administration and various administrative operations.
 
-While Supabase offers a broad range of infrastructure capabilities as a high-utility solution for organizations looking to streamline the management of their database schemas, logs, and authentication workflows, it is noted that the platform requires users to manage external backup strategies independently. Consequently, Supabase functions as a versatile tool for backend management, balancing automated infrastructure services with the need for user-directed data protection.<SEP>A backend-as-a-service platform that provides database, authentication, and API services.<SEP>A backend-as-a-service platform providing authentication services and database management.<SEP>A backend-as-a-service platform used for database management, authentication, and administrative operations.
+While Supabase offers a broad range of infrastructure capabilities as a high-utility solution for organizations looking to streamline the management of their database schemas, logs, and authentication workflows, it is noted that the platform requires users to manage external backup strategies independently. Consequently, Supabase functions as a versatile tool for backend management, balancing automated infrastructure services with the need for user-directed data protection.
 
 ## Neighbors
 - [[hubflow|Hubflow]]
@@ -38,6 +38,11 @@ While Supabase offers a broad range of infrastructure capabilities as a high-uti
 - [[hubflow-engine|Hubflow-engine]]
 - [[resetpasswordpage|ResetPasswordPage]]
 - [[routets|Route.ts]]
+- [[google|Google]]
+- [[get-request|GET Request]]
+- [[oauth-callback-route|OAuth Callback Route]]
+- [[login-route|Login Route]]
+- [[signup-api-route|Signup API Route]]
 
 ## Appears in
 - `DEPLOY_ONLINE_RUNBOOK.md`
@@ -59,3 +64,7 @@ While Supabase offers a broad range of infrastructure capabilities as a high-uti
 - `202607010001_groups_broadcasts_schedules.sql`
 - `page.tsx`
 - `route.ts`
+- `apps » web » src » app » api » auth » google » route.ts`
+- `apps » web » src » app » api » auth » callback » route.ts`
+- `apps » web » src » app » api » auth » login » route.ts`
+- `apps » web » src » app » api » auth » signup » route.ts`

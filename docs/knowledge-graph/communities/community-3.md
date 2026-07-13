@@ -1,5 +1,3 @@
 # Community 3
 
-- [[git|Git]]
-- [[secrets|Secrets]]
-- [[vault|Vault]]
+- [[hubflow-dev|Hubflow-dev]]
