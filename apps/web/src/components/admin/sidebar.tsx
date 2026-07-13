@@ -20,7 +20,7 @@ import {
   Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Logo } from "@/components/landing/logo";
+import { Logo } from "@/components/brand/logo";
 
 const SECTIONS = [
   {

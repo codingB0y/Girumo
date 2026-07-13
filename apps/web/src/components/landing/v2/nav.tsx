@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowRight, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Logo } from "@/components/landing/logo";
+import { Logo } from "@/components/brand/logo";
 
 const LINKS = [
   ["Mecanismo", "#mecanismo"],

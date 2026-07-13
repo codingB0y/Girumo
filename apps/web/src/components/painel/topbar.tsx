@@ -1,5 +1,5 @@
 import { ChevronDown, Smartphone } from "lucide-react";
-import { LogoSymbol } from "@/components/landing/logo";
+import { LogoSymbol } from "@/components/brand/logo";
 import { CommandTrigger } from "@/components/painel/command-palette";
 import { NotificationBell } from "@/components/painel/notification-bell";
 

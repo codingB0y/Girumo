@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { CheckCircle2, LockKeyhole } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Logo, LogoSymbol } from "@/components/landing/logo";
+import { Logo, LogoSymbol } from "@/components/brand/logo";
 
 type AuthShellProps = {
   title: string;

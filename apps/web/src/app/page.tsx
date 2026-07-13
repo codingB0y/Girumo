@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowDown, ArrowRight, Check, ShieldCheck } from "lucide-react";
-import { Logo } from "@/components/landing/logo";
+import { Logo } from "@/components/brand/logo";
 import { WhatsAppIcon } from "@/components/landing/icons";
 import { Nav } from "@/components/landing/v2/nav";
 import { FlowCanvas } from "@/components/landing/v2/flow-canvas";

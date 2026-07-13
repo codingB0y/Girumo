@@ -16,7 +16,7 @@ import {
   Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Logo } from "@/components/landing/logo";
+import { Logo } from "@/components/brand/logo";
 
 const PRIMARY = [
   { href: "/painel", label: "Início", icon: Sun },
