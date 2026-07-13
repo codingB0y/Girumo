@@ -9,6 +9,7 @@ import {
   GIRUMO_MICRO_PATHS,
   GIRUMO_PATHS,
   GIRUMO_VIEWBOX,
+  hasOpenGirumoPassage,
   renderGirumoSymbolSvg,
 } from "../src/lib/girumo-symbol";
 
@@ -316,16 +317,13 @@ async function png(svg: string): Promise<Buffer> {
 
 async function passageIsOpen(buffer: Buffer): Promise<boolean> {
   const { data, info } = await sharp(buffer).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-  for (const y of [3, 5, 7, 9, 11, 13]) {
-    const row = Array.from(
-      { length: info.width },
-      (_, x) => data[(y * info.width + x) * info.channels + 3],
-    );
-    const occupied = row.flatMap((alpha, x) => (alpha >= 128 ? [x] : []));
-    if (occupied.length < 2) return false;
-    if (!row.slice(Math.min(...occupied) + 1, Math.max(...occupied)).includes(0)) return false;
-  }
-  return true;
+  return hasOpenGirumoPassage({
+    data,
+    width: info.width,
+    height: info.height,
+    channels: info.channels,
+    alphaChannel: 3,
+  });
 }
 
 async function write(relative: string, contents: string | Buffer): Promise<void> {

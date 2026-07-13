@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import sharp from "sharp";
+import * as girumoSymbol from "./girumo-symbol";
 
 const root = path.join(process.cwd(), "public", "brand", "girumo");
 const svgFiles = [
@@ -31,6 +32,52 @@ const COLORS = {
   acid: [0xa7, 0xff, 0x2f],
   canvas: [0xf4, 0xf0, 0xe7],
 } as const;
+
+type AlphaRaster = {
+  data: Uint8Array;
+  width: number;
+  height: number;
+  channels: number;
+  alphaChannel?: number;
+};
+
+function syntheticAlphaRaster(closedRow?: number): AlphaRaster {
+  const width = 16;
+  const height = 16;
+  const data = new Uint8Array(width * height);
+  for (let y = 1; y < height - 1; y += 1) {
+    for (let x = 2; x <= 6; x += 1) data[y * width + x] = 255;
+    for (let x = 9; x <= 13; x += 1) data[y * width + x] = 255;
+  }
+  if (closedRow !== undefined) {
+    data[closedRow * width + 7] = 255;
+    data[closedRow * width + 8] = 255;
+  }
+  return { data, width, height, channels: 1 };
+}
+
+async function renderSymbolAlpha(paths: readonly string[], size = 240) {
+  const geometry = paths.map((d) => `<path d="${d}" fill="#000000"/>`).join("");
+  const source = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${size}" height="${size}">${geometry}</svg>`;
+  return sharp(Buffer.from(source)).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+}
+
+function alphaBounds(data: Uint8Array, width: number, height: number, channels: number) {
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      if (data[(y * width + x) * channels + channels - 1] === 0) continue;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    }
+  }
+  return { minX, minY, maxX, maxY };
+}
 
 function asset(relative: string): string {
   const absolute = path.join(root, relative);
@@ -99,6 +146,46 @@ test("exports the complete Girumo asset set", () => {
   for (const relative of expected) assert.ok(existsSync(path.join(root, relative)), relative);
 });
 
+test("exposes a pure check for an open Girumo alpha passage", () => {
+  assert.equal(girumoSymbol.hasOpenGirumoPassage(syntheticAlphaRaster()), true);
+});
+
+test("rejects a Girumo passage closed only on an even raster row", () => {
+  assert.equal(girumoSymbol.hasOpenGirumoPassage(syntheticAlphaRaster(4)), false);
+});
+
+test("limits the 16 px correction to 0.25-unit internal edges", async () => {
+  const expectedLeft = girumoSymbol.GIRUMO_PATHS[0].replace(
+    "H12V10H9",
+    "H11.75V10H8.75",
+  );
+  const expectedRight = girumoSymbol.GIRUMO_PATHS[1]
+    .replace("M14 2", "M14.25 2")
+    .replace("H11V14H14V2Z", "H11.25V14H14.25V2Z");
+  assert.deepEqual(girumoSymbol.GIRUMO_MICRO_PATHS, [expectedLeft, expectedRight]);
+  for (const shift of [12 - 11.75, 9 - 8.75, 14.25 - 14, 11.25 - 11]) {
+    assert.ok(shift > 0 && shift <= 0.25, `internal edge shift: ${shift}`);
+  }
+
+  const master = await renderSymbolAlpha(girumoSymbol.GIRUMO_PATHS);
+  const micro = await renderSymbolAlpha(girumoSymbol.GIRUMO_MICRO_PATHS);
+  assert.deepEqual(
+    alphaBounds(master.data, master.info.width, master.info.height, master.info.channels),
+    alphaBounds(micro.data, micro.info.width, micro.info.height, micro.info.channels),
+  );
+
+  let changedPixels = 0;
+  for (let y = 0; y < master.info.height; y += 1) {
+    for (let x = 0; x < master.info.width; x += 1) {
+      const offset = (y * master.info.width + x) * master.info.channels + 3;
+      if (master.data[offset] === micro.data[offset]) continue;
+      changedPixels += 1;
+      assert.ok(x >= 80 && x <= 150, `external mass changed at ${x},${y}`);
+    }
+  }
+  assert.ok(changedPixels > 0, "micro correction must change the internal passage raster");
+});
+
 test("exports outlined wordmarks instead of SVG text", () => {
   const wordmark = readFileSync(asset("svg/girumo-wordmark-volt.svg"), "utf8");
   assert.doesNotMatch(wordmark, /<text\b|<image\b/i);
@@ -155,22 +242,22 @@ test("exports transparent sRGB symbols at every approved PNG size", async () => 
   }
 });
 
-test("keeps the stepped passage open at 16 device pixels", async () => {
+test("keeps the stepped passage open on every relevant 16 px row", async () => {
   const { data, info } = await sharp(asset("png/symbol-16.png"))
     .ensureAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
 
-  for (const y of [3, 5, 7, 9, 11, 13]) {
-    const row = Array.from(
-      { length: info.width },
-      (_, x) => data[(y * info.width + x) * info.channels + 3],
-    );
-    const occupied = row.flatMap((alpha, x) => (alpha >= 128 ? [x] : []));
-    assert.ok(occupied.length > 1, `row ${y} must contain both symbol halves`);
-    const passage = row.slice(Math.min(...occupied) + 1, Math.max(...occupied));
-    assert.ok(passage.includes(0), `row ${y} passage must contain a fully transparent pixel`);
-  }
+  assert.equal(
+    girumoSymbol.hasOpenGirumoPassage({
+      data,
+      width: info.width,
+      height: info.height,
+      channels: info.channels,
+      alphaChannel: 3,
+    }),
+    true,
+  );
 });
 
 test("exports the social and email raster formats in sRGB", async () => {
