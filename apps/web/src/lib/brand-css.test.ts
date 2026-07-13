@@ -10,6 +10,13 @@ function readSource(...segments: string[]) {
   return readFileSync(path.join(process.cwd(), "src", ...segments), "utf8");
 }
 
+function readCssRule(selector: string) {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = css.match(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`, "i"));
+  assert.ok(match, `missing CSS rule: ${selector}`);
+  return match[1];
+}
+
 test("defines the Volt Commerce token contract", () => {
   for (const value of ["#071923", "#0C2835", "#123746", "#A7FF2F", "#2E66FF", "#F4F0E7", "#1947C9"]) {
     assert.match(css.toUpperCase(), new RegExp(value.toUpperCase()));
@@ -109,7 +116,34 @@ test("uses Acid selection and honors reduced motion", () => {
   assert.match(css, /::selection\s*{[^}]*background:\s*var\(--color-acid-500\);[^}]*color:\s*var\(--color-volt-950\);/);
   assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*transition-duration:\s*1ms\s*!important/);
   assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*animation-iteration-count:\s*1\s*!important/);
-  assert.doesNotMatch(css, /aurora|eclipse|shimmer/i);
+  assert.doesNotMatch(css, /eclipse|shimmer/i);
+});
+
+test("preserves pn-aurora consumers with a solid, high-contrast Volt surface", () => {
+  const surface = readCssRule(".pn-aurora");
+
+  assert.match(surface, /background:\s*var\(--color-volt-950\);/);
+  assert.match(surface, /color:\s*var\(--color-paper-0\);/);
+  assert.doesNotMatch(surface, /gradient|backdrop-filter|animation/i);
+});
+
+test("uses opaque global navigation surfaces", () => {
+  const scrolledNav = readCssRule(".lp-nav-scrolled .lp-nav-inner");
+
+  assert.match(scrolledNav, /background:\s*var\(--color-volt-950\);/);
+  assert.doesNotMatch(css, /backdrop-filter/i);
+});
+
+test("removes the legacy lp button sweep", () => {
+  assert.doesNotMatch(css, /@keyframes\s+lp-shine|\.lp-btn::after|\.lp-btn:hover::after/i);
+});
+
+test("uses a flat showcase card surface", () => {
+  const showcase = readCssRule(".lp-ring-soft");
+
+  assert.match(showcase, /background:\s*var\(--color-volt-900\);/);
+  assert.match(showcase, /border-color:\s*var\(--color-cobalt-500\);/);
+  assert.doesNotMatch(showcase, /gradient|backdrop-filter/i);
 });
 
 test("removes the purple HubFlow palette", () => {

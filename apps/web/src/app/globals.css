@@ -252,11 +252,10 @@ body {
   pointer-events: none;
 }
 
-/* Vidro fosco (glass) sobre fundo escuro */
+/* Superfície opaca sobre fundo escuro. */
 .dz-glass-dark {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  background: var(--color-volt-900);
+  border: 1px solid var(--color-volt-800);
 }
 
 /* Float suave (mockup do hero) */
@@ -553,10 +552,8 @@ body {
     max-width 0.45s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .lp-nav-scrolled .lp-nav-inner {
-  background: rgba(12, 15, 34, 0.72);
-  border-color: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(18px) saturate(150%);
-  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  background: var(--color-volt-950);
+  border-color: var(--color-volt-800);
   box-shadow: 0 18px 50px -18px rgba(7, 25, 35, 0.65), 0 0 0 1px rgba(46, 102, 255, 0.08);
   transform: translateY(10px);
   max-width: 54rem;
@@ -680,20 +677,6 @@ body {
   background: #e8e9f2;
   box-shadow: 0 16px 44px -14px rgba(255, 255, 255, 0.45);
 }
-.lp-btn::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  width: 45%;
-  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-  transform: translateX(-160%) skewX(-16deg);
-  pointer-events: none;
-}
-@keyframes lp-shine { to { transform: translateX(340%) skewX(-16deg); } }
-.lp-btn:hover::after { animation: lp-shine 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
-
 /* --- Muro de grupos (CTA final) --- */
 .lp-cell {
   aspect-ratio: 1;
@@ -749,19 +732,12 @@ body {
   cursor: pointer;
 }
 
-/* Anel gradiente sutil (card destaque) — double background: o gradiente só
-   aparece na faixa da borda (border-box), o miolo fica opaco (padding-box). */
+/* Superfície flat do card de destaque. */
 .lp-ring-soft {
-  border: 1px solid transparent;
-  background:
-    linear-gradient(#0d0f19, #0d0f19) padding-box,
-    linear-gradient(
-      165deg,
-      rgba(255, 255, 255, 0.5),
-      rgba(255, 255, 255, 0.14) 35%,
-      rgba(167, 255, 47, 0.45) 70%,
-      rgba(255, 255, 255, 0.1)
-    ) border-box;
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--color-cobalt-500);
+  background: var(--color-volt-900);
 }
 
 /* Palavra sublinhada à mão (serif italic + traço) */
@@ -799,7 +775,6 @@ body {
   .lp-halo, .lp-ticker, .lp-pulse, .lp-dash-run { animation: none; }
   .lp-dotpop, .is-active .lp-dotpop { animation: none; opacity: 1; }
   .lp-fill, .is-active .lp-fill { transform: scaleX(1); transition: none; }
-  .lp-btn:hover::after { animation: none; }
   .lp-card, .lp-nav-inner, .lp-visual, .lp-step { transition: none; }
   .lp-visual { opacity: 1; transform: none; position: relative; }
 }
@@ -863,6 +838,22 @@ body {
 .pn-poco {
   background: var(--color-poco);
   border: 1px solid rgba(7, 25, 35, 0.05);
+}
+
+/* Compatibilidade para consumidores ativos até a migração do painel. */
+.pn-aurora {
+  background: var(--color-volt-950);
+  color: var(--color-paper-0);
+  border: 1px solid var(--color-volt-800);
+  box-shadow: var(--shadow-pn-escura);
+  transition:
+    background-color var(--duration-micro) var(--ease-girumo),
+    border-color var(--duration-micro) var(--ease-girumo);
+}
+
+.pn-aurora:hover {
+  background: var(--color-volt-900);
+  border-color: var(--color-cobalt-500);
 }
 
 /* Fio de íris — gramática única de "ativo" (nav, card selecionado, step).
