@@ -2,7 +2,7 @@
 
 **Data:** 2026-07-12
 
-**Status:** conceito visual aprovado; especificação aguardando revisão final
+**Status:** aprovada para implementação
 
 **Substitui:** HubFlow como marca pública
 **Símbolo aprovado:** Deslocamento
@@ -384,6 +384,7 @@ apps/web/public/brand/girumo/
 ├── svg/
 │   ├── girumo-symbol-volt.svg
 │   ├── girumo-symbol-canvas.svg
+│   ├── girumo-symbol-black.svg
 │   ├── girumo-lockup-horizontal-volt.svg
 │   ├── girumo-lockup-horizontal-canvas.svg
 │   ├── girumo-lockup-stacked-volt.svg
@@ -398,7 +399,10 @@ apps/web/public/brand/girumo/
 │   └── symbol-1024.png
 ├── social/
 │   ├── instagram-avatar-1080.png
+│   ├── instagram-avatar-dark-1080.png
 │   └── og-default-1200x630.png
+├── email/
+│   └── girumo-email-lockup-640x160.png
 ├── favicon.ico
 └── girumo-brand-guide.pdf
 ```
