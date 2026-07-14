@@ -62,7 +62,7 @@ export function PlanGate({ resource, variant = "inline", className }: PlanGatePr
           "rounded-2xl border px-5 py-4",
           atLimit
             ? "border-atencao/30 bg-atencao/[0.05]"
-            : "border-iris/20 bg-iris/[0.03]",
+            : "border-cobalt-500/20 bg-cobalt-500/[0.03]",
           className,
         )}
       >
@@ -82,7 +82,7 @@ export function PlanGate({ resource, variant = "inline", className }: PlanGatePr
           {atLimit && (
             <Link
               href="/painel/configuracoes"
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-iris px-4 py-2.5 text-xs font-medium text-white shadow-iris transition hover:-translate-y-0.5 hover:bg-iris-claro"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-[var(--radius-control)] bg-acid-500 px-4 py-2.5 text-xs font-semibold text-volt-950 transition-[filter] duration-[var(--duration-micro)] hover:brightness-95"
             >
               <Zap className="h-3.5 w-3.5" /> Upgrade
             </Link>
@@ -91,11 +91,11 @@ export function PlanGate({ resource, variant = "inline", className }: PlanGatePr
         {/* Progress bar */}
         <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-bruma">
           <div
-            className="h-full rounded-full transition-all"
-            style={{
-              width: `${pct}%`,
-              background: atLimit ? "#D84040" : pct >= 80 ? "#D99B2A" : "#6A4BF0",
-            }}
+            className={cn(
+              "h-full rounded-full transition-all",
+              atLimit ? "bg-danger-700" : pct >= 80 ? "bg-warning-700" : "bg-cobalt-500",
+            )}
+            style={{ width: `${pct}%` }}
           />
         </div>
       </div>
@@ -107,7 +107,7 @@ export function PlanGate({ resource, variant = "inline", className }: PlanGatePr
     <div
       className={cn(
         "flex items-center gap-2 rounded-lg px-3 py-2 text-xs",
-        atLimit ? "bg-atencao/10 text-atencao" : "bg-iris/[0.06] text-iris",
+        atLimit ? "bg-danger-700/10 text-danger-700" : "bg-cobalt-500/[0.06] text-cobalt-700",
         className,
       )}
     >

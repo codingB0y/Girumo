@@ -5,10 +5,10 @@ import { NotificationBell } from "@/components/painel/notification-bell";
 
 export function PainelTopbar() {
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-breu/[0.08] bg-balcao/80 px-4 backdrop-blur-xl sm:px-6">
+    <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-line-200 bg-canvas-100 px-4 sm:px-6">
       {/* logo só no mobile (sidebar some) */}
       <div className="lg:hidden">
-        <LogoSymbol className="h-7 w-7 text-iris" />
+        <LogoSymbol className="h-7 w-7 text-volt-950" />
       </div>
 
       {/* seletor de instância (número conectado) */}

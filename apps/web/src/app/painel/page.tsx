@@ -225,7 +225,7 @@ function OnboardingShell({
 function OnboardingConnect() {
   return (
     <OnboardingShell
-      title="Bem-vindo ao HubFlow"
+      title="Bem-vindo à Girumo"
       greeting="Sua loja começa a crescer aqui."
       eyebrow="Vamos começar em 3 passos"
       icon={WifiOff}

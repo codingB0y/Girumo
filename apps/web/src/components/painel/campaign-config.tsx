@@ -143,7 +143,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
           </div>
         </Field>
       )}
-      <Field label="Automatizar criação de grupos?" hint="O HubFlow cria um grupo novo automaticamente quando o atual lota (a partir de 90%).">
+      <Field label="Automatizar criação de grupos?" hint="A Girumo cria um grupo novo automaticamente quando o atual lota (a partir de 90%).">
         <ToggleInline on={autoGrow} setOn={setAutoGrow} labelOn="Sim, criar no automático" labelOff="Não, gerencio na mão" />
       </Field>
     </Card>,

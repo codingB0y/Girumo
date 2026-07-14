@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { authenticatedFetch } from "@/lib/supabase/client";
 import { useToast } from "@/components/toast";
+import { BRAND } from "@/lib/brand";
 
 type Plan = {
   id: string;
@@ -112,7 +113,7 @@ export function BillingPanel() {
     <Card className="lg:col-span-2">
       <CardHeader className="flex items-center justify-between">
         <CardTitle className="flex items-center gap-2">
-          <CreditCard className="h-4 w-4 text-iris" />
+          <CreditCard className="h-4 w-4 text-cobalt-700" />
           Plano e assinatura
         </CardTitle>
         <Button variant="outline" size="sm" onClick={openPortal} disabled={portalBusy || loading}>
@@ -145,7 +146,7 @@ export function BillingPanel() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="font-semibold text-breu">{plan.name}</p>
-                      <p className="mt-1 text-xs leading-5 text-aco/70">{planCopy[plan.code] ?? "Plano pago HubFlow."}</p>
+                      <p className="mt-1 text-xs leading-5 text-aco/70">{planCopy[plan.code] ?? `Plano pago ${BRAND.name}.`}</p>
                     </div>
                     {current && <Badge tone="green">Atual</Badge>}
                   </div>

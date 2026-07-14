@@ -18,7 +18,8 @@ function GoogleIcon() {
   );
 }
 
-const inputClass = "h-11 w-full rounded-xl border border-white/[0.08] bg-white/[0.05] px-4 text-sm text-white placeholder:text-bruma/30 outline-none transition focus:border-iris/50 focus:ring-2 focus:ring-iris/20";
+const inputClass =
+  "h-11 w-full rounded-[var(--radius-control)] border border-volt-800 bg-volt-950 px-4 text-sm text-canvas-100 placeholder:text-canvas-100/35 outline-none transition-[border-color,box-shadow] duration-[var(--duration-micro)] ease-[var(--ease-girumo)] focus:border-cobalt-500 focus:ring-2 focus:ring-cobalt-500/30";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -67,7 +68,7 @@ export default function SignupPage() {
       footer={
         <>
           Já tem conta?{" "}
-          <Link href="/login" className="font-medium text-iris-claro hover:text-iris">
+          <Link href="/login" className="font-medium text-acid-500 transition-colors hover:text-canvas-100">
             Entrar
           </Link>
         </>
@@ -76,7 +77,7 @@ export default function SignupPage() {
       <SignupProgress current={1} />
       <form className="space-y-4" onSubmit={submit}>
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-bruma/60">Seu nome</label>
+          <label className="mb-1.5 block text-sm font-medium text-canvas-100/70">Seu nome</label>
           <input
             placeholder="Ex: Maria da Silva"
             value={name}
@@ -87,7 +88,7 @@ export default function SignupPage() {
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-bruma/60">E-mail</label>
+          <label className="mb-1.5 block text-sm font-medium text-canvas-100/70">E-mail</label>
           <input
             type="email"
             placeholder="voce@email.com"
@@ -97,11 +98,11 @@ export default function SignupPage() {
             className={inputClass}
           />
           {email.length > 0 && !emailOk && (
-            <p className="mt-1 text-xs text-atencao">Digite um e-mail válido.</p>
+            <p className="mt-1 text-xs text-canvas-100/80">Digite um e-mail válido.</p>
           )}
         </div>
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-bruma/60">Senha</label>
+          <label className="mb-1.5 block text-sm font-medium text-canvas-100/70">Senha</label>
           <input
             type="password"
             placeholder="Mínimo 6 caracteres"
@@ -111,38 +112,38 @@ export default function SignupPage() {
             className={inputClass}
           />
           {password.length > 0 && password.length < 6 && (
-            <p className="mt-1 text-xs text-atencao">A senha precisa de pelo menos 6 caracteres.</p>
+            <p className="mt-1 text-xs text-canvas-100/80">A senha precisa de pelo menos 6 caracteres.</p>
           )}
         </div>
 
-        {error && <p className="rounded-lg border border-alerta/30 bg-alerta/10 px-3 py-2 text-sm text-alerta">{error}</p>}
+        {error && <p className="rounded-[var(--radius-control)] border border-danger-700/40 bg-danger-700/15 px-3 py-2 text-sm text-canvas-100">{error}</p>}
 
         <button
           type="submit"
           disabled={loading || !valid}
-          className="flex h-11 w-full items-center justify-center rounded-xl bg-iris text-sm font-medium text-white shadow-iris transition hover:bg-iris-claro disabled:pointer-events-none disabled:opacity-50"
+          className="flex h-11 w-full items-center justify-center rounded-[var(--radius-control)] bg-acid-500 text-sm font-semibold text-volt-950 transition-[filter] duration-[var(--duration-micro)] hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500 disabled:pointer-events-none disabled:opacity-50"
         >
           {loading ? "Criando..." : "Criar conta"}
         </button>
 
         <div className="relative my-2">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-white/[0.06]" />
+            <div className="w-full border-t border-volt-800" />
           </div>
           <div className="relative flex justify-center">
-            <span className="bg-transparent px-3 text-xs text-bruma/30">ou</span>
+            <span className="bg-volt-900 px-3 text-xs text-canvas-100/40">ou</span>
           </div>
         </div>
 
         <a
           href="/api/auth/google?next=/painel"
-          className="flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.05] text-sm font-medium text-white transition hover:border-white/[0.15] hover:bg-white/[0.08]"
+          className="flex h-11 w-full items-center justify-center gap-2.5 rounded-[var(--radius-control)] border border-volt-800 bg-volt-950 text-sm font-medium text-canvas-100 transition-colors duration-[var(--duration-micro)] hover:border-cobalt-500 hover:bg-volt-800"
         >
           <GoogleIcon />
           Criar conta com Google
         </a>
 
-        <p className="text-center text-xs leading-5 text-bruma/40">
+        <p className="text-center text-xs leading-5 text-canvas-100/50">
           Seus dados ficam protegidos e só você tem acesso. Cancele quando quiser.
         </p>
       </form>

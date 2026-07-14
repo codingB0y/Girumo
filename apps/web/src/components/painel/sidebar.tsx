@@ -52,14 +52,14 @@ function NavItem({
         "group relative flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm",
         "transition-[color,background-color] duration-[160ms] ease-[var(--ease-fluxo)]",
         active
-          ? "pn-ativo font-medium text-white"
-          : "text-bruma/55 hover:bg-white/[0.03] hover:text-bruma",
+          ? "pn-ativo font-medium text-canvas-100"
+          : "text-canvas-100/55 hover:bg-paper-0/[0.03] hover:text-canvas-100",
       )}
     >
       <Icon
         className={cn(
           "h-[18px] w-[18px] shrink-0 transition-transform duration-[160ms] ease-[var(--ease-fluxo)]",
-          active ? "text-iris-claro" : "text-bruma/45 group-hover:translate-x-0.5",
+          active ? "text-acid-500" : "text-canvas-100/45 group-hover:translate-x-0.5",
         )}
         strokeWidth={1.75}
       />
@@ -80,9 +80,9 @@ export function PainelSidebar() {
   }, []);
 
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r border-white/[0.06] bg-gradient-to-b from-breu to-breu-2 lg:flex">
+    <aside className="hidden w-64 shrink-0 flex-col border-r border-volt-800 bg-volt-950 lg:flex">
       <div className="flex h-16 items-center px-5">
-        <Logo wordmarkClassName="text-white" symbolClassName="h-6 w-6" />
+        <Logo className="text-canvas-100" />
       </div>
 
       <nav className="flex-1 px-3 py-4">
@@ -93,19 +93,19 @@ export function PainelSidebar() {
         </div>
       </nav>
 
-      <div className="border-t border-white/[0.06] px-3 py-4">
+      <div className="border-t border-volt-800 px-3 py-4">
         {/* Status de conexão — respira quando conectado; parado = alarme */}
         <Link
           href="/painel/conectar"
-          className="mb-2 flex items-center gap-3 rounded-[10px] px-3 py-2 text-sm transition hover:bg-white/[0.03]"
+          className="mb-2 flex items-center gap-3 rounded-[10px] px-3 py-2 text-sm transition-colors duration-[var(--duration-micro)] hover:bg-paper-0/[0.03]"
         >
           <span
             className={cn(
               "h-2 w-2 rounded-full",
-              connected === null ? "bg-bruma/40" : connected ? "bg-sucesso pn-respira" : "bg-alerta",
+              connected === null ? "bg-canvas-100/40" : connected ? "bg-success-700 pn-respira" : "bg-danger-700",
             )}
           />
-          <span className={cn("text-xs", connected ? "text-bruma/60" : "text-atencao")}>
+          <span className={cn("text-xs", connected ? "text-canvas-100/60" : "text-canvas-100/80")}>
             {connected === null ? "Verificando…" : connected ? "WhatsApp conectado" : "WhatsApp desconectado"}
           </span>
         </Link>
@@ -120,13 +120,13 @@ export function PainelSidebar() {
       {/* Card de plano — Aurora VIP (eco do "VIP" da marca) */}
       <div className="px-3 pb-4">
         <div className="pn-aurora overflow-hidden rounded-2xl p-4">
-          <p className="font-data flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-iris-claro">
+          <p className="font-data flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-acid-500">
             <Sparkles className="h-3 w-3" /> Plano Growth
           </p>
-          <p className="mt-2 text-xs text-bruma/70">Grupos VIP ilimitados · suporte no WhatsApp.</p>
+          <p className="mt-2 text-xs text-canvas-100/70">Grupos VIP ilimitados · suporte no WhatsApp.</p>
           <Link
             href="/painel/configuracoes"
-            className="mt-3 flex w-full items-center justify-center rounded-lg bg-white/10 py-2 text-xs font-medium text-white transition-colors duration-[160ms] hover:bg-white/[0.16]"
+            className="mt-3 flex w-full items-center justify-center rounded-[var(--radius-control)] bg-acid-500 py-2 text-xs font-semibold text-volt-950 transition-[filter] duration-[var(--duration-micro)] hover:brightness-95"
           >
             Gerenciar plano
           </Link>
