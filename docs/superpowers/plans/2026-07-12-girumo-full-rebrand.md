@@ -1067,51 +1067,66 @@ git commit -m "feat: rebrand canonical landing as Girumo"
 - Modify: `apps/web/src/app/lp/lp.css`
 - Modify: `apps/web/src/app/lp2/page.tsx`
 - Modify: `apps/web/src/app/lp2/lp2.css`
-- Modify: `apps/web/src/components/lp/{nav,calculator}.tsx`
-- Modify: `apps/web/src/components/lp2/{nav,panel-mock}.tsx`
+- Modify: `apps/web/src/components/lp/nav.tsx`
+- Modify: `apps/web/src/components/lp/calculator.tsx`
+- Modify: `apps/web/src/components/lp2/nav.tsx`
 - Modify: `apps/web/src/components/pages/templates/basic.tsx`
+- Modify: `apps/web/src/components/pages/templates/index.ts`
+- Modify: `apps/web/src/components/pages/editor/form.tsx`
 - Modify: `apps/web/src/components/pages/editor/preview.tsx`
+- Modify: `apps/web/src/components/pages/lead-form.tsx`
 - Modify: `apps/web/src/lib/pages/slug.ts`
+- Create: `apps/web/src/lib/pages/slug.test.ts`
+- Delete: `apps/web/src/components/lp2/panel-mock.tsx`
+- Delete: `apps/web/src/components/lp2/order-ticker.tsx`
+- Delete: `apps/web/public/lp/still-atacado.webp`
+- Delete: `apps/web/public/lp2/grp-1.webp`
+- Delete: `apps/web/public/lp2/grp-2.webp`
+- Delete: `apps/web/public/lp2/team-a.webp`
+- Delete: `apps/web/public/lp2/team-b.webp`
+- Delete: `apps/web/public/lp2/team-c.webp`
 
 **Interfaces:**
-- Consumes: brand contract and generated logo assets.
-- Produces: consistent Girumo identity on `/lp`, `/lp2`, public customer pages, and editor preview.
+- Consumes: `BRAND`, `Logo`, `getPublicSiteUrl()`, global Girumo tokens, existing `TemplateProps`, `LeadForm`, and persisted page-color keys.
+- Produces: consistent Girumo identity on `/lp`, `/lp2`, public customer pages, and editor preview without public PII, unverified photography, or fabricated operational data.
 
-- [ ] **Step 1: Capture old brand and font imports**
+- [ ] **Step 1: Capture the full RED inventory**
 
 ```powershell
-rg -n -i "hubflow|outfit|archivo|martian|#6a4bf0|#7c5cff" apps/web/src/app/lp apps/web/src/app/lp2 apps/web/src/components/lp apps/web/src/components/lp2 apps/web/src/components/pages
+rg -n -i "hubflow|outfit|archivo|martian|#6a4bf0|#7c5cff|grp-[12]|panel-mock|order-ticker" apps/web/src/app/lp apps/web/src/app/lp2 apps/web/src/components/lp apps/web/src/components/lp2 apps/web/src/components/pages
 ```
 
-- [ ] **Step 2: Remove page-specific font families**
+- [ ] **Step 2: Reserve both compatibility and brand slugs with TDD**
 
-Delete Outfit, Archivo, and Martian Mono imports. Point `.lp3` and `.lp4` roots to `--font-brand`, `--font-body`, and `--font-data`. Preserve layout structure; this task is a brand migration, not a funnel rewrite.
+Create `apps/web/src/lib/pages/slug.test.ts` first and assert that both `hubflow` and `girumo` are reserved. Confirm the Girumo assertion fails, add `girumo` without removing `hubflow`, then rerun to GREEN.
 
-- [ ] **Step 3: Replace names, wordmarks, and examples**
+- [ ] **Step 3: Migrate `/lp` and `/lp2` to the approved identity**
 
-Use Girumo copy and central `Logo`. Change public footer to `Página criada com Girumo`. Use the configured site host in previews. Keep the existing routes and `noindex` directives.
+Remove page-specific font imports and use the global brand, body, and data fonts. Apply `Logo`, `BRAND`, Volt/Paper/Canvas/Acid, and functional Cobalt while preserving funnel order, anchors, noindex metadata, responsive behavior, reduced motion, and every existing FX selector. Remove purple, gradients, glass, and permanent decorative loops.
 
-- [ ] **Step 4: Reserve both old and new slugs**
+- [ ] **Step 4: Remove public PII, unverified photography, and fabricated widgets**
 
-Ensure the reserved slug set includes both `hubflow` and `girumo`; add a focused assertion to the existing slug test or create `apps/web/src/lib/pages/slug.test.ts` if no slug test exists.
+Delete the listed components and public assets, not only their JSX references. Replace necessary explanatory regions with clearly labeled process diagrams using verifiable capabilities. Remove embedded fake orders, names, KPIs, scarcity counts, VIP lists, and unsupported claims. Do not substitute invented proof.
 
-- [ ] **Step 5: Apply the same photography gate to `/lp` and `/lp2`**
+- [ ] **Step 5: Migrate customer-page templates and editor surfaces**
 
-Use the Task 6 image-direction criteria. Do not retain an image only because it belonged to the old landing; every retained or replaced visual must depict a plausible wholesale selling operation and follow the Volt overlay/crop rules.
+Change the footer to `Página criada com Girumo`, use the configured host in preview, and remap `iris | emerald | amber` to approved Girumo treatments without renaming persisted keys. Preserve `EMPTY_EDITOR_VALUES.primary_color = "emerald"`, `TemplateProps`, template registry/fallback, the complete `LeadForm` contract, tracking, redirects, and `/p/[slug]` behavior. Do not modify the route file, schema/store, tracking scripts, robots, sitemap, layout, or either FX component.
 
-- [ ] **Step 6: Re-run search, tests, and build**
+- [ ] **Step 6: Re-run residual, privacy, contract, test, build, and visual checks**
 
 ```powershell
+npm --workspace apps/web exec -- tsx --test src/lib/pages/slug.test.ts
+npm run web:lint
 npm --workspace apps/web test
 npm run web:build
 ```
 
-Expected: no old brand or removed font imports in the listed files; both slugs are rejected.
+Expected: zero old-brand, old-font, purple, fake-widget, or deleted-asset references; all deleted public files are physically absent; both slugs are rejected; robots, FX selectors, persisted keys, template/form contracts, responsive behavior, and reduced motion remain intact. Smoke `/lp`, `/lp2`, and public-template/editor preview at desktop and 390 px without external writes.
 
 - [ ] **Step 7: Commit secondary public surfaces**
 
 ```powershell
-git add apps/web/src/app/lp/page.tsx apps/web/src/app/lp/lp.css apps/web/src/app/lp2/page.tsx apps/web/src/app/lp2/lp2.css apps/web/src/components/lp/nav.tsx apps/web/src/components/lp/calculator.tsx apps/web/src/components/lp2/nav.tsx apps/web/src/components/lp2/panel-mock.tsx apps/web/src/components/pages/templates/basic.tsx apps/web/src/components/pages/editor/preview.tsx apps/web/src/lib/pages/slug.ts apps/web/src/lib/pages/slug.test.ts
+git add -- apps/web/src/app/lp/page.tsx apps/web/src/app/lp/lp.css apps/web/src/app/lp2/page.tsx apps/web/src/app/lp2/lp2.css apps/web/src/components/lp/nav.tsx apps/web/src/components/lp/calculator.tsx apps/web/src/components/lp2/nav.tsx apps/web/src/components/pages/templates/basic.tsx apps/web/src/components/pages/templates/index.ts apps/web/src/components/pages/editor/form.tsx apps/web/src/components/pages/editor/preview.tsx apps/web/src/components/pages/lead-form.tsx apps/web/src/lib/pages/slug.ts apps/web/src/lib/pages/slug.test.ts apps/web/src/components/lp2/panel-mock.tsx apps/web/src/components/lp2/order-ticker.tsx apps/web/public/lp/still-atacado.webp apps/web/public/lp2/grp-1.webp apps/web/public/lp2/grp-2.webp apps/web/public/lp2/team-a.webp apps/web/public/lp2/team-b.webp apps/web/public/lp2/team-c.webp
 git commit -m "feat: migrate Girumo public page surfaces"
 ```
 
