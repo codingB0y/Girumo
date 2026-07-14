@@ -24,22 +24,28 @@ const STEPS = [
 
 export function Mechanism() {
   return (
-    <div data-mech className="relative mx-auto grid max-w-7xl gap-10 px-4 md:px-8 lg:grid-cols-[0.92fr_1.08fr] lg:gap-20">
+    <div data-mech className="relative mx-auto grid max-w-[var(--content-max)] gap-10 px-4 md:px-8 lg:grid-cols-[0.92fr_1.08fr] lg:gap-20">
       <div>
         {STEPS.map((step, index) => (
-          <div key={step.title} className="lp-step relative py-14 pl-7 sm:py-20 lg:min-h-[68vh] lg:py-24">
-            <span className="lp-step-bar absolute bottom-14 left-0 top-14 w-px bg-cobalt-500 sm:bottom-20 sm:top-20 lg:bottom-24 lg:top-24" />
-            <p className="font-data text-xs text-cobalt-500">{step.product}</p>
+          <div
+            key={step.title}
+            className="lp-step relative py-14 pl-7 sm:py-20 lg:min-h-[68vh] lg:py-24 motion-reduce:!min-h-0 motion-reduce:!py-12 motion-reduce:!opacity-100"
+          >
+            <span
+              className="lp-step-bar absolute bottom-14 left-0 top-14 w-px bg-cobalt-500 sm:bottom-20 sm:top-20 lg:bottom-24 lg:top-24 motion-reduce:!scale-y-100 motion-reduce:transition-none"
+              aria-hidden
+            />
+            <p className="font-data text-xs text-canvas-100/65">{step.product}</p>
             <h3 className="mt-4 font-tech text-3xl font-bold tracking-tight text-paper-0 sm:text-4xl">{step.title}</h3>
             <p className="mt-5 max-w-md text-base leading-relaxed text-canvas-100/68 sm:text-lg">{step.body}</p>
-            <div className="mt-8 lg:hidden">
+            <div className="mt-8 lg:hidden motion-reduce:!block">
               <ProcessVisual index={index} host={PUBLIC_HOST} embedded />
             </div>
           </div>
         ))}
       </div>
 
-      <div className="relative hidden lg:block">
+      <div className="relative hidden lg:block motion-reduce:!hidden">
         <div className="sticky top-0 flex min-h-[100dvh] items-center">
           <div className="relative h-[30rem] w-full">
             {STEPS.map((step, index) => (

@@ -5,8 +5,6 @@ import { WhatsAppIcon } from "@/components/landing/icons";
 import { Compare } from "@/components/landing/v2/compare";
 import { Faq, FAQ_ITEMS } from "@/components/landing/v2/faq";
 import { Features } from "@/components/landing/v2/features";
-import { FlowCanvas } from "@/components/landing/v2/flow-canvas";
-import { GroupWall } from "@/components/landing/v2/group-wall";
 import { LandingFx } from "@/components/landing/v2/landing-fx";
 import { LpShowcase } from "@/components/landing/v2/lp-showcase";
 import { Mechanism } from "@/components/landing/v2/mechanism";
@@ -120,7 +118,7 @@ const CASE_STATS = [
 
 export default function LandingPage() {
   return (
-    <div className="lp-root min-h-[100dvh] overflow-x-clip bg-volt-950 font-body text-canvas-100 antialiased [&_.lp-btn-light]:bg-acid-500 [&_.lp-btn-light]:text-volt-950">
+    <div className="lp-root min-h-[100dvh] overflow-x-clip bg-volt-950 font-body text-canvas-100 antialiased">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD_FAQ) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD_SOFTWARE) }} />
 
@@ -128,10 +126,10 @@ export default function LandingPage() {
       <Nav signupUrl={SIGNUP_URL} />
 
       <section className="relative flex min-h-[100dvh] overflow-hidden bg-volt-950">
-        <FlowCanvas className="absolute inset-0 h-full w-full opacity-75" />
-        <div className="pointer-events-none absolute inset-0 bg-volt-950/35" aria-hidden />
+        <div className="pointer-events-none absolute right-[8%] top-[22%] hidden h-24 w-24 border border-volt-800 lg:block" aria-hidden />
+        <div className="pointer-events-none absolute bottom-[14%] right-[15%] hidden h-5 w-40 bg-acid-500 lg:block" aria-hidden />
 
-        <div className="relative mx-auto grid w-full max-w-7xl grid-cols-1 items-center px-4 pb-16 pt-24 md:px-8 lg:grid-cols-12">
+        <div className="relative mx-auto grid w-full max-w-[var(--content-max)] grid-cols-1 items-center px-4 pb-16 pt-24 md:px-8 lg:grid-cols-12">
           <div className="lg:col-span-11 xl:col-span-10">
             <span
               className="lp-hero-in inline-flex bg-acid-500 px-3 py-1.5 font-data text-[11px] uppercase tracking-[0.16em] text-volt-950"
@@ -160,14 +158,12 @@ export default function LandingPage() {
             >
               <a
                 href={SIGNUP_URL}
-                data-magnetic
                 className="lp-btn inline-flex items-center gap-2 rounded-[var(--radius-control)] bg-acid-500 px-7 py-3.5 text-base font-semibold text-volt-950 hover:brightness-95"
               >
                 Começar agora <ArrowRight className="h-4 w-4" />
               </a>
               <a
                 href={WHATSAPP_URL}
-                data-magnetic
                 className="lp-btn inline-flex items-center gap-2 rounded-[var(--radius-control)] border border-paper-0/25 bg-volt-950 px-7 py-3.5 text-base font-medium text-paper-0 transition hover:border-paper-0/60"
               >
                 <WhatsAppIcon className="h-4 w-4 text-acid-500" /> Falar no WhatsApp
@@ -179,7 +175,7 @@ export default function LandingPage() {
 
       <section aria-label="Como funciona em 3 passos" className="relative bg-canvas-100 py-14 text-volt-950 sm:py-16">
         <div className="absolute -top-3 left-[8%] h-6 w-40 bg-acid-500" aria-hidden />
-        <ol className="mx-auto grid max-w-7xl gap-8 px-4 md:px-8 lg:grid-cols-[1.25fr_0.9fr_0.9fr] lg:gap-10">
+        <ol className="mx-auto grid max-w-[var(--content-max)] gap-8 px-4 md:px-8 lg:grid-cols-[1.25fr_0.9fr_0.9fr] lg:gap-10">
           {STEPS_STRIP.map(([title, body], index) => (
             <li key={title} className={index === 0 ? "lg:pr-10" : "border-l border-volt-950/15 pl-6"}>
               <p className="font-tech text-xl font-bold tracking-tight text-volt-950">{title}</p>
@@ -190,7 +186,7 @@ export default function LandingPage() {
       </section>
 
       <section className="border-y border-volt-800 bg-volt-900 py-4" aria-hidden>
-        <div className="lp-ticker-mask overflow-hidden">
+        <div className="overflow-hidden">
           <div className="lp-ticker">
             {Array.from({ length: 2 }).map((_, dup) => (
               <div key={dup} className="flex shrink-0" aria-hidden={dup === 1}>
@@ -208,7 +204,7 @@ export default function LandingPage() {
 
       <section id="mecanismo" className="relative bg-volt-950 py-20 sm:py-28">
         <div className="absolute -top-3 right-[10%] h-6 w-28 bg-paper-0" aria-hidden />
-        <div className="mx-auto max-w-7xl px-4 md:px-8" data-reveal>
+        <div className="mx-auto max-w-[var(--content-max)] px-4 md:px-8" data-reveal>
           <h2 className="max-w-3xl font-tech text-[clamp(2rem,5vw,3.6rem)] font-bold leading-[1.05] tracking-tight text-paper-0">
             Do anúncio ao grupo cheio, <span className="text-canvas-100/50">com uma operação que continua girando.</span>
           </h2>
@@ -219,7 +215,7 @@ export default function LandingPage() {
       </section>
 
       <section id="comparacao" className="relative border-t border-volt-800 bg-volt-900 py-20 sm:py-28">
-        <div className="mx-auto max-w-7xl px-4 pb-10 md:px-8" data-reveal>
+        <div className="mx-auto max-w-[var(--content-max)] px-4 pb-10 md:px-8" data-reveal>
           <h2 className="max-w-3xl font-tech text-[clamp(2rem,5vw,3.6rem)] font-bold leading-[1.05] tracking-tight text-paper-0">
             O manual custa caro. <span className="text-canvas-100/50">Você só não vê a fatura.</span>
           </h2>
@@ -229,7 +225,7 @@ export default function LandingPage() {
 
       <section id="recursos" className="relative border-t border-volt-800 bg-volt-950 py-20 sm:py-28">
         <div className="absolute -top-3 left-[12%] h-6 w-20 bg-acid-500" aria-hidden />
-        <div className="mx-auto max-w-7xl px-4 md:px-8">
+        <div className="mx-auto max-w-[var(--content-max)] px-4 md:px-8">
           <div className="max-w-3xl" data-reveal>
             <h2 className="font-tech text-[clamp(2rem,5vw,3.6rem)] font-bold leading-[1.05] tracking-tight text-paper-0">
               Opere 100 grupos <span className="text-canvas-100/50">como se fosse um.</span>
@@ -242,13 +238,13 @@ export default function LandingPage() {
       </section>
 
       <section id="modelos" className="relative border-t border-volt-800 bg-volt-900 py-20 sm:py-28">
-        <div className="mx-auto max-w-7xl px-4 md:px-8" data-reveal>
+        <div className="mx-auto max-w-[var(--content-max)] px-4 md:px-8" data-reveal>
           <LpShowcase publicSiteUrl={SITE_URL} />
         </div>
       </section>
 
       <section id="historia" className="relative border-t border-volt-800 bg-volt-950 py-20 sm:py-28">
-        <div className="mx-auto grid max-w-7xl gap-12 px-4 md:px-8 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
+        <div className="mx-auto grid max-w-[var(--content-max)] gap-12 px-4 md:px-8 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
           <div data-reveal>
             <p className="font-data text-xs uppercase tracking-[0.16em] text-acid-500">história real</p>
             <h2 className="mt-5 font-tech text-[clamp(2rem,5vw,3.6rem)] font-bold leading-[1.05] tracking-tight text-paper-0">
@@ -286,7 +282,7 @@ export default function LandingPage() {
           </aside>
         </div>
 
-        <dl className="mx-auto mt-14 grid max-w-7xl grid-cols-2 gap-px px-4 md:px-8 sm:grid-cols-4" data-reveal-group>
+        <dl className="mx-auto mt-14 grid max-w-[var(--content-max)] grid-cols-2 gap-px px-4 md:px-8 sm:grid-cols-4" data-reveal-group>
           {CASE_STATS.map(([value, label]) => (
             <div key={label} className="bg-paper-0 px-5 py-7 text-center text-volt-950">
               <dt className="font-tech text-[clamp(1.5rem,3.5vw,2.4rem)] font-bold tracking-tight">{value}</dt>
@@ -297,7 +293,7 @@ export default function LandingPage() {
       </section>
 
       <section id="planos" className="relative border-t border-volt-800 bg-volt-900 py-20 sm:py-28">
-        <div className="relative mx-auto max-w-7xl px-4 md:px-8">
+        <div className="relative mx-auto max-w-[var(--content-max)] px-4 md:px-8">
           <div className="mx-auto max-w-2xl text-center" data-reveal>
             <h2 className="font-tech text-[clamp(2rem,5vw,3.6rem)] font-bold leading-[1.05] tracking-tight text-paper-0">
               Comece pequeno, <span className="text-canvas-100/50">cresça sem trocar de ferramenta.</span>
@@ -318,7 +314,7 @@ export default function LandingPage() {
       </section>
 
       <section id="duvidas" className="border-t border-volt-800 bg-volt-950 py-20 sm:py-28">
-        <div className="mx-auto grid max-w-7xl gap-12 px-4 md:px-8 lg:grid-cols-[0.8fr_1.2fr]">
+        <div className="mx-auto grid max-w-[var(--content-max)] gap-12 px-4 md:px-8 lg:grid-cols-[0.8fr_1.2fr]">
           <div data-reveal>
             <h2 className="font-tech text-[clamp(1.9rem,4.5vw,3.2rem)] font-bold leading-[1.05] tracking-tight text-paper-0">
               O que perguntam <span className="text-canvas-100/50">antes de começar.</span>
@@ -335,8 +331,7 @@ export default function LandingPage() {
       </section>
 
       <section className="relative overflow-hidden border-t border-volt-800 bg-volt-950">
-        <GroupWall />
-        <div className="pointer-events-none absolute inset-0 bg-volt-950/78" aria-hidden />
+        <div className="pointer-events-none absolute -top-3 right-[12%] h-6 w-32 bg-acid-500" aria-hidden />
         <div className="relative mx-auto max-w-3xl px-4 py-28 text-center sm:py-40" data-reveal>
           <h2 className="font-tech text-balance text-[clamp(2.3rem,6vw,4.6rem)] font-bold leading-[1.02] tracking-[-0.03em] text-paper-0">
             Seu próximo grupo cheio
@@ -348,14 +343,12 @@ export default function LandingPage() {
           <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <a
               href={SIGNUP_URL}
-              data-magnetic
               className="lp-btn inline-flex items-center gap-2 rounded-[var(--radius-control)] bg-acid-500 px-7 py-3.5 text-base font-semibold text-volt-950 hover:brightness-95"
             >
               Começar agora <ArrowRight className="h-4 w-4" />
             </a>
             <a
               href={WHATSAPP_URL}
-              data-magnetic
               className="lp-btn inline-flex items-center gap-2 rounded-[var(--radius-control)] border border-paper-0/25 bg-volt-950 px-7 py-3.5 text-base font-medium text-paper-0 transition hover:border-paper-0/60"
             >
               <WhatsAppIcon className="h-4 w-4 text-acid-500" /> Falar no WhatsApp
@@ -381,7 +374,7 @@ export default function LandingPage() {
       </div>
 
       <footer className="border-t border-volt-800 bg-volt-950">
-        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 pb-28 md:px-8 sm:grid-cols-2 sm:pb-14 lg:grid-cols-[1.5fr_1fr_1fr_1fr]">
+        <div className="mx-auto grid max-w-[var(--content-max)] gap-10 px-4 py-14 pb-28 md:px-8 sm:grid-cols-2 sm:pb-14 lg:grid-cols-[1.5fr_1fr_1fr_1fr]">
           <div>
             <Logo className="text-paper-0" />
             <p className="mt-3 max-w-xs text-sm text-canvas-100/55">{BRAND.description}</p>
@@ -391,7 +384,7 @@ export default function LandingPage() {
           <FooterCol title="Legal" links={[["Termos de uso", "/termos"], ["Política de privacidade", "/privacidade"], ["WhatsApp", WHATSAPP_URL]]} />
         </div>
         <div className="border-t border-volt-800">
-          <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-4 py-6 text-xs text-canvas-100/45 md:px-8 sm:flex-row">
+          <div className="mx-auto flex max-w-[var(--content-max)] flex-col items-center justify-between gap-3 px-4 py-6 text-xs text-canvas-100/55 md:px-8 sm:flex-row">
             <span>© {new Date().getFullYear()} {BRAND.name}. Todos os direitos reservados.</span>
             <span className="font-data uppercase tracking-[0.14em]">{BRAND.tagline}</span>
           </div>
@@ -406,7 +399,7 @@ export default function LandingPage() {
 function FooterCol({ title, links }: { title: string; links: [string, string][] }) {
   return (
     <div>
-      <p className="font-data text-xs uppercase tracking-[0.14em] text-canvas-100/45">{title}</p>
+      <p className="font-data text-xs uppercase tracking-[0.14em] text-canvas-100/55">{title}</p>
       <ul className="mt-4 space-y-2.5">
         {links.map(([label, href]) => (
           <li key={label}>

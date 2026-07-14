@@ -33,7 +33,7 @@ export function Compare() {
   );
 
   return (
-    <div className="mx-auto max-w-7xl px-4 md:px-8">
+    <div className="mx-auto max-w-[var(--content-max)] px-4 md:px-8">
       <div className="grid gap-px bg-volt-800 lg:grid-cols-2" data-reveal-group>
         <section className="bg-paper-0 p-7 text-volt-950 sm:p-9" aria-labelledby="without-title">
           <p id="without-title" className="font-data flex items-center gap-2 text-xs uppercase tracking-[0.14em] text-danger-700">
@@ -170,7 +170,7 @@ function Slider({
         step={step}
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
-        className="lp-range mt-3 w-full accent-cobalt-500 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cobalt-500"
+        className="lp-range mt-3 w-full !bg-slate-600 accent-cobalt-500 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cobalt-500 [&::-moz-range-thumb]:!border-volt-950 [&::-moz-range-thumb]:!bg-cobalt-500 [&::-moz-range-track]:!bg-slate-600 [&::-webkit-slider-runnable-track]:!bg-slate-600 [&::-webkit-slider-thumb]:!border-volt-950 [&::-webkit-slider-thumb]:!bg-cobalt-500 [&::-webkit-slider-thumb]:!shadow-none"
         aria-label={label}
       />
     </label>
