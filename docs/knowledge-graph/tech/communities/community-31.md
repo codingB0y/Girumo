@@ -1,7 +1,6 @@
 # Community 31
 
-- [[authshell|AuthShell]]
-- [[button|Button]]
-- [[input|Input]]
-- [[nextjs|Nextjs]]
-- [[resetpasswordpage|ResetPasswordPage]]
+- [[envlocal|.env.local]]
+- [[admin-login|Admin Login]]
+- [[admin-seed|Admin Seed]]
+- [[web-application|Web Application]]
