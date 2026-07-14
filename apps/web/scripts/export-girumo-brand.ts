@@ -16,7 +16,13 @@ import {
 const require = createRequire(import.meta.url);
 const MANROPE_PATH = require.resolve("@fontsource/manrope/files/manrope-latin-700-normal.woff2");
 const OUTPUT = path.join(process.cwd(), "public", "brand", "girumo");
-const COLORS = { volt: "#071923", acid: "#A7FF2F", canvas: "#F4F0E7", black: "#000000" } as const;
+const COLORS = {
+  volt: "#071923",
+  acid: "#A7FF2F",
+  canvas: "#F4F0E7",
+  paper: "#FFFEFA",
+  black: "#000000",
+} as const;
 const PNG_SIZES = [16, 32, 48, 180, 192, 512, 1024] as const;
 const WORDMARK = "Girumo";
 const AVATAR_SYMBOL_OCCUPANCY = 0.61;
@@ -336,15 +342,21 @@ async function exportBrand(font: OutlineFont): Promise<void> {
   const wordmark = outlineWordmark(font);
   const horizontalVolt = horizontalLockup(font, wordmark, COLORS.volt);
   const horizontalCanvas = horizontalLockup(font, wordmark, COLORS.canvas);
+  const horizontalPaper = horizontalLockup(font, wordmark, COLORS.paper);
   const stackedVolt = stackedLockup(font, wordmark, COLORS.volt);
+  const stackedPaper = stackedLockup(font, wordmark, COLORS.paper);
 
   await write("svg/girumo-symbol-volt.svg", renderGirumoSymbolSvg(COLORS.volt));
   await write("svg/girumo-symbol-canvas.svg", renderGirumoSymbolSvg(COLORS.canvas));
+  await write("svg/girumo-symbol-paper.svg", renderGirumoSymbolSvg(COLORS.paper));
   await write("svg/girumo-symbol-black.svg", renderGirumoSymbolSvg(COLORS.black));
   await write("svg/girumo-lockup-horizontal-volt.svg", svgDocument(horizontalVolt.viewBox, horizontalVolt.paths));
   await write("svg/girumo-lockup-horizontal-canvas.svg", svgDocument(horizontalCanvas.viewBox, horizontalCanvas.paths));
+  await write("svg/girumo-lockup-horizontal-paper.svg", svgDocument(horizontalPaper.viewBox, horizontalPaper.paths));
   await write("svg/girumo-lockup-stacked-volt.svg", svgDocument(stackedVolt.viewBox, stackedVolt.paths));
+  await write("svg/girumo-lockup-stacked-paper.svg", svgDocument(stackedPaper.viewBox, stackedPaper.paths));
   await write("svg/girumo-wordmark-volt.svg", svgDocument(wordmark.viewBox, glyphPaths(wordmark, COLORS.volt)));
+  await write("svg/girumo-wordmark-paper.svg", svgDocument(wordmark.viewBox, glyphPaths(wordmark, COLORS.paper)));
 
   for (const size of PNG_SIZES) {
     let symbolPng = await png(renderGirumoSymbolSvg(COLORS.volt, size));
@@ -358,9 +370,9 @@ async function exportBrand(font: OutlineFont): Promise<void> {
   }
 
   await write("social/instagram-avatar-1080.png", await png(avatarSvg(COLORS.acid, COLORS.volt)));
-  await write("social/instagram-avatar-dark-1080.png", await png(avatarSvg(COLORS.volt, COLORS.canvas)));
-  await write("social/og-default-1200x630.png", await png(ogSvg(font, horizontalCanvas)));
-  await write("email/girumo-email-lockup-640x160.png", await png(emailSvg(horizontalCanvas)));
+  await write("social/instagram-avatar-dark-1080.png", await png(avatarSvg(COLORS.volt, COLORS.paper)));
+  await write("social/og-default-1200x630.png", await png(ogSvg(font, horizontalPaper)));
+  await write("email/girumo-email-lockup-640x160.png", await png(emailSvg(horizontalPaper)));
 
   const ico = await pngToIco(
     [16, 32, 48].map((size) => path.join(OUTPUT, "png", `symbol-${size}.png`)),
@@ -378,7 +390,7 @@ async function main(): Promise<void> {
   const outlineFont = opened as unknown as OutlineFont;
 
   await exportBrand(outlineFont);
-  console.log("Exported 19 Girumo public assets and deterministic TypeScript wordmark geometry.");
+  console.log("Exported 23 Girumo public assets and deterministic TypeScript wordmark geometry.");
 }
 
 main().catch((error: unknown) => {

@@ -91,7 +91,7 @@ export function PainelMobileNav() {
           />
           <div className="pn-palette-in absolute inset-y-0 left-0 flex w-72 max-w-[82%] flex-col bg-volt-950">
             <div className="flex h-16 items-center justify-between px-5">
-              <Logo className="text-canvas-100" />
+              <Logo className="text-paper-0" />
               <button
                 onClick={() => setOpen(false)}
                 aria-label="Fechar menu"

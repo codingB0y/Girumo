@@ -134,6 +134,24 @@ test("uses opaque global navigation surfaces", () => {
   assert.doesNotMatch(css, /backdrop-filter/i);
 });
 
+test("uses Paper for every reverse logo on persistent Volt surfaces", () => {
+  const sources = [
+    readSource("components", "auth-shell.tsx"),
+    readSource("components", "admin", "sidebar.tsx"),
+    readSource("components", "painel", "sidebar.tsx"),
+    readSource("components", "painel", "mobile-nav.tsx"),
+  ];
+
+  for (const source of sources) {
+    const logoTags = source.match(/<Logo\b[^>]*className="[^"]*"/g) ?? [];
+    assert.ok(logoTags.length > 0, "missing reverse Logo consumer");
+    for (const tag of logoTags) {
+      assert.match(tag, /text-paper-0/);
+      assert.doesNotMatch(tag, /text-canvas-100/);
+    }
+  }
+});
+
 test("removes the legacy lp button sweep", () => {
   assert.doesNotMatch(css, /@keyframes\s+lp-shine|\.lp-btn::after|\.lp-btn:hover::after/i);
 });

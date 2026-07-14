@@ -82,7 +82,7 @@ export function PainelSidebar() {
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-volt-800 bg-volt-950 lg:flex">
       <div className="flex h-16 items-center px-5">
-        <Logo className="text-canvas-100" />
+        <Logo className="text-paper-0" />
       </div>
 
       <nav className="flex-1 px-3 py-4">

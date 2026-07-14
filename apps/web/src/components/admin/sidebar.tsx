@@ -62,7 +62,7 @@ export function AdminSidebar({ email }: { email: string }) {
   const navContent = (
     <>
       <div className="flex h-16 items-center gap-3 px-5">
-        <Logo className="text-canvas-100" />
+        <Logo className="text-paper-0" />
         <span className="rounded-md bg-alerta/20 px-2 py-0.5 font-data text-[10px] uppercase tracking-wider text-alerta">
           Admin
         </span>

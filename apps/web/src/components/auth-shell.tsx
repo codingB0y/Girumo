@@ -42,7 +42,7 @@ export function AuthShell({
         {/* Left panel — branding */}
         <section className="hidden w-1/2 flex-col justify-between p-12 lg:flex xl:p-16">
           <Link href="/" aria-label="Voltar ao início">
-            <Logo className="text-2xl text-canvas-100" />
+            <Logo className="text-2xl text-paper-0" />
           </Link>
 
           <div className="max-w-lg">
@@ -77,7 +77,7 @@ export function AuthShell({
             {/* Mobile logo */}
             <div className="mb-8 lg:hidden">
               <Link href="/" aria-label="Voltar ao início">
-                <Logo className="text-xl text-canvas-100" />
+                <Logo className="text-xl text-paper-0" />
               </Link>
             </div>
 

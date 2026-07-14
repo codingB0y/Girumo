@@ -9,11 +9,15 @@ const root = path.join(process.cwd(), "public", "brand", "girumo");
 const svgFiles = [
   "svg/girumo-symbol-volt.svg",
   "svg/girumo-symbol-canvas.svg",
+  "svg/girumo-symbol-paper.svg",
   "svg/girumo-symbol-black.svg",
   "svg/girumo-lockup-horizontal-volt.svg",
   "svg/girumo-lockup-horizontal-canvas.svg",
+  "svg/girumo-lockup-horizontal-paper.svg",
   "svg/girumo-lockup-stacked-volt.svg",
+  "svg/girumo-lockup-stacked-paper.svg",
   "svg/girumo-wordmark-volt.svg",
+  "svg/girumo-wordmark-paper.svg",
 ] as const;
 const pngSizes = [16, 32, 48, 180, 192, 512, 1024] as const;
 const pngFiles = pngSizes.map((size) => `png/symbol-${size}.png`);
@@ -31,6 +35,7 @@ const COLORS = {
   volt: [0x07, 0x19, 0x23],
   acid: [0xa7, 0xff, 0x2f],
   canvas: [0xf4, 0xf0, 0xe7],
+  paper: [0xff, 0xfe, 0xfa],
 } as const;
 
 type AlphaRaster = {
@@ -83,6 +88,20 @@ function asset(relative: string): string {
   const absolute = path.join(root, relative);
   assert.ok(existsSync(absolute), relative);
   return absolute;
+}
+
+function svgFills(relative: string): string[] {
+  const source = readFileSync(asset(relative), "utf8");
+  return [...new Set([...source.matchAll(/fill="([^"]+)"/gi)].map((match) => match[1].toUpperCase()))];
+}
+
+async function countExactRgb(relative: string, color: readonly [number, number, number]): Promise<number> {
+  const { data, info } = await sharp(asset(relative)).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+  let count = 0;
+  for (let offset = 0; offset < data.length; offset += info.channels) {
+    if (data[offset] === color[0] && data[offset + 1] === color[1] && data[offset + 2] === color[2]) count += 1;
+  }
+  return count;
 }
 
 function assertRgb(
@@ -192,6 +211,27 @@ test("exports outlined wordmarks instead of SVG text", () => {
   assert.equal((wordmark.match(/<path\b/g) || []).length, 6);
 });
 
+test("exports the complete monochromatic Paper master set", () => {
+  for (const relative of [
+    "svg/girumo-symbol-paper.svg",
+    "svg/girumo-lockup-horizontal-paper.svg",
+    "svg/girumo-lockup-stacked-paper.svg",
+    "svg/girumo-wordmark-paper.svg",
+  ]) {
+    assert.deepEqual(svgFills(relative), ["#FFFEFA"], relative);
+  }
+});
+
+test("uses Paper in every reverse raster application", async () => {
+  for (const relative of [
+    "social/instagram-avatar-dark-1080.png",
+    "social/og-default-1200x630.png",
+    "email/girumo-email-lockup-640x160.png",
+  ]) {
+    assert.ok((await countExactRgb(relative, COLORS.paper)) > 1_000, `${relative} Paper pixels`);
+  }
+});
+
 test("exports valid, unclipped SVG path geometry", async () => {
   for (const relative of svgFiles) {
     const source = readFileSync(asset(relative), "utf8");
@@ -285,7 +325,7 @@ test("uses the approved avatar colorways and 61% symbol occupancy", async () => 
     {
       relative: "social/instagram-avatar-dark-1080.png",
       background: COLORS.volt,
-      foreground: COLORS.canvas,
+      foreground: COLORS.paper,
     },
   ] as const;
 

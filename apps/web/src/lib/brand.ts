@@ -7,6 +7,7 @@ export const BRAND = {
     "Capte clientes, organize seus grupos de WhatsApp e deixe campanhas programadas para vender com menos trabalho.",
   emailFooter: "Girumo · Automação para grupos que vendem",
   symbolAsset: "/brand/girumo/svg/girumo-symbol-volt.svg",
+  symbolPaperAsset: "/brand/girumo/svg/girumo-symbol-paper.svg",
   symbolCanvasAsset: "/brand/girumo/svg/girumo-symbol-canvas.svg",
   ogAsset: "/brand/girumo/social/og-default-1200x630.png",
   emailLogoAsset: "/brand/girumo/email/girumo-email-lockup-640x160.png",
