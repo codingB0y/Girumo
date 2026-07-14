@@ -15,6 +15,9 @@
 - Approved functional line is exactly `Seus grupos rodando. Você vendendo.`
 - Approved symbol is Deslocamento with viewBox `0 0 24 24` and exactly two monochrome masses.
 - Primary palette: Volt `#071923`, Acid `#A7FF2F`, Cobalt `#2E66FF`, Canvas `#F4F0E7`.
+- Approved color hierarchy: Paper `#FFFEFA` on Volt is the primary digital signature; Volt on Acid is the impact signature; Volt on Paper is the institutional signature.
+- Keep existing Canvas reverse assets for compatibility, but generate new reverse masters in Paper and use Paper for new dark-surface logo applications.
+- Cobalt is functional for focus, selection, interaction, and data; it is never the primary logo color.
 - Normal text on canvas must use `#071923`, `#52646C`, or accessible Cobalt `#1947C9`; raw `#2E66FF` is not normal body text.
 - Acid is a brand/action color, not a success state; success text is `#0C7346`.
 - Brand typography is Manrope; product typography is IBM Plex Sans; data typography is IBM Plex Mono.
@@ -741,6 +744,260 @@ git commit -m "feat: migrate Girumo application shells"
 
 ---
 
+### Task 5A: Promote the Approved Paper Reverse Signature
+
+**Files:**
+- Modify: `apps/web/src/lib/brand.ts`
+- Modify: `apps/web/src/lib/brand.test.ts`
+- Modify: `apps/web/scripts/export-girumo-brand.ts`
+- Modify: `apps/web/src/lib/brand-assets.test.ts`
+- Modify: `apps/web/src/lib/brand-css.test.ts`
+- Modify: `apps/web/src/components/auth-shell.tsx`
+- Modify: `apps/web/src/components/admin/sidebar.tsx`
+- Modify: `apps/web/src/components/painel/sidebar.tsx`
+- Modify: `apps/web/src/components/painel/mobile-nav.tsx`
+- Generate: `apps/web/public/brand/girumo/svg/girumo-symbol-paper.svg`
+- Generate: `apps/web/public/brand/girumo/svg/girumo-lockup-horizontal-paper.svg`
+- Generate: `apps/web/public/brand/girumo/svg/girumo-lockup-stacked-paper.svg`
+- Generate: `apps/web/public/brand/girumo/svg/girumo-wordmark-paper.svg`
+- Regenerate: `apps/web/public/brand/girumo/social/instagram-avatar-dark-1080.png`
+- Regenerate: `apps/web/public/brand/girumo/social/og-default-1200x630.png`
+- Regenerate: `apps/web/public/brand/girumo/email/girumo-email-lockup-640x160.png`
+
+**Interfaces:**
+- Consumes: approved Deslocamento geometry, outlined Manrope wordmark, `BRAND_COLORS.paper`, and the existing deterministic exporter.
+- Produces: `BRAND.symbolPaperAsset`, four Paper SVG masters, Paper-based reverse rasters, and Paper logo applications on persistent Volt surfaces.
+- Preserves: existing Canvas SVGs and `BRAND.symbolCanvasAsset` as compatibility assets; transparent Volt PNG app icons, favicon entries, symbol geometry, wordmark geometry, dimensions, and the 61% avatar occupancy remain unchanged.
+
+- [ ] **Step 1: Write the failing Paper hierarchy tests**
+
+Add these assertions to the approved-identity test in `apps/web/src/lib/brand.test.ts`:
+
+```ts
+assert.equal(BRAND.symbolPaperAsset, "/brand/girumo/svg/girumo-symbol-paper.svg");
+assert.equal(BRAND.symbolCanvasAsset, "/brand/girumo/svg/girumo-symbol-canvas.svg");
+assert.equal(BRAND_COLORS.paper, "#FFFEFA");
+```
+
+Change the asset URL assertion to exercise the new reverse master while retaining the Canvas compatibility property assertion above:
+
+```ts
+assert.equal(
+  getBrandAssetUrl(BRAND.symbolPaperAsset),
+  "https://example.test/brand/girumo/svg/girumo-symbol-paper.svg",
+);
+```
+
+Extend `svgFiles` and `COLORS` in `apps/web/src/lib/brand-assets.test.ts`:
+
+```ts
+const svgFiles = [
+  "svg/girumo-symbol-volt.svg",
+  "svg/girumo-symbol-canvas.svg",
+  "svg/girumo-symbol-paper.svg",
+  "svg/girumo-symbol-black.svg",
+  "svg/girumo-lockup-horizontal-volt.svg",
+  "svg/girumo-lockup-horizontal-canvas.svg",
+  "svg/girumo-lockup-horizontal-paper.svg",
+  "svg/girumo-lockup-stacked-volt.svg",
+  "svg/girumo-lockup-stacked-paper.svg",
+  "svg/girumo-wordmark-volt.svg",
+  "svg/girumo-wordmark-paper.svg",
+] as const;
+
+const COLORS = {
+  volt: [0x07, 0x19, 0x23],
+  acid: [0xa7, 0xff, 0x2f],
+  canvas: [0xf4, 0xf0, 0xe7],
+  paper: [0xff, 0xfe, 0xfa],
+} as const;
+```
+
+Add exact Paper master and raster assertions:
+
+```ts
+function svgFills(relative: string): string[] {
+  const source = readFileSync(asset(relative), "utf8");
+  return [...new Set([...source.matchAll(/fill="([^"]+)"/gi)].map((match) => match[1].toUpperCase()))];
+}
+
+async function countExactRgb(relative: string, color: readonly [number, number, number]): Promise<number> {
+  const { data, info } = await sharp(asset(relative)).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+  let count = 0;
+  for (let offset = 0; offset < data.length; offset += info.channels) {
+    if (data[offset] === color[0] && data[offset + 1] === color[1] && data[offset + 2] === color[2]) count += 1;
+  }
+  return count;
+}
+
+test("exports the complete monochromatic Paper master set", () => {
+  for (const relative of [
+    "svg/girumo-symbol-paper.svg",
+    "svg/girumo-lockup-horizontal-paper.svg",
+    "svg/girumo-lockup-stacked-paper.svg",
+    "svg/girumo-wordmark-paper.svg",
+  ]) {
+    assert.deepEqual(svgFills(relative), ["#FFFEFA"], relative);
+  }
+});
+
+test("uses Paper in every reverse raster application", async () => {
+  for (const relative of [
+    "social/instagram-avatar-dark-1080.png",
+    "social/og-default-1200x630.png",
+    "email/girumo-email-lockup-640x160.png",
+  ]) {
+    assert.ok((await countExactRgb(relative, COLORS.paper)) > 1_000, `${relative} Paper pixels`);
+  }
+});
+```
+
+Update the dark-avatar expectation:
+
+```ts
+{
+  relative: "social/instagram-avatar-dark-1080.png",
+  background: COLORS.volt,
+  foreground: COLORS.paper,
+},
+```
+
+Add this reverse-logo contract to `apps/web/src/lib/brand-css.test.ts`:
+
+```ts
+test("uses Paper for every reverse logo on persistent Volt surfaces", () => {
+  const sources = [
+    readSource("components", "auth-shell.tsx"),
+    readSource("components", "admin", "sidebar.tsx"),
+    readSource("components", "painel", "sidebar.tsx"),
+    readSource("components", "painel", "mobile-nav.tsx"),
+  ];
+
+  for (const source of sources) {
+    const logoTags = source.match(/<Logo\b[^>]*className="[^"]*"/g) ?? [];
+    assert.ok(logoTags.length > 0, "missing reverse Logo consumer");
+    for (const tag of logoTags) {
+      assert.match(tag, /text-paper-0/);
+      assert.doesNotMatch(tag, /text-canvas-100/);
+    }
+  }
+});
+```
+
+- [ ] **Step 2: Run the targeted tests and verify RED**
+
+```powershell
+npm --workspace apps/web exec tsx -- --test src/lib/brand.test.ts src/lib/brand-assets.test.ts src/lib/brand-css.test.ts
+```
+
+Expected: FAIL because `BRAND.symbolPaperAsset` and the four Paper SVGs do not exist, the three reverse rasters still use Canvas, and the five reverse `<Logo>` instances still use `text-canvas-100`.
+
+- [ ] **Step 3: Add Paper to the contract and deterministic exporter**
+
+Add the new public asset without removing the compatibility asset in `apps/web/src/lib/brand.ts`:
+
+```ts
+symbolAsset: "/brand/girumo/svg/girumo-symbol-volt.svg",
+symbolPaperAsset: "/brand/girumo/svg/girumo-symbol-paper.svg",
+symbolCanvasAsset: "/brand/girumo/svg/girumo-symbol-canvas.svg",
+```
+
+Extend the exporter palette and compositions in `apps/web/scripts/export-girumo-brand.ts`:
+
+```ts
+const COLORS = {
+  volt: "#071923",
+  acid: "#A7FF2F",
+  canvas: "#F4F0E7",
+  paper: "#FFFEFA",
+  black: "#000000",
+} as const;
+
+const horizontalVolt = horizontalLockup(font, wordmark, COLORS.volt);
+const horizontalCanvas = horizontalLockup(font, wordmark, COLORS.canvas);
+const horizontalPaper = horizontalLockup(font, wordmark, COLORS.paper);
+const stackedVolt = stackedLockup(font, wordmark, COLORS.volt);
+const stackedPaper = stackedLockup(font, wordmark, COLORS.paper);
+```
+
+Write the new masters alongside the retained Canvas outputs:
+
+```ts
+await write("svg/girumo-symbol-paper.svg", renderGirumoSymbolSvg(COLORS.paper));
+await write("svg/girumo-lockup-horizontal-paper.svg", svgDocument(horizontalPaper.viewBox, horizontalPaper.paths));
+await write("svg/girumo-lockup-stacked-paper.svg", svgDocument(stackedPaper.viewBox, stackedPaper.paths));
+await write("svg/girumo-wordmark-paper.svg", svgDocument(wordmark.viewBox, glyphPaths(wordmark, COLORS.paper)));
+```
+
+Switch only the reverse applications to Paper:
+
+```ts
+await write("social/instagram-avatar-dark-1080.png", await png(avatarSvg(COLORS.volt, COLORS.paper)));
+await write("social/og-default-1200x630.png", await png(ogSvg(font, horizontalPaper)));
+await write("email/girumo-email-lockup-640x160.png", await png(emailSvg(horizontalPaper)));
+```
+
+Update the successful exporter message to `Exported 23 Girumo public assets and deterministic TypeScript wordmark geometry.`
+
+- [ ] **Step 4: Regenerate the official asset set**
+
+```powershell
+npm --workspace apps/web run brand:export
+```
+
+Expected: PASS with `Exported 23 Girumo public assets...`; four new Paper SVGs appear, the three reverse PNGs change, all Canvas SVG compatibility files remain, and `src/lib/girumo-wordmark.ts` has no geometry diff.
+
+- [ ] **Step 5: Promote Paper on persistent Volt logo surfaces**
+
+Apply only these class replacements; keep ordinary body copy in Canvas:
+
+```tsx
+// apps/web/src/components/auth-shell.tsx
+<Logo className="text-2xl text-paper-0" />
+<Logo className="text-xl text-paper-0" />
+
+// apps/web/src/components/admin/sidebar.tsx
+<Logo className="text-paper-0" />
+
+// apps/web/src/components/painel/sidebar.tsx
+<Logo className="text-paper-0" />
+
+// apps/web/src/components/painel/mobile-nav.tsx
+<Logo className="text-paper-0" />
+```
+
+Do not change the Volt `LogoSymbol` in `painel/topbar.tsx`; it is the approved institutional signature on a light surface.
+
+- [ ] **Step 6: Verify GREEN and inspect the color applications**
+
+```powershell
+npm --workspace apps/web exec tsx -- --test src/lib/brand.test.ts src/lib/brand-assets.test.ts src/lib/brand-css.test.ts
+rg -n '<Logo\b[^>]*text-canvas-100' apps/web/src/components/auth-shell.tsx apps/web/src/components/admin/sidebar.tsx apps/web/src/components/painel/sidebar.tsx apps/web/src/components/painel/mobile-nav.tsx
+rg -n '#F4F0E7|#2E66FF' apps/web/public/brand/girumo/svg/girumo-symbol-paper.svg apps/web/public/brand/girumo/svg/girumo-lockup-horizontal-paper.svg apps/web/public/brand/girumo/svg/girumo-lockup-stacked-paper.svg apps/web/public/brand/girumo/svg/girumo-wordmark-paper.svg
+```
+
+Expected: targeted tests PASS; both `rg` commands return no matches. Inspect `instagram-avatar-dark-1080.png`, `og-default-1200x630.png`, and `girumo-email-lockup-640x160.png` with `view_image`. Expected: logo is visibly brighter Paper on Volt, the OG keeps Acid only in the tagline, the logo remains monochromatic, and no geometry or clipping changes.
+
+- [ ] **Step 7: Run full verification**
+
+```powershell
+npm --workspace apps/web test
+npm --workspace apps/web exec tsc -- --noEmit --project tsconfig.json
+npm run web:build
+git diff --check
+```
+
+Expected: PASS with no test, type, build, or whitespace failures.
+
+- [ ] **Step 8: Commit the approved Paper signature**
+
+```powershell
+git add apps/web/src/lib/brand.ts apps/web/src/lib/brand.test.ts apps/web/scripts/export-girumo-brand.ts apps/web/src/lib/brand-assets.test.ts apps/web/src/lib/brand-css.test.ts apps/web/src/components/auth-shell.tsx apps/web/src/components/admin/sidebar.tsx apps/web/src/components/painel/sidebar.tsx apps/web/src/components/painel/mobile-nav.tsx apps/web/public/brand/girumo/svg/girumo-symbol-paper.svg apps/web/public/brand/girumo/svg/girumo-lockup-horizontal-paper.svg apps/web/public/brand/girumo/svg/girumo-lockup-stacked-paper.svg apps/web/public/brand/girumo/svg/girumo-wordmark-paper.svg apps/web/public/brand/girumo/social/instagram-avatar-dark-1080.png apps/web/public/brand/girumo/social/og-default-1200x630.png apps/web/public/brand/girumo/email/girumo-email-lockup-640x160.png
+git commit -m "feat: promote Girumo Paper signature"
+```
+
+---
+
 ### Task 6: Migrate the Primary Marketing Landing
 
 **Files:**
@@ -777,7 +1034,7 @@ Use `getPublicSiteUrl()` in server components. For client-only mockups, pass the
 
 - [ ] **Step 4: Apply Volt visual language**
 
-Remove aurora/eclipses and generic purple gradients. Use navy surfaces, canvas sections, Acid for the single primary CTA, Cobalt for focus/selection, and displaced blocks as section dividers.
+Remove aurora/eclipses and generic purple gradients. Use a Volt base, Paper for every reverse Girumo logo, Canvas/Paper content surfaces, Acid for the single primary CTA and focal commercial signals, Cobalt only for focus/selection/data, and displaced blocks as section dividers. The preferred marketing composition is Volt background + Paper logo + Acid conversion signal; do not make Cobalt the dominant field or the primary logo color.
 
 - [ ] **Step 5: Audit photography and image treatment**
 
@@ -1118,7 +1375,7 @@ Write the guide from the approved spec, including:
 - strategy and promise;
 - symbol construction and misuse;
 - lockups and clear space;
-- palette and contrast ratios;
+- palette, contrast ratios, and the approved Paper-on-Volt / Volt-on-Acid / Volt-on-Paper hierarchy;
 - typography and scale;
 - UI foundations;
 - social/avatar examples;
@@ -1131,7 +1388,7 @@ Do not copy purple HubFlow mockups into the Girumo guide.
 
 - [ ] **Step 2: Create the reusable social source templates**
 
-Create editable SVG masters for square `1080×1080`, portrait `1080×1350`, story `1080×1920`, video cover `1920×1080`, customer proof, and metric card. Use real Girumo sample copy from `copy-library.md`, outlined logo assets, flat Volt/Canvas surfaces, and Acid only as a focal signal. Verify each artboard at 100% and thumbnail size.
+Create editable SVG masters for square `1080×1080`, portrait `1080×1350`, story `1080×1920`, video cover `1920×1080`, customer proof, and metric card. Use real Girumo sample copy from `copy-library.md`, outlined logo assets, flat Volt/Paper surfaces, and Acid only as a focal signal. Retain Canvas for content backgrounds, not as the new reverse logo master. Verify each artboard at 100% and thumbnail size.
 
 - [ ] **Step 3: Create the one-page and lightweight commercial applications**
 
