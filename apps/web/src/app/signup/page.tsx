@@ -64,7 +64,7 @@ export default function SignupPage() {
     <AuthShell
       title="Criar sua conta"
       subtitle="7 dias grátis — sem cartão, sem compromisso"
-      context="Depois de criar sua conta, você conecta o WhatsApp em 2 minutos e já pode disparar para todos os grupos."
+      context="Depois de criar sua conta, você conecta o WhatsApp em 2 minutos e já pode enviar para todos os grupos."
       footer={
         <>
           Já tem conta?{" "}

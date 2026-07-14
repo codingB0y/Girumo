@@ -56,7 +56,7 @@ export function PainelMobileNav() {
               aria-current={active ? "page" : undefined}
               className={cn(
                 "relative flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-medium transition-colors duration-[160ms]",
-                active ? "text-iris" : "text-aco/55",
+                active ? "text-cobalt-700" : "text-aco/55",
               )}
             >
               {/* indicador de ativo — pílula no topo */}

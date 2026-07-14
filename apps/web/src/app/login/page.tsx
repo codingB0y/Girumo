@@ -152,7 +152,7 @@ function LoginPageContent() {
       subtitle="Acesse sua central de operação"
       checklist={[
         "Veja todos os seus grupos num painel só",
-        "Dispare e agende com um clique",
+        "Envie e agende com um clique",
         "Acompanhe resultados em tempo real",
       ]}
       context={next !== "/painel" ? `Entre para continuar para ${destination}.` : undefined}
