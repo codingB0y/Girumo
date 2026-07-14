@@ -37,24 +37,44 @@ export function Nav({ signupUrl }: { signupUrl: string }) {
   useEffect(() => {
     if (!open) return;
 
-    const previousOverflow = document.documentElement.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousBodyOverflow = document.body.style.overflow;
     document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
 
     const header = headerRef.current;
     const siblings = Array.from(header?.parentElement?.children ?? []).filter(
       (node): node is HTMLElement => node instanceof HTMLElement && node !== header,
     );
-    const madeInert = siblings.filter((node) => !node.hasAttribute("inert"));
-    madeInert.forEach((node) => node.setAttribute("inert", ""));
+    const siblingStates = siblings.map((node) => ({
+      node,
+      hadInert: node.hasAttribute("inert"),
+      previousAriaHidden: node.getAttribute("aria-hidden"),
+    }));
+    siblingStates.forEach(({ node }) => {
+      node.setAttribute("inert", "");
+      node.setAttribute("aria-hidden", "true");
+    });
 
     const focusableItems = () =>
       Array.from(
-        menuRef.current?.querySelectorAll<HTMLElement>(
+        headerRef.current?.querySelectorAll<HTMLElement>(
           'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
         ) ?? [],
-      );
+      ).filter((element) => {
+        const style = window.getComputedStyle(element);
+        return (
+          element.getClientRects().length > 0 &&
+          style.display !== "none" &&
+          style.visibility !== "hidden" &&
+          !element.closest("[inert]")
+        );
+      });
 
-    const focusFrame = window.requestAnimationFrame(() => focusableItems()[0]?.focus());
+    const focusFrame = window.requestAnimationFrame(() => {
+      const initialFocus = menuRef.current?.querySelector<HTMLElement>('a[href]');
+      (initialFocus ?? header)?.focus();
+    });
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -71,27 +91,39 @@ export function Nav({ signupUrl }: { signupUrl: string }) {
       if (!first || !last) return;
 
       const active = document.activeElement;
-      if (event.shiftKey && (active === first || !menuRef.current?.contains(active))) {
+      if (event.shiftKey && (active === first || !headerRef.current?.contains(active))) {
         event.preventDefault();
         last.focus();
-      } else if (!event.shiftKey && (active === last || !menuRef.current?.contains(active))) {
+      } else if (!event.shiftKey && (active === last || !headerRef.current?.contains(active))) {
         event.preventDefault();
         first.focus();
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown, true);
 
     return () => {
       window.cancelAnimationFrame(focusFrame);
-      document.documentElement.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", handleKeyDown);
-      madeInert.forEach((node) => node.removeAttribute("inert"));
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.body.style.overflow = previousBodyOverflow;
+      window.removeEventListener("keydown", handleKeyDown, true);
+      siblingStates.forEach(({ node, hadInert, previousAriaHidden }) => {
+        if (!hadInert) node.removeAttribute("inert");
+        if (previousAriaHidden === null) node.removeAttribute("aria-hidden");
+        else node.setAttribute("aria-hidden", previousAriaHidden);
+      });
     };
   }, [closeMenu, open]);
 
   return (
-    <header ref={headerRef} className="fixed inset-x-0 top-0 z-50 border-b border-volt-800 bg-volt-950">
+    <header
+      ref={headerRef}
+      role={open ? "dialog" : undefined}
+      aria-modal={open ? true : undefined}
+      aria-label={open ? "Menu de navegação" : undefined}
+      tabIndex={open ? -1 : undefined}
+      className="fixed inset-x-0 top-0 z-50 border-b border-volt-800 bg-volt-950"
+    >
       <div className="mx-auto flex h-16 max-w-[var(--content-max)] items-center justify-between px-4 md:px-8">
         <Link href="/" aria-label={`${BRAND.name} - início`} className="shrink-0">
           <Logo className="text-paper-0" />
@@ -110,7 +142,7 @@ export function Nav({ signupUrl }: { signupUrl: string }) {
         </nav>
 
         <div className="flex items-center gap-3">
-          <Link href="/login" className="hidden whitespace-nowrap text-sm text-canvas-100/65 transition hover:text-paper-0 sm:inline">
+          <Link href="/login" className="hidden whitespace-nowrap text-sm text-canvas-100/65 transition hover:text-paper-0 md:inline">
             Entrar
           </Link>
           <a
@@ -137,9 +169,6 @@ export function Nav({ signupUrl }: { signupUrl: string }) {
         <div
           ref={menuRef}
           id="mobile-navigation"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Menu de navegação"
           className="fixed inset-0 top-16 z-40 overflow-y-auto bg-volt-950 md:hidden"
         >
           <nav className="flex min-h-full flex-col gap-1 px-6 pb-[max(2rem,env(safe-area-inset-bottom))] pt-8" aria-label="Menu">

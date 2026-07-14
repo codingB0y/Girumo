@@ -92,17 +92,6 @@ const WHATSAPP_URL =
   process.env.NEXT_PUBLIC_SALES_WHATSAPP_URL ||
   `https://wa.me/5562998191314?text=${DEFAULT_WHATSAPP_MESSAGE}`;
 
-const TICKER_ITEMS = [
-  "um link rastreado, grupo cheio",
-  "grupo lotou, o próximo nasce sozinho",
-  "uma oferta, todos os grupos",
-  "biblioteca de textos e criativos",
-  "modelos de página de captação",
-  "origem do anúncio até a venda",
-  "agendou, publicou",
-  "100 grupos, 2 cliques",
-];
-
 const STEPS_STRIP = [
   ["Divulgue seu link", "A página de captação lota o grupo de revendedores. Quando lota, o próximo nasce sozinho."],
   ["Publique a novidade", "A grade nova chega a todos os grupos de uma vez, na hora certa."],
@@ -183,23 +172,6 @@ export default function LandingPage() {
             </li>
           ))}
         </ol>
-      </section>
-
-      <section className="border-y border-volt-800 bg-volt-900 py-4" aria-hidden>
-        <div className="overflow-hidden">
-          <div className="lp-ticker">
-            {Array.from({ length: 2 }).map((_, dup) => (
-              <div key={dup} className="flex shrink-0" aria-hidden={dup === 1}>
-                {TICKER_ITEMS.map((item) => (
-                  <span key={item} className="font-data flex items-center gap-3 whitespace-nowrap px-7 text-xs uppercase tracking-[0.16em] text-canvas-100/65">
-                    <span className="h-1 w-6 bg-acid-500" />
-                    {item}
-                  </span>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
       </section>
 
       <section id="mecanismo" className="relative bg-volt-950 py-20 sm:py-28">
