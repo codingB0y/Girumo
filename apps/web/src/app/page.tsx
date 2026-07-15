@@ -46,7 +46,7 @@ const JSON_LD_SOFTWARE = {
 
 export const metadata = {
   metadataBase: new URL(SITE_URL),
-  title: `${BRAND.name} | ${BRAND.tagline}`,
+  title: { absolute: `${BRAND.name} — ${BRAND.tagline}` },
   description: OG_DESC,
   keywords: [
     "encher grupos de WhatsApp",

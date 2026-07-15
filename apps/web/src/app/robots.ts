@@ -1,8 +1,9 @@
 import type { MetadataRoute } from "next";
-
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://hubflow.com.br";
+import { getPublicSiteUrl } from "@/lib/brand";
 
 export default function robots(): MetadataRoute.Robots {
+  const siteUrl = getPublicSiteUrl();
+
   return {
     rules: {
       userAgent: "*",
@@ -10,7 +11,7 @@ export default function robots(): MetadataRoute.Robots {
       // Área logada e rotas internas não devem ser indexadas.
       disallow: ["/painel", "/api"],
     },
-    sitemap: `${SITE_URL}/sitemap.xml`,
-    host: SITE_URL,
+    sitemap: `${siteUrl}/sitemap.xml`,
+    host: siteUrl,
   };
 }

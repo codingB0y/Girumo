@@ -3,6 +3,7 @@ import { IBM_Plex_Mono, IBM_Plex_Sans, Manrope } from "next/font/google";
 import "./globals.css";
 import { ImpersonateBanner } from "@/components/impersonate-banner";
 import { DevModeBanner } from "@/components/dev-mode-banner";
+import { BRAND, getPublicSiteUrl } from "@/lib/brand";
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -25,12 +26,26 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(getPublicSiteUrl()),
   title: {
-    default: "HubFlow — O fluxo que vende",
-    template: "%s | HubFlow",
+    default: `${BRAND.name} — ${BRAND.tagline}`,
+    template: `%s | ${BRAND.name}`,
   },
-  description:
-    "Gerencie e venda em todos os seus grupos de WhatsApp — num clique só.",
+  description: BRAND.description,
+  openGraph: {
+    type: "website",
+    locale: "pt_BR",
+    siteName: BRAND.name,
+    title: `${BRAND.name} — ${BRAND.tagline}`,
+    description: BRAND.description,
+    images: [BRAND.ogAsset],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${BRAND.name} — ${BRAND.tagline}`,
+    description: BRAND.description,
+    images: [BRAND.ogAsset],
+  },
 };
 
 export default function RootLayout({
