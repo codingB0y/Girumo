@@ -8,8 +8,11 @@ Elevar o HubFlow a SaaS de alto nível: segurança, growth, automações, polish
 
 Plano aprovado em 2026-07-13 (`~/.claude/plans/quero-migrar-o-hubflow-eager-minsky.md`). Evolution API v2.3.7 (`evoapicloud/evolution-api`, repo `evolution-foundation/evolution-api`) em VPS/Coolify; worker novo `apps/worker` TS; fila única = `engine_commands` estendida; Baileys congela via tag `legacy-baileys-engine`. 0 clientes = sem compat.
 
-- [ ] F0 — Fundação/segurança: 3 migrations (RLS padronizada, provider columns, queue v2), QR local (mata quickchart.io), ENGINE_TOKEN sem default, teste isolamento RLS **(EM ANDAMENTO)**
+- [x] F0 — Fundação/segurança: 3 migrations (RLS padronizada, provider columns, queue v2), QR local (mata quickchart.io), ENGINE_TOKEN sem default, teste isolamento RLS ✅ (commits `3ce13f78` + cleanup `3825e1ad`; validada em DEV+PROD: teste de isolamento PASS, advisors sem WARN novo)
 - [ ] F1 — Evolution API no Coolify (infra pura + fixtures de payloads reais)
+  - [x] Artefatos de deploy (não dependem da VPS): `deploy/coolify/evolution.docker-compose.yml` (Evolution v2.3.7 + PG16 + Redis7, hardening), `evolution.env.example`, `README.evolution.md` (runbook + smoke test + captura de fixtures) — `docker compose config` OK
+  - [ ] Infra na VPS (você): DNS `wa.*`, deploy no Coolify, `AUTHENTICATION_API_KEY`, bloquear `/manager`, 3 containers healthy
+  - [ ] Capturar payloads reais de webhook → `apps/web/src/lib/evolution/__fixtures__/` (alimenta zod da F2)
 - [ ] F2 — Lifecycle de instância no web (client, webhook receiver, painel conectar refeito)
 - [ ] F3 — Lead capture via worker mínimo (loop B)
 - [ ] F4 — Worker completo (anti-ban portado, senders, lease/retry, fan-out broadcast)
