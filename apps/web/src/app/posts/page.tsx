@@ -1,7 +1,8 @@
 import { PostGallery } from "@/components/posts/post-gallery";
+import { BRAND } from "@/lib/brand";
 
 export const metadata = {
-  title: "HubFlow — Gerador de Posts",
+  title: { absolute: `${BRAND.name} — Gerador de posts` },
 };
 
 const TEMPLATES = [
@@ -18,10 +19,10 @@ const TEMPLATES = [
   { id: "2.3-04", label: "2.3 Slide 04", category: "Solução / Recurso" },
   { id: "2.3-05", label: "2.3 Slide 05", category: "Solução / Recurso" },
   { id: "2.3-cta", label: "2.3 Slide CTA", category: "Solução / Recurso" },
-  { id: "3.1-numero", label: "3.1 Número destaque", category: "Prova Social" },
-  { id: "4.1-semdesculpa", label: "4.1 Sem desculpa", category: "Urgência / CTA" },
-  { id: "4.2-quanto", label: "4.2 Quanto você perde", category: "Urgência / CTA" },
-  { id: "5.2-dado", label: "5.2 Dado do dia", category: "Educativo" },
+  { id: "3.1-numero", label: "3.1 Operação fundadora", category: "Prova da operação" },
+  { id: "4.1-semdesculpa", label: "4.1 Começo direto", category: "Produto / CTA" },
+  { id: "4.2-quanto", label: "4.2 Escala da operação", category: "Prova da operação" },
+  { id: "5.2-dado", label: "5.2 Evento fundador", category: "Prova da operação" },
 ];
 
 export default function PostsPage() {
