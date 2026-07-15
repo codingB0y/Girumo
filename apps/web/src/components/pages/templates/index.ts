@@ -23,25 +23,25 @@ export type TemplateProps = {
  */
 export const COLOR_STYLES: Record<
   LpColor,
-  { bg: string; text: string; ring: string; soft: string }
+  { button: string; text: string; ring: string; soft: string }
 > = {
   iris: {
-    bg: "bg-[#6a4bf0]",
-    text: "text-[#6a4bf0]",
-    ring: "focus-visible:outline-[#6a4bf0]",
-    soft: "bg-[#6a4bf0]/10",
+    button: "bg-cobalt-500 text-paper-0",
+    text: "text-cobalt-700",
+    ring: "focus-visible:outline-cobalt-500",
+    soft: "bg-cobalt-500/10",
   },
   emerald: {
-    bg: "bg-emerald-600",
-    text: "text-emerald-600",
-    ring: "focus-visible:outline-emerald-600",
-    soft: "bg-emerald-600/10",
+    button: "bg-acid-500 text-volt-950",
+    text: "text-volt-950",
+    ring: "focus-visible:outline-cobalt-500",
+    soft: "bg-acid-500/20",
   },
   amber: {
-    bg: "bg-amber-500",
-    text: "text-amber-600",
-    ring: "focus-visible:outline-amber-500",
-    soft: "bg-amber-500/10",
+    button: "bg-volt-950 text-paper-0",
+    text: "text-volt-950",
+    ring: "focus-visible:outline-cobalt-500",
+    soft: "bg-volt-950/10",
   },
 };
 

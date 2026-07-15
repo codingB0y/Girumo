@@ -2,16 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
+import { Logo } from "@/components/brand/logo";
+import { BRAND } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
   ["Método", "#metodo"],
-  ["Prova", "#prova"],
+  ["Sistema", "#prova"],
   ["Planos", "#planos"],
   ["Dúvidas", "#faq"],
 ] as const;
 
-/** Pílula flutuante — transparente no topo, vidro carvão ao rolar. */
+/** Navegação compacta do experimento sobre uma superfície Volt opaca. */
 export function Lp2Nav({ signupUrl }: { signupUrl: string }) {
   const [scrolled, setScrolled] = useState(false);
 
@@ -26,12 +28,12 @@ export function Lp2Nav({ signupUrl }: { signupUrl: string }) {
     <header className="fixed inset-x-0 top-4 z-50 px-4">
       <div
         className={cn(
-          "lp4-nav mx-auto flex max-w-5xl items-center justify-between rounded-full px-5 py-3",
+          "lp4-nav mx-auto flex max-w-5xl items-center justify-between rounded-[var(--radius-card)] px-5 py-3",
           scrolled && "is-scrolled",
         )}
       >
-        <a href="#" aria-label="HubFlow — topo" className="lp4-x text-base tracking-tight">
-          HubFlow
+        <a href="#" aria-label={`${BRAND.name} — topo`}>
+          <Logo className="text-lg text-paper-0" />
         </a>
 
         <nav className="hidden items-center gap-8 md:flex" aria-label="Seções da página">
@@ -39,7 +41,7 @@ export function Lp2Nav({ signupUrl }: { signupUrl: string }) {
             <a
               key={href}
               href={href}
-              className="text-sm font-medium text-[var(--body)] transition-colors hover:text-[var(--display)]"
+              className="text-sm font-medium text-canvas-100/70 transition-colors hover:text-paper-0"
             >
               {label}
             </a>
@@ -49,7 +51,7 @@ export function Lp2Nav({ signupUrl }: { signupUrl: string }) {
         <div className="flex items-center gap-4">
           <a
             href="/login"
-            className="hidden text-sm text-[var(--body)] transition-colors hover:text-[var(--display)] sm:inline"
+            className="hidden text-sm text-canvas-100/70 transition-colors hover:text-paper-0 sm:inline"
           >
             Entrar
           </a>
