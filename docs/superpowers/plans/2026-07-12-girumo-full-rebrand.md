@@ -1581,7 +1581,7 @@ Add package scripts:
 
 - ordinary and admin Auth users from `GIRUMO_QA_USER_EMAIL/PASSWORD` and `GIRUMO_QA_ADMIN_EMAIL/PASSWORD`;
 - organization `girumo-qa`, matching `users` rows, and owner/admin memberships;
-- one published `landing_pages` row with slug `girumo-qa-wholesale`, the existing `catalogo-grupo` template, a safe non-live target URL, and wholesale content using `${GIRUMO_DEPLOYMENT_URL}/lp/still-atacado.webp` as its real-operation photo.
+- one published `landing_pages` row with slug `girumo-qa-wholesale`, the existing `catalogo-grupo` template, a safe non-live target URL, and wholesale content using `${GIRUMO_DEPLOYMENT_URL}/brand/girumo/social/og-default-1200x630.png` as a deterministic, non-personal QA fixture image.
 
 The script emits one final JSON line with tenant ID, both user IDs, and `pageSlug`, but no passwords. `render-girumo-email-fixtures.ts` imports `welcomeEmail` and `trialEndingEmail`, renders fixed Girumo QA data into `welcome.html` and `trial-ending.html` under a newly created OS temp directory, and emits that directory as one final JSON line.
 
