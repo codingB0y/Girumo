@@ -147,7 +147,16 @@ export async function updateLandingPage(
 const LEADS = "lp_leads";
 const EVENTS = "lp_tracking_events";
 
-export type LpEventName = "PageView" | "Lead" | "GroupJoin";
+export type LpEventName =
+  // canônicos (funil de 5) + legado (compat de leitura)
+  | "page_view"
+  | "form_start"
+  | "lead_submit_attempt"
+  | "lead_created"
+  | "group_click"
+  | "PageView"
+  | "Lead"
+  | "GroupJoin";
 
 export type LpLeadRow = {
   id: string;
@@ -266,6 +275,90 @@ export async function listRecentLpLeads(
     .limit(limit);
   if (error) throw new Error(error.message);
   return (data ?? []) as LpLeadRow[];
+}
+
+/* --------------------- contatos + capturas (v2) ---------------------- */
+
+const CONTACTS = "lp_contacts";
+const CAPTURES = "lp_captures";
+
+export type LpContactRow = {
+  id: string;
+  tenant_id: string;
+  name: string | null;
+  whatsapp: string;
+  blocked_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/**
+ * Upsert de contato por (tenant, whatsapp) — dedup global de pessoa.
+ * `name` só é gravado quando vem não-vazio (não sobrescreve um nome bom com null).
+ * Retorna o contato (novo ou existente).
+ */
+export async function upsertLpContact(input: {
+  tenantId: string;
+  whatsapp: string; // já normalizado E.164 BR no server
+  name: string | null;
+}): Promise<LpContactRow> {
+  const payload: Record<string, unknown> = {
+    tenant_id: input.tenantId,
+    whatsapp: input.whatsapp,
+    updated_at: new Date().toISOString(),
+  };
+  const name = input.name?.trim();
+  if (name) payload.name = name;
+
+  const { data, error } = await getSupabaseAdmin()
+    .from(CONTACTS)
+    .upsert(payload, { onConflict: "tenant_id,whatsapp" })
+    .select("*")
+    .single();
+  if (error) throw new Error(error.message);
+  return data as LpContactRow;
+}
+
+export type LpCaptureInput = {
+  tenantId: string;
+  landingPageId: string;
+  contactId: string;
+  publishedVersion: number;
+  campaignSlug: string | null;
+  structure: string;
+  visualDirection: string;
+  modelVersion: number;
+  noticeVersion: string;
+  noticeText: string;
+  device: string | null;
+  attribution: LpAttribution;
+  idemKey: string;
+};
+
+/**
+ * Insere a captura (evidência do aviso + atribuição). Idempotente por
+ * (landing_page_id, published_version, contact_id, idem_key): reenvio ou
+ * recarregamento do mesmo envio não cria duplicata.
+ */
+export async function insertLpCapture(input: LpCaptureInput): Promise<{ created: boolean }> {
+  const { error } = await getSupabaseAdmin().from(CAPTURES).insert({
+    tenant_id: input.tenantId,
+    landing_page_id: input.landingPageId,
+    contact_id: input.contactId,
+    published_version: input.publishedVersion,
+    campaign_slug: input.campaignSlug,
+    structure: input.structure,
+    visual_direction: input.visualDirection,
+    model_version: input.modelVersion,
+    notice_version: input.noticeVersion,
+    notice_text: input.noticeText,
+    device: input.device,
+    ...input.attribution,
+    idem_key: input.idemKey,
+  });
+  if (!error) return { created: true };
+  if (error.code === UNIQUE_VIOLATION) return { created: false };
+  throw new Error(error.message);
 }
 
 /* ------------------------------ health ------------------------------- */

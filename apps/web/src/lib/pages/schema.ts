@@ -3,6 +3,13 @@
  * Fonte da verdade dos shapes trocados entre painel, API e render público.
  */
 
+// Girumo LP v2 — barrel do domínio novo (conteúdo, paleta, vídeo, telefone).
+import type { LpStructure, LpVisualDirection } from "./content";
+export * from "./content";
+export * from "./palette";
+export * from "./video";
+export { normalizeWhatsappBR } from "./phone";
+
 export const LP_COLORS = ["iris", "emerald", "amber"] as const;
 export type LpColor = (typeof LP_COLORS)[number];
 
@@ -120,20 +127,6 @@ export function toContent(input: Record<string, unknown>): LpContent {
   };
 }
 
-/**
- * Normaliza WhatsApp BR pra E.164 (+55DDDNÚMERO).
- * Aceita: (62) 99819-1314 · 62998191314 · 5562998191314 · +55 62 ...
- * Retorna null se não parecer um celular BR válido (DDD 11-99 + 8-9 dígitos).
- */
-export function normalizeWhatsappBR(raw: string): string | null {
-  let digits = raw.replace(/\D/g, "");
-  if (digits.startsWith("55") && digits.length >= 12) digits = digits.slice(2);
-  if (digits.length < 10 || digits.length > 11) return null;
-  const ddd = Number(digits.slice(0, 2));
-  if (ddd < 11 || ddd > 99) return null;
-  return `+55${digits}`;
-}
-
 /** Texto de consent LGPD renderizado na LP e snapshotado no lead. */
 export function consentText(storeName: string, groupTopic: string): string {
   return `Aceito ser adicionado ao grupo de WhatsApp de ${storeName} e receber mensagens sobre ${groupTopic}. Posso sair do grupo e revogar este consentimento a qualquer momento.`;
@@ -149,3 +142,36 @@ export function resolveTargetUrl(page: Pick<LandingPage, "campaign_slug" | "targ
 export function validateTargetGroupUrl(url: string): boolean {
   return /^https:\/\/(chat\.whatsapp\.com|wa\.me)\/\S+$/i.test(url.trim());
 }
+
+/* --------------------------- v2: contato × captura --------------------------- */
+
+/** Contato único por tenant+whatsapp (dedup global de pessoa). */
+export type LpContact = {
+  id: string;
+  tenant_id: string;
+  name: string | null;
+  whatsapp: string;
+  blocked_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/** Captura: envio numa página/versão/campanha, referencia o contato + evidência do aviso. */
+export type LpCapture = {
+  id: string;
+  tenant_id: string;
+  landing_page_id: string;
+  contact_id: string;
+  published_version: number;
+  campaign_slug: string | null;
+  structure: LpStructure;
+  visual_direction: LpVisualDirection;
+  model_version: number;
+  notice_version: string;
+  notice_text: string;
+  device: string | null;
+  utm: Record<string, string | null>;
+  idem_key: string;
+  group_clicked_at: string | null;
+  created_at: string;
+};
