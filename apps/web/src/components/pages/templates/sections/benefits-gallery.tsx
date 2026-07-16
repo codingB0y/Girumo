@@ -1,7 +1,6 @@
-/* eslint-disable @next/next/no-img-element */
 import { Tag, Shirt, Package } from "lucide-react";
 import type { LpBenefit, LpMediaRef } from "@/lib/pages/content";
-import { mediaSrc, mediaPosition } from "@/lib/pages/media";
+import { LpImage } from "@/components/pages/templates/sections/lp-image";
 
 /**
  * Ícones de linha das vantagens. O template é nichado em atacado de moda, então o
@@ -70,13 +69,7 @@ export function BenefitsGallerySection({
                   key={i}
                   className="relative aspect-[3/4] overflow-hidden rounded-lg bg-[#e7dfd2]"
                 >
-                  <img
-                    src={mediaSrc(g)}
-                    alt={g.alt}
-                    className="absolute inset-0 h-full w-full object-cover"
-                    style={{ objectPosition: mediaPosition(g) }}
-                    loading="lazy"
-                  />
+                  <LpImage media={g} alt={g.alt} sizes="(min-width: 1024px) 25vw, 33vw" />
                 </div>
               ))}
             </div>

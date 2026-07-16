@@ -1,10 +1,9 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element */
 import { useState } from "react";
 import type { LpProof } from "@/lib/pages/content";
 import { embedUrl } from "@/lib/pages/video";
-import { mediaSrc, mediaPosition } from "@/lib/pages/media";
+import { LpImage } from "@/components/pages/templates/sections/lp-image";
 import { TYPE } from "@/components/pages/templates/tokens";
 
 /**
@@ -37,14 +36,7 @@ export function VideoProofSection({ proof }: { proof: NonNullable<LpProof> }) {
                 className="group absolute inset-0 flex items-center justify-center"
               >
                 {proof.video.poster ? (
-                  <img
-                    src={mediaSrc(proof.video.poster)}
-                    alt=""
-                    aria-hidden
-                    className="absolute inset-0 h-full w-full object-cover"
-                    style={{ objectPosition: mediaPosition(proof.video.poster) }}
-                    loading="lazy"
-                  />
+                  <LpImage media={proof.video.poster} alt="" sizes="300px" />
                 ) : null}
                 <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-white/95 shadow-sm transition group-hover:scale-105">
                   <svg viewBox="0 0 24 24" className="ml-0.5 h-5 w-5 fill-[#221a13]" aria-hidden>
@@ -60,12 +52,10 @@ export function VideoProofSection({ proof }: { proof: NonNullable<LpProof> }) {
               </button>
             )
           ) : (
-            <img
-              src={mediaSrc(proof.photo)}
+            <LpImage
+              media={proof.photo}
               alt={proof.photo.alt || `Foto de ${proof.name}`}
-              className="absolute inset-0 h-full w-full object-cover"
-              style={{ objectPosition: mediaPosition(proof.photo) }}
-              loading="lazy"
+              sizes="300px"
             />
           )}
         </div>

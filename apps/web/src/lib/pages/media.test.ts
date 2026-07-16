@@ -1,17 +1,19 @@
 import assert from "node:assert/strict";
 import { mediaSrc, mediaPosition } from "./media";
 
-// mediaSrc — media_id é o caminho preferido (derivado servido por /api/media/:id);
-// url é o fallback (legado/externo). NUNCA serve o arquivo-fonte cru diretamente.
-assert.equal(mediaSrc({ media_id: "abc123", alt: "foto" }), "/api/media/abc123");
+// mediaSrc — media_id é o caminho preferido e resolve para a rota PÚBLICA
+// (/api/p/media/:id), que só serve mídia de LP e é otimizada pelo next/image por
+// ser same-origin. /api/media/:id continua privada (editor/engine) e não aparece
+// aqui. url é o fallback (legado/externo). NUNCA serve o arquivo-fonte cru.
+assert.equal(mediaSrc({ media_id: "abc123", alt: "foto" }), "/api/p/media/abc123");
 assert.equal(mediaSrc({ url: "https://cdn.exemplo.com/foto.jpg", alt: "foto" }), "https://cdn.exemplo.com/foto.jpg");
 // media_id vence quando ambos estão presentes
 assert.equal(
   mediaSrc({ media_id: "abc123", url: "https://cdn.exemplo.com/foto.jpg", alt: "foto" }),
-  "/api/media/abc123",
+  "/api/p/media/abc123",
 );
 // id com caractere especial é encodado (defesa)
-assert.equal(mediaSrc({ media_id: "a/b?c", alt: "x" }), "/api/media/a%2Fb%3Fc");
+assert.equal(mediaSrc({ media_id: "a/b?c", alt: "x" }), "/api/p/media/a%2Fb%3Fc");
 // sem media_id nem url → string vazia (não deve acontecer pós-validação)
 assert.equal(mediaSrc({ alt: "x" }), "");
 

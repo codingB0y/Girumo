@@ -1,7 +1,8 @@
 /* eslint-disable @next/next/no-img-element */
 import type { ReactNode } from "react";
 import type { LpContentV2, LpMediaRef } from "@/lib/pages/content";
-import { mediaSrc, mediaPosition } from "@/lib/pages/media";
+import { mediaSrc } from "@/lib/pages/media";
+import { LpImage } from "@/components/pages/templates/sections/lp-image";
 import { TYPE } from "@/components/pages/templates/tokens";
 
 /**
@@ -63,13 +64,11 @@ export function HeroSection({
 
       <div className="lg:grid lg:min-h-[640px] lg:grid-cols-2 lg:items-stretch">
         <figure className="relative mt-6 aspect-[16/11] w-full lg:mt-0 lg:aspect-auto lg:h-full">
-          <img
-            src={mediaSrc(hero)}
+          <LpImage
+            media={hero}
             alt={hero.alt || `Foto de ${store_name}`}
-            className="absolute inset-0 h-full w-full object-cover"
-            style={{ objectPosition: mediaPosition(hero) }}
-            loading="eager"
-            fetchPriority="high"
+            priority
+            sizes="(min-width: 1024px) 50vw, 100vw"
           />
         </figure>
 
