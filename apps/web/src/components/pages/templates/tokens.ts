@@ -15,12 +15,12 @@ import type { AccessiblePalette } from "@/lib/pages/palette";
 
 /** Cores de superfície fixas (hex) — usadas em arbitrary values e style inline. */
 export const EDITORIAL = {
-  paper: "#f8f5f0", // fundo papel quente
-  paperShade: "#f0ebe2", // cartões / blocos sobre o papel
-  ink: "#17130f", // tinta (texto e superfície escura da prova)
-  inkSoft: "#6b6259", // texto secundário
-  line: "#e4dcd0", // hairlines / divisores neutros
-  wine: "#6e2233", // filete editorial fixo (aspas, fios de destaque)
+  paper: "#efe9df", // fundo papel quente (creme editorial)
+  paperShade: "#e7dfd2", // banda de prova / cartões sobre o papel
+  ink: "#221a13", // tinta (texto e títulos)
+  inkSoft: "#6f6558", // texto secundário
+  line: "#ddd2c2", // hairlines / divisores neutros
+  wine: "#6d2436", // filete editorial fixo (aspas) — o accent real vem da marca
 } as const;
 
 /**

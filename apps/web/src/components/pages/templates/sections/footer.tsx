@@ -7,7 +7,7 @@ import { TYPE } from "@/components/pages/templates/tokens";
  */
 export function FooterSection({ storeName }: { storeName: string }) {
   return (
-    <footer className="bg-[#17130f]">
+    <footer className="bg-[#221a13]">
       <div className="mx-auto flex w-full max-w-6xl flex-col items-start gap-2 px-5 py-8 lg:flex-row lg:items-center lg:justify-between lg:px-10">
         <span className={`${TYPE.meta} text-white/60`}>{storeName}</span>
         <span className={`${TYPE.meta} text-white/40`}>página criada com HubFlow</span>

@@ -33,7 +33,7 @@ export function StickyCta({ label }: { label: string }) {
   return (
     <div
       aria-hidden={!show}
-      className={`fixed inset-x-0 bottom-0 z-40 border-t border-[#e4dcd0] bg-[#f8f5f0]/95 p-3 backdrop-blur transition-transform duration-200 lg:hidden ${
+      className={`fixed inset-x-0 bottom-0 z-40 border-t border-[#ddd2c2] bg-[#efe9df]/95 p-3 backdrop-blur transition-transform duration-200 lg:hidden ${
         show ? "translate-y-0" : "pointer-events-none translate-y-full"
       }`}
     >

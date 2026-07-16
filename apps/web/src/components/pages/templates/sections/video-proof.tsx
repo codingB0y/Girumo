@@ -8,18 +8,19 @@ import { mediaSrc, mediaPosition } from "@/lib/pages/media";
 import { TYPE } from "@/components/pages/templates/tokens";
 
 /**
- * Prova social (depoimento 9:16) sobre fundo escuro (ink) para dar drama editorial.
- * Vídeo = facade: a capa aparece de imediato e o iframe de terceiros só é CRIADO
- * após o clique — equivalente ao `preload="none"` de <video> e sem autoplay com
- * áudio no load (o som só vem do gesto do usuário). Foto = retrato 9:16 estático.
+ * Prova social ("quem compra, recomenda") sobre o papel, em banda de tom levemente
+ * diferente para dar ritmo editorial. Vídeo = facade: a capa aparece de imediato e
+ * o iframe de terceiros só é CRIADO após o clique — equivalente ao `preload="none"`
+ * de <video>, sem autoplay com áudio no load (o som vem do gesto do usuário).
+ * Foto = retrato estático. Desktop: mídia à esquerda, citação à direita.
  */
 export function VideoProofSection({ proof }: { proof: NonNullable<LpProof> }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <section className="bg-[#17130f]">
-      <div className="mx-auto grid w-full max-w-md gap-8 px-5 py-14 lg:max-w-5xl lg:grid-cols-[minmax(0,320px)_1fr] lg:items-center lg:gap-14 lg:px-10 lg:py-20">
-        <div className="relative mx-auto aspect-[9/16] w-full max-w-[320px] overflow-hidden rounded-2xl border border-white/10 bg-black">
+    <section className="border-y border-[#ddd2c2] bg-[#e7dfd2]">
+      <div className="mx-auto grid w-full max-w-md gap-7 px-6 py-12 lg:max-w-5xl lg:grid-cols-[minmax(0,300px)_1fr] lg:items-center lg:gap-12 lg:px-10 lg:py-16">
+        <div className="relative mx-auto aspect-[4/5] w-full max-w-[300px] overflow-hidden rounded-xl border border-[#ddd2c2] bg-[#221a13]">
           {proof.kind === "video" ? (
             open ? (
               <iframe
@@ -33,24 +34,29 @@ export function VideoProofSection({ proof }: { proof: NonNullable<LpProof> }) {
                 type="button"
                 onClick={() => setOpen(true)}
                 aria-label={`Assistir o depoimento de ${proof.name}, ${proof.store}`}
-                className="group absolute inset-0 flex flex-col items-center justify-center gap-4 p-6 text-center"
+                className="group absolute inset-0 flex items-center justify-center"
               >
                 {proof.video.poster ? (
                   <img
                     src={mediaSrc(proof.video.poster)}
                     alt=""
                     aria-hidden
-                    className="absolute inset-0 h-full w-full object-cover opacity-55"
+                    className="absolute inset-0 h-full w-full object-cover"
                     style={{ objectPosition: mediaPosition(proof.video.poster) }}
                     loading="lazy"
                   />
                 ) : null}
-                <span className="relative flex h-16 w-16 items-center justify-center rounded-full bg-[var(--lp-brand)] text-[color:var(--lp-on-brand)] transition group-hover:scale-105">
-                  <svg viewBox="0 0 24 24" className="ml-1 h-6 w-6 fill-current" aria-hidden>
+                <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-white/95 shadow-sm transition group-hover:scale-105">
+                  <svg viewBox="0 0 24 24" className="ml-0.5 h-5 w-5 fill-[#221a13]" aria-hidden>
                     <path d="M8 5v14l11-7z" />
                   </svg>
                 </span>
-                <span className={`relative ${TYPE.meta} text-white/80`}>toque pra assistir</span>
+                <span
+                  aria-hidden
+                  className="absolute bottom-2 right-2 rounded bg-[#221a13]/85 px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-wider text-white"
+                >
+                  CC
+                </span>
               </button>
             )
           ) : (
@@ -64,15 +70,14 @@ export function VideoProofSection({ proof }: { proof: NonNullable<LpProof> }) {
           )}
         </div>
 
-        <figure className="text-[#f8f5f0]">
-          <span aria-hidden className="block font-serif text-5xl leading-none text-[#8a3346]">
-            &ldquo;
-          </span>
-          <blockquote className="mt-2 font-serif text-[1.4rem] leading-snug lg:text-[1.75rem]">
-            {proof.quote}
+        <figure>
+          <p className={`${TYPE.eyebrow} text-[color:var(--lp-accent)]`}>Quem compra, recomenda</p>
+          <blockquote className="mt-3 font-serif text-[1.5rem] leading-snug text-[#221a13] lg:text-[1.9rem]">
+            &ldquo;{proof.quote}&rdquo;
           </blockquote>
-          <figcaption className={`mt-5 ${TYPE.meta} text-white/60`}>
-            {proof.name} · {proof.store} · {proof.city}
+          <figcaption className="mt-4 text-sm text-[#6f6558]">
+            <span className="font-semibold text-[#221a13]">{proof.name}</span> — {proof.store},{" "}
+            {proof.city}
           </figcaption>
         </figure>
       </div>
