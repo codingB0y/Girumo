@@ -1,19 +1,17 @@
-import { LogoSymbol } from 'hubflow-web';
+import { LogoSymbol } from "hubflow-web";
 
-// Símbolo da corrente (dois elos formando "H") — versão Íris sobre Bruma.
-export function Iris() {
+export function Avatar() {
   return (
-    <div className="bg-bruma" style={{ padding: 48 }}>
-      <LogoSymbol className="h-16 w-16 text-iris" />
+    <div className="flex h-56 w-56 items-center justify-center rounded-full bg-acid-500 text-volt-950">
+      <LogoSymbol className="h-32 w-32 text-volt-950" title="Girumo" />
     </div>
   );
 }
 
-// Símbolo em branco sobre Breu (uso em fundos escuros).
-export function Branco() {
+export function Reverso() {
   return (
-    <div className="bg-breu" style={{ padding: 48 }}>
-      <LogoSymbol className="h-16 w-16 text-white" />
+    <div className="bg-volt-950 p-12 text-paper-0">
+      <LogoSymbol className="h-24 w-24 text-paper-0" title="Girumo" />
     </div>
   );
 }
