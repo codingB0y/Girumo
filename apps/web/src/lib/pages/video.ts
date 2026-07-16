@@ -58,3 +58,22 @@ export function parseVideoUrl(raw: string): LpVideoEmbed | null {
 
   return null;
 }
+
+/**
+ * Monta o `src` do iframe de embed a partir de `{ provider, id }` já validado.
+ * O iframe é criado só após o clique do visitante (facade) — `autoplay` só é
+ * pedido nesse momento, com o gesto do usuário liberando o som pelo browser.
+ *  - YouTube: domínio `youtube-nocookie` (não seta cookie antes do play) + `rel=0`.
+ *  - Vimeo: player oficial com `dnt=1` (do-not-track).
+ */
+export function embedUrl(
+  provider: LpVideoProvider,
+  id: string,
+  opts?: { autoplay?: boolean },
+): string {
+  const autoplay = opts?.autoplay ? "&autoplay=1" : "";
+  if (provider === "youtube") {
+    return `https://www.youtube-nocookie.com/embed/${id}?rel=0${autoplay}`;
+  }
+  return `https://player.vimeo.com/video/${id}?dnt=1${autoplay}`;
+}
