@@ -37,7 +37,7 @@ export default async function AdminFunilPage() {
       </div>
 
       {/* Funnel visualization */}
-      <div className="rounded-2xl border border-breu/[0.06] bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-volt-950/[0.06] bg-white p-6 shadow-sm">
         <h2 className="font-display mb-6 text-base font-bold">Funil por etapa</h2>
         <div className="space-y-3">
           {FUNNEL_STEPS.map((step, i) => {
@@ -53,19 +53,19 @@ export default async function AdminFunilPage() {
                     <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${step.color}`}>
                       <step.icon className="h-4 w-4" />
                     </span>
-                    <span className="text-sm font-medium text-breu">{step.label}</span>
+                    <span className="text-sm font-medium text-volt-950">{step.label}</span>
                   </div>
                   <div className="flex items-center gap-4">
                     {i > 0 && dropoff > 0 && (
                       <span className="font-data text-[11px] text-red-500">-{dropoff}% drop</span>
                     )}
-                    <span className="font-data text-sm font-semibold text-breu">{count}</span>
+                    <span className="font-data text-sm font-semibold text-volt-950">{count}</span>
                     <span className="font-data w-12 text-right text-xs text-aco/50">{pct}%</span>
                   </div>
                 </div>
-                <div className="h-2.5 overflow-hidden rounded-full bg-bruma">
+                <div className="h-2.5 overflow-hidden rounded-full bg-canvas-100">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-iris to-iris-claro transition-all duration-500"
+                    className="h-full rounded-full bg-cobalt-500 transition-all duration-500"
                     style={{ width: `${Math.max(pct, 1)}%` }}
                   />
                 </div>
@@ -76,18 +76,18 @@ export default async function AdminFunilPage() {
       </div>
 
       {/* Conversion rates table */}
-      <div className="rounded-2xl border border-breu/[0.06] bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-volt-950/[0.06] bg-white p-6 shadow-sm">
         <h2 className="font-display mb-4 text-base font-bold">Taxas de Conversão</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-bruma">
+              <tr className="border-b border-canvas-100">
                 <th className="pb-2 text-left font-medium text-aco/70">De</th>
                 <th className="pb-2 text-left font-medium text-aco/70">Para</th>
                 <th className="pb-2 text-right font-medium text-aco/70">Taxa</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-bruma/50">
+            <tbody className="divide-y divide-canvas-100/50">
               {FUNNEL_STEPS.slice(1).map((step, i) => {
                 const from = metrics[FUNNEL_STEPS[i].event] ?? 0;
                 const to = metrics[step.event] ?? 0;

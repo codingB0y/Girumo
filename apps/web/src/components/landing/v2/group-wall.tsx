@@ -3,16 +3,16 @@ import { WhatsAppIcon } from "@/components/landing/icons";
 /**
  * Muro de grupos — pano de fundo do CTA final.
  * Grade de células que o LandingFx monta em cascata e "acende"
- * (verde = grupo enchendo, íris = grupo gerenciado) via [data-wall].
+ * (verde = grupo enchendo, Cobalt = grupo gerenciado) via [data-wall].
  */
 const COLS = 14;
 const ROWS = 7;
 
 /** Determinístico (nada de Math.random no server) — padrão pseudo-aleatório estável. */
-function cellKind(i: number): "on" | "iris" | "off" {
+function cellKind(i: number): "on" | "cobalt" | "off" {
   const h = (i * 2654435761) % 97;
   if (h < 16) return "on";
-  if (h < 24) return "iris";
+  if (h < 24) return "cobalt";
   return "off";
 }
 

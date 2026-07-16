@@ -12,7 +12,7 @@ export function PainelTopbar() {
       </div>
 
       {/* seletor de instância (número conectado) */}
-      <button className="hidden items-center gap-2 rounded-[10px] border border-breu/10 bg-papel px-3 py-2 text-sm text-breu shadow-[var(--shadow-pn-1)] transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] hover:border-iris/30 hover:shadow-[var(--shadow-pn-2)] sm:flex">
+      <button className="hidden items-center gap-2 rounded-[10px] border border-volt-950/10 bg-papel px-3 py-2 text-sm text-volt-950 shadow-[var(--shadow-pn-1)] transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] hover:border-cobalt-500/30 hover:shadow-[var(--shadow-pn-2)] sm:flex">
         <span className="flex h-5 w-5 items-center justify-center rounded-md bg-sucesso/10 text-sucesso">
           <Smartphone className="h-3 w-3" />
         </span>

@@ -62,7 +62,7 @@ export function PainelMobileNav() {
               {/* indicador de ativo — pílula no topo */}
               <span
                 className={cn(
-                  "absolute top-0 h-0.5 w-8 rounded-full bg-iris transition-opacity duration-[240ms] ease-[var(--ease-fluxo)]",
+                  "absolute top-0 h-0.5 w-8 rounded-full bg-cobalt-500 transition-opacity duration-[240ms] ease-[var(--ease-fluxo)]",
                   active ? "opacity-100" : "opacity-0",
                 )}
               />
@@ -87,7 +87,7 @@ export function PainelMobileNav() {
           <button
             aria-label="Fechar menu"
             onClick={() => setOpen(false)}
-            className="absolute inset-0 bg-breu/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-volt-950/60 backdrop-blur-sm"
           />
           <div className="pn-palette-in absolute inset-y-0 left-0 flex w-72 max-w-[82%] flex-col bg-volt-950">
             <div className="flex h-16 items-center justify-between px-5">

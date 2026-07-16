@@ -68,7 +68,7 @@ export function PlanGate({ resource, variant = "inline", className }: PlanGatePr
       >
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-sm font-medium text-breu">
+            <p className="text-sm font-medium text-volt-950">
               {atLimit
                 ? `Limite de ${label.plural} atingido`
                 : `${info.used}/${info.limit} ${label.plural} usadas`}
@@ -89,7 +89,7 @@ export function PlanGate({ resource, variant = "inline", className }: PlanGatePr
           )}
         </div>
         {/* Progress bar */}
-        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-bruma">
+        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-canvas-100">
           <div
             className={cn(
               "h-full rounded-full transition-all",
@@ -118,7 +118,7 @@ export function PlanGate({ resource, variant = "inline", className }: PlanGatePr
       {atLimit && (
         <Link
           href="/painel/configuracoes"
-          className="ml-auto font-medium underline transition hover:text-breu"
+          className="ml-auto font-medium underline transition hover:text-volt-950"
         >
           Upgrade
         </Link>

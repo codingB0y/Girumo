@@ -102,7 +102,7 @@ export default async function AdminBillingPage() {
           href="https://dashboard.stripe.com"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 rounded-xl border border-breu/[0.06] bg-white px-4 py-2.5 text-sm font-medium text-breu shadow-sm transition hover:border-iris/20 hover:shadow-md"
+          className="inline-flex items-center gap-2 rounded-xl border border-volt-950/[0.06] bg-white px-4 py-2.5 text-sm font-medium text-volt-950 shadow-sm transition hover:border-cobalt-500/20 hover:shadow-md"
         >
           Stripe Dashboard &rarr;
         </a>
@@ -147,15 +147,15 @@ export default async function AdminBillingPage() {
 
       {/* Invoices recentes do Stripe */}
       {stripeData.available && stripeData.invoices.length > 0 && (
-        <div className="rounded-2xl border border-breu/[0.06] bg-white shadow-sm">
-          <div className="flex items-center gap-3 border-b border-breu/[0.06] px-5 py-4">
-            <Receipt className="h-4 w-4 text-iris" />
+        <div className="rounded-2xl border border-volt-950/[0.06] bg-white shadow-sm">
+          <div className="flex items-center gap-3 border-b border-volt-950/[0.06] px-5 py-4">
+            <Receipt className="h-4 w-4 text-cobalt-500" />
             <h2 className="font-display text-base font-bold">Invoices Recentes (Stripe)</h2>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-breu/[0.06]">
+                <tr className="border-b border-volt-950/[0.06]">
                   <th className="px-5 py-3.5 font-data text-[11px] uppercase tracking-wider text-aco/55">Invoice</th>
                   <th className="px-5 py-3.5 font-data text-[11px] uppercase tracking-wider text-aco/55">Cliente</th>
                   <th className="px-5 py-3.5 font-data text-[11px] uppercase tracking-wider text-aco/55">Valor</th>
@@ -164,16 +164,16 @@ export default async function AdminBillingPage() {
                   <th className="px-5 py-3.5 font-data text-[11px] uppercase tracking-wider text-aco/55">Link</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-breu/[0.04]">
+              <tbody className="divide-y divide-volt-950/[0.04]">
                 {stripeData.invoices.map((inv) => (
-                  <tr key={inv.id} className="transition hover:bg-bruma/30">
-                    <td className="px-5 py-3.5 font-data text-xs text-breu">
+                  <tr key={inv.id} className="transition hover:bg-canvas-100/30">
+                    <td className="px-5 py-3.5 font-data text-xs text-volt-950">
                       {inv.number ?? inv.id.slice(-8)}
                     </td>
                     <td className="px-5 py-3.5 text-xs text-aco/60">
                       {inv.customerEmail ?? "—"}
                     </td>
-                    <td className="px-5 py-3.5 font-data text-xs font-medium text-breu">
+                    <td className="px-5 py-3.5 font-data text-xs font-medium text-volt-950">
                       R$ {(inv.amountPaid / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                     </td>
                     <td className="px-5 py-3.5">
@@ -190,7 +190,7 @@ export default async function AdminBillingPage() {
                           href={inv.hostedUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="font-data text-xs text-iris hover:underline"
+                          className="font-data text-xs text-cobalt-500 hover:underline"
                         >
                           Ver
                         </a>
@@ -207,14 +207,14 @@ export default async function AdminBillingPage() {
       )}
 
       {/* Tabela de assinaturas internas */}
-      <div className="rounded-2xl border border-breu/[0.06] bg-white shadow-sm">
-        <div className="border-b border-breu/[0.06] px-5 py-4">
+      <div className="rounded-2xl border border-volt-950/[0.06] bg-white shadow-sm">
+        <div className="border-b border-volt-950/[0.06] px-5 py-4">
           <h2 className="font-display text-base font-bold">Assinaturas (Database)</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-breu/[0.06]">
+              <tr className="border-b border-volt-950/[0.06]">
                 <th className="px-5 py-3.5 font-data text-[11px] uppercase tracking-wider text-aco/55">Tenant</th>
                 <th className="px-5 py-3.5 font-data text-[11px] uppercase tracking-wider text-aco/55">Plano</th>
                 <th className="px-5 py-3.5 font-data text-[11px] uppercase tracking-wider text-aco/55">Preço</th>
@@ -223,18 +223,18 @@ export default async function AdminBillingPage() {
                 <th className="px-5 py-3.5 font-data text-[11px] uppercase tracking-wider text-aco/55">Criado em</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-breu/[0.04]">
+            <tbody className="divide-y divide-volt-950/[0.04]">
               {allSubs.map((s) => {
                 const plan = planMap.get(s.plan_id);
                 return (
-                  <tr key={s.id} className="transition hover:bg-bruma/30">
-                    <td className="px-5 py-3.5 font-medium text-breu">
+                  <tr key={s.id} className="transition hover:bg-canvas-100/30">
+                    <td className="px-5 py-3.5 font-medium text-volt-950">
                       {orgMap.get(s.tenant_id) ?? s.tenant_id}
                     </td>
                     <td className="px-5 py-3.5 font-data text-xs text-aco/60">
                       {plan?.name ?? plan?.code ?? "—"}
                     </td>
-                    <td className="px-5 py-3.5 font-data text-xs text-breu">
+                    <td className="px-5 py-3.5 font-data text-xs text-volt-950">
                       {plan?.price_cents
                         ? `R$ ${(plan.price_cents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
                         : "—"}

@@ -136,8 +136,8 @@ create index idx_agent_configs_agent on agent_configs(agent_id);`}
       {/* Agentes por categoria */}
       <div className="space-y-6">
         {categories.map(({ key, label, icon: Icon, color, agents }) => (
-          <section key={key} className="rounded-2xl border border-breu/[0.06] bg-white shadow-sm">
-            <div className="flex items-center gap-3 border-b border-breu/[0.06] px-5 py-4">
+          <section key={key} className="rounded-2xl border border-volt-950/[0.06] bg-white shadow-sm">
+            <div className="flex items-center gap-3 border-b border-volt-950/[0.06] px-5 py-4">
               <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${color}`}>
                 <Icon className="h-4 w-4" />
               </span>
@@ -146,17 +146,17 @@ create index idx_agent_configs_agent on agent_configs(agent_id);`}
                 {agents.length} agentes
               </span>
             </div>
-            <div className="divide-y divide-breu/[0.04]">
+            <div className="divide-y divide-volt-950/[0.04]">
               {agents.map((agent) => {
                 const usage = usageByAgent.get(agent.id);
                 return (
-                  <div key={agent.id} className="flex items-center justify-between px-5 py-3.5 transition hover:bg-bruma/30">
+                  <div key={agent.id} className="flex items-center justify-between px-5 py-3.5 transition hover:bg-canvas-100/30">
                     <div className="flex items-center gap-3">
                       <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${color}`}>
                         <Bot className="h-4 w-4" />
                       </span>
                       <div>
-                        <p className="text-sm font-medium text-breu">{agent.name}</p>
+                        <p className="text-sm font-medium text-volt-950">{agent.name}</p>
                         <p className="font-data text-[11px] text-aco/50">{agent.description}</p>
                       </div>
                     </div>
@@ -164,7 +164,7 @@ create index idx_agent_configs_agent on agent_configs(agent_id);`}
                       {usage ? (
                         <>
                           <div className="text-right">
-                            <p className="font-data text-xs text-breu">{usage.executions} exec</p>
+                            <p className="font-data text-xs text-volt-950">{usage.executions} exec</p>
                             <p className="font-data text-[10px] text-aco/45">{usage.tenants} tenants</p>
                           </div>
                           <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-data text-[10px] uppercase tracking-wider ${

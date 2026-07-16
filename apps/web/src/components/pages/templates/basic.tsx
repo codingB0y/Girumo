@@ -11,7 +11,7 @@ import { BRAND } from "@/lib/brand";
  * A foto continua em <img> porque a URL é fornecida pelo lojista.
  */
 export function BasicTemplate({ slug, content, copy, consentText, preview }: TemplateProps) {
-  const color = COLOR_STYLES[content.primary_color];
+  const color = COLOR_STYLES[content.primary_color] ?? COLOR_STYLES.cobalt;
 
   return (
     <main

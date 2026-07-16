@@ -16,7 +16,7 @@ type Lead = {
 };
 
 const STATUS: Record<LeadStatus, { label: string; pill: string }> = {
-  novo: { label: "Novo", pill: "bg-iris/[0.07] text-iris" },
+  novo: { label: "Novo", pill: "bg-cobalt-500/[0.07] text-cobalt-500" },
   ativo: { label: "Ativo", pill: "bg-sucesso/10 text-sucesso" },
   comprou: { label: "Cliente", pill: "bg-sucesso/10 text-sucesso" },
 };
@@ -72,7 +72,7 @@ export default function PainelContatos() {
   return (
     <div className="mx-auto max-w-[1200px] space-y-8 px-4 py-8 sm:px-8">
       <header>
-        <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-breu">Contatos</h1>
+        <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-volt-950">Contatos</h1>
         <p className="font-editorial mt-1 text-[19px] italic text-ardosia">
           Quem entrou nos seus grupos pelas campanhas.
         </p>
@@ -80,24 +80,24 @@ export default function PainelContatos() {
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <MiniStat label="Total" value={String(leads.length)} />
-        <MiniStat label="Novos" value={String(counts.novo ?? 0)} tone="iris" />
+        <MiniStat label="Novos" value={String(counts.novo ?? 0)} tone="cobalt" />
         <MiniStat label="Ativos" value={String(counts.ativo ?? 0)} tone="sucesso" />
         <MiniStat label="Clientes" value={String(counts.comprou ?? 0)} tone="sucesso" />
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex gap-1 rounded-xl border border-breu/10 bg-papel p-1">
+        <div className="flex gap-1 rounded-xl border border-volt-950/10 bg-papel p-1">
           {FILTERS.map((f) => (
             <button
               key={f.value}
               onClick={() => setFilter(f.value)}
               className={cn(
                 "cursor-pointer rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors duration-[160ms]",
-                filter === f.value ? "bg-breu text-white" : "text-aco/70 hover:text-breu",
+                filter === f.value ? "bg-volt-950 text-white" : "text-aco/70 hover:text-volt-950",
               )}
             >
               {f.label}
-              <span className={cn("font-data ml-1.5 text-[11px] tabular-nums", filter === f.value ? "text-bruma/60" : "text-aco/40")}>
+              <span className={cn("font-data ml-1.5 text-[11px] tabular-nums", filter === f.value ? "text-canvas-100/60" : "text-aco/40")}>
                 {counts[f.value] ?? 0}
               </span>
             </button>
@@ -110,7 +110,7 @@ export default function PainelContatos() {
             onChange={(e) => setQ(e.target.value)}
             placeholder="Buscar contato…"
             aria-label="Buscar contato"
-            className="w-full rounded-[10px] border border-breu/10 bg-poco py-2.5 pl-9 pr-3 text-sm text-breu outline-none transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] placeholder:text-aco/40 focus:border-iris/50 focus:bg-papel focus:shadow-[0_0_0_3px_var(--color-iris-light)] sm:w-64"
+            className="w-full rounded-[10px] border border-volt-950/10 bg-poco py-2.5 pl-9 pr-3 text-sm text-volt-950 outline-none transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] placeholder:text-aco/40 focus:border-cobalt-500/50 focus:bg-papel focus:shadow-[0_0_0_3px_var(--color-cobalt-soft)] sm:w-64"
           />
         </div>
       </div>
@@ -119,13 +119,13 @@ export default function PainelContatos() {
         <div className="pn-skeleton h-80 rounded-2xl" />
       ) : (
         <div className="pn-card overflow-hidden rounded-2xl">
-          <div className="hidden border-b border-breu/[0.06] bg-poco px-5 py-3 md:grid md:grid-cols-[1.6fr_1fr_0.8fr_auto] md:gap-4">
+          <div className="hidden border-b border-volt-950/[0.06] bg-poco px-5 py-3 md:grid md:grid-cols-[1.6fr_1fr_0.8fr_auto] md:gap-4">
             {["Contato", "Origem", "Status", ""].map((h) => (
               <span key={h} className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/50">{h}</span>
             ))}
           </div>
           {/* régua de romaneio: separadores tracejados */}
-          <div className="divide-y divide-dashed divide-breu/[0.09]">
+          <div className="divide-y divide-dashed divide-volt-950/[0.09]">
             {rows.map((l) => {
               const initials = (l.name || l.phone || "?").split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
               const waPhone = l.phone.replace(/\D/g, "");
@@ -135,11 +135,11 @@ export default function PainelContatos() {
                   className="grid grid-cols-1 gap-3 px-5 py-3.5 transition-colors duration-[160ms] hover:bg-poco md:grid-cols-[1.6fr_1fr_0.8fr_auto] md:items-center md:gap-4"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-iris/10 font-data text-xs font-medium text-iris">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-cobalt-500/10 font-data text-xs font-medium text-cobalt-500">
                       {initials}
                     </span>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-breu">{l.name || "Sem nome"}</p>
+                      <p className="truncate text-sm font-medium text-volt-950">{l.name || "Sem nome"}</p>
                       <p className="font-data text-[11px] text-aco/55">{l.phone || "número pendente"}</p>
                     </div>
                   </div>
@@ -171,7 +171,7 @@ export default function PainelContatos() {
             })}
             {rows.length === 0 && (
               <div className="px-5 py-16 text-center">
-                <p className="font-editorial text-[22px] italic text-breu">
+                <p className="font-editorial text-[22px] italic text-volt-950">
                   {leads.length === 0 ? "Nenhum contato ainda." : "Nenhum contato aqui."}
                 </p>
                 <p className="mt-1 text-sm text-aco/60">
@@ -186,11 +186,11 @@ export default function PainelContatos() {
   );
 }
 
-function MiniStat({ label, value, tone }: { label: string; value: string; tone?: "iris" | "sucesso" }) {
+function MiniStat({ label, value, tone }: { label: string; value: string; tone?: "cobalt" | "sucesso" }) {
   return (
     <div className="pn-card rounded-2xl px-4 py-3.5">
       <p className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/55">{label}</p>
-      <p className={cn("font-data mt-2 text-[26px] font-medium tabular-nums tracking-[-0.02em]", tone === "iris" ? "text-iris" : tone === "sucesso" ? "text-sucesso" : "text-breu")}>
+      <p className={cn("font-data mt-2 text-[26px] font-medium tabular-nums tracking-[-0.02em]", tone === "cobalt" ? "text-cobalt-500" : tone === "sucesso" ? "text-sucesso" : "text-volt-950")}>
         {value}
       </p>
     </div>

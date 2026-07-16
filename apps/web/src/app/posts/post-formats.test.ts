@@ -86,7 +86,7 @@ test("offers all formats and preserves format in preview and downloads", () => {
   assert.match(gallery, /aspectRatio:\s*`\$\{dimensions\.width\}\s*\/\s*\$\{dimensions\.height\}`/);
   assert.match(gallery, /if\s*\(!res\.ok\)/);
   assert.match(gallery, /let\s+objectUrl:\s*string\s*\|\s*null\s*=\s*null/);
-  assert.match(gallery, /finally\s*\{\s*if\s*\(objectUrl\)\s*URL\.revokeObjectURL\(objectUrl\)/s);
+  assert.match(gallery, /finally\s*\{\s*if\s*\(objectUrl\)\s*URL\.revokeObjectURL\(objectUrl\)/);
 });
 
 test("removes the old public social identity and generic visual effects", () => {
@@ -96,5 +96,5 @@ test("removes the old public social identity and generic visual effects", () => 
   assert.doesNotMatch(source, /gradient|glow|glass|radial-gradient|linear-gradient/i);
   assert.doesNotMatch(nonInteractiveSource, /cobalt/i);
   assert.match(page, /title:\s*\{\s*absolute:/);
-  assert.match(gallery, /await\s+new Promise[^;]+setTimeout/s);
+  assert.match(gallery, /await\s+new Promise[^;]+setTimeout/);
 });

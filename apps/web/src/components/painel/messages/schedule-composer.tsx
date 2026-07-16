@@ -48,9 +48,9 @@ export function ScheduleComposer({ onSchedule, scheduling, className }: Props) {
   return (
     <div className={cn("space-y-4", className)}>
       {/* Date/time picker */}
-      <div className="rounded-2xl border border-breu/[0.08] bg-white p-4">
-        <h3 className="flex items-center gap-2 text-sm font-medium text-breu">
-          <Calendar className="h-4 w-4 text-iris" /> Agendar envio
+      <div className="rounded-2xl border border-volt-950/[0.08] bg-white p-4">
+        <h3 className="flex items-center gap-2 text-sm font-medium text-volt-950">
+          <Calendar className="h-4 w-4 text-cobalt-500" /> Agendar envio
         </h3>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           <div>
@@ -60,7 +60,7 @@ export function ScheduleComposer({ onSchedule, scheduling, className }: Props) {
               value={date}
               onChange={(e) => setDate(e.target.value)}
               min={new Date().toISOString().split("T")[0]}
-              className="mt-1 w-full rounded-lg border border-breu/10 bg-bruma/30 px-3 py-2 text-sm text-breu focus:border-iris focus:outline-none"
+              className="mt-1 w-full rounded-lg border border-volt-950/10 bg-canvas-100/30 px-3 py-2 text-sm text-volt-950 focus:border-cobalt-500 focus:outline-none"
             />
           </div>
           <div>
@@ -71,7 +71,7 @@ export function ScheduleComposer({ onSchedule, scheduling, className }: Props) {
                 type="time"
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
-                className="flex-1 rounded-lg border border-breu/10 bg-bruma/30 px-3 py-2 text-sm text-breu focus:border-iris focus:outline-none"
+                className="flex-1 rounded-lg border border-volt-950/10 bg-canvas-100/30 px-3 py-2 text-sm text-volt-950 focus:border-cobalt-500 focus:outline-none"
               />
             </div>
           </div>
@@ -82,7 +82,7 @@ export function ScheduleComposer({ onSchedule, scheduling, className }: Props) {
               <select
                 value={recurrence}
                 onChange={(e) => setRecurrence(e.target.value as "none" | "daily" | "weekly")}
-                className="flex-1 rounded-lg border border-breu/10 bg-bruma/30 px-3 py-2 text-sm text-breu focus:border-iris focus:outline-none"
+                className="flex-1 rounded-lg border border-volt-950/10 bg-canvas-100/30 px-3 py-2 text-sm text-volt-950 focus:border-cobalt-500 focus:outline-none"
               >
                 <option value="none">Única vez</option>
                 <option value="daily">Diário</option>
@@ -102,7 +102,7 @@ export function ScheduleComposer({ onSchedule, scheduling, className }: Props) {
           <button
             onClick={submitPending}
             disabled={scheduling}
-            className="mt-3 inline-flex items-center gap-2 rounded-xl bg-iris px-4 py-2 text-sm font-medium text-white shadow-iris transition hover:-translate-y-0.5 hover:bg-iris-claro"
+            className="mt-3 inline-flex items-center gap-2 rounded-xl bg-cobalt-500 px-4 py-2 text-sm font-medium text-white shadow-brand transition hover:-translate-y-0.5 hover:bg-cobalt-500"
           >
             {scheduling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calendar className="h-4 w-4" />}
             Confirmar agendamento

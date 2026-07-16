@@ -25,7 +25,7 @@ export const COLOR_STYLES: Record<
   LpColor,
   { button: string; text: string; ring: string; soft: string }
 > = {
-  iris: {
+  cobalt: {
     button: "bg-cobalt-500 text-paper-0",
     text: "text-cobalt-700",
     ring: "focus-visible:outline-cobalt-500",

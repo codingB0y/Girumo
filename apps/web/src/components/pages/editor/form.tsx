@@ -35,7 +35,7 @@ export const EMPTY_EDITOR_VALUES: EditorValues = {
 };
 
 const COLOR_LABELS: Record<LpColor, { label: string; swatch: string }> = {
-  iris: { label: "Cobalto", swatch: "bg-cobalt-500" },
+  cobalt: { label: "Cobalto", swatch: "bg-cobalt-500" },
   emerald: { label: "Ácido", swatch: "bg-acid-500" },
   amber: { label: "Volt", swatch: "bg-volt-950" },
 };

@@ -68,21 +68,21 @@ export default function WebhookConfigPage() {
   return (
     <div className="mx-auto max-w-[800px] space-y-8 px-4 py-8 sm:px-8">
       <header>
-        <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-breu">Notificações WhatsApp</h1>
+        <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-volt-950">Notificações WhatsApp</h1>
         <p className="font-editorial mt-1 text-[19px] italic text-ardosia">
           Alertas importantes chegam direto no seu WhatsApp.
         </p>
       </header>
 
       <section className="pn-card overflow-hidden rounded-2xl">
-        <div className="border-b border-breu/[0.06] px-6 py-5">
+        <div className="border-b border-volt-950/[0.06] px-6 py-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-iris/10 text-iris">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-cobalt-500/10 text-cobalt-500">
                 <Bell className="h-5 w-5" strokeWidth={1.75} />
               </span>
               <div>
-                <h2 className="font-display text-base font-bold text-breu">Alertas via WhatsApp</h2>
+                <h2 className="font-display text-base font-bold text-volt-950">Alertas via WhatsApp</h2>
                 <p className="mt-0.5 text-xs text-aco/60">Receba no seu número quando algo importante acontecer</p>
               </div>
             </div>
@@ -92,7 +92,7 @@ export default function WebhookConfigPage() {
               aria-pressed={enabled}
               className={cn(
                 "relative h-7 w-12 cursor-pointer rounded-full transition-colors duration-[160ms] ease-[var(--ease-fluxo)]",
-                enabled ? "bg-iris" : "bg-breu/10",
+                enabled ? "bg-cobalt-500" : "bg-volt-950/10",
               )}
             >
               <span
@@ -117,7 +117,7 @@ export default function WebhookConfigPage() {
               placeholder="5511999999999"
               value={phone}
               onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
-              className="font-data h-11 w-full rounded-[10px] border border-breu/10 bg-poco px-4 text-sm tabular-nums text-breu placeholder:text-aco/40 outline-none transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] focus:border-iris/50 focus:bg-papel focus:shadow-[0_0_0_3px_var(--color-iris-light)] sm:w-72"
+              className="font-data h-11 w-full rounded-[10px] border border-volt-950/10 bg-poco px-4 text-sm tabular-nums text-volt-950 placeholder:text-aco/40 outline-none transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] focus:border-cobalt-500/50 focus:bg-papel focus:shadow-[0_0_0_3px_var(--color-cobalt-soft)] sm:w-72"
             />
             <p className="mt-1 text-xs text-aco/50">Somente números, com DDD. Ex: 5511999999999</p>
           </div>
@@ -137,20 +137,20 @@ export default function WebhookConfigPage() {
                     className={cn(
                       "flex w-full cursor-pointer items-center gap-3 rounded-xl border p-3.5 text-left transition-colors duration-[160ms] ease-[var(--ease-fluxo)]",
                       active
-                        ? "border-iris/30 bg-iris/[0.05]"
-                        : "border-breu/[0.06] bg-poco hover:border-iris/20",
+                        ? "border-cobalt-500/30 bg-cobalt-500/[0.05]"
+                        : "border-volt-950/[0.06] bg-poco hover:border-cobalt-500/20",
                     )}
                   >
                     <span
                       className={cn(
                         "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition",
-                        active ? "border-iris bg-iris text-white" : "border-breu/20",
+                        active ? "border-cobalt-500 bg-cobalt-500 text-white" : "border-volt-950/20",
                       )}
                     >
                       {active && <Check className="h-3 w-3" />}
                     </span>
                     <div>
-                      <p className="text-sm font-medium text-breu">{evt.label}</p>
+                      <p className="text-sm font-medium text-volt-950">{evt.label}</p>
                       <p className="mt-0.5 text-xs text-aco/55">{evt.desc}</p>
                     </div>
                   </button>
@@ -166,10 +166,10 @@ export default function WebhookConfigPage() {
             className={cn(
               "flex h-11 cursor-pointer items-center gap-2 rounded-xl px-6 text-sm font-medium text-white transition ease-[var(--ease-fluxo)]",
               saving || !phone
-                ? "cursor-not-allowed bg-iris/40"
+                ? "cursor-not-allowed bg-cobalt-500/40"
                 : saved
                   ? "bg-sucesso"
-                  : "bg-iris hover:brightness-110",
+                  : "bg-cobalt-500 hover:brightness-110",
             )}
           >
             {saving ? (

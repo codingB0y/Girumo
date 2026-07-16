@@ -71,7 +71,7 @@ export function AdminSidebar({ email }: { email: string }) {
       <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
         {SECTIONS.map((section) => (
           <div key={section.label}>
-            <p className="font-data px-3 pb-2 text-[10px] uppercase tracking-[0.2em] text-bruma/30">
+            <p className="font-data px-3 pb-2 text-[10px] uppercase tracking-[0.2em] text-canvas-100/30">
               {section.label}
             </p>
             <div className="space-y-1">
@@ -86,7 +86,7 @@ export function AdminSidebar({ email }: { email: string }) {
                       "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition",
                       active
                         ? "bg-white/[0.06] font-medium text-white"
-                        : "text-bruma/55 hover:bg-white/[0.03] hover:text-bruma",
+                        : "text-canvas-100/55 hover:bg-white/[0.03] hover:text-canvas-100",
                     )}
                   >
                     {active && (
@@ -108,8 +108,8 @@ export function AdminSidebar({ email }: { email: string }) {
             <Shield className="h-4 w-4" />
           </span>
           <div className="min-w-0">
-            <p className="truncate text-xs font-medium text-bruma/90">Super Admin</p>
-            <p className="truncate font-data text-[10px] text-bruma/40">{email}</p>
+            <p className="truncate text-xs font-medium text-canvas-100/90">Super Admin</p>
+            <p className="truncate font-data text-[10px] text-canvas-100/40">{email}</p>
           </div>
         </div>
       </div>
@@ -126,7 +126,7 @@ export function AdminSidebar({ email }: { email: string }) {
       {/* Mobile hamburger button */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="fixed left-4 top-4 z-50 flex h-10 w-10 items-center justify-center rounded-xl border border-breu/10 bg-white text-breu shadow-md lg:hidden"
+        className="fixed left-4 top-4 z-50 flex h-10 w-10 items-center justify-center rounded-xl border border-volt-950/10 bg-white text-volt-950 shadow-md lg:hidden"
         aria-label="Abrir menu"
       >
         <Menu className="h-5 w-5" />
@@ -145,7 +145,7 @@ export function AdminSidebar({ email }: { email: string }) {
           <aside className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-volt-950 shadow-2xl lg:hidden">
             <button
               onClick={() => setMobileOpen(false)}
-              className="absolute right-3 top-4 flex h-9 w-9 items-center justify-center rounded-xl text-bruma/60 transition hover:bg-white/10 hover:text-white"
+              className="absolute right-3 top-4 flex h-9 w-9 items-center justify-center rounded-xl text-canvas-100/60 transition hover:bg-white/10 hover:text-white"
               aria-label="Fechar menu"
             >
               <X className="h-5 w-5" />

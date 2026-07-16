@@ -69,7 +69,7 @@ export function MembersPanel() {
     <Card className="lg:col-span-2">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <UsersRound className="h-4 w-4 text-iris" />
+          <UsersRound className="h-4 w-4 text-cobalt-500" />
           Membros e convites
         </CardTitle>
       </CardHeader>
@@ -84,7 +84,7 @@ export function MembersPanel() {
           <select
             value={role}
             onChange={(event) => setRole(event.target.value as "admin" | "operator")}
-            className="h-10 rounded-lg border border-breu/10 bg-white px-3 text-sm text-aco outline-none transition focus:border-iris/30 focus:ring-2 focus:ring-iris/10"
+            className="h-10 rounded-lg border border-volt-950/10 bg-white px-3 text-sm text-aco outline-none transition focus:border-cobalt-500/30 focus:ring-2 focus:ring-cobalt-500/10"
           >
             <option value="operator">Operator</option>
             <option value="admin">Admin</option>
@@ -95,7 +95,7 @@ export function MembersPanel() {
           </Button>
         </form>
 
-        <div className="divide-y divide-bruma rounded-lg border border-breu/10">
+        <div className="divide-y divide-canvas-100 rounded-lg border border-volt-950/10">
           {loading ? (
             <div className="px-4 py-6 text-sm text-aco/50">Carregando membros...</div>
           ) : members.length === 0 ? (
@@ -104,7 +104,7 @@ export function MembersPanel() {
             members.map((member) => (
               <div key={member.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                 <div>
-                  <p className="text-sm font-medium text-breu">
+                  <p className="text-sm font-medium text-volt-950">
                     {member.invited_email ?? member.user_id ?? "Membro"}
                   </p>
                   <p className="text-xs text-aco/50">

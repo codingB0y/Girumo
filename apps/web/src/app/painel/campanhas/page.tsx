@@ -26,8 +26,8 @@ type TrackedLink = { slug: string; campaignName?: string; clicks: number };
 const STATUS: Record<CampaignOperationalStatus, { label: string; pill: string }> = {
   ready: { label: "Pronta", pill: "bg-sucesso/10 text-sucesso" },
   needs_invites: { label: "Precisa de convites", pill: "bg-atencao/10 text-atencao" },
-  full: { label: "Grupos cheios", pill: "bg-iris/10 text-iris-escuro" },
-  empty: { label: "Sem grupos", pill: "bg-bruma text-aco/60" },
+  full: { label: "Grupos cheios", pill: "bg-cobalt-500/10 text-cobalt-700" },
+  empty: { label: "Sem grupos", pill: "bg-canvas-100 text-aco/60" },
 };
 
 const FILTERS: { value: "all" | CampaignOperationalStatus; label: string }[] = [
@@ -108,14 +108,14 @@ export default function PainelCampanhas() {
       {/* Cabeçalho */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <header>
-          <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-breu">Campanhas</h1>
+          <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-volt-950">Campanhas</h1>
           <p className="font-editorial mt-1 text-[19px] italic text-ardosia">
             Cada campanha é um link que enche seus grupos no automático.
           </p>
         </header>
         <Link
           href="/painel/campanhas/nova"
-          className="group inline-flex items-center gap-2 rounded-xl bg-iris px-5 py-2.5 text-sm font-medium text-white transition-[transform,filter] duration-[160ms] ease-[var(--ease-fluxo)] hover:-translate-y-0.5 hover:brightness-110"
+          className="group inline-flex items-center gap-2 rounded-xl bg-cobalt-500 px-5 py-2.5 text-sm font-medium text-white transition-[transform,filter] duration-[160ms] ease-[var(--ease-fluxo)] hover:-translate-y-0.5 hover:brightness-110"
         >
           <Plus className="h-4 w-4" /> Nova campanha
         </Link>
@@ -126,18 +126,18 @@ export default function PainelCampanhas() {
 
       {/* Filtros + busca */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-1 rounded-xl border border-breu/10 bg-papel p-1">
+        <div className="flex flex-wrap gap-1 rounded-xl border border-volt-950/10 bg-papel p-1">
           {FILTERS.map((f) => (
             <button
               key={f.value}
               onClick={() => setFilter(f.value)}
               className={cn(
                 "cursor-pointer rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors duration-[160ms]",
-                filter === f.value ? "bg-breu text-white" : "text-aco/70 hover:text-breu",
+                filter === f.value ? "bg-volt-950 text-white" : "text-aco/70 hover:text-volt-950",
               )}
             >
               {f.label}
-              <span className={cn("font-data ml-1.5 text-[11px] tabular-nums", filter === f.value ? "text-bruma/60" : "text-aco/40")}>
+              <span className={cn("font-data ml-1.5 text-[11px] tabular-nums", filter === f.value ? "text-canvas-100/60" : "text-aco/40")}>
                 {counts[f.value] ?? 0}
               </span>
             </button>
@@ -150,7 +150,7 @@ export default function PainelCampanhas() {
             onChange={(e) => setQ(e.target.value)}
             placeholder="Pesquisar campanhas…"
             aria-label="Pesquisar campanhas"
-            className="w-full rounded-[10px] border border-breu/10 bg-poco py-2.5 pl-9 pr-3 text-sm text-breu outline-none transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] placeholder:text-aco/40 focus:border-iris/50 focus:bg-papel focus:shadow-[0_0_0_3px_var(--color-iris-light)] sm:w-64"
+            className="w-full rounded-[10px] border border-volt-950/10 bg-poco py-2.5 pl-9 pr-3 text-sm text-volt-950 outline-none transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] placeholder:text-aco/40 focus:border-cobalt-500/50 focus:bg-papel focus:shadow-[0_0_0_3px_var(--color-cobalt-soft)] sm:w-64"
           />
         </div>
       </div>
@@ -164,7 +164,7 @@ export default function PainelCampanhas() {
         </div>
       ) : rows.length === 0 ? (
         <div className="pn-card rounded-2xl px-5 py-16 text-center">
-          <p className="font-editorial text-[22px] italic text-breu">
+          <p className="font-editorial text-[22px] italic text-volt-950">
             {campanhas.length === 0 ? "Nenhuma campanha ainda." : "Nenhuma campanha aqui."}
           </p>
           <p className="mt-1 text-sm text-aco/60">
@@ -173,7 +173,7 @@ export default function PainelCampanhas() {
           {campanhas.length === 0 && (
             <Link
               href="/painel/campanhas/nova"
-              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-iris px-4 py-2.5 text-sm font-medium text-white transition-[transform,filter] duration-[160ms] ease-[var(--ease-fluxo)] hover:-translate-y-0.5 hover:brightness-110"
+              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-cobalt-500 px-4 py-2.5 text-sm font-medium text-white transition-[transform,filter] duration-[160ms] ease-[var(--ease-fluxo)] hover:-translate-y-0.5 hover:brightness-110"
             >
               <Plus className="h-4 w-4" /> Nova campanha
             </Link>
@@ -198,13 +198,13 @@ export default function PainelCampanhas() {
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#25D366] text-white">
                       <MessageCircle className="h-6 w-6" />
                     </span>
-                    <p className="font-display text-[15px] font-bold leading-tight text-breu">{c.name}</p>
+                    <p className="font-display text-[15px] font-bold leading-tight text-volt-950">{c.name}</p>
                   </div>
                   <Link
                     href={to}
                     onClick={(e) => e.stopPropagation()}
                     aria-label="Abrir"
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-aco/40 transition hover:bg-bruma hover:text-breu"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-aco/40 transition hover:bg-canvas-100 hover:text-volt-950"
                   >
                     <MoreHorizontal className="h-4 w-4" />
                   </Link>
@@ -220,10 +220,10 @@ export default function PainelCampanhas() {
                   <div className="pn-poco h-2 flex-1 overflow-hidden rounded-full">
                     <div
                       className="pn-fill h-full w-full rounded-full"
-                      style={{ transform: `scaleX(${Math.max(fill / 100, 0.02)})`, background: quase ? "#D99B2A" : "#3D5AF1" }}
+                      style={{ transform: `scaleX(${Math.max(fill / 100, 0.02)})`, background: quase ? "#D99B2A" : "var(--color-cobalt-500)" }}
                     />
                   </div>
-                  <span className={cn("font-data text-sm font-medium tabular-nums", quase ? "text-atencao" : "text-iris")}>
+                  <span className={cn("font-data text-sm font-medium tabular-nums", quase ? "text-atencao" : "text-cobalt-500")}>
                     {fill}%
                   </span>
                 </div>
@@ -242,7 +242,7 @@ export default function PainelCampanhas() {
                   <Link
                     href={to}
                     onClick={(e) => e.stopPropagation()}
-                    className="font-data inline-flex items-center gap-1 text-[11px] uppercase tracking-wider text-iris transition group-hover:gap-1.5"
+                    className="font-data inline-flex items-center gap-1 text-[11px] uppercase tracking-wider text-cobalt-500 transition group-hover:gap-1.5"
                   >
                     <Users className="h-3.5 w-3.5" /> Ver grupos <ArrowRight className="h-3 w-3" />
                   </Link>
@@ -260,7 +260,7 @@ function Stat({ label, value, strong }: { label: string; value: string; strong?:
   return (
     <div className="flex items-center justify-between">
       <dt className="font-data text-[11px] uppercase tracking-wider text-aco/55">{label}</dt>
-      <dd className={cn("font-data text-sm tabular-nums", strong ? "font-semibold text-breu" : "text-aco")}>
+      <dd className={cn("font-data text-sm tabular-nums", strong ? "font-semibold text-volt-950" : "text-aco")}>
         {value}
       </dd>
     </div>

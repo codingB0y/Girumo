@@ -8,6 +8,7 @@
   --color-acid-500: #A7FF2F;
   --color-cobalt-500: #2E66FF;
   --color-cobalt-700: #1947C9;
+  --color-cobalt-soft: color-mix(in srgb, var(--color-cobalt-500) 12%, transparent);
   --color-canvas-100: #F4F0E7;
   --color-paper-0: #FFFEFA;
   --color-slate-600: #52646C;
@@ -17,16 +18,7 @@
   --color-danger-700: #B82936;
   --color-info-700: #1947C9;
 
-  /* Compatibilidade temporária até a migração de consumidores na Task 12. */
-  --color-breu: var(--color-volt-950);
-  --color-breu-2: var(--color-volt-900);
-  --color-bruma: var(--color-canvas-100);
-  --color-iris: var(--color-cobalt-500);
-  --color-iris-claro: var(--color-cobalt-500);
-  --color-iris-escuro: var(--color-cobalt-700);
-
   /* Compatibilidade semântica dos módulos ainda não migrados. */
-  --color-iris-light: color-mix(in srgb, var(--color-cobalt-500) 12%, transparent);
   --color-aco: var(--color-slate-600);
   --color-ardosia: var(--color-slate-600);
   --color-sucesso: var(--color-success-700);
@@ -52,7 +44,6 @@
   --shadow-card: 0 1px 2px rgba(7, 25, 35, 0.06);
   --shadow-card-hover: 0 8px 24px rgba(7, 25, 35, 0.1);
   --shadow-brand: 0 1px 2px rgba(46, 102, 255, 0.18);
-  --shadow-iris: var(--shadow-brand);
   --shadow-deep: 0 30px 70px -20px rgba(7, 25, 35, 0.5);
 }
 
@@ -273,23 +264,16 @@ body {
 .dz-pulse-glow { animation: dz-pulse-glow 2.6s ease-in-out infinite; }
 
 /* ======================================================================
-   DIREÇÃO B / CORRENTE — sistema visual da landing (HubFlow Brand Kit)
+   DIREÇÃO B / CORRENTE — sistema visual da landing (Girumo Brand Kit)
    Tokens e utilitários NOVOS, isolados do design system do app (brand-*).
    Fonte da verdade: Brand/design-tokens.css + guia-de-marca.md
    ====================================================================== */
 @theme inline {
-  /* Cores 60/30/10 */
-  --color-breu: var(--color-volt-950);       /* base/fundo premium */
-  --color-breu-2: var(--color-volt-900);     /* superfície elevada no escuro */
-  --color-bruma: var(--color-canvas-100);    /* fundo claro de seções */
-  /* Família do acento (iris) mora no bloco @theme NÃO-inline abaixo,
-     pra virar var() sobreescrevível por escopo (.pn-root = cobalto no painel). */
-
   /* Neutros */
   --color-aco: var(--color-slate-600);       /* texto secundário */
   --color-ardosia: var(--color-slate-600);   /* texto terciário / labels */
 
-  /* Semânticas (verde distinto do íris — nunca como ação) */
+  /* Semânticas (verde distinto do Cobalt — nunca como ação) */
   --color-sucesso: var(--color-success-700);
   --color-atencao: var(--color-warning-700);
   --color-alerta: var(--color-danger-700);
@@ -301,29 +285,10 @@ body {
   --font-editorial: var(--font-brand);
 
   /* Sombras da marca */
-  --shadow-iris: 0 10px 30px -8px rgba(46, 102, 255, 0.28);
   --shadow-deep: 0 30px 70px -20px rgba(7, 25, 35, 0.5);
 }
 
-/* ---- Acento sobreescrevível (NÃO-inline → utilitários usam var()) ----
-   Default = roxo íris (landing/admin/auth herdam). O painel troca por
-   COBALTO via .pn-root (cascade recolore até primitivos compartilhados,
-   sem tocar admin/landing que ficam fora do escopo). */
-@theme {
-  --color-iris: var(--color-cobalt-500);
-  --color-iris-claro: var(--color-cobalt-500);
-  --color-iris-escuro: var(--color-cobalt-700);
-  --color-iris-light: color-mix(in srgb, var(--color-cobalt-500) 12%, transparent);
-}
-
-/* Painel = paleta COBALTO (azul-índigo elétrico). Neutros breu/bruma/aço
-   permanecem (já são azulados, casam com cobalto). Verde só sucesso. */
-.pn-root {
-  --color-iris: var(--color-cobalt-500);
-  --color-iris-claro: var(--color-cobalt-500);
-  --color-iris-escuro: var(--color-cobalt-700);
-  --color-iris-light: color-mix(in srgb, var(--color-cobalt-500) 12%, transparent);
-}
+/* Cobalt é o acento funcional único de landing, admin, autenticação e painel. */
 
 /* Grade técnica sutil sobre fundo claro (hero Rota A) */
 .hf-grid-light {
@@ -343,7 +308,7 @@ body {
   color: var(--color-cobalt-500);
 }
 
-/* Tratamento de foto/screenshot da marca: overlay breu + brilho íris de canto */
+/* Tratamento de foto/screenshot da marca: overlay Volt + brilho Cobalt de canto */
 .hf-shot {
   position: relative;
   border-radius: var(--hf-raio-lg, 16px);
@@ -505,7 +470,7 @@ body {
 /* ======================================================================
    LANDING V2 — "O FLUXO" · sistema visual do redesign (2026-07)
    Namespace lp-*. Editorial-tech: Instrument Serif gigante + Plex Mono.
-   Verde #25D366 = pessoas/WhatsApp (semântico). Íris = ação/marca.
+   Verde #25D366 = pessoas/WhatsApp (semântico). Cobalt = ação funcional.
    ====================================================================== */
 @theme inline {
   --color-void: var(--color-volt-950);
@@ -535,7 +500,7 @@ body {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
 }
 
-/* --- Halo íris que respira (fundos de seção) --- */
+/* --- Halo Cobalt que respira (fundos de seção) --- */
 @keyframes lp-halo {
   0%, 100% { opacity: 0.5; transform: scale(1); }
   50% { opacity: 0.85; transform: scale(1.06); }
@@ -690,7 +655,7 @@ body {
   border-color: rgba(37, 211, 102, 0.4);
   box-shadow: 0 0 22px -4px rgba(37, 211, 102, 0.45);
 }
-.lp-cell.lp-cell-iris {
+.lp-cell.lp-cell-cobalt {
   background: rgba(46, 102, 255, 0.16);
   border-color: rgba(46, 102, 255, 0.4);
   box-shadow: 0 0 22px -4px rgba(46, 102, 255, 0.4);
@@ -856,11 +821,10 @@ body {
   border-color: var(--color-cobalt-500);
 }
 
-/* Fio de íris — gramática única de "ativo" (nav, card selecionado, step).
-   Usa var(--color-iris), temporariamente ligado ao Cobalt. */
+/* Fio de Cobalt — gramática única de "ativo" (nav, card selecionado, step). */
 .pn-ativo {
-  box-shadow: inset 2px 0 0 var(--color-iris);
-  background: color-mix(in srgb, var(--color-iris) 7%, transparent);
+  box-shadow: inset 2px 0 0 var(--color-cobalt-500);
+  background: color-mix(in srgb, var(--color-cobalt-500) 7%, transparent);
 }
 
 /* Etiqueta — chip de status com canto cortado (tag de peça de roupa) */

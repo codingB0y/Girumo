@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
@@ -8,6 +8,15 @@ const layout = readFileSync(path.join(process.cwd(), "src", "app", "layout.tsx")
 
 function readSource(...segments: string[]) {
   return readFileSync(path.join(process.cwd(), "src", ...segments), "utf8");
+}
+
+function productionSources(root: string): string[] {
+  return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
+    const absolute = path.join(root, entry.name);
+    if (entry.isDirectory()) return productionSources(absolute);
+    if (!/\.(?:css|ts|tsx)$/.test(entry.name) || /\.test\.(?:ts|tsx)$/.test(entry.name)) return [];
+    return [absolute];
+  });
 }
 
 function readCssRule(selector: string) {
@@ -168,5 +177,27 @@ test("removes the purple HubFlow palette", () => {
   const normalized = css.replace(/\s+/g, "").toUpperCase();
   for (const value of ["#7C5CFF", "#6A4BF0", "#8A6CFF", "#3D1FB0", "#A78CFF", "#3D5AF1", "#9A82FF", "#B9ABFF", "#6A45F0", "#5836C9", "#46299E", "#F3F1FF", "#E9E5FF", "#D6CEFF", "rgba(106,75,240", "rgba(88,54,201"]) {
     assert.equal(normalized.includes(value.toUpperCase()), false, value);
+  }
+});
+
+test("removes every transitional visual alias from production sources", () => {
+  const legacyAlias = /\b(?:iris|iris-claro|iris-escuro|breu|breu-2|bruma)\b/i;
+  const matches = productionSources(path.join(process.cwd(), "src")).flatMap((absolute) => {
+    const relative = path.relative(process.cwd(), absolute);
+    return readFileSync(absolute, "utf8")
+      .split(/\r?\n/)
+      .flatMap((line, index) => (legacyAlias.test(line) ? [`${relative}:${index + 1}:${line.trim()}`] : []));
+  });
+
+  assert.deepEqual(matches, []);
+});
+
+test("removes inactive HubFlow brand assets from the public bundle", () => {
+  for (const filename of [
+    "symbol-iris-gradient.svg",
+    "lockup-horizontal-dark.png",
+    "lockup-horizontal-light.png",
+  ]) {
+    assert.equal(existsSync(path.join(process.cwd(), "public", "brand", filename)), false, filename);
   }
 });

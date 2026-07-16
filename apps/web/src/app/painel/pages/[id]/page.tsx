@@ -22,7 +22,7 @@ import { EditorForm, type EditorValues } from "@/components/pages/editor/form";
 type Detail = { page: LandingPage; metrics: LpMetrics; leads: LpLeadRow[] };
 
 const STATUS: Record<LpStatus, { label: string; pill: string }> = {
-  draft: { label: "Rascunho", pill: "bg-bruma text-aco/70" },
+  draft: { label: "Rascunho", pill: "bg-canvas-100 text-aco/70" },
   published: { label: "No ar", pill: "bg-sucesso/10 text-sucesso" },
   paused: { label: "Pausada", pill: "bg-atencao/10 text-atencao" },
 };
@@ -100,7 +100,7 @@ export default function PaginaDetalhePage() {
   if (!detail || !values) {
     return (
       <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6">
-        <div className="rounded-2xl border border-breu/[0.06] bg-white px-5 py-16 text-center text-sm text-aco/60">
+        <div className="rounded-2xl border border-volt-950/[0.06] bg-white px-5 py-16 text-center text-sm text-aco/60">
           {error ?? "Carregando..."}
         </div>
       </div>
@@ -113,7 +113,7 @@ export default function PaginaDetalhePage() {
     <div className="mx-auto max-w-[1200px] space-y-6 px-4 py-6 sm:px-6">
       {/* header */}
       <div>
-        <Link href="/painel/pages" className="inline-flex items-center gap-1.5 text-sm text-aco/60 transition hover:text-breu">
+        <Link href="/painel/pages" className="inline-flex items-center gap-1.5 text-sm text-aco/60 transition hover:text-volt-950">
           <ArrowLeft className="h-4 w-4" /> Páginas
         </Link>
         <div className="mt-2 flex flex-wrap items-center gap-3">
@@ -134,7 +134,7 @@ export default function PaginaDetalhePage() {
             type="button"
             onClick={() => void patch({ status: "published" })}
             disabled={busy}
-            className="inline-flex items-center gap-2 rounded-xl bg-iris px-4 py-2.5 text-sm font-medium text-white shadow-iris transition hover:bg-iris-claro disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-xl bg-cobalt-500 px-4 py-2.5 text-sm font-medium text-white shadow-brand transition hover:bg-cobalt-500 disabled:opacity-60"
           >
             <Play className="h-4 w-4" /> Publicar
           </button>
@@ -143,7 +143,7 @@ export default function PaginaDetalhePage() {
             type="button"
             onClick={() => void patch({ status: "paused" })}
             disabled={busy}
-            className="inline-flex items-center gap-2 rounded-xl border border-breu/10 bg-white px-4 py-2.5 text-sm font-medium text-breu transition hover:border-atencao/50 disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-xl border border-volt-950/10 bg-white px-4 py-2.5 text-sm font-medium text-volt-950 transition hover:border-atencao/50 disabled:opacity-60"
           >
             <Pause className="h-4 w-4" /> Pausar
           </button>
@@ -151,7 +151,7 @@ export default function PaginaDetalhePage() {
         <button
           type="button"
           onClick={() => void copyLink(page)}
-          className="inline-flex items-center gap-2 rounded-xl border border-breu/10 bg-white px-4 py-2.5 text-sm font-medium text-breu transition hover:border-iris/50"
+          className="inline-flex items-center gap-2 rounded-xl border border-volt-950/10 bg-white px-4 py-2.5 text-sm font-medium text-volt-950 transition hover:border-cobalt-500/50"
         >
           {copied ? <Check className="h-4 w-4 text-sucesso" /> : <Copy className="h-4 w-4" />}
           {copied ? "Copiado!" : "Copiar link"}
@@ -160,7 +160,7 @@ export default function PaginaDetalhePage() {
           href={`/p/${page.slug}`}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center gap-2 rounded-xl border border-breu/10 bg-white px-4 py-2.5 text-sm font-medium text-breu transition hover:border-iris/50"
+          className="inline-flex items-center gap-2 rounded-xl border border-volt-950/10 bg-white px-4 py-2.5 text-sm font-medium text-volt-950 transition hover:border-cobalt-500/50"
         >
           <ExternalLink className="h-4 w-4" /> Ver página
         </a>
@@ -180,9 +180,9 @@ export default function PaginaDetalhePage() {
       </div>
 
       {/* leads */}
-      <div className="rounded-2xl border border-breu/[0.06] bg-white shadow-card">
-        <div className="border-b border-breu/[0.06] px-5 py-4">
-          <h2 className="font-medium text-breu">Últimos leads</h2>
+      <div className="rounded-2xl border border-volt-950/[0.06] bg-white shadow-card">
+        <div className="border-b border-volt-950/[0.06] px-5 py-4">
+          <h2 className="font-medium text-volt-950">Últimos leads</h2>
           <p className="text-xs text-aco/60">Os 20 mais recentes, com a origem de cada um.</p>
         </div>
         {leads.length === 0 ? (
@@ -193,7 +193,7 @@ export default function PaginaDetalhePage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="font-data border-b border-breu/[0.06] text-[10px] uppercase tracking-wider text-aco/50">
+                <tr className="font-data border-b border-volt-950/[0.06] text-[10px] uppercase tracking-wider text-aco/50">
                   <th className="px-5 py-3 font-medium">Nome</th>
                   <th className="px-5 py-3 font-medium">WhatsApp</th>
                   <th className="px-5 py-3 font-medium">Origem (UTM)</th>
@@ -202,8 +202,8 @@ export default function PaginaDetalhePage() {
               </thead>
               <tbody>
                 {leads.map((l) => (
-                  <tr key={l.id} className="border-b border-breu/[0.04] last:border-0">
-                    <td className="px-5 py-3 font-medium text-breu">{l.name ?? "—"}</td>
+                  <tr key={l.id} className="border-b border-volt-950/[0.04] last:border-0">
+                    <td className="px-5 py-3 font-medium text-volt-950">{l.name ?? "—"}</td>
                     <td className="font-data px-5 py-3 text-aco">{l.whatsapp ?? "—"}</td>
                     <td className="px-5 py-3">
                       {l.utm_source || l.utm_medium || l.utm_campaign ? (
@@ -226,11 +226,11 @@ export default function PaginaDetalhePage() {
       </div>
 
       {/* edição */}
-      <details className="rounded-2xl border border-breu/[0.06] bg-white shadow-card">
-        <summary className="cursor-pointer px-5 py-4 font-medium text-breu">
+      <details className="rounded-2xl border border-volt-950/[0.06] bg-white shadow-card">
+        <summary className="cursor-pointer px-5 py-4 font-medium text-volt-950">
           Editar conteúdo da página
         </summary>
-        <div className="border-t border-breu/[0.06] p-6">
+        <div className="border-t border-volt-950/[0.06] p-6">
           <EditorForm
             values={values}
             onChange={(p) => setValues((v) => (v ? { ...v, ...p } : v))}
@@ -255,7 +255,7 @@ export default function PaginaDetalhePage() {
               })
             }
             disabled={busy}
-            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-iris px-4 py-2.5 text-sm font-medium text-white shadow-iris transition hover:bg-iris-claro disabled:opacity-60"
+            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-cobalt-500 px-4 py-2.5 text-sm font-medium text-white shadow-brand transition hover:bg-cobalt-500 disabled:opacity-60"
           >
             {busy ? "Salvando..." : "Salvar alterações"}
           </button>
@@ -278,11 +278,11 @@ function MetricCard({
   value: string;
 }) {
   return (
-    <div className="rounded-2xl border border-breu/[0.06] bg-white p-5 shadow-card">
+    <div className="rounded-2xl border border-volt-950/[0.06] bg-white p-5 shadow-card">
       <p className="flex items-center gap-2 text-xs uppercase tracking-wider text-aco/50">
-        <Icon className="h-4 w-4 text-iris" /> {label}
+        <Icon className="h-4 w-4 text-cobalt-500" /> {label}
       </p>
-      <p className="font-display mt-2 text-3xl font-extrabold tracking-[-0.02em] text-breu">{value}</p>
+      <p className="font-display mt-2 text-3xl font-extrabold tracking-[-0.02em] text-volt-950">{value}</p>
     </div>
   );
 }

@@ -28,12 +28,12 @@ type Props = {
 };
 
 const STATUS_BADGE: Record<string, { label: string; color: string; icon: React.ComponentType<{ className?: string }> }> = {
-  scheduled: { label: "Agendado", color: "bg-iris/10 text-iris", icon: Clock },
+  scheduled: { label: "Agendado", color: "bg-cobalt-500/10 text-cobalt-500", icon: Clock },
   queued: { label: "Na fila", color: "bg-atencao/10 text-atencao", icon: Loader2 },
   running: { label: "Enviando", color: "bg-atencao/10 text-atencao", icon: Loader2 },
   sent: { label: "Enviado", color: "bg-sucesso/10 text-sucesso", icon: CheckCircle2 },
   failed: { label: "Falhou", color: "bg-alerta/10 text-alerta", icon: XCircle },
-  draft: { label: "Rascunho", color: "bg-bruma text-aco", icon: Send },
+  draft: { label: "Rascunho", color: "bg-canvas-100 text-aco", icon: Send },
 };
 
 const TYPE_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -95,7 +95,7 @@ export function MessagesAgenda({ messages, onCancel, onDelete, className }: Prop
           onClick={() => setView("timeline")}
           className={cn(
             "rounded-lg px-3 py-1.5 text-xs font-medium transition",
-            view === "timeline" ? "bg-iris/10 text-iris" : "text-aco/50 hover:text-breu",
+            view === "timeline" ? "bg-cobalt-500/10 text-cobalt-500" : "text-aco/50 hover:text-volt-950",
           )}
         >
           Timeline
@@ -104,7 +104,7 @@ export function MessagesAgenda({ messages, onCancel, onDelete, className }: Prop
           onClick={() => setView("calendar")}
           className={cn(
             "rounded-lg px-3 py-1.5 text-xs font-medium transition",
-            view === "calendar" ? "bg-iris/10 text-iris" : "text-aco/50 hover:text-breu",
+            view === "calendar" ? "bg-cobalt-500/10 text-cobalt-500" : "text-aco/50 hover:text-volt-950",
           )}
         >
           <Calendar className="mr-1 inline h-3.5 w-3.5" />
@@ -113,7 +113,7 @@ export function MessagesAgenda({ messages, onCancel, onDelete, className }: Prop
       </div>
 
       {view === "calendar" && (
-        <div className="rounded-2xl border border-breu/[0.08] bg-white p-4">
+        <div className="rounded-2xl border border-volt-950/[0.08] bg-white p-4">
           {/* Month nav */}
           <div className="flex items-center justify-between">
             <button
@@ -122,12 +122,12 @@ export function MessagesAgenda({ messages, onCancel, onDelete, className }: Prop
                 const prev = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
                 setCalMonth(prev);
               }}
-              className="text-aco/50 hover:text-breu"
+              className="text-aco/50 hover:text-volt-950"
               aria-label="Mês anterior"
             >
               ←
             </button>
-            <span className="font-display text-sm font-bold text-breu">
+            <span className="font-display text-sm font-bold text-volt-950">
               {new Date(calendarDays.year, calendarDays.month - 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
             </span>
             <button
@@ -136,7 +136,7 @@ export function MessagesAgenda({ messages, onCancel, onDelete, className }: Prop
                 const next = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
                 setCalMonth(next);
               }}
-              className="text-aco/50 hover:text-breu"
+              className="text-aco/50 hover:text-volt-950"
               aria-label="Próximo mês"
             >
               →
@@ -162,13 +162,13 @@ export function MessagesAgenda({ messages, onCancel, onDelete, className }: Prop
                   key={date}
                   className={cn(
                     "relative flex h-8 w-8 items-center justify-center rounded-lg text-xs",
-                    isToday && "bg-iris/10 font-bold text-iris",
+                    isToday && "bg-cobalt-500/10 font-bold text-cobalt-500",
                     !isToday && "text-aco/70",
                   )}
                 >
                   {day}
                   {hasMsg && (
-                    <span className="absolute bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-iris" />
+                    <span className="absolute bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-cobalt-500" />
                   )}
                 </div>
               );
@@ -179,8 +179,8 @@ export function MessagesAgenda({ messages, onCancel, onDelete, className }: Prop
 
       {/* Timeline */}
       {messages.length === 0 ? (
-        <div className="rounded-2xl border border-breu/[0.08] bg-white px-5 py-12 text-center">
-          <p className="font-display text-base font-bold text-breu">Nenhuma mensagem ainda</p>
+        <div className="rounded-2xl border border-volt-950/[0.08] bg-white px-5 py-12 text-center">
+          <p className="font-display text-base font-bold text-volt-950">Nenhuma mensagem ainda</p>
           <p className="mt-1 text-sm text-aco/60">Envie ou agende mensagens para os grupos desta campanha.</p>
         </div>
       ) : (
@@ -219,15 +219,15 @@ function MessageRow({
   const canDelete = ["draft", "sent", "failed"].includes(msg.status);
 
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-breu/[0.06] bg-white p-3 transition hover:border-breu/10">
+    <div className="flex items-start gap-3 rounded-xl border border-volt-950/[0.06] bg-white p-3 transition hover:border-volt-950/10">
       {/* Type icon */}
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-bruma">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-canvas-100">
         <TypeIcon className="h-4 w-4 text-aco/60" />
       </div>
 
       {/* Content */}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm text-breu">
+        <p className="truncate text-sm text-volt-950">
           {msg.body || (msg.poll ? `📊 ${msg.poll.question}` : msg.mediaName ?? "Mídia")}
         </p>
         <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -247,7 +247,7 @@ function MessageRow({
             </span>
           )}
           {msg.mentionAll && (
-            <span className="inline-flex items-center gap-0.5 text-[10px] text-iris">
+            <span className="inline-flex items-center gap-0.5 text-[10px] text-cobalt-500">
               <AtSign className="h-3 w-3" /> Todos
             </span>
           )}

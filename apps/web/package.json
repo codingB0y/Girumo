@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "tsx --test \"src/**/*.test.ts\"",
-    "brand:export": "tsx scripts/export-girumo-brand.ts"
+    "brand:export": "tsx scripts/export-girumo-brand.ts",
+    "brand:check": "node scripts/check-girumo-brand.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",
