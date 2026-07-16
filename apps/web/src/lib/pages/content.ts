@@ -173,6 +173,83 @@ export function validateContentV2(input: unknown): string[] {
   return errors;
 }
 
+// ---- sanitizador: content validado → shape exato gravado no JSONB ----
+
+/** Texto opcional: vazio/ausente vira undefined (a chave some do JSONB). */
+function optText(v: unknown): string | undefined {
+  return isNonEmptyString(v) ? v.trim() : undefined;
+}
+
+function toMediaRef(input: unknown): LpMediaRef {
+  const m = (input ?? {}) as Record<string, unknown>;
+  const mediaId = optText(m.media_id);
+  const url = optText(m.url);
+  const focalX = typeof m.focal_x === "number" ? m.focal_x : undefined;
+  const focalY = typeof m.focal_y === "number" ? m.focal_y : undefined;
+  return {
+    ...(mediaId ? { media_id: mediaId } : {}),
+    ...(url ? { url } : {}),
+    alt: String(m.alt ?? "").trim(),
+    ...(focalX === undefined ? {} : { focal_x: focalX }),
+    ...(focalY === undefined ? {} : { focal_y: focalY }),
+  };
+}
+
+function toProof(input: unknown): LpProof {
+  if (typeof input !== "object" || input === null) return null;
+  const p = input as Record<string, unknown>;
+  const base = {
+    name: String(p.name ?? "").trim(),
+    store: String(p.store ?? "").trim(),
+    city: String(p.city ?? "").trim(),
+    quote: String(p.quote ?? "").trim(),
+  };
+  if (p.kind === "photo") return { kind: "photo", photo: toMediaRef(p.photo), ...base };
+  const v = (p.video ?? {}) as Record<string, unknown>;
+  return {
+    kind: "video",
+    video: {
+      provider: v.provider as LpVideoProvider,
+      id: String(v.id ?? "").trim(),
+      ...(v.poster ? { poster: toMediaRef(v.poster) } : {}),
+    },
+    ...base,
+  };
+}
+
+/**
+ * Normaliza pro shape exato de LpContentV2 — espelha o `toContent` legado, mas
+ * para o conteúdo aninhado: aplica trim e DESCARTA qualquer chave que o client
+ * tenha inventado, para que só o contrato entre no JSONB. Assume input já
+ * aprovado por `validateContentV2` (que valida, mas não normaliza).
+ */
+export function toContentV2(input: Record<string, unknown>): LpContentV2 {
+  const benefits = Array.isArray(input.benefits) ? input.benefits : [];
+  const gallery = Array.isArray(input.gallery) ? input.gallery : [];
+  const badge = optText(input.badge);
+
+  return {
+    schema_version: 2,
+    store_name: String(input.store_name ?? "").trim(),
+    logo: input.logo ? toMediaRef(input.logo) : null,
+    brand_color: String(input.brand_color ?? "").trim(),
+    ...(badge ? { badge } : {}),
+    headline: String(input.headline ?? "").trim(),
+    description: String(input.description ?? "").trim(),
+    cta: String(input.cta ?? "").trim(),
+    hero: toMediaRef(input.hero),
+    benefits: benefits.map((b) => {
+      const item = (b ?? {}) as Record<string, unknown>;
+      return {
+        title: String(item.title ?? "").trim(),
+        description: String(item.description ?? "").trim(),
+      };
+    }),
+    gallery: gallery.map(toMediaRef),
+    proof: toProof(input.proof),
+  };
+}
+
 // ---- adaptador do shape legado (Flow Pages v1) → v2 ----
 
 type LegacyLpContent = {

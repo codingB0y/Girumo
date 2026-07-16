@@ -102,6 +102,7 @@ export async function createLandingPage(
         slug,
         status: "draft",
         content: input.content,
+        content_schema_version: input.content_schema_version,
         campaign_slug: input.campaign_slug ?? null,
         target_group_url: input.target_group_url ?? null,
         meta_pixel_id: input.meta_pixel_id ?? null,
@@ -118,6 +119,7 @@ export async function createLandingPage(
 
 export type LpUpdatePatch = Partial<{
   content: LpCreateInput["content"];
+  content_schema_version: LpCreateInput["content_schema_version"];
   campaign_slug: string | null;
   target_group_url: string | null;
   meta_pixel_id: string | null;

@@ -45,15 +45,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const page = await getCachedPage(slug);
   if (!page) return { title: "Página não encontrada" };
 
-  const rawContent: unknown = page.content;
-  const ogImage = isLpContentV2(rawContent) ? mediaSrc(rawContent.hero) : page.content.photo_url;
+  const content = page.content;
+  const ogImage = isLpContentV2(content) ? mediaSrc(content.hero) : content.photo_url;
 
   return {
-    title: `${page.content.headline} · ${page.content.store_name}`,
-    description: page.content.description,
+    title: `${content.headline} · ${content.store_name}`,
+    description: content.description,
     openGraph: {
-      title: page.content.headline,
-      description: page.content.description,
+      title: content.headline,
+      description: content.description,
       images: [{ url: ogImage }],
       locale: "pt_BR",
       type: "website",
@@ -74,22 +74,22 @@ export default async function PublicLandingPage({ params }: PageProps) {
   // resolve e devolve como redirect_url após a captura bem-sucedida.
   if (!resolveTargetUrl(page)) notFound();
 
-  const rawContent: unknown = page.content;
+  const content = page.content;
   let body: ReactNode;
-  if (isLpContentV2(rawContent)) {
+  if (isLpContentV2(content)) {
     // Conteúdo v2 → estrutura editorial; paleta acessível derivada da marca.
     const Structure = resolveStructure();
-    const palette = derivePalette(rawContent.brand_color) ?? FALLBACK_PALETTE;
-    body = <Structure slug={slug} content={rawContent} palette={palette} />;
+    const palette = derivePalette(content.brand_color) ?? FALLBACK_PALETTE;
+    body = <Structure slug={slug} content={content} palette={palette} />;
   } else {
     // Conteúdo legado → BasicTemplate (fallback), sem targetUrl no contrato.
     const Template = resolveTemplate(page.component_key);
     body = (
       <Template
         slug={slug}
-        content={page.content}
+        content={content}
         copy={page.template_copy}
-        consentText={consentText(page.content.store_name, page.content.group_topic)}
+        consentText={consentText(content.store_name, content.group_topic)}
       />
     );
   }

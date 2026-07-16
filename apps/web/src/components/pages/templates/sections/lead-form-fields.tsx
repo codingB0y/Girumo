@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { WhatsAppIcon } from "@/components/landing/icons";
+import { noticeTextV2 } from "@/lib/pages/schema";
 import { collectAttribution, trackBeacon } from "@/components/pages/tracking-scripts";
 
 const FIELD =
@@ -168,8 +169,7 @@ export function LeadFormFields({
         Grupo gratuito • novidades e condições de atacado • saia quando quiser
       </p>
       <p className="mt-2 text-xs leading-relaxed text-[#6f6558]">
-        Ao continuar, você solicita acesso ao grupo e poderá receber novidades e ofertas da{" "}
-        {storeName}. Política de Privacidade.
+        {noticeTextV2(storeName)} Política de Privacidade.
       </p>
     </form>
   );

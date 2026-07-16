@@ -3,6 +3,7 @@ import {
   CONTENT_LIMITS,
   validateContentV2,
   adaptLegacyContent,
+  toContentV2,
   type LpContentV2,
 } from "./content";
 
@@ -117,5 +118,37 @@ assert.equal(migrated.hero.url, "https://cdn.example.com/loja.jpg"); // foto pre
 assert.ok(migrated.hero.alt.includes("Mega Stock"));
 assert.equal(migrated.brand_color, "#7c3aed"); // iris → hex
 assert.ok(migrated.cta.length > 0);
+
+// ---- sanitizador: só o shape exato entra no JSONB ----
+const dirty = {
+  ...validContent(),
+  store_name: "  Bazar da Vila  ", // trim
+  badge: "",
+  logo: null,
+  evil: "<script>", // chave extra do client → descartada
+  hero: { media_id: "m_hero", alt: "Vitrine", focal_x: 0.25, focal_y: 0.75, evil: 1 },
+  benefits: [{ title: " Preço ", description: " Direto ", evil: 1 }],
+  gallery: [
+    { media_id: "m1", alt: "Peça 1", evil: 1 },
+    { url: "https://cdn.example.com/2.jpg", alt: "Peça 2" },
+  ],
+};
+const clean = toContentV2(dirty);
+assert.equal(clean.schema_version, 2);
+assert.equal(clean.store_name, "Bazar da Vila"); // trim aplicado
+assert.equal("evil" in clean, false); // chave extra fora
+assert.equal("evil" in clean.hero, false); // chave extra fora do media ref
+assert.equal(clean.hero.focal_x, 0.25); // foco preservado
+assert.equal(clean.badge, undefined); // badge vazio some (é opcional)
+assert.equal(clean.logo, null);
+assert.deepEqual(clean.benefits, [{ title: "Preço", description: "Direto" }]);
+assert.equal(clean.gallery[1].url, "https://cdn.example.com/2.jpg"); // url externa preservada
+assert.equal(clean.gallery[1].media_id, undefined);
+// o resultado do sanitizador continua válido
+assert.deepEqual(validateContentV2(clean), []);
+
+// prova em vídeo sobrevive ao sanitizador; prova ausente vira null
+assert.equal(clean.proof?.kind, "video");
+assert.equal(toContentV2({ ...validContent(), proof: undefined }).proof, null);
 
 console.log("content tests passed");

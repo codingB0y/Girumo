@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { LandingPage, LpStatus } from "@/lib/pages/schema";
+import { isLpContentV2 } from "@/lib/pages/render";
 import type { LpLeadRow, LpMetrics } from "@/lib/pages/store";
 import { EditorForm, type EditorValues } from "@/components/pages/editor/form";
 
@@ -43,18 +44,26 @@ export default function PaginaDetalhePage() {
     }
     const data = (await res.json()) as Detail;
     setDetail(data);
-    setValues({
-      store_name: data.page.content.store_name,
-      photo_url: data.page.content.photo_url,
-      headline: data.page.content.headline,
-      description: data.page.content.description,
-      group_topic: data.page.content.group_topic,
-      primary_color: data.page.content.primary_color,
-      target_group_url: data.page.target_group_url ?? "",
-      campaign_slug: data.page.campaign_slug ?? "",
-      meta_pixel_id: data.page.meta_pixel_id ?? "",
-      ga4_id: data.page.ga4_id ?? "",
-    });
+
+    // Editor dual: conteúdo v2 tem editor próprio; página legada segue no editor
+    // antigo até a migração (Fase 5). O eixo é o mesmo do render (schema_version).
+    const content = data.page.content;
+    setValues(
+      isLpContentV2(content)
+        ? null
+        : {
+            store_name: content.store_name,
+            photo_url: content.photo_url,
+            headline: content.headline,
+            description: content.description,
+            group_topic: content.group_topic,
+            primary_color: content.primary_color,
+            target_group_url: data.page.target_group_url ?? "",
+            campaign_slug: data.page.campaign_slug ?? "",
+            meta_pixel_id: data.page.meta_pixel_id ?? "",
+            ga4_id: data.page.ga4_id ?? "",
+          },
+    );
   }, [id]);
 
   useEffect(() => {
@@ -97,7 +106,7 @@ export default function PaginaDetalhePage() {
     setTimeout(() => setCopied(false), 2000);
   }
 
-  if (!detail || !values) {
+  if (!detail) {
     return (
       <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6">
         <div className="rounded-2xl border border-breu/[0.06] bg-white px-5 py-16 text-center text-sm text-aco/60">
@@ -225,45 +234,47 @@ export default function PaginaDetalhePage() {
         )}
       </div>
 
-      {/* edição */}
-      <details className="rounded-2xl border border-breu/[0.06] bg-white shadow-card">
-        <summary className="cursor-pointer px-5 py-4 font-medium text-breu">
-          Editar conteúdo da página
-        </summary>
-        <div className="border-t border-breu/[0.06] p-6">
-          <EditorForm
-            values={values}
-            onChange={(p) => setValues((v) => (v ? { ...v, ...p } : v))}
-            disabled={busy}
-          />
-          <button
-            type="button"
-            onClick={() =>
-              void patch({
-                content: {
-                  store_name: values.store_name,
-                  photo_url: values.photo_url,
-                  headline: values.headline,
-                  description: values.description,
-                  group_topic: values.group_topic,
-                  primary_color: values.primary_color,
-                },
-                target_group_url: values.target_group_url || null,
-                campaign_slug: values.campaign_slug || null,
-                meta_pixel_id: values.meta_pixel_id || null,
-                ga4_id: values.ga4_id || null,
-              })
-            }
-            disabled={busy}
-            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-iris px-4 py-2.5 text-sm font-medium text-white shadow-iris transition hover:bg-iris-claro disabled:opacity-60"
-          >
-            {busy ? "Salvando..." : "Salvar alterações"}
-          </button>
-          {page.status === "published" ? (
-            <p className="mt-2 text-xs text-aco/50">A página no ar atualiza em segundos.</p>
-          ) : null}
-        </div>
-      </details>
+      {/* edição — editor legado; o v2 entra aqui pelo mesmo eixo (schema_version) */}
+      {values ? (
+        <details className="rounded-2xl border border-breu/[0.06] bg-white shadow-card">
+          <summary className="cursor-pointer px-5 py-4 font-medium text-breu">
+            Editar conteúdo da página
+          </summary>
+          <div className="border-t border-breu/[0.06] p-6">
+            <EditorForm
+              values={values}
+              onChange={(p) => setValues((v) => (v ? { ...v, ...p } : v))}
+              disabled={busy}
+            />
+            <button
+              type="button"
+              onClick={() =>
+                void patch({
+                  content: {
+                    store_name: values.store_name,
+                    photo_url: values.photo_url,
+                    headline: values.headline,
+                    description: values.description,
+                    group_topic: values.group_topic,
+                    primary_color: values.primary_color,
+                  },
+                  target_group_url: values.target_group_url || null,
+                  campaign_slug: values.campaign_slug || null,
+                  meta_pixel_id: values.meta_pixel_id || null,
+                  ga4_id: values.ga4_id || null,
+                })
+              }
+              disabled={busy}
+              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-iris px-4 py-2.5 text-sm font-medium text-white shadow-iris transition hover:bg-iris-claro disabled:opacity-60"
+            >
+              {busy ? "Salvando..." : "Salvar alterações"}
+            </button>
+            {page.status === "published" ? (
+              <p className="mt-2 text-xs text-aco/50">A página no ar atualiza em segundos.</p>
+            ) : null}
+          </div>
+        </details>
+      ) : null}
     </div>
   );
 }

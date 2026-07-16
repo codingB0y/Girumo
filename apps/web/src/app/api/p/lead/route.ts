@@ -4,7 +4,7 @@ import {
   insertLpLead,
   insertLpTrackingEvent,
 } from "@/lib/pages/store";
-import { consentText, normalizeWhatsappBR, resolveTargetUrl } from "@/lib/pages/schema";
+import { noticeTextFor, normalizeWhatsappBR, resolveTargetUrl } from "@/lib/pages/schema";
 import { extractAttribution, hashIp, isRateLimited } from "@/lib/pages/analytics";
 
 export const runtime = "nodejs";
@@ -74,7 +74,7 @@ export async function POST(req: Request) {
       attribution,
       userAgent: req.headers.get("user-agent")?.slice(0, 300) ?? null,
       ipHash: hashIp(req),
-      consentText: consentText(page.content.store_name, page.content.group_topic),
+      consentText: noticeTextFor(page.content),
     });
 
     // Evento + contador só na 1ª captura (reenvio do mesmo zap não infla métrica)

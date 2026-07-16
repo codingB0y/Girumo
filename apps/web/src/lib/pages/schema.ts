@@ -4,7 +4,9 @@
  */
 
 // Girumo LP v2 — barrel do domínio novo (conteúdo, paleta, vídeo, telefone).
-import type { LpStructure, LpVisualDirection } from "./content";
+import type { LpContentV2, LpStructure, LpVisualDirection } from "./content";
+import { toContentV2, validateContentV2 } from "./content";
+import { isLpContentV2 } from "./render";
 export * from "./content";
 export * from "./palette";
 export * from "./video";
@@ -44,7 +46,9 @@ export type LandingPage = {
   template_id: string;
   slug: string;
   status: LpStatus;
-  content: LpContent;
+  content: LpContent | LpContentV2;
+  /** Versão do shape em `content` — 2 = editorial v2, 1 = legado (Flow Pages). */
+  content_schema_version: LpContentSchemaVersion;
   campaign_slug: string | null;
   target_group_url: string | null;
   meta_pixel_id: string | null;
@@ -65,7 +69,8 @@ export type PublicLandingPage = LandingPage & {
 
 export type LpCreateInput = {
   template_id: string;
-  content: LpContent;
+  content: LpContent | LpContentV2;
+  content_schema_version: LpContentSchemaVersion;
   campaign_slug?: string | null;
   target_group_url?: string | null;
   meta_pixel_id?: string | null;
@@ -127,9 +132,67 @@ export function toContent(input: Record<string, unknown>): LpContent {
   };
 }
 
+/* ------------------- entrada do editor: legado × v2 ------------------- */
+
+/** Versão do shape do content — espelha a coluna `content_schema_version`. */
+export type LpContentSchemaVersion = 1 | 2;
+
+export type ContentParseResult =
+  | { ok: false; errors: string[] }
+  | { ok: true; schema_version: 1; content: LpContent }
+  | { ok: true; schema_version: 2; content: LpContentV2 };
+
+/**
+ * Porta de entrada única do `content` vindo do client (POST/PATCH de páginas).
+ * O eixo é o `schema_version` declarado — o mesmo do render (`isLpContentV2`):
+ * quem declara 2 é validado como v2 e recebe erros de v2; conteúdo sem versão é
+ * legado, então o editor antigo segue funcionando durante o dual (a Fase 5
+ * migra). Valida e sanitiza junto, para nenhuma rota gravar sem passar pelos dois.
+ */
+export function parseContentInput(input: unknown): ContentParseResult {
+  if (typeof input !== "object" || input === null) {
+    return { ok: false, errors: ["content inválido."] };
+  }
+
+  if (isLpContentV2(input)) {
+    const errors = validateContentV2(input);
+    if (errors.length > 0) return { ok: false, errors };
+    return {
+      ok: true,
+      schema_version: 2,
+      content: toContentV2(input as unknown as Record<string, unknown>),
+    };
+  }
+
+  const errors = validateContent(input);
+  if (errors.length > 0) return { ok: false, errors };
+  return { ok: true, schema_version: 1, content: toContent(input as Record<string, unknown>) };
+}
+
 /** Texto de consent LGPD renderizado na LP e snapshotado no lead. */
 export function consentText(storeName: string, groupTopic: string): string {
   return `Aceito ser adicionado ao grupo de WhatsApp de ${storeName} e receber mensagens sobre ${groupTopic}. Posso sair do grupo e revogar este consentimento a qualquer momento.`;
+}
+
+/**
+ * Aviso v2: sem checkbox, o clique no CTA é a ação afirmativa (§8.2), e o v2 não
+ * tem `group_topic` — o aviso cita a loja e o que o grupo manda.
+ * Redação final pendente do gate jurídico (§8/§13).
+ */
+export function noticeTextV2(storeName: string): string {
+  return `Ao continuar, você solicita acesso ao grupo e poderá receber novidades e ofertas da ${storeName}.`;
+}
+
+/**
+ * Fonte única do aviso: o que a página MOSTRA e o que a captura SNAPSHOTA como
+ * prova têm que ser a mesma string — se divergirem, o snapshot deixa de valer
+ * como evidência do que a pessoa leu. Por isso o form e a rota de lead chamam
+ * daqui, e não montam o texto por conta.
+ */
+export function noticeTextFor(content: LpContent | LpContentV2): string {
+  return isLpContentV2(content)
+    ? noticeTextV2(content.store_name)
+    : consentText(content.store_name, content.group_topic);
 }
 
 /** Destino do lead: campanha rastreada (rotação) > URL fixa de grupo. */

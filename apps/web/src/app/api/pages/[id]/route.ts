@@ -7,12 +7,7 @@ import {
   updateLandingPage,
   type LpUpdatePatch,
 } from "@/lib/pages/store";
-import {
-  toContent,
-  validateContent,
-  validateTargetGroupUrl,
-  type LpStatus,
-} from "@/lib/pages/schema";
+import { parseContentInput, validateTargetGroupUrl, type LpStatus } from "@/lib/pages/schema";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -68,11 +63,13 @@ export async function PATCH(req: Request, { params }: RouteProps) {
     const patch: LpUpdatePatch = {};
 
     if (body.content !== undefined) {
-      const errors = validateContent(body.content);
-      if (errors.length > 0) {
-        return Response.json({ error: "Conteúdo inválido.", details: errors }, { status: 400 });
+      const parsed = parseContentInput(body.content);
+      if (!parsed.ok) {
+        return Response.json({ error: "Conteúdo inválido.", details: parsed.errors }, { status: 400 });
       }
-      patch.content = toContent(body.content as Record<string, unknown>);
+      patch.content = parsed.content;
+      // A versão acompanha o content: uma página migrada pra v2 nunca volta a ser lida como legada.
+      patch.content_schema_version = parsed.schema_version;
     }
 
     if (body.target_group_url !== undefined) {
