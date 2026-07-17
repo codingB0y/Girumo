@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -19,8 +19,21 @@ import type { LandingPage, LpStatus } from "@/lib/pages/schema";
 import { isLpContentV2 } from "@/lib/pages/render";
 import type { LpLeadRow, LpMetrics } from "@/lib/pages/store";
 import { EditorForm, type EditorValues } from "@/components/pages/editor/form";
+import { EditorFormV2 } from "@/components/pages/editor/form-v2";
+import { EditorPreviewV2 } from "@/components/pages/editor/preview-v2";
+import {
+  contentV2ToEditorValues,
+  editorValuesToContentV2,
+  errorField,
+  type EditorValuesV2,
+} from "@/lib/pages/editor-values";
 
 type Detail = { page: LandingPage; metrics: LpMetrics; leads: LpLeadRow[] };
+
+/** Janela do autosave: longa o bastante pra não salvar no meio de uma palavra. */
+const AUTOSAVE_MS = 1200;
+
+type SaveState = "idle" | "saving" | "saved" | "error";
 
 const STATUS: Record<LpStatus, { label: string; pill: string }> = {
   draft: { label: "Rascunho", pill: "bg-bruma text-aco/70" },
@@ -32,9 +45,14 @@ export default function PaginaDetalhePage() {
   const { id } = useParams<{ id: string }>();
   const [detail, setDetail] = useState<Detail | null>(null);
   const [values, setValues] = useState<EditorValues | null>(null);
+  const [valuesV2, setValuesV2] = useState<EditorValuesV2 | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [saveState, setSaveState] = useState<SaveState>("idle");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // Só edição da lojista dispara autosave — carregar a página não é uma mudança.
+  const dirty = useRef(false);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/pages/${id}`);
@@ -48,27 +66,72 @@ export default function PaginaDetalhePage() {
     // Editor dual: conteúdo v2 tem editor próprio; página legada segue no editor
     // antigo até a migração (Fase 5). O eixo é o mesmo do render (schema_version).
     const content = data.page.content;
-    setValues(
-      isLpContentV2(content)
-        ? null
-        : {
-            store_name: content.store_name,
-            photo_url: content.photo_url,
-            headline: content.headline,
-            description: content.description,
-            group_topic: content.group_topic,
-            primary_color: content.primary_color,
-            target_group_url: data.page.target_group_url ?? "",
-            campaign_slug: data.page.campaign_slug ?? "",
-            meta_pixel_id: data.page.meta_pixel_id ?? "",
-            ga4_id: data.page.ga4_id ?? "",
-          },
-    );
+    const outsideContent = {
+      target_group_url: data.page.target_group_url ?? "",
+      campaign_slug: data.page.campaign_slug ?? "",
+      meta_pixel_id: data.page.meta_pixel_id ?? "",
+      ga4_id: data.page.ga4_id ?? "",
+    };
+
+    if (isLpContentV2(content)) {
+      setValuesV2({ ...contentV2ToEditorValues(content), ...outsideContent });
+      return;
+    }
+    setValues({
+      store_name: content.store_name,
+      photo_url: content.photo_url,
+      headline: content.headline,
+      description: content.description,
+      group_topic: content.group_topic,
+      primary_color: content.primary_color,
+      ...outsideContent,
+    });
   }, [id]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  /**
+   * Autosave do editor v2: PATCH sozinho depois que a lojista para de digitar.
+   * Não recarrega a página do servidor depois de salvar — recarregar sobrescreveria
+   * o que ela digitou enquanto a requisição estava no ar.
+   */
+  const saveV2 = useCallback(
+    async (next: EditorValuesV2) => {
+      setSaveState("saving");
+      try {
+        const res = await fetch(`/api/pages/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            content: editorValuesToContentV2(next),
+            target_group_url: next.target_group_url || null,
+            campaign_slug: next.campaign_slug || null,
+            meta_pixel_id: next.meta_pixel_id || null,
+            ga4_id: next.ga4_id || null,
+          }),
+        });
+        const data = (await res.json()) as { error?: string; details?: string[] };
+        if (!res.ok) {
+          setFieldErrors(Object.fromEntries((data.details ?? []).map((d) => [errorField(d), d])));
+          setSaveState("error");
+          return;
+        }
+        setFieldErrors({});
+        setSaveState("saved");
+      } catch {
+        setSaveState("error");
+      }
+    },
+    [id],
+  );
+
+  useEffect(() => {
+    if (!valuesV2 || !dirty.current) return;
+    const timer = setTimeout(() => void saveV2(valuesV2), AUTOSAVE_MS);
+    return () => clearTimeout(timer);
+  }, [valuesV2, saveV2]);
 
   async function patch(body: Record<string, unknown>, okMessage?: string) {
     if (busy) return;
@@ -234,7 +297,30 @@ export default function PaginaDetalhePage() {
         )}
       </div>
 
-      {/* edição — editor legado; o v2 entra aqui pelo mesmo eixo (schema_version) */}
+      {/* edição v2: form + prévia ao vivo, salvando sozinho */}
+      {valuesV2 ? (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-medium text-breu">Conteúdo da página</h2>
+            <SaveStatus state={saveState} published={page.status === "published"} />
+          </div>
+          <div className="grid items-start gap-6 lg:grid-cols-[1fr_1.1fr]">
+            <EditorFormV2
+              values={valuesV2}
+              onChange={(patch) => {
+                dirty.current = true;
+                setValuesV2((v) => (v ? { ...v, ...patch } : v));
+              }}
+              errors={fieldErrors}
+            />
+            <div className="lg:sticky lg:top-6">
+              <EditorPreviewV2 values={valuesV2} />
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* edição legada — páginas anteriores ao v2, até a migração */}
       {values ? (
         <details className="rounded-2xl border border-breu/[0.06] bg-white shadow-card">
           <summary className="cursor-pointer px-5 py-4 font-medium text-breu">
@@ -276,6 +362,29 @@ export default function PaginaDetalhePage() {
         </details>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Estado do autosave. `aria-live="polite"` porque a lojista não fica olhando pro
+ * canto da tela: quem usa leitor precisa saber que salvou sem perder o foco do
+ * campo. "Salvo" some do jeito que apareceu — o que importa é o erro.
+ */
+function SaveStatus({ state, published }: { state: SaveState; published: boolean }) {
+  const text: Record<SaveState, string | null> = {
+    idle: published ? "A página no ar atualiza em segundos." : "As mudanças salvam sozinhas.",
+    saving: "Salvando...",
+    saved: published ? "Salvo — a página no ar já mostra." : "Salvo.",
+    error: "Não deu pra salvar. Revise os campos destacados.",
+  };
+
+  return (
+    <p
+      aria-live="polite"
+      className={cn("text-xs", state === "error" ? "text-alerta" : "text-aco/50")}
+    >
+      {text[state]}
+    </p>
   );
 }
 
