@@ -1,3 +1,5 @@
 # Community 16
 
-- [[v5|V5]]
+- [[claude-sonnet|Claude-sonnet]]
+- [[forecast-agent|Forecast Agent]]
+- [[recommendation-agent|Recommendation Agent]]

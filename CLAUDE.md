@@ -14,6 +14,30 @@ Instruções persistentes para o Claude Code neste projeto.
 
 Este projeto tem um grafo de conhecimento em `tools/lightrag/`.
 
+### 🔴 RAG-FIRST (regra padrão — economiza contexto)
+
+**Antes de abrir vários arquivos do projeto pra entender arquitetura, contexto,
+decisões, ou "como funciona X" — SEMPRE consulte `kg_query` PRIMEIRO.**
+
+Fluxo obrigatório:
+
+1. Pergunta sobre o projeto (arquitetura, decisão, fluxo, "onde fica", "por que
+   foi feito assim") → chame `kg_query(pergunta, mode)` antes de ler arquivos.
+2. Se o grafo respondeu suficientemente → responda com base nisso. **Não abra
+   arquivos-fonte só pra confirmar** o que o grafo já disse.
+3. **Só gaste contexto lendo arquivos se:** (a) o grafo não tem a resposta / está
+   incompleto, ou (b) você vai EDITAR o código (aí precisa do texto exato).
+4. Escolha do `mode`: `global` pra visão geral/resumo, `local` pra um módulo
+   específico, `hybrid` (default) pro resto.
+5. Perfis do grafo (via `LIGHTRAG_PROFILE`): `tech` (código/infra/deploy),
+   `product` (features/UX/roadmap), `business` (marca/marketing/concorrentes),
+   `customer` (voz do cliente), `operations` (runbooks). A MCP tool `kg_query`
+   consulta o perfil ativo — escolha o perfil pela natureza da pergunta.
+
+Não rode `kg_query` "no automático" em toda abertura de sessão — cada consulta
+gasta cota de embedding do Gemini (limite diário). Consulte sob demanda, quando
+a pergunta realmente pedir contexto do projeto.
+
 ### Antes de propor mudanças arquiteturais:
 
 1. Consulte `kg_query` com a pergunta relevante

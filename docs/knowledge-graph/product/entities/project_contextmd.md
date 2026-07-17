@@ -1,11 +1,12 @@
-# Project_Context.md
+# PROJECT_CONTEXT.md
 
 **Type:** content
 
-A documentation file providing necessary context for project execution.
+The documentation file serving as a map and index for the HubFlow project architecture.
 
 ## Neighbors
-- [[backend|Backend]]
+- [[hubflow|HubFlow]]
+- [[audit_reportmd|AUDIT_REPORT.md]]
 
 ## Appears in
-- `ROADMAP.md`
+- `PROJECT_CONTEXT.md`

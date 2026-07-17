@@ -2,18 +2,39 @@
 const express = require("express");
 const app = express();
 
+function healthPayload() {
+  const whatsappConnected = Boolean(currentSocket?.user);
+  const supabaseReady = !environment.requiresSupabase || supabaseCommandWorkerStarted;
+  const ready = whatsappConnected && supabaseReady;
+  return {
+    ok: ready,
+    service: "hubflow-engine",
+    whatsappConnected,
+    supabaseWorker: supabaseCommandWorkerStarted,
+    uptime: process.uptime(),
+  };
+}
+
 app.get("/", (req, res) => {
   res.status(200).send("HUBFLOW Engine online");
 });
 
-app.get("/health", (req, res) => {
+app.get("/live", (req, res) => {
   res.status(200).json({
     ok: true,
     service: "hubflow-engine",
-    whatsappConnected: Boolean(currentSocket?.user),
-    supabaseWorker: supabaseCommandWorkerStarted,
     uptime: process.uptime(),
   });
+});
+
+app.get("/ready", (req, res) => {
+  const payload = healthPayload();
+  res.status(payload.ok ? 200 : 503).json(payload);
+});
+
+app.get("/health", (req, res) => {
+  const payload = healthPayload();
+  res.status(payload.ok ? 200 : 503).json(payload);
 });
 
 const PORT = process.env.PORT || 3000;

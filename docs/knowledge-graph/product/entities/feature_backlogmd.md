@@ -2,7 +2,7 @@
 
 **Type:** content
 
-A documentation file that lists prioritized features, improvements, and tasks for a software project.
+A documentation file that lists prioritized features, improvements, and tasks for a software project.<SEP>A documentation file that lists prioritized features, improvements, and tasks for a software project.
 
 ## Neighbors
 - [[dashboard|Dashboard]]

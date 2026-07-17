@@ -13,7 +13,9 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 
 # Active profile — set via LIGHTRAG_PROFILE env var (default "tech").
 # Each profile has its own storage, manifest and Obsidian vault subfolder,
-# so contexts (tech / business / product / customer / operations) never mix.
+# so contexts (tech / code / business / product / customer / operations) never mix.
+# NOTE: `tech` = docs de infra/deploy/arquitetura (curados); `code` = código-fonte
+# da aplicação (apps/web/src + hubflow-engine), lista em index-lists/code-files.txt.
 PROFILE = os.environ.get("LIGHTRAG_PROFILE", "tech").strip() or "tech"
 
 STORAGE_DIR = LIGHTRAG_DIR / "rag_storage" / PROFILE

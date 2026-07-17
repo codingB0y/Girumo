@@ -81,7 +81,12 @@ async def cmd_show(args):
 async def cmd_index(args):
     from pathlib import Path
     list_path = Path(args.list).resolve() if getattr(args, "list", None) else None
-    await index_mod.run_index(full=args.full, dry_run=args.dry_run, list_path=list_path)
+    await index_mod.run_index(
+        full=args.full,
+        dry_run=args.dry_run,
+        list_path=list_path,
+        retry_failed=getattr(args, "retry_failed", False),
+    )
 
 
 async def cmd_export(args):
@@ -181,6 +186,7 @@ def main():
     sp.add_argument("--dry-run", action="store_true")
     sp.add_argument("--incremental", action="store_true")
     sp.add_argument("--list", type=str, default=None)
+    sp.add_argument("--retry-failed", action="store_true")
     sp.set_defaults(func=cmd_index)
 
     sp = sub.add_parser("export")
