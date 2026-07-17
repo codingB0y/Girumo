@@ -18,6 +18,7 @@ import Link from "next/link";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { LandingPage, LpTemplate } from "@/lib/pages/schema";
+import { V2_TEMPLATE_SLUG } from "@/lib/pages/flags";
 import { EditorForm, EMPTY_EDITOR_VALUES, type EditorValues } from "@/components/pages/editor/form";
 import { EditorPreview } from "@/components/pages/editor/preview";
 
@@ -33,8 +34,12 @@ export function NovaPaginaLegacy() {
     fetch("/api/pages/templates")
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("Falha ao carregar modelos."))))
       .then((data: LpTemplate[]) => {
-        setTemplates(data);
-        if (data.length > 0) setTemplateId(data[0].id);
+        // O modelo do v2 vive no mesmo endpoint, mas o `component_key` dele
+        // ("conversion") não existe no registry legado — listá-lo aqui ofereceria
+        // à lojista um modelo que esta tela não sabe renderizar.
+        const legacy = data.filter((t) => t.slug !== V2_TEMPLATE_SLUG);
+        setTemplates(legacy);
+        if (legacy.length > 0) setTemplateId(legacy[0].id);
       })
       .catch((e: Error) => setError(e.message));
   }, []);
