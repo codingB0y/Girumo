@@ -6,6 +6,14 @@
 -- Reversível: bloco de ROLLBACK comentado no fim.
 -- ============================================================
 
+-- uploads.kind: mídia de LP é lida SEM sessão por /api/p/media/:id, e a coluna
+-- `kind` é o que autoriza essa leitura (o id é só o storage path, não é segredo).
+-- `upload_kind` é enum, então os valores novos precisam existir antes do insert.
+-- `if not exists` mantém a migração repetível; fora de bloco transacional porque
+-- Postgres < 12 não permite usar valor de enum criado na mesma transação.
+alter type public.upload_kind add value if not exists 'lp-media';
+alter type public.upload_kind add value if not exists 'lp-logo';
+
 -- landing_pages: dimensões do modelo + versionamento de conteúdo/aviso
 alter table landing_pages
   add column if not exists structure text not null default 'conversion'
