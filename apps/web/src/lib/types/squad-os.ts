@@ -144,7 +144,7 @@ export const SQUAD_STATUS_CONFIG: Record<
   SquadStatus,
   { label: string; color: string; bg: string }
 > = {
-  planning: { label: "Planejando", color: "text-iris", bg: "bg-iris/10" },
+  planning: { label: "Planejando", color: "text-cobalt-500", bg: "bg-cobalt-500/10" },
   researching: { label: "Pesquisando", color: "text-blue-600", bg: "bg-blue-50" },
   executing: { label: "Executando", color: "text-amber-600", bg: "bg-amber-50" },
   validating: { label: "Validando", color: "text-purple-600", bg: "bg-purple-50" },
@@ -155,7 +155,7 @@ export const MISSION_STATUS_CONFIG: Record<
   MissionStatus,
   { label: string; color: string; bg: string }
 > = {
-  pending: { label: "Pendente", color: "text-aco", bg: "bg-bruma" },
+  pending: { label: "Pendente", color: "text-aco", bg: "bg-canvas-100" },
   active: { label: "Ativa", color: "text-amber-600", bg: "bg-amber-50" },
   validating: { label: "Validando", color: "text-purple-600", bg: "bg-purple-50" },
   completed: { label: "Concluída", color: "text-sucesso", bg: "bg-sucesso/10" },

@@ -102,7 +102,7 @@ export function AdminLogsClient({ logs, tenants, pagination, filters }: Props) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `hubflow-logs-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `girumo-logs-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -116,8 +116,8 @@ export function AdminLogsClient({ logs, tenants, pagination, filters }: Props) {
           className={cn(
             "rounded-full px-3 py-1.5 font-data text-[11px] uppercase tracking-wider transition",
             filters.level === "all"
-              ? "bg-iris/10 text-iris ring-1 ring-iris/20"
-              : "bg-white border border-breu/[0.06] text-aco/60 hover:bg-bruma/40",
+              ? "bg-cobalt-500/10 text-cobalt-500 ring-1 ring-cobalt-500/20"
+              : "bg-white border border-volt-950/[0.06] text-aco/60 hover:bg-canvas-100/40",
           )}
         >
           Todos
@@ -130,7 +130,7 @@ export function AdminLogsClient({ logs, tenants, pagination, filters }: Props) {
               "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-data text-[11px] uppercase tracking-wider transition",
               filters.level === level
                 ? `${config.bg} ${config.text} ring-2 ring-offset-1 ring-current/20`
-                : "bg-white border border-breu/[0.06] text-aco/60 hover:bg-bruma/40",
+                : "bg-white border border-volt-950/[0.06] text-aco/60 hover:bg-canvas-100/40",
             )}
           >
             <config.icon className="h-3 w-3" />
@@ -140,7 +140,7 @@ export function AdminLogsClient({ logs, tenants, pagination, filters }: Props) {
       </div>
 
       {/* Filters bar */}
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-breu/[0.06] bg-white px-4 py-3 shadow-sm">
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-volt-950/[0.06] bg-white px-4 py-3 shadow-sm">
         <div className="flex items-center gap-2 text-aco/50">
           <Filter className="h-4 w-4" />
         </div>
@@ -153,7 +153,7 @@ export function AdminLogsClient({ logs, tenants, pagination, filters }: Props) {
             placeholder="Filtrar eventos nesta página..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-breu/10 bg-bruma/30 py-2 pl-9 pr-3 font-data text-xs text-breu placeholder:text-aco/40 focus:border-iris/30 focus:outline-none focus:ring-1 focus:ring-iris/20"
+            className="w-full rounded-lg border border-volt-950/10 bg-canvas-100/30 py-2 pl-9 pr-3 font-data text-xs text-volt-950 placeholder:text-aco/40 focus:border-cobalt-500/30 focus:outline-none focus:ring-1 focus:ring-cobalt-500/20"
           />
         </div>
 
@@ -162,7 +162,7 @@ export function AdminLogsClient({ logs, tenants, pagination, filters }: Props) {
           <select
             value={filters.tenant}
             onChange={(e) => handleTenantFilter(e.target.value)}
-            className="rounded-lg border border-breu/10 bg-bruma/30 px-3 py-2 font-data text-xs text-breu focus:border-iris/30 focus:outline-none"
+            className="rounded-lg border border-volt-950/10 bg-canvas-100/30 px-3 py-2 font-data text-xs text-volt-950 focus:border-cobalt-500/30 focus:outline-none"
           >
             <option value="all">Todos os tenants</option>
             {tenants.map((t) => (
@@ -174,7 +174,7 @@ export function AdminLogsClient({ logs, tenants, pagination, filters }: Props) {
         {/* Export */}
         <button
           onClick={handleExport}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-breu/10 bg-white px-3 py-2 font-data text-xs text-aco/60 transition hover:border-iris/20 hover:text-iris"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-volt-950/10 bg-white px-3 py-2 font-data text-xs text-aco/60 transition hover:border-cobalt-500/20 hover:text-cobalt-500"
         >
           <Download className="h-3.5 w-3.5" />
           Exportar
@@ -186,25 +186,25 @@ export function AdminLogsClient({ logs, tenants, pagination, filters }: Props) {
       </div>
 
       {/* Log list */}
-      <div className="rounded-2xl border border-breu/[0.06] bg-white shadow-sm">
+      <div className="rounded-2xl border border-volt-950/[0.06] bg-white shadow-sm">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-12 text-center">
             <Activity className="h-8 w-8 text-aco/25" />
             <p className="text-sm text-aco/50">Nenhum log corresponde aos filtros.</p>
           </div>
         ) : (
-          <div className="divide-y divide-breu/[0.04]">
+          <div className="divide-y divide-volt-950/[0.04]">
             {filtered.map((log) => {
               const config = LEVEL_CONFIG[log.level] ?? LEVEL_CONFIG.info;
               const Icon = config.icon;
               return (
-                <div key={log.id} className="flex items-start gap-4 px-5 py-4 transition hover:bg-bruma/30">
+                <div key={log.id} className="flex items-start gap-4 px-5 py-4 transition hover:bg-canvas-100/30">
                   <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${config.bg} ${config.text}`}>
                     <Icon className="h-4 w-4" />
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-breu">{log.event}</p>
+                      <p className="text-sm font-medium text-volt-950">{log.event}</p>
                       <span className={`rounded-full px-1.5 py-0.5 font-data text-[9px] uppercase tracking-wider ${config.bg} ${config.text}`}>
                         {log.level}
                       </span>
@@ -247,7 +247,7 @@ export function AdminLogsClient({ logs, tenants, pagination, filters }: Props) {
             <button
               onClick={() => handlePage(pagination.page - 1)}
               disabled={pagination.page <= 1}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-breu/[0.06] bg-white text-aco transition hover:border-iris/20 disabled:opacity-30"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-volt-950/[0.06] bg-white text-aco transition hover:border-cobalt-500/20 disabled:opacity-30"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -260,8 +260,8 @@ export function AdminLogsClient({ logs, tenants, pagination, filters }: Props) {
                   className={cn(
                     "inline-flex h-9 w-9 items-center justify-center rounded-lg font-data text-xs transition",
                     p === pagination.page
-                      ? "bg-iris text-white"
-                      : "border border-breu/[0.06] bg-white text-aco hover:border-iris/20",
+                      ? "bg-cobalt-500 text-white"
+                      : "border border-volt-950/[0.06] bg-white text-aco hover:border-cobalt-500/20",
                   )}
                 >
                   {p}
@@ -271,7 +271,7 @@ export function AdminLogsClient({ logs, tenants, pagination, filters }: Props) {
             <button
               onClick={() => handlePage(pagination.page + 1)}
               disabled={pagination.page >= pagination.totalPages}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-breu/[0.06] bg-white text-aco transition hover:border-iris/20 disabled:opacity-30"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-volt-950/[0.06] bg-white text-aco transition hover:border-cobalt-500/20 disabled:opacity-30"
             >
               <ChevronRight className="h-4 w-4" />
             </button>

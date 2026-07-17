@@ -102,7 +102,7 @@ export default function PainelConfiguracoes() {
   return (
     <div className="mx-auto max-w-[1200px] space-y-8 px-4 py-8 sm:px-8">
       <header>
-        <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-breu">Configurações</h1>
+        <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-volt-950">Configurações</h1>
         <p className="font-editorial mt-1 text-[19px] italic text-ardosia">
           Conexão, equipe, plano e conta — tudo num balcão só.
         </p>
@@ -116,7 +116,7 @@ export default function PainelConfiguracoes() {
               onClick={() => setSection(key)}
               className={cn(
                 "inline-flex shrink-0 cursor-pointer items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors duration-[160ms] ease-[var(--ease-fluxo)]",
-                section === key ? "bg-breu text-white" : "text-aco/70 hover:bg-poco hover:text-breu",
+                section === key ? "bg-volt-950 text-white" : "text-aco/70 hover:bg-poco hover:text-volt-950",
               )}
             >
               <Icon className={cn("h-[18px] w-[18px]", section === key ? "text-white" : "text-aco/50")} strokeWidth={1.75} />
@@ -134,7 +134,7 @@ export default function PainelConfiguracoes() {
                     {live ? <Wifi className="h-6 w-6" strokeWidth={1.75} /> : <WifiOff className="h-6 w-6" strokeWidth={1.75} />}
                   </span>
                   <div>
-                    <p className="font-display text-base font-bold text-breu">{session.phone ?? (live ? "Conectado" : "Sem número")}</p>
+                    <p className="font-display text-base font-bold text-volt-950">{session.phone ?? (live ? "Conectado" : "Sem número")}</p>
                     <p className="mt-0.5 flex items-center gap-1.5 text-sm text-aco/70">
                       <span className={cn("h-1.5 w-1.5 rounded-full", live ? "bg-sucesso" : "bg-alerta")} />
                       {live ? "Conectado" : "Desconectado"}
@@ -143,13 +143,13 @@ export default function PainelConfiguracoes() {
                 </div>
                 <Link
                   href="/painel/conectar"
-                  className="inline-flex items-center gap-2 rounded-xl border border-breu/15 bg-poco px-4 py-2.5 text-sm font-medium text-breu transition-colors duration-[160ms] ease-[var(--ease-fluxo)] hover:border-iris hover:text-iris"
+                  className="inline-flex items-center gap-2 rounded-xl border border-volt-950/15 bg-poco px-4 py-2.5 text-sm font-medium text-volt-950 transition-colors duration-[160ms] ease-[var(--ease-fluxo)] hover:border-cobalt-500 hover:text-cobalt-500"
                 >
                   <RefreshCw className="h-4 w-4" strokeWidth={1.75} /> {live ? "Gerenciar" : "Conectar"}
                 </Link>
               </div>
               <div className="mt-6 flex items-center gap-3 rounded-2xl bg-poco px-4 py-3.5">
-                <ShieldCheck className="h-5 w-5 shrink-0 text-iris" strokeWidth={1.75} />
+                <ShieldCheck className="h-5 w-5 shrink-0 text-cobalt-500" strokeWidth={1.75} />
                 <p className="text-sm text-aco">Número mascarado e dentro da LGPD. Seus contatos são seus.</p>
               </div>
             </Panel>
@@ -165,7 +165,7 @@ export default function PainelConfiguracoes() {
                   onChange={(e) => setInviteEmail(e.target.value)}
                   placeholder="email@exemplo.com"
                   aria-label="Email do convidado"
-                  className="w-full rounded-[10px] border border-breu/10 bg-poco px-3.5 py-2.5 text-sm text-breu outline-none transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] placeholder:text-aco/40 focus:border-iris/50 focus:bg-papel focus:shadow-[0_0_0_3px_var(--color-iris-light)] sm:w-64"
+                  className="w-full rounded-[10px] border border-volt-950/10 bg-poco px-3.5 py-2.5 text-sm text-volt-950 outline-none transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] placeholder:text-aco/40 focus:border-cobalt-500/50 focus:bg-papel focus:shadow-[0_0_0_3px_var(--color-cobalt-soft)] sm:w-64"
                   onKeyDown={(e) => e.key === "Enter" && inviteMember()}
                 />
                 <button
@@ -173,7 +173,7 @@ export default function PainelConfiguracoes() {
                   disabled={inviteBusy || !inviteEmail.trim()}
                   className={cn(
                     "inline-flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white transition ease-[var(--ease-fluxo)]",
-                    inviteBusy || !inviteEmail.trim() ? "cursor-not-allowed bg-iris/40" : "bg-iris hover:brightness-110",
+                    inviteBusy || !inviteEmail.trim() ? "cursor-not-allowed bg-cobalt-500/40" : "bg-cobalt-500 hover:brightness-110",
                   )}
                 >
                   {inviteBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
@@ -185,17 +185,17 @@ export default function PainelConfiguracoes() {
               {members.length === 0 ? (
                 <p className="font-editorial mt-4 text-[17px] italic text-ardosia">Só você por enquanto. Convide alguém acima.</p>
               ) : (
-                <div className="mt-4 divide-y divide-dashed divide-breu/[0.09]">
+                <div className="mt-4 divide-y divide-dashed divide-volt-950/[0.09]">
                   {members.map((m) => (
                     <div key={m.id} className="flex items-center gap-3 py-3.5 first:pt-0 last:pb-0">
-                      <span className="font-data flex h-9 w-9 items-center justify-center rounded-full bg-iris/10 text-xs font-medium text-iris">
+                      <span className="font-data flex h-9 w-9 items-center justify-center rounded-full bg-cobalt-500/10 text-xs font-medium text-cobalt-500">
                         {(m.invited_email ?? "?").slice(0, 2).toUpperCase()}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-breu">{m.invited_email ?? "Membro"}</p>
+                        <p className="truncate text-sm font-medium text-volt-950">{m.invited_email ?? "Membro"}</p>
                         <p className="font-data text-[11px] text-aco/55">{m.accepted_at ? "Ativo" : "Convite pendente"}</p>
                       </div>
-                      <span className={cn("font-data rounded-full px-2.5 py-1 text-[10px] uppercase tracking-[0.06em]", m.role === "owner" ? "bg-iris/10 text-iris-escuro" : "bg-poco text-aco/60")}>
+                      <span className={cn("font-data rounded-full px-2.5 py-1 text-[10px] uppercase tracking-[0.06em]", m.role === "owner" ? "bg-cobalt-500/10 text-cobalt-700" : "bg-poco text-aco/60")}>
                         {m.role}
                       </span>
                     </div>
@@ -214,7 +214,7 @@ export default function PainelConfiguracoes() {
                   <button
                     onClick={openPortal}
                     disabled={portalBusy}
-                    className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-breu/15 bg-papel px-3 py-2 text-xs font-medium text-breu transition-colors duration-[160ms] ease-[var(--ease-fluxo)] hover:border-iris hover:text-iris"
+                    className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-volt-950/15 bg-papel px-3 py-2 text-xs font-medium text-volt-950 transition-colors duration-[160ms] ease-[var(--ease-fluxo)] hover:border-cobalt-500 hover:text-cobalt-500"
                   >
                     {portalBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}
                     Portal Stripe
@@ -225,8 +225,8 @@ export default function PainelConfiguracoes() {
                 {plans.filter((p) => p.code !== "FREE").map((p) => {
                   const atual = p.code === currentPlanCode;
                   return (
-                    <div key={p.id} className={cn("rounded-2xl border p-4 text-center", atual ? "border-iris/40 bg-iris/[0.05]" : "border-breu/[0.08] bg-poco")}>
-                      <p className="font-display text-sm font-bold text-breu">{p.name}</p>
+                    <div key={p.id} className={cn("rounded-2xl border p-4 text-center", atual ? "border-cobalt-500/40 bg-cobalt-500/[0.05]" : "border-volt-950/[0.08] bg-poco")}>
+                      <p className="font-display text-sm font-bold text-volt-950">{p.name}</p>
                       {p.limits && (
                         <p className="font-data mt-1 text-[11px] text-aco/55">
                           {typeof p.limits.campaigns === "number" && p.limits.campaigns > 0
@@ -242,10 +242,10 @@ export default function PainelConfiguracoes() {
                         className={cn(
                           "mt-3 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-medium transition ease-[var(--ease-fluxo)]",
                           atual
-                            ? "cursor-default bg-iris/10 text-iris"
+                            ? "cursor-default bg-cobalt-500/10 text-cobalt-500"
                             : busyPlan === p.code
-                              ? "cursor-wait bg-iris/30 text-white"
-                              : "border border-breu/15 text-breu hover:border-iris hover:bg-iris hover:text-white",
+                              ? "cursor-wait bg-cobalt-500/30 text-white"
+                              : "border border-volt-950/15 text-volt-950 hover:border-cobalt-500 hover:bg-cobalt-500 hover:text-white",
                         )}
                       >
                         {atual ? (
@@ -278,8 +278,8 @@ export default function PainelConfiguracoes() {
 function Panel({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) {
   return (
     <section className="pn-card overflow-hidden rounded-2xl">
-      <div className="border-b border-breu/[0.06] px-6 py-5">
-        <h2 className="font-display text-lg font-bold text-breu">{title}</h2>
+      <div className="border-b border-volt-950/[0.06] px-6 py-5">
+        <h2 className="font-display text-lg font-bold text-volt-950">{title}</h2>
         {desc && <p className="mt-0.5 text-sm text-aco/65">{desc}</p>}
       </div>
       <div className="p-6">{children}</div>

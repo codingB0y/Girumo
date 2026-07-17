@@ -17,18 +17,17 @@ export function EmptyState({
   ctaHref: string;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-breu/15 bg-papel/60 px-6 py-16 text-center">
-      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-iris/10">
-        <Icon className="h-7 w-7 text-iris" strokeWidth={1.75} />
+    <div className="flex flex-col items-center justify-center rounded-[var(--radius-panel)] border border-dashed border-line-200 bg-paper-0 px-6 py-16 text-center">
+      <span className="flex h-14 w-14 items-center justify-center rounded-[var(--radius-card)] bg-canvas-100">
+        <Icon className="h-7 w-7 text-cobalt-500 [stroke-width:var(--icon-stroke)]" />
       </span>
-      {/* voz editorial — o produto fala com o lojista */}
-      <h3 className="font-editorial mt-4 text-[22px] italic text-breu">{title}</h3>
-      <p className="mt-1.5 max-w-xs text-sm text-aco/65">{description}</p>
+      <h3 className="type-h3 mt-4 text-volt-950">{title}</h3>
+      <p className="type-body-s mt-1.5 max-w-xs text-slate-600">{description}</p>
       <Link
         href={ctaHref}
-        className="hf-shine mt-5 inline-flex items-center gap-2 rounded-[10px] bg-iris px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-[transform,filter] duration-[160ms] ease-[var(--ease-fluxo)] hover:brightness-110 active:scale-[0.97]"
+        className="mt-5 inline-flex h-[var(--control-height-prominent)] items-center gap-2 rounded-[var(--radius-control)] bg-acid-500 px-5 text-sm font-semibold text-volt-950 shadow-sm transition-[filter] duration-[var(--duration-micro)] ease-[var(--ease-girumo)] hover:brightness-95 active:brightness-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
       >
-        <Plus className="h-4 w-4" />
+        <Plus className="h-4 w-4 [stroke-width:var(--icon-stroke)]" />
         {ctaLabel}
       </Link>
     </div>

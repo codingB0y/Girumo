@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ArrowRight } from "lucide-react";
+import { BRAND } from "@/lib/brand";
 
 /**
  * Calculadora do trabalho manual: grupos × posts/dia × 1min30 × 30 dias.
@@ -52,7 +53,7 @@ export function ManualCostCalculator({ signupUrl }: { signupUrl: string }) {
         </p>
         <div className="my-7 h-px bg-[var(--lp-line)]" aria-hidden />
         <p className="text-base font-medium">
-          Com o HubFlow, essa rotina inteira sai num clique.
+          Com a {BRAND.name}, você organiza essa rotina em um fluxo só.
         </p>
         <a href={signupUrl} className="lp3-btn lp3-btn-ink mt-6">
           Criar minha campanha <ArrowRight className="h-4 w-4" aria-hidden />

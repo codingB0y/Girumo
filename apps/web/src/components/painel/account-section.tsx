@@ -110,12 +110,12 @@ export function AccountSection() {
       />
 
       {/* Logout */}
-      <div className="border-t border-breu/[0.06] pt-5">
+      <div className="border-t border-volt-950/[0.06] pt-5">
         <button
           onClick={() => {
             fetch("/api/auth/logout", { method: "POST" }).then(() => router.push("/login"));
           }}
-          className="inline-flex items-center gap-2 rounded-xl border border-breu/15 px-4 py-2.5 text-sm font-medium text-breu transition hover:border-alerta hover:text-alerta"
+          className="inline-flex items-center gap-2 rounded-xl border border-volt-950/15 px-4 py-2.5 text-sm font-medium text-volt-950 transition hover:border-alerta hover:text-alerta"
         >
           Sair da conta
         </button>
@@ -145,7 +145,7 @@ export function AccountSection() {
                 </button>
                 <button
                   onClick={() => setConfirmDelete(false)}
-                  className="rounded-lg border border-breu/15 px-4 py-2 text-sm font-medium text-breu"
+                  className="rounded-lg border border-volt-950/15 px-4 py-2 text-sm font-medium text-volt-950"
                 >
                   Cancelar
                 </button>
@@ -186,7 +186,7 @@ function FieldRow({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="w-full rounded-xl border border-breu/10 bg-white px-3.5 py-2.5 text-sm text-breu outline-none transition placeholder:text-aco/40 focus:border-iris/40 focus:ring-4 focus:ring-iris/10"
+          className="w-full rounded-xl border border-volt-950/10 bg-white px-3.5 py-2.5 text-sm text-volt-950 outline-none transition placeholder:text-aco/40 focus:border-cobalt-500/40 focus:ring-4 focus:ring-cobalt-500/10"
           onKeyDown={(e) => e.key === "Enter" && !disabled && onSave()}
         />
       </div>
@@ -195,7 +195,7 @@ function FieldRow({
         disabled={saving || disabled}
         className={cn(
           "inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white transition",
-          saving || disabled ? "cursor-not-allowed bg-iris/40" : "bg-iris shadow-iris hover:-translate-y-0.5 hover:bg-iris-claro",
+          saving || disabled ? "cursor-not-allowed bg-cobalt-500/40" : "bg-cobalt-500 shadow-brand hover:-translate-y-0.5 hover:bg-cobalt-500",
         )}
       >
         {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}

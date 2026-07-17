@@ -74,7 +74,7 @@ export default function SquadOSPage() {
       value: activeSquads.length,
       total: squads.length,
       icon: Users,
-      color: "text-iris",
+      color: "text-cobalt-500",
     },
     {
       label: "Agents disponíveis",
@@ -108,7 +108,7 @@ export default function SquadOSPage() {
             Equipe AI
           </h1>
           <p className="font-data mt-1 text-xs uppercase tracking-wider text-aco/60">
-            Squad OS · Operando o HubFlow
+            Squad OS · Operando a Girumo
             <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-sucesso/10 px-2 py-0.5 text-[9px] text-sucesso">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-sucesso" />
               Realtime
@@ -117,7 +117,7 @@ export default function SquadOSPage() {
         </div>
         <Link
           href="/painel/squad-os/squads"
-          className="hidden items-center gap-2 rounded-xl bg-iris px-4 py-2.5 text-sm font-medium text-white shadow-iris transition hover:-translate-y-0.5 hover:bg-iris-claro sm:inline-flex"
+          className="hidden items-center gap-2 rounded-xl bg-cobalt-500 px-4 py-2.5 text-sm font-medium text-white shadow-brand transition hover:-translate-y-0.5 hover:bg-cobalt-500 sm:inline-flex"
         >
           <Users className="h-4 w-4" />
           Ver squads
@@ -129,7 +129,7 @@ export default function SquadOSPage() {
         {stats.map((s) => (
           <div
             key={s.label}
-            className="rounded-2xl border border-breu/[0.08] bg-white p-4 transition-all"
+            className="rounded-2xl border border-volt-950/[0.08] bg-white p-4 transition-all"
           >
             <div className="flex items-center gap-2">
               <s.icon className={cn("h-4 w-4", s.color)} />
@@ -137,7 +137,7 @@ export default function SquadOSPage() {
                 {s.label}
               </span>
             </div>
-            <p className="font-display mt-2 text-2xl font-extrabold tracking-tight text-breu">
+            <p className="font-display mt-2 text-2xl font-extrabold tracking-tight text-volt-950">
               {s.value}
               {s.total !== null && (
                 <span className="text-sm font-normal text-aco/40">/{s.total}</span>
@@ -150,10 +150,10 @@ export default function SquadOSPage() {
       {/* Squads Grid */}
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-display text-base font-bold text-breu">Squads</h2>
+          <h2 className="font-display text-base font-bold text-volt-950">Squads</h2>
           <Link
             href="/painel/squad-os/squads"
-            className="font-data flex items-center gap-1 text-[11px] uppercase tracking-wider text-iris transition hover:text-iris-escuro"
+            className="font-data flex items-center gap-1 text-[11px] uppercase tracking-wider text-cobalt-500 transition hover:text-cobalt-700"
           >
             Ver todas <ArrowRight className="h-3 w-3" />
           </Link>
@@ -165,10 +165,10 @@ export default function SquadOSPage() {
               <Link
                 key={squad.id}
                 href={`/painel/squad-os/squads/${squad.slug}`}
-                className="group rounded-2xl border border-breu/[0.08] bg-white p-4 transition hover:-translate-y-0.5 hover:border-iris/30 hover:shadow-sm"
+                className="group rounded-2xl border border-volt-950/[0.08] bg-white p-4 transition hover:-translate-y-0.5 hover:border-cobalt-500/30 hover:shadow-sm"
               >
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-breu">{squad.name}</h3>
+                  <h3 className="text-sm font-semibold text-volt-950">{squad.name}</h3>
                   <span
                     className={cn(
                       "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium",
@@ -204,12 +204,12 @@ export default function SquadOSPage() {
       {/* Missions + Decisions */}
       <div className="grid gap-5 lg:grid-cols-2">
         {/* Active Missions */}
-        <div className="rounded-3xl border border-breu/[0.08] bg-white p-6">
+        <div className="rounded-3xl border border-volt-950/[0.08] bg-white p-6">
           <div className="flex items-center justify-between">
-            <h2 className="font-display text-base font-bold text-breu">Missions ativas</h2>
+            <h2 className="font-display text-base font-bold text-volt-950">Missions ativas</h2>
             <Link
               href="/painel/squad-os/missions"
-              className="font-data text-[11px] uppercase tracking-wider text-iris transition hover:text-iris-escuro"
+              className="font-data text-[11px] uppercase tracking-wider text-cobalt-500 transition hover:text-cobalt-700"
             >
               Ver todas →
             </Link>
@@ -221,13 +221,13 @@ export default function SquadOSPage() {
               {activeMissions.map((m) => (
                 <div
                   key={m.id}
-                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-bruma/50"
+                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-canvas-100/50"
                 >
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
                     <Zap className="h-4 w-4" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-breu">
+                    <p className="truncate text-sm font-medium text-volt-950">
                       {m.title}
                     </p>
                     <p className="font-data text-[11px] text-aco/55">
@@ -242,7 +242,7 @@ export default function SquadOSPage() {
 
           {/* Completed */}
           {completedMissions.length > 0 && (
-            <div className="mt-4 border-t border-breu/[0.06] pt-4">
+            <div className="mt-4 border-t border-volt-950/[0.06] pt-4">
               <p className="font-data mb-2 text-[10px] uppercase tracking-wider text-aco/40">
                 Concluídas recentemente
               </p>
@@ -252,7 +252,7 @@ export default function SquadOSPage() {
                   className="flex items-center gap-3 rounded-xl px-3 py-2 opacity-60"
                 >
                   <CheckCircle2 className="h-4 w-4 text-sucesso" />
-                  <span className="truncate text-sm text-breu">{m.title}</span>
+                  <span className="truncate text-sm text-volt-950">{m.title}</span>
                 </div>
               ))}
             </div>
@@ -260,23 +260,23 @@ export default function SquadOSPage() {
         </div>
 
         {/* Decisions */}
-        <div className="rounded-3xl border border-breu/[0.08] bg-white p-6">
-          <h2 className="font-display text-base font-bold text-breu">Decisões ativas</h2>
+        <div className="rounded-3xl border border-volt-950/[0.08] bg-white p-6">
+          <h2 className="font-display text-base font-bold text-volt-950">Decisões ativas</h2>
           <div className="mt-4 space-y-3">
             {decisions.map((d) => (
               <div
                 key={d.id}
-                className="rounded-xl border border-breu/[0.05] px-4 py-3"
+                className="rounded-xl border border-volt-950/[0.05] px-4 py-3"
               >
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-breu">{d.title}</p>
+                  <p className="text-sm font-medium text-volt-950">{d.title}</p>
                   <span className="font-data flex items-center gap-1 text-[10px] text-sucesso">
                     <Brain className="h-3 w-3" />
                     {d.confidence}/100
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-aco/55">{d.rationale}</p>
-                <span className="font-data mt-2 inline-block rounded-full bg-bruma px-2 py-0.5 text-[9px] uppercase tracking-wider text-aco/50">
+                <span className="font-data mt-2 inline-block rounded-full bg-canvas-100 px-2 py-0.5 text-[9px] uppercase tracking-wider text-aco/50">
                   {d.category}
                 </span>
               </div>

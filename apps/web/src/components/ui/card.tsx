@@ -4,8 +4,9 @@ export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElemen
   return (
     <div
       className={cn(
-        // bancada do balcão: realce interno + 2 sombras (contato + ambiente)
-        "pn-card pn-card-hover rounded-2xl",
+        "rounded-[var(--radius-card)] border border-line-200 bg-paper-0 shadow-sm",
+        "transition-[border-color,box-shadow] duration-[var(--duration-micro)] ease-[var(--ease-girumo)]",
+        "hover:border-cobalt-500/30 hover:shadow-md",
         className,
       )}
       {...props}
@@ -19,7 +20,7 @@ export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDiv
 
 export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
   return (
-    <h3 className={cn("font-display text-[17px] font-bold tracking-[-0.01em] text-breu", className)} {...props} />
+    <h3 className={cn("type-h3 text-volt-950", className)} {...props} />
   );
 }
 

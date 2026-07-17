@@ -85,8 +85,8 @@ export function AdminAlertsClient({ alerts }: { alerts: Alert[] }) {
             className={cn(
               "rounded-full px-3 py-1.5 font-data text-[11px] uppercase tracking-wider transition",
               filter === f
-                ? "bg-iris/10 text-iris ring-1 ring-iris/20"
-                : "bg-white border border-breu/[0.06] text-aco/60 hover:bg-bruma/40",
+                ? "bg-cobalt-500/10 text-cobalt-500 ring-1 ring-cobalt-500/20"
+                : "bg-white border border-volt-950/[0.06] text-aco/60 hover:bg-canvas-100/40",
             )}
           >
             {f === "all" ? "Todos" : f === "unread" ? "Não lidos" : "Resolvidos"}
@@ -97,7 +97,7 @@ export function AdminAlertsClient({ alerts }: { alerts: Alert[] }) {
           <button
             onClick={markAllRead}
             disabled={actionLoading}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-breu/[0.06] bg-white px-4 py-2.5 font-data text-xs text-aco/60 shadow-sm transition hover:border-iris/20 hover:text-iris disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-volt-950/[0.06] bg-white px-4 py-2.5 font-data text-xs text-aco/60 shadow-sm transition hover:border-cobalt-500/20 hover:text-cobalt-500 disabled:opacity-50"
           >
             <CheckCheck className="h-3.5 w-3.5" />
             Marcar todos como lidos
@@ -106,7 +106,7 @@ export function AdminAlertsClient({ alerts }: { alerts: Alert[] }) {
       </div>
 
       {/* Alerts list */}
-      <div className="rounded-2xl border border-breu/[0.06] bg-white shadow-sm">
+      <div className="rounded-2xl border border-volt-950/[0.06] bg-white shadow-sm">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-12 text-center">
             <Bell className="h-8 w-8 text-aco/25" />
@@ -115,7 +115,7 @@ export function AdminAlertsClient({ alerts }: { alerts: Alert[] }) {
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-breu/[0.04]">
+          <div className="divide-y divide-volt-950/[0.04]">
             {filtered.map((alert) => {
               const config = TYPE_CONFIG[alert.type] ?? TYPE_CONFIG.info;
               const Icon = config.icon;
@@ -128,7 +128,7 @@ export function AdminAlertsClient({ alerts }: { alerts: Alert[] }) {
                   className={cn(
                     "flex items-start gap-4 border-l-4 px-5 py-4 transition",
                     SEVERITY_STYLES[alert.severity] ?? SEVERITY_STYLES.info,
-                    isUnread ? "bg-iris/[0.02]" : "",
+                    isUnread ? "bg-cobalt-500/[0.02]" : "",
                   )}
                 >
                   <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${config.color}`}>
@@ -136,13 +136,13 @@ export function AdminAlertsClient({ alerts }: { alerts: Alert[] }) {
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <p className={cn("text-sm text-breu", isUnread ? "font-semibold" : "font-medium")}>
+                      <p className={cn("text-sm text-volt-950", isUnread ? "font-semibold" : "font-medium")}>
                         {alert.title}
                       </p>
                       <span className={`rounded-full px-2 py-0.5 font-data text-[9px] uppercase tracking-wider ${config.color}`}>
                         {config.label}
                       </span>
-                      {isUnread && <span className="h-2 w-2 rounded-full bg-iris" />}
+                      {isUnread && <span className="h-2 w-2 rounded-full bg-cobalt-500" />}
                       {isResolved && (
                         <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-data text-[9px] uppercase tracking-wider text-emerald-600">
                           Resolvido
@@ -171,7 +171,7 @@ export function AdminAlertsClient({ alerts }: { alerts: Alert[] }) {
                   {!isResolved && (
                     <button
                       onClick={() => resolveAlert(alert.id)}
-                      className="shrink-0 rounded-lg border border-breu/10 bg-white px-3 py-1.5 font-data text-[11px] text-aco/60 transition hover:border-emerald-200 hover:text-emerald-600"
+                      className="shrink-0 rounded-lg border border-volt-950/10 bg-white px-3 py-1.5 font-data text-[11px] text-aco/60 transition hover:border-emerald-200 hover:text-emerald-600"
                     >
                       <Check className="inline h-3 w-3" /> Resolver
                     </button>

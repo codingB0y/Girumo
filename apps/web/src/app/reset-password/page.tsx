@@ -38,7 +38,7 @@ export default function ResetPasswordPage() {
     <AuthShell title="Nova senha" subtitle="Defina uma senha segura para sua conta">
       <form className="space-y-4" onSubmit={submit}>
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-aco">Nova senha</label>
+          <label className="mb-1.5 block text-sm font-medium text-canvas-100/70">Nova senha</label>
           <Input
             type="password"
             placeholder="Minimo 6 caracteres"
@@ -49,7 +49,7 @@ export default function ResetPasswordPage() {
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-aco">Confirmar senha</label>
+          <label className="mb-1.5 block text-sm font-medium text-canvas-100/70">Confirmar senha</label>
           <Input
             type="password"
             placeholder="Repita a nova senha"
@@ -59,12 +59,12 @@ export default function ResetPasswordPage() {
           />
         </div>
         {password.length > 0 && password.length < 6 && (
-          <p className="text-xs text-amber-600">A senha precisa de pelo menos 6 caracteres.</p>
+          <p className="text-xs text-canvas-100/80">A senha precisa de pelo menos 6 caracteres.</p>
         )}
         {confirmPassword.length > 0 && password !== confirmPassword && (
-          <p className="text-xs text-amber-600">As senhas precisam ser iguais.</p>
+          <p className="text-xs text-canvas-100/80">As senhas precisam ser iguais.</p>
         )}
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="rounded-[var(--radius-control)] bg-danger-700/15 px-3 py-2 text-sm text-canvas-100">{error}</p>}
         <Button className="w-full" type="submit" disabled={loading || !valid}>
           {loading ? "Salvando..." : "Salvar nova senha"}
         </Button>

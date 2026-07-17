@@ -118,13 +118,13 @@ export function MessagesTab({ campaignSlug, groupIds }: Props) {
             className={cn(
               "rounded-xl px-4 py-2 text-sm font-medium transition",
               subTab === t
-                ? "bg-iris/10 text-iris"
-                : "text-aco/55 hover:bg-bruma hover:text-breu",
+                ? "bg-cobalt-500/10 text-cobalt-500"
+                : "text-aco/55 hover:bg-canvas-100 hover:text-volt-950",
             )}
           >
             {t}
             {t === "Agenda" && messages.length > 0 && (
-              <span className="ml-1.5 rounded-full bg-iris/20 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-iris">
+              <span className="ml-1.5 rounded-full bg-cobalt-500/20 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-cobalt-500">
                 {messages.length}
               </span>
             )}

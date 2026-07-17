@@ -79,7 +79,7 @@ export default function MissionsPage() {
       <div className="flex items-center gap-3">
         <Link
           href="/painel/squad-os"
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-aco/50 transition hover:bg-white hover:text-breu"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-aco/50 transition hover:bg-white hover:text-volt-950"
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>
@@ -107,8 +107,8 @@ export default function MissionsPage() {
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition",
                 filter === status
-                  ? "bg-iris text-white"
-                  : "bg-white text-aco/70 hover:bg-bruma hover:text-breu",
+                  ? "bg-cobalt-500 text-white"
+                  : "bg-white text-aco/70 hover:bg-canvas-100 hover:text-volt-950",
               )}
             >
               {label}
@@ -117,7 +117,7 @@ export default function MissionsPage() {
                   "font-data rounded-full px-1.5 py-0.5 text-[9px]",
                   filter === status
                     ? "bg-white/20 text-white"
-                    : "bg-bruma text-aco/50",
+                    : "bg-canvas-100 text-aco/50",
                 )}
               >
                 {count}
@@ -130,7 +130,7 @@ export default function MissionsPage() {
       {/* Mission list */}
       <div className="space-y-3">
         {filtered.length === 0 ? (
-          <div className="rounded-3xl border border-breu/[0.08] bg-white p-8 text-center">
+          <div className="rounded-3xl border border-volt-950/[0.08] bg-white p-8 text-center">
             <Clock className="mx-auto h-8 w-8 text-aco/20" />
             <p className="mt-3 text-sm text-aco/60">Nenhuma mission neste filtro.</p>
           </div>
@@ -142,19 +142,19 @@ export default function MissionsPage() {
             return (
               <div
                 key={m.id}
-                className="flex items-center gap-4 rounded-2xl border border-breu/[0.08] bg-white px-5 py-4 transition hover:border-iris/20 hover:shadow-sm"
+                className="flex items-center gap-4 rounded-2xl border border-volt-950/[0.08] bg-white px-5 py-4 transition hover:border-cobalt-500/20 hover:shadow-sm"
               >
                 <MissionIcon status={m.status} />
 
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-breu">
+                  <p className="truncate text-sm font-semibold text-volt-950">
                     {m.title}
                   </p>
                   <p className="mt-0.5 line-clamp-1 text-xs text-aco/55">
                     {m.description}
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-3">
-                    <span className="font-data text-[10px] text-iris">
+                    <span className="font-data text-[10px] text-cobalt-500">
                       {squadName}
                     </span>
                     <span className="font-data text-[10px] text-aco/40">
@@ -211,7 +211,7 @@ function MissionIcon({ status }: { status: string }) {
       );
     default:
       return (
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-bruma">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-canvas-100">
           <Clock className="h-5 w-5 text-aco/40" />
         </span>
       );

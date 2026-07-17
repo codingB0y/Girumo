@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Girumo — Guia de onboarding</title>
+  <link rel="icon" href="../../../../../apps/web/public/brand/girumo/favicon.ico" />
+  <link rel="stylesheet" href="../../design-tokens.css" />
+  <style>
+    body { background:#d8d7cf; color:#071923; }
+    main { display:flex; flex-direction:column; gap:18px; align-items:center; padding:24px 0; }
+    .page { width:210mm; height:297mm; padding:15mm 16mm 14mm; overflow:hidden; background:#f4f0e7; position:relative; break-after:page; }
+    .page.dark { background:#071923; color:#fffefa; }
+    .page:last-child { break-after:auto; }
+    .logo { width:62mm; height:auto; }
+    .eyebrow { margin:0 0 8mm; font:500 8pt/1 var(--girumo-font-data); letter-spacing:.14em; text-transform:uppercase; }
+    .dark .eyebrow { color:#a7ff2f; }
+    h1 { margin:0; font-size:38pt; line-height:1; letter-spacing:-.045em; }
+    h2 { margin:0; font-size:28pt; line-height:1.02; letter-spacing:-.035em; }
+    h3 { margin:0 0 2mm; font-size:13pt; line-height:1.15; }
+    p { margin:0; font-size:10.5pt; line-height:1.46; }
+    .lead { font:500 16pt/1.3 var(--girumo-font-brand); }
+    .muted { color:#52646c; }.dark .muted{color:rgba(255,254,250,.65)}
+    .folio { position:absolute; right:16mm; bottom:9mm; font:500 8pt var(--girumo-font-data); }
+    .card { padding:5mm; background:#fffefa; border:1px solid #d8d7cf; border-radius:3mm; }
+    .dark .card { background:#0c2835; border-color:#123746; }
+    .accent { background:#a7ff2f!important;color:#071923!important;border:0!important; }
+    .two { display:grid; grid-template-columns:1fr 1fr; gap:6mm; }
+    .checklist { display:grid; gap:3mm; margin-top:8mm; }
+    .check { display:grid; grid-template-columns:10mm 1fr 25mm; gap:4mm; align-items:start; padding:4mm; background:#fffefa; border:1px solid #d8d7cf; }
+    .box { width:7mm; height:7mm; border:1.5px solid #071923; }
+    .day { font:500 8pt var(--girumo-font-data); color:#1947c9; text-align:right; }
+    .modules { display:grid; gap:4mm; margin-top:8mm; }
+    .module { display:grid; grid-template-columns:12mm 40mm 1fr; gap:4mm; padding:4mm; align-items:center; background:#fffefa; border-left:3mm solid #071923; }
+    .module b:first-child { font:500 8pt var(--girumo-font-data); color:#1947c9; }
+    .module strong { font:700 11pt var(--girumo-font-brand); }
+    .module span { font-size:9pt; line-height:1.35; color:#52646c; }
+    .routine { display:grid; grid-template-columns:26mm 1fr; gap:0; margin-top:8mm; }
+    .routine > * { padding:4mm; border-bottom:1px solid #d8d7cf; }
+    .routine time { font:500 9pt var(--girumo-font-data); color:#1947c9; }
+    .support { padding:6mm; background:#a7ff2f; color:#071923; }
+    ul { margin:3mm 0 0; padding-left:5mm; } li { margin-bottom:2mm; font-size:9.5pt; line-height:1.35; }
+    @media print { body{background:#fff}main{display:block;padding:0}.page{margin:0} }
+  </style>
+</head>
+<body>
+<main>
+  <section class="page dark">
+    <img class="logo" src="../../../../../apps/web/public/brand/girumo/svg/girumo-lockup-horizontal-paper.svg" alt="Girumo" />
+    <p class="eyebrow" style="margin-top:38mm">Bem-vindo à Girumo</p>
+    <h1>Sua operação de grupos começa organizada.</h1>
+    <p class="lead muted" style="margin-top:8mm;max-width:140mm">Este guia acompanha os primeiros sete dias para conectar captação, grupos, campanhas, agenda e resultados.</p>
+    <div class="card accent" style="position:absolute;left:16mm;right:16mm;bottom:30mm">
+      <p style="font:700 16pt/1.25 var(--girumo-font-brand)">Seus grupos rodando. Você vendendo.</p>
+      <p style="margin-top:4mm">Empresa: {{empresa}} · Início: {{data_inicio}} · Responsável: {{consultor_responsavel}}</p>
+    </div>
+    <span class="folio">01 / 05</span>
+  </section>
+
+  <section class="page">
+    <p class="eyebrow">Primeiros sete dias</p>
+    <h2>Comece pelo básico que faz a operação andar.</h2>
+    <div class="checklist">
+      <div class="check"><span class="box"></span><div><h3>Alinhar a operação atual</h3><p class="muted">Mapear captação, quantidade de grupos, rotina de ofertas e responsáveis.</p></div><span class="day">DIA 1</span></div>
+      <div class="check"><span class="box"></span><div><h3>Preparar o acesso</h3><p class="muted">Confirmar usuários, permissões e canais de suporte.</p></div><span class="day">DIA 1</span></div>
+      <div class="check"><span class="box"></span><div><h3>Criar a primeira Page</h3><p class="muted">Definir a oferta, revisar a página e validar o destino do cliente.</p></div><span class="day">DIAS 2–3</span></div>
+      <div class="check"><span class="box"></span><div><h3>Organizar os grupos</h3><p class="muted">Revisar nomes, ordem de entrada e passagem para o próximo grupo.</p></div><span class="day">DIAS 3–4</span></div>
+      <div class="check"><span class="box"></span><div><h3>Programar uma campanha</h3><p class="muted">Escolher a oferta, preparar mensagens e confirmar data e hora.</p></div><span class="day">DIAS 4–5</span></div>
+      <div class="check"><span class="box"></span><div><h3>Acompanhar e ajustar</h3><p class="muted">Conferir execução, registrar aprendizados e definir a próxima rotina.</p></div><span class="day">DIAS 6–7</span></div>
+    </div>
+    <div class="card accent" style="margin-top:7mm"><p><strong>Regra prática:</strong> valide um fluxo completo antes de ampliar o volume.</p></div>
+    <span class="folio">02 / 05</span>
+  </section>
+
+  <section class="page">
+    <p class="eyebrow">Mapa do produto</p>
+    <h2>Cinco módulos, uma rotina contínua.</h2>
+    <div class="modules">
+      <div class="module"><b>01</b><strong>Girumo Pages</strong><span>Crie a porta de entrada da oferta e leve o cliente para o grupo certo.</span></div>
+      <div class="module"><b>02</b><strong>Girumo Grupos</strong><span>Organize a entrada de pessoas e a passagem para o próximo grupo.</span></div>
+      <div class="module"><b>03</b><strong>Girumo Campanhas</strong><span>Prepare ofertas e mensagens para a rotina de venda.</span></div>
+      <div class="module"><b>04</b><strong>Girumo Agenda</strong><span>Saiba o que será publicado, em qual canal e em que horário.</span></div>
+      <div class="module"><b>05</b><strong>Girumo Resultados</strong><span>Acompanhe o caminho da captação até a venda e identifique ajustes.</span></div>
+    </div>
+    <div class="two" style="margin-top:8mm">
+      <div class="card"><h3>Comece</h3><p class="muted">Page → Grupo → Campanha → Agenda</p></div>
+      <div class="card accent"><h3>Aprenda</h3><p>Resultados → ajuste → próxima campanha</p></div>
+    </div>
+    <span class="folio">03 / 05</span>
+  </section>
+
+  <section class="page">
+    <p class="eyebrow">Rotina recomendada</p>
+    <h2>Uma cadência simples para a equipe.</h2>
+    <div class="routine">
+      <time>INÍCIO DO DIA</time><div><h3>Revisar a Agenda</h3><p class="muted">Confirmar campanhas, horários, grupos e responsáveis.</p></div>
+      <time>ANTES DA OFERTA</time><div><h3>Validar conteúdo e destino</h3><p class="muted">Conferir texto, oferta, Page e grupo que receberá a campanha.</p></div>
+      <time>DURANTE</time><div><h3>Acompanhar a execução</h3><p class="muted">Observar a entrada no grupo e manter a equipe pronta para atender.</p></div>
+      <time>DEPOIS</time><div><h3>Registrar o que aconteceu</h3><p class="muted">Anotar dúvidas, ajustes e sinais comerciais relevantes.</p></div>
+      <time>FIM DO DIA</time><div><h3>Preparar o próximo passo</h3><p class="muted">Atualizar a Agenda e deixar a próxima campanha encaminhada.</p></div>
+      <time>SEMANAL</time><div><h3>Ler Resultados</h3><p class="muted">Revisar o caminho completo e escolher um ajuste por vez.</p></div>
+    </div>
+    <div class="card accent" style="margin-top:8mm"><p class="lead">A rotina ideal é a que a equipe consegue repetir com clareza.</p></div>
+    <span class="folio">04 / 05</span>
+  </section>
+
+  <section class="page dark">
+    <p class="eyebrow">Próximos passos e suporte</p>
+    <h2>Avance com um fluxo validado.</h2>
+    <div class="two" style="margin-top:9mm">
+      <div class="card"><h3>Antes da próxima reunião</h3><ul><li>Concluir a checklist dos sete dias.</li><li>Executar uma campanha completa.</li><li>Registrar dúvidas da equipe.</li><li>Separar os primeiros resultados.</li></ul></div>
+      <div class="card"><h3>Na reunião de acompanhamento</h3><ul><li>Revisar o fluxo real.</li><li>Eliminar um ponto de repetição.</li><li>Definir a próxima campanha.</li><li>Combinar responsáveis e datas.</li></ul></div>
+    </div>
+    <div class="support" style="margin-top:9mm">
+      <p style="font:700 19pt/1.2 var(--girumo-font-brand)">Precisa de ajuda?</p>
+      <p style="margin-top:5mm">E-mail: {{email_suporte}}<br />Telefone: {{telefone_suporte}}<br />Site: {{site}}</p>
+      <p style="margin-top:5mm">Consultor responsável: {{consultor_responsavel}}</p>
+    </div>
+    <p class="lead" style="position:absolute;left:16mm;bottom:28mm;color:#a7ff2f">Seus grupos rodando. Você vendendo.</p>
+    <span class="folio">05 / 05</span>
+  </section>
+</main>
+</body>
+</html>

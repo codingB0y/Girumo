@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Girumo — One-page de produto</title>
+  <link rel="icon" href="../../../../../apps/web/public/brand/girumo/favicon.ico" />
+  <link rel="stylesheet" href="../../design-tokens.css" />
+  <style>
+    body { background:#d8d7cf; color:#071923; }
+    .page { width:210mm; height:297mm; margin:20px auto; padding:13mm 14mm 12mm; overflow:hidden; background:#f4f0e7; position:relative; }
+    .top { display:flex; justify-content:space-between; align-items:flex-start; }
+    .logo { width:58mm; height:auto; }
+    .tag { padding:2mm 3mm; background:#a7ff2f; font:500 7.5pt/1 var(--girumo-font-data); letter-spacing:.08em; }
+    h1 { margin:12mm 0 0; max-width:165mm; font-size:34pt; line-height:1.02; letter-spacing:-.04em; }
+    .lead { margin-top:5mm; max-width:145mm; font-size:12pt; line-height:1.45; color:#52646c; }
+    .flow { display:grid; grid-template-columns:repeat(4,1fr); gap:3mm; margin-top:9mm; }
+    .flow div { min-height:28mm; padding:4mm; background:#fffefa; border:1px solid #d8d7cf; border-radius:3mm; }
+    .flow b { display:block; margin-bottom:3mm; font:500 7pt var(--girumo-font-data); color:#1947c9; }
+    .flow strong { font:700 12pt/1.15 var(--girumo-font-brand); }
+    .modules { display:grid; grid-template-columns:repeat(5,1fr); gap:2.5mm; margin-top:5mm; }
+    .module { padding:3.5mm 3mm; border-top:2mm solid #071923; background:#fffefa; min-height:29mm; }
+    .module strong { display:block; font:700 8.5pt/1.2 var(--girumo-font-brand); }
+    .module span { display:block; margin-top:2mm; font-size:7.2pt; line-height:1.32; color:#52646c; }
+    .benefits { display:grid; grid-template-columns:1.15fr .85fr; gap:7mm; margin-top:8mm; }
+    h2 { margin:0 0 4mm; font-size:18pt; line-height:1.1; letter-spacing:-.025em; }
+    ul { margin:0; padding-left:5mm; }
+    li { margin-bottom:2.5mm; font-size:9.4pt; line-height:1.35; }
+    .cta { padding:6mm; background:#071923; color:#fffefa; }
+    .cta p { margin:0; font-size:9.5pt; line-height:1.4; color:#f4f0e7; }
+    .cta strong { display:block; margin:5mm 0 3mm; font:700 17pt/1.15 var(--girumo-font-brand); color:#a7ff2f; }
+    .contact { font:500 7.5pt/1.5 var(--girumo-font-data); }
+    .footer { position:absolute; left:14mm; right:14mm; bottom:8mm; display:flex; justify-content:space-between; border-top:1px solid #d8d7cf; padding-top:3mm; color:#52646c; font-size:7.5pt; }
+    @media print { body{background:#fff}.page{margin:0;break-after:page} }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="top">
+      <img class="logo" src="../../../../../apps/web/public/brand/girumo/svg/girumo-lockup-horizontal-volt.svg" alt="Girumo" />
+      <span class="tag">CENTRAL OPERACIONAL PARA GRUPOS</span>
+    </header>
+    <h1>Mais grupos lotados.<br />Menos trabalho. <span style="background:#a7ff2f">Mais vendas.</span></h1>
+    <p class="lead">Capte clientes, organize seus grupos de WhatsApp e deixe campanhas programadas para vender com menos trabalho.</p>
+
+    <section class="flow" aria-label="Fluxo da operação">
+      <div><b>01 · CAPTAR</b><strong>Página pronta para a oferta.</strong></div>
+      <div><b>02 · ORGANIZAR</b><strong>Cada pessoa no grupo certo.</strong></div>
+      <div><b>03 · PROGRAMAR</b><strong>Campanhas no ritmo da loja.</strong></div>
+      <div><b>04 · VENDER</b><strong>Equipe focada no atendimento.</strong></div>
+    </section>
+
+    <section class="modules" aria-label="Módulos Girumo">
+      <div class="module"><strong>Girumo Pages</strong><span>Captação e direção para o grupo.</span></div>
+      <div class="module"><strong>Girumo Grupos</strong><span>Entrada e organização da base.</span></div>
+      <div class="module"><strong>Girumo Campanhas</strong><span>Ofertas e mensagens preparadas.</span></div>
+      <div class="module"><strong>Girumo Agenda</strong><span>Próximas ações com data e hora.</span></div>
+      <div class="module"><strong>Girumo Resultados</strong><span>Leitura da captação à venda.</span></div>
+    </section>
+
+    <section class="benefits">
+      <div>
+        <h2>O que muda na rotina</h2>
+        <ul>
+          <li>Menos cópia, cola e trabalho repetido entre grupos.</li>
+          <li>Mais clareza sobre o que será publicado e quando.</li>
+          <li>Operação conectada da captação até a leitura do resultado.</li>
+          <li>Mais tempo da equipe para conversar, atender e vender.</li>
+        </ul>
+      </div>
+      <aside class="cta">
+        <p>PRÓXIMO PASSO</p>
+        <strong>Vamos mapear sua operação de grupos.</strong>
+        <p>Converse com a Girumo e defina o melhor ponto de partida.</p>
+        <p class="contact" style="margin-top:5mm">{{site}}<br />{{email_suporte}}<br />{{telefone_suporte}}</p>
+      </aside>
+    </section>
+    <footer class="footer"><span>Girumo · Seus grupos rodando. Você vendendo.</span><span>One-page · versão editável</span></footer>
+  </main>
+</body>
+</html>

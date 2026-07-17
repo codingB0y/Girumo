@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Girumo — Brand Guide</title>
+  <link rel="icon" href="../../../apps/web/public/brand/girumo/favicon.ico" />
+  <link rel="stylesheet" href="./design-tokens.css" />
+  <style>
+    :root { --sheet-w: 210mm; --sheet-h: 297mm; }
+    body { background: #d8d7cf; color: var(--girumo-volt-950); }
+    main { display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 28px 0; }
+    .sheet {
+      position: relative; width: var(--sheet-w); height: var(--sheet-h); overflow: hidden;
+      padding: 16mm 17mm 15mm; background: var(--girumo-paper-0); break-after: page;
+      box-shadow: 0 2px 18px rgba(7,25,35,.14);
+    }
+    .sheet.dark { background: var(--girumo-volt-950); color: var(--girumo-paper-0); }
+    .sheet.canvas { background: var(--girumo-canvas-100); }
+    .sheet.acid { background: var(--girumo-acid-500); }
+    .sheet:last-child { break-after: auto; }
+    .folio { position: absolute; right: 17mm; bottom: 9mm; font: 500 8pt/1 var(--girumo-font-data); letter-spacing: .08em; }
+    .dark .folio { color: rgba(255,254,250,.64); }
+    .eyebrow { margin: 0 0 7mm; font: 500 8pt/1.2 var(--girumo-font-data); letter-spacing: .16em; text-transform: uppercase; }
+    .dark .eyebrow { color: var(--girumo-acid-500); }
+    h1 { margin: 0; font-size: 38pt; line-height: .98; letter-spacing: -.045em; }
+    h2 { margin: 0; font-size: 28pt; line-height: 1.02; letter-spacing: -.035em; }
+    h3 { margin: 0 0 3mm; font-size: 14pt; line-height: 1.15; letter-spacing: -.018em; }
+    p { margin: 0; font-size: 10.5pt; line-height: 1.48; }
+    .lead { font-family: var(--girumo-font-brand); font-size: 16pt; line-height: 1.28; letter-spacing: -.02em; }
+    .small { font-size: 8.5pt; line-height: 1.42; }
+    .micro { font: 500 7.5pt/1.35 var(--girumo-font-data); }
+    .muted { color: var(--girumo-slate-600); }
+    .dark .muted { color: rgba(255,254,250,.66); }
+    .rule { height: 1px; background: currentColor; opacity: .18; margin: 7mm 0; }
+    .cols-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 9mm; }
+    .cols-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5mm; }
+    .cols-3 > * { min-width: 0; }
+    .stack { display: grid; gap: 4mm; }
+    .card { padding: 5mm; border: 1px solid var(--girumo-line-200); border-radius: 3mm; background: var(--girumo-paper-0); }
+    .dark .card { border-color: var(--girumo-volt-800); background: var(--girumo-volt-900); }
+    .acid-card { background: var(--girumo-acid-500); border: 0; color: var(--girumo-volt-950); }
+    .label { display: inline-block; padding: 1.5mm 2.5mm; background: var(--girumo-acid-500); color: var(--girumo-volt-950); font: 600 7.5pt/1 var(--girumo-font-body); text-transform: uppercase; letter-spacing: .08em; }
+    .number { font: 700 28pt/.95 var(--girumo-font-brand); letter-spacing: -.04em; }
+    ul { margin: 3mm 0 0; padding-left: 5mm; }
+    li { margin: 0 0 2mm; font-size: 9.5pt; line-height: 1.35; }
+    .mark { width: 36mm; height: 36mm; color: currentColor; }
+    .logo { display: block; width: 69mm; height: auto; }
+    .logo-wide { display: block; width: 92mm; height: auto; }
+    .hero-logo { width: 92mm; margin-bottom: 31mm; }
+    .promise { max-width: 150mm; font: 700 31pt/1.05 var(--girumo-font-brand); letter-spacing: -.04em; }
+    .functional { margin-top: 7mm; color: var(--girumo-acid-500); font: 500 12pt/1.3 var(--girumo-font-body); }
+    .metaphors { display: grid; grid-template-columns: 1fr 15mm 1fr; gap: 3mm; align-items: center; }
+    .metaphors span { padding: 3mm 0; border-bottom: 1px solid var(--girumo-line-200); font-size: 9pt; }
+    .metaphors b { color: var(--girumo-cobalt-700); text-align: center; font: 500 11pt var(--girumo-font-data); }
+    .construction { position: relative; min-height: 94mm; display: grid; place-items: center; background: var(--girumo-canvas-100); }
+    .construction::before, .construction::after { content: ""; position: absolute; inset: 10mm; border: 1px solid var(--girumo-line-200); }
+    .construction::after { inset: 21mm; border-color: rgba(7,25,35,.22); }
+    .construction .mark { width: 54mm; height: 54mm; z-index: 1; }
+    .do { border-left: 3mm solid var(--girumo-acid-500); }
+    .dont { border-left: 3mm solid var(--girumo-danger-700); }
+    .lockup-stage { min-height: 49mm; display: grid; place-items: center; padding: 7mm; }
+    .cols-3 .lockup-stage .logo { width: 100%; max-width: 55mm; }
+    .lockup-stage.dark-bg { background: var(--girumo-volt-950); }
+    .lockup-stage.acid-bg { background: var(--girumo-acid-500); }
+    .lockup-stage.paper-bg { background: var(--girumo-paper-0); border: 1px solid var(--girumo-line-200); }
+    .clearspace { position: relative; width: 100%; min-height: 70mm; border: 1px dashed var(--girumo-cobalt-700); display: grid; place-items: center; }
+    .clearspace .logo-wide { width: 90%; max-width: 72mm; }
+    .clearspace::before { content: "2x"; position: absolute; top: 2mm; left: 3mm; color: var(--girumo-cobalt-700); font: 500 8pt var(--girumo-font-data); }
+    .swatch { min-height: 45mm; padding: 4mm; display: flex; flex-direction: column; justify-content: space-between; }
+    .swatch strong { font: 700 12pt var(--girumo-font-brand); }
+    .swatch code { font: 500 8pt var(--girumo-font-data); }
+    .contrast { display: grid; grid-template-columns: 1fr 1fr auto; gap: 3mm; align-items: center; padding: 3mm 0; border-bottom: 1px solid var(--girumo-line-200); }
+    .contrast b { font: 500 8pt var(--girumo-font-data); }
+    .type-row { display: grid; grid-template-columns: 33mm 1fr 27mm; gap: 5mm; align-items: baseline; padding: 3mm 0; border-bottom: 1px solid var(--girumo-line-200); }
+    .type-row code { font: 500 8pt var(--girumo-font-data); }
+    .ui-demo { display: grid; gap: 4mm; padding: 6mm; background: var(--girumo-canvas-100); border: 1px solid var(--girumo-line-200); }
+    .button { display: inline-flex; align-items: center; justify-content: center; height: 12mm; padding: 0 5mm; border-radius: 2mm; font-size: 9pt; font-weight: 600; }
+    .button.primary { background: var(--girumo-acid-500); color: var(--girumo-volt-950); }
+    .button.secondary { border: 1px solid var(--girumo-volt-950); color: var(--girumo-volt-950); }
+    .input { height: 10.5mm; border: 1px solid var(--girumo-line-200); border-radius: 2mm; background: var(--girumo-paper-0); padding: 2.5mm 3mm; font-size: 8.5pt; }
+    .module { display: grid; grid-template-columns: 10mm 1fr; gap: 3mm; align-items: start; }
+    .module b:first-child { display: grid; place-items: center; width: 8mm; height: 8mm; background: var(--girumo-volt-950); color: var(--girumo-paper-0); font: 500 7pt var(--girumo-font-data); }
+    .photo-frame { height: 103mm; position: relative; background: var(--girumo-canvas-100); border: 1px solid var(--girumo-line-200); display: grid; place-items: center; }
+    .photo-frame::after { content: "OVERLAY VOLT 12–28%"; position: absolute; left: 5mm; bottom: 5mm; padding: 2mm 3mm; background: var(--girumo-acid-500); color: var(--girumo-volt-950); font: 500 7pt var(--girumo-font-data); }
+    .orthogonal { width: 62mm; height: 62mm; border: 1px solid var(--girumo-volt-950); background: var(--girumo-paper-0); transform: translate(-6mm,-3mm); display: grid; place-items: center; text-align: center; padding: 5mm; }
+    .social-stage { display: grid; grid-template-columns: 58mm 1fr; gap: 6mm; align-items: center; }
+    .social-stage img { width: 58mm; height: 58mm; object-fit: cover; }
+    .template-thumb { aspect-ratio: 4 / 5; padding: 5mm; display: flex; flex-direction: column; justify-content: space-between; background: var(--girumo-volt-950); color: var(--girumo-paper-0); }
+    .template-thumb.acid-t { background: var(--girumo-acid-500); color: var(--girumo-volt-950); }
+    .template-thumb img { width: 28mm; height: auto; }
+    .path-list { margin: 0; padding: 0; list-style: none; }
+    .path-list li { display: grid; grid-template-columns: 38mm 1fr; gap: 5mm; margin: 0; padding: 2.4mm 0; border-bottom: 1px solid var(--girumo-line-200); }
+    .path-list code { font: 500 7.4pt/1.35 var(--girumo-font-data); overflow-wrap: anywhere; }
+    @media screen and (max-width: 850px) { main { align-items: flex-start; } .sheet { transform-origin: top left; } }
+    @media print {
+      main { display: block; padding: 0; }
+      .sheet { box-shadow: none; margin: 0; }
+    }
+  </style>
+</head>
+<body>
+<main aria-label="Guia de marca Girumo">
+  <article class="sheet dark">
+    <p class="eyebrow">Sistema de identidade · 2026</p>
+    <img class="hero-logo" src="../../../apps/web/public/brand/girumo/svg/girumo-lockup-horizontal-paper.svg" alt="Girumo" />
+    <p class="promise">Mais grupos lotados.<br />Menos trabalho.<br /><span style="color:var(--girumo-acid-500)">Mais vendas.</span></p>
+    <p class="functional">Seus grupos rodando. Você vendendo.</p>
+    <p class="small muted" style="position:absolute;left:17mm;bottom:16mm;max-width:95mm">Guia operacional para produto, marketing, comercial e parceiros.</p>
+    <span class="folio">01 · GIRUMO</span>
+  </article>
+
+  <article class="sheet canvas">
+    <p class="eyebrow">01 · Estratégia</p>
+    <h2>Uma central operacional para quem vende em grupos.</h2>
+    <div class="rule"></div>
+    <div class="cols-2">
+      <div class="stack">
+        <div>
+          <h3>Categoria</h3>
+          <p>SaaS de captação, organização e vendas em grupos de WhatsApp. A Girumo conecta o ciclo que começa no anúncio e termina na mensuração.</p>
+        </div>
+        <div>
+          <h3>Público principal</h3>
+          <p>Atacadistas de roupas brasileiros, práticos e orientados a tempo, organização e resultado comercial.</p>
+        </div>
+        <div>
+          <h3>Posicionamento</h3>
+          <p>A central operacional que capta clientes, organiza grupos e mantém campanhas rodando para o atacadista focar no atendimento e nas vendas.</p>
+        </div>
+      </div>
+      <div class="stack">
+        <div class="card acid-card">
+          <p class="micro">PROMESSA CENTRAL</p>
+          <p class="lead" style="margin-top:6mm">Mais grupos lotados. Menos trabalho. Mais vendas.</p>
+        </div>
+        <div class="metaphors">
+          <span>anúncio</span><b>→</b><span>landing page</span>
+          <span>entrada</span><b>→</b><span>grupo certo</span>
+          <span>organização</span><b>→</b><span>campanha</span>
+          <span>venda</span><b>→</b><span>mensuração</span>
+        </div>
+      </div>
+    </div>
+    <div class="rule"></div>
+    <div class="cols-3">
+      <div><p class="micro muted">DIRETA</p><p class="small">Sem linguagem de guru.</p></div>
+      <div><p class="micro muted">OPERACIONAL</p><p class="small">Sem parecer logística industrial.</p></div>
+      <div><p class="micro muted">COMERCIAL</p><p class="small">Sem parecer ferramenta de spam.</p></div>
+    </div>
+    <span class="folio">02 · ESTRATÉGIA</span>
+  </article>
+
+  <article class="sheet">
+    <p class="eyebrow">02 · Símbolo Deslocamento</p>
+    <div class="cols-2" style="grid-template-columns:1.12fr .88fr">
+      <div>
+        <h2>Duas massas.<br />Uma passagem.</h2>
+        <p class="lead muted" style="margin-top:6mm">O símbolo registra a mudança entre trabalho manual e operação programada.</p>
+        <div class="metaphors" style="margin-top:9mm">
+          <span>manual</span><b>→</b><span>programado</span>
+          <span>grupo cheio</span><b>→</b><span>próximo grupo</span>
+          <span>repetição</span><b>→</b><span>coordenação</span>
+          <span>operação</span><b>→</b><span>tempo para vender</span>
+        </div>
+      </div>
+      <div class="construction" aria-label="Construção do símbolo Deslocamento">
+        <svg class="mark" viewBox="0 0 24 24" role="img" aria-label="Símbolo Girumo">
+          <path fill="currentColor" d="M5 2H12V10H9V22H5A3 3 0 0 1 2 19V5A3 3 0 0 1 5 2Z" />
+          <path fill="currentColor" d="M14 2H19A3 3 0 0 1 22 5V19A3 3 0 0 1 19 22H11V14H14V2Z" />
+        </svg>
+      </div>
+    </div>
+    <div class="rule"></div>
+    <div class="cols-2">
+      <div class="card do">
+        <h3>Preserve</h3>
+        <ul><li>Exatamente duas massas.</li><li>Uma única passagem em degrau.</li><li>Mesma cor nas duas massas.</li><li>Leitura aberta em 16 px.</li></ul>
+      </div>
+      <div class="card dont">
+        <h3>Nunca faça</h3>
+        <ul><li>Unir as massas ou criar uma ponte.</li><li>Adicionar seta, ponta, linha ou terceira peça.</li><li>Girar, esticar ou redesenhar a passagem.</li><li>Usar duas cores, gradiente ou efeito.</li></ul>
+      </div>
+    </div>
+    <p class="small muted" style="margin-top:7mm">O símbolo não ilustra WhatsApp, mensagens, grupos ou automação. Produto, copy e motion explicam a categoria.</p>
+    <span class="folio">03 · SÍMBOLO</span>
+  </article>
+
+  <article class="sheet canvas">
+    <p class="eyebrow">03 · Lockups e proteção</p>
+    <h2>Uma assinatura calma. Espaço para respirar.</h2>
+    <div class="cols-3" style="margin-top:8mm">
+      <div><div class="lockup-stage dark-bg"><img class="logo" src="../../../apps/web/public/brand/girumo/svg/girumo-lockup-horizontal-paper.svg" alt="Girumo em Paper" /></div><p class="micro" style="margin-top:2mm">PRINCIPAL · PAPER SOBRE VOLT</p></div>
+      <div><div class="lockup-stage acid-bg"><img class="logo" src="../../../apps/web/public/brand/girumo/svg/girumo-lockup-horizontal-volt.svg" alt="Girumo em Volt" /></div><p class="micro" style="margin-top:2mm">IMPACTO · VOLT SOBRE ACID</p></div>
+      <div><div class="lockup-stage paper-bg"><img class="logo" src="../../../apps/web/public/brand/girumo/svg/girumo-lockup-horizontal-volt.svg" alt="Girumo em Volt" /></div><p class="micro" style="margin-top:2mm">INSTITUCIONAL · VOLT SOBRE PAPER</p></div>
+    </div>
+    <div class="cols-2" style="margin-top:9mm">
+      <div class="clearspace"><img class="logo-wide" src="../../../apps/web/public/brand/girumo/svg/girumo-lockup-horizontal-volt.svg" alt="Área de proteção do logo Girumo" /></div>
+      <div class="stack">
+        <div><h3>Área de proteção</h3><p>Defina <strong>x</strong> como ¼ da largura do símbolo. Reserve <strong>2x</strong> ao redor de todo o lockup.</p></div>
+        <div><h3>Mínimos digitais</h3><p>Símbolo: 16 px. Lockup horizontal: 96 px de largura.</p></div>
+        <div><h3>Mínimos impressos</h3><p>Símbolo: 5 mm. Lockup horizontal: 24 mm de largura.</p></div>
+        <div><h3>Versão micro</h3><p class="small">Apenas em 16 px, a passagem pode abrir até 0,25 unidade do viewBox. Nenhuma outra proporção muda.</p></div>
+      </div>
+    </div>
+    <p class="small muted" style="margin-top:7mm">Canvas reverso existe somente por compatibilidade. Novos usos reversos empregam Paper.</p>
+    <span class="folio">04 · LOCKUPS</span>
+  </article>
+
+  <article class="sheet">
+    <p class="eyebrow">04 · Paleta Volt Commerce</p>
+    <h2>Volt sustenta. Acid sinaliza. Cobalt orienta.</h2>
+    <div class="cols-3" style="margin-top:8mm">
+      <div class="swatch" style="background:#071923;color:#fffefa"><strong>Volt 950</strong><code>#071923</code></div>
+      <div class="swatch" style="background:#a7ff2f;color:#071923"><strong>Acid 500</strong><code>#A7FF2F</code></div>
+      <div class="swatch" style="background:#fffefa;color:#071923;border:1px solid #d8d7cf"><strong>Paper 0</strong><code>#FFFEFA</code></div>
+      <div class="swatch" style="background:#f4f0e7;color:#071923"><strong>Canvas 100</strong><code>#F4F0E7</code></div>
+      <div class="swatch" style="background:#2e66ff;color:#fffefa"><strong>Cobalt 500</strong><code>#2E66FF</code></div>
+      <div class="swatch" style="background:#52646c;color:#fffefa"><strong>Slate 600</strong><code>#52646C</code></div>
+    </div>
+    <div class="rule"></div>
+    <div class="cols-2">
+      <div>
+        <h3>Hierarquia aprovada</h3>
+        <div class="contrast"><span>Volt sobre Acid</span><span class="small">CTA e impacto</span><b>14,49:1</b></div>
+        <div class="contrast"><span>Volt sobre Canvas</span><span class="small">texto principal</span><b>15,75:1</b></div>
+        <div class="contrast"><span>Cobalt 700 sobre Canvas</span><span class="small">links</span><b>6,63:1</b></div>
+        <div class="contrast"><span>Cobalt 500 sobre Canvas</span><span class="small">não usar em texto normal</span><b>4,14:1</b></div>
+      </div>
+      <div class="stack">
+        <div class="card acid-card"><p class="micro">REGRA</p><p style="margin-top:3mm">Acid é energia de marca e ação principal. Não significa sucesso.</p></div>
+        <div class="card"><p><strong>Cobalt é funcional.</strong> Use em foco, seleção, links e gráficos; nunca como cor principal do logo.</p></div>
+        <div class="card"><p><strong>Estados não dependem só da cor.</strong> Combine ícone, label ou mudança estrutural.</p></div>
+      </div>
+    </div>
+    <span class="folio">05 · COR</span>
+  </article>
+
+  <article class="sheet dark">
+    <p class="eyebrow">05 · Tipografia</p>
+    <h2>Três vozes. Papéis claros.</h2>
+    <div class="cols-3" style="margin-top:9mm">
+      <div class="card"><p class="micro" style="color:var(--girumo-acid-500)">MANROPE</p><p style="font:700 24pt/1 var(--girumo-font-brand);margin-top:7mm">Girumo</p><p class="small muted" style="margin-top:7mm">Marca, headlines e números comerciais.</p></div>
+      <div class="card"><p class="micro" style="color:var(--girumo-acid-500)">IBM PLEX SANS</p><p style="font:500 19pt/1.15 var(--girumo-font-body);margin-top:7mm">Venda com menos trabalho.</p><p class="small muted" style="margin-top:7mm">Produto, formulários e leitura.</p></div>
+      <div class="card"><p class="micro" style="color:var(--girumo-acid-500)">IBM PLEX MONO</p><p style="font:500 18pt/1 var(--girumo-font-data);margin-top:7mm">09:00 · ATIVO</p><p class="small muted" style="margin-top:7mm">Horários, IDs e metadados.</p></div>
+    </div>
+    <div class="rule"></div>
+    <div>
+      <div class="type-row"><code>DISPLAY XL</code><span style="font:700 27pt/1 var(--girumo-font-brand)">Mais grupos lotados.</span><code>64/64 · 700</code></div>
+      <div class="type-row"><code>DISPLAY L</code><span style="font:700 22pt/1.05 var(--girumo-font-brand)">Menos trabalho.</span><code>48/52 · 700</code></div>
+      <div class="type-row"><code>HEADING 1</code><span style="font:700 17pt/1.15 var(--girumo-font-brand)">Organize sua operação.</span><code>32/38 · 700</code></div>
+      <div class="type-row"><code>HEADING 2</code><span style="font:650 14pt/1.2 var(--girumo-font-brand)">Campanhas no ritmo certo.</span><code>24/30 · 650</code></div>
+      <div class="type-row"><code>BODY M</code><span style="font:400 10pt/1.5 var(--girumo-font-body)">Capte clientes, organize grupos e acompanhe resultados.</span><code>16/24 · 400</code></div>
+      <div class="type-row"><code>DATA</code><span style="font:500 9pt/1.3 var(--girumo-font-data)">OPERAÇÃO FUNDADORA MEGA STOCK<br />12 MIL+ · 50+ GRUPOS</span><code>12/16 · 500</code></div>
+    </div>
+    <p class="small muted" style="margin-top:5mm">Mobile: Display XL reduz para 44/46 e Display L para 36/40.</p>
+    <span class="folio">06 · TIPO</span>
+  </article>
+
+  <article class="sheet canvas">
+    <p class="eyebrow">06 · Fundamentos de UI</p>
+    <h2>Hierarquia antes de efeito.</h2>
+    <div class="cols-2" style="margin-top:8mm">
+      <div class="ui-demo">
+        <p class="micro muted">EXEMPLO DE SUPERFÍCIE</p>
+        <h3 style="font-size:18pt">Próxima campanha</h3>
+        <div class="input">Coleção de inverno · Quinta, 09:00</div>
+        <div style="display:flex;gap:3mm"><span class="button primary">Programar campanha</span><span class="button secondary">Revisar</span></div>
+        <p class="small muted">Foco: outline Cobalt 2 px com offset de 2 px.</p>
+      </div>
+      <div class="stack">
+        <div><h3>Espaçamento</h3><p>Grid base de 4 px. Conteúdo público até 1200 px; leitura confortável entre 640 e 720 px.</p></div>
+        <div><h3>Raios</h3><p>8 px em controles, 12 px em cards e 16 px em painéis de marketing. Pills só para status, filtros e tags.</p></div>
+        <div><h3>Superfícies</h3><p>Canvas no fundo, Paper em cards e Volt na navegação. Bordas de 1 px substituem sombras grandes.</p></div>
+        <div><h3>Ícones</h3><p>Linha de 1,75 px, cantos suaves e desenho simples.</p></div>
+      </div>
+    </div>
+    <div class="rule"></div>
+    <div class="cols-3">
+      <div class="card"><p class="micro muted">MOTION MICRO</p><p class="number">160–220</p><p class="small">milissegundos</p></div>
+      <div class="card"><p class="micro muted">TRANSIÇÃO</p><p class="number">240–320</p><p class="small">milissegundos</p></div>
+      <div class="card"><p class="micro muted">EASING</p><p class="micro" style="margin-top:5mm">cubic-bezier<br />(0.22, 1, 0.36, 1)</p></div>
+    </div>
+    <p class="small muted" style="margin-top:6mm">Uma massa entrega espaço à outra. Sem loops decorativos; respeite `prefers-reduced-motion`; nunca gire o símbolo.</p>
+    <span class="folio">07 · UI</span>
+  </article>
+
+  <article class="sheet">
+    <p class="eyebrow">07 · Sistema verbal</p>
+    <h2>Fale como quem conhece a operação.</h2>
+    <div class="cols-2" style="margin-top:8mm">
+      <div class="stack">
+        <div class="card acid-card"><p class="micro">PRONÚNCIA</p><p class="number" style="margin-top:5mm">Gi-ru-mo</p><p class="small" style="margin-top:3mm">tonicidade em “ru”</p></div>
+        <div><h3>Tom</h3><p>Direto, prático, confiável e comercial. Uma ideia por frase. Benefício operacional antes de jargão.</p></div>
+        <div class="card do"><h3>Prefira</h3><p class="small">captar · organizar · programar · publicar · acompanhar · vender</p></div>
+        <div class="card dont"><h3>Evite</h3><p class="small">disparo em massa · método secreto · guru · IA que vende sozinha · urgência falsa</p></div>
+      </div>
+      <div>
+        <h3>Arquitetura de produto</h3>
+        <div class="stack" style="margin-top:5mm">
+          <div class="module"><b>01</b><div><strong>Girumo Pages</strong><p class="small muted">Captação e direção para o grupo certo.</p></div></div>
+          <div class="module"><b>02</b><div><strong>Girumo Grupos</strong><p class="small muted">Organização da entrada e dos grupos.</p></div></div>
+          <div class="module"><b>03</b><div><strong>Girumo Campanhas</strong><p class="small muted">Ofertas e mensagens preparadas.</p></div></div>
+          <div class="module"><b>04</b><div><strong>Girumo Agenda</strong><p class="small muted">Clareza do que acontece e quando.</p></div></div>
+          <div class="module"><b>05</b><div><strong>Girumo Resultados</strong><p class="small muted">Leitura da captação até a venda.</p></div></div>
+        </div>
+        <div class="rule"></div>
+        <h3>Prova fundadora</h3>
+        <p class="small">A única prova factual aprovada vem da <strong>operação fundadora Mega Stock</strong>: R$ 5 mil → R$ 350 mil/mês; 12 mil+ pessoas; 50+ grupos; +20 mil peças em evento de 2 dias.</p>
+        <p class="small muted" style="margin-top:3mm">Nunca chamar de cliente ou depoimento de terceiro.</p>
+      </div>
+    </div>
+    <span class="folio">08 · VOZ</span>
+  </article>
+
+  <article class="sheet canvas">
+    <p class="eyebrow">08 · Direção de fotografia</p>
+    <h2>Mostre a operação real, de perto.</h2>
+    <div class="cols-2" style="margin-top:8mm">
+      <div class="photo-frame">
+        <div class="orthogonal"><p><strong>Foto documental real</strong><br /><span class="small muted">estoque · separação · celular em contexto · bastidores</span></p></div>
+      </div>
+      <div class="stack">
+        <div><h3>Assuntos</h3><ul><li>Estoque e separação de pedidos.</li><li>Celular usado dentro da rotina.</li><li>Grupos, equipe e bastidores de venda.</li><li>Cenas documentais com luz natural ou flash controlado.</li></ul></div>
+        <div><h3>Tratamento</h3><ul><li>Overlay Volt entre 12% e 28%, quando necessário.</li><li>Recorte ortogonal com um único deslocamento.</li><li>Acid apenas em labels e sinais.</li></ul></div>
+        <div class="card dont"><h3>Proibido</h3><ul><li>Pessoas genéricas em escritório.</li><li>Robôs, imagens de IA e mockup sem contexto.</li><li>Estética de agência de tráfego ou infoproduto.</li><li>Moda editorial que esconda a operação.</li><li>Filtro Acid sobre a fotografia.</li></ul></div>
+      </div>
+    </div>
+    <p class="small muted" style="margin-top:7mm">A fotografia precisa provar rotina, não “parecer tecnológica”.</p>
+    <span class="folio">09 · IMAGEM</span>
+  </article>
+
+  <article class="sheet dark">
+    <p class="eyebrow">09 · Social e avatar</p>
+    <h2>Reconhecimento em qualquer escala.</h2>
+    <div class="social-stage" style="margin-top:8mm">
+      <img src="../../../apps/web/public/brand/girumo/social/instagram-avatar-1080.png" alt="Avatar Girumo em Acid" />
+      <div><p class="lead">Símbolo Volt sobre Acid.</p><p class="small muted" style="margin-top:3mm">O símbolo ocupa 58–64% da área útil e preserva margem para recorte circular.</p></div>
+    </div>
+    <div class="social-stage" style="margin-top:6mm">
+      <img src="../../../apps/web/public/brand/girumo/social/instagram-avatar-dark-1080.png" alt="Avatar Girumo reverso" />
+      <div><p class="lead">Símbolo Paper sobre Volt.</p><p class="small muted" style="margin-top:3mm">Alternativa reversa para contextos onde a base escura sustenta o reconhecimento.</p></div>
+    </div>
+    <div class="rule"></div>
+    <div class="cols-3">
+      <div class="template-thumb"><img src="../../../apps/web/public/brand/girumo/svg/girumo-lockup-horizontal-paper.svg" alt="Girumo" /><p style="font:700 15pt/1.08 var(--girumo-font-brand)">Seus grupos rodando. Você vendendo.</p><span class="label">Produto</span></div>
+      <div class="template-thumb acid-t"><img src="../../../apps/web/public/brand/girumo/svg/girumo-lockup-horizontal-volt.svg" alt="Girumo" /><div><p class="micro">OPERAÇÃO FUNDADORA MEGA STOCK</p><p class="number" style="margin-top:3mm">12 mil+</p><p class="small">pessoas reunidas em 50+ grupos</p></div></div>
+      <div class="template-thumb"><img src="../../../apps/web/public/brand/girumo/svg/girumo-lockup-horizontal-paper.svg" alt="Girumo" /><p style="font:700 15pt/1.08 var(--girumo-font-brand)">Um grupo encheu. O próximo já está em andamento.</p><span class="label">Campanhas</span></div>
+    </div>
+    <span class="folio">10 · SOCIAL</span>
+  </article>
+
+  <article class="sheet">
+    <p class="eyebrow">10 · Aplicações</p>
+    <h2>Um sistema pronto para operar.</h2>
+    <div class="cols-2" style="margin-top:8mm">
+      <div class="stack">
+        <div class="card"><p class="micro muted">SOCIAL</p><h3 style="margin-top:3mm">Masters editáveis</h3><p class="small">Quadrado, retrato, story, capa de vídeo, prova fundadora e card de métrica.</p></div>
+        <div class="card"><p class="micro muted">COMERCIAL</p><h3 style="margin-top:3mm">Kit de vendas</h3><p class="small">One-page, proposta, deck, assinatura de e-mail e cartão digital.</p></div>
+        <div class="card"><p class="micro muted">ONBOARDING</p><h3 style="margin-top:3mm">Começo organizado</h3><p class="small">Capa editável e guia de cinco páginas para os primeiros sete dias.</p></div>
+      </div>
+      <div class="stack">
+        <div class="card acid-card"><p class="micro">PRÓXIMO PASSO</p><p class="lead" style="margin-top:5mm">Use o master certo. Troque somente o conteúdo editável. Exporte e revise.</p></div>
+        <div><h3>Checklist de saída</h3><ul><li>Logo monocromático e com área de proteção.</li><li>Copy aprovada e claims verificáveis.</li><li>Acid como foco único.</li><li>Sem domínio inventado.</li><li>Peça conferida em 100% e miniatura.</li><li>PDF com texto selecionável quando aplicável.</li></ul></div>
+      </div>
+    </div>
+    <div class="rule"></div>
+    <p class="lead">Cada aplicação deve parecer parte da mesma operação — não uma coleção de templates.</p>
+    <span class="folio">11 · APLICAÇÕES</span>
+  </article>
+
+  <article class="sheet canvas">
+    <p class="eyebrow">11 · Arquivos e governança</p>
+    <h2>Use os masters. Preserve a origem.</h2>
+    <div class="cols-2" style="margin-top:7mm;grid-template-columns:.9fr 1.1fr">
+      <div>
+        <h3>Assets oficiais</h3>
+        <ul class="path-list">
+          <li><strong>Logo SVG</strong><code>apps/web/public/brand/girumo/svg/</code></li>
+          <li><strong>Ícones PNG</strong><code>apps/web/public/brand/girumo/png/</code></li>
+          <li><strong>Social</strong><code>apps/web/public/brand/girumo/social/</code></li>
+          <li><strong>E-mail</strong><code>apps/web/public/brand/girumo/email/</code></li>
+          <li><strong>Guia PDF</strong><code>apps/web/public/brand/girumo/girumo-brand-guide.pdf</code></li>
+        </ul>
+        <p class="small muted" style="margin-top:5mm">Arquivos Paper são o reverso atual. Canvas permanece apenas por compatibilidade.</p>
+      </div>
+      <div>
+        <h3>Fontes operacionais</h3>
+        <ul class="path-list">
+          <li><strong>Guia</strong><code>docs/brand/girumo/Girumo-Brand-Guide.html</code></li>
+          <li><strong>Tokens</strong><code>docs/brand/girumo/design-tokens.css</code></li>
+          <li><strong>Copy</strong><code>docs/brand/girumo/copy-library.md</code></li>
+          <li><strong>Social</strong><code>docs/brand/girumo/templates/social/</code></li>
+          <li><strong>Comercial</strong><code>docs/brand/girumo/templates/commercial/</code></li>
+        </ul>
+        <div class="card" style="margin-top:6mm">
+          <p class="micro muted">CANAIS EDITÁVEIS</p>
+          <p class="small" style="margin-top:3mm"><code>{{site}}</code><br /><code>{{email_suporte}}</code><br /><code>{{telefone_suporte}}</code></p>
+          <p class="small muted" style="margin-top:3mm">Não inventar domínio Girumo. `hubflow.com.br` é somente fallback operacional temporário quando o produto exigir host.</p>
+        </div>
+      </div>
+    </div>
+    <div class="rule"></div>
+    <img class="logo-wide" src="../../../apps/web/public/brand/girumo/svg/girumo-lockup-horizontal-volt.svg" alt="Girumo" />
+    <p class="small muted" style="margin-top:4mm">Spec aprovada: `docs/superpowers/specs/2026-07-12-girumo-brand-identity-design.md`.</p>
+    <span class="folio">12 · GOVERNANÇA</span>
+  </article>
+</main>
+</body>
+</html>

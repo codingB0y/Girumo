@@ -85,8 +85,8 @@ if (-not $SkipPublicPages) {
     throw "Landing contem marca, slogan ou telefone legado."
   }
 
-  if ($landing.Content -notmatch "HUBFLOW") {
-    throw "Landing nao contem a marca HUBFLOW."
+  if ($landing.Content -notmatch "GIRUMO") {
+    throw "Landing nao contem a marca GIRUMO."
   }
 
   Write-Host "Paginas publicas OK."

@@ -16,7 +16,7 @@ const FILTERS: { value: "all" | CampaignGroupStatus; label: string }[] = [
 
 const STATUS: Record<CampaignGroupStatus, { label: string; pill: string }> = {
   available: { label: "Ativo", pill: "bg-sucesso/10 text-sucesso" },
-  full: { label: "Cheio", pill: "bg-iris/10 text-iris-escuro" },
+  full: { label: "Cheio", pill: "bg-cobalt-500/10 text-cobalt-700" },
   missing_invite: { label: "Sem convite", pill: "bg-atencao/10 text-atencao" },
   unknown: { label: "—", pill: "bg-poco text-aco/60" },
 };
@@ -69,7 +69,7 @@ export default function PainelGrupos() {
   return (
     <div className="mx-auto max-w-[1200px] space-y-8 px-4 py-8 sm:px-8">
       <header>
-        <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-breu">Grupos</h1>
+        <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-volt-950">Grupos</h1>
         <p className="font-editorial mt-1 text-[19px] italic text-ardosia">
           Seus grupos, sincronizados direto do WhatsApp.
         </p>
@@ -78,23 +78,23 @@ export default function PainelGrupos() {
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <MiniStat label="Grupos" value={String(groups.length)} />
         <MiniStat label="Membros totais" value={totalMembers.toLocaleString("pt-BR")} />
-        <MiniStat label="Cheios" value={String(counts.full ?? 0)} tone="iris" />
+        <MiniStat label="Cheios" value={String(counts.full ?? 0)} tone="cobalt" />
         <MiniStat label="Sem convite" value={String(counts.missing_invite ?? 0)} tone="atencao" />
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-1 rounded-xl border border-breu/10 bg-papel p-1">
+        <div className="flex flex-wrap gap-1 rounded-xl border border-volt-950/10 bg-papel p-1">
           {FILTERS.map((f) => (
             <button
               key={f.value}
               onClick={() => setFilter(f.value)}
               className={cn(
                 "cursor-pointer rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors duration-[160ms]",
-                filter === f.value ? "bg-breu text-white" : "text-aco/70 hover:text-breu",
+                filter === f.value ? "bg-volt-950 text-white" : "text-aco/70 hover:text-volt-950",
               )}
             >
               {f.label}
-              <span className={cn("font-data ml-1.5 text-[11px] tabular-nums", filter === f.value ? "text-bruma/60" : "text-aco/40")}>
+              <span className={cn("font-data ml-1.5 text-[11px] tabular-nums", filter === f.value ? "text-canvas-100/60" : "text-aco/40")}>
                 {counts[f.value] ?? 0}
               </span>
             </button>
@@ -107,7 +107,7 @@ export default function PainelGrupos() {
             onChange={(e) => setQ(e.target.value)}
             placeholder="Buscar grupo…"
             aria-label="Buscar grupo"
-            className="w-full rounded-[10px] border border-breu/10 bg-poco py-2.5 pl-9 pr-3 text-sm text-breu outline-none transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] placeholder:text-aco/40 focus:border-iris/50 focus:bg-papel focus:shadow-[0_0_0_3px_var(--color-iris-light)] sm:w-64"
+            className="w-full rounded-[10px] border border-volt-950/10 bg-poco py-2.5 pl-9 pr-3 text-sm text-volt-950 outline-none transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] placeholder:text-aco/40 focus:border-cobalt-500/50 focus:bg-papel focus:shadow-[0_0_0_3px_var(--color-cobalt-soft)] sm:w-64"
           />
         </div>
       </div>
@@ -116,13 +116,13 @@ export default function PainelGrupos() {
         <div className="pn-skeleton h-80 rounded-2xl" />
       ) : (
         <div className="pn-card overflow-hidden rounded-2xl">
-          <div className="hidden border-b border-breu/[0.06] bg-poco px-5 py-3 md:grid md:grid-cols-[1.6fr_0.9fr_0.9fr_0.7fr_auto] md:gap-4">
+          <div className="hidden border-b border-volt-950/[0.06] bg-poco px-5 py-3 md:grid md:grid-cols-[1.6fr_0.9fr_0.9fr_0.7fr_auto] md:gap-4">
             {["Grupo", "Membros", "Saúde", "Status", ""].map((h) => (
               <span key={h} className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/50">{h}</span>
             ))}
           </div>
           {/* régua de romaneio: separadores tracejados */}
-          <div className="divide-y divide-dashed divide-breu/[0.09]">
+          <div className="divide-y divide-dashed divide-volt-950/[0.09]">
             {rows.map(({ g, status }) => {
               const cap = g.capacity > 0 ? Math.round((g.members / g.capacity) * 100) : 0;
               const h = HEALTH[g.engagement] ?? HEALTH.medio;
@@ -137,19 +137,19 @@ export default function PainelGrupos() {
                   className="grid grid-cols-1 gap-3 px-5 py-4 transition-colors duration-[160ms] hover:bg-poco md:grid-cols-[1.6fr_0.9fr_0.9fr_0.7fr_auto] md:items-center md:gap-4"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-iris/10 text-iris">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cobalt-500/10 text-cobalt-500">
                       <Users className="h-[18px] w-[18px]" strokeWidth={1.75} />
                     </span>
-                    <p className="truncate text-sm font-medium text-breu">{g.name}</p>
+                    <p className="truncate text-sm font-medium text-volt-950">{g.name}</p>
                   </div>
                   <div>
-                    <p className="font-data text-sm tabular-nums text-breu">
+                    <p className="font-data text-sm tabular-nums text-volt-950">
                       {(g.members ?? 0).toLocaleString("pt-BR")}<span className="text-aco/40"> / {(g.capacity ?? 0).toLocaleString("pt-BR")}</span>
                     </p>
                     <div className="pn-poco mt-1.5 h-1.5 w-full max-w-[120px] overflow-hidden rounded-full">
                       <div
                         className="pn-fill h-full w-full rounded-full"
-                        style={{ transform: `scaleX(${Math.max(cap / 100, 0.02)})`, background: cap >= 80 ? "#D99B2A" : "#3D5AF1" }}
+                        style={{ transform: `scaleX(${Math.max(cap / 100, 0.02)})`, background: cap >= 80 ? "#D99B2A" : "var(--color-cobalt-500)" }}
                       />
                     </div>
                   </div>
@@ -174,7 +174,7 @@ export default function PainelGrupos() {
             })}
             {rows.length === 0 && (
               <div className="px-5 py-16 text-center">
-                <p className="font-editorial text-[22px] italic text-breu">
+                <p className="font-editorial text-[22px] italic text-volt-950">
                   {groups.length === 0 ? "Nenhum grupo sincronizado ainda." : "Nenhum grupo por aqui."}
                 </p>
                 <p className="mt-1 text-sm text-aco/60">
@@ -189,14 +189,14 @@ export default function PainelGrupos() {
   );
 }
 
-function MiniStat({ label, value, tone }: { label: string; value: string; tone?: "iris" | "atencao" }) {
+function MiniStat({ label, value, tone }: { label: string; value: string; tone?: "cobalt" | "atencao" }) {
   return (
     <div className="pn-card rounded-2xl px-4 py-3.5">
       <p className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/55">{label}</p>
       <p
         className={cn(
           "font-data mt-2 text-[26px] font-medium tabular-nums tracking-[-0.02em]",
-          tone === "iris" ? "text-iris" : tone === "atencao" ? "text-atencao" : "text-breu",
+          tone === "cobalt" ? "text-cobalt-500" : tone === "atencao" ? "text-atencao" : "text-volt-950",
         )}
       >
         {value}

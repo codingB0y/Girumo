@@ -16,7 +16,7 @@ import {
   Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Logo } from "@/components/landing/logo";
+import { Logo } from "@/components/brand/logo";
 
 const PRIMARY = [
   { href: "/painel", label: "Início", icon: Sun },
@@ -46,7 +46,7 @@ export function PainelMobileNav() {
   return (
     <>
       {/* Barra inferior */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t border-breu/[0.08] bg-balcao/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line-200 bg-canvas-100 pb-[env(safe-area-inset-bottom)] lg:hidden">
         {PRIMARY.map(({ href, label, icon: Icon }) => {
           const active = isActive(pathname, href);
           return (
@@ -56,13 +56,13 @@ export function PainelMobileNav() {
               aria-current={active ? "page" : undefined}
               className={cn(
                 "relative flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-medium transition-colors duration-[160ms]",
-                active ? "text-iris" : "text-aco/55",
+                active ? "text-cobalt-700" : "text-aco/55",
               )}
             >
               {/* indicador de ativo — pílula no topo */}
               <span
                 className={cn(
-                  "absolute top-0 h-0.5 w-8 rounded-full bg-iris transition-opacity duration-[240ms] ease-[var(--ease-fluxo)]",
+                  "absolute top-0 h-0.5 w-8 rounded-full bg-cobalt-500 transition-opacity duration-[240ms] ease-[var(--ease-fluxo)]",
                   active ? "opacity-100" : "opacity-0",
                 )}
               />
@@ -87,15 +87,15 @@ export function PainelMobileNav() {
           <button
             aria-label="Fechar menu"
             onClick={() => setOpen(false)}
-            className="absolute inset-0 bg-breu/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-volt-950/60 backdrop-blur-sm"
           />
-          <div className="pn-palette-in absolute inset-y-0 left-0 flex w-72 max-w-[82%] flex-col bg-gradient-to-b from-breu to-breu-2">
+          <div className="pn-palette-in absolute inset-y-0 left-0 flex w-72 max-w-[82%] flex-col bg-volt-950">
             <div className="flex h-16 items-center justify-between px-5">
-              <Logo wordmarkClassName="text-white" symbolClassName="h-6 w-6" />
+              <Logo className="text-paper-0" />
               <button
                 onClick={() => setOpen(false)}
                 aria-label="Fechar menu"
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-bruma/60 transition hover:bg-white/5 hover:text-white"
+                className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-control)] text-canvas-100/60 transition-colors duration-[var(--duration-micro)] hover:bg-paper-0/5 hover:text-canvas-100"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -112,11 +112,11 @@ export function PainelMobileNav() {
                     className={cn(
                       "flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm transition-[color,background-color] duration-[160ms]",
                       active
-                        ? "pn-ativo font-medium text-white"
-                        : "text-bruma/55 hover:bg-white/[0.03] hover:text-bruma",
+                        ? "pn-ativo font-medium text-canvas-100"
+                        : "text-canvas-100/55 hover:bg-paper-0/[0.03] hover:text-canvas-100",
                     )}
                   >
-                    <Icon className={cn("h-[18px] w-[18px]", active ? "text-iris-claro" : "text-bruma/45")} strokeWidth={1.75} />
+                    <Icon className={cn("h-[18px] w-[18px]", active ? "text-acid-500" : "text-canvas-100/45")} strokeWidth={1.75} />
                     {label}
                   </Link>
                 );
@@ -124,10 +124,10 @@ export function PainelMobileNav() {
             </nav>
             <div className="px-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
               <div className="pn-aurora overflow-hidden rounded-2xl p-4">
-                <p className="font-data flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-iris-claro">
+                <p className="font-data flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-acid-500">
                   <Sparkles className="h-3 w-3" /> Plano Growth
                 </p>
-                <p className="mt-2 text-xs text-bruma/70">Grupos VIP ilimitados.</p>
+                <p className="mt-2 text-xs text-canvas-100/70">Grupos VIP ilimitados.</p>
               </div>
             </div>
           </div>

@@ -35,9 +35,9 @@ export const EMPTY_EDITOR_VALUES: EditorValues = {
 };
 
 const COLOR_LABELS: Record<LpColor, { label: string; swatch: string }> = {
-  iris: { label: "Roxo", swatch: "bg-[#6a4bf0]" },
-  emerald: { label: "Verde", swatch: "bg-emerald-600" },
-  amber: { label: "Âmbar", swatch: "bg-amber-500" },
+  cobalt: { label: "Cobalto", swatch: "bg-cobalt-500" },
+  emerald: { label: "Ácido", swatch: "bg-acid-500" },
+  amber: { label: "Volt", swatch: "bg-volt-950" },
 };
 
 export function EditorForm({
@@ -120,13 +120,13 @@ export function EditorForm({
               aria-checked={values.primary_color === color}
               onClick={() => onChange({ primary_color: color })}
               className={cn(
-                "flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm transition",
+                "flex items-center gap-2 rounded-[var(--radius-control)] border px-3.5 py-2 text-sm transition-colors",
                 values.primary_color === color
-                  ? "border-slate-900 font-medium text-slate-900"
-                  : "border-slate-200 text-slate-500 hover:border-slate-400",
+                  ? "border-cobalt-500 bg-cobalt-500/10 font-medium text-volt-950"
+                  : "border-line-200 bg-paper-0 text-slate-600 hover:border-slate-600",
               )}
             >
-              <span className={cn("h-4 w-4 rounded-full", COLOR_LABELS[color].swatch)} />
+              <span className={cn("h-4 w-4 rounded-[4px] border border-volt-950/10", COLOR_LABELS[color].swatch)} />
               {COLOR_LABELS[color].label}
             </button>
           ))}
@@ -143,8 +143,8 @@ export function EditorForm({
         />
       </Field>
 
-      <details className="rounded-xl border border-slate-200 px-4 py-3">
-        <summary className="cursor-pointer text-sm font-medium text-slate-600">
+      <details className="rounded-[var(--radius-card)] border border-line-200 bg-paper-0 px-4 py-3">
+        <summary className="cursor-pointer text-sm font-medium text-slate-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500">
           Avançado: campanha rastreada e pixels
         </summary>
         <div className="mt-4 space-y-4">
@@ -186,7 +186,7 @@ export function EditorForm({
 }
 
 const inputClass =
-  "w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-500";
+  "min-h-10 w-full rounded-[var(--radius-control)] border border-line-200 bg-paper-0 px-3.5 py-2.5 text-sm text-volt-950 placeholder:text-slate-600/65 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500 disabled:bg-canvas-100";
 
 function Field({
   label,
@@ -199,8 +199,8 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="text-sm font-medium text-slate-700">{label}</span>
-      {hint ? <span className="ml-2 text-xs text-slate-400">{hint}</span> : null}
+      <span className="text-sm font-medium text-volt-950">{label}</span>
+      {hint ? <span className="ml-2 text-xs text-slate-600">{hint}</span> : null}
       <div className="mt-1.5">{children}</div>
     </label>
   );
