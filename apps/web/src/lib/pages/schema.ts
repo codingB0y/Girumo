@@ -54,6 +54,14 @@ export type LandingPage = {
   meta_pixel_id: string | null;
   ga4_id: string | null;
   tiktok_pixel_id: string | null;
+  /** Dimensões do modelo — gravadas na captura pra saber O QUE a pessoa viu. */
+  structure: LpStructure;
+  visual_direction: LpVisualDirection;
+  model_version: number;
+  /** Versão do aviso apresentado (§8); muda quando a redação muda. */
+  notice_version: string;
+  /** Sobe a cada publish: separa capturas de versões diferentes da página. */
+  published_version: number;
   published_at: string | null;
   views_count: number;
   leads_count: number;

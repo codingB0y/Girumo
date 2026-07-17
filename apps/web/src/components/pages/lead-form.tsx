@@ -1,14 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { WhatsAppIcon } from "@/components/landing/icons";
 import { collectAttribution, trackBeacon } from "@/components/pages/tracking-scripts";
 
 /**
- * Form de captura da LP: nome + WhatsApp + consent LGPD (obrigatório).
- * Fluxo: submit → POST /api/p/lead → sucesso mostra o botão "Entrar no grupo"
- * (clique dispara GroupJoin + pixels e navega pro destino).
- * `preview` desabilita tudo (usado no editor do painel).
+ * Form de captura do BasicTemplate (páginas legadas, até a migração da Fase 5).
+ *
+ * Sem checkbox (§8.2): enviar o formulário é a ação afirmativa, e o aviso fica
+ * visível junto do botão — quem lê antes de agir é quem decide, e um checkbox a
+ * mais só treinava a pessoa a marcar sem ler. A prova continua sendo o snapshot
+ * do texto, gravado pelo servidor.
+ *
+ * Sucesso em 2 etapas: confirma o cadastro e SÓ então mostra o botão do grupo —
+ * o destino não existe na página antes da captura dar certo.
  */
 export function LeadForm({
   slug,
@@ -25,23 +30,31 @@ export function LeadForm({
 }) {
   const [name, setName] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
-  const [consent, setConsent] = useState(false);
   const [website, setWebsite] = useState(""); // honeypot — humano nunca vê
   const [status, setStatus] = useState<"idle" | "sending" | "done">("idle");
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const started = useRef(false);
+
+  /** 1º toque num campo = intenção. Uma vez por visita (o servidor dedupa). */
+  function handleFormStart() {
+    if (preview || started.current) return;
+    started.current = true;
+    trackBeacon(slug, "form_start");
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (preview || status === "sending") return;
     setError(null);
     setStatus("sending");
+    trackBeacon(slug, "lead_submit_attempt");
 
     try {
       const res = await fetch("/api/p/lead", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug, name, whatsapp, consent, website, ...collectAttribution() }),
+        body: JSON.stringify({ slug, name, whatsapp, website, ...collectAttribution() }),
       });
       const data = (await res.json()) as { redirect_url?: string | null; error?: string };
       if (!res.ok) {
@@ -60,7 +73,7 @@ export function LeadForm({
   }
 
   function handleGroupJoin() {
-    trackBeacon(slug, "GroupJoin");
+    trackBeacon(slug, "group_click");
     window.fbq?.("trackCustom", "GroupJoin");
     window.gtag?.("event", "group_join");
   }
@@ -69,8 +82,9 @@ export function LeadForm({
     return (
       <div className="dz-rise mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center">
         <p className="text-sm font-medium text-emerald-800">
-          Tudo certo, {name.split(" ")[0]}! Sua vaga tá garantida.
+          Cadastro concluído{name.trim() ? `, ${name.trim().split(" ")[0]}` : ""}.
         </p>
+        <p className="mt-1 text-xs text-emerald-700">Agora toque para entrar no grupo.</p>
         <a
           href={redirectUrl ?? "#"}
           onClick={handleGroupJoin}
@@ -99,6 +113,7 @@ export function LeadForm({
             autoComplete="name"
             placeholder="Seu nome"
             value={name}
+            onFocus={handleFormStart}
             onChange={(e) => setName(e.target.value)}
             className="w-full rounded-xl border border-slate-300 px-4 py-3 text-base text-slate-900 placeholder:text-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-slate-500"
           />
@@ -115,6 +130,7 @@ export function LeadForm({
             autoComplete="tel-national"
             placeholder="Seu WhatsApp com DDD"
             value={whatsapp}
+            onFocus={handleFormStart}
             onChange={(e) => setWhatsapp(e.target.value)}
             className="w-full rounded-xl border border-slate-300 px-4 py-3 text-base text-slate-900 placeholder:text-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-slate-500"
           />
@@ -132,17 +148,6 @@ export function LeadForm({
           className="absolute -left-[9999px] h-0 w-0 opacity-0"
         />
 
-        <label className="flex items-start gap-2.5 text-left">
-          <input
-            type="checkbox"
-            required
-            checked={consent}
-            onChange={(e) => setConsent(e.target.checked)}
-            className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 accent-emerald-600"
-          />
-          <span className="text-xs leading-relaxed text-slate-500">{consentText}</span>
-        </label>
-
         {error ? (
           <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}
@@ -157,6 +162,10 @@ export function LeadForm({
           {status === "sending" ? "Garantindo sua vaga..." : cta}
         </button>
       </fieldset>
+
+      {/* Aviso ABAIXO do botão: é o que a pessoa lê antes de agir, e é o texto
+          exato que o servidor grava como prova (mesma fonte, sem divergir). */}
+      <p className="text-xs leading-relaxed text-slate-500">{consentText}</p>
     </form>
   );
 }

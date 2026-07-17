@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { WhatsAppIcon } from "@/components/landing/icons";
 import { noticeTextV2 } from "@/lib/pages/schema";
 import { collectAttribution, trackBeacon } from "@/components/pages/tracking-scripts";
@@ -35,29 +35,34 @@ export function LeadFormFields({
   const [name, setName] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [website, setWebsite] = useState(""); // honeypot — humano nunca vê
+  const started = useRef(false);
   const [status, setStatus] = useState<"idle" | "sending" | "done">("idle");
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  /** 1º toque em qualquer campo = intenção. Só uma vez por visita (o servidor dedupa). */
+  function handleFormStart() {
+    if (preview || started.current) return;
+    started.current = true;
+    trackBeacon(slug, "form_start");
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (preview || status === "sending") return;
     setError(null);
     setStatus("sending");
+    // Tentativa: emitida ANTES do POST, então erro de rede aparece no funil como
+    // tentativa sem lead — é isso que revela form quebrado em vez de escondê-lo.
+    trackBeacon(slug, "lead_submit_attempt");
 
     try {
       const res = await fetch("/api/p/lead", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // consent = true: o clique no CTA É a ação afirmativa (§8.2, sem checkbox).
-        body: JSON.stringify({
-          slug,
-          name,
-          whatsapp,
-          consent: true,
-          website,
-          ...collectAttribution(),
-        }),
+        // Sem campo de consent: enviar o form É a ação afirmativa (§8.2). A prova
+        // é o snapshot do aviso que o servidor grava, não um booleano do client.
+        body: JSON.stringify({ slug, name, whatsapp, website, ...collectAttribution() }),
       });
       const data = (await res.json()) as { redirect_url?: string | null; error?: string };
       if (!res.ok) {
@@ -76,7 +81,7 @@ export function LeadFormFields({
   }
 
   function handleGroupJoin() {
-    trackBeacon(slug, "GroupJoin");
+    trackBeacon(slug, "group_click");
     window.fbq?.("trackCustom", "GroupJoin");
     window.gtag?.("event", "group_join");
   }
@@ -116,6 +121,7 @@ export function LeadFormFields({
             autoComplete="name"
             placeholder="Seu nome"
             value={name}
+            onFocus={handleFormStart}
             onChange={(e) => setName(e.target.value)}
             className={FIELD}
           />
@@ -133,6 +139,7 @@ export function LeadFormFields({
             autoComplete="tel-national"
             placeholder="(11) 99999-9999"
             value={whatsapp}
+            onFocus={handleFormStart}
             onChange={(e) => setWhatsapp(e.target.value)}
             className={FIELD}
           />

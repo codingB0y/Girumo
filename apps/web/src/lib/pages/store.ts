@@ -1,6 +1,7 @@
 import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { generateSlug } from "@/lib/pages/slug";
+import { legacyAliasFor, type LpCanonicalEvent } from "@/lib/pages/capture";
 import type {
   LandingPage,
   LpCreateInput,
@@ -120,6 +121,7 @@ export async function createLandingPage(
 export type LpUpdatePatch = Partial<{
   content: LpCreateInput["content"];
   content_schema_version: LpCreateInput["content_schema_version"];
+  published_version: number;
   campaign_slug: string | null;
   target_group_url: string | null;
   meta_pixel_id: string | null;
@@ -189,19 +191,50 @@ export type LpAttribution = {
   referrer: string | null;
 };
 
+/**
+ * Grava um evento do funil. Com `idemKey`, o índice
+ * uq_lp_events_idem(landing_page_id, event_name, idem_key) torna a escrita
+ * idempotente: o mesmo evento da mesma visita não conta duas vezes por causa de
+ * um efeito que roda em dobro, um beacon reenviado ou um F5 (§5).
+ * Sem `idemKey` o comportamento é o de antes (grava sempre) — é o que o legado usa.
+ */
 export async function insertLpTrackingEvent(input: {
   tenantId: string;
   landingPageId: string;
   eventName: LpEventName;
   eventData: Record<string, unknown>;
-}): Promise<void> {
-  const { error } = await getSupabaseAdmin().from(EVENTS).insert({
-    tenant_id: input.tenantId,
-    landing_page_id: input.landingPageId,
-    event_name: input.eventName,
-    event_data: input.eventData,
-  });
-  if (error) throw new Error(error.message);
+  idemKey?: string | null;
+  dimensions?: {
+    publishedVersion: number;
+    structure: string;
+    visualDirection: string;
+    modelVersion: number;
+    device: string | null;
+  };
+}): Promise<{ created: boolean }> {
+  const { error } = await getSupabaseAdmin()
+    .from(EVENTS)
+    .insert({
+      tenant_id: input.tenantId,
+      landing_page_id: input.landingPageId,
+      event_name: input.eventName,
+      event_data: input.eventData,
+      idem_key: input.idemKey ?? null,
+      ...(input.dimensions
+        ? {
+            published_version: input.dimensions.publishedVersion,
+            structure: input.dimensions.structure,
+            visual_direction: input.dimensions.visualDirection,
+            model_version: input.dimensions.modelVersion,
+            device: input.dimensions.device,
+          }
+        : {}),
+    });
+
+  if (!error) return { created: true };
+  // Evento repetido da mesma visita: sucesso silencioso, sem inflar a métrica.
+  if (error.code === UNIQUE_VIOLATION) return { created: false };
+  throw new Error(error.message);
 }
 
 /** Contador-cache (views/leads) — falha silenciosa de propósito (é cache). */
@@ -239,21 +272,26 @@ export async function insertLpLead(input: {
 
 export type LpMetrics = { views: number; leads: number; conversion: number };
 
-/** Fonte da verdade das métricas = lp_tracking_events (decisão da Sessão 0). */
+/**
+ * Fonte da verdade das métricas = lp_tracking_events (decisão da Sessão 0).
+ * Conta o nome canônico E o legado juntos: as páginas do v1 gravaram
+ * PageView/Lead e continuam contando enquanto não migram (§5/§6).
+ */
 export async function getLpMetrics(tenantId: string, landingPageId: string): Promise<LpMetrics> {
   const supabase = getSupabaseAdmin();
-  const countFor = async (eventName: LpEventName): Promise<number> => {
+  const countFor = async (event: LpCanonicalEvent): Promise<number> => {
+    const names = [event, legacyAliasFor(event)].filter(Boolean) as string[];
     const { count, error } = await supabase
       .from(EVENTS)
       .select("id", { count: "exact" })
       .eq("tenant_id", tenantId)
       .eq("landing_page_id", landingPageId)
-      .eq("event_name", eventName)
+      .in("event_name", names)
       .limit(1);
     if (error) throw new Error(error.message);
     return count ?? 0;
   };
-  const [views, leads] = await Promise.all([countFor("PageView"), countFor("Lead")]);
+  const [views, leads] = await Promise.all([countFor("page_view"), countFor("lead_created")]);
   return {
     views,
     leads,

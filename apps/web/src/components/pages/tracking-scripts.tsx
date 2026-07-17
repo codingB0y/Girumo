@@ -31,8 +31,34 @@ export function collectAttribution(): Record<string, string> {
   return {};
 }
 
-export function trackBeacon(slug: string, event: "PageView" | "GroupJoin"): void {
-  const payload = JSON.stringify({ slug, event, ...collectAttribution() });
+/**
+ * Id da VISITA (não da pessoa): nasce a cada carregamento e morre com a aba.
+ * É o que deixa o servidor dedupar o funil — o mesmo evento da mesma visita conta
+ * uma vez, por mais que o efeito rode em dobro ou o beacon seja reenviado (§5).
+ * Não identifica ninguém e não persiste entre visitas.
+ */
+let viewId: string | null = null;
+
+function currentViewId(): string {
+  if (!viewId) {
+    viewId =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `v-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+  return viewId;
+}
+
+/** Eventos do funil que o client pode emitir. `lead_created` é só do servidor. */
+export type LpBeaconEvent = "page_view" | "form_start" | "lead_submit_attempt" | "group_click";
+
+export function trackBeacon(slug: string, event: LpBeaconEvent): void {
+  const payload = JSON.stringify({
+    slug,
+    event,
+    view_id: currentViewId(),
+    ...collectAttribution(),
+  });
   try {
     if (!navigator.sendBeacon?.("/api/p/track", new Blob([payload], { type: "application/json" }))) {
       void fetch("/api/p/track", {
@@ -79,8 +105,8 @@ export function TrackingScripts({
       /* segue sem persistir */
     }
 
-    // 2. PageView server-side (nosso)
-    trackBeacon(slug, "PageView");
+    // 2. page_view server-side (nosso — fonte da verdade das métricas)
+    trackBeacon(slug, "page_view");
 
     // 3. Meta Pixel
     if (metaPixelId && !window.fbq) {

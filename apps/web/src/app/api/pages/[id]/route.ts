@@ -118,6 +118,10 @@ export async function PATCH(req: Request, { params }: RouteProps) {
           );
         }
         if (!existing.published_at) patch.published_at = new Date().toISOString();
+        // Cada publish é uma versão nova da página: as capturas guardam qual
+        // versão a pessoa viu, então republicar depois de editar não mistura o
+        // que foi capturado antes com o que passou a estar no ar.
+        patch.published_version = (existing.published_version ?? 0) + 1;
       }
       patch.status = status;
     }
