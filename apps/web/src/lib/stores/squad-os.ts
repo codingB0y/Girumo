@@ -36,7 +36,7 @@ const SEED_SQUADS: Squad[] = [
     name: "Product Squad",
     slug: "product",
     leader_agent_id: null,
-    objective: "Definir escopo, priorização e roadmap do HubFlow",
+    objective: "Definir escopo, priorização e roadmap do Girumo",
     status: "executing",
     health: 92,
     context: {},
