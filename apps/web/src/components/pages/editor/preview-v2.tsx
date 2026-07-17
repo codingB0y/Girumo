@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Monitor, Smartphone } from "lucide-react";
 import type { EditorValuesV2 } from "@/lib/pages/editor-values";
-import { PREVIEW_MESSAGE, type PreviewMessage } from "@/components/pages/editor/preview-protocol";
+import {
+  PREVIEW_MESSAGE,
+  PREVIEW_PATH,
+  type PreviewMessage,
+} from "@/components/pages/editor/preview-protocol";
 import { cn } from "@/lib/utils";
 
 /**
@@ -63,7 +67,10 @@ export function EditorPreviewV2({ values }: { values: EditorValuesV2 }) {
   const DeviceIcon = DEVICES[device].icon;
 
   return (
-    <div>
+    // `min-w-0`: o iframe tem largura REAL (1280 no desktop) e o `transform: scale`
+    // só encolhe o pixel, não o espaço ocupado. Sem isso o item do grid herda
+    // min-width:auto, cresce até caber o iframe inteiro e esmaga a coluna do form.
+    <div className="min-w-0">
       <div className="mb-3 flex items-center justify-between gap-3">
         <p className="flex items-center gap-1.5 text-xs text-aco/50">
           <DeviceIcon className="h-3.5 w-3.5" aria-hidden />
@@ -103,7 +110,7 @@ export function EditorPreviewV2({ values }: { values: EditorValuesV2 }) {
       >
         <iframe
           ref={frameRef}
-          src="/painel/pages/preview"
+          src={PREVIEW_PATH}
           title="Prévia da página"
           width={width}
           height={height}

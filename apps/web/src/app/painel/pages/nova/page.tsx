@@ -111,7 +111,7 @@ export default function NovaPaginaPage() {
           </p>
         </div>
 
-        <div className="lg:sticky lg:top-6">
+        <div className="min-w-0 lg:sticky lg:top-6">
           <EditorPreviewV2 values={values} />
         </div>
       </div>
