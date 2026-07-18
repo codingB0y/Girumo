@@ -86,21 +86,21 @@ A voz entra apenas em quatro momentos estratégicos. Captação e publicação s
 |---|---:|---|
 | `Gravando (50).m4a` | 00:00,82–00:04,38 | abertura |
 | `Gravando (46).m4a` | 00:00,37–00:04,19 | criação automática do próximo grupo |
-| `Gravando (54).m4a` | 00:00,92–00:04,50 | atribuição da venda; remover apenas o conectivo “e” inicial |
-| `Gravando (49).m4a` | 00:00,40–00:04,86 | assinatura Girumo |
+| `Gravando (54).m4a` | 00:00,960–00:04,50 | atribuição da venda; corte em zero crossing auditado para remover apenas o conectivo “e” inicial |
+| `Gravando (55).m4a` | 00:00,37–00:05,27 | assinatura Girumo |
 
-Os arquivos são M4A estéreo a 48 kHz. O take `54` chega a −0,05 dBFS e deve ser atenuado antes do restante da cadeia; não há sinal de clipping digital nos demais escolhidos. O tratamento deve remover apenas ruído constante, equalizar a inteligibilidade, controlar sibilância e normalizar volume; a interpretação original não será substituída nem acelerada de forma perceptível. Os takes `43`, `52`, `48` e `55` ficam como alternativas diretas das quatro falas. Os takes `42` e `45` ficam como alternativas adicionais de ritmo. Os takes `44`, `47`, `51` e `53` ficam arquivados para uma possível versão estendida, fora do master principal.
+Os arquivos são M4A estéreo a 48 kHz. O take `54` chega a −0,05 dBFS e deve ser atenuado antes do restante da cadeia; não há sinal de clipping digital nos demais escolhidos. A inspeção local do waveform fixou o corte desse take no sample `46.076` a 48 kHz, um zero crossing de baixa energia imediatamente anterior a “Você”; serão acrescentados 480 samples de silêncio técnico antes da fala para que o fade não toque no fonema. O tratamento deve remover apenas ruído constante, equalizar a inteligibilidade, controlar sibilância e normalizar volume; a interpretação original não será substituída nem acelerada de forma perceptível. Os takes `43`, `52`, `48` e `49` ficam como alternativas diretas das quatro falas. Os takes `42` e `45` ficam como alternativas adicionais de ritmo. Os takes `44`, `47`, `51` e `53` ficam arquivados para uma possível versão estendida, fora do master principal.
 
 ## 6. Storyboard editorial
 
 | Tempo | História e interface | Locução | Overlay ou label da versão narrada |
 |---|---|---|---|
-| 00:00–00:04,4 | O primeiro frame já combina o hook legível com um recorte real da página de captação de uma coleção de roupas. Sobre a base Volt, o Deslocamento em Paper inicia a interação; não existe bumper vazio antes do produto. | Take `50`: “A venda nos grupos começa antes mesmo da primeira oferta.” | A frase narrada aparece uma única vez e funciona simultaneamente como headline e legenda. |
-| 00:04,4–00:08 | A interação real da página registra um lojista. A edição acompanha sua passagem para um grupo com vaga, sem recorrer a um mockup de celular genérico. | Sem locução; clique e confirmação conduzem a cena. | `PÁGINA PRONTA → CONTATO NO GRUPO COM VAGA` |
-| 00:08–00:11,9 | A interface de gestão mostra o grupo da coleção chegando a 90%. Antes do limite, o próximo grupo surge como criado e disponível. | Take `46`: “Antes de lotar, o próximo grupo é criado automaticamente.” | `GRUPO 07 · 90% → GRUPO 08 · CRIADO` |
-| 00:11,9–00:16 | Na composição real de campanha, a oferta de reposição é preparada uma vez. Horário, seleção dos grupos e recorrência diária entram em sequência; a publicação percorre a lista. | Sem locução; agendamento, confirmação e progressão pelos grupos formam o ritmo. | `PREPARE UMA VEZ · TODOS OS GRUPOS · TODOS OS DIAS` |
-| 00:16–00:19,6 | A tela real de Resultados revela uma venda e sua origem rastreável — campanha, página e grupo — fechando o circuito iniciado na captação. Esta cena será gravada somente depois da implementação da atribuição. | Take `54`, sem o “e” inicial: “Você sabe exatamente de onde veio cada venda.” | `VENDA CONFIRMADA · ORIGEM IDENTIFICADA` |
-| 00:19,6–00:24 | Corte limpo para o lockup oficial da Girumo em Paper sobre Volt. O Deslocamento conclui o movimento e para; a marca permanece estável. | Take `49`: “Girumo. Mais grupos lotados. Menos trabalho. Mais vendas.” | `Mais grupos lotados.`<br>`Menos trabalho.`<br>`Mais vendas.` |
+| 00:00–00:04 | O primeiro frame já combina o hook legível com um recorte real da página de captação de uma coleção de roupas. Sobre a base Volt, o Deslocamento em Paper inicia a interação; não existe bumper vazio antes do produto. | Take `50`: “A venda nos grupos começa antes mesmo da primeira oferta.” | A frase narrada aparece uma única vez e funciona simultaneamente como headline e legenda. |
+| 00:04–00:07,5 | A interação real da página registra um lojista e libera o convite do grupo com vaga atribuído a esse contato. A edição acompanha esse encaminhamento sem afirmar uma entrada no WhatsApp que o produto não consegue confirmar e sem recorrer a um mockup de celular genérico. | Sem locução; clique, confirmação e encaminhamento conduzem a cena. | `PÁGINA PRONTA → ACESSO AO GRUPO COM VAGA` |
+| 00:07,5–00:11,4 | A interface de gestão mostra o grupo da coleção chegando a 90%. Antes do limite, o próximo grupo surge como criado e disponível. | Take `46`: “Antes de lotar, o próximo grupo é criado automaticamente.” | `GRUPO 07 · 90% → GRUPO 08 · CRIADO` |
+| 00:11,4–00:15,3 | Na composição real de campanha, a oferta de reposição é preparada uma vez. Horário, seleção dos grupos e recorrência diária entram em sequência; a publicação percorre a lista. | Sem locução; agendamento, confirmação e progressão pelos grupos formam o ritmo. | `PREPARE UMA VEZ · TODOS OS GRUPOS · TODOS OS DIAS` |
+| 00:15,3–00:18,9 | A tela real de Resultados revela uma venda e sua origem rastreável — campanha, página e grupo — fechando o circuito iniciado na captação. Esta cena será gravada somente depois da implementação da atribuição. | Take `54`, sem o “e” inicial: “Você sabe exatamente de onde veio cada venda.” | `VENDA CONFIRMADA · ORIGEM IDENTIFICADA` |
+| 00:18,9–00:24 | Corte limpo para o lockup oficial da Girumo em Paper sobre Volt. O Deslocamento conclui o movimento e para; a marca permanece estável. | Take `55`: “Girumo. Mais grupos lotados. Menos trabalho. Mais vendas.” | `Mais grupos lotados.`<br>`Menos trabalho.`<br>`Mais vendas.` |
 
 Os tempos correspondem a uma timeline de 720 frames a 30 fps. Ajustes de poucos frames podem acomodar respirações e cortes de ruído, mas o master não ultrapassará 24 segundos e nenhuma fala será comprimida para caber.
 
@@ -162,12 +162,12 @@ A versão sem locução mantém o argumento e os mesmos 24 segundos, mas possui 
 
 | Tempo | Texto autossuficiente | Imagem principal |
 |---|---|---|
-| 00:00–00:04,4 | `A venda nos grupos começa antes mesmo da primeira oferta.` | Página real da coleção já visível no primeiro frame. |
-| 00:04,4–00:08 | `Páginas prontas levam cada contato ao grupo com vaga.` | Captação concluída e entrada no grupo da coleção. |
-| 00:08–00:11,9 | `Antes de lotar, o próximo grupo é criado automaticamente.` | Grupo atual em 90% e próximo grupo criado. |
-| 00:11,9–00:16 | `Prepare uma vez. Publique em todos os grupos, todos os dias.` | Oferta de reposição, agenda, seleção e recorrência diária. |
-| 00:16–00:19,6 | `Você sabe exatamente de onde veio cada venda.` | Venda e cadeia de origem na tela de Resultados. |
-| 00:19,6–00:24 | `Mais grupos lotados. Menos trabalho. Mais vendas.` | Lockup oficial em Paper sobre Volt. |
+| 00:00–00:04 | `A venda nos grupos começa antes mesmo da primeira oferta.` | Página real da coleção já visível no primeiro frame. |
+| 00:04–00:07,5 | `Páginas prontas liberam o acesso ao grupo com vaga.` | Captação concluída e acesso ao convite do grupo da coleção liberado. |
+| 00:07,5–00:11,4 | `Antes de lotar, o próximo grupo é criado automaticamente.` | Grupo atual em 90% e próximo grupo criado. |
+| 00:11,4–00:15,3 | `Prepare uma vez. Publique em todos os grupos, todos os dias.` | Oferta de reposição, agenda, seleção e recorrência diária. |
+| 00:15,3–00:18,9 | `Você sabe exatamente de onde veio cada venda.` | Venda e cadeia de origem na tela de Resultados. |
+| 00:18,9–00:24 | `Mais grupos lotados. Menos trabalho. Mais vendas.` | Lockup oficial em Paper sobre Volt. |
 
 O ritmo continua firme; não serão adicionados blocos explicativos nem recursos que façam a peça parecer uma apresentação de slides.
 
@@ -175,10 +175,10 @@ O ritmo continua firme; não serão adicionados blocos explicativos nem recursos
 
 O filme utiliza comportamentos verificáveis na plataforma e uma promessa futura aprovada como dependência obrigatória de produção:
 
-- páginas de captação direcionam contatos aos grupos;
+- páginas de captação registram contatos e liberam o convite do grupo atribuído com vaga;
 - o crescimento automático pode criar antecipadamente o próximo grupo quando o atual chega a 90% da capacidade;
 - campanhas podem ser programadas e configuradas com recorrência, inclusive diária;
-- Resultados apresenta o funil de pessoas que clicaram, entraram no grupo e se tornaram clientes;
+- Resultados apresenta o funil de pessoas que foram captadas, receberam acesso ao grupo atribuído e se tornaram clientes, sem confundir clique no convite com confirmação de entrada no WhatsApp;
 - a atribuição exata da venda será implementada antes da gravação definitiva da cena de Resultados.
 
 ### Dependência obrigatória: atribuição da venda
