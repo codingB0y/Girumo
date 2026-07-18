@@ -8,7 +8,7 @@
 
 **Formato:** 4:5, 1080 × 1350 px, 30 fps
 
-**Duração-alvo:** 29–31 segundos
+**Duração-alvo:** 23 segundos
 
 ## 1. Objetivo
 
@@ -42,7 +42,7 @@ A linguagem deve ser tecnológica, comercial e direta, mas nunca fria. O públic
 - locução feminina em português brasileiro;
 - legendas queimadas no vídeo;
 - trilha e desenho de som originais para a edição;
-- duração entre 29 e 31 segundos.
+- duração de 23 segundos.
 
 ### Versão sem locução
 
@@ -72,30 +72,30 @@ O símbolo **Deslocamento** entra como recurso funcional de transição e direç
 
 > A venda nos grupos começa antes mesmo da primeira oferta.
 >
-> Na Girumo, páginas de captação levam cada lojista ou revendedor direto ao grupo com vaga.
+> Na Girumo, páginas de captação levam cada contato ao grupo com vaga.
 >
-> Antes de um grupo lotar, o próximo já é criado automaticamente.
+> Antes de lotar, o próximo é criado automaticamente.
 >
-> Você prepara a oferta uma vez. A Girumo publica no horário programado, em todos os grupos, todos os dias.
+> Prepare uma vez. A Girumo publica em todos os grupos, todos os dias.
 >
 > Você sabe exatamente de onde veio a venda.
 >
 > Girumo. Mais grupos lotados. Menos trabalho. Mais vendas.
 
-A leitura deve durar aproximadamente 30 segundos em ritmo natural, firme e sem pressa publicitária. A frase de abertura é a tese do filme: o resultado nos grupos depende da operação que a Girumo organiza antes da oferta ser enviada.
+A leitura deve durar 23 segundos em ritmo firme e natural, sem comprimir palavras. A frase de abertura é a tese do filme: o resultado nos grupos depende da operação que a Girumo organiza antes da oferta ser enviada.
 
 ## 6. Storyboard editorial
 
 | Tempo | História e interface | Locução | Overlay ou label da versão narrada |
 |---|---|---|---|
 | 00:00–00:04 | O primeiro frame já combina o hook legível com um recorte real da página de captação de uma coleção de roupas. Sobre a base Volt, o Deslocamento em Paper inicia a interação; não existe bumper vazio antes do produto. | “A venda nos grupos começa antes mesmo da primeira oferta.” | A frase narrada aparece uma única vez e funciona simultaneamente como headline e legenda. |
-| 00:04–00:10 | A interação real da página registra um lojista. A edição acompanha sua passagem para um grupo com vaga, sem recorrer a um mockup de celular genérico. | “Na Girumo, páginas de captação levam cada lojista ou revendedor direto ao grupo com vaga.” | `PÁGINA PUBLICADA → NOVO CONTATO` |
-| 00:10–00:15 | A interface de gestão mostra o grupo da coleção chegando a 90%. Antes do limite, o próximo grupo surge como criado e disponível. | “Antes de um grupo lotar, o próximo já é criado automaticamente.” | `GRUPO 07 · 90% → GRUPO 08 · CRIADO` |
-| 00:15–00:23 | Na composição real de campanha, a oferta de reposição é preparada uma vez. Horário, seleção dos grupos e recorrência diária entram em sequência; a publicação percorre a lista. | “Você prepara a oferta uma vez. A Girumo publica no horário programado, em todos os grupos, todos os dias.” | `19H30 · TODOS OS GRUPOS · DIÁRIO` |
-| 00:23–00:27 | A tela real de Resultados revela uma venda e sua origem rastreável — campanha, página e grupo — fechando o circuito iniciado na captação. Esta cena será gravada somente depois da implementação da atribuição. | “Você sabe exatamente de onde veio a venda.” | `VENDA CONFIRMADA · ORIGEM IDENTIFICADA` |
-| 00:27–00:31 | Corte limpo para o lockup oficial da Girumo em Paper sobre Volt. O Deslocamento conclui o movimento e para; a marca permanece estável. | “Girumo. Mais grupos lotados. Menos trabalho. Mais vendas.” | `Mais grupos lotados.`<br>`Menos trabalho.`<br>`Mais vendas.` |
+| 00:04–00:09 | A interação real da página registra um lojista. A edição acompanha sua passagem para um grupo com vaga, sem recorrer a um mockup de celular genérico. | “Na Girumo, páginas de captação levam cada contato ao grupo com vaga.” | `PÁGINA PUBLICADA → NOVO CONTATO` |
+| 00:09–00:12 | A interface de gestão mostra o grupo da coleção chegando a 90%. Antes do limite, o próximo grupo surge como criado e disponível. | “Antes de lotar, o próximo é criado automaticamente.” | `GRUPO 07 · 90% → GRUPO 08 · CRIADO` |
+| 00:12–00:17 | Na composição real de campanha, a oferta de reposição é preparada uma vez. Horário, seleção dos grupos e recorrência diária entram em sequência; a publicação percorre a lista. | “Prepare uma vez. A Girumo publica em todos os grupos, todos os dias.” | `19H30 · TODOS OS GRUPOS · DIÁRIO` |
+| 00:17–00:20 | A tela real de Resultados revela uma venda e sua origem rastreável — campanha, página e grupo — fechando o circuito iniciado na captação. Esta cena será gravada somente depois da implementação da atribuição. | “Você sabe exatamente de onde veio a venda.” | `VENDA CONFIRMADA · ORIGEM IDENTIFICADA` |
+| 00:20–00:23 | Corte limpo para o lockup oficial da Girumo em Paper sobre Volt. O Deslocamento conclui o movimento e para; a marca permanece estável. | “Girumo. Mais grupos lotados. Menos trabalho. Mais vendas.” | `Mais grupos lotados.`<br>`Menos trabalho.`<br>`Mais vendas.` |
 
-Os tempos são guias editoriais. A montagem pode deslocar até meio segundo entre cenas para preservar a naturalidade da locução, sem ultrapassar 31 segundos nem comprimir a leitura.
+Os tempos são guias editoriais. A montagem pode deslocar até meio segundo entre cenas para preservar a naturalidade da locução, sem ultrapassar 23 segundos nem comprimir a leitura.
 
 ### Hierarquia de texto
 
@@ -155,14 +155,12 @@ A versão sem locução mantém o argumento, mas possui sua própria distribuiç
 
 | Tempo | Texto autossuficiente | Imagem principal |
 |---|---|---|
-| 00:00–00:04,2 | `A venda nos grupos começa antes mesmo da primeira oferta.` | Página real da coleção já visível no primeiro frame. |
-| 00:04,2–00:07,8 | `Páginas de captação registram lojistas e revendedores.` | Contato conclui a captação. |
-| 00:07,8–00:11 | `Cada contato entra no grupo com vaga.` | Entrada no grupo da coleção. |
-| 00:11–00:15,2 | `Antes de um grupo lotar, o próximo já é criado.` | Grupo atual em 90% e próximo grupo criado. |
-| 00:15,2–00:19,5 | `Prepare uma vez. Programe o horário. Publique em todos os grupos.` | Oferta de reposição, agenda e seleção. |
-| 00:19,5–00:22,8 | `Repita todos os dias, sem configurar tudo de novo.` | Recorrência diária ativa. |
-| 00:22,8–00:27 | `Você sabe exatamente de onde veio a venda.` | Venda e cadeia de origem na tela de Resultados. |
-| 00:27–00:31 | `Mais grupos lotados. Menos trabalho. Mais vendas.` | Lockup oficial em Paper sobre Volt. |
+| 00:00–00:04 | `A venda nos grupos começa antes mesmo da primeira oferta.` | Página real da coleção já visível no primeiro frame. |
+| 00:04–00:08 | `Páginas de captação levam cada contato ao grupo com vaga.` | Captação concluída e entrada no grupo da coleção. |
+| 00:08–00:11,5 | `Antes de lotar, o próximo grupo é criado automaticamente.` | Grupo atual em 90% e próximo grupo criado. |
+| 00:11,5–00:16,5 | `Prepare uma vez. Publique em todos os grupos, todos os dias.` | Oferta de reposição, agenda, seleção e recorrência diária. |
+| 00:16,5–00:20 | `Você sabe exatamente de onde veio a venda.` | Venda e cadeia de origem na tela de Resultados. |
+| 00:20–00:23 | `Mais grupos lotados. Menos trabalho. Mais vendas.` | Lockup oficial em Paper sobre Volt. |
 
 O ritmo continua firme; não serão adicionados blocos explicativos nem recursos que façam a peça parecer uma apresentação de slides.
 
