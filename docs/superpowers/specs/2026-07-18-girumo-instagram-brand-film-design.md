@@ -8,7 +8,7 @@
 
 **Formato:** 4:5, 1080 × 1350 px, 30 fps
 
-**Duração-alvo:** 23 segundos
+**Duração-alvo:** 24 segundos
 
 ## 1. Objetivo
 
@@ -39,10 +39,10 @@ A linguagem deve ser tecnológica, comercial e direta, mas nunca fria. O públic
 ### Filme principal com locução
 
 - vídeo vertical 4:5, 1080 × 1350 px;
-- locução feminina em português brasileiro;
+- locução do fundador em português brasileiro;
 - legendas queimadas no vídeo;
 - trilha e desenho de som originais para a edição;
-- duração de 23 segundos.
+- duração de 24 segundos.
 
 ### Versão sem locução
 
@@ -72,30 +72,37 @@ O símbolo **Deslocamento** entra como recurso funcional de transição e direç
 
 > A venda nos grupos começa antes mesmo da primeira oferta.
 >
-> Na Girumo, páginas de captação levam cada contato ao grupo com vaga.
+> Antes de lotar, o próximo grupo é criado automaticamente.
 >
-> Antes de lotar, o próximo é criado automaticamente.
->
-> Prepare uma vez. A Girumo publica em todos os grupos, todos os dias.
->
-> Você sabe exatamente de onde veio a venda.
+> Você sabe exatamente de onde veio cada venda.
 >
 > Girumo. Mais grupos lotados. Menos trabalho. Mais vendas.
 
-A leitura deve durar 23 segundos em ritmo firme e natural, sem comprimir palavras. A frase de abertura é a tese do filme: o resultado nos grupos depende da operação que a Girumo organiza antes da oferta ser enviada.
+A voz entra apenas em quatro momentos estratégicos. Captação e publicação serão explicadas pela interface, por labels operacionais e pelo desenho de som. A frase de abertura é a tese do filme: o resultado nos grupos depende da operação que a Girumo organiza antes da oferta ser enviada.
+
+### Takes aprovados
+
+| Take | Trecho útil | Uso |
+|---|---:|---|
+| `Gravando (50).m4a` | 00:00,82–00:04,38 | abertura |
+| `Gravando (46).m4a` | 00:00,37–00:04,19 | criação automática do próximo grupo |
+| `Gravando (54).m4a` | 00:00,92–00:04,50 | atribuição da venda; remover apenas o conectivo “e” inicial |
+| `Gravando (49).m4a` | 00:00,40–00:04,86 | assinatura Girumo |
+
+Os arquivos são M4A estéreo a 48 kHz. O take `54` chega a −0,05 dBFS e deve ser atenuado antes do restante da cadeia; não há sinal de clipping digital nos demais escolhidos. O tratamento deve remover apenas ruído constante, equalizar a inteligibilidade, controlar sibilância e normalizar volume; a interpretação original não será substituída nem acelerada de forma perceptível. Os takes `43`, `52`, `48` e `55` ficam como alternativas diretas das quatro falas. Os takes `42` e `45` ficam como alternativas adicionais de ritmo. Os takes `44`, `47`, `51` e `53` ficam arquivados para uma possível versão estendida, fora do master principal.
 
 ## 6. Storyboard editorial
 
 | Tempo | História e interface | Locução | Overlay ou label da versão narrada |
 |---|---|---|---|
-| 00:00–00:04 | O primeiro frame já combina o hook legível com um recorte real da página de captação de uma coleção de roupas. Sobre a base Volt, o Deslocamento em Paper inicia a interação; não existe bumper vazio antes do produto. | “A venda nos grupos começa antes mesmo da primeira oferta.” | A frase narrada aparece uma única vez e funciona simultaneamente como headline e legenda. |
-| 00:04–00:09 | A interação real da página registra um lojista. A edição acompanha sua passagem para um grupo com vaga, sem recorrer a um mockup de celular genérico. | “Na Girumo, páginas de captação levam cada contato ao grupo com vaga.” | `PÁGINA PUBLICADA → NOVO CONTATO` |
-| 00:09–00:12 | A interface de gestão mostra o grupo da coleção chegando a 90%. Antes do limite, o próximo grupo surge como criado e disponível. | “Antes de lotar, o próximo é criado automaticamente.” | `GRUPO 07 · 90% → GRUPO 08 · CRIADO` |
-| 00:12–00:17 | Na composição real de campanha, a oferta de reposição é preparada uma vez. Horário, seleção dos grupos e recorrência diária entram em sequência; a publicação percorre a lista. | “Prepare uma vez. A Girumo publica em todos os grupos, todos os dias.” | `19H30 · TODOS OS GRUPOS · DIÁRIO` |
-| 00:17–00:20 | A tela real de Resultados revela uma venda e sua origem rastreável — campanha, página e grupo — fechando o circuito iniciado na captação. Esta cena será gravada somente depois da implementação da atribuição. | “Você sabe exatamente de onde veio a venda.” | `VENDA CONFIRMADA · ORIGEM IDENTIFICADA` |
-| 00:20–00:23 | Corte limpo para o lockup oficial da Girumo em Paper sobre Volt. O Deslocamento conclui o movimento e para; a marca permanece estável. | “Girumo. Mais grupos lotados. Menos trabalho. Mais vendas.” | `Mais grupos lotados.`<br>`Menos trabalho.`<br>`Mais vendas.` |
+| 00:00–00:04,4 | O primeiro frame já combina o hook legível com um recorte real da página de captação de uma coleção de roupas. Sobre a base Volt, o Deslocamento em Paper inicia a interação; não existe bumper vazio antes do produto. | Take `50`: “A venda nos grupos começa antes mesmo da primeira oferta.” | A frase narrada aparece uma única vez e funciona simultaneamente como headline e legenda. |
+| 00:04,4–00:08 | A interação real da página registra um lojista. A edição acompanha sua passagem para um grupo com vaga, sem recorrer a um mockup de celular genérico. | Sem locução; clique e confirmação conduzem a cena. | `PÁGINA PRONTA → CONTATO NO GRUPO COM VAGA` |
+| 00:08–00:11,9 | A interface de gestão mostra o grupo da coleção chegando a 90%. Antes do limite, o próximo grupo surge como criado e disponível. | Take `46`: “Antes de lotar, o próximo grupo é criado automaticamente.” | `GRUPO 07 · 90% → GRUPO 08 · CRIADO` |
+| 00:11,9–00:16 | Na composição real de campanha, a oferta de reposição é preparada uma vez. Horário, seleção dos grupos e recorrência diária entram em sequência; a publicação percorre a lista. | Sem locução; agendamento, confirmação e progressão pelos grupos formam o ritmo. | `PREPARE UMA VEZ · TODOS OS GRUPOS · TODOS OS DIAS` |
+| 00:16–00:19,6 | A tela real de Resultados revela uma venda e sua origem rastreável — campanha, página e grupo — fechando o circuito iniciado na captação. Esta cena será gravada somente depois da implementação da atribuição. | Take `54`, sem o “e” inicial: “Você sabe exatamente de onde veio cada venda.” | `VENDA CONFIRMADA · ORIGEM IDENTIFICADA` |
+| 00:19,6–00:24 | Corte limpo para o lockup oficial da Girumo em Paper sobre Volt. O Deslocamento conclui o movimento e para; a marca permanece estável. | Take `49`: “Girumo. Mais grupos lotados. Menos trabalho. Mais vendas.” | `Mais grupos lotados.`<br>`Menos trabalho.`<br>`Mais vendas.` |
 
-Os tempos são guias editoriais. A montagem pode deslocar até meio segundo entre cenas para preservar a naturalidade da locução, sem ultrapassar 23 segundos nem comprimir a leitura.
+Os tempos correspondem a uma timeline de 720 frames a 30 fps. Ajustes de poucos frames podem acomodar respirações e cortes de ruído, mas o master não ultrapassará 24 segundos e nenhuma fala será comprimida para caber.
 
 ### Hierarquia de texto
 
@@ -137,7 +144,7 @@ O Deslocamento deve usar exclusivamente o asset oficial, sempre monocromático e
 
 ### Voz
 
-Voz feminina brasileira, contemporânea e segura. A interpretação deve soar como alguém que conhece a operação do atacado: direta, clara e próxima, sem entusiasmo artificial, sorriso publicitário constante ou dramatização.
+Voz do fundador, direta, clara e próxima. A interpretação deve soar como alguém que conhece a operação do atacado e explica o produto a um cliente, sem imitar voz de locutor, entusiasmo artificial ou dramatização.
 
 As pausas mais importantes entram depois de “primeira oferta”, “automaticamente” e antes da assinatura “Girumo”.
 
@@ -151,16 +158,16 @@ As pausas mais importantes entram depois de “primeira oferta”, “automatica
 
 ## 9. Adaptação sem locução
 
-A versão sem locução mantém o argumento, mas possui sua própria distribuição de tempo:
+A versão sem locução mantém o argumento e os mesmos 24 segundos, mas possui textos autossuficientes:
 
 | Tempo | Texto autossuficiente | Imagem principal |
 |---|---|---|
-| 00:00–00:04 | `A venda nos grupos começa antes mesmo da primeira oferta.` | Página real da coleção já visível no primeiro frame. |
-| 00:04–00:08 | `Páginas de captação levam cada contato ao grupo com vaga.` | Captação concluída e entrada no grupo da coleção. |
-| 00:08–00:11,5 | `Antes de lotar, o próximo grupo é criado automaticamente.` | Grupo atual em 90% e próximo grupo criado. |
-| 00:11,5–00:16,5 | `Prepare uma vez. Publique em todos os grupos, todos os dias.` | Oferta de reposição, agenda, seleção e recorrência diária. |
-| 00:16,5–00:20 | `Você sabe exatamente de onde veio a venda.` | Venda e cadeia de origem na tela de Resultados. |
-| 00:20–00:23 | `Mais grupos lotados. Menos trabalho. Mais vendas.` | Lockup oficial em Paper sobre Volt. |
+| 00:00–00:04,4 | `A venda nos grupos começa antes mesmo da primeira oferta.` | Página real da coleção já visível no primeiro frame. |
+| 00:04,4–00:08 | `Páginas prontas levam cada contato ao grupo com vaga.` | Captação concluída e entrada no grupo da coleção. |
+| 00:08–00:11,9 | `Antes de lotar, o próximo grupo é criado automaticamente.` | Grupo atual em 90% e próximo grupo criado. |
+| 00:11,9–00:16 | `Prepare uma vez. Publique em todos os grupos, todos os dias.` | Oferta de reposição, agenda, seleção e recorrência diária. |
+| 00:16–00:19,6 | `Você sabe exatamente de onde veio cada venda.` | Venda e cadeia de origem na tela de Resultados. |
+| 00:19,6–00:24 | `Mais grupos lotados. Menos trabalho. Mais vendas.` | Lockup oficial em Paper sobre Volt. |
 
 O ritmo continua firme; não serão adicionados blocos explicativos nem recursos que façam a peça parecer uma apresentação de slides.
 
@@ -176,7 +183,7 @@ O filme utiliza comportamentos verificáveis na plataforma e uma promessa futura
 
 ### Dependência obrigatória: atribuição da venda
 
-A frase “Você sabe exatamente de onde veio a venda” faz parte da versão final aprovada. Para sustentá-la, a Girumo deverá persistir e exibir, antes da publicação do filme, a ligação rastreável entre **venda → cliente/contato → campanha → página de captação → grupo**.
+A frase “Você sabe exatamente de onde veio cada venda” faz parte da versão final aprovada. Para sustentá-la, a Girumo deverá persistir e exibir, antes da publicação do filme, a ligação rastreável entre **venda → cliente/contato → campanha → página de captação → grupo**.
 
 A cena não poderá ser resolvida com uma animação conceitual ou um painel inventado. A captura final deverá mostrar essa atribuição funcionando na interface real, com uma venda demonstrativa cuja origem possa ser conferida. Se a funcionalidade ainda não estiver pronta, a cena de Resultados e a exportação publicável do filme permanecem bloqueadas.
 
