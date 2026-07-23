@@ -239,14 +239,18 @@ export async function confirmLpCapture(
 
   const row = (
     Array.isArray(data) ? data[0] : data
-  ) as { created?: boolean; contact_id?: string; capture_id?: string } | null;
-  if (!row?.contact_id || !row.capture_id) {
+  ) as {
+    out_created?: boolean;
+    out_contact_id?: string;
+    out_capture_id?: string;
+  } | null;
+  if (!row?.out_contact_id || !row.out_capture_id) {
     throw new Error("A captura não foi confirmada pelo banco.");
   }
   return {
-    created: row.created === true,
-    contactId: row.contact_id,
-    captureId: row.capture_id,
+    created: row.out_created === true,
+    contactId: row.out_contact_id,
+    captureId: row.out_capture_id,
   };
 }
 

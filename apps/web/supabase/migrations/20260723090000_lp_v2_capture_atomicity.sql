@@ -2,12 +2,14 @@
 -- A função inteira executa na transação da chamada PostgreSQL. Qualquer erro
 -- reverte contato, captura, lead legado, evento e reconciliação do contador.
 
-drop index if exists uq_lp_events_idem;
+begin;
+
+drop index if exists public.uq_lp_events_idem;
 create unique index uq_lp_events_idem
-  on lp_tracking_events(landing_page_id, event_name, published_version, idem_key)
+  on public.lp_tracking_events(landing_page_id, event_name, published_version, idem_key)
   where idem_key is not null;
 
-create or replace function confirm_lp_capture(
+create or replace function public.confirm_lp_capture(
   p_tenant_id uuid,
   p_landing_page_id uuid,
   p_name text,
@@ -25,10 +27,10 @@ create or replace function confirm_lp_capture(
   p_user_agent text,
   p_ip_hash text
 )
-returns table(created boolean, contact_id uuid, capture_id uuid)
+returns table(out_created boolean, out_contact_id uuid, out_capture_id uuid)
 language plpgsql
 security definer
-set search_path = public, pg_temp
+set search_path = pg_catalog, pg_temp
 as $$
 declare
   v_contact_id uuid;
@@ -37,16 +39,20 @@ declare
   v_event_idem_key text;
   v_legacy_event_idem_key text;
 begin
-  if not exists (
-    select 1
-    from landing_pages
-    where id = p_landing_page_id
-      and tenant_id = p_tenant_id
-  ) then
+  -- Serializa todo o conjunto por landing page. Assim duas capturas distintas
+  -- não podem reconciliar e sobrescrever `leads_count` a partir de snapshots
+  -- concorrentes, enquanto retries continuam idempotentes.
+  perform 1
+    from public.landing_pages as target_page
+   where target_page.id = p_landing_page_id
+     and target_page.tenant_id = p_tenant_id
+   for update;
+
+  if not found then
     raise exception 'landing page does not belong to tenant';
   end if;
 
-  insert into lp_contacts (
+  insert into public.lp_contacts as contact (
     tenant_id,
     name,
     whatsapp,
@@ -59,11 +65,11 @@ begin
     now()
   )
   on conflict (tenant_id, whatsapp) do update
-    set name = coalesce(excluded.name, lp_contacts.name),
+    set name = coalesce(excluded.name, contact.name),
         updated_at = now()
-  returning id into v_contact_id;
+  returning contact.id into v_contact_id;
 
-  insert into lp_captures (
+  insert into public.lp_captures as capture (
     tenant_id,
     landing_page_id,
     contact_id,
@@ -110,23 +116,23 @@ begin
     p_idem_key
   )
   on conflict (landing_page_id, published_version, contact_id, idem_key) do nothing
-  returning id into v_capture_id;
+  returning capture.id into v_capture_id;
 
   v_capture_created := v_capture_id is not null;
 
   if v_capture_id is null then
-    select id
+    select capture.id
       into v_capture_id
-      from lp_captures
-     where landing_page_id = p_landing_page_id
-       and published_version = p_published_version
-       and contact_id = v_contact_id
-       and idem_key = p_idem_key;
+      from public.lp_captures as capture
+     where capture.landing_page_id = p_landing_page_id
+       and capture.published_version = p_published_version
+       and capture.contact_id = v_contact_id
+       and capture.idem_key = p_idem_key;
   end if;
 
   -- Compatibilidade do painel legado. O índice parcial atual mantém o primeiro
   -- consentimento por página+WhatsApp; conflito não invalida a captura v2.
-  insert into lp_leads (
+  insert into public.lp_leads (
     tenant_id,
     landing_page_id,
     name,
@@ -175,13 +181,13 @@ begin
 
   if not exists (
     select 1
-      from lp_tracking_events
-     where landing_page_id = p_landing_page_id
-       and event_name = 'lead_created'
-       and published_version = p_published_version
-       and idem_key in (v_event_idem_key, v_legacy_event_idem_key)
+      from public.lp_tracking_events as event
+     where event.landing_page_id = p_landing_page_id
+       and event.event_name = 'lead_created'
+       and event.published_version = p_published_version
+       and event.idem_key in (v_event_idem_key, v_legacy_event_idem_key)
   ) then
-    insert into lp_tracking_events (
+    insert into public.lp_tracking_events (
       tenant_id,
       landing_page_id,
       event_name,
@@ -214,10 +220,10 @@ begin
 
   -- Recalcular a partir da fonte da verdade repara tanto "evento sem contador"
   -- quanto retries de uma captura que já existia, sem incrementar duas vezes.
-  update landing_pages as lp
+  update public.landing_pages as lp
      set leads_count = (
        select count(*)::int
-         from lp_tracking_events as event
+         from public.lp_tracking_events as event
         where event.landing_page_id = p_landing_page_id
           and event.event_name in ('lead_created', 'Lead')
      ),
@@ -229,19 +235,26 @@ begin
 end;
 $$;
 
-revoke all on function confirm_lp_capture(
+alter function public.confirm_lp_capture(
+  uuid, uuid, text, text, int, text, text, text, int, text, text, text, jsonb,
+  text, text, text
+) owner to postgres;
+
+revoke all on function public.confirm_lp_capture(
   uuid, uuid, text, text, int, text, text, text, int, text, text, text, jsonb,
   text, text, text
 ) from public;
-revoke all on function confirm_lp_capture(
+revoke all on function public.confirm_lp_capture(
   uuid, uuid, text, text, int, text, text, text, int, text, text, text, jsonb,
   text, text, text
 ) from anon;
-revoke all on function confirm_lp_capture(
+revoke all on function public.confirm_lp_capture(
   uuid, uuid, text, text, int, text, text, text, int, text, text, text, jsonb,
   text, text, text
 ) from authenticated;
-grant execute on function confirm_lp_capture(
+grant execute on function public.confirm_lp_capture(
   uuid, uuid, text, text, int, text, text, text, int, text, text, text, jsonb,
   text, text, text
 ) to service_role;
+
+commit;
