@@ -121,9 +121,15 @@ export async function createLandingPage(
 
 export type LpUpdatePatch = LandingPageUpdatePatch;
 
-export async function updateLandingPage(
+/**
+ * UPDATE condicional atômico: a versão protege edições públicas concorrentes,
+ * e o status também invalida um snapshot se publish/pause correr em paralelo.
+ * `null` significa que a linha sumiu ou que outra gravação venceu o CAS.
+ */
+export async function compareAndSwapLandingPage(
   tenantId: string,
   id: string,
+  expected: LandingPage,
   patch: LpUpdatePatch,
 ): Promise<LandingPage | null> {
   const { data, error } = await getSupabaseAdmin()
@@ -131,6 +137,8 @@ export async function updateLandingPage(
     .update({ ...patch, updated_at: new Date().toISOString() })
     .eq("tenant_id", tenantId)
     .eq("id", id)
+    .eq("published_version", expected.published_version)
+    .eq("status", expected.status)
     .select("*")
     .maybeSingle();
   if (error) throw new Error(error.message);

@@ -1,18 +1,18 @@
 import { revalidateTag } from "next/cache";
 import { getTenantContext } from "@/lib/supabase/tenant-context";
 import {
+  compareAndSwapLandingPage,
   getLandingPageById,
   getLpMetrics,
   listRecentLpLeads,
-  updateLandingPage,
   type LpUpdatePatch,
 } from "@/lib/pages/store";
 import {
-  finalizeLandingPageUpdate,
   parseContentInput,
   validateTargetGroupUrl,
   type LpStatus,
 } from "@/lib/pages/schema";
+import { updateLandingPageWithCas } from "@/lib/pages/page-update";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -119,13 +119,34 @@ export async function PATCH(req: Request, { params }: RouteProps) {
       return Response.json({ error: "Nada pra atualizar." }, { status: 400 });
     }
 
-    const finalized = finalizeLandingPageUpdate(existing, patch);
-    if (!finalized.ok) {
-      return Response.json({ error: finalized.error }, { status: 400 });
+    const result = await updateLandingPageWithCas({
+      initialPage: existing,
+      requestedPatch: patch,
+      compareAndSwap: (expected, finalizedPatch) =>
+        compareAndSwapLandingPage(
+          ctx.tenantId,
+          id,
+          expected,
+          finalizedPatch,
+        ),
+      reload: () => getLandingPageById(ctx.tenantId, id),
+    });
+    if (!result.ok) {
+      if (result.reason === "validation") {
+        return Response.json({ error: result.error }, { status: 400 });
+      }
+      if (result.reason === "not_found") {
+        return Response.json(
+          { error: "Página não encontrada." },
+          { status: 404 },
+        );
+      }
+      return Response.json(
+        { error: "A página mudou durante a edição. Tente novamente." },
+        { status: 409 },
+      );
     }
-
-    const updated = await updateLandingPage(ctx.tenantId, id, finalized.patch);
-    if (!updated) return Response.json({ error: "Página não encontrada." }, { status: 404 });
+    const updated = result.page;
 
     // Cache público reflete publish/pause/edição em segundos
     revalidateTag(`lp:${updated.slug}`);

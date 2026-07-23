@@ -19,6 +19,26 @@ const updateRouteSource = readFileSync(
   path.join(process.cwd(), "src", "app", "api", "pages", "[id]", "route.ts"),
   "utf8",
 );
+const storeSource = readFileSync(
+  path.join(process.cwd(), "src", "lib", "pages", "store.ts"),
+  "utf8",
+);
+
+type CasResult =
+  | { ok: true; page: LandingPage }
+  | { ok: false; reason: "validation"; error: string }
+  | { ok: false; reason: "not_found" | "conflict" };
+
+type UpdateWithCas = (input: {
+  initialPage: LandingPage;
+  requestedPatch: Patch;
+  compareAndSwap: (
+    expected: LandingPage,
+    patch: Patch,
+  ) => Promise<LandingPage | null>;
+  reload: () => Promise<LandingPage | null>;
+  nowIso?: string;
+}) => Promise<CasResult>;
 
 function finalize(): Finalize {
   const candidate = (
@@ -26,6 +46,19 @@ function finalize(): Finalize {
   ).finalizeLandingPageUpdate;
   assert.equal(typeof candidate, "function", "a regra final do PATCH precisa existir");
   return candidate as Finalize;
+}
+
+async function updateWithCas(): Promise<UpdateWithCas> {
+  const loadedModule = await import("./page-update").catch(() => ({}));
+  const candidate = (
+    loadedModule as unknown as { updateLandingPageWithCas?: UpdateWithCas }
+  ).updateLandingPageWithCas;
+  assert.equal(
+    typeof candidate,
+    "function",
+    "o PATCH precisa de um coordenador CAS com retry",
+  );
+  return candidate as UpdateWithCas;
 }
 
 function page(overrides: Partial<LandingPage> = {}): LandingPage {
@@ -164,8 +197,111 @@ test("o destino é validado pelo estado final, inclusive sem campo status", () =
   assert.equal(draftWithoutDestination.ok, true);
 });
 
-test("a rota aplica a regra final única antes de persistir", () => {
-  assert.match(updateRouteSource, /finalizeLandingPageUpdate\(existing, patch\)/);
+test("PATCHes públicos concorrentes incrementam uma vez cada sem lost update", async () => {
+  const update = await updateWithCas();
+  let persisted = page({
+    status: "published",
+    published_version: 4,
+    published_at: "2026-07-22T10:00:00.000Z",
+  });
+  let revision = 0;
+
+  const reload = async () => structuredClone(persisted);
+  const compareAndSwap = async (expected: LandingPage, patch: Patch) => {
+    const unchanged =
+      persisted.published_version === expected.published_version &&
+      persisted.status === expected.status;
+    if (!unchanged) return null;
+
+    revision += 1;
+    persisted = {
+      ...persisted,
+      ...structuredClone(patch),
+      updated_at: `2026-07-23T12:00:00.00${revision}Z`,
+    };
+    return structuredClone(persisted);
+  };
+
+  // Os dois requests fazem o SELECT antes de qualquer UPDATE.
+  const firstSnapshot = await reload();
+  const secondSnapshot = await reload();
+  const [first, second] = await Promise.all([
+    update({
+      initialPage: firstSnapshot,
+      requestedPatch: {
+        content: { ...firstSnapshot.content, headline: "Oferta concorrente A" },
+      },
+      compareAndSwap,
+      reload,
+      nowIso: NOW,
+    }),
+    update({
+      initialPage: secondSnapshot,
+      requestedPatch: {
+        content: { ...secondSnapshot.content, headline: "Oferta concorrente B" },
+      },
+      compareAndSwap,
+      reload,
+      nowIso: NOW,
+    }),
+  ]);
+
+  assert.equal(first.ok, true);
+  assert.equal(second.ok, true);
+  if (!first.ok || !second.ok) return;
+  assert.deepEqual(
+    [first.page.published_version, second.page.published_version].sort(),
+    [5, 6],
+  );
+  assert.equal(persisted.published_version, 6);
+});
+
+test("CAS encerra em conflito depois do limite de tentativas", async () => {
+  const update = await updateWithCas();
+  const initialPage = page({
+    status: "published",
+    published_version: 7,
+    published_at: "2026-07-22T10:00:00.000Z",
+  });
+  let attempts = 0;
+  let reloads = 0;
+
+  const result = await update({
+    initialPage,
+    requestedPatch: {
+      content: { ...initialPage.content, headline: "Oferta disputada" },
+    },
+    compareAndSwap: async () => {
+      attempts += 1;
+      return null;
+    },
+    reload: async () => {
+      reloads += 1;
+      return {
+        ...initialPage,
+        published_version: initialPage.published_version + reloads,
+      };
+    },
+    nowIso: NOW,
+  });
+
+  assert.deepEqual(result, { ok: false, reason: "conflict" });
+  assert.equal(attempts, 3);
+  assert.equal(reloads, 2);
+});
+
+test("a rota usa o coordenador e o store faz UPDATE condicional atômico", () => {
+  assert.match(updateRouteSource, /updateLandingPageWithCas\(\{/);
+  assert.match(updateRouteSource, /compareAndSwapLandingPage/);
+  assert.doesNotMatch(updateRouteSource, /await updateLandingPage\(/);
+  assert.match(
+    storeSource,
+    /\.eq\("published_version",\s*expected\.published_version\)/,
+  );
+  assert.match(
+    storeSource,
+    /\.eq\("status",\s*expected\.status\)/,
+  );
   assert.doesNotMatch(
     updateRouteSource,
     /if\s*\(status === "published"\)[\s\S]*published_version/,
