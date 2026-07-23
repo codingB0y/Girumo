@@ -1,9 +1,49 @@
 /* eslint-disable @next/next/no-img-element */
+import Image from "next/image";
 import type { ReactNode } from "react";
 import type { LpContentV2, LpMediaRef } from "@/lib/pages/content";
 import { mediaSrc } from "@/lib/pages/media";
 import { LpImage } from "@/components/pages/templates/sections/lp-image";
 import { TYPE } from "@/components/pages/templates/tokens";
+
+function WordmarkLogo({
+  logo,
+  storeName,
+}: {
+  logo: LpMediaRef;
+  storeName: string;
+}) {
+  const src = mediaSrc(logo);
+  const alt = logo.alt || storeName;
+  const className = "mx-auto h-10 w-auto object-contain lg:h-12";
+
+  if (logo.media_id) {
+    return (
+      <Image
+        src={src}
+        alt={alt}
+        width={192}
+        height={48}
+        sizes="(min-width: 1024px) 192px, 160px"
+        priority
+        fetchPriority="high"
+        className={className}
+      />
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      width={192}
+      height={48}
+      className={className}
+      loading="eager"
+      fetchPriority="high"
+    />
+  );
+}
 
 /**
  * Assinatura da loja: nome em serif (na cor da marca) + selo curto como tagline
@@ -22,12 +62,7 @@ function Wordmark({
   return (
     <div className="text-center">
       {logo ? (
-        <img
-          src={mediaSrc(logo)}
-          alt={logo.alt || storeName}
-          className="mx-auto h-10 w-auto lg:h-12"
-          loading="eager"
-        />
+        <WordmarkLogo logo={logo} storeName={storeName} />
       ) : (
         <p className="font-serif text-2xl uppercase tracking-[0.14em] text-[color:var(--lp-accent)] lg:text-[1.75rem]">
           {storeName}

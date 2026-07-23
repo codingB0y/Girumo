@@ -27,6 +27,10 @@ import {
   errorField,
   type EditorValuesV2,
 } from "@/lib/pages/editor-values";
+import {
+  createAutosaveCoordinator,
+  type AutosaveCoordinator,
+} from "@/lib/pages/autosave";
 
 type Detail = { page: LandingPage; metrics: LpMetrics; leads: LpLeadRow[] };
 
@@ -51,8 +55,8 @@ export default function PaginaDetalhePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  // Só edição da lojista dispara autosave — carregar a página não é uma mudança.
-  const dirty = useRef(false);
+  const autosaveRef = useRef<AutosaveCoordinator<EditorValuesV2> | null>(null);
+  const latestValuesV2Ref = useRef<EditorValuesV2 | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/pages/${id}`);
@@ -74,9 +78,12 @@ export default function PaginaDetalhePage() {
     };
 
     if (isLpContentV2(content)) {
-      setValuesV2({ ...contentV2ToEditorValues(content), ...outsideContent });
+      const loadedValues = { ...contentV2ToEditorValues(content), ...outsideContent };
+      latestValuesV2Ref.current = loadedValues;
+      setValuesV2(loadedValues);
       return;
     }
+    latestValuesV2Ref.current = null;
     setValues({
       store_name: content.store_name,
       photo_url: content.photo_url,
@@ -115,25 +122,33 @@ export default function PaginaDetalhePage() {
         const data = (await res.json()) as { error?: string; details?: string[] };
         if (!res.ok) {
           setFieldErrors(Object.fromEntries((data.details ?? []).map((d) => [errorField(d), d])));
-          setSaveState("error");
-          return;
+          throw new Error(
+            data.details?.join(" ") ?? data.error ?? "Não foi possível salvar.",
+          );
         }
         setFieldErrors({});
         setSaveState("saved");
-      } catch {
+      } catch (saveError) {
         setSaveState("error");
+        throw saveError;
       }
     },
     [id],
   );
 
   useEffect(() => {
-    if (!valuesV2 || !dirty.current) return;
-    const timer = setTimeout(() => void saveV2(valuesV2), AUTOSAVE_MS);
-    return () => clearTimeout(timer);
-  }, [valuesV2, saveV2]);
+    const coordinator = createAutosaveCoordinator({
+      delayMs: AUTOSAVE_MS,
+      save: saveV2,
+    });
+    autosaveRef.current = coordinator;
+    return () => {
+      if (autosaveRef.current === coordinator) autosaveRef.current = null;
+      coordinator.dispose();
+    };
+  }, [saveV2]);
 
-  async function patch(body: Record<string, unknown>, okMessage?: string) {
+  async function patch(body: Record<string, unknown>) {
     if (busy) return;
     setError(null);
     setBusy(true);
@@ -148,12 +163,50 @@ export default function PaginaDetalhePage() {
         setError(data.details?.join(" ") ?? data.error ?? "Não foi possível salvar.");
       } else {
         await load();
-        if (okMessage) {
-          setCopied(false);
-        }
       }
     } catch {
       setError("Sem conexão. Tente de novo.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function requestStatus(status: LpStatus): Promise<LandingPage> {
+    const res = await fetch(`/api/pages/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    const data = (await res.json()) as LandingPage & {
+      error?: string;
+      details?: string[];
+    };
+    if (!res.ok) {
+      throw new Error(
+        data.details?.join(" ") ?? data.error ?? "Não foi possível atualizar o status.",
+      );
+    }
+    return data;
+  }
+
+  async function changeStatus(status: LpStatus) {
+    if (busy) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const coordinator = autosaveRef.current;
+      const updated = coordinator
+        ? await coordinator.runAfterFlush(() => requestStatus(status))
+        : await requestStatus(status);
+      // Atualiza somente o snapshot remoto da página. Os valores do editor são
+      // locais e não podem ser substituídos por uma resposta/load mais antiga.
+      setDetail((current) => (current ? { ...current, page: updated } : current));
+    } catch (statusError) {
+      setError(
+        statusError instanceof Error
+          ? statusError.message
+          : "Não foi possível atualizar o status.",
+      );
     } finally {
       setBusy(false);
     }
@@ -204,7 +257,7 @@ export default function PaginaDetalhePage() {
         {page.status !== "published" ? (
           <button
             type="button"
-            onClick={() => void patch({ status: "published" })}
+            onClick={() => void changeStatus("published")}
             disabled={busy}
             className="inline-flex items-center gap-2 rounded-xl bg-cobalt-500 px-4 py-2.5 text-sm font-medium text-white shadow-brand transition hover:bg-cobalt-500 disabled:opacity-60"
           >
@@ -213,7 +266,7 @@ export default function PaginaDetalhePage() {
         ) : (
           <button
             type="button"
-            onClick={() => void patch({ status: "paused" })}
+            onClick={() => void changeStatus("paused")}
             disabled={busy}
             className="inline-flex items-center gap-2 rounded-xl border border-volt-950/10 bg-white px-4 py-2.5 text-sm font-medium text-volt-950 transition hover:border-atencao/50 disabled:opacity-60"
           >
@@ -308,8 +361,12 @@ export default function PaginaDetalhePage() {
             <EditorFormV2
               values={valuesV2}
               onChange={(patch) => {
-                dirty.current = true;
-                setValuesV2((v) => (v ? { ...v, ...patch } : v));
+                const current = latestValuesV2Ref.current;
+                if (!current) return;
+                const next = { ...current, ...patch };
+                latestValuesV2Ref.current = next;
+                autosaveRef.current?.schedule(next);
+                setValuesV2(next);
               }}
               errors={fieldErrors}
             />
