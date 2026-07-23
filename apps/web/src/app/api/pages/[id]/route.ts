@@ -7,7 +7,12 @@ import {
   updateLandingPage,
   type LpUpdatePatch,
 } from "@/lib/pages/store";
-import { parseContentInput, validateTargetGroupUrl, type LpStatus } from "@/lib/pages/schema";
+import {
+  finalizeLandingPageUpdate,
+  parseContentInput,
+  validateTargetGroupUrl,
+  type LpStatus,
+} from "@/lib/pages/schema";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -107,22 +112,6 @@ export async function PATCH(req: Request, { params }: RouteProps) {
       if (!STATUSES.includes(status)) {
         return Response.json({ error: "status inválido." }, { status: 400 });
       }
-      if (status === "published") {
-        const hasDestination =
-          (patch.campaign_slug ?? existing.campaign_slug) ||
-          (patch.target_group_url ?? existing.target_group_url);
-        if (!hasDestination) {
-          return Response.json(
-            { error: "Defina o link do grupo ou uma campanha antes de publicar." },
-            { status: 400 },
-          );
-        }
-        if (!existing.published_at) patch.published_at = new Date().toISOString();
-        // Cada publish é uma versão nova da página: as capturas guardam qual
-        // versão a pessoa viu, então republicar depois de editar não mistura o
-        // que foi capturado antes com o que passou a estar no ar.
-        patch.published_version = (existing.published_version ?? 0) + 1;
-      }
       patch.status = status;
     }
 
@@ -130,7 +119,12 @@ export async function PATCH(req: Request, { params }: RouteProps) {
       return Response.json({ error: "Nada pra atualizar." }, { status: 400 });
     }
 
-    const updated = await updateLandingPage(ctx.tenantId, id, patch);
+    const finalized = finalizeLandingPageUpdate(existing, patch);
+    if (!finalized.ok) {
+      return Response.json({ error: finalized.error }, { status: 400 });
+    }
+
+    const updated = await updateLandingPage(ctx.tenantId, id, finalized.patch);
     if (!updated) return Response.json({ error: "Página não encontrada." }, { status: 404 });
 
     // Cache público reflete publish/pause/edição em segundos

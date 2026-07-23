@@ -91,6 +91,127 @@ export type PublicLandingPage = LandingPage & {
   template_copy: Record<string, string>;
 };
 
+/**
+ * Payload do endpoint público de página. A allowlist é intencional: destino,
+ * IDs internos, tenant, versões, datas e contadores nunca atravessam esta
+ * fronteira. Os pixels permanecem porque participam do render/tracking público.
+ */
+export type PublicPagePayload = Pick<
+  PublicLandingPage,
+  "slug" | "content" | "component_key" | "template_copy" | "meta_pixel_id" | "ga4_id"
+>;
+
+export function toPublicPagePayload(page: PublicLandingPage): PublicPagePayload {
+  return {
+    slug: page.slug,
+    content: page.content,
+    component_key: page.component_key,
+    template_copy: page.template_copy,
+    meta_pixel_id: page.meta_pixel_id,
+    ga4_id: page.ga4_id,
+  };
+}
+
+export type LandingPageUpdatePatch = Partial<
+  Pick<
+    LandingPage,
+    | "content"
+    | "content_schema_version"
+    | "campaign_slug"
+    | "target_group_url"
+    | "meta_pixel_id"
+    | "ga4_id"
+    | "status"
+  >
+> & {
+  published_at?: string;
+  published_version?: number;
+};
+
+const PUBLIC_PAGE_FIELDS = [
+  "content",
+  "content_schema_version",
+  "campaign_slug",
+  "target_group_url",
+  "meta_pixel_id",
+  "ga4_id",
+  "status",
+] as const satisfies readonly (keyof LandingPageUpdatePatch)[];
+
+function hasOwn<T extends object>(value: T, key: PropertyKey): boolean {
+  return Object.prototype.hasOwnProperty.call(value, key);
+}
+
+function publicValueEqual(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  if (Array.isArray(left) && Array.isArray(right)) {
+    return (
+      left.length === right.length &&
+      left.every((item, index) => publicValueEqual(item, right[index]))
+    );
+  }
+  if (
+    typeof left === "object" &&
+    left !== null &&
+    typeof right === "object" &&
+    right !== null
+  ) {
+    const leftRecord = left as Record<string, unknown>;
+    const rightRecord = right as Record<string, unknown>;
+    const leftKeys = Object.keys(leftRecord).sort();
+    const rightKeys = Object.keys(rightRecord).sort();
+    return (
+      publicValueEqual(leftKeys, rightKeys) &&
+      leftKeys.every((key) => publicValueEqual(leftRecord[key], rightRecord[key]))
+    );
+  }
+  return false;
+}
+
+/**
+ * Aplica as invariantes finais do PATCH depois de os campos terem sido
+ * validados/sanitizados pela rota. A versão avança uma única vez quando o
+ * estado público efetivo muda e o estado final permanece publicado.
+ */
+export function finalizeLandingPageUpdate(
+  existing: LandingPage,
+  requested: LandingPageUpdatePatch,
+  nowIso = new Date().toISOString(),
+):
+  | { ok: true; patch: LandingPageUpdatePatch }
+  | { ok: false; error: string } {
+  const finalStatus = requested.status ?? existing.status;
+  const finalCampaign = hasOwn(requested, "campaign_slug")
+    ? requested.campaign_slug ?? null
+    : existing.campaign_slug;
+  const finalTarget = hasOwn(requested, "target_group_url")
+    ? requested.target_group_url ?? null
+    : existing.target_group_url;
+
+  if (finalStatus === "published" && !finalCampaign && !finalTarget) {
+    return {
+      ok: false,
+      error: "Defina o link do grupo ou uma campanha antes de publicar.",
+    };
+  }
+
+  const publicChanged = PUBLIC_PAGE_FIELDS.some(
+    (field) =>
+      hasOwn(requested, field) &&
+      !publicValueEqual(requested[field], existing[field]),
+  );
+  const patch: LandingPageUpdatePatch = { ...requested };
+
+  if (finalStatus === "published" && !existing.published_at) {
+    patch.published_at = nowIso;
+  }
+  if (finalStatus === "published" && publicChanged) {
+    patch.published_version = (existing.published_version ?? 0) + 1;
+  }
+
+  return { ok: true, patch };
+}
+
 export type LpCreateInput = {
   template_id: string;
   content: LpContent | LpContentV2;
