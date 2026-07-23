@@ -4,8 +4,8 @@ import { generateSlug } from "@/lib/pages/slug";
 import { legacyAliasFor, type LpCanonicalEvent } from "@/lib/pages/capture";
 import type {
   LandingPage,
+  LandingPageUpdatePatch,
   LpCreateInput,
-  LpStatus,
   LpTemplate,
   PublicLandingPage,
 } from "@/lib/pages/schema";
@@ -119,17 +119,7 @@ export async function createLandingPage(
   throw new Error("Não foi possível gerar um slug único. Tente de novo.");
 }
 
-export type LpUpdatePatch = Partial<{
-  content: LpCreateInput["content"];
-  content_schema_version: LpCreateInput["content_schema_version"];
-  published_version: number;
-  campaign_slug: string | null;
-  target_group_url: string | null;
-  meta_pixel_id: string | null;
-  ga4_id: string | null;
-  status: LpStatus;
-  published_at: string;
-}>;
+export type LpUpdatePatch = LandingPageUpdatePatch;
 
 export async function updateLandingPage(
   tenantId: string,
@@ -192,11 +182,72 @@ export type LpAttribution = {
   referrer: string | null;
 };
 
+export type ConfirmLpCaptureInput = {
+  tenantId: string;
+  landingPageId: string;
+  name: string;
+  whatsapp: string;
+  publishedVersion: number;
+  campaignSlug: string | null;
+  structure: string;
+  visualDirection: string;
+  modelVersion: number;
+  noticeVersion: string;
+  noticeText: string;
+  device: string | null;
+  attribution: LpAttribution;
+  idemKey: string;
+  userAgent: string | null;
+  ipHash: string | null;
+};
+
+/**
+ * Confirma uma captura por uma única RPC transacional. A função SQL também
+ * reconcilia retries de capturas preexistentes: evento, contador e lead legado
+ * são garantidos sem depender do booleano `created`.
+ */
+export async function confirmLpCapture(
+  input: ConfirmLpCaptureInput,
+): Promise<{ created: boolean; contactId: string; captureId: string }> {
+  const { data, error } = await getSupabaseAdmin().rpc("confirm_lp_capture", {
+    p_tenant_id: input.tenantId,
+    p_landing_page_id: input.landingPageId,
+    p_name: input.name,
+    p_whatsapp: input.whatsapp,
+    p_published_version: input.publishedVersion,
+    p_campaign_slug: input.campaignSlug,
+    p_structure: input.structure,
+    p_visual_direction: input.visualDirection,
+    p_model_version: input.modelVersion,
+    p_notice_version: input.noticeVersion,
+    p_notice_text: input.noticeText,
+    p_device: input.device,
+    p_attribution: input.attribution,
+    p_idem_key: input.idemKey,
+    p_user_agent: input.userAgent,
+    p_ip_hash: input.ipHash,
+  });
+  if (error) throw new Error(error.message);
+
+  const row = (
+    Array.isArray(data) ? data[0] : data
+  ) as { created?: boolean; contact_id?: string; capture_id?: string } | null;
+  if (!row?.contact_id || !row.capture_id) {
+    throw new Error("A captura não foi confirmada pelo banco.");
+  }
+  return {
+    created: row.created === true,
+    contactId: row.contact_id,
+    captureId: row.capture_id,
+  };
+}
+
 /**
  * Grava um evento do funil. Com `idemKey`, o índice
- * uq_lp_events_idem(landing_page_id, event_name, idem_key) torna a escrita
- * idempotente: o mesmo evento da mesma visita não conta duas vezes por causa de
- * um efeito que roda em dobro, um beacon reenviado ou um F5 (§5).
+ * uq_lp_events_idem(landing_page_id, event_name, published_version, idem_key)
+ * torna a escrita idempotente dentro da mesma versão publicada: o mesmo evento
+ * da mesma visita não conta duas vezes por causa de um efeito que roda em dobro,
+ * um beacon reenviado ou um F5 (§5).
  * Sem `idemKey` o comportamento é o de antes (grava sempre) — é o que o legado usa.
  */
 export async function insertLpTrackingEvent(input: {
