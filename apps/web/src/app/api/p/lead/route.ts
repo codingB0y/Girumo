@@ -2,9 +2,13 @@ import {
   confirmLpCapture,
   getPublishedPageBySlug,
 } from "@/lib/pages/store";
-import { noticeTextFor, normalizeWhatsappBR, resolveTargetUrl } from "@/lib/pages/schema";
+import { normalizeWhatsappBR, resolveTargetUrl } from "@/lib/pages/schema";
 import { captureIdemKey, deviceFromUserAgent } from "@/lib/pages/capture";
 import { extractAttribution, hashIp, isRateLimited } from "@/lib/pages/analytics";
+import {
+  isRenderContextStale,
+  verifyRenderContextToken,
+} from "@/lib/pages/render-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,17 +58,28 @@ export async function POST(req: Request) {
   // fez ao chamar esta rota; a evidência que vale é o snapshot do texto abaixo.
 
   try {
+    const renderContextToken =
+      typeof body.render_context === "string" ? body.render_context : "";
+    const verification = verifyRenderContextToken(renderContextToken, slug);
+    if (!verification.ok) {
+      return Response.json(
+        { error: "Contexto da página inválido. Recarregue e tente novamente." },
+        { status: 400 },
+      );
+    }
+    const renderContext = verification.value;
+
     const page = await getPublishedPageBySlug(slug);
-    if (!page) {
-      return Response.json({ error: "Página não encontrada." }, { status: 404 });
+    if (!page || isRenderContextStale(renderContext, page)) {
+      return Response.json(
+        { error: "Esta página mudou. Recarregue antes de enviar seus dados." },
+        { status: 409 },
+      );
     }
 
     const redirectUrl = resolveTargetUrl(page);
     const attribution = extractAttribution(body);
     const userAgent = req.headers.get("user-agent")?.slice(0, 300) ?? null;
-    const noticeText = noticeTextFor(page.content);
-
-    const publishedVersion = page.published_version ?? 0;
     const device = deviceFromUserAgent(userAgent);
 
     // Uma RPC confirma contato, captura, lead legado, evento e contador na mesma
@@ -74,13 +89,13 @@ export async function POST(req: Request) {
       landingPageId: page.id,
       name,
       whatsapp,
-      publishedVersion,
+      publishedVersion: renderContext.publishedVersion,
       campaignSlug: page.campaign_slug,
-      structure: page.structure ?? "conversion",
-      visualDirection: page.visual_direction ?? "premium",
-      modelVersion: page.model_version ?? 1,
-      noticeVersion: page.notice_version ?? "v1",
-      noticeText,
+      structure: renderContext.structure,
+      visualDirection: renderContext.visualDirection,
+      modelVersion: renderContext.modelVersion,
+      noticeVersion: renderContext.noticeVersion,
+      noticeText: renderContext.noticeText,
       device,
       attribution,
       idemKey: captureIdemKey(),

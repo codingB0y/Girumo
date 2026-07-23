@@ -19,12 +19,14 @@ export function LeadForm({
   slug,
   cta,
   consentText,
+  renderContext,
   buttonClass,
   preview = false,
 }: {
   slug: string;
   cta: string;
   consentText: string;
+  renderContext?: string;
   buttonClass: string;
   preview?: boolean;
 }) {
@@ -40,7 +42,7 @@ export function LeadForm({
   function handleFormStart() {
     if (preview || started.current) return;
     started.current = true;
-    trackBeacon(slug, "form_start");
+    trackBeacon(slug, renderContext, "form_start");
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -48,13 +50,20 @@ export function LeadForm({
     if (preview || status === "sending") return;
     setError(null);
     setStatus("sending");
-    trackBeacon(slug, "lead_submit_attempt");
+    trackBeacon(slug, renderContext, "lead_submit_attempt");
 
     try {
       const res = await fetch("/api/p/lead", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug, name, whatsapp, website, ...collectAttribution() }),
+        body: JSON.stringify({
+          slug,
+          name,
+          whatsapp,
+          website,
+          render_context: renderContext,
+          ...collectAttribution(),
+        }),
       });
       const data = (await res.json()) as { redirect_url?: string | null; error?: string };
       if (!res.ok) {
@@ -73,7 +82,7 @@ export function LeadForm({
   }
 
   function handleGroupJoin() {
-    trackBeacon(slug, "group_click");
+    trackBeacon(slug, renderContext, "group_click");
     window.fbq?.("trackCustom", "GroupJoin");
     window.gtag?.("event", "group_join");
   }

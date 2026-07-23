@@ -3,8 +3,9 @@ import { notFound } from "next/navigation";
 import { unstable_cache } from "next/cache";
 import { getPublishedPageBySlug } from "@/lib/pages/store";
 import type { ReactNode } from "react";
-import { consentText, resolveTargetUrl } from "@/lib/pages/schema";
+import { noticeTextFor, resolveTargetUrl } from "@/lib/pages/schema";
 import { isLpContentV2 } from "@/lib/pages/render";
+import { createRenderContextToken } from "@/lib/pages/render-context";
 import { derivePalette, type AccessiblePalette } from "@/lib/pages/palette";
 import { mediaSrc } from "@/lib/pages/media";
 import { resolveTemplate, resolveStructure } from "@/components/pages/templates";
@@ -75,12 +76,30 @@ export default async function PublicLandingPage({ params }: PageProps) {
   if (!resolveTargetUrl(page)) notFound();
 
   const content = page.content;
+  const noticeText = noticeTextFor(content);
+  const renderContext = createRenderContextToken({
+    slug,
+    publishedVersion: page.published_version ?? 0,
+    structure: page.structure ?? "conversion",
+    visualDirection: page.visual_direction ?? "premium",
+    modelVersion: page.model_version ?? 1,
+    noticeVersion: page.notice_version ?? "v1",
+    noticeText,
+  });
   let body: ReactNode;
   if (isLpContentV2(content)) {
     // Conteúdo v2 → estrutura editorial; paleta acessível derivada da marca.
     const Structure = resolveStructure();
     const palette = derivePalette(content.brand_color) ?? FALLBACK_PALETTE;
-    body = <Structure slug={slug} content={content} palette={palette} />;
+    body = (
+      <Structure
+        slug={slug}
+        content={content}
+        palette={palette}
+        noticeText={noticeText}
+        renderContext={renderContext}
+      />
+    );
   } else {
     // Conteúdo legado → BasicTemplate (fallback), sem targetUrl no contrato.
     const Template = resolveTemplate(page.component_key);
@@ -89,7 +108,8 @@ export default async function PublicLandingPage({ params }: PageProps) {
         slug={slug}
         content={content}
         copy={page.template_copy}
-        consentText={consentText(content.store_name, content.group_topic)}
+        consentText={noticeText}
+        renderContext={renderContext}
       />
     );
   }
@@ -97,7 +117,12 @@ export default async function PublicLandingPage({ params }: PageProps) {
   return (
     <>
       {body}
-      <TrackingScripts slug={slug} metaPixelId={page.meta_pixel_id} ga4Id={page.ga4_id} />
+      <TrackingScripts
+        slug={slug}
+        renderContext={renderContext}
+        metaPixelId={page.meta_pixel_id}
+        ga4Id={page.ga4_id}
+      />
     </>
   );
 }

@@ -13,12 +13,27 @@ import type { StructureProps } from "@/components/pages/templates/contract";
  * no wrapper (`brandStyle`), então as seções pegam a cor por `var(--lp-*)`. O CTA
  * fixo mobile só entra fora do preview (no editor não faz sentido).
  */
-export function ConversionEditorial({ slug, content, palette, preview }: StructureProps) {
+export function ConversionEditorial({
+  slug,
+  content,
+  palette,
+  noticeText,
+  renderContext,
+  preview,
+}: StructureProps) {
   return (
     <main style={brandStyle(palette)} className={preview ? "" : "min-h-svh"}>
       <HeroSection
         content={content}
-        formSlot={<LeadFormSection slug={slug} content={content} preview={preview} />}
+        formSlot={
+          <LeadFormSection
+            slug={slug}
+            content={content}
+            noticeText={noticeText}
+            renderContext={renderContext}
+            preview={preview}
+          />
+        }
       />
       {content.proof ? <VideoProofSection proof={content.proof} /> : null}
       <BenefitsGallerySection benefits={content.benefits} gallery={content.gallery} />

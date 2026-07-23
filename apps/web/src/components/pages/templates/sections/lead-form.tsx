@@ -9,10 +9,14 @@ import { LeadFormFields } from "@/components/pages/templates/sections/lead-form-
 export function LeadFormSection({
   slug,
   content,
+  noticeText,
+  renderContext,
   preview,
 }: {
   slug: string;
   content: LpContentV2;
+  noticeText?: string;
+  renderContext?: string;
   preview?: boolean;
 }) {
   return (
@@ -21,6 +25,8 @@ export function LeadFormSection({
         slug={slug}
         cta={content.cta}
         storeName={content.store_name}
+        noticeText={noticeText}
+        renderContext={renderContext}
         preview={preview}
       />
     </div>

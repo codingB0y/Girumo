@@ -13,6 +13,10 @@ export type StructureProps = {
   slug: string;
   content: LpContentV2;
   palette: AccessiblePalette;
+  /** Aviso exato vinculado ao contexto assinado. */
+  noticeText?: string;
+  /** Contexto assinado do render público; ausente somente em previews. */
+  renderContext?: string;
   /** true no preview do editor: desabilita o form e a altura mínima. */
   preview?: boolean;
 };

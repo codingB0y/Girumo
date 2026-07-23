@@ -52,10 +52,16 @@ function currentViewId(): string {
 /** Eventos do funil que o client pode emitir. `lead_created` é só do servidor. */
 export type LpBeaconEvent = "page_view" | "form_start" | "lead_submit_attempt" | "group_click";
 
-export function trackBeacon(slug: string, event: LpBeaconEvent): void {
+export function trackBeacon(
+  slug: string,
+  renderContext: string | undefined,
+  event: LpBeaconEvent,
+): void {
+  if (!renderContext) return;
   const payload = JSON.stringify({
     slug,
     event,
+    render_context: renderContext,
     view_id: currentViewId(),
     ...collectAttribution(),
   });
@@ -80,10 +86,12 @@ const ATTRIB_PARAMS = [
 
 export function TrackingScripts({
   slug,
+  renderContext,
   metaPixelId,
   ga4Id,
 }: {
   slug: string;
+  renderContext: string;
   metaPixelId: string | null;
   ga4Id: string | null;
 }) {
@@ -106,7 +114,7 @@ export function TrackingScripts({
     }
 
     // 2. page_view server-side (nosso — fonte da verdade das métricas)
-    trackBeacon(slug, "page_view");
+    trackBeacon(slug, renderContext, "page_view");
 
     // 3. Meta Pixel
     if (metaPixelId && !window.fbq) {

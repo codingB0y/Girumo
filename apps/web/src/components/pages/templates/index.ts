@@ -15,6 +15,8 @@ export type TemplateProps = {
   copy: Record<string, string>;
   /** Texto de consent LGPD (exibido no form de captura). */
   consentText: string;
+  /** Contexto assinado do render público; ausente somente em previews. */
+  renderContext?: string;
   /** true no editor do painel: desabilita form e min-h. */
   preview?: boolean;
 };

@@ -325,14 +325,14 @@ export function consentText(storeName: string, groupTopic: string): string {
  * Redação final pendente do gate jurídico (§8/§13).
  */
 export function noticeTextV2(storeName: string): string {
-  return `Ao continuar, você solicita acesso ao grupo e poderá receber novidades e ofertas da ${storeName}.`;
+  return `Ao continuar, você solicita acesso ao grupo e poderá receber novidades e ofertas da ${storeName}. Política de Privacidade.`;
 }
 
 /**
  * Fonte única do aviso: o que a página MOSTRA e o que a captura SNAPSHOTA como
  * prova têm que ser a mesma string — se divergirem, o snapshot deixa de valer
- * como evidência do que a pessoa leu. Por isso o form e a rota de lead chamam
- * daqui, e não montam o texto por conta.
+ * como evidência do que a pessoa leu. Por isso o render cria a string aqui,
+ * mostra a mesma string no form e a assina no contexto que a rota persiste.
  */
 export function noticeTextFor(content: LpContent | LpContentV2): string {
   return isLpContentV2(content)

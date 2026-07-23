@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { noticeTextFor, parseContentInput } from "./schema";
 
 const legacy = {
@@ -70,6 +72,28 @@ assert.equal(parseContentInput("texto").ok, false);
 const noticeV2 = noticeTextFor(v2 as never);
 assert.ok(noticeV2.includes("Bazar da Vila"));
 assert.ok(noticeV2.length > 0);
+assert.ok(noticeV2.endsWith(" Política de Privacidade."));
+
+const v2FormSource = readFileSync(
+  path.join(
+    process.cwd(),
+    "src",
+    "components",
+    "pages",
+    "templates",
+    "sections",
+    "lead-form-fields.tsx",
+  ),
+  "utf8",
+);
+assert.match(
+  v2FormSource,
+  /\{noticeText\s*\?\?\s*noticeTextV2\(storeName\)\}/,
+);
+assert.doesNotMatch(
+  v2FormSource,
+  /\{noticeText\s*\?\?\s*noticeTextV2\(storeName\)\}\s*Política de Privacidade\./,
+);
 
 // legado mantém a fórmula com o tema do grupo (não regride)
 const noticeLegacy = noticeTextFor(legacy as never);

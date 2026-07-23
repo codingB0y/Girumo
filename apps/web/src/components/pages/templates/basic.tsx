@@ -10,7 +10,14 @@ import { BRAND } from "@/lib/brand";
  * Server-rendered e mobile-first; o único JS é o LeadForm + tracking.
  * A foto continua em <img> porque a URL é fornecida pelo lojista.
  */
-export function BasicTemplate({ slug, content, copy, consentText, preview }: TemplateProps) {
+export function BasicTemplate({
+  slug,
+  content,
+  copy,
+  consentText,
+  renderContext,
+  preview,
+}: TemplateProps) {
   const color = COLOR_STYLES[content.primary_color] ?? COLOR_STYLES.cobalt;
 
   return (
@@ -37,6 +44,7 @@ export function BasicTemplate({ slug, content, copy, consentText, preview }: Tem
             slug={slug}
             cta={copy.cta ?? "Entrar no grupo"}
             consentText={consentText}
+            renderContext={renderContext}
             buttonClass={`${color.button} ${color.ring}`}
             preview={preview}
           />

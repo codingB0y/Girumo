@@ -1,6 +1,10 @@
 import { bumpLpCounter, getPublishedPageBySlug, insertLpTrackingEvent } from "@/lib/pages/store";
 import { deviceFromUserAgent, isCanonicalEvent } from "@/lib/pages/capture";
 import { extractAttribution, hashIp, isBotUserAgent, isRateLimited } from "@/lib/pages/analytics";
+import {
+  isRenderContextStale,
+  verifyRenderContextToken,
+} from "@/lib/pages/render-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,7 +24,8 @@ const VIEW_ID_RE = /^[A-Za-z0-9-]{8,64}$/;
  * vem do client porque só ele sabe o que é "a mesma visita" — e o pior caso de um
  * client mentiroso é fabricar visitas, que é o mesmo que ele já podia fazer.
  *
- * Responde 204 sempre: sendBeacon não lê resposta, e bot/limite não merecem dica.
+ * Bot/limite continuam 204 sem dica. Contexto inválido/stale recebe 400/409
+ * explícito para nunca rotular silenciosamente o evento com outra versão.
  */
 export async function POST(req: Request) {
   const ua = req.headers.get("user-agent");
@@ -47,8 +52,24 @@ export async function POST(req: Request) {
     : null;
 
   try {
+    const renderContextToken =
+      typeof body.render_context === "string" ? body.render_context : "";
+    const verification = verifyRenderContextToken(renderContextToken, slug);
+    if (!verification.ok) {
+      return Response.json(
+        { error: "Contexto da página inválido. Recarregue e tente novamente." },
+        { status: 400 },
+      );
+    }
+    const renderContext = verification.value;
+
     const page = await getPublishedPageBySlug(slug);
-    if (!page) return new Response(null, { status: 204 });
+    if (!page || isRenderContextStale(renderContext, page)) {
+      return Response.json(
+        { error: "Esta página mudou. Recarregue antes de continuar." },
+        { status: 409 },
+      );
+    }
 
     const device = deviceFromUserAgent(ua);
     const { created } = await insertLpTrackingEvent({
@@ -58,10 +79,10 @@ export async function POST(req: Request) {
       eventData: { ...extractAttribution(body), ua: ua?.slice(0, 200) ?? null },
       idemKey: viewId,
       dimensions: {
-        publishedVersion: page.published_version ?? 0,
-        structure: page.structure ?? "conversion",
-        visualDirection: page.visual_direction ?? "premium",
-        modelVersion: page.model_version ?? 1,
+        publishedVersion: renderContext.publishedVersion,
+        structure: renderContext.structure,
+        visualDirection: renderContext.visualDirection,
+        modelVersion: renderContext.modelVersion,
         device,
       },
     });

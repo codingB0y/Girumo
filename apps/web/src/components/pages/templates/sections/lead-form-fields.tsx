@@ -25,11 +25,15 @@ export function LeadFormFields({
   slug,
   cta,
   storeName,
+  noticeText,
+  renderContext,
   preview = false,
 }: {
   slug: string;
   cta: string;
   storeName: string;
+  noticeText?: string;
+  renderContext?: string;
   preview?: boolean;
 }) {
   const [name, setName] = useState("");
@@ -44,7 +48,7 @@ export function LeadFormFields({
   function handleFormStart() {
     if (preview || started.current) return;
     started.current = true;
-    trackBeacon(slug, "form_start");
+    trackBeacon(slug, renderContext, "form_start");
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -54,7 +58,7 @@ export function LeadFormFields({
     setStatus("sending");
     // Tentativa: emitida ANTES do POST, então erro de rede aparece no funil como
     // tentativa sem lead — é isso que revela form quebrado em vez de escondê-lo.
-    trackBeacon(slug, "lead_submit_attempt");
+    trackBeacon(slug, renderContext, "lead_submit_attempt");
 
     try {
       const res = await fetch("/api/p/lead", {
@@ -62,7 +66,14 @@ export function LeadFormFields({
         headers: { "Content-Type": "application/json" },
         // Sem campo de consent: enviar o form É a ação afirmativa (§8.2). A prova
         // é o snapshot do aviso que o servidor grava, não um booleano do client.
-        body: JSON.stringify({ slug, name, whatsapp, website, ...collectAttribution() }),
+        body: JSON.stringify({
+          slug,
+          name,
+          whatsapp,
+          website,
+          render_context: renderContext,
+          ...collectAttribution(),
+        }),
       });
       const data = (await res.json()) as { redirect_url?: string | null; error?: string };
       if (!res.ok) {
@@ -81,7 +92,7 @@ export function LeadFormFields({
   }
 
   function handleGroupJoin() {
-    trackBeacon(slug, "group_click");
+    trackBeacon(slug, renderContext, "group_click");
     window.fbq?.("trackCustom", "GroupJoin");
     window.gtag?.("event", "group_join");
   }
@@ -176,7 +187,7 @@ export function LeadFormFields({
         Grupo gratuito • novidades e condições de atacado • saia quando quiser
       </p>
       <p className="mt-2 text-xs leading-relaxed text-[#6f6558]">
-        {noticeTextV2(storeName)} Política de Privacidade.
+        {noticeText ?? noticeTextV2(storeName)}
       </p>
     </form>
   );
