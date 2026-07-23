@@ -5,7 +5,7 @@ import { useEffect, useRef } from "react";
 /**
  * "O fluxo" — assinatura visual do hero.
  * Partículas (leads) escoam pelo campo e são absorvidas por nós de grupo:
- * íris enquanto viajam, pulso verde-WhatsApp ao entrar. O ponteiro curva o fluxo.
+ * Cobalt enquanto viajam, pulso verde-WhatsApp ao entrar. O ponteiro curva o fluxo.
  *
  * Performance: canvas 2D (~4KB), DPR cap 1.5, pausa fora da viewport/aba oculta.
  * Mobile (<768px), reduced-motion ou pouca memória → não monta o loop

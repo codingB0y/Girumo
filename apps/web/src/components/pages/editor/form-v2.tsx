@@ -151,19 +151,19 @@ export function EditorFormV2({
       </Group>
 
       <Group title="Prova" hint="opcional — um depoimento de cliente">
-        <label className="flex items-center gap-2.5 text-sm text-breu">
+        <label className="flex items-center gap-2.5 text-sm text-volt-950">
           <input
             type="checkbox"
             checked={proof.enabled}
             disabled={disabled}
             onChange={(e) => setProof({ enabled: e.target.checked })}
-            className="h-4 w-4 rounded border-breu/25 text-iris focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-iris"
+            className="h-4 w-4 rounded border-volt-950/25 text-cobalt-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500"
           />
           Mostrar um depoimento na página
         </label>
 
         {proof.enabled ? (
-          <div className="space-y-5 border-l-2 border-breu/[0.08] pl-4">
+          <div className="space-y-5 border-l-2 border-volt-950/[0.08] pl-4">
             <Field label="Formato">
               <div className="flex gap-2" role="radiogroup" aria-label="Formato do depoimento">
                 {(["video", "photo"] as const).map((kind) => (
@@ -177,8 +177,8 @@ export function EditorFormV2({
                     className={cn(
                       "rounded-xl border px-3.5 py-2 text-sm transition",
                       proof.kind === kind
-                        ? "border-iris font-medium text-breu"
-                        : "border-breu/15 text-aco/60 hover:border-iris/40",
+                        ? "border-cobalt-500 font-medium text-volt-950"
+                        : "border-volt-950/15 text-aco/60 hover:border-cobalt-500/40",
                     )}
                   >
                     {kind === "video" ? "Vídeo" : "Foto"}
@@ -271,7 +271,7 @@ export function EditorFormV2({
             disabled={disabled}
             placeholder="https://chat.whatsapp.com/..."
             onChange={(e) => onChange({ target_group_url: e.target.value })}
-            className="w-full rounded-xl border border-breu/15 px-3.5 py-2.5 text-sm text-breu placeholder:text-aco/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-iris"
+            className="w-full rounded-xl border border-volt-950/15 px-3.5 py-2.5 text-sm text-volt-950 placeholder:text-aco/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500"
           />
         </Field>
         <Field
@@ -284,7 +284,7 @@ export function EditorFormV2({
             disabled={disabled}
             placeholder="Ex.: ofertas-verao"
             onChange={(e) => onChange({ campaign_slug: e.target.value })}
-            className="w-full rounded-xl border border-breu/15 px-3.5 py-2.5 text-sm text-breu placeholder:text-aco/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-iris"
+            className="w-full rounded-xl border border-volt-950/15 px-3.5 py-2.5 text-sm text-volt-950 placeholder:text-aco/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500"
           />
         </Field>
       </Group>
@@ -298,7 +298,7 @@ export function EditorFormV2({
             disabled={disabled}
             placeholder="Ex.: 123456789012345"
             onChange={(e) => onChange({ meta_pixel_id: e.target.value })}
-            className="font-data w-full rounded-xl border border-breu/15 px-3.5 py-2.5 text-sm text-breu placeholder:text-aco/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-iris"
+            className="font-data w-full rounded-xl border border-volt-950/15 px-3.5 py-2.5 text-sm text-volt-950 placeholder:text-aco/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500"
           />
         </Field>
         <Field label="Google Analytics 4 ID">
@@ -308,7 +308,7 @@ export function EditorFormV2({
             disabled={disabled}
             placeholder="Ex.: G-XXXXXXXXXX"
             onChange={(e) => onChange({ ga4_id: e.target.value })}
-            className="font-data w-full rounded-xl border border-breu/15 px-3.5 py-2.5 text-sm text-breu placeholder:text-aco/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-iris"
+            className="font-data w-full rounded-xl border border-volt-950/15 px-3.5 py-2.5 text-sm text-volt-950 placeholder:text-aco/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500"
           />
         </Field>
       </Group>
@@ -344,8 +344,8 @@ function VideoUrlField({
         placeholder="https://www.youtube.com/watch?v=..."
         onChange={(e) => onChange(e.target.value)}
         className={cn(
-          "w-full rounded-xl border px-3.5 py-2.5 text-sm text-breu placeholder:text-aco/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-iris",
-          invalid || error ? "border-alerta bg-alerta/[0.03]" : "border-breu/15",
+          "w-full rounded-xl border px-3.5 py-2.5 text-sm text-volt-950 placeholder:text-aco/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500",
+          invalid || error ? "border-alerta bg-alerta/[0.03]" : "border-volt-950/15",
         )}
       />
       {parsed ? (
@@ -373,13 +373,13 @@ function BenefitsEditor({
 
   return (
     <div>
-      <p className="text-sm font-medium text-breu">
+      <p className="text-sm font-medium text-volt-950">
         Vantagens <span className="ml-1 font-normal text-xs text-aco/50">até {BENEFITS_MAX}</span>
       </p>
 
       <div className="mt-2 space-y-3">
         {benefits.map((b, i) => (
-          <div key={i} className="rounded-xl border border-breu/[0.08] p-4">
+          <div key={i} className="rounded-xl border border-volt-950/[0.08] p-4">
             <div className="flex items-start gap-3">
               <div className="flex-1 space-y-3">
                 <TextField
@@ -420,7 +420,7 @@ function BenefitsEditor({
           type="button"
           disabled={disabled}
           onClick={() => onChange([...benefits, { title: "", description: "" }])}
-          className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-dashed border-breu/20 px-3.5 py-2 text-sm text-aco/70 transition hover:border-iris/50 hover:text-breu"
+          className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-dashed border-volt-950/20 px-3.5 py-2 text-sm text-aco/70 transition hover:border-cobalt-500/50 hover:text-volt-950"
         >
           <Plus className="h-4 w-4" /> Adicionar vantagem
         </button>
@@ -444,7 +444,7 @@ function GalleryEditor({
 
   return (
     <div>
-      <p className="text-sm font-medium text-breu">
+      <p className="text-sm font-medium text-volt-950">
         Galeria
         <span className="ml-1 text-xs font-normal text-aco/50">
           {GALLERY_MIN} a {GALLERY_MAX} fotos das peças

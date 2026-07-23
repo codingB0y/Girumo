@@ -158,20 +158,22 @@ Definir `x` como um quarto da largura do símbolo. Nenhum texto, borda, fotograf
 - lockup horizontal digital: `96 px` de largura;
 - lockup horizontal impresso: `24 mm` de largura.
 
-Uma versão micro do símbolo preservará a mesma geometria, com correção óptica apenas nos raios para impedir fechamento da passagem em 16 px.
+Uma versão micro do símbolo preservará a composição e as massas externas do mestre. Exclusivamente em `16 px`, as bordas internas da passagem podem ser afastadas em até `0,25` unidade do viewBox para manter ao menos um pixel transparente em todas as linhas relevantes; nenhuma outra proporção pode mudar.
 
 ### 4.6 Uso de cor
 
 O logo é sempre monocromático.
 
-Versões prioritárias:
+Hierarquia cromática aprovada:
 
-- Volt navy sobre canvas;
-- canvas sobre Volt navy;
-- Volt navy sobre lima;
-- preto integral para produção simples.
+1. **assinatura digital principal:** `paper-0` sobre `volt-950`, aplicada em navegação, autenticação, heróis, produto e apresentações em fundo escuro;
+2. **assinatura de impacto:** `volt-950` sobre `acid-500`, aplicada em avatar, campanhas, recortes sociais e momentos de alta atenção;
+3. **assinatura institucional:** `volt-950` sobre `paper-0`, aplicada em documentos, propostas, impressão e fundos claros;
+4. **produção simples:** preto integral.
 
-Não dividir as duas massas entre lima e azul. Cobalt é cor do sistema digital, não componente estrutural do logo.
+O arquivo reverso em canvas permanece apenas por compatibilidade durante a migração. Novos masters reversos usam `paper-0`, que devolve luminosidade ao logo sem recorrer a branco puro.
+
+Não dividir as duas massas entre lima e azul. Símbolo e wordmark usam sempre a mesma cor dentro do lockup. O Acid pode formar o campo ao redor do logo, mas nunca colorir apenas uma massa ou uma letra. Cobalt é cor funcional do sistema digital, não cor principal do logo.
 
 ## 5. Sistema de cores
 
@@ -186,7 +188,7 @@ Não dividir as duas massas entre lima e azul. Cobalt é cor do sistema digital,
 | `cobalt-500` | `#2E66FF` | foco, seleção, estados interativos e gráficos |
 | `cobalt-700` | `#1947C9` | links e texto interativo sobre canvas |
 | `canvas-100` | `#F4F0E7` | fundo principal claro |
-| `paper-0` | `#FFFEFA` | cards e superfícies de alta prioridade |
+| `paper-0` | `#FFFEFA` | logo reverso, cards e superfícies de alta prioridade |
 | `slate-600` | `#52646C` | texto secundário sobre canvas |
 | `line-200` | `#D8D7CF` | divisórias e bordas claras |
 
@@ -208,6 +210,14 @@ O lima não substitui `success`. Ele representa energia da marca e ação princi
 - `#2E66FF` sobre canvas: `4,14:1`, portanto não usar para texto normal;
 - `#1947C9` sobre canvas: `6,63:1`, adequado para texto normal;
 - estados nunca dependem apenas de cor: incluir ícone, label ou mudança estrutural.
+
+### 5.4 Hierarquia de presença
+
+- Volt ou Paper sustenta a maior parte de cada composição;
+- Acid aparece em CTA primário, sinal comercial, avatar e blocos pontuais de campanha;
+- uma superfície integral em Acid é reservada a peças curtas de alto impacto, não ao chrome persistente do produto;
+- Cobalt comunica foco, seleção, interação e dados; ele não substitui Volt ou Acid na assinatura da marca;
+- em marketing, a composição preferida combina fundo Volt, logo Paper e Acid como energia de conversão.
 
 ## 6. Tipografia
 
@@ -359,7 +369,7 @@ Tratamento de imagem:
 ### 9.2 Social
 
 - avatar de Instagram: símbolo Volt navy sobre lima;
-- avatar alternativo: símbolo canvas sobre Volt navy;
+- avatar alternativo: símbolo Paper sobre Volt navy;
 - templates `1080×1080`, `1080×1350` e `1080×1920`;
 - capa e thumbnail de vídeo;
 - prova social e cards de métricas.
@@ -447,10 +457,12 @@ Esses identificadores podem migrar em uma fase técnica separada sem impacto pú
 ### 12.1 Marca
 
 - símbolo legível em 16 px;
-- leitura consistente em preto, Volt e canvas;
+- leitura consistente em preto, Volt e Paper;
 - lockup equilibrado em fundos claros e escuros;
 - avatar reconhecível em recorte circular;
 - nenhuma versão depende de gradiente ou duas cores;
+- assinatura digital principal usa Paper sobre Volt e assinatura de impacto usa Volt sobre Acid;
+- Cobalt não aparece como cor principal do logo;
 - clear space e tamanhos mínimos documentados.
 
 ### 12.2 Acessibilidade

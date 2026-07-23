@@ -79,7 +79,7 @@ export function NovaPaginaV2() {
       <div>
         <Link
           href="/painel/pages"
-          className="inline-flex items-center gap-1.5 text-sm text-aco/60 transition hover:text-breu"
+          className="inline-flex items-center gap-1.5 text-sm text-aco/60 transition hover:text-volt-950"
         >
           <ArrowLeft className="h-4 w-4" /> Páginas
         </Link>
@@ -108,7 +108,7 @@ export function NovaPaginaV2() {
             type="button"
             onClick={() => void handleSave()}
             disabled={saving || !templateId}
-            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-iris px-4 py-3 text-sm font-medium text-white shadow-iris transition hover:bg-iris-claro disabled:opacity-60"
+            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cobalt-500 px-4 py-3 text-sm font-medium text-white shadow-brand transition hover:bg-cobalt-500 disabled:opacity-60"
           >
             {saving ? "Salvando..." : "Salvar rascunho"} <ArrowRight className="h-4 w-4" />
           </button>

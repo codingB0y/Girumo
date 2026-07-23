@@ -115,14 +115,14 @@ export const AUTOMATION_TEMPLATES: { name: string; trigger: AutomationTrigger; s
     name: "Lembrete: conectar WhatsApp",
     trigger: "no_connect_24h",
     steps: [
-      { type: "message", delay_minutes: 0, message: "Oi! Vi que você ainda não conectou seu WhatsApp no HubFlow. Leva 2 minutos — é só escanear o QR Code nas configurações." },
+      { type: "message", delay_minutes: 0, message: "Oi! Vi que você ainda não conectou seu WhatsApp na Girumo. Leva 2 minutos — é só escanear o QR Code nas configurações." },
     ],
   },
   {
     name: "Trial acabando",
     trigger: "trial_ending",
     steps: [
-      { type: "message", delay_minutes: 0, message: "⏰ Seu trial do HubFlow termina em 2 dias! Assine agora pra não perder seus grupos e campanhas." },
+      { type: "message", delay_minutes: 0, message: "⏰ Seu trial da Girumo termina em 2 dias! Assine agora pra não perder seus grupos e campanhas." },
     ],
   },
 ];

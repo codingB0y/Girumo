@@ -107,7 +107,7 @@ const legacy = {
   headline: "Atacado infantil com preço de fábrica",
   description: "Peças novas toda semana direto pro seu grupo VIP.",
   group_topic: "ofertas de atacado infantil",
-  primary_color: "iris" as const,
+  primary_color: "cobalt" as const,
 };
 const migrated = adaptLegacyContent(legacy);
 assert.equal(migrated.schema_version, 2);
@@ -116,7 +116,7 @@ assert.equal(migrated.headline, legacy.headline); // sem perda
 assert.equal(migrated.description, legacy.description); // sem perda
 assert.equal(migrated.hero.url, "https://cdn.example.com/loja.jpg"); // foto preservada como url
 assert.ok(migrated.hero.alt.includes("Mega Stock"));
-assert.equal(migrated.brand_color, "#7c3aed"); // iris → hex
+assert.equal(migrated.brand_color, "#7c3aed"); // cobalt → hex roxo legado
 assert.ok(migrated.cta.length > 0);
 
 // ---- sanitizador: só o shape exato entra no JSONB ----

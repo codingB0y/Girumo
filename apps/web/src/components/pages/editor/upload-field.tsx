@@ -86,7 +86,7 @@ export function UploadField({
 
   return (
     <div>
-      <label htmlFor={inputId} className="text-sm font-medium text-breu">
+      <label htmlFor={inputId} className="text-sm font-medium text-volt-950">
         {label}
       </label>
       {hint ? <span className="ml-2 text-xs text-aco/50">{hint}</span> : null}
@@ -94,7 +94,7 @@ export function UploadField({
       <div className="mt-1.5">
         {value ? (
           <div className="space-y-2">
-            <div className={cn("relative overflow-hidden rounded-xl bg-bruma", aspect)}>
+            <div className={cn("relative overflow-hidden rounded-xl bg-canvas-100", aspect)}>
               <img
                 src={mediaSrc(value)}
                 alt=""
@@ -122,7 +122,7 @@ export function UploadField({
               disabled={disabled}
               onChange={(e) => onChange({ ...value, alt: e.target.value })}
               placeholder="Ex.: arara com peças da coleção nova"
-              className="w-full rounded-lg border border-breu/15 px-3 py-2 text-sm text-breu placeholder:text-aco/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-iris"
+              className="w-full rounded-lg border border-volt-950/15 px-3 py-2 text-sm text-volt-950 placeholder:text-aco/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500"
             />
           </div>
         ) : (
@@ -131,7 +131,7 @@ export function UploadField({
             onClick={() => inputRef.current?.click()}
             disabled={disabled || busy}
             className={cn(
-              "flex w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-breu/20 bg-bruma/40 text-sm text-aco/60 transition hover:border-iris/50 hover:text-breu disabled:opacity-60",
+              "flex w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-volt-950/20 bg-canvas-100/40 text-sm text-aco/60 transition hover:border-cobalt-500/50 hover:text-volt-950 disabled:opacity-60",
               aspect,
             )}
           >

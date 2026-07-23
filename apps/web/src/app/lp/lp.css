@@ -1,263 +1,143 @@
-/* ============================================================
-   LP Experience — /lp
-   Paleta própria (branding da landing atual descartado de propósito):
-   papel quente + tinta + laranja queimado. Verde só no WhatsApp.
-   Tudo scoped em .lp3 para não vazar pro resto do app.
-   ============================================================ */
-
 .lp3 {
-  --lp-paper: #f4f1e9;
-  --lp-paper-2: #fffdf8;
-  --lp-ink: #141310;
-  --lp-ink-2: #1d1b17;
-  --lp-line: #e2dccb;
-  --lp-muted: #6f6a5e;
-  --lp-accent: #e8490f;
-  --lp-accent-soft: rgba(232, 73, 15, 0.08);
-  --lp-green: #1da851;
+  --lp-paper: var(--color-canvas-100);
+  --lp-paper-2: var(--color-paper-0);
+  --lp-ink: var(--color-volt-950);
+  --lp-ink-2: var(--color-volt-900);
+  --lp-line: var(--color-line-200);
+  --lp-dark-line: var(--color-volt-800);
+  --lp-muted: var(--color-slate-600);
+  --lp-accent: var(--color-acid-500);
+  --lp-accent-soft: color-mix(in srgb, var(--color-acid-500) 28%, transparent);
+  --lp-whatsapp: var(--color-success-700);
 
   background: var(--lp-paper);
   color: var(--lp-ink);
-  font-family: var(--font-lp), system-ui, sans-serif;
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
 }
 
-.lp3 ::selection {
-  background: var(--lp-accent);
-  color: var(--lp-paper);
-}
+.lp3 ::selection { background: var(--lp-accent); color: var(--lp-ink); }
+.lp3-grain { display: none; }
+.lp3-wash { background: var(--lp-paper); }
 
-/* ---------- texturas ---------- */
-.lp3-grain {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  pointer-events: none;
-  opacity: 0.5;
-  mix-blend-mode: multiply;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.04 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
-.lp3-wash {
-  background:
-    radial-gradient(52rem 30rem at 82% -6%, rgba(232, 73, 15, 0.07), transparent 62%),
-    radial-gradient(40rem 26rem at -8% 22%, rgba(20, 19, 16, 0.05), transparent 60%);
-}
-
-/* ---------- tipografia utilitária ---------- */
-.lp3-mono {
-  font-family: var(--font-plex-mono), ui-monospace, monospace;
-  letter-spacing: 0.18em;
+.lp3-mono,
+.lp3-eyebrow {
+  font-family: var(--font-data);
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
-
-.lp3-marker {
-  background-image: linear-gradient(0deg, var(--lp-accent-soft), var(--lp-accent-soft));
-  background-repeat: no-repeat;
-  background-size: 100% 0.42em;
-  background-position: 0 88%;
+.lp3-eyebrow { color: var(--color-cobalt-700); font-size: 0.6875rem; font-weight: 600; }
+.lp3-section-title {
+  max-width: 52rem;
+  font-family: var(--font-brand);
+  font-size: clamp(2rem, 4.2vw, 3.4rem);
+  font-weight: 700;
+  line-height: 1.06;
+  letter-spacing: -0.035em;
 }
+.lp3-marker { box-shadow: inset 0 -0.34em 0 var(--lp-accent-soft); }
 
-/* ---------- botões ---------- */
 .lp3-btn {
   display: inline-flex;
+  min-height: 3rem;
   align-items: center;
+  justify-content: center;
   gap: 0.55rem;
-  border-radius: 999px;
-  padding: 1rem 1.9rem;
-  font-weight: 600;
-  font-size: 1rem;
+  border-radius: var(--radius-control);
+  padding: 0.85rem 1.5rem;
+  font-weight: 650;
   line-height: 1;
-  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
-  will-change: transform;
+  transition: transform var(--duration-micro) var(--ease-girumo), filter var(--duration-micro) var(--ease-girumo), border-color var(--duration-micro) var(--ease-girumo);
 }
 .lp3-btn:hover { transform: translateY(-2px); }
-.lp3-btn:active { transform: translateY(0) scale(0.98); }
-
-.lp3-btn-ink { background: var(--lp-ink); color: var(--lp-paper); }
-.lp3-btn-ink:hover { background: #000; }
-
-.lp3-btn-paper { background: var(--lp-paper); color: var(--lp-ink); }
-.lp3-btn-paper:hover { background: #fff; }
-
-.lp3-btn-ghost {
-  border: 1px solid var(--lp-line);
-  color: var(--lp-ink);
-  background: transparent;
-}
+.lp3-btn:active { transform: translateY(0); }
+.lp3-btn:focus-visible { outline: 2px solid var(--color-cobalt-500); outline-offset: 3px; }
+.lp3-btn-ink { background: var(--lp-ink); color: var(--lp-paper-2); }
+.lp3-btn-paper { background: var(--lp-paper-2); color: var(--lp-ink); }
+.lp3-btn-accent { background: var(--lp-accent); color: var(--lp-ink); }
+.lp3-btn-accent:hover,
+.lp3-btn-paper:hover,
+.lp3-btn-ink:hover { filter: brightness(0.95); }
+.lp3-btn-ghost { border: 1px solid var(--lp-line); color: var(--lp-ink); background: transparent; }
 .lp3-btn-ghost:hover { border-color: var(--lp-ink); }
+.lp3-btn-ghost-paper { border: 1px solid color-mix(in srgb, var(--color-paper-0) 30%, transparent); color: var(--color-paper-0); }
+.lp3-btn-ghost-paper:hover { border-color: var(--color-paper-0); }
 
-.lp3-btn-ghost-paper {
-  border: 1px solid rgba(244, 241, 233, 0.28);
-  color: var(--lp-paper);
-  background: transparent;
-}
-.lp3-btn-ghost-paper:hover { border-color: rgba(244, 241, 233, 0.7); }
-
-.lp3-btn-accent { background: var(--lp-accent); color: #fff; }
-.lp3-btn-accent:hover { background: #cf3f0b; }
-
-/* ---------- nav pílula ---------- */
 .lp3-nav {
-  transition: background-color 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease, backdrop-filter 0.35s ease;
-  border: 1px solid transparent;
-}
-.lp3-nav.is-scrolled {
-  background: rgba(255, 253, 248, 0.82);
-  backdrop-filter: blur(14px);
-  border-color: var(--lp-line);
-  box-shadow: 0 18px 40px -24px rgba(20, 19, 16, 0.25);
-}
-
-/* ---------- marquee ---------- */
-@keyframes lp3-marquee {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
-}
-.lp3-marquee {
-  display: flex;
-  width: max-content;
-  animation: lp3-marquee 28s linear infinite;
-}
-.lp3-marquee-word {
-  -webkit-text-stroke: 1px rgba(244, 241, 233, 0.55);
-  color: transparent;
-  transition: color 0.4s ease;
-}
-.lp3-marquee:hover .lp3-marquee-word { color: rgba(244, 241, 233, 0.16); }
-
-/* ---------- hero cluster ---------- */
-@keyframes lp3-float-a { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-10px) rotate(-2deg); } }
-@keyframes lp3-float-b { 0%, 100% { transform: translateY(0) rotate(1.5deg); } 50% { transform: translateY(-16px) rotate(1.5deg); } }
-@keyframes lp3-float-c { 0%, 100% { transform: translateY(0) rotate(3deg); } 50% { transform: translateY(-7px) rotate(3deg); } }
-.lp3-float-a { animation: lp3-float-a 7s ease-in-out infinite; }
-.lp3-float-b { animation: lp3-float-b 9s ease-in-out infinite; }
-.lp3-float-c { animation: lp3-float-c 6s ease-in-out infinite; }
-
-.lp3-card {
-  background: var(--lp-paper-2);
-  border: 1px solid var(--lp-line);
-  border-radius: 1.25rem;
-  box-shadow: 0 24px 60px -30px rgba(20, 19, 16, 0.35);
-}
-
-@keyframes lp3-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
-.lp3-pulse { animation: lp3-pulse 1.6s ease-in-out infinite; }
-
-@keyframes lp3-fill { from { width: 8%; } to { width: 100%; } }
-.lp3-fill { animation: lp3-fill 2.8s cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: 0.6s; }
-
-/* ---------- bento ---------- */
-.lp3-bento-card {
-  background: var(--lp-paper-2);
-  border: 1px solid var(--lp-line);
-  border-radius: 1.5rem;
-  overflow: hidden;
-  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.7s ease;
-}
-.lp3-bento-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 30px 70px -36px rgba(20, 19, 16, 0.4);
-}
-
-/* ---------- capítulo escuro (case) ---------- */
-.lp3-dark {
+  border: 1px solid var(--lp-dark-line);
   background: var(--lp-ink);
-  color: var(--lp-paper);
+  box-shadow: var(--shadow-card);
+  transition: box-shadow var(--duration-micro) var(--ease-girumo), transform var(--duration-micro) var(--ease-girumo);
 }
-.lp3-dark-card {
-  background: var(--lp-ink-2);
-  border: 1px solid rgba(244, 241, 233, 0.09);
-  border-radius: 1.75rem;
-}
-.lp3-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  vertical-align: middle;
-  border-radius: 999px;
-  padding: 0.18em 0.6em;
-  border: 1px solid rgba(244, 241, 233, 0.22);
-  background: rgba(244, 241, 233, 0.07);
-  font-size: 0.42em;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  transform: translateY(-0.12em);
-}
+.lp3-nav.is-scrolled { box-shadow: var(--shadow-card-hover); transform: translateY(-2px); }
 
-/* stack: cards grudam e se sobrepõem no scroll */
+.lp3-process-board {
+  overflow: hidden;
+  border: 1px solid var(--lp-dark-line);
+  border-radius: var(--radius-panel);
+  background: var(--lp-ink);
+  box-shadow: var(--shadow-deep);
+}
+.lp3-card,
+.lp3-bento-card {
+  border: 1px solid var(--lp-line);
+  border-radius: var(--radius-panel);
+  background: var(--lp-paper-2);
+  box-shadow: var(--shadow-card);
+}
+.lp3-bento-card { overflow: hidden; transition: transform var(--duration-page) var(--ease-girumo), box-shadow var(--duration-page) var(--ease-girumo); }
+.lp3-bento-card.lp3-bento-card-dark { border-color: var(--lp-dark-line); background: var(--lp-ink); }
+.lp3-bento-card.lp3-bento-card-cobalt { border-color: var(--color-cobalt-500); }
+.lp3-bento-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-card-hover); }
+.lp3-card-index { font-family: var(--font-data); font-size: 0.625rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--lp-muted); }
+.lp3-card-index.lp3-card-index-dark { color: color-mix(in srgb, var(--color-canvas-100) 72%, transparent); }
+.lp3-card-index.lp3-card-index-cobalt { color: var(--color-cobalt-700); }
+
+.lp3-dark { background: var(--lp-ink); color: var(--color-paper-0); }
+.lp3-dark-card { border: 1px solid var(--lp-dark-line); border-radius: var(--radius-panel); background: var(--lp-ink-2); box-shadow: var(--shadow-deep); }
 .lp3-stack { display: grid; gap: 1.5rem; }
 .lp3-stack-card { position: sticky; }
 
-/* ---------- acordeão horizontal (método) ---------- */
-.lp3-acc {
-  border: 1px solid var(--lp-line);
-  border-radius: 1.5rem;
-  background: var(--lp-paper-2);
-  overflow: hidden;
-  transition: flex-grow 0.85s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.4s ease;
+.lp3-plan-label {
+  width: fit-content;
+  margin-bottom: 1.25rem;
+  border-radius: var(--radius-control);
+  background: var(--color-cobalt-500);
+  padding: 0.35rem 0.55rem;
+  color: var(--color-paper-0);
+  font-family: var(--font-data);
+  font-size: 0.5625rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
-.lp3-acc[data-active="true"] { background: #fff; }
-.lp3-acc-body {
-  opacity: 0;
-  transform: translateY(10px);
-  transition: opacity 0.5s ease 0.25s, transform 0.5s ease 0.25s;
-}
-.lp3-acc[data-active="true"] .lp3-acc-body { opacity: 1; transform: translateY(0); }
-.lp3-acc-n {
-  color: transparent;
-  -webkit-text-stroke: 1.5px rgba(20, 19, 16, 0.22);
-  transition: color 0.4s ease, -webkit-text-stroke-color 0.4s ease;
-}
-.lp3-acc[data-active="true"] .lp3-acc-n { color: var(--lp-accent); -webkit-text-stroke-color: var(--lp-accent); }
 
-/* corpo do acordeão colapsa via grid-rows (anima em ambos breakpoints) */
-.lp3-acc-bodywrap {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 0.7s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.lp3-acc[data-active="true"] .lp3-acc-bodywrap { grid-template-rows: 1fr; }
-
-/* ---------- sliders da calculadora ---------- */
-.lp3-range {
-  appearance: none;
-  height: 4px;
-  border-radius: 999px;
-  background: var(--lp-line);
-  outline-offset: 4px;
-}
+.lp3-range { appearance: none; height: 4px; border-radius: 2px; background: var(--lp-line); outline-offset: 4px; }
 .lp3-range::-webkit-slider-thumb {
   appearance: none;
   width: 22px;
   height: 22px;
-  border-radius: 50%;
-  background: var(--lp-ink);
   border: 4px solid var(--lp-paper-2);
-  box-shadow: 0 2px 10px rgba(20, 19, 16, 0.35);
+  border-radius: 6px;
+  background: var(--color-cobalt-500);
+  box-shadow: var(--shadow-card);
   cursor: grab;
 }
 .lp3-range::-moz-range-thumb {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: var(--lp-ink);
-  border: 4px solid var(--lp-paper-2);
+  width: 18px;
+  height: 18px;
+  border: 3px solid var(--lp-paper-2);
+  border-radius: 5px;
+  background: var(--color-cobalt-500);
   cursor: grab;
 }
 
-/* ---------- FAQ ---------- */
-.lp3-faq {
-  border-bottom: 1px solid var(--lp-line);
-}
+.lp3-faq { border-bottom: 1px solid var(--lp-line); }
 .lp3-faq summary { list-style: none; cursor: pointer; }
 .lp3-faq summary::-webkit-details-marker { display: none; }
-.lp3-faq-x {
-  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.lp3-faq[open] .lp3-faq-x { transform: rotate(45deg); color: var(--lp-accent); }
+.lp3-faq summary:focus-visible { border-radius: var(--radius-control); outline: 2px solid var(--color-cobalt-500); outline-offset: 3px; }
+.lp3-faq-x { transition: transform var(--duration-micro) var(--ease-girumo), color var(--duration-micro) var(--ease-girumo); }
+.lp3-faq[open] .lp3-faq-x { transform: rotate(45deg); color: var(--color-cobalt-700); }
 
-/* ---------- acessibilidade / movimento ---------- */
 @media (prefers-reduced-motion: reduce) {
   .lp3 *,
   .lp3 *::before,

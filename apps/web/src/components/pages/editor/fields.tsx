@@ -13,10 +13,10 @@ import { cn } from "@/lib/utils";
  */
 
 const INPUT =
-  "w-full rounded-xl border px-3.5 py-2.5 text-sm text-breu placeholder:text-aco/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-iris";
+  "w-full rounded-xl border px-3.5 py-2.5 text-sm text-volt-950 placeholder:text-aco/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500";
 
 function inputClass(hasError: boolean): string {
-  return cn(INPUT, hasError ? "border-alerta bg-alerta/[0.03]" : "border-breu/15");
+  return cn(INPUT, hasError ? "border-alerta bg-alerta/[0.03]" : "border-volt-950/15");
 }
 
 /** Grupo recolhível. `defaultOpen` no primeiro passo pra não abrir tudo fechado. */
@@ -34,11 +34,11 @@ export function Group({
   return (
     <details
       open={defaultOpen}
-      className="group rounded-2xl border border-breu/[0.08] bg-white [&[open]>summary]:border-b"
+      className="group rounded-2xl border border-volt-950/[0.08] bg-white [&[open]>summary]:border-b"
     >
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 border-breu/[0.06] px-5 py-4">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 border-volt-950/[0.06] px-5 py-4">
         <span>
-          <span className="font-medium text-breu">{title}</span>
+          <span className="font-medium text-volt-950">{title}</span>
           {hint ? <span className="ml-2 text-xs text-aco/50">{hint}</span> : null}
         </span>
         <ChevronDown
@@ -66,7 +66,7 @@ export function Field({
 }) {
   return (
     <div>
-      <label htmlFor={htmlFor} className="text-sm font-medium text-breu">
+      <label htmlFor={htmlFor} className="text-sm font-medium text-volt-950">
         {label}
       </label>
       {hint ? <span className="ml-2 text-xs text-aco/50">{hint}</span> : null}
@@ -177,7 +177,7 @@ export function ColorField({
           disabled={disabled}
           onChange={(e) => onChange(e.target.value)}
           aria-label="Escolher a cor da marca"
-          className="h-10 w-12 shrink-0 cursor-pointer rounded-lg border border-breu/15 bg-white p-1"
+          className="h-10 w-12 shrink-0 cursor-pointer rounded-lg border border-volt-950/15 bg-white p-1"
         />
         <input
           id={id}

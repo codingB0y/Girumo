@@ -6,7 +6,7 @@
 
 **Architecture:** Establish one typed brand contract and one geometry source, generate deterministic SVG/PNG/ICO assets from them, and make React, metadata, email, social, and documentation consumers depend on those sources. Apply Volt Commerce through global tokens and shared primitives first; then migrate shells and public surfaces in isolated reviewable tasks. Preserve `hubflow-web`, `hubflow-engine`, database identifiers, legacy URLs, and old-host allowlists as internal compatibility boundaries.
 
-**Tech Stack:** Next.js 15 App Router, React 19, TypeScript, Tailwind CSS 4, `next/font`, Node test runner via `tsx`, Sharp 0.34.5, Fontkit 2.0.4, `png-to-ico` 3.0.2, `@fontsource-variable/manrope` 5.2.8.
+**Tech Stack:** Next.js 15 App Router, React 19, TypeScript, Tailwind CSS 4, `next/font`, Node test runner via `tsx`, Sharp 0.34.5, Fontkit 2.0.4, `png-to-ico` 3.0.2, `@fontsource/manrope` 5.2.8.
 
 ## Global Constraints
 
@@ -15,6 +15,9 @@
 - Approved functional line is exactly `Seus grupos rodando. Você vendendo.`
 - Approved symbol is Deslocamento with viewBox `0 0 24 24` and exactly two monochrome masses.
 - Primary palette: Volt `#071923`, Acid `#A7FF2F`, Cobalt `#2E66FF`, Canvas `#F4F0E7`.
+- Approved color hierarchy: Paper `#FFFEFA` on Volt is the primary digital signature; Volt on Acid is the impact signature; Volt on Paper is the institutional signature.
+- Keep existing Canvas reverse assets for compatibility, but generate new reverse masters in Paper and use Paper for new dark-surface logo applications.
+- Cobalt is functional for focus, selection, interaction, and data; it is never the primary logo color.
 - Normal text on canvas must use `#071923`, `#52646C`, or accessible Cobalt `#1947C9`; raw `#2E66FF` is not normal body text.
 - Acid is a brand/action color, not a success state; success text is `#0C7346`.
 - Brand typography is Manrope; product typography is IBM Plex Sans; data typography is IBM Plex Mono.
@@ -25,6 +28,7 @@
 - Reserve both `hubflow` and `girumo` as public page slugs.
 - Public copy uses `publique` or `envie`; avoid `disparo em massa`, `IA`, `guru`, and unsupported claims.
 - The worktree can contain unrelated user changes. Record `git status --short` before each task, inspect overlapping files, stage only exact task-owned paths, and never use a broad directory to absorb pre-existing edits.
+- Design-sync build artifacts remain ephemeral by repository convention: validate `apps/web/.ds-entry.tsx`, `apps/web/.ds-styles.css`, and `ds-bundle/**` locally, but do not force-add them through `.gitignore`.
 
 ---
 
@@ -198,7 +202,7 @@ git commit -m "feat: add Girumo brand contract"
 Run:
 
 ```powershell
-npm install --save-dev --workspace apps/web sharp@0.34.5 fontkit@2.0.4 @types/fontkit@2.0.9 png-to-ico@3.0.2 @fontsource-variable/manrope@5.2.8
+npm install --save-dev --workspace apps/web sharp@0.34.5 fontkit@2.0.4 @types/fontkit@2.0.9 png-to-ico@3.0.2 @fontsource/manrope@5.2.8
 ```
 
 Expected: `apps/web/package.json` and root `package-lock.json` change; no runtime dependency is added.
@@ -281,12 +285,12 @@ Expected: FAIL and list the first absent asset.
 
 The exporter must:
 
-1. load Manrope variable WOFF2 through Fontkit and select `wght: 700`;
+1. load the static Manrope 700 Latin WOFF2 through Fontkit and assert its Bold/700 metadata before outlining; this avoids Fontkit 2.0.4's reproducible `getVariation()` corruption on variable WOFF2 while preserving the exact approved weight;
 2. convert each `Girumo` glyph to a real `<path d="…">` element with `-3%` global tracking and the approved pair adjustments;
 3. flip font coordinates onto the SVG baseline, derive the viewBox from the union of transformed glyph bounding boxes, and add 2% safety padding;
 4. compose symbol, horizontal lockup, stacked lockup, and wordmark SVGs using the approved optical proportions;
 5. write the same six `{ d, transform }` outlined glyph records, normalized viewBox, and aspect ratio into deterministic `apps/web/src/lib/girumo-wordmark.ts` exports so React preserves baseline flips and pair positions without recreating the wordmark with browser text kerning;
-6. rasterize symbol sizes with Sharp; reuse the master geometry at 16 px only if the transparent passage remains at least one pixel wide, otherwise export a radius-only micro correction from an explicit `GIRUMO_MICRO_PATHS` constant;
+6. rasterize symbol sizes with Sharp; reuse the master geometry at 16 px only if the transparent passage remains at least one pixel wide across every relevant raster row, otherwise export an explicit `GIRUMO_MICRO_PATHS` correction that moves only the internal passage edges by at most `0.25` viewBox unit while preserving all external masses and every other proportion;
 7. create the navy-on-Acid and Canvas-on-Volt Instagram avatars with the symbol fixed at exactly `61%` of the 1080 px canvas before antialiasing;
 8. create the default 1200×630 Volt OG image with Canvas lockup and approved tagline;
 9. rasterize a dedicated opaque 640×160 Volt e-mail header with the Canvas horizontal lockup so transactional templates never depend on external SVG support;
@@ -306,7 +310,7 @@ import { createRequire } from "node:module";
 import * as fontkit from "fontkit";
 
 const require = createRequire(import.meta.url);
-const MANROPE_PATH = require.resolve("@fontsource-variable/manrope/files/manrope-latin-wght-normal.woff2");
+const MANROPE_PATH = require.resolve("@fontsource/manrope/files/manrope-latin-700-normal.woff2");
 const OUTPUT = path.join(process.cwd(), "public", "brand", "girumo");
 const COLORS = { volt: "#071923", acid: "#A7FF2F", canvas: "#F4F0E7", black: "#000000" } as const;
 const PNG_SIZES = [16, 32, 48, 180, 192, 512, 1024] as const;
@@ -327,15 +331,17 @@ type OutlineFont = {
     glyphs: Array<{ path: { toSVG(): string; bbox: { minX: number; minY: number; maxX: number; maxY: number } } }>;
     positions: Array<{ xOffset: number; xAdvance: number }>;
   };
-  getVariation?: (axes: { wght: number }) => OutlineFont;
 };
 
 const opened = fontkit.openSync(MANROPE_PATH);
 if ("fonts" in opened) throw new Error("Manrope export source must be one font, not a collection");
+if (!/bold|700/i.test(`${opened.subfamilyName} ${opened.postscriptName}`)) {
+  throw new Error("Manrope export source must be the static 700/Bold face");
+}
 const outlineFont = opened as unknown as OutlineFont;
 
 function outlinedWordmarkSvg(font: OutlineFont, color: string) {
-  const bold = font.getVariation ? font.getVariation({ wght: 700 }) : font;
+  const bold = font;
   const run = bold.layout(WORDMARK);
   const tracking = -0.03 * bold.unitsPerEm;
   let penX = 0;
@@ -392,7 +398,7 @@ git commit -m "feat: export Girumo brand assets"
 - Create: `apps/web/src/components/brand/logo.tsx`
 - Create: `apps/web/src/components/brand/logo.test.ts`
 - Delete: `apps/web/src/components/landing/logo.tsx`
-- Modify importers: `apps/web/src/app/page.tsx`, `apps/web/src/components/auth-shell.tsx`, `apps/web/src/components/admin/sidebar.tsx`, `apps/web/src/components/painel/{sidebar,topbar,mobile-nav}.tsx`, `apps/web/src/components/landing/v2/nav.tsx`, `apps/web/.ds-entry.tsx`
+- Modify importers: `apps/web/src/app/page.tsx`, `apps/web/src/components/auth-shell.tsx`, `apps/web/src/components/admin/sidebar.tsx`, `apps/web/src/components/painel/{sidebar,topbar,mobile-nav}.tsx`, `apps/web/src/components/landing/v2/nav.tsx`
 - Replace: `apps/web/src/app/icon.svg`, `apps/web/src/app/favicon.ico`, `apps/web/src/app/apple-icon.png`
 - Create: `apps/web/src/app/manifest.ts`
 
@@ -487,7 +493,7 @@ The React lockup consumes the generated six-path wordmark module, so its pair sp
 
 - [ ] **Step 4: Update all importers and remove the old component**
 
-Replace `@/components/landing/logo` with `@/components/brand/logo` in all eight importers. Delete the old file only after `rg -n 'components/landing/logo' apps/web` returns no consumers.
+Replace `@/components/landing/logo` with `@/components/brand/logo` in all tracked importers. Delete the old file only after `rg -n 'components/landing/logo' apps/web` returns no consumers.
 
 - [ ] **Step 5: Wire App Router icons and manifest**
 
@@ -541,7 +547,7 @@ Expected: PASS; generated routes include `/manifest.webmanifest` and no duplicat
 - [ ] **Step 7: Commit the logo integration**
 
 ```powershell
-git add apps/web/src/components/brand/logo.tsx apps/web/src/components/brand/logo.test.ts apps/web/src/app/icon.svg apps/web/src/app/favicon.ico apps/web/src/app/apple-icon.png apps/web/src/app/manifest.ts apps/web/src/app/page.tsx apps/web/src/components/auth-shell.tsx apps/web/src/components/admin/sidebar.tsx apps/web/src/components/painel/sidebar.tsx apps/web/src/components/painel/topbar.tsx apps/web/src/components/painel/mobile-nav.tsx apps/web/src/components/landing/v2/nav.tsx apps/web/.ds-entry.tsx apps/web/src/components/landing/logo.tsx
+git add apps/web/src/components/brand/logo.tsx apps/web/src/components/brand/logo.test.ts apps/web/src/app/icon.svg apps/web/src/app/favicon.ico apps/web/src/app/apple-icon.png apps/web/src/app/manifest.ts apps/web/src/app/page.tsx apps/web/src/components/auth-shell.tsx apps/web/src/components/admin/sidebar.tsx apps/web/src/components/painel/sidebar.tsx apps/web/src/components/painel/topbar.tsx apps/web/src/components/painel/mobile-nav.tsx apps/web/src/components/landing/v2/nav.tsx apps/web/src/components/landing/logo.tsx
 git commit -m "feat: integrate Girumo logo and app icons"
 ```
 
@@ -738,6 +744,260 @@ git commit -m "feat: migrate Girumo application shells"
 
 ---
 
+### Task 5A: Promote the Approved Paper Reverse Signature
+
+**Files:**
+- Modify: `apps/web/src/lib/brand.ts`
+- Modify: `apps/web/src/lib/brand.test.ts`
+- Modify: `apps/web/scripts/export-girumo-brand.ts`
+- Modify: `apps/web/src/lib/brand-assets.test.ts`
+- Modify: `apps/web/src/lib/brand-css.test.ts`
+- Modify: `apps/web/src/components/auth-shell.tsx`
+- Modify: `apps/web/src/components/admin/sidebar.tsx`
+- Modify: `apps/web/src/components/painel/sidebar.tsx`
+- Modify: `apps/web/src/components/painel/mobile-nav.tsx`
+- Generate: `apps/web/public/brand/girumo/svg/girumo-symbol-paper.svg`
+- Generate: `apps/web/public/brand/girumo/svg/girumo-lockup-horizontal-paper.svg`
+- Generate: `apps/web/public/brand/girumo/svg/girumo-lockup-stacked-paper.svg`
+- Generate: `apps/web/public/brand/girumo/svg/girumo-wordmark-paper.svg`
+- Regenerate: `apps/web/public/brand/girumo/social/instagram-avatar-dark-1080.png`
+- Regenerate: `apps/web/public/brand/girumo/social/og-default-1200x630.png`
+- Regenerate: `apps/web/public/brand/girumo/email/girumo-email-lockup-640x160.png`
+
+**Interfaces:**
+- Consumes: approved Deslocamento geometry, outlined Manrope wordmark, `BRAND_COLORS.paper`, and the existing deterministic exporter.
+- Produces: `BRAND.symbolPaperAsset`, four Paper SVG masters, Paper-based reverse rasters, and Paper logo applications on persistent Volt surfaces.
+- Preserves: existing Canvas SVGs and `BRAND.symbolCanvasAsset` as compatibility assets; transparent Volt PNG app icons, favicon entries, symbol geometry, wordmark geometry, dimensions, and the 61% avatar occupancy remain unchanged.
+
+- [ ] **Step 1: Write the failing Paper hierarchy tests**
+
+Add these assertions to the approved-identity test in `apps/web/src/lib/brand.test.ts`:
+
+```ts
+assert.equal(BRAND.symbolPaperAsset, "/brand/girumo/svg/girumo-symbol-paper.svg");
+assert.equal(BRAND.symbolCanvasAsset, "/brand/girumo/svg/girumo-symbol-canvas.svg");
+assert.equal(BRAND_COLORS.paper, "#FFFEFA");
+```
+
+Change the asset URL assertion to exercise the new reverse master while retaining the Canvas compatibility property assertion above:
+
+```ts
+assert.equal(
+  getBrandAssetUrl(BRAND.symbolPaperAsset),
+  "https://example.test/brand/girumo/svg/girumo-symbol-paper.svg",
+);
+```
+
+Extend `svgFiles` and `COLORS` in `apps/web/src/lib/brand-assets.test.ts`:
+
+```ts
+const svgFiles = [
+  "svg/girumo-symbol-volt.svg",
+  "svg/girumo-symbol-canvas.svg",
+  "svg/girumo-symbol-paper.svg",
+  "svg/girumo-symbol-black.svg",
+  "svg/girumo-lockup-horizontal-volt.svg",
+  "svg/girumo-lockup-horizontal-canvas.svg",
+  "svg/girumo-lockup-horizontal-paper.svg",
+  "svg/girumo-lockup-stacked-volt.svg",
+  "svg/girumo-lockup-stacked-paper.svg",
+  "svg/girumo-wordmark-volt.svg",
+  "svg/girumo-wordmark-paper.svg",
+] as const;
+
+const COLORS = {
+  volt: [0x07, 0x19, 0x23],
+  acid: [0xa7, 0xff, 0x2f],
+  canvas: [0xf4, 0xf0, 0xe7],
+  paper: [0xff, 0xfe, 0xfa],
+} as const;
+```
+
+Add exact Paper master and raster assertions:
+
+```ts
+function svgFills(relative: string): string[] {
+  const source = readFileSync(asset(relative), "utf8");
+  return [...new Set([...source.matchAll(/fill="([^"]+)"/gi)].map((match) => match[1].toUpperCase()))];
+}
+
+async function countExactRgb(relative: string, color: readonly [number, number, number]): Promise<number> {
+  const { data, info } = await sharp(asset(relative)).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+  let count = 0;
+  for (let offset = 0; offset < data.length; offset += info.channels) {
+    if (data[offset] === color[0] && data[offset + 1] === color[1] && data[offset + 2] === color[2]) count += 1;
+  }
+  return count;
+}
+
+test("exports the complete monochromatic Paper master set", () => {
+  for (const relative of [
+    "svg/girumo-symbol-paper.svg",
+    "svg/girumo-lockup-horizontal-paper.svg",
+    "svg/girumo-lockup-stacked-paper.svg",
+    "svg/girumo-wordmark-paper.svg",
+  ]) {
+    assert.deepEqual(svgFills(relative), ["#FFFEFA"], relative);
+  }
+});
+
+test("uses Paper in every reverse raster application", async () => {
+  for (const relative of [
+    "social/instagram-avatar-dark-1080.png",
+    "social/og-default-1200x630.png",
+    "email/girumo-email-lockup-640x160.png",
+  ]) {
+    assert.ok((await countExactRgb(relative, COLORS.paper)) > 1_000, `${relative} Paper pixels`);
+  }
+});
+```
+
+Update the dark-avatar expectation:
+
+```ts
+{
+  relative: "social/instagram-avatar-dark-1080.png",
+  background: COLORS.volt,
+  foreground: COLORS.paper,
+},
+```
+
+Add this reverse-logo contract to `apps/web/src/lib/brand-css.test.ts`:
+
+```ts
+test("uses Paper for every reverse logo on persistent Volt surfaces", () => {
+  const sources = [
+    readSource("components", "auth-shell.tsx"),
+    readSource("components", "admin", "sidebar.tsx"),
+    readSource("components", "painel", "sidebar.tsx"),
+    readSource("components", "painel", "mobile-nav.tsx"),
+  ];
+
+  for (const source of sources) {
+    const logoTags = source.match(/<Logo\b[^>]*className="[^"]*"/g) ?? [];
+    assert.ok(logoTags.length > 0, "missing reverse Logo consumer");
+    for (const tag of logoTags) {
+      assert.match(tag, /text-paper-0/);
+      assert.doesNotMatch(tag, /text-canvas-100/);
+    }
+  }
+});
+```
+
+- [ ] **Step 2: Run the targeted tests and verify RED**
+
+```powershell
+npm --workspace apps/web exec tsx -- --test src/lib/brand.test.ts src/lib/brand-assets.test.ts src/lib/brand-css.test.ts
+```
+
+Expected: FAIL because `BRAND.symbolPaperAsset` and the four Paper SVGs do not exist, the three reverse rasters still use Canvas, and the five reverse `<Logo>` instances still use `text-canvas-100`.
+
+- [ ] **Step 3: Add Paper to the contract and deterministic exporter**
+
+Add the new public asset without removing the compatibility asset in `apps/web/src/lib/brand.ts`:
+
+```ts
+symbolAsset: "/brand/girumo/svg/girumo-symbol-volt.svg",
+symbolPaperAsset: "/brand/girumo/svg/girumo-symbol-paper.svg",
+symbolCanvasAsset: "/brand/girumo/svg/girumo-symbol-canvas.svg",
+```
+
+Extend the exporter palette and compositions in `apps/web/scripts/export-girumo-brand.ts`:
+
+```ts
+const COLORS = {
+  volt: "#071923",
+  acid: "#A7FF2F",
+  canvas: "#F4F0E7",
+  paper: "#FFFEFA",
+  black: "#000000",
+} as const;
+
+const horizontalVolt = horizontalLockup(font, wordmark, COLORS.volt);
+const horizontalCanvas = horizontalLockup(font, wordmark, COLORS.canvas);
+const horizontalPaper = horizontalLockup(font, wordmark, COLORS.paper);
+const stackedVolt = stackedLockup(font, wordmark, COLORS.volt);
+const stackedPaper = stackedLockup(font, wordmark, COLORS.paper);
+```
+
+Write the new masters alongside the retained Canvas outputs:
+
+```ts
+await write("svg/girumo-symbol-paper.svg", renderGirumoSymbolSvg(COLORS.paper));
+await write("svg/girumo-lockup-horizontal-paper.svg", svgDocument(horizontalPaper.viewBox, horizontalPaper.paths));
+await write("svg/girumo-lockup-stacked-paper.svg", svgDocument(stackedPaper.viewBox, stackedPaper.paths));
+await write("svg/girumo-wordmark-paper.svg", svgDocument(wordmark.viewBox, glyphPaths(wordmark, COLORS.paper)));
+```
+
+Switch only the reverse applications to Paper:
+
+```ts
+await write("social/instagram-avatar-dark-1080.png", await png(avatarSvg(COLORS.volt, COLORS.paper)));
+await write("social/og-default-1200x630.png", await png(ogSvg(font, horizontalPaper)));
+await write("email/girumo-email-lockup-640x160.png", await png(emailSvg(horizontalPaper)));
+```
+
+Update the successful exporter message to `Exported 23 Girumo public assets and deterministic TypeScript wordmark geometry.`
+
+- [ ] **Step 4: Regenerate the official asset set**
+
+```powershell
+npm --workspace apps/web run brand:export
+```
+
+Expected: PASS with `Exported 23 Girumo public assets...`; four new Paper SVGs appear, the three reverse PNGs change, all Canvas SVG compatibility files remain, and `src/lib/girumo-wordmark.ts` has no geometry diff.
+
+- [ ] **Step 5: Promote Paper on persistent Volt logo surfaces**
+
+Apply only these class replacements; keep ordinary body copy in Canvas:
+
+```tsx
+// apps/web/src/components/auth-shell.tsx
+<Logo className="text-2xl text-paper-0" />
+<Logo className="text-xl text-paper-0" />
+
+// apps/web/src/components/admin/sidebar.tsx
+<Logo className="text-paper-0" />
+
+// apps/web/src/components/painel/sidebar.tsx
+<Logo className="text-paper-0" />
+
+// apps/web/src/components/painel/mobile-nav.tsx
+<Logo className="text-paper-0" />
+```
+
+Do not change the Volt `LogoSymbol` in `painel/topbar.tsx`; it is the approved institutional signature on a light surface.
+
+- [ ] **Step 6: Verify GREEN and inspect the color applications**
+
+```powershell
+npm --workspace apps/web exec tsx -- --test src/lib/brand.test.ts src/lib/brand-assets.test.ts src/lib/brand-css.test.ts
+rg -n '<Logo\b[^>]*text-canvas-100' apps/web/src/components/auth-shell.tsx apps/web/src/components/admin/sidebar.tsx apps/web/src/components/painel/sidebar.tsx apps/web/src/components/painel/mobile-nav.tsx
+rg -n '#F4F0E7|#2E66FF' apps/web/public/brand/girumo/svg/girumo-symbol-paper.svg apps/web/public/brand/girumo/svg/girumo-lockup-horizontal-paper.svg apps/web/public/brand/girumo/svg/girumo-lockup-stacked-paper.svg apps/web/public/brand/girumo/svg/girumo-wordmark-paper.svg
+```
+
+Expected: targeted tests PASS; both `rg` commands return no matches. Inspect `instagram-avatar-dark-1080.png`, `og-default-1200x630.png`, and `girumo-email-lockup-640x160.png` with `view_image`. Expected: logo is visibly brighter Paper on Volt, the OG keeps Acid only in the tagline, the logo remains monochromatic, and no geometry or clipping changes.
+
+- [ ] **Step 7: Run full verification**
+
+```powershell
+npm --workspace apps/web test
+npm --workspace apps/web exec tsc -- --noEmit --project tsconfig.json
+npm run web:build
+git diff --check
+```
+
+Expected: PASS with no test, type, build, or whitespace failures.
+
+- [ ] **Step 8: Commit the approved Paper signature**
+
+```powershell
+git add apps/web/src/lib/brand.ts apps/web/src/lib/brand.test.ts apps/web/scripts/export-girumo-brand.ts apps/web/src/lib/brand-assets.test.ts apps/web/src/lib/brand-css.test.ts apps/web/src/components/auth-shell.tsx apps/web/src/components/admin/sidebar.tsx apps/web/src/components/painel/sidebar.tsx apps/web/src/components/painel/mobile-nav.tsx apps/web/public/brand/girumo/svg/girumo-symbol-paper.svg apps/web/public/brand/girumo/svg/girumo-lockup-horizontal-paper.svg apps/web/public/brand/girumo/svg/girumo-lockup-stacked-paper.svg apps/web/public/brand/girumo/svg/girumo-wordmark-paper.svg apps/web/public/brand/girumo/social/instagram-avatar-dark-1080.png apps/web/public/brand/girumo/social/og-default-1200x630.png apps/web/public/brand/girumo/email/girumo-email-lockup-640x160.png
+git commit -m "feat: promote Girumo Paper signature"
+```
+
+---
+
 ### Task 6: Migrate the Primary Marketing Landing
 
 **Files:**
@@ -774,7 +1034,7 @@ Use `getPublicSiteUrl()` in server components. For client-only mockups, pass the
 
 - [ ] **Step 4: Apply Volt visual language**
 
-Remove aurora/eclipses and generic purple gradients. Use navy surfaces, canvas sections, Acid for the single primary CTA, Cobalt for focus/selection, and displaced blocks as section dividers.
+Remove aurora/eclipses and generic purple gradients. Use a Volt base, Paper for every reverse Girumo logo, Canvas/Paper content surfaces, Acid for the single primary CTA and focal commercial signals, Cobalt only for focus/selection/data, and displaced blocks as section dividers. The preferred marketing composition is Volt background + Paper logo + Acid conversion signal; do not make Cobalt the dominant field or the primary logo color.
 
 - [ ] **Step 5: Audit photography and image treatment**
 
@@ -807,51 +1067,66 @@ git commit -m "feat: rebrand canonical landing as Girumo"
 - Modify: `apps/web/src/app/lp/lp.css`
 - Modify: `apps/web/src/app/lp2/page.tsx`
 - Modify: `apps/web/src/app/lp2/lp2.css`
-- Modify: `apps/web/src/components/lp/{nav,calculator}.tsx`
-- Modify: `apps/web/src/components/lp2/{nav,panel-mock}.tsx`
+- Modify: `apps/web/src/components/lp/nav.tsx`
+- Modify: `apps/web/src/components/lp/calculator.tsx`
+- Modify: `apps/web/src/components/lp2/nav.tsx`
 - Modify: `apps/web/src/components/pages/templates/basic.tsx`
+- Modify: `apps/web/src/components/pages/templates/index.ts`
+- Modify: `apps/web/src/components/pages/editor/form.tsx`
 - Modify: `apps/web/src/components/pages/editor/preview.tsx`
+- Modify: `apps/web/src/components/pages/lead-form.tsx`
 - Modify: `apps/web/src/lib/pages/slug.ts`
+- Create: `apps/web/src/lib/pages/slug.test.ts`
+- Delete: `apps/web/src/components/lp2/panel-mock.tsx`
+- Delete: `apps/web/src/components/lp2/order-ticker.tsx`
+- Delete: `apps/web/public/lp/still-atacado.webp`
+- Delete: `apps/web/public/lp2/grp-1.webp`
+- Delete: `apps/web/public/lp2/grp-2.webp`
+- Delete: `apps/web/public/lp2/team-a.webp`
+- Delete: `apps/web/public/lp2/team-b.webp`
+- Delete: `apps/web/public/lp2/team-c.webp`
 
 **Interfaces:**
-- Consumes: brand contract and generated logo assets.
-- Produces: consistent Girumo identity on `/lp`, `/lp2`, public customer pages, and editor preview.
+- Consumes: `BRAND`, `Logo`, `getPublicSiteUrl()`, global Girumo tokens, existing `TemplateProps`, `LeadForm`, and persisted page-color keys.
+- Produces: consistent Girumo identity on `/lp`, `/lp2`, public customer pages, and editor preview without public PII, unverified photography, or fabricated operational data.
 
-- [ ] **Step 1: Capture old brand and font imports**
+- [ ] **Step 1: Capture the full RED inventory**
 
 ```powershell
-rg -n -i "hubflow|outfit|archivo|martian|#6a4bf0|#7c5cff" apps/web/src/app/lp apps/web/src/app/lp2 apps/web/src/components/lp apps/web/src/components/lp2 apps/web/src/components/pages
+rg -n -i "hubflow|outfit|archivo|martian|#6a4bf0|#7c5cff|grp-[12]|panel-mock|order-ticker" apps/web/src/app/lp apps/web/src/app/lp2 apps/web/src/components/lp apps/web/src/components/lp2 apps/web/src/components/pages
 ```
 
-- [ ] **Step 2: Remove page-specific font families**
+- [ ] **Step 2: Reserve both compatibility and brand slugs with TDD**
 
-Delete Outfit, Archivo, and Martian Mono imports. Point `.lp3` and `.lp4` roots to `--font-brand`, `--font-body`, and `--font-data`. Preserve layout structure; this task is a brand migration, not a funnel rewrite.
+Create `apps/web/src/lib/pages/slug.test.ts` first and assert that both `hubflow` and `girumo` are reserved. Confirm the Girumo assertion fails, add `girumo` without removing `hubflow`, then rerun to GREEN.
 
-- [ ] **Step 3: Replace names, wordmarks, and examples**
+- [ ] **Step 3: Migrate `/lp` and `/lp2` to the approved identity**
 
-Use Girumo copy and central `Logo`. Change public footer to `Página criada com Girumo`. Use the configured site host in previews. Keep the existing routes and `noindex` directives.
+Remove page-specific font imports and use the global brand, body, and data fonts. Apply `Logo`, `BRAND`, Volt/Paper/Canvas/Acid, and functional Cobalt while preserving funnel order, anchors, noindex metadata, responsive behavior, reduced motion, and every existing FX selector. Remove purple, gradients, glass, and permanent decorative loops.
 
-- [ ] **Step 4: Reserve both old and new slugs**
+- [ ] **Step 4: Remove public PII, unverified photography, and fabricated widgets**
 
-Ensure the reserved slug set includes both `hubflow` and `girumo`; add a focused assertion to the existing slug test or create `apps/web/src/lib/pages/slug.test.ts` if no slug test exists.
+Delete the listed components and public assets, not only their JSX references. Replace necessary explanatory regions with clearly labeled process diagrams using verifiable capabilities. Remove embedded fake orders, names, KPIs, scarcity counts, VIP lists, and unsupported claims. Do not substitute invented proof.
 
-- [ ] **Step 5: Apply the same photography gate to `/lp` and `/lp2`**
+- [ ] **Step 5: Migrate customer-page templates and editor surfaces**
 
-Use the Task 6 image-direction criteria. Do not retain an image only because it belonged to the old landing; every retained or replaced visual must depict a plausible wholesale selling operation and follow the Volt overlay/crop rules.
+Change the footer to `Página criada com Girumo`, use the configured host in preview, and remap `iris | emerald | amber` to approved Girumo treatments without renaming persisted keys. Preserve `EMPTY_EDITOR_VALUES.primary_color = "emerald"`, `TemplateProps`, template registry/fallback, the complete `LeadForm` contract, tracking, redirects, and `/p/[slug]` behavior. Do not modify the route file, schema/store, tracking scripts, robots, sitemap, layout, or either FX component.
 
-- [ ] **Step 6: Re-run search, tests, and build**
+- [ ] **Step 6: Re-run residual, privacy, contract, test, build, and visual checks**
 
 ```powershell
+npm --workspace apps/web exec -- tsx --test src/lib/pages/slug.test.ts
+npm run web:lint
 npm --workspace apps/web test
 npm run web:build
 ```
 
-Expected: no old brand or removed font imports in the listed files; both slugs are rejected.
+Expected: zero old-brand, old-font, purple, fake-widget, or deleted-asset references; all deleted public files are physically absent; both slugs are rejected; robots, FX selectors, persisted keys, template/form contracts, responsive behavior, and reduced motion remain intact. Smoke `/lp`, `/lp2`, and public-template/editor preview at desktop and 390 px without external writes.
 
 - [ ] **Step 7: Commit secondary public surfaces**
 
 ```powershell
-git add apps/web/src/app/lp/page.tsx apps/web/src/app/lp/lp.css apps/web/src/app/lp2/page.tsx apps/web/src/app/lp2/lp2.css apps/web/src/components/lp/nav.tsx apps/web/src/components/lp/calculator.tsx apps/web/src/components/lp2/nav.tsx apps/web/src/components/lp2/panel-mock.tsx apps/web/src/components/pages/templates/basic.tsx apps/web/src/components/pages/editor/preview.tsx apps/web/src/lib/pages/slug.ts apps/web/src/lib/pages/slug.test.ts
+git add -- apps/web/src/app/lp/page.tsx apps/web/src/app/lp/lp.css apps/web/src/app/lp2/page.tsx apps/web/src/app/lp2/lp2.css apps/web/src/components/lp/nav.tsx apps/web/src/components/lp/calculator.tsx apps/web/src/components/lp2/nav.tsx apps/web/src/components/pages/templates/basic.tsx apps/web/src/components/pages/templates/index.ts apps/web/src/components/pages/editor/form.tsx apps/web/src/components/pages/editor/preview.tsx apps/web/src/components/pages/lead-form.tsx apps/web/src/lib/pages/slug.ts apps/web/src/lib/pages/slug.test.ts apps/web/src/components/lp2/panel-mock.tsx apps/web/src/components/lp2/order-ticker.tsx apps/web/public/lp/still-atacado.webp apps/web/public/lp2/grp-1.webp apps/web/public/lp2/grp-2.webp apps/web/public/lp2/team-a.webp apps/web/public/lp2/team-b.webp apps/web/public/lp2/team-c.webp
 git commit -m "feat: migrate Girumo public page surfaces"
 ```
 
@@ -1101,12 +1376,12 @@ git commit -m "feat: rebrand Girumo social generator"
 - Modify: `.design-sync/conventions.md`
 - Modify: `.design-sync/ds-input.css`
 - Modify: `.design-sync/previews/{Logo,LogoSymbol}.tsx`
-- Modify: `apps/web/.ds-entry.tsx`
-- Regenerate: `ds-bundle/**`
+- Generate locally (ignored): `apps/web/.ds-entry.tsx`
+- Regenerate locally (ignored): `apps/web/.ds-styles.css`, `ds-bundle/**`
 
 **Interfaces:**
 - Consumes: approved spec, generated assets, central logo component, Volt tokens.
-- Produces: human-readable operational guide, exportable PDF, social source templates, commercial starter kit, current design-sync bundle, and explicit legacy archive boundary.
+- Produces: human-readable operational guide, exportable PDF, social source templates, commercial starter kit, versioned design-sync sources, a locally validated ephemeral bundle, and explicit legacy archive boundary.
 
 - [ ] **Step 1: Create the current operational guide**
 
@@ -1115,7 +1390,7 @@ Write the guide from the approved spec, including:
 - strategy and promise;
 - symbol construction and misuse;
 - lockups and clear space;
-- palette and contrast ratios;
+- palette, contrast ratios, and the approved Paper-on-Volt / Volt-on-Acid / Volt-on-Paper hierarchy;
 - typography and scale;
 - UI foundations;
 - social/avatar examples;
@@ -1128,7 +1403,7 @@ Do not copy purple HubFlow mockups into the Girumo guide.
 
 - [ ] **Step 2: Create the reusable social source templates**
 
-Create editable SVG masters for square `1080×1080`, portrait `1080×1350`, story `1080×1920`, video cover `1920×1080`, customer proof, and metric card. Use real Girumo sample copy from `copy-library.md`, outlined logo assets, flat Volt/Canvas surfaces, and Acid only as a focal signal. Verify each artboard at 100% and thumbnail size.
+Create editable SVG masters for square `1080×1080`, portrait `1080×1350`, story `1080×1920`, video cover `1920×1080`, customer proof, and metric card. Use real Girumo sample copy from `copy-library.md`, outlined logo assets, flat Volt/Paper surfaces, and Acid only as a focal signal. Retain Canvas for content backgrounds, not as the new reverse logo master. Verify each artboard at 100% and thumbnail size.
 
 - [ ] **Step 3: Create the one-page and lightweight commercial applications**
 
@@ -1156,12 +1431,13 @@ Use the PDF creation skill against `Girumo-Brand-Guide.html`. Save the verified 
 
 - [ ] **Step 9: Update design-sync sources**
 
-Set `globalName` to `Girumo`, point previews to `@/components/brand/logo`, and copy the production Volt tokens into `ds-input.css`. Regenerate and validate:
+Set `globalName` to `Girumo`, point previews to `@/components/brand/logo`, copy the production Volt tokens into `ds-input.css`, and create the ignored `.ds-entry.tsx` only as a local build input. Regenerate and validate with the available local design-sync toolchain:
 
 ```powershell
-./.ds-sync/node_modules/.bin/tailwindcss -i .design-sync/ds-input.css -o apps/web/.ds-styles.css
-node .ds-sync/package-build.mjs --config .design-sync/config.json --node-modules ./node_modules --entry apps/web/.ds-entry.tsx --out ./ds-bundle
-node .ds-sync/package-validate.mjs ./ds-bundle --no-render-check
+$designSyncToolRoot = if (Test-Path ".ds-sync") { (Resolve-Path ".ds-sync").Path } else { (Resolve-Path "..\..\.ds-sync").Path }
+& "$designSyncToolRoot\node_modules\.bin\tailwindcss.cmd" -i .design-sync/ds-input.css -o apps/web/.ds-styles.css
+node "$designSyncToolRoot\package-build.mjs" --config .design-sync/config.json --node-modules ./node_modules --entry apps/web/.ds-entry.tsx --out ./ds-bundle
+node "$designSyncToolRoot\package-validate.mjs" ./ds-bundle --no-render-check
 ```
 
 Expected: bundle validation PASS; exports are `Logo` and `LogoSymbol`; preview shows Girumo.
@@ -1169,11 +1445,11 @@ Expected: bundle validation PASS; exports are `Logo` and `LogoSymbol`; preview s
 - [ ] **Step 10: Commit documentation and design-sync**
 
 ```powershell
-git add docs/brand/girumo/README.md docs/brand/girumo/design-tokens.css docs/brand/girumo/copy-library.md docs/brand/girumo/Girumo-Brand-Guide.html docs/brand/girumo/templates/social/girumo-social-square-1080x1080.svg docs/brand/girumo/templates/social/girumo-social-portrait-1080x1350.svg docs/brand/girumo/templates/social/girumo-social-story-1080x1920.svg docs/brand/girumo/templates/social/girumo-video-cover-1920x1080.svg docs/brand/girumo/templates/social/girumo-customer-proof-1080x1350.svg docs/brand/girumo/templates/social/girumo-metric-card-1080x1350.svg docs/brand/girumo/templates/commercial/girumo-one-page.html docs/brand/girumo/templates/commercial/girumo-email-signature.html docs/brand/girumo/templates/commercial/girumo-digital-card.svg docs/brand/girumo/templates/commercial/girumo-onboarding-cover.svg docs/brand/girumo/templates/commercial/girumo-proposal-template.docx docs/brand/girumo/templates/commercial/girumo-proposal-template.pdf docs/brand/girumo/templates/commercial/girumo-sales-deck.pptx docs/brand/girumo/templates/commercial/girumo-one-page.pdf docs/brand/girumo/templates/commercial/girumo-onboarding-guide.html docs/brand/girumo/templates/commercial/girumo-onboarding-guide.pdf docs/brand/legacy-hubflow/README.md apps/web/public/brand/girumo/girumo-brand-guide.pdf .design-sync/config.json .design-sync/conventions.md .design-sync/ds-input.css .design-sync/previews/Logo.tsx .design-sync/previews/LogoSymbol.tsx apps/web/.ds-entry.tsx
+git add docs/brand/girumo/README.md docs/brand/girumo/design-tokens.css docs/brand/girumo/copy-library.md docs/brand/girumo/Girumo-Brand-Guide.html docs/brand/girumo/templates/social/girumo-social-square-1080x1080.svg docs/brand/girumo/templates/social/girumo-social-portrait-1080x1350.svg docs/brand/girumo/templates/social/girumo-social-story-1080x1920.svg docs/brand/girumo/templates/social/girumo-video-cover-1920x1080.svg docs/brand/girumo/templates/social/girumo-customer-proof-1080x1350.svg docs/brand/girumo/templates/social/girumo-metric-card-1080x1350.svg docs/brand/girumo/templates/commercial/girumo-one-page.html docs/brand/girumo/templates/commercial/girumo-email-signature.html docs/brand/girumo/templates/commercial/girumo-digital-card.svg docs/brand/girumo/templates/commercial/girumo-onboarding-cover.svg docs/brand/girumo/templates/commercial/girumo-proposal-template.docx docs/brand/girumo/templates/commercial/girumo-proposal-template.pdf docs/brand/girumo/templates/commercial/girumo-sales-deck.pptx docs/brand/girumo/templates/commercial/girumo-one-page.pdf docs/brand/girumo/templates/commercial/girumo-onboarding-guide.html docs/brand/girumo/templates/commercial/girumo-onboarding-guide.pdf docs/brand/legacy-hubflow/README.md apps/web/public/brand/girumo/girumo-brand-guide.pdf .design-sync/config.json .design-sync/conventions.md .design-sync/ds-input.css .design-sync/previews/Logo.tsx .design-sync/previews/LogoSymbol.tsx
 git commit -m "docs: publish Girumo brand guide"
 ```
 
-Inspect `git status --short -- ds-bundle` and stage each generated bundle file by its exact path only after confirming it came from Step 9; include those files in the same commit.
+Confirm `git status --ignored --short -- apps/web/.ds-entry.tsx apps/web/.ds-styles.css ds-bundle` reports only ignored build artifacts. Do not stage them.
 
 ---
 
@@ -1305,7 +1581,7 @@ Add package scripts:
 
 - ordinary and admin Auth users from `GIRUMO_QA_USER_EMAIL/PASSWORD` and `GIRUMO_QA_ADMIN_EMAIL/PASSWORD`;
 - organization `girumo-qa`, matching `users` rows, and owner/admin memberships;
-- one published `landing_pages` row with slug `girumo-qa-wholesale`, the existing `catalogo-grupo` template, a safe non-live target URL, and wholesale content using `${GIRUMO_DEPLOYMENT_URL}/lp/still-atacado.webp` as its real-operation photo.
+- one published `landing_pages` row with slug `girumo-qa-wholesale`, the existing `catalogo-grupo` template, a safe non-live target URL, and wholesale content using `${GIRUMO_DEPLOYMENT_URL}/brand/girumo/social/og-default-1200x630.png` as a deterministic, non-personal QA fixture image.
 
 The script emits one final JSON line with tenant ID, both user IDs, and `pageSlug`, but no passwords. `render-girumo-email-fixtures.ts` imports `welcomeEmail` and `trialEndingEmail`, renders fixed Girumo QA data into `welcome.html` and `trial-ending.html` under a newly created OS temp directory, and emits that directory as one final JSON line.
 

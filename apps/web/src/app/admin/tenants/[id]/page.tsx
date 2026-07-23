@@ -67,7 +67,7 @@ export default async function AdminTenantDetailPage({ params }: Props) {
       <div className="flex items-center gap-4">
         <Link
           href="/admin/tenants"
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-breu/10 bg-white text-aco transition hover:border-iris/30"
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-volt-950/10 bg-white text-aco transition hover:border-cobalt-500/30"
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>
@@ -87,7 +87,7 @@ export default async function AdminTenantDetailPage({ params }: Props) {
       </div>
 
       {/* Ações administrativas */}
-      <section className="rounded-2xl border border-breu/[0.06] bg-white p-5 shadow-sm">
+      <section className="rounded-2xl border border-volt-950/[0.06] bg-white p-5 shadow-sm">
         <h2 className="font-display mb-4 text-base font-bold">Ações</h2>
         <TenantActions
           tenantId={org.id}
@@ -98,12 +98,12 @@ export default async function AdminTenantDetailPage({ params }: Props) {
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Membros */}
-        <section className="rounded-2xl border border-breu/[0.06] bg-white shadow-sm">
-          <div className="flex items-center gap-2 border-b border-breu/[0.06] px-5 py-4">
-            <Users className="h-4 w-4 text-iris" />
+        <section className="rounded-2xl border border-volt-950/[0.06] bg-white shadow-sm">
+          <div className="flex items-center gap-2 border-b border-volt-950/[0.06] px-5 py-4">
+            <Users className="h-4 w-4 text-cobalt-500" />
             <h2 className="font-display text-base font-bold">Membros ({(memberships ?? []).length})</h2>
           </div>
-          <div className="divide-y divide-breu/[0.04]">
+          <div className="divide-y divide-volt-950/[0.04]">
             {(memberships ?? []).map((m) => {
               const user = userMap.get(m.user_id);
               return (
@@ -113,7 +113,7 @@ export default async function AdminTenantDetailPage({ params }: Props) {
                       {(user?.name ?? "U").slice(0, 2).toUpperCase()}
                     </span>
                     <div>
-                      <p className="text-sm font-medium text-breu">{user?.name ?? m.user_id}</p>
+                      <p className="text-sm font-medium text-volt-950">{user?.name ?? m.user_id}</p>
                       <p className="flex items-center gap-1 font-data text-[11px] text-aco/50">
                         <Mail className="h-3 w-3" /> {user?.email ?? "—"}
                       </p>
@@ -130,18 +130,18 @@ export default async function AdminTenantDetailPage({ params }: Props) {
         </section>
 
         {/* Subscription */}
-        <section className="rounded-2xl border border-breu/[0.06] bg-white shadow-sm">
-          <div className="flex items-center gap-2 border-b border-breu/[0.06] px-5 py-4">
-            <CreditCard className="h-4 w-4 text-iris" />
+        <section className="rounded-2xl border border-volt-950/[0.06] bg-white shadow-sm">
+          <div className="flex items-center gap-2 border-b border-volt-950/[0.06] px-5 py-4">
+            <CreditCard className="h-4 w-4 text-cobalt-500" />
             <h2 className="font-display text-base font-bold">Assinaturas</h2>
           </div>
-          <div className="divide-y divide-breu/[0.04]">
+          <div className="divide-y divide-volt-950/[0.04]">
             {(subs ?? []).map((s) => {
               const plan = planMap.get(s.plan_id);
               return (
                 <div key={s.id} className="flex items-center justify-between px-5 py-3.5">
                   <div>
-                    <p className="text-sm font-medium text-breu">{plan?.name ?? plan?.code ?? "—"}</p>
+                    <p className="text-sm font-medium text-volt-950">{plan?.name ?? plan?.code ?? "—"}</p>
                     <p className="font-data text-[11px] text-aco/50">
                       {plan?.price_cents
                         ? `R$ ${(plan.price_cents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}/mês`
@@ -159,12 +159,12 @@ export default async function AdminTenantDetailPage({ params }: Props) {
         </section>
 
         {/* Instâncias WhatsApp */}
-        <section className="rounded-2xl border border-breu/[0.06] bg-white shadow-sm lg:col-span-2">
-          <div className="flex items-center gap-2 border-b border-breu/[0.06] px-5 py-4">
-            <Smartphone className="h-4 w-4 text-iris" />
+        <section className="rounded-2xl border border-volt-950/[0.06] bg-white shadow-sm lg:col-span-2">
+          <div className="flex items-center gap-2 border-b border-volt-950/[0.06] px-5 py-4">
+            <Smartphone className="h-4 w-4 text-cobalt-500" />
             <h2 className="font-display text-base font-bold">Instâncias WhatsApp</h2>
           </div>
-          <div className="divide-y divide-breu/[0.04]">
+          <div className="divide-y divide-volt-950/[0.04]">
             {(instances ?? []).map((inst) => (
               <div key={inst.id} className="flex items-center justify-between px-5 py-3.5">
                 <div className="flex items-center gap-3">
@@ -172,7 +172,7 @@ export default async function AdminTenantDetailPage({ params }: Props) {
                     <Smartphone className="h-4 w-4" />
                   </span>
                   <div>
-                    <p className="text-sm font-medium text-breu">{inst.phone ?? "—"}</p>
+                    <p className="text-sm font-medium text-volt-950">{inst.phone ?? "—"}</p>
                     <p className="font-data text-[11px] text-aco/50">{inst.profile_name ?? "sem nome"}</p>
                   </div>
                 </div>

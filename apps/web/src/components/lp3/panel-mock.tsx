@@ -15,10 +15,11 @@ import {
   ArrowUpRight,
   LifeBuoy,
 } from "lucide-react";
+import { Logo } from "@/components/brand/logo";
 import { WhatsAppIcon } from "@/components/landing/icons";
 
 /**
- * Mockup denso do painel HubFlow (tela "Grupos") — screenshot de produto codado,
+ * Mockup denso do painel Girumo (tela "Grupos") — screenshot de produto codado,
  * não imagem: texto nítido, sem gibberish. Renderizado num canvas fixo de 960×600
  * e escalado pro container via container-query (.lp4-panelfit / .lp4-panelscale),
  * então encolhe proporcional como um print real em qualquer largura.
@@ -60,12 +61,12 @@ const ROWS: Array<{
 ];
 
 const STATUS_STYLE: Record<Status, string> = {
-  Ativo: "bg-[rgba(47,212,107,0.13)] text-[var(--green)]",
+  Ativo: "bg-[rgba(167,255,47,0.13)] text-[var(--green)]",
   Lotado: "bg-[rgba(245,180,60,0.14)] text-[#f5b43c]",
   Novo: "bg-[rgba(108,198,255,0.14)] text-[#6cc6ff]",
 };
 
-const AV_TINT = ["from-[#2fd46b] to-[#0f3d26]", "from-[#6cc6ff] to-[#1c3a5e]", "from-[#f5b43c] to-[#5e3f1c]"];
+const AV_TINT = ["from-[#A7FF2F] to-[#2C4B0A]", "from-[#6cc6ff] to-[#1c3a5e]", "from-[#f5b43c] to-[#5e3f1c]"];
 const AV_INITIALS = ["MR", "CS", "AP"];
 
 function AvatarStack({ label }: { label: string }) {
@@ -75,7 +76,7 @@ function AvatarStack({ label }: { label: string }) {
         {AV_INITIALS.map((ini, i) => (
           <span
             key={ini}
-            className={`-ml-1.5 grid h-[22px] w-[22px] place-items-center rounded-full bg-gradient-to-br ${AV_TINT[i]} text-[8px] font-semibold text-[#07230f] ring-2 ring-[var(--bg-2)] first:ml-0`}
+            className={`-ml-1.5 grid h-[22px] w-[22px] place-items-center rounded-full bg-gradient-to-br ${AV_TINT[i]} text-[8px] font-semibold text-[#071923] ring-2 ring-[var(--bg-2)] first:ml-0`}
           >
             {ini}
           </span>
@@ -92,11 +93,8 @@ export function PanelMock() {
       <div className="lp4-panelscale flex text-[var(--display)]">
         {/* ---------------- sidebar ---------------- */}
         <aside className="flex w-[190px] flex-col border-r border-[var(--line)] bg-[rgba(0,0,0,0.22)] px-3.5 py-4">
-          <div className="flex items-center gap-2 px-2 pb-5">
-            <span className="grid h-6 w-6 place-items-center rounded-md bg-[var(--green)] text-[11px] font-black text-[#07230f]">
-              H
-            </span>
-            <span className="text-[15px] font-bold tracking-tight">HubFlow</span>
+          <div className="flex items-center px-2 pb-5">
+            <Logo className="text-[15px]" title={null} />
           </div>
 
           <nav className="flex flex-1 flex-col gap-0.5">
@@ -105,7 +103,7 @@ export function PanelMock() {
                 key={label}
                 className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[12.5px] ${
                   active
-                    ? "bg-[rgba(47,212,107,0.12)] font-semibold text-[var(--display)]"
+                    ? "bg-[rgba(167,255,47,0.12)] font-semibold text-[var(--display)]"
                     : "text-[var(--body)]"
                 }`}
               >
@@ -138,7 +136,7 @@ export function PanelMock() {
               <span className="flex items-center gap-1.5 rounded-lg border border-[var(--hairline)] px-3 py-1.5 text-[12px] text-[var(--body)]">
                 <Upload className="h-3.5 w-3.5" strokeWidth={2} /> Importar
               </span>
-              <span className="flex items-center gap-1.5 rounded-lg bg-[var(--green)] px-3 py-1.5 text-[12px] font-semibold text-[#07230f]">
+              <span className="flex items-center gap-1.5 rounded-lg bg-[var(--green)] px-3 py-1.5 text-[12px] font-semibold text-[#071923]">
                 <Plus className="h-3.5 w-3.5" strokeWidth={2.4} /> Novo grupo
               </span>
             </div>
@@ -166,7 +164,7 @@ export function PanelMock() {
               <div key={k.label} className="rounded-xl border border-[var(--line)] bg-[rgba(242,241,234,0.02)] px-4 py-3">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] text-[var(--body)]">{k.label}</span>
-                  <span className="flex items-center gap-0.5 rounded-full bg-[rgba(47,212,107,0.13)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--green)]">
+                  <span className="flex items-center gap-0.5 rounded-full bg-[rgba(167,255,47,0.13)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--green)]">
                     <ArrowUpRight className="h-2.5 w-2.5" strokeWidth={2.4} />
                     {k.delta}
                   </span>
@@ -229,7 +227,7 @@ export function PanelMock() {
               <div
                 key={r.name}
                 className={`grid grid-cols-[26px_1.7fr_0.9fr_1.2fr_1fr_1.1fr_44px] items-center gap-2 border-b border-[var(--line)] px-3 py-[9px] last:border-b-0 ${
-                  r.checked ? "bg-[rgba(47,212,107,0.035)]" : ""
+                  r.checked ? "bg-[rgba(167,255,47,0.035)]" : ""
                 }`}
               >
                 {/* checkbox */}
@@ -238,7 +236,7 @@ export function PanelMock() {
                     r.checked ? "border-[var(--green)] bg-[var(--green)]" : "border-[var(--hairline)]"
                   }`}
                 >
-                  {r.checked && <Check className="h-2.5 w-2.5 text-[#07230f]" strokeWidth={3} />}
+                  {r.checked && <Check className="h-2.5 w-2.5 text-[#071923]" strokeWidth={3} />}
                 </span>
                 {/* grupo */}
                 <span className="flex items-center gap-2.5">

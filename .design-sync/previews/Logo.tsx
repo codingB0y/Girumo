@@ -1,19 +1,25 @@
-import { Logo } from 'hubflow-web';
+import { Logo } from "hubflow-web";
 
-// Lockup sobre fundo claro (Bruma) — wordmark em Breu, símbolo em Íris.
-export function NoClaro() {
+export function Principal() {
   return (
-    <div className="bg-bruma" style={{ padding: 48 }}>
-      <Logo wordmarkClassName="text-breu" />
+    <div className="bg-volt-950 p-12 text-paper-0">
+      <Logo className="text-paper-0" />
     </div>
   );
 }
 
-// Lockup sobre fundo escuro (Breu) — wordmark em branco, símbolo em Íris.
-export function NoBreu() {
+export function Impacto() {
   return (
-    <div className="bg-breu" style={{ padding: 48 }}>
-      <Logo wordmarkClassName="text-white" />
+    <div className="bg-acid-500 p-12 text-volt-950">
+      <Logo className="text-volt-950" />
+    </div>
+  );
+}
+
+export function Institucional() {
+  return (
+    <div className="bg-paper-0 p-12 text-volt-950">
+      <Logo className="text-volt-950" />
     </div>
   );
 }

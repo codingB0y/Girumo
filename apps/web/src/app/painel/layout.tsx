@@ -9,14 +9,14 @@ import { RoleProvider } from "@/components/painel/role-provider";
 import { RealtimeToasts } from "@/components/painel/realtime-toasts";
 
 export const metadata: Metadata = {
-  title: "Painel — HubFlow",
+  title: "Painel — Girumo",
 };
 
 export default function PainelLayout({ children }: { children: React.ReactNode }) {
   return (
     <RoleProvider>
       <ToastProvider>
-        <div className="pn-root font-body flex min-h-screen w-full bg-balcao text-breu">
+        <div className="pn-root font-body flex min-h-screen w-full bg-canvas-100 text-volt-950">
           <PainelSidebar />
           <div className="flex min-w-0 flex-1 flex-col">
             <PainelTopbar />

@@ -96,12 +96,12 @@ export function MessageComposer({ onSend, sending, className }: Props) {
   };
 
   return (
-    <div className={cn("rounded-2xl border border-breu/[0.08] bg-white p-4", className)}>
+    <div className={cn("rounded-2xl border border-volt-950/[0.08] bg-white p-4", className)}>
       <input ref={fileRef} type="file" className="hidden" aria-hidden="true" />
 
       {/* Media preview */}
       {mediaId && (
-        <div className="mb-3 flex items-center gap-2 rounded-xl bg-bruma/50 px-3 py-2">
+        <div className="mb-3 flex items-center gap-2 rounded-xl bg-canvas-100/50 px-3 py-2">
           <span className="text-xs text-aco">
             {mediaType === "image" && "📷"}
             {mediaType === "video" && "🎬"}
@@ -121,9 +121,9 @@ export function MessageComposer({ onSend, sending, className }: Props) {
 
       {/* Poll composer */}
       {showPoll && (
-        <div className="mb-3 space-y-2 rounded-xl bg-bruma/50 p-3">
+        <div className="mb-3 space-y-2 rounded-xl bg-canvas-100/50 p-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-breu">Enquete</span>
+            <span className="text-xs font-medium text-volt-950">Enquete</span>
             <button onClick={() => setShowPoll(false)} className="text-aco/50 hover:text-alerta">
               <X className="h-4 w-4" />
             </button>
@@ -133,7 +133,7 @@ export function MessageComposer({ onSend, sending, className }: Props) {
             placeholder="Pergunta..."
             value={pollQuestion}
             onChange={(e) => setPollQuestion(e.target.value)}
-            className="w-full rounded-lg border border-breu/10 bg-white px-3 py-2 text-sm text-breu placeholder:text-aco/40 focus:border-iris focus:outline-none"
+            className="w-full rounded-lg border border-volt-950/10 bg-white px-3 py-2 text-sm text-volt-950 placeholder:text-aco/40 focus:border-cobalt-500 focus:outline-none"
           />
           {pollOptions.map((opt, i) => (
             <div key={i} className="flex items-center gap-2">
@@ -146,7 +146,7 @@ export function MessageComposer({ onSend, sending, className }: Props) {
                   next[i] = e.target.value;
                   setPollOptions(next);
                 }}
-                className="flex-1 rounded-lg border border-breu/10 bg-white px-3 py-1.5 text-sm text-breu placeholder:text-aco/40 focus:border-iris focus:outline-none"
+                className="flex-1 rounded-lg border border-volt-950/10 bg-white px-3 py-1.5 text-sm text-volt-950 placeholder:text-aco/40 focus:border-cobalt-500 focus:outline-none"
               />
               {pollOptions.length > 2 && (
                 <button
@@ -162,7 +162,7 @@ export function MessageComposer({ onSend, sending, className }: Props) {
           {pollOptions.length < 12 && (
             <button
               onClick={() => setPollOptions([...pollOptions, ""])}
-              className="text-xs text-iris hover:underline"
+              className="text-xs text-cobalt-500 hover:underline"
             >
               + Adicionar opção
             </button>
@@ -176,7 +176,7 @@ export function MessageComposer({ onSend, sending, className }: Props) {
         onChange={(e) => setBody(e.target.value)}
         placeholder="Digite sua mensagem..."
         rows={3}
-        className="w-full resize-none rounded-xl border border-breu/10 bg-bruma/30 px-4 py-3 text-sm text-breu placeholder:text-aco/40 focus:border-iris focus:outline-none"
+        className="w-full resize-none rounded-xl border border-volt-950/10 bg-canvas-100/30 px-4 py-3 text-sm text-volt-950 placeholder:text-aco/40 focus:border-cobalt-500 focus:outline-none"
       />
 
       {/* Toolbar */}
@@ -218,7 +218,7 @@ export function MessageComposer({ onSend, sending, className }: Props) {
           active={mentionAll}
         />
 
-        {uploading && <Loader2 className="ml-2 h-4 w-4 animate-spin text-iris" />}
+        {uploading && <Loader2 className="ml-2 h-4 w-4 animate-spin text-cobalt-500" />}
 
         <button
           onClick={handleSend}
@@ -226,7 +226,7 @@ export function MessageComposer({ onSend, sending, className }: Props) {
           className={cn(
             "ml-auto inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-medium text-white shadow-sm transition",
             canSend && !sending
-              ? "bg-iris hover:-translate-y-0.5 hover:bg-iris-claro shadow-iris"
+              ? "bg-cobalt-500 hover:-translate-y-0.5 hover:bg-cobalt-500 shadow-brand"
               : "cursor-not-allowed bg-aco/20",
           )}
         >
@@ -259,7 +259,7 @@ function ToolBtn({
       aria-label={label}
       className={cn(
         "flex h-9 w-9 items-center justify-center rounded-lg transition",
-        active ? "bg-iris/10 text-iris" : "text-aco/50 hover:bg-bruma hover:text-breu",
+        active ? "bg-cobalt-500/10 text-cobalt-500" : "text-aco/50 hover:bg-canvas-100 hover:text-volt-950",
         disabled && "pointer-events-none opacity-40",
       )}
     >

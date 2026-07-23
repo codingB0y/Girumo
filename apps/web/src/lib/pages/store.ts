@@ -9,6 +9,7 @@ import type {
   LpTemplate,
   PublicLandingPage,
 } from "@/lib/pages/schema";
+import { normalizeLandingPage } from "@/lib/pages/schema";
 
 const PAGES = "landing_pages";
 const TEMPLATES = "landing_page_templates";
@@ -43,7 +44,7 @@ export async function listLandingPages(tenantId: string): Promise<LandingPage[]>
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
-  return (data ?? []) as LandingPage[];
+  return (data ?? []).map((page) => normalizeLandingPage(page as LandingPage));
 }
 
 export async function getLandingPageById(
@@ -57,7 +58,7 @@ export async function getLandingPageById(
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  return data as LandingPage | null;
+  return data ? normalizeLandingPage(data as LandingPage) : null;
 }
 
 /** Render público: só páginas published, com component_key do template no join. */
@@ -78,7 +79,7 @@ export async function getPublishedPageBySlug(slug: string): Promise<PublicLandin
     } | null;
   };
   return {
-    ...page,
+    ...normalizeLandingPage(page),
     component_key: tpl?.component_key ?? "basic",
     template_copy: tpl?.default_copy ?? {},
   };
@@ -112,7 +113,7 @@ export async function createLandingPage(
       .select("*")
       .single();
 
-    if (!error) return data as LandingPage;
+    if (!error) return normalizeLandingPage(data as LandingPage);
     if (error.code !== UNIQUE_VIOLATION) throw new Error(error.message);
   }
   throw new Error("Não foi possível gerar um slug único. Tente de novo.");
@@ -143,7 +144,7 @@ export async function updateLandingPage(
     .select("*")
     .maybeSingle();
   if (error) throw new Error(error.message);
-  return data as LandingPage | null;
+  return data ? normalizeLandingPage(data as LandingPage) : null;
 }
 
 /* --------------------------- leads + eventos -------------------------- */

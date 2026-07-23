@@ -122,10 +122,10 @@ export function CommandPalette() {
       <button
         aria-label="Fechar"
         onClick={() => setOpen(false)}
-        className="absolute inset-0 bg-breu/50 backdrop-blur-sm"
+        className="absolute inset-0 bg-volt-950/50 backdrop-blur-sm"
       />
-      <div className="pn-palette-in relative w-full max-w-xl overflow-hidden rounded-2xl border border-breu/10 bg-papel shadow-[var(--shadow-pn-3)]">
-        <div className="flex items-center gap-3 border-b border-breu/[0.06] px-4">
+      <div className="pn-palette-in relative w-full max-w-xl overflow-hidden rounded-2xl border border-volt-950/10 bg-papel shadow-[var(--shadow-pn-3)]">
+        <div className="flex items-center gap-3 border-b border-volt-950/[0.06] px-4">
           <Search className="h-4 w-4 text-aco/50" />
           <input
             ref={inputRef}
@@ -133,9 +133,9 @@ export function CommandPalette() {
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={onInputKey}
             placeholder="Buscar grupo, campanha ou ação…"
-            className="flex-1 bg-transparent py-4 text-sm text-breu outline-none placeholder:text-aco/40"
+            className="flex-1 bg-transparent py-4 text-sm text-volt-950 outline-none placeholder:text-aco/40"
           />
-          <kbd className="font-data rounded border border-breu/15 bg-bruma px-1.5 py-0.5 text-[10px] text-aco/55">
+          <kbd className="font-data rounded border border-volt-950/15 bg-canvas-100 px-1.5 py-0.5 text-[10px] text-aco/55">
             ESC
           </kbd>
         </div>
@@ -159,17 +159,17 @@ export function CommandPalette() {
                     onClick={() => select(index)}
                     className={cn(
                       "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition",
-                      isActive ? "bg-iris/[0.08] text-breu" : "text-aco hover:bg-bruma/60",
+                      isActive ? "bg-cobalt-500/[0.08] text-volt-950" : "text-aco hover:bg-canvas-100/60",
                     )}
                   >
-                    <Icon className={cn("h-4 w-4", isActive ? "text-iris" : "text-aco/50")} />
+                    <Icon className={cn("h-4 w-4", isActive ? "text-cobalt-500" : "text-aco/50")} />
                     <span className="flex-1">{item.label}</span>
                     {item.hint && (
                       <span className="font-data text-[10px] uppercase tracking-wider text-aco/40">
                         {item.hint}
                       </span>
                     )}
-                    {isActive && <CornerDownLeft className="h-3.5 w-3.5 text-iris" />}
+                    {isActive && <CornerDownLeft className="h-3.5 w-3.5 text-cobalt-500" />}
                   </button>
                 );
               })}
@@ -186,11 +186,11 @@ export function CommandTrigger() {
   return (
     <button
       onClick={() => window.dispatchEvent(new Event("hf:command"))}
-      className="ml-auto flex items-center gap-2 rounded-[10px] border border-breu/10 bg-papel px-3 py-2 text-sm text-aco/60 shadow-[var(--shadow-pn-1)] transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] hover:border-iris/30 hover:shadow-[var(--shadow-pn-2)]"
+      className="ml-auto flex items-center gap-2 rounded-[10px] border border-volt-950/10 bg-papel px-3 py-2 text-sm text-aco/60 shadow-[var(--shadow-pn-1)] transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] hover:border-cobalt-500/30 hover:shadow-[var(--shadow-pn-2)]"
     >
       <Search className="h-4 w-4" />
       <span className="hidden sm:inline">Buscar grupo, campanha…</span>
-      <kbd className="font-data ml-1 hidden rounded border border-breu/15 bg-bruma px-1.5 text-[10px] text-aco/60 sm:inline">
+      <kbd className="font-data ml-1 hidden rounded border border-volt-950/15 bg-canvas-100 px-1.5 text-[10px] text-aco/60 sm:inline">
         ⌘K
       </kbd>
     </button>

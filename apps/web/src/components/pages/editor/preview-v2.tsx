@@ -77,7 +77,7 @@ export function EditorPreviewV2({ values }: { values: EditorValuesV2 }) {
           Prévia ao vivo — não salva nada
         </p>
         <div
-          className="flex gap-1 rounded-xl border border-breu/[0.08] bg-white p-1"
+          className="flex gap-1 rounded-xl border border-volt-950/[0.08] bg-white p-1"
           role="radiogroup"
           aria-label="Tamanho da tela na prévia"
         >
@@ -92,7 +92,7 @@ export function EditorPreviewV2({ values }: { values: EditorValuesV2 }) {
                 onClick={() => setDevice(key)}
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition",
-                  device === key ? "bg-bruma font-medium text-breu" : "text-aco/60 hover:text-breu",
+                  device === key ? "bg-canvas-100 font-medium text-volt-950" : "text-aco/60 hover:text-volt-950",
                 )}
               >
                 <Icon className="h-3.5 w-3.5" aria-hidden />
@@ -105,7 +105,7 @@ export function EditorPreviewV2({ values }: { values: EditorValuesV2 }) {
 
       <div
         ref={boxRef}
-        className="overflow-hidden rounded-2xl border border-breu/[0.08] bg-bruma/50"
+        className="overflow-hidden rounded-2xl border border-volt-950/[0.08] bg-canvas-100/50"
         style={{ height: height * scale }}
       >
         <iframe

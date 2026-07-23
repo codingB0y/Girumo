@@ -258,11 +258,11 @@ type LegacyLpContent = {
   headline: string;
   description: string;
   group_topic: string;
-  primary_color: "iris" | "emerald" | "amber";
+  primary_color: "cobalt" | "emerald" | "amber";
 };
 
 const LEGACY_COLOR_HEX: Record<LegacyLpContent["primary_color"], string> = {
-  iris: "#7c3aed",
+  cobalt: "#7c3aed",
   emerald: "#10b981",
   amber: "#f59e0b",
 };
@@ -279,7 +279,7 @@ export function adaptLegacyContent(legacy: LegacyLpContent): LpContentV2 {
   return {
     schema_version: 2,
     store_name: legacy.store_name,
-    brand_color: LEGACY_COLOR_HEX[legacy.primary_color] ?? LEGACY_COLOR_HEX.iris,
+    brand_color: LEGACY_COLOR_HEX[legacy.primary_color] ?? LEGACY_COLOR_HEX.cobalt,
     headline: legacy.headline,
     description: legacy.description,
     cta: DEFAULT_CTA,

@@ -1,0 +1,30 @@
+/* Girumo — entrada portátil do Design Sync.
+   Contém apenas fontes e tokens Tailwind; não define reset, elemento global
+   ou regra de impressão. */
+@import "./fonts/fonts.css";
+
+@theme {
+  --color-volt-950: #071923;
+  --color-volt-900: #0c2835;
+  --color-volt-800: #123746;
+  --color-acid-500: #a7ff2f;
+  --color-cobalt-500: #2e66ff;
+  --color-cobalt-700: #1947c9;
+  --color-canvas-100: #f4f0e7;
+  --color-paper-0: #fffefa;
+  --color-slate-600: #52646c;
+  --color-line-200: #d8d7cf;
+  --color-success-700: #0c7346;
+  --color-warning-700: #7a4a00;
+  --color-danger-700: #b82936;
+  --color-info-700: #1947c9;
+
+  --font-brand: "Manrope", sans-serif;
+  --font-body: "IBM Plex Sans", sans-serif;
+  --font-data: "IBM Plex Mono", monospace;
+
+  --radius-control: 8px;
+  --radius-card: 12px;
+  --radius-panel: 16px;
+  --shadow-card: 0 1px 2px rgba(7, 25, 35, 0.06);
+}

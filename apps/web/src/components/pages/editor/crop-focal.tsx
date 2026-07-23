@@ -76,7 +76,7 @@ export function CropFocal({
         onPointerDown={handlePointer}
         onPointerMove={handlePointer}
         onKeyDown={handleKey}
-        className="relative mt-1.5 aspect-[16/10] w-full cursor-crosshair touch-none overflow-hidden rounded-xl bg-bruma focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris"
+        className="relative mt-1.5 aspect-[16/10] w-full cursor-crosshair touch-none overflow-hidden rounded-xl bg-canvas-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
       >
         <img
           src={mediaSrc(media)}
@@ -87,7 +87,7 @@ export function CropFocal({
         />
         <span
           aria-hidden
-          className="pointer-events-none absolute h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-iris/30 shadow-[0_0_0_1px_rgba(0,0,0,0.25)]"
+          className="pointer-events-none absolute h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-cobalt-500/30 shadow-[0_0_0_1px_rgba(0,0,0,0.25)]"
           style={{ left: `${x * 100}%`, top: `${y * 100}%` }}
         />
       </div>

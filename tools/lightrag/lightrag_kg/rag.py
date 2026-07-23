@@ -48,13 +48,20 @@ async def insert_batch(texts: list[str], ids: list[str], file_paths: list[str]):
 
 
 async def purge_stale_records(file_paths: list[str]) -> dict[str, int]:
-    """Remove every doc_status record (original + duplicate stragglers) for
+    """Remove stale doc_status records (original + duplicate stragglers) for
     the given flattened file_paths, so a retry isn't blocked by LightRAG's
     filename-basename dedup (which matches on ANY existing record for that
     file_path regardless of status — see lightrag/pipeline.py
     get_existing_doc_by_file_basename). Hand-editing kv_store_doc_status.json
     only removes the "doc-*" original and leaves "dup-*"/"error-*" stragglers
     behind, which still trip the same dedup check on the next attempt.
+
+    Deliberately excludes PROCESSED docs: --retry-failed is meant to unblock
+    files that never finished, not wipe out and re-embed work that already
+    succeeded (which happened here once — a --retry-failed run on the FULL
+    file list purged 40 already-processed docs' entities/relations/chunks
+    along with the genuinely failed ones, wasting a day's embedding quota
+    re-doing work instead of making new progress).
     """
     from lightrag.base import DocStatus
     from lightrag.utils_pipeline import doc_status_field
@@ -63,7 +70,7 @@ async def purge_stale_records(file_paths: list[str]) -> dict[str, int]:
     target_paths = set(file_paths)
 
     all_docs = await rag.doc_status.get_docs_by_statuses(
-        [DocStatus.FAILED, DocStatus.PENDING, DocStatus.PROCESSING, DocStatus.PROCESSED]
+        [DocStatus.FAILED, DocStatus.PENDING, DocStatus.PROCESSING]
     )
     matching_ids = [
         doc_id

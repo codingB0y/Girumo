@@ -7,7 +7,7 @@ const legacy = {
   headline: "Atacado infantil com preço de fábrica",
   description: "Peças novas toda semana direto pro seu grupo VIP.",
   group_topic: "ofertas de atacado infantil",
-  primary_color: "iris",
+  primary_color: "cobalt",
 };
 
 const v2 = {

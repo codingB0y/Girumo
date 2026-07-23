@@ -1,23 +1,23 @@
 import { cn } from "@/lib/utils";
 
 type Variant = "primary" | "secondary" | "outline" | "ghost" | "danger";
-type Size = "sm" | "md" | "icon";
+type Size = "sm" | "md" | "lg" | "icon";
 
 const variants: Record<Variant, string> = {
-  // token-based (bg-iris = var): cobalto no .pn-root do painel, roxo no admin.
-  // hover via brightness p/ não depender de hex literal.
   primary:
-    "bg-iris text-white shadow-sm hover:brightness-110 active:brightness-95 active:bg-iris-escuro",
-  secondary: "bg-breu text-white hover:bg-breu-2 active:bg-breu",
-  outline: "border border-breu/15 bg-papel text-breu hover:border-iris/40 hover:text-iris",
-  ghost: "text-aco hover:bg-poco hover:text-breu",
-  danger: "bg-alerta text-white hover:opacity-90 active:opacity-100",
+    "bg-acid-500 text-volt-950 shadow-sm hover:brightness-95 active:brightness-90",
+  secondary: "bg-volt-950 text-paper-0 hover:bg-volt-900 active:bg-volt-800",
+  outline:
+    "border border-line-200 bg-paper-0 text-volt-950 hover:border-cobalt-500 hover:text-cobalt-700",
+  ghost: "text-slate-600 hover:bg-canvas-100 hover:text-volt-950",
+  danger: "bg-danger-700 text-paper-0 hover:brightness-95 active:brightness-90",
 };
 
 const sizes: Record<Size, string> = {
-  sm: "h-8 px-3 text-sm",
-  md: "h-10 px-4 text-sm",
-  icon: "h-9 w-9",
+  sm: "h-[var(--control-height)] px-3 text-sm",
+  md: "h-[var(--control-height)] px-4 text-sm",
+  lg: "h-[var(--control-height-prominent)] px-5 text-base",
+  icon: "h-[var(--control-height)] w-[var(--control-height)]",
 };
 
 export function Button({
@@ -29,11 +29,9 @@ export function Button({
   return (
     <button
       className={cn(
-        // física de carimbo: afunda no press (scale), nunca levita no hover
-        "inline-flex cursor-pointer items-center justify-center gap-2 rounded-[10px] font-medium",
-        "transition-[background-color,box-shadow,transform] duration-[160ms] ease-[var(--ease-fluxo)]",
-        "active:scale-[0.97] active:duration-[90ms] active:ease-[var(--ease-fluxo-snap)]",
-        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-iris",
+        "inline-flex cursor-pointer items-center justify-center gap-2 rounded-[var(--radius-control)] font-semibold",
+        "transition-[background-color,box-shadow,filter] duration-[var(--duration-micro)] ease-[var(--ease-girumo)]",
+        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500",
         "disabled:pointer-events-none disabled:opacity-45 disabled:shadow-none",
         variants[variant],
         sizes[size],

@@ -85,14 +85,14 @@ export default function CancelarPage() {
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-sucesso/10">
             <Pause className="h-8 w-8 text-sucesso" strokeWidth={1.75} />
           </div>
-          <h1 className="font-display mt-4 text-2xl font-extrabold text-breu">Plano pausado</h1>
+          <h1 className="font-display mt-4 text-2xl font-extrabold text-volt-950">Plano pausado</h1>
           <p className="font-editorial mt-2 text-[17px] italic text-ardosia">
             Seu plano foi pausado por 30 dias. Seus dados continuam salvos e você pode reativar a
             qualquer momento.
           </p>
           <Link
             href="/painel"
-            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-iris px-5 py-2.5 text-sm font-medium text-white transition ease-[var(--ease-fluxo)] hover:brightness-110"
+            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-cobalt-500 px-5 py-2.5 text-sm font-medium text-white transition ease-[var(--ease-fluxo)] hover:brightness-110"
           >
             Voltar ao painel
           </Link>
@@ -105,7 +105,7 @@ export default function CancelarPage() {
     <div className="mx-auto max-w-[600px] px-4 py-10 sm:px-6">
       <Link
         href="/painel/configuracoes"
-        className="inline-flex items-center gap-1.5 text-sm text-aco/60 transition-colors duration-[160ms] ease-[var(--ease-fluxo)] hover:text-breu"
+        className="inline-flex items-center gap-1.5 text-sm text-aco/60 transition-colors duration-[160ms] ease-[var(--ease-fluxo)] hover:text-volt-950"
       >
         <ArrowLeft className="h-4 w-4" strokeWidth={1.75} /> Voltar
       </Link>
@@ -116,7 +116,7 @@ export default function CancelarPage() {
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-alerta/10">
             <AlertTriangle className="h-8 w-8 text-alerta" strokeWidth={1.75} />
           </div>
-          <h1 className="font-display mt-4 text-2xl font-extrabold text-breu">
+          <h1 className="font-display mt-4 text-2xl font-extrabold text-volt-950">
             Tem certeza que quer cancelar?
           </h1>
           <p className="font-editorial mt-2 text-[17px] italic text-ardosia">
@@ -144,7 +144,7 @@ export default function CancelarPage() {
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 placeholder="Conta pra gente o motivo..."
-                className="mt-2 w-full rounded-xl border border-breu/10 bg-poco px-4 py-3 text-sm text-breu outline-none transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] placeholder:text-aco/40 focus:border-iris/50 focus:bg-papel focus:shadow-[0_0_0_3px_var(--color-iris-light)]"
+                className="mt-2 w-full rounded-xl border border-volt-950/10 bg-poco px-4 py-3 text-sm text-volt-950 outline-none transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] placeholder:text-aco/40 focus:border-cobalt-500/50 focus:bg-papel focus:shadow-[0_0_0_3px_var(--color-cobalt-soft)]"
                 rows={3}
               />
             </div>
@@ -154,7 +154,7 @@ export default function CancelarPage() {
               {/* Pause option */}
               <button
                 onClick={handlePause}
-                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-iris/20 bg-iris/[0.05] px-5 py-3 text-sm font-medium text-iris transition-colors duration-[160ms] ease-[var(--ease-fluxo)] hover:bg-iris/10"
+                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-cobalt-500/20 bg-cobalt-500/[0.05] px-5 py-3 text-sm font-medium text-cobalt-500 transition-colors duration-[160ms] ease-[var(--ease-fluxo)] hover:bg-cobalt-500/10"
               >
                 <Pause className="h-4 w-4" strokeWidth={1.75} /> Pausar por 30 dias (grátis)
               </button>
@@ -172,7 +172,7 @@ export default function CancelarPage() {
 
         {step === "confirm" && (
           <div className="mt-6 rounded-2xl border border-alerta/20 bg-alerta/[0.05] p-5">
-            <p className="text-sm font-medium text-breu">
+            <p className="text-sm font-medium text-volt-950">
               Último passo: confirme o cancelamento
             </p>
             <p className="mt-1 text-xs text-aco/60">
@@ -182,7 +182,7 @@ export default function CancelarPage() {
             <div className="mt-4 flex gap-3">
               <button
                 onClick={() => setStep("show")}
-                className="flex-1 cursor-pointer rounded-xl border border-breu/15 px-4 py-2.5 text-sm font-medium text-breu transition-colors duration-[160ms] ease-[var(--ease-fluxo)] hover:border-iris hover:text-iris"
+                className="flex-1 cursor-pointer rounded-xl border border-volt-950/15 px-4 py-2.5 text-sm font-medium text-volt-950 transition-colors duration-[160ms] ease-[var(--ease-fluxo)] hover:border-cobalt-500 hover:text-cobalt-500"
               >
                 Voltar
               </button>
@@ -204,7 +204,7 @@ function LossCard({ icon: Icon, label, value }: { icon: typeof Users; label: str
   return (
     <div className="rounded-2xl border border-alerta/10 bg-alerta/[0.03] p-4 text-center">
       <Icon className="mx-auto h-5 w-5 text-alerta/60" strokeWidth={1.75} />
-      <p className="font-data mt-2 text-xl font-medium tabular-nums text-breu">{value}</p>
+      <p className="font-data mt-2 text-xl font-medium tabular-nums text-volt-950">{value}</p>
       <p className="mt-0.5 text-[11px] text-aco/55">{label}</p>
     </div>
   );
