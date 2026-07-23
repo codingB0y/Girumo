@@ -9,6 +9,13 @@ create unique index uq_lp_events_idem
   on public.lp_tracking_events(landing_page_id, event_name, published_version, idem_key)
   where idem_key is not null;
 
+-- CREATE OR REPLACE não permite renomear colunas OUT. Remover pela assinatura
+-- mantém o upgrade da versão anterior e a reaplicação desta migration seguros.
+drop function if exists public.confirm_lp_capture(
+  uuid, uuid, text, text, int, text, text, text, int, text, text, text, jsonb,
+  text, text, text
+);
+
 create or replace function public.confirm_lp_capture(
   p_tenant_id uuid,
   p_landing_page_id uuid,
@@ -46,10 +53,14 @@ begin
     from public.landing_pages as target_page
    where target_page.id = p_landing_page_id
      and target_page.tenant_id = p_tenant_id
+     and target_page.status = 'published'
+     and target_page.published_version = p_published_version
    for update;
 
   if not found then
-    raise exception 'landing page does not belong to tenant';
+    raise exception using
+      errcode = 'P0001',
+      message = 'LP_RENDER_CONTEXT_STALE';
   end if;
 
   insert into public.lp_contacts as contact (
@@ -255,6 +266,101 @@ revoke all on function public.confirm_lp_capture(
 grant execute on function public.confirm_lp_capture(
   uuid, uuid, text, text, int, text, text, text, int, text, text, text, jsonb,
   text, text, text
+) to service_role;
+
+drop function if exists public.record_lp_tracking_event(
+  uuid, uuid, text, jsonb, int, text, text, int, text, text
+);
+
+create or replace function public.record_lp_tracking_event(
+  p_tenant_id uuid,
+  p_landing_page_id uuid,
+  p_event_name text,
+  p_event_data jsonb,
+  p_published_version int,
+  p_structure text,
+  p_visual_direction text,
+  p_model_version int,
+  p_device text,
+  p_idem_key text
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = pg_catalog, pg_temp
+as $$
+declare
+  v_inserted int;
+begin
+  perform 1
+    from public.landing_pages as target_page
+   where target_page.id = p_landing_page_id
+     and target_page.tenant_id = p_tenant_id
+     and target_page.status = 'published'
+     and target_page.published_version = p_published_version
+   for update;
+
+  if not found then
+    raise exception using
+      errcode = 'P0001',
+      message = 'LP_RENDER_CONTEXT_STALE';
+  end if;
+
+  insert into public.lp_tracking_events (
+    tenant_id,
+    landing_page_id,
+    event_name,
+    event_data,
+    published_version,
+    structure,
+    visual_direction,
+    model_version,
+    device,
+    idem_key
+  )
+  values (
+    p_tenant_id,
+    p_landing_page_id,
+    p_event_name,
+    coalesce(p_event_data, '{}'::jsonb),
+    p_published_version,
+    p_structure,
+    p_visual_direction,
+    p_model_version,
+    p_device,
+    p_idem_key
+  )
+  on conflict do nothing;
+
+  get diagnostics v_inserted = row_count;
+
+  if v_inserted = 1 and p_event_name = 'page_view' then
+    update public.landing_pages
+       set views_count = views_count + 1,
+           updated_at = now()
+     where id = p_landing_page_id
+       and tenant_id = p_tenant_id;
+  end if;
+
+  return v_inserted = 1;
+end;
+$$;
+
+alter function public.record_lp_tracking_event(
+  uuid, uuid, text, jsonb, int, text, text, int, text, text
+) owner to postgres;
+
+revoke all on function public.record_lp_tracking_event(
+  uuid, uuid, text, jsonb, int, text, text, int, text, text
+) from public;
+revoke all on function public.record_lp_tracking_event(
+  uuid, uuid, text, jsonb, int, text, text, int, text, text
+) from anon;
+revoke all on function public.record_lp_tracking_event(
+  uuid, uuid, text, jsonb, int, text, text, int, text, text
+) from authenticated;
+grant execute on function public.record_lp_tracking_event(
+  uuid, uuid, text, jsonb, int, text, text, int, text, text
 ) to service_role;
 
 commit;

@@ -9,6 +9,10 @@ const leadRouteSource = readFileSync(
   path.join(process.cwd(), "src", "app", "api", "p", "lead", "route.ts"),
   "utf8",
 );
+const trackRouteSource = readFileSync(
+  path.join(process.cwd(), "src", "app", "api", "p", "track", "route.ts"),
+  "utf8",
+);
 const storeSource = readFileSync(
   path.join(process.cwd(), "src", "lib", "pages", "store.ts"),
   "utf8",
@@ -140,5 +144,92 @@ test("a RPC SECURITY DEFINER usa search_path seguro e objetos qualificados", () 
   assert.match(
     sql,
     /alter function public\.confirm_lp_capture[\s\S]*owner to postgres/i,
+  );
+});
+
+test("a migration remove a assinatura anterior antes de recriar OUT params e pode ser reaplicada", () => {
+  const sql = migrationSql();
+  const signature =
+    String.raw`uuid,\s*uuid,\s*text,\s*text,\s*int,\s*text,\s*text,\s*text,\s*int,\s*text,\s*text,\s*text,\s*jsonb,\s*text,\s*text,\s*text`;
+  const dropFunction = sql.search(
+    new RegExp(
+      String.raw`drop function if exists public\.confirm_lp_capture\(\s*${signature}\s*\)`,
+      "i",
+    ),
+  );
+  const createFunction = sql.search(
+    /create or replace function public\.confirm_lp_capture/i,
+  );
+
+  assert.ok(dropFunction >= 0, "a assinatura anterior deve ser removida");
+  assert.ok(dropFunction < createFunction, "DROP precisa ocorrer antes do CREATE");
+});
+
+test("a captura valida status e versão publicada sob o mesmo lock antes de escrever", () => {
+  const sql = migrationSql();
+  const lock = sql.match(
+    /perform 1\s+from public\.landing_pages as target_page[\s\S]*?for update;/i,
+  )?.[0];
+
+  assert.ok(lock, "lock da landing page ausente");
+  assert.match(lock, /target_page\.status\s*=\s*'published'/i);
+  assert.match(
+    lock,
+    /target_page\.published_version\s*=\s*p_published_version/i,
+  );
+  assert.match(
+    sql,
+    /for update;[\s\S]*LP_RENDER_CONTEXT_STALE[\s\S]*insert into public\.lp_contacts/i,
+  );
+  assert.match(storeSource, /class LpRenderContextStaleError extends Error/);
+  assert.match(
+    leadRouteSource,
+    /isLpRenderContextStaleError\([\s\S]*status:\s*409/i,
+  );
+});
+
+test("tracking grava e incrementa page_view em RPC protegida pelo lock de versão", () => {
+  const sql = migrationSql();
+  const trackingFunction = sql.match(
+    /create or replace function public\.record_lp_tracking_event[\s\S]*?\$\$;/i,
+  )?.[0];
+
+  assert.ok(trackingFunction, "RPC atômica de tracking ausente");
+  const lockIndex = trackingFunction.search(
+    /from public\.landing_pages as target_page[\s\S]*for update;/i,
+  );
+  const insertIndex = trackingFunction.search(
+    /insert into public\.lp_tracking_events/i,
+  );
+  assert.ok(lockIndex >= 0 && lockIndex < insertIndex);
+  assert.match(trackingFunction, /target_page\.status\s*=\s*'published'/i);
+  assert.match(
+    trackingFunction,
+    /target_page\.published_version\s*=\s*p_published_version/i,
+  );
+  assert.match(trackingFunction, /LP_RENDER_CONTEXT_STALE/i);
+  assert.match(
+    trackingFunction,
+    /if[\s\S]*p_event_name\s*=\s*'page_view'[\s\S]*views_count\s*=\s*views_count\s*\+\s*1/i,
+  );
+
+  const trackingStoreStart = storeSource.indexOf(
+    "export async function insertLpTrackingEvent",
+  );
+  const trackingStoreEnd = storeSource.indexOf(
+    "/** Contador-cache",
+    trackingStoreStart,
+  );
+  const trackingStore = storeSource.slice(trackingStoreStart, trackingStoreEnd);
+  assert.ok(trackingStoreStart >= 0 && trackingStoreEnd > trackingStoreStart);
+  assert.match(
+    trackingStore,
+    /\.rpc\(\s*"record_lp_tracking_event"/,
+  );
+  assert.doesNotMatch(trackingStore, /\.from\(EVENTS\)\s*\.insert/);
+  assert.doesNotMatch(trackRouteSource, /await bumpLpCounter\(/);
+  assert.match(
+    trackRouteSource,
+    /isLpRenderContextStaleError\([\s\S]*status:\s*409/i,
   );
 });

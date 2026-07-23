@@ -13,6 +13,30 @@ import { normalizeLandingPage } from "@/lib/pages/schema";
 
 const PAGES = "landing_pages";
 const TEMPLATES = "landing_page_templates";
+const LP_RENDER_CONTEXT_STALE = "LP_RENDER_CONTEXT_STALE";
+
+export class LpRenderContextStaleError extends Error {
+  constructor() {
+    super(LP_RENDER_CONTEXT_STALE);
+    this.name = "LpRenderContextStaleError";
+  }
+}
+
+export function isLpRenderContextStaleError(
+  error: unknown,
+): error is LpRenderContextStaleError {
+  return error instanceof LpRenderContextStaleError;
+}
+
+function throwRpcError(error: { code?: string; message: string }): never {
+  if (
+    error.code === "P0001" &&
+    error.message.includes(LP_RENDER_CONTEXT_STALE)
+  ) {
+    throw new LpRenderContextStaleError();
+  }
+  throw new Error(error.message);
+}
 
 /* ----------------------------- templates ----------------------------- */
 
@@ -235,7 +259,7 @@ export async function confirmLpCapture(
     p_user_agent: input.userAgent,
     p_ip_hash: input.ipHash,
   });
-  if (error) throw new Error(error.message);
+  if (error) throwRpcError(error);
 
   const row = (
     Array.isArray(data) ? data[0] : data
@@ -268,7 +292,7 @@ export async function insertLpTrackingEvent(input: {
   eventName: LpEventName;
   eventData: Record<string, unknown>;
   idemKey?: string | null;
-  dimensions?: {
+  dimensions: {
     publishedVersion: number;
     structure: string;
     visualDirection: string;
@@ -276,29 +300,24 @@ export async function insertLpTrackingEvent(input: {
     device: string | null;
   };
 }): Promise<{ created: boolean }> {
-  const { error } = await getSupabaseAdmin()
-    .from(EVENTS)
-    .insert({
-      tenant_id: input.tenantId,
-      landing_page_id: input.landingPageId,
-      event_name: input.eventName,
-      event_data: input.eventData,
-      idem_key: input.idemKey ?? null,
-      ...(input.dimensions
-        ? {
-            published_version: input.dimensions.publishedVersion,
-            structure: input.dimensions.structure,
-            visual_direction: input.dimensions.visualDirection,
-            model_version: input.dimensions.modelVersion,
-            device: input.dimensions.device,
-          }
-        : {}),
-    });
+  const { data, error } = await getSupabaseAdmin().rpc(
+    "record_lp_tracking_event",
+    {
+      p_tenant_id: input.tenantId,
+      p_landing_page_id: input.landingPageId,
+      p_event_name: input.eventName,
+      p_event_data: input.eventData,
+      p_published_version: input.dimensions.publishedVersion,
+      p_structure: input.dimensions.structure,
+      p_visual_direction: input.dimensions.visualDirection,
+      p_model_version: input.dimensions.modelVersion,
+      p_device: input.dimensions.device,
+      p_idem_key: input.idemKey ?? null,
+    },
+  );
 
-  if (!error) return { created: true };
-  // Evento repetido da mesma visita: sucesso silencioso, sem inflar a métrica.
-  if (error.code === UNIQUE_VIOLATION) return { created: false };
-  throw new Error(error.message);
+  if (error) throwRpcError(error);
+  return { created: data === true };
 }
 
 /** Contador-cache (views/leads) — falha silenciosa de propósito (é cache). */

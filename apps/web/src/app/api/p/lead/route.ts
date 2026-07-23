@@ -1,6 +1,7 @@
 import {
   confirmLpCapture,
   getPublishedPageBySlug,
+  isLpRenderContextStaleError,
 } from "@/lib/pages/store";
 import { normalizeWhatsappBR, resolveTargetUrl } from "@/lib/pages/schema";
 import { captureIdemKey, deviceFromUserAgent } from "@/lib/pages/capture";
@@ -106,6 +107,12 @@ export async function POST(req: Request) {
     // O destino só existe depois da captura dar certo — nunca antes, e nunca no HTML.
     return Response.json({ ok: true, redirect_url: redirectUrl, duplicated: !created });
   } catch (e) {
+    if (isLpRenderContextStaleError(e)) {
+      return Response.json(
+        { error: "Esta página mudou. Recarregue antes de enviar seus dados." },
+        { status: 409 },
+      );
+    }
     return Response.json({ error: (e as Error).message }, { status: 500 });
   }
 }

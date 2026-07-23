@@ -1,4 +1,8 @@
-import { bumpLpCounter, getPublishedPageBySlug, insertLpTrackingEvent } from "@/lib/pages/store";
+import {
+  getPublishedPageBySlug,
+  insertLpTrackingEvent,
+  isLpRenderContextStaleError,
+} from "@/lib/pages/store";
 import { deviceFromUserAgent, isCanonicalEvent } from "@/lib/pages/capture";
 import { extractAttribution, hashIp, isBotUserAgent, isRateLimited } from "@/lib/pages/analytics";
 import {
@@ -72,7 +76,7 @@ export async function POST(req: Request) {
     }
 
     const device = deviceFromUserAgent(ua);
-    const { created } = await insertLpTrackingEvent({
+    await insertLpTrackingEvent({
       tenantId: page.tenant_id,
       landingPageId: page.id,
       eventName: event,
@@ -87,11 +91,14 @@ export async function POST(req: Request) {
       },
     });
 
-    // Contador-cache só na 1ª vez: recarregar não infla a visualização.
-    if (created && event === "page_view") await bumpLpCounter(page.id, "views");
-
     return new Response(null, { status: 204 });
-  } catch {
+  } catch (error) {
+    if (isLpRenderContextStaleError(error)) {
+      return Response.json(
+        { error: "Esta página mudou. Recarregue antes de continuar." },
+        { status: 409 },
+      );
+    }
     return new Response(null, { status: 204 });
   }
 }
