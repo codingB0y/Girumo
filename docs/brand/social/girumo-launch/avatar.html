@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Girumo — Avatar (primário)</title>
+<style>
+  :root{--volt-950:#071923; --acid:#A7FF2F}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:#333}
+  .canvas{position:relative; width:1080px; height:1080px; overflow:hidden;
+    background:var(--acid); display:flex; align-items:center; justify-content:center}
+  /* circle safe-zone guide is not rendered; symbol sized ~62% of usable area */
+  .sym{width:640px; height:640px; color:var(--volt-950)}
+  .sym svg{width:100%;height:100%;display:block}
+</style>
+</head>
+<body>
+  <div class="canvas">
+    <div class="sym">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path fill="currentColor" d="M5 2H12V10H9V22H5A3 3 0 0 1 2 19V5A3 3 0 0 1 5 2Z"/>
+        <path fill="currentColor" d="M14 2H19A3 3 0 0 1 22 5V19A3 3 0 0 1 19 22H11V14H14V2Z"/>
+      </svg>
+    </div>
+  </div>
+</body>
+</html>

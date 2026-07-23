@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Girumo — Bastidor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--volt-950:#071923; --volt-900:#0C2835; --volt-800:#123746; --acid:#A7FF2F; --cobalt:#2E66FF; --canvas:#F4F0E7; --paper:#FFFEFA; --slate:#52646C; --line:#D8D7CF}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:#333}
+  .canvas{position:relative; width:1080px; height:1350px; overflow:hidden;
+    background:var(--volt-950); color:var(--canvas); font-family:'Manrope',sans-serif}
+
+  /* photo band lower half, bleeds full width; cool duotone */
+  .photo{position:absolute; left:0; bottom:0; width:1080px; height:600px; overflow:hidden; background:var(--volt-900)}
+  .photo img{width:100%; height:100%; object-fit:cover; object-position:50% 42%;
+    filter:grayscale(1) contrast(1.05) brightness(1.12); display:block}
+  .photo .tint{position:absolute; inset:0; background:var(--cobalt); mix-blend-mode:color; opacity:.34}
+  .photo .grade{position:absolute; inset:0; background:linear-gradient(180deg, var(--volt-950) 0%, rgba(7,25,35,.5) 22%, rgba(7,25,35,0) 55%, rgba(7,25,35,.35) 100%)}
+  /* step-cut notch top-right where nav bg meets photo — the deslocamento */
+  .stepcut{position:absolute; right:0; bottom:520px; width:360px; height:120px; background:var(--volt-950)}
+
+  .frame{position:absolute; inset:0; padding:84px 88px; display:flex; flex-direction:column; z-index:2}
+  .top{display:flex; justify-content:space-between; align-items:center;
+    font-family:'IBM Plex Mono',monospace; font-size:19px; letter-spacing:.16em; text-transform:uppercase; color:var(--slate)}
+  .top .r{color:var(--canvas)}
+  .top .dot{display:inline-block;width:9px;height:9px;background:var(--acid);margin-right:12px;vertical-align:middle}
+
+  .kicker{margin-top:58px; font-family:'IBM Plex Mono',monospace; font-size:21px; letter-spacing:.16em; text-transform:uppercase; color:var(--slate); display:flex; align-items:center; gap:16px}
+  .kicker::before{content:'';width:52px;height:2px;background:var(--acid)}
+
+  /* symbol + name-meaning */
+  .why{margin-top:40px; display:flex; align-items:flex-start; gap:34px}
+  .why .sym{flex:none; width:104px; height:104px; color:var(--acid); margin-top:6px}
+  .why .sym svg{width:100%;height:100%;display:block}
+  .why .txt{font-weight:700; font-size:60px; line-height:1.03; letter-spacing:-.03em; color:var(--canvas)}
+  .why .txt em{font-style:normal; padding:0 4px; background:linear-gradient(transparent 60%, var(--acid) 60%, var(--acid) 92%, transparent 92%)}
+
+  .body{margin-top:34px; font-weight:500; font-size:27px; line-height:1.5; color:#cfd6d2; max-width:840px}
+  .body b{color:var(--canvas); font-weight:600}
+
+  .cap{position:absolute; left:88px; bottom:104px; z-index:3;
+    font-family:'IBM Plex Mono',monospace; font-size:16px; letter-spacing:.10em; text-transform:uppercase; color:var(--canvas);
+    background:rgba(7,25,35,.5); border:1px solid rgba(244,240,231,.22); padding:9px 14px}
+  .foot{position:absolute; left:88px; right:88px; bottom:52px; z-index:3;
+    display:flex; justify-content:space-between; align-items:center;
+    font-family:'IBM Plex Mono',monospace; font-size:17px; letter-spacing:.12em; text-transform:uppercase; color:rgba(244,240,231,.7)}
+  .foot .wm{display:flex; align-items:center; gap:14px; color:var(--canvas); font-family:'Manrope'; font-weight:800; font-size:26px; letter-spacing:-.03em; text-transform:none}
+  .foot .wm .sym{width:28px;height:28px;color:var(--canvas)}
+  .foot .wm .sym svg{width:100%;height:100%;display:block}
+</style>
+</head>
+<body>
+  <div class="canvas">
+    <div class="photo">
+      <img src="assets/team-c.webp" alt="Treinamento da equipe">
+      <div class="tint"></div>
+      <div class="grade"></div>
+    </div>
+    <div class="stepcut"></div>
+
+    <div class="frame">
+      <div class="top">
+        <span><span class="dot"></span>Bastidor</span>
+        <span class="r">Girumo&trade;</span>
+      </div>
+
+      <div class="kicker">Por que Girumo</div>
+
+      <div class="why">
+        <span class="sym"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="currentColor" d="M5 2H12V10H9V22H5A3 3 0 0 1 2 19V5A3 3 0 0 1 5 2Z"/><path fill="currentColor" d="M14 2H19A3 3 0 0 1 22 5V19A3 3 0 0 1 19 22H11V14H14V2Z"/></svg></span>
+        <span class="txt">Do trabalho manual<br>pra operação que <em>roda</em>.</span>
+      </div>
+
+      <div class="body">
+        O símbolo é um <b>deslocamento</b>: duas etapas separadas por uma única passagem. É a virada que a gente viveu no atacado — e transformou em sistema.
+      </div>
+    </div>
+
+    <div class="cap">Bastidor · treinamento do time</div>
+    <div class="foot">
+      <span class="wm">
+        <span class="sym"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="currentColor" d="M5 2H12V10H9V22H5A3 3 0 0 1 2 19V5A3 3 0 0 1 5 2Z"/><path fill="currentColor" d="M14 2H19A3 3 0 0 1 22 5V19A3 3 0 0 1 19 22H11V14H14V2Z"/></svg></span>
+        Girumo
+      </span>
+      <span>Gi-ru-mo</span>
+    </div>
+  </div>
+</body>
+</html>

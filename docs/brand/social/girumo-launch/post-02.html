@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Girumo — Post 02 Origem</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --volt-950:#071923; --volt-900:#0C2835; --volt-800:#123746;
+    --acid:#A7FF2F; --cobalt:#2E66FF;
+    --canvas:#F4F0E7; --paper:#FFFEFA; --slate:#52646C; --line:#D8D7CF;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:#333}
+  .canvas{
+    position:relative; width:1080px; height:1350px; overflow:hidden;
+    background:var(--canvas); color:var(--volt-950);
+    font-family:'Manrope',sans-serif;
+  }
+
+  /* ---- PHOTO ZONE: upper 52%, bleeds full width; duotone navy ---- */
+  .photo{position:absolute; top:0; left:0; width:1080px; height:706px; overflow:hidden; background:var(--volt-950)}
+  .photo img{width:100%; height:100%; object-fit:cover; object-position:50% 30%;
+    filter:grayscale(1) contrast(1.04) brightness(1.16); display:block}
+  .photo .tint{position:absolute; inset:0; background:var(--cobalt); mix-blend-mode:color; opacity:.32}
+  .photo .lift{position:absolute; inset:0; background:radial-gradient(130% 100% at 50% 30%, rgba(244,240,231,.10), transparent 60%); mix-blend-mode:screen}
+  .photo .grade{position:absolute; inset:0; background:linear-gradient(180deg, rgba(7,25,35,.06) 0%, rgba(7,25,35,0) 40%, rgba(7,25,35,.30) 78%, rgba(7,25,35,.42) 100%)}
+
+  /* step-cut: canvas mass overlaps photo bottom-left — the deslocamento */
+  .stepcut{position:absolute; left:0; top:566px; width:430px; height:140px; background:var(--canvas)}
+
+  /* photo caption chip */
+  .chip{position:absolute; top:40px; left:48px; z-index:3;
+    font-family:'IBM Plex Mono',monospace; font-size:17px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--canvas);
+    background:rgba(7,25,35,.55); border:1px solid rgba(244,240,231,.25);
+    padding:10px 16px; backdrop-filter:blur(2px);}
+  .chip b{color:var(--acid); font-weight:500}
+
+  /* ---- CONTENT ZONE ---- */
+  .body{position:absolute; left:0; top:706px; width:1080px; height:644px; padding:0 88px 84px; display:flex; flex-direction:column}
+  .kicker{margin-top:52px; font-family:'IBM Plex Mono',monospace; font-size:21px;
+    letter-spacing:.16em; text-transform:uppercase; color:var(--slate);
+    display:flex; align-items:center; gap:16px;}
+  .kicker::before{content:'';width:52px;height:2px;background:var(--volt-950)}
+
+  .head{margin-top:30px; font-weight:700; font-size:63px; line-height:1.03; letter-spacing:-.03em; color:var(--volt-950); max-width:900px}
+  .head em{font-style:normal; padding:0 4px;
+    background:linear-gradient(transparent 60%, var(--acid) 60%, var(--acid) 92%, transparent 92%);}
+
+  /* metric row */
+  .metric{margin-top:44px; display:flex; align-items:center; gap:30px;
+    font-family:'IBM Plex Mono',monospace;}
+  .metric .from{font-size:40px; color:var(--slate); font-weight:400}
+  .metric .arrow{width:70px; height:2px; background:var(--volt-950); position:relative}
+  .metric .arrow::after{content:'';position:absolute; right:0; top:-5px; width:12px; height:12px; border-top:2px solid var(--volt-950); border-right:2px solid var(--volt-950); transform:rotate(45deg)}
+  .metric .to{font-size:56px; font-weight:500; color:var(--volt-950)}
+  .metric .to small{font-size:26px; color:var(--slate)}
+
+  .sub{margin-top:34px; font-weight:500; font-size:26px; line-height:1.5; color:var(--slate); max-width:820px}
+  .sub b{color:var(--volt-950); font-weight:600}
+
+  .foot{margin-top:auto; padding-top:26px; border-top:1px solid var(--line);
+    display:flex; justify-content:space-between; align-items:center;
+    font-family:'IBM Plex Mono',monospace; font-size:18px; letter-spacing:.12em; text-transform:uppercase; color:var(--slate)}
+  .foot .wm{display:flex; align-items:center; gap:14px; color:var(--volt-950); font-family:'Manrope'; font-weight:800; font-size:26px; letter-spacing:-.03em; text-transform:none}
+  .foot .wm .sym{width:28px;height:28px;color:var(--volt-950)}
+  .foot .wm .sym svg{width:100%;height:100%;display:block}
+</style>
+</head>
+<body>
+  <div class="canvas">
+    <div class="photo">
+      <img src="assets/team-b.webp" alt="Equipe do atacado">
+      <div class="tint"></div>
+      <div class="lift"></div>
+      <div class="grade"></div>
+    </div>
+    <div class="chip">Bastidores · operação real <b>2021</b></div>
+    <div class="stepcut"></div>
+
+    <div class="body">
+      <div class="kicker">A origem</div>
+      <div class="head">A Girumo nasceu dentro de um <em>atacado de verdade</em>.</div>
+
+      <div class="metric">
+        <span class="from">R$ 5 mil</span>
+        <span class="arrow"></span>
+        <span class="to">R$ 350 mil<small>/mês</small></span>
+      </div>
+
+      <div class="sub">
+        Um estoque parado virou rotina de vendas com um método de <b>grupos de WhatsApp</b>. A Girumo é esse método transformado em sistema — pra qualquer atacadista repetir.
+      </div>
+
+      <div class="foot">
+        <span class="wm">
+          <span class="sym">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path fill="currentColor" d="M5 2H12V10H9V22H5A3 3 0 0 1 2 19V5A3 3 0 0 1 5 2Z"/>
+              <path fill="currentColor" d="M14 2H19A3 3 0 0 1 22 5V19A3 3 0 0 1 19 22H11V14H14V2Z"/>
+            </svg>
+          </span>
+          Girumo
+        </span>
+        <span>Seus grupos rodando. Você vendendo.</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
