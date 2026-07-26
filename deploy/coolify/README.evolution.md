@@ -1,4 +1,7 @@
-# HUBFLOW — Evolution API v2 no Coolify (F1 da migração)
+# GIRUMO — Evolution API v2 no Coolify (F1 da migração)
+
+> Rebrand: identificadores desta stack usam `girumo*`. O `instanceName` na
+> Evolution segue o formato `gr_<instances.id>` (contrato consumido na F2).
 
 Sobe a stack **Evolution API v2** (WhatsApp) em VPS/Coolify. Substitui a engine
 Baileys (`engine.docker-compose.yml`) a partir da F5. Enquanto isso, as duas
@@ -35,11 +38,11 @@ deploy/coolify/evolution.env.example          # template de env (server-only)
 ## Hardening (checklist de segurança)
 
 - [ ] Imagem **pinada** (`v2.3.7`), nunca `:latest`. Confirme a tag no Docker Hub.
-- [ ] Postgres e Redis **sem porta no host** (só rede interna `hubflow-net`) — já é
+- [ ] Postgres e Redis **sem porta no host** (só rede interna `girumo-net`) — já é
       o default do compose (sem `ports:`).
 - [ ] `AUTHENTICATION_API_KEY` >= 32 bytes, igual ao `EVOLUTION_API_KEY` da Vercel.
 - [ ] **Manager UI bloqueada:** no proxy do Coolify, negue `/manager` e
-      `/manager/*` (ou restrinja por IP). O painel do HubFlow não usa o manager.
+      `/manager/*` (ou restrinja por IP). O painel do Girumo não usa o manager.
 - [ ] Firewall da VPS: expor só 80/443 (e 22 restrito). Nada de 5432/6379/8080
       direto no host.
 
@@ -51,19 +54,19 @@ Use um chip que possa levar ban. `$KEY` = `AUTHENTICATION_API_KEY`.
 BASE=https://wa.seudominio.com
 KEY=<AUTHENTICATION_API_KEY>
 
-# 1. Criar instância (instanceName no formato do HubFlow: hf_<uuid>)
+# 1. Criar instância (instanceName no formato do Girumo: hf_<uuid>)
 curl -sS -X POST "$BASE/instance/create" \
   -H "apikey: $KEY" -H "Content-Type: application/json" \
-  -d '{"instanceName":"hf_smoke-test","integration":"WHATSAPP-BAILEYS","qrcode":true}'
+  -d '{"instanceName":"gr_smoke-test","integration":"WHATSAPP-BAILEYS","qrcode":true}'
 
 # 2. Pegar o QR (base64) e escanear no WhatsApp
-curl -sS "$BASE/instance/connect/hf_smoke-test" -H "apikey: $KEY"
+curl -sS "$BASE/instance/connect/gr_smoke-test" -H "apikey: $KEY"
 
 # 3. Conferir estado da conexão
-curl -sS "$BASE/instance/connectionState/hf_smoke-test" -H "apikey: $KEY"
+curl -sS "$BASE/instance/connectionState/gr_smoke-test" -H "apikey: $KEY"
 
 # 4. Limpar
-curl -sS -X DELETE "$BASE/instance/delete/hf_smoke-test" -H "apikey: $KEY"
+curl -sS -X DELETE "$BASE/instance/delete/gr_smoke-test" -H "apikey: $KEY"
 ```
 
 ## Capturar fixtures de webhook (entrega principal da F1)
@@ -72,9 +75,9 @@ Os payloads reais alimentam os schemas zod da **F2** e os testes da **F4**.
 
 1. Crie um endpoint temporário em https://webhook.site (copie a URL).
 2. Configure o webhook **por instância** apontando pra ela, escutando os eventos
-   que o HubFlow usa:
+   que o Girumo usa:
    ```bash
-   curl -sS -X POST "$BASE/webhook/set/hf_smoke-test" \
+   curl -sS -X POST "$BASE/webhook/set/gr_smoke-test" \
      -H "apikey: $KEY" -H "Content-Type: application/json" \
      -d '{
        "webhook": {
@@ -105,7 +108,7 @@ público:
 
 ```txt
 EVOLUTION_API_URL (Vercel)  = https://wa.seudominio.com
-EVOLUTION_API_URL (worker)  = http://evolution:8080   # rede hubflow-net
+EVOLUTION_API_URL (worker)  = http://evolution:8080   # rede girumo-net
 ```
 
 ## Definition of done (F1)
