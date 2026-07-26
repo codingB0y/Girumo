@@ -102,6 +102,25 @@ Os payloads reais alimentam os schemas zod da **F2** e os testes da **F4**.
    Inclua ao menos um participante `@lid` (sem telefone real) — é o caso de borda
    crítico do worker.
 
+## Contratos reais da API (verificados na F1 contra a v2.3.7)
+
+Achados empíricos — não confie na doc, estes foram testados na stack no ar:
+
+- **`webhook/set` exige `"enabled": true`** no objeto `webhook`. Sem ele: HTTP 400
+  `webhook requires property "enabled"`.
+- **`MESSAGES_UPDATE` NÃO dispara em mensagem nova.** Ele dispara em mudança de
+  **status** (entregue/lida) — que é justamente o que o delivery-tracker (F4)
+  precisa. Mensagem recebida é `MESSAGES_UPSERT`, evento que o Girumo não usa
+  (decisão: conteúdo inbound não alimenta LLM).
+  Para gerar um `MESSAGES_UPDATE`: envie via `POST /message/sendText/{instance}`
+  e aguarde a entrega.
+- **`pairingCode` só é emitido se o `number` for informado na CRIAÇÃO** da
+  instância. Chamar `connect?number=...` numa instância que já subiu em modo QR
+  retorna `null`.
+- **QR pelo terminal é inviável na prática:** expira em ~20s e tem ~230 chars.
+  Use a UI em `/manager` para o pareamento manual (e bloqueie-a depois — ver
+  hardening).
+
 ## Rede interna para o worker (F4)
 
 O worker vai falar com a Evolution pela rede docker interna, não pelo HTTPS
