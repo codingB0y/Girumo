@@ -81,6 +81,7 @@ Os payloads reais alimentam os schemas zod da **F2** e os testes da **F4**.
      -H "apikey: $KEY" -H "Content-Type: application/json" \
      -d '{
        "webhook": {
+         "enabled": true,
          "url": "https://webhook.site/<seu-id>",
          "byEvents": false,
          "base64": false,
