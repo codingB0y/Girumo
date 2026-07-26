@@ -55,6 +55,7 @@ export async function middleware(req: NextRequest) {
 
   // Public routes
   if (pathname === "/") return NextResponse.next();
+  if (pathname === "/demo") return NextResponse.next();
   if (pathname === "/home-v2") return NextResponse.next(); // backup da home antiga (noindex)
   if (pathname === "/api/health") return NextResponse.next();
   if (pathname === "/api/billing/webhook") return NextResponse.next();
