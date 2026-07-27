@@ -1,4 +1,5 @@
 import { getPublishedPageBySlug } from "@/lib/pages/store";
+import { toPublicPagePayload } from "@/lib/pages/schema";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,12 +18,8 @@ export async function GET(
     const page = await getPublishedPageBySlug(slug);
     if (!page) return Response.json({ error: "Página não encontrada." }, { status: 404 });
 
-    // Não vaza tenant_id nem contadores no endpoint público
-    const publicPage: Partial<typeof page> = { ...page };
-    delete publicPage.tenant_id;
-    delete publicPage.views_count;
-    delete publicPage.leads_count;
-    return Response.json(publicPage);
+    // Allowlist: destinos, IDs internos, tenant, versões e contadores não saem.
+    return Response.json(toPublicPagePayload(page));
   } catch (e) {
     return Response.json({ error: (e as Error).message }, { status: 500 });
   }

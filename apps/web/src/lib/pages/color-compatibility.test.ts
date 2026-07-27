@@ -28,3 +28,16 @@ test("normalizes persisted unknown landing colors before editor reads", () => {
   const store = readFileSync(path.join(process.cwd(), "src", "lib", "pages", "store.ts"), "utf8");
   assert.match(store, /normalizeLandingPage/);
 });
+
+test("preserves v2 content without injecting a legacy primary color", () => {
+  const content = {
+    schema_version: 2,
+    store_name: "Bazar da Vila",
+    brand_color: "#7c3aed",
+  };
+
+  const normalized = pageSchema.normalizeLandingPage({ content } as never);
+
+  assert.deepEqual(normalized.content, content);
+  assert.equal("primary_color" in normalized.content, false);
+});

@@ -63,11 +63,23 @@ function decodeMediaId(id: string): string | null {
   }
 }
 
+/**
+ * Visibilidade da mídia. `media` é privada (campanhas de WhatsApp etc. — só sai
+ * pela rota autenticada). `lp-media`/`lp-logo` são mídia de landing page, servida
+ * publicamente por /api/p/media/:id. É este `kind` — e não o id — que autoriza a
+ * leitura pública: o id é só o storage path em base64url, então sem esse filtro
+ * qualquer upload privado vazaria para quem tivesse o id em mãos.
+ */
+export type MediaKind = "media" | "lp-media" | "lp-logo";
+
+const PUBLIC_LP_KINDS: readonly MediaKind[] = ["lp-media", "lp-logo"];
+
 export async function saveMedia(
   buffer: Buffer,
   mime: string,
   tenantId: string,
   authUserId: string,
+  kind: MediaKind = "media",
 ): Promise<{ id: string; type: "image" | "video" | "audio" | "file" }> {
   const supabase = getSupabaseAdmin();
   const ext = MIME_EXT[mime] ?? "jpg";
@@ -84,7 +96,7 @@ export async function saveMedia(
 
   const { error: metadataError } = await supabase.from("uploads").insert({
     tenant_id: tenantId,
-    kind: "media",
+    kind,
     bucket: BUCKET,
     path: metadataPath,
     mime_type: mime,
@@ -106,6 +118,40 @@ export async function saveMedia(
         ? "image"
         : "file";
   return { id: encodeMediaId(storagePath), type: mediaType };
+}
+
+/**
+ * Leitura PÚBLICA de mídia de landing page (sem sessão). A autorização é o `kind`
+ * gravado no upload: só `lp-media`/`lp-logo` saem por aqui. Mídia privada (kind
+ * `media`, de campanhas) retorna null mesmo que o chamador tenha o id — o id é
+ * apenas o storage path codificado, não um segredo.
+ */
+export async function readPublicLpMedia(
+  id: string,
+): Promise<{ buffer: Buffer; contentType: string } | null> {
+  const storagePath = decodeMediaId(id);
+  if (!storagePath) return null;
+
+  const supabase = getSupabaseAdmin();
+  const { data: row, error: rowError } = await supabase
+    .from("uploads")
+    .select("kind")
+    .eq("bucket", BUCKET)
+    .eq("path", `uploads/${storagePath}`)
+    .maybeSingle();
+
+  if (rowError || !row) return null;
+  if (!PUBLIC_LP_KINDS.includes(row.kind as MediaKind)) return null;
+
+  const { data, error } = await supabase.storage.from(BUCKET).download(storagePath);
+  if (error || !data) return null;
+
+  const arrayBuffer = await data.arrayBuffer();
+  const ext = storagePath.split(".").pop()?.toLowerCase() ?? "jpg";
+  return {
+    buffer: Buffer.from(arrayBuffer),
+    contentType: EXT_MIME[ext] ?? "application/octet-stream",
+  };
 }
 
 export async function readMedia(id: string, tenantId: string): Promise<{ buffer: Buffer; contentType: string } | null> {
