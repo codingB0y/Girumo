@@ -46,15 +46,15 @@ export async function upsertGroupsBatch(
 /**
  * Sync vindo do provedor (Evolution `fetchAllGroups`).
  *
- * Grava SÓ o que o WhatsApp é dono: id do grupo, nome e nº de membros. Os
- * campos configurados no painel (`selected`, `capacity`, `engagement`,
- * `invite_url`) ficam de fora do payload de propósito — o ON CONFLICT só
- * atualiza colunas presentes, então um sync não apaga a seleção do lojista.
- * Em linha nova, o default da tabela cobre cada um deles.
+ * Grava SÓ o que o WhatsApp é dono: id do grupo, nome, nº de membros e se
+ * somos admin. Os campos configurados no painel (`selected`, `capacity`,
+ * `engagement`, `invite_url`) ficam de fora do payload de propósito — o ON
+ * CONFLICT só atualiza colunas presentes, então um sync não apaga a seleção do
+ * lojista. Em linha nova, o default da tabela cobre cada um deles.
  */
 export async function syncGroupsFromProvider(
   tenantId: string,
-  groups: Array<{ whatsapp_group_id: string; name: string; members: number }>,
+  groups: Array<{ whatsapp_group_id: string; name: string; members: number; is_admin: boolean }>,
 ): Promise<number> {
   if (groups.length === 0) return 0;
   const rows = groups.map((g) => ({ ...g, tenant_id: tenantId }));

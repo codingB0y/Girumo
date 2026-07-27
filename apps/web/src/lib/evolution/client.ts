@@ -233,19 +233,25 @@ export type EvolutionGroup = {
   id: string;
   subject?: string;
   size?: number;
+  /** Só presente com `getParticipants=true`. Usado para decidir se somos admin. */
+  participants?: Array<{ id?: string | null; phoneNumber?: string | null; admin?: string | null }>;
+  owner?: string | null;
+  ownerPn?: string | null;
 };
 
 /**
- * Lista os grupos da instância.
+ * Lista os grupos da instância, com participantes.
  *
- * `getParticipants=false`: a lista de membros de todos os grupos é pesada e a
- * F2 só precisa de id/nome/tamanho para popular `groups`.
+ * `getParticipants=true` é necessário para saber em quais grupos somos admin —
+ * e só grupos admin alimentam captura de leads (ver `admin-group.ts`). Custa
+ * uma resposta bem maior, mas sem isso a alternativa seria uma chamada por
+ * grupo, muito pior.
  */
 export async function fetchAllGroups(instanceName: string): Promise<EvolutionGroup[]> {
   // `getParticipants` é obrigatório no schema da v2.3.7 (enum 'true'|'false'):
   // omitir devolve 400, não a lista inteira.
   const data = await request<EvolutionGroup[] | null>(
-    `/group/fetchAllGroups/${encodeURIComponent(instanceName)}?getParticipants=false`,
+    `/group/fetchAllGroups/${encodeURIComponent(instanceName)}?getParticipants=true`,
     { timeoutMs: FETCH_GROUPS_TIMEOUT_MS },
   );
   return Array.isArray(data) ? data : [];

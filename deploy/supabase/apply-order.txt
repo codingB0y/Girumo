@@ -16,3 +16,13 @@ apps/web/supabase/migrations/20260702120000_flow_pages.sql
 apps/web/supabase/migrations/20260715090000_lp_v2.sql
 apps/web/supabase/migrations/20260717010000_lp_v2_rollout.sql
 apps/web/supabase/migrations/20260723090000_lp_v2_capture_atomicity.sql
+# Migração Evolution. Fora de ordem cronológica DE PROPÓSITO: a
+# rls_standardization pula tabelas que ainda não existem (to_regclass ... continue),
+# então precisa rodar depois de todas as criações para padronizar todas elas.
+# Estas quatro estavam aplicadas em produção mas não registradas aqui — um
+# ambiente novo nasceria sem o schema da Evolution inteiro.
+apps/web/supabase/migrations/20260713100000_rls_standardization.sql
+apps/web/supabase/migrations/20260713110000_evolution_provider_columns.sql
+apps/web/supabase/migrations/20260713120000_engine_queue_v2.sql
+apps/web/supabase/migrations/20260713130000_advisor_cleanup.sql
+apps/web/supabase/migrations/20260727120000_leads_and_worker_reads.sql

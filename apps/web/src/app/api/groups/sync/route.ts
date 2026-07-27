@@ -1,3 +1,4 @@
+import { isAdminGroup } from "@/lib/evolution/admin-group";
 import { fetchAllGroups, providerInstanceId } from "@/lib/evolution/client";
 import { syncGroupsFromProvider } from "@/lib/stores/groups";
 import { getInstance, listInstances } from "@/lib/stores/instances";
@@ -47,27 +48,34 @@ export async function POST(req: Request) {
     const remoteName = instance.provider_instance_id || providerInstanceId(instance.id);
     const remoteGroups = await fetchAllGroups(remoteName);
 
-    const synced = await syncGroupsFromProvider(
-      ctx.tenantId,
-      remoteGroups
-        .filter((g) => typeof g.id === "string" && g.id.length > 0)
-        .map((g) => ({
-          whatsapp_group_id: g.id,
-          name: (g.subject ?? "").trim().slice(0, 200) || "Grupo sem nome",
-          members: typeof g.size === "number" && g.size >= 0 ? g.size : 0,
-        })),
-    );
+    const rows = remoteGroups
+      .filter((g) => typeof g.id === "string" && g.id.length > 0)
+      .map((g) => ({
+        whatsapp_group_id: g.id,
+        name: (g.subject ?? "").trim().slice(0, 200) || "Grupo sem nome",
+        members: typeof g.size === "number" && g.size >= 0 ? g.size : 0,
+        // Só grupos admin alimentam captura de leads (ver admin-group.ts).
+        is_admin: isAdminGroup(g, instance.phone),
+      }));
+
+    const synced = await syncGroupsFromProvider(ctx.tenantId, rows);
+    const adminCount = rows.filter((r) => r.is_admin).length;
 
     await getSupabaseAdmin().from("logs").insert({
       tenant_id: ctx.tenantId,
       actor_user_id: ctx.authUserId,
-      level: "info",
+      // Nenhum grupo admin, com grupos existindo, é sinal de detecção quebrada
+      // — não de conta sem grupos. A engine emitia o mesmo aviso.
+      level: rows.length > 0 && adminCount === 0 ? "warn" : "info",
       event: "groups.synced",
-      message: `${synced} grupos sincronizados.`,
-      metadata: { instance_id: instance.id, count: synced },
+      message:
+        rows.length > 0 && adminCount === 0
+          ? `${synced} grupos sincronizados, mas NENHUM admin detectado — captura de leads ficará vazia.`
+          : `${synced} grupos sincronizados (${adminCount} admin).`,
+      metadata: { instance_id: instance.id, count: synced, admin_count: adminCount },
     });
 
-    return Response.json({ synced });
+    return Response.json({ synced, admin: adminCount });
   } catch (error) {
     if (error instanceof Response) return error;
     return Response.json({ error: "Erro ao sincronizar grupos." }, { status: 502 });
