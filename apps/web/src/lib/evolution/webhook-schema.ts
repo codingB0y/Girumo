@@ -155,7 +155,8 @@ export function parseEvolutionWebhook(payload: unknown): ParseResult {
 export function stripCredentials<T extends Record<string, unknown>>(
   payload: T,
 ): Omit<T, "apikey"> {
-  const { apikey: _apikey, ...safe } = payload;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { apikey, ...safe } = payload;
   return safe;
 }
 

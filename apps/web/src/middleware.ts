@@ -8,6 +8,12 @@ const RATE_LIMITS: Record<string, number> = {
   "/api/auth/login": 5,
   "/api/auth/signup": 3,
   "/api/auth/account": 10,
+  // Webhooks de provedor: teto alto porque uma instância ativa emite rajadas
+  // legítimas (QR renova a cada ~20s, grupos grandes disparam em lote). O gate
+  // de verdade é o secret no handler; isto só barra flood ingênuo.
+  // Limitação conhecida: o contador é por instância serverless, então na Vercel
+  // o teto efetivo é maior que 300. Aceito na F2.
+  "/api/webhooks/evolution": 300,
 };
 
 const ipAttempts = new Map<string, { count: number; resetAt: number }>();
@@ -58,6 +64,17 @@ export async function middleware(req: NextRequest) {
   if (pathname === "/api/health") return NextResponse.next();
   if (pathname === "/api/billing/webhook") return NextResponse.next();
   if (pathname.startsWith("/posts/og")) return NextResponse.next();
+
+  // Provider webhooks carry no session: the handler authenticates them with a
+  // constant-time secret compare. Rate limited here so an unauthenticated
+  // flood never reaches the database.
+  if (accessKind === "webhook") {
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    if (isRateLimited(ip, pathname)) {
+      return NextResponse.json({ error: "rate limited" }, { status: 429 });
+    }
+    return NextResponse.next();
+  }
 
   // Crons and public auth callbacks authenticate inside their route handlers.
   if (accessKind === "cron" || (accessKind === "public" && pathname.startsWith("/api/"))) {

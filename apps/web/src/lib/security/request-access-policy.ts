@@ -4,6 +4,7 @@ export type AccessKind =
   | "cron"
   | "engine-only"
   | "shared"
+  | "webhook"
   | "user";
 
 export type EngineDecision =
@@ -22,6 +23,15 @@ const ENGINE_ONLY = new Set([
   "POST /api/groups/grow/pending",
   "POST /api/groups/grow/ack",
 ]);
+
+/**
+ * Webhooks de provedores externos: sem sessão, autenticados pelo próprio
+ * handler (secret constant-time) e com rate limit dedicado no middleware.
+ *
+ * Casamento por path EXATO, nunca por prefixo: `/api/webhooks/config` é rota
+ * autenticada de tenant e abrir `/api/webhooks/*` a exporia.
+ */
+const PROVIDER_WEBHOOKS = new Set(["POST /api/webhooks/evolution"]);
 
 const SHARED_PREFIXES = [
   "/api/session",
@@ -45,6 +55,8 @@ export function classifyRequest(pathname: string, method: string): AccessKind {
   if (pathname === "/api/cron/emails" || pathname === "/api/notifications/alerts") {
     return "cron";
   }
+
+  if (PROVIDER_WEBHOOKS.has(key)) return "webhook";
 
   if (ENGINE_ONLY.has(key)) return "engine-only";
 
