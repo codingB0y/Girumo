@@ -1,6 +1,5 @@
-import { createHash, timingSafeEqual } from "node:crypto";
-
 import { evolutionEventId } from "@/lib/evolution/event-id";
+import { secretMatches } from "@/lib/evolution/webhook-secret";
 import {
   mapConnectionState,
   parseEvolutionWebhook,
@@ -34,20 +33,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const SECRET_HEADER = "x-evolution-webhook-secret";
-
-/**
- * Comparação em tempo constante e independente de tamanho.
- *
- * `timingSafeEqual` lança quando os buffers têm tamanhos diferentes — e o
- * próprio lançar já vazaria o tamanho do secret. Comparar os digests SHA-256
- * mantém as duas entradas com 32 bytes fixos.
- */
-function secretMatches(provided: string | null, expected: string): boolean {
-  if (!provided || !expected) return false;
-  const a = createHash("sha256").update(provided).digest();
-  const b = createHash("sha256").update(expected).digest();
-  return timingSafeEqual(a, b);
-}
 
 /** QR: só o status/código na instância. O código NUNCA entra em engine_events. */
 async function applyQrCode(instance: Instance, event: EvolutionWebhookEvent): Promise<void> {
