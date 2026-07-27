@@ -1,6 +1,6 @@
 import { getTenantContext } from "@/lib/supabase/tenant-context";
 import { createLandingPage, getLpTemplateById, listLandingPages } from "@/lib/pages/store";
-import { toContent, validateContent, validateTargetGroupUrl } from "@/lib/pages/schema";
+import { parseContentInput, validateTargetGroupUrl } from "@/lib/pages/schema";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,9 +36,9 @@ export async function POST(req: Request) {
     return Response.json({ error: "template_id é obrigatório." }, { status: 400 });
   }
 
-  const contentErrors = validateContent(body.content);
-  if (contentErrors.length > 0) {
-    return Response.json({ error: "Conteúdo inválido.", details: contentErrors }, { status: 400 });
+  const parsed = parseContentInput(body.content);
+  if (!parsed.ok) {
+    return Response.json({ error: "Conteúdo inválido.", details: parsed.errors }, { status: 400 });
   }
 
   const campaignSlug =
@@ -65,7 +65,8 @@ export async function POST(req: Request) {
 
     const page = await createLandingPage(ctx.tenantId, {
       template_id: template.id,
-      content: toContent(body.content as Record<string, unknown>),
+      content: parsed.content,
+      content_schema_version: parsed.schema_version,
       campaign_slug: campaignSlug,
       target_group_url: targetGroupUrl,
       meta_pixel_id: typeof body.meta_pixel_id === "string" ? body.meta_pixel_id : null,

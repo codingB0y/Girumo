@@ -3,6 +3,15 @@
  * Fonte da verdade dos shapes trocados entre painel, API e render público.
  */
 
+// Girumo LP v2 — barrel do domínio novo (conteúdo, paleta, vídeo, telefone).
+import type { LpContentV2, LpStructure, LpVisualDirection } from "./content";
+import { toContentV2, validateContentV2 } from "./content";
+import { isLpContentV2 } from "./render";
+export * from "./content";
+export * from "./palette";
+export * from "./video";
+export { normalizeWhatsappBR } from "./phone";
+
 export const LP_COLORS = ["cobalt", "emerald", "amber"] as const;
 export type LpColor = (typeof LP_COLORS)[number];
 
@@ -41,12 +50,22 @@ export type LandingPage = {
   template_id: string;
   slug: string;
   status: LpStatus;
-  content: LpContent;
+  content: LpContent | LpContentV2;
+  /** Versão do shape em `content` — 2 = editorial v2, 1 = legado (Flow Pages). */
+  content_schema_version: LpContentSchemaVersion;
   campaign_slug: string | null;
   target_group_url: string | null;
   meta_pixel_id: string | null;
   ga4_id: string | null;
   tiktok_pixel_id: string | null;
+  /** Dimensões do modelo — gravadas na captura pra saber O QUE a pessoa viu. */
+  structure: LpStructure;
+  visual_direction: LpVisualDirection;
+  model_version: number;
+  /** Versão do aviso apresentado (§8); muda quando a redação muda. */
+  notice_version: string;
+  /** Sobe a cada publish: separa capturas de versões diferentes da página. */
+  published_version: number;
   published_at: string | null;
   views_count: number;
   leads_count: number;
@@ -55,6 +74,8 @@ export type LandingPage = {
 };
 
 export function normalizeLandingPage<T extends LandingPage>(page: T): T {
+  if (isLpContentV2(page.content)) return page;
+
   return {
     ...page,
     content: {
@@ -70,9 +91,131 @@ export type PublicLandingPage = LandingPage & {
   template_copy: Record<string, string>;
 };
 
+/**
+ * Payload do endpoint público de página. A allowlist é intencional: destino,
+ * IDs internos, tenant, versões, datas e contadores nunca atravessam esta
+ * fronteira. Os pixels permanecem porque participam do render/tracking público.
+ */
+export type PublicPagePayload = Pick<
+  PublicLandingPage,
+  "slug" | "content" | "component_key" | "template_copy" | "meta_pixel_id" | "ga4_id"
+>;
+
+export function toPublicPagePayload(page: PublicLandingPage): PublicPagePayload {
+  return {
+    slug: page.slug,
+    content: page.content,
+    component_key: page.component_key,
+    template_copy: page.template_copy,
+    meta_pixel_id: page.meta_pixel_id,
+    ga4_id: page.ga4_id,
+  };
+}
+
+export type LandingPageUpdatePatch = Partial<
+  Pick<
+    LandingPage,
+    | "content"
+    | "content_schema_version"
+    | "campaign_slug"
+    | "target_group_url"
+    | "meta_pixel_id"
+    | "ga4_id"
+    | "status"
+  >
+> & {
+  published_at?: string;
+  published_version?: number;
+};
+
+const PUBLIC_PAGE_FIELDS = [
+  "content",
+  "content_schema_version",
+  "campaign_slug",
+  "target_group_url",
+  "meta_pixel_id",
+  "ga4_id",
+  "status",
+] as const satisfies readonly (keyof LandingPageUpdatePatch)[];
+
+function hasOwn<T extends object>(value: T, key: PropertyKey): boolean {
+  return Object.prototype.hasOwnProperty.call(value, key);
+}
+
+function publicValueEqual(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  if (Array.isArray(left) && Array.isArray(right)) {
+    return (
+      left.length === right.length &&
+      left.every((item, index) => publicValueEqual(item, right[index]))
+    );
+  }
+  if (
+    typeof left === "object" &&
+    left !== null &&
+    typeof right === "object" &&
+    right !== null
+  ) {
+    const leftRecord = left as Record<string, unknown>;
+    const rightRecord = right as Record<string, unknown>;
+    const leftKeys = Object.keys(leftRecord).sort();
+    const rightKeys = Object.keys(rightRecord).sort();
+    return (
+      publicValueEqual(leftKeys, rightKeys) &&
+      leftKeys.every((key) => publicValueEqual(leftRecord[key], rightRecord[key]))
+    );
+  }
+  return false;
+}
+
+/**
+ * Aplica as invariantes finais do PATCH depois de os campos terem sido
+ * validados/sanitizados pela rota. A versão avança uma única vez quando o
+ * estado público efetivo muda e o estado final permanece publicado.
+ */
+export function finalizeLandingPageUpdate(
+  existing: LandingPage,
+  requested: LandingPageUpdatePatch,
+  nowIso = new Date().toISOString(),
+):
+  | { ok: true; patch: LandingPageUpdatePatch }
+  | { ok: false; error: string } {
+  const finalStatus = requested.status ?? existing.status;
+  const finalCampaign = hasOwn(requested, "campaign_slug")
+    ? requested.campaign_slug ?? null
+    : existing.campaign_slug;
+  const finalTarget = hasOwn(requested, "target_group_url")
+    ? requested.target_group_url ?? null
+    : existing.target_group_url;
+
+  if (finalStatus === "published" && !finalCampaign && !finalTarget) {
+    return {
+      ok: false,
+      error: "Defina o link do grupo ou uma campanha antes de publicar.",
+    };
+  }
+
+  const publicChanged = PUBLIC_PAGE_FIELDS.some(
+    (field) =>
+      hasOwn(requested, field) &&
+      !publicValueEqual(requested[field], existing[field]),
+  );
+  const patch: LandingPageUpdatePatch = { ...requested };
+
+  if (finalStatus === "published" && !existing.published_at) {
+    patch.published_at = nowIso;
+  }
+  if (finalStatus === "published" && publicChanged) {
+    patch.published_version = (existing.published_version ?? 0) + 1;
+  }
+
+  return { ok: true, patch };
+}
+
 export type LpCreateInput = {
   template_id: string;
-  content: LpContent;
+  content: LpContent | LpContentV2;
+  content_schema_version: LpContentSchemaVersion;
   campaign_slug?: string | null;
   target_group_url?: string | null;
   meta_pixel_id?: string | null;
@@ -134,23 +277,67 @@ export function toContent(input: Record<string, unknown>): LpContent {
   };
 }
 
+/* ------------------- entrada do editor: legado × v2 ------------------- */
+
+/** Versão do shape do content — espelha a coluna `content_schema_version`. */
+export type LpContentSchemaVersion = 1 | 2;
+
+export type ContentParseResult =
+  | { ok: false; errors: string[] }
+  | { ok: true; schema_version: 1; content: LpContent }
+  | { ok: true; schema_version: 2; content: LpContentV2 };
+
 /**
- * Normaliza WhatsApp BR pra E.164 (+55DDDNÚMERO).
- * Aceita: (62) 99819-1314 · 62998191314 · 5562998191314 · +55 62 ...
- * Retorna null se não parecer um celular BR válido (DDD 11-99 + 8-9 dígitos).
+ * Porta de entrada única do `content` vindo do client (POST/PATCH de páginas).
+ * O eixo é o `schema_version` declarado — o mesmo do render (`isLpContentV2`):
+ * quem declara 2 é validado como v2 e recebe erros de v2; conteúdo sem versão é
+ * legado, então o editor antigo segue funcionando durante o dual (a Fase 5
+ * migra). Valida e sanitiza junto, para nenhuma rota gravar sem passar pelos dois.
  */
-export function normalizeWhatsappBR(raw: string): string | null {
-  let digits = raw.replace(/\D/g, "");
-  if (digits.startsWith("55") && digits.length >= 12) digits = digits.slice(2);
-  if (digits.length < 10 || digits.length > 11) return null;
-  const ddd = Number(digits.slice(0, 2));
-  if (ddd < 11 || ddd > 99) return null;
-  return `+55${digits}`;
+export function parseContentInput(input: unknown): ContentParseResult {
+  if (typeof input !== "object" || input === null) {
+    return { ok: false, errors: ["content inválido."] };
+  }
+
+  if (isLpContentV2(input)) {
+    const errors = validateContentV2(input);
+    if (errors.length > 0) return { ok: false, errors };
+    return {
+      ok: true,
+      schema_version: 2,
+      content: toContentV2(input as unknown as Record<string, unknown>),
+    };
+  }
+
+  const errors = validateContent(input);
+  if (errors.length > 0) return { ok: false, errors };
+  return { ok: true, schema_version: 1, content: toContent(input as Record<string, unknown>) };
 }
 
 /** Texto de consent LGPD renderizado na LP e snapshotado no lead. */
 export function consentText(storeName: string, groupTopic: string): string {
   return `Aceito ser adicionado ao grupo de WhatsApp de ${storeName} e receber mensagens sobre ${groupTopic}. Posso sair do grupo e revogar este consentimento a qualquer momento.`;
+}
+
+/**
+ * Aviso v2: sem checkbox, o clique no CTA é a ação afirmativa (§8.2), e o v2 não
+ * tem `group_topic` — o aviso cita a loja e o que o grupo manda.
+ * Redação final pendente do gate jurídico (§8/§13).
+ */
+export function noticeTextV2(storeName: string): string {
+  return `Ao continuar, você solicita acesso ao grupo e poderá receber novidades e ofertas da ${storeName}. Política de Privacidade.`;
+}
+
+/**
+ * Fonte única do aviso: o que a página MOSTRA e o que a captura SNAPSHOTA como
+ * prova têm que ser a mesma string — se divergirem, o snapshot deixa de valer
+ * como evidência do que a pessoa leu. Por isso o render cria a string aqui,
+ * mostra a mesma string no form e a assina no contexto que a rota persiste.
+ */
+export function noticeTextFor(content: LpContent | LpContentV2): string {
+  return isLpContentV2(content)
+    ? noticeTextV2(content.store_name)
+    : consentText(content.store_name, content.group_topic);
 }
 
 /** Destino do lead: campanha rastreada (rotação) > URL fixa de grupo. */
@@ -163,3 +350,36 @@ export function resolveTargetUrl(page: Pick<LandingPage, "campaign_slug" | "targ
 export function validateTargetGroupUrl(url: string): boolean {
   return /^https:\/\/(chat\.whatsapp\.com|wa\.me)\/\S+$/i.test(url.trim());
 }
+
+/* --------------------------- v2: contato × captura --------------------------- */
+
+/** Contato único por tenant+whatsapp (dedup global de pessoa). */
+export type LpContact = {
+  id: string;
+  tenant_id: string;
+  name: string | null;
+  whatsapp: string;
+  blocked_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/** Captura: envio numa página/versão/campanha, referencia o contato + evidência do aviso. */
+export type LpCapture = {
+  id: string;
+  tenant_id: string;
+  landing_page_id: string;
+  contact_id: string;
+  published_version: number;
+  campaign_slug: string | null;
+  structure: LpStructure;
+  visual_direction: LpVisualDirection;
+  model_version: number;
+  notice_version: string;
+  notice_text: string;
+  device: string | null;
+  utm: Record<string, string | null>;
+  idem_key: string;
+  group_clicked_at: string | null;
+  created_at: string;
+};

@@ -46,7 +46,6 @@ export function EditorPreview({
           slug="preview"
           content={content}
           copy={copy}
-          targetUrl="#"
           consentText={consentText(content.store_name, content.group_topic)}
           preview
         />
