@@ -117,6 +117,19 @@ Achados empíricos — não confie na doc, estes foram testados na stack no ar:
 - **`pairingCode` só é emitido se o `number` for informado na CRIAÇÃO** da
   instância. Chamar `connect?number=...` numa instância que já subiu em modo QR
   retorna `null`.
+- **O campo `event` do payload NÃO usa o nome configurado.** Configura-se
+  `CONNECTION_UPDATE` mas chega `connection.update`. Mapa real:
+  `QRCODE_UPDATED→qrcode.updated`, `CONNECTION_UPDATE→connection.update`,
+  `GROUPS_UPSERT→groups.upsert`, `MESSAGES_UPDATE→messages.update`,
+  `GROUP_PARTICIPANTS_UPDATE→group-participants.update`.
+  A discriminated union do zod (F2) deve usar os valores da direita.
+- **Envelope comum a todo evento:** `event`, `instance`, `data`, `destination`,
+  `date_time`, `sender`, `server_url`, `apikey`.
+- **⚠️ O payload inclui `apikey`** (token da instância). Nunca logar o payload
+  cru; as fixtures do repo estão redigidas.
+- **`@lid` é real e frequente:** participantes aparecem como `<digitos>@lid`
+  (sem telefone) misturados com `<numero>@s.whatsapp.net`. Presente em 4 das 6
+  fixtures capturadas — `normalizeParticipant` (F3) precisa tratar os dois.
 - **QR pelo terminal é inviável na prática:** expira em ~20s e tem ~230 chars.
   Use a UI em `/manager` para o pareamento manual (e bloqueie-a depois — ver
   hardening).
