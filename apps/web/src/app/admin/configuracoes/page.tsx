@@ -24,12 +24,12 @@ export default function AdminConfiguracoesPage() {
       </div>
 
       {/* Variáveis de ambiente */}
-      <section className="rounded-2xl border border-breu/[0.06] bg-white shadow-sm">
-        <div className="flex items-center gap-3 border-b border-breu/[0.06] px-6 py-4">
-          <Key className="h-5 w-5 text-iris" />
+      <section className="rounded-2xl border border-volt-950/[0.06] bg-white shadow-sm">
+        <div className="flex items-center gap-3 border-b border-volt-950/[0.06] px-6 py-4">
+          <Key className="h-5 w-5 text-cobalt-500" />
           <h2 className="font-display text-base font-bold">Variáveis de Ambiente</h2>
         </div>
-        <div className="divide-y divide-breu/[0.04]">
+        <div className="divide-y divide-volt-950/[0.04]">
           {envVars.map((v) => (
             <div key={v.key} className="flex items-center justify-between px-6 py-3.5">
               <div className="flex items-center gap-3">
@@ -38,7 +38,7 @@ export default function AdminConfiguracoesPage() {
                 ) : (
                   <Globe className="h-4 w-4 text-aco/40" />
                 )}
-                <span className="font-data text-sm text-breu">{v.key}</span>
+                <span className="font-data text-sm text-volt-950">{v.key}</span>
               </div>
               <span
                 className={`rounded-full px-2.5 py-1 font-data text-[10px] uppercase tracking-wider ${
@@ -53,9 +53,9 @@ export default function AdminConfiguracoesPage() {
       </section>
 
       {/* Info do sistema */}
-      <section className="rounded-2xl border border-breu/[0.06] bg-white shadow-sm">
-        <div className="flex items-center gap-3 border-b border-breu/[0.06] px-6 py-4">
-          <Database className="h-5 w-5 text-iris" />
+      <section className="rounded-2xl border border-volt-950/[0.06] bg-white shadow-sm">
+        <div className="flex items-center gap-3 border-b border-volt-950/[0.06] px-6 py-4">
+          <Database className="h-5 w-5 text-cobalt-500" />
           <h2 className="font-display text-base font-bold">Sistema</h2>
         </div>
         <div className="grid gap-4 p-6 sm:grid-cols-2">
@@ -67,14 +67,14 @@ export default function AdminConfiguracoesPage() {
       </section>
 
       {/* Admins */}
-      <section className="rounded-2xl border border-breu/[0.06] bg-white shadow-sm">
-        <div className="flex items-center gap-3 border-b border-breu/[0.06] px-6 py-4">
+      <section className="rounded-2xl border border-volt-950/[0.06] bg-white shadow-sm">
+        <div className="flex items-center gap-3 border-b border-volt-950/[0.06] px-6 py-4">
           <Shield className="h-5 w-5 text-alerta" />
           <h2 className="font-display text-base font-bold">Admins da plataforma</h2>
         </div>
         <div className="p-6">
           <p className="text-xs text-aco/55">
-            Definidos via variável <code className="rounded bg-bruma px-1.5 py-0.5 font-data text-breu">PLATFORM_ADMIN_EMAILS</code> (separados por vírgula).
+            Definidos via variável <code className="rounded bg-canvas-100 px-1.5 py-0.5 font-data text-volt-950">PLATFORM_ADMIN_EMAILS</code> (separados por vírgula).
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             {(process.env.PLATFORM_ADMIN_EMAILS ?? "igor@hubflow.com.br")
@@ -98,9 +98,9 @@ export default function AdminConfiguracoesPage() {
 
 function InfoItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-bruma/40 px-4 py-3">
+    <div className="rounded-xl bg-canvas-100/40 px-4 py-3">
       <p className="font-data text-[10px] uppercase tracking-wider text-aco/50">{label}</p>
-      <p className="mt-1 text-sm font-medium text-breu">{value}</p>
+      <p className="mt-1 text-sm font-medium text-volt-950">{value}</p>
     </div>
   );
 }

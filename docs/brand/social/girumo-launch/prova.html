@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Girumo — Prova social</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--volt-950:#071923; --volt-900:#0C2835; --volt-800:#123746; --acid:#A7FF2F; --cobalt:#2E66FF; --canvas:#F4F0E7; --paper:#FFFEFA; --slate:#52646C; --line:#D8D7CF}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:#333}
+  .canvas{position:relative; width:1080px; height:1350px; overflow:hidden;
+    background:var(--volt-950); color:var(--canvas); font-family:'Manrope',sans-serif;
+    background-image:linear-gradient(90deg, rgba(255,255,255,.020) 1px, transparent 1px); background-size:90px 100%}
+
+  /* framed phone-screenshot panel — real group list, numbers blurred out by design */
+  .shot{position:absolute; right:64px; top:196px; width:520px; height:760px;
+    border-radius:30px; overflow:hidden; border:1px solid rgba(255,255,255,.16);
+    box-shadow:0 50px 90px rgba(0,0,0,.45)}
+  .shot img{width:100%; height:100%; object-fit:cover; object-position:50% 0;
+    filter:blur(5px) grayscale(1) brightness(1.12) contrast(.98)}
+  .shot .tint{position:absolute; inset:0; background:var(--cobalt); mix-blend-mode:color; opacity:.4}
+  .shot .fade{position:absolute; inset:0; background:linear-gradient(180deg, rgba(7,25,35,.12) 0%, rgba(7,25,35,0) 45%, rgba(7,25,35,.9) 100%)}
+  .shot .glow{position:absolute; inset:0; box-shadow:inset 0 0 0 1px rgba(167,255,47,.12)}
+
+  .frame{position:absolute; inset:0; padding:84px 88px; display:flex; flex-direction:column; z-index:2}
+  .top{display:flex; justify-content:space-between; align-items:center;
+    font-family:'IBM Plex Mono',monospace; font-size:19px; letter-spacing:.16em; text-transform:uppercase; color:var(--slate)}
+  .top .r{color:var(--canvas)}
+  .top .dot{display:inline-block;width:9px;height:9px;background:var(--acid);margin-right:12px;vertical-align:middle}
+
+  .chip{margin-top:40px; align-self:flex-start; font-family:'IBM Plex Mono',monospace; font-size:16px; letter-spacing:.10em; text-transform:uppercase;
+    color:var(--canvas); border:1px solid rgba(255,255,255,.22); padding:9px 15px; z-index:3; position:relative}
+  .chip b{color:var(--acid); font-weight:500}
+
+  .head{margin-top:auto; font-weight:700; font-size:82px; line-height:1.0; letter-spacing:-.03em; color:var(--canvas); position:relative; z-index:3}
+  .head em{font-style:normal; padding:0 6px; background:linear-gradient(transparent 58%, var(--acid) 58%, var(--acid) 94%, transparent 94%)}
+
+  .stats{margin-top:52px; display:flex; gap:0; border-top:1px solid rgba(255,255,255,.14); z-index:3; position:relative}
+  .stat{flex:1; padding:26px 24px 6px 0}
+  .stat:not(:last-child){border-right:1px solid rgba(255,255,255,.10)}
+  .stat:not(:first-child){padding-left:28px}
+  .stat .n{font-family:'IBM Plex Mono',monospace; font-weight:500; font-size:42px; letter-spacing:-.02em; color:var(--acid); white-space:nowrap}
+  .stat .l{margin-top:10px; font-family:'IBM Plex Mono',monospace; font-size:15px; letter-spacing:.03em; color:var(--slate); line-height:1.35}
+
+  .foot{margin-top:48px; padding-top:26px; border-top:1px solid rgba(255,255,255,.12);
+    display:flex; justify-content:space-between; align-items:center; z-index:3; position:relative;
+    font-family:'IBM Plex Mono',monospace; font-size:17px; letter-spacing:.12em; text-transform:uppercase; color:var(--slate)}
+  .foot .wm{display:flex; align-items:center; gap:14px; color:var(--canvas); font-family:'Manrope'; font-weight:800; font-size:26px; letter-spacing:-.03em; text-transform:none}
+  .foot .wm .sym{width:28px;height:28px;color:var(--canvas)}
+  .foot .wm .sym svg{width:100%;height:100%;display:block}
+</style>
+</head>
+<body>
+  <div class="canvas">
+    <div class="shot">
+      <img src="assets/grp-1.webp" alt="Lista de grupos (números borrados)">
+      <div class="tint"></div>
+      <div class="fade"></div>
+      <div class="glow"></div>
+    </div>
+
+    <div class="frame">
+      <div class="top">
+        <span><span class="dot"></span>Prova real</span>
+        <span class="r">Girumo&trade;</span>
+      </div>
+
+      <div class="chip">print real · grupos <b>Mega Stock</b></div>
+
+      <div class="head">Não é promessa.<br>É uma operação<br>que <em>já roda</em>.</div>
+
+      <div class="stats">
+        <div class="stat"><div class="n">dezenas</div><div class="l">de grupos ativos, todo dia</div></div>
+        <div class="stat"><div class="n">R$ 350 mil</div><div class="l">de faturamento por mês</div></div>
+        <div class="stat"><div class="n">1 método</div><div class="l">virou o sistema Girumo</div></div>
+      </div>
+
+      <div class="foot">
+        <span class="wm">
+          <span class="sym"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="currentColor" d="M5 2H12V10H9V22H5A3 3 0 0 1 2 19V5A3 3 0 0 1 5 2Z"/><path fill="currentColor" d="M14 2H19A3 3 0 0 1 22 5V19A3 3 0 0 1 19 22H11V14H14V2Z"/></svg></span>
+          Girumo
+        </span>
+        <span>Seus grupos rodando. Você vendendo.</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

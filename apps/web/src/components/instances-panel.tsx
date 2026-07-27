@@ -95,7 +95,7 @@ export function InstancesPanel() {
     <Card className="lg:col-span-2">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Smartphone className="h-4 w-4 text-iris" />
+          <Smartphone className="h-4 w-4 text-cobalt-500" />
           Instancias WhatsApp
         </CardTitle>
       </CardHeader>
@@ -108,7 +108,7 @@ export function InstancesPanel() {
           </Button>
         </form>
 
-        <div className="divide-y divide-bruma rounded-lg border border-breu/10">
+        <div className="divide-y divide-canvas-100 rounded-lg border border-volt-950/10">
           {loading ? (
             <div className="px-4 py-6 text-sm text-aco/50">Carregando instancias...</div>
           ) : instances.length === 0 ? (
@@ -117,7 +117,7 @@ export function InstancesPanel() {
             instances.map((instance) => (
               <div key={instance.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                 <div>
-                  <p className="text-sm font-medium text-breu">{instance.name}</p>
+                  <p className="text-sm font-medium text-volt-950">{instance.name}</p>
                   <p className="text-xs text-aco/50">{instance.phone ?? "Telefone ainda nao sincronizado"}</p>
                 </div>
                 <div className="flex items-center gap-2">

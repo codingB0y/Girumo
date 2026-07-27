@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Girumo — Depois</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--volt-950:#071923; --volt-900:#0C2835; --acid:#A7FF2F; --canvas:#F4F0E7; --paper:#FFFEFA; --slate:#52646C; --line:#D8D7CF}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:#333}
+  .canvas{position:relative; width:1080px; height:1350px; overflow:hidden;
+    background:var(--volt-950); color:var(--canvas); font-family:'Manrope',sans-serif;
+    background-image:linear-gradient(90deg, rgba(255,255,255,.020) 1px, transparent 1px); background-size:90px 100%}
+  .frame{position:absolute; inset:0; padding:84px 88px; display:flex; flex-direction:column}
+
+  .top{display:flex; justify-content:space-between; align-items:center;
+    font-family:'IBM Plex Mono',monospace; font-size:19px; letter-spacing:.16em; text-transform:uppercase; color:var(--slate)}
+  .top .r{color:var(--canvas)}
+  .tabs{display:flex; gap:10px}
+  .tab{padding:9px 20px; font-family:'IBM Plex Mono',monospace; font-size:17px; letter-spacing:.14em; border:1px solid rgba(255,255,255,.16)}
+  .tab.on{background:var(--acid); color:var(--volt-950); border-color:var(--acid)}
+  .tab.off{color:var(--slate)}
+
+  .head{margin-top:70px; font-weight:800; font-size:130px; line-height:.9; letter-spacing:-.04em; color:var(--canvas)}
+  .sub{margin-top:18px; font-family:'IBM Plex Mono',monospace; font-size:24px; letter-spacing:.06em; color:var(--acid)}
+
+  .list{margin-top:64px; display:flex; flex-direction:column; gap:0}
+  .row{display:flex; align-items:center; gap:26px; padding:28px 0; border-bottom:1px solid rgba(255,255,255,.10)}
+  .row:first-child{border-top:1px solid rgba(255,255,255,.10)}
+  .tick{flex:none; width:40px; height:40px; position:relative}
+  .tick::before{content:''; position:absolute; left:6px; top:20px; width:12px; height:3px; background:var(--acid); transform:rotate(45deg); transform-origin:left}
+  .tick::after{content:''; position:absolute; left:13px; top:26px; width:24px; height:3px; background:var(--acid); transform:rotate(-52deg); transform-origin:left}
+  .row span{font-weight:600; font-size:40px; letter-spacing:-.02em; color:var(--canvas)}
+  .row.win span{font-weight:700}
+  .row.win span b{color:var(--acid); font-weight:700}
+
+  .foot{margin-top:auto; padding-top:26px; border-top:1px solid rgba(255,255,255,.12);
+    display:flex; justify-content:space-between; align-items:center;
+    font-family:'IBM Plex Mono',monospace; font-size:18px; letter-spacing:.12em; text-transform:uppercase; color:var(--slate)}
+  .foot .wm{display:flex; align-items:center; gap:14px; color:var(--canvas); font-family:'Manrope'; font-weight:800; font-size:26px; letter-spacing:-.03em; text-transform:none}
+  .foot .wm .sym{width:28px;height:28px;color:var(--canvas)}
+  .foot .wm .sym svg{width:100%;height:100%;display:block}
+</style>
+</head>
+<body>
+  <div class="canvas">
+    <div class="frame">
+      <div class="top">
+        <div class="tabs"><span class="tab off">ANTES</span><span class="tab on">DEPOIS</span></div>
+        <span class="r">Girumo&trade;</span>
+      </div>
+
+      <div class="head">Depois.</div>
+      <div class="sub">o mesmo dia, com a Girumo</div>
+
+      <div class="list">
+        <div class="row"><span class="tick"></span><span>Entrada organizada sozinha</span></div>
+        <div class="row"><span class="tick"></span><span>Cliente certo, no grupo certo</span></div>
+        <div class="row"><span class="tick"></span><span>Campanha agendada rodando</span></div>
+        <div class="row win"><span class="tick"></span><span>Venda <b>medida e repetível</b></span></div>
+        <div class="row"><span class="tick"></span><span>Você livre pra vender</span></div>
+      </div>
+
+      <div class="foot">
+        <span class="wm">
+          <span class="sym"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="currentColor" d="M5 2H12V10H9V22H5A3 3 0 0 1 2 19V5A3 3 0 0 1 5 2Z"/><path fill="currentColor" d="M14 2H19A3 3 0 0 1 22 5V19A3 3 0 0 1 19 22H11V14H14V2Z"/></svg></span>
+          Girumo
+        </span>
+        <span>Seus grupos rodando. Você vendendo.</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

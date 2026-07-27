@@ -186,8 +186,8 @@ export function AdminTenantsClient({
     <div className="space-y-4">
       {/* Bulk actions bar */}
       {hasSelection && (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-iris/20 bg-iris/5 px-4 py-3">
-          <span className="text-sm font-medium text-iris">
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-cobalt-500/20 bg-cobalt-500/5 px-4 py-3">
+          <span className="text-sm font-medium text-cobalt-500">
             {selected.size} selecionado(s)
           </span>
           <div className="flex items-center gap-2">
@@ -207,7 +207,7 @@ export function AdminTenantsClient({
             </button>
             <button
               onClick={handleExportSelected}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-breu/[0.08] bg-white px-3 py-1.5 text-xs font-medium text-aco/70 transition hover:border-iris/20 hover:text-iris"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-volt-950/[0.08] bg-white px-3 py-1.5 text-xs font-medium text-aco/70 transition hover:border-cobalt-500/20 hover:text-cobalt-500"
             >
               <Download className="h-3 w-3" /> Exportar
             </button>
@@ -218,11 +218,11 @@ export function AdminTenantsClient({
             >
               <Trash2 className="h-3 w-3" /> Excluir
             </button>
-            {bulkLoading && <Loader2 className="h-4 w-4 animate-spin text-iris" />}
+            {bulkLoading && <Loader2 className="h-4 w-4 animate-spin text-cobalt-500" />}
           </div>
           <button
             onClick={() => setSelected(new Set())}
-            className="ml-auto text-xs text-aco/50 hover:text-breu"
+            className="ml-auto text-xs text-aco/50 hover:text-volt-950"
           >
             Limpar seleção
           </button>
@@ -244,8 +244,8 @@ export function AdminTenantsClient({
           className={cn(
             "rounded-full px-3 py-1.5 font-data text-[11px] uppercase tracking-wider transition",
             filters.status === "all"
-              ? "bg-iris/10 text-iris ring-1 ring-iris/20"
-              : "bg-white border border-breu/[0.06] text-aco/60 hover:bg-bruma/40",
+              ? "bg-cobalt-500/10 text-cobalt-500 ring-1 ring-cobalt-500/20"
+              : "bg-white border border-volt-950/[0.06] text-aco/60 hover:bg-canvas-100/40",
           )}
         >
           Todos
@@ -258,7 +258,7 @@ export function AdminTenantsClient({
               "rounded-full px-3 py-1.5 font-data text-[11px] uppercase tracking-wider transition",
               filters.status === status
                 ? `${STATUS_STYLES[status] ?? "bg-slate-100 text-slate-600"} ring-1 ring-current/20`
-                : "bg-white border border-breu/[0.06] text-aco/60 hover:bg-bruma/40",
+                : "bg-white border border-volt-950/[0.06] text-aco/60 hover:bg-canvas-100/40",
             )}
           >
             {STATUS_LABELS[status] ?? status}
@@ -274,65 +274,65 @@ export function AdminTenantsClient({
           placeholder="Buscar por nome ou slug... (Enter para buscar)"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-xl border border-breu/[0.06] bg-white py-3 pl-11 pr-4 text-sm text-breu shadow-sm placeholder:text-aco/40 focus:border-iris/30 focus:outline-none focus:ring-2 focus:ring-iris/10"
+          className="w-full rounded-xl border border-volt-950/[0.06] bg-white py-3 pl-11 pr-4 text-sm text-volt-950 shadow-sm placeholder:text-aco/40 focus:border-cobalt-500/30 focus:outline-none focus:ring-2 focus:ring-cobalt-500/10"
         />
       </form>
 
       {/* Table */}
-      <div className="rounded-2xl border border-breu/[0.06] bg-white shadow-sm">
+      <div className="rounded-2xl border border-volt-950/[0.06] bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-breu/[0.06]">
+              <tr className="border-b border-volt-950/[0.06]">
                 <th className="px-3 py-3.5 w-10">
                   <input
                     type="checkbox"
                     checked={selected.size === sorted.length && sorted.length > 0}
                     onChange={toggleSelectAll}
-                    className="h-4 w-4 rounded border-breu/20 text-iris focus:ring-iris/20"
+                    className="h-4 w-4 rounded border-volt-950/20 text-cobalt-500 focus:ring-cobalt-500/20"
                   />
                 </th>
                 <th className="px-5 py-3.5">
-                  <button onClick={() => toggleSort("name")} className="inline-flex items-center gap-1 font-data text-[11px] uppercase tracking-wider text-aco/55 hover:text-breu">
+                  <button onClick={() => toggleSort("name")} className="inline-flex items-center gap-1 font-data text-[11px] uppercase tracking-wider text-aco/55 hover:text-volt-950">
                     Organização <ArrowUpDown className="h-3 w-3" />
                   </button>
                 </th>
                 <th className="px-5 py-3.5 font-data text-[11px] uppercase tracking-wider text-aco/55">Slug</th>
                 <th className="px-5 py-3.5">
-                  <button onClick={() => toggleSort("members")} className="inline-flex items-center gap-1 font-data text-[11px] uppercase tracking-wider text-aco/55 hover:text-breu">
+                  <button onClick={() => toggleSort("members")} className="inline-flex items-center gap-1 font-data text-[11px] uppercase tracking-wider text-aco/55 hover:text-volt-950">
                     Membros <ArrowUpDown className="h-3 w-3" />
                   </button>
                 </th>
                 <th className="px-5 py-3.5">
-                  <button onClick={() => toggleSort("subscriptionStatus")} className="inline-flex items-center gap-1 font-data text-[11px] uppercase tracking-wider text-aco/55 hover:text-breu">
+                  <button onClick={() => toggleSort("subscriptionStatus")} className="inline-flex items-center gap-1 font-data text-[11px] uppercase tracking-wider text-aco/55 hover:text-volt-950">
                     Plano <ArrowUpDown className="h-3 w-3" />
                   </button>
                 </th>
                 <th className="px-5 py-3.5">
-                  <button onClick={() => toggleSort("createdAt")} className="inline-flex items-center gap-1 font-data text-[11px] uppercase tracking-wider text-aco/55 hover:text-breu">
+                  <button onClick={() => toggleSort("createdAt")} className="inline-flex items-center gap-1 font-data text-[11px] uppercase tracking-wider text-aco/55 hover:text-volt-950">
                     Criado em <ArrowUpDown className="h-3 w-3" />
                   </button>
                 </th>
                 <th className="px-5 py-3.5 font-data text-[11px] uppercase tracking-wider text-aco/55">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-breu/[0.04]">
+            <tbody className="divide-y divide-volt-950/[0.04]">
               {sorted.map((org) => (
-                <tr key={org.id} className={cn("transition", selected.has(org.id) ? "bg-iris/[0.03]" : "hover:bg-bruma/30")}>
+                <tr key={org.id} className={cn("transition", selected.has(org.id) ? "bg-cobalt-500/[0.03]" : "hover:bg-canvas-100/30")}>
                   <td className="px-3 py-3.5">
                     <input
                       type="checkbox"
                       checked={selected.has(org.id)}
                       onChange={() => toggleSelect(org.id)}
-                      className="h-4 w-4 rounded border-breu/20 text-iris focus:ring-iris/20"
+                      className="h-4 w-4 rounded border-volt-950/20 text-cobalt-500 focus:ring-cobalt-500/20"
                     />
                   </td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-3">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-iris/10 font-data text-xs font-bold text-iris">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-cobalt-500/10 font-data text-xs font-bold text-cobalt-500">
                         {(org.name ?? "T").slice(0, 2).toUpperCase()}
                       </span>
-                      <span className="font-medium text-breu">{org.name}</span>
+                      <span className="font-medium text-volt-950">{org.name}</span>
                     </div>
                   </td>
                   <td className="px-5 py-3.5 font-data text-xs text-aco/60">{org.slug}</td>
@@ -356,7 +356,7 @@ export function AdminTenantsClient({
                   <td className="px-5 py-3.5">
                     <Link
                       href={`/admin/tenants/${org.id}`}
-                      className="inline-flex items-center gap-1 rounded-lg border border-breu/10 bg-white px-3 py-1.5 text-xs font-medium text-iris transition hover:border-iris/30 hover:shadow-sm"
+                      className="inline-flex items-center gap-1 rounded-lg border border-volt-950/10 bg-white px-3 py-1.5 text-xs font-medium text-cobalt-500 transition hover:border-cobalt-500/30 hover:shadow-sm"
                     >
                       Detalhes <ExternalLink className="h-3 w-3" />
                     </Link>
@@ -388,7 +388,7 @@ export function AdminTenantsClient({
             <button
               onClick={() => handlePage(pagination.page - 1)}
               disabled={pagination.page <= 1}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-breu/[0.06] bg-white text-aco transition hover:border-iris/20 disabled:opacity-30"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-volt-950/[0.06] bg-white text-aco transition hover:border-cobalt-500/20 disabled:opacity-30"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -401,8 +401,8 @@ export function AdminTenantsClient({
                   className={cn(
                     "inline-flex h-9 w-9 items-center justify-center rounded-lg font-data text-xs transition",
                     p === pagination.page
-                      ? "bg-iris text-white"
-                      : "border border-breu/[0.06] bg-white text-aco hover:border-iris/20",
+                      ? "bg-cobalt-500 text-white"
+                      : "border border-volt-950/[0.06] bg-white text-aco hover:border-cobalt-500/20",
                   )}
                 >
                   {p}
@@ -412,7 +412,7 @@ export function AdminTenantsClient({
             <button
               onClick={() => handlePage(pagination.page + 1)}
               disabled={pagination.page >= pagination.totalPages}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-breu/[0.06] bg-white text-aco transition hover:border-iris/20 disabled:opacity-30"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-volt-950/[0.06] bg-white text-aco transition hover:border-cobalt-500/20 disabled:opacity-30"
             >
               <ChevronRight className="h-4 w-4" />
             </button>

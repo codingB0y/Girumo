@@ -72,7 +72,7 @@ export default function NovaPaginaPage() {
   return (
     <div className="mx-auto max-w-[1200px] space-y-6 px-4 py-6 sm:px-6">
       <div>
-        <Link href="/painel/pages" className="inline-flex items-center gap-1.5 text-sm text-aco/60 transition hover:text-breu">
+        <Link href="/painel/pages" className="inline-flex items-center gap-1.5 text-sm text-aco/60 transition hover:text-volt-950">
           <ArrowLeft className="h-4 w-4" /> Páginas
         </Link>
         <h1 className="font-display mt-2 text-3xl font-extrabold tracking-[-0.03em]">Nova página</h1>
@@ -93,11 +93,11 @@ export default function NovaPaginaPage() {
             className={cn(
               "rounded-2xl border bg-white p-4 text-left transition",
               templateId === t.id
-                ? "border-iris shadow-iris"
-                : "border-breu/[0.08] hover:border-iris/40",
+                ? "border-cobalt-500 shadow-brand"
+                : "border-volt-950/[0.08] hover:border-cobalt-500/40",
             )}
           >
-            <p className="font-medium text-breu">{t.name}</p>
+            <p className="font-medium text-volt-950">{t.name}</p>
             <p className="mt-1 line-clamp-2 text-xs text-aco/60">
               {t.default_copy.headline ?? ""}
             </p>
@@ -107,7 +107,7 @@ export default function NovaPaginaPage() {
 
       <div className="grid items-start gap-6 lg:grid-cols-[1fr_1.1fr]">
         {/* form */}
-        <div className="rounded-2xl border border-breu/[0.06] bg-white p-6 shadow-card">
+        <div className="rounded-2xl border border-volt-950/[0.06] bg-white p-6 shadow-card">
           <EditorForm values={values} onChange={(patch) => setValues((v) => ({ ...v, ...patch }))} />
 
           {error ? (
@@ -120,7 +120,7 @@ export default function NovaPaginaPage() {
             type="button"
             onClick={handleSave}
             disabled={saving || !templateId}
-            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-iris px-4 py-3 text-sm font-medium text-white shadow-iris transition hover:bg-iris-claro disabled:opacity-60"
+            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cobalt-500 px-4 py-3 text-sm font-medium text-white shadow-brand transition hover:bg-cobalt-500 disabled:opacity-60"
           >
             {saving ? "Salvando..." : "Salvar rascunho"} <ArrowRight className="h-4 w-4" />
           </button>

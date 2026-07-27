@@ -7,7 +7,7 @@ import { randomBytes } from "crypto";
  */
 
 const RESERVED = new Set([
-  "admin", "api", "painel", "login", "signup", "app", "www", "hubflow",
+  "admin", "api", "painel", "login", "signup", "app", "www", "hubflow", "girumo",
   "whatsapp", "oficial", "suporte", "ajuda", "billing", "checkout",
 ]);
 

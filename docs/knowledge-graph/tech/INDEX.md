@@ -31,4 +31,4 @@
 - [[entities/schedules|Schedules]] (7 connections)
 - [[entities/campaigns|Campaigns]] (7 connections)
 - [[entities/users|Users]] (7 connections)
-- [[entities/hubflow-web|HUBFLOW Web]] (7 connections)
+- [[entities/lightrag|LightRAG]] (7 connections)

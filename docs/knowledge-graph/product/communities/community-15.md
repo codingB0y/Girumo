@@ -1,3 +1,4 @@
 # Community 15
 
-- [[v4|V4]]
+- [[claude-haiku-4-5-20251001|Claude-haiku-4-5-20251001]]
+- [[copy-agent|Copy Agent]]

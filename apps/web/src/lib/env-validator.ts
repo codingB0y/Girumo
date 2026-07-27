@@ -172,7 +172,7 @@ export function enforceEnvironmentValidation(): void {
   const result = validateEnvironment();
 
   // Sempre logar ambiente
-  console.log(`\n🌍 HubFlow Environment: ${result.environment.toUpperCase()}`);
+  console.log(`\n🌍 Girumo Environment: ${result.environment.toUpperCase()}`);
 
   // Logar warnings
   for (const warning of result.warnings) {

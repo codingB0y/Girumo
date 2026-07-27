@@ -67,14 +67,14 @@ export function LeadForm({
 
   if (status === "done") {
     return (
-      <div className="dz-rise mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center">
-        <p className="text-sm font-medium text-emerald-800">
-          Tudo certo, {name.split(" ")[0]}! Sua vaga tá garantida.
+      <div className="dz-rise mt-6 rounded-[var(--radius-card)] border border-success-700/30 bg-success-700/10 p-4 text-center">
+        <p className="text-sm font-medium text-success-700">
+          Tudo certo, {name.split(" ")[0]}! Seu cadastro foi concluído.
         </p>
         <a
           href={redirectUrl ?? "#"}
           onClick={handleGroupJoin}
-          className={`mt-3 flex w-full items-center justify-center gap-2 rounded-xl px-6 py-4 text-base font-semibold text-white transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${buttonClass}`}
+          className={`mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-[var(--radius-control)] px-6 py-3 text-base font-semibold transition-[filter] hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${buttonClass}`}
         >
           <WhatsAppIcon className="h-5 w-5" aria-hidden />
           Entrar no grupo agora
@@ -100,7 +100,7 @@ export function LeadForm({
             placeholder="Seu nome"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full rounded-xl border border-slate-300 px-4 py-3 text-base text-slate-900 placeholder:text-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-slate-500"
+            className="min-h-12 w-full rounded-[var(--radius-control)] border border-line-200 bg-paper-0 px-4 py-3 text-base text-volt-950 placeholder:text-slate-600/65 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500"
           />
         </div>
         <div>
@@ -116,7 +116,7 @@ export function LeadForm({
             placeholder="Seu WhatsApp com DDD"
             value={whatsapp}
             onChange={(e) => setWhatsapp(e.target.value)}
-            className="w-full rounded-xl border border-slate-300 px-4 py-3 text-base text-slate-900 placeholder:text-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-slate-500"
+            className="min-h-12 w-full rounded-[var(--radius-control)] border border-line-200 bg-paper-0 px-4 py-3 text-base text-volt-950 placeholder:text-slate-600/65 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500"
           />
         </div>
 
@@ -138,23 +138,23 @@ export function LeadForm({
             required
             checked={consent}
             onChange={(e) => setConsent(e.target.checked)}
-            className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 accent-emerald-600"
+            className="mt-0.5 h-4 w-4 shrink-0 rounded-[3px] border-line-200 accent-cobalt-500"
           />
-          <span className="text-xs leading-relaxed text-slate-500">{consentText}</span>
+          <span className="text-xs leading-relaxed text-slate-600">{consentText}</span>
         </label>
 
         {error ? (
-          <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p role="alert" className="rounded-[var(--radius-control)] border border-danger-700/30 bg-danger-700/10 px-3 py-2 text-sm text-danger-700">
             {error}
           </p>
         ) : null}
 
         <button
           type="submit"
-          className={`flex w-full items-center justify-center gap-2 rounded-xl px-6 py-4 text-base font-semibold text-white transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60 ${buttonClass}`}
+          className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-[var(--radius-control)] px-6 py-3 text-base font-semibold transition-[filter] hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60 ${buttonClass}`}
         >
           <WhatsAppIcon className="h-5 w-5" aria-hidden />
-          {status === "sending" ? "Garantindo sua vaga..." : cta}
+          {status === "sending" ? "Enviando..." : cta}
         </button>
       </fieldset>
     </form>

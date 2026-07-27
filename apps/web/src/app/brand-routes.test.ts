@@ -1,0 +1,103 @@
+import assert from "node:assert/strict";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
+import test from "node:test";
+import { BRAND } from "../lib/brand";
+import manifest from "./manifest";
+import robots from "./robots";
+import sitemap from "./sitemap";
+
+const appRoot = process.cwd();
+
+function read(relativePath: string) {
+  return readFileSync(path.join(appRoot, relativePath), "utf8");
+}
+
+test("publishes the approved Girumo install metadata", () => {
+  const value = manifest();
+
+  assert.equal(value.name, BRAND.name);
+  assert.equal(value.short_name, BRAND.name);
+  assert.equal(value.theme_color, "#071923");
+  assert.deepEqual(value.icons?.map((item) => item.src), [
+    "/brand/girumo/png/symbol-192.png",
+    "/brand/girumo/png/symbol-512.png",
+  ]);
+  assert.deepEqual(value.shortcuts?.map((item) => item.url), [
+    "/painel/campanhas",
+    "/painel/grupos",
+    "/painel/pages",
+  ]);
+});
+
+test("evaluates NEXT_PUBLIC_SITE_URL when discovery routes are called", () => {
+  const previous = process.env.NEXT_PUBLIC_SITE_URL;
+
+  try {
+    process.env.NEXT_PUBLIC_SITE_URL = "https://example.test/";
+    assert.equal(robots().host, "https://example.test");
+    assert.equal(robots().sitemap, "https://example.test/sitemap.xml");
+    assert.equal(sitemap()[0].url, "https://example.test");
+
+    process.env.NEXT_PUBLIC_SITE_URL = "https://outro.example";
+    assert.equal(robots().host, "https://outro.example");
+    assert.equal(sitemap()[0].url, "https://outro.example");
+  } finally {
+    if (previous === undefined) delete process.env.NEXT_PUBLIC_SITE_URL;
+    else process.env.NEXT_PUBLIC_SITE_URL = previous;
+  }
+});
+
+test("keeps the transitional hubflow.com.br discovery fallback", () => {
+  const previous = process.env.NEXT_PUBLIC_SITE_URL;
+
+  try {
+    delete process.env.NEXT_PUBLIC_SITE_URL;
+    assert.equal(robots().host, "https://hubflow.com.br");
+    assert.equal(sitemap()[0].url, "https://hubflow.com.br");
+  } finally {
+    if (previous === undefined) delete process.env.NEXT_PUBLIC_SITE_URL;
+    else process.env.NEXT_PUBLIC_SITE_URL = previous;
+  }
+});
+
+test("sources root metadata and social preview from the brand contract", () => {
+  const source = read("src/app/layout.tsx");
+  const pageSource = read("src/app/page.tsx");
+  const openGraphStart = source.indexOf("openGraph:");
+  const twitterStart = source.indexOf("twitter:");
+  const openGraphSource = source.slice(openGraphStart, twitterStart);
+  const twitterSource = source.slice(twitterStart);
+  const ogAssetPath = path.join(appRoot, "public", BRAND.ogAsset.replace(/^\/+/, ""));
+
+  assert.match(source, /import\s+\{\s*BRAND,\s*getPublicSiteUrl\s*\}\s+from\s+["']@\/lib\/brand["']/);
+  assert.match(source, /metadataBase:\s*new URL\(getPublicSiteUrl\(\)\)/);
+  assert.match(source, /default:\s*`\$\{BRAND\.name\}\s+—\s+\$\{BRAND\.tagline\}`/);
+  assert.match(source, /template:\s*`%s\s+\|\s+\$\{BRAND\.name\}`/);
+  assert.match(source, /description:\s*BRAND\.description/);
+  assert.ok(openGraphStart >= 0 && twitterStart > openGraphStart, "metadata social sections");
+  assert.match(openGraphSource, /images:\s*\[BRAND\.ogAsset\]/);
+  assert.match(twitterSource, /images:\s*\[BRAND\.ogAsset\]/);
+  assert.equal(existsSync(ogAssetPath), true, BRAND.ogAsset);
+  assert.doesNotMatch(source, /HubFlow|\/product\/painel-home\.png/);
+  assert.match(
+    pageSource,
+    /title:\s*\{\s*absolute:\s*`\$\{BRAND\.name\}\s+—\s+\$\{BRAND\.tagline\}`\s*\}/,
+  );
+  assert.match(pageSource, /images:\s*\[BRAND\.ogAsset\]/);
+  assert.doesNotMatch(pageSource, /\/product\/painel-home\.png/);
+});
+
+test("documents the public site URL migration in both production env examples", () => {
+  for (const relativePath of [
+    ".env.production.example",
+    "../../deploy/vercel/.env.production.example",
+  ]) {
+    const source = read(relativePath);
+    const whatsappUrl = source.match(/^NEXT_PUBLIC_SALES_WHATSAPP_URL=(.+)$/m)?.[1] ?? "";
+
+    assert.doesNotMatch(decodeURIComponent(whatsappUrl), /HubFlow/i, relativePath);
+    assert.match(source, /^NEXT_PUBLIC_SITE_URL=https:\/\/hubflow\.com\.br$/m, relativePath);
+    assert.match(source, /Girumo[^\n]*(dom[ií]nio|host)|dom[ií]nio[^\n]*Girumo/i, relativePath);
+  }
+});

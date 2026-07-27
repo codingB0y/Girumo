@@ -85,7 +85,7 @@ function SectionLabel({ n, children }: { n: string; children: React.ReactNode })
     <div className="flex items-baseline gap-2">
       <span className="font-editorial text-[15px] italic text-ardosia">{n}</span>
       <span className="font-editorial text-[15px] italic text-ardosia">—</span>
-      <h2 className="font-display text-[17px] font-bold tracking-[-0.01em] text-breu">{children}</h2>
+      <h2 className="font-display text-[17px] font-bold tracking-[-0.01em] text-volt-950">{children}</h2>
     </div>
   );
 }
@@ -190,7 +190,7 @@ function OnboardingShell({
   return (
     <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-8">
       <div>
-        <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-breu">{title}</h1>
+        <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-volt-950">{title}</h1>
         <p className="font-editorial mt-1 text-[19px] italic text-ardosia">{greeting}</p>
         <p className="font-data mt-3 text-[11px] uppercase tracking-[0.08em] text-aco/55">{eyebrow}</p>
       </div>
@@ -201,12 +201,12 @@ function OnboardingShell({
             <Icon className="h-8 w-8" strokeWidth={1.75} />
           </div>
           <div className="flex-1">
-            <h2 className="font-display text-xl font-bold text-breu">{headline}</h2>
+            <h2 className="font-display text-xl font-bold text-volt-950">{headline}</h2>
             <p className="mt-2 text-sm leading-relaxed text-aco/75">{body}</p>
           </div>
           <Link
             href={ctaHref}
-            className="hf-shine inline-flex items-center gap-2 rounded-[10px] bg-iris px-6 py-3 text-sm font-medium text-white shadow-sm transition-[transform,filter] duration-[160ms] ease-[var(--ease-fluxo)] hover:brightness-110 active:scale-[0.97]"
+            className="hf-shine inline-flex items-center gap-2 rounded-[10px] bg-cobalt-500 px-6 py-3 text-sm font-medium text-white shadow-sm transition-[transform,filter] duration-[160ms] ease-[var(--ease-fluxo)] hover:brightness-110 active:scale-[0.97]"
           >
             <CtaIcon className="h-4 w-4" /> {ctaLabel}
           </Link>
@@ -225,7 +225,7 @@ function OnboardingShell({
 function OnboardingConnect() {
   return (
     <OnboardingShell
-      title="Bem-vindo ao HubFlow"
+      title="Bem-vindo à Girumo"
       greeting="Sua loja começa a crescer aqui."
       eyebrow="Vamos começar em 3 passos"
       icon={WifiOff}
@@ -251,7 +251,7 @@ function OnboardingCampaign() {
       greeting="WhatsApp conectado. Agora é hora de encher os grupos."
       eyebrow="Crie sua primeira campanha"
       icon={Layers}
-      iconClass="bg-iris/10 text-iris"
+      iconClass="bg-cobalt-500/10 text-cobalt-500"
       headline="Crie sua primeira campanha"
       body="Uma campanha gera um link. Quem clica entra direto no seu grupo. Você enche os grupos no automático."
       ctaHref="/painel/campanhas/nova"
@@ -298,13 +298,13 @@ function Step({ n, label, active, done }: StepInfo) {
           done
             ? "bg-sucesso/10 text-sucesso"
             : active
-              ? "bg-iris text-white shadow-sm"
+              ? "bg-cobalt-500 text-white shadow-sm"
               : "pn-poco text-aco/40",
         )}
       >
         {done ? <Check className="h-4 w-4" /> : n}
       </span>
-      <span className={cn("text-sm", active ? "font-medium text-breu" : done ? "text-aco/70" : "text-aco/40")}>
+      <span className={cn("text-sm", active ? "font-medium text-volt-950" : done ? "text-aco/70" : "text-aco/40")}>
         {label}
       </span>
     </div>
@@ -372,7 +372,7 @@ function FullDashboard({
     <div className="mx-auto max-w-[1200px] space-y-10 px-4 py-8 sm:px-8">
       {/* Header */}
       <header>
-        <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-breu">Início</h1>
+        <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-volt-950">Início</h1>
         <p className="font-editorial mt-1 text-[19px] italic text-ardosia">
           Bom te ver por aqui — a loja está no ar.
         </p>
@@ -386,10 +386,10 @@ function FullDashboard({
           className="pn-aurora group relative flex min-h-[176px] flex-col justify-between overflow-hidden rounded-2xl p-6 lg:col-span-5"
         >
           <div className="flex items-center justify-between">
-            <span className="font-data text-[11px] uppercase tracking-[0.08em] text-bruma/50">
+            <span className="font-data text-[11px] uppercase tracking-[0.08em] text-canvas-100/50">
               Membros nos grupos VIP
             </span>
-            <span className="pn-etiqueta bg-white/10 text-bruma/80">ao vivo</span>
+            <span className="pn-etiqueta bg-white/10 text-canvas-100/80">ao vivo</span>
           </div>
           <div>
             <p className="font-data text-[44px] font-medium leading-none tracking-[-0.03em] tabular-nums text-white">
@@ -413,10 +413,10 @@ function FullDashboard({
               className="pn-card pn-card-hover flex flex-col justify-between rounded-2xl p-5"
             >
               <div className="flex items-center gap-2">
-                <k.icon className="h-4 w-4 text-iris" strokeWidth={1.75} />
+                <k.icon className="h-4 w-4 text-cobalt-500" strokeWidth={1.75} />
                 <span className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/55">{k.label}</span>
               </div>
-              <p className="font-data mt-4 text-[32px] font-medium leading-none tracking-[-0.03em] tabular-nums text-breu">
+              <p className="font-data mt-4 text-[32px] font-medium leading-none tracking-[-0.03em] tabular-nums text-volt-950">
                 {typeof k.value === "number" ? k.value.toLocaleString("pt-BR") : k.value}
               </p>
             </Link>
@@ -434,7 +434,7 @@ function FullDashboard({
       {/* Alerta: grupos quase cheios */}
       {almostFull.length > 0 && (
         <div className="rounded-2xl border border-atencao/25 bg-atencao/[0.06] px-5 py-4">
-          <p className="flex items-center gap-2 text-sm font-medium text-breu">
+          <p className="flex items-center gap-2 text-sm font-medium text-volt-950">
             <AlertTriangle className="h-4 w-4 text-atencao" strokeWidth={2} />
             {almostFull.length} {almostFull.length === 1 ? "grupo está" : "grupos estão"} quase
             cheio{almostFull.length > 1 ? "s" : ""}
@@ -444,7 +444,7 @@ function FullDashboard({
           </p>
           <Link
             href="/painel/grupos"
-            className="mt-2 inline-flex items-center gap-1 pl-6 text-xs font-medium text-atencao transition hover:text-breu"
+            className="mt-2 inline-flex items-center gap-1 pl-6 text-xs font-medium text-atencao transition hover:text-volt-950"
           >
             Ver grupos →
           </Link>
@@ -467,7 +467,7 @@ function FullDashboard({
             <SectionLabel n="03">Campanhas ativas</SectionLabel>
             <Link
               href="/painel/campanhas"
-              className="font-data text-[11px] uppercase tracking-[0.08em] text-iris transition hover:text-iris-escuro"
+              className="font-data text-[11px] uppercase tracking-[0.08em] text-cobalt-500 transition hover:text-cobalt-700"
             >
               Ver todas →
             </Link>
@@ -487,11 +487,11 @@ function FullDashboard({
                     className="flex items-center justify-between rounded-xl px-3 py-3 transition-colors duration-[160ms] hover:bg-poco"
                   >
                     <div className="flex min-w-0 items-center gap-3">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-iris/10 text-iris">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-cobalt-500/10 text-cobalt-500">
                         <Layers className="h-4 w-4" strokeWidth={1.75} />
                       </span>
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-breu">{c.name}</p>
+                        <p className="truncate text-sm font-medium text-volt-950">{c.name}</p>
                         <p className="font-data text-[11px] text-aco/55">
                           {c.groupIds?.length ?? 0} grupo{(c.groupIds?.length ?? 0) !== 1 ? "s" : ""}
                         </p>
@@ -524,13 +524,13 @@ function MonthlyProgress({ current, goal }: { current: number; goal: number }) {
     <div className="pn-card rounded-2xl px-5 py-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Target className="h-4 w-4 text-iris" strokeWidth={1.75} />
+          <Target className="h-4 w-4 text-cobalt-500" strokeWidth={1.75} />
           <span className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/55">Meta do mês</span>
         </div>
         <span
           className={cn(
             "font-data text-sm font-medium tabular-nums",
-            achieved ? "text-sucesso" : "text-breu",
+            achieved ? "text-sucesso" : "text-volt-950",
           )}
         >
           {current.toLocaleString("pt-BR")}/{goal.toLocaleString("pt-BR")} contatos
@@ -538,7 +538,7 @@ function MonthlyProgress({ current, goal }: { current: number; goal: number }) {
       </div>
       <div className="pn-poco mt-3 h-2 w-full overflow-hidden rounded-full">
         <div
-          className={cn("pn-fill h-full w-full rounded-full", achieved ? "bg-sucesso" : "bg-iris")}
+          className={cn("pn-fill h-full w-full rounded-full", achieved ? "bg-sucesso" : "bg-cobalt-500")}
           style={{ transform: `scaleX(${Math.max(pct / 100, 0.02)})` }}
         />
       </div>
@@ -569,8 +569,8 @@ function SinceYesterday({ leadsToday, deltaLeads }: { leadsToday: number; deltaL
       <p className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/55">Desde ontem</p>
       <div className="mt-2 flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-2">
-          <UserPlus className="h-4 w-4 text-iris" strokeWidth={1.75} />
-          <span className="font-data text-lg font-medium tabular-nums text-breu">{leadsToday}</span>
+          <UserPlus className="h-4 w-4 text-cobalt-500" strokeWidth={1.75} />
+          <span className="font-data text-lg font-medium tabular-nums text-volt-950">{leadsToday}</span>
           <span className="text-sm text-aco/70">
             {leadsToday === 1 ? "contato novo" : "contatos novos"} hoje
           </span>
@@ -609,11 +609,11 @@ function QuickAction({ href, icon: Icon, label }: { href: string; icon: LucideIc
       href={href}
       className="group flex items-center gap-3 rounded-xl px-4 py-3 transition-colors duration-[160ms] hover:bg-poco"
     >
-      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-iris/10 text-iris">
+      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-cobalt-500/10 text-cobalt-500">
         <Icon className="h-4 w-4" strokeWidth={1.75} />
       </span>
-      <span className="text-sm font-medium text-breu">{label}</span>
-      <ArrowUpRight className="ml-auto h-4 w-4 text-aco/30 transition-transform duration-[160ms] ease-[var(--ease-fluxo)] group-hover:translate-x-0.5 group-hover:text-iris" />
+      <span className="text-sm font-medium text-volt-950">{label}</span>
+      <ArrowUpRight className="ml-auto h-4 w-4 text-aco/30 transition-transform duration-[160ms] ease-[var(--ease-fluxo)] group-hover:translate-x-0.5 group-hover:text-cobalt-500" />
     </Link>
   );
 }

@@ -52,7 +52,7 @@ export function AuditLogPanel() {
     <Card className="lg:col-span-2">
       <CardHeader className="flex items-center justify-between">
         <CardTitle className="flex items-center gap-2">
-          <ClipboardList className="h-4 w-4 text-iris" />
+          <ClipboardList className="h-4 w-4 text-cobalt-500" />
           Auditoria
         </CardTitle>
         <Button type="button" size="sm" variant="outline" onClick={loadLogs} disabled={loading}>
@@ -61,7 +61,7 @@ export function AuditLogPanel() {
         </Button>
       </CardHeader>
       <CardContent>
-        <div className="divide-y divide-bruma rounded-lg border border-breu/10">
+        <div className="divide-y divide-canvas-100 rounded-lg border border-volt-950/10">
           {loading ? (
             <div className="px-4 py-6 text-sm text-aco/50">Carregando auditoria...</div>
           ) : logs.length === 0 ? (
@@ -70,7 +70,7 @@ export function AuditLogPanel() {
             logs.map((log) => (
               <div key={log.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                 <div>
-                  <p className="text-sm font-medium text-breu">{log.event}</p>
+                  <p className="text-sm font-medium text-volt-950">{log.event}</p>
                   <p className="text-xs text-aco/50">{log.message ?? "Sem mensagem"}</p>
                 </div>
                 <div className="flex items-center gap-2">

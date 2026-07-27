@@ -1,0 +1,2 @@
+# CUSTOMER — voz do cliente, pesquisa, atendimento
+customer-research/voc-atacadista.md

@@ -1,56 +1,49 @@
-# HubFlow — Direção B / Corrente
+# Girumo — Deslocamento
 
-Foundation da marca HubFlow (tokens, tipografia e o logo). Use SEMPRE estes tokens e classes
-ao desenhar para o HubFlow — não invente cores nem fontes fora desta paleta.
+Foundation da marca Girumo para design-sync. A fonte de verdade visual é o pacote em `docs/brand/girumo/` e os componentes oficiais em `src/components/brand/logo.tsx`.
 
-## Identidade (regra 60 / 30 / 10)
-- **60% Breu** `#0B0D1A` — base, fundos premium, texto sobre claro. Superfície elevada no escuro: **Breu-2** `#11142A`.
-- **30% Íris** `#6A4BF0` — acento ÚNICO: CTAs, estado ativo, destaques. Hover/realce no escuro: **Íris-claro** `#8A6CFF`. Fim de gradiente / íris sobre fundo claro: **Íris-escuro** `#3D1FB0`. **Nunca use Íris em blocos grandes de texto.**
-- **10% Bruma** `#ECEBF5` — fundo claro de seções.
-- Neutros de texto: **Aço** `#3A3F5C` (secundário), **Ardósia** `#5B6172` (terciário/labels).
-- Semânticas: Sucesso `#1E8E5A` · Atenção `#D99B2A` · Alerta `#D84040`. **Verde = só sucesso/crescimento — nunca como ação** (a ação é sempre Íris; evita confusão com o verde do WhatsApp).
+## Identidade
 
-## Idioma de estilo: classes utilitárias (Tailwind) que resolvem nos tokens
-Não estilize por props nem CSS solto — use estas classes. Todas existem no `styles.css` empacotado:
+- **Volt 950** `#071923`: texto principal, navegação e fundos premium.
+- **Acid 500** `#A7FF2F`: CTA primário e sinal comercial pontual.
+- **Paper 0** `#FFFEFA`: cards prioritários e logo reverso.
+- **Canvas 100** `#F4F0E7`: fundo claro de conteúdo.
+- **Cobalt 500/700** `#2E66FF` / `#1947C9`: foco, seleção, links e dados. Nunca substitui Acid na ação primária nem vira cor do logo.
 
-| Família | Classes |
-|---|---|
-| Fundo | `bg-breu` `bg-breu-2` `bg-iris` `bg-iris-claro` `bg-iris-escuro` `bg-bruma` `bg-sucesso` `bg-atencao` `bg-alerta` |
-| Texto | `text-breu` `text-iris` `text-iris-claro` `text-iris-escuro` `text-bruma` `text-aco` `text-ardosia` `text-white` `text-sucesso` |
-| Borda | `border-iris` `border-breu` `border-bruma` `border-aco` |
-| Sombra | `shadow-iris` `shadow-deep` |
-| Gradiente da marca | `bg-gradient-to-br from-iris-claro via-iris to-iris-escuro` |
+O logo é sempre monocromático. Use Paper sobre Volt, Volt sobre Acid, Volt sobre Paper ou preto integral. Nunca separe símbolo e wordmark por cor.
 
-Os mesmos valores também estão disponíveis como CSS custom properties (`--hf-breu`, `--hf-iris`, `--hf-bruma`, `--hf-aco`, `--color-breu`, `--color-iris`, …) e fontes (`--font-display`, `--font-body`, `--font-data`, `--font-editorial`).
+## Tipografia
 
-## Tipografia (4 vozes, papéis fixos)
-- **`font-display`** → Bricolage Grotesque (700/800), tracking apertado — títulos, números de destaque, o logo.
-- **`font-body`** → IBM Plex Sans (400/500/600) — todo texto de interface.
-- **`font-data`** → IBM Plex Mono (400/500) — dados, métricas, labels de seção (use `uppercase tracking-wider`).
-- **`font-editorial`** → Instrument Serif (use `italic`) — UMA frase de respiro por seção (manifesto/citação). Nada além disso.
+- `font-brand`: Manrope — títulos e números de destaque.
+- `font-body`: IBM Plex Sans — interface e leitura.
+- `font-data`: IBM Plex Mono — horários, IDs, métricas auxiliares e status.
 
-## Componentes disponíveis
-- **`Logo`** — lockup horizontal (símbolo da corrente + wordmark "HubFlow"). Props: `className`, `symbolClassName`, `wordmarkClassName`. Em fundo escuro passe `wordmarkClassName="text-white"`.
-- **`LogoSymbol`** — só o símbolo (dois elos formando um "H"). Usa `currentColor`: controle a cor com `text-iris` / `text-white` e o tamanho com `h-* w-*`.
+## Componentes
 
-## Snippet idiomático
+- `Logo`: lockup horizontal oficial com símbolo Deslocamento e wordmark em contornos.
+- `LogoSymbol`: símbolo oficial isolado, usando `currentColor`.
+
 ```tsx
-import { Logo } from 'hubflow-web';
+import { Logo, LogoSymbol } from "hubflow-web";
 
-export function Hero() {
+export function Exemplo() {
   return (
-    <section className="bg-breu text-white">
-      <Logo wordmarkClassName="text-white" />
-      <p className="font-data text-xs uppercase tracking-wider text-bruma/60">O fluxo que vende</p>
-      <h1 className="font-display text-5xl font-extrabold tracking-tight">
-        Do caos ao canal. <span className="text-iris-claro">Seus grupos vendendo no automático.</span>
-      </h1>
-      <button className="bg-iris text-white shadow-iris rounded-xl px-7 py-3.5 font-medium">
-        Criar conta
+    <section className="bg-volt-950 p-12 text-paper-0">
+      <Logo className="text-paper-0" />
+      <p className="mt-8 font-body text-lg">Seus grupos rodando. Você vendendo.</p>
+      <button className="mt-6 rounded-control bg-acid-500 px-6 py-3 font-body font-semibold text-volt-950">
+        Ver como funciona
       </button>
+      <LogoSymbol className="mt-10 h-12 w-12 text-paper-0" title="Girumo" />
     </section>
   );
 }
 ```
 
-Sem provider/wrapper obrigatório — basta `styles.css` no documento. As fontes carregam via `@import` do Google Fonts já presente no `styles.css`.
+## Composição
+
+- Base plana em Volt, Paper ou Canvas.
+- Acid como um único foco.
+- Espaçamento em múltiplos de 4 px.
+- Raios: 8 px controles, 12 px cards, 16 px painéis de marketing.
+- Sem gradientes, glow, glass, grid decorativo, textura gratuita, roxo ou dashboard falso.

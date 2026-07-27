@@ -2,7 +2,7 @@
 
 **Type:** concept
 
-A status describing an isolated or unlinked component.
+A status describing an isolated or unlinked component.<SEP>A status describing an isolated or unlinked component.
 
 ## Neighbors
 - [[link-na-sidebar|Link Na Sidebar]]

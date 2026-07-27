@@ -3,8 +3,12 @@
  * Fonte da verdade dos shapes trocados entre painel, API e render público.
  */
 
-export const LP_COLORS = ["iris", "emerald", "amber"] as const;
+export const LP_COLORS = ["cobalt", "emerald", "amber"] as const;
 export type LpColor = (typeof LP_COLORS)[number];
+
+export function normalizeLpColor(value: unknown): LpColor {
+  return LP_COLORS.includes(value as LpColor) ? (value as LpColor) : "cobalt";
+}
 
 export type LpStatus = "draft" | "published" | "paused";
 
@@ -49,6 +53,16 @@ export type LandingPage = {
   created_at: string;
   updated_at: string;
 };
+
+export function normalizeLandingPage<T extends LandingPage>(page: T): T {
+  return {
+    ...page,
+    content: {
+      ...page.content,
+      primary_color: normalizeLpColor(page.content.primary_color),
+    },
+  };
+}
 
 /** Página pública: LandingPage + component_key e copy fixa do template (join). */
 export type PublicLandingPage = LandingPage & {
@@ -116,7 +130,7 @@ export function toContent(input: Record<string, unknown>): LpContent {
     headline: String(input.headline).trim(),
     description: String(input.description).trim(),
     group_topic: String(input.group_topic).trim(),
-    primary_color: input.primary_color as LpColor,
+    primary_color: normalizeLpColor(input.primary_color),
   };
 }
 

@@ -3,7 +3,7 @@ import { AdminAlertsDropdown } from "@/components/admin/alerts-dropdown";
 
 export function AdminTopbar() {
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-breu/10 bg-bruma/80 px-4 backdrop-blur-xl sm:px-6">
+    <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-volt-950/10 bg-canvas-100/80 px-4 backdrop-blur-xl sm:px-6">
       {/* Spacer para o hamburger no mobile */}
       <div className="w-10 lg:hidden" />
 

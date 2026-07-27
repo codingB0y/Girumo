@@ -106,7 +106,12 @@ def plan(full: bool, candidates: "list[Path] | None" = None) -> list[Path]:
     return changed
 
 
-async def run_index(full: bool, dry_run: bool, list_path: "Path | None" = None):
+async def run_index(
+    full: bool,
+    dry_run: bool,
+    list_path: "Path | None" = None,
+    retry_failed: bool = False,
+):
     candidates = None
     if list_path is not None:
         candidates, missing = load_file_list(list_path)
@@ -150,6 +155,14 @@ async def run_index(full: bool, dry_run: bool, list_path: "Path | None" = None):
         file_paths.append(rel_str.replace("/", " » "))
         manifest[rel_str] = file_hash(path)
 
+    if retry_failed:
+        purge_result = await rag_mod.purge_stale_records(file_paths)
+        console.print(
+            f"[yellow]Purged {purge_result['deleted']}/{purge_result['matched']} "
+            f"stale doc_status record(s) (originals + duplicate stragglers) "
+            f"before retry.[/yellow]"
+        )
+
     console.print(f"Indexing {len(texts)} file(s)...")
     await rag_mod.insert_batch(texts, ids=ids, file_paths=file_paths)
     save_manifest(manifest)
@@ -162,10 +175,26 @@ def main():
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--incremental", action="store_true")
     parser.add_argument("--list", type=str, default=None, help="Path to a file with one relative repo path per line")
+    parser.add_argument(
+        "--retry-failed",
+        action="store_true",
+        help=(
+            "Purge stale doc_status records (original + duplicate stragglers) "
+            "for the target files before inserting, so LightRAG's filename "
+            "dedup doesn't block reprocessing a previously-failed document."
+        ),
+    )
     args = parser.parse_args()
 
     list_path = Path(args.list).resolve() if args.list else None
-    asyncio.run(run_index(full=args.full, dry_run=args.dry_run, list_path=list_path))
+    asyncio.run(
+        run_index(
+            full=args.full,
+            dry_run=args.dry_run,
+            list_path=list_path,
+            retry_failed=args.retry_failed,
+        )
+    )
 
 
 if __name__ == "__main__":
