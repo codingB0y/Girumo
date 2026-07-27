@@ -24,6 +24,14 @@ export const EVOLUTION_WEBHOOK_EVENTS = [
 
 const REQUEST_TIMEOUT_MS = 10_000;
 
+/**
+ * `fetchAllGroups` busca a foto de perfil de CADA grupo, em série, contra o
+ * WhatsApp (ver whatsapp.baileys.service na v2.3.7). Quem tem muitos grupos
+ * estoura 10s com facilidade — e o timeout cairia justamente em quem mais
+ * precisa do sync.
+ */
+const FETCH_GROUPS_TIMEOUT_MS = 60_000;
+
 export class EvolutionError extends Error {
   readonly status: number;
   readonly path: string;
@@ -80,7 +88,7 @@ function safeDetail(body: unknown): string | undefined {
 
 async function request<T>(
   path: string,
-  init: { method?: string; body?: unknown } = {},
+  init: { method?: string; body?: unknown; timeoutMs?: number } = {},
 ): Promise<T> {
   const { baseUrl, apiKey } = getEvolutionConfig();
 
@@ -94,7 +102,7 @@ async function request<T>(
       },
       body: init.body ? JSON.stringify(init.body) : undefined,
       cache: "no-store",
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal: AbortSignal.timeout(init.timeoutMs ?? REQUEST_TIMEOUT_MS),
     });
   } catch (error) {
     // Timeout ou rede: 0 sinaliza "não chegou na Evolution".
@@ -234,8 +242,11 @@ export type EvolutionGroup = {
  * F2 só precisa de id/nome/tamanho para popular `groups`.
  */
 export async function fetchAllGroups(instanceName: string): Promise<EvolutionGroup[]> {
+  // `getParticipants` é obrigatório no schema da v2.3.7 (enum 'true'|'false'):
+  // omitir devolve 400, não a lista inteira.
   const data = await request<EvolutionGroup[] | null>(
     `/group/fetchAllGroups/${encodeURIComponent(instanceName)}?getParticipants=false`,
+    { timeoutMs: FETCH_GROUPS_TIMEOUT_MS },
   );
   return Array.isArray(data) ? data : [];
 }

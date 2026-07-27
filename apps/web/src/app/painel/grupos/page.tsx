@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Search, Users, Activity } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Search, Users, Activity, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CopyLink } from "@/components/painel/copy-link";
 import { getCampaignGroupStatus, type CampaignGroupStatus } from "@/lib/campaign-groups-overview";
@@ -33,15 +33,45 @@ export default function PainelGrupos() {
   const [origin, setOrigin] = useState("");
   const [filter, setFilter] = useState<"all" | CampaignGroupStatus>("all");
   const [q, setQ] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+
+  const loadGroups = useCallback(async () => {
+    const res = await fetch("/api/groups", { cache: "no-store" });
+    const data = await res.json();
+    setGroups(Array.isArray(data) ? data : []);
+  }, []);
 
   useEffect(() => {
     setOrigin(window.location.origin);
-    fetch("/api/groups")
-      .then((r) => r.json())
-      .then((g) => setGroups(Array.isArray(g) ? g : []))
+    loadGroups()
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [loadGroups]);
+
+  /**
+   * Importa os grupos da instância conectada.
+   *
+   * O sync é explícito porque a Evolution só avisa por webhook sobre grupos
+   * criados DEPOIS da conexão (`groups.upsert`) — os que já existiam precisam
+   * de um fetch. Também roda sozinho ao conectar, em /painel/conectar.
+   */
+  const syncGroups = useCallback(async () => {
+    setSyncing(true);
+    setSyncError(null);
+    try {
+      const res = await fetch("/api/groups/sync", { method: "POST" });
+      if (!res.ok) {
+        const detail = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(detail.error ?? "Nao foi possivel sincronizar.");
+      }
+      await loadGroups();
+    } catch (e) {
+      setSyncError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSyncing(false);
+    }
+  }, [loadGroups]);
 
   const withStatus = useMemo(
     () => groups.map((g) => ({ g, status: getCampaignGroupStatus(g) })),
@@ -68,11 +98,23 @@ export default function PainelGrupos() {
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-8 px-4 py-8 sm:px-8">
-      <header>
-        <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-volt-950">Grupos</h1>
-        <p className="font-editorial mt-1 text-[19px] italic text-ardosia">
-          Seus grupos, sincronizados direto do WhatsApp.
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-volt-950">Grupos</h1>
+          <p className="font-editorial mt-1 text-[19px] italic text-ardosia">
+            Seus grupos, sincronizados direto do WhatsApp.
+          </p>
+          {syncError && <p className="mt-2 text-sm text-alerta">{syncError}</p>}
+        </div>
+        <button
+          type="button"
+          onClick={syncGroups}
+          disabled={syncing}
+          className="inline-flex items-center gap-2 rounded-xl bg-cobalt-500 px-4 py-2.5 text-sm font-medium text-white transition-[transform,filter] duration-[160ms] ease-[var(--ease-fluxo)] hover:-translate-y-0.5 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+        >
+          <RefreshCw className={cn("h-4 w-4", syncing && "animate-spin")} />
+          {syncing ? "Sincronizando…" : "Sincronizar grupos"}
+        </button>
       </header>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">

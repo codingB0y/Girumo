@@ -8,6 +8,13 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
+ * A Evolution busca a foto de perfil de cada grupo em série antes de responder,
+ * então o fetch escala com o número de grupos. O default da Vercel (10-15s)
+ * cortaria o sync de quem tem muitos grupos — exatamente quem mais precisa.
+ */
+export const maxDuration = 60;
+
+/**
  * Importa os grupos da instância conectada.
  *
  * Só o que o WhatsApp é dono é gravado — a seleção e a capacidade definidas no
