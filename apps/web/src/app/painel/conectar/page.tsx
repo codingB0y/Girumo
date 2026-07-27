@@ -137,6 +137,8 @@ function QRPanel() {
   // Guarda contra o polling disparar uma segunda criação antes da primeira
   // responder — cada POST cria uma instância de verdade na Evolution.
   const creating = useRef(false);
+  // Idem para o sync inicial: o polling continua rodando enquanto ele responde.
+  const synced = useRef(false);
 
   const load = useCallback(async (showSpinner = false) => {
     if (showSpinner) setLoading(true);
@@ -196,6 +198,22 @@ function QRPanel() {
     const id = setInterval(() => load(false), POLL_MS);
     return () => clearInterval(id);
   }, [load]);
+
+  /**
+   * Importa os grupos assim que a conexão abre.
+   *
+   * A Evolution só emite `groups.upsert` para grupos criados DEPOIS da conexão;
+   * os que já existiam nunca chegariam por webhook. Sem este fetch inicial, a
+   * tela de grupos fica vazia para sempre — que é o que acontecia antes.
+   *
+   * Falha aqui é silenciosa de propósito: a conexão deu certo, e o usuário tem
+   * o botão "Sincronizar grupos" no painel de grupos como caminho explícito.
+   */
+  useEffect(() => {
+    if (instance?.status !== "connected" || synced.current) return;
+    synced.current = true;
+    void fetch("/api/groups/sync", { method: "POST" }).catch(() => undefined);
+  }, [instance?.status]);
 
   if (instance?.status === "connected") {
     return <ConnectedPanel number={instance.phone} />;
