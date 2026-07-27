@@ -1,9 +1,13 @@
-def test_imports():
-    from lightrag_kg import config, index, llm, rag  # noqa: F401
+from lightrag_kg.index import slugify, doc_id_for
 
 
-def test_slugify():
-    from lightrag_kg.index import slugify
+def test_slugify_basic():
+    assert slugify("apps/web/src/App.tsx") == "apps-web-src-apptsx"
 
-    assert slugify("Hello/World Foo") == "hello-world-foo"
+
+def test_slugify_empty():
     assert slugify("") == "unknown"
+
+
+def test_doc_id_deterministic():
+    assert doc_id_for("apps/web/src/App.tsx") == doc_id_for("apps/web/src/App.tsx")

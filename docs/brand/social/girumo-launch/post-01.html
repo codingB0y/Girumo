@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Girumo — Post 01 Reveal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --volt-950:#071923; --volt-900:#0C2835; --volt-800:#123746;
+    --acid:#A7FF2F; --cobalt:#2E66FF;
+    --canvas:#F4F0E7; --paper:#FFFEFA; --slate:#52646C; --line:#D8D7CF;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:#333}
+  .canvas{
+    position:relative; width:1080px; height:1350px; overflow:hidden;
+    background:var(--volt-950); color:var(--canvas);
+    font-family:'Manrope',sans-serif;
+    /* subtle vertical channel texture — grid incompleto */
+    background-image:
+      linear-gradient(90deg, rgba(255,255,255,.020) 1px, transparent 1px);
+    background-size:90px 100%;
+  }
+
+  /* giant symbol, bleeding top-right — tone-on-tone */
+  .glyph-bg{
+    position:absolute; top:-190px; right:-160px;
+    width:760px; height:760px; color:var(--volt-800);
+    opacity:.9;
+  }
+  .glyph-bg svg{width:100%;height:100%;display:block}
+
+  /* lime accent block — deslocamento, separate mass */
+  .accent{
+    position:absolute; top:360px; right:250px;
+    width:78px; height:78px; background:var(--acid);
+  }
+
+  .frame{position:absolute; inset:0; padding:84px 88px; display:flex; flex-direction:column}
+
+  /* top bar */
+  .top{display:flex; justify-content:space-between; align-items:center;
+    font-family:'IBM Plex Mono',monospace; font-size:19px; letter-spacing:.18em;
+    color:var(--slate); text-transform:uppercase;}
+  .top .r{color:var(--canvas)}
+  .top .dot{display:inline-block;width:9px;height:9px;background:var(--acid);margin-right:12px;vertical-align:middle}
+
+  /* hero block pinned to lower half */
+  .hero{margin-top:auto}
+  .kicker{
+    font-family:'IBM Plex Mono',monospace; font-size:22px; letter-spacing:.16em;
+    text-transform:uppercase; color:var(--slate); margin-bottom:34px;
+    display:flex; align-items:center; gap:18px;
+  }
+  .kicker::before{content:'';width:56px;height:2px;background:var(--acid)}
+  .wordmark{
+    font-weight:800; font-size:250px; line-height:.9; letter-spacing:-.035em;
+    color:var(--canvas);
+  }
+  .tagline{
+    margin-top:52px; font-weight:600; font-size:52px; line-height:1.16;
+    letter-spacing:-.02em; color:var(--canvas);
+  }
+  .tagline .mut{color:var(--slate)}
+  .tagline .hit{white-space:nowrap; padding:0 4px;
+    background:linear-gradient(transparent 58%, var(--acid) 58%, var(--acid) 90%, transparent 90%);}
+
+  /* footer */
+  .foot{margin-top:64px; display:flex; justify-content:space-between; align-items:flex-end;
+    border-top:1px solid rgba(255,255,255,.12); padding-top:26px;
+    font-family:'IBM Plex Mono',monospace; font-size:18px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--slate);}
+  .foot .sym{width:34px;height:34px;color:var(--canvas)}
+  .foot .sym svg{width:100%;height:100%;display:block}
+</style>
+</head>
+<body>
+  <div class="canvas">
+    <div class="glyph-bg">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path fill="currentColor" d="M5 2H12V10H9V22H5A3 3 0 0 1 2 19V5A3 3 0 0 1 5 2Z"/>
+        <path fill="currentColor" d="M14 2H19A3 3 0 0 1 22 5V19A3 3 0 0 1 19 22H11V14H14V2Z"/>
+      </svg>
+    </div>
+    <div class="accent"></div>
+
+    <div class="frame">
+      <div class="top">
+        <span><span class="dot"></span>Nova marca</span>
+        <span class="r">Girumo&trade;</span>
+      </div>
+
+      <div class="hero">
+        <div class="kicker">Para quem vende em grupos</div>
+        <div class="wordmark">Girumo</div>
+        <div class="tagline">
+          Mais grupos lotados.<br>
+          <span class="mut">Menos trabalho.</span><br>
+          <span class="hit">Mais vendas.</span>
+        </div>
+
+        <div class="foot">
+          <span>Central operacional de vendas</span>
+          <span class="sym">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path fill="currentColor" d="M5 2H12V10H9V22H5A3 3 0 0 1 2 19V5A3 3 0 0 1 5 2Z"/>
+              <path fill="currentColor" d="M14 2H19A3 3 0 0 1 22 5V19A3 3 0 0 1 19 22H11V14H14V2Z"/>
+            </svg>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

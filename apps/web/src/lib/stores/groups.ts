@@ -29,38 +29,6 @@ export async function listGroups(tenantId: string): Promise<Group[]> {
   if (error) throw new Error(error.message);
   return data ?? [];
 }
-
-export async function getGroup(tenantId: string, id: string): Promise<Group | null> {
-  const { data, error } = await getSupabaseAdmin()
-    .from(TABLE)
-    .select("*")
-    .eq("tenant_id", tenantId)
-    .eq("id", id)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  return data;
-}
-
-export async function upsertGroup(
-  tenantId: string,
-  input: Omit<Group, "id" | "tenant_id" | "created_at" | "updated_at" | "metadata"> & { id?: string },
-): Promise<Group> {
-  const { data, error } = await getSupabaseAdmin()
-    .from(TABLE)
-    .upsert(
-      {
-        ...input,
-        tenant_id: tenantId,
-        ...(input.id ? { id: input.id } : {}),
-      },
-      { onConflict: "tenant_id,whatsapp_group_id" },
-    )
-    .select("*")
-    .single();
-  if (error) throw new Error(error.message);
-  return data;
-}
-
 export async function upsertGroupsBatch(
   tenantId: string,
   groups: Array<Omit<Group, "id" | "tenant_id" | "created_at" | "updated_at" | "metadata"> & { id?: string }>,
@@ -75,6 +43,29 @@ export async function upsertGroupsBatch(
   return data ?? [];
 }
 
+/**
+ * Sync vindo do provedor (Evolution `fetchAllGroups`).
+ *
+ * Grava SÓ o que o WhatsApp é dono: id do grupo, nome e nº de membros. Os
+ * campos configurados no painel (`selected`, `capacity`, `engagement`,
+ * `invite_url`) ficam de fora do payload de propósito — o ON CONFLICT só
+ * atualiza colunas presentes, então um sync não apaga a seleção do lojista.
+ * Em linha nova, o default da tabela cobre cada um deles.
+ */
+export async function syncGroupsFromProvider(
+  tenantId: string,
+  groups: Array<{ whatsapp_group_id: string; name: string; members: number }>,
+): Promise<number> {
+  if (groups.length === 0) return 0;
+  const rows = groups.map((g) => ({ ...g, tenant_id: tenantId }));
+  const { data, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .upsert(rows, { onConflict: "tenant_id,whatsapp_group_id" })
+    .select("id");
+  if (error) throw new Error(error.message);
+  return data?.length ?? 0;
+}
+
 export async function updateGroup(tenantId: string, id: string, patch: Partial<Group>): Promise<Group | null> {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { tenant_id, created_at, ...safePatch } = patch as Record<string, unknown>;
@@ -87,13 +78,4 @@ export async function updateGroup(tenantId: string, id: string, patch: Partial<G
     .maybeSingle();
   if (error) throw new Error(error.message);
   return data;
-}
-
-export async function deleteGroup(tenantId: string, id: string): Promise<void> {
-  const { error } = await getSupabaseAdmin()
-    .from(TABLE)
-    .delete()
-    .eq("tenant_id", tenantId)
-    .eq("id", id);
-  if (error) throw new Error(error.message);
 }

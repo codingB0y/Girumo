@@ -1,16 +1,42 @@
 import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { generateSlug } from "@/lib/pages/slug";
+import { legacyAliasFor, type LpCanonicalEvent } from "@/lib/pages/capture";
 import type {
   LandingPage,
+  LandingPageUpdatePatch,
   LpCreateInput,
-  LpStatus,
   LpTemplate,
   PublicLandingPage,
 } from "@/lib/pages/schema";
+import { normalizeLandingPage } from "@/lib/pages/schema";
 
 const PAGES = "landing_pages";
 const TEMPLATES = "landing_page_templates";
+const LP_RENDER_CONTEXT_STALE = "LP_RENDER_CONTEXT_STALE";
+
+export class LpRenderContextStaleError extends Error {
+  constructor() {
+    super(LP_RENDER_CONTEXT_STALE);
+    this.name = "LpRenderContextStaleError";
+  }
+}
+
+export function isLpRenderContextStaleError(
+  error: unknown,
+): error is LpRenderContextStaleError {
+  return error instanceof LpRenderContextStaleError;
+}
+
+function throwRpcError(error: { code?: string; message: string }): never {
+  if (
+    error.code === "P0001" &&
+    error.message.includes(LP_RENDER_CONTEXT_STALE)
+  ) {
+    throw new LpRenderContextStaleError();
+  }
+  throw new Error(error.message);
+}
 
 /* ----------------------------- templates ----------------------------- */
 
@@ -42,7 +68,7 @@ export async function listLandingPages(tenantId: string): Promise<LandingPage[]>
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
-  return (data ?? []) as LandingPage[];
+  return (data ?? []).map((page) => normalizeLandingPage(page as LandingPage));
 }
 
 export async function getLandingPageById(
@@ -56,7 +82,7 @@ export async function getLandingPageById(
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  return data as LandingPage | null;
+  return data ? normalizeLandingPage(data as LandingPage) : null;
 }
 
 /** Render público: só páginas published, com component_key do template no join. */
@@ -77,7 +103,7 @@ export async function getPublishedPageBySlug(slug: string): Promise<PublicLandin
     } | null;
   };
   return {
-    ...page,
+    ...normalizeLandingPage(page),
     component_key: tpl?.component_key ?? "basic",
     template_copy: tpl?.default_copy ?? {},
   };
@@ -102,6 +128,7 @@ export async function createLandingPage(
         slug,
         status: "draft",
         content: input.content,
+        content_schema_version: input.content_schema_version,
         campaign_slug: input.campaign_slug ?? null,
         target_group_url: input.target_group_url ?? null,
         meta_pixel_id: input.meta_pixel_id ?? null,
@@ -110,25 +137,23 @@ export async function createLandingPage(
       .select("*")
       .single();
 
-    if (!error) return data as LandingPage;
+    if (!error) return normalizeLandingPage(data as LandingPage);
     if (error.code !== UNIQUE_VIOLATION) throw new Error(error.message);
   }
   throw new Error("Não foi possível gerar um slug único. Tente de novo.");
 }
 
-export type LpUpdatePatch = Partial<{
-  content: LpCreateInput["content"];
-  campaign_slug: string | null;
-  target_group_url: string | null;
-  meta_pixel_id: string | null;
-  ga4_id: string | null;
-  status: LpStatus;
-  published_at: string;
-}>;
+export type LpUpdatePatch = LandingPageUpdatePatch;
 
-export async function updateLandingPage(
+/**
+ * UPDATE condicional atômico: a versão protege edições públicas concorrentes,
+ * e o status também invalida um snapshot se publish/pause correr em paralelo.
+ * `null` significa que a linha sumiu ou que outra gravação venceu o CAS.
+ */
+export async function compareAndSwapLandingPage(
   tenantId: string,
   id: string,
+  expected: LandingPage,
   patch: LpUpdatePatch,
 ): Promise<LandingPage | null> {
   const { data, error } = await getSupabaseAdmin()
@@ -136,10 +161,12 @@ export async function updateLandingPage(
     .update({ ...patch, updated_at: new Date().toISOString() })
     .eq("tenant_id", tenantId)
     .eq("id", id)
+    .eq("published_version", expected.published_version)
+    .eq("status", expected.status)
     .select("*")
     .maybeSingle();
   if (error) throw new Error(error.message);
-  return data as LandingPage | null;
+  return data ? normalizeLandingPage(data as LandingPage) : null;
 }
 
 /* --------------------------- leads + eventos -------------------------- */
@@ -147,7 +174,16 @@ export async function updateLandingPage(
 const LEADS = "lp_leads";
 const EVENTS = "lp_tracking_events";
 
-export type LpEventName = "PageView" | "Lead" | "GroupJoin";
+export type LpEventName =
+  // canônicos (funil de 5) + legado (compat de leitura)
+  | "page_view"
+  | "form_start"
+  | "lead_submit_attempt"
+  | "lead_created"
+  | "group_click"
+  | "PageView"
+  | "Lead"
+  | "GroupJoin";
 
 export type LpLeadRow = {
   id: string;
@@ -178,19 +214,110 @@ export type LpAttribution = {
   referrer: string | null;
 };
 
+export type ConfirmLpCaptureInput = {
+  tenantId: string;
+  landingPageId: string;
+  name: string;
+  whatsapp: string;
+  publishedVersion: number;
+  campaignSlug: string | null;
+  structure: string;
+  visualDirection: string;
+  modelVersion: number;
+  noticeVersion: string;
+  noticeText: string;
+  device: string | null;
+  attribution: LpAttribution;
+  idemKey: string;
+  userAgent: string | null;
+  ipHash: string | null;
+};
+
+/**
+ * Confirma uma captura por uma única RPC transacional. A função SQL também
+ * reconcilia retries de capturas preexistentes: evento, contador e lead legado
+ * são garantidos sem depender do booleano `created`.
+ */
+export async function confirmLpCapture(
+  input: ConfirmLpCaptureInput,
+): Promise<{ created: boolean; contactId: string; captureId: string }> {
+  const { data, error } = await getSupabaseAdmin().rpc("confirm_lp_capture", {
+    p_tenant_id: input.tenantId,
+    p_landing_page_id: input.landingPageId,
+    p_name: input.name,
+    p_whatsapp: input.whatsapp,
+    p_published_version: input.publishedVersion,
+    p_campaign_slug: input.campaignSlug,
+    p_structure: input.structure,
+    p_visual_direction: input.visualDirection,
+    p_model_version: input.modelVersion,
+    p_notice_version: input.noticeVersion,
+    p_notice_text: input.noticeText,
+    p_device: input.device,
+    p_attribution: input.attribution,
+    p_idem_key: input.idemKey,
+    p_user_agent: input.userAgent,
+    p_ip_hash: input.ipHash,
+  });
+  if (error) throwRpcError(error);
+
+  const row = (
+    Array.isArray(data) ? data[0] : data
+  ) as {
+    out_created?: boolean;
+    out_contact_id?: string;
+    out_capture_id?: string;
+  } | null;
+  if (!row?.out_contact_id || !row.out_capture_id) {
+    throw new Error("A captura não foi confirmada pelo banco.");
+  }
+  return {
+    created: row.out_created === true,
+    contactId: row.out_contact_id,
+    captureId: row.out_capture_id,
+  };
+}
+
+/**
+ * Grava um evento do funil. Com `idemKey`, o índice
+ * uq_lp_events_idem(landing_page_id, event_name, published_version, idem_key)
+ * torna a escrita idempotente dentro da mesma versão publicada: o mesmo evento
+ * da mesma visita não conta duas vezes por causa de um efeito que roda em dobro,
+ * um beacon reenviado ou um F5 (§5).
+ * Sem `idemKey` o comportamento é o de antes (grava sempre) — é o que o legado usa.
+ */
 export async function insertLpTrackingEvent(input: {
   tenantId: string;
   landingPageId: string;
   eventName: LpEventName;
   eventData: Record<string, unknown>;
-}): Promise<void> {
-  const { error } = await getSupabaseAdmin().from(EVENTS).insert({
-    tenant_id: input.tenantId,
-    landing_page_id: input.landingPageId,
-    event_name: input.eventName,
-    event_data: input.eventData,
-  });
-  if (error) throw new Error(error.message);
+  idemKey?: string | null;
+  dimensions: {
+    publishedVersion: number;
+    structure: string;
+    visualDirection: string;
+    modelVersion: number;
+    device: string | null;
+  };
+}): Promise<{ created: boolean }> {
+  const { data, error } = await getSupabaseAdmin().rpc(
+    "record_lp_tracking_event",
+    {
+      p_tenant_id: input.tenantId,
+      p_landing_page_id: input.landingPageId,
+      p_event_name: input.eventName,
+      p_event_data: input.eventData,
+      p_published_version: input.dimensions.publishedVersion,
+      p_structure: input.dimensions.structure,
+      p_visual_direction: input.dimensions.visualDirection,
+      p_model_version: input.dimensions.modelVersion,
+      p_device: input.dimensions.device,
+      p_idem_key: input.idemKey ?? null,
+    },
+  );
+
+  if (error) throwRpcError(error);
+  return { created: data === true };
 }
 
 /** Contador-cache (views/leads) — falha silenciosa de propósito (é cache). */
@@ -228,21 +355,26 @@ export async function insertLpLead(input: {
 
 export type LpMetrics = { views: number; leads: number; conversion: number };
 
-/** Fonte da verdade das métricas = lp_tracking_events (decisão da Sessão 0). */
+/**
+ * Fonte da verdade das métricas = lp_tracking_events (decisão da Sessão 0).
+ * Conta o nome canônico E o legado juntos: as páginas do v1 gravaram
+ * PageView/Lead e continuam contando enquanto não migram (§5/§6).
+ */
 export async function getLpMetrics(tenantId: string, landingPageId: string): Promise<LpMetrics> {
   const supabase = getSupabaseAdmin();
-  const countFor = async (eventName: LpEventName): Promise<number> => {
+  const countFor = async (event: LpCanonicalEvent): Promise<number> => {
+    const names = [event, legacyAliasFor(event)].filter(Boolean) as string[];
     const { count, error } = await supabase
       .from(EVENTS)
       .select("id", { count: "exact" })
       .eq("tenant_id", tenantId)
       .eq("landing_page_id", landingPageId)
-      .eq("event_name", eventName)
+      .in("event_name", names)
       .limit(1);
     if (error) throw new Error(error.message);
     return count ?? 0;
   };
-  const [views, leads] = await Promise.all([countFor("PageView"), countFor("Lead")]);
+  const [views, leads] = await Promise.all([countFor("page_view"), countFor("lead_created")]);
   return {
     views,
     leads,
@@ -266,6 +398,90 @@ export async function listRecentLpLeads(
     .limit(limit);
   if (error) throw new Error(error.message);
   return (data ?? []) as LpLeadRow[];
+}
+
+/* --------------------- contatos + capturas (v2) ---------------------- */
+
+const CONTACTS = "lp_contacts";
+const CAPTURES = "lp_captures";
+
+export type LpContactRow = {
+  id: string;
+  tenant_id: string;
+  name: string | null;
+  whatsapp: string;
+  blocked_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/**
+ * Upsert de contato por (tenant, whatsapp) — dedup global de pessoa.
+ * `name` só é gravado quando vem não-vazio (não sobrescreve um nome bom com null).
+ * Retorna o contato (novo ou existente).
+ */
+export async function upsertLpContact(input: {
+  tenantId: string;
+  whatsapp: string; // já normalizado E.164 BR no server
+  name: string | null;
+}): Promise<LpContactRow> {
+  const payload: Record<string, unknown> = {
+    tenant_id: input.tenantId,
+    whatsapp: input.whatsapp,
+    updated_at: new Date().toISOString(),
+  };
+  const name = input.name?.trim();
+  if (name) payload.name = name;
+
+  const { data, error } = await getSupabaseAdmin()
+    .from(CONTACTS)
+    .upsert(payload, { onConflict: "tenant_id,whatsapp" })
+    .select("*")
+    .single();
+  if (error) throw new Error(error.message);
+  return data as LpContactRow;
+}
+
+export type LpCaptureInput = {
+  tenantId: string;
+  landingPageId: string;
+  contactId: string;
+  publishedVersion: number;
+  campaignSlug: string | null;
+  structure: string;
+  visualDirection: string;
+  modelVersion: number;
+  noticeVersion: string;
+  noticeText: string;
+  device: string | null;
+  attribution: LpAttribution;
+  idemKey: string;
+};
+
+/**
+ * Insere a captura (evidência do aviso + atribuição). Idempotente por
+ * (landing_page_id, published_version, contact_id, idem_key): reenvio ou
+ * recarregamento do mesmo envio não cria duplicata.
+ */
+export async function insertLpCapture(input: LpCaptureInput): Promise<{ created: boolean }> {
+  const { error } = await getSupabaseAdmin().from(CAPTURES).insert({
+    tenant_id: input.tenantId,
+    landing_page_id: input.landingPageId,
+    contact_id: input.contactId,
+    published_version: input.publishedVersion,
+    campaign_slug: input.campaignSlug,
+    structure: input.structure,
+    visual_direction: input.visualDirection,
+    model_version: input.modelVersion,
+    notice_version: input.noticeVersion,
+    notice_text: input.noticeText,
+    device: input.device,
+    ...input.attribution,
+    idem_key: input.idemKey,
+  });
+  if (!error) return { created: true };
+  if (error.code === UNIQUE_VIOLATION) return { created: false };
+  throw new Error(error.message);
 }
 
 /* ------------------------------ health ------------------------------- */

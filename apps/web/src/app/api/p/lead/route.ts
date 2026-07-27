@@ -1,11 +1,15 @@
 import {
-  bumpLpCounter,
+  confirmLpCapture,
   getPublishedPageBySlug,
-  insertLpLead,
-  insertLpTrackingEvent,
+  isLpRenderContextStaleError,
 } from "@/lib/pages/store";
-import { consentText, normalizeWhatsappBR, resolveTargetUrl } from "@/lib/pages/schema";
+import { normalizeWhatsappBR, resolveTargetUrl } from "@/lib/pages/schema";
+import { captureIdemKey, deviceFromUserAgent } from "@/lib/pages/capture";
 import { extractAttribution, hashIp, isRateLimited } from "@/lib/pages/analytics";
+import {
+  isRenderContextStale,
+  verifyRenderContextToken,
+} from "@/lib/pages/render-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,47 +53,66 @@ export async function POST(req: Request) {
     );
   }
 
-  // LGPD: sem consent explícito não existe lead
-  if (body.consent !== true) {
-    return Response.json(
-      { error: "Você precisa aceitar entrar no grupo pra continuar." },
-      { status: 400 },
-    );
-  }
+  // Sem checkbox (§8.2): enviar o formulário JÁ É a ação afirmativa — o aviso
+  // está visível junto do botão, e é ele que gravamos como prova. Exigir um
+  // `consent` do client seria pedir ao próprio client que confirme o que ele já
+  // fez ao chamar esta rota; a evidência que vale é o snapshot do texto abaixo.
 
   try {
+    const renderContextToken =
+      typeof body.render_context === "string" ? body.render_context : "";
+    const verification = verifyRenderContextToken(renderContextToken, slug);
+    if (!verification.ok) {
+      return Response.json(
+        { error: "Contexto da página inválido. Recarregue e tente novamente." },
+        { status: 400 },
+      );
+    }
+    const renderContext = verification.value;
+
     const page = await getPublishedPageBySlug(slug);
-    if (!page) {
-      return Response.json({ error: "Página não encontrada." }, { status: 404 });
+    if (!page || isRenderContextStale(renderContext, page)) {
+      return Response.json(
+        { error: "Esta página mudou. Recarregue antes de enviar seus dados." },
+        { status: 409 },
+      );
     }
 
     const redirectUrl = resolveTargetUrl(page);
     const attribution = extractAttribution(body);
+    const userAgent = req.headers.get("user-agent")?.slice(0, 300) ?? null;
+    const device = deviceFromUserAgent(userAgent);
 
-    const { created } = await insertLpLead({
+    // Uma RPC confirma contato, captura, lead legado, evento e contador na mesma
+    // transação. Retry reconcilia o conjunto mesmo quando a captura já existia.
+    const { created } = await confirmLpCapture({
       tenantId: page.tenant_id,
       landingPageId: page.id,
       name,
       whatsapp,
+      publishedVersion: renderContext.publishedVersion,
+      campaignSlug: page.campaign_slug,
+      structure: renderContext.structure,
+      visualDirection: renderContext.visualDirection,
+      modelVersion: renderContext.modelVersion,
+      noticeVersion: renderContext.noticeVersion,
+      noticeText: renderContext.noticeText,
+      device,
       attribution,
-      userAgent: req.headers.get("user-agent")?.slice(0, 300) ?? null,
+      idemKey: captureIdemKey(),
+      userAgent,
       ipHash: hashIp(req),
-      consentText: consentText(page.content.store_name, page.content.group_topic),
     });
 
-    // Evento + contador só na 1ª captura (reenvio do mesmo zap não infla métrica)
-    if (created) {
-      await insertLpTrackingEvent({
-        tenantId: page.tenant_id,
-        landingPageId: page.id,
-        eventName: "Lead",
-        eventData: attribution as unknown as Record<string, unknown>,
-      });
-      await bumpLpCounter(page.id, "leads");
-    }
-
+    // O destino só existe depois da captura dar certo — nunca antes, e nunca no HTML.
     return Response.json({ ok: true, redirect_url: redirectUrl, duplicated: !created });
   } catch (e) {
+    if (isLpRenderContextStaleError(e)) {
+      return Response.json(
+        { error: "Esta página mudou. Recarregue antes de enviar seus dados." },
+        { status: 409 },
+      );
+    }
     return Response.json({ error: (e as Error).message }, { status: 500 });
   }
 }

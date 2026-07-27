@@ -1,0 +1,117 @@
+# GIRUMO — Evolution API v2 (Coolify/VPS)
+# Substitui a engine Baileys (engine.docker-compose.yml) a partir da F5.
+#
+# Segurança (checklist da migração):
+#  - Imagens PINADAS (nunca :latest). Verifique a tag no Docker Hub antes do deploy.
+#  - Postgres e Redis SEM porta no host (só rede interna girumo-net).
+#  - Evolution exposta apenas via proxy do Coolify (HTTPS + domínio), nunca host port.
+#  - AUTHENTICATION_API_KEY forte (>=32 bytes) = EVOLUTION_API_KEY na Vercel/worker.
+#  - Manager UI (/manager) deve ser bloqueada no proxy — ver README.evolution.md.
+#  - Webhook é POR INSTÂNCIA (setWebhook na F2), não global.
+
+networks:
+  girumo-net:
+    driver: bridge
+
+services:
+  evolution:
+    image: evoapicloud/evolution-api:${EVOLUTION_IMAGE_TAG:-v2.3.7}
+    restart: unless-stopped
+    depends_on:
+      evolution-postgres:
+        condition: service_healthy
+      evolution-redis:
+        condition: service_healthy
+    # Sem `ports:` — o proxy do Coolify mapeia o domínio HTTPS para a porta 8080.
+    expose:
+      - "8080"
+    environment:
+      SERVER_URL: ${SERVER_URL}
+      AUTHENTICATION_API_KEY: ${AUTHENTICATION_API_KEY}
+
+      # Banco (Prisma/Postgres próprio da stack)
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://${EVOLUTION_DB_USER:-evolution}:${EVOLUTION_DB_PASSWORD}@evolution-postgres:5432/${EVOLUTION_DB_NAME:-evolution}?schema=public
+      DATABASE_CONNECTION_CLIENT_NAME: girumo_evolution
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "true"
+      DATABASE_SAVE_MESSAGE_UPDATE: "true"
+      DATABASE_SAVE_DATA_CONTACTS: "true"
+      DATABASE_SAVE_DATA_CHATS: "true"
+      DATABASE_SAVE_DATA_LABELS: "true"
+      DATABASE_SAVE_DATA_HISTORIC: "true"
+
+      # Cache Redis próprio da stack
+      CACHE_REDIS_ENABLED: "true"
+      CACHE_REDIS_URI: redis://evolution-redis:6379/${EVOLUTION_REDIS_DB:-6}
+      CACHE_REDIS_PREFIX_KEY: girumo_evolution
+      CACHE_REDIS_SAVE_INSTANCES: "false"
+      CACHE_LOCAL_ENABLED: "false"
+
+      # Webhook global desligado — Girumo configura webhook por instância (F2).
+      WEBHOOK_GLOBAL_ENABLED: "false"
+
+      # Sessão/QR
+      CONFIG_SESSION_PHONE_CLIENT: Girumo
+      CONFIG_SESSION_PHONE_NAME: Chrome
+      QRCODE_LIMIT: "30"
+      DEL_INSTANCE: "false"
+
+      LOG_LEVEL: ${LOG_LEVEL:-ERROR}
+      LOG_BAILEYS: error
+      LANGUAGE: pt-BR
+      TELEMETRY: "false"
+    volumes:
+      - evolution_instances:/evolution/instances
+      - evolution_store:/evolution/store
+    networks:
+      - girumo-net
+    healthcheck:
+      # Ajuste se a imagem não tiver wget (Evolution v2 é node/alpine — geralmente tem busybox wget).
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+  evolution-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    # Sem `ports:` — acessível só pela rede interna girumo-net.
+    environment:
+      POSTGRES_USER: ${EVOLUTION_DB_USER:-evolution}
+      POSTGRES_PASSWORD: ${EVOLUTION_DB_PASSWORD}
+      POSTGRES_DB: ${EVOLUTION_DB_NAME:-evolution}
+    volumes:
+      - evolution_pgdata:/var/lib/postgresql/data
+    networks:
+      - girumo-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${EVOLUTION_DB_USER:-evolution} -d ${EVOLUTION_DB_NAME:-evolution}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  evolution-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    # Sem `ports:` — acessível só pela rede interna girumo-net.
+    volumes:
+      - evolution_redisdata:/data
+    networks:
+      - girumo-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  evolution_instances:
+  evolution_store:
+  evolution_pgdata:
+  evolution_redisdata:

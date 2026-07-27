@@ -79,7 +79,7 @@ export function AdminAlertsDropdown() {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-breu/10 bg-white text-aco transition hover:border-iris/30"
+        className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-volt-950/10 bg-white text-aco transition hover:border-cobalt-500/30"
         aria-label="Alertas"
       >
         <Bell className="h-[18px] w-[18px]" />
@@ -91,14 +91,14 @@ export function AdminAlertsDropdown() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-12 z-50 w-80 rounded-2xl border border-breu/[0.08] bg-white shadow-xl sm:w-96">
-          <div className="flex items-center justify-between border-b border-breu/[0.06] px-4 py-3">
+        <div className="absolute right-0 top-12 z-50 w-80 rounded-2xl border border-volt-950/[0.08] bg-white shadow-xl sm:w-96">
+          <div className="flex items-center justify-between border-b border-volt-950/[0.06] px-4 py-3">
             <h3 className="font-display text-sm font-bold">Alertas</h3>
             {unreadCount > 0 && (
               <button
                 onClick={markAllRead}
                 disabled={loading}
-                className="inline-flex items-center gap-1 font-data text-[11px] text-iris hover:underline disabled:opacity-50"
+                className="inline-flex items-center gap-1 font-data text-[11px] text-cobalt-500 hover:underline disabled:opacity-50"
               >
                 <Check className="h-3 w-3" />
                 Marcar todos como lidos
@@ -113,7 +113,7 @@ export function AdminAlertsDropdown() {
                 <p className="text-xs text-aco/50">Nenhum alerta pendente</p>
               </div>
             ) : (
-              <div className="divide-y divide-breu/[0.04]">
+              <div className="divide-y divide-volt-950/[0.04]">
                 {alerts.slice(0, 10).map((alert) => {
                   const config = TYPE_CONFIG[alert.type] ?? TYPE_CONFIG.info;
                   const Icon = config.icon;
@@ -124,7 +124,7 @@ export function AdminAlertsDropdown() {
                       key={alert.id}
                       className={cn(
                         "flex items-start gap-3 px-4 py-3 transition",
-                        isUnread ? "bg-iris/[0.02]" : "",
+                        isUnread ? "bg-cobalt-500/[0.02]" : "",
                       )}
                     >
                       <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${config.color}`}>
@@ -132,11 +132,11 @@ export function AdminAlertsDropdown() {
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <p className={cn("text-sm text-breu", isUnread ? "font-medium" : "")}>
+                          <p className={cn("text-sm text-volt-950", isUnread ? "font-medium" : "")}>
                             {alert.title}
                           </p>
                           {isUnread && (
-                            <span className="h-2 w-2 rounded-full bg-iris" />
+                            <span className="h-2 w-2 rounded-full bg-cobalt-500" />
                           )}
                         </div>
                         {alert.message && (
@@ -161,10 +161,10 @@ export function AdminAlertsDropdown() {
           </div>
 
           {alerts.length > 0 && (
-            <div className="border-t border-breu/[0.06] px-4 py-2.5 text-center">
+            <div className="border-t border-volt-950/[0.06] px-4 py-2.5 text-center">
               <a
                 href="/admin/alertas"
-                className="font-data text-[11px] uppercase tracking-wider text-iris hover:underline"
+                className="font-data text-[11px] uppercase tracking-wider text-cobalt-500 hover:underline"
               >
                 Ver todos os alertas
               </a>

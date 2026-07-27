@@ -1,0 +1,17 @@
+# Community 7
+
+- [[black|Black]]
+- [[devzapp|DevZapp]]
+- [[diamond|Diamond]]
+- [[eduzz|Eduzz]]
+- [[facebook-ads|Facebook Ads]]
+- [[google-analytics|Google Analytics]]
+- [[hotmart|Hotmart]]
+- [[iago-velasco|Iago Velasco]]
+- [[infoprodutor|Infoprodutor]]
+- [[jointech|Jointech]]
+- [[joinzapp|Joinzapp]]
+- [[marcos-paulo|Marcos Paulo]]
+- [[monetizze|Monetizze]]
+- [[smart|Smart]]
+- [[tiago-almeida|Tiago Almeida]]

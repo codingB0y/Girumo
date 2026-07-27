@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { Bug, ChevronDown, X } from "lucide-react";
+import { PREVIEW_PATH } from "@/components/pages/editor/preview-protocol";
 
 type TenantOption = {
   id: string;
@@ -15,6 +17,9 @@ type TenantOption = {
  * Inclui switch tenant rápido.
  */
 export function DevModeBanner() {
+  // O root layout envolve TODA rota, inclusive a que o editor de LP embute num
+  // iframe — a barra aparecia dentro da prévia, como se fosse parte da página.
+  const pathname = usePathname();
   const [visible, setVisible] = useState(true);
   const [showTenantSwitch, setShowTenantSwitch] = useState(false);
   const [tenants, setTenants] = useState<TenantOption[]>([]);
@@ -39,7 +44,7 @@ export function DevModeBanner() {
   }, [isDev]);
 
   // Não renderizar fora de dev (depois dos hooks — rules-of-hooks)
-  if (!isDev) return null;
+  if (!isDev || pathname === PREVIEW_PATH) return null;
 
   function switchTenant(tenantId: string) {
     localStorage.setItem("hubflow_active_tenant_id", tenantId);

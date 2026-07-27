@@ -160,10 +160,10 @@ export default async function AdminDashboardPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Tenants recentes */}
-        <section className="rounded-2xl border border-breu/[0.06] bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between border-b border-breu/[0.06] pb-4">
+        <section className="rounded-2xl border border-volt-950/[0.06] bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between border-b border-volt-950/[0.06] pb-4">
             <h2 className="font-display text-base font-bold">Tenants recentes</h2>
-            <Link href="/admin/tenants" className="font-data text-[11px] uppercase tracking-wider text-iris hover:underline">
+            <Link href="/admin/tenants" className="font-data text-[11px] uppercase tracking-wider text-cobalt-500 hover:underline">
               Ver todos
             </Link>
           </div>
@@ -175,14 +175,14 @@ export default async function AdminDashboardPage() {
               <Link
                 key={t.id}
                 href={`/admin/tenants/${t.id}`}
-                className="flex items-center justify-between rounded-xl border border-breu/[0.04] px-4 py-3 transition hover:bg-bruma/40 hover:border-iris/10"
+                className="flex items-center justify-between rounded-xl border border-volt-950/[0.04] px-4 py-3 transition hover:bg-canvas-100/40 hover:border-cobalt-500/10"
               >
                 <div className="flex items-center gap-3">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-iris/10 font-data text-xs font-bold text-iris">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-cobalt-500/10 font-data text-xs font-bold text-cobalt-500">
                     {(t.name ?? "T").slice(0, 2).toUpperCase()}
                   </span>
                   <div>
-                    <p className="text-sm font-medium text-breu">{t.name}</p>
+                    <p className="text-sm font-medium text-volt-950">{t.name}</p>
                     <p className="font-data text-[11px] text-aco/50">{t.slug}</p>
                   </div>
                 </div>
@@ -195,10 +195,10 @@ export default async function AdminDashboardPage() {
         </section>
 
         {/* Usuários recentes */}
-        <section className="rounded-2xl border border-breu/[0.06] bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between border-b border-breu/[0.06] pb-4">
+        <section className="rounded-2xl border border-volt-950/[0.06] bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between border-b border-volt-950/[0.06] pb-4">
             <h2 className="font-display text-base font-bold">Usuários recentes</h2>
-            <Link href="/admin/usuarios" className="font-data text-[11px] uppercase tracking-wider text-iris hover:underline">
+            <Link href="/admin/usuarios" className="font-data text-[11px] uppercase tracking-wider text-cobalt-500 hover:underline">
               Ver todos
             </Link>
           </div>
@@ -207,13 +207,13 @@ export default async function AdminDashboardPage() {
               <p className="py-6 text-center text-sm text-aco/50">Nenhum usuário cadastrado.</p>
             )}
             {(recentUsers ?? []).map((u) => (
-              <div key={u.id} className="flex items-center justify-between rounded-xl border border-breu/[0.04] px-4 py-3 transition hover:bg-bruma/40">
+              <div key={u.id} className="flex items-center justify-between rounded-xl border border-volt-950/[0.04] px-4 py-3 transition hover:bg-canvas-100/40">
                 <div className="flex items-center gap-3">
                   <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 font-data text-xs font-bold text-blue-600">
                     {(u.name ?? "U").slice(0, 2).toUpperCase()}
                   </span>
                   <div>
-                    <p className="text-sm font-medium text-breu">{u.name}</p>
+                    <p className="text-sm font-medium text-volt-950">{u.name}</p>
                     <p className="font-data text-[11px] text-aco/50">{u.email}</p>
                   </div>
                 </div>
@@ -233,12 +233,12 @@ function QuickAction({ href, label, icon: Icon }: { href: string; label: string;
   return (
     <Link
       href={href}
-      className="flex items-center gap-3 rounded-xl border border-breu/[0.06] bg-white px-4 py-3.5 shadow-sm transition hover:border-iris/20 hover:shadow-md"
+      className="flex items-center gap-3 rounded-xl border border-volt-950/[0.06] bg-white px-4 py-3.5 shadow-sm transition hover:border-cobalt-500/20 hover:shadow-md"
     >
-      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-iris/10 text-iris">
+      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-cobalt-500/10 text-cobalt-500">
         <Icon className="h-4 w-4" />
       </span>
-      <span className="text-sm font-medium text-breu">{label}</span>
+      <span className="text-sm font-medium text-volt-950">{label}</span>
       <ArrowUpRight className="ml-auto h-3.5 w-3.5 text-aco/30" />
     </Link>
   );

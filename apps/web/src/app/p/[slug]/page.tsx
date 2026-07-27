@@ -2,11 +2,25 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { unstable_cache } from "next/cache";
 import { getPublishedPageBySlug } from "@/lib/pages/store";
-import { consentText, resolveTargetUrl } from "@/lib/pages/schema";
-import { resolveTemplate } from "@/components/pages/templates";
+import type { ReactNode } from "react";
+import { noticeTextFor, resolveTargetUrl } from "@/lib/pages/schema";
+import { isLpContentV2 } from "@/lib/pages/render";
+import { createRenderContextToken } from "@/lib/pages/render-context";
+import { derivePalette, type AccessiblePalette } from "@/lib/pages/palette";
+import { mediaSrc } from "@/lib/pages/media";
+import { resolveTemplate, resolveStructure } from "@/components/pages/templates";
 import { TrackingScripts } from "@/components/pages/tracking-scripts";
 
 export const runtime = "nodejs";
+
+/** Paleta de segurança se brand_color for inválido (não deve ocorrer em v2 publicado). */
+const FALLBACK_PALETTE: AccessiblePalette = {
+  brand: "#6e2233",
+  accent: "#6e2233",
+  onBrand: "#ffffff",
+  adjusted: false,
+  reason: null,
+};
 
 const SLUG_RE = /^[a-z0-9-]{3,60}$/;
 
@@ -32,13 +46,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const page = await getCachedPage(slug);
   if (!page) return { title: "Página não encontrada" };
 
+  const content = page.content;
+  const ogImage = isLpContentV2(content) ? mediaSrc(content.hero) : content.photo_url;
+
   return {
-    title: `${page.content.headline} · ${page.content.store_name}`,
-    description: page.content.description,
+    title: `${content.headline} · ${content.store_name}`,
+    description: content.description,
     openGraph: {
-      title: page.content.headline,
-      description: page.content.description,
-      images: [{ url: page.content.photo_url }],
+      title: content.headline,
+      description: content.description,
+      images: [{ url: ogImage }],
       locale: "pt_BR",
       type: "website",
     },
@@ -53,21 +70,59 @@ export default async function PublicLandingPage({ params }: PageProps) {
   const page = await getCachedPage(slug);
   if (!page) notFound();
 
-  const targetUrl = resolveTargetUrl(page);
-  if (!targetUrl) notFound(); // published sem destino não existe (CHECK no banco)
+  // Guarda de integridade (server-only, não vaza no HTML): página publicada sem
+  // destino não existe. O destino NUNCA vai pro client — só o POST /api/p/lead o
+  // resolve e devolve como redirect_url após a captura bem-sucedida.
+  if (!resolveTargetUrl(page)) notFound();
 
-  const Template = resolveTemplate(page.component_key);
+  const content = page.content;
+  const noticeText = noticeTextFor(content);
+  const renderContext = createRenderContextToken({
+    slug,
+    publishedVersion: page.published_version ?? 0,
+    structure: page.structure ?? "conversion",
+    visualDirection: page.visual_direction ?? "premium",
+    modelVersion: page.model_version ?? 1,
+    noticeVersion: page.notice_version ?? "v1",
+    noticeText,
+  });
+  let body: ReactNode;
+  if (isLpContentV2(content)) {
+    // Conteúdo v2 → estrutura editorial; paleta acessível derivada da marca.
+    const Structure = resolveStructure();
+    const palette = derivePalette(content.brand_color) ?? FALLBACK_PALETTE;
+    body = (
+      <Structure
+        slug={slug}
+        content={content}
+        palette={palette}
+        noticeText={noticeText}
+        renderContext={renderContext}
+      />
+    );
+  } else {
+    // Conteúdo legado → BasicTemplate (fallback), sem targetUrl no contrato.
+    const Template = resolveTemplate(page.component_key);
+    body = (
+      <Template
+        slug={slug}
+        content={content}
+        copy={page.template_copy}
+        consentText={noticeText}
+        renderContext={renderContext}
+      />
+    );
+  }
 
   return (
     <>
-      <Template
+      {body}
+      <TrackingScripts
         slug={slug}
-        content={page.content}
-        copy={page.template_copy}
-        targetUrl={targetUrl}
-        consentText={consentText(page.content.store_name, page.content.group_topic)}
+        renderContext={renderContext}
+        metaPixelId={page.meta_pixel_id}
+        ga4Id={page.ga4_id}
       />
-      <TrackingScripts slug={slug} metaPixelId={page.meta_pixel_id} ga4Id={page.ga4_id} />
     </>
   );
 }

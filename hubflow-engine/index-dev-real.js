@@ -65,7 +65,6 @@ if (!fs.existsSync(DEV_SESSIONS_DIR)) {
 let currentSocket = null;
 let qrCodeData = null;
 let connectedNumber = null;
-let connectedSince = null;
 let reconnectAttempts = 0;
 
 // ENDPOINTS
@@ -132,7 +131,6 @@ async function connectToWhatsApp() {
       console.log("\n[OK] Conectado ao WhatsApp!");
       qrCodeData = null;
       connectedNumber = sock.user && sock.user.id ? sock.user.id.split(":")[0] : null;
-      connectedSince = new Date();
       console.log("     Numero: " + connectedNumber);
       console.log("     Sessao salva em: " + DEV_SESSIONS_DIR + "\n");
     }

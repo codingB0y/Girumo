@@ -1,0 +1,25 @@
+# HubFlow Knowledge Graph — Index
+
+## Top entities
+
+- [[entities/firecrawl|Firecrawl]] (7 connections)
+- [[entities/lojista|Lojista]] (5 connections)
+- [[entities/atacadista-de-roupas|Atacadista de Roupas]] (5 connections)
+- [[entities/igor|Igor]] (3 connections)
+- [[entities/grupo-de-atacado|Grupo de Atacado]] (3 connections)
+- [[entities/hubflow|HubFlow]] (2 connections)
+- [[entities/revendedor|Revendedor]] (2 connections)
+- [[entities/brs|Brás]] (1 connections)
+- [[entities/moda-center|Moda Center]] (1 connections)
+- [[entities/cliente|Cliente]] (1 connections)
+- [[entities/revendedora|Revendedor(a)]] (1 connections)
+- [[entities/copy|Copy]] (1 connections)
+- [[entities/whatsapp|WhatsApp]] (1 connections)
+- [[entities/voc-1md|Voc-1.md]] (1 connections)
+- [[entities/voc-2md|Voc-2.md]] (1 connections)
+- [[entities/voc-3md|Voc-3.md]] (1 connections)
+- [[entities/voc-4md|Voc-4.md]] (1 connections)
+- [[entities/sacoleira|Sacoleira]] (1 connections)
+- [[entities/vender-todos-os-dias|Vender Todos os Dias]] (1 connections)
+- [[entities/facebook|Facebook]] (1 connections)
+- [[entities/atacado|Atacado]] (0 connections)

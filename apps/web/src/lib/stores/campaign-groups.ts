@@ -37,17 +37,6 @@ export async function getCampaignGroupBySlug(tenantId: string, slug: string): Pr
   return data;
 }
 
-export async function getCampaignGroup(tenantId: string, id: string): Promise<CampaignGroup | null> {
-  const { data, error } = await getSupabaseAdmin()
-    .from(TABLE)
-    .select("*")
-    .eq("tenant_id", tenantId)
-    .eq("id", id)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  return data;
-}
-
 export async function createCampaignGroup(
   tenantId: string,
   input: { name: string; slug: string; group_ids?: string[]; auto_grow?: boolean; grow_template?: Record<string, unknown> },

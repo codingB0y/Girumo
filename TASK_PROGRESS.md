@@ -4,6 +4,26 @@ Elevar o HubFlow a SaaS de alto nível: segurança, growth, automações, polish
 
 # Plano
 
+## Sprint 5 — Migração Baileys → Evolution API v2 (ATUAL — branch feat/evolution-migration)
+
+Plano aprovado em 2026-07-13 (`~/.claude/plans/quero-migrar-o-hubflow-eager-minsky.md`). Evolution API v2.3.7 (`evoapicloud/evolution-api`, repo `evolution-foundation/evolution-api`) em VPS/Coolify; worker novo `apps/worker` TS; fila única = `engine_commands` estendida; Baileys congela via tag `legacy-baileys-engine`. 0 clientes = sem compat.
+
+- [x] F0 — Fundação/segurança: 3 migrations (RLS padronizada, provider columns, queue v2), QR local (mata quickchart.io), ENGINE_TOKEN sem default, teste isolamento RLS ✅ (commits `3ce13f78` + cleanup `3825e1ad`; validada em DEV+PROD: teste de isolamento PASS, advisors sem WARN novo)
+- [x] F1 — Evolution API no Coolify ✅ **NO AR** (2026-07-26)
+  - [x] Artefatos de deploy: `evolution.docker-compose.yml` (v2.3.7 + PG16 + Redis7), `evolution.env.example`, `README.evolution.md`
+  - [x] VPS Contabo (2vCPU/4GB/300GB) — swap 4GB, SSH só por chave, fail2ban, unattended-upgrades, UFW 22/80/443, Coolify Cloud gerenciando (self-hosted local removido, ~1GB liberado)
+  - [x] Stack no ar em `https://wa.girumo.com.br` — 3 containers healthy, TLS válido
+  - [x] Smoke test: instância `gr_smoke-test` pareada, **envio de mensagem funcionando**
+  - [x] 6 fixtures reais capturadas e sanitizadas → `apps/web/src/lib/evolution/__fixtures__/` (inclui `@lid` em 4 delas)
+  - [x] Contratos reais documentados no README (evento em `kebab.dot`, `enabled:true`, apikey no payload, MESSAGES_UPDATE = status)
+  - [ ] **PENDENTE:** bloquear `/manager` (público, protegido só pela API key) — fazer na F5, antes de produção
+  - Consumo com stack idle: ~640MB/3.8GB. Estimativa 10 contas: ~2,3–3GB.
+- [ ] F2 — Lifecycle de instância no web (client, webhook receiver, painel conectar refeito)
+- [ ] F3 — Lead capture via worker mínimo (loop B)
+- [ ] F4 — Worker completo (anti-ban portado, senders, lease/retry, fan-out broadcast)
+- [ ] F5 — Cutover: engine desligado, rotas engine-only deletadas, envs ENGINE_* removidos
+- [ ] F6 — Limpeza: dual-mode JSON removido, SQL consolidado, retenção 30d, docs
+
 ## Sprint 1 — Segurança (P0) ✅
 1. Rotacionar Service Role Key no Supabase
 2. Fix middleware Bearer validation
@@ -205,3 +225,159 @@ retenção 90d; TikTok só coluna; briefing supersede trava "squads aprovarem".
 - **Bug real encontrado:** CSP da /p sem 'unsafe-eval' mata a hidratação no DEV (Turbopack usa eval) —
   form degrada pra submit GET nativo. Fix: 'unsafe-eval' só em development no next.config.
 - Build produção EXIT=0 · tsc limpo · eslint limpo
+
+---
+
+# Sessão 2026-07-06 — Redesign premium /painel (ui-ux-pro-max)
+
+> Lane: Frontend+UI · Escopo: `src/app/painel/**`, `src/components/painel/*`, `src/components/ui/*`, `globals.css`
+> Fora de escopo: backend/API, landing, admin.
+
+## Objetivo
+Interface do cliente em nível SaaS premium — usuário sente que "paga barato". Cores, tipografia,
+motion, primitivos. Ideação via subagentes (não-template).
+
+## Etapas
+- [x] 1. Mapeamento (30 páginas painel, primitivos ui/*, tokens hf-* atuais)
+- [x] 2. Design system base via script do skill (guard-rails, não estética)
+- [x] 3. Ideação subagentes (UI Designer → conceito "O Balcão" · Whimsy → motion "ease-fluxo")
+- [x] 4. Síntese da direção (O Balcão + assinaturas: fio de íris, etiqueta, Aurora VIP, romaneio)
+- [x] 5. Tokens + motion layer no globals.css (namespace pn-*)
+- [x] 6. Primitivos ui/* (button, card, input, skeleton; badge mantido pílula)
+- [x] 7. Shell (sidebar, topbar, mobile-nav, page-transition, command palette)
+- [x] 8. Dashboard /painel
+- [x] 9. Telas quentes (grupos + campanhas + resultados; extra: contatos, conectar)
+- [~] 10. A11y + build limpo — build/lint limpos ✅; a11y aplicado por tela conforme redesenhadas
+        (aria-label em buscas etc.). Pass final de a11y quando as ~16 telas restantes terminarem.
+
+## Decisões
+- Íris mantido como âncora de marca (regra durável da lane); verde só sucesso.
+- **Conceito "O Balcão"** (UI Designer subagente): estoque escuro (sidebar gradiente breu→breu-2)
+  + balcão claro (conteúdo bg-balcao #edeaf1 re-temperado). Namespace `pn-*` no globals.css.
+- **Assinaturas:** fio de íris (`.pn-ativo`, inset 2px) = único padrão de "ativo"; etiqueta canto-cortado
+  (`.pn-etiqueta`); Aurora VIP (`.pn-aurora`, 1 peça escura/tela: card de plano + Peça Escura do dashboard);
+  romaneio (números Plex Mono tabular); numeração editorial de seção (Instrument Serif itálico 01/02/03).
+- **Tipografia:** número = Plex Mono tabular; voz do produto = Instrument Serif itálico; título = Bricolage;
+  label = Space Grotesk uppercase; corpo = Plex Sans.
+- **Motion "ease-fluxo"** (Whimsy subagente): família de easings + tokens dur-*; skeleton respira,
+  status conectado respira (parado = alarme), toast lead 4 batidas (`pn-toast-in`/`pn-ping` prontos p/ uso).
+- Primitivos ui/* compartilhados c/ admin → mudança sóbria e não-quebrante; ousadia fica nos componentes
+  painel-específicos. Badge mantido pílula (etiqueta é padrão local via `.pn-etiqueta`).
+
+## Resultado
+- `npm run web:build` ✅ (tabela de rotas completa; 2º run deu OOM só por rodar build 2x). `web:lint` ✅ (0 erro).
+- Verificado no preview (localhost, tenant Moda dev): Aurora VIP, card bancada (#fcfbfe + sombra 3 camadas +
+  realce interno), editorial Instrument Serif itálico #5b6172, sidebar gradiente dark, fio de íris no ativo.
+- Armadilha .next dev×build reincidiu (build de prod clobberou .next do dev) → limpeza + restart resolveu.
+- Screenshot trava por animações infinitas (pn-respira) — validação via preview_inspect (mais confiável).
+- NÃO verificado visualmente: FullDashboard conectado (session.live=false no dev) — compila e usa primitivos
+  já verificados. Peça Escura/KPIs/romaneio dependem de sessão WhatsApp ativa.
+
+## Arquivos alterados
+- globals.css (camada pn-* : tokens balcão, sombras, ease-fluxo, etiqueta, aurora, keyframes + reduced-motion)
+- ui/{button,card,input,skeleton}.tsx (primitivos premium; badge mantido)
+- painel/{sidebar,topbar,mobile-nav,page-transition,empty-state}.tsx + command-palette.tsx (shell)
+- painel/layout.tsx (bg-bruma→bg-balcao) · painel/page.tsx (bento Peça Escura + romaneio + editorial + fix typo `n`/emojis→Lucide)
+
+## Iteração 2 (mesma sessão) — Nova paleta COBALTO + telas internas
+
+**Paleta nova (decisão Igor: "ousada"):** roxo íris → **cobalto/azul-índigo elétrico**.
+- Arquitetura: família `iris` saiu do `@theme inline` → foi p/ `@theme` normal (var-based). Default roxo.
+  `.pn-root` (no painel/layout.tsx) sobrescreve p/ cobalto: iris `#3d5af1`, claro `#6b81f7`, escuro `#2237a8`, light `#e9edfe`.
+- **Por que escopo e não trocar o token:** admin usa `iris` em 65 lugares + logo da landing usa. Trocar global
+  quebraria os dois. `.pn-root` recolore SÓ o painel (cascade atinge até primitivos compartilhados); admin/landing ficam roxos.
+- VERIFICADO ao vivo: painel = rgb(61,90,241) cobalto · landing = rgb(106,75,240) roxo intacto.
+- button.tsx virou token-based (hover:brightness, sem hex literal) p/ o escopo funcionar no primitivo compartilhado.
+- Barras de capacidade com `#6A4BF0` literal → `#3D5AF1` (grupos, campanhas x3, plan-gate).
+- pn-* literais roxos → cobalto (aurora, ativo via var, card-hover, shadow-pn-escura).
+
+**Telas internas — status:**
+- ✅ Redesenhadas (O Balcão completo): dashboard (/painel), **grupos**, **campanhas (lista)**,
+  **resultados**, **contatos**, **conectar** (onboarding + painel QR escuro).
+- ⏳ FALTAM (~16, layout antigo mas JÁ em cobalto + primitivos premium): campanhas/nova,
+  campanhas/[slug], campanhas/[slug]/editar, configuracoes(+webhooks,cancelar),
+  pages(+nova,[id]), indicacao, biblioteca, agenda, disparos, automacoes, squad-os/*, dev-tools.
+
+## ▶ PRÓXIMA SESSÃO — COMEÇA AQUI (atualizado 2026-07-09)
+
+**Frase pra retomar:** "continua o redesign do painel O Balcão — segue o handoff no TASK_PROGRESS".
+**Roda com `ECC_GATEGUARD=off`** — sem isso, cada edit/write/bash exige ciclo "apresentar fatos→retry" e ~dobra o custo.
+
+**Onde parei:** 12/28 telas no O Balcão. Commits desta frente: `971aadd1` (grupos+dashboard), `c3c043e9`
+(campanhas lista, resultados, contatos, conectar), `09b30d82` (campanhas detail + config nova/editar).
+Sessão 2026-07-09 (NÃO commitado ainda): fx.tsx blocker + configuracoes (page, webhooks, cancelar).
+
+**✅ BLOCKER #1 — RESOLVIDO (2026-07-09):** `src/components/lp2/fx.tsx:125` → era `el.style.transformPerspective`
+(prop do GSAP, não CSS do DOM). Corrigido: `gsap.set(el, { transformPerspective: 1000, transformStyle: "preserve-3d" })`.
+Ainda NÃO commitado (WIP da landing). Build não trava mais nessa linha.
+
+**Próximo lote sugerido (ordem por visibilidade):** pages (+nova, +[id]) → indicacao → biblioteca → agenda
+→ disparos → automacoes → squad-os/* → dev-tools.  _(configuracoes ✅ na sessão 2026-07-09)_
+
+**Como replicar (template O Balcão, 8 passos — base `grupos/page.tsx`):**
+1. container `mx-auto max-w-[...] space-y-8 px-4 py-8 sm:px-8`
+2. header: `h1 font-display text-[28px] font-extrabold tracking-[-0.02em] text-breu` + subtítulo `font-editorial text-[19px] italic text-ardosia`
+3. cards: `pn-card` (+`pn-card-hover` se clicável) `rounded-2xl`; insets/inputs → `bg-poco`
+4. números → `font-data tabular-nums`; labels → `font-data text-[10px] uppercase tracking-[0.08em]`
+5. barras: container `pn-poco` + inner `pn-fill` com `transform: scaleX(pct/100)`; cor `#3D5AF1` (nunca `#6A4BF0`); alerta `#D99B2A`
+6. skeleton → `pn-skeleton`; tabelas → separadores `divide-dashed divide-breu/[0.09]`
+7. empty/voz do produto → `font-editorial italic text-ardosia/text-breu`
+8. botões primários `bg-iris` (token=cobalto) + `hover:brightness-110` + `ease-[var(--ease-fluxo)]` — NUNCA `shadow-iris` (glow roxo literal)
+Busca: `bg-poco ... focus:bg-papel focus:shadow-[0_0_0_3px_var(--color-iris-light)]` + `aria-label`.
+
+**Regra de ouro:** cor 100% via token (o `.pn-root` recolore cobalto sozinho); só `#25D366` (WhatsApp) e cores
+semânticas (`sucesso/atencao/alerta` verde/âmbar/vermelho) ficam literais.
+
+**Working tree ao pausar:** commits do painel feitos; NÃO commitados → `fx.tsx` (landing WIP, o blocker),
++ pré-staged não-meus (`pages/templates/index.ts`, `tracking-scripts.tsx`, `lib/pages/slug.ts`, `.obsidian/*`).
+
+---
+
+## Checklist — Redesign O Balcão (telas internas)
+- [x] dashboard (/painel)
+- [x] grupos
+- [x] campanhas (lista)
+- [x] resultados
+- [x] contatos
+- [x] conectar
+- [x] campanhas/nova (via CampaignConfig)
+- [x] campanhas/[slug] (detail + tabs Grupos/Mensagens/Visão/Resultados)
+- [x] campanhas/[slug]/editar (via CampaignConfig)
+- [x] configuracoes
+- [x] configuracoes/webhooks
+- [x] configuracoes/cancelar
+- [ ] pages
+- [ ] pages/nova
+- [ ] pages/[id]
+- [ ] indicacao
+- [ ] biblioteca
+- [ ] agenda
+- [ ] disparos
+- [ ] automacoes
+- [ ] squad-os
+- [ ] squad-os/agents
+- [ ] squad-os/knowledge
+- [ ] squad-os/missions
+- [ ] squad-os/setup
+- [ ] squad-os/squads
+- [ ] squad-os/squads/[slug]
+- [ ] dev-tools
+
+## Iteração 3 (Sessão 2026-07-07) — 4 telas quentes no O Balcão
+- campanhas/resultados/contatos/conectar redesenhadas seguindo o template de 8 passos (baseado em grupos).
+- Padrões aplicados: header display+editorial itálico, `pn-card`/`pn-card-hover`, `pn-poco`+`pn-fill` (scaleX)
+  nas barras, `pn-skeleton`, romaneio `divide-dashed` nas tabelas, números `font-data tabular-nums`,
+  empty/voz do produto em `font-editorial italic`, busca com anel `focus:shadow var(--color-iris-light)`.
+- Cor 100% via token (cobalto automático no `.pn-root`); único hex literal trocado: barra funil/campanha → `#3D5AF1`.
+- Botões primários: removido `shadow-iris` (glow roxo literal) → `hover:brightness-110` + ease-fluxo.
+- Verificado: `web:lint` 0 erro · `web:build` EXIT 0 (armadilha .next dev×build reincidiu → `rm -rf .next` + rebuild limpo resolveu). NÃO verificado ao vivo (preview autenticado; sistema pn-* já validado visualmente na sessão anterior).
+
+**HANDOFF → próxima sessão:** replicar o template de `grupos/page.tsx` nas telas ⏳. Padrão O Balcão:
+  1. container `space-y-8 px-4 py-8 sm:px-8`
+  2. header: `<h1 font-display text-[28px] font-extrabold tracking-[-0.02em] text-breu>` + `<p font-editorial text-[19px] italic text-ardosia>`
+  3. cards `bg-white`/`rounded-3xl` → `pn-card rounded-2xl`; insets/inputs → `bg-poco` `.pn-poco`
+  4. números → `font-data tabular-nums`; labels → `font-data uppercase tracking-[0.08em]`
+  5. listas → `divide-dashed` (romaneio); status → pílula ou `.pn-etiqueta`; barra → `.pn-fill`/`.pn-poco`
+  6. empty/voz do produto → `font-editorial italic`; loading → `.pn-skeleton`
+  7. cor já é automática (tokens iris = cobalto no painel). NÃO usar hex roxo literal.
+  8. build (heap: rodar só 1x) + lint + preview_inspect. Armadilha .next dev×build: se preview 500, `rm -rf apps/web/.next` + restart.

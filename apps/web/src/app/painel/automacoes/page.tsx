@@ -153,7 +153,7 @@ export default function PainelAutomacoes() {
         </div>
         <button
           onClick={() => setShowTemplates(true)}
-          className="inline-flex items-center gap-2 rounded-xl bg-iris px-5 py-2.5 text-sm font-medium text-white shadow-iris transition hover:-translate-y-0.5 hover:bg-iris-claro"
+          className="inline-flex items-center gap-2 rounded-xl bg-cobalt-500 px-5 py-2.5 text-sm font-medium text-white shadow-brand transition hover:-translate-y-0.5 hover:bg-cobalt-500"
         >
           <Plus className="h-4 w-4" /> Nova automação
         </button>
@@ -161,9 +161,9 @@ export default function PainelAutomacoes() {
 
       {/* Templates modal */}
       {showTemplates && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-breu/60 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl border border-breu/10 bg-white p-6 shadow-xl">
-            <h2 className="font-display text-xl font-bold text-breu">Escolha um template</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-volt-950/60 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-2xl border border-volt-950/10 bg-white p-6 shadow-xl">
+            <h2 className="font-display text-xl font-bold text-volt-950">Escolha um template</h2>
             <p className="mt-1 text-sm text-aco/60">Comece com um modelo pronto e personalize depois.</p>
             <div className="mt-5 space-y-3">
               {TEMPLATES.map((tpl, i) => {
@@ -173,25 +173,25 @@ export default function PainelAutomacoes() {
                     key={tpl.name}
                     onClick={() => createFromTemplate(i)}
                     disabled={creating}
-                    className="flex w-full items-center gap-4 rounded-xl border border-breu/[0.08] p-4 text-left transition hover:border-iris/30 hover:bg-iris/[0.03] disabled:opacity-50"
+                    className="flex w-full items-center gap-4 rounded-xl border border-volt-950/[0.08] p-4 text-left transition hover:border-cobalt-500/30 hover:bg-cobalt-500/[0.03] disabled:opacity-50"
                   >
-                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-iris/10 text-iris">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-cobalt-500/10 text-cobalt-500">
                       <Zap className="h-5 w-5" />
                     </span>
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-breu">{tpl.name}</p>
+                      <p className="text-sm font-medium text-volt-950">{tpl.name}</p>
                       <p className="font-data mt-0.5 text-[11px] text-aco/55">
                         {trigger?.label ?? tpl.trigger} · {tpl.steps.length} passos
                       </p>
                     </div>
-                    {creating && <Loader2 className="h-4 w-4 animate-spin text-iris" />}
+                    {creating && <Loader2 className="h-4 w-4 animate-spin text-cobalt-500" />}
                   </button>
                 );
               })}
             </div>
             <button
               onClick={() => setShowTemplates(false)}
-              className="mt-4 w-full rounded-xl border border-breu/10 py-2.5 text-sm font-medium text-aco transition hover:bg-bruma"
+              className="mt-4 w-full rounded-xl border border-volt-950/10 py-2.5 text-sm font-medium text-aco transition hover:bg-canvas-100"
             >
               Cancelar
             </button>
@@ -201,15 +201,15 @@ export default function PainelAutomacoes() {
 
       {/* Lista de automações */}
       {automations.length === 0 ? (
-        <section className="rounded-3xl border border-dashed border-breu/10 bg-white/50 px-6 py-16 text-center">
+        <section className="rounded-3xl border border-dashed border-volt-950/10 bg-white/50 px-6 py-16 text-center">
           <Zap className="mx-auto h-12 w-12 text-aco/20" />
-          <h3 className="font-display mt-4 text-lg font-bold text-breu">Nenhuma automação ativa</h3>
+          <h3 className="font-display mt-4 text-lg font-bold text-volt-950">Nenhuma automação ativa</h3>
           <p className="mt-1.5 text-sm text-aco/60">
             Crie sua primeira automação pra enviar mensagens no automático.
           </p>
           <button
             onClick={() => setShowTemplates(true)}
-            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-iris px-5 py-2.5 text-sm font-medium text-white shadow-iris transition hover:-translate-y-0.5 hover:bg-iris-claro"
+            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-cobalt-500 px-5 py-2.5 text-sm font-medium text-white shadow-brand transition hover:-translate-y-0.5 hover:bg-cobalt-500"
           >
             <Plus className="h-4 w-4" /> Criar automação
           </button>
@@ -224,15 +224,15 @@ export default function PainelAutomacoes() {
                 key={auto.id}
                 className={cn(
                   "overflow-hidden rounded-2xl border bg-white transition",
-                  auto.enabled ? "border-breu/[0.08]" : "border-breu/[0.04] opacity-60",
+                  auto.enabled ? "border-volt-950/[0.08]" : "border-volt-950/[0.04] opacity-60",
                 )}
               >
                 <div className="flex items-center gap-4 px-5 py-4">
-                  <span className={cn("flex h-10 w-10 items-center justify-center rounded-xl", auto.enabled ? "bg-iris/10 text-iris" : "bg-bruma text-aco/40")}>
+                  <span className={cn("flex h-10 w-10 items-center justify-center rounded-xl", auto.enabled ? "bg-cobalt-500/10 text-cobalt-500" : "bg-canvas-100 text-aco/40")}>
                     <TriggerIcon className="h-5 w-5" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-breu">{auto.name}</p>
+                    <p className="text-sm font-medium text-volt-950">{auto.name}</p>
                     <p className="font-data mt-0.5 text-[11px] text-aco/55">
                       {trigger?.label ?? auto.trigger} · {auto.steps.length} passos · {auto.total_runs} execuções
                     </p>
@@ -242,7 +242,7 @@ export default function PainelAutomacoes() {
                       onClick={() => toggleEnabled(auto.id, !auto.enabled)}
                       className={cn(
                         "flex h-9 w-9 items-center justify-center rounded-lg transition",
-                        auto.enabled ? "bg-sucesso/10 text-sucesso hover:bg-sucesso/20" : "bg-bruma text-aco/40 hover:bg-bruma/80",
+                        auto.enabled ? "bg-sucesso/10 text-sucesso hover:bg-sucesso/20" : "bg-canvas-100 text-aco/40 hover:bg-canvas-100/80",
                       )}
                       aria-label={auto.enabled ? "Desativar" : "Ativar"}
                     >
@@ -259,14 +259,14 @@ export default function PainelAutomacoes() {
                 </div>
 
                 {/* Steps preview */}
-                <div className="border-t border-breu/[0.04] px-5 py-3">
+                <div className="border-t border-volt-950/[0.04] px-5 py-3">
                   <div className="flex flex-wrap gap-2">
                     {auto.steps.map((step) => (
                       <span
                         key={step.id}
                         className={cn(
                           "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 font-data text-[10px] uppercase tracking-wider",
-                          step.type === "message" ? "bg-iris/[0.07] text-iris" : "bg-bruma text-aco/50",
+                          step.type === "message" ? "bg-cobalt-500/[0.07] text-cobalt-500" : "bg-canvas-100 text-aco/50",
                         )}
                       >
                         {step.type === "message" ? <MessageSquare className="h-3 w-3" /> : <Clock className="h-3 w-3" />}

@@ -5,13 +5,11 @@ import { resolveSecret } from "./runtime-secrets";
 
 export const SESSION_COOKIE = "dz_session";
 
-// Defaults p/ rodar sem configurar nada; troque via env em produção.
-export const ENGINE_TOKEN = resolveSecret(
-  "ENGINE_TOKEN",
-  process.env.ENGINE_TOKEN,
-  process.env.NODE_ENV,
-  "dz_dev_engine_token",
-);
+// Fail-closed: sem ENGINE_TOKEN na env, nenhuma request da engine autentica
+// (string vazia nunca casa com header). Não há mais default conhecido de dev —
+// configure no .env.local com o mesmo valor usado pela engine. Produção real
+// continua fail-fast no boot via instrumentation.ts. Remove na F5 (cutover Evolution).
+export const ENGINE_TOKEN = process.env.ENGINE_TOKEN?.trim() ?? "";
 const AUTH_SECRET = resolveSecret(
   "AUTH_SECRET",
   process.env.AUTH_SECRET,

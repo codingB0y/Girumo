@@ -15,7 +15,7 @@ type Toast = {
 const TYPE_CONFIG = {
   lead: { bg: "bg-sucesso/10 border-sucesso/20", text: "text-sucesso", icon: Users },
   group_full: { bg: "bg-atencao/10 border-atencao/20", text: "text-atencao", icon: Users },
-  broadcast_done: { bg: "bg-iris/10 border-iris/20", text: "text-iris", icon: Users },
+  broadcast_done: { bg: "bg-cobalt-500/10 border-cobalt-500/20", text: "text-cobalt-500", icon: Users },
 };
 
 export function RealtimeToasts() {
@@ -78,10 +78,10 @@ export function RealtimeToasts() {
             )}
           >
             <Icon className={cn("h-4 w-4 shrink-0", config.text)} />
-            <p className="text-sm font-medium text-breu">{toast.message}</p>
+            <p className="text-sm font-medium text-volt-950">{toast.message}</p>
             <button
               onClick={() => dismiss(toast.id)}
-              className="ml-2 shrink-0 text-aco/40 transition hover:text-breu"
+              className="ml-2 shrink-0 text-aco/40 transition hover:text-volt-950"
             >
               <X className="h-3.5 w-3.5" />
             </button>

@@ -2,18 +2,39 @@
 const express = require("express");
 const app = express();
 
+function healthPayload() {
+  const whatsappConnected = Boolean(currentSocket?.user);
+  const supabaseReady = !environment.requiresSupabase || supabaseCommandWorkerStarted;
+  const ready = whatsappConnected && supabaseReady;
+  return {
+    ok: ready,
+    service: "hubflow-engine",
+    whatsappConnected,
+    supabaseWorker: supabaseCommandWorkerStarted,
+    uptime: process.uptime(),
+  };
+}
+
 app.get("/", (req, res) => {
   res.status(200).send("HUBFLOW Engine online");
 });
 
-app.get("/health", (req, res) => {
+app.get("/live", (req, res) => {
   res.status(200).json({
     ok: true,
     service: "hubflow-engine",
-    whatsappConnected: Boolean(currentSocket?.user),
-    supabaseWorker: supabaseCommandWorkerStarted,
     uptime: process.uptime(),
   });
+});
+
+app.get("/ready", (req, res) => {
+  const payload = healthPayload();
+  res.status(payload.ok ? 200 : 503).json(payload);
+});
+
+app.get("/health", (req, res) => {
+  const payload = healthPayload();
+  res.status(payload.ok ? 200 : 503).json(payload);
 });
 
 const PORT = process.env.PORT || 3000;
@@ -344,30 +365,6 @@ async function welcomeNewMember(sock, phone) {
   } finally {
     welcoming.delete(digits);
   }
-}
-
-/** Adiciona participantes a um grupo respeitando o GroupOperationGuard. */
-async function addToGroup(sock, groupJid, participants) {
-  const verdict = guard.check("add");
-  if (!verdict.allowed) {
-    console.log(`⛔ ${verdict.reason}. Tente em ${verdict.retryAfterSec}s.`);
-    return { ok: false, reason: verdict.reason };
-  }
-  try {
-    const res = await sock.groupParticipantsUpdate(groupJid, participants, "add");
-    guard.record("add");
-    return { ok: true, res };
-  } catch (err) {
-    const code = classifyGroupOpError(err);
-    console.log(`⚠️  Falha no add ao grupo${code ? ` (${code})` : ""}: ${err.message}`);
-    return { ok: false, code };
-  }
-}
-
-/** Broadcast seguro: enfileira 1 mensagem por grupo (a fila cuida do ritmo). */
-async function broadcast(sock, jids, text) {
-  console.log(`\n📤 Enfileirando broadcast para ${jids.length} grupos (fila anti-ban no controle)...`);
-  jids.forEach((jid) => sendText(sock, jid, text));
 }
 
 // === MOTOR DE DISPARO REAL (ofertas do app → grupos) ===
@@ -850,9 +847,6 @@ async function listGroups(sock) {
   await syncGroups(admin);
   console.log("\n👀 Monitorando entradas só nos grupos ADMIN, em tempo real... (Ctrl+C para sair)");
 
-  // Exemplo de broadcast SEGURO (passa pela fila anti-ban) — descomente p/ testar:
-  // const jids = admin.slice(0, 3).map((g) => g.id);
-  // await broadcast(sock, jids, "Olá! Novidades chegando no grupo 👋");
 }
 
 // Último snapshot de grupos admin + se o último POST deu certo. Permite re-sync

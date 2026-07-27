@@ -24,7 +24,6 @@ export async function listTrackedLinks(tenantId: string): Promise<TrackedLink[]>
   if (error) throw new Error(error.message);
   return data ?? [];
 }
-
 export async function getTrackedLinkBySlug(slug: string): Promise<TrackedLink | null> {
   const { data, error } = await getSupabaseAdmin()
     .from(TABLE)
@@ -52,31 +51,4 @@ export async function createTrackedLink(
     .single();
   if (error) throw new Error(error.message);
   return data;
-}
-
-export async function incrementClicks(slug: string): Promise<TrackedLink | null> {
-  const { data, error } = await getSupabaseAdmin().rpc("increment_tracked_link_clicks", { target_slug: slug });
-  // Fallback if RPC doesn't exist: manual increment
-  if (error) {
-    const link = await getTrackedLinkBySlug(slug);
-    if (!link) return null;
-    const { data: updated, error: updateError } = await getSupabaseAdmin()
-      .from(TABLE)
-      .update({ clicks: link.clicks + 1 })
-      .eq("id", link.id)
-      .select("*")
-      .maybeSingle();
-    if (updateError) throw new Error(updateError.message);
-    return updated;
-  }
-  return data;
-}
-
-export async function deleteTrackedLink(tenantId: string, id: string): Promise<void> {
-  const { error } = await getSupabaseAdmin()
-    .from(TABLE)
-    .delete()
-    .eq("tenant_id", tenantId)
-    .eq("id", id);
-  if (error) throw new Error(error.message);
 }

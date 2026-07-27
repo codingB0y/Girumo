@@ -1,7 +1,7 @@
 import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
-export type BroadcastStatus = "draft" | "queued" | "running" | "sent" | "failed";
+type BroadcastStatus = "draft" | "queued" | "running" | "sent" | "failed";
 
 export type Broadcast = {
   id: string;
@@ -37,17 +37,6 @@ export async function listBroadcasts(tenantId: string): Promise<Broadcast[]> {
   return data ?? [];
 }
 
-export async function getBroadcast(tenantId: string, id: string): Promise<Broadcast | null> {
-  const { data, error } = await getSupabaseAdmin()
-    .from(TABLE)
-    .select("*")
-    .eq("tenant_id", tenantId)
-    .eq("id", id)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  return data;
-}
-
 export async function createBroadcast(
   tenantId: string,
   input: {
@@ -79,22 +68,6 @@ export async function createBroadcast(
     })
     .select("*")
     .single();
-  if (error) throw new Error(error.message);
-  return data;
-}
-
-export async function updateBroadcast(
-  tenantId: string,
-  id: string,
-  patch: Partial<Pick<Broadcast, "status" | "sent" | "total" | "error" | "dispatched_at" | "running_since" | "last_ack_at">>,
-): Promise<Broadcast | null> {
-  const { data, error } = await getSupabaseAdmin()
-    .from(TABLE)
-    .update(patch)
-    .eq("tenant_id", tenantId)
-    .eq("id", id)
-    .select("*")
-    .maybeSingle();
   if (error) throw new Error(error.message);
   return data;
 }

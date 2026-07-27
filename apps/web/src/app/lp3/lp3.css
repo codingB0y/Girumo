@@ -1,0 +1,227 @@
+/* ============================================================
+   /lp3 — "A Janela da Loja", edição Girumo
+   Paleta da marca: volt-carvão + acid #A7FF2F (única cor de ação)
+   + cobalto #2E66FF só como luz ambiente (aurora/mesh).
+   Tokens scoped em .lp4 para não vazar.
+   ============================================================ */
+
+.lp4 {
+  --bg: #071114;
+  --bg-2: #0c1b21;
+  --display: #f4f0e7;
+  --body: #a3b1ae;
+  --green: #a7ff2f;
+  --green-hover: #bdff5f;
+  --green-deep: #2c4b0a;
+  --ink: #071923;
+  --line: rgba(244, 240, 231, 0.08);
+  --hairline: rgba(244, 240, 231, 0.13);
+
+  background: var(--bg);
+  color: var(--display);
+  font-family: var(--font-lp4), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.lp4 ::selection {
+  background: var(--green);
+  color: var(--ink);
+}
+
+/* ---------- texturas ---------- */
+.lp4-grain {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.35;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.lp4-mesh {
+  background:
+    radial-gradient(58rem 34rem at 50% -12%, rgba(167, 255, 47, 0.05), transparent 64%),
+    radial-gradient(40rem 26rem at 96% 42%, rgba(46, 102, 255, 0.05), transparent 60%);
+}
+
+/* aurora viva atrás do painel do hero (duotone da marca) */
+.lp4-aurora {
+  position: absolute;
+  inset: -10% -14%;
+  z-index: -1;
+  pointer-events: none;
+  filter: blur(64px);
+  background:
+    radial-gradient(38rem 22rem at 28% 22%, rgba(167, 255, 47, 0.15), transparent 60%),
+    radial-gradient(34rem 22rem at 76% 72%, rgba(46, 102, 255, 0.17), transparent 65%);
+  animation: lp4-aurora 14s ease-in-out infinite alternate;
+}
+@keyframes lp4-aurora {
+  from { transform: translate3d(-2.5%, 0, 0) rotate(-2deg); opacity: 0.65; }
+  to { transform: translate3d(2.5%, 3%, 0) rotate(2deg); opacity: 1; }
+}
+
+/* ---------- tipografia ---------- */
+.lp4-x {
+  /* display expandido — manchete de comércio */
+  font-stretch: 125%;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1.0;
+}
+
+.lp4-mono {
+  font-family: var(--font-lp4-mono), ui-monospace, monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* ---------- botões (pill) ---------- */
+.lp4-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  border-radius: 999px;
+  padding: 1.05rem 1.9rem;
+  font-weight: 600;
+  font-size: 1rem;
+  line-height: 1;
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.lp4-btn:hover { transform: translateY(-2px); }
+.lp4-btn:active { transform: translateY(0) scale(0.985); }
+.lp4-btn:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+
+.lp4-btn-green {
+  background: var(--green);
+  color: var(--ink);
+  box-shadow: 0 12px 40px -14px rgba(167, 255, 47, 0.5);
+}
+.lp4-btn-green:hover { background: var(--green-hover); }
+
+.lp4-btn-ghost {
+  border: 1px solid var(--hairline);
+  color: var(--display);
+  background: rgba(244, 240, 231, 0.02);
+}
+.lp4-btn-ghost:hover { border-color: rgba(244, 240, 231, 0.4); }
+
+/* ---------- nav pílula ---------- */
+.lp4-nav {
+  transition: background-color 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease;
+  border: 1px solid transparent;
+}
+.lp4-nav.is-scrolled {
+  background: rgba(12, 27, 33, 0.82);
+  backdrop-filter: blur(16px);
+  border-color: var(--line);
+  box-shadow: 0 18px 50px -28px rgba(0, 0, 0, 0.8);
+}
+
+/* ---------- janelas de produto ---------- */
+.lp4-window {
+  background: var(--bg-2);
+  border: 1px solid var(--hairline);
+  border-radius: 1.5rem;
+  overflow: hidden;
+  box-shadow: 0 40px 120px -40px rgba(167, 255, 47, 0.18), 0 30px 80px -40px rgba(0, 0, 0, 0.8);
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.6s ease;
+}
+.lp4-window:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 46px 130px -40px rgba(167, 255, 47, 0.26), 0 34px 90px -40px rgba(0, 0, 0, 0.85);
+}
+.lp4-chrome {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--line);
+  padding: 0.8rem 1.1rem;
+}
+.lp4-chrome i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(244, 240, 231, 0.14);
+}
+
+/* ---------- painel mock (dashboard escalado como print) ---------- */
+.lp4-panelfit {
+  position: relative;
+  aspect-ratio: 960 / 600;
+  overflow: hidden;
+}
+.lp4-panelscale {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 960px;
+  height: 600px;
+  transform-origin: top left;
+  /* fallback p/ desktop sem JS; o Lp2Fx recalcula o scale exato por largura */
+  transform: scale(0.92);
+}
+/* mobile: cropa a sidebar (190px) e mostra só a área principal, ~25% maior */
+@media (max-width: 640px) {
+  .lp4-panelfit { aspect-ratio: 770 / 600; }
+}
+
+/* ---------- régua de pedidos ---------- */
+.lp4-ticker-item {
+  animation: lp4-order-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes lp4-order-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes lp4-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.lp4-pulse { animation: lp4-pulse 1.7s ease-in-out infinite; }
+
+/* ---------- marcador acid no display ---------- */
+.lp4-green { color: var(--green); }
+
+/* ---------- FAQ ---------- */
+.lp4-faq { border-bottom: 1px solid var(--line); }
+.lp4-faq summary { list-style: none; cursor: pointer; }
+.lp4-faq summary::-webkit-details-marker { display: none; }
+.lp4-faq summary:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; border-radius: 4px; }
+.lp4-faq-x { transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
+.lp4-faq[open] .lp4-faq-x { transform: rotate(45deg); color: var(--green); }
+
+/* abertura animada (progressive enhancement — Chrome 131+) */
+.lp4-faq::details-content {
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), content-visibility 0.4s allow-discrete;
+}
+.lp4-faq[open]::details-content {
+  opacity: 1;
+  transform: none;
+}
+
+/* ---------- vídeo facade ---------- */
+.lp4-play {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: var(--green);
+  color: var(--ink);
+  box-shadow: 0 20px 60px -16px rgba(167, 255, 47, 0.55);
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.25s ease;
+}
+.lp4-play:hover { transform: scale(1.06); background: var(--green-hover); }
+
+/* ---------- acessibilidade / movimento ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .lp4 *,
+  .lp4 *::before,
+  .lp4 *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -84,7 +84,7 @@ export function TenantActions({ tenantId, tenantName, currentStatus }: Props) {
         <button
           onClick={handleImpersonate}
           disabled={loading !== null}
-          className="inline-flex items-center gap-2 rounded-xl border border-iris/20 bg-iris/5 px-4 py-2.5 text-sm font-medium text-iris transition hover:bg-iris/10 disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-xl border border-cobalt-500/20 bg-cobalt-500/5 px-4 py-2.5 text-sm font-medium text-cobalt-500 transition hover:bg-cobalt-500/10 disabled:opacity-50"
         >
           {loading === "impersonate" ? (
             <Loader2 className="h-4 w-4 animate-spin" />

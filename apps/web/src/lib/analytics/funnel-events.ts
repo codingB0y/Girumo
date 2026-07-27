@@ -55,21 +55,6 @@ export async function trackFunnelEvent({ tenantId, userId, event, metadata }: Tr
 }
 
 /**
- * Busca todos os eventos de funil de um tenant (para mostrar progresso no onboarding).
- */
-export async function getTenantFunnelEvents(tenantId: string): Promise<FunnelEvent[]> {
-  const supabase = getSupabaseAdmin();
-
-  const { data } = await supabase
-    .from("funnel_events")
-    .select("event_name")
-    .eq("tenant_id", tenantId)
-    .order("occurred_at", { ascending: true });
-
-  return (data ?? []).map((row) => row.event_name as FunnelEvent);
-}
-
-/**
  * Métricas agregadas do funil — para o admin dashboard.
  * Retorna contagem de tenants em cada etapa.
  */

@@ -19,7 +19,7 @@ export function getSupabaseBrowserClient() {
   return browserClient;
 }
 
-export function getActiveTenantId(): string | null {
+function getActiveTenantId(): string | null {
   if (typeof window === "undefined") return null;
   return window.localStorage.getItem(ACTIVE_TENANT_KEY);
 }

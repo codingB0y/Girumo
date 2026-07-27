@@ -1,0 +1,16 @@
+# BUSINESS — oferta, marca, concorrentes, marketing, público
+docs/brand/BRAND_CONTEXT.md
+docs/brand/guia-de-marca.md
+docs/brand/COPY_LIBRARY.md
+docs/brand/CREATIVE_LIBRARY.md
+docs/brand/AD_TESTS.md
+docs/brand/BENCHMARKS.md
+docs/brand/SOCIAL_CALENDAR.md
+docs/marketing/templates-posts.md
+docs/contexts/landing-marketing.md
+competitor-profiles/_summary.md
+competitor-profiles/devzapp.md
+competitor-profiles/joinzapp.md
+competitor-profiles/meugrupovip.md
+competitor-profiles/sendflow.md
+customer-research/voc-atacadista.md
