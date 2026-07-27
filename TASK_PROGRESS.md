@@ -9,10 +9,15 @@ Elevar o HubFlow a SaaS de alto nível: segurança, growth, automações, polish
 Plano aprovado em 2026-07-13 (`~/.claude/plans/quero-migrar-o-hubflow-eager-minsky.md`). Evolution API v2.3.7 (`evoapicloud/evolution-api`, repo `evolution-foundation/evolution-api`) em VPS/Coolify; worker novo `apps/worker` TS; fila única = `engine_commands` estendida; Baileys congela via tag `legacy-baileys-engine`. 0 clientes = sem compat.
 
 - [x] F0 — Fundação/segurança: 3 migrations (RLS padronizada, provider columns, queue v2), QR local (mata quickchart.io), ENGINE_TOKEN sem default, teste isolamento RLS ✅ (commits `3ce13f78` + cleanup `3825e1ad`; validada em DEV+PROD: teste de isolamento PASS, advisors sem WARN novo)
-- [ ] F1 — Evolution API no Coolify (infra pura + fixtures de payloads reais)
-  - [x] Artefatos de deploy (não dependem da VPS): `deploy/coolify/evolution.docker-compose.yml` (Evolution v2.3.7 + PG16 + Redis7, hardening), `evolution.env.example`, `README.evolution.md` (runbook + smoke test + captura de fixtures) — `docker compose config` OK
-  - [ ] Infra na VPS (você): DNS `wa.*`, deploy no Coolify, `AUTHENTICATION_API_KEY`, bloquear `/manager`, 3 containers healthy
-  - [ ] Capturar payloads reais de webhook → `apps/web/src/lib/evolution/__fixtures__/` (alimenta zod da F2)
+- [x] F1 — Evolution API no Coolify ✅ **NO AR** (2026-07-26)
+  - [x] Artefatos de deploy: `evolution.docker-compose.yml` (v2.3.7 + PG16 + Redis7), `evolution.env.example`, `README.evolution.md`
+  - [x] VPS Contabo (2vCPU/4GB/300GB) — swap 4GB, SSH só por chave, fail2ban, unattended-upgrades, UFW 22/80/443, Coolify Cloud gerenciando (self-hosted local removido, ~1GB liberado)
+  - [x] Stack no ar em `https://wa.girumo.com.br` — 3 containers healthy, TLS válido
+  - [x] Smoke test: instância `gr_smoke-test` pareada, **envio de mensagem funcionando**
+  - [x] 6 fixtures reais capturadas e sanitizadas → `apps/web/src/lib/evolution/__fixtures__/` (inclui `@lid` em 4 delas)
+  - [x] Contratos reais documentados no README (evento em `kebab.dot`, `enabled:true`, apikey no payload, MESSAGES_UPDATE = status)
+  - [ ] **PENDENTE:** bloquear `/manager` (público, protegido só pela API key) — fazer na F5, antes de produção
+  - Consumo com stack idle: ~640MB/3.8GB. Estimativa 10 contas: ~2,3–3GB.
 - [ ] F2 — Lifecycle de instância no web (client, webhook receiver, painel conectar refeito)
 - [ ] F3 — Lead capture via worker mínimo (loop B)
 - [ ] F4 — Worker completo (anti-ban portado, senders, lease/retry, fan-out broadcast)
