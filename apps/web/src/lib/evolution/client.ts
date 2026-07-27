@@ -125,6 +125,17 @@ export function providerInstanceId(instanceId: string): string {
   return `gr_${instanceId}`;
 }
 
+/**
+ * URL pública que a Evolution vai chamar. Precisa ser alcançável da VPS, então
+ * sai de `NEXT_PUBLIC_APP_URL` (domínio do app), não de `req.url` — que em
+ * preview/proxy aponta para um host que a VPS não resolve.
+ */
+export function evolutionWebhookUrl(): string {
+  const base = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/+$/, "");
+  if (!base) throw new Error("NEXT_PUBLIC_APP_URL ausente — webhook da Evolution não pode ser registrado");
+  return `${base}/api/webhooks/evolution`;
+}
+
 export type CreateInstanceResult = {
   instanceName: string;
 };

@@ -3,7 +3,7 @@
 -- instances is the WhatsApp account entity (status, phone, qr_code, tenant).
 -- The Evolution migration maps each row to one Evolution instance:
 --   provider             -> which engine backs this account ('evolution')
---   provider_instance_id -> the Evolution instanceName (format: hf_<instances.id>)
+--   provider_instance_id -> the Evolution instanceName (format: gr_<instances.id>)
 -- Webhook payloads are resolved back to a tenant via
 -- (provider, provider_instance_id) — no tenant data leaks into the name.
 

@@ -37,6 +37,13 @@ const REQUIRED_VARS: Record<string, string[]> = {
     "AUTH_SECRET",
     "ENGINE_TOKEN",
     "CRON_SECRET",
+    // Evolution API: a partir da F2 o lifecycle de instância depende delas.
+    // Sem APP_URL não há como registrar o webhook (a VPS precisa de uma URL
+    // pública alcançável — req.url não serve atrás de proxy/preview).
+    "NEXT_PUBLIC_APP_URL",
+    "EVOLUTION_API_URL",
+    "EVOLUTION_API_KEY",
+    "EVOLUTION_WEBHOOK_SECRET",
   ],
 };
 
@@ -135,12 +142,18 @@ export function validateEnvironment(): EnvValidationResult {
     );
   }
 
-  // Evolution API (migração Baileys→Evolution): opcionais até a F2 do plano.
-  // Config parcial é o único estado inválido — ou tudo ou nada.
+  // Fora de produção as envs da Evolution são opcionais, mas config PARCIAL é
+  // sempre inválida — ou tudo ou nada.
   const evolutionVars = ["EVOLUTION_API_URL", "EVOLUTION_API_KEY", "EVOLUTION_WEBHOOK_SECRET"];
   const missingEvolution = evolutionVars.filter((name) => !process.env[name]);
   if (missingEvolution.length > 0 && missingEvolution.length < evolutionVars.length) {
     warnings.push(`Config Evolution API incompleta — faltam: ${missingEvolution.join(", ")}`);
+  }
+
+  // Um secret curto derrota o ponto do compare constant-time no receiver.
+  const webhookSecret = process.env.EVOLUTION_WEBHOOK_SECRET;
+  if (webhookSecret && webhookSecret.length < 32) {
+    warnings.push("EVOLUTION_WEBHOOK_SECRET tem menos de 32 caracteres — gere um segredo mais forte");
   }
 
   return {

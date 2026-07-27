@@ -54,7 +54,7 @@ Use um chip que possa levar ban. `$KEY` = `AUTHENTICATION_API_KEY`.
 BASE=https://wa.seudominio.com
 KEY=<AUTHENTICATION_API_KEY>
 
-# 1. Criar instância (instanceName no formato do Girumo: hf_<uuid>)
+# 1. Criar instância (instanceName no formato do Girumo: gr_<uuid>)
 curl -sS -X POST "$BASE/instance/create" \
   -H "apikey: $KEY" -H "Content-Type: application/json" \
   -d '{"instanceName":"gr_smoke-test","integration":"WHATSAPP-BAILEYS","qrcode":true}'

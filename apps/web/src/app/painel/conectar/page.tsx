@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Check, Smartphone, ShieldCheck, Zap, Loader2, RefreshCw } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
@@ -111,63 +111,113 @@ function Instrucoes() {
   );
 }
 
-type EngineState = {
-  ok: boolean;
-  whatsappConnected: boolean;
-  connectedNumber: string | null;
-  qr: string | null;
-  error?: string;
+type InstanceStatus =
+  | "pending"
+  | "qr"
+  | "connecting"
+  | "connected"
+  | "disconnected"
+  | "blocked"
+  | "error";
+
+type Instance = {
+  id: string;
+  name: string;
+  phone: string | null;
+  status: InstanceStatus;
+  qr_code: string | null;
 };
 
+const POLL_MS = 4000;
+
 function QRPanel() {
-  const [state, setState] = useState<EngineState>({
-    ok: false,
-    whatsappConnected: false,
-    connectedNumber: null,
-    qr: null,
-  });
+  const [instance, setInstance] = useState<Instance | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Guarda contra o polling disparar uma segunda criação antes da primeira
+  // responder — cada POST cria uma instância de verdade na Evolution.
+  const creating = useRef(false);
 
-  async function fetchState(showSpinner = false) {
+  const load = useCallback(async (showSpinner = false) => {
     if (showSpinner) setLoading(true);
     try {
-      const r = await fetch("/api/engine?action=status", { cache: "no-store" });
-      const data = (await r.json()) as EngineState;
-      setState(data);
-      setError(data.error ?? null);
+      const res = await fetch("/api/instances", { cache: "no-store" });
+      if (!res.ok) throw new Error("Nao foi possivel carregar a instancia.");
+      const list = (await res.json()) as Instance[];
+
+      if (list.length === 0) {
+        if (creating.current) return;
+        creating.current = true;
+        const created = await fetch("/api/instances", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: "WhatsApp" }),
+        });
+        if (!created.ok) {
+          const detail = (await created.json().catch(() => ({}))) as { error?: string };
+          throw new Error(detail.error ?? "Nao foi possivel criar a instancia.");
+        }
+        // O QR chega logo em seguida pelo webhook; o próximo ciclo o pega.
+        setInstance((await created.json()) as Instance);
+        setError(null);
+        return;
+      }
+
+      setInstance(list[0]);
+      setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
-  }
-
-  useEffect(() => {
-    fetchState(true);
-    const id = setInterval(() => fetchState(false), 4000);
-    return () => clearInterval(id);
   }, []);
 
-  if (state.whatsappConnected) {
-    return <ConnectedPanel number={state.connectedNumber} />;
+  const refreshQr = useCallback(async () => {
+    if (!instance) return void load(true);
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/instances/${instance.id}/actions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "refresh_qr" }),
+      });
+      if (!res.ok) throw new Error("Nao foi possivel gerar um novo QR.");
+      setInstance((await res.json()) as Instance);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
+    }
+  }, [instance, load]);
+
+  useEffect(() => {
+    load(true);
+    const id = setInterval(() => load(false), POLL_MS);
+    return () => clearInterval(id);
+  }, [load]);
+
+  if (instance?.status === "connected") {
+    return <ConnectedPanel number={instance.phone} />;
   }
+
+  const qr = instance?.qr_code ?? null;
+  // "connecting" = pareou e está subindo a sessão; não é erro nem espera de QR.
+  const connecting = instance?.status === "connecting";
 
   return (
     <div className="flex flex-col items-center justify-center gap-5 bg-breu p-7 text-white sm:p-9">
       {error && (
-        <div className="rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-200">
-          Engine offline: {error}
-        </div>
+        <div className="rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-200">{error}</div>
       )}
 
-      {state.qr ? (
+      {qr ? (
         <div className="rounded-2xl bg-white p-4">
-          <RealQR data={state.qr} />
+          <RealQR data={qr} />
         </div>
       ) : (
         <div className="flex h-[150px] w-[150px] items-center justify-center rounded-2xl bg-white/10">
-          {loading ? (
+          {loading || connecting ? (
             <Loader2 className="h-8 w-8 animate-spin text-bruma/60" />
           ) : (
             <span className="px-3 text-center font-data text-[11px] uppercase tracking-wider text-bruma/60">
@@ -178,13 +228,13 @@ function QRPanel() {
       )}
 
       <div className="flex items-center gap-2 text-sm text-bruma/70">
-        <span className={cn("hf-breathe h-2 w-2 rounded-full", state.qr ? "bg-iris-claro" : "bg-bruma/40")} />
-        {state.qr ? "Escaneie no WhatsApp" : "Aguardando leitura…"}
+        <span className={cn("hf-breathe h-2 w-2 rounded-full", qr ? "bg-iris-claro" : "bg-bruma/40")} />
+        {connecting ? "Conectando…" : qr ? "Escaneie no WhatsApp" : "Aguardando leitura…"}
       </div>
 
       <button
         type="button"
-        onClick={() => fetchState(true)}
+        onClick={refreshQr}
         className="font-data inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-bruma/50 transition-colors duration-[160ms] hover:text-bruma/80"
       >
         <RefreshCw className="h-3 w-3" /> Atualizar agora
