@@ -47,7 +47,7 @@ export function welcomeEmail(name: string, appUrl: string): { subject: string; h
         <li><strong>Crie sua primeira campanha</strong> — escolha os grupos e publique</li>
       </ol>
       <p style="margin:0;font-size:14px;color:${BRAND_COLORS.volt}">
-        Seu trial de 7 dias já está ativo. Sem cartão, sem compromisso.
+        Sua conta já está ativa, com 30 dias de garantia incondicional. Sem fidelidade.
       </p>
       ${button("Acessar meu painel", `${appUrl}/painel`)}
     `),

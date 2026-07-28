@@ -29,7 +29,7 @@ O **risco crítico do produto** (e o motivo de a engine existir como PoC) é fec
 Três planos mensais, sem fidelidade, garantia de 30 dias:
 - **Essencial — R$197/mês**: 1 número, até 3 grupos, disparo + agendamento, boas-vindas, funil básico.
 - **Growth — R$297/mês** (mais escolhido): grupos ilimitados, kit de anúncio + indicação premiada, medição completa, suporte WhatsApp.
-- **Performance Max — R$497/mês**: feito-para-você, setup e ofertas operados em conjunto, revisão estratégica mensal 1:1.
+- **Operação — R$497/mês** *(renomeado de "Performance Max")*: feito-para-você, setup e ofertas operados em conjunto, revisão estratégica mensal 1:1.
 
 ---
 

@@ -74,6 +74,10 @@ export function PricingV2({
 
   return (
     <div>
+      <p className="mx-auto mb-8 max-w-lg text-center text-sm text-slate-600">
+        A Mega Stock fez R$350 mil por mês com esse jeito de vender. O Growth custa menos que uma grade.
+      </p>
+
       <div className="mx-auto grid w-fit grid-cols-2 gap-px rounded-[var(--radius-control)] bg-volt-800 p-px">
         {(["Mensal", "Anual"] as const).map((label, index) => {
           const active = annual === (index === 1);
@@ -182,6 +186,10 @@ export function PricingV2({
           );
         })}
       </div>
+
+      <p className="mt-10 text-center font-data text-[11px] uppercase tracking-[0.1em] text-slate-600">
+        garantia de 30 dias · sem fidelidade · seus contatos são seus
+      </p>
     </div>
   );
 }
