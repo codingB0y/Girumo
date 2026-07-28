@@ -29,3 +29,9 @@ apps/web/supabase/migrations/20260727120000_leads_and_worker_reads.sql
 # F3b: destrava o claim do worker — 'processing' faltava no enum
 # engine_event_status. Deve rodar antes de subir o worker (apps/worker).
 apps/web/supabase/migrations/20260727130000_engine_event_processing_status.sql
+# Features do painel do lojista (PR reland/lojista-panel-features, 28/07):
+# meta do mês, e-mail de desconexão e CRUD de automações. Sem estas, as três
+# features dão erro em runtime num ambiente novo.
+apps/web/supabase/migrations/20260728130000_tenant_settings.sql
+apps/web/supabase/migrations/20260728140000_notifications.sql
+apps/web/supabase/migrations/20260728145600_automations.sql
