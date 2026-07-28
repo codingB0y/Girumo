@@ -74,7 +74,7 @@
 **Fazer:** (1) remover "7 dias grátis"/"teste grátis" de TODA a landing e fluxo de signup → substituir por "garantia de 30 dias incondicional" (copy do landing-copy-v2.md); (2) renomear "Performance Max" → "Operação" onde aparecer (landing, painel, seeds); (3) adicionar âncora de preço junto ao pricing: "A Mega Stock fez R$350 mil/mês com esse jeito de vender. O Growth custa menos que uma grade."; (4) FAQ: adicionar item de garantia (texto pronto no landing-copy-v2.md §FAQ).
 **Aceite:** grep "7 dias" e "Performance Max" → 0 na landing/painel; build ok; screenshot da seção de planos pra revisão do Igor.
 
-## [ ] P0.7 🟢 Separar automações do lojista × lifecycle do SaaS + templates no vocabulário
+## [x] P0.7 🟢 Separar automações do lojista × lifecycle do SaaS + templates no vocabulário
 **Contexto:** `painel/automacoes/page.tsx` mistura triggers do lojista (`lead_entered`, `group_full`) com triggers internos do HubFlow (`no_connect_24h`, `trial_ending` — mensagens do SaaS pro lojista). E os templates têm copy genérica de infoproduto.
 **Fazer:**
 1. Remover dos TEMPLATES e TRIGGER_LABELS da tela os triggers `no_connect_24h` e `trial_ending` (o lifecycle já vive em `lib/email` + cron; não perder funcionalidade — só sai da tela do cliente). Se houver automações desses tipos persistidas, filtrar da listagem client-side e não permitir criar novas.
