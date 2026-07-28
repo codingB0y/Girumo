@@ -291,23 +291,40 @@ export async function GET(req: Request) {
     const { data: allOrgs } = await supabase.from("organizations").select("id");
 
     for (const org of allOrgs ?? []) {
-      // Opt-out: sem linha em tenant_settings = habilitado por padrão.
-      const { data: settings } = await supabase
+      // Opt-out: sem linha em tenant_settings = habilitado por padrão. Mas um
+      // ERRO na leitura (tabela ausente, permissão) não é "sem linha" — sem
+      // saber a preferência do lojista, não envia. Falhar aberto aqui mandaria
+      // e-mail pra quem desligou.
+      const { data: settings, error: settingsError } = await supabase
         .from("tenant_settings")
         .select("weekly_report_enabled")
         .eq("tenant_id", org.id)
         .maybeSingle();
 
+      if (settingsError) {
+        console.error(`[cron] weekly_report: falha lendo tenant_settings de ${org.id}:`, settingsError.message);
+        results.errors++;
+        continue;
+      }
+
       if (settings?.weekly_report_enabled === false) continue;
 
       // Já enviado nesta semana? (dedupe: notification criada de hoje em diante)
-      const { data: alreadySent } = await supabase
+      // Se a checagem falhar não dá pra saber se já foi — pula, porque reenviar
+      // é pior que atrasar o relatório uma semana.
+      const { data: alreadySent, error: dedupeError } = await supabase
         .from("notifications")
         .select("id")
         .eq("tenant_id", org.id)
         .eq("type", "weekly_report")
         .gte("created_at", windows.currentWeekEndIso)
         .maybeSingle();
+
+      if (dedupeError) {
+        console.error(`[cron] weekly_report: falha no dedupe de ${org.id}:`, dedupeError.message);
+        results.errors++;
+        continue;
+      }
 
       if (alreadySent) continue;
 
@@ -332,13 +349,19 @@ export async function GET(req: Request) {
 
       if (sent) {
         results.weekly_sent++;
-        await supabase.from("notifications").insert({
+        // Se o registro falhar o e-mail já foi — o dedupe da próxima rodada
+        // não vai encontrar nada e reenviaria. Precisa aparecer no resultado.
+        const { error: notifError } = await supabase.from("notifications").insert({
           tenant_id: org.id,
           user_id: owner.user_id,
           type: "weekly_report",
           title: "Relatório semanal",
           body: "Enviamos o resumo semanal por e-mail.",
         });
+        if (notifError) {
+          console.error(`[cron] weekly_report: enviado para ${org.id} mas notification não registrada:`, notifError.message);
+          results.errors++;
+        }
       } else {
         results.errors++;
       }
