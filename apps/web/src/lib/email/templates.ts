@@ -76,6 +76,25 @@ export function nudgeConnectEmail(name: string, appUrl: string): { subject: stri
   };
 }
 
+// --- WhatsApp desconectado há mais de 2h ---
+export function disconnectAlertEmail(name: string, appUrl: string): { subject: string; html: string } {
+  const firstName = name.split(" ")[0] || "lojista";
+  return {
+    subject: "Seu WhatsApp desconectou — reconecte pra não perder a novidade de hoje",
+    html: layout(`
+      <h1 style="margin:0 0 12px;font-size:22px;color:${BRAND_COLORS.volt}">Seu WhatsApp caiu</h1>
+      <p style="margin:0 0 8px;font-size:15px;color:${BRAND_COLORS.volt};line-height:1.6">
+        Oi ${firstName}! Seu WhatsApp está desconectado há mais de 2 horas — enquanto isso, nenhuma campanha
+        sai e nenhum contato novo entra nos grupos.
+      </p>
+      <p style="margin:0 0 8px;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.6">
+        Reconectar leva 2 minutos — basta escanear o QR Code de novo nas configurações.
+      </p>
+      ${button("Reconectar agora", `${appUrl}/painel/conectar`)}
+    `),
+  };
+}
+
 // --- Trial acabando (2 dias) ---
 export function trialEndingEmail(name: string, appUrl: string, daysLeft: number): { subject: string; html: string } {
   const firstName = name.split(" ")[0] || "lojista";
