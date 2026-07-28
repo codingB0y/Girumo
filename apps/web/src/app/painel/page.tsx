@@ -164,14 +164,16 @@ export default function PainelPage() {
   const hasCampaigns = campanhas.length > 0;
   const hasMembers = groups.reduce((a, g) => a + (g.members ?? 0), 0) > 0;
 
-  // Onboarding: progressive empty states
-  if (!isConnected) {
+  // Onboarding: progressive empty states — conta nova sem campanha cai aqui
+  // mesmo desconectada (passo 1 normal). Conta que JÁ tem campanha nunca mais
+  // regride pro onboarding só por causa de desconexão — ver banner no dashboard.
+  if (!isConnected && !hasCampaigns) {
     return <OnboardingConnect />;
   }
-  if (!hasCampaigns) {
+  if (isConnected && !hasCampaigns) {
     return <OnboardingCampaign />;
   }
-  if (!hasMembers) {
+  if (isConnected && !hasMembers) {
     return <OnboardingShare campanhas={campanhas} />;
   }
 
@@ -183,6 +185,7 @@ export default function PainelPage() {
       links={links}
       leads={leads}
       settings={settings}
+      isConnected={isConnected}
       onSettingsSaved={(next) => setData((d) => (d ? { ...d, settings: next } : d))}
     />
   );
@@ -347,6 +350,7 @@ function FullDashboard({
   links,
   leads,
   settings,
+  isConnected,
   onSettingsSaved,
 }: {
   groups: Group[];
@@ -354,6 +358,7 @@ function FullDashboard({
   links: TrackedLink[];
   leads: Lead[];
   settings: TenantSettings;
+  isConnected: boolean;
   onSettingsSaved: (next: TenantSettings) => void;
 }) {
   const totalMembers = useMemo(() => groups.reduce((a, g) => a + (g.members ?? 0), 0), [groups]);
@@ -412,6 +417,24 @@ function FullDashboard({
           Bom te ver por aqui — a loja está no ar.
         </p>
       </header>
+
+      {!isConnected && (
+        <Link
+          href="/painel/conectar"
+          className="flex items-center gap-3 rounded-2xl border border-alerta/25 bg-alerta/[0.06] px-5 py-4 transition hover:border-alerta/40"
+        >
+          <WifiOff className="h-5 w-5 shrink-0 text-alerta" strokeWidth={2} />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-volt-950">Seu WhatsApp está desconectado</p>
+            <p className="mt-0.5 text-xs text-aco/65">
+              Suas campanhas não estão saindo e novos contatos não estão entrando nos grupos.
+            </p>
+          </div>
+          <span className="font-data shrink-0 rounded-lg bg-alerta px-3 py-1.5 text-xs font-medium text-white">
+            Reconectar
+          </span>
+        </Link>
+      )}
 
       {/* Bento hero: Peça Escura + 3 KPIs claros */}
       <section className="grid grid-cols-1 gap-5 lg:grid-cols-12">
