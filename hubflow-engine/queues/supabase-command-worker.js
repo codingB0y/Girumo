@@ -250,6 +250,9 @@ function createSupabaseCommandWorker({
           lease_seconds: leaseSeconds,
         });
         assertRunActive(run);
+        // Renovação OK limpa erro transitório anterior (blip de rede). Se o lease
+        // foi de fato perdido, o próximo fencedRpc re-lança e renewalError persiste.
+        renewalError = null;
       })()
         .catch((error) => {
           renewalError = error;
