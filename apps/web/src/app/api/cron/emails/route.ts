@@ -1,12 +1,13 @@
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/email/send";
-import { nudgeConnectEmail, trialEndingEmail } from "@/lib/email/templates";
+import { nudgeConnectEmail, trialEndingEmail, weeklyReportEmail, type WeeklyReportStats } from "@/lib/email/templates";
 import { isCronAuthorized } from "@/lib/cron-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const CRON_SECRET = process.env.CRON_SECRET || "";
+const SP_TZ = "America/Sao_Paulo";
 
 /**
  * GET /api/cron/emails
@@ -15,7 +16,141 @@ const CRON_SECRET = process.env.CRON_SECRET || "";
  * Jobs:
  * 1. Nudge: 24h sem conectar WhatsApp → envia email
  * 2. Trial ending: trial termina em 2 dias → envia email
+ * 3. Relatório semanal: só às segundas (America/Sao_Paulo) → envia resumo da semana anterior
  */
+
+// O cron da Vercel roda em UTC (vercel.json agenda 12:00 UTC = 09:00 em São
+// Paulo, que não tem horário de verão desde 2019 — offset fixo -03:00).
+// new Date().getDay() daria o dia da semana em UTC, que pode divergir do dia
+// local; por isso lemos o dia via Intl com timeZone explícito.
+function saoPauloDateParts(date: Date): { year: number; month: number; day: number; weekday: number } {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: SP_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    weekday: "short",
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  const weekdayIndex: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return {
+    year: Number(get("year")),
+    month: Number(get("month")),
+    day: Number(get("day")),
+    weekday: weekdayIndex[get("weekday")] ?? -1,
+  };
+}
+
+function saoPauloMidnightUtc(year: number, month: number, day: number): Date {
+  return new Date(Date.UTC(year, month - 1, day, 3, 0, 0, 0));
+}
+
+function isMondayInSaoPaulo(date: Date): boolean {
+  return saoPauloDateParts(date).weekday === 1;
+}
+
+type WeekWindows = {
+  currentWeekStartIso: string;
+  currentWeekEndIso: string;
+  previousWeekStartIso: string;
+  weekLabel: string;
+};
+
+// Semana de referência = a que acabou de fechar (segunda a domingo anteriores
+// a hoje). currentWeekEndIso é hoje 00:00 em SP: fim exclusivo da janela E,
+// coincidentemente, o corte usado pro dedupe (nada enviado hoje ainda).
+function weekWindowsInSaoPaulo(now: Date): WeekWindows {
+  const { year, month, day } = saoPauloDateParts(now);
+  const todayStart = saoPauloMidnightUtc(year, month, day);
+  const currentWeekEnd = todayStart;
+  const currentWeekStart = new Date(currentWeekEnd.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const previousWeekStart = new Date(currentWeekEnd.getTime() - 14 * 24 * 60 * 60 * 1000);
+  const lastDayOfWeek = new Date(currentWeekEnd.getTime() - 24 * 60 * 60 * 1000);
+
+  const dayFmt = new Intl.DateTimeFormat("pt-BR", { timeZone: SP_TZ, day: "2-digit" });
+  const dayMonthFmt = new Intl.DateTimeFormat("pt-BR", { timeZone: SP_TZ, day: "2-digit", month: "long" });
+  const weekLabel = `${dayFmt.format(currentWeekStart)} a ${dayMonthFmt.format(lastDayOfWeek)}`;
+
+  return {
+    currentWeekStartIso: currentWeekStart.toISOString(),
+    currentWeekEndIso: currentWeekEnd.toISOString(),
+    previousWeekStartIso: previousWeekStart.toISOString(),
+    weekLabel,
+  };
+}
+
+function pctChange(current: number, previous: number): number | null {
+  if (previous === 0) return current === 0 ? 0 : null;
+  return Math.round(((current - previous) / previous) * 100);
+}
+
+async function buildWeeklyStats(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  tenantId: string,
+  windows: WeekWindows,
+): Promise<WeeklyReportStats> {
+  const { currentWeekStartIso, currentWeekEndIso, previousWeekStartIso, weekLabel } = windows;
+
+  const [currentLeads, previousLeadsCount, currentOrders, previousOrders, links] = await Promise.all([
+    supabase
+      .from("leads")
+      .select("source_group_name")
+      .eq("tenant_id", tenantId)
+      .gte("entered_at", currentWeekStartIso)
+      .lt("entered_at", currentWeekEndIso),
+    supabase
+      .from("leads")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .gte("entered_at", previousWeekStartIso)
+      .lt("entered_at", currentWeekStartIso),
+    supabase
+      .from("orders")
+      .select("value")
+      .eq("tenant_id", tenantId)
+      .gte("created_at", currentWeekStartIso)
+      .lt("created_at", currentWeekEndIso),
+    supabase
+      .from("orders")
+      .select("value")
+      .eq("tenant_id", tenantId)
+      .gte("created_at", previousWeekStartIso)
+      .lt("created_at", currentWeekStartIso),
+    supabase.from("tracked_links").select("clicks").eq("tenant_id", tenantId),
+  ]);
+
+  const currentLeadRows = currentLeads.data ?? [];
+  const currentOrderRows = currentOrders.data ?? [];
+  const previousOrderRows = previousOrders.data ?? [];
+
+  const revenue = currentOrderRows.reduce((sum, o) => sum + Number(o.value ?? 0), 0);
+  const previousRevenue = previousOrderRows.reduce((sum, o) => sum + Number(o.value ?? 0), 0);
+  const clicksTotal = (links.data ?? []).reduce((sum, l) => sum + Number(l.clicks ?? 0), 0);
+
+  const groupCounts = new Map<string, number>();
+  for (const lead of currentLeadRows) {
+    const name = lead.source_group_name;
+    if (!name) continue;
+    groupCounts.set(name, (groupCounts.get(name) ?? 0) + 1);
+  }
+  let topGroup: { name: string; count: number } | null = null;
+  for (const [name, count] of groupCounts) {
+    if (!topGroup || count > topGroup.count) topGroup = { name, count };
+  }
+
+  return {
+    weekLabel,
+    newContacts: currentLeadRows.length,
+    newContactsChangePct: pctChange(currentLeadRows.length, previousLeadsCount.count ?? 0),
+    ordersCount: currentOrderRows.length,
+    ordersChangePct: pctChange(currentOrderRows.length, previousOrderRows.length),
+    revenue,
+    revenueChangePct: pctChange(revenue, previousRevenue),
+    clicksTotal,
+    topGroup,
+  };
+}
+
 export async function GET(req: Request) {
   if (!isCronAuthorized(req.headers.get("authorization"), CRON_SECRET)) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -23,7 +158,7 @@ export async function GET(req: Request) {
 
   const supabase = getSupabaseAdmin();
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.hubflow.com.br";
-  const results = { nudge_sent: 0, trial_sent: 0, errors: 0 };
+  const results = { nudge_sent: 0, trial_sent: 0, weekly_sent: 0, errors: 0 };
 
   // --- Job 1: 24h sem conectar ---
   // Tenants criados há 24-48h sem nenhum heartbeat de session
@@ -146,6 +281,67 @@ export async function GET(req: Request) {
       });
     } else {
       results.errors++;
+    }
+  }
+
+  // --- Job 3: Relatório semanal (só segundas, America/Sao_Paulo) ---
+  if (isMondayInSaoPaulo(now)) {
+    const windows = weekWindowsInSaoPaulo(now);
+
+    const { data: allOrgs } = await supabase.from("organizations").select("id");
+
+    for (const org of allOrgs ?? []) {
+      // Opt-out: sem linha em tenant_settings = habilitado por padrão.
+      const { data: settings } = await supabase
+        .from("tenant_settings")
+        .select("weekly_report_enabled")
+        .eq("tenant_id", org.id)
+        .maybeSingle();
+
+      if (settings?.weekly_report_enabled === false) continue;
+
+      // Já enviado nesta semana? (dedupe: notification criada de hoje em diante)
+      const { data: alreadySent } = await supabase
+        .from("notifications")
+        .select("id")
+        .eq("tenant_id", org.id)
+        .eq("type", "weekly_report")
+        .gte("created_at", windows.currentWeekEndIso)
+        .maybeSingle();
+
+      if (alreadySent) continue;
+
+      const { data: owner } = await supabase
+        .from("memberships")
+        .select("user_id")
+        .eq("tenant_id", org.id)
+        .eq("role", "owner")
+        .maybeSingle();
+
+      if (!owner) continue;
+
+      const { data: userData } = await supabase.auth.admin.getUserById(owner.user_id);
+      const email = userData.user?.email;
+      const name = userData.user?.user_metadata?.name || "lojista";
+
+      if (!email) continue;
+
+      const stats = await buildWeeklyStats(supabase, org.id, windows);
+      const tpl = weeklyReportEmail(name, appUrl, stats);
+      const sent = await sendEmail({ to: email, subject: tpl.subject, html: tpl.html });
+
+      if (sent) {
+        results.weekly_sent++;
+        await supabase.from("notifications").insert({
+          tenant_id: org.id,
+          user_id: owner.user_id,
+          type: "weekly_report",
+          title: "Relatório semanal",
+          body: "Enviamos o resumo semanal por e-mail.",
+        });
+      } else {
+        results.errors++;
+      }
     }
   }
 
