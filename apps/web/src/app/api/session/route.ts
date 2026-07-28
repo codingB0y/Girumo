@@ -4,7 +4,7 @@ import { getRouteTenantContext } from "@/lib/route-tenant-context";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// GET /api/session — status real (live = heartbeat recente da engine).
+// GET /api/session — status real (live = status conectado, sem abandono >24h; ver isLive()).
 export async function GET(req: Request) {
   const { tenantId } = await getRouteTenantContext(req, { allowEngine: true });
   const s = await getSession(tenantId);

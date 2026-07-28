@@ -1,7 +1,12 @@
 import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { isConnectedStatus, selectSessionRow } from "@/lib/session-select";
 
-// Status REAL da sessão do WhatsApp, reportado pela engine (heartbeat a cada 30s).
+export { isLive } from "@/lib/session-liveness";
+
+// Status REAL da sessão do WhatsApp. Escrito pelo webhook da Evolution API em
+// resposta a connection.update (transição de estado, não heartbeat periódico)
+// — ver isLive() em session-liveness.ts.
 
 type SessionStatus = "connected" | "disconnected";
 
@@ -44,7 +49,8 @@ const DEFAULT: SessionInfo = {
 
 /**
  * Busca o status da sessão da engine.
- * Usa a instância mais recentemente atualizada (single-session por ora).
+ * Múltiplas linhas podem coexistir em `instances` pro mesmo tenant; prioriza a
+ * CONECTADA mais recente (não só "a mais recente") — ver `selectSessionRow`.
  */
 export async function getSession(tenantId: string): Promise<SessionInfo> {
   try {
@@ -54,20 +60,20 @@ export async function getSession(tenantId: string): Promise<SessionInfo> {
       .select("id, phone, status, connected_at, last_seen_at, metadata, updated_at")
       .eq("tenant_id", tenantId)
       .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(20);
 
-    if (!data) return DEFAULT;
+    const row = selectSessionRow(data ?? []);
+    if (!row) return DEFAULT;
 
-    const meta = (data.metadata ?? {}) as Record<string, unknown>;
+    const meta = (row.metadata ?? {}) as Record<string, unknown>;
 
     return {
-      status: data.status === "connected" || data.status === "online" ? "connected" : "disconnected",
-      phone: data.phone ?? null,
+      status: isConnectedStatus(row.status) ? "connected" : "disconnected",
+      phone: row.phone ?? null,
       profileName: (meta.profileName as string) ?? null,
-      connectedSince: data.connected_at ?? null,
+      connectedSince: row.connected_at ?? null,
       stats: (meta.stats as EngineStats) ?? null,
-      updatedAt: data.updated_at ?? data.last_seen_at ?? new Date(0).toISOString(),
+      updatedAt: row.updated_at ?? row.last_seen_at ?? new Date(0).toISOString(),
     };
   } catch {
     return DEFAULT;
@@ -142,9 +148,4 @@ export async function setSession(tenantId: string, info: Partial<SessionInfo>): 
   }
 
   return { ...DEFAULT, ...info, updatedAt: now };
-}
-
-/** "Ao vivo" = conectada E com heartbeat recente (engine viva). */
-export function isLive(info: SessionInfo): boolean {
-  return info.status === "connected" && Date.now() - new Date(info.updatedAt).getTime() < 90_000;
 }
