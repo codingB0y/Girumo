@@ -327,7 +327,8 @@ function FullDashboard({
   const totalMembers = useMemo(() => groups.reduce((a, g) => a + (g.members ?? 0), 0), [groups]);
   const totalClicks = useMemo(() => links.reduce((a, l) => a + (l.clicks ?? 0), 0), [links]);
   const totalContatos = leads.length;
-  const conversion = totalClicks > 0 ? Math.round((totalMembers / totalClicks) * 100) : 0;
+  // Conversão = entradas atribuídas (leads capturados) ÷ cliques — nunca estoque de membros.
+  const conversion = totalClicks > 0 ? Math.round((totalContatos / totalClicks) * 100) : 0;
 
   const today = getDateStr(0);
   const yesterday = getDateStr(1);
@@ -365,7 +366,7 @@ function FullDashboard({
   const kpis: { label: string; value: number | string; icon: LucideIcon; href: string }[] = [
     { label: "Cliques nas campanhas", value: totalClicks, icon: MousePointerClick, href: "/painel/campanhas" },
     { label: "Contatos captados", value: totalContatos, icon: UserPlus, href: "/painel/contatos" },
-    { label: "Conversão clique→grupo", value: `${conversion}%`, icon: TrendingUp, href: "/painel/resultados" },
+    { label: "Conversão clique→entrada", value: `${conversion}%`, icon: TrendingUp, href: "/painel/resultados" },
   ];
 
   return (
