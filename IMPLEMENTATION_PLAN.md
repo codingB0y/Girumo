@@ -49,7 +49,7 @@
 **Fazer:** conversão = **entradas atribuídas** ÷ cliques. Entradas atribuídas = leads capturados pela engine (já são "entrou no grupo") no período. Usar `leads.length` (total) sobre `totalClicks` nas duas telas; renomear label pra "Conversão clique→entrada". No funil de Resultados, o passo 2 "Entraram no grupo" passa a usar `leads.length`, não `totalMembers` (membros totais podem continuar como KPI separado "Membros nos grupos").
 **Aceite:** métrica nunca >100% com dados reais; funil monotônico (passo N ≤ passo N-1); labels atualizados nas 2 telas.
 
-## [ ] P0.4 🟢 Funil fecha em pedidos reais (R$), não em status manual
+## [x] P0.4 🟢 Funil fecha em pedidos reais (R$), não em status manual
 **Contexto:** Resultados conta `clientes = leads com status "comprou"`. Com P0.2, a fonte boa é `orders`.
 **Arquivo:** `painel/resultados/page.tsx`.
 **Fazer:**
