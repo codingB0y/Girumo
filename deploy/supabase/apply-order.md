@@ -35,6 +35,29 @@ bloqueios de escrita e remove eventual índice `INVALID` deixado por uma tentati
 interrompida. Se apenas essa etapa falhar, rerode a migration; com os workers
 parados, a pequena janela sem o índice não afeta o processamento.
 
+Emergência (reverter `202607050001` depois de aplicada): use
+[`infra/migrations/202607050001_engine_command_leases_rollback.sql`](../../infra/migrations/202607050001_engine_command_leases_rollback.sql)
+— manual, NÃO faz parte de `apply-order.txt`. É destrutivo (perde estado de lease
+em voo, não desfaz o backfill de comandos `uncertain`) e precisa do mesmo
+procedimento de workers parados: pare os workers novos antes de rodar o rollback,
+só suba os workers antigos depois que ele concluir.
+
+Smoke tests pós-aplicação (RPC real, transacionais — `begin`/`rollback`, nada
+persiste):
+[`infra/tests/engine-command-leases-smoke-prod-safe.sql`](../../infra/tests/engine-command-leases-smoke-prod-safe.sql)
+é seguro rodar em produção mesmo com workers ativos (não toca a fila
+compartilhada). O smoke completo,
+[`infra/tests/engine-command-leases-smoke.sql`](../../infra/tests/engine-command-leases-smoke.sql)
+(exercita `claim_engine_commands`, incluindo recuperação de lease expirado), só
+deve rodar com os workers parados ou em dev/staging.
+
+⚠️ Antes de aplicar: `engine_commands` em produção já tem colunas de uma
+migração diferente aplicada fora deste trilho —
+`apps/web/supabase/migrations/20260713120000_engine_queue_v2.sql` (`attempts`,
+`priority`, `dedupe_key`, `max_attempts` default 5, `lease_expires_at` sem
+token). O drift-check desta migração vai abortar até isso ser reconciliado —
+ver achado em `finding-painel-heartbeat-false-disconnect` na memória do projeto.
+
 Via script:
 
 ```powershell
