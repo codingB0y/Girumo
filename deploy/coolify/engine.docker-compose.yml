@@ -22,7 +22,11 @@ services:
       - hubflow_engine_sessions:/app/sessions
       - hubflow_engine_state:/app/state
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/health"]
+      # /live é liveness (sempre 200 se o processo está de pé). /health é readiness
+      # (503 quando o WhatsApp está desconectado) — usar /health aqui derrubaria o
+      # container em restart-loop toda vez que a sessão cai, que é justamente o
+      # cenário que o alerta de desconexão (painel + e-mail) precisa sobreviver.
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/live"]
       interval: 30s
       timeout: 5s
       retries: 3
