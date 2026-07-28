@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Search, MessageCircle } from "lucide-react";
+import { Search, MessageCircle, ShoppingBag, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type LeadStatus = "novo" | "ativo" | "comprou";
@@ -44,6 +44,7 @@ export default function PainelContatos() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | LeadStatus>("all");
   const [q, setQ] = useState("");
+  const [orderLead, setOrderLead] = useState<Lead | null>(null);
 
   useEffect(() => {
     fetch("/api/leads")
@@ -152,7 +153,13 @@ export default function PainelContatos() {
                       {STATUS[l.status]?.label ?? l.status}
                     </span>
                   </div>
-                  <div className="md:justify-self-end">
+                  <div className="flex items-center gap-2 md:justify-self-end">
+                    <button
+                      onClick={() => setOrderLead(l)}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-cobalt-500/10 px-3 py-1.5 text-xs font-medium text-cobalt-500 transition-colors duration-[160ms] hover:bg-cobalt-500 hover:text-white"
+                    >
+                      <ShoppingBag className="h-3.5 w-3.5" /> Registrar pedido
+                    </button>
                     {waPhone ? (
                       <a
                         href={`https://wa.me/${waPhone}`}
@@ -182,6 +189,110 @@ export default function PainelContatos() {
           </div>
         </div>
       )}
+
+      {orderLead && (
+        <OrderModal
+          lead={orderLead}
+          onClose={() => setOrderLead(null)}
+          onSaved={(leadId) =>
+            setLeads((prev) => prev.map((l) => (l.id === leadId ? { ...l, status: "comprou" } : l)))
+          }
+        />
+      )}
+    </div>
+  );
+}
+
+function OrderModal({
+  lead,
+  onClose,
+  onSaved,
+}: {
+  lead: Lead;
+  onClose: () => void;
+  onSaved: (leadId: string) => void;
+}) {
+  const [value, setValue] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit() {
+    if (saving) return;
+    setError("");
+    setSaving(true);
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          value,
+          leadId: lead.id,
+          phone: lead.phone,
+          group: lead.sourceGroup,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setError(body?.error || "Não foi possível registrar o pedido.");
+        return;
+      }
+      onSaved(lead.id);
+      onClose();
+    } catch {
+      setError("Não foi possível registrar o pedido.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-volt-950/60 backdrop-blur-sm px-4">
+      <div className="w-full max-w-sm rounded-2xl border border-volt-950/10 bg-white p-6 shadow-xl">
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="font-display text-lg font-bold text-volt-950">Registrar pedido</h2>
+            <p className="mt-1 text-sm text-aco/60">{lead.name || lead.phone || "Contato"}</p>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Fechar"
+            className="rounded-lg p-1 text-aco/50 transition-colors hover:bg-poco hover:text-volt-950"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <label className="mt-5 block">
+          <span className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/55">Valor do pedido (R$)</span>
+          <input
+            autoFocus
+            inputMode="decimal"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+            placeholder="149,90"
+            className="mt-1.5 w-full rounded-[10px] border border-volt-950/10 bg-poco px-3 py-2.5 text-sm text-volt-950 outline-none transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] placeholder:text-aco/40 focus:border-cobalt-500/50 focus:bg-papel focus:shadow-[0_0_0_3px_var(--color-cobalt-soft)]"
+          />
+        </label>
+
+        {error && <p className="mt-2 text-xs text-alerta">{error}</p>}
+
+        <div className="mt-5 flex gap-2">
+          <button
+            onClick={onClose}
+            className="flex-1 rounded-xl border border-volt-950/10 py-2.5 text-sm font-medium text-aco transition hover:bg-canvas-100"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={saving || !value.trim()}
+            className="flex-1 rounded-xl bg-cobalt-500 py-2.5 text-sm font-medium text-white shadow-brand transition hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0"
+          >
+            {saving ? "Salvando…" : "Salvar"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
