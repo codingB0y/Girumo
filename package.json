@@ -3,14 +3,19 @@
   "private": true,
   "workspaces": [
     "apps/web",
+    "apps/worker",
     "hubflow-engine"
   ],
   "scripts": {
-    "test": "npm --workspace apps/web test && tsx --test infra/scripts/migrate-legacy-tenant-data.test.ts",
+    "test": "npm --workspace apps/web test && npm --workspace apps/worker test && tsx --test infra/scripts/migrate-legacy-tenant-data.test.ts",
     "engine:test": "npm --workspace hubflow-engine test",
     "web:dev": "npm --workspace apps/web run dev",
     "web:build": "npm --workspace apps/web run build",
     "web:lint": "npm --workspace apps/web run lint",
+    "worker:dev": "npm --workspace apps/worker run dev",
+    "worker:build": "npm --workspace apps/worker run build",
+    "worker:start": "npm --workspace apps/worker run start",
+    "worker:test": "npm --workspace apps/worker test",
     "supabase:apply:ps": "powershell -ExecutionPolicy Bypass -File infra/scripts/apply-supabase-sql.ps1",
     "verify:local": "powershell -ExecutionPolicy Bypass -File infra/scripts/verify-local.ps1",
     "verify:online": "powershell -ExecutionPolicy Bypass -File infra/scripts/verify-online.ps1",

@@ -1,0 +1,22 @@
+{
+  "name": "girumo-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Worker de captura de leads: consome engine_events e grava leads (F3).",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts",
+    "test": "tsx --test \"src/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.108.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "tsx": "^4.22.4",
+    "typescript": "^5"
+  }
+}

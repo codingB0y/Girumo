@@ -1,0 +1,24 @@
+services:
+  girumo-worker:
+    build:
+      context: ../../apps/worker
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    # 1 réplica: o claim usa FOR UPDATE SKIP LOCKED, então escalar é seguro no
+    # futuro, mas na F3 uma réplica dá conta e simplifica a observabilidade.
+    environment:
+      NODE_ENV: production
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      WORKER_POLL_MS: ${WORKER_POLL_MS:-3000}
+      WORKER_BATCH_SIZE: ${WORKER_BATCH_SIZE:-20}
+      WORKER_REQUEUE_AFTER_SECONDS: ${WORKER_REQUEUE_AFTER_SECONDS:-300}
+      WORKER_HEALTH_PORT: 3002
+    # Sem `ports:` de propósito: o worker não recebe tráfego, só fala com o
+    # Supabase por HTTPS de saída. O /health é interno, para o healthcheck.
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3002/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

@@ -26,3 +26,6 @@ apps/web/supabase/migrations/20260713110000_evolution_provider_columns.sql
 apps/web/supabase/migrations/20260713120000_engine_queue_v2.sql
 apps/web/supabase/migrations/20260713130000_advisor_cleanup.sql
 apps/web/supabase/migrations/20260727120000_leads_and_worker_reads.sql
+# F3b: destrava o claim do worker — 'processing' faltava no enum
+# engine_event_status. Deve rodar antes de subir o worker (apps/worker).
+apps/web/supabase/migrations/20260727130000_engine_event_processing_status.sql

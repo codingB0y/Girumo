@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import * as pageSchema from "./schema";
+import type { LandingPage } from "./schema";
 
 test("renders persisted unknown landing colors with the Cobalt fallback", () => {
   const template = readFileSync(
@@ -36,7 +37,7 @@ test("preserves v2 content without injecting a legacy primary color", () => {
     brand_color: "#7c3aed",
   };
 
-  const normalized = pageSchema.normalizeLandingPage({ content } as never);
+  const normalized = pageSchema.normalizeLandingPage({ content } as unknown as LandingPage);
 
   assert.deepEqual(normalized.content, content);
   assert.equal("primary_color" in normalized.content, false);
