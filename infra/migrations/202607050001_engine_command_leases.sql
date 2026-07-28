@@ -1,5 +1,11 @@
 -- HUBFLOW - Engine command leases and fencing
 -- Apply after 202606240005_engine_rpc.sql.
+--
+-- Safe whether or not 20260713120000_engine_queue_v2.sql (tracked lane,
+-- apps/web/supabase/migrations/) has already run: max_attempts default is
+-- pinned to 5 below either way, matching what that migration already applied
+-- in production. See finding-painel-heartbeat-false-disconnect in project
+-- memory for how the two migrations were reconciled.
 
 begin;
 
@@ -34,11 +40,18 @@ begin
 end
 $$;
 
+-- max_attempts default is 5, not 3: 20260713120000_engine_queue_v2.sql already
+-- added this column in production (and dev/staging apply this migration after
+-- that one too) with default 5. Reconciling to the already-live value avoids a
+-- schema-drift false positive below without touching a column that predates
+-- this migration. attempts/priority/dedupe_key from that same migration are
+-- superseded by attempt_count/lease_token below and become dormant; left in
+-- place rather than dropped here to keep this migration purely additive.
 alter table public.engine_commands
   add column if not exists lease_token uuid,
   add column if not exists lease_expires_at timestamptz,
   add column if not exists attempt_count integer not null default 0,
-  add column if not exists max_attempts integer not null default 3,
+  add column if not exists max_attempts integer not null default 5,
   add column if not exists effect_started_at timestamptz,
   add column if not exists failure_kind public.engine_command_failure_kind;
 
@@ -58,7 +71,7 @@ begin
       ('lease_token', 'pg_catalog.uuid'::pg_catalog.regtype, false, null::text),
       ('lease_expires_at', 'pg_catalog.timestamptz'::pg_catalog.regtype, false, null::text),
       ('attempt_count', 'pg_catalog.int4'::pg_catalog.regtype, true, '0'::text),
-      ('max_attempts', 'pg_catalog.int4'::pg_catalog.regtype, true, '3'::text),
+      ('max_attempts', 'pg_catalog.int4'::pg_catalog.regtype, true, '5'::text),
       ('effect_started_at', 'pg_catalog.timestamptz'::pg_catalog.regtype, false, null::text),
       ('failure_kind', 'public.engine_command_failure_kind'::pg_catalog.regtype, false, null::text)
     ) as expected_columns(column_name, type_oid, is_not_null, default_expression)
@@ -181,6 +194,13 @@ where status = 'processing'
 
 -- Drop the one-argument overload before exposing the fenced contract to PostgREST.
 drop function if exists app.claim_engine_commands(integer);
+
+-- requeue_expired_commands (20260713120000_engine_queue_v2.sql) is fully
+-- superseded by the expired-lease recovery built into claim_engine_commands
+-- below. Confirmed zero callers in hubflow-engine or apps/worker before
+-- dropping it; restored verbatim by the rollback if this migration is undone.
+drop function if exists app.requeue_expired_commands();
+drop function if exists public.requeue_expired_commands();
 
 create or replace function app.claim_engine_commands(
   max_commands integer default 5,

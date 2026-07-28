@@ -51,12 +51,19 @@ compartilhada). O smoke completo,
 (exercita `claim_engine_commands`, incluindo recuperação de lease expirado), só
 deve rodar com os workers parados ou em dev/staging.
 
-⚠️ Antes de aplicar: `engine_commands` em produção já tem colunas de uma
-migração diferente aplicada fora deste trilho —
+✅ Reconciliado com `engine_queue_v2` (achado + fix documentados em
+`finding-painel-heartbeat-false-disconnect` na memória do projeto):
+`engine_commands` em produção já tem colunas de
 `apps/web/supabase/migrations/20260713120000_engine_queue_v2.sql` (`attempts`,
-`priority`, `dedupe_key`, `max_attempts` default 5, `lease_expires_at` sem
-token). O drift-check desta migração vai abortar até isso ser reconciliado —
-ver achado em `finding-painel-heartbeat-false-disconnect` na memória do projeto.
+`priority`, `dedupe_key`, `max_attempts` default 5, `lease_expires_at`). O
+único choque real era `max_attempts` (5 em prod vs. 3 esperado pelo
+drift-check) — a migração agora pina o default em 5, funciona igual com ou
+sem `engine_queue_v2` já aplicado. `attempts`/`priority`/`dedupe_key` ficam
+dormentes (nada no código grava valor não-default hoje) e não são tocadas.
+`app.requeue_expired_commands()`/`public.requeue_expired_commands()` (sem
+nenhum caller) são dropadas — a recuperação de lease expirado passa a viver
+dentro do próprio `claim_engine_commands`. O rollback restaura para o estado
+`engine_queue_v2`, não para o estado anterior a ele.
 
 Via script:
 
