@@ -39,8 +39,10 @@ export default function PainelResultados() {
 
   const totalClicks = useMemo(() => links.reduce((a, l) => a + (l.clicks ?? 0), 0), [links]);
   const totalMembers = useMemo(() => groups.reduce((a, g) => a + (g.members ?? 0), 0), [groups]);
+  const totalEntradas = leads.length;
   const clientes = useMemo(() => leads.filter((l) => l.status === "comprou").length, [leads]);
-  const conv = totalClicks > 0 ? Math.round((totalMembers / totalClicks) * 100) : 0;
+  // Conversão = entradas atribuídas (leads) ÷ cliques — totalMembers é estoque e pode passar de 100%.
+  const conv = totalClicks > 0 ? Math.round((totalEntradas / totalClicks) * 100) : 0;
 
   const activity = useMemo(() => {
     const c = { alto: 0, medio: 0, baixo: 0 };
@@ -66,7 +68,7 @@ export default function PainelResultados() {
 
   const funnel = [
     { icon: MousePointerClick, label: "Clicaram no link", value: totalClicks, pct: 100 },
-    { icon: Users, label: "Entraram no grupo", value: totalMembers, pct: conv },
+    { icon: Users, label: "Entraram no grupo", value: totalEntradas, pct: conv },
     { icon: ShoppingBag, label: "Viraram clientes", value: clientes, pct: totalClicks > 0 ? Math.round((clientes / totalClicks) * 100) : 0 },
   ];
 
@@ -92,7 +94,7 @@ export default function PainelResultados() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Tile label="Cliques" value={totalClicks.toLocaleString("pt-BR")} />
         <Tile label="Membros" value={totalMembers.toLocaleString("pt-BR")} />
-        <Tile label="Conversão clique→membro" value={`${conv}%`} tone="cobalt" />
+        <Tile label="Conversão clique→entrada" value={`${conv}%`} tone="cobalt" />
         <Tile label="Clientes" value={clientes.toLocaleString("pt-BR")} tone="sucesso" />
       </div>
 
