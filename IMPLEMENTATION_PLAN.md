@@ -44,7 +44,7 @@
 **Aceite:** registrar pedido pela UI cria linha em `orders` com tenant correto, lead vira "Cliente" no filtro, valor com vírgula funciona, lint/build ok.
 **Não fazer:** detecção automática de comprovante (P2), edição de pedido.
 
-## [ ] P0.3 🟢 Corrigir métrica de conversão clique→grupo
+## [x] P0.3 🟢 Corrigir métrica de conversão clique→grupo
 **Contexto:** `painel/page.tsx` e `resultados/page.tsx` calculam `conversão = totalMembers / totalClicks`. `totalMembers` é estoque (inclui quem já estava no grupo) — número mente, pode passar de 100%.
 **Fazer:** conversão = **entradas atribuídas** ÷ cliques. Entradas atribuídas = leads capturados pela engine (já são "entrou no grupo") no período. Usar `leads.length` (total) sobre `totalClicks` nas duas telas; renomear label pra "Conversão clique→entrada". No funil de Resultados, o passo 2 "Entraram no grupo" passa a usar `leads.length`, não `totalMembers` (membros totais podem continuar como KPI separado "Membros nos grupos").
 **Aceite:** métrica nunca >100% com dados reais; funil monotônico (passo N ≤ passo N-1); labels atualizados nas 2 telas.
