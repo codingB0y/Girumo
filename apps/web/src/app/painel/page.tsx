@@ -17,6 +17,7 @@ import {
   AlertTriangle,
   PartyPopper,
   Check,
+  Pencil,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -57,12 +58,18 @@ type Session = {
   phone?: string | null;
 };
 
+type TenantSettings = {
+  monthlyGoalContacts: number | null;
+  monthlyGoalRevenue: number | null;
+};
+
 type DashboardData = {
   groups: Group[];
   campanhas: Campanha[];
   links: TrackedLink[];
   leads: Lead[];
   session: Session;
+  settings: TenantSettings;
 };
 
 type StepInfo = { n: number; label: string; done?: boolean; active?: boolean };
@@ -99,12 +106,13 @@ export default function PainelPage() {
   useEffect(() => {
     (async () => {
       try {
-        const [groups, campanhas, links, leads, session] = await Promise.all([
+        const [groups, campanhas, links, leads, session, settings] = await Promise.all([
           fetch("/api/groups").then((r) => r.json()).catch(() => []),
           fetch("/api/campanhas").then((r) => r.json()).catch(() => []),
           fetch("/api/links").then((r) => r.json()).catch(() => []),
           fetch("/api/leads").then((r) => r.json()).catch(() => []),
           fetch("/api/session").then((r) => r.json()).catch(() => ({})),
+          fetch("/api/settings").then((r) => r.json()).catch(() => ({})),
         ]);
         setData({
           groups: Array.isArray(groups) ? groups : [],
@@ -112,9 +120,20 @@ export default function PainelPage() {
           links: Array.isArray(links) ? links : [],
           leads: Array.isArray(leads) ? leads : [],
           session: session ?? {},
+          settings: {
+            monthlyGoalContacts: settings?.monthlyGoalContacts ?? null,
+            monthlyGoalRevenue: settings?.monthlyGoalRevenue ?? null,
+          },
         });
       } catch {
-        setData({ groups: [], campanhas: [], links: [], leads: [], session: {} });
+        setData({
+          groups: [],
+          campanhas: [],
+          links: [],
+          leads: [],
+          session: {},
+          settings: { monthlyGoalContacts: null, monthlyGoalRevenue: null },
+        });
       } finally {
         setLoading(false);
       }
@@ -140,7 +159,7 @@ export default function PainelPage() {
 
   if (!data) return null;
 
-  const { groups, campanhas, links, leads, session } = data;
+  const { groups, campanhas, links, leads, session, settings } = data;
   const isConnected = session.live === true;
   const hasCampaigns = campanhas.length > 0;
   const hasMembers = groups.reduce((a, g) => a + (g.members ?? 0), 0) > 0;
@@ -157,7 +176,16 @@ export default function PainelPage() {
   }
 
   // Full dashboard with real data
-  return <FullDashboard groups={groups} campanhas={campanhas} links={links} leads={leads} />;
+  return (
+    <FullDashboard
+      groups={groups}
+      campanhas={campanhas}
+      links={links}
+      leads={leads}
+      settings={settings}
+      onSettingsSaved={(next) => setData((d) => (d ? { ...d, settings: next } : d))}
+    />
+  );
 }
 
 // ---------- Onboarding States ----------
@@ -318,11 +346,15 @@ function FullDashboard({
   campanhas,
   links,
   leads,
+  settings,
+  onSettingsSaved,
 }: {
   groups: Group[];
   campanhas: Campanha[];
   links: TrackedLink[];
   leads: Lead[];
+  settings: TenantSettings;
+  onSettingsSaved: (next: TenantSettings) => void;
 }) {
   const totalMembers = useMemo(() => groups.reduce((a, g) => a + (g.members ?? 0), 0), [groups]);
   const totalClicks = useMemo(() => links.reduce((a, l) => a + (l.clicks ?? 0), 0), [links]);
@@ -347,13 +379,15 @@ function FullDashboard({
     [leads, month],
   );
 
-  const monthlyGoal = useMemo(() => {
+  const suggestedGoal = useMemo(() => {
     const lastMonth = new Date();
     lastMonth.setMonth(lastMonth.getMonth() - 1);
     const lastMonthStr = lastMonth.toISOString().slice(0, 7);
     const lastMonthLeads = leads.filter((l) => l.enteredAt?.startsWith(lastMonthStr)).length;
     return Math.max(lastMonthLeads > 0 ? Math.round(lastMonthLeads * 1.5) : 50, 20);
   }, [leads]);
+  const hasSavedGoal = settings.monthlyGoalContacts != null;
+  const monthlyGoal = hasSavedGoal ? (settings.monthlyGoalContacts as number) : suggestedGoal;
 
   const almostFull = useMemo(
     () => groups.filter((g) => g.capacity > 0 && g.members / g.capacity >= 0.9),
@@ -429,7 +463,12 @@ function FullDashboard({
       <section className="space-y-4">
         <SectionLabel n="01">Seu ritmo</SectionLabel>
         <SinceYesterday leadsToday={leadsToday} deltaLeads={deltaLeads} />
-        <MonthlyProgress current={leadsThisMonth} goal={monthlyGoal} />
+        <MonthlyProgress
+          current={leadsThisMonth}
+          goal={monthlyGoal}
+          isSuggested={!hasSavedGoal}
+          onSaved={(v) => onSettingsSaved({ ...settings, monthlyGoalContacts: v })}
+        />
       </section>
 
       {/* Alerta: grupos quase cheios */}
@@ -517,25 +556,89 @@ function FullDashboard({
 
 // ---------- Monthly Progress ----------
 
-function MonthlyProgress({ current, goal }: { current: number; goal: number }) {
+function MonthlyProgress({
+  current,
+  goal,
+  isSuggested,
+  onSaved,
+}: {
+  current: number;
+  goal: number;
+  isSuggested: boolean;
+  onSaved: (value: number) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(String(goal));
+  const [saving, setSaving] = useState(false);
+
   const pct = goal > 0 ? Math.min(Math.round((current / goal) * 100), 100) : 0;
   const achieved = current >= goal;
+
+  async function handleSave() {
+    const value = Math.round(Number(draft.replace(",", ".")));
+    if (!value || value <= 0 || saving) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ monthlyGoalContacts: value }),
+      });
+      if (res.ok) {
+        onSaved(value);
+        setEditing(false);
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="pn-card rounded-2xl px-5 py-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Target className="h-4 w-4 text-cobalt-500" strokeWidth={1.75} />
-          <span className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/55">Meta do mês</span>
+          <span className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/55">
+            Meta do mês{isSuggested && !editing ? " (meta sugerida)" : ""}
+          </span>
         </div>
-        <span
-          className={cn(
-            "font-data text-sm font-medium tabular-nums",
-            achieved ? "text-sucesso" : "text-volt-950",
-          )}
-        >
-          {current.toLocaleString("pt-BR")}/{goal.toLocaleString("pt-BR")} contatos
-        </span>
+        {editing ? (
+          <div className="flex items-center gap-1.5">
+            <input
+              autoFocus
+              inputMode="numeric"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSave()}
+              className="font-data w-20 rounded-lg border border-volt-950/10 bg-poco px-2 py-1 text-right text-sm tabular-nums text-volt-950 outline-none focus:border-cobalt-500/50"
+            />
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="font-data rounded-lg bg-cobalt-500 px-2.5 py-1 text-xs font-medium text-white transition hover:brightness-110 disabled:opacity-50"
+            >
+              {saving ? "…" : "Salvar"}
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => {
+              setDraft(String(goal));
+              setEditing(true);
+            }}
+            className="group flex items-center gap-1.5"
+          >
+            <span
+              className={cn(
+                "font-data text-sm font-medium tabular-nums",
+                achieved ? "text-sucesso" : "text-volt-950",
+              )}
+            >
+              {current.toLocaleString("pt-BR")}/{goal.toLocaleString("pt-BR")} contatos
+            </span>
+            <Pencil className="h-3 w-3 text-aco/40 transition-colors group-hover:text-cobalt-500" strokeWidth={1.75} />
+          </button>
+        )}
       </div>
       <div className="pn-poco mt-3 h-2 w-full overflow-hidden rounded-full">
         <div
@@ -549,6 +652,8 @@ function MonthlyProgress({ current, goal }: { current: number; goal: number }) {
             <PartyPopper className="h-3.5 w-3.5 text-sucesso" strokeWidth={1.75} />
             Meta atingida! Continue crescendo.
           </>
+        ) : isSuggested ? (
+          <>Faltam {(goal - current).toLocaleString("pt-BR")} contatos pra bater a meta sugerida — clique pra definir a sua.</>
         ) : (
           <>Faltam {(goal - current).toLocaleString("pt-BR")} contatos pra bater a meta.</>
         )}
