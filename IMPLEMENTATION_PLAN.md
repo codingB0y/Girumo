@@ -33,7 +33,7 @@
 **Motivo:** este item foi escrito sem conhecimento do rebrand HubFlow→Girumo (PR #20, merge `6ddc1738`, 17/jul), que já está no histórico deste branch. `apps/web/src/lib/brand.ts` declara `name: "Girumo"` como fonte única da marca, e existe um gate de CI (`npm run brand:check` / `check-girumo-brand.mjs`) que **bloqueia** "hubflow" user-facing. Executar este item ao pé da letra reverteria o rebrand e quebraria o gate. `grep -ri girumo apps/web/src` retorna 60 arquivos — é o rebrand inteiro, não um typo isolado.
 **Ação:** nenhuma. Se "Girumo" aparecer por engano em algum lugar específico pós-rebrand, tratar como bug pontual (não como grep→replace em massa) — ver [[girumo-rebrand-shipped]] na memória pra allowlist do que fica `hubflow` de propósito.
 
-## [ ] P0.2 🟢 Registrar venda em 1 clique (UI sobre a infra de `orders` que já existe)
+## [x] P0.2 🟢 Registrar venda em 1 clique (UI sobre a infra de `orders` que já existe)
 **Contexto:** backend pronto (`/api/orders` POST `{value, phone?, leadId?, group?}`). Falta UI. O status "comprou" do lead e o pedido são coisas ligadas: registrar pedido deve também marcar o lead.
 **Arquivos:** `painel/contatos/page.tsx` (principal) · `src/app/api/orders/route.ts` (pequeno ajuste).
 **Fazer:**
