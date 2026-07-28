@@ -185,8 +185,8 @@ export function Lp3Landing() {
             </p>
 
             <h1 data-lp4-split className="lp4-x mx-auto mt-7 max-w-5xl text-balance text-[clamp(2.6rem,6.4vw,5.5rem)]">
-              Encha seus grupos de revendedor.{" "}
-              <span className="lp4-green">Venda todo dia.</span>
+              Lote seus grupos de revendedores.{" "}
+              <span className="lp4-green">Venda todos os dias.</span>
             </h1>
 
             <p data-lp4-hi className="mx-auto mt-7 max-w-xl text-pretty text-lg leading-relaxed text-[var(--body)]">
