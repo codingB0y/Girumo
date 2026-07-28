@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Shield, X, ArrowLeft } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Shield, ArrowLeft } from "lucide-react";
+import { PREVIEW_PATH } from "@/components/pages/editor/preview-protocol";
 
 type ImpersonateData = {
   adminEmail: string;
@@ -10,6 +12,8 @@ type ImpersonateData = {
 };
 
 export function ImpersonateBanner() {
+  // Mesma razão do DevModeBanner: o root layout também alcança o iframe da prévia.
+  const pathname = usePathname();
   const [data, setData] = useState<ImpersonateData | null>(null);
   const [ending, setEnding] = useState(false);
 
@@ -25,7 +29,7 @@ export function ImpersonateBanner() {
       .catch(() => {});
   }, []);
 
-  if (!data) return null;
+  if (!data || pathname === PREVIEW_PATH) return null;
 
   async function handleEnd() {
     setEnding(true);

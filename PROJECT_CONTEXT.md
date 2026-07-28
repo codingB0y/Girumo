@@ -4,7 +4,7 @@
 > **Regra:** nunca ler o projeto inteiro. Planejar → listar (glob/grep) → abrir só o necessário → resumir →
 > continuar. Ao aprender algo novo/estável, **atualize este arquivo** em vez de deixar só na conversa.
 > Diagnóstico completo (arquitetura, riscos, backlog): ver [AUDIT_REPORT.md](AUDIT_REPORT.md).
-> Última atualização: 2026-07-03.
+> Última atualização: 2026-07-05.
 
 ## O que é
 SaaS multi-tenant de captação via WhatsApp. Loop: anúncio (link rastreado) → entra no grupo → engine
@@ -53,6 +53,33 @@ detecta = lead → boas-vindas → disparos/campanhas → billing por plano. **E
 - **Segredos:** `.gitignore` cobre `.env*`; nada versionado. ✅
 - **Convenções:** arquivos kebab-case, componentes PascalCase, funções camelCase, alias `@/`, Tailwind
   utilitário. `apps/web/CLAUDE.md` define lanes (Frontend+UI vs Banco/API) — respeitar handoff.
+
+## 📣 Marketing & Posicionamento (2026-07-05)
+> Detalhe em `.agents/product-marketing.md` · `competitor-profiles/` · `customer-research/voc-atacadista.md` ·
+> `offers/hubflow-offer-critique.md` · `offers/landing-copy-v2.md`. Landing na branch `feat/landing-copy-honest-clarity`.
+- **Nicho/posição:** SaaS de grupos de WhatsApp **pra atacadista de roupa** (44/Brás/Moda Center). Tagline: *"feito por atacadista, pra atacadista"*.
+- **Moat (founder-market fit):** fundadores levaram a **Mega Stock** (atacado infantil, @megainfantilatacado) de **R$5k→R$350k/mês** com método de grupos VIP — 12k revendedores em 50+ grupos, 20k peças/evento de 2 dias, galpão 800m², IG 105k, ReclameAqui limpo. HubFlow = produtização disso. É o case/prova central da landing.
+- **Concorrentes** (DevZapp, Joinzapp, SendFlow, Meu Grupo VIP): **todos miram infoprodutor/lançamento, nenhum nichado** em atacado. Feature-parity (auto-criação/reposição/deep-link/anti-ban todos têm) → diferencial ≠ feature isolada, é nicho+linguagem+história.
+- **Honestidade (regra durável):** SEM IA user-facing (removida); prova social 127/4.9 era fake (removida, inclusive JSON-LD). O **"método" NÃO existe no SaaS** (roadmap) → na copy é só história/prova, nunca "você recebe X". Features reais: auto-criação de grupo, biblioteca de copys/criativos, modelos de LP, tracking até a venda.
+- **Vocabulário:** usar atacado/loja/cliente/revendedor/revenda/novidade/grade/peça/pedido/grupo cheio/evento. Banir: IA, lançamento, perpétuo, lead, afiliado, medo-de-ban, "#1"/líder, guru/"método secreto". Usuário=lojista ("você"); quem enche o grupo=revendedor/cliente.
+- **Oferta (decisões 05/jul):** matar "7 dias grátis" → **garantia 30d incondicional** (único risco-reverso); ancorar preço no case ("Growth < 1 grade"); renomear "Performance Max"→**"Operação"**. Planos R$197 Essencial / R$297 Growth (herói) / R$497 Operação. Gargalo = crença (perceived likelihood) → resolvido por prova+garantia.
+- ⏳ **Pendente do Igor:** confirmar planos/preços vigentes; método é roadmap (a construir no SaaS); sem depoimento de cliente do HubFlow (só case Mega Stock); provas visuais do case (vídeo do evento, fotos) a encaixar.
+
+## ✅ Incidente middleware (2026-07-03) — RESOLVIDO
+Produção respondia **500 MIDDLEWARE_INVOCATION_FAILED** — o `env-validator`/`resolveSecret` estourava no Edge
+runtime em cascata (ENGINE_TOKEN→AUTH_SECRET→CRON_SECRET) quando faltava secret. Resolvido setando as vars no Vercel;
+deploy vivo responde 200 (confirmado 03/jul). **Risco residual (latente):** `runtime-secrets.ts:13` ainda dá `throw`
+no module-eval do Edge (via `middleware.ts`→`auth.ts`) — se qualquer secret sumir num deploy futuro, o outage volta.
+Hardening sugerido (não feito): tornar o `resolveSecret` fail-safe como o `enforceEnvironmentValidation` já é.
+Era: **diferente** do erro anterior (aquele era
+build-time por `ENGINE_TOKEN` ausente, já corrigido em `runtime-secrets.ts`/`env-validator.ts`).
+Este é o **middleware/edge** crashando em runtime. Causa ainda não diagnosticada — a consulta de
+`get_runtime_logs` (Vercel MCP) foi interrompida por troca de modelo antes de ler o stack real.
+**Próximo passo ao retomar:** `get_runtime_logs` (Vercel MCP, projectId `prj_OqpJ680p1Q5LWE2cGjiOg1cnuJPq`,
+teamId `team_2H4HYmKVySM4jMf2MCOAdm3E`) filtrado por `level: ["error","fatal"]` nos últimos 30-60min,
+achar o stack do middleware. Suspeitos prováveis: algo em `middleware.ts` ou import que ele carrega
+(`lib/auth.ts` roda em Edge — checar se algo do fix recente ou de outra mudança usa API Node-only no
+Edge runtime, ex. `crypto`/`Buffer` fora do que o Edge suporta).
 
 ## Riscos abertos
 Geral (AUDIT_REPORT.md §13-14): RLS×service-role · rotação Service Role Key · drift de migrações ·

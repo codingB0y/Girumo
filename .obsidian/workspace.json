@@ -11,10 +11,14 @@
             "id": "478fd4ba3498184c",
             "type": "leaf",
             "state": {
-              "type": "graph",
-              "state": {},
-              "icon": "lucide-git-fork",
-              "title": "Visualização em gráfico"
+              "type": "markdown",
+              "state": {
+                "file": "RAG_INIT.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "RAG_INIT"
             }
           }
         ]
@@ -74,7 +78,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 515.5
+    "width": 200
   },
   "right": {
     "id": "7fa2925293248e7e",
@@ -173,26 +177,43 @@
       "daily-notes:Abrir a nota de hoje": false,
       "templates:Inserir modelo": false,
       "command-palette:Abrir paleta de comandos": false,
-      "bases:Criar nova base": false
+      "bases:Criar nova base": false,
+      "obsidian-excalidraw-plugin:New drawing": false,
+      "templater-obsidian:Templater": false
     }
   },
   "active": "478fd4ba3498184c",
   "lastOpenFiles": [
-    "infra/dev-setup/README.md",
-    "infra/dev-setup/04_storage_rpc_seed.sql",
-    "infra/dev-setup/03_rls_policies.sql",
-    "infra/dev-setup/02_indexes_triggers.sql",
-    "infra/dev-setup/01_tables.sql",
-    "tools/lightrag/rag_storage/kv_store_doc_status.json.tmp.26980.13260.1782915597789028600",
-    "tools/lightrag/rag_storage/kv_store_doc_status.json.tmp.26980.13260.1782915596662325400",
-    "tools/lightrag/rag_storage/kv_store_doc_status.json.tmp.26980.13260.1782915323568324100",
-    "tools/lightrag/rag_storage/vdb_chunks.json.tmp.26980.13260.1782914781450457000",
-    "tools/lightrag/rag_storage/graph_chunk_entity_relation.graphml.tmp.26980.13260.1782914780755336000",
-    "tools/lightrag/rag_storage/vdb_relationships.json.tmp.26980.13260.1782914780708938500",
-    "2026-07-01.md",
-    "RAG_INIT.md",
+    "apply-order.txt",
+    "apps/web/public/lp - Copia/still-atacado.webp",
+    "apps/web/public/lp - Copia",
+    "apps/web/next.config.ts.tmp.35304.b7a933a9d1ab",
+    "apps/web/src/app/lp/page.tsx.tmp.35304.2ff85a94137b",
+    "apps/web/public/lp/still-atacado.webp",
+    "apps/web/public/lp",
+    "apps/web/src/components/lp/method-accordion.tsx.tmp.35304.22c23ffddb25",
+    "apps/web/src/middleware.ts.tmp.35304.41b9b03b6ce8",
+    "apps/web/src/app/lp/page.tsx.tmp.35304.861ac528d8e2",
+    "apps/web/src/app/lp/page.tsx",
+    "apps/web/src/app/lp/page.tsx.tmp.35304.8acaaa74073c",
     "CLAUDE.md",
+    "FRONTEND_AUDIT.md",
+    "INFRA_AUDIT.md",
+    "PROJECT_CONTEXT.md",
+    "TASK_PROGRESS.md",
     "Sem título.canvas",
+    "ROADMAP.md",
+    "tools/lightrag/README.md",
+    "RAG_INIT.md",
+    "second-brain/Projects/Flow Pages.md",
+    "second-brain/Projects/HubFlow.md",
+    "second-brain/Projects/Squad OS.md",
+    "second-brain/Founder Story - Mega Stock.md",
+    "second-brain/Competitor Landscape.md",
+    "second-brain/Igor.md",
+    "apps/web/src/app/lp/lp.css",
+    "infra/dev-setup/README.md",
+    "2026-07-01.md",
     "apps/web/src/app/apple-icon.png",
     "apps/web/src/app/icon.svg",
     "apps/web/public/brand/symbol-iris-gradient.svg",
@@ -201,7 +222,6 @@
     "apps/web/public/product/preview-onboarding.png",
     "apps/web/public/product/preview-grupos.png",
     "apps/web/public/product/preview-campanhas.png",
-    "apps/web/public/product/preview-dashboard.png",
     "hubflow-groups/node_modules/next/dist/docs/01-app/02-guides/production-checklist.md",
     "node_modules/ms/license.md"
   ]

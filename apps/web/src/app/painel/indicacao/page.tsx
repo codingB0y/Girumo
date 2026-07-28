@@ -65,28 +65,28 @@ export default function PainelIndicacao() {
       </div>
 
       {/* Banner CTA */}
-      <section className="relative overflow-hidden rounded-3xl bg-breu p-6 text-white sm:p-8">
-        <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-iris/20 blur-[80px]" />
+      <section className="relative overflow-hidden rounded-3xl bg-volt-950 p-6 text-white sm:p-8">
+        <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-cobalt-500/20 blur-[80px]" />
         <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-md">
             <div className="flex items-center gap-2">
-              <Gift className="h-5 w-5 text-iris-claro" />
-              <span className="font-data text-[10px] uppercase tracking-[0.2em] text-bruma/50">
+              <Gift className="h-5 w-5 text-cobalt-500" />
+              <span className="font-data text-[10px] uppercase tracking-[0.2em] text-canvas-100/50">
                 Programa de indicação
               </span>
             </div>
             <h2 className="font-display mt-3 text-2xl font-extrabold">
               Indique e ganhe {config.reward || "1 mês grátis"}
             </h2>
-            <p className="mt-2 text-sm text-bruma/60">
+            <p className="mt-2 text-sm text-canvas-100/60">
               {config.description || "Cada lojista que assinar pelo seu link te dá 1 mês grátis no seu plano. Sem limite."}
             </p>
           </div>
 
           <div className="flex flex-col gap-3">
-            <p className="font-data text-[10px] uppercase tracking-wider text-bruma/40">Seu link de indicação</p>
+            <p className="font-data text-[10px] uppercase tracking-wider text-canvas-100/40">Seu link de indicação</p>
             <div className="flex items-center gap-2">
-              <div className="rounded-xl border border-white/[0.08] bg-white/[0.05] px-4 py-2.5 font-data text-sm text-bruma/80">
+              <div className="rounded-xl border border-white/[0.08] bg-white/[0.05] px-4 py-2.5 font-data text-sm text-canvas-100/80">
                 {myLink}
               </div>
               <button
@@ -112,19 +112,19 @@ export default function PainelIndicacao() {
 
       {/* Ranking */}
       {referrals.length > 0 && (
-        <section className="overflow-hidden rounded-3xl border border-breu/[0.08] bg-white">
-          <div className="border-b border-breu/[0.06] px-5 py-4">
-            <h2 className="font-display text-base font-bold text-breu">Suas indicações</h2>
+        <section className="overflow-hidden rounded-3xl border border-volt-950/[0.08] bg-white">
+          <div className="border-b border-volt-950/[0.06] px-5 py-4">
+            <h2 className="font-display text-base font-bold text-volt-950">Suas indicações</h2>
           </div>
-          <div className="divide-y divide-breu/[0.06]">
+          <div className="divide-y divide-volt-950/[0.06]">
             {referrals.map((ref) => (
               <div key={ref.id} className="flex items-center justify-between px-5 py-3.5">
                 <div className="flex items-center gap-3">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-iris/10 text-iris">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-cobalt-500/10 text-cobalt-500">
                     <Users className="h-4 w-4" />
                   </span>
                   <div>
-                    <p className="text-sm font-medium text-breu">{ref.name}</p>
+                    <p className="text-sm font-medium text-volt-950">{ref.name}</p>
                     <p className="font-data text-[11px] text-aco/55">{ref.slug}</p>
                   </div>
                 </div>
@@ -141,9 +141,9 @@ export default function PainelIndicacao() {
       )}
 
       {referrals.length === 0 && (
-        <section className="rounded-3xl border border-breu/[0.08] bg-white p-8 text-center">
+        <section className="rounded-3xl border border-volt-950/[0.08] bg-white p-8 text-center">
           <Gift className="mx-auto h-10 w-10 text-aco/25" />
-          <p className="font-display mt-3 text-sm font-bold text-breu">Nenhuma indicação ainda</p>
+          <p className="font-display mt-3 text-sm font-bold text-volt-950">Nenhuma indicação ainda</p>
           <p className="mt-1 text-xs text-aco/60">
             Compartilhe seu link com outros lojistas e comece a ganhar meses grátis.
           </p>
@@ -155,12 +155,12 @@ export default function PainelIndicacao() {
 
 function StatCard({ icon: Icon, label, value }: { icon: typeof Gift; label: string; value: string | number }) {
   return (
-    <div className="rounded-2xl border border-breu/[0.08] bg-white p-4">
+    <div className="rounded-2xl border border-volt-950/[0.08] bg-white p-4">
       <div className="flex items-center gap-2">
-        <Icon className="h-4 w-4 text-iris" />
+        <Icon className="h-4 w-4 text-cobalt-500" />
         <span className="font-data text-[10px] uppercase tracking-wider text-aco/55">{label}</span>
       </div>
-      <p className="font-display mt-2 text-2xl font-extrabold text-breu">{String(value)}</p>
+      <p className="font-display mt-2 text-2xl font-extrabold text-volt-950">{String(value)}</p>
     </div>
   );
 }

@@ -409,30 +409,6 @@ async function welcomeNewMember(sock, phone, session) {
   }
 }
 
-/** Adiciona participantes a um grupo respeitando o GroupOperationGuard. */
-async function addToGroup(sock, groupJid, participants) {
-  const verdict = guard.check("add");
-  if (!verdict.allowed) {
-    console.log(`⛔ ${verdict.reason}. Tente em ${verdict.retryAfterSec}s.`);
-    return { ok: false, reason: verdict.reason };
-  }
-  try {
-    const res = await sock.groupParticipantsUpdate(groupJid, participants, "add");
-    guard.record("add");
-    return { ok: true, res };
-  } catch (err) {
-    const code = classifyGroupOpError(err);
-    console.log(`⚠️  Falha no add ao grupo${code ? ` (${code})` : ""}: ${err.message}`);
-    return { ok: false, code };
-  }
-}
-
-/** Broadcast seguro: enfileira 1 mensagem por grupo (a fila cuida do ritmo). */
-async function broadcast(sock, jids, text) {
-  console.log(`\n📤 Enfileirando broadcast para ${jids.length} grupos (fila anti-ban no controle)...`);
-  jids.forEach((jid) => sendText(sock, jid, text));
-}
-
 // === MOTOR DE DISPARO REAL (ofertas do app → grupos) ===
 // A engine puxa as ofertas que o lojista mandou enviar e dispara pela fila
 // anti-ban. O progresso é REAL: cada sendText resolve quando a mensagem sai.
@@ -1006,9 +982,6 @@ function logPreparedGroups(snapshot) {
 
   console.log("\n👀 Monitorando entradas só nos grupos ADMIN, em tempo real... (Ctrl+C para sair)");
 
-  // Exemplo de broadcast SEGURO (passa pela fila anti-ban) — descomente p/ testar:
-  // const jids = admin.slice(0, 3).map((g) => g.id);
-  // await broadcast(sock, jids, "Olá! Novidades chegando no grupo 👋");
 }
 
 /** POST /api/groups serializado por socket + identidade do payload. */

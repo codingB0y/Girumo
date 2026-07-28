@@ -6,7 +6,7 @@ import { listLinks, slugify } from "@/lib/store";
 // HUBFLOW). Loja → Campanhas → Grupos. É o escopo de TODO o resto: o app opera
 // só os grupos da campanha ativa, em vez de misturar todos os grupos admin.
 // Molde do grupo que a engine cria quando o pool lota (auto-grow).
-export type GrowTemplate = {
+type GrowTemplate = {
   subjectPattern: string; // ex.: "Atacado #{n}" — {n} vira o número do grupo
   desc?: string;
   mediaId?: string;

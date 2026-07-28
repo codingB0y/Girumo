@@ -18,10 +18,10 @@ dependencies = [
 ]
 
 [project.scripts]
-kg-server      = "lightrag_kg.server:main"
-kg-index       = "lightrag_kg.index:main"
+kg-server = "lightrag_kg.server:main"
+kg-index = "lightrag_kg.index:main"
 kg-to-obsidian = "lightrag_kg.to_obsidian:main"
-rag            = "lightrag_kg.cli:main"
+rag = "lightrag_kg.cli:main"
 
 [build-system]
 requires = ["hatchling"]

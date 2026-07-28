@@ -5,11 +5,8 @@
 import type {
   Squad,
   Agent,
-  Skill,
   Mission,
   Decision,
-  Memory,
-  Handoff,
 } from "@/lib/types/squad-os";
 
 // ---------- Helpers ----------
@@ -39,7 +36,7 @@ const SEED_SQUADS: Squad[] = [
     name: "Product Squad",
     slug: "product",
     leader_agent_id: null,
-    objective: "Definir escopo, priorização e roadmap do HubFlow",
+    objective: "Definir escopo, priorização e roadmap do Girumo",
     status: "executing",
     health: 92,
     context: {},
@@ -111,7 +108,7 @@ const SEED_SQUADS: Squad[] = [
     status: "completed",
     health: 96,
     context: {},
-    last_delivery: "Rebranding v3 — iris/breu palette",
+    last_delivery: "Rebranding v3 — paleta Cobalt/Volt",
     next_action: "Social media kit Q3",
     reputation_score: 93,
     created_at: new Date().toISOString(),
@@ -430,59 +427,6 @@ export async function getMissions(): Promise<Mission[]> {
   return supaFetch<Mission[]>("missions", SEED_MISSIONS);
 }
 
-export async function getSquadBySlug(slug: string): Promise<Squad | null> {
-  const squads = await getSquads();
-  return squads.find((s) => s.slug === slug) ?? null;
-}
-
 export async function getDecisions(): Promise<Decision[]> {
   return supaFetch<Decision[]>("decisions", SEED_DECISIONS);
-}
-
-export async function getMemories(): Promise<Memory[]> {
-  return supaFetch<Memory[]>("memories", []);
-}
-
-export async function getHandoffs(): Promise<Handoff[]> {
-  return supaFetch<Handoff[]>("handoffs", []);
-}
-
-// ---------- Stats ----------
-
-export interface SquadOSStats {
-  totalSquads: number;
-  activeSquads: number;
-  totalAgents: number;
-  totalMissions: number;
-  activeMissions: number;
-  completedMissions: number;
-  avgHealth: number;
-  decisions: number;
-}
-
-export async function getStats(): Promise<SquadOSStats> {
-  const [squads, agents, missions, decisions] = await Promise.all([
-    getSquads(),
-    getAgents(),
-    getMissions(),
-    getDecisions(),
-  ]);
-
-  const activeSquads = squads.filter((s) => s.status !== "completed").length;
-  const activeMissions = missions.filter((m) => m.status === "active").length;
-  const completedMissions = missions.filter((m) => m.status === "completed").length;
-  const avgHealth = Math.round(
-    squads.reduce((a, s) => a + s.health, 0) / (squads.length || 1),
-  );
-
-  return {
-    totalSquads: squads.length,
-    activeSquads,
-    totalAgents: agents.length,
-    totalMissions: missions.length,
-    activeMissions,
-    completedMissions,
-    avgHealth,
-    decisions: decisions.length,
-  };
 }

@@ -4,87 +4,77 @@ import { useMemo, useState } from "react";
 import { Check, TrendingDown, X } from "lucide-react";
 import { WhatsAppIcon } from "@/components/landing/icons";
 
-/**
- * Comparação SEM × COM HubFlow + calculadora de dinheiro deixado na mesa.
- * Substitui os depoimentos: prova por lógica, não por citação.
- */
-
 const WITHOUT = [
   "2h por dia copiando a mesma oferta, grupo por grupo",
   "Grupo lotou → link morto, lead indo pro concorrente",
   "Venda acontece e você não sabe de qual anúncio veio",
-  "Cliente sumiu e ninguém chama de volta",
+  "Página de captação? Só pagando programador e hospedagem",
 ];
 
 const WITH = [
-  "1 clique posta em todos os grupos, no horário certo",
+  "1 clique publica em todos os grupos, no horário certo",
   "Grupo cheio → o próximo nasce e o link nunca morre",
   "Cada venda com origem: anúncio, story ou bio",
-  "Funil reativa quem sumiu, no automático",
+  "Modelos prontos: sua página de captação no ar em minutos",
 ];
 
-/** Premissa declarada: sem redirecionamento automático, ~35% dos cliques se perdem quando o grupo lota. */
-const LOSS_RATE = 0.35;
-
-const money = (v: number) =>
-  v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+const money = (value: number) =>
+  value.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
 export function Compare() {
   const [leadsDay, setLeadsDay] = useState(50);
   const [ticket, setTicket] = useState(80);
   const [conv, setConv] = useState(5);
+  const [lossRate, setLossRate] = useState(10);
 
   const monthlyLoss = useMemo(
-    () => Math.round(leadsDay * 30 * LOSS_RATE * (conv / 100) * ticket),
-    [leadsDay, ticket, conv],
+    () => Math.round(leadsDay * 30 * (lossRate / 100) * (conv / 100) * ticket),
+    [leadsDay, ticket, conv, lossRate],
   );
 
   return (
-    <div className="mx-auto max-w-6xl px-5">
-      {/* SEM × COM */}
-      <div className="grid gap-4 lg:grid-cols-2" data-reveal-group>
-        <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.02] p-8">
-          <p className="font-data flex items-center gap-2 text-xs uppercase tracking-[0.25em] text-bruma/40">
-            <span className="h-1.5 w-1.5 rounded-full bg-alerta/70" /> sem o hubflow
+    <div className="mx-auto max-w-[var(--content-max)] px-4 md:px-8">
+      <div className="grid gap-px bg-volt-800 lg:grid-cols-2" data-reveal-group>
+        <section className="bg-paper-0 p-7 text-volt-950 sm:p-9" aria-labelledby="without-title">
+          <p id="without-title" className="font-data flex items-center gap-2 text-xs uppercase tracking-[0.14em] text-danger-700">
+            <X className="h-4 w-4" /> sem a Girumo
           </p>
-          <ul className="mt-6 space-y-4">
+          <ul className="mt-7 space-y-5">
             {WITHOUT.map((item) => (
-              <li key={item} className="flex items-start gap-3 text-[15px] leading-relaxed text-bruma/55">
-                <X className="mt-0.5 h-4 w-4 shrink-0 text-alerta/60" />
+              <li key={item} className="flex items-start gap-3 text-[15px] leading-relaxed text-slate-600">
+                <X className="mt-0.5 h-4 w-4 shrink-0 text-danger-700" />
                 {item}
               </li>
             ))}
           </ul>
-        </div>
+        </section>
 
-        <div className="lp-ring-soft rounded-[1.75rem] border border-transparent bg-void-2 p-8 shadow-deep">
-          <p className="font-data flex items-center gap-2 text-xs uppercase tracking-[0.25em] text-zap">
-            <WhatsAppIcon className="h-3.5 w-3.5" /> com o hubflow
+        <section className="bg-volt-950 p-7 text-paper-0 sm:p-9" aria-labelledby="with-title">
+          <p id="with-title" className="font-data flex items-center gap-2 text-xs uppercase tracking-[0.14em] text-acid-500">
+            <WhatsAppIcon className="h-3.5 w-3.5" /> com a Girumo
           </p>
-          <ul className="mt-6 space-y-4">
+          <ul className="mt-7 space-y-5">
             {WITH.map((item) => (
-              <li key={item} className="flex items-start gap-3 text-[15px] font-medium leading-relaxed text-white">
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-zap" />
+              <li key={item} className="flex items-start gap-3 text-[15px] font-medium leading-relaxed text-paper-0">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-acid-500" />
                 {item}
               </li>
             ))}
           </ul>
-        </div>
+        </section>
       </div>
 
-      {/* calculadora de prejuízo */}
-      <div className="mt-4 rounded-[1.75rem] border border-white/10 bg-white/[0.02] p-8 sm:p-10" data-reveal>
-        <div className="grid gap-10 lg:grid-cols-[1.1fr_1fr] lg:items-center">
+      <section className="mt-5 bg-paper-0 p-7 text-volt-950 sm:p-10" data-reveal aria-labelledby="loss-title">
+        <div className="grid gap-10 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
           <div>
-            <p className="font-data flex items-center gap-2 text-xs uppercase tracking-[0.25em] text-bruma/40">
-              <TrendingDown className="h-4 w-4 text-alerta/70" /> a conta que ninguém faz
+            <p className="font-data flex items-center gap-2 text-xs uppercase tracking-[0.14em] text-danger-700">
+              <TrendingDown className="h-4 w-4" /> a conta que ninguém faz
             </p>
-            <h3 className="font-tech mt-4 text-2xl font-bold tracking-tight text-white sm:text-3xl">
+            <h3 id="loss-title" className="mt-4 font-tech text-2xl font-bold tracking-tight sm:text-3xl">
               Quanto você deixa na mesa todo mês?
             </h3>
-            <p className="mt-3 max-w-md text-sm leading-relaxed text-bruma/55">
-              Ajuste pros seus números. A conta considera os cliques que se perdem
-              quando o grupo lota e não existe redirecionamento automático.
+            <p className="mt-3 max-w-md text-sm leading-relaxed text-slate-600">
+              Ajuste para os seus números. A conta considera os cliques que se perdem quando o grupo lota e não existe redirecionamento automático.
             </p>
 
             <div className="mt-8 space-y-6">
@@ -115,31 +105,37 @@ export function Compare() {
                 step={1}
                 onChange={setConv}
               />
+              <Slider
+                label="Cliques que não chegam ao próximo grupo"
+                value={lossRate}
+                display={`${lossRate}%`}
+                min={0}
+                max={100}
+                step={1}
+                onChange={setLossRate}
+              />
             </div>
           </div>
 
-          <div className="rounded-3xl border border-alerta/25 bg-alerta/[0.06] p-8 text-center">
-            <p className="font-data text-[11px] uppercase tracking-[0.25em] text-bruma/45">
-              deixando de ganhar
-            </p>
-            <p className="font-tech mt-3 text-5xl font-bold tracking-tight text-white sm:text-6xl" aria-live="polite">
+          <div className="border border-cobalt-500 bg-canvas-100 p-7 text-center sm:p-9">
+            <p className="font-data text-[11px] uppercase tracking-[0.14em] text-slate-600">oportunidade estimada</p>
+            <p className="mt-3 font-tech text-5xl font-bold tracking-tight text-cobalt-700 sm:text-6xl" aria-live="polite">
               {money(monthlyLoss)}
             </p>
-            <p className="font-data mt-1 text-xs uppercase tracking-[0.2em] text-alerta/80">
-              por mês · {money(monthlyLoss * 12)} por ano
+            <p className="mt-2 font-data text-xs uppercase tracking-[0.12em] text-danger-700">
+              por mês | {money(monthlyLoss * 12)} por ano
             </p>
-            <div className="my-6 h-px bg-white/10" />
-            <p className="flex items-center justify-center gap-2 text-sm text-bruma/60">
-              <WhatsAppIcon className="h-4 w-4 text-zap" />
-              Com redirecionamento automático:{" "}
-              <span className="font-medium text-zap">R$ 0 perdido</span>
+            <div className="my-6 h-px bg-line-200" />
+            <p className="flex items-center justify-center gap-2 text-sm text-slate-600">
+              <WhatsAppIcon className="h-4 w-4 text-acid-500" />
+              O redirecionamento mantém o link disponível quando um grupo lota.
             </p>
-            <p className="font-data mt-5 text-[10px] uppercase tracking-wider text-bruma/30">
-              estimativa · premissa: {LOSS_RATE * 100}% dos cliques se perdem com grupo lotado
+            <p className="mt-5 font-data text-[10px] uppercase tracking-[0.1em] text-slate-600">
+              estimativa ajustável, sem garantia de resultado
             </p>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }
@@ -159,13 +155,13 @@ function Slider({
   min: number;
   max: number;
   step: number;
-  onChange: (v: number) => void;
+  onChange: (value: number) => void;
 }) {
   return (
     <label className="block">
-      <span className="flex items-baseline justify-between">
-        <span className="text-sm text-bruma/60">{label}</span>
-        <span className="font-data text-sm font-medium text-white">{display}</span>
+      <span className="flex items-baseline justify-between gap-4">
+        <span className="text-sm text-slate-600">{label}</span>
+        <span className="font-data text-sm font-medium text-volt-950">{display}</span>
       </span>
       <input
         type="range"
@@ -173,8 +169,8 @@ function Slider({
         max={max}
         step={step}
         value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="lp-range mt-3 w-full"
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="lp-range mt-3 w-full !bg-slate-600 accent-cobalt-500 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cobalt-500 [&::-moz-range-thumb]:!border-volt-950 [&::-moz-range-thumb]:!bg-cobalt-500 [&::-moz-range-track]:!bg-slate-600 [&::-webkit-slider-runnable-track]:!bg-slate-600 [&::-webkit-slider-thumb]:!border-volt-950 [&::-webkit-slider-thumb]:!bg-cobalt-500 [&::-webkit-slider-thumb]:!shadow-none"
         aria-label={label}
       />
     </label>

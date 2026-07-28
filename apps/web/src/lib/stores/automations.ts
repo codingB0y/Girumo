@@ -2,7 +2,7 @@ import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 export type AutomationTrigger = "lead_entered" | "signup" | "no_connect_24h" | "trial_ending" | "group_full";
-export type AutomationStepType = "message" | "wait" | "condition";
+type AutomationStepType = "message" | "wait" | "condition";
 
 export type AutomationStep = {
   id: string;
@@ -36,17 +36,6 @@ export async function listAutomations(tenantId: string): Promise<Automation[]> {
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   return data ?? [];
-}
-
-export async function getAutomation(tenantId: string, id: string): Promise<Automation | null> {
-  const { data, error } = await getSupabaseAdmin()
-    .from(TABLE)
-    .select("*")
-    .eq("tenant_id", tenantId)
-    .eq("id", id)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  return data;
 }
 
 export async function createAutomation(
@@ -98,11 +87,6 @@ export async function deleteAutomation(tenantId: string, id: string): Promise<vo
   if (error) throw new Error(error.message);
 }
 
-export async function incrementAutomationRuns(tenantId: string, id: string): Promise<void> {
-  const supabase = getSupabaseAdmin();
-  await supabase.rpc("increment_automation_runs", { p_id: id, p_tenant_id: tenantId });
-}
-
 /**
  * Templates pré-configurados para o lojista começar rápido.
  */
@@ -131,14 +115,14 @@ export const AUTOMATION_TEMPLATES: { name: string; trigger: AutomationTrigger; s
     name: "Lembrete: conectar WhatsApp",
     trigger: "no_connect_24h",
     steps: [
-      { type: "message", delay_minutes: 0, message: "Oi! Vi que você ainda não conectou seu WhatsApp no HubFlow. Leva 2 minutos — é só escanear o QR Code nas configurações." },
+      { type: "message", delay_minutes: 0, message: "Oi! Vi que você ainda não conectou seu WhatsApp na Girumo. Leva 2 minutos — é só escanear o QR Code nas configurações." },
     ],
   },
   {
     name: "Trial acabando",
     trigger: "trial_ending",
     steps: [
-      { type: "message", delay_minutes: 0, message: "⏰ Seu trial do HubFlow termina em 2 dias! Assine agora pra não perder seus grupos e campanhas." },
+      { type: "message", delay_minutes: 0, message: "⏰ Seu trial da Girumo termina em 2 dias! Assine agora pra não perder seus grupos e campanhas." },
     ],
   },
 ];

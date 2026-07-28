@@ -10,8 +10,6 @@ import {
   Loader2,
   Rocket,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-
 type SeedResult = {
   message: string;
   agents?: number;
@@ -53,7 +51,7 @@ export default function SquadOSSetupPage() {
       <div className="flex items-center gap-3">
         <Link
           href="/painel/squad-os"
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-aco/50 transition hover:bg-white hover:text-breu"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-aco/50 transition hover:bg-white hover:text-volt-950"
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>
@@ -68,13 +66,13 @@ export default function SquadOSSetupPage() {
       </div>
 
       {/* Card */}
-      <div className="rounded-3xl border border-breu/[0.08] bg-white p-8">
+      <div className="rounded-3xl border border-volt-950/[0.08] bg-white p-8">
         <div className="flex flex-col items-center text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-iris/10">
-            <Database className="h-8 w-8 text-iris" />
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-cobalt-500/10">
+            <Database className="h-8 w-8 text-cobalt-500" />
           </div>
 
-          <h2 className="font-display mt-4 text-xl font-bold text-breu">
+          <h2 className="font-display mt-4 text-xl font-bold text-volt-950">
             Inicializar Equipe AI
           </h2>
           <p className="mt-2 max-w-sm text-sm text-aco/70">
@@ -86,7 +84,7 @@ export default function SquadOSSetupPage() {
           {status === "idle" && (
             <button
               onClick={runSeed}
-              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-iris px-6 py-3 text-sm font-medium text-white shadow-iris transition hover:-translate-y-0.5 hover:bg-iris-claro"
+              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-cobalt-500 px-6 py-3 text-sm font-medium text-white shadow-brand transition hover:-translate-y-0.5 hover:bg-cobalt-500"
             >
               <Rocket className="h-4 w-4" />
               Inicializar agora
@@ -95,7 +93,7 @@ export default function SquadOSSetupPage() {
 
           {status === "loading" && (
             <div className="mt-6 flex items-center gap-2 text-sm text-aco/70">
-              <Loader2 className="h-4 w-4 animate-spin text-iris" />
+              <Loader2 className="h-4 w-4 animate-spin text-cobalt-500" />
               Criando squads, agents e missions...
             </div>
           )}
@@ -108,7 +106,7 @@ export default function SquadOSSetupPage() {
               </div>
 
               {result.agents !== undefined && (
-                <div className="rounded-xl bg-bruma/60 px-5 py-4">
+                <div className="rounded-xl bg-canvas-100/60 px-5 py-4">
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                     <Stat label="Agents" value={result.agents} />
                     <Stat label="Squads" value={result.squads} />
@@ -126,7 +124,7 @@ export default function SquadOSSetupPage() {
 
               <Link
                 href="/painel/squad-os"
-                className="inline-flex items-center gap-2 rounded-xl bg-iris px-5 py-2.5 text-sm font-medium text-white transition hover:bg-iris-claro"
+                className="inline-flex items-center gap-2 rounded-xl bg-cobalt-500 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-cobalt-500"
               >
                 Ir para Equipe AI →
               </Link>
@@ -146,7 +144,7 @@ export default function SquadOSSetupPage() {
               </div>
               <button
                 onClick={runSeed}
-                className="inline-flex items-center gap-2 rounded-xl bg-white border border-breu/10 px-5 py-2.5 text-sm font-medium text-breu transition hover:border-iris/30"
+                className="inline-flex items-center gap-2 rounded-xl bg-white border border-volt-950/10 px-5 py-2.5 text-sm font-medium text-volt-950 transition hover:border-cobalt-500/30"
               >
                 Tentar novamente
               </button>
@@ -156,25 +154,25 @@ export default function SquadOSSetupPage() {
       </div>
 
       {/* Info */}
-      <div className="rounded-2xl border border-breu/[0.06] bg-white px-5 py-4">
+      <div className="rounded-2xl border border-volt-950/[0.06] bg-white px-5 py-4">
         <h3 className="font-data text-[10px] uppercase tracking-wider text-aco/40">
           O que será criado
         </h3>
         <ul className="mt-3 space-y-2 text-xs text-aco/70">
           <li className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-iris" />
+            <span className="h-1.5 w-1.5 rounded-full bg-cobalt-500" />
             8 agents: Luna, Atlas, Pixel, Forge, Muse, Prism, Shield, Ops
           </li>
           <li className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-iris" />
+            <span className="h-1.5 w-1.5 rounded-full bg-cobalt-500" />
             8 squads: Product, Growth, Frontend, Backend, Brand, Data, QA, Operations
           </li>
           <li className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-iris" />
+            <span className="h-1.5 w-1.5 rounded-full bg-cobalt-500" />
             5 missions iniciais com status variados
           </li>
           <li className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-iris" />
+            <span className="h-1.5 w-1.5 rounded-full bg-cobalt-500" />
             3 decisões arquiteturais registradas
           </li>
         </ul>
@@ -188,7 +186,7 @@ export default function SquadOSSetupPage() {
 function Stat({ label, value }: { label: string; value?: number }) {
   return (
     <div className="text-center">
-      <p className="font-display text-lg font-bold text-breu">{value ?? 0}</p>
+      <p className="font-display text-lg font-bold text-volt-950">{value ?? 0}</p>
       <p className="font-data text-[9px] uppercase tracking-wider text-aco/50">{label}</p>
     </div>
   );

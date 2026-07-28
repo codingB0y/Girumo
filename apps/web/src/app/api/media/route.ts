@@ -1,4 +1,4 @@
-import { saveMedia } from "@/lib/media-store";
+import { saveMedia, type MediaKind } from "@/lib/media-store";
 import { getSessionAccountId } from "@/lib/session";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { assertUploadLimit } from "@/lib/billing/entitlements";
@@ -51,21 +51,45 @@ export async function POST(req: Request) {
   const file = form.get("file");
   if (!(file instanceof File)) return Response.json({ error: "Arquivo ausente." }, { status: 400 });
 
+  // `kind` define a visibilidade: mídia de LP é servida publicamente por
+  // /api/p/media/:id; qualquer outro valor cai no default privado.
+  const rawKind = form.get("kind");
+  const kind: MediaKind =
+    rawKind === "lp-media" || rawKind === "lp-logo" ? rawKind : "media";
+
   const isImage = file.type.startsWith("image/");
   const isVideo = file.type.startsWith("video/");
   const isAudio = file.type.startsWith("audio/");
 
-  // Limites: vídeo 20MB, áudio 16MB, imagem 6MB, arquivo genérico 30MB
-  const limit = isVideo ? 20_000_000 : isAudio ? 16_000_000 : isImage ? 6_000_000 : 30_000_000;
+  // Mídia de LP precisa ser imagem — a prova em vídeo é embed (YouTube/Vimeo),
+  // não upload (escopo travado da v1).
+  if ((kind === "lp-media" || kind === "lp-logo") && !isImage) {
+    return Response.json({ error: "Envie uma imagem (PNG, JPEG ou WebP)." }, { status: 415 });
+  }
+
+  // Limites: logo 5MB · imagem de LP 10MB · vídeo 20MB · áudio 16MB ·
+  // imagem comum 6MB · arquivo genérico 30MB (§7.4)
+  const limit =
+    kind === "lp-logo"
+      ? 5_000_000
+      : kind === "lp-media"
+        ? 10_000_000
+        : isVideo
+          ? 20_000_000
+          : isAudio
+            ? 16_000_000
+            : isImage
+              ? 6_000_000
+              : 30_000_000;
   if (file.size > limit) {
-    const maxLabel = isVideo ? "20MB" : isAudio ? "16MB" : isImage ? "6MB" : "30MB";
+    const maxLabel = `${Math.round(limit / 1_000_000)}MB`;
     return Response.json({ error: `Arquivo grande demais (max ${maxLabel}).` }, { status: 413 });
   }
 
   try {
     await assertUploadLimit(tenantId, file.size);
     const buffer = Buffer.from(await file.arrayBuffer());
-    const saved = await saveMedia(buffer, file.type, tenantId, authUserId);
+    const saved = await saveMedia(buffer, file.type, tenantId, authUserId, kind);
     return Response.json(saved, { status: 201 });
   } catch (error) {
     if (error instanceof Response) return error;

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Girumo — Post 03 Sistema</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --volt-950:#071923; --volt-900:#0C2835; --volt-800:#123746;
+    --acid:#A7FF2F; --cobalt:#2E66FF;
+    --canvas:#F4F0E7; --paper:#FFFEFA; --slate:#52646C; --line:#D8D7CF;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:#333}
+  .canvas{
+    position:relative; width:1080px; height:1350px; overflow:hidden;
+    background:var(--volt-950); color:var(--canvas);
+    font-family:'Manrope',sans-serif;
+    background-image:linear-gradient(90deg, rgba(255,255,255,.020) 1px, transparent 1px);
+    background-size:90px 100%;
+  }
+  .frame{position:absolute; inset:0; padding:84px 88px; display:flex; flex-direction:column}
+
+  .top{display:flex; justify-content:space-between; align-items:center;
+    font-family:'IBM Plex Mono',monospace; font-size:19px; letter-spacing:.18em;
+    color:var(--slate); text-transform:uppercase}
+  .top .r{color:var(--canvas)}
+  .top .dot{display:inline-block;width:9px;height:9px;background:var(--acid);margin-right:12px;vertical-align:middle}
+
+  .head{margin-top:44px; font-weight:700; font-size:62px; line-height:1.04; letter-spacing:-.03em; color:var(--canvas); max-width:840px}
+  .head span{color:var(--slate)}
+
+  /* staircase of displaced blocks */
+  .flow{margin-top:56px; display:flex; flex-direction:column; gap:16px}
+  .step{
+    display:flex; align-items:center; gap:26px;
+    background:var(--volt-900); border:1px solid rgba(255,255,255,.07);
+    padding:26px 32px; width:640px;
+  }
+  .step .nm{font-weight:700; font-size:38px; letter-spacing:-.02em; color:var(--canvas); padding-left:6px; position:relative}
+  .step .nm::before{content:''; position:absolute; left:-14px; top:50%; transform:translateY(-50%); width:5px; height:30px; background:var(--slate); opacity:.5}
+  .step.win .nm::before{background:var(--volt-950); opacity:.35}
+  .step .desc{margin-left:auto; font-family:'IBM Plex Mono',monospace; font-size:16px; letter-spacing:.02em; color:var(--slate); text-align:right; white-space:nowrap}
+  /* each step displaced further right — a massa entrega espaço à outra */
+  .step:nth-child(1){margin-left:0}
+  .step:nth-child(2){margin-left:80px}
+  .step:nth-child(3){margin-left:160px}
+  .step:nth-child(4){margin-left:240px}
+  .step:nth-child(5){margin-left:320px; width:640px}
+  /* final = venda, lime focal */
+  .step.win{background:var(--acid); border-color:var(--acid)}
+  .step.win .n{color:rgba(7,25,35,.55)}
+  .step.win .nm{color:var(--volt-950)}
+  .step.win .desc{color:rgba(7,25,35,.7)}
+
+  .foot{margin-top:auto; padding-top:26px; border-top:1px solid rgba(255,255,255,.12);
+    display:flex; justify-content:space-between; align-items:center;
+    font-family:'IBM Plex Mono',monospace; font-size:17px; letter-spacing:.10em; text-transform:uppercase; color:var(--slate)}
+  .foot .wm{display:flex; align-items:center; gap:14px; color:var(--canvas); font-family:'Manrope'; font-weight:800; font-size:26px; letter-spacing:-.03em; text-transform:none}
+  .foot .wm .sym{width:28px;height:28px;color:var(--canvas)}
+  .foot .wm .sym svg{width:100%;height:100%;display:block}
+</style>
+</head>
+<body>
+  <div class="canvas">
+    <div class="frame">
+      <div class="top">
+        <span><span class="dot"></span>O sistema</span>
+        <span class="r">Girumo&trade;</span>
+      </div>
+
+      <div class="head">Seus grupos rodando.<br><span>Você vendendo.</span></div>
+
+      <div class="flow">
+        <div class="step"><span class="nm">Anúncio</span><span class="desc">o cliente certo entra</span></div>
+        <div class="step"><span class="nm">Página</span><span class="desc">entrada organizada</span></div>
+        <div class="step"><span class="nm">Grupo</span><span class="desc">organização automática</span></div>
+        <div class="step"><span class="nm">Campanha</span><span class="desc">disparo agendado</span></div>
+        <div class="step win"><span class="nm">Venda</span><span class="desc">mensurada e repetível</span></div>
+      </div>
+
+      <div class="foot">
+        <span class="wm">
+          <span class="sym">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path fill="currentColor" d="M5 2H12V10H9V22H5A3 3 0 0 1 2 19V5A3 3 0 0 1 5 2Z"/>
+              <path fill="currentColor" d="M14 2H19A3 3 0 0 1 22 5V19A3 3 0 0 1 19 22H11V14H14V2Z"/>
+            </svg>
+          </span>
+          Girumo
+        </span>
+        <span>Pages · Grupos · Campanhas · Agenda · Resultados</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

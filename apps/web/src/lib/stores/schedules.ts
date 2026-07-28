@@ -1,7 +1,7 @@
 import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
-export type ScheduleStatus = "pending" | "running" | "done" | "failed";
+type ScheduleStatus = "pending" | "running" | "done" | "failed";
 export type ScheduleRecurrence = "none" | "daily" | "weekly";
 
 export type Schedule = {
@@ -30,17 +30,6 @@ export async function listSchedules(tenantId: string): Promise<Schedule[]> {
   return data ?? [];
 }
 
-export async function listPendingSchedules(tenantId: string): Promise<Schedule[]> {
-  const { data, error } = await getSupabaseAdmin()
-    .from(TABLE)
-    .select("*")
-    .eq("tenant_id", tenantId)
-    .eq("status", "pending")
-    .order("scheduled_at", { ascending: true });
-  if (error) throw new Error(error.message);
-  return data ?? [];
-}
-
 export async function createSchedule(
   tenantId: string,
   input: {
@@ -64,22 +53,6 @@ export async function createSchedule(
     })
     .select("*")
     .single();
-  if (error) throw new Error(error.message);
-  return data;
-}
-
-export async function updateSchedule(
-  tenantId: string,
-  id: string,
-  patch: Partial<Pick<Schedule, "status" | "scheduled_at" | "recurrence" | "last_run_at">>,
-): Promise<Schedule | null> {
-  const { data, error } = await getSupabaseAdmin()
-    .from(TABLE)
-    .update(patch)
-    .eq("tenant_id", tenantId)
-    .eq("id", id)
-    .select("*")
-    .maybeSingle();
   if (error) throw new Error(error.message);
   return data;
 }

@@ -2,14 +2,17 @@
   "projectId": "45c3d5c2-43d7-4587-a692-908095f5ad3a",
   "shape": "package",
   "pkg": "hubflow-web",
-  "globalName": "HubFlow",
+  "globalName": "Girumo",
   "srcDir": "src",
   "tsconfig": "tsconfig.json",
   "cssEntry": ".ds-styles.css",
+  "extraFonts": [
+    "../../docs/brand/girumo/fonts/fonts.css"
+  ],
   "guidelinesGlob": [],
   "componentSrcMap": {
-    "Logo": "src/components/landing/logo.tsx",
-    "LogoSymbol": "src/components/landing/logo.tsx"
+    "Logo": "src/components/brand/logo.tsx",
+    "LogoSymbol": "src/components/brand/logo.tsx"
   },
   "readmeHeader": ".design-sync/conventions.md"
 }

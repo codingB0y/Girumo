@@ -10,7 +10,7 @@ import { listGroups, upsertGroup } from "@/lib/groups-store";
 //   failed  → criação falhou (ou job preso recuperado)
 const growColl = (tenantId: string) => collection<GrowJob>(`tenants/${tenantId}/group-grow.json`);
 
-export type GrowJobStatus = "queued" | "running" | "created" | "failed";
+type GrowJobStatus = "queued" | "running" | "created" | "failed";
 
 export type GrowJob = {
   id: string;

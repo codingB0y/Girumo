@@ -21,7 +21,7 @@ export type CopyInput = {
   extraContext?: string;
 };
 
-export type CopyVariation = {
+type CopyVariation = {
   id: string;
   text: string;
   label: string;

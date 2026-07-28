@@ -111,18 +111,18 @@ export default async function AdminSaudePage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Variáveis de ambiente */}
-        <section className="rounded-2xl border border-breu/[0.06] bg-white shadow-sm">
-          <div className="flex items-center gap-3 border-b border-breu/[0.06] px-5 py-4">
-            <Shield className="h-4 w-4 text-iris" />
+        <section className="rounded-2xl border border-volt-950/[0.06] bg-white shadow-sm">
+          <div className="flex items-center gap-3 border-b border-volt-950/[0.06] px-5 py-4">
+            <Shield className="h-4 w-4 text-cobalt-500" />
             <h2 className="font-display text-base font-bold">Variáveis de Ambiente</h2>
             <span className="ml-auto font-data text-[11px] text-aco/50">
               {envConfigured}/{envTotal}
             </span>
           </div>
-          <div className="divide-y divide-breu/[0.04]">
+          <div className="divide-y divide-volt-950/[0.04]">
             {envEntries.map(([key, configured]) => (
               <div key={key} className="flex items-center justify-between px-5 py-3">
-                <span className="font-data text-xs text-breu">{key}</span>
+                <span className="font-data text-xs text-volt-950">{key}</span>
                 <EnvBadge configured={configured} />
               </div>
             ))}
@@ -130,18 +130,18 @@ export default async function AdminSaudePage() {
         </section>
 
         {/* Stripe Prices */}
-        <section className="rounded-2xl border border-breu/[0.06] bg-white shadow-sm">
-          <div className="flex items-center gap-3 border-b border-breu/[0.06] px-5 py-4">
-            <Activity className="h-4 w-4 text-iris" />
+        <section className="rounded-2xl border border-volt-950/[0.06] bg-white shadow-sm">
+          <div className="flex items-center gap-3 border-b border-volt-950/[0.06] px-5 py-4">
+            <Activity className="h-4 w-4 text-cobalt-500" />
             <h2 className="font-display text-base font-bold">Stripe Price IDs</h2>
             <span className="ml-auto font-data text-[11px] text-aco/50">
               {stripeConfigured}/{stripeTotal}
             </span>
           </div>
-          <div className="divide-y divide-breu/[0.04]">
+          <div className="divide-y divide-volt-950/[0.04]">
             {stripeEntries.map(([plan, configured]) => (
               <div key={plan} className="flex items-center justify-between px-5 py-3">
-                <span className="font-data text-xs text-breu">{plan}</span>
+                <span className="font-data text-xs text-volt-950">{plan}</span>
                 <EnvBadge configured={configured} />
               </div>
             ))}
@@ -222,7 +222,7 @@ function StatusCard({
           <AlertTriangle className="h-5 w-5 text-amber-500" />
         )}
       </div>
-      <p className="mt-3 text-sm font-semibold text-breu">{label}</p>
+      <p className="mt-3 text-sm font-semibold text-volt-950">{label}</p>
       <p className="mt-0.5 font-data text-[11px] text-aco/55 truncate" title={detail}>{detail}</p>
     </div>
   );

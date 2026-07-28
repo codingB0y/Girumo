@@ -13,4 +13,4 @@ export function getResend(): Resend {
   return resendClient;
 }
 
-export const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "HubFlow <noreply@hubflow.com.br>";
+export const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "Girumo <noreply@hubflow.com.br>";

@@ -1,0 +1,6 @@
+deploy/coolify/README.md
+deploy/vercel/README.md
+deploy/supabase/README.md
+deploy/github/README.md
+apps/web/package.json
+infra/dev-setup/README.md

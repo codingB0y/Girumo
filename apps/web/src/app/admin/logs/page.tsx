@@ -122,11 +122,11 @@ export default async function AdminLogsPage({ searchParams }: Props) {
       </div>
 
       {!hasLogs ? (
-        <div className="rounded-2xl border border-breu/[0.06] bg-white shadow-sm">
+        <div className="rounded-2xl border border-volt-950/[0.06] bg-white shadow-sm">
           <div className="flex flex-col items-center gap-3 py-16 text-center">
             <Activity className="h-10 w-10 text-aco/25" />
             <div>
-              <p className="text-sm font-medium text-breu">Nenhum log disponível</p>
+              <p className="text-sm font-medium text-volt-950">Nenhum log disponível</p>
               <p className="mt-1 max-w-sm text-xs text-aco/50">
                 {fetchError
                   ? "As tabelas 'logs' e 'audit_logs' não existem ou estão vazias."

@@ -60,7 +60,7 @@ function LoginForm() {
   return (
     <form className="space-y-4" onSubmit={submit}>
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-bruma/60">E-mail</label>
+        <label className="mb-1.5 block text-sm font-medium text-canvas-100/70">E-mail</label>
         <input
           type="email"
           placeholder="voce@email.com"
@@ -68,13 +68,13 @@ function LoginForm() {
           onChange={(e) => setEmail(e.target.value)}
           autoFocus
           autoComplete="email"
-          className="h-11 w-full rounded-xl border border-white/[0.08] bg-white/[0.05] px-4 text-sm text-white placeholder:text-bruma/30 outline-none transition focus:border-iris/50 focus:ring-2 focus:ring-iris/20"
+          className="h-11 w-full rounded-[var(--radius-control)] border border-volt-800 bg-volt-950 px-4 text-sm text-canvas-100 placeholder:text-canvas-100/35 outline-none transition-[border-color,box-shadow] duration-[var(--duration-micro)] ease-[var(--ease-girumo)] focus:border-cobalt-500 focus:ring-2 focus:ring-cobalt-500/30"
         />
       </div>
       <div>
         <div className="flex items-center justify-between">
-          <label className="mb-1.5 block text-sm font-medium text-bruma/60">Senha</label>
-          <Link href="/forgot-password" className="mb-1.5 text-xs font-medium text-iris-claro hover:text-iris">
+          <label className="mb-1.5 block text-sm font-medium text-canvas-100/70">Senha</label>
+          <Link href="/forgot-password" className="mb-1.5 text-xs font-medium text-acid-500 transition-colors hover:text-canvas-100">
             Esqueci
           </Link>
         </div>
@@ -84,38 +84,38 @@ function LoginForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           autoComplete="current-password"
-          className="h-11 w-full rounded-xl border border-white/[0.08] bg-white/[0.05] px-4 text-sm text-white placeholder:text-bruma/30 outline-none transition focus:border-iris/50 focus:ring-2 focus:ring-iris/20"
+          className="h-11 w-full rounded-[var(--radius-control)] border border-volt-800 bg-volt-950 px-4 text-sm text-canvas-100 placeholder:text-canvas-100/35 outline-none transition-[border-color,box-shadow] duration-[var(--duration-micro)] ease-[var(--ease-girumo)] focus:border-cobalt-500 focus:ring-2 focus:ring-cobalt-500/30"
         />
       </div>
 
-      {error && <p className="rounded-lg border border-alerta/30 bg-alerta/10 px-3 py-2 text-sm text-alerta">{error}</p>}
+      {error && <p className="rounded-[var(--radius-control)] border border-danger-700/40 bg-danger-700/15 px-3 py-2 text-sm text-canvas-100">{error}</p>}
 
       <button
         type="submit"
         disabled={loading || !email || !password}
-        className="flex h-11 w-full items-center justify-center rounded-xl bg-iris text-sm font-medium text-white shadow-iris transition hover:bg-iris-claro disabled:pointer-events-none disabled:opacity-50"
+        className="flex h-11 w-full items-center justify-center rounded-[var(--radius-control)] bg-acid-500 text-sm font-semibold text-volt-950 transition-[filter] duration-[var(--duration-micro)] hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500 disabled:pointer-events-none disabled:opacity-50"
       >
         {loading ? "Entrando..." : "Entrar"}
       </button>
 
       <div className="relative my-2">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-white/[0.06]" />
+          <div className="w-full border-t border-volt-800" />
         </div>
         <div className="relative flex justify-center">
-          <span className="bg-transparent px-3 text-xs text-bruma/30">ou</span>
+          <span className="bg-volt-900 px-3 text-xs text-canvas-100/40">ou</span>
         </div>
       </div>
 
       <a
         href={`/api/auth/google?next=${encodeURIComponent(next)}`}
-        className="flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.05] text-sm font-medium text-white transition hover:border-white/[0.15] hover:bg-white/[0.08]"
+        className="flex h-11 w-full items-center justify-center gap-2.5 rounded-[var(--radius-control)] border border-volt-800 bg-volt-950 text-sm font-medium text-canvas-100 transition-colors duration-[var(--duration-micro)] hover:border-cobalt-500 hover:bg-volt-800"
       >
         <GoogleIcon />
         Entrar com Google
       </a>
 
-      <p className="text-center text-xs leading-5 text-bruma/40">
+      <p className="text-center text-xs leading-5 text-canvas-100/50">
         Ao entrar, você volta para {destination}.
       </p>
     </form>
@@ -152,14 +152,14 @@ function LoginPageContent() {
       subtitle="Acesse sua central de operação"
       checklist={[
         "Veja todos os seus grupos num painel só",
-        "Dispare e agende com um clique",
+        "Envie e agende com um clique",
         "Acompanhe resultados em tempo real",
       ]}
       context={next !== "/painel" ? `Entre para continuar para ${destination}.` : undefined}
       footer={
         <>
           Não tem conta?{" "}
-          <Link href="/signup" className="font-medium text-iris-claro hover:text-iris">
+          <Link href="/signup" className="font-medium text-acid-500 transition-colors hover:text-canvas-100">
             Criar conta
           </Link>
         </>

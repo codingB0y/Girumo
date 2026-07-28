@@ -149,7 +149,7 @@ export function LandingFx() {
             onEnter: () => {
               lit.forEach((cell, i) => {
                 gsap.delayedCall(0.5 + i * 0.07, () => {
-                  cell.classList.add(cell.dataset.cellLit === "iris" ? "lp-cell-iris" : "lp-cell-on");
+                  cell.classList.add(cell.dataset.cellLit === "cobalt" ? "lp-cell-cobalt" : "lp-cell-on");
                 });
               });
             },

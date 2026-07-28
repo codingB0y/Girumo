@@ -1,6 +1,10 @@
 import type { ComponentType } from "react";
 import type { LpColor, LpContent } from "@/lib/pages/schema";
 import { BasicTemplate } from "@/components/pages/templates/basic";
+import { ConversionEditorial } from "@/components/pages/templates/structures/conversion-editorial";
+import type { StructureProps } from "@/components/pages/templates/contract";
+
+export type { StructureProps };
 
 /** Props que TODO template de LP recebe (contrato do render /p/[slug]). */
 export type TemplateProps = {
@@ -9,10 +13,10 @@ export type TemplateProps = {
   content: LpContent;
   /** Copy fixa do template (badge, cta, notas) — vem de default_copy. */
   copy: Record<string, string>;
-  /** Destino resolvido: /r/{campaign_slug} ou target_group_url. */
-  targetUrl: string;
   /** Texto de consent LGPD (exibido no form de captura). */
   consentText: string;
+  /** Contexto assinado do render público; ausente somente em previews. */
+  renderContext?: string;
   /** true no editor do painel: desabilita form e min-h. */
   preview?: boolean;
 };
@@ -23,25 +27,25 @@ export type TemplateProps = {
  */
 export const COLOR_STYLES: Record<
   LpColor,
-  { bg: string; text: string; ring: string; soft: string }
+  { button: string; text: string; ring: string; soft: string }
 > = {
-  iris: {
-    bg: "bg-[#6a4bf0]",
-    text: "text-[#6a4bf0]",
-    ring: "focus-visible:outline-[#6a4bf0]",
-    soft: "bg-[#6a4bf0]/10",
+  cobalt: {
+    button: "bg-cobalt-500 text-paper-0",
+    text: "text-cobalt-700",
+    ring: "focus-visible:outline-cobalt-500",
+    soft: "bg-cobalt-500/10",
   },
   emerald: {
-    bg: "bg-emerald-600",
-    text: "text-emerald-600",
-    ring: "focus-visible:outline-emerald-600",
-    soft: "bg-emerald-600/10",
+    button: "bg-acid-500 text-volt-950",
+    text: "text-volt-950",
+    ring: "focus-visible:outline-cobalt-500",
+    soft: "bg-acid-500/20",
   },
   amber: {
-    bg: "bg-amber-500",
-    text: "text-amber-600",
-    ring: "focus-visible:outline-amber-500",
-    soft: "bg-amber-500/10",
+    button: "bg-volt-950 text-paper-0",
+    text: "text-volt-950",
+    ring: "focus-visible:outline-cobalt-500",
+    soft: "bg-volt-950/10",
   },
 };
 
@@ -58,4 +62,18 @@ export const TEMPLATE_REGISTRY: Record<string, ComponentType<TemplateProps>> = {
 
 export function resolveTemplate(componentKey: string): ComponentType<TemplateProps> {
   return TEMPLATE_REGISTRY[componentKey] ?? BasicTemplate;
+}
+
+/**
+ * Registry das ESTRUTURAS v2 (conteúdo `schema_version: 2`). Extensível para
+ * 3 estruturas × 2 direções; a v1 entrega só a "conversion" editorial ("Acesso
+ * VIP"). Qualquer chave desconhecida cai nela. A seleção editorial × basic é por
+ * `schema_version` (ver lib/pages/render.ts), não por `component_key`.
+ */
+export const STRUCTURE_REGISTRY: Record<string, ComponentType<StructureProps>> = {
+  conversion: ConversionEditorial,
+};
+
+export function resolveStructure(key?: string): ComponentType<StructureProps> {
+  return (key && STRUCTURE_REGISTRY[key]) || ConversionEditorial;
 }

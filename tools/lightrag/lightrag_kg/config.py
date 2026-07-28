@@ -3,49 +3,58 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-PACKAGE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(PACKAGE_DIR / ".env.local")
+PACKAGE_DIR = Path(__file__).resolve().parent
+LIGHTRAG_DIR = PACKAGE_DIR.parent
+REPO_ROOT = LIGHTRAG_DIR.parent.parent
 
-REPO_ROOT = PACKAGE_DIR.parent.parent
+load_dotenv(LIGHTRAG_DIR / ".env")
 
-WORKING_DIR = PACKAGE_DIR / "rag_storage"
-MANIFEST_PATH = PACKAGE_DIR / ".index_manifest.json"
-OBSIDIAN_VAULT_DIR = REPO_ROOT / "docs" / "knowledge-graph"
+GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 
-PROVIDER = "gemini"
-LLM_MODEL = "gemini-2.5-flash"
-LLM_MODEL_FALLBACK = "gemini-1.5-flash"
-EMBEDDING_MODEL = "gemini-embedding-001"
+# Active profile — set via LIGHTRAG_PROFILE env var (default "tech").
+# Each profile has its own storage, manifest and Obsidian vault subfolder,
+# so contexts (tech / code / business / product / customer / operations) never mix.
+# NOTE: `tech` = docs de infra/deploy/arquitetura (curados); `code` = código-fonte
+# da aplicação (apps/web/src + hubflow-engine), lista em index-lists/code-files.txt.
+PROFILE = os.environ.get("LIGHTRAG_PROFILE", "tech").strip() or "tech"
+
+STORAGE_DIR = LIGHTRAG_DIR / "rag_storage" / PROFILE
+MANIFEST_PATH = LIGHTRAG_DIR / f".index_manifest-{PROFILE}.json"
+OBSIDIAN_VAULT_DIR = REPO_ROOT / "docs" / "knowledge-graph" / PROFILE
+
+LLM_MODEL_PRIMARY = "gemini-flash-lite-latest"
+LLM_MODEL_FALLBACK = "gemini-flash-latest"
+EMBEDDING_MODEL_PRIMARY = "gemini-embedding-001"
 EMBEDDING_MODEL_FALLBACK = "text-embedding-004"
 EMBEDDING_DIM = 3072
 
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-
-# Subset focado: docs + core pages + components + lib + APIs + configs
-# ~130 arquivos — viavel com free tier Gemini (~4-6h)
 INCLUDE_GLOBS = [
-    # Docs
+    "apps/web/src/**/*.ts",
+    "apps/web/src/**/*.tsx",
+    "hubflow-engine/**/*.js",
     "*.md",
     "docs/**/*.md",
-    # App pages & layouts (depth-limited)
-    "apps/web/src/app/**/page.tsx",
-    "apps/web/src/app/**/layout.tsx",
-    # API routes
-    "apps/web/src/app/api/**/*.ts",
-    # Components
-    "apps/web/src/components/**/*.tsx",
-    # Lib/utils
-    "apps/web/src/lib/**/*.ts",
-    # Key configs
     "apps/web/package.json",
     "package.json",
+    "hubflow-engine/package.json",
 ]
 
-EXCLUDE_DIRS = {
-    "node_modules", ".next", "dist", "build", ".git", "target",
-    "__pycache__", ".venv", "tests", "__tests__", "_generated",
-    "tools/lightrag", "docs/knowledge-graph", "coverage", ".turbo",
-    "nextjs-claude-code-starter",
+EXCLUDE_DIR_NAMES = {
+    "node_modules",
+    ".next",
+    "dist",
+    "build",
+    ".git",
+    "__tests__",
+    "tests",
+    ".venv",
+    ".worktrees",
+    "knowledge-graph",
 }
 
-EXCLUDE_SUFFIXES = {".lock", ".tsbuildinfo", ".log", ".png", ".jpg", ".svg", ".ico"}
+EXCLUDE_PATH_PREFIXES = [
+    "tools/lightrag",
+    "docs/knowledge-graph",
+]
+
+EXCLUDE_SUFFIXES = (".lock", ".tsbuildinfo")

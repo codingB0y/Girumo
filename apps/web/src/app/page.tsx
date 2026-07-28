@@ -1,29 +1,17 @@
-import Link from "next/link";
-import { ArrowDown, ArrowRight, Check, ShieldCheck } from "lucide-react";
-import { Logo } from "@/components/landing/logo";
-import { WhatsAppIcon } from "@/components/landing/icons";
-import { Nav } from "@/components/landing/v2/nav";
-import { FlowCanvas } from "@/components/landing/v2/flow-canvas";
-import { LandingFx } from "@/components/landing/v2/landing-fx";
-import { Mechanism } from "@/components/landing/v2/mechanism";
-import { Compare } from "@/components/landing/v2/compare";
-import { Features } from "@/components/landing/v2/features";
-import { LpShowcase } from "@/components/landing/v2/lp-showcase";
-import { PricingV2 } from "@/components/landing/v2/pricing";
-import { Faq, FAQ_ITEMS } from "@/components/landing/v2/faq";
-import { GroupWall } from "@/components/landing/v2/group-wall";
+import { Lp3Landing, LP3_FAQ } from "@/components/lp3/landing";
+import { BRAND, getPublicSiteUrl } from "@/lib/brand";
 
 /* ============================== SEO ============================== */
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://hubflow.com.br";
-const OG_TITLE = "HubFlow — Um link lota o grupo. Um clique posta em todos.";
-const OG_DESC =
-  "Campanhas de WhatsApp com link rastreado que enchem seus grupos no automático — e um painel com IA que agenda, posta e gerencia 100 grupos em 2 cliques.";
+const SITE_URL = getPublicSiteUrl();
+const PAGE_TITLE = "Girumo — Grupos de WhatsApp pra atacado de roupa";
+const OG_TITLE = `${BRAND.name} | ${BRAND.tagline}`;
+const OG_DESC = BRAND.description;
 
 const JSON_LD_FAQ = {
   "@context": "https://schema.org",
   "@type": "FAQPage",
-  mainEntity: FAQ_ITEMS.map(([q, a]) => ({
+  mainEntity: LP3_FAQ.map(([q, a]) => ({
     "@type": "Question",
     name: q,
     acceptedAnswer: { "@type": "Answer", text: a },
@@ -33,7 +21,7 @@ const JSON_LD_FAQ = {
 const JSON_LD_SOFTWARE = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
-  name: "HubFlow",
+  name: BRAND.name,
   applicationCategory: "BusinessApplication",
   operatingSystem: "Web",
   description: OG_DESC,
@@ -44,26 +32,22 @@ const JSON_LD_SOFTWARE = {
     lowPrice: "197",
     highPrice: "497",
   },
-  aggregateRating: {
-    "@type": "AggregateRating",
-    ratingValue: "4.9",
-    ratingCount: "127",
-  },
 };
 
 export const metadata = {
   metadataBase: new URL(SITE_URL),
-  title: "HubFlow — Encha seus grupos de WhatsApp no automático",
+  title: { absolute: PAGE_TITLE },
   description: OG_DESC,
   keywords: [
     "encher grupos de WhatsApp",
     "link para grupo de WhatsApp",
     "gestão de grupos de WhatsApp",
-    "disparo em massa WhatsApp",
+    "publicação em massa WhatsApp",
     "automação de WhatsApp",
     "agendar mensagens WhatsApp",
     "captação de leads WhatsApp",
     "landing page para grupo de WhatsApp",
+    "atacado de roupa WhatsApp",
     "vender no WhatsApp",
   ],
   alternates: { canonical: "/" },
@@ -71,15 +55,15 @@ export const metadata = {
     type: "website",
     locale: "pt_BR",
     url: "/",
-    siteName: "HubFlow",
+    siteName: BRAND.name,
     title: OG_TITLE,
     description: OG_DESC,
     images: [
       {
-        url: "/product/painel-home.png",
-        width: 1207,
-        height: 669,
-        alt: "Painel HubFlow com grupos de WhatsApp, métricas de disparo e membros ativos",
+        url: BRAND.ogAsset,
+        width: 1200,
+        height: 630,
+        alt: `${BRAND.name}. ${BRAND.tagline}`,
       },
     ],
   },
@@ -87,312 +71,16 @@ export const metadata = {
     card: "summary_large_image",
     title: OG_TITLE,
     description: OG_DESC,
-    images: ["/product/painel-home.png"],
+    images: [BRAND.ogAsset],
   },
 };
 
-/* ============================ conteúdo ============================ */
-
-const SIGNUP_URL = "/signup";
-const WHATSAPP_URL =
-  process.env.NEXT_PUBLIC_SALES_WHATSAPP_URL ||
-  "https://wa.me/5562998191314?text=Ol%C3%A1!%20Quero%20saber%20mais%20sobre%20o%20HubFlow.";
-
-const TICKER_ITEMS = [
-  "um link rastreado → grupo cheio",
-  "100 grupos · 2 cliques",
-  "1 configuração posta em todos",
-  "calendário que roda sozinho",
-  "copys e criativos que convertem",
-  "lead rastreado do anúncio à venda",
-  "grupo lotou → o próximo já nasce",
-  "a IA configura por você",
-];
-
-export default function LandingPage() {
+export default function HomePage() {
   return (
-    <div className="lp-root font-body min-h-screen overflow-x-clip bg-void text-bruma antialiased">
-      {/* JSON-LD structured data */}
+    <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD_FAQ) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD_SOFTWARE) }} />
-
-      <div className="lp-grain" aria-hidden />
-      <Nav signupUrl={SIGNUP_URL} />
-
-      {/* ============ HERO — a experiência do fluxo ============ */}
-      <section className="relative flex min-h-[100svh] flex-col overflow-hidden">
-        <div className="lp-halo pointer-events-none absolute left-1/2 top-[-22%] h-[44rem] w-[44rem] -translate-x-1/2 rounded-full bg-[#96a0d6]/[0.09] blur-[140px]" aria-hidden />
-        <div className="pointer-events-none absolute bottom-[-10%] left-[10%] h-[24rem] w-[24rem] rounded-full bg-zap/[0.06] blur-[120px]" aria-hidden />
-        <FlowCanvas className="absolute inset-0 h-full w-full" />
-
-        <div className="relative mx-auto flex w-full max-w-5xl flex-1 flex-col items-center justify-center px-5 pb-28 pt-32 text-center">
-          <span
-            className="lp-hero-in font-data inline-flex items-center gap-2.5 rounded-full border border-white/12 bg-white/[0.04] px-4 py-1.5 text-[11px] uppercase tracking-[0.22em] text-bruma/60 backdrop-blur"
-            style={{ ["--d" as string]: "0.05s" }}
-          >
-            <span className="lp-pulse h-1.5 w-1.5 rounded-full bg-zap" />
-            plataforma de grupos de WhatsApp
-          </span>
-
-          <h1
-            className="lp-hero-in font-tech mt-8 text-balance text-[clamp(2.5rem,7vw,5.4rem)] font-bold leading-[1.02] tracking-[-0.04em] text-white"
-            style={{ ["--d" as string]: "0.18s" }}
-          >
-            Um link lota o grupo.
-            <br />
-            <span className="text-bruma/40">Um clique posta em todos.</span>
-          </h1>
-
-          <p
-            className="lp-hero-in mx-auto mt-7 max-w-xl text-pretty text-base leading-relaxed text-bruma/60 sm:text-lg"
-            style={{ ["--d" as string]: "0.34s" }}
-          >
-            Campanhas com link rastreado que enchem seus grupos no automático — e um painel com IA
-            que agenda, posta e gerencia 100 grupos em 2 cliques.
-          </p>
-
-          <div
-            className="lp-hero-in mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row"
-            style={{ ["--d" as string]: "0.48s" }}
-          >
-            <a
-              href={SIGNUP_URL}
-              data-magnetic
-              className="lp-btn lp-btn-light inline-flex items-center gap-2 rounded-2xl px-8 py-4 text-base font-semibold"
-            >
-              Criar minha campanha grátis <ArrowRight className="h-4 w-4" />
-            </a>
-            <a
-              href={WHATSAPP_URL}
-              data-magnetic
-              className="lp-btn inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/[0.03] px-8 py-4 text-base font-medium text-white backdrop-blur transition hover:border-white/35"
-            >
-              <WhatsAppIcon className="h-4 w-4 text-zap" /> Falar no WhatsApp
-            </a>
-          </div>
-
-          <p
-            className="lp-hero-in font-data mt-9 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[11px] uppercase tracking-[0.2em] text-bruma/40"
-            style={{ ["--d" as string]: "0.62s" }}
-          >
-            <span>127 lojistas</span>
-            <span className="text-bruma/25">·</span>
-            <span>avaliação 4.9</span>
-            <span className="text-bruma/25">·</span>
-            <span>conecta em 2 min</span>
-            <span className="text-bruma/25">·</span>
-            <span>sem cartão</span>
-          </p>
-        </div>
-
-        <a
-          href="#mecanismo"
-          aria-label="Descer para ver como funciona"
-          className="lp-hero-in absolute bottom-7 left-1/2 -translate-x-1/2 text-bruma/35 transition hover:text-white"
-          style={{ ["--d" as string]: "1s" }}
-        >
-          <ArrowDown className="h-5 w-5 animate-bounce" />
-        </a>
-      </section>
-
-      {/* ============ TICKER ============ */}
-      <section className="border-y border-white/[0.07] bg-white/[0.015] py-4" aria-hidden>
-        <div className="lp-ticker-mask overflow-hidden">
-          <div className="lp-ticker">
-            {Array.from({ length: 2 }).map((_, dup) => (
-              <div key={dup} className="flex shrink-0" aria-hidden={dup === 1}>
-                {TICKER_ITEMS.map((t) => (
-                  <span key={t} className="font-data flex items-center gap-3 whitespace-nowrap px-7 text-xs uppercase tracking-[0.2em] text-bruma/45">
-                    <WhatsAppIcon className="h-3.5 w-3.5 shrink-0 text-zap/70" />
-                    {t}
-                  </span>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ============ MECANISMO (scrollytelling) ============ */}
-      <section id="mecanismo" className="relative py-24 sm:py-32">
-        <div className="mx-auto max-w-6xl px-5" data-reveal>
-          <p className="font-data text-xs uppercase tracking-[0.3em] text-bruma/40">o mecanismo</p>
-          <h2 className="font-tech mt-4 max-w-2xl text-[clamp(2rem,5vw,3.6rem)] font-bold leading-[1.05] tracking-tight text-white">
-            Do anúncio ao grupo cheio, <span className="text-bruma/45">sem tocar em nada.</span>
-          </h2>
-        </div>
-        <div className="mt-6">
-          <Mechanism />
-        </div>
-      </section>
-
-      {/* ============ COMPARAÇÃO + CALCULADORA ============ */}
-      <section id="comparacao" className="relative border-t border-white/[0.07] py-24 sm:py-32">
-        <div className="mx-auto max-w-6xl px-5 pb-12" data-reveal>
-          <p className="font-data text-xs uppercase tracking-[0.3em] text-bruma/40">antes × depois</p>
-          <h2 className="font-tech mt-4 max-w-2xl text-[clamp(2rem,5vw,3.6rem)] font-bold leading-[1.05] tracking-tight text-white">
-            O manual custa caro. <span className="text-bruma/45">Você só não vê a fatura.</span>
-          </h2>
-        </div>
-        <Compare />
-      </section>
-
-      {/* ============ RECURSOS (mock-UIs, sem prints) ============ */}
-      <section id="recursos" className="relative border-t border-white/[0.07] py-24 sm:py-32">
-        <div className="mx-auto max-w-6xl px-5">
-          <div className="max-w-2xl" data-reveal>
-            <p className="font-data text-xs uppercase tracking-[0.3em] text-bruma/40">recursos</p>
-            <h2 className="font-tech mt-4 text-[clamp(2rem,5vw,3.6rem)] font-bold leading-[1.05] tracking-tight text-white">
-              Opere 100 grupos <span className="text-bruma/45">como se fosse um.</span>
-            </h2>
-          </div>
-          <div className="mt-14">
-            <Features />
-          </div>
-        </div>
-      </section>
-
-      {/* ============ LANDING PAGES DE CAPTAÇÃO ============ */}
-      <section id="modelos" className="relative border-t border-white/[0.07] py-24 sm:py-32">
-        <div className="mx-auto max-w-6xl px-5" data-reveal>
-          <LpShowcase />
-        </div>
-      </section>
-
-      {/* ============ PLANOS ============ */}
-      <section id="planos" className="relative border-t border-white/[0.07] py-24 sm:py-32">
-        <div className="relative mx-auto max-w-6xl px-5">
-          <div className="mx-auto max-w-2xl text-center" data-reveal>
-            <p className="font-data text-xs uppercase tracking-[0.3em] text-bruma/40">planos</p>
-            <h2 className="font-tech mt-4 text-[clamp(2rem,5vw,3.6rem)] font-bold leading-[1.05] tracking-tight text-white">
-              Comece pequeno, <span className="text-bruma/45">cresça sem trocar de ferramenta.</span>
-            </h2>
-          </div>
-          <div className="mt-12" data-reveal>
-            <PricingV2 signupUrl={SIGNUP_URL} whatsappUrl={WHATSAPP_URL} />
-          </div>
-          <p className="font-data mt-12 flex flex-wrap justify-center gap-x-7 gap-y-2 text-center text-[11px] uppercase tracking-[0.2em] text-bruma/40" data-reveal>
-            <span className="flex items-center gap-1.5"><ShieldCheck className="h-4 w-4 text-zap" /> garantia de 30 dias</span>
-            <span className="flex items-center gap-1.5"><Check className="h-4 w-4 text-zap" /> sem fidelidade</span>
-            <span className="flex items-center gap-1.5"><Check className="h-4 w-4 text-zap" /> seus contatos são seus</span>
-          </p>
-        </div>
-      </section>
-
-      {/* ============ FAQ ============ */}
-      <section id="duvidas" className="border-t border-white/[0.07] py-24 sm:py-32">
-        <div className="mx-auto grid max-w-6xl gap-12 px-5 lg:grid-cols-[0.8fr_1.2fr]">
-          <div data-reveal>
-            <p className="font-data text-xs uppercase tracking-[0.3em] text-bruma/40">dúvidas</p>
-            <h2 className="font-tech mt-4 text-[clamp(1.9rem,4.5vw,3.2rem)] font-bold leading-[1.05] tracking-tight text-white">
-              O que perguntam <span className="text-bruma/45">antes de começar.</span>
-            </h2>
-            <p className="mt-5 max-w-sm text-bruma/55">
-              Não achou a sua? Chama no WhatsApp — gente de verdade responde.
-            </p>
-            <a href={WHATSAPP_URL} className="mt-6 inline-flex items-center gap-2 text-sm text-white transition hover:text-zap">
-              <WhatsAppIcon className="h-4 w-4 text-zap" /> Perguntar agora <ArrowRight className="h-4 w-4" />
-            </a>
-          </div>
-          <div data-reveal>
-            <Faq />
-          </div>
-        </div>
-      </section>
-
-      {/* ============ CTA FINAL — o muro de grupos ============ */}
-      <section className="relative overflow-hidden border-t border-white/[0.07]">
-        <GroupWall />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-void via-transparent to-void" aria-hidden />
-        <div className="relative mx-auto max-w-3xl px-5 py-32 text-center sm:py-44">
-          <h2 className="font-tech text-balance text-[clamp(2.3rem,6vw,4.6rem)] font-bold leading-[1.02] tracking-[-0.03em] text-white" data-reveal>
-            Seu próximo grupo cheio
-            <br />
-            <span className="text-bruma/45">começa com um link.</span>
-          </h2>
-          <p className="mx-auto mt-6 max-w-md text-bruma/60" data-reveal>
-            Conecte seu WhatsApp em 2 minutos, crie a primeira campanha e veja o fluxo trabalhar.
-          </p>
-          <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row" data-reveal>
-            <a
-              href={SIGNUP_URL}
-              data-magnetic
-              className="lp-btn lp-btn-light inline-flex items-center gap-2 rounded-2xl px-8 py-4 text-base font-semibold"
-            >
-              Teste 7 dias grátis <ArrowRight className="h-4 w-4" />
-            </a>
-            <a
-              href={WHATSAPP_URL}
-              data-magnetic
-              className="lp-btn inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-void/60 px-8 py-4 text-base font-medium text-white backdrop-blur transition hover:border-white/35"
-            >
-              <WhatsAppIcon className="h-4 w-4 text-zap" /> Falar no WhatsApp
-            </a>
-          </div>
-          <p className="font-data mt-8 text-[11px] uppercase tracking-[0.25em] text-bruma/40" data-reveal>
-            sem cartão · sem fidelidade · seus contatos são seus
-          </p>
-        </div>
-      </section>
-
-      {/* CTA fixo mobile */}
-      <div className="fixed inset-x-0 bottom-0 z-40 flex gap-2 border-t border-white/10 bg-void/95 p-3 backdrop-blur sm:hidden">
-        <Link
-          href={SIGNUP_URL}
-          className="lp-btn lp-btn-light flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold"
-        >
-          Começar grátis <ArrowRight className="h-4 w-4" />
-        </Link>
-        <a
-          href={WHATSAPP_URL}
-          aria-label="Falar no WhatsApp"
-          className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/15 text-zap transition-transform active:scale-95"
-        >
-          <WhatsAppIcon className="h-5 w-5" />
-        </a>
-      </div>
-
-      {/* ============ FOOTER ============ */}
-      <footer className="border-t border-white/[0.07] bg-void">
-        <div className="mx-auto grid max-w-6xl gap-10 px-5 py-14 pb-28 sm:grid-cols-2 sm:pb-14 lg:grid-cols-[1.5fr_1fr_1fr_1fr]">
-          <div>
-            <Logo wordmarkClassName="text-white" />
-            <p className="mt-3 max-w-xs text-sm text-bruma/45">
-              Campanhas que enchem grupos de WhatsApp e um painel que gerencia todos — num clique só.
-            </p>
-          </div>
-          <FooterCol title="Produto" links={[["Mecanismo", "#mecanismo"], ["Recursos", "#recursos"], ["Planos", "#planos"], ["Dúvidas", "#duvidas"]]} />
-          <FooterCol title="Conta" links={[["Entrar", "/login"], ["Criar conta", SIGNUP_URL]]} />
-          <FooterCol title="Legal" links={[["Termos de uso", "/termos"], ["Política de privacidade", "/privacidade"], ["WhatsApp", WHATSAPP_URL]]} />
-        </div>
-        <div className="border-t border-white/[0.07]">
-          <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-5 py-6 text-xs text-bruma/35 sm:flex-row">
-            <span>© {new Date().getFullYear()} HubFlow. Todos os direitos reservados.</span>
-            <span className="font-data uppercase tracking-[0.25em]">o fluxo que vende</span>
-          </div>
-        </div>
-      </footer>
-
-      <LandingFx />
-    </div>
-  );
-}
-
-/* ---------- primitivos ---------- */
-
-function FooterCol({ title, links }: { title: string; links: [string, string][] }) {
-  return (
-    <div>
-      <p className="font-data text-xs uppercase tracking-[0.2em] text-bruma/35">{title}</p>
-      <ul className="mt-4 space-y-2.5">
-        {links.map(([label, href]) => (
-          <li key={label}>
-            <a href={href} className="text-sm text-bruma/55 transition hover:text-white">
-              {label}
-            </a>
-          </li>
-        ))}
-      </ul>
-    </div>
+      <Lp3Landing />
+    </>
   );
 }

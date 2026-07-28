@@ -14,3 +14,6 @@ apps/web/supabase/migrations/20260701030000_templates_orders_referrals.sql
 apps/web/supabase/migrations/20260701040000_testimonials.sql
 apps/web/supabase/migrations/20260701050000_admin_alerts.sql
 apps/web/supabase/migrations/20260702120000_flow_pages.sql
+apps/web/supabase/migrations/20260715090000_lp_v2.sql
+apps/web/supabase/migrations/20260717010000_lp_v2_rollout.sql
+apps/web/supabase/migrations/20260723090000_lp_v2_capture_atomicity.sql

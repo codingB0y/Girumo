@@ -1,18 +1,18 @@
 import { revalidateTag } from "next/cache";
 import { getTenantContext } from "@/lib/supabase/tenant-context";
 import {
+  compareAndSwapLandingPage,
   getLandingPageById,
   getLpMetrics,
   listRecentLpLeads,
-  updateLandingPage,
   type LpUpdatePatch,
 } from "@/lib/pages/store";
 import {
-  toContent,
-  validateContent,
+  parseContentInput,
   validateTargetGroupUrl,
   type LpStatus,
 } from "@/lib/pages/schema";
+import { updateLandingPageWithCas } from "@/lib/pages/page-update";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -68,11 +68,13 @@ export async function PATCH(req: Request, { params }: RouteProps) {
     const patch: LpUpdatePatch = {};
 
     if (body.content !== undefined) {
-      const errors = validateContent(body.content);
-      if (errors.length > 0) {
-        return Response.json({ error: "Conteúdo inválido.", details: errors }, { status: 400 });
+      const parsed = parseContentInput(body.content);
+      if (!parsed.ok) {
+        return Response.json({ error: "Conteúdo inválido.", details: parsed.errors }, { status: 400 });
       }
-      patch.content = toContent(body.content as Record<string, unknown>);
+      patch.content = parsed.content;
+      // A versão acompanha o content: uma página migrada pra v2 nunca volta a ser lida como legada.
+      patch.content_schema_version = parsed.schema_version;
     }
 
     if (body.target_group_url !== undefined) {
@@ -110,18 +112,6 @@ export async function PATCH(req: Request, { params }: RouteProps) {
       if (!STATUSES.includes(status)) {
         return Response.json({ error: "status inválido." }, { status: 400 });
       }
-      if (status === "published") {
-        const hasDestination =
-          (patch.campaign_slug ?? existing.campaign_slug) ||
-          (patch.target_group_url ?? existing.target_group_url);
-        if (!hasDestination) {
-          return Response.json(
-            { error: "Defina o link do grupo ou uma campanha antes de publicar." },
-            { status: 400 },
-          );
-        }
-        if (!existing.published_at) patch.published_at = new Date().toISOString();
-      }
       patch.status = status;
     }
 
@@ -129,8 +119,34 @@ export async function PATCH(req: Request, { params }: RouteProps) {
       return Response.json({ error: "Nada pra atualizar." }, { status: 400 });
     }
 
-    const updated = await updateLandingPage(ctx.tenantId, id, patch);
-    if (!updated) return Response.json({ error: "Página não encontrada." }, { status: 404 });
+    const result = await updateLandingPageWithCas({
+      initialPage: existing,
+      requestedPatch: patch,
+      compareAndSwap: (expected, finalizedPatch) =>
+        compareAndSwapLandingPage(
+          ctx.tenantId,
+          id,
+          expected,
+          finalizedPatch,
+        ),
+      reload: () => getLandingPageById(ctx.tenantId, id),
+    });
+    if (!result.ok) {
+      if (result.reason === "validation") {
+        return Response.json({ error: result.error }, { status: 400 });
+      }
+      if (result.reason === "not_found") {
+        return Response.json(
+          { error: "Página não encontrada." },
+          { status: 404 },
+        );
+      }
+      return Response.json(
+        { error: "A página mudou durante a edição. Tente novamente." },
+        { status: 409 },
+      );
+    }
+    const updated = result.page;
 
     // Cache público reflete publish/pause/edição em segundos
     revalidateTag(`lp:${updated.slug}`);

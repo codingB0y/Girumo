@@ -36,6 +36,9 @@ apps/web/data/
 # Coverage
 coverage
 
+# Worktrees locais do Codex/Superpowers
+.worktrees/
+
 # Mac
 .DS_Store
 
@@ -54,3 +57,25 @@ apps/web/.ds-styles.css
 apps/web/.ds-entry.tsx
 .vercel
 .env*
+.firecrawl/
+# LightRAG global - dados locais e segredos
+.lightrag/secrets.env
+.lightrag/storage/
+.lightrag/cache/
+.lightrag/logs/
+.lightrag/index-manifest.json
+.lightrag/backups/
+# LightRAG exact core scope
+.lightrag/storage-core-minimal/
+.lightrag/index-manifest-core-minimal.json
+# LightRAG HubFlow profiles
+.lightrag/storage-core-minimal/
+.lightrag/index-manifest-core-minimal.json
+.lightrag/storage-business/
+.lightrag/index-manifest-business.json
+.lightrag/profile-state.json
+.lightrag/backups/
+
+# Obsidian app config (lixo, não versionar)
+.obsidian/
+*.base

@@ -1,0 +1,2 @@
+# OPERATIONS — runbooks operacionais, status de ferramentas internas
+docs/operations/LIGHTRAG_STATUS.md

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Girumo — Manifesto (motion)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--volt-950:#071923; --volt-900:#0C2835; --volt-800:#123746; --acid:#A7FF2F; --cobalt:#2E66FF; --canvas:#F4F0E7; --paper:#FFFEFA; --slate:#52646C; --line:#D8D7CF}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:var(--volt-950); overflow:hidden}
+  .canvas{position:relative; width:1080px; height:1350px; overflow:hidden;
+    background:var(--volt-950); color:var(--canvas); font-family:'Manrope',sans-serif;
+    background-image:linear-gradient(90deg, rgba(255,255,255,.020) 1px, transparent 1px); background-size:90px 100%}
+  .layer{position:absolute; inset:0; will-change:opacity, transform}
+
+  /* persistent header */
+  #hd{padding:78px 84px; display:flex; justify-content:space-between; align-items:center; opacity:0}
+  #hd .wm{display:flex; align-items:center; gap:13px; font-weight:800; font-size:30px; letter-spacing:-.03em}
+  #hd .wm .s{width:30px;height:30px;color:var(--canvas)} #hd .wm .s svg{width:100%;height:100%;display:block}
+  #hd .lbl{font-family:'IBM Plex Mono',monospace; font-size:18px; letter-spacing:.16em; text-transform:uppercase; color:var(--slate)}
+
+  /* SCENE A — reveal */
+  #sa{display:flex; flex-direction:column; align-items:center; justify-content:center; opacity:1}
+  #saSym{width:300px;height:300px;color:var(--canvas); opacity:0; will-change:transform,opacity}
+  #saSym svg{width:100%;height:100%;display:block}
+  #saAccent{position:absolute; width:70px;height:70px; background:var(--acid); left:calc(50% + 118px); top:calc(50% - 40px); opacity:0}
+  #saKick{margin-top:54px; font-family:'IBM Plex Mono',monospace; font-size:22px; letter-spacing:.2em; text-transform:uppercase; color:var(--slate); opacity:0}
+  #saWord{margin-top:14px; font-weight:800; font-size:150px; letter-spacing:-.035em; color:var(--canvas); overflow:hidden; clip-path:inset(0 100% 0 0)}
+
+  /* SCENE B — promessa */
+  #sb{padding:0 84px; display:flex; flex-direction:column; justify-content:center; opacity:0}
+  #sbKick{font-family:'IBM Plex Mono',monospace; font-size:22px; letter-spacing:.16em; text-transform:uppercase; color:var(--slate); display:flex; align-items:center; gap:16px; opacity:0}
+  #sbKick::before{content:'';width:54px;height:2px;background:var(--acid)}
+  .bl{font-weight:700; font-size:88px; line-height:1.08; letter-spacing:-.03em; opacity:0; will-change:transform,opacity}
+  #sbL1{margin-top:40px; color:var(--canvas)}
+  #sbL2{color:var(--slate)}
+  #sbL3{position:relative; color:var(--canvas); display:inline-block; align-self:flex-start}
+  #sbBar{position:absolute; left:-6px; right:-6px; bottom:12px; height:20px; background:var(--acid); transform:scaleX(0); transform-origin:left; z-index:-1}
+
+  /* SCENE C — sistema */
+  #sc{padding:0 84px; display:flex; flex-direction:column; justify-content:center; opacity:0}
+  #scKick{font-family:'IBM Plex Mono',monospace; font-size:22px; letter-spacing:.16em; text-transform:uppercase; color:var(--slate); display:flex; align-items:center; gap:16px; opacity:0; margin-bottom:44px}
+  #scKick::before{content:'';width:54px;height:2px;background:var(--acid)}
+  .step{display:flex; align-items:center; gap:24px; background:var(--volt-900); border:1px solid rgba(255,255,255,.07); padding:24px 30px; width:620px; margin-bottom:15px; opacity:0; will-change:transform,opacity}
+  .step .nm{font-weight:700; font-size:37px; letter-spacing:-.02em; color:var(--canvas); padding-left:6px; position:relative}
+  .step .nm::before{content:''; position:absolute; left:-14px; top:50%; transform:translateY(-50%); width:5px; height:28px; background:var(--slate); opacity:.5}
+  .step .desc{margin-left:auto; font-family:'IBM Plex Mono',monospace; font-size:15px; letter-spacing:.02em; color:var(--slate); white-space:nowrap}
+  #scS2{margin-left:78px} #scS3{margin-left:156px} #scS4{margin-left:234px} #scS5{margin-left:312px}
+  #scS5{background:var(--acid); border-color:var(--acid)}
+  #scS5 .nm{color:var(--volt-950)} #scS5 .nm::before{background:var(--volt-950); opacity:.35} #scS5 .desc{color:rgba(7,25,35,.7)}
+
+  /* SCENE D — lockup final */
+  #sd{display:flex; flex-direction:column; align-items:center; justify-content:center; opacity:0}
+  #sdSym{width:150px;height:150px;color:var(--canvas); opacity:0; will-change:transform,opacity}
+  #sdSym svg{width:100%;height:100%;display:block}
+  #sdWord{margin-top:30px; font-weight:800; font-size:132px; letter-spacing:-.035em; color:var(--canvas); overflow:hidden; clip-path:inset(0 100% 0 0)}
+  #sdTag{margin-top:30px; font-weight:600; font-size:42px; letter-spacing:-.02em; color:var(--canvas); opacity:0; text-align:center}
+  #sdTag b{color:var(--acid); font-weight:600}
+  #sdHandle{margin-top:40px; font-family:'IBM Plex Mono',monospace; font-size:24px; letter-spacing:.14em; color:var(--slate); opacity:0}
+
+  #vig{position:absolute; inset:0; pointer-events:none; box-shadow:inset 0 0 220px rgba(0,0,0,.35)}
+</style>
+</head>
+<body>
+  <div class="canvas" id="cv">
+
+    <!-- SCENE A -->
+    <div class="layer" id="sa">
+      <div id="saSym"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M5 2H12V10H9V22H5A3 3 0 0 1 2 19V5A3 3 0 0 1 5 2Z"/><path fill="currentColor" d="M14 2H19A3 3 0 0 1 22 5V19A3 3 0 0 1 19 22H11V14H14V2Z"/></svg></div>
+      <div id="saAccent"></div>
+      <div id="saKick">Nova marca</div>
+      <div id="saWord">Girumo</div>
+    </div>
+
+    <!-- SCENE B -->
+    <div class="layer" id="sb">
+      <div id="sbKick">A promessa</div>
+      <div class="bl" id="sbL1">Mais grupos lotados.</div>
+      <div class="bl" id="sbL2">Menos trabalho.</div>
+      <div class="bl" id="sbL3">Mais vendas.<span id="sbBar"></span></div>
+    </div>
+
+    <!-- SCENE C -->
+    <div class="layer" id="sc">
+      <div id="scKick">O sistema</div>
+      <div class="step" id="scS1"><span class="nm">Anúncio</span><span class="desc">o cliente certo entra</span></div>
+      <div class="step" id="scS2"><span class="nm">Página</span><span class="desc">entrada organizada</span></div>
+      <div class="step" id="scS3"><span class="nm">Grupo</span><span class="desc">organização automática</span></div>
+      <div class="step" id="scS4"><span class="nm">Campanha</span><span class="desc">disparo agendado</span></div>
+      <div class="step" id="scS5"><span class="nm">Venda</span><span class="desc">medida e repetível</span></div>
+    </div>
+
+    <!-- SCENE D -->
+    <div class="layer" id="sd">
+      <div id="sdSym"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M5 2H12V10H9V22H5A3 3 0 0 1 2 19V5A3 3 0 0 1 5 2Z"/><path fill="currentColor" d="M14 2H19A3 3 0 0 1 22 5V19A3 3 0 0 1 19 22H11V14H14V2Z"/></svg></div>
+      <div id="sdWord">Girumo</div>
+      <div id="sdTag">Seus grupos rodando. <b>Você vendendo.</b></div>
+      <div id="sdHandle">@girumo</div>
+    </div>
+
+    <!-- persistent header -->
+    <div class="layer" id="hd">
+      <span class="wm"><span class="s"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M5 2H12V10H9V22H5A3 3 0 0 1 2 19V5A3 3 0 0 1 5 2Z"/><path fill="currentColor" d="M14 2H19A3 3 0 0 1 22 5V19A3 3 0 0 1 19 22H11V14H14V2Z"/></svg></span>Girumo</span>
+      <span class="lbl" id="hdLbl">Manifesto</span>
+    </div>
+
+    <div id="vig"></div>
+  </div>
+
+<script>
+// ---------- easing ----------
+function cubicBezier(p1x,p1y,p2x,p2y){
+  function A(a,b){return 1-3*b+3*a} function B(a,b){return 3*b-6*a} function C(a){return 3*a}
+  function calc(t,a,b){return ((A(a,b)*t+B(a,b))*t+C(a))*t}
+  function slope(t,a,b){return 3*A(a,b)*t*t+2*B(a,b)*t+C(a)}
+  function tForX(x){let t=x; for(let i=0;i<6;i++){let s=slope(t,p1x,p2x); if(s===0)break; let x2=calc(t,p1x,p2x)-x; t-=x2/s;} return t;}
+  return function(x){ if(x<=0)return 0; if(x>=1)return 1; return calc(tForX(x),p1y,p2y); };
+}
+const fluxo = cubicBezier(0.22,1,0.36,1);
+const outSoft = cubicBezier(0.16,1,0.3,1);
+const inOut = cubicBezier(0.65,0,0.35,1);
+function seg(t,t0,t1,ease){ if(t<=t0)return 0; if(t>=t1)return 1; const p=(t-t0)/(t1-t0); return ease?ease(p):p; }
+function lerp(a,b,p){return a+(b-a)*p}
+const $=id=>document.getElementById(id);
+
+// ---------- timeline ----------
+// total ~20s
+function seek(t){
+  // scene opacities (cross-fade)
+  const aOut = 1-seg(t,4.2,4.8,inOut);
+  $('sa').style.opacity = Math.min(1, seg(t,0,0.25))*aOut;
+  const bIn = seg(t,4.7,5.2,outSoft), bOut = 1-seg(t,8.7,9.2,inOut);
+  $('sb').style.opacity = bIn*bOut;
+  const cIn = seg(t,9.1,9.6,outSoft), cOut = 1-seg(t,14.6,15.1,inOut);
+  $('sc').style.opacity = cIn*cOut;
+  const dIn = seg(t,15.2,15.8,outSoft);
+  $('sd').style.opacity = dIn;
+  // header: visible during B and C
+  $('hd').style.opacity = seg(t,4.8,5.3)* (1-seg(t,14.6,15.0,inOut));
+  $('hdLbl').textContent = t<9 ? 'Promessa' : 'Sistema';
+
+  // ---- Scene A ----
+  {
+    const op = seg(t,0.2,1.3,outSoft);
+    const sc = lerp(0.80,1, seg(t,0.2,1.5,fluxo));
+    const ty = lerp(14,0, seg(t,0.2,1.5,fluxo));
+    $('saSym').style.opacity = op;
+    $('saSym').style.transform = `translateY(${ty}px) scale(${sc})`;
+    // lime accent: appears + one single displacement down the passage
+    const accOp = seg(t,1.0,1.5);
+    const accY = lerp(-34,0, seg(t,0.95,1.9,fluxo));
+    $('saAccent').style.opacity = accOp;
+    $('saAccent').style.transform = `translateY(${accY}px)`;
+    // kicker
+    $('saKick').style.opacity = seg(t,1.7,2.3);
+    $('saKick').style.transform = `translateY(${lerp(12,0,seg(t,1.7,2.4,outSoft))}px)`;
+    // wordmark clip reveal
+    const w = (1-seg(t,2.3,3.5,fluxo))*100;
+    $('saWord').style.clipPath = `inset(0 ${w}% 0 0)`;
+  }
+
+  // ---- Scene B ----
+  {
+    $('sbKick').style.opacity = seg(t,4.9,5.4);
+    const L=(el,t0)=>{ const o=seg(t,t0,t0+0.55,outSoft); $(el).style.opacity=o; $(el).style.transform=`translateY(${lerp(34,0,o)}px)`; };
+    L('sbL1',5.3); L('sbL2',5.75); L('sbL3',6.3);
+    $('sbBar').style.transform = `scaleX(${seg(t,6.9,7.6,fluxo)})`;
+  }
+
+  // ---- Scene C ----
+  {
+    $('scKick').style.opacity = seg(t,9.3,9.8);
+    const S=(el,t0,lime)=>{ const p=seg(t,t0,t0+0.5,fluxo); const o=seg(t,t0,t0+0.45,outSoft);
+      $(el).style.opacity=o;
+      const sc = lime? lerp(0.9,1,p):1;
+      $(el).style.transform=`translateX(${lerp(-56,0,p)}px) scale(${sc})`; };
+    S('scS1',9.8); S('scS2',10.25); S('scS3',10.7); S('scS4',11.15); S('scS5',11.75,true);
+  }
+
+  // ---- Scene D ----
+  {
+    const p=seg(t,15.5,16.3,fluxo);
+    $('sdSym').style.opacity=seg(t,15.5,16.2,outSoft);
+    $('sdSym').style.transform=`scale(${lerp(0.84,1,p)})`;
+    const w=(1-seg(t,16.1,17.0,fluxo))*100;
+    $('sdWord').style.clipPath=`inset(0 ${w}% 0 0)`;
+    $('sdTag').style.opacity=seg(t,17.0,17.6);
+    $('sdTag').style.transform=`translateY(${lerp(20,0,seg(t,17.0,17.6,outSoft))}px)`;
+    $('sdHandle').style.opacity=seg(t,17.6,18.2);
+  }
+}
+window.seek = seek;
+
+// preview autoplay (not used for capture)
+let start=null;
+function play(ts){ if(!start)start=ts; let t=((ts-start)/1000)%20; seek(t); requestAnimationFrame(play); }
+if(!location.search.includes('static')) requestAnimationFrame(play);
+seek(0);
+</script>
+</body>
+</html>

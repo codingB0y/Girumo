@@ -118,7 +118,7 @@ export function AdminUsersClient({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `hubflow-users-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `girumo-users-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -137,7 +137,7 @@ export function AdminUsersClient({
             placeholder="Buscar por nome ou email... (Enter)"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-xl border border-breu/[0.06] bg-white py-3 pl-11 pr-4 text-sm text-breu shadow-sm placeholder:text-aco/40 focus:border-iris/30 focus:outline-none focus:ring-2 focus:ring-iris/10"
+            className="w-full rounded-xl border border-volt-950/[0.06] bg-white py-3 pl-11 pr-4 text-sm text-volt-950 shadow-sm placeholder:text-aco/40 focus:border-cobalt-500/30 focus:outline-none focus:ring-2 focus:ring-cobalt-500/10"
           />
         </form>
 
@@ -145,7 +145,7 @@ export function AdminUsersClient({
         <select
           value={filters.role}
           onChange={(e) => handleRoleFilter(e.target.value)}
-          className="rounded-xl border border-breu/[0.06] bg-white px-4 py-3 font-data text-xs text-breu shadow-sm focus:border-iris/30 focus:outline-none"
+          className="rounded-xl border border-volt-950/[0.06] bg-white px-4 py-3 font-data text-xs text-volt-950 shadow-sm focus:border-cobalt-500/30 focus:outline-none"
         >
           <option value="all">Todas as roles</option>
           {roles.map((r) => (
@@ -156,7 +156,7 @@ export function AdminUsersClient({
         {/* Export */}
         <button
           onClick={handleExport}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-breu/[0.06] bg-white px-4 py-3 font-data text-xs text-aco/60 shadow-sm transition hover:border-iris/20 hover:text-iris"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-volt-950/[0.06] bg-white px-4 py-3 font-data text-xs text-aco/60 shadow-sm transition hover:border-cobalt-500/20 hover:text-cobalt-500"
         >
           <Download className="h-3.5 w-3.5" />
           CSV
@@ -168,15 +168,15 @@ export function AdminUsersClient({
       </div>
 
       {/* Table */}
-      <div className="rounded-2xl border border-breu/[0.06] bg-white shadow-sm">
+      <div className="rounded-2xl border border-volt-950/[0.06] bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-breu/[0.06]">
+              <tr className="border-b border-volt-950/[0.06]">
                 <th className="px-5 py-3.5">
                   <button
                     onClick={() => toggleSort("name")}
-                    className="inline-flex items-center gap-1 font-data text-[11px] uppercase tracking-wider text-aco/55 hover:text-breu"
+                    className="inline-flex items-center gap-1 font-data text-[11px] uppercase tracking-wider text-aco/55 hover:text-volt-950"
                   >
                     Nome <ArrowUpDown className="h-3 w-3" />
                   </button>
@@ -186,7 +186,7 @@ export function AdminUsersClient({
                 <th className="px-5 py-3.5">
                   <button
                     onClick={() => toggleSort("role")}
-                    className="inline-flex items-center gap-1 font-data text-[11px] uppercase tracking-wider text-aco/55 hover:text-breu"
+                    className="inline-flex items-center gap-1 font-data text-[11px] uppercase tracking-wider text-aco/55 hover:text-volt-950"
                   >
                     Role <ArrowUpDown className="h-3 w-3" />
                   </button>
@@ -194,22 +194,22 @@ export function AdminUsersClient({
                 <th className="px-5 py-3.5">
                   <button
                     onClick={() => toggleSort("createdAt")}
-                    className="inline-flex items-center gap-1 font-data text-[11px] uppercase tracking-wider text-aco/55 hover:text-breu"
+                    className="inline-flex items-center gap-1 font-data text-[11px] uppercase tracking-wider text-aco/55 hover:text-volt-950"
                   >
                     Criado em <ArrowUpDown className="h-3 w-3" />
                   </button>
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-breu/[0.04]">
+            <tbody className="divide-y divide-volt-950/[0.04]">
               {sorted.map((u) => (
-                <tr key={u.id} className="transition hover:bg-bruma/30">
+                <tr key={u.id} className="transition hover:bg-canvas-100/30">
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-3">
                       <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 font-data text-xs font-bold text-blue-600">
                         {(u.name ?? "U").slice(0, 2).toUpperCase()}
                       </span>
-                      <span className="font-medium text-breu">{u.name}</span>
+                      <span className="font-medium text-volt-950">{u.name}</span>
                     </div>
                   </td>
                   <td className="px-5 py-3.5">
@@ -263,7 +263,7 @@ export function AdminUsersClient({
             <button
               onClick={() => handlePage(pagination.page - 1)}
               disabled={pagination.page <= 1}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-breu/[0.06] bg-white text-aco transition hover:border-iris/20 disabled:opacity-30"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-volt-950/[0.06] bg-white text-aco transition hover:border-cobalt-500/20 disabled:opacity-30"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -276,8 +276,8 @@ export function AdminUsersClient({
                   className={cn(
                     "inline-flex h-9 w-9 items-center justify-center rounded-lg font-data text-xs transition",
                     p === pagination.page
-                      ? "bg-iris text-white"
-                      : "border border-breu/[0.06] bg-white text-aco hover:border-iris/20",
+                      ? "bg-cobalt-500 text-white"
+                      : "border border-volt-950/[0.06] bg-white text-aco hover:border-cobalt-500/20",
                   )}
                 >
                   {p}
@@ -287,7 +287,7 @@ export function AdminUsersClient({
             <button
               onClick={() => handlePage(pagination.page + 1)}
               disabled={pagination.page >= pagination.totalPages}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-breu/[0.06] bg-white text-aco transition hover:border-iris/20 disabled:opacity-30"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-volt-950/[0.06] bg-white text-aco transition hover:border-cobalt-500/20 disabled:opacity-30"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
