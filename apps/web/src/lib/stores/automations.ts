@@ -1,7 +1,18 @@
 import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
-export type AutomationTrigger = "lead_entered" | "signup" | "no_connect_24h" | "trial_ending" | "group_full";
+export type AutomationTrigger =
+  | "lead_entered"
+  | "signup"
+  | "group_full"
+  | "weekly_recurring"
+  | "group_stalled"
+  // Retirados da tela do lojista (P0.7): lifecycle do SaaS, vive em lib/email + cron.
+  | "no_connect_24h"
+  | "trial_ending";
+
+/** Triggers de lifecycle do SaaS — nunca oferecidos como template pro lojista. */
+export const RETIRED_LOJISTA_TRIGGERS: AutomationTrigger[] = ["no_connect_24h", "trial_ending"];
 type AutomationStepType = "message" | "wait" | "condition";
 
 export type AutomationStep = {
@@ -89,40 +100,38 @@ export async function deleteAutomation(tenantId: string, id: string): Promise<vo
 
 /**
  * Templates pré-configurados para o lojista começar rápido.
+ *
+ * REGRA ANTI-BAN (durável, decisão Igor 2026-07-28): nenhum template envia
+ * mensagem no privado (DM) — toda mensagem é postada NOS GRUPOS.
  */
 export const AUTOMATION_TEMPLATES: { name: string; trigger: AutomationTrigger; steps: Omit<AutomationStep, "id">[] }[] = [
   {
-    name: "Boas-vindas ao grupo",
+    name: "Boas-vindas no grupo",
     trigger: "lead_entered",
     steps: [
       { type: "wait", delay_minutes: 5, message: undefined },
-      { type: "message", delay_minutes: 0, message: "👋 Oi! Bem-vind(a) ao grupo! Aqui você recebe as melhores ofertas em primeira mão. Fique à vontade!" },
+      { type: "message", delay_minutes: 0, message: "Bem-vindo(a) quem chegou agora! 👋 Aqui você vê as novidades primeiro. Pedido mínimo, catálogo e horários fixados no grupo." },
     ],
   },
   {
-    name: "Nurturing 3 dias",
-    trigger: "lead_entered",
+    name: "Novidade da semana",
+    trigger: "weekly_recurring",
     steps: [
-      { type: "wait", delay_minutes: 5, message: undefined },
-      { type: "message", delay_minutes: 0, message: "👋 Bem-vind(a)! Preparamos ofertas exclusivas pra quem é do grupo." },
-      { type: "wait", delay_minutes: 1440, message: undefined }, // 1 dia
-      { type: "message", delay_minutes: 0, message: "🔥 Já viu as novidades de hoje? Chama no privado pra garantir!" },
-      { type: "wait", delay_minutes: 2880, message: undefined }, // 2 dias
-      { type: "message", delay_minutes: 0, message: "✨ Novos produtos chegando! Fique de olho aqui no grupo." },
+      { type: "message", delay_minutes: 0, message: "Chegou grade nova essa semana — olha as peças acima pra não perder as melhores." },
     ],
   },
   {
-    name: "Lembrete: conectar WhatsApp",
-    trigger: "no_connect_24h",
+    name: "Grupo lotou",
+    trigger: "group_full",
     steps: [
-      { type: "message", delay_minutes: 0, message: "Oi! Vi que você ainda não conectou seu WhatsApp na Girumo. Leva 2 minutos — é só escanear o QR Code nas configurações." },
+      { type: "message", delay_minutes: 0, message: "Um dos seus grupos lotou! Crie o próximo pra manter a captação rodando sem perder gente na fila." },
     ],
   },
   {
-    name: "Trial acabando",
-    trigger: "trial_ending",
+    name: "Reativação de grupo parado",
+    trigger: "group_stalled",
     steps: [
-      { type: "message", delay_minutes: 0, message: "⏰ Seu trial da Girumo termina em 2 dias! Assine agora pra não perder seus grupos e campanhas." },
+      { type: "message", delay_minutes: 0, message: "Semana de reposição: o que esgotou voltou. Pedidos por ordem de chegada." },
     ],
   },
 ];
