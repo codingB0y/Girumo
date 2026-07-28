@@ -60,7 +60,7 @@
 4. Empty state honesto quando não há pedido: "Registre seus pedidos na tela Contatos pra ver o caminho completo até a venda."
 **Aceite:** com 2+ pedidos de grupos diferentes, a seção mostra os grupos com R$ correto; sem pedidos, empty state; lint/build ok.
 
-## [x] P0.5 🟢 Meta do mês definida pelo lojista
+## [ ] P0.5 🟢 Meta do mês definida pelo lojista
 **Contexto:** meta atual é inventada (`max(1.5×mês passado, 50)`) em `painel/page.tsx`.
 **Fazer:**
 1. Persistir meta por tenant: chave em config/settings do tenant se já existir mecanismo (procurar em `api/subscription`/`configuracoes` um settings store); se não existir, criar tabela `tenant_settings (tenant_id pk, monthly_goal_contacts int, monthly_goal_revenue numeric, updated_at)` com RLS padrão + store + `GET/PATCH /api/settings`.
@@ -68,13 +68,13 @@
 3. Fallback quando não definida: manter o cálculo atual, mas com label "meta sugerida" + CTA "definir minha meta".
 **Aceite:** meta editada persiste entre sessões e tenants não vazam (testar com 2 tenants dev); barra de progresso usa a meta salva.
 
-## [x] P0.6 🟢 Oferta: executar decisões de 05/jul na landing/checkout
+## [ ] P0.6 🟢 Oferta: executar decisões de 05/jul na landing/checkout
 **Contexto:** decisões registradas em `offers/hubflow-offer-critique.md` + `landing-copy-v2.md`. ⚠️ Antes de mexer: confirmar com Igor se planos/preços vigentes são R$197/297/497 (pendência anotada no PROJECT_CONTEXT).
 **Arquivos:** `src/app/page.tsx`, `src/components/landing/v2/*` (pricing, faq, cta), possivelmente `api/plans`/seed de planos e Stripe (só copy/nome — NÃO mexer em price IDs sem confirmar).
 **Fazer:** (1) remover "7 dias grátis"/"teste grátis" de TODA a landing e fluxo de signup → substituir por "garantia de 30 dias incondicional" (copy do landing-copy-v2.md); (2) renomear "Performance Max" → "Operação" onde aparecer (landing, painel, seeds); (3) adicionar âncora de preço junto ao pricing: "A Mega Stock fez R$350 mil/mês com esse jeito de vender. O Growth custa menos que uma grade."; (4) FAQ: adicionar item de garantia (texto pronto no landing-copy-v2.md §FAQ).
 **Aceite:** grep "7 dias" e "Performance Max" → 0 na landing/painel; build ok; screenshot da seção de planos pra revisão do Igor.
 
-## [x] P0.7 🟢 Separar automações do lojista × lifecycle do SaaS + templates no vocabulário
+## [ ] P0.7 🟢 Separar automações do lojista × lifecycle do SaaS + templates no vocabulário
 **Contexto:** `painel/automacoes/page.tsx` mistura triggers do lojista (`lead_entered`, `group_full`) com triggers internos do HubFlow (`no_connect_24h`, `trial_ending` — mensagens do SaaS pro lojista). E os templates têm copy genérica de infoproduto.
 **Fazer:**
 1. Remover dos TEMPLATES e TRIGGER_LABELS da tela os triggers `no_connect_24h` e `trial_ending` (o lifecycle já vive em `lib/email` + cron; não perder funcionalidade — só sai da tela do cliente). Se houver automações desses tipos persistidas, filtrar da listagem client-side e não permitir criar novas.
@@ -137,7 +137,7 @@
 **Fazer:** na tela `/painel/campanhas/nova`, passo inicial opcional "Qual o objetivo?": **Lançar novidade** · **Girar estoque parado** · **Reativar grupos** · **Semana de reposição** · **Do zero**. Cada objetivo = preset (nome, mensagem-modelo, dica de horário, sugestão de grupos). Copys em `src/lib/campaign-presets.ts` — revisão de texto pelo Igor antes do merge (marcar TODO). Integrar com a biblioteca se ela tiver conteúdo (ver P1.14).
 **Aceite:** escolher objetivo pré-preenche a campanha; "Do zero" = fluxo atual intocado.
 
-## [ ] P1.13 🟢 `/health` honesto + alerta de desconexão pro lojista
+## [x] P1.13 🟢 `/health` honesto + alerta de desconexão pro lojista
 **Contexto:** `hubflow-engine/index.js` (~linha 9): `/health` responde 200 mesmo deslogado (ENGINE_AUDIT item 9). Disparo que não sai = venda perdida em silêncio. ⚠️ NÃO tocar no anti-ban.
 **Fazer:**
 1. Engine: `/health` → `{status, connected, lastEventAt}` com **503 quando desconectado** (manter um `/live` sempre-200 pro orquestrador não matar o container em loop — conferir healthcheck do Coolify em `deploy/coolify/*` antes, pra não causar restart-loop).
@@ -184,6 +184,19 @@
 **Fazer:** (1) plugar `connection-watchdog.js` no boot do `index.js` (revisar antes se está alinhado com o fluxo atual de reconexão — ENGINE_AUDIT); (2) Sentry no `apps/web` (DSN via env, sample baixo) + captura de erros fatais da engine (Sentry node ou coletor simples que POSTa pro app); (3) backup: script/cron no Coolify que tar-gzipa `auth/` + `state` pra storage externo 1×/dia, com teste de restore documentado em runbook.
 **Aceite:** matar a conexão em dev → watchdog reconecta sem intervenção; erro forçado aparece no Sentry; restore do backup testado 1× e documentado.
 
+## [ ] P2.21 🟢 Editor de sequência linear nas Automações (o "workflow builder" do jeito certo pro nicho)
+**Decisão de produto (2026-07-28):** NÃO fazer canvas drag-and-drop de nós — pro lojista da 44 isso é fricção, não poder. A flexibilidade entra como **editor de linha do tempo vertical** em cima do modelo de steps que já existe (`automations.steps`: `message | wait`).
+**Contexto:** hoje a tela de Automações só cria a partir de template e liga/desliga — os passos não são editáveis. `PATCH /api/automations` só alterna `enabled` (verificar no código e estender).
+**Arquivos:** `painel/automacoes/page.tsx` · `src/app/api/automations/route.ts` · `src/lib/stores/automations.ts`.
+**Fazer:**
+1. Clicar numa automação abre o **editor de sequência**: lista vertical dos steps (o preview de chips já existe — evoluir pra lista editável). Por step: editar texto da mensagem (textarea) ou duração da espera (valor + unidade min/h/dias); remover; reordenar com botões ↑/↓ (sem lib de drag — simplicidade e mobile primeiro); adicionar step ("+ Mensagem" / "+ Espera") no fim ou entre steps.
+2. Estender `PATCH /api/automations` pra aceitar `{id, name?, steps?}` com validação server-side; estender o store com `updateAutomation` (sempre `.eq('tenant_id')`).
+3. **Guard-rails anti-ban e anti-flood (inegociáveis, server-side):** máx. 10 steps por automação · mensagem 1–1000 chars, não-vazia · espera mínima de **5 min entre duas mensagens** (rejeitar sequência mensagem→mensagem sem espera) · espera máx. 30 dias · mensagens são postadas SÓ NOS GRUPOS (regra durável — nenhuma opção de DM na UI).
+4. Depois de criar a partir de um template, abrir direto no editor ("comece pelo modelo e ajuste do seu jeito").
+5. Estilo O Balcão; microcopy no vocabulário do nicho ("espera 1 dia", "posta no grupo").
+**Aceite:** editar/reordenar/adicionar/remover steps persiste e executa; validações rejeitam sequência sem espera entre mensagens (400 com mensagem clara); template → editor funciona; automações existentes continuam rodando sem migração de dados; lint/build ok.
+**Não fazer:** canvas/nós/arrastar, step "condition" na UI (o tipo existe no modelo mas fica fora do v1), triggers novos.
+
 ---
 
 ## Ordem de execução recomendada
@@ -194,7 +207,7 @@ Semana 2:  P0.5 → P0.6* → P0.7               (*P0.6 depende de Igor confirma
 Semana 3-4: P1.13 → P1.9 → P1.15             (confiabilidade + hábito + medição)
 Semana 5-6: P1.8 (planejar com Opus antes) → P1.10
 Semana 7-8: P1.11 → P1.12 → P1.14
-Depois:    P2.18 → P2.17 → P2.16 (Opus) → P2.20 → P2.19 (paralelo, não é código)
+Depois:    P2.18 → P2.17 → P2.16 (Opus) → P2.21 → P2.20 → P2.19 (paralelo, não é código)
 ```
 
 **Decisões que só o Igor pode tomar (responder antes dos itens marcados):**
