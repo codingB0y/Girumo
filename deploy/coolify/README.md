@@ -39,17 +39,28 @@ hubflow_engine_state -> /app/state
 
 ## Healthcheck
 
-Endpoint:
+Dois endpoints com propósitos diferentes:
+
+- **`GET /live`** — liveness, sempre 200 se o processo está de pé. É o que o
+  `healthcheck` do docker-compose usa (não pode derrubar o container só porque
+  o WhatsApp caiu, senão vira restart-loop).
+- **`GET /health`** — readiness real: `{ ok, status, connected, lastEventAt }`,
+  **503 quando o WhatsApp está desconectado**. Use este pra monitoramento externo
+  (uptime checker, alerta) que precisa saber se a sessão caiu.
 
 ```txt
+GET https://engine.seudominio.com/live
 GET https://engine.seudominio.com/health
 ```
 
-Esperado:
+Esperado (`/health`, conectado):
 
 ```json
 {
   "ok": true,
+  "status": "ok",
+  "connected": true,
+  "lastEventAt": "2026-07-28T14:00:00.000Z",
   "service": "hubflow-engine"
 }
 ```
