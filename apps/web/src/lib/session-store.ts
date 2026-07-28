@@ -2,7 +2,11 @@ import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { isConnectedStatus, selectSessionRow } from "@/lib/session-select";
 
-// Status REAL da sessão do WhatsApp, reportado pela engine (heartbeat a cada 30s).
+export { isLive } from "@/lib/session-liveness";
+
+// Status REAL da sessão do WhatsApp. Escrito pelo webhook da Evolution API em
+// resposta a connection.update (transição de estado, não heartbeat periódico)
+// — ver isLive() em session-liveness.ts.
 
 type SessionStatus = "connected" | "disconnected";
 
@@ -144,9 +148,4 @@ export async function setSession(tenantId: string, info: Partial<SessionInfo>): 
   }
 
   return { ...DEFAULT, ...info, updatedAt: now };
-}
-
-/** "Ao vivo" = conectada E com heartbeat recente (engine viva). */
-export function isLive(info: SessionInfo): boolean {
-  return info.status === "connected" && Date.now() - new Date(info.updatedAt).getTime() < 90_000;
 }
