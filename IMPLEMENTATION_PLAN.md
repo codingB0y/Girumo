@@ -29,11 +29,12 @@
 
 # P0 — Semanas 1–2
 
-## [~] P0.1 ~~Corrigir marca "Girumo" no onboarding~~ — OBSOLETO (28/jul)
-**Motivo:** este item foi escrito sem conhecimento do rebrand HubFlow→Girumo (PR #20, merge `6ddc1738`, 17/jul), que já está no histórico deste branch. `apps/web/src/lib/brand.ts` declara `name: "Girumo"` como fonte única da marca, e existe um gate de CI (`npm run brand:check` / `check-girumo-brand.mjs`) que **bloqueia** "hubflow" user-facing. Executar este item ao pé da letra reverteria o rebrand e quebraria o gate. `grep -ri girumo apps/web/src` retorna 60 arquivos — é o rebrand inteiro, não um typo isolado.
-**Ação:** nenhuma. Se "Girumo" aparecer por engano em algum lugar específico pós-rebrand, tratar como bug pontual (não como grep→replace em massa) — ver [[girumo-rebrand-shipped]] na memória pra allowlist do que fica `hubflow` de propósito.
+## [ ] P0.1 🟢 Corrigir marca "Girumo" no onboarding
+**Arquivo:** `apps/web/src/app/painel/page.tsx` (~linha 229: `title="Bem-vindo à Girumo"`).
+**Fazer:** trocar por `Bem-vindo ao HubFlow`. Fazer `grep -ri "girumo" apps/web/src` e corrigir TODAS as ocorrências.
+**Aceite:** grep de "girumo" retorna 0 resultados; build ok.
 
-## [x] P0.2 🟢 Registrar venda em 1 clique (UI sobre a infra de `orders` que já existe)
+## [ ] P0.2 🟢 Registrar venda em 1 clique (UI sobre a infra de `orders` que já existe)
 **Contexto:** backend pronto (`/api/orders` POST `{value, phone?, leadId?, group?}`). Falta UI. O status "comprou" do lead e o pedido são coisas ligadas: registrar pedido deve também marcar o lead.
 **Arquivos:** `painel/contatos/page.tsx` (principal) · `src/app/api/orders/route.ts` (pequeno ajuste).
 **Fazer:**
@@ -44,12 +45,12 @@
 **Aceite:** registrar pedido pela UI cria linha em `orders` com tenant correto, lead vira "Cliente" no filtro, valor com vírgula funciona, lint/build ok.
 **Não fazer:** detecção automática de comprovante (P2), edição de pedido.
 
-## [x] P0.3 🟢 Corrigir métrica de conversão clique→grupo
+## [ ] P0.3 🟢 Corrigir métrica de conversão clique→grupo
 **Contexto:** `painel/page.tsx` e `resultados/page.tsx` calculam `conversão = totalMembers / totalClicks`. `totalMembers` é estoque (inclui quem já estava no grupo) — número mente, pode passar de 100%.
 **Fazer:** conversão = **entradas atribuídas** ÷ cliques. Entradas atribuídas = leads capturados pela engine (já são "entrou no grupo") no período. Usar `leads.length` (total) sobre `totalClicks` nas duas telas; renomear label pra "Conversão clique→entrada". No funil de Resultados, o passo 2 "Entraram no grupo" passa a usar `leads.length`, não `totalMembers` (membros totais podem continuar como KPI separado "Membros nos grupos").
 **Aceite:** métrica nunca >100% com dados reais; funil monotônico (passo N ≤ passo N-1); labels atualizados nas 2 telas.
 
-## [x] P0.4 🟢 Funil fecha em pedidos reais (R$), não em status manual
+## [ ] P0.4 🟢 Funil fecha em pedidos reais (R$), não em status manual
 **Contexto:** Resultados conta `clientes = leads com status "comprou"`. Com P0.2, a fonte boa é `orders`.
 **Arquivo:** `painel/resultados/page.tsx`.
 **Fazer:**
@@ -59,7 +60,7 @@
 4. Empty state honesto quando não há pedido: "Registre seus pedidos na tela Contatos pra ver o caminho completo até a venda."
 **Aceite:** com 2+ pedidos de grupos diferentes, a seção mostra os grupos com R$ correto; sem pedidos, empty state; lint/build ok.
 
-## [ ] P0.5 🟢 Meta do mês definida pelo lojista
+## [x] P0.5 🟢 Meta do mês definida pelo lojista
 **Contexto:** meta atual é inventada (`max(1.5×mês passado, 50)`) em `painel/page.tsx`.
 **Fazer:**
 1. Persistir meta por tenant: chave em config/settings do tenant se já existir mecanismo (procurar em `api/subscription`/`configuracoes` um settings store); se não existir, criar tabela `tenant_settings (tenant_id pk, monthly_goal_contacts int, monthly_goal_revenue numeric, updated_at)` com RLS padrão + store + `GET/PATCH /api/settings`.
@@ -77,33 +78,38 @@
 **Contexto:** `painel/automacoes/page.tsx` mistura triggers do lojista (`lead_entered`, `group_full`) com triggers internos do HubFlow (`no_connect_24h`, `trial_ending` — mensagens do SaaS pro lojista). E os templates têm copy genérica de infoproduto.
 **Fazer:**
 1. Remover dos TEMPLATES e TRIGGER_LABELS da tela os triggers `no_connect_24h` e `trial_ending` (o lifecycle já vive em `lib/email` + cron; não perder funcionalidade — só sai da tela do cliente). Se houver automações desses tipos persistidas, filtrar da listagem client-side e não permitir criar novas.
-2. Reescrever templates no vocabulário do atacado (usar `customer-research/voc-atacadista.md` §4):
-   - **"Boas-vindas de revendedor"** (`lead_entered`): espera 5min → "Oi! 👋 Bem-vindo(a) ao grupo da [loja]. Aqui você vê as novidades primeiro. Pedido mínimo, catálogo e horários: [link]. Qualquer coisa me chama!"
-   - **"Novidade da semana"** (`lead_entered`, cadência 7d): mensagem "Chegou grade nova essa semana — dá uma olhada no grupo pra não perder as melhores peças."
-   - **"Grupo lotou"** (`group_full`): mensagem interna/notificação — manter.
-   - **"Reativação"** (novo template, `lead_entered` com espera 14d): "Faz um tempinho que você não pede — as novidades dessa semana estão saindo rápido. Quer que eu te mande o catálogo?"
-3. Sem emoji em excesso; nada de "🔥 Já viu as novidades?".
+2. **🚫 REGRA ANTI-BAN (durável, decisão Igor 2026-07-28):** automações NUNCA enviam mensagem no privado (DM) — todas as mensagens são postadas NOS GRUPOS. Verificar como a engine executa cada trigger; se algum template atual dispara DM, convertê-lo pra post no grupo ou removê-lo.
+3. Reescrever templates no vocabulário do atacado (usar `customer-research/voc-atacadista.md` §4), todos postando no grupo:
+   - **"Boas-vindas no grupo"** (`lead_entered`, posta NO GRUPO): espera 5min → "Bem-vindo(a) quem chegou agora! 👋 Aqui você vê as novidades primeiro. Pedido mínimo, catálogo e horários fixados no grupo."
+   - **"Novidade da semana"** (agendamento recorrente semanal nos grupos): "Chegou grade nova essa semana — olha as peças acima pra não perder as melhores."
+   - **"Grupo lotou"** (`group_full`): notificação pro LOJISTA (painel/e-mail) — manter.
+   - **"Reativação de grupo parado"** (post no grupo): "Semana de reposição: o que esgotou voltou. Pedidos por ordem de chegada."
+4. Sem emoji em excesso; nada de "🔥 Já viu as novidades?".
 **Aceite:** tela só mostra automações do negócio do lojista; templates novos criam e executam; e-mails de lifecycle continuam funcionando (cron intacto).
 
 ---
 
 # P1 — Dias 30–60
 
-## [ ] P1.8 🟣 Playbook "Primeiros 30 dias" dentro do painel
-**Objetivo:** produtizar o método Mega Stock como checklist vivo que substitui o vazio pós-onboarding. O maior item do plano — planejar com Opus antes de codar.
+## [ ] P1.8 🟣 Playbook "Primeiros 30 dias" dentro do painel *(revisado pelo Igor 2026-07-28)*
+**Objetivo:** produtizar o método Mega Stock como checklist vivo da jornada **tráfego → grupo → venda**. O maior item do plano — planejar com Opus antes de codar. Spec técnica detalhada: `PROMPTS_OPUS.md` Sessão A.
+**🚫 REGRA ANTI-BAN (durável, decisão Igor):** playbook e automações NUNCA mandam mensagem no privado (DM) — toda mensagem acontece NOS GRUPOS. Nenhum passo depende de DM.
 **Modelo de dados:** tabela `playbook_progress (tenant_id, step_key text, done_at timestamptz, pk(tenant_id, step_key))` com RLS padrão; passos definidos em código (`src/lib/playbook/steps.ts`), não no banco.
-**Passos do playbook v1 (conteúdo — validar com Igor antes de codar):**
-1. Conectar WhatsApp *(auto-detecta: session.live)*
-2. Criar 1ª campanha *(auto: campanhas.length > 0)*
-3. Divulgar o link em 3 lugares — bio do Instagram, etiqueta da sacola, status do WhatsApp *(manual: lojista marca)*
-4. Postar a 1ª novidade nos grupos *(auto: 1º broadcast/disparo)*
-5. Ativar boas-vindas de revendedor *(auto: automação lead_entered ativa)*
-6. Primeiros 50 contatos via link *(auto: leads.length ≥ 50)*
-7. Registrar o 1º pedido *(auto: orders.length ≥ 1)*
-8. Definir a meta do mês *(auto: meta salva — P0.5)*
-**UI:** card "Seus primeiros 30 dias" no topo do dashboard (entre header e bento) com progresso X/8, próximo passo em destaque + CTA direto; some quando 8/8 (vira badge "método rodando" nas configurações). Estilo O Balcão (`pn-card`, template de 8 passos do TASK_PROGRESS).
-**API:** `GET/POST /api/playbook` (GET calcula os autos server-side agregando stores existentes; POST marca passos manuais).
-**Aceite:** passos automáticos marcam sozinhos quando a condição vira verdade; progresso persiste por tenant; dashboard sem regressão pra quem já completou.
+**Passos v1 (aprovados pelo Igor; textos finais passam por revisão dele):**
+| # | key | passo | detecção |
+|---|---|---|---|
+| 1 | `connect` | Conectar WhatsApp | auto: session.live |
+| 2 | `first_campaign` | Criar campanha + grupos | auto: campanha ≥1 com grupos vinculados |
+| 3 | `lp_published` | Publicar a página de captação (Flow Pages) | auto: lp publicada ≥1 |
+| 4 | `ad_live` | Colocar o anúncio no ar (**Kit de Anúncio** — ver abaixo) | semi-auto: 1º PageView na LP com utm_source pago (facebook/instagram/meta) OU botão "já publiquei" |
+| 5 | `first_post` | Postar a 1ª novidade em todos os grupos | auto: 1º broadcast com dispatched_at |
+| 6 | `goal_set` | Definir a meta do mês | auto: tenant_settings (P0.5) |
+| 7 | `leads_100` | Primeiros 100 contatos via link | auto: leads ≥ 100 |
+| 8 | `first_order` | Registrar o 1º pedido dos grupos | auto: orders ≥ 1 |
+**Kit de Anúncio (escopo do passo 4 — página `/painel/anuncios/guia`):** copy pronta do anúncio (2–3 variações, vocabulário do atacado, TODO revisão Igor) · roteiro de criativo 15s (peças/grade/showroom) · segmentação recomendada + orçamento inicial sugerido (ex.: R$20–30/dia) · **URL da Flow Page do tenant com UTM pré-montada + botão copiar** · passo-a-passo com prints do Gerenciador Meta (assets estáticos) · link direto pro Ads Manager. **Backlog P3 (não fazer agora):** criação do anúncio via Meta Marketing API em 1 clique — exige app Meta aprovado, business verification e `ads_management` (semanas de review).
+**UI:** card "Seus primeiros 30 dias" no topo do dashboard (entre header e bento) com progresso X/8, próximo passo em destaque + CTA direto; some quando 8/8 (vira badge "método rodando" nas configurações). Estilo O Balcão (`pn-card`).
+**API:** `GET/POST /api/playbook` (GET calcula os autos server-side agregando stores existentes e faz upsert do progresso; POST marca o passo semi-manual `ad_live`).
+**Aceite:** passos automáticos marcam sozinhos quando a condição vira verdade (incluindo `ad_live` via UTM); progresso persiste por tenant; dashboard sem regressão pra quem já completou; zero mensagens em DM.
 
 ## [ ] P1.9 🟢 Relatório semanal automático (e-mail)
 **Contexto:** infra Resend + cron diário já existem (`lib/email`, `api/cron/emails`, `vercel.json` com 2 crons).
@@ -146,7 +152,7 @@
 
 ## [ ] P1.15 🟢 Instrumentar funil de ativação (admin)
 **Contexto:** é o item 20 do Sprint 4 (TASK_PROGRESS); `funnel_events` já tem migração (`20260701020000_funnel_events.sql`).
-**Fazer:** registrar eventos por tenant nos marcos: connected, first_campaign, first_lead, leads_50, first_order, goal_set (hooks nos endpoints que já processam essas ações — ex.: `POST /api/orders` registra first_order se for o 1º). Tela `/admin/funnel`: tabela tenants × marcos com idade da conta e tempo até cada marco; destacar contas paradas há >5 dias no mesmo marco (são os refunds de amanhã).
+**Fazer:** registrar eventos por tenant nos marcos **alinhados aos 8 passos do playbook P1.8**: connected, first_campaign, lp_published, ad_live, first_post, goal_set, leads_100, first_order (hooks nos endpoints que já processam essas ações — ex.: `POST /api/orders` registra first_order se for o 1º). Tela `/admin/funnel`: tabela tenants × marcos com idade da conta e tempo até cada marco; destacar contas paradas há >5 dias no mesmo marco (são os refunds de amanhã).
 **Aceite:** eventos idempotentes (1º pedido registra 1×); tela admin lista todos os tenants com marcos e tempos corretos.
 
 ---
