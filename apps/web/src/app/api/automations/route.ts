@@ -1,5 +1,5 @@
 import * as store from "@/lib/stores/automations";
-import { AUTOMATION_TEMPLATES } from "@/lib/stores/automations";
+import { AUTOMATION_TEMPLATES, RETIRED_LOJISTA_TRIGGERS } from "@/lib/stores/automations";
 import { getTenantContext } from "@/lib/supabase/tenant-context";
 import { assertPermission } from "@/lib/permissions";
 
@@ -48,6 +48,9 @@ export async function POST(req: Request) {
 
   if (!name) return Response.json({ error: "Informe um nome." }, { status: 400 });
   if (!trigger) return Response.json({ error: "Informe um trigger." }, { status: 400 });
+  if (RETIRED_LOJISTA_TRIGGERS.includes(trigger)) {
+    return Response.json({ error: "Este trigger é de lifecycle interno e não pode ser usado aqui." }, { status: 400 });
+  }
 
   const automation = await store.createAutomation(tenantId, { name, trigger, steps });
   return Response.json(automation, { status: 201 });
