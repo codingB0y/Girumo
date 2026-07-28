@@ -80,10 +80,13 @@ test("sources root metadata and social preview from the brand contract", () => {
   assert.match(twitterSource, /images:\s*\[BRAND\.ogAsset\]/);
   assert.equal(existsSync(ogAssetPath), true, BRAND.ogAsset);
   assert.doesNotMatch(source, /HubFlow|\/product\/painel-home\.png/);
-  assert.match(
-    pageSource,
-    /title:\s*\{\s*absolute:\s*`\$\{BRAND\.name\}\s+—\s+\$\{BRAND\.tagline\}`\s*\}/,
-  );
+  // A home mantém um título SEO próprio (absoluto, rico em keyword). O contrato de
+  // marca global (default/template a partir de BRAND) é imposto no layout.tsx e já
+  // coberto acima. Aqui garantimos só: título absoluto declarado, Girumo presente,
+  // e nunca "HubFlow".
+  assert.match(pageSource, /title:\s*\{\s*absolute:\s*\S/);
+  assert.match(pageSource, /Girumo/);
+  assert.doesNotMatch(pageSource, /HubFlow/i);
   assert.match(pageSource, /images:\s*\[BRAND\.ogAsset\]/);
   assert.doesNotMatch(pageSource, /\/product\/painel-home\.png/);
 });
