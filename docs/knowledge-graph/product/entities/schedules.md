@@ -1,0 +1,8 @@
+# Schedules
+
+**Type:** artifact
+
+A navigation section or link concerning campaign schedules.
+
+## Appears in
+- `docs » superpowers » plans » 2026-06-25-campanha-de-grupos-360.md`

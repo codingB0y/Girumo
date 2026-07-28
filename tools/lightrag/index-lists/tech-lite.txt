@@ -3,9 +3,27 @@ CLAUDE.md
 PROJECT_CONTEXT.md
 ROADMAP.md
 PRODUCTION_CHECKLIST.md
+AUDIT_REPORT.md
+BACKEND_AUDIT.md
+FRONTEND_AUDIT.md
+INFRA_AUDIT.md
 
 docs/DEPLOY_ONLINE_RUNBOOK.md
 docs/DEV_SETUP.md
+docs/DEV_ACCESS.md
+docs/LOCAL_TESTING.md
+docs/ARQUITETURA_MIGRACAO_HUBFLOW.md
+docs/FASE_1_AUDITORIA_CODIGO_ATUAL.md
+docs/FASE_2_PLANO_DE_MIGRACAO.md
+docs/FASE_3_REFATORACAO.md
+docs/FASE_4_BANCO.md
+docs/FASE_5_STRIPE.md
+docs/FASE_6_ENGINE.md
+docs/FASE_7_DEPLOY.md
+docs/FASE_8_CHECKLIST_PRODUCAO.md
+docs/superpowers/plans/2026-07-03-engine-boot-node.md
+docs/superpowers/specs/2026-07-03-engine-boot-node-design.md
+docs/superpowers/plans/2026-07-06-dead-code-refactor.md
 
 deploy/README.md
 deploy/GO_NO_GO.md

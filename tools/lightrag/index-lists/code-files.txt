@@ -300,3 +300,25 @@ hubflow-engine/index.js
 hubflow-engine/queues/supabase-command-worker.js
 hubflow-engine/supervisor.js
 hubflow-engine/warmup.js
+hubflow-engine/package.json
+
+# Added 2026-07-15 — código novo do rebrand Girumo, ainda não coberto
+apps/web/src/app/demo/page.tsx
+apps/web/src/app/home-v2/page.tsx
+apps/web/src/app/lp3/page.tsx
+apps/web/src/app/manifest.ts
+apps/web/src/app/posts/post-formats.ts
+apps/web/src/components/brand/logo.tsx
+apps/web/src/components/demo/demo-dashboard.tsx
+apps/web/src/components/demo/demo-experience.tsx
+apps/web/src/components/lp3/fx.tsx
+apps/web/src/components/lp3/landing.tsx
+apps/web/src/components/lp3/mobile-cta.tsx
+apps/web/src/components/lp3/nav.tsx
+apps/web/src/components/lp3/order-ticker.tsx
+apps/web/src/components/lp3/panel-mock.tsx
+apps/web/src/components/lp3/video-facade.tsx
+apps/web/src/lib/brand.ts
+apps/web/src/lib/demo-data.ts
+apps/web/src/lib/girumo-symbol.ts
+apps/web/src/lib/girumo-wordmark.ts

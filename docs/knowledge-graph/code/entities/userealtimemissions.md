@@ -1,0 +1,11 @@
+# UseRealtimeMissions
+
+**Type:** method
+
+A specialized React hook that uses UseRealtimeTable to provide real-time synchronization for Mission entities.
+
+## Neighbors
+- [[userealtimetable|UseRealtimeTable]]
+
+## Appears in
+- `apps » web » src » lib » hooks » use-realtime-squad-os.ts`

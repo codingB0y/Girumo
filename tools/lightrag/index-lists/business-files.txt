@@ -14,3 +14,12 @@ competitor-profiles/joinzapp.md
 competitor-profiles/meugrupovip.md
 competitor-profiles/sendflow.md
 customer-research/voc-atacadista.md
+docs/brand/girumo/README.md
+docs/brand/girumo/copy-library.md
+docs/brand/legacy-hubflow/README.md
+docs/brand/social/girumo-launch/captions.md
+docs/superpowers/plans/2026-07-12-girumo-full-rebrand.md
+docs/superpowers/specs/2026-07-12-girumo-brand-identity-design.md
+docs/superpowers/plans/2026-07-18-girumo-instagram-brand-film.md
+docs/superpowers/specs/2026-07-18-girumo-instagram-brand-film-design.md
+docs/superpowers/specs/2026-07-04-landing-copy-clarity-design.md
