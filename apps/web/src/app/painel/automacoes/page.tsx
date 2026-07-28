@@ -11,8 +11,13 @@ import {
   Users,
   MessageSquare,
   Loader2,
+  Calendar,
+  RotateCcw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// Triggers de lifecycle do SaaS — nunca aparecem na tela do lojista (P0.7).
+const RETIRED_LOJISTA_TRIGGERS = ["no_connect_24h", "trial_ending"];
 
 type AutomationStep = {
   id: string;
@@ -39,43 +44,45 @@ type Template = {
 };
 
 const TRIGGER_LABELS: Record<string, { label: string; icon: typeof Users }> = {
-  lead_entered: { label: "Lead entrou no grupo", icon: Users },
+  lead_entered: { label: "Contato entrou no grupo", icon: Users },
   signup: { label: "Novo cadastro", icon: Users },
-  no_connect_24h: { label: "24h sem conectar WhatsApp", icon: Clock },
-  trial_ending: { label: "Trial acabando", icon: Clock },
   group_full: { label: "Grupo lotou", icon: Users },
+  weekly_recurring: { label: "Toda semana", icon: Calendar },
+  group_stalled: { label: "Grupo parado", icon: RotateCcw },
 };
 
+// Espelha AUTOMATION_TEMPLATES de @/lib/stores/automations — mesma ordem,
+// já que createFromTemplate() envia o índice pra API criar a partir de lá.
+// Regra anti-ban (decisão Igor 2026-07-28): nenhum template manda DM, só posta no grupo.
 const TEMPLATES: Template[] = [
   {
-    name: "Boas-vindas ao grupo",
+    name: "Boas-vindas no grupo",
     trigger: "lead_entered",
     steps: [
       { type: "wait", delay_minutes: 5 },
-      { type: "message", delay_minutes: 0, message: "👋 Oi! Bem-vind(a) ao grupo!" },
+      { type: "message", delay_minutes: 0, message: "Bem-vindo(a) quem chegou agora! 👋 Aqui você vê as novidades primeiro. Pedido mínimo, catálogo e horários fixados no grupo." },
     ],
   },
   {
-    name: "Nurturing 3 dias",
-    trigger: "lead_entered",
+    name: "Novidade da semana",
+    trigger: "weekly_recurring",
     steps: [
-      { type: "wait", delay_minutes: 5 },
-      { type: "message", delay_minutes: 0, message: "👋 Bem-vind(a)!" },
-      { type: "wait", delay_minutes: 1440 },
-      { type: "message", delay_minutes: 0, message: "🔥 Já viu as novidades?" },
-      { type: "wait", delay_minutes: 2880 },
-      { type: "message", delay_minutes: 0, message: "✨ Novos produtos chegando!" },
+      { type: "message", delay_minutes: 0, message: "Chegou grade nova essa semana — olha as peças acima pra não perder as melhores." },
     ],
   },
   {
-    name: "Lembrete: conectar WhatsApp",
-    trigger: "no_connect_24h",
-    steps: [{ type: "message", delay_minutes: 0, message: "Conecte seu WhatsApp — leva 2 min!" }],
+    name: "Grupo lotou",
+    trigger: "group_full",
+    steps: [
+      { type: "message", delay_minutes: 0, message: "Um dos seus grupos lotou! Crie o próximo pra manter a captação rodando sem perder gente na fila." },
+    ],
   },
   {
-    name: "Trial acabando",
-    trigger: "trial_ending",
-    steps: [{ type: "message", delay_minutes: 0, message: "⏰ Seu trial termina em 2 dias!" }],
+    name: "Reativação de grupo parado",
+    trigger: "group_stalled",
+    steps: [
+      { type: "message", delay_minutes: 0, message: "Semana de reposição: o que esgotou voltou. Pedidos por ordem de chegada." },
+    ],
   },
 ];
 
@@ -95,7 +102,11 @@ export default function PainelAutomacoes() {
   useEffect(() => {
     fetch("/api/automations")
       .then((r) => r.json())
-      .then((d) => setAutomations(Array.isArray(d) ? d : []))
+      .then((d) =>
+        setAutomations(
+          Array.isArray(d) ? d.filter((a: Automation) => !RETIRED_LOJISTA_TRIGGERS.includes(a.trigger)) : [],
+        ),
+      )
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);

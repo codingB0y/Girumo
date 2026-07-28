@@ -47,7 +47,7 @@ export function welcomeEmail(name: string, appUrl: string): { subject: string; h
         <li><strong>Crie sua primeira campanha</strong> — escolha os grupos e publique</li>
       </ol>
       <p style="margin:0;font-size:14px;color:${BRAND_COLORS.volt}">
-        Seu trial de 7 dias já está ativo. Sem cartão, sem compromisso.
+        Sua conta já está ativa, com 30 dias de garantia incondicional. Sem fidelidade.
       </p>
       ${button("Acessar meu painel", `${appUrl}/painel`)}
     `),
@@ -72,6 +72,25 @@ export function nudgeConnectEmail(name: string, appUrl: string): { subject: stri
         Nada técnico. Seu número de sempre, seus contatos são seus.
       </p>
       ${button("Conectar meu WhatsApp", `${appUrl}/painel/conectar`)}
+    `),
+  };
+}
+
+// --- WhatsApp desconectado há mais de 2h ---
+export function disconnectAlertEmail(name: string, appUrl: string): { subject: string; html: string } {
+  const firstName = name.split(" ")[0] || "lojista";
+  return {
+    subject: "Seu WhatsApp desconectou — reconecte pra não perder a novidade de hoje",
+    html: layout(`
+      <h1 style="margin:0 0 12px;font-size:22px;color:${BRAND_COLORS.volt}">Seu WhatsApp caiu</h1>
+      <p style="margin:0 0 8px;font-size:15px;color:${BRAND_COLORS.volt};line-height:1.6">
+        Oi ${firstName}! Seu WhatsApp está desconectado há mais de 2 horas — enquanto isso, nenhuma campanha
+        sai e nenhum contato novo entra nos grupos.
+      </p>
+      <p style="margin:0 0 8px;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.6">
+        Reconectar leva 2 minutos — basta escanear o QR Code de novo nas configurações.
+      </p>
+      ${button("Reconectar agora", `${appUrl}/painel/conectar`)}
     `),
   };
 }

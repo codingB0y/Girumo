@@ -57,10 +57,16 @@ test("removes stale public email language and pricing", () => {
   assert.match(templates, /Ver planos e assinar/);
 });
 
-test("updates only the two brand references in automation templates", () => {
-  assert.equal((automations.match(/Girumo/g) ?? []).length, 2);
-  assert.match(automations, /trigger:\s*["']no_connect_24h["']/);
-  assert.match(automations, /trigger:\s*["']trial_ending["']/);
+test("retires SaaS-lifecycle triggers from lojista templates and keeps the copy brand-neutral", () => {
+  // P0.7 (feat 44cada03) moved the SaaS-lifecycle triggers (no_connect_24h /
+  // trial_ending) out of the lojista's automation templates into lib/email +
+  // cron (see the disconnection e-mail feature). The templates that remain are
+  // the lojista talking to their own customers inside the WhatsApp groups, so
+  // they carry no SaaS brand name at all — neither Girumo nor HubFlow.
+  assert.equal((automations.match(/Girumo/g) ?? []).length, 0);
+  assert.doesNotMatch(automations, /HubFlow/);
+  assert.match(automations, /RETIRED_LOJISTA_TRIGGERS/);
+  assert.doesNotMatch(automations, /trigger:\s*["'](?:no_connect_24h|trial_ending)["']/);
   assert.match(automations, /delay_minutes:\s*0/);
 });
 
