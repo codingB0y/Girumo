@@ -42,6 +42,24 @@ app.get("/health", (req, res) => {
   res.status(payload.ok ? 200 : 503).json(payload);
 });
 
+// Detalhe operacional (fila anti-ban / warmup / entrega) fica ATRÁS de auth: sem o
+// token compartilhado com o app, não vaza estado interno pra qualquer um. /live e
+// /health seguem públicos (liveness/readiness p/ o orquestrador).
+app.get("/status", (req, res) => {
+  if (req.get("x-engine-token") !== ENGINE_TOKEN) {
+    return res.status(401).json({ ok: false, error: "unauthorized" });
+  }
+  return res.status(200).json({
+    ok: true,
+    connected: Boolean(currentSocket?.user),
+    lastEventAt: lastConnectionEventAt,
+    uptime: process.uptime(),
+    queue: queue.stats(),
+    delivery: delivery.getStats(),
+    warmup: warmup.status(),
+  });
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, "0.0.0.0", () => {
