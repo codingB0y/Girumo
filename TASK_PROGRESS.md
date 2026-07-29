@@ -20,7 +20,29 @@ Plano aprovado em 2026-07-13 (`~/.claude/plans/quero-migrar-o-hubflow-eager-mins
   - Consumo com stack idle: ~640MB/3.8GB. Estimativa 10 contas: ~2,3–3GB.
 - [ ] F2 — Lifecycle de instância no web (client, webhook receiver, painel conectar refeito)
 - [ ] F3 — Lead capture via worker mínimo (loop B)
-- [ ] F4 — Worker completo (anti-ban portado, senders, lease/retry, fan-out broadcast)
+- [~] F4 — Worker completo (anti-ban portado, senders, lease/retry, fan-out broadcast) — **código pronto e validado, aguarda apply + e2e** (PR #34)
+  - [x] **Decisão anti-ban: opção C — cota/estado no banco** (spec em `apps/worker/docs/anti-ban-spec.md`).
+        Motivo: o governor do engine legado era em memória e correto só porque 1 processo = 1 número;
+        o worker é multi-tenant e escala p/ N réplicas → contador em memória (a) somaria números distintos
+        e (b) liberaria N× a cota. Estado no Postgres por `instance_id`, anti-ban embutido no claim atômico.
+  - [x] Migration `20260729120000_engine_antiban_state.sql`: `instance_send_state` (warmup + gate de
+        espaçamento + breaker), `instance_sends` (janelas min/hora/dia), `claim_send_commands` (só número
+        pronto, ≤1 por número por lote), `instance_daily_cap` (warmup em SQL), `record_send`/`record_send_failure`/
+        `prune_instance_sends`. RPCs service_role-only; tabelas deny-all. Registrada no `apply-order.txt`.
+  - [x] **Validada em Postgres 16 real** (descartável, schema real carregado): aplica limpa + smoke funcional
+        passa (≤1/número, gate, cap/min, breaker, warmup dia2→80 e graduado→800, prune).
+        Bug latente corrigido: desempate do "1 por número" agora usa `id` (created_at empata no mesmo statement).
+  - [x] Senders no `apps/worker`: `evolution-sender.ts` (POST /message/sendText), `send-command.ts` (mapeia
+        `{jid,text}`→`{number,text}` + decide por comando), `send-loop.ts` (claim→send→record/complete),
+        2º loop no `index.ts` gateado em `EVOLUTION_API_*`. **36/36 testes verdes, tsc limpo.**
+  - [x] Deploy: `worker.docker-compose.yml` passa `EVOLUTION_API_URL/KEY` + anexa à rede da Evolution
+        (externa); `README.evolution.md` com os passos. Validado com `docker compose config`.
+  - [x] **Contrato `{jid,text}` de `send_message` preservado** — executor de automações (PR #30) intacto no cutover.
+  - [ ] **Aplicar a migration** no dev e prod (fluxo `apply-order.txt`) — ANTES de ligar o loop de envio.
+  - [ ] Setar `EVOLUTION_API_KEY` (e `EVOLUTION_NETWORK` se o Coolify prefixar a rede) no deploy do worker.
+  - [ ] **Smoke e2e (teste de fogo):** worker + Evolution no dev → envio real + estado anti-ban atualizado.
+  - [ ] Fan-out de broadcast — **é da lane `apps/web`** (executor/PR #30), não do worker: o worker já processa
+        qualquer `send_message` que chegar. Prioridade JÁ funciona (welcome 10 fura broadcast 100 via `priority`).
 - [ ] F5 — Cutover: engine desligado, rotas engine-only deletadas, envs ENGINE_* removidos
 - [ ] F6 — Limpeza: dual-mode JSON removido, SQL consolidado, retenção 30d, docs
 
