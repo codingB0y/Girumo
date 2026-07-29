@@ -1,8 +1,22 @@
-import { TrendingUp, Users, Zap, CreditCard, Send, UserPlus, Radio } from "lucide-react";
+import { TrendingUp, Users, Zap, CreditCard, Send, UserPlus, Radio, AlertTriangle, Target, Check } from "lucide-react";
 import { AdminStatCard } from "@/components/admin/stat-card";
-import { getFunnelMetrics, type FunnelEvent } from "@/lib/analytics/funnel-events";
+import {
+  getFunnelMetrics,
+  getTenantFunnelMatrix,
+  summarizeTenantFunnel,
+  ACTIVATION_MILESTONES,
+  type FunnelEvent,
+} from "@/lib/analytics/funnel-events";
 
 export const dynamic = "force-dynamic";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Dias entre a criação da conta e o marco (tempo-até-marco). null se não atingiu.
+function daysToMilestone(createdAt: string, occurredAt?: string): number | null {
+  if (!occurredAt) return null;
+  return Math.max(0, Math.floor((Date.parse(occurredAt) - Date.parse(createdAt)) / DAY_MS));
+}
 
 const FUNNEL_STEPS: { event: FunnelEvent; label: string; icon: typeof Users; color: string }[] = [
   { event: "signup", label: "Signup", icon: UserPlus, color: "text-blue-600 bg-blue-50" },
@@ -15,7 +29,16 @@ const FUNNEL_STEPS: { event: FunnelEvent; label: string; icon: typeof Users; col
 ];
 
 export default async function AdminFunilPage() {
-  const metrics = await getFunnelMetrics();
+  const [metrics, matrix] = await Promise.all([getFunnelMetrics(), getTenantFunnelMatrix()]);
+  const now = Date.now();
+  const tenants = matrix
+    .map((row) => summarizeTenantFunnel(row, now))
+    .sort((a, b) => {
+      if (a.isStuck !== b.isStuck) return a.isStuck ? -1 : 1; // parados primeiro (acionáveis)
+      if (a.reachedCount !== b.reachedCount) return a.reachedCount - b.reachedCount; // menos progresso primeiro
+      return b.ageDays - a.ageDays;
+    });
+  const stuckCount = tenants.filter((t) => t.isStuck).length;
 
   const signupCount = metrics.signup ?? 0;
 
@@ -112,6 +135,93 @@ export default async function AdminFunilPage() {
                   </tr>
                 );
               })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Per-tenant activation matrix — tempo até cada marco, parados em destaque */}
+      <div className="rounded-2xl border border-volt-950/[0.06] bg-white p-6 shadow-sm">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="font-display text-base font-bold">Ativação por tenant</h2>
+            <p className="font-data mt-0.5 text-[11px] uppercase tracking-wider text-aco/55">
+              Tempo até cada marco · parados &gt;5 dias sem avançar em destaque
+            </p>
+          </div>
+          {stuckCount > 0 && (
+            <span className="font-data inline-flex shrink-0 items-center gap-1.5 rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              {stuckCount} parado{stuckCount > 1 ? "s" : ""}
+            </span>
+          )}
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-canvas-100 text-left">
+                <th className="pb-2 pr-4 font-medium text-aco/70">Tenant</th>
+                <th className="px-2 pb-2 text-right font-medium text-aco/70">Idade</th>
+                {ACTIVATION_MILESTONES.map((m) => (
+                  <th key={m.event} className="px-2 pb-2 text-center font-medium text-aco/70">
+                    {m.label}
+                  </th>
+                ))}
+                <th className="px-2 pb-2 text-center font-medium text-aco/70">Meta</th>
+                <th className="pl-2 pb-2 text-right font-medium text-aco/70">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-canvas-100/50">
+              {tenants.map((t) => (
+                <tr key={t.tenantId} className={t.isStuck ? "bg-red-50/40" : undefined}>
+                  <td className="max-w-[220px] truncate py-2.5 pr-4 font-medium text-volt-950">{t.name}</td>
+                  <td className="font-data px-2 py-2.5 text-right text-aco/70">{t.ageDays}d</td>
+                  {ACTIVATION_MILESTONES.map((m) => {
+                    const d = daysToMilestone(t.createdAt, t.milestones[m.event]);
+                    return (
+                      <td key={m.event} className="px-2 py-2.5 text-center">
+                        {d === null ? (
+                          <span className="text-aco/25">—</span>
+                        ) : (
+                          <span
+                            className="font-data inline-flex items-center gap-0.5 text-emerald-600"
+                            title={`atingido ${d} dia(s) após o cadastro`}
+                          >
+                            <Check className="h-3 w-3" />d{d}
+                          </span>
+                        )}
+                      </td>
+                    );
+                  })}
+                  <td className="px-2 py-2.5 text-center">
+                    {t.goalSet ? (
+                      <Target className="mx-auto h-4 w-4 text-cobalt-500" />
+                    ) : (
+                      <span className="text-aco/25">—</span>
+                    )}
+                  </td>
+                  <td className="pl-2 py-2.5 text-right">
+                    {t.activated ? (
+                      <span className="font-data rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                        ativado
+                      </span>
+                    ) : t.isStuck ? (
+                      <span className="font-data rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">
+                        parado {t.daysSinceProgress}d
+                      </span>
+                    ) : (
+                      <span className="font-data text-xs text-aco/55">{t.furthestLabel}</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {tenants.length === 0 && (
+                <tr>
+                  <td colSpan={ACTIVATION_MILESTONES.length + 4} className="py-6 text-center text-aco/50">
+                    Nenhum tenant ainda.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

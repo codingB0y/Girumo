@@ -131,7 +131,7 @@
 **Fazer:** na tela `/painel/campanhas/nova`, passo inicial opcional "Qual o objetivo?": **Lançar novidade** · **Girar estoque parado** · **Reativar grupos** · **Semana de reposição** · **Do zero**. Cada objetivo = preset (nome, mensagem-modelo, dica de horário, sugestão de grupos). Copys em `src/lib/campaign-presets.ts` — revisão de texto pelo Igor antes do merge (marcar TODO). Integrar com a biblioteca se ela tiver conteúdo (ver P1.14).
 **Aceite:** escolher objetivo pré-preenche a campanha; "Do zero" = fluxo atual intocado.
 
-## [ ] P1.13 🟢 `/health` honesto + alerta de desconexão pro lojista
+## [x] P1.13 🟢 `/health` honesto + alerta de desconexão pro lojista
 **Contexto:** `hubflow-engine/index.js` (~linha 9): `/health` responde 200 mesmo deslogado (ENGINE_AUDIT item 9). Disparo que não sai = venda perdida em silêncio. ⚠️ NÃO tocar no anti-ban.
 **Fazer:**
 1. Engine: `/health` → `{status, connected, lastEventAt}` com **503 quando desconectado** (manter um `/live` sempre-200 pro orquestrador não matar o container em loop — conferir healthcheck do Coolify em `deploy/coolify/*` antes, pra não causar restart-loop).
@@ -144,7 +144,7 @@
 **Fazer:** (1) abrir e mapear o que existe (página, API `templates`, store, seed); (2) se vazia: popular com 15–20 copys reais de atacado por categoria (novidade, reposição, evento, reativação, boas-vindas) — conteúdo com Igor/Mega Stock, estrutura via seed em `api/templates` ou migração de seed; (3) botão "usar essa copy" que leva pra nova campanha/disparo com o texto aplicado (via preset de P1.11).
 **Aceite:** biblioteca abre com conteúdo navegável por categoria e "usar" funciona; se o conteúdo real não estiver pronto, entregar a mecânica + 5 copys aprovadas (não inventar 20 copys sem revisão).
 
-## [ ] P1.15 🟢 Instrumentar funil de ativação (admin)
+## [x] P1.15 🟢 Instrumentar funil de ativação (admin)
 **Contexto:** é o item 20 do Sprint 4 (TASK_PROGRESS); `funnel_events` já tem migração (`20260701020000_funnel_events.sql`).
 **Fazer:** registrar eventos por tenant nos marcos: connected, first_campaign, first_lead, leads_50, first_order, goal_set (hooks nos endpoints que já processam essas ações — ex.: `POST /api/orders` registra first_order se for o 1º). Tela `/admin/funnel`: tabela tenants × marcos com idade da conta e tempo até cada marco; destacar contas paradas há >5 dias no mesmo marco (são os refunds de amanhã).
 **Aceite:** eventos idempotentes (1º pedido registra 1×); tela admin lista todos os tenants com marcos e tempos corretos.
