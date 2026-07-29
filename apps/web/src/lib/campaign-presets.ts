@@ -2,9 +2,9 @@
  * Presets de campanha por objetivo (P1.12) — usados pelo passo "Qual o objetivo?"
  * da nova campanha e pelo deep-link de reativação (P1.11).
  *
- * TODO(Igor): revisar os textos de `message` antes do merge. São sugestões pra o
- * lojista COPIAR e postar junto do link de captação nos grupos — NÃO são enviadas
- * automaticamente (regra anti-ban: nenhum template manda mensagem sozinho).
+ * As `message` são sugestões pra o lojista COPIAR e postar junto do link de
+ * captação nos grupos — NÃO são enviadas automaticamente (regra anti-ban: nenhum
+ * template manda mensagem sozinho). Copy aprovada pelo Igor (29/jul).
  *
  * Módulo puro (sem I/O, sem server-only) — importável no cliente e testável.
  */
