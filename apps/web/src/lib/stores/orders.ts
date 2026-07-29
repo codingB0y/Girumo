@@ -38,6 +38,16 @@ export async function listOrders(): Promise<Order[]> {
   return (data ?? []) as Order[];
 }
 
+/** Total de pedidos do tenant (parametrizado — ao contrário de listOrders que deriva o tenant da sessão). */
+export async function countOrders(tenantId: string): Promise<number> {
+  const { count, error } = await getSupabaseAdmin()
+    .from("orders")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId);
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
+
 export async function addOrder(input: {
   phone?: string;
   leadId?: string;
