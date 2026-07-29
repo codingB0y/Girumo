@@ -1,10 +1,14 @@
 /**
- * Entrypoint do worker de captura de leads (F3b).
+ * Entrypoint do worker (F3b + camada 1 do executor de automações).
  *
- * Faz uma coisa só: drena `engine_events` e grava leads via upsert_lead. Não
- * envia mensagem nenhuma (escopo SÓ GRUPOS da F3). O envio anti-ban entra na F4.
+ * Dois loops no mesmo ciclo: drena `engine_events` e grava leads via
+ * upsert_lead (não envia mensagem — escopo SÓ GRUPOS da F3); e avança runs de
+ * `automation_runs` um passo por vez (camada 1 do plano em
+ * docs/superpowers/plans/2026-07-29-automations-executor.md). Nada cria runs
+ * de automação ainda — os gatilhos são a camada 2, ainda não implementada.
  */
 
+import { makeAutomationDeps, runAutomationsTick } from "./automations-loop.js";
 import { loadEnv } from "./env.js";
 import { makeDeps, runTick } from "./event-loop.js";
 import { startHealthServer, type HealthState } from "./health.js";
@@ -19,6 +23,7 @@ async function main(): Promise<void> {
   const env = loadEnv();
   const supabase = createSupabaseClient(env.supabaseUrl, env.supabaseServiceKey);
   const deps = makeDeps(supabase);
+  const automationDeps = makeAutomationDeps(supabase);
 
   const state: HealthState = { healthy: true, lastTickAt: null, lastError: null };
   const server = startHealthServer(env.healthPort, () => state);
@@ -42,11 +47,20 @@ async function main(): Promise<void> {
   while (!stopping) {
     try {
       const summary = await runTick(supabase, deps, env.batchSize, env.requeueAfterSeconds);
+      const automationsSummary = await runAutomationsTick(
+        supabase,
+        automationDeps,
+        env.batchSize,
+        env.requeueAfterSeconds,
+      );
       state.lastTickAt = Date.now();
       state.healthy = true;
       state.lastError = null;
       if (summary.claimed > 0) {
         log.info("ciclo", summary);
+      }
+      if (automationsSummary.claimed > 0) {
+        log.info("ciclo automacoes", automationsSummary);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "erro desconhecido";
