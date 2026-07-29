@@ -1,0 +1,12 @@
+-- funnel_events.user_id passa a ser opcional.
+--
+-- Marcos de ativação disparados pela engine não têm usuário logado: o heartbeat
+-- de sessão (qr_connected) e o ingest de leads (first_lead_captured, leads_50)
+-- chegam via x-engine-token, sem sessão de usuário. O evento é do TENANT, não de
+-- um usuário — user_id é atribuição secundária.
+--
+-- Antes disso a coluna era `uuid not null`; um insert sem user_id (ou com um
+-- sentinela não-uuid como "system") falhava calado, já que trackFunnelEvent é
+-- best-effort (loga, não lança). Tornar opcional deixa os marcos tenant-level
+-- serem registrados corretamente.
+alter table funnel_events alter column user_id drop not null;
