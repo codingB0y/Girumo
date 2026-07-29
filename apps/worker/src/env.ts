@@ -16,6 +16,15 @@ export type WorkerEnv = {
   requeueAfterSeconds: number;
   /** Porta do endpoint /health (healthcheck do Coolify). */
   healthPort: number;
+  /**
+   * Config da Evolution API para o loop de ENVIO (F4). Opcional: sem as duas, o
+   * worker roda só a captura de leads (loop B) e o sender fica desligado —
+   * mesma postura fail-safe do worker legado sem config Supabase.
+   */
+  evolutionApiUrl: string | null;
+  evolutionApiKey: string | null;
+  /** Máximo de comandos de envio por claim (o anti-ban do claim limita o resto). */
+  sendBatchSize: number;
 };
 
 function required(name: string): string {
@@ -36,6 +45,11 @@ function intEnv(name: string, fallback: number, min: number): number {
   return parsed;
 }
 
+function optionalEnv(name: string): string | null {
+  const raw = process.env[name];
+  return raw && raw.trim().length > 0 ? raw.trim() : null;
+}
+
 export function loadEnv(): WorkerEnv {
   return {
     supabaseUrl: required("SUPABASE_URL"),
@@ -44,5 +58,8 @@ export function loadEnv(): WorkerEnv {
     batchSize: intEnv("WORKER_BATCH_SIZE", 20, 1),
     requeueAfterSeconds: intEnv("WORKER_REQUEUE_AFTER_SECONDS", 300, 30),
     healthPort: intEnv("WORKER_HEALTH_PORT", 3002, 1),
+    evolutionApiUrl: optionalEnv("EVOLUTION_API_URL"),
+    evolutionApiKey: optionalEnv("EVOLUTION_API_KEY"),
+    sendBatchSize: intEnv("WORKER_SEND_BATCH_SIZE", 10, 1),
   };
 }

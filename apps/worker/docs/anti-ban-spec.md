@@ -2,8 +2,10 @@
 
 > Status: **DECISÃO TOMADA → Opção C (cota/estado no banco)** — Igor, 2026-07-29.
 > Escopo: `apps/worker` (worker novo, TS) falando com a Evolution API. **Não toca `apps/web`.**
-> Fatias: (1) fundação de banco — estado por instância + RPCs + warmup em SQL ← ESTA;
-> (2) senders + fiação no worker + testes; (3) fan-out broadcast + prioridade.
+> Fatias: (1) fundação de banco — estado por instância + RPCs + warmup em SQL ✅;
+> (2) senders + fiação no worker + testes ✅ (evolution-sender / send-command /
+> send-loop; loop de envio no index, gated em EVOLUTION_API_*); (3) fan-out
+> broadcast + prioridade + validação e2e no cutover.
 
 ## 1. O que a F4 precisa entregar
 
