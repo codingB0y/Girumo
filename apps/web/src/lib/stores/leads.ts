@@ -33,6 +33,16 @@ export type Lead = {
 
 const TABLE = "leads";
 
+/** Total de leads do tenant (head+count, sem puxar as linhas). */
+export async function countLeads(tenantId: string): Promise<number> {
+  const { count, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId);
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
+
 export async function listLeads(tenantId: string): Promise<Lead[]> {
   const { data, error } = await getSupabaseAdmin()
     .from(TABLE)

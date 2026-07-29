@@ -38,7 +38,7 @@ export async function listOrders(): Promise<Order[]> {
   return (data ?? []) as Order[];
 }
 
-/** Total de pedidos do tenant (para o marco de funil first_order). */
+/** Total de pedidos do tenant (parametrizado — ao contrário de listOrders que deriva o tenant da sessão). */
 export async function countOrders(tenantId: string): Promise<number> {
   const { count, error } = await getSupabaseAdmin()
     .from("orders")
