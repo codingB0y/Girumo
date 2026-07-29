@@ -89,7 +89,7 @@
 
 # P1 — Dias 30–60
 
-## [ ] P1.8 🟣 Playbook "Primeiros 30 dias" dentro do painel
+## [x] P1.8 🟣 Playbook "Primeiros 30 dias" dentro do painel
 **Objetivo:** produtizar o método Mega Stock como checklist vivo que substitui o vazio pós-onboarding. O maior item do plano — planejar com Opus antes de codar.
 **Modelo de dados:** tabela `playbook_progress (tenant_id, step_key text, done_at timestamptz, pk(tenant_id, step_key))` com RLS padrão; passos definidos em código (`src/lib/playbook/steps.ts`), não no banco.
 **Passos do playbook v1 (conteúdo — validar com Igor antes de codar):**
