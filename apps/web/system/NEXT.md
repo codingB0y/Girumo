@@ -3,6 +3,72 @@
 > Status 2026-06-24: plano legado. A migracao atual usa Supabase Auth, Supabase Postgres/RLS/Storage,
 > Stripe e engine em VPS/Coolify. Prisma, Neon e Asaas nao sao mais o caminho alvo.
 
+---
+
+# 📍 COMECE AQUI — estado em 2026-07-29
+
+**Onde o Sprint 5 (Baileys → Evolution) parou:** F0–F4 entregues. A lista de **código** da F5 está
+**fechada** — o que falta para o cutover é infra e o teste de fogo, e isso depende do Igor (ver
+"Bloqueado" abaixo). Tudo abaixo desta seção é **histórico**: útil para entender o porquê, não é
+frente de trabalho.
+
+### Em revisão — PR #34, branch `claude/sprint5-f4-anti-ban-naeboe`
+
+Quatro entregas:
+1. **Anti-ban por número, no banco** — estado em `instance_send_state`/`instance_sends`, gate embutido
+   no claim (`claim_send_commands`). O governor do engine legado era em memória e só era correto
+   porque 1 processo = 1 número; o worker é multi-tenant e escala para N réplicas.
+2. **Senders completos** — `send_media`, `send_poll` e `mentionsEveryOne`, com a precedência do legado
+   (enquete > mídia > texto). URL da mídia assinada **no envio**, não no enfileiramento.
+3. **Bug da F4 corrigido** — `requeue_expired_commands` nunca era chamado; agora roda no
+   `housekeeping.ts`, **fora** do gate de Evolution.
+4. **Ponte disparo → fila** (era o bloqueador da F5) — `app.enqueue_broadcast` (fan-out transacional),
+   `reconcile_broadcast_progress` (roll-up por agregado, sem trigger) e `promote_due_schedules`.
+
+Prova executável: `infra/tests/dispatch-fanout-smoke.sql` (12 blocos de asserção).
+
+### 🔴 Bloqueado no Igor — nenhum chat consegue fazer isto
+
+1. **Aplicar as 3 migrations** no dev e prod, na ordem do `deploy/supabase/apply-order.txt`
+   (`engine_antiban_state`, `dispatch_fanout`, `retire_refresh_status`).
+2. **Setar `EVOLUTION_API_KEY`** (e `EVOLUTION_NETWORK` se o Coolify prefixar a rede) no worker.
+3. **Bloquear `/manager` no proxy** — pendência desde a F1 (`deploy/coolify/README.evolution.md`).
+4. **Smoke e2e**, incluindo ⚠️ **validar `sendMedia`/`sendPoll` contra a Evolution real** — esses dois
+   shapes **nunca tocaram a instância** (o smoke da F1 só exercitou `sendText`). Seguem a API v2
+   documentada e estão isolados no sender, marcados com `⚠️` no código.
+
+### 🟠 Decisões em aberto
+
+- **`/api/engine/commands` fica ou sai?** Depois que o painel morto (`instances-panel.tsx`) saiu, a
+  rota está com **zero chamadores no código** — o executor de automações enfileira direto do worker,
+  sem HTTP. O mapa do cutover abaixo a lista como "FICA (é produtor da fila)", mas isso foi escrito
+  quando ela ainda tinha uso.
+- **Fan-out de `campaign_messages`.** `enqueueCampaignMessage` marca `queued` e ninguém consome — nem
+  o engine legado, que só claima `broadcasts`. Bug **pré-existente**, não regressão do cutover, então
+  não bloqueia a F5. Deixa `messages-agenda.tsx` sem progresso real. O desenho já usa `origin_kind`,
+  então estender é uma `app.enqueue_campaign_message` quase idêntica + um braço no reconciliador.
+
+### ⚠️ Duas armadilhas
+
+- **Não desligar o Baileys antes do e2e passar.** A convivência é segura por construção — o claim
+  legado filtra `run_id is null`, então os dois motores rodam juntos sem disparo duplo. Mas desligar
+  antes de provar o motor novo **para o disparo**.
+- **`infra/scripts/apply-supabase-sql.sh` está defasado** — tem 6 arquivos hardcoded contra as 30
+  entradas do `apply-order.txt` que a versão `.ps1` lê. O `docs/FASE_7_DEPLOY.md:109` manda usar o
+  `.sh` no Linux/macOS: aplicaria schema incompleto **em silêncio**, exatamente no passo 1 acima. Use
+  o `.ps1`, ou aplique na mão pelo `apply-order.txt`. **Não corrigido** — pendência aberta.
+
+### Ordem de leitura
+
+Este bloco → `TASK_PROGRESS.md` (F4/F5) → corpo do PR #34 → `system/API_CONTRACTS.md` (seção "Motor de
+disparo de BROADCAST") → os blocos de histórico abaixo.
+
+> **Nota de método:** o smoke SQL foi rodado num **Postgres 16 descartável montado à mão** (initdb +
+> stub do schema `auth` + roles do Supabase + `apply-order.txt`). **Não existe runner no repo** — quem
+> for repetir monta de novo; o cabeçalho do `dispatch-fanout-smoke.sql` descreve o setup.
+
+---
+
 ## HANDOFF → lane Banco/API (Sprint 5 · F5 cutover) — 2026-07-29
 
 Levantado durante a **F4** (PR #34) numa varredura do que o cutover (F5) desliga.
