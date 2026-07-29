@@ -5,7 +5,7 @@
 |---|---|---|
 | Essencial | **197** | 1 número, até 3 grupos, anti-ban+aquecimento, disparo+agendamento, boas-vindas+modelos, funil básico |
 | **Growth ⭐** | **297** | Tudo + grupos ilimitados + ATRAIR (anúncio Meta+indicação) + MEDIR completo (recompra/atividade/pedidos) + suporte WhatsApp |
-| Performance Max | **497** | Tudo do Growth + a gente opera setup e ofertas com você (DFY) + revisão estratégica mensal 1:1 + prioridade |
+| Operação *(renomeado de "Performance Max")* | **497** | Tudo do Growth + a gente opera setup e ofertas com você (DFY) + revisão estratégica mensal 1:1 + prioridade |
 
 Destaque = Growth (297), o do meio. Value metric: flat por número de WhatsApp (1 número/conta hoje).
 
@@ -14,7 +14,7 @@ Com ticket médio ~R$250-300, **R$7-8k MRR ≈ 25-30 clientes** (não 7-8). Isso
 (o cliente opera sozinho) — porque a R$197-497 NÃO cabe operar feito-para-você no teto de 30min/dia/cliente
 (25 clientes × 30min = 12h/dia, inviável). Ou seja, com estes preços o modelo vira:
 - Essencial/Growth = SELF-SERVICE (escalável, churn é o risco — precisa de bom onboarding no app).
-- Performance Max (497) = único DFY, e poucos (cabem no tempo).
+- Operação (497) = único DFY, e poucos (cabem no tempo).
 A recomendação original do analista (DFY R$997, ~7-8 clientes) foi REJEITADA por Igor em favor de preço
 de entrada acessível (mais clientes, ticket menor). Decisão consciente. Acompanhar churn de perto.
 

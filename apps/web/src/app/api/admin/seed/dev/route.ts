@@ -153,9 +153,9 @@ export async function POST() {
     if ((existingPlans ?? []).length === 0) {
       const plans = [
         { code: "free", name: "Free", price_cents: 0 },
-        { code: "essencial", name: "Essencial", price_cents: 9700 },
-        { code: "growth", name: "Growth", price_cents: 19700 },
-        { code: "performance", name: "Performance Max", price_cents: 39700 },
+        { code: "essencial", name: "Essencial", price_cents: 19700 },
+        { code: "growth", name: "Growth", price_cents: 29700 },
+        { code: "performance", name: "Operação", price_cents: 49700 },
       ];
       const { data: inserted } = await supabase.from("plans").insert(plans).select("id, code");
       for (const p of inserted ?? []) planIds[p.code] = p.id;

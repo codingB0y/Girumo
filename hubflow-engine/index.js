@@ -8,6 +8,11 @@ function healthPayload() {
   const ready = whatsappConnected && supabaseReady;
   return {
     ok: ready,
+    // Status legível pra healthcheck externo (Coolify usa /health; ver deploy/coolify).
+    status: ready ? "ok" : "degraded",
+    connected: whatsappConnected,
+    // Última transição de conexão observada (connection.update). null até o 1º evento.
+    lastEventAt: lastConnectionEventAt,
     service: "hubflow-engine",
     whatsappConnected,
     supabaseWorker: supabaseCommandWorkerStarted,
@@ -235,6 +240,7 @@ let dispatchTimer = null; // intervalo que puxa ofertas a disparar do app
 let connectedSince = null; // quando a sessão atual abriu (p/ "conectado há X dias")
 let reconnectAttempts = 0; // p/ backoff exponencial — zera ao conectar de fato
 let currentSocket = null; // socket Baileys ativo, usado pelo worker Supabase
+let lastConnectionEventAt = null; // ISO da última transição connection.update (health)
 let supabaseCommandWorkerStarted = false;
 const supabaseCommandWorker = createSupabaseCommandWorker({
   getSocket: () => currentSocket,
@@ -679,6 +685,7 @@ async function start() {
 
   sock.ev.on("connection.update", async (update) => {
     const { connection, lastDisconnect, qr } = update;
+    if (connection) lastConnectionEventAt = new Date().toISOString();
 
     if (qr) {
       console.log("\n📲 Abra o WhatsApp > Aparelhos conectados > Conectar aparelho");

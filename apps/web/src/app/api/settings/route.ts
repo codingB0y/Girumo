@@ -4,15 +4,32 @@ import { getTenantSettings, updateTenantSettings } from "@/lib/stores/tenant-set
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// GET /api/settings — preferências do tenant (ex.: relatório semanal por e-mail).
+// GET /api/settings — settings do tenant autenticado (meta do mês, relatório semanal, etc).
 export async function GET(req: Request) {
-  const { tenantId } = await getRouteTenantContext(req, { allowEngine: false });
-  return Response.json(await getTenantSettings(tenantId));
+  let tenantId: string;
+  try {
+    ({ tenantId } = await getRouteTenantContext(req, { allowEngine: false }));
+  } catch (e) {
+    if (e instanceof Response) return e;
+    return Response.json({ error: (e as Error).message }, { status: 500 });
+  }
+  try {
+    return Response.json(await getTenantSettings(tenantId));
+  } catch (e) {
+    return Response.json({ error: (e as Error).message }, { status: 500 });
+  }
 }
 
-// PATCH /api/settings — lojista liga/desliga preferências.
+// PATCH /api/settings — Body: { weeklyReportEnabled?: boolean, monthlyGoalContacts?: number|null, monthlyGoalRevenue?: number|null }
 export async function PATCH(req: Request) {
-  const { tenantId } = await getRouteTenantContext(req, { allowEngine: false });
+  let tenantId: string;
+  try {
+    ({ tenantId } = await getRouteTenantContext(req, { allowEngine: false }));
+  } catch (e) {
+    if (e instanceof Response) return e;
+    return Response.json({ error: (e as Error).message }, { status: 500 });
+  }
+
   let body: Record<string, unknown>;
   try {
     body = await req.json();
@@ -20,9 +37,20 @@ export async function PATCH(req: Request) {
     return Response.json({ error: "JSON inválido." }, { status: 400 });
   }
 
-  const partial: { weeklyReportEnabled?: boolean } = {};
-  if (typeof body.weeklyReportEnabled === "boolean") partial.weeklyReportEnabled = body.weeklyReportEnabled;
+  const input: { weeklyReportEnabled?: boolean; monthlyGoalContacts?: number | null; monthlyGoalRevenue?: number | null } = {};
+  if (typeof body.weeklyReportEnabled === "boolean") input.weeklyReportEnabled = body.weeklyReportEnabled;
+  if ("monthlyGoalContacts" in body) {
+    const v = body.monthlyGoalContacts;
+    input.monthlyGoalContacts = v === null ? null : Number(v);
+  }
+  if ("monthlyGoalRevenue" in body) {
+    const v = body.monthlyGoalRevenue;
+    input.monthlyGoalRevenue = v === null ? null : Number(v);
+  }
 
-  const settings = await updateTenantSettings(tenantId, partial);
-  return Response.json(settings);
+  try {
+    return Response.json(await updateTenantSettings(tenantId, input));
+  } catch (e) {
+    return Response.json({ error: (e as Error).message }, { status: 500 });
+  }
 }

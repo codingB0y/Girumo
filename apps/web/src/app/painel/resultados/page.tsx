@@ -10,27 +10,33 @@ import type { Group } from "@/lib/mock-data";
 type Campanha = { id: string; name: string; groupIds: string[]; slug?: string; createdAt: string };
 type TrackedLink = { campaignName?: string; clicks: number };
 type Lead = { status: "novo" | "ativo" | "comprou" };
+type Order = { id: string; value: number; group_name?: string | null };
+
+const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function PainelResultados() {
   const [campanhas, setCampanhas] = useState<Campanha[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [links, setLinks] = useState<TrackedLink[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
-        const [c, g, l, le] = await Promise.all([
+        const [c, g, l, le, o] = await Promise.all([
           fetch("/api/campanhas").then((r) => r.json()).catch(() => []),
           fetch("/api/groups").then((r) => r.json()).catch(() => []),
           fetch("/api/links").then((r) => r.json()).catch(() => []),
           fetch("/api/leads").then((r) => r.json()).catch(() => []),
+          fetch("/api/orders").then((r) => r.json()).catch(() => []),
         ]);
         setCampanhas(Array.isArray(c) ? c : []);
         setGroups(Array.isArray(g) ? g : []);
         setLinks(Array.isArray(l) ? l : []);
         setLeads(Array.isArray(le) ? le : []);
+        setOrders(Array.isArray(o) ? o : []);
       } finally {
         setLoading(false);
       }
@@ -39,8 +45,21 @@ export default function PainelResultados() {
 
   const totalClicks = useMemo(() => links.reduce((a, l) => a + (l.clicks ?? 0), 0), [links]);
   const totalMembers = useMemo(() => groups.reduce((a, g) => a + (g.members ?? 0), 0), [groups]);
+  const totalEntradas = leads.length;
   const clientes = useMemo(() => leads.filter((l) => l.status === "comprou").length, [leads]);
-  const conv = totalClicks > 0 ? Math.round((totalMembers / totalClicks) * 100) : 0;
+  // Conversão = entradas atribuídas (leads) ÷ cliques — totalMembers é estoque e pode passar de 100%.
+  const conv = totalClicks > 0 ? Math.round((totalEntradas / totalClicks) * 100) : 0;
+
+  const totalOrdersValue = useMemo(() => orders.reduce((a, o) => a + (o.value ?? 0), 0), [orders]);
+
+  const ordersByGroup = useMemo(() => {
+    const sums = new Map<string, number>();
+    for (const o of orders) {
+      const key = o.group_name?.trim() || "Sem grupo";
+      sums.set(key, (sums.get(key) ?? 0) + (o.value ?? 0));
+    }
+    return [...sums.entries()].map(([group, total]) => ({ group, total })).sort((a, b) => b.total - a.total);
+  }, [orders]);
 
   const activity = useMemo(() => {
     const c = { alto: 0, medio: 0, baixo: 0 };
@@ -66,8 +85,8 @@ export default function PainelResultados() {
 
   const funnel = [
     { icon: MousePointerClick, label: "Clicaram no link", value: totalClicks, pct: 100 },
-    { icon: Users, label: "Entraram no grupo", value: totalMembers, pct: conv },
-    { icon: ShoppingBag, label: "Viraram clientes", value: clientes, pct: totalClicks > 0 ? Math.round((clientes / totalClicks) * 100) : 0 },
+    { icon: Users, label: "Entraram no grupo", value: totalEntradas, pct: conv },
+    { icon: ShoppingBag, label: "Viraram pedidos", value: orders.length, pct: totalClicks > 0 ? Math.round((orders.length / totalClicks) * 100) : 0 },
   ];
 
   if (loading) {
@@ -89,11 +108,12 @@ export default function PainelResultados() {
         </p>
       </header>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Tile label="Cliques" value={totalClicks.toLocaleString("pt-BR")} />
         <Tile label="Membros" value={totalMembers.toLocaleString("pt-BR")} />
-        <Tile label="Conversão clique→membro" value={`${conv}%`} tone="cobalt" />
+        <Tile label="Conversão clique→entrada" value={`${conv}%`} tone="cobalt" />
         <Tile label="Clientes" value={clientes.toLocaleString("pt-BR")} tone="sucesso" />
+        <Tile label="Vendas registradas" value={brl.format(totalOrdersValue)} tone="sucesso" />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
@@ -174,6 +194,39 @@ export default function PainelResultados() {
         <Link href="/painel/campanhas" className="font-data mt-5 inline-flex items-center gap-1 text-[11px] uppercase tracking-[0.08em] text-cobalt-500 transition-[gap] duration-[160ms] hover:gap-1.5">
           Ver campanhas →
         </Link>
+      </div>
+
+      {/* De onde veio cada venda */}
+      <div className="pn-card rounded-2xl p-6">
+        <h2 className="font-display text-base font-bold text-volt-950">De onde veio cada venda</h2>
+        {orders.length === 0 ? (
+          <p className="font-editorial mt-4 text-[17px] italic text-ardosia">
+            Registre seus pedidos na tela Contatos pra ver o caminho completo até a venda.
+          </p>
+        ) : (
+          <div className="mt-5 space-y-4">
+            {ordersByGroup.map((o) => {
+              const max = ordersByGroup[0]?.total || 1;
+              const pct = Math.round((o.total / max) * 100);
+              return (
+                <div key={o.group} className="flex items-center gap-4">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sucesso/10 text-sucesso">
+                    <ShoppingBag className="h-4 w-4" strokeWidth={1.75} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between">
+                      <p className="truncate text-sm text-volt-950">{o.group}</p>
+                      <p className="font-data text-sm font-medium tabular-nums text-volt-950">{brl.format(o.total)}</p>
+                    </div>
+                    <div className="pn-poco mt-1.5 h-1.5 w-full overflow-hidden rounded-full">
+                      <div className="pn-fill h-full w-full rounded-full bg-sucesso" style={{ transform: `scaleX(${Math.max(pct / 100, 0.02)})` }} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
