@@ -45,7 +45,7 @@ export function makeDeps(supabase: SupabaseClient): CaptureDeps {
     },
 
     async upsertLead(input) {
-      const { error } = await supabase.rpc("upsert_lead", {
+      const { data, error } = await supabase.rpc("upsert_lead", {
         target_tenant_id: input.tenantId,
         // "" quando phone é null → a RPC resolve para NULL e sempre insere
         // (participante @lid não tem chave de dedupe). Igual ao leads-store.
@@ -56,6 +56,34 @@ export function makeDeps(supabase: SupabaseClient): CaptureDeps {
         target_source_campaign: null,
       });
       if (error) throw new Error(`upsertLead: ${error.message}`);
+      const leadId = (data as { id?: string } | null)?.id;
+      if (!leadId) throw new Error("upsertLead: RPC nao devolveu id do lead");
+      return leadId;
+    },
+
+    async triggerLeadEnteredAutomations({ tenantId, leadId, groupJid }) {
+      const { data: automations, error } = await supabase
+        .from("automations")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("trigger", "lead_entered")
+        .eq("enabled", true);
+      if (error) throw new Error(`triggerLeadEnteredAutomations: ${error.message}`);
+
+      for (const automation of (automations ?? []) as { id: string }[]) {
+        const { error: insertError } = await supabase.from("automation_runs").insert({
+          tenant_id: tenantId,
+          automation_id: automation.id,
+          trigger_context: { lead_id: leadId },
+          target_group_jid: groupJid,
+          dedupe_key: `lead:${leadId}:${automation.id}`,
+        });
+        // Unique violation no dedupe_key = essa automação já disparou pra esse
+        // lead antes (reentrada no grupo). Idempotente por desenho: ignora.
+        if (insertError && insertError.code !== "23505") {
+          throw new Error(`triggerLeadEnteredAutomations: ${insertError.message}`);
+        }
+      }
     },
   };
   return deps;

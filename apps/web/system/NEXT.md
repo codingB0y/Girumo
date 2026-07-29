@@ -3,37 +3,32 @@
 > Status 2026-06-24: plano legado. A migracao atual usa Supabase Auth, Supabase Postgres/RLS/Storage,
 > Stripe e engine em VPS/Coolify. Prisma, Neon e Asaas nao sao mais o caminho alvo.
 
-## 🔴 HANDOFF → lane Banco/API (Sprint 5 · F5 cutover) — 2026-07-29, levantado pela lane Engine/Worker
+## HANDOFF → lane Banco/API (Sprint 5 · F5 cutover) — 2026-07-29
 
-Levantado durante a **F4** (PR #34, worker + anti-ban portado). **NÃO executei — é lane Banco/API.**
-Os dois itens abaixo saíram de uma varredura do que o cutover (F5) desliga. O item 1 **BLOQUEIA a F5**.
+Levantado durante a **F4** (PR #34) numa varredura do que o cutover (F5) desliga.
 
-### 1. 🔴 BLOQUEADOR — a ponte disparo/broadcast → `engine_commands` não existe
+### 1. ✅ RESOLVIDO — ponte disparo → `engine_commands` (PR #34, 29/07)
 
-**Sintoma se ignorado:** ao desligar o engine legado (F5), **disparo e broadcast param de funcionar**.
+Era o bloqueador da F5: `enqueueBroadcast` só marcava `status='queued'` e quem convertia em envio
+era o engine legado, invisível para o worker. Entregue:
 
-Hoje `enqueueDispatch` (`src/lib/dispatch-store.ts:28`) e `enqueueBroadcast`
-(`src/lib/stores/broadcasts.ts:86`) apenas marcam `status = 'queued'` **nas tabelas deles** —
-**não escrevem em `engine_commands`**. Quem transforma isso em envio real é o **engine legado**,
-puxando `POST /api/dispatch/pending` (`hubflow-engine/index.js:462`) e devolvendo via
-`/api/dispatch/ack`. O worker novo (`apps/worker`) **não fala HTTP com o app** — ele consome
-`engine_commands` direto por RPC. Logo, esse trabalho fica invisível para ele.
+- **`app.enqueue_broadcast`** — fan-out transacional: 1 comando por grupo, `priority 100`,
+  `dedupe_key = bc:<broadcastId>:<runId>:<jid>`. Tipo pela precedência do legado
+  (enquete > mídia > texto): `send_message {jid,text,mentionAll}` ·
+  `send_media {jid,mediaId,mediaType,caption,mentionAll}` · `send_poll {jid,question,options[]}`.
+- **`app.reconcile_broadcast_progress`** — roll-up de `sent`/`status` por agregado sobre
+  `engine_commands` (nunca incremento: o envio é at-least-once). Sem trigger, de propósito.
+- **`app.promote_due_schedules`** — agendamento vencido dispara o fan-out de verdade.
+- **Convivência sem disparo duplo:** `claimPendingBroadcasts` filtra `run_id is null`, então o
+  engine legado ignora o que o motor novo enfileirou. Rollback trivial.
 
-**O que a lane Banco/API precisa fazer (fan-out):** ao enfileirar um disparo/broadcast, inserir
-**1 linha em `engine_commands` por destinatário**, com:
-- `type: 'send_message'` · `tenant_id` · `instance_id` (qual número envia)
-- `payload: { jid, text }` — **contrato congelado**, idêntico ao que o engine legado consumia
-  (`hubflow-engine/queues/supabase-command-worker.js:102-112`). O worker aceita também
-  `phone`/`message`/`body` por compat, mas `{jid,text}` é o canônico.
-- `priority`: `10` = welcome/urgente, `100` = fan-out de broadcast (a coluna já existe e o claim
-  do worker já ordena por ela — welcome fura a fila do broadcast sem código novo).
-- `dedupe_key` (opcional, recomendado): idempotência do enqueue, único por tenant
-  (ex.: `cm:<campaign_message_id>`, `welcome:<group_jid>:<participant>`).
+Smoke em Postgres 16 real: `infra/tests/dispatch-fanout-smoke.sql` (12 blocos).
 
-**O worker não precisa de mudança nenhuma** — ele já processa qualquer `send_message` que apareça,
-com anti-ban por número (caps 8/min·120/h·teto-diário + warmup + espaçamento + breaker).
-Ordem sugerida: publicar o fan-out **antes** do cutover, rodar os dois consumidores em paralelo
-só o tempo do smoke, e então desligar o legado.
+⚠️ **Fora desta leva:** `campaign_messages`. `enqueueCampaignMessage` marca `queued` e **ninguém
+consome** — nem o engine legado, que só claima `broadcasts`. É bug **pré-existente**, não regressão
+do cutover, então não bloqueia a F5. O desenho já usa `origin_kind`, então estender é uma
+`app.enqueue_campaign_message` quase idêntica + um segundo braço no reconciliador. Enquanto isso a
+tela `messages-agenda.tsx` segue sem progresso real — como já está hoje.
 
 ### 2. 🟠 DECISÃO PENDENTE — `refresh_status` fica órfão no cutover
 
@@ -69,6 +64,84 @@ Duas saídas (decisão da lane Banco/API, com recomendação da Engine):
 - **Deploy/CI:** workspace + scripts `engine:*` no `package.json`, `hubflow-engine/Dockerfile`,
   `deploy/coolify/engine.docker-compose.yml`, perfil `coolify` do `check-env-template.ps1:36-45`,
   e `verify-local.ps1:37,48-53` (roda `engine:test` e `node --check` no engine).
+
+## ✅ Executor de automações — FEITO (2026-07-29, PR #30)
+
+Camadas 1, 2 e 3 do plano [`docs/superpowers/plans/2026-07-29-automations-executor.md`](../../../docs/superpowers/plans/2026-07-29-automations-executor.md)
+entregues, ponta a ponta. Feature ativa: lojista liga um template em `/painel/automacoes` →
+worker cria os runs → mensagem sai no grupo via engine legado.
+
+- **Camada 1** — `automation_runs` (migração `20260729010000_automation_runs.sql`) + 4 RPCs
+  (`claim`/`advance`/`finish`/`requeue`, padrão `app.*` + wrapper `public.*`) + tick
+  `apps/worker/src/automations-loop.ts`. Smoke `infra/tests/automation-runs-smoke.sql` (12/12).
+- **Camada 2** — gatilhos: `lead_entered` no `apps/worker/src/lead-capture.ts`;
+  `group_full`/`group_stalled`/`weekly_recurring` por varredura em `apps/worker/src/automation-scans.ts`.
+- **Camada 3** — envio por `engine_commands` (`type:'send_message'`), consumido HOJE pelo engine legado.
+
+Guarda-corpo anti-DM em DUAS camadas: CHECK `@g.us` na tabela `automation_runs` + validação no enqueue
+do worker. `engine_commands.payload` aceita `phone` e mandaria DM — nunca deixar passar.
+
+⚠️ **Ponto de acoplamento com o F4 (ler antes de mexer no worker de envio):** o executor é o
+**produtor** de `engine_commands`. O F4 troca só o **consumidor** (engine legado → worker Evolution).
+Quem mexer no F4 **não pode** quebrar o contrato de payload `{jid, text}` de `type:'send_message'`,
+senão o executor para de enviar no cutover.
+
+## HANDOFF → lane Engine/Worker — F4: worker completo + anti-ban portado (2026-07-29)
+
+Estado do Sprint 5 (migração Baileys → Evolution): **F0–F3 feitos, F4 é o próximo** (ver `TASK_PROGRESS.md`).
+Hoje o envio real ainda passa pelo **engine legado Baileys** (`hubflow-engine/`), que consome
+`engine_commands` em `queues/supabase-command-worker.js:102-106` → `sendText` → fila anti-ban →
+`sock.sendMessage`. O F4 troca esse consumidor por um sender no `apps/worker` falando com a **Evolution API**.
+
+**O item que trava o F4 é o anti-ban portado — precisa de decisão de arquitetura ANTES de codar.**
+Hoje o governor de throughput vive **em memória, por processo**:
+- `AntiBanQueue.sentTimestamps[]` = janelas de envio das últimas 24h, para os caps por minuto/hora/dia
+  (`8/min`, `120/h`, `800/dia` base; warmup reduz o teto p/ número novo). Ver `index.js:105-121` +
+  `anti-ban-queue.js`.
+- Persistido em `engine-state.json` e restaurado no boot (`index.js:124-129`) — restart NÃO libera cota nova.
+- Estado adicional por processo: warmup (por número), circuit breaker (falhas consecutivas), delivery tracker.
+
+O problema: com **N réplicas de worker** consumindo uma fila Postgres única, cada réplica teria seu próprio
+`sentTimestamps` e cada uma liberaria 8/min → na prática N×8/min pro mesmo número = **risco de ban**.
+
+⚠️ **Nuance que muda o porte:** o cap de hoje é **global ao processo** (`maxPerMinute:8`), e funciona só
+porque no engine legado **1 processo = 1 número**. No worker, se uma réplica atender N instâncias, um cap
+global estrangularia *todos os números somados* a 8/min. Então **o governor tem que virar por-número**
+(chaveado por `instance_id`), não global — em QUALQUER das opções abaixo. Isso é porte real, não cópia.
+
+Três caminhos, do mais simples ao mais correto:
+
+- **(A) Sender único** — uma réplica só faz envio (as outras fazem captura/automações/varredura). O governor
+  por-processo de hoje já está correto pra 1 processo; é literalmente o que o engine legado faz. Prós: mínimo
+  esforço, reusa `anti-ban-queue.js`. Contras: sem escala horizontal de envio, ponto único (mas é o status quo).
+- **(B) Afinidade instância→worker (sharding)** — cada instância (número) pertence a exatamente uma réplica,
+  que mantém o governor em memória pros seus números. Precisa de camada de ownership (advisory lock / tabela
+  de assignment) + failover quando uma réplica morre (o lease de `engine_commands` já cobre o job, mas o
+  estado do governor teria que ser reconstruído da janela no banco no failover). Prós: escala e reusa a lógica.
+  Contras: lógica de ownership/rebalance é trabalho real.
+- **(C) Cota no banco** — Postgres vira fonte de verdade do governor: uma tabela de janelas por
+  `(instance_id, minuto/hora/dia)`, e reservar um slot de envio é uma checagem transacional antes do send.
+  Prós: correto sob N réplicas por construção, sobrevive a restart nativamente. Contras: mais trabalho de
+  design (a query de janela) + um round-trip por slot (barato, já que é ≤8/min/número). O jitter gaussiano
+  entre mensagens continua local — é pacing por-mensagem, não cap global.
+
+**✅ DECISÃO (2026-07-29, Igor): opção A — sender único.** Justificativa: é o porte menos arriscado do item
+mais perigoso do sprint, e pra ~10 contas (estimativa F1) um processo paceia 10 números × 8/min de sobra.
+Escala horizontal (B/C) fica pra quando o volume exigir — deixar o seam preparado, não construir agora.
+**Implicação concreta pro F4:** (1) refazer o governor por-`instance_id` (não global — ver nuance acima),
+mesmo com sender único, senão os números competem pela mesma cota; (2) rodar o loop de envio em UMA réplica
+só (as outras réplicas seguem com captura/automações/varredura); (3) persistir as janalas por-número
+(equivalente ao `engine-state.json` de hoje, mas keyed por instância) pra restart não liberar cota nova.
+
+Restrições invioláveis (ver `hubflow-engine/DECISIONS.md`): anti-ban = **só controle operacional seguro**,
+proibido fingerprint/proxy/stealth/evasão. E o sender novo **tem que honrar o mesmo contrato de payload**
+de `engine_commands` (`{jid, text}`) — senão quebra o executor de automações (acima).
+
+**Primeiro passo do novo chat:** com a decisão A já fechada, detalhar o desenho do governor por-`instance_id`
+(onde vive o `sentTimestamps` por número, como persiste, como o sender único é eleito) e então implementar:
+sender Evolution + lease/retry (o `engine_commands` já tem lease/retry/priority desde `engine_queue_v2`) +
+fan-out de broadcast. Fora do F4 fica o cutover (F5: desligar engine legado, deletar rotas engine-only) e a
+limpeza (F6).
 
 ## ÉPICO "Contas + Billing" (login/cadastro/plano/assinatura/pagamento/financeiro/vencimento) — 2026-06-23
 Decisões (Igor): **Híbrido** (modelo certo já; cadastro+pagamento MANUAL agora; checkout/recorrência

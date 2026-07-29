@@ -18,8 +18,8 @@ Plano aprovado em 2026-07-13 (`~/.claude/plans/quero-migrar-o-hubflow-eager-mins
   - [x] Contratos reais documentados no README (evento em `kebab.dot`, `enabled:true`, apikey no payload, MESSAGES_UPDATE = status)
   - [ ] **PENDENTE:** bloquear `/manager` (público, protegido só pela API key) — fazer na F5, antes de produção
   - Consumo com stack idle: ~640MB/3.8GB. Estimativa 10 contas: ~2,3–3GB.
-- [ ] F2 — Lifecycle de instância no web (client, webhook receiver, painel conectar refeito)
-- [ ] F3 — Lead capture via worker mínimo (loop B)
+- [x] F2 — Lifecycle de instância no web (client, webhook receiver, painel conectar refeito) ✅ (commits `e752ff8e`, `1c49a9a7`, `0f2a3d2f`, `098cc3cd` — 26–27/07)
+- [x] F3 — Lead capture via worker mínimo (loop B) ✅ (F3a `3f0a9afb` + F3b `f5157bee` — `apps/worker` consumindo `engine_events`)
 - [~] F4 — Worker completo (anti-ban portado, senders, lease/retry, fan-out broadcast) — **código pronto e validado, aguarda apply + e2e** (PR #34)
   - [x] **Decisão anti-ban: opção C — cota/estado no banco** (spec em `apps/worker/docs/anti-ban-spec.md`).
         Motivo: o governor do engine legado era em memória e correto só porque 1 processo = 1 número;
@@ -38,11 +38,18 @@ Plano aprovado em 2026-07-13 (`~/.claude/plans/quero-migrar-o-hubflow-eager-mins
   - [x] Deploy: `worker.docker-compose.yml` passa `EVOLUTION_API_URL/KEY` + anexa à rede da Evolution
         (externa); `README.evolution.md` com os passos. Validado com `docker compose config`.
   - [x] **Contrato `{jid,text}` de `send_message` preservado** — executor de automações (PR #30) intacto no cutover.
-  - [ ] **Aplicar a migration** no dev e prod (fluxo `apply-order.txt`) — ANTES de ligar o loop de envio.
+  - [x] **Mídia, enquete e @todos no worker** (`send_media`/`send_poll` + `mentionsEveryOne`), com a
+        precedência do legado (enquete > mídia > texto). URL da mídia assinada **no envio**, não no
+        enqueue (a fila anti-ban pode segurar o comando por horas). `media-id.ts` valida que o
+        storage path pertence ao tenant do comando antes de assinar. **49/49 testes, tsc limpo.**
+  - [x] **Bug corrigido:** `requeue_expired_commands` nunca era chamado (a migration dizia "worker calls
+        this every loop" e só havia um comentário). Agora em `housekeeping.ts`, **fora** do gate de
+        Evolution — manutenção da fila não depende de sender configurado.
+  - [x] **Fan-out de broadcast + roll-up de progresso** (era o bloqueador da F5, ver abaixo).
+  - [ ] **Aplicar as migrations** no dev e prod (`apply-order.txt`) — ANTES de ligar o loop de envio.
   - [ ] Setar `EVOLUTION_API_KEY` (e `EVOLUTION_NETWORK` se o Coolify prefixar a rede) no deploy do worker.
   - [ ] **Smoke e2e (teste de fogo):** worker + Evolution no dev → envio real + estado anti-ban atualizado.
-  - [ ] Fan-out de broadcast — **é da lane `apps/web`** (executor/PR #30), não do worker: o worker já processa
-        qualquer `send_message` que chegar. Prioridade JÁ funciona (welcome 10 fura broadcast 100 via `priority`).
+        **Validar `sendMedia`/`sendPoll` contra a Evolution real** — o smoke da F1 só exercitou `sendText`.
 - [ ] F5 — Cutover: engine desligado, rotas engine-only deletadas, envs ENGINE_* removidos
   - 🔴 **BLOQUEADOR (lane Banco/API) — a ponte disparo/broadcast → `engine_commands` NÃO existe.**
         `enqueueDispatch`/`enqueueBroadcast` só marcam `status='queued'` nas tabelas deles; quem converte
@@ -58,6 +65,18 @@ Plano aprovado em 2026-07-13 (`~/.claude/plans/quero-migrar-o-hubflow-eager-mins
   - [x] **Mapa do cutover levantado** (rotas engine-only, quais só perdem o POST, proxies, infra de auth
         `x-engine-token`, envs `ENGINE_*`, deploy/CI) — registrado no `NEXT.md`.
 - [ ] F6 — Limpeza: dual-mode JSON removido, SQL consolidado, retenção 30d, docs
+
+### Workstream paralelo — Executor de automações (não é parte do F4)
+
+O CRUD de `automations` existe, mas nada roda os `steps`. O executor é capacidade **nova de produto**,
+não porte do que já existe — por isso não cabe no F4. Plano:
+[`docs/superpowers/plans/2026-07-29-automations-executor.md`](docs/superpowers/plans/2026-07-29-automations-executor.md).
+
+- [ ] Camada 1 — `automation_runs` + RPCs de claim + tick no `apps/worker` (nada dispara sozinho ainda)
+- [ ] Camada 2 — triggers (`lead_entered` no lead-capture; `group_full`/`group_stalled`/`weekly_recurring` por varredura)
+- [ ] Camada 3 — envio via `engine_commands` (já funciona hoje pelo engine legado; F4 troca só o consumidor)
+
+Não bloqueia no F4 e não precisa ser reescrito depois dele.
 
 ## Sprint 1 — Segurança (P0) ✅
 1. Rotacionar Service Role Key no Supabase

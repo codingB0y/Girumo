@@ -79,3 +79,4 @@ apps/web/.ds-entry.tsx
 # Obsidian app config (lixo, não versionar)
 .obsidian/
 *.base
+.claude/settings.local.json

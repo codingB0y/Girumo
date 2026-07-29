@@ -1,15 +1,25 @@
 /**
- * Entrypoint do worker.
+ * Entrypoint do worker (F3b + executor de automações + envio da F4).
  *
- * Dois loops sobre a mesma cadência de poll:
- *   - captura (F3): drena `engine_events` → grava leads via upsert_lead;
- *   - envio (F4): drena `engine_commands` (send_message) → Evolution API, com o
- *     anti-ban aplicado no claim (claim_send_commands) e no record_send.
+ * Loops no mesmo ciclo de poll:
+ *  - drena `engine_events` e grava leads via upsert_lead (não envia mensagem
+ *    — escopo SÓ GRUPOS da F3); ao capturar um lead, já dispara `lead_entered`;
+ *  - avança runs de `automation_runs` um passo por vez (camada 1 do plano);
+ *  - a cada SCAN_INTERVAL_MS (bem mais raro que o poll), varre `group_full`,
+ *    `group_stalled` e `weekly_recurring` — os três gatilhos que não nascem
+ *    de um evento, então só têm como saber "aconteceu" varrendo o banco;
+ *  - envio (F4): drena `engine_commands` (send_message/send_media/send_poll) →
+ *    Evolution API, com o anti-ban aplicado no claim (claim_send_commands) e no
+ *    record_send. Só liga se EVOLUTION_API_URL/KEY existirem — senão o worker
+ *    roda sem enviar (mesma postura fail-safe do worker legado sem config);
+ *  - manutenção da fila: lease vencido, progresso de broadcast e agendamento.
+ *    Roda SEMPRE, inclusive sem Evolution configurada (ver housekeeping.ts).
  *
- * O loop de envio só liga se EVOLUTION_API_URL/KEY existirem — senão o worker
- * roda só a captura (mesma postura fail-safe do worker legado sem config).
+ * Plano completo em docs/superpowers/plans/2026-07-29-automations-executor.md.
  */
 
+import { makeAutomationDeps, runAutomationsTick } from "./automations-loop.js";
+import { makeScanDeps, runAutomationScansTick } from "./automation-scans.js";
 import { loadEnv, type WorkerEnv } from "./env.js";
 import { createEvolutionSender } from "./evolution-sender.js";
 import { makeDeps, runTick } from "./event-loop.js";
@@ -20,6 +30,11 @@ import type { SendDeps } from "./send-command.js";
 import { makeSendDeps, runSendTick } from "./send-loop.js";
 import { createSupabaseClient } from "./supabase.js";
 import type { SupabaseClient } from "@supabase/supabase-js";
+
+// Varredura de grupos não precisa da cadência do tick de fila (poll_ms, tipicamente
+// 3s) — rodar `groups`/`leads` inteiro nessa frequência seria puro desperdício,
+// já que o dedupe_key faz o reenvio ser sempre um no-op mesmo se rodasse toda hora.
+const SCAN_INTERVAL_MS = 5 * 60_000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -41,6 +56,9 @@ async function main(): Promise<void> {
   const env = loadEnv();
   const supabase = createSupabaseClient(env.supabaseUrl, env.supabaseServiceKey);
   const deps = makeDeps(supabase);
+  const automationDeps = makeAutomationDeps(supabase);
+  const scanDeps = makeScanDeps(supabase);
+  let lastScanAt = 0;
 
   const sendDeps = buildSendDeps(env, supabase);
   let lastPruneAt = 0;
@@ -69,11 +87,30 @@ async function main(): Promise<void> {
   while (!stopping) {
     try {
       const summary = await runTick(supabase, deps, env.batchSize, env.requeueAfterSeconds);
+      const automationsSummary = await runAutomationsTick(
+        supabase,
+        automationDeps,
+        env.batchSize,
+        env.requeueAfterSeconds,
+      );
       state.lastTickAt = Date.now();
       state.healthy = true;
       state.lastError = null;
       if (summary.claimed > 0) {
         log.info("ciclo", summary);
+      }
+      if (automationsSummary.claimed > 0) {
+        log.info("ciclo automacoes", automationsSummary);
+      }
+
+      if (Date.now() - lastScanAt >= SCAN_INTERVAL_MS) {
+        lastScanAt = Date.now();
+        const scansSummary = await runAutomationScansTick(scanDeps);
+        const totalCreated =
+          scansSummary.groupFullCreated + scansSummary.groupStalledCreated + scansSummary.weeklyRecurringCreated;
+        if (totalCreated > 0) {
+          log.info("varredura de gatilhos", scansSummary);
+        }
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "erro desconhecido";
