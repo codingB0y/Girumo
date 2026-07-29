@@ -44,6 +44,19 @@ Plano aprovado em 2026-07-13 (`~/.claude/plans/quero-migrar-o-hubflow-eager-mins
   - [ ] Fan-out de broadcast — **é da lane `apps/web`** (executor/PR #30), não do worker: o worker já processa
         qualquer `send_message` que chegar. Prioridade JÁ funciona (welcome 10 fura broadcast 100 via `priority`).
 - [ ] F5 — Cutover: engine desligado, rotas engine-only deletadas, envs ENGINE_* removidos
+  - 🔴 **BLOQUEADOR (lane Banco/API) — a ponte disparo/broadcast → `engine_commands` NÃO existe.**
+        `enqueueDispatch`/`enqueueBroadcast` só marcam `status='queued'` nas tabelas deles; quem converte
+        em envio é o engine legado via `POST /api/dispatch/pending`. O worker novo consome `engine_commands`
+        por RPC e nunca vê esse trabalho → **desligar o Baileys hoje mata disparo e broadcast.**
+        Fan-out precisa inserir 1 `engine_commands` por destinatário (`type:'send_message'`,
+        `payload:{jid,text}`, `priority` 10/100, `dedupe_key`). Worker NÃO muda. Handoff completo em
+        `apps/web/system/NEXT.md` (bloco 🔴 HANDOFF → lane Banco/API).
+  - 🟠 **Decisão pendente — `refresh_status` fica órfão.** `/api/engine/commands` aceita esse tipo, mas só
+        `claim_engine_commands` (engine legado) o drena; o worker filtra `type='send_message'`.
+        Recomendação da lane Engine: remover do `ALLOWED_TYPES` (a F2 já refez o lifecycle via Evolution
+        direto). Alternativa: `claim_control_commands` + 3º loop no worker.
+  - [x] **Mapa do cutover levantado** (rotas engine-only, quais só perdem o POST, proxies, infra de auth
+        `x-engine-token`, envs `ENGINE_*`, deploy/CI) — registrado no `NEXT.md`.
 - [ ] F6 — Limpeza: dual-mode JSON removido, SQL consolidado, retenção 30d, docs
 
 ## Sprint 1 — Segurança (P0) ✅

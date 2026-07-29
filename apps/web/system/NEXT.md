@@ -3,6 +3,73 @@
 > Status 2026-06-24: plano legado. A migracao atual usa Supabase Auth, Supabase Postgres/RLS/Storage,
 > Stripe e engine em VPS/Coolify. Prisma, Neon e Asaas nao sao mais o caminho alvo.
 
+## 🔴 HANDOFF → lane Banco/API (Sprint 5 · F5 cutover) — 2026-07-29, levantado pela lane Engine/Worker
+
+Levantado durante a **F4** (PR #34, worker + anti-ban portado). **NÃO executei — é lane Banco/API.**
+Os dois itens abaixo saíram de uma varredura do que o cutover (F5) desliga. O item 1 **BLOQUEIA a F5**.
+
+### 1. 🔴 BLOQUEADOR — a ponte disparo/broadcast → `engine_commands` não existe
+
+**Sintoma se ignorado:** ao desligar o engine legado (F5), **disparo e broadcast param de funcionar**.
+
+Hoje `enqueueDispatch` (`src/lib/dispatch-store.ts:28`) e `enqueueBroadcast`
+(`src/lib/stores/broadcasts.ts:86`) apenas marcam `status = 'queued'` **nas tabelas deles** —
+**não escrevem em `engine_commands`**. Quem transforma isso em envio real é o **engine legado**,
+puxando `POST /api/dispatch/pending` (`hubflow-engine/index.js:462`) e devolvendo via
+`/api/dispatch/ack`. O worker novo (`apps/worker`) **não fala HTTP com o app** — ele consome
+`engine_commands` direto por RPC. Logo, esse trabalho fica invisível para ele.
+
+**O que a lane Banco/API precisa fazer (fan-out):** ao enfileirar um disparo/broadcast, inserir
+**1 linha em `engine_commands` por destinatário**, com:
+- `type: 'send_message'` · `tenant_id` · `instance_id` (qual número envia)
+- `payload: { jid, text }` — **contrato congelado**, idêntico ao que o engine legado consumia
+  (`hubflow-engine/queues/supabase-command-worker.js:102-112`). O worker aceita também
+  `phone`/`message`/`body` por compat, mas `{jid,text}` é o canônico.
+- `priority`: `10` = welcome/urgente, `100` = fan-out de broadcast (a coluna já existe e o claim
+  do worker já ordena por ela — welcome fura a fila do broadcast sem código novo).
+- `dedupe_key` (opcional, recomendado): idempotência do enqueue, único por tenant
+  (ex.: `cm:<campaign_message_id>`, `welcome:<group_jid>:<participant>`).
+
+**O worker não precisa de mudança nenhuma** — ele já processa qualquer `send_message` que apareça,
+com anti-ban por número (caps 8/min·120/h·teto-diário + warmup + espaçamento + breaker).
+Ordem sugerida: publicar o fan-out **antes** do cutover, rodar os dois consumidores em paralelo
+só o tempo do smoke, e então desligar o legado.
+
+### 2. 🟠 DECISÃO PENDENTE — `refresh_status` fica órfão no cutover
+
+`POST /api/engine/commands` (`src/app/api/engine/commands/route.ts:7`) aceita `send_message`
+**e `refresh_status`**. O worker novo só claima `claim_send_commands`, que filtra
+`type = 'send_message'`. O `refresh_status` só é drenado por `claim_engine_commands` — **que só o
+engine legado chama**. Depois do cutover ele fica `queued` para sempre.
+
+**Não dá para o worker simplesmente chamar `claim_engine_commands`:** ela **não filtra por tipo**,
+então claimaria `send_message` **sem o gate anti-ban**, furando a proteção inteira.
+
+Duas saídas (decisão da lane Banco/API, com recomendação da Engine):
+- **(a) RECOMENDADO — remover `refresh_status` do `ALLOWED_TYPES`.** A F2 já refez o lifecycle de
+  instância chamando a Evolution direto (`/api/instances/[id]/actions`), então o caminho pela fila
+  virou redundante. Elimina o órfão pela raiz, sem código novo. Verificar antes se
+  `components/instances-panel.tsx:79` ainda depende dele.
+- **(b)** Se o painel ainda precisar: a lane Engine cria `claim_control_commands` (claim sem
+  anti-ban, restrito a tipos não-envio) + um 3º loop no worker. Mais caro, benefício duvidoso.
+
+### Mapa do cutover (levantado, para a F5 usar)
+- **Rotas engine-only que saem (8):** `POST` de `/api/dispatch/pending`, `/api/dispatch/ack`,
+  `/api/groups/grow/pending`, `/api/groups/grow/ack`, `/api/activity`, `/api/session`,
+  `/api/groups`, `/api/leads`. Em várias delas **só o método POST sai** — o `GET`/`PATCH` é da UI e fica.
+- **Só tirar `allowEngine`** (rota fica): `GET /api/welcome`, `GET /api/optout`, `GET /api/media/[id]`
+  (este último também serve o editor de LPs — **não deletar**).
+- **Proxies que saem inteiros:** `/api/engine/route.ts` (sem consumidor no front) e os 4
+  `admin/dev-tools/*` que batem em `ENGINE_URL`. **`/api/engine/commands` FICA** (é produtor da fila).
+- **Infra de auth que morre junto:** ramo `x-engine-token` em `lib/route-tenant-context.ts:17-44`,
+  `lib/engine-context.ts`, `ENGINE_TOKEN` em `lib/auth.ts:8-12` (já comentado "Remove na F5"),
+  `lib/security/request-access-policy.ts` + o teste, e `middleware.ts:97-111`.
+- **`APP_URL` é exclusivo do engine legado** — o app usa `NEXT_PUBLIC_APP_URL`, que **fica**
+  (a Evolution precisa dela para o webhook).
+- **Deploy/CI:** workspace + scripts `engine:*` no `package.json`, `hubflow-engine/Dockerfile`,
+  `deploy/coolify/engine.docker-compose.yml`, perfil `coolify` do `check-env-template.ps1:36-45`,
+  e `verify-local.ps1:37,48-53` (roda `engine:test` e `node --check` no engine).
+
 ## ÉPICO "Contas + Billing" (login/cadastro/plano/assinatura/pagamento/financeiro/vencimento) — 2026-06-23
 Decisões (Igor): **Híbrido** (modelo certo já; cadastro+pagamento MANUAL agora; checkout/recorrência
 automáticos depois) · **Postgres + Prisma** · **Asaas**. Espinha = Banco/API. Contrato em `API_CONTRACTS.md`
