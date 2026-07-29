@@ -53,16 +53,6 @@ export async function listLeads(tenantId: string): Promise<Lead[]> {
   return (data ?? []) as Lead[];
 }
 
-/** Total de leads distintos do tenant (para marcos de funil first_lead/leads_50). */
-export async function countLeads(tenantId: string): Promise<number> {
-  const { count, error } = await getSupabaseAdmin()
-    .from(TABLE)
-    .select("id", { count: "exact", head: true })
-    .eq("tenant_id", tenantId);
-  if (error) throw new Error(error.message);
-  return count ?? 0;
-}
-
 export type AddLeadInput = {
   phone: string;
   name?: string;
