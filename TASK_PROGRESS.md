@@ -51,19 +51,22 @@ Plano aprovado em 2026-07-13 (`~/.claude/plans/quero-migrar-o-hubflow-eager-mins
   - [ ] **Smoke e2e (teste de fogo):** worker + Evolution no dev → envio real + estado anti-ban atualizado.
         **Validar `sendMedia`/`sendPoll` contra a Evolution real** — o smoke da F1 só exercitou `sendText`.
 - [ ] F5 — Cutover: engine desligado, rotas engine-only deletadas, envs ENGINE_* removidos
-  - 🔴 **BLOQUEADOR (lane Banco/API) — a ponte disparo/broadcast → `engine_commands` NÃO existe.**
-        `enqueueDispatch`/`enqueueBroadcast` só marcam `status='queued'` nas tabelas deles; quem converte
-        em envio é o engine legado via `POST /api/dispatch/pending`. O worker novo consome `engine_commands`
-        por RPC e nunca vê esse trabalho → **desligar o Baileys hoje mata disparo e broadcast.**
-        Fan-out precisa inserir 1 `engine_commands` por destinatário (`type:'send_message'`,
-        `payload:{jid,text}`, `priority` 10/100, `dedupe_key`). Worker NÃO muda. Handoff completo em
-        `apps/web/system/NEXT.md` (bloco 🔴 HANDOFF → lane Banco/API).
-  - 🟠 **Decisão pendente — `refresh_status` fica órfão.** `/api/engine/commands` aceita esse tipo, mas só
-        `claim_engine_commands` (engine legado) o drena; o worker filtra `type='send_message'`.
-        Recomendação da lane Engine: remover do `ALLOWED_TYPES` (a F2 já refez o lifecycle via Evolution
-        direto). Alternativa: `claim_control_commands` + 3º loop no worker.
+  - [x] **Ponte disparo → `engine_commands`** (era o 🔴 bloqueador) — PR #34. `app.enqueue_broadcast`
+        (fan-out transacional, 1 comando por grupo), `reconcile_broadcast_progress` (roll-up por
+        agregado, sem trigger) e `promote_due_schedules`. `claimPendingBroadcasts` filtra
+        `run_id is null`, então os dois motores convivem sem disparo duplo. Smoke em Postgres real:
+        `infra/tests/dispatch-fanout-smoke.sql` (12/12).
+  - [x] **`refresh_status` aposentado** — tipo que só o engine legado drenava. A verificação mostrou que
+        `components/instances-panel.tsx` era **código morto** (nunca importado; a F2 moveu o lifecycle
+        para `painel/conectar` + `/api/instances/[id]/actions`), então saiu por deleção. Migration
+        `20260730110000_retire_refresh_status.sql` cancela as linhas que já existiam.
   - [x] **Mapa do cutover levantado** (rotas engine-only, quais só perdem o POST, proxies, infra de auth
         `x-engine-token`, envs `ENGINE_*`, deploy/CI) — registrado no `NEXT.md`.
+  - 🟠 **Decisão pendente — `/api/engine/commands` fica ou sai?** Com o painel morto removido, a rota
+        está com **zero chamadores no código** (o executor de automações enfileira direto do worker,
+        sem HTTP). O `NEXT.md` a marca como "FICA (é produtor da fila)" — confirmar ou deletar junto.
+  - [ ] **Pré-requisito do cutover:** aplicar as migrations + smoke e2e passando. Desligar o Baileys
+        antes disso para o disparo.
 - [ ] F6 — Limpeza: dual-mode JSON removido, SQL consolidado, retenção 30d, docs
 
 ### Workstream paralelo — Executor de automações (não é parte do F4)
@@ -72,11 +75,12 @@ O CRUD de `automations` existe, mas nada roda os `steps`. O executor é capacida
 não porte do que já existe — por isso não cabe no F4. Plano:
 [`docs/superpowers/plans/2026-07-29-automations-executor.md`](docs/superpowers/plans/2026-07-29-automations-executor.md).
 
-- [ ] Camada 1 — `automation_runs` + RPCs de claim + tick no `apps/worker` (nada dispara sozinho ainda)
-- [ ] Camada 2 — triggers (`lead_entered` no lead-capture; `group_full`/`group_stalled`/`weekly_recurring` por varredura)
-- [ ] Camada 3 — envio via `engine_commands` (já funciona hoje pelo engine legado; F4 troca só o consumidor)
+- [x] Camada 1 — `automation_runs` + RPCs de claim + tick no `apps/worker` ✅ (PR #30)
+- [x] Camada 2 — triggers (`lead_entered` no lead-capture; `group_full`/`group_stalled`/`weekly_recurring` por varredura) ✅ (PR #30)
+- [x] Camada 3 — envio via `engine_commands` ✅ (PR #30) — consumido hoje pelo engine legado; o F4 troca só o consumidor
 
-Não bloqueia no F4 e não precisa ser reescrito depois dele.
+**FEITO** (PR #30, mergeado na main em 29/07). Não bloqueou o F4 e não precisou ser reescrito depois
+dele: o contrato `{jid,text}` de `send_message` foi preservado no cutover.
 
 ## Sprint 1 — Segurança (P0) ✅
 1. Rotacionar Service Role Key no Supabase

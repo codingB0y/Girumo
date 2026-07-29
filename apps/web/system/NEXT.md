@@ -30,23 +30,27 @@ do cutover, então não bloqueia a F5. O desenho já usa `origin_kind`, então e
 `app.enqueue_campaign_message` quase idêntica + um segundo braço no reconciliador. Enquanto isso a
 tela `messages-agenda.tsx` segue sem progresso real — como já está hoje.
 
-### 2. 🟠 DECISÃO PENDENTE — `refresh_status` fica órfão no cutover
+### 2. ✅ RESOLVIDO — `refresh_status` aposentado (29/07)
 
-`POST /api/engine/commands` (`src/app/api/engine/commands/route.ts:7`) aceita `send_message`
-**e `refresh_status`**. O worker novo só claima `claim_send_commands`, que filtra
-`type = 'send_message'`. O `refresh_status` só é drenado por `claim_engine_commands` — **que só o
-engine legado chama**. Depois do cutover ele fica `queued` para sempre.
+Era o último bloqueador de código da F5: `POST /api/engine/commands` aceitava o tipo, mas só o engine
+legado o drenava (`claim_engine_commands`), então depois do cutover ele ficaria `queued` para sempre.
+E o worker não podia chamar `claim_engine_commands` no lugar — ela não filtra por tipo, logo
+claimaria `send_message` **sem o gate anti-ban**.
 
-**Não dá para o worker simplesmente chamar `claim_engine_commands`:** ela **não filtra por tipo**,
-então claimaria `send_message` **sem o gate anti-ban**, furando a proteção inteira.
+Saiu pela opção (a), e a verificação pedida no handoff mudou o custo para quase zero:
+**`components/instances-panel.tsx` era código morto.** `InstancesPanel` estava exportado e **nunca
+importado** — ficou órfão quando a F2 refez o fluxo de conexão em `app/painel/conectar/page.tsx`, que
+fala com a Evolution direto via `/api/instances/[id]/actions`. Não havia substituto a construir
+porque não havia funcionalidade viva a substituir.
 
-Duas saídas (decisão da lane Banco/API, com recomendação da Engine):
-- **(a) RECOMENDADO — remover `refresh_status` do `ALLOWED_TYPES`.** A F2 já refez o lifecycle de
-  instância chamando a Evolution direto (`/api/instances/[id]/actions`), então o caminho pela fila
-  virou redundante. Elimina o órfão pela raiz, sem código novo. Verificar antes se
-  `components/instances-panel.tsx:79` ainda depende dele.
-- **(b)** Se o painel ainda precisar: a lane Engine cria `claim_control_commands` (claim sem
-  anti-ban, restrito a tipos não-envio) + um 3º loop no worker. Mais caro, benefício duvidoso.
+Entregue: componente morto deletado · `ALLOWED_TYPES` só com `send_message` (com o porquê no código)
+· migration `20260730110000_retire_refresh_status.sql` cancelando as linhas `queued`/`processing` que
+já existiam (idempotente; não toca `done` nem outros tipos).
+
+🟠 **Sobra uma decisão para a F5:** com o painel morto fora, `/api/engine/commands` fica com **zero
+chamadores no código** — o executor de automações enfileira direto do worker, sem HTTP. O mapa abaixo
+a lista como "FICA (é produtor da fila)". Decidir se ela sobrevive como superfície de produção
+externa ou sai junto com as outras rotas engine-only.
 
 ### Mapa do cutover (levantado, para a F5 usar)
 - **Rotas engine-only que saem (8):** `POST` de `/api/dispatch/pending`, `/api/dispatch/ack`,

@@ -47,3 +47,7 @@ apps/web/supabase/migrations/20260729120000_engine_antiban_state.sql
 # (promote_due_schedules). Depende da anti-ban acima (tipos do claim de envio).
 # Smoke: infra/tests/dispatch-fanout-smoke.sql.
 apps/web/supabase/migrations/20260730100000_dispatch_fanout.sql
+# F5 (Sprint 5): aposenta `refresh_status`, tipo de comando que só o engine legado
+# drenava — depois do cutover ficaria `queued` para sempre. Cancela as linhas que
+# já existem; a rota já não aceita o tipo. Idempotente.
+apps/web/supabase/migrations/20260730110000_retire_refresh_status.sql
