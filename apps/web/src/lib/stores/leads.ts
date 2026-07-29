@@ -33,6 +33,18 @@ export type Lead = {
 
 const TABLE = "leads";
 
+/** source_campaign de um lead (pra atribuir a campanha ao pedido). null se não achar. */
+export async function getLeadSourceCampaign(tenantId: string, leadId: string): Promise<string | null> {
+  const { data, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .select("source_campaign")
+    .eq("tenant_id", tenantId)
+    .eq("id", leadId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data?.source_campaign as string | null) ?? null;
+}
+
 export async function listLeads(tenantId: string): Promise<Lead[]> {
   const { data, error } = await getSupabaseAdmin()
     .from(TABLE)

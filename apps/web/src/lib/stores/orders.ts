@@ -7,6 +7,8 @@ export type Order = {
   phone: string;
   lead_id?: string | null;
   group_name?: string | null;
+  /** Campanha de origem (inferida do lead no registro); null = sem origem. */
+  campaign_id?: string | null;
   value: number;
   tenant_id?: string;
   created_at?: string;
@@ -42,6 +44,7 @@ export async function addOrder(input: {
   phone?: string;
   leadId?: string;
   group?: string;
+  campaignId?: string;
   value: number;
 }): Promise<Order> {
   const tenantId = await getTenantId();
@@ -52,6 +55,7 @@ export async function addOrder(input: {
       phone: (input.phone ?? "").replace(/\D/g, ""),
       lead_id: input.leadId || null,
       group_name: input.group || null,
+      campaign_id: input.campaignId || null,
       value: input.value,
     })
     .select()
