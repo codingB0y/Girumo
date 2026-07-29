@@ -159,7 +159,7 @@
 **Modelo:** tabela `events (id, tenant_id, name, starts_at, ends_at, status)` + vincular schedules criados ao event_id (coluna nullable em schedules OU tabela de junção — decidir no planejamento olhando o schema real de schedules/messages).
 **Aceite:** criar evento gera os agendamentos visíveis na agenda; cancelar evento cancela os pendentes; timeline reflete o que já saiu.
 
-## [ ] P2.17 🟢 Cartão de resultado compartilhável + pedido de depoimento
+## [x] P2.17 🟢 Cartão de resultado compartilhável + pedido de depoimento
 **Contexto:** migração `testimonials` + `api/testimonials` já existem. Gargalo da oferta = prova de terceiros.
 **Fazer:** (1) gerar cartão-imagem (OG-image style, rota `app/api/og` com `next/og` ImageResponse) nos momentos de pico: grupo lotou, meta batida, marco de pedidos — "247 revendedores no grupo em 9 dias 🎉 · [loja] com HubFlow"; (2) toast/modal de celebração (o Confetti já existe) com "Compartilhar" (baixar imagem / abrir wa.me com texto pronto); (3) no mesmo modal, 1 pergunta: "Conta em uma frase o que mudou?" → grava via `api/testimonials` (com consentimento explícito de uso público — checkbox).
 **Aceite:** cartão renderiza com dados reais do tenant; depoimento salvo com flag de consentimento; nada dispara mais de 1× por marco.
