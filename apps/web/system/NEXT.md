@@ -40,13 +40,18 @@ Hoje o governor de throughput vive **em memória, por processo**:
 - Estado adicional por processo: warmup (por número), circuit breaker (falhas consecutivas), delivery tracker.
 
 O problema: com **N réplicas de worker** consumindo uma fila Postgres única, cada réplica teria seu próprio
-`sentTimestamps` e cada uma liberaria 8/min → na prática N×8/min pro mesmo número = **risco de ban**. Três
-caminhos, do mais simples ao mais correto:
+`sentTimestamps` e cada uma liberaria 8/min → na prática N×8/min pro mesmo número = **risco de ban**.
+
+⚠️ **Nuance que muda o porte:** o cap de hoje é **global ao processo** (`maxPerMinute:8`), e funciona só
+porque no engine legado **1 processo = 1 número**. No worker, se uma réplica atender N instâncias, um cap
+global estrangularia *todos os números somados* a 8/min. Então **o governor tem que virar por-número**
+(chaveado por `instance_id`), não global — em QUALQUER das opções abaixo. Isso é porte real, não cópia.
+
+Três caminhos, do mais simples ao mais correto:
 
 - **(A) Sender único** — uma réplica só faz envio (as outras fazem captura/automações/varredura). O governor
   por-processo de hoje já está correto pra 1 processo; é literalmente o que o engine legado faz. Prós: mínimo
-  esforço, reusa `anti-ban-queue.js` quase como está. Contras: sem escala horizontal de envio, ponto único
-  (mas é o status quo). **Provavelmente suficiente pra ~10 contas (estimativa do F1).**
+  esforço, reusa `anti-ban-queue.js`. Contras: sem escala horizontal de envio, ponto único (mas é o status quo).
 - **(B) Afinidade instância→worker (sharding)** — cada instância (número) pertence a exatamente uma réplica,
   que mantém o governor em memória pros seus números. Precisa de camada de ownership (advisory lock / tabela
   de assignment) + failover quando uma réplica morre (o lease de `engine_commands` já cobre o job, mas o
@@ -58,14 +63,23 @@ caminhos, do mais simples ao mais correto:
   design (a query de janela) + um round-trip por slot (barato, já que é ≤8/min/número). O jitter gaussiano
   entre mensagens continua local — é pacing por-mensagem, não cap global.
 
+**✅ DECISÃO (2026-07-29, Igor): opção A — sender único.** Justificativa: é o porte menos arriscado do item
+mais perigoso do sprint, e pra ~10 contas (estimativa F1) um processo paceia 10 números × 8/min de sobra.
+Escala horizontal (B/C) fica pra quando o volume exigir — deixar o seam preparado, não construir agora.
+**Implicação concreta pro F4:** (1) refazer o governor por-`instance_id` (não global — ver nuance acima),
+mesmo com sender único, senão os números competem pela mesma cota; (2) rodar o loop de envio em UMA réplica
+só (as outras réplicas seguem com captura/automações/varredura); (3) persistir as janalas por-número
+(equivalente ao `engine-state.json` de hoje, mas keyed por instância) pra restart não liberar cota nova.
+
 Restrições invioláveis (ver `hubflow-engine/DECISIONS.md`): anti-ban = **só controle operacional seguro**,
 proibido fingerprint/proxy/stealth/evasão. E o sender novo **tem que honrar o mesmo contrato de payload**
 de `engine_commands` (`{jid, text}`) — senão quebra o executor de automações (acima).
 
-**Primeiro passo do novo chat: escrever a spec do anti-ban (escolher A/B/C com o Igor), não sair codando.**
-Só depois: sender Evolution + lease/retry (o `engine_commands` já tem lease/retry/priority desde
-`engine_queue_v2`) + fan-out de broadcast. Fora do F4 fica o cutover (F5: desligar engine legado, deletar
-rotas engine-only) e a limpeza (F6).
+**Primeiro passo do novo chat:** com a decisão A já fechada, detalhar o desenho do governor por-`instance_id`
+(onde vive o `sentTimestamps` por número, como persiste, como o sender único é eleito) e então implementar:
+sender Evolution + lease/retry (o `engine_commands` já tem lease/retry/priority desde `engine_queue_v2`) +
+fan-out de broadcast. Fora do F4 fica o cutover (F5: desligar engine legado, deletar rotas engine-only) e a
+limpeza (F6).
 
 ## ÉPICO "Contas + Billing" (login/cadastro/plano/assinatura/pagamento/financeiro/vencimento) — 2026-06-23
 Decisões (Igor): **Híbrido** (modelo certo já; cadastro+pagamento MANUAL agora; checkout/recorrência
