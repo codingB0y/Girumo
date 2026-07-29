@@ -35,3 +35,6 @@ apps/web/supabase/migrations/20260727130000_engine_event_processing_status.sql
 apps/web/supabase/migrations/20260728130000_tenant_settings.sql
 apps/web/supabase/migrations/20260728140000_notifications.sql
 apps/web/supabase/migrations/20260728145600_automations.sql
+# Executor de automações, camada 1 (29/07): estado de execução dos steps.
+# Depende de `automations` (acima). Smoke: infra/tests/automation-runs-smoke.sql.
+apps/web/supabase/migrations/20260729010000_automation_runs.sql
