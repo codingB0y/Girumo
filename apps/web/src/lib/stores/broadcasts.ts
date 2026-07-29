@@ -15,6 +15,8 @@ export type Broadcast = {
   mention_all: boolean;
   poll: { question: string; options: string[] } | null;
   status: BroadcastStatus;
+  /** Corrida atual do fan-out. Não-nulo = enfileirado pelo worker novo. */
+  run_id: string | null;
   sent: number;
   total: number;
   error: string | null;
@@ -83,27 +85,33 @@ export async function deleteBroadcast(tenantId: string, id: string): Promise<voi
 
 // ---- Dispatch helpers ----
 
+/**
+ * Enfileira o disparo: resolve número e grupos e cria 1 comando por grupo em
+ * `engine_commands`, que é o que o worker novo consome.
+ *
+ * Antes isto só marcava `status='queued'` e quem convertia em envio era o engine
+ * legado. A assinatura é a mesma de propósito — nenhuma rota precisou mudar.
+ *
+ * O fan-out inteiro é uma RPC porque são 5 passos que precisam de UMA transação:
+ * morrendo no meio sobrariam metade dos comandos e um `total` mentiroso.
+ */
 export async function enqueueBroadcast(tenantId: string, id: string): Promise<Broadcast | null> {
-  const { data, error } = await getSupabaseAdmin()
-    .from(TABLE)
-    .update({
-      status: "queued" as BroadcastStatus,
-      sent: 0,
-      error: null,
-      dispatched_at: null,
-      running_since: null,
-      last_ack_at: null,
-    })
-    .eq("tenant_id", tenantId)
-    .eq("id", id)
-    .in("status", ["draft", "sent", "failed"])
-    .select("*")
-    .maybeSingle();
+  const { data, error } = await getSupabaseAdmin().rpc("enqueue_broadcast", {
+    target_tenant_id: tenantId,
+    target_broadcast_id: id,
+  });
   if (error) throw new Error(error.message);
-  return data;
+  return (data as Broadcast | null) ?? null;
 }
 
-/** Engine claims pending broadcasts (atomically via update ... returning) */
+/**
+ * @deprecated Motor legado (removido na F5) — o worker novo lê `engine_commands`.
+ *
+ * O filtro `run_id is null` é o que impede DISPARO DUPLO durante o cutover: com o
+ * fan-out, a oferta também entra em 'queued', e sem este filtro o engine legado
+ * claimaria a mesma linha e enviaria tudo de novo. Oferta com `run_id` é do motor
+ * novo e o legado ignora — por isso os dois podem ficar vivos ao mesmo tempo.
+ */
 export async function claimPendingBroadcasts(tenantId: string, limit = 10): Promise<Broadcast[]> {
   const now = new Date().toISOString();
   const { data, error } = await getSupabaseAdmin()
@@ -115,6 +123,7 @@ export async function claimPendingBroadcasts(tenantId: string, limit = 10): Prom
     })
     .eq("tenant_id", tenantId)
     .eq("status", "queued")
+    .is("run_id", null)
     .order("created_at", { ascending: true })
     .limit(limit)
     .select("*");
@@ -122,7 +131,11 @@ export async function claimPendingBroadcasts(tenantId: string, limit = 10): Prom
   return data ?? [];
 }
 
-/** Engine acks progress/completion */
+/**
+ * @deprecated Motor legado (removido na F5). No motor novo quem escreve
+ * `sent`/`status` é `reconcile_broadcast_progress`, agregando `engine_commands`
+ * no housekeeping do worker — nunca este ack.
+ */
 export async function ackBroadcast(
   tenantId: string,
   id: string,

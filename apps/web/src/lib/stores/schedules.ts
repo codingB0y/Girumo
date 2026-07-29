@@ -66,7 +66,19 @@ export async function deleteSchedule(tenantId: string, id: string): Promise<void
   if (error) throw new Error(error.message);
 }
 
-/** Process due schedules — promote pending ones past their time to dispatch */
+/**
+ * Promove agendamentos vencidos.
+ *
+ * @deprecated Só era chamado de dentro de `/api/dispatch/pending` — rota
+ * engine-only que a F5 remove. Quem roda isso no motor novo é
+ * `promote_due_schedules`, no housekeeping do worker (poll de 3 s). Cron da
+ * Vercel não serve: o plano Hobby só faz cron diário.
+ *
+ * A versão antiga marcava `status='queued'` direto, o que no motor novo NÃO
+ * dispara nada (a fila é criada pelo fan-out). Por isso aqui também chama a
+ * RPC — enquanto a rota legada existir, os dois caminhos produzem fila de
+ * verdade em vez de uma oferta parada em 'queued' para sempre.
+ */
 export async function processDueSchedules(tenantId: string): Promise<void> {
   const now = new Date().toISOString();
   const { data: due, error } = await getSupabaseAdmin()
@@ -83,13 +95,12 @@ export async function processDueSchedules(tenantId: string): Promise<void> {
   const DAY_MS = 86_400_000;
 
   for (const s of due) {
-    // Try to enqueue the linked broadcast
     if (s.broadcast_id) {
-      await supabase
-        .from("broadcasts")
-        .update({ status: "queued", sent: 0, error: null, dispatched_at: null, running_since: null, last_ack_at: null })
-        .eq("id", s.broadcast_id)
-        .in("status", ["draft", "sent", "failed"]);
+      const { error: enqueueError } = await supabase.rpc("enqueue_broadcast", {
+        target_tenant_id: tenantId,
+        target_broadcast_id: s.broadcast_id,
+      });
+      if (enqueueError) throw new Error(enqueueError.message);
     }
 
     if (s.recurrence === "none") {
