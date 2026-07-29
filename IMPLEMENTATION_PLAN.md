@@ -164,7 +164,7 @@
 **Fazer:** (1) gerar cartão-imagem (OG-image style, rota `app/api/og` com `next/og` ImageResponse) nos momentos de pico: grupo lotou, meta batida, marco de pedidos — "247 revendedores no grupo em 9 dias 🎉 · [loja] com HubFlow"; (2) toast/modal de celebração (o Confetti já existe) com "Compartilhar" (baixar imagem / abrir wa.me com texto pronto); (3) no mesmo modal, 1 pergunta: "Conta em uma frase o que mudou?" → grava via `api/testimonials` (com consentimento explícito de uso público — checkbox).
 **Aceite:** cartão renderiza com dados reais do tenant; depoimento salvo com flag de consentimento; nada dispara mais de 1× por marco.
 
-## [ ] P2.18 🟢 Atribuição de R$ por campanha (fecha anúncio→venda)
+## [x] P2.18 🟢 Atribuição de R$ por campanha (fecha anúncio→venda)
 **Depende de:** P0.2/P0.4 rodando e com dados.
 **Fazer:** (1) `orders` ganha `campaign_id` nullable (migração): inferido do lead (`sourceCampaign`) quando o pedido nasce de um lead; (2) Resultados: "R$ por campanha" ao lado de "membros por campanha"; (3) na tela da campanha (`campanhas/[slug]`), tab Resultados ganha R$ e nº de pedidos.
 **Aceite:** pedido registrado de lead com campanha aparece no R$ da campanha; pedidos sem lead caem em "sem origem".
