@@ -112,6 +112,12 @@ export default function PainelCampanhas() {
           <p className="font-editorial mt-1 text-[19px] italic text-ardosia">
             Cada campanha é um link que enche seus grupos no automático.
           </p>
+          <Link
+            href="/painel/biblioteca"
+            className="font-data mt-2 inline-flex items-center gap-1 text-[11px] uppercase tracking-[0.08em] text-cobalt-500 transition-[gap] duration-[160ms] hover:gap-1.5"
+          >
+            Biblioteca de copies →
+          </Link>
         </header>
         <Link
           href="/painel/campanhas/nova"

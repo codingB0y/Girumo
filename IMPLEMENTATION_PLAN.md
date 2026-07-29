@@ -67,7 +67,7 @@
 3. Fallback quando não definida: manter o cálculo atual, mas com label "meta sugerida" + CTA "definir minha meta".
 **Aceite:** meta editada persiste entre sessões e tenants não vazam (testar com 2 tenants dev); barra de progresso usa a meta salva.
 
-## [ ] P0.6 🟢 Oferta: executar decisões de 05/jul na landing/checkout
+## [x] P0.6 🟢 Oferta: executar decisões de 05/jul na landing/checkout
 **Contexto:** decisões registradas em `offers/hubflow-offer-critique.md` + `landing-copy-v2.md`. ⚠️ Antes de mexer: confirmar com Igor se planos/preços vigentes são R$197/297/497 (pendência anotada no PROJECT_CONTEXT).
 **Arquivos:** `src/app/page.tsx`, `src/components/landing/v2/*` (pricing, faq, cta), possivelmente `api/plans`/seed de planos e Stripe (só copy/nome — NÃO mexer em price IDs sem confirmar).
 **Fazer:** (1) remover "7 dias grátis"/"teste grátis" de TODA a landing e fluxo de signup → substituir por "garantia de 30 dias incondicional" (copy do landing-copy-v2.md); (2) renomear "Performance Max" → "Operação" onde aparecer (landing, painel, seeds); (3) adicionar âncora de preço junto ao pricing: "A Mega Stock fez R$350 mil/mês com esse jeito de vender. O Growth custa menos que uma grade."; (4) FAQ: adicionar item de garantia (texto pronto no landing-copy-v2.md §FAQ).
@@ -139,7 +139,7 @@
 3. Painel: banner persistente no dashboard quando `session.live === false` (hoje o estado desconectado vira onboarding — ok pra conta nova, mas conta com campanhas ativas precisa de alerta explícito "reconectar", não voltar pro passo 1).
 **Aceite:** derrubar sessão em dev → `/health` 503, `/live` 200, banner aparece, e-mail 1×/dia; Coolify não entra em restart-loop.
 
-## [ ] P1.14 🟢 Auditar/entregar a Biblioteca (bônus prometido na oferta)
+## [x] P1.14 🟢 Auditar/entregar a Biblioteca (bônus prometido na oferta)
 **Contexto:** `painel/biblioteca/page.tsx` tem 172 bytes — provável casca. "Biblioteca de copys e criativos" é bônus empacotado da oferta.
 **Fazer:** (1) abrir e mapear o que existe (página, API `templates`, store, seed); (2) se vazia: popular com 15–20 copys reais de atacado por categoria (novidade, reposição, evento, reativação, boas-vindas) — conteúdo com Igor/Mega Stock, estrutura via seed em `api/templates` ou migração de seed; (3) botão "usar essa copy" que leva pra nova campanha/disparo com o texto aplicado (via preset de P1.11).
 **Aceite:** biblioteca abre com conteúdo navegável por categoria e "usar" funciona; se o conteúdo real não estiver pronto, entregar a mecânica + 5 copys aprovadas (não inventar 20 copys sem revisão).
