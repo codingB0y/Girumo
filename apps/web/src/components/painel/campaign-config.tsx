@@ -2,17 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ArrowLeft, ArrowRight, CheckCircle2, Users, Sparkles } from "lucide-react";
+import { Check, ArrowLeft, ArrowRight, CheckCircle2, Users, Sparkles, Copy, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CopyLink } from "@/components/painel/copy-link";
 import type { Group } from "@/lib/mock-data";
+import { CAMPAIGN_PRESETS, getCampaignPreset, resolvePresetName, type CampaignPreset } from "@/lib/campaign-presets";
 
 type Campanha = { id: string; name: string; loja?: string; groupIds: string[]; slug?: string; autoGrow?: boolean };
 
-const SECTIONS = ["Cadastro", "Grupos"];
-
 export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?: string }) {
   const router = useRouter();
+  // O passo "Objetivo" (presets) só existe na criação. Edição segue igual.
+  const SECTIONS = mode === "create" ? ["Objetivo", "Cadastro", "Grupos"] : ["Cadastro", "Grupos"];
+  const cadastroIdx = mode === "create" ? 1 : 0;
 
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,9 +26,23 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
   const [name, setName] = useState("");
   const [autoGrow, setAutoGrow] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Mensagem-modelo do preset escolhido — sugestão pra postar com o link (não persiste).
+  const [suggestedMsg, setSuggestedMsg] = useState<string | null>(null);
 
   const [idx, setIdx] = useState(0);
   const [origin, setOrigin] = useState("");
+
+  // Aplica um preset (passo Objetivo → Cadastro). "Do zero" só avança, sem pré-preencher.
+  function applyPreset(preset: CampaignPreset) {
+    if (preset.id !== "zero") {
+      const monthName = new Date().toLocaleString("pt-BR", { month: "long" });
+      setName((cur) => cur || resolvePresetName(preset, monthName));
+      setSuggestedMsg(preset.message);
+    } else {
+      setSuggestedMsg(null);
+    }
+    setIdx(cadastroIdx);
+  }
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -34,6 +50,20 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
       try {
         const g = await fetch("/api/groups").then((r) => r.json()).catch(() => []);
         setGroups(Array.isArray(g) ? g : []);
+        if (mode === "create") {
+          // Deep-link: ?preset=<id>&groups=<ids> (ex.: reativação vinda de Resultados).
+          const params = new URLSearchParams(window.location.search);
+          const groupsParam = params.get("groups");
+          if (groupsParam) setSelected(new Set(groupsParam.split(",").filter(Boolean)));
+          const presetId = params.get("preset");
+          const preset = presetId ? getCampaignPreset(presetId) : undefined;
+          if (preset && preset.id !== "zero") {
+            const monthName = new Date().toLocaleString("pt-BR", { month: "long" });
+            setName(resolvePresetName(preset, monthName));
+            setSuggestedMsg(preset.message);
+            setIdx(1); // já vem com objetivo escolhido — pula o passo Objetivo
+          }
+        }
         if (mode === "edit" && slug) {
           const list: Campanha[] = await fetch("/api/campanhas").then((r) => r.json()).catch(() => []);
           const c = Array.isArray(list) ? list.find((x) => x.slug === slug || x.id === slug) : null;
@@ -52,7 +82,8 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
   }, [mode, slug]);
 
   const backHref = mode === "edit" && (createdSlug || slug) ? `/painel/campanhas/${createdSlug ?? slug}` : "/painel/campanhas";
-  const canAdvance = name.trim().length > 0;
+  const isObjetivoStep = mode === "create" && idx === 0;
+  const canAdvance = isObjetivoStep ? true : name.trim().length > 0;
 
   const toggle = (gid: string) =>
     setSelected((s) => {
@@ -131,11 +162,49 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
     );
   }
 
-  const sections = [
+  const objetivoCard = (
+    <Card key="objetivo">
+      <div>
+        <p className="text-sm font-medium text-volt-950">Qual o objetivo?</p>
+        <p className="mb-3 mt-0.5 text-xs text-aco/55">Escolha e a gente pré-monta a campanha. Dá pra ajustar tudo depois.</p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {CAMPAIGN_PRESETS.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => applyPreset(p)}
+              className="flex flex-col gap-1 rounded-2xl border border-volt-950/[0.08] bg-papel p-4 text-left transition-[border-color,background-color] duration-[160ms] ease-[var(--ease-fluxo)] hover:border-cobalt-500/40 hover:bg-cobalt-500/[0.03]"
+            >
+              <span className="flex items-center gap-2 text-sm font-medium text-volt-950">
+                <Target className="h-4 w-4 text-cobalt-500" strokeWidth={1.75} />
+                {p.label}
+              </span>
+              <span className="text-xs text-aco/60">{p.description}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </Card>
+  );
+
+  const cadastroCard = (
     <Card key="cadastro">
       <Field label="Título" hint="O nome da campanha. Ex: “Saldão Mega Stock Atacado”.">
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome da campanha…" className={inputCls} />
       </Field>
+      {suggestedMsg && (
+        <Field label="Mensagem sugerida pra divulgar" hint="Copie e poste junto do seu link de captação nos grupos. É só um modelo — ajuste do seu jeito.">
+          <div className="rounded-xl border border-volt-950/10 bg-poco p-3.5">
+            <p className="whitespace-pre-line text-sm leading-relaxed text-volt-950">{suggestedMsg}</p>
+            <button
+              type="button"
+              onClick={() => navigator.clipboard?.writeText(suggestedMsg).catch(() => {})}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-volt-950/10 bg-papel px-3 py-1.5 text-xs font-medium text-volt-950 transition-colors duration-[160ms] hover:border-cobalt-500/30"
+            >
+              <Copy className="h-3.5 w-3.5" /> Copiar mensagem
+            </button>
+          </div>
+        </Field>
+      )}
       {mode === "edit" && (createdSlug || slug) && (
         <Field label="Link da campanha" hint="É o link que você divulga — ele enche seus grupos.">
           <div className="flex items-center rounded-xl border border-volt-950/10 bg-poco px-3.5 py-2.5">
@@ -146,8 +215,10 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
       <Field label="Automatizar criação de grupos?" hint="A Girumo cria um grupo novo automaticamente quando o atual lota (a partir de 90%).">
         <ToggleInline on={autoGrow} setOn={setAutoGrow} labelOn="Sim, criar no automático" labelOff="Não, gerencio na mão" />
       </Field>
-    </Card>,
+    </Card>
+  );
 
+  const gruposCard = (
     <Card key="grupos">
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-volt-950">Grupos da campanha</p>
@@ -184,8 +255,10 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
           })}
         </div>
       )}
-    </Card>,
-  ];
+    </Card>
+  );
+
+  const sections = mode === "create" ? [objetivoCard, cadastroCard, gruposCard] : [cadastroCard, gruposCard];
 
   return (
     <div className="mx-auto max-w-[760px] px-4 py-8 sm:px-8">

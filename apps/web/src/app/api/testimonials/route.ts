@@ -10,7 +10,7 @@ export async function POST(req: Request) {
     return Response.json({ error: "Não autenticado." }, { status: 401 });
   }
 
-  let body: { quote?: string; rating?: number };
+  let body: { quote?: string; rating?: number; consentPublic?: boolean };
   try {
     body = await req.json();
   } catch {
@@ -19,6 +19,7 @@ export async function POST(req: Request) {
 
   const quote = String(body.quote ?? "").trim();
   const rating = Math.min(5, Math.max(1, Number(body.rating) || 5));
+  const consentPublic = body.consentPublic === true;
 
   if (quote.length < 10) {
     return Response.json({ error: "Depoimento precisa ter pelo menos 10 caracteres." }, { status: 400 });
@@ -58,6 +59,7 @@ export async function POST(req: Request) {
     store: org?.name ?? "",
     quote,
     rating,
+    consent_public: consentPublic,
     approved: false,
   });
 

@@ -29,6 +29,9 @@ import { MessagesTab } from "@/components/painel/messages";
 
 type Campanha = { id: string; name: string; loja?: string; groupIds: string[]; slug?: string; createdAt: string };
 type TrackedLink = { campaignName?: string; clicks: number };
+type Order = { id: string; value: number; campaign_id?: string | null };
+
+const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 const TABS = ["Grupos", "Mensagens", "Visão geral", "Resultados"] as const;
 type Tab = (typeof TABS)[number];
@@ -41,6 +44,7 @@ export default function CampanhaDetalhe() {
   const [campanhas, setCampanhas] = useState<Campanha[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [clicks, setClicks] = useState(0);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [live, setLive] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [origin, setOrigin] = useState("");
@@ -51,16 +55,18 @@ export default function CampanhaDetalhe() {
 
   async function loadData() {
     try {
-      const [c, g, l, s] = await Promise.all([
+      const [c, g, l, s, o] = await Promise.all([
         fetch("/api/campanhas").then((r) => r.json()).catch(() => []),
         fetch("/api/groups").then((r) => r.json()).catch(() => []),
         fetch("/api/links").then((r) => r.json()).catch(() => []),
         fetch("/api/session").then((r) => r.json()).catch(() => ({})),
+        fetch("/api/orders").then((r) => r.json()).catch(() => []),
       ]);
       const list: Campanha[] = Array.isArray(c) ? c : [];
       setCampanhas(list);
       setGroups(Array.isArray(g) ? g : []);
       setLive(Boolean(s?.live));
+      setOrders(Array.isArray(o) ? o : []);
       const camp = list.find((x) => x.slug === key || x.id === key);
       if (camp) {
         const ls: TrackedLink[] = Array.isArray(l) ? l : [];
@@ -82,6 +88,11 @@ export default function CampanhaDetalhe() {
     () => (campanha ? buildCampaignGroupsOverview({ campaign: campanha, groups, clicks }) : null),
     [campanha, groups, clicks],
   );
+  const campaignOrders = useMemo(
+    () => (campanha ? orders.filter((ord) => ord.campaign_id === campanha.id) : []),
+    [orders, campanha],
+  );
+  const campaignRevenue = useMemo(() => campaignOrders.reduce((a, ord) => a + (ord.value ?? 0), 0), [campaignOrders]);
 
   async function handleRefresh() {
     setRefreshing(true);
@@ -287,6 +298,10 @@ export default function CampanhaDetalhe() {
               <Tile label="Membros" value={o.totalMembers.toLocaleString("pt-BR")} />
               <Tile label="Conversão" value={o.clicks > 0 ? `${Math.round((o.totalMembers / o.clicks) * 100)}%` : "—"} tone="cobalt" />
               <Tile label="Grupos cheios" value={String(o.fullCount)} tone="atencao" />
+            </div>
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <Tile label="Vendas" value={brl.format(campaignRevenue)} tone="cobalt" />
+              <Tile label="Pedidos" value={campaignOrders.length.toLocaleString("pt-BR")} />
             </div>
             <div className="pn-card rounded-2xl p-6">
               <h2 className="font-display text-base font-bold text-volt-950">Do clique ao grupo</h2>

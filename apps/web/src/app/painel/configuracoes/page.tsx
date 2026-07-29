@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AccountSection } from "@/components/painel/account-section";
-import { Smartphone, Users, CreditCard, User, ShieldCheck, RefreshCw, Wifi, WifiOff, Check, Loader2, ExternalLink } from "lucide-react";
+import { Smartphone, Users, CreditCard, User, ShieldCheck, RefreshCw, Wifi, WifiOff, Check, Loader2, ExternalLink, PartyPopper } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { authenticatedFetch } from "@/lib/supabase/client";
 
@@ -31,12 +31,17 @@ export default function PainelConfiguracoes() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteBusy, setInviteBusy] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
+  const [playbookGraduated, setPlaybookGraduated] = useState(false);
 
   useEffect(() => {
     fetch("/api/session").then((r) => r.json()).then(setSession).catch(() => {});
     fetch("/api/members").then((r) => r.json()).then((d) => setMembers(Array.isArray(d) ? d : d?.members ?? [])).catch(() => {});
     fetch("/api/plans").then((r) => r.json()).then((d) => setPlans(Array.isArray(d) ? d : [])).catch(() => {});
     authenticatedFetch("/api/subscription").then((r) => (r.ok ? r.json() : null)).then(setSub).catch(() => {});
+    fetch("/api/playbook")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setPlaybookGraduated(Boolean(d?.graduated)))
+      .catch(() => {});
   }, []);
 
   const live = session.live === true;
@@ -106,6 +111,12 @@ export default function PainelConfiguracoes() {
         <p className="font-editorial mt-1 text-[19px] italic text-ardosia">
           Conexão, equipe, plano e conta — tudo num balcão só.
         </p>
+        {playbookGraduated && (
+          <span className="pn-card mt-3 inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium text-sucesso">
+            <PartyPopper className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Método Mega Stock rodando ✓
+          </span>
+        )}
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
