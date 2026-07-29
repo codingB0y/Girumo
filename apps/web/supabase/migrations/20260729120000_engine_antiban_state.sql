@@ -141,10 +141,13 @@ begin
           and best.type = 'send_message'
           and best.available_at <= now()
           and best.instance_id = cand.instance_id
-        order by best.priority asc, best.created_at asc
+        -- id como desempate ESTÁVEL: comandos enfileirados no mesmo statement
+        -- compartilham created_at (now() é fixo na transação), então sem o id o
+        -- "1 por número" ficaria dependente do plano.
+        order by best.priority asc, best.created_at asc, best.id asc
         limit 1
       )
-    order by cand.priority asc, cand.created_at asc
+    order by cand.priority asc, cand.created_at asc, cand.id asc
     limit greatest(max_commands, 1)
     for update skip locked
   )
