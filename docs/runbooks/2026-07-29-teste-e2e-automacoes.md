@@ -68,6 +68,26 @@ Termina exatamente onde termina a responsabilidade do executor.
    depois que `next_step_at` vence.
 7. **Limpe** (bloco 6) e **desligue a automação**.
 
+### Resultado da execução (29/07/2026, 18:43–18:48 UTC)
+
+**Etapa 1 executada em produção. Os 7 critérios passaram.**
+
+| # | Observação | Resultado |
+| --- | --- | --- |
+| 1 | `engine_events` | `add` em `TESTE AUTOMAÇAO`, `processed` às 18:43:33 |
+| 2 | `leads` | lead `556281980074` criado às 18:43:32 |
+| 3 | `automation_runs` | run criado, `dedupe_key = lead:f69f0d07…:1a0d0737…` |
+| 4 | passo `wait` | `current_step 0 → 1`, `next_step_at` 18:48:34 (+5 min exatos), lease devolvida |
+| 5 | passo `message` | `current_step 1 → 2` → `done` às 18:48:40 |
+| 6 | `engine_commands` | `send_message`, `dedupe_key = auto:bcea3378…:1`, destino `…@g.us`, texto do template |
+| 7 | `automations` | `total_runs = 1`, `last_run_at` preenchido |
+
+`attempts = 0` no run inteiro — nenhum retry, nenhuma lease vencida. O item 6 prova a
+garantia anti-DM com dado real de produção, não com fixture.
+
+Como previsto, o comando ficou `queued` com `attempts = 0` e `claimed_at` nulo, e nenhuma
+mensagem chegou no grupo. Lead, run e comando do teste foram apagados depois.
+
 ### Critério de aprovação
 
 | # | Observação | Esperado |
@@ -108,11 +128,44 @@ que o risco de fan-out abaixo está adormecido, não resolvido.
 
 ---
 
-## Risco a vigiar: fan-out do `weekly_recurring`
+## Incidente do fan-out — aconteceu de verdade em 29/07
 
-`automation-scans.ts` dispara **um run por grupo sincronizado** do tenant. Com 193 grupos
-em produção, ligar esse template gera 193 runs → 193 comandos de uma vez.
+O risco de fan-out não era hipotético: **ele já tinha disparado em produção** algumas horas
+antes deste teste, e só foi descoberto na limpeza.
 
-Hoje isso não envia nada (etapa 2 bloqueada). **No dia em que o consumidor existir, isso
-vira 193 mensagens.** Não ligue esse template junto com o teste, e trate essa decisão
-como pendente antes de destravar a etapa 2.
+Entre **16:24 e 16:27 UTC** uma automação `group_stalled` ("Reativação de grupo parado")
+esteve habilitada. A varredura casou **os 193 grupos do tenant** e gerou 193 comandos
+`send_message`. A automação foi apagada depois; os runs foram junto por cascade, mas os
+comandos **não** — ficaram `queued` na fila.
+
+| Destino | Comandos | Pessoas alcançadas |
+| --- | --- | --- |
+| Grupos onde o lojista é admin | 89 | 10.004 |
+| **Grupos onde é só membro** | **104** | **30.931** |
+
+Entre os 104: `Networking JF 🚀` (1.876), `Rede IC&B Networking Pró` (1.721),
+`COMUNIDADE VEM DANÇAR AN` (1.660) — comunidades de terceiros que receberiam uma mensagem
+de venda de reposição no instante em que a etapa 2 destravasse. Os 193 comandos órfãos
+foram apagados em 29/07 18:54 UTC.
+
+### As duas causas, e o que foi corrigido
+
+**1. As varreduras não filtravam `is_admin`.** `lead-capture.ts` recusa grupo não-admin de
+propósito ("melhor não capturar do que capturar grupo errado"), mas `automation-scans.ts`
+contradizia essa política justamente na ponta que envia — e mandar propaganda para o grupo
+de um terceiro é pior do que capturar lead dele.
+→ Corrigido: as três varreduras agora ignoram grupo onde não somos admin. `is_admin` nulo
+conta como não-admin.
+
+**2. O proxy do `group_stalled` degenera para "todos".** A condição é "nenhum lead novo há
+7 dias". Com o tenant em 0 leads — que era o caso, porque todo `add` caía em grupo
+não-admin — *todo* grupo parece parado e o filtro deixa de filtrar. Foi isso que produziu
+193 e não um subconjunto.
+→ Corrigido: `group_stalled` não dispara enquanto o tenant não tiver ao menos um lead. Sem
+nenhum lead não há como distinguir "parado" de "nunca começou".
+
+### O que continua valendo
+
+`weekly_recurring` segue fanando para todos os grupos-admin do tenant (89 hoje, não 193).
+Isso é por desenho — não existe um jeito de escolher subconjunto —, mas continua sendo
+uma rajada. Trate como decisão pendente antes de destravar a etapa 2.

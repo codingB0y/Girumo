@@ -22,9 +22,13 @@ function group(overrides: Partial<GroupScanRow> = {}): GroupScanRow {
     members: 50,
     capacity: 200,
     hasRecentLead: true,
+    isAdmin: true,
     ...overrides,
   };
 }
+
+/** Tenants com ao menos um lead — gate do group_stalled. */
+const COM_LEAD = new Set([TENANT_A, TENANT_B]);
 
 function automation(tenantId: string, id = "auto-1"): AutomationRow {
   return { id, tenant_id: tenantId };
@@ -44,9 +48,45 @@ test("groupStalledCandidates: só grupos sem lead recente", () => {
   const groups = new Map([
     [TENANT_A, [group({ id: "g-stale", hasRecentLead: false }), group({ id: "g-fresh", hasRecentLead: true })]],
   ]);
-  const candidates = groupStalledCandidates([automation(TENANT_A)], groups);
+  const candidates = groupStalledCandidates([automation(TENANT_A)], groups, COM_LEAD);
   assert.equal(candidates.length, 1);
   assert.equal(candidates[0].dedupeKey, "group_stalled:g-stale:auto-1");
+});
+
+test("nenhuma varredura dispara para grupo onde nao somos admin", () => {
+  const groups = new Map([
+    [
+      TENANT_A,
+      [
+        group({ id: "g-terceiro", isAdmin: false, members: 200, capacity: 200, hasRecentLead: false }),
+        group({ id: "g-meu", isAdmin: true, members: 200, capacity: 200, hasRecentLead: false }),
+      ],
+    ],
+  ]);
+
+  const full = groupFullCandidates([automation(TENANT_A)], groups);
+  const stalled = groupStalledCandidates([automation(TENANT_A)], groups, COM_LEAD);
+  const weekly = weeklyRecurringCandidates([automation(TENANT_A)], groups, "2026-07-29");
+
+  for (const [nome, candidatos] of [
+    ["group_full", full],
+    ["group_stalled", stalled],
+    ["weekly_recurring", weekly],
+  ] as const) {
+    assert.equal(candidatos.length, 1, `${nome} deveria casar so o grupo admin`);
+    assert.ok(candidatos[0].dedupeKey.includes("g-meu"), `${nome} vazou para grupo de terceiro`);
+  }
+});
+
+test("group_stalled nao dispara em tenant sem lead nenhum (proxy degenera em 'todos')", () => {
+  // Reproduz produção 29/07: tenant com 0 leads, todo grupo parece parado.
+  const groups = new Map([
+    [TENANT_A, [group({ id: "g1", hasRecentLead: false }), group({ id: "g2", hasRecentLead: false })]],
+  ]);
+
+  assert.equal(groupStalledCandidates([automation(TENANT_A)], groups, new Set()).length, 0);
+  // Com pelo menos um lead no tenant, o sinal volta a valer.
+  assert.equal(groupStalledCandidates([automation(TENANT_A)], groups, COM_LEAD).length, 2);
 });
 
 test("weeklyRecurringCandidates: fan-out incondicional pra todos os grupos do tenant, com data no dedupe_key", () => {
@@ -74,6 +114,7 @@ function fakeScanDeps(input: {
   groupStalled?: AutomationRow[];
   weeklyRecurring?: AutomationRow[];
   groupsByTenant?: Map<string, GroupScanRow[]>;
+  tenantsWithAnyLead?: Set<string>;
   alreadyExists?: Set<string>;
 }) {
   const created: ScanCandidate[] = [];
@@ -91,6 +132,9 @@ function fakeScanDeps(input: {
     },
     async listGroupsByTenant() {
       return input.groupsByTenant ?? new Map();
+    },
+    async listTenantsWithAnyLead() {
+      return input.tenantsWithAnyLead ?? COM_LEAD;
     },
     async createRun(candidate) {
       if (alreadyExists.has(candidate.dedupeKey)) return false;
