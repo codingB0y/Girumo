@@ -1,6 +1,7 @@
-import { listOrders, addOrder, removeOrder } from "@/lib/stores/orders";
+import { listOrders, addOrder, removeOrder, countOrders } from "@/lib/stores/orders";
 import { updateLeadStatus } from "@/lib/leads-store";
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
+import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,6 +54,16 @@ export async function POST(req: Request) {
       // Fonte da verdade no server; lead não encontrado não deve derrubar o pedido já criado.
       await updateLeadStatus(tenantId, leadId, "comprou").catch(() => null);
     }
+
+    // Marco de ativação: 1º pedido. Contagem pós-insert; ===1 = primeiro. Best-effort.
+    try {
+      if ((await countOrders(tenantId)) === 1) {
+        void trackFunnelEvent({ tenantId, userId: null, event: "first_order", onlyFirst: true, metadata: { orderId: order.id } });
+      }
+    } catch (e) {
+      console.error(`[orders] funnel tracking falhou para ${tenantId}:`, (e as Error).message);
+    }
+
     return Response.json(order, { status: 201 });
   } catch (e) {
     return Response.json({ error: (e as Error).message }, { status: 500 });

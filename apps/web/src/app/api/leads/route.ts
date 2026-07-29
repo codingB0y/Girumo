@@ -7,6 +7,7 @@ import {
 } from "@/lib/leads-store";
 import { isOptedOut as legacyIsOptedOut } from "@/lib/optout-store";
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
+import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import * as supaLeads from "@/lib/stores/leads";
 import * as supaOptouts from "@/lib/stores/optouts";
 import { USE_SUPABASE } from "@/lib/stores/use-supabase";
@@ -85,7 +86,24 @@ export async function POST(req: Request) {
   if (!USE_SUPABASE) {
     return Response.json(await legacyAdd(tenantId, input), { status: 201 });
   }
-  return Response.json(toLegacyShape(await supaLeads.addLead(tenantId, input)), { status: 201 });
+
+  const lead = await supaLeads.addLead(tenantId, input);
+
+  // Marcos de ativação: 1º lead e 50 leads. Contagem pós-insert é o sinal certo —
+  // addLead deduplica por telefone, então "inseriu com sucesso" não basta. Bounded
+  // aos limiares exatos (1 e 50) pra não trackear em todo ingest. Best-effort.
+  try {
+    const total = await supaLeads.countLeads(tenantId);
+    if (total === 1) {
+      void trackFunnelEvent({ tenantId, userId: null, event: "first_lead_captured", onlyFirst: true });
+    } else if (total === 50) {
+      void trackFunnelEvent({ tenantId, userId: null, event: "leads_50", onlyFirst: true });
+    }
+  } catch (e) {
+    console.error(`[leads] funnel tracking falhou para ${tenantId}:`, (e as Error).message);
+  }
+
+  return Response.json(toLegacyShape(lead), { status: 201 });
 }
 
 // PATCH /api/leads — muda o status do lead (novo/ativo/comprou). Body { id, status }

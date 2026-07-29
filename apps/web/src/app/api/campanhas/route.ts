@@ -5,6 +5,7 @@ import { listLinks, slugify } from "@/lib/store";
 import { assertPlanLimit } from "@/lib/billing/entitlements";
 import { getTenantContext } from "@/lib/supabase/tenant-context";
 import { assertPermission } from "@/lib/permissions";
+import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -86,6 +87,11 @@ export async function POST(req: Request) {
     await supaStore.updateCampaignGroup(tenantId, rec.id, {
       metadata: { loja: String(b.loja).trim() },
     });
+  }
+
+  // Marco de ativação: 1ª campanha (existing capturado antes do create).
+  if (existing.length === 0) {
+    void trackFunnelEvent({ tenantId, userId: ctx.authUserId, event: "first_campaign_created", onlyFirst: true, metadata: { campaignId: rec.id } });
   }
 
   return Response.json({

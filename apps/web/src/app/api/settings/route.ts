@@ -1,5 +1,6 @@
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
 import { getTenantSettings, updateTenantSettings } from "@/lib/stores/tenant-settings";
+import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,7 +49,13 @@ export async function PATCH(req: Request) {
   }
 
   try {
-    return Response.json(await updateTenantSettings(tenantId, input));
+    const settings = await updateTenantSettings(tenantId, input);
+    // Marco de ativação: definiu a meta do mês (contatos ou receita não-nulos).
+    // onlyFirst → só a 1ª vez conta; re-salvar não bumpa o tempo-até-marco.
+    if (input.monthlyGoalContacts != null || input.monthlyGoalRevenue != null) {
+      void trackFunnelEvent({ tenantId, userId: null, event: "goal_set", onlyFirst: true });
+    }
+    return Response.json(settings);
   } catch (e) {
     return Response.json({ error: (e as Error).message }, { status: 500 });
   }

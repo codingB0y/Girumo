@@ -1,40 +1,43 @@
 import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import type { FunnelEvent, TenantFunnelRow } from "./funnel-summary";
 
 /**
  * Funnel events tracking — registra eventos-chave do funil de conversão.
  *
- * Pipeline:
- *   signup → qr_connected → first_dispatch → first_schedule → payment → referral
- *
  * Cada evento é idempotente (upsert por tenant_id + event_name).
- * Isso permite calcular taxas de conversão entre etapas.
+ * A lógica pura de derivação (marcos, resumo por tenant) vive em `funnel-summary.ts`.
  */
 
-export type FunnelEvent =
-  | "signup"
-  | "qr_connected"
-  | "first_group_synced"
-  | "first_dispatch"
-  | "first_schedule"
-  | "first_campaign_created"
-  | "first_lead_captured"
-  | "trial_started"
-  | "payment_completed"
-  | "referral_sent";
+// Re-export da camada pura pra call-sites importarem tudo de um lugar só.
+export {
+  ACTIVATION_MILESTONES,
+  summarizeTenantFunnel,
+} from "./funnel-summary";
+export type { FunnelEvent, TenantFunnelRow, TenantFunnelSummary } from "./funnel-summary";
 
 export type TrackEventInput = {
   tenantId: string;
-  userId: string;
+  /** null para marcos disparados pela engine (sem usuário logado). */
+  userId: string | null;
   event: FunnelEvent;
   metadata?: Record<string, unknown>;
+  /**
+   * Marcos de ativação ("primeira vez que X aconteceu"): preserva o occurred_at
+   * da PRIMEIRA ocorrência (INSERT ... ON CONFLICT DO NOTHING) em vez de bumpar
+   * o timestamp a cada re-disparo. Sem isso, o tempo-até-marco do funil ficaria
+   * errado (registraria a última ocorrência, não a primeira). Deixa o hook
+   * disparar à vontade em cada ação — o 1º insert é o que fica.
+   */
+  onlyFirst?: boolean;
 };
 
 /**
- * Registra um evento de funil. Idempotente — se o mesmo tenant já registrou
- * o evento, atualiza o timestamp (para tracking de re-ocorrência) mas não duplica.
+ * Registra um evento de funil. Idempotente (unique por tenant_id + event_name).
+ * - default: upsert que atualiza o timestamp (tracking de re-ocorrência).
+ * - `onlyFirst`: no-op se já existe, preservando o occurred_at da 1ª vez.
  */
-export async function trackFunnelEvent({ tenantId, userId, event, metadata }: TrackEventInput) {
+export async function trackFunnelEvent({ tenantId, userId, event, metadata, onlyFirst }: TrackEventInput) {
   const supabase = getSupabaseAdmin();
 
   const { error } = await supabase.from("funnel_events").upsert(
@@ -45,7 +48,7 @@ export async function trackFunnelEvent({ tenantId, userId, event, metadata }: Tr
       metadata: metadata ?? {},
       occurred_at: new Date().toISOString(),
     },
-    { onConflict: "tenant_id,event_name" },
+    { onConflict: "tenant_id,event_name", ignoreDuplicates: onlyFirst ?? false },
   );
 
   if (error) {
@@ -71,4 +74,34 @@ export async function getFunnelMetrics(): Promise<Record<FunnelEvent, number>> {
   }
 
   return counts as Record<FunnelEvent, number>;
+}
+
+/**
+ * Matriz tenant × marcos para o admin. Junta organizations + funnel_events em JS
+ * (2 queries). Guarda o occurred_at da PRIMEIRA vez de cada evento por tenant.
+ */
+export async function getTenantFunnelMatrix(): Promise<TenantFunnelRow[]> {
+  const supabase = getSupabaseAdmin();
+
+  const [orgsRes, eventsRes] = await Promise.all([
+    supabase.from("organizations").select("id, name, created_at").order("created_at", { ascending: false }),
+    supabase.from("funnel_events").select("tenant_id, event_name, occurred_at"),
+  ]);
+
+  const byTenant = new Map<string, Partial<Record<FunnelEvent, string>>>();
+  for (const e of eventsRes.data ?? []) {
+    const current = byTenant.get(e.tenant_id) ?? {};
+    const prev = current[e.event_name as FunnelEvent];
+    // Mantém a 1ª ocorrência caso haja duplicata histórica (o unique já garante 1,
+    // mas defensivo se o dado vier de antes da constraint).
+    if (!prev || e.occurred_at < prev) current[e.event_name as FunnelEvent] = e.occurred_at;
+    byTenant.set(e.tenant_id, current);
+  }
+
+  return (orgsRes.data ?? []).map((o) => ({
+    tenantId: o.id,
+    name: o.name ?? "—",
+    createdAt: o.created_at,
+    milestones: byTenant.get(o.id) ?? {},
+  }));
 }
