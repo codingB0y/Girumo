@@ -1,5 +1,8 @@
 import { listOrders, addOrder, removeOrder, countOrders } from "@/lib/stores/orders";
 import { updateLeadStatus } from "@/lib/leads-store";
+import { getLeadSourceCampaign } from "@/lib/stores/leads";
+import { listCampaignGroups } from "@/lib/stores/campaign-groups";
+import { matchCampaignId } from "@/lib/campaign-attribution";
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 
@@ -44,11 +47,28 @@ export async function POST(req: Request) {
   }
   try {
     const leadId = b.leadId ? String(b.leadId) : undefined;
+
+    // Atribuição de campanha: infere do lead (source_campaign → id da campanha).
+    // Best-effort — falha aqui não deve derrubar o registro do pedido.
+    let campaignId: string | undefined;
+    if (leadId) {
+      try {
+        const source = await getLeadSourceCampaign(tenantId, leadId);
+        if (source) {
+          const campaigns = await listCampaignGroups(tenantId);
+          campaignId = matchCampaignId(source, campaigns.map((c) => ({ id: c.id, name: c.name, slug: c.slug }))) ?? undefined;
+        }
+      } catch {
+        // sem atribuição → cai em "sem origem"
+      }
+    }
+
     const order = await addOrder({
       value,
       phone: b.phone ? String(b.phone) : undefined,
       leadId,
       group: b.group ? String(b.group) : undefined,
+      campaignId,
     });
     if (leadId) {
       // Fonte da verdade no server; lead não encontrado não deve derrubar o pedido já criado.
