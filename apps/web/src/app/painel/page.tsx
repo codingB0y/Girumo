@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SocialProof } from "@/components/painel/social-proof";
+import { PlaybookCard } from "@/components/painel/playbook-card";
 
 // ---------- Types ----------
 
@@ -435,6 +436,8 @@ function FullDashboard({
           </span>
         </Link>
       )}
+
+      <PlaybookCard />
 
       {/* Bento hero: Peça Escura + 3 KPIs claros */}
       <section className="grid grid-cols-1 gap-5 lg:grid-cols-12">
