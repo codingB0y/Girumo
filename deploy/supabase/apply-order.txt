@@ -35,3 +35,7 @@ apps/web/supabase/migrations/20260727130000_engine_event_processing_status.sql
 apps/web/supabase/migrations/20260728130000_tenant_settings.sql
 apps/web/supabase/migrations/20260728140000_notifications.sql
 apps/web/supabase/migrations/20260728145600_automations.sql
+# F4 (Sprint 5): estado anti-ban por instância (warmup + gate de espaçamento +
+# breaker) + claim anti-ban (claim_send_commands) + record_send/failure/prune.
+# Fundação do sender do worker; sem ela o claim de envio da F4 não existe.
+apps/web/supabase/migrations/20260729120000_engine_antiban_state.sql
