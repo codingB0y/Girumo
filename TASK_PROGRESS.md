@@ -18,11 +18,27 @@ Plano aprovado em 2026-07-13 (`~/.claude/plans/quero-migrar-o-hubflow-eager-mins
   - [x] Contratos reais documentados no README (evento em `kebab.dot`, `enabled:true`, apikey no payload, MESSAGES_UPDATE = status)
   - [ ] **PENDENTE:** bloquear `/manager` (público, protegido só pela API key) — fazer na F5, antes de produção
   - Consumo com stack idle: ~640MB/3.8GB. Estimativa 10 contas: ~2,3–3GB.
-- [ ] F2 — Lifecycle de instância no web (client, webhook receiver, painel conectar refeito)
-- [ ] F3 — Lead capture via worker mínimo (loop B)
+- [x] F2 — Lifecycle de instância no web (client, webhook receiver, painel conectar refeito) ✅ (commits `e752ff8e`, `1c49a9a7`, `0f2a3d2f`, `098cc3cd` — 26–27/07)
+- [x] F3 — Lead capture via worker mínimo (loop B) ✅ (F3a `3f0a9afb` + F3b `f5157bee` — `apps/worker` consumindo `engine_events`)
 - [ ] F4 — Worker completo (anti-ban portado, senders, lease/retry, fan-out broadcast)
+  - ⚠️ **"anti-ban portado" é o item mais arriscado do sprint e está sub-especificado.** Hoje o estado
+    é em memória + `engine-state.json` por processo, caps fixos em `index.js:108-110` (8/min, 120/h,
+    800/dia). Portar para worker consumindo fila Postgres exige decidir afinidade instância→worker
+    (ou mover a cota pro banco). Detalhar antes de começar.
 - [ ] F5 — Cutover: engine desligado, rotas engine-only deletadas, envs ENGINE_* removidos
 - [ ] F6 — Limpeza: dual-mode JSON removido, SQL consolidado, retenção 30d, docs
+
+### Workstream paralelo — Executor de automações (não é parte do F4)
+
+O CRUD de `automations` existe, mas nada roda os `steps`. O executor é capacidade **nova de produto**,
+não porte do que já existe — por isso não cabe no F4. Plano:
+[`docs/superpowers/plans/2026-07-29-automations-executor.md`](docs/superpowers/plans/2026-07-29-automations-executor.md).
+
+- [ ] Camada 1 — `automation_runs` + RPCs de claim + tick no `apps/worker` (nada dispara sozinho ainda)
+- [ ] Camada 2 — triggers (`lead_entered` no lead-capture; `group_full`/`group_stalled`/`weekly_recurring` por varredura)
+- [ ] Camada 3 — envio via `engine_commands` (já funciona hoje pelo engine legado; F4 troca só o consumidor)
+
+Não bloqueia no F4 e não precisa ser reescrito depois dele.
 
 ## Sprint 1 — Segurança (P0) ✅
 1. Rotacionar Service Role Key no Supabase

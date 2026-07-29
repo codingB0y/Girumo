@@ -3,6 +3,84 @@
 > Status 2026-06-24: plano legado. A migracao atual usa Supabase Auth, Supabase Postgres/RLS/Storage,
 > Stripe e engine em VPS/Coolify. Prisma, Neon e Asaas nao sao mais o caminho alvo.
 
+## ✅ Executor de automações — FEITO (2026-07-29, PR #30)
+
+Camadas 1, 2 e 3 do plano [`docs/superpowers/plans/2026-07-29-automations-executor.md`](../../../docs/superpowers/plans/2026-07-29-automations-executor.md)
+entregues, ponta a ponta. Feature ativa: lojista liga um template em `/painel/automacoes` →
+worker cria os runs → mensagem sai no grupo via engine legado.
+
+- **Camada 1** — `automation_runs` (migração `20260729010000_automation_runs.sql`) + 4 RPCs
+  (`claim`/`advance`/`finish`/`requeue`, padrão `app.*` + wrapper `public.*`) + tick
+  `apps/worker/src/automations-loop.ts`. Smoke `infra/tests/automation-runs-smoke.sql` (12/12).
+- **Camada 2** — gatilhos: `lead_entered` no `apps/worker/src/lead-capture.ts`;
+  `group_full`/`group_stalled`/`weekly_recurring` por varredura em `apps/worker/src/automation-scans.ts`.
+- **Camada 3** — envio por `engine_commands` (`type:'send_message'`), consumido HOJE pelo engine legado.
+
+Guarda-corpo anti-DM em DUAS camadas: CHECK `@g.us` na tabela `automation_runs` + validação no enqueue
+do worker. `engine_commands.payload` aceita `phone` e mandaria DM — nunca deixar passar.
+
+⚠️ **Ponto de acoplamento com o F4 (ler antes de mexer no worker de envio):** o executor é o
+**produtor** de `engine_commands`. O F4 troca só o **consumidor** (engine legado → worker Evolution).
+Quem mexer no F4 **não pode** quebrar o contrato de payload `{jid, text}` de `type:'send_message'`,
+senão o executor para de enviar no cutover.
+
+## HANDOFF → lane Engine/Worker — F4: worker completo + anti-ban portado (2026-07-29)
+
+Estado do Sprint 5 (migração Baileys → Evolution): **F0–F3 feitos, F4 é o próximo** (ver `TASK_PROGRESS.md`).
+Hoje o envio real ainda passa pelo **engine legado Baileys** (`hubflow-engine/`), que consome
+`engine_commands` em `queues/supabase-command-worker.js:102-106` → `sendText` → fila anti-ban →
+`sock.sendMessage`. O F4 troca esse consumidor por um sender no `apps/worker` falando com a **Evolution API**.
+
+**O item que trava o F4 é o anti-ban portado — precisa de decisão de arquitetura ANTES de codar.**
+Hoje o governor de throughput vive **em memória, por processo**:
+- `AntiBanQueue.sentTimestamps[]` = janelas de envio das últimas 24h, para os caps por minuto/hora/dia
+  (`8/min`, `120/h`, `800/dia` base; warmup reduz o teto p/ número novo). Ver `index.js:105-121` +
+  `anti-ban-queue.js`.
+- Persistido em `engine-state.json` e restaurado no boot (`index.js:124-129`) — restart NÃO libera cota nova.
+- Estado adicional por processo: warmup (por número), circuit breaker (falhas consecutivas), delivery tracker.
+
+O problema: com **N réplicas de worker** consumindo uma fila Postgres única, cada réplica teria seu próprio
+`sentTimestamps` e cada uma liberaria 8/min → na prática N×8/min pro mesmo número = **risco de ban**.
+
+⚠️ **Nuance que muda o porte:** o cap de hoje é **global ao processo** (`maxPerMinute:8`), e funciona só
+porque no engine legado **1 processo = 1 número**. No worker, se uma réplica atender N instâncias, um cap
+global estrangularia *todos os números somados* a 8/min. Então **o governor tem que virar por-número**
+(chaveado por `instance_id`), não global — em QUALQUER das opções abaixo. Isso é porte real, não cópia.
+
+Três caminhos, do mais simples ao mais correto:
+
+- **(A) Sender único** — uma réplica só faz envio (as outras fazem captura/automações/varredura). O governor
+  por-processo de hoje já está correto pra 1 processo; é literalmente o que o engine legado faz. Prós: mínimo
+  esforço, reusa `anti-ban-queue.js`. Contras: sem escala horizontal de envio, ponto único (mas é o status quo).
+- **(B) Afinidade instância→worker (sharding)** — cada instância (número) pertence a exatamente uma réplica,
+  que mantém o governor em memória pros seus números. Precisa de camada de ownership (advisory lock / tabela
+  de assignment) + failover quando uma réplica morre (o lease de `engine_commands` já cobre o job, mas o
+  estado do governor teria que ser reconstruído da janela no banco no failover). Prós: escala e reusa a lógica.
+  Contras: lógica de ownership/rebalance é trabalho real.
+- **(C) Cota no banco** — Postgres vira fonte de verdade do governor: uma tabela de janelas por
+  `(instance_id, minuto/hora/dia)`, e reservar um slot de envio é uma checagem transacional antes do send.
+  Prós: correto sob N réplicas por construção, sobrevive a restart nativamente. Contras: mais trabalho de
+  design (a query de janela) + um round-trip por slot (barato, já que é ≤8/min/número). O jitter gaussiano
+  entre mensagens continua local — é pacing por-mensagem, não cap global.
+
+**✅ DECISÃO (2026-07-29, Igor): opção A — sender único.** Justificativa: é o porte menos arriscado do item
+mais perigoso do sprint, e pra ~10 contas (estimativa F1) um processo paceia 10 números × 8/min de sobra.
+Escala horizontal (B/C) fica pra quando o volume exigir — deixar o seam preparado, não construir agora.
+**Implicação concreta pro F4:** (1) refazer o governor por-`instance_id` (não global — ver nuance acima),
+mesmo com sender único, senão os números competem pela mesma cota; (2) rodar o loop de envio em UMA réplica
+só (as outras réplicas seguem com captura/automações/varredura); (3) persistir as janalas por-número
+(equivalente ao `engine-state.json` de hoje, mas keyed por instância) pra restart não liberar cota nova.
+
+Restrições invioláveis (ver `hubflow-engine/DECISIONS.md`): anti-ban = **só controle operacional seguro**,
+proibido fingerprint/proxy/stealth/evasão. E o sender novo **tem que honrar o mesmo contrato de payload**
+de `engine_commands` (`{jid, text}`) — senão quebra o executor de automações (acima).
+
+**Primeiro passo do novo chat:** com a decisão A já fechada, detalhar o desenho do governor por-`instance_id`
+(onde vive o `sentTimestamps` por número, como persiste, como o sender único é eleito) e então implementar:
+sender Evolution + lease/retry (o `engine_commands` já tem lease/retry/priority desde `engine_queue_v2`) +
+fan-out de broadcast. Fora do F4 fica o cutover (F5: desligar engine legado, deletar rotas engine-only) e a
+limpeza (F6).
+
 ## ÉPICO "Contas + Billing" (login/cadastro/plano/assinatura/pagamento/financeiro/vencimento) — 2026-06-23
 Decisões (Igor): **Híbrido** (modelo certo já; cadastro+pagamento MANUAL agora; checkout/recorrência
 automáticos depois) · **Postgres + Prisma** · **Asaas**. Espinha = Banco/API. Contrato em `API_CONTRACTS.md`
