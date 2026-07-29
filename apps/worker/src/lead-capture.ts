@@ -13,6 +13,12 @@
  *     "melhor não capturar do que capturar grupo errado" (LGPD + base suja);
  *   - opt-out bloqueia a captura inteira, não só um envio;
  *   - `@lid` sem telefone vira lead com `phone` nulo; nunca inventa número.
+ *
+ * Camada 2 do executor de automações (docs/superpowers/plans/2026-07-29-automations-executor.md):
+ * todo lead capturado com sucesso dispara `lead_entered` para as automações
+ * `enabled` do tenant. Reentrada do mesmo lead (dedupe por telefone no
+ * upsert) chama o hook de novo, mas não duplica o run — o dedupe_key
+ * `lead:<lead_id>:<automation_id>` é único no banco; ver `enqueueLeadEnteredRuns`.
  */
 
 import { normalizeParticipant, type RawParticipant } from "./participants.js";
@@ -38,12 +44,23 @@ export type UpsertLeadInput = {
   sourceGroupName: string | null;
 };
 
+export type LeadEnteredTriggerInput = {
+  tenantId: string;
+  /** id do lead retornado pelo upsert — estável por pessoa (dedupe por telefone). */
+  leadId: string;
+  /** grupo em que o lead entrou; sempre `@g.us` (JID de grupo do evento Baileys). */
+  groupJid: string;
+};
+
 export interface CaptureDeps {
   /** Grupo por (tenant, whatsapp_group_id), ou `null` se não sincronizado. */
   getGroup(tenantId: string, whatsappGroupId: string): Promise<GroupInfo | null>;
   /** `true` se o telefone está na lista de descadastro do tenant. */
   isOptedOut(tenantId: string, phone: string): Promise<boolean>;
-  upsertLead(input: UpsertLeadInput): Promise<void>;
+  /** Devolve o id do lead (novo ou reencontrado por dedupe de telefone). */
+  upsertLead(input: UpsertLeadInput): Promise<string>;
+  /** Cria um `automation_run` por automação `lead_entered` habilitada do tenant. */
+  triggerLeadEnteredAutomations(input: LeadEnteredTriggerInput): Promise<void>;
 }
 
 export type CaptureOutcome = {
@@ -136,13 +153,18 @@ export async function captureFromEvent(
       continue;
     }
 
-    await deps.upsertLead({
+    const leadId = await deps.upsertLead({
       tenantId: row.tenant_id,
       phone,
       // O payload não traz nome do participante (ver fixtures); fica nulo.
       name: null,
       sourceGroupId: parsed.groupId,
       sourceGroupName: group.name,
+    });
+    await deps.triggerLeadEnteredAutomations({
+      tenantId: row.tenant_id,
+      leadId,
+      groupJid: parsed.groupId,
     });
     leads += 1;
   }
