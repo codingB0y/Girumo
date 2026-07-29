@@ -42,7 +42,7 @@ async function buildPlaybookState(tenantId: string): Promise<PlaybookState> {
     hasWelcomeAutomation: automationRows.some((a) => a.trigger === "lead_entered" && a.enabled),
     leadCount: settled(leadCount, 0),
     orderCount: settled(orderCount, 0),
-    hasGoal: settled(settings, { monthlyGoalContacts: null }).monthlyGoalContacts != null,
+    hasGoal: (settings.status === "fulfilled" ? settings.value.monthlyGoalContacts : null) != null,
     persistedDoneAt,
   });
 
