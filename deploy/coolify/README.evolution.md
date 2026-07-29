@@ -136,13 +136,27 @@ Achados empíricos — não confie na doc, estes foram testados na stack no ar:
 
 ## Rede interna para o worker (F4)
 
-O worker vai falar com a Evolution pela rede docker interna, não pelo HTTPS
-público:
+O worker fala com a Evolution pela rede docker interna, não pelo HTTPS público:
 
 ```txt
 EVOLUTION_API_URL (Vercel)  = https://wa.seudominio.com
 EVOLUTION_API_URL (worker)  = http://evolution:8080   # rede girumo-net
+EVOLUTION_API_KEY (worker)  = <mesmo AUTHENTICATION_API_KEY da Evolution>
 ```
+
+Passos no deploy do `worker.docker-compose.yml`:
+
+- [ ] Setar `EVOLUTION_API_KEY` no ambiente do worker (mesmo valor da Evolution).
+      Sem `EVOLUTION_API_URL`+`EVOLUTION_API_KEY`, o worker sobe só com a captura de
+      leads; o loop de envio fica desligado (log `loop de envio desligado`).
+- [ ] O worker é **outra stack** que a Evolution, então anexa à rede dela como
+      **externa**. O compose já traz `networks.evolution-net.external` com
+      `name: ${EVOLUTION_NETWORK:-girumo-net}`. Se o Coolify prefixar a rede
+      (ex.: `<projeto>_girumo-net`), setar `EVOLUTION_NETWORK` com o nome real
+      (via `docker network ls`). Sem isso, `http://evolution:8080` não resolve.
+- [ ] Aplicar a migration `20260729120000_engine_antiban_state.sql` (estado
+      anti-ban + `claim_send_commands`) ANTES de ligar o loop de envio — senão o
+      claim erra. Ver `deploy/supabase/apply-order.txt`.
 
 ## Definition of done (F1)
 

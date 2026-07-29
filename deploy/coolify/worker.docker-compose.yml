@@ -14,11 +14,27 @@ services:
       WORKER_BATCH_SIZE: ${WORKER_BATCH_SIZE:-20}
       WORKER_REQUEUE_AFTER_SECONDS: ${WORKER_REQUEUE_AFTER_SECONDS:-300}
       WORKER_HEALTH_PORT: 3002
+      # F4 — loop de ENVIO. Sem estas duas o worker roda só a captura de leads.
+      # Na rede girumo-net o worker fala com a Evolution pelo nome do serviço
+      # (http://evolution:8080), não pelo domínio público. Ver README.evolution.md.
+      EVOLUTION_API_URL: ${EVOLUTION_API_URL:-http://evolution:8080}
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
+      WORKER_SEND_BATCH_SIZE: ${WORKER_SEND_BATCH_SIZE:-10}
     # Sem `ports:` de propósito: o worker não recebe tráfego, só fala com o
-    # Supabase por HTTPS de saída. O /health é interno, para o healthcheck.
+    # Supabase (HTTPS de saída) e com a Evolution (rede interna). /health é interno.
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3002/health"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 20s
+    # Anexa à rede da stack da Evolution (definida em evolution.docker-compose.yml)
+    # para resolver `http://evolution:8080`. É outra stack, então a rede entra como
+    # externa. Coolify pode prefixar o nome — sobrescreva com EVOLUTION_NETWORK.
+    networks:
+      - evolution-net
+
+networks:
+  evolution-net:
+    external: true
+    name: ${EVOLUTION_NETWORK:-girumo-net}
