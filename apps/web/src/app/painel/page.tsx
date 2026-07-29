@@ -23,17 +23,10 @@ import {
 import { cn } from "@/lib/utils";
 import { SocialProof } from "@/components/painel/social-proof";
 import { PlaybookCard } from "@/components/painel/playbook-card";
+import { CelebrationModal } from "@/components/painel/celebration-modal";
+import type { Group } from "@/lib/mock-data";
 
 // ---------- Types ----------
-
-type Group = {
-  id: string;
-  name: string;
-  members: number;
-  capacity: number;
-  engagement: string;
-  inviteUrl?: string;
-};
 
 type Campanha = {
   id: string;
@@ -411,6 +404,8 @@ function FullDashboard({
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-10 px-4 py-8 sm:px-8">
+      <CelebrationModal groups={groups} leads={leads} monthlyGoal={settings?.monthlyGoalContacts ?? null} />
+
       {/* Header */}
       <header>
         <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-volt-950">Início</h1>
