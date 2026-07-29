@@ -95,7 +95,96 @@ export function disconnectAlertEmail(name: string, appUrl: string): { subject: s
   };
 }
 
-// --- Trial acabando (2 dias) ---
+// --- Cadência de ativação: D3 (divulgar) ---
+// Se já teve cliques, celebra e pede pra repetir; se zero, tira o atrito do 1º post.
+export function activationD3Email(name: string, appUrl: string, clicks: number): { subject: string; html: string } {
+  const firstName = name.split(" ")[0] || "lojista";
+  const hasClicks = clicks > 0;
+  const subject = hasClicks
+    ? `${firstName}, seu link já teve ${clicks} clique${clicks > 1 ? "s" : ""} — 3 lugares pra divulgar hoje`
+    : `${firstName}, o primeiro lugar pra postar seu link hoje`;
+  const intro = hasClicks
+    ? `Seu link de captação já recebeu <strong>${clicks} clique${clicks > 1 ? "s" : ""}</strong>. Isso é gente querendo entrar nos seus grupos — quanto mais você divulga, mais entra.`
+    : `Seu link de captação ainda não recebeu cliques — e isso é normal no começo. O que destrava é aparecer: cada lugar que você posta é uma porta a mais pros seus grupos.`;
+  return {
+    subject,
+    html: layout(`
+      <h1 style="margin:0 0 12px;font-size:22px;color:${BRAND_COLORS.volt}">${hasClicks ? "Bora divulgar mais hoje" : "Poste em 1 lugar hoje"}</h1>
+      <p style="margin:0 0 8px;font-size:15px;color:${BRAND_COLORS.volt};line-height:1.6">Oi ${firstName}! ${intro}</p>
+      <p style="margin:0 0 4px;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.6">${hasClicks ? "3 lugares pra colar seu link ainda hoje:" : "Comece por um só:"}</p>
+      <ol style="margin:8px 0;padding-left:20px;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.8">
+        <li>No seu status do WhatsApp</li>
+        <li>Na bio do seu Instagram</li>
+        <li>Num grupo onde seus clientes já estão</li>
+      </ol>
+      ${button("Ver meu link de captação", `${appUrl}/painel/campanhas`)}
+    `),
+  };
+}
+
+// --- Cadência de ativação: D7 (constância) ---
+export function activationD7Email(name: string, appUrl: string): { subject: string; html: string } {
+  const firstName = name.split(" ")[0] || "lojista";
+  return {
+    subject: `${firstName}, grupos que enchem têm novidade todo dia`,
+    html: layout(`
+      <h1 style="margin:0 0 12px;font-size:22px;color:${BRAND_COLORS.volt}">Poste a novidade de hoje</h1>
+      <p style="margin:0 0 8px;font-size:15px;color:${BRAND_COLORS.volt};line-height:1.6">
+        Uma semana de conta, ${firstName}! Os grupos que mais enchem têm uma coisa em comum: aparecem toda semana com uma novidade — chegada nova, promoção do dia, reposição.
+      </p>
+      <p style="margin:0 0 8px;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.6">
+        Não precisa ser grande. Precisa ser constante. Publique a novidade de hoje pros seus grupos e mantenha o ritmo.
+      </p>
+      ${button("Publicar novidade de hoje", `${appUrl}/painel/campanhas`)}
+    `),
+  };
+}
+
+// --- Cadência de ativação: D14 (registrar vendas / funil em R$) ---
+export function activationD14Email(name: string, appUrl: string): { subject: string; html: string } {
+  const firstName = name.split(" ")[0] || "lojista";
+  return {
+    subject: `${firstName}, metade da sua garantia — já viu suas vendas em R$?`,
+    html: layout(`
+      <h1 style="margin:0 0 12px;font-size:22px;color:${BRAND_COLORS.volt}">Veja o caminho até a venda</h1>
+      <p style="margin:0 0 8px;font-size:15px;color:${BRAND_COLORS.volt};line-height:1.6">
+        ${firstName}, você está na metade dos seus 30 dias de garantia. Esse é o momento de fechar o ciclo: registrar seus pedidos.
+      </p>
+      <p style="margin:0 0 8px;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.6">
+        Quando você anota cada venda, a ${BRAND.name} mostra de qual grupo ela veio e quanto cada grupo te rendeu em R$ — do clique até o pedido. É aí que dá pra saber o que vale a pena repetir.
+      </p>
+      ${button("Registrar um pedido", `${appUrl}/painel/contatos`)}
+    `),
+  };
+}
+
+// --- Cadência de ativação: D21 (o que os melhores fizeram) ---
+export function activationD21Email(name: string, appUrl: string): { subject: string; html: string } {
+  const firstName = name.split(" ")[0] || "lojista";
+  return {
+    subject: `${firstName}, falta 1 semana — o que os melhores fizeram até aqui`,
+    html: layout(`
+      <h1 style="margin:0 0 12px;font-size:22px;color:${BRAND_COLORS.volt}">Reta final da garantia</h1>
+      <p style="margin:0 0 8px;font-size:15px;color:${BRAND_COLORS.volt};line-height:1.6">
+        Falta uma semana pro fim dos seus 30 dias, ${firstName}. Os lojistas que mais venderam até aqui fizeram três coisas simples:
+      </p>
+      <ol style="margin:8px 0;padding-left:20px;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.8">
+        <li>Divulgaram o link de captação em mais de um lugar</li>
+        <li>Postaram novidade pros grupos toda semana</li>
+        <li>Registraram os pedidos pra ver de qual grupo veio cada venda</li>
+      </ol>
+      <p style="margin:0;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.6">
+        Ainda dá tempo de fazer as três e terminar a garantia com resultado na mão.
+      </p>
+      ${button("Abrir meu painel", `${appUrl}/painel`)}
+    `),
+  };
+}
+
+// --- Trial acabando (2 dias) — APOSENTADO ---
+// A oferta atual (30 dias de garantia, sem trial) não usa mais este e-mail. A
+// função fica versionada pra referência/histórico, mas o cron não a dispara —
+// a cadência de ativação (D3/D7/D14/D21) tomou o lugar.
 export function trialEndingEmail(name: string, appUrl: string, daysLeft: number): { subject: string; html: string } {
   const firstName = name.split(" ")[0] || "lojista";
   return {

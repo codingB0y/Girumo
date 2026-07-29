@@ -113,7 +113,7 @@
 3. Opt-out simples nas configurações (`weekly_report_enabled` em tenant_settings de P0.5, default true).
 **Aceite:** e-mail de teste renderiza com dados reais de um tenant dev; roda 1× por semana por tenant (rodar o cron 2× no mesmo dia não duplica); quem desligou não recebe.
 
-## [ ] P1.10 🟢 Cadência de ativação dos 30 dias (substitui e-mails de trial)
+## [x] P1.10 🟢 Cadência de ativação dos 30 dias (substitui e-mails de trial)
 **Contexto:** hoje: welcome, nudge 24h, trial-ending. Oferta nova não tem trial.
 **Fazer:** no cron de e-mails, cadência por idade da conta: **D3** "seu link já teve X cliques — 3 lugares pra divulgar hoje" (se 0 cliques, versão 'primeiro lugar pra postar') · **D7** "grupos que enchem: poste a novidade de hoje" + estado do playbook (P1.8) · **D14** "metade da garantia: registre seus pedidos pra ver o funil em R$" · **D21** "falta 1 semana: o que os melhores lojistas fizeram até aqui". Aposentar `trial-ending` (guardar arquivo, remover do envio). Cada e-mail com 1 CTA único pro painel.
 **Aceite:** conta dev com created_at manipulado recebe o e-mail certo em cada marco, 1×; trial-ending não dispara mais.
