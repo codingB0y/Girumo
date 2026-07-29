@@ -12,6 +12,10 @@ import type { EvolutionSender } from "./evolution-sender.js";
 import { log } from "./log.js";
 import { sendFromCommand, type EngineCommandRow, type SendDeps } from "./send-command.js";
 
+/** Bucket privado onde o app guarda a mídia das ofertas (ver apps/web/src/lib/media-store.ts). */
+const MEDIA_BUCKET = "uploads";
+const SIGNED_URL_TTL_SECONDS = 300;
+
 /** Deps reais (Supabase + Evolution). Testes usam deps fake. */
 export function makeSendDeps(supabase: SupabaseClient, sender: EvolutionSender): SendDeps {
   // provider_instance_id é estável por instância → cacheia os não-nulos por
@@ -33,8 +37,32 @@ export function makeSendDeps(supabase: SupabaseClient, sender: EvolutionSender):
       return name;
     },
 
-    async sendText(instanceName, number, text) {
-      await sender.sendText(instanceName, number, text);
+    async sendText(instanceName, number, text, opts) {
+      await sender.sendText(instanceName, number, text, opts);
+    },
+
+    async sendMedia(instanceName, number, input) {
+      await sender.sendMedia(instanceName, number, input);
+    },
+
+    async sendPoll(instanceName, number, input) {
+      await sender.sendPoll(instanceName, number, input);
+    },
+
+    async signedMediaUrl(storagePath) {
+      // TTL curto: a Evolution busca a mídia no ato do POST. A assinatura acontece
+      // aqui (no envio), não no enfileiramento — a fila anti-ban pode ter segurado
+      // este comando por horas e uma URL assinada antes já teria expirado.
+      const { data, error } = await supabase.storage
+        .from(MEDIA_BUCKET)
+        .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
+      if (error) {
+        // Objeto ausente é falha de payload (mídia apagada), não do número:
+        // devolve null e o send-command fecha o comando com erro claro.
+        log.warn("falha ao assinar mídia", { error: error.message });
+        return null;
+      }
+      return data?.signedUrl ?? null;
     },
 
     async recordSend(instanceId, tenantId) {
@@ -108,13 +136,4 @@ export async function runSendTick(
   }
 
   return { claimed: rows.length, sent, failed };
-}
-
-/** Poda o log de envios (janelas > ~25h). Chamado esporadicamente pelo index. */
-export async function pruneSends(supabase: SupabaseClient): Promise<number> {
-  const { data, error } = await supabase.rpc("prune_instance_sends", {
-    older_than: "25 hours",
-  });
-  if (error) throw new Error(`prune_instance_sends: ${error.message}`);
-  return typeof data === "number" ? data : 0;
 }

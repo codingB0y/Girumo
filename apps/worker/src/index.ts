@@ -14,9 +14,10 @@ import { loadEnv, type WorkerEnv } from "./env.js";
 import { createEvolutionSender } from "./evolution-sender.js";
 import { makeDeps, runTick } from "./event-loop.js";
 import { startHealthServer, type HealthState } from "./health.js";
+import { housekeepingDidWork, runHousekeeping } from "./housekeeping.js";
 import { log } from "./log.js";
 import type { SendDeps } from "./send-command.js";
-import { makeSendDeps, pruneSends, runSendTick } from "./send-loop.js";
+import { makeSendDeps, runSendTick } from "./send-loop.js";
 import { createSupabaseClient } from "./supabase.js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -89,17 +90,30 @@ async function main(): Promise<void> {
         if (sent.claimed > 0) {
           log.info("ciclo de envio", sent);
         }
-        const now = Date.now();
-        if (now - lastPruneAt >= PRUNE_INTERVAL_MS) {
-          lastPruneAt = now;
-          const removed = await pruneSends(supabase);
-          if (removed > 0) log.info("log de envios podado", { removed });
-        }
       } catch (err) {
         const message = err instanceof Error ? err.message : "erro desconhecido";
         state.healthy = false;
         state.lastError = message;
         log.error("ciclo de envio falhou", { error: message });
+      }
+    }
+
+    // Manutenção da fila — FORA do `if (sendDeps)`: lease vencido, progresso de
+    // broadcast e agendamento não dependem de a Evolution estar configurada.
+    if (!stopping) {
+      try {
+        const now = Date.now();
+        const shouldPrune = now - lastPruneAt >= PRUNE_INTERVAL_MS;
+        const summary = await runHousekeeping(supabase, { prune: shouldPrune });
+        if (shouldPrune) lastPruneAt = now;
+        if (housekeepingDidWork(summary)) {
+          log.info("manutenção", summary);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "erro desconhecido";
+        state.healthy = false;
+        state.lastError = message;
+        log.error("manutenção falhou", { error: message });
       }
     }
 

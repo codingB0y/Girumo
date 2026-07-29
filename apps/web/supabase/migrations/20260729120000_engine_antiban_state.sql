@@ -109,7 +109,10 @@ begin
     select cand.id
     from public.engine_commands cand
     where cand.status = 'queued'
-      and cand.type = 'send_message'
+      -- TODOS os tipos de envio passam pelo gate. Se um tipo novo de envio for
+      -- criado e esquecido aqui, ele sai SEM anti-ban — por isso a lista é única
+      -- e espelhada em apps/worker/src/send-command.ts (SEND_TYPES).
+      and cand.type in ('send_message', 'send_media', 'send_poll')
       and cand.available_at <= now()
       and cand.instance_id is not null
       -- (a) número não está pausado pelo breaker
@@ -138,7 +141,7 @@ begin
         select best.id
         from public.engine_commands best
         where best.status = 'queued'
-          and best.type = 'send_message'
+          and best.type in ('send_message', 'send_media', 'send_poll')
           and best.available_at <= now()
           and best.instance_id = cand.instance_id
         -- id como desempate ESTÁVEL: comandos enfileirados no mesmo statement

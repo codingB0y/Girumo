@@ -16,6 +16,9 @@
  * contador em memória — é isso que torna N réplicas seguras.
  */
 
+import { resolveMediaPath } from "./media-id.js";
+import type { SendMediaInput, SendPollInput, SendTextOptions } from "./evolution-sender.js";
+
 export type EngineCommandRow = {
   command_id: string;
   tenant_id: string;
@@ -30,7 +33,17 @@ export type SendTarget = { number: string; text: string };
 export interface SendDeps {
   /** provider_instance_id (instanceName na Evolution) do número, ou null se não provisionado. */
   instanceName(instanceId: string): Promise<string | null>;
-  sendText(instanceName: string, number: string, text: string): Promise<void>;
+  sendText(instanceName: string, number: string, text: string, opts?: SendTextOptions): Promise<void>;
+  sendMedia(instanceName: string, number: string, input: SendMediaInput): Promise<void>;
+  sendPoll(instanceName: string, number: string, input: SendPollInput): Promise<void>;
+  /**
+   * URL assinada da mídia, gerada NA HORA DO ENVIO.
+   *
+   * Deliberadamente não é assinada no enfileiramento: a fila anti-ban pode segurar
+   * uma mensagem por horas (cap 8/min + warmup), e uma URL assinada no enqueue
+   * expiraria antes de sair. Devolve null se o objeto não existe.
+   */
+  signedMediaUrl(storagePath: string): Promise<string | null>;
   /** Pós-envio OK: conta a janela + estica o gate de espaçamento + warmup. */
   recordSend(instanceId: string, tenantId: string): Promise<void>;
   /** Pós-envio FALHA: alimenta o circuit breaker por número. */
@@ -46,6 +59,11 @@ export type SendOutcome = {
 };
 
 const SEND_TYPE = "send_message";
+const MEDIA_TYPE = "send_media";
+const POLL_TYPE = "send_poll";
+
+/** Tipos que passam pelo gate anti-ban (espelha o filtro de claim_send_commands). */
+export const SEND_TYPES = [SEND_TYPE, MEDIA_TYPE, POLL_TYPE] as const;
 
 function firstString(...values: unknown[]): string | null {
   for (const v of values) {
@@ -73,15 +91,25 @@ function phoneToNumber(phone: unknown): string | null {
   return digits.length > 0 ? digits : null;
 }
 
+function asRecord(payload: unknown): Record<string, unknown> {
+  return payload && typeof payload === "object" ? (payload as Record<string, unknown>) : {};
+}
+
+/** Alvo (`number` da Evolution) a partir de `jid` ou `phone`. Comum aos 3 tipos. */
+function resolveNumber(p: Record<string, unknown>): string {
+  const number = jidToNumber(p.jid) ?? phoneToNumber(p.phone);
+  if (!number) throw new Error("comando de envio exige payload.jid ou payload.phone");
+  return number;
+}
+
 /**
  * Traduz o payload de send_message para { number, text }. Lança se faltar alvo
  * ou texto — falha determinística (payload ruim), não sinal de saúde do número.
  */
 export function resolveSendTarget(payload: unknown): SendTarget {
-  const p = payload && typeof payload === "object" ? (payload as Record<string, unknown>) : {};
-  const number = jidToNumber(p.jid) ?? phoneToNumber(p.phone);
+  const p = asRecord(payload);
+  const number = resolveNumber(p);
   const text = firstString(p.text, p.message, p.body);
-  if (!number) throw new Error("send_message exige payload.jid ou payload.phone");
   if (!text) throw new Error("send_message exige payload.text");
   return { number, text };
 }
@@ -103,7 +131,7 @@ function errMessage(err: unknown): string {
  */
 export async function sendFromCommand(row: EngineCommandRow, deps: SendDeps): Promise<SendOutcome> {
   // claim_send_commands já filtra type e prontidão; estas checagens são defensivas.
-  if (row.type !== SEND_TYPE) {
+  if (!(SEND_TYPES as readonly string[]).includes(row.type)) {
     await deps.completeCommand(row.command_id, false, `tipo inesperado: ${row.type}`);
     return { status: "failed", reason: "unexpected-type" };
   }
@@ -112,11 +140,46 @@ export async function sendFromCommand(row: EngineCommandRow, deps: SendDeps): Pr
     return { status: "failed", reason: "no-instance" };
   }
 
-  let target: SendTarget;
+  // Monta o envio conforme o tipo. Tudo que for payload inválido falha ANTES de
+  // tocar a rede e NÃO conta como falha do número (não é sinal de soft-ban).
+  let send: (instanceName: string) => Promise<void>;
   try {
-    target = resolveSendTarget(row.payload);
+    const p = asRecord(row.payload);
+    const number = resolveNumber(p);
+    const mentionAll = p.mentionAll === true;
+
+    if (row.type === POLL_TYPE) {
+      const question = firstString(p.question, p.name);
+      const options = Array.isArray(p.options)
+        ? p.options.filter((o): o is string => typeof o === "string" && o.length > 0)
+        : [];
+      if (!question) throw new Error("send_poll exige payload.question");
+      // O WhatsApp exige no mínimo 2 alternativas — falhar aqui evita um 400 da Evolution.
+      if (options.length < 2) throw new Error("send_poll exige ao menos 2 opções");
+      send = (name) => deps.sendPoll(name, number, { question, options });
+    } else if (row.type === MEDIA_TYPE) {
+      const mediaId = firstString(p.mediaId, p.media_id);
+      if (!mediaId) throw new Error("send_media exige payload.mediaId");
+      const rawType = firstString(p.mediaType, p.media_type) ?? "image";
+      const mediatype: SendMediaInput["mediatype"] =
+        rawType === "video" ? "video" : rawType === "document" ? "document" : "image";
+      const caption = firstString(p.caption, p.text, p.message) ?? undefined;
+      // Checagem de tenant obrigatória: o mediaId é o storage path codificado,
+      // não um segredo — sem isto um comando forjado leria mídia de outro tenant.
+      const storagePath = resolveMediaPath(mediaId, row.tenant_id);
+      if (!storagePath) throw new Error("mediaId inválido ou de outro tenant");
+      send = async (name) => {
+        // Assinada agora, não no enqueue: a fila pode ter segurado isto por horas.
+        const url = await deps.signedMediaUrl(storagePath);
+        if (!url) throw new Error("mídia não encontrada no storage");
+        await deps.sendMedia(name, number, { media: url, mediatype, caption, mentionAll });
+      };
+    } else {
+      const text = firstString(p.text, p.message, p.body);
+      if (!text) throw new Error("send_message exige payload.text");
+      send = (name) => deps.sendText(name, number, text, { mentionAll });
+    }
   } catch (err) {
-    // Payload inválido: NÃO conta como falha do número (não é soft-ban).
     await deps.completeCommand(row.command_id, false, errMessage(err));
     return { status: "failed", reason: "bad-payload" };
   }
@@ -128,7 +191,7 @@ export async function sendFromCommand(row: EngineCommandRow, deps: SendDeps): Pr
   }
 
   try {
-    await deps.sendText(instanceName, target.number, target.text);
+    await send(instanceName);
   } catch (err) {
     // Falha de envio real → alimenta o breaker do número + retry/backoff do comando.
     await deps.recordSendFailure(row.instance_id, row.tenant_id);
