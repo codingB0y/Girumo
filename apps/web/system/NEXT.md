@@ -29,8 +29,14 @@ Prova executável: `infra/tests/dispatch-fanout-smoke.sql` (12 blocos de asserç
 
 ### 🔴 Bloqueado no Igor — nenhum chat consegue fazer isto
 
-1. **Aplicar as 3 migrations** no dev e prod, na ordem do `deploy/supabase/apply-order.txt`
-   (`engine_antiban_state`, `dispatch_fanout`, `retire_refresh_status`).
+> **Passo a passo completo, com as queries de aceite: [`deploy/RUNBOOK-cutover-f5.md`](../../../deploy/RUNBOOK-cutover-f5.md).**
+
+1. **Aplicar as migrations faltantes** no dev e prod, na ordem do `deploy/supabase/apply-order.txt`.
+   ⚠️ **Falta mais do que as 3 novas.** Sondagem do `hubflow-dev` em 29/07 mostrou que a migration da
+   **F3** (`20260727120000_leads_and_worker_reads`) também nunca foi aplicada — `groups.is_admin`
+   está ausente, e é justamente o que `app.enqueue_broadcast` usa para resolver destinos. **Prod não
+   foi sondado.** Rode o Passo 0 do runbook antes de qualquer coisa: o histórico de migrations do
+   Supabase **não** reflete a realidade (parte do schema foi aplicada via `psql` sem registro).
 2. **Setar `EVOLUTION_API_KEY`** (e `EVOLUTION_NETWORK` se o Coolify prefixar a rede) no worker.
 3. **Bloquear `/manager` no proxy** — pendência desde a F1 (`deploy/coolify/README.evolution.md`).
 4. **Smoke e2e**, incluindo ⚠️ **validar `sendMedia`/`sendPoll` contra a Evolution real** — esses dois
