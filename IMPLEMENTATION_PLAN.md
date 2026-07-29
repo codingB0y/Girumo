@@ -118,7 +118,7 @@
 **Fazer:** no cron de e-mails, cadência por idade da conta: **D3** "seu link já teve X cliques — 3 lugares pra divulgar hoje" (se 0 cliques, versão 'primeiro lugar pra postar') · **D7** "grupos que enchem: poste a novidade de hoje" + estado do playbook (P1.8) · **D14** "metade da garantia: registre seus pedidos pra ver o funil em R$" · **D21** "falta 1 semana: o que os melhores lojistas fizeram até aqui". Aposentar `trial-ending` (guardar arquivo, remover do envio). Cada e-mail com 1 CTA único pro painel.
 **Aceite:** conta dev com created_at manipulado recebe o e-mail certo em cada marco, 1×; trial-ending não dispara mais.
 
-## [ ] P1.11 🟢 Grupos parados → campanha de reativação em 1 clique
+## [x] P1.11 🟢 Grupos parados → campanha de reativação em 1 clique
 **Contexto:** Resultados mostra ativos/mornos/parados (engagement por grupo) mas não oferece ação.
 **Fazer:**
 1. Em Resultados, no card "Atividade dos grupos", quando `parados > 0`: linha de alerta "N grupos parados" + botão "Criar campanha de reativação".
@@ -126,7 +126,7 @@
 3. Implementar suporte a `?preset=` na tela de nova campanha de forma genérica (outros presets virão do P1.12).
 **Aceite:** clicar no alerta abre nova campanha já montada pros grupos parados; criar funciona fim-a-fim; sem preset, tela igual à atual.
 
-## [ ] P1.12 🟢 Templates de campanha por objetivo de atacado
+## [x] P1.12 🟢 Templates de campanha por objetivo de atacado
 **Depende de:** P1.11 (mecânica de preset).
 **Fazer:** na tela `/painel/campanhas/nova`, passo inicial opcional "Qual o objetivo?": **Lançar novidade** · **Girar estoque parado** · **Reativar grupos** · **Semana de reposição** · **Do zero**. Cada objetivo = preset (nome, mensagem-modelo, dica de horário, sugestão de grupos). Copys em `src/lib/campaign-presets.ts` — revisão de texto pelo Igor antes do merge (marcar TODO). Integrar com a biblioteca se ela tiver conteúdo (ver P1.14).
 **Aceite:** escolher objetivo pré-preenche a campanha; "Do zero" = fluxo atual intocado.

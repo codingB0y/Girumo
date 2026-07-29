@@ -71,6 +71,8 @@ export default function PainelResultados() {
     ];
   }, [groups]);
   const totalGroups = Math.max(groups.length, 1);
+  // Grupos parados (engajamento baixo) — alvo da campanha de reativação (P1.11).
+  const stalledGroups = useMemo(() => groups.filter((g) => g.engagement === "baixo"), [groups]);
 
   const byCampaign = useMemo(() => {
     const clicksByName = new Map<string, number>();
@@ -165,6 +167,20 @@ export default function PainelResultados() {
               </div>
             ))}
           </div>
+          {stalledGroups.length > 0 && (
+            <Link
+              href={`/painel/campanhas/nova?preset=reativacao&groups=${stalledGroups.map((g) => g.id).join(",")}`}
+              className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-alerta/25 bg-alerta/[0.06] px-4 py-3 transition-[border-color] duration-[160ms] hover:border-alerta/40"
+            >
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-volt-950">
+                  {stalledGroups.length} grupo{stalledGroups.length > 1 ? "s" : ""} parado{stalledGroups.length > 1 ? "s" : ""}
+                </span>
+                <span className="mt-0.5 block text-xs text-aco/65">Mande uma novidade pra reativar antes que esfriem de vez.</span>
+              </span>
+              <span className="font-data shrink-0 rounded-lg bg-alerta px-3 py-1.5 text-xs font-medium text-white">Criar reativação</span>
+            </Link>
+          )}
         </div>
       </div>
 
