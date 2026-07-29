@@ -105,7 +105,7 @@
 **API:** `GET/POST /api/playbook` (GET calcula os autos server-side agregando stores existentes; POST marca passos manuais).
 **Aceite:** passos automáticos marcam sozinhos quando a condição vira verdade; progresso persiste por tenant; dashboard sem regressão pra quem já completou.
 
-## [ ] P1.9 🟢 Relatório semanal automático (e-mail)
+## [x] P1.9 🟢 Relatório semanal automático (e-mail)
 **Contexto:** infra Resend + cron diário já existem (`lib/email`, `api/cron/emails`, `vercel.json` com 2 crons).
 **Fazer:**
 1. Novo template `weekly-report` em `lib/email`: "Sua semana na [loja]": novos contatos, cliques, pedidos e R$ (orders), grupo destaque (mais entradas), comparação vs semana anterior (↑/↓). Vocabulário do nicho, sem jargão.

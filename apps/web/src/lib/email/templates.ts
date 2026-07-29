@@ -115,3 +115,71 @@ export function trialEndingEmail(name: string, appUrl: string, daysLeft: number)
     `),
   };
 }
+
+// --- Relatório semanal ---
+export type WeeklyReportStats = {
+  weekLabel: string;
+  newContacts: number;
+  newContactsChangePct: number | null;
+  ordersCount: number;
+  ordersChangePct: number | null;
+  revenue: number;
+  revenueChangePct: number | null;
+  clicksTotal: number;
+  topGroup: { name: string; count: number } | null;
+};
+
+function formatCurrency(value: number): string {
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function formatChange(pct: number | null): string {
+  if (pct === null) return "";
+  const color = pct >= 0 ? BRAND_COLORS.success : BRAND_COLORS.danger;
+  const arrow = pct >= 0 ? "↑" : "↓";
+  return ` <span style="color:${color};font-weight:600;font-size:12px">${arrow} ${Math.abs(pct)}%</span>`;
+}
+
+function statRow(label: string, value: string, changeHtml: string): string {
+  return `
+      <tr>
+        <td style="padding:10px 0;border-bottom:1px solid ${BRAND_COLORS.line};font-size:14px;color:${BRAND_COLORS.slate}">${label}</td>
+        <td style="padding:10px 0;border-bottom:1px solid ${BRAND_COLORS.line};font-size:16px;font-weight:700;color:${BRAND_COLORS.volt};text-align:right">${value}${changeHtml}</td>
+      </tr>`;
+}
+
+export function weeklyReportEmail(
+  name: string,
+  appUrl: string,
+  stats: WeeklyReportStats,
+): { subject: string; html: string } {
+  const firstName = name.split(" ")[0] || "lojista";
+  const topGroupLine = stats.topGroup
+    ? `<p style="margin:16px 0 0;font-size:13px;color:${BRAND_COLORS.slate}">
+        Grupo destaque da semana: <strong style="color:${BRAND_COLORS.volt}">${stats.topGroup.name}</strong>
+        (${stats.topGroup.count} novo${stats.topGroup.count === 1 ? "" : "s"} contato${stats.topGroup.count === 1 ? "" : "s"})
+      </p>`
+    : "";
+
+  return {
+    subject: `📊 Seu resumo da semana na ${BRAND.name}`,
+    html: layout(`
+      <h1 style="margin:0 0 12px;font-size:22px;color:${BRAND_COLORS.volt}">Seu resumo da semana</h1>
+      <p style="margin:0 0 16px;font-size:15px;color:${BRAND_COLORS.volt};line-height:1.6">
+        Oi ${firstName}! Aqui está o que aconteceu nos seus grupos em ${stats.weekLabel}.
+      </p>
+      <table role="presentation" width="100%" style="border-collapse:collapse">
+        ${statRow("Novos contatos", String(stats.newContacts), formatChange(stats.newContactsChangePct))}
+        ${statRow("Pedidos", String(stats.ordersCount), formatChange(stats.ordersChangePct))}
+        ${statRow("Faturamento", formatCurrency(stats.revenue), formatChange(stats.revenueChangePct))}
+        ${statRow("Cliques totais nos seus links", String(stats.clicksTotal), "")}
+      </table>
+      ${topGroupLine}
+      ${button("Ver relatório completo", `${appUrl}/painel/resultados`)}
+      <p style="margin:20px 0 0;font-size:12px;color:${BRAND_COLORS.slate}">
+        Não quer mais receber esse resumo? Desative em
+        <a href="${appUrl}/painel/configuracoes" style="color:${BRAND_COLORS.slate}">Configurações</a>.
+      </p>
+    `),
+  };
+}

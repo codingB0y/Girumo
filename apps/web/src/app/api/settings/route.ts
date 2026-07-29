@@ -5,7 +5,7 @@ import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// GET /api/settings — settings do tenant autenticado (meta do mês, etc).
+// GET /api/settings — settings do tenant autenticado (meta do mês, relatório semanal, etc).
 export async function GET(req: Request) {
   let tenantId: string;
   try {
@@ -21,7 +21,7 @@ export async function GET(req: Request) {
   }
 }
 
-// PATCH /api/settings — Body: { monthlyGoalContacts?: number|null, monthlyGoalRevenue?: number|null }
+// PATCH /api/settings — Body: { weeklyReportEnabled?: boolean, monthlyGoalContacts?: number|null, monthlyGoalRevenue?: number|null }
 export async function PATCH(req: Request) {
   let tenantId: string;
   try {
@@ -38,7 +38,8 @@ export async function PATCH(req: Request) {
     return Response.json({ error: "JSON inválido." }, { status: 400 });
   }
 
-  const input: { monthlyGoalContacts?: number | null; monthlyGoalRevenue?: number | null } = {};
+  const input: { weeklyReportEnabled?: boolean; monthlyGoalContacts?: number | null; monthlyGoalRevenue?: number | null } = {};
+  if (typeof body.weeklyReportEnabled === "boolean") input.weeklyReportEnabled = body.weeklyReportEnabled;
   if ("monthlyGoalContacts" in body) {
     const v = body.monthlyGoalContacts;
     input.monthlyGoalContacts = v === null ? null : Number(v);
