@@ -3,6 +3,25 @@
 > Status 2026-06-24: plano legado. A migracao atual usa Supabase Auth, Supabase Postgres/RLS/Storage,
 > Stripe e engine em VPS/Coolify. Prisma, Neon e Asaas nao sao mais o caminho alvo.
 
+## HANDOFF → lane Banco/API — Executor de automações (2026-07-29)
+
+O CRUD de `automations` está no ar, mas **nada executa os `steps`**. Plano completo (com mapa de lanes,
+decisão de arquitetura e riscos): [`docs/superpowers/plans/2026-07-29-automations-executor.md`](../../../docs/superpowers/plans/2026-07-29-automations-executor.md).
+
+**Espinha = Banco/API.** Começar pela camada 1 (contrato primeiro):
+1. Migração `automation_runs` (estado da sequência: passo atual, `next_step_at`, lease, `dedupe_key`).
+2. RPCs `claim_automation_runs` / `advance_automation_run` / `finish_automation_run` /
+   `requeue_stale_automation_runs` — mesmo padrão de `20260727120000_leads_and_worker_reads.sql`
+   (`app.*` + wrapper `public.*` + grant só pra `service_role`).
+
+Quando as RPCs existirem → abrir a lane Engine/Worker e pedir o tick em `apps/worker/src/automations-loop.ts`.
+
+Decisão registrada: o envio sai por **`engine_commands`** (`type:'send_message'`), não por `broadcasts` —
+já funciona hoje pelo engine legado (`supabase-command-worker.js:102-106`) e sobrevive ao cutover F5,
+que troca só o consumidor da fila. ⚠️ `engine_commands.payload` aceita `phone` e mandaria DM: o helper de
+enqueue **deve** exigir JID de grupo (`@g.us`), com teste — `broadcasts` garantia isso estruturalmente e
+essa garantia se perde na troca.
+
 ## ÉPICO "Contas + Billing" (login/cadastro/plano/assinatura/pagamento/financeiro/vencimento) — 2026-06-23
 Decisões (Igor): **Híbrido** (modelo certo já; cadastro+pagamento MANUAL agora; checkout/recorrência
 automáticos depois) · **Postgres + Prisma** · **Asaas**. Espinha = Banco/API. Contrato em `API_CONTRACTS.md`
