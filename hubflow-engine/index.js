@@ -2,18 +2,44 @@
 const express = require("express");
 const app = express();
 
+function healthPayload() {
+  const whatsappConnected = Boolean(currentSocket?.user);
+  const supabaseReady = !environment.requiresSupabase || supabaseCommandWorkerStarted;
+  const ready = whatsappConnected && supabaseReady;
+  return {
+    ok: ready,
+    // Status legível pra healthcheck externo (Coolify usa /health; ver deploy/coolify).
+    status: ready ? "ok" : "degraded",
+    connected: whatsappConnected,
+    // Última transição de conexão observada (connection.update). null até o 1º evento.
+    lastEventAt: lastConnectionEventAt,
+    service: "hubflow-engine",
+    whatsappConnected,
+    supabaseWorker: supabaseCommandWorkerStarted,
+    uptime: process.uptime(),
+  };
+}
+
 app.get("/", (req, res) => {
   res.status(200).send("HUBFLOW Engine online");
 });
 
-app.get("/health", (req, res) => {
+app.get("/live", (req, res) => {
   res.status(200).json({
     ok: true,
     service: "hubflow-engine",
-    whatsappConnected: Boolean(currentSocket?.user),
-    supabaseWorker: supabaseCommandWorkerStarted,
     uptime: process.uptime(),
   });
+});
+
+app.get("/ready", (req, res) => {
+  const payload = healthPayload();
+  res.status(payload.ok ? 200 : 503).json(payload);
+});
+
+app.get("/health", (req, res) => {
+  const payload = healthPayload();
+  res.status(payload.ok ? 200 : 503).json(payload);
 });
 
 const PORT = process.env.PORT || 3000;
@@ -22,16 +48,17 @@ app.listen(PORT, "0.0.0.0", () => {
   console.log(`Healthcheck ativo na porta ${PORT}`);
 });
 
-const baileys = require("@whiskeysockets/baileys");
+let useMultiFileAuthState;
+let DisconnectReason;
+let fetchLatestBaileysVersion;
+let jidNormalizedUser;
+let makeWASocket;
 
-const {
-  useMultiFileAuthState,
-  DisconnectReason,
-  fetchLatestBaileysVersion,
-  jidNormalizedUser,
-} = baileys;
-
-const makeWASocket = baileys.default || baileys;
+async function loadBaileys() {
+  const baileys = await import("@whiskeysockets/baileys");
+  ({ useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, jidNormalizedUser } = baileys);
+  makeWASocket = baileys.default;
+}
 
 const qrcode = require("qrcode-terminal");
 const pino = require("pino");
@@ -44,6 +71,12 @@ const { WarmUp } = require("./warmup.js");
 const { GroupOperationGuard, classifyGroupOpError } = require("./group-guard.js");
 const { DeliveryTracker } = require("./delivery-tracker.js");
 const { createSupabaseCommandWorker } = require("./queues/supabase-command-worker.js");
+const { validateEngineEnvironment } = require("./config/env.js");
+
+const environment = validateEngineEnvironment();
+if (!environment.valid) {
+  throw new Error(`Configuração inválida da engine: ${environment.errors.join("; ")}`);
+}
 
 // Logger silencioso (Baileys é verboso). Suba para "info" se quiser depurar.
 const logger = pino({ level: "silent" });
@@ -188,12 +221,17 @@ async function fetchMedia(mediaId) {
 const APP_URL = process.env.APP_URL;
 // Token compartilhado com o app (deve bater com ENGINE_TOKEN do .env.local do app).
 const ENGINE_TOKEN = process.env.ENGINE_TOKEN ?? "dz_dev_engine_token";
+const ENGINE_TENANT_ID = process.env.ENGINE_TENANT_ID ?? "";
 
 /** fetch ao app já com a base URL e o header de autenticação da engine. */
 function appFetch(path, opts = {}) {
   return fetch(`${APP_URL}${path}`, {
     ...opts,
-    headers: { "x-engine-token": ENGINE_TOKEN, ...(opts.headers ?? {}) },
+    headers: {
+      "x-engine-token": ENGINE_TOKEN,
+      "x-tenant-id": ENGINE_TENANT_ID,
+      ...(opts.headers ?? {}),
+    },
   });
 }
 
@@ -202,6 +240,7 @@ let dispatchTimer = null; // intervalo que puxa ofertas a disparar do app
 let connectedSince = null; // quando a sessão atual abriu (p/ "conectado há X dias")
 let reconnectAttempts = 0; // p/ backoff exponencial — zera ao conectar de fato
 let currentSocket = null; // socket Baileys ativo, usado pelo worker Supabase
+let lastConnectionEventAt = null; // ISO da última transição connection.update (health)
 let supabaseCommandWorkerStarted = false;
 const supabaseCommandWorker = createSupabaseCommandWorker({
   getSocket: () => currentSocket,
@@ -332,30 +371,6 @@ async function welcomeNewMember(sock, phone) {
   } finally {
     welcoming.delete(digits);
   }
-}
-
-/** Adiciona participantes a um grupo respeitando o GroupOperationGuard. */
-async function addToGroup(sock, groupJid, participants) {
-  const verdict = guard.check("add");
-  if (!verdict.allowed) {
-    console.log(`⛔ ${verdict.reason}. Tente em ${verdict.retryAfterSec}s.`);
-    return { ok: false, reason: verdict.reason };
-  }
-  try {
-    const res = await sock.groupParticipantsUpdate(groupJid, participants, "add");
-    guard.record("add");
-    return { ok: true, res };
-  } catch (err) {
-    const code = classifyGroupOpError(err);
-    console.log(`⚠️  Falha no add ao grupo${code ? ` (${code})` : ""}: ${err.message}`);
-    return { ok: false, code };
-  }
-}
-
-/** Broadcast seguro: enfileira 1 mensagem por grupo (a fila cuida do ritmo). */
-async function broadcast(sock, jids, text) {
-  console.log(`\n📤 Enfileirando broadcast para ${jids.length} grupos (fila anti-ban no controle)...`);
-  jids.forEach((jid) => sendText(sock, jid, text));
 }
 
 // === MOTOR DE DISPARO REAL (ofertas do app → grupos) ===
@@ -670,6 +685,7 @@ async function start() {
 
   sock.ev.on("connection.update", async (update) => {
     const { connection, lastDisconnect, qr } = update;
+    if (connection) lastConnectionEventAt = new Date().toISOString();
 
     if (qr) {
       console.log("\n📲 Abra o WhatsApp > Aparelhos conectados > Conectar aparelho");
@@ -838,9 +854,6 @@ async function listGroups(sock) {
   await syncGroups(admin);
   console.log("\n👀 Monitorando entradas só nos grupos ADMIN, em tempo real... (Ctrl+C para sair)");
 
-  // Exemplo de broadcast SEGURO (passa pela fila anti-ban) — descomente p/ testar:
-  // const jids = admin.slice(0, 3).map((g) => g.id);
-  // await broadcast(sock, jids, "Olá! Novidades chegando no grupo 👋");
 }
 
 // Último snapshot de grupos admin + se o último POST deu certo. Permite re-sync
@@ -890,7 +903,12 @@ async function resyncGroupsIfNeeded() {
 }
 
 
-start().catch((err) => {
-  console.error("Erro fatal:", err);
+async function bootstrap() {
+  await loadBaileys();
+  await start();
+}
+
+bootstrap().catch((error) => {
+  console.error("Erro fatal ao iniciar a engine:", error);
   process.exit(1);
 });

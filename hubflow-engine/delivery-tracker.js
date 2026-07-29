@@ -3,7 +3,7 @@
  * Porte (seguro) do baileys-antiban/deliveryTracker.ts. Só monitora — não altera envio.
  * Entrega < 60% é sinal forte de soft-ban.
  */
-export class DeliveryTracker {
+class DeliveryTracker {
   constructor(config = {}) {
     this.cfg = {
       windowMs: 3_600_000, // 1h
@@ -58,3 +58,5 @@ export class DeliveryTracker {
     }
   }
 }
+
+module.exports = { DeliveryTracker };

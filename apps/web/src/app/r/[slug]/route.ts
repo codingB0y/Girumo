@@ -53,7 +53,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
   // 2) Link mestre de campanha → próximo grupo disponível (preenchimento sequencial).
   const campanha = await findCampanhaBySlug(slug);
   if (campanha) {
-    const groups = await listGroups();
+    if (!campanha.tenantId) {
+      return new Response("Campanha sem tenant associado.", { status: 404 });
+    }
+    const groups = await listGroups(campanha.tenantId);
     const target = nextAvailableGroup(campanha.groupIds, groups);
     if (!target) {
       return fullPage("Todos os grupos desta campanha estão cheios. Em breve abriremos um novo. 💛");

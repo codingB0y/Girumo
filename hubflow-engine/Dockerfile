@@ -1,9 +1,9 @@
-FROM node:22-alpine AS deps
+FROM node:22.14.0-alpine3.21 AS deps
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev
 
-FROM node:22-alpine AS runner
+FROM node:22.14.0-alpine3.21 AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3001

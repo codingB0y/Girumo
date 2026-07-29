@@ -10,27 +10,33 @@ import type { Group } from "@/lib/mock-data";
 type Campanha = { id: string; name: string; groupIds: string[]; slug?: string; createdAt: string };
 type TrackedLink = { campaignName?: string; clicks: number };
 type Lead = { status: "novo" | "ativo" | "comprou" };
+type Order = { id: string; value: number; group_name?: string | null };
+
+const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function PainelResultados() {
   const [campanhas, setCampanhas] = useState<Campanha[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [links, setLinks] = useState<TrackedLink[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
-        const [c, g, l, le] = await Promise.all([
+        const [c, g, l, le, o] = await Promise.all([
           fetch("/api/campanhas").then((r) => r.json()).catch(() => []),
           fetch("/api/groups").then((r) => r.json()).catch(() => []),
           fetch("/api/links").then((r) => r.json()).catch(() => []),
           fetch("/api/leads").then((r) => r.json()).catch(() => []),
+          fetch("/api/orders").then((r) => r.json()).catch(() => []),
         ]);
         setCampanhas(Array.isArray(c) ? c : []);
         setGroups(Array.isArray(g) ? g : []);
         setLinks(Array.isArray(l) ? l : []);
         setLeads(Array.isArray(le) ? le : []);
+        setOrders(Array.isArray(o) ? o : []);
       } finally {
         setLoading(false);
       }
@@ -39,8 +45,21 @@ export default function PainelResultados() {
 
   const totalClicks = useMemo(() => links.reduce((a, l) => a + (l.clicks ?? 0), 0), [links]);
   const totalMembers = useMemo(() => groups.reduce((a, g) => a + (g.members ?? 0), 0), [groups]);
+  const totalEntradas = leads.length;
   const clientes = useMemo(() => leads.filter((l) => l.status === "comprou").length, [leads]);
-  const conv = totalClicks > 0 ? Math.round((totalMembers / totalClicks) * 100) : 0;
+  // Conversão = entradas atribuídas (leads) ÷ cliques — totalMembers é estoque e pode passar de 100%.
+  const conv = totalClicks > 0 ? Math.round((totalEntradas / totalClicks) * 100) : 0;
+
+  const totalOrdersValue = useMemo(() => orders.reduce((a, o) => a + (o.value ?? 0), 0), [orders]);
+
+  const ordersByGroup = useMemo(() => {
+    const sums = new Map<string, number>();
+    for (const o of orders) {
+      const key = o.group_name?.trim() || "Sem grupo";
+      sums.set(key, (sums.get(key) ?? 0) + (o.value ?? 0));
+    }
+    return [...sums.entries()].map(([group, total]) => ({ group, total })).sort((a, b) => b.total - a.total);
+  }, [orders]);
 
   const activity = useMemo(() => {
     const c = { alto: 0, medio: 0, baixo: 0 };
@@ -66,42 +85,43 @@ export default function PainelResultados() {
 
   const funnel = [
     { icon: MousePointerClick, label: "Clicaram no link", value: totalClicks, pct: 100 },
-    { icon: Users, label: "Entraram no grupo", value: totalMembers, pct: conv },
-    { icon: ShoppingBag, label: "Viraram clientes", value: clientes, pct: totalClicks > 0 ? Math.round((clientes / totalClicks) * 100) : 0 },
+    { icon: Users, label: "Entraram no grupo", value: totalEntradas, pct: conv },
+    { icon: ShoppingBag, label: "Viraram pedidos", value: orders.length, pct: totalClicks > 0 ? Math.round((orders.length / totalClicks) * 100) : 0 },
   ];
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-[1200px] space-y-5 px-4 py-6 sm:px-6">
-        <div className="h-10 w-56 animate-pulse rounded-lg bg-white" />
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{[0, 1, 2, 3].map((i) => <div key={i} className="h-24 animate-pulse rounded-2xl bg-white" />)}</div>
-        <div className="h-72 animate-pulse rounded-3xl bg-white" />
+      <div className="mx-auto max-w-[1200px] space-y-8 px-4 py-8 sm:px-8">
+        <div className="pn-skeleton h-10 w-56 rounded-lg" />
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{[0, 1, 2, 3].map((i) => <div key={i} className="pn-skeleton h-24 rounded-2xl" />)}</div>
+        <div className="pn-skeleton h-72 rounded-2xl" />
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-[1200px] space-y-6 px-4 py-6 sm:px-6">
-      <div>
-        <h1 className="font-display text-3xl font-extrabold tracking-[-0.03em]">Resultados</h1>
-        <p className="font-data mt-1 text-xs uppercase tracking-wider text-aco/60">
-          Do clique ao cliente — sem número inflado
+    <div className="mx-auto max-w-[1200px] space-y-8 px-4 py-8 sm:px-8">
+      <header>
+        <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-volt-950">Resultados</h1>
+        <p className="font-editorial mt-1 text-[19px] italic text-ardosia">
+          Do clique ao cliente — sem número inflado.
         </p>
-      </div>
+      </header>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Tile label="Cliques" value={totalClicks.toLocaleString("pt-BR")} />
         <Tile label="Membros" value={totalMembers.toLocaleString("pt-BR")} />
-        <Tile label="Conversão clique→membro" value={`${conv}%`} tone="iris" />
+        <Tile label="Conversão clique→entrada" value={`${conv}%`} tone="cobalt" />
         <Tile label="Clientes" value={clientes.toLocaleString("pt-BR")} tone="sucesso" />
+        <Tile label="Vendas registradas" value={brl.format(totalOrdersValue)} tone="sucesso" />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
         {/* Funil real */}
-        <div className="rounded-3xl border border-breu/[0.08] bg-white p-6 lg:col-span-2">
+        <div className="pn-card rounded-2xl p-6 lg:col-span-2">
           <div className="flex items-center gap-2.5">
-            <h2 className="font-display text-base font-bold text-breu">O caminho até a venda</h2>
-            <span className="font-data rounded-full bg-bruma px-2 py-0.5 text-[10px] uppercase tracking-wider text-aco/55">real</span>
+            <h2 className="font-display text-base font-bold text-volt-950">O caminho até a venda</h2>
+            <span className="font-data rounded-full bg-poco px-2 py-0.5 text-[10px] uppercase tracking-[0.08em] text-aco/55">real</span>
           </div>
           <div className="mt-6 space-y-3">
             {funnel.map((s, i) => {
@@ -111,14 +131,14 @@ export default function PainelResultados() {
               return (
                 <div key={s.label}>
                   <div className="mb-1.5 flex items-center justify-between">
-                    <span className="flex items-center gap-2 text-sm text-aco"><Icon className="h-4 w-4 text-iris" />{s.label}</span>
+                    <span className="flex items-center gap-2 text-sm text-aco"><Icon className="h-4 w-4 text-cobalt-500" strokeWidth={1.75} />{s.label}</span>
                     <span className="flex items-baseline gap-2">
-                      <span className="font-display text-lg font-extrabold tabular-nums text-breu">{s.value.toLocaleString("pt-BR")}</span>
+                      <span className="font-data text-lg font-medium tabular-nums text-volt-950">{s.value.toLocaleString("pt-BR")}</span>
                       {stepConv != null && <span className="font-data text-[11px] text-aco/45">{stepConv}% do passo</span>}
                     </span>
                   </div>
-                  <div className="h-3 w-full overflow-hidden rounded-full bg-bruma">
-                    <div className="hf-gradient h-full rounded-full" style={{ width: `${Math.max(s.pct, 4)}%` }} />
+                  <div className="pn-poco h-3 w-full overflow-hidden rounded-full">
+                    <div className="pn-fill h-full w-full rounded-full" style={{ transform: `scaleX(${Math.max(s.pct / 100, 0.04)})`, background: "var(--color-cobalt-500)" }} />
                   </div>
                 </div>
               );
@@ -127,9 +147,9 @@ export default function PainelResultados() {
         </div>
 
         {/* Atividade dos grupos */}
-        <div className="rounded-3xl border border-breu/[0.08] bg-white p-6">
-          <h2 className="font-display text-base font-bold text-breu">Atividade dos grupos</h2>
-          <div className="mt-4 flex h-3 w-full overflow-hidden rounded-full bg-bruma">
+        <div className="pn-card rounded-2xl p-6">
+          <h2 className="font-display text-base font-bold text-volt-950">Atividade dos grupos</h2>
+          <div className="pn-poco mt-4 flex h-3 w-full overflow-hidden rounded-full">
             {activity.map((a) => (
               <div key={a.label} style={{ width: `${(a.count / totalGroups) * 100}%`, background: a.color }} />
             ))}
@@ -141,7 +161,7 @@ export default function PainelResultados() {
                   <span className="h-2.5 w-2.5 rounded-full" style={{ background: a.color }} />
                   {a.label}
                 </span>
-                <span className="font-data tabular-nums text-breu">{a.count} grupos</span>
+                <span className="font-data tabular-nums text-volt-950">{a.count} grupos</span>
               </div>
             ))}
           </div>
@@ -149,41 +169,74 @@ export default function PainelResultados() {
       </div>
 
       {/* Membros por campanha */}
-      <div className="rounded-3xl border border-breu/[0.08] bg-white p-6">
-        <h2 className="font-display text-base font-bold text-breu">Membros por campanha</h2>
+      <div className="pn-card rounded-2xl p-6">
+        <h2 className="font-display text-base font-bold text-volt-950">Membros por campanha</h2>
         {byCampaign.length === 0 ? (
-          <p className="mt-4 text-sm text-aco/60">Crie campanhas pra ver o desempenho aqui.</p>
+          <p className="font-editorial mt-4 text-[17px] italic text-ardosia">Crie campanhas pra ver o desempenho aqui.</p>
         ) : (
           <div className="mt-5 space-y-4">
             {byCampaign.map((c) => (
               <div key={c.name} className="flex items-center gap-4">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-iris/10 text-iris"><Megaphone className="h-4 w-4" /></span>
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cobalt-500/10 text-cobalt-500"><Megaphone className="h-4 w-4" strokeWidth={1.75} /></span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between">
-                    <p className="truncate text-sm text-breu">{c.name}</p>
-                    <p className="font-display text-sm font-bold tabular-nums text-breu">{c.members.toLocaleString("pt-BR")}</p>
+                    <p className="truncate text-sm text-volt-950">{c.name}</p>
+                    <p className="font-data text-sm font-medium tabular-nums text-volt-950">{c.members.toLocaleString("pt-BR")}</p>
                   </div>
-                  <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-bruma">
-                    <div className="h-full rounded-full bg-iris" style={{ width: `${c.pct}%` }} />
+                  <div className="pn-poco mt-1.5 h-1.5 w-full overflow-hidden rounded-full">
+                    <div className="pn-fill h-full w-full rounded-full bg-cobalt-500" style={{ transform: `scaleX(${Math.max(c.pct / 100, 0.02)})` }} />
                   </div>
                 </div>
               </div>
             ))}
           </div>
         )}
-        <Link href="/painel/campanhas" className="font-data mt-5 inline-flex items-center gap-1 text-[11px] uppercase tracking-wider text-iris transition hover:gap-1.5">
+        <Link href="/painel/campanhas" className="font-data mt-5 inline-flex items-center gap-1 text-[11px] uppercase tracking-[0.08em] text-cobalt-500 transition-[gap] duration-[160ms] hover:gap-1.5">
           Ver campanhas →
         </Link>
+      </div>
+
+      {/* De onde veio cada venda */}
+      <div className="pn-card rounded-2xl p-6">
+        <h2 className="font-display text-base font-bold text-volt-950">De onde veio cada venda</h2>
+        {orders.length === 0 ? (
+          <p className="font-editorial mt-4 text-[17px] italic text-ardosia">
+            Registre seus pedidos na tela Contatos pra ver o caminho completo até a venda.
+          </p>
+        ) : (
+          <div className="mt-5 space-y-4">
+            {ordersByGroup.map((o) => {
+              const max = ordersByGroup[0]?.total || 1;
+              const pct = Math.round((o.total / max) * 100);
+              return (
+                <div key={o.group} className="flex items-center gap-4">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sucesso/10 text-sucesso">
+                    <ShoppingBag className="h-4 w-4" strokeWidth={1.75} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between">
+                      <p className="truncate text-sm text-volt-950">{o.group}</p>
+                      <p className="font-data text-sm font-medium tabular-nums text-volt-950">{brl.format(o.total)}</p>
+                    </div>
+                    <div className="pn-poco mt-1.5 h-1.5 w-full overflow-hidden rounded-full">
+                      <div className="pn-fill h-full w-full rounded-full bg-sucesso" style={{ transform: `scaleX(${Math.max(pct / 100, 0.02)})` }} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-function Tile({ label, value, tone }: { label: string; value: string; tone?: "iris" | "sucesso" }) {
+function Tile({ label, value, tone }: { label: string; value: string; tone?: "cobalt" | "sucesso" }) {
   return (
-    <div className="rounded-2xl border border-breu/[0.08] bg-white p-4">
-      <p className="font-data text-[10px] uppercase tracking-wider text-aco/50">{label}</p>
-      <p className={cn("font-display mt-1.5 text-2xl font-extrabold tracking-tight", tone === "iris" ? "text-iris" : tone === "sucesso" ? "text-sucesso" : "text-breu")}>
+    <div className="pn-card rounded-2xl p-4">
+      <p className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/55">{label}</p>
+      <p className={cn("font-data mt-2 text-[26px] font-medium tabular-nums tracking-[-0.02em]", tone === "cobalt" ? "text-cobalt-500" : tone === "sucesso" ? "text-sucesso" : "text-volt-950")}>
         {value}
       </p>
     </div>

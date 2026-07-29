@@ -80,3 +80,39 @@ Sprint 1 concluido (exceto item 1 que depende do usuario).
 1. Usuario rotacionar Service Role Key no Supabase Dashboard
 2. Commit + push das correcoes de seguranca
 3. Iniciar Sprint 2 (feature gating por plano)
+
+---
+
+# 🚀 SPRINT 4 — HubFlow Pages (Módulo Novo)
+
+## Objetivo
+Criar módulo "HubFlow Pages" — landing pages com templates prontos integradas ao funil WhatsApp. Lojista publica em `hubflow.com.br/p/{slug}`, lead preenche nome+tel ANTES de entrar no grupo.
+
+## Restrições firmes
+- ❌ NÃO codar até 3 squads aprovarem
+- ❌ NÃO definir pricing
+- ❌ NÃO tocar landing page atual
+- ❌ LPs complementam links (não substituem)
+
+## Briefing
+- 📄 `apps/web/docs/hubflow-pages/BRIEFING.md` (master doc)
+- 🎯 `apps/web/docs/hubflow-pages/PRODUCT_SQUAD_MISSION.md` (decisões produto)
+- ⚙️ `apps/web/docs/hubflow-pages/BACKEND_SQUAD_MISSION.md` (viabilidade técnica)
+- 📈 `apps/web/docs/hubflow-pages/GROWTH_SQUAD_MISSION.md` (estratégia growth)
+- 🗄️ `docs/hubflow-pages/SQUAD_OS_MISSIONS.sql` (insere missões no Squad OS)
+
+## Checklist Sprint 4
+- [ ] Product Squad revisar 5 decisões (Lead Data First, Templates, LGPD, Editor, Aha Moment)
+- [ ] Backend Squad validar 7 pontos (Render, Schema, Tracking, Domain, Mobile, Privacidade, WhatsApp)
+- [ ] Growth Squad avaliar 6 estratégias (SEO, Copy, Aha, Onboarding, Tracking, PLG)
+- [ ] Consolidar plano de implementação após 3 aprovações
+- [ ] Schema Supabase com RLS
+- [ ] Render via Next.js ISR /p/[slug]
+- [ ] 5-7 templates prioritários
+- [ ] Editor simples com preview ao vivo
+- [ ] Tracking server-side (CAPI + GA4 MP + TikTok)
+- [ ] LGPD: consent_at + IP hash + exclusão
+- [ ] Dashboard do cliente: métricas da LP
+
+## Próxima ação
+Quando você me chamar, **não começar codando**. Primeiro verificar se os 3 squads já responderam nas missões. Se sim, consolidar plano. Se não, lembrete pra eles.

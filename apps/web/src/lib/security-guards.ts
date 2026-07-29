@@ -54,7 +54,7 @@ export function guardStripe(): { allowed: boolean; reason?: string } {
 /**
  * Bloqueia conexão com engine de produção em DEV.
  */
-export function guardEngine(): { allowed: boolean; reason?: string } {
+function guardEngine(): { allowed: boolean; reason?: string } {
   const engineUrl = process.env.ENGINE_URL || "";
   const engineMode = process.env.ENGINE_MODE || "";
   const env = getAppEnvironment();
@@ -95,7 +95,7 @@ export function guardEngine(): { allowed: boolean; reason?: string } {
  * Bloqueia conexão com Supabase de produção em DEV.
  * Requer PRODUCTION_SUPABASE_REF definido para funcionar.
  */
-export function guardDatabase(): { allowed: boolean; reason?: string } {
+function guardDatabase(): { allowed: boolean; reason?: string } {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "";
   const env = getAppEnvironment();
 
@@ -139,7 +139,7 @@ export function guardDatabase(): { allowed: boolean; reason?: string } {
  * Bloqueia uso de storage de produção em DEV.
  * O Supabase Storage usa o mesmo projeto — se guardDatabase() passa, este também.
  */
-export function guardStorage(): { allowed: boolean; reason?: string } {
+function guardStorage(): { allowed: boolean; reason?: string } {
   // Storage usa mesmo projeto que o banco
   return guardDatabase();
 }
@@ -151,7 +151,7 @@ export function guardStorage(): { allowed: boolean; reason?: string } {
 /**
  * Bloqueia se a URL da app aponta para domínio de produção em DEV.
  */
-export function guardDomain(): { allowed: boolean; reason?: string } {
+function guardDomain(): { allowed: boolean; reason?: string } {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
   const env = getAppEnvironment();
 

@@ -1,864 +1,575 @@
 import { ImageResponse } from "@vercel/og";
-import { type NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
+import type { ReactNode } from "react";
+import { BRAND, BRAND_COLORS } from "@/lib/brand";
+import { GIRUMO_PATHS } from "@/lib/girumo-symbol";
+import { resolvePostFormat } from "../post-formats";
 
-// Dimensões Instagram post (4:5)
-const WIDTH = 1080;
-const HEIGHT = 1350;
+export const runtime = "nodejs";
 
-// Cache das fontes em memória para não re-baixar a cada request
-let fontsCache: { bricolage: ArrayBuffer; plexSans: ArrayBuffer; plexMono: ArrayBuffer } | null = null;
+type ResolvedPostFormat = ReturnType<typeof resolvePostFormat>;
+type Surface = "dark" | "light" | "impact";
+
+const FONT_URLS = {
+  manrope: "https://fonts.gstatic.com/s/manrope/v20/xn7_YHE41ni1AdIRqAuZuw1Bx9mbZk4aE-_F.ttf",
+  plexSans:
+    "https://fonts.gstatic.com/s/ibmplexsans/v23/zYXGKVElMYYaJe8bpLHnCwDKr932-G7dytD-Dmu1swZSAXcomDVmadSD6llzAA.ttf",
+  plexMono: "https://fonts.gstatic.com/s/ibmplexmono/v20/-F63fjptAgt5VM-kVkqdyU8n5ig.ttf",
+} as const;
+
+let fontsCache: { manrope: ArrayBuffer; plexSans: ArrayBuffer; plexMono: ArrayBuffer } | null = null;
+
+async function fetchFont(url: string): Promise<ArrayBuffer> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Falha ao carregar fonte social: ${response.status}`);
+  return response.arrayBuffer();
+}
 
 async function loadFonts() {
   if (fontsCache) return fontsCache;
-  const [bricolage, plexSans, plexMono] = await Promise.all([
-    fetch(
-      "https://fonts.gstatic.com/s/bricolagegrotesque/v9/3y9U6as8bTXq_nANBjzKo3IeZx8z6up5BeSl5jBNz_19PpbpMXuECpwUxJBOm_OJWiaaD30YfKfjZZoLvZvlyM0.ttf"
-    ).then((r) => r.arrayBuffer()),
-    fetch(
-      "https://fonts.gstatic.com/s/ibmplexsans/v23/zYXGKVElMYYaJe8bpLHnCwDKr932-G7dytD-Dmu1swZSAXcomDVmadSD6llzAA.ttf"
-    ).then((r) => r.arrayBuffer()),
-    fetch(
-      "https://fonts.gstatic.com/s/ibmplexmono/v20/-F63fjptAgt5VM-kVkqdyU8n5ig.ttf"
-    ).then((r) => r.arrayBuffer()),
+  const [manrope, plexSans, plexMono] = await Promise.all([
+    fetchFont(FONT_URLS.manrope),
+    fetchFont(FONT_URLS.plexSans),
+    fetchFont(FONT_URLS.plexMono),
   ]);
-  fontsCache = { bricolage, plexSans, plexMono };
+  fontsCache = { manrope, plexSans, plexMono };
   return fontsCache;
 }
-
-export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const template = searchParams.get("t") || "1.1-capa";
-
+  const format = resolvePostFormat(searchParams.get("format"));
   const fonts = await loadFonts();
 
-  const slide = getSlideContent(template);
-
-  return new ImageResponse(slide, {
-    width: WIDTH,
-    height: HEIGHT,
+  return new ImageResponse(getSlideContent(template, format), {
+    width: format.width,
+    height: format.height,
     fonts: [
-      { name: "Bricolage", data: fonts.bricolage, weight: 800 as const, style: "normal" as const },
-      { name: "PlexSans", data: fonts.plexSans, weight: 400 as const, style: "normal" as const },
-      { name: "PlexMono", data: fonts.plexMono, weight: 400 as const, style: "normal" as const },
+      { name: "Manrope", data: fonts.manrope, weight: 700, style: "normal" },
+      { name: "PlexSans", data: fonts.plexSans, weight: 400, style: "normal" },
+      { name: "PlexMono", data: fonts.plexMono, weight: 400, style: "normal" },
     ],
   });
 }
 
-/* ============================================================
-   TEMPLATES — cada função retorna JSX Satori-compatible
-   ============================================================ */
-
-function getSlideContent(template: string) {
+function getSlideContent(template: string, format: ResolvedPostFormat) {
   switch (template) {
-    case "1.1-capa":
-      return slide_1_1_capa();
     case "1.1-problema":
-      return slide_1_1_problema();
+      return ProductMessage({
+        format,
+        eyebrow: "ROTINA MANUAL",
+        title: "Abrir. Colar. Enviar. Repetir.",
+        body: "Quando a novidade precisa entrar grupo por grupo, sua manhã vira operação — e não venda.",
+      });
     case "1.1-solucao":
-      return slide_1_1_solucao();
+      return ProductMessage({
+        format,
+        eyebrow: "GIRUMO CAMPANHAS",
+        title: "Publique a novidade em todos os grupos de uma vez.",
+        body: "Prepare texto, vídeo ou áudio, escolha os grupos e deixe o envio programado.",
+      });
     case "1.1-cta":
-      return slide_1_1_cta();
+      return ProductMessage({
+        format,
+        eyebrow: "MENOS REPETIÇÃO",
+        title: BRAND.functionalLine,
+        body: "Captação, grupos e campanhas na mesma operação. Conheça a Girumo no link da bio.",
+      });
     case "1.2-confessa":
-      return slide_1_2_confessa();
+      return VideoThumbnail({
+        format,
+        kicker: "PERGUNTA DE LOJISTA",
+        title: "Quantos grupos ficaram sem novidade hoje?",
+        detail: "Se depende de copiar e colar, sempre sobra trabalho — e pode faltar venda.",
+      });
     case "2.2-sabia":
-      return slide_2_2_sabia();
+      return ProductMessage({
+        format,
+        eyebrow: "GIRUMO GRUPOS",
+        title: "Grupo lotou? O próximo entra em operação.",
+        body: "A página de captação direciona o cliente para um grupo disponível e mantém o fluxo em andamento.",
+      });
     case "2.3-capa":
-      return slide_2_3_capa();
+      return VideoThumbnail({
+        format,
+        kicker: "OPERAÇÃO PROGRAMADA",
+        title: "5 tarefas que continuam rodando sem você repetir trabalho.",
+        detail: "Da entrada no grupo à leitura dos resultados.",
+      });
     case "2.3-01":
-      return slide_2_3_item("01", "Dispara pra todos os grupos num clique");
+      return ProductMessage({
+        format,
+        index: "01",
+        eyebrow: "CAMPANHAS",
+        title: "Envia para todos os grupos de uma vez.",
+        body: "Uma campanha preparada, os grupos certos e a publicação no horário combinado.",
+      });
     case "2.3-02":
-      return slide_2_3_item("02", "Agenda a semana inteira de uma vez");
+      return ProductMessage({
+        format,
+        index: "02",
+        eyebrow: "AGENDA",
+        title: "Programa a semana antes da correria começar.",
+        body: "Deixe a grade, a reposição e a novidade prontas para entrar na hora certa.",
+      });
     case "2.3-03":
-      return slide_2_3_item("03", "Cria grupo novo quando o atual enche");
+      return ProductMessage({
+        format,
+        index: "03",
+        eyebrow: "GRUPOS",
+        title: "Organiza a passagem quando um grupo enche.",
+        body: "O próximo cliente encontra espaço sem depender de você trocar o link na mão.",
+      });
     case "2.3-04":
-      return slide_2_3_item("04", "Muda nome e foto de todos em massa");
+      return ProductMessage({
+        format,
+        index: "04",
+        eyebrow: "GESTÃO",
+        title: "Atualiza nome e foto sem entrar grupo por grupo.",
+        body: "Mantenha a comunicação da campanha alinhada em toda a operação.",
+      });
     case "2.3-05":
-      return slide_2_3_item("05", "Mostra funil e saúde em tempo real");
+      return ProductMessage({
+        format,
+        index: "05",
+        eyebrow: "RESULTADOS",
+        title: "Mostra de onde vieram clientes e pedidos.",
+        body: "Leia grupos, páginas e campanhas para decidir onde colocar seu próximo esforço.",
+      });
     case "2.3-cta":
-      return slide_2_3_cta();
+      return ProductMessage({
+        format,
+        eyebrow: "GIRUMO",
+        title: BRAND.tagline,
+        body: "Veja como a operação funciona no link da bio.",
+      });
     case "3.1-numero":
-      return slide_3_1_numero();
+      return FounderProof({ format });
     case "4.1-semdesculpa":
-      return slide_4_1_semdesculpa();
+      return ProductMessage({
+        format,
+        eyebrow: "COMEÇO DIRETO",
+        title: "Seu número. Seus grupos. Sua operação mais organizada.",
+        body: "Conecte o WhatsApp, escolha os grupos e prepare a primeira campanha.",
+      });
     case "4.2-quanto":
-      return slide_4_2_quanto();
+      return MetricCard({
+        format,
+        value: "12 mil+",
+        label: "pessoas reunidas em 50+ grupos",
+        note: "Operação fundadora Mega Stock",
+      });
     case "5.2-dado":
-      return slide_5_2_dado();
+      return MetricCard({
+        format,
+        value: "+20 mil",
+        label: "peças vendidas em um evento de 2 dias",
+        note: "Operação fundadora Mega Stock",
+      });
+    case "1.1-capa":
     default:
-      return slide_1_1_capa();
+      return VideoThumbnail({
+        format,
+        kicker: "ROTINA DE ATACADO",
+        title: "40 grupos. A mesma oferta. Todo dia.",
+        detail: "O trabalho repetido não precisa mandar na sua manhã.",
+      });
   }
 }
 
-/* ===== Componente wrapper (background + logo + footer) ===== */
+function BrandMark({ color, compact = false }: { color: string; compact?: boolean }) {
+  const size = compact ? 38 : 46;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: compact ? 12 : 16, color }}>
+      <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+        {GIRUMO_PATHS.map((d) => (
+          <path key={d} d={d} fill={color} />
+        ))}
+      </svg>
+      <span style={{ fontFamily: "Manrope", fontSize: compact ? 25 : 31, fontWeight: 700, letterSpacing: "-0.03em" }}>
+        {BRAND.name}
+      </span>
+    </div>
+  );
+}
 
-function Frame({ children }: { children: React.ReactNode }) {
+function Frame({
+  format,
+  surface,
+  children,
+}: {
+  format: ResolvedPostFormat;
+  surface: Surface;
+  children: ReactNode;
+}) {
+  const landscape = format.key === "videoCover";
+  const story = format.key === "story";
+  const paddingX = landscape ? 96 : story ? 82 : 68;
+  const paddingY = landscape ? 66 : story ? 86 : 64;
+  const background =
+    surface === "impact" ? BRAND_COLORS.acid : surface === "light" ? BRAND_COLORS.canvas : BRAND_COLORS.volt;
+  const foreground = surface === "dark" ? BRAND_COLORS.paper : BRAND_COLORS.volt;
+  const accent = surface === "impact" ? BRAND_COLORS.paper : BRAND_COLORS.acid;
+
   return (
     <div
       style={{
-        width: WIDTH,
-        height: HEIGHT,
+        width: format.width,
+        height: format.height,
         display: "flex",
         flexDirection: "column",
-        background: "#0B0D1A",
         position: "relative",
         overflow: "hidden",
+        background,
+        color: foreground,
+        padding: `${paddingY}px ${paddingX}px`,
       }}
     >
-      {/* Eclipse glow */}
       <div
         style={{
           position: "absolute",
-          top: "30%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: 900,
-          height: 900,
-          borderRadius: "50%",
-          background:
-            "radial-gradient(circle, rgba(138,108,255,0) 45%, rgba(138,108,255,0.4) 55%, rgba(106,75,240,0.12) 65%, transparent 75%)",
-        }}
-      />
-      {/* Grid pattern overlay */}
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
+          top: paddingY,
           right: 0,
-          bottom: 0,
-          backgroundImage:
-            "linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px)",
-          backgroundSize: "54px 54px",
+          width: landscape ? 260 : 168,
+          height: 14,
+          background: accent,
         }}
       />
-      {/* Logo top */}
       <div
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          padding: "48px 56px 0",
-          position: "relative",
-          zIndex: 10,
+          position: "absolute",
+          right: landscape ? 128 : 64,
+          bottom: landscape ? 118 : story ? 212 : 116,
+          width: landscape ? 170 : 118,
+          height: landscape ? 170 : 118,
+          border: `2px solid ${surface === "dark" ? BRAND_COLORS.volt800 : BRAND_COLORS.volt}`,
         }}
-      >
-        {/* Elo symbol simplified */}
-        <div
-          style={{
-            width: 36,
-            height: 36,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <svg width="36" height="36" viewBox="0 0 120 120" fill="none">
-            <rect
-              x="14"
-              y="24"
-              width="50"
-              height="72"
-              rx="21"
-              fill="none"
-              stroke="#6A4BF0"
-              strokeWidth="14"
-            />
-            <rect
-              x="56"
-              y="24"
-              width="50"
-              height="72"
-              rx="21"
-              fill="none"
-              stroke="#6A4BF0"
-              strokeWidth="14"
-            />
-          </svg>
-        </div>
-        <span
-          style={{
-            fontFamily: "Bricolage",
-            fontSize: 22,
-            fontWeight: 800,
-            color: "rgba(255,255,255,0.6)",
-          }}
-        >
-          HubFlow
-        </span>
+      />
+      <div style={{ display: "flex", position: "relative", zIndex: 2 }}>
+        <BrandMark color={foreground} compact={landscape} />
       </div>
-      {/* Main content */}
       <div
         style={{
           display: "flex",
           flex: 1,
           alignItems: "center",
-          justifyContent: "center",
-          padding: "40px 56px",
           position: "relative",
-          zIndex: 10,
+          zIndex: 2,
+          padding: landscape ? "30px 0" : story ? "76px 0" : "42px 0",
         }}
       >
         {children}
       </div>
-      {/* Footer */}
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
-          padding: "0 56px 48px",
+          alignItems: "center",
           position: "relative",
-          zIndex: 10,
+          zIndex: 2,
+          color: foreground,
         }}
       >
         <span
           style={{
             fontFamily: "PlexMono",
-            fontSize: 13,
-            letterSpacing: "0.2em",
-            textTransform: "uppercase" as const,
-            color: "rgba(236,235,245,0.3)",
+            fontSize: landscape ? 16 : 14,
+            letterSpacing: "0.14em",
+            textTransform: "uppercase",
           }}
         >
-          hubflow.com.br
+          Grupos de WhatsApp para atacado
         </span>
-        <span
-          style={{
-            fontFamily: "PlexMono",
-            fontSize: 13,
-            letterSpacing: "0.2em",
-            textTransform: "uppercase" as const,
-            color: "rgba(106,75,240,0.5)",
-          }}
-        >
-          O fluxo que vende.
-        </span>
+        <span style={{ fontFamily: "PlexSans", fontSize: landscape ? 20 : 17 }}>{BRAND.functionalLine}</span>
       </div>
     </div>
   );
 }
 
-/* ===== SLIDES ===== */
-
-function slide_1_1_capa() {
+function ProductMessage({
+  format,
+  eyebrow,
+  title,
+  body,
+  index,
+}: {
+  format: ResolvedPostFormat;
+  eyebrow: string;
+  title: string;
+  body: string;
+  index?: string;
+}) {
+  const landscape = format.key === "videoCover";
+  const story = format.key === "story";
   return (
-    <Frame>
+    <Frame format={format} surface="dark">
       <div
         style={{
           display: "flex",
           flexDirection: "column",
-          alignItems: "center",
-          textAlign: "center" as const,
-          gap: 32,
+          alignItems: "flex-start",
+          width: landscape ? 1320 : story ? 820 : 860,
+          maxWidth: "100%",
         }}
       >
-        <span style={{ fontSize: 80 }}>😮‍💨</span>
-        <span
-          style={{
-            fontFamily: "Bricolage",
-            fontSize: 56,
-            fontWeight: 800,
-            color: "#ECEBF5",
-            lineHeight: 1.1,
-            maxWidth: 800,
-          }}
-        >
-          Você ainda copia e cola oferta em 40 grupos toda manhã?
-        </span>
-      </div>
-    </Frame>
-  );
-}
-
-function slide_1_1_problema() {
-  const items = [
-    "Abre grupo 1 → cola → envia",
-    "Abre grupo 2 → cola → envia",
-    "Abre grupo 3 → cola → envia",
-    "...",
-    "40 minutos depois: cansou e nem mandou pra todos",
-  ];
-  return (
-    <Frame>
-      <div style={{ display: "flex", flexDirection: "column", gap: 28, width: "100%" }}>
-        {items.map((item, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 20 }}>
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 8,
-                background: "rgba(248,113,113,0.15)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              <span style={{ color: "#F87171", fontSize: 18, fontFamily: "PlexSans" }}>✕</span>
-            </div>
-            <span
-              style={{
-                fontFamily: "PlexSans",
-                fontSize: 26,
-                color: i === items.length - 1 ? "rgba(236,235,245,0.5)" : "rgba(236,235,245,0.85)",
-              }}
-            >
-              {item}
+        <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: story ? 48 : 34 }}>
+          {index ? (
+            <span style={{ fontFamily: "PlexMono", fontSize: landscape ? 30 : 26, color: BRAND_COLORS.acid }}>
+              {index}
             </span>
-          </div>
-        ))}
-      </div>
-    </Frame>
-  );
-}
-
-function slide_1_1_solucao() {
-  const items = [
-    "1 clique = todos os grupos recebem",
-    "Texto, vídeo e áudio",
-    "Agenda da semana inteira de uma vez",
-  ];
-  return (
-    <Frame>
-      <div style={{ display: "flex", flexDirection: "column", gap: 24, width: "100%" }}>
-        <span
-          style={{
-            fontFamily: "Bricolage",
-            fontSize: 32,
-            fontWeight: 800,
-            color: "#8A6CFF",
-            marginBottom: 12,
-          }}
-        >
-          Com o HubFlow:
-        </span>
-        {items.map((item, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 20 }}>
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                background: "rgba(16,185,129,0.15)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              <span style={{ color: "#10B981", fontSize: 20, fontFamily: "PlexSans" }}>✓</span>
-            </div>
-            <span
-              style={{
-                fontFamily: "PlexSans",
-                fontSize: 28,
-                color: "#ECEBF5",
-              }}
-            >
-              {item}
-            </span>
-          </div>
-        ))}
-      </div>
-    </Frame>
-  );
-}
-
-function slide_1_1_cta() {
-  return (
-    <Frame>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          textAlign: "center" as const,
-          gap: 24,
-        }}
-      >
-        {/* Arrow icon */}
-        <div
-          style={{
-            width: 72,
-            height: 72,
-            borderRadius: 20,
-            background: "rgba(106,75,240,0.2)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <span style={{ fontSize: 36, color: "#8A6CFF" }}>→</span>
+          ) : null}
+          <span
+            style={{
+              fontFamily: "PlexMono",
+              fontSize: landscape ? 18 : 16,
+              letterSpacing: "0.16em",
+              color: BRAND_COLORS.acid,
+            }}
+          >
+            {eyebrow}
+          </span>
         </div>
         <span
           style={{
-            fontFamily: "Bricolage",
-            fontSize: 52,
-            fontWeight: 800,
-            color: "#ECEBF5",
-            lineHeight: 1.15,
-          }}
-        >
-          Teste 7 dias grátis.
-        </span>
-        <span
-          style={{
-            fontFamily: "PlexSans",
-            fontSize: 26,
-            color: "rgba(236,235,245,0.5)",
-          }}
-        >
-          Link na bio.
-        </span>
-      </div>
-    </Frame>
-  );
-}
-
-function slide_1_2_confessa() {
-  return (
-    <Frame>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          textAlign: "center" as const,
-          gap: 32,
-        }}
-      >
-        <span style={{ fontSize: 80 }}>🫠</span>
-        <span
-          style={{
-            fontFamily: "Bricolage",
-            fontSize: 48,
-            fontWeight: 800,
-            color: "#ECEBF5",
-            lineHeight: 1.15,
-            maxWidth: 820,
-          }}
-        >
-          Confessa: quantos grupos você deixou de enviar hoje por preguiça de copiar e colar?
-        </span>
-      </div>
-    </Frame>
-  );
-}
-
-function slide_2_2_sabia() {
-  return (
-    <Frame>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          textAlign: "center" as const,
-          gap: 28,
-        }}
-      >
-        <span style={{ fontSize: 72 }}>🔄</span>
-        <span
-          style={{
-            fontFamily: "Bricolage",
-            fontSize: 46,
-            fontWeight: 800,
-            color: "#ECEBF5",
-            lineHeight: 1.15,
-            maxWidth: 800,
-          }}
-        >
-          Sabia que quando um grupo lota, o HubFlow cria o próximo sozinho?
-        </span>
-        <span
-          style={{
-            fontFamily: "PlexMono",
-            fontSize: 16,
-            letterSpacing: "0.15em",
-            textTransform: "uppercase" as const,
-            color: "rgba(138,108,255,0.6)",
-            marginTop: 8,
-          }}
-        >
-          Auto-criação de grupos
-        </span>
-      </div>
-    </Frame>
-  );
-}
-
-function slide_2_3_capa() {
-  return (
-    <Frame>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          textAlign: "center" as const,
-          gap: 32,
-        }}
-      >
-        <span style={{ fontSize: 72 }}>🌙</span>
-        <span
-          style={{
-            fontFamily: "Bricolage",
-            fontSize: 50,
-            fontWeight: 800,
-            color: "#ECEBF5",
-            lineHeight: 1.1,
-            maxWidth: 800,
-          }}
-        >
-          5 coisas que o HubFlow faz enquanto você dorme
-        </span>
-      </div>
-    </Frame>
-  );
-}
-
-function slide_2_3_item(n: string, text: string) {
-  return (
-    <Frame>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          textAlign: "center" as const,
-          gap: 32,
-        }}
-      >
-        <span
-          style={{
-            fontFamily: "PlexMono",
-            fontSize: 120,
+            fontFamily: "Manrope",
+            fontSize: landscape ? 82 : story ? 78 : format.key === "square" ? 62 : 70,
             fontWeight: 700,
-            color: "rgba(106,75,240,0.3)",
-            lineHeight: 1,
+            letterSpacing: "-0.045em",
+            lineHeight: 1.02,
+            color: BRAND_COLORS.paper,
           }}
         >
-          {n}
+          {title}
         </span>
+        <div style={{ display: "flex", width: landscape ? 92 : 72, height: 12, background: BRAND_COLORS.acid, marginTop: 38 }} />
         <span
           style={{
             fontFamily: "PlexSans",
-            fontSize: 34,
-            color: "#ECEBF5",
-            maxWidth: 700,
-            lineHeight: 1.3,
+            fontSize: landscape ? 31 : story ? 31 : 27,
+            lineHeight: 1.38,
+            color: BRAND_COLORS.canvas,
+            marginTop: 30,
+            maxWidth: landscape ? 1060 : 760,
           }}
         >
-          {text}
+          {body}
         </span>
       </div>
     </Frame>
   );
 }
 
-function slide_2_3_cta() {
+function VideoThumbnail({
+  format,
+  kicker,
+  title,
+  detail,
+}: {
+  format: ResolvedPostFormat;
+  kicker: string;
+  title: string;
+  detail: string;
+}) {
+  const landscape = format.key === "videoCover";
+  const story = format.key === "story";
   return (
-    <Frame>
+    <Frame format={format} surface="impact">
       <div
         style={{
           display: "flex",
           flexDirection: "column",
-          alignItems: "center",
-          textAlign: "center" as const,
-          gap: 20,
+          alignItems: "flex-start",
+          width: landscape ? 1380 : 850,
+          maxWidth: "100%",
         }}
       >
         <span
           style={{
             fontFamily: "PlexMono",
-            fontSize: 16,
-            letterSpacing: "0.2em",
-            textTransform: "uppercase" as const,
-            color: "#8A6CFF",
+            fontSize: landscape ? 18 : 16,
+            letterSpacing: "0.16em",
+            color: BRAND_COLORS.volt,
+            border: `2px solid ${BRAND_COLORS.volt}`,
+            padding: "10px 15px",
+            marginBottom: story ? 58 : 38,
           }}
         >
-          O fluxo que vende.
+          {kicker}
         </span>
         <span
           style={{
-            fontFamily: "Bricolage",
-            fontSize: 52,
-            fontWeight: 800,
-            color: "#ECEBF5",
-            lineHeight: 1.15,
+            fontFamily: "Manrope",
+            fontSize: landscape ? 96 : story ? 88 : format.key === "square" ? 72 : 80,
+            fontWeight: 700,
+            letterSpacing: "-0.05em",
+            lineHeight: 0.98,
+            color: BRAND_COLORS.volt,
           }}
         >
-          Teste 7 dias grátis
+          {title}
         </span>
         <span
           style={{
             fontFamily: "PlexSans",
-            fontSize: 24,
-            color: "rgba(236,235,245,0.5)",
-            marginTop: 8,
+            fontSize: landscape ? 31 : story ? 32 : 27,
+            lineHeight: 1.35,
+            color: BRAND_COLORS.volt,
+            marginTop: story ? 50 : 36,
+            maxWidth: landscape ? 980 : 700,
           }}
         >
-          → link na bio
+          {detail}
         </span>
       </div>
     </Frame>
   );
 }
 
-function slide_3_1_numero() {
-  return (
-    <Frame>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          textAlign: "center" as const,
-          gap: 16,
-        }}
-      >
-        <span
-          style={{
-            fontFamily: "Bricolage",
-            fontSize: 140,
-            fontWeight: 800,
-            color: "#8A6CFF",
-            lineHeight: 1,
-          }}
-        >
-          2x
-        </span>
-        <span
-          style={{
-            fontFamily: "PlexSans",
-            fontSize: 32,
-            color: "#ECEBF5",
-            marginTop: 12,
-          }}
-        >
-          mais faturamento.
-        </span>
-        <span style={{ fontFamily: "PlexSans", fontSize: 28, color: "rgba(236,235,245,0.5)" }}>
-          Mesma equipe.
-        </span>
-        <span style={{ fontFamily: "PlexSans", fontSize: 28, color: "rgba(236,235,245,0.5)" }}>
-          Um clique por dia.
-        </span>
-      </div>
-    </Frame>
-  );
-}
+function FounderProof({ format }: { format: ResolvedPostFormat }) {
+  const landscape = format.key === "videoCover";
+  const story = format.key === "story";
+  const metrics = [
+    ["R$ 5 mil → R$ 350 mil", "faturamento mensal"],
+    ["12 mil+", "pessoas nos grupos"],
+    ["50+", "grupos na operação"],
+  ] as const;
 
-function slide_4_1_semdesculpa() {
-  const items = [
-    "Conecta em 2 minutos",
-    "Sem cartão de crédito",
-    "Sem trocar de número",
-    "Seus contatos são seus",
-  ];
   return (
-    <Frame>
-      <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
-        {items.map((item, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 20 }}>
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                background: "rgba(16,185,129,0.15)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              <span style={{ color: "#10B981", fontSize: 20, fontFamily: "PlexSans" }}>✓</span>
-            </div>
-            <span style={{ fontFamily: "PlexSans", fontSize: 28, color: "#ECEBF5" }}>{item}</span>
-          </div>
-        ))}
-        {/* Divider */}
+    <Frame format={format} surface="light">
+      <div style={{ display: "flex", flexDirection: "column", width: "100%", alignItems: "flex-start" }}>
+        <span
+          style={{
+            fontFamily: "PlexMono",
+            fontSize: landscape ? 18 : 16,
+            letterSpacing: "0.16em",
+            color: BRAND_COLORS.volt,
+          }}
+        >
+          OPERAÇÃO FUNDADORA · MEGA STOCK
+        </span>
+        <span
+          style={{
+            fontFamily: "Manrope",
+            fontSize: landscape ? 66 : story ? 72 : 58,
+            fontWeight: 700,
+            letterSpacing: "-0.04em",
+            lineHeight: 1.04,
+            color: BRAND_COLORS.volt,
+            maxWidth: landscape ? 1200 : 820,
+            marginTop: story ? 44 : 28,
+          }}
+        >
+          A Girumo nasceu dentro de um atacado que precisava dar conta do próprio crescimento.
+        </span>
         <div
           style={{
+            display: "flex",
+            flexDirection: story ? "column" : "row",
             width: "100%",
-            height: 1,
-            background: "rgba(255,255,255,0.1)",
-            marginTop: 24,
-            marginBottom: 12,
-          }}
-        />
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            textAlign: "center" as const,
-            gap: 8,
+            background: BRAND_COLORS.paper,
+            border: `2px solid ${BRAND_COLORS.volt}`,
+            marginTop: story ? 76 : 48,
           }}
         >
-          <span
-            style={{
-              fontFamily: "Bricolage",
-              fontSize: 32,
-              fontWeight: 800,
-              color: "rgba(236,235,245,0.7)",
-            }}
-          >
-            Faltou desculpa.
-          </span>
-          <span
-            style={{
-              fontFamily: "Bricolage",
-              fontSize: 38,
-              fontWeight: 800,
-              color: "#8A6CFF",
-            }}
-          >
-            Teste 7 dias grátis.
-          </span>
+          {metrics.map(([value, label], index) => (
+            <div
+              key={value}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                padding: landscape ? "34px 38px" : story ? "38px 42px" : "30px 26px",
+                ...(story ? { width: "100%" } : { flex: 1 }),
+                ...(!story && index > 0 ? { borderLeft: `1px solid ${BRAND_COLORS.line}` } : {}),
+                ...(story && index > 0 ? { borderTop: `1px solid ${BRAND_COLORS.line}` } : {}),
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: "Manrope",
+                  fontSize: landscape ? 43 : story ? 52 : index === 0 ? 31 : 40,
+                  fontWeight: 700,
+                  letterSpacing: "-0.035em",
+                  color: BRAND_COLORS.volt,
+                }}
+              >
+                {value}
+              </span>
+              <span style={{ fontFamily: "PlexSans", fontSize: landscape ? 21 : 19, color: BRAND_COLORS.slate, marginTop: 10 }}>
+                {label}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
     </Frame>
   );
 }
 
-function slide_4_2_quanto() {
+function MetricCard({
+  format,
+  value,
+  label,
+  note,
+}: {
+  format: ResolvedPostFormat;
+  value: string;
+  label: string;
+  note: string;
+}) {
+  const landscape = format.key === "videoCover";
+  const story = format.key === "story";
   return (
-    <Frame>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          textAlign: "center" as const,
-          gap: 16,
-        }}
-      >
+    <Frame format={format} surface="dark">
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", width: "100%" }}>
         <span
           style={{
             fontFamily: "PlexMono",
-            fontSize: 15,
-            letterSpacing: "0.2em",
-            textTransform: "uppercase" as const,
-            color: "rgba(236,235,245,0.4)",
+            fontSize: landscape ? 18 : 16,
+            letterSpacing: "0.16em",
+            color: BRAND_COLORS.acid,
           }}
         >
-          Faz a conta
+          {note.toUpperCase()}
         </span>
         <span
           style={{
-            fontFamily: "PlexMono",
-            fontSize: 110,
+            fontFamily: "Manrope",
+            fontSize: landscape ? 190 : story ? 210 : format.key === "square" ? 145 : 172,
             fontWeight: 700,
-            color: "#ECEBF5",
-            lineHeight: 1,
-            marginTop: 20,
+            letterSpacing: "-0.06em",
+            lineHeight: 0.95,
+            color: BRAND_COLORS.acid,
+            marginTop: story ? 84 : 54,
           }}
         >
-          20h
+          {value}
         </span>
         <span
           style={{
             fontFamily: "PlexSans",
-            fontSize: 26,
-            color: "rgba(236,235,245,0.55)",
-            marginTop: 8,
-          }}
-        >
-          por mês colando mensagem em grupo.
-        </span>
-        {/* Divider */}
-        <div
-          style={{
-            width: 200,
-            height: 1,
-            background: "rgba(255,255,255,0.1)",
-            marginTop: 32,
-            marginBottom: 16,
-          }}
-        />
-        <span
-          style={{
-            fontFamily: "Bricolage",
-            fontSize: 36,
-            fontWeight: 800,
-            color: "#8A6CFF",
-          }}
-        >
-          Quanto vale sua hora?
-        </span>
-      </div>
-    </Frame>
-  );
-}
-
-function slide_5_2_dado() {
-  return (
-    <Frame>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          textAlign: "center" as const,
-          gap: 16,
-        }}
-      >
-        <span
-          style={{
-            fontFamily: "PlexMono",
-            fontSize: 120,
-            fontWeight: 700,
-            color: "#8A6CFF",
-            lineHeight: 1,
-          }}
-        >
-          78%
-        </span>
-        <span
-          style={{
-            fontFamily: "PlexSans",
-            fontSize: 28,
-            color: "#ECEBF5",
-            maxWidth: 700,
-            marginTop: 12,
-          }}
-        >
-          dos brasileiros preferem comprar por WhatsApp.
-        </span>
-        <span
-          style={{
-            fontFamily: "PlexMono",
-            fontSize: 14,
-            color: "rgba(236,235,245,0.35)",
-            marginTop: 8,
-          }}
-        >
-          (Opinion Box, 2025)
-        </span>
-        {/* Divider */}
-        <div
-          style={{
-            width: 200,
-            height: 1,
-            background: "rgba(255,255,255,0.1)",
+            fontSize: landscape ? 42 : story ? 48 : 36,
+            lineHeight: 1.25,
+            color: BRAND_COLORS.paper,
+            maxWidth: landscape ? 1040 : 780,
             marginTop: 28,
-            marginBottom: 12,
-          }}
-        />
-        <span
-          style={{
-            fontFamily: "Bricolage",
-            fontSize: 34,
-            fontWeight: 800,
-            color: "#ECEBF5",
           }}
         >
-          Seus grupos estão prontos?
+          {label}
         </span>
+        <div
+          style={{
+            display: "flex",
+            background: BRAND_COLORS.paper,
+            color: BRAND_COLORS.volt,
+            padding: "18px 24px",
+            marginTop: story ? 74 : 48,
+            fontFamily: "PlexSans",
+            fontSize: landscape ? 22 : 19,
+          }}
+        >
+          Case da operação dos fundadores — não depoimento de cliente.
+        </div>
       </div>
     </Frame>
   );

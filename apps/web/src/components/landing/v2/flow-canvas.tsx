@@ -5,7 +5,7 @@ import { useEffect, useRef } from "react";
 /**
  * "O fluxo" — assinatura visual do hero.
  * Partículas (leads) escoam pelo campo e são absorvidas por nós de grupo:
- * íris enquanto viajam, pulso verde-WhatsApp ao entrar. O ponteiro curva o fluxo.
+ * Cobalt enquanto viajam, pulso verde-WhatsApp ao entrar. O ponteiro curva o fluxo.
  *
  * Performance: canvas 2D (~4KB), DPR cap 1.5, pausa fora da viewport/aba oculta.
  * Mobile (<768px), reduced-motion ou pouca memória → não monta o loop
@@ -112,8 +112,8 @@ export function FlowCanvas({ className }: { className?: string }) {
           g.addColorStop(0, `rgba(37, 211, 102, ${glow})`);
           g.addColorStop(1, "rgba(37, 211, 102, 0)");
         } else {
-          g.addColorStop(0, `rgba(138, 108, 255, ${glow})`);
-          g.addColorStop(1, "rgba(106, 75, 240, 0)");
+          g.addColorStop(0, `rgba(200, 206, 235, ${glow})`);
+          g.addColorStop(1, "rgba(200, 206, 235, 0)");
         }
         ctx.fillStyle = g;
         ctx.beginPath();
@@ -122,7 +122,7 @@ export function FlowCanvas({ className }: { className?: string }) {
         // anel
         ctx.strokeStyle = s.pulse > 0.12
           ? `rgba(37, 211, 102, ${0.35 + s.pulse * 0.4})`
-          : "rgba(138, 108, 255, 0.3)";
+          : "rgba(220, 224, 245, 0.28)";
         ctx.lineWidth = 1.2;
         ctx.beginPath();
         ctx.arc(s.x, s.y, rr, 0, Math.PI * 2);
@@ -174,10 +174,10 @@ export function FlowCanvas({ className }: { className?: string }) {
         }
 
         const near = dist < 110;
-        const a = Math.min(0.75, 0.25 + p.life * 0.5);
+        const a = Math.min(0.7, 0.22 + p.life * 0.45);
         ctx.fillStyle = near
           ? `rgba(37, 211, 102, ${a})`
-          : `rgba(167, 140, 255, ${a * 0.8})`;
+          : `rgba(205, 210, 238, ${a * 0.65})`;
         ctx.beginPath();
         ctx.arc(p.x, p.y, near ? 1.8 : 1.4, 0, Math.PI * 2);
         ctx.fill();

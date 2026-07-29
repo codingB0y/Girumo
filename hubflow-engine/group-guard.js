@@ -12,7 +12,7 @@ const DEFAULT_LIMITS = {
   invite: { max: 10, windowMs: 600_000 },
 };
 
-export const GROUP_OP_ERRORS = {
+const GROUP_OP_ERRORS = {
   REACHOUT_RESTRICTED: "account_reachout_restricted",
   RATE_OVERLIMIT: "rate-overlimit",
   PRIVACY_BLOCK: "403",
@@ -21,7 +21,7 @@ export const GROUP_OP_ERRORS = {
 };
 
 /** Classifica um erro de operação de grupo (null se não reconhecido). */
-export function classifyGroupOpError(err) {
+function classifyGroupOpError(err) {
   const msg = err instanceof Error ? err.message : String(err);
   if (msg.includes("account_reachout_restricted") || msg.includes("reachout"))
     return GROUP_OP_ERRORS.REACHOUT_RESTRICTED;
@@ -31,7 +31,7 @@ export function classifyGroupOpError(err) {
   return null;
 }
 
-export class GroupOperationGuard {
+class GroupOperationGuard {
   constructor(config = {}) {
     this.limits = { ...DEFAULT_LIMITS, ...(config.limits ?? {}) };
     this.buckets = {};
@@ -77,3 +77,5 @@ export class GroupOperationGuard {
     return out;
   }
 }
+
+module.exports = { GROUP_OP_ERRORS, classifyGroupOpError, GroupOperationGuard };

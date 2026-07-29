@@ -1,20 +1,23 @@
 import { cn } from "@/lib/utils";
 
 type Variant = "primary" | "secondary" | "outline" | "ghost" | "danger";
-type Size = "sm" | "md" | "icon";
+type Size = "sm" | "md" | "lg" | "icon";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-iris text-white shadow-iris hover:bg-iris-claro active:bg-iris-escuro",
-  secondary: "bg-breu text-white hover:bg-breu-2 active:bg-breu",
-  outline: "border border-breu/15 bg-white text-breu hover:border-iris hover:text-iris",
-  ghost: "text-aco hover:bg-bruma hover:text-breu",
-  danger: "bg-alerta text-white hover:opacity-90 active:opacity-100",
+  primary:
+    "bg-acid-500 text-volt-950 shadow-sm hover:brightness-95 active:brightness-90",
+  secondary: "bg-volt-950 text-paper-0 hover:bg-volt-900 active:bg-volt-800",
+  outline:
+    "border border-line-200 bg-paper-0 text-volt-950 hover:border-cobalt-500 hover:text-cobalt-700",
+  ghost: "text-slate-600 hover:bg-canvas-100 hover:text-volt-950",
+  danger: "bg-danger-700 text-paper-0 hover:brightness-95 active:brightness-90",
 };
 
 const sizes: Record<Size, string> = {
-  sm: "h-8 px-3 text-sm",
-  md: "h-10 px-4 text-sm",
-  icon: "h-9 w-9",
+  sm: "h-[var(--control-height)] px-3 text-sm",
+  md: "h-[var(--control-height)] px-4 text-sm",
+  lg: "h-[var(--control-height-prominent)] px-5 text-base",
+  icon: "h-[var(--control-height)] w-[var(--control-height)]",
 };
 
 export function Button({
@@ -26,7 +29,10 @@ export function Button({
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all duration-200 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-iris focus-visible:ring-offset-2",
+        "inline-flex cursor-pointer items-center justify-center gap-2 rounded-[var(--radius-control)] font-semibold",
+        "transition-[background-color,box-shadow,filter] duration-[var(--duration-micro)] ease-[var(--ease-girumo)]",
+        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500",
+        "disabled:pointer-events-none disabled:opacity-45 disabled:shadow-none",
         variants[variant],
         sizes[size],
         className,

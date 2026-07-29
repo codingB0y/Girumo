@@ -19,7 +19,6 @@ const path = require("path");
 const express = require("express");
 
 const POLL_INTERVAL_MS = Number(process.env.SUPERVISOR_POLL_MS ?? 15_000);
-const HEALTH_CHECK_MS = Number(process.env.SUPERVISOR_HEALTH_MS ?? 30_000);
 const MAX_RESTART_ATTEMPTS = 5;
 const RESTART_BACKOFF_BASE_MS = 3000;
 const CHILD_ENTRY = path.join(__dirname, "index.js");

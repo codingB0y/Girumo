@@ -9,13 +9,13 @@ import { listActivity } from "@/lib/activity-store";
 import type { Campaign } from "@/lib/mock-data";
 
 // Meta semanal de novas revendedoras. Fixa por ora — vira config no backend.
-export const WEEKLY_GOAL = 50;
+const WEEKLY_GOAL = 50;
 
 const DAY_MS = 86_400_000;
 const COLD_DAYS = 7; // V2: grupo "esfriando" = 7 dias sem entrada
 const RECOMPRA_DAYS = 14; // compradora "sumida" = sem comprar há +14 dias
 
-export type RecompraItem = { phone: string; group?: string; dias: number; leadId?: string };
+type RecompraItem = { phone: string; group?: string; dias: number; leadId?: string };
 
 export type FunnelStage = {
   key: string;
@@ -34,7 +34,7 @@ export type FunnelInsight = {
   href: string;
 };
 
-export type NextAction = {
+type NextAction = {
   text: string;
   cta: string;
   href: string;
@@ -66,15 +66,15 @@ export type ResultsOverview = {
  * (interação, recompra, cliente ativa) vêm marcadas como indisponíveis,
  * em vez de inventar número.
  */
-export async function getResultsOverview(): Promise<ResultsOverview> {
+export async function getResultsOverview(tenantId: string): Promise<ResultsOverview> {
   const [leads, groups, clicks, session, broadcasts, orders, activity] = await Promise.all([
-    listLeads(),
-    listGroups(),
+    listLeads(tenantId),
+    listGroups(tenantId),
     clickCounts(),
-    getSession(),
+    getSession(tenantId),
     collection<Campaign>("broadcasts.json").list(),
     listOrders(),
-    listActivity(),
+    listActivity(tenantId),
   ]);
 
   const now = Date.now();
@@ -175,12 +175,12 @@ export async function getResultsOverview(): Promise<ResultsOverview> {
   // === Próxima ação (UMA só) ===
   let nextAction: NextAction;
   if (!live) {
-    nextAction = { text: "Conecte seu WhatsApp para começar a captar revendedoras.", cta: "Conectar agora", href: "/settings", tone: "red" };
+    nextAction = { text: "Conecte seu WhatsApp para começar a captar revendedoras.", cta: "Conectar agora", href: "/painel/conectar", tone: "red" };
   } else if (recompra.sumidas > 0) {
     nextAction = {
       text: `${recompra.sumidas} revendedora(s) que já compraram sumiram. Reativar é a venda mais barata.`,
       cta: "Reativar quem sumiu",
-      href: "/leads?status=ativo",
+      href: "/painel/contatos?status=ativo",
       tone: "amber",
     };
   } else if (entradasSemana < 10) {
@@ -205,7 +205,7 @@ export async function getResultsOverview(): Promise<ResultsOverview> {
   const measured = funnel.filter((s) => s.available && s.value !== null) as (FunnelStage & { value: number })[];
   let funnelInsight: FunnelInsight;
   if (!live) {
-    funnelInsight = { tone: "red", text: "Conecte o WhatsApp para o funil começar a medir seus resultados.", cta: "Conectar", href: "/settings" };
+    funnelInsight = { tone: "red", text: "Conecte o WhatsApp para o funil começar a medir seus resultados.", cta: "Conectar", href: "/painel/conectar" };
   } else if (trafego === 0) {
     funnelInsight = { tone: "amber", text: "Ninguém clicou no link ainda. O funil começa divulgando a campanha.", cta: "Ver campanhas", href: "/campanhas" };
   } else {

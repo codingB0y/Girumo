@@ -1,12 +1,23 @@
 // Auth legado leve, sem dependencias e compativel com Edge/Node.
 // Ponte de compatibilidade: o cookie carrega auth.users.id enquanto
 // Supabase Auth vira a sessao principal.
+import { resolveSecret } from "./runtime-secrets";
 
 export const SESSION_COOKIE = "dz_session";
 
 // Defaults p/ rodar sem configurar nada; troque via env em produção.
-export const ENGINE_TOKEN = process.env.ENGINE_TOKEN ?? "dz_dev_engine_token";
-const AUTH_SECRET = process.env.AUTH_SECRET ?? "dz-dev-secret-troque-em-producao";
+export const ENGINE_TOKEN = resolveSecret(
+  "ENGINE_TOKEN",
+  process.env.ENGINE_TOKEN,
+  process.env.NODE_ENV,
+  "dz_dev_engine_token",
+);
+const AUTH_SECRET = resolveSecret(
+  "AUTH_SECRET",
+  process.env.AUTH_SECRET,
+  process.env.NODE_ENV,
+  "dz-dev-secret-troque-em-producao",
+);
 const MAX_AGE_S = 60 * 60 * 24 * 30; // 30 dias
 
 const enc = new TextEncoder();

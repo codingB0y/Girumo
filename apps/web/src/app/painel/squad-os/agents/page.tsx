@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Bot, Zap, Star, Gauge } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { getAgents } from "@/lib/stores/squad-os";
 import type { Agent } from "@/lib/types/squad-os";
 
@@ -38,7 +37,7 @@ export default function AgentsPage() {
       <div className="flex items-center gap-3">
         <Link
           href="/painel/squad-os"
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-aco/50 transition hover:bg-white hover:text-breu"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-aco/50 transition hover:bg-white hover:text-volt-950"
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>
@@ -57,38 +56,38 @@ export default function AgentsPage() {
         {agents.map((agent) => (
           <div
             key={agent.id}
-            className="group flex flex-col rounded-2xl border border-breu/[0.08] bg-white p-5 transition hover:-translate-y-0.5 hover:border-iris/30 hover:shadow-md"
+            className="group flex flex-col rounded-2xl border border-volt-950/[0.08] bg-white p-5 transition hover:-translate-y-0.5 hover:border-cobalt-500/30 hover:shadow-md"
           >
             {/* Avatar + name */}
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-iris/20 to-iris/5">
-                <Bot className="h-5 w-5 text-iris" />
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-cobalt-500/20 to-cobalt-500/5">
+                <Bot className="h-5 w-5 text-cobalt-500" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-breu">{agent.name}</h3>
+                <h3 className="text-sm font-bold text-volt-950">{agent.name}</h3>
                 <p className="font-data text-[10px] text-aco/55">{agent.specialty}</p>
               </div>
             </div>
 
             {/* Stats */}
             <div className="mt-4 grid grid-cols-3 gap-2">
-              <div className="rounded-lg bg-bruma/60 px-2 py-1.5 text-center">
+              <div className="rounded-lg bg-canvas-100/60 px-2 py-1.5 text-center">
                 <Star className="mx-auto h-3 w-3 text-amber-500" />
-                <p className="font-data mt-0.5 text-[10px] font-medium text-breu">
+                <p className="font-data mt-0.5 text-[10px] font-medium text-volt-950">
                   {agent.reputation}
                 </p>
                 <p className="font-data text-[8px] uppercase text-aco/40">Rep</p>
               </div>
-              <div className="rounded-lg bg-bruma/60 px-2 py-1.5 text-center">
-                <Gauge className="mx-auto h-3 w-3 text-iris" />
-                <p className="font-data mt-0.5 text-[10px] font-medium text-breu">
+              <div className="rounded-lg bg-canvas-100/60 px-2 py-1.5 text-center">
+                <Gauge className="mx-auto h-3 w-3 text-cobalt-500" />
+                <p className="font-data mt-0.5 text-[10px] font-medium text-volt-950">
                   {agent.speed_rating}/10
                 </p>
                 <p className="font-data text-[8px] uppercase text-aco/40">Veloc</p>
               </div>
-              <div className="rounded-lg bg-bruma/60 px-2 py-1.5 text-center">
+              <div className="rounded-lg bg-canvas-100/60 px-2 py-1.5 text-center">
                 <Zap className="mx-auto h-3 w-3 text-sucesso" />
-                <p className="font-data mt-0.5 text-[10px] font-medium text-breu">
+                <p className="font-data mt-0.5 text-[10px] font-medium text-volt-950">
                   ${agent.cost_per_run}
                 </p>
                 <p className="font-data text-[8px] uppercase text-aco/40">Custo</p>
@@ -100,7 +99,7 @@ export default function AgentsPage() {
               {agent.allowed_areas.map((area) => (
                 <span
                   key={area}
-                  className="rounded-full bg-iris/[0.07] px-2 py-0.5 font-data text-[9px] text-iris"
+                  className="rounded-full bg-cobalt-500/[0.07] px-2 py-0.5 font-data text-[9px] text-cobalt-500"
                 >
                   {area}
                 </span>

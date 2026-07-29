@@ -2,15 +2,16 @@ import "server-only";
 import { promises as fs } from "fs";
 import type { Group } from "@/lib/mock-data";
 import { writeFileAtomic, withFileLock } from "@/lib/atomic-fs";
-import { legacyDataPath } from "@/lib/legacy-data-dir";
+import { LEGACY_DATA_DIR } from "@/lib/legacy-data-dir";
+import { tenantDataPath } from "@/lib/tenant-data-path";
 
 // Grupos REAIS sincronizados pela engine (substitui a lista a cada sync).
-const GROUPS_FILE = legacyDataPath("groups.json");
+const groupsFile = (tenantId: string) => tenantDataPath(LEGACY_DATA_DIR, tenantId, "groups.json");
 
 // Capacidade padrão de grupo do WhatsApp (até a engine reportar o limite real).
-export const DEFAULT_CAPACITY = 1024;
+const DEFAULT_CAPACITY = 1024;
 // Grupo é "cheio" ao atingir esta fração da capacidade (deixa folga p/ não estourar).
-export const GROUP_FULL_RATIO = 0.95;
+const GROUP_FULL_RATIO = 0.95;
 
 export type SyncGroupInput = {
   whatsappGroupId: string;
@@ -21,9 +22,9 @@ export type SyncGroupInput = {
   capacity?: number;
 };
 
-export async function listGroups(): Promise<Group[]> {
+export async function listGroups(tenantId: string): Promise<Group[]> {
   try {
-    const raw = await fs.readFile(GROUPS_FILE, "utf8");
+    const raw = await fs.readFile(groupsFile(tenantId), "utf8");
     return JSON.parse(raw || "[]") as Group[];
   } catch {
     return [];
@@ -35,9 +36,10 @@ export async function listGroups(): Promise<Group[]> {
  * (inviteUrl, capacity) por grupo que ainda existe — senão um sync apagaria o que
  * o lojista configurou. Valor da engine, quando vier, tem precedência.
  */
-export async function replaceGroups(input: SyncGroupInput[]): Promise<Group[]> {
-  return withFileLock(GROUPS_FILE, async () => {
-    const prev = await listGroups();
+export async function replaceGroups(tenantId: string, input: SyncGroupInput[]): Promise<Group[]> {
+  const file = groupsFile(tenantId);
+  return withFileLock(file, async () => {
+    const prev = await listGroups(tenantId);
     const prevById = new Map(prev.map((g) => [g.whatsappGroupId, g]));
     const groups: Group[] = input.map((g) => {
       const old = prevById.get(g.whatsappGroupId);
@@ -54,25 +56,27 @@ export async function replaceGroups(input: SyncGroupInput[]): Promise<Group[]> {
         displayNumber: old?.displayNumber,
       };
     });
-    await writeFileAtomic(GROUPS_FILE, JSON.stringify(groups, null, 2));
+    await writeFileAtomic(file, JSON.stringify(groups, null, 2));
     return groups;
   });
 }
 
 /** Painel define o convite/capacidade de um grupo (necessário p/ o roteamento). */
 export async function updateGroup(
+  tenantId: string,
   id: string,
   patch: Partial<Pick<Group, "inviteUrl" | "capacity" | "displayNameBase" | "displayNumber">>,
 ): Promise<Group | null> {
-  return withFileLock(GROUPS_FILE, async () => {
-    const groups = await listGroups();
+  const file = groupsFile(tenantId);
+  return withFileLock(file, async () => {
+    const groups = await listGroups(tenantId);
     const g = groups.find((x) => x.whatsappGroupId === id);
     if (!g) return null;
     if (patch.inviteUrl !== undefined) g.inviteUrl = patch.inviteUrl || undefined;
     if (patch.capacity !== undefined && patch.capacity > 0) g.capacity = patch.capacity;
     if (patch.displayNameBase !== undefined) g.displayNameBase = patch.displayNameBase.trim() || undefined;
     if (patch.displayNumber !== undefined) g.displayNumber = patch.displayNumber > 0 ? patch.displayNumber : undefined;
-    await writeFileAtomic(GROUPS_FILE, JSON.stringify(groups, null, 2));
+    await writeFileAtomic(file, JSON.stringify(groups, null, 2));
     return g;
   });
 }
@@ -81,15 +85,16 @@ export async function updateGroup(
  * Adiciona OU atualiza um único grupo sem apagar os demais (usado quando a engine cria
  * um grupo novo via auto-grow — diferente do sync, que substitui a lista inteira).
  */
-export async function upsertGroup(g: {
+export async function upsertGroup(tenantId: string, g: {
   whatsappGroupId: string;
   name: string;
   members: number;
   inviteUrl?: string;
   capacity?: number;
 }): Promise<Group> {
-  return withFileLock(GROUPS_FILE, async () => {
-    const groups = await listGroups();
+  const file = groupsFile(tenantId);
+  return withFileLock(file, async () => {
+    const groups = await listGroups(tenantId);
     let rec = groups.find((x) => x.whatsappGroupId === g.whatsappGroupId);
     if (rec) {
       rec.name = g.name;
@@ -109,13 +114,13 @@ export async function upsertGroup(g: {
       };
       groups.push(rec);
     }
-    await writeFileAtomic(GROUPS_FILE, JSON.stringify(groups, null, 2));
+    await writeFileAtomic(file, JSON.stringify(groups, null, 2));
     return rec;
   });
 }
 
 /** Grupo está disponível p/ receber gente: tem convite e ainda não atingiu 95% da capacidade. */
-export function isGroupAvailable(g: Group): boolean {
+function isGroupAvailable(g: Group): boolean {
   return !!g.inviteUrl && g.members < g.capacity * GROUP_FULL_RATIO;
 }
 

@@ -32,7 +32,7 @@ export default async function AdminInstanciasPage() {
         </p>
       </div>
 
-      <div className="rounded-2xl border border-breu/[0.06] bg-white shadow-sm">
+      <div className="rounded-2xl border border-volt-950/[0.06] bg-white shadow-sm">
         {!hasInstances ? (
           <div className="flex flex-col items-center gap-2 py-12 text-center">
             <Smartphone className="h-8 w-8 text-aco/30" />
@@ -47,7 +47,7 @@ export default async function AdminInstanciasPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-breu/[0.06]">
+                <tr className="border-b border-volt-950/[0.06]">
                   <th className="px-5 py-3.5 font-data text-[11px] uppercase tracking-wider text-aco/55">Telefone</th>
                   <th className="px-5 py-3.5 font-data text-[11px] uppercase tracking-wider text-aco/55">Perfil</th>
                   <th className="px-5 py-3.5 font-data text-[11px] uppercase tracking-wider text-aco/55">Tenant</th>
@@ -56,15 +56,15 @@ export default async function AdminInstanciasPage() {
                   <th className="px-5 py-3.5 font-data text-[11px] uppercase tracking-wider text-aco/55">Criado em</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-breu/[0.04]">
+              <tbody className="divide-y divide-volt-950/[0.04]">
                 {(instances ?? []).map((inst) => (
-                  <tr key={inst.id} className="transition hover:bg-bruma/30">
+                  <tr key={inst.id} className="transition hover:bg-canvas-100/30">
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
                         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
                           <Smartphone className="h-4 w-4" />
                         </span>
-                        <span className="font-medium text-breu">{inst.phone ?? "—"}</span>
+                        <span className="font-medium text-volt-950">{inst.phone ?? "—"}</span>
                       </div>
                     </td>
                     <td className="px-5 py-3.5 text-xs text-aco/60">{inst.profile_name ?? "—"}</td>

@@ -2,6 +2,7 @@ import { collection } from "@/lib/json-collection";
 import { createLink, clickCounts, slugify } from "@/lib/store";
 import { listLeads } from "@/lib/leads-store";
 import type { AdCampaign, AdStatus } from "@/lib/mock-data";
+import { getRouteTenantContext } from "@/lib/route-tenant-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,8 +11,9 @@ const coll = collection<AdCampaign>("ad-campaigns.json");
 
 // GET — campanhas com métricas REAIS: cliques (do link rastreado) e entradas
 // (leads no grupo de destino). spend/cpl ficam manuais (vêm do Meta).
-export async function GET() {
-  const [camps, counts, leads] = await Promise.all([coll.list(), clickCounts(), listLeads()]);
+export async function GET(req: Request) {
+  const { tenantId } = await getRouteTenantContext(req, { allowEngine: false });
+  const [camps, counts, leads] = await Promise.all([coll.list(), clickCounts(), listLeads(tenantId)]);
   const data = camps.map((c) => {
     const clicks = counts[c.linkSlug] ?? 0;
     // Atribuição robusta: por JID do grupo (independe do nome); cai p/ nome se faltar.

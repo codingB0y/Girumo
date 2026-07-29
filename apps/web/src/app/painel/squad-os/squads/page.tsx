@@ -41,7 +41,7 @@ export default function SquadsPage() {
       <div className="flex items-center gap-3">
         <Link
           href="/painel/squad-os"
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-aco/50 transition hover:bg-white hover:text-breu"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-aco/50 transition hover:bg-white hover:text-volt-950"
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>
@@ -67,12 +67,12 @@ export default function SquadsPage() {
             <Link
               key={squad.id}
               href={`/painel/squad-os/squads/${squad.slug}`}
-              className="group flex flex-col rounded-2xl border border-breu/[0.08] bg-white p-5 transition hover:-translate-y-0.5 hover:border-iris/30 hover:shadow-md"
+              className="group flex flex-col rounded-2xl border border-volt-950/[0.08] bg-white p-5 transition hover:-translate-y-0.5 hover:border-cobalt-500/30 hover:shadow-md"
             >
               {/* Top row */}
               <div className="flex items-start justify-between">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-iris/10">
-                  <Users className="h-5 w-5 text-iris" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cobalt-500/10">
+                  <Users className="h-5 w-5 text-cobalt-500" />
                 </div>
                 <span
                   className={cn(
@@ -86,7 +86,7 @@ export default function SquadsPage() {
               </div>
 
               {/* Info */}
-              <h3 className="mt-3 text-base font-bold text-breu">{squad.name}</h3>
+              <h3 className="mt-3 text-base font-bold text-volt-950">{squad.name}</h3>
               <p className="mt-1 line-clamp-2 flex-1 text-xs text-aco/60">
                 {squad.objective}
               </p>
@@ -101,7 +101,7 @@ export default function SquadsPage() {
                     {squad.health}%
                   </span>
                 </div>
-                <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-bruma">
+                <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-canvas-100">
                   <div
                     className={cn(
                       "h-full rounded-full transition-all",
@@ -117,7 +117,7 @@ export default function SquadsPage() {
               </div>
 
               {/* Footer stats */}
-              <div className="mt-4 flex items-center gap-4 border-t border-breu/[0.05] pt-3">
+              <div className="mt-4 flex items-center gap-4 border-t border-volt-950/[0.05] pt-3">
                 <div className="flex items-center gap-1">
                   <Zap className="h-3 w-3 text-amber-500" />
                   <span className="font-data text-[10px] text-aco/50">
@@ -134,11 +134,11 @@ export default function SquadsPage() {
 
               {/* Next action */}
               {squad.next_action && (
-                <div className="mt-3 rounded-lg bg-bruma/60 px-3 py-2">
+                <div className="mt-3 rounded-lg bg-canvas-100/60 px-3 py-2">
                   <p className="font-data text-[10px] uppercase tracking-wider text-aco/40">
                     Próxima ação
                   </p>
-                  <p className="mt-0.5 text-xs font-medium text-breu">
+                  <p className="mt-0.5 text-xs font-medium text-volt-950">
                     {squad.next_action}
                   </p>
                 </div>

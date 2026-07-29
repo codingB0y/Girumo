@@ -6,8 +6,9 @@ engine-state.json
 .env
 .env.local
 
-# Dev sessions (mock data)
+# Dev sessions (mock data + Baileys auth)
 dev-sessions/*.json
+dev-sessions/whatsapp/
 !dev-sessions/.gitkeep
 
 # Env files

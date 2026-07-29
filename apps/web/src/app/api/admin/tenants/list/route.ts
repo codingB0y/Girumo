@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { getAdminContext } from "@/lib/admin-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +9,11 @@ export const dynamic = "force-dynamic";
  * Retorna lista simplificada de tenants para o switch tenant no dev banner.
  */
 export async function GET() {
+  const admin = await getAdminContext();
+  if (!admin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const supabase = getSupabaseAdmin();
 
   const { data, error } = await supabase

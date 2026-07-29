@@ -17,13 +17,7 @@ export type MissionStatus =
   | "completed"
   | "failed";
 
-export type MemoryLayer =
-  | "L1_operational"
-  | "L2_project"
-  | "L3_reusable"
-  | "L4_strategic";
-
-export type ArtifactType =
+type ArtifactType =
   | "prd"
   | "ux_flow"
   | "wireframe"
@@ -33,7 +27,7 @@ export type ArtifactType =
   | "roadmap"
   | "backlog";
 
-export type SkillCategory =
+type SkillCategory =
   | "research"
   | "product"
   | "design"
@@ -85,7 +79,7 @@ export interface Agent {
   skills?: Skill[];
 }
 
-export interface Skill {
+interface Skill {
   id: string;
   workspace_id: string;
   name: string;
@@ -118,7 +112,7 @@ export interface Mission {
   artifacts?: Artifact[];
 }
 
-export interface Artifact {
+interface Artifact {
   id: string;
   mission_id: string;
   workspace_id: string;
@@ -144,80 +138,26 @@ export interface Decision {
   created_at: string;
 }
 
-export interface Memory {
-  id: string;
-  workspace_id: string;
-  layer: MemoryLayer;
-  category: string;
-  content: string;
-  source: string | null;
-  confidence: number;
-  usage_count: number;
-  impact_score: number;
-  score: number;
-  expires_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface Handoff {
-  id: string;
-  workspace_id: string;
-  from_squad_id: string;
-  to_squad_id: string;
-  mission_id: string;
-  context: Record<string, unknown>;
-  status: "pending" | "accepted" | "rejected";
-  created_at: string;
-}
-
 // ---------- UI helpers ----------
 
 export const SQUAD_STATUS_CONFIG: Record<
   SquadStatus,
   { label: string; color: string; bg: string }
 > = {
-  planning: { label: "Planejando", color: "text-iris", bg: "bg-iris/10" },
+  planning: { label: "Planejando", color: "text-cobalt-500", bg: "bg-cobalt-500/10" },
   researching: { label: "Pesquisando", color: "text-blue-600", bg: "bg-blue-50" },
   executing: { label: "Executando", color: "text-amber-600", bg: "bg-amber-50" },
   validating: { label: "Validando", color: "text-purple-600", bg: "bg-purple-50" },
   blocked: { label: "Bloqueado", color: "text-alerta", bg: "bg-alerta/10" },
   completed: { label: "Concluído", color: "text-sucesso", bg: "bg-sucesso/10" },
 };
-
 export const MISSION_STATUS_CONFIG: Record<
   MissionStatus,
   { label: string; color: string; bg: string }
 > = {
-  pending: { label: "Pendente", color: "text-aco", bg: "bg-bruma" },
+  pending: { label: "Pendente", color: "text-aco", bg: "bg-canvas-100" },
   active: { label: "Ativa", color: "text-amber-600", bg: "bg-amber-50" },
   validating: { label: "Validando", color: "text-purple-600", bg: "bg-purple-50" },
   completed: { label: "Concluída", color: "text-sucesso", bg: "bg-sucesso/10" },
   failed: { label: "Falhou", color: "text-alerta", bg: "bg-alerta/10" },
-};
-
-export const MEMORY_LAYER_CONFIG: Record<
-  MemoryLayer,
-  { label: string; description: string; ttl: string }
-> = {
-  L1_operational: {
-    label: "Operacional",
-    description: "Tasks e status — vida curta",
-    ttl: "7 dias",
-  },
-  L2_project: {
-    label: "Projeto",
-    description: "Arquitetura e decisões — vida média",
-    ttl: "90 dias",
-  },
-  L3_reusable: {
-    label: "Reutilizável",
-    description: "Playbooks e padrões — vida longa",
-    ttl: "1 ano",
-  },
-  L4_strategic: {
-    label: "Estratégico",
-    description: "Benchmark e vantagens — permanente",
-    ttl: "Permanente",
-  },
 };

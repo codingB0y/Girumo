@@ -1,5 +1,6 @@
 import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { mediaPathBelongsToTenant } from "@/lib/media-path";
 
 const BUCKET = "uploads";
 
@@ -107,9 +108,9 @@ export async function saveMedia(
   return { id: encodeMediaId(storagePath), type: mediaType };
 }
 
-export async function readMedia(id: string): Promise<{ buffer: Buffer; contentType: string } | null> {
+export async function readMedia(id: string, tenantId: string): Promise<{ buffer: Buffer; contentType: string } | null> {
   const storagePath = decodeMediaId(id);
-  if (!storagePath) return null;
+  if (!storagePath || !mediaPathBelongsToTenant(storagePath, tenantId)) return null;
 
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase.storage.from(BUCKET).download(storagePath);

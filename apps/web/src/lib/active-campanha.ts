@@ -1,6 +1,6 @@
 // Campanha ATIVA: guardada num cookie (lida no cliente e no servidor). Define o
 // escopo de grupos que o app opera. Sem campanha ativa = mostra todos os grupos.
-export const CAMPANHA_COOKIE = "dz_campanha";
+const CAMPANHA_COOKIE = "dz_campanha";
 
 export function getActiveCampanhaId(): string | null {
   if (typeof document === "undefined") return null;

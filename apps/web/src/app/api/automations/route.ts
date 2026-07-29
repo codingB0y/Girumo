@@ -1,29 +1,14 @@
-import { getSessionAccountId } from "@/lib/session";
-import { getSupabaseAdmin } from "@/lib/supabase/server";
 import * as store from "@/lib/stores/automations";
-import { AUTOMATION_TEMPLATES } from "@/lib/stores/automations";
+import { AUTOMATION_TEMPLATES, RETIRED_LOJISTA_TRIGGERS } from "@/lib/stores/automations";
+import { getTenantContext } from "@/lib/supabase/tenant-context";
+import { assertPermission } from "@/lib/permissions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-async function resolveTenantId(): Promise<string | null> {
-  const authUserId = await getSessionAccountId();
-  if (!authUserId) return null;
-  const { data } = await getSupabaseAdmin()
-    .from("memberships")
-    .select("tenant_id")
-    .eq("user_id", authUserId)
-    .not("accepted_at", "is", null)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  return data?.tenant_id ?? null;
-}
-
 // GET /api/automations — lista automações do tenant
-export async function GET() {
-  const tenantId = await resolveTenantId();
-  if (!tenantId) return Response.json([], { status: 200 });
+export async function GET(req: Request) {
+  const { tenantId } = await getTenantContext(req);
 
   const automations = await store.listAutomations(tenantId);
   return Response.json(automations);
@@ -31,8 +16,9 @@ export async function GET() {
 
 // POST /api/automations — cria automação (ou instancia de template)
 export async function POST(req: Request) {
-  const tenantId = await resolveTenantId();
-  if (!tenantId) return Response.json({ error: "Tenant não encontrado." }, { status: 403 });
+  const ctx = await getTenantContext(req);
+  assertPermission(ctx.role, "campaign:create");
+  const tenantId = ctx.tenantId;
 
   let body: Record<string, unknown>;
   try {
@@ -62,6 +48,9 @@ export async function POST(req: Request) {
 
   if (!name) return Response.json({ error: "Informe um nome." }, { status: 400 });
   if (!trigger) return Response.json({ error: "Informe um trigger." }, { status: 400 });
+  if (RETIRED_LOJISTA_TRIGGERS.includes(trigger)) {
+    return Response.json({ error: "Este trigger é de lifecycle interno e não pode ser usado aqui." }, { status: 400 });
+  }
 
   const automation = await store.createAutomation(tenantId, { name, trigger, steps });
   return Response.json(automation, { status: 201 });
@@ -69,8 +58,9 @@ export async function POST(req: Request) {
 
 // PATCH /api/automations — atualiza automação
 export async function PATCH(req: Request) {
-  const tenantId = await resolveTenantId();
-  if (!tenantId) return Response.json({ error: "Tenant não encontrado." }, { status: 403 });
+  const ctx = await getTenantContext(req);
+  assertPermission(ctx.role, "campaign:edit");
+  const tenantId = ctx.tenantId;
 
   let body: Record<string, unknown>;
   try {
@@ -95,8 +85,9 @@ export async function PATCH(req: Request) {
 
 // DELETE /api/automations — deleta automação
 export async function DELETE(req: Request) {
-  const tenantId = await resolveTenantId();
-  if (!tenantId) return Response.json({ error: "Tenant não encontrado." }, { status: 403 });
+  const ctx = await getTenantContext(req);
+  assertPermission(ctx.role, "campaign:delete");
+  const tenantId = ctx.tenantId;
 
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");

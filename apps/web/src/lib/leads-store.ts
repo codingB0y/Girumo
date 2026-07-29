@@ -1,13 +1,11 @@
 import "server-only";
 import { promises as fs } from "fs";
 import { writeFileAtomic, withFileLock } from "@/lib/atomic-fs";
-import { LEGACY_DATA_DIR, legacyDataPath } from "@/lib/legacy-data-dir";
+import { LEGACY_DATA_DIR } from "@/lib/legacy-data-dir";
+import { tenantDataPath } from "@/lib/tenant-data-path";
 
 // Persistência de leads (MVP) — ndjson em data/leads.ndjson, mas com escrita
 // atômica + lock e DEDUPE por telefone (upsert). Migrar p/ Postgres depois.
-
-const DATA_DIR = LEGACY_DATA_DIR;
-const LEADS_FILE = legacyDataPath("leads.ndjson");
 
 export type LeadStatus = "novo" | "ativo" | "comprou";
 
@@ -29,13 +27,18 @@ export type Lead = {
 
 const onlyDigits = (s: string) => String(s).replace(/\D/g, "");
 
-async function ensure() {
-  await fs.mkdir(DATA_DIR, { recursive: true });
+function leadsFile(tenantId: string): string {
+  return tenantDataPath(LEGACY_DATA_DIR, tenantId, "leads.ndjson");
+}
+
+async function ensure(tenantId: string): Promise<string> {
+  const file = leadsFile(tenantId);
   try {
-    await fs.access(LEADS_FILE);
+    await fs.access(file);
   } catch {
-    await writeFileAtomic(LEADS_FILE, "");
+    await writeFileAtomic(file, "");
   }
+  return file;
 }
 
 function parse(raw: string): Lead[] {
@@ -55,9 +58,9 @@ function serialize(leads: Lead[]): string {
   return leads.map((l) => JSON.stringify(l)).join("\n") + (leads.length ? "\n" : "");
 }
 
-export async function listLeads(): Promise<Lead[]> {
-  await ensure();
-  const raw = await fs.readFile(LEADS_FILE, "utf8");
+export async function listLeads(tenantId: string): Promise<Lead[]> {
+  const file = await ensure(tenantId);
+  const raw = await fs.readFile(file, "utf8");
   return parse(raw).sort((a, b) => b.enteredAt.localeCompare(a.enteredAt));
 }
 
@@ -67,16 +70,16 @@ export async function listLeads(): Promise<Lead[]> {
  * de origem em `alsoIn`. Telefone vazio (LID não resolvido) sempre cria (não
  * dá p/ deduplicar o desconhecido). Evita inflar o funil/meta.
  */
-export async function addLead(input: {
+export async function addLead(tenantId: string, input: {
   phone: string;
   name?: string;
   sourceGroup: string;
   sourceGroupId?: string;
   sourceCampaign?: string;
 }): Promise<Lead> {
-  await ensure();
-  return withFileLock(LEADS_FILE, async () => {
-    const leads = parse(await fs.readFile(LEADS_FILE, "utf8"));
+  const file = await ensure(tenantId);
+  return withFileLock(file, async () => {
+    const leads = parse(await fs.readFile(file, "utf8"));
     const d = onlyDigits(input.phone);
     const now = new Date().toISOString();
 
@@ -90,7 +93,7 @@ export async function addLead(input: {
           set.add(input.sourceGroup);
           existing.alsoIn = [...set];
         }
-        await writeFileAtomic(LEADS_FILE, serialize(leads));
+        await writeFileAtomic(file, serialize(leads));
         return existing;
       }
     }
@@ -106,31 +109,31 @@ export async function addLead(input: {
       enteredAt: now,
     };
     leads.unshift(lead);
-    await writeFileAtomic(LEADS_FILE, serialize(leads));
+    await writeFileAtomic(file, serialize(leads));
     return lead;
   });
 }
 
-export async function updateLeadStatus(id: string, status: LeadStatus): Promise<Lead | null> {
-  await ensure();
-  return withFileLock(LEADS_FILE, async () => {
-    const leads = parse(await fs.readFile(LEADS_FILE, "utf8"));
+export async function updateLeadStatus(tenantId: string, id: string, status: LeadStatus): Promise<Lead | null> {
+  const file = await ensure(tenantId);
+  return withFileLock(file, async () => {
+    const leads = parse(await fs.readFile(file, "utf8"));
     const lead = leads.find((l) => l.id === id);
     if (!lead) return null;
     lead.status = status;
-    await writeFileAtomic(LEADS_FILE, serialize(leads));
+    await writeFileAtomic(file, serialize(leads));
     return lead;
   });
 }
 
 /** Exclusão por id (LGPD: direito de eliminação). */
-export async function removeLead(id: string): Promise<boolean> {
-  await ensure();
-  return withFileLock(LEADS_FILE, async () => {
-    const leads = parse(await fs.readFile(LEADS_FILE, "utf8"));
+export async function removeLead(tenantId: string, id: string): Promise<boolean> {
+  const file = await ensure(tenantId);
+  return withFileLock(file, async () => {
+    const leads = parse(await fs.readFile(file, "utf8"));
     const next = leads.filter((l) => l.id !== id);
     if (next.length === leads.length) return false;
-    await writeFileAtomic(LEADS_FILE, serialize(next));
+    await writeFileAtomic(file, serialize(next));
     return true;
   });
 }

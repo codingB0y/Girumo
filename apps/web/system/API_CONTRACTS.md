@@ -167,3 +167,66 @@ Vencimento/corte: job diário marca `OVERDUE` o que passou de `dueDate` e `SUSPE
 
 ## Planejado (outros)
 Webhook Meta Ads. Migração do operacional (file-store→Postgres) com `accountId` (multi-tenant real).
+
+## FLOW PAGES (LPs de captação pra grupos — Sessão 1 publicada 2026-07-02)
+Tabelas `landing_page_templates` / `landing_pages` / `lp_leads` / `lp_tracking_events`
+(migração `20260702120000_flow_pages.sql`; prefixo lp_ evita colisão com leads/eventos legados).
+Multi-tenant: FK `organizations(id)` + RLS `current_setting('app.tenant_id')` + filtro explícito no store.
+Shapes TS: `src/lib/pages/schema.ts` (fonte da verdade). Destino do lead: `campaign_slug` → `/r/{slug}`
+(rotação de grupos) com `target_group_url` (chat.whatsapp.com|wa.me, https) como fallback.
+
+### GET /api/pages  ✅ (painel, tenant via getTenantContext)
+→ `LandingPage[]` do tenant, created_at desc.
+
+### POST /api/pages  ✅ (painel, tenant)
+Body `{ template_id, content: LpContent, campaign_slug?, target_group_url?, meta_pixel_id?, ga4_id? }`.
+`LpContent = { store_name, photo_url(https), headline, description, group_topic, primary_color: iris|emerald|amber }`.
+Valida content (limites/enum), gera slug `{nome}-{sufixo4}`, cria `status='draft'`.
+→ `201 LandingPage` | `400 {error, details[]}` | `404` template.
+
+### GET /api/pages/templates  ✅ (painel, tenant)
+→ `LpTemplate[]` (catálogo seedado: promo-relampago, sorteio-premio, catalogo-grupo).
+
+### GET /api/p/{slug}  ✅ (PÚBLICO — fora do middleware)
+→ LP `published` (sem tenant_id/contadores) | `404`. Regex de slug validada.
+
+### GET /api/p/health  ✅ (PÚBLICO)
+→ `{ ok, db: up|down, templates_count }` · 503 se db down ou seed ausente.
+
+### GET /p/{slug}  ✅ (página pública, ISR)
+`unstable_cache` tag `lp:{slug}` + revalidate 300s. Publish/edit (sessão 3) chama `revalidateTag`.
+Render escolhe componente por `template.component_key` (registry em `components/pages/templates`).
+
+### GET /api/pages/{id}  ✅ (painel, tenant)
+→ `{ page: LandingPage, metrics: {views, leads, conversion%}, leads: LpLeadRow[≤20] }`.
+Métricas derivadas de `lp_tracking_events` (contadores nas colunas = cache).
+
+### PATCH /api/pages/{id}  ✅ (painel, tenant)
+Body parcial `{ content?, target_group_url?, campaign_slug?, meta_pixel_id?, ga4_id?, status? }`.
+Publicar exige destino (campanha ou URL); 1ª publicação seta `published_at`.
+Sempre chama `revalidateTag(lp:{slug})` → página no ar atualiza em segundos.
+
+### POST /api/p/track  ✅ (PÚBLICO, rate-limit 30/min/ip, filtro de bot UA)
+`{slug, event: PageView|GroupJoin, utm_*, fbclid, gclid, ttclid, referrer}` → grava `lp_tracking_events`
+(+RPC views em PageView). Responde 204 sempre (sendBeacon não lê corpo; bot não ganha dica).
+`Lead` NÃO é aceito aqui — só via /api/p/lead (exige consent).
+
+### POST /api/p/lead  ✅ (PÚBLICO, rate-limit 5/min/ip, honeypot `website`)
+`{slug, name(≥2), whatsapp, consent: true, utm_*...}` → normaliza E.164 BR (400 se inválido),
+snapshot `consent_text` + `consent_at`, `ip_hash` sha256(ip+salt), upsert dedup (landing_page_id, whatsapp)
+→ `{ ok, redirect_url, duplicated }`. Evento `Lead` + contador SÓ na 1ª captura.
+
+### Client-side (LP pública)
+`TrackingScripts`: captura UTMs/fbclid/gclid/ttclid+referrer da URL → sessionStorage (1ª origem da sessão
+vence) + beacon PageView + injeta Meta Pixel/GA4 só se IDs configurados. `LeadForm`: form nome+zap+consent,
+sucesso → botão "Entrar no grupo" (beacon GroupJoin + fbq Lead/gtag generate_lead) → navega pro destino.
+CSP: /p/* tem política própria no next.config (img https:, vendors de pixel; 'unsafe-eval' SÓ em dev — Turbopack).
+
+### Painel  ✅
+`/painel/pages` (lista) · `/painel/pages/nova` (form 7 campos + preview ao vivo com o MESMO componente
+da LP pública) · `/painel/pages/{id}` (publicar/pausar, copiar link, métricas, últimos 20 leads c/ UTM, edição).
+Item "Páginas" na sidebar.
+
+### Fora do MVP (registrado)
+Componentes visuais distintos por template (os 3 usam BasicTemplate — decisão Igor 2026-07-02) ·
+TikTok pixel client · captcha · custom domain · retenção automatizada de lp_tracking_events (90d, cron manual).
