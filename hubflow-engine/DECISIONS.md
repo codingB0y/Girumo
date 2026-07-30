@@ -26,6 +26,21 @@ backoff exponencial, circuit breaker.
 - `humanEntropy` — ruído (typing/presence/read) cujo propósito declarado é evitar detecção de bot. **Evasão de detecção.**
 - `banRecoveryOrchestrator` / `reputationVoucher` — retomar após ban / inflar reputação. **Burlar punição da plataforma.**
 
+## Nome de dispositivo (revisado 2026-07-30 — E0.4)
+
+O campo `browser` do Baileys é o **nome do dispositivo vinculado** (o que aparece em
+"Aparelhos conectados" do WhatsApp), **fixo por sessão**. Distinção que importa:
+
+- ✅ **Permitido:** um nome **estável e realista** (`Browsers.ubuntu("Chrome")`). O valor
+  antigo `["HUBFLOW","Chrome","1.0.0"]` era uma anomalia auto-infligida — nenhum cliente
+  legítimo se chama "HUBFLOW". Usar um nome normal **remove** um sinal de automação; não é
+  forjar identidade pra evadir detecção, é parar de se auto-denunciar.
+- ⛔ **Segue recusado:** **randomizar** o fingerprint/nome a cada conexão pra driblar
+  *clustering* (o `deviceFingerprint`/`wrapSocketWithFingerprint` da lista acima). Isso sim é
+  evasão — e ainda por cima gera "aparelho novo" a cada boot, que é um gatilho de segurança.
+
+Regra: **nome de dispositivo fixo e realista = ok; randomização = não.**
+
 ## Ressalva permanente
 
 Nenhum controle garante não-ban. O que protege de fato: número aquecido (WarmUp), volume baixo
