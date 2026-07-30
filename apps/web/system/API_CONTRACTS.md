@@ -83,15 +83,47 @@ POST: `{ enabled?, message? }` → `201` config. {nome} é a única variável.
 ### GET /api/optout
 → `OptOut[] = { id, phone, reason, date }`. A engine lê e nunca dá boas-vindas a esses números.
 
-## Motor de disparo de BROADCAST (ponte app→engine) — FEITO
+## Motor de disparo de BROADCAST — FEITO (motor novo: fan-out em `engine_commands`)
 
-A fila de disparo reaproveita `broadcasts.json` (`Campaign[]`). Estados do `status`:
-`draft`/`failed`/`sent` = parado (pode ser (re)enfileirado) · `queued` = lojista mandou enviar,
-aguardando a engine puxar · `running` = engine claimou e está disparando pela fila anti-ban.
-1 mensagem por grupo (`total = groupIds.length`). Job preso em `running` sem ack há >15min → `failed`
-(não re-enfileira sozinho, p/ evitar disparo duplo).
+**O que mudou na F5.** Antes, `queued` só sinalizava intenção e quem convertia isso em envio era o
+engine legado (`/api/dispatch/pending`). Agora `POST /api/dispatch` faz o **fan-out** na hora, dentro
+de uma transação: cria **1 comando por grupo** em `engine_commands`, que é o que o worker consome.
 
-`Campaign = { id, name, status, message, groupIds, mediaId?, mediaType?("image"|"video"), mentionAll?, poll?{question,options}, sent, total, createdAt, error?, dispatchedAt?, runningSince?, lastAckAt? }`
+Estados do `status`:
+`draft`/`failed`/`sent` = parado (pode ser (re)enfileirado) · `queued` = fan-out feito, nenhum comando
+concluído ainda · `running` = ≥1 comando concluído e ainda há pendentes · `sent` = 0 pendentes e ≥1
+entregue · `failed` = 0 pendentes e nenhum entregue, ou o fan-out foi impossível (sem número
+conectado, sem grupo admin, oferta sem conteúdo).
+
+`total` = comandos criados; `sent` = comandos `done`. Quem escreve esses dois é
+`reconcile_broadcast_progress`, **agregando** `engine_commands` no housekeeping do worker — nunca
+incrementando. O envio é at-least-once, então `sent = sent + 1` contaria duas vezes num reenvio;
+`count(*) filter (where status='done')` é idempotente por construção.
+
+**Sem watchdog de 15 min.** A regra antiga ("preso em `running` sem ack há >15min → `failed`") foi
+**removida**: ela é incompatível com o anti-ban. Com cap de 8/min um disparo de 300 grupos leva ~40
+minutos, e no warmup de dia 1 (cap 20/dia) leva **dias** — legitimamente. O timeout mataria disparo
+saudável. Quem detecta disparo morto agora é o reconciliador, por ausência de comandos pendentes.
+
+**Destinos.** `groupIds` vazio = todos os grupos **admin** do tenant (regra do legado: "nunca dispara
+em grupo onde não somos admin"). Lista explícita é interseccionada com os grupos admin — o sync novo
+grava também os grupos não-admin, e disparar neles queimaria cota anti-ban com envio que o WhatsApp
+recusa, além de alimentar o breaker do número.
+
+**Tipo do comando**, com a precedência do legado — enquete > mídia > texto:
+- `send_message` → `{ jid, text, mentionAll }`
+- `send_media` → `{ jid, mediaId, mediaType, caption, mentionAll }`
+- `send_poll` → `{ jid, question, options[] }` (enquete exige ≥2 opções; com menos, cai para texto)
+
+**Reenvio.** `dedupe_key = bc:<broadcastId>:<runId>:<jid>`. O `runId` (coluna `broadcasts.run_id`)
+muda a cada enfileiramento — sem ele, reenviar a mesma oferta bateria no índice único de dedupe,
+inseriria 0 comandos e o disparo sumiria em silêncio.
+
+**Convivência com o motor legado.** `run_id` não-nulo marca a oferta como sendo do motor novo, e o
+claim legado filtra `run_id is null`. Os dois consumidores podem ficar vivos ao mesmo tempo sem
+disparo duplo, e o rollback é trivial.
+
+`Campaign = { id, name, status, message, groupIds, mediaId?, mediaType?("image"|"video"), mentionAll?, poll?{question,options}, runId?, sent, total, createdAt, error?, dispatchedAt?, runningSince?, lastAckAt? }`
 
 ### GET/POST/DELETE /api/broadcasts  (navegador, cookie)
 GET → `Campaign[]`. POST cria oferta (`status:"draft"`): body exige `name` + (`message` OU `mediaId` OU
@@ -99,25 +131,24 @@ GET → `Campaign[]`. POST cria oferta (`status:"draft"`): body exige `name` + (
 DELETE `?id=` → `{ ok:true }`.
 
 ### POST /api/dispatch  (navegador, cookie)
-Lojista clicou "Enviar agora". Body `{ id }` → enfileira (`status:"queued"`, reset de contadores).
+Lojista clicou "Enviar agora". Body `{ id }` → **fan-out** (1 comando por grupo + `runId` novo).
 → `202 Campaign` | `400` id ausente/JSON inválido | `404` oferta não encontrada.
-Idempotente: se já `queued`/`running`, retorna a oferta sem mudar.
+Idempotente: se já `queued`/`running`, retorna a oferta sem refazer o fan-out — o `SELECT … FOR
+UPDATE` na oferta serializa o duplo-clique em vez de gerar duas filas.
 
-### POST /api/dispatch/pending  (ENGINE, header `x-engine-token`)
-A engine reivindica a fila. Antes do claim, promove agendamentos vencidos → `queued` (sem timer).
-Claim é transação atômica única (sem disparo duplo) e marca os claimados como `running`.
-→ `DispatchJob[] = { id, name, message, groupIds, mediaId?, mediaType?, mentionAll?, poll? }`.
-(POST porque tem efeito colateral.)
+### POST /api/dispatch/pending  (ENGINE, header `x-engine-token`) — LEGADO, sai na F5
+Claim do engine antigo. Filtra `run_id is null`, então **ignora** o que o motor novo enfileirou.
 
-### POST /api/dispatch/ack  (ENGINE, header `x-engine-token`)
-A engine reporta progresso/resultado. Body `{ id, status:"running"|"sent"|"failed", sent, total, error? }`.
-→ `200 Campaign` | `400` id/status inválidos | `404` não encontrada. `sent`/`failed` carimbam `dispatchedAt`.
+### POST /api/dispatch/ack  (ENGINE, header `x-engine-token`) — LEGADO, sai na F5
+Ack do engine antigo. No motor novo o progresso vem do reconciliador, não deste endpoint.
 
 ### GET/POST/DELETE /api/schedules  (navegador, cookie)
 Agendamento aponta p/ uma oferta real (`campaignId`). POST exige `campaignName` + `scheduledAt`;
 aceita `campaignId`, `recurrence:"none"|"daily"|"weekly"` (default `none`). `status` inicia `pending`.
-A execução acontece via `/api/dispatch/pending`: vencidos viram `done` (uma vez) ou reprogramam (recorrência);
-sem `campaignId` → `failed`. `Schedule = { id, campaignId?, campaignName, scheduledAt, recurrence, status, lastRunAt? }`.
+A execução é do worker (`promote_due_schedules`, no housekeeping): vencidos disparam o **fan-out** e
+então viram `done` (uma vez) ou reprogramam (recorrência). Recorrente atrasado avança até o futuro —
+worker parado 3 dias gera 1 disparo, não 3. `Schedule = { id, campaignId?, campaignName, scheduledAt,
+recurrence, status, lastRunAt? }`.
 
 ### GET/POST/PATCH/DELETE /api/campanhas  (navegador, cookie)
 Campanha = ESCOPO de grupos (loja → campanhas → grupos), **não** é disparo. POST exige `name`

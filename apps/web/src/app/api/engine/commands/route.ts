@@ -4,7 +4,21 @@ import { getTenantContext } from "@/lib/supabase/tenant-context";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ALLOWED_TYPES = new Set(["send_message", "refresh_status"]);
+/**
+ * Tipos aceitos aqui. A lista é fechada por um motivo concreto: **todo tipo
+ * enfileirado precisa ter um consumidor**, e o worker só drena tipos de envio
+ * (via `claim_send_commands`, que aplica o gate anti-ban). Tipo sem consumidor
+ * vira linha `queued` eterna.
+ *
+ * Foi o que aconteceu com `refresh_status`, removido aqui: só o engine legado o
+ * drenava (`claim_engine_commands`), então o cutover o deixaria órfão. E não dá
+ * para o worker chamar `claim_engine_commands` no lugar — ela não filtra por
+ * tipo, logo claimaria `send_message` **sem anti-ban**, furando a proteção.
+ *
+ * O lifecycle de instância não passa mais por fila desde a F2: o painel fala com
+ * a Evolution direto em `/api/instances/[id]/actions`.
+ */
+const ALLOWED_TYPES = new Set(["send_message"]);
 
 export async function POST(req: Request) {
   try {

@@ -20,12 +20,53 @@ Plano aprovado em 2026-07-13 (`~/.claude/plans/quero-migrar-o-hubflow-eager-mins
   - Consumo com stack idle: ~640MB/3.8GB. Estimativa 10 contas: ~2,3–3GB.
 - [x] F2 — Lifecycle de instância no web (client, webhook receiver, painel conectar refeito) ✅ (commits `e752ff8e`, `1c49a9a7`, `0f2a3d2f`, `098cc3cd` — 26–27/07)
 - [x] F3 — Lead capture via worker mínimo (loop B) ✅ (F3a `3f0a9afb` + F3b `f5157bee` — `apps/worker` consumindo `engine_events`)
-- [ ] F4 — Worker completo (anti-ban portado, senders, lease/retry, fan-out broadcast)
-  - ⚠️ **"anti-ban portado" é o item mais arriscado do sprint e está sub-especificado.** Hoje o estado
-    é em memória + `engine-state.json` por processo, caps fixos em `index.js:108-110` (8/min, 120/h,
-    800/dia). Portar para worker consumindo fila Postgres exige decidir afinidade instância→worker
-    (ou mover a cota pro banco). Detalhar antes de começar.
+- [~] F4 — Worker completo (anti-ban portado, senders, lease/retry, fan-out broadcast) — **código pronto e validado, aguarda apply + e2e** (PR #34)
+  - [x] **Decisão anti-ban: opção C — cota/estado no banco** (spec em `apps/worker/docs/anti-ban-spec.md`).
+        Motivo: o governor do engine legado era em memória e correto só porque 1 processo = 1 número;
+        o worker é multi-tenant e escala p/ N réplicas → contador em memória (a) somaria números distintos
+        e (b) liberaria N× a cota. Estado no Postgres por `instance_id`, anti-ban embutido no claim atômico.
+  - [x] Migration `20260729120000_engine_antiban_state.sql`: `instance_send_state` (warmup + gate de
+        espaçamento + breaker), `instance_sends` (janelas min/hora/dia), `claim_send_commands` (só número
+        pronto, ≤1 por número por lote), `instance_daily_cap` (warmup em SQL), `record_send`/`record_send_failure`/
+        `prune_instance_sends`. RPCs service_role-only; tabelas deny-all. Registrada no `apply-order.txt`.
+  - [x] **Validada em Postgres 16 real** (descartável, schema real carregado): aplica limpa + smoke funcional
+        passa (≤1/número, gate, cap/min, breaker, warmup dia2→80 e graduado→800, prune).
+        Bug latente corrigido: desempate do "1 por número" agora usa `id` (created_at empata no mesmo statement).
+  - [x] Senders no `apps/worker`: `evolution-sender.ts` (POST /message/sendText), `send-command.ts` (mapeia
+        `{jid,text}`→`{number,text}` + decide por comando), `send-loop.ts` (claim→send→record/complete),
+        2º loop no `index.ts` gateado em `EVOLUTION_API_*`. **36/36 testes verdes, tsc limpo.**
+  - [x] Deploy: `worker.docker-compose.yml` passa `EVOLUTION_API_URL/KEY` + anexa à rede da Evolution
+        (externa); `README.evolution.md` com os passos. Validado com `docker compose config`.
+  - [x] **Contrato `{jid,text}` de `send_message` preservado** — executor de automações (PR #30) intacto no cutover.
+  - [x] **Mídia, enquete e @todos no worker** (`send_media`/`send_poll` + `mentionsEveryOne`), com a
+        precedência do legado (enquete > mídia > texto). URL da mídia assinada **no envio**, não no
+        enqueue (a fila anti-ban pode segurar o comando por horas). `media-id.ts` valida que o
+        storage path pertence ao tenant do comando antes de assinar. **49/49 testes, tsc limpo.**
+  - [x] **Bug corrigido:** `requeue_expired_commands` nunca era chamado (a migration dizia "worker calls
+        this every loop" e só havia um comentário). Agora em `housekeeping.ts`, **fora** do gate de
+        Evolution — manutenção da fila não depende de sender configurado.
+  - [x] **Fan-out de broadcast + roll-up de progresso** (era o bloqueador da F5, ver abaixo).
+  - [ ] **Aplicar as migrations** no dev e prod (`apply-order.txt`) — ANTES de ligar o loop de envio.
+  - [ ] Setar `EVOLUTION_API_KEY` (e `EVOLUTION_NETWORK` se o Coolify prefixar a rede) no deploy do worker.
+  - [ ] **Smoke e2e (teste de fogo):** worker + Evolution no dev → envio real + estado anti-ban atualizado.
+        **Validar `sendMedia`/`sendPoll` contra a Evolution real** — o smoke da F1 só exercitou `sendText`.
 - [ ] F5 — Cutover: engine desligado, rotas engine-only deletadas, envs ENGINE_* removidos
+  - [x] **Ponte disparo → `engine_commands`** (era o 🔴 bloqueador) — PR #34. `app.enqueue_broadcast`
+        (fan-out transacional, 1 comando por grupo), `reconcile_broadcast_progress` (roll-up por
+        agregado, sem trigger) e `promote_due_schedules`. `claimPendingBroadcasts` filtra
+        `run_id is null`, então os dois motores convivem sem disparo duplo. Smoke em Postgres real:
+        `infra/tests/dispatch-fanout-smoke.sql` (12/12).
+  - [x] **`refresh_status` aposentado** — tipo que só o engine legado drenava. A verificação mostrou que
+        `components/instances-panel.tsx` era **código morto** (nunca importado; a F2 moveu o lifecycle
+        para `painel/conectar` + `/api/instances/[id]/actions`), então saiu por deleção. Migration
+        `20260730110000_retire_refresh_status.sql` cancela as linhas que já existiam.
+  - [x] **Mapa do cutover levantado** (rotas engine-only, quais só perdem o POST, proxies, infra de auth
+        `x-engine-token`, envs `ENGINE_*`, deploy/CI) — registrado no `NEXT.md`.
+  - 🟠 **Decisão pendente — `/api/engine/commands` fica ou sai?** Com o painel morto removido, a rota
+        está com **zero chamadores no código** (o executor de automações enfileira direto do worker,
+        sem HTTP). O `NEXT.md` a marca como "FICA (é produtor da fila)" — confirmar ou deletar junto.
+  - [ ] **Pré-requisito do cutover:** aplicar as migrations + smoke e2e passando. Desligar o Baileys
+        antes disso para o disparo.
 - [ ] F6 — Limpeza: dual-mode JSON removido, SQL consolidado, retenção 30d, docs
 
 ### Workstream paralelo — Executor de automações (não é parte do F4)
@@ -34,11 +75,12 @@ O CRUD de `automations` existe, mas nada roda os `steps`. O executor é capacida
 não porte do que já existe — por isso não cabe no F4. Plano:
 [`docs/superpowers/plans/2026-07-29-automations-executor.md`](docs/superpowers/plans/2026-07-29-automations-executor.md).
 
-- [ ] Camada 1 — `automation_runs` + RPCs de claim + tick no `apps/worker` (nada dispara sozinho ainda)
-- [ ] Camada 2 — triggers (`lead_entered` no lead-capture; `group_full`/`group_stalled`/`weekly_recurring` por varredura)
-- [ ] Camada 3 — envio via `engine_commands` (já funciona hoje pelo engine legado; F4 troca só o consumidor)
+- [x] Camada 1 — `automation_runs` + RPCs de claim + tick no `apps/worker` ✅ (PR #30)
+- [x] Camada 2 — triggers (`lead_entered` no lead-capture; `group_full`/`group_stalled`/`weekly_recurring` por varredura) ✅ (PR #30)
+- [x] Camada 3 — envio via `engine_commands` ✅ (PR #30) — consumido hoje pelo engine legado; o F4 troca só o consumidor
 
-Não bloqueia no F4 e não precisa ser reescrito depois dele.
+**FEITO** (PR #30, mergeado na main em 29/07). Não bloqueou o F4 e não precisou ser reescrito depois
+dele: o contrato `{jid,text}` de `send_message` foi preservado no cutover.
 
 ## Sprint 1 — Segurança (P0) ✅
 1. Rotacionar Service Role Key no Supabase

@@ -3,6 +3,144 @@
 > Status 2026-06-24: plano legado. A migracao atual usa Supabase Auth, Supabase Postgres/RLS/Storage,
 > Stripe e engine em VPS/Coolify. Prisma, Neon e Asaas nao sao mais o caminho alvo.
 
+---
+
+# 📍 COMECE AQUI — estado em 2026-07-29
+
+**Onde o Sprint 5 (Baileys → Evolution) parou:** F0–F4 entregues. A lista de **código** da F5 está
+**fechada** — o que falta para o cutover é infra e o teste de fogo, e isso depende do Igor (ver
+"Bloqueado" abaixo). Tudo abaixo desta seção é **histórico**: útil para entender o porquê, não é
+frente de trabalho.
+
+### Em revisão — PR #34, branch `claude/sprint5-f4-anti-ban-naeboe`
+
+Quatro entregas:
+1. **Anti-ban por número, no banco** — estado em `instance_send_state`/`instance_sends`, gate embutido
+   no claim (`claim_send_commands`). O governor do engine legado era em memória e só era correto
+   porque 1 processo = 1 número; o worker é multi-tenant e escala para N réplicas.
+2. **Senders completos** — `send_media`, `send_poll` e `mentionsEveryOne`, com a precedência do legado
+   (enquete > mídia > texto). URL da mídia assinada **no envio**, não no enfileiramento.
+3. **Bug da F4 corrigido** — `requeue_expired_commands` nunca era chamado; agora roda no
+   `housekeeping.ts`, **fora** do gate de Evolution.
+4. **Ponte disparo → fila** (era o bloqueador da F5) — `app.enqueue_broadcast` (fan-out transacional),
+   `reconcile_broadcast_progress` (roll-up por agregado, sem trigger) e `promote_due_schedules`.
+
+Prova executável: `infra/tests/dispatch-fanout-smoke.sql` (12 blocos de asserção).
+
+### 🔴 Bloqueado no Igor — nenhum chat consegue fazer isto
+
+> **Passo a passo completo, com as queries de aceite: [`deploy/RUNBOOK-cutover-f5.md`](../../../deploy/RUNBOOK-cutover-f5.md).**
+
+1. **Aplicar as migrations faltantes** no dev e prod, na ordem do `deploy/supabase/apply-order.txt`.
+   ⚠️ **Falta mais do que as 3 novas.** Sondagem do `hubflow-dev` em 29/07 mostrou que a migration da
+   **F3** (`20260727120000_leads_and_worker_reads`) também nunca foi aplicada — `groups.is_admin`
+   está ausente, e é justamente o que `app.enqueue_broadcast` usa para resolver destinos. **Prod não
+   foi sondado.** Rode o Passo 0 do runbook antes de qualquer coisa: o histórico de migrations do
+   Supabase **não** reflete a realidade (parte do schema foi aplicada via `psql` sem registro).
+2. **Setar `EVOLUTION_API_KEY`** (e `EVOLUTION_NETWORK` se o Coolify prefixar a rede) no worker.
+3. **Bloquear `/manager` no proxy** — pendência desde a F1 (`deploy/coolify/README.evolution.md`).
+4. **Smoke e2e**, incluindo ⚠️ **validar `sendMedia`/`sendPoll` contra a Evolution real** — esses dois
+   shapes **nunca tocaram a instância** (o smoke da F1 só exercitou `sendText`). Seguem a API v2
+   documentada e estão isolados no sender, marcados com `⚠️` no código.
+
+### 🟠 Decisões em aberto
+
+- **`/api/engine/commands` fica ou sai?** Depois que o painel morto (`instances-panel.tsx`) saiu, a
+  rota está com **zero chamadores no código** — o executor de automações enfileira direto do worker,
+  sem HTTP. O mapa do cutover abaixo a lista como "FICA (é produtor da fila)", mas isso foi escrito
+  quando ela ainda tinha uso.
+- **Fan-out de `campaign_messages`.** `enqueueCampaignMessage` marca `queued` e ninguém consome — nem
+  o engine legado, que só claima `broadcasts`. Bug **pré-existente**, não regressão do cutover, então
+  não bloqueia a F5. Deixa `messages-agenda.tsx` sem progresso real. O desenho já usa `origin_kind`,
+  então estender é uma `app.enqueue_campaign_message` quase idêntica + um braço no reconciliador.
+
+### ⚠️ Duas armadilhas
+
+- **Não desligar o Baileys antes do e2e passar.** A convivência é segura por construção — o claim
+  legado filtra `run_id is null`, então os dois motores rodam juntos sem disparo duplo. Mas desligar
+  antes de provar o motor novo **para o disparo**.
+- **`infra/scripts/apply-supabase-sql.sh` está defasado** — tem 6 arquivos hardcoded contra as 30
+  entradas do `apply-order.txt` que a versão `.ps1` lê. O `docs/FASE_7_DEPLOY.md:109` manda usar o
+  `.sh` no Linux/macOS: aplicaria schema incompleto **em silêncio**, exatamente no passo 1 acima. Use
+  o `.ps1`, ou aplique na mão pelo `apply-order.txt`. **Não corrigido** — pendência aberta.
+
+### Ordem de leitura
+
+Este bloco → `TASK_PROGRESS.md` (F4/F5) → corpo do PR #34 → `system/API_CONTRACTS.md` (seção "Motor de
+disparo de BROADCAST") → os blocos de histórico abaixo.
+
+> **Nota de método:** o smoke SQL foi rodado num **Postgres 16 descartável montado à mão** (initdb +
+> stub do schema `auth` + roles do Supabase + `apply-order.txt`). **Não existe runner no repo** — quem
+> for repetir monta de novo; o cabeçalho do `dispatch-fanout-smoke.sql` descreve o setup.
+
+---
+
+## HANDOFF → lane Banco/API (Sprint 5 · F5 cutover) — 2026-07-29
+
+Levantado durante a **F4** (PR #34) numa varredura do que o cutover (F5) desliga.
+
+### 1. ✅ RESOLVIDO — ponte disparo → `engine_commands` (PR #34, 29/07)
+
+Era o bloqueador da F5: `enqueueBroadcast` só marcava `status='queued'` e quem convertia em envio
+era o engine legado, invisível para o worker. Entregue:
+
+- **`app.enqueue_broadcast`** — fan-out transacional: 1 comando por grupo, `priority 100`,
+  `dedupe_key = bc:<broadcastId>:<runId>:<jid>`. Tipo pela precedência do legado
+  (enquete > mídia > texto): `send_message {jid,text,mentionAll}` ·
+  `send_media {jid,mediaId,mediaType,caption,mentionAll}` · `send_poll {jid,question,options[]}`.
+- **`app.reconcile_broadcast_progress`** — roll-up de `sent`/`status` por agregado sobre
+  `engine_commands` (nunca incremento: o envio é at-least-once). Sem trigger, de propósito.
+- **`app.promote_due_schedules`** — agendamento vencido dispara o fan-out de verdade.
+- **Convivência sem disparo duplo:** `claimPendingBroadcasts` filtra `run_id is null`, então o
+  engine legado ignora o que o motor novo enfileirou. Rollback trivial.
+
+Smoke em Postgres 16 real: `infra/tests/dispatch-fanout-smoke.sql` (12 blocos).
+
+⚠️ **Fora desta leva:** `campaign_messages`. `enqueueCampaignMessage` marca `queued` e **ninguém
+consome** — nem o engine legado, que só claima `broadcasts`. É bug **pré-existente**, não regressão
+do cutover, então não bloqueia a F5. O desenho já usa `origin_kind`, então estender é uma
+`app.enqueue_campaign_message` quase idêntica + um segundo braço no reconciliador. Enquanto isso a
+tela `messages-agenda.tsx` segue sem progresso real — como já está hoje.
+
+### 2. ✅ RESOLVIDO — `refresh_status` aposentado (29/07)
+
+Era o último bloqueador de código da F5: `POST /api/engine/commands` aceitava o tipo, mas só o engine
+legado o drenava (`claim_engine_commands`), então depois do cutover ele ficaria `queued` para sempre.
+E o worker não podia chamar `claim_engine_commands` no lugar — ela não filtra por tipo, logo
+claimaria `send_message` **sem o gate anti-ban**.
+
+Saiu pela opção (a), e a verificação pedida no handoff mudou o custo para quase zero:
+**`components/instances-panel.tsx` era código morto.** `InstancesPanel` estava exportado e **nunca
+importado** — ficou órfão quando a F2 refez o fluxo de conexão em `app/painel/conectar/page.tsx`, que
+fala com a Evolution direto via `/api/instances/[id]/actions`. Não havia substituto a construir
+porque não havia funcionalidade viva a substituir.
+
+Entregue: componente morto deletado · `ALLOWED_TYPES` só com `send_message` (com o porquê no código)
+· migration `20260730110000_retire_refresh_status.sql` cancelando as linhas `queued`/`processing` que
+já existiam (idempotente; não toca `done` nem outros tipos).
+
+🟠 **Sobra uma decisão para a F5:** com o painel morto fora, `/api/engine/commands` fica com **zero
+chamadores no código** — o executor de automações enfileira direto do worker, sem HTTP. O mapa abaixo
+a lista como "FICA (é produtor da fila)". Decidir se ela sobrevive como superfície de produção
+externa ou sai junto com as outras rotas engine-only.
+
+### Mapa do cutover (levantado, para a F5 usar)
+- **Rotas engine-only que saem (8):** `POST` de `/api/dispatch/pending`, `/api/dispatch/ack`,
+  `/api/groups/grow/pending`, `/api/groups/grow/ack`, `/api/activity`, `/api/session`,
+  `/api/groups`, `/api/leads`. Em várias delas **só o método POST sai** — o `GET`/`PATCH` é da UI e fica.
+- **Só tirar `allowEngine`** (rota fica): `GET /api/welcome`, `GET /api/optout`, `GET /api/media/[id]`
+  (este último também serve o editor de LPs — **não deletar**).
+- **Proxies que saem inteiros:** `/api/engine/route.ts` (sem consumidor no front) e os 4
+  `admin/dev-tools/*` que batem em `ENGINE_URL`. **`/api/engine/commands` FICA** (é produtor da fila).
+- **Infra de auth que morre junto:** ramo `x-engine-token` em `lib/route-tenant-context.ts:17-44`,
+  `lib/engine-context.ts`, `ENGINE_TOKEN` em `lib/auth.ts:8-12` (já comentado "Remove na F5"),
+  `lib/security/request-access-policy.ts` + o teste, e `middleware.ts:97-111`.
+- **`APP_URL` é exclusivo do engine legado** — o app usa `NEXT_PUBLIC_APP_URL`, que **fica**
+  (a Evolution precisa dela para o webhook).
+- **Deploy/CI:** workspace + scripts `engine:*` no `package.json`, `hubflow-engine/Dockerfile`,
+  `deploy/coolify/engine.docker-compose.yml`, perfil `coolify` do `check-env-template.ps1:36-45`,
+  e `verify-local.ps1:37,48-53` (roda `engine:test` e `node --check` no engine).
+
 ## ✅ Executor de automações — FEITO (2026-07-29, PR #30)
 
 Camadas 1, 2 e 3 do plano [`docs/superpowers/plans/2026-07-29-automations-executor.md`](../../../docs/superpowers/plans/2026-07-29-automations-executor.md)
