@@ -238,6 +238,8 @@ async function fetchMedia(mediaId) {
 // URL do app que recebe os leads (Caminho A). Ajuste via env APP_URL.
 const APP_URL = process.env.APP_URL;
 // Token compartilhado com o app (deve bater com ENGINE_TOKEN do .env.local do app).
+// Em produção, ENGINE_TOKEN e APP_URL são exigidos por validateEngineEnvironment
+// (config/env.js) — sem eles o boot já falha antes daqui. Em dev, default fácil.
 const ENGINE_TOKEN = process.env.ENGINE_TOKEN ?? "dz_dev_engine_token";
 const ENGINE_TENANT_ID = process.env.ENGINE_TENANT_ID ?? "";
 
@@ -337,59 +339,10 @@ async function reportLead(phone, sourceGroup, sourceGroupId) {
   }
 }
 
-// === Boas-vindas automáticas (Sprint 2) ===
-// Config + opt-out vêm do app (self-service). Cache atualizado no heartbeat.
-let welcomeCfg = { enabled: false, message: "" };
-let optOutDigits = new Set(); // só dígitos, p/ comparar com o número que entrou
-const welcomed = new Map(); // digits -> timestamp do envio (dedupe + poda diária)
-const welcoming = new Set(); // dígitos com boas-vindas EM ANDAMENTO (evita corrida/duplo envio)
-
-const onlyDigits = (s) => String(s).replace(/\D/g, "");
-
-/** Busca config de boas-vindas + lista de opt-out no app. Fail-silent. */
-async function refreshConfig() {
-  try {
-    const w = await appFetch(`/api/welcome`).then((r) => r.json());
-    welcomeCfg = { enabled: !!w.enabled, message: w.message ?? "" };
-  } catch {
-    // mantém o cache anterior
-  }
-  try {
-    const list = await appFetch(`/api/optout`).then((r) => r.json());
-    optOutDigits = new Set((list ?? []).map((o) => onlyDigits(o.phone)));
-  } catch {
-    // mantém o cache anterior
-  }
-}
-
-/**
- * Manda a DM de boas-vindas para quem acabou de entrar — SE habilitado,
- * fora do opt-out e ainda não saudado. Vai pela fila anti-ban (lane prioritária).
- */
-async function welcomeNewMember(sock, phone) {
-  if (!welcomeCfg.enabled || !welcomeCfg.message.trim()) return;
-  if (!phone) return; // sem telefone real resolvido (LID não mapeado) não dá p/ DM com segurança
-  const digits = onlyDigits(phone);
-  if (optOutDigits.has(digits)) {
-    console.log(`   ↳ boas-vindas puladas: +${digits} está no opt-out`);
-    return;
-  }
-  if (welcomed.has(digits) || welcoming.has(digits)) return; // já saudado ou em andamento
-  welcoming.add(digits);
-  const jid = `${digits}@s.whatsapp.net`;
-  const text = welcomeCfg.message.replaceAll("{nome}", "tudo bem"); // sem nome real na entrada
-  try {
-    // Lane NORMAL (não prioritária): boas-vindas em lote não pode furar o ritmo
-    // anti-ban — DM a quem nunca te escreveu já é o maior vetor de ban.
-    await sendText(sock, jid, text);
-    welcomed.set(digits, Date.now()); // só marca DEPOIS do envio: falha transitória pode reenviar
-    console.log(`   ↳ boas-vindas enviadas (via fila) para +${digits}`);
-  } catch (err) {
-    console.log(`   ↳ falha ao enviar boas-vindas para +${digits}: ${err.message}`);
-  } finally {
-    welcoming.delete(digits);
-  }
-}
+// Boas-vindas foram movidas p/ automações app-side (nos grupos). Engine não manda
+// DM (anti-ban): DM a quem nunca te escreveu é o maior vetor de ban. Por isso o
+// estado de boas-vindas (welcomeCfg/welcomed/welcoming/opt-out), o welcomeNewMember
+// e o refreshConfig (que buscava /api/welcome + /api/optout) foram removidos.
 
 // === MOTOR DE DISPARO REAL (ofertas do app → grupos) ===
 // A engine puxa as ofertas que o lojista mandou enviar e dispara pela fila
@@ -645,12 +598,9 @@ async function reportActivity() {
 
 /**
  * Poda estruturas em memória que só crescem (processo roda dias/semanas).
- * - welcomed: esquece quem foi saudado há >24h (reentrada no dia seguinte pode ser saudada).
  * - groupActivity: descarta snapshots de dias anteriores (já foram reportados ao app).
  */
 function pruneMemory() {
-  const cutoff = Date.now() - 86_400_000;
-  for (const [d, ts] of welcomed) if (ts < cutoff) welcomed.delete(d);
   const today = new Date().toISOString().slice(0, 10);
   for (const [id, a] of groupActivity) if (a.date !== today) groupActivity.delete(id);
 }
@@ -719,16 +669,14 @@ async function start() {
       const w = warmup.status();
       console.log(`🔥 Warm-up: ${w.phase} (dia ${w.day}/${w.totalDays}, limite hoje: ${w.todayLimit} msgs)`);
       await reportSession(sock);
-      await refreshConfig(); // carrega boas-vindas + opt-out do app
       await listGroups(sock); // popula groupNames ANTES de aceitar disparos
       clearInterval(heartbeat);
       heartbeat = setInterval(() => {
         reportSession(sock); // mantém o painel "ao vivo"
-        refreshConfig(); // mantém config de boas-vindas + opt-out frescos
         resyncGroupsIfNeeded(); // re-sync se o app subiu depois da engine
         reportActivity(); // envia o snapshot de atividade dos grupos
         saveState(); // persiste warmup + janelas de envio (sobrevive a restart)
-        pruneMemory(); // descarta welcomed antigo + atividade de dias passados
+        pruneMemory(); // descarta snapshots de atividade de grupos de dias passados
       }, 30_000);
       // Loop de disparo dedicado (10s) — oferta enfileirada sai rápido. Junto vai o
       // poll de auto-grow (criar próximo grupo quando a campanha lota).
@@ -791,7 +739,6 @@ async function start() {
           const phone = await resolvePhone(sock, jid);
           console.log(`\n🟢 ENTRADA: ${phone ? `+${phone}` : "(número oculto)"} entrou em "${name}"`);
           reportLead(phone, name, id); // grava o lead no app (Caminho A) — id = JID do grupo
-          welcomeNewMember(sock, phone); // boas-vindas automáticas (Sprint 2)
         } else if (action === "remove") {
           const phone = await resolvePhone(sock, jid);
           console.log(`🔴 SAÍDA: ${phone ? `+${phone}` : "(número oculto)"} saiu de "${name}"`);
