@@ -53,10 +53,11 @@ let DisconnectReason;
 let fetchLatestBaileysVersion;
 let jidNormalizedUser;
 let makeWASocket;
+let Browsers;
 
 async function loadBaileys() {
   const baileys = await import("@whiskeysockets/baileys");
-  ({ useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, jidNormalizedUser } = baileys);
+  ({ useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, jidNormalizedUser, Browsers } = baileys);
   makeWASocket = baileys.default;
 }
 
@@ -658,7 +659,11 @@ async function start() {
     version,
     auth: state,
     logger,
-    browser: ["HUBFLOW", "Chrome", "1.0.0"],
+    // Nome do dispositivo vinculado. FIXO e realista (Browsers.ubuntu → ["Ubuntu","Chrome",<ver>]):
+    // "HUBFLOW" era uma anomalia auto-infligida no handshake (nenhum device real se chama assim).
+    // NÃO randomizar — mudar a cada boot vira "aparelho novo" toda hora (gatilho de segurança).
+    // Ver DECISIONS.md §"Nome de dispositivo": nome estável ≠ fingerprint randomizado (evasão).
+    browser: Browsers.ubuntu("Chrome"),
   });
 
   // Salva credenciais sempre que mudam (essencial para persistir a sessão).
