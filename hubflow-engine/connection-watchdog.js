@@ -42,9 +42,11 @@ class ConnectionWatchdog {
     if (!this._alive) return;
     try {
       // sendPresenceUpdate é leve e confirma que o stream está funcional.
+      // Modo "unavailable" (offline): sonda o stream SEM mostrar o número "online"
+      // a cada ciclo. Não é envio de mensagem — não passa pela fila anti-ban.
       // Timeout manual garante que não ficamos presos esperando forever.
       await Promise.race([
-        this.sock.sendPresenceUpdate("available"),
+        this.sock.sendPresenceUpdate("unavailable"),
         new Promise((_, reject) =>
           setTimeout(() => reject(new Error("watchdog timeout")), this.timeoutMs)
         ),

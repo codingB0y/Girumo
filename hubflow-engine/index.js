@@ -70,6 +70,7 @@ const { AntiBanQueue } = require("./anti-ban-queue.js");
 const { WarmUp } = require("./warmup.js");
 const { GroupOperationGuard, classifyGroupOpError } = require("./group-guard.js");
 const { DeliveryTracker } = require("./delivery-tracker.js");
+const { ConnectionWatchdog } = require("./connection-watchdog.js");
 const { createSupabaseCommandWorker } = require("./queues/supabase-command-worker.js");
 const { validateEngineEnvironment } = require("./config/env.js");
 
@@ -153,6 +154,7 @@ let shuttingDown = false;
 function shutdown() {
   if (shuttingDown) return; // evita salvar 2x se os dois sinais chegarem
   shuttingDown = true;
+  watchdog?.stop();
   supabaseCommandWorker.stop();
   saveState();
   process.exit(0);
@@ -241,6 +243,8 @@ let connectedSince = null; // quando a sessão atual abriu (p/ "conectado há X 
 let reconnectAttempts = 0; // p/ backoff exponencial — zera ao conectar de fato
 let currentSocket = null; // socket Baileys ativo, usado pelo worker Supabase
 let lastConnectionEventAt = null; // ISO da última transição connection.update (health)
+let watchdog = null; // ConnectionWatchdog do socket atual (detecta stream zumbi)
+let reconnecting = false; // trava: no máx. 1 reconexão em voo (2 sockets do mesmo nº = ban)
 let supabaseCommandWorkerStarted = false;
 const supabaseCommandWorker = createSupabaseCommandWorker({
   getSocket: () => currentSocket,
@@ -252,6 +256,47 @@ const supabaseCommandWorker = createSupabaseCommandWorker({
 function nextReconnectDelay() {
   const base = Math.min(60_000, 3000 * 2 ** reconnectAttempts);
   return base + Math.floor(Math.random() * 1000); // jitter p/ não sincronizar tentativas
+}
+
+/**
+ * Agenda UMA reconexão (chama start() após `delay`). A trava `reconnecting`
+ * garante que nunca há duas reconexões em voo — sem ela, o watchdog forçando um
+ * end() somado a um "close" natural poderia abrir DOIS sockets do mesmo número,
+ * que é o vetor de ban nº1. A trava é liberada quando o timer dispara (a próxima
+ * queda pode reagendar) e de novo quando a conexão abre de fato.
+ */
+function scheduleReconnect(delay, reason) {
+  if (reconnecting) return; // já há uma reconexão agendada — não duplica
+  reconnecting = true;
+  console.log(`   ↳ reconexão agendada em ${Math.round(delay / 1000)}s (${reason})`);
+  setTimeout(() => {
+    reconnecting = false; // o timer disparou; start() assume daqui
+    start();
+  }, delay);
+}
+
+/**
+ * Chamado pelo watchdog quando o stream está zumbi. Encerra o socket atual —
+ * o Baileys emite "close" e o handler existente reconecta (reusa o caminho, NÃO
+ * cria conexão paralela). Fallback anti-stuck: se o end() não produzir "close"
+ * (socket semi-morto), agenda a reconexão aqui — a trava `reconnecting` impede
+ * que isso duplique com um "close" que venha logo em seguida.
+ */
+function onWatchdogDead() {
+  const dying = currentSocket;
+  try {
+    dying?.end(new Error("watchdog: stream zumbi"));
+  } catch {
+    // end() pode lançar se o socket já estiver semi-morto — ignora
+  }
+  setTimeout(() => {
+    // Se o "close" veio, ele já zerou currentSocket (e talvez agendou). Só agimos
+    // quando o socket morto ainda é o "atual" E nada foi agendado.
+    if (!reconnecting && currentSocket === dying) {
+      currentSocket = null;
+      scheduleReconnect(nextReconnectDelay(), "watchdog-fallback");
+    }
+  }, 5_000);
 }
 
 /**
@@ -696,6 +741,10 @@ async function start() {
     if (connection === "open") {
       console.log("\n✅ Conectado ao WhatsApp!");
       currentSocket = sock;
+      reconnecting = false; // reconexão concluída — libera a trava
+      watchdog?.stop(); // encerra o watchdog do socket anterior, se houver
+      watchdog = new ConnectionWatchdog({ sock, onDead: onWatchdogDead, logger: console });
+      watchdog.start();
       reconnectAttempts = 0; // conectou — reseta o backoff
       connectedSince = connectedSince ?? new Date().toISOString(); // mantém na reconexão transitória
       const w = warmup.status();
@@ -726,7 +775,12 @@ async function start() {
     }
 
     if (connection === "close") {
+      // Ignora "close" de um socket que já NÃO é o atual (um mais novo assumiu).
+      // Sem isto, um close atrasado do socket antigo zeraria o socket novo e
+      // agendaria uma reconexão duplicada = 2 sockets do mesmo número (ban).
+      if (currentSocket && currentSocket !== sock) return;
       currentSocket = null;
+      watchdog?.stop(); // para de pingar o socket morto
       supabaseCommandWorker.stop();
       supabaseCommandWorkerStarted = false;
       const code = lastDisconnect?.error?.output?.statusCode;
@@ -736,12 +790,12 @@ async function start() {
         console.log("\n🔒 Sessão não autenticada (QR expirado ou auth velha). Limpando e gerando novo QR...");
         connectedSince = null; // sessão acabou de fato — zera o "conectado desde"
         await rm("auth", { recursive: true, force: true });
-        setTimeout(start, 2000);
+        scheduleReconnect(2000, "logout/auth-reset");
       } else {
         const wait = nextReconnectDelay();
         reconnectAttempts++;
-        console.log(`\n⚠️  Conexão caiu (code ${code}). Reconectando em ${Math.round(wait / 1000)}s...`);
-        setTimeout(start, wait);
+        console.log(`\n⚠️  Conexão caiu (code ${code}).`);
+        scheduleReconnect(wait, `queda code ${code}`);
       }
     }
   });
