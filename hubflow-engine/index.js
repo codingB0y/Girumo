@@ -685,6 +685,9 @@ function pruneMemory() {
 let cachedVersion = null; // versão do protocolo — busca 1x, reusa nas reconexões
 
 async function start() {
+  // Tag por invocação de start() — distingue sessões no log e permite detectar
+  // (no teste do watchdog) se em algum momento há DUAS sessões vivas do mesmo nº.
+  const bootId = Math.random().toString(36).slice(2, 8);
   // Persiste a sessão na pasta ./auth — reconecta sem novo QR nas próximas vezes.
   const { state, saveCreds } = await useMultiFileAuthState("auth");
   // A versão muda raramente; evita uma chamada de rede a cada reconexão.
@@ -739,12 +742,13 @@ async function start() {
     }
 
     if (connection === "open") {
-      console.log("\n✅ Conectado ao WhatsApp!");
+      console.log(`\n✅ Conectado ao WhatsApp! (sessão ${bootId})`);
       currentSocket = sock;
       reconnecting = false; // reconexão concluída — libera a trava
       watchdog?.stop(); // encerra o watchdog do socket anterior, se houver
       watchdog = new ConnectionWatchdog({ sock, onDead: onWatchdogDead, logger: console });
       watchdog.start();
+      console.log("🐕 Watchdog de conexão ativo (probe 45s — 3 falhas seguidas forçam reconexão)");
       reconnectAttempts = 0; // conectou — reseta o backoff
       connectedSince = connectedSince ?? new Date().toISOString(); // mantém na reconexão transitória
       const w = warmup.status();
@@ -794,7 +798,7 @@ async function start() {
       } else {
         const wait = nextReconnectDelay();
         reconnectAttempts++;
-        console.log(`\n⚠️  Conexão caiu (code ${code}).`);
+        console.log(`\n⚠️  Conexão caiu (sessão ${bootId}, code ${code}).`);
         scheduleReconnect(wait, `queda code ${code}`);
       }
     }
