@@ -49,10 +49,19 @@ function authHeaders() {
 // Layout do arquivo: MAGIC(8) | salt(16) | iv(12) | authTag(16) | ciphertext
 const MAGIC = Buffer.from("HFENGBK1"); // HubFlow ENGine BacKup v1
 
+// Parâmetros do scrypt. Os defaults do Node (N=16384) são o piso histórico e hoje
+// são fracos: o que essa chave protege é a sessão WhatsApp do lojista, e o cenário
+// de ataque é justamente brute-force OFFLINE depois de um vazamento do bucket.
+// N=2^17 segue a recomendação atual da OWASP. maxmem precisa ser explícito porque
+// 128*N*r = ~134MB estoura o limite default de 32MB do Node.
+// Trocar esses valores INVALIDA backups antigos — se mudar, suba o MAGIC p/ HFENGBK2
+// e mantenha o decrypt do v1 por compatibilidade.
+const KDF = { N: 131072, r: 8, p: 1, maxmem: 256 * 1024 * 1024 };
+
 function encrypt(plaintext, passphrase) {
   const salt = crypto.randomBytes(16);
   const iv = crypto.randomBytes(12);
-  const key = crypto.scryptSync(passphrase, salt, 32);
+  const key = crypto.scryptSync(passphrase, salt, 32, KDF);
   const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
   const enc = Buffer.concat([cipher.update(plaintext), cipher.final()]);
   return Buffer.concat([MAGIC, salt, iv, cipher.getAuthTag(), enc]);
@@ -63,7 +72,7 @@ function decrypt(buf, passphrase) {
   const salt = buf.subarray(8, 24);
   const iv = buf.subarray(24, 36);
   const tag = buf.subarray(36, 52);
-  const key = crypto.scryptSync(passphrase, salt, 32);
+  const key = crypto.scryptSync(passphrase, salt, 32, KDF);
   const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
   decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(buf.subarray(52)), decipher.final()]);
@@ -102,8 +111,18 @@ async function listBackups() {
   return items.map((i) => i.name).filter((n) => n.endsWith(".tar.gz.enc"));
 }
 
+// Falha de remoção não aborta o backup (o upload já passou, que é o que importa),
+// mas precisa aparecer: engolir em silêncio faz a retenção parar de acontecer sem
+// ninguém perceber e o bucket crescer indefinidamente.
 async function remove(name) {
-  await fetch(`${storageBase()}/object/${BUCKET}/${name}`, { method: "DELETE", headers: authHeaders() });
+  const res = await fetch(`${storageBase()}/object/${BUCKET}/${name}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    console.error(`⚠️  falha ao remover ${name} (${res.status}) — retenção não aplicada nesse arquivo`);
+  }
+  return res.ok;
 }
 
 async function download(name) {
