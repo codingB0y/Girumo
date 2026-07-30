@@ -42,6 +42,24 @@ app.get("/health", (req, res) => {
   res.status(payload.ok ? 200 : 503).json(payload);
 });
 
+// Detalhe operacional (fila anti-ban / warmup / entrega) fica ATRÁS de auth: sem o
+// token compartilhado com o app, não vaza estado interno pra qualquer um. /live e
+// /health seguem públicos (liveness/readiness p/ o orquestrador).
+app.get("/status", (req, res) => {
+  if (req.get("x-engine-token") !== ENGINE_TOKEN) {
+    return res.status(401).json({ ok: false, error: "unauthorized" });
+  }
+  return res.status(200).json({
+    ok: true,
+    connected: Boolean(currentSocket?.user),
+    lastEventAt: lastConnectionEventAt,
+    uptime: process.uptime(),
+    queue: queue.stats(),
+    delivery: delivery.getStats(),
+    warmup: warmup.status(),
+  });
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, "0.0.0.0", () => {
@@ -53,10 +71,11 @@ let DisconnectReason;
 let fetchLatestBaileysVersion;
 let jidNormalizedUser;
 let makeWASocket;
+let Browsers;
 
 async function loadBaileys() {
   const baileys = await import("@whiskeysockets/baileys");
-  ({ useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, jidNormalizedUser } = baileys);
+  ({ useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, jidNormalizedUser, Browsers } = baileys);
   makeWASocket = baileys.default;
 }
 
@@ -70,6 +89,7 @@ const { AntiBanQueue } = require("./anti-ban-queue.js");
 const { WarmUp } = require("./warmup.js");
 const { GroupOperationGuard, classifyGroupOpError } = require("./group-guard.js");
 const { DeliveryTracker } = require("./delivery-tracker.js");
+const { ConnectionWatchdog } = require("./connection-watchdog.js");
 const { createSupabaseCommandWorker } = require("./queues/supabase-command-worker.js");
 const { validateEngineEnvironment } = require("./config/env.js");
 
@@ -153,6 +173,7 @@ let shuttingDown = false;
 function shutdown() {
   if (shuttingDown) return; // evita salvar 2x se os dois sinais chegarem
   shuttingDown = true;
+  watchdog?.stop();
   supabaseCommandWorker.stop();
   saveState();
   process.exit(0);
@@ -220,6 +241,8 @@ async function fetchMedia(mediaId) {
 // URL do app que recebe os leads (Caminho A). Ajuste via env APP_URL.
 const APP_URL = process.env.APP_URL;
 // Token compartilhado com o app (deve bater com ENGINE_TOKEN do .env.local do app).
+// Em produção, ENGINE_TOKEN e APP_URL são exigidos por validateEngineEnvironment
+// (config/env.js) — sem eles o boot já falha antes daqui. Em dev, default fácil.
 const ENGINE_TOKEN = process.env.ENGINE_TOKEN ?? "dz_dev_engine_token";
 const ENGINE_TENANT_ID = process.env.ENGINE_TENANT_ID ?? "";
 
@@ -241,6 +264,8 @@ let connectedSince = null; // quando a sessão atual abriu (p/ "conectado há X 
 let reconnectAttempts = 0; // p/ backoff exponencial — zera ao conectar de fato
 let currentSocket = null; // socket Baileys ativo, usado pelo worker Supabase
 let lastConnectionEventAt = null; // ISO da última transição connection.update (health)
+let watchdog = null; // ConnectionWatchdog do socket atual (detecta stream zumbi)
+let reconnecting = false; // trava: no máx. 1 reconexão em voo (2 sockets do mesmo nº = ban)
 let supabaseCommandWorkerStarted = false;
 const supabaseCommandWorker = createSupabaseCommandWorker({
   getSocket: () => currentSocket,
@@ -252,6 +277,47 @@ const supabaseCommandWorker = createSupabaseCommandWorker({
 function nextReconnectDelay() {
   const base = Math.min(60_000, 3000 * 2 ** reconnectAttempts);
   return base + Math.floor(Math.random() * 1000); // jitter p/ não sincronizar tentativas
+}
+
+/**
+ * Agenda UMA reconexão (chama start() após `delay`). A trava `reconnecting`
+ * garante que nunca há duas reconexões em voo — sem ela, o watchdog forçando um
+ * end() somado a um "close" natural poderia abrir DOIS sockets do mesmo número,
+ * que é o vetor de ban nº1. A trava é liberada quando o timer dispara (a próxima
+ * queda pode reagendar) e de novo quando a conexão abre de fato.
+ */
+function scheduleReconnect(delay, reason) {
+  if (reconnecting) return; // já há uma reconexão agendada — não duplica
+  reconnecting = true;
+  console.log(`   ↳ reconexão agendada em ${Math.round(delay / 1000)}s (${reason})`);
+  setTimeout(() => {
+    reconnecting = false; // o timer disparou; start() assume daqui
+    start();
+  }, delay);
+}
+
+/**
+ * Chamado pelo watchdog quando o stream está zumbi. Encerra o socket atual —
+ * o Baileys emite "close" e o handler existente reconecta (reusa o caminho, NÃO
+ * cria conexão paralela). Fallback anti-stuck: se o end() não produzir "close"
+ * (socket semi-morto), agenda a reconexão aqui — a trava `reconnecting` impede
+ * que isso duplique com um "close" que venha logo em seguida.
+ */
+function onWatchdogDead() {
+  const dying = currentSocket;
+  try {
+    dying?.end(new Error("watchdog: stream zumbi"));
+  } catch {
+    // end() pode lançar se o socket já estiver semi-morto — ignora
+  }
+  setTimeout(() => {
+    // Se o "close" veio, ele já zerou currentSocket (e talvez agendou). Só agimos
+    // quando o socket morto ainda é o "atual" E nada foi agendado.
+    if (!reconnecting && currentSocket === dying) {
+      currentSocket = null;
+      scheduleReconnect(nextReconnectDelay(), "watchdog-fallback");
+    }
+  }, 5_000);
 }
 
 /**
@@ -319,59 +385,10 @@ async function reportLead(phone, sourceGroup, sourceGroupId) {
   }
 }
 
-// === Boas-vindas automáticas (Sprint 2) ===
-// Config + opt-out vêm do app (self-service). Cache atualizado no heartbeat.
-let welcomeCfg = { enabled: false, message: "" };
-let optOutDigits = new Set(); // só dígitos, p/ comparar com o número que entrou
-const welcomed = new Map(); // digits -> timestamp do envio (dedupe + poda diária)
-const welcoming = new Set(); // dígitos com boas-vindas EM ANDAMENTO (evita corrida/duplo envio)
-
-const onlyDigits = (s) => String(s).replace(/\D/g, "");
-
-/** Busca config de boas-vindas + lista de opt-out no app. Fail-silent. */
-async function refreshConfig() {
-  try {
-    const w = await appFetch(`/api/welcome`).then((r) => r.json());
-    welcomeCfg = { enabled: !!w.enabled, message: w.message ?? "" };
-  } catch {
-    // mantém o cache anterior
-  }
-  try {
-    const list = await appFetch(`/api/optout`).then((r) => r.json());
-    optOutDigits = new Set((list ?? []).map((o) => onlyDigits(o.phone)));
-  } catch {
-    // mantém o cache anterior
-  }
-}
-
-/**
- * Manda a DM de boas-vindas para quem acabou de entrar — SE habilitado,
- * fora do opt-out e ainda não saudado. Vai pela fila anti-ban (lane prioritária).
- */
-async function welcomeNewMember(sock, phone) {
-  if (!welcomeCfg.enabled || !welcomeCfg.message.trim()) return;
-  if (!phone) return; // sem telefone real resolvido (LID não mapeado) não dá p/ DM com segurança
-  const digits = onlyDigits(phone);
-  if (optOutDigits.has(digits)) {
-    console.log(`   ↳ boas-vindas puladas: +${digits} está no opt-out`);
-    return;
-  }
-  if (welcomed.has(digits) || welcoming.has(digits)) return; // já saudado ou em andamento
-  welcoming.add(digits);
-  const jid = `${digits}@s.whatsapp.net`;
-  const text = welcomeCfg.message.replaceAll("{nome}", "tudo bem"); // sem nome real na entrada
-  try {
-    // Lane NORMAL (não prioritária): boas-vindas em lote não pode furar o ritmo
-    // anti-ban — DM a quem nunca te escreveu já é o maior vetor de ban.
-    await sendText(sock, jid, text);
-    welcomed.set(digits, Date.now()); // só marca DEPOIS do envio: falha transitória pode reenviar
-    console.log(`   ↳ boas-vindas enviadas (via fila) para +${digits}`);
-  } catch (err) {
-    console.log(`   ↳ falha ao enviar boas-vindas para +${digits}: ${err.message}`);
-  } finally {
-    welcoming.delete(digits);
-  }
-}
+// Boas-vindas foram movidas p/ automações app-side (nos grupos). Engine não manda
+// DM (anti-ban): DM a quem nunca te escreveu é o maior vetor de ban. Por isso o
+// estado de boas-vindas (welcomeCfg/welcomed/welcoming/opt-out), o welcomeNewMember
+// e o refreshConfig (que buscava /api/welcome + /api/optout) foram removidos.
 
 // === MOTOR DE DISPARO REAL (ofertas do app → grupos) ===
 // A engine puxa as ofertas que o lojista mandou enviar e dispara pela fila
@@ -627,12 +644,9 @@ async function reportActivity() {
 
 /**
  * Poda estruturas em memória que só crescem (processo roda dias/semanas).
- * - welcomed: esquece quem foi saudado há >24h (reentrada no dia seguinte pode ser saudada).
  * - groupActivity: descarta snapshots de dias anteriores (já foram reportados ao app).
  */
 function pruneMemory() {
-  const cutoff = Date.now() - 86_400_000;
-  for (const [d, ts] of welcomed) if (ts < cutoff) welcomed.delete(d);
   const today = new Date().toISOString().slice(0, 10);
   for (const [id, a] of groupActivity) if (a.date !== today) groupActivity.delete(id);
 }
@@ -640,6 +654,9 @@ function pruneMemory() {
 let cachedVersion = null; // versão do protocolo — busca 1x, reusa nas reconexões
 
 async function start() {
+  // Tag por invocação de start() — distingue sessões no log e permite detectar
+  // (no teste do watchdog) se em algum momento há DUAS sessões vivas do mesmo nº.
+  const bootId = Math.random().toString(36).slice(2, 8);
   // Persiste a sessão na pasta ./auth — reconecta sem novo QR nas próximas vezes.
   const { state, saveCreds } = await useMultiFileAuthState("auth");
   // A versão muda raramente; evita uma chamada de rede a cada reconexão.
@@ -658,7 +675,11 @@ async function start() {
     version,
     auth: state,
     logger,
-    browser: ["HUBFLOW", "Chrome", "1.0.0"],
+    // Nome do dispositivo vinculado. FIXO e realista (Browsers.ubuntu → ["Ubuntu","Chrome",<ver>]):
+    // "HUBFLOW" era uma anomalia auto-infligida no handshake (nenhum device real se chama assim).
+    // NÃO randomizar — mudar a cada boot vira "aparelho novo" toda hora (gatilho de segurança).
+    // Ver DECISIONS.md §"Nome de dispositivo": nome estável ≠ fingerprint randomizado (evasão).
+    browser: Browsers.ubuntu("Chrome"),
   });
 
   // Salva credenciais sempre que mudam (essencial para persistir a sessão).
@@ -694,23 +715,26 @@ async function start() {
     }
 
     if (connection === "open") {
-      console.log("\n✅ Conectado ao WhatsApp!");
+      console.log(`\n✅ Conectado ao WhatsApp! (sessão ${bootId})`);
       currentSocket = sock;
+      reconnecting = false; // reconexão concluída — libera a trava
+      watchdog?.stop(); // encerra o watchdog do socket anterior, se houver
+      watchdog = new ConnectionWatchdog({ sock, onDead: onWatchdogDead, logger: console });
+      watchdog.start();
+      console.log("🐕 Watchdog de conexão ativo (probe 45s — 3 falhas seguidas forçam reconexão)");
       reconnectAttempts = 0; // conectou — reseta o backoff
       connectedSince = connectedSince ?? new Date().toISOString(); // mantém na reconexão transitória
       const w = warmup.status();
       console.log(`🔥 Warm-up: ${w.phase} (dia ${w.day}/${w.totalDays}, limite hoje: ${w.todayLimit} msgs)`);
       await reportSession(sock);
-      await refreshConfig(); // carrega boas-vindas + opt-out do app
       await listGroups(sock); // popula groupNames ANTES de aceitar disparos
       clearInterval(heartbeat);
       heartbeat = setInterval(() => {
         reportSession(sock); // mantém o painel "ao vivo"
-        refreshConfig(); // mantém config de boas-vindas + opt-out frescos
         resyncGroupsIfNeeded(); // re-sync se o app subiu depois da engine
         reportActivity(); // envia o snapshot de atividade dos grupos
         saveState(); // persiste warmup + janelas de envio (sobrevive a restart)
-        pruneMemory(); // descarta welcomed antigo + atividade de dias passados
+        pruneMemory(); // descarta snapshots de atividade de grupos de dias passados
       }, 30_000);
       // Loop de disparo dedicado (10s) — oferta enfileirada sai rápido. Junto vai o
       // poll de auto-grow (criar próximo grupo quando a campanha lota).
@@ -726,7 +750,12 @@ async function start() {
     }
 
     if (connection === "close") {
+      // Ignora "close" de um socket que já NÃO é o atual (um mais novo assumiu).
+      // Sem isto, um close atrasado do socket antigo zeraria o socket novo e
+      // agendaria uma reconexão duplicada = 2 sockets do mesmo número (ban).
+      if (currentSocket && currentSocket !== sock) return;
       currentSocket = null;
+      watchdog?.stop(); // para de pingar o socket morto
       supabaseCommandWorker.stop();
       supabaseCommandWorkerStarted = false;
       const code = lastDisconnect?.error?.output?.statusCode;
@@ -736,12 +765,12 @@ async function start() {
         console.log("\n🔒 Sessão não autenticada (QR expirado ou auth velha). Limpando e gerando novo QR...");
         connectedSince = null; // sessão acabou de fato — zera o "conectado desde"
         await rm("auth", { recursive: true, force: true });
-        setTimeout(start, 2000);
+        scheduleReconnect(2000, "logout/auth-reset");
       } else {
         const wait = nextReconnectDelay();
         reconnectAttempts++;
-        console.log(`\n⚠️  Conexão caiu (code ${code}). Reconectando em ${Math.round(wait / 1000)}s...`);
-        setTimeout(start, wait);
+        console.log(`\n⚠️  Conexão caiu (sessão ${bootId}, code ${code}).`);
+        scheduleReconnect(wait, `queda code ${code}`);
       }
     }
   });
@@ -773,7 +802,6 @@ async function start() {
           const phone = await resolvePhone(sock, jid);
           console.log(`\n🟢 ENTRADA: ${phone ? `+${phone}` : "(número oculto)"} entrou em "${name}"`);
           reportLead(phone, name, id); // grava o lead no app (Caminho A) — id = JID do grupo
-          welcomeNewMember(sock, phone); // boas-vindas automáticas (Sprint 2)
         } else if (action === "remove") {
           const phone = await resolvePhone(sock, jid);
           console.log(`🔴 SAÍDA: ${phone ? `+${phone}` : "(número oculto)"} saiu de "${name}"`);

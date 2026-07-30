@@ -261,3 +261,19 @@ Item "Páginas" na sidebar.
 ### Fora do MVP (registrado)
 Componentes visuais distintos por template (os 3 usam BasicTemplate — decisão Igor 2026-07-02) ·
 TikTok pixel client · captcha · custom domain · retenção automatizada de lp_tracking_events (90d, cron manual).
+
+---
+
+## Playbook "Primeiros 30 dias" (P1.8)  ✅
+
+`GET /api/playbook` → estado do checklist do tenant:
+```
+{ steps: { key, title, description, auto:boolean, done:boolean, doneAt:string|null, ctaHref, ctaLabel }[],
+  completed:number, total:8, nextStepKey:string|null, graduated:boolean }
+```
+Passos AUTO são computados server-side agregando stores existentes (session/campanhas/broadcasts/
+automations/leads count/orders count/tenant_settings); o passo manual (`share_link`) vem de
+`playbook_progress`. GET faz write-through sticky dos autos já atingidos → progresso não regride.
+
+`POST /api/playbook` body `{ stepKey }` → marca um passo MANUAL (valida `MANUAL_STEP_KEYS`, 400 senão);
+retorna o mesmo shape recomputado. Passos definidos em `lib/playbook/steps.ts` (contrato só-leitura pro Frontend).

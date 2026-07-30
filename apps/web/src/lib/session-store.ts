@@ -1,6 +1,7 @@
 import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { isConnectedStatus, selectSessionRow } from "@/lib/session-select";
+import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 
 export { isLive } from "@/lib/session-liveness";
 
@@ -121,6 +122,10 @@ export async function setSession(tenantId: string, info: Partial<SessionInfo>): 
   if (info.phone) updatePayload.phone = info.phone;
   if (isConnected && !existing.connected_at) {
     updatePayload.connected_at = info.connectedSince ?? now;
+    // Marco de ativação: primeira conexão do WhatsApp. Detectado aqui (connected_at
+    // ainda nulo = 1ª vez), então dispara uma única vez — não a cada transição.
+    // Engine é a origem, sem usuário logado → userId null. Best-effort.
+    void trackFunnelEvent({ tenantId, userId: null, event: "qr_connected", onlyFirst: true });
   }
   if (!isConnected) {
     updatePayload.disconnected_at = now;

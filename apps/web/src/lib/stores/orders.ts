@@ -7,6 +7,8 @@ export type Order = {
   phone: string;
   lead_id?: string | null;
   group_name?: string | null;
+  /** Campanha de origem (inferida do lead no registro); null = sem origem. */
+  campaign_id?: string | null;
   value: number;
   tenant_id?: string;
   created_at?: string;
@@ -38,10 +40,21 @@ export async function listOrders(): Promise<Order[]> {
   return (data ?? []) as Order[];
 }
 
+/** Total de pedidos do tenant (parametrizado — ao contrário de listOrders que deriva o tenant da sessão). */
+export async function countOrders(tenantId: string): Promise<number> {
+  const { count, error } = await getSupabaseAdmin()
+    .from("orders")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId);
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
+
 export async function addOrder(input: {
   phone?: string;
   leadId?: string;
   group?: string;
+  campaignId?: string;
   value: number;
 }): Promise<Order> {
   const tenantId = await getTenantId();
@@ -52,6 +65,7 @@ export async function addOrder(input: {
       phone: (input.phone ?? "").replace(/\D/g, ""),
       lead_id: input.leadId || null,
       group_name: input.group || null,
+      campaign_id: input.campaignId || null,
       value: input.value,
     })
     .select()

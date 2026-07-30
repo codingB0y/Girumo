@@ -121,7 +121,7 @@ export async function POST(req: Request) {
       if (tenantId) {
         trackFunnelEvent({
           tenantId,
-          userId: userId ?? "system",
+          userId: userId ?? null,
           event: "payment_completed",
           metadata: { plan_code: subscription.metadata.plan_code, stripe_subscription_id: subscription.id },
         });

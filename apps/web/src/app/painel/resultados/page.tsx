@@ -10,7 +10,7 @@ import type { Group } from "@/lib/mock-data";
 type Campanha = { id: string; name: string; groupIds: string[]; slug?: string; createdAt: string };
 type TrackedLink = { campaignName?: string; clicks: number };
 type Lead = { status: "novo" | "ativo" | "comprou" };
-type Order = { id: string; value: number; group_name?: string | null };
+type Order = { id: string; value: number; group_name?: string | null; campaign_id?: string | null };
 
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -61,6 +61,16 @@ export default function PainelResultados() {
     return [...sums.entries()].map(([group, total]) => ({ group, total })).sort((a, b) => b.total - a.total);
   }, [orders]);
 
+  const revenueByCampaign = useMemo(() => {
+    const nameById = new Map(campanhas.map((c) => [c.id, c.name]));
+    const sums = new Map<string, number>();
+    for (const o of orders) {
+      const key = (o.campaign_id && nameById.get(o.campaign_id)) || "Sem origem";
+      sums.set(key, (sums.get(key) ?? 0) + (o.value ?? 0));
+    }
+    return [...sums.entries()].map(([name, total]) => ({ name, total })).sort((a, b) => b.total - a.total);
+  }, [orders, campanhas]);
+
   const activity = useMemo(() => {
     const c = { alto: 0, medio: 0, baixo: 0 };
     for (const g of groups) c[g.engagement] = (c[g.engagement] ?? 0) + 1;
@@ -71,6 +81,8 @@ export default function PainelResultados() {
     ];
   }, [groups]);
   const totalGroups = Math.max(groups.length, 1);
+  // Grupos parados (engajamento baixo) — alvo da campanha de reativação (P1.11).
+  const stalledGroups = useMemo(() => groups.filter((g) => g.engagement === "baixo"), [groups]);
 
   const byCampaign = useMemo(() => {
     const clicksByName = new Map<string, number>();
@@ -165,6 +177,20 @@ export default function PainelResultados() {
               </div>
             ))}
           </div>
+          {stalledGroups.length > 0 && (
+            <Link
+              href={`/painel/campanhas/nova?preset=reativacao&groups=${stalledGroups.map((g) => g.id).join(",")}`}
+              className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-alerta/25 bg-alerta/[0.06] px-4 py-3 transition-[border-color] duration-[160ms] hover:border-alerta/40"
+            >
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-volt-950">
+                  {stalledGroups.length} grupo{stalledGroups.length > 1 ? "s" : ""} parado{stalledGroups.length > 1 ? "s" : ""}
+                </span>
+                <span className="mt-0.5 block text-xs text-aco/65">Mande uma novidade pra reativar antes que esfriem de vez.</span>
+              </span>
+              <span className="font-data shrink-0 rounded-lg bg-alerta px-3 py-1.5 text-xs font-medium text-white">Criar reativação</span>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -194,6 +220,39 @@ export default function PainelResultados() {
         <Link href="/painel/campanhas" className="font-data mt-5 inline-flex items-center gap-1 text-[11px] uppercase tracking-[0.08em] text-cobalt-500 transition-[gap] duration-[160ms] hover:gap-1.5">
           Ver campanhas →
         </Link>
+      </div>
+
+      {/* R$ por campanha */}
+      <div className="pn-card rounded-2xl p-6">
+        <h2 className="font-display text-base font-bold text-volt-950">R$ por campanha</h2>
+        {orders.length === 0 ? (
+          <p className="font-editorial mt-4 text-[17px] italic text-ardosia">
+            Registre seus pedidos na tela Contatos pra ver o caminho completo até a venda.
+          </p>
+        ) : (
+          <div className="mt-5 space-y-4">
+            {revenueByCampaign.map((c) => {
+              const max = revenueByCampaign[0]?.total || 1;
+              const pct = Math.round((c.total / max) * 100);
+              return (
+                <div key={c.name} className="flex items-center gap-4">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sucesso/10 text-sucesso">
+                    <Megaphone className="h-4 w-4" strokeWidth={1.75} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between">
+                      <p className="truncate text-sm text-volt-950">{c.name}</p>
+                      <p className="font-data text-sm font-medium tabular-nums text-volt-950">{brl.format(c.total)}</p>
+                    </div>
+                    <div className="pn-poco mt-1.5 h-1.5 w-full overflow-hidden rounded-full">
+                      <div className="pn-fill h-full w-full rounded-full bg-sucesso" style={{ transform: `scaleX(${Math.max(pct / 100, 0.02)})` }} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* De onde veio cada venda */}

@@ -67,7 +67,7 @@
 3. Fallback quando não definida: manter o cálculo atual, mas com label "meta sugerida" + CTA "definir minha meta".
 **Aceite:** meta editada persiste entre sessões e tenants não vazam (testar com 2 tenants dev); barra de progresso usa a meta salva.
 
-## [ ] P0.6 🟢 Oferta: executar decisões de 05/jul na landing/checkout
+## [x] P0.6 🟢 Oferta: executar decisões de 05/jul na landing/checkout
 **Contexto:** decisões registradas em `offers/hubflow-offer-critique.md` + `landing-copy-v2.md`. ⚠️ Antes de mexer: confirmar com Igor se planos/preços vigentes são R$197/297/497 (pendência anotada no PROJECT_CONTEXT).
 **Arquivos:** `src/app/page.tsx`, `src/components/landing/v2/*` (pricing, faq, cta), possivelmente `api/plans`/seed de planos e Stripe (só copy/nome — NÃO mexer em price IDs sem confirmar).
 **Fazer:** (1) remover "7 dias grátis"/"teste grátis" de TODA a landing e fluxo de signup → substituir por "garantia de 30 dias incondicional" (copy do landing-copy-v2.md); (2) renomear "Performance Max" → "Operação" onde aparecer (landing, painel, seeds); (3) adicionar âncora de preço junto ao pricing: "A Mega Stock fez R$350 mil/mês com esse jeito de vender. O Growth custa menos que uma grade."; (4) FAQ: adicionar item de garantia (texto pronto no landing-copy-v2.md §FAQ).
@@ -89,7 +89,7 @@
 
 # P1 — Dias 30–60
 
-## [ ] P1.8 🟣 Playbook "Primeiros 30 dias" dentro do painel
+## [x] P1.8 🟣 Playbook "Primeiros 30 dias" dentro do painel
 **Objetivo:** produtizar o método Mega Stock como checklist vivo que substitui o vazio pós-onboarding. O maior item do plano — planejar com Opus antes de codar.
 **Modelo de dados:** tabela `playbook_progress (tenant_id, step_key text, done_at timestamptz, pk(tenant_id, step_key))` com RLS padrão; passos definidos em código (`src/lib/playbook/steps.ts`), não no banco.
 **Passos do playbook v1 (conteúdo — validar com Igor antes de codar):**
@@ -105,7 +105,7 @@
 **API:** `GET/POST /api/playbook` (GET calcula os autos server-side agregando stores existentes; POST marca passos manuais).
 **Aceite:** passos automáticos marcam sozinhos quando a condição vira verdade; progresso persiste por tenant; dashboard sem regressão pra quem já completou.
 
-## [ ] P1.9 🟢 Relatório semanal automático (e-mail)
+## [x] P1.9 🟢 Relatório semanal automático (e-mail)
 **Contexto:** infra Resend + cron diário já existem (`lib/email`, `api/cron/emails`, `vercel.json` com 2 crons).
 **Fazer:**
 1. Novo template `weekly-report` em `lib/email`: "Sua semana na [loja]": novos contatos, cliques, pedidos e R$ (orders), grupo destaque (mais entradas), comparação vs semana anterior (↑/↓). Vocabulário do nicho, sem jargão.
@@ -113,12 +113,12 @@
 3. Opt-out simples nas configurações (`weekly_report_enabled` em tenant_settings de P0.5, default true).
 **Aceite:** e-mail de teste renderiza com dados reais de um tenant dev; roda 1× por semana por tenant (rodar o cron 2× no mesmo dia não duplica); quem desligou não recebe.
 
-## [ ] P1.10 🟢 Cadência de ativação dos 30 dias (substitui e-mails de trial)
+## [x] P1.10 🟢 Cadência de ativação dos 30 dias (substitui e-mails de trial)
 **Contexto:** hoje: welcome, nudge 24h, trial-ending. Oferta nova não tem trial.
 **Fazer:** no cron de e-mails, cadência por idade da conta: **D3** "seu link já teve X cliques — 3 lugares pra divulgar hoje" (se 0 cliques, versão 'primeiro lugar pra postar') · **D7** "grupos que enchem: poste a novidade de hoje" + estado do playbook (P1.8) · **D14** "metade da garantia: registre seus pedidos pra ver o funil em R$" · **D21** "falta 1 semana: o que os melhores lojistas fizeram até aqui". Aposentar `trial-ending` (guardar arquivo, remover do envio). Cada e-mail com 1 CTA único pro painel.
 **Aceite:** conta dev com created_at manipulado recebe o e-mail certo em cada marco, 1×; trial-ending não dispara mais.
 
-## [ ] P1.11 🟢 Grupos parados → campanha de reativação em 1 clique
+## [x] P1.11 🟢 Grupos parados → campanha de reativação em 1 clique
 **Contexto:** Resultados mostra ativos/mornos/parados (engagement por grupo) mas não oferece ação.
 **Fazer:**
 1. Em Resultados, no card "Atividade dos grupos", quando `parados > 0`: linha de alerta "N grupos parados" + botão "Criar campanha de reativação".
@@ -126,12 +126,12 @@
 3. Implementar suporte a `?preset=` na tela de nova campanha de forma genérica (outros presets virão do P1.12).
 **Aceite:** clicar no alerta abre nova campanha já montada pros grupos parados; criar funciona fim-a-fim; sem preset, tela igual à atual.
 
-## [ ] P1.12 🟢 Templates de campanha por objetivo de atacado
+## [x] P1.12 🟢 Templates de campanha por objetivo de atacado
 **Depende de:** P1.11 (mecânica de preset).
 **Fazer:** na tela `/painel/campanhas/nova`, passo inicial opcional "Qual o objetivo?": **Lançar novidade** · **Girar estoque parado** · **Reativar grupos** · **Semana de reposição** · **Do zero**. Cada objetivo = preset (nome, mensagem-modelo, dica de horário, sugestão de grupos). Copys em `src/lib/campaign-presets.ts` — revisão de texto pelo Igor antes do merge (marcar TODO). Integrar com a biblioteca se ela tiver conteúdo (ver P1.14).
 **Aceite:** escolher objetivo pré-preenche a campanha; "Do zero" = fluxo atual intocado.
 
-## [ ] P1.13 🟢 `/health` honesto + alerta de desconexão pro lojista
+## [x] P1.13 🟢 `/health` honesto + alerta de desconexão pro lojista
 **Contexto:** `hubflow-engine/index.js` (~linha 9): `/health` responde 200 mesmo deslogado (ENGINE_AUDIT item 9). Disparo que não sai = venda perdida em silêncio. ⚠️ NÃO tocar no anti-ban.
 **Fazer:**
 1. Engine: `/health` → `{status, connected, lastEventAt}` com **503 quando desconectado** (manter um `/live` sempre-200 pro orquestrador não matar o container em loop — conferir healthcheck do Coolify em `deploy/coolify/*` antes, pra não causar restart-loop).
@@ -139,12 +139,12 @@
 3. Painel: banner persistente no dashboard quando `session.live === false` (hoje o estado desconectado vira onboarding — ok pra conta nova, mas conta com campanhas ativas precisa de alerta explícito "reconectar", não voltar pro passo 1).
 **Aceite:** derrubar sessão em dev → `/health` 503, `/live` 200, banner aparece, e-mail 1×/dia; Coolify não entra em restart-loop.
 
-## [ ] P1.14 🟢 Auditar/entregar a Biblioteca (bônus prometido na oferta)
+## [x] P1.14 🟢 Auditar/entregar a Biblioteca (bônus prometido na oferta)
 **Contexto:** `painel/biblioteca/page.tsx` tem 172 bytes — provável casca. "Biblioteca de copys e criativos" é bônus empacotado da oferta.
 **Fazer:** (1) abrir e mapear o que existe (página, API `templates`, store, seed); (2) se vazia: popular com 15–20 copys reais de atacado por categoria (novidade, reposição, evento, reativação, boas-vindas) — conteúdo com Igor/Mega Stock, estrutura via seed em `api/templates` ou migração de seed; (3) botão "usar essa copy" que leva pra nova campanha/disparo com o texto aplicado (via preset de P1.11).
 **Aceite:** biblioteca abre com conteúdo navegável por categoria e "usar" funciona; se o conteúdo real não estiver pronto, entregar a mecânica + 5 copys aprovadas (não inventar 20 copys sem revisão).
 
-## [ ] P1.15 🟢 Instrumentar funil de ativação (admin)
+## [x] P1.15 🟢 Instrumentar funil de ativação (admin)
 **Contexto:** é o item 20 do Sprint 4 (TASK_PROGRESS); `funnel_events` já tem migração (`20260701020000_funnel_events.sql`).
 **Fazer:** registrar eventos por tenant nos marcos: connected, first_campaign, first_lead, leads_50, first_order, goal_set (hooks nos endpoints que já processam essas ações — ex.: `POST /api/orders` registra first_order se for o 1º). Tela `/admin/funnel`: tabela tenants × marcos com idade da conta e tempo até cada marco; destacar contas paradas há >5 dias no mesmo marco (são os refunds de amanhã).
 **Aceite:** eventos idempotentes (1º pedido registra 1×); tela admin lista todos os tenants com marcos e tempos corretos.
@@ -159,12 +159,12 @@
 **Modelo:** tabela `events (id, tenant_id, name, starts_at, ends_at, status)` + vincular schedules criados ao event_id (coluna nullable em schedules OU tabela de junção — decidir no planejamento olhando o schema real de schedules/messages).
 **Aceite:** criar evento gera os agendamentos visíveis na agenda; cancelar evento cancela os pendentes; timeline reflete o que já saiu.
 
-## [ ] P2.17 🟢 Cartão de resultado compartilhável + pedido de depoimento
+## [x] P2.17 🟢 Cartão de resultado compartilhável + pedido de depoimento
 **Contexto:** migração `testimonials` + `api/testimonials` já existem. Gargalo da oferta = prova de terceiros.
 **Fazer:** (1) gerar cartão-imagem (OG-image style, rota `app/api/og` com `next/og` ImageResponse) nos momentos de pico: grupo lotou, meta batida, marco de pedidos — "247 revendedores no grupo em 9 dias 🎉 · [loja] com HubFlow"; (2) toast/modal de celebração (o Confetti já existe) com "Compartilhar" (baixar imagem / abrir wa.me com texto pronto); (3) no mesmo modal, 1 pergunta: "Conta em uma frase o que mudou?" → grava via `api/testimonials` (com consentimento explícito de uso público — checkbox).
 **Aceite:** cartão renderiza com dados reais do tenant; depoimento salvo com flag de consentimento; nada dispara mais de 1× por marco.
 
-## [ ] P2.18 🟢 Atribuição de R$ por campanha (fecha anúncio→venda)
+## [x] P2.18 🟢 Atribuição de R$ por campanha (fecha anúncio→venda)
 **Depende de:** P0.2/P0.4 rodando e com dados.
 **Fazer:** (1) `orders` ganha `campaign_id` nullable (migração): inferido do lead (`sourceCampaign`) quando o pedido nasce de um lead; (2) Resultados: "R$ por campanha" ao lado de "membros por campanha"; (3) na tela da campanha (`campanhas/[slug]`), tab Resultados ganha R$ e nº de pedidos.
 **Aceite:** pedido registrado de lead com campanha aparece no R$ da campanha; pedidos sem lead caem em "sem origem".
