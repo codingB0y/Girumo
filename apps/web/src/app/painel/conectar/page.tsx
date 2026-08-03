@@ -109,16 +109,20 @@ function useEngineStatus() {
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let firstRun = true;
 
     const tick = async () => {
       timer = null;
       if (cancelled) return;
 
       // Aba em segundo plano: nada a mostrar, reagenda sem gastar requisição.
-      if (document.visibilityState === "hidden") {
+      // A primeira busca é exceção e sempre acontece — abrir a página numa aba
+      // de fundo não pode deixar a tela em "Verificando…" até o foco voltar.
+      if (!firstRun && document.visibilityState === "hidden") {
         timer = setTimeout(tick, delayRef.current);
         return;
       }
+      firstRun = false;
 
       const result = await refresh();
       if (cancelled) return;
