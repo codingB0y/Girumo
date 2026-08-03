@@ -51,12 +51,15 @@ export function PainelSidebar() {
   const connected = sessionLoading || !session ? null : session.live;
 
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r border-volt-800 bg-volt-950 lg:flex">
+    <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-volt-800 bg-volt-950 lg:flex">
       <div className="flex h-16 items-center px-5">
         <Logo className="text-paper-0" />
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
+      {/* min-h-0 é o que permite este bloco encolher abaixo da própria altura
+          de conteúdo; sem ele o overflow-y-auto nunca chega a rolar e a lista
+          empurra o rodapé da sidebar pra fora da tela. */}
+      <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
         {NAV_GROUPS.map((group, i) => (
           <div key={group.title ?? "principal"} className={cn("space-y-1", i > 0 && "mt-6")}>
             {group.title && (
