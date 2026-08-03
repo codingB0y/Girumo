@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   MousePointerClick,
@@ -18,9 +18,11 @@ import {
   PartyPopper,
   Check,
   Pencil,
+  RefreshCw,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { resolvePainelView } from "@/lib/painel-view";
 
 // ---------- Types ----------
 
@@ -96,84 +98,110 @@ function SectionLabel({ n, children }: { n: string; children: React.ReactNode })
   );
 }
 
+// ---------- Data loading ----------
+
+type FetchResult<T> = { ok: true; data: T } | { ok: false };
+
+/** Busca que separa "veio vazio" de "não deu pra buscar". */
+async function loadJson<T>(url: string): Promise<FetchResult<T>> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return { ok: false };
+    return { ok: true, data: (await res.json()) as T };
+  } catch {
+    return { ok: false };
+  }
+}
+
+function asArray<T>(result: FetchResult<unknown>): T[] {
+  return result.ok && Array.isArray(result.data) ? (result.data as T[]) : [];
+}
+
+type LoadState =
+  | { status: "loading" }
+  | { status: "error" }
+  /** `partial` = carregou, mas algum endpoint só de números falhou. */
+  | { status: "ready"; data: DashboardData; partial: boolean };
+
 // ---------- Component ----------
 
 export default function PainelPage() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [state, setState] = useState<LoadState>({ status: "loading" });
+  // O lojista pediu pra ver o painel sem terminar os passos do onboarding.
+  const [skipOnboarding, setSkipOnboarding] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const [groups, campanhas, links, leads, session, settings] = await Promise.all([
-          fetch("/api/groups").then((r) => r.json()).catch(() => []),
-          fetch("/api/campanhas").then((r) => r.json()).catch(() => []),
-          fetch("/api/links").then((r) => r.json()).catch(() => []),
-          fetch("/api/leads").then((r) => r.json()).catch(() => []),
-          fetch("/api/session").then((r) => r.json()).catch(() => ({})),
-          fetch("/api/settings").then((r) => r.json()).catch(() => ({})),
-        ]);
-        setData({
-          groups: Array.isArray(groups) ? groups : [],
-          campanhas: Array.isArray(campanhas) ? campanhas : [],
-          links: Array.isArray(links) ? links : [],
-          leads: Array.isArray(leads) ? leads : [],
-          session: session ?? {},
-          settings: {
-            monthlyGoalContacts: settings?.monthlyGoalContacts ?? null,
-            monthlyGoalRevenue: settings?.monthlyGoalRevenue ?? null,
-          },
-        });
-      } catch {
-        setData({
-          groups: [],
-          campanhas: [],
-          links: [],
-          leads: [],
-          session: {},
-          settings: { monthlyGoalContacts: null, monthlyGoalRevenue: null },
-        });
-      } finally {
-        setLoading(false);
-      }
-    })();
+  const load = useCallback(async () => {
+    setState({ status: "loading" });
+
+    const [groups, campanhas, links, leads, session, settings] = await Promise.all([
+      loadJson<Group[]>("/api/groups"),
+      loadJson<Campanha[]>("/api/campanhas"),
+      loadJson<TrackedLink[]>("/api/links"),
+      loadJson<Lead[]>("/api/leads"),
+      loadJson<Session>("/api/session"),
+      loadJson<TenantSettings>("/api/settings"),
+    ]);
+
+    // Estes três decidem entre onboarding e dashboard. Se algum falhar, não dá
+    // pra decidir — e o palpite errado joga uma conta veterana de volta em
+    // "Bem-vindo, conecte seu WhatsApp". Melhor admitir que não carregou.
+    if (!session.ok || !campanhas.ok || !groups.ok) {
+      setState({ status: "error" });
+      return;
+    }
+
+    setState({
+      status: "ready",
+      partial: !links.ok || !leads.ok || !settings.ok,
+      data: {
+        groups: asArray<Group>(groups),
+        campanhas: asArray<Campanha>(campanhas),
+        links: asArray<TrackedLink>(links),
+        leads: asArray<Lead>(leads),
+        session: session.data ?? {},
+        settings: {
+          monthlyGoalContacts: (settings.ok ? settings.data?.monthlyGoalContacts : null) ?? null,
+          monthlyGoalRevenue: (settings.ok ? settings.data?.monthlyGoalRevenue : null) ?? null,
+        },
+      },
+    });
   }, []);
 
-  if (loading) {
-    return (
-      <div className="mx-auto max-w-[1200px] space-y-5 px-4 py-8 sm:px-8">
-        <div className="pn-skeleton h-9 w-56 rounded-lg" style={{ ["--i" as string]: 0 }} />
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-          <div className="pn-skeleton h-44 rounded-2xl lg:col-span-5" style={{ ["--i" as string]: 1 }} />
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-3 lg:col-span-7">
-            {[2, 3, 4].map((i) => (
-              <div key={i} className="pn-skeleton h-44 rounded-2xl" style={{ ["--i" as string]: i }} />
-            ))}
-          </div>
-        </div>
-        <div className="pn-skeleton h-24 rounded-2xl" style={{ ["--i" as string]: 5 }} />
-      </div>
-    );
-  }
+  useEffect(() => {
+    void load();
+  }, [load]);
 
-  if (!data) return null;
+  if (state.status === "loading") return <DashboardSkeleton />;
+  if (state.status === "error") return <LoadError onRetry={() => void load()} />;
 
+  const { data, partial } = state;
   const { groups, campanhas, links, leads, session, settings } = data;
   const isConnected = session.live === true;
-  const hasCampaigns = campanhas.length > 0;
-  const hasMembers = groups.reduce((a, g) => a + (g.members ?? 0), 0) > 0;
 
-  // Onboarding: progressive empty states — conta nova sem campanha cai aqui
-  // mesmo desconectada (passo 1 normal). Conta que JÁ tem campanha nunca mais
-  // regride pro onboarding só por causa de desconexão — ver banner no dashboard.
-  if (!isConnected && !hasCampaigns) {
+  // Regra de roteamento (e seus testes) em @/lib/painel-view.
+  const view = resolvePainelView({
+    isConnected,
+    campaignCount: campanhas.length,
+    totalMembers: groups.reduce((a, g) => a + (g.members ?? 0), 0),
+    totalClicks: links.reduce((a, l) => a + (l.clicks ?? 0), 0),
+    leadCount: leads.length,
+    skipOnboarding,
+  });
+
+  if (view === "onboarding-connect") {
     return <OnboardingConnect />;
   }
-  if (isConnected && !hasCampaigns) {
-    return <OnboardingCampaign />;
+  if (view === "onboarding-campaign") {
+    return <OnboardingCampaign onSkip={() => setSkipOnboarding(true)} />;
   }
-  if (isConnected && !hasMembers) {
-    return <OnboardingShare campanhas={campanhas} />;
+  if (view === "onboarding-share") {
+    return (
+      <OnboardingShare
+        campanhas={campanhas}
+        groupCount={groups.length}
+        onSkip={() => setSkipOnboarding(true)}
+      />
+    );
   }
 
   // Full dashboard with real data
@@ -185,8 +213,62 @@ export default function PainelPage() {
       leads={leads}
       settings={settings}
       isConnected={isConnected}
-      onSettingsSaved={(next) => setData((d) => (d ? { ...d, settings: next } : d))}
+      partial={partial}
+      onSettingsSaved={(next) =>
+        setState((s) => (s.status === "ready" ? { ...s, data: { ...s.data, settings: next } } : s))
+      }
     />
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="mx-auto max-w-[1200px] space-y-5 px-4 py-8 sm:px-8">
+      <div className="pn-skeleton h-9 w-56 rounded-lg" style={{ ["--i" as string]: 0 }} />
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+        <div className="pn-skeleton h-44 rounded-2xl lg:col-span-5" style={{ ["--i" as string]: 1 }} />
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3 lg:col-span-7">
+          {[2, 3, 4].map((i) => (
+            <div key={i} className="pn-skeleton h-44 rounded-2xl" style={{ ["--i" as string]: i }} />
+          ))}
+        </div>
+      </div>
+      <div className="pn-skeleton h-24 rounded-2xl" style={{ ["--i" as string]: 5 }} />
+    </div>
+  );
+}
+
+/**
+ * Falha de carregamento. Antes, um /api/session fora do ar virava
+ * `live: false` e a tela dizia "Bem-vindo à Girumo" pra quem já era cliente.
+ */
+function LoadError({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-8">
+      <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-volt-950">Início</h1>
+
+      <div className="pn-card mt-6 rounded-2xl p-8">
+        <div className="flex flex-col items-center gap-6 text-center lg:flex-row lg:text-left">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-alerta/10 text-alerta">
+            <AlertTriangle className="h-8 w-8" strokeWidth={1.75} />
+          </div>
+          <div className="flex-1">
+            <h2 className="font-display text-xl font-bold text-volt-950">Não deu pra carregar seus dados</h2>
+            <p className="mt-2 text-sm leading-relaxed text-aco/75">
+              Seus grupos, campanhas e contatos continuam salvos — foi só esta tela que não conseguiu
+              buscar. Tente de novo em instantes.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="hf-shine inline-flex items-center gap-2 rounded-[10px] bg-cobalt-500 px-6 py-3 text-sm font-medium text-white shadow-sm transition-[transform,filter] duration-[160ms] ease-[var(--ease-fluxo)] hover:brightness-110 active:scale-[0.97]"
+          >
+            <RefreshCw className="h-4 w-4" /> Tentar de novo
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -204,6 +286,8 @@ function OnboardingShell({
   ctaLabel,
   ctaIcon: CtaIcon,
   steps,
+  footnote,
+  onSkip,
 }: {
   eyebrow: string;
   greeting: string;
@@ -216,6 +300,10 @@ function OnboardingShell({
   ctaLabel: string;
   ctaIcon: LucideIcon;
   steps: StepInfo[];
+  /** Contexto do que já aconteceu — mostra ao lojista que o passo anterior deu certo. */
+  footnote?: string;
+  /** Saída pro painel completo. Sem isso, quem trava num passo não tem pra onde ir. */
+  onSkip?: () => void;
 }) {
   return (
     <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-8">
@@ -242,12 +330,28 @@ function OnboardingShell({
           </Link>
         </div>
 
-        <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {footnote && (
+          <p className="mt-6 border-t border-volt-950/[0.06] pt-5 text-sm text-aco/70">{footnote}</p>
+        )}
+
+        <ol className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
           {steps.map((s) => (
             <Step key={s.n} n={s.n} label={s.label} done={s.done} active={s.active} />
           ))}
-        </div>
+        </ol>
       </div>
+
+      {onSkip && (
+        <div className="mt-5 text-center">
+          <button
+            type="button"
+            onClick={onSkip}
+            className="text-sm text-aco/60 underline-offset-4 transition-colors duration-[160ms] hover:text-volt-950 hover:underline"
+          >
+            Ver o painel mesmo assim
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -274,9 +378,10 @@ function OnboardingConnect() {
   );
 }
 
-function OnboardingCampaign() {
+function OnboardingCampaign({ onSkip }: { onSkip: () => void }) {
   return (
     <OnboardingShell
+      onSkip={onSkip}
       title="Início"
       greeting="WhatsApp conectado. Agora é hora de encher os grupos."
       eyebrow="Crie sua primeira campanha"
@@ -296,10 +401,24 @@ function OnboardingCampaign() {
   );
 }
 
-function OnboardingShare({ campanhas }: { campanhas: Campanha[] }) {
+function OnboardingShare({
+  campanhas,
+  groupCount,
+  onSkip,
+}: {
+  campanhas: Campanha[];
+  groupCount: number;
+  onSkip: () => void;
+}) {
   const first = campanhas[0];
   return (
     <OnboardingShell
+      onSkip={onSkip}
+      footnote={
+        groupCount > 0
+          ? `Já sincronizamos ${groupCount} ${groupCount === 1 ? "grupo" : "grupos"} do seu WhatsApp — é pra eles que o link leva.`
+          : "Assim que alguém entrar por um link, seus grupos aparecem aqui."
+      }
       title="Início"
       greeting="Falta um passo: leve gente pro seu link."
       eyebrow="Compartilhe o link da campanha"
@@ -321,7 +440,7 @@ function OnboardingShare({ campanhas }: { campanhas: Campanha[] }) {
 
 function Step({ n, label, active, done }: StepInfo) {
   return (
-    <div className="flex items-center gap-2.5">
+    <li className="flex items-center gap-2.5" aria-current={active ? "step" : undefined}>
       <span
         className={cn(
           "flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-data text-sm font-medium tabular-nums",
@@ -337,7 +456,7 @@ function Step({ n, label, active, done }: StepInfo) {
       <span className={cn("text-sm", active ? "font-medium text-volt-950" : done ? "text-aco/70" : "text-aco/40")}>
         {label}
       </span>
-    </div>
+    </li>
   );
 }
 
@@ -350,6 +469,7 @@ function FullDashboard({
   leads,
   settings,
   isConnected,
+  partial,
   onSettingsSaved,
 }: {
   groups: Group[];
@@ -358,6 +478,8 @@ function FullDashboard({
   leads: Lead[];
   settings: TenantSettings;
   isConnected: boolean;
+  /** Algum endpoint de números falhou — os totais podem estar incompletos. */
+  partial: boolean;
   onSettingsSaved: (next: TenantSettings) => void;
 }) {
   const totalMembers = useMemo(() => groups.reduce((a, g) => a + (g.members ?? 0), 0), [groups]);
@@ -416,6 +538,13 @@ function FullDashboard({
           Bom te ver por aqui — a loja está no ar.
         </p>
       </header>
+
+      {partial && (
+        <p className="flex items-center gap-2 rounded-2xl border border-atencao/25 bg-atencao/[0.06] px-5 py-3 text-xs text-aco/75">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-atencao" strokeWidth={2} />
+          Alguns números não carregaram e podem estar incompletos. Recarregue a página pra tentar de novo.
+        </p>
+      )}
 
       {!isConnected && (
         <Link
