@@ -3,40 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import {
-  Sun,
-  Layers,
-  Users,
-  UserPlus,
-  TrendingUp,
-  Menu,
-  X,
-  Settings,
-  Bot,
-} from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/brand/logo";
-
-const PRIMARY = [
-  { href: "/painel", label: "Início", icon: Sun },
-  { href: "/painel/campanhas", label: "Campanhas", icon: Layers },
-  { href: "/painel/squad-os", label: "Equipe AI", icon: Bot },
-  { href: "/painel/resultados", label: "Resultados", icon: TrendingUp },
-];
-
-const ALL = [
-  { href: "/painel", label: "Início", icon: Sun },
-  { href: "/painel/campanhas", label: "Campanhas", icon: Layers },
-  { href: "/painel/grupos", label: "Grupos", icon: Users },
-  { href: "/painel/contatos", label: "Contatos", icon: UserPlus },
-  { href: "/painel/resultados", label: "Resultados", icon: TrendingUp },
-  { href: "/painel/squad-os", label: "Equipe AI", icon: Bot },
-  { href: "/painel/configuracoes", label: "Configurações", icon: Settings },
-];
-
-function isActive(pathname: string, href: string) {
-  return href === "/painel" ? pathname === href : pathname.startsWith(href);
-}
+import { NAV_ALL, NAV_MOBILE_PRIMARY, isNavItemActive } from "@/lib/painel-nav";
 
 export function PainelMobileNav() {
   const pathname = usePathname();
@@ -46,8 +16,8 @@ export function PainelMobileNav() {
     <>
       {/* Barra inferior */}
       <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line-200 bg-canvas-100 pb-[env(safe-area-inset-bottom)] lg:hidden">
-        {PRIMARY.map(({ href, label, icon: Icon }) => {
-          const active = isActive(pathname, href);
+        {NAV_MOBILE_PRIMARY.map(({ href, label, icon: Icon }) => {
+          const active = isNavItemActive(pathname, href);
           return (
             <Link
               key={href}
@@ -99,9 +69,9 @@ export function PainelMobileNav() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <nav className="flex-1 space-y-1 px-3 py-2">
-              {ALL.map(({ href, label, icon: Icon }) => {
-                const active = isActive(pathname, href);
+            <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2">
+              {NAV_ALL.map(({ href, label, icon: Icon }) => {
+                const active = isNavItemActive(pathname, href);
                 return (
                   <Link
                     key={href}

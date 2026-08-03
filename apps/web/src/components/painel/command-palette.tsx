@@ -4,40 +4,39 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search,
-  Sun,
   Layers,
   Users,
-  UserPlus,
-  TrendingUp,
-  Image as ImageIcon,
-  Settings,
   Plus,
   Smartphone,
   CornerDownLeft,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { NAV_ALL } from "@/lib/painel-nav";
 
 type Item = {
   label: string;
   section: "Ir para" | "Ações" | "Grupos" | "Campanhas";
-  icon: typeof Search;
+  icon: LucideIcon;
   href: string;
   hint?: string;
 };
 
 /**
- * Destinos fixos. Grupos e campanhas reais entram em runtime (ver useEffect
- * abaixo) — antes esta lista trazia três grupos de exemplo hardcoded, que
- * apareciam pro lojista como se fossem os dele.
+ * Destinos fixos: os mesmos do menu (fonte única em @/lib/painel-nav), mais as
+ * ações. Grupos e campanhas reais entram em runtime — antes esta lista trazia
+ * três grupos de exemplo hardcoded, que apareciam pro lojista como se fossem
+ * os dele, e um link para /painel/ds, que não existe.
  */
 const STATIC_ITEMS: Item[] = [
-  { label: "Início", section: "Ir para", icon: Sun, href: "/painel" },
-  { label: "Campanhas", section: "Ir para", icon: Layers, href: "/painel/campanhas" },
-  { label: "Grupos", section: "Ir para", icon: Users, href: "/painel/grupos" },
-  { label: "Contatos", section: "Ir para", icon: UserPlus, href: "/painel/contatos" },
-  { label: "Páginas", section: "Ir para", icon: ImageIcon, href: "/painel/pages" },
-  { label: "Resultados", section: "Ir para", icon: TrendingUp, href: "/painel/resultados" },
-  { label: "Configurações", section: "Ir para", icon: Settings, href: "/painel/configuracoes" },
+  ...NAV_ALL.map(
+    (item): Item => ({
+      label: item.label,
+      section: "Ir para",
+      icon: item.icon,
+      href: item.href,
+    }),
+  ),
   { label: "Nova campanha", section: "Ações", icon: Plus, href: "/painel/campanhas/nova", hint: "criar disparo" },
   { label: "Conectar WhatsApp", section: "Ações", icon: Smartphone, href: "/painel/conectar" },
 ];

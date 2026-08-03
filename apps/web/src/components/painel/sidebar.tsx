@@ -3,36 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import {
-  Sun,
-  Layers,
-  Users,
-  UserPlus,
-  TrendingUp,
-  Settings,
-  Sparkles,
-  PanelsTopLeft,
-} from "lucide-react";
+import { Sparkles, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/brand/logo";
 import { usePanelSession } from "@/components/painel/session-provider";
-
-const NAV_ITEMS = [
-  { href: "/painel", label: "Início", icon: Sun },
-  { href: "/painel/campanhas", label: "Campanhas", icon: Layers },
-  { href: "/painel/grupos", label: "Grupos", icon: Users },
-  { href: "/painel/contatos", label: "Contatos", icon: UserPlus },
-  { href: "/painel/pages", label: "Páginas", icon: PanelsTopLeft },
-  { href: "/painel/resultados", label: "Resultados", icon: TrendingUp },
-];
-
-const BOTTOM_ITEMS = [
-  { href: "/painel/configuracoes", label: "Configurações", icon: Settings },
-];
-
-function isActive(pathname: string, href: string) {
-  return href === "/painel" ? pathname === href : pathname.startsWith(href);
-}
+import { NAV_FOOTER, NAV_GROUPS, isNavItemActive } from "@/lib/painel-nav";
 
 function NavItem({
   href,
@@ -42,7 +17,7 @@ function NavItem({
 }: {
   href: string;
   label: string;
-  icon: typeof Sun;
+  icon: LucideIcon;
   active: boolean;
 }) {
   return (
@@ -81,12 +56,25 @@ export function PainelSidebar() {
         <Logo className="text-paper-0" />
       </div>
 
-      <nav className="flex-1 px-3 py-4">
-        <div className="space-y-1">
-          {NAV_ITEMS.map(({ href, label, icon }) => (
-            <NavItem key={href} href={href} label={label} icon={icon} active={isActive(pathname, href)} />
-          ))}
-        </div>
+      <nav className="flex-1 overflow-y-auto px-3 py-4">
+        {NAV_GROUPS.map((group, i) => (
+          <div key={group.title ?? "principal"} className={cn("space-y-1", i > 0 && "mt-6")}>
+            {group.title && (
+              <p className="font-data px-3 pb-1 text-[10px] uppercase tracking-[0.08em] text-canvas-100/35">
+                {group.title}
+              </p>
+            )}
+            {group.items.map(({ href, label, icon }) => (
+              <NavItem
+                key={href}
+                href={href}
+                label={label}
+                icon={icon}
+                active={isNavItemActive(pathname, href)}
+              />
+            ))}
+          </div>
+        ))}
       </nav>
 
       <div className="border-t border-volt-800 px-3 py-4">
@@ -113,8 +101,14 @@ export function PainelSidebar() {
         </Link>
 
         <div className="space-y-1">
-          {BOTTOM_ITEMS.map(({ href, label, icon }) => (
-            <NavItem key={href} href={href} label={label} icon={icon} active={isActive(pathname, href)} />
+          {NAV_FOOTER.map(({ href, label, icon }) => (
+            <NavItem
+              key={href}
+              href={href}
+              label={label}
+              icon={icon}
+              active={isNavItemActive(pathname, href)}
+            />
           ))}
         </div>
       </div>
