@@ -25,6 +25,7 @@ import {
 import { cn } from "@/lib/utils";
 import { resolvePainelView } from "@/lib/painel-view";
 import { ordersInMonth, revenueInMonth } from "@/lib/painel-metrics";
+import { dailySeries, sparklinePoints } from "@/lib/sparkline";
 
 // ---------- Types ----------
 
@@ -87,6 +88,9 @@ type StepInfo = { n: number; label: string; done?: boolean; active?: boolean };
 // ---------- Helpers ----------
 
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+
+/** Janela dos sparklines dos KPIs. */
+const SPARK_DAYS = 14;
 
 function getDateStr(daysAgo: number): string {
   const d = new Date();
@@ -518,6 +522,19 @@ function FullDashboard({
   const ordersThisMonth = useMemo(() => ordersInMonth(orders, month).length, [orders, month]);
   const revenueThisMonth = useMemo(() => revenueInMonth(orders, month), [orders, month]);
 
+  // Tendência de 14 dias. Só para o que tem data por evento: pedidos e
+  // contatos. Cliques não entram — `tracked_links.clicks` é um contador
+  // acumulado, sem registro de quando cada clique aconteceu, e inventar uma
+  // curva a partir do total seria desenhar ficção.
+  const revenueSeries = useMemo(
+    () => dailySeries(orders.map((o) => ({ date: o.created_at, value: o.value ?? 0 })), SPARK_DAYS),
+    [orders],
+  );
+  const contactsSeries = useMemo(
+    () => dailySeries(leads.map((l) => ({ date: l.enteredAt, value: 1 })), SPARK_DAYS),
+    [leads],
+  );
+
   const leadsToday = useMemo(
     () => leads.filter((l) => l.enteredAt?.startsWith(today)).length,
     [leads, today],
@@ -558,6 +575,8 @@ function FullDashboard({
     sub?: string;
     icon: LucideIcon;
     href: string;
+    series?: number[];
+    tone?: "cobalt" | "sucesso";
   }[] = [
     {
       label: "Faturamento no mês",
@@ -565,6 +584,8 @@ function FullDashboard({
       sub: ordersThisMonth === 1 ? "1 pedido registrado" : `${ordersThisMonth} pedidos registrados`,
       icon: ShoppingBag,
       href: "/painel/resultados",
+      series: revenueSeries,
+      tone: "sucesso",
     },
     {
       label: "Contatos captados",
@@ -572,8 +593,12 @@ function FullDashboard({
       sub: clientes > 0 ? `${clientes.toLocaleString("pt-BR")} já compraram` : undefined,
       icon: UserPlus,
       href: "/painel/contatos",
+      series: contactsSeries,
+      tone: "cobalt",
     },
     {
+      // Sem sparkline: só temos o contador acumulado de cliques, sem data por
+      // evento. Ver comentário nas séries acima.
       label: "Cliques nas campanhas",
       value: totalClicks.toLocaleString("pt-BR"),
       sub: totalClicks > 0 ? `${conversion}% viraram contato` : undefined,
@@ -661,6 +686,7 @@ function FullDashboard({
                   {k.value}
                 </p>
                 {k.sub && <p className="mt-1.5 text-xs text-aco/55">{k.sub}</p>}
+                {k.series && <Sparkline values={k.series} tone={k.tone ?? "cobalt"} />}
               </div>
             </Link>
           ))}
@@ -986,6 +1012,50 @@ function SinceYesterday({ leadsToday, deltaLeads }: { leadsToday: number; deltaL
         )}
       </div>
     </div>
+  );
+}
+
+// ---------- Sparkline ----------
+
+const SPARK_W = 120;
+const SPARK_H = 22;
+
+/**
+ * Tendência dos últimos 14 dias. Puramente decorativo: o número que ele
+ * acompanha já está no card, e o resumo em texto vai no `sub` do KPI — por
+ * isso `aria-hidden`.
+ */
+function Sparkline({ values, tone }: { values: number[]; tone: "cobalt" | "sucesso" }) {
+  const points = sparklinePoints(values, SPARK_W, SPARK_H);
+  if (!points) return null;
+
+  const moved = values.some((v) => v > 0);
+
+  return (
+    <svg
+      viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}
+      preserveAspectRatio="none"
+      className="mt-3 h-[22px] w-full"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <polyline
+        points={points}
+        fill="none"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
+        className={cn(
+          moved
+            ? tone === "sucesso"
+              ? "stroke-sucesso"
+              : "stroke-cobalt-500"
+            : // Janela sem movimento: linha na base, discreta.
+              "stroke-aco/25",
+        )}
+      />
+    </svg>
   );
 }
 
