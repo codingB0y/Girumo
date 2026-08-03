@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Check, Smartphone, ShieldCheck, Zap, Loader2, RefreshCw } from "lucide-react";
+import { Check, ShieldCheck, Zap, Loader2, RefreshCw } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { cn } from "@/lib/utils";
+import { POLL_MS, nextPollDelay } from "@/lib/engine-poll";
 
 export default function PainelConectar() {
+  const { state, loading, error, refresh } = useEngineStatus();
+  const connected = state.whatsappConnected;
+
   return (
     <div className="mx-auto max-w-[1000px] px-4 py-10 sm:px-8">
       {/* Boas-vindas */}
@@ -15,51 +19,163 @@ export default function PainelConectar() {
           <Zap className="h-3 w-3 text-cobalt-500" /> Primeiro acesso
         </span>
         <h1 className="font-display mt-4 text-4xl font-extrabold tracking-[-0.035em] text-volt-950">
-          Vamos conectar seu WhatsApp
+          {connected ? "WhatsApp conectado" : "Vamos conectar seu WhatsApp"}
         </h1>
         <p className="font-editorial mx-auto mt-2 max-w-md text-[19px] italic text-ardosia">
-          É o seu número de sempre, com seus grupos. Leva 2 minutos e nada técnico.
+          {connected
+            ? "Seus grupos já estão entrando. Agora é criar a primeira campanha."
+            : "É o seu número de sempre, com seus grupos. Leva 2 minutos e nada técnico."}
         </p>
       </div>
 
-      <Stepper />
+      <Stepper connected={connected} />
 
       <div className="pn-card mt-10 grid gap-6 overflow-hidden rounded-2xl md:grid-cols-2">
         <Instrucoes />
-        <QRPanel />
+        <QRPanel state={state} loading={loading} error={error} onRefresh={() => void refresh(true)} />
       </div>
 
       <div className="mt-6 flex items-center justify-between">
         <Link href="/painel" className="text-sm text-aco/60 transition-colors duration-[160ms] hover:text-volt-950">
-          Pular por agora
+          {connected ? "Ir para o painel" : "Pular por agora"}
         </Link>
-        <Link
-          href="/painel/conectar"
-          className="inline-flex items-center gap-2 rounded-xl bg-cobalt-500 px-5 py-2.5 text-sm font-medium text-white transition-[transform,filter] duration-[160ms] ease-[var(--ease-fluxo)] hover:-translate-y-0.5 hover:brightness-110"
+        <button
+          type="button"
+          onClick={() => void refresh(true)}
+          disabled={loading}
+          className="inline-flex items-center gap-2 rounded-xl bg-cobalt-500 px-5 py-2.5 text-sm font-medium text-white transition-[transform,filter] duration-[160ms] ease-[var(--ease-fluxo)] hover:-translate-y-0.5 hover:brightness-110 disabled:opacity-60 disabled:hover:translate-y-0"
         >
-          <Smartphone className="h-4 w-4" /> Atualizar
-        </Link>
+          <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+          {loading ? "Verificando…" : "Atualizar"}
+        </button>
       </div>
     </div>
   );
 }
 
-const STEPS = [
-  { n: 1, label: "Conectar número", active: true, done: false },
-  { n: 2, label: "Grupos entram", active: false, done: false },
-  { n: 3, label: "Primeira campanha", active: false, done: false },
-];
+// ---------- Estado da engine ----------
 
-function Stepper() {
+type EngineState = {
+  ok: boolean;
+  whatsappConnected: boolean;
+  connectedNumber: string | null;
+  qr: string | null;
+  error?: string;
+};
+
+const INITIAL_STATE: EngineState = {
+  ok: false,
+  whatsappConnected: false,
+  connectedNumber: null,
+  qr: null,
+};
+
+
+/**
+ * Status da engine, com polling que sabe parar.
+ *
+ * Antes era um `setInterval(4000)` que nunca era cancelado: seguia batendo
+ * mesmo depois de conectar e mesmo com a aba esquecida em segundo plano —
+ * 900 requisições por hora, por lojista, sem nada pra descobrir. Agora o
+ * polling para quando conecta, pausa com a aba oculta e espaça as tentativas
+ * quando a engine está fora do ar.
+ */
+function useEngineStatus() {
+  const [state, setState] = useState<EngineState>(INITIAL_STATE);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const delayRef = useRef(POLL_MS);
+
+  const refresh = useCallback(async (withSpinner = false): Promise<EngineState | null> => {
+    if (withSpinner) setLoading(true);
+    try {
+      const res = await fetch("/api/engine?action=status", { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as EngineState;
+      setState(data);
+      setError(data.error ?? null);
+      delayRef.current = nextPollDelay(delayRef.current, "ok");
+      return data;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      // Engine fora do ar: espaça em vez de martelar de 4 em 4 segundos.
+      delayRef.current = nextPollDelay(delayRef.current, "error");
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const tick = async () => {
+      timer = null;
+      if (cancelled) return;
+
+      // Aba em segundo plano: nada a mostrar, reagenda sem gastar requisição.
+      if (document.visibilityState === "hidden") {
+        timer = setTimeout(tick, delayRef.current);
+        return;
+      }
+
+      const result = await refresh();
+      if (cancelled) return;
+
+      // Conectado: acabou o motivo de perguntar.
+      if (result?.whatsappConnected) return;
+      timer = setTimeout(tick, delayRef.current);
+    };
+
+    void tick();
+
+    // Voltar pra aba deve dar uma resposta imediata, não esperar o ciclo.
+    const onVisibilityChange = () => {
+      if (cancelled || document.visibilityState !== "visible" || timer === null) return;
+      clearTimeout(timer);
+      void tick();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [refresh]);
+
+  return { state, loading, error, refresh };
+}
+
+// ---------- Stepper ----------
+
+function Stepper({ connected }: { connected: boolean }) {
+  // Reflete o estado real. Antes era constante de módulo: mesmo depois de
+  // conectar, o passo 1 continuava marcado como o atual.
+  const steps = [
+    { n: 1, label: "Conectar número", done: connected, active: !connected },
+    { n: 2, label: "Grupos entram", done: false, active: connected },
+    { n: 3, label: "Primeira campanha", done: false, active: false },
+  ];
+
   return (
     <ol className="mx-auto mt-8 flex max-w-xl items-center">
-      {STEPS.map((s, i) => (
-        <li key={s.n} className="flex flex-1 items-center last:flex-none">
+      {steps.map((s, i) => (
+        <li
+          key={s.n}
+          className="flex flex-1 items-center last:flex-none"
+          aria-current={s.active ? "step" : undefined}
+        >
           <div className="flex items-center gap-2.5">
             <span
               className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-full font-data text-sm font-medium tabular-nums",
-                s.active ? "bg-cobalt-500 text-white" : "bg-poco text-aco/50",
+                "flex h-8 w-8 items-center justify-center rounded-full font-data text-sm font-medium tabular-nums transition-colors duration-[240ms] ease-[var(--ease-fluxo)]",
+                s.done
+                  ? "bg-sucesso/10 text-sucesso"
+                  : s.active
+                    ? "bg-cobalt-500 text-white"
+                    : "bg-poco text-aco/50",
               )}
             >
               {s.done ? <Check className="h-4 w-4" /> : s.n}
@@ -67,13 +183,13 @@ function Stepper() {
             <span
               className={cn(
                 "hidden text-sm sm:inline",
-                s.active ? "font-medium text-volt-950" : "text-aco/50",
+                s.active ? "font-medium text-volt-950" : s.done ? "text-aco/70" : "text-aco/50",
               )}
             >
               {s.label}
             </span>
           </div>
-          {i < STEPS.length - 1 && <span className="mx-3 h-px flex-1 bg-volt-950/10" />}
+          {i < steps.length - 1 && <span className="mx-3 h-px flex-1 bg-volt-950/10" />}
         </li>
       ))}
     </ol>
@@ -111,44 +227,17 @@ function Instrucoes() {
   );
 }
 
-type EngineState = {
-  ok: boolean;
-  whatsappConnected: boolean;
-  connectedNumber: string | null;
-  qr: string | null;
-  error?: string;
-};
-
-function QRPanel() {
-  const [state, setState] = useState<EngineState>({
-    ok: false,
-    whatsappConnected: false,
-    connectedNumber: null,
-    qr: null,
-  });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  async function fetchState(showSpinner = false) {
-    if (showSpinner) setLoading(true);
-    try {
-      const r = await fetch("/api/engine?action=status", { cache: "no-store" });
-      const data = (await r.json()) as EngineState;
-      setState(data);
-      setError(data.error ?? null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    fetchState(true);
-    const id = setInterval(() => fetchState(false), 4000);
-    return () => clearInterval(id);
-  }, []);
-
+function QRPanel({
+  state,
+  loading,
+  error,
+  onRefresh,
+}: {
+  state: EngineState;
+  loading: boolean;
+  error: string | null;
+  onRefresh: () => void;
+}) {
   if (state.whatsappConnected) {
     return <ConnectedPanel number={state.connectedNumber} />;
   }
@@ -156,7 +245,7 @@ function QRPanel() {
   return (
     <div className="flex flex-col items-center justify-center gap-5 bg-volt-950 p-7 text-white sm:p-9">
       {error && (
-        <div className="rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-200">
+        <div className="rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-200" role="status">
           Engine offline: {error}
         </div>
       )}
@@ -177,17 +266,18 @@ function QRPanel() {
         </div>
       )}
 
-      <div className="flex items-center gap-2 text-sm text-canvas-100/70">
+      <div className="flex items-center gap-2 text-sm text-canvas-100/70" role="status">
         <span className={cn("hf-breathe h-2 w-2 rounded-full", state.qr ? "bg-cobalt-500" : "bg-canvas-100/40")} />
         {state.qr ? "Escaneie no WhatsApp" : "Aguardando leitura…"}
       </div>
 
       <button
         type="button"
-        onClick={() => fetchState(true)}
-        className="font-data inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-canvas-100/50 transition-colors duration-[160ms] hover:text-canvas-100/80"
+        onClick={onRefresh}
+        disabled={loading}
+        className="font-data inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-canvas-100/50 transition-colors duration-[160ms] hover:text-canvas-100/80 disabled:opacity-50"
       >
-        <RefreshCw className="h-3 w-3" /> Atualizar agora
+        <RefreshCw className={cn("h-3 w-3", loading && "animate-spin")} /> Atualizar agora
       </button>
 
       <p className="font-data text-center text-[11px] uppercase tracking-wider text-canvas-100/40">
