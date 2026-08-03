@@ -19,10 +19,12 @@ import {
   Check,
   Pencil,
   RefreshCw,
+  ShoppingBag,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { resolvePainelView } from "@/lib/painel-view";
+import { ordersInMonth, revenueInMonth } from "@/lib/painel-metrics";
 
 // ---------- Types ----------
 
@@ -54,6 +56,12 @@ type Lead = {
   enteredAt: string;
 };
 
+type Order = {
+  id: string;
+  value: number;
+  created_at?: string;
+};
+
 type Session = {
   live?: boolean;
   phone?: string | null;
@@ -69,6 +77,7 @@ type DashboardData = {
   campanhas: Campanha[];
   links: TrackedLink[];
   leads: Lead[];
+  orders: Order[];
   session: Session;
   settings: TenantSettings;
 };
@@ -76,6 +85,8 @@ type DashboardData = {
 type StepInfo = { n: number; label: string; done?: boolean; active?: boolean };
 
 // ---------- Helpers ----------
+
+const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 function getDateStr(daysAgo: number): string {
   const d = new Date();
@@ -133,11 +144,12 @@ export default function PainelPage() {
   const load = useCallback(async () => {
     setState({ status: "loading" });
 
-    const [groups, campanhas, links, leads, session, settings] = await Promise.all([
+    const [groups, campanhas, links, leads, orders, session, settings] = await Promise.all([
       loadJson<Group[]>("/api/groups"),
       loadJson<Campanha[]>("/api/campanhas"),
       loadJson<TrackedLink[]>("/api/links"),
       loadJson<Lead[]>("/api/leads"),
+      loadJson<Order[]>("/api/orders"),
       loadJson<Session>("/api/session"),
       loadJson<TenantSettings>("/api/settings"),
     ]);
@@ -152,12 +164,13 @@ export default function PainelPage() {
 
     setState({
       status: "ready",
-      partial: !links.ok || !leads.ok || !settings.ok,
+      partial: !links.ok || !leads.ok || !orders.ok || !settings.ok,
       data: {
         groups: asArray<Group>(groups),
         campanhas: asArray<Campanha>(campanhas),
         links: asArray<TrackedLink>(links),
         leads: asArray<Lead>(leads),
+        orders: asArray<Order>(orders),
         session: session.data ?? {},
         settings: {
           monthlyGoalContacts: (settings.ok ? settings.data?.monthlyGoalContacts : null) ?? null,
@@ -175,7 +188,7 @@ export default function PainelPage() {
   if (state.status === "error") return <LoadError onRetry={() => void load()} />;
 
   const { data, partial } = state;
-  const { groups, campanhas, links, leads, session, settings } = data;
+  const { groups, campanhas, links, leads, orders, session, settings } = data;
   const isConnected = session.live === true;
 
   // Regra de roteamento (e seus testes) em @/lib/painel-view.
@@ -211,6 +224,7 @@ export default function PainelPage() {
       campanhas={campanhas}
       links={links}
       leads={leads}
+      orders={orders}
       settings={settings}
       isConnected={isConnected}
       partial={partial}
@@ -467,6 +481,7 @@ function FullDashboard({
   campanhas,
   links,
   leads,
+  orders,
   settings,
   isConnected,
   partial,
@@ -476,6 +491,7 @@ function FullDashboard({
   campanhas: Campanha[];
   links: TrackedLink[];
   leads: Lead[];
+  orders: Order[];
   settings: TenantSettings;
   isConnected: boolean;
   /** Algum endpoint de números falhou — os totais podem estar incompletos. */
@@ -487,10 +503,16 @@ function FullDashboard({
   const totalContatos = leads.length;
   // Conversão = entradas atribuídas (leads capturados) ÷ cliques — nunca estoque de membros.
   const conversion = totalClicks > 0 ? Math.round((totalContatos / totalClicks) * 100) : 0;
+  const clientes = useMemo(() => leads.filter((l) => l.status === "comprou").length, [leads]);
 
   const today = getDateStr(0);
   const yesterday = getDateStr(1);
   const month = getMonthStr();
+
+  // Faturamento do mês corrente. Pedido sem `created_at` fica de fora do
+  // recorte mensal em vez de inflar o número.
+  const ordersThisMonth = useMemo(() => ordersInMonth(orders, month).length, [orders, month]);
+  const revenueThisMonth = useMemo(() => revenueInMonth(orders, month), [orders, month]);
 
   const leadsToday = useMemo(
     () => leads.filter((l) => l.enteredAt?.startsWith(today)).length,
@@ -522,11 +544,38 @@ function FullDashboard({
 
   const deltaLeads = leadsToday - leadsYesterday;
 
-  // KPIs claros (romaneio) — números sempre em mono tabular
-  const kpis: { label: string; value: number | string; icon: LucideIcon; href: string }[] = [
-    { label: "Cliques nas campanhas", value: totalClicks, icon: MousePointerClick, href: "/painel/campanhas" },
-    { label: "Contatos captados", value: totalContatos, icon: UserPlus, href: "/painel/contatos" },
-    { label: "Conversão clique→entrada", value: `${conversion}%`, icon: TrendingUp, href: "/painel/resultados" },
+  // KPIs claros (romaneio) — números sempre em mono tabular.
+  // Faturamento vem primeiro: é o número que o lojista quer ver. Conversão
+  // deixou de ser card próprio (é derivada de cliques e contatos) e virou o
+  // rodapé do card de cliques, que é de onde ela sai.
+  const kpis: {
+    label: string;
+    value: string;
+    sub?: string;
+    icon: LucideIcon;
+    href: string;
+  }[] = [
+    {
+      label: "Faturamento no mês",
+      value: brl.format(revenueThisMonth),
+      sub: ordersThisMonth === 1 ? "1 pedido registrado" : `${ordersThisMonth} pedidos registrados`,
+      icon: ShoppingBag,
+      href: "/painel/resultados",
+    },
+    {
+      label: "Contatos captados",
+      value: totalContatos.toLocaleString("pt-BR"),
+      sub: clientes > 0 ? `${clientes.toLocaleString("pt-BR")} já compraram` : undefined,
+      icon: UserPlus,
+      href: "/painel/contatos",
+    },
+    {
+      label: "Cliques nas campanhas",
+      value: totalClicks.toLocaleString("pt-BR"),
+      sub: totalClicks > 0 ? `${conversion}% viraram contato` : undefined,
+      icon: MousePointerClick,
+      href: "/painel/campanhas",
+    },
   ];
 
   return (
@@ -602,9 +651,12 @@ function FullDashboard({
                 <k.icon className="h-4 w-4 text-cobalt-500" strokeWidth={1.75} />
                 <span className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/55">{k.label}</span>
               </div>
-              <p className="font-data mt-4 text-[32px] font-medium leading-none tracking-[-0.03em] tabular-nums text-volt-950">
-                {typeof k.value === "number" ? k.value.toLocaleString("pt-BR") : k.value}
-              </p>
+              <div className="mt-4">
+                <p className="font-data text-[32px] font-medium leading-none tracking-[-0.03em] tabular-nums text-volt-950">
+                  {k.value}
+                </p>
+                {k.sub && <p className="mt-1.5 text-xs text-aco/55">{k.sub}</p>}
+              </div>
             </Link>
           ))}
         </div>
@@ -615,10 +667,18 @@ function FullDashboard({
         <SectionLabel n="01">Seu ritmo</SectionLabel>
         <SinceYesterday leadsToday={leadsToday} deltaLeads={deltaLeads} />
         <MonthlyProgress
+          kind="contacts"
           current={leadsThisMonth}
           goal={monthlyGoal}
           isSuggested={!hasSavedGoal}
           onSaved={(v) => onSettingsSaved({ ...settings, monthlyGoalContacts: v })}
+        />
+        <MonthlyProgress
+          kind="revenue"
+          current={revenueThisMonth}
+          goal={settings.monthlyGoalRevenue}
+          isSuggested={false}
+          onSaved={(v) => onSettingsSaved({ ...settings, monthlyGoalRevenue: v })}
         />
       </section>
 
@@ -705,33 +765,61 @@ function FullDashboard({
 
 // ---------- Monthly Progress ----------
 
+type GoalKind = "contacts" | "revenue";
+
+const GOAL_COPY: Record<
+  GoalKind,
+  { label: string; field: string; format: (n: number) => string; emptyCta: string }
+> = {
+  contacts: {
+    label: "Meta do mês",
+    field: "monthlyGoalContacts",
+    format: (n) => `${n.toLocaleString("pt-BR")} contatos`,
+    emptyCta: "Defina uma meta de contatos",
+  },
+  revenue: {
+    label: "Meta de faturamento",
+    field: "monthlyGoalRevenue",
+    format: (n) => brl.format(n),
+    emptyCta: "Defina uma meta de faturamento",
+  },
+};
+
+/**
+ * Progresso de uma meta mensal. `goal === null` = o lojista ainda não definiu
+ * — vira um convite pra definir, em vez de sumir. A meta de faturamento era
+ * gravável pela API e lida pela tela, mas nunca chegou a ser renderizada.
+ */
 function MonthlyProgress({
+  kind,
   current,
   goal,
   isSuggested,
   onSaved,
 }: {
+  kind: GoalKind;
   current: number;
-  goal: number;
+  goal: number | null;
   isSuggested: boolean;
   onSaved: (value: number) => void;
 }) {
+  const copy = GOAL_COPY[kind];
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(String(goal));
+  const [draft, setDraft] = useState(goal != null ? String(goal) : "");
   const [saving, setSaving] = useState(false);
 
-  const pct = goal > 0 ? Math.min(Math.round((current / goal) * 100), 100) : 0;
-  const achieved = current >= goal;
+  const pct = goal && goal > 0 ? Math.min(Math.round((current / goal) * 100), 100) : 0;
+  const achieved = goal != null && current >= goal;
 
   async function handleSave() {
-    const value = Math.round(Number(draft.replace(",", ".")));
+    const value = Math.round(Number(draft.replace(/\./g, "").replace(",", ".")));
     if (!value || value <= 0 || saving) return;
     setSaving(true);
     try {
       const res = await fetch("/api/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ monthlyGoalContacts: value }),
+        body: JSON.stringify({ [copy.field]: value }),
       });
       if (res.ok) {
         onSaved(value);
@@ -742,13 +830,32 @@ function MonthlyProgress({
     }
   }
 
+  // Sem meta definida: convite discreto, sem barra de progresso vazia.
+  if (goal == null && !editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          setDraft("");
+          setEditing(true);
+        }}
+        className="pn-card group flex w-full items-center gap-2 rounded-2xl px-5 py-4 text-left transition-colors duration-[160ms] hover:bg-poco"
+      >
+        <Target className="h-4 w-4 text-aco/40 transition-colors group-hover:text-cobalt-500" strokeWidth={1.75} />
+        <span className="text-sm text-aco/70">{copy.emptyCta}</span>
+        <Pencil className="ml-auto h-3 w-3 text-aco/30 transition-colors group-hover:text-cobalt-500" strokeWidth={1.75} />
+      </button>
+    );
+  }
+
   return (
     <div className="pn-card rounded-2xl px-5 py-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Target className="h-4 w-4 text-cobalt-500" strokeWidth={1.75} />
           <span className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/55">
-            Meta do mês{isSuggested && !editing ? " (meta sugerida)" : ""}
+            {copy.label}
+            {isSuggested && !editing ? " (meta sugerida)" : ""}
           </span>
         </div>
         {editing ? (
@@ -757,9 +864,10 @@ function MonthlyProgress({
               autoFocus
               inputMode="numeric"
               value={draft}
+              aria-label={copy.emptyCta}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSave()}
-              className="font-data w-20 rounded-lg border border-volt-950/10 bg-poco px-2 py-1 text-right text-sm tabular-nums text-volt-950 outline-none focus:border-cobalt-500/50"
+              className="font-data w-24 rounded-lg border border-volt-950/10 bg-poco px-2 py-1 text-right text-sm tabular-nums text-volt-950 outline-none focus:border-cobalt-500/50"
             />
             <button
               onClick={handleSave}
@@ -772,7 +880,7 @@ function MonthlyProgress({
         ) : (
           <button
             onClick={() => {
-              setDraft(String(goal));
+              setDraft(goal != null ? String(goal) : "");
               setEditing(true);
             }}
             className="group flex items-center gap-1.5"
@@ -783,13 +891,21 @@ function MonthlyProgress({
                 achieved ? "text-sucesso" : "text-volt-950",
               )}
             >
-              {current.toLocaleString("pt-BR")}/{goal.toLocaleString("pt-BR")} contatos
+              {copy.format(current)} / {copy.format(goal ?? 0)}
             </span>
             <Pencil className="h-3 w-3 text-aco/40 transition-colors group-hover:text-cobalt-500" strokeWidth={1.75} />
           </button>
         )}
       </div>
-      <div className="pn-poco mt-3 h-2 w-full overflow-hidden rounded-full">
+      <div
+        className="pn-poco mt-3 h-2 w-full overflow-hidden rounded-full"
+        role="progressbar"
+        aria-label={copy.label}
+        aria-valuenow={pct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuetext={`${copy.format(current)} de ${copy.format(goal ?? 0)}`}
+      >
         <div
           className={cn("pn-fill h-full w-full rounded-full", achieved ? "bg-sucesso" : "bg-cobalt-500")}
           style={{ transform: `scaleX(${Math.max(pct / 100, 0.02)})` }}
@@ -802,9 +918,9 @@ function MonthlyProgress({
             Meta atingida! Continue crescendo.
           </>
         ) : isSuggested ? (
-          <>Faltam {(goal - current).toLocaleString("pt-BR")} contatos pra bater a meta sugerida — clique pra definir a sua.</>
+          <>Faltam {copy.format((goal ?? 0) - current)} pra bater a meta sugerida — clique pra definir a sua.</>
         ) : (
-          <>Faltam {(goal - current).toLocaleString("pt-BR")} contatos pra bater a meta.</>
+          <>Faltam {copy.format((goal ?? 0) - current)} pra bater a meta.</>
         )}
       </p>
     </div>
