@@ -157,14 +157,20 @@ export function CommandPalette() {
         onClick={() => setOpen(false)}
         className="absolute inset-0 bg-volt-950/50 backdrop-blur-sm"
       />
-      <div className="pn-palette-in relative w-full max-w-xl overflow-hidden rounded-2xl border border-volt-950/10 bg-papel shadow-[var(--shadow-pn-3)]">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Buscar no painel"
+        className="pn-palette-in relative w-full max-w-xl overflow-hidden rounded-2xl border border-volt-950/10 bg-papel shadow-[var(--shadow-pn-3)]"
+      >
         <div className="flex items-center gap-3 border-b border-volt-950/[0.06] px-4">
-          <Search className="h-4 w-4 text-aco/50" />
+          <Search className="h-4 w-4 text-aco/50" aria-hidden="true" />
           <input
             ref={inputRef}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={onInputKey}
+            aria-label="Buscar grupo, campanha ou ação"
             placeholder="Buscar grupo, campanha ou ação…"
             className="flex-1 bg-transparent py-4 text-sm text-volt-950 outline-none placeholder:text-aco/40"
           />

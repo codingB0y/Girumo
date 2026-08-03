@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/brand/logo";
@@ -11,6 +11,16 @@ import { NAV_ALL, NAV_MOBILE_PRIMARY, isNavItemActive } from "@/lib/painel-nav";
 export function PainelMobileNav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+
+  // Esc fecha o drawer — a palette já fazia isso, o menu não.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
 
   return (
     <>
@@ -58,7 +68,12 @@ export function PainelMobileNav() {
             onClick={() => setOpen(false)}
             className="absolute inset-0 bg-volt-950/60 backdrop-blur-sm"
           />
-          <div className="pn-palette-in absolute inset-y-0 left-0 flex w-72 max-w-[82%] flex-col bg-volt-950">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menu de navegação"
+            className="pn-palette-in absolute inset-y-0 left-0 flex w-72 max-w-[82%] flex-col bg-volt-950"
+          >
             <div className="flex h-16 items-center justify-between px-5">
               <Logo className="text-paper-0" />
               <button

@@ -237,7 +237,11 @@ export default function PainelPage() {
 
 function DashboardSkeleton() {
   return (
-    <div className="mx-auto max-w-[1200px] space-y-5 px-4 py-8 sm:px-8">
+    <div
+      className="mx-auto max-w-[1200px] space-y-5 px-4 py-8 sm:px-8"
+      role="status"
+      aria-label="Carregando seu painel"
+    >
       <div className="pn-skeleton h-9 w-56 rounded-lg" style={{ ["--i" as string]: 0 }} />
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
         <div className="pn-skeleton h-44 rounded-2xl lg:col-span-5" style={{ ["--i" as string]: 1 }} />
@@ -618,6 +622,7 @@ function FullDashboard({
         {/* A Peça Escura — o norte do dia (Aurora VIP, uma por tela) */}
         <Link
           href="/painel/grupos"
+          aria-label={`Ver grupos — ${totalMembers.toLocaleString("pt-BR")} membros nos grupos VIP`}
           className="pn-aurora group relative flex min-h-[176px] flex-col justify-between overflow-hidden rounded-2xl p-6 lg:col-span-5"
         >
           <div className="flex items-center justify-between">
@@ -955,9 +960,21 @@ function SinceYesterday({ leadsToday, deltaLeads }: { leadsToday: number; deltaL
               isDown && "bg-alerta/10 text-alerta",
             )}
           >
-            {isUp ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-            {isUp ? "+" : ""}
-            {deltaLeads} vs ontem
+            {isUp ? (
+              <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+            ) : (
+              <ArrowDownRight className="h-3 w-3" aria-hidden="true" />
+            )}
+            {/* Aria-hidden na versão curta + texto completo pra leitor de tela:
+                "+3 vs ontem" depende da cor e da seta pra dizer se é bom. */}
+            <span aria-hidden="true">
+              {isUp ? "+" : ""}
+              {deltaLeads} vs ontem
+            </span>
+            <span className="sr-only">
+              {Math.abs(deltaLeads)} {Math.abs(deltaLeads) === 1 ? "contato" : "contatos"}{" "}
+              {isUp ? "a mais" : "a menos"} que ontem
+            </span>
           </span>
         )}
 
