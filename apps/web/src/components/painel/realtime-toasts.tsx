@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useRole } from "@/components/painel/role-provider";
 
 type Toast = {
   id: string;
@@ -20,15 +21,25 @@ const TYPE_CONFIG = {
 
 export function RealtimeToasts() {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const { tenantId } = useRole();
 
+  // Só assina depois de saber o tenant, e filtra por ele no servidor (a RLS de
+  // `leads` já isola; o filtro é defesa em profundidade e corta tráfego).
   useEffect(() => {
+    if (!tenantId) return;
+
     const supabase = getSupabaseBrowserClient();
 
     const channel = supabase
-      .channel("realtime-leads")
+      .channel(`realtime-leads-${tenantId}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "leads" },
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "leads",
+          filter: `tenant_id=eq.${tenantId}`,
+        },
         (payload) => {
           const lead = payload.new as { name?: string; phone?: string; source_group?: string };
           const name = lead.name || lead.phone || "Alguém";
@@ -47,7 +58,7 @@ export function RealtimeToasts() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [tenantId]);
 
   // Auto-remove after 5s
   useEffect(() => {

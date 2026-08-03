@@ -11,37 +11,35 @@ import {
   TrendingUp,
   Image as ImageIcon,
   Settings,
-  Palette,
   Plus,
   Smartphone,
-  Sparkles,
   CornerDownLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Item = {
   label: string;
-  section: "Ir para" | "Ações" | "Grupos";
+  section: "Ir para" | "Ações" | "Grupos" | "Campanhas";
   icon: typeof Search;
   href: string;
   hint?: string;
 };
 
-const ITEMS: Item[] = [
-  { label: "Hoje", section: "Ir para", icon: Sun, href: "/painel" },
+/**
+ * Destinos fixos. Grupos e campanhas reais entram em runtime (ver useEffect
+ * abaixo) — antes esta lista trazia três grupos de exemplo hardcoded, que
+ * apareciam pro lojista como se fossem os dele.
+ */
+const STATIC_ITEMS: Item[] = [
+  { label: "Início", section: "Ir para", icon: Sun, href: "/painel" },
   { label: "Campanhas", section: "Ir para", icon: Layers, href: "/painel/campanhas" },
   { label: "Grupos", section: "Ir para", icon: Users, href: "/painel/grupos" },
   { label: "Contatos", section: "Ir para", icon: UserPlus, href: "/painel/contatos" },
+  { label: "Páginas", section: "Ir para", icon: ImageIcon, href: "/painel/pages" },
   { label: "Resultados", section: "Ir para", icon: TrendingUp, href: "/painel/resultados" },
-  { label: "Biblioteca", section: "Ir para", icon: ImageIcon, href: "/painel/biblioteca" },
   { label: "Configurações", section: "Ir para", icon: Settings, href: "/painel/configuracoes" },
-  { label: "Design System", section: "Ir para", icon: Palette, href: "/painel/ds" },
   { label: "Nova campanha", section: "Ações", icon: Plus, href: "/painel/campanhas/nova", hint: "criar disparo" },
   { label: "Conectar WhatsApp", section: "Ações", icon: Smartphone, href: "/painel/conectar" },
-  { label: "Lotar grupos", section: "Ações", icon: Sparkles, href: "/painel/grupos" },
-  { label: "Atacado Premium SP", section: "Grupos", icon: Users, href: "/painel/grupos" },
-  { label: "Revenda Moda Brás", section: "Grupos", icon: Users, href: "/painel/grupos" },
-  { label: "Clientes VIP Sul", section: "Grupos", icon: Users, href: "/painel/grupos" },
 ];
 
 export function CommandPalette() {
@@ -49,12 +47,48 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
+  const [liveItems, setLiveItems] = useState<Item[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const loadedRef = useRef(false);
 
-  const results = useMemo(
-    () => ITEMS.filter((i) => i.label.toLowerCase().includes(q.toLowerCase())),
-    [q],
-  );
+  // Campanhas e grupos reais do tenant, carregados uma vez na primeira abertura.
+  useEffect(() => {
+    if (!open || loadedRef.current) return;
+    loadedRef.current = true;
+
+    (async () => {
+      const [campanhas, groups] = await Promise.all([
+        fetch("/api/campanhas").then((r) => (r.ok ? r.json() : [])).catch(() => []),
+        fetch("/api/groups").then((r) => (r.ok ? r.json() : [])).catch(() => []),
+      ]);
+
+      const items: Item[] = [];
+      if (Array.isArray(campanhas)) {
+        for (const c of campanhas.slice(0, 20)) {
+          if (!c?.name) continue;
+          items.push({
+            label: String(c.name),
+            section: "Campanhas",
+            icon: Layers,
+            href: `/painel/campanhas/${c.slug ?? c.id}`,
+          });
+        }
+      }
+      if (Array.isArray(groups)) {
+        for (const g of groups.slice(0, 20)) {
+          if (!g?.name) continue;
+          items.push({ label: String(g.name), section: "Grupos", icon: Users, href: "/painel/grupos" });
+        }
+      }
+      setLiveItems(items);
+    })();
+  }, [open]);
+
+  const results = useMemo(() => {
+    const all = [...STATIC_ITEMS, ...liveItems];
+    const query = q.trim().toLowerCase();
+    return query ? all.filter((i) => i.label.toLowerCase().includes(query)) : all;
+  }, [q, liveItems]);
 
   // grupos por seção, preservando a ordem do array filtrado (índice = posição global)
   const grouped = useMemo(() => {

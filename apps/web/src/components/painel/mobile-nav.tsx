@@ -12,7 +12,6 @@ import {
   Menu,
   X,
   Settings,
-  Sparkles,
   Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -122,14 +121,7 @@ export function PainelMobileNav() {
                 );
               })}
             </nav>
-            <div className="px-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
-              <div className="pn-aurora overflow-hidden rounded-2xl p-4">
-                <p className="font-data flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-acid-500">
-                  <Sparkles className="h-3 w-3" /> Plano Growth
-                </p>
-                <p className="mt-2 text-xs text-canvas-100/70">Grupos VIP ilimitados.</p>
-              </div>
-            </div>
+            <div className="px-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))]" />
           </div>
         </div>
       )}

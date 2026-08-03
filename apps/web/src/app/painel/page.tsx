@@ -21,7 +21,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SocialProof } from "@/components/painel/social-proof";
 
 // ---------- Types ----------
 
@@ -571,8 +570,6 @@ function FullDashboard({
         </div>
       </section>
 
-      {/* Social proof */}
-      <SocialProof campaigns={campanhas.length} />
     </div>
   );
 }

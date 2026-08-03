@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/brand/logo";
+import { usePanelSession } from "@/components/painel/session-provider";
 
 const NAV_ITEMS = [
   { href: "/painel", label: "Início", icon: Sun },
@@ -70,14 +71,9 @@ function NavItem({
 
 export function PainelSidebar() {
   const pathname = usePathname();
-  const [connected, setConnected] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    fetch("/api/session")
-      .then((r) => r.json())
-      .then((s) => setConnected(s?.live === true))
-      .catch(() => setConnected(false));
-  }, []);
+  const { session, loading: sessionLoading } = usePanelSession();
+  // null = ainda não sabemos (carregando ou API fora); não é o mesmo que "offline".
+  const connected = sessionLoading || !session ? null : session.live;
 
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-volt-800 bg-volt-950 lg:flex">
@@ -106,7 +102,13 @@ export function PainelSidebar() {
             )}
           />
           <span className={cn("text-xs", connected ? "text-canvas-100/60" : "text-canvas-100/80")}>
-            {connected === null ? "Verificando…" : connected ? "WhatsApp conectado" : "WhatsApp desconectado"}
+            {sessionLoading
+              ? "Verificando…"
+              : !session
+                ? "Status indisponível"
+                : session.live
+                  ? "WhatsApp conectado"
+                  : "WhatsApp desconectado"}
           </span>
         </Link>
 
@@ -118,20 +120,93 @@ export function PainelSidebar() {
       </div>
 
       {/* Card de plano — Aurora VIP (eco do "VIP" da marca) */}
-      <div className="px-3 pb-4">
-        <div className="pn-aurora overflow-hidden rounded-2xl p-4">
-          <p className="font-data flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-acid-500">
-            <Sparkles className="h-3 w-3" /> Plano Growth
-          </p>
-          <p className="mt-2 text-xs text-canvas-100/70">Grupos VIP ilimitados · suporte no WhatsApp.</p>
-          <Link
-            href="/painel/configuracoes"
-            className="mt-3 flex w-full items-center justify-center rounded-[var(--radius-control)] bg-acid-500 py-2 text-xs font-semibold text-volt-950 transition-[filter] duration-[var(--duration-micro)] hover:brightness-95"
-          >
-            Gerenciar plano
-          </Link>
-        </div>
-      </div>
+      <PlanCard />
     </aside>
+  );
+}
+
+type Subscription = {
+  status: string | null;
+  cancel_at_period_end: boolean | null;
+  plans: { name: string | null; code: string | null } | null;
+};
+
+/** Texto de status da assinatura. Só afirma o que veio do banco. */
+function planLabel(sub: Subscription): { title: string; detail: string } {
+  const planName = sub.plans?.name?.trim() || "Plano ativo";
+  switch (sub.status) {
+    case "trialing":
+      return { title: planName, detail: "Período de teste em andamento." };
+    case "past_due":
+    case "unpaid":
+      return { title: planName, detail: "Pagamento pendente — regularize pra não perder acesso." };
+    case "canceled":
+      return { title: planName, detail: "Assinatura cancelada." };
+    default:
+      return {
+        title: planName,
+        detail: sub.cancel_at_period_end
+          ? "Cancela no fim do período atual."
+          : "Assinatura ativa.",
+      };
+  }
+}
+
+/**
+ * Plano real do tenant. Antes este card dizia "Plano Growth · Grupos VIP
+ * ilimitados" para todo mundo, independente da assinatura.
+ */
+function PlanCard() {
+  const [sub, setSub] = useState<Subscription | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/subscription");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (!cancelled) setSub(data ?? null);
+      } catch {
+        if (!cancelled) setSub(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Enquanto carrega, ou quando não há assinatura / a chamada falhou:
+  // não inventamos um plano. Sem assinatura, o CTA vira convite pra escolher um.
+  if (loading) {
+    return (
+      <div className="px-3 pb-4">
+        <div className="pn-skeleton h-[104px] rounded-2xl" />
+      </div>
+    );
+  }
+
+  const info = sub ? planLabel(sub) : null;
+
+  return (
+    <div className="px-3 pb-4">
+      <div className="pn-aurora overflow-hidden rounded-2xl p-4">
+        <p className="font-data flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-acid-500">
+          <Sparkles className="h-3 w-3" /> {info ? info.title : "Sem plano ativo"}
+        </p>
+        <p className="mt-2 text-xs text-canvas-100/70">
+          {info ? info.detail : "Escolha um plano pra liberar todos os recursos."}
+        </p>
+        <Link
+          href="/painel/configuracoes"
+          className="mt-3 flex w-full items-center justify-center rounded-[var(--radius-control)] bg-acid-500 py-2 text-xs font-semibold text-volt-950 transition-[filter] duration-[var(--duration-micro)] hover:brightness-95"
+        >
+          {info ? "Gerenciar plano" : "Ver planos"}
+        </Link>
+      </div>
+    </div>
   );
 }
