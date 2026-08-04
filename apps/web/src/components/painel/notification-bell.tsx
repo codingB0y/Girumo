@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Bell, Check, CheckCheck, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useRole } from "@/components/painel/role-provider";
 
 type Notification = {
   id: string;
@@ -38,6 +39,7 @@ export function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const { tenantId } = useRole();
 
   const unreadCount = notifications.filter((n) => !n.read_at).length;
 
@@ -59,13 +61,26 @@ export function NotificationBell() {
   // Initial fetch + Supabase Realtime subscription
   useEffect(() => {
     fetchNotifications();
+  }, [fetchNotifications]);
+
+  // Realtime — só assina depois de saber o tenant, e filtra por ele no servidor.
+  // A RLS de `notifications` já isola por tenant; o filtro é defesa em
+  // profundidade e evita que o servidor avalie cada INSERT de cada tenant
+  // contra esta assinatura.
+  useEffect(() => {
+    if (!tenantId) return;
 
     const supabase = getSupabaseBrowserClient();
     const channel = supabase
-      .channel("notifications-realtime")
+      .channel(`notifications-realtime-${tenantId}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "notifications" },
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `tenant_id=eq.${tenantId}`,
+        },
         (payload) => {
           const newNotif = payload.new as Notification;
           setNotifications((prev) => [newNotif, ...prev].slice(0, 30));
@@ -76,7 +91,7 @@ export function NotificationBell() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchNotifications]);
+  }, [tenantId]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {

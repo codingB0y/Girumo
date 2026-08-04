@@ -2,11 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Check, Smartphone, ShieldCheck, Zap, Loader2, RefreshCw } from "lucide-react";
+import { Check, ShieldCheck, Zap, Loader2, RefreshCw } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { cn } from "@/lib/utils";
+import { POLL_MS, nextPollDelay } from "@/lib/engine-poll";
 
 export default function PainelConectar() {
+  const { instance, loading, error, load, refreshQr } = useInstance();
+  const connected = instance?.status === "connected";
+
   return (
     <div className="mx-auto max-w-[1000px] px-4 py-10 sm:px-8">
       {/* Boas-vindas */}
@@ -15,51 +19,66 @@ export default function PainelConectar() {
           <Zap className="h-3 w-3 text-cobalt-500" /> Primeiro acesso
         </span>
         <h1 className="font-display mt-4 text-4xl font-extrabold tracking-[-0.035em] text-volt-950">
-          Vamos conectar seu WhatsApp
+          {connected ? "WhatsApp conectado" : "Vamos conectar seu WhatsApp"}
         </h1>
         <p className="font-editorial mx-auto mt-2 max-w-md text-[19px] italic text-ardosia">
-          É o seu número de sempre, com seus grupos. Leva 2 minutos e nada técnico.
+          {connected
+            ? "Seus grupos já estão entrando. Agora é criar a primeira campanha."
+            : "É o seu número de sempre, com seus grupos. Leva 2 minutos e nada técnico."}
         </p>
       </div>
 
-      <Stepper />
+      <Stepper connected={connected} />
 
       <div className="pn-card mt-10 grid gap-6 overflow-hidden rounded-2xl md:grid-cols-2">
         <Instrucoes />
-        <QRPanel />
+        <QRPanel instance={instance} loading={loading} error={error} onRefreshQr={refreshQr} />
       </div>
 
       <div className="mt-6 flex items-center justify-between">
         <Link href="/painel" className="text-sm text-aco/60 transition-colors duration-[160ms] hover:text-volt-950">
-          Pular por agora
+          {connected ? "Ir para o painel" : "Pular por agora"}
         </Link>
-        <Link
-          href="/painel/conectar"
-          className="inline-flex items-center gap-2 rounded-xl bg-cobalt-500 px-5 py-2.5 text-sm font-medium text-white transition-[transform,filter] duration-[160ms] ease-[var(--ease-fluxo)] hover:-translate-y-0.5 hover:brightness-110"
+        <button
+          type="button"
+          onClick={() => void load(true)}
+          disabled={loading}
+          className="inline-flex items-center gap-2 rounded-xl bg-cobalt-500 px-5 py-2.5 text-sm font-medium text-white transition-[transform,filter] duration-[160ms] ease-[var(--ease-fluxo)] hover:-translate-y-0.5 hover:brightness-110 disabled:opacity-60 disabled:hover:translate-y-0"
         >
-          <Smartphone className="h-4 w-4" /> Atualizar
-        </Link>
+          <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+          {loading ? "Verificando…" : "Atualizar"}
+        </button>
       </div>
     </div>
   );
 }
 
-const STEPS = [
-  { n: 1, label: "Conectar número", active: true, done: false },
-  { n: 2, label: "Grupos entram", active: false, done: false },
-  { n: 3, label: "Primeira campanha", active: false, done: false },
-];
+function Stepper({ connected }: { connected: boolean }) {
+  // Reflete o estado real. Antes era constante de módulo: mesmo depois de
+  // conectar, o passo 1 continuava marcado como o atual.
+  const steps = [
+    { n: 1, label: "Conectar número", done: connected, active: !connected },
+    { n: 2, label: "Grupos entram", done: false, active: connected },
+    { n: 3, label: "Primeira campanha", done: false, active: false },
+  ];
 
-function Stepper() {
   return (
     <ol className="mx-auto mt-8 flex max-w-xl items-center">
-      {STEPS.map((s, i) => (
-        <li key={s.n} className="flex flex-1 items-center last:flex-none">
+      {steps.map((s, i) => (
+        <li
+          key={s.n}
+          className="flex flex-1 items-center last:flex-none"
+          aria-current={s.active ? "step" : undefined}
+        >
           <div className="flex items-center gap-2.5">
             <span
               className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-full font-data text-sm font-medium tabular-nums",
-                s.active ? "bg-cobalt-500 text-white" : "bg-poco text-aco/50",
+                "flex h-8 w-8 items-center justify-center rounded-full font-data text-sm font-medium tabular-nums transition-colors duration-[240ms] ease-[var(--ease-fluxo)]",
+                s.done
+                  ? "bg-sucesso/10 text-sucesso"
+                  : s.active
+                    ? "bg-cobalt-500 text-white"
+                    : "bg-poco text-aco/50",
               )}
             >
               {s.done ? <Check className="h-4 w-4" /> : s.n}
@@ -67,13 +86,13 @@ function Stepper() {
             <span
               className={cn(
                 "hidden text-sm sm:inline",
-                s.active ? "font-medium text-volt-950" : "text-aco/50",
+                s.active ? "font-medium text-volt-950" : s.done ? "text-aco/70" : "text-aco/50",
               )}
             >
               {s.label}
             </span>
           </div>
-          {i < STEPS.length - 1 && <span className="mx-3 h-px flex-1 bg-volt-950/10" />}
+          {i < steps.length - 1 && <span className="mx-3 h-px flex-1 bg-volt-950/10" />}
         </li>
       ))}
     </ol>
@@ -128,12 +147,18 @@ type Instance = {
   qr_code: string | null;
 };
 
-const POLL_MS = 4000;
-
-function QRPanel() {
+/**
+ * Instância da Evolution + o ritmo de consulta.
+ *
+ * Vive acima do painel de QR porque o stepper e o cabeçalho também precisam
+ * saber se já conectou — antes o estado era privado do QRPanel e o stepper
+ * ficava congelado no passo 1 para sempre.
+ */
+function useInstance() {
   const [instance, setInstance] = useState<Instance | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const delayRef = useRef(POLL_MS);
   // Guarda contra o polling disparar uma segunda criação antes da primeira
   // responder — cada POST cria uma instância de verdade na Evolution.
   const creating = useRef(false);
@@ -148,7 +173,7 @@ function QRPanel() {
       const list = (await res.json()) as Instance[];
 
       if (list.length === 0) {
-        if (creating.current) return;
+        if (creating.current) return null;
         creating.current = true;
         const created = await fetch("/api/instances", {
           method: "POST",
@@ -160,15 +185,22 @@ function QRPanel() {
           throw new Error(detail.error ?? "Nao foi possivel criar a instancia.");
         }
         // O QR chega logo em seguida pelo webhook; o próximo ciclo o pega.
-        setInstance((await created.json()) as Instance);
+        const nova = (await created.json()) as Instance;
+        setInstance(nova);
         setError(null);
-        return;
+        delayRef.current = nextPollDelay(delayRef.current, "ok");
+        return nova;
       }
 
       setInstance(list[0]);
       setError(null);
+      delayRef.current = nextPollDelay(delayRef.current, "ok");
+      return list[0] ?? null;
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+      // Evolution fora do ar: espaça em vez de martelar de 4 em 4 segundos.
+      delayRef.current = nextPollDelay(delayRef.current, "error");
+      return null;
     } finally {
       setLoading(false);
     }
@@ -193,10 +225,54 @@ function QRPanel() {
     }
   }, [instance, load]);
 
+  /**
+   * Polling que sabe parar.
+   *
+   * Antes era um `setInterval(4s)` que nunca era cancelado: seguia consultando
+   * a Evolution depois de conectar e com a aba esquecida em segundo plano.
+   * Agora para ao conectar, pausa com a aba oculta (menos a primeira consulta,
+   * senão abrir numa aba de fundo trava a tela em "Verificando…") e espaça as
+   * tentativas quando a Evolution está fora do ar.
+   */
   useEffect(() => {
-    load(true);
-    const id = setInterval(() => load(false), POLL_MS);
-    return () => clearInterval(id);
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let firstRun = true;
+
+    const tick = async () => {
+      timer = null;
+      if (cancelled) return;
+
+      if (!firstRun && document.visibilityState === "hidden") {
+        timer = setTimeout(tick, delayRef.current);
+        return;
+      }
+      const isFirst = firstRun;
+      firstRun = false;
+
+      // Só a primeira consulta acende o spinner; as do ciclo são silenciosas.
+      const result = await load(isFirst);
+      if (cancelled) return;
+
+      // Conectado: acabou o motivo de perguntar.
+      if (result?.status === "connected") return;
+      timer = setTimeout(tick, delayRef.current);
+    };
+
+    void tick();
+
+    const onVisibilityChange = () => {
+      if (cancelled || document.visibilityState !== "visible" || timer === null) return;
+      clearTimeout(timer);
+      void tick();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [load]);
 
   /**
@@ -215,6 +291,20 @@ function QRPanel() {
     void fetch("/api/groups/sync", { method: "POST" }).catch(() => undefined);
   }, [instance?.status]);
 
+  return { instance, loading, error, load, refreshQr };
+}
+
+function QRPanel({
+  instance,
+  loading,
+  error,
+  onRefreshQr,
+}: {
+  instance: Instance | null;
+  loading: boolean;
+  error: string | null;
+  onRefreshQr: () => void;
+}) {
   if (instance?.status === "connected") {
     return <ConnectedPanel number={instance.phone} />;
   }
@@ -252,10 +342,11 @@ function QRPanel() {
 
       <button
         type="button"
-        onClick={refreshQr}
-        className="font-data inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-canvas-100/50 transition-colors duration-[160ms] hover:text-canvas-100/80"
+        onClick={onRefreshQr}
+        disabled={loading}
+        className="font-data inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-canvas-100/50 transition-colors duration-[160ms] hover:text-canvas-100/80 disabled:opacity-50"
       >
-        <RefreshCw className="h-3 w-3" /> Atualizar agora
+        <RefreshCw className={cn("h-3 w-3", loading && "animate-spin")} /> Atualizar agora
       </button>
 
       <p className="font-data text-center text-[11px] uppercase tracking-wider text-canvas-100/40">

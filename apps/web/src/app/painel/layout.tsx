@@ -7,6 +7,7 @@ import { CommandPalette } from "@/components/painel/command-palette";
 import { ToastProvider } from "@/components/toast";
 import { RoleProvider } from "@/components/painel/role-provider";
 import { RealtimeToasts } from "@/components/painel/realtime-toasts";
+import { SessionProvider } from "@/components/painel/session-provider";
 
 export const metadata: Metadata = {
   title: "Painel — Girumo",
@@ -15,20 +16,22 @@ export const metadata: Metadata = {
 export default function PainelLayout({ children }: { children: React.ReactNode }) {
   return (
     <RoleProvider>
-      <ToastProvider>
-        <div className="pn-root font-body flex min-h-screen w-full bg-canvas-100 text-volt-950">
-          <PainelSidebar />
-          <div className="flex min-w-0 flex-1 flex-col">
-            <PainelTopbar />
-            <main className="flex-1 pb-20 lg:pb-0">
-              <PageTransition>{children}</PageTransition>
-            </main>
+      <SessionProvider>
+        <ToastProvider>
+          <div className="pn-root font-body flex min-h-screen w-full bg-canvas-100 text-volt-950">
+            <PainelSidebar />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <PainelTopbar />
+              <main className="flex-1 pb-20 lg:pb-0">
+                <PageTransition>{children}</PageTransition>
+              </main>
+            </div>
+            <PainelMobileNav />
+            <CommandPalette />
+            <RealtimeToasts />
           </div>
-          <PainelMobileNav />
-          <CommandPalette />
-          <RealtimeToasts />
-        </div>
-      </ToastProvider>
+        </ToastProvider>
+      </SessionProvider>
     </RoleProvider>
   );
 }
