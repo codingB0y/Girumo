@@ -3,35 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import {
-  Sun,
-  Layers,
-  Users,
-  UserPlus,
-  TrendingUp,
-  Settings,
-  Sparkles,
-  PanelsTopLeft,
-} from "lucide-react";
+import { Sparkles, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/brand/logo";
-
-const NAV_ITEMS = [
-  { href: "/painel", label: "Início", icon: Sun },
-  { href: "/painel/campanhas", label: "Campanhas", icon: Layers },
-  { href: "/painel/grupos", label: "Grupos", icon: Users },
-  { href: "/painel/contatos", label: "Contatos", icon: UserPlus },
-  { href: "/painel/pages", label: "Páginas", icon: PanelsTopLeft },
-  { href: "/painel/resultados", label: "Resultados", icon: TrendingUp },
-];
-
-const BOTTOM_ITEMS = [
-  { href: "/painel/configuracoes", label: "Configurações", icon: Settings },
-];
-
-function isActive(pathname: string, href: string) {
-  return href === "/painel" ? pathname === href : pathname.startsWith(href);
-}
+import { usePanelSession } from "@/components/painel/session-provider";
+import { NAV_FOOTER, NAV_GROUPS, isNavItemActive } from "@/lib/painel-nav";
 
 function NavItem({
   href,
@@ -41,7 +17,7 @@ function NavItem({
 }: {
   href: string;
   label: string;
-  icon: typeof Sun;
+  icon: LucideIcon;
   active: boolean;
 }) {
   return (
@@ -70,27 +46,38 @@ function NavItem({
 
 export function PainelSidebar() {
   const pathname = usePathname();
-  const [connected, setConnected] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    fetch("/api/session")
-      .then((r) => r.json())
-      .then((s) => setConnected(s?.live === true))
-      .catch(() => setConnected(false));
-  }, []);
+  const { session, loading: sessionLoading } = usePanelSession();
+  // null = ainda não sabemos (carregando ou API fora); não é o mesmo que "offline".
+  const connected = sessionLoading || !session ? null : session.live;
 
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r border-volt-800 bg-volt-950 lg:flex">
+    <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-volt-800 bg-volt-950 lg:flex">
       <div className="flex h-16 items-center px-5">
         <Logo className="text-paper-0" />
       </div>
 
-      <nav className="flex-1 px-3 py-4">
-        <div className="space-y-1">
-          {NAV_ITEMS.map(({ href, label, icon }) => (
-            <NavItem key={href} href={href} label={label} icon={icon} active={isActive(pathname, href)} />
-          ))}
-        </div>
+      {/* min-h-0 é o que permite este bloco encolher abaixo da própria altura
+          de conteúdo; sem ele o overflow-y-auto nunca chega a rolar e a lista
+          empurra o rodapé da sidebar pra fora da tela. */}
+      <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
+        {NAV_GROUPS.map((group, i) => (
+          <div key={group.title ?? "principal"} className={cn("space-y-1", i > 0 && "mt-6")}>
+            {group.title && (
+              <p className="font-data px-3 pb-1 text-[10px] uppercase tracking-[0.08em] text-canvas-100/35">
+                {group.title}
+              </p>
+            )}
+            {group.items.map(({ href, label, icon }) => (
+              <NavItem
+                key={href}
+                href={href}
+                label={label}
+                icon={icon}
+                active={isNavItemActive(pathname, href)}
+              />
+            ))}
+          </div>
+        ))}
       </nav>
 
       <div className="border-t border-volt-800 px-3 py-4">
@@ -106,32 +93,117 @@ export function PainelSidebar() {
             )}
           />
           <span className={cn("text-xs", connected ? "text-canvas-100/60" : "text-canvas-100/80")}>
-            {connected === null ? "Verificando…" : connected ? "WhatsApp conectado" : "WhatsApp desconectado"}
+            {sessionLoading
+              ? "Verificando…"
+              : !session
+                ? "Status indisponível"
+                : session.live
+                  ? "WhatsApp conectado"
+                  : "WhatsApp desconectado"}
           </span>
         </Link>
 
         <div className="space-y-1">
-          {BOTTOM_ITEMS.map(({ href, label, icon }) => (
-            <NavItem key={href} href={href} label={label} icon={icon} active={isActive(pathname, href)} />
+          {NAV_FOOTER.map(({ href, label, icon }) => (
+            <NavItem
+              key={href}
+              href={href}
+              label={label}
+              icon={icon}
+              active={isNavItemActive(pathname, href)}
+            />
           ))}
         </div>
       </div>
 
       {/* Card de plano — Aurora VIP (eco do "VIP" da marca) */}
-      <div className="px-3 pb-4">
-        <div className="pn-aurora overflow-hidden rounded-2xl p-4">
-          <p className="font-data flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-acid-500">
-            <Sparkles className="h-3 w-3" /> Plano Growth
-          </p>
-          <p className="mt-2 text-xs text-canvas-100/70">Grupos VIP ilimitados · suporte no WhatsApp.</p>
-          <Link
-            href="/painel/configuracoes"
-            className="mt-3 flex w-full items-center justify-center rounded-[var(--radius-control)] bg-acid-500 py-2 text-xs font-semibold text-volt-950 transition-[filter] duration-[var(--duration-micro)] hover:brightness-95"
-          >
-            Gerenciar plano
-          </Link>
-        </div>
-      </div>
+      <PlanCard />
     </aside>
+  );
+}
+
+type Subscription = {
+  status: string | null;
+  cancel_at_period_end: boolean | null;
+  plans: { name: string | null; code: string | null } | null;
+};
+
+/** Texto de status da assinatura. Só afirma o que veio do banco. */
+function planLabel(sub: Subscription): { title: string; detail: string } {
+  const planName = sub.plans?.name?.trim() || "Plano ativo";
+  switch (sub.status) {
+    case "trialing":
+      return { title: planName, detail: "Período de teste em andamento." };
+    case "past_due":
+    case "unpaid":
+      return { title: planName, detail: "Pagamento pendente — regularize pra não perder acesso." };
+    case "canceled":
+      return { title: planName, detail: "Assinatura cancelada." };
+    default:
+      return {
+        title: planName,
+        detail: sub.cancel_at_period_end
+          ? "Cancela no fim do período atual."
+          : "Assinatura ativa.",
+      };
+  }
+}
+
+/**
+ * Plano real do tenant. Antes este card dizia "Plano Growth · Grupos VIP
+ * ilimitados" para todo mundo, independente da assinatura.
+ */
+function PlanCard() {
+  const [sub, setSub] = useState<Subscription | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/subscription");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (!cancelled) setSub(data ?? null);
+      } catch {
+        if (!cancelled) setSub(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Enquanto carrega, ou quando não há assinatura / a chamada falhou:
+  // não inventamos um plano. Sem assinatura, o CTA vira convite pra escolher um.
+  if (loading) {
+    return (
+      <div className="px-3 pb-4">
+        <div className="pn-skeleton h-[104px] rounded-2xl" />
+      </div>
+    );
+  }
+
+  const info = sub ? planLabel(sub) : null;
+
+  return (
+    <div className="px-3 pb-4">
+      <div className="pn-aurora overflow-hidden rounded-2xl p-4">
+        <p className="font-data flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-acid-500">
+          <Sparkles className="h-3 w-3" /> {info ? info.title : "Sem plano ativo"}
+        </p>
+        <p className="mt-2 text-xs text-canvas-100/70">
+          {info ? info.detail : "Escolha um plano pra liberar todos os recursos."}
+        </p>
+        <Link
+          href="/painel/configuracoes"
+          className="mt-3 flex w-full items-center justify-center rounded-[var(--radius-control)] bg-acid-500 py-2 text-xs font-semibold text-volt-950 transition-[filter] duration-[var(--duration-micro)] hover:brightness-95"
+        >
+          {info ? "Gerenciar plano" : "Ver planos"}
+        </Link>
+      </div>
+    </div>
   );
 }
