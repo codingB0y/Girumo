@@ -4,44 +4,41 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search,
-  Sun,
   Layers,
   Users,
-  UserPlus,
-  TrendingUp,
-  Image as ImageIcon,
-  Settings,
-  Palette,
   Plus,
   Smartphone,
-  Sparkles,
   CornerDownLeft,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { NAV_ALL } from "@/lib/painel-nav";
 
 type Item = {
   label: string;
-  section: "Ir para" | "Ações" | "Grupos";
-  icon: typeof Search;
+  section: "Ir para" | "Ações" | "Grupos" | "Campanhas";
+  icon: LucideIcon;
   href: string;
   hint?: string;
 };
 
-const ITEMS: Item[] = [
-  { label: "Hoje", section: "Ir para", icon: Sun, href: "/painel" },
-  { label: "Campanhas", section: "Ir para", icon: Layers, href: "/painel/campanhas" },
-  { label: "Grupos", section: "Ir para", icon: Users, href: "/painel/grupos" },
-  { label: "Contatos", section: "Ir para", icon: UserPlus, href: "/painel/contatos" },
-  { label: "Resultados", section: "Ir para", icon: TrendingUp, href: "/painel/resultados" },
-  { label: "Biblioteca", section: "Ir para", icon: ImageIcon, href: "/painel/biblioteca" },
-  { label: "Configurações", section: "Ir para", icon: Settings, href: "/painel/configuracoes" },
-  { label: "Design System", section: "Ir para", icon: Palette, href: "/painel/ds" },
+/**
+ * Destinos fixos: os mesmos do menu (fonte única em @/lib/painel-nav), mais as
+ * ações. Grupos e campanhas reais entram em runtime — antes esta lista trazia
+ * três grupos de exemplo hardcoded, que apareciam pro lojista como se fossem
+ * os dele, e um link para /painel/ds, que não existe.
+ */
+const STATIC_ITEMS: Item[] = [
+  ...NAV_ALL.map(
+    (item): Item => ({
+      label: item.label,
+      section: "Ir para",
+      icon: item.icon,
+      href: item.href,
+    }),
+  ),
   { label: "Nova campanha", section: "Ações", icon: Plus, href: "/painel/campanhas/nova", hint: "criar disparo" },
   { label: "Conectar WhatsApp", section: "Ações", icon: Smartphone, href: "/painel/conectar" },
-  { label: "Lotar grupos", section: "Ações", icon: Sparkles, href: "/painel/grupos" },
-  { label: "Atacado Premium SP", section: "Grupos", icon: Users, href: "/painel/grupos" },
-  { label: "Revenda Moda Brás", section: "Grupos", icon: Users, href: "/painel/grupos" },
-  { label: "Clientes VIP Sul", section: "Grupos", icon: Users, href: "/painel/grupos" },
 ];
 
 export function CommandPalette() {
@@ -49,12 +46,48 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
+  const [liveItems, setLiveItems] = useState<Item[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const loadedRef = useRef(false);
 
-  const results = useMemo(
-    () => ITEMS.filter((i) => i.label.toLowerCase().includes(q.toLowerCase())),
-    [q],
-  );
+  // Campanhas e grupos reais do tenant, carregados uma vez na primeira abertura.
+  useEffect(() => {
+    if (!open || loadedRef.current) return;
+    loadedRef.current = true;
+
+    (async () => {
+      const [campanhas, groups] = await Promise.all([
+        fetch("/api/campanhas").then((r) => (r.ok ? r.json() : [])).catch(() => []),
+        fetch("/api/groups").then((r) => (r.ok ? r.json() : [])).catch(() => []),
+      ]);
+
+      const items: Item[] = [];
+      if (Array.isArray(campanhas)) {
+        for (const c of campanhas.slice(0, 20)) {
+          if (!c?.name) continue;
+          items.push({
+            label: String(c.name),
+            section: "Campanhas",
+            icon: Layers,
+            href: `/painel/campanhas/${c.slug ?? c.id}`,
+          });
+        }
+      }
+      if (Array.isArray(groups)) {
+        for (const g of groups.slice(0, 20)) {
+          if (!g?.name) continue;
+          items.push({ label: String(g.name), section: "Grupos", icon: Users, href: "/painel/grupos" });
+        }
+      }
+      setLiveItems(items);
+    })();
+  }, [open]);
+
+  const results = useMemo(() => {
+    const all = [...STATIC_ITEMS, ...liveItems];
+    const query = q.trim().toLowerCase();
+    return query ? all.filter((i) => i.label.toLowerCase().includes(query)) : all;
+  }, [q, liveItems]);
 
   // grupos por seção, preservando a ordem do array filtrado (índice = posição global)
   const grouped = useMemo(() => {
@@ -124,14 +157,20 @@ export function CommandPalette() {
         onClick={() => setOpen(false)}
         className="absolute inset-0 bg-volt-950/50 backdrop-blur-sm"
       />
-      <div className="pn-palette-in relative w-full max-w-xl overflow-hidden rounded-2xl border border-volt-950/10 bg-papel shadow-[var(--shadow-pn-3)]">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Buscar no painel"
+        className="pn-palette-in relative w-full max-w-xl overflow-hidden rounded-2xl border border-volt-950/10 bg-papel shadow-[var(--shadow-pn-3)]"
+      >
         <div className="flex items-center gap-3 border-b border-volt-950/[0.06] px-4">
-          <Search className="h-4 w-4 text-aco/50" />
+          <Search className="h-4 w-4 text-aco/50" aria-hidden="true" />
           <input
             ref={inputRef}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={onInputKey}
+            aria-label="Buscar grupo, campanha ou ação"
             placeholder="Buscar grupo, campanha ou ação…"
             className="flex-1 bg-transparent py-4 text-sm text-volt-950 outline-none placeholder:text-aco/40"
           />

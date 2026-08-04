@@ -2,53 +2,32 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
-import {
-  Sun,
-  Layers,
-  Users,
-  UserPlus,
-  TrendingUp,
-  Menu,
-  X,
-  Settings,
-  Sparkles,
-  Bot,
-} from "lucide-react";
+import { useEffect, useState } from "react";
+import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/brand/logo";
-
-const PRIMARY = [
-  { href: "/painel", label: "Início", icon: Sun },
-  { href: "/painel/campanhas", label: "Campanhas", icon: Layers },
-  { href: "/painel/squad-os", label: "Equipe AI", icon: Bot },
-  { href: "/painel/resultados", label: "Resultados", icon: TrendingUp },
-];
-
-const ALL = [
-  { href: "/painel", label: "Início", icon: Sun },
-  { href: "/painel/campanhas", label: "Campanhas", icon: Layers },
-  { href: "/painel/grupos", label: "Grupos", icon: Users },
-  { href: "/painel/contatos", label: "Contatos", icon: UserPlus },
-  { href: "/painel/resultados", label: "Resultados", icon: TrendingUp },
-  { href: "/painel/squad-os", label: "Equipe AI", icon: Bot },
-  { href: "/painel/configuracoes", label: "Configurações", icon: Settings },
-];
-
-function isActive(pathname: string, href: string) {
-  return href === "/painel" ? pathname === href : pathname.startsWith(href);
-}
+import { NAV_ALL, NAV_MOBILE_PRIMARY, isNavItemActive } from "@/lib/painel-nav";
 
 export function PainelMobileNav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
+  // Esc fecha o drawer — a palette já fazia isso, o menu não.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+
   return (
     <>
       {/* Barra inferior */}
       <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line-200 bg-canvas-100 pb-[env(safe-area-inset-bottom)] lg:hidden">
-        {PRIMARY.map(({ href, label, icon: Icon }) => {
-          const active = isActive(pathname, href);
+        {NAV_MOBILE_PRIMARY.map(({ href, label, icon: Icon }) => {
+          const active = isNavItemActive(pathname, href);
           return (
             <Link
               key={href}
@@ -89,7 +68,12 @@ export function PainelMobileNav() {
             onClick={() => setOpen(false)}
             className="absolute inset-0 bg-volt-950/60 backdrop-blur-sm"
           />
-          <div className="pn-palette-in absolute inset-y-0 left-0 flex w-72 max-w-[82%] flex-col bg-volt-950">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menu de navegação"
+            className="pn-palette-in absolute inset-y-0 left-0 flex w-72 max-w-[82%] flex-col bg-volt-950"
+          >
             <div className="flex h-16 items-center justify-between px-5">
               <Logo className="text-paper-0" />
               <button
@@ -100,9 +84,9 @@ export function PainelMobileNav() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <nav className="flex-1 space-y-1 px-3 py-2">
-              {ALL.map(({ href, label, icon: Icon }) => {
-                const active = isActive(pathname, href);
+            <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2">
+              {NAV_ALL.map(({ href, label, icon: Icon }) => {
+                const active = isNavItemActive(pathname, href);
                 return (
                   <Link
                     key={href}
@@ -122,14 +106,7 @@ export function PainelMobileNav() {
                 );
               })}
             </nav>
-            <div className="px-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
-              <div className="pn-aurora overflow-hidden rounded-2xl p-4">
-                <p className="font-data flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-acid-500">
-                  <Sparkles className="h-3 w-3" /> Plano Growth
-                </p>
-                <p className="mt-2 text-xs text-canvas-100/70">Grupos VIP ilimitados.</p>
-              </div>
-            </div>
+            <div className="px-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))]" />
           </div>
         </div>
       )}
