@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getAdminContext } from "@/lib/admin-guard";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { blockInProduction, isDev } from "@/lib/environment";
 import { randomUUID } from "crypto";
@@ -19,6 +20,8 @@ export const dynamic = "force-dynamic";
  * ⚠️  BLOQUEADO em produção
  */
 export async function POST() {
+  const admin = await getAdminContext();
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   // Guard: NUNCA executar em produção
   try {
     blockInProduction("dev-seed");
