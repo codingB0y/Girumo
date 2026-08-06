@@ -56,6 +56,30 @@ export async function verifySession(token: string | undefined | null): Promise<s
   }
 }
 
+/** Assina um payload de impersonation (mesmo esquema HMAC do dz_session). */
+export async function signImpersonate(data: Record<string, unknown>): Promise<string> {
+  const payload = b64url(JSON.stringify(data));
+  const sig = await hmacHex(payload);
+  return `${payload}.${sig}`;
+}
+
+/** Verifica a assinatura do cookie de impersonation e devolve o payload, ou null. Edge-safe. */
+export async function verifyImpersonate<T>(token: string | undefined | null): Promise<T | null> {
+  if (!token || !token.includes(".")) return null;
+  const [payload, sig] = token.split(".");
+  if (!payload || !sig) return null;
+  const expected = await hmacHex(payload);
+  if (sig.length !== expected.length) return null;
+  let diff = 0;
+  for (let i = 0; i < sig.length; i++) diff |= sig.charCodeAt(i) ^ expected.charCodeAt(i);
+  if (diff !== 0) return null;
+  try {
+    return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/"))) as T;
+  } catch {
+    return null;
+  }
+}
+
 export const sessionCookieOptions = {
   httpOnly: true,
   sameSite: "lax" as const,
