@@ -6,6 +6,7 @@ import type { Campaign, CampaignStatus } from "@/lib/mock-data";
 import { getSessionAccountId } from "@/lib/session";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { assertPlanLimit } from "@/lib/billing/entitlements";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -87,6 +88,12 @@ export async function POST(req: Request) {
 
   const tenantId = await resolveTenantId();
   if (!tenantId) return Response.json({ error: "Tenant não encontrado." }, { status: 403 });
+
+  // M4: rate-limit por tenant na camada HTTP (defesa em profundidade além do
+  // limite de plano). Barra polling agressivo deste endpoint de criação/envio.
+  if (await checkRateLimit(`broadcast:${tenantId}`, 20, 60_000)) {
+    return Response.json({ error: "Muitas requisições. Aguarde um momento." }, { status: 429 });
+  }
 
   try {
     await assertPlanLimit(tenantId, "campaigns:send");
