@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { SESSION_COOKIE, ENGINE_TOKEN, verifySession } from "@/lib/auth";
 import { classifyRequest, decideEngineAccess } from "@/lib/security/request-access-policy";
 import { buildCsp, generateNonce, surfaceForPath } from "@/lib/security/csp";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 
 const RATE_LIMIT_WINDOW = 60_000; // 1 minuto
 const RATE_LIMITS: Record<string, number> = {
@@ -17,25 +18,12 @@ const RATE_LIMITS: Record<string, number> = {
   "/api/webhooks/evolution": 300,
 };
 
-const ipAttempts = new Map<string, { count: number; resetAt: number }>();
-
-function isRateLimited(ip: string, path: string): boolean {
+async function isRateLimited(ip: string, path: string): Promise<boolean> {
   const limit = Object.entries(RATE_LIMITS).find(([route]) => path.startsWith(route));
   if (!limit) return false;
-
-  const maxAttempts = limit[1];
-  const key = `${ip}:${limit[0]}`;
-  const now = Date.now();
-  const entry = ipAttempts.get(key);
-
-  if (!entry || now > entry.resetAt) {
-    ipAttempts.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
-    return false;
-  }
-
-  entry.count++;
-  if (entry.count > maxAttempts) return true;
-  return false;
+  const [route, maxAttempts] = limit;
+  // Distribuído (Upstash) quando configurado; senão in-memory por instância.
+  return checkRateLimit(`${ip}:${route}`, maxAttempts, RATE_LIMIT_WINDOW);
 }
 
 async function validateBearerToken(token: string): Promise<boolean> {
@@ -101,7 +89,7 @@ export async function middleware(req: NextRequest) {
   // flood never reaches the database.
   if (accessKind === "webhook") {
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    if (isRateLimited(ip, pathname)) {
+    if (await isRateLimited(ip, pathname)) {
       return NextResponse.json({ error: "rate limited" }, { status: 429 });
     }
     return NextResponse.next();
@@ -115,7 +103,7 @@ export async function middleware(req: NextRequest) {
   // Public auth mutations are rate-limited before reaching their handlers.
   if (accessKind === "auth-rate-limited") {
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    if (isRateLimited(ip, pathname)) {
+    if (await isRateLimited(ip, pathname)) {
       return NextResponse.json(
         { error: "Muitas tentativas. Aguarde 1 minuto." },
         { status: 429 },
