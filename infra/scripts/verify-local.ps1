@@ -2,6 +2,14 @@ $ErrorActionPreference = "Stop"
 
 $root = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 
+# Este script roda em dois lugares: na maquina do dev (Windows PowerShell 5.1) e
+# no CI (pwsh no Linux). O que muda entre eles e so o nome dos executaveis — e o
+# fato de -ExecutionPolicy nao existir fora do Windows.
+$isCore = $PSVersionTable.PSEdition -eq "Core"
+$psExe = if ($isCore) { "pwsh" } else { "powershell" }
+$psArgs = if ($isCore) { @("-File") } else { @("-ExecutionPolicy", "Bypass", "-File") }
+$npmExe = if ($isCore) { "npm" } else { "npm.cmd" }
+
 function Invoke-NativeStep {
   param(
     [Parameter(Mandatory = $true)] [string] $Name,
@@ -22,27 +30,27 @@ Invoke-NativeStep "Validando JSON" {
 }
 
 Invoke-NativeStep "Validando templates de ambiente" {
-  powershell -ExecutionPolicy Bypass -File infra/scripts/check-env-template.ps1 -Path deploy/vercel/.env.production.example -Profile vercel
+  & $psExe @psArgs infra/scripts/check-env-template.ps1 -Path deploy/vercel/.env.production.example -Profile vercel
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-  powershell -ExecutionPolicy Bypass -File infra/scripts/check-env-template.ps1 -Path deploy/coolify/.env.example -Profile coolify
+  & $psExe @psArgs infra/scripts/check-env-template.ps1 -Path deploy/coolify/.env.example -Profile coolify
 }
 
 Invoke-NativeStep "Scan de secrets" {
-  powershell -ExecutionPolicy Bypass -File infra/scripts/scan-secrets.ps1
+  & $psExe @psArgs infra/scripts/scan-secrets.ps1
 }
 
 Invoke-NativeStep "Testes" {
-  npm.cmd test
+  & $npmExe test
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-  npm.cmd run engine:test
+  & $npmExe run engine:test
 }
 
 Invoke-NativeStep "TypeScript web" {
-  npm.cmd --workspace apps/web exec tsc -- --noEmit --project tsconfig.json
+  & $npmExe --workspace apps/web exec tsc -- --noEmit --project tsconfig.json
 }
 
 Invoke-NativeStep "Build web" {
-  npm.cmd --workspace apps/web run build
+  & $npmExe --workspace apps/web run build
 }
 
 Invoke-NativeStep "Sintaxe engine" {
