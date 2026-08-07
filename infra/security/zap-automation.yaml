@@ -1,0 +1,54 @@
+# OWASP ZAP Automation Framework — active scan autenticado do HubFlow.
+# SÓ contra staging descartável. Exclui os endpoints com side-effect real
+# (WhatsApp/Stripe) da árvore de ataque para o fuzzing não disparar mensagens/cobranças.
+#
+# Rodar (com Docker aberto, a partir de infra/security/):
+#   docker run --rm -t -v "$PWD:/zap/wrk" ghcr.io/zaproxy/zaproxy:stable \
+#     zap.sh -cmd -autorun /zap/wrk/zap-automation.yaml
+env:
+  contexts:
+    - name: hubflow-staging
+      urls:
+        - "http://host.docker.internal:3000"
+      includePaths:
+        - "http://host.docker.internal:3000.*"
+      excludePaths:
+        # NÃO fuzzar: disparam WhatsApp real / Stripe / heartbeat da engine.
+        - ".*/api/broadcasts.*"
+        - ".*/api/dispatch.*"
+        - ".*/api/groups.*"
+        - ".*/api/billing.*"
+        - ".*/api/session.*"
+        - ".*/api/media.*"
+        - ".*/api/auth/logout.*"
+      authentication:
+        method: "json"
+        parameters:
+          loginPageUrl: "http://host.docker.internal:3000/login"
+          loginRequestUrl: "http://host.docker.internal:3000/api/auth/login"
+          loginRequestBody: '{"email":"{%username%}","password":"{%password%}"}'
+        verification:
+          method: "response"
+          loggedInRegex: '\Q"tenantId"\E'
+          loggedOutRegex: '\Q"E-mail ou senha incorretos"\E'
+      sessionManagement:
+        method: "cookie"
+      users:
+        - name: tenant-a
+          credentials:
+            username: "tenant-a@sectest.invalid"
+            password: "SecTest-A-8f3k2z"
+  parameters:
+    failOnError: true
+jobs:
+  - type: spider
+    parameters: { context: hubflow-staging, user: tenant-a, maxDuration: 5 }
+  - type: passiveScan-wait
+    parameters: { maxDuration: 5 }
+  - type: activeScan
+    parameters: { context: hubflow-staging, user: tenant-a, maxRuleDurationInMins: 3 }
+  - type: report
+    parameters:
+      template: "traditional-html"
+      reportDir: "/zap/wrk"
+      reportFile: "zap-report.html"
