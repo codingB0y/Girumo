@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { SESSION_COOKIE, ENGINE_TOKEN, verifySession } from "@/lib/auth";
 import { classifyRequest, decideEngineAccess } from "@/lib/security/request-access-policy";
+import { buildCsp, generateNonce, surfaceForPath } from "@/lib/security/csp";
 
 const RATE_LIMIT_WINDOW = 60_000; // 1 minuto
 const RATE_LIMITS: Record<string, number> = {
@@ -55,8 +56,37 @@ async function validateBearerToken(token: string): Promise<boolean> {
   }
 }
 
+/**
+ * Superfícies públicas com CSP nonce-ada (M5). São rotas SEM sessão: entram no
+ * matcher só pra ganhar o header, e precisam sair ANTES do gate de auth — se
+ * caíssem nele, /p/:slug e /r/:slug redirecionariam pro login.
+ *
+ * O nonce viaja em dois lugares: no header `content-security-policy` da REQUEST,
+ * que é de onde o Next lê pra assinar os próprios scripts inline, e em `x-nonce`,
+ * que a page e o route handler leem pra assinar os scripts que eles mesmos criam.
+ */
+function nonceResponse(req: NextRequest, csp: string, nonce: string): NextResponse {
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("content-security-policy", csp);
+  requestHeaders.set("x-nonce", nonce);
+  const res = NextResponse.next({ request: { headers: requestHeaders } });
+  res.headers.set("Content-Security-Policy", csp);
+  return res;
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  const nonceSurface = surfaceForPath(pathname);
+  if (nonceSurface) {
+    const nonce = generateNonce();
+    return nonceResponse(
+      req,
+      buildCsp(nonceSurface, nonce, process.env.NODE_ENV === "development"),
+      nonce,
+    );
+  }
+
   const accessKind = classifyRequest(pathname, req.method);
 
   // Public routes
@@ -139,8 +169,19 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // p/ = LPs públicas do Flow Pages · api/p/ = endpoints públicos do Flow Pages
-  // (rate-limit próprio nas rotas públicas de lead/track — sessão 4)
+  // api/p/ = endpoints públicos do Flow Pages (rate-limit próprio nas rotas
+  // públicas de lead/track — sessão 4)
   // lp = landing experimental de conversão (/lp) — pública, sem sessão
-  matcher: ["/((?!login|signup|forgot-password|reset-password|api/p/|r/|p/|lp|_next/static|_next/image|favicon.ico|.*\\.).*)"]
+  //
+  // As duas entradas dedicadas de /p/ e /r/ existem porque a regra geral exclui
+  // QUALQUER path com ponto (`.*\.`, pra não rodar em asset), e sem elas
+  // `/p/foo.bar` sairia SEM CSP nenhuma — falha aberta. Entradas próprias
+  // garantem que toda request dessas superfícies recebe a política, inclusive
+  // as que terminam em 404. surfaceForPath as tira do fluxo de auth logo na
+  // primeira linha do middleware, antes de qualquer verificação de sessão.
+  matcher: [
+    "/((?!login|signup|forgot-password|reset-password|api/p/|lp|_next/static|_next/image|favicon.ico|.*\\.).*)",
+    "/p/:path*",
+    "/r/:path*",
+  ],
 };
