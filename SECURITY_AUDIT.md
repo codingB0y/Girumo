@@ -151,6 +151,14 @@ Só `assertPlanLimit` (quantidade, não frequência). Impacto atenuado pela `Ant
 Enfraquece muito a defesa contra XSS — qualquer script inline injetado executa. A CSP das LPs públicas já restringe `unsafe-eval` a dev; a global sempre permite.
 **Fix:** migrar p/ CSP com nonce; remover `unsafe-eval` do global.
 
+**Status: corrigido em PR #59** (`fix/security-csp-nonce`) — com escopo reduzido de propósito:
+
+- `'unsafe-eval'` **removido de produção em todas as rotas** (segue só em dev, onde o Turbopack/HMR precisa). Varredura nos 185 arquivos JS de cliente do build: zero `eval(` / `new Function(`.
+- **Nonce por-request** (novo `apps/web/src/lib/security/csp.ts` + middleware) em `/p/:slug` e `/r/:slug` — as duas superfícies públicas que renderizam conteúdo controlado pelo lojista (headline, `photo_url`, `meta_pixel_id`, `ga4_id`) e que já rendem por request, então o nonce ali custa zero.
+- As demais rotas **seguem com `'unsafe-inline'`**: o `next build` pré-renderiza **42 rotas** em HTML estático (home, `/lp`, `/login`, todo o `/painel` — só a home sai com 91 scripts inline). O nonce nasce por request e não entra em HTML gerado no build; cobri-las exigiria `force-dynamic` nas 42, trocando o shell servido do CDN por SSR a cada request. Decisão explícita, documentada em `csp.ts`, a reavaliar se/quando o rendering dessas rotas mudar.
+
+Achados do review do próprio fix, já corrigidos no PR: o `matcher` do middleware exclui **qualquer** path com ponto (`.*\.`, não só extensão no fim), então `/p/foo.bar` sairia sem CSP nenhuma — falha aberta; e `/p`/`/r` exatos recebiam CSP duplicada.
+
 ### M6 — IDOR em `/api/links/[slug]` (analytics cross-tenant)
 **Arquivo:** `apps/web/src/app/api/links/[slug]/route.ts:7-9`, `apps/web/src/lib/clicks-analytics.ts`
 `getClickAnalytics(slug)` sem checar dono → qualquer usuário logado lê total de cliques/UTM de link de outro tenant (mitigado: slug tem sufixo timestamp, não trivialmente enumerável).
@@ -177,7 +185,7 @@ Enfraquece muito a defesa contra XSS — qualquer script inline injetado executa
 ## ✅ O que está bem (não regride)
 
 - **Secrets:** nenhum `.env` real jamais commitado (só `.example`); `.gitignore` cobre `.env*`; zero secret hardcoded no código.
-- **Headers:** HSTS, `X-Frame-Options: DENY`, `nosniff`, Referrer-Policy, Permissions-Policy, CSP (com a ressalva M5).
+- **Headers:** HSTS, `X-Frame-Options: DENY`, `nosniff`, Referrer-Policy, Permissions-Policy, CSP (após o M5: nonce nas superfícies públicas dinâmicas; `'unsafe-inline'` permanece nas rotas pré-renderizadas, sem `'unsafe-eval'` em produção).
 - **Sessão:** cookie HMAC-SHA256, comparação **timing-safe**, `httpOnly`+`sameSite=lax`+`secure` em prod. Bearer validado server-side via `supabase.auth.getUser`.
 - **Fail-closed:** `resolveSecret` derruba o app em prod se `AUTH_SECRET`/`ENGINE_TOKEN` faltarem (defaults de dev não vazam).
 - **Stripe:** assinatura do webhook verificada (`constructEvent` com raw body); paywall/entitlements server-side; `priceId` resolvido no servidor.
