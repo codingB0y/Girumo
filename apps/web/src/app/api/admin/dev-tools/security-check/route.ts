@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getAdminContext } from "@/lib/admin-guard";
 import { runSecurityChecks } from "@/lib/security-guards";
 import { validateEnvironment } from "@/lib/env-validator";
 import { isDev } from "@/lib/environment";
@@ -11,6 +12,8 @@ export const dynamic = "force-dynamic";
  * ⚠️  Apenas em development.
  */
 export async function GET() {
+  const admin = await getAdminContext();
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!isDev()) {
     return NextResponse.json({ error: "Apenas em development" }, { status: 403 });
   }

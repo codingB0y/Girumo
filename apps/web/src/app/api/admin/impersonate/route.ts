@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { getAdminContext } from "@/lib/admin-guard";
-import { signSession, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
+import { signSession, signImpersonate, verifyImpersonate, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -102,8 +102,8 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  // Cookie de impersonation (pra poder voltar)
-  const impersonateData = JSON.stringify({
+  // Cookie de impersonation ASSINADO (HMAC) — impede forjar o adminAuthUserId.
+  const impersonateData = await signImpersonate({
     adminAuthUserId: admin.authUserId,
     adminEmail: admin.email,
     tenantId: org.id,
@@ -139,10 +139,10 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Not impersonating" }, { status: 400 });
   }
 
-  let adminData: { adminAuthUserId: string };
-  try {
-    adminData = JSON.parse(impersonateCookie);
-  } catch {
+  // Verifica a ASSINATURA antes de confiar em adminAuthUserId — sem isto, qualquer
+  // usuário forjaria este cookie e assumiria a sessão de outro (account takeover).
+  const adminData = await verifyImpersonate<{ adminAuthUserId: string }>(impersonateCookie);
+  if (!adminData?.adminAuthUserId) {
     return NextResponse.json({ error: "Invalid impersonate cookie" }, { status: 400 });
   }
 
