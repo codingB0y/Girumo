@@ -89,11 +89,14 @@ export function TrackingScripts({
   renderContext,
   metaPixelId,
   ga4Id,
+  nonce,
 }: {
   slug: string;
   renderContext: string;
   metaPixelId: string | null;
   ga4Id: string | null;
+  /** Nonce da CSP da request (vem do middleware via a page). */
+  nonce: string | null;
 }) {
   useEffect(() => {
     // 1. atribuição da visita (persistida pro form)
@@ -119,6 +122,9 @@ export function TrackingScripts({
     // 3. Meta Pixel
     if (metaPixelId && !window.fbq) {
       const script = document.createElement("script");
+      // Script criado por JS não herda nonce nenhum: precisa ser marcado ANTES
+      // de entrar no documento, senão a CSP o bloqueia.
+      if (nonce) script.nonce = nonce;
       script.textContent = `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${metaPixelId.replace(/[^0-9]/g, "")}');fbq('track','PageView');`;
       document.head.appendChild(script);
     }
@@ -127,6 +133,7 @@ export function TrackingScripts({
     if (ga4Id && !window.gtag) {
       const safeId = ga4Id.replace(/[^A-Za-z0-9-]/g, "");
       const loader = document.createElement("script");
+      if (nonce) loader.nonce = nonce;
       loader.async = true;
       loader.src = `https://www.googletagmanager.com/gtag/js?id=${safeId}`;
       document.head.appendChild(loader);
