@@ -74,7 +74,7 @@ const TEMPLATES: Template[] = [
     name: "Grupo lotou",
     trigger: "group_full",
     steps: [
-      { type: "message", delay_minutes: 0, message: "Um dos seus grupos lotou! Crie o próximo pra manter a captação rodando sem perder gente na fila." },
+      { type: "message", delay_minutes: 0, message: "Esse grupo chegou no limite! 🎉 Já-já abrimos o próximo — fica de olho que o link sai aqui primeiro." },
     ],
   },
   {
@@ -96,51 +96,90 @@ function formatDelay(min: number): string {
 export default function PainelAutomacoes() {
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
 
+  async function loadAutomations() {
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const res = await fetch("/api/automations");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data: unknown = await res.json();
+      setAutomations(
+        Array.isArray(data)
+          ? (data as Automation[]).filter((a) => !RETIRED_LOJISTA_TRIGGERS.includes(a.trigger))
+          : [],
+      );
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
-    fetch("/api/automations")
-      .then((r) => r.json())
-      .then((d) =>
-        setAutomations(
-          Array.isArray(d) ? d.filter((a: Automation) => !RETIRED_LOJISTA_TRIGGERS.includes(a.trigger)) : [],
-        ),
-      )
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    void loadAutomations();
   }, []);
 
   async function createFromTemplate(index: number) {
     setCreating(true);
+    setActionError(null);
     try {
       const res = await fetch("/api/automations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ templateIndex: index }),
       });
-      if (res.ok) {
-        const newAuto = await res.json();
-        setAutomations((prev) => [newAuto, ...prev]);
-        setShowTemplates(false);
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const newAuto = await res.json();
+      setAutomations((prev) => [newAuto, ...prev]);
+      setShowTemplates(false);
+    } catch {
+      setActionError("Não foi possível criar a automação. Tente de novo.");
     } finally {
       setCreating(false);
     }
   }
 
   async function toggleEnabled(id: string, enabled: boolean) {
+    setActionError(null);
     setAutomations((prev) => prev.map((a) => (a.id === id ? { ...a, enabled } : a)));
-    await fetch("/api/automations", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, enabled }),
-    });
+    try {
+      const res = await fetch("/api/automations", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, enabled }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch {
+      // Reverte só o campo desta automação — não um snapshot inteiro, pra não
+      // engolir updates otimistas concorrentes de outras linhas.
+      setAutomations((prev) => prev.map((a) => (a.id === id ? { ...a, enabled: !enabled } : a)));
+      setActionError("Não foi possível atualizar a automação. Tente de novo.");
+    }
   }
 
   async function deleteAutomation(id: string) {
+    const index = automations.findIndex((a) => a.id === id);
+    const removed = automations[index];
+    if (!removed) return;
+    setActionError(null);
     setAutomations((prev) => prev.filter((a) => a.id !== id));
-    await fetch(`/api/automations?id=${id}`, { method: "DELETE" });
+    try {
+      const res = await fetch(`/api/automations?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch {
+      setAutomations((prev) => {
+        if (prev.some((a) => a.id === id)) return prev;
+        const next = [...prev];
+        next.splice(Math.min(index, next.length), 0, removed);
+        return next;
+      });
+      setActionError("Não foi possível excluir a automação. Verifique sua permissão e tente de novo.");
+    }
   }
 
   if (loading) {
@@ -148,6 +187,24 @@ export default function PainelAutomacoes() {
       <div className="mx-auto max-w-[1200px] space-y-5 px-4 py-6 sm:px-6">
         <div className="h-10 w-64 animate-pulse rounded-lg bg-white" />
         <div className="h-48 animate-pulse rounded-3xl bg-white" />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6">
+        <section className="rounded-3xl border border-dashed border-alerta/30 bg-white/50 px-6 py-16 text-center">
+          <Zap className="mx-auto h-12 w-12 text-alerta/40" />
+          <h3 className="font-display mt-4 text-lg font-bold text-volt-950">Não deu pra carregar as automações</h3>
+          <p className="mt-1.5 text-sm text-aco/60">Verifique sua conexão e tente novamente.</p>
+          <button
+            onClick={() => void loadAutomations()}
+            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-cobalt-500 px-5 py-2.5 text-sm font-medium text-white shadow-brand transition hover:-translate-y-0.5 hover:bg-cobalt-500"
+          >
+            <RotateCcw className="h-4 w-4" /> Tentar de novo
+          </button>
+        </section>
       </div>
     );
   }
@@ -169,6 +226,23 @@ export default function PainelAutomacoes() {
           <Plus className="h-4 w-4" /> Nova automação
         </button>
       </div>
+
+      {/* Erro de ação (criar/atualizar/excluir) */}
+      {actionError && (
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-3 rounded-xl border border-alerta/20 bg-alerta/[0.06] px-4 py-3 text-sm text-alerta"
+        >
+          <span>{actionError}</span>
+          <button
+            onClick={() => setActionError(null)}
+            aria-label="Fechar aviso"
+            className="rounded-lg px-2 py-0.5 font-medium transition hover:bg-alerta/10"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Templates modal */}
       {showTemplates && (

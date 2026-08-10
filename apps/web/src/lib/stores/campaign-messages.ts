@@ -98,6 +98,20 @@ export async function deleteCampaignMessage(tenantId: string, id: string): Promi
   return (count ?? 0) > 0;
 }
 
+/** Cancela um agendamento (volta pra draft) — escopado por tenant. */
+export async function cancelCampaignMessage(tenantId: string, id: string): Promise<boolean> {
+  const { data, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .update({ status: "draft" as CampaignMessageStatus })
+    .eq("tenant_id", tenantId)
+    .eq("id", id)
+    .in("status", ["scheduled", "queued"])
+    .select("id")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return Boolean(data);
+}
+
 /** Enqueue a message for immediate dispatch */
 export async function enqueueCampaignMessage(tenantId: string, id: string): Promise<CampaignMessage | null> {
   const { data, error } = await getSupabaseAdmin()
