@@ -11,7 +11,9 @@
  *  - envio (F4): drena `engine_commands` (send_message/send_media/send_poll) →
  *    Evolution API, com o anti-ban aplicado no claim (claim_send_commands) e no
  *    record_send. Só liga se EVOLUTION_API_URL/KEY existirem — senão o worker
- *    roda sem enviar (mesma postura fail-safe do worker legado sem config);
+ *    roda sem enviar (mesma postura fail-safe do worker legado sem config).
+ *    Mesmo configurado, o default é DRY-RUN: loga o que enviaria e não chama a
+ *    Evolution até WORKER_SEND_ENABLED=true (ver send-dry-run.ts);
  *  - manutenção da fila: lease vencido, progresso de broadcast e agendamento.
  *    Roda SEMPRE, inclusive sem Evolution configurada (ver housekeeping.ts).
  *
@@ -27,6 +29,7 @@ import { startHealthServer, type HealthState } from "./health.js";
 import { housekeepingDidWork, runHousekeeping } from "./housekeeping.js";
 import { log } from "./log.js";
 import type { SendDeps } from "./send-command.js";
+import { withDryRun } from "./send-dry-run.js";
 import { makeSendDeps, runSendTick } from "./send-loop.js";
 import { createSupabaseClient } from "./supabase.js";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -42,14 +45,26 @@ function sleep(ms: number): Promise<void> {
 
 const PRUNE_INTERVAL_MS = 3_600_000; // poda o log de envios ~1×/hora
 
-/** Cria as deps de envio se a Evolution estiver configurada; senão null (sender off). */
+/**
+ * Cria as deps de envio se a Evolution estiver configurada; senão null (sender off).
+ *
+ * Com `WORKER_SEND_ENABLED != true` (o default) devolve as deps embrulhadas em
+ * dry-run: o loop roda inteiro e loga o que enviaria, sem chamar a Evolution.
+ */
 function buildSendDeps(env: WorkerEnv, supabase: SupabaseClient): SendDeps | null {
   if (!env.evolutionApiUrl || !env.evolutionApiKey) {
     log.warn("loop de envio desligado: EVOLUTION_API_URL/EVOLUTION_API_KEY ausentes");
     return null;
   }
   const sender = createEvolutionSender({ baseUrl: env.evolutionApiUrl, apiKey: env.evolutionApiKey });
-  return makeSendDeps(supabase, sender);
+  const deps = makeSendDeps(supabase, sender);
+
+  if (!env.sendEnabled) {
+    log.warn("loop de envio em DRY-RUN: nada sai de verdade (WORKER_SEND_ENABLED != true)");
+    return withDryRun(deps);
+  }
+  log.info("loop de envio ATIVO: mensagens serão enviadas de verdade");
+  return deps;
 }
 
 async function main(): Promise<void> {
@@ -80,7 +95,7 @@ async function main(): Promise<void> {
     poll_ms: env.pollMs,
     batch_size: env.batchSize,
     send_batch_size: env.sendBatchSize,
-    sender: sendDeps ? "on" : "off",
+    sender: sendDeps ? (env.sendEnabled ? "on" : "dry-run") : "off",
     health_port: env.healthPort,
   });
 
