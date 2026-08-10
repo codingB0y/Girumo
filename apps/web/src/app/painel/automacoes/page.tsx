@@ -74,7 +74,7 @@ const TEMPLATES: Template[] = [
     name: "Grupo lotou",
     trigger: "group_full",
     steps: [
-      { type: "message", delay_minutes: 0, message: "Um dos seus grupos lotou! Crie o próximo pra manter a captação rodando sem perder gente na fila." },
+      { type: "message", delay_minutes: 0, message: "Esse grupo chegou no limite! 🎉 Já-já abrimos o próximo — fica de olho que o link sai aqui primeiro." },
     ],
   },
   {

@@ -121,10 +121,14 @@ export const AUTOMATION_TEMPLATES: { name: string; trigger: AutomationTrigger; s
     ],
   },
   {
+    // O executor (apps/worker/automation-scans.ts) posta esta mensagem DENTRO
+    // do grupo que lotou — a copy tem que falar com o cliente final, nunca com
+    // o lojista. Aviso interno de "crie o próximo grupo" é papel de
+    // notifications/e-mail, não deste template.
     name: "Grupo lotou",
     trigger: "group_full",
     steps: [
-      { type: "message", delay_minutes: 0, message: "Um dos seus grupos lotou! Crie o próximo pra manter a captação rodando sem perder gente na fila." },
+      { type: "message", delay_minutes: 0, message: "Esse grupo chegou no limite! 🎉 Já-já abrimos o próximo — fica de olho que o link sai aqui primeiro." },
     ],
   },
   {
