@@ -53,11 +53,13 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
   if (target.kind === "blocked") return fullPage(BLOCKED_MESSAGE[target.reason]);
 
   if (human) {
-    try {
-      await linksStore.incrementTrackedLinkClicks(link.id);
-    } catch {
-      // Contador é métrica, não caminho crítico: nunca segura o visitante.
-    }
+    // Duas gravações independentes: o contador (total) e o evento com data
+    // (histórico). `allSettled` porque uma falhar não pode cancelar a outra —
+    // e nenhuma das duas é caminho crítico: métrica nunca segura o visitante.
+    await Promise.allSettled([
+      linksStore.incrementTrackedLinkClicks(link.id),
+      linksStore.recordTrackedLinkClick(link),
+    ]);
   }
 
   // Com Pixel do Facebook: intersticial que dispara "Lead" e só então redireciona.
