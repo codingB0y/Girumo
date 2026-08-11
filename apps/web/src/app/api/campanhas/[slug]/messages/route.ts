@@ -10,6 +10,8 @@ import { assertPermission, type TenantRole } from "@/lib/permissions";
 import { assertPlanLimit } from "@/lib/billing/entitlements";
 import { getSession, isLive } from "@/lib/session-store";
 import { buildDispatchList, toDispatchView } from "@/lib/campaigns/dispatch-view";
+import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
+import { getSessionAccountId } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -143,6 +145,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     );
   }
 
+  // Quem disparou, pros marcos de ativação. `getRouteTenantContext` resolve o
+  // tenant, não o usuário — e marcar como null diria "foi a engine", que é falso.
+  const authUserId = await getSessionAccountId();
+
   const scheduledAt = parseScheduledAt(body.scheduledAt);
   if (body.scheduledAt && !scheduledAt) {
     return Response.json({ error: "Data de agendamento inválida." }, { status: 400 });
@@ -169,10 +175,31 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
       scheduled_at: scheduledAt,
       recurrence: resolveRecurrence(body) as schedulesStore.ScheduleRecurrence,
     });
+    // Mesmo buraco do first_dispatch: `first_schedule` só era emitido por
+    // /api/schedules, e agendar pela aba não passa por lá.
+    void trackFunnelEvent({
+      tenantId,
+      userId: authUserId,
+      event: "first_schedule",
+      onlyFirst: true,
+      metadata: { broadcastId: broadcast.id, scheduleId: schedule.id },
+    });
     return Response.json(toDispatchView(broadcast, camp.slug, schedule), { status: 201 });
   }
 
   const enqueued = await broadcastsStore.enqueueBroadcast(tenantId, broadcast.id);
+
+  // Marco de ativação. O evento existia, mas só era emitido por /api/dispatch —
+  // a rota do motor legado. Migrado o envio pra cá, ele deixou de acontecer e o
+  // funil marcava zero disparo mesmo com o lojista disparando.
+  void trackFunnelEvent({
+    tenantId,
+    userId: authUserId,
+    event: "first_dispatch",
+    onlyFirst: true,
+    metadata: { broadcastId: broadcast.id, campaignId: camp.id },
+  });
+
   return Response.json(toDispatchView(enqueued ?? broadcast, camp.slug, null), { status: 201 });
 }
 
