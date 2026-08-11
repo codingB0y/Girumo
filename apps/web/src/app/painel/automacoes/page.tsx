@@ -8,13 +8,12 @@ import {
   PowerOff,
   Trash2,
   Clock,
-  Users,
   MessageSquare,
   Loader2,
-  Calendar,
   RotateCcw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TRIGGER_LABELS } from "@/lib/automations/trigger-labels";
 
 // Triggers de lifecycle do SaaS — nunca aparecem na tela do lojista (P0.7).
 const RETIRED_LOJISTA_TRIGGERS = ["no_connect_24h", "trial_ending"];
@@ -41,14 +40,6 @@ type Template = {
   name: string;
   trigger: string;
   steps: Omit<AutomationStep, "id">[];
-};
-
-const TRIGGER_LABELS: Record<string, { label: string; icon: typeof Users }> = {
-  lead_entered: { label: "Contato entrou no grupo", icon: Users },
-  signup: { label: "Novo cadastro", icon: Users },
-  group_full: { label: "Grupo lotou", icon: Users },
-  weekly_recurring: { label: "Toda semana", icon: Calendar },
-  group_stalled: { label: "Grupo parado", icon: RotateCcw },
 };
 
 // Espelha AUTOMATION_TEMPLATES de @/lib/stores/automations — mesma ordem,

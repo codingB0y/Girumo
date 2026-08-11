@@ -25,6 +25,24 @@ export type Order = {
   created_at?: string;
 };
 
+/** Forma que `/api/schedules` devolve (mapeada do store Supabase). */
+export type Schedule = {
+  id: string;
+  campaignName?: string;
+  scheduledAt?: string;
+  status?: string;
+  recurrence?: string;
+};
+
+/** Subconjunto de `/api/automations` que a Início usa. */
+export type Automation = {
+  id: string;
+  name: string;
+  trigger: string;
+  enabled: boolean;
+  lastRunAt?: string | null;
+};
+
 export type Session = {
   live?: boolean;
   phone?: string | null;
@@ -45,6 +63,8 @@ export type DashboardData = {
   links: TrackedLink[];
   leads: Lead[];
   orders: Order[];
+  schedules: Schedule[];
+  automations: Automation[];
   session: Session;
   settings: TenantSettings;
 };
