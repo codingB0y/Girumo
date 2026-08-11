@@ -30,6 +30,22 @@ export async function listSchedules(tenantId: string): Promise<Schedule[]> {
   return data ?? [];
 }
 
+/** Agendamentos de um conjunto de ofertas — usado pela agenda da campanha. */
+export async function listSchedulesByBroadcastIds(
+  tenantId: string,
+  broadcastIds: readonly string[],
+): Promise<Schedule[]> {
+  if (broadcastIds.length === 0) return [];
+  const { data, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .in("broadcast_id", [...broadcastIds])
+    .order("scheduled_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
 export async function createSchedule(
   tenantId: string,
   input: {
