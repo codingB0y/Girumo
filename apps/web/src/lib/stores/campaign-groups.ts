@@ -26,6 +26,17 @@ export async function listCampaignGroups(tenantId: string): Promise<CampaignGrou
   return data ?? [];
 }
 
+export async function getCampaignGroupById(tenantId: string, id: string): Promise<CampaignGroup | null> {
+  const { data, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
 export async function getCampaignGroupBySlug(tenantId: string, slug: string): Promise<CampaignGroup | null> {
   const { data, error } = await getSupabaseAdmin()
     .from(TABLE)

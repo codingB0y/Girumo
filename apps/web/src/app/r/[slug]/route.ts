@@ -1,6 +1,11 @@
+import { USE_SUPABASE } from "@/lib/stores/use-supabase";
+import * as linksStore from "@/lib/stores/tracked-links";
+import * as campaignsStore from "@/lib/stores/campaign-groups";
+import * as groupsStore from "@/lib/stores/groups";
+import { resolveClickTarget, type BlockedReason } from "@/lib/links/resolve-click-target";
 import { getLink, recordClick, clickCounts, type ClickEvent } from "@/lib/store";
 import { findCampanhaBySlug } from "@/lib/campanhas-store";
-import { listGroups, nextAvailableGroup } from "@/lib/groups-store";
+import { listGroups as listLegacyGroups, nextAvailableGroup as legacyNextGroup } from "@/lib/groups-store";
 import { nonceAttribute } from "@/lib/security/csp";
 
 export const runtime = "nodejs";
@@ -10,16 +15,69 @@ export const dynamic = "force-dynamic";
 const BOT_UA =
   /bot|crawler|spider|facebookexternalhit|facebookcatalog|whatsapp|telegram|slurp|bingpreview|preview|curl|wget|python-requests|axios|headless|monitor|pingdom|uptime/i;
 
-// GET /r/:slug — redireciona um clique para um grupo. Dois modos:
-//  1) slug de LINK rastreado → destino fixo (respeitando clickCap = "grupo cheio").
-//  2) slug de CAMPANHA (link mestre) → próximo grupo DISPONÍVEL do pool ("lota sozinho").
+// Mensagem por motivo de bloqueio. "Sem convite"/"sem grupo" NÃO podem dizer
+// "cheio": o grupo pode estar vazio e só faltar configuração no painel — mentir
+// pro visitante esconde justamente o que o lojista precisa arrumar.
+const BLOCKED_MESSAGE: Record<BlockedReason, string> = {
+  "cap-reached": "Este grupo já está cheio. Em breve abriremos um novo lote. 💛",
+  "all-full": "Todos os grupos desta campanha estão cheios. Em breve abriremos um novo. 💛",
+  "no-invite": "Esta campanha ainda não está aberta. Volte daqui a pouco. 💛",
+  "empty-pool": "Esta campanha ainda não está aberta. Volte daqui a pouco. 💛",
+};
+
+// GET /r/:slug — redireciona um clique para um grupo. Dois tipos de link:
+//  1) link MESTRE de campanha (`campaign_group_id` preenchido) → próximo grupo
+//     DISPONÍVEL do pool ("lota sozinho").
+//  2) link comum → destino fixo, respeitando clickCap ("grupo cheio").
 export async function GET(req: Request, ctx: { params: Promise<{ slug: string }> }) {
   const { slug } = await ctx.params;
   const ua = req.headers.get("user-agent") ?? "";
-  const human = !BOT_UA.test(ua);
-  const url = new URL(req.url);
-
   // Só conta clique de gente real — bot/preview/crawler redireciona mas não conta.
+  const human = !BOT_UA.test(ua);
+
+  if (!USE_SUPABASE) return legacyGet(req, slug, ua, human);
+
+  const link = await linksStore.getTrackedLinkBySlug(slug);
+  if (!link) return notFoundPage();
+
+  // Daqui pra baixo o tenant sai da PRÓPRIA linha do link: toda query seguinte
+  // filtra por ele (service-role bypassa RLS — o filtro é que isola o tenant).
+  const [campaign, groups] = link.campaign_group_id
+    ? await Promise.all([
+        campaignsStore.getCampaignGroupById(link.tenant_id, link.campaign_group_id),
+        groupsStore.listGroups(link.tenant_id),
+      ])
+    : [null, []];
+
+  const target = resolveClickTarget({ link, campaign, groups });
+  if (target.kind === "blocked") return fullPage(BLOCKED_MESSAGE[target.reason]);
+
+  if (human) {
+    try {
+      await linksStore.incrementTrackedLinkClicks(link.id);
+    } catch {
+      // Contador é métrica, não caminho crítico: nunca segura o visitante.
+    }
+  }
+
+  // Com Pixel do Facebook: intersticial que dispara "Lead" e só então redireciona.
+  if (target.pixelId) {
+    // Nonce da CSP desta request, posto pelo middleware. Sem ele os dois
+    // scripts inline abaixo seriam bloqueados e o clique nunca converteria.
+    const nonce = req.headers.get("x-nonce");
+    return new Response(pixelInterstitial(target.pixelId, target.url, nonce), {
+      headers: { "content-type": "text/html; charset=utf-8" },
+    });
+  }
+  return Response.redirect(target.url, 302);
+}
+
+/**
+ * Caminho JSON legado (HUBFLOW_USE_SUPABASE=0, só emergência/dev local).
+ * Mantido intacto de propósito — some junto com os stores de arquivo.
+ */
+async function legacyGet(req: Request, slug: string, ua: string, human: boolean): Promise<Response> {
+  const url = new URL(req.url);
   const click = (target?: string): ClickEvent => ({
     slug,
     ts: new Date().toISOString(),
@@ -30,22 +88,16 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
     target,
   });
 
-  // 1) Link rastreado (destino fixo).
   const link = await getLink(slug);
   if (link) {
-    // Cap de cliques atingido → grupo "cheio": para de redirecionar.
     if (link.clickCap) {
       const counts = await clickCounts();
       if ((counts[slug] ?? 0) >= link.clickCap) {
-        return fullPage("Este grupo já está cheio. Em breve abriremos um novo lote. 💛");
+        return fullPage(BLOCKED_MESSAGE["cap-reached"]);
       }
     }
     if (human) await recordClick(click());
-
-    // Com Pixel do Facebook: intersticial que dispara "Lead" e só então redireciona.
     if (link.pixelId && /^\d{5,20}$/.test(link.pixelId)) {
-      // Nonce da CSP desta request, posto pelo middleware. Sem ele os dois
-      // scripts inline abaixo seriam bloqueados e o clique nunca converteria.
       const nonce = req.headers.get("x-nonce");
       return new Response(pixelInterstitial(link.pixelId, link.destinationUrl, nonce), {
         headers: { "content-type": "text/html; charset=utf-8" },
@@ -54,34 +106,38 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
     return Response.redirect(link.destinationUrl, 302);
   }
 
-  // 2) Link mestre de campanha → próximo grupo disponível (preenchimento sequencial).
   const campanha = await findCampanhaBySlug(slug);
   if (campanha) {
-    if (!campanha.tenantId) {
-      return new Response("Campanha sem tenant associado.", { status: 404 });
-    }
-    const groups = await listGroups(campanha.tenantId);
-    const target = nextAvailableGroup(campanha.groupIds, groups);
-    if (!target) {
-      return fullPage("Todos os grupos desta campanha estão cheios. Em breve abriremos um novo. 💛");
-    }
+    if (!campanha.tenantId) return notFoundPage();
+    const groups = await listLegacyGroups(campanha.tenantId);
+    const target = legacyNextGroup(campanha.groupIds, groups);
+    if (!target) return fullPage(BLOCKED_MESSAGE["all-full"]);
     if (human) await recordClick(click(target.whatsappGroupId));
     return Response.redirect(target.inviteUrl!, 302);
   }
 
-  return new Response("Link não encontrado.", { status: 404 });
+  return notFoundPage();
 }
 
-// Página amigável de "grupo cheio" (200 p/ o visitante ver a mensagem, não um erro).
+/** 404 amigável — quem clicou é cliente da loja, não deve ver erro cru. */
+function notFoundPage(): Response {
+  return page("Este link não existe ou foi desativado.", 404, "Link não encontrado");
+}
+
+/** Página amigável de "grupo cheio" (200 p/ o visitante ver a mensagem, não um erro). */
 function fullPage(message: string): Response {
+  return page(message, 200, "Grupo cheio");
+}
+
+function page(message: string, status: number, title: string): Response {
   const safe = message.replace(/</g, "&lt;");
   return new Response(
     `<!doctype html><html lang="pt-br"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>Grupo cheio</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>
 <style>body{font-family:system-ui,Arial;background:#faf7ff;color:#2a2140;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;padding:24px}
 .card{max-width:420px;text-align:center;background:#fff;border:1px solid #e7defb;border-radius:16px;padding:32px}</style>
 </head><body><div class="card"><p style="font-size:18px;font-weight:600">${safe}</p></div></body></html>`,
-    { status: 200, headers: { "content-type": "text/html; charset=utf-8" } },
+    { status, headers: { "content-type": "text/html; charset=utf-8" } },
   );
 }
 
