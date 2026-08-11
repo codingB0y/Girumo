@@ -21,6 +21,8 @@ import { ordersInMonth, revenueInMonth } from "@/lib/painel-metrics";
 import { dailySeries } from "@/lib/sparkline";
 import type { Activation } from "@/lib/onboarding-steps";
 import { ActivationChecklist } from "./activation-checklist";
+import { AutomationsSummary } from "./automations-summary";
+import { UpcomingBroadcasts } from "./upcoming-broadcasts";
 import { brl, getDateStr, getMonthStr } from "./format";
 import { MonthlyProgress } from "./monthly-progress";
 import { QuickAction } from "./quick-action";
@@ -28,7 +30,15 @@ import { SectionLabel } from "./section-label";
 import { SinceYesterday } from "./since-yesterday";
 import { Sparkline } from "./sparkline";
 import { WeeklyRhythm } from "./weekly-rhythm";
-import type { Campanha, Lead, Order, TenantSettings, TrackedLink } from "./types";
+import type {
+  Automation,
+  Campanha,
+  Lead,
+  Order,
+  Schedule,
+  TenantSettings,
+  TrackedLink,
+} from "./types";
 
 /** Janela dos sparklines dos KPIs. */
 const SPARK_DAYS = 14;
@@ -39,6 +49,8 @@ export function FullDashboard({
   links,
   leads,
   orders,
+  schedules,
+  automations,
   settings,
   isConnected,
   partial,
@@ -52,6 +64,8 @@ export function FullDashboard({
   links: TrackedLink[];
   leads: Lead[];
   orders: Order[];
+  schedules: Schedule[];
+  automations: Automation[];
   settings: TenantSettings;
   isConnected: boolean;
   /** Algum endpoint de números falhou — os totais podem estar incompletos. */
@@ -311,10 +325,40 @@ export function FullDashboard({
         </div>
       )}
 
+      {/* O que sai sozinho: agendado + automático. Os dois cards são só leitura
+          — agendar vive em Campanhas, ligar/desligar vive em Automações. */}
+      <section className="grid gap-6 lg:grid-cols-2">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <SectionLabel n="02">Próximos disparos</SectionLabel>
+            <Link
+              href="/painel/campanhas"
+              className="font-data text-[11px] uppercase tracking-[0.08em] text-cobalt-500 transition hover:text-cobalt-700"
+            >
+              Agendar →
+            </Link>
+          </div>
+          <UpcomingBroadcasts schedules={schedules} />
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <SectionLabel n="03">Automações</SectionLabel>
+            <Link
+              href="/painel/automacoes"
+              className="font-data text-[11px] uppercase tracking-[0.08em] text-cobalt-500 transition hover:text-cobalt-700"
+            >
+              Ver todas →
+            </Link>
+          </div>
+          <AutomationsSummary automations={automations} />
+        </div>
+      </section>
+
       {/* Ações rápidas + Campanhas */}
       <section className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">
-          <SectionLabel n="02">Ações rápidas</SectionLabel>
+          <SectionLabel n="04">Ações rápidas</SectionLabel>
           <div className="pn-card rounded-2xl p-2">
             <QuickAction href="/painel/campanhas/nova" icon={Layers} label="Nova campanha" />
             <QuickAction href="/painel/contatos" icon={UserPlus} label="Ver contatos" />
@@ -324,7 +368,7 @@ export function FullDashboard({
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <SectionLabel n="03">Campanhas ativas</SectionLabel>
+            <SectionLabel n="05">Campanhas ativas</SectionLabel>
             <Link
               href="/painel/campanhas"
               className="font-data text-[11px] uppercase tracking-[0.08em] text-cobalt-500 transition hover:text-cobalt-700"

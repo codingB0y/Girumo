@@ -3,14 +3,29 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Group } from "@/lib/mock-data";
 import type {
+  Automation,
   Campanha,
   DashboardData,
   Lead,
   Order,
+  Schedule,
   Session,
   TenantSettings,
   TrackedLink,
 } from "./types";
+
+/** Forma crua de `/api/automations` — o store devolve snake_case. */
+type RawAutomation = {
+  id: string;
+  name: string;
+  trigger: string;
+  enabled: boolean;
+  last_run_at: string | null;
+};
+
+function toAutomation(a: RawAutomation): Automation {
+  return { id: a.id, name: a.name, trigger: a.trigger, enabled: a.enabled, lastRunAt: a.last_run_at };
+}
 
 type FetchResult<T> = { ok: true; data: T } | { ok: false };
 
@@ -52,15 +67,18 @@ export function useDashboardData(): DashboardDataHandle {
   const load = useCallback(async () => {
     setState({ status: "loading" });
 
-    const [groups, campanhas, links, leads, orders, session, settings] = await Promise.all([
-      loadJson<Group[]>("/api/groups"),
-      loadJson<Campanha[]>("/api/campanhas"),
-      loadJson<TrackedLink[]>("/api/links"),
-      loadJson<Lead[]>("/api/leads"),
-      loadJson<Order[]>("/api/orders"),
-      loadJson<Session>("/api/session"),
-      loadJson<TenantSettings>("/api/settings"),
-    ]);
+    const [groups, campanhas, links, leads, orders, schedules, automations, session, settings] =
+      await Promise.all([
+        loadJson<Group[]>("/api/groups"),
+        loadJson<Campanha[]>("/api/campanhas"),
+        loadJson<TrackedLink[]>("/api/links"),
+        loadJson<Lead[]>("/api/leads"),
+        loadJson<Order[]>("/api/orders"),
+        loadJson<Schedule[]>("/api/schedules"),
+        loadJson<RawAutomation[]>("/api/automations"),
+        loadJson<Session>("/api/session"),
+        loadJson<TenantSettings>("/api/settings"),
+      ]);
 
     // Estes três decidem entre onboarding e dashboard. Se algum falhar, não dá
     // pra decidir — e o palpite errado joga uma conta veterana de volta em
@@ -72,13 +90,16 @@ export function useDashboardData(): DashboardDataHandle {
 
     setState({
       status: "ready",
-      partial: !links.ok || !leads.ok || !orders.ok || !settings.ok,
+      partial:
+        !links.ok || !leads.ok || !orders.ok || !settings.ok || !schedules.ok || !automations.ok,
       data: {
         groups: asArray<Group>(groups),
         campanhas: asArray<Campanha>(campanhas),
         links: asArray<TrackedLink>(links),
         leads: asArray<Lead>(leads),
         orders: asArray<Order>(orders),
+        schedules: asArray<Schedule>(schedules),
+        automations: asArray<RawAutomation>(automations).map(toAutomation),
         session: session.data ?? {},
         settings: {
           monthlyGoalContacts: (settings.ok ? settings.data?.monthlyGoalContacts : null) ?? null,
