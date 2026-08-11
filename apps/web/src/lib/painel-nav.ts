@@ -65,12 +65,19 @@ export const NAV_FOOTER: NavItem[] = [
   { href: "/painel/configuracoes", label: "Configurações", icon: Settings },
 ];
 
-/** Barra inferior do mobile — os quatro destinos de uso diário. */
+/**
+ * Barra inferior do mobile — os quatro destinos de uso diário.
+ *
+ * Páginas entrou no lugar de Resultados: para um lojista mobile-first, a aba de
+ * captação era invisível (só existia na sidebar, que o mobile não mostra), e
+ * Resultados é consulta esporádica — continua alcançável pelo drawer e pela
+ * command palette via NAV_ALL.
+ */
 export const NAV_MOBILE_PRIMARY: NavItem[] = [
   { href: "/painel", label: "Início", icon: Sun },
   { href: "/painel/campanhas", label: "Campanhas", icon: Layers },
   { href: "/painel/grupos", label: "Grupos", icon: Users },
-  { href: "/painel/resultados", label: "Resultados", icon: TrendingUp },
+  { href: "/painel/pages", label: "Páginas", icon: PanelsTopLeft },
 ];
 
 /** Tudo, achatado — para o drawer do mobile e a command palette. */
