@@ -28,12 +28,17 @@ test("keeps Automações and Indicação reachable", () => {
   assert.ok(hrefs.includes("/painel/indicacao"));
 });
 
+test("exposes Disparos — sem item de menu, a única porta pro envio era achar a aba dentro de uma campanha", () => {
+  assert.ok(NAV_ALL.map((i) => i.href).includes("/painel/disparos"));
+});
+
 test("does not expose internal or redirect-only routes", () => {
   const hrefs = NAV_ALL.map((i) => i.href);
   for (const hidden of [
     "/painel/dev-tools", // ferramenta interna
     "/painel/ds", // não existe
-    "/painel/disparos", // redireciona para campanhas
+    // /painel/disparos saiu desta lista: deixou de ser redirect e virou tela
+    // própria de disparo, então AGORA precisa estar no menu (teste abaixo).
     "/painel/agenda",
     "/painel/biblioteca",
   ]) {

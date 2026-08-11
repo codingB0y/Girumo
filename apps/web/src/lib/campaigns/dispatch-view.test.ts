@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   buildDispatchList,
+  buildTenantDispatchList,
   indexSchedulesByBroadcast,
   resolveDispatchType,
   toDispatchView,
@@ -135,5 +136,44 @@ const lista = buildDispatchList(
 assert.deepEqual(lista.map((d) => d.id), ["b2", "b1"]);
 assert.equal(lista[0].status, "scheduled");
 assert.equal(lista[1].status, "draft");
+
+// --- lista do tenant inteiro (/painel/disparos) ----------------------------
+
+const campanhasPorId = new Map([
+  ["cg1", { name: "Saldão Julho", slug: "saldao-julho" }],
+  ["cg2", { name: "Novidade", slug: "novidade" }],
+]);
+
+const doTenant = buildTenantDispatchList(
+  [
+    broadcast({ id: "b1", campaign_group_id: "cg1", created_at: "2026-08-10T10:00:00.000Z" }),
+    broadcast({ id: "b2", campaign_group_id: "cg2", created_at: "2026-08-10T12:00:00.000Z" }),
+  ],
+  [],
+  campanhasPorId,
+);
+// Mais recente primeiro, cada linha com a SUA campanha.
+assert.deepEqual(doTenant.map((d) => [d.id, d.campaignName, d.campaignSlug]), [
+  ["b2", "Novidade", "novidade"],
+  ["b1", "Saldão Julho", "saldao-julho"],
+]);
+
+// Campanha apagada não some do histórico — aparece com rótulo neutro.
+const orfao = buildTenantDispatchList([broadcast({ id: "b9", campaign_group_id: "sumiu" })], [], campanhasPorId);
+assert.equal(orfao[0].campaignName, "Campanha removida");
+assert.equal(orfao[0].campaignSlug, "");
+
+// Disparo sem campanha nenhuma também não some.
+const semCampanha = buildTenantDispatchList([broadcast({ id: "b8", campaign_group_id: null })], [], campanhasPorId);
+assert.equal(semCampanha[0].campaignName, "Campanha removida");
+
+// Agendamento continua sendo resolvido na visão do tenant.
+const agendadoTenant = buildTenantDispatchList(
+  [broadcast({ id: "b1", campaign_group_id: "cg1" })],
+  [schedule({ id: "s1", broadcast_id: "b1" })],
+  campanhasPorId,
+);
+assert.equal(agendadoTenant[0].status, "scheduled");
+assert.equal(agendadoTenant[0].scheduleId, "s1");
 
 console.log("dispatch-view tests passed");
