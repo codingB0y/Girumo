@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
-import { CalendarClock, Repeat } from "lucide-react";
+import { ArrowRight, CalendarClock, Repeat } from "lucide-react";
 import { EmptyState } from "@/components/painel/empty-state";
 import { formatWhen, upcomingSchedules } from "@/lib/upcoming-schedules";
 import type { Schedule } from "./types";
@@ -28,6 +28,7 @@ export function UpcomingBroadcasts({ schedules }: { schedules: Schedule[] }) {
         description="Agende uma campanha pra ela sair nos grupos na hora certa, sem você precisar lembrar."
         ctaLabel="Ver campanhas"
         ctaHref="/painel/campanhas"
+        ctaIcon={ArrowRight}
       />
     );
   }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { History, Send, ShoppingBag, UserPlus } from "lucide-react";
+import { ArrowRight, History, Send, ShoppingBag, UserPlus } from "lucide-react";
 import { buildActivityFeed, timeAgo, type ActivityItem } from "@/lib/activity-feed";
 import { EmptyState } from "@/components/painel/empty-state";
 import { brl } from "./format";
@@ -58,6 +58,7 @@ export function ActivityFeed({
         description="Entradas nos grupos, pedidos e disparos aparecem aqui assim que começarem a rolar."
         ctaLabel="Ver campanhas"
         ctaHref="/painel/campanhas"
+        ctaIcon={ArrowRight}
       />
     );
   }
