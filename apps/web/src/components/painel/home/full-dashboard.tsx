@@ -27,6 +27,7 @@ import { QuickAction } from "./quick-action";
 import { SectionLabel } from "./section-label";
 import { SinceYesterday } from "./since-yesterday";
 import { Sparkline } from "./sparkline";
+import { WeeklyRhythm } from "./weekly-rhythm";
 import type { Campanha, Lead, Order, TenantSettings, TrackedLink } from "./types";
 
 /** Janela dos sparklines dos KPIs. */
@@ -271,6 +272,9 @@ export function FullDashboard({
       <section className="space-y-4">
         <SectionLabel n="01">Seu ritmo</SectionLabel>
         <SinceYesterday leadsToday={leadsToday} deltaLeads={deltaLeads} />
+        {/* Mesma fonte dos KPIs acima (os leads já carregados), pra que o
+            gráfico não possa discordar do número que ele acompanha. */}
+        <WeeklyRhythm leads={leads} />
         <MonthlyProgress
           kind="contacts"
           current={leadsThisMonth}
