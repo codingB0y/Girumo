@@ -1,0 +1,96 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import type { Group } from "@/lib/mock-data";
+import type {
+  Campanha,
+  DashboardData,
+  Lead,
+  Order,
+  Session,
+  TenantSettings,
+  TrackedLink,
+} from "./types";
+
+type FetchResult<T> = { ok: true; data: T } | { ok: false };
+
+/** Busca que separa "veio vazio" de "não deu pra buscar". */
+async function loadJson<T>(url: string): Promise<FetchResult<T>> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return { ok: false };
+    return { ok: true, data: (await res.json()) as T };
+  } catch {
+    return { ok: false };
+  }
+}
+
+function asArray<T>(result: FetchResult<unknown>): T[] {
+  return result.ok && Array.isArray(result.data) ? (result.data as T[]) : [];
+}
+
+export type LoadState =
+  | { status: "loading" }
+  | { status: "error" }
+  /** `partial` = carregou, mas algum endpoint só de números falhou. */
+  | { status: "ready"; data: DashboardData; partial: boolean };
+
+export type DashboardDataHandle = {
+  state: LoadState;
+  reload: () => void;
+  /** Grava a meta recém-salva sem refazer as sete buscas. */
+  applySettings: (next: TenantSettings) => void;
+};
+
+export function useDashboardData(): DashboardDataHandle {
+  const [state, setState] = useState<LoadState>({ status: "loading" });
+
+  const load = useCallback(async () => {
+    setState({ status: "loading" });
+
+    const [groups, campanhas, links, leads, orders, session, settings] = await Promise.all([
+      loadJson<Group[]>("/api/groups"),
+      loadJson<Campanha[]>("/api/campanhas"),
+      loadJson<TrackedLink[]>("/api/links"),
+      loadJson<Lead[]>("/api/leads"),
+      loadJson<Order[]>("/api/orders"),
+      loadJson<Session>("/api/session"),
+      loadJson<TenantSettings>("/api/settings"),
+    ]);
+
+    // Estes três decidem entre onboarding e dashboard. Se algum falhar, não dá
+    // pra decidir — e o palpite errado joga uma conta veterana de volta em
+    // "Bem-vindo, conecte seu WhatsApp". Melhor admitir que não carregou.
+    if (!session.ok || !campanhas.ok || !groups.ok) {
+      setState({ status: "error" });
+      return;
+    }
+
+    setState({
+      status: "ready",
+      partial: !links.ok || !leads.ok || !orders.ok || !settings.ok,
+      data: {
+        groups: asArray<Group>(groups),
+        campanhas: asArray<Campanha>(campanhas),
+        links: asArray<TrackedLink>(links),
+        leads: asArray<Lead>(leads),
+        orders: asArray<Order>(orders),
+        session: session.data ?? {},
+        settings: {
+          monthlyGoalContacts: (settings.ok ? settings.data?.monthlyGoalContacts : null) ?? null,
+          monthlyGoalRevenue: (settings.ok ? settings.data?.monthlyGoalRevenue : null) ?? null,
+        },
+      },
+    });
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const applySettings = useCallback((next: TenantSettings) => {
+    setState((s) => (s.status === "ready" ? { ...s, data: { ...s.data, settings: next } } : s));
+  }, []);
+
+  return { state, reload: () => void load(), applySettings };
+}
