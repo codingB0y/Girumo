@@ -140,6 +140,11 @@ export function indexSchedulesByBroadcast(schedules: readonly ScheduleRow[]): Ma
   return byBroadcast;
 }
 
+/** Ordena por criação, mais recente primeiro. */
+function byCreatedAtDesc(a: DispatchView, b: DispatchView): number {
+  return a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0;
+}
+
 /** Lista da aba: mais recentes primeiro, com o agendamento de cada um resolvido. */
 export function buildDispatchList(
   broadcasts: readonly BroadcastRow[],
@@ -149,5 +154,33 @@ export function buildDispatchList(
   const byBroadcast = indexSchedulesByBroadcast(schedules);
   return broadcasts
     .map((b) => toDispatchView(b, campaignSlug, byBroadcast.get(b.id) ?? null))
-    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
+    .sort(byCreatedAtDesc);
+}
+
+export type CampaignRef = { name: string; slug: string };
+
+/** Um disparo na visão do tenant inteiro: precisa dizer de QUAL campanha veio. */
+export type TenantDispatchView = DispatchView & { campaignName: string };
+
+/**
+ * Lista da página /painel/disparos — todos os disparos do tenant, de todas as
+ * campanhas. Diferente de `buildDispatchList`, cada linha resolve a própria
+ * campanha; disparo cuja campanha sumiu continua aparecendo (com rótulo
+ * neutro) em vez de desaparecer do histórico sem explicação.
+ */
+export function buildTenantDispatchList(
+  broadcasts: readonly BroadcastRow[],
+  schedules: readonly ScheduleRow[],
+  campaignById: ReadonlyMap<string, CampaignRef>,
+): TenantDispatchView[] {
+  const byBroadcast = indexSchedulesByBroadcast(schedules);
+  return broadcasts
+    .map((b) => {
+      const campaign = b.campaign_group_id ? campaignById.get(b.campaign_group_id) : undefined;
+      return {
+        ...toDispatchView(b, campaign?.slug ?? "", byBroadcast.get(b.id) ?? null),
+        campaignName: campaign?.name ?? "Campanha removida",
+      };
+    })
+    .sort(byCreatedAtDesc);
 }

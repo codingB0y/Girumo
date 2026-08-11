@@ -1,6 +1,7 @@
 import {
   Sun,
   Layers,
+  Send,
   Zap,
   Users,
   UserPlus,
@@ -23,7 +24,11 @@ import {
  * Rotas deliberadamente fora daqui:
  * - /painel/conectar — entra pelo status de conexão e pelas ações, não pelo menu
  * - /painel/dev-tools — ferramenta interna
- * - /painel/disparos, /painel/agenda, /painel/biblioteca — redirects para campanhas
+ * - /painel/agenda, /painel/biblioteca — redirects para campanhas
+ *
+ * /painel/disparos ENTROU: deixou de ser redirect e virou a tela própria de
+ * disparo (compositor + histórico com progresso real). Sem item de menu, a
+ * única porta pro envio era entrar numa campanha e achar a aba Mensagens.
  */
 
 export type NavItem = {
@@ -44,6 +49,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/painel", label: "Início", icon: Sun },
       { href: "/painel/campanhas", label: "Campanhas", icon: Layers },
+      { href: "/painel/disparos", label: "Disparos", icon: Send },
       { href: "/painel/automacoes", label: "Automações", icon: Zap },
       { href: "/painel/grupos", label: "Grupos", icon: Users },
       { href: "/painel/contatos", label: "Contatos", icon: UserPlus },
