@@ -17,6 +17,9 @@ export type Lead = {
   id: string;
   status: "novo" | "ativo" | "comprou";
   enteredAt: string;
+  /** Vazio quando o participante veio como `@lid` sem telefone resolvido. */
+  name?: string;
+  sourceGroup?: string;
 };
 
 export type Order = {

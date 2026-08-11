@@ -21,6 +21,7 @@ import { ordersInMonth, revenueInMonth } from "@/lib/painel-metrics";
 import { dailySeries } from "@/lib/sparkline";
 import type { Activation } from "@/lib/onboarding-steps";
 import { ActivationChecklist } from "./activation-checklist";
+import { ActivityFeed } from "./activity-feed";
 import { AutomationsSummary } from "./automations-summary";
 import { UpcomingBroadcasts } from "./upcoming-broadcasts";
 import { brl, getDateStr, getMonthStr } from "./format";
@@ -418,6 +419,12 @@ export function FullDashboard({
         </div>
       </section>
 
+      {/* Atividade — a linha do tempo da loja, montada a partir de leads,
+          pedidos e disparos. Sem tabela de eventos nova. */}
+      <section className="space-y-4">
+        <SectionLabel n="06">Atividade</SectionLabel>
+        <ActivityFeed leads={leads} orders={orders} schedules={schedules} />
+      </section>
     </div>
   );
 }
