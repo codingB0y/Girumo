@@ -51,8 +51,13 @@ apps/web/supabase/migrations/20260730100000_dispatch_fanout.sql
 # drenava — depois do cutover ficaria `queued` para sempre. Cancela as linhas que
 # já existem; a rota já não aceita o tipo. Idempotente.
 apps/web/supabase/migrations/20260730110000_retire_refresh_status.sql
+# F1/PR-1: link mestre da campanha vira linha real em `tracked_links` (antes a UI
+# entregava /r/<slug> e nada criava a linha — todo link mestre dava 404). Cria o
+# contador atômico de clique (increment_tracked_link_clicks) e faz backfill de uma
+# linha por campanha existente. Idempotente. Aplicada em dev e prod em 10/08/2026.
+apps/web/supabase/migrations/20260810120000_campaign_master_links.sql
 # Checklist de ativação da Início: duas colunas em `tenant_settings` para o que os
 # dados não sabem responder — quando o lojista fechou o card e quando os 5 passos
 # ficaram completos. Os passos em si continuam derivados. Idempotente; a tabela já
-# tem RLS + policy por tenant. Aplicado em dev 11/08; prod pendente.
+# tem RLS + policy por tenant. Aplicada em dev e prod em 11/08/2026.
 apps/web/supabase/migrations/20260811000000_tenant_settings_onboarding.sql

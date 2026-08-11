@@ -24,6 +24,12 @@ export async function listTrackedLinks(tenantId: string): Promise<TrackedLink[]>
   if (error) throw new Error(error.message);
   return data ?? [];
 }
+/**
+ * Resolve um slug SEM tenant — de propósito: é o ponto de entrada público
+ * (`/r/:slug`), onde ainda não existe sessão. É seguro porque
+ * `tracked_links_slug_unique` torna o slug único GLOBALMENTE: no máximo uma
+ * linha casa, e o `tenant_id` dela é que passa a filtrar todo o resto.
+ */
 export async function getTrackedLinkBySlug(slug: string): Promise<TrackedLink | null> {
   const { data, error } = await getSupabaseAdmin()
     .from(TABLE)
@@ -34,9 +40,24 @@ export async function getTrackedLinkBySlug(slug: string): Promise<TrackedLink | 
   return data;
 }
 
+/**
+ * +1 clique, atômico no banco (read-modify-write perderia clique simultâneo).
+ * Falha de contador não pode derrubar o redirect — quem chama trata isso.
+ */
+export async function incrementTrackedLinkClicks(id: string): Promise<void> {
+  const { error } = await getSupabaseAdmin().rpc("increment_tracked_link_clicks", { p_id: id });
+  if (error) throw new Error(error.message);
+}
+
 export async function createTrackedLink(
   tenantId: string,
-  input: { campaign_group_id?: string; slug: string; target_url: string },
+  input: {
+    campaign_group_id?: string;
+    slug: string;
+    /** Vazio no link MESTRE de campanha: lá o destino é rotativo, vem do pool. */
+    target_url: string;
+    metadata?: Record<string, unknown>;
+  },
 ): Promise<TrackedLink> {
   const { data, error } = await getSupabaseAdmin()
     .from(TABLE)
@@ -46,6 +67,7 @@ export async function createTrackedLink(
       slug: input.slug,
       target_url: input.target_url,
       clicks: 0,
+      metadata: input.metadata ?? {},
     })
     .select("*")
     .single();
