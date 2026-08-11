@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search, Users, Activity, RefreshCw } from "lucide-react";
+import { Search, Users, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CopyLink } from "@/components/painel/copy-link";
 import { getCampaignGroupStatus, type CampaignGroupStatus } from "@/lib/campaign-groups-overview";
@@ -21,11 +21,10 @@ const STATUS: Record<CampaignGroupStatus, { label: string; pill: string }> = {
   unknown: { label: "—", pill: "bg-poco text-aco/60" },
 };
 
-const HEALTH: Record<string, { label: string; pct: number; color: string }> = {
-  alto: { label: "Alta", pct: 85, color: "#1E8E5A" },
-  medio: { label: "Média", pct: 50, color: "#D99B2A" },
-  baixo: { label: "Baixa", pct: 22, color: "#D84040" },
-};
+// Coluna "Saúde" removida: os 85/50/22 eram literais sobre `engagement`, que o
+// servidor devolve fixo em "medio" para TODO grupo — ou seja, um número que não
+// media nada. A ocupação (membros/capacidade), essa sim real, continua na coluna
+// Membros. Volta quando a engine reportar sinal de engajamento de verdade.
 
 export default function PainelGrupos() {
   const [groups, setGroups] = useState<Group[]>([]);
@@ -158,8 +157,8 @@ export default function PainelGrupos() {
         <div className="pn-skeleton h-80 rounded-2xl" />
       ) : (
         <div className="pn-card overflow-hidden rounded-2xl">
-          <div className="hidden border-b border-volt-950/[0.06] bg-poco px-5 py-3 md:grid md:grid-cols-[1.6fr_0.9fr_0.9fr_0.7fr_auto] md:gap-4">
-            {["Grupo", "Membros", "Saúde", "Status", ""].map((h) => (
+          <div className="hidden border-b border-volt-950/[0.06] bg-poco px-5 py-3 md:grid md:grid-cols-[1.8fr_1fr_0.8fr_auto] md:gap-4">
+            {["Grupo", "Membros", "Status", ""].map((h) => (
               <span key={h} className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/50">{h}</span>
             ))}
           </div>
@@ -167,7 +166,6 @@ export default function PainelGrupos() {
           <div className="divide-y divide-dashed divide-volt-950/[0.09]">
             {rows.map(({ g, status }) => {
               const cap = g.capacity > 0 ? Math.round((g.members / g.capacity) * 100) : 0;
-              const h = HEALTH[g.engagement] ?? HEALTH.medio;
               const invite = g.inviteUrl
                 ? origin && !g.inviteUrl.startsWith("http")
                   ? `${origin}${g.inviteUrl}`
@@ -176,7 +174,7 @@ export default function PainelGrupos() {
               return (
                 <div
                   key={g.id}
-                  className="grid grid-cols-1 gap-3 px-5 py-4 transition-colors duration-[160ms] hover:bg-poco md:grid-cols-[1.6fr_0.9fr_0.9fr_0.7fr_auto] md:items-center md:gap-4"
+                  className="grid grid-cols-1 gap-3 px-5 py-4 transition-colors duration-[160ms] hover:bg-poco md:grid-cols-[1.8fr_1fr_0.8fr_auto] md:items-center md:gap-4"
                 >
                   <div className="flex items-center gap-3">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cobalt-500/10 text-cobalt-500">
@@ -194,10 +192,6 @@ export default function PainelGrupos() {
                         style={{ transform: `scaleX(${Math.max(cap / 100, 0.02)})`, background: cap >= 80 ? "#D99B2A" : "var(--color-cobalt-500)" }}
                       />
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Activity className="h-3.5 w-3.5 shrink-0" style={{ color: h.color }} />
-                    <span className="font-data text-[11px] uppercase tracking-[0.08em]" style={{ color: h.color }}>{h.label}</span>
                   </div>
                   <div>
                     <span className={cn("font-data inline-block rounded-full px-2.5 py-1 text-[10px] uppercase tracking-[0.06em]", STATUS[status].pill)}>
