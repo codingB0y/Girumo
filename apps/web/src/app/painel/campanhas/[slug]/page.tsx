@@ -26,9 +26,10 @@ import {
 } from "@/lib/campaign-groups-overview";
 import type { Group } from "@/lib/mock-data";
 import { MessagesTab } from "@/components/painel/messages";
+import { clicksForCampaign } from "@/lib/links/click-attribution";
 
 type Campanha = { id: string; name: string; loja?: string; groupIds: string[]; slug?: string; createdAt: string };
-type TrackedLink = { campaignName?: string; clicks: number };
+type TrackedLink = { campaignGroupId?: string | null; campaignName?: string; clicks: number };
 type Order = { id: string; value: number; campaign_id?: string | null };
 
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -70,7 +71,8 @@ export default function CampanhaDetalhe() {
       const camp = list.find((x) => x.slug === key || x.id === key);
       if (camp) {
         const ls: TrackedLink[] = Array.isArray(l) ? l : [];
-        setClicks(ls.filter((x) => x.campaignName === camp.name).reduce((a, x) => a + (x.clicks ?? 0), 0));
+        // Por ID: comparar o nome fazia o histórico sumir quando a campanha era renomeada.
+        setClicks(clicksForCampaign(ls, camp));
       }
     } finally {
       setLoading(false);

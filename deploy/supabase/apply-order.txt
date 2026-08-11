@@ -61,3 +61,7 @@ apps/web/supabase/migrations/20260810120000_campaign_master_links.sql
 # e a agenda exibe o nome do arquivo — coluna opcional para não regredir a tela.
 # Aplicada em dev e prod em 10/08/2026.
 apps/web/supabase/migrations/20260810130000_broadcasts_media_name.sql
+# F1/PR-3: atribuição de cliques passa a ser por ID. Backfill best-effort dos links
+# antigos, casando metadata->>'campaignName' com campaign_groups.name dentro do mesmo
+# tenant e SÓ quando o nome é único. Aplicada em dev e prod em 10/08/2026.
+apps/web/supabase/migrations/20260810140000_backfill_tracked_link_campaign.sql
