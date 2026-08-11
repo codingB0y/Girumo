@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -16,8 +16,11 @@ import {
 import type { Group } from "@/lib/mock-data";
 import { PlaybookCard } from "@/components/painel/playbook-card";
 import { CelebrationModal } from "@/components/painel/celebration-modal";
+import { EmptyState } from "@/components/painel/empty-state";
 import { ordersInMonth, revenueInMonth } from "@/lib/painel-metrics";
 import { dailySeries } from "@/lib/sparkline";
+import type { Activation } from "@/lib/onboarding-steps";
+import { ActivationChecklist } from "./activation-checklist";
 import { brl, getDateStr, getMonthStr } from "./format";
 import { MonthlyProgress } from "./monthly-progress";
 import { QuickAction } from "./quick-action";
@@ -38,7 +41,10 @@ export function FullDashboard({
   settings,
   isConnected,
   partial,
+  activation,
   onSettingsSaved,
+  onDismissOnboarding,
+  onOnboardingComplete,
 }: {
   groups: Group[];
   campanhas: Campanha[];
@@ -49,7 +55,10 @@ export function FullDashboard({
   isConnected: boolean;
   /** Algum endpoint de números falhou — os totais podem estar incompletos. */
   partial: boolean;
+  activation: Activation;
   onSettingsSaved: (next: TenantSettings) => void;
+  onDismissOnboarding: () => void;
+  onOnboardingComplete: () => void;
 }) {
   const totalMembers = useMemo(() => groups.reduce((a, g) => a + (g.members ?? 0), 0), [groups]);
   const totalClicks = useMemo(() => links.reduce((a, l) => a + (l.clicks ?? 0), 0), [links]);
@@ -109,6 +118,18 @@ export function FullDashboard({
   );
 
   const deltaLeads = leadsToday - leadsYesterday;
+
+  // O roteiro fica até o lojista fechar. Completar não some com ele sozinho:
+  // sumir no instante em que o quinto passo acende esconderia justamente a
+  // única tela que diz que deu certo.
+  const showChecklist = settings.onboardingDismissedAt == null;
+
+  // Marco de ativação, gravado uma vez só (o servidor ignora reenvio).
+  useEffect(() => {
+    if (activation.complete && settings.onboardingCompletedAt == null) {
+      onOnboardingComplete();
+    }
+  }, [activation.complete, settings.onboardingCompletedAt, onOnboardingComplete]);
 
   // KPIs claros (romaneio) — números sempre em mono tabular.
   // Faturamento vem primeiro: é o número que o lojista quer ver. Conversão
@@ -187,6 +208,10 @@ export function FullDashboard({
             Reconectar
           </span>
         </Link>
+      )}
+
+      {showChecklist && (
+        <ActivationChecklist activation={activation} onDismiss={onDismissOnboarding} />
       )}
 
       <PlaybookCard />
@@ -303,11 +328,17 @@ export function FullDashboard({
               Ver todas →
             </Link>
           </div>
-          <div className="pn-card rounded-2xl p-2">
-            {campanhas.length === 0 ? (
-              <p className="px-3 py-6 text-sm text-aco/60">Nenhuma campanha ainda.</p>
-            ) : (
-              campanhas.slice(0, 4).map((c) => {
+          {campanhas.length === 0 ? (
+            <EmptyState
+              icon={Layers}
+              title="Nenhuma campanha ainda"
+              description="A campanha gera um link. Quem clica entra direto no seu grupo."
+              ctaLabel="Criar primeira campanha"
+              ctaHref="/painel/campanhas/nova"
+            />
+          ) : (
+            <div className="pn-card rounded-2xl p-2">
+              {campanhas.slice(0, 4).map((c) => {
                 const campClicks = links
                   .filter((l) => l.campaignName === c.name)
                   .reduce((a, l) => a + (l.clicks ?? 0), 0);
@@ -333,9 +364,9 @@ export function FullDashboard({
                     </span>
                   </Link>
                 );
-              })
-            )}
-          </div>
+              })}
+            </div>
+          )}
         </div>
       </section>
 

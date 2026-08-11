@@ -40,6 +40,10 @@ export type DashboardDataHandle = {
   reload: () => void;
   /** Grava a meta recém-salva sem refazer as sete buscas. */
   applySettings: (next: TenantSettings) => void;
+  /** O lojista fechou o roteiro de ativação. */
+  dismissOnboarding: () => void;
+  /** Carimba o marco da ativação completa. Idempotente no servidor. */
+  markOnboardingComplete: () => void;
 };
 
 export function useDashboardData(): DashboardDataHandle {
@@ -79,6 +83,8 @@ export function useDashboardData(): DashboardDataHandle {
         settings: {
           monthlyGoalContacts: (settings.ok ? settings.data?.monthlyGoalContacts : null) ?? null,
           monthlyGoalRevenue: (settings.ok ? settings.data?.monthlyGoalRevenue : null) ?? null,
+          onboardingDismissedAt: (settings.ok ? settings.data?.onboardingDismissedAt : null) ?? null,
+          onboardingCompletedAt: (settings.ok ? settings.data?.onboardingCompletedAt : null) ?? null,
         },
       },
     });
@@ -92,5 +98,34 @@ export function useDashboardData(): DashboardDataHandle {
     setState((s) => (s.status === "ready" ? { ...s, data: { ...s.data, settings: next } } : s));
   }, []);
 
-  return { state, reload: () => void load(), applySettings };
+  /**
+   * Otimista: o card some na hora e o servidor confirma depois. Se o PATCH
+   * falhar, o estado local segue e o card volta no próximo load — barulhento o
+   * bastante pra notar, barato o bastante pra não valer um rollback na UI.
+   */
+  const patchOnboarding = useCallback(
+    (body: Record<string, boolean>, patch: Partial<TenantSettings>) => {
+      setState((s) =>
+        s.status === "ready"
+          ? { ...s, data: { ...s.data, settings: { ...s.data.settings, ...patch } } }
+          : s,
+      );
+      void fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }).catch(() => {});
+    },
+    [],
+  );
+
+  const dismissOnboarding = useCallback(() => {
+    patchOnboarding({ onboardingDismissed: true }, { onboardingDismissedAt: new Date().toISOString() });
+  }, [patchOnboarding]);
+
+  const markOnboardingComplete = useCallback(() => {
+    patchOnboarding({ onboardingCompleted: true }, { onboardingCompletedAt: new Date().toISOString() });
+  }, [patchOnboarding]);
+
+  return { state, reload: () => void load(), applySettings, dismissOnboarding, markOnboardingComplete };
 }

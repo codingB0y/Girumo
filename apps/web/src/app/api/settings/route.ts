@@ -1,5 +1,9 @@
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
-import { getTenantSettings, updateTenantSettings } from "@/lib/stores/tenant-settings";
+import {
+  getTenantSettings,
+  updateTenantSettings,
+  type TenantSettingsInput,
+} from "@/lib/stores/tenant-settings";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 
 export const runtime = "nodejs";
@@ -21,7 +25,13 @@ export async function GET(req: Request) {
   }
 }
 
-// PATCH /api/settings — Body: { weeklyReportEnabled?: boolean, monthlyGoalContacts?: number|null, monthlyGoalRevenue?: number|null }
+// PATCH /api/settings
+// Body: { weeklyReportEnabled?: boolean, monthlyGoalContacts?: number|null,
+//         monthlyGoalRevenue?: number|null, onboardingDismissed?: boolean,
+//         onboardingCompleted?: boolean }
+//
+// Os dois campos de onboarding são SINAIS, não datas: quem carimba o horário é o
+// servidor. O cliente não escolhe quando algo aconteceu.
 export async function PATCH(req: Request) {
   let tenantId: string;
   try {
@@ -38,7 +48,7 @@ export async function PATCH(req: Request) {
     return Response.json({ error: "JSON inválido." }, { status: 400 });
   }
 
-  const input: { weeklyReportEnabled?: boolean; monthlyGoalContacts?: number | null; monthlyGoalRevenue?: number | null } = {};
+  const input: TenantSettingsInput = {};
   if (typeof body.weeklyReportEnabled === "boolean") input.weeklyReportEnabled = body.weeklyReportEnabled;
   if ("monthlyGoalContacts" in body) {
     const v = body.monthlyGoalContacts;
@@ -47,6 +57,17 @@ export async function PATCH(req: Request) {
   if ("monthlyGoalRevenue" in body) {
     const v = body.monthlyGoalRevenue;
     input.monthlyGoalRevenue = v === null ? null : Number(v);
+  }
+
+  const now = new Date().toISOString();
+  if (typeof body.onboardingDismissed === "boolean") {
+    input.onboardingDismissedAt = body.onboardingDismissed ? now : null;
+  }
+  if (body.onboardingCompleted === true) {
+    // Marco: vale a PRIMEIRA vez. Reenviar não empurra a data pra frente, senão
+    // o tempo signup → ativação viraria "quando o lojista abriu a tela de novo".
+    const current = await getTenantSettings(tenantId).catch(() => null);
+    if (!current?.onboardingCompletedAt) input.onboardingCompletedAt = now;
   }
 
   try {

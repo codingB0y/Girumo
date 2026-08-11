@@ -33,6 +33,10 @@ export type Session = {
 export type TenantSettings = {
   monthlyGoalContacts: number | null;
   monthlyGoalRevenue: number | null;
+  /** O lojista fechou o roteiro de ativação. */
+  onboardingDismissedAt: string | null;
+  /** Quando os 5 passos ficaram completos pela primeira vez. */
+  onboardingCompletedAt: string | null;
 };
 
 export type DashboardData = {
