@@ -141,6 +141,9 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   const ctx = await getTenantContext(req);
   assertPermission(ctx.role, "campaign:edit");
+  // Declarado ANTES do branch legado: lá embaixo ele é lido, e com o `const`
+  // depois do `if` a leitura caía na zona morta (ReferenceError, não `undefined`).
+  const tenantId = ctx.tenantId;
   let b: Record<string, unknown>;
   try {
     b = await req.json();
@@ -176,8 +179,6 @@ export async function PATCH(req: Request) {
     return Response.json(updated);
   }
 
-  const tenantId = ctx.tenantId;
-
   const patch: Partial<Pick<supaStore.CampaignGroup, "name" | "slug" | "group_ids" | "auto_grow" | "grow_template" | "metadata">> = {};
   if (typeof b.name === "string") patch.name = b.name.trim();
   if (Array.isArray(b.groupIds)) patch.group_ids = b.groupIds.map(String);
@@ -204,6 +205,8 @@ export async function PATCH(req: Request) {
 export async function DELETE(req: Request) {
   const ctx = await getTenantContext(req);
   assertPermission(ctx.role, "campaign:delete");
+  // Ver comentário no PATCH: `const` depois do branch legado dava TDZ.
+  const tenantId = ctx.tenantId;
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return Response.json({ error: "id obrigatório." }, { status: 400 });
 
@@ -214,7 +217,6 @@ export async function DELETE(req: Request) {
     return Response.json({ ok: true });
   }
 
-  const tenantId = ctx.tenantId;
   await supaStore.deleteCampaignGroup(tenantId, id);
   return Response.json({ ok: true });
 }

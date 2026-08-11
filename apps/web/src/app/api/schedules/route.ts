@@ -1,3 +1,4 @@
+import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import { USE_SUPABASE } from "@/lib/stores/use-supabase";
 import * as supaStore from "@/lib/stores/schedules";
 import { collection } from "@/lib/json-collection";
@@ -77,6 +78,15 @@ export async function POST(req: Request) {
     name: String(b.campaignName),
     scheduled_at: String(b.scheduledAt),
     recurrence: (["none", "daily", "weekly"].includes(String(b.recurrence ?? "")) ? String(b.recurrence) : "none") as supaStore.ScheduleRecurrence,
+  });
+
+  // Marco: agendar é o passo em que o lojista para de disparar na mão.
+  void trackFunnelEvent({
+    tenantId,
+    userId: null,
+    event: "first_schedule",
+    onlyFirst: true,
+    metadata: { scheduleId: rec.id, recurrence: rec.recurrence },
   });
 
   return Response.json({
