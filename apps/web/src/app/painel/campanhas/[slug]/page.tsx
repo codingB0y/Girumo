@@ -287,7 +287,9 @@ export default function CampanhaDetalhe() {
               </p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <Mini label="Vaga restante" value={`${Math.max(o.totalCapacity - o.totalMembers, 0).toLocaleString("pt-BR")} membros`} />
-                <Mini label="Conversão clique→membro" value={o.clicks > 0 ? `${Math.round((o.totalMembers / o.clicks) * 100)}%` : "—"} />
+                {/* "Conversão clique→membro" saiu daqui: era totalMembers/clicks, que
+                    conta quem já estava no grupo antes do link existir e passava de 100%.
+                    Volta quando houver entrada atribuída ao link (F2/PR-8). */}
               </div>
             </div>
           </div>
@@ -298,7 +300,7 @@ export default function CampanhaDetalhe() {
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <Tile label="Cliques" value={o.clicks.toLocaleString("pt-BR")} />
               <Tile label="Membros" value={o.totalMembers.toLocaleString("pt-BR")} />
-              <Tile label="Conversão" value={o.clicks > 0 ? `${Math.round((o.totalMembers / o.clicks) * 100)}%` : "—"} tone="cobalt" />
+              {/* Tile "Conversão" removido — ver comentário na Visão geral. */}
               <Tile label="Grupos cheios" value={String(o.fullCount)} tone="atencao" />
             </div>
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -306,26 +308,30 @@ export default function CampanhaDetalhe() {
               <Tile label="Pedidos" value={campaignOrders.length.toLocaleString("pt-BR")} />
             </div>
             <div className="pn-card rounded-2xl p-6">
-              <h2 className="font-display text-base font-bold text-volt-950">Do clique ao grupo</h2>
+              {/* Era um funil "Do clique ao grupo" com barra proporcional. A 2ª barra
+                  usava totalMembers/clicks — que conta membros que já estavam no grupo
+                  antes do link existir, e por isso passava de 100%. Sem entrada atribuída
+                  ao link, funil aqui é encenação: ficam os dois números reais, sem
+                  insinuar que um virou o outro. */}
+              <h2 className="font-display text-base font-bold text-volt-950">Cliques e membros</h2>
               <div className="mt-5 space-y-3">
                 {[
-                  { icon: MousePointerClick, label: "Clicaram no link", value: o.clicks, pct: 100 },
-                  { icon: Users, label: "Entraram no grupo", value: o.totalMembers, pct: o.clicks > 0 ? Math.round((o.totalMembers / o.clicks) * 100) : 0 },
+                  { icon: MousePointerClick, label: "Clicaram no link", value: o.clicks },
+                  { icon: Users, label: "Membros nos grupos", value: o.totalMembers },
                 ].map((s) => {
                   const Icon = s.icon;
                   return (
-                    <div key={s.label}>
-                      <div className="mb-1.5 flex items-center justify-between">
-                        <span className="flex items-center gap-2 text-sm text-aco"><Icon className="h-4 w-4 text-cobalt-500" strokeWidth={1.75} />{s.label}</span>
-                        <span className="font-data text-base font-medium tabular-nums text-volt-950">{s.value.toLocaleString("pt-BR")}</span>
-                      </div>
-                      <div className="pn-poco h-2.5 w-full overflow-hidden rounded-full">
-                        <div className="pn-fill h-full w-full rounded-full" style={{ transform: `scaleX(${Math.max(s.pct / 100, 0.04)})`, background: "var(--color-cobalt-500)" }} />
-                      </div>
+                    <div key={s.label} className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 text-sm text-aco"><Icon className="h-4 w-4 text-cobalt-500" strokeWidth={1.75} />{s.label}</span>
+                      <span className="font-data text-base font-medium tabular-nums text-volt-950">{s.value.toLocaleString("pt-BR")}</span>
                     </div>
                   );
                 })}
               </div>
+              <p className="mt-4 text-[13px] leading-relaxed text-aco/60">
+                Quantos desses membros vieram do link ainda não é medido — o total inclui
+                quem já estava no grupo antes.
+              </p>
               <Link href="/painel/resultados" className="font-data mt-5 inline-flex items-center gap-1 text-[11px] uppercase tracking-[0.08em] text-cobalt-500 transition-[gap] duration-[160ms] hover:gap-1.5">
                 Ver resultados completos →
               </Link>
