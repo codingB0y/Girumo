@@ -49,6 +49,31 @@ export async function incrementTrackedLinkClicks(id: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+/**
+ * Registra o clique com data, em `link_click_events`.
+ *
+ * Complementa `incrementTrackedLinkClicks`, que segue sendo a fonte do total: o
+ * contador responde "quantos ao todo", esta linha responde "quando". Sem ela não
+ * dá pra dizer quantos cliques foram ontem, e derivar isso do acumulado seria
+ * inventar dado.
+ *
+ * `campaign_group_id` é copiado do link no momento do clique de propósito — se a
+ * campanha do link mudar depois, o clique continua pertencendo à que estava
+ * valendo na hora.
+ */
+export async function recordTrackedLinkClick(link: {
+  id: string;
+  tenant_id: string;
+  campaign_group_id: string | null;
+}): Promise<void> {
+  const { error } = await getSupabaseAdmin().from("link_click_events").insert({
+    tenant_id: link.tenant_id,
+    tracked_link_id: link.id,
+    campaign_group_id: link.campaign_group_id,
+  });
+  if (error) throw new Error(error.message);
+}
+
 export async function createTrackedLink(
   tenantId: string,
   input: {
