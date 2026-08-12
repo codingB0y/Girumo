@@ -117,10 +117,13 @@ insere o evento. Não há como mover um card e esquecer de registrar. Quando o u
 cru (sem passar pelo RPC), `note` fica nulo — e um evento sem motivo é, ele próprio, o
 sinal de que alguém mexeu sem explicar.
 
-### `app.move_card(...)`
+### `public.move_card(...)`
 
-RPC `security definer` com `set search_path` (padrão do projeto, como
-`app.enqueue_broadcast`), assinatura `(p_key, p_status, p_note, p_ref, p_actor)`. Faz o
+RPC `security definer` com `set search_path`, assinatura
+`(p_key, p_status, p_note, p_ref, p_actor)`. Fica em **`public`**, não em `app`: verificado
+em 12/08 que os RPCs do projeto existem nos dois schemas e o web sempre chama a versão de
+`public` (`getSupabaseAdmin().rpc("enqueue_broadcast", …)`, sem `.schema("app")`). Definir
+só em `app` quebraria a chamada da rota de API. Faz o
 update e carrega `note`/`ref`/`actor` para o trigger via GUC de transação. Uma chamada por
 movimento — é o que torna verdadeiro o "eu movo o card com uma chamada".
 
@@ -146,7 +149,7 @@ mentir — com mais confiança, que é pior. Não move o card de coluna: só mar
 
 ## Como o card se move
 
-- **O agente:** `app.move_card(...)` via SQL do MCP, apontando para prod.
+- **O agente:** `public.move_card(...)` via SQL do MCP, apontando para prod.
 - **O Igor:** seletor de coluna no card → `PATCH /api/admin/quadro`, que chama o mesmo RPC com
   `actor = 'igor'`. Também cria card, edita nota, blocker e prioridade.
 - **Regra no `CLAUDE.md`:** ao terminar feature ou PR, atualizar o card correspondente.
