@@ -4,11 +4,21 @@ import { classifyRequest, decideEngineAccess } from "./request-access-policy";
 
 test("auth POST is public with rate limiting", () => {
   assert.equal(classifyRequest("/api/auth/login", "POST"), "auth-rate-limited");
+  assert.equal(classifyRequest("/api/auth/signup", "POST"), "auth-rate-limited");
+  assert.equal(classifyRequest("/api/auth/logout", "POST"), "auth-rate-limited");
 });
 
-test("auth callbacks remain public", () => {
-  assert.equal(classifyRequest("/api/auth/callback", "GET"), "public");
-  assert.equal(classifyRequest("/api/auth/google", "GET"), "public");
+test("closing the social login is rate limited, not session gated", () => {
+  assert.equal(classifyRequest("/api/auth/oauth-complete", "POST"), "auth-rate-limited");
+});
+
+test("non-POST auth routes stay behind the session gate", () => {
+  assert.equal(classifyRequest("/api/auth/me", "GET"), "user");
+  assert.equal(classifyRequest("/api/auth/account", "GET"), "user");
+  assert.equal(classifyRequest("/api/auth/account", "PATCH"), "user");
+  // Regressão: o prefixo devolvia "public" para qualquer método != POST, o que
+  // deixava a exclusão de conta fora do gate de sessão.
+  assert.equal(classifyRequest("/api/auth/account", "DELETE"), "user");
 });
 
 test("dispatch pending is engine-only", () => {

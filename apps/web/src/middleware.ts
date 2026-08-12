@@ -10,6 +10,9 @@ const RATE_LIMITS: Record<string, number> = {
   "/api/auth/login": 5,
   "/api/auth/signup": 3,
   "/api/auth/account": 10,
+  // Fecha o login social: autentica pelo Bearer no handler, então precisa de
+  // teto próprio para não virar oráculo de validação de token.
+  "/api/auth/oauth-complete": 10,
   // Webhooks de provedor: teto alto porque uma instância ativa emite rajadas
   // legítimas (QR renova a cada ~20s, grupos grandes disparam em lote). O gate
   // de verdade é o secret no handler; isto só barra flood ingênuo.
@@ -168,7 +171,7 @@ export const config = {
   // as que terminam em 404. surfaceForPath as tira do fluxo de auth logo na
   // primeira linha do middleware, antes de qualquer verificação de sessão.
   matcher: [
-    "/((?!login|signup|forgot-password|reset-password|api/p/|lp|_next/static|_next/image|favicon.ico|.*\\.).*)",
+    "/((?!login|signup|forgot-password|reset-password|auth/callback|api/p/|lp|_next/static|_next/image|favicon.ico|.*\\.).*)",
     "/p/:path*",
     "/r/:path*",
   ],

@@ -4,7 +4,8 @@ import Link from "next/link";
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AuthShell } from "@/components/auth-shell";
-import { persistSupabaseSession } from "@/lib/supabase/client";
+import { safeNextPath } from "@/lib/auth/oauth-account";
+import { persistSupabaseSession, startGoogleOAuth } from "@/lib/supabase/client";
 
 const routeLabels: Record<string, string> = {
   "/painel": "Painel",
@@ -15,20 +16,36 @@ const routeLabels: Record<string, string> = {
   "/painel/configuracoes": "Configurações",
 };
 
-function getSafeNext(value: string | null) {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/painel";
-  return value;
-}
+/** Erros que chegam por redirect (fluxo OAuth). Sem isto o usuário voltava sem mensagem. */
+const redirectErrors: Record<string, string> = {
+  oauth_denied: "Você cancelou o login com o Google.",
+  oauth_failed: "Não foi possível entrar com o Google. Tente de novo.",
+};
 
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const next = getSafeNext(params.get("next"));
+  const next = safeNextPath(params.get("next"));
   const destination = routeLabels[next] ?? "a área solicitada";
+  const redirectError = params.get("error");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(
+    redirectError ? redirectErrors[redirectError] ?? "Não foi possível entrar. Tente de novo." : "",
+  );
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  async function signInWithGoogle() {
+    setGoogleLoading(true);
+    setError("");
+    try {
+      await startGoogleOAuth(next);
+    } catch {
+      setError("Não foi possível abrir o login do Google. Tente de novo.");
+      setGoogleLoading(false);
+    }
+  }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -88,7 +105,14 @@ function LoginForm() {
         />
       </div>
 
-      {error && <p className="rounded-[var(--radius-control)] border border-danger-700/40 bg-danger-700/15 px-3 py-2 text-sm text-canvas-100">{error}</p>}
+      {error && (
+        <p
+          role="alert"
+          className="rounded-[var(--radius-control)] border border-danger-700/40 bg-danger-700/15 px-3 py-2 text-sm text-canvas-100"
+        >
+          {error}
+        </p>
+      )}
 
       <button
         type="submit"
@@ -107,13 +131,15 @@ function LoginForm() {
         </div>
       </div>
 
-      <a
-        href={`/api/auth/google?next=${encodeURIComponent(next)}`}
-        className="flex h-11 w-full items-center justify-center gap-2.5 rounded-[var(--radius-control)] border border-volt-800 bg-volt-950 text-sm font-medium text-canvas-100 transition-colors duration-[var(--duration-micro)] hover:border-cobalt-500 hover:bg-volt-800"
+      <button
+        type="button"
+        onClick={signInWithGoogle}
+        disabled={googleLoading}
+        className="flex h-11 w-full items-center justify-center gap-2.5 rounded-[var(--radius-control)] border border-volt-800 bg-volt-950 text-sm font-medium text-canvas-100 transition-colors duration-[var(--duration-micro)] hover:border-cobalt-500 hover:bg-volt-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500 disabled:pointer-events-none disabled:opacity-50"
       >
         <GoogleIcon />
-        Entrar com Google
-      </a>
+        {googleLoading ? "Abrindo o Google..." : "Entrar com Google"}
+      </button>
 
       <p className="text-center text-xs leading-5 text-canvas-100/50">
         Ao entrar, você volta para {destination}.
@@ -143,7 +169,7 @@ function GoogleIcon() {
 
 function LoginPageContent() {
   const params = useSearchParams();
-  const next = getSafeNext(params.get("next"));
+  const next = safeNextPath(params.get("next"));
   const destination = routeLabels[next] ?? "a área solicitada";
 
   return (
