@@ -188,9 +188,11 @@ export async function GET(req: Request) {
     // marcar seria apostar a fila do lojista no palpite.
     let filledForTenant = 0;
     let unrecognizedStreak = 0;
+    let attemptedCount = 0;
 
     // Em série, sempre. Paralelizar aqui é o oposto de respeitar o limite.
     for (const group of candidates) {
+      attemptedCount++;
       try {
         const inviteUrl = await fetchInviteCode(remoteName, group.whatsapp_group_id);
 
@@ -248,6 +250,9 @@ export async function GET(req: Request) {
           console.error(
             `[cron] group-invites: ${unrecognizedStreak} falhas seguidas sem convite algum no tenant ${tenantId} — tratando como problema da instância, não dos grupos. Último motivo: ${failure.reason}`,
           );
+          // Grupos não tentados entram na fila novamente — o breaker protege só
+          // contra abusos de sistema inteiro, não contra filas incompletas.
+          results.remaining += candidates.length - attemptedCount;
           break;
         }
       }
