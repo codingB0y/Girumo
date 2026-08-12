@@ -80,3 +80,7 @@ apps/web/.ds-entry.tsx
 .obsidian/
 *.base
 .claude/settings.local.json
+
+# Pasta literalmente chamada "~", criada quando uma expansão de path falha
+# (ex.: "~/tools/..." usado sem expandir). Chegou a virar gitlink commitado.
+~/
