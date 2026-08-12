@@ -28,10 +28,16 @@ test("copia para backup e tenant preservando o original", async () => {
 });
 
 test("planeja backup e destino sem remover originais", () => {
-  const plan = planLegacyMigration("11111111-1111-4111-8111-111111111111", "C:/tmp/data");
+  const tenantId = "11111111-1111-4111-8111-111111111111";
+  // `planLegacyMigration` faz `path.resolve(dataDir)`, e "C:/tmp/data" só é
+  // absoluto no Windows — no Linux é um caminho relativo (uma pasta chamada
+  // "C:"), então o resolve prefixa o cwd e a igualdade cravada nunca bate.
+  // Derivar o esperado da mesma base mantém o teste honesto nos dois sistemas.
+  const base = path.resolve(os.tmpdir(), "hubflow-plan");
+  const plan = planLegacyMigration(tenantId, base);
   assert.equal(
     plan.destination.replaceAll("\\", "/"),
-    "C:/tmp/data/tenants/11111111-1111-4111-8111-111111111111",
+    path.join(base, "tenants", tenantId).replaceAll("\\", "/"),
   );
   assert.deepEqual(plan.files, ["leads.ndjson", "optout.json", "welcome.json"]);
   assert.equal(plan.deleteOriginals, false);
