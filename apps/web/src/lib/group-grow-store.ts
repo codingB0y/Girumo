@@ -105,7 +105,7 @@ export async function evaluateAutoGrow(tenantId: string): Promise<void> {
       .map((id) => byId.get(id))
       .filter((g): g is NonNullable<typeof g> => !!g)
       .map((g) => ({ members: g.members, capacity: g.capacity, inviteUrl: g.inviteUrl }));
-    if (!shouldEnqueueGrow(pool)) continue;
+    if (!shouldEnqueueGrow(pool, c.groupIds.length)) continue;
     await enqueueGrow(tenantId, c, template);
   }
 }
@@ -125,7 +125,7 @@ async function evaluateAutoGrowSupabase(tenantId: string): Promise<void> {
       .map((id) => byId.get(id))
       .filter((g): g is NonNullable<typeof g> => !!g)
       .map((g) => ({ members: g.members, capacity: g.capacity, inviteUrl: g.invite_url }));
-    if (!shouldEnqueueGrow(pool)) continue;
+    if (!shouldEnqueueGrow(pool, c.group_ids.length)) continue;
 
     const seq = await supaJobs.nextSeq(tenantId, c.id, c.group_ids.length);
     await supaJobs.enqueueGrowJob(tenantId, {

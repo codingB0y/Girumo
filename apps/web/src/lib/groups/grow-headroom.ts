@@ -24,9 +24,15 @@ export type PoolGroup = {
  * Pool sem convite nenhum não é pool cheio — é campanha que nunca foi ligada ao `/r/`.
  * O conserto é preencher o convite (a UI do PR-1), não criar mais um grupo em cima.
  */
-export function shouldEnqueueGrow(pool: PoolGroup[]): boolean {
-  // Campanha ainda sem grupo: criar o primeiro é o caminho feliz do auto-grow.
-  if (pool.length === 0) return true;
+export function shouldEnqueueGrow(pool: PoolGroup[], declaredCount = pool.length): boolean {
+  // Campanha que ainda não escolheu grupo nenhum: criar o primeiro é o caminho feliz.
+  if (declaredCount === 0) return true;
+
+  // Declarou grupo, mas nenhum id resolveu no pool: são ids órfãos (grupo apagado,
+  // ou `group_ids` gravado com o uuid da linha em vez do JID — dado assim existe em
+  // dev). Isso é dado quebrado, não lotação: criar grupo aqui esconderia o problema
+  // e o /r/<campanha> continuaria sem rotear pra lugar nenhum.
+  if (pool.length === 0) return false;
 
   // Só grupo com convite participa do roteamento — os outros são invisíveis pro
   // /r/<campanha> e portanto não contam nem como folga nem como lotação.
