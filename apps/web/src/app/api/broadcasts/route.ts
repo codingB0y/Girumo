@@ -3,8 +3,7 @@ import * as supaStore from "@/lib/stores/broadcasts";
 import { collection } from "@/lib/json-collection";
 import { crudRoute } from "@/lib/crud-route";
 import type { Campaign, CampaignStatus } from "@/lib/mock-data";
-import { getSessionAccountId } from "@/lib/session";
-import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { resolveSessionTenantId } from "@/lib/session-tenant";
 import { assertPlanLimit } from "@/lib/billing/entitlements";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 
@@ -42,23 +41,9 @@ const legacy = crudRoute<Campaign>(coll, (b) => {
   };
 });
 
-async function resolveTenantId(): Promise<string | null> {
-  const authUserId = await getSessionAccountId();
-  if (!authUserId) return null;
-  const { data } = await getSupabaseAdmin()
-    .from("memberships")
-    .select("tenant_id")
-    .eq("user_id", authUserId)
-    .not("accepted_at", "is", null)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  return data?.tenant_id ?? null;
-}
-
-export async function GET() {
+export async function GET(req: Request) {
   if (!USE_SUPABASE) return legacy.GET();
-  const tenantId = await resolveTenantId();
+  const tenantId = await resolveSessionTenantId(req);
   if (!tenantId) return Response.json([]);
   const list = await supaStore.listBroadcasts(tenantId);
   // Map to legacy frontend shape
@@ -86,7 +71,7 @@ export async function GET() {
 export async function POST(req: Request) {
   if (!USE_SUPABASE) return legacy.POST(req);
 
-  const tenantId = await resolveTenantId();
+  const tenantId = await resolveSessionTenantId(req);
   if (!tenantId) return Response.json({ error: "Tenant não encontrado." }, { status: 403 });
 
   // M4: rate-limit por tenant na camada HTTP (defesa em profundidade além do
@@ -143,7 +128,7 @@ export async function POST(req: Request) {
 export async function DELETE(req: Request) {
   if (!USE_SUPABASE) return legacy.DELETE(req);
 
-  const tenantId = await resolveTenantId();
+  const tenantId = await resolveSessionTenantId(req);
   if (!tenantId) return Response.json({ error: "Tenant não encontrado." }, { status: 403 });
 
   const id = new URL(req.url).searchParams.get("id");

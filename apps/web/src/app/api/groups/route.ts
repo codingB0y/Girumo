@@ -57,14 +57,16 @@ export async function POST(req: Request) {
     return Response.json({ count: saved.length }, { status: 201 });
   }
 
+  // Mesma regra do `syncGroupsFromProvider`: grava só o que o WhatsApp é dono.
+  // `selected`, `engagement` e `capacity` são do painel — mandá-los fixos aqui
+  // fazia todo sync da engine devolver a capacidade pra 1024 e apagar a seleção
+  // do lojista. Em linha nova, o default da tabela cobre os três.
   const rows = groups.map((g) => ({
     whatsapp_group_id: g.whatsappGroupId,
     name: g.name,
     members: g.members,
-    capacity: g.capacity ?? 1024,
-    selected: false,
-    engagement: "medio" as const,
-    invite_url: g.inviteUrl,
+    ...(g.capacity !== undefined ? { capacity: g.capacity } : {}),
+    ...(g.inviteUrl ? { invite_url: g.inviteUrl } : {}),
   }));
   const saved = await supaStore.upsertGroupsBatch(tenantId, rows);
   return Response.json({ count: saved.length }, { status: 201 });

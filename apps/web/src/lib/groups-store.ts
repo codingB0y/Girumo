@@ -4,14 +4,13 @@ import type { Group } from "@/lib/mock-data";
 import { writeFileAtomic, withFileLock } from "@/lib/atomic-fs";
 import { LEGACY_DATA_DIR } from "@/lib/legacy-data-dir";
 import { tenantDataPath } from "@/lib/tenant-data-path";
+import {
+  DEFAULT_GROUP_CAPACITY as DEFAULT_CAPACITY,
+  GROUP_FULL_RATIO,
+} from "@/lib/links/resolve-click-target";
 
 // Grupos REAIS sincronizados pela engine (substitui a lista a cada sync).
 const groupsFile = (tenantId: string) => tenantDataPath(LEGACY_DATA_DIR, tenantId, "groups.json");
-
-// Capacidade padrão de grupo do WhatsApp (até a engine reportar o limite real).
-const DEFAULT_CAPACITY = 1024;
-// Grupo é "cheio" ao atingir esta fração da capacidade (deixa folga p/ não estourar).
-const GROUP_FULL_RATIO = 0.95;
 
 export type SyncGroupInput = {
   whatsappGroupId: string;

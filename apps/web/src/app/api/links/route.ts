@@ -1,25 +1,11 @@
 import { USE_SUPABASE } from "@/lib/stores/use-supabase";
 import * as supaStore from "@/lib/stores/tracked-links";
 import { listLinks, createLink, clickCounts, slugify } from "@/lib/store";
-import { getSessionAccountId } from "@/lib/session";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { resolveSessionTenantId } from "@/lib/session-tenant";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-async function resolveTenantId(): Promise<string | null> {
-  const authUserId = await getSessionAccountId();
-  if (!authUserId) return null;
-  const { data } = await getSupabaseAdmin()
-    .from("memberships")
-    .select("tenant_id")
-    .eq("user_id", authUserId)
-    .not("accepted_at", "is", null)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  return data?.tenant_id ?? null;
-}
 
 /**
  * Campanha à qual o link pertence. Aceita o ID explícito (caminho novo) e, na
@@ -54,7 +40,7 @@ async function resolveCampaignGroupId(
 }
 
 // GET /api/links
-export async function GET() {
+export async function GET(req: Request) {
   if (!USE_SUPABASE) {
     const [links, counts] = await Promise.all([listLinks(), clickCounts()]);
     const data = links
@@ -63,7 +49,7 @@ export async function GET() {
     return Response.json(data);
   }
 
-  const tenantId = await resolveTenantId();
+  const tenantId = await resolveSessionTenantId(req);
   if (!tenantId) return Response.json([]);
   const links = await supaStore.listTrackedLinks(tenantId);
   const mapped = links
@@ -121,7 +107,7 @@ export async function POST(req: Request) {
     }
   }
 
-  const tenantId = await resolveTenantId();
+  const tenantId = await resolveSessionTenantId(req);
   if (!tenantId) return Response.json({ error: "Tenant não encontrado." }, { status: 403 });
 
   // Check if slug already exists
