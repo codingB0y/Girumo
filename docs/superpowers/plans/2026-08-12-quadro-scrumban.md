@@ -301,7 +301,11 @@ Esperado: `SMOKE DO QUADRO: 6/6 OK` sem exceção. Qualquer `FALHOU:` reprova a 
 - [ ] **Step 5: Rodar o advisor de segurança**
 
 MCP `get_advisors` com `type: "security"` no projeto de dev.
-Esperado: nenhum aviso **novo** citando `board_features` ou `board_events`.
+
+Esperado: o **único** aviso aceito para `board_features` / `board_events` é o de RLS ligada
+sem policy (`rls_enabled_no_policy` ou equivalente) — esse é o desenho, não um defeito: as
+tabelas são deny-all de propósito. **Qualquer outro** aviso citando as duas tabelas reprova
+a tarefa. Anotar no relatório qual aviso apareceu.
 
 - [ ] **Step 6: Commit**
 
@@ -1397,22 +1401,38 @@ interface QuadroCardProps {
 }
 ```
 
+**Sem `window.prompt`.** Escolher o status **abre um formulário embutido no card** com os
+campos de motivo e prova; nada é enviado até o Confirmar. Diálogo nativo bloqueia a aba, não
+é estilizável, não gerencia foco e não é anunciado por leitor de tela.
+
 Dentro de `QuadroCard`, antes do `return`:
 
 ```tsx
+  const [destino, setDestino] = useState<BoardStatus | null>(null);
+  const [note, setNote] = useState("");
+  const [ref, setRef] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
-  async function mover(status: BoardStatus) {
-    const note = window.prompt("Por que está movendo? (vai pro feed)");
-    if (!note?.trim()) return;
+  const provaObrigatoria = destino === "no_ar_verificado";
 
-    const ref = status === "no_ar_verificado"
-      ? window.prompt("Prova (PR, query, arquivo) — obrigatória para verificado:")
-      : window.prompt("Referência (PR, commit, arquivo) — opcional:");
+  function cancelar() {
+    setDestino(null);
+    setNote("");
+    setRef("");
+    setErro(null);
+  }
 
-    if (status === "no_ar_verificado" && !ref?.trim()) {
-      setErro("Verificado exige prova.");
+  async function confirmar(evento: React.FormEvent) {
+    evento.preventDefault();
+    if (!destino) return;
+
+    if (!note.trim()) {
+      setErro("O motivo é obrigatório: é ele que dá valor ao feed.");
+      return;
+    }
+    if (provaObrigatoria && !ref.trim()) {
+      setErro("Verificado exige prova (PR, query, arquivo).");
       return;
     }
 
@@ -1422,13 +1442,19 @@ Dentro de `QuadroCard`, antes do `return`:
       const resposta = await fetch("/api/admin/quadro", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ key: feature.key, status, note, ref: ref ?? null }),
+        body: JSON.stringify({
+          key: feature.key,
+          status: destino,
+          note,
+          ref: ref.trim() || null,
+        }),
       });
       if (!resposta.ok) {
         const dados = (await resposta.json()) as { error?: string };
         setErro(dados.error ?? "Falhou");
         return;
       }
+      cancelar();
       onMudou();
     } catch {
       setErro("Rede falhou. Tente de novo.");
@@ -1446,9 +1472,13 @@ E no fim do `<article>`, antes de fechar:
       </label>
       <select
         id={`mover-${feature.key}`}
-        value={feature.status}
+        value={destino ?? feature.status}
         disabled={salvando}
-        onChange={(e) => mover(e.target.value as BoardStatus)}
+        onChange={(e) => {
+          const escolhido = e.target.value as BoardStatus;
+          setErro(null);
+          setDestino(escolhido === feature.status ? null : escolhido);
+        }}
         className="mt-2 w-full rounded border border-line-200 bg-canvas-100 px-1.5 py-1 text-[11px] text-aco disabled:opacity-50"
       >
         {BOARD_STATUSES.map((s) => (
@@ -1456,7 +1486,41 @@ E no fim do `<article>`, antes de fechar:
         ))}
       </select>
 
-      {erro ? <p className="mt-1 text-[11px] text-danger-700">{erro}</p> : null}
+      {destino ? (
+        <form onSubmit={confirmar} className="mt-2 space-y-1.5">
+          <input
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Motivo (vai pro feed)"
+            aria-label={`Motivo para mover ${feature.title}`}
+            autoFocus
+            className="w-full rounded border border-line-200 bg-paper-0 px-1.5 py-1 text-[11px] text-volt-950"
+          />
+          <input
+            value={ref}
+            onChange={(e) => setRef(e.target.value)}
+            placeholder={provaObrigatoria ? "Prova — obrigatória" : "Referência (opcional)"}
+            aria-label={`Referência para ${feature.title}`}
+            className="w-full rounded border border-line-200 bg-paper-0 px-1.5 py-1 text-[11px] text-volt-950"
+          />
+          <div className="flex gap-1.5">
+            <button
+              type="submit"
+              disabled={salvando}
+              className="rounded bg-volt-950 px-2 py-1 text-[11px] font-semibold text-paper-0 disabled:opacity-50"
+            >
+              Confirmar
+            </button>
+            <button type="button" onClick={cancelar} className="text-[11px] text-aco/60">
+              Cancelar
+            </button>
+          </div>
+        </form>
+      ) : null}
+
+      {erro ? (
+        <p role="alert" className="mt-1 text-[11px] text-danger-700">{erro}</p>
+      ) : null}
 ```
 
 Acrescentar aos imports do arquivo: `useState` de `react`; `BOARD_STATUSES`, `STATUS_LABELS`, `type BoardStatus` de `@/lib/quadro/status`.
@@ -1596,9 +1660,11 @@ Acrescentar `useCallback` ao import de `react` e `NovoCardForm` aos imports loca
 - [ ] **Step 4: Conferir os três caminhos na tela**
 
 Com o dev server, em `/admin/quadro`:
-1. mover um card e cancelar o prompt de motivo → nada acontece;
-2. mover para "No ar verificado" sem preencher a prova → aparece "Verificado exige prova." e o card não muda;
-3. mover com motivo e prova → o card troca de coluna e o feed ganha a linha na hora, sem esperar os 4s.
+1. escolher outro status e clicar em Cancelar → o formulário some e o card não muda;
+2. confirmar com o motivo em branco → aparece "O motivo é obrigatório" e nada é enviado;
+3. escolher "No ar verificado", preencher só o motivo e confirmar → aparece "Verificado exige prova" e o card não muda;
+4. preencher motivo e prova e confirmar → o card troca de coluna e o feed ganha a linha na hora, sem esperar os 4s;
+5. navegar o card inteiro só com Tab e Enter → o seletor, os dois campos e os dois botões são alcançáveis nessa ordem.
 
 - [ ] **Step 5: Lint**
 
