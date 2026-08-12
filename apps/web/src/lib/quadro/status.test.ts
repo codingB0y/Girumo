@@ -1,0 +1,95 @@
+import assert from "node:assert/strict";
+import {
+  BOARD_STATUSES,
+  STATUS_LABELS,
+  VERIFICATION_STALE_DAYS,
+  WIP_LIMIT_EM_CONSTRUCAO,
+  groupByStatus,
+  isVerificationStale,
+  wipState,
+  type BoardFeature,
+} from "./status";
+
+const DAY = 24 * 60 * 60 * 1000;
+const now = Date.parse("2026-08-12T00:00:00.000Z");
+const daysAgo = (n: number) => new Date(now - n * DAY).toISOString();
+
+function feature(partial: Partial<BoardFeature> = {}): BoardFeature {
+  return {
+    id: "id-1",
+    key: "k",
+    title: "T",
+    area: "Infra",
+    status: "nao_existe",
+    summary: null,
+    blocker: null,
+    evidence: null,
+    evidenceAt: null,
+    priority: "media",
+    sortOrder: 0,
+    createdAt: daysAgo(90),
+    updatedAt: daysAgo(90),
+    ...partial,
+  };
+}
+
+// Não existe coluna "Feito": o vocabulário é o ponto do quadro.
+assert.equal(BOARD_STATUSES.length, 5);
+assert.ok(!BOARD_STATUSES.includes("feito" as never), "sem coluna Feito");
+assert.equal(STATUS_LABELS.no_ar_nao_verificado, "No ar (não verificado)");
+
+// Verificação vence depois de 30 dias.
+{
+  const fresco = feature({ status: "no_ar_verificado", evidence: "PR #1", evidenceAt: daysAgo(29) });
+  const vencido = feature({ status: "no_ar_verificado", evidence: "PR #1", evidenceAt: daysAgo(31) });
+  assert.equal(isVerificationStale(fresco, now), false);
+  assert.equal(isVerificationStale(vencido, now), true);
+  assert.equal(VERIFICATION_STALE_DAYS, 30);
+}
+
+// Exatamente 30 dias ainda não venceu — a borda é ">", não ">=".
+assert.equal(
+  isVerificationStale(feature({ status: "no_ar_verificado", evidenceAt: daysAgo(30) }), now),
+  false,
+);
+
+// Só card verificado vence. Um "no ar não verificado" antigo não ganha selo:
+// ele já está na coluna que diz a verdade.
+assert.equal(
+  isVerificationStale(feature({ status: "no_ar_nao_verificado", evidenceAt: daysAgo(365) }), now),
+  false,
+);
+
+// Verificado sem data não vence (o banco impede o caso; a UI não deve quebrar).
+assert.equal(
+  isVerificationStale(feature({ status: "no_ar_verificado", evidenceAt: null }), now),
+  false,
+);
+
+// WIP: abaixo do teto, no teto, acima do teto.
+assert.equal(WIP_LIMIT_EM_CONSTRUCAO, 3);
+assert.equal(wipState(2, 3), "ok");
+assert.equal(wipState(3, 3), "cheio");
+assert.equal(wipState(4, 3), "estourado");
+assert.equal(wipState(0, 3), "ok");
+
+// Agrupamento devolve as 5 chaves, mesmo vazias — a coluna existe sem card.
+{
+  const grupos = groupByStatus([
+    feature({ id: "a", key: "a", status: "quebrado" }),
+    feature({ id: "b", key: "b", status: "quebrado" }),
+  ]);
+  assert.equal(Object.keys(grupos).length, 5);
+  assert.equal(grupos.quebrado.length, 2);
+  assert.equal(grupos.nao_existe.length, 0);
+}
+
+// Ordenação dentro da coluna: sort_order primeiro, depois título.
+{
+  const grupos = groupByStatus([
+    feature({ id: "2", key: "z", title: "Zebra", status: "em_construcao", sortOrder: 0 }),
+    feature({ id: "1", key: "a", title: "Alfa", status: "em_construcao", sortOrder: 0 }),
+    feature({ id: "0", key: "p", title: "Prioritario", status: "em_construcao", sortOrder: -1 }),
+  ]);
+  assert.deepEqual(grupos.em_construcao.map((f) => f.title), ["Prioritario", "Alfa", "Zebra"]);
+}
