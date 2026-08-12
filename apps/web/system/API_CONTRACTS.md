@@ -280,7 +280,9 @@ retorna o mesmo shape recomputado. Passos definidos em `lib/playbook/steps.ts` (
 
 ### GET /api/cron/group-invites
 
-Cron do Vercel, a cada 10 minutos. `Authorization: Bearer <CRON_SECRET>`.
+Cron do Vercel, uma vez por dia (`0 6 * * *`). `Authorization: Bearer <CRON_SECRET>`.
+Cadência diária porque o plano Hobby da Vercel só libera cron uma vez por dia —
+`*/10 * * * *` é rejeitado no deploy.
 
 Preenche `groups.invite_url` de até 10 grupos por TENANT conectado onde
 `is_admin = true` e o convite está vazio, buscando na Evolution
@@ -290,8 +292,14 @@ Um tenant tem várias linhas em `instances`; a sessão usada é UMA por tenant,
 escolhida por `selectSessionRow`/`isConnectedStatus` (`lib/session-select.ts`) —
 a mesma regra do painel. Tenant cuja linha escolhida não está viva é pulado.
 
-A cadência do cron × o teto de 10 por execução É o rate limiter (10/10min), por
-conta de WhatsApp. Alterar um sem o outro quebra a política anti-ban.
+A cadência do cron × o teto de 10 por execução É o rate limiter: até 10 convites
+por instância por dia, por conta de WhatsApp — mais conservador que o desenho
+original de 10/10min, não menos. Alterar um sem o outro quebra a política anti-ban.
+
+Com muitas tenants o loop serial pode não caber no `maxDuration` de um único
+run; a ordem dos tenants gira por dia (`rotateByDay`, em `invite-backfill.ts`)
+para que ninguém fique preso no fim da fila pra sempre — cada tenant lidera o
+run em algum dia dentro de um ciclo de N dias (N = número de tenants).
 
 Resposta: `{ ok: true, filled, failed, skipped, remaining, timestamp }`
 
@@ -304,8 +312,8 @@ Resposta: `{ ok: true, filled, failed, skipped, remaining, timestamp }`
   - **Nota:** resposta HTTP 200 sem convite utilizável não tem proteção do breaker instance-wide — é
     marcado de imediato como falha permanente, pois 200 é sinal inequívoco de que a instância está
     viva e o grupo é que tem problema irrecuperável (admin perdido, revogação, etc.)
-- `skipped` — o grupo continua na fila e volta na próxima execução. Dois casos: falha passageira
-  (rede/5xx) e falha permanente **não reconhecida** ainda não marcada (ver abaixo)
+- `skipped` — o grupo continua na fila e volta na próxima execução (diária). Dois casos: falha
+  passageira (rede/5xx) e falha permanente **não reconhecida** ainda não marcada (ver abaixo)
 - `remaining` — quantos ainda esperam vez. Inclui grupos não tentados quando o breaker instance-wide
   dispara (3 falhas seguidas sem preenchimento algum), pois eles não foram processados neste run e
   retentarão na próxima execução
