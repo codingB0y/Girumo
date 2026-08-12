@@ -297,9 +297,19 @@ Resposta: `{ ok: true, filled, failed, skipped, remaining, timestamp }`
 
 - `filled` — convites gravados
 - `failed` — dois casos diferentes por trás do mesmo contador: quando a Evolution responde sem
-  convite válido ou devolve erro permanente, grava `groups.metadata.inviteFetch = { failed, reason, at }`
-  e o grupo sai da fila até um resgate manual; nos demais (falha ao listar `groups` do tenant, convite
-  obtido mas não gravado, erro inesperado) só conta como falha — o grupo continua na fila e tenta de
-  novo na próxima execução
-- `skipped` — falha passageira (rede/5xx); volta na próxima execução
+  convite válido ou devolve erro permanente **marcável** (ver abaixo), grava
+  `groups.metadata.inviteFetch = { failed, reason, at }` e o grupo sai da fila até um resgate manual;
+  nos demais (falha ao listar `groups` do tenant, convite obtido mas não gravado, erro inesperado) só
+  conta como falha — o grupo continua na fila e tenta de novo na próxima execução
+- `skipped` — o grupo continua na fila e volta na próxima execução. Dois casos: falha passageira
+  (rede/5xx) e falha permanente **não reconhecida** ainda não marcada (ver abaixo)
 - `remaining` — quantos ainda esperam vez
+
+Erro permanente marcável × não reconhecido: a Evolution 2.3.7 achata toda falha
+de grupo num 404 igual, então um 404 sem padrão conhecido tanto pode ser "este
+grupo perdeu admin" quanto "esta instância sumiu". Só é marcado na hora o erro
+**reconhecido** (403/forbidden/not-authorized, travado, revogado). O 404 genérico
+só vira marca depois que a instância provou que responde — pelo menos um convite
+preenchido no mesmo run. Enquanto não provar, ele conta como `skipped`; e 3
+seguidos sem nenhum convite param o loop daquele tenant (log `console.error`) e o
+run segue para os outros tenants.
