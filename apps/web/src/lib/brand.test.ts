@@ -21,11 +21,11 @@ test("exposes the approved Girumo identity", () => {
   assert.equal(BRAND_COLORS.paper, "#FFFEFA");
 });
 
-test("uses the current host until a new public host is configured", () => {
+test("defaults to the Girumo public host and honours the env override", () => {
   const previous = process.env.NEXT_PUBLIC_SITE_URL;
   try {
     delete process.env.NEXT_PUBLIC_SITE_URL;
-    assert.equal(getPublicSiteUrl(), "https://hubflow.com.br");
+    assert.equal(getPublicSiteUrl(), "https://girumo.com.br");
     process.env.NEXT_PUBLIC_SITE_URL = "https://example.test/";
     assert.equal(getPublicSiteUrl(), "https://example.test");
     assert.equal(

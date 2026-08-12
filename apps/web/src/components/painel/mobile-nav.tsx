@@ -7,10 +7,13 @@ import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/brand/logo";
 import { NAV_ALL, NAV_MOBILE_PRIMARY, isNavItemActive } from "@/lib/painel-nav";
+import { useFocusTrap } from "./use-focus-trap";
 
 export function PainelMobileNav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  // Prende o Tab no drawer e devolve o foco ao botão "Mais" quando ele fecha.
+  const drawerRef = useFocusTrap<HTMLDivElement>(open);
 
   // Esc fecha o drawer — a palette já fazia isso, o menu não.
   useEffect(() => {
@@ -35,7 +38,7 @@ export function PainelMobileNav() {
               aria-current={active ? "page" : undefined}
               className={cn(
                 "relative flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-medium transition-colors duration-[160ms]",
-                active ? "text-cobalt-700" : "text-aco/55",
+                active ? "text-cobalt-700" : "text-aco",
               )}
             >
               {/* indicador de ativo — pílula no topo */}
@@ -53,7 +56,7 @@ export function PainelMobileNav() {
         <button
           onClick={() => setOpen(true)}
           aria-label="Abrir menu"
-          className="flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-medium text-aco/55"
+          className="flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-medium text-aco"
         >
           <Menu className="h-5 w-5" strokeWidth={1.75} />
           Mais
@@ -69,6 +72,7 @@ export function PainelMobileNav() {
             className="absolute inset-0 bg-volt-950/60 backdrop-blur-sm"
           />
           <div
+            ref={drawerRef}
             role="dialog"
             aria-modal="true"
             aria-label="Menu de navegação"

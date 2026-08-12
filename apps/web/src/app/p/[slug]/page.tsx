@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import { unstable_cache } from "next/cache";
 import { getPublishedPageBySlug } from "@/lib/pages/store";
 import type { ReactNode } from "react";
@@ -12,6 +13,13 @@ import { resolveTemplate, resolveStructure } from "@/components/pages/templates"
 import { TrackingScripts } from "@/components/pages/tracking-scripts";
 
 export const runtime = "nodejs";
+/**
+ * Explícito de propósito: a página só é dinâmica hoje porque lê `headers()` pra
+ * pegar o nonce. Se alguém trocar essa leitura por outra coisa, ela voltaria a
+ * ser pré-renderizada em silêncio — e aí o nonce do HTML cacheado nunca mais
+ * bateria com o do header, derrubando todos os scripts da LP.
+ */
+export const dynamic = "force-dynamic";
 
 /** Paleta de segurança se brand_color for inválido (não deve ocorrer em v2 publicado). */
 const FALLBACK_PALETTE: AccessiblePalette = {
@@ -75,6 +83,11 @@ export default async function PublicLandingPage({ params }: PageProps) {
   // resolve e devolve como redirect_url após a captura bem-sucedida.
   if (!resolveTargetUrl(page)) notFound();
 
+  // Nonce da CSP desta request (middleware). O tracking cria os scripts dos
+  // vendors em runtime via createElement — sem o nonce neles o browser bloqueia
+  // e o lojista perde Pixel/GA4 sem nenhum erro visível.
+  const nonce = (await headers()).get("x-nonce");
+
   const content = page.content;
   const noticeText = noticeTextFor(content);
   const renderContext = createRenderContextToken({
@@ -122,6 +135,7 @@ export default async function PublicLandingPage({ params }: PageProps) {
         renderContext={renderContext}
         metaPixelId={page.meta_pixel_id}
         ga4Id={page.ga4_id}
+        nonce={nonce}
       />
     </>
   );

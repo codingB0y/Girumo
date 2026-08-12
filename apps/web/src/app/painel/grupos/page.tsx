@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search, Users, Activity, RefreshCw } from "lucide-react";
+import Link from "next/link";
+import { Search, Users, RefreshCw, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CopyLink } from "@/components/painel/copy-link";
+import { GroupSettings } from "@/components/painel/grupos/group-settings";
 import { getCampaignGroupStatus, type CampaignGroupStatus } from "@/lib/campaign-groups-overview";
 import type { Group } from "@/lib/mock-data";
 
@@ -21,11 +23,10 @@ const STATUS: Record<CampaignGroupStatus, { label: string; pill: string }> = {
   unknown: { label: "—", pill: "bg-poco text-aco/60" },
 };
 
-const HEALTH: Record<string, { label: string; pct: number; color: string }> = {
-  alto: { label: "Alta", pct: 85, color: "#1E8E5A" },
-  medio: { label: "Média", pct: 50, color: "#D99B2A" },
-  baixo: { label: "Baixa", pct: 22, color: "#D84040" },
-};
+// Coluna "Saúde" removida: os 85/50/22 eram literais sobre `engagement`, que o
+// servidor devolve fixo em "medio" para TODO grupo — ou seja, um número que não
+// media nada. A ocupação (membros/capacidade), essa sim real, continua na coluna
+// Membros. Volta quando a engine reportar sinal de engajamento de verdade.
 
 export default function PainelGrupos() {
   const [groups, setGroups] = useState<Group[]>([]);
@@ -35,6 +36,7 @@ export default function PainelGrupos() {
   const [q, setQ] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
 
   const loadGroups = useCallback(async () => {
     const res = await fetch("/api/groups", { cache: "no-store" });
@@ -158,8 +160,8 @@ export default function PainelGrupos() {
         <div className="pn-skeleton h-80 rounded-2xl" />
       ) : (
         <div className="pn-card overflow-hidden rounded-2xl">
-          <div className="hidden border-b border-volt-950/[0.06] bg-poco px-5 py-3 md:grid md:grid-cols-[1.6fr_0.9fr_0.9fr_0.7fr_auto] md:gap-4">
-            {["Grupo", "Membros", "Saúde", "Status", ""].map((h) => (
+          <div className="hidden border-b border-volt-950/[0.06] bg-poco px-5 py-3 md:grid md:grid-cols-[1.8fr_1fr_0.8fr_auto] md:gap-4">
+            {["Grupo", "Membros", "Status", ""].map((h) => (
               <span key={h} className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/50">{h}</span>
             ))}
           </div>
@@ -167,7 +169,6 @@ export default function PainelGrupos() {
           <div className="divide-y divide-dashed divide-volt-950/[0.09]">
             {rows.map(({ g, status }) => {
               const cap = g.capacity > 0 ? Math.round((g.members / g.capacity) * 100) : 0;
-              const h = HEALTH[g.engagement] ?? HEALTH.medio;
               const invite = g.inviteUrl
                 ? origin && !g.inviteUrl.startsWith("http")
                   ? `${origin}${g.inviteUrl}`
@@ -176,13 +177,27 @@ export default function PainelGrupos() {
               return (
                 <div
                   key={g.id}
-                  className="grid grid-cols-1 gap-3 px-5 py-4 transition-colors duration-[160ms] hover:bg-poco md:grid-cols-[1.6fr_0.9fr_0.9fr_0.7fr_auto] md:items-center md:gap-4"
+                  className="grid grid-cols-1 gap-3 px-5 py-4 transition-colors duration-[160ms] hover:bg-poco md:grid-cols-[1.8fr_1fr_0.8fr_auto] md:items-center md:gap-4"
                 >
                   <div className="flex items-center gap-3">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cobalt-500/10 text-cobalt-500">
                       <Users className="h-[18px] w-[18px]" strokeWidth={1.75} />
                     </span>
                     <p className="truncate text-sm font-medium text-volt-950">{g.name}</p>
+                    {/* Sem ser admin não dá pra disparar no grupo — melhor dizer
+                        isso aqui do que deixar a campanha falhar em silêncio. */}
+                    {g.isAdmin === false && (
+                      <span className="font-data shrink-0 rounded-full bg-poco px-2 py-0.5 text-[10px] uppercase tracking-[0.06em] text-aco/60">
+                        não admin
+                      </span>
+                    )}
+                    {g.isAdmin && (
+                      <ShieldCheck
+                        className="h-4 w-4 shrink-0 text-sucesso"
+                        strokeWidth={1.75}
+                        aria-label="Você é admin deste grupo"
+                      />
+                    )}
                   </div>
                   <div>
                     <p className="font-data text-sm tabular-nums text-volt-950">
@@ -195,22 +210,43 @@ export default function PainelGrupos() {
                       />
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Activity className="h-3.5 w-3.5 shrink-0" style={{ color: h.color }} />
-                    <span className="font-data text-[11px] uppercase tracking-[0.08em]" style={{ color: h.color }}>{h.label}</span>
-                  </div>
                   <div>
                     <span className={cn("font-data inline-block rounded-full px-2.5 py-1 text-[10px] uppercase tracking-[0.06em]", STATUS[status].pill)}>
                       {STATUS[status].label}
                     </span>
                   </div>
-                  <div className="md:justify-self-end">
-                    {invite ? (
-                      <CopyLink url={invite} />
-                    ) : (
-                      <span className="font-data text-[11px] text-atencao">sem convite</span>
+                  <div className="flex flex-wrap items-center gap-2 md:justify-self-end">
+                    {invite ? <CopyLink url={invite} /> : null}
+                    {status === "available" && (
+                      <Link
+                        href={`/painel/campanhas/nova?groups=${encodeURIComponent(g.id)}`}
+                        className="rounded-lg px-2 py-1 text-[12px] text-cobalt-700 transition-colors duration-[160ms] hover:bg-cobalt-500/10"
+                      >
+                        Criar campanha
+                      </Link>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => setEditing((cur) => (cur === g.id ? null : g.id))}
+                      aria-expanded={editing === g.id}
+                      className={cn(
+                        "inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-volt-950/10 px-2.5 py-1.5 text-[12px] transition-colors duration-[160ms]",
+                        invite ? "text-aco/70 hover:text-volt-950" : "border-atencao/40 text-atencao hover:bg-atencao/5",
+                      )}
+                    >
+                      <SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={1.75} />
+                      {invite ? "Configurar" : "Adicionar convite"}
+                    </button>
                   </div>
+                  {editing === g.id && (
+                    <GroupSettings
+                      groupId={g.id}
+                      inviteUrl={g.inviteUrl}
+                      capacity={g.capacity}
+                      onSaved={loadGroups}
+                      onClose={() => setEditing(null)}
+                    />
+                  )}
                 </div>
               );
             })}

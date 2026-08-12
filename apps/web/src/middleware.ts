@@ -2,12 +2,17 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { SESSION_COOKIE, ENGINE_TOKEN, verifySession } from "@/lib/auth";
 import { classifyRequest, decideEngineAccess } from "@/lib/security/request-access-policy";
+import { buildCsp, generateNonce, surfaceForPath } from "@/lib/security/csp";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 
 const RATE_LIMIT_WINDOW = 60_000; // 1 minuto
 const RATE_LIMITS: Record<string, number> = {
   "/api/auth/login": 5,
   "/api/auth/signup": 3,
   "/api/auth/account": 10,
+  // Fecha o login social: autentica pelo Bearer no handler, então precisa de
+  // teto próprio para não virar oráculo de validação de token.
+  "/api/auth/oauth-complete": 10,
   // Webhooks de provedor: teto alto porque uma instância ativa emite rajadas
   // legítimas (QR renova a cada ~20s, grupos grandes disparam em lote). O gate
   // de verdade é o secret no handler; isto só barra flood ingênuo.
@@ -16,25 +21,12 @@ const RATE_LIMITS: Record<string, number> = {
   "/api/webhooks/evolution": 300,
 };
 
-const ipAttempts = new Map<string, { count: number; resetAt: number }>();
-
-function isRateLimited(ip: string, path: string): boolean {
+async function isRateLimited(ip: string, path: string): Promise<boolean> {
   const limit = Object.entries(RATE_LIMITS).find(([route]) => path.startsWith(route));
   if (!limit) return false;
-
-  const maxAttempts = limit[1];
-  const key = `${ip}:${limit[0]}`;
-  const now = Date.now();
-  const entry = ipAttempts.get(key);
-
-  if (!entry || now > entry.resetAt) {
-    ipAttempts.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
-    return false;
-  }
-
-  entry.count++;
-  if (entry.count > maxAttempts) return true;
-  return false;
+  const [route, maxAttempts] = limit;
+  // Distribuído (Upstash) quando configurado; senão in-memory por instância.
+  return checkRateLimit(`${ip}:${route}`, maxAttempts, RATE_LIMIT_WINDOW);
 }
 
 async function validateBearerToken(token: string): Promise<boolean> {
@@ -55,8 +47,37 @@ async function validateBearerToken(token: string): Promise<boolean> {
   }
 }
 
+/**
+ * Superfícies públicas com CSP nonce-ada (M5). São rotas SEM sessão: entram no
+ * matcher só pra ganhar o header, e precisam sair ANTES do gate de auth — se
+ * caíssem nele, /p/:slug e /r/:slug redirecionariam pro login.
+ *
+ * O nonce viaja em dois lugares: no header `content-security-policy` da REQUEST,
+ * que é de onde o Next lê pra assinar os próprios scripts inline, e em `x-nonce`,
+ * que a page e o route handler leem pra assinar os scripts que eles mesmos criam.
+ */
+function nonceResponse(req: NextRequest, csp: string, nonce: string): NextResponse {
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("content-security-policy", csp);
+  requestHeaders.set("x-nonce", nonce);
+  const res = NextResponse.next({ request: { headers: requestHeaders } });
+  res.headers.set("Content-Security-Policy", csp);
+  return res;
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  const nonceSurface = surfaceForPath(pathname);
+  if (nonceSurface) {
+    const nonce = generateNonce();
+    return nonceResponse(
+      req,
+      buildCsp(nonceSurface, nonce, process.env.NODE_ENV === "development"),
+      nonce,
+    );
+  }
+
   const accessKind = classifyRequest(pathname, req.method);
 
   // Public routes
@@ -71,7 +92,7 @@ export async function middleware(req: NextRequest) {
   // flood never reaches the database.
   if (accessKind === "webhook") {
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    if (isRateLimited(ip, pathname)) {
+    if (await isRateLimited(ip, pathname)) {
       return NextResponse.json({ error: "rate limited" }, { status: 429 });
     }
     return NextResponse.next();
@@ -85,7 +106,7 @@ export async function middleware(req: NextRequest) {
   // Public auth mutations are rate-limited before reaching their handlers.
   if (accessKind === "auth-rate-limited") {
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    if (isRateLimited(ip, pathname)) {
+    if (await isRateLimited(ip, pathname)) {
       return NextResponse.json(
         { error: "Muitas tentativas. Aguarde 1 minuto." },
         { status: 429 },
@@ -139,8 +160,19 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // p/ = LPs públicas do Flow Pages · api/p/ = endpoints públicos do Flow Pages
-  // (rate-limit próprio nas rotas públicas de lead/track — sessão 4)
+  // api/p/ = endpoints públicos do Flow Pages (rate-limit próprio nas rotas
+  // públicas de lead/track — sessão 4)
   // lp = landing experimental de conversão (/lp) — pública, sem sessão
-  matcher: ["/((?!login|signup|forgot-password|reset-password|api/p/|r/|p/|lp|_next/static|_next/image|favicon.ico|.*\\.).*)"]
+  //
+  // As duas entradas dedicadas de /p/ e /r/ existem porque a regra geral exclui
+  // QUALQUER path com ponto (`.*\.`, pra não rodar em asset), e sem elas
+  // `/p/foo.bar` sairia SEM CSP nenhuma — falha aberta. Entradas próprias
+  // garantem que toda request dessas superfícies recebe a política, inclusive
+  // as que terminam em 404. surfaceForPath as tira do fluxo de auth logo na
+  // primeira linha do middleware, antes de qualquer verificação de sessão.
+  matcher: [
+    "/((?!login|signup|forgot-password|reset-password|auth/callback|api/p/|lp|_next/static|_next/image|favicon.ico|.*\\.).*)",
+    "/p/:path*",
+    "/r/:path*",
+  ],
 };

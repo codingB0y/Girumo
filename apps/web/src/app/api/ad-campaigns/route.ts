@@ -7,13 +7,16 @@ import { getRouteTenantContext } from "@/lib/route-tenant-context";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const coll = collection<AdCampaign>("ad-campaigns.json");
+const coll = collection<AdCampaign & { tenantId?: string }>("ad-campaigns.json");
 
 // GET — campanhas com métricas REAIS: cliques (do link rastreado) e entradas
 // (leads no grupo de destino). spend/cpl ficam manuais (vêm do Meta).
 export async function GET(req: Request) {
   const { tenantId } = await getRouteTenantContext(req, { allowEngine: false });
-  const [camps, counts, leads] = await Promise.all([coll.list(), clickCounts(), listLeads(tenantId)]);
+  const [allCamps, counts, leads] = await Promise.all([coll.list(), clickCounts(), listLeads(tenantId)]);
+  // Arquivo JSON é global — filtra só as campanhas deste tenant (registros legados sem
+  // tenantId não são atribuíveis com segurança e ficam ocultos, fail-closed).
+  const camps = allCamps.filter((c) => c.tenantId === tenantId);
   const data = camps.map((c) => {
     const clicks = counts[c.linkSlug] ?? 0;
     // Atribuição robusta: por JID do grupo (independe do nome); cai p/ nome se faltar.
@@ -28,6 +31,7 @@ export async function GET(req: Request) {
 
 // POST — cria a campanha E o link rastreável real (destino = convite do grupo).
 export async function POST(req: Request) {
+  const { tenantId } = await getRouteTenantContext(req, { allowEngine: false });
   let b: Record<string, unknown>;
   try {
     b = await req.json();
@@ -58,6 +62,7 @@ export async function POST(req: Request) {
 
   const creativeIdeas = Array.isArray(b.creativeIdeas) ? b.creativeIdeas.map(String) : [];
   const rec = await coll.create({
+    tenantId,
     name,
     targetGroupId: String(b.targetGroupId ?? ""),
     targetGroupName,
@@ -81,8 +86,14 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
+  const { tenantId } = await getRouteTenantContext(req, { allowEngine: false });
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return Response.json({ error: "id obrigatório." }, { status: 400 });
+  // Só remove se a campanha pertence a este tenant (impede delete cross-tenant).
+  const target = (await coll.list()).find((c) => c.id === id);
+  if (!target || target.tenantId !== tenantId) {
+    return Response.json({ error: "Campanha não encontrada." }, { status: 404 });
+  }
   await coll.remove(id);
   return Response.json({ ok: true });
 }

@@ -25,6 +25,14 @@ export type WorkerEnv = {
   evolutionApiKey: string | null;
   /** Máximo de comandos de envio por claim (o anti-ban do claim limita o resto). */
   sendBatchSize: number;
+  /**
+   * Envio real. Default `false` (DRY-RUN): o loop faz tudo — claim sob anti-ban,
+   * resolve instância, assina mídia, conta a janela e fecha o comando — menos a
+   * chamada HTTP à Evolution, que vira log. Ligar só depois de ler esses logs: o
+   * histórico deste projeto tem um fan-out de 193 comandos que só não virou 193
+   * mensagens porque não havia consumidor.
+   */
+  sendEnabled: boolean;
 };
 
 function required(name: string): string {
@@ -50,6 +58,11 @@ function optionalEnv(name: string): string | null {
   return raw && raw.trim().length > 0 ? raw.trim() : null;
 }
 
+/** Só `"true"` liga. Qualquer outra coisa — inclusive vazio ou lixo — é dry-run. */
+function boolEnv(name: string): boolean {
+  return (process.env[name] ?? "").trim().toLowerCase() === "true";
+}
+
 export function loadEnv(): WorkerEnv {
   return {
     supabaseUrl: required("SUPABASE_URL"),
@@ -61,5 +74,6 @@ export function loadEnv(): WorkerEnv {
     evolutionApiUrl: optionalEnv("EVOLUTION_API_URL"),
     evolutionApiKey: optionalEnv("EVOLUTION_API_KEY"),
     sendBatchSize: intEnv("WORKER_SEND_BATCH_SIZE", 10, 1),
+    sendEnabled: boolEnv("WORKER_SEND_ENABLED"),
   };
 }

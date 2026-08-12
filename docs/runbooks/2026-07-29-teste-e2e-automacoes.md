@@ -110,21 +110,56 @@ esperado hoje — não registre como falha.
 
 ---
 
-## Etapa 2 — bloqueada (mensagem real)
+## Etapa 2 — destravada, em DRY-RUN (mensagem real)
 
-Precisa de um consumidor de `engine_commands` no caminho Evolution. Não existe. As opções,
-sem recomendação até alguém decidir o desenho:
+O consumidor que faltava chegou na Sprint 5 (F4+F5): `apps/worker/src/send-loop.ts`
+claima por `claim_send_commands`, envia pela Evolution e fecha com
+`complete_engine_command`. Foi a opção (a) das que estavam em aberto — a (b), religar a
+engine Baileys, ficou descartada: ela envia pelo socket dela, não pela instância Evolution.
 
-- **a)** Consumidor novo (no `apps/worker` ou serviço próprio) que faça
-  `claim_engine_commands` → `POST` de envio na Evolution API → `complete_engine_command`.
-  Precisa reimplementar o anti-ban, que hoje vive em memória na engine Baileys
-  (`queue.enqueue` em `hubflow-engine/index.js`).
-- **b)** Ligar a engine Baileys de volta como consumidor. Ela já implementa `send_message`
-  e o anti-ban, mas envia pelo socket Baileys dela — não pela instância Evolution.
-  Só faz sentido se a produção voltar para Baileys.
+O anti-ban **não** foi reimplementado em memória: vive no banco. `claim_send_commands` só
+devolve comando de número pronto (não pausado, gap de espaçamento vencido, sob os caps de
+minuto/hora/dia + warmup, no máx. 1 por número por lote), e `record_send` /
+`record_send_failure` atualizam esse estado. Por isso o loop é stateless e seguro sob N
+réplicas.
 
-Enquanto isso não existir, **nenhuma automação envia nada** — o que também quer dizer
-que o risco de fan-out abaixo está adormecido, não resolvido.
+### O interruptor: `WORKER_SEND_ENABLED`
+
+Default **`false`** = dry-run. O loop roda inteiro — claim sob anti-ban, resolve a
+instância, assina a mídia, conta a janela em `record_send`, fecha o comando — e no lugar
+da chamada HTTP loga `DRY-RUN: enviaria ...`.
+
+Duas decisões que valem entender antes de mexer:
+
+- **`record_send` continua contando no dry-run.** O ritmo que você observa é o ritmo real,
+  e ligar o envio não encontra a cota diária intacta — que é exatamente como um fan-out
+  vira rajada. Erra para o lado conservador.
+- **O comando é concluído, não devolvido.** Devolver faria a fila crescer durante o
+  dry-run, guardando a rajada para o dia do cutover.
+
+O log nunca leva texto, caption ou pergunta — só tamanho/contagem. O destino só aparece
+quando é `@g.us`; qualquer outro vira `<nao-grupo>`, que é PII fora do log **e** alarme de
+violação anti-DM.
+
+### Roteiro
+
+1. `EVOLUTION_API_URL` e `EVOLUTION_API_KEY` no ambiente do worker (Coolify). Sem elas o
+   loop de envio nem sobe — o worker avisa no boot.
+2. Redeploy. Confirme nos logs: `sender: "dry-run"` na linha `worker iniciado`.
+3. Rode a etapa 1. Agora os comandos são consumidos.
+4. Leia cada `DRY-RUN: enviaria ...`: **todo `destino` precisa terminar em `@g.us`**.
+   Um `<nao-grupo>` é motivo para parar e investigar antes de qualquer envio.
+5. Só então `WORKER_SEND_ENABLED=true` e redeploy.
+
+### Antes do passo 5, confira o estado real de produção
+
+Em 06/08 produção tinha **0 automações habilitadas e 0 runs** — nada dispararia mesmo com
+o envio ligado. Ou seja: o risco de fan-out abaixo está contido hoje porque **ninguém
+ligou automação**, não porque exista trava. Ligar automação e ligar envio são dois passos
+com riscos diferentes; não faça os dois no mesmo dia.
+
+E resolva o `weekly_recurring` antes: ele ainda casa todos os grupos-admin do tenant de
+uma vez (89, na última contagem).
 
 ---
 

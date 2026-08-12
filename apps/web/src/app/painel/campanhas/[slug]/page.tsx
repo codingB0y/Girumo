@@ -26,9 +26,11 @@ import {
 } from "@/lib/campaign-groups-overview";
 import type { Group } from "@/lib/mock-data";
 import { MessagesTab } from "@/components/painel/messages";
+import { clicksForCampaign } from "@/lib/links/click-attribution";
+import { countCampaignEntries, entriesPerClick, type EntryLead } from "@/lib/campaigns/campaign-entries";
 
 type Campanha = { id: string; name: string; loja?: string; groupIds: string[]; slug?: string; createdAt: string };
-type TrackedLink = { campaignName?: string; clicks: number };
+type TrackedLink = { campaignGroupId?: string | null; campaignName?: string; clicks: number };
 type Order = { id: string; value: number; campaign_id?: string | null };
 
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -44,6 +46,7 @@ export default function CampanhaDetalhe() {
   const [campanhas, setCampanhas] = useState<Campanha[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [clicks, setClicks] = useState(0);
+  const [entries, setEntries] = useState(0);
   const [orders, setOrders] = useState<Order[]>([]);
   const [live, setLive] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,12 +58,13 @@ export default function CampanhaDetalhe() {
 
   async function loadData() {
     try {
-      const [c, g, l, s, o] = await Promise.all([
+      const [c, g, l, s, o, lds] = await Promise.all([
         fetch("/api/campanhas").then((r) => r.json()).catch(() => []),
         fetch("/api/groups").then((r) => r.json()).catch(() => []),
         fetch("/api/links").then((r) => r.json()).catch(() => []),
         fetch("/api/session").then((r) => r.json()).catch(() => ({})),
         fetch("/api/orders").then((r) => r.json()).catch(() => []),
+        fetch("/api/leads").then((r) => r.json()).catch(() => []),
       ]);
       const list: Campanha[] = Array.isArray(c) ? c : [];
       setCampanhas(list);
@@ -70,7 +74,13 @@ export default function CampanhaDetalhe() {
       const camp = list.find((x) => x.slug === key || x.id === key);
       if (camp) {
         const ls: TrackedLink[] = Array.isArray(l) ? l : [];
-        setClicks(ls.filter((x) => x.campaignName === camp.name).reduce((a, x) => a + (x.clicks ?? 0), 0));
+        // Por ID: comparar o nome fazia o histórico sumir quando a campanha era renomeada.
+        setClicks(clicksForCampaign(ls, camp));
+        // Entradas contam quem ENTROU nos grupos da campanha (leads têm
+        // entered_at), não o total de membros — que inclui quem já estava lá.
+        // O corte pela criação da campanha tira quem entrou antes dela existir.
+        const leadsList: EntryLead[] = Array.isArray(lds) ? lds : [];
+        setEntries(countCampaignEntries(leadsList, camp.groupIds, { since: camp.createdAt }));
       }
     } finally {
       setLoading(false);
@@ -93,6 +103,8 @@ export default function CampanhaDetalhe() {
     [orders, campanha],
   );
   const campaignRevenue = useMemo(() => campaignOrders.reduce((a, ord) => a + (ord.value ?? 0), 0), [campaignOrders]);
+  // null = ainda não houve clique. Mostrar 0% aí leria "ninguém converteu".
+  const taxaEntrada = useMemo(() => entriesPerClick(entries, clicks), [entries, clicks]);
 
   async function handleRefresh() {
     setRefreshing(true);
@@ -285,7 +297,10 @@ export default function CampanhaDetalhe() {
               </p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <Mini label="Vaga restante" value={`${Math.max(o.totalCapacity - o.totalMembers, 0).toLocaleString("pt-BR")} membros`} />
-                <Mini label="Conversão clique→membro" value={o.clicks > 0 ? `${Math.round((o.totalMembers / o.clicks) * 100)}%` : "—"} />
+                <Mini
+                  label="Entradas por clique"
+                  value={taxaEntrada === null ? "—" : `${taxaEntrada}%`}
+                />
               </div>
             </div>
           </div>
@@ -296,7 +311,7 @@ export default function CampanhaDetalhe() {
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <Tile label="Cliques" value={o.clicks.toLocaleString("pt-BR")} />
               <Tile label="Membros" value={o.totalMembers.toLocaleString("pt-BR")} />
-              <Tile label="Conversão" value={o.clicks > 0 ? `${Math.round((o.totalMembers / o.clicks) * 100)}%` : "—"} tone="cobalt" />
+              <Tile label="Entradas" value={entries.toLocaleString("pt-BR")} tone="cobalt" />
               <Tile label="Grupos cheios" value={String(o.fullCount)} tone="atencao" />
             </div>
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -304,26 +319,31 @@ export default function CampanhaDetalhe() {
               <Tile label="Pedidos" value={campaignOrders.length.toLocaleString("pt-BR")} />
             </div>
             <div className="pn-card rounded-2xl p-6">
-              <h2 className="font-display text-base font-bold text-volt-950">Do clique ao grupo</h2>
+              {/* O funil antigo comparava clicks com `totalMembers`, que inclui quem já
+                  estava no grupo antes do link existir — por isso passava de 100%. Agora
+                  a 2ª etapa é ENTRADA (leads têm `entered_at`), que é o que de fato
+                  aconteceu depois do clique. Continua sem barra proporcional: entrada não
+                  prova origem no link (ver campaign-entries.ts). */}
+              <h2 className="font-display text-base font-bold text-volt-950">Do clique à entrada</h2>
               <div className="mt-5 space-y-3">
                 {[
-                  { icon: MousePointerClick, label: "Clicaram no link", value: o.clicks, pct: 100 },
-                  { icon: Users, label: "Entraram no grupo", value: o.totalMembers, pct: o.clicks > 0 ? Math.round((o.totalMembers / o.clicks) * 100) : 0 },
+                  { icon: MousePointerClick, label: "Clicaram no link", value: o.clicks },
+                  { icon: Users, label: "Entraram nos grupos", value: entries },
                 ].map((s) => {
                   const Icon = s.icon;
                   return (
-                    <div key={s.label}>
-                      <div className="mb-1.5 flex items-center justify-between">
-                        <span className="flex items-center gap-2 text-sm text-aco"><Icon className="h-4 w-4 text-cobalt-500" strokeWidth={1.75} />{s.label}</span>
-                        <span className="font-data text-base font-medium tabular-nums text-volt-950">{s.value.toLocaleString("pt-BR")}</span>
-                      </div>
-                      <div className="pn-poco h-2.5 w-full overflow-hidden rounded-full">
-                        <div className="pn-fill h-full w-full rounded-full" style={{ transform: `scaleX(${Math.max(s.pct / 100, 0.04)})`, background: "var(--color-cobalt-500)" }} />
-                      </div>
+                    <div key={s.label} className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 text-sm text-aco"><Icon className="h-4 w-4 text-cobalt-500" strokeWidth={1.75} />{s.label}</span>
+                      <span className="font-data text-base font-medium tabular-nums text-volt-950">{s.value.toLocaleString("pt-BR")}</span>
                     </div>
                   );
                 })}
               </div>
+              <p className="mt-4 text-[13px] leading-relaxed text-aco/60">
+                Entradas são quem entrou nos grupos desta campanha depois que ela foi criada.
+                O convite do WhatsApp é o mesmo pra todo mundo, então quem foi adicionado à
+                mão entra nessa conta igual — não é prova de que veio do link.
+              </p>
               <Link href="/painel/resultados" className="font-data mt-5 inline-flex items-center gap-1 text-[11px] uppercase tracking-[0.08em] text-cobalt-500 transition-[gap] duration-[160ms] hover:gap-1.5">
                 Ver resultados completos →
               </Link>

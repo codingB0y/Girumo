@@ -7,7 +7,11 @@ on:
 
 jobs:
   verify:
-    runs-on: windows-latest
+    # Linux, nao Windows: runner Windows consome minutos em dobro e tem fila bem
+    # pior — em 06/08/2026 este job esperou 15 min por uma maquina e foi
+    # cancelado sem rodar um unico passo. Os scripts .ps1 usam so cmdlets
+    # portateis, e o pwsh ja vem instalado no runner ubuntu.
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -16,4 +20,6 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run verify:local
+      # Chama o script direto: o npm script `verify:local` invoca `powershell`,
+      # que so existe no Windows. O script em si e cross-platform.
+      - run: pwsh -File infra/scripts/verify-local.ps1

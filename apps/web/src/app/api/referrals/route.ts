@@ -1,3 +1,4 @@
+import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import { listReferrals, createReferral, removeReferral, getReferralConfig } from "@/lib/stores/referrals";
 import { createLink, listClicks } from "@/lib/store";
 
@@ -69,6 +70,19 @@ export async function POST(req: Request) {
   try {
     await createLink({ slug, destinationUrl: inviteUrl, targetGroupName: group, campaignName: `Indicação ${referrerName}` });
     const rec = await createReferral({ referrerName, group, slug, inviteUrl });
+
+    // Marco: o lojista pôs uma revendedora pra captar por ele. `tenant_id` vem
+    // do próprio registro — esta rota resolve o tenant dentro da store, não aqui.
+    if (rec.tenant_id) {
+      void trackFunnelEvent({
+        tenantId: rec.tenant_id,
+        userId: null,
+        event: "referral_sent",
+        onlyFirst: true,
+        metadata: { referralId: rec.id },
+      });
+    }
+
     return Response.json({
       id: rec.id,
       referrerName: rec.referrer_name,

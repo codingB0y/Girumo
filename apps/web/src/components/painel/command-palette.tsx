@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV_ALL } from "@/lib/painel-nav";
+import { useFocusTrap } from "./use-focus-trap";
 
 type Item = {
   label: string;
@@ -47,8 +48,9 @@ export function CommandPalette() {
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
   const [liveItems, setLiveItems] = useState<Item[]>([]);
-  const inputRef = useRef<HTMLInputElement>(null);
   const loadedRef = useRef(false);
+  // Prende o Tab no modal e devolve o foco ao gatilho quando ele fecha.
+  const dialogRef = useFocusTrap<HTMLDivElement>(open);
 
   // Campanhas e grupos reais do tenant, carregados uma vez na primeira abertura.
   useEffect(() => {
@@ -118,11 +120,11 @@ export function CommandPalette() {
     };
   }, []);
 
+  // O foco inicial (o campo de busca, primeiro tabulável) é do useFocusTrap.
   useEffect(() => {
     if (open) {
       setQ("");
       setActive(0);
-      setTimeout(() => inputRef.current?.focus(), 20);
     }
   }, [open]);
 
@@ -158,34 +160,34 @@ export function CommandPalette() {
         className="absolute inset-0 bg-volt-950/50 backdrop-blur-sm"
       />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Buscar no painel"
         className="pn-palette-in relative w-full max-w-xl overflow-hidden rounded-2xl border border-volt-950/10 bg-papel shadow-[var(--shadow-pn-3)]"
       >
         <div className="flex items-center gap-3 border-b border-volt-950/[0.06] px-4">
-          <Search className="h-4 w-4 text-aco/50" aria-hidden="true" />
+          <Search className="h-4 w-4 text-aco/70" aria-hidden="true" />
           <input
-            ref={inputRef}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={onInputKey}
             aria-label="Buscar grupo, campanha ou ação"
             placeholder="Buscar grupo, campanha ou ação…"
-            className="flex-1 bg-transparent py-4 text-sm text-volt-950 outline-none placeholder:text-aco/40"
+            className="flex-1 bg-transparent py-4 text-sm text-volt-950 outline-none placeholder:text-aco"
           />
-          <kbd className="font-data rounded border border-volt-950/15 bg-canvas-100 px-1.5 py-0.5 text-[10px] text-aco/55">
+          <kbd className="font-data rounded border border-volt-950/15 bg-canvas-100 px-1.5 py-0.5 text-[10px] text-aco">
             ESC
           </kbd>
         </div>
 
         <div className="max-h-[50vh] overflow-y-auto p-2">
           {results.length === 0 && (
-            <p className="px-3 py-6 text-center text-sm text-aco/50">Nada encontrado.</p>
+            <p className="px-3 py-6 text-center text-sm text-aco">Nada encontrado.</p>
           )}
           {grouped.map(([section, entries]) => (
             <div key={section} className="mb-1">
-              <p className="font-data px-3 py-1.5 text-[10px] uppercase tracking-wider text-aco/40">
+              <p className="font-data px-3 py-1.5 text-[10px] uppercase tracking-wider text-aco">
                 {section}
               </p>
               {entries.map(({ item, index }) => {
@@ -201,10 +203,10 @@ export function CommandPalette() {
                       isActive ? "bg-cobalt-500/[0.08] text-volt-950" : "text-aco hover:bg-canvas-100/60",
                     )}
                   >
-                    <Icon className={cn("h-4 w-4", isActive ? "text-cobalt-500" : "text-aco/50")} />
+                    <Icon className={cn("h-4 w-4", isActive ? "text-cobalt-500" : "text-aco/70")} />
                     <span className="flex-1">{item.label}</span>
                     {item.hint && (
-                      <span className="font-data text-[10px] uppercase tracking-wider text-aco/40">
+                      <span className="font-data text-[10px] uppercase tracking-wider text-aco">
                         {item.hint}
                       </span>
                     )}
@@ -225,11 +227,11 @@ export function CommandTrigger() {
   return (
     <button
       onClick={() => window.dispatchEvent(new Event("hf:command"))}
-      className="ml-auto flex items-center gap-2 rounded-[10px] border border-volt-950/10 bg-papel px-3 py-2 text-sm text-aco/60 shadow-[var(--shadow-pn-1)] transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] hover:border-cobalt-500/30 hover:shadow-[var(--shadow-pn-2)]"
+      className="ml-auto flex items-center gap-2 rounded-[10px] border border-volt-950/10 bg-papel px-3 py-2 text-sm text-aco shadow-[var(--shadow-pn-1)] transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] hover:border-cobalt-500/30 hover:shadow-[var(--shadow-pn-2)]"
     >
       <Search className="h-4 w-4" />
       <span className="hidden sm:inline">Buscar grupo, campanha…</span>
-      <kbd className="font-data ml-1 hidden rounded border border-volt-950/15 bg-canvas-100 px-1.5 text-[10px] text-aco/60 sm:inline">
+      <kbd className="font-data ml-1 hidden rounded border border-volt-950/15 bg-canvas-100 px-1.5 text-[10px] text-aco sm:inline">
         ⌘K
       </kbd>
     </button>

@@ -13,6 +13,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CopyPicker } from "./copy-picker";
 
 export type ComposerPayload = {
   body: string;
@@ -169,6 +170,13 @@ export function MessageComposer({ onSend, sending, className }: Props) {
           )}
         </div>
       )}
+
+      {/* Biblioteca: entra ANTES do campo porque serve pra quem travou no
+          "o que escrevo?" — depois do texto pronto ela não faz falta. */}
+      <CopyPicker
+        className="mb-2"
+        onPick={(copy) => setBody((atual) => (atual.trim() ? `${atual.trimEnd()}\n\n${copy}` : copy))}
+      />
 
       {/* Text area */}
       <textarea

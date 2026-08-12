@@ -12,6 +12,8 @@ export type Group = {
   capacity: number;
   selected: boolean;
   engagement: "alto" | "medio" | "baixo";
+  /** Se a conta conectada é admin do grupo. Só grupo admin entra em sync/disparo. */
+  is_admin?: boolean;
   invite_url?: string;
   metadata: Record<string, unknown>;
   created_at: string;
@@ -29,10 +31,18 @@ export async function listGroups(tenantId: string): Promise<Group[]> {
   if (error) throw new Error(error.message);
   return data ?? [];
 }
-export async function upsertGroupsBatch(
-  tenantId: string,
-  groups: Array<Omit<Group, "id" | "tenant_id" | "created_at" | "updated_at" | "metadata"> & { id?: string }>,
-): Promise<Group[]> {
+/**
+ * O que um sync pode gravar. Só `whatsapp_group_id`, `name` e `members` são
+ * obrigatórios — o resto é configuração do painel e fica opcional de propósito:
+ * mandar `selected`/`engagement`/`capacity` fixos em todo sync sobrescreve o que
+ * o lojista configurou (o ON CONFLICT só atualiza coluna presente no payload).
+ */
+export type GroupUpsert = Pick<Group, "whatsapp_group_id" | "name" | "members"> &
+  Partial<Pick<Group, "capacity" | "selected" | "engagement" | "invite_url" | "display_name_base" | "display_number">> & {
+    id?: string;
+  };
+
+export async function upsertGroupsBatch(tenantId: string, groups: GroupUpsert[]): Promise<Group[]> {
   if (groups.length === 0) return [];
   const rows = groups.map((g) => ({ ...g, tenant_id: tenantId }));
   const { data, error } = await getSupabaseAdmin()

@@ -20,6 +20,11 @@ services:
       EVOLUTION_API_URL: ${EVOLUTION_API_URL:-http://evolution:8080}
       EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
       WORKER_SEND_BATCH_SIZE: ${WORKER_SEND_BATCH_SIZE:-10}
+      # DRY-RUN por default: o loop de envio roda inteiro (claim sob anti-ban,
+      # instância, mídia, record_send, complete) e loga o que enviaria, sem chamar
+      # a Evolution. Só vire "true" depois de ler os logs `DRY-RUN: enviaria ...`
+      # e conferir que todo destino é `@g.us`.
+      WORKER_SEND_ENABLED: ${WORKER_SEND_ENABLED:-false}
     # Sem `ports:` de propósito: o worker não recebe tráfego, só fala com o
     # Supabase (HTTPS de saída) e com a Evolution (rede interna). /health é interno.
     healthcheck:

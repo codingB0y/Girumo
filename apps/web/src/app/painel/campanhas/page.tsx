@@ -12,6 +12,7 @@ import {
   type CampaignOperationalStatus,
 } from "@/lib/campaign-groups-overview";
 import type { Group } from "@/lib/mock-data";
+import { clicksByCampaign } from "@/lib/links/click-attribution";
 
 type Campanha = {
   id: string;
@@ -21,7 +22,7 @@ type Campanha = {
   slug?: string;
   createdAt: string;
 };
-type TrackedLink = { slug: string; campaignName?: string; clicks: number };
+type TrackedLink = { slug: string; campaignGroupId?: string | null; campaignName?: string; clicks: number };
 
 const STATUS: Record<CampaignOperationalStatus, { label: string; pill: string }> = {
   ready: { label: "Pronta", pill: "bg-sucesso/10 text-sucesso" },
@@ -66,14 +67,9 @@ export default function PainelCampanhas() {
     })();
   }, []);
 
-  const clicksByName = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const l of links) {
-      if (!l.campaignName) continue;
-      m.set(l.campaignName, (m.get(l.campaignName) ?? 0) + (l.clicks ?? 0));
-    }
-    return m;
-  }, [links]);
+  // Atribuição por ID da campanha (nome só cobre link legado) — renomear
+  // campanha não pode zerar o histórico de cliques.
+  const clicksById = useMemo(() => clicksByCampaign(links, campanhas), [links, campanhas]);
 
   const overviews = useMemo(
     () =>
@@ -81,10 +77,10 @@ export default function PainelCampanhas() {
         buildCampaignGroupsOverview({
           campaign: c,
           groups,
-          clicks: clicksByName.get(c.name) ?? 0,
+          clicks: clicksById.get(c.id) ?? 0,
         }),
       ),
-    [campanhas, groups, clicksByName],
+    [campanhas, groups, clicksById],
   );
 
   const counts = useMemo(() => {

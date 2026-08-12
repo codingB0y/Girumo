@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { getAdminContext } from "@/lib/admin-guard";
 
 export async function GET() {
+  const admin = await getAdminContext();
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
@@ -19,6 +22,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const admin = await getAdminContext();
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const body = await request.json();
     const supabase = getSupabaseAdmin();

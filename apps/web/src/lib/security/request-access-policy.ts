@@ -46,11 +46,15 @@ export function classifyRequest(pathname: string, method: string): AccessKind {
   const normalizedMethod = method.toUpperCase();
   const key = `${normalizedMethod} ${pathname}`;
 
-  if (pathname.startsWith("/api/auth/") && normalizedMethod === "POST") {
-    return "auth-rate-limited";
+  // Mutações de auth (login, signup, logout, oauth-complete) entram sem sessão
+  // por natureza e são autenticadas pelo próprio handler; o middleware só as
+  // limita por IP. Todo o resto de /api/auth/ (GET /me, GET|PATCH|DELETE
+  // /account) é rota de usuário logado: cai no gate de sessão como qualquer
+  // outra. Antes o prefixo devolvia "public" para qualquer método != POST, o
+  // que fazia DELETE /api/auth/account nascer fora do gate — fail-open.
+  if (pathname.startsWith("/api/auth/")) {
+    return normalizedMethod === "POST" ? "auth-rate-limited" : "user";
   }
-
-  if (pathname.startsWith("/api/auth/")) return "public";
 
   if (pathname === "/api/cron/emails" || pathname === "/api/notifications/alerts") {
     return "cron";
