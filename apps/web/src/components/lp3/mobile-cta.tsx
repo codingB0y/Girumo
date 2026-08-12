@@ -25,18 +25,18 @@ export function MobileCta({ signupUrl, whatsappUrl }: { signupUrl: string; whats
 
   return (
     <div
-      className={`fixed inset-x-0 bottom-0 z-40 flex gap-2 border-t border-[var(--line)] bg-[rgba(7,17,20,0.92)] p-3 backdrop-blur transition-transform duration-500 ease-out sm:hidden ${
+      className={`fixed inset-x-0 bottom-0 z-40 flex gap-2 border-t border-[var(--line)] bg-[rgba(7,17,20,0.92)] p-3 backdrop-blur transition-transform duration-500 ease-out md:hidden ${
         visible ? "translate-y-0" : "translate-y-full"
       }`}
       aria-hidden={!visible}
     >
-      <a href={signupUrl} className="lp4-btn lp4-btn-green flex-1 justify-center py-3 text-sm">
+      <a href={signupUrl} className="lp4-btn lp4-btn-green flex-1 justify-center py-3.5 text-sm">
         Começar agora <ArrowRight className="h-4 w-4" aria-hidden />
       </a>
       <a
         href={whatsappUrl}
         aria-label="Falar no WhatsApp"
-        className="flex h-12 w-12 items-center justify-center rounded-full border border-[var(--hairline)]"
+        className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full border border-[var(--hairline)]"
       >
         <WhatsAppIcon className="h-5 w-5 text-[var(--green)]" aria-hidden />
       </a>
