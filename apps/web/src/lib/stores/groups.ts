@@ -12,6 +12,8 @@ export type Group = {
   capacity: number;
   selected: boolean;
   engagement: "alto" | "medio" | "baixo";
+  /** Se a conta conectada é admin do grupo. Só grupo admin entra em sync/disparo. */
+  is_admin?: boolean;
   invite_url?: string;
   metadata: Record<string, unknown>;
   created_at: string;

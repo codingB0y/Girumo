@@ -15,6 +15,8 @@ export type Group = {
   capacity: number;
   selected: boolean;
   engagement: Engagement;
+  /** Se a conta conectada é admin do grupo — sem isso, não dá pra disparar nele. */
+  isAdmin?: boolean;
   /** Link de convite REAL do grupo. Destino do roteamento "Campanha que lota sozinho". */
   inviteUrl?: string;
 };
