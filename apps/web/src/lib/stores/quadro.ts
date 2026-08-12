@@ -7,6 +7,14 @@ export interface QuadroSnapshot {
   events: BoardEvent[];
 }
 
+/** Sinaliza key duplicada em createFeature (violação da unique constraint). */
+export class DuplicateFeatureKeyError extends Error {
+  constructor(public readonly key: string) {
+    super(`Já existe card com a key ${key}`);
+    this.name = "DuplicateFeatureKeyError";
+  }
+}
+
 const FEED_LIMIT = 30;
 
 type FeatureRow = {
@@ -167,7 +175,7 @@ export async function createFeature(input: {
 
   if (error) {
     // 23505 = unique_violation na coluna key
-    if (error.code === "23505") throw new Error(`DUPLICADO:${input.key}`);
+    if (error.code === "23505") throw new DuplicateFeatureKeyError(input.key);
     throw new Error(`Falha ao criar ${input.key}: ${error.message}`);
   }
 }

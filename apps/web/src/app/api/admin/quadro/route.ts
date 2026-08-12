@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin-guard";
 import { BOARD_STATUSES, type BoardPriority, type BoardStatus } from "@/lib/quadro/status";
-import { createFeature, loadQuadro, moveCard, updateFeature } from "@/lib/stores/quadro";
+import {
+  createFeature,
+  DuplicateFeatureKeyError,
+  loadQuadro,
+  moveCard,
+  updateFeature,
+} from "@/lib/stores/quadro";
 
 export const dynamic = "force-dynamic";
 
@@ -45,24 +51,28 @@ export async function PATCH(req: NextRequest) {
 
   if (!body.key) return NextResponse.json({ error: "key obrigatória" }, { status: 400 });
 
+  // Toda validação de input roda antes de qualquer efeito colateral (moveCard/updateFeature).
+  if (body.status !== undefined) {
+    if (!BOARD_STATUSES.includes(body.status as BoardStatus)) {
+      return NextResponse.json({ error: `status inválido: ${body.status}` }, { status: 400 });
+    }
+    if (!body.note?.trim()) {
+      return NextResponse.json({ error: "mover exige motivo" }, { status: 400 });
+    }
+  }
+
+  if (body.priority !== undefined && !PRIORITIES.includes(body.priority as BoardPriority)) {
+    return NextResponse.json({ error: `prioridade inválida: ${body.priority}` }, { status: 400 });
+  }
+
   try {
     if (body.status !== undefined) {
-      if (!BOARD_STATUSES.includes(body.status as BoardStatus)) {
-        return NextResponse.json({ error: `status inválido: ${body.status}` }, { status: 400 });
-      }
-      if (!body.note?.trim()) {
-        return NextResponse.json({ error: "mover exige motivo" }, { status: 400 });
-      }
       await moveCard({
         key: body.key,
         status: body.status as BoardStatus,
-        note: body.note,
+        note: body.note as string,
         ref: body.ref ?? null,
       });
-    }
-
-    if (body.priority !== undefined && !PRIORITIES.includes(body.priority as BoardPriority)) {
-      return NextResponse.json({ error: `prioridade inválida: ${body.priority}` }, { status: 400 });
     }
 
     await updateFeature(body.key, {
@@ -106,10 +116,10 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ success: true }, { status: 201 });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Erro inesperado";
-    if (message.startsWith("DUPLICADO:")) {
+    if (error instanceof DuplicateFeatureKeyError) {
       return NextResponse.json({ error: "já existe card com essa key" }, { status: 409 });
     }
+    const message = error instanceof Error ? error.message : "Erro inesperado";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
