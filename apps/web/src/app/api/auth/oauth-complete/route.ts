@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { SESSION_COOKIE, signSession, sessionCookieOptions } from "@/lib/auth";
 import { buildTenantSlug, resolveDisplayName } from "@/lib/auth/oauth-account";
+import { getAppUrl } from "@/lib/environment";
 import { getSupabaseAdmin, getSupabaseServerAnon } from "@/lib/supabase/server";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import { sendEmail } from "@/lib/email/send";
@@ -143,7 +144,7 @@ export async function POST(req: Request) {
   });
 
   if (email) {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.hubflow.com.br";
+    const appUrl = getAppUrl();
     const { subject, html } = welcomeEmail(name, appUrl);
     sendEmail({ to: email, subject, html });
   }

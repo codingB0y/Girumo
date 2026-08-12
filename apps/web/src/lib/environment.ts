@@ -45,6 +45,20 @@ export function isProdDomainUrl(url: string): boolean {
 }
 
 /**
+ * URL pública do app, usada nos links dos e-mails transacionais.
+ *
+ * Centralizada porque o literal estava copiado em três rotas — cada cópia era
+ * uma chance de uma migração de domínio passar batido num lugar só. O fallback
+ * só é exercitado em ambiente mal configurado: em produção
+ * `NEXT_PUBLIC_APP_URL` está setada.
+ */
+const DEFAULT_APP_URL = "https://app.girumo.com.br";
+
+export function getAppUrl(): string {
+  return process.env.NEXT_PUBLIC_APP_URL || DEFAULT_APP_URL;
+}
+
+/**
  * Detecta o ambiente atual baseado em NEXT_PUBLIC_APP_ENV.
  * Fallback: NODE_ENV → development
  */

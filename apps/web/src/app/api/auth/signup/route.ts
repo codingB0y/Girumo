@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { SESSION_COOKIE, signSession, sessionCookieOptions } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { getAppUrl } from "@/lib/environment";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import { sendEmail } from "@/lib/email/send";
 import { welcomeEmail } from "@/lib/email/templates";
@@ -105,7 +106,7 @@ export async function POST(req: Request) {
   trackFunnelEvent({ tenantId, userId: authUserId, event: "signup", metadata: { source: "web" } });
 
   // Welcome email (non-blocking)
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.hubflow.com.br";
+  const appUrl = getAppUrl();
   const { subject, html } = welcomeEmail(name, appUrl);
   sendEmail({ to: email, subject, html });
 
