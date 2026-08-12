@@ -74,7 +74,8 @@ apps/web/supabase/migrations/20260811000000_tenant_settings_onboarding.sql
 # HUBFLOW_USE_SUPABASE ligado — o "grupo lotou, cria o próximo" não tinha onde
 # gravar job. Tabela agnóstica de executor de propósito: hoje quem consome é a
 # engine Baileys, e o cutover troca só quem faz o claim. Idempotente, RLS ligado.
-# PENDENTE de aplicação em dev e prod.
+# Aplicada em dev e prod em 12/08/2026 (19 colunas, 5 índices, RLS + 1 policy nos
+# dois; advisor de segurança limpo para a tabela).
 apps/web/supabase/migrations/20260812000000_group_grow_jobs.sql
 
 # Clique com data por evento. O contador `tracked_links.clicks` continua sendo a
