@@ -88,3 +88,8 @@ apps/web/supabase/migrations/20260812000000_group_grow_jobs.sql
 # cliques ontem". Não guarda user-agent, IP nem referer — quem clica é cliente do
 # lojista. Idempotente; RLS + policy por tenant.
 apps/web/supabase/migrations/20260811100000_link_click_events.sql
+
+# Quadro Scrumban de features no /admin. Dado operacional interno: sem tenant_id,
+# RLS ligada e sem policy (deny-all, só service_role). Não entra na publicação
+# supabase_realtime — a entrega é por polling. Idempotente.
+apps/web/supabase/migrations/20260812120000_board_quadro.sql
