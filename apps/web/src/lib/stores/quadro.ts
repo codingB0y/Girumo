@@ -101,3 +101,73 @@ export async function loadQuadro(): Promise<QuadroSnapshot> {
     events: ((eventsResult.data ?? []) as EventRow[]).map(toEvent),
   };
 }
+
+/** Move o card. O ator é sempre 'igor': quem passa por aqui é a UI, não o agente. */
+export async function moveCard(input: {
+  key: string;
+  status: BoardStatus;
+  note: string;
+  ref?: string | null;
+}): Promise<void> {
+  const supabase = getSupabaseAdmin();
+
+  const { error } = await supabase.rpc("move_card", {
+    p_key: input.key,
+    p_status: input.status,
+    p_note: input.note,
+    p_ref: input.ref ?? null,
+    p_actor: "igor",
+  });
+
+  if (error) throw new Error(`Falha ao mover ${input.key}: ${error.message}`);
+}
+
+/** Edita campos que não são status. Mudança de status passa obrigatoriamente por moveCard. */
+export async function updateFeature(
+  key: string,
+  patch: {
+    summary?: string | null;
+    blocker?: string | null;
+    priority?: BoardPriority;
+    sortOrder?: number;
+  },
+): Promise<void> {
+  const supabase = getSupabaseAdmin();
+
+  const row: Record<string, unknown> = {};
+  if (patch.summary !== undefined) row.summary = patch.summary;
+  if (patch.blocker !== undefined) row.blocker = patch.blocker;
+  if (patch.priority !== undefined) row.priority = patch.priority;
+  if (patch.sortOrder !== undefined) row.sort_order = patch.sortOrder;
+
+  if (Object.keys(row).length === 0) return;
+
+  const { error } = await supabase.from("board_features").update(row).eq("key", key);
+  if (error) throw new Error(`Falha ao editar ${key}: ${error.message}`);
+}
+
+/** Cria card novo, sempre em 'nao_existe'. */
+export async function createFeature(input: {
+  key: string;
+  title: string;
+  area: string;
+  summary?: string | null;
+  priority?: BoardPriority;
+}): Promise<void> {
+  const supabase = getSupabaseAdmin();
+
+  const { error } = await supabase.from("board_features").insert({
+    key: input.key,
+    title: input.title,
+    area: input.area,
+    summary: input.summary ?? null,
+    priority: input.priority ?? "media",
+    status: "nao_existe",
+  });
+
+  if (error) {
+    // 23505 = unique_violation na coluna key
+    if (error.code === "23505") throw new Error(`DUPLICADO:${input.key}`);
+    throw new Error(`Falha ao criar ${input.key}: ${error.message}`);
+  }
+}
