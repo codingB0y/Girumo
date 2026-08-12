@@ -2,11 +2,23 @@
 
 ## Decisões arquiteturais
 
-### 001 — Auth por email whitelist
+### 001 — Auth por email whitelist ⛔ SUPERSEDIDA em 2026-08-12 (ver 001-b)
 - **Data:** 2026-07-01
 - **Decisão:** Super-admin identificado por env var `PLATFORM_ADMIN_EMAILS` (lista de emails)
 - **Razão:** Simplicidade na fase 1, sem tabela extra. Evita role-based complexity.
 - **Trade-off:** Não escala pra muitos admins — migrar pra tabela `platform_admins` quando necessário.
+
+### 001-b — Auth por identidade (`platform_admins`)
+- **Data:** 2026-08-12
+- **Decisão:** Super-admin é `auth_user_id` na tabela `platform_admins`. E-mail deixa de ser
+  critério de autorização (a coluna `email` é rótulo). Guard é **fail-closed**: sem linha, sem acesso.
+- **Razão:** o trade-off da 001 não era escala, era **escalação de privilégio**. O signup cria conta
+  com `email_confirm: true` sem verificar posse do endereço, então qualquer e-mail da allowlist ainda
+  não cadastrado (ex.: `admin@hubflow.com.br`, que estava no `.env.production.example`) podia ser
+  registrado por terceiro — que virava super-admin de ~30 rotas `/admin`. `auth_user_id` só existe
+  depois da conta e não é adivinhável.
+- **Trade-off:** cadastrar admin novo passa a exigir `insert` no banco, não edição de env. Aceito:
+  admin de plataforma é evento raro e deve deixar rastro.
 
 ### 002 — Service role pra queries cross-tenant
 - **Data:** 2026-07-01

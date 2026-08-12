@@ -1,25 +1,31 @@
 import { Key, Globe, Database, Shield } from "lucide-react";
+import { listPlatformAdmins } from "@/lib/admin-guard";
 
-export default function AdminConfiguracoesPage() {
+export default async function AdminAmbientePage() {
   const envVars = [
     { key: "SUPABASE_URL", set: !!process.env.SUPABASE_URL, sensitive: false },
     { key: "SUPABASE_ANON_KEY", set: !!process.env.SUPABASE_ANON_KEY, sensitive: true },
     { key: "SUPABASE_SERVICE_ROLE_KEY", set: !!process.env.SUPABASE_SERVICE_ROLE_KEY, sensitive: true },
+    // As duas abaixo são lidas pelo browser. Sem elas o servidor sobe saudável e o
+    // login quebra silenciosamente — foi o que aconteceu nos previews da Vercel.
+    { key: "NEXT_PUBLIC_SUPABASE_URL", set: !!process.env.NEXT_PUBLIC_SUPABASE_URL, sensitive: false },
+    { key: "NEXT_PUBLIC_SUPABASE_ANON_KEY", set: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, sensitive: true },
     { key: "AUTH_SECRET", set: !!process.env.AUTH_SECRET, sensitive: true },
     { key: "ENGINE_TOKEN", set: !!process.env.ENGINE_TOKEN, sensitive: true },
     { key: "NEXT_PUBLIC_SITE_URL", set: !!process.env.NEXT_PUBLIC_SITE_URL, sensitive: false },
     { key: "NEXT_PUBLIC_SALES_WHATSAPP_URL", set: !!process.env.NEXT_PUBLIC_SALES_WHATSAPP_URL, sensitive: false },
-    { key: "PLATFORM_ADMIN_EMAILS", set: !!process.env.PLATFORM_ADMIN_EMAILS, sensitive: false },
     { key: "STRIPE_SECRET_KEY", set: !!process.env.STRIPE_SECRET_KEY, sensitive: true },
     { key: "STRIPE_WEBHOOK_SECRET", set: !!process.env.STRIPE_WEBHOOK_SECRET, sensitive: true },
   ];
 
+  const admins = await listPlatformAdmins();
+
   return (
     <div className="mx-auto max-w-[1000px] space-y-8">
       <div>
-        <h1 className="font-display text-2xl font-extrabold tracking-tight">Configurações</h1>
+        <h1 className="font-display text-2xl font-extrabold tracking-tight">Ambiente</h1>
         <p className="font-data mt-1 text-xs uppercase tracking-wider text-aco/55">
-          Saúde do ambiente e variáveis de configuração
+          Saúde do ambiente — leitura, não configuração
         </p>
       </div>
 
@@ -74,22 +80,29 @@ export default function AdminConfiguracoesPage() {
         </div>
         <div className="p-6">
           <p className="text-xs text-aco/55">
-            Definidos via variável <code className="rounded bg-canvas-100 px-1.5 py-0.5 font-data text-volt-950">PLATFORM_ADMIN_EMAILS</code> (separados por vírgula).
+            Cadastrados na tabela{" "}
+            <code className="rounded bg-canvas-100 px-1.5 py-0.5 font-data text-volt-950">platform_admins</code>{" "}
+            por identidade de usuário. E-mail é rótulo, não credencial.
           </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {(process.env.PLATFORM_ADMIN_EMAILS ?? "igor@hubflow.com.br")
-              .split(",")
-              .map((e) => e.trim())
-              .filter(Boolean)
-              .map((email) => (
+          {admins.length === 0 ? (
+            <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-xs text-red-600">
+              Nenhum admin cadastrado — o acesso a /admin está fechado para todos. Insira o{" "}
+              <code className="font-data">auth_user_id</code> em{" "}
+              <code className="font-data">platform_admins</code> para liberar.
+            </p>
+          ) : (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {admins.map((admin) => (
                 <span
-                  key={email}
+                  key={admin.authUserId}
                   className="inline-flex items-center gap-1.5 rounded-full border border-alerta/20 bg-alerta/10 px-3 py-1.5 font-data text-xs text-alerta"
+                  title={admin.authUserId}
                 >
-                  <Shield className="h-3 w-3" /> {email}
+                  <Shield className="h-3 w-3" /> {admin.email ?? admin.authUserId}
                 </span>
               ))}
-          </div>
+            </div>
+          )}
         </div>
       </section>
     </div>

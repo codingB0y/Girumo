@@ -88,3 +88,12 @@ apps/web/supabase/migrations/20260812000000_group_grow_jobs.sql
 # cliques ontem". Não guarda user-agent, IP nem referer — quem clica é cliente do
 # lojista. Idempotente; RLS + policy por tenant.
 apps/web/supabase/migrations/20260811100000_link_click_events.sql
+
+# Admin da plataforma por identidade, não por string de e-mail. O guard comparava o
+# e-mail do logado contra PLATFORM_ADMIN_EMAILS (com fallback hardcoded) e o signup
+# cria conta com email_confirm sem verificar posse — quem registrasse um e-mail da
+# allowlist antes do dono virava super-admin. Cria `platform_admins` (deny-all,
+# service-role only) e DROPA `platform_settings`, órfã dos dois lados com 0 linhas.
+# ATENÇÃO: semear o auth_user_id do dono ANTES de subir o código, senão o
+# fail-closed tranca o /admin para todos.
+apps/web/supabase/migrations/20260812130000_platform_admins.sql
