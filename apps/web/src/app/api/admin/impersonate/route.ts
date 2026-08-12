@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
-import { getAdminContext } from "@/lib/admin-guard";
+import { getAdminContext, adminEmailFor } from "@/lib/admin-guard";
 import { isImpersonateFresh } from "@/lib/admin/impersonate-session";
 import { signSession, signImpersonate, verifyImpersonate, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
 
@@ -149,6 +149,29 @@ export async function DELETE(req: NextRequest) {
   );
   if (!adminData?.adminAuthUserId || !isImpersonateFresh(adminData.startedAt)) {
     return NextResponse.json({ error: "Invalid impersonate cookie" }, { status: 400 });
+  }
+
+  // O cookie prova QUEM iniciou a impersonation, não que essa pessoa AINDA é
+  // admin. Se o e-mail saiu de PLATFORM_ADMIN_EMAILS no meio da sessão, emitir
+  // signSession aqui devolveria o super-admin já revogado.
+  const stillAdmin = await adminEmailFor(adminData.adminAuthUserId);
+  if (!stillAdmin) {
+    // Derruba as duas pontas: sem isto o acesso revogado seguiria como o lojista.
+    // `adminEmailFor` também falha fechada em erro do Supabase, então um blip de
+    // rede custa um novo login — barato num caminho raro como este.
+    const supabase = getSupabaseAdmin();
+    await supabase.from("logs").insert({
+      tenant_id: "00000000-0000-0000-0000-000000000001",
+      level: "warn",
+      event: "admin.impersonate.revoked",
+      message: `Encerramento de impersonation recusado: ${adminData.adminAuthUserId} não é mais admin`,
+      metadata: { admin_user_id: adminData.adminAuthUserId },
+    });
+
+    const denied = NextResponse.json({ error: "Admin access revoked" }, { status: 403 });
+    denied.cookies.delete(IMPERSONATE_COOKIE);
+    denied.cookies.delete(SESSION_COOKIE);
+    return denied;
   }
 
   // Audit log: registrar fim de impersonation
