@@ -8,7 +8,7 @@ const PRIORITY_STYLE: Record<BoardFeature["priority"], string> = {
   baixa: "bg-aco/5 text-aco/60",
 };
 
-function diasDesde(iso: string, nowMs: number): number {
+function daysSince(iso: string, nowMs: number): number {
   return Math.floor((nowMs - Date.parse(iso)) / (24 * 60 * 60 * 1000));
 }
 
@@ -18,7 +18,7 @@ interface QuadroCardProps {
 }
 
 export function QuadroCard({ feature, nowMs }: QuadroCardProps) {
-  const vencido = isVerificationStale(feature, nowMs);
+  const stale = isVerificationStale(feature, nowMs);
 
   return (
     <article className="rounded-lg border border-line-200 bg-paper-0 p-3 shadow-sm">
@@ -47,10 +47,10 @@ export function QuadroCard({ feature, nowMs }: QuadroCardProps) {
 
       {feature.status === "no_ar_verificado" && feature.evidenceAt ? (
         <p
-          className={`font-data mt-2 text-[10px] uppercase tracking-wider ${vencido ? "text-danger-700" : "text-aco/45"}`}
+          className={`font-data mt-2 text-[10px] uppercase tracking-wider ${stale ? "text-danger-700" : "text-aco/45"}`}
         >
-          {vencido ? "⚠ verificação vencida · " : "verificado "}
-          há {diasDesde(feature.evidenceAt, nowMs)} dias
+          {stale ? "⚠ verificação vencida · " : "verificado "}
+          há {daysSince(feature.evidenceAt, nowMs)} dias
           {feature.evidence ? ` · ${feature.evidence}` : ""}
         </p>
       ) : null}

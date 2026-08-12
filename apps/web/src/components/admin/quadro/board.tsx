@@ -31,15 +31,15 @@ export function QuadroBoard({ initial }: QuadroBoardProps) {
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
-    let cancelado = false;
+    let cancelled = false;
 
-    async function puxar() {
+    async function refresh() {
       try {
-        const resposta = await fetch("/api/admin/quadro", { cache: "no-store" });
-        if (!resposta.ok) return;
-        const dados = (await resposta.json()) as QuadroBoardProps["initial"];
-        if (!cancelado) {
-          setSnapshot(dados);
+        const response = await fetch("/api/admin/quadro", { cache: "no-store" });
+        if (!response.ok) return;
+        const data = (await response.json()) as QuadroBoardProps["initial"];
+        if (!cancelled) {
+          setSnapshot(data);
           setNowMs(Date.now());
         }
       } catch {
@@ -47,9 +47,9 @@ export function QuadroBoard({ initial }: QuadroBoardProps) {
       }
     }
 
-    const timer = setInterval(puxar, POLL_MS);
+    const timer = setInterval(refresh, POLL_MS);
     return () => {
-      cancelado = true;
+      cancelled = true;
       clearInterval(timer);
     };
   }, []);
@@ -59,11 +59,11 @@ export function QuadroBoard({ initial }: QuadroBoardProps) {
     [snapshot.features],
   );
 
-  const visiveis = area === "todas"
+  const visible = area === "todas"
     ? snapshot.features
     : snapshot.features.filter((f) => f.area === area);
 
-  const grupos = groupByStatus(visiveis);
+  const groups = groupByStatus(visible);
 
   return (
     <div className="space-y-4">
@@ -87,9 +87,9 @@ export function QuadroBoard({ initial }: QuadroBoardProps) {
       <div className="flex flex-col gap-4 lg:flex-row">
         <div className="flex min-w-0 flex-1 gap-3 overflow-x-auto pb-2">
           {BOARD_STATUSES.map((status) => {
-            const cards = grupos[status];
-            const temLimite = status === "em_construcao";
-            const estado = temLimite ? wipState(cards.length, WIP_LIMIT_EM_CONSTRUCAO) : "ok";
+            const cards = groups[status];
+            const hasLimit = status === "em_construcao";
+            const wip = hasLimit ? wipState(cards.length, WIP_LIMIT_EM_CONSTRUCAO) : "ok";
 
             return (
               <section key={status} className="flex w-64 shrink-0 flex-col gap-2">
@@ -97,8 +97,8 @@ export function QuadroBoard({ initial }: QuadroBoardProps) {
                   <h2 className="font-data text-[11px] uppercase tracking-wider text-aco/70">
                     {STATUS_LABELS[status]}
                   </h2>
-                  <span className={`font-data text-[11px] ${WIP_STYLE[estado]}`}>
-                    {temLimite ? `${cards.length}/${WIP_LIMIT_EM_CONSTRUCAO}` : cards.length}
+                  <span className={`font-data text-[11px] ${WIP_STYLE[wip]}`}>
+                    {hasLimit ? `${cards.length}/${WIP_LIMIT_EM_CONSTRUCAO}` : cards.length}
                   </span>
                 </header>
 
