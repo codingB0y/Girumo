@@ -7,7 +7,12 @@ $root = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 # fato de -ExecutionPolicy nao existir fora do Windows.
 $isCore = $PSVersionTable.PSEdition -eq "Core"
 $psExe = if ($isCore) { "pwsh" } else { "powershell" }
-$psArgs = if ($isCore) { @("-File") } else { @("-ExecutionPolicy", "Bypass", "-File") }
+# [string[]] nao e decorativo: um array de UM elemento devolvido por `if` e
+# desembrulhado para String, e ai `& $psExe @psArgs` splata a string caractere a
+# caractere — o pwsh recebe "-", "F", "i"... e morre com exit 64 ("The argument
+# 'F' is not recognized as the name of a script file"). O ramo Windows tem tres
+# elementos e sobrevive por acidente; so o ramo Core, de um elemento, quebrava.
+[string[]] $psArgs = if ($isCore) { @("-File") } else { @("-ExecutionPolicy", "Bypass", "-File") }
 $npmExe = if ($isCore) { "npm" } else { "npm.cmd" }
 
 function Invoke-NativeStep {
