@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   buildInviteFetchMarker,
   classifyInviteFailure,
+  clearInviteFetchMarker,
   parseInviteCodeResponse,
   selectBackfillCandidates,
   type BackfillCandidate,
@@ -166,4 +167,21 @@ test("stamps the failure with reason and time", () => {
 test("truncates a very long reason", () => {
   const marker = buildInviteFetchMarker("x".repeat(500), new Date("2026-08-12T15:30:00.000Z"));
   assert.equal(marker.reason.length, 200);
+});
+
+// --- clearInviteFetchMarker ---
+
+test("clearing the marker returns the group to the queue", () => {
+  const cleared = clearInviteFetchMarker({
+    inviteFetch: { failed: true, reason: "403", at: "2026-08-12T00:00:00.000Z" },
+    outroCampo: "preservado",
+  });
+  assert.deepEqual(cleared, { outroCampo: "preservado" });
+  assert.deepEqual(selectBackfillCandidates([group({ metadata: cleared })], 10).length, 1);
+});
+
+test("clearing keeps other metadata untouched and handles empty input", () => {
+  assert.deepEqual(clearInviteFetchMarker(null), {});
+  assert.deepEqual(clearInviteFetchMarker(undefined), {});
+  assert.deepEqual(clearInviteFetchMarker({ a: 1 }), { a: 1 });
 });

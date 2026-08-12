@@ -110,3 +110,18 @@ export function classifyInviteFailure(input: { status: number; detail?: string |
 export function buildInviteFetchMarker(reason: string, now: Date): InviteFetchMarker {
   return { failed: true, reason: reason.slice(0, REASON_MAX_LENGTH), at: now.toISOString() };
 }
+
+/**
+ * Remove o marcador de falha, devolvendo o grupo à fila do cron.
+ *
+ * Imutável: devolve objeto novo. O resto do metadata é preservado — ele
+ * carrega coisa de outras features.
+ */
+export function clearInviteFetchMarker(
+  metadata: Record<string, unknown> | null | undefined,
+): Record<string, unknown> {
+  if (!metadata) return {};
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { inviteFetch: _removed, ...rest } = metadata;
+  return rest;
+}
