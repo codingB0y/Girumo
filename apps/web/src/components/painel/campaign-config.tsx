@@ -212,9 +212,18 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
           </div>
         </Field>
       )}
-      <Field label="Automatizar criação de grupos?" hint="A Girumo cria um grupo novo automaticamente quando o atual lota (a partir de 90%).">
-        <ToggleInline on={autoGrow} setOn={setAutoGrow} labelOn="Sim, criar no automático" labelOff="Não, gerencio na mão" />
-      </Field>
+      {/*
+        Toggle "Automatizar criação de grupos?" escondido — a feature não existe.
+        Vinha LIGADO por padrão prometendo "a Girumo cria um grupo novo quando o
+        atual lota", e nada acontecia: o grow store é JSON-only, nenhuma UI grava
+        `growTemplate` (confirmado em prod: a campanha existente tem auto_grow=true
+        e grow_template NULL), e o executor que sabe criar grupo só é chamado pela
+        engine legada, que nunca recebe job.
+
+        O estado e o payload continuam intactos de propósito: o valor já gravado
+        em cada campanha é preservado, e o PR do auto-grow só precisa reexibir
+        este bloco.
+      */}
     </Card>
   );
 
@@ -351,13 +360,5 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   );
 }
 
-function ToggleInline({ on, setOn, labelOn, labelOff }: { on: boolean; setOn: (v: boolean) => void; labelOn: string; labelOff: string }) {
-  return (
-    <button onClick={() => setOn(!on)} className="flex w-full items-center justify-between rounded-xl border border-volt-950/10 bg-poco px-3.5 py-2.5 text-left text-sm transition-colors duration-[160ms] hover:border-cobalt-500/30">
-      <span className={cn("font-medium", on ? "text-volt-950" : "text-aco/70")}>{on ? labelOn : labelOff}</span>
-      <span className={cn("relative h-6 w-11 rounded-full transition-colors duration-[160ms]", on ? "bg-cobalt-500" : "bg-volt-950/15")}>
-        <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-[left] duration-[160ms] ease-[var(--ease-fluxo)]", on ? "left-[22px]" : "left-0.5")} />
-      </span>
-    </button>
-  );
-}
+// `ToggleInline` saiu junto com o único uso dele (o toggle de auto-grow acima).
+// Fica no histórico: o PR que religar a feature traz os dois de volta.
