@@ -1,6 +1,11 @@
 import { Key, Globe, Database, Shield } from "lucide-react";
+import { platformAdminEmails } from "@/lib/admin/platform-admins";
 
 export default function AdminConfiguracoesPage() {
+  // Mesma fonte que o `admin-guard` usa pra decidir acesso — antes esta página
+  // reparseava a env var por conta própria, sem normalizar caixa, e podia listar
+  // um admin diferente do que o guard de fato aceita.
+  const admins = platformAdminEmails();
   const envVars = [
     { key: "SUPABASE_URL", set: !!process.env.SUPABASE_URL, sensitive: false },
     { key: "SUPABASE_ANON_KEY", set: !!process.env.SUPABASE_ANON_KEY, sensitive: true },
@@ -77,18 +82,20 @@ export default function AdminConfiguracoesPage() {
             Definidos via variável <code className="rounded bg-canvas-100 px-1.5 py-0.5 font-data text-volt-950">PLATFORM_ADMIN_EMAILS</code> (separados por vírgula).
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            {(process.env.PLATFORM_ADMIN_EMAILS ?? "igor@hubflow.com.br")
-              .split(",")
-              .map((e) => e.trim())
-              .filter(Boolean)
-              .map((email) => (
+            {admins.length === 0 ? (
+              <p className="font-data text-xs text-red-600">
+                Nenhum admin configurado — com a variável ausente ninguém tem acesso ao painel.
+              </p>
+            ) : (
+              admins.map((email) => (
                 <span
                   key={email}
                   className="inline-flex items-center gap-1.5 rounded-full border border-alerta/20 bg-alerta/10 px-3 py-1.5 font-data text-xs text-alerta"
                 >
                   <Shield className="h-3 w-3" /> {email}
                 </span>
-              ))}
+              ))
+            )}
           </div>
         </div>
       </section>
