@@ -36,12 +36,21 @@ const FETCH_GROUPS_TIMEOUT_MS = 60_000;
 export class EvolutionError extends Error {
   readonly status: number;
   readonly path: string;
+  /**
+   * Detail cru do provedor, separado da `message` composta.
+   *
+   * A message carrega path e status — útil em log, péssimo em tela: quem
+   * classifica a falha (ver `classifyInviteFailure`) e grava o motivo que o
+   * lojista lê no painel precisa só desta parte.
+   */
+  readonly detail: string | undefined;
 
   constructor(path: string, status: number, detail?: string) {
     super(`Evolution ${path} falhou (${status})${detail ? `: ${detail}` : ""}`);
     this.name = "EvolutionError";
     this.status = status;
     this.path = path;
+    this.detail = detail;
   }
 }
 
