@@ -12,6 +12,7 @@ const brand = read("src/lib/brand.ts");
 const automations = read("src/lib/stores/automations.ts");
 const signup = read("src/app/api/auth/signup/route.ts");
 const cron = read("src/app/api/cron/emails/route.ts");
+const oauthComplete = read("src/app/api/auth/oauth-complete/route.ts");
 
 test("sources transactional email identity from the Girumo brand contract", () => {
   assert.match(
@@ -43,12 +44,15 @@ test("uses the approved flat Girumo email palette", () => {
   assert.doesNotMatch(templates, /gradient|#6a4bf0|#7c3aed|#6d28d9|purple|violet/i);
 });
 
-test("uses the transitional Girumo sender on the compatibility domain", () => {
+test("sends from the Girumo domain, verified in Resend", () => {
+  // O remetente só pôde sair do domínio de compatibilidade depois que
+  // girumo.com.br foi verificado no Resend (SPF/DKIM) — trocar a string antes
+  // disso faria o provedor rejeitar todo o e-mail transacional.
   assert.match(
     client,
-    /process\.env\.RESEND_FROM_EMAIL\s*\|\|\s*["']Girumo <noreply@hubflow\.com\.br>["']/,
+    /process\.env\.RESEND_FROM_EMAIL\s*\|\|\s*["']Girumo <noreply@girumo\.com\.br>["']/,
   );
-  assert.doesNotMatch(client, /["']HubFlow\s+</);
+  assert.doesNotMatch(client, /hubflow/i);
 });
 
 test("removes stale public email language and pricing", () => {
@@ -70,12 +74,17 @@ test("retires SaaS-lifecycle triggers from lojista templates and keeps the copy 
   assert.match(automations, /delay_minutes:\s*0/);
 });
 
-test("preserves the technical app host in signup and email cron", () => {
-  for (const [name, source] of [["signup", signup], ["cron", cron]] as const) {
-    assert.match(
-      source,
-      /process\.env\.NEXT_PUBLIC_APP_URL\s*\|\|\s*["']https:\/\/app\.hubflow\.com\.br["']/,
-      name,
-    );
+test("sources the app host from one place in every e-mail sender", () => {
+  // Antes, cada rota carregava seu próprio `NEXT_PUBLIC_APP_URL || "<host>"`.
+  // Três cópias do mesmo literal = três chances de uma migração de domínio
+  // atualizar duas e esquecer a terceira. Agora todas chamam getAppUrl().
+  for (const [name, source] of [
+    ["signup", signup],
+    ["cron", cron],
+    ["oauth-complete", oauthComplete],
+  ] as const) {
+    assert.match(source, /getAppUrl\(\)/, name);
+    assert.match(source, /from\s+["']@\/lib\/environment["']/, name);
+    assert.doesNotMatch(source, /hubflow/i, name);
   }
 });

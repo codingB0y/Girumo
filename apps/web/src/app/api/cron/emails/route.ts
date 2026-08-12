@@ -13,6 +13,7 @@ import {
 import { activationMarkerForAge, activationNotificationType, type ActivationMarker } from "@/lib/email/activation-cadence";
 import { isCronAuthorized } from "@/lib/cron-auth";
 import { selectSessionRow, isConnectedStatus } from "@/lib/session-select";
+import { getAppUrl } from "@/lib/environment";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -190,7 +191,7 @@ export async function GET(req: Request) {
   }
 
   const supabase = getSupabaseAdmin();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.hubflow.com.br";
+  const appUrl = getAppUrl();
   const results = { nudge_sent: 0, disconnect_sent: 0, activation_sent: 0, weekly_sent: 0, errors: 0 };
 
   // --- Job 1: 24h sem conectar ---

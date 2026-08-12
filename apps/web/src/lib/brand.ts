@@ -38,7 +38,7 @@ export const BRAND_COLORS = {
 } as const;
 
 export function getPublicSiteUrl(): string {
-  return (process.env.NEXT_PUBLIC_SITE_URL || "https://hubflow.com.br").replace(/\/$/, "");
+  return (process.env.NEXT_PUBLIC_SITE_URL || "https://girumo.com.br").replace(/\/$/, "");
 }
 
 export function getBrandAssetUrl(pathname: string, siteUrl = getPublicSiteUrl()): string {
