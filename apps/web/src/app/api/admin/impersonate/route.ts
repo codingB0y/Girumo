@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { getAdminContext } from "@/lib/admin-guard";
+import { isImpersonateFresh } from "@/lib/admin/impersonate-session";
 import { signSession, signImpersonate, verifyImpersonate, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -141,8 +142,12 @@ export async function DELETE(req: NextRequest) {
 
   // Verifica a ASSINATURA antes de confiar em adminAuthUserId — sem isto, qualquer
   // usuário forjaria este cookie e assumiria a sessão de outro (account takeover).
-  const adminData = await verifyImpersonate<{ adminAuthUserId: string }>(impersonateCookie);
-  if (!adminData?.adminAuthUserId) {
+  // A assinatura não expira, então o `startedAt` do payload é cobrado logo abaixo:
+  // um cookie copiado não pode virar sessão de super-admin meses depois.
+  const adminData = await verifyImpersonate<{ adminAuthUserId: string; startedAt?: string }>(
+    impersonateCookie,
+  );
+  if (!adminData?.adminAuthUserId || !isImpersonateFresh(adminData.startedAt)) {
     return NextResponse.json({ error: "Invalid impersonate cookie" }, { status: 400 });
   }
 
