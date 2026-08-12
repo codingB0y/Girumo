@@ -6,6 +6,7 @@ import {
   selectBackfillCandidates,
   type BackfillCandidate,
 } from "@/lib/groups/invite-backfill";
+import { isConnectedStatus, selectSessionRow } from "@/lib/session-select";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -37,6 +38,15 @@ const CRON_SECRET = process.env.CRON_SECRET || "";
  */
 const MAX_PER_INSTANCE_PER_RUN = 10;
 
+/** Só o que a seleção da sessão precisa de `instances` (ver `session-select.ts`). */
+type InstanceRow = {
+  id: string;
+  tenant_id: string | null;
+  provider_instance_id: string | null;
+  status: string | null;
+  updated_at: string | null;
+};
+
 /**
  * GET /api/cron/group-invites
  * Chamado por Vercel Cron (vercel.json) com Authorization Bearer.
@@ -64,27 +74,53 @@ export async function GET(req: Request) {
   // real do update — o service-role bypassa RLS.
   const markPermanentFailure = async (tenantId: string, group: BackfillCandidate, reason: string) => {
     const marker = buildInviteFetchMarker(reason, now);
-    await supabase
+    const { error: markError } = await supabase
       .from("groups")
       .update({ metadata: { ...(group.metadata ?? {}), inviteFetch: marker } })
       .eq("tenant_id", tenantId)
       .eq("id", group.id);
+
+    if (markError) {
+      // Marcador não gravado = o grupo continua na fila e o cron volta a bater
+      // nele a cada 10min, exatamente o que a marcação existe pra evitar.
+      console.error(`[cron] group-invites: falha marcando ${group.id} como definitivo:`, markError.message);
+    }
     results.failed++;
   };
 
-  const { data: instances, error: instancesError } = await supabase
+  const { data: instanceRows, error: instancesError } = await supabase
     .from("instances")
-    .select("id, tenant_id, provider_instance_id, status")
-    .eq("status", "connected");
+    .select("id, tenant_id, provider_instance_id, status, updated_at");
 
   if (instancesError) {
     console.error("[cron] group-invites: falha lendo instances:", instancesError.message);
     return Response.json({ error: "instances unavailable" }, { status: 500 });
   }
 
-  for (const instance of instances ?? []) {
-    const tenantId = instance.tenant_id as string | null;
-    if (!tenantId) continue;
+  // Um tenant tem VÁRIAS linhas em `instances` (connected, qr, connecting,
+  // disconnected). Filtrar por status no SQL e iterar o resultado processaria o
+  // mesmo número do lojista duas vezes num run — 20 chamadas onde a política
+  // permite 10 — e ainda usaria o instanceName de uma linha morta, que a
+  // Evolution responde com erro sem padrão reconhecível: `classifyInviteFailure`
+  // devolveria "permanent" e mataria grupos saudáveis.
+  //
+  // Uma linha por tenant, pela mesma regra do painel e do outro cron.
+  const byTenant = new Map<string, InstanceRow[]>();
+  for (const row of (instanceRows ?? []) as InstanceRow[]) {
+    if (!row.tenant_id) continue;
+    const rows = byTenant.get(row.tenant_id);
+    if (rows) rows.push(row);
+    else byTenant.set(row.tenant_id, [row]);
+  }
+
+  let processedInstances = 0;
+
+  for (const [tenantId, rows] of byTenant) {
+    const instance = selectSessionRow(rows);
+    // `isConnectedStatus` em vez de `status === "connected"`: "online" também é
+    // sessão viva (escrito pelo engine-health) e o resto do app já trata assim.
+    if (!instance || !isConnectedStatus(instance.status)) continue;
+    processedInstances++;
 
     // O filtro por tenant_id é a proteção real: o service-role bypassa RLS.
     const { data: groups, error: groupsError } = await supabase
@@ -103,7 +139,7 @@ export async function GET(req: Request) {
     const pending = selectBackfillCandidates(all, all.length).length;
     results.remaining += Math.max(0, pending - candidates.length);
 
-    const remoteName = instance.provider_instance_id || providerInstanceId(instance.id as string);
+    const remoteName = instance.provider_instance_id || providerInstanceId(instance.id);
 
     // Em série, sempre. Paralelizar aqui é o oposto de respeitar o limite.
     for (const group of candidates) {
@@ -135,9 +171,10 @@ export async function GET(req: Request) {
           continue;
         }
 
-        // `EvolutionError` só expõe status e path; o detail vive dentro da
-        // message composta, então é ela que vai para a classificação.
-        const failure = classifyInviteFailure({ status: error.status, detail: error.message });
+        // `detail`, não `message`: a message compõe path e status, e o reason
+        // vai parar no painel do lojista — ninguém precisa ler a URL interna da
+        // Evolution nem o JID do grupo pra decidir se tenta de novo.
+        const failure = classifyInviteFailure({ status: error.status, detail: error.detail });
 
         if (failure.verdict === "transient") {
           // Não marca: a próxima execução tenta de novo.
@@ -148,6 +185,15 @@ export async function GET(req: Request) {
         await markPermanentFailure(tenantId, group, failure.reason);
       }
     }
+  }
+
+  // Sem isto, um deploy inerte (nenhuma sessão viva, env errada, tabela vazia)
+  // responde `{ ok: true, filled: 0 }` — idêntico no log a um run saudável sem
+  // nada na fila.
+  if (processedInstances === 0) {
+    console.warn(
+      `[cron] group-invites: nenhuma instância conectada em ${byTenant.size} tenant(s) — nada a fazer neste run`,
+    );
   }
 
   return Response.json({ ok: true, ...results, timestamp: now.toISOString() });

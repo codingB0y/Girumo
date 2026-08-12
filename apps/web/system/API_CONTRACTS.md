@@ -282,12 +282,16 @@ retorna o mesmo shape recomputado. Passos definidos em `lib/playbook/steps.ts` (
 
 Cron do Vercel, a cada 10 minutos. `Authorization: Bearer <CRON_SECRET>`.
 
-Preenche `groups.invite_url` de até 10 grupos por instância conectada onde
+Preenche `groups.invite_url` de até 10 grupos por TENANT conectado onde
 `is_admin = true` e o convite está vazio, buscando na Evolution
 (`GET /group/inviteCode/{instance}?groupJid=`).
 
-A cadência do cron × o teto de 10 por execução É o rate limiter (10/10min).
-Alterar um sem o outro quebra a política anti-ban.
+Um tenant tem várias linhas em `instances`; a sessão usada é UMA por tenant,
+escolhida por `selectSessionRow`/`isConnectedStatus` (`lib/session-select.ts`) —
+a mesma regra do painel. Tenant cuja linha escolhida não está viva é pulado.
+
+A cadência do cron × o teto de 10 por execução É o rate limiter (10/10min), por
+conta de WhatsApp. Alterar um sem o outro quebra a política anti-ban.
 
 Resposta: `{ ok: true, filled, failed, skipped, remaining, timestamp }`
 
