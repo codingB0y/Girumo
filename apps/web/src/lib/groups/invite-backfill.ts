@@ -36,7 +36,9 @@ const REASON_MAX_LENGTH = 200;
  */
 const PERMANENT_REASONS: ReadonlyArray<{ pattern: RegExp; reason: string }> = [
   { pattern: /\b403\b|forbidden|not-authorized/i, reason: "a conta não é mais admin do grupo" },
-  { pattern: /locked/i, reason: "o grupo está travado para convites" },
+  // `\b` de propósito: sem as âncoras, um detail com "unlocked" casaria aqui e
+  // mataria para sempre um grupo que está bom.
+  { pattern: /\blocked\b/i, reason: "o grupo está travado para convites" },
   { pattern: /\bgone\b/i, reason: "o convite foi revogado no WhatsApp" },
 ];
 
