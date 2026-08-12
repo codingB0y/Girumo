@@ -1,5 +1,6 @@
 import { USE_SUPABASE } from "@/lib/stores/use-supabase";
 import * as supaStore from "@/lib/stores/campaign-groups";
+import * as linksStore from "@/lib/stores/tracked-links";
 import { campanhasColl, ensureSlugs, uniqueCampanhaSlug, type Campanha } from "@/lib/campanhas-store";
 import { listLinks, slugify } from "@/lib/store";
 import { assertPlanLimit } from "@/lib/billing/entitlements";
@@ -9,6 +10,23 @@ import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/**
+ * O slug da campanha é também o slug do link mestre em `/r/:slug`, e
+ * `tracked_links.slug` é único GLOBALMENTE (entre tenants) — então não basta
+ * conferir as campanhas do próprio tenant: um slug já tomado por qualquer link
+ * faria a criação do link mestre estourar.
+ */
+async function uniqueMasterSlug(name: string, takenInTenant: Set<string>): Promise<string> {
+  const base = slugify(name) || "campanha";
+  let slug = base;
+  for (let attempt = 0; attempt < 25; attempt++) {
+    if (!takenInTenant.has(slug) && !(await linksStore.getTrackedLinkBySlug(slug))) return slug;
+    slug = `${base}-${Math.random().toString(36).slice(2, 6)}`;
+  }
+  // Fallback praticamente impossível de colidir, p/ nunca travar a criação.
+  return `${base}-${crypto.randomUUID().slice(0, 8)}`;
+}
 
 // GET /api/campanhas
 export async function GET(req: Request) {
@@ -67,12 +85,8 @@ export async function POST(req: Request) {
     throw e;
   }
 
-  // Generate unique slug
   const existing = await supaStore.listCampaignGroups(tenantId);
-  const taken = new Set(existing.map((c) => c.slug));
-  const base = slugify(name) || "campanha";
-  let slug = base;
-  while (taken.has(slug)) slug = `${base}-${Math.random().toString(36).slice(2, 6)}`;
+  const slug = await uniqueMasterSlug(name, new Set(existing.map((c) => c.slug)));
 
   const rec = await supaStore.createCampaignGroup(tenantId, {
     name,
@@ -81,6 +95,24 @@ export async function POST(req: Request) {
     auto_grow: b.autoGrow === true,
     grow_template: b.growTemplate as Record<string, unknown> | undefined,
   });
+
+  // Link mestre. /r/<slug> só resolve porque existe ESTA linha — campanha sem
+  // ela nasce com link morto. Se a criação falhar (corrida de slug), desfaz a
+  // campanha em vez de entregar uma com link quebrado.
+  try {
+    await linksStore.createTrackedLink(tenantId, {
+      slug: rec.slug,
+      target_url: "",
+      campaign_group_id: rec.id,
+      metadata: { campaignName: rec.name, master: true },
+    });
+  } catch {
+    await supaStore.deleteCampaignGroup(tenantId, rec.id);
+    return Response.json(
+      { error: "Não foi possível gerar o link da campanha. Tente de novo." },
+      { status: 409 },
+    );
+  }
 
   // Store loja in metadata
   if (b.loja) {
@@ -109,6 +141,9 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   const ctx = await getTenantContext(req);
   assertPermission(ctx.role, "campaign:edit");
+  // Declarado ANTES do branch legado: lá embaixo ele é lido, e com o `const`
+  // depois do `if` a leitura caía na zona morta (ReferenceError, não `undefined`).
+  const tenantId = ctx.tenantId;
   let b: Record<string, unknown>;
   try {
     b = await req.json();
@@ -144,8 +179,6 @@ export async function PATCH(req: Request) {
     return Response.json(updated);
   }
 
-  const tenantId = ctx.tenantId;
-
   const patch: Partial<Pick<supaStore.CampaignGroup, "name" | "slug" | "group_ids" | "auto_grow" | "grow_template" | "metadata">> = {};
   if (typeof b.name === "string") patch.name = b.name.trim();
   if (Array.isArray(b.groupIds)) patch.group_ids = b.groupIds.map(String);
@@ -172,6 +205,8 @@ export async function PATCH(req: Request) {
 export async function DELETE(req: Request) {
   const ctx = await getTenantContext(req);
   assertPermission(ctx.role, "campaign:delete");
+  // Ver comentário no PATCH: `const` depois do branch legado dava TDZ.
+  const tenantId = ctx.tenantId;
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return Response.json({ error: "id obrigatório." }, { status: 400 });
 
@@ -182,7 +217,6 @@ export async function DELETE(req: Request) {
     return Response.json({ ok: true });
   }
 
-  const tenantId = ctx.tenantId;
   await supaStore.deleteCampaignGroup(tenantId, id);
   return Response.json({ ok: true });
 }

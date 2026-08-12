@@ -68,6 +68,13 @@ function validateEngineEnvironment() {
     return { valid: true, mode, errors, warnings };
   }
 
+  // M2: ENGINE_TOKEN é obrigatório em QUALQUER modo não-mock. Sem ele, index.js cai
+  // no token-default público do repo ("dz_dev_engine_token") — não pode depender de
+  // ENGINE_MODE/NODE_ENV estar setado corretamente no deploy (fail-closed).
+  if (!process.env.ENGINE_TOKEN) {
+    errors.push("ENGINE_TOKEN obrigatório fora do modo mock");
+  }
+
   // Em dev/staging, alerta se não tem Supabase
   if (!hasSupabaseEngineConfig()) {
     warnings.push("Supabase não configurado — command worker desabilitado");
@@ -75,7 +82,6 @@ function validateEngineEnvironment() {
 
   // Em produção, exige tudo
   if (isProductionEngine()) {
-    if (!process.env.ENGINE_TOKEN) errors.push("ENGINE_TOKEN obrigatório em produção");
     if (!process.env.APP_URL) errors.push("APP_URL obrigatório em produção");
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(process.env.ENGINE_TENANT_ID || "")) {
       errors.push("ENGINE_TENANT_ID UUID obrigatório em produção");

@@ -1,28 +1,46 @@
 import { USE_SUPABASE } from "@/lib/stores/use-supabase";
 import * as supaStore from "@/lib/stores/tracked-links";
 import { listLinks, createLink, clickCounts, slugify } from "@/lib/store";
-import { getSessionAccountId } from "@/lib/session";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { resolveSessionTenantId } from "@/lib/session-tenant";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-async function resolveTenantId(): Promise<string | null> {
-  const authUserId = await getSessionAccountId();
-  if (!authUserId) return null;
+/**
+ * Campanha à qual o link pertence. Aceita o ID explícito (caminho novo) e, na
+ * falta dele, casa pelo nome UMA única vez — no momento da criação. Depois
+ * disso o vínculo é o ID, então renomear a campanha não mexe em nada.
+ */
+async function resolveCampaignGroupId(
+  tenantId: string,
+  rawId: unknown,
+  campaignName: string,
+): Promise<string | undefined> {
+  const explicitId = String(rawId ?? "").trim();
+  if (explicitId) {
+    const { data } = await getSupabaseAdmin()
+      .from("campaign_groups")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("id", explicitId)
+      .maybeSingle();
+    return data?.id;
+  }
+
+  if (!campaignName) return undefined;
   const { data } = await getSupabaseAdmin()
-    .from("memberships")
-    .select("tenant_id")
-    .eq("user_id", authUserId)
-    .not("accepted_at", "is", null)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  return data?.tenant_id ?? null;
+    .from("campaign_groups")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .ilike("name", campaignName)
+    .limit(2);
+  // Dois nomes iguais = ambíguo: melhor link sem vínculo do que vínculo errado.
+  return data?.length === 1 ? data[0].id : undefined;
 }
 
 // GET /api/links
-export async function GET() {
+export async function GET(req: Request) {
   if (!USE_SUPABASE) {
     const [links, counts] = await Promise.all([listLinks(), clickCounts()]);
     const data = links
@@ -31,7 +49,7 @@ export async function GET() {
     return Response.json(data);
   }
 
-  const tenantId = await resolveTenantId();
+  const tenantId = await resolveSessionTenantId(req);
   if (!tenantId) return Response.json([]);
   const links = await supaStore.listTrackedLinks(tenantId);
   const mapped = links
@@ -39,6 +57,9 @@ export async function GET() {
       id: l.id,
       slug: l.slug,
       destinationUrl: l.target_url,
+      // Vínculo por ID: é o que sobrevive a renomear a campanha. `campaignName`
+      // continua exposto só para os links antigos, que ainda não têm o ID.
+      campaignGroupId: l.campaign_group_id,
       campaignName: (l.metadata as Record<string, unknown>)?.campaignName ?? "",
       targetGroupName: (l.metadata as Record<string, unknown>)?.targetGroupName ?? "",
       clicks: l.clicks,
@@ -86,7 +107,7 @@ export async function POST(req: Request) {
     }
   }
 
-  const tenantId = await resolveTenantId();
+  const tenantId = await resolveSessionTenantId(req);
   if (!tenantId) return Response.json({ error: "Tenant não encontrado." }, { status: 403 });
 
   // Check if slug already exists
@@ -95,9 +116,14 @@ export async function POST(req: Request) {
     return Response.json({ error: `Slug "${slug}" já está em uso.` }, { status: 409 });
   }
 
+  // Resolve a campanha AGORA, no servidor: gravar o vínculo por ID na criação é
+  // o que impede o histórico de cliques de sumir num rename futuro (achado A6).
+  const campaignGroupId = await resolveCampaignGroupId(tenantId, body.campaignGroupId, campaignName);
+
   const link = await supaStore.createTrackedLink(tenantId, {
     slug,
     target_url: destinationUrl,
+    campaign_group_id: campaignGroupId,
   });
 
   // Store extra metadata

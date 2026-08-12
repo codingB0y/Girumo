@@ -6,6 +6,7 @@ import { Check, ShieldCheck, Zap, Loader2, RefreshCw } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { cn } from "@/lib/utils";
 import { POLL_MS, nextPollDelay } from "@/lib/engine-poll";
+import { activationLabel } from "@/lib/onboarding-steps";
 
 export default function PainelConectar() {
   const { instance, loading, error, load, refreshQr } = useInstance();
@@ -56,10 +57,13 @@ export default function PainelConectar() {
 function Stepper({ connected }: { connected: boolean }) {
   // Reflete o estado real. Antes era constante de módulo: mesmo depois de
   // conectar, o passo 1 continuava marcado como o atual.
+  // Rótulos da fonte única (@/lib/onboarding-steps) — esta tela dizia "Conectar
+  // número · Grupos entram · Primeira campanha" para os mesmos três passos que o
+  // painel chamava de outra coisa.
   const steps = [
-    { n: 1, label: "Conectar número", done: connected, active: !connected },
-    { n: 2, label: "Grupos entram", done: false, active: connected },
-    { n: 3, label: "Primeira campanha", done: false, active: false },
+    { n: 1, label: activationLabel("connect"), done: connected, active: !connected },
+    { n: 2, label: activationLabel("groups"), done: false, active: connected },
+    { n: 3, label: activationLabel("campaign"), done: false, active: false },
   ];
 
   return (

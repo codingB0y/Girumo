@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getAppEnvironment, isDev, isProduction } from "./environment";
+import { getAppEnvironment, isDev, isProduction, isProdDomainUrl } from "./environment";
 
 /**
  * Security Guards — isolamento total entre ambientes.
@@ -155,21 +155,11 @@ function guardDomain(): { allowed: boolean; reason?: string } {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
   const env = getAppEnvironment();
 
-  const prodDomains = [
-    "app.hubflow.com.br",
-    "hubflow.com.br",
-    "www.hubflow.com.br",
-  ];
-
-  if (!isProduction()) {
-    for (const domain of prodDomains) {
-      if (appUrl.includes(domain)) {
-        return {
-          allowed: false,
-          reason: `NEXT_PUBLIC_APP_URL aponta para ${domain} em ambiente ${env}. Use localhost ou domínio staging.`,
-        };
-      }
-    }
+  if (!isProduction() && isProdDomainUrl(appUrl)) {
+    return {
+      allowed: false,
+      reason: `NEXT_PUBLIC_APP_URL aponta para ${appUrl} em ambiente ${env}. Use localhost ou domínio staging.`,
+    };
   }
 
   return { allowed: true };

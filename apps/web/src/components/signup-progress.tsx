@@ -1,14 +1,22 @@
 import { cn } from "@/lib/utils";
+import { activationLabel } from "@/lib/onboarding-steps";
 
+/**
+ * "Criar conta" é do signup e só existe aqui; os outros dois vêm da fonte única
+ * de ativação, para o lojista não ler um nome aqui e outro no painel.
+ *
+ * O terceiro passo dizia "Primeiro disparo" — e disparo não ativa ninguém. O que
+ * enche grupo é a campanha e o link dela, que é o que a ativação de fato mede.
+ */
 const STEPS = [
   { label: "Criar conta" },
-  { label: "Conectar WhatsApp" },
-  { label: "Primeiro disparo" },
+  { label: activationLabel("connect") },
+  { label: activationLabel("campaign") },
 ];
 
 /**
  * Indicador visual de progresso do fluxo signup → onboarding.
- * `current` é 1-indexed (1 = signup, 2 = conectar, 3 = disparo).
+ * `current` é 1-indexed (1 = signup, 2 = conectar, 3 = campanha).
  */
 export function SignupProgress({ current }: { current: number }) {
   return (

@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AuthShell } from "@/components/auth-shell";
 import { SignupProgress } from "@/components/signup-progress";
-import { persistSupabaseSession } from "@/lib/supabase/client";
+import { persistSupabaseSession, startGoogleOAuth } from "@/lib/supabase/client";
 
 function GoogleIcon() {
   return (
@@ -28,9 +28,21 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
   const valid = name.trim().length > 0 && emailOk && password.length >= 6;
+
+  async function signUpWithGoogle() {
+    setGoogleLoading(true);
+    setError("");
+    try {
+      await startGoogleOAuth("/painel");
+    } catch {
+      setError("Não foi possível abrir o cadastro com Google. Tente de novo.");
+      setGoogleLoading(false);
+    }
+  }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -135,13 +147,15 @@ export default function SignupPage() {
           </div>
         </div>
 
-        <a
-          href="/api/auth/google?next=/painel"
-          className="flex h-11 w-full items-center justify-center gap-2.5 rounded-[var(--radius-control)] border border-volt-800 bg-volt-950 text-sm font-medium text-canvas-100 transition-colors duration-[var(--duration-micro)] hover:border-cobalt-500 hover:bg-volt-800"
+        <button
+          type="button"
+          onClick={signUpWithGoogle}
+          disabled={googleLoading}
+          className="flex h-11 w-full items-center justify-center gap-2.5 rounded-[var(--radius-control)] border border-volt-800 bg-volt-950 text-sm font-medium text-canvas-100 transition-colors duration-[var(--duration-micro)] hover:border-cobalt-500 hover:bg-volt-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500 disabled:pointer-events-none disabled:opacity-50"
         >
           <GoogleIcon />
-          Criar conta com Google
-        </a>
+          {googleLoading ? "Abrindo o Google..." : "Criar conta com Google"}
+        </button>
 
         <p className="text-center text-xs leading-5 text-canvas-100/50">
           Seus dados ficam protegidos e só você tem acesso. Cancele quando quiser.

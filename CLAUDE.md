@@ -58,22 +58,95 @@ a pergunta realmente pedir contexto do projeto.
 - TypeScript strict, imports com `@/` alias
 - Componentes em `src/components/`, páginas em `src/app/`
 - API routes em `src/app/api/` — dual-mode (Supabase + JSON fallback)
-- Stores Supabase com RLS por tenant — nunca bypassar RLS sem motivo explícito
+- Stores Supabase: **sempre** filtrar `.eq('tenant_id', ...)` — o service-role bypassa RLS,
+  então esse filtro é a proteção real (ver "Isolamento multi-tenant" em Regras de segurança)
 - Tailwind: usar classes utilitárias, evitar CSS custom
 - Nomenclatura: `kebab-case` pra arquivos, `PascalCase` pra componentes, `camelCase` pra funções
 
 ## Regras de segurança
 
 - Nunca commitar `.env.local`, secrets, ou tokens
-- Supabase RLS é a camada primária de isolamento multi-tenant
 - Validar inputs no server-side (API routes), não confiar apenas no client
 - Usar `parameterized queries` via Supabase client (já faz por default)
+
+### Isolamento multi-tenant: o filtro `.eq('tenant_id')` É a proteção — não o RLS
+
+Verificado em prod em **06/08/2026** (contagem no código + `pg_policy`):
+
+- **68 arquivos** usam `getSupabaseAdmin()` (service-role) contra **4** que usam
+  `getSupabaseServerAnon()`. Service-role **bypassa RLS por design** — ou seja, na
+  esmagadora maioria dos caminhos o banco **não** está te protegendo.
+- O RLS existe e está bem configurado (39 tabelas com `tenant_id` têm RLS + policy;
+  **zero** tabelas com `tenant_id` sem RLS), mas funciona como **segunda linha de defesa**,
+  exercida só nos poucos caminhos anon/authenticated.
+
+**Consequência prática:** remover ou esquecer um `.eq('tenant_id')` numa store é vazamento
+cross-tenant imediato — o RLS **não** vai te salvar. Toda query numa tabela com `tenant_id`
+precisa do filtro explícito, mesmo parecendo redundante.
+
+Ao criar tabela nova com `tenant_id`: ligar RLS + policy assim mesmo (defesa em
+profundidade), mas nunca tratar isso como suficiente.
+
+## Banco: são DOIS, e o diretório de migrações não é o schema
+
+- **dev** `wfjuwogxaupyadwhvoxy` · **prod** `nidoatbxaylrkcgbszns`. Toda migração vai nos
+  **dois**. Aplicar só em um cria drift silencioso — as API routes são dual-mode, então a
+  ausência de tabela **não dá erro**: cai no fallback JSON e você valida em dev um caminho
+  de código que **não é** o que roda em produção.
+- **`apps/web/supabase/migrations/` NÃO é retrato do schema.** A maior parte foi aplicada
+  à mão. A fonte de verdade da ordem é **`deploy/supabase/apply-order.txt`**.
+- **Antes de criar migração, conferir por SQL se o objeto já existe** — e conferir também
+  as **branches abertas**. Em 30/07 foi escrita uma migração de `leads`/`optouts` que já
+  existia pronta e mais completa num PR da fila; foi descartada.
+- Migração nova: `create ... if not exists`, `security definer` **sempre** com
+  `set search_path`, e RLS ligado. Depois rodar o advisor de segurança do Supabase.
 
 ## Workflow preferido
 
 - Antes de executar tarefas grandes, apresentar checklist com etapas
 - Rodar build/lint após mudanças pra validar
 - Commits atômicos com mensagens descritivas (feat/fix/refactor)
+
+## Regra de PR (não-negociável)
+
+> Escrita depois da drenagem de 30/07/2026, que fechou 13 PRs abertos. **5 dos 13 não
+> tinham nada a entregar** — o trabalho já estava em `main` por outro caminho. Um fix de
+> incidente real (varredura disparando para grupo de terceiro, ~31 mil pessoas fora da
+> base) estava parado como *draft*. E um PR ficou tão atrás que virou 1798 arquivos de
+> diff, impossível de recuperar — o código único dele foi perdido.
+
+### Antes de começar
+
+1. Checar a defasagem: `git fetch origin main && git log HEAD..origin/main --oneline | wc -l`.
+   Mais de ~20 commits atrás → atualizar a branch **antes** de escrever código.
+2. Base é sempre `main`. **Nunca** abrir branch em cima de outra branch de feature —
+   mergear uma branch cuja base é outra feature não leva nada para `main`.
+
+### Antes de resolver conflito ou "recuperar" PR antigo
+
+```bash
+git diff origin/main...origin/<branch> --stat
+```
+
+Vazio ou quase vazio = **o trabalho já está em `main`**. Fechar o PR com a evidência no
+comentário ("já-entregue", não "descartado"). **Não resolver conflito de PR morto**: o
+conflito costuma ser o PR tentando *criar* arquivos que já existem, e forçar o encaixe
+sobrescreve a versão boa de `main` com uma antiga. Isso é regressão, não merge.
+
+### Ao terminar
+
+- Fechar o loop na **mesma sessão**: revisar → CI verde → mergear → deletar branch.
+- Não deixar PR aberto "pra depois". Depois vira 187 commits atrás.
+- **Draft não é estacionamento.** Pronto → tirar do draft e mergear. Não vai terminar
+  hoje → dizer isso explicitamente ao encerrar, com o motivo.
+
+### Escopo
+
+Um PR = uma coisa. Passou de ~10 arquivos, provavelmente são dois PRs.
+
+### Ao encerrar qualquer sessão
+
+Reportar sempre: **"PRs que deixei abertos: #N (motivo)"** — ou "nenhum".
 
 ## Comandos rápidos (diga isso no chat)
 
@@ -135,3 +208,17 @@ Exemplos de temas já decididos (consulte `kg_query` pra detalhes):
 - Dual-mode API routes (Supabase stores + JSON fallback pra dev local)
 - Módulo mensagens com scheduling via Supabase (não Agenda.js)
 - 22 agentes AI especializados em `apps/web/src/lib/agents/`
+
+## Agent skills
+
+### Issue tracker
+
+Issues vivem no GitHub Issues (`codingB0y/hubflow-platform`), operadas via CLI `gh`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Vocabulário padrão de cinco labels canônicas, sem renomeação. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Multi-context — dois contextos (`apps/web`, `hubflow-engine`) com linguagens separadas; `packages/shared` é shared kernel. `hubflow-engine/DECISIONS.md` é vinculante. See `docs/agents/domain.md`.

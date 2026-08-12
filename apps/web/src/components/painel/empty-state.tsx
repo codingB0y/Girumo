@@ -9,12 +9,19 @@ export function EmptyState({
   description,
   ctaLabel,
   ctaHref,
+  ctaIcon: CtaIcon = Plus,
 }: {
   icon: LucideIcon;
   title: string;
   description: string;
   ctaLabel: string;
   ctaHref: string;
+  /**
+   * Ícone do botão. `Plus` por padrão porque o caso comum é criar a primeira
+   * coisa — mas um CTA que só leva pra outra tela precisa de seta: um "+" ao
+   * lado de "Ver campanhas" promete criar e entrega navegar.
+   */
+  ctaIcon?: LucideIcon;
 }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-[var(--radius-panel)] border border-dashed border-line-200 bg-paper-0 px-6 py-16 text-center">
@@ -27,7 +34,7 @@ export function EmptyState({
         href={ctaHref}
         className="mt-5 inline-flex h-[var(--control-height-prominent)] items-center gap-2 rounded-[var(--radius-control)] bg-acid-500 px-5 text-sm font-semibold text-volt-950 shadow-sm transition-[filter] duration-[var(--duration-micro)] ease-[var(--ease-girumo)] hover:brightness-95 active:brightness-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
       >
-        <Plus className="h-4 w-4 [stroke-width:var(--icon-stroke)]" />
+        <CtaIcon className="h-4 w-4 [stroke-width:var(--icon-stroke)]" />
         {ctaLabel}
       </Link>
     </div>

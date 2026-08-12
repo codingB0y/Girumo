@@ -1,27 +1,41 @@
-import { getWelcome, setWelcome } from "@/lib/welcome-store";
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// GET /api/welcome — config das boas-vindas (a engine lê daqui).
+/**
+ * Boas-vindas por DM — DESATIVADA em definitivo.
+ *
+ * Decisão anti-ban (durável, Igor 2026-07-28): mensagem de lojista só é
+ * postada NO GRUPO, nunca no privado. A engine legada (hubflow-engine
+ * index.js, welcomeNewMember) ainda consulta esta rota ao ver gente entrando
+ * no grupo — respondê-la com enabled:false é o kill switch que não exige
+ * redeploy da engine. O substituto oficial é o template "Boas-vindas no
+ * grupo" do módulo de automações (trigger lead_entered), executado pelo
+ * apps/worker com CHECK @g.us no banco.
+ *
+ * Nenhuma UI chama mais o POST desta rota (verificado 10/08/2026) — ele
+ * retorna 410 pra impedir religar a DM por chamada direta de API.
+ */
 export async function GET(req: Request) {
-  const { tenantId } = await getRouteTenantContext(req, { allowEngine: true });
-  return Response.json(await getWelcome(tenantId));
+  try {
+    await getRouteTenantContext(req, { allowEngine: true });
+    return Response.json({ enabled: false, message: "" });
+  } catch (error) {
+    if (error instanceof Response) return error;
+    return Response.json({ error: "Erro ao ler boas-vindas." }, { status: 500 });
+  }
 }
 
-// POST /api/welcome — lojista liga/desliga e edita a mensagem.
 export async function POST(req: Request) {
-  const { tenantId } = await getRouteTenantContext(req, { allowEngine: false });
-  let body: Record<string, unknown>;
   try {
-    body = await req.json();
-  } catch {
-    return Response.json({ error: "JSON inválido." }, { status: 400 });
+    await getRouteTenantContext(req, { allowEngine: false });
+    return Response.json(
+      { error: "Boas-vindas por DM foi desativada (anti-ban). Use o template 'Boas-vindas no grupo' em Automações." },
+      { status: 410 },
+    );
+  } catch (error) {
+    if (error instanceof Response) return error;
+    return Response.json({ error: "Erro na rota de boas-vindas." }, { status: 500 });
   }
-  const partial: { enabled?: boolean; message?: string } = {};
-  if (typeof body.enabled === "boolean") partial.enabled = body.enabled;
-  if (typeof body.message === "string") partial.message = body.message;
-  const cfg = await setWelcome(tenantId, partial);
-  return Response.json(cfg, { status: 201 });
 }

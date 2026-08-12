@@ -1,3 +1,4 @@
+import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import { isAdminGroup } from "@/lib/evolution/admin-group";
 import { fetchAllGroups, providerInstanceId } from "@/lib/evolution/client";
 import { syncGroupsFromProvider } from "@/lib/stores/groups";
@@ -60,6 +61,20 @@ export async function POST(req: Request) {
 
     const synced = await syncGroupsFromProvider(ctx.tenantId, rows);
     const adminCount = rows.filter((r) => r.is_admin).length;
+
+    // Marco de ativação. Era a única etapa do funil do admin que nunca populava
+    // — o evento existia no tipo desde sempre e não tinha quem o emitisse.
+    // Uma sync que não trouxe grupo nenhum não é marco: o lojista conectou mas
+    // ainda não tem o que sincronizar.
+    if (synced > 0) {
+      void trackFunnelEvent({
+        tenantId: ctx.tenantId,
+        userId: ctx.authUserId,
+        event: "first_group_synced",
+        onlyFirst: true,
+        metadata: { count: synced, adminCount },
+      });
+    }
 
     await getSupabaseAdmin().from("logs").insert({
       tenant_id: ctx.tenantId,

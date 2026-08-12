@@ -4,6 +4,8 @@ import { createClient } from "@supabase/supabase-js";
 
 let browserClient: ReturnType<typeof createClient> | null = null;
 const ACTIVE_TENANT_KEY = "hubflow_active_tenant_id";
+const OAUTH_NEXT_KEY = "hubflow_oauth_next";
+export const OAUTH_CALLBACK_PATH = "/auth/callback";
 
 export function getSupabaseBrowserClient() {
   if (browserClient) return browserClient;
@@ -47,6 +49,35 @@ export async function persistSupabaseSession(data: {
   } catch (error) {
     console.error("Nao foi possivel persistir sessao Supabase no navegador.", error);
   }
+}
+
+/**
+ * Guarda o destino pos-login no `sessionStorage` em vez de na URL de retorno.
+ *
+ * O `redirectTo` precisa estar na allowlist de Redirect URLs do Supabase; manter
+ * a URL constante (sem query) torna a allowlist trivial e evita depender de o
+ * Supabase preservar query params na volta.
+ */
+export async function startGoogleOAuth(next: string): Promise<void> {
+  window.sessionStorage.setItem(OAUTH_NEXT_KEY, next);
+
+  const { error } = await getSupabaseBrowserClient().auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: `${window.location.origin}${OAUTH_CALLBACK_PATH}` },
+  });
+
+  if (error) {
+    window.sessionStorage.removeItem(OAUTH_NEXT_KEY);
+    throw error;
+  }
+}
+
+/** Le e descarta o destino guardado antes do redirect para o Google. */
+export function takeOAuthNext(): string | null {
+  if (typeof window === "undefined") return null;
+  const value = window.sessionStorage.getItem(OAUTH_NEXT_KEY);
+  window.sessionStorage.removeItem(OAUTH_NEXT_KEY);
+  return value;
 }
 
 export async function authenticatedFetch(input: RequestInfo | URL, init: RequestInit = {}) {

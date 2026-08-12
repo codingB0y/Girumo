@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getAdminContext } from "@/lib/admin-guard";
 import { blockInProduction, isDev } from "@/lib/environment";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +10,8 @@ export const dynamic = "force-dynamic";
  * ⚠️  BLOQUEADO em produção.
  */
 export async function GET() {
+  const admin = await getAdminContext();
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     blockInProduction("engine-health");
   } catch (err) {

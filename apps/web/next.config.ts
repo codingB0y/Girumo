@@ -1,5 +1,12 @@
 import type { NextConfig } from "next";
 
+/**
+ * 'unsafe-eval' SÓ em dev: os chunks do Turbopack/HMR usam eval; sem isso a
+ * hidratação morre em silêncio (o form vira submit GET nativo). Produção não
+ * precisa dele em rota nenhuma — M5 da auditoria.
+ */
+const EVAL_IN_DEV = process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "";
+
 const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -11,7 +18,11 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com",
+      // 'unsafe-inline' segue aqui porque estas rotas são pré-renderizadas em
+      // HTML no build (42 delas: home, /lp, /login, todo o /painel) — nonce
+      // por-request não teria como entrar nesse HTML. As superfícies públicas
+      // que renderizam por request usam nonce (src/lib/security/csp.ts).
+      `script-src 'self' 'unsafe-inline'${EVAL_IN_DEV} https://js.stripe.com`,
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://*.supabase.co",
       "font-src 'self'",
@@ -27,34 +38,15 @@ const securityHeaders = [
 ];
 
 /**
- * CSP das LPs públicas (/p/*) — Flow Pages.
- * Difere da global: foto vem de URL https arbitrária do lojista (img-src https:)
- * e a sessão de tracking injeta Meta Pixel + GA4 (script/connect liberados
- * SÓ pros domínios desses vendors). Sem Stripe, sem frames, sem eval.
+ * Superfícies públicas com nonce (/p/* e /r/*): a CSP delas NÃO sai daqui, sai
+ * do middleware, porque o nonce muda a cada request. Header estático de CSP aqui
+ * sairia duplicado na resposta e o browser passaria a exigir as duas políticas
+ * ao mesmo tempo. Os demais headers de segurança continuam estáticos.
+ * Ver `src/lib/security/csp.ts`.
  */
-const publicLpHeaders = [
-  ...securityHeaders.filter((h) => h.key !== "Content-Security-Policy"),
-  {
-    key: "Content-Security-Policy",
-    value: [
-      "default-src 'self'",
-      // 'unsafe-eval' SÓ em dev: os chunks do Turbopack/HMR usam eval;
-      // sem isso a hidratação morre em silêncio (form vira submit GET nativo)
-      `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""} https://connect.facebook.net https://www.googletagmanager.com`,
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: https:",
-      "font-src 'self'",
-      "connect-src 'self' https://www.facebook.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com",
-      // Depoimento em vídeo (§6.1): o facade cria o iframe do provedor SÓ após o
-      // clique na capa. Com 'none' aqui o play morria em silêncio — são só os dois
-      // provedores que o parseVideoUrl aceita, e o embed é montado por nós.
-      "frame-src https://www.youtube-nocookie.com https://player.vimeo.com",
-      "object-src 'none'",
-      "base-uri 'self'",
-      "form-action 'self'",
-    ].join("; "),
-  },
-];
+const headersWithoutCsp = securityHeaders.filter(
+  (h) => h.key !== "Content-Security-Policy",
+);
 
 /**
  * Prévia do editor (/editor-preview) — a ÚNICA rota embutível do app.
@@ -73,7 +65,7 @@ const previewFrameHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      `script-src 'self' 'unsafe-inline'${EVAL_IN_DEV}`,
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://*.supabase.co",
       "font-src 'self'",
@@ -94,9 +86,12 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        // tudo, exceto /p/* e a prévia do editor (ambas têm regra própria abaixo).
-        // Ficam FORA do match global pra não sair header duplicado na resposta.
-        source: "/((?!p/|editor-preview).*)",
+        // tudo, exceto /p/*, /r/* e a prévia do editor (todas com regra própria
+        // abaixo). Ficam FORA do match global pra não sair header duplicado.
+        // `p$`/`r$` cobrem os paths exatos /p e /r: `:path*` na regra dedicada
+        // casa zero segmentos, então sem eles esses dois sairiam com dois
+        // headers de CSP.
+        source: "/((?!p/|p$|r/|r$|editor-preview).*)",
         headers: securityHeaders,
       },
       {
@@ -104,8 +99,13 @@ const nextConfig: NextConfig = {
         headers: previewFrameHeaders,
       },
       {
+        // CSP destas duas vem do middleware (nonce por-request).
         source: "/p/:path*",
-        headers: publicLpHeaders,
+        headers: headersWithoutCsp,
+      },
+      {
+        source: "/r/:path*",
+        headers: headersWithoutCsp,
       },
     ];
   },

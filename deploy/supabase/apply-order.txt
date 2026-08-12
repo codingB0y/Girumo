@@ -51,3 +51,35 @@ apps/web/supabase/migrations/20260730100000_dispatch_fanout.sql
 # drenava — depois do cutover ficaria `queued` para sempre. Cancela as linhas que
 # já existem; a rota já não aceita o tipo. Idempotente.
 apps/web/supabase/migrations/20260730110000_retire_refresh_status.sql
+# F1/PR-1: link mestre da campanha vira linha real em `tracked_links` (antes a UI
+# entregava /r/<slug> e nada criava a linha — todo link mestre dava 404). Cria o
+# contador atômico de clique (increment_tracked_link_clicks) e faz backfill de uma
+# linha por campanha existente. Idempotente. Aplicada em dev e prod em 10/08/2026.
+apps/web/supabase/migrations/20260810120000_campaign_master_links.sql
+# F1/PR-2: a aba Mensagens passa a disparar via `broadcasts` (pipeline real) em vez
+# de `campaign_messages` (tabela sem consumidor). `broadcasts` não tinha `media_name`
+# e a agenda exibe o nome do arquivo — coluna opcional para não regredir a tela.
+# Aplicada em dev e prod em 10/08/2026.
+apps/web/supabase/migrations/20260810130000_broadcasts_media_name.sql
+# F1/PR-3: atribuição de cliques passa a ser por ID. Backfill best-effort dos links
+# antigos, casando metadata->>'campaignName' com campaign_groups.name dentro do mesmo
+# tenant e SÓ quando o nome é único. Aplicada em dev e prod em 10/08/2026.
+apps/web/supabase/migrations/20260810140000_backfill_tracked_link_campaign.sql
+# Checklist de ativação da Início: duas colunas em `tenant_settings` para o que os
+# dados não sabem responder — quando o lojista fechou o card e quando os 5 passos
+# ficaram completos. Os passos em si continuam derivados. Idempotente; a tabela já
+# tem RLS + policy por tenant. Aplicada em dev e prod em 11/08/2026.
+apps/web/supabase/migrations/20260811000000_tenant_settings_onboarding.sql
+# Fila do auto-grow. Até aqui a fila só existia em JSON, então em produção — com
+# HUBFLOW_USE_SUPABASE ligado — o "grupo lotou, cria o próximo" não tinha onde
+# gravar job. Tabela agnóstica de executor de propósito: hoje quem consome é a
+# engine Baileys, e o cutover troca só quem faz o claim. Idempotente, RLS ligado.
+# Aplicada em dev e prod em 12/08/2026 (19 colunas, 5 índices, RLS + 1 policy nos
+# dois; advisor de segurança limpo para a tabela).
+apps/web/supabase/migrations/20260812000000_group_grow_jobs.sql
+
+# Clique com data por evento. O contador `tracked_links.clicks` continua sendo a
+# fonte dos totais; esta tabela é o histórico que faltava pra responder "quantos
+# cliques ontem". Não guarda user-agent, IP nem referer — quem clica é cliente do
+# lojista. Idempotente; RLS + policy por tenant.
+apps/web/supabase/migrations/20260811100000_link_click_events.sql

@@ -1,24 +1,11 @@
 import { saveMedia, type MediaKind } from "@/lib/media-store";
 import { getSessionAccountId } from "@/lib/session";
-import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { assertUploadLimit } from "@/lib/billing/entitlements";
 import { getTenantContext } from "@/lib/supabase/tenant-context";
+import { findMembershipTenantId } from "@/lib/session-tenant";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-async function resolveTenantId(authUserId: string): Promise<string | null> {
-  const { data } = await getSupabaseAdmin()
-    .from("memberships")
-    .select("tenant_id")
-    .eq("user_id", authUserId)
-    .not("accepted_at", "is", null)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  return data?.tenant_id ?? null;
-}
 
 export async function POST(req: Request) {
   let authUserId: string | null = null;
@@ -36,7 +23,7 @@ export async function POST(req: Request) {
   } else {
     authUserId = await getSessionAccountId();
     if (!authUserId) return Response.json({ error: "Nao autenticado." }, { status: 401 });
-    tenantId = await resolveTenantId(authUserId);
+    tenantId = await findMembershipTenantId(authUserId, req.headers.get("x-tenant-id"));
   }
 
   if (!tenantId) return Response.json({ error: "Tenant nao encontrado." }, { status: 403 });

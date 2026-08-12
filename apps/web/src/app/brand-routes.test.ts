@@ -48,13 +48,17 @@ test("evaluates NEXT_PUBLIC_SITE_URL when discovery routes are called", () => {
   }
 });
 
-test("keeps the transitional hubflow.com.br discovery fallback", () => {
+test("falls back to the Girumo discovery host", () => {
+  // O host transitório hubflow.com.br foi aposentado em 12/ago/2026, depois da
+  // migração de produção (NEXT_PUBLIC_SITE_URL setada + redeploy). Este fallback
+  // só é exercitado em ambiente mal configurado, e nesse caso tem que apontar
+  // pro domínio vivo — buscador não deve descobrir o host antigo.
   const previous = process.env.NEXT_PUBLIC_SITE_URL;
 
   try {
     delete process.env.NEXT_PUBLIC_SITE_URL;
-    assert.equal(robots().host, "https://hubflow.com.br");
-    assert.equal(sitemap()[0].url, "https://hubflow.com.br");
+    assert.equal(robots().host, "https://girumo.com.br");
+    assert.equal(sitemap()[0].url, "https://girumo.com.br");
   } finally {
     if (previous === undefined) delete process.env.NEXT_PUBLIC_SITE_URL;
     else process.env.NEXT_PUBLIC_SITE_URL = previous;
@@ -91,7 +95,7 @@ test("sources root metadata and social preview from the brand contract", () => {
   assert.doesNotMatch(pageSource, /\/product\/painel-home\.png/);
 });
 
-test("documents the public site URL migration in both production env examples", () => {
+test("points both production env examples at the Girumo hosts", () => {
   for (const relativePath of [
     ".env.production.example",
     "../../deploy/vercel/.env.production.example",
@@ -100,7 +104,8 @@ test("documents the public site URL migration in both production env examples", 
     const whatsappUrl = source.match(/^NEXT_PUBLIC_SALES_WHATSAPP_URL=(.+)$/m)?.[1] ?? "";
 
     assert.doesNotMatch(decodeURIComponent(whatsappUrl), /HubFlow/i, relativePath);
-    assert.match(source, /^NEXT_PUBLIC_SITE_URL=https:\/\/hubflow\.com\.br$/m, relativePath);
-    assert.match(source, /Girumo[^\n]*(dom[ií]nio|host)|dom[ií]nio[^\n]*Girumo/i, relativePath);
+    assert.match(source, /^NEXT_PUBLIC_SITE_URL=https:\/\/girumo\.com\.br$/m, relativePath);
+    assert.match(source, /^NEXT_PUBLIC_APP_URL=https:\/\/app\.girumo\.com\.br$/m, relativePath);
+    assert.doesNotMatch(source, /^NEXT_PUBLIC_(SITE|APP)_URL=.*hubflow/m, relativePath);
   }
 });

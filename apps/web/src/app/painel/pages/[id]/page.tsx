@@ -19,6 +19,7 @@ import type { LandingPage, LpStatus } from "@/lib/pages/schema";
 import { isLpContentV2 } from "@/lib/pages/render";
 import type { LpLeadRow, LpMetrics } from "@/lib/pages/store";
 import { EditorForm, type EditorValues } from "@/components/pages/editor/form";
+import { ShareKit } from "@/components/pages/share-kit";
 import { EditorFormV2 } from "@/components/pages/editor/form-v2";
 import { EditorPreviewV2 } from "@/components/pages/editor/preview-v2";
 import {
@@ -36,6 +37,9 @@ type Detail = { page: LandingPage; metrics: LpMetrics; leads: LpLeadRow[] };
 
 /** Janela do autosave: longa o bastante pra não salvar no meio de uma palavra. */
 const AUTOSAVE_MS = 1200;
+
+/** Cobalt do modelo legado: página v1 não tem `brand_color` no content. */
+const LEGACY_BRAND_HEX = "#7c3aed";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
@@ -296,6 +300,15 @@ export default function PaginaDetalhePage() {
           {error}
         </p>
       ) : null}
+
+      {/* kit de divulgação */}
+      <ShareKit
+        slug={page.slug}
+        storeName={page.content.store_name}
+        headline={page.content.headline}
+        brandColor={isLpContentV2(page.content) ? page.content.brand_color : LEGACY_BRAND_HEX}
+        published={page.status === "published"}
+      />
 
       {/* métricas */}
       <div className="grid gap-4 sm:grid-cols-3">

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { getAdminContext } from "@/lib/admin-guard";
 
 // UUID fixo para o workspace padrão (seu workspace pessoal)
 const DEFAULT_WORKSPACE_ID = "00000000-0000-0000-0000-000000000001";
@@ -10,6 +11,8 @@ const DEFAULT_WORKSPACE_ID = "00000000-0000-0000-0000-000000000001";
  * Só insere se as tabelas estiverem vazias.
  */
 export async function POST() {
+  const admin = await getAdminContext();
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const supabase = getSupabaseAdmin();
 
