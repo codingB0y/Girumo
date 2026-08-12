@@ -63,7 +63,7 @@ export function PainelSidebar() {
         {NAV_GROUPS.map((group, i) => (
           <div key={group.title ?? "principal"} className={cn("space-y-1", i > 0 && "mt-6")}>
             {group.title && (
-              <p className="font-data px-3 pb-1 text-[10px] uppercase tracking-[0.08em] text-canvas-100/35">
+              <p className="font-data px-3 pb-1 text-[10px] uppercase tracking-[0.08em] text-canvas-100/50">
                 {group.title}
               </p>
             )}
