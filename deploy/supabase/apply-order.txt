@@ -51,6 +51,11 @@ apps/web/supabase/migrations/20260730100000_dispatch_fanout.sql
 # drenava — depois do cutover ficaria `queued` para sempre. Cancela as linhas que
 # já existem; a rota já não aceita o tipo. Idempotente.
 apps/web/supabase/migrations/20260730110000_retire_refresh_status.sql
+# Faxina (06/08): remove `release_engine_command`, função órfã de um consumidor de
+# `engine_commands` que foi descartado. O anti-ban do claim (F4) tornou o caso dela
+# impossível — `claim_send_commands` nunca entrega comando que não pode sair.
+# `if exists`: ambiente novo nasce sem ela, então isto é no-op.
+apps/web/supabase/migrations/20260806120000_drop_release_engine_command.sql
 # F1/PR-1: link mestre da campanha vira linha real em `tracked_links` (antes a UI
 # entregava /r/<slug> e nada criava a linha — todo link mestre dava 404). Cria o
 # contador atômico de clique (increment_tracked_link_clicks) e faz backfill de uma
