@@ -5,6 +5,7 @@ import {
   classifyInviteFailure,
   clearInviteFetchMarker,
   parseInviteCodeResponse,
+  rotateByDay,
   selectBackfillCandidates,
   type BackfillCandidate,
 } from "./invite-backfill";
@@ -198,4 +199,51 @@ test("clearing keeps other metadata untouched and handles empty input", () => {
   assert.deepEqual(clearInviteFetchMarker(null), {});
   assert.deepEqual(clearInviteFetchMarker(undefined), {});
   assert.deepEqual(clearInviteFetchMarker({ a: 1 }), { a: 1 });
+});
+
+// --- rotateByDay ---
+
+test("rotation advances between consecutive days", () => {
+  const items = ["a", "b", "c"];
+  const day1 = rotateByDay(items, new Date("2026-08-12T00:00:00.000Z"));
+  const day2 = rotateByDay(items, new Date("2026-08-13T00:00:00.000Z"));
+  assert.notDeepEqual(day1, day2);
+});
+
+test("two calls on the same day agree", () => {
+  const items = ["a", "b", "c"];
+  const morning = rotateByDay(items, new Date("2026-08-12T01:00:00.000Z"));
+  const night = rotateByDay(items, new Date("2026-08-12T23:59:59.000Z"));
+  assert.deepEqual(morning, night);
+});
+
+test("does not mutate the input array", () => {
+  const items = ["a", "b", "c"];
+  rotateByDay(items, new Date("2026-08-12T00:00:00.000Z"));
+  assert.deepEqual(items, ["a", "b", "c"]);
+});
+
+test("an empty list returns empty", () => {
+  assert.deepEqual(rotateByDay([], new Date("2026-08-12T00:00:00.000Z")), []);
+});
+
+test("a single-element list returns the same element", () => {
+  assert.deepEqual(rotateByDay(["only"], new Date("2026-08-12T00:00:00.000Z")), ["only"]);
+});
+
+test("every element survives the rotation, nothing dropped or duplicated", () => {
+  const items = ["a", "b", "c", "d", "e"];
+  const out = rotateByDay(items, new Date("2026-08-12T00:00:00.000Z"));
+  assert.equal(out.length, items.length);
+  assert.deepEqual([...out].sort(), [...items].sort());
+});
+
+test("over N consecutive days with N tenants, every tenant leads exactly once", () => {
+  const items = ["a", "b", "c"];
+  const leaders = new Set<string>();
+  for (let d = 0; d < items.length; d++) {
+    const date = new Date(Date.UTC(2026, 7, 12 + d));
+    leaders.add(rotateByDay(items, date)[0]);
+  }
+  assert.equal(leaders.size, items.length);
 });

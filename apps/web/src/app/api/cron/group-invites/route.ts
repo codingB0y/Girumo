@@ -3,6 +3,7 @@ import { EvolutionError, fetchInviteCode, providerInstanceId } from "@/lib/evolu
 import {
   buildInviteFetchMarker,
   classifyInviteFailure,
+  rotateByDay,
   selectBackfillCandidates,
   type BackfillCandidate,
 } from "@/lib/groups/invite-backfill";
@@ -16,8 +17,8 @@ export const dynamic = "force-dynamic";
  * O loop em série chega a 10 chamadas à Evolution por instância conectada, e o
  * timeout default do client já é 10s por chamada — o default da Vercel
  * (10-15s) cortaria o batch no meio. Corte no meio não é destrutivo (o que já
- * foi gravado persiste, a próxima execução em 10min continua a fila), só
- * atrasa o backfill — mas não há motivo pra pagar esse atraso de graça.
+ * foi gravado persiste, a próxima execução diária continua a fila), só atrasa
+ * o backfill — mas não há motivo pra pagar esse atraso de graça.
  */
 export const maxDuration = 60;
 
@@ -26,10 +27,15 @@ const CRON_SECRET = process.env.CRON_SECRET || "";
 /**
  * Quantos convites buscar por instância em CADA execução.
  *
- * Este número junto com a cadência do cron (a cada 10 min, em vercel.json) É o
- * rate limiter: 10/10min, o mesmo teto do bucket `invite` do group-guard da
- * engine. Não existe bucket em memória aqui de propósito — o agendador é
- * durável, um processo que morre no meio não libera rajada no próximo boot.
+ * Este número junto com a cadência do cron (diária, `0 6 * * *` em
+ * vercel.json — o plano Hobby da Vercel só libera cron uma vez por dia, então
+ * o antigo agendamento de 10 em 10 minutos era rejeitado no deploy) É o rate
+ * limiter: até 10 convites por instância por dia. Isso é MAIS conservador que
+ * o teto do bucket `invite` do group-guard da engine (10/10min) — o mesmo
+ * volume de 10 chamadas agora espalhado num dia inteiro em vez de 10 minutos,
+ * não o contrário. Não existe bucket em memória aqui de propósito — o
+ * agendador é durável, um processo que morre no meio não libera rajada no
+ * próximo boot.
  *
  * O limite é POR INSTÂNCIA porque o teto do WhatsApp é por conta, e cada tenant
  * tem o seu número.
@@ -91,10 +97,10 @@ type InstanceRow = {
 export async function GET(req: Request) {
   if (!isCronAuthorized(req.headers.get("authorization"), CRON_SECRET)) {
     // Sem este log, um CRON_SECRET ausente, curto demais (`isCronAuthorized`
-    // exige 24+) ou fora de sincronia com o vercel.json devolve 401 a cada
-    // 10min e no log fica idêntico a um run saudável — o aviso de run inerte lá
-    // embaixo nem chega a rodar. Só a classe do problema vai pro log: o segredo
-    // (ou pedaço dele) nunca.
+    // exige 24+) ou fora de sincronia com o vercel.json devolve 401 todo dia e
+    // no log fica idêntico a um run saudável — o aviso de run inerte lá embaixo
+    // nem chega a rodar. Só a classe do problema vai pro log: o segredo (ou
+    // pedaço dele) nunca.
     console.warn(
       `[cron] group-invites: chamada não autorizada — CRON_SECRET ${
         CRON_SECRET.length >= 24 ? "configurado, header não confere" : "ausente ou curto demais"
@@ -120,7 +126,7 @@ export async function GET(req: Request) {
 
     if (markError) {
       // Marcador não gravado = o grupo continua na fila e o cron volta a bater
-      // nele a cada 10min, exatamente o que a marcação existe pra evitar.
+      // nele todo dia, exatamente o que a marcação existe pra evitar.
       console.error(`[cron] group-invites: falha marcando ${group.id} como definitivo:`, markError.message);
     }
     results.failed++;
@@ -156,7 +162,15 @@ export async function GET(req: Request) {
 
   let processedInstances = 0;
 
-  for (const [tenantId, rows] of byTenant) {
+  // Em escala (dezenas de tenants, dezenas de grupos cada) o loop serial pode
+  // não caber no maxDuration e o run é cortado no meio. Como a leitura de
+  // `instances` vem sempre na mesma ordem, sem rotação os tenants no fim da
+  // lista seriam cortados TODA execução — starvation permanente e silenciosa.
+  // Girar por dia faz um tenant diferente liderar a cada run: em N dias, com N
+  // tenants, todo mundo já foi o primeiro da fila pelo menos uma vez.
+  const rotatedTenants = rotateByDay([...byTenant.entries()], now);
+
+  for (const [tenantId, rows] of rotatedTenants) {
     const instance = selectSessionRow(rows);
     // `isConnectedStatus` em vez de `status === "connected"` na unha: é o helper
     // canônico compartilhado com o painel, então "sessão viva" quer dizer aqui

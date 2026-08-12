@@ -143,3 +143,22 @@ export function clearInviteFetchMarker(
   const { inviteFetch: _removed, ...rest } = metadata;
   return rest;
 }
+
+const MS_PER_DAY = 86_400_000;
+
+/**
+ * Gira a lista para que um elemento diferente lidere a cada dia.
+ *
+ * Pura e imutável: devolve array novo, nunca muda `items`. `now` entra por
+ * parâmetro pra ser testável, igual `buildInviteFetchMarker`. O índice do dia
+ * vem de `now.getTime()` (UTC, não depende de fuso local), então toda chamada
+ * no mesmo dia devolve a mesma ordem e o dia seguinte avança o líder em um.
+ * Com N itens, cada um lidera exatamente uma vez a cada N dias — ninguém fica
+ * pra trás pra sempre só por estar no fim da lista original.
+ */
+export function rotateByDay<T>(items: readonly T[], now: Date): T[] {
+  if (items.length === 0) return [];
+  const dayIndex = Math.floor(now.getTime() / MS_PER_DAY);
+  const offset = dayIndex % items.length;
+  return [...items.slice(offset), ...items.slice(0, offset)];
+}
