@@ -277,3 +277,22 @@ automations/leads count/orders count/tenant_settings); o passo manual (`share_li
 
 `POST /api/playbook` body `{ stepKey }` → marca um passo MANUAL (valida `MANUAL_STEP_KEYS`, 400 senão);
 retorna o mesmo shape recomputado. Passos definidos em `lib/playbook/steps.ts` (contrato só-leitura pro Frontend).
+
+### GET /api/cron/group-invites
+
+Cron do Vercel, a cada 10 minutos. `Authorization: Bearer <CRON_SECRET>`.
+
+Preenche `groups.invite_url` de até 10 grupos por instância conectada onde
+`is_admin = true` e o convite está vazio, buscando na Evolution
+(`GET /group/inviteCode/{instance}?groupJid=`).
+
+A cadência do cron × o teto de 10 por execução É o rate limiter (10/10min).
+Alterar um sem o outro quebra a política anti-ban.
+
+Resposta: `{ ok: true, filled, failed, skipped, remaining, timestamp }`
+
+- `filled` — convites gravados
+- `failed` — falha definitiva; grava `groups.metadata.inviteFetch = { failed, reason, at }`
+  e o grupo sai da fila até um resgate manual
+- `skipped` — falha passageira (rede/5xx); volta na próxima execução
+- `remaining` — quantos ainda esperam vez

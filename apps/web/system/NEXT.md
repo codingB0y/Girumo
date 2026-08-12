@@ -381,6 +381,21 @@ Investigação no `@whiskeysockets/baileys` instalado. Fonte citada por arquivo:
 > 4. **Trigger é meu** (app decide "lotou→cria"); vocês são só executores do que vier no pending. Liguem o poll junto do de disparo.
 > 5. (Opcional, quando quiserem) heartbeat com `reachoutLock`/`newChatCap` p/ o HealthCard — me avisem o shape e eu exponho.
 
+## HANDOFF → Frontend+UI: exibir o motivo do convite indisponível
+
+Banco/API entregou o backfill automático (`GET /api/cron/group-invites`) e o
+resgate manual (`PATCH /api/groups` com `clearInviteFetchError: true`).
+
+Falta na tela de grupos: quando `metadata.inviteFetch.failed` for true, mostrar
+`metadata.inviteFetch.reason` ao lado do grupo e um botão "buscar de novo" que
+chama o PATCH acima. O input manual de convite do PR #86 continua como saída
+final.
+
+Por que existe botão em vez de retry automático: a Evolution 2.3.7 achata toda
+falha num 404, então uma oscilação passageira é indistinguível de "perdi o
+admin". Marcar e nunca retentar sozinho evita o cron bater eternamente num
+grupo impossível; o botão devolve o grupo à fila com um clique.
+
 ## ✅ Feito
 - Engine→app validado no número real (conecta, grupos admin, entrada→lead).
 - App 100% sem mock: session/dashboard/reports/settings/grupos/leads reais;
