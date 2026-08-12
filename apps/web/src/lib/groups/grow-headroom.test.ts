@@ -12,6 +12,13 @@ const CONVITE = "https://chat.whatsapp.com/KxY7bQ2mNp";
 
 test("campanha sem nenhum grupo enfileira o primeiro", () => {
   assert.equal(shouldEnqueueGrow([]), true);
+  assert.equal(shouldEnqueueGrow([], 0), true);
+});
+
+test("ids declarados que não resolvem NÃO enfileiram — é dado quebrado, não pool novo", () => {
+  // group_ids com uuid da linha em vez do JID: nenhum id casa, o pool sai vazio.
+  // Sem o segundo argumento isso seria lido como "campanha nova" e criaria grupo.
+  assert.equal(shouldEnqueueGrow([], 2), false);
 });
 
 test("pool inteiro sem convite NÃO enfileira — é convite faltando, não lotação", () => {
