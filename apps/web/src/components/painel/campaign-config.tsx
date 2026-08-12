@@ -8,7 +8,22 @@ import { CopyLink } from "@/components/painel/copy-link";
 import type { Group } from "@/lib/mock-data";
 import { CAMPAIGN_PRESETS, getCampaignPreset, resolvePresetName, type CampaignPreset } from "@/lib/campaign-presets";
 
-type Campanha = { id: string; name: string; loja?: string; groupIds: string[]; slug?: string; autoGrow?: boolean };
+type GrowTemplate = { subjectPattern?: string };
+type Campanha = {
+  id: string;
+  name: string;
+  loja?: string;
+  groupIds: string[];
+  slug?: string;
+  autoGrow?: boolean;
+  growTemplate?: GrowTemplate | null;
+};
+
+/** Nome do próximo grupo. O `{n}` é o número que a numeração substitui. */
+function defaultSubjectPattern(campanhaName: string): string {
+  const base = campanhaName.trim();
+  return base ? `${base} {n}` : "";
+}
 
 export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?: string }) {
   const router = useRouter();
@@ -25,6 +40,9 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
   const [createdSlug, setCreatedSlug] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [autoGrow, setAutoGrow] = useState(true);
+  // Molde do nome do grupo que a Girumo cria quando o pool lota. Vazio = usa o
+  // sugerido a partir do nome da campanha (o preset de Objetivo já preenche esse).
+  const [growSubject, setGrowSubject] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   // Mensagem-modelo do preset escolhido — sugestão pra postar com o link (não persiste).
   const [suggestedMsg, setSuggestedMsg] = useState<string | null>(null);
@@ -72,6 +90,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
             setCreatedSlug(c.slug ?? null);
             setName(c.name ?? "");
             setAutoGrow(c.autoGrow ?? true);
+            setGrowSubject(c.growTemplate?.subjectPattern ?? "");
             setSelected(new Set(c.groupIds ?? []));
           }
         }
@@ -84,6 +103,9 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
   const backHref = mode === "edit" && (createdSlug || slug) ? `/painel/campanhas/${createdSlug ?? slug}` : "/painel/campanhas";
   const isObjetivoStep = mode === "create" && idx === 0;
   const canAdvance = isObjetivoStep ? true : name.trim().length > 0;
+  // O molde efetivo: o que o lojista escreveu, ou o sugerido pelo nome da campanha.
+  // Sem molde o auto-grow não teria como nomear o grupo e ficaria ligado sem agir.
+  const growPattern = growSubject.trim() || defaultSubjectPattern(name);
 
   const toggle = (gid: string) =>
     setSelected((s) => {
@@ -92,6 +114,16 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
       else n.add(gid);
       return n;
     });
+
+  /**
+   * Só manda o molde quando o auto-grow está ligado. Com ele desligado a chave
+   * fica de fora do PATCH de propósito — desligar o automático não deve apagar o
+   * nome que o lojista configurou, só parar de criar.
+   */
+  function growTemplatePatch(): { growTemplate?: GrowTemplate } {
+    if (!autoGrow || !growPattern) return {};
+    return { growTemplate: { subjectPattern: growPattern } };
+  }
 
   async function save() {
     setError(null);
@@ -106,11 +138,11 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
         });
         if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error ?? "Erro ao criar.");
         const created: Campanha = await res.json();
-        // grava autoGrow (POST não aceita) num PATCH
+        // grava autoGrow + molde do grupo (POST não aceita) num PATCH
         await fetch("/api/campanhas", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: created.id, autoGrow }),
+          body: JSON.stringify({ id: created.id, autoGrow, ...growTemplatePatch() }),
         }).catch(() => {});
         setCreatedSlug(created.slug ?? null);
         setId(created.id);
@@ -119,7 +151,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
         const res = await fetch("/api/campanhas", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id, name: name.trim(), groupIds, autoGrow }),
+          body: JSON.stringify({ id, name: name.trim(), groupIds, autoGrow, ...growTemplatePatch() }),
         });
         if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error ?? "Erro ao salvar.");
         router.push(backHref);
@@ -214,6 +246,29 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
       )}
       <Field label="Automatizar criação de grupos?" hint="A Girumo cria um grupo novo automaticamente quando o atual lota (a partir de 90%).">
         <ToggleInline on={autoGrow} setOn={setAutoGrow} labelOn="Sim, criar no automático" labelOff="Não, gerencio na mão" />
+        {autoGrow && (
+          <div className="mt-2">
+            <label htmlFor="grow-subject" className="text-xs text-aco/55">
+              Nome dos grupos criados — <span className="font-data">{"{n}"}</span> vira o número
+            </label>
+            <input
+              id="grow-subject"
+              value={growSubject}
+              onChange={(e) => setGrowSubject(e.target.value)}
+              placeholder={defaultSubjectPattern(name) || "Atacado {n}"}
+              className={cn(inputCls, "mt-1.5")}
+            />
+            {growPattern && (
+              <p className="mt-1.5 text-xs text-aco/55">
+                O próximo vai se chamar{" "}
+                <span className="font-medium text-volt-950">
+                  {growPattern.includes("{n}") ? growPattern.replace("{n}", String(selected.size + 1)) : `${growPattern} ${selected.size + 1}`}
+                </span>
+                .
+              </p>
+            )}
+          </div>
+        )}
       </Field>
     </Card>
   );
