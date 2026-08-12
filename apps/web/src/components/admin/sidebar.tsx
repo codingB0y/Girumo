@@ -18,6 +18,7 @@ import {
   X,
   Funnel,
   Bell,
+  KanbanSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/brand/logo";
@@ -43,6 +44,7 @@ const SECTIONS = [
   {
     label: "Sistema",
     items: [
+      { href: "/admin/quadro", label: "Quadro", icon: KanbanSquare },
       { href: "/admin/alertas", label: "Alertas", icon: Bell },
       { href: "/admin/logs", label: "Logs & Eventos", icon: Activity },
       { href: "/admin/saude", label: "Saúde", icon: HeartPulse },
