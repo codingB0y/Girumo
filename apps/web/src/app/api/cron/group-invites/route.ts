@@ -11,6 +11,15 @@ import { getSupabaseAdmin } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/**
+ * O loop em série chega a 10 chamadas à Evolution por instância conectada, e o
+ * timeout default do client já é 10s por chamada — o default da Vercel
+ * (10-15s) cortaria o batch no meio. Corte no meio não é destrutivo (o que já
+ * foi gravado persiste, a próxima execução em 10min continua a fila), só
+ * atrasa o backfill — mas não há motivo pra pagar esse atraso de graça.
+ */
+export const maxDuration = 60;
+
 const CRON_SECRET = process.env.CRON_SECRET || "";
 
 /**
@@ -49,6 +58,19 @@ export async function GET(req: Request) {
   const supabase = getSupabaseAdmin();
   const now = new Date();
   const results = { filled: 0, failed: 0, skipped: 0, remaining: 0 };
+
+  // Marca o grupo como falha permanente: sai da fila do backfill pra sempre
+  // (o resgate é manual, via PATCH). O filtro por tenant_id é a proteção
+  // real do update — o service-role bypassa RLS.
+  const markPermanentFailure = async (tenantId: string, group: BackfillCandidate, reason: string) => {
+    const marker = buildInviteFetchMarker(reason, now);
+    await supabase
+      .from("groups")
+      .update({ metadata: { ...(group.metadata ?? {}), inviteFetch: marker } })
+      .eq("tenant_id", tenantId)
+      .eq("id", group.id);
+    results.failed++;
+  };
 
   const { data: instances, error: instancesError } = await supabase
     .from("instances")
@@ -90,13 +112,7 @@ export async function GET(req: Request) {
 
         if (!inviteUrl) {
           // 200 sem convite utilizável: não vai melhorar sozinho.
-          const marker = buildInviteFetchMarker("a Evolution respondeu sem um convite válido", now);
-          await supabase
-            .from("groups")
-            .update({ metadata: { ...(group.metadata ?? {}), inviteFetch: marker } })
-            .eq("tenant_id", tenantId)
-            .eq("id", group.id);
-          results.failed++;
+          await markPermanentFailure(tenantId, group, "a Evolution respondeu sem um convite válido");
           continue;
         }
 
@@ -129,13 +145,7 @@ export async function GET(req: Request) {
           continue;
         }
 
-        const marker = buildInviteFetchMarker(failure.reason, now);
-        await supabase
-          .from("groups")
-          .update({ metadata: { ...(group.metadata ?? {}), inviteFetch: marker } })
-          .eq("tenant_id", tenantId)
-          .eq("id", group.id);
-        results.failed++;
+        await markPermanentFailure(tenantId, group, failure.reason);
       }
     }
   }
