@@ -292,7 +292,10 @@ Alterar um sem o outro quebra a política anti-ban.
 Resposta: `{ ok: true, filled, failed, skipped, remaining, timestamp }`
 
 - `filled` — convites gravados
-- `failed` — falha definitiva; grava `groups.metadata.inviteFetch = { failed, reason, at }`
-  e o grupo sai da fila até um resgate manual
+- `failed` — dois casos diferentes por trás do mesmo contador: quando a Evolution responde sem
+  convite válido ou devolve erro permanente, grava `groups.metadata.inviteFetch = { failed, reason, at }`
+  e o grupo sai da fila até um resgate manual; nos demais (falha ao listar `groups` do tenant, convite
+  obtido mas não gravado, erro inesperado) só conta como falha — o grupo continua na fila e tenta de
+  novo na próxima execução
 - `skipped` — falha passageira (rede/5xx); volta na próxima execução
 - `remaining` — quantos ainda esperam vez
