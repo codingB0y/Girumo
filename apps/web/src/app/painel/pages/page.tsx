@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ExternalLink, Eye, Plus, UserPlus } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Copy, ExternalLink, Eye, Loader2, Plus, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { buildDuplicatePayload } from "@/lib/pages/duplicate";
 import type { LandingPage, LpStatus } from "@/lib/pages/schema";
 
 const STATUS: Record<LpStatus, { label: string; pill: string }> = {
@@ -13,8 +15,10 @@ const STATUS: Record<LpStatus, { label: string; pill: string }> = {
 };
 
 export default function PagesListPage() {
+  const router = useRouter();
   const [pages, setPages] = useState<LandingPage[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [duplicando, setDuplicando] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/pages")
@@ -22,6 +26,38 @@ export default function PagesListPage() {
       .then((data: LandingPage[]) => setPages(data))
       .catch((e: Error) => setError(e.message));
   }, []);
+
+  /**
+   * Duplica a partir do GET de detalhe, não do item da lista: a lista pode vir
+   * com um subconjunto de colunas, e copiar de lá perderia campo em silêncio.
+   * A cópia nasce rascunho e sem campanha — ver lib/pages/duplicate.ts.
+   */
+  async function duplicar(id: string) {
+    if (duplicando) return;
+    setDuplicando(id);
+    setError(null);
+
+    try {
+      const detalhe = await fetch(`/api/pages/${id}`);
+      if (!detalhe.ok) throw new Error("Não consegui ler a página original.");
+      const { page } = (await detalhe.json()) as { page: LandingPage };
+
+      const res = await fetch("/api/pages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildDuplicatePayload(page)),
+      });
+      const nova = (await res.json()) as LandingPage & { error?: string; details?: string[] };
+      if (!res.ok) {
+        throw new Error(nova.details?.join(" ") ?? nova.error ?? "Não consegui duplicar.");
+      }
+
+      router.push(`/painel/pages/${nova.id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Não consegui duplicar.");
+      setDuplicando(null);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-6 px-4 py-6 sm:px-6">
@@ -70,11 +106,17 @@ export default function PagesListPage() {
       {pages !== null && pages.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {pages.map((p) => (
-            <Link
+            <div
               key={p.id}
-              href={`/painel/pages/${p.id}`}
-              className="group rounded-2xl border border-volt-950/[0.06] bg-white p-5 shadow-card transition hover:-translate-y-0.5 hover:shadow-card-hover"
+              className="group relative rounded-2xl border border-volt-950/[0.06] bg-white p-5 shadow-card transition hover:-translate-y-0.5 hover:shadow-card-hover"
             >
+              {/* Link cobre o card inteiro; o botão de duplicar sobe com z-10.
+                  Assim o card continua clicável sem aninhar botão dentro de <a>. */}
+              <Link
+                href={`/painel/pages/${p.id}`}
+                aria-label={`Abrir ${p.content.store_name}`}
+                className="absolute inset-0 rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
+              />
               <div className="flex items-start justify-between gap-3">
                 <p className="font-medium text-volt-950">{p.content.store_name}</p>
                 <span
@@ -98,7 +140,21 @@ export default function PagesListPage() {
                   /p/{p.slug} <ExternalLink className="h-3 w-3" />
                 </span>
               </div>
-            </Link>
+              <button
+                type="button"
+                onClick={() => void duplicar(p.id)}
+                disabled={duplicando !== null}
+                aria-label={`Duplicar ${p.content.store_name}`}
+                className="relative z-10 mt-3 inline-flex items-center gap-1.5 rounded-lg border border-volt-950/10 bg-white px-2.5 py-1.5 text-xs font-medium text-volt-950 transition hover:border-cobalt-500/50 disabled:opacity-60"
+              >
+                {duplicando === p.id ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5" />
+                )}
+                {duplicando === p.id ? "Duplicando..." : "Duplicar"}
+              </button>
+            </div>
           ))}
         </div>
       ) : null}
