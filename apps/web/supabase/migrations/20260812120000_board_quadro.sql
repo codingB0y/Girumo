@@ -91,6 +91,12 @@ create trigger board_features_log_move
   before update on public.board_features
   for each row execute function public.board_features_log_move();
 
+-- O Postgres já recusa chamada direta a função `returns trigger` ("trigger functions can
+-- only be called as triggers"), então isto não fecha buraco nenhum. É para silenciar o
+-- advisor: dois WARN benignos e permanentes no painel são como um WARN real passa batido.
+revoke all on function public.board_features_log_move()
+  from public, anon, authenticated;
+
 -- ------------------------------------------------------------
 -- public.move_card: um movimento = uma chamada. Exige motivo.
 -- Ao mover para 'no_ar_verificado', carimba a prova com p_ref e a data de agora;

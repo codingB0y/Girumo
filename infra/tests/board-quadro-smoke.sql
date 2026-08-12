@@ -2,7 +2,12 @@
 -- Smoke do quadro (20260812120000_board_quadro.sql).
 -- Como rodar: contra o Supabase de DEV, via MCP execute_sql, ou
 --   psql -d <db> -v ON_ERROR_STOP=1 -f infra/tests/board-quadro-smoke.sql
--- Usa a key fixa 'smoke-quadro' e limpa tudo no fim. NÃO rode em produção.
+-- Usa a key fixa 'smoke-quadro' e limpa tudo no fim.
+--
+-- Em PRODUÇÃO: só logo depois de aplicar a migração, enquanto as tabelas estão vazias.
+-- Foi assim que ele rodou em 12/08/2026 (6/6). Depois que houver card de verdade, não
+-- rode: o passo 6 conta eventos órfãos no banco inteiro e daria falso negativo se algum
+-- outro processo estiver mexendo ao mesmo tempo.
 -- ============================================================
 do $$
 declare
