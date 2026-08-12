@@ -3,6 +3,8 @@ import * as supaStore from "@/lib/stores/groups";
 import { listGroups as legacyList, replaceGroups as legacyReplace, updateGroup as legacyUpdate, type SyncGroupInput } from "@/lib/groups-store";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
+import { normalizeInviteUrl } from "@/lib/groups/invite-url";
+import { DEFAULT_GROUP_CAPACITY } from "@/lib/links/resolve-click-target";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,6 +25,7 @@ export async function GET(req: Request) {
     capacity: g.capacity,
     selected: g.selected,
     engagement: g.engagement,
+    isAdmin: g.is_admin ?? false,
     inviteUrl: g.invite_url,
     displayNameBase: g.display_name_base,
     displayNumber: g.display_number,
@@ -82,10 +85,44 @@ export async function PATCH(req: Request) {
   const id = String(b.id ?? "");
   if (!id) return Response.json({ error: "id obrigatório." }, { status: 400 });
 
+  // Convite e capacidade são validados AQUI, não só no formulário: este campo é
+  // o destino do `/r/<slug>`, e um valor errado não quebra o painel — quebra do
+  // outro lado, quando o cliente da loja clica no link já divulgado.
+  // `undefined` = não mexe no campo; `null` = limpa.
+  let inviteUrl: string | null | undefined;
+  if (typeof b.inviteUrl === "string") {
+    const raw = b.inviteUrl.trim();
+    if (!raw) {
+      inviteUrl = null;
+    } else {
+      inviteUrl = normalizeInviteUrl(raw);
+      if (!inviteUrl) {
+        return Response.json(
+          { error: "Convite inválido. Cole o link do grupo (chat.whatsapp.com/…)." },
+          { status: 400 },
+        );
+      }
+    }
+  }
+
+  // Acima do teto do WhatsApp o grupo nunca chegaria a "cheio" e a rotação do
+  // link mestre jamais passaria pro próximo grupo.
+  let capacity: number | undefined;
+  if (b.capacity !== undefined) {
+    const n = Number(b.capacity);
+    if (!Number.isInteger(n) || n < 1 || n > DEFAULT_GROUP_CAPACITY) {
+      return Response.json(
+        { error: `Capacidade deve ser um número inteiro entre 1 e ${DEFAULT_GROUP_CAPACITY}.` },
+        { status: 400 },
+      );
+    }
+    capacity = n;
+  }
+
   if (!USE_SUPABASE) {
     const patch: { inviteUrl?: string; capacity?: number; displayNameBase?: string; displayNumber?: number } = {};
-    if (typeof b.inviteUrl === "string") patch.inviteUrl = b.inviteUrl.trim();
-    if (b.capacity !== undefined && Number(b.capacity) > 0) patch.capacity = Number(b.capacity);
+    if (inviteUrl !== undefined) patch.inviteUrl = inviteUrl ?? "";
+    if (capacity !== undefined) patch.capacity = capacity;
     if (typeof b.displayNameBase === "string") patch.displayNameBase = b.displayNameBase.trim();
     if (b.displayNumber !== undefined) patch.displayNumber = Number(b.displayNumber) > 0 ? Number(b.displayNumber) : 0;
     const updated = await legacyUpdate(tenantId, id, patch);
@@ -94,8 +131,8 @@ export async function PATCH(req: Request) {
   }
 
   const patch: Record<string, unknown> = {};
-  if (typeof b.inviteUrl === "string") patch.invite_url = b.inviteUrl.trim();
-  if (b.capacity !== undefined && Number(b.capacity) > 0) patch.capacity = Number(b.capacity);
+  if (inviteUrl !== undefined) patch.invite_url = inviteUrl;
+  if (capacity !== undefined) patch.capacity = capacity;
   if (typeof b.displayNameBase === "string") patch.display_name_base = b.displayNameBase.trim();
   if (b.displayNumber !== undefined) patch.display_number = Number(b.displayNumber) > 0 ? Number(b.displayNumber) : 0;
 
@@ -118,6 +155,7 @@ export async function PATCH(req: Request) {
     capacity: updated.capacity,
     selected: updated.selected,
     engagement: updated.engagement,
+    isAdmin: updated.is_admin ?? false,
     inviteUrl: updated.invite_url,
     displayNameBase: updated.display_name_base,
     displayNumber: updated.display_number,
