@@ -56,7 +56,17 @@ export function classifyRequest(pathname: string, method: string): AccessKind {
     return normalizedMethod === "POST" ? "auth-rate-limited" : "user";
   }
 
-  if (pathname === "/api/cron/emails" || pathname === "/api/notifications/alerts") {
+  // Rotas de cron: o Vercel Cron manda `Authorization: Bearer <CRON_SECRET>`, que
+  // não é JWT do Supabase — cair no gate de sessão devolveria 401 em toda
+  // execução. Cada uma autentica o secret no próprio handler.
+  //
+  // Path EXATO, um por linha: esquecer de listar aqui deixa o cron inerte em
+  // produção, com o ambiente todo configurado.
+  if (
+    pathname === "/api/cron/emails" ||
+    pathname === "/api/cron/group-invites" ||
+    pathname === "/api/notifications/alerts"
+  ) {
     return "cron";
   }
 

@@ -4,6 +4,7 @@ import { listGroups as legacyList, replaceGroups as legacyReplace, updateGroup a
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
 import { normalizeInviteUrl } from "@/lib/groups/invite-url";
+import { clearInviteFetchMarker } from "@/lib/groups/invite-backfill";
 import { DEFAULT_GROUP_CAPACITY } from "@/lib/links/resolve-click-target";
 
 export const runtime = "nodejs";
@@ -141,11 +142,18 @@ export async function PATCH(req: Request) {
   // Find the group by whatsapp_group_id
   const { data: group } = await getSupabaseAdmin()
     .from("groups")
-    .select("id")
+    .select("id, metadata")
     .eq("tenant_id", tenantId)
     .eq("whatsapp_group_id", id)
     .maybeSingle();
   if (!group) return Response.json({ error: "Grupo não encontrado." }, { status: 404 });
+
+  // Resgate manual de um grupo marcado como sem-convite pelo cron. Nunca é
+  // automático: a Evolution achata toda falha num 404, então só uma pessoa
+  // olhando sabe se vale tentar de novo.
+  if (b.clearInviteFetchError === true) {
+    patch.metadata = clearInviteFetchMarker(group.metadata as Record<string, unknown> | null);
+  }
 
   const updated = await supaStore.updateGroup(tenantId, group.id, patch as Partial<supaStore.Group>);
   if (!updated) return Response.json({ error: "Grupo não encontrado." }, { status: 404 });
