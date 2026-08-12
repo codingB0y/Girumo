@@ -21,7 +21,18 @@ export type BackfillCandidate = {
 
 export type InviteFailureVerdict = "permanent" | "transient";
 
-export type InviteFailure = { verdict: InviteFailureVerdict; reason: string };
+/**
+ * `recognized` diz se sabemos POR QUE falhou, não só que falhou.
+ *
+ * Reconhecida = o status bastou (rede/5xx) ou o detail casou com
+ * `PERMANENT_REASONS`. Nesses casos a falha é comprovadamente do grupo (ou da
+ * rede) e quem chama pode agir sem medo.
+ *
+ * Não reconhecida = 404 achatado da Evolution sem padrão nenhum. Esse erro é
+ * exatamente o mesmo quando o grupo perdeu admin e quando a instância inteira
+ * sumiu — tratar como definitivo sem outra prova mata a fila toda.
+ */
+export type InviteFailure = { verdict: InviteFailureVerdict; reason: string; recognized: boolean };
 
 export type InviteFetchMarker = { failed: true; reason: string; at: string };
 
@@ -96,16 +107,21 @@ export function parseInviteCodeResponse(body: unknown): string | null {
  * ele é checado ANTES do detail.
  */
 export function classifyInviteFailure(input: { status: number; detail?: string | null }): InviteFailure {
-  if (input.status === 0) return { verdict: "transient", reason: "a Evolution não respondeu" };
-  if (input.status >= 500) return { verdict: "transient", reason: "a Evolution falhou temporariamente" };
+  if (input.status === 0) {
+    return { verdict: "transient", reason: "a Evolution não respondeu", recognized: true };
+  }
+  if (input.status >= 500) {
+    return { verdict: "transient", reason: "a Evolution falhou temporariamente", recognized: true };
+  }
 
   const detail = (input.detail ?? "").trim();
   const known = PERMANENT_REASONS.find((entry) => entry.pattern.test(detail));
-  if (known) return { verdict: "permanent", reason: known.reason };
+  if (known) return { verdict: "permanent", reason: known.reason, recognized: true };
 
   // Sem tradução conhecida, o texto cru é melhor que silêncio: é a única pista
-  // de quem for decidir no painel se vale tentar de novo.
-  return { verdict: "permanent", reason: detail || UNKNOWN_PERMANENT_REASON };
+  // de quem for decidir no painel se vale tentar de novo. Mas vai marcado como
+  // não reconhecido: aqui não dá pra separar "este grupo" de "esta instância".
+  return { verdict: "permanent", reason: detail || UNKNOWN_PERMANENT_REASON, recognized: false };
 }
 
 /** Marcador gravado em `groups.metadata.inviteFetch`. `now` entra por parâmetro pra ser testável. */

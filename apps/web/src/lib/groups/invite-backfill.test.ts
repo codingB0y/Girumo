@@ -111,29 +111,37 @@ test("refuses a response with no invite at all", () => {
 
 test("network failure is transient", () => {
   // status 0 é o sinal do EvolutionError para "não chegou na Evolution".
-  assert.equal(classifyInviteFailure({ status: 0, detail: "TimeoutError" }).verdict, "transient");
+  const out = classifyInviteFailure({ status: 0, detail: "TimeoutError" });
+  assert.equal(out.verdict, "transient");
+  // O próprio status é o reconhecimento: não depende de adivinhar o detail.
+  assert.equal(out.recognized, true);
 });
 
 test("server error is transient", () => {
-  assert.equal(classifyInviteFailure({ status: 502, detail: "bad gateway" }).verdict, "transient");
+  const out = classifyInviteFailure({ status: 502, detail: "bad gateway" });
+  assert.equal(out.verdict, "transient");
+  assert.equal(out.recognized, true);
 });
 
 test("losing admin is permanent, and says so in Portuguese", () => {
   const out = classifyInviteFailure({ status: 404, detail: "Error: 403 forbidden" });
   assert.equal(out.verdict, "permanent");
   assert.equal(out.reason, "a conta não é mais admin do grupo");
+  assert.equal(out.recognized, true);
 });
 
 test("a locked group is permanent", () => {
   const out = classifyInviteFailure({ status: 404, detail: "Error: locked" });
   assert.equal(out.verdict, "permanent");
   assert.equal(out.reason, "o grupo está travado para convites");
+  assert.equal(out.recognized, true);
 });
 
 test("a revoked invite is permanent", () => {
   const out = classifyInviteFailure({ status: 404, detail: "Error: gone" });
   assert.equal(out.verdict, "permanent");
   assert.equal(out.reason, "o convite foi revogado no WhatsApp");
+  assert.equal(out.recognized, true);
 });
 
 test("an unrecognised detail is permanent and carries the raw detail", () => {
@@ -142,12 +150,18 @@ test("an unrecognised detail is permanent and carries the raw detail", () => {
   const out = classifyInviteFailure({ status: 404, detail: "quem sabe" });
   assert.equal(out.verdict, "permanent");
   assert.equal(out.reason, "quem sabe");
+  // Não reconhecida: um 404 sem padrão conhecido tanto pode ser este grupo
+  // quanto a instância inteira fora do ar, e quem chama precisa saber disso
+  // antes de tirar o grupo da fila pra sempre.
+  assert.equal(out.recognized, false);
 });
 
 test("a permanent failure with no detail still has a usable reason", () => {
   assert.equal(classifyInviteFailure({ status: 404 }).verdict, "permanent");
   assert.equal(classifyInviteFailure({ status: 404 }).reason, "a Evolution não devolveu o convite");
+  assert.equal(classifyInviteFailure({ status: 404 }).recognized, false);
   assert.equal(classifyInviteFailure({ status: 404, detail: null }).reason, "a Evolution não devolveu o convite");
+  assert.equal(classifyInviteFailure({ status: 404, detail: null }).recognized, false);
 });
 
 test("a 5xx whose body says locked is still transient", () => {
