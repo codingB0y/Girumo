@@ -1,6 +1,7 @@
 import "server-only";
 
 import { resolveSecret } from "@/lib/runtime-secrets";
+import { parseInviteCodeResponse } from "@/lib/groups/invite-backfill";
 
 /**
  * Client HTTP da Evolution API v2.3.7 (lifecycle de instância).
@@ -255,4 +256,27 @@ export async function fetchAllGroups(instanceName: string): Promise<EvolutionGro
     { timeoutMs: FETCH_GROUPS_TIMEOUT_MS },
   );
   return Array.isArray(data) ? data : [];
+}
+
+/**
+ * Link de convite de UM grupo. Exige que a conta conectada seja admin dele.
+ *
+ * É LEITURA — devolve o código que já existe, não cria nem envia convite a
+ * ninguém. Mesmo assim o chamador respeita ritmo: o teto do WhatsApp aqui não é
+ * documentado e o custo de errar é a conta do lojista.
+ *
+ * Contrato de falha (a classificação depende dele):
+ * - LANÇA `EvolutionError` em qualquer falha de HTTP, preservando `status` e
+ *   `detail` — engolir o erro apagaria a única informação que distingue
+ *   "perdi o admin" de "a rede oscilou".
+ * - devolve `null` apenas no 200 com corpo sem convite utilizável.
+ *
+ * Atenção: na v2.3.7 a Evolution transforma QUALQUER erro daqui num 404
+ * `No invite code`, com a causa real dentro do detail.
+ */
+export async function fetchInviteCode(instanceName: string, groupJid: string): Promise<string | null> {
+  const data = await request<unknown>(
+    `/group/inviteCode/${encodeURIComponent(instanceName)}?groupJid=${encodeURIComponent(groupJid)}`,
+  );
+  return parseInviteCodeResponse(data);
 }
