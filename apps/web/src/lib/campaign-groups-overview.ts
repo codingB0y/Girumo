@@ -1,6 +1,5 @@
 import type { Group } from "@/lib/mock-data";
-
-const GROUP_FULL_RATIO = 0.95;
+import { GROUP_FULL_RATIO } from "@/lib/links/resolve-click-target";
 
 export type CampaignGroupStatus = "available" | "full" | "missing_invite" | "unknown";
 

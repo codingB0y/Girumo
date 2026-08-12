@@ -4,8 +4,7 @@ import * as supaStore from "@/lib/stores/schedules";
 import { collection } from "@/lib/json-collection";
 import { crudRoute } from "@/lib/crud-route";
 import type { Schedule, ScheduleStatus } from "@/lib/mock-data";
-import { getSessionAccountId } from "@/lib/session";
-import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { resolveSessionTenantId } from "@/lib/session-tenant";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,23 +23,9 @@ const legacy = crudRoute<Schedule>(coll, (b) => {
   };
 });
 
-async function resolveTenantId(): Promise<string | null> {
-  const authUserId = await getSessionAccountId();
-  if (!authUserId) return null;
-  const { data } = await getSupabaseAdmin()
-    .from("memberships")
-    .select("tenant_id")
-    .eq("user_id", authUserId)
-    .not("accepted_at", "is", null)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  return data?.tenant_id ?? null;
-}
-
-export async function GET() {
+export async function GET(req: Request) {
   if (!USE_SUPABASE) return legacy.GET();
-  const tenantId = await resolveTenantId();
+  const tenantId = await resolveSessionTenantId(req);
   if (!tenantId) return Response.json([]);
   const list = await supaStore.listSchedules(tenantId);
   // Map to legacy shape
@@ -59,7 +44,7 @@ export async function GET() {
 export async function POST(req: Request) {
   if (!USE_SUPABASE) return legacy.POST(req);
 
-  const tenantId = await resolveTenantId();
+  const tenantId = await resolveSessionTenantId(req);
   if (!tenantId) return Response.json({ error: "Tenant não encontrado." }, { status: 403 });
 
   let b: Record<string, unknown>;
@@ -102,7 +87,7 @@ export async function POST(req: Request) {
 export async function DELETE(req: Request) {
   if (!USE_SUPABASE) return legacy.DELETE(req);
 
-  const tenantId = await resolveTenantId();
+  const tenantId = await resolveSessionTenantId(req);
   if (!tenantId) return Response.json({ error: "Tenant não encontrado." }, { status: 403 });
 
   const id = new URL(req.url).searchParams.get("id");

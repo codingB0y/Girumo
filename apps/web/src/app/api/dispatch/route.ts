@@ -2,25 +2,11 @@ import { USE_SUPABASE } from "@/lib/stores/use-supabase";
 import * as supaStore from "@/lib/stores/broadcasts";
 import { enqueueDispatch } from "@/lib/dispatch-store";
 import { getSessionAccountId } from "@/lib/session";
-import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { resolveSessionTenantId } from "@/lib/session-tenant";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-async function resolveTenantId(): Promise<string | null> {
-  const authUserId = await getSessionAccountId();
-  if (!authUserId) return null;
-  const { data } = await getSupabaseAdmin()
-    .from("memberships")
-    .select("tenant_id")
-    .eq("user_id", authUserId)
-    .not("accepted_at", "is", null)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  return data?.tenant_id ?? null;
-}
 
 // POST /api/dispatch — lojista clicou "Enviar agora" numa oferta. body { id }
 export async function POST(req: Request) {
@@ -38,7 +24,7 @@ export async function POST(req: Request) {
     return Response.json(c, { status: 202 });
   }
 
-  const tenantId = await resolveTenantId();
+  const tenantId = await resolveSessionTenantId(req);
   if (!tenantId) return Response.json({ error: "Tenant não encontrado." }, { status: 403 });
 
   const c = await supaStore.enqueueBroadcast(tenantId, String(body.id));
