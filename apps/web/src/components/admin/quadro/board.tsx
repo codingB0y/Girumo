@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BOARD_STATUSES,
   STATUS_LABELS,
@@ -12,6 +12,7 @@ import {
 } from "@/lib/quadro/status";
 import { QuadroCard } from "./card";
 import { QuadroFeed } from "./feed";
+import { NewCardForm } from "./new-card";
 
 const POLL_MS = 4000;
 
@@ -30,29 +31,22 @@ export function QuadroBoard({ initial }: QuadroBoardProps) {
   const [area, setArea] = useState<string>("todas");
   const [nowMs, setNowMs] = useState(() => Date.now());
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function refresh() {
-      try {
-        const response = await fetch("/api/admin/quadro", { cache: "no-store" });
-        if (!response.ok) return;
-        const data = (await response.json()) as QuadroBoardProps["initial"];
-        if (!cancelled) {
-          setSnapshot(data);
-          setNowMs(Date.now());
-        }
-      } catch {
-        // Falha de rede é transitória: o próximo ciclo tenta de novo.
-      }
+  const refresh = useCallback(async () => {
+    try {
+      const response = await fetch("/api/admin/quadro", { cache: "no-store" });
+      if (!response.ok) return;
+      const data = (await response.json()) as QuadroBoardProps["initial"];
+      setSnapshot(data);
+      setNowMs(Date.now());
+    } catch {
+      // Falha de rede é transitória: o próximo ciclo tenta de novo.
     }
-
-    const timer = setInterval(refresh, POLL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
   }, []);
+
+  useEffect(() => {
+    const timer = setInterval(refresh, POLL_MS);
+    return () => clearInterval(timer);
+  }, [refresh]);
 
   const areas = useMemo(
     () => Array.from(new Set(snapshot.features.map((f) => f.area))).sort((a, b) => a.localeCompare(b, "pt-BR")),
@@ -82,6 +76,8 @@ export function QuadroBoard({ initial }: QuadroBoardProps) {
             <option key={a} value={a}>{a}</option>
           ))}
         </select>
+
+        <NewCardForm onCreated={refresh} />
       </div>
 
       <div className="flex flex-col gap-4 lg:flex-row">
@@ -103,7 +99,12 @@ export function QuadroBoard({ initial }: QuadroBoardProps) {
                 </header>
 
                 {cards.map((feature) => (
-                  <QuadroCard key={feature.id} feature={feature} nowMs={nowMs} />
+                  <QuadroCard
+                    key={feature.id}
+                    feature={feature}
+                    nowMs={nowMs}
+                    onChanged={refresh}
+                  />
                 ))}
               </section>
             );

@@ -1,6 +1,13 @@
 "use client";
 
-import { isVerificationStale, type BoardFeature } from "@/lib/quadro/status";
+import { useState } from "react";
+import {
+  BOARD_STATUSES,
+  STATUS_LABELS,
+  isVerificationStale,
+  type BoardFeature,
+  type BoardStatus,
+} from "@/lib/quadro/status";
 
 const PRIORITY_STYLE: Record<BoardFeature["priority"], string> = {
   alta: "bg-danger-700/10 text-danger-700",
@@ -15,10 +22,66 @@ function daysSince(iso: string, nowMs: number): number {
 interface QuadroCardProps {
   feature: BoardFeature;
   nowMs: number;
+  onChanged: () => void;
 }
 
-export function QuadroCard({ feature, nowMs }: QuadroCardProps) {
+export function QuadroCard({ feature, nowMs, onChanged }: QuadroCardProps) {
   const stale = isVerificationStale(feature, nowMs);
+
+  const [target, setTarget] = useState<BoardStatus | null>(null);
+  const [note, setNote] = useState("");
+  const [ref, setRef] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const proofRequired = target === "no_ar_verificado";
+
+  function handleCancel() {
+    setTarget(null);
+    setNote("");
+    setRef("");
+    setError(null);
+  }
+
+  async function handleConfirm(event: React.FormEvent) {
+    event.preventDefault();
+    if (!target) return;
+
+    if (!note.trim()) {
+      setError("O motivo é obrigatório: é ele que dá valor ao feed.");
+      return;
+    }
+    if (proofRequired && !ref.trim()) {
+      setError("Verificado exige prova (PR, query, arquivo).");
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/admin/quadro", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          key: feature.key,
+          status: target,
+          note,
+          ref: ref.trim() || null,
+        }),
+      });
+      if (!response.ok) {
+        const data = (await response.json()) as { error?: string };
+        setError(data.error ?? "Falhou");
+        return;
+      }
+      handleCancel();
+      onChanged();
+    } catch {
+      setError("Rede falhou. Tente de novo.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <article className="rounded-lg border border-line-200 bg-paper-0 p-3 shadow-sm">
@@ -53,6 +116,61 @@ export function QuadroCard({ feature, nowMs }: QuadroCardProps) {
           há {daysSince(feature.evidenceAt, nowMs)} dias
           {feature.evidence ? ` · ${feature.evidence}` : ""}
         </p>
+      ) : null}
+
+      <label className="sr-only" htmlFor={`mover-${feature.key}`}>
+        Mover {feature.title}
+      </label>
+      <select
+        id={`mover-${feature.key}`}
+        value={target ?? feature.status}
+        disabled={saving}
+        onChange={(e) => {
+          const chosen = e.target.value as BoardStatus;
+          setError(null);
+          setTarget(chosen === feature.status ? null : chosen);
+        }}
+        className="mt-2 w-full rounded border border-line-200 bg-canvas-100 px-1.5 py-1 text-[11px] text-aco disabled:opacity-50"
+      >
+        {BOARD_STATUSES.map((s) => (
+          <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+        ))}
+      </select>
+
+      {target ? (
+        <form onSubmit={handleConfirm} className="mt-2 space-y-1.5">
+          <input
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Motivo (vai pro feed)"
+            aria-label={`Motivo para mover ${feature.title}`}
+            autoFocus
+            className="w-full rounded border border-line-200 bg-paper-0 px-1.5 py-1 text-[11px] text-volt-950"
+          />
+          <input
+            value={ref}
+            onChange={(e) => setRef(e.target.value)}
+            placeholder={proofRequired ? "Prova — obrigatória" : "Referência (opcional)"}
+            aria-label={`Referência para ${feature.title}`}
+            className="w-full rounded border border-line-200 bg-paper-0 px-1.5 py-1 text-[11px] text-volt-950"
+          />
+          <div className="flex gap-1.5">
+            <button
+              type="submit"
+              disabled={saving}
+              className="rounded bg-volt-950 px-2 py-1 text-[11px] font-semibold text-paper-0 disabled:opacity-50"
+            >
+              Confirmar
+            </button>
+            <button type="button" onClick={handleCancel} className="text-[11px] text-aco/60">
+              Cancelar
+            </button>
+          </div>
+        </form>
+      ) : null}
+
+      {error ? (
+        <p role="alert" className="mt-1 text-[11px] text-danger-700">{error}</p>
       ) : null}
     </article>
   );
