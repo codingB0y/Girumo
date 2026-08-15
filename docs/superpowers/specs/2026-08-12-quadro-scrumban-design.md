@@ -112,7 +112,7 @@ O Postgres recusa o update. Não existe "prometo verificar depois".
 `id`, `feature_id` (fk, `on delete cascade`), `from_status`, `to_status`, `note` (o motivo),
 `ref` (PR/commit/arquivo), `actor` (`claude` | `igor`), `created_at`.
 
-**Escrito por trigger**, não por disciplina: `after update of status on board_features`
+**Escrito por trigger**, não por disciplina: `before update on board_features`
 insere o evento. Não há como mover um card e esquecer de registrar. Quando o update vem
 cru (sem passar pelo RPC), `note` fica nulo — e um evento sem motivo é, ele próprio, o
 sinal de que alguém mexeu sem explicar.
@@ -180,7 +180,7 @@ calendário; gráfico de sprint num time de uma pessoa é enfeite que envelhece.
 ```
 apps/web/supabase/migrations/20260812120000_board_quadro.sql   # tabelas, trigger, RPC, RLS
 deploy/supabase/apply-order.txt                                # + entrada
-apps/web/src/lib/types/quadro.ts                               # tipos e o union de status
+apps/web/src/lib/quadro/status.ts                              # tipos, constantes e logica pura
 apps/web/src/lib/stores/quadro.ts                              # leitura/escrita, service role
 apps/web/src/app/api/admin/quadro/route.ts                     # GET + POST + PATCH, requireAdmin
 apps/web/src/app/admin/quadro/page.tsx                         # server component, fetch inicial
@@ -208,6 +208,11 @@ apps/web/src/components/admin/sidebar.tsx                      # + item "Quadro"
 | **PR-1** | migração (tabelas, trigger, constraint, RPC), página read-only, feed, polling | entrega o quadro funcionando; prova o conceito |
 | **PR-2** | edição: seletor de coluna, criar card, nota, blocker, prioridade | é UI + API, não schema |
 | **PR-3** | carga das ~40 features, regra no `CLAUDE.md` | é conteúdo, não código — e é a parte demorada |
+
+**Não foi assim que saiu.** Os três viraram **um só PR** (#96). O `CLAUDE.md` proíbe abrir
+branch em cima de branch de feature, então PR-2 e PR-3 não tinham como ser empilhados sobre
+o PR-1 aberto; a alternativa era parar a execução esperando cada merge. Ficou dentro do
+limite do projeto (~10 arquivos de código) e é uma coisa só.
 
 ## Riscos
 
