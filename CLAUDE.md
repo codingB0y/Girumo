@@ -148,6 +148,33 @@ Um PR = uma coisa. Passou de ~10 arquivos, provavelmente são dois PRs.
 
 Reportar sempre: **"PRs que deixei abertos: #N (motivo)"** — ou "nenhum".
 
+## Quadro de features (`/admin/quadro`)
+
+O estado das features vive em `board_features` no Supabase de **produção**
+(`nidoatbxaylrkcgbszns`) — o de dev é rascunho. Spec:
+`docs/superpowers/specs/2026-08-12-quadro-scrumban-design.md`.
+
+**Ao terminar qualquer feature ou PR, mova o card no mesmo passo** — em prod:
+
+```sql
+select public.move_card('<key>', '<status>', '<motivo>', '<PR #N ou arquivo>');
+```
+
+Status: `nao_existe` · `em_construcao` · `no_ar_nao_verificado` · `no_ar_verificado` · `quebrado`.
+Não existe coluna "Feito" de propósito — era exatamente ela que deixava passar feature
+mergeada que nunca funcionou.
+
+**`no_ar_verificado` só com prova colhida na hora.** Mergeado não é verificado; rodando em
+produção não é verificado. Verificado é ter olhado e visto funcionar. O banco recusa o
+movimento sem prova (CHECK constraint), e a prova vence em 30 dias — depois disso o card
+ganha selo de "verificação vencida" na tela.
+
+O motivo é obrigatório: um trigger no banco escreve o feed de eventos sozinho, então não dá
+pra mover um card e esquecer de registrar por quê.
+
+Quando a feature estiver parada, escreva o motivo em `blocker` — é o campo que teria
+mostrado "`invite_url` não tem UI" antes de virar incidente.
+
 ## Comandos rápidos (diga isso no chat)
 
 ### /kg
