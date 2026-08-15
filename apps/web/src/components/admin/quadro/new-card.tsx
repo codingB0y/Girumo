@@ -90,7 +90,14 @@ export function NewCardForm({ onCreated }: NewCardFormProps) {
       >
         Criar
       </button>
-      <button type="button" onClick={() => setOpen(false)} className="text-xs text-aco/60">
+      {/* Desabilitado durante o envio: sem isso o Cancelar fecha o formulário mas não
+          impede o POST já em voo — o card nasce depois de você ter cancelado. */}
+      <button
+        type="button"
+        onClick={() => setOpen(false)}
+        disabled={saving}
+        className="text-xs text-aco/60 disabled:opacity-50"
+      >
         Cancelar
       </button>
       {key ? <span className="font-data text-[10px] text-aco/45">key: {key}</span> : null}

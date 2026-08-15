@@ -162,7 +162,14 @@ export function QuadroCard({ feature, nowMs, onChanged }: QuadroCardProps) {
             >
               Confirmar
             </button>
-            <button type="button" onClick={handleCancel} className="text-[11px] text-aco/60">
+            {/* Desabilitado durante o envio: sem isso o Cancelar fecha o formulário mas
+                não impede o PATCH já em voo — o card se move depois de você ter cancelado. */}
+            <button
+              type="button"
+              onClick={handleCancel}
+              disabled={saving}
+              className="text-[11px] text-aco/60 disabled:opacity-50"
+            >
               Cancelar
             </button>
           </div>
