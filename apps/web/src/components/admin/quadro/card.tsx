@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import {
+  BOARD_PRIORITIES,
   BOARD_STATUSES,
   STATUS_LABELS,
   isVerificationStale,
   type BoardFeature,
+  type BoardPriority,
   type BoardStatus,
 } from "@/lib/quadro/status";
 
@@ -34,6 +36,11 @@ export function QuadroCard({ feature, nowMs, onChanged }: QuadroCardProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [editing, setEditing] = useState(false);
+  const [editSummary, setEditSummary] = useState(feature.summary ?? "");
+  const [editBlocker, setEditBlocker] = useState(feature.blocker ?? "");
+  const [editPriority, setEditPriority] = useState<BoardPriority>(feature.priority);
+
   const proofRequired = target === "no_ar_verificado";
 
   function handleCancel() {
@@ -41,6 +48,55 @@ export function QuadroCard({ feature, nowMs, onChanged }: QuadroCardProps) {
     setNote("");
     setRef("");
     setError(null);
+  }
+
+  /** Abrir a edição fecha o formulário de mover — os dois modos nunca ficam abertos juntos. */
+  function handleOpenEdit() {
+    handleCancel();
+    setEditSummary(feature.summary ?? "");
+    setEditBlocker(feature.blocker ?? "");
+    setEditPriority(feature.priority);
+    setEditing(true);
+  }
+
+  function handleCancelEdit() {
+    setEditing(false);
+    setEditSummary(feature.summary ?? "");
+    setEditBlocker(feature.blocker ?? "");
+    setEditPriority(feature.priority);
+    setError(null);
+  }
+
+  async function handleSaveEdit(event: React.FormEvent) {
+    event.preventDefault();
+
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/admin/quadro", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          key: feature.key,
+          // Campo vazio vira null, nunca string vazia — string vazia gravaria "com trava"
+          // pra sempre, sem texto nenhum pra explicar o quê.
+          summary: editSummary.trim() || null,
+          blocker: editBlocker.trim() || null,
+          priority: editPriority,
+        }),
+      });
+      if (!response.ok) {
+        const data = (await response.json()) as { error?: string };
+        setError(data.error ?? "Falhou");
+        return;
+      }
+      setEditing(false);
+      onChanged();
+    } catch {
+      setError("Rede falhou. Tente de novo.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleConfirm(event: React.FormEvent) {
@@ -128,6 +184,7 @@ export function QuadroCard({ feature, nowMs, onChanged }: QuadroCardProps) {
         onChange={(e) => {
           const chosen = e.target.value as BoardStatus;
           setError(null);
+          setEditing(false);
           setTarget(chosen === feature.status ? null : chosen);
         }}
         className="mt-2 w-full rounded border border-line-200 bg-canvas-100 px-1.5 py-1 text-[11px] text-aco disabled:opacity-50"
@@ -136,6 +193,20 @@ export function QuadroCard({ feature, nowMs, onChanged }: QuadroCardProps) {
           <option key={s} value={s}>{STATUS_LABELS[s]}</option>
         ))}
       </select>
+
+      {!editing ? (
+        <div className="mt-1.5 flex justify-end">
+          <button
+            type="button"
+            onClick={handleOpenEdit}
+            disabled={saving}
+            aria-label={`Editar resumo, trava e prioridade de ${feature.title}`}
+            className="text-[11px] text-aco/60 underline decoration-dotted underline-offset-2 disabled:opacity-50"
+          >
+            Editar
+          </button>
+        </div>
+      ) : null}
 
       {target ? (
         <form onSubmit={handleConfirm} className="mt-2 space-y-1.5">
@@ -167,6 +238,53 @@ export function QuadroCard({ feature, nowMs, onChanged }: QuadroCardProps) {
             <button
               type="button"
               onClick={handleCancel}
+              disabled={saving}
+              className="text-[11px] text-aco/60 disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      ) : null}
+
+      {editing ? (
+        <form onSubmit={handleSaveEdit} className="mt-1.5 space-y-1.5">
+          <input
+            value={editSummary}
+            onChange={(e) => setEditSummary(e.target.value)}
+            placeholder="Resumo"
+            aria-label={`Resumo de ${feature.title}`}
+            autoFocus
+            className="w-full rounded border border-line-200 bg-paper-0 px-1.5 py-1 text-[11px] text-volt-950"
+          />
+          <input
+            value={editBlocker}
+            onChange={(e) => setEditBlocker(e.target.value)}
+            placeholder="Trava (vazio = não tem)"
+            aria-label={`Trava de ${feature.title}, vazio significa que não tem`}
+            className="w-full rounded border border-line-200 bg-paper-0 px-1.5 py-1 text-[11px] text-volt-950"
+          />
+          <select
+            value={editPriority}
+            onChange={(e) => setEditPriority(e.target.value as BoardPriority)}
+            aria-label={`Prioridade de ${feature.title}`}
+            className="w-full rounded border border-line-200 bg-canvas-100 px-1.5 py-1 text-[11px] text-aco"
+          >
+            {BOARD_PRIORITIES.map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+          <div className="flex gap-1.5">
+            <button
+              type="submit"
+              disabled={saving}
+              className="rounded bg-volt-950 px-2 py-1 text-[11px] font-semibold text-paper-0 disabled:opacity-50"
+            >
+              Salvar
+            </button>
+            <button
+              type="button"
+              onClick={handleCancelEdit}
               disabled={saving}
               className="text-[11px] text-aco/60 disabled:opacity-50"
             >
