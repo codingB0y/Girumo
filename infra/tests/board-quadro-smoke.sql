@@ -82,5 +82,32 @@ begin
    where feature_id not in (select id from public.board_features);
   if v_events <> 0 then raise exception 'FALHOU: % evento(s) orfao(s)', v_events; end if;
 
-  raise notice 'SMOKE DO QUADRO: 6/6 OK';
+  -- 7) verificado exige prova NOVA: nao da pra reciclar a prova antiga.
+  -- Sem este guard, um card ja verificado um dia mantinha `evidence` para sempre;
+  -- mover para quebrado e voltar para verificado sem p_ref passava na constraint
+  -- E zerava evidence_at, exibindo "verificado ha 0 dias" com a prova de meses atras.
+  insert into public.board_features (key, title, area, status, evidence, evidence_at)
+  values ('smoke-quadro', 'Smoke', 'Infra', 'no_ar_nao_verificado',
+          'prova velha', now() - interval '200 days');
+
+  begin
+    perform public.move_card('smoke-quadro', 'no_ar_verificado', 'reciclando a prova velha');
+    raise exception 'FALHOU: aceitou verificado reciclando prova antiga';
+  exception when raise_exception then
+    get stacked diagnostics v_erro = message_text;
+    if v_erro not like '%exige prova%' then raise; end if;
+  end;
+
+  perform public.move_card('smoke-quadro', 'no_ar_verificado', 'verifiquei agora', 'prova nova');
+  if not exists (
+    select 1 from public.board_features
+     where key = 'smoke-quadro' and evidence = 'prova nova'
+       and evidence_at > now() - interval '1 minute'
+  ) then
+    raise exception 'FALHOU: prova nova nao substituiu a antiga';
+  end if;
+
+  delete from public.board_features where key = 'smoke-quadro';
+
+  raise notice 'SMOKE DO QUADRO: 7/7 OK';
 end $$;

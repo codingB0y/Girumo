@@ -31,15 +31,22 @@ export function QuadroBoard({ initial }: QuadroBoardProps) {
   const [area, setArea] = useState<string>("todas");
   const [nowMs, setNowMs] = useState(() => Date.now());
 
+  const [failedPolls, setFailedPolls] = useState(0);
+
   const refresh = useCallback(async () => {
     try {
       const response = await fetch("/api/admin/quadro", { cache: "no-store" });
-      if (!response.ok) return;
+      if (!response.ok) {
+        setFailedPolls((n) => n + 1);
+        return;
+      }
       const data = (await response.json()) as QuadroBoardProps["initial"];
       setSnapshot(data);
       setNowMs(Date.now());
+      setFailedPolls(0);
     } catch {
-      // Falha de rede é transitória: o próximo ciclo tenta de novo.
+      // Uma falha isolada é transitória; o que importa é a sequência.
+      setFailedPolls((n) => n + 1);
     }
   }, []);
 
@@ -59,8 +66,23 @@ export function QuadroBoard({ initial }: QuadroBoardProps) {
 
   const groups = groupByStatus(visible);
 
+  // Duas falhas seguidas (~8s) já não são blip de rede — normalmente é o cookie de admin
+  // tendo expirado. Sem este aviso a tela mostraria um retrato congelado com cara de
+  // fresco, que é exatamente a mentira que este quadro existe pra não contar.
+  const stalledSeconds = Math.round((failedPolls * POLL_MS) / 1000);
+
   return (
     <div className="space-y-4">
+      {failedPolls >= 2 ? (
+        <p
+          role="status"
+          className="rounded-lg border border-danger-700/30 bg-danger-700/8 px-3 py-2 text-xs text-danger-700"
+        >
+          Sem atualizar há {stalledSeconds}s — o que está na tela pode estar velho.
+          Se persistir, recarregue a página: sua sessão de admin pode ter expirado.
+        </p>
+      ) : null}
+
       <div className="flex flex-wrap items-center gap-2">
         <label htmlFor="quadro-area" className="font-data text-[11px] uppercase tracking-wider text-aco/55">
           Área

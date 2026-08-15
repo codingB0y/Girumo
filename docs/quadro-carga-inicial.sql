@@ -166,3 +166,27 @@ insert into public.board_features (key, title, area, status, summary, blocker, p
    'Decisão do Igor em 11/08: Baileys segue de pé por mais 1-2 meses — cutover explicitamente adiado, nenhuma das duas frentes começou.', 'media')
 
 on conflict (key) do nothing;
+
+-- ------------------------------------------------------------
+-- Limpeza do `blocker`: ele é "por que não anda", não "por que não foi verificado".
+--
+-- A carga acima nasceu com os 45 cards preenchidos, e como o card pinta a trava em
+-- vermelho, todo card ficava vermelho — destaque em tudo é destaque em nada. A maior
+-- parte daqueles textos ("ninguém confirmou depois do merge") só repetia o que a coluna
+-- `no_ar_nao_verificado` já diz.
+--
+-- Ficam com trava: os `quebrado`, e os que nomeiam uma condição concreta e acionável —
+-- config que falta (`WORKER_SEND_ENABLED`), dependência que não existe, decisão de adiar,
+-- limitação conhecida de cobertura. O texto removido não se perdeu: está no insert acima
+-- e no histórico do git.
+-- ------------------------------------------------------------
+update public.board_features
+   set blocker = null
+ where status <> 'quebrado'
+   and key not in (
+     'squad-os-agentes-ia','grupos-engajamento-real','infra-cutover-baileys-evolution',
+     'paginas-crm-integracao','paginas-funil-completo','automacoes-executor',
+     'automacoes-crud-templates','automacoes-triggers','disparos-motor-worker-evolution',
+     'campanhas-ponte-broadcasts','infra-csp-nonce','grupos-auto-grow',
+     'campanhas-link-mestre-supabase','auth-account-takeover-fixes','engine-worker-anti-ban-banco'
+   );

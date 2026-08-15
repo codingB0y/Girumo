@@ -120,6 +120,14 @@ begin
     raise exception 'move_card exige motivo em p_note';
   end if;
 
+  -- Prova NOVA a cada verificação. Sem isto, um card que já foi verificado um dia
+  -- carrega a prova velha para sempre: mover para quebrado e voltar para verificado
+  -- sem p_ref passava na constraint (evidence sobreviveu) e ainda zerava o relogio
+  -- dos 30 dias, exibindo "verificado ha 0 dias" com a prova de meses atras.
+  if p_status = 'no_ar_verificado' and (p_ref is null or btrim(p_ref) = '') then
+    raise exception 'mover para no_ar_verificado exige prova em p_ref';
+  end if;
+
   perform set_config('app.board_note',  p_note, true);
   perform set_config('app.board_ref',   coalesce(p_ref, ''), true);
   perform set_config('app.board_actor',
@@ -128,7 +136,7 @@ begin
   update public.board_features
      set status      = p_status,
          evidence    = case when p_status = 'no_ar_verificado'
-                            then coalesce(p_ref, evidence) else evidence end,
+                            then p_ref else evidence end,
          evidence_at = case when p_status = 'no_ar_verificado'
                             then now() else evidence_at end
    where key = p_key
