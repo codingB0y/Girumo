@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
 import {
+  BOARD_AREAS,
+  BOARD_PRIORITIES,
   BOARD_STATUSES,
   STATUS_LABELS,
   VERIFICATION_STALE_DAYS,
   WIP_LIMIT_EM_CONSTRUCAO,
   groupByStatus,
+  isBoardArea,
+  isBoardPriority,
+  isBoardStatus,
   isVerificationStale,
   wipState,
   type BoardFeature,
@@ -92,4 +97,30 @@ assert.equal(wipState(0, 3), "ok");
     feature({ id: "0", key: "p", title: "Prioritario", status: "em_construcao", sortOrder: -1 }),
   ]);
   assert.deepEqual(grupos.em_construcao.map((f) => f.title), ["Prioritario", "Alfa", "Zebra"]);
+}
+
+// Os guards existem para o texto que vem do banco e da rede não entrar na marra.
+// Antes deles, um status desconhecido fazia o card sumir de todas as colunas em silêncio.
+for (const status of BOARD_STATUSES) {
+  assert.equal(isBoardStatus(status), true, `${status} deveria ser status válido`);
+}
+for (const priority of BOARD_PRIORITIES) {
+  assert.equal(isBoardPriority(priority), true, `${priority} deveria ser prioridade válida`);
+}
+for (const area of BOARD_AREAS) {
+  assert.equal(isBoardArea(area), true, `${area} deveria ser área válida`);
+}
+
+// Recusa o que não pertence, incluindo os tipos errados que chegam de JSON.
+assert.equal(isBoardStatus("feito"), false, "não existe coluna Feito");
+assert.equal(isBoardStatus("NAO_EXISTE"), false, "case importa");
+assert.equal(isBoardStatus(undefined), false);
+assert.equal(isBoardStatus(null), false);
+assert.equal(isBoardStatus(3), false);
+assert.equal(isBoardPriority("urgentissima"), false);
+assert.equal(isBoardArea("Foo"), false, "área fora da lista viraria opção nova no filtro");
+
+// Todos os cinco rótulos existem e nenhum é vazio — a coluna precisa de nome na tela.
+for (const status of BOARD_STATUSES) {
+  assert.ok(STATUS_LABELS[status]?.trim(), `${status} sem rótulo`);
 }

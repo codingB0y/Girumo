@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin-guard";
-import { BOARD_STATUSES, type BoardPriority, type BoardStatus } from "@/lib/quadro/status";
+import {
+  BOARD_AREAS,
+  BOARD_PRIORITIES,
+  isBoardArea,
+  isBoardPriority,
+  isBoardStatus,
+  type BoardPriority,
+  type BoardStatus,
+} from "@/lib/quadro/status";
 import {
   createFeature,
   DuplicateFeatureKeyError,
@@ -27,8 +35,6 @@ export async function GET() {
   }
 }
 
-const PRIORITIES: readonly BoardPriority[] = ["alta", "media", "baixa"];
-
 /**
  * PATCH — move o card ou edita seus campos.
  * Body: { key, status?, note?, ref?, summary?, blocker?, priority?, sortOrder? }
@@ -53,15 +59,21 @@ export async function PATCH(req: NextRequest) {
 
   // Toda validação de input roda antes de qualquer efeito colateral (moveCard/updateFeature).
   if (body.status !== undefined) {
-    if (!BOARD_STATUSES.includes(body.status as BoardStatus)) {
+    if (!isBoardStatus(body.status)) {
       return NextResponse.json({ error: `status inválido: ${body.status}` }, { status: 400 });
     }
     if (!body.note?.trim()) {
       return NextResponse.json({ error: "mover exige motivo" }, { status: 400 });
     }
+    if (body.status === "no_ar_verificado" && !body.ref?.trim()) {
+      return NextResponse.json(
+        { error: "mover para verificado exige prova" },
+        { status: 400 },
+      );
+    }
   }
 
-  if (body.priority !== undefined && !PRIORITIES.includes(body.priority as BoardPriority)) {
+  if (body.priority !== undefined && !isBoardPriority(body.priority)) {
     return NextResponse.json({ error: `prioridade inválida: ${body.priority}` }, { status: 400 });
   }
 
@@ -102,17 +114,33 @@ export async function POST(req: NextRequest) {
     priority?: string;
   };
 
-  if (!body.key || !body.title || !body.area) {
+  if (!body.key?.trim() || !body.title?.trim() || !body.area) {
     return NextResponse.json({ error: "key, title e area são obrigatórios" }, { status: 400 });
+  }
+
+  // `area` alimenta o filtro do topo do quadro: texto livre aqui cria uma opção nova
+  // toda vez que alguém erra a digitação, e a lista de áreas vira lixo.
+  if (!isBoardArea(body.area)) {
+    return NextResponse.json(
+      { error: `área inválida: ${body.area}. Use uma de: ${BOARD_AREAS.join(", ")}` },
+      { status: 400 },
+    );
+  }
+
+  if (body.priority !== undefined && !isBoardPriority(body.priority)) {
+    return NextResponse.json(
+      { error: `prioridade inválida: ${body.priority}. Use uma de: ${BOARD_PRIORITIES.join(", ")}` },
+      { status: 400 },
+    );
   }
 
   try {
     await createFeature({
-      key: body.key,
-      title: body.title,
+      key: body.key.trim(),
+      title: body.title.trim(),
       area: body.area,
       summary: body.summary ?? null,
-      priority: (body.priority as BoardPriority | undefined) ?? "media",
+      priority: body.priority ?? "media",
     });
     return NextResponse.json({ success: true }, { status: 201 });
   } catch (error: unknown) {

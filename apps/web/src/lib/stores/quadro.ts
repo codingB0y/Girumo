@@ -1,5 +1,6 @@
 import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { isBoardPriority, isBoardStatus } from "@/lib/quadro/status";
 import type { BoardEvent, BoardFeature, BoardPriority, BoardStatus } from "@/lib/quadro/status";
 
 export interface QuadroSnapshot {
@@ -44,18 +45,30 @@ type EventRow = {
   created_at: string;
 };
 
+/**
+ * Valida em vez de aceitar na marra. Um `status` fora do union significa que o banco e o
+ * código discordam — normalmente migração aplicada sem deploy. Falhar alto aqui é melhor
+ * que o card sumir de todas as colunas em silêncio, que era o que acontecia antes.
+ */
 function toFeature(row: FeatureRow): BoardFeature {
+  if (!isBoardStatus(row.status)) {
+    throw new Error(`board_features.status desconhecido em "${row.key}": ${row.status}`);
+  }
+  if (!isBoardPriority(row.priority)) {
+    throw new Error(`board_features.priority desconhecida em "${row.key}": ${row.priority}`);
+  }
+
   return {
     id: row.id,
     key: row.key,
     title: row.title,
     area: row.area,
-    status: row.status as BoardStatus,
+    status: row.status,
     summary: row.summary,
     blocker: row.blocker,
     evidence: row.evidence,
     evidenceAt: row.evidence_at,
-    priority: row.priority as BoardPriority,
+    priority: row.priority,
     sortOrder: row.sort_order,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

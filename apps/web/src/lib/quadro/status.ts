@@ -7,7 +7,22 @@ export const BOARD_STATUSES = [
 ] as const;
 
 export type BoardStatus = (typeof BOARD_STATUSES)[number];
-export type BoardPriority = "alta" | "media" | "baixa";
+
+export const BOARD_PRIORITIES = ["alta", "media", "baixa"] as const;
+export type BoardPriority = (typeof BOARD_PRIORITIES)[number];
+
+/** Estreita o texto que veio do banco ou da rede. Nada de `as BoardStatus` na marra. */
+export function isBoardStatus(value: unknown): value is BoardStatus {
+  return typeof value === "string" && (BOARD_STATUSES as readonly string[]).includes(value);
+}
+
+export function isBoardPriority(value: unknown): value is BoardPriority {
+  return typeof value === "string" && (BOARD_PRIORITIES as readonly string[]).includes(value);
+}
+
+export function isBoardArea(value: unknown): value is (typeof BOARD_AREAS)[number] {
+  return typeof value === "string" && (BOARD_AREAS as readonly string[]).includes(value);
+}
 
 export const STATUS_LABELS: Record<BoardStatus, string> = {
   nao_existe: "Não existe",
@@ -94,7 +109,7 @@ export function groupByStatus(features: BoardFeature[]): Record<BoardStatus, Boa
   ) as Record<BoardStatus, BoardFeature[]>;
 
   for (const feature of features) {
-    grupos[feature.status]?.push(feature);
+    grupos[feature.status].push(feature);
   }
 
   for (const status of BOARD_STATUSES) {
