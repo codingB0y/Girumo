@@ -11,6 +11,7 @@ import {
   type WeeklyReportStats,
 } from "@/lib/email/templates";
 import { activationMarkerForAge, activationNotificationType, type ActivationMarker } from "@/lib/email/activation-cadence";
+import { canSendAlert } from "@/lib/email/alert-optout";
 import { isCronAuthorized } from "@/lib/cron-auth";
 import { selectSessionRow, isConnectedStatus } from "@/lib/session-select";
 import { getAppUrl } from "@/lib/environment";
@@ -342,6 +343,22 @@ export async function GET(req: Request) {
     const disconnectedAtMs = row.disconnected_at ? new Date(row.disconnected_at).getTime() : NaN;
     if (!Number.isFinite(disconnectedAtMs) || disconnectedAtMs > twoHoursAgoMs) continue;
 
+    // Opt-out do lojista. Lido antes do dedupe e da busca do dono: quem desligou
+    // não precisa custar mais três queries por dia.
+    const { data: prefs, error: prefsError } = await supabase
+      .from("tenant_settings")
+      .select("disconnect_alert_enabled")
+      .eq("tenant_id", org.id)
+      .maybeSingle();
+
+    // O erro é contado e logado aqui, mas quem decide enviar ou não é sempre
+    // canSendAlert — uma regra só, testada, para os dois jobs.
+    if (prefsError) {
+      console.error(`[cron] disconnect_alert: falha lendo tenant_settings de ${org.id}:`, prefsError.message);
+      results.errors++;
+    }
+    if (!canSendAlert({ value: prefs?.disconnect_alert_enabled, error: prefsError })) continue;
+
     // Dedup: no máximo 1 alerta de desconexão por tenant por dia.
     const { data: sentToday } = await supabase
       .from("notifications")
@@ -389,10 +406,8 @@ export async function GET(req: Request) {
     const { data: allOrgs } = await supabase.from("organizations").select("id");
 
     for (const org of allOrgs ?? []) {
-      // Opt-out: sem linha em tenant_settings = habilitado por padrão. Mas um
-      // ERRO na leitura (tabela ausente, permissão) não é "sem linha" — sem
-      // saber a preferência do lojista, não envia. Falhar aberto aqui mandaria
-      // e-mail pra quem desligou.
+      // Opt-out: sem linha em tenant_settings = habilitado por padrão; erro de
+      // leitura = não envia. A regra vive em canSendAlert (ver alert-optout.ts).
       const { data: settings, error: settingsError } = await supabase
         .from("tenant_settings")
         .select("weekly_report_enabled")
@@ -402,10 +417,8 @@ export async function GET(req: Request) {
       if (settingsError) {
         console.error(`[cron] weekly_report: falha lendo tenant_settings de ${org.id}:`, settingsError.message);
         results.errors++;
-        continue;
       }
-
-      if (settings?.weekly_report_enabled === false) continue;
+      if (!canSendAlert({ value: settings?.weekly_report_enabled, error: settingsError })) continue;
 
       // Já enviado nesta semana? (dedupe: notification criada de hoje em diante)
       // Se a checagem falhar não dá pra saber se já foi — pula, porque reenviar
