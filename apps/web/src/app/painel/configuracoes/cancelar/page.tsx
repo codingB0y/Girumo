@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { AlertTriangle, Users, Layers, MousePointerClick, Pause, ArrowLeft } from "lucide-react";
+import { AlertTriangle, Users, Layers, MousePointerClick, ArrowLeft, Loader2 } from "lucide-react";
 import { authenticatedFetch } from "@/lib/supabase/client";
 
 type Stats = {
@@ -15,11 +14,12 @@ type Stats = {
 };
 
 export default function CancelarPage() {
-  const router = useRouter();
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [reason, setReason] = useState("");
-  const [step, setStep] = useState<"show" | "confirm" | "paused">("show");
+  const [step, setStep] = useState<"show" | "confirm">("show");
+  const [erro, setErro] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -49,14 +49,20 @@ export default function CancelarPage() {
     })();
   }, []);
 
-  async function handlePause() {
-    // Request pause instead of cancel
-    await authenticatedFetch("/api/billing/pause", { method: "POST" }).catch(() => {});
-    setStep("paused");
-  }
-
   async function handleCancel() {
-    // Redirect to Stripe portal for actual cancellation
+    setErro(null);
+    setEnviando(true);
+
+    // Best-effort: o motivo é valioso, mas não pode impedir o cancelamento.
+    // Se falhar, seguimos para o portal do mesmo jeito.
+    if (reason.trim()) {
+      await authenticatedFetch("/api/billing/churn", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      }).catch(() => {});
+    }
+
     try {
       const res = await authenticatedFetch("/api/billing/portal", { method: "POST" });
       const data = await res.json().catch(() => ({}));
@@ -64,39 +70,24 @@ export default function CancelarPage() {
         window.location.href = data.url;
         return;
       }
+      // Sem URL não há cancelamento possível aqui. Mandar de volta ao painel
+      // em silêncio faria parecer que cancelou — que era o problema desta tela.
+      setErro(
+        typeof data.error === "string"
+          ? data.error
+          : "Não conseguimos abrir o portal de pagamentos. Tente de novo em instantes.",
+      );
     } catch {
-      // fallback
+      setErro("Não conseguimos falar com o servidor. Verifique sua conexão e tente de novo.");
+    } finally {
+      setEnviando(false);
     }
-    router.push("/painel/configuracoes");
   }
 
   if (loading || !stats) {
     return (
       <div className="mx-auto max-w-[600px] px-4 py-10 sm:px-6">
         <div className="pn-skeleton h-64 rounded-2xl" />
-      </div>
-    );
-  }
-
-  if (step === "paused") {
-    return (
-      <div className="mx-auto max-w-[600px] px-4 py-10 sm:px-6">
-        <div className="rounded-2xl border border-sucesso/20 bg-papel p-8 text-center shadow-[var(--shadow-pn)]">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-sucesso/10">
-            <Pause className="h-8 w-8 text-sucesso" strokeWidth={1.75} />
-          </div>
-          <h1 className="font-display mt-4 text-2xl font-extrabold text-volt-950">Plano pausado</h1>
-          <p className="font-editorial mt-2 text-[17px] italic text-ardosia">
-            Seu plano foi pausado por 30 dias. Seus dados continuam salvos e você pode reativar a
-            qualquer momento.
-          </p>
-          <Link
-            href="/painel"
-            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-cobalt-500 px-5 py-2.5 text-sm font-medium text-white transition ease-[var(--ease-fluxo)] hover:brightness-110"
-          >
-            Voltar ao painel
-          </Link>
-        </div>
       </div>
     );
   }
@@ -127,7 +118,7 @@ export default function CancelarPage() {
         {/* What you lose */}
         <div className="mt-6 grid grid-cols-2 gap-3">
           <LossCard icon={Users} label="Membros nos grupos" value={stats.members.toLocaleString("pt-BR")} />
-          <LossCard icon={Layers} label="Campanhas ativas" value={String(stats.campaigns)} />
+          <LossCard icon={Layers} label="Campanhas criadas" value={String(stats.campaigns)} />
           <LossCard icon={MousePointerClick} label="Cliques acumulados" value={stats.clicks.toLocaleString("pt-BR")} />
           <LossCard icon={Users} label="Contatos captados" value={stats.contacts.toLocaleString("pt-BR")} />
         </div>
@@ -151,14 +142,6 @@ export default function CancelarPage() {
 
             {/* Actions */}
             <div className="mt-6 space-y-3">
-              {/* Pause option */}
-              <button
-                onClick={handlePause}
-                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-cobalt-500/20 bg-cobalt-500/[0.05] px-5 py-3 text-sm font-medium text-cobalt-500 transition-colors duration-[160ms] ease-[var(--ease-fluxo)] hover:bg-cobalt-500/10"
-              >
-                <Pause className="h-4 w-4" strokeWidth={1.75} /> Pausar por 30 dias (grátis)
-              </button>
-
               {/* Cancel */}
               <button
                 onClick={() => setStep("confirm")}
@@ -179,18 +162,26 @@ export default function CancelarPage() {
               Você será redirecionado ao portal de pagamentos. Seus dados ficam disponíveis por 30
               dias após o cancelamento.
             </p>
+            {erro && (
+              <p role="alert" className="mt-3 text-sm text-alerta">
+                {erro}
+              </p>
+            )}
             <div className="mt-4 flex gap-3">
               <button
                 onClick={() => setStep("show")}
-                className="flex-1 cursor-pointer rounded-xl border border-volt-950/15 px-4 py-2.5 text-sm font-medium text-volt-950 transition-colors duration-[160ms] ease-[var(--ease-fluxo)] hover:border-cobalt-500 hover:text-cobalt-500"
+                disabled={enviando}
+                className="flex-1 cursor-pointer rounded-xl border border-volt-950/15 px-4 py-2.5 text-sm font-medium text-volt-950 transition-colors duration-[160ms] ease-[var(--ease-fluxo)] hover:border-cobalt-500 hover:text-cobalt-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Voltar
               </button>
               <button
                 onClick={handleCancel}
-                className="flex-1 cursor-pointer rounded-xl bg-alerta px-4 py-2.5 text-sm font-medium text-white transition ease-[var(--ease-fluxo)] hover:brightness-110"
+                disabled={enviando}
+                className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-alerta px-4 py-2.5 text-sm font-medium text-white transition ease-[var(--ease-fluxo)] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Confirmar cancelamento
+                {enviando && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.75} />}
+                {enviando ? "Abrindo portal…" : "Confirmar cancelamento"}
               </button>
             </div>
           </div>

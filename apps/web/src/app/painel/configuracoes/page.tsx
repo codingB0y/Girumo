@@ -232,6 +232,17 @@ export default function PainelConfiguracoes() {
                   </button>
                 </div>
               )}
+              {currentPlanCode && currentPlanCode !== "FREE" && (
+                <p className="mb-4 text-xs text-aco/55">
+                  Quer parar de usar?{" "}
+                  <Link
+                    href="/painel/configuracoes/cancelar"
+                    className="underline decoration-dotted underline-offset-2 transition-colors duration-[160ms] ease-[var(--ease-fluxo)] hover:text-alerta"
+                  >
+                    Cancelar assinatura
+                  </Link>
+                </p>
+              )}
               <div className="grid gap-3 sm:grid-cols-3">
                 {plans.filter((p) => p.code !== "FREE").map((p) => {
                   const atual = p.code === currentPlanCode;
