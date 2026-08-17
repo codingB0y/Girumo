@@ -267,7 +267,7 @@ export function weeklyReportEmail(
       ${button("Ver relatório completo", `${appUrl}/painel/resultados`)}
       <p style="margin:20px 0 0;font-size:12px;color:${BRAND_COLORS.slate}">
         Não quer mais receber esse resumo? Desative em
-        <a href="${appUrl}/painel/configuracoes" style="color:${BRAND_COLORS.slate}">Configurações</a>.
+        <a href="${appUrl}/painel/configuracoes?secao=notificacoes" style="color:${BRAND_COLORS.slate}">Configurações</a>.
       </p>
     `),
   };

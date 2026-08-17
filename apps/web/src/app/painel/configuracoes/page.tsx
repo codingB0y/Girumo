@@ -3,17 +3,31 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AccountSection } from "@/components/painel/account-section";
-import { Smartphone, Users, CreditCard, User, ShieldCheck, RefreshCw, Wifi, WifiOff, Check, Loader2, ExternalLink, PartyPopper } from "lucide-react";
+import { Smartphone, Users, CreditCard, User, ShieldCheck, RefreshCw, Wifi, WifiOff, Check, Loader2, ExternalLink, PartyPopper, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { authenticatedFetch } from "@/lib/supabase/client";
 
-type Section = "Conexão" | "Equipe" | "Plano" | "Conta";
+type Section = "Conexão" | "Equipe" | "Notificações" | "Plano" | "Conta";
 const NAV: { key: Section; icon: typeof Smartphone }[] = [
   { key: "Conexão", icon: Smartphone },
   { key: "Equipe", icon: Users },
+  { key: "Notificações", icon: Bell },
   { key: "Plano", icon: CreditCard },
   { key: "Conta", icon: User },
 ];
+
+/**
+ * Chave curta usada no `?secao=` da URL. O rodapé do e-mail semanal promete
+ * "Desative em Configurações" — sem isso o link cai na página e a pessoa
+ * precisa adivinhar em qual aba está o toggle.
+ */
+const SECAO_POR_SLUG: Record<string, Section> = {
+  conexao: "Conexão",
+  equipe: "Equipe",
+  notificacoes: "Notificações",
+  plano: "Plano",
+  conta: "Conta",
+};
 
 type Session = { live?: boolean; phone?: string | null; profileName?: string | null; stats?: { warmup?: { day?: number; totalDays?: number } } };
 type Membership = { id: string; role: string; invited_email?: string | null; accepted_at?: string | null };
@@ -32,8 +46,24 @@ export default function PainelConfiguracoes() {
   const [inviteBusy, setInviteBusy] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [playbookGraduated, setPlaybookGraduated] = useState(false);
+  const [weeklyReport, setWeeklyReport] = useState<boolean | null>(null);
+  const [weeklyBusy, setWeeklyBusy] = useState(false);
+  const [weeklyError, setWeeklyError] = useState<string | null>(null);
+
+  // Deep-link `?secao=notificacoes` do rodapé do e-mail. Lido de
+  // `window.location` em vez de `useSearchParams` para não exigir uma fronteira
+  // de Suspense nesta página inteira só por causa de um parâmetro opcional.
+  useEffect(() => {
+    const slug = new URLSearchParams(window.location.search).get("secao");
+    const alvo = slug ? SECAO_POR_SLUG[slug.toLowerCase()] : undefined;
+    if (alvo) setSection(alvo);
+  }, []);
 
   useEffect(() => {
+    authenticatedFetch("/api/settings")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setWeeklyReport(d?.weeklyReportEnabled ?? true))
+      .catch(() => setWeeklyReport(true));
     fetch("/api/session").then((r) => r.json()).then(setSession).catch(() => {});
     fetch("/api/members").then((r) => r.json()).then((d) => setMembers(Array.isArray(d) ? d : d?.members ?? [])).catch(() => {});
     fetch("/api/plans").then((r) => r.json()).then((d) => setPlans(Array.isArray(d) ? d : [])).catch(() => {});
@@ -47,6 +77,28 @@ export default function PainelConfiguracoes() {
   const live = session.live === true;
   const currentPlanCode = sub?.plans?.code ?? sub?.plan?.code ?? null;
   const currentPlanName = sub?.plans?.name ?? sub?.plan?.name ?? null;
+
+  async function toggleWeeklyReport(proximo: boolean) {
+    const anterior = weeklyReport;
+    setWeeklyReport(proximo); // otimista: o toggle responde na hora
+    setWeeklyBusy(true);
+    setWeeklyError(null);
+    try {
+      const res = await authenticatedFetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ weeklyReportEnabled: proximo }),
+      });
+      if (!res.ok) throw new Error("falhou");
+    } catch {
+      // Sem o rollback o toggle mostraria "desativado" e o e-mail continuaria
+      // chegando — exatamente o tipo de mentira de UI que este PR remove.
+      setWeeklyReport(anterior);
+      setWeeklyError("Não foi possível salvar. Tente de novo.");
+    } finally {
+      setWeeklyBusy(false);
+    }
+  }
 
   async function openCheckout(planCode: string) {
     setBusyPlan(planCode);
@@ -212,6 +264,46 @@ export default function PainelConfiguracoes() {
                     </div>
                   ))}
                 </div>
+              )}
+            </Panel>
+          )}
+
+          {section === "Notificações" && (
+            <Panel title="Notificações" desc="O que a gente te manda por e-mail.">
+              <div className="flex items-start justify-between gap-4 rounded-2xl bg-poco px-4 py-3.5">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-volt-950">Resumo semanal</p>
+                  <p className="mt-0.5 text-xs text-aco/60">
+                    Toda segunda, o que seus grupos e campanhas fizeram na semana.
+                  </p>
+                </div>
+                {weeklyReport === null ? (
+                  <span className="pn-skeleton h-6 w-11 shrink-0 rounded-full" />
+                ) : (
+                  <button
+                    role="switch"
+                    aria-checked={weeklyReport}
+                    aria-label="Receber o resumo semanal por e-mail"
+                    disabled={weeklyBusy}
+                    onClick={() => toggleWeeklyReport(!weeklyReport)}
+                    className={cn(
+                      "relative h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-[160ms] ease-[var(--ease-fluxo)] disabled:cursor-not-allowed disabled:opacity-60",
+                      weeklyReport ? "bg-cobalt-500" : "bg-volt-950/20",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-[160ms] ease-[var(--ease-fluxo)]",
+                        weeklyReport ? "translate-x-[22px]" : "translate-x-0.5",
+                      )}
+                    />
+                  </button>
+                )}
+              </div>
+              {weeklyError && (
+                <p role="alert" className="mt-2 text-sm text-alerta">
+                  {weeklyError}
+                </p>
               )}
             </Panel>
           )}
