@@ -93,3 +93,12 @@ apps/web/supabase/migrations/20260811100000_link_click_events.sql
 # RLS ligada e sem policy (deny-all, só service_role). Não entra na publicação
 # supabase_realtime — a entrega é por polling. Idempotente.
 apps/web/supabase/migrations/20260812120000_board_quadro.sql
+
+# IG Connect — gatilho nativo de Instagram (comentário/DM com palavra-chave -> DM
+# com o link rastreado). 3 tabelas com tenant_id, RLS + policy por tenant.
+# `ig_accounts.ig_user_id` e `ig_events.source_id` são unique GLOBAIS de propósito:
+# o primeiro porque é a chave de resolução de tenant no webhook (a mesma conta em
+# dois tenants seria roteamento ambíguo), o segundo porque private reply da Meta é
+# 1x por comentário PRA SEMPRE — o unique é o que torna o reenvio da Meta inócuo.
+# Nada aqui toca a engine de WhatsApp. Idempotente.
+apps/web/supabase/migrations/20260817120000_ig_connect.sql
