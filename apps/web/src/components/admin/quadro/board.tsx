@@ -153,7 +153,9 @@ export function QuadroBoard({ initial }: QuadroBoardProps) {
 
           {/* As duas colunas entregues sob uma cinta "Feito": quem procura o feito acha,
               e continua vendo que metade dele ninguém conferiu. */}
-          <div className="flex shrink-0 flex-col gap-2">
+          <div role="group" aria-label="Feito" className="flex shrink-0 flex-col gap-2">
+            {/* A cinta desenha o agrupamento; quem lê por leitor de tela recebe o mesmo
+                pelo aria-label do grupo, então aqui o texto é decoração. */}
             <div
               className="flex h-4 items-center justify-center rounded-t-sm border-x border-t border-aco/15 font-data text-[10px] uppercase tracking-[0.2em] text-aco/40"
               aria-hidden="true"
