@@ -41,7 +41,22 @@ function feature(partial: Partial<BoardFeature> = {}): BoardFeature {
 // Não existe coluna "Feito": o vocabulário é o ponto do quadro.
 assert.equal(BOARD_STATUSES.length, 5);
 assert.ok(!BOARD_STATUSES.includes("feito" as never), "sem coluna Feito");
-assert.equal(STATUS_LABELS.no_ar_nao_verificado, "No ar (não verificado)");
+// O par verificado × não-verificado é o que mais se lê no quadro: os rótulos não podem
+// diferir só por uma negação, senão as duas colunas viram a mesma no cabeçalho.
+{
+  const semProva = STATUS_LABELS.no_ar_nao_verificado.toLowerCase();
+  const comProva = STATUS_LABELS.no_ar_verificado.toLowerCase();
+  const negacoes = ["não ", "nao ", "(não", "(nao"];
+
+  assert.ok(
+    !negacoes.some((n) => semProva.includes(n) && semProva.replace(n, "").trim() === comProva),
+    "rótulos diferem só por negação",
+  );
+  assert.ok(
+    !comProva.split(/\s+/).every((palavra) => semProva.includes(palavra)),
+    "rótulo verificado está contido no não-verificado",
+  );
+}
 
 // Verificação vence depois de 30 dias.
 {
