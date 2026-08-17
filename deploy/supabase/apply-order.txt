@@ -98,3 +98,10 @@ apps/web/supabase/migrations/20260812120000_board_quadro.sql
 # aviso de disparo falho, ao lado do weekly_report_enabled que já existia.
 # Default true (ninguém para de receber por causa da migration). Idempotente.
 apps/web/supabase/migrations/20260817120000_notification_preferences.sql
+
+# Super-admin da plataforma por identidade, não por e-mail: cria `platform_admins`
+# (PK = auth_user_id) e dropa `platform_settings`, órfã e com 0 linhas nos dois
+# bancos desde o refactor de 06/07/2026. A tabela nasce VAZIA e o guard falha
+# fechado — semear o primeiro admin por SQL ANTES de deployar o código que a lê.
+# Idempotente.
+apps/web/supabase/migrations/20260817230000_platform_admins.sql

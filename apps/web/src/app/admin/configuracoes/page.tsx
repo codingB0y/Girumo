@@ -1,11 +1,11 @@
 import { Key, Globe, Database, Shield } from "lucide-react";
-import { platformAdminEmails } from "@/lib/admin/platform-admins";
+import { listPlatformAdmins } from "@/lib/admin-guard";
 
-export default function AdminConfiguracoesPage() {
-  // Mesma fonte que o `admin-guard` usa pra decidir acesso — antes esta página
-  // reparseava a env var por conta própria, sem normalizar caixa, e podia listar
-  // um admin diferente do que o guard de fato aceita.
-  const admins = platformAdminEmails();
+export default async function AdminConfiguracoesPage() {
+  // Mesma fonte que o `admin-guard` usa pra decidir acesso: a tabela
+  // `platform_admins`. Enquanto isto vinha de uma env var, a tela podia listar um
+  // admin diferente do que o guard de fato aceitava.
+  const admins = await listPlatformAdmins();
   const envVars = [
     { key: "SUPABASE_URL", set: !!process.env.SUPABASE_URL, sensitive: false },
     { key: "SUPABASE_ANON_KEY", set: !!process.env.SUPABASE_ANON_KEY, sensitive: true },
@@ -14,7 +14,6 @@ export default function AdminConfiguracoesPage() {
     { key: "ENGINE_TOKEN", set: !!process.env.ENGINE_TOKEN, sensitive: true },
     { key: "NEXT_PUBLIC_SITE_URL", set: !!process.env.NEXT_PUBLIC_SITE_URL, sensitive: false },
     { key: "NEXT_PUBLIC_SALES_WHATSAPP_URL", set: !!process.env.NEXT_PUBLIC_SALES_WHATSAPP_URL, sensitive: false },
-    { key: "PLATFORM_ADMIN_EMAILS", set: !!process.env.PLATFORM_ADMIN_EMAILS, sensitive: false },
     { key: "STRIPE_SECRET_KEY", set: !!process.env.STRIPE_SECRET_KEY, sensitive: true },
     { key: "STRIPE_WEBHOOK_SECRET", set: !!process.env.STRIPE_WEBHOOK_SECRET, sensitive: true },
   ];
@@ -79,21 +78,30 @@ export default function AdminConfiguracoesPage() {
         </div>
         <div className="p-6">
           <p className="text-xs text-aco/55">
-            Definidos via variável <code className="rounded bg-canvas-100 px-1.5 py-0.5 font-data text-volt-950">PLATFORM_ADMIN_EMAILS</code> (separados por vírgula).
+            Autorização por identidade: cada linha da tabela{" "}
+            <code className="rounded bg-canvas-100 px-1.5 py-0.5 font-data text-volt-950">platform_admins</code>{" "}
+            é um <code className="rounded bg-canvas-100 px-1.5 py-0.5 font-data text-volt-950">auth_user_id</code>.
+            O e-mail abaixo é só rótulo — trocar o e-mail da conta não tira nem dá acesso.
           </p>
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-4 space-y-2">
             {admins.length === 0 ? (
               <p className="font-data text-xs text-red-600">
-                Nenhum admin configurado — com a variável ausente ninguém tem acesso ao painel.
+                Nenhum admin cadastrado — com a tabela vazia ninguém tem acesso ao painel.
               </p>
             ) : (
-              admins.map((email) => (
-                <span
-                  key={email}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-alerta/20 bg-alerta/10 px-3 py-1.5 font-data text-xs text-alerta"
+              admins.map((admin) => (
+                <div
+                  key={admin.authUserId}
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-alerta/20 bg-alerta/[0.06] px-3 py-2.5"
                 >
-                  <Shield className="h-3 w-3" /> {email}
-                </span>
+                  <span className="inline-flex items-center gap-1.5 font-data text-xs text-alerta">
+                    <Shield className="h-3 w-3" /> {admin.email ?? "sem e-mail"}
+                  </span>
+                  <span className="font-data text-[10px] text-aco/45">{admin.authUserId}</span>
+                  {admin.note ? (
+                    <span className="text-[11px] text-aco/55">{admin.note}</span>
+                  ) : null}
+                </div>
               ))
             )}
           </div>
