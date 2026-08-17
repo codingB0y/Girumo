@@ -33,16 +33,27 @@ export function isBoardArea(value: unknown): value is (typeof BOARD_AREAS)[numbe
 export const STATUS_LABELS: Record<BoardStatus, string> = {
   nao_existe: "Não construído",
   em_construcao: "Atacando agora",
-  no_ar_nao_verificado: "No ar, sem prova",
+  no_ar_nao_verificado: "Ninguém conferiu",
   no_ar_verificado: "Provado em produção",
   quebrado: "Quebrado",
 };
+
+/**
+ * As duas colunas entregues ficam sob um cabeçalho "Feito" — quem procura o feito
+ * acha, e continua vendo que metade dele ninguém conferiu. Não é coluna: a coluna
+ * "Feito" chapada é a decisão D3 da spec, e é ela que deixa passar feature mergeada
+ * que nunca funcionou.
+ */
+export const FEITO_STATUSES: readonly BoardStatus[] = [
+  "no_ar_nao_verificado",
+  "no_ar_verificado",
+];
 
 /** Uma linha sob o cabeçalho: o nome não precisa carregar a definição sozinho. */
 export const STATUS_HINTS: Record<BoardStatus, string> = {
   nao_existe: "não está no produto",
   em_construcao: "foco do momento",
-  no_ar_nao_verificado: "mergeado, ninguém olhou",
+  no_ar_nao_verificado: "mergeado, ninguém olhou depois",
   no_ar_verificado: "alguém viu funcionando",
   quebrado: "está lá e está errado",
 };

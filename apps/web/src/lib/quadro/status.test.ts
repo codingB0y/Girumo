@@ -3,6 +3,8 @@ import {
   BOARD_AREAS,
   BOARD_PRIORITIES,
   BOARD_STATUSES,
+  FEITO_STATUSES,
+  STATUS_HINTS,
   STATUS_LABELS,
   VERIFICATION_STALE_DAYS,
   WIP_LIMIT_EM_CONSTRUCAO,
@@ -56,6 +58,31 @@ assert.ok(!BOARD_STATUSES.includes("feito" as never), "sem coluna Feito");
     !comProva.split(/\s+/).every((palavra) => semProva.includes(palavra)),
     "rótulo verificado está contido no não-verificado",
   );
+}
+
+// A cinta "Feito" cobre colunas contíguas. O trilho é montado por slice em torno dela:
+// reordenar BOARD_STATUSES sem ajustar a cinta some com uma coluna, e a tela não reclama.
+{
+  const indices = FEITO_STATUSES.map((s) => BOARD_STATUSES.indexOf(s));
+  assert.ok(indices.every((i) => i >= 0), "cinta aponta para status inexistente");
+  assert.ok(
+    indices.every((valor, i) => i === 0 || valor === indices[i - 1] + 1),
+    "cinta Feito não é contígua",
+  );
+
+  const primeiro = indices[0];
+  assert.deepEqual(
+    [
+      ...BOARD_STATUSES.slice(0, primeiro),
+      ...FEITO_STATUSES,
+      ...BOARD_STATUSES.slice(primeiro + FEITO_STATUSES.length),
+    ],
+    [...BOARD_STATUSES],
+    "trilho perdeu ou duplicou coluna",
+  );
+
+  // A cinta é o "feito" do quadro — não pode virar coluna própria, nem cobrir o quadro todo.
+  assert.ok(FEITO_STATUSES.length < BOARD_STATUSES.length, "cinta cobre o quadro inteiro");
 }
 
 // Verificação vence depois de 30 dias.
@@ -136,6 +163,8 @@ assert.equal(isBoardPriority("urgentissima"), false);
 assert.equal(isBoardArea("Foo"), false, "área fora da lista viraria opção nova no filtro");
 
 // Todos os cinco rótulos existem e nenhum é vazio — a coluna precisa de nome na tela.
+// Idem para a linha de definição: cabeçalho meio preenchido fica pior que sem nenhuma.
 for (const status of BOARD_STATUSES) {
   assert.ok(STATUS_LABELS[status]?.trim(), `${status} sem rótulo`);
+  assert.ok(STATUS_HINTS[status]?.trim(), `${status} sem linha de definição`);
 }
