@@ -27,7 +27,8 @@ export async function GET(req: Request) {
 }
 
 // PATCH /api/settings
-// Body: { weeklyReportEnabled?: boolean, monthlyGoalContacts?: number|null,
+// Body: { weeklyReportEnabled?: boolean, disconnectAlertEnabled?: boolean,
+//         broadcastAlertEnabled?: boolean, monthlyGoalContacts?: number|null,
 //         monthlyGoalRevenue?: number|null, onboardingDismissed?: boolean,
 //         onboardingCompleted?: boolean }
 //
@@ -51,6 +52,8 @@ export async function PATCH(req: Request) {
 
   const input: TenantSettingsInput = {};
   if (typeof body.weeklyReportEnabled === "boolean") input.weeklyReportEnabled = body.weeklyReportEnabled;
+  if (typeof body.disconnectAlertEnabled === "boolean") input.disconnectAlertEnabled = body.disconnectAlertEnabled;
+  if (typeof body.broadcastAlertEnabled === "boolean") input.broadcastAlertEnabled = body.broadcastAlertEnabled;
 
   // `Number(v)` cru deixava passar NaN ("abc"), 0 disfarçado ("") e negativo.
   // A barra de progresso do painel divide pela meta, então lixo aqui vira tela

@@ -4,6 +4,8 @@ import { getSupabaseAdmin } from "@/lib/supabase/server";
 export type TenantSettings = {
   tenantId: string;
   weeklyReportEnabled: boolean;
+  disconnectAlertEnabled: boolean;
+  broadcastAlertEnabled: boolean;
   monthlyGoalContacts: number | null;
   monthlyGoalRevenue: number | null;
   onboardingDismissedAt: string | null;
@@ -11,12 +13,17 @@ export type TenantSettings = {
   updatedAt?: string;
 };
 
+// Todo alerta nasce ligado: a preferência só existe para quem quer DESligar, e
+// quem nunca abriu a tela precisa continuar recebendo como antes da migration.
 const DEFAULT_WEEKLY_REPORT_ENABLED = true;
+const DEFAULT_DISCONNECT_ALERT_ENABLED = true;
+const DEFAULT_BROADCAST_ALERT_ENABLED = true;
 
 const BASE_COLUMNS =
   "tenant_id, weekly_report_enabled, monthly_goal_contacts, monthly_goal_revenue, updated_at";
 const ONBOARDING_COLUMNS = "onboarding_dismissed_at, onboarding_completed_at";
-const ALL_COLUMNS = `${BASE_COLUMNS}, ${ONBOARDING_COLUMNS}`;
+const PREFERENCE_COLUMNS = "disconnect_alert_enabled, broadcast_alert_enabled";
+const ALL_COLUMNS = `${BASE_COLUMNS}, ${ONBOARDING_COLUMNS}, ${PREFERENCE_COLUMNS}`;
 
 /**
  * `42703` = coluna inexistente. Os dois bancos (dev e prod) recebem as migrações
@@ -32,6 +39,8 @@ function isMissingColumn(error: { code?: string; message?: string } | null): boo
 
 type SettingsRow = {
   weekly_report_enabled?: boolean | null;
+  disconnect_alert_enabled?: boolean | null;
+  broadcast_alert_enabled?: boolean | null;
   monthly_goal_contacts?: number | null;
   monthly_goal_revenue?: number | null;
   onboarding_dismissed_at?: string | null;
@@ -43,6 +52,8 @@ function toSettings(tenantId: string, row: SettingsRow | null): TenantSettings {
   return {
     tenantId,
     weeklyReportEnabled: row?.weekly_report_enabled ?? DEFAULT_WEEKLY_REPORT_ENABLED,
+    disconnectAlertEnabled: row?.disconnect_alert_enabled ?? DEFAULT_DISCONNECT_ALERT_ENABLED,
+    broadcastAlertEnabled: row?.broadcast_alert_enabled ?? DEFAULT_BROADCAST_ALERT_ENABLED,
     monthlyGoalContacts: row?.monthly_goal_contacts ?? null,
     monthlyGoalRevenue: row?.monthly_goal_revenue ?? null,
     onboardingDismissedAt: row?.onboarding_dismissed_at ?? null,
@@ -67,6 +78,8 @@ export async function getTenantSettings(tenantId: string): Promise<TenantSetting
 
 export type TenantSettingsInput = {
   weeklyReportEnabled?: boolean;
+  disconnectAlertEnabled?: boolean;
+  broadcastAlertEnabled?: boolean;
   monthlyGoalContacts?: number | null;
   monthlyGoalRevenue?: number | null;
   onboardingDismissedAt?: string | null;
@@ -86,6 +99,14 @@ export async function updateTenantSettings(
   if ("onboardingDismissedAt" in input) onboarding.onboarding_dismissed_at = input.onboardingDismissedAt;
   if ("onboardingCompletedAt" in input) onboarding.onboarding_completed_at = input.onboardingCompletedAt;
 
+  const preferences: Record<string, unknown> = {};
+  if (typeof input.disconnectAlertEnabled === "boolean") {
+    preferences.disconnect_alert_enabled = input.disconnectAlertEnabled;
+  }
+  if (typeof input.broadcastAlertEnabled === "boolean") {
+    preferences.broadcast_alert_enabled = input.broadcastAlertEnabled;
+  }
+
   const write = (patch: Record<string, unknown>, columns: string) =>
     getSupabaseAdmin()
       .from("tenant_settings")
@@ -93,9 +114,11 @@ export async function updateTenantSettings(
       .select(columns)
       .single();
 
-  let { data, error } = await write({ ...base, ...onboarding }, ALL_COLUMNS);
-  // Banco ainda sem as colunas de onboarding: grava o que dá (metas, relatório)
-  // em vez de derrubar o PATCH inteiro. O dismiss não persiste até a migração.
+  let { data, error } = await write({ ...base, ...onboarding, ...preferences }, ALL_COLUMNS);
+  // Banco ainda sem as colunas de onboarding/preferências: grava o que dá (metas,
+  // relatório) em vez de derrubar o PATCH inteiro. O dismiss e os opt-outs não
+  // persistem até a migração — mas o cron falha fechado, então um opt-out perdido
+  // aqui nunca vira e-mail indesejado: vira e-mail não enviado.
   if (isMissingColumn(error)) ({ data, error } = await write(base, BASE_COLUMNS));
   if (error) throw new Error(error.message);
   return toSettings(tenantId, data as SettingsRow);

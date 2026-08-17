@@ -29,6 +29,44 @@ const SECAO_POR_SLUG: Record<string, Section> = {
   conta: "Conta",
 };
 
+/**
+ * Preferências de aviso. A chave é o nome do campo no `PATCH /api/settings` —
+ * assim o toggle manda `{ [key]: valor }` sem tabela de tradução no meio.
+ */
+type PreferenciaKey = "weeklyReportEnabled" | "disconnectAlertEnabled" | "broadcastAlertEnabled";
+type Preferencias = Record<PreferenciaKey, boolean>;
+
+const PREFERENCIAS: { key: PreferenciaKey; titulo: string; desc: string; aria: string }[] = [
+  {
+    key: "weeklyReportEnabled",
+    titulo: "Resumo semanal",
+    desc: "Toda segunda, o que seus grupos e campanhas fizeram na semana.",
+    aria: "Receber o resumo semanal por e-mail",
+  },
+  {
+    key: "disconnectAlertEnabled",
+    titulo: "WhatsApp desconectado",
+    desc: "Avisamos quando o número cai e fica mais de 2h fora do ar.",
+    aria: "Receber aviso de WhatsApp desconectado por e-mail",
+  },
+  {
+    key: "broadcastAlertEnabled",
+    titulo: "Disparo com falha",
+    desc: "Avisamos quando um disparo não chega aos grupos.",
+    aria: "Receber aviso de disparo com falha por e-mail",
+  },
+];
+
+// Todo aviso nasce ligado: resposta ausente ou quebrada não pode virar
+// "desligado" na tela, senão o lojista acha que optou por algo que não optou.
+function lerPreferencias(d: Partial<Preferencias> | null): Preferencias {
+  return {
+    weeklyReportEnabled: d?.weeklyReportEnabled ?? true,
+    disconnectAlertEnabled: d?.disconnectAlertEnabled ?? true,
+    broadcastAlertEnabled: d?.broadcastAlertEnabled ?? true,
+  };
+}
+
 type Session = { live?: boolean; phone?: string | null; profileName?: string | null; stats?: { warmup?: { day?: number; totalDays?: number } } };
 type Membership = { id: string; role: string; invited_email?: string | null; accepted_at?: string | null };
 type Plan = { id: string; code: string; name: string; limits?: Record<string, number | boolean | null>; stripe_price_id?: string | null };
@@ -46,9 +84,12 @@ export default function PainelConfiguracoes() {
   const [inviteBusy, setInviteBusy] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [playbookGraduated, setPlaybookGraduated] = useState(false);
-  const [weeklyReport, setWeeklyReport] = useState<boolean | null>(null);
-  const [weeklyBusy, setWeeklyBusy] = useState(false);
-  const [weeklyError, setWeeklyError] = useState<string | null>(null);
+  // `null` = ainda carregando (a UI mostra skeleton em vez de chutar um estado
+  // e piscar quando a resposta chegar).
+  const [prefs, setPrefs] = useState<Preferencias | null>(null);
+  // Guarda QUAL preferência está salvando, para desabilitar só aquele toggle.
+  const [prefBusy, setPrefBusy] = useState<PreferenciaKey | null>(null);
+  const [prefError, setPrefError] = useState<string | null>(null);
 
   // Deep-link `?secao=notificacoes` do rodapé do e-mail. Lido de
   // `window.location` em vez de `useSearchParams` para não exigir uma fronteira
@@ -62,8 +103,8 @@ export default function PainelConfiguracoes() {
   useEffect(() => {
     authenticatedFetch("/api/settings")
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setWeeklyReport(d?.weeklyReportEnabled ?? true))
-      .catch(() => setWeeklyReport(true));
+      .then((d) => setPrefs(lerPreferencias(d)))
+      .catch(() => setPrefs(lerPreferencias(null)));
     fetch("/api/session").then((r) => r.json()).then(setSession).catch(() => {});
     fetch("/api/members").then((r) => r.json()).then((d) => setMembers(Array.isArray(d) ? d : d?.members ?? [])).catch(() => {});
     fetch("/api/plans").then((r) => r.json()).then((d) => setPlans(Array.isArray(d) ? d : [])).catch(() => {});
@@ -78,25 +119,26 @@ export default function PainelConfiguracoes() {
   const currentPlanCode = sub?.plans?.code ?? sub?.plan?.code ?? null;
   const currentPlanName = sub?.plans?.name ?? sub?.plan?.name ?? null;
 
-  async function toggleWeeklyReport(proximo: boolean) {
-    const anterior = weeklyReport;
-    setWeeklyReport(proximo); // otimista: o toggle responde na hora
-    setWeeklyBusy(true);
-    setWeeklyError(null);
+  async function togglePref(key: PreferenciaKey, proximo: boolean) {
+    const anterior = prefs;
+    if (!anterior) return;
+    setPrefs({ ...anterior, [key]: proximo }); // otimista: o toggle responde na hora
+    setPrefBusy(key);
+    setPrefError(null);
     try {
       const res = await authenticatedFetch("/api/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ weeklyReportEnabled: proximo }),
+        body: JSON.stringify({ [key]: proximo }),
       });
       if (!res.ok) throw new Error("falhou");
     } catch {
       // Sem o rollback o toggle mostraria "desativado" e o e-mail continuaria
       // chegando — exatamente o tipo de mentira de UI que este PR remove.
-      setWeeklyReport(anterior);
-      setWeeklyError("Não foi possível salvar. Tente de novo.");
+      setPrefs(anterior);
+      setPrefError("Não foi possível salvar. Tente de novo.");
     } finally {
-      setWeeklyBusy(false);
+      setPrefBusy(null);
     }
   }
 
@@ -270,39 +312,47 @@ export default function PainelConfiguracoes() {
 
           {section === "Notificações" && (
             <Panel title="Notificações" desc="O que a gente te manda por e-mail.">
-              <div className="flex items-start justify-between gap-4 rounded-2xl bg-poco px-4 py-3.5">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-volt-950">Resumo semanal</p>
-                  <p className="mt-0.5 text-xs text-aco/60">
-                    Toda segunda, o que seus grupos e campanhas fizeram na semana.
-                  </p>
-                </div>
-                {weeklyReport === null ? (
-                  <span className="pn-skeleton h-6 w-11 shrink-0 rounded-full" />
-                ) : (
-                  <button
-                    role="switch"
-                    aria-checked={weeklyReport}
-                    aria-label="Receber o resumo semanal por e-mail"
-                    disabled={weeklyBusy}
-                    onClick={() => toggleWeeklyReport(!weeklyReport)}
-                    className={cn(
-                      "relative h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-[160ms] ease-[var(--ease-fluxo)] disabled:cursor-not-allowed disabled:opacity-60",
-                      weeklyReport ? "bg-cobalt-500" : "bg-volt-950/20",
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-[160ms] ease-[var(--ease-fluxo)]",
-                        weeklyReport ? "translate-x-[22px]" : "translate-x-0.5",
+              <div className="space-y-2">
+                {PREFERENCIAS.map((p) => {
+                  const ligado = prefs?.[p.key];
+                  return (
+                    <div
+                      key={p.key}
+                      className="flex items-start justify-between gap-4 rounded-2xl bg-poco px-4 py-3.5"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-volt-950">{p.titulo}</p>
+                        <p className="mt-0.5 text-xs text-aco/60">{p.desc}</p>
+                      </div>
+                      {ligado === undefined ? (
+                        <span className="pn-skeleton h-6 w-11 shrink-0 rounded-full" />
+                      ) : (
+                        <button
+                          role="switch"
+                          aria-checked={ligado}
+                          aria-label={p.aria}
+                          disabled={prefBusy === p.key}
+                          onClick={() => togglePref(p.key, !ligado)}
+                          className={cn(
+                            "relative h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-[160ms] ease-[var(--ease-fluxo)] disabled:cursor-not-allowed disabled:opacity-60",
+                            ligado ? "bg-cobalt-500" : "bg-volt-950/20",
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-[160ms] ease-[var(--ease-fluxo)]",
+                              ligado ? "translate-x-[22px]" : "translate-x-0.5",
+                            )}
+                          />
+                        </button>
                       )}
-                    />
-                  </button>
-                )}
+                    </div>
+                  );
+                })}
               </div>
-              {weeklyError && (
+              {prefError && (
                 <p role="alert" className="mt-2 text-sm text-alerta">
-                  {weeklyError}
+                  {prefError}
                 </p>
               )}
             </Panel>

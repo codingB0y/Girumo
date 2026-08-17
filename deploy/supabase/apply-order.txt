@@ -93,3 +93,8 @@ apps/web/supabase/migrations/20260811100000_link_click_events.sql
 # RLS ligada e sem policy (deny-all, só service_role). Não entra na publicação
 # supabase_realtime — a entrega é por polling. Idempotente.
 apps/web/supabase/migrations/20260812120000_board_quadro.sql
+
+# Preferências de notificação por evento: opt-out do alerta de desconexão e do
+# aviso de disparo falho, ao lado do weekly_report_enabled que já existia.
+# Default true (ninguém para de receber por causa da migration). Idempotente.
+apps/web/supabase/migrations/20260817120000_notification_preferences.sql
