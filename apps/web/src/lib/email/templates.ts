@@ -1,5 +1,6 @@
 import "server-only";
 import { BRAND, BRAND_COLORS, getBrandAssetUrl } from "@/lib/brand";
+import { broadcastFailedCopy } from "@/lib/email/broadcast-failed-copy";
 
 /**
  * Templates de email transacional da Girumo.
@@ -91,6 +92,43 @@ export function disconnectAlertEmail(name: string, appUrl: string): { subject: s
         Reconectar leva 2 minutos — basta escanear o QR Code de novo nas configurações.
       </p>
       ${button("Reconectar agora", `${appUrl}/painel/conectar`)}
+    `),
+  };
+}
+
+/**
+ * Envio de campanha que falhou. Sem este e-mail ele morre em silêncio: o status
+ * vira `failed` no banco e o lojista só descobre se abrir a tela por conta própria.
+ *
+ * Não repete a mensagem de erro técnica da Evolution — ela não ajuda o lojista e
+ * às vezes carrega identificador interno. O e-mail leva pra tela, que mostra o
+ * detalhe.
+ *
+ * Recebe a URL pronta em vez de montar o caminho aqui de propósito: a rota
+ * interna carrega um termo que o vocabulário público da Girumo aposentou
+ * (guardado pelo teste "removes stale public email language"). O texto que o
+ * lojista lê fala em campanha e mensagem; quem conhece a rota é o cron.
+ */
+export function broadcastFailedEmail(
+  name: string,
+  href: string,
+  nomes: string[],
+): { subject: string; html: string } {
+  const { subject, headline, lista, firstName } = broadcastFailedCopy(name, nomes);
+  const plural = nomes.length > 1;
+
+  return {
+    subject,
+    html: layout(`
+      <h1 style="margin:0 0 12px;font-size:22px;color:${BRAND_COLORS.volt}">${headline}</h1>
+      <p style="margin:0 0 8px;font-size:15px;color:${BRAND_COLORS.volt};line-height:1.6">
+        Oi ${firstName}! ${plural ? "Estas mensagens não saíram" : "Esta mensagem não saiu"}
+        pros seus grupos: <strong>${lista}</strong>.
+      </p>
+      <p style="margin:0 0 8px;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.6">
+        Ninguém nos seus grupos recebeu. Abra a tela pra ver o motivo e enviar de novo.
+      </p>
+      ${button("Ver o que aconteceu", href)}
     `),
   };
 }
