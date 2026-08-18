@@ -7,6 +7,10 @@ import {
   selectBackfillCandidates,
   type BackfillCandidate,
 } from "@/lib/groups/invite-backfill";
+import {
+  summarizeBackfillRun,
+  type BackfillBreakerTrip,
+} from "@/lib/groups/backfill-run-log";
 import { isConnectedStatus, selectSessionRow } from "@/lib/session-select";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
@@ -67,6 +71,15 @@ const UNRECOGNIZED_FAILURE_STREAK_LIMIT = 3;
  * sessão viva. Mais recentes primeiro, com folga de sobra pra base atual.
  */
 const MAX_INSTANCE_ROWS = 1000;
+
+/**
+ * Tenant sob o qual o registro do run é gravado.
+ *
+ * O run é cross-tenant — uma linha por tenant afetado multiplicaria a mesma
+ * notícia e ainda mandaria para o lojista um relatório de máquina interna. O
+ * mesmo id que o `impersonate` já usa para eventos de plataforma.
+ */
+const PLATFORM_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
 /** Só o que a seleção da sessão precisa de `instances` (ver `session-select.ts`). */
 type InstanceRow = {
@@ -161,6 +174,7 @@ export async function GET(req: Request) {
   }
 
   let processedInstances = 0;
+  const breakerTrips: BackfillBreakerTrip[] = [];
 
   // Em escala (dezenas de tenants, dezenas de grupos cada) o loop serial pode
   // não caber no maxDuration e o run é cortado no meio. Como a leitura de
@@ -264,6 +278,10 @@ export async function GET(req: Request) {
           console.error(
             `[cron] group-invites: ${unrecognizedStreak} falhas seguidas sem convite algum no tenant ${tenantId} — tratando como problema da instância, não dos grupos. Último motivo: ${failure.reason}`,
           );
+          // O `break` abaixo era mudo em qualquer canal durável: o run terminava
+          // com filled=0 e ninguém sabia se foi o disjuntor, a instância caída ou
+          // o cron não ter rodado. Foi o que aconteceu em 14/08/2026.
+          breakerTrips.push({ tenantId, reason: failure.reason });
           // Grupos não tentados entram na fila novamente — o breaker protege só
           // contra abusos de sistema inteiro, não contra filas incompletas.
           results.remaining += candidates.length - attemptedCount;
@@ -273,20 +291,33 @@ export async function GET(req: Request) {
     }
   }
 
-  // Sem isto, um deploy inerte (nenhuma sessão viva, env errada, tabela vazia)
-  // responde `{ ok: true, filled: 0 }` — idêntico no log a um run saudável sem
-  // nada na fila.
-  if (processedInstances === 0) {
-    console.warn(
-      `[cron] group-invites: nenhuma instância conectada em ${byTenant.size} tenant(s) — nada a fazer neste run`,
-    );
-  } else if (results.filled === 0 && (results.failed > 0 || results.skipped > 0)) {
-    // Instância viva, fila com grupos e nenhum convite: o aviso acima não pega
-    // este caso e ele é justamente o do estrago silencioso (instância fora do
-    // ar respondendo 404 pra tudo).
-    console.warn(
-      `[cron] group-invites: ${processedInstances} instância(s) processada(s) e nenhum convite preenchido — failed=${results.failed}, skipped=${results.skipped}, remaining=${results.remaining}`,
-    );
+  // Registro durável do run. Sem ele, um deploy inerte (nenhuma sessão viva,
+  // env errada, tabela vazia) responde `{ ok: true, filled: 0 }` — idêntico a um
+  // run saudável sem nada na fila — e o `console` que dizia a diferença expira
+  // em horas no plano Hobby.
+  const record = summarizeBackfillRun({
+    tenantsSeen: byTenant.size,
+    processedInstances,
+    results,
+    breakerTrips,
+  });
+
+  // Mesma mensagem nos dois canais: o console serve ao debug ao vivo, a linha em
+  // `logs` serve à pergunta feita semanas depois.
+  if (record.level === "warn") console.warn(`[cron] group-invites: ${record.message}`);
+
+  const { error: logError } = await supabase.from("logs").insert({
+    tenant_id: PLATFORM_TENANT_ID,
+    level: record.level,
+    event: record.event,
+    message: record.message,
+    metadata: record.metadata,
+  });
+
+  // Falha ao registrar não derruba o run: o trabalho já foi feito e gravado, e
+  // perder a observabilidade é menos grave que perder a execução do dia.
+  if (logError) {
+    console.error("[cron] group-invites: falha gravando o registro do run:", logError.message);
   }
 
   return Response.json({ ok: true, ...results, timestamp: now.toISOString() });
