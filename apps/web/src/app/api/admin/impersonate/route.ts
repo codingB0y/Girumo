@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
-import { getAdminContext, adminEmailFor } from "@/lib/admin-guard";
+import { getAdminContext, isPlatformAdmin } from "@/lib/admin-guard";
 import { isImpersonateFresh } from "@/lib/admin/impersonate-session";
 import { signSession, signImpersonate, verifyImpersonate, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
 
@@ -152,12 +152,12 @@ export async function DELETE(req: NextRequest) {
   }
 
   // O cookie prova QUEM iniciou a impersonation, não que essa pessoa AINDA é
-  // admin. Se o e-mail saiu de PLATFORM_ADMIN_EMAILS no meio da sessão, emitir
+  // admin. Se a linha saiu de `platform_admins` no meio da sessão, emitir
   // signSession aqui devolveria o super-admin já revogado.
-  const stillAdmin = await adminEmailFor(adminData.adminAuthUserId);
+  const stillAdmin = await isPlatformAdmin(adminData.adminAuthUserId);
   if (!stillAdmin) {
     // Derruba as duas pontas: sem isto o acesso revogado seguiria como o lojista.
-    // `adminEmailFor` também falha fechada em erro do Supabase, então um blip de
+    // `isPlatformAdmin` também falha fechada em erro do Supabase, então um blip de
     // rede custa um novo login — barato num caminho raro como este.
     const supabase = getSupabaseAdmin();
     await supabase.from("logs").insert({

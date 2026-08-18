@@ -231,12 +231,16 @@ create table if not exists public.engine_events (
   constraint engine_events_event_id_unique unique (event_id)
 );
 
--- PLATFORM SETTINGS
-create table if not exists platform_settings (
-  key text primary key,
-  value text not null default '',
-  updated_at timestamptz default now(),
-  updated_by text
+-- PLATFORM ADMINS
+-- Autorização de /admin é por identidade. E-mail é rótulo, nunca credencial:
+-- o signup não verifica posse do endereço, então uma allowlist de e-mails podia
+-- ser reivindicada por quem registrasse o endereço primeiro.
+create table if not exists platform_admins (
+  auth_user_id uuid primary key references auth.users (id) on delete cascade,
+  email text,
+  note text,
+  created_at timestamptz not null default now(),
+  created_by uuid references auth.users (id) on delete set null
 );
 
 -- AGENT CONFIGS

@@ -47,7 +47,7 @@ alter table public.uploads enable row level security;
 alter table public.logs enable row level security;
 alter table public.engine_commands enable row level security;
 alter table public.engine_events enable row level security;
-alter table platform_settings enable row level security;
+alter table platform_admins enable row level security;
 alter table agent_configs enable row level security;
 alter table funnel_events enable row level security;
 alter table admin_alerts enable row level security;
