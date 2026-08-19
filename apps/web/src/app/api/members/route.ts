@@ -121,7 +121,15 @@ export async function POST(req: Request) {
       org?.name ?? "sua equipe",
       getAppUrl(),
     );
-    sendEmail({ to: invitedEmail, subject, html });
+    // Com await de propósito: sem ele a promise pode ser descartada antes de
+    // terminar, e aí nem o e-mail sai nem o resultado entra em public.logs.
+    await sendEmail({
+      to: invitedEmail,
+      subject,
+      html,
+      tenantId: ctx.tenantId,
+      kind: "invite",
+    });
 
     return Response.json(data, { status: 201 });
   } catch (error) {

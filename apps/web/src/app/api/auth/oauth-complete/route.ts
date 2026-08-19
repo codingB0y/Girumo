@@ -171,7 +171,7 @@ export async function POST(req: Request) {
   if (email) {
     const appUrl = getAppUrl();
     const { subject, html } = welcomeEmail(name, appUrl);
-    sendEmail({ to: email, subject, html });
+    await sendEmail({ to: email, subject, html, tenantId, kind: "welcome" });
   }
 
   return Response.json(
