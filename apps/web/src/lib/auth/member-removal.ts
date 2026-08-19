@@ -72,3 +72,54 @@ export function canRemoveMember(input: {
 
   return { allowed: true };
 }
+
+/* -------------------------------------------------------------------------- */
+/* Interface                                                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * O que a lista de equipe mostra de cada linha. Menos que a membership
+ * inteira: é só o que a tela precisa para decidir botão e texto.
+ */
+export interface RemovableRow {
+  role: string;
+  invited_email?: string | null;
+  accepted_at?: string | null;
+}
+
+/**
+ * Se a linha deve oferecer o botão de remover.
+ *
+ * `owner` fica de fora porque, na prática, é sempre a própria pessoa olhando a
+ * lista — e o servidor negaria por auto-remoção ou por último-dono. Botão que
+ * só sabe falhar é pior que botão ausente. Para os demais papéis o botão
+ * aparece e o servidor continua sendo a autoridade: se negar, a tela mostra o
+ * motivo que veio de lá.
+ */
+export function canOfferRemoval(row: RemovableRow): boolean {
+  return row.role !== "owner";
+}
+
+/** Como chamar a linha quando não há e-mail (membership aceita antiga). */
+function rowLabel(row: RemovableRow): string {
+  return row.invited_email?.trim() || "este membro";
+}
+
+/**
+ * Remover quem já entrou e revogar quem só foi convidado são ações diferentes
+ * para quem lê. Trocar os verbos assusta à toa ("remover" num convite pendente
+ * sugere que alguém perdeu acesso que nunca teve).
+ */
+export function removalPrompt(row: RemovableRow): string {
+  return row.accepted_at
+    ? `Remover ${rowLabel(row)} da equipe? A pessoa perde o acesso ao painel.`
+    : `Revogar o convite de ${rowLabel(row)}?`;
+}
+
+export function removalSuccess(row: RemovableRow): string {
+  return row.accepted_at ? "Membro removido." : "Convite revogado.";
+}
+
+export function removalActionLabel(row: RemovableRow): string {
+  return row.accepted_at ? `Remover ${rowLabel(row)} da equipe` : `Revogar convite de ${rowLabel(row)}`;
+}

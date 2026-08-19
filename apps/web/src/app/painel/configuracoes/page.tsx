@@ -3,8 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AccountSection } from "@/components/painel/account-section";
-import { Smartphone, Users, CreditCard, User, ShieldCheck, RefreshCw, Wifi, WifiOff, Check, Loader2, ExternalLink, PartyPopper, Bell } from "lucide-react";
+import { Smartphone, Users, CreditCard, User, ShieldCheck, RefreshCw, Wifi, WifiOff, Check, Loader2, ExternalLink, PartyPopper, Bell, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  canOfferRemoval,
+  removalActionLabel,
+  removalPrompt,
+  removalSuccess,
+} from "@/lib/auth/member-removal";
 import { authenticatedFetch } from "@/lib/supabase/client";
 
 type Section = "Conexão" | "Equipe" | "Notificações" | "Plano" | "Conta";
@@ -83,6 +89,8 @@ export default function PainelConfiguracoes() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteBusy, setInviteBusy] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [removeNotice, setRemoveNotice] = useState<string | null>(null);
   const [playbookGraduated, setPlaybookGraduated] = useState(false);
   // `null` = ainda carregando (a UI mostra skeleton em vez de chutar um estado
   // e piscar quando a resposta chegar).
@@ -198,6 +206,30 @@ export default function PainelConfiguracoes() {
     }
   }
 
+  async function removeMember(m: Membership) {
+    if (!window.confirm(removalPrompt(m))) return;
+    setRemovingId(m.id);
+    setInviteError(null);
+    setRemoveNotice(null);
+    try {
+      const res = await authenticatedFetch(`/api/members?id=${encodeURIComponent(m.id)}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        // O servidor é a autoridade sobre quem pode remover quem (auto-remoção,
+        // admin × dono, último dono). A tela mostra o motivo que veio de lá.
+        throw new Error(d.error || "Erro ao remover.");
+      }
+      setMembers((prev) => prev.filter((x) => x.id !== m.id));
+      setRemoveNotice(removalSuccess(m));
+    } catch (e) {
+      setInviteError(e instanceof Error ? e.message : "Erro ao remover.");
+    } finally {
+      setRemovingId(null);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-[1200px] space-y-8 px-4 py-8 sm:px-8">
       <header>
@@ -286,6 +318,11 @@ export default function PainelConfiguracoes() {
                 </button>
               </div>
               {inviteError && <p className="mt-2 text-sm text-alerta">{inviteError}</p>}
+              {removeNotice && (
+                <p className="mt-2 text-sm text-aco/70" role="status">
+                  {removeNotice}
+                </p>
+              )}
 
               {members.length === 0 ? (
                 <p className="font-editorial mt-4 text-[17px] italic text-ardosia">Só você por enquanto. Convide alguém acima.</p>
@@ -303,6 +340,22 @@ export default function PainelConfiguracoes() {
                       <span className={cn("font-data rounded-full px-2.5 py-1 text-[10px] uppercase tracking-[0.06em]", m.role === "owner" ? "bg-cobalt-500/10 text-cobalt-700" : "bg-poco text-aco/60")}>
                         {m.role}
                       </span>
+                      {canOfferRemoval(m) && (
+                        <button
+                          type="button"
+                          onClick={() => void removeMember(m)}
+                          disabled={removingId === m.id}
+                          aria-label={removalActionLabel(m)}
+                          title={m.accepted_at ? "Remover da equipe" : "Revogar convite"}
+                          className="rounded-lg p-2 text-aco/45 transition hover:bg-alerta/10 hover:text-alerta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-alerta/30 disabled:opacity-50"
+                        >
+                          {removingId === m.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
