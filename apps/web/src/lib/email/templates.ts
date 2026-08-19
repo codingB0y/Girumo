@@ -1,6 +1,7 @@
 import "server-only";
 import { BRAND, BRAND_COLORS, getBrandAssetUrl } from "@/lib/brand";
 import { broadcastFailedCopy } from "@/lib/email/broadcast-failed-copy";
+import { inviteCopy } from "@/lib/email/invite-copy";
 
 /**
  * Templates de email transacional da Girumo.
@@ -51,6 +52,34 @@ export function welcomeEmail(name: string, appUrl: string): { subject: string; h
         Sua conta já está ativa, com 30 dias de garantia incondicional. Sem fidelidade.
       </p>
       ${button("Acessar meu painel", `${appUrl}/painel`)}
+    `),
+  };
+}
+
+// --- Convite para a equipe ---
+export function inviteEmail(
+  inviterName: string,
+  tenantName: string,
+  appUrl: string,
+): { subject: string; html: string } {
+  const { subject, quem, equipe } = inviteCopy(inviterName, tenantName);
+  return {
+    subject,
+    html: layout(`
+      <h1 style="margin:0 0 12px;font-size:22px;color:${BRAND_COLORS.volt}">Você foi convidado</h1>
+      <p style="margin:0 0 8px;font-size:15px;color:${BRAND_COLORS.volt};line-height:1.6">
+        <strong>${quem}</strong> convidou você para trabalhar na conta de
+        <strong>${equipe}</strong> na ${BRAND.name}.
+      </p>
+      <p style="margin:0 0 8px;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.6">
+        Para aceitar, entre com <strong>este mesmo e-mail</strong> — é assim que
+        reconhecemos o convite e colocamos você direto na equipe.
+      </p>
+      ${button("Aceitar convite", `${appUrl}/login`)}
+      <p style="margin:12px 0 0;font-size:13px;color:${BRAND_COLORS.volt};line-height:1.6">
+        Não esperava este convite? Pode ignorar esta mensagem — sem entrar com
+        este e-mail, nada acontece.
+      </p>
     `),
   };
 }

@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { SESSION_COOKIE, signSession, sessionCookieOptions } from "@/lib/auth";
 import { buildTenantSlug, resolveDisplayName } from "@/lib/auth/oauth-account";
-import { selectPendingInvite } from "@/lib/auth/pending-invite";
+import { acceptPendingInvite } from "@/lib/auth/accept-pending-invite";
 import { getAppUrl } from "@/lib/environment";
 import { getSupabaseAdmin, getSupabaseServerAnon } from "@/lib/supabase/server";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
@@ -183,73 +183,4 @@ export async function POST(req: Request) {
 async function setSessionCookie(authUserId: string): Promise<void> {
   const token = await signSession(authUserId);
   (await cookies()).set(SESSION_COOKIE, token, sessionCookieOptions);
-}
-
-/**
- * Vincula o usuário ao convite pendente do seu e-mail, se houver, e devolve o
- * tenant do convite. Retorna null quando não há convite — aí o chamador segue
- * para o provisionamento de conta nova.
- *
- * O `update` filtra `user_id is null` para não reatribuir um convite que outro
- * login concorrente já aceitou; se esse filtro zerar as linhas, tratamos como
- * "sem convite" e caímos no fluxo de conta nova, nunca num tenant errado.
- */
-async function acceptPendingInvite(
-  supabase: ReturnType<typeof getSupabaseAdmin>,
-  authUserId: string,
-  email: string,
-  displayName: string,
-): Promise<{ tenant_id: string; role: string | null } | null> {
-  const { data: pending, error } = await supabase
-    .from("memberships")
-    .select("id, tenant_id, role, invited_email, created_at")
-    .is("user_id", null)
-    .is("accepted_at", null)
-    .ilike("invited_email", email)
-    .order("created_at", { ascending: true });
-
-  if (error || !pending?.length) return null;
-
-  const invite = selectPendingInvite(pending, email);
-  if (!invite) return null;
-
-  const { data: claimed, error: claimError } = await supabase
-    .from("memberships")
-    .update({ user_id: authUserId, accepted_at: new Date().toISOString() })
-    .eq("id", invite.id)
-    .is("user_id", null)
-    .select("id")
-    .maybeSingle();
-
-  // Update não pegou linha: uma request concorrente do mesmo usuário já vinculou
-  // este convite. Relê e, se a membership ficou com este `authUserId`, devolve o
-  // tenant dela — nunca cai em criar org, que geraria o tenant fantasma.
-  if (claimError || !claimed) {
-    const { data: settled } = await supabase
-      .from("memberships")
-      .select("tenant_id, role")
-      .eq("id", invite.id)
-      .eq("user_id", authUserId)
-      .maybeSingle();
-    if (!settled) return null;
-    return { tenant_id: String(settled.tenant_id), role: settled.role ?? null };
-  }
-
-  const tenantId = String(invite.tenant_id);
-
-  await supabase.from("users").upsert(
-    { tenant_id: tenantId, auth_user_id: authUserId, name: displayName, email },
-    { onConflict: "tenant_id,auth_user_id" },
-  );
-
-  await supabase.from("logs").insert({
-    tenant_id: tenantId,
-    actor_user_id: authUserId,
-    level: "info",
-    event: "membership.accepted",
-    message: `Convite aceito por ${email} no primeiro login via Google.`,
-    metadata: { membership_id: invite.id, role: invite.role, source: "google_oauth" },
-  });
-
-  return { tenant_id: tenantId, role: invite.role };
 }
