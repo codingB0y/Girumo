@@ -1,3 +1,4 @@
+import { canRemoveMember } from "@/lib/auth/member-removal";
 import { assertPlanLimit } from "@/lib/billing/entitlements";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { assertBillingRole, getTenantContext, type TenantRole } from "@/lib/supabase/tenant-context";
@@ -101,5 +102,93 @@ export async function POST(req: Request) {
   } catch (error) {
     if (error instanceof Response) return error;
     return Response.json({ error: "Erro ao convidar membro." }, { status: 500 });
+  }
+}
+
+/**
+ * Remove um membro ou revoga um convite pendente.
+ *
+ * `DELETE /api/members?id=<membership_id>`
+ *
+ * Toda query filtra `tenant_id` do contexto: o cliente é service-role e
+ * bypassa RLS, então esse filtro é o que impede alcançar membership de outro
+ * tenant passando um id adivinhado.
+ */
+export async function DELETE(req: Request) {
+  try {
+    const ctx = await getTenantContext(req);
+    assertBillingRole(ctx);
+
+    const membershipId = new URL(req.url).searchParams.get("id")?.trim();
+    if (!membershipId) {
+      return Response.json({ error: "Parametro id obrigatorio." }, { status: 400 });
+    }
+
+    const supabase = getSupabaseAdmin();
+
+    const { data: target, error: targetError } = await supabase
+      .from("memberships")
+      .select("id, user_id, role, invited_email, accepted_at")
+      .eq("id", membershipId)
+      .eq("tenant_id", ctx.tenantId)
+      .maybeSingle();
+
+    if (targetError) return Response.json({ error: targetError.message }, { status: 500 });
+    if (!target) return Response.json({ error: "Membro nao encontrado." }, { status: 404 });
+
+    // Owners ATIVOS (convite aceito). Um convite de owner pendente não segura o
+    // tenant, então não deve bloquear a remoção do último owner de verdade.
+    const { count: ownerCount, error: countError } = await supabase
+      .from("memberships")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", ctx.tenantId)
+      .eq("role", "owner")
+      .not("user_id", "is", null)
+      .not("accepted_at", "is", null);
+
+    if (countError) return Response.json({ error: countError.message }, { status: 500 });
+
+    const decision = canRemoveMember({
+      actor: { role: ctx.role, authUserId: ctx.authUserId },
+      target: { role: target.role as TenantRole, userId: target.user_id },
+      ownerCount: ownerCount ?? 0,
+    });
+
+    if (!decision.allowed) {
+      return Response.json({ error: decision.message }, { status: decision.status });
+    }
+
+    const { error: deleteError } = await supabase
+      .from("memberships")
+      .delete()
+      .eq("id", membershipId)
+      .eq("tenant_id", ctx.tenantId);
+
+    if (deleteError) return Response.json({ error: deleteError.message }, { status: 500 });
+
+    // O perfil em `users` só sai junto quando o convite já tinha sido aceito;
+    // convite pendente nunca criou perfil.
+    if (target.user_id) {
+      await supabase
+        .from("users")
+        .delete()
+        .eq("tenant_id", ctx.tenantId)
+        .eq("auth_user_id", target.user_id);
+    }
+
+    const alvo = target.invited_email ?? target.user_id ?? membershipId;
+    await supabase.from("logs").insert({
+      tenant_id: ctx.tenantId,
+      actor_user_id: ctx.authUserId,
+      level: "info",
+      event: target.accepted_at ? "membership.removed" : "membership.invite_revoked",
+      message: target.accepted_at ? `Membro ${alvo} removido.` : `Convite de ${alvo} revogado.`,
+      metadata: { membership_id: membershipId, role: target.role },
+    });
+
+    return Response.json({ removed: true, id: membershipId });
+  } catch (error) {
+    if (error instanceof Response) return error;
+    return Response.json({ error: "Erro ao remover membro." }, { status: 500 });
   }
 }

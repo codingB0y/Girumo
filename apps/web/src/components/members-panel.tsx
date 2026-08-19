@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, UserPlus, UsersRound } from "lucide-react";
+import { Loader2, Trash2, UserPlus, UsersRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +25,7 @@ export function MembersPanel() {
   const [role, setRole] = useState<"admin" | "operator">("operator");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [removing, setRemoving] = useState<string | null>(null);
 
   const loadMembers = useCallback(async () => {
     setLoading(true);
@@ -62,6 +63,29 @@ export function MembersPanel() {
       toast(error instanceof Error ? error.message : "Erro ao criar convite", "error");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function removeMember(member: Member) {
+    const alvo = member.invited_email ?? "este membro";
+    const pergunta = member.accepted_at
+      ? `Remover ${alvo} da equipe? Ele perde o acesso ao painel.`
+      : `Revogar o convite de ${alvo}?`;
+    if (!window.confirm(pergunta)) return;
+
+    setRemoving(member.id);
+    try {
+      const res = await authenticatedFetch(`/api/members?id=${encodeURIComponent(member.id)}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Erro ao remover.");
+      toast(member.accepted_at ? "Membro removido" : "Convite revogado");
+      await loadMembers();
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "Erro ao remover", "error");
+    } finally {
+      setRemoving(null);
     }
   }
 
@@ -116,6 +140,24 @@ export function MembersPanel() {
                   <Badge tone={member.accepted_at ? "green" : "amber"}>
                     {member.accepted_at ? "Ativo" : "Pendente"}
                   </Badge>
+                  <button
+                    type="button"
+                    onClick={() => void removeMember(member)}
+                    disabled={removing === member.id}
+                    aria-label={
+                      member.accepted_at
+                        ? `Remover ${member.invited_email ?? "membro"} da equipe`
+                        : `Revogar convite de ${member.invited_email ?? "membro"}`
+                    }
+                    title={member.accepted_at ? "Remover da equipe" : "Revogar convite"}
+                    className="rounded-lg p-2 text-aco/40 transition hover:bg-alerta/10 hover:text-alerta disabled:opacity-50"
+                  >
+                    {removing === member.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                  </button>
                 </div>
               </div>
             ))
