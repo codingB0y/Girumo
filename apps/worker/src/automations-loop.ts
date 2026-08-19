@@ -14,6 +14,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { log } from "./log.js";
+import { pickSendInstance } from "./pick-send-instance.js";
 
 export type AutomationStep = {
   id: string;
@@ -82,9 +83,30 @@ export function makeAutomationDeps(supabase: SupabaseClient): AutomationDeps {
       if (!targetGroupJid.endsWith("@g.us")) {
         throw new Error(`enqueueMessage: destino nao e grupo (${targetGroupJid})`);
       }
+      // instance_id É OBRIGATÓRIO, não decorativo: `app.claim_send_commands`
+      // filtra `cand.instance_id is not null` (os limites anti-ban são todos
+      // por instância). Com null, o comando entra na fila e NUNCA sai — sem
+      // erro, sem tentativa, sem nada em lugar nenhum. Foi o que aconteceu em
+      // 19/08: automação disparou, run ficou `done`, e a mensagem não existiu.
+      const { data: instances, error: instancesError } = await supabase
+        .from("instances")
+        .select("id, status, provider_instance_id, created_at")
+        .eq("tenant_id", tenantId);
+
+      if (instancesError) {
+        throw new Error(`enqueueMessage: instancias: ${instancesError.message}`);
+      }
+
+      const instanceId = pickSendInstance(instances ?? []);
+      if (!instanceId) {
+        // Falhar o run é melhor que enfileirar comando morto: o motivo fica em
+        // `automation_runs.error`, visível, em vez de silêncio na fila.
+        throw new Error("enqueueMessage: tenant sem instancia de WhatsApp provisionada");
+      }
+
       const { error } = await supabase.from("engine_commands").insert({
         tenant_id: tenantId,
-        instance_id: null,
+        instance_id: instanceId,
         type: "send_message",
         payload: { jid: targetGroupJid, text },
         priority: 50,
