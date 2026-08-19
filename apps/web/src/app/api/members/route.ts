@@ -1,5 +1,8 @@
 import { canRemoveMember } from "@/lib/auth/member-removal";
 import { assertPlanLimit } from "@/lib/billing/entitlements";
+import { sendEmail } from "@/lib/email/send";
+import { inviteEmail } from "@/lib/email/templates";
+import { getAppUrl } from "@/lib/environment";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { assertBillingRole, getTenantContext, type TenantRole } from "@/lib/supabase/tenant-context";
 
@@ -97,6 +100,28 @@ export async function POST(req: Request) {
       message: `Convite criado para ${invitedEmail}.`,
       metadata: { membership_id: data.id, role },
     });
+
+    // Avisa o convidado. Best-effort: falha de e-mail nao invalida o convite,
+    // que ja existe no banco e e aceito por quem entrar com este e-mail.
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("name")
+      .eq("id", ctx.tenantId)
+      .maybeSingle();
+
+    const { data: inviter } = await supabase
+      .from("users")
+      .select("name")
+      .eq("tenant_id", ctx.tenantId)
+      .eq("auth_user_id", ctx.authUserId)
+      .maybeSingle();
+
+    const { subject, html } = inviteEmail(
+      inviter?.name ?? "Um colega",
+      org?.name ?? "sua equipe",
+      getAppUrl(),
+    );
+    sendEmail({ to: invitedEmail, subject, html });
 
     return Response.json(data, { status: 201 });
   } catch (error) {
