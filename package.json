@@ -12,6 +12,8 @@
     "web:dev": "npm --workspace apps/web run dev",
     "web:build": "npm --workspace apps/web run build",
     "web:lint": "npm --workspace apps/web run lint",
+    "web:e2e": "npm --workspace apps/web run e2e",
+    "web:e2e:report": "npm --workspace apps/web run e2e:report",
     "worker:dev": "npm --workspace apps/worker run dev",
     "worker:build": "npm --workspace apps/worker run build",
     "worker:start": "npm --workspace apps/worker run start",

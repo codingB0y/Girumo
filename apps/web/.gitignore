@@ -46,3 +46,9 @@ dev-sessions/
 next-env.d.ts
 
 apps/web/supabase/.temp/
+
+# playwright (smoke e2e)
+/e2e-report/
+/e2e-results/
+/playwright-report/
+/test-results/
