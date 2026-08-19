@@ -15,6 +15,13 @@ import { entrar, exigeCredenciais } from "./sessao-helpers";
 test.describe("ciclo de sessao", () => {
   exigeCredenciais();
 
+  // Folga maior so aqui. Este e o unico spec que refaz o login pela tela (os
+  // outros reusam o estado do setup), porque ele precisa derrubar a sessao no
+  // meio sem levar os demais junto. Somado a isso, o dev server compila a rota
+  // sob demanda na primeira chamada: com os 45s padrao o teste estourava por
+  // tempo de compilacao, nao por defeito.
+  test.describe.configure({ timeout: 120_000 });
+
   test("logout revoga a sessao que estava valendo", async ({ page }) => {
     await entrar(page);
     await expect(page).toHaveURL(/\/painel/);
