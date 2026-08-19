@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { canRemoveMember } from "@/lib/auth/member-removal";
 import { assertPlanLimit } from "@/lib/billing/entitlements";
 import { sendEmail } from "@/lib/email/send";
@@ -90,7 +91,16 @@ export async function POST(req: Request) {
       .select("id, role, invited_email, accepted_at, created_at")
       .single();
 
-    if (error) return Response.json({ error: error.message }, { status: 500 });
+    if (error) {
+      // O pre-check acima nao protege contra corrida: entre o select e o insert
+      // cabe outro POST. Quem decide de fato e o indice parcial
+      // memberships_tenant_invited_email_pending_unique, e a violacao dele e a
+      // mesma situacao do 409 acima — nao um erro interno com texto cru do banco.
+      if (error.code === "23505") {
+        return Response.json({ error: "Este e-mail ja possui convite ou membership neste tenant." }, { status: 409 });
+      }
+      return Response.json({ error: error.message }, { status: 500 });
+    }
 
     await supabase.from("logs").insert({
       tenant_id: ctx.tenantId,
@@ -101,34 +111,40 @@ export async function POST(req: Request) {
       metadata: { membership_id: data.id, role },
     });
 
-    // Avisa o convidado. Best-effort: falha de e-mail nao invalida o convite,
-    // que ja existe no banco e e aceito por quem entrar com este e-mail.
-    const { data: org } = await supabase
-      .from("organizations")
-      .select("name")
-      .eq("id", ctx.tenantId)
-      .maybeSingle();
+    // Avisa o convidado depois de responder. O convite ja existe no banco e vale
+    // por si — segurar o 201 ate o Resend responder deixava a tela do lojista
+    // travada por mais de 10s quando o provedor demorava.
+    //
+    // `after()` e nao fire-and-forget solto: promise solta pode ser descartada
+    // quando a resposta fecha a invocacao, e ai nem o e-mail sai nem o
+    // resultado entra em public.logs. O `after()` mantem a invocacao viva.
+    after(async () => {
+      const { data: org } = await supabase
+        .from("organizations")
+        .select("name")
+        .eq("id", ctx.tenantId)
+        .maybeSingle();
 
-    const { data: inviter } = await supabase
-      .from("users")
-      .select("name")
-      .eq("tenant_id", ctx.tenantId)
-      .eq("auth_user_id", ctx.authUserId)
-      .maybeSingle();
+      const { data: inviter } = await supabase
+        .from("users")
+        .select("name")
+        .eq("tenant_id", ctx.tenantId)
+        .eq("auth_user_id", ctx.authUserId)
+        .maybeSingle();
 
-    const { subject, html } = inviteEmail(
-      inviter?.name ?? "Um colega",
-      org?.name ?? "sua equipe",
-      getAppUrl(),
-    );
-    // Com await de propósito: sem ele a promise pode ser descartada antes de
-    // terminar, e aí nem o e-mail sai nem o resultado entra em public.logs.
-    await sendEmail({
-      to: invitedEmail,
-      subject,
-      html,
-      tenantId: ctx.tenantId,
-      kind: "invite",
+      const { subject, html } = inviteEmail(
+        inviter?.name ?? "Um colega",
+        org?.name ?? "sua equipe",
+        getAppUrl(),
+      );
+
+      await sendEmail({
+        to: invitedEmail,
+        subject,
+        html,
+        tenantId: ctx.tenantId,
+        kind: "invite",
+      });
     });
 
     return Response.json(data, { status: 201 });

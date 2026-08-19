@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { after } from "next/server";
 import { SESSION_COOKIE, signSession, sessionCookieOptions } from "@/lib/auth";
 import { acceptPendingInvite } from "@/lib/auth/accept-pending-invite";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
@@ -132,13 +133,16 @@ export async function POST(req: Request) {
   const token = await signSession(authUserId);
   (await cookies()).set(SESSION_COOKIE, token, sessionCookieOptions);
 
-  // Track funnel event (non-blocking)
-  trackFunnelEvent({ tenantId, userId: authUserId, event: "signup", metadata: { source: "web" } });
+  // Funil e e-mail de boas-vindas nao seguram a resposta: a conta ja existe e o
+  // usuario ja tem sessao. `after()` roda depois da resposta mas ainda dentro da
+  // invocacao — chamar sem await deixaria a promise ser descartada no fim da
+  // requisicao, e ai nem o evento nem o registro em public.logs sairiam.
+  after(async () => {
+    await trackFunnelEvent({ tenantId, userId: authUserId, event: "signup", metadata: { source: "web" } });
 
-  // Welcome email (non-blocking)
-  const appUrl = getAppUrl();
-  const { subject, html } = welcomeEmail(name, appUrl);
-  await sendEmail({ to: email, subject, html, tenantId, kind: "welcome" });
+    const { subject, html } = welcomeEmail(name, getAppUrl());
+    await sendEmail({ to: email, subject, html, tenantId, kind: "welcome" });
+  });
 
   return Response.json(
     {

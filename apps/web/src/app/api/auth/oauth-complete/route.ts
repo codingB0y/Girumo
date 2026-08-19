@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { after } from "next/server";
 import { SESSION_COOKIE, signSession, sessionCookieOptions } from "@/lib/auth";
 import { buildTenantSlug, resolveDisplayName } from "@/lib/auth/oauth-account";
 import { acceptPendingInvite } from "@/lib/auth/accept-pending-invite";
@@ -160,19 +161,22 @@ export async function POST(req: Request) {
   await setSessionCookie(authUser.id);
 
   // Mesmo funil do cadastro por e-mail: sem isto, signup via Google fica
-  // invisivel no relatorio. Nao bloqueia a resposta.
-  trackFunnelEvent({
-    tenantId,
-    userId: authUser.id,
-    event: "signup",
-    metadata: { source: "google_oauth" },
-  });
+  // invisivel no relatorio. Junto com o e-mail de boas-vindas, roda depois da
+  // resposta — mas dentro do `after()`, porque promise solta pode ser
+  // descartada quando a invocacao fecha (perdendo evento e log de entrega).
+  after(async () => {
+    await trackFunnelEvent({
+      tenantId,
+      userId: authUser.id,
+      event: "signup",
+      metadata: { source: "google_oauth" },
+    });
 
-  if (email) {
-    const appUrl = getAppUrl();
-    const { subject, html } = welcomeEmail(name, appUrl);
-    await sendEmail({ to: email, subject, html, tenantId, kind: "welcome" });
-  }
+    if (email) {
+      const { subject, html } = welcomeEmail(name, getAppUrl());
+      await sendEmail({ to: email, subject, html, tenantId, kind: "welcome" });
+    }
+  });
 
   return Response.json(
     { id: authUser.id, name, email, tenantId, role: "owner", created: true },
