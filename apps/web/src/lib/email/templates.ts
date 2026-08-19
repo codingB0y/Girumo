@@ -68,8 +68,11 @@ export function inviteEmail(
     html: layout(`
       <h1 style="margin:0 0 12px;font-size:22px;color:${BRAND_COLORS.volt}">Você foi convidado</h1>
       <p style="margin:0 0 8px;font-size:15px;color:${BRAND_COLORS.volt};line-height:1.6">
-        <strong>${quem}</strong> convidou você para trabalhar na conta de
-        <strong>${equipe}</strong> na ${BRAND.name}.
+        ${
+          equipe
+            ? `<strong>${quem}</strong> convidou você para trabalhar na conta de <strong>${equipe}</strong> na ${BRAND.name}.`
+            : `<strong>${quem}</strong> convidou você para trabalhar junto na ${BRAND.name}.`
+        }
       </p>
       <p style="margin:0 0 8px;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.6">
         Para aceitar, entre com <strong>este mesmo e-mail</strong> — é assim que
