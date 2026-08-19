@@ -248,7 +248,13 @@ export async function GET(req: Request) {
     if (!email) continue;
 
     const tpl = nudgeConnectEmail(name, appUrl);
-    const sent = await sendEmail({ to: email, subject: tpl.subject, html: tpl.html });
+    const sent = await sendEmail({
+      to: email,
+      subject: tpl.subject,
+      html: tpl.html,
+      tenantId: org.id,
+      kind: "nudge_connect",
+    });
 
     if (sent) {
       results.nudge_sent++;
@@ -309,7 +315,13 @@ export async function GET(req: Request) {
     if (!email) continue;
 
     const tpl = await buildActivationEmail(supabase, org.id, marker, name, appUrl);
-    const sent = await sendEmail({ to: email, subject: tpl.subject, html: tpl.html });
+    const sent = await sendEmail({
+      to: email,
+      subject: tpl.subject,
+      html: tpl.html,
+      tenantId: org.id,
+      kind: "activation",
+    });
 
     if (sent) {
       results.activation_sent++;
@@ -386,7 +398,13 @@ export async function GET(req: Request) {
     if (!email) continue;
 
     const tpl = disconnectAlertEmail(name, appUrl);
-    const sent = await sendEmail({ to: email, subject: tpl.subject, html: tpl.html });
+    const sent = await sendEmail({
+      to: email,
+      subject: tpl.subject,
+      html: tpl.html,
+      tenantId: org.id,
+      kind: "disconnect",
+    });
 
     if (sent) {
       results.disconnect_sent++;
@@ -459,7 +477,13 @@ export async function GET(req: Request) {
 
       const stats = await buildWeeklyStats(supabase, org.id, windows);
       const tpl = weeklyReportEmail(name, appUrl, stats);
-      const sent = await sendEmail({ to: email, subject: tpl.subject, html: tpl.html });
+      const sent = await sendEmail({
+        to: email,
+        subject: tpl.subject,
+        html: tpl.html,
+        tenantId: org.id,
+        kind: "weekly",
+      });
 
       if (sent) {
         results.weekly_sent++;
@@ -547,7 +571,13 @@ export async function GET(req: Request) {
     // A rota é daqui, não do template: o vocabulário público não usa o termo
     // que dá nome a ela (ver comentário em broadcastFailedEmail).
     const tpl = broadcastFailedEmail(name, `${appUrl}/painel/disparos`, nomes);
-    const sent = await sendEmail({ to: email, subject: tpl.subject, html: tpl.html });
+    const sent = await sendEmail({
+      to: email,
+      subject: tpl.subject,
+      html: tpl.html,
+      tenantId: tenantId,
+      kind: "broadcast_failed",
+    });
 
     if (sent) {
       results.broadcast_sent++;
