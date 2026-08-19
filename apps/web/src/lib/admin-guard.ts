@@ -1,7 +1,8 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { SESSION_COOKIE, verifySession } from "@/lib/auth";
+import { SESSION_COOKIE, parseSession } from "@/lib/auth";
+import { isRevoked } from "@/lib/auth/session-revocation-store";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import {
   isAdminFromQuery,
@@ -46,8 +47,14 @@ export async function isPlatformAdmin(authUserId: string): Promise<boolean> {
  */
 export async function getAdminContext(): Promise<AdminContext | null> {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
-  const authUserId = await verifySession(token);
-  if (!authUserId) return null;
+  const claims = await parseSession(token);
+  if (!claims) return null;
+
+  // Sessão revogada não vira admin: o painel de plataforma é a superfície mais
+  // sensível, então a checagem entra antes de qualquer decisão de acesso.
+  if (await isRevoked(claims.authUserId, claims.issuedAt)) return null;
+
+  const authUserId = claims.authUserId;
 
   if (!(await isPlatformAdmin(authUserId))) return null;
 

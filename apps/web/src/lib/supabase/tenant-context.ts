@@ -1,6 +1,7 @@
 import "server-only";
 import { getSupabaseAdmin, getSupabaseAnonForToken } from "@/lib/supabase/server";
-import { SESSION_COOKIE, verifySession } from "@/lib/auth";
+import { SESSION_COOKIE, parseSession } from "@/lib/auth";
+import { isRevoked } from "@/lib/auth/session-revocation-store";
 
 export type TenantRole = "owner" | "admin" | "operator";
 
@@ -48,8 +49,16 @@ export async function getTenantContext(req: Request): Promise<TenantContext> {
     authUserId = userData.user.id;
     email = userData.user.email ?? null;
   } else {
-    authUserId = await verifySession(getCookie(req, SESSION_COOKIE));
-    if (!authUserId) throw new Response("Nao autenticado.", { status: 401 });
+    // O cookie legado vale 30 dias. A revogação é checada AQUI, e não no
+    // middleware, porque o middleware roda em Edge e não tem banco — e é aqui
+    // que os dados são servidos, então é aqui que a recusa importa.
+    const claims = await parseSession(getCookie(req, SESSION_COOKIE));
+    if (!claims) throw new Response("Nao autenticado.", { status: 401 });
+    if (await isRevoked(claims.authUserId, claims.issuedAt)) {
+      throw new Response("Sessao encerrada. Entre de novo.", { status: 401 });
+    }
+
+    authUserId = claims.authUserId;
 
     const { data: userData } = await supabase.auth.admin.getUserById(authUserId);
     email = userData.user?.email ?? null;
