@@ -105,3 +105,10 @@ apps/web/supabase/migrations/20260817120000_notification_preferences.sql
 # fechado — semear o primeiro admin por SQL ANTES de deployar o código que a lê.
 # Idempotente.
 apps/web/supabase/migrations/20260817230000_platform_admins.sql
+
+# Revogacao de sessao (L6 da auditoria de 06/08). O cookie dz_session vale 30
+# dias e o logout so apagava o cookie do navegador — o token seguia valido.
+# Guarda, por auth_user, o instante a partir do qual os tokens sao recusados:
+# revogar e escrever now(), e todo token com iat anterior morre de uma vez.
+# RLS ligada com policy deny-all: so o service-role toca. Idempotente.
+apps/web/supabase/migrations/20260819200000_session_revocations.sql
