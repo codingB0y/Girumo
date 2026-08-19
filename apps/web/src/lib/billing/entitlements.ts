@@ -1,42 +1,9 @@
 import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { hasReachedLimit, resolveLimitCheck, type Limits, type PlanCapability } from "./capability-limits";
 
-export type PlanCapability =
-  | "instances:create"
-  | "contacts:create"
-  | "campaigns:create"
-  | "campaigns:send"
-  | "funnels:create"
-  | "uploads:create"
-  | "team_members:invite";
-
-type Limits = {
-  whatsapp_instances?: number;
-  contacts?: number;
-  campaigns?: number;
-  funnels?: number;
-  uploads_mb?: number;
-  team_members?: number;
-};
-
-const CAPABILITY_LIMIT_KEY: Record<PlanCapability, keyof Limits> = {
-  "instances:create": "whatsapp_instances",
-  "contacts:create": "contacts",
-  "campaigns:create": "campaigns",
-  "campaigns:send": "campaigns",
-  "funnels:create": "funnels",
-  "uploads:create": "uploads_mb",
-  "team_members:invite": "team_members",
-};
-
-const CAPABILITY_TABLE: Partial<Record<PlanCapability, string>> = {
-  "instances:create": "instances",
-  "contacts:create": "contacts",
-  "campaigns:create": "campaigns",
-  "campaigns:send": "campaigns",
-  "funnels:create": "funnels",
-  "team_members:invite": "memberships",
-};
+export type { Limits, PlanCapability } from "./capability-limits";
+export { CAPABILITY_LIMIT_KEY, CAPABILITY_TABLE } from "./capability-limits";
 
 export async function getTenantLimits(tenantId: string): Promise<Limits> {
   const supabase = getSupabaseAdmin();
@@ -55,26 +22,21 @@ export async function getTenantLimits(tenantId: string): Promise<Limits> {
 
 export async function assertPlanLimit(tenantId: string, capability: PlanCapability): Promise<void> {
   const limits = await getTenantLimits(tenantId);
-  const limitKey = CAPABILITY_LIMIT_KEY[capability];
-  const limit = limits[limitKey];
+  const check = resolveLimitCheck(capability, limits);
 
-  if (limit === undefined || limit === null) return;
-  if (limit < 0) return;
-
-  const table = CAPABILITY_TABLE[capability];
-  if (!table) {
-    if (limit <= 0) throw new Response("Recurso bloqueado pelo plano atual.", { status: 402 });
-    return;
+  if (check.kind === "allow") return;
+  if (check.kind === "block") {
+    throw new Response("Recurso bloqueado pelo plano atual.", { status: 402 });
   }
 
   const supabase = getSupabaseAdmin();
   const { count, error } = await supabase
-    .from(table)
+    .from(check.table)
     .select("id", { count: "exact", head: true })
     .eq("tenant_id", tenantId);
 
   if (error) throw new Response("Nao foi possivel validar limites do plano.", { status: 500 });
-  if ((count ?? 0) >= limit) {
+  if (hasReachedLimit(count ?? 0, check.limit)) {
     throw new Response("Limite do plano atingido.", { status: 402 });
   }
 }
