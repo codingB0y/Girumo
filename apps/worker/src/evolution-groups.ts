@@ -7,21 +7,41 @@
  * famílias têm risco diferente: enviar mensagem erra e reenvia; criar grupo é
  * irreversível do lado do WhatsApp e gasta a operação que mais aproxima do ban.
  *
- * ── Estado de verificação de cada rota ────────────────────────────────────
- * VERIFICADO contra a instância real:
- *   - `/group/inviteCode/{instance}?groupJid=` — exercitado no backfill de
- *     convite (ver `apps/web/src/lib/evolution/client.ts`), inclusive o
- *     comportamento de achatar qualquer falha num 404 `No invite code`.
- * NÃO verificado ainda (shape conforme a API v2 documentada):
- *   - `/group/create`, `/group/updateGroupDescription`, `/group/updateSetting`,
- *     `/group/updateGroupPicture`.
- * Se um deles devolver 400 no primeiro grow real, o ajuste é AQUI — nada fora
- * deste módulo depende do formato. É a mesma postura que `evolution-sender.ts`
- * assume para `sendMedia`/`sendPoll`, e o motivo de o loop nascer em dry-run.
+ * ── Contrato, conferido no código da v2.3.7 ───────────────────────────────
+ * Os shapes abaixo saíram de `src/validate/group.schema.ts` e
+ * `src/api/routes/group.router.ts` da tag 2.3.7 (o mesmo build que roda no
+ * Coolify), não da documentação:
  *
- * `memberAddMode` do template NÃO é aplicado: a Evolution v2 não expõe esse
- * setting. Não é bloqueante — o pool é populado por LINK de convite, nunca por
- * `add` — mas o grupo fica com o default do WhatsApp. Ver o log em `grow-loop`.
+ *   POST /group/create/{instance}
+ *        required: subject, participants — `participants` tem `minItems: 1`.
+ *   POST /group/updateGroupDescription/{instance}   required: groupJid, description
+ *   POST /group/updateSetting/{instance}            required: groupJid, action
+ *        action ∈ announcement | not_announcement | locked | unlocked
+ *   POST /group/updateGroupPicture/{instance}       required: groupJid, image
+ *   GET  /group/inviteCode/{instance}?groupJid=     (já usado no backfill)
+ *
+ * `groupJid` pode ir na query: `groupValidate` (abstract.router.ts) lê do corpo
+ * e cai para `request.query.groupJid`.
+ *
+ * ── Por que `participants` leva o número do PRÓPRIO dono ───────────────────
+ * A engine Baileys chamava `sock.groupCreate(subject, [])` — array vazio. A
+ * Evolution NÃO aceita: o schema exige `minItems: 1`, então `[]` seria 400 em
+ * todo grow. Mandamos o número da própria instância, e isso não fura o
+ * anti-ban: quem cria o grupo já é membro dele por definição, então não há
+ * `add` de terceiro e nada que dispare `account_reachout_restricted`. O pool
+ * continua sendo populado só por LINK de convite.
+ *
+ * `memberAddMode` do template NÃO é aplicado: a v2.3.7 não tem rota para esse
+ * setting (o router só expõe updateSetting com o enum acima). Não é bloqueante
+ * — o pool é populado por link, nunca por `add` — mas o grupo fica com o
+ * default do WhatsApp.
+ *
+ * A descrição é aplicada em chamada SEPARADA, embora `createGroupSchema` aceite
+ * `description` no próprio create. É deliberado: no service da Evolution
+ * (`whatsapp.baileys.service.ts:4336`) o `groupUpdateDescription` roda dentro do
+ * mesmo try do create, então uma falha ali vira 500 DEPOIS de o grupo existir —
+ * e a resposta não traz o JID. O grupo ficaria órfão no WhatsApp, invisível para
+ * o pool. Separado, a descrição é best-effort e o JID nunca se perde.
  */
 
 import { parseInviteResponse } from "./invite-url.js";
@@ -38,8 +58,13 @@ export class EvolutionGroupError extends Error {
 }
 
 export interface EvolutionGroups {
-  /** Cria o grupo só com o dono e devolve o JID (`...@g.us`). */
-  createGroup(instanceName: string, subject: string): Promise<string>;
+  /**
+   * Cria o grupo só com o dono e devolve o JID (`...@g.us`).
+   *
+   * `ownerPhone` são os dígitos do número da própria instância — exigidos pelo
+   * `minItems: 1` de `participants`. Ver o cabeçalho.
+   */
+  createGroup(instanceName: string, subject: string, ownerPhone: string): Promise<string>;
   setDescription(instanceName: string, groupJid: string, description: string): Promise<void>;
   setAnnounceOnly(instanceName: string, groupJid: string): Promise<void>;
   setPicture(instanceName: string, groupJid: string, imageUrl: string): Promise<void>;
@@ -111,13 +136,21 @@ export function createEvolutionGroups(config: EvolutionGroupsConfig): EvolutionG
     `${path}/${encodeURIComponent(instanceName)}?groupJid=${encodeURIComponent(groupJid)}`;
 
   return {
-    async createGroup(instanceName, subject) {
-      // `participants: []` é deliberado: o grupo nasce só com o dono e é populado
-      // por link. Popular por `add` dispara account_reachout_restricted — regra
-      // herdada do runGrow original e do anti-ban do projeto.
+    async createGroup(instanceName, subject, ownerPhone) {
+      // Só o dono na lista: o grupo nasce vazio de terceiros e é populado por
+      // link. `participants` é obrigatório com minItems 1 no schema da v2.3.7 —
+      // ver o cabeçalho para por que o próprio número não fura o anti-ban.
+      const digits = ownerPhone.replace(/\D/g, "");
+      if (digits.length < 10) {
+        // O schema recusa (`minLength: 10`), e a Evolution ainda valida o número
+        // contra o WhatsApp e filtra o que não existe — o que devolveria a lista
+        // vazia e um erro obscuro. Falhar aqui dá a causa certa.
+        throw new EvolutionGroupError(0, "group/create", "número da instância ausente ou inválido");
+      }
+
       const body = await request<unknown>("group/create", `/group/create/${encodeURIComponent(instanceName)}`, {
         method: "POST",
-        body: JSON.stringify({ subject, participants: [] }),
+        body: JSON.stringify({ subject, participants: [digits] }),
       });
 
       const jid = parseCreatedGroupJid(body);

@@ -1,7 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { runGrow, runGrowTick, type GrowAck, type GrowDeps, type GrowJobClaim } from "./grow-loop.js";
+import {
+  runGrow,
+  runGrowTick,
+  type GrowAck,
+  type GrowDeps,
+  type GrowInstance,
+  type GrowJobClaim,
+} from "./grow-loop.js";
+
+const INSTANCE: GrowInstance = { name: "girumo-1", ownerPhone: "556298191314" };
 
 type AckCall = { tenantId: string; jobId: string; ack: GrowAck };
 
@@ -12,6 +21,7 @@ type Recorded = {
   announces: string[];
   pictures: string[];
   invites: string[];
+  ownerPhones: string[];
 };
 
 function job(over: Partial<GrowJobClaim> = {}): GrowJobClaim {
@@ -27,15 +37,16 @@ function job(over: Partial<GrowJobClaim> = {}): GrowJobClaim {
 
 /** Deps de mentira com caminho feliz por default; cada teste sobrescreve o que precisa. */
 function makeDeps(over: Partial<GrowDeps> = {}): { deps: GrowDeps; rec: Recorded } {
-  const rec: Recorded = { acks: [], created: [], descriptions: [], announces: [], pictures: [], invites: [] };
+  const rec: Recorded = { acks: [], created: [], descriptions: [], announces: [], pictures: [], invites: [], ownerPhones: [] };
   const deps: GrowDeps = {
     listTenants: async () => ["tenant-a"],
     claimJobs: async () => [job()],
     ack: async (tenantId, jobId, ack) => {
       rec.acks.push({ tenantId, jobId, ack });
     },
-    instanceNameFor: async () => "girumo-1",
-    createGroup: async (instanceName, subject) => {
+    instanceFor: async () => ({ name: "girumo-1", ownerPhone: "556298191314" }),
+    createGroup: async (instanceName, subject, ownerPhone) => {
+      rec.ownerPhones.push(ownerPhone);
       rec.created.push({ instanceName, subject });
       return "120363000000000001@g.us";
     },
@@ -67,7 +78,7 @@ const lastAck = (rec: Recorded): GrowAck => {
 test("cria o grupo e reporta o convite ao app", async () => {
   const { deps, rec } = makeDeps();
 
-  const ok = await runGrow("tenant-a", "girumo-1", job(), deps);
+  const ok = await runGrow("tenant-a", INSTANCE, job(), deps);
 
   assert.equal(ok, true);
   assert.deepEqual(rec.created, [{ instanceName: "girumo-1", subject: "Bazar #2" }]);
@@ -92,7 +103,7 @@ test("renova o lease com um ack running ANTES de criar o grupo", async () => {
     },
   });
 
-  await runGrow("tenant-a", "girumo-1", job(), deps);
+  await runGrow("tenant-a", INSTANCE, job(), deps);
 
   assert.deepEqual(order.slice(0, 2), ["ack:running", "create"]);
 });
@@ -101,7 +112,7 @@ test("sem link de convite o job falha, mas o ack carrega o JID do grupo criado",
   // O grupo existe no WhatsApp mesmo sem link; perder o JID deixaria um grupo órfão.
   const { deps, rec } = makeDeps({ inviteUrl: async () => null });
 
-  const ok = await runGrow("tenant-a", "girumo-1", job(), deps);
+  const ok = await runGrow("tenant-a", INSTANCE, job(), deps);
 
   assert.equal(ok, false);
   const ack = lastAck(rec);
@@ -117,7 +128,7 @@ test("falha ao criar o grupo fecha o job sem tentar pegar convite", async () => 
     },
   });
 
-  const ok = await runGrow("tenant-a", "girumo-1", job(), deps);
+  const ok = await runGrow("tenant-a", INSTANCE, job(), deps);
 
   assert.equal(ok, false);
   assert.deepEqual(rec.invites, []);
@@ -135,7 +146,7 @@ test("falha num passo cosmético não invalida o grupo", async () => {
     },
   });
 
-  const ok = await runGrow("tenant-a", "girumo-1", job({ desc: "Bazar diário", mediaId: "m1" }), deps);
+  const ok = await runGrow("tenant-a", INSTANCE, job({ desc: "Bazar diário", mediaId: "m1" }), deps);
 
   assert.equal(ok, true);
   assert.equal(lastAck(rec).status, "created");
@@ -144,7 +155,7 @@ test("falha num passo cosmético não invalida o grupo", async () => {
 test("announce false não aplica o modo só-admin", async () => {
   const { deps, rec } = makeDeps();
 
-  await runGrow("tenant-a", "girumo-1", job({ announce: false }), deps);
+  await runGrow("tenant-a", INSTANCE, job({ announce: false }), deps);
 
   assert.deepEqual(rec.announces, []);
 });
@@ -152,7 +163,7 @@ test("announce false não aplica o modo só-admin", async () => {
 test("mídia apagada não impede o grupo: pula a foto e segue", async () => {
   const { deps, rec } = makeDeps({ signedMediaUrl: async () => null });
 
-  const ok = await runGrow("tenant-a", "girumo-1", job({ mediaId: "m1" }), deps);
+  const ok = await runGrow("tenant-a", INSTANCE, job({ mediaId: "m1" }), deps);
 
   assert.equal(ok, true);
   assert.deepEqual(rec.pictures, []);
@@ -184,7 +195,7 @@ test("job adiado pelo ritmo volta para a fila em vez de ficar preso em running",
 
 test("tenant sem instância utilizável devolve os jobs sem criar nada", async () => {
   const { deps, rec } = makeDeps({
-    instanceNameFor: async () => null,
+    instanceFor: async () => null,
     claimJobs: async () => [job({ id: "a" }), job({ id: "b" })],
   });
 
@@ -193,7 +204,7 @@ test("tenant sem instância utilizável devolve os jobs sem criar nada", async (
   assert.deepEqual(rec.created, []);
   assert.equal(summary.deferred, 2);
   assert.equal(rec.acks.length, 2);
-  assert.match(rec.acks[0]?.ack.error ?? "", /sem instância conectada/);
+  assert.match(rec.acks[0]?.ack.error ?? "", /sem instância utilizável/);
 });
 
 test("claim que falha num tenant não impede os demais", async () => {

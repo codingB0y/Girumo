@@ -47,6 +47,18 @@ export type GrowAck = {
   error?: string;
 };
 
+/** O que o executor precisa saber da instância que vai criar o grupo. */
+export type GrowInstance = {
+  /** Nome na Evolution (`provider_instance_id`). */
+  name: string;
+  /**
+   * Número da própria instância. Vai como único `participants` do create — a
+   * Evolution exige ao menos um, e o dono já é membro por definição (ver
+   * evolution-groups.ts). Instância sem número não consegue criar grupo.
+   */
+  ownerPhone: string;
+};
+
 export type GrowDeps = {
   /** Tenants com auto-grow ligado (ver grow-tenants.ts). */
   listTenants(): Promise<string[]>;
@@ -54,10 +66,10 @@ export type GrowDeps = {
   claimJobs(tenantId: string): Promise<GrowJobClaim[]>;
   /** POST /api/groups/grow/ack — reporta o resultado. */
   ack(tenantId: string, jobId: string, ack: GrowAck): Promise<void>;
-  /** Nome da instância na Evolution, ou null se o tenant não tem uma utilizável. */
-  instanceNameFor(tenantId: string): Promise<string | null>;
+  /** Instância da Evolution, ou null se o tenant não tem uma utilizável. */
+  instanceFor(tenantId: string): Promise<GrowInstance | null>;
   /** Cria o grupo (só com o dono) e devolve o JID. */
-  createGroup(instanceName: string, subject: string): Promise<string>;
+  createGroup(instanceName: string, subject: string, ownerPhone: string): Promise<string>;
   setDescription(instanceName: string, groupJid: string, description: string): Promise<void>;
   setAnnounceOnly(instanceName: string, groupJid: string): Promise<void>;
   setPicture(instanceName: string, groupJid: string, imageUrl: string): Promise<void>;
@@ -112,17 +124,18 @@ async function step(label: string, jobId: string, fn: () => Promise<void>): Prom
  */
 export async function runGrow(
   tenantId: string,
-  instanceName: string,
+  instance: GrowInstance,
   job: GrowJobClaim,
   deps: GrowDeps,
 ): Promise<boolean> {
+  const instanceName = instance.name;
   // Renova `last_ack_at` antes da parte lenta: criação + config pode passar de um
   // ciclo, e sem isso o job seria dado como preso enquanto ainda roda.
   await deps.ack(tenantId, job.id, { status: "running" });
 
   let groupJid: string;
   try {
-    groupJid = await deps.createGroup(instanceName, job.subject);
+    groupJid = await deps.createGroup(instanceName, job.subject, instance.ownerPhone);
   } catch (err) {
     const message = err instanceof Error ? err.message : "erro desconhecido";
     log.warn("auto-grow: falha ao criar grupo", { job_id: job.id, subject: job.subject, error: message });
@@ -203,13 +216,13 @@ export async function runGrowTick(deps: GrowDeps): Promise<GrowTickSummary> {
 
     // O claim do app já marcou TODOS como `running`. Se a instância sumiu entre
     // o claim e agora, devolve todos à fila em vez de deixá-los presos 15 min.
-    const instanceName = await deps.instanceNameFor(tenantId).catch(() => null);
-    if (!instanceName) {
+    const instance = await deps.instanceFor(tenantId).catch(() => null);
+    if (!instance) {
       log.warn("auto-grow: tenant sem instância utilizável", { tenant_id: tenantId, jobs: jobs.length });
       for (const job of jobs) {
         summary.deferred += 1;
         await deps
-          .ack(tenantId, job.id, { status: "failed", error: "sem instância conectada para criar o grupo" })
+          .ack(tenantId, job.id, { status: "failed", error: "sem instância utilizável para criar o grupo" })
           .catch(() => undefined);
       }
       continue;
@@ -220,7 +233,7 @@ export async function runGrowTick(deps: GrowDeps): Promise<GrowTickSummary> {
 
     for (const job of toRun) {
       try {
-        const ok = await runGrow(tenantId, instanceName, job, deps);
+        const ok = await runGrow(tenantId, instance, job, deps);
         if (ok) summary.created += 1;
         else summary.failed += 1;
       } catch (err) {

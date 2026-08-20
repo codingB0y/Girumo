@@ -39,23 +39,35 @@ export function makeGrowDeps(
       await app.post(tenantId, "/api/groups/grow/ack", { id: jobId, ...ack });
     },
 
-    async instanceNameFor(tenantId) {
+    async instanceFor(tenantId) {
       // Sem cache por tenant de propósito: o loop roda a cada 5 min, e uma
       // instância trocada ou reprovisionada no meio precisa valer no ciclo
       // seguinte, não na próxima reinicialização do worker.
       const { data, error } = await supabase
         .from("instances")
-        .select("id, status, provider_instance_id, created_at")
+        .select("id, status, provider_instance_id, created_at, phone")
         .eq("tenant_id", tenantId);
-      if (error) throw new Error(`instanceNameFor: ${error.message}`);
+      if (error) throw new Error(`instanceFor: ${error.message}`);
 
-      const rows = (data ?? []) as InstanceRow[];
+      const rows = (data ?? []) as Array<InstanceRow & { phone: string | null }>;
       const chosenId = pickSendInstance(rows);
       if (!chosenId) return null;
-      return rows.find((row) => row.id === chosenId)?.provider_instance_id ?? null;
+
+      const chosen = rows.find((row) => row.id === chosenId);
+      const name = chosen?.provider_instance_id;
+      const ownerPhone = chosen?.phone;
+      if (!name || !ownerPhone) {
+        // Instância ainda em `pending`/`connecting` costuma ter `phone` nulo — o
+        // número só é conhecido depois do pareamento. Sem ele o create é 400
+        // garantido (`participants` exige minItems 1), então é melhor tratar como
+        // "não utilizável" e devolver o job à fila.
+        log.warn("auto-grow: instância sem nome ou sem número", { tenant_id: tenantId });
+        return null;
+      }
+      return { name, ownerPhone };
     },
 
-    createGroup: (instanceName, subject) => groups.createGroup(instanceName, subject),
+    createGroup: (instanceName, subject, ownerPhone) => groups.createGroup(instanceName, subject, ownerPhone),
     setDescription: (instanceName, jid, description) => groups.setDescription(instanceName, jid, description),
     setAnnounceOnly: (instanceName, jid) => groups.setAnnounceOnly(instanceName, jid),
     setPicture: (instanceName, jid, imageUrl) => groups.setPicture(instanceName, jid, imageUrl),
