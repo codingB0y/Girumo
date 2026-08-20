@@ -14,17 +14,27 @@
  *    roda sem enviar (mesma postura fail-safe do worker legado sem config).
  *    Mesmo configurado, o default é DRY-RUN: loga o que enviaria e não chama a
  *    Evolution até WORKER_SEND_ENABLED=true (ver send-dry-run.ts);
+ *  - auto-grow: cria o próximo grupo quando o pool da campanha lota. Em cadência
+ *    própria (WORKER_GROW_INTERVAL_MS, 5min) porque o intervalo É o anti-ban de
+ *    `create`. Executor portado da engine Baileys, que desde o cutover para a
+ *    Evolution não tinha mais socket para rodar (ver grow-loop.ts). Também nasce
+ *    em DRY-RUN, até WORKER_GROW_ENABLED=true;
  *  - manutenção da fila: lease vencido, progresso de broadcast e agendamento.
  *    Roda SEMPRE, inclusive sem Evolution configurada (ver housekeeping.ts).
  *
  * Plano completo em docs/superpowers/plans/2026-07-29-automations-executor.md.
  */
 
+import { createAppClient } from "./app-client.js";
 import { makeAutomationDeps, runAutomationsTick } from "./automations-loop.js";
 import { makeScanDeps, runAutomationScansTick } from "./automation-scans.js";
 import { loadEnv, type WorkerEnv } from "./env.js";
+import { createEvolutionGroups } from "./evolution-groups.js";
 import { createEvolutionSender } from "./evolution-sender.js";
 import { makeDeps, runTick } from "./event-loop.js";
+import { withGrowDryRun } from "./grow-dry-run.js";
+import { makeGrowDeps } from "./grow-deps.js";
+import { growDidWork, runGrowTick, type GrowDeps } from "./grow-loop.js";
 import { startHealthServer, type HealthState } from "./health.js";
 import { housekeepingDidWork, runHousekeeping } from "./housekeeping.js";
 import { log } from "./log.js";
@@ -67,6 +77,36 @@ function buildSendDeps(env: WorkerEnv, supabase: SupabaseClient): SendDeps | nul
   return deps;
 }
 
+/**
+ * Cria as deps de auto-grow, ou null se falta configuração.
+ *
+ * Exige QUATRO variáveis porque o auto-grow atravessa dois sistemas: o app web
+ * decide quando criar (o gate vive lá) e a Evolution executa. Sem qualquer uma
+ * das pontas não há o que fazer, e o loop fica desligado em silêncio deliberado
+ * — mesma postura fail-safe do sender.
+ */
+function buildGrowDeps(env: WorkerEnv, supabase: SupabaseClient): GrowDeps | null {
+  if (!env.appBaseUrl || !env.engineToken) {
+    log.warn("auto-grow desligado: APP_URL/ENGINE_TOKEN ausentes");
+    return null;
+  }
+  if (!env.evolutionApiUrl || !env.evolutionApiKey) {
+    log.warn("auto-grow desligado: EVOLUTION_API_URL/EVOLUTION_API_KEY ausentes");
+    return null;
+  }
+
+  const app = createAppClient({ baseUrl: env.appBaseUrl, engineToken: env.engineToken });
+  const groups = createEvolutionGroups({ baseUrl: env.evolutionApiUrl, apiKey: env.evolutionApiKey });
+  const deps = makeGrowDeps(supabase, app, groups);
+
+  if (!env.growEnabled) {
+    log.warn("auto-grow em DRY-RUN: nenhum grupo é criado (WORKER_GROW_ENABLED != true)");
+    return withGrowDryRun(deps);
+  }
+  log.info("auto-grow ATIVO: grupos serão criados de verdade");
+  return deps;
+}
+
 async function main(): Promise<void> {
   const env = loadEnv();
   const supabase = createSupabaseClient(env.supabaseUrl, env.supabaseServiceKey);
@@ -77,6 +117,12 @@ async function main(): Promise<void> {
 
   const sendDeps = buildSendDeps(env, supabase);
   let lastPruneAt = 0;
+
+  const growDeps = buildGrowDeps(env, supabase);
+  // Começa em 0 para o primeiro ciclo de grow rodar logo no boot: o `pending` é
+  // barato quando não há nada a criar (o gate responde `[]`) e, se houver job
+  // esperando, não faz sentido segurá-lo mais 5 minutos.
+  let lastGrowAt = 0;
 
   const state: HealthState = { healthy: true, lastTickAt: null, lastError: null };
   const server = startHealthServer(env.healthPort, () => state);
@@ -96,6 +142,8 @@ async function main(): Promise<void> {
     batch_size: env.batchSize,
     send_batch_size: env.sendBatchSize,
     sender: sendDeps ? (env.sendEnabled ? "on" : "dry-run") : "off",
+    grow: growDeps ? (env.growEnabled ? "on" : "dry-run") : "off",
+    grow_interval_ms: env.growIntervalMs,
     health_port: env.healthPort,
   });
 
@@ -147,6 +195,26 @@ async function main(): Promise<void> {
         state.healthy = false;
         state.lastError = message;
         log.error("ciclo de envio falhou", { error: message });
+      }
+    }
+
+    // Loop de AUTO-GROW, em cadência própria e bem mais lenta que a do poll: o
+    // intervalo É o anti-ban de `create` (ver grow-loop.ts), então ele não pode
+    // seguir o ritmo dos outros loops. Isolado como os demais: falha aqui não
+    // derruba envio nem captura.
+    if (!stopping && growDeps && Date.now() - lastGrowAt >= env.growIntervalMs) {
+      lastGrowAt = Date.now();
+      try {
+        const grown = await runGrowTick(growDeps);
+        state.lastTickAt = Date.now();
+        if (growDidWork(grown)) {
+          log.info("ciclo de auto-grow", grown);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "erro desconhecido";
+        state.healthy = false;
+        state.lastError = message;
+        log.error("ciclo de auto-grow falhou", { error: message });
       }
     }
 

@@ -33,6 +33,25 @@ export type WorkerEnv = {
    * mensagens porque não havia consumidor.
    */
   sendEnabled: boolean;
+  /**
+   * Base do app web e token da engine, para o loop de AUTO-GROW. Sem os dois o
+   * loop fica desligado — o gate que decide quando criar grupo vive no app
+   * (`evaluateAutoGrow`), então sem falar com ele não há o que executar.
+   */
+  appBaseUrl: string | null;
+  engineToken: string | null;
+  /**
+   * Criação real de grupo. Default `false` (DRY-RUN), pela mesma razão do envio e
+   * com mais motivo: criar grupo é irreversível do lado do WhatsApp e gasta a
+   * janela anti-ban de `create`, que é a operação que mais aproxima do ban.
+   */
+  growEnabled: boolean;
+  /**
+   * Intervalo entre ciclos de auto-grow. É ele que FAZ o anti-ban: com 1 criação
+   * por tenant por ciclo, 5 min dá ~2/10min — o mesmo teto do GroupOperationGuard
+   * que a engine Baileys aplicava em memória. Baixar isto afrouxa o anti-ban.
+   */
+  growIntervalMs: number;
 };
 
 function required(name: string): string {
@@ -75,5 +94,10 @@ export function loadEnv(): WorkerEnv {
     evolutionApiKey: optionalEnv("EVOLUTION_API_KEY"),
     sendBatchSize: intEnv("WORKER_SEND_BATCH_SIZE", 10, 1),
     sendEnabled: boolEnv("WORKER_SEND_ENABLED"),
+    appBaseUrl: optionalEnv("APP_URL"),
+    engineToken: optionalEnv("ENGINE_TOKEN"),
+    growEnabled: boolEnv("WORKER_GROW_ENABLED"),
+    // Mínimo de 60s: abaixo disso a cadência deixa de ser um teto anti-ban crível.
+    growIntervalMs: intEnv("WORKER_GROW_INTERVAL_MS", 5 * 60_000, 60_000),
   };
 }

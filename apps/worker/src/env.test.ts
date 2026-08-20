@@ -44,3 +44,38 @@ test("valor ambiguo ou vazio cai em dry-run, nunca em envio", () => {
     });
   }
 });
+
+test("growEnabled e false por default — criar grupo e irreversivel", () => {
+  withEnv({ WORKER_GROW_ENABLED: undefined }, () => {
+    assert.equal(loadEnv().growEnabled, false);
+  });
+});
+
+test('so "true" liga a criacao real de grupo', () => {
+  withEnv({ WORKER_GROW_ENABLED: "true" }, () => {
+    assert.equal(loadEnv().growEnabled, true);
+  });
+  withEnv({ WORKER_GROW_ENABLED: "1" }, () => {
+    assert.equal(loadEnv().growEnabled, false);
+  });
+});
+
+test("growIntervalMs default e 5min — e o que faz o teto de ~2 criacoes/10min", () => {
+  withEnv({ WORKER_GROW_INTERVAL_MS: undefined }, () => {
+    assert.equal(loadEnv().growIntervalMs, 300_000);
+  });
+});
+
+test("growIntervalMs abaixo de 60s e recusado: afrouxaria o anti-ban em silencio", () => {
+  withEnv({ WORKER_GROW_INTERVAL_MS: "5000" }, () => {
+    assert.throws(() => loadEnv(), /WORKER_GROW_INTERVAL_MS/);
+  });
+});
+
+test("APP_URL e ENGINE_TOKEN sao opcionais: sem eles o auto-grow so fica desligado", () => {
+  withEnv({ APP_URL: undefined, ENGINE_TOKEN: undefined }, () => {
+    const env = loadEnv();
+    assert.equal(env.appBaseUrl, null);
+    assert.equal(env.engineToken, null);
+  });
+});
