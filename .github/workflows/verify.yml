@@ -23,3 +23,80 @@ jobs:
       # Chama o script direto: o npm script `verify:local` invoca `powershell`,
       # que so existe no Windows. O script em si e cross-platform.
       - run: pwsh -File infra/scripts/verify-local.ps1
+
+  # Smoke E2E do painel. Existe desde 19/08/2026, mas ate agora so rodava na
+  # maquina de quem lembrasse — e suite que so roda quando alguem lembra e
+  # suite que nao pega regressao. Aponta para o Supabase de DEV.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Sem os segredos o job vira aviso, nao vermelho: quem clona o repo (ou
+      # abre PR de fork) nao tem acesso a eles, e CI vermelho por falta de
+      # segredo ensina o time a ignorar a suite.
+      - id: credenciais
+        env:
+          SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+          E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+        run: |
+          if [ -n "$SUPABASE_URL" ] && [ -n "$E2E_EMAIL" ]; then
+            echo "tem=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "tem=false" >> "$GITHUB_OUTPUT"
+            echo "### E2E pulado: faltam os segredos E2E_* no repositorio." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - if: steps.credenciais.outputs.tem == 'true'
+        run: npm ci
+
+      - if: steps.credenciais.outputs.tem == 'true'
+        run: npm --workspace apps/web exec -- playwright install --with-deps chromium
+
+      # O build precisa das NEXT_PUBLIC_*: elas sao embutidas no bundle, entao
+      # defini-las so no passo do teste chegaria tarde demais.
+      - if: steps.credenciais.outputs.tem == 'true'
+        run: npm run web:build
+        env:
+          HUBFLOW_USE_SUPABASE: "1"
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
+          SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
+          AUTH_SECRET: ${{ secrets.E2E_AUTH_SECRET }}
+
+      - if: steps.credenciais.outputs.tem == 'true'
+        run: npm run web:e2e
+        env:
+          # `next start` sobre o build acima; `next dev` compilaria rota a rota
+          # dentro do timeout de cada teste.
+          E2E_WEB_COMMAND: npm run start
+          E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          HUBFLOW_USE_SUPABASE: "1"
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
+          SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
+          AUTH_SECRET: ${{ secrets.E2E_AUTH_SECRET }}
+
+      # O relatorio e a prova que o quadro exige para mover card a
+      # `no_ar_verificado`; sem anexo, falha no CI vira "deu vermelho" sem
+      # screenshot de nada.
+      - if: always() && steps.credenciais.outputs.tem == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: |
+            apps/web/e2e-report
+            apps/web/e2e-results
+          retention-days: 14
