@@ -54,10 +54,12 @@ test("the Evolution webhook is session-less and rate limited", () => {
 });
 
 test("the webhook prefix is not open — only the exact provider path is", () => {
-  // /api/webhooks/config lê e escreve config de webhook do tenant. Classificar
-  // por prefixo a exporia sem sessão.
-  assert.equal(classifyRequest("/api/webhooks/config", "GET"), "user");
-  assert.equal(classifyRequest("/api/webhooks/config", "POST"), "user");
+  // Qualquer rota criada sob /api/webhooks/ nasce exigindo sessão. Classificar
+  // por prefixo abriria todas elas. O caso concreto que motivou isto foi
+  // /api/webhooks/config (removida em 20/08); o teste segue com um path
+  // genérico para continuar protegendo a PRÓXIMA rota que aparecer ali.
+  assert.equal(classifyRequest("/api/webhooks/qualquer-rota-nova", "GET"), "user");
+  assert.equal(classifyRequest("/api/webhooks/qualquer-rota-nova", "POST"), "user");
   // Só POST é webhook: um GET no receiver não deve escapar da sessão.
   assert.equal(classifyRequest("/api/webhooks/evolution", "GET"), "user");
   // Sufixos não herdam a isenção.
