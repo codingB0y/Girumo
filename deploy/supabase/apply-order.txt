@@ -112,3 +112,10 @@ apps/web/supabase/migrations/20260817230000_platform_admins.sql
 # revogar e escrever now(), e todo token com iat anterior morre de uma vez.
 # RLS ligada com policy deny-all: so o service-role toca. Idempotente.
 apps/web/supabase/migrations/20260819200000_session_revocations.sql
+
+# Funcoes do funil das paginas publicas (record_lp_tracking_event e
+# confirm_lp_capture). Descobertas em 20/08/2026 existindo SO em producao,
+# aplicadas a mao e sem arquivo no repo: em dev o /api/p/track respondia 204 sem
+# gravar nada (204 e tambem o codigo do sucesso, entao a falha era invisivel) e
+# o /api/p/lead dava 500. Idempotente; em prod e no-op.
+apps/web/supabase/migrations/20260820140000_lp_funnel_functions.sql
