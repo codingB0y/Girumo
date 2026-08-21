@@ -1,5 +1,15 @@
+import { resolve as resolvePath } from "node:path";
+
+import { config as carregaEnv } from "dotenv";
 import { defineConfig, devices } from "@playwright/test";
 import { ESTADO_LOGADO } from "./e2e/caminhos";
+
+/**
+ * Credenciais do usuario de QA vivem em `.env.local` (fora do git). O processo
+ * do Playwright nao e o do Next, entao nao herda esse arquivo sozinho.
+ * `override: false` mantem o CI mandando: la os E2E_* vem dos secrets.
+ */
+carregaEnv({ path: resolvePath(__dirname, ".env.local"), override: false });
 
 /**
  * Smoke E2E do painel.
