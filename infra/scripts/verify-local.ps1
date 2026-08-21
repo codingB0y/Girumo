@@ -54,6 +54,14 @@ Invoke-NativeStep "TypeScript web" {
   & $npmExe --workspace apps/web exec tsc -- --noEmit --project tsconfig.json
 }
 
+# O tsconfig do build ignora `e2e/**` e `playwright.config.ts` desde o incidente
+# de 21/08/2026 (import de teste sem dependencia declarada derrubou o deploy de
+# producao por ~4h). Sem este passo esses arquivos nao seriam checados em lugar
+# nenhum, e a correcao teria aberto um buraco novo.
+Invoke-NativeStep "TypeScript E2E" {
+  & $npmExe --workspace apps/web exec tsc -- --noEmit --project tsconfig.e2e.json
+}
+
 Invoke-NativeStep "Build web" {
   & $npmExe --workspace apps/web run build
 }

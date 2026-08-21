@@ -1,0 +1,17 @@
+{
+  // Typecheck dos arquivos de TESTE, que o `tsconfig.json` deixa de fora.
+  //
+  // Existe por causa de 21/08/2026: nenhum deploy subiu por ~4h porque
+  // `playwright.config.ts` importava `dotenv` sem a dependencia declarada em
+  // apps/web, e o tsconfig do build incluia `**/*.ts` — entao um arquivo que so
+  // roda em teste derrubou o `next build` em producao.
+  //
+  // O build agora ignora `e2e/**` e `playwright.config.ts`. Sem este arquivo,
+  // porem, esses .ts deixariam de ser checados em QUALQUER lugar, e a correcao
+  // do incidente teria criado um buraco novo: spec com erro de tipo passando
+  // despercebido. Aqui eles continuam checados — so que fora do caminho do
+  // deploy, que e onde o erro nao pode aparecer.
+  "extends": "./tsconfig.json",
+  "include": ["e2e/**/*.ts", "playwright.config.ts"],
+  "exclude": ["node_modules"]
+}
