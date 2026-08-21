@@ -1,5 +1,7 @@
 import { cookies } from "next/headers";
+import { after } from "next/server";
 import { SESSION_COOKIE, signSession, sessionCookieOptions } from "@/lib/auth";
+import { acceptPendingInvite } from "@/lib/auth/accept-pending-invite";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { getAppUrl } from "@/lib/environment";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
@@ -55,6 +57,35 @@ export async function POST(req: Request) {
   }
 
   const authUserId = created.user.id;
+
+  // Este e-mail foi convidado para algum tenant? A membership do convite tem
+  // `user_id` nulo e casa só pelo `invited_email`, então precisa ser checada
+  // ANTES de provisionar org nova — senão o convidado vira dono de um tenant
+  // vazio e o convite fica pendurado (o mesmo "tenant fantasma" que o login
+  // social tinha). Vale para quem chega pelo link do e-mail de convite.
+  const invited = await acceptPendingInvite(supabase, authUserId, email, name);
+  if (invited) {
+    const token = await signSession(authUserId);
+    (await cookies()).set(SESSION_COOKIE, token, sessionCookieOptions);
+    trackFunnelEvent({
+      tenantId: invited.tenant_id,
+      userId: authUserId,
+      event: "signup",
+      metadata: { source: "invite" },
+    });
+    return Response.json(
+      {
+        id: authUserId,
+        name,
+        email,
+        tenantId: invited.tenant_id,
+        role: invited.role,
+        joinedViaInvite: true,
+      },
+      { status: 201 },
+    );
+  }
+
   const slug = `${toSlug(name) || "tenant"}-${authUserId.slice(0, 8)}`;
 
   const { data: organization, error: orgError } = await supabase
@@ -102,13 +133,16 @@ export async function POST(req: Request) {
   const token = await signSession(authUserId);
   (await cookies()).set(SESSION_COOKIE, token, sessionCookieOptions);
 
-  // Track funnel event (non-blocking)
-  trackFunnelEvent({ tenantId, userId: authUserId, event: "signup", metadata: { source: "web" } });
+  // Funil e e-mail de boas-vindas nao seguram a resposta: a conta ja existe e o
+  // usuario ja tem sessao. `after()` roda depois da resposta mas ainda dentro da
+  // invocacao — chamar sem await deixaria a promise ser descartada no fim da
+  // requisicao, e ai nem o evento nem o registro em public.logs sairiam.
+  after(async () => {
+    await trackFunnelEvent({ tenantId, userId: authUserId, event: "signup", metadata: { source: "web" } });
 
-  // Welcome email (non-blocking)
-  const appUrl = getAppUrl();
-  const { subject, html } = welcomeEmail(name, appUrl);
-  sendEmail({ to: email, subject, html });
+    const { subject, html } = welcomeEmail(name, getAppUrl());
+    await sendEmail({ to: email, subject, html, tenantId, kind: "welcome" });
+  });
 
   return Response.json(
     {

@@ -28,8 +28,10 @@ const ENGINE_ONLY = new Set([
  * Webhooks de provedores externos: sem sessão, autenticados pelo próprio
  * handler (secret constant-time) e com rate limit dedicado no middleware.
  *
- * Casamento por path EXATO, nunca por prefixo: `/api/webhooks/config` é rota
- * autenticada de tenant e abrir `/api/webhooks/*` a exporia.
+ * Casamento por path EXATO, nunca por prefixo: abrir `/api/webhooks/*` exporia
+ * sem sessão qualquer outra rota criada sob esse caminho. Foi o caso de
+ * `/api/webhooks/config` (rota autenticada de tenant, removida em 20/08 por ser
+ * órfã) e vale igual para a próxima que aparecer aqui.
  */
 const PROVIDER_WEBHOOKS = new Set(["POST /api/webhooks/evolution"]);
 

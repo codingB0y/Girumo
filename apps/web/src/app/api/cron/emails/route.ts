@@ -8,9 +8,12 @@ import {
   activationD7Email,
   activationD14Email,
   activationD21Email,
+  broadcastFailedEmail,
   type WeeklyReportStats,
 } from "@/lib/email/templates";
 import { activationMarkerForAge, activationNotificationType, type ActivationMarker } from "@/lib/email/activation-cadence";
+import { canSendAlert } from "@/lib/email/alert-optout";
+import { broadcastFailedTitle } from "@/lib/email/broadcast-failed-copy";
 import { isCronAuthorized } from "@/lib/cron-auth";
 import { selectSessionRow, isConnectedStatus } from "@/lib/session-select";
 import { getAppUrl } from "@/lib/environment";
@@ -30,6 +33,7 @@ const SP_TZ = "America/Sao_Paulo";
  * 2. Cadência de ativação: por idade da conta (D3/D7/D14/D21) → envia email
  * 3. Disconnect alert: WhatsApp desconectado há mais de 2h → envia email
  * 4. Relatório semanal: só às segundas (America/Sao_Paulo) → envia resumo da semana anterior
+ * 5. Disparo falho: broadcast que virou `failed` nas últimas 24h → envia email
  *
  * O e-mail de trial foi aposentado (a oferta atual não tem trial) — a cadência de
  * ativação tomou o lugar. `trialEndingEmail` segue versionado, mas não é disparado.
@@ -192,7 +196,7 @@ export async function GET(req: Request) {
 
   const supabase = getSupabaseAdmin();
   const appUrl = getAppUrl();
-  const results = { nudge_sent: 0, disconnect_sent: 0, activation_sent: 0, weekly_sent: 0, errors: 0 };
+  const results = { nudge_sent: 0, disconnect_sent: 0, activation_sent: 0, weekly_sent: 0, broadcast_sent: 0, errors: 0 };
 
   // --- Job 1: 24h sem conectar ---
   // Tenants criados há 24-48h sem nenhum heartbeat de session
@@ -244,7 +248,13 @@ export async function GET(req: Request) {
     if (!email) continue;
 
     const tpl = nudgeConnectEmail(name, appUrl);
-    const sent = await sendEmail({ to: email, subject: tpl.subject, html: tpl.html });
+    const sent = await sendEmail({
+      to: email,
+      subject: tpl.subject,
+      html: tpl.html,
+      tenantId: org.id,
+      kind: "nudge_connect",
+    });
 
     if (sent) {
       results.nudge_sent++;
@@ -305,7 +315,13 @@ export async function GET(req: Request) {
     if (!email) continue;
 
     const tpl = await buildActivationEmail(supabase, org.id, marker, name, appUrl);
-    const sent = await sendEmail({ to: email, subject: tpl.subject, html: tpl.html });
+    const sent = await sendEmail({
+      to: email,
+      subject: tpl.subject,
+      html: tpl.html,
+      tenantId: org.id,
+      kind: "activation",
+    });
 
     if (sent) {
       results.activation_sent++;
@@ -342,6 +358,22 @@ export async function GET(req: Request) {
     const disconnectedAtMs = row.disconnected_at ? new Date(row.disconnected_at).getTime() : NaN;
     if (!Number.isFinite(disconnectedAtMs) || disconnectedAtMs > twoHoursAgoMs) continue;
 
+    // Opt-out do lojista. Lido antes do dedupe e da busca do dono: quem desligou
+    // não precisa custar mais três queries por dia.
+    const { data: prefs, error: prefsError } = await supabase
+      .from("tenant_settings")
+      .select("disconnect_alert_enabled")
+      .eq("tenant_id", org.id)
+      .maybeSingle();
+
+    // O erro é contado e logado aqui, mas quem decide enviar ou não é sempre
+    // canSendAlert — uma regra só, testada, para os dois jobs.
+    if (prefsError) {
+      console.error(`[cron] disconnect_alert: falha lendo tenant_settings de ${org.id}:`, prefsError.message);
+      results.errors++;
+    }
+    if (!canSendAlert({ value: prefs?.disconnect_alert_enabled, error: prefsError })) continue;
+
     // Dedup: no máximo 1 alerta de desconexão por tenant por dia.
     const { data: sentToday } = await supabase
       .from("notifications")
@@ -366,7 +398,13 @@ export async function GET(req: Request) {
     if (!email) continue;
 
     const tpl = disconnectAlertEmail(name, appUrl);
-    const sent = await sendEmail({ to: email, subject: tpl.subject, html: tpl.html });
+    const sent = await sendEmail({
+      to: email,
+      subject: tpl.subject,
+      html: tpl.html,
+      tenantId: org.id,
+      kind: "disconnect",
+    });
 
     if (sent) {
       results.disconnect_sent++;
@@ -389,10 +427,8 @@ export async function GET(req: Request) {
     const { data: allOrgs } = await supabase.from("organizations").select("id");
 
     for (const org of allOrgs ?? []) {
-      // Opt-out: sem linha em tenant_settings = habilitado por padrão. Mas um
-      // ERRO na leitura (tabela ausente, permissão) não é "sem linha" — sem
-      // saber a preferência do lojista, não envia. Falhar aberto aqui mandaria
-      // e-mail pra quem desligou.
+      // Opt-out: sem linha em tenant_settings = habilitado por padrão; erro de
+      // leitura = não envia. A regra vive em canSendAlert (ver alert-optout.ts).
       const { data: settings, error: settingsError } = await supabase
         .from("tenant_settings")
         .select("weekly_report_enabled")
@@ -402,10 +438,8 @@ export async function GET(req: Request) {
       if (settingsError) {
         console.error(`[cron] weekly_report: falha lendo tenant_settings de ${org.id}:`, settingsError.message);
         results.errors++;
-        continue;
       }
-
-      if (settings?.weekly_report_enabled === false) continue;
+      if (!canSendAlert({ value: settings?.weekly_report_enabled, error: settingsError })) continue;
 
       // Já enviado nesta semana? (dedupe: notification criada de hoje em diante)
       // Se a checagem falhar não dá pra saber se já foi — pula, porque reenviar
@@ -443,7 +477,13 @@ export async function GET(req: Request) {
 
       const stats = await buildWeeklyStats(supabase, org.id, windows);
       const tpl = weeklyReportEmail(name, appUrl, stats);
-      const sent = await sendEmail({ to: email, subject: tpl.subject, html: tpl.html });
+      const sent = await sendEmail({
+        to: email,
+        subject: tpl.subject,
+        html: tpl.html,
+        tenantId: org.id,
+        kind: "weekly",
+      });
 
       if (sent) {
         results.weekly_sent++;
@@ -463,6 +503,94 @@ export async function GET(req: Request) {
       } else {
         results.errors++;
       }
+    }
+  }
+
+  // --- Job 5: Disparos que falharam nas últimas 24h ---
+  // Sem isto o disparo morre calado: o status vira `failed` no banco e o lojista
+  // só descobre se abrir a tela. Uma query pra base toda, agrupada em memória —
+  // varrer tenant por tenant custaria uma query por organização todo dia.
+  const failedSince = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+
+  const { data: failedBroadcasts, error: failedError } = await supabase
+    .from("broadcasts")
+    .select("tenant_id, name, updated_at")
+    .eq("status", "failed")
+    .gte("updated_at", failedSince)
+    .order("updated_at", { ascending: false });
+
+  if (failedError) {
+    console.error("[cron] broadcast_failed: falha lendo broadcasts:", failedError.message);
+    results.errors++;
+  }
+
+  const falhasPorTenant = new Map<string, string[]>();
+  for (const b of failedBroadcasts ?? []) {
+    const nomes = falhasPorTenant.get(b.tenant_id) ?? [];
+    nomes.push(b.name || "disparo sem nome");
+    falhasPorTenant.set(b.tenant_id, nomes);
+  }
+
+  for (const [tenantId, nomes] of falhasPorTenant) {
+    const { data: prefs, error: prefsError } = await supabase
+      .from("tenant_settings")
+      .select("broadcast_alert_enabled")
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+
+    if (prefsError) {
+      console.error(`[cron] broadcast_failed: falha lendo tenant_settings de ${tenantId}:`, prefsError.message);
+      results.errors++;
+    }
+    if (!canSendAlert({ value: prefs?.broadcast_alert_enabled, error: prefsError })) continue;
+
+    // Dedup: no máximo 1 aviso por tenant por dia. A janela de leitura é de 24h,
+    // então sem isto o mesmo disparo falho renderia e-mail em duas rodadas.
+    const { data: sentToday } = await supabase
+      .from("notifications")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("type", "broadcast_failed")
+      .gte("created_at", todayStartISO)
+      .maybeSingle();
+    if (sentToday) continue;
+
+    const { data: owner } = await supabase
+      .from("memberships")
+      .select("user_id")
+      .eq("tenant_id", tenantId)
+      .eq("role", "owner")
+      .maybeSingle();
+    if (!owner) continue;
+
+    const { data: userData } = await supabase.auth.admin.getUserById(owner.user_id);
+    const email = userData.user?.email;
+    const name = userData.user?.user_metadata?.name || "lojista";
+    if (!email) continue;
+
+    // A rota é daqui, não do template: o vocabulário público não usa o termo
+    // que dá nome a ela (ver comentário em broadcastFailedEmail).
+    const tpl = broadcastFailedEmail(name, `${appUrl}/painel/disparos`, nomes);
+    const sent = await sendEmail({
+      to: email,
+      subject: tpl.subject,
+      html: tpl.html,
+      tenantId: tenantId,
+      kind: "broadcast_failed",
+    });
+
+    if (sent) {
+      results.broadcast_sent++;
+      await supabase.from("notifications").insert({
+        tenant_id: tenantId,
+        user_id: owner.user_id,
+        type: "broadcast_failed",
+        title: broadcastFailedTitle(nomes.length),
+        body: "Ninguém nos seus grupos recebeu. Abra a tela pra ver o motivo e reenviar.",
+        href: "/painel/disparos",
+      });
+    } else {
+      results.errors++;
     }
   }
 

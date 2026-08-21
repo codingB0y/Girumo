@@ -38,7 +38,23 @@ export async function listGroups(tenantId: string): Promise<Group[]> {
  * o lojista configurou (o ON CONFLICT só atualiza coluna presente no payload).
  */
 export type GroupUpsert = Pick<Group, "whatsapp_group_id" | "name" | "members"> &
-  Partial<Pick<Group, "capacity" | "selected" | "engagement" | "invite_url" | "display_name_base" | "display_number">> & {
+  Partial<
+    Pick<
+      Group,
+      | "capacity"
+      | "selected"
+      | "engagement"
+      | "invite_url"
+      | "display_name_base"
+      | "display_number"
+      // `is_admin` é fato do WhatsApp, não config do painel — quem normalmente o
+      // grava é `syncGroupsFromProvider`. Está aqui, opcional, para o auto-grow:
+      // ao criar o grupo nós SOMOS o admin por definição, e essa é a única via
+      // que também grava o `invite_url` do grupo recém-criado. Continua opcional
+      // para que nenhum outro chamador o sobrescreva sem querer.
+      | "is_admin"
+    >
+  > & {
     id?: string;
   };
 

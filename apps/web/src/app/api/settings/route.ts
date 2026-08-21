@@ -5,6 +5,7 @@ import {
   type TenantSettingsInput,
 } from "@/lib/stores/tenant-settings";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
+import { INVALID_GOAL, parseGoalInput } from "@/lib/settings/goal-input";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,7 +27,8 @@ export async function GET(req: Request) {
 }
 
 // PATCH /api/settings
-// Body: { weeklyReportEnabled?: boolean, monthlyGoalContacts?: number|null,
+// Body: { weeklyReportEnabled?: boolean, disconnectAlertEnabled?: boolean,
+//         broadcastAlertEnabled?: boolean, monthlyGoalContacts?: number|null,
 //         monthlyGoalRevenue?: number|null, onboardingDismissed?: boolean,
 //         onboardingCompleted?: boolean }
 //
@@ -50,13 +52,25 @@ export async function PATCH(req: Request) {
 
   const input: TenantSettingsInput = {};
   if (typeof body.weeklyReportEnabled === "boolean") input.weeklyReportEnabled = body.weeklyReportEnabled;
+  if (typeof body.disconnectAlertEnabled === "boolean") input.disconnectAlertEnabled = body.disconnectAlertEnabled;
+  if (typeof body.broadcastAlertEnabled === "boolean") input.broadcastAlertEnabled = body.broadcastAlertEnabled;
+
+  // `Number(v)` cru deixava passar NaN ("abc"), 0 disfarçado ("") e negativo.
+  // A barra de progresso do painel divide pela meta, então lixo aqui vira tela
+  // quebrada depois — recusar na fronteira é mais barato que tratar lá.
   if ("monthlyGoalContacts" in body) {
-    const v = body.monthlyGoalContacts;
-    input.monthlyGoalContacts = v === null ? null : Number(v);
+    const parsed = parseGoalInput(body.monthlyGoalContacts);
+    if (parsed === INVALID_GOAL) {
+      return Response.json({ error: "Meta de contatos inválida." }, { status: 400 });
+    }
+    input.monthlyGoalContacts = parsed;
   }
   if ("monthlyGoalRevenue" in body) {
-    const v = body.monthlyGoalRevenue;
-    input.monthlyGoalRevenue = v === null ? null : Number(v);
+    const parsed = parseGoalInput(body.monthlyGoalRevenue);
+    if (parsed === INVALID_GOAL) {
+      return Response.json({ error: "Meta de receita inválida." }, { status: 400 });
+    }
+    input.monthlyGoalRevenue = parsed;
   }
 
   const now = new Date().toISOString();

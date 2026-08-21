@@ -24,12 +24,27 @@ export function isBoardArea(value: unknown): value is (typeof BOARD_AREAS)[numbe
   return typeof value === "string" && (BOARD_AREAS as readonly string[]).includes(value);
 }
 
+/**
+ * O eixo dos nomes é **prova**, não estágio de trabalho — é o que a constraint
+ * `board_features_verificado_exige_prova` cobra no banco. Os rótulos antigos
+ * ("No ar (não verificado)" × "No ar verificado") diferiam por uma negação entre
+ * parênteses e ficavam indistinguíveis no cabeçalho em caixa alta.
+ */
 export const STATUS_LABELS: Record<BoardStatus, string> = {
-  nao_existe: "Não existe",
-  em_construcao: "Em construção",
-  no_ar_nao_verificado: "No ar (não verificado)",
-  no_ar_verificado: "No ar verificado",
-  quebrado: "Quebrado / dívida",
+  nao_existe: "Não construído",
+  em_construcao: "Atacando agora",
+  no_ar_nao_verificado: "No ar, sem prova",
+  no_ar_verificado: "Provado em produção",
+  quebrado: "Quebrado",
+};
+
+/** Uma linha sob o cabeçalho: o nome não precisa carregar a definição sozinho. */
+export const STATUS_HINTS: Record<BoardStatus, string> = {
+  nao_existe: "não está no produto",
+  em_construcao: "foco do momento",
+  no_ar_nao_verificado: "mergeado, ninguém olhou",
+  no_ar_verificado: "alguém viu funcionando",
+  quebrado: "está lá e está errado",
 };
 
 export const BOARD_AREAS = [
@@ -45,7 +60,7 @@ export const BOARD_AREAS = [
   "Infra",
 ] as const;
 
-/** Teto visual da coluna "Em construção". Não há trava no banco: trava vira gambiarra. */
+/** Teto visual da coluna "Atacando agora". Não há trava no banco: trava vira gambiarra. */
 export const WIP_LIMIT_EM_CONSTRUCAO = 3;
 
 /** Verificação com mais de 30 dias ganha selo de vencida. */

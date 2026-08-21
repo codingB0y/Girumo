@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
+import { after } from "next/server";
 import { SESSION_COOKIE, signSession, sessionCookieOptions } from "@/lib/auth";
 import { buildTenantSlug, resolveDisplayName } from "@/lib/auth/oauth-account";
+import { acceptPendingInvite } from "@/lib/auth/accept-pending-invite";
 import { getAppUrl } from "@/lib/environment";
 import { getSupabaseAdmin, getSupabaseServerAnon } from "@/lib/supabase/server";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
@@ -70,6 +72,30 @@ export async function POST(req: Request) {
     });
   }
 
+  // Antes de tratar como primeiro acesso: este e-mail foi convidado para algum
+  // tenant? A membership do convite tem `user_id` nulo, então a busca acima (por
+  // `user_id`) não a enxerga. Sem este passo, o convidado ganharia uma org nova
+  // e o convite ficaria pendurado para sempre — o "tenant fantasma".
+  if (email) {
+    const invitedName = resolveDisplayName({
+      fullName: typeof authUser.user_metadata?.full_name === "string" ? authUser.user_metadata.full_name : null,
+      name: typeof authUser.user_metadata?.name === "string" ? authUser.user_metadata.name : null,
+      email,
+    });
+    const invite = await acceptPendingInvite(supabase, authUser.id, email, invitedName);
+    if (invite) {
+      await setSessionCookie(authUser.id);
+      return Response.json({
+        id: authUser.id,
+        email,
+        tenantId: invite.tenant_id,
+        role: invite.role,
+        created: false,
+        joinedViaInvite: true,
+      });
+    }
+  }
+
   // Primeiro acesso via Google — provisiona org, perfil, membership e plano.
   const name = resolveDisplayName({
     fullName: typeof authUser.user_metadata?.full_name === "string" ? authUser.user_metadata.full_name : null,
@@ -135,19 +161,22 @@ export async function POST(req: Request) {
   await setSessionCookie(authUser.id);
 
   // Mesmo funil do cadastro por e-mail: sem isto, signup via Google fica
-  // invisivel no relatorio. Nao bloqueia a resposta.
-  trackFunnelEvent({
-    tenantId,
-    userId: authUser.id,
-    event: "signup",
-    metadata: { source: "google_oauth" },
-  });
+  // invisivel no relatorio. Junto com o e-mail de boas-vindas, roda depois da
+  // resposta — mas dentro do `after()`, porque promise solta pode ser
+  // descartada quando a invocacao fecha (perdendo evento e log de entrega).
+  after(async () => {
+    await trackFunnelEvent({
+      tenantId,
+      userId: authUser.id,
+      event: "signup",
+      metadata: { source: "google_oauth" },
+    });
 
-  if (email) {
-    const appUrl = getAppUrl();
-    const { subject, html } = welcomeEmail(name, appUrl);
-    sendEmail({ to: email, subject, html });
-  }
+    if (email) {
+      const { subject, html } = welcomeEmail(name, getAppUrl());
+      await sendEmail({ to: email, subject, html, tenantId, kind: "welcome" });
+    }
+  });
 
   return Response.json(
     { id: authUser.id, name, email, tenantId, role: "owner", created: true },

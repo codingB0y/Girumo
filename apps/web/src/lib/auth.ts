@@ -37,8 +37,22 @@ export async function signSession(authUserId: string): Promise<string> {
   return `${payload}.${sig}`;
 }
 
-/** Valida o cookie (assinatura + validade) e devolve o authUserId, ou null. Edge-safe. */
-export async function verifySession(token: string | undefined | null): Promise<string | null> {
+/** Sessão válida: quem é, e quando o cookie foi emitido. */
+export type SessionClaims = {
+  authUserId: string;
+  /** `iat` em ms. Comparado com `session_revocations.revoked_before`. */
+  issuedAt: number;
+};
+
+/**
+ * Valida o cookie (assinatura + validade) e devolve as claims, ou null.
+ * Edge-safe: não toca no banco.
+ *
+ * A revogação NÃO é checada aqui de propósito — exige uma consulta, e isto roda
+ * no middleware (Edge). Quem tem banco chama `assertSessionNotRevoked`; ver
+ * `lib/auth/session-revocation.ts`.
+ */
+export async function parseSession(token: string | undefined | null): Promise<SessionClaims | null> {
   if (!token || !token.includes(".")) return null;
   const [payload, sig] = token.split(".");
   if (!payload || !sig) return null;
@@ -49,11 +63,17 @@ export async function verifySession(token: string | undefined | null): Promise<s
   if (diff !== 0) return null;
   try {
     const json = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
-    if (Date.now() - (json.iat ?? 0) >= MAX_AGE_S * 1000) return null;
-    return typeof json.sub === "string" ? json.sub : null;
+    const issuedAt = typeof json.iat === "number" ? json.iat : 0;
+    if (Date.now() - issuedAt >= MAX_AGE_S * 1000) return null;
+    return typeof json.sub === "string" ? { authUserId: json.sub, issuedAt } : null;
   } catch {
     return null;
   }
+}
+
+/** Valida o cookie e devolve só o authUserId, ou null. Edge-safe. */
+export async function verifySession(token: string | undefined | null): Promise<string | null> {
+  return (await parseSession(token))?.authUserId ?? null;
 }
 
 /** Assina um payload de impersonation (mesmo esquema HMAC do dz_session). */

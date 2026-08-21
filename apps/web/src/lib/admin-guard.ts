@@ -1,9 +1,14 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { SESSION_COOKIE, verifySession } from "@/lib/auth";
+import { SESSION_COOKIE, parseSession } from "@/lib/auth";
+import { isRevoked } from "@/lib/auth/session-revocation-store";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
-import { isPlatformAdminEmail } from "@/lib/admin/platform-admins";
+import {
+  isAdminFromQuery,
+  normalizePlatformAdmins,
+  type PlatformAdmin,
+} from "@/lib/admin/platform-admins";
 
 export type AdminContext = {
   authUserId: string;
@@ -11,21 +16,29 @@ export type AdminContext = {
 };
 
 /**
- * E-mail do usuário se ele for super-admin AGORA; null caso contrário.
+ * `true` se este `auth_user_id` é super-admin da plataforma AGORA.
  *
  * Separado de `getAdminContext` porque nem todo caminho tem o admin no cookie de
  * sessão: ao encerrar uma impersonation a sessão ativa é a do lojista, e o admin
  * só existe como id dentro do cookie assinado — que prova quem começou, não que
- * essa pessoa continua na lista.
+ * essa pessoa continua autorizada.
  *
- * Falha fechada: erro do Supabase ou usuário sem e-mail devolve null.
- * Em produção, mover a lista para tabela `platform_admins` no Supabase.
+ * A autorização é por identidade contra `platform_admins`, nunca por e-mail. O
+ * signup cria conta com `email_confirm: true` sem verificar posse do endereço,
+ * então uma allowlist de e-mails podia ser reivindicada por quem registrasse o
+ * endereço primeiro.
+ *
+ * Falha fechada: erro de leitura (tabela ausente, rede, permissão) nega o acesso.
  */
-export async function adminEmailFor(authUserId: string): Promise<string | null> {
+export async function isPlatformAdmin(authUserId: string): Promise<boolean> {
   const supabase = getSupabaseAdmin();
-  const { data } = await supabase.auth.admin.getUserById(authUserId);
-  const email = data.user?.email?.toLowerCase();
-  return isPlatformAdminEmail(email) ? (email as string) : null;
+  const result = await supabase
+    .from("platform_admins")
+    .select("auth_user_id")
+    .eq("auth_user_id", authUserId)
+    .maybeSingle();
+
+  return isAdminFromQuery(result);
 }
 
 /**
@@ -34,11 +47,23 @@ export async function adminEmailFor(authUserId: string): Promise<string | null> 
  */
 export async function getAdminContext(): Promise<AdminContext | null> {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
-  const authUserId = await verifySession(token);
-  if (!authUserId) return null;
+  const claims = await parseSession(token);
+  if (!claims) return null;
 
-  const email = await adminEmailFor(authUserId);
-  if (!email) return null;
+  // Sessão revogada não vira admin: o painel de plataforma é a superfície mais
+  // sensível, então a checagem entra antes de qualquer decisão de acesso.
+  if (await isRevoked(claims.authUserId, claims.issuedAt)) return null;
+
+  const authUserId = claims.authUserId;
+
+  if (!(await isPlatformAdmin(authUserId))) return null;
+
+  // O e-mail vem do Auth (fonte de verdade) e serve só como rótulo de auditoria —
+  // a decisão de acesso já foi tomada acima, por identidade. Um admin sem e-mail
+  // no Auth continua admin: negar aqui faria o rótulo virar critério de novo.
+  const supabase = getSupabaseAdmin();
+  const { data } = await supabase.auth.admin.getUserById(authUserId);
+  const email = data.user?.email?.toLowerCase() ?? "";
 
   return { authUserId, email };
 }
@@ -54,4 +79,18 @@ export async function requireAdmin(): Promise<AdminContext> {
   }
   // redirect() throws so this is unreachable, but satisfies TS
   return ctx as AdminContext;
+}
+
+/**
+ * Os super-admins cadastrados, para leitura humana em `/admin/configuracoes`.
+ * Service-role: a tabela é deny-all para anon/authenticated.
+ */
+export async function listPlatformAdmins(): Promise<PlatformAdmin[]> {
+  const supabase = getSupabaseAdmin();
+  const result = await supabase
+    .from("platform_admins")
+    .select("auth_user_id, email, note")
+    .order("created_at");
+
+  return normalizePlatformAdmins(result);
 }
