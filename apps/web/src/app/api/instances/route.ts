@@ -14,6 +14,13 @@ import { getTenantContext } from "@/lib/supabase/tenant-context";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/**
+ * Janela do dedupe do log de provisionamento falho. Uma hora: curta o bastante
+ * para uma queda nova da Evolution aparecer no mesmo dia em /admin/logs, longa
+ * o bastante para uma sessao inteira de F5 na tela de conectar render uma linha.
+ */
+const LOG_DEDUPE_MS = 60 * 60 * 1000;
+
 function canManageInstances(role: string) {
   return role === "owner" || role === "admin";
 }
@@ -93,17 +100,56 @@ export async function POST(req: Request) {
       }
       await deleteInstanceRow(ctx.tenantId, data.id).catch(() => undefined);
 
-      await supabase.from("logs").insert({
-        tenant_id: ctx.tenantId,
-        actor_user_id: ctx.authUserId,
-        level: "error",
-        event: "instance.provision_failed",
-        message: "Falha ao provisionar instancia na Evolution.",
-        metadata: {
-          instance_id: data.id,
-          reason: provisionError instanceof Error ? provisionError.message : "desconhecido",
-        },
-      });
+      const motivo =
+        provisionError instanceof Error ? provisionError.message : "desconhecido";
+      console.error(
+        `[api/instances] provisionamento falhou para ${ctx.tenantId}:`,
+        motivo,
+      );
+
+      // Dedupe por janela antes de gravar. A tela /painel/conectar tenta
+      // provisionar sozinha ao montar, entao com a Evolution fora cada visita
+      // (e cada F5) rendia mais uma linha identica em `logs` — que e a tabela
+      // por tras de /admin/logs. Em dev isso ja era 13 de 160 registros, todos
+      // do mesmo defeito, sem um unico instance.created para contrapor.
+      //
+      // A primeira falha da janela continua registrada: o sinal fica, a
+      // repeticao some. O console acima nao passa por este filtro, entao o
+      // operador que estiver olhando o log do servidor ve todas as tentativas.
+      const inicioDaJanela = new Date(Date.now() - LOG_DEDUPE_MS).toISOString();
+      const { data: jaRegistrado, error: dedupeError } = await supabase
+        .from("logs")
+        .select("id")
+        .eq("tenant_id", ctx.tenantId)
+        .eq("event", "instance.provision_failed")
+        .gte("created_at", inicioDaJanela)
+        .limit(1);
+
+      if (dedupeError) {
+        console.error(
+          "[api/instances] falha no dedupe do log de provisionamento:",
+          dedupeError.message,
+        );
+      }
+
+      // Falha no dedupe grava assim mesmo: perder o registro e pior que repetir.
+      if (dedupeError || !jaRegistrado || jaRegistrado.length === 0) {
+        const { error: logError } = await supabase.from("logs").insert({
+          tenant_id: ctx.tenantId,
+          actor_user_id: ctx.authUserId,
+          level: "error",
+          event: "instance.provision_failed",
+          message: "Falha ao provisionar instancia na Evolution.",
+          metadata: { instance_id: data.id, reason: motivo },
+        });
+
+        if (logError) {
+          console.error(
+            "[api/instances] provisionamento falhou e o log nao foi gravado:",
+            logError.message,
+          );
+        }
+      }
 
       return Response.json(
         { error: "Nao foi possivel provisionar a instancia no provedor." },
