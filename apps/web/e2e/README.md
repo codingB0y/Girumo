@@ -41,6 +41,38 @@ $env:E2E_EMAIL = "usuario@dev"; $env:E2E_PASSWORD = "senha"; npm run web:e2e
 O dev server sobe sozinho (`reuseExistingServer`). Contra outro alvo:
 `$env:E2E_BASE_URL = "http://localhost:3000"`.
 
+## No CI
+
+Roda como o job `e2e` do workflow `Verify`, em todo PR e todo push para `main`.
+Aponta para o Supabase de **dev**, com o mesmo `qa-user@girumo.test`.
+
+Duas diferenças em relação ao local:
+
+- O alvo é `next start` sobre um build (`E2E_WEB_COMMAND`), não `next dev`. O dev
+  server compila cada rota no primeiro acesso, e as 24 rotas do painel viravam
+  24 compilações em série dentro do timeout de 45 s por teste — o verde media a
+  velocidade do compilador, não a saúde da rota.
+- `reuseExistingServer` fica desligado, senão um build velho de outro job
+  passaria por atual.
+
+Os segredos vivem em Settings → Secrets do repositório, todos com prefixo
+`E2E_`, e todos apontam para **dev** — nenhum valor de produção entra no CI:
+
+| Segredo | O que é |
+|---|---|
+| `E2E_SUPABASE_URL` | URL do projeto Supabase de dev |
+| `E2E_SUPABASE_ANON_KEY` | Chave anon de dev |
+| `E2E_SUPABASE_SERVICE_ROLE_KEY` | Service role de dev |
+| `E2E_AUTH_SECRET` | Segredo próprio do CI, não o da máquina de ninguém |
+| `E2E_EMAIL` / `E2E_PASSWORD` | Credencial do `qa-user@girumo.test` |
+
+Faltando `E2E_SUPABASE_URL` ou `E2E_EMAIL`, o job se **pula com aviso** no
+summary em vez de ficar vermelho: PR de fork não enxerga segredo, e CI vermelho
+por falta de segredo é como o time aprende a ignorar a suíte.
+
+O relatório HTML sobe como artefato `e2e-report` (14 dias) mesmo quando a suíte
+falha — sem isso, falha no CI vira "deu vermelho" sem screenshot de nada.
+
 **Não roda contra preview da Vercel**: preview não recebe env de Supabase, então
 não existe login lá (achado de 11/08).
 

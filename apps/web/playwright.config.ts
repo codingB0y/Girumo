@@ -18,6 +18,16 @@ import { ESTADO_LOGADO } from "./e2e/caminhos";
 const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 const usaServidorExterno = Boolean(process.env.E2E_BASE_URL);
 
+/**
+ * No CI o alvo e `next start` sobre um build, nao `next dev`.
+ *
+ * O dev server compila cada rota no primeiro acesso: as 24 rotas do painel
+ * viravam 24 compilacoes em serie dentro do timeout de 45s por teste, e o
+ * resultado media a velocidade do compilador, nao a saude da rota. Localmente o
+ * default segue sendo `npm run dev`, que e o que ja esta rodando na maquina.
+ */
+const comandoDoServidor = process.env.E2E_WEB_COMMAND ?? "npm run dev";
+
 export default defineConfig({
   testDir: "./e2e",
   outputDir: "./e2e-results",
@@ -51,9 +61,11 @@ export default defineConfig({
   webServer: usaServidorExterno
     ? undefined
     : {
-        command: "npm run dev",
+        command: comandoDoServidor,
         url: baseURL,
-        reuseExistingServer: true,
+        // Reusar servidor no CI esconderia um build velho de outro job; local,
+        // reusar e o ponto (o dev server ja esta aberto na outra aba).
+        reuseExistingServer: !process.env.CI,
         timeout: 180_000,
       },
 });
