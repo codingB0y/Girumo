@@ -38,6 +38,8 @@
   ],
   "exclude": [
     "node_modules",
-    "nextjs-claude-code-starter"
+    "nextjs-claude-code-starter",
+    "e2e/**",
+    "playwright.config.ts"
   ]
 }
