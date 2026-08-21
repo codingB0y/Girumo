@@ -581,7 +581,7 @@ export async function GET(req: Request) {
 
     if (sent) {
       results.broadcast_sent++;
-      await supabase.from("notifications").insert({
+      const { error: notifError } = await supabase.from("notifications").insert({
         tenant_id: tenantId,
         user_id: owner.user_id,
         type: "broadcast_failed",
@@ -589,6 +589,12 @@ export async function GET(req: Request) {
         body: "Ninguém nos seus grupos recebeu. Abra a tela pra ver o motivo e reenviar.",
         href: "/painel/disparos",
       });
+      if (notifError) {
+        console.error(
+          `[cron] broadcast_failed: e-mail enviado para ${tenantId} mas notification não registrada:`,
+          notifError.message,
+        );
+      }
     } else {
       results.errors++;
     }

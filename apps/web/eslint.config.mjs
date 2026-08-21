@@ -15,6 +15,11 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     "nextjs-claude-code-starter/**",
+    // Artefatos do Playwright. O trace viewer traz bundles minificados que
+    // rendem centenas de warnings; sem isto, rodar os E2E antes do lint deixa
+    // o lint vermelho por lixo de execucao.
+    "e2e-report/**",
+    "e2e-results/**",
   ]),
 ]);
 

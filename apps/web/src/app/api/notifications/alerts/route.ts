@@ -73,13 +73,16 @@ async function checkTenantAlerts(
       const names = almostFull.slice(0, 3).map((g) => g.name).join(", ");
       const suffix = almostFull.length > 3 ? ` e +${almostFull.length - 3}` : "";
 
-      await supabase.from("notifications").insert({
+      const { error: insertError } = await supabase.from("notifications").insert({
         tenant_id: tenantId,
         type: "warning",
         title: `${almostFull.length} grupo${almostFull.length > 1 ? "s" : ""} quase cheio${almostFull.length > 1 ? "s" : ""}`,
         body: `${names}${suffix} — crie novos grupos antes de perder captação.`,
         href: "/painel/grupos",
       });
+      if (insertError) {
+        console.error("[api/notifications/alerts] falha gravando alerta de grupo quase cheio:", insertError.message);
+      }
       count++;
     }
   }
@@ -111,13 +114,16 @@ async function checkTenantAlerts(
       const name = staleCampaigns[0].name;
       const extra = staleCampaigns.length > 1 ? ` e +${staleCampaigns.length - 1}` : "";
 
-      await supabase.from("notifications").insert({
+      const { error: insertError } = await supabase.from("notifications").insert({
         tenant_id: tenantId,
         type: "info",
         title: `Campanha "${name}"${extra} parada há 3+ dias`,
         body: "Nenhuma atividade nova. Compartilhe o link novamente ou crie um disparo.",
         href: "/painel/campanhas",
       });
+      if (insertError) {
+        console.error("[api/notifications/alerts] falha gravando alerta de campanha parada:", insertError.message);
+      }
       count++;
     }
   }
@@ -139,13 +145,16 @@ async function checkTenantAlerts(
       .limit(1);
 
     if (!existing || existing.length === 0) {
-      await supabase.from("notifications").insert({
+      const { error: insertError } = await supabase.from("notifications").insert({
         tenant_id: tenantId,
         type: "warning",
         title: `${missingInvite.length} grupo${missingInvite.length > 1 ? "s" : ""} sem convite configurado`,
         body: "Sem link de convite, novos membros não conseguem entrar automaticamente.",
         href: "/painel/grupos",
       });
+      if (insertError) {
+        console.error("[api/notifications/alerts] falha gravando alerta de grupo sem convite:", insertError.message);
+      }
       count++;
     }
   }
