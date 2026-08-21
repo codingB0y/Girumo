@@ -58,7 +58,15 @@ async function definirMeta(page: Page, valor: number | null) {
  */
 async function aguardarDashboard(page: Page) {
   await expect(page.locator(".pn-root")).toBeVisible();
-  await expect(page.getByText("Contatos captados")).toBeVisible({ timeout: 60_000 });
+  // Pelo LINK, nao por getByText: o texto casa por substring e ignorando
+  // maiusculas, entao "Contatos captados" do card do dashboard e o "contatos
+  // captados" do proprio cartao compartilhavel viram dois resultados e o strict
+  // mode derruba o teste. Aconteceu em 21/08/2026 — falhou numa rodada e passou
+  // na seguinte sem ninguem tocar no codigo, que e o pior tipo de vermelho.
+  // O cartao usa <p>; so o card do dashboard e um link.
+  await expect(page.getByRole("link", { name: /^Contatos captados/ })).toBeVisible({
+    timeout: 60_000,
+  });
   await expect(page.locator(".pn-skeleton")).toHaveCount(0);
 }
 
