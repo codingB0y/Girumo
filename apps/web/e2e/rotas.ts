@@ -59,6 +59,51 @@ function coletarRotas(relativeDir: string): string[] {
   return rotas.sort();
 }
 
+/**
+ * Os PADROES dinamicos (`/painel/pages/[id]`) — o complemento de `coletarRotas`.
+ *
+ * Existe desde 21/08/2026: a varredura estatica pulava `[id]` por precisar de um
+ * id que exista, e o efeito era que as telas de DETALHE — editor de pagina,
+ * campanha, cliente no /admin — nao tinham teste nenhum. Sao exatamente as telas
+ * onde o produto acontece.
+ *
+ * Devolve o padrao, nao a URL: quem sabe transformar `[id]` num id que existe e
+ * o fixture (ver `fixtures-dinamicas.ts`). A lista sair do filesystem e o que
+ * faz o mecanismo valer para tela dinamica FUTURA: rota nova aparece aqui
+ * sozinha e, sem fixture registrado, a suite falha — em vez de continuar verde
+ * sem cobrir nada, que e como este buraco nasceu.
+ *
+ * Serve tambem de prova de existencia da rota: um teste que so batesse na URL
+ * nao distinguiria "guard barrou" de "rota nao existe" (as duas dao o mesmo
+ * redirect), entao quem garante que o arquivo esta la e a varredura, nao o HTTP.
+ */
+function coletarRotasDinamicas(relativeDir: string): string[] {
+  const rotas: string[] = [];
+
+  const walk = (absoluteDir: string, urlPath: string, temDinamico: boolean) => {
+    let entries: string[];
+    try {
+      entries = readdirSync(absoluteDir);
+    } catch {
+      return;
+    }
+
+    if (temDinamico && entries.includes("page.tsx")) rotas.push(urlPath);
+
+    for (const entry of entries) {
+      const absolute = path.join(absoluteDir, entry);
+      if (!statSync(absolute).isDirectory()) continue;
+      // Route group e slot nao viram segmento de URL; a estatica ja os ignora.
+      if (entry.startsWith("(") || entry.startsWith("@")) continue;
+      walk(absolute, `${urlPath}/${entry}`, temDinamico || entry.startsWith("["));
+    }
+  };
+
+  walk(path.join(APP_DIR, relativeDir), `/${relativeDir}`, false);
+
+  return rotas.sort();
+}
+
 /** Toda rota estatica sob /painel — as que o middleware protege. */
 export const ROTAS_DO_PAINEL = coletarRotas("painel");
 
@@ -80,3 +125,20 @@ export const ROTAS_DO_ADMIN = coletarRotas("admin");
 
 /** Publicas: tem que responder sem sessao nenhuma. */
 export const ROTAS_PUBLICAS = ["/", "/login", "/signup"];
+
+/**
+ * Padroes dinamicos sob /painel — cobertos com fixture e sessao real.
+ */
+export const ROTAS_DINAMICAS_DO_PAINEL = coletarRotasDinamicas("painel");
+
+/**
+ * Padroes dinamicos sob /admin. Cobertura de GATE, pelo mesmo motivo das
+ * estaticas: o usuario de QA e lojista comum, e promove-lo a admin quebraria os
+ * seis testes H1 de `seguranca-impersonation.spec.ts`.
+ *
+ * `/admin/tenants/[id]` e a tela de detalhe de UM cliente — a mais sensivel do
+ * conjunto — e ate 21/08/2026 nenhum teste a tocava. O `requireAdmin` vive no
+ * layout de /admin, entao ele barra antes do lookup do tenant: um id qualquer
+ * exercita o guard sem depender de fixture nenhum.
+ */
+export const ROTAS_DINAMICAS_DO_ADMIN = coletarRotasDinamicas("admin");
