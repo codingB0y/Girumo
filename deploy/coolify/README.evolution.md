@@ -18,6 +18,21 @@ deploy/coolify/evolution.env.example          # template de env (server-only)
 > na **F4**, junto com `apps/worker/`. Referenciar imagem inexistente agora seria
 > artefato quebrado.
 
+## Este arquivo NÃO é o que roda em produção
+
+O Coolify guarda o compose desta stack **colado na UI** (recurso `evolution-api` →
+botão **"Edit Compose file"**), não puxado do git. Ou seja: **mergear um PR que
+altera este arquivo não muda nada em produção.** O Redeploy roda o YAML colado.
+
+Aconteceu em 18/08 com o gateway do `/manager` (PR #106): merge e dois Redeploys
+sem efeito, porque o serviço `evolution-gateway` sequer existia no Coolify —
+*Compose resources* listava só 3 serviços. Só passou a valer depois de colar o
+YAML completo na UI.
+
+Para aplicar qualquer mudança daqui em produção: cole o arquivo inteiro em
+"Edit Compose file" → Save → Deploy → **confira a contagem em *Compose
+resources*** antes de considerar aplicado.
+
 ## Passo a passo (infra — feito por você na VPS/Coolify)
 
 1. **DNS:** aponte `wa.seudominio.com` para o IP da VPS.
@@ -31,9 +46,13 @@ deploy/coolify/evolution.env.example          # template de env (server-only)
 4. **Env vars** do app Coolify: copie de `evolution.env.example` e preencha
    (`SERVER_URL=https://wa.seudominio.com`, `AUTHENTICATION_API_KEY`,
    `EVOLUTION_DB_PASSWORD`, ...).
-5. **Domínio + HTTPS:** aponte o domínio do serviço `evolution` para a porta
-   **8080**. Coolify emite o certificado (Let's Encrypt).
-6. **Deploy.** Aguarde os 3 containers ficarem `healthy`.
+5. **Domínio + HTTPS:** aponte o domínio para o serviço **`evolution-gateway`**
+   na porta **80** — não para `evolution:8080`. O gateway é quem fecha o
+   `/manager` (ver "Gateway HTTP" abaixo). Coolify emite o certificado.
+6. **Deploy.** Aguarde os **4** containers ficarem `healthy` (evolution,
+   evolution-gateway, postgres, redis). O domínio só pode ir para o gateway
+   depois que ele estiver `healthy` — apontar para container morto tira a API
+   do ar e para o envio.
 
 ## Hardening (checklist de segurança)
 
@@ -41,8 +60,9 @@ deploy/coolify/evolution.env.example          # template de env (server-only)
 - [ ] Postgres e Redis **sem porta no host** (só rede interna `girumo-net`) — já é
       o default do compose (sem `ports:`).
 - [ ] `AUTHENTICATION_API_KEY` >= 32 bytes, igual ao `EVOLUTION_API_KEY` da Vercel.
-- [ ] **Manager UI bloqueada:** no proxy do Coolify, negue `/manager` e
-      `/manager/*` (ou restrinja por IP). O painel do Girumo não usa o manager.
+- [ ] **Manager UI bloqueada:** o serviço `evolution-gateway` responde 403 em
+      `/manager*`. Só vale se o domínio apontar para ele — confira com o curl da
+      seção "Gateway HTTP", incluindo a rota de controle.
 - [ ] Firewall da VPS: expor só 80/443 (e 22 restrito). Nada de 5432/6379/8080
       direto no host.
 
@@ -134,6 +154,47 @@ Achados empíricos — não confie na doc, estes foram testados na stack no ar:
   Use a UI em `/manager` para o pareamento manual (e bloqueie-a depois — ver
   hardening).
 
+## Gateway HTTP (fecha o `/manager`)
+
+A Evolution v2 serve o console admin pelo próprio Express e **não tem env para
+desligá-lo**. Como o domínio precisa continuar aberto (Vercel e worker falam com
+a API por ele), o corte acontece antes dela: o serviço `evolution-gateway`
+(nginx) recebe o domínio, repassa tudo para `evolution:8080` e responde **403**
+em `/manager*`.
+
+Por que um container e não uma label do Caddy do Coolify: labels customizadas em
+stacks compose têm bugs conhecidos de truncamento e de serem sobrescritas pela
+config gerada, e o modo de falha é **silencioso** — você acha que bloqueou e não
+bloqueou. O gateway é versionado aqui e verificável por fora.
+
+### Cutover do domínio (é o único passo manual)
+
+1. No Coolify, **remova** o domínio do serviço `evolution` (a entrada antiga é
+   `https://wa.seudominio.com:8080`). Em "Add domain" existe um dropdown
+   **"Service application"** que escolhe qual serviço do compose recebe o
+   domínio — é ali que se erra: deixar em `Evolution Api` mantém tudo como
+   estava. O mesmo domínio não pode existir em dois serviços.
+2. **Adicione** o mesmo domínio ao serviço `evolution-gateway`, porta **80**.
+3. **Redeploy** (não Restart — variável de compose só é interpolada na criação
+   do container).
+
+Rollback, se algo sair errado: devolva o domínio para `evolution:8080` e
+redeploy. O envio volta na hora.
+
+### Verificação (obrigatória — sem isso não conte como feito)
+
+```bash
+BASE=https://wa.seudominio.com
+for p in / /manager /manager/ /healthz /rota-inventada-de-controle-xyz; do
+  printf '%-34s -> %s
+' "$p" "$(curl -sS -o /dev/null -w '%{http_code}' "$BASE$p")"
+done
+```
+
+Esperado: `/` **200**, `/manager` e `/manager/` **403**, `/healthz` **200**, e a
+rota inventada **404**. A rota de controle não é decoração: sem ela um proxy que
+responde igual para tudo passa por bloqueio funcionando.
+
 ## Rede interna para o worker (F4)
 
 O worker fala com a Evolution pela rede docker interna, não pelo HTTPS público:
@@ -160,7 +221,7 @@ Passos no deploy do `worker.docker-compose.yml`:
 
 ## Definition of done (F1)
 
-- [ ] 3 containers `healthy` no Coolify.
+- [ ] 4 containers `healthy` no Coolify (com `evolution-gateway`).
 - [ ] Smoke test: instância criada, QR escaneado, `connectionState = open`.
-- [ ] Manager UI inacessível de fora.
+- [ ] Manager UI inacessível de fora (403 no `/manager`, com controle 404).
 - [ ] Fixtures de webhook salvas em `apps/web/src/lib/evolution/__fixtures__/`.

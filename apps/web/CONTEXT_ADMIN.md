@@ -5,8 +5,8 @@ Manter e evoluir a área `/admin` — painel super-admin da plataforma multi-ten
 
 ## Arquitetura atual
 - **Framework:** Next.js 15 (App Router) + React 19 + Tailwind CSS
-- **Auth:** Super-admin via lista de emails em `PLATFORM_ADMIN_EMAILS` env var
-- **Guard:** `requireAdmin()` em `src/lib/admin-guard.ts` — verifica cookie de sessão + email na whitelist
+- **Auth:** Super-admin por `auth_user_id` na tabela `platform_admins` (fail-closed; e-mail não é credencial)
+- **Guard:** `requireAdmin()` em `src/lib/admin-guard.ts` — verifica cookie de sessão + linha em `platform_admins`
 - **Layout:** `src/app/admin/layout.tsx` — server component, verifica admin antes de renderizar
 - **Sidebar:** `src/components/admin/sidebar.tsx` — client component com seções Plataforma/Financeiro/Sistema
 - **Backend:** Supabase Admin client (service_role) para queries cross-tenant

@@ -3,17 +3,75 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AccountSection } from "@/components/painel/account-section";
-import { Smartphone, Users, CreditCard, User, ShieldCheck, RefreshCw, Wifi, WifiOff, Check, Loader2, ExternalLink, PartyPopper } from "lucide-react";
+import { Smartphone, Users, CreditCard, User, ShieldCheck, RefreshCw, Wifi, WifiOff, Check, Loader2, ExternalLink, PartyPopper, Bell, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  canOfferRemoval,
+  removalActionLabel,
+  removalPrompt,
+  removalSuccess,
+} from "@/lib/auth/member-removal";
 import { authenticatedFetch } from "@/lib/supabase/client";
 
-type Section = "Conexão" | "Equipe" | "Plano" | "Conta";
+type Section = "Conexão" | "Equipe" | "Notificações" | "Plano" | "Conta";
 const NAV: { key: Section; icon: typeof Smartphone }[] = [
   { key: "Conexão", icon: Smartphone },
   { key: "Equipe", icon: Users },
+  { key: "Notificações", icon: Bell },
   { key: "Plano", icon: CreditCard },
   { key: "Conta", icon: User },
 ];
+
+/**
+ * Chave curta usada no `?secao=` da URL. O rodapé do e-mail semanal promete
+ * "Desative em Configurações" — sem isso o link cai na página e a pessoa
+ * precisa adivinhar em qual aba está o toggle.
+ */
+const SECAO_POR_SLUG: Record<string, Section> = {
+  conexao: "Conexão",
+  equipe: "Equipe",
+  notificacoes: "Notificações",
+  plano: "Plano",
+  conta: "Conta",
+};
+
+/**
+ * Preferências de aviso. A chave é o nome do campo no `PATCH /api/settings` —
+ * assim o toggle manda `{ [key]: valor }` sem tabela de tradução no meio.
+ */
+type PreferenciaKey = "weeklyReportEnabled" | "disconnectAlertEnabled" | "broadcastAlertEnabled";
+type Preferencias = Record<PreferenciaKey, boolean>;
+
+const PREFERENCIAS: { key: PreferenciaKey; titulo: string; desc: string; aria: string }[] = [
+  {
+    key: "weeklyReportEnabled",
+    titulo: "Resumo semanal",
+    desc: "Toda segunda, o que seus grupos e campanhas fizeram na semana.",
+    aria: "Receber o resumo semanal por e-mail",
+  },
+  {
+    key: "disconnectAlertEnabled",
+    titulo: "WhatsApp desconectado",
+    desc: "Avisamos quando o número cai e fica mais de 2h fora do ar.",
+    aria: "Receber aviso de WhatsApp desconectado por e-mail",
+  },
+  {
+    key: "broadcastAlertEnabled",
+    titulo: "Disparo com falha",
+    desc: "Avisamos quando um disparo não chega aos grupos.",
+    aria: "Receber aviso de disparo com falha por e-mail",
+  },
+];
+
+// Todo aviso nasce ligado: resposta ausente ou quebrada não pode virar
+// "desligado" na tela, senão o lojista acha que optou por algo que não optou.
+function lerPreferencias(d: Partial<Preferencias> | null): Preferencias {
+  return {
+    weeklyReportEnabled: d?.weeklyReportEnabled ?? true,
+    disconnectAlertEnabled: d?.disconnectAlertEnabled ?? true,
+    broadcastAlertEnabled: d?.broadcastAlertEnabled ?? true,
+  };
+}
 
 type Session = { live?: boolean; phone?: string | null; profileName?: string | null; stats?: { warmup?: { day?: number; totalDays?: number } } };
 type Membership = { id: string; role: string; invited_email?: string | null; accepted_at?: string | null };
@@ -31,9 +89,30 @@ export default function PainelConfiguracoes() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteBusy, setInviteBusy] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [removeNotice, setRemoveNotice] = useState<string | null>(null);
   const [playbookGraduated, setPlaybookGraduated] = useState(false);
+  // `null` = ainda carregando (a UI mostra skeleton em vez de chutar um estado
+  // e piscar quando a resposta chegar).
+  const [prefs, setPrefs] = useState<Preferencias | null>(null);
+  // Guarda QUAL preferência está salvando, para desabilitar só aquele toggle.
+  const [prefBusy, setPrefBusy] = useState<PreferenciaKey | null>(null);
+  const [prefError, setPrefError] = useState<string | null>(null);
+
+  // Deep-link `?secao=notificacoes` do rodapé do e-mail. Lido de
+  // `window.location` em vez de `useSearchParams` para não exigir uma fronteira
+  // de Suspense nesta página inteira só por causa de um parâmetro opcional.
+  useEffect(() => {
+    const slug = new URLSearchParams(window.location.search).get("secao");
+    const alvo = slug ? SECAO_POR_SLUG[slug.toLowerCase()] : undefined;
+    if (alvo) setSection(alvo);
+  }, []);
 
   useEffect(() => {
+    authenticatedFetch("/api/settings")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setPrefs(lerPreferencias(d)))
+      .catch(() => setPrefs(lerPreferencias(null)));
     fetch("/api/session").then((r) => r.json()).then(setSession).catch(() => {});
     fetch("/api/members").then((r) => r.json()).then((d) => setMembers(Array.isArray(d) ? d : d?.members ?? [])).catch(() => {});
     fetch("/api/plans").then((r) => r.json()).then((d) => setPlans(Array.isArray(d) ? d : [])).catch(() => {});
@@ -47,6 +126,29 @@ export default function PainelConfiguracoes() {
   const live = session.live === true;
   const currentPlanCode = sub?.plans?.code ?? sub?.plan?.code ?? null;
   const currentPlanName = sub?.plans?.name ?? sub?.plan?.name ?? null;
+
+  async function togglePref(key: PreferenciaKey, proximo: boolean) {
+    const anterior = prefs;
+    if (!anterior) return;
+    setPrefs({ ...anterior, [key]: proximo }); // otimista: o toggle responde na hora
+    setPrefBusy(key);
+    setPrefError(null);
+    try {
+      const res = await authenticatedFetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [key]: proximo }),
+      });
+      if (!res.ok) throw new Error("falhou");
+    } catch {
+      // Sem o rollback o toggle mostraria "desativado" e o e-mail continuaria
+      // chegando — exatamente o tipo de mentira de UI que este PR remove.
+      setPrefs(anterior);
+      setPrefError("Não foi possível salvar. Tente de novo.");
+    } finally {
+      setPrefBusy(null);
+    }
+  }
 
   async function openCheckout(planCode: string) {
     setBusyPlan(planCode);
@@ -101,6 +203,30 @@ export default function PainelConfiguracoes() {
       setInviteError(e instanceof Error ? e.message : "Erro ao convidar.");
     } finally {
       setInviteBusy(false);
+    }
+  }
+
+  async function removeMember(m: Membership) {
+    if (!window.confirm(removalPrompt(m))) return;
+    setRemovingId(m.id);
+    setInviteError(null);
+    setRemoveNotice(null);
+    try {
+      const res = await authenticatedFetch(`/api/members?id=${encodeURIComponent(m.id)}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        // O servidor é a autoridade sobre quem pode remover quem (auto-remoção,
+        // admin × dono, último dono). A tela mostra o motivo que veio de lá.
+        throw new Error(d.error || "Erro ao remover.");
+      }
+      setMembers((prev) => prev.filter((x) => x.id !== m.id));
+      setRemoveNotice(removalSuccess(m));
+    } catch (e) {
+      setInviteError(e instanceof Error ? e.message : "Erro ao remover.");
+    } finally {
+      setRemovingId(null);
     }
   }
 
@@ -192,6 +318,11 @@ export default function PainelConfiguracoes() {
                 </button>
               </div>
               {inviteError && <p className="mt-2 text-sm text-alerta">{inviteError}</p>}
+              {removeNotice && (
+                <p className="mt-2 text-sm text-aco/70" role="status">
+                  {removeNotice}
+                </p>
+              )}
 
               {members.length === 0 ? (
                 <p className="font-editorial mt-4 text-[17px] italic text-ardosia">Só você por enquanto. Convide alguém acima.</p>
@@ -209,9 +340,73 @@ export default function PainelConfiguracoes() {
                       <span className={cn("font-data rounded-full px-2.5 py-1 text-[10px] uppercase tracking-[0.06em]", m.role === "owner" ? "bg-cobalt-500/10 text-cobalt-700" : "bg-poco text-aco/60")}>
                         {m.role}
                       </span>
+                      {canOfferRemoval(m) && (
+                        <button
+                          type="button"
+                          onClick={() => void removeMember(m)}
+                          disabled={removingId === m.id}
+                          aria-label={removalActionLabel(m)}
+                          title={m.accepted_at ? "Remover da equipe" : "Revogar convite"}
+                          className="rounded-lg p-2 text-aco/45 transition hover:bg-alerta/10 hover:text-alerta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-alerta/30 disabled:opacity-50"
+                        >
+                          {removingId === m.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
+              )}
+            </Panel>
+          )}
+
+          {section === "Notificações" && (
+            <Panel title="Notificações" desc="O que a gente te manda por e-mail.">
+              <div className="space-y-2">
+                {PREFERENCIAS.map((p) => {
+                  const ligado = prefs?.[p.key];
+                  return (
+                    <div
+                      key={p.key}
+                      className="flex items-start justify-between gap-4 rounded-2xl bg-poco px-4 py-3.5"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-volt-950">{p.titulo}</p>
+                        <p className="mt-0.5 text-xs text-aco/60">{p.desc}</p>
+                      </div>
+                      {ligado === undefined ? (
+                        <span className="pn-skeleton h-6 w-11 shrink-0 rounded-full" />
+                      ) : (
+                        <button
+                          role="switch"
+                          aria-checked={ligado}
+                          aria-label={p.aria}
+                          disabled={prefBusy === p.key}
+                          onClick={() => togglePref(p.key, !ligado)}
+                          className={cn(
+                            "relative h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-[160ms] ease-[var(--ease-fluxo)] disabled:cursor-not-allowed disabled:opacity-60",
+                            ligado ? "bg-cobalt-500" : "bg-volt-950/20",
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-[160ms] ease-[var(--ease-fluxo)]",
+                              ligado ? "translate-x-[22px]" : "translate-x-0.5",
+                            )}
+                          />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {prefError && (
+                <p role="alert" className="mt-2 text-sm text-alerta">
+                  {prefError}
+                </p>
               )}
             </Panel>
           )}
@@ -231,6 +426,17 @@ export default function PainelConfiguracoes() {
                     Portal Stripe
                   </button>
                 </div>
+              )}
+              {currentPlanCode && currentPlanCode !== "FREE" && (
+                <p className="mb-4 text-xs text-aco/55">
+                  Quer parar de usar?{" "}
+                  <Link
+                    href="/painel/configuracoes/cancelar"
+                    className="underline decoration-dotted underline-offset-2 transition-colors duration-[160ms] ease-[var(--ease-fluxo)] hover:text-alerta"
+                  >
+                    Cancelar assinatura
+                  </Link>
+                </p>
               )}
               <div className="grid gap-3 sm:grid-cols-3">
                 {plans.filter((p) => p.code !== "FREE").map((p) => {

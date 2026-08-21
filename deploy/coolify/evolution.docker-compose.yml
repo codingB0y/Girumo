@@ -6,7 +6,8 @@
 #  - Postgres e Redis SEM porta no host (só rede interna girumo-net).
 #  - Evolution exposta apenas via proxy do Coolify (HTTPS + domínio), nunca host port.
 #  - AUTHENTICATION_API_KEY forte (>=32 bytes) = EVOLUTION_API_KEY na Vercel/worker.
-#  - Manager UI (/manager) deve ser bloqueada no proxy — ver README.evolution.md.
+#  - Manager UI (/manager) fechada pelo servico `evolution-gateway` (403), que e
+#    quem recebe o dominio publico. A Evolution nao fica mais exposta direto.
 #  - Webhook é POR INSTÂNCIA (setWebhook na F2), não global.
 
 networks:
@@ -110,6 +111,79 @@ services:
       retries: 5
       start_period: 10s
 
+
+  # Gateway HTTP — a ÚNICA porta que o proxy do Coolify publica no domínio.
+  # Repassa tudo para a Evolution, menos o console admin `/manager`, que responde
+  # 403. Existe porque a Evolution v2 serve o manager pelo próprio Express e não
+  # tem env pra desligá-lo: o corte precisa acontecer antes dela.
+  #
+  # ATENÇÃO: no Coolify o domínio (wa.girumo.com.br) tem que apontar para ESTE
+  # serviço na porta 80 — não mais para `evolution:8080`. Ver README.evolution.md.
+  evolution-gateway:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      evolution:
+        condition: service_healthy
+    # Sem `ports:` — quem publica no host é o proxy do Coolify.
+    expose:
+      - "80"
+    networks:
+      - girumo-net
+    # Config inline: a stack no Coolify não tem os arquivos do repo montados, então
+    # o nginx.conf é escrito no boot. `$$` é escape do Compose e chega como `$`.
+    command:
+      - /bin/sh
+      - -c
+      - |
+        cat > /etc/nginx/conf.d/default.conf <<'NGINXCONF'
+        server {
+          listen 80;
+          server_name _;
+
+          # Mídia sai em base64 no corpo do POST; o default do nginx (1m) cortaria
+          # o envio. Não baixar sem medir o maior payload real.
+          client_max_body_size 100m;
+
+          # DNS interno do Docker, reavaliado a cada 10s. Sem isso o nginx fixa o IP
+          # da Evolution no boot e para de achá-la quando o container dela reinicia.
+          resolver 127.0.0.11 valid=10s ipv6=off;
+
+          # Prova de vida do próprio gateway, sem depender da Evolution — senão uma
+          # Evolution fora do ar deixaria o gateway unhealthy e em restart loop.
+          location = /healthz {
+            access_log off;
+            return 200 "ok\n";
+          }
+
+          # Console admin da Evolution: fechado. A API REST segue aberta (protegida
+          # pela apikey) — o que sai do ar é só a UI, que o painel do Girumo não usa.
+          location ^~ /manager {
+            return 403;
+          }
+
+          location / {
+            set $$evo http://evolution:8080;
+            proxy_pass $$evo$$request_uri;
+            proxy_http_version 1.1;
+            proxy_set_header Host $$host;
+            proxy_set_header X-Real-IP $$remote_addr;
+            proxy_set_header X-Forwarded-For $$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $$scheme;
+            proxy_set_header Upgrade $$http_upgrade;
+            proxy_set_header Connection $$http_connection;
+            proxy_read_timeout 300s;
+            proxy_send_timeout 300s;
+          }
+        }
+        NGINXCONF
+        exec nginx -g 'daemon off;'
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 volumes:
   evolution_instances:
   evolution_store:

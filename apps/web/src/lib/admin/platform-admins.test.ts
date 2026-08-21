@@ -1,56 +1,72 @@
-import { test, afterEach } from "node:test";
+import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parsePlatformAdminEmails, platformAdminEmails, isPlatformAdminEmail } from "./platform-admins";
+import {
+  isAdminFromQuery,
+  normalizePlatformAdmins,
+  type PlatformAdmin,
+} from "./platform-admins";
 
-const original = process.env.PLATFORM_ADMIN_EMAILS;
-afterEach(() => {
-  if (original === undefined) delete process.env.PLATFORM_ADMIN_EMAILS;
-  else process.env.PLATFORM_ADMIN_EMAILS = original;
-});
-
-test("sem a variável a lista é vazia — fail-closed, ninguém é admin", () => {
-  // O bug do L3: o default hardcoded dava super-admin a uma identidade que
-  // nenhum ambiente declarou, e um deploy sem a variável parecia configurado.
-  assert.deepEqual(parsePlatformAdminEmails(undefined), []);
-  assert.deepEqual(parsePlatformAdminEmails(null), []);
-  assert.deepEqual(parsePlatformAdminEmails(""), []);
-  assert.deepEqual(parsePlatformAdminEmails("   "), []);
-  assert.deepEqual(parsePlatformAdminEmails(",, ,"), []);
-});
-
-test("o e-mail do antigo fallback não é mais especial", () => {
-  delete process.env.PLATFORM_ADMIN_EMAILS;
-  assert.deepEqual(platformAdminEmails(), []);
-  assert.equal(isPlatformAdminEmail("igor@hubflow.com.br"), false);
-});
-
-test("normaliza espaço, caixa e entradas vazias", () => {
-  assert.deepEqual(parsePlatformAdminEmails("a@b.com"), ["a@b.com"]);
-  assert.deepEqual(
-    parsePlatformAdminEmails("  Igor@HubFlow.com.br , ADMIN@hubflow.com.br,, "),
-    ["igor@hubflow.com.br", "admin@hubflow.com.br"],
+test("erro na consulta nega o acesso mesmo com linha presente", () => {
+  // O caso que justifica a ordem das checagens: o PostgREST pode devolver `data`
+  // residual junto de `error`. Se olhássemos `data` primeiro, uma falha de leitura
+  // liberaria o /admin — exatamente o oposto de falhar fechado.
+  assert.equal(
+    isAdminFromQuery({ data: { auth_user_id: "abc" }, error: { message: "boom" } }),
+    false,
   );
 });
 
-test("isPlatformAdminEmail compara sem caixa e tolera espaço", () => {
-  process.env.PLATFORM_ADMIN_EMAILS = "igor@hubflow.com.br,admin@hubflow.com.br";
-  assert.equal(isPlatformAdminEmail("igor@hubflow.com.br"), true);
-  assert.equal(isPlatformAdminEmail("IGOR@HubFlow.COM.BR"), true);
-  assert.equal(isPlatformAdminEmail("  admin@hubflow.com.br  "), true);
-  assert.equal(isPlatformAdminEmail("estranho@exemplo.com"), false);
+test("tabela ausente nega o acesso em vez de liberar", () => {
+  // Ambiente onde a migration não rodou: o erro é 42P01 (relation does not exist).
+  assert.equal(
+    isAdminFromQuery({ data: null, error: { code: "42P01" } }),
+    false,
+  );
 });
 
-test("e-mail ausente nunca casa, nem com a lista preenchida", () => {
-  process.env.PLATFORM_ADMIN_EMAILS = "igor@hubflow.com.br";
-  assert.equal(isPlatformAdminEmail(undefined), false);
-  assert.equal(isPlatformAdminEmail(null), false);
-  assert.equal(isPlatformAdminEmail(""), false);
-  assert.equal(isPlatformAdminEmail("   "), false);
+test("usuário sem linha na tabela não é admin", () => {
+  assert.equal(isAdminFromQuery({ data: null, error: null }), false);
+  assert.equal(isAdminFromQuery({ data: undefined, error: null }), false);
 });
 
-test("substring de um admin não casa — a lista é exata", () => {
-  process.env.PLATFORM_ADMIN_EMAILS = "igor@hubflow.com.br";
-  assert.equal(isPlatformAdminEmail("igor@hubflow.com.br.evil.com"), false);
-  assert.equal(isPlatformAdminEmail("igor@hubflow.com"), false);
-  assert.equal(isPlatformAdminEmail("xigor@hubflow.com.br"), false);
+test("linha presente e sem erro libera o acesso", () => {
+  assert.equal(
+    isAdminFromQuery({ data: { auth_user_id: "d64bdd16" }, error: null }),
+    true,
+  );
+});
+
+test("a lista de admins é vazia quando a leitura falha", () => {
+  assert.deepEqual(normalizePlatformAdmins({ data: null, error: { message: "x" } }), []);
+  assert.deepEqual(normalizePlatformAdmins({ data: [], error: null }), []);
+  assert.deepEqual(normalizePlatformAdmins({ data: "nao-array", error: null }), []);
+});
+
+test("linha sem auth_user_id é descartada da lista", () => {
+  // Uma entrada que não identifica ninguém não pode aparecer numa lista de auditoria.
+  const out = normalizePlatformAdmins({
+    data: [{ email: "orfa@exemplo.com" }, { auth_user_id: "ok", email: null }],
+    error: null,
+  });
+  assert.equal(out.length, 1);
+  assert.equal(out[0].authUserId, "ok");
+});
+
+test("email e note ausentes viram null, não undefined", () => {
+  const out = normalizePlatformAdmins({
+    data: [{ auth_user_id: "abc" }],
+    error: null,
+  });
+  const expected: PlatformAdmin[] = [{ authUserId: "abc", email: null, note: null }];
+  assert.deepEqual(out, expected);
+});
+
+test("email e note são preservados quando existem", () => {
+  const out = normalizePlatformAdmins({
+    data: [{ auth_user_id: "abc", email: "eu@exemplo.com", note: "fundador" }],
+    error: null,
+  });
+  assert.deepEqual(out, [
+    { authUserId: "abc", email: "eu@exemplo.com", note: "fundador" },
+  ]);
 });

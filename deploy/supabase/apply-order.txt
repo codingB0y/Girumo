@@ -102,3 +102,29 @@ apps/web/supabase/migrations/20260812120000_board_quadro.sql
 # 1x por comentário PRA SEMPRE — o unique é o que torna o reenvio da Meta inócuo.
 # Nada aqui toca a engine de WhatsApp. Idempotente.
 apps/web/supabase/migrations/20260817120000_ig_connect.sql
+
+# Preferências de notificação por evento: opt-out do alerta de desconexão e do
+# aviso de disparo falho, ao lado do weekly_report_enabled que já existia.
+# Default true (ninguém para de receber por causa da migration). Idempotente.
+apps/web/supabase/migrations/20260817120000_notification_preferences.sql
+
+# Super-admin da plataforma por identidade, não por e-mail: cria `platform_admins`
+# (PK = auth_user_id) e dropa `platform_settings`, órfã e com 0 linhas nos dois
+# bancos desde o refactor de 06/07/2026. A tabela nasce VAZIA e o guard falha
+# fechado — semear o primeiro admin por SQL ANTES de deployar o código que a lê.
+# Idempotente.
+apps/web/supabase/migrations/20260817230000_platform_admins.sql
+
+# Revogacao de sessao (L6 da auditoria de 06/08). O cookie dz_session vale 30
+# dias e o logout so apagava o cookie do navegador — o token seguia valido.
+# Guarda, por auth_user, o instante a partir do qual os tokens sao recusados:
+# revogar e escrever now(), e todo token com iat anterior morre de uma vez.
+# RLS ligada com policy deny-all: so o service-role toca. Idempotente.
+apps/web/supabase/migrations/20260819200000_session_revocations.sql
+
+# Funcoes do funil das paginas publicas (record_lp_tracking_event e
+# confirm_lp_capture). Descobertas em 20/08/2026 existindo SO em producao,
+# aplicadas a mao e sem arquivo no repo: em dev o /api/p/track respondia 204 sem
+# gravar nada (204 e tambem o codigo do sucesso, entao a falha era invisivel) e
+# o /api/p/lead dava 500. Idempotente; em prod e no-op.
+apps/web/supabase/migrations/20260820140000_lp_funnel_functions.sql

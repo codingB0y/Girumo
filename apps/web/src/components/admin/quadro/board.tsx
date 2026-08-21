@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BOARD_STATUSES,
+  STATUS_HINTS,
   STATUS_LABELS,
   WIP_LIMIT_EM_CONSTRUCAO,
   groupByStatus,
@@ -111,13 +112,18 @@ export function QuadroBoard({ initial }: QuadroBoardProps) {
 
             return (
               <section key={status} className="flex w-64 shrink-0 flex-col gap-2">
-                <header className="flex items-baseline justify-between px-1">
-                  <h2 className="font-data text-[11px] uppercase tracking-wider text-aco/70">
-                    {STATUS_LABELS[status]}
-                  </h2>
-                  <span className={`font-data text-[11px] ${WIP_STYLE[wip]}`}>
-                    {hasLimit ? `${cards.length}/${WIP_LIMIT_EM_CONSTRUCAO}` : cards.length}
-                  </span>
+                <header className="px-1">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <h2 className="font-data text-[11px] uppercase tracking-wider text-aco/70">
+                      {STATUS_LABELS[status]}
+                    </h2>
+                    <span className={`font-data text-[11px] ${WIP_STYLE[wip]}`}>
+                      {hasLimit ? `${cards.length}/${WIP_LIMIT_EM_CONSTRUCAO}` : cards.length}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-[11px] leading-tight text-aco/45">
+                    {STATUS_HINTS[status]}
+                  </p>
                 </header>
 
                 {cards.map((feature) => (

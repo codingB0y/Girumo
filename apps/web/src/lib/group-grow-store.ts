@@ -312,6 +312,13 @@ async function registerGrownGroup(tenantId: string, g: {
     selected: false,
     engagement: "medio",
     invite_url: g.inviteUrl,
+    // Quem cria um grupo no WhatsApp é admin dele — não é suposição, é a regra da
+    // plataforma. Sem esta flag o grupo entra no pool "não-admin" e a captura de
+    // lead o descarta (`lead-capture.ts`), então todo mundo que entrasse pelo
+    // link recém-criado seria perdido até o próximo sync recalcular `is_admin`.
+    // A janela é curta, mas o link vai ao ar no mesmo instante: é justamente
+    // quando mais gente entra.
+    is_admin: true,
   }]);
 }
 
