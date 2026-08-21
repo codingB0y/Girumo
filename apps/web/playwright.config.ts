@@ -2,7 +2,7 @@ import { resolve as resolvePath } from "node:path";
 
 import { config as carregaEnv } from "dotenv";
 import { defineConfig, devices } from "@playwright/test";
-import { ESTADO_LOGADO } from "./e2e/caminhos";
+import { BASE_URL, ESTADO_LOGADO } from "./e2e/caminhos";
 
 /**
  * Credenciais do usuario de QA vivem em `.env.local` (fora do git). O processo
@@ -25,7 +25,7 @@ carregaEnv({ path: resolvePath(__dirname, ".env.local"), override: false });
  * O relatorio HTML e a prova exigida pelo quadro para mover card para
  * `no_ar_verificado` — ele carrega screenshot de cada rota conferida.
  */
-const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
+const baseURL = BASE_URL;
 const usaServidorExterno = Boolean(process.env.E2E_BASE_URL);
 
 /**

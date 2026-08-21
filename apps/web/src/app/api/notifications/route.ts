@@ -27,6 +27,7 @@ export async function GET(req: Request) {
   const { data, error } = await query;
 
   if (error) {
+    console.error("[api/notifications] falha lendo notifications:", error.message);
     return NextResponse.json({ error: "Erro ao buscar notificações." }, { status: 500 });
   }
 
@@ -52,6 +53,7 @@ export async function PATCH(req: Request) {
       .is("read_at", null);
 
     if (error) {
+      console.error("[api/notifications] falha marcando todas como lidas:", error.message);
       return NextResponse.json({ error: "Erro ao marcar." }, { status: 500 });
     }
     return NextResponse.json({ ok: true });
@@ -68,6 +70,7 @@ export async function PATCH(req: Request) {
     .in("id", body.ids);
 
   if (error) {
+    console.error("[api/notifications] falha marcando ids como lidos:", error.message);
     return NextResponse.json({ error: "Erro ao marcar." }, { status: 500 });
   }
 

@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { ESTADO_LOGADO } from "./caminhos";
+import { BASE_URL, ESTADO_LOGADO } from "./caminhos";
 
 export const CREDENCIAIS = {
   email: process.env.E2E_EMAIL ?? "",
@@ -45,4 +45,67 @@ export async function entrar(page: Page, destino = "/painel") {
 export async function semErroDeRuntime(page: Page) {
   await expect(page.getByText("Application error")).toHaveCount(0);
   await expect(page.getByText("Unhandled Runtime Error")).toHaveCount(0);
+}
+
+/**
+ * Coleta respostas 5xx da propria app durante a navegacao.
+ *
+ * `pageerror` so pega excecao de JS: uma rota de API que devolve 500 e cujo
+ * chamador degrada em silencio nao levanta nada, e a tela passa no teste
+ * quebrada por dentro. Foi assim que o GET /api/notifications ficou dando 500
+ * em todo carregamento do /painel sem ninguem notar (21/08/2026).
+ */
+const TOLERADAS = [
+  // /painel/conectar provisiona a instancia na Evolution ao montar quando o
+  // tenant ainda nao tem uma. Nem o CI nem a maquina local alcancam a Evolution,
+  // entao o POST devolve 502 — ambiente, nao regressao. Se um dia o ambiente de
+  // teste ganhar uma Evolution (ou um mock), apague esta entrada.
+  { metodo: "POST", rota: "/api/instances", status: 502 },
+];
+
+export function coletarFalhasDeApi(page: Page): string[] {
+  const falhas: string[] = [];
+
+  page.on("response", (resposta) => {
+    if (resposta.status() < 500) return;
+
+    // So o que a propria app serve — 5xx de terceiro nao e regressao nossa.
+    // Ancorado no baseURL, e nao em page.url(), que ainda e about:blank quando
+    // chega a resposta do primeiro documento.
+    if (!resposta.url().startsWith(BASE_URL)) return;
+
+    const url = new URL(resposta.url());
+    const metodo = resposta.request().method();
+
+    // Toleradas: dependem de servico externo que nao existe no ambiente de
+    // teste. A lista e por (metodo, rota, status) de proposito — tolerar "5xx
+    // nessa rota" esconderia o proximo bug de verdade nela.
+    const tolerada = TOLERADAS.some(
+      (t) => t.metodo === metodo && t.rota === url.pathname && t.status === resposta.status(),
+    );
+    if (tolerada) return;
+
+    falhas.push(`${resposta.status()} ${metodo} ${url.pathname}${url.search}`);
+  });
+
+  return falhas;
+}
+
+/**
+ * Arma a espera pelo fetch que o shell do painel faz ao montar.
+ *
+ * Precisa ser chamado ANTES do `goto`. Sem uma ancora assim, `networkidle`
+ * sozinho nao serve: em dev ha uma pausa de mais de 500ms entre o `load` e a
+ * hidratacao, e o Playwright chama esse silencio de "rede ociosa" — o teste
+ * termina antes de a app ter pedido qualquer dado, e passa por isso.
+ *
+ * Resolve com null se a chamada nao vier (o sino saiu do shell, por exemplo),
+ * para virar tempo perdido e nao vermelho falso.
+ */
+export function esperarShellBuscarDados(page: Page): Promise<unknown> {
+  return page
+    .waitForResponse((r) => new URL(r.url()).pathname === "/api/notifications", {
+      timeout: 15_000,
+    })
+    .catch(() => null);
 }

@@ -128,3 +128,12 @@ apps/web/supabase/migrations/20260819200000_session_revocations.sql
 # gravar nada (204 e tambem o codigo do sucesso, entao a falha era invisivel) e
 # o /api/p/lead dava 500. Idempotente; em prod e no-op.
 apps/web/supabase/migrations/20260820140000_lp_funnel_functions.sql
+
+# notifications: repoe `href` e `read_at`. A tabela tem duas migracoes
+# concorrentes com `create table if not exists` e colunas divergentes (a de
+# infra/ tem as duas colunas, a de apps/web/ nao tem) — quem aplicou so a
+# segunda ficou com a tabela curta. Em dev (21/08/2026) o GET
+# /api/notifications dava 500 em todo carregamento do /painel, com
+# `42703 column notifications.href does not exist`, e os tres inserts de
+# /api/notifications/alerts falhavam sem erro visivel. Idempotente.
+apps/web/supabase/migrations/20260821120000_notifications_href_read_at.sql
