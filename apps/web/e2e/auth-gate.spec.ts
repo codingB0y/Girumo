@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { ROTAS_DO_PAINEL, ROTAS_PUBLICAS } from "./rotas";
+import { ROTAS_DO_ADMIN, ROTAS_DO_PAINEL, ROTAS_PUBLICAS } from "./rotas";
 
 /**
  * Gate de sessao — roda sem credencial nenhuma.
@@ -38,12 +38,39 @@ test("controle: rota inventada tambem cai no gate (por isso o gate nao prova exi
   await caiuNoLoginVoltandoPara(page, "/painel/rota-que-nao-existe-999");
 });
 
+// O painel de PLATAFORMA tambem nao pode vazar sem sessao. Aqui nao se assere o
+// `next`: /admin passa pelo `requireAdmin`, que redireciona com `next=/admin`
+// fixo, enquanto o middleware do painel preserva a rota pedida. Cobrar os dois
+// formatos no mesmo helper daria falso vermelho.
+// Que lojista LOGADO tambem e barrado esta em admin-gate.spec.ts — e la que a
+// checagem de admin e de fato exercida.
+for (const rota of ROTAS_DO_ADMIN) {
+  test(`sem sessao, ${rota} nao abre o painel de plataforma`, async ({ page }) => {
+    await page.goto(rota);
+    await page.waitForURL((url) => url.pathname === "/login", { timeout: 15_000 });
+    expect(new URL(page.url()).pathname).toBe("/login");
+  });
+}
+
 for (const rota of ROTAS_PUBLICAS) {
-  test(`publica: ${rota} abre sem sessao`, async ({ page }) => {
+  test(`publica: ${rota} abre sem sessao`, async ({ page }, testInfo) => {
     const resposta = await page.goto(rota);
     expect(resposta?.status(), `${rota} deveria responder 2xx`).toBeLessThan(400);
     // Comparar com a propria rota, e nao com "diferente de /login": /login e
     // uma das publicas, e a versao anterior desta linha se auto-reprovava.
     expect(new URL(page.url()).pathname, `${rota} foi desviada`).toBe(rota);
+
+    // Screenshot da landing e das telas de entrada: sao a cara do produto para
+    // quem chega, e ate 21/08 a suite so conferia o status HTTP delas. Um 200
+    // com a pagina em branco passava. O anexo tambem e a prova datada que o
+    // quadro exige para mover card de landing a `no_ar_verificado`.
+    await page.waitForLoadState("networkidle").catch(() => {
+      // Landing com animacao/canvas pode nunca ficar ociosa; o screenshot abaixo
+      // vale do mesmo jeito, entao o timeout aqui nao reprova o teste.
+    });
+    await testInfo.attach(`tela ${rota}`, {
+      body: await page.screenshot({ fullPage: true }),
+      contentType: "image/png",
+    });
   });
 }

@@ -62,5 +62,21 @@ function coletarRotas(relativeDir: string): string[] {
 /** Toda rota estatica sob /painel — as que o middleware protege. */
 export const ROTAS_DO_PAINEL = coletarRotas("painel");
 
+/**
+ * Toda rota estatica sob /admin — o painel de PLATAFORMA.
+ *
+ * Ficou fora do smoke ate 21/08/2026: eram 13 telas com zero cobertura, e
+ * `page.tsx` quebrado ali passava inteiro pelo CI. E a superficie mais sensivel
+ * do produto (billing, tenants, impersonation), entao era o pior lugar possivel
+ * para nao ter teste.
+ *
+ * Ao contrario de /painel, estas rotas NAO sao exercidas logadas: o usuario de
+ * QA e um lojista comum e nao esta em `platform_admins`. Promove-lo destruiria
+ * os testes H1 de seguranca-impersonation.spec.ts, que dependem exatamente dele
+ * NAO ser admin. Por isso a cobertura aqui e de gate (quem nao pode, nao entra),
+ * nao de renderizacao.
+ */
+export const ROTAS_DO_ADMIN = coletarRotas("admin");
+
 /** Publicas: tem que responder sem sessao nenhuma. */
 export const ROTAS_PUBLICAS = ["/", "/login", "/signup"];
