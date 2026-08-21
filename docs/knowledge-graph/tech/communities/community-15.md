@@ -1,6 +1,7 @@
 # Community 15
 
-- [[claim_engine_commands|Claim_Engine_Commands]]
-- [[complete_engine_command|Complete_Engine_Command]]
-- [[engine_command_status|Engine_Command_Status]]
-- [[engine_commands|Engine_Commands]]
+- [[compileroptions|CompilerOptions]]
+- [[nextjs-claude-code-starter|Nextjs-claude-code-starter]]
+- [[node_modules|Node_modules]]
+- [[src|Src]]
+- [[tsconfigjson|Tsconfig.json]]

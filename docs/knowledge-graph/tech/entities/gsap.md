@@ -1,11 +1,8 @@
-# Gsap
+# GSAP
 
 **Type:** artifact
 
-A JavaScript library for animation.
-
-## Neighbors
-- [[hubflow-web|Hubflow-web]]
+An animation library imported dynamically on the client.
 
 ## Appears in
-- `apps » web » package.json`
+- `FRONTEND_AUDIT.md`

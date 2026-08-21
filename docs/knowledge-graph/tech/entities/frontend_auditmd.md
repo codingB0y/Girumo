@@ -1,11 +1,13 @@
-# Frontend_Audit.md
+# FRONTEND_AUDIT.md
 
 **Type:** content
 
-A document containing audit findings regarding UX, UI, and performance.
+A read-only frontend audit document covering UX, UI, componentization, and performance with a date of 2026-07-03.
 
 ## Neighbors
-- [[roadmapmd|Roadmap.md]]
+- [[lighthouse|Lighthouse]]
+- [[audit_reportmd|AUDIT_REPORT.md]]
+- [[task_progressmd|TASK_PROGRESS.md]]
 
 ## Appears in
-- `PROJECT_CONTEXT.md`
+- `FRONTEND_AUDIT.md`

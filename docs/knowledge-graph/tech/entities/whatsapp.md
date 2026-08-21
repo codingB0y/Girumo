@@ -1,11 +1,11 @@
-# WhatsApp
+# <WhatsApp>
 
-**Type:** artifact
+**Type:** UNKNOWN
 
-An external communication service integrated as an instance within the platform.
+<Users can contact the controller through WhatsApp or email.>
 
 ## Neighbors
-- [[hubflow-engine|Hubflow-Engine]]
+- [[controlador|<Controlador>]]
 
 ## Appears in
-- `DEPLOY_ONLINE_RUNBOOK.md`
+- `.. » VIREI MODA » vireimoda-lp » src » app » privacidade » page.tsx`

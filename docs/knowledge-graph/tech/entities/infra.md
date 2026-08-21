@@ -1,17 +1,13 @@
-# Infra
+# Infra/
 
-**Type:** organization
+**Type:** artifact
 
-The team or architectural layer responsible for infrastructure, deployment, and operational stability.
+A directory considered as a candidate for the single source of truth for database migrations.<SEP>A directory created as part of the target scaffold structure.
 
 ## Neighbors
-- [[abase-validado|Abase Validado]]
-- [[runbook-de-restore|Runbook De Restore]]
-- [[uptime-alertas|Uptime/Alertas]]
-- [[sla|SLA]]
-- [[docker-limits|Docker Limits]]
-- [[dr|DR]]
-- [[audit-log|Audit Log]]
+- [[apps-web-supabase-migrations|Apps/web/supabase/migrations]]
+- [[deploy-supabase-apply-ordermd|Deploy/supabase/apply-order.md]]
 
 ## Appears in
-- `ROADMAP.md`
+- `AUDIT_REPORT.md`
+- `docs » FASE_1_AUDITORIA_CODIGO_ATUAL.md`

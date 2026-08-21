@@ -1,11 +1,11 @@
-# Igor
+# <Igor>
 
 **Type:** person
 
-A contributor responsible for confirming plans, pricing, and infrastructure progress for HubFlow.
+A reviewer and decision maker who reviewed the playbook and anti-ban rules.
 
 ## Neighbors
-- [[hubflow|HubFlow]]
+- [[mega-stock|<Mega Stock>]]
 
 ## Appears in
-- `PROJECT_CONTEXT.md`
+- `IMPLEMENTATION_PLAN.md`

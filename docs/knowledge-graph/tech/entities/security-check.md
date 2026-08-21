@@ -1,12 +1,8 @@
-# Security Check
+# Security-check
 
 **Type:** method
 
-A diagnostic procedure performed via an API call to verify the security status of the system.
-
-## Neighbors
-- [[hubflow-engine|Hubflow-Engine]]
-- [[api|Api]]
+A security validation check that returns whether the environment is isolated.
 
 ## Appears in
-- `DEV_SETUP.md`
+- `docs » LOCAL_TESTING.md`

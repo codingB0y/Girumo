@@ -1,11 +1,12 @@
-# Mega Stock
+# <Mega Stock>
 
-**Type:** organization
+**Type:** concept
 
-A wholesale children's clothing company founded by the creators of HubFlow, serving as the central case study for the SaaS.
+A business method productized as a live checklist journey for traffic, groups, and sales.
 
 ## Neighbors
-- [[hubflow|HubFlow]]
+- [[igor|<Igor>]]
+- [[playbook-progress-table|<Playbook Progress Table>]]
 
 ## Appears in
-- `PROJECT_CONTEXT.md`
+- `IMPLEMENTATION_PLAN.md`

@@ -1,11 +1,8 @@
-# Go_no_go.md
+# GO_NO_GO.md
 
 **Type:** content
 
-A documentation file used to declare the readiness state of the production environment.
-
-## Neighbors
-- [[production_checklistmd|Production_Checklist.md]]
+Deployment readiness document declaring production status and requirements.
 
 ## Appears in
-- `PROJECT_CONTEXT.md`
+- `INFRA_AUDIT.md`

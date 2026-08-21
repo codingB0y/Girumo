@@ -1,11 +1,11 @@
-# Lucide-react
+# Lucide React
 
 **Type:** artifact
 
-A collection of icons for React projects.
+Icon library.
 
 ## Neighbors
-- [[hubflow-web|Hubflow-web]]
+- [[web|Web]]
 
 ## Appears in
-- `apps » web » package.json`
+- `AUDIT_REPORT.md`

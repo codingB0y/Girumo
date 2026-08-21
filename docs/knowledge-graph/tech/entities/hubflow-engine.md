@@ -1,16 +1,14 @@
-# Hubflow-engine
+# <Hubflow-Engine>
 
-**Type:** artifact
+**Type:** UNKNOWN
 
-A software service responsible for engine operations, defined in a Docker Compose configuration.
+The hubflow-engine processes commands originating from Supabase in the initial version.
 
 ## Neighbors
-- [[supabase|Supabase]]
-- [[docker-composeyml|Docker-compose.yml]]
-- [[hubflow_engine_auth|Hubflow_engine_auth]]
-- [[hubflow_engine_sessions|Hubflow_engine_sessions]]
-- [[hubflow_engine_state|Hubflow_engine_state]]
-- [[engine-statejson|Engine-state.json]]
+- [[supabase|<Supabase>]]
+- [[coolify|<Coolify>]]
+- [[engine-docker-compose|<Engine Docker Compose>]]
+- [[production-checklist|<Production Checklist>]]
 
 ## Appears in
-- `engine.docker-compose.yml`
+- `docs » FASE_1_AUDITORIA_CODIGO_ATUAL.md`

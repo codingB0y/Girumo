@@ -1,38 +1,16 @@
-# HubFlow
+# HUBFLOW
 
-**Type:** organization
+**Type:** artifact
 
-A software platform that supports development, staging, and production environments.<SEP>A software platform undergoing development phases from V1 to V5.<SEP>An organization or project entity managing the deployment pipeline and infrastructure.<SEP>A SaaS multi-tenant platform for WhatsApp-based lead acquisition and management.<SEP>A SaaS platform designed for wholesale clothing retailers, focusing on WhatsApp group management.
+The current primary product brand and architecture name.<SEP>The modern SaaS platform.<SEP>A browser fingerprint tool identified by the fixed browser configuration values.
 
 ## Neighbors
-- [[vercel|Vercel]]
-- [[supabase|Supabase]]
-- [[stripe|Stripe]]
 - [[baileys|Baileys]]
-- [[hubflow-engine|HubFlow-engine]]
-- [[apps-web|Apps/web]]
-- [[npm|Npm]]
-- [[stripe-test-mode|Stripe Test Mode]]
-- [[v1|V1]]
-- [[v2|V2]]
-- [[v3|V3]]
-- [[v4|V4]]
-- [[v5|V5]]
-- [[audit_report|Audit_Report]]
-- [[hubflow-engine|HubFlow Engine]]
-- [[apps-web|Apps/Web]]
-- [[mega-stock|Mega Stock]]
-- [[igor|Igor]]
-- [[engine_auditmd|Engine_Audit.md]]
-- [[product-marketingmd|Product-marketing.md]]
 - [[devzapp|DevZapp]]
-- [[joinzapp|Joinzapp]]
-- [[sendflow|SendFlow]]
-- [[meu-grupo-vip|Meu Grupo Vip]]
-- [[env-validatorts|Env-validator.ts]]
+- [[vip-growth-os|VIP Growth OS]]
+- [[devzap|DevZap]]
+- [[agent-orchestrator|Agent Orchestrator]]
 
 ## Appears in
-- `DEV_SETUP.md`
-- `ROADMAP.md`
-- `PRODUCTION_CHECKLIST.md`
-- `PROJECT_CONTEXT.md`
+- `docs » FASE_1_AUDITORIA_CODIGO_ATUAL.md`
+- `ENGINE_ANALYSIS.md`

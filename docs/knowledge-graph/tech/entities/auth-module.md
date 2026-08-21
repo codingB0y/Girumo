@@ -1,11 +1,12 @@
-# Auth Module
+# <Auth Module>
 
 **Type:** method
 
-A utility module providing session signing and configuration constants for authentication.
+An authentication module located at lib/auth.ts that is part of the middleware and runtime secrets chain.
 
 ## Neighbors
-- [[login-route|Login Route]]
+- [[middleware|<Middleware>]]
+- [[env-validator|<Env Validator>]]
 
 ## Appears in
-- `apps » web » src » app » api » auth » login » route.ts`
+- `IMPLEMENTATION_PLAN.md`

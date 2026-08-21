@@ -1,14 +1,11 @@
-# Supabase Auth
+# <Supabase Auth>
 
-**Type:** method
+**Type:** UNKNOWN
 
-The authentication service component of Supabase responsible for managing user identities, emails, and passwords.<SEP>A specific service within Supabase used to manage sign-in via OAuth providers.
+Supabase Auth handles signup and login operations for the web app API routes.
 
 ## Neighbors
-- [[routets|Route.ts]]
-- [[delete-method|DELETE Method]]
-- [[patch-method|PATCH Method]]
+- [[apps-web|<Apps/Web>]]
 
 ## Appears in
-- `route.ts`
-- `apps » web » src » app » api » auth » google » route.ts`
+- `docs » FASE_1_AUDITORIA_CODIGO_ATUAL.md`

@@ -1,13 +1,11 @@
-# Cookies
+# <Cookies>
 
-**Type:** artifact
+**Type:** UNKNOWN
 
-A collection of HTTP cookies managed by the Next.js headers utility.<SEP>A utility for managing HTTP cookies used to store the user session token.
+<Cookies can be cleared or deleted from the user's browser to revoke consent.>
 
 ## Neighbors
-- [[session-cookie|Session Cookie]]
-- [[login-route|Login Route]]
+- [[browser|<Browser>]]
 
 ## Appears in
-- `apps » web » src » app » api » auth » logout » route.ts`
-- `apps » web » src » app » api » auth » login » route.ts`
+- `.. » VIREI MODA » vireimoda-lp » src » app » privacidade » page.tsx`

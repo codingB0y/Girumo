@@ -1,11 +1,11 @@
-# Resend
+# <Resend>
 
-**Type:** artifact
+**Type:** organization
 
-An email delivery service used by the application.
+An email infrastructure provider used for sending emails.
 
 ## Neighbors
-- [[hubflow-web|Hubflow-web]]
+- [[email-cron|<Email Cron>]]
 
 ## Appears in
-- `apps » web » package.json`
+- `IMPLEMENTATION_PLAN.md`

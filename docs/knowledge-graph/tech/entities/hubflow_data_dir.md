@@ -1,11 +1,11 @@
-# Hubflow_Data_Dir
+# HUBFLOW_DATA_DIR
 
 **Type:** data
 
-An environment variable representing the base directory for Hubflow data.
+An environment variable pointing to the data directory in the environment example configuration.
 
 ## Neighbors
-- [[main|Main]]
+- [[apps-web-envexample|Apps/Web/.env.example]]
 
 ## Appears in
-- `migrate-legacy-tenant-data.ts`
+- `docs » FASE_1_AUDITORIA_CODIGO_ATUAL.md`

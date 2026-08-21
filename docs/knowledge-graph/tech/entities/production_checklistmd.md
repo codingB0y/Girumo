@@ -1,17 +1,13 @@
-# Production_Checklist.md
+# Production_checklist.md
 
 **Type:** content
 
-A technical document detailing deployment readiness based on audits conducted on July 3, 2026.<SEP>A document providing a pre-deployment checklist with 20 topics and blocker identification.
+A documentation file providing a checklist of items required before deploying to production.
 
 ## Neighbors
-- [[roadmapmd|Roadmap.md]]
-- [[service_role_key|Service_Role_Key]]
-- [[resend_api_key|Resend_API_Key]]
-- [[platform_admin_emails|Platform_Admin_Emails]]
-- [[google_oauth|Google_OAuth]]
-- [[go_no_gomd|Go_no_go.md]]
+- [[git|Git]]
+- [[git-add|Git Add]]
+- [[git-commit|Git Commit]]
 
 ## Appears in
-- `PRODUCTION_CHECKLIST.md`
-- `PROJECT_CONTEXT.md`
+- `docs » superpowers » plans » 2026-07-03-engine-boot-node.md`

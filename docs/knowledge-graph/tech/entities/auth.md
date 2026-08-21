@@ -1,11 +1,11 @@
-# Auth
+# Auth/솥
 
-**Type:** method
+**Type:** UNKNOWN
 
-The authentication mechanism used to manage user sessions, signups, and password resets.
+Baileys session data persists in the auth Docker volume.
 
 ## Neighbors
-- [[supabase|Supabase]]
+- [[baileys|Baileys]]
 
 ## Appears in
-- `deploy » supabase » README.md`
+- `INFRA_AUDIT.md`

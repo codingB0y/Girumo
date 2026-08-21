@@ -1,11 +1,11 @@
-# Audit_Report.md
+# AUDIT_REPORT.md
 
 **Type:** content
 
-A document containing general audit findings, including RLS and service role issues.
+An audit report document whose section 8 complements the frontend audit.
 
 ## Neighbors
-- [[roadmapmd|Roadmap.md]]
+- [[frontend_auditmd|FRONTEND_AUDIT.md]]
 
 ## Appears in
-- `PROJECT_CONTEXT.md`
+- `FRONTEND_AUDIT.md`

@@ -1,11 +1,11 @@
-# .next
+# Next
 
 **Type:** artifact
 
-The specified output directory where the build artifacts for the application are stored.
+Framework utilizing App Router and Turbopack for the web application.
 
 ## Neighbors
-- [[verceljson|Vercel.json]]
+- [[web|Web]]
 
 ## Appears in
-- `vercel.json`
+- `AUDIT_REPORT.md`

@@ -1,15 +1,13 @@
-# Hubflow-Platform
+# Hubflow-platform
 
-**Type:** artifact
+**Type:** organization
 
-The primary software project defined by the package.json file.
+The root repository containing the entire platform codebase including api, docs, hubflow-engine, and hubflow-groups directories.<SEP>The private root package name for the monorepo platform.
 
 ## Neighbors
-- [[hubflow-engine|Hubflow-Engine]]
-- [[powershell|PowerShell]]
-- [[apps-web|Apps/Web]]
-- [[express|Express]]
-- [[dotenv|Dotenv]]
+- [[hubflow-engine|Hubflow-engine]]
+- [[hubflow-groups|Hubflow-groups]]
+- [[packagejson|Package.json]]
 
 ## Appears in
-- `package.json`
+- `docs » FASE_1_AUDITORIA_CODIGO_ATUAL.md`

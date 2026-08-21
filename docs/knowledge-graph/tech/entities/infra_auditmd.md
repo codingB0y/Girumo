@@ -1,11 +1,18 @@
-# Infra_Audit.md
+# INFRA_AUDIT.md
 
 **Type:** content
 
-A document containing audit findings regarding deployment, CI, secrets, and backups.
+An infrastructure and deployment audit report detailing the read-only diagnosis of repository components, tools, runbooks, and process gaps.
 
 ## Neighbors
-- [[roadmapmd|Roadmap.md]]
+- [[github|GitHub]]
+- [[vercel|Vercel]]
+- [[supabase|Supabase]]
+- [[stripe|Stripe]]
+- [[coolify|Coolify]]
+- [[redis|Redis]]
+- [[docker|Docker]]
+- [[scan-secretsps1|Scan-secrets.ps1]]
 
 ## Appears in
-- `PROJECT_CONTEXT.md`
+- `INFRA_AUDIT.md`

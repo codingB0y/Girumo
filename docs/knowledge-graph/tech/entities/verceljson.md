@@ -1,11 +1,11 @@
-# vercel.json
+# <Vercel.Json>
 
-**Type:** artifact
+**Type:** UNKNOWN
 
-A configuration file defining deployment settings like install commands, build commands, and output directories.
+The vercel.json configuration file points install, build, and output directories for Vercel.
 
 ## Neighbors
-- [[hubflow-web|HUBFLOW Web]]
+- [[vercel|<Vercel>]]
 
 ## Appears in
-- `deploy » vercel » README.md`
+- `docs » FASE_1_AUDITORIA_CODIGO_ATUAL.md`

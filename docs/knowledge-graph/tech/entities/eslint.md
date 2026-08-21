@@ -1,13 +1,11 @@
-# Eslint
+# ESLint
 
 **Type:** artifact
 
-A static code analysis tool used to identify problematic patterns found in JavaScript code.<SEP>A tool for identifying and reporting on patterns found in ECMAScript/JavaScript code.
+A static code analysis tool used for identifying problematic patterns found in JavaScript code.
 
 ## Neighbors
-- [[eslintconfigmjs|Eslint.config.mjs]]
-- [[hubflow-web|Hubflow-web]]
+- [[dead-code-refactor-implementation-plan|Dead Code Refactor Implementation Plan]]
 
 ## Appears in
-- `eslint.config.mjs`
-- `apps » web » package.json`
+- `docs » superpowers » plans » 2026-07-06-dead-code-refactor.md`

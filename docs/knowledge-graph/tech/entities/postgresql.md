@@ -1,11 +1,12 @@
-# PostgreSQL
+# Postgresql
 
-**Type:** artifact
+**Type:** method
 
-An open-source relational database management system used for storing application data.
+Database layer used for data access and RLS.
 
 ## Neighbors
-- [[hubflow|Hubflow]]
+- [[rls|RLS]]
+- [[prisma|Prisma]]
 
 ## Appears in
-- `202606240002_rls_policies.sql`
+- `docs » FASE_1_AUDITORIA_CODIGO_ATUAL.md`

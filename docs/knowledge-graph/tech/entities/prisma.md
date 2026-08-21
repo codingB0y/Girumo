@@ -1,13 +1,11 @@
-# Prisma
+# <Prisma>
 
-**Type:** method
+**Type:** UNKNOWN
 
-A database toolkit that must not be an operational dependency for Vercel builds.<SEP>An ORM (Object-Relational Mapping) tool that is explicitly forbidden from being used in the Hubflow project.
+Prisma dependencies and legacy routes were removed from the web application and replaced by Supabase.
 
 ## Neighbors
-- [[hubflow|Hubflow]]
-- [[vercel|Vercel]]
+- [[apps-web|<Apps/Web>]]
 
 ## Appears in
-- `GO_NO_GO.md`
-- `deploy » supabase » README.md`
+- `docs » FASE_1_AUDITORIA_CODIGO_ATUAL.md`

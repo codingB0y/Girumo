@@ -1,17 +1,14 @@
-# Apps/Web
+# <Apps/Web>
 
-**Type:** artifact
+**Type:** UNKNOWN
 
-A workspace containing the web application component of the platform.<SEP>The main web application built with Next.js 15, React 19, and Tailwind v4, serving as the central interface and API layer.
+Vercel executes the build of the web application located in apps/web.
 
 ## Neighbors
-- [[vercel|Vercel]]
-- [[nextjs|Next.js]]
-- [[hubflow|HubFlow]]
-- [[typescript|TypeScript]]
-- [[hubflow-platform|Hubflow-Platform]]
-- [[hubflow-engine|HubFlow Engine]]
+- [[supabase|<Supabase>]]
+- [[vercel|<Vercel>]]
+- [[prisma|<Prisma>]]
+- [[supabase-auth|<Supabase Auth>]]
 
 ## Appears in
-- `package.json`
-- `PROJECT_CONTEXT.md`
+- `docs » FASE_1_AUDITORIA_CODIGO_ATUAL.md`

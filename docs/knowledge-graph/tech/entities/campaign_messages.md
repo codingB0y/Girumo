@@ -1,13 +1,12 @@
-# Campaign_Messages
+# Campaign_messages
 
-**Type:** artifact
+**Type:** data
 
-A database table used for storing messages associated with campaigns.
+A database table where the Messages tab of a campaign records text, media, polls, scheduling, and recurrence data.
 
 ## Neighbors
-- [[organizations|Organizations]]
-- [[schedules|Schedules]]
-- [[campaign_groups|Campaign_Groups]]
+- [[supabase|Supabase]]
+- [[promote_due_schedules|Promote_due_schedules]]
 
 ## Appears in
-- `202607010001_groups_broadcasts_schedules.sql`
+- `achado-2026-08-10`

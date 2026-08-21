@@ -1,8 +1,11 @@
-# PostCSS
+# Postcss
 
-**Type:** method
+**Type:** artifact
 
-A tool for transforming CSS with JavaScript plugins.
+Postcss is a dependency flagged as pending in the security audit report requiring an npm audit fix.
+
+## Neighbors
+- [[security_auditmd|SECURITY_AUDIT.md]]
 
 ## Appears in
-- `postcss.config.mjs`
+- `decisao-2026-08-06`

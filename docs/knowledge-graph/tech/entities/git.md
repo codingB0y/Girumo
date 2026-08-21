@@ -1,13 +1,11 @@
-# Git
+# <Git>
 
-**Type:** artifact
+**Type:** UNKNOWN
 
-A version control system used to clone the HubFlow platform repository.<SEP>A version control system used to manage source code and secrets.<SEP>A version control system used to manage repository history and code changes.
+<Git remote configurations are used by the gh CLI to automatically infer the repository.>
 
 ## Neighbors
-- [[secrets|Secrets]]
+- [[gh-cli|<Gh Cli>]]
 
 ## Appears in
-- `DEV_SETUP.md`
-- `PRODUCTION_CHECKLIST.md`
-- `deploy » github » README.md`
+- `docs » agents » issue-tracker.md`

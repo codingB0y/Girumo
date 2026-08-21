@@ -1,24 +1,11 @@
-# App
+# (app)
 
-**Type:** organization
+**Type:** artifact
 
-A database schema or function suite providing membership and role verification methods.<SEP>A software application or system containing business logic and membership validation functions.
+An English sub-layout representing one of the parallel shells in the application hierarchy.
 
 ## Neighbors
-- [[uploads|Uploads]]
-- [[instances|Instances]]
-- [[funnels|Funnels]]
-- [[campaigns|Campaigns]]
-- [[contacts|Contacts]]
-- [[messages|Messages]]
-- [[logs|Logs]]
-- [[engine-commands|Engine Commands]]
-- [[engine-events|Engine Events]]
-- [[owner|Owner]]
-- [[admin|Admin]]
-- [[operator|Operator]]
-- [[has_membership|Has_membership]]
+- [[root-layout|Root Layout]]
 
 ## Appears in
-- `202606240002_rls_policies.sql`
-- `03_rls_policies.sql`
+- `FRONTEND_AUDIT.md`

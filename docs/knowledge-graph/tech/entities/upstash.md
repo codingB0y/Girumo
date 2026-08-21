@@ -1,8 +1,8 @@
 # Upstash
 
-**Type:** artifact
+**Type:** organization
 
-A provider used for distributed rate-limiting via Redis.
+A provider used for distributed rate-limiting via Redis.<SEP>A serverless data platform referenced for future Redis scaling.
 
 ## Neighbors
 - [[engine|Engine]]
@@ -10,3 +10,4 @@ A provider used for distributed rate-limiting via Redis.
 
 ## Appears in
 - `ROADMAP.md`
+- `INFRA_AUDIT.md`

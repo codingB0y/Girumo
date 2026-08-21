@@ -1,3 +1,4 @@
 # Community 17
 
-- [[set_updated_at|Set_updated_at]]
+- [[admin-guard|Admin Guard]]
+- [[platform-settings|Platform Settings]]
