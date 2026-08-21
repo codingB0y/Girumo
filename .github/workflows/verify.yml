@@ -55,6 +55,22 @@ jobs:
       - if: steps.credenciais.outputs.tem == 'true'
         run: npm ci
 
+      # Cadeia de automacao (gatilho -> run -> comando -> claim) contra o banco
+      # de DEV. Roda antes do build de proposito: leva ~10s e o build leva
+      # minutos, entao a cadeia quebrada aparece rapido em vez de no fim.
+      #
+      # No job `verify` este mesmo teste roda sem SUPABASE_* e se auto-pula. So
+      # aqui ele tem credencial, e so aqui ele prova alguma coisa.
+      #
+      # Nao manda mensagem para ninguem: nenhum EvolutionSender e construido no
+      # arquivo, e os fixtures vivem num tenant com UUID novo a cada execucao.
+      - if: steps.credenciais.outputs.tem == 'true'
+        name: Integracao da cadeia de automacao (Supabase de dev)
+        run: npm --workspace apps/worker exec -- tsx --test src/cadeia-automacao.integration.test.ts
+        env:
+          SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
+
       - if: steps.credenciais.outputs.tem == 'true'
         run: npm --workspace apps/web exec -- playwright install --with-deps chromium
 
