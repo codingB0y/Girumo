@@ -105,6 +105,16 @@ jobs:
           ENGINE_TOKEN: ci-sem-engine-nao-usado
           CRON_SECRET: ci-sem-cron-nao-usado
 
+      # Precisa vir ANTES do upload: o Playwright serializa o valor dos campos
+      # no error-context, no relatorio e dentro do trace.zip — inclusive de
+      # input type=password. Sem este passo, teste autenticado que falha
+      # publica a senha do usuario de QA num artefato que qualquer pessoa com
+      # leitura no repositorio baixa, sem precisar ler segredo nenhum.
+      - if: always() && steps.credenciais.outputs.tem == 'true'
+        run: python3 infra/scripts/redigir-segredos-e2e.py
+        env:
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+
       # O relatorio e a prova que o quadro exige para mover card a
       # `no_ar_verificado`; sem anexo, falha no CI vira "deu vermelho" sem
       # screenshot de nada.
