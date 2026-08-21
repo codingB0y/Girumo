@@ -10,7 +10,9 @@ real.
 |---|---|---|
 | `auth.setup.ts` | — | Loga uma vez e grava a sessão para os demais reusarem |
 | `auth-gate.spec.ts` | não | Nenhuma rota do painel abre sem sessão |
-| `painel-rotas.spec.ts` | sim | Cada rota existe, renderiza e monta o shell |
+| `painel-rotas.spec.ts` | sim | Cada rota estática existe, renderiza e monta o shell |
+| `painel-rotas-dinamicas.spec.ts` | sim | Cada tela de **detalhe** carrega o registro do id — e não carrega um id inexistente |
+| `admin-gate.spec.ts` | sim | Nenhuma rota de `/admin` abre para lojista logado |
 | `equipe-convite.spec.ts` | sim | Convidar → aparece → revogar → some |
 | `sessao.spec.ts` | sim | Logout derruba o acesso |
 
@@ -85,6 +87,33 @@ npm run web:e2e:report
 O relatório HTML traz screenshot de cada rota conferida, com data. É o que o
 quadro exige para mover card a `no_ar_verificado` — mergeado não é verificado.
 
+## Rotas dinâmicas
+
+`coletarRotas` pulava `[id]` por precisar de um id que existisse, e o efeito era
+que a suíte cobria as **listas** e ignorava os **detalhes** — editor de página,
+campanha, cliente no `/admin`. Exatamente as telas onde o produto acontece
+(achado de 21/08/2026).
+
+Agora `rotas.ts` também varre os **padrões** dinâmicos, e
+`fixtures-dinamicas.ts` diz como transformar cada padrão num id real: o registro
+é criado pela API do próprio app, com a sessão do usuário de QA, então não há
+como nascer no tenant errado.
+
+Duas regras que fazem o mecanismo valer alguma coisa:
+
+- **Contraste obrigatório.** Cada rota é aberta duas vezes — com o id do fixture
+  e com um id que não existe — e o teste exige respostas **diferentes**. Sem
+  isso, uma tela que ignora o parâmetro daria o mesmo verde (a armadilha de
+  17/08: duas causas para a mesma resposta).
+- **Padrão novo sem fixture quebra a suíte.** Há um teste de completude que
+  compara a varredura com o mapa de fixtures. Tela dinâmica futura aparece
+  sozinha e *cobra* cobertura, em vez de nascer sem ela — que foi como este
+  buraco surgiu.
+
+`/admin/tenants/[id]` é cobertura de **gate**, não de renderização, pelo mesmo
+motivo das estáticas de `/admin`: o usuário de QA é lojista comum, e promovê-lo
+quebraria os seis testes H1 de `seguranca-impersonation.spec.ts`.
+
 ## Fora do smoke de propósito
 
 - **Cadeia de automação** (gatilho → Evolution → WhatsApp): a automação
@@ -92,4 +121,4 @@ quadro exige para mover card a `no_ar_verificado` — mergeado não é verificad
   `group_full` mandaria mensagem para 1024 clientes. Precisa de tenant isolado.
 - **Entrega de e-mail**: depende de caixa externa e deixaria a suíte instável.
   Desde o #112 a entrega vira linha em `public.logs`, conferível por SQL.
-- **Rotas dinâmicas** (`[slug]`, `[id]`): precisam de registro que exista.
+- **Entrega real de mensagem**: nenhum spec constrói `EvolutionSender`.
