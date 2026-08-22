@@ -148,3 +148,14 @@ apps/web/supabase/migrations/20260821120000_notifications_href_read_at.sql
 # planMap vazio. Inclui backfill de preco (197/297/497, confirmado pelo Igor)
 # porque preco zerado mente igual, so que sem erro pra culpar. Idempotente.
 apps/web/supabase/migrations/20260822120000_plans_price_cents_instances_profile_name.sql
+
+# webhook do Stripe: idempotencia real e guarda de ordem (auditoria 22/08, C.1
+# CRITICAL + C.2 HIGH + C.8). Tres objetos: (1) indice unique parcial em
+# logs(event, metadata->>'stripe_event_id') para o marcador de idempotencia — o
+# handler fazia select-depois-insert sem constraint, entao duas entregas
+# concorrentes do mesmo evento processavam as DUAS; resolve tambem o seq scan do
+# dedupe em `logs`. (2) subscriptions.stripe_event_created_at. (3) trigger
+# subscriptions_reject_stale_event, que descarta escrita mais velha que a ja
+# aplicada — sem ele um `customer.subscription.updated` atrasado chegando depois
+# de um `deleted` REATIVA assinatura cancelada (reproduzido em dev). Idempotente.
+apps/web/supabase/migrations/20260822160000_stripe_webhook_idempotencia.sql
