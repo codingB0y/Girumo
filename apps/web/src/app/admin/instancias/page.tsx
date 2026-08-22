@@ -1,4 +1,4 @@
-import { Smartphone, Wifi, WifiOff } from "lucide-react";
+import { AlertTriangle, Smartphone, Wifi, WifiOff } from "lucide-react";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -7,20 +7,31 @@ export default async function AdminInstanciasPage() {
   const supabase = getSupabaseAdmin();
 
   // Buscar instâncias/sessões WhatsApp
-  // Assumindo tabela "instances" ou similar — adaptar ao schema real
-  const { data: instances } = await supabase
+  const { data: instances, error: instancesError } = await supabase
     .from("instances")
     .select("id, tenant_id, phone, status, profile_name, created_at, last_seen_at")
     .order("created_at", { ascending: false })
     .limit(100);
 
+  if (instancesError) {
+    console.error("[admin/instancias] falha ao carregar instances:", instancesError.message);
+  }
+
   // Buscar nomes dos tenants
-  const { data: orgs } = await supabase.from("organizations").select("id, name");
+  const { data: orgs, error: orgsError } = await supabase.from("organizations").select("id, name");
+
+  if (orgsError) {
+    console.error("[admin/instancias] falha ao carregar organizations:", orgsError.message);
+  }
+
   const orgMap = new Map<string, string>();
   for (const o of orgs ?? []) {
     orgMap.set(o.id, o.name);
   }
 
+  // Sem esta distinção a tela mente: uma query que falha devolve `data: null`,
+  // que renderiza igualzinho a "não há instâncias". Foi assim que a ausência de
+  // `instances.profile_name` em prod passou despercebida (auditoria 22/08, B.1).
   const hasInstances = (instances ?? []).length > 0;
 
   return (
@@ -33,14 +44,32 @@ export default async function AdminInstanciasPage() {
       </div>
 
       <div className="rounded-2xl border border-volt-950/[0.06] bg-white shadow-sm">
-        {!hasInstances ? (
-          <div className="flex flex-col items-center gap-2 py-12 text-center">
+        {instancesError ? (
+          <div
+            role="alert"
+            className="flex flex-col items-center gap-2 py-12 text-center"
+            data-estado="erro"
+          >
+            <AlertTriangle className="h-8 w-8 text-red-500/60" />
+            <p className="text-sm font-semibold text-red-600">
+              Falha ao carregar as instâncias.
+            </p>
+            <p className="max-w-lg text-xs text-aco/50">
+              A consulta ao banco não respondeu. Isto <strong>não</strong> significa que não há
+              instâncias — o número real é desconhecido enquanto o erro persistir.
+            </p>
+            <code className="font-data mt-1 max-w-lg break-all rounded-lg bg-red-50 px-2.5 py-1.5 text-[11px] text-red-700">
+              {instancesError.message}
+            </code>
+          </div>
+        ) : !hasInstances ? (
+          <div className="flex flex-col items-center gap-2 py-12 text-center" data-estado="vazio">
             <Smartphone className="h-8 w-8 text-aco/30" />
             <p className="text-sm text-aco/50">
               Nenhuma instância encontrada.
             </p>
             <p className="text-xs text-aco/40">
-              Verifique se a tabela &ldquo;instances&rdquo; existe no schema ou se as sessões estão sendo registradas.
+              Nenhuma sessão de WhatsApp foi registrada ainda.
             </p>
           </div>
         ) : (

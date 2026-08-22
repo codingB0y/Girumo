@@ -55,12 +55,22 @@ async function getStripeMetrics() {
 export default async function AdminBillingPage() {
   const supabase = getSupabaseAdmin();
 
-  const { data: subs } = await supabase
+  const { data: subs, error: subsError } = await supabase
     .from("subscriptions")
     .select("id, tenant_id, status, plan_id, created_at, stripe_subscription_id")
     .order("created_at", { ascending: false });
 
-  const { data: plans } = await supabase.from("plans").select("id, code, name, price_cents");
+  if (subsError) {
+    console.error("[admin/billing] falha ao carregar subscriptions:", subsError.message);
+  }
+
+  const { data: plans, error: plansError } = await supabase
+    .from("plans")
+    .select("id, code, name, price_cents");
+
+  if (plansError) {
+    console.error("[admin/billing] falha ao carregar plans:", plansError.message);
+  }
 
   const planMap = new Map<string, { code: string; name: string; price_cents: number }>();
   for (const p of plans ?? []) {
@@ -68,11 +78,23 @@ export default async function AdminBillingPage() {
   }
 
   // Buscar nomes dos tenants
-  const { data: orgs } = await supabase.from("organizations").select("id, name");
+  const { data: orgs, error: orgsError } = await supabase
+    .from("organizations")
+    .select("id, name");
+
+  if (orgsError) {
+    console.error("[admin/billing] falha ao carregar organizations:", orgsError.message);
+  }
+
   const orgMap = new Map<string, string>();
   for (const o of orgs ?? []) {
     orgMap.set(o.id, o.name);
   }
+
+  // O MRR só é confiável se subs E plans vieram. Com qualquer uma das duas
+  // falhando, a soma abaixo dá um número menor que o real — e R$ 0,00 num
+  // painel financeiro é indistinguível de "não há receita" (auditoria 22/08, B.1).
+  const mrrConfiavel = !subsError && !plansError;
 
   const allSubs = subs ?? [];
   const active = allSubs.filter((s) => s.status === "active" || s.status === "trialing");
@@ -111,10 +133,14 @@ export default async function AdminBillingPage() {
       {/* KPIs financeiros */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
         <AdminStatCard
-          label="MRR estimado"
-          value={`R$ ${(mrr / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-          icon={TrendingUp}
-          tone="green"
+          label={mrrConfiavel ? "MRR estimado" : "MRR indisponível"}
+          value={
+            mrrConfiavel
+              ? `R$ ${(mrr / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+              : "—"
+          }
+          icon={mrrConfiavel ? TrendingUp : AlertTriangle}
+          tone={mrrConfiavel ? "green" : "red"}
         />
         {stripeData.available && (
           <AdminStatCard
@@ -232,12 +258,20 @@ export default async function AdminBillingPage() {
                       {orgMap.get(s.tenant_id) ?? s.tenant_id}
                     </td>
                     <td className="px-5 py-3.5 font-data text-xs text-aco/60">
-                      {plan?.name ?? plan?.code ?? "—"}
+                      {plansError ? (
+                        <span className="text-red-600">indisponível</span>
+                      ) : (
+                        plan?.name ?? plan?.code ?? "—"
+                      )}
                     </td>
                     <td className="px-5 py-3.5 font-data text-xs text-volt-950">
-                      {plan?.price_cents
-                        ? `R$ ${(plan.price_cents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
-                        : "—"}
+                      {plansError ? (
+                        <span className="text-red-600">indisponível</span>
+                      ) : plan?.price_cents ? (
+                        `R$ ${(plan.price_cents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+                      ) : (
+                        "—"
+                      )}
                     </td>
                     <td className="px-5 py-3.5">
                       <StatusBadge status={s.status} />

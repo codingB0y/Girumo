@@ -1,4 +1,4 @@
-import { Users, CreditCard, Mail, Shield, ArrowLeft, Smartphone } from "lucide-react";
+import { Users, CreditCard, Mail, Shield, ArrowLeft, Smartphone, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
@@ -13,26 +13,42 @@ export default async function AdminTenantDetailPage({ params }: Props) {
   const supabase = getSupabaseAdmin();
 
   // Buscar organização
-  const { data: org } = await supabase
+  const { data: org, error: orgError } = await supabase
     .from("organizations")
     .select("id, name, slug, created_at, created_by, status")
     .eq("id", id)
     .single();
 
+  // PGRST116 = "0 linhas" no `.single()`, ou seja, tenant realmente não existe.
+  // Qualquer outro erro é falha de consulta: devolver 404 nesse caso afirmaria
+  // que o tenant não existe sem ter conseguido olhar (auditoria 22/08, B.1).
+  if (orgError && orgError.code !== "PGRST116") {
+    console.error(`[admin/tenants/${id}] falha ao carregar organization:`, orgError.message);
+    throw new Error(`Falha ao carregar o tenant: ${orgError.message}`);
+  }
+
   if (!org) notFound();
 
   // Membros
-  const { data: memberships } = await supabase
+  const { data: memberships, error: membershipsError } = await supabase
     .from("memberships")
     .select("user_id, role, accepted_at, created_at")
     .eq("tenant_id", id)
     .not("accepted_at", "is", null);
 
+  if (membershipsError) {
+    console.error(`[admin/tenants/${id}] falha ao carregar memberships:`, membershipsError.message);
+  }
+
   // Buscar info dos users
   const userIds = (memberships ?? []).map((m) => m.user_id);
-  const { data: usersData } = userIds.length > 0
+  const { data: usersData, error: usersError } = userIds.length > 0
     ? await supabase.from("users").select("auth_user_id, name, email").in("auth_user_id", userIds)
-    : { data: [] };
+    : { data: [], error: null };
+
+  if (usersError) {
+    console.error(`[admin/tenants/${id}] falha ao carregar users:`, usersError.message);
+  }
 
   const userMap = new Map<string, { name: string; email: string }>();
   for (const u of usersData ?? []) {
@@ -40,30 +56,72 @@ export default async function AdminTenantDetailPage({ params }: Props) {
   }
 
   // Subscription
-  const { data: subs } = await supabase
+  const { data: subs, error: subsError } = await supabase
     .from("subscriptions")
     .select("id, status, plan_id, created_at")
     .eq("tenant_id", id)
     .order("created_at", { ascending: false })
     .limit(5);
 
-  const { data: plans } = await supabase.from("plans").select("id, code, name, price_cents");
+  if (subsError) {
+    console.error(`[admin/tenants/${id}] falha ao carregar subscriptions:`, subsError.message);
+  }
+
+  const { data: plans, error: plansError } = await supabase
+    .from("plans")
+    .select("id, code, name, price_cents");
+
+  if (plansError) {
+    console.error(`[admin/tenants/${id}] falha ao carregar plans:`, plansError.message);
+  }
+
   const planMap = new Map<string, { code: string; name: string; price_cents: number }>();
   for (const p of plans ?? []) {
     planMap.set(p.id, { code: p.code, name: p.name, price_cents: p.price_cents });
   }
 
   // Instâncias
-  const { data: instances } = await supabase
+  const { data: instances, error: instancesError } = await supabase
     .from("instances")
     .select("id, phone, status, profile_name, last_seen_at")
     .eq("tenant_id", id)
     .limit(10);
 
+  if (instancesError) {
+    console.error(`[admin/tenants/${id}] falha ao carregar instances:`, instancesError.message);
+  }
+
+  // Cada seção sinaliza a própria falha em vez de renderizar como se estivesse
+  // vazia: "sem membros" e "não consegui ler os membros" são coisas diferentes.
+  const falhas = [
+    membershipsError || usersError ? "membros" : null,
+    subsError || plansError ? "assinatura" : null,
+    instancesError ? "instâncias" : null,
+  ].filter((v): v is string => v !== null);
+
   const isSuspended = org.status === "suspended";
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-6">
+      {falhas.length > 0 && (
+        <div
+          role="alert"
+          data-estado="erro"
+          className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 px-5 py-4"
+        >
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
+          <div>
+            <p className="text-sm font-semibold text-red-700">
+              Esta página está incompleta.
+            </p>
+            <p className="mt-0.5 text-xs text-red-700/80">
+              Falha ao carregar: {falhas.join(", ")}. As seções afetadas aparecem vazias, mas o
+              conteúdo real é desconhecido — não trate como ausência de dado.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center gap-4">
         <Link
           href="/admin/tenants"
