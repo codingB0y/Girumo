@@ -159,3 +159,12 @@ apps/web/supabase/migrations/20260822120000_plans_price_cents_instances_profile_
 # aplicada — sem ele um `customer.subscription.updated` atrasado chegando depois
 # de um `deleted` REATIVA assinatura cancelada (reproduzido em dev). Idempotente.
 apps/web/supabase/migrations/20260822160000_stripe_webhook_idempotencia.sql
+
+# 22/08/2026 - D.4 da auditoria. RPC public.schema_signature(), consumida pelo
+# gate de drift do CI (infra/scripts/check-schema-drift.ts). Existe porque o
+# PostgREST nao expoe information_schema, e as alternativas (senha do banco ou
+# personal access token da Management API) dariam MAIS acesso do que ler nome
+# de coluna. SECURITY DEFINER com search_path fixo, EXECUTE so para
+# service_role. Precisa estar nos DOIS bancos, senao o proprio gate acusa a
+# ausencia dela como drift.
+apps/web/supabase/migrations/20260822180000_schema_signature.sql
