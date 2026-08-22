@@ -1,8 +1,9 @@
 {
-  "gerado_em": "2026-08-22T18:31:04.567Z",
+  "gerado_em": "2026-08-22T20:05:21.864Z",
   "projeto": "nidoatbxaylrkcgbszns",
   "objetos": {
     "f|advance_automation_run(target_run_id uuid, next_step integer, next_at timestamp with time zone)": "9915acbf605c133627ee5aa950df3dc4",
+    "f|anon_revoke_on_new_object()": "8a27044cb5489fc31c25864abacc91ff",
     "f|board_features_log_move()": "26ead0e8fd16fff6ceb67c11f43216fd",
     "f|claim_automation_runs(max_runs integer)": "ac5f9e873fbd99d781cdd388e5622d84",
     "f|claim_engine_commands(max_commands integer)": "a5f8ea994f6ebd88dd14b3cf3450929e",

@@ -168,3 +168,11 @@ apps/web/supabase/migrations/20260822160000_stripe_webhook_idempotencia.sql
 # service_role. Precisa estar nos DOIS bancos, senao o proprio gate acusa a
 # ausencia dela como drift.
 apps/web/supabase/migrations/20260822180000_schema_signature.sql
+
+# 22/08/2026 - A.2 da auditoria. Zera o privilegio de `anon` em public (tabelas,
+# sequencias e funcoes) e instala o event trigger ensure_anon_revoked para
+# objeto novo nao nascer aberto. NAO mexe em `authenticated`: 99 policies em 34
+# tabelas funcionam por auth.uid()+memberships, e revogar o grant mataria todas.
+# Revoga EXECUTE de PUBLIC junto, senao anon executa funcao por heranca. Em dev
+# isto tambem fecha o B.4 (drift de GRANT nas RPCs da LP). Idempotente.
+apps/web/supabase/migrations/20260822190000_anon_sem_privilegio.sql

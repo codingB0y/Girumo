@@ -76,9 +76,9 @@ Verificado em prod em **06/08/2026** (contagem no código + `pg_policy`):
 - **68 arquivos** usam `getSupabaseAdmin()` (service-role) contra **4** que usam
   `getSupabaseServerAnon()`. Service-role **bypassa RLS por design** — ou seja, na
   esmagadora maioria dos caminhos o banco **não** está te protegendo.
-- O RLS existe e está bem configurado (39 tabelas com `tenant_id` têm RLS + policy;
-  **zero** tabelas com `tenant_id` sem RLS), mas funciona como **segunda linha de defesa**,
-  exercida só nos poucos caminhos anon/authenticated.
+- O RLS existe e está ligado em **todas** as tabelas de `public` (zero com RLS desligado,
+  nos dois bancos), mas funciona como **segunda linha de defesa**, exercida só nos poucos
+  caminhos anon/authenticated.
 
 **Consequência prática:** remover ou esquecer um `.eq('tenant_id')` numa store é vazamento
 cross-tenant imediato — o RLS **não** vai te salvar. Toda query numa tabela com `tenant_id`
@@ -86,6 +86,52 @@ precisa do filtro explícito, mesmo parecendo redundante.
 
 Ao criar tabela nova com `tenant_id`: ligar RLS + policy assim mesmo (defesa em
 profundidade), mas nunca tratar isso como suficiente.
+
+#### O RLS não é uniforme: 34 tabelas protegidas, 13 com policy que nunca avalia
+
+Medido em prod em **22/08/2026** (`pg_policy` + definição dos helpers). A auditoria do
+mesmo dia afirmou que "o RLS é inerte" — **isso está errado**, ela amostrou só as tabelas
+com policy em GUC e generalizou. O quadro real das ~123 policies:
+
+- **99 policies em 34 tabelas FUNCIONAM.** Usam `auth.uid()` + `memberships` via
+  `app.has_membership()`, `app.user_tenant_ids()`, `app.has_role()` — todas
+  `SECURITY DEFINER` com `search_path`, filtrando por `accepted_at is not null`.
+  Esse é o padrão a copiar em policy nova.
+- **13 policies NUNCA avaliam verdadeiro.** Dependem de coisa que o app não seta —
+  `grep set_config` no repo volta vazio:
+  - `current_setting('app.tenant_id')` → `automation_runs`, `group_grow_jobs`,
+    `ig_accounts`, `ig_events`, `ig_triggers`, `lp_captures`, `lp_contacts`
+  - `current_setting('app.workspace_id')` → `agents`, `decisions`, `knowledge`,
+    `memories`, `missions`, `squads`
+  - `current_setting('role') = 'service_role'` e claim `tenant_id` no JWT →
+    `funnel_events`, `link_click_events`, `testimonials`
+
+  **Não confie nelas.** Essas 13 tabelas são deny-all por acidente, não por desenho: se
+  algum dia um caminho `authenticated` precisar delas, a policy vai negar tudo e a
+  tentação vai ser "destravar" com `using (true)`. Reescreva no padrão `auth.uid()` +
+  `memberships` em vez disso.
+
+#### `anon` não tem privilégio nenhum em `public` — mantenha assim
+
+Desde **22/08/2026** (PR do A.2). Antes disso `anon` e `authenticated` tinham os **sete**
+privilégios em todas as tabelas — o default do Supabase. `anon` foi zerado: 0 tabelas,
+0 funções, 0 sequências. `authenticated` foi **mantido de propósito**, porque é onde as
+99 policies acima funcionam.
+
+Duas coisas a saber antes de mexer:
+
+- **Revogar de `anon` não basta para função.** O ACL delas começa com `=X/postgres`, que é
+  EXECUTE para **PUBLIC** — `anon` executa herdando. Tem que revogar de `public` também.
+- **Os default privileges do grantor `supabase_admin` são inalcançáveis** pela conexão que
+  aplica migração (`current_user` = `postgres`, que não é membro dele). Quem segura tabela
+  nova é o event trigger **`ensure_anon_revoked`** → `public.anon_revoke_on_new_object()`,
+  irmão do `ensure_rls`. Ele revoga `anon` em tabela/sequência nova e revoga
+  `anon, public` + concede `service_role` em função nova.
+
+O app nunca leu dado por `anon`: os usos de `getSupabaseServerAnon`,
+`getSupabaseAnonForToken`, do cliente de browser e do `middleware.ts` chamam só `.auth.*`
+(schema `auth`, que a revogação não toca), e as rotas públicas `/p/[slug]` e `/r/[slug]`
+leem via `getSupabaseAdmin` no servidor.
 
 ## Banco: são DOIS, e o diretório de migrações não é o schema
 
