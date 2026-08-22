@@ -137,3 +137,14 @@ apps/web/supabase/migrations/20260820140000_lp_funnel_functions.sql
 # `42703 column notifications.href does not exist`, e os tres inserts de
 # /api/notifications/alerts falhavam sem erro visivel. Idempotente.
 apps/web/supabase/migrations/20260821120000_notifications_href_read_at.sql
+
+# plans.price_cents + instances.profile_name: repoe em PROD duas colunas que so
+# existiam em DEV. Drift no sentido contrario do usual (dev a frente), entao
+# passava local e quebrava so em producao. Em 22/08/2026 `select price_cents
+# from plans` e `select profile_name from instances` davam 42703 em prod. Como
+# as telas admin descartam o `error` do PostgREST, `data` virava null e a pagina
+# renderizava o estado VAZIO sem 500/log: /admin/instancias dizia "Nenhuma
+# instancia encontrada" com 6 no banco, e /admin/billing somava MRR sobre um
+# planMap vazio. Inclui backfill de preco (197/297/497, confirmado pelo Igor)
+# porque preco zerado mente igual, so que sem erro pra culpar. Idempotente.
+apps/web/supabase/migrations/20260822120000_plans_price_cents_instances_profile_name.sql
