@@ -24,6 +24,54 @@ jobs:
       # que so existe no Windows. O script em si e cross-platform.
       - run: pwsh -File infra/scripts/verify-local.ps1
 
+  # Gate de drift de schema dev x prod (D.4 da auditoria de 22/08/2026).
+  #
+  # Precisa existir porque o job `e2e` abaixo roda contra o Supabase de DEV:
+  # enquanto os dois schemas divergirem, a suite verde nao e evidencia sobre
+  # producao. Em 22/08 dev tinha `plans.price_cents` e prod nao, e o E2E ficou
+  # verde enquanto /admin/billing mostrava MRR R$ 0,00 em producao.
+  #
+  # Conecta so em DEV: a assinatura de prod e versionada em
+  # deploy/supabase/schema-baseline.json. Nao existe chave de producao no CI, e
+  # a decisao foi deliberada — uma service-role de prod aqui leria tudo.
+  #
+  # Roda antes do e2e de proposito: leva segundos, e drift de schema explica a
+  # maior parte das falhas do e2e.
+  drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Mesmo padrao do job e2e: sem segredo o job vira aviso, nao vermelho.
+      # PR de fork nao recebe segredo, e CI vermelho por falta de credencial
+      # ensina o time a ignorar o gate.
+      - id: credenciais
+        env:
+          SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "tem=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "tem=false" >> "$GITHUB_OUTPUT"
+            echo "### Gate de drift pulado: faltam os segredos E2E_SUPABASE_* no repositorio." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - if: steps.credenciais.outputs.tem == 'true'
+        run: npm ci
+
+      - if: steps.credenciais.outputs.tem == 'true'
+        name: Assinatura de schema dev x baseline de prod
+        run: npm run check:drift
+        env:
+          SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
+
   # Smoke E2E do painel. Existe desde 19/08/2026, mas ate agora so rodava na
   # maquina de quem lembrasse — e suite que so roda quando alguem lembra e
   # suite que nao pega regressao. Aponta para o Supabase de DEV.

@@ -7,7 +7,7 @@
     "hubflow-engine"
   ],
   "scripts": {
-    "test": "npm --workspace apps/web test && npm --workspace apps/worker test && tsx --test infra/scripts/migrate-legacy-tenant-data.test.ts",
+    "test": "npm --workspace apps/web test && npm --workspace apps/worker test && tsx --test infra/scripts/migrate-legacy-tenant-data.test.ts infra/scripts/check-schema-drift.test.ts",
     "engine:test": "npm --workspace hubflow-engine test",
     "web:dev": "npm --workspace apps/web run dev",
     "web:build": "npm --workspace apps/web run build",
@@ -19,6 +19,8 @@
     "worker:start": "npm --workspace apps/worker run start",
     "worker:test": "npm --workspace apps/worker test",
     "supabase:apply:ps": "powershell -ExecutionPolicy Bypass -File infra/scripts/apply-supabase-sql.ps1",
+    "check:drift": "tsx infra/scripts/check-schema-drift.ts",
+    "schema:baseline": "tsx infra/scripts/check-schema-drift.ts --gerar-baseline",
     "verify:local": "powershell -ExecutionPolicy Bypass -File infra/scripts/verify-local.ps1",
     "verify:online": "powershell -ExecutionPolicy Bypass -File infra/scripts/verify-online.ps1",
     "check:env:vercel": "powershell -ExecutionPolicy Bypass -File infra/scripts/check-env-template.ps1 -Path deploy/vercel/.env.production.example -Profile vercel",
