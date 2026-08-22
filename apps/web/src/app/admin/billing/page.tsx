@@ -130,6 +130,32 @@ export default async function AdminBillingPage() {
         </a>
       </div>
 
+      {(subsError || plansError || orgsError) && (
+        <div
+          role="alert"
+          data-estado="erro"
+          className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 px-5 py-4"
+        >
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
+          <div>
+            <p className="text-sm font-semibold text-red-700">
+              Os números desta página estão incompletos.
+            </p>
+            <p className="mt-0.5 text-xs text-red-700/80">
+              Falha ao carregar:{" "}
+              {[
+                subsError ? "assinaturas" : null,
+                plansError ? "planos" : null,
+                orgsError ? "tenants" : null,
+              ]
+                .filter(Boolean)
+                .join(", ")}
+              . Trate os valores exibidos como desconhecidos, não como zero.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* KPIs financeiros */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
         <AdminStatCard
@@ -150,10 +176,32 @@ export default async function AdminBillingPage() {
             tone="green"
           />
         )}
-        <AdminStatCard label="Ativas" value={active.length} icon={CheckCircle2} tone="green" />
-        <AdminStatCard label="Free" value={free.length} icon={CreditCard} tone="slate" />
-        <AdminStatCard label="Inadimplentes" value={pastDue.length} icon={AlertTriangle} tone="amber" />
-        <AdminStatCard label="Canceladas" value={canceled.length} icon={CreditCard} tone="red" />
+        {/* Com subs em erro, `length` é 0 e um zero aqui é indistinguível de
+            "não há nenhuma" — a mesma mentira que este painel já contou. */}
+        <AdminStatCard
+          label="Ativas"
+          value={subsError ? "—" : active.length}
+          icon={CheckCircle2}
+          tone={subsError ? "slate" : "green"}
+        />
+        <AdminStatCard
+          label="Free"
+          value={subsError ? "—" : free.length}
+          icon={CreditCard}
+          tone="slate"
+        />
+        <AdminStatCard
+          label="Inadimplentes"
+          value={subsError ? "—" : pastDue.length}
+          icon={AlertTriangle}
+          tone={subsError ? "slate" : "amber"}
+        />
+        <AdminStatCard
+          label="Canceladas"
+          value={subsError ? "—" : canceled.length}
+          icon={CreditCard}
+          tone={subsError ? "slate" : "red"}
+        />
       </div>
 
       {/* Stripe connection status */}
