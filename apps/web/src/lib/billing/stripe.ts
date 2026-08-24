@@ -1,6 +1,7 @@
 import "server-only";
 import Stripe from "stripe";
 import { guardStripe } from "@/lib/security-guards";
+import { STRIPE_API_VERSION } from "./stripe-config";
 
 let stripeClient: Stripe | null = null;
 
@@ -11,14 +12,16 @@ function requireEnv(name: string): string {
 }
 
 export function getStripe(): Stripe {
-  // Security guard: bloqueia sk_live_ em dev ou sk_test_ em prod
+  // Security guard: bloqueia chave live em dev ou chave de teste em prod
   const check = guardStripe();
   if (!check.allowed) {
     throw new Error(`[SECURITY] ${check.reason}`);
   }
 
   if (stripeClient) return stripeClient;
-  stripeClient = new Stripe(requireEnv("STRIPE_SECRET_KEY"));
+  // apiVersion pinada de proposito: o SDK esta em ^22.2.3, entao sem o pin um
+  // npm update trocaria a versao da API — e o shape das respostas — sozinho.
+  stripeClient = new Stripe(requireEnv("STRIPE_SECRET_KEY"), { apiVersion: STRIPE_API_VERSION });
   return stripeClient;
 }
 
