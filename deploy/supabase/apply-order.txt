@@ -198,3 +198,10 @@ apps/web/supabase/migrations/20260824200000_funnel_agregado_no_banco.sql
 # organizacoes. A constraint plans_code_unique ja existia nos dois bancos; o
 # bloco `do $$` so cobre banco novo levantado do zero. Idempotente.
 apps/web/supabase/migrations/20260824210000_plans_catalogo_global.sql
+
+# 24/08/2026 - A.3 e o LOW da policy lp_templates_read. So `comment on`: nenhuma
+# mudanca de acesso. Escreve que RLS ligado sem policy nestas 4 tabelas de
+# infraestrutura e deny-all DELIBERADO (acesso so pelo servidor, que bypassa RLS
+# com service-role), e que `using (true)` em landing_page_templates deixou de
+# significar leitura anonima quando o PR #138 zerou `anon` em public.
+apps/web/supabase/migrations/20260824220000_rls_intencao_explicita.sql
