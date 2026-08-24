@@ -78,6 +78,22 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    # Serializa: este job fala com o Supabase de DEV, que e um so para todos os
+    # runs. O teste da cadeia de automacao chama `claim_send_commands`, que e a
+    # fila GLOBAL do worker e nao aceita filtro de tenant — entao dois runs ao
+    # mesmo tempo se roubam o comando e um deles reprova sem ter nada errado no
+    # codigo. Aconteceu em 24/08/2026: os PRs #143 e #144 foram mergeados com 4
+    # segundos de diferenca e os dois runs de main quebraram no mesmo assert.
+    #
+    # O tenant com UUID novo a cada execucao isola as LEITURAS do teste, mas nao
+    # protege contra o claim alheio; por isso a serializacao mora aqui e nao no
+    # fixture.
+    #
+    # cancel-in-progress: false porque cancelar o run que ja esta rodando
+    # desperdicaria a validacao inteira por causa de um push que chegou depois.
+    concurrency:
+      group: e2e-supabase-dev
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
