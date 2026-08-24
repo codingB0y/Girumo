@@ -104,7 +104,7 @@ function makeStore(options: FakeOptions = {}) {
  * que separa "cliente pagou" de "cliente gerou um boleto".
  */
 function makeCheckoutEvent(
-  paymentStatus: Stripe.Checkout.Session.PaymentStatus,
+  paymentStatus: Stripe.Checkout.Session["payment_status"],
   over: Partial<Stripe.Event> = {},
 ): Stripe.Event {
   return {
@@ -261,9 +261,11 @@ test("valor zero (cupom de 100%) conta como venda sem cobranca", async () => {
 test("MUTANTE C.3: boleto pago DEPOIS conta a venda, no evento assincrono", async () => {
   const f = makeStore();
 
-  // 1) cliente gera o boleto: nada de venda
+  // 1) cliente gera o boleto: nada de venda.
+  // `equal(length, 0)` e nao `deepEqual(lista, [])`: o segundo estreita o tipo
+  // da lista para `never[]`, e ai o acesso la embaixo nao compila.
   await handleStripeEvent(makeCheckoutEvent("unpaid"), f.store);
-  assert.deepEqual(f.funnelEvents, []);
+  assert.equal(f.funnelEvents.length, 0);
 
   // 2) dias depois o boleto e compensado
   const pago = makeCheckoutEvent("paid", {

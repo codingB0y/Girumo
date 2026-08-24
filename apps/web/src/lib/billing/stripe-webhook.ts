@@ -69,7 +69,7 @@ export type WebhookResult = { status: number; body: Record<string, unknown> };
  * `no_payment_required` entra porque e o caso legitimo de valor zero (cupom de
  * 100%, trial sem cartao): nao ha o que cobrar, e a assinatura vale.
  */
-const PAGAMENTO_CONFIRMADO: ReadonlySet<Stripe.Checkout.Session.PaymentStatus> = new Set([
+const PAGAMENTO_CONFIRMADO: ReadonlySet<Stripe.Checkout.Session["payment_status"]> = new Set([
   "paid",
   "no_payment_required",
 ]);
