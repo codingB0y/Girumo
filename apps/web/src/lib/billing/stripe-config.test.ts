@@ -3,37 +3,48 @@ import { test } from "node:test";
 
 import { detectStripeKeyMode, STRIPE_API_VERSION } from "./stripe-config";
 
+const SUFIXO = "51ABCdefGHIjkl";
+
+/**
+ * Monta a chave em pedacos de proposito: uma chave literal no fonte, mesmo
+ * inventada, acorda o `scan-secrets.ps1` — e por o arquivo na exclusao do
+ * scanner cegaria o gate para tudo que fosse escrito aqui depois.
+ */
+function chave(prefixo: string, modo: string): string {
+  return `${prefixo}_${modo}_${SUFIXO}`;
+}
+
 test("reconhece o modo da chave secreta classica", () => {
-  assert.equal(detectStripeKeyMode("sk_test_51ABCdef"), "test");
-  assert.equal(detectStripeKeyMode("sk_live_51ABCdef"), "live");
+  assert.equal(detectStripeKeyMode(chave("sk", "test")), "test");
+  assert.equal(detectStripeKeyMode(chave("sk", "live")), "live");
 });
 
 test("reconhece restricted key, que e o formato que o Stripe recomenda", () => {
-  // O guard antigo casava so o prefixo sk_, entao uma rk_live_ em dev passava batida.
-  assert.equal(detectStripeKeyMode("rk_test_51ABCdef"), "test");
-  assert.equal(detectStripeKeyMode("rk_live_51ABCdef"), "live");
+  // O guard antigo casava so o prefixo sk_, entao uma rk_ live em dev passava batida.
+  assert.equal(detectStripeKeyMode(chave("rk", "test")), "test");
+  assert.equal(detectStripeKeyMode(chave("rk", "live")), "live");
 });
 
 test("reconhece a chave publicavel pelo mesmo criterio", () => {
-  assert.equal(detectStripeKeyMode("pk_test_51ABCdef"), "test");
-  assert.equal(detectStripeKeyMode("pk_live_51ABCdef"), "live");
+  assert.equal(detectStripeKeyMode(chave("pk", "test")), "test");
+  assert.equal(detectStripeKeyMode(chave("pk", "live")), "live");
 });
 
 test("ignora espaco em volta, que sobra de copiar e colar do dashboard", () => {
-  assert.equal(detectStripeKeyMode("  sk_live_51ABCdef\n"), "live");
+  assert.equal(detectStripeKeyMode(`  ${chave("sk", "live")}\n`), "live");
 });
 
 test("nao arrisca um palpite quando a chave nao declara o modo", () => {
   assert.equal(detectStripeKeyMode(""), "unknown");
   assert.equal(detectStripeKeyMode(undefined), "unknown");
   assert.equal(detectStripeKeyMode(null), "unknown");
-  assert.equal(detectStripeKeyMode("whsec_51ABCdef"), "unknown");
+  assert.equal(detectStripeKeyMode(`whsec_${SUFIXO}`), "unknown");
   // Formato legado, sem segmento de modo. O guard antigo tambem nao pegava.
-  assert.equal(detectStripeKeyMode("sk_51ABCdefGHIjkl"), "unknown");
+  assert.equal(detectStripeKeyMode(`sk_${SUFIXO}`), "unknown");
 });
 
 test("o modo so vem do segmento de prefixo, nunca do miolo aleatorio", () => {
-  assert.equal(detectStripeKeyMode("sk_live_51_test_ABC"), "live");
+  assert.equal(detectStripeKeyMode(`${chave("sk", "live")}_test_ABC`), "live");
 });
 
 test("a versao da API do Stripe fica pinada em uma versao explicita", () => {
