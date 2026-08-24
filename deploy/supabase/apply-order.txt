@@ -191,3 +191,17 @@ apps/web/supabase/migrations/20260824190000_organizations_stripe_customer_id.sql
 # erro — era assim que o funil passaria a contar menos sem ninguem ver.
 # `create or replace`, idempotente.
 apps/web/supabase/migrations/20260824200000_funnel_agregado_no_banco.sql
+
+# 24/08/2026 - A.4 da auditoria. So documentacao: `plans` E catalogo global de
+# proposito (linhas de uma organizacao sentinela, validas para todos), entao
+# servi-la sem filtro de tenant esta CERTO — filtrar quebraria o checkout das 21
+# organizacoes. A constraint plans_code_unique ja existia nos dois bancos; o
+# bloco `do $$` so cobre banco novo levantado do zero. Idempotente.
+apps/web/supabase/migrations/20260824210000_plans_catalogo_global.sql
+
+# 24/08/2026 - A.3 e o LOW da policy lp_templates_read. So `comment on`: nenhuma
+# mudanca de acesso. Escreve que RLS ligado sem policy nestas 4 tabelas de
+# infraestrutura e deny-all DELIBERADO (acesso so pelo servidor, que bypassa RLS
+# com service-role), e que `using (true)` em landing_page_templates deixou de
+# significar leitura anonima quando o PR #138 zerou `anon` em public.
+apps/web/supabase/migrations/20260824220000_rls_intencao_explicita.sql
