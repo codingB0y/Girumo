@@ -1,5 +1,6 @@
 import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { parseFunnelCounts, parseTenantFunnelMatrix } from "./funnel-summary";
 import type { FunnelEvent, TenantFunnelRow } from "./funnel-summary";
 
 /**
@@ -60,48 +61,35 @@ export async function trackFunnelEvent({ tenantId, userId, event, metadata, only
 /**
  * Métricas agregadas do funil — para o admin dashboard.
  * Retorna contagem de tenants em cada etapa.
+ *
+ * O `group by` roda no banco (`funnel_event_counts()`): ler linha a linha e
+ * contar em JS batia no `max-rows` do PostgREST (1000) e passava a contar menos
+ * sem erro nenhum.
  */
 export async function getFunnelMetrics(): Promise<Record<FunnelEvent, number>> {
   const supabase = getSupabaseAdmin();
 
-  const { data } = await supabase
-    .from("funnel_events")
-    .select("event_name");
+  const { data, error } = await supabase.rpc("funnel_event_counts");
 
-  const counts: Record<string, number> = {};
-  for (const row of data ?? []) {
-    counts[row.event_name] = (counts[row.event_name] ?? 0) + 1;
-  }
+  // Numero errado com cara de numero certo e o pior resultado possivel aqui:
+  // melhor a pagina do admin quebrar do que decidir com um funil menor que o real.
+  if (error) throw error;
 
-  return counts as Record<FunnelEvent, number>;
+  return parseFunnelCounts(data);
 }
 
 /**
- * Matriz tenant × marcos para o admin. Junta organizations + funnel_events em JS
- * (2 queries). Guarda o occurred_at da PRIMEIRA vez de cada evento por tenant.
+ * Matriz tenant × marcos para o admin. Uma entrada por organização, com o
+ * occurred_at da PRIMEIRA vez de cada evento — o join e o `min()` acontecem no
+ * banco (`funnel_tenant_matrix()`), não mais em JS sobre duas leituras que o
+ * PostgREST podia cortar em 1000 linhas.
  */
 export async function getTenantFunnelMatrix(): Promise<TenantFunnelRow[]> {
   const supabase = getSupabaseAdmin();
 
-  const [orgsRes, eventsRes] = await Promise.all([
-    supabase.from("organizations").select("id, name, created_at").order("created_at", { ascending: false }),
-    supabase.from("funnel_events").select("tenant_id, event_name, occurred_at"),
-  ]);
+  const { data, error } = await supabase.rpc("funnel_tenant_matrix");
 
-  const byTenant = new Map<string, Partial<Record<FunnelEvent, string>>>();
-  for (const e of eventsRes.data ?? []) {
-    const current = byTenant.get(e.tenant_id) ?? {};
-    const prev = current[e.event_name as FunnelEvent];
-    // Mantém a 1ª ocorrência caso haja duplicata histórica (o unique já garante 1,
-    // mas defensivo se o dado vier de antes da constraint).
-    if (!prev || e.occurred_at < prev) current[e.event_name as FunnelEvent] = e.occurred_at;
-    byTenant.set(e.tenant_id, current);
-  }
+  if (error) throw error;
 
-  return (orgsRes.data ?? []).map((o) => ({
-    tenantId: o.id,
-    name: o.name ?? "—",
-    createdAt: o.created_at,
-    milestones: byTenant.get(o.id) ?? {},
-  }));
+  return parseTenantFunnelMatrix(data);
 }

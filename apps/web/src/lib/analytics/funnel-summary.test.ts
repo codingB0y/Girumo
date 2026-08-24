@@ -1,5 +1,12 @@
 import assert from "node:assert/strict";
-import { summarizeTenantFunnel, ACTIVATION_MILESTONES, type TenantFunnelRow, type FunnelEvent } from "./funnel-summary";
+import {
+  summarizeTenantFunnel,
+  ACTIVATION_MILESTONES,
+  parseFunnelCounts,
+  parseTenantFunnelMatrix,
+  type TenantFunnelRow,
+  type FunnelEvent,
+} from "./funnel-summary";
 
 const DAY = 24 * 60 * 60 * 1000;
 const now = Date.parse("2026-07-29T00:00:00.000Z");
@@ -87,6 +94,85 @@ assert.equal(ACTIVATION_MILESTONES[ACTIVATION_MILESTONES.length - 1].event, "fir
   const s = summarizeTenantFunnel(row(3, { signup: daysAgo(3), qr_connected: daysAgo(2), goal_set: daysAgo(2) }), now);
   assert.equal(s.goalSet, true);
   assert.equal(s.reachedCount, 2);
+}
+
+// ── Leitura do agregado do banco (D.5) ────────────────────────────────────────
+
+// Conta o que o banco agregou; valor que nao e numero nao vira contagem.
+{
+  assert.deepEqual(parseFunnelCounts({ signup: 12, first_order: 3 }), { signup: 12, first_order: 3 });
+  assert.deepEqual(parseFunnelCounts({ signup: "12" }), {}, "string nao conta");
+  assert.deepEqual(parseFunnelCounts({}), {});
+}
+
+// Payload ausente ou de outro formato vira vazio, nao excecao.
+{
+  assert.deepEqual(parseFunnelCounts(null), {});
+  assert.deepEqual(parseFunnelCounts(undefined), {});
+  assert.deepEqual(parseFunnelCounts([1, 2, 3]), {}, "lista nao e mapa de contagem");
+  assert.deepEqual(parseFunnelCounts("nada"), {});
+}
+
+// A matriz vem como lista de objetos jsonb, uma linha por tenant.
+{
+  const linhas = parseTenantFunnelMatrix([
+    {
+      tenant_id: "t-1",
+      name: "Loja A",
+      created_at: "2026-08-01T00:00:00+00:00",
+      milestones: { signup: "2026-08-01T10:00:00+00:00", first_order: "2026-08-03T10:00:00+00:00" },
+    },
+  ]);
+
+  assert.deepEqual(linhas, [
+    {
+      tenantId: "t-1",
+      name: "Loja A",
+      createdAt: "2026-08-01T00:00:00+00:00",
+      milestones: { signup: "2026-08-01T10:00:00+00:00", first_order: "2026-08-03T10:00:00+00:00" },
+    },
+  ]);
+}
+
+// Tenant sem nome mantem o travessao que a tela ja esperava.
+{
+  const [linha] = parseTenantFunnelMatrix([
+    { tenant_id: "t-1", name: null, created_at: "2026-08-01T00:00:00+00:00" },
+  ]);
+  assert.equal(linha.name, "—");
+  assert.deepEqual(linha.milestones, {}, "sem marco = mapa vazio, nao undefined");
+}
+
+// Linha sem id ou sem data de criacao nao serve: summarizeTenantFunnel calcula
+// idade a partir do createdAt.
+{
+  const linhas = parseTenantFunnelMatrix([
+    { name: "sem id", created_at: "2026-08-01T00:00:00+00:00" },
+    { tenant_id: "t-2", name: "sem data" },
+    "nao e objeto",
+    null,
+  ]);
+  assert.deepEqual(linhas, []);
+}
+
+// Marco cujo valor nao e timestamp em texto e descartado, o resto fica.
+{
+  const [linha] = parseTenantFunnelMatrix([
+    {
+      tenant_id: "t-1",
+      name: "Loja A",
+      created_at: "2026-08-01T00:00:00+00:00",
+      milestones: { signup: "2026-08-01T10:00:00+00:00", first_order: 42 },
+    },
+  ]);
+  assert.deepEqual(linha.milestones, { signup: "2026-08-01T10:00:00+00:00" });
+}
+
+// Payload ausente vira lista vazia.
+{
+  assert.deepEqual(parseTenantFunnelMatrix(null), []);
+  assert.deepEqual(parseTenantFunnelMatrix(undefined), []);
+  assert.deepEqual(parseTenantFunnelMatrix({ nao: "e lista" }), []);
 }
 
 console.log("funnel-summary tests passed");

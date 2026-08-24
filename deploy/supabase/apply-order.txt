@@ -184,3 +184,10 @@ apps/web/supabase/migrations/20260822190000_anon_sem_privilegio.sql
 # rascunho ali liberaria os limites do plano pago antes do pagamento. Indice unico
 # parcial + backfill do que o webhook ja gravou. Idempotente.
 apps/web/supabase/migrations/20260824190000_organizations_stripe_customer_id.sql
+
+# 24/08/2026 - D.5 da auditoria. Agrega o funil do admin no banco
+# (funnel_event_counts e funnel_tenant_matrix). As duas devolvem jsonb, e nao
+# conjunto de linhas, porque o PostgREST corta conjunto em max-rows (1000) SEM
+# erro — era assim que o funil passaria a contar menos sem ninguem ver.
+# `create or replace`, idempotente.
+apps/web/supabase/migrations/20260824200000_funnel_agregado_no_banco.sql

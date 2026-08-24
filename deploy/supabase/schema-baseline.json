@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-08-24T19:02:51.598Z",
+  "gerado_em": "2026-08-24T19:21:30.451Z",
   "projeto": "nidoatbxaylrkcgbszns",
   "objetos": {
     "f|advance_automation_run(target_run_id uuid, next_step integer, next_at timestamp with time zone)": "9915acbf605c133627ee5aa950df3dc4",
@@ -14,6 +14,8 @@
     "f|confirm_lp_capture(p_tenant_id uuid, p_landing_page_id uuid, p_name text, p_whatsapp text, p_published_version integer, p_campaign_slug text, p_structure text, p_visual_direction text, p_model_version integer, p_notice_version text, p_notice_text text, p_device text, p_attribution jsonb, p_idem_key text, p_user_agent text, p_ip_hash text)": "fa2f40906d41099a1b80d4f72a436950",
     "f|enqueue_broadcast(target_tenant_id uuid, target_broadcast_id uuid)": "d10e8f6d5cbabff40be3bf8d77092e8a",
     "f|finish_automation_run(target_run_id uuid, final_status text, error_message text)": "9915acbf605c133627ee5aa950df3dc4",
+    "f|funnel_event_counts()": "e0a7baae3ff3514f0ccc15b9858746c7",
+    "f|funnel_tenant_matrix()": "e0a7baae3ff3514f0ccc15b9858746c7",
     "f|increment_automation_runs(p_id uuid, p_tenant_id uuid)": "88c7d4485a52fccae1e448cd2eca880e",
     "f|increment_lp_counter(p_lp_id uuid, p_field text)": "88c7d4485a52fccae1e448cd2eca880e",
     "f|increment_template_uses(template_id uuid)": "88c7d4485a52fccae1e448cd2eca880e",
