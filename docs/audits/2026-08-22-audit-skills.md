@@ -17,6 +17,59 @@ para confirmar está na seção "Não verificado" no fim.
 
 ---
 
+## Estado em 24/08/2026 — o que já foi entregue
+
+Este placar é acrescentado ao relatório; **os achados abaixo ficam como foram
+escritos**, inclusive os dois que a entrega mostrou estarem descritos errado.
+
+| Achado | Sev. | Estado | Onde |
+|---|---|---|---|
+| B.1 | HIGH | fechado | #135 |
+| C.1 · C.2 · C.8 · D.1 | CRITICAL/HIGH | fechado | #136 |
+| C.4 | MEDIUM | fechado junto | `webhook/route.ts:71` — a extração do #136 tornou a chamada aguardada |
+| D.4 · B.2 | HIGH | fechado | #137 |
+| A.2 · B.4 | HIGH | fechado | #138 |
+| D.3 | HIGH | fechado | #139 |
+| C.3 | MEDIUM | fechado | #140 |
+| C.5 · C.6 · C.7 | MEDIUM | fechado | #141 |
+| D.5 | MEDIUM | fechado | #142 |
+| A.4 · A.3 · policy `lp_templates_read` | MEDIUM/LOW | fechado | #143 |
+
+**Ainda abertos, todos travados em decisão ou acesso que o código não resolve:**
+
+| Achado | O que trava |
+|---|---|
+| D.2 | Precisa de um segundo usuário de E2E que seja admin. O `qa-user` é não-admin de propósito e `admin-gate.spec` depende disso |
+| B.3 | 12 tabelas do Squad OS só existem em prod. Allowlist do gate de drift vence 30/09 |
+| B.5 | Reconciliar 41 migrações × 47 linhas do `apply-order.txt` — arqueologia, não um LOW |
+| `auth_leaked_password_protection` (A.5) | Toggle no painel do Supabase |
+| `increment_automation_runs` órfã | Dropar função em prod é destrutivo; precisa de decisão explícita |
+
+**Fora do escopo da auditoria mas descoberto por ela:** `getTenantLimits` devolve
+`{}` para tenant sem assinatura, e limite `undefined` vira `allow` — quem não paga
+fica sem teto nenhum. Card `billing-tenant-sem-plano-e-ilimitado`; travado numa
+decisão de produto porque 2 das 21 orgs de produção passariam a ter limite de um
+dia para o outro.
+
+### Dois achados que a entrega mostrou estarem descritos errado
+
+**C.5 — o fix sugerido pelo relatório estava errado.** Ele propunha "persistir o
+`customer.id`" em `subscriptions`. Conferido no schema: aquela tabela tem
+`unique (tenant_id)` e `status not null` num enum **sem valor neutro**
+(`free · trialing · active · past_due · canceled · unpaid` — não existe
+`incomplete`). Uma linha de rascunho ali teria que nascer num status que
+`getTenantLimits` aceita, **liberando os limites do plano pago antes de o dinheiro
+entrar**, e um upsert por `tenant_id` sobrescreveria a assinatura de quem já paga.
+O ponteiro foi para `organizations.stripe_customer_id`.
+
+**A policy `lp_templates_read` não é mais "leitura anônima total".** O relatório
+descreve `using (true)` como leitura anônima. Isso deixou de valer no mesmo dia,
+com o A.2 (#138): `anon` não tem grant nenhum em `public`, então a policy só
+alcança `authenticated`. O achado foi fechado documentando a dependência — se
+`anon` voltar a receber grant, a policy precisa ser revista junto.
+
+---
+
 ## Seção A — Isolamento multi-tenant
 > Skill: **supabase-postgres-best-practices**
 
