@@ -25,6 +25,13 @@
  *     `members >= capacity`, então números pequenos exercem o gatilho igual e
  *     deixam claro que não há 1024 pessoas do outro lado.
  *
+ * O QUE O TENANT ISOLADO **NÃO** COBRE: `claim_send_commands` é a fila GLOBAL do
+ * worker e não aceita filtro de tenant, então um segundo run do CI rodando ao
+ * mesmo tempo reivindica o comando deste aqui e o elo 2 reprova sem haver nada
+ * errado no código. Aconteceu em 24/08/2026 com os PRs #143 e #144, mergeados
+ * com 4 segundos de diferença. A serialização mora no `concurrency` do job
+ * `e2e` em `.github/workflows/verify.yml` — não dá para resolver aqui dentro.
+ *
  * Pula-se sozinho sem SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY, para `npm test`
  * seguir verde na máquina de quem não configurou credencial.
  */
@@ -156,7 +163,13 @@ test(
         payload: { jid?: string; text?: string };
       };
       assert.equal(comando.type, "send_message");
-      assert.equal(comando.status, "queued");
+      assert.equal(
+        comando.status,
+        "queued",
+        comando.status === "processing"
+          ? "outro run reivindicou este comando antes da conferencia. claim_send_commands e fila GLOBAL, sem filtro de tenant: dois jobs e2e simultaneos contra o Supabase de dev se roubam o comando. Ver o concurrency do job e2e em .github/workflows/verify.yml — nao e bug do codigo."
+          : "o comando nasceu em " + comando.status + ", esperava queued",
+      );
       // ESTE é o assert que teria pego o bug de 19/08.
       assert.notEqual(
         comando.instance_id,
