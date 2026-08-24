@@ -1,5 +1,6 @@
 import { getAppUrl, getStripe } from "@/lib/billing/stripe";
 import { getStripePriceId, normalizePlanCode } from "@/lib/billing/plans";
+import { resolveCheckoutCustomerId } from "@/lib/billing/checkout-customer";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { assertBillingRole, getTenantContext } from "@/lib/supabase/tenant-context";
 
@@ -30,27 +31,73 @@ export async function POST(req: Request) {
       return Response.json({ error: "Plano pago invalido ou sem Stripe Price ID." }, { status: 400 });
     }
 
-    const { data: subscription } = await supabase
-      .from("subscriptions")
-      .select("stripe_customer_id")
-      .eq("tenant_id", ctx.tenantId)
-      .maybeSingle();
-
     const stripe = getStripe();
-    let customerId = subscription?.stripe_customer_id as string | undefined;
 
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: ctx.email ?? undefined,
-        metadata: {
-          tenant_id: ctx.tenantId,
-          auth_user_id: ctx.authUserId,
-        },
-      });
-      customerId = customer.id;
-    }
+    const customerId = await resolveCheckoutCustomerId({
+      tenantId: ctx.tenantId,
+      email: ctx.email ?? null,
+      readTenantCustomerId: async () => {
+        const { data } = await supabase
+          .from("organizations")
+          .select("stripe_customer_id")
+          .eq("id", ctx.tenantId)
+          .eq("tenant_id", ctx.tenantId)
+          .maybeSingle();
+        return (data?.stripe_customer_id as string | null) ?? null;
+      },
+      readSubscriptionCustomerId: async () => {
+        const { data } = await supabase
+          .from("subscriptions")
+          .select("stripe_customer_id")
+          .eq("tenant_id", ctx.tenantId)
+          .maybeSingle();
+        return (data?.stripe_customer_id as string | null) ?? null;
+      },
+      createCustomer: async ({ idempotencyKey }) => {
+        const customer = await stripe.customers.create(
+          {
+            email: ctx.email ?? undefined,
+            metadata: {
+              tenant_id: ctx.tenantId,
+              auth_user_id: ctx.authUserId,
+            },
+          },
+          { idempotencyKey },
+        );
+        return customer.id;
+      },
+      claimCustomerId: async (candidate) => {
+        // Grava so enquanto o ponteiro estiver vazio: se duas abas abrirem o
+        // checkout juntas, quem perde a corrida segue com o customer do vencedor
+        // em vez de apontar para um que ninguem mais referencia.
+        const { data: claimed } = await supabase
+          .from("organizations")
+          .update({ stripe_customer_id: candidate })
+          .eq("id", ctx.tenantId)
+          .eq("tenant_id", ctx.tenantId)
+          .is("stripe_customer_id", null)
+          .select("stripe_customer_id")
+          .maybeSingle();
+
+        if (claimed?.stripe_customer_id) return claimed.stripe_customer_id as string;
+
+        const { data: winner } = await supabase
+          .from("organizations")
+          .select("stripe_customer_id")
+          .eq("id", ctx.tenantId)
+          .eq("tenant_id", ctx.tenantId)
+          .maybeSingle();
+
+        return (winner?.stripe_customer_id as string | null) ?? candidate;
+      },
+    });
 
     const appUrl = getAppUrl();
+    // Sem idempotencyKey de proposito: uma chave estavel por tenant+plano
+    // devolveria a MESMA sessao dentro das 24h em que o Stripe guarda a chave,
+    // e quem ja tivesse pago cairia de volta numa sessao concluida. Sessao
+    // sobrando expira sozinha; customer sobrando fica para sempre — por isso a
+    // chave esta so na criacao do Customer.
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,

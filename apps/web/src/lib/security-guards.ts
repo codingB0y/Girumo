@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getAppEnvironment, isDev, isProduction, isProdDomainUrl } from "./environment";
+import { detectStripeKeyMode } from "./billing/stripe-config";
 
 /**
  * Security Guards — isolamento total entre ambientes.
@@ -28,19 +29,24 @@ export type SecurityCheckResult = {
  * Deve ser chamado antes de qualquer operação Stripe.
  */
 export function guardStripe(): { allowed: boolean; reason?: string } {
-  const key = process.env.STRIPE_SECRET_KEY || "";
   const env = getAppEnvironment();
+  // Pelo segmento de modo, não pelo prefixo: uma restricted key (rk_live_) — que
+  // é o formato que o Stripe recomenda — passava batida pelo guard antigo.
+  const mode = detectStripeKeyMode(process.env.STRIPE_SECRET_KEY);
 
-  // Em produção, deve ter sk_live_
-  if (isProduction() && key.startsWith("sk_test_")) {
-    return { allowed: false, reason: "Chave Stripe TEST em produção — configure sk_live_" };
-  }
-
-  // Em dev/staging, NUNCA sk_live_
-  if (!isProduction() && key.startsWith("sk_live_")) {
+  // Em produção, deve ser chave live
+  if (isProduction() && mode === "test") {
     return {
       allowed: false,
-      reason: `Chave Stripe LIVE detectada em ${env}. Use sk_test_ para ambientes não-produção.`,
+      reason: "Chave Stripe TEST em produção — configure uma chave live (sk_live_ ou rk_live_)",
+    };
+  }
+
+  // Em dev/staging, NUNCA chave live
+  if (!isProduction() && mode === "live") {
+    return {
+      allowed: false,
+      reason: `Chave Stripe LIVE detectada em ${env}. Use uma chave de teste (sk_test_ ou rk_test_) para ambientes não-produção.`,
     };
   }
 

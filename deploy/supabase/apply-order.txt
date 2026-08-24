@@ -176,3 +176,11 @@ apps/web/supabase/migrations/20260822180000_schema_signature.sql
 # Revoga EXECUTE de PUBLIC junto, senao anon executa funcao por heranca. Em dev
 # isto tambem fecha o B.4 (drift de GRANT nas RPCs da LP). Idempotente.
 apps/web/supabase/migrations/20260822190000_anon_sem_privilegio.sql
+
+# 24/08/2026 - C.5 da auditoria. Da ao tenant um ponteiro proprio para o Customer
+# do Stripe (organizations.stripe_customer_id) para o checkout parar de criar um
+# Customer novo a cada tentativa abandonada. NAO vai em subscriptions: aquela
+# tabela tem unique(tenant_id) e status num enum sem valor neutro, entao linha de
+# rascunho ali liberaria os limites do plano pago antes do pagamento. Indice unico
+# parcial + backfill do que o webhook ja gravou. Idempotente.
+apps/web/supabase/migrations/20260824190000_organizations_stripe_customer_id.sql
