@@ -57,12 +57,48 @@ export interface WebhookStore {
 
 export type WebhookResult = { status: number; body: Record<string, unknown> };
 
+/**
+ * `payment_status` de sessao que significa "o dinheiro entrou".
+ *
+ * Boleto e Pix sao metodos ASSINCRONOS: o `checkout.session.completed` deles
+ * chega assim que o cliente termina o fluxo, com `payment_status: "unpaid"` —
+ * antes de qualquer pagamento. Quem confirma e o
+ * `checkout.session.async_payment_succeeded`, que vem depois (boleto pode levar
+ * dias). Tratar os dois como a mesma coisa registra receita que nao existe.
+ *
+ * `no_payment_required` entra porque e o caso legitimo de valor zero (cupom de
+ * 100%, trial sem cartao): nao ha o que cobrar, e a assinatura vale.
+ */
+const PAGAMENTO_CONFIRMADO: ReadonlySet<Stripe.Checkout.Session.PaymentStatus> = new Set([
+  "paid",
+  "no_payment_required",
+]);
+
+/**
+ * Traduz o status do Stripe para o enum `subscription_status` do banco.
+ *
+ * O enum tem exatamente seis valores (`free, trialing, active, past_due,
+ * canceled, unpaid`), identicos em dev e prod, e NAO inclui `incomplete`. Por
+ * isso o mapeamento e explicito em vez de repassar a string do Stripe.
+ *
+ * `incomplete` e `incomplete_expired` caiam no fallback `past_due` — o que era
+ * errado nos dois sentidos. `past_due` significa "estava ativa e uma renovacao
+ * falhou"; `incomplete` significa "nunca chegou a ser paga". Sao a mesma coisa
+ * para quem le o painel de billing e coisas diferentes para o negocio.
+ * `unpaid` e `canceled` sao os vizinhos honestos dentro do enum existente.
+ */
 export function mapStripeStatus(status: Stripe.Subscription.Status): string {
   if (status === "active") return "active";
   if (status === "trialing") return "trialing";
   if (status === "past_due") return "past_due";
   if (status === "unpaid") return "unpaid";
   if (status === "canceled") return "canceled";
+  // Primeira cobranca pendente ou recusada: a assinatura nunca valeu.
+  if (status === "incomplete") return "unpaid";
+  // Passou da janela do Stripe sem pagar a primeira cobranca: morreu.
+  if (status === "incomplete_expired") return "canceled";
+  // Status novo do Stripe (ex.: `paused`): `past_due` e o conservador — nao
+  // libera nada, e o log de sincronizacao guarda o valor cru em `stripe_status`.
   return "past_due";
 }
 
@@ -126,6 +162,79 @@ async function upsertSubscription(
   return { error: null };
 }
 
+/**
+ * Sessao de checkout: sincroniza a assinatura e decide se houve PAGAMENTO.
+ *
+ * As duas coisas sao separadas de proposito. A assinatura e gravada sempre —
+ * saber que existe uma tentativa em aberto tem valor, e o status real dela vem
+ * do proprio Stripe. Ja o evento de funil `payment_completed` significa receita
+ * reconhecida, e so pode sair quando `payment_status` confirma que o dinheiro
+ * entrou.
+ *
+ * Antes disto, qualquer `checkout.session.completed` disparava
+ * `payment_completed`. Como boleto e Pix emitem esse evento ANTES do pagamento,
+ * gerar um boleto e nunca paga-lo contava como venda no funil.
+ */
+async function handleCheckoutSession(
+  session: Stripe.Checkout.Session,
+  eventCreatedAt: string,
+  store: WebhookStore,
+  options: { pagamentoFalhou?: boolean } = {},
+): Promise<StoreResult> {
+  if (!session.subscription) return { error: null };
+
+  const subscription = await store.retrieveSubscription(String(session.subscription));
+  const processed = await upsertSubscription(subscription, eventCreatedAt, store);
+  if (processed.error) return processed;
+
+  const tenantId = subscription.metadata.tenant_id;
+  // Sem tenant nao ha a quem atribuir; `upsertSubscription` ja registrou o aviso.
+  if (!tenantId) return { error: null };
+
+  const metadataComum = {
+    stripe_subscription_id: subscription.id,
+    stripe_session_id: session.id,
+    payment_status: session.payment_status,
+    plan_code: subscription.metadata.plan_code ?? null,
+  };
+
+  if (options.pagamentoFalhou) {
+    await store.insertLog({
+      tenant_id: tenantId,
+      level: "warn",
+      event: "stripe.checkout.pagamento_falhou",
+      message: "Pagamento assincrono (boleto/Pix) nao foi concluido.",
+      metadata: metadataComum,
+    });
+    return { error: null };
+  }
+
+  if (!PAGAMENTO_CONFIRMADO.has(session.payment_status)) {
+    // Nao e erro: e o estado normal de boleto/Pix recem-emitido. Vira log para
+    // que a espera seja visivel, em vez de a tentativa sumir ate o desfecho.
+    await store.insertLog({
+      tenant_id: tenantId,
+      level: "info",
+      event: "stripe.checkout.pagamento_pendente",
+      message: `Checkout concluido, aguardando pagamento (${session.payment_status}).`,
+      metadata: metadataComum,
+    });
+    return { error: null };
+  }
+
+  await store.trackFunnelEvent({
+    tenantId,
+    userId: subscription.metadata.user_id ?? null,
+    event: "payment_completed",
+    metadata: {
+      plan_code: subscription.metadata.plan_code,
+      stripe_subscription_id: subscription.id,
+    },
+  });
+
+  return { error: null };
+}
+
 export async function handleStripeEvent(
   event: Stripe.Event,
   store: WebhookStore,
@@ -163,25 +272,29 @@ export async function handleStripeEvent(
     );
   }
 
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object as Stripe.Checkout.Session;
-    if (session.subscription) {
-      const subscription = await store.retrieveSubscription(String(session.subscription));
-      processed = await upsertSubscription(subscription, eventCreatedAt, store);
+  // `async_payment_succeeded` e a confirmacao tardia de boleto/Pix e chega com
+  // `payment_status: "paid"`, entao passa pelo mesmo caminho: o gate la dentro
+  // decide se houve pagamento, e nao o tipo do evento.
+  if (
+    event.type === "checkout.session.completed" ||
+    event.type === "checkout.session.async_payment_succeeded"
+  ) {
+    processed = await handleCheckoutSession(
+      event.data.object as Stripe.Checkout.Session,
+      eventCreatedAt,
+      store,
+    );
+  }
 
-      const tenantId = subscription.metadata.tenant_id;
-      if (!processed.error && tenantId) {
-        await store.trackFunnelEvent({
-          tenantId,
-          userId: subscription.metadata.user_id ?? null,
-          event: "payment_completed",
-          metadata: {
-            plan_code: subscription.metadata.plan_code,
-            stripe_subscription_id: subscription.id,
-          },
-        });
-      }
-    }
+  // Boleto vencido ou Pix nao pago. Sem isto, a tentativa morria em silencio e
+  // a assinatura ficava parada no ultimo status conhecido.
+  if (event.type === "checkout.session.async_payment_failed") {
+    processed = await handleCheckoutSession(
+      event.data.object as Stripe.Checkout.Session,
+      eventCreatedAt,
+      store,
+      { pagamentoFalhou: true },
+    );
   }
 
   if (processed.error) {

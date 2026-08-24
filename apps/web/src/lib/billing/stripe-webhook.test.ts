@@ -3,6 +3,8 @@ import { test } from "node:test";
 import type Stripe from "stripe";
 import {
   handleStripeEvent,
+  mapStripeStatus,
+  type FunnelInput,
   type LogRow,
   type StoreResult,
   type SubscriptionRow,
@@ -43,7 +45,11 @@ function makeEvent(over: Partial<Stripe.Event> = {}): Stripe.Event {
   } as unknown as Stripe.Event;
 }
 
-type FakeOptions = { upsertError?: string | null };
+type FakeOptions = {
+  upsertError?: string | null;
+  /** Assinatura que o Stripe devolve no `retrieveSubscription`. */
+  subscription?: Stripe.Subscription;
+};
 
 /**
  * Fake que modela o que importa para estes testes: o marcador de idempotencia
@@ -53,6 +59,7 @@ function makeStore(options: FakeOptions = {}) {
   const processedEvents = new Set<string>();
   const upserts: SubscriptionRow[] = [];
   const logs: LogRow[] = [];
+  const funnelEvents: FunnelInput[] = [];
   let upsertError = options.upsertError ?? null;
 
   const store: WebhookStore = {
@@ -73,20 +80,46 @@ function makeStore(options: FakeOptions = {}) {
       return { error: null };
     },
     async retrieveSubscription() {
-      return makeSubscription();
+      return options.subscription ?? makeSubscription();
     },
-    async trackFunnelEvent() {},
+    async trackFunnelEvent(input) {
+      funnelEvents.push(input);
+    },
   };
 
   return {
     store,
     upserts,
     logs,
+    funnelEvents,
     processedEvents,
     recuperaBanco: () => {
       upsertError = null;
     },
   };
+}
+
+/**
+ * Evento de checkout. `payment_status` e o parametro que importa aqui: e ele
+ * que separa "cliente pagou" de "cliente gerou um boleto".
+ */
+function makeCheckoutEvent(
+  paymentStatus: Stripe.Checkout.Session.PaymentStatus,
+  over: Partial<Stripe.Event> = {},
+): Stripe.Event {
+  return {
+    id: "evt_checkout_1",
+    type: "checkout.session.completed",
+    created: 1_700_000_000,
+    data: {
+      object: {
+        id: "cs_123",
+        subscription: "sub_123",
+        payment_status: paymentStatus,
+      },
+    },
+    ...over,
+  } as unknown as Stripe.Event;
 }
 
 test("grava a assinatura quando o evento e valido", async () => {
@@ -172,4 +205,108 @@ test("assinatura sem tenant_id nao grava e registra aviso", async () => {
 
   assert.equal(f.upserts.length, 0);
   assert.ok(f.logs.some((l) => l.event === "stripe.subscription.missing_metadata"));
+});
+
+// ---------------------------------------------------------------------------
+// C.3 — pagamento assincrono (boleto / Pix)
+//
+// Boleto e Pix emitem `checkout.session.completed` assim que o cliente termina
+// o fluxo, com `payment_status: "unpaid"` — dias antes de o dinheiro entrar (ou
+// nunca, se o boleto vencer). Antes destes testes, qualquer sessao concluida
+// registrava `payment_completed` no funil.
+// ---------------------------------------------------------------------------
+
+test("MUTANTE C.3: boleto emitido e NAO pago nao conta como venda", async () => {
+  const f = makeStore();
+
+  const res = await handleStripeEvent(makeCheckoutEvent("unpaid"), f.store);
+
+  assert.equal(res.status, 200, "o Stripe nao deve reenviar: nao houve erro nenhum");
+  assert.deepEqual(
+    f.funnelEvents,
+    [],
+    "payment_completed com boleto em aberto e receita que nao existe",
+  );
+
+  // A assinatura E gravada: saber que ha uma tentativa em aberto tem valor.
+  assert.equal(f.upserts.length, 1, "a tentativa precisa ficar registrada");
+
+  const pendente = f.logs.find((l) => l.event === "stripe.checkout.pagamento_pendente");
+  assert.ok(pendente, "a espera pelo pagamento tem que ficar visivel, nao sumir");
+  assert.equal(pendente?.metadata.payment_status, "unpaid");
+});
+
+test("pagamento a vista (cartao) continua contando como venda", async () => {
+  const f = makeStore();
+
+  await handleStripeEvent(makeCheckoutEvent("paid"), f.store);
+
+  assert.equal(f.funnelEvents.length, 1, "cartao aprovado e venda");
+  assert.equal(f.funnelEvents[0].event, "payment_completed");
+  assert.equal(f.funnelEvents[0].tenantId, TENANT);
+});
+
+test("valor zero (cupom de 100%) conta como venda sem cobranca", async () => {
+  const f = makeStore();
+
+  await handleStripeEvent(makeCheckoutEvent("no_payment_required"), f.store);
+
+  assert.equal(
+    f.funnelEvents.length,
+    1,
+    "no_payment_required e o caso legitimo de nao haver o que cobrar",
+  );
+});
+
+test("MUTANTE C.3: boleto pago DEPOIS conta a venda, no evento assincrono", async () => {
+  const f = makeStore();
+
+  // 1) cliente gera o boleto: nada de venda
+  await handleStripeEvent(makeCheckoutEvent("unpaid"), f.store);
+  assert.deepEqual(f.funnelEvents, []);
+
+  // 2) dias depois o boleto e compensado
+  const pago = makeCheckoutEvent("paid", {
+    id: "evt_checkout_2",
+    type: "checkout.session.async_payment_succeeded",
+  });
+  await handleStripeEvent(pago, f.store);
+
+  assert.equal(
+    f.funnelEvents.length,
+    1,
+    "sem handler de async_payment_succeeded a venda real nunca era registrada",
+  );
+  assert.equal(f.funnelEvents[0].event, "payment_completed");
+});
+
+test("boleto vencido registra a falha em vez de morrer em silencio", async () => {
+  const f = makeStore();
+
+  const falhou = makeCheckoutEvent("unpaid", {
+    id: "evt_checkout_3",
+    type: "checkout.session.async_payment_failed",
+  });
+  const res = await handleStripeEvent(falhou, f.store);
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(f.funnelEvents, []);
+
+  const log = f.logs.find((l) => l.event === "stripe.checkout.pagamento_falhou");
+  assert.ok(log, "boleto vencido tem que deixar rastro");
+  assert.equal(log?.level, "warn");
+});
+
+test("MUTANTE C.3: incomplete nao vira past_due", () => {
+  // O enum `subscription_status` do banco nao tem `incomplete` (identico em dev
+  // e prod), entao o mapeamento precisa escolher um vizinho. `past_due` era a
+  // escolha errada: significa "estava ativa e a renovacao falhou", nao "nunca
+  // foi paga".
+  assert.equal(mapStripeStatus("incomplete"), "unpaid");
+  assert.equal(mapStripeStatus("incomplete_expired"), "canceled");
+
+  // O que ja funcionava nao pode ter mudado junto.
+  assert.equal(mapStripeStatus("active"), "active");
+  assert.equal(mapStripeStatus("past_due"), "past_due");
+  assert.equal(mapStripeStatus("canceled"), "canceled");
 });
