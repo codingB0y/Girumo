@@ -53,6 +53,21 @@ function redactCompatibility(relativeFile, source) {
     }
   }
 
+  // `plans` e catalogo global e suas 4 linhas pertencem a uma organizacao
+  // sentinela cujo NOME NO BANCO e literalmente "HUBFLOW System" (ver o
+  // comentario da propria rota). O texto nao e marca vazando para o usuario: e
+  // um dado de producao citado em comentario, e trocar por "Girumo System"
+  // tornaria o comentario falso. Liberado ancorado na frase inteira, para que a
+  // excecao morra junto com ela se o comentario for reescrito.
+  if (relativeFile === "src/app/api/plans/route.ts") {
+    const context = 'organizacao sentinela ("HUBFLOW System")';
+    const contextIndex = source.indexOf(context);
+    if (contextIndex >= 0) {
+      const match = "HUBFLOW";
+      ranges.push({ index: contextIndex + context.indexOf(match), match });
+    }
+  }
+
   if (relativeFile === "src/lib/pages/slug.ts") {
     const reserved = /const\s+RESERVED\s*=\s*new\s+Set\s*\(\s*\[([\s\S]*?)\]\s*\)/.exec(source);
     if (reserved) {

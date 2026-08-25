@@ -20,6 +20,15 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Gate de marca. Entrou em 25/08/2026, depois de a verificacao do card
+      # `landing-rebrand-girumo` descobrir que o script existia desde o rebrand
+      # (PR #20) mas nunca fora ligado em lugar nenhum — nem CI, nem hook — e
+      # que rodava vermelho em `main` por um falso positivo. Sem ele, o rebrand
+      # so era protegido por quem lembrasse de rodar a mao.
+      #
+      # Antes do verify-local de proposito: leva ~1s e nao precisa de deps.
+      - run: npm run --workspace apps/web brand:check
+
       # Chama o script direto: o npm script `verify:local` invoca `powershell`,
       # que so existe no Windows. O script em si e cross-platform.
       - run: pwsh -File infra/scripts/verify-local.ps1
