@@ -9,6 +9,26 @@ const PAGE_SLUG = "girumo-qa-wholesale";
 const TEMPLATE_SLUG = "catalogo-grupo";
 const SAFE_TARGET_URL = "https://wa.me/0000000000000";
 
+/**
+ * O tenant de QA precisa de assinatura, e ela precisa ser a mais folgada.
+ *
+ * Tenant sem linha em `subscriptions` recebe o teto do plano FREE
+ * (`lib/billing/entitlements.ts`), e o FREE traz `campaigns: 0` e
+ * `team_members: 1`. Com isso a suíte quebra em dois pontos: o fixture de
+ * campanha leva 402 no POST /api/campanhas, e `equipe-convite.spec.ts` recebe
+ * 402 onde exige 201, porque o tenant já tem 3 memberships.
+ *
+ * Até 25/08/2026 isso passava despercebido: a ausência de assinatura devolvia
+ * `{}`, que liberava tudo. Ou seja, a suíte vinha passando por causa do defeito
+ * de cobrança, não apesar dele — e o conserto do defeito é que expôs a falta.
+ *
+ * PERFORMANCE_MAX e não ESSENCIAL porque ESSENCIAL tem `team_members: 3`, que
+ * o tenant já esgota. A folga aqui é proposital: execução que falha no meio
+ * deixa convite órfão para trás, e teto apertado transforma esse lixo numa
+ * armadilha permanente de CI.
+ */
+const SUBSCRIPTION_PLAN_CODE = "PERFORMANCE_MAX";
+
 const REQUIRED_ENV_NAMES = [
   "GIRUMO_QA_ALLOW_WRITE",
   "GIRUMO_QA_DB_HOST_CONFIRM",
@@ -71,6 +91,13 @@ export type QaMembershipInput = {
   user_id: string;
 };
 
+export type QaSubscriptionInput = {
+  metadata: { fixture: true; purpose: "girumo-brand-qa" };
+  plan_id: string;
+  status: "active";
+  tenant_id: string;
+};
+
 export type QaLandingPageInput = {
   campaign_slug: null;
   content: {
@@ -109,6 +136,10 @@ export interface QaStateBackend {
   findMembership(tenantId: string, userId: string): Promise<Identified | null>;
   createMembership(input: QaMembershipInput): Promise<Identified>;
   updateMembership(id: string, input: QaMembershipInput): Promise<void>;
+  findPlanByCode(code: string): Promise<Identified | null>;
+  findSubscriptionByTenant(tenantId: string): Promise<Identified | null>;
+  createSubscription(input: QaSubscriptionInput): Promise<Identified>;
+  updateSubscription(id: string, input: QaSubscriptionInput): Promise<void>;
   findTemplateBySlug(slug: string): Promise<Identified | null>;
   findLandingPageBySlug(slug: string): Promise<TenantIdentified | null>;
   createLandingPage(input: QaLandingPageInput): Promise<Identified>;
@@ -344,6 +375,44 @@ export function createSupabaseQaBackend(
       assertNoSupabaseError(error, "atualizar membership");
     },
 
+    async findPlanByCode(code) {
+      // `ilike` porque o mesmo plano aparece como "PERFORMANCE_MAX" nos bancos
+      // e em minúsculas no que `api/admin/seed` cria.
+      const { data, error } = await client
+        .from("plans")
+        .select("id")
+        .ilike("code", code)
+        .maybeSingle();
+      assertNoSupabaseError(error, "buscar plano do catálogo");
+      return data ? { id: String(data.id) } : null;
+    },
+
+    async findSubscriptionByTenant(tenantId) {
+      const { data, error } = await client
+        .from("subscriptions")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .maybeSingle();
+      assertNoSupabaseError(error, "buscar assinatura");
+      return data ? { id: String(data.id) } : null;
+    },
+
+    async createSubscription(input) {
+      const { data, error } = await client
+        .from("subscriptions")
+        .insert(input)
+        .select("id")
+        .single();
+      assertNoSupabaseError(error, "criar assinatura");
+      if (!data) throw supabaseFailure("criar assinatura");
+      return { id: String(data.id) };
+    },
+
+    async updateSubscription(id, input) {
+      const { error } = await client.from("subscriptions").update(input).eq("id", id);
+      assertNoSupabaseError(error, "atualizar assinatura");
+    },
+
     async findTemplateBySlug(slug) {
       const { data, error } = await client
         .from("landing_page_templates")
@@ -422,6 +491,28 @@ async function ensureMembership(
   const existing = await backend.findMembership(input.tenant_id, input.user_id);
   if (existing) await backend.updateMembership(existing.id, input);
   else await backend.createMembership(input);
+}
+
+async function ensureSubscription(
+  backend: QaStateBackend,
+  tenantId: string,
+): Promise<void> {
+  const plan = await backend.findPlanByCode(SUBSCRIPTION_PLAN_CODE);
+  // Falha alto de propósito: sem assinatura o tenant cai no teto do FREE e a
+  // suíte quebra com 402 em campanhas e convites. Seguir em silêncio aqui só
+  // adiaria o erro para dentro do CI, onde ele custa muito mais caro de ler.
+  if (!plan) throw new Error(`Plano obrigatório ausente no catálogo: ${SUBSCRIPTION_PLAN_CODE}.`);
+
+  const input: QaSubscriptionInput = {
+    metadata: { fixture: true, purpose: "girumo-brand-qa" },
+    plan_id: plan.id,
+    status: "active",
+    tenant_id: tenantId,
+  };
+
+  const existing = await backend.findSubscriptionByTenant(tenantId);
+  if (existing) await backend.updateSubscription(existing.id, input);
+  else await backend.createSubscription(input);
 }
 
 async function prepareWithConfig(
@@ -508,6 +599,7 @@ async function prepareWithConfig(
     tenant_id: tenantId,
     user_id: adminUserId,
   });
+  await ensureSubscription(backend, tenantId);
 
   const landingPage: QaLandingPageInput = {
     campaign_slug: null,

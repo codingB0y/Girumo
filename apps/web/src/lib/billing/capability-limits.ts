@@ -79,3 +79,58 @@ export function resolveLimitCheck(capability: PlanCapability, limits: Limits): L
 export function hasReachedLimit(count: number, limit: number): boolean {
   return count >= limit;
 }
+
+/**
+ * Teto aplicado quando o tenant não tem assinatura E o catálogo não serve.
+ * Espelha o plano FREE de produção (25/08/2026).
+ *
+ * Existe porque catálogo indisponível não pode virar barra livre: era assim que
+ * o defeito se manifestava — `{}` faz `resolveLimitCheck` responder `allow`
+ * para tudo, então quem não pagava ficava com teto MAIOR que qualquer cliente.
+ * Se os números do FREE mudarem no banco, este fallback fica conservador de
+ * propósito: é a última linha, não a fonte da verdade.
+ */
+export const FREE_FALLBACK_LIMITS: Limits = {
+  funnels: 1,
+  contacts: 250,
+  campaigns: 0,
+  uploads_mb: 100,
+  team_members: 1,
+  whatsapp_instances: 1,
+};
+
+/**
+ * `{}` vindo do catálogo é linha sem dado, não "plano sem teto".
+ *
+ * A diferença importa porque `plans.limits` é `NOT NULL DEFAULT '{}'::jsonb`:
+ * o banco nunca devolve null, devolve `{}`. Um `insert into plans (code, name)`
+ * sem `limits` — que é o que `api/admin/seed/route.ts` faz — produz exatamente
+ * essa linha. Aceitá-la como teto reabriria o defeito pela porta dos fundos.
+ */
+function temAlgumLimite(limits: Limits | null | undefined): limits is Limits {
+  return !!limits && Object.keys(limits).length > 0;
+}
+
+/**
+ * Decide o teto do tenant a partir do que o banco devolveu.
+ *
+ * Puro de propósito: `entitlements.ts` importa `server-only` e não roda sob
+ * `tsx --test`, então a regra que importa mora aqui.
+ *
+ * `subscription: null` significa "não existe assinatura" — um FATO, que vira o
+ * teto do FREE. Não confundir com falha de leitura, que é um DESCONHECIDO e
+ * não deve ser adivinhado: quem lê o banco trata isso antes de chegar aqui.
+ */
+export function tenantLimitsFrom(input: {
+  subscription: { limits?: Limits | null } | null;
+  freePlan: Limits | null;
+}): Limits {
+  if (!input.subscription) {
+    return temAlgumLimite(input.freePlan) ? input.freePlan : FREE_FALLBACK_LIMITS;
+  }
+
+  // Assinatura existe e o plano não põe teto: escolha do catálogo, respeitada.
+  // Rebaixar para FREE aqui puniria cliente pagante. Aqui `{}` PODE valer como
+  // "sem teto", ao contrário do ramo acima, porque houve escolha de plano.
+  return input.subscription.limits ?? {};
+}

@@ -36,6 +36,15 @@ skipped, não como falha. Para a suíte inteira, use um usuário do Supabase de
 **dev** — `qa-user@girumo.test` já existe lá, criado por
 `npm run qa:prepare-brand`:
 
+> **O tenant de QA precisa de assinatura ativa.** `qa:prepare-brand` cria uma no
+> plano `PERFORMANCE_MAX`. Tenant sem linha em `subscriptions` recebe o teto do
+> FREE (`lib/billing/entitlements.ts`), e o FREE traz `campaigns: 0` e
+> `team_members: 1` — o fixture de campanha leva 402 no POST `/api/campanhas` e
+> `equipe-convite.spec.ts` recebe 402 onde exige 201. Até 25/08/2026 a suíte
+> passava sem assinatura nenhuma porque a ausência devolvia `{}`, que liberava
+> tudo: ela vinha passando por causa de um defeito de cobrança, não apesar dele.
+> Se a suíte começar a dar 402, confira a assinatura do tenant antes do código.
+
 ```powershell
 $env:E2E_EMAIL = "usuario@dev"; $env:E2E_PASSWORD = "senha"; npm run web:e2e
 ```

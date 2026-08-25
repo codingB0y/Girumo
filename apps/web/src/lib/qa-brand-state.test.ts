@@ -10,6 +10,7 @@ import {
   type QaMembershipInput,
   type QaOrganizationInput,
   type QaStateBackend,
+  type QaSubscriptionInput,
   type QaUserProfileInput,
 } from "../../scripts/prepare-girumo-qa-state";
 
@@ -30,13 +31,29 @@ type Row<T> = T & { id: string };
 
 class InMemoryQaBackend implements QaStateBackend {
   templateAvailable = true;
+  planAvailable = true;
   readonly authUsers = new Map<string, Row<QaAuthUserInput>>();
   readonly organizations = new Map<string, Row<QaOrganizationInput>>();
   readonly profiles = new Map<string, Row<QaUserProfileInput>>();
   readonly memberships = new Map<string, Row<QaMembershipInput>>();
+  readonly subscriptions = new Map<string, Row<QaSubscriptionInput>>();
   readonly pages = new Map<string, Row<QaLandingPageInput>>();
-  readonly creates = { auth: 0, organization: 0, profile: 0, membership: 0, page: 0 };
-  readonly updates = { auth: 0, organization: 0, profile: 0, membership: 0, page: 0 };
+  readonly creates = {
+    auth: 0,
+    organization: 0,
+    profile: 0,
+    membership: 0,
+    subscription: 0,
+    page: 0,
+  };
+  readonly updates = {
+    auth: 0,
+    organization: 0,
+    profile: 0,
+    membership: 0,
+    subscription: 0,
+    page: 0,
+  };
 
   async findAuthUserByEmail(email: string) {
     return this.authUsers.get(email) ?? null;
@@ -100,6 +117,26 @@ class InMemoryQaBackend implements QaStateBackend {
   async updateMembership(id: string, input: QaMembershipInput) {
     this.updates.membership += 1;
     this.memberships.set(`${input.tenant_id}:${input.user_id}`, { ...input, id });
+  }
+
+  async findPlanByCode(code: string) {
+    return this.planAvailable && code === "PERFORMANCE_MAX" ? { id: "plan-performance" } : null;
+  }
+
+  async findSubscriptionByTenant(tenantId: string) {
+    return this.subscriptions.get(tenantId) ?? null;
+  }
+
+  async createSubscription(input: QaSubscriptionInput) {
+    this.creates.subscription += 1;
+    const row = { ...input, id: `subscription-${this.creates.subscription}` };
+    this.subscriptions.set(input.tenant_id, row);
+    return row;
+  }
+
+  async updateSubscription(id: string, input: QaSubscriptionInput) {
+    this.updates.subscription += 1;
+    this.subscriptions.set(input.tenant_id, { ...input, id });
   }
 
   async findTemplateBySlug(slug: string) {
@@ -272,6 +309,7 @@ test("cria e depois atualiza o mesmo estado determinístico sem duplicar registr
     organization: 1,
     profile: 2,
     membership: 2,
+    subscription: 1,
     page: 1,
   });
   assert.deepEqual(backend.updates, {
@@ -279,6 +317,7 @@ test("cria e depois atualiza o mesmo estado determinístico sem duplicar registr
     organization: 1,
     profile: 2,
     membership: 2,
+    subscription: 1,
     page: 1,
   });
 
@@ -290,6 +329,15 @@ test("cria e depois atualiza o mesmo estado determinístico sem duplicar registr
     [...backend.memberships.values()].map(({ role }) => role).sort(),
     ["admin", "owner"],
   );
+
+  // Sem esta assinatura o tenant cai no teto do FREE (`campaigns: 0`,
+  // `team_members: 1`) e a suíte e2e leva 402 em campanhas e convites. Ficou
+  // invisível até 25/08/2026 porque tenant sem assinatura devolvia `{}`, que
+  // liberava tudo — o e2e passava por causa do defeito de cobrança.
+  const subscription = backend.subscriptions.get(first.tenantId);
+  assert.equal(subscription?.plan_id, "plan-performance");
+  assert.equal(subscription?.status, "active");
+  assert.equal(subscription?.tenant_id, first.tenantId);
 
   const page = backend.pages.get("girumo-qa-wholesale");
   assert.equal(page?.tenant_id, first.tenantId);
@@ -322,6 +370,7 @@ test("valida o template obrigatório antes da primeira mutação", async () => {
     organization: 0,
     profile: 0,
     membership: 0,
+    subscription: 0,
     page: 0,
   });
   assert.deepEqual(backend.updates, {
@@ -329,8 +378,29 @@ test("valida o template obrigatório antes da primeira mutação", async () => {
     organization: 0,
     profile: 0,
     membership: 0,
+    subscription: 0,
     page: 0,
   });
+});
+
+test("falha alto quando o plano da assinatura nao esta no catalogo", async () => {
+  // Seguir em silêncio aqui devolveria um tenant sem assinatura, que é
+  // exatamente o estado que quebra o e2e — só que o erro apareceria lá na
+  // frente, como 402 no meio da suíte, sem apontar para a causa.
+  const backend = new InMemoryQaBackend();
+  backend.planAvailable = false;
+
+  await assert.rejects(
+    runQaPreparation({
+      env: validEnv,
+      createBackend: () => backend,
+      writeLine: () => undefined,
+    }),
+    /PERFORMANCE_MAX/,
+  );
+
+  assert.equal(backend.creates.subscription, 0);
+  assert.equal(backend.pages.size, 0, "a landing page nao pode ser criada depois da falha");
 });
 
 test("recusa o slug global quando ele pertence a outro tenant antes de mutar dados", async () => {
