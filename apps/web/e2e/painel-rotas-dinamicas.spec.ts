@@ -5,7 +5,7 @@ import { ROTAS_DINAMICAS_DO_PAINEL } from "./rotas";
 import { exigeCredenciais, semErroDeRuntime } from "./sessao-helpers";
 
 /**
- * As telas de DETALHE do painel — editor de pagina, campanha, squad.
+ * As telas de DETALHE do painel — editor de pagina e campanha.
  *
  * `painel-rotas.spec.ts` cobre as LISTAS; este cobre o que elas abrem. Ate
  * 21/08/2026 nao havia nada aqui: `coletarRotas` pulava `[id]` por precisar de
