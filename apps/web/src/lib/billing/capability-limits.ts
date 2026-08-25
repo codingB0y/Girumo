@@ -79,3 +79,43 @@ export function resolveLimitCheck(capability: PlanCapability, limits: Limits): L
 export function hasReachedLimit(count: number, limit: number): boolean {
   return count >= limit;
 }
+
+/**
+ * Teto aplicado quando o tenant nao tem assinatura E o catalogo nao pode ser
+ * lido. Espelha o plano FREE de producao (25/08/2026).
+ *
+ * Existe porque catalogo indisponivel nao pode virar barra livre: era assim que
+ * o defeito se manifestava — `{}` faz `resolveLimitCheck` responder `allow`
+ * para tudo, entao quem nao pagava ficava com teto MAIOR que qualquer cliente.
+ * Se os numeros do FREE mudarem no banco, este fallback fica conservador de
+ * proposito: e a ultima linha, nao a fonte da verdade.
+ */
+export const FREE_FALLBACK_LIMITS: Limits = {
+  funnels: 1,
+  contacts: 250,
+  campaigns: 0,
+  uploads_mb: 100,
+  team_members: 1,
+  whatsapp_instances: 1,
+};
+
+/**
+ * Decide o teto do tenant a partir do que o banco devolveu.
+ *
+ * Puro de proposito: `entitlements.ts` importa `server-only` e nao roda sob
+ * `tsx --test`, entao a regra que importa mora aqui.
+ *
+ * `assinatura: null` significa "nao existe assinatura" — um FATO, que vira o
+ * teto do FREE. Nao confundir com falha de leitura, que e um DESCONHECIDO e
+ * nao deve ser adivinhado: quem le o banco trata isso antes de chegar aqui.
+ */
+export function limitesDoTenant(input: {
+  assinatura: { limits?: Limits | null } | null;
+  planoFree: Limits | null;
+}): Limits {
+  if (!input.assinatura) return input.planoFree ?? FREE_FALLBACK_LIMITS;
+
+  // Assinatura existe e o plano nao poe teto: escolha do catalogo, respeitada.
+  // Rebaixar para FREE aqui puniria cliente pagante.
+  return input.assinatura.limits ?? {};
+}

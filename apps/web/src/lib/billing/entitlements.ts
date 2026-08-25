@@ -1,10 +1,30 @@
 import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
-import { hasReachedLimit, resolveLimitCheck, type Limits, type PlanCapability } from "./capability-limits";
+import {
+  hasReachedLimit,
+  limitesDoTenant,
+  resolveLimitCheck,
+  type Limits,
+  type PlanCapability,
+} from "./capability-limits";
 
 export type { Limits, PlanCapability } from "./capability-limits";
 export { CAPABILITY_LIMIT_KEY, CAPABILITY_TABLE } from "./capability-limits";
 
+/**
+ * Teto do tenant. Nunca devolve `{}` por ausencia de assinatura.
+ *
+ * O defeito que isto corrige: `if (error || !data) return {}` fundia dois casos
+ * diferentes e dava o mesmo desfecho para os dois — e `{}` faz
+ * `resolveLimitCheck` responder `allow` para tudo. Quem nao assinava ficava com
+ * teto MAIOR que qualquer cliente pagante.
+ *
+ * Agora os dois casos sao separados:
+ *
+ * - **sem linha** e um FATO: nao ha assinatura, entao vale o teto do FREE;
+ * - **erro de leitura** e um DESCONHECIDO: nao da para saber qual e o plano, e
+ *   adivinhar em caminho de cobranca e como o defeito nasceu. Sobe 500.
+ */
 export async function getTenantLimits(tenantId: string): Promise<Limits> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
@@ -14,10 +34,22 @@ export async function getTenantLimits(tenantId: string): Promise<Limits> {
     .in("status", ["free", "trialing", "active"])
     .maybeSingle();
 
-  if (error || !data) return {};
+  if (error) throw new Response("Nao foi possivel validar limites do plano.", { status: 500 });
 
-  const plan = data.plans as { limits?: Limits } | null;
-  return plan?.limits ?? {};
+  if (data) {
+    const plan = data.plans as { limits?: Limits | null } | null;
+    return limitesDoTenant({ assinatura: { limits: plan?.limits ?? null }, planoFree: null });
+  }
+
+  // `plans` e catalogo global (ver o comentario em api/plans/route.ts): filtrar
+  // por tenant aqui devolveria vazio.
+  const { data: free } = await supabase
+    .from("plans")
+    .select("limits")
+    .eq("code", "FREE")
+    .maybeSingle();
+
+  return limitesDoTenant({ assinatura: null, planoFree: (free?.limits as Limits | null) ?? null });
 }
 
 export async function assertPlanLimit(tenantId: string, capability: PlanCapability): Promise<void> {
