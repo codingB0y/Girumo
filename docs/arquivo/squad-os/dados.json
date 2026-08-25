@@ -1,0 +1,435 @@
+{
+  "_nota": "Conteudo das tabelas do Squad OS em producao, capturado em 25/08/2026 antes da remocao. Todas as 24 linhas foram criadas em 2026-07-01 (carga inicial). As tabelas agent_skills, artifacts, handoffs, knowledge, memories, skills, squad_agents e tenant_webhooks estavam VAZIAS e por isso nao aparecem aqui.",
+  "agents": [
+    {
+      "id": "9a094940-6c53-40ad-ba58-8dc65619475f",
+      "workspace_id": "00000000-0000-0000-0000-000000000001",
+      "name": "Atlas",
+      "specialty": "Growth & Acquisition",
+      "avatar_url": null,
+      "cost_per_run": 0.04,
+      "speed_rating": 7,
+      "context_window": 200000,
+      "reputation": 76,
+      "allowed_areas": [
+        "growth",
+        "marketing",
+        "experiments"
+      ],
+      "limits": {
+        "max_concurrent": 2
+      },
+      "history": [],
+      "created_at": "2026-07-01T23:05:59.458164+00:00",
+      "updated_at": "2026-07-01T23:05:59.458164+00:00"
+    },
+    {
+      "id": "3719c84a-27a8-4370-a3df-351b80af1bb5",
+      "workspace_id": "00000000-0000-0000-0000-000000000001",
+      "name": "Forge",
+      "specialty": "Backend & Infrastructure",
+      "avatar_url": null,
+      "cost_per_run": 0.05,
+      "speed_rating": 8,
+      "context_window": 200000,
+      "reputation": 89,
+      "allowed_areas": [
+        "backend",
+        "api",
+        "database",
+        "infra"
+      ],
+      "limits": {
+        "max_concurrent": 2
+      },
+      "history": [],
+      "created_at": "2026-07-01T23:05:59.458164+00:00",
+      "updated_at": "2026-07-01T23:05:59.458164+00:00"
+    },
+    {
+      "id": "e8ad489b-6f3e-40d8-88ab-78a69555abeb",
+      "workspace_id": "00000000-0000-0000-0000-000000000001",
+      "name": "Luna",
+      "specialty": "Product Management",
+      "avatar_url": null,
+      "cost_per_run": 0.03,
+      "speed_rating": 8,
+      "context_window": 200000,
+      "reputation": 88,
+      "allowed_areas": [
+        "product",
+        "roadmap",
+        "backlog"
+      ],
+      "limits": {
+        "max_concurrent": 3
+      },
+      "history": [],
+      "created_at": "2026-07-01T23:05:59.458164+00:00",
+      "updated_at": "2026-07-01T23:05:59.458164+00:00"
+    },
+    {
+      "id": "ac811873-c028-41d3-94b3-eb81e8cb40b4",
+      "workspace_id": "00000000-0000-0000-0000-000000000001",
+      "name": "Muse",
+      "specialty": "Brand & Creative",
+      "avatar_url": null,
+      "cost_per_run": 0.03,
+      "speed_rating": 7,
+      "context_window": 200000,
+      "reputation": 93,
+      "allowed_areas": [
+        "brand",
+        "copy",
+        "design"
+      ],
+      "limits": {
+        "max_concurrent": 2
+      },
+      "history": [],
+      "created_at": "2026-07-01T23:05:59.458164+00:00",
+      "updated_at": "2026-07-01T23:05:59.458164+00:00"
+    },
+    {
+      "id": "4b5ff462-c938-4b81-87b9-c0076e1a22f1",
+      "workspace_id": "00000000-0000-0000-0000-000000000001",
+      "name": "Ops",
+      "specialty": "DevOps & Operations",
+      "avatar_url": null,
+      "cost_per_run": 0.03,
+      "speed_rating": 9,
+      "context_window": 200000,
+      "reputation": 82,
+      "allowed_areas": [
+        "ops",
+        "deploy",
+        "monitoring"
+      ],
+      "limits": {
+        "max_concurrent": 2
+      },
+      "history": [],
+      "created_at": "2026-07-01T23:05:59.458164+00:00",
+      "updated_at": "2026-07-01T23:05:59.458164+00:00"
+    },
+    {
+      "id": "751b7d2a-ca3b-4ea1-a8da-b116ecce17e4",
+      "workspace_id": "00000000-0000-0000-0000-000000000001",
+      "name": "Pixel",
+      "specialty": "Frontend Development",
+      "avatar_url": null,
+      "cost_per_run": 0.05,
+      "speed_rating": 9,
+      "context_window": 200000,
+      "reputation": 91,
+      "allowed_areas": [
+        "frontend",
+        "ui",
+        "components"
+      ],
+      "limits": {
+        "max_concurrent": 3
+      },
+      "history": [],
+      "created_at": "2026-07-01T23:05:59.458164+00:00",
+      "updated_at": "2026-07-01T23:05:59.458164+00:00"
+    },
+    {
+      "id": "e1cb14c4-ecee-4041-b1a6-a7352d2d3345",
+      "workspace_id": "00000000-0000-0000-0000-000000000001",
+      "name": "Prism",
+      "specialty": "Data & Analytics",
+      "avatar_url": null,
+      "cost_per_run": 0.04,
+      "speed_rating": 8,
+      "context_window": 200000,
+      "reputation": 60,
+      "allowed_areas": [
+        "data",
+        "metrics",
+        "reports"
+      ],
+      "limits": {
+        "max_concurrent": 2
+      },
+      "history": [],
+      "created_at": "2026-07-01T23:05:59.458164+00:00",
+      "updated_at": "2026-07-01T23:05:59.458164+00:00"
+    },
+    {
+      "id": "ba079c71-3448-44de-bc6d-4994ba5b2a80",
+      "workspace_id": "00000000-0000-0000-0000-000000000001",
+      "name": "Shield",
+      "specialty": "QA & Testing",
+      "avatar_url": null,
+      "cost_per_run": 0.03,
+      "speed_rating": 9,
+      "context_window": 200000,
+      "reputation": 50,
+      "allowed_areas": [
+        "qa",
+        "testing",
+        "security"
+      ],
+      "limits": {
+        "max_concurrent": 3
+      },
+      "history": [],
+      "created_at": "2026-07-01T23:05:59.458164+00:00",
+      "updated_at": "2026-07-01T23:05:59.458164+00:00"
+    }
+  ],
+  "squads": [
+    {
+      "id": "81fe5332-ea4d-4d52-a7b8-f1a7316a12da",
+      "workspace_id": "00000000-0000-0000-0000-000000000001",
+      "product_id": null,
+      "name": "Backend Squad",
+      "slug": "backend",
+      "leader_agent_id": "3719c84a-27a8-4370-a3df-351b80af1bb5",
+      "objective": "API robusta, Supabase RLS, Edge Functions",
+      "status": "executing",
+      "health": 90,
+      "context": {},
+      "last_delivery": "Rate limiting + security headers",
+      "next_action": "Webhooks Stripe multi-tenant",
+      "reputation_score": 89,
+      "created_at": "2026-07-01T23:05:59.612039+00:00",
+      "updated_at": "2026-07-01T23:05:59.612039+00:00"
+    },
+    {
+      "id": "93dbbfd9-9919-4343-b230-47fea34f62cc",
+      "workspace_id": "00000000-0000-0000-0000-000000000001",
+      "product_id": null,
+      "name": "Brand Squad",
+      "slug": "brand",
+      "leader_agent_id": "ac811873-c028-41d3-94b3-eb81e8cb40b4",
+      "objective": "Posicionamento premium, criativos e copy",
+      "status": "completed",
+      "health": 100,
+      "context": {},
+      "last_delivery": "Rebranding v3 — iris/breu palette",
+      "next_action": "Social media kit Q3",
+      "reputation_score": 93,
+      "created_at": "2026-07-01T23:05:59.612039+00:00",
+      "updated_at": "2026-07-01T23:05:59.612039+00:00"
+    },
+    {
+      "id": "6df17e8f-0f2d-452a-8c56-438297999684",
+      "workspace_id": "00000000-0000-0000-0000-000000000001",
+      "product_id": null,
+      "name": "Data Squad",
+      "slug": "data",
+      "leader_agent_id": "e1cb14c4-ecee-4041-b1a6-a7352d2d3345",
+      "objective": "Métricas, analytics e relatórios de negócio",
+      "status": "planning",
+      "health": 78,
+      "context": {},
+      "last_delivery": null,
+      "next_action": "Definir north star metric",
+      "reputation_score": 60,
+      "created_at": "2026-07-01T23:05:59.612039+00:00",
+      "updated_at": "2026-07-01T23:05:59.612039+00:00"
+    },
+    {
+      "id": "459b3985-e918-41d3-b511-7f234ad94d39",
+      "workspace_id": "00000000-0000-0000-0000-000000000001",
+      "product_id": null,
+      "name": "Frontend Squad",
+      "slug": "frontend",
+      "leader_agent_id": "751b7d2a-ca3b-4ea1-a8da-b116ecce17e4",
+      "objective": "Implementar interface premium e responsiva",
+      "status": "executing",
+      "health": 94,
+      "context": {},
+      "last_delivery": "Admin panel + sidebar refactor",
+      "next_action": "Módulo automações UI",
+      "reputation_score": 91,
+      "created_at": "2026-07-01T23:05:59.612039+00:00",
+      "updated_at": "2026-07-01T23:05:59.612039+00:00"
+    },
+    {
+      "id": "2e35609c-1bb4-41e9-be22-e5d51c153c12",
+      "workspace_id": "00000000-0000-0000-0000-000000000001",
+      "product_id": null,
+      "name": "Growth Squad",
+      "slug": "growth",
+      "leader_agent_id": "9a094940-6c53-40ad-ba58-8dc65619475f",
+      "objective": "Aumentar aquisição e retenção de usuários",
+      "status": "researching",
+      "health": 85,
+      "context": {},
+      "last_delivery": "Análise de funil — signup→ativação",
+      "next_action": "Testar onboarding simplificado",
+      "reputation_score": 76,
+      "created_at": "2026-07-01T23:05:59.612039+00:00",
+      "updated_at": "2026-07-01T23:05:59.612039+00:00"
+    },
+    {
+      "id": "b42124f5-2544-4b26-80b1-0f29c796fb99",
+      "workspace_id": "00000000-0000-0000-0000-000000000001",
+      "product_id": null,
+      "name": "Operations Squad",
+      "slug": "operations",
+      "leader_agent_id": "4b5ff462-c938-4b81-87b9-c0076e1a22f1",
+      "objective": "Processos, deploy, monitoramento",
+      "status": "executing",
+      "health": 88,
+      "context": {},
+      "last_delivery": "CI/CD Vercel + env vars configurados",
+      "next_action": "Alertas de health check",
+      "reputation_score": 82,
+      "created_at": "2026-07-01T23:05:59.612039+00:00",
+      "updated_at": "2026-07-01T23:05:59.612039+00:00"
+    },
+    {
+      "id": "c5a3c82d-d3c6-4ba7-a89c-72f7829737e5",
+      "workspace_id": "00000000-0000-0000-0000-000000000001",
+      "product_id": null,
+      "name": "Product Squad",
+      "slug": "product",
+      "leader_agent_id": "e8ad489b-6f3e-40d8-88ab-78a69555abeb",
+      "objective": "Definir escopo, priorização e roadmap do HubFlow",
+      "status": "executing",
+      "health": 100,
+      "context": {},
+      "last_delivery": "PRD v2 — módulo automações",
+      "next_action": "Priorizar backlog Q3",
+      "reputation_score": 88,
+      "created_at": "2026-07-01T23:05:59.612039+00:00",
+      "updated_at": "2026-07-01T23:05:59.612039+00:00"
+    },
+    {
+      "id": "a1e0c15d-d6a1-4246-a1cd-dba47ca1ddfd",
+      "workspace_id": "00000000-0000-0000-0000-000000000001",
+      "product_id": null,
+      "name": "QA Squad",
+      "slug": "qa",
+      "leader_agent_id": "ba079c71-3448-44de-bc6d-4994ba5b2a80",
+      "objective": "Testes, qualidade e estabilidade",
+      "status": "planning",
+      "health": 70,
+      "context": {},
+      "last_delivery": null,
+      "next_action": "Setup test framework",
+      "reputation_score": 50,
+      "created_at": "2026-07-01T23:05:59.612039+00:00",
+      "updated_at": "2026-07-01T23:05:59.612039+00:00"
+    }
+  ],
+  "missions": [
+    {
+      "id": "483ba0cb-7f61-4dcd-8dd9-f237d573d3fd",
+      "squad_id": "2e35609c-1bb4-41e9-be22-e5d51c153c12",
+      "workspace_id": "00000000-0000-0000-0000-000000000001",
+      "title": "Análise de funil signup→ativação",
+      "description": "Mapear onde usuários abandonam e propor 3 hipóteses de melhoria",
+      "status": "active",
+      "priority": 2,
+      "assigned_agent_id": "9a094940-6c53-40ad-ba58-8dc65619475f",
+      "started_at": "2026-07-01T09:00:00+00:00",
+      "completed_at": null,
+      "result": {},
+      "created_at": "2026-07-01T23:06:01.195974+00:00"
+    },
+    {
+      "id": "2e5c1de5-7760-447b-8c9b-7a2c47b7bda6",
+      "squad_id": "b42124f5-2544-4b26-80b1-0f29c796fb99",
+      "workspace_id": "00000000-0000-0000-0000-000000000001",
+      "title": "Configurar alertas de health check",
+      "description": "Monitorar uptime da API e notificar em caso de falha",
+      "status": "pending",
+      "priority": 3,
+      "assigned_agent_id": "4b5ff462-c938-4b81-87b9-c0076e1a22f1",
+      "started_at": null,
+      "completed_at": null,
+      "result": {},
+      "created_at": "2026-07-01T23:06:01.195974+00:00"
+    },
+    {
+      "id": "0addad46-4d18-4848-8387-418cba1b92ca",
+      "squad_id": "c5a3c82d-d3c6-4ba7-a89c-72f7829737e5",
+      "workspace_id": "00000000-0000-0000-0000-000000000001",
+      "title": "Definir PRD do módulo Automações",
+      "description": "Escrever PRD completo com user stories, critérios de aceite e prioridades",
+      "status": "completed",
+      "priority": 1,
+      "assigned_agent_id": "e8ad489b-6f3e-40d8-88ab-78a69555abeb",
+      "started_at": "2026-06-28T10:00:00+00:00",
+      "completed_at": "2026-06-29T14:00:00+00:00",
+      "result": {
+        "artifact": "prd-automacoes-v2"
+      },
+      "created_at": "2026-07-01T23:06:01.195974+00:00"
+    },
+    {
+      "id": "f5916ca4-42b6-4d12-8e1e-fb168d7cb192",
+      "squad_id": "459b3985-e918-41d3-b511-7f234ad94d39",
+      "workspace_id": "00000000-0000-0000-0000-000000000001",
+      "title": "Implementar página de automações",
+      "description": "UI completa com lista, criação e edição de automações",
+      "status": "active",
+      "priority": 1,
+      "assigned_agent_id": "751b7d2a-ca3b-4ea1-a8da-b116ecce17e4",
+      "started_at": "2026-07-01T08:00:00+00:00",
+      "completed_at": null,
+      "result": {},
+      "created_at": "2026-07-01T23:06:01.195974+00:00"
+    },
+    {
+      "id": "5dc04c93-f468-4683-965e-ab7619bbf238",
+      "squad_id": "81fe5332-ea4d-4d52-a7b8-f1a7316a12da",
+      "workspace_id": "00000000-0000-0000-0000-000000000001",
+      "title": "Webhooks Stripe para multi-tenant",
+      "description": "Endpoint seguro que roteia eventos Stripe para o tenant correto",
+      "status": "pending",
+      "priority": 2,
+      "assigned_agent_id": "3719c84a-27a8-4370-a3df-351b80af1bb5",
+      "started_at": null,
+      "completed_at": null,
+      "result": {},
+      "created_at": "2026-07-01T23:06:01.195974+00:00"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "c1a81d5e-862c-41ed-95ad-b2cf6e374692",
+      "workspace_id": "00000000-0000-0000-0000-000000000001",
+      "product_id": null,
+      "squad_id": null,
+      "title": "Next.js App Router + React 19",
+      "rationale": "Server components, streaming, melhor DX",
+      "category": "architecture",
+      "confidence": 92,
+      "status": "active",
+      "superseded_by": null,
+      "created_at": "2026-07-01T23:06:01.470502+00:00"
+    },
+    {
+      "id": "95cc41c4-1eb7-47b2-b1a0-b1f1374a1f68",
+      "workspace_id": "00000000-0000-0000-0000-000000000001",
+      "product_id": null,
+      "squad_id": null,
+      "title": "Pricing freemium com tiers por volume",
+      "rationale": "Reduz atrito de entrada, monetiza por uso",
+      "category": "product",
+      "confidence": 87,
+      "status": "active",
+      "superseded_by": null,
+      "created_at": "2026-07-01T23:06:01.470502+00:00"
+    },
+    {
+      "id": "c6bb18a2-be22-4c1e-a831-aa712c26862a",
+      "workspace_id": "00000000-0000-0000-0000-000000000001",
+      "product_id": null,
+      "squad_id": null,
+      "title": "Supabase RLS como isolamento multi-tenant",
+      "rationale": "Mais seguro e escalável que middleware custom",
+      "category": "architecture",
+      "confidence": 95,
+      "status": "active",
+      "superseded_by": null,
+      "created_at": "2026-07-01T23:06:01.470502+00:00"
+    }
+  ]
+}

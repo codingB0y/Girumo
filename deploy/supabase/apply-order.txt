@@ -205,3 +205,11 @@ apps/web/supabase/migrations/20260824210000_plans_catalogo_global.sql
 # com service-role), e que `using (true)` em landing_page_templates deixou de
 # significar leitura anonima quando o PR #138 zerou `anon` em public.
 apps/web/supabase/migrations/20260824220000_rls_intencao_explicita.sql
+
+# 25/08/2026 - B.3 da auditoria. Aposenta o Squad OS: 11 tabelas criadas a mao
+# so em prod, sem DDL no repo, sem uma linha nova desde a carga inicial de
+# 01/07. Junto vao `tenant_webhooks` (0 linhas, nenhum leitor) e a funcao orfa
+# `increment_automation_runs`. O conteudo esta guardado em
+# docs/arquivo/squad-os/. Com isto a allowlist do gate de drift vai a ZERO e os
+# dois bancos ficam com os mesmos 86 objetos.
+apps/web/supabase/migrations/20260825140000_aposenta_squad_os.sql

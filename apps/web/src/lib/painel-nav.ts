@@ -8,7 +8,6 @@ import {
   PanelsTopLeft,
   TrendingUp,
   Gift,
-  Bot,
   Settings,
   type LucideIcon,
 } from "lucide-react";
@@ -67,7 +66,6 @@ export const NAV_GROUPS: NavGroup[] = [
 
 /** Itens do rodapé da sidebar, abaixo do status de conexão. */
 export const NAV_FOOTER: NavItem[] = [
-  { href: "/painel/squad-os", label: "Equipe AI", icon: Bot },
   { href: "/painel/configuracoes", label: "Configurações", icon: Settings },
 ];
 
