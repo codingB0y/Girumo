@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { getAdminContext } from "@/lib/admin-guard";
+import { FREE_PLAN_CODE } from "@/lib/billing/plan-codes";
 
 export const dynamic = "force-dynamic";
 
@@ -123,11 +124,17 @@ export async function POST(req: NextRequest) {
       status: "active",
     });
   } else {
-    // Buscar plano free
+    // Buscar plano free.
+    //
+    // `ilike` e o codigo canonico: isto procurava `.eq("code","free")`
+    // minusculo, e como producao tem `FREE` o `if (freePlan)` abaixo sempre dava
+    // falso — a rota criava o tenant SEM assinatura, em silencio. Era a origem
+    // das organizacoes sem subscription, e virou visivel depois do PR #148,
+    // quando tenant sem assinatura passou a receber o teto do FREE.
     const { data: freePlan } = await supabase
       .from("plans")
       .select("id")
-      .eq("code", "free")
+      .ilike("code", FREE_PLAN_CODE)
       .maybeSingle();
 
     if (freePlan) {
