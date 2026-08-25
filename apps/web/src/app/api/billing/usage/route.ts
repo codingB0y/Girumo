@@ -30,6 +30,17 @@ export async function GET(req: Request) {
         .eq("tenant_id", tenantId),
     ]);
 
+    // `count ?? 0` sozinho transforma consulta que FALHOU em "zero usado". Isso
+    // era inofensivo enquanto tenant sem assinatura tinha teto vazio (a tela nao
+    // renderizava nada), mas agora ele recebe o teto do FREE: a resposta viraria
+    // "0 de 250 contatos, tudo tranquilo" para quem esta em 249 e ja e barrado
+    // com 402 na escrita — porque `assertPlanLimit` confere o erro e conta de
+    // verdade. Mostrar folga onde ha bloqueio e pior que mostrar erro.
+    if (campaignsRes.error || contactsRes.error) {
+      console.error(campaignsRes.error ?? contactsRes.error);
+      return NextResponse.json({ error: "Nao foi possivel contar o uso do plano." }, { status: 500 });
+    }
+
     const campaignsCount = campaignsRes.count ?? 0;
     const contactsCount = contactsRes.count ?? 0;
 

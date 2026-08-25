@@ -2,8 +2,8 @@ import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import {
   hasReachedLimit,
-  limitesDoTenant,
   resolveLimitCheck,
+  tenantLimitsFrom,
   type Limits,
   type PlanCapability,
 } from "./capability-limits";
@@ -38,18 +38,31 @@ export async function getTenantLimits(tenantId: string): Promise<Limits> {
 
   if (data) {
     const plan = data.plans as { limits?: Limits | null } | null;
-    return limitesDoTenant({ assinatura: { limits: plan?.limits ?? null }, planoFree: null });
+    return tenantLimitsFrom({ subscription: { limits: plan?.limits ?? null }, freePlan: null });
   }
 
-  // `plans` e catalogo global (ver o comentario em api/plans/route.ts): filtrar
+  // `plans` é catálogo global (ver o comentário em api/plans/route.ts): filtrar
   // por tenant aqui devolveria vazio.
-  const { data: free } = await supabase
+  //
+  // `ilike` e não `eq` porque o mesmo plano é escrito de dois jeitos no repo:
+  // produção e `auth/signup` usam "FREE", enquanto `admin/seed` grava "free" e
+  // `admin/tenants/create` procura "free". Casar exato faz a leitura falhar
+  // calada num ambiente semeado e aplicar o fallback achando que leu o catálogo.
+  const { data: free, error: freeError } = await supabase
     .from("plans")
     .select("limits")
-    .eq("code", "FREE")
+    .ilike("code", "FREE")
     .maybeSingle();
 
-  return limitesDoTenant({ assinatura: null, planoFree: (free?.limits as Limits | null) ?? null });
+  // Aqui o fallback É a resposta certa (conservador), então não sobe 500 como o
+  // erro de `subscriptions` acima. Mas o erro não pode sumir: sem log, uma
+  // indisponibilidade do catálogo aplicaria os números embutidos por tempo
+  // indeterminado sem deixar rastro nenhum em edge_logs.
+  if (freeError) {
+    console.error("[billing] falha ao ler o plano FREE do catalogo:", freeError);
+  }
+
+  return tenantLimitsFrom({ subscription: null, freePlan: (free?.limits as Limits | null) ?? null });
 }
 
 export async function assertPlanLimit(tenantId: string, capability: PlanCapability): Promise<void> {
