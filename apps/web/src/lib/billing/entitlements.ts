@@ -7,6 +7,7 @@ import {
   type Limits,
   type PlanCapability,
 } from "./capability-limits";
+import { FREE_PLAN_CODE } from "./plan-codes";
 
 export type { Limits, PlanCapability } from "./capability-limits";
 export { CAPABILITY_LIMIT_KEY, CAPABILITY_TABLE } from "./capability-limits";
@@ -51,7 +52,7 @@ export async function getTenantLimits(tenantId: string): Promise<Limits> {
   const { data: free, error: freeError } = await supabase
     .from("plans")
     .select("limits")
-    .ilike("code", "FREE")
+    .ilike("code", FREE_PLAN_CODE)
     .maybeSingle();
 
   // Aqui o fallback É a resposta certa (conservador), então não sobe 500 como o

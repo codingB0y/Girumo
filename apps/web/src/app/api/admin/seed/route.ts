@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { getAdminContext } from "@/lib/admin-guard";
 import { randomUUID } from "crypto";
+import { normalizePlanCode, SEED_PLAN_CATALOG } from "@/lib/billing/plan-codes";
 
 export const dynamic = "force-dynamic";
 
@@ -84,17 +85,18 @@ export async function POST() {
     const planIds: Record<string, string> = {};
 
     if ((existingPlans ?? []).length === 0) {
-      const plans = [
-        { code: "free", name: "Free", price_cents: 0 },
-        { code: "essencial", name: "Essencial", price_cents: 19700 },
-        { code: "growth", name: "Growth", price_cents: 29700 },
-        { code: "performance", name: "Operação", price_cents: 49700 },
-      ];
+      // Codigos canonicos E com `limits`. Antes isto gravava minusculo e sem
+      // limites: o minusculo fazia o lookup de `planIds` la embaixo falhar
+      // (nenhuma subscription era criada), e a falta de `limits` deixaria
+      // qualquer assinatura desse catalogo ILIMITADA, porque `plans.limits` e
+      // NOT NULL DEFAULT '{}' e `{}` vale como "sem teto" quando ha assinatura.
+      // So nao explodia porque o primeiro bug escondia o segundo.
+      const plans = SEED_PLAN_CATALOG.map((plan) => ({ ...plan }));
       const { data: inserted } = await supabase.from("plans").insert(plans).select("id, code");
-      for (const p of inserted ?? []) planIds[p.code] = p.id;
+      for (const p of inserted ?? []) planIds[normalizePlanCode(p.code)] = p.id;
       results.push(`✅ ${plans.length} planos criados`);
     } else {
-      for (const p of existingPlans ?? []) planIds[p.code] = p.id;
+      for (const p of existingPlans ?? []) planIds[normalizePlanCode(p.code)] = p.id;
       results.push(`ℹ️ Planos já existem (${existingPlans?.length})`);
     }
 
@@ -157,7 +159,7 @@ export async function POST() {
     results.push(`✅ ${usersCreated} users + memberships criados`);
 
     // 4. Criar subscriptions
-    const planCodes = ["free", "essencial", "growth", "performance"];
+    const planCodes = SEED_PLAN_CATALOG.map((plan) => plan.code);
     for (let i = 0; i < tenantIds.length; i++) {
       const planCode = planCodes[i % planCodes.length];
       const planId = planIds[planCode];
