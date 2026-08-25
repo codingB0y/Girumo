@@ -1,3 +1,3 @@
 # Community 61
 
-- [[be-7|BE-7]]
+- [[resend-api-key|Resend API Key]]

@@ -1,11 +1,8 @@
-# Voc-atacadista.md
+# voc-atacadista.md
 
 **Type:** content
 
-Document containing wholesale vocabulary guidelines for rewrite templates.
-
-## Neighbors
-- [[hubflow|HubFlow]]
+A source documentation file related to wholesale voice of customer.
 
 ## Appears in
-- `IMPLEMENTATION_PLAN.md`
+- `.. » VIREI MODA » PLANO_VIREI_MODA_IMPLEMENTADORA.md`

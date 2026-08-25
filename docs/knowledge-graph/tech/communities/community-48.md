@@ -1,15 +1,3 @@
 # Community 48
 
-- [[deciso-2026-07-29|Decisão 2026-07-29]]
-- [[evolution-f0|Evolution-F0]]
-- [[fix-session-connected-priority|Fix/session-connected-priority]]
-- [[hubflow_data_dir|Hubflow_Data_Dir]]
-- [[legacyfiles|LegacyFiles]]
-- [[legacymigrationplan|LegacyMigrationPlan]]
-- [[main|Main]]
-- [[migrate-legacy-tenant-datats|Migrate-legacy-tenant-data.ts]]
-- [[migratelegacytenantdata|MigrateLegacyTenantData]]
-- [[orders-routets|Orders/route.ts]]
-- [[p02|P0.2]]
-- [[planlegacymigration|PlanLegacyMigration]]
-- [[uuid|UUID]]
+- [[be-2|BE-2]]

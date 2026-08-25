@@ -1,6 +1,10 @@
 # Community 131
 
-- [[docs-fase_7_deploymd|Docs/FASE_7_DEPLOY.md]]
-- [[docs-fase_8_checklist_producaomd|Docs/FASE_8_CHECKLIST_PRODUCAO.md]]
-- [[infra-scripts-verify-localps1|Infra/scripts/verify-local.ps1]]
-- [[tsc|Tsc]]
+- [[coolify-vps|Coolify/VPS]]
+- [[deploy-stripe-setupmd|Deploy/Stripe/Setup.md]]
+- [[deploy-supabase-apply-ordermd|Deploy/Supabase/Apply-Order.md]]
+- [[deploy-vercel-envproductionexample|Deploy/Vercel/.env.production.example]]
+- [[docs-deploy_online_runbookmd|Docs/Deploy_Online_Runbook.md]]
+- [[docs-fase_5_stripemd|Docs/Fase_5_Stripe.md]]
+- [[docs-fase_7_deploymd|Docs/Fase_7_Deploy.md]]
+- [[docs-fase_8_checklist_producaomd|Docs/Fase_8_Checklist_Producao.md]]

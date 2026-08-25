@@ -1,13 +1,8 @@
-# Project_context.md
+# PROJECT_CONTEXT.md
 
 **Type:** content
 
-A documentation file describing the background and context of a project.
-
-## Neighbors
-- [[git|Git]]
-- [[git-add|Git Add]]
-- [[git-commit|Git Commit]]
+A source project context document.
 
 ## Appears in
-- `docs » superpowers » plans » 2026-07-03-engine-boot-node.md`
+- `.. » VIREI MODA » PLANO_VIREI_MODA_IMPLEMENTADORA.md`

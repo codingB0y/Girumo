@@ -1,4 +1,3 @@
 # Community 133
 
-- [[apps-web-envexample|Apps/Web/.env.example]]
-- [[hubflow_data_dir|HUBFLOW_DATA_DIR]]
+- [[appupdate_instance_status|app.update_instance_status]]

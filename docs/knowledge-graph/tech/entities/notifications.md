@@ -2,7 +2,7 @@
 
 **Type:** data
 
-A database table designed to store in-app notifications, containing details such as identifier, tenant association, user association, type, title, body, link, read status, and creation timestamp.
+A database table designed to store in-app notifications, containing details such as identifier, tenant association, user association, type, title, body, link, read status, and creation timestamp.<SEP>A database table for notifications in production.
 
 ## Neighbors
 - [[organizations|Organizations]]
@@ -11,6 +11,8 @@ A database table designed to store in-app notifications, containing details such
 - [[idx_notifications_tenant_unread|Idx_Notifications_Tenant_Unread]]
 - [[idx_notifications_user|Idx_Notifications_User]]
 - [[authusers|Auth.Users]]
+- [[verceljson|Vercel.json]]
 
 ## Appears in
 - `202607010010_notifications.sql`
+- `decisao-2026-08-17-achados`

@@ -2,7 +2,7 @@
 
 **Type:** artifact
 
-A tool used to measure website performance, accessibility, and SEO metrics.<SEP>A tool used to evaluate the quality and performance of web pages.<SEP>An automated tool used for auditing the performance, accessibility, and SEO of web pages.<SEP>A static analysis tool used for analyzing factors related to performance and frontend quality.<SEP>A tool used to run real performance audits and generate metric reports.<SEP>A performance testing tool used to check mobile performance with a score requirement of 90 or higher.<SEP>A tool used to measure performance, accessibility, best practices, and SEO.
+Lighthouse is an automated static analysis and performance testing tool used to evaluate the quality, performance, accessibility, best practices, and SEO of web pages. It serves as a comprehensive auditing utility to run real performance audits, analyze frontend quality factors, and generate detailed metric reports. Additionally, Lighthouse is utilized to check mobile performance, often with specific optimization goals such as achieving a score requirement of 90 or higher, and it can be executed iteratively within software development projects to ensure ongoing website optimization.
 
 ## Neighbors
 - [[engine|Engine]]
@@ -11,6 +11,7 @@ A tool used to measure website performance, accessibility, and SEO metrics.<SEP>
 - [[tbt-inp|TBT / INP]]
 - [[cls|CLS]]
 - [[assetsmd|ASSETS.md]]
+- [[grafismotsx|Grafismo.tsx]]
 
 ## Appears in
 - `ROADMAP.md`
@@ -18,3 +19,4 @@ A tool used to measure website performance, accessibility, and SEO metrics.<SEP>
 - `FRONTEND_AUDIT.md`
 - `.. » VIREI MODA » PROMPT_CLAUDE_CODE_LP_VIREIMODA.md`
 - `.. » VIREI MODA » DECISOES.md`
+- `.. » VIREI MODA » vireimoda-lp » ASSETS.md`

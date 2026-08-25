@@ -1,3 +1,5 @@
 # Community 118
 
-- [[nextjs-15519|Next.js 15.5.19]]
+- [[psql|Psql]]
+- [[supabase-sql-editor|Supabase SQL Editor]]
+- [[upabase-sqlps1|Upabase-sql.ps1]]

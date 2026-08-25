@@ -1,11 +1,11 @@
-# Resend_API_Key
+# Resend_api_key
 
-**Type:** data
+**Type:** artifact
 
-A configuration credential required for email services, currently missing from the environment template.
+Resend_api_key is an environment variable required for email configuration.
 
 ## Neighbors
-- [[production_checklistmd|Production_Checklist.md]]
+- [[vercel|Vercel]]
 
 ## Appears in
-- `PRODUCTION_CHECKLIST.md`
+- `decisao-2026-08-19-convite-falso-alarme-deploy-em-andamento`

@@ -1,3 +1,3 @@
 # Community 37
 
-- [[posts|Posts]]
+- [[tenant-demo|Tenant-Demo]]

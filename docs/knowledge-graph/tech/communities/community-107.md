@@ -1,3 +1,3 @@
 # Community 107
 
-- [[apps-web-src-lib-json-collectionts|Apps/web/src/lib/json-collection.ts]]
+- [[nextjs-15519|Next.js 15.5.19]]

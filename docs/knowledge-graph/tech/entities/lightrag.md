@@ -1,11 +1,11 @@
-# Lightrag
+# LightRag
 
 **Type:** artifact
 
-Knowledge graph tool located in the tools directory.
+A software tool whose virtual environment is located at tools/lightrag/.venv/.
 
 ## Neighbors
-- [[hubflow-platform|Hubflow Platform]]
+- [[ragexe|Rag.exe]]
 
 ## Appears in
-- `AUDIT_REPORT.md`
+- `decisao-2026-08-19-encerrar-sessao-com-comandos-rag`

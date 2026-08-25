@@ -1,3 +1,3 @@
 # Community 36
 
-- [[landing|Landing]]
+- [[security-check|Security-check]]

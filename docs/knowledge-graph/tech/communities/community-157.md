@@ -1,3 +1,4 @@
 # Community 157
 
-- [[leads|Leads]]
+- [[health|/health]]
+- [[status|/status]]

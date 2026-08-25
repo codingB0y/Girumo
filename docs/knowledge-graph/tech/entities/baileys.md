@@ -2,11 +2,11 @@
 
 **Type:** artifact
 
-Baileys is a software library, module, messaging engine, and custom technical base integrated into architectures like Hubflow to handle communication processes, messaging functionalities, and WhatsApp integration. Functioning as an underlying WhatsApp web API client library, Baileys is utilized for socket connections, WhatsApp web automation, and executing WhatsApp-related commands, serving as the underlying connection library and engine operated by the business as well as by platforms such as the Evolution API. Within the Hubflow-Engine, it provides single-session and multi-session capabilities supporting multi-device sessions and multi-instance setups.
+Baileys functions as a comprehensive software library, module, messaging engine, and custom technical base integrated into architectures like Hubflow to handle communication processes, messaging functionalities, and WhatsApp integration. Serving as an underlying WhatsApp web API client library, Baileys is utilized for socket connections, WhatsApp web automation, and executing WhatsApp-related commands, acting as the underlying connection library and engine operated by businesses as well as platforms such as the Evolution API. Within the Hubflow-Engine, it provides single-session and multi-session capabilities supporting multi-device sessions and multi-instance setups. 
 
-Technically, Baileys is implemented as an ESM package and software dependency that is explicitly loaded via `import()` during an asynchronous bootstrap function. As a decoupled and separate service, it is deployed in environments like VPS, Coolify, and Docker, maintaining distinct separation from the frontend and API. It operates as a messaging engine session component organized around commands and events by tenant ID and instance ID, with implementation details including use in the current engine Proof of Concept with multi-file auth state, local session storage, and a legacy messaging session implementation.
+Technically implemented as an ESM package and software dependency, Baileys is explicitly loaded via `import()` during an asynchronous bootstrap function. As a decoupled and separate service, it is deployed in environments like VPS, Coolify, and Docker, maintaining distinct separation from the frontend and API. It operates as a messaging engine session component organized around commands and events by tenant ID and instance ID. Implementation details include its use in the current engine Proof of Concept with multi-file auth state, local session storage, and a legacy messaging session implementation. Regarding session management and security, Baileys requires strict security versioning. Session data is stored in Docker volumes and must never be committed to Git, and versioned sessions managed by the library require rotation or disconnection before any online deployment. Additionally, Baileys operates as a socket technology where a watchdog prevents a second socket instance on the same number to avoid bans.
 
-Regarding session management and security, Baileys requires strict security versioning. Session data for the technology and library is stored in Docker volumes, and sessions must never be committed to Git. Furthermore, versioned sessions managed by the library require rotation or disconnection before any online deployment.<SEP>A legacy engine that claims broadcasts and contains a complete group creation executor.
+Beyond its core role as a messaging library, variations and components associated with Baileys or its engine ecosystem include a legacy engine that claims broadcasts and contains a complete group creation executor. It encompasses engines that contain the `runGrow` method, are utilized for WhatsApp integration and running grow operations, feature a `groupCreate` method, and contain an executor that either lacks a socket since the cutover or whose auto-grow executor was ported to `apps/worker`.<SEP>An engine with an in-memory GroupOperationGuard.<SEP>The legacy engine (hubflow-engine) that is turned off and deprecated.<SEP>A library used by the project alongside Evolution API for WhatsApp functionality.
 
 ## Neighbors
 - [[hubflow|Hubflow]]
@@ -38,6 +38,14 @@ Regarding session management and security, Baileys requires strict security vers
 - [[evolution-api|Evolution Api]]
 - [[evolution-api|Evolution API]]
 - [[group-grow-storets|Group-grow-store.ts]]
+- [[evolution|Evolution]]
+- [[hubflow-engine-indexjs|Hubflow-Engine/Index.js]]
+- [[disparos-motor-legado-baileys|Disparos-Motor-Legado-Baileys]]
+- [[auto-grow|Auto-Grow]]
+- [[legacy-baileys-engine|Legacy Baileys Engine]]
+- [[apps-worker|Apps Worker]]
+- [[pr-120|PR 120]]
+- [[pr-120|Pr 120]]
 
 ## Appears in
 - `DEPLOY_ONLINE_RUNBOOK.md`
@@ -58,3 +66,12 @@ Regarding session management and security, Baileys requires strict security vers
 - `docs » superpowers » specs » 2026-07-03-engine-boot-node-design.md`
 - `ENGINE_ANALYSIS.md`
 - `achado-2026-08-10`
+- `decisao-2026-08-19-bloco1-bloco2`
+- `decisao-2026-08-20-autogrow-quebrado-baileys-desativado`
+- `decisao-2026-08-20-autogrow-quebrado`
+- `decisao-2026-08-20-auto-grow-worker`
+- `decisao-2026-08-20-contrato-evolution-group-create`
+- `decisao-2026-08-20-auto-grow`
+- `decisao-2026-08-20-auto-grow-verificado`
+- `decisao-2026-08-20-motor-legado-desligado`
+- `decisao-2026-08-22`

@@ -1,4 +1,3 @@
 # Community 162
 
-- [[modo-evento|Modo Evento]]
-- [[opus|Opus]]
+- [[proxy-residencial-movel-br|Proxy Residencial Movel BR]]

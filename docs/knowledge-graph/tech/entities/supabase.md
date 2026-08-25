@@ -9,6 +9,9 @@ Tenant-Context.ts validates bearer tokens or cookies using Supabase.
 - [[rls-policies|<Rls Policies>]]
 - [[hubflow-engine|<Hubflow-Engine>]]
 - [[apps-web|<Apps/Web>]]
+- [[worker|<Worker>]]
+- [[plans|<Plans>]]
+- [[playwright|<Playwright>]]
 
 ## Appears in
 - `AUDIT_REPORT.md`

@@ -1,4 +1,4 @@
 # Community 71
 
-- [[database-code|Database Code]]
-- [[database-runbook|Database Runbook]]
+- [[design-system|Design System]]
+- [[stat-card-component|Stat Card Component]]

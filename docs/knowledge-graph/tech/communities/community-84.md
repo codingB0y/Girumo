@@ -1,4 +1,3 @@
 # Community 84
 
-- [[design-system|Design System]]
-- [[stat-card-component|Stat Card Component]]
+- [[202606240006_membership_invitessql|202606240006_membership_invites.sql]]

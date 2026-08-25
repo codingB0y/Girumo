@@ -1,3 +1,3 @@
 # Community 189
 
-- [[lead-hot|Lead Hot]]
+- [[vm-check|Vm-check]]

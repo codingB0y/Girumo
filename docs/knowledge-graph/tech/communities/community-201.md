@@ -1,3 +1,3 @@
 # Community 201
 
-- [[ugc|UGC]]
+- [[banner-lgpd|Banner Lgpd]]

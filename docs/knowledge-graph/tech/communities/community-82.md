@@ -1,3 +1,3 @@
 # Community 82
 
-- [[landing-bento-card-component|Landing Bento Card Component]]
+- [[202606240004_storage_policiessql|202606240004_storage_policies.sql]]

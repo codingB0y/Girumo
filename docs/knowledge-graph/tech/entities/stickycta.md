@@ -2,7 +2,7 @@
 
 **Type:** artifact
 
-A React component that renders a persistent Call to Action (CTA) for mobile and desktop views, appearing after the user scrolls past the hero section.<SEP>A component representing a sticky call-to-action element.
+A React component that renders a persistent Call to Action (CTA) for mobile and desktop views, appearing after the user scrolls past the hero section.<SEP>A component representing a sticky call-to-action element.<SEP>A sticky call-to-action component used in the application.
 
 ## Neighbors
 - [[react|React]]
@@ -10,7 +10,9 @@ A React component that renders a persistent Call to Action (CTA) for mobile and 
 - [[handlectaclick|HandleCtaClick]]
 - [[stickyctatsx|StickyCta.tsx]]
 - [[direto-page|Direto Page]]
+- [[pagetsx|Page.tsx]]
 
 ## Appears in
 - `.. » VIREI MODA » vireimoda-lp » src » components » StickyCta.tsx`
 - `.. » VIREI MODA » vireimoda-lp » src » app » direto » page.tsx`
+- `.. » VIREI MODA » vireimoda-lp » src » app » page.tsx`

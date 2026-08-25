@@ -1,11 +1,11 @@
-# Worker
+# <Worker>
 
-**Type:** artifact
+**Type:** UNKNOWN
 
-A background processing component of the application architecture.
+The worker runs against Supabase environments such as development and production.
 
 ## Neighbors
-- [[cron|Cron]]
+- [[supabase|<Supabase>]]
 
 ## Appears in
-- `PRODUCTION_CHECKLIST.md`
+- `docs » audits » 2026-08-22-audit-skills.md`

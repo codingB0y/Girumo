@@ -1,3 +1,6 @@
 # Community 149
 
-- [[sonnet|Sonnet]]
+- [[igor|<Igor>]]
+- [[mega-stock|<Mega Stock>]]
+- [[playbook-api|<Playbook Api>]]
+- [[playbook-progress-table|<Playbook Progress Table>]]

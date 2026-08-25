@@ -1,13 +1,11 @@
-# App.Has_Role
+# App.has_role
 
 **Type:** method
 
-A function that checks if a user possesses the required administrative or ownership roles.<SEP>A SQL function that checks if a user holds specific roles within a tenant.
+A SECURITY DEFINER function with search_path used for checking user roles.
 
 ## Neighbors
-- [[storageobjects|Storage.Objects]]
-- [[publicmemberships|Public.Memberships]]
+- [[rls|RlS]]
 
 ## Appears in
-- `202606240004_storage_policies.sql`
-- `03_rls_policies.sql`
+- `decisao-2026-08-23`

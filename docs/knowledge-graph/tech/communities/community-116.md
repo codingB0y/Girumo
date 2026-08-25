@@ -1,3 +1,3 @@
 # Community 116
 
-- [[api-auth-login|/api/auth/login]]
+- [[apps-web-prisma|Apps/Web/prisma/]]

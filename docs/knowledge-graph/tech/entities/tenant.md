@@ -1,8 +1,8 @@
 # Tenant
 
-**Type:** organization
+**Type:** concept
 
-A logical unit representing a customer or user instance within the Supabase database.<SEP>An organizational unit or identifier used to partition and isolate data within the Supabase database.<SEP>An abstract identifier representing the organizational unit or user account context that governs data access permissions.<SEP>An isolated organizational context resolved for authenticated users and subscriptions.<SEP>A business entity utilizing the platform whose configuration stores settings like the monthly goal.
+A logical unit representing a customer or user instance within the Supabase database.<SEP>An organizational unit or identifier used to partition and isolate data within the Supabase database.<SEP>An abstract identifier representing the organizational unit or user account context that governs data access permissions.<SEP>An isolated organizational context resolved for authenticated users and subscriptions.<SEP>A business entity utilizing the platform whose configuration stores settings like the monthly goal.<SEP>An identifier representing a tenant in the billing system, associated with subscription metadata.
 
 ## Neighbors
 - [[supabase|Supabase]]
@@ -30,6 +30,7 @@ A logical unit representing a customer or user instance within the Supabase data
 - [[referrals|Referrals]]
 - [[testimonials|Testimonials]]
 - [[p05|P0.5]]
+- [[makesubscription|MakeSubscription]]
 
 ## Appears in
 - `DEPLOY_ONLINE_RUNBOOK.md`
@@ -37,3 +38,4 @@ A logical unit representing a customer or user instance within the Supabase data
 - `03_rls_policies.sql`
 - `docs » FASE_1_AUDITORIA_CODIGO_ATUAL.md`
 - `IMPLEMENTATION_PLAN.md`
+- `apps » web » src » lib » billing » stripe-webhook.test.ts`

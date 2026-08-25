@@ -1,3 +1,4 @@
 # Community 146
 
-- [[next_public_sales_whatsapp_url|NEXT_PUBLIC_SALES_WHATSAPP_URL]]
+- [[biblioteca|Biblioteca]]
+- [[igor-mega-stock|Igor/Mega Stock]]

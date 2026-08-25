@@ -1,3 +1,3 @@
 # Community 228
 
-- [[privacidadetsx|Privacidade.tsx]]
+- [[privacidade-page|Privacidade Page]]

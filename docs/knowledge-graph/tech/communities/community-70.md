@@ -1,3 +1,3 @@
 # Community 70
 
-- [[infra-4|INFRA-4]]
+- [[landing-pricing-component|Landing Pricing Component]]

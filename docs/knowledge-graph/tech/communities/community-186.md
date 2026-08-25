@@ -1,3 +1,3 @@
 # Community 186
 
-- [[team-remove|Team Remove]]
+- [[raio-x-gratuito|Raio-X Gratuito]]

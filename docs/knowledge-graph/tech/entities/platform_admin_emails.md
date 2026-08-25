@@ -1,11 +1,8 @@
-# Platform_Admin_Emails
+# Platform_admin_emails
 
 **Type:** data
 
-A configuration setting containing email addresses for system administrators, currently missing from the environment template.
-
-## Neighbors
-- [[production_checklistmd|Production_Checklist.md]]
+Environment variable that ceased to be read by the code for admin authorization.
 
 ## Appears in
-- `PRODUCTION_CHECKLIST.md`
+- `decisao-2026-08-18-admin-authz-verificado-em-prod`

@@ -1,11 +1,11 @@
-# Api/settings
+# Api Settings
 
 **Type:** method
 
-API endpoint for getting and patching tenant settings.
+API endpoint handling settings updates via PATCH requests.
 
 ## Neighbors
-- [[tenant-settings|Tenant Settings]]
+- [[painel-configuracoes|Painel Configuracoes]]
 
 ## Appears in
-- `IMPLEMENTATION_PLAN.md`
+- `decisao-2026-08-19-estado-do-quadro-e-prioridades`

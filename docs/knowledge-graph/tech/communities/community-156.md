@@ -1,3 +1,3 @@
 # Community 156
 
-- [[automacoes|Automacoes]]
+- [[apps-web-docs-adr|Apps/Web/Docs/Adr/]]

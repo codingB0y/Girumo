@@ -1,3 +1,3 @@
 # Community 69
 
-- [[environment-template|Environment Template]]
+- [[landing-bento-card-component|Landing Bento Card Component]]

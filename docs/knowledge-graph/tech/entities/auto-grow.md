@@ -1,11 +1,13 @@
-# Auto-grow
+# Auto-Grow
 
-**Type:** method
+**Type:** concept
 
-A technique that populates groups using invitation links rather than direct forcible additions.
+A feature that has the correct gate but lacks any executor.<SEP>A feature or mechanism that became broken due to architectural changes involving the gate and engine.
 
 ## Neighbors
-- [[hubflow-engine|Hubflow-Engine]]
+- [[baileys|Baileys]]
+- [[rungrow|RunGrow]]
 
 ## Appears in
-- `ENGINE_ANALYSIS.md`
+- `decisao-2026-08-19-bloco1-bloco2`
+- `decisao-2026-08-20-autogrow-quebrado`

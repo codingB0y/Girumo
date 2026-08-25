@@ -1,11 +1,12 @@
-# Beneficios
+# BENEFICIOS
 
-**Type:** artifact
+**Type:** data
 
-A benefits section component of the landing page.
+An array of objects containing titles and descriptions for six specific business benefits.
 
 ## Neighbors
-- [[direto-page|Direto Page]]
+- [[lp_copymd|LP_COPY.md]]
+- [[beneficios|Beneficios]]
 
 ## Appears in
-- `.. » VIREI MODA » vireimoda-lp » src » app » direto » page.tsx`
+- `.. » VIREI MODA » vireimoda-lp » src » components » lp » Beneficios.tsx`

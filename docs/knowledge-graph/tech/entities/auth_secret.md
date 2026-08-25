@@ -1,11 +1,11 @@
-# AUTH_SECRET
+# Auth_secret
 
 **Type:** artifact
 
-A secret token value dev-secret-local-troque-em-producao used for JWT sessions.
+A secret used for signing cookies in tests.
 
 ## Neighbors
-- [[dev_accessmd|DEV_ACCESS.md]]
+- [[segredo-localts|Segredo-local.ts]]
 
 ## Appears in
-- `docs » DEV_ACCESS.md`
+- `decisao-2026-08-19-bloco1-verificacao`

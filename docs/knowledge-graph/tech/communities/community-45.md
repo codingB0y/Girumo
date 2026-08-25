@@ -1,3 +1,3 @@
 # Community 45
 
-- [[tenant-demo|Tenant-Demo]]
+- [[tenants-list|Tenants List]]

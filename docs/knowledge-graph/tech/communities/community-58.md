@@ -1,3 +1,3 @@
 # Community 58
 
-- [[be-4|BE-4]]
+- [[infra-4|INFRA-4]]

@@ -1,3 +1,3 @@
 # Community 90
 
-- [[best-practices-seo|Best Practices/SEO]]
+- [[apps-web-src-lib-supabase-clientts|Apps/web/src/lib/supabase/client.ts]]

@@ -1,3 +1,3 @@
 # Community 77
 
-- [[mobile-nav-component|Mobile Nav Component]]
+- [[best-practices-seo|Best Practices/SEO]]

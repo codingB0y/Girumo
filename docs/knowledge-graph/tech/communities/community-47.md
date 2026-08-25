@@ -1,3 +1,3 @@
 # Community 47
 
-- [[tenant-teste|Tenant Teste]]
+- [[be-1|BE-1]]

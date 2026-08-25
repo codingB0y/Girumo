@@ -1,3 +1,4 @@
 # Community 127
 
-- [[apps-web-src|Apps/Web/src/]]
+- [[npm-run-verify-online|Npm Run Verify Online]]
+- [[verify-onlineps1|Verify-Online.Ps1]]

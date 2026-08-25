@@ -1,11 +1,11 @@
-# Squad OS
+# Squad Os
 
-**Type:** artifact
+**Type:** organization
 
-Internal team of AI agents within HubFlow.<SEP>Internal AI team module handling squads, agents, missions, knowledge, and handoffs.
+An internal squad or system whose 12 tables only exist in production.
 
 ## Neighbors
-- [[hubflow|HubFlow]]
+- [[prod-project-nidoatbxaylrkcgbszns|Prod Project Nidoatbxaylrkcgbszns]]
 
 ## Appears in
-- `AUDIT_REPORT.md`
+- `docs » audits » 2026-08-22-audit-skills.md`

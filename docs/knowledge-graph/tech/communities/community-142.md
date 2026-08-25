@@ -1,3 +1,3 @@
 # Community 142
 
-- [[configuracoes|Configuracoes]]
+- [[leads|Leads]]

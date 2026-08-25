@@ -1,11 +1,14 @@
-# Service-Role
+# Service Role
 
-**Type:** artifact
+**Type:** organization
 
-A security role requiring external rotation for system authorization.
+Database role with bypass RLS privileges.
 
 ## Neighbors
-- [[engine|Engine]]
+- [[funnel-events|Funnel Events]]
+- [[testimonials|Testimonials]]
+- [[row-level-security|Row Level Security]]
+- [[link-click-events|Link Click Events]]
 
 ## Appears in
-- `PRODUCTION_CHECKLIST.md`
+- `docs » audits » 2026-08-22-audit-skills.md`

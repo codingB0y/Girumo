@@ -1,11 +1,11 @@
-# Public.engine_events
+# Public.Engine_Events
 
 **Type:** data
 
-A database table storing engine event records.
+A database table containing engine events used to verify if the worker is alive.
 
 ## Neighbors
-- [[set_updated_at_engine_events|Set_updated_at_engine_events]]
+- [[apps-worker|Apps/Worker]]
 
 ## Appears in
-- `02_indexes_triggers.sql`
+- `decisao-2026-08-18-worker-sender-off-envs-evolution`

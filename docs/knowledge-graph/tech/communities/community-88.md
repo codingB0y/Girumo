@@ -1,15 +1,5 @@
 # Community 88
 
-- [[assetsmd|ASSETS.md]]
-- [[audit_reportmd|AUDIT_REPORT.md]]
-- [[cls|CLS]]
-- [[devmodebanner|DevModeBanner]]
-- [[frontend_auditmd|FRONTEND_AUDIT.md]]
-- [[frontend|Frontend]]
-- [[impersonatebanner|ImpersonateBanner]]
-- [[landing-v2|Landing V2]]
-- [[lighthouse|Lighthouse]]
-- [[react-flow|React Flow]]
-- [[shadcn-ui|Shadcn Ui]]
-- [[task_progressmd|TASK_PROGRESS.md]]
-- [[tbt-inp|TBT / INP]]
+- [[child-ticket|<Child Ticket>]]
+- [[wayfinder-map|<Wayfinder Map>]]
+- [[wayfinder|<Wayfinder>]]

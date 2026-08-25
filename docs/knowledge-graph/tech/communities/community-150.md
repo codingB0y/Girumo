@@ -1,4 +1,4 @@
 # Community 150
 
-- [[painel-pagetsx|Painel/Page.tsx]]
-- [[resultados-pagetsx|Resultados/Page.tsx]]
+- [[flow-pages|<Flow Pages>]]
+- [[kit-de-anunco|<Kit De Anunco>]]

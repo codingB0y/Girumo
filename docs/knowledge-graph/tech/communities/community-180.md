@@ -1,3 +1,3 @@
 # Community 180
 
-- [[tracked_linksclicks|Tracked_links.clicks]]
+- [[30-minute-x-ray|30-Minute X-Ray]]

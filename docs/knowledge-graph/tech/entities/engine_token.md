@@ -1,12 +1,11 @@
-# ENGINE_TOKEN
+# Engine_token
 
-**Type:** concept
+**Type:** data
 
-A service token value dev_engine_token_local used for web and engine communication.<SEP>An authentication token with a hardcoded fallback value used in the application.
+A new environment variable using the same values as the legacy engine.
 
 ## Neighbors
-- [[dev_accessmd|DEV_ACCESS.md]]
+- [[worker|Worker]]
 
 ## Appears in
-- `docs » DEV_ACCESS.md`
-- `ENGINE_ANALYSIS.md`
+- `decisao-2026-08-20-auto-grow-worker`

@@ -1,5 +1,4 @@
 # Community 124
 
-- [[apps-web-src-app-api-auth-login-routets|Apps/Web/Src/App/Api/Auth/Login/Route.ts]]
-- [[apps-web-src-lib-supabase-serverts|Apps/Web/Src/Lib/Supabase/Server.ts]]
-- [[getsupabaseserveranon|GetSupabaseServerAnon]]
+- [[deploy-stripe-setupmd|Deploy Stripe Setup.Md]]
+- [[deploy-supabase-readmemd|Deploy Supabase Readme.Md]]

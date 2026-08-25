@@ -1,11 +1,12 @@
-# Public.engine_commands
+# Public.Engine_Commands
 
 **Type:** data
 
-A database table storing engine command records.
+A database table containing engine commands for the cutover queue.<SEP>Public.engine_commands is the database table where step type message commands were inserted correctly.
 
 ## Neighbors
-- [[set_updated_at_engine_commands|Set_updated_at_engine_commands]]
+- [[grupo-lotou|Grupo Lotou]]
 
 ## Appears in
-- `02_indexes_triggers.sql`
+- `decisao-2026-08-18-worker-sender-off-envs-evolution`
+- `decisao-2026-08-19-fila-envio-parada-regressao`

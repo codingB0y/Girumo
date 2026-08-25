@@ -1,3 +1,3 @@
 # Community 214
 
-- [[vm-card|Vm-card]]
+- [[planilha-master-de-business|Planilha Master de Business]]

@@ -1,3 +1,3 @@
 # Community 35
 
-- [[dashboard|Dashboard]]
+- [[apps-web-prisma|Apps/web/prisma]]

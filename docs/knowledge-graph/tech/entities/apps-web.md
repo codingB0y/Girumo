@@ -1,14 +1,11 @@
-# <Apps/Web>
+# Apps Web
 
-**Type:** UNKNOWN
+**Type:** artifact
 
-Vercel executes the build of the web application located in apps/web.
+The web application module containing route handlers and frontend pages.
 
 ## Neighbors
-- [[supabase|<Supabase>]]
-- [[vercel|<Vercel>]]
-- [[prisma|<Prisma>]]
-- [[supabase-auth|<Supabase Auth>]]
+- [[route-handler|Route Handler]]
 
 ## Appears in
-- `docs » FASE_1_AUDITORIA_CODIGO_ATUAL.md`
+- `decisao-2026-08-19`

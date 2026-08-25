@@ -1,4 +1,3 @@
 # Community 169
 
-- [[apps-web-src-lib-runtime-secretsts|Apps/web/src/lib/runtime-secrets.ts]]
-- [[project_context|Project_context]]
+- [[analise_grupos_campanhas_2026-08-10md|ANALISE_GRUPOS_CAMPANHAS_2026-08-10.md]]

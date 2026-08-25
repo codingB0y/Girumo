@@ -1,3 +1,7 @@
 # Community 14
 
-- [[set_updated_at|Set_updated_at]]
+- [[compileroptions|CompilerOptions]]
+- [[nextjs-claude-code-starter|Nextjs-claude-code-starter]]
+- [[node_modules|Node_modules]]
+- [[src|Src]]
+- [[tsconfigjson|Tsconfig.json]]

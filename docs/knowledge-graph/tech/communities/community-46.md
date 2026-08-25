@@ -1,3 +1,3 @@
 # Community 46
 
-- [[tenant-stress|Tenant-Stress]]
+- [[be-8|BE-8]]

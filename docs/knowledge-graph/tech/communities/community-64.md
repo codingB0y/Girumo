@@ -1,3 +1,3 @@
 # Community 64
 
-- [[stores-groupsts|Stores/groups.ts]]
+- [[mobile-nav-component|Mobile Nav Component]]

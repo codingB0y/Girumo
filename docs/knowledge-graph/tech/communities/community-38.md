@@ -1,3 +1,3 @@
 # Community 38
 
-- [[claudemd|CLAUDE.md]]
+- [[tenant-stress|Tenant-Stress]]

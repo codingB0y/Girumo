@@ -1,11 +1,16 @@
-# Security-guards.ts
+# Security-Guards.ts
 
 **Type:** artifact
 
-A file containing environment security guards that block Stripe live in dev and log security status.
+TypeScript file responsible for security guards and total environment isolation.
 
 ## Neighbors
-- [[instrumentationts|Instrumentation.ts]]
+- [[guardstripe|GuardStripe]]
+- [[guardengine|GuardEngine]]
+- [[guarddatabase|GuardDatabase]]
+- [[guardstorage|GuardStorage]]
+- [[guarddomain|GuardDomain]]
+- [[run-all-guards|Run All Guards]]
 
 ## Appears in
-- `BACKEND_AUDIT.md`
+- `apps » web » src » lib » security-guards.ts`

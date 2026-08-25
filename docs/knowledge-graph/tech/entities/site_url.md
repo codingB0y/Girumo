@@ -1,11 +1,11 @@
-# Site_Url
+# SITE_URL
 
 **Type:** data
 
-The website URL configuration pointing to https://vireimoda.com.br.
+A configuration constant representing the base URL of the website.
 
 ## Neighbors
-- [[configts|Config.ts]]
+- [[vireimoda-lp-sitemap|Vireimoda-Lp Sitemap]]
 
 ## Appears in
-- `.. » VIREI MODA » vireimoda-lp » src » lib » config.ts`
+- `.. » VIREI MODA » vireimoda-lp » src » app » sitemap.ts`

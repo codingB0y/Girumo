@@ -1,4 +1,3 @@
 # Community 172
 
-- [[health|/health]]
-- [[status|/status]]
+- [[weekly-report-enabled|Weekly Report Enabled]]

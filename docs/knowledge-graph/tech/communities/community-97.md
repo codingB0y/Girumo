@@ -1,3 +1,3 @@
 # Community 97
 
-- [[shadcn-ui|shadcn/ui]]
+- [[apps-web-src-lib-storets|Apps/web/src/lib/store.ts]]

@@ -1,3 +1,3 @@
 # Community 66
 
-- [[base-schema-migration|Base Schema Migration]]
+- [[landing-flow-visual-component|Landing Flow Visual Component]]

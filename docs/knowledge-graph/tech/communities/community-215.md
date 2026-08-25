@@ -1,3 +1,3 @@
 # Community 215
 
-- [[vm-badge|Vm-badge]]
+- [[time-de-vendas|Time de Vendas]]

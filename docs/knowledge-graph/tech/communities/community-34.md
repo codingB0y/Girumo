@@ -1,3 +1,3 @@
 # Community 34
 
-- [[auth-secret|Auth Secret]]
+- [[hubflow-groups|Hubflow-groups/]]

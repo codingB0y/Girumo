@@ -1,11 +1,12 @@
-# Apps/Web/Src/Components/Members-Panel.Tsx
+# Apps/web/src/components/members-panel.tsx
 
 **Type:** artifact
 
-Members panel component with adjusted profile selectors for consistency.
+Apps/web/src/components/members-panel.tsx is an orphaned component featuring a remove/revoke button that was never imported anywhere.
 
 ## Neighbors
-- [[apps-web-src-app-app-settings-pagetsx|Apps/Web/Src/App/(App)/Settings/Page.Tsx]]
+- [[pr-109|PR #109]]
+- [[pr-114|PR #114]]
 
 ## Appears in
-- `docs » FASE_1_AUDITORIA_CODIGO_ATUAL.md`
+- `decisao-2026-08-19-componente-orfao-nao-chega-na-tela`

@@ -1,4 +1,3 @@
 # Community 193
 
-- [[controlador|<Controlador>]]
-- [[whatsapp|<WhatsApp>]]
+- [[vm-frame|Vm-frame]]

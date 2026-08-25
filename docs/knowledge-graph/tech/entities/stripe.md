@@ -7,6 +7,7 @@ The production checklist covers Stripe billing integration and webhook validatio
 ## Neighbors
 - [[production-checklist|<Production Checklist>]]
 - [[stripe-webhook|<Stripe Webhook>]]
+- [[checkout-route|<Checkout Route>]]
 
 ## Appears in
 - `docs » FASE_1_AUDITORIA_CODIGO_ATUAL.md`

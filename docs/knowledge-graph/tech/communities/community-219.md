@@ -1,3 +1,3 @@
 # Community 219
 
-- [[banner-lgpd|Banner Lgpd]]
+- [[analise_produto_valor|ANALISE_PRODUTO_VALOR]]

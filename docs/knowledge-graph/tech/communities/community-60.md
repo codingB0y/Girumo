@@ -1,3 +1,3 @@
 # Community 60
 
-- [[be-6|BE-6]]
+- [[go_no_gomd|GO_NO_GO.md]]

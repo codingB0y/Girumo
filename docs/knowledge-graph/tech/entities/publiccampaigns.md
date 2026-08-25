@@ -1,11 +1,11 @@
-# Public.Campaigns
+# Public.campaigns
 
 **Type:** data
 
-A database table storing campaign records protected by Row Level Security.
+Public.campaigns is a database table that historically recorded campaigns but received zero entries.
 
 ## Neighbors
-- [[hubflow-dev|Hubflow Dev]]
+- [[capability_table|CAPABILITY_TABLE]]
 
 ## Appears in
-- `03_rls_policies.sql`
+- `decisao-2026-08-19-teto-plano-tabela-errada`

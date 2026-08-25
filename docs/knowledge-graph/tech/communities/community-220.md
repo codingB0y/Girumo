@@ -1,3 +1,3 @@
 # Community 220
 
-- [[copywriting|Copywriting]]
+- [[voc-atacadistamd|voc-atacadista.md]]
