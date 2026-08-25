@@ -72,7 +72,12 @@ export const CONTEUDO_ESPERADO_ADMIN: Record<string, ConteudoAdmin> = {
   },
   "/admin/agentes": {
     ancora: /Agentes de IA/,
-    contagem: { tabela: "agent_configs", vazio: /Nenhum agente|nenhum agente/ },
+    // Conferido em 25/08: a tela renderiza AGENTS_CATALOG, uma constante do
+    // proprio arquivo (`admin/agentes/page.tsx:18`). `agent_configs` alimenta so
+    // os agregados (total de execucoes, quantos ativos), e nao ha estado-vazio
+    // nenhum — o catalogo sempre aparece. Declarar contagem aqui cobrava um
+    // texto que a tela nunca mostra.
+    semLista: "Catalogo fixo no codigo (AGENTS_CATALOG); agent_configs so alimenta agregados.",
   },
   "/admin/alertas": {
     ancora: /Alertas/,
@@ -86,7 +91,11 @@ export const CONTEUDO_ESPERADO_ADMIN: Record<string, ConteudoAdmin> = {
   },
   "/admin/instancias": {
     ancora: /Inst[âa]ncias WhatsApp/,
-    contagem: { tabela: "instances", vazio: /n[ãa]o h[áa] nenhuma/i },
+    // O texto e "Nenhuma instancia encontrada." (`admin/instancias/page.tsx:69`).
+    // A primeira versao deste arquivo usou /nao ha nenhuma/, que veio de outro
+    // trecho da mesma pagina e nunca casaria — o CI pegou na primeira execucao,
+    // que e exatamente para isso que ele serve.
+    contagem: { tabela: "instances", vazio: /Nenhuma inst[âa]ncia encontrada/ },
   },
 
   "/admin/configuracoes": {
