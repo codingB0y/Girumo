@@ -56,11 +56,19 @@ def redigir_zip(caminho: Path, segredos: list[bytes]) -> bool:
 
 
 def main() -> int:
-    segredos = [v.encode() for v in (os.environ.get("E2E_PASSWORD", "").strip(),) if v]
+    # Sao DUAS senhas desde 25/08/2026: o usuario de QA (lojista) e o admin de
+    # plataforma, que a cobertura de /admin usa. Esquecer a segunda aqui teria o
+    # efeito exato que este script existe para evitar — com o agravante de que a
+    # conta vazada seria a de super-admin.
+    candidatas = (
+        os.environ.get("E2E_PASSWORD", "").strip(),
+        os.environ.get("E2E_ADMIN_PASSWORD", "").strip(),
+    )
+    segredos = [v.encode() for v in candidatas if v]
     if not segredos:
         # Sem senha definida nao ha o que redigir — e nao e erro: o job pode
         # ter rodado so o gate anonimo.
-        print("nada a redigir: E2E_PASSWORD vazio")
+        print("nada a redigir: E2E_PASSWORD e E2E_ADMIN_PASSWORD vazios")
         return 0
 
     tocados = 0

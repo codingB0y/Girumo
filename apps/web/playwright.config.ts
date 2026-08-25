@@ -2,7 +2,7 @@ import { resolve as resolvePath } from "node:path";
 
 import { config as carregaEnv } from "dotenv";
 import { defineConfig, devices } from "@playwright/test";
-import { BASE_URL, ESTADO_LOGADO } from "./e2e/caminhos";
+import { BASE_URL, ESTADO_ADMIN, ESTADO_LOGADO } from "./e2e/caminhos";
 
 /**
  * Credenciais do usuario de QA vivem em `.env.local` (fora do git). O processo
@@ -66,6 +66,19 @@ export default defineConfig({
       name: "chromium",
       use: { ...devices["Desktop Chrome"], storageState: ESTADO_LOGADO },
       dependencies: ["setup"],
+      // `admin-rotas` roda com a OUTRA sessao. Sem este ignore ele rodaria aqui
+      // tambem, com o lojista — e falharia em toda rota por redirect ao login,
+      // que e o comportamento CORRETO que admin-gate.spec.ts ja cobra.
+      testIgnore: /admin-rotas\.spec\.ts/,
+    },
+    // Segundo usuario: o admin de plataforma (D.2). Ver e2e/caminhos.ts para por
+    // que os dois papeis nao cabem numa conta so.
+    { name: "setup-admin", testMatch: /auth-admin\.setup\.ts/ },
+    {
+      name: "chromium-admin",
+      use: { ...devices["Desktop Chrome"], storageState: ESTADO_ADMIN },
+      dependencies: ["setup-admin"],
+      testMatch: /admin-rotas\.spec\.ts/,
     },
   ],
   webServer: usaServidorExterno

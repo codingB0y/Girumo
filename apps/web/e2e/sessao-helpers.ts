@@ -24,6 +24,30 @@ export function exigeCredenciais() {
 }
 
 /**
+ * Credenciais do SEGUNDO usuario: o admin de plataforma, usado so pela
+ * cobertura de renderizacao de /admin (D.2 da auditoria de 22/08/2026).
+ *
+ * Ele precisa existir em `public.platform_admins` do Supabase de DEV — a
+ * autorizacao e por identidade (`admin-guard.ts:36`), nunca por e-mail. E existe
+ * so em dev: replicar em prod seria criar uma conta de super-admin permanente
+ * cuja senha vive num secret de CI.
+ */
+export const CREDENCIAIS_ADMIN = {
+  email: process.env.E2E_ADMIN_EMAIL ?? "",
+  senha: process.env.E2E_ADMIN_PASSWORD ?? "",
+};
+
+export const TEM_CREDENCIAIS_ADMIN = Boolean(CREDENCIAIS_ADMIN.email && CREDENCIAIS_ADMIN.senha);
+
+export function exigeCredenciaisAdmin() {
+  test.skip(
+    !TEM_CREDENCIAIS_ADMIN,
+    "Defina E2E_ADMIN_EMAIL e E2E_ADMIN_PASSWORD (usuario de dev presente em platform_admins) " +
+      "para rodar a cobertura de renderizacao de /admin.",
+  );
+}
+
+/**
  * Login pela tela real, para os specs que precisam da sessao NASCENDO ali —
  * o de ciclo de sessao, por exemplo, que derruba a sessao no meio. Os demais
  * reusam o estado do setup e nao chamam isto.
