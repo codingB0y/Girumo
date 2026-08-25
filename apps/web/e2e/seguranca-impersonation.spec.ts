@@ -19,7 +19,7 @@ import { exigeCredenciais } from "./sessao-helpers";
  * a posição exata do atacante descrito no C1.
  *
  * Nada aqui dispara automação, mensagem ou broadcast: são requests HTTP contra
- * /api/admin/impersonate e /api/squad-os.
+ * /api/admin/impersonate.
  */
 
 const COOKIE = "dz_impersonate";
@@ -148,21 +148,4 @@ test.describe("Impersonation recusa cookie que não pode provar quem é (C1)", (
     expect(pareceApagado(emitidos.find((c) => c.startsWith(`${COOKIE}=`)))).toBe(true);
     expect(pareceApagado(emitidos.find((c) => c.startsWith(`${SESSAO}=`)))).toBe(true);
   });
-});
-
-test.describe("Rotas de service-role exigem admin (H1)", () => {
-  exigeCredenciais();
-
-  // Antes do #54 estas rotas usavam service-role sem gate nenhum: usuário
-  // logado comum lia e escrevia dado de squad de qualquer tenant.
-  for (const rota of ["missions", "squads", "agents", "memories", "decisions", "handoffs"]) {
-    test(`/api/squad-os/${rota} recusa lojista logado que não é admin`, async ({ context }) => {
-      const res = await context.request.get(`/api/squad-os/${rota}`);
-
-      expect(res.status()).toBe(401);
-      // "Unauthorized" é do handler; "Nao autenticado." seria o middleware — e aí
-      // o teste estaria verde sem nunca exercitar o gate que o #54 adicionou.
-      expect((await res.json()).error).toBe("Unauthorized");
-    });
-  }
 });

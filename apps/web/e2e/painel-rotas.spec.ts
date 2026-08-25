@@ -52,6 +52,23 @@ test.describe("rotas do painel renderizam", () => {
     ).toEqual([]);
   });
 
+  /**
+   * O sentido inverso, que faltava.
+   *
+   * Descoberto ao aposentar o Squad OS: as 6 telas sairam e as 6 entradas aqui
+   * ficaram, sem nada reclamar. Declaracao orfa nao quebra a suite — ela MENTE,
+   * porque quem le o arquivo conclui que a tela existe e esta coberta. A guarda
+   * de cima cobra rota sem declaracao; esta cobra declaracao sem rota.
+   */
+  test("toda declaracao corresponde a uma rota que existe", () => {
+    const orfas = Object.keys(CONTEUDO_ESPERADO).filter((rota) => !ROTAS_DO_PAINEL.includes(rota));
+    expect(
+      orfas,
+      `entrada em conteudo-esperado.ts sem rota correspondente: ${orfas.join(", ")}. ` +
+        "A tela saiu e a declaracao ficou para tras — apague a entrada.",
+    ).toEqual([]);
+  });
+
   for (const rota of ROTAS_DO_PAINEL) {
     test(`${rota} renderiza`, async ({ page }, testInfo) => {
       const esperado = CONTEUDO_ESPERADO[rota];

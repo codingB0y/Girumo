@@ -47,8 +47,8 @@ export type ConteudoEsperado = {
    * Texto que so existe quando a ROTA renderizou — nao o shell, nao o skeleton,
    * nao a tela de erro.
    *
-   * Essa distincao e o ponto. `/painel/squad-os/agents` monta o `<h1>Agents` so
-   * depois do fetch resolver; enquanto carrega mostra caixas cinza. E `/painel`
+   * Essa distincao e o ponto: uma tela monta o `<h1>` so depois do fetch
+   * resolver, e enquanto carrega mostra caixas cinza. E `/painel`
    * renderiza `<h1>Inicio` TAMBEM no `LoadError` (`dashboard-states.tsx:33`),
    * entao a ancora dele e "Seu ritmo", que so o dashboard cheio tem. Ancora
    * escolhida no cabecalho errado passa com a tela morta.
@@ -89,14 +89,6 @@ export function primeiroTexto(json: unknown, ...campos: string[]): string | null
 /** Campos de nome usados pelas listas do painel, na ordem de preferencia. */
 const NOME = ["name", "title", "label", "slug", "email"];
 
-/** Motivo comum das telas do Squad OS — ver o bloco de comentario abaixo. */
-const SQUAD_OS_MASCARA_ERRO =
-  "A API do Squad OS engole a excecao e devolve [] com status 200 " +
-  "(app/api/squad-os/agents/route.ts:19 e irmaos). As tabelas so existem em prod, " +
-  "entao em dev a consulta falha e a resposta tem cara de lista vazia. Cobrar " +
-  "'vazio' aqui seria cobrar o proprio defeito; a ancora prova o que da para " +
-  "provar honestamente — que a tela saiu do skeleton. Quando as tabelas " +
-  "existirem em dev (ou a API parar de mascarar), troque por `lista`.";
 
 export const CONTEUDO_ESPERADO: Record<string, ConteudoEsperado> = {
   "/painel": {
@@ -221,10 +213,4 @@ export const CONTEUDO_ESPERADO: Record<string, ConteudoEsperado> = {
       "Agrega leads/pedidos/cliques em numeros; a lista dela depende de campanha, que /painel/campanhas ja confere.",
   },
 
-  "/painel/squad-os": { ancora: /Squads/, semLista: SQUAD_OS_MASCARA_ERRO },
-  "/painel/squad-os/agents": { ancora: /Agents/, semLista: SQUAD_OS_MASCARA_ERRO },
-  "/painel/squad-os/knowledge": { ancora: /Playbooks/, semLista: SQUAD_OS_MASCARA_ERRO },
-  "/painel/squad-os/missions": { ancora: /Missions/, semLista: SQUAD_OS_MASCARA_ERRO },
-  "/painel/squad-os/setup": { ancora: /Setup/, semLista: "Tela de acao (seed), sem lista." },
-  "/painel/squad-os/squads": { ancora: /Squads/, semLista: SQUAD_OS_MASCARA_ERRO },
 };

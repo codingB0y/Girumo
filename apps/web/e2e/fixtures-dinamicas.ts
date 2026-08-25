@@ -163,32 +163,6 @@ function fixtureCampanhaEdicao(): FixtureDinamica {
   };
 }
 
-// --------------------------------------------------------------- squad-os
-
-type SquadResumo = { slug?: string; name?: string };
-
-/**
- * Squad nao se cria pela API do painel; a tela cai num seed local quando o
- * banco esta vazio. O fixture entao DESCOBRE o alvo — usa a squad que o
- * ambiente tiver e, se nao tiver nenhuma, o seed que a propria tela usaria.
- */
-const fixtureSquad: FixtureDinamica = {
-  inexistente: "squad-que-nao-existe-e2e",
-  async criar(request) {
-    let squad: SquadResumo | undefined;
-    try {
-      const lista = await json<SquadResumo[]>(request, "/api/squad-os/squads");
-      if (Array.isArray(lista)) squad = lista.find((s) => s?.slug && s?.name);
-    } catch {
-      squad = undefined;
-    }
-
-    const slug = squad?.slug ?? "product";
-    const nome = squad?.name ?? "Product Squad";
-    return { valor: slug, marca: { tipo: "texto", valor: nome }, apagar: async () => {} };
-  },
-};
-
 // ------------------------------------------------------------------- mapa
 
 /**
@@ -201,7 +175,6 @@ export const FIXTURES_DINAMICAS: Record<string, FixtureDinamica> = {
   "/painel/pages/[id]": fixturePagina,
   "/painel/campanhas/[slug]": fixtureCampanha(),
   "/painel/campanhas/[slug]/editar": fixtureCampanhaEdicao(),
-  "/painel/squad-os/squads/[slug]": fixtureSquad,
 };
 
 /** Troca o segmento dinamico do padrao pelo valor real. */
