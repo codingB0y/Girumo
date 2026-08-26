@@ -86,6 +86,9 @@ export default function PainelConfiguracoes() {
   const [sub, setSub] = useState<Subscription>(null);
   const [busyPlan, setBusyPlan] = useState<string | null>(null);
   const [portalBusy, setPortalBusy] = useState(false);
+  // Erro de checkout/portal. Compartilhado pelos dois porque só um roda por vez
+  // e ambos aparecem no mesmo painel.
+  const [billingError, setBillingError] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteBusy, setInviteBusy] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
@@ -152,6 +155,7 @@ export default function PainelConfiguracoes() {
 
   async function openCheckout(planCode: string) {
     setBusyPlan(planCode);
+    setBillingError(null);
     try {
       const res = await authenticatedFetch("/api/billing/checkout", {
         method: "POST",
@@ -161,8 +165,12 @@ export default function PainelConfiguracoes() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.url) throw new Error(data.error || "Checkout indisponível.");
       window.location.href = data.url;
-    } catch {
-      // silently fail
+    } catch (e) {
+      // Engolir aqui apagava o único sinal que existia: o botão girava, parava,
+      // e a tela ficava idêntica a antes do clique. Preço configurado errado,
+      // plano inativo e Stripe fora do ar tinham todos a mesma cara de nada —
+      // inclusive para o suporte, porque o cliente só sabe dizer "não acontece".
+      setBillingError(e instanceof Error ? e.message : "Não foi possível abrir o checkout.");
     } finally {
       setBusyPlan(null);
     }
@@ -170,13 +178,17 @@ export default function PainelConfiguracoes() {
 
   async function openPortal() {
     setPortalBusy(true);
+    setBillingError(null);
     try {
       const res = await authenticatedFetch("/api/billing/portal", { method: "POST" });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.url) return;
+      // Antes isto era um `return` seco: resposta sem URL saía pelo mesmo caminho
+      // do sucesso, então quem clicava em "Portal Stripe" não recebia nem erro
+      // nem redirecionamento.
+      if (!res.ok || !data.url) throw new Error(data.error || "Portal indisponível.");
       window.location.href = data.url;
-    } catch {
-      // silently fail
+    } catch (e) {
+      setBillingError(e instanceof Error ? e.message : "Não foi possível abrir o portal.");
     } finally {
       setPortalBusy(false);
     }
@@ -478,6 +490,11 @@ export default function PainelConfiguracoes() {
                 })}
                 {plans.length === 0 && <p className="font-editorial text-[17px] italic text-ardosia">Carregando planos…</p>}
               </div>
+              {billingError && (
+                <p role="alert" className="mt-3 text-sm text-alerta">
+                  {billingError}
+                </p>
+              )}
             </Panel>
           )}
           {section === "Conta" && (
