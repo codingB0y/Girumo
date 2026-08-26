@@ -40,12 +40,27 @@ export const LEGAL_ENTITY_PENDING =
 /**
  * Como o controlador se identifica no corpo do texto.
  *
- * Sem os dados preenchidos devolve o nome comercial, para a frase continuar
- * gramatical — o aviso de pendência é responsabilidade da página, não daqui.
+ * Sem os dados preenchidos devolve o nome comercial — o aviso de pendência é
+ * responsabilidade da página, não daqui. Quem monta frase em volta disto deve
+ * usar `controllerSentence`, senão sai "operada por Girumo".
  */
 export function controllerLine(): string {
   if (LEGAL_ENTITY_PENDING) return "Girumo";
   return `${LEGAL_ENTITY.legalName}, inscrita no CNPJ sob o nº ${LEGAL_ENTITY.taxId}`;
+}
+
+/**
+ * A frase de abertura dos Termos, inteira.
+ *
+ * Existe porque interpolar `controllerLine()` em "A Girumo é operada por ..."
+ * produz "A Girumo é operada por Girumo" enquanto os dados não estão
+ * preenchidos. Com a frase montada aqui, os dois estados saem naturais.
+ */
+export function controllerSentence(): string {
+  if (LEGAL_ENTITY_PENDING) {
+    return "A Girumo (“Girumo”, “nós”) é a plataforma descrita neste documento.";
+  }
+  return `A Girumo é operada por ${controllerLine()} (“Girumo”, “nós”).`;
 }
 
 /** Terceiros que processam dado a nosso mando. Citar é exigência da LGPD. */

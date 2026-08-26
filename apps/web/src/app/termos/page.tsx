@@ -1,5 +1,5 @@
 import { LegalPage, LegalSection } from "@/components/legal/legal-page";
-import { controllerLine, LEGAL_CONTACT_EMAIL, LEGAL_ENTITY } from "@/lib/legal";
+import { controllerSentence, LEGAL_CONTACT_EMAIL, LEGAL_ENTITY } from "@/lib/legal";
 
 export const metadata = {
   title: "Termos de Uso — Girumo",
@@ -14,9 +14,8 @@ export default function TermosPage() {
     >
       <LegalSection n={1} title="Quem somos e o que este documento é">
         <p>
-          A Girumo é operada por {controllerLine()} (&quot;Girumo&quot;, &quot;nós&quot;). Este
-          documento é o contrato entre nós e você, a pessoa ou empresa que usa a plataforma
-          (&quot;você&quot;, &quot;cliente&quot;).
+          {controllerSentence()} Este documento é o contrato entre nós e você, a pessoa ou empresa
+          que usa a plataforma (&quot;você&quot;, &quot;cliente&quot;).
         </p>
         <p>
           Ao criar uma conta, você declara que leu e concorda com estes Termos e com a Política de
