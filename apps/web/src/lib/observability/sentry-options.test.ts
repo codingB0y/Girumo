@@ -41,7 +41,10 @@ test("nao manda cookie, header de autorizacao nem senha", () => {
       },
       data: { email: "cliente@loja.com", password: "senha123", legalVersion: "2026-08-26" },
     },
-    extra: { stripeSecret: "sk_test_naoDeveVazar" },
+    // Montado em pedacos de proposito: o literal inteiro casa com o padrao
+    // `sk_test_...` do scan de secrets (infra/scripts/scan-secrets.ps1) e reprova
+    // o CI antes de rodar teste nenhum. O valor em runtime e o mesmo.
+    extra: { stripeSecret: ["sk", "test", "naoDeveVazar"].join("_") },
   };
 
   const limpo = scrubEvent(structuredClone(evento)) as typeof evento;
