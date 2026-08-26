@@ -9,6 +9,7 @@ import {
 } from "./capability-limits";
 import { FREE_PLAN_CODE } from "./plan-codes";
 import { planBlockedBody, planLimitBody, planStorageFullBody } from "./plan-limit-error";
+import { subscriptionAccess } from "./subscription-access";
 
 export type { Limits, PlanCapability } from "./capability-limits";
 export { CAPABILITY_LIMIT_KEY, CAPABILITY_TABLE } from "./capability-limits";
@@ -29,18 +30,35 @@ export { CAPABILITY_LIMIT_KEY, CAPABILITY_TABLE } from "./capability-limits";
  */
 export async function getTenantLimits(tenantId: string): Promise<Limits> {
   const supabase = getSupabaseAdmin();
+  // Sem filtro de status na query, de proposito: a decisao de quais estados
+  // concedem o plano mora em `subscriptionAccess`, junto do motivo. Enquanto o
+  // filtro vivia aqui (`in [free, trialing, active]`), quem emitia boleto caia
+  // no FREE em silencio — `unpaid` ficava de fora, e ninguem lendo esta linha
+  // percebia que "unpaid" tambem significa "acabou de pagar". `subscriptions`
+  // tem unique(tenant_id), entao `maybeSingle` continua valendo.
   const { data, error } = await supabase
     .from("subscriptions")
-    .select("status, plans(limits)")
+    .select("status, metadata, current_period_end, plans(limits)")
     .eq("tenant_id", tenantId)
-    .in("status", ["free", "trialing", "active"])
     .maybeSingle();
 
   if (error) throw new Response("Nao foi possivel validar limites do plano.", { status: 500 });
 
   if (data) {
-    const plan = data.plans as { limits?: Limits | null } | null;
-    return tenantLimitsFrom({ subscription: { limits: plan?.limits ?? null }, freePlan: null });
+    const acesso = subscriptionAccess(
+      {
+        status: data.status,
+        stripeStatus:
+          (data.metadata as { stripe_status?: string | null } | null)?.stripe_status ?? null,
+        periodEnd: data.current_period_end,
+      },
+      new Date(),
+    );
+
+    if (acesso.grantsPlan) {
+      const plan = data.plans as { limits?: Limits | null } | null;
+      return tenantLimitsFrom({ subscription: { limits: plan?.limits ?? null }, freePlan: null });
+    }
   }
 
   // `plans` é catálogo global (ver o comentário em api/plans/route.ts): filtrar
