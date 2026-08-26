@@ -68,6 +68,9 @@ test("nao sobrou vocabulario de pessoa juridica", () => {
 });
 
 test("versao e contato existem — sao o que torna o aceite provavel", () => {
-  assert.match(LEGAL_VERSION, /^\d{4}-\d{2}-\d{2}$/);
+  // Sufixo opcional de revisao: dois textos diferentes podem sair no MESMO dia
+  // (aconteceu em 26/08, quando o Sentry entrou na lista de operadores), e a
+  // versao precisa distinguir os dois — e ela que o aceite grava.
+  assert.match(LEGAL_VERSION, /^\d{4}-\d{2}-\d{2}(\.\d+)?$/);
   assert.match(LEGAL_CONTACT_EMAIL, /^[^@\s]+@[^@\s]+\.[^@\s]+$/);
 });

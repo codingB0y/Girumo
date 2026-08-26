@@ -1,5 +1,9 @@
 import type { NextConfig } from "next";
 
+import { withSentryConfig } from "@sentry/nextjs";
+
+import { SENTRY_CSP_HOST } from "./src/lib/observability/sentry-options";
+
 /**
  * 'unsafe-eval' SÓ em dev: os chunks do Turbopack/HMR usam eval; sem isso a
  * hidratação morre em silêncio (o form vira submit GET nativo). Produção não
@@ -26,7 +30,7 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://*.supabase.co",
       "font-src 'self'",
-      "connect-src 'self' https://*.supabase.co https://api.stripe.com wss://*.supabase.co",
+      `connect-src 'self' https://*.supabase.co https://api.stripe.com wss://*.supabase.co ${SENTRY_CSP_HOST}`,
       // player.vimeo.com: vídeo real do bazar Mega Stock no case da /lp
       // 'self': a prévia do editor de LP embute /painel/pages/preview (mesma origem)
       "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://player.vimeo.com",
@@ -69,7 +73,7 @@ const previewFrameHeaders = [
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://*.supabase.co",
       "font-src 'self'",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+      `connect-src 'self' https://*.supabase.co wss://*.supabase.co ${SENTRY_CSP_HOST}`,
       "frame-src https://www.youtube-nocookie.com https://player.vimeo.com",
       "frame-ancestors 'self'",
       "object-src 'none'",
@@ -111,4 +115,25 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+/**
+ * Envelope do Sentry — aplicado SÓ quando há DSN.
+ *
+ * `withSentryConfig` faz upload de source map no build e, para isso, quer
+ * `SENTRY_AUTH_TOKEN` e organização/projeto. Aplicá-lo incondicionalmente
+ * significaria que um build sem essas variáveis passa a depender delas — e
+ * dependência nova e silenciosa no caminho de build já parou o deploy deste
+ * projeto por horas antes (21/08, `dotenv` declarado só na raiz). Sem DSN, o
+ * arquivo exporta exatamente o mesmo objeto que exportava antes deste PR.
+ *
+ * `silent` evita ruído no log de build; `widenClientFileUpload` melhora o
+ * mapeamento dos chunks do App Router.
+ */
+export default SENTRY_CSP_HOST && process.env.NEXT_PUBLIC_SENTRY_DSN
+  ? withSentryConfig(nextConfig, {
+      silent: true,
+      widenClientFileUpload: true,
+      // Sem token de upload não há source map para enviar; o SDK segue
+      // funcionando, só com stack trace minificado.
+      sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+    })
+  : nextConfig;

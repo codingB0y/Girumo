@@ -15,6 +15,8 @@
  * onde sair, e o nonce ali custa zero em performance.
  */
 
+import { SENTRY_CSP_HOST } from "@/lib/observability/sentry-options";
+
 export type NonceSurface = "public-lp" | "click-redirect";
 
 /**
@@ -76,7 +78,7 @@ export function buildCsp(surface: NonceSurface, nonce: string, isDev: boolean): 
       scriptSrc(nonce, isDev, "https://connect.facebook.net"),
       "style-src 'unsafe-inline'",
       "img-src 'self' data: https://www.facebook.com",
-      "connect-src https://www.facebook.com",
+      `connect-src https://www.facebook.com ${SENTRY_CSP_HOST}`,
       "font-src 'self'",
       "frame-src 'none'",
       "object-src 'none'",
@@ -100,7 +102,7 @@ export function buildCsp(surface: NonceSurface, nonce: string, isDev: boolean): 
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https:",
     "font-src 'self'",
-    "connect-src 'self' https://www.facebook.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com",
+    `connect-src 'self' https://www.facebook.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com ${SENTRY_CSP_HOST}`,
     // Depoimento em vídeo (§6.1): o facade cria o iframe do provedor SÓ após o
     // clique na capa — são os dois provedores que o parseVideoUrl aceita.
     "frame-src https://www.youtube-nocookie.com https://player.vimeo.com",
