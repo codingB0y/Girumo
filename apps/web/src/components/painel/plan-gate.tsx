@@ -49,6 +49,13 @@ export function PlanGate({ resource, variant = "inline", className }: PlanGatePr
 
   const atLimit = info.used >= info.limit;
   const nearLimit = info.used >= info.limit * 0.8;
+  /**
+   * Teto zero nao e "limite atingido": o cliente nunca criou nenhuma. Dizer
+   * "atingiu o limite" a quem esta em 0 de 0 manda ele procurar algo para
+   * apagar — o que falta e plano, nao espaco. Mesma distincao que o 402 do
+   * gate faz com os codigos plan_blocked e plan_limit_reached.
+   */
+  const semPlano = info.limit === 0;
   const label = LABELS[resource];
   const pct = info.limit > 0 ? Math.min(Math.round((info.used / info.limit) * 100), 100) : 0;
 
@@ -69,14 +76,18 @@ export function PlanGate({ resource, variant = "inline", className }: PlanGatePr
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-volt-950">
-              {atLimit
-                ? `Limite de ${label.plural} atingido`
-                : `${info.used}/${info.limit} ${label.plural} usadas`}
+              {semPlano
+                ? `Seu plano não inclui ${label.plural}`
+                : atLimit
+                  ? `Limite de ${label.plural} atingido`
+                  : `${info.used}/${info.limit} ${label.plural} usadas`}
             </p>
             <p className="mt-0.5 text-xs text-aco/60">
-              {atLimit
-                ? `Faça upgrade pra criar mais ${label.plural}.`
-                : `Você está usando ${pct}% do seu plano.`}
+              {semPlano
+                ? `Escolha um plano pra criar sua primeira ${label.singular}.`
+                : atLimit
+                  ? `Faça upgrade pra criar mais ${label.plural}.`
+                  : `Você está usando ${pct}% do seu plano.`}
             </p>
           </div>
           {atLimit && (
@@ -84,12 +95,13 @@ export function PlanGate({ resource, variant = "inline", className }: PlanGatePr
               href="/painel/configuracoes"
               className="inline-flex shrink-0 items-center gap-1.5 rounded-[var(--radius-control)] bg-acid-500 px-4 py-2.5 text-xs font-semibold text-volt-950 transition-[filter] duration-[var(--duration-micro)] hover:brightness-95"
             >
-              <Zap className="h-3.5 w-3.5" /> Upgrade
+              <Zap className="h-3.5 w-3.5" aria-hidden /> {semPlano ? "Ver planos" : "Upgrade"}
             </Link>
           )}
         </div>
-        {/* Progress bar */}
-        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-canvas-100">
+        {/* Barra de uso — escondida em teto zero: 0% ao lado de um aviso de
+            bloqueio le como "ainda tem espaco", que e o oposto do que ocorre. */}
+        <div className={cn("mt-3 h-1.5 w-full overflow-hidden rounded-full bg-canvas-100", semPlano && "hidden")}>
           <div
             className={cn(
               "h-full rounded-full transition-all",
