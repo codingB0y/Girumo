@@ -14,26 +14,41 @@ export const LEGAL_VERSION = "2026-08-26";
 export const LEGAL_EFFECTIVE_DATE = "26 de agosto de 2026";
 
 /**
- * Identificação do controlador.
+ * Identificação do responsável pela plataforma.
  *
- * PENDENTE DE PREENCHIMENTO PELO IGOR — os três campos abaixo são os únicos que
- * o código não tem como descobrir, e sem eles o documento não identifica quem
- * responde pelos dados. `LEGAL_ENTITY_PENDING` existe para a página avisar em
- * vez de publicar um contrato com lacuna silenciosa.
+ * A Girumo é operada por pessoa física, então o documento cita CPF e não CNPJ —
+ * o dever de identificar o fornecedor (CDC, art. 6º, III) vale igual nos dois
+ * casos, muda só o registro.
  */
 export const LEGAL_ENTITY = {
-  /** Razão social completa, como no cartão CNPJ. */
-  legalName: "",
-  /** Só números ou formatado — o texto usa como veio. */
-  taxId: "",
+  /** Nome civil completo, como no documento. */
+  legalName: "Marta Domingos Toledo",
+  /** CPF com pontuação. NUNCA é publicado inteiro — ver `maskedTaxId`. */
+  taxId: "970.075.951-20",
+  kind: "pf" as const,
   /** Cidade/UF do foro. */
   jurisdiction: "Goiânia, Goiás",
 } as const;
 
+/**
+ * O CPF como ele aparece em página pública: só o miolo.
+ *
+ * Publicar CPF inteiro numa página indexável identifica a fornecedora e, de
+ * quebra, entrega o número para raspagem — CPF vazado é insumo de fraude de
+ * abertura de conta. O miolo basta para a pessoa conferir que é quem ela
+ * espera, e o texto diz como pedir o número completo.
+ *
+ * Decisão do Igor em 26/08. O Stripe não lê esta página para validar nada: o
+ * dado cadastral já está na conta dele lá.
+ */
+export function maskedTaxId(): string {
+  return LEGAL_ENTITY.taxId.replace(/^\d{3}\./, "***.").replace(/-\d{2}$/, "-**");
+}
+
 /** Canal do titular para exercer direitos da LGPD e falar de contrato. */
 export const LEGAL_CONTACT_EMAIL = "contato@girumo.com.br";
 
-/** True enquanto faltar razão social ou CNPJ. */
+/** True enquanto faltar nome ou documento do responsável. */
 export const LEGAL_ENTITY_PENDING =
   LEGAL_ENTITY.legalName.trim() === "" || LEGAL_ENTITY.taxId.trim() === "";
 
@@ -46,7 +61,7 @@ export const LEGAL_ENTITY_PENDING =
  */
 export function controllerLine(): string {
   if (LEGAL_ENTITY_PENDING) return "Girumo";
-  return `${LEGAL_ENTITY.legalName}, inscrita no CNPJ sob o nº ${LEGAL_ENTITY.taxId}`;
+  return `${LEGAL_ENTITY.legalName}, inscrita no CPF sob o nº ${maskedTaxId()}`;
 }
 
 /**

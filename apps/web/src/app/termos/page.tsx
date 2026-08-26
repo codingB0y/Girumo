@@ -21,6 +21,10 @@ export default function TermosPage() {
           Ao criar uma conta, você declara que leu e concorda com estes Termos e com a Política de
           Privacidade. Se não concordar, não use a plataforma.
         </p>
+        <p className="text-sm text-volt-950/60">
+          O CPF acima aparece parcialmente por segurança. O número completo é fornecido a quem
+          solicitar por {LEGAL_CONTACT_EMAIL}, e consta da nota fiscal de cada cobrança.
+        </p>
       </LegalSection>
 
       <LegalSection n={2} title="O que a Girumo faz">
