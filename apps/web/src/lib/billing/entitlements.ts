@@ -8,6 +8,11 @@ import {
   type PlanCapability,
 } from "./capability-limits";
 import { FREE_PLAN_CODE } from "./plan-codes";
+import {
+  planBlockedBody,
+  planLimitReachedBody,
+  planStorageFullBody,
+} from "./plan-limit-error";
 
 export type { Limits, PlanCapability } from "./capability-limits";
 export { CAPABILITY_LIMIT_KEY, CAPABILITY_TABLE } from "./capability-limits";
@@ -72,7 +77,7 @@ export async function assertPlanLimit(tenantId: string, capability: PlanCapabili
 
   if (check.kind === "allow") return;
   if (check.kind === "block") {
-    throw new Response("Recurso bloqueado pelo plano atual.", { status: 402 });
+    throw Response.json(planBlockedBody(capability), { status: 402 });
   }
 
   const supabase = getSupabaseAdmin();
@@ -83,7 +88,7 @@ export async function assertPlanLimit(tenantId: string, capability: PlanCapabili
 
   if (error) throw new Response("Nao foi possivel validar limites do plano.", { status: 500 });
   if (hasReachedLimit(count ?? 0, check.limit)) {
-    throw new Response("Limite do plano atingido.", { status: 402 });
+    throw Response.json(planLimitReachedBody(capability, check.limit), { status: 402 });
   }
 }
 
@@ -102,6 +107,6 @@ export async function assertUploadLimit(tenantId: string, nextBytes: number): Pr
   const limitBytes = uploadsMb * 1024 * 1024;
 
   if (usedBytes + nextBytes > limitBytes) {
-    throw new Response("Limite de armazenamento do plano atingido.", { status: 402 });
+    throw Response.json(planStorageFullBody(uploadsMb), { status: 402 });
   }
 }
