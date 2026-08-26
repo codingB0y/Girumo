@@ -3,10 +3,12 @@ import assert from "node:assert/strict";
 
 import {
   planBlockedBody,
+  planLimitBody,
   planLimitReachedBody,
   planStorageFullBody,
   UPGRADE_URL,
 } from "./plan-limit-error";
+import { resolveLimitCheck } from "./capability-limits";
 
 /**
  * O teste que existe para não deixar o defeito voltar.
@@ -88,4 +90,46 @@ test("codigo distingue sem plano de sem espaco", () => {
   assert.equal(planBlockedBody("campaigns:create").code, "plan_blocked");
   assert.equal(planLimitReachedBody("campaigns:create", 5).code, "plan_limit_reached");
   assert.equal(planStorageFullBody(100).code, "plan_storage_full");
+});
+
+/**
+ * Os testes acima exercitavam os construtores isolados e passavam — mas o
+ * caminho real de campanhas nunca chama `planBlockedBody`. Testar a unidade
+ * certa e pular o elo que decide qual usar foi como o defeito entrou em
+ * producao no PR #152.
+ *
+ * Estes partem de `resolveLimitCheck`, o mesmo ponto de onde `assertPlanLimit`
+ * parte, para que o elo esteja coberto e nao so as pontas.
+ */
+test("CAMINHO: teto zero de campanha nao vira 'voce ja usou as 0 campanhas'", () => {
+  // FREE de producao. `campaigns:create` TEM tabela (campaign_groups), entao
+  // resolveLimitCheck devolve count/limit 0 — nunca block.
+  const check = resolveLimitCheck("campaigns:create", { campaigns: 0 });
+  assert.equal(check.kind, "count");
+  assert.equal(check.kind === "count" && check.limit, 0);
+
+  const body = planLimitBody("campaigns:create", check.kind === "count" ? check.limit : -1);
+
+  assert.doesNotMatch(body.error, /0 campanhas/);
+  assert.doesNotMatch(body.error, /já usou/i);
+  assert.equal(body.code, "plan_blocked");
+  assert.match(body.error, /não inclui campanhas/);
+});
+
+test("CAMINHO: teto maior que zero continua falando de limite atingido", () => {
+  const check = resolveLimitCheck("campaigns:create", { campaigns: 10 });
+  const body = planLimitBody("campaigns:create", check.kind === "count" ? check.limit : -1);
+
+  assert.equal(body.code, "plan_limit_reached");
+  assert.match(body.error, /10 campanhas/);
+});
+
+test("CAMINHO: nenhum teto zero produz texto com numero zero", () => {
+  // Varre as capabilities reais em vez de confiar numa amostra: qualquer
+  // capability nova com teto zero cai na mesma armadilha.
+  for (const cap of ["campaigns:create", "campaigns:send", "contacts:create", "instances:create"] as const) {
+    const body = planLimitBody(cap, 0);
+    assert.doesNotMatch(body.error, /\b0\b/, `${cap} vazou o numero zero: ${body.error}`);
+    assert.equal(body.code, "plan_blocked", `${cap} deveria ser plan_blocked`);
+  }
 });

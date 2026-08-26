@@ -8,11 +8,7 @@ import {
   type PlanCapability,
 } from "./capability-limits";
 import { FREE_PLAN_CODE } from "./plan-codes";
-import {
-  planBlockedBody,
-  planLimitReachedBody,
-  planStorageFullBody,
-} from "./plan-limit-error";
+import { planBlockedBody, planLimitBody, planStorageFullBody } from "./plan-limit-error";
 
 export type { Limits, PlanCapability } from "./capability-limits";
 export { CAPABILITY_LIMIT_KEY, CAPABILITY_TABLE } from "./capability-limits";
@@ -88,7 +84,11 @@ export async function assertPlanLimit(tenantId: string, capability: PlanCapabili
 
   if (error) throw new Response("Nao foi possivel validar limites do plano.", { status: 500 });
   if (hasReachedLimit(count ?? 0, check.limit)) {
-    throw Response.json(planLimitReachedBody(capability, check.limit), { status: 402 });
+    // `planLimitBody` e nao `planLimitReachedBody`: teto zero chega AQUI, pelo
+    // caminho de contagem, e nao pelo `block` acima — `resolveLimitCheck` so
+    // responde `block` para capability sem tabela. Chamar o construtor de
+    // "limite atingido" direto produzia "voce ja usou as 0 campanhas".
+    throw Response.json(planLimitBody(capability, check.limit), { status: 402 });
   }
 }
 
