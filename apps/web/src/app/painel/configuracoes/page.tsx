@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AccountSection } from "@/components/painel/account-section";
 import { Smartphone, Users, CreditCard, User, ShieldCheck, RefreshCw, Wifi, WifiOff, Check, Loader2, ExternalLink, PartyPopper, Bell, Trash2 } from "lucide-react";
+import { toPlanLimitError, upgradeUrlFrom } from "@/lib/billing/plan-limit-client";
 import { cn } from "@/lib/utils";
 import {
   canOfferRemoval,
@@ -92,6 +93,7 @@ export default function PainelConfiguracoes() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteBusy, setInviteBusy] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteUpgradeUrl, setInviteUpgradeUrl] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [removeNotice, setRemoveNotice] = useState<string | null>(null);
   const [playbookGraduated, setPlaybookGraduated] = useState(false);
@@ -205,14 +207,14 @@ export default function PainelConfiguracoes() {
         body: JSON.stringify({ email: inviteEmail.trim(), role: "operator" }),
       });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        throw new Error(d.error || "Erro ao convidar.");
+        throw await toPlanLimitError(res, "Erro ao convidar.");
       }
       const newMember = await res.json();
       setMembers((prev) => [...prev, newMember]);
       setInviteEmail("");
     } catch (e) {
       setInviteError(e instanceof Error ? e.message : "Erro ao convidar.");
+      setInviteUpgradeUrl(upgradeUrlFrom(e));
     } finally {
       setInviteBusy(false);
     }
@@ -329,7 +331,20 @@ export default function PainelConfiguracoes() {
                   Convidar
                 </button>
               </div>
-              {inviteError && <p className="mt-2 text-sm text-alerta">{inviteError}</p>}
+              {inviteError && (
+                <div className="mt-2 flex flex-wrap items-center gap-3">
+                  <p className="min-w-0 text-sm text-alerta">{inviteError}</p>
+                  {/* Só no 402: o gate diz para onde ir, a tela não inventa. */}
+                  {inviteUpgradeUrl && (
+                    <Link
+                      href={inviteUpgradeUrl}
+                      className="inline-flex shrink-0 items-center rounded-[var(--radius-control)] bg-acid-500 px-3 py-1.5 text-xs font-semibold text-volt-950 transition-[filter] duration-[var(--duration-micro)] hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
+                    >
+                      Ver planos
+                    </Link>
+                  )}
+                </div>
+              )}
               {removeNotice && (
                 <p className="mt-2 text-sm text-aco/70" role="status">
                   {removeNotice}

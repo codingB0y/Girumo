@@ -4,12 +4,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Check, ShieldCheck, Zap, Loader2, RefreshCw } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import { toPlanLimitError, upgradeUrlFrom } from "@/lib/billing/plan-limit-client";
 import { cn } from "@/lib/utils";
 import { POLL_MS, nextPollDelay } from "@/lib/engine-poll";
 import { activationLabel } from "@/lib/onboarding-steps";
 
 export default function PainelConectar() {
-  const { instance, loading, error, load, refreshQr } = useInstance();
+  const { instance, loading, error, upgradeUrl, load, refreshQr } = useInstance();
   const connected = instance?.status === "connected";
 
   return (
@@ -33,7 +34,7 @@ export default function PainelConectar() {
 
       <div className="pn-card mt-10 grid gap-6 overflow-hidden rounded-2xl md:grid-cols-2">
         <Instrucoes />
-        <QRPanel instance={instance} loading={loading} error={error} onRefreshQr={refreshQr} />
+        <QRPanel instance={instance} loading={loading} error={error} upgradeUrl={upgradeUrl} onRefreshQr={refreshQr} />
       </div>
 
       <div className="mt-6 flex items-center justify-between">
@@ -162,6 +163,7 @@ function useInstance() {
   const [instance, setInstance] = useState<Instance | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [upgradeUrl, setUpgradeUrl] = useState<string | null>(null);
   const delayRef = useRef(POLL_MS);
   // Guarda contra o polling disparar uma segunda criação antes da primeira
   // responder — cada POST cria uma instância de verdade na Evolution.
@@ -185,8 +187,7 @@ function useInstance() {
           body: JSON.stringify({ name: "WhatsApp" }),
         });
         if (!created.ok) {
-          const detail = (await created.json().catch(() => ({}))) as { error?: string };
-          throw new Error(detail.error ?? "Nao foi possivel criar a instancia.");
+          throw await toPlanLimitError(created, "Nao foi possivel criar a instancia.");
         }
         // O QR chega logo em seguida pelo webhook; o próximo ciclo o pega.
         const nova = (await created.json()) as Instance;
@@ -202,6 +203,7 @@ function useInstance() {
       return list[0] ?? null;
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+      setUpgradeUrl(upgradeUrlFrom(e));
       // Evolution fora do ar: espaça em vez de martelar de 4 em 4 segundos.
       delayRef.current = nextPollDelay(delayRef.current, "error");
       return null;
@@ -295,18 +297,21 @@ function useInstance() {
     void fetch("/api/groups/sync", { method: "POST" }).catch(() => undefined);
   }, [instance?.status]);
 
-  return { instance, loading, error, load, refreshQr };
+  return { instance, loading, error, upgradeUrl, load, refreshQr };
 }
 
 function QRPanel({
   instance,
   loading,
   error,
+  upgradeUrl,
   onRefreshQr,
 }: {
   instance: Instance | null;
   loading: boolean;
   error: string | null;
+  /** Preenchido só quando o erro veio do gate de plano (402). */
+  upgradeUrl: string | null;
   onRefreshQr: () => void;
 }) {
   if (instance?.status === "connected") {
@@ -320,7 +325,19 @@ function QRPanel({
   return (
     <div className="flex flex-col items-center justify-center gap-5 bg-volt-950 p-7 text-white sm:p-9">
       {error && (
-        <div className="rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-200">{error}</div>
+        <div className="flex flex-wrap items-center justify-center gap-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-200">
+          <span className="min-w-0">{error}</span>
+          {/* Só no 402: conectar um número é o passo 2 do onboarding, e barrar
+              aqui sem caminho de saída trava o cliente logo no começo. */}
+          {upgradeUrl && (
+            <Link
+              href={upgradeUrl}
+              className="inline-flex shrink-0 items-center rounded-[var(--radius-control)] bg-acid-500 px-3 py-1.5 font-semibold text-volt-950 transition-[filter] duration-[var(--duration-micro)] hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
+            >
+              Ver planos
+            </Link>
+          )}
+        </div>
       )}
 
       {qr ? (

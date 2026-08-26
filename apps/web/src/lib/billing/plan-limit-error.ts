@@ -17,6 +17,8 @@
  * string de mensagem, que muda com copy.
  */
 
+import type { PlanCapability } from "./capability-limits";
+
 export type PlanLimitCode =
   /** O plano não inclui o recurso — teto zero. Não adianta apagar nada. */
   | "plan_blocked"
@@ -39,16 +41,25 @@ export const UPGRADE_URL = "/painel/configuracoes";
  *
  * "campanhas:create" é nome de capability; o cliente pensa em "campanha".
  */
-const RECURSO: Record<string, { singular: string; plural: string }> = {
+/**
+ * Tipado por `PlanCapability`, e nao por `string`, de proposito: com
+ * `Record<string, ...>` uma capability sem rotulo compilava e so aparecia na
+ * tela do cliente, como "Seu plano atual nao inclui RECURSOS". Era o caso de
+ * `team_members:invite` (registrado aqui como `members:invite`, que nao existe
+ * em lugar nenhum) e de `uploads:create`, que faltava. Agora o compilador
+ * cobra a entrada de toda capability nova.
+ */
+const RECURSO: Record<PlanCapability, { singular: string; plural: string }> = {
   "campaigns:create": { singular: "campanha", plural: "campanhas" },
   "campaigns:send": { singular: "disparo", plural: "disparos" },
   "contacts:create": { singular: "contato", plural: "contatos" },
   "instances:create": { singular: "número de WhatsApp", plural: "números de WhatsApp" },
-  "members:invite": { singular: "pessoa na equipe", plural: "pessoas na equipe" },
+  "team_members:invite": { singular: "pessoa na equipe", plural: "pessoas na equipe" },
   "funnels:create": { singular: "página", plural: "páginas" },
+  "uploads:create": { singular: "arquivo", plural: "arquivos" },
 };
 
-function rotulo(capability: string) {
+function rotulo(capability: PlanCapability) {
   return RECURSO[capability] ?? { singular: "recurso", plural: "recursos" };
 }
 
@@ -58,7 +69,7 @@ function rotulo(capability: string) {
  * Este é o caso do FREE com `campaigns: 0`: dizer "limite atingido" seria
  * mentira — ele não criou nenhuma. O que falta é plano, não espaço.
  */
-export function planBlockedBody(capability: string): PlanLimitBody {
+export function planBlockedBody(capability: PlanCapability): PlanLimitBody {
   const { plural } = rotulo(capability);
   return {
     error: `Seu plano atual não inclui ${plural}. Escolha um plano pra liberar.`,
@@ -67,12 +78,20 @@ export function planBlockedBody(capability: string): PlanLimitBody {
   };
 }
 
-/** O plano inclui o recurso, mas o teto acabou. */
-export function planLimitReachedBody(capability: string, limit: number): PlanLimitBody {
+/**
+ * O plano inclui o recurso, mas o teto acabou.
+ *
+ * A frase evita artigo de propósito. Ela é montada para qualquer recurso, e
+ * português tem gênero: não existe artigo que sirva para "pessoa na equipe" e
+ * "número de WhatsApp" ao mesmo tempo. O texto anterior produzia "Você já usou
+ * a número de WhatsApp do seu plano". Dizer o número junto do recurso resolve
+ * sem precisar carregar gênero em cada rótulo.
+ */
+export function planLimitReachedBody(capability: PlanCapability, limit: number): PlanLimitBody {
   const { singular, plural } = rotulo(capability);
-  const quantas = limit === 1 ? `a ${singular}` : `as ${limit} ${plural}`;
+  const recurso = limit === 1 ? singular : plural;
   return {
-    error: `Você já usou ${quantas} do seu plano. Mude de plano pra continuar.`,
+    error: `Seu plano inclui ${limit} ${recurso}. Mude de plano pra liberar mais.`,
     code: "plan_limit_reached",
     upgradeUrl: UPGRADE_URL,
   };
@@ -90,7 +109,7 @@ export function planLimitReachedBody(capability: string, limit: number): PlanLim
  * Ter os dois construtores não bastava: quem decide qual usar é este ponto, e
  * era ele que faltava. Toda decisão de teto zero passa por aqui.
  */
-export function planLimitBody(capability: string, limit: number): PlanLimitBody {
+export function planLimitBody(capability: PlanCapability, limit: number): PlanLimitBody {
   return limit === 0 ? planBlockedBody(capability) : planLimitReachedBody(capability, limit);
 }
 
