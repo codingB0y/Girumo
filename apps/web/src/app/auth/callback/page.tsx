@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AuthShell } from "@/components/auth-shell";
+import { LEGAL_VERSION } from "@/lib/legal";
 import { safeNextPath } from "@/lib/auth/oauth-account";
 import { getSupabaseBrowserClient, setActiveTenantId, takeOAuthNext } from "@/lib/supabase/client";
 
@@ -49,7 +50,13 @@ export default function OAuthCallbackPage() {
       try {
         response = await fetch("/api/auth/oauth-complete", {
           method: "POST",
-          headers: { Authorization: `Bearer ${data.session.access_token}` },
+          headers: {
+            Authorization: `Bearer ${data.session.access_token}`,
+            "Content-Type": "application/json",
+          },
+          // A versão que a tela de origem exibiu. Só o primeiro acesso a usa —
+          // é onde a conta nasce, e sem ela o servidor recusa provisionar.
+          body: JSON.stringify({ legalVersion: LEGAL_VERSION }),
         });
       } catch {
         setError("Nao foi possivel falar com o servidor. Tente de novo.");

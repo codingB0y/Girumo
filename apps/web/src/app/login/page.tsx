@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AuthShell } from "@/components/auth-shell";
+import { LegalConsentNotice } from "@/components/legal/legal-consent";
 import { safeNextPath } from "@/lib/auth/oauth-account";
 import { persistSupabaseSession, startGoogleOAuth } from "@/lib/supabase/client";
 
@@ -140,6 +141,8 @@ function LoginForm() {
         <GoogleIcon />
         {googleLoading ? "Abrindo o Google..." : "Entrar com Google"}
       </button>
+
+      <LegalConsentNotice />
 
       <p className="text-center text-xs leading-5 text-canvas-100/50">
         Ao entrar, você volta para {destination}.

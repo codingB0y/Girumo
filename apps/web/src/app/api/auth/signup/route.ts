@@ -7,6 +7,12 @@ import { getAppUrl } from "@/lib/environment";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import { sendEmail } from "@/lib/email/send";
 import { welcomeEmail } from "@/lib/email/templates";
+import {
+  checkLegalVersion,
+  clientIpFromHeaders,
+  recordLegalAcceptance,
+  userAgentFromHeaders,
+} from "@/lib/legal-acceptance";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,7 +28,7 @@ function toSlug(value: string): string {
 }
 
 export async function POST(req: Request) {
-  let body: { name?: string; email?: string; password?: string };
+  let body: { name?: string; email?: string; password?: string; legalVersion?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -40,6 +46,18 @@ export async function POST(req: Request) {
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     return Response.json({ error: "E-mail invalido." }, { status: 400 });
   }
+
+  // Aceite dos documentos legais, conferido ANTES de tocar no banco: sem
+  // consentimento não nasce nem o usuário no auth. O checkbox da tela não
+  // participa desta decisão — ele é client-side e some numa chamada direta à
+  // API; quem exige o aceite é esta linha.
+  const legal = checkLegalVersion(body.legalVersion);
+  if (!legal.ok) {
+    return Response.json({ error: legal.error, code: legal.code }, { status: legal.status });
+  }
+
+  const acceptanceIp = clientIpFromHeaders(req.headers);
+  const acceptanceUserAgent = userAgentFromHeaders(req.headers);
 
   const supabase = getSupabaseAdmin();
   const { data: created, error: createError } = await supabase.auth.admin.createUser({
@@ -65,6 +83,17 @@ export async function POST(req: Request) {
   // social tinha). Vale para quem chega pelo link do e-mail de convite.
   const invited = await acceptPendingInvite(supabase, authUserId, email, name);
   if (invited) {
+    const acceptanceError = await recordLegalAcceptance(supabase, {
+      authUserId,
+      tenantId: invited.tenant_id,
+      version: legal.version,
+      ip: acceptanceIp,
+      userAgent: acceptanceUserAgent,
+      source: "signup",
+    });
+
+    if (acceptanceError) return Response.json({ error: acceptanceError }, { status: 500 });
+
     const token = await signSession(authUserId);
     (await cookies()).set(SESSION_COOKIE, token, sessionCookieOptions);
     trackFunnelEvent({
@@ -118,6 +147,21 @@ export async function POST(req: Request) {
   });
 
   if (membershipError) return Response.json({ error: membershipError.message }, { status: 500 });
+
+  // O aceite falha do mesmo jeito que perfil e membership acima (500), e de
+  // propósito: conta que existe sem prova de consentimento é exatamente o
+  // estado que este registro veio fechar. Melhor recusar do que provisionar
+  // pela metade em silêncio.
+  const acceptanceError = await recordLegalAcceptance(supabase, {
+    authUserId,
+    tenantId,
+    version: legal.version,
+    ip: acceptanceIp,
+    userAgent: acceptanceUserAgent,
+    source: "signup",
+  });
+
+  if (acceptanceError) return Response.json({ error: acceptanceError }, { status: 500 });
 
   const { data: freePlan } = await supabase.from("plans").select("id").eq("code", "FREE").maybeSingle();
   if (freePlan?.id) {

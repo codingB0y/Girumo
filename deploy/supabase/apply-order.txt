@@ -213,3 +213,11 @@ apps/web/supabase/migrations/20260824220000_rls_intencao_explicita.sql
 # docs/arquivo/squad-os/. Com isto a allowlist do gate de drift vai a ZERO e os
 # dois bancos ficam com os mesmos 86 objetos.
 apps/web/supabase/migrations/20260825140000_aposenta_squad_os.sql
+
+# 26/08/2026 - Aceite dos documentos legais no cadastro. O PR #154 publicou
+# /termos e /privacidade, mas nenhuma conta registrava consentimento: o card
+# `legal-termos-privacidade` seguia bloqueado por "o signup nao pede aceite".
+# Uma linha por documento (terms, privacy) com a versao de LEGAL_VERSION, IP e
+# user-agent. Escrita so por service-role; a unica policy deixa o titular ler o
+# proprio aceite.
+apps/web/supabase/migrations/20260826170000_legal_acceptances.sql

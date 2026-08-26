@@ -8,6 +8,12 @@ import { getSupabaseAdmin, getSupabaseServerAnon } from "@/lib/supabase/server";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import { sendEmail } from "@/lib/email/send";
 import { welcomeEmail } from "@/lib/email/templates";
+import {
+  checkLegalVersion,
+  clientIpFromHeaders,
+  recordLegalAcceptance,
+  userAgentFromHeaders,
+} from "@/lib/legal-acceptance";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,6 +29,9 @@ export const dynamic = "force-dynamic";
  * jamais veria o `?code=`, e por isso o desenho anterior nao completava.
  */
 export async function POST(req: Request) {
+  // O corpo é opcional de propósito: só o primeiro acesso precisa dele (é onde
+  // a conta nasce). Quem já tem conta chega aqui apenas para renovar o cookie.
+  const body = (await req.json().catch(() => ({}))) as { legalVersion?: unknown };
   const bearer = req.headers.get("authorization");
   const accessToken = bearer?.toLowerCase().startsWith("bearer ")
     ? bearer.slice(7).trim()
@@ -72,6 +81,23 @@ export async function POST(req: Request) {
     });
   }
 
+  // Daqui para baixo a conta VAI ser criada — por convite ou primeiro acesso —
+  // e aí o aceite é obrigatório. Acima não: quem já tem conta só está renovando
+  // o cookie, e exigir aceite ali poria um checkbox no caminho de todo login.
+  //
+  // Aqui o consentimento é por ação, não por checkbox: a tela de origem (/signup
+  // ou /login) mostra o aviso com os links, e o cliente manda a versão que
+  // exibiu. Diferente do cadastro por senha, o servidor não tem como recusar um
+  // cliente que minta — o que ele garante é que a versão gravada é a corrente,
+  // e não uma antiga que a pessoa nunca viu.
+  const legal = checkLegalVersion(body.legalVersion);
+  if (!legal.ok) {
+    return Response.json({ error: legal.error, code: legal.code }, { status: legal.status });
+  }
+
+  const acceptanceIp = clientIpFromHeaders(req.headers);
+  const acceptanceUserAgent = userAgentFromHeaders(req.headers);
+
   // Antes de tratar como primeiro acesso: este e-mail foi convidado para algum
   // tenant? A membership do convite tem `user_id` nulo, então a busca acima (por
   // `user_id`) não a enxerga. Sem este passo, o convidado ganharia uma org nova
@@ -84,6 +110,19 @@ export async function POST(req: Request) {
     });
     const invite = await acceptPendingInvite(supabase, authUser.id, email, invitedName);
     if (invite) {
+      const acceptanceError = await recordLegalAcceptance(supabase, {
+        authUserId: authUser.id,
+        tenantId: invite.tenant_id,
+        version: legal.version,
+        ip: acceptanceIp,
+        userAgent: acceptanceUserAgent,
+        source: "google_oauth",
+      });
+
+      if (acceptanceError) {
+        return Response.json({ error: acceptanceError }, { status: 500 });
+      }
+
       await setSessionCookie(authUser.id);
       return Response.json({
         id: authUser.id,
@@ -141,6 +180,19 @@ export async function POST(req: Request) {
 
   if (membershipError) {
     return Response.json({ error: membershipError.message }, { status: 500 });
+  }
+
+  const acceptanceError = await recordLegalAcceptance(supabase, {
+    authUserId: authUser.id,
+    tenantId,
+    version: legal.version,
+    ip: acceptanceIp,
+    userAgent: acceptanceUserAgent,
+    source: "google_oauth",
+  });
+
+  if (acceptanceError) {
+    return Response.json({ error: acceptanceError }, { status: 500 });
   }
 
   const { data: freePlan } = await supabase
