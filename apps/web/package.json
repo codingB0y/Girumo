@@ -16,6 +16,7 @@
     "qa:render-brand-emails": "tsx scripts/render-girumo-email-fixtures.ts"
   },
   "dependencies": {
+    "@sentry/nextjs": "^10.71.0",
     "@supabase/supabase-js": "^2.108.2",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.2",

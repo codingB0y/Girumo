@@ -10,7 +10,7 @@
  * `LEGAL_EFFECTIVE_DATE` no mesmo commit.
  */
 
-export const LEGAL_VERSION = "2026-08-26";
+export const LEGAL_VERSION = "2026-08-26.1";
 export const LEGAL_EFFECTIVE_DATE = "26 de agosto de 2026";
 
 /**
@@ -85,4 +85,5 @@ export const SUBPROCESSORS: ReadonlyArray<{ name: string; role: string; where: s
   { name: "Stripe", role: "Processamento de pagamentos", where: "Estados Unidos" },
   { name: "Resend", role: "Envio de e-mails da plataforma", where: "Estados Unidos" },
   { name: "Upstash", role: "Controle de uso e limites de requisição", where: "Estados Unidos" },
+  { name: "Sentry", role: "Registro de erros da aplicação", where: "Estados Unidos" },
 ];
