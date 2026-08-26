@@ -78,6 +78,22 @@ export function planLimitReachedBody(capability: string, limit: number): PlanLim
   };
 }
 
+/**
+ * O corpo certo a partir do teto que `resolveLimitCheck` devolveu.
+ *
+ * Existe porque teto zero chega aqui pelo caminho de CONTAGEM, não pelo de
+ * bloqueio: `resolveLimitCheck` só responde `block` para capability que não tem
+ * tabela para contar. `campaigns:create` tem (`campaign_groups`), então o FREE
+ * — que é `campaigns: 0` — cai em `{ kind: "count", limit: 0 }`, a contagem
+ * passa de zero e o texto virava "Você já usou as 0 campanhas do seu plano".
+ *
+ * Ter os dois construtores não bastava: quem decide qual usar é este ponto, e
+ * era ele que faltava. Toda decisão de teto zero passa por aqui.
+ */
+export function planLimitBody(capability: string, limit: number): PlanLimitBody {
+  return limit === 0 ? planBlockedBody(capability) : planLimitReachedBody(capability, limit);
+}
+
 /** Espaço de arquivos do plano esgotado. */
 export function planStorageFullBody(uploadsMb: number): PlanLimitBody {
   return {
