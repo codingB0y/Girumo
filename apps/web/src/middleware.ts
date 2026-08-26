@@ -4,6 +4,7 @@ import { SESSION_COOKIE, ENGINE_TOKEN, verifySession } from "@/lib/auth";
 import { classifyRequest, decideEngineAccess } from "@/lib/security/request-access-policy";
 import { buildCsp, generateNonce, surfaceForPath } from "@/lib/security/csp";
 import { checkRateLimit } from "@/lib/security/rate-limit";
+import { isPublicPage } from "@/lib/public-pages";
 
 const RATE_LIMIT_WINDOW = 60_000; // 1 minuto
 const RATE_LIMITS: Record<string, number> = {
@@ -80,9 +81,13 @@ export async function middleware(req: NextRequest) {
 
   const accessKind = classifyRequest(pathname, req.method);
 
-  // Public routes
-  if (pathname === "/") return NextResponse.next();
-  if (pathname === "/home-v2") return NextResponse.next(); // backup da home antiga (noindex)
+  // Páginas públicas. A lista mora em `lib/public-pages` porque o middleware
+  // não roda sob `tsx --test` — de lá ela é testável de verdade, em vez de por
+  // casamento de string no arquivo-fonte. Inclui os documentos legais, que
+  // precisam abrir para quem ainda NÃO tem conta e para o robô de verificação
+  // do Stripe; fora da lista o gate de auth responde 307 para o login, que foi
+  // o estado até 26/08.
+  if (isPublicPage(pathname)) return NextResponse.next();
   if (pathname === "/api/health") return NextResponse.next();
   if (pathname === "/api/billing/webhook") return NextResponse.next();
   if (pathname.startsWith("/posts/og")) return NextResponse.next();
