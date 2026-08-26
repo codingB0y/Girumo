@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AuthShell } from "@/components/auth-shell";
+import { LegalConsentCheckbox } from "@/components/legal/legal-consent";
 import { SignupProgress } from "@/components/signup-progress";
 import { persistSupabaseSession, startGoogleOAuth } from "@/lib/supabase/client";
+import { LEGAL_VERSION } from "@/lib/legal";
 
 function GoogleIcon() {
   return (
@@ -29,11 +31,20 @@ export default function SignupPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [acceptedLegal, setAcceptedLegal] = useState(false);
 
   const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
-  const valid = name.trim().length > 0 && emailOk && password.length >= 6;
+  const valid = name.trim().length > 0 && emailOk && password.length >= 6 && acceptedLegal;
 
   async function signUpWithGoogle() {
+    // O mesmo checkbox governa os dois caminhos: criar conta pelo Google sem
+    // aceite deixaria o registro de consentimento com um buraco do tamanho do
+    // login social. O servidor confere de novo — aqui é só não deixar sair.
+    if (!acceptedLegal) {
+      setError("Aceite os Termos de Uso e a Política de Privacidade para continuar.");
+      return;
+    }
+
     setGoogleLoading(true);
     setError("");
     try {
@@ -53,7 +64,7 @@ export default function SignupPage() {
       const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, email, password, legalVersion: LEGAL_VERSION }),
       });
 
       if (response.ok) {
@@ -127,6 +138,8 @@ export default function SignupPage() {
             <p className="mt-1 text-xs text-canvas-100/80">A senha precisa de pelo menos 6 caracteres.</p>
           )}
         </div>
+
+        <LegalConsentCheckbox checked={acceptedLegal} onChange={setAcceptedLegal} />
 
         {error && <p className="rounded-[var(--radius-control)] border border-danger-700/40 bg-danger-700/15 px-3 py-2 text-sm text-canvas-100">{error}</p>}
 

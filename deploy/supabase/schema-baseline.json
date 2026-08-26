@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-08-25T14:39:27.589Z",
+  "gerado_em": "2026-08-26T17:23:24.137Z",
   "projeto": "nidoatbxaylrkcgbszns",
   "objetos": {
     "f|advance_automation_run(target_run_id uuid, next_step integer, next_at timestamp with time zone)": "9915acbf605c133627ee5aa950df3dc4",
@@ -62,6 +62,7 @@
     "t|landing_page_templates": "cf73c083f6956f18c0c06e16bb91fe78",
     "t|landing_pages": "476162f05a7eabf378f98d39c8331429",
     "t|leads": "896b4e484d6cd5d5b77ba847a9b533ae",
+    "t|legal_acceptances": "2b9b93232e4e509fa71d1ba1b6c601b9",
     "t|link_click_events": "cff2ed3be51a6e2c4768416c993ede2d",
     "t|logs": "d99e62d180bb4abc4d7d841577bbacac",
     "t|lp_captures": "4c457b7da04a0c7135349defb0daa524",
