@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { Logo } from "@/components/brand/logo";
 import { usePanelSession } from "@/components/painel/session-provider";
 import { NAV_FOOTER, NAV_GROUPS, isNavItemActive } from "@/lib/painel-nav";
+import { subscriptionAccess, subscriptionNotice } from "@/lib/billing/subscription-access";
 
 function NavItem({
   href,
@@ -126,27 +127,42 @@ type Subscription = {
   status: string | null;
   cancel_at_period_end: boolean | null;
   plans: { name: string | null; code: string | null } | null;
+  /** `stripe_status` cru: e o que separa boleto pendente de cobranca falhada. */
+  metadata: { stripe_status?: string | null } | null;
+  current_period_end: string | null;
 };
 
 /** Texto de status da assinatura. Só afirma o que veio do banco. */
 function planLabel(sub: Subscription): { title: string; detail: string } {
   const planName = sub.plans?.name?.trim() || "Plano ativo";
-  switch (sub.status) {
-    case "trialing":
-      return { title: planName, detail: "Período de teste em andamento." };
-    case "past_due":
-    case "unpaid":
-      return { title: planName, detail: "Pagamento pendente — regularize pra não perder acesso." };
-    case "canceled":
-      return { title: planName, detail: "Assinatura cancelada." };
-    default:
-      return {
-        title: planName,
-        detail: sub.cancel_at_period_end
-          ? "Cancela no fim do período atual."
-          : "Assinatura ativa.",
-      };
+
+  // A mesma funcao que decide o ACESSO decide o texto. Enquanto eram decisoes
+  // separadas, a tela dizia "regularize pra nao perder acesso" para quem tinha
+  // acabado de emitir boleto — nao havia o que regularizar, e ele nem chegara a
+  // ter o acesso pago.
+  const acesso = subscriptionAccess(
+    {
+      status: sub.status,
+      stripeStatus: sub.metadata?.stripe_status ?? null,
+      periodEnd: sub.current_period_end,
+    },
+    new Date(),
+  );
+
+  if (acesso.state !== "active") {
+    return { title: planName, detail: subscriptionNotice(acesso.state) };
   }
+
+  if (sub.status === "trialing") {
+    return { title: planName, detail: "Período de teste em andamento." };
+  }
+
+  return {
+    title: planName,
+    detail: sub.cancel_at_period_end
+      ? "Cancela no fim do período atual."
+      : "Assinatura ativa.",
+  };
 }
 
 /**
