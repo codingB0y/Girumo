@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { toPlanLimitError } from "@/lib/billing/plan-limit-client";
 import { cn } from "@/lib/utils";
 import { MessageComposer, type ComposerPayload } from "./message-composer";
 import { ScheduleComposer, type SchedulePayload } from "./schedule-composer";
@@ -17,6 +19,8 @@ type Props = {
 
 export function MessagesTab({ campaignSlug, groupIds }: Props) {
   const [subTab, setSubTab] = useState<SubTab>("Enviar agora");
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [sendUpgradeUrl, setSendUpgradeUrl] = useState<string | null>(null);
   const [messages, setMessages] = useState<CampaignMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -44,6 +48,10 @@ export function MessagesTab({ campaignSlug, groupIds }: Props) {
 
   const handleSend = async (payload: ComposerPayload) => {
     setSending(true);
+    // Limpa o aviso anterior: erro preso na tela depois de uma tentativa
+    // bem-sucedida faz o cliente achar que falhou de novo.
+    setSendError(null);
+    setSendUpgradeUrl(null);
     try {
       const res = await fetch(`/api/campanhas/${campaignSlug}/messages`, {
         method: "POST",
@@ -57,8 +65,13 @@ export function MessagesTab({ campaignSlug, groupIds }: Props) {
         await fetchMessages();
         setSubTab("Agenda");
       } else {
-        const err = await res.json().catch(() => ({}));
-        alert(err.error ?? "Erro ao enviar mensagem.");
+        // `alert()` nativo nao aceita link, entao quem batia no gate de plano
+        // aqui lia a mensagem e ficava sem saida — justamente no momento de
+        // maior intencao de compra: a pessoa ja escreveu a mensagem e clicou
+        // em enviar.
+        const erro = await toPlanLimitError(res, "Erro ao enviar mensagem.");
+        setSendError(erro.message);
+        setSendUpgradeUrl(erro.upgradeUrl);
       }
     } finally {
       setSending(false);
@@ -67,6 +80,10 @@ export function MessagesTab({ campaignSlug, groupIds }: Props) {
 
   const handleSchedule = async (payload: SchedulePayload) => {
     setSending(true);
+    // Limpa o aviso anterior: erro preso na tela depois de uma tentativa
+    // bem-sucedida faz o cliente achar que falhou de novo.
+    setSendError(null);
+    setSendUpgradeUrl(null);
     try {
       const res = await fetch(`/api/campanhas/${campaignSlug}/messages`, {
         method: "POST",
@@ -80,8 +97,9 @@ export function MessagesTab({ campaignSlug, groupIds }: Props) {
         await fetchMessages();
         setSubTab("Agenda");
       } else {
-        const err = await res.json().catch(() => ({}));
-        alert(err.error ?? "Erro ao agendar mensagem.");
+        const erro = await toPlanLimitError(res, "Erro ao agendar mensagem.");
+        setSendError(erro.message);
+        setSendUpgradeUrl(erro.upgradeUrl);
       }
     } finally {
       setSending(false);
@@ -109,6 +127,22 @@ export function MessagesTab({ campaignSlug, groupIds }: Props) {
 
   return (
     <div className="space-y-4">
+      {sendError && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-alerta/10 px-4 py-3 text-sm text-alerta"
+        >
+          <p className="min-w-0">{sendError}</p>
+          {sendUpgradeUrl && (
+            <Link
+              href={sendUpgradeUrl}
+              className="inline-flex shrink-0 items-center rounded-[var(--radius-control)] bg-acid-500 px-4 py-2 text-xs font-semibold text-volt-950 transition-[filter] duration-[var(--duration-micro)] hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
+            >
+              Ver planos
+            </Link>
+          )}
+        </div>
+      )}
       {/* Sub-tabs */}
       <div className="flex gap-1">
         {SUB_TABS.map((t) => (

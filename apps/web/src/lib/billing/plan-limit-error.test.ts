@@ -8,7 +8,11 @@ import {
   planStorageFullBody,
   UPGRADE_URL,
 } from "./plan-limit-error";
-import { resolveLimitCheck } from "./capability-limits";
+import {
+  CAPABILITY_LIMIT_KEY,
+  resolveLimitCheck,
+  type PlanCapability,
+} from "./capability-limits";
 
 /**
  * O teste que existe para não deixar o defeito voltar.
@@ -58,11 +62,20 @@ test("limite atingido diz quantas o plano da", () => {
   assert.match(body.error, /10 campanhas/);
 });
 
-test("limite de um usa singular", () => {
-  const body = planLimitReachedBody("instances:create", 1);
+test("limite de um usa singular, sem artigo desconcordado", () => {
+  // A frase e montada para qualquer recurso, e portugues tem genero: nenhum
+  // artigo serve para "pessoa na equipe" e "numero de WhatsApp" ao mesmo
+  // tempo. O texto anterior produzia "Voce ja usou A NUMERO de WhatsApp" e
+  // "Voce ja usou A PESSOA na equipe do seu plano" — este teste travava a
+  // primeira dessas como se fosse o esperado.
+  const numero = planLimitReachedBody("instances:create", 1);
+  assert.match(numero.error, /1 número de WhatsApp/);
+  assert.doesNotMatch(numero.error, /a número/i, "artigo feminino em palavra masculina");
+  assert.doesNotMatch(numero.error, /1 números/);
 
-  assert.match(body.error, /a número de WhatsApp|o número de WhatsApp/);
-  assert.doesNotMatch(body.error, /1 números/);
+  const equipe = planLimitReachedBody("team_members:invite", 1);
+  assert.match(equipe.error, /1 pessoa na equipe/);
+  assert.doesNotMatch(equipe.error, /usou a pessoa/i);
 });
 
 test("todo corpo leva o cliente para o mesmo lugar", () => {
@@ -79,7 +92,12 @@ test("todo corpo leva o cliente para o mesmo lugar", () => {
 test("capability desconhecida nao quebra nem vaza nome tecnico", () => {
   // Capability nova sem rotulo cadastrado nao pode virar "Seu plano nao inclui
   // campaigns:create" na cara do cliente.
-  const body = planBlockedBody("algo:novo");
+  //
+  // O cast e proposital: desde que RECURSO passou a ser Record<PlanCapability,
+  // ...>, o compilador impede isto em codigo NOSSO — que e o ponto. O fallback
+  // segue existindo como rede para valor que chegue por caminho nao tipado, e
+  // este teste continua provando que ele nao vaza nome tecnico.
+  const body = planBlockedBody("algo:novo" as PlanCapability);
 
   assert.doesNotMatch(body.error, /algo:novo/);
   assert.match(body.error, /recursos/);
@@ -131,5 +149,21 @@ test("CAMINHO: nenhum teto zero produz texto com numero zero", () => {
     const body = planLimitBody(cap, 0);
     assert.doesNotMatch(body.error, /\b0\b/, `${cap} vazou o numero zero: ${body.error}`);
     assert.equal(body.code, "plan_blocked", `${cap} deveria ser plan_blocked`);
+  }
+});
+
+test("toda capability do gate tem rotulo na voz do lojista", () => {
+  // O defeito que isto pega: a rota de equipe chama `team_members:invite`, mas
+  // o rotulo estava registrado como `members:invite`. Quem batia no limite de
+  // equipe lia "Seu plano atual nao inclui RECURSOS" — o fallback generico —
+  // em vez de "pessoas na equipe". O TypeScript nao pegou porque a tabela
+  // estava tipada como Record<string, ...>.
+  for (const capability of Object.keys(CAPABILITY_LIMIT_KEY) as PlanCapability[]) {
+    const corpo = planBlockedBody(capability);
+    assert.doesNotMatch(
+      corpo.error,
+      /não inclui recursos/i,
+      `${capability} caiu no rotulo generico — falta entrada em RECURSO`,
+    );
   }
 });
