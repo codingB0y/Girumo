@@ -82,6 +82,11 @@ export async function POST(req: Request) {
 
   try {
     await assertPlanLimit(tenantId, "campaigns:send");
+    // Teto de contatos cobrado no ALCANCE, e nao na entrada. Quem cria lead e o
+    // engine, quando alguem entra num grupo; barrar la descartaria o registro de
+    // quem ja entrou — a pessoa entra de qualquer jeito, o WhatsApp nao consulta
+    // plano. Aqui a acao e do lojista e a saida (mudar de plano) resolve.
+    await assertPlanLimit(tenantId, "contacts:reach");
   } catch (e) {
     if (e instanceof Response) return e;
     throw e;

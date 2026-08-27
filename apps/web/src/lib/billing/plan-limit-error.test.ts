@@ -81,7 +81,7 @@ test("limite de um usa singular, sem artigo desconcordado", () => {
 test("todo corpo leva o cliente para o mesmo lugar", () => {
   for (const body of [
     planBlockedBody("campaigns:create"),
-    planLimitReachedBody("contacts:create", 250),
+    planLimitReachedBody("contacts:reach", 250),
     planStorageFullBody(100),
   ]) {
     assert.equal(body.upgradeUrl, UPGRADE_URL);
@@ -145,7 +145,7 @@ test("CAMINHO: teto maior que zero continua falando de limite atingido", () => {
 test("CAMINHO: nenhum teto zero produz texto com numero zero", () => {
   // Varre as capabilities reais em vez de confiar numa amostra: qualquer
   // capability nova com teto zero cai na mesma armadilha.
-  for (const cap of ["campaigns:create", "campaigns:send", "contacts:create", "instances:create"] as const) {
+  for (const cap of ["campaigns:create", "campaigns:send", "contacts:reach", "instances:create"] as const) {
     const body = planLimitBody(cap, 0);
     assert.doesNotMatch(body.error, /\b0\b/, `${cap} vazou o numero zero: ${body.error}`);
     assert.equal(body.code, "plan_blocked", `${cap} deveria ser plan_blocked`);
