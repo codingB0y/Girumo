@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { Check, ArrowLeft, ArrowRight, CheckCircle2, Users, Sparkles, Copy, Target, Zap } from "lucide-react";
+import { Check, ArrowLeft, ArrowRight, CheckCircle2, Users, Sparkles, Copy, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CopyLink } from "@/components/painel/copy-link";
 import type { Group } from "@/lib/mock-data";
+import { PlanLimitAlert } from "@/components/painel/plan-limit-alert";
 import { CAMPAIGN_PRESETS, getCampaignPreset, resolvePresetName, type CampaignPreset } from "@/lib/campaign-presets";
 
 /**
@@ -379,23 +379,11 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
         {sections[idx]}
       </div>
 
-      {error && (
-        <div
-          role="alert"
-          className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-alerta/10 px-4 py-3 text-sm text-alerta"
-        >
-          <p className="min-w-0">{error}</p>
-          {/* Só aparece no 402: o gate manda para onde ir, a tela não inventa. */}
-          {upgradeUrl && (
-            <Link
-              href={upgradeUrl}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-[var(--radius-control)] bg-acid-500 px-4 py-2 text-xs font-semibold text-volt-950 transition-[filter] duration-[var(--duration-micro)] hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
-            >
-              <Zap className="h-3.5 w-3.5" aria-hidden /> Ver planos
-            </Link>
-          )}
-        </div>
-      )}
+      <PlanLimitAlert
+        message={error}
+        upgradeUrl={upgradeUrl}
+        className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-alerta/10 px-4 py-3 text-sm text-alerta"
+      />
 
       <div className="mt-6 flex items-center justify-between border-t border-volt-950/[0.08] pt-5">
         <button

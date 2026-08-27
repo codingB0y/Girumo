@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Check, ShieldCheck, Zap, Loader2, RefreshCw } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toPlanLimitError, upgradeUrlFrom } from "@/lib/billing/plan-limit-client";
+import { PlanLimitAlert } from "@/components/painel/plan-limit-alert";
 import { cn } from "@/lib/utils";
 import { POLL_MS, nextPollDelay } from "@/lib/engine-poll";
 import { activationLabel } from "@/lib/onboarding-steps";
@@ -324,21 +325,13 @@ function QRPanel({
 
   return (
     <div className="flex flex-col items-center justify-center gap-5 bg-volt-950 p-7 text-white sm:p-9">
-      {error && (
-        <div className="flex flex-wrap items-center justify-center gap-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-200">
-          <span className="min-w-0">{error}</span>
-          {/* Só no 402: conectar um número é o passo 2 do onboarding, e barrar
-              aqui sem caminho de saída trava o cliente logo no começo. */}
-          {upgradeUrl && (
-            <Link
-              href={upgradeUrl}
-              className="inline-flex shrink-0 items-center rounded-[var(--radius-control)] bg-acid-500 px-3 py-1.5 font-semibold text-volt-950 transition-[filter] duration-[var(--duration-micro)] hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
-            >
-              Ver planos
-            </Link>
-          )}
-        </div>
-      )}
+      {/* Conectar um número é o passo 2 do onboarding: barrar aqui sem saída
+          trava o cliente logo no começo. */}
+      <PlanLimitAlert
+        message={error}
+        upgradeUrl={upgradeUrl}
+        className="flex flex-wrap items-center justify-center gap-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-200"
+      />
 
       {qr ? (
         <div className="rounded-2xl bg-white p-4">

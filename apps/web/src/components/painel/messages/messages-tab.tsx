@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { toPlanLimitError } from "@/lib/billing/plan-limit-client";
+import { PlanLimitAlert } from "@/components/painel/plan-limit-alert";
 import { cn } from "@/lib/utils";
 import { MessageComposer, type ComposerPayload } from "./message-composer";
 import { ScheduleComposer, type SchedulePayload } from "./schedule-composer";
@@ -127,22 +127,7 @@ export function MessagesTab({ campaignSlug, groupIds }: Props) {
 
   return (
     <div className="space-y-4">
-      {sendError && (
-        <div
-          role="alert"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-alerta/10 px-4 py-3 text-sm text-alerta"
-        >
-          <p className="min-w-0">{sendError}</p>
-          {sendUpgradeUrl && (
-            <Link
-              href={sendUpgradeUrl}
-              className="inline-flex shrink-0 items-center rounded-[var(--radius-control)] bg-acid-500 px-4 py-2 text-xs font-semibold text-volt-950 transition-[filter] duration-[var(--duration-micro)] hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
-            >
-              Ver planos
-            </Link>
-          )}
-        </div>
-      )}
+      <PlanLimitAlert message={sendError} upgradeUrl={sendUpgradeUrl} />
       {/* Sub-tabs */}
       <div className="flex gap-1">
         {SUB_TABS.map((t) => (
