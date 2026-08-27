@@ -47,7 +47,7 @@ test("nenhum plano semeado nasce ilimitado por esquecer limits", () => {
   // entregar acesso ilimitado. Antes isso nao aparecia so porque o bug de caixa
   // impedia o seed de criar qualquer assinatura.
   for (const plan of SEED_PLAN_CATALOG) {
-    const limits = tenantLimitsFrom({ subscription: { limits: plan.limits }, freePlan: null });
+    const limits = tenantLimitsFrom({ subscription: { limits: plan.limits } });
     assert.notDeepEqual(limits, {}, `${plan.code} sem limits libera tudo para quem assina`);
 
     for (const chave of Object.values(CAPABILITY_LIMIT_KEY)) {
@@ -58,7 +58,7 @@ test("nenhum plano semeado nasce ilimitado por esquecer limits", () => {
 
 test("o FREE semeado recusa ja a PRIMEIRA campanha, igual ao FREE de producao", () => {
   const free = SEED_PLAN_CATALOG.find((plan) => plan.code === FREE_PLAN_CODE);
-  const limits = tenantLimitsFrom({ subscription: { limits: free?.limits }, freePlan: null });
+  const limits = tenantLimitsFrom({ subscription: { limits: free?.limits } });
   const check = resolveLimitCheck("campaigns:create", limits);
 
   // Cobrar o limite, nao so `kind !== "allow"`: com `campaigns: 500` o kind
