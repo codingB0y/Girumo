@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const { data, error } = await getSupabaseAdmin()
     .from("plans")
-    .select("id, code, name, limits, stripe_price_id, sort_order")
+    .select("id, code, name, limits, price_cents, stripe_price_id, sort_order")
     .eq("active", true)
     .order("sort_order", { ascending: true });
 
