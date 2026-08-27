@@ -10,15 +10,14 @@ import {
   DesktopBody,
   DesktopFecho,
   DesktopHero,
-  DesktopPlans,
 } from "@/components/lp3/landing-desktop";
 import {
   MobileFecho,
   MobileHero,
-  MobilePlans,
   MobileStory,
   MobileTimeline,
 } from "@/components/lp3/landing-mobile";
+import { DesktopPlans, MobilePlans } from "@/components/lp3/plans";
 import { LP3_FAQ, SIGNUP_URL, WHATSAPP_URL } from "@/components/lp3/landing-data";
 import "@/app/lp3/lp3.css";
 

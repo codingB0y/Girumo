@@ -29,7 +29,7 @@ const JSON_LD_SOFTWARE = {
   offers: {
     "@type": "AggregateOffer",
     priceCurrency: "BRL",
-    lowPrice: "197",
+    lowPrice: "127",
     highPrice: "497",
   },
 };

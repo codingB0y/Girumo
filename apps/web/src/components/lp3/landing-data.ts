@@ -87,6 +87,8 @@ export const DIFERENCIAL = [
 export interface Plan {
   name: string;
   price: number;
+  /** Preço mensal equivalente no ciclo anual — cobrado 1x ao ano (12 × annualPrice). */
+  annualPrice: number;
   who: string;
   /** Resumo de 1 linha usado nas rows compactas do mobile. */
   short: string;
@@ -98,6 +100,7 @@ export const PLANS: Plan[] = [
   {
     name: "Essencial",
     price: 197,
+    annualPrice: 127,
     who: "Pra botar os primeiros grupos pra rodar.",
     short: "1 número · até 5 grupos",
     features: [
@@ -111,6 +114,7 @@ export const PLANS: Plan[] = [
   {
     name: "Growth",
     price: 297,
+    annualPrice: 197,
     who: "Pra quem opera dezenas de grupos todo dia.",
     short: "grupos ilimitados · página com a sua marca",
     features: [
@@ -125,6 +129,7 @@ export const PLANS: Plan[] = [
   {
     name: "Operação",
     price: 497,
+    annualPrice: 297,
     who: "Pra quem quer um time junto na operação.",
     short: "setup assistido · revisão mensal 1:1",
     features: [
@@ -157,6 +162,10 @@ export const LP3_FAQ: ReadonlyArray<readonly [string, string]> = [
   [
     "E se eu não gostar?",
     "Você tem 30 dias de garantia incondicional. Usou, não curtiu, devolvemos 100% — sem pergunta, sem burocracia.",
+  ],
+  [
+    "Como funciona o plano anual?",
+    "Você paga 1x ao ano e o mês sai até 40% mais barato — no Growth, R$ 197 em vez de R$ 297. A garantia de 30 dias vale igual: não curtiu, devolvemos 100% do valor, inclusive no anual.",
   ],
   [
     "Meus contatos ficam comigo se eu cancelar?",

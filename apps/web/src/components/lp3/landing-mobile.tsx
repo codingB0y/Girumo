@@ -3,14 +3,12 @@ import Image from "next/image";
 import { ArrowRight, Check } from "lucide-react";
 import { HeroDemo } from "@/components/lp3/hero-demo";
 import { BazarVideo } from "@/components/lp3/video-facade";
-import { PLANS, SIGNUP_URL } from "@/components/lp3/landing-data";
+import { SIGNUP_URL } from "@/components/lp3/landing-data";
 
 /* Experiência mobile (< md), referência v2a do handoff.
    A ordem é de conversão: promessa → demo → prova → um dia de venda → preço.
-   O painel denso de 960px do desktop não cabe aqui — vira a demo interativa. */
-
-const GROWTH = PLANS.find((p) => p.featured) ?? PLANS[1];
-const OUTROS_PLANOS = PLANS.filter((p) => !p.featured);
+   O painel denso de 960px do desktop não cabe aqui — vira a demo interativa.
+   A seção de planos (com ciclo mensal/anual) vive em plans.tsx. */
 
 const PEDIDOS = [
   ["Marina S.", "R$ 186", "anúncio"],
@@ -215,71 +213,6 @@ export function MobileTimeline() {
       >
         Quero esse dia na minha loja <ArrowRight className="h-[15px] w-[15px]" aria-hidden />
       </a>
-    </section>
-  );
-}
-
-export function MobilePlans() {
-  return (
-    <section className="border-t border-[var(--line)] px-5 pb-8 pt-12">
-      <h2 data-lp4-r className="lp4-x text-[32px] leading-[1.02]">
-        Menos que uma grade <span className="text-[var(--body)]">por mês.</span>
-      </h2>
-      <p data-lp4-r className="mt-3 text-[13px] leading-[1.55] text-[var(--body)]">
-        Postar na mão custa 2h por dia, link morto e venda sem origem. O Growth custa R${" "}
-        {GROWTH.price} — e faz tudo sozinho.
-      </p>
-
-      <article
-        data-lp4-w
-        className="relative mt-6 rounded-[20px] border border-[rgba(167,255,47,0.5)] bg-[var(--bg-2)] p-6 shadow-[0_30px_90px_-40px_rgba(167,255,47,0.4)]"
-      >
-        <span className="lp4-mono absolute -top-2.5 left-5 rounded-full bg-[var(--green)] px-3 py-[5px] text-[7px] font-semibold text-[var(--ink)]">
-          mais escolhido
-        </span>
-        <div className="flex items-baseline justify-between gap-3">
-          <h3 className="lp4-x text-xl">{GROWTH.name}</h3>
-          <p className="flex shrink-0 items-baseline gap-1 whitespace-nowrap">
-            <span className="lp4-mono text-[9px] text-[var(--body)]">R$</span>
-            <span className="lp4-x text-[38px]">{GROWTH.price}</span>
-            <span className="lp4-mono text-[9px] text-[var(--body)]">/mês</span>
-          </p>
-        </div>
-        <ul className="mt-4 flex flex-col gap-2.5 border-t border-[var(--line)] pt-4">
-          {GROWTH.features.map((f) => (
-            <li key={f} className="flex gap-2.5 text-[13px] leading-snug">
-              <Check className="mt-0.5 h-[15px] w-[15px] shrink-0 text-[var(--green)]" aria-hidden />
-              {f}
-            </li>
-          ))}
-        </ul>
-        <a
-          href={SIGNUP_URL}
-          className="lp4-btn lp4-btn-green mt-[18px] w-full justify-center py-[15px] text-sm"
-        >
-          Começar com {GROWTH.name} <ArrowRight className="h-[15px] w-[15px]" aria-hidden />
-        </a>
-      </article>
-
-      <div className="mt-2.5 flex flex-col gap-2">
-        {OUTROS_PLANOS.map((p) => (
-          <a
-            key={p.name}
-            href={SIGNUP_URL}
-            data-lp4-r
-            className="flex items-center justify-between gap-3 rounded-[14px] border border-[var(--line)] px-4 py-3.5 transition-colors hover:border-[rgba(167,255,47,0.32)]"
-          >
-            <span>
-              <span className="block text-sm font-bold">{p.name}</span>
-              <span className="block text-[11px] text-[var(--body)]">{p.short}</span>
-            </span>
-            <span className="lp4-x shrink-0 whitespace-nowrap text-lg">
-              R$ {p.price}
-              <span className="text-[10px] text-[var(--body)]">/mês</span>
-            </span>
-          </a>
-        ))}
-      </div>
     </section>
   );
 }
