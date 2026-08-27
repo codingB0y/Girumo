@@ -10,15 +10,14 @@ import {
   DesktopBody,
   DesktopFecho,
   DesktopHero,
-  DesktopPlans,
 } from "@/components/lp3/landing-desktop";
 import {
   MobileFecho,
   MobileHero,
-  MobilePlans,
   MobileStory,
   MobileTimeline,
 } from "@/components/lp3/landing-mobile";
+import { Plans } from "@/components/lp3/plans";
 import { LP3_FAQ, SIGNUP_URL, WHATSAPP_URL } from "@/components/lp3/landing-data";
 import "@/app/lp3/lp3.css";
 
@@ -77,12 +76,7 @@ export function Lp3Landing() {
 
         {/* ==================== 4 · PLANOS + GARANTIA (antes do FAQ) ============ */}
         <div id="planos">
-          <div className="md:hidden">
-            <MobilePlans />
-          </div>
-          <div className="hidden md:block">
-            <DesktopPlans />
-          </div>
+          <Plans />
 
           <div className="mx-auto max-w-6xl px-5 pb-12 md:pb-40">
             <div

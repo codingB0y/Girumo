@@ -7,8 +7,6 @@ import { BazarVideo } from "@/components/lp3/video-facade";
 import {
   DIFERENCIAL,
   METODO,
-  PLANOS_ANCORA,
-  PLANS,
   ROTINA,
   SIGNUP_URL,
   TIMESTAMPS,
@@ -420,62 +418,6 @@ export function DesktopBody() {
         </div>
       </section>
     </>
-  );
-}
-
-export function DesktopPlans() {
-  return (
-    <section className="border-t border-[var(--line)] pb-14 pt-40">
-      <div className="mx-auto max-w-6xl px-5">
-        <div data-lp4-r className="mx-auto max-w-2xl text-center">
-          <h2 className="lp4-x text-[clamp(2rem,4.4vw,3.5rem)]">
-            Menos que uma grade <span className="text-[var(--body)]">por mês.</span>
-          </h2>
-          <p className="mt-5 text-lg text-[var(--body)]">{PLANOS_ANCORA}</p>
-        </div>
-
-        <div className="mt-16 grid items-stretch gap-5 md:grid-cols-3">
-          {PLANS.map((p) => (
-            <article
-              key={p.name}
-              data-lp4-w
-              className={`relative flex flex-col rounded-3xl border p-8 transition-[border-color,box-shadow] duration-500 ${
-                p.featured
-                  ? "border-[rgba(167,255,47,0.5)] bg-[var(--bg-2)] shadow-[0_40px_110px_-45px_rgba(167,255,47,0.4)] md:-my-3 md:py-11"
-                  : "border-[var(--line)] hover:border-[rgba(167,255,47,0.32)] hover:shadow-[0_34px_90px_-52px_rgba(167,255,47,0.35)]"
-              }`}
-            >
-              {p.featured && (
-                <span className="lp4-mono absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[var(--green)] px-4 py-1.5 text-[8px] font-semibold text-[var(--ink)]">
-                  mais escolhido
-                </span>
-              )}
-              <h3 className="lp4-x text-2xl">{p.name}</h3>
-              <p className="mt-1.5 text-sm text-[var(--body)]">{p.who}</p>
-              <p className="mt-7 flex items-baseline gap-1.5">
-                <span className="lp4-mono text-[10px] text-[var(--body)]">R$</span>
-                <span className="lp4-x text-6xl">{p.price}</span>
-                <span className="lp4-mono text-[10px] text-[var(--body)]">/mês</span>
-              </p>
-              <ul className="mt-8 flex-1 space-y-3 border-t border-[var(--line)] pt-7">
-                {p.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2.5 text-sm leading-snug">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--green)]" aria-hidden />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <a
-                href={SIGNUP_URL}
-                className={`lp4-btn mt-8 justify-center text-sm ${p.featured ? "lp4-btn-green" : "lp4-btn-ghost"}`}
-              >
-                Começar com {p.name}
-              </a>
-            </article>
-          ))}
-        </div>
-      </div>
-    </section>
   );
 }
 
