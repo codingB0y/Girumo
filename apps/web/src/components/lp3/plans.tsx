@@ -103,8 +103,28 @@ function EconomiaBadge({ plan, className = "" }: { plan: Plan; className?: strin
   );
 }
 
-export function DesktopPlans() {
+interface PlansViewProps {
+  cycle: Cycle;
+  onCycle: (c: Cycle) => void;
+}
+
+/** Wrapper único das duas árvores (mobile e desktop): o estado do ciclo mora
+    aqui pra quem trocar de breakpoint (resize, rotação) ver o mesmo preço. */
+export function Plans() {
   const [cycle, setCycle] = useState<Cycle>("anual");
+  return (
+    <>
+      <div className="md:hidden">
+        <MobilePlans cycle={cycle} onCycle={setCycle} />
+      </div>
+      <div className="hidden md:block">
+        <DesktopPlans cycle={cycle} onCycle={setCycle} />
+      </div>
+    </>
+  );
+}
+
+function DesktopPlans({ cycle, onCycle }: PlansViewProps) {
   const anual = cycle === "anual";
 
   return (
@@ -118,7 +138,7 @@ export function DesktopPlans() {
         </div>
 
         <div className="mt-10 flex justify-center">
-          <CycleToggle cycle={cycle} onCycle={setCycle} />
+          <CycleToggle cycle={cycle} onCycle={onCycle} />
         </div>
 
         <div className="mt-12 grid items-stretch gap-5 md:grid-cols-3">
@@ -202,8 +222,7 @@ export function DesktopPlans() {
   );
 }
 
-export function MobilePlans() {
-  const [cycle, setCycle] = useState<Cycle>("anual");
+function MobilePlans({ cycle, onCycle }: PlansViewProps) {
   const anual = cycle === "anual";
   const growthPrice = anual ? GROWTH.annualPrice : GROWTH.price;
 
@@ -219,7 +238,7 @@ export function MobilePlans() {
       </p>
 
       <div className="mt-4">
-        <CycleToggle cycle={cycle} onCycle={setCycle} />
+        <CycleToggle cycle={cycle} onCycle={onCycle} />
       </div>
 
       <article

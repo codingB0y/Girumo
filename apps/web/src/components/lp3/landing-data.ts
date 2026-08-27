@@ -96,6 +96,10 @@ export interface Plan {
   featured: boolean;
 }
 
+/* Os annualPrice pisam de propósito no price mensal do plano de baixo
+   (Growth anual = Essencial mensal; Operação anual = Growth mensal) — é a
+   escada de ancoragem que plans.tsx (escadaDe) mostra nos cards. Mudou um
+   preço, preserve a coincidência ou a linha some em silêncio. */
 export const PLANS: Plan[] = [
   {
     name: "Essencial",
