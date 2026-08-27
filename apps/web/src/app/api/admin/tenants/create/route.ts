@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { getAdminContext } from "@/lib/admin-guard";
-import { FREE_PLAN_CODE } from "@/lib/billing/plan-codes";
+import { provisionEntrySubscription } from "@/lib/billing/entry-subscription";
 
 export const dynamic = "force-dynamic";
 
@@ -115,36 +115,13 @@ export async function POST(req: NextRequest) {
     accepted_at: new Date().toISOString(),
   });
 
-  // Criar subscription (free ou plano específico)
-  const subPlanId = planId ?? null;
-  if (subPlanId) {
-    await supabase.from("subscriptions").insert({
-      tenant_id: org.id,
-      plan_id: subPlanId,
-      status: "active",
-    });
-  } else {
-    // Buscar plano free.
-    //
-    // `ilike` e o codigo canonico: isto procurava `.eq("code","free")`
-    // minusculo, e como producao tem `FREE` o `if (freePlan)` abaixo sempre dava
-    // falso — a rota criava o tenant SEM assinatura, em silencio. Era a origem
-    // das organizacoes sem subscription, e virou visivel depois do PR #148,
-    // quando tenant sem assinatura passou a receber o teto do FREE.
-    const { data: freePlan } = await supabase
-      .from("plans")
-      .select("id")
-      .ilike("code", FREE_PLAN_CODE)
-      .maybeSingle();
-
-    if (freePlan) {
-      await supabase.from("subscriptions").insert({
-        tenant_id: org.id,
-        plan_id: freePlan.id,
-        status: "free",
-      });
-    }
-  }
+  // Estado de cobranca da conta nova. A busca do plano, a divergencia de caixa
+  // (`free` x `FREE`) e o desfecho de "nao achei" vivem em
+  // `provisionEntrySubscription` — antes cada porta resolvia isso do seu jeito,
+  // e o "nao achei" era um `if` que simplesmente nao acontecia.
+  const billing = await provisionEntrySubscription(supabase, String(org.id), "admin", {
+    chosenPlanId: planId ?? null,
+  });
 
   // Criar alerta de novo signup
   await supabase.from("admin_alerts").insert({
@@ -155,9 +132,17 @@ export async function POST(req: NextRequest) {
     tenant_id: org.id,
   });
 
+  // O desfecho da cobranca vai na resposta, e nao so no log. O admin acabou de
+  // escolher um plano na tela; descobrir semanas depois que o tenant nasceu sem
+  // assinatura — porque um insert falhou em silencio — e a forma exata do bug
+  // que este PR fecha.
   return NextResponse.json({
     success: true,
     tenantId: org.id,
-    message: `Tenant "${name}" criado com sucesso.`,
+    billing,
+    message:
+      billing.kind === "subscribed"
+        ? `Tenant "${name}" criado com sucesso.`
+        : `Tenant "${name}" criado, mas SEM assinatura (${billing.reason}): ele nasce bloqueado no paywall.`,
   });
 }
