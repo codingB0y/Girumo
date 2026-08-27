@@ -47,15 +47,26 @@ export function resolveSentryDsn(env: Record<string, string | undefined>): strin
 }
 
 /**
- * Taxa de amostragem de performance.
+ * Taxa de amostragem de performance: desligada, em todo ambiente.
  *
- * O plano free do Sentry dá 5k eventos/mês. Tracing a 100% queima a cota em
- * dias, e quando ela acaba os ERROS param de chegar — que é justamente o que
- * este trabalho veio resolver. Em desenvolvimento fica desligado: ninguém
- * depura performance de localhost por telemetria remota.
+ * O plano free do Sentry dá 5k eventos/mês, e quando a cota acaba os ERROS
+ * param de chegar — que é justamente o que este trabalho veio resolver. A
+ * 10% o tracing disputava essa cota com a única coisa que precisamos ver.
+ *
+ * O peso decidiu o resto. Medido em produção em 27/08, na tela de login: o
+ * SDK entregava 194 KB, metade de todo o JavaScript da página, e o módulo de
+ * tracing é a maior fatia disso. Pagar meio bundle por gráfico de performance
+ * que ninguém abriu, num app cuja telemetria existe para capturar erro, é
+ * troca ruim.
+ *
+ * PARA RELIGAR É PRECISO MEXER EM DOIS LUGARES, não neste sozinho: o
+ * `excludeTracing` de `bundleSizeOptimizations` (next.config.ts) remove o
+ * código de tracing do bundle em tempo de build. Subir a taxa aqui sem tirar
+ * de lá pede ao SDK um recurso que não foi empacotado — configuração que
+ * mente, do tipo que só aparece quando alguém vai procurar o dado e não acha.
  */
-export function tracesSampleRate(nodeEnv: string | undefined): number {
-  return nodeEnv === "production" ? 0.1 : 0;
+export function tracesSampleRate(): number {
+  return 0;
 }
 
 /**

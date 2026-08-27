@@ -38,7 +38,7 @@ export async function register() {
     Sentry.init({
       dsn,
       environment: process.env.NEXT_PUBLIC_APP_ENV ?? process.env.NODE_ENV,
-      tracesSampleRate: tracesSampleRate(process.env.NODE_ENV),
+      tracesSampleRate: tracesSampleRate(),
       // O padrão do SDK já é `false`; explícito porque aqui é decisão, não
       // default herdado: dado de titular só sai daqui se alguém escrever que
       // deve sair, e a Política de Privacidade lista o Sentry como operador.

@@ -21,7 +21,7 @@ if (dsn) {
     Sentry.init({
       dsn,
       environment: process.env.NEXT_PUBLIC_APP_ENV ?? process.env.NODE_ENV,
-      tracesSampleRate: tracesSampleRate(process.env.NODE_ENV),
+      tracesSampleRate: tracesSampleRate(),
       sendDefaultPii: false,
       beforeSend: (event) => scrubEvent(event),
     });

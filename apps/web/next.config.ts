@@ -135,5 +135,27 @@ export default SENTRY_CSP_HOST && process.env.NEXT_PUBLIC_SENTRY_DSN
       // Sem token de upload não há source map para enviar; o SDK segue
       // funcionando, só com stack trace minificado.
       sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+      // Remove do bundle o código que não exercemos. Medido em produção em
+      // 27/08: o SDK chegava a 194 KB na tela de login — METADE de todo o
+      // JavaScript da página, e o maior arquivo dela, maior que qualquer
+      // código nosso. Carrega assíncrono, então não atrasa o primeiro
+      // desenho; o custo é CPU e rede exatamente na janela em que a página
+      // deveria ficar clicável, que é onde se sente sem aparecer no TTFB.
+      //
+      // `excludeTracing` vale para servidor E cliente — esta opção não separa
+      // os dois. É de propósito: o plano free dá 5k eventos/mês e, como diz o
+      // comentário de `tracesSampleRate`, quando a cota acaba os ERROS param
+      // de chegar. Tracing de servidor consome a mesma cota que existe para
+      // proteger o erro.
+      //
+      // `excludeReplayWorker` fica de FORA: a documentação só o libera para
+      // quem hospeda o worker de compressão por conta própria, o que não é o
+      // nosso caso.
+      bundleSizeOptimizations: {
+        excludeTracing: true,
+        excludeDebugStatements: true,
+        excludeReplayShadowDom: true,
+        excludeReplayIframe: true,
+      },
     })
   : nextConfig;
