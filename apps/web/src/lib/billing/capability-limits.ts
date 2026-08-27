@@ -81,35 +81,31 @@ export function hasReachedLimit(count: number, limit: number): boolean {
 }
 
 /**
- * Teto aplicado quando o tenant não tem assinatura E o catálogo não serve.
- * Espelha o plano FREE de produção (25/08/2026).
+ * Teto de quem não tem assinatura: zero em tudo.
  *
- * Existe porque catálogo indisponível não pode virar barra livre: era assim que
- * o defeito se manifestava — `{}` faz `resolveLimitCheck` responder `allow`
- * para tudo, então quem não pagava ficava com teto MAIOR que qualquer cliente.
- * Se os números do FREE mudarem no banco, este fallback fica conservador de
- * propósito: é a última linha, não a fonte da verdade.
+ * Aqui morava `FREE_FALLBACK_LIMITS`, que espelhava o plano FREE de produção.
+ * Fazia sentido enquanto o FREE existia: sem assinatura, valia o gratuito.
+ *
+ * A decisão paid-first de 27/08/2026 (`docs/strategy/2026-08-27-pricing-paid-first.md`)
+ * tira o FREE do catálogo — e aí esse fallback deixa de ser rede de segurança e
+ * vira o problema: apagar o plano do banco **ressuscitaria** o gratuito aqui,
+ * em código, com 1 instância de WhatsApp liberada. Instância conectada é
+ * exatamente o que o modo demonstração não pode ter (RAM, fila de suporte e
+ * risco de ban do número, que destrói o negócio do lojista).
+ *
+ * Zero em toda chave é o que o paywall espera: `resolveLimitCheck` devolve
+ * `block`, ou `count` com teto 0, para todas — e a escrita cai no 402 que a
+ * tela de assinatura já sabe tratar. Isto governa ESCRITA: ler o painel
+ * continua livre, que é o que sustenta o modo demonstração.
  */
-export const FREE_FALLBACK_LIMITS: Limits = {
-  funnels: 1,
-  contacts: 250,
+export const BLOCKED_LIMITS: Limits = {
+  funnels: 0,
+  contacts: 0,
   campaigns: 0,
-  uploads_mb: 100,
-  team_members: 1,
-  whatsapp_instances: 1,
+  uploads_mb: 0,
+  team_members: 0,
+  whatsapp_instances: 0,
 };
-
-/**
- * `{}` vindo do catálogo é linha sem dado, não "plano sem teto".
- *
- * A diferença importa porque `plans.limits` é `NOT NULL DEFAULT '{}'::jsonb`:
- * o banco nunca devolve null, devolve `{}`. Um `insert into plans (code, name)`
- * sem `limits` — que é o que `api/admin/seed/route.ts` faz — produz exatamente
- * essa linha. Aceitá-la como teto reabriria o defeito pela porta dos fundos.
- */
-function temAlgumLimite(limits: Limits | null | undefined): limits is Limits {
-  return !!limits && Object.keys(limits).length > 0;
-}
 
 /**
  * Decide o teto do tenant a partir do que o banco devolveu.
@@ -117,20 +113,19 @@ function temAlgumLimite(limits: Limits | null | undefined): limits is Limits {
  * Puro de propósito: `entitlements.ts` importa `server-only` e não roda sob
  * `tsx --test`, então a regra que importa mora aqui.
  *
- * `subscription: null` significa "não existe assinatura" — um FATO, que vira o
- * teto do FREE. Não confundir com falha de leitura, que é um DESCONHECIDO e
- * não deve ser adivinhado: quem lê o banco trata isso antes de chegar aqui.
+ * `subscription: null` significa "não existe assinatura" — um FATO, e desde a
+ * decisão paid-first vale bloqueio, não plano gratuito. Não confundir com falha
+ * de leitura, que é um DESCONHECIDO: adivinhar em caminho de cobrança foi como
+ * o defeito do teto ilimitado nasceu. Quem lê o banco trata isso antes de
+ * chegar aqui, subindo 500.
  */
 export function tenantLimitsFrom(input: {
   subscription: { limits?: Limits | null } | null;
-  freePlan: Limits | null;
 }): Limits {
-  if (!input.subscription) {
-    return temAlgumLimite(input.freePlan) ? input.freePlan : FREE_FALLBACK_LIMITS;
-  }
+  if (!input.subscription) return BLOCKED_LIMITS;
 
   // Assinatura existe e o plano não põe teto: escolha do catálogo, respeitada.
-  // Rebaixar para FREE aqui puniria cliente pagante. Aqui `{}` PODE valer como
-  // "sem teto", ao contrário do ramo acima, porque houve escolha de plano.
+  // Rebaixar para bloqueio aqui puniria cliente pagante. `{}` só seria perigoso
+  // no ramo SEM assinatura — e lá nem se chega a olhar `limits`.
   return input.subscription.limits ?? {};
 }

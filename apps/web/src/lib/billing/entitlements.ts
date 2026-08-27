@@ -7,7 +7,6 @@ import {
   type Limits,
   type PlanCapability,
 } from "./capability-limits";
-import { FREE_PLAN_CODE } from "./plan-codes";
 import { planBlockedBody, planLimitBody, planStorageFullBody } from "./plan-limit-error";
 import { subscriptionAccess } from "./subscription-access";
 
@@ -17,16 +16,24 @@ export { CAPABILITY_LIMIT_KEY, CAPABILITY_TABLE } from "./capability-limits";
 /**
  * Teto do tenant. Nunca devolve `{}` por ausencia de assinatura.
  *
- * O defeito que isto corrige: `if (error || !data) return {}` fundia dois casos
+ * O defeito original: `if (error || !data) return {}` fundia dois casos
  * diferentes e dava o mesmo desfecho para os dois — e `{}` faz
  * `resolveLimitCheck` responder `allow` para tudo. Quem nao assinava ficava com
  * teto MAIOR que qualquer cliente pagante.
  *
- * Agora os dois casos sao separados:
+ * Os dois casos seguem separados, e agora com um terceiro desfecho:
  *
- * - **sem linha** e um FATO: nao ha assinatura, entao vale o teto do FREE;
+ * - **sem linha** e um FATO: nao ha assinatura. Ate 27/08/2026 isso valia o teto
+ *   do plano FREE; com a decisao paid-first vale BLOQUEIO (`BLOCKED_LIMITS`).
  * - **erro de leitura** e um DESCONHECIDO: nao da para saber qual e o plano, e
  *   adivinhar em caminho de cobranca e como o defeito nasceu. Sobe 500.
+ *
+ * A consulta ao plano FREE do catalogo que existia aqui foi REMOVIDA junto. Ela
+ * era o que fazia "sem assinatura" aterrissar no gratuito, e mante-la depois de
+ * tirar o FREE do catalogo seria pior que inutil: a leitura passaria a falhar
+ * em silencio e o teto viria do fallback embutido — o FREE ressuscitado em
+ * codigo, com instancia de WhatsApp liberada. De quebra, some uma consulta ao
+ * banco de todo caminho de escrita do painel.
  */
 export async function getTenantLimits(tenantId: string): Promise<Limits> {
   const supabase = getSupabaseAdmin();
@@ -57,32 +64,14 @@ export async function getTenantLimits(tenantId: string): Promise<Limits> {
 
     if (acesso.grantsPlan) {
       const plan = data.plans as { limits?: Limits | null } | null;
-      return tenantLimitsFrom({ subscription: { limits: plan?.limits ?? null }, freePlan: null });
+      return tenantLimitsFrom({ subscription: { limits: plan?.limits ?? null } });
     }
   }
 
-  // `plans` é catálogo global (ver o comentário em api/plans/route.ts): filtrar
-  // por tenant aqui devolveria vazio.
-  //
-  // `ilike` e não `eq` porque o mesmo plano é escrito de dois jeitos no repo:
-  // produção e `auth/signup` usam "FREE", enquanto `admin/seed` grava "free" e
-  // `admin/tenants/create` procura "free". Casar exato faz a leitura falhar
-  // calada num ambiente semeado e aplicar o fallback achando que leu o catálogo.
-  const { data: free, error: freeError } = await supabase
-    .from("plans")
-    .select("limits")
-    .ilike("code", FREE_PLAN_CODE)
-    .maybeSingle();
-
-  // Aqui o fallback É a resposta certa (conservador), então não sobe 500 como o
-  // erro de `subscriptions` acima. Mas o erro não pode sumir: sem log, uma
-  // indisponibilidade do catálogo aplicaria os números embutidos por tempo
-  // indeterminado sem deixar rastro nenhum em edge_logs.
-  if (freeError) {
-    console.error("[billing] falha ao ler o plano FREE do catalogo:", freeError);
-  }
-
-  return tenantLimitsFrom({ subscription: null, freePlan: (free?.limits as Limits | null) ?? null });
+  // Sem assinatura, ou com assinatura que nao concede (cancelada, inadimplente,
+  // pendente vencida): bloqueio. A saida do cliente e o 402, que a tela de
+  // assinatura ja trata — nao um plano gratuito silencioso.
+  return tenantLimitsFrom({ subscription: null });
 }
 
 export async function assertPlanLimit(tenantId: string, capability: PlanCapability): Promise<void> {

@@ -3,7 +3,7 @@ import { test } from "node:test";
 import {
   CAPABILITY_LIMIT_KEY,
   CAPABILITY_TABLE,
-  FREE_FALLBACK_LIMITS,
+  BLOCKED_LIMITS,
   hasReachedLimit,
   resolveLimitCheck,
   tenantLimitsFrom,
@@ -81,62 +81,68 @@ test("toda capability que consome recurso contavel tem tabela", () => {
 // ── Teto de quem nao tem assinatura ──────────────────────────────────────────
 
 /**
- * O defeito: `getTenantLimits` devolvia `{}` para tenant sem assinatura, e `{}`
- * faz `resolveLimitCheck` responder `allow` para TUDO. Quem nao paga ficava sem
- * teto nenhum — mais solto que qualquer cliente pagante.
+ * Dois defeitos diferentes moram nesta secao, e o segundo so existiu porque o
+ * primeiro foi consertado pela metade:
+ *
+ * 1. `getTenantLimits` devolvia `{}` para tenant sem assinatura, e `{}` faz
+ *    `resolveLimitCheck` responder `allow` para TUDO — quem nao pagava ficava
+ *    mais solto que qualquer cliente pagante.
+ * 2. O conserto mandou "sem assinatura" para o teto do plano FREE, com fallback
+ *    embutido espelhando o FREE de producao. Correto enquanto o FREE existia.
+ *    A decisao paid-first de 27/08/2026 tira o FREE do catalogo — e o fallback
+ *    passaria a ser o proprio gratuito, ressuscitado em codigo, liberando 1
+ *    instancia de WhatsApp para quem nunca pagou.
  */
-test("tenant sem assinatura recebe o teto do plano FREE, nao teto nenhum", () => {
-  const free = { funnels: 1, contacts: 250, campaigns: 0 };
-  assert.deepEqual(tenantLimitsFrom({ subscription: null, freePlan: free }), free);
+test("sem assinatura o teto e bloqueio, nao o plano FREE", () => {
+  assert.deepEqual(tenantLimitsFrom({ subscription: null }), BLOCKED_LIMITS);
 });
 
-test("sem assinatura e sem catalogo, cai no fallback embutido em vez de liberar tudo", () => {
-  // Catalogo indisponivel nao pode virar barra livre: o fallback e a ultima
-  // linha, e por isso ele e restritivo.
-  assert.deepEqual(tenantLimitsFrom({ subscription: null, freePlan: null }), FREE_FALLBACK_LIMITS);
-  assert.notDeepEqual(FREE_FALLBACK_LIMITS, {}, "fallback vazio seria ilimitado — o proprio bug");
+test("bloqueio nao e teto vazio — teto vazio E o bug original", () => {
+  assert.notDeepEqual(BLOCKED_LIMITS, {}, "objeto vazio libera tudo em resolveLimitCheck");
+
+  for (const cap of Object.keys(CAPABILITY_LIMIT_KEY) as PlanCapability[]) {
+    const check = resolveLimitCheck(cap, BLOCKED_LIMITS);
+    assert.notEqual(check.kind, "allow", `${cap} ficou liberada para quem nao tem assinatura`);
+
+    // Nao basta `kind !== "allow"`: com teto 1 o kind ainda e "count", e o
+    // mutante que devolvesse 1 em qualquer chave sobrevivia a assercao fraca.
+    // O invariante de "bloqueado" e recusar o PRIMEIRO uso, com o tenant em zero.
+    if (check.kind === "count") {
+      assert.ok(hasReachedLimit(0, check.limit), `${cap} deixa passar o primeiro uso`);
+    }
+  }
 });
 
-test("catalogo com limits vazio nao vale como teto — cai no fallback", () => {
-  // `plans.limits` e NOT NULL DEFAULT '{}'::jsonb, entao o catalogo NUNCA
-  // devolve null: devolve `{}`. Como `??` so captura null/undefined, aceitar
-  // esse `{}` deixava o tenant sem assinatura ilimitado de novo — o defeito
-  // voltando pela porta dos fundos. `api/admin/seed/route.ts` insere planos sem
-  // `limits`, entao a linha vazia nao e hipotetica.
-  assert.deepEqual(tenantLimitsFrom({ subscription: null, freePlan: {} }), FREE_FALLBACK_LIMITS);
-});
-
-test("o fallback cobre toda chave de limite — chave nova nao pode nascer ilimitada", () => {
+test("o bloqueio cobre toda chave de limite — chave nova nao pode nascer ilimitada", () => {
   // `resolveLimitCheck` responde `allow` para limite `undefined`. Se alguem
-  // acrescentar uma chave a `Limits`/`CAPABILITY_LIMIT_KEY` sem por no fallback,
-  // essa capability fica sem teto para quem cai aqui — a regressao que este
-  // arquivo inteiro existe para impedir, e que nenhum outro teste pegaria.
+  // acrescentar uma chave a `Limits`/`CAPABILITY_LIMIT_KEY` sem por aqui, essa
+  // capability fica sem teto para quem nao assinou — a regressao que este
+  // arquivo existe para impedir, e que nenhum outro teste pegaria.
   for (const chave of Object.values(CAPABILITY_LIMIT_KEY)) {
     assert.notEqual(
-      FREE_FALLBACK_LIMITS[chave],
+      BLOCKED_LIMITS[chave],
       undefined,
-      `${chave} ficou de fora de FREE_FALLBACK_LIMITS e seria ilimitada`,
+      `${chave} ficou de fora de BLOCKED_LIMITS e seria ilimitada`,
     );
   }
 });
 
-test("o fallback nega o que o FREE nega e nao inventa folga", () => {
-  const check = resolveLimitCheck("campaigns:create", FREE_FALLBACK_LIMITS);
-  assert.notEqual(check.kind, "allow", "campanha no fallback nao pode ser liberada");
+test("instancia de WhatsApp fica bloqueada — e o custo que o modo demonstracao nao pode ter", () => {
+  // Nao e detalhe de contagem: instancia conectada custa RAM, fila de suporte e
+  // risco de ban do numero. O FREE dava 1; o bloqueio da 0.
+  const check = resolveLimitCheck("instances:create", BLOCKED_LIMITS);
+  assert.deepEqual(check, { kind: "count", table: "instances", limit: 0 });
+  assert.equal(hasReachedLimit(0, 0), true);
 });
 
-test("assinatura ativa manda, e o catalogo do FREE nao interfere", () => {
+test("assinatura ativa manda, e o bloqueio nao interfere", () => {
   const pago = { funnels: 100, contacts: 100000, campaigns: 500 };
-  assert.deepEqual(
-    tenantLimitsFrom({ subscription: { limits: pago }, freePlan: { funnels: 1, campaigns: 0 } }),
-    pago,
-  );
+  assert.deepEqual(tenantLimitsFrom({ subscription: { limits: pago } }), pago);
 });
 
 test("plano que nao declara limites segue ilimitado — e escolha do catalogo, nao ausencia de plano", () => {
   // Diferente de "sem assinatura": aqui existe assinatura e o plano optou por
-  // nao pôr teto. Tratar isso como FREE rebaixaria cliente pagante. E por isso
-  // que `{}` e recusado no ramo SEM assinatura e aceito neste — houve escolha.
-  assert.deepEqual(tenantLimitsFrom({ subscription: { limits: null }, freePlan: { campaigns: 0 } }), {});
-  assert.deepEqual(tenantLimitsFrom({ subscription: {}, freePlan: { campaigns: 0 } }), {});
+  // nao pôr teto. Tratar isso como bloqueio derrubaria cliente pagante.
+  assert.deepEqual(tenantLimitsFrom({ subscription: { limits: null } }), {});
+  assert.deepEqual(tenantLimitsFrom({ subscription: {} }), {});
 });
