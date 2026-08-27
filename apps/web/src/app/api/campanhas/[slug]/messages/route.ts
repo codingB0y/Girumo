@@ -130,6 +130,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
 
   try {
     await assertPlanLimit(tenantId, "campaigns:send");
+    // Mesmo teto do outro caminho de envio (`/api/broadcasts`). Ficar so num dos
+    // dois seria um limite que o cliente contorna trocando de tela.
+    await assertPlanLimit(tenantId, "contacts:reach");
   } catch (e) {
     if (e instanceof Response) return e;
     throw e;

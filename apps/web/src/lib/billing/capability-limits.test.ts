@@ -26,6 +26,31 @@ test("as demais capabilities seguem apontando para a tabela verificada em prod",
   assert.equal(CAPABILITY_TABLE["team_members:invite"], "memberships");
 });
 
+/**
+ * Mesma armadilha das campanhas, e por muito mais tempo: `contacts:create`
+ * apontava para `public.contacts`, que esta vazia em producao desde sempre e
+ * nao tem nenhuma rota que escreva nela. O contato real do produto e o `lead` —
+ * a tela `/painel/contatos` ja le `/api/leads`.
+ *
+ * Diferenca em relacao a campanha: aquela pelo menos tinha call-site. Esta nao
+ * tinha nenhum, entao nem o teto errado chegava a ser aplicado.
+ */
+test("contato conta leads, que e onde o contato do produto realmente vive", () => {
+  assert.equal(CAPABILITY_TABLE["contacts:reach"], "leads");
+  assert.notEqual(CAPABILITY_TABLE["contacts:reach"], "contacts", "tabela vazia em producao");
+});
+
+test("o teto de contato usa a chave `contacts` do plano — o catalogo nao muda", () => {
+  // O nome da capability mudou (o ponto de cobranca mudou); a chave de `Limits`
+  // NAO, senao todo plano do catalogo perderia o teto de contatos em silencio.
+  assert.equal(CAPABILITY_LIMIT_KEY["contacts:reach"], "contacts");
+  assert.deepEqual(resolveLimitCheck("contacts:reach", { contacts: 2000 }), {
+    kind: "count",
+    table: "leads",
+    limit: 2000,
+  });
+});
+
 test("plano sem o limite definido nao bloqueia", () => {
   assert.deepEqual(resolveLimitCheck("campaigns:create", {}), { kind: "allow" });
 });

@@ -24,8 +24,12 @@ export async function GET(req: Request) {
         .from("campaign_groups")
         .select("id", { count: "exact", head: true })
         .eq("tenant_id", tenantId),
+      // `leads`, e nao `contacts`: `public.contacts` esta vazia em producao desde
+      // sempre e nenhuma rota escreve nela, entao o medidor respondia "0 de 250"
+      // para todo mundo, para sempre. Um medidor que nunca se move nao e um
+      // medidor — e uma decoracao que faz o cliente confiar num numero errado.
       supabase
-        .from("contacts")
+        .from("leads")
         .select("id", { count: "exact", head: true })
         .eq("tenant_id", tenantId),
     ]);

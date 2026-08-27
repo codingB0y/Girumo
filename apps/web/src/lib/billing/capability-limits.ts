@@ -11,7 +11,7 @@
 
 export type PlanCapability =
   | "instances:create"
-  | "contacts:create"
+  | "contacts:reach"
   | "campaigns:create"
   | "campaigns:send"
   | "funnels:create"
@@ -29,7 +29,7 @@ export type Limits = {
 
 export const CAPABILITY_LIMIT_KEY: Record<PlanCapability, keyof Limits> = {
   "instances:create": "whatsapp_instances",
-  "contacts:create": "contacts",
+  "contacts:reach": "contacts",
   "campaigns:create": "campaigns",
   "campaigns:send": "campaigns",
   "funnels:create": "funnels",
@@ -45,10 +45,24 @@ export const CAPABILITY_LIMIT_KEY: Record<PlanCapability, keyof Limits> = {
  * sempre em produção. Apontar para ela fazia o teto nunca ser atingido em
  * nenhum plano pago — o FREE só bloqueava por acidente aritmético (limite 0 e
  * contagem 0 satisfazem `0 >= 0`).
+ *
+ * `contacts:reach` conta `leads` pelo mesmo motivo, e a capability mudou de nome
+ * junto. Ela se chamava `contacts:create`, apontava para `public.contacts` e
+ * **não tinha call-site nenhum**: a tabela está vazia em produção desde sempre e
+ * nenhuma rota escreve nela. O contato real do produto é o `lead` — a tela
+ * `/painel/contatos` já lê `/api/leads`.
+ *
+ * O nome mudou porque o ponto de cobrança mudou, e isso é decisão de produto:
+ * quem cria lead é o ENGINE, quando alguém entra num grupo. Cobrar teto ali
+ * faria o registro de quem entrou ser descartado — a pessoa entra no grupo de
+ * qualquer jeito, porque o WhatsApp não consulta plano. Seria perda silenciosa
+ * do dado do próprio lojista, sem nada que ele pudesse fazer depois do fato.
+ * O teto é cobrado no ALCANCE (envio de campanha): é ação dele, é o que produz
+ * valor, e a saída — mudar de plano — resolve de verdade.
  */
 export const CAPABILITY_TABLE: Partial<Record<PlanCapability, string>> = {
   "instances:create": "instances",
-  "contacts:create": "contacts",
+  "contacts:reach": "leads",
   "campaigns:create": "campaign_groups",
   "campaigns:send": "campaign_groups",
   "funnels:create": "funnels",

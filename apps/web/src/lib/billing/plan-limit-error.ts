@@ -52,7 +52,7 @@ export const UPGRADE_URL = "/painel/configuracoes";
 const RECURSO: Record<PlanCapability, { singular: string; plural: string }> = {
   "campaigns:create": { singular: "campanha", plural: "campanhas" },
   "campaigns:send": { singular: "disparo", plural: "disparos" },
-  "contacts:create": { singular: "contato", plural: "contatos" },
+  "contacts:reach": { singular: "contato", plural: "contatos" },
   "instances:create": { singular: "número de WhatsApp", plural: "números de WhatsApp" },
   "team_members:invite": { singular: "pessoa na equipe", plural: "pessoas na equipe" },
   "funnels:create": { singular: "página", plural: "páginas" },
