@@ -5,6 +5,7 @@ import { buildTenantSlug, resolveDisplayName } from "@/lib/auth/oauth-account";
 import { acceptPendingInvite } from "@/lib/auth/accept-pending-invite";
 import { getAppUrl } from "@/lib/environment";
 import { getSupabaseAdmin, getSupabaseServerAnon } from "@/lib/supabase/server";
+import { provisionEntrySubscription } from "@/lib/billing/entry-subscription";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import { sendEmail } from "@/lib/email/send";
 import { welcomeEmail } from "@/lib/email/templates";
@@ -195,20 +196,10 @@ export async function POST(req: Request) {
     return Response.json({ error: acceptanceError }, { status: 500 });
   }
 
-  const { data: freePlan } = await supabase
-    .from("plans")
-    .select("id")
-    .eq("code", "FREE")
-    .maybeSingle();
-
-  if (freePlan?.id) {
-    await supabase.from("subscriptions").insert({
-      tenant_id: tenantId,
-      plan_id: freePlan.id,
-      status: "free",
-      metadata: { source: "google_oauth" },
-    });
-  }
+  // Mesmo estado de cobranca do cadastro por e-mail. Esta e a porta que passou
+  // despercebida quando o login social virou tambem um caminho de CRIACAO de
+  // conta: a checagem de plano ficou aqui, copiada, e divergiu.
+  await provisionEntrySubscription(supabase, tenantId, "google_oauth");
 
   await setSessionCookie(authUser.id);
 

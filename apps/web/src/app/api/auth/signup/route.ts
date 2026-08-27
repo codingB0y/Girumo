@@ -3,6 +3,7 @@ import { after } from "next/server";
 import { SESSION_COOKIE, signSession, sessionCookieOptions } from "@/lib/auth";
 import { acceptPendingInvite } from "@/lib/auth/accept-pending-invite";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { provisionEntrySubscription } from "@/lib/billing/entry-subscription";
 import { getAppUrl } from "@/lib/environment";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import { sendEmail } from "@/lib/email/send";
@@ -163,15 +164,10 @@ export async function POST(req: Request) {
 
   if (acceptanceError) return Response.json({ error: acceptanceError }, { status: 500 });
 
-  const { data: freePlan } = await supabase.from("plans").select("id").eq("code", "FREE").maybeSingle();
-  if (freePlan?.id) {
-    await supabase.from("subscriptions").insert({
-      tenant_id: tenantId,
-      plan_id: freePlan.id,
-      status: "free",
-      metadata: { source: "signup" },
-    });
-  }
+  // Estado de cobranca da conta nova. Nao achar plano de entrada — o que passa a
+  // ser o caso normal quando o FREE sair do catalogo — deixa de ser silencio e
+  // vira desfecho nomeado e registrado.
+  await provisionEntrySubscription(supabase, tenantId, "signup");
 
   const { data: sessionData } = await supabase.auth.signInWithPassword({ email, password });
   const token = await signSession(authUserId);
