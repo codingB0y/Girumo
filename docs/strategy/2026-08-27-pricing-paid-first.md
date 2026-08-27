@@ -1,6 +1,6 @@
 # Análise: Free Trial × Freemium × Paid-Only — HubFlow
 
-> **Data:** 27/08/2026 · **Status:** RECOMENDAÇÃO — pendente decisão do Igor
+> **Data:** 27/08/2026 · **Status:** ✅ DECIDIDA pelo Igor em 27/08/2026 — em aplicação
 > **Método:** workflow multi-agente (Pricing Analyst, Growth Hacker, Trend Researcher, Financial Analyst → 2 Reality Checkers adversariais → síntese Business Strategist). 7 agentes, ~940k tokens, 52 tool calls.
 > **Registrado:** grafo (`analise-pricing-2026-08-27`) + memória (`analise-pricing-paid-first-2026-08-27`)
 
