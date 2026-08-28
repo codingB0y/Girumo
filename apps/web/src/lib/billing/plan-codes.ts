@@ -76,7 +76,7 @@ export const SEED_PLAN_CATALOG = [
       campaigns: 50,
       uploads_mb: 5120,
       team_members: 10,
-      whatsapp_instances: 3,
+      whatsapp_instances: 2,
     },
   },
   {
@@ -89,7 +89,7 @@ export const SEED_PLAN_CATALOG = [
       campaigns: 500,
       uploads_mb: 51200,
       team_members: 50,
-      whatsapp_instances: 10,
+      whatsapp_instances: 2,
     },
   },
 ] as const;
