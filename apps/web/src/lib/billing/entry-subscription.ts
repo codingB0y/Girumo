@@ -23,9 +23,14 @@ import { FREE_PLAN_CODE } from "./plan-codes";
  * silencioso.
  *
  * Com a decisao paid-first de 27/08/2026, isso deixa de ser detalhe: o plano
- * FREE sai do catalogo, e a partir dai NENHUMA conta nova encontra plano de
- * entrada. Esse passa a ser o caminho normal, e nao a excecao — o que torna
- * inaceitavel que ele continue mudo. Este modulo faz o desfecho ser explicito,
+ * FREE saiu do catalogo (`active = false`), e a partir dai NENHUMA conta nova
+ * encontra plano de entrada. Esse passou a ser o caminho normal, e nao a
+ * excecao — o que torna inaceitavel que ele continue mudo.
+ *
+ * A busca continua existindo de proposito, mesmo sem nenhum plano para achar: a
+ * decisao e reversivel por desenho. Se um dos gatilhos registrados na analise
+ * disparar (refund >15%, ativacao <60% em 14d, compra no paywall <2%), reativar
+ * um plano de entrada volta a ser um UPDATE no catalogo, sem tocar em codigo. Este modulo faz o desfecho ser explicito,
  * nomeado e registrado, para que o PR que apaga o FREE vire a chave mexendo
  * so em DADO, sem tocar em codigo nenhum.
  */
@@ -88,10 +93,15 @@ export async function provisionEntrySubscription(
     return { kind: "subscribed", planId: String(options.chosenPlanId) };
   }
 
+  // `active` e o que desliga o plano de entrada sem apagar historico: as
+  // assinaturas antigas continuam apontando para a linha, e reverter e um
+  // UPDATE. Sem este filtro, desativar o FREE no catalogo nao teria efeito
+  // nenhum aqui — a conta nova continuaria nascendo gratuita.
   const { data: plan, error: lookupError } = await supabase
     .from("plans")
     .select("id")
     .ilike("code", FREE_PLAN_CODE)
+    .eq("active", true)
     .maybeSingle();
 
   if (lookupError) {

@@ -17,9 +17,18 @@ function fakeSupabase(opts: { plan: Resposta; insert?: Resposta }) {
   const client = {
     from(table: string) {
       if (table === "plans") {
+        // A cadeia espelha a real de proposito, `.eq("active", true)` incluido:
+        // um fake mais frouxo passaria mesmo se o filtro sumisse do codigo, e o
+        // filtro E o que faz desativar o plano no catalogo ter efeito.
         return {
           select: () => ({
-            ilike: () => ({ maybeSingle: async () => opts.plan }),
+            ilike: () => ({
+              eq: (coluna: string, valor: unknown) => {
+                assert.equal(coluna, "active");
+                assert.equal(valor, true, "plano inativo nao pode valer como plano de entrada");
+                return { maybeSingle: async () => opts.plan };
+              },
+            }),
           }),
         };
       }
