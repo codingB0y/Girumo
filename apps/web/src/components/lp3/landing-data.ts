@@ -128,7 +128,7 @@ export const PLANS: Plan[] = [
       "Grupos ilimitados",
       "Grupo lotou, o próximo nasce sozinho",
       "Página de captação com a sua marca",
-      "Quem entra no grupo vira contato",
+      "Quem entra vira contato — e você vê quem saiu",
       "Agenda semanal em 1 clique",
       "Cada pedido com origem rastreada",
     ],
