@@ -11,6 +11,7 @@ import {
   type EngineEventRow,
   type GroupInfo,
   type LeadEnteredTriggerInput,
+  type MarkLeftGroupInput,
   type UpsertLeadInput,
 } from "./lead-capture.js";
 
@@ -35,10 +36,12 @@ const TENANT = "11111111-1111-1111-1111-111111111111";
 function fakeDeps(overrides: {
   group?: GroupInfo | null;
   optedOut?: Set<string>;
+  leadAusente?: boolean;
 } = {}) {
   const upserts: UpsertLeadInput[] = [];
   const optOutChecks: string[] = [];
   const triggers: LeadEnteredTriggerInput[] = [];
+  const leftMarks: MarkLeftGroupInput[] = [];
   let getGroupCalls = 0;
   let nextLeadId = 1;
 
@@ -58,6 +61,10 @@ function fakeDeps(overrides: {
     async triggerLeadEnteredAutomations(input) {
       triggers.push(input);
     },
+    async markLeftGroup(input) {
+      leftMarks.push(input);
+      return overrides.leadAusente ? false : true;
+    },
   };
 
   return {
@@ -65,6 +72,7 @@ function fakeDeps(overrides: {
     upserts,
     optOutChecks,
     triggers,
+    leftMarks,
     getGroupCalls: () => getGroupCalls,
   };
 }
@@ -81,14 +89,50 @@ test("ignora evento que não é group-participants.update", async () => {
   assert.equal(f.getGroupCalls(), 0);
 });
 
-test("action remove é registrada mas não vira lead", async () => {
+test("saída de participante marca o lead como fora do grupo", async () => {
+  const f = fakeDeps();
+  const outcome = await captureFromEvent(eventRow(fixture("group-participants-update.remove.json")), f.deps);
+  assert.equal(outcome.left, 1);
+  assert.equal(f.leftMarks.length, 1);
+  assert.equal(f.leftMarks[0].groupId, "12036120363099999999999@g.us");
+  assert.equal(f.leftMarks[0].phone, "5511999990002");
+});
+
+test("saída não cria lead nem dispara automação de entrada", async () => {
   const f = fakeDeps();
   const outcome = await captureFromEvent(eventRow(fixture("group-participants-update.remove.json")), f.deps);
   assert.equal(outcome.leads, 0);
-  assert.equal(outcome.reason, "action:remove");
   assert.equal(f.upserts.length, 0);
-  // Nem consulta o grupo: a ação já descarta antes.
-  assert.equal(f.getGroupCalls(), 0);
+  assert.equal(f.triggers.length, 0);
+});
+
+test("saída de quem nunca foi lead não conta como saída registrada", async () => {
+  // Sair sem ter sido capturado é normal: opt-out, ou entrou antes de conectarmos.
+  // Contar como saída inflaria a métrica com gente que nunca esteve na base.
+  const f = fakeDeps({ leadAusente: true });
+  const outcome = await captureFromEvent(eventRow(fixture("group-participants-update.remove.json")), f.deps);
+  assert.equal(outcome.left, 0);
+  assert.equal(f.leftMarks.length, 1);
+});
+
+test("saída em grupo onde não somos admin é ignorada", async () => {
+  const f = fakeDeps({ group: { name: "Grupo de terceiro", isAdmin: false } });
+  const outcome = await captureFromEvent(eventRow(fixture("group-participants-update.remove.json")), f.deps);
+  assert.equal(outcome.left, 0);
+  assert.equal(outcome.reason, "group-not-admin");
+  assert.equal(f.leftMarks.length, 0);
+});
+
+test("promote e demote seguem sem efeito — só add e remove são tratados", async () => {
+  const f = fakeDeps();
+  const base = fixture("group-participants-update.remove.json") as { data: Record<string, unknown> };
+  const promote = { ...base, data: { ...base.data, action: "promote" } };
+  const outcome = await captureFromEvent(eventRow(promote), f.deps);
+  assert.equal(outcome.leads, 0);
+  assert.equal(outcome.left, 0);
+  assert.equal(outcome.reason, "action:promote");
+  assert.equal(f.leftMarks.length, 0);
+  assert.equal(f.upserts.length, 0);
 });
 
 test("grupo desconhecido não captura", async () => {

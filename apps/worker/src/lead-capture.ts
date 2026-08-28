@@ -7,8 +7,9 @@
  *
  * Escopo da F3: SÓ GRUPOS. Nenhuma mensagem é enviada — o worker apenas lê
  * eventos e grava leads. Regras preservadas do comportamento validado:
- *   - só `action: "add"` vira lead; remove/promote/demote são registrados
- *     (o evento é marcado processado) mas não criam lead;
+ *   - só `action: "add"` vira lead; `remove` atualiza o lead que já existe
+ *     (sai de `also_in`, ganha `left_at`) e nunca cria um novo; promote/demote
+ *     são registrados (o evento é marcado processado) mas não fazem nada;
  *   - só grupos onde somos admin (`groups.is_admin`) alimentam captura —
  *     "melhor não capturar do que capturar grupo errado" (LGPD + base suja);
  *   - opt-out bloqueia a captura inteira, não só um envio;
@@ -44,6 +45,14 @@ export type UpsertLeadInput = {
   sourceGroupName: string | null;
 };
 
+export type MarkLeftGroupInput = {
+  tenantId: string;
+  /** `null` para participante `@lid` sem telefone: sem chave, não há como achar o lead. */
+  phone: string | null;
+  /** grupo do qual a pessoa saiu; sempre `@g.us`. */
+  groupId: string;
+};
+
 export type LeadEnteredTriggerInput = {
   tenantId: string;
   /** id do lead retornado pelo upsert — estável por pessoa (dedupe por telefone). */
@@ -61,6 +70,12 @@ export interface CaptureDeps {
   upsertLead(input: UpsertLeadInput): Promise<string>;
   /** Cria um `automation_run` por automação `lead_entered` habilitada do tenant. */
   triggerLeadEnteredAutomations(input: LeadEnteredTriggerInput): Promise<void>;
+  /**
+   * Tira o grupo de `also_in` e carimba a saída no lead que já existe.
+   * `false` quando não havia lead — sair sem nunca ter sido capturado é normal
+   * (opt-out, ou entrou antes de conectarmos), e não é uma saída a contabilizar.
+   */
+  markLeftGroup(input: MarkLeftGroupInput): Promise<boolean>;
 }
 
 export type CaptureOutcome = {
@@ -68,12 +83,15 @@ export type CaptureOutcome = {
   leads: number;
   /** Participantes ignorados por opt-out. */
   optedOut: number;
+  /** Saídas registradas em leads que existiam. */
+  left: number;
   /** Motivo de não ter capturado nada, para log sem PII. Ausente quando capturou. */
   reason?: string;
 };
 
 const PARTICIPANTS_EVENT = "group-participants.update";
 const ADD_ACTION = "add";
+const REMOVE_ACTION = "remove";
 
 type ParsedParticipants = {
   groupId: string;
@@ -120,25 +138,44 @@ export async function captureFromEvent(
   deps: CaptureDeps,
 ): Promise<CaptureOutcome> {
   if (row.type !== PARTICIPANTS_EVENT) {
-    return { leads: 0, optedOut: 0, reason: "not-participants-event" };
+    return { leads: 0, optedOut: 0, left: 0, reason: "not-participants-event" };
   }
 
   const parsed = parseParticipantsPayload(row.payload);
   if (!parsed) {
-    return { leads: 0, optedOut: 0, reason: "unparseable-payload" };
+    return { leads: 0, optedOut: 0, left: 0, reason: "unparseable-payload" };
   }
 
-  // remove/promote/demote: registrado (evento processado), mas não vira lead.
-  if (parsed.action !== ADD_ACTION) {
-    return { leads: 0, optedOut: 0, reason: `action:${parsed.action}` };
+  // promote/demote: registrado (evento processado), mas não faz nada. Sai antes
+  // de consultar o grupo — não há trabalho a fazer nem com grupo conhecido.
+  if (parsed.action !== ADD_ACTION && parsed.action !== REMOVE_ACTION) {
+    return { leads: 0, optedOut: 0, left: 0, reason: `action:${parsed.action}` };
   }
 
   const group = await deps.getGroup(row.tenant_id, parsed.groupId);
   if (!group) {
-    return { leads: 0, optedOut: 0, reason: "group-unknown" };
+    return { leads: 0, optedOut: 0, left: 0, reason: "group-unknown" };
   }
+  // Mesma regra da entrada: só grupo nosso. Se não somos admin, não capturamos
+  // a entrada — então também não há lead cuja saída fizesse sentido registrar.
   if (!group.isAdmin) {
-    return { leads: 0, optedOut: 0, reason: "group-not-admin" };
+    return { leads: 0, optedOut: 0, left: 0, reason: "group-not-admin" };
+  }
+
+  if (parsed.action === REMOVE_ACTION) {
+    let left = 0;
+    for (const raw of parsed.participants) {
+      const { phone } = normalizeParticipant(raw);
+      // Opt-out não é checado aqui de propósito: a saída é um fato sobre um lead
+      // que já existe, não uma captura de dado novo.
+      const achou = await deps.markLeftGroup({
+        tenantId: row.tenant_id,
+        phone,
+        groupId: parsed.groupId,
+      });
+      if (achou) left += 1;
+    }
+    return { leads: 0, optedOut: 0, left };
   }
 
   let leads = 0;
@@ -169,5 +206,5 @@ export async function captureFromEvent(
     leads += 1;
   }
 
-  return { leads, optedOut };
+  return { leads, optedOut, left: 0 };
 }

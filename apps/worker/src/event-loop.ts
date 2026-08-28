@@ -61,6 +61,45 @@ export function makeDeps(supabase: SupabaseClient): CaptureDeps {
       return leadId;
     },
 
+    /**
+     * Saída de grupo: tira o grupo de `also_in` e carimba `left_at`.
+     *
+     * Read-modify-write em vez de RPC porque não há migração aqui: `also_in` e
+     * `metadata` já existem. O worker processa o batch em série, então duas
+     * saídas do mesmo lead não correm entre si; o pior caso de corrida com a
+     * entrada é `also_in` ficar com um grupo a mais, e o próximo evento corrige.
+     *
+     * `metadata.left_at` é gravado mesmo quando o grupo não estava em `also_in`:
+     * o fato da saída vale por si, independente do estado da lista.
+     */
+    async markLeftGroup({ tenantId, phone, groupId }) {
+      // `@lid` sem telefone não tem chave de busca — mesma limitação da entrada.
+      if (!phone) return false;
+
+      const { data, error } = await supabase
+        .from("leads")
+        .select("id, also_in, metadata")
+        .eq("tenant_id", tenantId)
+        .eq("phone", phone)
+        .maybeSingle();
+      if (error) throw new Error(`markLeftGroup: ${error.message}`);
+      if (!data) return false;
+
+      const alsoIn = Array.isArray(data.also_in) ? (data.also_in as string[]) : [];
+      const metadata = (data.metadata ?? {}) as Record<string, unknown>;
+
+      const { error: updateError } = await supabase
+        .from("leads")
+        .update({
+          also_in: alsoIn.filter((g) => g !== groupId),
+          metadata: { ...metadata, left_at: new Date().toISOString(), left_group: groupId },
+        })
+        .eq("tenant_id", tenantId)
+        .eq("id", data.id);
+      if (updateError) throw new Error(`markLeftGroup: ${updateError.message}`);
+      return true;
+    },
+
     async triggerLeadEnteredAutomations({ tenantId, leadId, groupJid }) {
       const { data: automations, error } = await supabase
         .from("automations")
@@ -146,12 +185,13 @@ export async function runTick(
       await completeEvent(supabase, row.event_id, "processed");
       processed += 1;
       leads += outcome.leads;
-      if (outcome.leads > 0 || outcome.optedOut > 0) {
+      if (outcome.leads > 0 || outcome.optedOut > 0 || outcome.left > 0) {
         log.info("evento processado", {
           event_id: row.event_id,
           tenant_id: row.tenant_id,
           leads: outcome.leads,
           opted_out: outcome.optedOut,
+          left: outcome.left,
         });
       }
     } catch (err) {
