@@ -13,6 +13,8 @@ type Lead = {
   sourceCampaign: string;
   status: LeadStatus;
   enteredAt: string;
+  /** ISO da ultima saida de grupo, ou null se nunca saiu. */
+  leftAt?: string | null;
 };
 
 const STATUS: Record<LeadStatus, { label: string; pill: string }> = {
@@ -75,7 +77,7 @@ export default function PainelContatos() {
       <header>
         <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-volt-950">Contatos</h1>
         <p className="font-editorial mt-1 text-[19px] italic text-ardosia">
-          Quem entrou nos seus grupos pelas campanhas.
+          Quem entrou nos seus grupos pelas campanhas — e quem já saiu.
         </p>
       </header>
 
@@ -146,7 +148,13 @@ export default function PainelContatos() {
                   </div>
                   <div className="min-w-0">
                     <p className="truncate text-sm text-aco">{l.sourceGroup || "—"}</p>
-                    <p className="font-data text-[10px] text-aco/40">{ago(l.enteredAt)}</p>
+                    {l.leftAt ? (
+                      <p className="font-data text-[10px] text-aco/40">
+                        <span className="text-atencao">saiu {ago(l.leftAt)}</span> · entrou {ago(l.enteredAt)}
+                      </p>
+                    ) : (
+                      <p className="font-data text-[10px] text-aco/40">{ago(l.enteredAt)}</p>
+                    )}
                   </div>
                   <div>
                     <span className={cn("font-data inline-block rounded-full px-2.5 py-1 text-[10px] uppercase tracking-[0.06em]", STATUS[l.status]?.pill ?? "bg-poco text-aco/60")}>

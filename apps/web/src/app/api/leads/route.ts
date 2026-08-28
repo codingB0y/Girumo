@@ -17,6 +17,13 @@ export const dynamic = "force-dynamic";
 
 const VALID: LeadStatus[] = ["novo", "ativo", "comprou"];
 
+/** Le `metadata.left_at` sem confiar na forma do jsonb. */
+function readLeftAt(metadata: unknown): string | null {
+  if (!metadata || typeof metadata !== "object") return null;
+  const value = (metadata as Record<string, unknown>).left_at;
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
 /**
  * O painel consome a forma camelCase do store JSON antigo. Mapear aqui mantém
  * as telas intactas na troca de backend — mesmo padrão de `/api/groups`.
@@ -33,6 +40,9 @@ function toLegacyShape(lead: supaLeads.Lead) {
     enteredAt: lead.entered_at,
     lastSeenAt: lead.last_seen_at ?? undefined,
     alsoIn: lead.also_in ?? [],
+    // `metadata.left_at` e escrito pelo worker quando chega
+    // `group-participants.update` com action "remove" (ver lead-capture).
+    leftAt: readLeftAt(lead.metadata),
   };
 }
 
