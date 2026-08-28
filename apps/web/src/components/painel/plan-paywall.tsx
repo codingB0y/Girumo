@@ -156,7 +156,7 @@ export function PlanPaywall({ motivo, onClose }: PlanPaywallProps) {
         </div>
 
         <p className="mt-5 text-center text-xs text-volt-950/50">
-          Cancele quando quiser, sem multa e sem fidelidade.
+          Pague no Pix. 7 dias pra desistir e receber tudo de volta — depois disso, cancele quando quiser, sem multa.
         </p>
       </div>
     </div>

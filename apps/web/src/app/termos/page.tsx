@@ -102,14 +102,25 @@ export default function TermosPage() {
       <LegalSection n={7} title="Cancelamento">
         <p>
           Você pode cancelar quando quiser, pela própria área de configurações, sem multa e sem
-          fidelidade. O cancelamento vale para o fim do período já pago — você continua com acesso
-          até lá.
+          fidelidade. No plano mensal, o cancelamento vale para o fim do período já pago — você
+          continua com acesso até lá.
         </p>
         <p>
           <strong>Arrependimento em 7 dias:</strong> por se tratar de contratação feita pela
           internet, você tem o direito do art. 49 do Código de Defesa do Consumidor — desistir em
           até 7 dias contados da contratação e receber de volta o que pagou, monetariamente
           atualizado. Basta pedir por {LEGAL_CONTACT_EMAIL}.
+        </p>
+        <p>
+          <strong>Cancelamento do plano anual:</strong> se você cancelar um plano anual depois dos 7
+          dias, devolvemos os meses que ainda não foram usados. O preço anual é um desconto
+          concedido pelo compromisso de 12 meses, então os meses já usados são recalculados pelo
+          preço mensal do mesmo plano e a diferença é devolvida — nunca cobramos nada além disso.
+        </p>
+        <p>
+          Exemplo, no Growth: o anual custa R$ 197 por mês, R$ 2.364 pagos de uma vez. Cancelando
+          depois de 3 meses de uso, esses 3 meses passam a valer o preço mensal (R$ 297 cada, R$
+          891 no total) e devolvemos os R$ 1.473 restantes.
         </p>
       </LegalSection>
 

@@ -86,7 +86,7 @@ export default function SignupPage() {
   return (
     <AuthShell
       title="Criar sua conta"
-      subtitle="Cancele quando quiser — sem multa e sem fidelidade"
+      subtitle="Pague no Pix · 7 dias pra desistir · sem fidelidade"
       context="Depois de criar sua conta, você conecta o WhatsApp em 2 minutos e já pode enviar para todos os grupos."
       footer={
         <>
