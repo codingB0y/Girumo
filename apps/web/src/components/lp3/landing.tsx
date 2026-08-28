@@ -45,7 +45,7 @@ const martian = Martian_Mono({
  * (demo interativa no hero + linha do tempo de um dia de venda); a partir de md
  * roda a página densa de desktop (painel mock, esteira, método, tabela).
  * As duas árvores existem no HTML e o CSS escolhe uma — sem flash de hidratação.
- * Nav, régua de prova, FAQ, garantia e rodapé são compartilhados.
+ * Nav, régua de prova, FAQ, bloco de cancelamento e rodapé são compartilhados.
  */
 export function Lp3Landing() {
   return (
@@ -74,7 +74,7 @@ export function Lp3Landing() {
           <DesktopBody />
         </div>
 
-        {/* ==================== 4 · PLANOS + GARANTIA (antes do FAQ) ============ */}
+        {/* ============ 4 · PLANOS + CANCELAMENTO (antes do FAQ) ================ */}
         <div id="planos">
           <Plans />
 
@@ -83,17 +83,18 @@ export function Lp3Landing() {
               data-lp4-r
               className="flex flex-col items-center gap-6 rounded-3xl border border-[var(--line)] bg-[var(--bg-2)] p-9 text-center md:flex-row md:gap-12 md:p-12 md:text-left"
             >
-              <p className="lp4-x text-[5rem] leading-none text-[var(--green)] md:text-[6.5rem]">30</p>
+              <p className="lp4-x text-[5rem] leading-none text-[var(--green)] md:text-[6.5rem]">0</p>
               <div>
                 <h3 className="text-xl font-bold tracking-tight md:text-2xl">
-                  dias de garantia incondicional
+                  multa pra cancelar
                 </h3>
                 <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--body)] md:text-base">
-                  Usou, não curtiu, devolvemos 100% — sem pergunta, sem burocracia. E os grupos e
-                  contatos continuam seus, de qualquer jeito.
+                  Cancele na própria tela de configurações, sem falar com ninguém. O acesso vale até
+                  o fim do período que você já pagou — e os grupos e contatos continuam seus, de
+                  qualquer jeito.
                 </p>
                 <p className="lp4-mono mt-4 text-[9px] text-[var(--body)]">
-                  sem fidelidade · cancele quando quiser
+                  7 dias pra desistir e receber tudo de volta · sem fidelidade
                 </p>
               </div>
             </div>

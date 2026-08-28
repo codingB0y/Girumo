@@ -150,7 +150,7 @@ export function CreateTenantForm({ plans }: Props) {
               onChange={(e) => setPlanId(e.target.value)}
               className="mt-1 w-full rounded-xl border border-volt-950/[0.08] px-4 py-2.5 text-sm text-volt-950 focus:border-cobalt-500/30 focus:outline-none focus:ring-2 focus:ring-cobalt-500/10"
             >
-              <option value="">Free (padrão)</option>
+              <option value="">Sem plano (padrão)</option>
               {plans.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name ?? p.code}

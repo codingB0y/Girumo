@@ -12,7 +12,7 @@ import {
 /* Planos com ciclo de cobrança. O ANUAL abre por padrão de propósito: ancora o
    preço baixo e faz o mensal parecer caro — quem troca pra "Mensal" vê na hora
    quanto deixa na mesa por ano. Nenhum gatilho aqui é inventado: desconto,
-   economia e garantia são reais e conferíveis (sem contador falso, sem "últimas
+   economia e condicoes sao reais e conferiveis (sem contador falso, sem "últimas
    vagas"). */
 
 type Cycle = "anual" | "mensal";
@@ -179,7 +179,7 @@ function DesktopPlans({ cycle, onCycle }: PlansViewProps) {
                       </p>
                     )}
                     <p className="lp4-mono mt-2.5 text-[9px] text-[var(--body)]">
-                      R$ {brl(p.annualPrice * 12)} cobrados 1x ao ano · garantia de 30 dias
+                      R$ {brl(p.annualPrice * 12)} cobrados 1x ao ano
                     </p>
                   </div>
                 ) : (
@@ -267,7 +267,7 @@ function MobilePlans({ cycle, onCycle }: PlansViewProps) {
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <EconomiaBadge plan={GROWTH} />
             <span className="lp4-mono text-[8px] text-[var(--body)]">
-              R$ {brl(GROWTH.annualPrice * 12)} 1x ao ano · garantia de 30 dias
+              R$ {brl(GROWTH.annualPrice * 12)} 1x ao ano
             </span>
           </div>
         ) : (

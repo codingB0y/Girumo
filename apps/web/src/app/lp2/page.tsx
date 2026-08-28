@@ -368,8 +368,8 @@ export default function Lp2Page() {
               ))}
             </div>
             <div data-lp4-r className="mt-14 grid gap-6 border border-[var(--line)] bg-[var(--bg-2)] p-8 md:grid-cols-[auto_1fr] md:items-center">
-              <span className="lp4-x text-7xl text-[var(--green)]">30</span>
-              <div><h3 className="text-2xl font-bold">dias de garantia incondicional</h3><p className="mt-2 text-[var(--body)]">Consulte os termos e as condições vigentes antes de contratar.</p></div>
+              <span className="lp4-x text-7xl text-[var(--green)]">0</span>
+              <div><h3 className="text-2xl font-bold">multa pra cancelar</h3><p className="mt-2 text-[var(--body)]">Cancele na tela de configurações, sem falar com ninguem. Consulte os termos vigentes antes de contratar.</p></div>
             </div>
           </div>
         </section>

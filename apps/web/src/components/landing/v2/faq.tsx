@@ -28,7 +28,7 @@ export const FAQ_ITEMS: [string, string][] = [
   ],
   [
     "E se eu não gostar?",
-    "Você tem 30 dias de garantia incondicional. Usou, não curtiu, devolvemos 100%, sem pergunta e sem burocracia. O número, os grupos e os contatos são seus de qualquer jeito.",
+    "Você cancela quando quiser, na própria tela de configurações — sem multa, sem fidelidade e sem falar com ninguém. O acesso vale até o fim do período já pago, e o número, os grupos e os contatos são seus de qualquer jeito.",
   ],
   [
     "Como eu sei de onde vieram as vendas?",

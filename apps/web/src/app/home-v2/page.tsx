@@ -279,7 +279,7 @@ export default function LandingPage() {
             <PricingV2 signupUrl={SIGNUP_URL} whatsappUrl={WHATSAPP_URL} />
           </div>
           <p className="font-data mt-12 flex flex-wrap justify-center gap-x-7 gap-y-2 text-center text-[11px] uppercase tracking-[0.14em] text-canvas-100/55" data-reveal>
-            <span className="flex items-center gap-1.5"><ShieldCheck className="h-4 w-4 text-acid-500" /> garantia de 30 dias</span>
+            <span className="flex items-center gap-1.5"><ShieldCheck className="h-4 w-4 text-acid-500" /> sem fidelidade</span>
             <span className="flex items-center gap-1.5"><Check className="h-4 w-4 text-acid-500" /> sem fidelidade</span>
             <span className="flex items-center gap-1.5"><Check className="h-4 w-4 text-acid-500" /> seus contatos são seus</span>
           </p>
@@ -311,7 +311,7 @@ export default function LandingPage() {
             <span className="block text-canvas-100/50">começa com um link.</span>
           </h2>
           <p className="mx-auto mt-6 max-w-md text-canvas-100/68">
-            Conecte seu WhatsApp em 2 minutos, crie a primeira campanha e veja o fluxo trabalhar. Você tem 30 dias de garantia.
+            Conecte seu WhatsApp em 2 minutos, crie a primeira campanha e veja o fluxo trabalhar. Cancele quando quiser, sem multa.
           </p>
           <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <a
