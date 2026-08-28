@@ -86,7 +86,7 @@ export default function SignupPage() {
   return (
     <AuthShell
       title="Criar sua conta"
-      subtitle="30 dias de garantia incondicional — sem fidelidade"
+      subtitle="Cancele quando quiser — sem multa e sem fidelidade"
       context="Depois de criar sua conta, você conecta o WhatsApp em 2 minutos e já pode enviar para todos os grupos."
       footer={
         <>

@@ -188,7 +188,7 @@ export function PricingV2({
       </div>
 
       <p className="mt-10 text-center font-data text-[11px] uppercase tracking-[0.1em] text-slate-600">
-        garantia de 30 dias · sem fidelidade · seus contatos são seus
+        sem fidelidade · cancele quando quiser · seus contatos são seus
       </p>
     </div>
   );

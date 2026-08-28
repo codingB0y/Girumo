@@ -44,7 +44,7 @@ export function MobileHero() {
       </a>
 
       <p data-lp4-hi className="lp4-mono mt-3 text-center text-[9px] text-[var(--body)]">
-        30 dias de garantia · sem chip novo
+        sem fidelidade · sem chip novo
       </p>
 
       <div data-lp4-hi>
@@ -220,10 +220,10 @@ export function MobileTimeline() {
 export function MobileFecho() {
   return (
     <section className="bg-[var(--green)] px-5 pb-[60px] pt-14 text-center text-[var(--ink)]">
-      <p className="lp4-mono text-[9px] text-[rgba(7,25,35,0.65)]">garantia incondicional</p>
-      <h2 className="lp4-x mt-3.5 text-balance text-[40px]">Teste por 30 dias. O risco é nosso.</h2>
+      <p className="lp4-mono text-[9px] text-[rgba(7,25,35,0.65)]">sem fidelidade</p>
+      <h2 className="lp4-x mt-3.5 text-balance text-[40px]">Cancele quando quiser. Sem multa.</h2>
       <p className="mx-auto mt-3.5 max-w-[300px] text-sm leading-[1.55] text-[rgba(7,25,35,0.75)]">
-        Conecte seu WhatsApp em 2 minutos. Não curtiu, devolvemos 100% — e os grupos continuam seus.
+        Conecte seu WhatsApp em 2 minutos. Cancelou, os grupos continuam seus.
       </p>
       <a
         href={SIGNUP_URL}

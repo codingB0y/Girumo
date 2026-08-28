@@ -355,11 +355,11 @@ export default function LpExperience() {
             </div>
 
             <div data-lp-reveal className="lp3-card mt-14 grid gap-6 p-8 md:grid-cols-[auto_1fr] md:items-center md:p-10">
-              <p className="font-display text-6xl font-bold text-cobalt-700">30</p>
+              <p className="font-display text-6xl font-bold text-cobalt-700">0</p>
               <div>
-                <h3 className="text-xl font-bold">dias de garantia incondicional</h3>
+                <h3 className="text-xl font-bold">multa pra cancelar</h3>
                 <p className="mt-2 text-sm leading-relaxed text-[var(--lp-muted)]">
-                  Consulte os termos da garantia e as condições vigentes antes da contratação.
+                  Cancele na tela de configurações, sem falar com ninguém. Consulte os termos vigentes antes de contratar.
                 </p>
               </div>
             </div>

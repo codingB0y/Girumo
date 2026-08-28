@@ -165,11 +165,11 @@ export const LP3_FAQ: ReadonlyArray<readonly [string, string]> = [
   ],
   [
     "E se eu não gostar?",
-    "Você tem 30 dias de garantia incondicional. Usou, não curtiu, devolvemos 100% — sem pergunta, sem burocracia.",
+    "Você cancela quando quiser, na própria tela de configurações — sem multa, sem fidelidade e sem precisar falar com ninguém. O acesso vale até o fim do período que você já pagou, e os grupos e contatos continuam seus.",
   ],
   [
     "Como funciona o plano anual?",
-    "Você paga 1x ao ano e o mês sai até 40% mais barato — no Growth, R$ 197 em vez de R$ 297. A garantia de 30 dias vale igual: não curtiu, devolvemos 100% do valor, inclusive no anual.",
+    "Você paga 1x ao ano e o mês sai até 40% mais barato — no Growth, R$ 197 em vez de R$ 297. É um pagamento único pelos 12 meses, então só vale a pena se você já sabe que vai usar o ano todo; se preferir testar antes, comece no mensal.",
   ],
   [
     "Meus contatos ficam comigo se eu cancelar?",

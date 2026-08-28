@@ -49,7 +49,7 @@ export function welcomeEmail(name: string, appUrl: string): { subject: string; h
         <li><strong>Crie sua primeira campanha</strong> — escolha os grupos e publique</li>
       </ol>
       <p style="margin:0;font-size:14px;color:${BRAND_COLORS.volt}">
-        Sua conta já está ativa, com 30 dias de garantia incondicional. Sem fidelidade.
+        Sua conta já está ativa. Sem fidelidade — cancele quando quiser, sem multa.
       </p>
       ${button("Acessar meu painel", `${appUrl}/painel`)}
     `),
@@ -214,11 +214,11 @@ export function activationD7Email(name: string, appUrl: string): { subject: stri
 export function activationD14Email(name: string, appUrl: string): { subject: string; html: string } {
   const firstName = name.split(" ")[0] || "lojista";
   return {
-    subject: `${firstName}, metade da sua garantia — já viu suas vendas em R$?`,
+    subject: `${firstName}, já viu suas vendas em R$?`,
     html: layout(`
       <h1 style="margin:0 0 12px;font-size:22px;color:${BRAND_COLORS.volt}">Veja o caminho até a venda</h1>
       <p style="margin:0 0 8px;font-size:15px;color:${BRAND_COLORS.volt};line-height:1.6">
-        ${firstName}, você está na metade dos seus 30 dias de garantia. Esse é o momento de fechar o ciclo: registrar seus pedidos.
+        ${firstName}, duas semanas de casa. Esse é o momento de fechar o ciclo: registrar seus pedidos.
       </p>
       <p style="margin:0 0 8px;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.6">
         Quando você anota cada venda, a ${BRAND.name} mostra de qual grupo ela veio e quanto cada grupo te rendeu em R$ — do clique até o pedido. É aí que dá pra saber o que vale a pena repetir.
@@ -232,11 +232,11 @@ export function activationD14Email(name: string, appUrl: string): { subject: str
 export function activationD21Email(name: string, appUrl: string): { subject: string; html: string } {
   const firstName = name.split(" ")[0] || "lojista";
   return {
-    subject: `${firstName}, falta 1 semana — o que os melhores fizeram até aqui`,
+    subject: `${firstName}, o que os melhores fizeram no primeiro mês`,
     html: layout(`
-      <h1 style="margin:0 0 12px;font-size:22px;color:${BRAND_COLORS.volt}">Reta final da garantia</h1>
+      <h1 style="margin:0 0 12px;font-size:22px;color:${BRAND_COLORS.volt}">Fechando o primeiro mês</h1>
       <p style="margin:0 0 8px;font-size:15px;color:${BRAND_COLORS.volt};line-height:1.6">
-        Falta uma semana pro fim dos seus 30 dias, ${firstName}. Os lojistas que mais venderam até aqui fizeram três coisas simples:
+        Três semanas de casa, ${firstName}. Os lojistas que mais venderam até aqui fizeram três coisas simples:
       </p>
       <ol style="margin:8px 0;padding-left:20px;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.8">
         <li>Divulgaram o link de captação em mais de um lugar</li>
@@ -244,7 +244,7 @@ export function activationD21Email(name: string, appUrl: string): { subject: str
         <li>Registraram os pedidos pra ver de qual grupo veio cada venda</li>
       </ol>
       <p style="margin:0;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.6">
-        Ainda dá tempo de fazer as três e terminar a garantia com resultado na mão.
+        Ainda dá tempo de fazer as três e fechar o mês com resultado na mão.
       </p>
       ${button("Abrir meu painel", `${appUrl}/painel`)}
     `),
@@ -252,7 +252,8 @@ export function activationD21Email(name: string, appUrl: string): { subject: str
 }
 
 // --- Trial acabando (2 dias) — APOSENTADO ---
-// A oferta atual (30 dias de garantia, sem trial) não usa mais este e-mail. A
+// A oferta atual (paga desde o dia 1, sem trial e sem garantia de reembolso —
+// só cancelamento sem multa) não usa mais este e-mail. A
 // função fica versionada pra referência/histórico, mas o cron não a dispara —
 // a cadência de ativação (D3/D7/D14/D21) tomou o lugar.
 export function trialEndingEmail(name: string, appUrl: string, daysLeft: number): { subject: string; html: string } {

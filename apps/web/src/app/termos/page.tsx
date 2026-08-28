@@ -99,20 +99,17 @@ export default function TermosPage() {
         </p>
       </LegalSection>
 
-      <LegalSection n={7} title="Garantia de 30 dias e cancelamento">
+      <LegalSection n={7} title="Cancelamento">
         <p>
           Você pode cancelar quando quiser, pela própria área de configurações, sem multa e sem
           fidelidade. O cancelamento vale para o fim do período já pago — você continua com acesso
           até lá.
         </p>
         <p>
-          <strong>Garantia de 30 dias:</strong> se nos primeiros 30 dias da sua primeira assinatura
-          você não quiser continuar, devolvemos o valor pago daquele período. Basta pedir por{" "}
-          {LEGAL_CONTACT_EMAIL}.
-        </p>
-        <p>
-          Isso não afasta o direito de arrependimento de 7 dias previsto no art. 49 do Código de
-          Defesa do Consumidor para contratações feitas fora do estabelecimento.
+          <strong>Arrependimento em 7 dias:</strong> por se tratar de contratação feita pela
+          internet, você tem o direito do art. 49 do Código de Defesa do Consumidor — desistir em
+          até 7 dias contados da contratação e receber de volta o que pagou, monetariamente
+          atualizado. Basta pedir por {LEGAL_CONTACT_EMAIL}.
         </p>
       </LegalSection>
 
