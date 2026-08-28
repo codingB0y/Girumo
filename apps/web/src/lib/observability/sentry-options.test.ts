@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import {
   SENTRY_CSP_HOST,
@@ -68,11 +69,17 @@ test("scrub aguenta evento vazio ou torto sem estourar", () => {
   assert.doesNotThrow(() => scrubEvent({ request: { headers: null, data: "texto cru" } }));
 });
 
-test("amostragem de tracing e baixa em producao e desligada sem DSN", () => {
-  // Plano free do Sentry: 5k eventos/mes. Tracing a 100% queima a cota em dias
-  // e ai os ERROS param de chegar, que e o que importa.
-  assert.equal(tracesSampleRate("production"), 0.1);
-  assert.equal(tracesSampleRate("development"), 0);
+test("tracing fica desligado, e o bundle concorda com a configuracao", () => {
+  // Duas metades da MESMA decisao, e é por isso que este teste cobre as duas:
+  // `tracesSampleRate` diz ao SDK para nao amostrar, e `excludeTracing` tira o
+  // codigo de tracing do bundle em tempo de build. Testar so uma deixa o
+  // mutante vivo — subir a taxa aqui sem tocar no next.config pede ao SDK um
+  // recurso que nao foi empacotado, e a falha aparece la na frente, quando
+  // alguem procura o dado e nao acha.
+  assert.equal(tracesSampleRate(), 0);
+
+  const nextConfig = readFileSync(new URL("../../../next.config.ts", import.meta.url), "utf8");
+  assert.match(nextConfig, /excludeTracing:\s*true/);
 });
 
 test("o host do CSP e o mesmo constante que as politicas usam", () => {
