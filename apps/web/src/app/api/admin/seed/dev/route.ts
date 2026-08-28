@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin-guard";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { normalizePlanCode, SEED_PLAN_CATALOG } from "@/lib/billing/plan-codes";
 import { blockInProduction, isDev } from "@/lib/environment";
 import { randomUUID } from "crypto";
 
@@ -154,32 +155,38 @@ export async function POST() {
     const planIds: Record<string, string> = {};
 
     if ((existingPlans ?? []).length === 0) {
-      const plans = [
-        { code: "free", name: "Free", price_cents: 0 },
-        { code: "essencial", name: "Essencial", price_cents: 19700 },
-        { code: "growth", name: "Growth", price_cents: 29700 },
-        { code: "performance", name: "Operação", price_cents: 49700 },
-      ];
+      // `SEED_PLAN_CATALOG`, e nao uma lista propria. A que vivia aqui tinha
+      // dois defeitos que so apareciam em banco vazio: gravava `free` (o
+      // gratuito que o paid-first matou) e, pior, gravava os planos SEM
+      // `limits` — e `plans.limits` e NOT NULL DEFAULT '{}', que
+      // `tenantLimitsFrom` respeita como "sem teto" quando existe assinatura.
+      // Ou seja: todo tenant semeado saia ILIMITADO, que e exatamente o defeito
+      // que o #162 fechou, voltando pela porta do seed.
+      const plans = SEED_PLAN_CATALOG.map((plan) => ({ ...plan }));
       const { data: inserted } = await supabase.from("plans").insert(plans).select("id, code");
-      for (const p of inserted ?? []) planIds[p.code] = p.id;
+      for (const p of inserted ?? []) planIds[normalizePlanCode(p.code)] = p.id;
       results.push(`✅ ${plans.length} planos criados`);
     } else {
-      for (const p of existingPlans ?? []) planIds[p.code] = p.id;
+      for (const p of existingPlans ?? []) planIds[normalizePlanCode(p.code)] = p.id;
       results.push(`ℹ️ Planos já existem`);
     }
 
     // ====================================
     // 5. SUBSCRIPTIONS POR TENANT
     // ====================================
+    // Codigos canonicos: a busca abaixo normaliza os dois lados, entao um banco
+    // com `growth` minusculo e outro com `GROWTH` casam do mesmo jeito. Era essa
+    // divergencia que fazia `planIds[...]` dar `undefined` e o seed pular a
+    // criacao de assinatura em silencio.
     const tenantPlans: Record<string, string> = {
-      "tenant-dev": "performance",
-      "tenant-demo": "growth",
-      "tenant-stress": "essencial",
+      "tenant-dev": "PERFORMANCE_MAX",
+      "tenant-demo": "GROWTH",
+      "tenant-stress": "ESSENCIAL",
     };
 
     for (const [slug, planCode] of Object.entries(tenantPlans)) {
       const tenantId = tenantIds[slug];
-      const planId = planIds[planCode];
+      const planId = planIds[normalizePlanCode(planCode)];
       if (!tenantId || !planId) continue;
 
       const { data: existing } = await supabase

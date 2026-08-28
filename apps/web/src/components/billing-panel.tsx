@@ -51,7 +51,10 @@ export function BillingPanel() {
   const [busyPlan, setBusyPlan] = useState<string | null>(null);
   const [portalBusy, setPortalBusy] = useState(false);
 
-  const currentPlanCode = subscription?.plans?.code ?? "FREE";
+  // `?? null`, e nao `?? "FREE"`: desde o paid-first nao existe plano gratuito.
+  // Quem nao tem assinatura nao esta num plano — esta bloqueado, e chamar isso
+  // de "Free" prometia um plano que nao existe e escondia o paywall.
+  const currentPlanCode = subscription?.plans?.code ?? null;
   const renewalDate = periodLabel(subscription?.current_period_end ?? null);
 
   const sortedPlans = useMemo(() => plans.filter((plan) => plan.code !== "FREE"), [plans]);
@@ -124,7 +127,7 @@ export function BillingPanel() {
       <CardContent>
         <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-aco">
           <span>Plano atual:</span>
-          <Badge tone={currentPlanCode === "FREE" ? "slate" : "brand"}>{subscription?.plans?.name ?? "Free"}</Badge>
+          <Badge tone={currentPlanCode ? "brand" : "slate"}>{subscription?.plans?.name ?? "Sem plano"}</Badge>
           {subscription?.status && <Badge tone="green">{subscription.status}</Badge>}
           {renewalDate && <span className="text-aco/50">Renova em {renewalDate}</span>}
         </div>

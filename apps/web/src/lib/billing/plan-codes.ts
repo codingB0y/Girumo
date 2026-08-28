@@ -23,7 +23,14 @@
  * nascendo com `campaigns: 0` e `team_members: 1`.
  */
 
-/** Código canônico do plano gratuito. Use isto, nunca o literal. */
+/**
+ * Código canônico do plano de entrada — o gratuito, enquanto ele existiu.
+ *
+ * Continua aqui depois do paid-first porque `provisionEntrySubscription` ainda
+ * procura por ele: a decisão é reversível por desenho, e reativar um plano de
+ * entrada tem que ser um UPDATE no catálogo, não um PR. Hoje a busca não acha
+ * nada — o FREE está `active = false` nos dois bancos.
+ */
 export const FREE_PLAN_CODE = "FREE";
 
 export function normalizePlanCode(value: unknown): string {
@@ -46,19 +53,6 @@ export function normalizePlanCode(value: unknown): string {
  * andar juntos.
  */
 export const SEED_PLAN_CATALOG = [
-  {
-    code: FREE_PLAN_CODE,
-    name: "Free",
-    price_cents: 0,
-    limits: {
-      funnels: 1,
-      contacts: 250,
-      campaigns: 0,
-      uploads_mb: 100,
-      team_members: 1,
-      whatsapp_instances: 1,
-    },
-  },
   {
     code: "ESSENCIAL",
     name: "Essencial",
