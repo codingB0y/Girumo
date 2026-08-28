@@ -94,7 +94,7 @@ export function Lp3Landing() {
                   qualquer jeito.
                 </p>
                 <p className="lp4-mono mt-4 text-[9px] text-[var(--body)]">
-                  7 dias pra desistir e receber tudo de volta · pague no pix · sem fidelidade
+                  7 dias pra desistir e receber tudo de volta · sem fidelidade
                 </p>
               </div>
             </div>

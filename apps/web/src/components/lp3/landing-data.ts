@@ -169,7 +169,7 @@ export const LP3_FAQ: ReadonlyArray<readonly [string, string]> = [
   ],
   [
     "Como funciona o plano anual?",
-    "Você paga 1x ao ano, no Pix ou no cartão, e o mês sai até 40% mais barato — no Growth, R$ 197 em vez de R$ 297. Se cancelar no meio do caminho, devolvemos os meses não usados: os meses que você usou passam a valer o preço mensal e o resto volta pra você. Cancelando o Growth anual depois de 3 meses, por exemplo, voltam R$ 1.473.",
+    "Você paga 1x ao ano e o mês sai até 40% mais barato — no Growth, R$ 197 em vez de R$ 297. Se cancelar no meio do caminho, devolvemos os meses não usados: os meses que você usou passam a valer o preço mensal e o resto volta pra você. Cancelando o Growth anual depois de 3 meses, por exemplo, voltam R$ 1.473.",
   ],
   [
     "Meus contatos ficam comigo se eu cancelar?",

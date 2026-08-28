@@ -44,7 +44,7 @@ export function MobileHero() {
       </a>
 
       <p data-lp4-hi className="lp4-mono mt-3 text-center text-[9px] text-[var(--body)]">
-        pague no pix · sem chip novo
+        sem fidelidade · sem chip novo
       </p>
 
       <div data-lp4-hi>
@@ -223,7 +223,7 @@ export function MobileFecho() {
       <p className="lp4-mono text-[9px] text-[rgba(7,25,35,0.65)]">direito garantido por lei</p>
       <h2 className="lp4-x mt-3.5 text-balance text-[40px]">7 dias pra desistir. Sem multa nunca.</h2>
       <p className="mx-auto mt-3.5 max-w-[300px] text-sm leading-[1.55] text-[rgba(7,25,35,0.75)]">
-        Pague no Pix e teste. Desistiu em 7 dias, devolvemos tudo — e os grupos continuam seus.
+        Conecte seu WhatsApp em 2 minutos. Desistiu em 7 dias, devolvemos tudo — e os grupos continuam seus.
       </p>
       <a
         href={SIGNUP_URL}

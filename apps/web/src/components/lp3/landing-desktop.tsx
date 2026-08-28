@@ -50,7 +50,7 @@ export function DesktopHero() {
         </div>
 
         <p data-lp4-hi className="lp4-mono mt-8 text-[10px] text-[var(--body)]">
-          feito por atacadista, pra atacadista · pague no pix · sem fidelidade
+          feito por atacadista, pra atacadista · sem fidelidade
         </p>
 
         {/* janela dominante — painel de disparo */}
@@ -429,7 +429,7 @@ export function DesktopFecho() {
           Seu próximo grupo cheio começa com <span className="lp4-green">um link.</span>
         </h2>
         <p data-lp4-r className="mx-auto mt-6 max-w-md text-lg text-[var(--body)]">
-          Conecte seu WhatsApp em 2 minutos e veja a esteira trabalhar. Pague no Pix, com 7 dias pra desistir.
+          Conecte seu WhatsApp em 2 minutos e veja a esteira trabalhar. Com 7 dias pra desistir.
         </p>
         <div data-lp4-r className="mt-10 flex items-center justify-center gap-3">
           <a href={SIGNUP_URL} className="lp4-btn lp4-btn-green">

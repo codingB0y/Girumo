@@ -84,13 +84,19 @@ export default function TermosPage() {
       <LegalSection n={6} title="Planos, cobrança e renovação">
         <p>
           Os planos e preços vigentes ficam publicados no site e na área de configurações da sua
-          conta. A assinatura é mensal e{" "}
-          <strong>renova automaticamente</strong> até que você cancele.
+          conta. A assinatura pode ser <strong>mensal ou anual</strong>, conforme você escolher na
+          contratação, e <strong>renova automaticamente</strong> pelo mesmo período até que você
+          cancele.
         </p>
         <p>
-          A cobrança é processada pela Stripe. Aceitamos os meios de pagamento exibidos no checkout.
-          Em pagamentos por boleto ou Pix, o plano é liberado quando o pagamento é confirmado pelo
-          processador — não no momento da emissão.
+          Antes de cada renovação do plano anual avisamos por e-mail com pelo menos 10 dias de
+          antecedência, informando a data e o valor da cobrança.
+        </p>
+        <p>
+          A cobrança é processada pela Stripe. Os meios de pagamento aceitos são os exibidos no
+          checkout no momento da contratação. Em meios com confirmação assíncrona, como boleto, o
+          plano é liberado quando o pagamento é confirmado pelo processador — não no momento da
+          emissão.
         </p>
         <p>
           Se um pagamento falhar, podemos suspender o acesso aos recursos pagos até a regularização.
@@ -121,6 +127,11 @@ export default function TermosPage() {
           Exemplo, no Growth: o anual custa R$ 197 por mês, R$ 2.364 pagos de uma vez. Cancelando
           depois de 3 meses de uso, esses 3 meses passam a valer o preço mensal (R$ 297 cada, R$
           891 no total) e devolvemos os R$ 1.473 restantes.
+        </p>
+        <p>
+          Em qualquer um dos dois casos, a devolução é solicitada por {LEGAL_CONTACT_EMAIL} e o
+          valor é devolvido em até 10 dias úteis, pelo mesmo meio usado no pagamento. Cancelar pela
+          tela de configurações encerra a cobrança, mas não dispara a devolução sozinho.
         </p>
       </LegalSection>
 
