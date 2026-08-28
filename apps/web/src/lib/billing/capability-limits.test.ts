@@ -7,6 +7,7 @@ import {
   hasReachedLimit,
   resolveLimitCheck,
   tenantLimitsFrom,
+  extrasFromMetadata,
   type PlanCapability,
 } from "./capability-limits";
 
@@ -170,4 +171,108 @@ test("plano que nao declara limites segue ilimitado — e escolha do catalogo, n
   // nao pôr teto. Tratar isso como bloqueio derrubaria cliente pagante.
   assert.deepEqual(tenantLimitsFrom({ subscription: { limits: null } }), {});
   assert.deepEqual(tenantLimitsFrom({ subscription: {} }), {});
+});
+
+/* ── Extras por assinatura (add-on "celular adicional") ────────────────────
+   O teto efetivo deixa de ser so o do catalogo: `plans.limits` e global (uma
+   linha por plano), entao um extra comprado por UM tenant nao pode morar la.
+   A soma acontece aqui, com os extras vindos da assinatura. */
+
+test("sem extras, o teto e exatamente o do plano", () => {
+  const limits = tenantLimitsFrom({ subscription: { limits: { whatsapp_instances: 2 } } });
+  assert.equal(limits.whatsapp_instances, 2);
+});
+
+test("extra soma ao teto do plano", () => {
+  const limits = tenantLimitsFrom({
+    subscription: { limits: { whatsapp_instances: 2 }, extras: { whatsapp_instances: 3 } },
+  });
+  assert.equal(limits.whatsapp_instances, 5);
+});
+
+test("extra nao cria teto onde o plano nao definiu nenhum", () => {
+  // Chave ausente = ilimitado (resolveLimitCheck devolve allow). Somar aqui
+  // transformaria "sem teto" em teto finito — rebaixaria quem paga.
+  const limits = tenantLimitsFrom({
+    subscription: { limits: {}, extras: { whatsapp_instances: 3 } },
+  });
+  assert.equal(limits.whatsapp_instances, undefined);
+  assert.equal(resolveLimitCheck("instances:create", limits).kind, "allow");
+});
+
+test("extra nao rebaixa teto negativo, que e a convencao de ilimitado", () => {
+  const limits = tenantLimitsFrom({
+    subscription: { limits: { whatsapp_instances: -1 }, extras: { whatsapp_instances: 3 } },
+  });
+  assert.equal(resolveLimitCheck("instances:create", limits).kind, "allow");
+});
+
+test("extra soma sobre teto zero — comprar 1 celular libera 1", () => {
+  const limits = tenantLimitsFrom({
+    subscription: { limits: { whatsapp_instances: 0 }, extras: { whatsapp_instances: 1 } },
+  });
+  assert.equal(limits.whatsapp_instances, 1);
+});
+
+test("extra so mexe na chave comprada; as outras ficam intactas", () => {
+  const limits = tenantLimitsFrom({
+    subscription: {
+      limits: { whatsapp_instances: 2, campaigns: 50 },
+      extras: { whatsapp_instances: 1 },
+    },
+  });
+  assert.equal(limits.whatsapp_instances, 3);
+  assert.equal(limits.campaigns, 50);
+});
+
+test("extra invalido (negativo, zero, NaN, nao-numero) e ignorado", () => {
+  for (const ruim of [-5, 0, Number.NaN, "3" as unknown as number]) {
+    const limits = tenantLimitsFrom({
+      subscription: { limits: { whatsapp_instances: 2 }, extras: { whatsapp_instances: ruim } },
+    });
+    assert.equal(limits.whatsapp_instances, 2, `extra ${String(ruim)} deveria ser ignorado`);
+  }
+});
+
+test("sem assinatura, extras nao destravam nada", () => {
+  // Bloqueio e sobre NAO TER assinatura; extras vivem na assinatura, entao nem
+  // deveriam existir aqui. Se vierem, nao podem furar o paywall.
+  const limits = tenantLimitsFrom({ subscription: null });
+  assert.equal(limits.whatsapp_instances, 0);
+});
+
+/* ── Leitura dos extras no jsonb ──────────────────────────────────────────── */
+
+test("extrasFromMetadata le a quantidade comprada", () => {
+  assert.deepEqual(extrasFromMetadata({ extra_whatsapp_instances: 3 }), {
+    whatsapp_instances: 3,
+  });
+});
+
+test("extrasFromMetadata aceita string — a quantity do Stripe chega assim", () => {
+  assert.deepEqual(extrasFromMetadata({ extra_whatsapp_instances: "2" }), {
+    whatsapp_instances: 2,
+  });
+});
+
+test("extrasFromMetadata devolve null para tudo que nao e quantidade positiva", () => {
+  for (const ruim of [null, undefined, {}, { extra_whatsapp_instances: 0 },
+                      { extra_whatsapp_instances: -1 }, { extra_whatsapp_instances: "" },
+                      { extra_whatsapp_instances: "abc" }, "texto", 42]) {
+    assert.equal(extrasFromMetadata(ruim), null, `${JSON.stringify(ruim)} deveria virar null`);
+  }
+});
+
+test("extrasFromMetadata trunca fracao — meio celular nao existe", () => {
+  assert.deepEqual(extrasFromMetadata({ extra_whatsapp_instances: 2.9 }), {
+    whatsapp_instances: 2,
+  });
+});
+
+test("metadata do stripe_status convive com os extras sem interferir", () => {
+  // `metadata` ja carrega stripe_status; ler extras nao pode se confundir.
+  assert.equal(extrasFromMetadata({ stripe_status: "active" }), null);
+  assert.deepEqual(extrasFromMetadata({ stripe_status: "active", extra_whatsapp_instances: 1 }), {
+    whatsapp_instances: 1,
+  });
 });
