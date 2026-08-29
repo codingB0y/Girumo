@@ -68,6 +68,10 @@ test("the webhook prefix is not open — only the exact provider path is", () =>
 
 test("captura do demo entra sem sessão e limitada por IP", () => {
   assert.equal(classifyRequest("/api/demo/request", "POST"), "public-rate-limited");
+  assert.equal(classifyRequest("/api/track/outbound", "POST"), "public-rate-limited");
+  // Prefixo NÃO abre a família: uma rota futura em /api/track/ precisa entrar
+  // explicitamente, senão cai no gate de usuário.
+  assert.equal(classifyRequest("/api/track/qualquer-outra", "POST"), "user");
 });
 
 test("outros métodos na captura do demo ficam no gate de sessão", () => {

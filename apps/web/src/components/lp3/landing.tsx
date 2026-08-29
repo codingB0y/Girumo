@@ -6,6 +6,7 @@ import { Lp2Nav } from "@/components/lp3/nav";
 import { Lp2Fx } from "@/components/lp3/fx";
 import { FirstTouchCookie } from "@/components/analytics/first-touch-cookie";
 import { MobileCta } from "@/components/lp3/mobile-cta";
+import { OutboundTracker } from "@/components/lp3/outbound-tracker";
 import { ProofMarquee } from "@/components/lp3/proof-marquee";
 import {
   DesktopBody,
@@ -114,6 +115,7 @@ export function Lp3Landing() {
               </p>
               <a
                 href={WHATSAPP_URL}
+                data-outbound="whatsapp_click"
                 className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-[var(--green)] transition-colors hover:text-[var(--green-hover)]"
               >
                 <WhatsAppIcon className="h-4 w-4" aria-hidden /> Perguntar agora
@@ -167,6 +169,7 @@ export function Lp3Landing() {
 
         <Lp2Fx />
         <FirstTouchCookie />
+        <OutboundTracker />
       </main>
     </div>
   );

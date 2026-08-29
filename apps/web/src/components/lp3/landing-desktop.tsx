@@ -48,6 +48,7 @@ export function DesktopHero() {
           </a>
           <a
             href={WHATSAPP_URL}
+            data-outbound="whatsapp_click"
             className="inline-flex items-center gap-2 px-3 text-sm font-semibold text-[var(--green)] transition-colors hover:text-[var(--green-hover)]"
           >
             <WhatsAppIcon className="h-[15px] w-[15px]" aria-hidden /> Falar no WhatsApp
@@ -440,7 +441,7 @@ export function DesktopFecho() {
           <a href={DEMO_URL} className="lp4-btn lp4-btn-green">
             Ver demonstração <ArrowRight className="h-4 w-4" aria-hidden />
           </a>
-          <a href={WHATSAPP_URL} className="lp4-btn lp4-btn-ghost">
+          <a href={WHATSAPP_URL} data-outbound="whatsapp_click" className="lp4-btn lp4-btn-ghost">
             <WhatsAppIcon className="h-4 w-4 text-[var(--green)]" aria-hidden /> Falar no WhatsApp
           </a>
         </div>

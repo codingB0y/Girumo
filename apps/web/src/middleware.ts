@@ -27,6 +27,10 @@ const RATE_LIMITS: Record<string, number> = {
   // `Object.entries(RATE_LIMITS).find(...)` e devolve `false` quando não acha o
   // path. Sem esta linha o branch abaixo roda e nunca limita nada — fail-open.
   "/api/demo/request": 5,
+  // Beacon de clique de saída (wa.me) na landing. Teto folgado porque é UM
+  // request por clique e uma pessoa lendo a página clica poucas vezes; o
+  // handler ainda aplica o seu próprio teto por IP.
+  "/api/track/outbound": 30,
 };
 
 async function isRateLimited(ip: string, path: string): Promise<boolean> {
