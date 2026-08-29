@@ -4,6 +4,16 @@
 
 export const SIGNUP_URL = "/signup";
 
+/**
+ * Porta principal da landing desde o paid-first (28/08/2026).
+ *
+ * O CTA apontava para /signup, e o signup faz router.replace("/painel") sem
+ * passar por checkout: com o FREE morto, quem clicava ganhava uma conta em
+ * BLOCKED_LIMITS que não fazia nada. Este PR para de alimentar esse buraco pelo
+ * botão principal — mas NÃO o fecha; o conserto do /signup é PR próprio.
+ */
+export const DEMO_URL = "/demo";
+
 export const WHATSAPP_URL =
   process.env.NEXT_PUBLIC_SALES_WHATSAPP_URL ||
   "https://wa.me/5562998191314?text=Ol%C3%A1!%20Quero%20saber%20mais%20sobre%20a%20Girumo.";

@@ -5,10 +5,10 @@ import { OrderTicker } from "@/components/lp3/order-ticker";
 import { PanelMock } from "@/components/lp3/panel-mock";
 import { BazarVideo } from "@/components/lp3/video-facade";
 import {
+  DEMO_URL,
   DIFERENCIAL,
   METODO,
   ROTINA,
-  SIGNUP_URL,
   TIMESTAMPS,
   WHATSAPP_URL,
 } from "@/components/lp3/landing-data";
@@ -38,8 +38,8 @@ export function DesktopHero() {
 
         {/* um único CTA com peso — o WhatsApp vira link de texto pra não dividir o clique */}
         <div data-lp4-hi className="mt-10 flex items-center justify-center gap-3">
-          <a href={SIGNUP_URL} data-lp4-magnetic className="lp4-btn lp4-btn-green">
-            Quero encher meus grupos <ArrowRight className="h-4 w-4" aria-hidden />
+          <a href={DEMO_URL} data-lp4-magnetic className="lp4-btn lp4-btn-green">
+            Ver demonstração <ArrowRight className="h-4 w-4" aria-hidden />
           </a>
           <a
             href={WHATSAPP_URL}
@@ -432,8 +432,8 @@ export function DesktopFecho() {
           Conecte seu WhatsApp em 2 minutos e veja a esteira trabalhar. Com 7 dias pra desistir.
         </p>
         <div data-lp4-r className="mt-10 flex items-center justify-center gap-3">
-          <a href={SIGNUP_URL} className="lp4-btn lp4-btn-green">
-            Começar agora <ArrowRight className="h-4 w-4" aria-hidden />
+          <a href={DEMO_URL} className="lp4-btn lp4-btn-green">
+            Ver demonstração <ArrowRight className="h-4 w-4" aria-hidden />
           </a>
           <a href={WHATSAPP_URL} className="lp4-btn lp4-btn-ghost">
             <WhatsAppIcon className="h-4 w-4 text-[var(--green)]" aria-hidden /> Falar no WhatsApp

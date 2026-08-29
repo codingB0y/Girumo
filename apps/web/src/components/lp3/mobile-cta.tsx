@@ -9,7 +9,7 @@ import { WhatsAppIcon } from "@/components/landing/icons";
  * rola pra fora da tela — assim no topo não existe CTA duplicado com a nav.
  * Desliza de baixo pra cima ao revelar.
  */
-export function MobileCta({ signupUrl, whatsappUrl }: { signupUrl: string; whatsappUrl: string }) {
+export function MobileCta({ demoUrl, whatsappUrl }: { demoUrl: string; whatsappUrl: string }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -30,8 +30,8 @@ export function MobileCta({ signupUrl, whatsappUrl }: { signupUrl: string; whats
       }`}
       aria-hidden={!visible}
     >
-      <a href={signupUrl} className="lp4-btn lp4-btn-green flex-1 justify-center py-3.5 text-sm">
-        Começar agora <ArrowRight className="h-4 w-4" aria-hidden />
+      <a href={demoUrl} className="lp4-btn lp4-btn-green flex-1 justify-center py-3.5 text-sm">
+        Ver demonstração <ArrowRight className="h-4 w-4" aria-hidden />
       </a>
       <a
         href={whatsappUrl}
