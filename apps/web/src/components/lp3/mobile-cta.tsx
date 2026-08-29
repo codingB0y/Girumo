@@ -35,6 +35,7 @@ export function MobileCta({ demoUrl, whatsappUrl }: { demoUrl: string; whatsappU
       </a>
       <a
         href={whatsappUrl}
+        data-outbound="whatsapp_click"
         aria-label="Falar no WhatsApp"
         className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full border border-[var(--hairline)]"
       >

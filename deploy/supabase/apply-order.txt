@@ -237,3 +237,10 @@ apps/web/supabase/migrations/20260828160000_demo_requests.sql
 # leitura e chama o MESMO app.instance_daily_cap do claim, para nao criar uma
 # segunda verdade sobre o teto que divirja em silencio.
 apps/web/supabase/migrations/20260829130000_instance_health.sql
+
+# 29/08/2026 - Eventos de aquisicao organica (SEO Fase 2). O clique em `wa.me`
+# sai do dominio e o servidor nunca o ve; sem esta tabela a unica metrica
+# disponivel seria pageview, que e a metrica que o plano proibe. Sem tenant_id
+# porque e pre-conta (mesmo desenho de demo_requests); RLS ligada sem policy,
+# service-role only.
+apps/web/supabase/migrations/20260829140000_acquisition_events.sql
