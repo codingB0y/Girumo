@@ -128,3 +128,16 @@ test("mantém as páginas de terceiros fora do rastreio", () => {
   assert.ok(paths.includes("/painel"), "a área logada continua fora");
   assert.ok(paths.includes("/api"), "as rotas internas continuam fora");
 });
+
+test("anuncia no sitemap só o que queremos no índice", () => {
+  const paths = sitemap().map((entry) => new URL(entry.url).pathname);
+
+  assert.ok(paths.includes("/signup"), "criar conta é a página de conversão");
+  assert.ok(paths.includes("/demo"), "a demo é a porta de entrada do CTA principal");
+  assert.ok(paths.includes("/termos"));
+  assert.ok(paths.includes("/privacidade"));
+
+  // /login é utilitária e está marcada `index: false` no próprio layout.
+  // Anunciá-la aqui seria pedir o oposto do que o metadata dela pede.
+  assert.ok(!paths.includes("/login"), "/login não deve ser anunciada");
+});
