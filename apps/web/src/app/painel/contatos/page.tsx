@@ -3,19 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Search, MessageCircle, ShoppingBag, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-type LeadStatus = "novo" | "ativo" | "comprou";
-type Lead = {
-  id: string;
-  name: string;
-  phone: string;
-  sourceGroup: string;
-  sourceCampaign: string;
-  status: LeadStatus;
-  enteredAt: string;
-  /** ISO da ultima saida de grupo, ou null se nunca saiu. */
-  leftAt?: string | null;
-};
+import type { Lead, LeadStatus } from "@/lib/painel/types";
 
 const STATUS: Record<LeadStatus, { label: string; pill: string }> = {
   novo: { label: "Novo", pill: "bg-cobalt-500/[0.07] text-cobalt-500" },
