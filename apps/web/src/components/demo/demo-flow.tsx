@@ -3,6 +3,10 @@
 import { useState } from "react";
 import { DEMO_STEP_COUNT, isLastStep, nextStep, stepAt } from "@/lib/demo/script";
 import { DemoBadge } from "./demo-badge";
+import { CampaignStep } from "./steps/campaign-step";
+import { DispatchStep } from "./steps/dispatch-step";
+import { GroupStep } from "./steps/group-step";
+import { OrderStep } from "./steps/order-step";
 
 /**
  * O estado inteiro do demo é este índice. Nada aqui chama API, banco ou
@@ -25,7 +29,10 @@ export function DemoFlow() {
       </header>
 
       <div data-testid={`demo-step-${step.id}`} className="rounded-2xl bg-canvas-100 p-4">
-        {/* As telas entram na Task 9. */}
+        {step.id === "campaign" ? <CampaignStep /> : null}
+        {step.id === "dispatch" ? <DispatchStep /> : null}
+        {step.id === "group" ? <GroupStep /> : null}
+        {step.id === "order" ? <OrderStep /> : null}
       </div>
 
       {step.action ? (
