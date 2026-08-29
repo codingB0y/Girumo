@@ -67,7 +67,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       locale: "pt_BR",
       type: "website",
     },
-    robots: { index: true, follow: false },
+    // As LPs dos lojistas ficam FORA do índice (Fase 2 do SEO, item C1).
+    // São centenas de páginas de terceiros, com conteúdo que não é nosso e que
+    // muda quando o lojista quiser: indexá-las diluiria o portfólio finito de
+    // 22 páginas que o plano constrói, e faria o Google julgar o domínio pela
+    // qualidade média de conteúdo sobre o qual não temos controle nenhum.
+    // `follow: false` já estava certo e continua: não passamos autoridade para
+    // o destino do lojista.
+    robots: { index: false, follow: false },
   };
 }
 

@@ -111,3 +111,20 @@ test("points both production env examples at the Girumo hosts", () => {
     assert.doesNotMatch(source, /^NEXT_PUBLIC_(SITE|APP)_URL=.*hubflow/m, relativePath);
   }
 });
+
+test("mantém as páginas de terceiros fora do rastreio", () => {
+  const disallow = robots().rules;
+  const rules = Array.isArray(disallow) ? disallow : [disallow];
+  const paths = rules.flatMap((rule) =>
+    Array.isArray(rule.disallow) ? rule.disallow : rule.disallow ? [rule.disallow] : [],
+  );
+
+  // LPs dos lojistas e o redirect de link rastreado: conteúdo de terceiros, em
+  // volume, que diluiria o portfólio finito de páginas do plano de SEO. O gate
+  // real é o `index: false` no metadata de cada uma — isto só poupa orçamento
+  // de rastreio.
+  assert.ok(paths.includes("/p/"), "as LPs dos lojistas precisam sair do rastreio");
+  assert.ok(paths.includes("/r/"), "o redirect de link rastreado precisa sair do rastreio");
+  assert.ok(paths.includes("/painel"), "a área logada continua fora");
+  assert.ok(paths.includes("/api"), "as rotas internas continuam fora");
+});
