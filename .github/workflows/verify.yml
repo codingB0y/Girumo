@@ -7,6 +7,14 @@ on:
 
 jobs:
   verify:
+    # So em PR. Depois do squash merge, o push em `main` re-executa conteudo
+    # IDENTICO ao que acabou de passar verde no PR — cada job e faturado
+    # separado, entao isso dobrava o custo de todo PR sem cobrir nada novo.
+    # Em 28/08/2026 os 2.000 min/mes da conta acabaram no dia 28 e o CI parou
+    # inteiro (jobs recusados em 1-3s, sem step nenhum). `drift` segue rodando
+    # nos dois eventos de proposito: ele compara com o estado real do banco,
+    # que muda sem passar por PR.
+    if: github.event_name == 'pull_request'
     # Linux, nao Windows: runner Windows consome minutos em dobro e tem fila bem
     # pior — em 06/08/2026 este job esperou 15 min por uma maquina e foi
     # cancelado sem rodar um unico passo. Os scripts .ps1 usam so cmdlets
@@ -85,6 +93,14 @@ jobs:
   # maquina de quem lembrasse — e suite que so roda quando alguem lembra e
   # suite que nao pega regressao. Aponta para o Supabase de DEV.
   e2e:
+    # So em PR. Depois do squash merge, o push em `main` re-executa conteudo
+    # IDENTICO ao que acabou de passar verde no PR — cada job e faturado
+    # separado, entao isso dobrava o custo de todo PR sem cobrir nada novo.
+    # Em 28/08/2026 os 2.000 min/mes da conta acabaram no dia 28 e o CI parou
+    # inteiro (jobs recusados em 1-3s, sem step nenhum). `drift` segue rodando
+    # nos dois eventos de proposito: ele compara com o estado real do banco,
+    # que muda sem passar por PR.
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     # Serializa: este job fala com o Supabase de DEV, que e um so para todos os
