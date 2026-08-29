@@ -27,6 +27,15 @@ export type Limits = {
   team_members?: number;
 };
 
+/**
+ * Extras comprados na assinatura (add-on "celular adicional").
+ *
+ * Mora fora de `plans.limits` porque aquilo é catálogo GLOBAL — uma linha por
+ * plano, compartilhada por todos os tenants. Guardar um extra de um cliente ali
+ * aumentaria o teto de todo mundo no mesmo plano.
+ */
+export type LimitExtras = Partial<Record<keyof Limits, number>>;
+
 export const CAPABILITY_LIMIT_KEY: Record<PlanCapability, keyof Limits> = {
   "instances:create": "whatsapp_instances",
   "contacts:reach": "contacts",
@@ -134,12 +143,62 @@ export const BLOCKED_LIMITS: Limits = {
  * chegar aqui, subindo 500.
  */
 export function tenantLimitsFrom(input: {
-  subscription: { limits?: Limits | null } | null;
+  subscription: { limits?: Limits | null; extras?: LimitExtras | null } | null;
 }): Limits {
   if (!input.subscription) return BLOCKED_LIMITS;
 
   // Assinatura existe e o plano não põe teto: escolha do catálogo, respeitada.
   // Rebaixar para bloqueio aqui puniria cliente pagante. `{}` só seria perigoso
   // no ramo SEM assinatura — e lá nem se chega a olhar `limits`.
-  return input.subscription.limits ?? {};
+  const base = input.subscription.limits ?? {};
+  return somarExtras(base, input.subscription.extras);
+}
+
+/**
+ * Lê os extras do add-on de `subscriptions.metadata`.
+ *
+ * Fronteira com o jsonb: nada garante a forma, e a quantity do subscription
+ * item do Stripe chega como número ou string dependendo do caminho. Normaliza
+ * aqui e devolve `null` para qualquer coisa que não seja quantidade positiva —
+ * assim `tenantLimitsFrom` recebe só valor já confiável.
+ */
+export function extrasFromMetadata(metadata: unknown): LimitExtras | null {
+  if (!metadata || typeof metadata !== "object") return null;
+
+  const bruto = (metadata as Record<string, unknown>).extra_whatsapp_instances;
+  if (bruto === undefined || bruto === null || bruto === "") return null;
+
+  const valor = typeof bruto === "number" ? bruto : Number(bruto);
+  if (!Number.isFinite(valor) || valor <= 0) return null;
+
+  return { whatsapp_instances: Math.floor(valor) };
+}
+
+/**
+ * Soma os extras da assinatura ao teto do catálogo.
+ *
+ * A soma é conservadora de propósito: só acontece onde o plano já define um
+ * teto FINITO. Chave ausente e valor negativo são as duas formas de dizer
+ * "ilimitado" (`resolveLimitCheck` devolve `allow` para as duas) — somar ali
+ * trocaria "sem teto" por um número, rebaixando quem paga por causa de uma
+ * compra que era pra destravar mais, não menos.
+ *
+ * Teto zero SOMA: é o caso de comprar o primeiro celular de um plano que não
+ * inclui nenhum.
+ */
+function somarExtras(base: Limits, extras: LimitExtras | null | undefined): Limits {
+  if (!extras) return base;
+
+  const resultado: Limits = { ...base };
+  for (const chave of Object.keys(extras) as (keyof Limits)[]) {
+    const extra = extras[chave];
+    // jsonb não tem tipo: o valor pode vir string, negativo ou ausente.
+    if (typeof extra !== "number" || !Number.isFinite(extra) || extra <= 0) continue;
+
+    const atual = resultado[chave];
+    if (typeof atual !== "number" || atual < 0) continue;
+
+    resultado[chave] = atual + extra;
+  }
+  return resultado;
 }

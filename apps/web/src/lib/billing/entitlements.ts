@@ -6,6 +6,7 @@ import {
   tenantLimitsFrom,
   type Limits,
   type PlanCapability,
+  extrasFromMetadata,
 } from "./capability-limits";
 import { planBlockedBody, planLimitBody, planStorageFullBody } from "./plan-limit-error";
 import { subscriptionAccess } from "./subscription-access";
@@ -64,7 +65,14 @@ export async function getTenantLimits(tenantId: string): Promise<Limits> {
 
     if (acesso.grantsPlan) {
       const plan = data.plans as { limits?: Limits | null } | null;
-      return tenantLimitsFrom({ subscription: { limits: plan?.limits ?? null } });
+      // O teto efetivo e catalogo + extras da assinatura: `plans.limits` e
+      // global, entao o add-on comprado por um tenant nao pode morar la.
+      return tenantLimitsFrom({
+        subscription: {
+          limits: plan?.limits ?? null,
+          extras: extrasFromMetadata(data.metadata),
+        },
+      });
     }
   }
 
