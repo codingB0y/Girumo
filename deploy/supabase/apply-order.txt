@@ -221,3 +221,11 @@ apps/web/supabase/migrations/20260825140000_aposenta_squad_os.sql
 # user-agent. Escrita so por service-role; a unica policy deixa o titular ler o
 # proprio aceite.
 apps/web/supabase/migrations/20260826170000_legal_acceptances.sql
+
+# 28/08/2026 - Modo demonstracao (Fase 3 do paid-first, PR 1). Captura do CTA
+# "agendar demonstracao" em /demo: nome + WhatsApp de quem ainda NAO tem conta.
+# Sem tenant_id porque e pre-tenant; RLS ligada sem policy, service-role only.
+# `step_reached` guarda ate onde a pessoa foi no roteiro — quem desiste no passo
+# 2 e quem chega ao pedido sao leads diferentes, e e o campo que liga o demo a
+# coorte do PR 2.
+apps/web/supabase/migrations/20260828160000_demo_requests.sql
