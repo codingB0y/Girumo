@@ -173,6 +173,51 @@ export function inactivityRiskEmail(
 }
 
 /**
+ * Grupos que ficam órfãos se o número do lojista cair.
+ *
+ * Diferente do aviso dos 14 dias, este não tem prazo: é um estado que dura até
+ * alguém promover um segundo administrador. Por isso o texto fala do que se
+ * perde, não de quando — e traz a saída de graça antes da paga, que é a ordem
+ * honesta (promover o sócio resolve o problema inteiro sem custo).
+ */
+export function groupAdminRiskEmail(
+  name: string,
+  appUrl: string,
+  grupos: number,
+  membros: number,
+): { subject: string; html: string } {
+  const firstName = name.split(" ")[0] || "lojista";
+  const g = grupos === 1 ? "1 grupo seu depende" : `${grupos} grupos seus dependem`;
+  const pessoas = membros.toLocaleString("pt-BR");
+
+  return {
+    subject: `${grupos === 1 ? "Um grupo seu" : `${grupos} grupos seus`} não têm um segundo administrador`,
+    html: layout(`
+      <h1 style="margin:0 0 12px;font-size:22px;color:${BRAND_COLORS.volt}">Se o seu número cair, esses grupos ficam sem dono</h1>
+      <p style="margin:0 0 8px;font-size:15px;color:${BRAND_COLORS.volt};line-height:1.6">
+        Oi ${firstName}! Conferimos quem administra os seus grupos e ${g} de um único
+        administrador: você.
+      </p>
+      <p style="margin:0 0 8px;font-size:15px;color:${BRAND_COLORS.volt};line-height:1.6">
+        Se esse número for bloqueado ou você trocar de aparelho, <strong>${pessoas}
+        ${membros === 1 ? "pessoa fica" : "pessoas ficam"} num grupo que ninguém mais consegue
+        administrar</strong> — e não existe como recuperar essa lista depois. É a única coisa que
+        o Girumo não consegue reconstruir para você.
+      </p>
+      <p style="margin:0 0 8px;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.6">
+        A correção leva um minuto e não custa nada: abra o grupo no WhatsApp, toque no nome do seu
+        sócio ou da sua vendedora e escolha <strong>Tornar administrador do grupo</strong>.
+      </p>
+      <p style="margin:0 0 8px;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.6">
+        Se preferir não depender de outra pessoa, dá para conectar um segundo número seu ao
+        Girumo e usá-lo como backup.
+      </p>
+      ${button("Ver os grupos em risco", `${appUrl}/painel/conectar`)}
+    `),
+  };
+}
+
+/**
  * Envio de campanha que falhou. Sem este e-mail ele morre em silêncio: o status
  * vira `failed` no banco e o lojista só descobre se abrir a tela por conta própria.
  *

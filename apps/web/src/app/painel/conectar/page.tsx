@@ -7,6 +7,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { toPlanLimitError, upgradeUrlFrom } from "@/lib/billing/plan-limit-client";
 import { PlanLimitAlert } from "@/components/painel/plan-limit-alert";
 import { NumeroSaude } from "@/components/painel/numero-saude";
+import { GruposProtecao } from "@/components/painel/grupos-protecao";
 import { cn } from "@/lib/utils";
 import { POLL_MS, nextPollDelay } from "@/lib/engine-poll";
 import { activationLabel } from "@/lib/onboarding-steps";
@@ -42,6 +43,10 @@ export default function PainelConectar() {
       {/* Saude do numero: so faz sentido depois que existe numero conectado.
           Antes disso a tela e sobre parear, nao sobre ritmo de envio. */}
       {connected && <NumeroSaude />}
+
+      {/* Proteção do ativo: só depois de conectar existe grupo administrado
+          para ficar órfão. */}
+      {connected && <GruposProtecao />}
 
       <div className="mt-6 flex items-center justify-between">
         <Link href="/painel" className="text-sm text-aco/60 transition-colors duration-[160ms] hover:text-volt-950">

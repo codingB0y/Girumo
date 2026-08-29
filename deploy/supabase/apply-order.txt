@@ -244,3 +244,9 @@ apps/web/supabase/migrations/20260829130000_instance_health.sql
 # porque e pre-conta (mesmo desenho de demo_requests); RLS ligada sem policy,
 # service-role only.
 apps/web/supabase/migrations/20260829140000_acquisition_events.sql
+
+# 29/08/2026 - Protecao do ativo (R1): contagem de admins por grupo. `is_admin`
+# sozinho nao distingue "sou um dos admins" de "sou o unico admin" - e e o
+# segundo caso que perde o grupo para sempre se o numero cair. `admins_counted_at`
+# existe para o 0 default nao virar alarme falso nos grupos que ja existiam.
+apps/web/supabase/migrations/20260829160000_groups_admin_protection.sql

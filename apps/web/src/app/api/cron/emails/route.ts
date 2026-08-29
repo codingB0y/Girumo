@@ -10,6 +10,7 @@ import {
   activationD21Email,
   broadcastFailedEmail,
   inactivityRiskEmail,
+  groupAdminRiskEmail,
   type WeeklyReportStats,
 } from "@/lib/email/templates";
 import { activationMarkerForAge, activationNotificationType, type ActivationMarker } from "@/lib/email/activation-cadence";
@@ -17,6 +18,8 @@ import { canSendAlert } from "@/lib/email/alert-optout";
 import { broadcastFailedTitle } from "@/lib/email/broadcast-failed-copy";
 import { isCronAuthorized } from "@/lib/cron-auth";
 import { getInstanceHealth } from "@/lib/stores/instance-health";
+import { summarizeProtection } from "@/lib/groups/admin-protection";
+import { listGroupsForProtection } from "@/lib/stores/groups";
 import { selectSessionRow, isConnectedStatus } from "@/lib/session-select";
 import { getAppUrl } from "@/lib/environment";
 
@@ -37,6 +40,7 @@ const SP_TZ = "America/Sao_Paulo";
  * 4. Relatório semanal: só às segundas (America/Sao_Paulo) → envia resumo da semana anterior
  * 5. Disparo falho: broadcast que virou `failed` nas últimas 24h → envia email
  * 6. Risco dos 14 dias: sessão conectada mas em silêncio → avisa antes do corte
+ * 7. Grupo sem segundo admin: se o número cair, a lista fica órfã → avisa
  *
  * O e-mail de trial foi aposentado (a oferta atual não tem trial) — a cadência de
  * ativação tomou o lugar. `trialEndingEmail` segue versionado, mas não é disparado.
@@ -199,7 +203,7 @@ export async function GET(req: Request) {
 
   const supabase = getSupabaseAdmin();
   const appUrl = getAppUrl();
-  const results = { nudge_sent: 0, disconnect_sent: 0, activation_sent: 0, weekly_sent: 0, broadcast_sent: 0, inactivity_sent: 0, errors: 0 };
+  const results = { nudge_sent: 0, disconnect_sent: 0, activation_sent: 0, weekly_sent: 0, broadcast_sent: 0, inactivity_sent: 0, group_admin_sent: 0, errors: 0 };
 
   // --- Job 1: 24h sem conectar ---
   // Tenants criados há 24-48h sem nenhum heartbeat de session
@@ -694,6 +698,100 @@ export async function GET(req: Request) {
       if (notifError) {
         console.error(
           `[cron] inactivity_risk: e-mail enviado para ${org.id} mas notification não registrada:`,
+          notifError.message,
+        );
+      }
+    } else {
+      results.errors++;
+    }
+  }
+
+  // --- Job 7: grupo que depende de um único administrador ---
+  //
+  // O Job 6 avisa que o número pode cair. Este avisa o que se PERDE quando ele
+  // cai: um grupo sem nenhum admin operável não volta — o WhatsApp não tem
+  // endpoint que devolva a administração, e os membros não se reextraem de fora.
+  //
+  // Sem prazo, ao contrário dos 14 dias: é um estado, não uma contagem
+  // regressiva. Por isso o dedupe é largo (14 dias) — o lojista que decidiu não
+  // promover ninguém não precisa ouvir isso toda semana.
+  const adminRiskDedupeISO = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data: adminRiskOrgs } = await supabase.from("organizations").select("id, name");
+
+  for (const org of adminRiskOrgs ?? []) {
+    let resumo;
+    try {
+      resumo = summarizeProtection(await listGroupsForProtection(org.id));
+    } catch (e) {
+      console.error(`[cron] group_admin_risk: falha lendo grupos de ${org.id}:`, e);
+      results.errors++;
+      continue;
+    }
+    if (resumo.semBackup === 0) continue;
+
+    // Mesmo opt-out da família de alertas de queda: quem desligou o aviso de
+    // que o número pode cair não quer o aviso da consequência dele. Fail-closed
+    // em erro de leitura.
+    const { data: prefs, error: prefsError } = await supabase
+      .from("tenant_settings")
+      .select("disconnect_alert_enabled")
+      .eq("tenant_id", org.id)
+      .maybeSingle();
+
+    if (prefsError) {
+      console.error(`[cron] group_admin_risk: falha lendo tenant_settings de ${org.id}:`, prefsError.message);
+      results.errors++;
+    }
+    if (!canSendAlert({ value: prefs?.disconnect_alert_enabled, error: prefsError })) continue;
+
+    const { data: avisado } = await supabase
+      .from("notifications")
+      .select("id")
+      .eq("tenant_id", org.id)
+      .eq("type", "group_admin_risk")
+      .gte("created_at", adminRiskDedupeISO)
+      .maybeSingle();
+    if (avisado) continue;
+
+    const { data: owner } = await supabase
+      .from("memberships")
+      .select("user_id")
+      .eq("tenant_id", org.id)
+      .eq("role", "owner")
+      .maybeSingle();
+    if (!owner) continue;
+
+    const { data: userData } = await supabase.auth.admin.getUserById(owner.user_id);
+    const email = userData.user?.email;
+    const name = userData.user?.user_metadata?.name || "lojista";
+    if (!email) continue;
+
+    const tpl = groupAdminRiskEmail(name, appUrl, resumo.semBackup, resumo.membrosEmRisco);
+    const sent = await sendEmail({
+      to: email,
+      subject: tpl.subject,
+      html: tpl.html,
+      tenantId: org.id,
+      kind: "group_admin_risk",
+    });
+
+    if (sent) {
+      results.group_admin_sent++;
+      const { error: notifError } = await supabase.from("notifications").insert({
+        tenant_id: org.id,
+        user_id: owner.user_id,
+        type: "group_admin_risk",
+        title:
+          resumo.semBackup === 1
+            ? "1 grupo seu depende só do seu número"
+            : `${resumo.semBackup} grupos seus dependem só do seu número`,
+        body: "Você é o único administrador. Se o número cair, esses grupos ficam sem dono e a lista não se recupera — promova alguém de confiança a administrador.",
+        href: "/painel/conectar",
+      });
+      if (notifError) {
+        console.error(
+          `[cron] group_admin_risk: e-mail enviado para ${org.id} mas notification não registrada:`,
           notifError.message,
         );
       }
