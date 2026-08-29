@@ -48,3 +48,12 @@ test("o middleware usa a lista em vez de repetir os caminhos", () => {
   const fonte = readFileSync(path.join(process.cwd(), "src", "middleware.ts"), "utf8");
   assert.match(fonte, /isPublicPage/, "middleware precisa consultar isPublicPage");
 });
+
+test("/demo abre sem sessão", () => {
+  assert.equal(isPublicPage("/demo"), true);
+});
+
+test("prefixo de /demo não abre por acidente", () => {
+  // A lista casa por caminho exato. Se algum dia virar prefixo, este teste cai.
+  assert.equal(isPublicPage("/demo-interno"), false);
+});

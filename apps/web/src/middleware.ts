@@ -20,6 +20,13 @@ const RATE_LIMITS: Record<string, number> = {
   // Limitação conhecida: o contador é por instância serverless, então na Vercel
   // o teto efetivo é maior que 300. Aceito na F2.
   "/api/webhooks/evolution": 300,
+  // Captura do demo: formulário público de dois campos. Teto baixo — ninguém
+  // agenda 6 demonstrações por minuto.
+  //
+  // A entrada é OBRIGATÓRIA, não decorativa: `isRateLimited` faz
+  // `Object.entries(RATE_LIMITS).find(...)` e devolve `false` quando não acha o
+  // path. Sem esta linha o branch abaixo roda e nunca limita nada — fail-open.
+  "/api/demo/request": 5,
 };
 
 async function isRateLimited(ip: string, path: string): Promise<boolean> {
@@ -109,7 +116,7 @@ export async function middleware(req: NextRequest) {
   }
 
   // Public auth mutations are rate-limited before reaching their handlers.
-  if (accessKind === "auth-rate-limited") {
+  if (accessKind === "auth-rate-limited" || accessKind === "public-rate-limited") {
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
     if (await isRateLimited(ip, pathname)) {
       return NextResponse.json(
