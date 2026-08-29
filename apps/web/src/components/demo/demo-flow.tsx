@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { DEMO_STEP_COUNT, isLastStep, nextStep, stepAt } from "@/lib/demo/script";
 import { DemoBadge } from "./demo-badge";
+import { DemoCta } from "./demo-cta";
 import { CampaignStep } from "./steps/campaign-step";
 import { DispatchStep } from "./steps/dispatch-step";
 import { GroupStep } from "./steps/group-step";
@@ -46,7 +47,7 @@ export function DemoFlow() {
         </button>
       ) : null}
 
-      {last ? <div data-testid="demo-cta">{/* CTA entra na Task 10. */}</div> : null}
+      {last ? <DemoCta stepReached={index} /> : null}
     </section>
   );
 }
