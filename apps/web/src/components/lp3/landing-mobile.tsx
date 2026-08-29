@@ -24,8 +24,13 @@ export function MobileHero() {
         whatsapp pra atacado de roupa
       </p>
 
-      <h1 data-lp4-split className="lp4-x mt-[18px] text-balance text-[46px]">
-        Grupo cheio, <span className="lp4-green">venda todo dia.</span>
+      {/* O H1 carrega o termo de busca ("encher grupos de WhatsApp", já nas
+          keywords da home). A promessa antiga — "Grupo cheio, venda todo dia" —
+          não virou linha separada porque este H1 termina com as mesmas
+          palavras: repeti-la logo abaixo seria eco, não apoio. O verde segue no
+          fecho, preservando a cadência. */}
+      <h1 data-lp4-split className="lp4-x mt-[18px] text-balance text-[40px]">
+        Encha seus grupos de WhatsApp e <span className="lp4-green">venda todo dia.</span>
       </h1>
 
       <p data-lp4-hi className="mt-4 text-pretty text-base leading-[1.55] text-[var(--body)]">

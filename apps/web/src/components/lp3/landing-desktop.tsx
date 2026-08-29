@@ -26,8 +26,13 @@ export function DesktopHero() {
           grupos de whatsapp pra atacado de roupa
         </p>
 
-        <h1 data-lp4-split className="lp4-x mx-auto mt-7 max-w-5xl text-balance text-[clamp(3.2rem,6.4vw,5.5rem)]">
-          Grupo cheio, <span className="lp4-green">venda todo dia.</span>
+        {/* O H1 carrega o termo de busca ("encher grupos de WhatsApp", já nas
+            keywords da home). A promessa antiga — "Grupo cheio, venda todo dia" —
+            não virou linha separada porque este H1 termina com as mesmas
+            palavras: repeti-la logo abaixo seria eco, não apoio. O verde segue no
+            fecho, preservando a cadência. */}
+        <h1 data-lp4-split className="lp4-x mx-auto mt-7 max-w-5xl text-balance text-[clamp(2.6rem,5.2vw,4.6rem)]">
+          Encha seus grupos de WhatsApp e <span className="lp4-green">venda todo dia.</span>
         </h1>
 
         <p data-lp4-hi className="mx-auto mt-7 max-w-xl text-pretty text-lg leading-relaxed text-[var(--body)]">
