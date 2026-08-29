@@ -1,5 +1,6 @@
 import "server-only";
 import { getResend, FROM_EMAIL } from "@/lib/email/client";
+import { escapeHtml } from "./html-escape";
 import { stepAt } from "./script";
 
 /**
@@ -30,10 +31,21 @@ export async function notifyDemoRequest(input: {
   }
 
   const step = input.stepReached === null ? "não informado" : stepAt(input.stepReached).title;
-  const alerta = input.persisted
+  const alert = input.persisted
     ? ""
     : "<p><strong>Atenção: esta solicitação NÃO foi gravada no banco.</strong> " +
       "Este e-mail é a única cópia — responda agora.</p>";
+
+  // input.name entra sem escape no `subject` de propósito: é um header de
+  // texto puro, não HTML — escapado ali apareceria como `&lt;` literal para
+  // quem lê. No corpo HTML abaixo, tanto nome quanto telefone passam por
+  // escapeHtml antes de entrar na string: o nome vem de um formulário
+  // anônimo na internet aberta (ver doc de escapeHtml), e o telefone já é só
+  // dígitos por causa de validateDemoRequest — mas escapar aqui também
+  // mantém a garantia local a este arquivo, sem depender de um contrato
+  // mantido em outro módulo.
+  const safeName = escapeHtml(input.name);
+  const safePhone = escapeHtml(input.phone);
 
   try {
     const resend = getResend();
@@ -42,9 +54,9 @@ export async function notifyDemoRequest(input: {
       to,
       subject: `Demonstração pedida: ${input.name}`,
       html:
-        `${alerta}` +
-        `<p><strong>${input.name}</strong> pediu uma demonstração.</p>` +
-        `<p>WhatsApp: <a href="https://wa.me/55${input.phone}">${input.phone}</a></p>` +
+        `${alert}` +
+        `<p><strong>${safeName}</strong> pediu uma demonstração.</p>` +
+        `<p>WhatsApp: <a href="https://wa.me/55${safePhone}">${safePhone}</a></p>` +
         `<p>Parou em: ${step}</p>`,
     });
     if (error) {
