@@ -99,3 +99,22 @@ export async function createTrackedLink(
   if (error) throw new Error(error.message);
   return data;
 }
+
+/**
+ * Remove o link de um slug do tenant. Usado quando a entidade dona do link
+ * some (ex.: uma indicação apagada) — sem isso o `/r/:slug` continuaria
+ * redirecionando para sempre um link que o painel já não mostra.
+ *
+ * Devolve `false` quando nada casou: slug de outro tenant não apaga nada.
+ */
+export async function deleteTrackedLinkBySlug(tenantId: string, slug: string): Promise<boolean> {
+  const { data, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .delete()
+    .eq("tenant_id", tenantId)
+    .eq("slug", slug)
+    .select("id")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return Boolean(data);
+}

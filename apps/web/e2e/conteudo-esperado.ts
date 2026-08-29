@@ -189,8 +189,20 @@ export const CONTEUDO_ESPERADO: Record<string, ConteudoEsperado> = {
   },
 
   "/painel/indicacao": {
-    ancora: /Indicação/,
-    semLista: "O retorno e objeto ({config, ranking}), nao lista plana; a ancora cobre a tela.",
+    // NAO "Indicação": esse e o rotulo do item de menu, entao a ancora passaria
+    // com a tela morta. "Nova indicadora" so existe depois do fetch resolver.
+    ancora: /Nova indicadora/,
+    lista: {
+      api: "/api/referrals",
+      // A rota devolve `{ config, ranking }` — a lista e o `ranking`. A isencao
+      // que estava aqui ("nao e lista plana") deixou passar a tela lendo a
+      // resposta como array: ela ficava SEMPRE vazia e o CI nao via.
+      marca: (j) => {
+        const ranking = j && typeof j === "object" ? (j as { ranking?: unknown }).ranking : null;
+        return primeiroTexto(ranking, "referrerName", "slug");
+      },
+      vazio: /Nenhuma indicadora/i,
+    },
   },
 
   "/painel/pages": {
