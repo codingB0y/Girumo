@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { after } from "next/server";
+import { FIRST_TOUCH_COOKIE, parseFirstTouch } from "@/lib/analytics/first-touch";
 import { SESSION_COOKIE, signSession, sessionCookieOptions } from "@/lib/auth";
 import { acceptPendingInvite } from "@/lib/auth/accept-pending-invite";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
@@ -178,7 +179,19 @@ export async function POST(req: Request) {
   // invocacao — chamar sem await deixaria a promise ser descartada no fim da
   // requisicao, e ai nem o evento nem o registro em public.logs sairiam.
   after(async () => {
-    await trackFunnelEvent({ tenantId, userId: authUserId, event: "signup", metadata: { source: "web" } });
+    // De onde essa pessoa veio, capturado na PRIMEIRA visita (cookie gm_ft).
+    // `source: "web"` continua descrevendo o MECANISMO do cadastro; `origin`
+    // descreve o CANAL — são coisas diferentes e o relatório precisa das duas.
+    // Ausente quando a pessoa entrou direto, sem utm e sem referrer externo:
+    // nesse caso não há canal a atribuir e inventar um seria pior que o vazio.
+    const firstTouch = parseFirstTouch((await cookies()).get(FIRST_TOUCH_COOKIE)?.value);
+
+    await trackFunnelEvent({
+      tenantId,
+      userId: authUserId,
+      event: "signup",
+      metadata: { source: "web", ...(firstTouch ? { origin: firstTouch } : {}) },
+    });
 
     const { subject, html } = welcomeEmail(name, getAppUrl());
     await sendEmail({ to: email, subject, html, tenantId, kind: "welcome" });

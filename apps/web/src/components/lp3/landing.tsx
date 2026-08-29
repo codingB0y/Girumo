@@ -4,6 +4,7 @@ import { Logo } from "@/components/brand/logo";
 import { WhatsAppIcon } from "@/components/landing/icons";
 import { Lp2Nav } from "@/components/lp3/nav";
 import { Lp2Fx } from "@/components/lp3/fx";
+import { FirstTouchCookie } from "@/components/analytics/first-touch-cookie";
 import { MobileCta } from "@/components/lp3/mobile-cta";
 import { ProofMarquee } from "@/components/lp3/proof-marquee";
 import {
@@ -165,6 +166,7 @@ export function Lp3Landing() {
         <MobileCta demoUrl={DEMO_URL} whatsappUrl={WHATSAPP_URL} />
 
         <Lp2Fx />
+        <FirstTouchCookie />
       </main>
     </div>
   );
