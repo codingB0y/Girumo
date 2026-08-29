@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { AuthShell } from "@/components/auth-shell";
 import { LegalConsentCheckbox } from "@/components/legal/legal-consent";
 import { SignupProgress } from "@/components/signup-progress";
+import { FirstTouchCookie } from "@/components/analytics/first-touch-cookie";
 import { persistSupabaseSession, startGoogleOAuth } from "@/lib/supabase/client";
 import { LEGAL_VERSION } from "@/lib/legal";
 
@@ -174,6 +175,7 @@ export default function SignupPage() {
           Seus dados ficam protegidos e só você tem acesso. Cancele quando quiser.
         </p>
       </form>
+      <FirstTouchCookie />
     </AuthShell>
   );
 }
