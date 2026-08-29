@@ -38,7 +38,14 @@ export const BRAND_COLORS = {
 } as const;
 
 export function getPublicSiteUrl(): string {
-  return (process.env.NEXT_PUBLIC_SITE_URL || "https://girumo.com.br").replace(/\/$/, "");
+  // O host canônico é o www: girumo.com.br responde 308 pro www em produção.
+  // Declarar o apex fazia toda URL do sitemap ser um redirect e o canonical da
+  // home apontar pra uma URL que não é a servida.
+  // O trim vem ANTES do corte da barra final e não é decorativo: a env de
+  // produção esteve com um TAB no início, e o sitemap saiu com
+  // "<loc>\thttps://..." — whitespace inicial num <loc> é URL inválida pelo
+  // spec, o que põe o sitemap inteiro em risco de rejeição.
+  return (process.env.NEXT_PUBLIC_SITE_URL || "https://www.girumo.com.br").trim().replace(/\/$/, "");
 }
 
 export function getBrandAssetUrl(pathname: string, siteUrl = getPublicSiteUrl()): string {

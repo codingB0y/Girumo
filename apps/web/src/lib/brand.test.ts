@@ -25,13 +25,31 @@ test("defaults to the Girumo public host and honours the env override", () => {
   const previous = process.env.NEXT_PUBLIC_SITE_URL;
   try {
     delete process.env.NEXT_PUBLIC_SITE_URL;
-    assert.equal(getPublicSiteUrl(), "https://girumo.com.br");
+    assert.equal(getPublicSiteUrl(), "https://www.girumo.com.br");
     process.env.NEXT_PUBLIC_SITE_URL = "https://example.test/";
     assert.equal(getPublicSiteUrl(), "https://example.test");
     assert.equal(
       getBrandAssetUrl(BRAND.symbolPaperAsset),
       "https://example.test/brand/girumo/svg/girumo-symbol-paper.svg",
     );
+  } finally {
+    if (previous === undefined) delete process.env.NEXT_PUBLIC_SITE_URL;
+    else process.env.NEXT_PUBLIC_SITE_URL = previous;
+  }
+});
+
+test("strips stray whitespace around the env host", () => {
+  // Em 28/ago/2026 a NEXT_PUBLIC_SITE_URL de produção estava com um TAB no
+  // início — colada errada no painel da Vercel. O sitemap saiu com
+  // "<loc>\thttps://..." e a diretiva Sitemap: do robots.txt idem. <loc> com
+  // whitespace inicial é URL inválida pelo spec de sitemap, então o arquivo
+  // inteiro corre risco de ser rejeitado pelo parser do buscador.
+  // O trim tem que vir ANTES do corte da barra final, senão " .../ " sobra com a barra.
+  const previous = process.env.NEXT_PUBLIC_SITE_URL;
+
+  try {
+    process.env.NEXT_PUBLIC_SITE_URL = "\thttps://www.girumo.com.br/ ";
+    assert.equal(getPublicSiteUrl(), "https://www.girumo.com.br");
   } finally {
     if (previous === undefined) delete process.env.NEXT_PUBLIC_SITE_URL;
     else process.env.NEXT_PUBLIC_SITE_URL = previous;

@@ -53,12 +53,14 @@ test("falls back to the Girumo discovery host", () => {
   // migração de produção (NEXT_PUBLIC_SITE_URL setada + redeploy). Este fallback
   // só é exercitado em ambiente mal configurado, e nesse caso tem que apontar
   // pro domínio vivo — buscador não deve descobrir o host antigo.
+  // O host vivo é o www: o apex responde 308 pro www, então declarar o apex
+  // aqui faria toda URL do sitemap nascer como redirect.
   const previous = process.env.NEXT_PUBLIC_SITE_URL;
 
   try {
     delete process.env.NEXT_PUBLIC_SITE_URL;
-    assert.equal(robots().host, "https://girumo.com.br");
-    assert.equal(sitemap()[0].url, "https://girumo.com.br");
+    assert.equal(robots().host, "https://www.girumo.com.br");
+    assert.equal(sitemap()[0].url, "https://www.girumo.com.br");
   } finally {
     if (previous === undefined) delete process.env.NEXT_PUBLIC_SITE_URL;
     else process.env.NEXT_PUBLIC_SITE_URL = previous;
@@ -104,7 +106,7 @@ test("points both production env examples at the Girumo hosts", () => {
     const whatsappUrl = source.match(/^NEXT_PUBLIC_SALES_WHATSAPP_URL=(.+)$/m)?.[1] ?? "";
 
     assert.doesNotMatch(decodeURIComponent(whatsappUrl), /HubFlow/i, relativePath);
-    assert.match(source, /^NEXT_PUBLIC_SITE_URL=https:\/\/girumo\.com\.br$/m, relativePath);
+    assert.match(source, /^NEXT_PUBLIC_SITE_URL=https:\/\/www\.girumo\.com\.br$/m, relativePath);
     assert.match(source, /^NEXT_PUBLIC_APP_URL=https:\/\/app\.girumo\.com\.br$/m, relativePath);
     assert.doesNotMatch(source, /^NEXT_PUBLIC_(SITE|APP)_URL=.*hubflow/m, relativePath);
   }
