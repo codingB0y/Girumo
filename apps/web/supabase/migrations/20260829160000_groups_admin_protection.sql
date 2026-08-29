@@ -65,3 +65,16 @@ as $$
      and whatsapp_group_id = target_group_id
      and admins_counted_at is not null;
 $$;
+
+-- Só service-role. A função é `security definer` E recebe o tenant como
+-- PARÂMETRO: exposta a `authenticated`, qualquer usuário logado poderia somar
+-- deltas em grupos de outro tenant — inclusive inflar `admins_total` de um
+-- grupo alheio para que o dono nunca fosse avisado de que está sem backup.
+--
+-- O event trigger `ensure_anon_revoked` cobre `anon` e `public` em objeto novo,
+-- mas não `authenticated`. Sem estas duas linhas o advisor de segurança do
+-- Supabase acusa (0029) — foi assim que este buraco apareceu.
+revoke all on function public.apply_group_admin_delta(uuid, text, integer, integer)
+  from public, anon, authenticated;
+grant execute on function public.apply_group_admin_delta(uuid, text, integer, integer)
+  to service_role;
