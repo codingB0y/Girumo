@@ -18,7 +18,7 @@ import {
   MobileTimeline,
 } from "@/components/lp3/landing-mobile";
 import { Plans } from "@/components/lp3/plans";
-import { LP3_FAQ, SIGNUP_URL, WHATSAPP_URL } from "@/components/lp3/landing-data";
+import { DEMO_URL, LP3_FAQ, WHATSAPP_URL } from "@/components/lp3/landing-data";
 import "@/app/lp3/lp3.css";
 
 export { LP3_FAQ };
@@ -52,7 +52,7 @@ export function Lp3Landing() {
     <div className={`lp4 ${archivo.variable} ${martian.variable} min-h-screen`}>
       <main className="w-full max-w-full overflow-x-clip">
         <div className="lp4-grain" aria-hidden />
-        <Lp2Nav signupUrl={SIGNUP_URL} />
+        <Lp2Nav demoUrl={DEMO_URL} />
 
         {/* ==================== 1 · HERO ==================== */}
         <div className="md:hidden">
@@ -154,7 +154,6 @@ export function Lp3Landing() {
             </div>
             <nav className="flex flex-wrap items-center justify-center gap-6 text-sm text-[var(--body)]" aria-label="Links do rodapé">
               <a className="transition-colors hover:text-[var(--display)]" href="/login">Entrar</a>
-              <a className="transition-colors hover:text-[var(--display)]" href={SIGNUP_URL}>Criar conta</a>
               <a className="transition-colors hover:text-[var(--display)]" href="/termos">Termos</a>
               <a className="transition-colors hover:text-[var(--display)]" href="/privacidade">Privacidade</a>
             </nav>
@@ -163,7 +162,7 @@ export function Lp3Landing() {
         </footer>
 
         {/* CTA fixo mobile — só aparece após o CTA do hero sair da tela */}
-        <MobileCta signupUrl={SIGNUP_URL} whatsappUrl={WHATSAPP_URL} />
+        <MobileCta demoUrl={DEMO_URL} whatsappUrl={WHATSAPP_URL} />
 
         <Lp2Fx />
       </main>

@@ -1,5 +1,6 @@
 export type AccessKind =
   | "public"
+  | "public-rate-limited"
   | "auth-rate-limited"
   | "cron"
   | "engine-only"
@@ -84,6 +85,14 @@ export function classifyRequest(pathname: string, method: string): AccessKind {
   ) {
     return "shared";
   }
+
+  // Captura do modo demonstração: entra sem sessão por natureza — quem preenche
+  // o formulário ainda NÃO tem conta, que é o ponto do paid-first. O payload é
+  // validado no próprio handler; o middleware só limita por IP.
+  //
+  // Path EXATO, igual ao bloco dos crons: prefixo `/api/demo/` abriria qualquer
+  // rota futura da família sem gate nenhum.
+  if (key === "POST /api/demo/request") return "public-rate-limited";
 
   return pathname.startsWith("/api/") ? "user" : "public";
 }

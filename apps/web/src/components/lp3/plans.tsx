@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { ArrowRight, Check } from "lucide-react";
 import {
+  DEMO_URL,
   PLANOS_ANCORA,
   PLANS,
-  SIGNUP_URL,
   type Plan,
 } from "@/components/lp3/landing-data";
 
@@ -208,10 +208,10 @@ function DesktopPlans({ cycle, onCycle }: PlansViewProps) {
                   ))}
                 </ul>
                 <a
-                  href={SIGNUP_URL}
+                  href={DEMO_URL}
                   className={`lp4-btn mt-8 justify-center text-sm ${p.featured ? "lp4-btn-green" : "lp4-btn-ghost"}`}
                 >
-                  Começar com {p.name}
+                  Ver demonstração
                 </a>
               </article>
             );
@@ -286,10 +286,10 @@ function MobilePlans({ cycle, onCycle }: PlansViewProps) {
           ))}
         </ul>
         <a
-          href={SIGNUP_URL}
+          href={DEMO_URL}
           className="lp4-btn lp4-btn-green mt-[18px] w-full justify-center py-[15px] text-sm"
         >
-          Começar com {GROWTH.name} <ArrowRight className="h-[15px] w-[15px]" aria-hidden />
+          Ver demonstração <ArrowRight className="h-[15px] w-[15px]" aria-hidden />
         </a>
       </article>
 
@@ -297,7 +297,7 @@ function MobilePlans({ cycle, onCycle }: PlansViewProps) {
         {OUTROS_PLANOS.map((p) => (
           <a
             key={p.name}
-            href={SIGNUP_URL}
+            href={DEMO_URL}
             data-lp4-r
             className="flex items-center justify-between gap-3 rounded-[14px] border border-[var(--line)] px-4 py-3.5 transition-colors hover:border-[rgba(167,255,47,0.32)]"
           >

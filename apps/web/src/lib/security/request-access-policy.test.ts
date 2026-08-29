@@ -66,6 +66,17 @@ test("the webhook prefix is not open — only the exact provider path is", () =>
   assert.equal(classifyRequest("/api/webhooks/evolution/replay", "POST"), "user");
 });
 
+test("captura do demo entra sem sessão e limitada por IP", () => {
+  assert.equal(classifyRequest("/api/demo/request", "POST"), "public-rate-limited");
+});
+
+test("outros métodos na captura do demo ficam no gate de sessão", () => {
+  // Path exato + método exato. GET aqui não tem uso legítimo, e deixar o
+  // prefixo largo é como DELETE /api/auth/account nasceu fail-open.
+  assert.equal(classifyRequest("/api/demo/request", "GET"), "user");
+  assert.equal(classifyRequest("/api/demo/outra", "POST"), "user");
+});
+
 test("an invalid engine token never falls through to user auth", () => {
   assert.equal(decideEngineAccess("shared", "wrong", "expected"), "reject-401");
 });
