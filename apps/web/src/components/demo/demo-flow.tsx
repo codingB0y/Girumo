@@ -15,8 +15,18 @@ import { OrderStep } from "./steps/order-step";
  */
 export function DemoFlow() {
   const [index, setIndex] = useState(0);
+  // Revela o CTA antes do último passo, sem avançar o índice — é o que dá a
+  // `stepReached` um valor diferente de 3 em `demo_requests`. Reseta a cada
+  // avanço de passo pra não carregar formulário meio preenchido pro próximo.
+  const [earlyReveal, setEarlyReveal] = useState(false);
   const step = stepAt(index);
   const last = isLastStep(index);
+  const showCta = last || earlyReveal;
+
+  function handleAdvance() {
+    setEarlyReveal(false);
+    setIndex(nextStep(index));
+  }
 
   return (
     <section className="pn-root mx-auto w-full max-w-3xl px-4 py-10">
@@ -40,14 +50,25 @@ export function DemoFlow() {
         <button
           type="button"
           data-testid="demo-advance"
-          onClick={() => setIndex(nextStep(index))}
+          onClick={handleAdvance}
           className="mt-6 rounded-xl bg-acid-500 px-5 py-3 font-medium text-volt-950"
         >
           {step.action}
         </button>
       ) : null}
 
-      {last ? <DemoCta stepReached={index} /> : null}
+      {!last && !earlyReveal ? (
+        <button
+          type="button"
+          data-testid="demo-cta-early"
+          onClick={() => setEarlyReveal(true)}
+          className="mt-4 block text-sm font-medium text-volt-950/60 underline underline-offset-2 hover:text-volt-950"
+        >
+          Prefiro falar agora
+        </button>
+      ) : null}
+
+      {showCta ? <DemoCta stepReached={index} /> : null}
     </section>
   );
 }

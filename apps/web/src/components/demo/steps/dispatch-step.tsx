@@ -35,7 +35,7 @@ export function DispatchStep() {
   return (
     <div data-testid="demo-dispatch-step" className="space-y-4">
       <p className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/55">
-        aguardando 40s entre grupos — só no grupo, nunca no privado
+        aguardando 3–7s entre grupos — só no grupo, nunca no privado
       </p>
 
       <ul className="divide-y divide-dashed divide-volt-950/[0.09] rounded-2xl border border-volt-950/10 bg-papel">
