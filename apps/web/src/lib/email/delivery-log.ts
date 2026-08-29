@@ -16,6 +16,7 @@ export type EmailKind =
   | "weekly"
   | "broadcast_failed"
   | "inactivity_risk"
+  | "group_admin_risk"
   | "alert_optout";
 
 export type EmailDelivery = {

@@ -141,8 +141,22 @@ type RecordEventInput = {
   eventId: string;
 };
 
-export async function recordEngineEvent(input: RecordEventInput): Promise<void> {
-  const { error } = await getSupabaseAdmin().rpc("record_engine_event", {
+export type RecordedEvent = {
+  /**
+   * `false` quando este `event_id` já tinha sido gravado — ou seja, a Evolution
+   * reentregou o mesmo evento.
+   *
+   * Quem só grava a trilha pode ignorar (o UNIQUE já faz a reentrega ser
+   * inofensiva). Quem aplica EFEITO RELATIVO a partir do evento não pode: somar
+   * o mesmo delta duas vezes corrompe a contagem em silêncio, e nada depois
+   * denuncia o erro. É o caso do delta de administradores em
+   * `group-participants.update`.
+   */
+  isNew: boolean;
+};
+
+export async function recordEngineEvent(input: RecordEventInput): Promise<RecordedEvent> {
+  const { data, error } = await getSupabaseAdmin().rpc("record_engine_event", {
     target_tenant_id: input.tenantId,
     target_instance_id: input.instanceId,
     target_type: input.type,
@@ -150,4 +164,10 @@ export async function recordEngineEvent(input: RecordEventInput): Promise<void> 
     target_event_id: input.eventId,
   });
   if (error) throw new Error(error.message);
+
+  // `now()` é constante dentro de uma transação: na inserção os dois carimbos
+  // são idênticos, e o `on conflict do update set updated_at = now()` da RPC só
+  // os separa numa reentrega, que roda em outra transação.
+  const row = data as { created_at?: string; updated_at?: string } | null;
+  return { isNew: Boolean(row) && row?.created_at === row?.updated_at };
 }

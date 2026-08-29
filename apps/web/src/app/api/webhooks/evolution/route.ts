@@ -7,9 +7,12 @@ import {
   stripCredentials,
   type EvolutionWebhookEvent,
 } from "@/lib/evolution/webhook-schema";
+import { adminCountDelta } from "@/lib/groups/admin-protection";
 import { resolveSecret } from "@/lib/runtime-secrets";
+import { applyAdminCountDelta } from "@/lib/stores/groups";
 import {
   findByProviderInstanceId,
+  listInstances,
   recordEngineEvent,
   updateInstanceStatus,
   type Instance,
@@ -74,6 +77,41 @@ async function applyConnectionUpdate(
   });
 }
 
+/**
+ * Mantém viva a contagem de administradores do grupo (proteção do ativo, R1).
+ *
+ * Sem isto, saber se um grupo depende de um único admin exigiria refazer o
+ * `fetchAllGroups` — que busca a foto de perfil de CADA grupo em série e leva
+ * dezenas de segundos. O webhook entrega a mudança de graça, no instante em que
+ * ela acontece.
+ *
+ * Erro aqui não derruba a resposta de propósito: devolver 500 faria a Evolution
+ * reentregar, e na reentrega `isNew` seria falso — o delta não seria aplicado
+ * de qualquer jeito. Fica o log, e o próximo sync recalibra a contagem.
+ */
+async function applyAdminDelta(instance: Instance, event: EvolutionWebhookEvent): Promise<void> {
+  if (event.event !== "group-participants.update") return;
+
+  // Primeiro sem dono: a decisão de ignorar o evento depende só da ação e do
+  // papel do participante. `add` é o evento mais frequente do produto (gente
+  // entrando no grupo VIP) e nunca muda contagem de admin — sair aqui evita
+  // uma leitura de instâncias por entrada de cliente.
+  if (adminCountDelta(event.data.action, event.data.participants, []).total === 0) return;
+
+  try {
+    // Só agora vale pagar a leitura: "nosso" é qualquer número do tenant, não
+    // apenas o que recebeu o webhook.
+    const ourPhones = (await listInstances(instance.tenant_id)).map((i) => i.phone);
+    const delta = adminCountDelta(event.data.action, event.data.participants, ourPhones);
+    await applyAdminCountDelta(instance.tenant_id, event.data.id, delta);
+  } catch (e) {
+    console.error(
+      `[webhook/evolution] delta de admins falhou para o grupo ${event.data.id}:`,
+      e,
+    );
+  }
+}
+
 export async function POST(req: Request) {
   const expectedSecret = resolveSecret(
     "EVOLUTION_WEBHOOK_SECRET",
@@ -125,13 +163,19 @@ export async function POST(req: Request) {
   // Persiste o payload CRU menos a credencial, não o objeto do zod: o schema
   // descarta chaves de topo desconhecidas, e é exatamente essa diferença que
   // documentaria uma mudança de contrato entre versões da Evolution.
-  await recordEngineEvent({
+  const recorded = await recordEngineEvent({
     tenantId: instance.tenant_id,
     instanceId: instance.id,
     type: event.event,
     payload: stripCredentials(raw as Record<string, unknown>),
     eventId: evolutionEventId(event),
   });
+
+  // Só DEPOIS de gravar, e só na primeira entrega: o delta é relativo, então
+  // uma reentrega o somaria de novo.
+  if (recorded.isNew) {
+    await applyAdminDelta(instance, event);
+  }
 
   return Response.json({ received: true });
 }

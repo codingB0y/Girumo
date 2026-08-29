@@ -1,6 +1,7 @@
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import { isAdminGroup } from "@/lib/evolution/admin-group";
 import { fetchAllGroups, providerInstanceId } from "@/lib/evolution/client";
+import { tallyAdmins } from "@/lib/groups/admin-protection";
 import { syncGroupsFromProvider } from "@/lib/stores/groups";
 import { getInstance, listInstances } from "@/lib/stores/instances";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
@@ -49,18 +50,33 @@ export async function POST(req: Request) {
     const remoteName = instance.provider_instance_id || providerInstanceId(instance.id);
     const remoteGroups = await fetchAllGroups(remoteName);
 
+    // Proteção do ativo (R1): "nosso" é qualquer número do tenant, não só o que
+    // está sincronizando. Quando houver uma segunda instância, é ela que faz o
+    // grupo deixar de depender de um único admin — e o sync precisa enxergá-la.
+    const ourPhones = (await listInstances(ctx.tenantId)).map((i) => i.phone);
+    const countedAt = new Date().toISOString();
+
     const rows = remoteGroups
       .filter((g) => typeof g.id === "string" && g.id.length > 0)
-      .map((g) => ({
-        whatsapp_group_id: g.id,
-        name: (g.subject ?? "").trim().slice(0, 200) || "Grupo sem nome",
-        members: typeof g.size === "number" && g.size >= 0 ? g.size : 0,
-        // Só grupos admin alimentam captura de leads (ver admin-group.ts).
-        is_admin: isAdminGroup(g, instance.phone),
-      }));
+      .map((g) => {
+        const tally = tallyAdmins(g.participants, ourPhones);
+        return {
+          whatsapp_group_id: g.id,
+          name: (g.subject ?? "").trim().slice(0, 200) || "Grupo sem nome",
+          members: typeof g.size === "number" && g.size >= 0 ? g.size : 0,
+          // Só grupos admin alimentam captura de leads (ver admin-group.ts).
+          is_admin: isAdminGroup(g, instance.phone),
+          // Esta é a única leitura que vê a lista inteira de participantes; o
+          // webhook só mantém o número vivo daqui em diante.
+          admins_total: tally.total,
+          admins_ours: tally.ours,
+          admins_counted_at: countedAt,
+        };
+      });
 
     const synced = await syncGroupsFromProvider(ctx.tenantId, rows);
     const adminCount = rows.filter((r) => r.is_admin).length;
+    const semBackup = rows.filter((r) => r.is_admin && r.admins_total <= 1).length;
 
     // Marco de ativação. Era a única etapa do funil do admin que nunca populava
     // — o evento existia no tipo desde sempre e não tinha quem o emitisse.
@@ -87,10 +103,16 @@ export async function POST(req: Request) {
         rows.length > 0 && adminCount === 0
           ? `${synced} grupos sincronizados, mas NENHUM admin detectado — captura de leads ficará vazia.`
           : `${synced} grupos sincronizados (${adminCount} admin).`,
-      metadata: { instance_id: instance.id, count: synced, admin_count: adminCount },
+      metadata: {
+        instance_id: instance.id,
+        count: synced,
+        admin_count: adminCount,
+        // Quantos grupos ficariam órfãos se este número caísse.
+        sem_backup: semBackup,
+      },
     });
 
-    return Response.json({ synced, admin: adminCount });
+    return Response.json({ synced, admin: adminCount, semBackup });
   } catch (error) {
     if (error instanceof Response) return error;
     return Response.json({ error: "Erro ao sincronizar grupos." }, { status: 502 });
