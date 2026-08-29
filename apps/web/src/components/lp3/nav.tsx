@@ -15,7 +15,7 @@ const LINKS = [
 /** Pílula flutuante — transparente no topo, vidro carvão ao rolar.
  *  No mobile some ao rolar pra baixo (a barra fixa de CTA assume) e
  *  volta ao rolar pra cima. */
-export function Lp2Nav({ signupUrl }: { signupUrl: string }) {
+export function Lp2Nav({ demoUrl }: { demoUrl: string }) {
   const [scrolled, setScrolled] = useState(false);
   const [hidden, setHidden] = useState(false);
   const lastY = useRef(0);
@@ -71,8 +71,8 @@ export function Lp2Nav({ signupUrl }: { signupUrl: string }) {
           {/* CTA da nav só no desktop — no mobile a barra fixa embaixo assume.
               Wrapper controla a visibilidade (o display do .lp4-btn venceria o .hidden). */}
           <div className="hidden md:block">
-            <a href={signupUrl} className="lp4-btn lp4-btn-green px-5 py-2.5 text-sm">
-              Começar <ArrowRight className="h-4 w-4" aria-hidden />
+            <a href={demoUrl} className="lp4-btn lp4-btn-green px-5 py-2.5 text-sm">
+              Ver demonstração <ArrowRight className="h-4 w-4" aria-hidden />
             </a>
           </div>
         </div>
