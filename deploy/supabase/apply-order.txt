@@ -229,3 +229,11 @@ apps/web/supabase/migrations/20260826170000_legal_acceptances.sql
 # 2 e quem chega ao pedido sao leads diferentes, e e o campo que liga o demo a
 # coorte do PR 2.
 apps/web/supabase/migrations/20260828160000_demo_requests.sql
+
+# 29/08/2026 - Saude do numero (R2 da analise competitiva de 28/08). O estado
+# anti-ban (instance_send_state, instance_sends, app.instance_daily_cap) nunca
+# teve wrapper em `public`, entao o app nao conseguia ler nem o teto do dia: o
+# melhor anti-ban da categoria era invisivel para quem paga por ele. A RPC e so
+# leitura e chama o MESMO app.instance_daily_cap do claim, para nao criar uma
+# segunda verdade sobre o teto que divirja em silencio.
+apps/web/supabase/migrations/20260829130000_instance_health.sql

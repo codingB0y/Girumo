@@ -9,12 +9,14 @@ import {
   activationD14Email,
   activationD21Email,
   broadcastFailedEmail,
+  inactivityRiskEmail,
   type WeeklyReportStats,
 } from "@/lib/email/templates";
 import { activationMarkerForAge, activationNotificationType, type ActivationMarker } from "@/lib/email/activation-cadence";
 import { canSendAlert } from "@/lib/email/alert-optout";
 import { broadcastFailedTitle } from "@/lib/email/broadcast-failed-copy";
 import { isCronAuthorized } from "@/lib/cron-auth";
+import { getInstanceHealth } from "@/lib/stores/instance-health";
 import { selectSessionRow, isConnectedStatus } from "@/lib/session-select";
 import { getAppUrl } from "@/lib/environment";
 
@@ -34,6 +36,7 @@ const SP_TZ = "America/Sao_Paulo";
  * 3. Disconnect alert: WhatsApp desconectado há mais de 2h → envia email
  * 4. Relatório semanal: só às segundas (America/Sao_Paulo) → envia resumo da semana anterior
  * 5. Disparo falho: broadcast que virou `failed` nas últimas 24h → envia email
+ * 6. Risco dos 14 dias: sessão conectada mas em silêncio → avisa antes do corte
  *
  * O e-mail de trial foi aposentado (a oferta atual não tem trial) — a cadência de
  * ativação tomou o lugar. `trialEndingEmail` segue versionado, mas não é disparado.
@@ -196,7 +199,7 @@ export async function GET(req: Request) {
 
   const supabase = getSupabaseAdmin();
   const appUrl = getAppUrl();
-  const results = { nudge_sent: 0, disconnect_sent: 0, activation_sent: 0, weekly_sent: 0, broadcast_sent: 0, errors: 0 };
+  const results = { nudge_sent: 0, disconnect_sent: 0, activation_sent: 0, weekly_sent: 0, broadcast_sent: 0, inactivity_sent: 0, errors: 0 };
 
   // --- Job 1: 24h sem conectar ---
   // Tenants criados há 24-48h sem nenhum heartbeat de session
@@ -592,6 +595,105 @@ export async function GET(req: Request) {
       if (notifError) {
         console.error(
           `[cron] broadcast_failed: e-mail enviado para ${tenantId} mas notification não registrada:`,
+          notifError.message,
+        );
+      }
+    } else {
+      results.errors++;
+    }
+  }
+
+  // --- Job 6: risco de desconexão pela regra dos 14 dias ---
+  //
+  // O Job 3 avisa DEPOIS que caiu. Este avisa ANTES: o WhatsApp derruba todos
+  // os aparelhos conectados quando o celular principal passa 14 dias sem abrir
+  // o app, e nada nesse corte gera erro — a operação só para. Nenhum
+  // concorrente avisa disso.
+  //
+  // A regra do que é "silêncio" mora em lib/instance-health.ts e é a MESMA que
+  // a tela usa. Duas cópias divergiriam, e aí o e-mail diria uma coisa e a tela
+  // outra sobre o mesmo número.
+  const inactivityDedupeISO = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data: riskOrgs } = await supabase.from("organizations").select("id, name");
+
+  for (const org of riskOrgs ?? []) {
+    let emRisco;
+    try {
+      const numbers = await getInstanceHealth(org.id);
+      emRisco = numbers.find((n) => n.silence?.shouldWarn);
+    } catch (e) {
+      console.error(`[cron] inactivity_risk: falha lendo saúde de ${org.id}:`, e);
+      results.errors++;
+      continue;
+    }
+    if (!emRisco?.silence) continue;
+
+    // Mesmo opt-out do alerta de desconexão: quem desligou o aviso de queda não
+    // quer o aviso de que a queda está chegando. Fail-closed em erro de leitura.
+    const { data: prefs, error: prefsError } = await supabase
+      .from("tenant_settings")
+      .select("disconnect_alert_enabled")
+      .eq("tenant_id", org.id)
+      .maybeSingle();
+
+    if (prefsError) {
+      console.error(`[cron] inactivity_risk: falha lendo tenant_settings de ${org.id}:`, prefsError.message);
+      results.errors++;
+    }
+    if (!canSendAlert({ value: prefs?.disconnect_alert_enabled, error: prefsError })) continue;
+
+    // Dedupe de 3 dias: a janela de aviso tem ~4 dias, então o lojista recebe
+    // no máximo dois. Um alerta diário sobre o mesmo fato vira ruído e ensina a
+    // ignorar justamente o e-mail que precisa ser lido.
+    const { data: avisado } = await supabase
+      .from("notifications")
+      .select("id")
+      .eq("tenant_id", org.id)
+      .eq("type", "inactivity_risk")
+      .gte("created_at", inactivityDedupeISO)
+      .maybeSingle();
+    if (avisado) continue;
+
+    const { data: owner } = await supabase
+      .from("memberships")
+      .select("user_id")
+      .eq("tenant_id", org.id)
+      .eq("role", "owner")
+      .maybeSingle();
+    if (!owner) continue;
+
+    const { data: userData } = await supabase.auth.admin.getUserById(owner.user_id);
+    const email = userData.user?.email;
+    const name = userData.user?.user_metadata?.name || "lojista";
+    if (!email) continue;
+
+    const diasRestantes = emRisco.silence.daysLeft;
+    const tpl = inactivityRiskEmail(name, appUrl, diasRestantes);
+    const sent = await sendEmail({
+      to: email,
+      subject: tpl.subject,
+      html: tpl.html,
+      tenantId: org.id,
+      kind: "inactivity_risk",
+    });
+
+    if (sent) {
+      results.inactivity_sent++;
+      const { error: notifError } = await supabase.from("notifications").insert({
+        tenant_id: org.id,
+        user_id: owner.user_id,
+        type: "inactivity_risk",
+        title:
+          diasRestantes > 0
+            ? `Abra o WhatsApp no celular — faltam ~${diasRestantes} dias`
+            : "Abra o WhatsApp no celular — risco de desconexão agora",
+        body: "Sem atividade no seu número há dias. O WhatsApp desconecta todos os aparelhos aos 14 dias — abrir o app no celular zera a contagem.",
+        href: "/painel/conectar",
+      });
+      if (notifError) {
+        console.error(
+          `[cron] inactivity_risk: e-mail enviado para ${org.id} mas notification não registrada:`,
           notifError.message,
         );
       }
