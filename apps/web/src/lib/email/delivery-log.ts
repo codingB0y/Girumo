@@ -15,6 +15,7 @@ export type EmailKind =
   | "disconnect"
   | "weekly"
   | "broadcast_failed"
+  | "inactivity_risk"
   | "alert_optout";
 
 export type EmailDelivery = {

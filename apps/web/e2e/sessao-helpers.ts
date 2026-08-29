@@ -85,6 +85,10 @@ const TOLERADAS = [
   // entao o POST devolve 502 — ambiente, nao regressao. Se um dia o ambiente de
   // teste ganhar uma Evolution (ou um mock), apague esta entrada.
   { metodo: "POST", rota: "/api/instances", status: 502 },
+  // Mesma causa, outro gatilho: com a instancia CONECTADA, /painel/conectar
+  // importa os grupos ao montar. Sem Evolution no ambiente, 502. So aparece em
+  // ambiente que tenha numero conectado — em dev vazio esta linha nunca e usada.
+  { metodo: "POST", rota: "/api/groups/sync", status: 502 },
 ];
 
 export function coletarFalhasDeApi(page: Page): string[] {

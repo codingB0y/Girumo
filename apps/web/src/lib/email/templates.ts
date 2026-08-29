@@ -129,6 +129,50 @@ export function disconnectAlertEmail(name: string, appUrl: string): { subject: s
 }
 
 /**
+ * Risco de desconexão por inatividade do celular (a regra dos 14 dias).
+ *
+ * O Girumo entra como aparelho conectado; o WhatsApp derruba TODOS os aparelhos
+ * quando o celular principal passa 14 dias sem abrir o app. Não gera erro nem
+ * aviso — a operação simplesmente para. Este e-mail existe para o lojista agir
+ * ANTES do corte, e é o único da categoria que avisa disso.
+ *
+ * Diz "não vemos atividade", nunca "seu celular está desligado": o que medimos
+ * é o silêncio da sessão, não o estado do aparelho. Afirmar mais do que se sabe
+ * é o começo do alerta que o lojista aprende a ignorar.
+ */
+export function inactivityRiskEmail(
+  name: string,
+  appUrl: string,
+  daysLeft: number,
+): { subject: string; html: string } {
+  const firstName = name.split(" ")[0] || "lojista";
+  const prazo =
+    daysLeft > 0
+      ? `em cerca de ${daysLeft} dia${daysLeft > 1 ? "s" : ""}`
+      : "a qualquer momento";
+  return {
+    subject: `Abra o WhatsApp no celular — seu Girumo pode desconectar ${prazo}`,
+    html: layout(`
+      <h1 style="margin:0 0 12px;font-size:22px;color:${BRAND_COLORS.volt}">Uma regra do WhatsApp pode te derrubar</h1>
+      <p style="margin:0 0 8px;font-size:15px;color:${BRAND_COLORS.volt};line-height:1.6">
+        Oi ${firstName}! Faz dias que não vemos atividade no seu número. Se o celular estiver
+        desligado, sem internet ou com o WhatsApp desinstalado, o próprio WhatsApp desconecta
+        todos os aparelhos ligados à conta depois de 14 dias — e o Girumo para junto, sem
+        mensagem de erro nenhuma.
+      </p>
+      <p style="margin:0 0 8px;font-size:15px;color:${BRAND_COLORS.volt};line-height:1.6">
+        Pelo nosso cálculo isso acontece <strong>${prazo}</strong>.
+      </p>
+      <p style="margin:0 0 8px;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.6">
+        A correção é simples: <strong>abra o WhatsApp no celular hoje</strong>. Isso zera a
+        contagem e nada mais precisa ser feito.
+      </p>
+      ${button("Ver a saúde do meu número", `${appUrl}/painel/conectar`)}
+    `),
+  };
+}
+
+/**
  * Envio de campanha que falhou. Sem este e-mail ele morre em silêncio: o status
  * vira `failed` no banco e o lojista só descobre se abrir a tela por conta própria.
  *
