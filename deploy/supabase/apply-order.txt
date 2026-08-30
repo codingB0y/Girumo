@@ -251,6 +251,14 @@ apps/web/supabase/migrations/20260829140000_acquisition_events.sql
 # existe para o 0 default nao virar alarme falso nos grupos que ja existiam.
 apps/web/supabase/migrations/20260829160000_groups_admin_protection.sql
 
+# 30/08/2026 - Fila de acoes em massa sobre grupos existentes (foto, descricao,
+# abrir/fechar) + `groups.send_state`. O claim tem teto (`claim_bulk_jobs` p_limit)
+# porque metade do anti-ban e o tamanho do lote e a outra metade e o intervalo do
+# tick no worker. O revoke de `authenticated` na RPC nao e zelo: ela e security
+# definer e recebe tenant_id como PARAMETRO - sem ele, usuario logado claimaria a
+# fila de outro tenant (apontado pelo advisor).
+apps/web/supabase/migrations/20260830120000_group_bulk_jobs.sql
+
 # 30/08/2026 - Tira `authenticated` das duas RPCs publicas de LP. Mesma classe
 # do furo de claim_bulk_jobs: security definer que recebe `p_tenant_id` como
 # PARAMETRO, e neste projeto `authenticated` mantem os sete privilegios por
