@@ -263,3 +263,15 @@ assert.deepEqual(
 );
 
 assert.deepEqual(adminCountDelta("promote", null, [MEU]), { total: 0, ours: 0 });
+
+// Dois `promote` do MESMO participante em eventos SEPARADOS somam duas vezes: o
+// delta não conhece o estado anterior, e cada evento é novo para o receiver. O
+// WhatsApp não emite promote para quem já é admin, então isto não acontece em
+// operação real — mas fixa por que o sync precisa ser a fonte da verdade, e não
+// um detalhe de implementação. (A dedupe testada acima cobre só o payload único.)
+{
+  const mesmo = [{ id: "77@lid", phoneNumber: "5511955554444" }];
+  const a = adminCountDelta("promote", mesmo, [MEU]);
+  const b = adminCountDelta("promote", mesmo, [MEU]);
+  assert.equal(a.total + b.total, 2);
+}

@@ -211,6 +211,14 @@ const NO_CHANGE: AdminCountDelta = { total: 0, ours: 0 };
  * - `add`: entra como membro comum. Ninguém vira admin ao entrar.
  *
  * Participantes repetidos no mesmo payload são contados uma vez só.
+ *
+ * LIMITE CONHECIDO — o delta não conhece o estado anterior do participante.
+ * Dois `promote` do MESMO número em eventos SEPARADOS somam +2, porque cada
+ * evento é novo (`event_id` distinto) e nada aqui sabe que ele já era admin. O
+ * WhatsApp não emite `promote` para quem já administra, então isso não aparece
+ * em operação real — mas é a razão de o sync ser a fonte da verdade e não um
+ * detalhe de implementação: ele reconta o conjunto inteiro e apaga qualquer
+ * deriva acumulada. A dedupe acima protege só o payload único.
  */
 export function adminCountDelta(
   action: string,
