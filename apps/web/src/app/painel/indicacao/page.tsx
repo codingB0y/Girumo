@@ -293,7 +293,7 @@ export default function PainelIndicacao() {
               onChange={(e) => setGroup(e.target.value)}
               required
               maxLength={120}
-              placeholder="VIP Atacado 01"
+              placeholder="Ofertas 01"
               className="mt-1.5 w-full rounded-xl border border-volt-950/[0.12] px-4 py-2.5 text-sm focus:border-cobalt-500 focus:outline-none"
             />
           </label>

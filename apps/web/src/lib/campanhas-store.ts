@@ -7,7 +7,7 @@ import { listLinks, slugify } from "@/lib/store";
 // só os grupos da campanha ativa, em vez de misturar todos os grupos admin.
 // Molde do grupo que a engine cria quando o pool lota (auto-grow).
 type GrowTemplate = {
-  subjectPattern: string; // ex.: "Atacado #{n}" — {n} vira o número do grupo
+  subjectPattern: string; // ex.: "Ofertas {n}" — {n} vira o número do grupo
   desc?: string;
   mediaId?: string;
   announce?: boolean; // grupo "só admin envia" (default true p/ grupo de oferta)

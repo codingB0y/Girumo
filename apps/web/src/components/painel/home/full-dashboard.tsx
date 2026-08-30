@@ -237,12 +237,12 @@ export function FullDashboard({
         {/* A Peça Escura — o norte do dia (Aurora VIP, uma por tela) */}
         <Link
           href="/painel/grupos"
-          aria-label={`Ver grupos — ${totalMembers.toLocaleString("pt-BR")} membros nos grupos VIP`}
+          aria-label={`Ver grupos — ${totalMembers.toLocaleString("pt-BR")} membros nos seus grupos`}
           className="pn-aurora group relative flex min-h-[176px] flex-col justify-between overflow-hidden rounded-2xl p-6 lg:col-span-5"
         >
           <div className="flex items-center justify-between">
             <span className="font-data text-[11px] uppercase tracking-[0.08em] text-canvas-100/50">
-              Membros nos grupos VIP
+              Membros nos seus grupos
             </span>
             <span className="pn-etiqueta bg-white/10 text-canvas-100/80">ao vivo</span>
           </div>
