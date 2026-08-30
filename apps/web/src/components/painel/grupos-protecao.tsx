@@ -119,10 +119,14 @@ function EmRisco({ resumo }: { resumo: ProtectionSummary }) {
         </p>
       )}
 
-      <h4 className="font-data mt-5 text-[11px] uppercase tracking-wider text-aco/60">
+      <h4 id="protecao-saidas" className="font-data mt-5 text-[11px] uppercase tracking-wider text-aco/60">
         Como resolver
       </h4>
-      <div className="mt-2 grid gap-3 sm:grid-cols-2">
+      {/* Lista ORDENADA de propósito: a ordem é a recomendação. A saída de
+          graça resolve o problema inteiro, então vem primeiro — inverter isso
+          transforma um aviso de risco em anúncio. Em `sm` os dois cartões ficam
+          lado a lado, e aí só o DOM carrega essa ordem. */}
+      <ol aria-labelledby="protecao-saidas" className="mt-2 grid list-none gap-3 sm:grid-cols-2">
         <Saida
           icone={<UserPlus className="h-4 w-4 text-cobalt-500" aria-hidden="true" />}
           titulo="Promova alguém de confiança"
@@ -136,7 +140,7 @@ function EmRisco({ resumo }: { resumo: ProtectionSummary }) {
           descricao="Um segundo chip seu ligado ao Girumo, que você também torna admin dos grupos. Vira o seu backup sem depender de outra pessoa."
           acao={{ href: "/painel/configuracoes", label: "Ver planos" }}
         />
-      </div>
+      </ol>
     </article>
   );
 }
@@ -197,7 +201,7 @@ function Saida({
   acao?: { href: string; label: string };
 }) {
   return (
-    <div className="pn-poco rounded-xl p-4">
+    <li className="pn-poco rounded-xl p-4">
       <div className="flex items-center gap-2">
         {icone}
         <span className="text-sm font-semibold text-volt-950">{titulo}</span>
@@ -214,6 +218,6 @@ function Saida({
           {acao.label}
         </Link>
       )}
-    </div>
+    </li>
   );
 }
