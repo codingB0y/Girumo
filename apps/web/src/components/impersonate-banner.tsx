@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Shield, ArrowLeft } from "lucide-react";
 import { PREVIEW_PATH } from "@/components/pages/editor/preview-protocol";
+import { isAuthPage } from "@/lib/public-pages";
 
 type ImpersonateData = {
   adminEmail: string;
@@ -18,6 +19,13 @@ export function ImpersonateBanner() {
   const [ending, setEnding] = useState(false);
 
   useEffect(() => {
+    // Nas telas sem sessão a resposta é 401 — sempre, por definição: impersonar
+    // é coisa de admin logado. Até 29/08 este fetch saía em TODA visita anônima
+    // à tela de login, gastando uma ida à rede numa conexão que já estava
+    // engasgada com 468 KB de JavaScript, e deixando um erro no console que não
+    // significava nada.
+    if (isAuthPage(pathname)) return;
+
     // Ler cookie dz_impersonate (httpOnly=true, então precisa ler via API)
     // Alternativa: ler do cookie acessível ao client
     // Como o cookie é httpOnly, vou criar um endpoint leve pra checar
@@ -27,7 +35,7 @@ export function ImpersonateBanner() {
         if (d?.impersonating) setData(d);
       })
       .catch(() => {});
-  }, []);
+  }, [pathname]);
 
   if (!data || pathname === PREVIEW_PATH) return null;
 
