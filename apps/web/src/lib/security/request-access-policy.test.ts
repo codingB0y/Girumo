@@ -100,3 +100,28 @@ test("a valid engine token is accepted and shared routes can continue as user", 
   assert.equal(decideEngineAccess("engine-only", "expected", "expected"), "allow-engine");
   assert.equal(decideEngineAccess("shared", null, "expected"), "continue-user");
 });
+
+test("ENGINE_TOKEN vazio recusa qualquer token — engine desabilitada e fail-closed", () => {
+  // Sem env configurada, nenhuma request da engine autentica. A comparacao em
+  // tempo constante (L5) reescreveu esta condicao, entao o comportamento fica
+  // travado aqui em vez de depender da forma da expressao.
+  //
+  // Honestidade sobre o alcance deste teste: apagar so a guarda
+  // `expectedToken === ""` NAO o quebra, porque `if (token)` ja garante token
+  // nao-vazio e a guarda de comprimento cobre o caso. O que ele trava e o
+  // comportamento (ENGINE_TOKEN vazio => 401), nao a forma da expressao.
+  assert.equal(decideEngineAccess("engine-only", "qualquer-coisa", ""), "reject-401");
+  assert.equal(decideEngineAccess("shared", "qualquer-coisa", ""), "reject-401");
+  // Sem token continua sendo o caminho de sempre: 403 na engine-only.
+  assert.equal(decideEngineAccess("engine-only", null, ""), "reject-403");
+});
+
+test("acertar so um prefixo do token nao passa", () => {
+  // O laco XOR roda sobre o comprimento inteiro; a guarda de tamanho vem antes
+  // pra nao indexar fora. Token mais curto, mais longo, ou certo so no comeco
+  // continua sendo 401 — inclusive quando so o ultimo byte diverge.
+  assert.equal(decideEngineAccess("engine-only", "expect", "expected"), "reject-401");
+  assert.equal(decideEngineAccess("engine-only", "expectedX", "expected"), "reject-401");
+  assert.equal(decideEngineAccess("engine-only", "Expected", "expected"), "reject-401");
+  assert.equal(decideEngineAccess("engine-only", "expecteD", "expected"), "reject-401");
+});
