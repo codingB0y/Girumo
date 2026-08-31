@@ -148,11 +148,18 @@ export async function carregarAllowlist(caminho = CAMINHO_ALLOWLIST): Promise<En
 
 export function diffLints(achados: Achado[], allowlist: EntradaAllowlist[]): Resultado {
   const tolerados = new Set(allowlist.map((entrada) => entrada.lint));
-  const vistos = new Set(achados.map((achado) => achado.lint.cacheKey));
+
+  // Uma entrada casa pelo `cacheKey` (um objeto especifico) OU pelo `name` (a
+  // classe inteira do lint). O segundo existe porque `rls_enabled_no_policy`
+  // vale para toda tabela service-role-only deste projeto — listar uma entrada
+  // por tabela seria cerimonia que cresce a cada tabela nova, e o gate viraria
+  // um formulario a preencher em vez de um sinal.
+  const casa = (lint: Lint): boolean => tolerados.has(lint.cacheKey) || tolerados.has(lint.name);
+  const vistos = new Set(achados.flatMap((a) => [a.lint.cacheKey, a.lint.name]));
 
   return {
-    bloqueantes: achados.filter((achado) => !tolerados.has(achado.lint.cacheKey)),
-    tolerados: achados.filter((achado) => tolerados.has(achado.lint.cacheKey)),
+    bloqueantes: achados.filter((achado) => !casa(achado.lint)),
+    tolerados: achados.filter((achado) => casa(achado.lint)),
     allowlistOciosa: [...tolerados].filter((chave) => !vistos.has(chave)),
   };
 }

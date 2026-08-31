@@ -129,3 +129,32 @@ test("lint sem identidade reprova alto, em vez de virar `undefined`", () => {
     /Lint sem identidade/,
   );
 });
+
+test("entrada pelo `name` tolera a classe inteira do lint", () => {
+  // `rls_enabled_no_policy` vale para toda tabela service-role-only do projeto.
+  // Sem isso seriam 10 entradas identicas em 31/08/2026, e uma nova a cada
+  // tabela criada — o gate viraria formulario em vez de sinal.
+  const porClasse: EntradaAllowlist = {
+    lint: "rls_enabled_no_policy",
+    motivo: "classe inteira",
+    desde: "2026-08-31",
+    prazo: "2027-02-28",
+  };
+  const comNome = (chave: string): Achado => ({
+    projeto: "prod",
+    lint: { ...lint(chave), name: "rls_enabled_no_policy" },
+  });
+
+  const resultado = diffLints([comNome("tabela_a"), comNome("tabela_b")], [porClasse]);
+  assert.equal(resultado.bloqueantes.length, 0);
+  assert.equal(resultado.tolerados.length, 2);
+  assert.deepEqual(resultado.allowlistOciosa, []);
+});
+
+test("entrada por classe nao tolera lint de outra classe", () => {
+  const resultado = diffLints(
+    [{ projeto: "prod", lint: { ...lint("x"), name: "outra_classe" } }],
+    [{ lint: "rls_enabled_no_policy", motivo: "m", desde: "2026-08-31", prazo: "2027-02-28" }],
+  );
+  assert.equal(resultado.bloqueantes.length, 1);
+});
