@@ -25,6 +25,30 @@ services:
       # a Evolution. Só vire "true" depois de ler os logs `DRY-RUN: enviaria ...`
       # e conferir que todo destino é `@g.us`.
       WORKER_SEND_ENABLED: ${WORKER_SEND_ENABLED:-false}
+      # Ponte com o app web. Sem estas duas, DOIS loops se desligam em silêncio no
+      # boot — auto-grow e ações em massa — porque ambos falam HTTP com o app (a
+      # decisão de o que fazer mora lá, em store `server-only`; o worker só
+      # executa). O sintoma é cruel: nenhum erro, só uma fila que nunca drena.
+      #
+      # ENGINE_TOKEN precisa ser o MESMO valor que está na Vercel: as rotas
+      # comparam em constant-time e, divergindo, o worker leva 401 para sempre.
+      APP_URL: ${APP_URL}
+      ENGINE_TOKEN: ${ENGINE_TOKEN}
+      # Auto-grow (criação de grupo). O intervalo É o anti-ban: com 1 criação por
+      # tenant por ciclo, 5 min dá ~2/10min. Baixar afrouxa o teto.
+      WORKER_GROW_ENABLED: ${WORKER_GROW_ENABLED:-false}
+      WORKER_GROW_INTERVAL_MS: ${WORKER_GROW_INTERVAL_MS:-300000}
+      # Ações em massa (foto, descrição, abrir/fechar em grupo que já existe).
+      # Mesma lógica: o intervalo é METADE do anti-ban — com 1 operação por tenant
+      # por tick, 4s dá ~15/min ESPAÇADOS. Quinze numa rajada e 55s parado seria o
+      # mesmo número por minuto e o padrão de automação que se quer evitar.
+      #
+      # DRY-RUN por default: o loop roda inteiro (claim real, instância, assinatura
+      # da mídia) e para na porta da Evolution. Só vire "true" depois de ler os
+      # logs `DRY-RUN: fecharia o grupo ...` e conferir que os JIDs são os certos —
+      # são 91 grupos de uma vez.
+      WORKER_BULK_ENABLED: ${WORKER_BULK_ENABLED:-false}
+      WORKER_BULK_INTERVAL_MS: ${WORKER_BULK_INTERVAL_MS:-4000}
     # Sem `ports:` de propósito: o worker não recebe tráfego, só fala com o
     # Supabase (HTTPS de saída) e com a Evolution (rede interna). /health é interno.
     healthcheck:
