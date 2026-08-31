@@ -109,6 +109,51 @@ jobs:
           SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
 
+  # Advisor de seguranca do Supabase, nos DOIS bancos. Roda nos dois eventos
+  # pelo mesmo motivo do `drift`: ele le o estado REAL do banco, que muda sem
+  # passar por PR (privilegio concedido a mao, funcao recriada por outra rota).
+  #
+  # Existe porque em 30/08/2026 o advisor achou duas falhas de autorizacao que
+  # nenhum outro gate pegava — o PR #190 e o `funnel_tenant_matrix` —, e ate
+  # aqui quem o rodava era uma pessoa lembrando de rodar.
+  advisors:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: advisors-${{ github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Mesmo padrao de `drift` e `e2e`: sem segredo o job vira aviso, nao
+      # vermelho. O proprio script ja sai 0 quando falta credencial; este passo
+      # existe so para o aviso aparecer no resumo do run.
+      - id: credenciais
+        env:
+          TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          REFS: ${{ vars.ADVISOR_PROJECT_REFS }}
+        run: |
+          if [ -n "$TOKEN" ] && [ -n "$REFS" ]; then
+            echo "tem=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "tem=false" >> "$GITHUB_OUTPUT"
+            echo "### Gate de advisors pulado: faltam o segredo SUPABASE_ACCESS_TOKEN ou a variavel ADVISOR_PROJECT_REFS." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - if: steps.credenciais.outputs.tem == 'true'
+        run: npm ci
+
+      - if: steps.credenciais.outputs.tem == 'true'
+        name: Advisor de seguranca dos dois bancos
+        run: npm run check:advisors
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          ADVISOR_PROJECT_REFS: ${{ vars.ADVISOR_PROJECT_REFS }}
+
   # Smoke E2E do painel. Existe desde 19/08/2026, mas ate agora so rodava na
   # maquina de quem lembrasse — e suite que so roda quando alguem lembra e
   # suite que nao pega regressao. Aponta para o Supabase de DEV.
