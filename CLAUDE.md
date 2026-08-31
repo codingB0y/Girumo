@@ -286,7 +286,7 @@ Exemplos de temas já decididos (consulte `kg_query` pra detalhes):
 
 ### Issue tracker
 
-Issues vivem no GitHub Issues (`codingB0y/hubflow-platform`), operadas via CLI `gh`. See `docs/agents/issue-tracker.md`.
+Issues vivem no GitHub Issues (`codingB0y/Girumo`), operadas via CLI `gh`. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
