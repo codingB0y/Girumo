@@ -66,6 +66,23 @@ export async function POST(req: Request, { params }: Params) {
         status: "disconnected",
       });
     } else {
+      // Parear por cima de uma sessão que ainda existe faz o WhatsApp
+      // SUBSTITUIR a conexão anterior (`440 connectionReplaced`): a nova entra,
+      // a antiga cai, a Evolution reconecta, e o ciclo não fecha sozinho. Em
+      // 31/08/2026 isso rendeu ~250 eventos a cada 2 minutos num número real,
+      // com o painel presa em "desconectado" enquanto a sessão abria e caía.
+      // Zerar antes custa uma chamada e faz todo pareamento começar limpo.
+      if (instance.status !== "connected") {
+        try {
+          await logoutInstance(remoteName);
+        } catch (e) {
+          // Instância sem sessão recusa o logout, e esse é o caso NORMAL (todo
+          // primeiro pareamento). Abortar aqui impediria conectar; o erro fica
+          // registrado para quando a causa for outra.
+          console.warn(`[instances/actions] logout previo falhou em ${instance.id}:`, e);
+        }
+      }
+
       // connect e refresh_qr são a mesma chamada: a Evolution reemite o QR.
       // O código também chega por webhook; devolvê-lo aqui evita esperar o
       // próximo ciclo de emissão na primeira renderização.
