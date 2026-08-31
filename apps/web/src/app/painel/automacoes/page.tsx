@@ -58,7 +58,7 @@ const TEMPLATES: Template[] = [
     name: "Novidade da semana",
     trigger: "weekly_recurring",
     steps: [
-      { type: "message", delay_minutes: 0, message: "Chegou grade nova essa semana — olha as peças acima pra não perder as melhores." },
+      { type: "message", delay_minutes: 0, message: "Chegou novidade essa semana — olha as ofertas acima pra não perder as melhores." },
     ],
   },
   {

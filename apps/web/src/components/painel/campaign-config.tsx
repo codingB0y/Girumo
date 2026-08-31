@@ -245,7 +245,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
 
   const cadastroCard = (
     <Card key="cadastro">
-      <Field label="Título" hint="O nome da campanha. Ex: “Saldão Mega Stock Atacado”.">
+      <Field label="Título" hint="O nome da campanha. Ex: “Saldão da Semana”.">
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome da campanha…" className={inputCls} />
       </Field>
       {suggestedMsg && (
@@ -280,7 +280,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
               id="grow-subject"
               value={growSubject}
               onChange={(e) => setGrowSubject(e.target.value)}
-              placeholder={defaultSubjectPattern(name) || "Atacado {n}"}
+              placeholder={defaultSubjectPattern(name) || "Ofertas {n}"}
               className={cn(inputCls, "mt-1.5")}
             />
             {growPattern && (
