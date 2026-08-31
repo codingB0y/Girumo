@@ -26,6 +26,7 @@ import {
 } from "@/lib/campaign-groups-overview";
 import type { Group } from "@/lib/mock-data";
 import { MessagesTab } from "@/components/painel/messages";
+import { AcoesEmMassa } from "@/components/painel/grupos/acoes-em-massa";
 import { clicksForCampaign } from "@/lib/links/click-attribution";
 import { countCampaignEntries, entriesPerClick, type EntryLead } from "@/lib/campaigns/campaign-entries";
 
@@ -272,9 +273,17 @@ export default function CampanhaDetalhe() {
               </Link>
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {o.groups.map((g) => <GroupCard key={g.id} g={g} live={live} origin={origin} />)}
-            </div>
+            <>
+              <AcoesEmMassa
+                slug={campanha.slug ?? campanha.id}
+                administrados={o.groups.filter((g) => g.group?.isAdmin).length}
+                totais={o.groups.length}
+                onLoteConcluido={loadData}
+              />
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {o.groups.map((g) => <GroupCard key={g.id} g={g} live={live} origin={origin} />)}
+              </div>
+            </>
           )
         )}
 
