@@ -7,6 +7,7 @@ import {
   diffLints,
   formatarRelatorio,
   lerProjetos,
+  normalizarLint,
   type Achado,
   type EntradaAllowlist,
   type Lint,
@@ -107,4 +108,53 @@ test("toda entrada da allowlist tem motivo e prazo", () => {
     assert.match(entrada.desde, /^\d{4}-\d{2}-\d{2}$/, `entrada ${entrada.lint} sem \`desde\``);
     assert.match(entrada.prazo, /^\d{4}-\d{2}-\d{2}$/, `entrada ${entrada.lint} sem \`prazo\``);
   }
+});
+
+test("normalizarLint aceita a grafia da API (cache_key) e a do CLI (cacheKey)", () => {
+  // O bug de 31/08/2026: a allowlist nasceu da saida do CLI (`cacheKey`) e o
+  // script le a Management API (`cache_key`). A identidade virava `undefined`,
+  // nada casava com a allowlist, e o gate reprovou 12 lints ja tolerados
+  // enquanto reportava as 5 entradas como ociosas.
+  const base = { name: "n", title: "t", level: "WARN", detail: "d" };
+
+  assert.equal(normalizarLint({ ...base, cache_key: "chave_api" }).cacheKey, "chave_api");
+  assert.equal(normalizarLint({ ...base, cacheKey: "chave_cli" }).cacheKey, "chave_cli");
+});
+
+test("lint sem identidade reprova alto, em vez de virar `undefined`", () => {
+  // Sem chave nenhum lint casa com a allowlist e o gate reprova tudo sem dizer
+  // por que. Melhor falhar com a causa do que produzir um relatorio mentiroso.
+  assert.throws(
+    () => normalizarLint({ name: "n", title: "t", level: "WARN", detail: "d" }),
+    /Lint sem identidade/,
+  );
+});
+
+test("entrada pelo `name` tolera a classe inteira do lint", () => {
+  // `rls_enabled_no_policy` vale para toda tabela service-role-only do projeto.
+  // Sem isso seriam 10 entradas identicas em 31/08/2026, e uma nova a cada
+  // tabela criada — o gate viraria formulario em vez de sinal.
+  const porClasse: EntradaAllowlist = {
+    lint: "rls_enabled_no_policy",
+    motivo: "classe inteira",
+    desde: "2026-08-31",
+    prazo: "2027-02-28",
+  };
+  const comNome = (chave: string): Achado => ({
+    projeto: "prod",
+    lint: { ...lint(chave), name: "rls_enabled_no_policy" },
+  });
+
+  const resultado = diffLints([comNome("tabela_a"), comNome("tabela_b")], [porClasse]);
+  assert.equal(resultado.bloqueantes.length, 0);
+  assert.equal(resultado.tolerados.length, 2);
+  assert.deepEqual(resultado.allowlistOciosa, []);
+});
+
+test("entrada por classe nao tolera lint de outra classe", () => {
+  const resultado = diffLints(
+    [{ projeto: "prod", lint: { ...lint("x"), name: "outra_classe" } }],
+    [{ lint: "rls_enabled_no_policy", motivo: "m", desde: "2026-08-31", prazo: "2027-02-28" }],
+  );
+  assert.equal(resultado.bloqueantes.length, 1);
 });

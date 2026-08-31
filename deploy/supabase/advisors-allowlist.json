@@ -2,38 +2,20 @@
   "_leia_antes_de_editar": [
     "Lints de seguranca do advisor do Supabase que alguem decidiu tolerar, com",
     "motivo e prazo (gate: infra/scripts/check-advisors.ts).",
-    "A chave e o `cacheKey` que a Management API devolve — o log do gate imprime",
-    "o valor exato a colar aqui quando reprova.",
+    "A chave e o `cache_key` da Management API (um objeto especifico) OU o `name`",
+    "do lint (a classe inteira). O log do gate imprime o valor exato a colar aqui.",
     "Entrada sem prazo nao entra: allowlist sem prazo vira cemiterio e o gate",
     "para de significar algo.",
-    "Quando o lint some, o gate avisa 'Allowlist ociosa' — apague a linha.",
-    "Estas cinco entradas sao o estado medido em 31/08/2026 nos DOIS bancos, no",
-    "dia em que o gate nasceu. Nenhuma delas e aprovacao: sao divida conhecida."
+    "Quando o lint some, o gate avisa 'Allowlist ociosa' — apague a linha. Foi",
+    "assim que as 4 entradas de `authenticated_security_definer_function_executable`",
+    "sairam daqui em 31/08/2026: o conserto entrou e o gate avisou."
   ],
   "entradas": [
     {
-      "lint": "authenticated_security_definer_function_executable_public_funnel_tenant_matrix_",
-      "motivo": "FURO REAL, conserto em andamento. Medido em 31/08/2026: a funcao devolve HTTP 200 para JWT authenticated de usuario comum com a lista de TODOS os tenants, incluindo e-mail de cliente no campo `name`. E leitura cross-tenant de PII, e o repo virou publico no mesmo dia. Entrada aqui so para o gate nascer verde e nao mascarar lint NOVO — nao e tolerancia.",
+      "lint": "rls_enabled_no_policy",
+      "motivo": "Aceito por CLASSE, nao por tabela. Neste projeto tabela service-role-only nasce de proposito com RLS ligada e sem policy — e o padrao documentado no CLAUDE.md (ex.: acquisition_events, demo_requests). Sem policy a tabela nega tudo para anon e authenticated, que e a intencao; a protecao real do caminho de escrita e o `.eq('tenant_id')` nas stores, porque service-role bypassa RLS. Em 31/08/2026 eram 10 tabelas nos dois bancos, e listar uma entrada por tabela viraria formulario a preencher a cada tabela nova. CUIDADO: se alguma dessas tabelas passar a ser lida por `authenticated`, a policy tem que existir e este lint deixa de ser aceitavel para ela.",
       "desde": "2026-08-31",
-      "prazo": "2026-09-07"
-    },
-    {
-      "lint": "authenticated_security_definer_function_executable_public_funnel_event_counts_",
-      "motivo": "Mesma leva do funnel_tenant_matrix. Medido em 31/08/2026: responde HTTP 200 a usuario logado comum com contagem agregada do funil, aparentemente sem recorte por tenant. Menos grave que o irmao (nao expoe PII), mesmo conserto.",
-      "desde": "2026-08-31",
-      "prazo": "2026-09-07"
-    },
-    {
-      "lint": "authenticated_security_definer_function_executable_public_anon_revoke_on_new_object_",
-      "motivo": "Baixo risco medido, nao suposto: chamada por usuario logado responde 400 (0A000, 'cannot display a value of type event_trigger') — ela le pg_event_trigger_ddl_commands(), que fora de um evento de DDL nao devolve nada. Ainda assim e a propria funcao de hardening exposta; revogar por higiene.",
-      "desde": "2026-08-31",
-      "prazo": "2026-09-30"
-    },
-    {
-      "lint": "authenticated_security_definer_function_executable_public_subscriptions_reject_stale_event_",
-      "motivo": "Trigger function; o PostgREST nao a alcanca sem argumentos (responde 404 PGRST202, medido em 31/08/2026). Revogar por higiene, sem urgencia.",
-      "desde": "2026-08-31",
-      "prazo": "2026-09-30"
+      "prazo": "2027-02-28"
     },
     {
       "lint": "auth_leaked_password_protection",

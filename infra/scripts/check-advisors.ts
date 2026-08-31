@@ -41,6 +41,30 @@ export type Lint = {
   metadata?: { name?: string; schema?: string };
 };
 
+/**
+ * Como o lint chega antes de normalizar. A Management API devolve `cache_key`;
+ * o CLI (`supabase db advisors --output-format json`) devolve o MESMO valor em
+ * `cacheKey`. A allowlist deste repo nasceu da saida do CLI e o script le a API:
+ * em 31/08/2026 isso fez a identidade virar `undefined` em todo lint, e o gate
+ * reprovou 12 lints que estavam na allowlist enquanto reportava as 5 entradas
+ * como ociosas. Aceitar as duas grafias fecha o buraco.
+ */
+type LintBruto = Omit<Lint, "cacheKey"> & { cache_key?: string; cacheKey?: string };
+
+export function normalizarLint(bruto: LintBruto): Lint {
+  const cacheKey = bruto.cache_key ?? bruto.cacheKey;
+
+  // Identidade ausente NAO pode virar `undefined` silencioso: sem chave, nada
+  // casa com a allowlist e o gate reprova tudo sem explicar por que.
+  if (!cacheKey) {
+    throw new Error(
+      `Lint sem identidade (nem cache_key nem cacheKey): ${JSON.stringify(bruto).slice(0, 200)}`,
+    );
+  }
+
+  return { ...bruto, cacheKey };
+}
+
 export type EntradaAllowlist = {
   /** `cacheKey` do lint tolerado. */
   lint: string;
@@ -105,8 +129,9 @@ export async function buscarLints(ref: string, token: string): Promise<Lint[]> {
     );
   }
 
-  const corpo = (await resposta.json()) as { lints?: Lint[]; results?: Lint[] };
-  return corpo.lints ?? corpo.results ?? [];
+  // `lints` e a chave da Management API; `results`, a do CLI.
+  const corpo = (await resposta.json()) as { lints?: LintBruto[]; results?: LintBruto[] };
+  return (corpo.lints ?? corpo.results ?? []).map(normalizarLint);
 }
 
 export async function carregarAllowlist(caminho = CAMINHO_ALLOWLIST): Promise<EntradaAllowlist[]> {
@@ -123,11 +148,18 @@ export async function carregarAllowlist(caminho = CAMINHO_ALLOWLIST): Promise<En
 
 export function diffLints(achados: Achado[], allowlist: EntradaAllowlist[]): Resultado {
   const tolerados = new Set(allowlist.map((entrada) => entrada.lint));
-  const vistos = new Set(achados.map((achado) => achado.lint.cacheKey));
+
+  // Uma entrada casa pelo `cacheKey` (um objeto especifico) OU pelo `name` (a
+  // classe inteira do lint). O segundo existe porque `rls_enabled_no_policy`
+  // vale para toda tabela service-role-only deste projeto — listar uma entrada
+  // por tabela seria cerimonia que cresce a cada tabela nova, e o gate viraria
+  // um formulario a preencher em vez de um sinal.
+  const casa = (lint: Lint): boolean => tolerados.has(lint.cacheKey) || tolerados.has(lint.name);
+  const vistos = new Set(achados.flatMap((a) => [a.lint.cacheKey, a.lint.name]));
 
   return {
-    bloqueantes: achados.filter((achado) => !tolerados.has(achado.lint.cacheKey)),
-    tolerados: achados.filter((achado) => tolerados.has(achado.lint.cacheKey)),
+    bloqueantes: achados.filter((achado) => !casa(achado.lint)),
+    tolerados: achados.filter((achado) => casa(achado.lint)),
     allowlistOciosa: [...tolerados].filter((chave) => !vistos.has(chave)),
   };
 }
