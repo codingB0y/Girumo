@@ -6,6 +6,7 @@ import {
 } from "@/lib/stores/tenant-settings";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import { INVALID_GOAL, parseGoalInput } from "@/lib/settings/goal-input";
+import { INVALID_SEGMENT, parseSegmentInput } from "@/lib/settings/segment-input";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,8 +30,8 @@ export async function GET(req: Request) {
 // PATCH /api/settings
 // Body: { weeklyReportEnabled?: boolean, disconnectAlertEnabled?: boolean,
 //         broadcastAlertEnabled?: boolean, monthlyGoalContacts?: number|null,
-//         monthlyGoalRevenue?: number|null, onboardingDismissed?: boolean,
-//         onboardingCompleted?: boolean }
+//         monthlyGoalRevenue?: number|null, segment?: SegmentId|null,
+//         onboardingDismissed?: boolean, onboardingCompleted?: boolean }
 //
 // Os dois campos de onboarding são SINAIS, não datas: quem carimba o horário é o
 // servidor. O cliente não escolhe quando algo aconteceu.
@@ -71,6 +72,15 @@ export async function PATCH(req: Request) {
       return Response.json({ error: "Meta de receita inválida." }, { status: 400 });
     }
     input.monthlyGoalRevenue = parsed;
+  }
+
+  // Ramo do negócio (packs de conteúdo). Mesma regra das metas: lixo é 400.
+  if ("segment" in body) {
+    const parsed = parseSegmentInput(body.segment);
+    if (parsed === INVALID_SEGMENT) {
+      return Response.json({ error: "Segmento inválido." }, { status: 400 });
+    }
+    input.segment = parsed;
   }
 
   const now = new Date().toISOString();

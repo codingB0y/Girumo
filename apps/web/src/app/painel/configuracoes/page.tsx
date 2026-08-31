@@ -15,6 +15,7 @@ import {
 } from "@/lib/auth/member-removal";
 import { authenticatedFetch } from "@/lib/supabase/client";
 import { subscriptionAccess, subscriptionNotice } from "@/lib/billing/subscription-access";
+import { SEGMENTS } from "@/lib/segments";
 
 type Section = "Conexão" | "Equipe" | "Notificações" | "Plano" | "Conta";
 const NAV: { key: Section; icon: typeof Smartphone }[] = [
@@ -115,6 +116,10 @@ export default function PainelConfiguracoes() {
   // Guarda QUAL preferência está salvando, para desabilitar só aquele toggle.
   const [prefBusy, setPrefBusy] = useState<PreferenciaKey | null>(null);
   const [prefError, setPrefError] = useState<string | null>(null);
+  // Ramo do tenant (packs de conteúdo). `undefined` = carregando → skeleton.
+  const [segment, setSegment] = useState<string | null | undefined>(undefined);
+  const [segmentBusy, setSegmentBusy] = useState(false);
+  const [segmentError, setSegmentError] = useState<string | null>(null);
 
   // Deep-link `?secao=notificacoes` do rodapé do e-mail. Lido de
   // `window.location` em vez de `useSearchParams` para não exigir uma fronteira
@@ -128,8 +133,14 @@ export default function PainelConfiguracoes() {
   useEffect(() => {
     authenticatedFetch("/api/settings")
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setPrefs(lerPreferencias(d)))
-      .catch(() => setPrefs(lerPreferencias(null)));
+      .then((d) => {
+        setPrefs(lerPreferencias(d));
+        setSegment(typeof d?.segment === "string" ? d.segment : null);
+      })
+      .catch(() => {
+        setPrefs(lerPreferencias(null));
+        setSegment(null);
+      });
     fetch("/api/session").then((r) => r.json()).then(setSession).catch(() => {});
     fetch("/api/members").then((r) => r.json()).then((d) => setMembers(Array.isArray(d) ? d : d?.members ?? [])).catch(() => {});
     fetch("/api/plans").then((r) => r.json()).then((d) => setPlans(Array.isArray(d) ? d : [])).catch(() => {});
@@ -185,6 +196,29 @@ export default function PainelConfiguracoes() {
       setPrefError("Não foi possível salvar. Tente de novo.");
     } finally {
       setPrefBusy(null);
+    }
+  }
+
+  async function saveSegment(valor: string) {
+    const proximo = valor === "" ? null : valor;
+    const anterior = segment;
+    setSegment(proximo); // otimista, como os toggles acima
+    setSegmentBusy(true);
+    setSegmentError(null);
+    try {
+      const res = await authenticatedFetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ segment: proximo }),
+      });
+      if (!res.ok) throw new Error("falhou");
+    } catch {
+      // Rollback pelo mesmo motivo dos toggles: select mostrando um ramo que
+      // não foi salvo entregaria a biblioteca errada sem ninguém perceber.
+      setSegment(anterior);
+      setSegmentError("Não foi possível salvar. Tente de novo.");
+    } finally {
+      setSegmentBusy(false);
     }
   }
 
@@ -547,6 +581,37 @@ export default function PainelConfiguracoes() {
           )}
           {section === "Conta" && (
             <Panel title="Conta" desc="Seus dados de acesso.">
+              <div className="mb-6 rounded-2xl bg-poco px-4 py-3.5">
+                <label htmlFor="segmento" className="text-sm font-medium text-volt-950">
+                  Seu ramo
+                </label>
+                <p className="mt-0.5 text-xs text-aco/60">
+                  Ajusta os modelos de mensagem da biblioteca pro seu tipo de negócio.
+                </p>
+                {segment === undefined ? (
+                  <span className="pn-skeleton mt-2 block h-10 w-full max-w-sm rounded-xl" />
+                ) : (
+                  <select
+                    id="segmento"
+                    value={segment ?? ""}
+                    disabled={segmentBusy}
+                    onChange={(e) => saveSegment(e.target.value)}
+                    className="mt-2 block w-full max-w-sm cursor-pointer rounded-xl border border-volt-950/[0.12] bg-papel px-3 py-2.5 text-sm text-volt-950 focus:border-cobalt-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <option value="">Ainda não escolhi</option>
+                    {SEGMENTS.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {segmentError && (
+                  <p role="alert" className="mt-2 text-sm text-alerta">
+                    {segmentError}
+                  </p>
+                )}
+              </div>
               <AccountSection />
             </Panel>
           )}
