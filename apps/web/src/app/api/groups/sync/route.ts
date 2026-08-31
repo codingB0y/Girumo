@@ -1,6 +1,12 @@
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import { isAdminGroup } from "@/lib/evolution/admin-group";
-import { fetchAllGroups, providerInstanceId } from "@/lib/evolution/client";
+import {
+  EvolutionError,
+  FETCH_GROUPS_TIMEOUT_MS,
+  fetchAllGroups,
+  isEvolutionTimeout,
+  providerInstanceId,
+} from "@/lib/evolution/client";
 import { tallyAdmins } from "@/lib/groups/admin-protection";
 import { syncGroupsFromProvider } from "@/lib/stores/groups";
 import { getInstance, listInstances } from "@/lib/stores/instances";
@@ -28,9 +34,15 @@ export const maxDuration = 60;
  * em cima destes campos.
  */
 export async function POST(req: Request) {
+  let ctx: Awaited<ReturnType<typeof getTenantContext>>;
   try {
-    const ctx = await getTenantContext(req);
+    ctx = await getTenantContext(req);
+  } catch (error) {
+    if (error instanceof Response) return error;
+    return Response.json({ error: "Erro ao sincronizar grupos." }, { status: 502 });
+  }
 
+  try {
     const body = (await req.json().catch(() => ({}))) as { instance_id?: string };
 
     const instance = body.instance_id
@@ -48,7 +60,13 @@ export async function POST(req: Request) {
     }
 
     const remoteName = instance.provider_instance_id || providerInstanceId(instance.id);
+
+    // Mede o fetch para a próxima decisão sobre o teto não ser chute: o log de
+    // sucesso passa a carregar quanto a Evolution demorou. Foi a informação que
+    // faltou para escolher o timeout com fundamento em 31/08.
+    const iniciouFetch = Date.now();
     const remoteGroups = await fetchAllGroups(remoteName);
+    const fetchMs = Date.now() - iniciouFetch;
 
     // Proteção do ativo (R1): "nosso" é qualquer número do tenant, não só o que
     // está sincronizando. Quando houver uma segunda instância, é ela que faz o
@@ -109,12 +127,60 @@ export async function POST(req: Request) {
         admin_count: adminCount,
         // Quantos grupos ficariam órfãos se este número caísse.
         sem_backup: semBackup,
+        // Quanto a Evolution levou. Cresce com o número de grupos; é o que
+        // decide se o teto de 50s ainda cabe.
+        fetch_ms: fetchMs,
       },
     });
 
     return Response.json({ synced, admin: adminCount, semBackup });
   } catch (error) {
     if (error instanceof Response) return error;
-    return Response.json({ error: "Erro ao sincronizar grupos." }, { status: 502 });
+    return await falhaDoSync(error, ctx);
   }
+}
+
+/**
+ * Traduz a falha para o lojista e DEIXA RASTRO.
+ *
+ * O catch anterior devolvia 502 "Erro ao sincronizar grupos." e não gravava
+ * nada: quando o sync começou a estourar o tempo em 31/08, a única evidência
+ * existia no painel da Vercel, e foi preciso a CLI para descobrir que era
+ * timeout. Um erro que não se registra custa uma investigação inteira toda vez.
+ */
+async function falhaDoSync(
+  error: unknown,
+  ctx: Awaited<ReturnType<typeof getTenantContext>>,
+): Promise<Response> {
+  const evo = error instanceof EvolutionError ? error : null;
+  const expirou = isEvolutionTimeout(error);
+
+  const mensagem = expirou
+    ? "O WhatsApp demorou demais para responder a lista de grupos. Isso costuma acontecer quando você tem muitos grupos. Tente de novo em alguns minutos."
+    : "Erro ao sincronizar grupos.";
+
+  try {
+    await getSupabaseAdmin().from("logs").insert({
+      tenant_id: ctx.tenantId,
+      actor_user_id: ctx.authUserId,
+      level: "error",
+      event: "groups.sync_failed",
+      message: expirou
+        ? `Sync de grupos expirou: a Evolution não respondeu em ${Math.round(FETCH_GROUPS_TIMEOUT_MS / 1000)}s.`
+        : `Sync de grupos falhou: ${evo ? evo.message : String(error)}`,
+      metadata: {
+        timeout: expirou,
+        status: evo?.status ?? null,
+        detail: evo?.detail ?? null,
+      },
+    });
+  } catch (logError) {
+    // Falhar ao registrar a falha não pode virar uma terceira falha: o lojista
+    // ainda precisa da resposta.
+    console.error("[api/groups/sync] nao consegui registrar a falha:", logError);
+  }
+
+  // 504 quando é tempo: o status diz a verdade sobre o que houve, e separa isto
+  // de "a Evolution respondeu erro" nas métricas.
+  return Response.json({ error: mensagem }, { status: expirou ? 504 : 502 });
 }
