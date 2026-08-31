@@ -7,6 +7,7 @@ import {
   diffLints,
   formatarRelatorio,
   lerProjetos,
+  normalizarLint,
   type Achado,
   type EntradaAllowlist,
   type Lint,
@@ -107,4 +108,24 @@ test("toda entrada da allowlist tem motivo e prazo", () => {
     assert.match(entrada.desde, /^\d{4}-\d{2}-\d{2}$/, `entrada ${entrada.lint} sem \`desde\``);
     assert.match(entrada.prazo, /^\d{4}-\d{2}-\d{2}$/, `entrada ${entrada.lint} sem \`prazo\``);
   }
+});
+
+test("normalizarLint aceita a grafia da API (cache_key) e a do CLI (cacheKey)", () => {
+  // O bug de 31/08/2026: a allowlist nasceu da saida do CLI (`cacheKey`) e o
+  // script le a Management API (`cache_key`). A identidade virava `undefined`,
+  // nada casava com a allowlist, e o gate reprovou 12 lints ja tolerados
+  // enquanto reportava as 5 entradas como ociosas.
+  const base = { name: "n", title: "t", level: "WARN", detail: "d" };
+
+  assert.equal(normalizarLint({ ...base, cache_key: "chave_api" }).cacheKey, "chave_api");
+  assert.equal(normalizarLint({ ...base, cacheKey: "chave_cli" }).cacheKey, "chave_cli");
+});
+
+test("lint sem identidade reprova alto, em vez de virar `undefined`", () => {
+  // Sem chave nenhum lint casa com a allowlist e o gate reprova tudo sem dizer
+  // por que. Melhor falhar com a causa do que produzir um relatorio mentiroso.
+  assert.throws(
+    () => normalizarLint({ name: "n", title: "t", level: "WARN", detail: "d" }),
+    /Lint sem identidade/,
+  );
 });
