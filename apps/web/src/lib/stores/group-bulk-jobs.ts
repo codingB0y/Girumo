@@ -189,22 +189,67 @@ export async function ackBulk(
   return job;
 }
 
+export type BatchCounts = {
+  total: number;
+  done: number;
+  failed: number;
+  pending: number;
+  /** Ações distintas do lote — a tela escreve "Aplicando foto e descrição". */
+  actions: BulkAction[];
+};
+
+export type BatchProgress = BatchCounts & {
+  batchId: string;
+  createdAt: string;
+};
+
 /** Progresso de um lote: o "47 de 91" da tela. */
-export async function countBatch(
-  tenantId: string,
-  batchId: string,
-): Promise<{ total: number; done: number; failed: number; pending: number }> {
+export async function countBatch(tenantId: string, batchId: string): Promise<BatchCounts> {
   const { data, error } = await getSupabaseAdmin()
     .from(TABLE)
-    .select("status")
+    .select("status, action")
     .eq("tenant_id", tenantId)
     .eq("batch_id", batchId);
 
   if (error) throw new Error(error.message);
 
-  const rows = (data ?? []) as Array<{ status: BulkJobStatus }>;
+  const rows = (data ?? []) as Array<{ status: BulkJobStatus; action: BulkAction }>;
   const done = rows.filter((r) => r.status === "done").length;
   const failed = rows.filter((r) => r.status === "failed").length;
 
-  return { total: rows.length, done, failed, pending: rows.length - done - failed };
+  return {
+    total: rows.length,
+    done,
+    failed,
+    pending: rows.length - done - failed,
+    actions: [...new Set(rows.map((r) => r.action))],
+  };
+}
+
+/**
+ * O lote mais recente de uma campanha, com progresso — ou `null` se nunca houve.
+ *
+ * A tela precisa disto (e não só da resposta do POST) porque o `batchId` que
+ * vive na memória do componente morre num F5, e um lote de 91 grupos leva ~6
+ * minutos: recarregar a página no meio é o caso comum, não a exceção.
+ */
+export async function latestBatchProgress(
+  tenantId: string,
+  campaignGroupId: string,
+): Promise<BatchProgress | null> {
+  const { data, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .select("batch_id, created_at")
+    .eq("tenant_id", tenantId)
+    .eq("campaign_group_id", campaignGroupId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+
+  const row = data as { batch_id: string; created_at: string };
+  const counts = await countBatch(tenantId, row.batch_id);
+  return { ...counts, batchId: row.batch_id, createdAt: row.created_at };
 }

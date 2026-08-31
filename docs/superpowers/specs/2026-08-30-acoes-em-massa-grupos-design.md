@@ -44,6 +44,19 @@ linhas.
 | Herança | Aplicar em massa **vira o padrão da campanha** — grava no `grow_template`. |
 | Ritmo | **~15 grupos/min** (médio). |
 
+#### Adendo do PR 2 (31/08/2026)
+
+| Pergunta | Decisão |
+|---|---|
+| Escopo do lote | **Só grupos onde somos admin** (`is_admin === true`), corrigindo o "todos os grupos da campanha" acima. Grupo não-admin é falha garantida e cada falha queima 4s da janela anti-ban. A tela mostra "N de M". |
+| Foto + descrição | **Um `batch_id` para as duas ações.** Uma aplicação é um evento só para o lojista. |
+| Descrição vazia | Confirmação na tela **e** flag `confirmClear: true` no body; a rota recusa 400 sem ela. |
+
+Medido em 31/08 antes de escrever o código: em **produção**, `campaign_groups.group_ids`
+casa 100% por `whatsapp_group_id` e 0% por UUID de `groups.id` — é essa a chave que
+`selectBulkTargets` usa. Em **dev** há seed antigo guardando UUID, que não casa com nada;
+por isso a aba Grupos daquele tenant já mostrava "Grupo / 0 membros" antes deste PR.
+
 ### Abordagens descartadas
 
 - **Reusar `engine_commands`** (fila que já existe e já tem claim anti-ban): é

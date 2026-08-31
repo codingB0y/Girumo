@@ -19,6 +19,8 @@ export type Group = {
   isAdmin?: boolean;
   /** Link de convite REAL do grupo. Destino do roteamento "Campanha que lota sozinho". */
   inviteUrl?: string;
+  /** Estado de envio que aplicamos por último. `null`/ausente = nunca aplicamos. */
+  sendState?: "open" | "closed" | null;
 };
 
 export type CampaignStatus = "draft" | "scheduled" | "queued" | "running" | "sent" | "failed";
