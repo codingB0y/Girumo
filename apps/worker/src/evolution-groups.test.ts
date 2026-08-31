@@ -122,6 +122,34 @@ test('só-admin manda action "announcement"', async () => {
   assert.deepEqual(JSON.parse(String(calls[0]?.init.body)), { action: "announcement" });
 });
 
+test('reabrir manda action "not_announcement" — o inverso exato do fechar', async () => {
+  const { groups, calls } = makeGroups(() => json({}));
+
+  await groups.setOpenToAll("girumo-1", "120363000000000001@g.us");
+
+  assert.match(
+    calls[0]?.url ?? "",
+    /\/group\/updateSetting\/girumo-1\?groupJid=120363000000000001%40g\.us$/,
+  );
+  assert.deepEqual(JSON.parse(String(calls[0]?.init.body)), { action: "not_announcement" });
+});
+
+test("fechar e reabrir usam a MESMA rota e diferem só na action", async () => {
+  // Fixa o par. Se alguém trocar uma das duas por outra rota (ou inverter as
+  // actions), o grupo passaria a abrir quando deveria fechar — e o lojista só
+  // descobriria pelo estrago no grupo, não por erro.
+  const { groups, calls } = makeGroups(() => json({}));
+
+  await groups.setAnnounceOnly("girumo-1", "120363000000000001@g.us");
+  await groups.setOpenToAll("girumo-1", "120363000000000001@g.us");
+
+  assert.equal(calls[0]?.url, calls[1]?.url);
+  assert.deepEqual(
+    calls.map((c) => JSON.parse(String(c.init.body)).action),
+    ["announcement", "not_announcement"],
+  );
+});
+
 test("convite passa pela normalização — não entra host alheio no pool", async () => {
   const { groups } = makeGroups(() => json({ inviteUrl: "https://evil.example/ABC123" }));
 
