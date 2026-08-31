@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowRight } from "lucide-react";
 import { WhatsAppIcon } from "@/components/landing/icons";
 
 /**
@@ -9,7 +8,7 @@ import { WhatsAppIcon } from "@/components/landing/icons";
  * rola pra fora da tela — assim no topo não existe CTA duplicado com a nav.
  * Desliza de baixo pra cima ao revelar.
  */
-export function MobileCta({ demoUrl, whatsappUrl }: { demoUrl: string; whatsappUrl: string }) {
+export function MobileCta({ whatsappUrl }: { whatsappUrl: string }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -30,16 +29,12 @@ export function MobileCta({ demoUrl, whatsappUrl }: { demoUrl: string; whatsappU
       }`}
       aria-hidden={!visible}
     >
-      <a href={demoUrl} className="lp4-btn lp4-btn-green flex-1 justify-center py-3.5 text-sm">
-        Ver demonstração <ArrowRight className="h-4 w-4" aria-hidden />
-      </a>
       <a
         href={whatsappUrl}
         data-outbound="whatsapp_click"
-        aria-label="Falar no WhatsApp"
-        className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full border border-[var(--hairline)]"
+        className="lp4-btn lp4-btn-green flex-1 justify-center py-3.5 text-sm"
       >
-        <WhatsAppIcon className="h-5 w-5 text-[var(--green)]" aria-hidden />
+        <WhatsAppIcon className="h-4 w-4" aria-hidden /> Falar no WhatsApp
       </a>
     </div>
   );

@@ -49,15 +49,6 @@ test("o middleware usa a lista em vez de repetir os caminhos", () => {
   assert.match(fonte, /isPublicPage/, "middleware precisa consultar isPublicPage");
 });
 
-test("/demo abre sem sessão", () => {
-  assert.equal(isPublicPage("/demo"), true);
-});
-
-test("prefixo de /demo não abre por acidente", () => {
-  // A lista casa por caminho exato. Se algum dia virar prefixo, este teste cai.
-  assert.equal(isPublicPage("/demo-interno"), false);
-});
-
 test("as telas de autenticacao sao reconhecidas", () => {
   for (const rota of ["/login", "/signup", "/forgot-password", "/reset-password", "/auth/callback"]) {
     assert.ok(isAuthPage(rota), `${rota} precisa ser tela de autenticacao`);

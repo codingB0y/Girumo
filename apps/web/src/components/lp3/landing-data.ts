@@ -2,17 +2,16 @@
    Fica fora dos componentes porque desktop e mobile compartilham os mesmos dados
    e o JSON-LD do FAQ é montado em app/page.tsx a partir daqui. */
 
-export const SIGNUP_URL = "/signup";
-
 /**
- * Porta principal da landing desde o paid-first (28/08/2026).
+ * Porta secundária, só no rodapé — o CTA principal da landing é o WhatsApp de
+ * vendas desde 31/08/2026.
  *
- * O CTA apontava para /signup, e o signup faz router.replace("/painel") sem
- * passar por checkout: com o FREE morto, quem clicava ganhava uma conta em
- * BLOCKED_LIMITS que não fazia nada. Este PR para de alimentar esse buraco pelo
- * botão principal — mas NÃO o fecha; o conserto do /signup é PR próprio.
+ * O /signup faz router.replace("/painel") sem passar por checkout: com o FREE
+ * morto, quem entra por ele ganha uma conta em BLOCKED_LIMITS que não faz nada.
+ * Manter o botão principal fora dele não FECHA esse buraco; o conserto do
+ * /signup é PR próprio.
  */
-export const DEMO_URL = "/demo";
+export const SIGNUP_URL = "/signup";
 
 export const WHATSAPP_URL =
   process.env.NEXT_PUBLIC_SALES_WHATSAPP_URL ||

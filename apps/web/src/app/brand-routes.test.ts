@@ -133,7 +133,7 @@ test("anuncia no sitemap só o que queremos no índice", () => {
   const paths = sitemap().map((entry) => new URL(entry.url).pathname);
 
   assert.ok(paths.includes("/signup"), "criar conta é a página de conversão");
-  assert.ok(paths.includes("/demo"), "a demo é a porta de entrada do CTA principal");
+  assert.ok(!paths.includes("/demo"), "o /demo foi revertido em 31/08/2026 e não existe mais");
   assert.ok(paths.includes("/termos"));
   assert.ok(paths.includes("/privacidade"));
 

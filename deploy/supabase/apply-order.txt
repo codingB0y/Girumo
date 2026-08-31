@@ -229,6 +229,10 @@ apps/web/supabase/migrations/20260826170000_legal_acceptances.sql
 # 2 e quem chega ao pedido sao leads diferentes, e e o campo que liga o demo a
 # coorte do PR 2.
 apps/web/supabase/migrations/20260828160000_demo_requests.sql
+# 31/08/2026 - O modo demonstracao foi REVERTIDO (o /demo saiu do produto), mas a
+# tabela FICOU nos dois bancos: dropar apagaria a linha ja capturada e mexeria no
+# baseline do gate de drift sem necessidade. Hoje `demo_requests` esta inerte —
+# nenhum codigo escreve ou le dela.
 
 # 29/08/2026 - Saude do numero (R2 da analise competitiva de 28/08). O estado
 # anti-ban (instance_send_state, instance_sends, app.instance_daily_cap) nunca

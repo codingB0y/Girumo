@@ -14,7 +14,7 @@
  * Rotas de autenticação (`/login`, `/signup`, …) NÃO entram aqui: elas já saem
  * antes, pelo `matcher` do middleware.
  */
-export const PUBLIC_PAGES: readonly string[] = ["/", "/home-v2", "/termos", "/privacidade", "/demo"];
+export const PUBLIC_PAGES: readonly string[] = ["/", "/home-v2", "/termos", "/privacidade"];
 
 /** Páginas legais — usadas também pelo rodapé e pelo aceite no cadastro. */
 export const LEGAL_PAGES = {

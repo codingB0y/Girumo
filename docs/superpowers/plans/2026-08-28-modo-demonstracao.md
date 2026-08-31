@@ -1,5 +1,11 @@
 # Modo Demonstração — Implementation Plan
 
+> **REVERTIDO em 31/08/2026.** O modo demonstração saiu do produto: não
+> fazia sentido com a estratégia. O `/demo`, a rota de captura, os componentes e
+> a lib foram removidos; o CTA principal da landing passou a apontar para o
+> WhatsApp de vendas. A tabela `demo_requests` continua nos dois bancos, inerte.
+> Este documento fica como registro do desenho e das armadilhas encontradas.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Publicar `/demo` — uma demonstração encenada, client-only, com dados simulados e sem instância Evolution conectada — mais a captura pública de nome + WhatsApp em `demo_requests`.

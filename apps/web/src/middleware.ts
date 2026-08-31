@@ -20,16 +20,14 @@ const RATE_LIMITS: Record<string, number> = {
   // Limitação conhecida: o contador é por instância serverless, então na Vercel
   // o teto efetivo é maior que 300. Aceito na F2.
   "/api/webhooks/evolution": 300,
-  // Captura do demo: formulário público de dois campos. Teto baixo — ninguém
-  // agenda 6 demonstrações por minuto.
-  //
-  // A entrada é OBRIGATÓRIA, não decorativa: `isRateLimited` faz
-  // `Object.entries(RATE_LIMITS).find(...)` e devolve `false` quando não acha o
-  // path. Sem esta linha o branch abaixo roda e nunca limita nada — fail-open.
-  "/api/demo/request": 5,
   // Beacon de clique de saída (wa.me) na landing. Teto folgado porque é UM
   // request por clique e uma pessoa lendo a página clica poucas vezes; o
   // handler ainda aplica o seu próprio teto por IP.
+  //
+  // A entrada é OBRIGATÓRIA para toda rota `public-rate-limited`, não
+  // decorativa: `isRateLimited` faz `Object.entries(RATE_LIMITS).find(...)` e
+  // devolve `false` quando não acha o path. Sem a linha, o branch lá embaixo
+  // roda e nunca limita nada — fail-open.
   "/api/track/outbound": 30,
 };
 

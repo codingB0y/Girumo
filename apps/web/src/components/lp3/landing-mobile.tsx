@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
-import { ArrowRight, Check } from "lucide-react";
+import { Check } from "lucide-react";
 import { HeroDemo } from "@/components/lp3/hero-demo";
 import { BazarVideo } from "@/components/lp3/video-facade";
-import { DEMO_URL } from "@/components/lp3/landing-data";
+import { WhatsAppIcon } from "@/components/landing/icons";
+import { WHATSAPP_URL } from "@/components/lp3/landing-data";
 
 /* Experiência mobile (< md), referência v2a do handoff.
    A ordem é de conversão: promessa → demo → prova → um dia de venda → preço.
@@ -41,11 +42,12 @@ export function MobileHero() {
       {/* id usado pelo MobileCta pra saber quando revelar a barra fixa */}
       <a
         id="hero-cta"
-        href={DEMO_URL}
+        href={WHATSAPP_URL}
+        data-outbound="whatsapp_click"
         data-lp4-hi
         className="lp4-btn lp4-btn-green mt-6 w-full justify-center py-[17px]"
       >
-        Ver demonstração <ArrowRight className="h-4 w-4" aria-hidden />
+        <WhatsAppIcon className="h-4 w-4" aria-hidden /> Falar no WhatsApp
       </a>
 
       <p data-lp4-hi className="lp4-mono mt-3 text-center text-[9px] text-[var(--body)]">
@@ -212,11 +214,12 @@ export function MobileTimeline() {
         Isso, todo dia, <span className="lp4-green">no automático.</span>
       </h3>
       <a
-        href={DEMO_URL}
+        href={WHATSAPP_URL}
+        data-outbound="whatsapp_click"
         data-lp4-r
         className="lp4-btn lp4-btn-green mt-4 w-full justify-center py-[15px] text-sm"
       >
-        Ver demonstração <ArrowRight className="h-[15px] w-[15px]" aria-hidden />
+        <WhatsAppIcon className="h-[15px] w-[15px]" aria-hidden /> Falar no WhatsApp
       </a>
     </section>
   );
@@ -231,10 +234,11 @@ export function MobileFecho() {
         Conecte seu WhatsApp em 2 minutos. Desistiu em 7 dias, devolvemos tudo — e os grupos continuam seus.
       </p>
       <a
-        href={DEMO_URL}
+        href={WHATSAPP_URL}
+        data-outbound="whatsapp_click"
         className="lp4-btn mt-6 bg-[var(--ink)] px-8 py-[17px] text-[15px] text-[var(--green)] shadow-[0_20px_50px_-20px_rgba(7,25,35,0.6)]"
       >
-        Ver demonstração <ArrowRight className="h-[15px] w-[15px]" aria-hidden />
+        <WhatsAppIcon className="h-[15px] w-[15px]" aria-hidden /> Falar no WhatsApp
       </a>
       <p className="lp4-mono mt-4 text-[8px] text-[rgba(7,25,35,0.6)]">
         sem fidelidade · cancele quando quiser
