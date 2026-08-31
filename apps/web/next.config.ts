@@ -87,6 +87,19 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: process.cwd(),
   },
+  /**
+   * Rota que deixou de existir e JA tinha sido anunciada ao Google.
+   *
+   * `redirects` do next.config roda ANTES do middleware. Sem esta entrada quem
+   * assume o caminho e o middleware: `/demo` saiu de PUBLIC_PAGES, entao vira
+   * `307 -> /login?next=/demo` — um soft-404 apontando para uma pagina marcada
+   * `index: false`. O /demo ficou anunciado no sitemap com prioridade 0.9 de
+   * 29 a 31/08/2026, entao pode ter sido indexado; o 308 para a home consolida
+   * o sinal e tira a URL do indice.
+   */
+  async redirects() {
+    return [{ source: "/demo", destination: "/", permanent: true }];
+  },
   async headers() {
     return [
       {
