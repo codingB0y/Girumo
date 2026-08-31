@@ -99,6 +99,38 @@ export function classifyRequest(pathname: string, method: string): AccessKind {
   return pathname.startsWith("/api/") ? "user" : "public";
 }
 
+/**
+ * Compara o token da engine em tempo constante (L5 da auditoria de 06/08).
+ *
+ * `===` entre strings faz short-circuit no primeiro byte diferente, então o
+ * tempo de resposta denunciava quantos bytes iniciais do ENGINE_TOKEN o
+ * atacante já tinha acertado — dava pra recuperar o token byte a byte medindo
+ * latência.
+ *
+ * Mesmo laço XOR do `parseSession` em `lib/auth.ts`, e pelo mesmo motivo: isto
+ * roda no middleware (Edge), onde `node:crypto` não existe. NÃO troque pelo
+ * `timingSafeEqual` de `lib/evolution/webhook-secret.ts` — aquele módulo só
+ * carrega porque o receiver declara `runtime = "nodejs"`; aqui derrubaria o
+ * middleware inteiro, e com ele todo o worker.
+ *
+ * ponytail: o comprimento ainda vaza pela guarda de tamanho; fechar isso
+ * exigiria digest via `crypto.subtle`, que é async e tornaria
+ * `decideEngineAccess` assíncrona no caminho quente do middleware.
+ */
+function tokenMatches(token: string, expectedToken: string): boolean {
+  // Fail-closed: expectedToken vazio = engine desabilitada, nenhum token casa.
+  // Redundante hoje: o `if (token)` do chamador ja garante token nao-vazio, e a
+  // guarda de comprimento pega o caso. Mantida de proposito por ser o unico
+  // ponto onde o invariante fica escrito em vez de inferido — quem um dia
+  // afrouxar `if (token)` para `token !== null` perde o fail-closed sem ela.
+  if (expectedToken === "" || token.length !== expectedToken.length) return false;
+  let diff = 0;
+  for (let i = 0; i < token.length; i++) {
+    diff |= token.charCodeAt(i) ^ expectedToken.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
 export function decideEngineAccess(
   kind: AccessKind,
   token: string | null,
@@ -107,7 +139,7 @@ export function decideEngineAccess(
   // expectedToken vazio = engine desabilitada: nenhum token é aceito e o
   // request nunca cai no fluxo de usuário carregando um token inválido.
   if (token) {
-    return expectedToken !== "" && token === expectedToken ? "allow-engine" : "reject-401";
+    return tokenMatches(token, expectedToken) ? "allow-engine" : "reject-401";
   }
   if (kind === "engine-only") return "reject-403";
   return "continue-user";
