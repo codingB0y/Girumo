@@ -130,3 +130,76 @@ export function selectBulkTargets(
 
   return { targets, skippedNoAdmin, skippedNoId };
 }
+
+export type PlanIdentityInput = {
+  tenantId: string;
+  campaignGroupId: string;
+  batchId: string;
+  targets: readonly BulkTargetGroup[];
+  description?: string | null;
+  mediaId?: string | null;
+  /** Consentimento explícito para apagar a descrição de todos os grupos. */
+  confirmClear?: boolean;
+};
+
+/**
+ * Monta o lote de identidade: foto e descrição sob o MESMO `batch_id`.
+ *
+ * Um lote só porque uma aplicação é um evento só para o lojista — a barra diz
+ * "aplicando identidade, 47 de 182", não duas barras correndo em ritmos
+ * diferentes na mesma fila.
+ *
+ * A trava do vazio é aqui, e não só na tela: string vazia apaga a descrição de
+ * todos os grupos no WhatsApp. É ação legítima e tem de continuar possível —
+ * mas pedida, nunca o efeito colateral de um campo esquecido ou de um `fetch`
+ * escrito à mão.
+ */
+export function planIdentityJobs(input: PlanIdentityInput): BulkJobInsert[] {
+  const temDescricao = typeof input.description === "string";
+  const temFoto = Boolean(input.mediaId);
+
+  if (!temDescricao && !temFoto) {
+    throw new Error("Informe uma descrição, uma imagem, ou as duas.");
+  }
+  if (temDescricao && input.description === "" && input.confirmClear !== true) {
+    throw new Error(
+      "Descrição vazia apaga a descrição de todos os grupos. Confirme para continuar.",
+    );
+  }
+
+  const comum = {
+    tenantId: input.tenantId,
+    campaignGroupId: input.campaignGroupId,
+    batchId: input.batchId,
+    groups: input.targets,
+  };
+
+  const jobs: BulkJobInsert[] = [];
+  if (temDescricao) {
+    jobs.push(
+      ...buildBulkJobs({ ...comum, action: "set_description", description: input.description }),
+    );
+  }
+  if (temFoto) {
+    jobs.push(...buildBulkJobs({ ...comum, action: "set_picture", mediaId: input.mediaId }));
+  }
+  return jobs;
+}
+
+/**
+ * Grava a identidade aplicada no `grow_template` da campanha — a herança.
+ *
+ * MERGE, nunca replace: `parseGrowTemplate` (em `group-grow-store.ts`) devolve
+ * `null` quando falta `subjectPattern`, e um template nulo desliga o auto-grow.
+ * Trocar o objeto inteiro por `{ desc, mediaId }` pararia a criação de grupos da
+ * campanha sem erro nenhum aparecer na tela.
+ */
+export function mergeGrowIdentity(
+  current: Record<string, unknown> | null,
+  identity: { description?: string | null; mediaId?: string | null },
+): Record<string, unknown> {
+  const merged: Record<string, unknown> = { ...(current ?? {}) };
+  if (typeof identity.description === "string") merged.desc = identity.description;
+  if (identity.mediaId) merged.mediaId = identity.mediaId;
+  return merged;
+}

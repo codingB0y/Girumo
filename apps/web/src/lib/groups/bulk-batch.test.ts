@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildBulkJobs, selectBulkTargets, type BulkTargetGroup } from "./bulk-batch";
+import {
+  buildBulkJobs,
+  mergeGrowIdentity,
+  planIdentityJobs,
+  selectBulkTargets,
+  type BulkTargetGroup,
+} from "./bulk-batch";
 
 const BASE = { tenantId: "t1", campaignGroupId: "c1", batchId: "b1" };
 const GRUPOS: BulkTargetGroup[] = [
@@ -184,4 +190,91 @@ test("group_ids repetido nao duplica o alvo nem a contagem", () => {
     { id: "uuid-a", whatsapp_group_id: "a@g.us", is_admin: true },
   ]);
   assert.equal(sel.targets.length, 1);
+});
+
+/* ---------- planIdentityJobs ---------- */
+
+const ALVOS: BulkTargetGroup[] = [
+  { id: "uuid-a", whatsapp_group_id: "a@g.us" },
+  { id: "uuid-b", whatsapp_group_id: "b@g.us" },
+];
+
+const BASE_IDENTIDADE = {
+  tenantId: "t1",
+  campaignGroupId: "cg1",
+  batchId: "batch-1",
+  targets: ALVOS,
+};
+
+// Uma aplicacao = um batch_id. Se as duas acoes caissem em lotes diferentes, a
+// barra de progresso teria de somar dois lotes que avancam em ritmos distintos.
+test("foto e descricao juntas viram um lote so, com as duas acoes", () => {
+  const jobs = planIdentityJobs({ ...BASE_IDENTIDADE, description: "Atacado", mediaId: "m1" });
+  assert.equal(jobs.length, 4);
+  assert.equal(new Set(jobs.map((j) => j.batch_id)).size, 1);
+  assert.deepEqual(
+    [...new Set(jobs.map((j) => j.action))].sort(),
+    ["set_description", "set_picture"],
+  );
+});
+
+test("so a acao preenchida vira job", () => {
+  const jobs = planIdentityJobs({ ...BASE_IDENTIDADE, mediaId: "m1" });
+  assert.equal(jobs.length, 2);
+  assert.ok(jobs.every((j) => j.action === "set_picture"));
+});
+
+test("nada preenchido e erro, nao lote vazio", () => {
+  assert.throws(() => planIdentityJobs({ ...BASE_IDENTIDADE }), /uma imagem/);
+});
+
+// A trava mais importante do PR: string vazia APAGA a descricao dos 91 grupos.
+// O front confirma, mas o servidor e a ultima linha de defesa.
+test("descricao vazia sem confirmacao e recusada", () => {
+  assert.throws(
+    () => planIdentityJobs({ ...BASE_IDENTIDADE, description: "" }),
+    /Confirme para continuar/,
+  );
+});
+
+test("descricao vazia COM confirmacao e acao legitima e vira lote", () => {
+  const jobs = planIdentityJobs({ ...BASE_IDENTIDADE, description: "", confirmClear: true });
+  assert.equal(jobs.length, 2);
+  assert.equal(jobs[0].description, "");
+});
+
+// confirmClear e sobre apagar. Nao pode virar um "ok" generico que tambem
+// libere o caso de nada preenchido.
+test("confirmClear sozinho nao substitui a carga", () => {
+  assert.throws(() => planIdentityJobs({ ...BASE_IDENTIDADE, confirmClear: true }), /uma imagem/);
+});
+
+test("sem alvo, o lote e vazio sem erro", () => {
+  const jobs = planIdentityJobs({ ...BASE_IDENTIDADE, targets: [], description: "Atacado" });
+  assert.deepEqual(jobs, []);
+});
+
+/* ---------- mergeGrowIdentity ---------- */
+
+// parseGrowTemplate devolve null sem subjectPattern: um replace aqui desligaria
+// o auto-grow da campanha em silencio, e o grupo 92 nasceria sem nome de molde.
+test("heranca preserva o resto do grow_template", () => {
+  const merged = mergeGrowIdentity(
+    { subjectPattern: "Promocoes {n}", announce: false, memberAddMode: "admin_add" },
+    { mediaId: "m1" },
+  );
+  assert.equal(merged.subjectPattern, "Promocoes {n}");
+  assert.equal(merged.announce, false);
+  assert.equal(merged.memberAddMode, "admin_add");
+  assert.equal(merged.mediaId, "m1");
+});
+
+test("campo nao enviado nao e apagado do template", () => {
+  const merged = mergeGrowIdentity({ desc: "antiga", mediaId: "m0" }, { description: "nova" });
+  assert.equal(merged.desc, "nova");
+  assert.equal(merged.mediaId, "m0");
+});
+
+test("template nulo vira objeto novo", () => {
+  assert.deepEqual(mergeGrowIdentity(null, { description: "x" }), { desc: "x" });
 });
