@@ -73,3 +73,60 @@ export function buildBulkJobs(input: BuildBulkJobsInput): BulkJobInsert[] {
       media_id: mediaId,
     }));
 }
+
+/** Um grupo da store, como candidato a alvo do lote. */
+export type BulkCandidateGroup = {
+  id: string;
+  whatsapp_group_id: string | null;
+  is_admin?: boolean | null;
+};
+
+export type BulkTargetSelection = {
+  targets: BulkTargetGroup[];
+  /** Grupos da campanha onde não somos admin. */
+  skippedNoAdmin: number;
+  /** Ids da campanha sem grupo correspondente (ou grupo sem id do WhatsApp). */
+  skippedNoId: number;
+};
+
+/**
+ * Decide quais grupos da campanha entram no lote.
+ *
+ * Só entra grupo onde SOMOS admin: trocar foto, descrição ou o modo de envio é
+ * operação de administrador, então enfileirar os outros produziria falha
+ * garantida — e cada falha ainda gastaria uma janela de 4s do ritmo anti-ban.
+ * As duas contagens não são cosméticas: são o que a tela mostra como
+ * "aplicar em 91 dos 196 grupos", para o lojista não achar que o lote cobriu
+ * tudo.
+ *
+ * `groupIds` vem de `campaign_groups.group_ids`, que guarda `whatsapp_group_id`
+ * — nunca o UUID de `groups`.
+ */
+export function selectBulkTargets(
+  groupIds: readonly string[],
+  groups: readonly BulkCandidateGroup[],
+): BulkTargetSelection {
+  const porWhatsappId = new Map<string, BulkCandidateGroup>();
+  for (const group of groups) {
+    if (group.whatsapp_group_id) porWhatsappId.set(group.whatsapp_group_id, group);
+  }
+
+  const targets: BulkTargetGroup[] = [];
+  let skippedNoAdmin = 0;
+  let skippedNoId = 0;
+
+  for (const whatsappGroupId of new Set(groupIds)) {
+    const group = porWhatsappId.get(whatsappGroupId);
+    if (!group?.whatsapp_group_id) {
+      skippedNoId += 1;
+      continue;
+    }
+    if (group.is_admin !== true) {
+      skippedNoAdmin += 1;
+      continue;
+    }
+    targets.push({ id: group.id, whatsapp_group_id: group.whatsapp_group_id });
+  }
+
+  return { targets, skippedNoAdmin, skippedNoId };
+}

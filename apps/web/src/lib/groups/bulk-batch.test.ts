@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildBulkJobs, type BulkTargetGroup } from "./bulk-batch";
+import { buildBulkJobs, selectBulkTargets, type BulkTargetGroup } from "./bulk-batch";
 
 const BASE = { tenantId: "t1", campaignGroupId: "c1", batchId: "b1" };
 const GRUPOS: BulkTargetGroup[] = [
@@ -124,4 +124,64 @@ test("tenant e campanha vao em todo job — o filtro multi-tenant nasce aqui", (
     assert.equal(job.tenant_id, "t1");
     assert.equal(job.campaign_group_id, "c1");
   }
+});
+
+/* ---------- selectBulkTargets ---------- */
+
+// `campaign_groups.group_ids` guarda whatsapp_group_id, nao o UUID de `groups`.
+// Casar pela coluna errada devolveria lote vazio em producao com dado real.
+test("casa group_ids por whatsapp_group_id e devolve o UUID do grupo", () => {
+  const sel = selectBulkTargets(["120@g.us"], [
+    { id: "uuid-1", whatsapp_group_id: "120@g.us", is_admin: true },
+  ]);
+  assert.deepEqual(sel.targets, [{ id: "uuid-1", whatsapp_group_id: "120@g.us" }]);
+  assert.equal(sel.skippedNoAdmin, 0);
+  assert.equal(sel.skippedNoId, 0);
+});
+
+// O caso que motivou a decisao: 105 grupos sem admin nunca sao elegiveis, e
+// enfileira-los gastaria 4s de janela anti-ban cada um so para falhar.
+test("grupo onde nao somos admin fica de fora e e contado", () => {
+  const sel = selectBulkTargets(["a@g.us", "b@g.us"], [
+    { id: "uuid-a", whatsapp_group_id: "a@g.us", is_admin: true },
+    { id: "uuid-b", whatsapp_group_id: "b@g.us", is_admin: false },
+  ]);
+  assert.deepEqual(sel.targets.map((t) => t.id), ["uuid-a"]);
+  assert.equal(sel.skippedNoAdmin, 1);
+});
+
+// `is_admin` e opcional na store. Ausente significa "nunca medimos", nao "sim":
+// tratar como admin mandaria o lote para grupos que talvez recusem a operacao.
+test("is_admin ausente ou nulo conta como nao-admin", () => {
+  const sel = selectBulkTargets(["a@g.us", "b@g.us"], [
+    { id: "uuid-a", whatsapp_group_id: "a@g.us" },
+    { id: "uuid-b", whatsapp_group_id: "b@g.us", is_admin: null },
+  ]);
+  assert.deepEqual(sel.targets, []);
+  assert.equal(sel.skippedNoAdmin, 2);
+});
+
+test("id da campanha sem grupo correspondente conta como sem id", () => {
+  const sel = selectBulkTargets(["sumiu@g.us"], [
+    { id: "uuid-a", whatsapp_group_id: "a@g.us", is_admin: true },
+  ]);
+  assert.deepEqual(sel.targets, []);
+  assert.equal(sel.skippedNoId, 1);
+});
+
+test("grupo sem whatsapp_group_id nunca e alvo", () => {
+  const sel = selectBulkTargets(["a@g.us"], [
+    { id: "uuid-a", whatsapp_group_id: null, is_admin: true },
+  ]);
+  assert.deepEqual(sel.targets, []);
+  assert.equal(sel.skippedNoId, 1);
+});
+
+// group_ids repetido geraria "aplicar em 3 grupos" com 2 grupos na tela — e o
+// indice unico da tabela absorveria a duplicata em silencio no insert.
+test("group_ids repetido nao duplica o alvo nem a contagem", () => {
+  const sel = selectBulkTargets(["a@g.us", "a@g.us"], [
+    { id: "uuid-a", whatsapp_group_id: "a@g.us", is_admin: true },
+  ]);
+  assert.equal(sel.targets.length, 1);
 });
