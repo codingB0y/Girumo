@@ -31,6 +31,17 @@ for (const rota of ROTAS_DO_PAINEL) {
   });
 }
 
+// O /demo foi removido em 31/08/2026 depois de dois dias anunciado no sitemap
+// com prioridade 0.9. Sem o redirect declarado no next.config ele cairia neste
+// mesmo gate — 307 para /login, que e `index: false`: soft-404 para quem chega
+// pela busca. Os `redirects` do next.config rodam ANTES do middleware, entao a
+// pessoa para na home.
+test("o /demo removido vai para a home, nao para o gate de sessao", async ({ page }) => {
+  await page.goto("/demo");
+  await page.waitForURL((url) => url.pathname === "/", { timeout: 15_000 });
+  expect(new URL(page.url()).pathname).toBe("/");
+});
+
 // O controle que o achado de 17/08 pede: se a rota inventada se comportasse
 // diferente das reais, o laco acima estaria medindo outra coisa.
 test("controle: rota inventada tambem cai no gate (por isso o gate nao prova existencia)", async ({ page }) => {
