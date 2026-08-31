@@ -21,6 +21,19 @@ jobs:
     # portateis, e o pwsh ja vem instalado no runner ubuntu.
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Cancela o run anterior DO MESMO PR. Sem isso, cada push novo deixava o
+    # anterior rodando ate o fim validando um commit que ja nao existe: em
+    # 29/08/2026 houve rajada de 9 runs em 7 minutos (14:12 -> 14:19), e 8 deles
+    # eram lixo pago. Este job custa ~3 min.
+    #
+    # `cancel-in-progress` so em PR: cancelar run de `main` apagaria o unico
+    # registro verde do commit que ja esta mergeado.
+    #
+    # Grupo com prefixo do job de proposito. Dois jobs no mesmo grupo se
+    # bloqueiam DENTRO do mesmo run — `verify-` e `drift-` os mantem separados.
+    concurrency:
+      group: verify-${{ github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -57,6 +70,13 @@ jobs:
   drift:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Mesmo motivo do `verify`. Este job roda nos DOIS eventos, e e por isso que
+    # `cancel-in-progress` e condicional em vez de `true`: em `main` ele nao pode
+    # ser cancelado, porque e o unico que compara o banco real com a baseline
+    # depois do merge.
+    concurrency:
+      group: drift-${{ github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -116,6 +136,16 @@ jobs:
     #
     # cancel-in-progress: false porque cancelar o run que ja esta rodando
     # desperdicaria a validacao inteira por causa de um push que chegou depois.
+    #
+    # E POR ISSO que este job ficou DE FORA do cancelamento por ref que os jobs
+    # `verify` e `drift` ganharam em 31/08/2026 para parar de pagar por run
+    # obsoleto. Aqui o cancelamento nao e so desperdicio: se o e2e morre no meio,
+    # o comando que ele ja tinha reivindicado fica orfao em `processing`, e como
+    # `claim_send_commands` NAO aceita filtro de tenant, o proximo run pode
+    # reivindicar o orfao alheio e reprovar sem ter nada errado no codigo — a
+    # mesma classe de corrida do incidente de 24/08. Trocar 4 min de runner por
+    # falha intermitente em suite de seguranca e mau negocio; o dia em que o
+    # claim aceitar filtro de tenant, reavaliar.
     concurrency:
       group: e2e-supabase-dev
       cancel-in-progress: false
