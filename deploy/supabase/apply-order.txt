@@ -260,3 +260,17 @@ apps/web/supabase/migrations/20260829160000_groups_admin_protection.sql
 # que refaz as duas com `create or replace` sem repetir os grants: quem tem a
 # ultima palavra aqui e quem define o privilegio que o banco fica.
 apps/web/supabase/migrations/20260830210000_lp_rpc_sem_authenticated.sql
+
+# 31/08/2026 - Tira `authenticated` das quatro funcoes `security definer` de
+# `public` que ainda o tinham. As duas que importam sao de LEITURA do funil:
+# `funnel_tenant_matrix` devolve tenant_id, name (com e-mail de cliente) e marcos
+# de TODAS as organizacoes numa chamada so, e `funnel_event_counts` devolve o
+# funil agregado sem recorte por tenant. As outras duas sao funcoes de trigger,
+# sem risco pratico, mas o privilegio nao tem razao de existir e mantinha o lint
+# do advisor poluido. Medido nos dois bancos em 31/08: proacl identico, com
+# `authenticated=X/postgres` nominal — diferente do #190, aqui prod tambem vazava.
+# A origem e o default privilege do grantor `postgres` para function em `public`,
+# que concede a `authenticated` toda funcao nova; o event trigger
+# `ensure_anon_revoked` nao alcanca porque revoga `from anon, public`. Fechar essa
+# torneira vai em PR separado.
+apps/web/supabase/migrations/20260831140000_definer_sem_authenticated.sql
