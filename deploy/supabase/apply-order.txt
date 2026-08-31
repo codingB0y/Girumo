@@ -286,3 +286,11 @@ apps/web/supabase/migrations/20260830210000_lp_rpc_sem_authenticated.sql
 # `ensure_anon_revoked` nao alcanca porque revoga `from anon, public`. Fechar essa
 # torneira vai em PR separado.
 apps/web/supabase/migrations/20260831140000_definer_sem_authenticated.sql
+
+# 31/08/2026 - Filtro de tenant OPCIONAL nas duas filas globais do worker. O
+# claim reivindicava sem recorte de tenant, entao dois runs de CI contra o
+# Supabase de dev se roubavam o comando; a contramedida era serializar o job e2e
+# num concurrency global, e o preco disso era um PR CANCELAR o e2e do outro
+# (run cancelado nao reprova: PR verde com a suite sem ter rodado). Parametro no
+# fim com default null = comportamento de hoje, worker de producao intacto.
+apps/web/supabase/migrations/20260831160000_claim_por_tenant.sql

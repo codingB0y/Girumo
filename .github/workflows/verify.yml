@@ -168,32 +168,24 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    # Serializa: este job fala com o Supabase de DEV, que e um so para todos os
-    # runs. O teste da cadeia de automacao chama `claim_send_commands`, que e a
-    # fila GLOBAL do worker e nao aceita filtro de tenant — entao dois runs ao
-    # mesmo tempo se roubam o comando e um deles reprova sem ter nada errado no
-    # codigo. Aconteceu em 24/08/2026: os PRs #143 e #144 foram mergeados com 4
-    # segundos de diferenca e os dois runs de main quebraram no mesmo assert.
+    # Ate 31/08/2026 este job era serializado num `concurrency` GLOBAL
+    # (`e2e-supabase-dev`, `cancel-in-progress: false`), porque o teste da cadeia
+    # de automacao chama `claim_send_commands` e a fila era global, sem filtro de
+    # tenant: dois runs simultaneos se roubavam o comando e um reprovava sem ter
+    # nada errado no codigo (PRs #143 e #144, em 24/08/2026).
     #
-    # O tenant com UUID novo a cada execucao isola as LEITURAS do teste, mas nao
-    # protege contra o claim alheio; por isso a serializacao mora aqui e nao no
-    # fixture.
+    # O custo so apareceu quando o CI destravou e varios PRs passaram a coexistir:
+    # o GitHub mantem UM run pendente por grupo, entao o e2e de um PR CANCELAVA o
+    # do outro — e run cancelado NAO reprova, entao o PR ficava verde com a suite
+    # sem ter rodado. Gate que nao roda e pior que gate ausente.
     #
-    # cancel-in-progress: false porque cancelar o run que ja esta rodando
-    # desperdicaria a validacao inteira por causa de um push que chegou depois.
-    #
-    # E POR ISSO que este job ficou DE FORA do cancelamento por ref que os jobs
-    # `verify` e `drift` ganharam em 31/08/2026 para parar de pagar por run
-    # obsoleto. Aqui o cancelamento nao e so desperdicio: se o e2e morre no meio,
-    # o comando que ele ja tinha reivindicado fica orfao em `processing`, e como
-    # `claim_send_commands` NAO aceita filtro de tenant, o proximo run pode
-    # reivindicar o orfao alheio e reprovar sem ter nada errado no codigo — a
-    # mesma classe de corrida do incidente de 24/08. Trocar 4 min de runner por
-    # falha intermitente em suite de seguranca e mau negocio; o dia em que o
-    # claim aceitar filtro de tenant, reavaliar.
+    # A migracao 20260831160000 deu `p_tenant` opcional as duas RPCs de claim, o
+    # teste passa o tenant dele e a corrida deixou de existir. Agora o grupo e por
+    # ref, como em `verify` e `drift`: PRs diferentes rodam em paralelo, e so o
+    # run obsoleto do MESMO PR e cancelado.
     concurrency:
-      group: e2e-supabase-dev
-      cancel-in-progress: false
+      group: e2e-${{ github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

@@ -25,12 +25,15 @@
  *     `members >= capacity`, então números pequenos exercem o gatilho igual e
  *     deixam claro que não há 1024 pessoas do outro lado.
  *
- * O QUE O TENANT ISOLADO **NÃO** COBRE: `claim_send_commands` é a fila GLOBAL do
- * worker e não aceita filtro de tenant, então um segundo run do CI rodando ao
- * mesmo tempo reivindica o comando deste aqui e o elo 2 reprova sem haver nada
- * errado no código. Aconteceu em 24/08/2026 com os PRs #143 e #144, mergeados
- * com 4 segundos de diferença. A serialização mora no `concurrency` do job
- * `e2e` em `.github/workflows/verify.yml` — não dá para resolver aqui dentro.
+ * O CLAIM É ESCOPADO POR TENANT desde 31/08/2026. Antes disso `claim_send_commands`
+ * e `claim_automation_runs` reivindicavam de uma fila global, e um segundo run do
+ * CI roubava o comando deste aqui — o elo 2 reprovava sem haver nada errado no
+ * código (aconteceu em 24/08/2026 com os PRs #143 e #144, mergeados com 4
+ * segundos de diferença). A contramedida era serializar o job `e2e` num
+ * `concurrency` global, o que fazia um PR CANCELAR o e2e do outro. As duas RPCs
+ * agora aceitam `p_tenant` (migração 20260831160000), este teste passa o dele, e
+ * a serialização saiu do workflow. Produção não passa o parâmetro e segue
+ * reivindicando da fila inteira.
  *
  * Pula-se sozinho sem SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY, para `npm test`
  * seguir verde na máquina de quem não configurou credencial.
@@ -146,7 +149,7 @@ test(
     });
 
     await t.test("elo 2 — o executor enfileira o comando COM instance_id", async () => {
-      const resumo = await runAutomationsTick(db, makeAutomationDeps(db), 20, 300);
+      const resumo = await runAutomationsTick(db, makeAutomationDeps(db), 20, 300, tenantId);
       assert.ok(resumo.claimed >= 1, "esperava ao menos 1 run reivindicado, veio " + resumo.claimed);
 
       const { data, error } = await db
@@ -167,7 +170,7 @@ test(
         comando.status,
         "queued",
         comando.status === "processing"
-          ? "outro run reivindicou este comando antes da conferencia. claim_send_commands e fila GLOBAL, sem filtro de tenant: dois jobs e2e simultaneos contra o Supabase de dev se roubam o comando. Ver o concurrency do job e2e em .github/workflows/verify.yml — nao e bug do codigo."
+          ? "comando sumiu antes da conferencia. Desde 31/08/2026 o claim e escopado por tenant (p_tenant), entao NAO deveria mais ser outro run do CI roubando: investigar de verdade em vez de reexecutar."
           : "o comando nasceu em " + comando.status + ", esperava queued",
       );
       // ESTE é o assert que teria pego o bug de 19/08.
@@ -184,7 +187,7 @@ test(
     await t.test("elo 3 — claim_send_commands REIVINDICA o comando", async () => {
       // O elo que faltava. Os testes de unidade paravam no insert; o defeito de
       // 19/08 morava aqui, no filtro da RPC que nenhum fake reproduz.
-      const { data, error } = await db.rpc("claim_send_commands", { max_commands: 20 });
+      const { data, error } = await db.rpc("claim_send_commands", { max_commands: 20, p_tenant: tenantId });
       assert.equal(error, null, "claim_send_commands: " + error?.message);
 
       const reivindicados = ((data ?? []) as { id: string; tenant_id: string; status: string }[]).filter(
@@ -206,7 +209,7 @@ test(
       // finaliza. Em produção o loop roda a cada 3s, então isto é o
       // comportamento real, não um artifício do teste — o run ficar `pending`
       // aqui é correto, e é por isso que o segundo tick existe.
-      const resumo = await runAutomationsTick(db, makeAutomationDeps(db), 20, 300);
+      const resumo = await runAutomationsTick(db, makeAutomationDeps(db), 20, 300, tenantId);
       assert.ok(resumo.done >= 1, "esperava ao menos 1 run finalizado, veio " + resumo.done);
 
       const { data, error } = await db
