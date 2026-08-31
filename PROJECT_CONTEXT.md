@@ -3,7 +3,10 @@
 > **Objetivo:** evitar reler o projeto. Antes de abrir arquivos, consulte este mapa e vá direto no alvo.
 > **Regra:** nunca ler o projeto inteiro. Planejar → listar (glob/grep) → abrir só o necessário → resumir →
 > continuar. Ao aprender algo novo/estável, **atualize este arquivo** em vez de deixar só na conversa.
-> Diagnóstico completo (arquitetura, riscos, backlog): ver [AUDIT_REPORT.md](AUDIT_REPORT.md).
+> Diagnóstico completo (arquitetura, riscos, backlog): os cinco audits (`AUDIT_REPORT`,
+> `BACKEND_AUDIT`, `FRONTEND_AUDIT`, `INFRA_AUDIT`, `SECURITY_AUDIT`) e o `ENGINE_AUDIT` **não
+> são rastreados** desde que o repo virou público (31/08/2026) — descrevem vetor de exploração
+> com arquivo:linha. Ficam no disco de quem clonou antes; peça ao Igor se precisar.
 > Última atualização: 2026-07-05.
 
 ## O que é

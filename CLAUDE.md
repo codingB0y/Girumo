@@ -97,14 +97,14 @@ com policy em GUC e generalizou. O quadro real das ~123 policies:
   `app.has_membership()`, `app.user_tenant_ids()`, `app.has_role()` — todas
   `SECURITY DEFINER` com `search_path`, filtrando por `accepted_at is not null`.
   Esse é o padrão a copiar em policy nova.
-- **13 policies NUNCA avaliam verdadeiro.** Dependem de coisa que o app não seta —
-  `grep set_config` no repo volta vazio:
-  - `current_setting('app.tenant_id')` → `automation_runs`, `group_grow_jobs`,
-    `ig_accounts`, `ig_events`, `ig_triggers`, `lp_captures`, `lp_contacts`
-  - `current_setting('app.workspace_id')` → `agents`, `decisions`, `knowledge`,
-    `memories`, `missions`, `squads`
-  - `current_setting('role') = 'service_role'` e claim `tenant_id` no JWT →
-    `funnel_events`, `link_click_events`, `testimonials`
+- **13 policies NUNCA avaliam verdadeiro.** Dependem de GUC que o app não seta
+  (`current_setting('app.tenant_id')`, `current_setting('app.workspace_id')`,
+  `current_setting('role')` + claim `tenant_id` no JWT) — `grep set_config` no repo
+  volta vazio. A lista nominal das tabelas saiu daqui quando o repo virou público em
+  31/08/2026: levantar de novo com
+  `select tablename, policyname from pg_policy ...` filtrando por `current_setting`
+  no `qual`. Elas negam tudo, então nomeá-las não abria porta — mas também não
+  poupava nada a quem já tem o SQL.
 
   **Não confie nelas.** Essas 13 tabelas são deny-all por acidente, não por desenho: se
   algum dia um caminho `authenticated` precisar delas, a policy vai negar tudo e a

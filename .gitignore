@@ -84,3 +84,18 @@ apps/web/.ds-entry.tsx
 # Pasta literalmente chamada "~", criada quando uma expansão de path falha
 # (ex.: "~/tools/..." usado sem expandir). Chegou a virar gitlink commitado.
 ~/
+
+# Auditorias de segurança — repo é PUBLIC desde 31/08/2026.
+# Ficam no disco (valor defensivo real), fora do repo: descrevem vetor de
+# exploração com arquivo:linha, e parte dos achados LOW segue aberta.
+/AUDIT_REPORT.md
+/BACKEND_AUDIT.md
+/FRONTEND_AUDIT.md
+/INFRA_AUDIT.md
+/SECURITY_AUDIT.md
+hubflow-engine/ENGINE_AUDIT.md
+CLAUDE.local.md
+
+# Scratch do supabase CLI: expõe endpoint do pooler, organization_id e o
+# patch level exato de postgres/gotrue/storage/rest. O CLI regenera sozinho.
+apps/web/supabase/.temp/
