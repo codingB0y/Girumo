@@ -233,11 +233,20 @@ export async function runAutomationsTick(
   deps: AutomationDeps,
   batchSize: number,
   requeueAfterSeconds: number,
+  /**
+   * Restringe o claim a um tenant. Producao NAO passa: null reivindica da fila
+   * inteira, que e o comportamento de sempre. Existe para o teste de integracao
+   * nao disputar comando com outro run do CI (ver 20260831160000_claim_por_tenant).
+   */
+  tenantId?: string,
 ): Promise<AutomationsTickSummary> {
   const requeued = await requeueStale(supabase, requeueAfterSeconds);
   if (requeued > 0) log.warn("runs de automacao reenfileirados", { requeued });
 
-  const { data, error } = await supabase.rpc("claim_automation_runs", { max_runs: batchSize });
+  const { data, error } = await supabase.rpc("claim_automation_runs", {
+    max_runs: batchSize,
+    p_tenant: tenantId ?? null,
+  });
   if (error) throw new Error(`claim_automation_runs: ${error.message}`);
 
   const rows = (data ?? []) as AutomationRunRow[];
