@@ -233,3 +233,71 @@ test("tracking grava e incrementa page_view em RPC protegida pelo lock de versã
     /isLpRenderContextStaleError\([\s\S]*status:\s*409/i,
   );
 });
+
+
+/**
+ * O furo medido em 30/08/2026. A migration 20260723090000 já revogava
+ * `authenticated` das duas RPCs, mas a 20260820140000 — que vem DEPOIS na
+ * apply-order — refaz ambas com `create or replace` e não repete os grants.
+ * Quem tem a última palavra na ordem de aplicação é quem decide o privilégio
+ * com que o banco fica, e por 10 dias a última palavra foi de uma migration
+ * muda: dev ficou com `authenticated=X/postgres` nas duas, e um JWT de usuário
+ * comum executava o corpo delas.
+ *
+ * Nenhum outro gate pega isso. `public.schema_signature()` hasheia
+ * `pg_get_function_result | prosecdef | provolatile` — ACL não entra —, então o
+ * check de drift dev x prod fica verde com os bancos divergindo em privilégio.
+ */
+test("o revoke de `authenticated` tem a última palavra nas RPCs públicas de LP", () => {
+  const raizRepo = path.join(process.cwd(), "..", "..");
+  const arquivos = applyOrder
+    .split(/\r?\n/)
+    .map((linha) => linha.trim())
+    .filter((linha) => linha !== "" && !linha.startsWith("#"));
+
+  /** Recorta um comando SQL inteiro, do verbo até o `;`, atravessando quebras de linha. */
+  const comando = (sql: string, verbo: string, rpc: string): string | null => {
+    const inicio = sql.toLowerCase().indexOf(`${verbo} public.${rpc}`);
+    if (inicio < 0) return null;
+    const fim = sql.indexOf(";", inicio);
+    return fim < 0 ? null : sql.slice(inicio, fim).toLowerCase();
+  };
+
+  // Só conta quem cria a função ou mexe no privilégio dela: citação em
+  // comentário de outra migration não deve obrigar ninguém a repetir o revoke.
+  const VERBOS = [
+    "create or replace function",
+    "revoke all on function",
+    "grant execute on function",
+  ];
+
+  for (const rpc of ["confirm_lp_capture", "record_lp_tracking_event"]) {
+    const tocam = arquivos.filter((rel) => {
+      const abs = path.join(raizRepo, rel);
+      if (!existsSync(abs)) return false;
+      const sql = readFileSync(abs, "utf8");
+      return VERBOS.some((verbo) => comando(sql, verbo, rpc) !== null);
+    });
+    assert.ok(tocam.length > 0, `nenhuma migration da apply-order define ${rpc}`);
+
+    const ultima = tocam[tocam.length - 1] as string;
+    const sql = readFileSync(path.join(raizRepo, ultima), "utf8");
+
+    const revoke = comando(sql, "revoke all on function", rpc);
+    assert.ok(
+      revoke !== null && revoke.includes("authenticated"),
+      `A última migration da apply-order que mexe em ${rpc} é ${ultima}, e ela não ` +
+        `revoga EXECUTE de authenticated. A função é security definer e recebe ` +
+        `p_tenant_id como PARÂMETRO: sem o revoke, qualquer usuário logado chama ` +
+        `/rest/v1/rpc/${rpc} com o tenant de outro lojista e injeta lead e evento ` +
+        `de funil na base dele.`,
+    );
+
+    const grant = comando(sql, "grant execute on function", rpc);
+    assert.ok(
+      grant !== null && grant.includes("service_role"),
+      `A última migration que mexe em ${rpc} (${ultima}) revoga mas não devolve ` +
+        `EXECUTE para service_role — a captura de lead pararia de gravar.`,
+    );
+  }
+});

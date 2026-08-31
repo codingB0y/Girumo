@@ -250,3 +250,13 @@ apps/web/supabase/migrations/20260829140000_acquisition_events.sql
 # segundo caso que perde o grupo para sempre se o numero cair. `admins_counted_at`
 # existe para o 0 default nao virar alarme falso nos grupos que ja existiam.
 apps/web/supabase/migrations/20260829160000_groups_admin_protection.sql
+
+# 30/08/2026 - Tira `authenticated` das duas RPCs publicas de LP. Mesma classe
+# do furo de claim_bulk_jobs: security definer que recebe `p_tenant_id` como
+# PARAMETRO, e neste projeto `authenticated` mantem os sete privilegios por
+# default. Medido no dia: dev tinha `authenticated=X` nas duas (explorado com
+# JWT real - a chamada respondeu P0001 de DENTRO da funcao), prod ja estava so
+# com service_role. Precisa vir DEPOIS de 20260820140000_lp_funnel_functions,
+# que refaz as duas com `create or replace` sem repetir os grants: quem tem a
+# ultima palavra aqui e quem define o privilegio que o banco fica.
+apps/web/supabase/migrations/20260830210000_lp_rpc_sem_authenticated.sql
