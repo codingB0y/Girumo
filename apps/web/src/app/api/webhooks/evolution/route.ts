@@ -69,11 +69,20 @@ async function applyConnectionUpdate(
   // da instância não é adivinhado.
   if (!status) return;
 
+  // O MOTIVO da queda decide o que o lojista precisa fazer, e jogá-lo fora
+  // torna `401` (sessão removida — só volta pareando de novo) indistinguível de
+  // `428` (queda passageira, volta sozinha). A tela dizia "desconectado" nos
+  // dois casos. Vai em `metadata` porque o RPC mescla (`metadata || target`),
+  // então não precisa de coluna nova nem migração nos dois bancos.
+  const lastDisconnectReason =
+    status === "disconnected" ? (event.data.statusReason ?? null) : null;
+
   await updateInstanceStatus({
     tenantId: instance.tenant_id,
     instanceId: instance.id,
     status,
     phone: phoneFromWuid(event.data.wuid),
+    metadata: { lastDisconnectReason },
   });
 }
 

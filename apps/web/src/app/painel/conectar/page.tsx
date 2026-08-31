@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Check, ShieldCheck, Zap, Loader2, RefreshCw } from "lucide-react";
+import { Check, ShieldCheck, Zap, Loader2, RefreshCw, Power } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toPlanLimitError, upgradeUrlFrom } from "@/lib/billing/plan-limit-client";
 import { PlanLimitAlert } from "@/components/painel/plan-limit-alert";
@@ -10,10 +10,11 @@ import { NumeroSaude } from "@/components/painel/numero-saude";
 import { GruposProtecao } from "@/components/painel/grupos-protecao";
 import { cn } from "@/lib/utils";
 import { POLL_MS, nextPollDelay } from "@/lib/engine-poll";
+import { precisaParearDeNovo } from "@/lib/instance-disconnect-reason";
 import { activationLabel } from "@/lib/onboarding-steps";
 
 export default function PainelConectar() {
-  const { instance, loading, error, upgradeUrl, load, refreshQr } = useInstance();
+  const { instance, loading, error, upgradeUrl, load, refreshQr, disconnect } = useInstance();
   const connected = instance?.status === "connected";
 
   return (
@@ -37,7 +38,14 @@ export default function PainelConectar() {
 
       <div className="pn-card mt-10 grid gap-6 overflow-hidden rounded-2xl md:grid-cols-2">
         <Instrucoes />
-        <QRPanel instance={instance} loading={loading} error={error} upgradeUrl={upgradeUrl} onRefreshQr={refreshQr} />
+        <QRPanel
+          instance={instance}
+          loading={loading}
+          error={error}
+          upgradeUrl={upgradeUrl}
+          onRefreshQr={refreshQr}
+          onDisconnect={disconnect}
+        />
       </div>
 
       {/* Saude do numero: so faz sentido depois que existe numero conectado.
@@ -161,6 +169,8 @@ type Instance = {
   phone: string | null;
   status: InstanceStatus;
   qr_code: string | null;
+  /** Guarda `lastDisconnectReason` — ver o webhook de `connection.update`. */
+  metadata?: Record<string, unknown> | null;
 };
 
 /**
@@ -223,24 +233,53 @@ function useInstance() {
     }
   }, []);
 
+  /** Dispara a ação e adota a instância devolvida, que já vem com estado fresco. */
+  const runAction = useCallback(
+    async (id: string, action: "refresh_qr" | "disconnect", falha: string) => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/instances/${id}/actions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action }),
+        });
+        if (!res.ok) throw new Error(falha);
+        setInstance((await res.json()) as Instance);
+        setError(null);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
+
+  /**
+   * Pede um QR novo.
+   *
+   * Sem instância carregada isto era `return void load(true)`: o clique
+   * recarregava a lista e NUNCA pedia QR, sem dizer nada na tela — quem clicava
+   * ficava em "Aguardando QR…" para sempre, sem erro nenhum para investigar.
+   * Agora carrega e segue com o pedido de verdade.
+   */
   const refreshQr = useCallback(async () => {
-    if (!instance) return void load(true);
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/instances/${instance.id}/actions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "refresh_qr" }),
-      });
-      if (!res.ok) throw new Error("Nao foi possivel gerar um novo QR.");
-      setInstance((await res.json()) as Instance);
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
-  }, [instance, load]);
+    const alvo = instance ?? (await load(true));
+    if (!alvo) return; // `load` já colocou o motivo em `error`.
+    await runAction(alvo.id, "refresh_qr", "Nao foi possivel gerar um novo QR.");
+  }, [instance, load, runAction]);
+
+  /**
+   * Encerra a sessão na Evolution.
+   *
+   * É a única saída quando o pareamento entra em ciclo (a sessão abre e cai
+   * sozinha, repetidamente). Até 31/08/2026 esta ação existia na API sem
+   * nenhuma tela chamá-la, então o lojista não tinha como se recuperar sozinho.
+   */
+  const disconnect = useCallback(async () => {
+    if (!instance) return;
+    await runAction(instance.id, "disconnect", "Nao foi possivel desconectar.");
+  }, [instance, runAction]);
 
   /**
    * Polling que sabe parar.
@@ -308,7 +347,7 @@ function useInstance() {
     void fetch("/api/groups/sync", { method: "POST" }).catch(() => undefined);
   }, [instance?.status]);
 
-  return { instance, loading, error, upgradeUrl, load, refreshQr };
+  return { instance, loading, error, upgradeUrl, load, refreshQr, disconnect };
 }
 
 function QRPanel({
@@ -317,6 +356,7 @@ function QRPanel({
   error,
   upgradeUrl,
   onRefreshQr,
+  onDisconnect,
 }: {
   instance: Instance | null;
   loading: boolean;
@@ -324,6 +364,7 @@ function QRPanel({
   /** Preenchido só quando o erro veio do gate de plano (402). */
   upgradeUrl: string | null;
   onRefreshQr: () => void;
+  onDisconnect: () => void;
 }) {
   if (instance?.status === "connected") {
     return <ConnectedPanel number={instance.phone} />;
@@ -342,6 +383,17 @@ function QRPanel({
         upgradeUrl={upgradeUrl}
         className="flex flex-wrap items-center justify-center gap-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-200"
       />
+
+      {/* `401` não é queda passageira: a sessão foi removida e só volta com um
+          pareamento novo. Dizer isso evita o clique repetido em "atualizar",
+          que é justamente o que substitui a conexão recém-aberta e prende o
+          usuário no ciclo. */}
+      {precisaParearDeNovo(instance?.metadata) && (
+        <p className="max-w-[300px] rounded-lg bg-amber-400/10 px-3 py-2 text-center text-xs leading-relaxed text-amber-200">
+          A conexão foi removida no celular. Escaneie o código <strong>uma vez</strong> e
+          aguarde — pedir outro código no meio derruba o pareamento em andamento.
+        </p>
+      )}
 
       {qr ? (
         <div className="rounded-2xl bg-white p-4">
@@ -364,14 +416,30 @@ function QRPanel({
         {connecting ? "Conectando…" : qr ? "Escaneie no WhatsApp" : "Aguardando leitura…"}
       </div>
 
-      <button
-        type="button"
-        onClick={onRefreshQr}
-        disabled={loading}
-        className="font-data inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-canvas-100/50 transition-colors duration-[160ms] hover:text-canvas-100/80 disabled:opacity-50"
-      >
-        <RefreshCw className={cn("h-3 w-3", loading && "animate-spin")} /> Atualizar agora
-      </button>
+      <div className="flex items-center gap-5">
+        <button
+          type="button"
+          onClick={onRefreshQr}
+          disabled={loading}
+          className="font-data inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-canvas-100/50 transition-colors duration-[160ms] hover:text-canvas-100/80 disabled:opacity-50"
+        >
+          <RefreshCw className={cn("h-3 w-3", loading && "animate-spin")} /> Atualizar agora
+        </button>
+
+        {/* Saída para quando o pareamento entra em ciclo (a sessão abre e cai
+            sozinha): encerra a sessão na Evolution e deixa o próximo QR começar
+            limpo. Sem instância não há o que desconectar. */}
+        {instance && (
+          <button
+            type="button"
+            onClick={onDisconnect}
+            disabled={loading}
+            className="font-data inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-canvas-100/50 transition-colors duration-[160ms] hover:text-red-300 disabled:opacity-50"
+          >
+            <Power className="h-3 w-3" /> Desconectar
+          </button>
+        )}
+      </div>
 
       <p className="font-data text-center text-[11px] uppercase tracking-wider text-canvas-100/40">
         o código expira em 60s · gera outro automático
