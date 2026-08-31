@@ -14,6 +14,7 @@ import {
   removalSuccess,
 } from "@/lib/auth/member-removal";
 import { authenticatedFetch } from "@/lib/supabase/client";
+import { subscriptionAccess, subscriptionNotice } from "@/lib/billing/subscription-access";
 
 type Section = "Conexão" | "Equipe" | "Notificações" | "Plano" | "Conta";
 const NAV: { key: Section; icon: typeof Smartphone }[] = [
@@ -78,7 +79,17 @@ function lerPreferencias(d: Partial<Preferencias> | null): Preferencias {
 type Session = { live?: boolean; phone?: string | null; profileName?: string | null; stats?: { warmup?: { day?: number; totalDays?: number } } };
 type Membership = { id: string; role: string; invited_email?: string | null; accepted_at?: string | null };
 type Plan = { id: string; code: string; name: string; limits?: Record<string, number | boolean | null>; stripe_price_id?: string | null };
-type Subscription = { status?: string; plans?: { name?: string; code?: string } | null; plan?: { name?: string; code?: string } } | null;
+// A rota faz `select("*, plans(*)")`, entao `metadata` e `current_period_end` ja
+// vinham no payload — era o tipo local que os escondia. Sem os dois nao da para
+// separar boleto emitido (que CONCEDE acesso) de cobranca falhada, e a tela
+// acabava afirmando o plano pelo `plan_id`, que e o plano ESCOLHIDO, nao o pago.
+type Subscription = {
+  status?: string;
+  plans?: { name?: string; code?: string } | null;
+  plan?: { name?: string; code?: string };
+  metadata?: { stripe_status?: string | null } | null;
+  current_period_end?: string | null;
+} | null;
 
 export default function PainelConfiguracoes() {
   const [section, setSection] = useState<Section>("Conexão");
@@ -132,6 +143,27 @@ export default function PainelConfiguracoes() {
   const live = session.live === true;
   const currentPlanCode = sub?.plans?.code ?? sub?.plan?.code ?? null;
   const currentPlanName = sub?.plans?.name ?? sub?.plan?.name ?? null;
+  /**
+   * O plano que a assinatura APONTA nao e o plano que vale.
+   *
+   * `plan_id` guarda o que o cliente escolheu no checkout, e continua apontando
+   * para la mesmo quando o pagamento nunca compensou. Sem cruzar com o estado da
+   * assinatura, esta tela dizia "Voce esta no plano Growth" para quem estava com
+   * `canceled` e teto zero — e o cliente lia isso como promessa, tomava 402 em
+   * tudo e nao tinha como ligar uma coisa na outra. O sidebar ja cruzava; era so
+   * esta tela que afirmava sozinha.
+   */
+  const acessoPlano = sub
+    ? subscriptionAccess(
+        {
+          status: sub.status ?? null,
+          stripeStatus: sub.metadata?.stripe_status ?? null,
+          periodEnd: sub.current_period_end ?? null,
+        },
+        new Date(),
+      )
+    : null;
+  const planoVigente = acessoPlano?.grantsPlan ?? false;
 
   async function togglePref(key: PreferenciaKey, proximo: boolean) {
     const anterior = prefs;
@@ -431,7 +463,16 @@ export default function PainelConfiguracoes() {
           )}
 
           {section === "Plano" && (
-            <Panel title="Plano e cobrança" desc={currentPlanName ? `Você está no plano ${currentPlanName}.` : "Escolha um plano pra liberar tudo."}>
+            <Panel
+              title="Plano e cobrança"
+              desc={
+                !currentPlanName
+                  ? "Escolha um plano pra liberar tudo."
+                  : planoVigente
+                    ? `Você está no plano ${currentPlanName}.`
+                    : `Plano ${currentPlanName} — ${subscriptionNotice(acessoPlano?.state ?? "none")}`
+              }
+            >
               {/* Portal button */}
               {currentPlanCode && currentPlanCode !== "FREE" && (
                 <div className="mb-4 flex items-center justify-between rounded-2xl bg-poco px-4 py-3">
