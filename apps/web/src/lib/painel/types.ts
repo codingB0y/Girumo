@@ -1,11 +1,10 @@
 /**
  * Tipos que as telas do painel consomem das rotas de API.
  *
- * Moram fora das páginas porque o modo demonstração (`lib/demo/fixtures.ts`)
- * precisa importá-los: é o acoplamento em TIPO que faz a fixture parar de
- * compilar quando o contrato da rota muda. Sem isso, o demo passa a mostrar um
- * formato que o produto não usa mais — e mente em silêncio, que é a falha que
- * o gatilho G1 mede como arrependimento pós-compra.
+ * Moram fora das páginas para que qualquer outro consumidor se acople ao mesmo
+ * contrato em TIPO — e pare de compilar quando a rota mudar, em vez de exibir
+ * em silêncio um formato que o produto não usa mais. Nasceram no modo
+ * demonstração (revertido em 31/08/2026); o `painel/contatos` seguiu usando.
  */
 
 export type LeadStatus = "novo" | "ativo" | "comprou";

@@ -88,20 +88,12 @@ export function classifyRequest(pathname: string, method: string): AccessKind {
     return "shared";
   }
 
-  // Captura do modo demonstração: entra sem sessão por natureza — quem preenche
-  // o formulário ainda NÃO tem conta, que é o ponto do paid-first. O payload é
-  // validado no próprio handler; o middleware só limita por IP.
-  //
-  // Path EXATO, igual ao bloco dos crons: prefixo `/api/demo/` abriria qualquer
-  // rota futura da família sem gate nenhum.
-  if (key === "POST /api/demo/request") return "public-rate-limited";
-
   // Beacon de clique de saída da landing (SEO). Sem sessão por natureza: quem lê
   // a landing ainda não tem conta. O handler devolve 204 sempre e valida o
   // payload contra uma allowlist fechada; o middleware só limita por IP.
   //
-  // Path EXATO, pelo mesmo motivo da regra acima: `/api/track/` como prefixo
-  // abriria qualquer rota futura da família sem gate nenhum.
+  // Path EXATO, igual ao bloco dos crons: `/api/track/` como prefixo abriria
+  // qualquer rota futura da família sem gate nenhum.
   if (key === "POST /api/track/outbound") return "public-rate-limited";
 
   return pathname.startsWith("/api/") ? "user" : "public";

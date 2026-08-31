@@ -1,5 +1,11 @@
 # Modo demonstração — desenho
 
+> **REVERTIDO em 31/08/2026.** O modo demonstração saiu do produto: não
+> fazia sentido com a estratégia. O `/demo`, a rota de captura, os componentes e
+> a lib foram removidos; o CTA principal da landing passou a apontar para o
+> WhatsApp de vendas. A tabela `demo_requests` continua nos dois bancos, inerte.
+> Este documento fica como registro do desenho e das armadilhas encontradas.
+
 > **Data:** 28/08/2026 · **Status:** aprovado pelo Igor em 28/08/2026
 > **Fase 3 do paid-first, PR 1 de 2.** O PR 2 é a instrumentação do funil por coorte.
 > Contexto: [`2026-08-27-pricing-paid-first.md`](../../strategy/2026-08-27-pricing-paid-first.md)

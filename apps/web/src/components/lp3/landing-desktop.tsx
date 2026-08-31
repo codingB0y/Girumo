@@ -1,11 +1,10 @@
 import Image from "next/image";
-import { ArrowRight, Check, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { WhatsAppIcon } from "@/components/landing/icons";
 import { OrderTicker } from "@/components/lp3/order-ticker";
 import { PanelMock } from "@/components/lp3/panel-mock";
 import { BazarVideo } from "@/components/lp3/video-facade";
 import {
-  DEMO_URL,
   DIFERENCIAL,
   METODO,
   ROTINA,
@@ -41,17 +40,15 @@ export function DesktopHero() {
           R$ 5 mil a R$ 350 mil por mês fazendo exatamente isso.
         </p>
 
-        {/* um único CTA com peso — o WhatsApp vira link de texto pra não dividir o clique */}
+        {/* um único CTA com peso — a venda começa na conversa, não num cadastro */}
         <div data-lp4-hi className="mt-10 flex items-center justify-center gap-3">
-          <a href={DEMO_URL} data-lp4-magnetic className="lp4-btn lp4-btn-green">
-            Ver demonstração <ArrowRight className="h-4 w-4" aria-hidden />
-          </a>
           <a
             href={WHATSAPP_URL}
             data-outbound="whatsapp_click"
-            className="inline-flex items-center gap-2 px-3 text-sm font-semibold text-[var(--green)] transition-colors hover:text-[var(--green-hover)]"
+            data-lp4-magnetic
+            className="lp4-btn lp4-btn-green"
           >
-            <WhatsAppIcon className="h-[15px] w-[15px]" aria-hidden /> Falar no WhatsApp
+            <WhatsAppIcon className="h-4 w-4" aria-hidden /> Falar no WhatsApp
           </a>
         </div>
 
@@ -438,11 +435,8 @@ export function DesktopFecho() {
           Conecte seu WhatsApp em 2 minutos e veja a esteira trabalhar. Com 7 dias pra desistir.
         </p>
         <div data-lp4-r className="mt-10 flex items-center justify-center gap-3">
-          <a href={DEMO_URL} className="lp4-btn lp4-btn-green">
-            Ver demonstração <ArrowRight className="h-4 w-4" aria-hidden />
-          </a>
-          <a href={WHATSAPP_URL} data-outbound="whatsapp_click" className="lp4-btn lp4-btn-ghost">
-            <WhatsAppIcon className="h-4 w-4 text-[var(--green)]" aria-hidden /> Falar no WhatsApp
+          <a href={WHATSAPP_URL} data-outbound="whatsapp_click" className="lp4-btn lp4-btn-green">
+            <WhatsAppIcon className="h-4 w-4" aria-hidden /> Falar no WhatsApp
           </a>
         </div>
         <div data-lp4-r className="mt-12 flex justify-center">
