@@ -52,6 +52,17 @@ export type WorkerEnv = {
    * que a engine Baileys aplicava em memória. Baixar isto afrouxa o anti-ban.
    */
   growIntervalMs: number;
+  /**
+   * Ações em massa (foto, descrição, abrir/fechar) reais. Default `false`
+   * (DRY-RUN): sem isto, o primeiro deploy mexeria de verdade nos 91 grupos.
+   */
+  bulkEnabled: boolean;
+  /**
+   * Intervalo entre ticks das ações em massa. É metade do anti-ban — com 1
+   * operação por tenant por tick, 4s dá ~15/min ESPAÇADOS. Subir o número de
+   * operações por tick ou baixar isto afrouxa o anti-ban.
+   */
+  bulkIntervalMs: number;
 };
 
 function required(name: string): string {
@@ -99,5 +110,8 @@ export function loadEnv(): WorkerEnv {
     growEnabled: boolEnv("WORKER_GROW_ENABLED"),
     // Mínimo de 60s: abaixo disso a cadência deixa de ser um teto anti-ban crível.
     growIntervalMs: intEnv("WORKER_GROW_INTERVAL_MS", 5 * 60_000, 60_000),
+    bulkEnabled: boolEnv("WORKER_BULK_ENABLED"),
+    // Mínimo de 1s: abaixo disso o espaçamento deixa de ser espaçamento.
+    bulkIntervalMs: intEnv("WORKER_BULK_INTERVAL_MS", 4_000, 1_000),
   };
 }

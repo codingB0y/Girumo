@@ -66,7 +66,10 @@ export interface EvolutionGroups {
    */
   createGroup(instanceName: string, subject: string, ownerPhone: string): Promise<string>;
   setDescription(instanceName: string, groupJid: string, description: string): Promise<void>;
+  /** Fecha o grupo: só admin envia mensagem. */
   setAnnounceOnly(instanceName: string, groupJid: string): Promise<void>;
+  /** Abre o grupo: qualquer membro volta a enviar. Inverso de `setAnnounceOnly`. */
+  setOpenToAll(instanceName: string, groupJid: string): Promise<void>;
   setPicture(instanceName: string, groupJid: string, imageUrl: string): Promise<void>;
   /** Convite canônico do grupo, ou null se a Evolution não devolveu um válido. */
   inviteUrl(instanceName: string, groupJid: string): Promise<string | null>;
@@ -172,6 +175,17 @@ export function createEvolutionGroups(config: EvolutionGroupsConfig): EvolutionG
       await request("group/updateSetting", withJid("/group/updateSetting", instanceName, groupJid), {
         method: "POST",
         body: JSON.stringify({ action: "announcement" }),
+      });
+    },
+
+    async setOpenToAll(instanceName, groupJid) {
+      // "not_announcement" = todos enviam. Mesma rota do fechar, action inversa —
+      // é o único par desse enum que governa quem pode ENVIAR (locked/unlocked
+      // governa quem edita os dados do grupo, que não é o que abrir/fechar
+      // significa para o lojista).
+      await request("group/updateSetting", withJid("/group/updateSetting", instanceName, groupJid), {
+        method: "POST",
+        body: JSON.stringify({ action: "not_announcement" }),
       });
     },
 

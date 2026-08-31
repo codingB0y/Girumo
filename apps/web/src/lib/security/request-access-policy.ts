@@ -23,6 +23,8 @@ const ENGINE_ONLY = new Set([
   "POST /api/dispatch/ack",
   "POST /api/groups/grow/pending",
   "POST /api/groups/grow/ack",
+  "POST /api/groups/bulk/pending",
+  "POST /api/groups/bulk/ack",
 ]);
 
 /**

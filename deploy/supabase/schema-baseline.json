@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-08-30T19:11:53.271Z",
+  "gerado_em": "2026-08-30T23:21:53.476Z",
   "projeto": "nidoatbxaylrkcgbszns",
   "objetos": {
     "t|acquisition_events": "82a5c8f77cea70f3715b9cc5bdb21fde",
@@ -20,8 +20,9 @@
     "t|engine_events": "24477ac90c7fa050a95cf882c93c7f95",
     "t|funnel_events": "cfd4fd98dcdbb1301222952febc64526",
     "t|funnels": "3438704d01f9224952add6375239855e",
+    "t|group_bulk_jobs": "b7b3d2815d586da30aa2a25c239c35b4",
     "t|group_grow_jobs": "c5cf83857f283071bc2a034b3e729a69",
-    "t|groups": "c3a3a3e8ae51b889b9dbff5e37c40a1d",
+    "t|groups": "3729c9734665fec964ce58e332a327e6",
     "t|ig_accounts": "5e6bd08cdaa663962689c188f7bd717e",
     "t|ig_events": "63250f4e7dafbf044c09d8994f42b4d7",
     "t|ig_triggers": "489018956065902277e90e803b9d19e1",
@@ -59,6 +60,7 @@
     "t|uploads": "ae5944edc2fdb66572ee636dfcd102ca",
     "t|users": "dd4942e0ab6f92b45d233c867e7acc32",
     "f|claim_send_commands(max_commands integer)": "a5f8ea994f6ebd88dd14b3cf3450929e",
+    "f|claim_bulk_jobs(p_tenant uuid, p_limit integer)": "84fbecf03faf6766abc7bd5dc7f50a9a",
     "f|record_send(target_instance_id uuid, target_tenant_id uuid)": "88c7d4485a52fccae1e448cd2eca880e",
     "f|instance_health(target_tenant_id uuid)": "fc6f9a65519b84606b3822d1a73506cd",
     "f|funnel_tenant_matrix()": "e0a7baae3ff3514f0ccc15b9858746c7",

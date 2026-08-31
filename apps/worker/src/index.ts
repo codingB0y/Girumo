@@ -29,6 +29,9 @@ import { createAppClient } from "./app-client.js";
 import { makeAutomationDeps, runAutomationsTick } from "./automations-loop.js";
 import { makeScanDeps, runAutomationScansTick } from "./automation-scans.js";
 import { loadEnv, type WorkerEnv } from "./env.js";
+import { makeBulkDeps } from "./bulk-deps.js";
+import { withBulkDryRun } from "./bulk-dry-run.js";
+import { bulkDidWork, runBulkTick, type BulkDeps } from "./bulk-loop.js";
 import { createEvolutionGroups } from "./evolution-groups.js";
 import { createEvolutionSender } from "./evolution-sender.js";
 import { makeDeps, runTick } from "./event-loop.js";
@@ -107,6 +110,33 @@ function buildGrowDeps(env: WorkerEnv, supabase: SupabaseClient): GrowDeps | nul
   return deps;
 }
 
+/**
+ * Deps das ações em massa (foto, descrição, abrir/fechar), ou null se o app ou a
+ * Evolution não estão configurados. Com `WORKER_BULK_ENABLED != true` (o
+ * default) devolve embrulhado em dry-run — mesma postura fail-safe do auto-grow.
+ */
+function buildBulkDeps(env: WorkerEnv, supabase: SupabaseClient): BulkDeps | null {
+  if (!env.appBaseUrl || !env.engineToken) {
+    log.warn("ações em massa desligadas: APP_URL/ENGINE_TOKEN ausentes");
+    return null;
+  }
+  if (!env.evolutionApiUrl || !env.evolutionApiKey) {
+    log.warn("ações em massa desligadas: EVOLUTION_API_URL/EVOLUTION_API_KEY ausentes");
+    return null;
+  }
+
+  const app = createAppClient({ baseUrl: env.appBaseUrl, engineToken: env.engineToken });
+  const groups = createEvolutionGroups({ baseUrl: env.evolutionApiUrl, apiKey: env.evolutionApiKey });
+  const deps = makeBulkDeps(supabase, app, groups);
+
+  if (!env.bulkEnabled) {
+    log.warn("ações em massa em DRY-RUN: nada muda de verdade (WORKER_BULK_ENABLED != true)");
+    return withBulkDryRun(deps);
+  }
+  log.info("ações em massa ATIVAS: foto, descrição e abrir/fechar serão aplicados de verdade");
+  return deps;
+}
+
 async function main(): Promise<void> {
   const env = loadEnv();
   const supabase = createSupabaseClient(env.supabaseUrl, env.supabaseServiceKey);
@@ -119,10 +149,12 @@ async function main(): Promise<void> {
   let lastPruneAt = 0;
 
   const growDeps = buildGrowDeps(env, supabase);
+  const bulkDeps = buildBulkDeps(env, supabase);
   // Começa em 0 para o primeiro ciclo de grow rodar logo no boot: o `pending` é
   // barato quando não há nada a criar (o gate responde `[]`) e, se houver job
   // esperando, não faz sentido segurá-lo mais 5 minutos.
   let lastGrowAt = 0;
+  let lastBulkAt = 0;
 
   const state: HealthState = { healthy: true, lastTickAt: null, lastError: null };
   const server = startHealthServer(env.healthPort, () => state);
@@ -144,6 +176,8 @@ async function main(): Promise<void> {
     sender: sendDeps ? (env.sendEnabled ? "on" : "dry-run") : "off",
     grow: growDeps ? (env.growEnabled ? "on" : "dry-run") : "off",
     grow_interval_ms: env.growIntervalMs,
+    bulk: bulkDeps ? (env.bulkEnabled ? "on" : "dry-run") : "off",
+    bulk_interval_ms: env.bulkIntervalMs,
     health_port: env.healthPort,
   });
 
@@ -215,6 +249,25 @@ async function main(): Promise<void> {
         state.healthy = false;
         state.lastError = message;
         log.error("ciclo de auto-grow falhou", { error: message });
+      }
+    }
+
+    // Loop de AÇÕES EM MASSA, em cadência própria e mais rápida que a do grow: o
+    // intervalo é metade do anti-ban destas operações (ver bulk-loop.ts) — uma
+    // por tenant a cada 4s dá ~15/min espaçados. Isolado como os demais.
+    if (!stopping && bulkDeps && Date.now() - lastBulkAt >= env.bulkIntervalMs) {
+      lastBulkAt = Date.now();
+      try {
+        const applied = await runBulkTick(bulkDeps);
+        state.lastTickAt = Date.now();
+        if (bulkDidWork(applied)) {
+          log.info("ciclo de ações em massa", applied);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "erro desconhecido";
+        state.healthy = false;
+        state.lastError = message;
+        log.error("ciclo de ações em massa falhou", { error: message });
       }
     }
 

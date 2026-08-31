@@ -21,6 +21,15 @@ test("non-POST auth routes stay behind the session gate", () => {
   assert.equal(classifyRequest("/api/auth/account", "DELETE"), "user");
 });
 
+test("bulk group actions are engine-only — sem isso o worker leva 401 para sempre", () => {
+  // O middleware so consulta o x-engine-token quando a rota esta nesta lista.
+  // Fora dela, a requisicao do worker cai no caminho de sessao e leva
+  // "Nao autenticado." — a fila ficaria eternamente em `queued`, e o sintoma
+  // (nada drena) apontaria para o worker, nao para o middleware.
+  assert.equal(classifyRequest("/api/groups/bulk/pending", "POST"), "engine-only");
+  assert.equal(classifyRequest("/api/groups/bulk/ack", "POST"), "engine-only");
+});
+
 test("dispatch pending is engine-only", () => {
   assert.equal(classifyRequest("/api/dispatch/pending", "POST"), "engine-only");
 });
