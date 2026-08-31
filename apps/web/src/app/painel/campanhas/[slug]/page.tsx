@@ -375,7 +375,7 @@ function GroupCard({ g, live, origin }: { g: CampaignGroupOverview; live: boolea
         </div>
       </div>
 
-      <div className="mt-3">
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         {g.status === "missing_invite" ? (
           <span className="font-data inline-flex items-center gap-1.5 rounded-full bg-atencao/10 px-2.5 py-1 text-[10px] uppercase tracking-wider text-atencao">
             <Lock className="h-3 w-3" /> Sem convite
@@ -389,6 +389,7 @@ function GroupCard({ g, live, origin }: { g: CampaignGroupOverview; live: boolea
             <Lock className="h-3 w-3" /> Desconectado
           </span>
         )}
+        <SeloEnvio estado={g.group?.sendState ?? null} />
       </div>
 
       <div className="mt-4">
@@ -437,5 +438,35 @@ function Mini({ label, value }: { label: string; value: string }) {
       <p className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/50">{label}</p>
       <p className="mt-1 text-sm font-medium text-volt-950">{value}</p>
     </div>
+  );
+}
+
+/**
+ * Aberto / Fechado / sem informação.
+ *
+ * O terceiro estado é dito em voz alta de propósito: sumir com o selo quando
+ * `send_state` é nulo faria "nunca aplicamos" parecer "está aberto", que é a
+ * suposição errada mais cara — o lojista acharia que fechou o grupo de
+ * madrugada quando não fechou.
+ */
+function SeloEnvio({ estado }: { estado: "open" | "closed" | null }) {
+  if (estado === "open") {
+    return (
+      <span className="font-data inline-flex items-center gap-1.5 rounded-full bg-sucesso/10 px-2.5 py-1 text-[10px] uppercase tracking-wider text-sucesso">
+        <Unlock className="h-3 w-3" /> Aberto
+      </span>
+    );
+  }
+  if (estado === "closed") {
+    return (
+      <span className="font-data inline-flex items-center gap-1.5 rounded-full bg-poco px-2.5 py-1 text-[10px] uppercase tracking-wider text-aco/70">
+        <Lock className="h-3 w-3" /> Fechado
+      </span>
+    );
+  }
+  return (
+    <span className="font-data inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] uppercase tracking-wider text-aco/40">
+      Envio: sem informação
+    </span>
   );
 }

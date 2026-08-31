@@ -30,6 +30,7 @@ export async function GET(req: Request) {
     inviteUrl: g.invite_url,
     displayNameBase: g.display_name_base,
     displayNumber: g.display_number,
+    sendState: g.send_state ?? null,
   }));
   return Response.json(mapped);
 }

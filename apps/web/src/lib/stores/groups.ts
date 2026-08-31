@@ -23,6 +23,13 @@ export type Group = {
   admins_ours?: number;
   admins_counted_at?: string | null;
   invite_url?: string;
+  /**
+   * Quem pode mandar mensagem no grupo, do jeito que NÓS aplicamos pela última
+   * vez. `null` é resposta honesta ("nunca aplicamos"), não ausência de dado —
+   * o WhatsApp não é consultado para preencher isto.
+   */
+  send_state?: "open" | "closed" | null;
+  send_state_at?: string | null;
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
