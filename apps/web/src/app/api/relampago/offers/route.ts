@@ -51,11 +51,14 @@ export async function POST(req: Request) {
 
   const supabase = getSupabaseAdmin();
 
+  // `groupIds` vem do `/api/groups`, que expõe `id` como o whatsapp_group_id —
+  // é essa a identidade de grupo em todo o painel, não o uuid da linha. Casar
+  // por `id` aqui dava 500 de uuid inválido no primeiro clique em "Abrir".
   const { data: grupos, error: erroGrupos } = await supabase
     .from("groups")
     .select("id, whatsapp_group_id")
     .eq("tenant_id", ctx.tenantId)
-    .in("id", body.groupIds);
+    .in("whatsapp_group_id", body.groupIds);
 
   if (erroGrupos) throw erroGrupos;
   if (!grupos?.length) return Response.json({ error: "grupo nao encontrado" }, { status: 404 });
