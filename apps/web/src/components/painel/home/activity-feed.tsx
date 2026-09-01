@@ -5,7 +5,7 @@ import { ArrowRight, History, Send, ShoppingBag, UserPlus } from "lucide-react";
 import { buildActivityFeed, timeAgo, type ActivityItem } from "@/lib/activity-feed";
 import { EmptyState } from "@/components/painel/empty-state";
 import { brl } from "./format";
-import type { Lead, Order, Schedule } from "./types";
+import type { Disparo, Lead, Order } from "./types";
 
 /** Quantas ocorrências cabem antes de virar histórico, que é outra tela. */
 const MAX_ITEMS = 10;
@@ -26,7 +26,10 @@ function describe(item: ActivityItem): { title: string; detail: string } {
     case "order":
       return { title: brl.format(item.value), detail: "pedido registrado" };
     case "broadcast":
-      return { title: item.campaignName, detail: "disparada nos grupos" };
+      return {
+        title: item.grupos === 1 ? "1 grupo" : `${item.grupos} grupos`,
+        detail: "receberam a postagem",
+      };
   }
 }
 
@@ -39,15 +42,15 @@ function describe(item: ActivityItem): { title: string; detail: string } {
 export function ActivityFeed({
   leads,
   orders,
-  schedules,
+  disparos,
 }: {
   leads: Lead[];
   orders: Order[];
-  schedules: Schedule[];
+  disparos: Disparo[];
 }) {
   const items = useMemo(
-    () => buildActivityFeed({ leads, orders, schedules }, MAX_ITEMS),
-    [leads, orders, schedules],
+    () => buildActivityFeed({ leads, orders, disparos }, MAX_ITEMS),
+    [leads, orders, disparos],
   );
 
   if (items.length === 0) {

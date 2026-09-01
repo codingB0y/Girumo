@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { dayBR, monthBR, dayBRAgo, dayBROf, monthBROf } from "./date-br";
+import { dayBR, monthBR, dayBRAgo, dayBROf, monthBROf, horaBR } from "./date-br";
 
 /**
  * 31/08/2026 às 23h30 em Brasília = 01/09/2026 às 02h30 UTC.
@@ -39,6 +39,19 @@ test("data sem hora é lida como o próprio dia, sem deslocar para trás", () =>
   // `new Date("2026-08-31")` é meia-noite UTC = 30/08 21h em SP. Sem este
   // caminho, uma data pura andaria um dia para trás.
   assert.equal(dayBROf("2026-08-31"), "2026-08-31");
+});
+
+test("a hora é a do relógio do lojista, não a do servidor", () => {
+  // 02h30 UTC é 23h30 do dia anterior em Brasília. O painel diz "última às
+  // 23:30" porque foi quando o lojista viu o disparo sair.
+  assert.equal(horaBR("2026-09-01T02:30:00Z"), "23:30");
+  assert.equal(horaBR("2026-08-31T12:00:00Z"), "09:00");
+});
+
+test("hora ausente ou inválida vira string vazia, não Invalid Date", () => {
+  assert.equal(horaBR(undefined), "");
+  assert.equal(horaBR(null), "");
+  assert.equal(horaBR("sem hora"), "");
 });
 
 test("valor ausente ou não-data não vira data", () => {

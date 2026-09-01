@@ -9,8 +9,8 @@ test("junta as três fontes numa linha do tempo, da mais recente pra mais antiga
     {
       leads: [{ id: "l1", name: "Ana", sourceGroup: "VIP 3", enteredAt: "2026-08-11T17:00:00.000Z" }],
       orders: [{ id: "o1", value: 250, created_at: "2026-08-11T17:30:00.000Z" }],
-      schedules: [
-        { id: "s1", campaignName: "Grade Nova", scheduledAt: "2026-08-11T16:00:00.000Z", status: "sent" },
+      disparos: [
+        { id: "s1", status: "sent", sent: 12, dispatchedAt: "2026-08-11T16:00:00.000Z" },
       ],
     },
     10,
@@ -28,8 +28,8 @@ test("cada tipo carrega o que a linha precisa mostrar", () => {
     {
       leads: [{ id: "l1", name: "Ana", sourceGroup: "VIP 3", enteredAt: "2026-08-11T17:00:00.000Z" }],
       orders: [{ id: "o1", value: 250, created_at: "2026-08-11T16:00:00.000Z" }],
-      schedules: [
-        { id: "s1", campaignName: "Grade Nova", scheduledAt: "2026-08-11T15:00:00.000Z", status: "sent" },
+      disparos: [
+        { id: "s1", status: "sent", sent: 12, dispatchedAt: "2026-08-11T15:00:00.000Z" },
       ],
     },
     10,
@@ -47,27 +47,32 @@ test("cada tipo carrega o que a linha precisa mostrar", () => {
     id: "broadcast-s1",
     kind: "broadcast",
     at: "2026-08-11T15:00:00.000Z",
-    campaignName: "Grade Nova",
+    grupos: 12,
   });
 });
 
+// Antes deste PR o feed lia `schedules` e filtrava por status "sent" — valor
+// que não existe no enum de agendamento (pending|running|done|failed). O ramo
+// descartava tudo, então este teste passava por vacuidade: a lista vinha vazia
+// e "Enviada" nunca chegava a ser comparada. Agora a fonte é /api/disparos,
+// onde "sent" existe de verdade.
 test("só disparo já enviado entra — agendado ainda não aconteceu", () => {
   const feed = buildActivityFeed(
     {
       leads: [],
       orders: [],
-      schedules: [
-        { id: "s1", campaignName: "Enviada", scheduledAt: "2026-08-11T10:00:00.000Z", status: "sent" },
-        { id: "s2", campaignName: "Agendada", scheduledAt: "2026-08-11T11:00:00.000Z", status: "pending" },
-        { id: "s3", campaignName: "Falhou", scheduledAt: "2026-08-11T12:00:00.000Z", status: "failed" },
+      disparos: [
+        { id: "s1", status: "sent", sent: 12, dispatchedAt: "2026-08-11T10:00:00.000Z" },
+        { id: "s2", status: "pending", sent: 12, dispatchedAt: "2026-08-11T11:00:00.000Z" },
+        { id: "s3", status: "failed", sent: 12, dispatchedAt: "2026-08-11T12:00:00.000Z" },
       ],
     },
     10,
   );
 
   assert.deepEqual(
-    feed.map((i) => (i.kind === "broadcast" ? i.campaignName : "")),
-    ["Enviada"],
+    feed.map((i) => (i.kind === "broadcast" ? i.grupos : "")),
+    [12],
   );
 });
 
@@ -78,7 +83,7 @@ test("respeita o limite mantendo o mais recente", () => {
     enteredAt: new Date(NOW.getTime() - i * 60_000).toISOString(),
   }));
 
-  const feed = buildActivityFeed({ leads, orders: [], schedules: [] }, 10);
+  const feed = buildActivityFeed({ leads, orders: [], disparos: [] }, 10);
 
   assert.equal(feed.length, 10);
   assert.equal(feed[0].kind === "lead" && feed[0].name, "Lead 0");
@@ -89,7 +94,7 @@ test("item sem data fica de fora em vez de bagunçar a ordem", () => {
     {
       leads: [{ id: "sem", name: "Sem data", enteredAt: "" }],
       orders: [{ id: "o1", value: 10 }],
-      schedules: [],
+      disparos: [],
     },
     10,
   );
@@ -99,7 +104,7 @@ test("item sem data fica de fora em vez de bagunçar a ordem", () => {
 
 test("contato sem nome não vira string vazia na tela", () => {
   const feed = buildActivityFeed(
-    { leads: [{ id: "l1", enteredAt: "2026-08-11T17:00:00.000Z" }], orders: [], schedules: [] },
+    { leads: [{ id: "l1", enteredAt: "2026-08-11T17:00:00.000Z" }], orders: [], disparos: [] },
     10,
   );
 

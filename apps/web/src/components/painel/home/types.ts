@@ -26,6 +26,23 @@ export type Order = {
   id: string;
   value: number;
   created_at?: string;
+  /** Grupo de onde veio a venda. Vazio quando o pedido foi registrado solto. */
+  group_name?: string | null;
+};
+
+/**
+ * Subconjunto de `/api/disparos` que a Início usa.
+ *
+ * `sent` e `total` contam GRUPOS alcançados, não mensagens individuais — o
+ * rótulo na tela precisa dizer "grupos", senão vira número inventado por outro
+ * caminho.
+ */
+export type Disparo = {
+  id: string;
+  status: string;
+  sent: number;
+  total: number;
+  dispatchedAt?: string;
 };
 
 /** Forma que `/api/schedules` devolve (mapeada do store Supabase). */
@@ -67,6 +84,7 @@ export type DashboardData = {
   leads: Lead[];
   orders: Order[];
   schedules: Schedule[];
+  disparos: Disparo[];
   automations: Automation[];
   session: Session;
   settings: TenantSettings;

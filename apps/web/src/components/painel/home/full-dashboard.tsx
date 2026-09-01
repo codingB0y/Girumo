@@ -6,7 +6,6 @@ import {
   AlertTriangle,
   ArrowUpRight,
   Layers,
-  MousePointerClick,
   Send,
   ShoppingBag,
   UserPlus,
@@ -19,7 +18,7 @@ import { PlaybookCard } from "@/components/painel/playbook-card";
 import { CelebrationModal } from "@/components/painel/celebration-modal";
 import { EmptyState } from "@/components/painel/empty-state";
 import { ordersInMonth, revenueInMonth } from "@/lib/painel-metrics";
-import { dayBR, dayBRAgo, dayBROf, monthBR, monthBROf } from "@/lib/date-br";
+import { dayBR, dayBRAgo, dayBROf, horaBR, monthBR, monthBROf } from "@/lib/date-br";
 import type { Activation } from "@/lib/onboarding-steps";
 import { ActivationChecklist } from "./activation-checklist";
 import { ActivityFeed } from "./activity-feed";
@@ -33,6 +32,7 @@ import { WeeklyRhythm } from "./weekly-rhythm";
 import type {
   Automation,
   Campanha,
+  Disparo,
   Lead,
   Order,
   Schedule,
@@ -47,6 +47,7 @@ export function FullDashboard({
   leads,
   orders,
   schedules,
+  disparos,
   automations,
   settings,
   settingsOk,
@@ -63,6 +64,7 @@ export function FullDashboard({
   leads: Lead[];
   orders: Order[];
   schedules: Schedule[];
+  disparos: Disparo[];
   automations: Automation[];
   settings: TenantSettings;
   /** `/api/settings` respondeu. Ver DashboardData.settingsOk. */
@@ -76,7 +78,6 @@ export function FullDashboard({
   onOnboardingComplete: () => void;
 }) {
   const totalMembers = useMemo(() => groups.reduce((a, g) => a + (g.members ?? 0), 0), [groups]);
-  const totalClicks = useMemo(() => links.reduce((a, l) => a + (l.clicks ?? 0), 0), [links]);
   const totalContatos = leads.length;
   const clientes = useMemo(() => leads.filter((l) => l.status === "comprou").length, [leads]);
 
@@ -104,6 +105,35 @@ export function FullDashboard({
     () => leads.filter((l) => monthBROf(l.enteredAt) === month).length,
     [leads, month],
   );
+
+  // O que saiu hoje nos grupos. Um disparo sem `dispatchedAt` nunca rodou —
+  // fica de fora em vez de contar como trabalho feito.
+  const saiuHoje = useMemo(() => {
+    const doDia = disparos.filter((d) => dayBROf(d.dispatchedAt) === today);
+    return {
+      grupos: doDia.reduce((a, d) => a + (d.sent ?? 0), 0),
+      alvo: doDia.reduce((a, d) => a + (d.total ?? 0), 0),
+      ultimo: doDia
+        .map((d) => d.dispatchedAt)
+        .filter((v): v is string => Boolean(v))
+        .sort()
+        .at(-1),
+    };
+  }, [disparos, today]);
+
+  // B3: de qual grupo veio mais dinheiro no mês. Exige um piso de amostra —
+  // com um ou dois pedidos isto é ruído, não é o grupo que mais vende.
+  const grupoQueMaisVendeu = useMemo(() => {
+    const doMes = ordersInMonth(orders, month).filter((o) => o.group_name?.trim());
+    if (doMes.length < 3) return null;
+    const soma = new Map<string, number>();
+    for (const o of doMes) {
+      const g = o.group_name!.trim();
+      soma.set(g, (soma.get(g) ?? 0) + (o.value ?? 0));
+    }
+    const [nome, valor] = [...soma.entries()].sort((a, b) => b[1] - a[1])[0];
+    return { nome, valor };
+  }, [orders, month]);
 
   const almostFull = useMemo(
     () => groups.filter((g) => g.capacity > 0 && g.members / g.capacity >= 0.9),
@@ -142,11 +172,22 @@ export function FullDashboard({
     href: string;
   }[] = [
     {
+      // Sem pedido registrado o card mostra "—", não "R$ 0,00". Pedido só nasce
+      // por digitação manual em /painel/contatos, então o zero não é um fato
+      // sobre as vendas do lojista — é a ausência de um dado que ninguém
+      // preencheu, e estampá-lo em verde afirma que a loja não vendeu nada.
       label: "Faturamento no mês",
-      value: brl.format(revenueThisMonth),
-      sub: ordersThisMonth === 1 ? "1 pedido registrado" : `${ordersThisMonth} pedidos registrados`,
+      value: ordersThisMonth === 0 ? "—" : brl.format(revenueThisMonth),
+      sub:
+        ordersThisMonth === 0
+          ? "Registre um pedido pra acompanhar"
+          : grupoQueMaisVendeu
+            ? `Quem mais vendeu: ${grupoQueMaisVendeu.nome} — ${brl.format(grupoQueMaisVendeu.valor)}`
+            : ordersThisMonth === 1
+              ? "1 pedido registrado"
+              : `${ordersThisMonth} pedidos registrados`,
       icon: ShoppingBag,
-      href: "/painel/resultados",
+      href: ordersThisMonth === 0 ? "/painel/contatos" : "/painel/resultados",
     },
     {
       label: "Contatos captados",
@@ -156,13 +197,24 @@ export function FullDashboard({
       href: "/painel/contatos",
     },
     {
-      // Sem taxa de conversão: cliques inclui links que não geram entrada e
-      // contatos inclui quem o lojista adicionou na mão, então a divisão
-      // comparava conjuntos que não se contêm — dava para passar de 100%.
-      label: "Cliques nas campanhas",
-      value: totalClicks.toLocaleString("pt-BR"),
-      icon: MousePointerClick,
-      href: "/painel/campanhas",
+      // Este slot era "Cliques nas campanhas", um contador acumulado desde
+      // sempre — sem recorte de período, ele não respondia nada que o lojista
+      // perguntasse. Agora responde a única pergunta que ele faz ao abrir o
+      // painel no meio do showroom: o robô trabalhou pra mim hoje?
+      //
+      // `grupos`, nunca "mensagens": `sent` conta grupos alcançados.
+      label: "Saiu hoje",
+      // "—" para ausência, igual ao card de Faturamento — o slot é tipografia
+      // de dado tabular, e uma frase aqui destoa dos números ao lado.
+      value: saiuHoje.alvo === 0 ? "—" : `${saiuHoje.grupos}/${saiuHoje.alvo}`,
+      sub:
+        saiuHoje.alvo === 0
+          ? "Toque pra postar a novidade"
+          : saiuHoje.ultimo
+            ? `grupos · última às ${horaBR(saiuHoje.ultimo)}`
+            : "grupos",
+      icon: Send,
+      href: "/painel/disparos",
     },
   ];
 
@@ -408,7 +460,7 @@ export function FullDashboard({
           pedidos e disparos. Sem tabela de eventos nova. */}
       <section className="space-y-4">
         <SectionLabel n="06">Atividade</SectionLabel>
-        <ActivityFeed leads={leads} orders={orders} schedules={schedules} />
+        <ActivityFeed leads={leads} orders={orders} disparos={disparos} />
       </section>
     </div>
   );

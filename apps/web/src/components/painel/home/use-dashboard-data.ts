@@ -6,6 +6,7 @@ import type {
   Automation,
   Campanha,
   DashboardData,
+  Disparo,
   Lead,
   Order,
   Schedule,
@@ -67,14 +68,25 @@ export function useDashboardData(): DashboardDataHandle {
   const load = useCallback(async () => {
     setState({ status: "loading" });
 
-    const [groups, campanhas, links, leads, orders, schedules, automations, session, settings] =
-      await Promise.all([
+    const [
+      groups,
+      campanhas,
+      links,
+      leads,
+      orders,
+      schedules,
+      disparos,
+      automations,
+      session,
+      settings,
+    ] = await Promise.all([
         loadJson<Group[]>("/api/groups"),
         loadJson<Campanha[]>("/api/campanhas"),
         loadJson<TrackedLink[]>("/api/links"),
         loadJson<Lead[]>("/api/leads"),
         loadJson<Order[]>("/api/orders"),
         loadJson<Schedule[]>("/api/schedules"),
+        loadJson<Disparo[]>("/api/disparos"),
         loadJson<RawAutomation[]>("/api/automations"),
         loadJson<Session>("/api/session"),
         loadJson<TenantSettings>("/api/settings"),
@@ -91,7 +103,13 @@ export function useDashboardData(): DashboardDataHandle {
     setState({
       status: "ready",
       partial:
-        !links.ok || !leads.ok || !orders.ok || !settings.ok || !schedules.ok || !automations.ok,
+        !links.ok ||
+        !leads.ok ||
+        !orders.ok ||
+        !settings.ok ||
+        !schedules.ok ||
+        !disparos.ok ||
+        !automations.ok,
       data: {
         groups: asArray<Group>(groups),
         campanhas: asArray<Campanha>(campanhas),
@@ -99,6 +117,7 @@ export function useDashboardData(): DashboardDataHandle {
         leads: asArray<Lead>(leads),
         orders: asArray<Order>(orders),
         schedules: asArray<Schedule>(schedules),
+        disparos: asArray<Disparo>(disparos),
         automations: asArray<RawAutomation>(automations).map(toAutomation),
         session: session.data ?? {},
         settingsOk: settings.ok,
