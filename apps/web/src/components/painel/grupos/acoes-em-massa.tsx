@@ -111,7 +111,14 @@ export function AcoesEmMassa({ slug, administrados, totais, onLoteConcluido }: P
       const form = new FormData();
       form.append("file", file);
       const res = await fetch("/api/media", { method: "POST", body: form });
-      if (!res.ok) throw new Error("Não foi possível enviar a imagem.");
+      if (!res.ok) {
+        // A rota diz POR QUE recusou — arquivo grande demais, formato errado, ou
+        // o 402 de plano sem assinatura valida. Trocar isso por uma frase
+        // generica deixava o lojista (e quem fosse investigar) sem nada: o
+        // sintoma "deu erro" nao distingue foto de 8MB de assinatura vencida.
+        const erro = await res.json().catch(() => null);
+        throw new Error(erro?.error ?? "Não foi possível enviar a imagem.");
+      }
       const data = (await res.json()) as { id: string };
       setMediaId(data.id);
       setNomeArquivo(file.name);

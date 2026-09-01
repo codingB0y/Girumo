@@ -27,18 +27,18 @@ export const CAMPAIGN_PRESETS: CampaignPreset[] = [
   {
     id: "novidade",
     label: "Lançar novidade",
-    description: "Chegou peça nova e você quer avisar os grupos.",
+    description: "Chegou produto novo e você quer avisar os grupos.",
     nameTemplate: "Novidade {mes}",
     message:
-      "Chegou novidade na loja! 🔥\nSeparei as peças novas e já tô mandando pra quem tá no grupo. Entra pelo link que eu passo tudo por lá — as primeiras costumam voar. 👇",
+      "Chegou novidade na loja! 🔥\nSeparei o que acabou de chegar e já tô mandando pra quem tá no grupo. Entra pelo link que eu passo tudo por lá — as primeiras costumam voar. 👇",
   },
   {
     id: "girar-estoque",
     label: "Girar estoque parado",
-    description: "Peça encalhada com preço especial pra sair.",
+    description: "Produto encalhado com preço especial pra sair.",
     nameTemplate: "Saldão {mes}",
     message:
-      "Bora girar o estoque! 🏷️\nSeparei umas peças com preço especial só pra quem tá no grupo. Dá uma olhada antes que acabe — entra pelo link. 👇",
+      "Bora girar o estoque! 🏷️\nSeparei uns produtos com preço especial só pra quem tá no grupo. Dá uma olhada antes que acabe — entra pelo link. 👇",
   },
   {
     id: "reativacao",
@@ -46,7 +46,7 @@ export const CAMPAIGN_PRESETS: CampaignPreset[] = [
     description: "Grupos que esfriaram e precisam de um empurrão.",
     nameTemplate: "Reativação {mes}",
     message:
-      "Faz um tempo que não aparece novidade por aqui! 👀\nTô voltando com tudo: peça nova e condição boa pra quem tá no grupo. Chega mais pelo link. 👇",
+      "Faz um tempo que não aparece novidade por aqui! 👀\nTô voltando com tudo: novidade e condição boa pra quem tá no grupo. Chega mais pelo link. 👇",
   },
   {
     id: "reposicao",

@@ -184,7 +184,7 @@ export function LeadFormFields({
       </fieldset>
 
       <p className="mt-3 text-xs font-semibold text-[#6f6558]">
-        Grupo gratuito • novidades e condições de atacado • saia quando quiser
+        Grupo gratuito • ofertas e novidades em primeira mão • saia quando quiser
       </p>
       <p className="mt-2 text-xs leading-relaxed text-[#6f6558]">
         {noticeText ?? noticeTextV2(storeName)}

@@ -191,7 +191,7 @@ function getFallbackCopy(input: CopyInput): CopyVariation[] {
       {
         id: "var-3",
         label: "Completa",
-        text: `✨ TÁ FRESQUINHO\n\n${product} chegou na loja!\n\n🆕 Lançamento\n💰 A partir de ${price}\n📦 Pronta entrega\n\nPrimeiros pedidos saem com mimo surpresa 🎁\nManda "quero ver" no privado!`,
+        text: `✨ TÁ FRESQUINHO\n\n${product} chegou na loja!\n\n🆕 Lançamento\n💰 A partir de ${price}\n📦 Pronta entrega\n\nPrimeiros pedidos saem com brinde surpresa 🎁\nManda "quero ver" no privado!`,
       },
     ],
     reativacao: [

@@ -153,7 +153,7 @@ function pixelInterstitial(pixelId: string, dest: string, nonce: string | null):
 <script${nonceAttr}>!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
 fbq('init','${pixelId}');fbq('track','PageView');fbq('track','Lead');</script>
 <style>body{font-family:system-ui,Arial;background:#0f0a1f;color:#fff;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0}</style>
-</head><body><div style="text-align:center"><p style="font-size:18px;font-weight:600">Entrando no grupo VIP…</p><p style="opacity:.6">aguarde um instante</p></div>
+</head><body><div style="text-align:center"><p style="font-size:18px;font-weight:600">Entrando no grupo…</p><p style="opacity:.6">aguarde um instante</p></div>
 <script${nonceAttr}>setTimeout(function(){location.replace("${safeDest}")},700);</script>
 <noscript><meta http-equiv="refresh" content="0;url=${safeDest}"></noscript></body></html>`;
 }

@@ -14,7 +14,7 @@ export type WelcomeConfig = {
 };
 
 const DEFAULT_MESSAGE =
-  "Oi {nome}! Seja muito bem-vinda(o) ao nosso grupo 💛\nAqui você recebe os drops e promoções em primeira mão. Qualquer dúvida é só chamar!";
+  "Oi {nome}! Que bom ter você no nosso grupo 💛\nAqui você recebe as ofertas e novidades em primeira mão. Qualquer dúvida é só chamar!";
 
 const DEFAULT: WelcomeConfig = {
   enabled: false,
