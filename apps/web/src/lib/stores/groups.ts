@@ -256,6 +256,32 @@ export async function applyAdminCountDelta(
 }
 
 /**
+ * Aplica um delta na contagem de MEMBROS de um grupo.
+ *
+ * Irmã de `applyAdminCountDelta`, e pela mesma razão delega à RPC: a soma tem
+ * que acontecer dentro do UPDATE, senão duas entradas simultâneas no mesmo
+ * grupo lêem o mesmo valor e uma sobrescreve a outra.
+ *
+ * A RPC NÃO move `admins_counted_at` de propósito — delta é notícia, não
+ * conferência. A tela continua podendo dizer há quanto tempo o número foi de
+ * fato checado contra o WhatsApp.
+ */
+export async function applyMemberCountDelta(
+  tenantId: string,
+  whatsappGroupId: string,
+  delta: number,
+): Promise<void> {
+  if (delta === 0) return;
+
+  const { error } = await getSupabaseAdmin().rpc("apply_group_members_delta", {
+    target_tenant_id: tenantId,
+    target_group_id: whatsappGroupId,
+    delta,
+  });
+  if (error) throw new Error(error.message);
+}
+
+/**
  * Colunas mínimas para o resumo de proteção do ativo.
  *
  * Select enxuto de propósito: `listGroups` traz `metadata` (jsonb) de cada uma

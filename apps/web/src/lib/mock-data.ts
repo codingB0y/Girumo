@@ -22,9 +22,10 @@ export type Group = {
   /** Estado de envio que aplicamos por último. `null`/ausente = nunca aplicamos. */
   sendState?: "open" | "closed" | null;
   /**
-   * Quando o WhatsApp foi consultado por último para este grupo. `members` é o
-   * retrato daquele instante, não um número ao vivo — o webhook de entrada de
-   * cliente não o atualiza.
+   * Quando o WhatsApp foi CONFERIDO por último para este grupo. `members` anda
+   * entre uma conferência e outra (entrada e saída chegam por webhook), então
+   * este carimbo não diz "o número é deste instante" — diz até onde ele é
+   * verificável.
    */
   syncedAt?: string | null;
 };
