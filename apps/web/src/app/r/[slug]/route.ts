@@ -22,6 +22,7 @@ const BLOCKED_MESSAGE: Record<BlockedReason, string> = {
   "cap-reached": "Este grupo já está cheio. Em breve abriremos um novo lote. 💛",
   "all-full": "Todos os grupos desta campanha estão cheios. Em breve abriremos um novo. 💛",
   "no-invite": "Esta campanha ainda não está aberta. Volte daqui a pouco. 💛",
+  "no-admin": "Esta campanha ainda não está aberta. Volte daqui a pouco. 💛",
   "empty-pool": "Esta campanha ainda não está aberta. Volte daqui a pouco. 💛",
 };
 

@@ -15,6 +15,11 @@ export type ResolvableGroup = {
   members: number;
   capacity: number;
   invite_url?: string | null;
+  /**
+   * Se a conta conectada administra o grupo. Opcional porque grupo gravado
+   * antes da coluna existir não tem o campo — e `undefined` não bloqueia.
+   */
+  is_admin?: boolean | null;
 };
 
 export type ResolvableLink = {
@@ -32,6 +37,8 @@ export type BlockedReason =
   | "empty-pool"
   /** Há grupos no pool, mas nenhum tem convite configurado no painel. */
   | "no-invite"
+  /** Há grupos no pool, mas nenhum é administrado por um número nosso. */
+  | "no-admin"
   /** Todos os grupos com convite já bateram ~95% da capacidade. */
   | "all-full";
 
@@ -44,8 +51,17 @@ export function isUsableInvite(url: string | null | undefined): boolean {
   return typeof url === "string" && /^https?:\/\/\S+$/i.test(url);
 }
 
-/** Grupo está disponível p/ receber gente: tem convite e ainda não atingiu 95% da capacidade. */
+/**
+ * Grupo está disponível p/ receber gente: administramos, tem convite e ainda
+ * não atingiu 95% da capacidade.
+ *
+ * `is_admin === false` bloqueia porque mandar o cliente da loja para um grupo
+ * de terceiro é o pior desfecho possível do link: lá nada é capturado, nada é
+ * disparado, e a lista vira audiência de outra pessoa. `undefined` passa — é
+ * grupo gravado antes da coluna existir, não uma negativa.
+ */
 export function isGroupAvailable(g: ResolvableGroup): boolean {
+  if (g.is_admin === false) return false;
   const capacity = g.capacity > 0 ? g.capacity : DEFAULT_GROUP_CAPACITY;
   return isUsableInvite(g.invite_url) && g.members < capacity * GROUP_FULL_RATIO;
 }
@@ -86,6 +102,10 @@ function diagnosePool(groupIds: readonly string[], groups: readonly ResolvableGr
   const byWhatsappId = new Map(groups.map((g) => [g.whatsapp_group_id, g]));
   const pool = groupIds.map((id) => byWhatsappId.get(id)).filter((g): g is ResolvableGroup => !!g);
   if (pool.length === 0) return "empty-pool";
+  // Antes de "no-invite": um pool inteiro de grupo alheio não é falta de
+  // convite nem grupo cheio, e dizer "está cheio" mandaria o lojista procurar
+  // o problema no lugar errado.
+  if (pool.every((g) => g.is_admin === false)) return "no-admin";
   if (pool.every((g) => !isUsableInvite(g.invite_url))) return "no-invite";
   return "all-full";
 }

@@ -122,6 +122,14 @@ export default function PainelGrupos() {
 
   const totalMembers = groups.reduce((a, g) => a + (g.members ?? 0), 0);
 
+  // O carimbo mais ANTIGO, nao o mais novo: o total so e tao fresco quanto o
+  // grupo consultado ha mais tempo.
+  const sincronizadoEm = useMemo(() => {
+    const carimbos = groups.map((g) => g.syncedAt).filter((v): v is string => !!v);
+    if (carimbos.length === 0) return null;
+    return idadeDoDado(carimbos.reduce((a, b) => (a < b ? a : b)));
+  }, [groups]);
+
   return (
     <div className="mx-auto max-w-[1200px] space-y-8 px-4 py-8 sm:px-8">
       <header className="flex flex-wrap items-start justify-between gap-4">
@@ -150,7 +158,11 @@ export default function PainelGrupos() {
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <MiniStat label="Grupos" value={String(groups.length)} />
-        <MiniStat label="Membros totais" value={totalMembers.toLocaleString("pt-BR")} />
+        <MiniStat
+          label="Membros totais"
+          value={totalMembers.toLocaleString("pt-BR")}
+          hint={sincronizadoEm ? `sincronizado ${sincronizadoEm}` : null}
+        />
         <MiniStat label="Cheios" value={String(counts.full ?? 0)} tone="cobalt" />
         <MiniStat label="Sem convite" value={String(counts.missing_invite ?? 0)} tone="atencao" />
       </div>
@@ -296,7 +308,25 @@ export default function PainelGrupos() {
   );
 }
 
-function MiniStat({ label, value, tone }: { label: string; value: string; tone?: "cobalt" | "atencao" }) {
+/**
+ * Idade do dado em texto curto. `members` e o total sao o retrato do ultimo
+ * sync — entrada de cliente nao os atualiza —, entao a tela diz quando olhou
+ * em vez de deixar o numero passar por ao vivo.
+ */
+function idadeDoDado(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return null;
+  const min = Math.floor(ms / 60000);
+  if (min < 2) return "agora";
+  if (min < 60) return `ha ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `ha ${h}h`;
+  const d = Math.floor(h / 24);
+  return `ha ${d}d`;
+}
+
+function MiniStat({ label, value, tone, hint }: { label: string; value: string; tone?: "cobalt" | "atencao"; hint?: string | null }) {
   return (
     <div className="pn-card rounded-2xl px-4 py-3.5">
       <p className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/55">{label}</p>
@@ -308,6 +338,7 @@ function MiniStat({ label, value, tone }: { label: string; value: string; tone?:
       >
         {value}
       </p>
+      {hint && <p className="font-data mt-1 text-[10px] text-aco/45">{hint}</p>}
     </div>
   );
 }

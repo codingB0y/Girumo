@@ -21,6 +21,12 @@ export type Group = {
   inviteUrl?: string;
   /** Estado de envio que aplicamos por último. `null`/ausente = nunca aplicamos. */
   sendState?: "open" | "closed" | null;
+  /**
+   * Quando o WhatsApp foi consultado por último para este grupo. `members` é o
+   * retrato daquele instante, não um número ao vivo — o webhook de entrada de
+   * cliente não o atualiza.
+   */
+  syncedAt?: string | null;
 };
 
 export type CampaignStatus = "draft" | "scheduled" | "queued" | "running" | "sent" | "failed";

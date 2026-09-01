@@ -31,6 +31,9 @@ export async function GET(req: Request) {
     displayNameBase: g.display_name_base,
     displayNumber: g.display_number,
     sendState: g.send_state ?? null,
+    // Idade do dado. `members` vem do último sync e não é atualizado quando um
+    // cliente entra no grupo — a tela precisa poder dizer isso.
+    syncedAt: g.admins_counted_at ?? null,
   }));
   return Response.json(mapped);
 }
