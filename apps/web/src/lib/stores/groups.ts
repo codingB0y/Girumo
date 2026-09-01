@@ -119,6 +119,31 @@ export async function syncGroupsFromProvider(
   return data?.length ?? 0;
 }
 
+/**
+ * Remove grupos que o provedor acabou de confirmar que NÃO administramos.
+ *
+ * O sync é a fonte da verdade do que o produto opera: grupo sem admin não
+ * dispara campanha, não captura lead e não cresce. Mantê-lo no banco só
+ * guardava contato de terceiro e enchia o painel de linha inútil.
+ *
+ * Quem chama precisa ter passado pelo guarda-corpo de `partitionByAdmin` — uma
+ * detecção quebrada devolveria a base inteira aqui.
+ */
+export async function removeGroupsByWhatsappIds(
+  tenantId: string,
+  whatsappGroupIds: string[],
+): Promise<number> {
+  if (whatsappGroupIds.length === 0) return 0;
+  const { data, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .delete()
+    .eq("tenant_id", tenantId)
+    .in("whatsapp_group_id", whatsappGroupIds)
+    .select("id");
+  if (error) throw new Error(error.message);
+  return data?.length ?? 0;
+}
+
 export async function updateGroup(tenantId: string, id: string, patch: Partial<Group>): Promise<Group | null> {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { tenant_id, created_at, ...safePatch } = patch as Record<string, unknown>;

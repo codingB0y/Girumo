@@ -36,6 +36,12 @@ export default function PainelGrupos() {
   const [q, setQ] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  /**
+   * O que o sync deixou de fora. Sem isto a contagem cai sozinha depois de
+   * sincronizar (200 grupos viram 91) e parece defeito — quando é a regra: só
+   * grupo que você administra entra no painel.
+   */
+  const [syncNote, setSyncNote] = useState<{ texto: string; alerta: boolean } | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
 
   const loadGroups = useCallback(async () => {
@@ -63,10 +69,28 @@ export default function PainelGrupos() {
     setSyncError(null);
     try {
       const res = await fetch("/api/groups/sync", { method: "POST" });
+      const payload = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        synced?: number;
+        ignorados?: number;
+      };
       if (!res.ok) {
-        const detail = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(detail.error ?? "Nao foi possivel sincronizar.");
+        throw new Error(payload.error ?? "Nao foi possivel sincronizar.");
       }
+      const ignorados = payload.ignorados ?? 0;
+      setSyncNote(
+        ignorados === 0
+          ? null
+          : (payload.synced ?? 0) === 0
+            ? {
+                alerta: true,
+                texto: `Voce participa de ${ignorados} grupo${ignorados > 1 ? "s" : ""}, mas nao administra nenhum. So grupo onde voce e admin pode receber campanha — peca admin no grupo e sincronize de novo.`,
+              }
+            : {
+                alerta: false,
+                texto: `${ignorados} grupo${ignorados > 1 ? "s" : ""} de fora: voce participa, mas nao e admin.`,
+              },
+      );
       await loadGroups();
     } catch (e) {
       setSyncError(e instanceof Error ? e.message : String(e));
@@ -107,6 +131,11 @@ export default function PainelGrupos() {
             Seus grupos, sincronizados direto do WhatsApp.
           </p>
           {syncError && <p className="mt-2 text-sm text-alerta">{syncError}</p>}
+          {syncNote && (
+            <p className={cn("mt-2 text-sm", syncNote.alerta ? "text-atencao" : "text-aco/70")}>
+              {syncNote.texto}
+            </p>
+          )}
         </div>
         <button
           type="button"

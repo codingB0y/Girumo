@@ -1,5 +1,4 @@
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
-import { isAdminGroup } from "@/lib/evolution/admin-group";
 import {
   EvolutionError,
   FETCH_GROUPS_TIMEOUT_MS,
@@ -8,7 +7,8 @@ import {
   providerInstanceId,
 } from "@/lib/evolution/client";
 import { tallyAdmins } from "@/lib/groups/admin-protection";
-import { syncGroupsFromProvider } from "@/lib/stores/groups";
+import { partitionByAdmin } from "@/lib/groups/sync-partition";
+import { removeGroupsByWhatsappIds, syncGroupsFromProvider } from "@/lib/stores/groups";
 import { getInstance, listInstances } from "@/lib/stores/instances";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { getTenantContext } from "@/lib/supabase/tenant-context";
@@ -74,27 +74,36 @@ export async function POST(req: Request) {
     const ourPhones = (await listInstances(ctx.tenantId)).map((i) => i.phone);
     const countedAt = new Date().toISOString();
 
-    const rows = remoteGroups
-      .filter((g) => typeof g.id === "string" && g.id.length > 0)
-      .map((g) => {
-        const tally = tallyAdmins(g.participants, ourPhones);
-        return {
-          whatsapp_group_id: g.id,
-          name: (g.subject ?? "").trim().slice(0, 200) || "Grupo sem nome",
-          members: typeof g.size === "number" && g.size >= 0 ? g.size : 0,
-          // Só grupos admin alimentam captura de leads (ver admin-group.ts).
-          is_admin: isAdminGroup(g, instance.phone),
-          // Esta é a única leitura que vê a lista inteira de participantes; o
-          // webhook só mantém o número vivo daqui em diante.
-          admins_total: tally.total,
-          admins_ours: tally.ours,
-          admins_counted_at: countedAt,
-        };
-      });
+    // Só entra o que administramos. Grupo onde o número é mero participante não
+    // dispara, não captura lead e não cresce — guardá-lo era manter uma base de
+    // contatos de terceiros parada no banco (ver sync-partition.ts).
+    const { admin: gruposAdmin, descartar, deteccaoSuspeita } = partitionByAdmin(
+      remoteGroups,
+      instance.phone,
+    );
+
+    const rows = gruposAdmin.map((g) => {
+      const tally = tallyAdmins(g.participants, ourPhones);
+      return {
+        whatsapp_group_id: String(g.id),
+        name: (g.subject ?? "").trim().slice(0, 200) || "Grupo sem nome",
+        members: typeof g.size === "number" && g.size >= 0 ? g.size : 0,
+        is_admin: true,
+        // Esta é a única leitura que vê a lista inteira de participantes; o
+        // webhook só mantém o número vivo daqui em diante.
+        admins_total: tally.total,
+        admins_ours: tally.ours,
+        admins_counted_at: countedAt,
+      };
+    });
 
     const synced = await syncGroupsFromProvider(ctx.tenantId, rows);
-    const adminCount = rows.filter((r) => r.is_admin).length;
-    const semBackup = rows.filter((r) => r.is_admin && r.admins_total <= 1).length;
+    // Limpa o que sobrou de antes de o filtro existir. `descartar` vem vazio
+    // quando a detecção é suspeita, então uma quebra de contrato da Evolution
+    // não apaga a base do lojista.
+    const removidos = await removeGroupsByWhatsappIds(ctx.tenantId, descartar);
+    const adminCount = rows.length;
+    const semBackup = rows.filter((r) => r.admins_total <= 1).length;
 
     // Marco de ativação. Era a única etapa do funil do admin que nunca populava
     // — o evento existia no tipo desde sempre e não tinha quem o emitisse.
@@ -115,16 +124,20 @@ export async function POST(req: Request) {
       actor_user_id: ctx.authUserId,
       // Nenhum grupo admin, com grupos existindo, é sinal de detecção quebrada
       // — não de conta sem grupos. A engine emitia o mesmo aviso.
-      level: rows.length > 0 && adminCount === 0 ? "warn" : "info",
+      level: deteccaoSuspeita ? "warn" : "info",
       event: "groups.synced",
-      message:
-        rows.length > 0 && adminCount === 0
-          ? `${synced} grupos sincronizados, mas NENHUM admin detectado — captura de leads ficará vazia.`
-          : `${synced} grupos sincronizados (${adminCount} admin).`,
+      message: deteccaoSuspeita
+        ? `Nenhum grupo admin detectado entre os ${remoteGroups.length} do numero — nada foi importado nem removido.`
+        : `${synced} grupos admin sincronizados (${remoteGroups.length - adminCount} ignorados por nao sermos admin, ${removidos} removidos).`,
       metadata: {
         instance_id: instance.id,
         count: synced,
         admin_count: adminCount,
+        // Quantos grupos o número participa sem administrar. Ficam de fora do
+        // banco de propósito.
+        ignorados: remoteGroups.length - adminCount,
+        // Quantos não-admin já gravados este sync limpou.
+        removidos,
         // Quantos grupos ficariam órfãos se este número caísse.
         sem_backup: semBackup,
         // Quanto a Evolution levou. Cresce com o número de grupos; é o que
@@ -133,7 +146,13 @@ export async function POST(req: Request) {
       },
     });
 
-    return Response.json({ synced, admin: adminCount, semBackup });
+    return Response.json({
+      synced,
+      admin: adminCount,
+      semBackup,
+      ignorados: remoteGroups.length - adminCount,
+      removidos,
+    });
   } catch (error) {
     if (error instanceof Response) return error;
     return await falhaDoSync(error, ctx);
