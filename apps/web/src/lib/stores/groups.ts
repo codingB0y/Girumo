@@ -129,6 +129,22 @@ export async function syncGroupsFromProvider(
 }
 
 /**
+ * `whatsapp_group_id` -> membros já gravados.
+ *
+ * Serve para o sync não aceitar cegamente a contagem do provedor: a Evolution
+ * devolve payload truncado para ~20% dos grupos, e gravá-lo apagaria o número
+ * certo sem ter de onde recuperá-lo (ver lib/groups/member-count.ts).
+ */
+export async function listMemberCounts(tenantId: string): Promise<Map<string, number>> {
+  const { data, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .select("whatsapp_group_id, members")
+    .eq("tenant_id", tenantId);
+  if (error) throw new Error(error.message);
+  return new Map((data ?? []).map((g) => [g.whatsapp_group_id, g.members ?? 0]));
+}
+
+/**
  * Atualiza só a contagem de membros dos grupos que JÁ existem no banco.
  *
  * É o que sobra quando o provedor não consegue entregar a lista completa a
