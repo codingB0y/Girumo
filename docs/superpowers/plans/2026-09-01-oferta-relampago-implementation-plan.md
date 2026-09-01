@@ -103,6 +103,50 @@ Valem para toda tarefa. Copiados do spec e do `CLAUDE.md` do projeto.
 
 ---
 
+## Waves de execução
+
+Montadas pela regra de `~/.claude/rules/parallel-subagent-driven-development.md`: duas tarefas só entram na mesma wave quando **nenhuma está na cadeia de `Depends-on:` da outra, nem transitivamente**, e seus **`Files:` são totalmente disjuntos**.
+
+| Tarefa | `Files:` (raiz do conflito) | `Depends-on:` |
+|---|---|---|
+| 1 Palavra-chave | `lib/relampago/keyword.*` | — |
+| 2 Schema do webhook | `lib/evolution/*` | — |
+| 3 Migração | `supabase/migrations/*`, `deploy/supabase/apply-order.txt` | — |
+| 4 Captura | `lib/relampago/upsert-message.*`, **`lib/stores/flash-offers.ts`**, `api/webhooks/evolution/route.ts` | 1, 2, 3 |
+| 5 Mapa de LID | `lib/relampago/lid-map.*`, **`lib/stores/flash-offers.ts`** | 3, 4 |
+| 6 Estado da reserva | `lib/relampago/claim-state.*`, **`lib/stores/flash-offers.ts`** | 3, 4 |
+| 7 Integração | `lib/stores/flash-offers.integration.test.ts` | 3, 4, 5, 6 |
+| 8 Rotas | `api/relampago/**` | 4, 5, 6 |
+| 9 Menu e lista | `lib/painel-nav.ts`, `painel/relampago/page.tsx` | 8 |
+| 10 Tela da fila | `painel/relampago/[id]/page.tsx`, `painel/relampago/fila-client.tsx` | 6, 8 |
+| 11 E2E | `e2e/relampago.spec.ts` | 9, 10 |
+| 12 Ativação | `lib/evolution/client.ts`, `api/admin/instances/rewebhook/route.ts` | 2, 4 |
+
+**As waves:**
+
+| Wave | Tarefas | Por que juntas — ou por que sozinhas |
+|---|---|---|
+| 1 | **1, 2, 3** | Sem dependência nenhuma e sem um arquivo em comum. É onde está quase todo o paralelismo real deste plano. |
+| 2 | **4** | Sozinha: depende das três anteriores e é ela que **cria** `flash-offers.ts`. |
+| 3 | **5** | Sozinha. Não porque dependa de 6, mas porque **5 e 6 escrevem no mesmo `flash-offers.ts`** — a segunda escrita apagaria a primeira em silêncio. |
+| 4 | **6** | Idem. Colisão de arquivo, não de dependência. |
+| 5 | **7, 8** | Uma toca só o arquivo de teste de integração, a outra só `api/relampago/**`. Disjuntos. |
+| 6 | **9, 10** | Arquivos disjuntos. A 10 não depende da 9: a rota `[id]` é alcançável direto, o menu não é pré-requisito de código. |
+| 7 | **11, 12** | Disjuntos. A 12 já tocaria `client.ts` sem conflito desde a wave 3 — fica aqui por razão **operacional**, não de dependência (ver nota abaixo). |
+
+**Nota sobre a Task 12.** Pelas edges ela poderia subir para a wave 3: só depende de 2 e 4, e seus arquivos não colidem com os da 5. Fica no fim de propósito — ela liga `messages.upsert` **em produção**, e faz sentido só depois que a captura inteira estiver de pé. Ligar antes não quebraria nada (sem janela aberta o receiver descarta tudo no quarto degrau), mas colocaria a instância recebendo toda mensagem de todos os grupos sem nenhum ganho.
+
+**Regras de commit durante as waves** — vêm da mesma regra e não são negociáveis:
+
+- Implementadores **não commitam**. Cada um deixa as mudanças na árvore de trabalho e relata quais arquivos tocou.
+- O controlador commita **por tarefa, em ordem de wave**, lendo o HEAD na hora — nunca uma ref guardada de antes.
+- Revisores entram **depois** dos commits da wave, um por tarefa, sobre o range dela. Revisão é só-leitura, então pode ser paralela.
+- **Uma** escrita de log por wave, feita pelo controlador. Escritas concorrentes no mesmo arquivo se perdem.
+
+Wave com uma tarefa só é execução serial — e é o resultado correto quando o plano não tem paralelismo ali. Waves 2, 3 e 4 são exatamente isso.
+
+---
+
 ## Fase 1 — Captura
 
 Ao fim da Fase 1 um comentário real vira linha na fila. Sem tela ainda.
@@ -114,6 +158,7 @@ Ao fim da Fase 1 um comentário real vira linha na fila. Sem tela ainda.
 - Test: `apps/web/src/lib/relampago/keyword.test.ts`
 
 **Interfaces:**
+- Depends-on: nenhuma
 - Consumes: nada.
 - Produces: `normalizeKeyword(value: string): string` e `matchesKeyword(text: string | null | undefined, keyword: string): boolean`. A Task 4 usa `matchesKeyword`; a Task 8 usa `normalizeKeyword` para gravar a palavra já normalizada.
 
@@ -230,6 +275,7 @@ O receiver hoje rejeita esse evento com 400. Esta tarefa faz o zod reconhecê-lo
 - Test: `apps/web/src/lib/evolution/webhook-schema.test.ts` (arquivo existente — acrescentar)
 
 **Interfaces:**
+- Depends-on: nenhuma
 - Consumes: nada.
 - Produces: o membro `"messages.upsert"` de `EvolutionWebhookEvent`, com `data` contendo `key.remoteJid`, `key.fromMe`, `key.id`, `key.participant`, `pushName`, `message`, `messageTimestamp`. A Task 3 e a Task 4 dependem desse tipo.
 
@@ -383,6 +429,7 @@ git commit -m "feat(relampago): webhook reconhece messages.upsert"
 - Modify: `deploy/supabase/apply-order.txt`
 
 **Interfaces:**
+- Depends-on: nenhuma
 - Consumes: nada.
 - Produces: tabelas `flash_offers`, `flash_offer_groups`, `flash_offer_entries`, `flash_offer_claims`; RPCs `public.claim_next_flash_entry(uuid, uuid, uuid)` e `public.release_expired_flash_claims(uuid, uuid)`. A Task 6 chama as duas RPCs pela store.
 
@@ -749,6 +796,7 @@ git commit -m "feat(relampago): tabelas, indices e RPCs da oferta relampago"
 - Modify: `apps/web/src/app/api/webhooks/evolution/route.ts`
 
 **Interfaces:**
+- Depends-on: Task 1, Task 2, Task 3
 - Consumes: `matchesKeyword` (Task 1); o tipo `messages.upsert` de `EvolutionWebhookEvent` (Task 2); as tabelas da Task 3.
 - Produces:
   - `parseUpsertMessage(data): UpsertMessage | null` com `UpsertMessage = { remoteJid, messageId, participantJid, phoneHint, pushName, text, commentedAt }` (`phoneHint: string | null`, `commentedAt: Date`).
@@ -1120,6 +1168,7 @@ git commit -m "feat(relampago): receiver captura comentario que casa janela aber
 - Modify: `apps/web/src/lib/stores/flash-offers.ts` (acrescentar `lidMapFromHistory`)
 
 **Interfaces:**
+- Depends-on: Task 3, Task 4
 - Consumes: `EvolutionGroup` de `@/lib/evolution/client` (Task 0 — já existe).
 - Produces:
   - `lidMapFromParticipants(group: { participants?: Array<{ id?: string | null; phoneNumber?: string | null }> }): Record<string, string>`
@@ -1339,6 +1388,7 @@ git commit -m "feat(relampago): mapa lid->telefone de duas fontes"
 - Modify: `apps/web/src/lib/stores/flash-offers.ts`
 
 **Interfaces:**
+- Depends-on: Task 3, Task 4
 - Consumes: as tabelas e RPCs da Task 3.
 - Produces:
   - `claimState(claim: ClaimLike, timerSeconds: number | null, now: Date): ClaimState` onde `ClaimState = "reservada" | "em_conversa" | "expirada_vendedora" | "expirada_cliente"` e `ClaimLike = { claimedAt: Date; contactedAt: Date | null }`
@@ -1711,6 +1761,7 @@ O projeto exige que teste de integração **mate o mutante** — um defeito plan
 - Create: `apps/web/src/lib/stores/flash-offers.integration.test.ts`
 
 **Interfaces:**
+- Depends-on: Task 3, Task 4, Task 5, Task 6
 - Consumes: tudo das Tasks 3 a 6.
 - Produces: nada de código novo.
 
@@ -1893,6 +1944,7 @@ git commit -m "test(relampago): integracao contra dev, com mutantes verificados"
 - Create: `apps/web/src/app/api/relampago/claims/[id]/route.ts`
 
 **Interfaces:**
+- Depends-on: Task 4, Task 5, Task 6
 - Consumes: a store (Tasks 4-6); `getTenantContext(req)` de `@/lib/supabase/tenant-context`, que devolve `{ authUserId, email, tenantId, role }` e lança `Response` 401/403; `fetchAllGroups` de `@/lib/evolution/client`; `lidMapFromParticipants`/`mergeLidMaps` (Task 5).
 - Produces: os contratos HTTP que a Task 10 consome.
 
@@ -2177,6 +2229,7 @@ git commit -m "feat(relampago): rotas de oferta, fila, reserva e desfecho"
 - Create: `apps/web/src/app/painel/relampago/page.tsx`
 
 **Interfaces:**
+- Depends-on: Task 8
 - Consumes: `GET`/`POST /api/relampago/offers` (Task 8).
 - Produces: a rota `/painel/relampago`, de onde a Task 10 é alcançada.
 
@@ -2227,6 +2280,7 @@ git commit -m "feat(relampago): menu e lista de ofertas"
 - Create: `apps/web/src/app/painel/relampago/fila-client.tsx`
 
 **Interfaces:**
+- Depends-on: Task 6, Task 8
 - Consumes: `GET /api/relampago/offers/[id]`, `POST .../claim`, `POST /api/relampago/claims/[id]`; `claimState`/`deadlineOf` (Task 6).
 - Produces: nada consumido por tarefas posteriores.
 
@@ -2307,6 +2361,7 @@ git commit -m "feat(relampago): tela da fila com reserva, timer e caminho sem te
 - Create: `apps/web/e2e/relampago.spec.ts`
 
 **Interfaces:**
+- Depends-on: Task 9, Task 10
 - Consumes: as telas das Tasks 9-10.
 - Produces: nada.
 
@@ -2344,6 +2399,7 @@ git commit -m "test(relampago): e2e do fluxo completo"
 - Create: `apps/web/src/app/api/admin/instances/rewebhook/route.ts`
 
 **Interfaces:**
+- Depends-on: Task 2, Task 4
 - Consumes: `setWebhook`, `evolutionWebhookUrl`, `providerInstanceId` de `@/lib/evolution/client`; `listInstances` de `@/lib/stores/instances`.
 - Produces: nada.
 
