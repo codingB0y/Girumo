@@ -129,6 +129,51 @@ export async function syncGroupsFromProvider(
 }
 
 /**
+ * Atualiza só a contagem de membros dos grupos que JÁ existem no banco.
+ *
+ * É o que sobra quando o provedor não consegue entregar a lista completa a
+ * tempo: sem `participants` não dá para saber quem é admin, então nada pode
+ * ser criado nem removido — mas o número de membros que ele devolveu vale, e é
+ * melhor que o retrato de dias atrás.
+ *
+ * Ignora id desconhecido em silêncio de propósito: um grupo que não está aqui
+ * ou nunca foi sincronizado, ou não é nosso. Nos dois casos, entrar por esta
+ * porta seria entrar sem passar pelo filtro de admin.
+ */
+export async function refreshMembersForKnownGroups(
+  tenantId: string,
+  counts: ReadonlyArray<{ whatsapp_group_id: string; members: number }>,
+): Promise<number> {
+  if (counts.length === 0) return 0;
+
+  const { data: conhecidos, error: readError } = await getSupabaseAdmin()
+    .from(TABLE)
+    .select("whatsapp_group_id")
+    .eq("tenant_id", tenantId);
+  if (readError) throw new Error(readError.message);
+
+  const existentes = new Set((conhecidos ?? []).map((g) => g.whatsapp_group_id));
+  const rows = counts
+    .filter((c) => existentes.has(c.whatsapp_group_id))
+    .map((c) => ({
+      tenant_id: tenantId,
+      whatsapp_group_id: c.whatsapp_group_id,
+      members: c.members,
+    }));
+  if (rows.length === 0) return 0;
+
+  // Upsert e não update-em-lote: só chegam aqui ids que já existem, então o ON
+  // CONFLICT nunca insere — e ele toca apenas `members`, deixando `is_admin`,
+  // a seleção e a capacidade exatamente como estavam.
+  const { data, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .upsert(rows, { onConflict: "tenant_id,whatsapp_group_id" })
+    .select("id");
+  if (error) throw new Error(error.message);
+  return data?.length ?? 0;
+}
+
+/**
  * Remove grupos que o provedor acabou de confirmar que NÃO administramos.
  *
  * O sync é a fonte da verdade do que o produto opera: grupo sem admin não

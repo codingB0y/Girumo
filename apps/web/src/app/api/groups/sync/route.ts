@@ -3,12 +3,18 @@ import {
   EvolutionError,
   FETCH_GROUPS_TIMEOUT_MS,
   fetchAllGroups,
+  fetchAllGroupsLight,
   isEvolutionTimeout,
   providerInstanceId,
+  type EvolutionGroup,
 } from "@/lib/evolution/client";
 import { tallyAdmins } from "@/lib/groups/admin-protection";
 import { partitionByAdmin } from "@/lib/groups/sync-partition";
-import { removeGroupsByWhatsappIds, syncGroupsFromProvider } from "@/lib/stores/groups";
+import {
+  refreshMembersForKnownGroups,
+  removeGroupsByWhatsappIds,
+  syncGroupsFromProvider,
+} from "@/lib/stores/groups";
 import { getInstance, listInstances } from "@/lib/stores/instances";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { getTenantContext } from "@/lib/supabase/tenant-context";
@@ -65,7 +71,18 @@ export async function POST(req: Request) {
     // sucesso passa a carregar quanto a Evolution demorou. Foi a informação que
     // faltou para escolher o timeout com fundamento em 31/08.
     const iniciouFetch = Date.now();
-    const remoteGroups = await fetchAllGroups(remoteName);
+    let remoteGroups: EvolutionGroup[];
+    try {
+      remoteGroups = await fetchAllGroups(remoteName);
+    } catch (error) {
+      // Estourar o tempo com a lista completa não pode ser o fim da linha: era
+      // aqui que o sync morria seis vezes seguidas em 01/09 sem entregar nada.
+      // A lista sem participantes custa muito menos e ainda atualiza a
+      // contagem — só não pode criar nem remover grupo, porque sem
+      // `participants` não há como saber quem administra o quê.
+      if (!isEvolutionTimeout(error)) throw error;
+      return await syncLeve(ctx, instance.id, remoteName, Date.now() - iniciouFetch);
+    }
     const fetchMs = Date.now() - iniciouFetch;
 
     // Proteção do ativo (R1): "nosso" é qualquer número do tenant, não só o que
@@ -167,6 +184,66 @@ export async function POST(req: Request) {
 }
 
 /**
+ * Plano B: atualiza só a contagem de membros, sem participantes.
+ *
+ * Vale porque o caminho completo já falhou — o lojista estava com dado
+ * congelado e nenhuma alternativa. O que ele NÃO faz é tão importante quanto o
+ * que faz: não cria grupo (não sabe se é admin) e não remove nenhum (a
+ * ausência aqui não prova nada). O filtro de admin continua sendo do sync
+ * completo.
+ *
+ * O log carrega os dois tempos. É a medição que faltava para decidir se o
+ * problema é volume de dados ou a Evolution inteira estar lenta — e ela sai de
+ * graça, da própria tentativa de recuperação.
+ */
+async function syncLeve(
+  ctx: Awaited<ReturnType<typeof getTenantContext>>,
+  instanceId: string,
+  remoteName: string,
+  fetchPesadoMs: number,
+): Promise<Response> {
+  const iniciou = Date.now();
+  let leves: EvolutionGroup[];
+  try {
+    leves = await fetchAllGroupsLight(remoteName);
+  } catch (error) {
+    // Os dois caminhos falharam: aí sim é a Evolution, não o tamanho da
+    // resposta. `falhaDoSync` registra e traduz.
+    return await falhaDoSync(error, ctx, { fetchPesadoMs, fetchLeveMs: Date.now() - iniciou });
+  }
+  const fetchLeveMs = Date.now() - iniciou;
+
+  const counts = leves
+    .filter((g) => typeof g.id === "string" && g.id.length > 0)
+    .map((g) => ({
+      whatsapp_group_id: String(g.id),
+      members: typeof g.size === "number" && g.size >= 0 ? g.size : 0,
+    }));
+  const atualizados = await refreshMembersForKnownGroups(ctx.tenantId, counts);
+
+  await getSupabaseAdmin().from("logs").insert({
+    tenant_id: ctx.tenantId,
+    actor_user_id: ctx.authUserId,
+    level: "warn",
+    event: "groups.synced_partial",
+    message: `A lista completa expirou em ${Math.round(fetchPesadoMs / 1000)}s; atualizei so a contagem de ${atualizados} grupo(s) em ${Math.round(fetchLeveMs / 1000)}s. Grupo novo nao entra por este caminho.`,
+    metadata: {
+      instance_id: instanceId,
+      atualizados,
+      grupos_no_provedor: leves.length,
+      fetch_pesado_ms: fetchPesadoMs,
+      fetch_leve_ms: fetchLeveMs,
+    },
+  });
+
+  return Response.json({
+    synced: atualizados,
+    parcial: true,
+    motivo: "A lista completa demorou demais. Atualizei o numero de membros dos grupos que ja estavam aqui; grupo novo entra na proxima sincronizacao que completar.",
+  });
+}
+
+/**
  * Traduz a falha para o lojista e DEIXA RASTRO.
  *
  * O catch anterior devolvia 502 "Erro ao sincronizar grupos." e não gravava
@@ -177,12 +254,15 @@ export async function POST(req: Request) {
 async function falhaDoSync(
   error: unknown,
   ctx: Awaited<ReturnType<typeof getTenantContext>>,
+  tempos?: { fetchPesadoMs: number; fetchLeveMs: number },
 ): Promise<Response> {
   const evo = error instanceof EvolutionError ? error : null;
   const expirou = isEvolutionTimeout(error);
 
   const mensagem = expirou
-    ? "O WhatsApp demorou demais para responder a lista de grupos. Isso costuma acontecer quando você tem muitos grupos. Tente de novo em alguns minutos."
+    ? tempos
+      ? "O WhatsApp não respondeu nem a lista completa nem a reduzida. Isso costuma ser instabilidade da conexão, não o tamanho da sua conta — tente de novo em alguns minutos."
+      : "O WhatsApp demorou demais para responder a lista de grupos. Isso costuma acontecer quando você tem muitos grupos. Tente de novo em alguns minutos."
     : "Erro ao sincronizar grupos.";
 
   try {
@@ -198,6 +278,11 @@ async function falhaDoSync(
         timeout: expirou,
         status: evo?.status ?? null,
         detail: evo?.detail ?? null,
+        // Presentes quando o plano B também falhou: os dois tempos separam
+        // "resposta grande demais" de "Evolution fora do ar".
+        ...(tempos
+          ? { fetch_pesado_ms: tempos.fetchPesadoMs, fetch_leve_ms: tempos.fetchLeveMs }
+          : {}),
       },
     });
   } catch (logError) {
