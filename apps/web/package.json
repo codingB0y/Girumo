@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test \"src/**/*.test.ts\"",
+    "test": "tsx --import ./src/test/server-only-shim.mjs --test \"src/**/*.test.ts\"",
     "e2e": "playwright test",
     "e2e:report": "playwright show-report e2e-report",
     "brand:export": "tsx scripts/export-girumo-brand.ts",

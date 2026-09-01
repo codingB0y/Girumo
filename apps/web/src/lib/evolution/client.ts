@@ -29,6 +29,14 @@ export const EVOLUTION_WEBHOOK_EVENTS = [
   "GROUP_PARTICIPANTS_UPDATE",
   "GROUPS_UPSERT",
   "MESSAGES_UPDATE",
+  // Oferta Relâmpago. Faz chegar TODA mensagem de TODOS os grupos onde a
+  // instância está — o receiver descarta em cascata e nada disso vira linha
+  // sem casar uma janela aberta.
+  //
+  // Acrescentar aqui NÃO alcança instância que já existe: esta lista só chega
+  // à Evolution dentro de `setWebhook`, chamado apenas na criação da instância.
+  // Para as antigas, ver `api/admin/instances/rewebhook`.
+  "MESSAGES_UPSERT",
 ] as const;
 
 const REQUEST_TIMEOUT_MS = 10_000;

@@ -9,7 +9,10 @@ import {
 } from "@/lib/evolution/webhook-schema";
 import { adminCountDelta } from "@/lib/groups/admin-protection";
 import { podeAplicarQr } from "@/lib/instance-qr-guard";
+import { matchesKeyword } from "@/lib/relampago/keyword";
+import { parseUpsertMessage } from "@/lib/relampago/upsert-message";
 import { resolveSecret } from "@/lib/runtime-secrets";
+import { findOpenWindow, insertEntry } from "@/lib/stores/flash-offers";
 import { applyAdminCountDelta } from "@/lib/stores/groups";
 import {
   findByProviderInstanceId,
@@ -128,6 +131,66 @@ async function applyAdminDelta(instance: Instance, event: EvolutionWebhookEvent)
   }
 }
 
+/**
+ * Oferta Relâmpago: captura o comentário que casa uma janela aberta.
+ *
+ * Descarte do mais barato para o mais caro. Ligar `messages.upsert` faz chegar
+ * TODA mensagem de TODOS os grupos onde a instância está; nada disso pode virar
+ * linha, porque é dado pessoal de gente que não é cliente de ninguém. Só o que
+ * passa pelos seis degraus persiste.
+ *
+ * Devolve `true` quando tratou o evento — o chamador então NÃO grava em
+ * engine_events, que encheria de mensagem de terceiro.
+ */
+async function applyFlashOfferComment(
+  instance: Instance,
+  event: EvolutionWebhookEvent,
+): Promise<boolean> {
+  if (event.event !== "messages.upsert") return false;
+
+  // 1. conversa privada nunca é capturada
+  if (!event.data.key.remoteJid.endsWith("@g.us")) return true;
+  // 2. mensagem nossa
+  if (event.data.key.fromMe) return true;
+
+  // 3. sem texto (mídia, áudio, figurinha)
+  const msg = parseUpsertMessage(event.data);
+  if (!msg) return true;
+
+  // 4. sem janela aberta neste grupo
+  const janela = await findOpenWindow(instance.tenant_id, msg.remoteJid);
+  if (!janela) return true;
+
+  // 5. não casa a palavra-chave
+  if (!matchesKeyword(msg.text, janela.keyword)) return true;
+
+  // 6. anterior à abertura da janela. A entrega da Evolution não é ordenada:
+  // sem isto, um evento atrasado da oferta ANTERIOR cairia na fila da atual —
+  // literalmente a divergência que a feature existe para evitar.
+  if (msg.commentedAt < new Date(janela.openedAt)) return true;
+
+  try {
+    await insertEntry({
+      tenantId: instance.tenant_id,
+      offerId: janela.offerId,
+      groupId: janela.groupId,
+      whatsappGroupId: msg.remoteJid,
+      participantJid: msg.participantJid,
+      phone: msg.phoneHint ?? janela.lidMap[msg.participantJid] ?? null,
+      pushName: msg.pushName,
+      messageText: msg.text,
+      messageId: msg.messageId,
+      commentedAt: msg.commentedAt,
+    });
+  } catch (e) {
+    // Não derruba a resposta: 500 faria a Evolution reentregar, e a reentrega
+    // cairia no mesmo erro. Fica o log.
+    console.error(`[webhook/evolution] captura da oferta relampago falhou:`, e);
+  }
+
+  return true;
+}
+
 export async function POST(req: Request) {
   const expectedSecret = resolveSecret(
     "EVOLUTION_WEBHOOK_SECRET",
@@ -171,6 +234,12 @@ export async function POST(req: Request) {
 
   if (event.event === "connection.update") {
     await applyConnectionUpdate(instance, event);
+  }
+
+  // Mensagem de grupo não entra em engine_events: são dezenas de milhares de
+  // mensagens de terceiros por semana e nenhuma delas nos pertence.
+  if (await applyFlashOfferComment(instance, event)) {
+    return Response.json({ received: true });
   }
 
   // Demais eventos (e connection.update, que também vira trilha) vão para a

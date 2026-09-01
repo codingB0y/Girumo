@@ -182,6 +182,22 @@ export const CONTEUDO_ESPERADO: Record<string, ConteudoEsperado> = {
     },
   },
 
+  "/painel/relampago": {
+    // O subtitulo, e nao "Oferta Relâmpago": esse texto tambem esta no menu
+    // lateral, entao serviria de ancora ate para a tela quebrada.
+    ancora: /Quem comentou primeiro tem prioridade/,
+    lista: {
+      api: "/api/relampago/offers",
+      // A API devolve `{ offers: [...] }`, nao um array cru.
+      marca: (j) => {
+        const offers = (j as { offers?: Array<{ name?: unknown }> } | null)?.offers;
+        const nome = Array.isArray(offers) ? offers[0]?.name : null;
+        return typeof nome === "string" && nome.trim() ? nome : null;
+      },
+      vazio: /Nenhuma oferta ainda/i,
+    },
+  },
+
   "/painel/grupos": {
     ancora: /Grupos/,
     lista: {
