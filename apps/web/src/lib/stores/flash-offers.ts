@@ -1,5 +1,6 @@
 import "server-only";
 
+import { mergeLidMaps } from "@/lib/relampago/lid-map";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 /**
@@ -84,4 +85,52 @@ export async function insertEntry(input: EntryInsert): Promise<boolean> {
   // 23505 = unique_violation.
   if (error && error.code !== "23505") throw error;
   return !error;
+}
+
+/**
+ * Pares `@lid -> telefone` que já passaram pelo webhook.
+ *
+ * Todo `group-participants.update` guarda os participantes com `phoneNumber` ao
+ * lado do `@lid`, e esses eventos estão em `engine_events` desde julho. São
+ * milhares de pares de graça: em 30 dias, 3.390 dos 4.121 participantes vistos
+ * traziam telefone. Não custa chamada nenhuma à Evolution.
+ *
+ * Só os últimos 90 dias: quem trocou de número tem o par novo no
+ * `fetchAllGroups`, que vence este no merge.
+ *
+ * Passa por `mergeLidMaps` na saída porque aqui `phoneNumber` NÃO é dígito: em
+ * produção chega como JID completo (`5511999998888@s.whatsapp.net`, 200/200 na
+ * amostra de 01/09/2026). Sem normalizar, o mapa devolveria um JID no lugar do
+ * telefone para quem chamasse esta função sem mesclar depois.
+ */
+export async function lidMapFromHistory(
+  tenantId: string,
+  whatsappGroupId: string,
+): Promise<Record<string, string>> {
+  const { data, error } = await getSupabaseAdmin()
+    .from("engine_events")
+    .select("payload")
+    .eq("tenant_id", tenantId)
+    .eq("type", "group-participants.update")
+    .gte("created_at", new Date(Date.now() - 90 * 86_400_000).toISOString())
+    .order("created_at", { ascending: false })
+    .limit(500);
+
+  if (error || !data) return {};
+
+  const mapa: Record<string, string> = {};
+
+  for (const linha of data) {
+    const evento = (linha.payload ?? {}) as { data?: { id?: string; participants?: unknown } };
+    if (evento.data?.id !== whatsappGroupId) continue;
+
+    for (const p of (evento.data?.participants ?? []) as Array<{
+      id?: string;
+      phoneNumber?: string;
+    }>) {
+      if (p?.id && p.phoneNumber && !(p.id in mapa)) mapa[p.id] = p.phoneNumber;
+    }
+  }
+
+  return mergeLidMaps(mapa);
 }
