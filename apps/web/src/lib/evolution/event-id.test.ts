@@ -130,3 +130,23 @@ test("the same event from two instances yields different ids", () => {
   const other = { ...base, instance: "gr_outra-instancia" } as EvolutionWebhookEvent;
   assert.notEqual(evolutionEventId(base), evolutionEventId(other));
 });
+
+test("messages.upsert: mesma mensagem reentregue é o mesmo evento", () => {
+  const base = parsedFixture("messages-upsert.group");
+  const maisTarde = { ...base, date_time: "2026-09-01T15:00:00.000Z" } as EvolutionWebhookEvent;
+  // O carimbo fora da chave é o que impede a mesma cliente de entrar duas
+  // vezes na fila quando a Evolution reentrega.
+  assert.equal(evolutionEventId(base), evolutionEventId(maisTarde));
+});
+
+test("messages.upsert: mensagens diferentes têm ids diferentes", () => {
+  const base = parsedFixture("messages-upsert.group");
+  if (base.event !== "messages.upsert") throw new Error("fixture errada");
+
+  const outra = {
+    ...base,
+    data: { ...base.data, key: { ...base.data.key, id: "OUTRA-MENSAGEM" } },
+  } as EvolutionWebhookEvent;
+
+  assert.notEqual(evolutionEventId(base), evolutionEventId(outra));
+});

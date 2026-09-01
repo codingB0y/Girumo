@@ -123,6 +123,37 @@ test("connection states map to instance status, unknown maps to null", () => {
   assert.equal(mapConnectionState("refused"), null);
 });
 
+test("aceita messages.upsert de grupo", () => {
+  const parsed = parseEvolutionWebhook(fixture("messages-upsert.group"));
+  assert.equal(parsed.ok, true);
+  if (!parsed.ok || parsed.event.event !== "messages.upsert") return;
+
+  assert.equal(parsed.event.data.key.remoteJid, "120363000000000000@g.us");
+  // O participante chega como @lid. É o formato real de produção: em 30 dias,
+  // 4.121 de 4.121 participantes vieram assim, zero em @s.whatsapp.net.
+  assert.equal(parsed.event.data.key.participant, "221000000000000009@lid");
+  assert.equal(parsed.event.data.messageTimestamp, 1788267791);
+  assert.equal(parsed.event.data.pushName, "Ana");
+});
+
+test("messages.upsert sem key.id é rejeitado", () => {
+  const semId = fixture("messages-upsert.group") as { data: { key: Record<string, unknown> } };
+  semId.data.key.id = "";
+  assert.equal(parseEvolutionWebhook(semId).ok, false);
+});
+
+test("messages.upsert preserva campos que o schema não declara", () => {
+  // `participantAlt` é a chance de ter o telefone sem consultar o mapa de LID.
+  // Um schema estrito o descartaria em silêncio.
+  const comAlt = fixture("messages-upsert.group") as { data: { key: Record<string, unknown> } };
+  comAlt.data.key.participantAlt = "5511999998888@s.whatsapp.net";
+
+  const parsed = parseEvolutionWebhook(comAlt);
+  assert.equal(parsed.ok, true);
+  if (!parsed.ok || parsed.event.event !== "messages.upsert") return;
+  assert.equal(parsed.event.data.key.participantAlt, "5511999998888@s.whatsapp.net");
+});
+
 test("phoneFromWuid extracts digits and rejects @lid", () => {
   assert.equal(phoneFromWuid("5511999990001@s.whatsapp.net"), "5511999990001");
   assert.equal(phoneFromWuid("20100000000000001@lid"), null);
