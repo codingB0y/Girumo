@@ -13,7 +13,17 @@
  * diagnostico so existia no painel da Vercel. Os 10s de folga sao o que
  * transformam "demorou demais" num erro tratado, com registro.
  */
-export const FETCH_GROUPS_TIMEOUT_MS = 50_000;
+export const FETCH_GROUPS_TIMEOUT_MS = 40_000;
+
+/**
+ * Teto da SEGUNDA tentativa do sync, sem participantes.
+ *
+ * Os 40s acima mais estes 15 cabem nos 60s da rota com folga. O corte do
+ * principal (era 50s) e o preco de existir um plano B: com 50+15 a Vercel
+ * mataria a funcao no meio do plano B, e o lojista voltaria a ver o 504 mudo
+ * que os 50s justamente evitavam.
+ */
+export const FETCH_GROUPS_LIGHT_TIMEOUT_MS = 15_000;
 
 /**
  * A falha foi o tempo acabar, e não a Evolution responder erro?

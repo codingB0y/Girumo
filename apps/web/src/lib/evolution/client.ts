@@ -1,7 +1,12 @@
 import "server-only";
 
-export { EvolutionError, FETCH_GROUPS_TIMEOUT_MS, isEvolutionTimeout } from "./errors";
-import { EvolutionError, FETCH_GROUPS_TIMEOUT_MS } from "./errors";
+export {
+  EvolutionError,
+  FETCH_GROUPS_LIGHT_TIMEOUT_MS,
+  FETCH_GROUPS_TIMEOUT_MS,
+  isEvolutionTimeout,
+} from "./errors";
+import { EvolutionError, FETCH_GROUPS_LIGHT_TIMEOUT_MS, FETCH_GROUPS_TIMEOUT_MS } from "./errors";
 
 import { resolveSecret } from "@/lib/runtime-secrets";
 import { parseInviteCodeResponse } from "@/lib/groups/invite-backfill";
@@ -246,6 +251,25 @@ export async function fetchAllGroups(instanceName: string): Promise<EvolutionGro
   const data = await request<EvolutionGroup[] | null>(
     `/group/fetchAllGroups/${encodeURIComponent(instanceName)}?getParticipants=true`,
     { timeoutMs: FETCH_GROUPS_TIMEOUT_MS },
+  );
+  return Array.isArray(data) ? data : [];
+}
+
+/**
+ * A mesma lista, SEM participantes: id, nome e tamanho de cada grupo.
+ *
+ * É o plano B de quando a chamada completa estoura o tempo. Não serve para
+ * decidir quem é admin — sem `participants` não há como saber —, então quem
+ * chama só pode usá-la para atualizar grupo que JÁ conhece.
+ *
+ * Vale a pena porque o custo da resposta completa não está nos dados: a
+ * Evolution busca a foto de perfil de cada grupo em série (v2.3.7). Sem
+ * participantes esse trabalho some.
+ */
+export async function fetchAllGroupsLight(instanceName: string): Promise<EvolutionGroup[]> {
+  const data = await request<EvolutionGroup[] | null>(
+    `/group/fetchAllGroups/${encodeURIComponent(instanceName)}?getParticipants=false`,
+    { timeoutMs: FETCH_GROUPS_LIGHT_TIMEOUT_MS },
   );
   return Array.isArray(data) ? data : [];
 }
