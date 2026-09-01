@@ -124,4 +124,22 @@ assert.equal(
 // Relógio adiantado no banco não pode virar "silêncio negativo".
 assert.equal(silenceRisk(row({ last_event_at: daysAgo(-2) }), NOW), null);
 
+// === Histórico de pareamento ===
+//
+// `everConnected` é o que separa "caiu" de "nunca pareou". A tela some para o
+// segundo e permanece para o primeiro — sumir com o número fora do ar é
+// esconder a informação na única hora em que ela importa.
+{
+  const caiu = deriveHealth(row({ status: "disconnected", connected_at: daysAgo(30) }), NOW);
+  assert.equal(caiu.connected, false);
+  assert.equal(caiu.everConnected, true, "numero que ja pareou mantem historico");
+
+  const nuncaPareou = deriveHealth(row({ status: "qr", connected_at: null }), NOW);
+  assert.equal(nuncaPareou.connected, false);
+  assert.equal(nuncaPareou.everConnected, false, "instancia criada e nunca pareada nao tem historico");
+
+  const vivo = deriveHealth(row(), NOW);
+  assert.equal(vivo.everConnected, true);
+}
+
 console.log("instance-health tests passed");

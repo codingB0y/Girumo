@@ -12,9 +12,14 @@ import { coletarFalhasDeApi, exigeCredenciais, semErroDeRuntime } from "./sessao
  * por dado, nao por regresso.
  *
  * Entao a ancora e a propria API: le /api/instances/health e cobra da tela
- * exatamente o que a API respondeu. Sem numero conectado, cobra a AUSENCIA do
- * bloco — que tambem e comportamento correto e ja pegaria o bug de renderizar
- * painel de ritmo para quem nem pareou o celular.
+ * exatamente o que a API respondeu.
+ *
+ * O GATE E HISTORICO (`everConnected`), NAO SESSAO ABERTA. Ate 31/08/2026 este
+ * spec cobrava a ausencia do bloco sempre que nenhum numero estava conectado —
+ * codificando um bug: o painel sumia exatamente quando o numero caia ou era
+ * bloqueado, que e a unica hora em que o lojista precisa dele. O que o teste
+ * protegia de verdade continua protegido aqui: quem criou a instancia e nunca
+ * escaneou o QR nao ve rampa de aquecimento nenhuma.
  *
  * O teto do dia sai de `app.instance_daily_cap`, a MESMA funcao que o
  * `claim_send_commands` usa para liberar envio. Se a tela mostrar um numero
@@ -26,6 +31,7 @@ import { coletarFalhasDeApi, exigeCredenciais, semErroDeRuntime } from "./sessao
 type NumeroSaude = {
   instanceId: string;
   connected: boolean;
+  everConnected: boolean;
   warmupDay: number | null;
   graduated: boolean;
   dailyCap: number;
@@ -34,19 +40,20 @@ type NumeroSaude = {
 
 exigeCredenciais();
 
-test("saude do numero reflete a API, ou some quando nao ha numero conectado", async ({ page }) => {
+test("saude do numero reflete a API, e so some para quem nunca pareou", async ({ page }) => {
   const falhasDeApi = coletarFalhasDeApi(page);
 
   const res = await page.request.get("/api/instances/health");
   expect(res.ok(), `GET /api/instances/health respondeu ${res.status()}`).toBeTruthy();
   const { numbers } = (await res.json()) as { numbers: NumeroSaude[] };
-  const conectados = numbers.filter((n) => n.connected);
+  const comHistorico = numbers.filter((n) => n.everConnected);
+  const conectados = comHistorico.filter((n) => n.connected);
 
   await page.goto("/painel/conectar");
 
   const bloco = page.getByRole("region", { name: "Saúde do número" });
 
-  if (conectados.length === 0) {
+  if (comHistorico.length === 0) {
     await expect(bloco).toHaveCount(0);
     await semErroDeRuntime(page);
     expect(falhasDeApi, "5xx da propria app durante a navegacao").toEqual([]);
@@ -54,6 +61,22 @@ test("saude do numero reflete a API, ou some quando nao ha numero conectado", as
   }
 
   await expect(bloco).toBeVisible();
+
+  // A regra dos 14 dias e material de onboarding: aparece SEMPRE que ha numero
+  // com historico, nao so quando ja virou risco. Avisar so no dia 10 chega
+  // tarde pra quem podia ter evitado desligando o WhatsApp Web sobrando.
+  await expect(page.getByText("Duas regras do WhatsApp que ninguém te conta")).toBeVisible();
+
+  // Numero que ja pareou mas esta fora do ar: o cartao continua na tela, em
+  // modo aviso. Teto e aquecimento nao se aplicam sem sessao, entao nao sao
+  // cobrados aqui — o que se cobra e que a tela DIGA que esta desconectado, em
+  // vez de sumir e deixar o lojista sem explicacao.
+  if (conectados.length === 0) {
+    await expect(bloco.getByText("Desconectado")).toBeVisible();
+    await semErroDeRuntime(page);
+    expect(falhasDeApi, "5xx da propria app durante a navegacao").toEqual([]);
+    return;
+  }
 
   const numero = conectados[0];
 
@@ -67,11 +90,6 @@ test("saude do numero reflete a API, ou some quando nao ha numero conectado", as
   } else {
     await expect(bloco.getByText(`Dia ${numero.warmupDay} de aquecimento`)).toBeVisible();
   }
-
-  // A regra dos 14 dias e material de onboarding: aparece SEMPRE que ha numero,
-  // nao so quando ja virou risco. Avisar so no dia 10 chega tarde pra quem
-  // podia ter evitado desligando o WhatsApp Web sobrando.
-  await expect(page.getByText("Duas regras do WhatsApp que ninguém te conta")).toBeVisible();
 
   await semErroDeRuntime(page);
   expect(falhasDeApi, "5xx da propria app durante a navegacao").toEqual([]);

@@ -8,6 +8,7 @@ import {
   type EvolutionWebhookEvent,
 } from "@/lib/evolution/webhook-schema";
 import { adminCountDelta } from "@/lib/groups/admin-protection";
+import { podeAplicarQr } from "@/lib/instance-qr-guard";
 import { resolveSecret } from "@/lib/runtime-secrets";
 import { applyAdminCountDelta } from "@/lib/stores/groups";
 import {
@@ -40,6 +41,12 @@ const SECRET_HEADER = "x-evolution-webhook-secret";
 /** QR: só o status/código na instância. O código NUNCA entra em engine_events. */
 async function applyQrCode(instance: Instance, event: EvolutionWebhookEvent): Promise<void> {
   if (event.event !== "qrcode.updated") return;
+
+  // A Evolution emite QR em rajada e a entrega nao e ordenada: o codigo que
+  // estava em voo quando o celular pareou chega DEPOIS do `connection.update`
+  // com `open`. Grava-lo rebaixava a sessao viva de volta para `qr`, e a tela
+  // voltava a pedir leitura de um numero que ja estava conectado.
+  if (!podeAplicarQr(instance.status)) return;
 
   await updateInstanceStatus({
     tenantId: instance.tenant_id,

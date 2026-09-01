@@ -58,6 +58,17 @@ export async function POST(req: Request, { params }: Params) {
 
     const remoteName = instance.provider_instance_id || providerInstanceId(instance.id);
 
+    // Pedir QR com a sessao viva nao e "atualizar o codigo": e parear por cima,
+    // que faz o WhatsApp SUBSTITUIR a conexao atual (`440 connectionReplaced`)
+    // e derrubar um numero que estava funcionando. Quem quer reparear passa
+    // por `disconnect` primeiro, deliberadamente.
+    if (action !== "disconnect" && instance.status === "connected") {
+      return Response.json(
+        { error: "Este numero ja esta conectado. Desconecte antes de gerar um novo codigo." },
+        { status: 409 },
+      );
+    }
+
     if (action === "disconnect") {
       await logoutInstance(remoteName);
       await updateInstanceStatus({

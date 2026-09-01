@@ -136,7 +136,10 @@ export const CONTEUDO_ESPERADO: Record<string, ConteudoEsperado> = {
   },
 
   "/painel/conectar": {
-    ancora: /Como conectar/,
+    // Dois modos na mesma rota: "Como conectar" (pareamento) e "Seu número"
+    // (sessao aberta). Cobrar so o primeiro faria o smoke quebrar no dia em que
+    // o tenant de teste estivesse conectado — por dado, nao por regresso.
+    ancora: /Como conectar|Seu número/,
     semLista:
       "Depende da Evolution, que nao existe no ambiente de teste — o 502 do POST /api/instances ja esta tolerado em sessao-helpers.ts.",
   },

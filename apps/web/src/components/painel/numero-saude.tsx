@@ -39,8 +39,16 @@ export function NumeroSaude() {
     return () => clearInterval(timer);
   }, [load]);
 
-  const connected = (numbers ?? []).filter((n) => n.connected);
-  if (failed || (numbers !== null && connected.length === 0)) return null;
+  // O criterio e HISTORICO, nao sessao aberta.
+  //
+  // Antes o bloco sumia quando nenhum numero estava conectado — ou seja,
+  // exatamente na hora em que o numero caiu ou foi bloqueado, que e a unica
+  // hora em que o lojista precisa dele. Mas o outro extremo tambem e errado:
+  // mostrar rampa de aquecimento para quem criou a instancia e nunca escaneou
+  // o QR (essa linha ja existe em `instances`, entao "tem linha" nao serve de
+  // gate). `everConnected` separa os dois casos.
+  const comHistorico = (numbers ?? []).filter((n) => n.everConnected);
+  if (failed || (numbers !== null && comHistorico.length === 0)) return null;
 
   return (
     <section aria-labelledby="saude-titulo" className="mt-10">
@@ -60,7 +68,7 @@ export function NumeroSaude() {
         {numbers === null ? (
           <div className="pn-card pn-skeleton h-[180px] rounded-2xl" aria-hidden="true" />
         ) : (
-          connected.map((n) => <CartaoNumero key={n.instanceId} health={n} />)
+          comHistorico.map((n) => <CartaoNumero key={n.instanceId} health={n} />)
         )}
       </div>
 
@@ -84,6 +92,8 @@ function CartaoNumero({ health }: { health: NumberHealth }) {
         <EtiquetaTom health={health} />
       </header>
 
+      {!health.connected && <AvisoDesconectado />}
+
       {health.silence?.shouldWarn && <AvisoSilencio dias={health.silence.daysLeft} />}
 
       {health.pausedSeconds > 0 && (
@@ -94,7 +104,7 @@ function CartaoNumero({ health }: { health: NumberHealth }) {
         </p>
       )}
 
-      <div className="mt-5 grid gap-5 sm:grid-cols-2">
+      <div className={cn("mt-5 grid gap-5 sm:grid-cols-2", !health.connected && "hidden")}>
         <div>
           <Rotulo icone={<Flame className="h-3.5 w-3.5" aria-hidden="true" />}>
             {health.graduated ? "Aquecimento concluído" : `Dia ${health.warmupDay} de aquecimento`}
@@ -143,13 +153,36 @@ function CartaoNumero({ health }: { health: NumberHealth }) {
   );
 }
 
+/**
+ * Sem sessao nao ha ritmo de envio para mostrar — ha um numero parado.
+ *
+ * O cartao continua na tela de proposito: sumir levava junto o historico e a
+ * unica explicacao do que fazer, no momento em que o lojista mais precisa das
+ * duas coisas.
+ */
+function AvisoDesconectado() {
+  return (
+    <div role="alert" className="mt-4 flex gap-3 rounded-xl bg-red-500/10 px-4 py-3">
+      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-700" aria-hidden="true" />
+      <p className="text-sm leading-relaxed text-red-900">
+        <strong className="font-semibold">Este número está desconectado.</strong> Nenhuma campanha
+        sai por ele enquanto estiver assim. Pareie de novo pelo QR Code acima — o aquecimento e o
+        histórico de envios continuam de onde pararam.
+      </p>
+    </div>
+  );
+}
+
 function EtiquetaTom({ health }: { health: NumberHealth }) {
   const map = {
     ok: { texto: "Saudável", classe: "bg-emerald-500/12 text-emerald-800" },
     atencao: { texto: "Atenção", classe: "bg-amber-500/15 text-amber-900" },
     risco: { texto: "Requer ação", classe: "bg-red-500/12 text-red-800" },
   } as const;
-  const { texto, classe } = map[health.tone];
+  // Desconectado tambem cai em "risco", mas "Requer ação" nao diz o que houve.
+  const { texto, classe } = health.connected
+    ? map[health.tone]
+    : { texto: "Desconectado", classe: map.risco.classe };
   return <span className={cn("pn-etiqueta", classe)}>{texto}</span>;
 }
 

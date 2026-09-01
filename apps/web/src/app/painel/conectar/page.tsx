@@ -2,39 +2,202 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Check, ShieldCheck, Zap, Loader2, RefreshCw, Power } from "lucide-react";
+import { Check, ShieldCheck, Zap, Loader2, RefreshCw, Power, Smartphone } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toPlanLimitError, upgradeUrlFrom } from "@/lib/billing/plan-limit-client";
 import { PlanLimitAlert } from "@/components/painel/plan-limit-alert";
 import { NumeroSaude } from "@/components/painel/numero-saude";
 import { GruposProtecao } from "@/components/painel/grupos-protecao";
 import { cn } from "@/lib/utils";
-import { POLL_MS, nextPollDelay } from "@/lib/engine-poll";
+import { POLL_MS, WATCH_MS, nextPollDelay } from "@/lib/engine-poll";
 import { precisaParearDeNovo } from "@/lib/instance-disconnect-reason";
 import { activationLabel } from "@/lib/onboarding-steps";
+import { selectSessionRow } from "@/lib/session-select";
 
+/**
+ * A casa do número — três estados na mesma rota.
+ *
+ * Esta rota é o que a sidebar e a topbar linkam, e é o único lugar onde vivem a
+ * saúde do número e a proteção dos grupos. Mas ela se apresentava como
+ * "Primeiro acesso", com um wizard de três passos, SEMPRE: quem conectou meses
+ * atrás e vinha só olhar o anti-ban levava um onboarding na cara toda vez.
+ *
+ * O onboarding agora só existe enquanto ele é verdade. O que separa os estados
+ * é `connected_at` — o carimbo do primeiro pareamento, que nunca é apagado:
+ *
+ *   sem `connected_at`  → primeiro acesso: o wizard completo
+ *   com, mas caiu       → reconexão: o QR sem o discurso de boas-vindas
+ *   conectado           → "Seu número": estado, saúde e proteção
+ */
 export default function PainelConectar() {
   const { instance, loading, error, upgradeUrl, load, refreshQr, disconnect } = useInstance();
   const connected = instance?.status === "connected";
+  const jaPareou = Boolean(instance?.connected_at);
 
   return (
     <div className="mx-auto max-w-[1000px] px-4 py-10 sm:px-8">
-      {/* Boas-vindas */}
+      {connected ? (
+        <ModoNumero
+          instance={instance}
+          loading={loading}
+          error={error}
+          onDisconnect={disconnect}
+          onReload={load}
+        />
+      ) : (
+        <ModoPareamento
+          instance={instance}
+          jaPareou={jaPareou}
+          loading={loading}
+          error={error}
+          upgradeUrl={upgradeUrl}
+          onRefreshQr={refreshQr}
+          onDisconnect={disconnect}
+          onReload={load}
+        />
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Conectado — a tela deixa de ser sobre parear e passa a ser sobre operar.    */
+/* -------------------------------------------------------------------------- */
+
+function ModoNumero({
+  instance,
+  loading,
+  error,
+  onDisconnect,
+  onReload,
+}: {
+  instance: Instance | null;
+  loading: boolean;
+  /** Falha de "desconectar" ou da consulta. Sem isto o botão falhava calado. */
+  error: string | null;
+  onDisconnect: () => void;
+  onReload: (showSpinner?: boolean) => void;
+}) {
+  return (
+    <>
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="font-display text-4xl font-extrabold tracking-[-0.035em] text-volt-950">
+            Seu número
+          </h1>
+          <p className="font-editorial mt-2 max-w-md text-[19px] italic text-ardosia">
+            Conectado e trabalhando. Aqui você acompanha o ritmo que protege ele de bloqueio.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => onReload(true)}
+          disabled={loading}
+          className="inline-flex items-center gap-2 rounded-xl border border-volt-950/10 px-4 py-2 text-sm text-aco transition-colors duration-[160ms] hover:bg-poco disabled:opacity-60"
+        >
+          <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+          {loading ? "Verificando…" : "Atualizar"}
+        </button>
+      </header>
+
+      <section className="pn-card mt-8 flex flex-wrap items-center justify-between gap-5 rounded-2xl p-6">
+        <div className="flex items-center gap-4">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-sucesso/10">
+            <Check className="h-6 w-6 text-sucesso" strokeWidth={3} aria-hidden="true" />
+          </span>
+          <div>
+            <p className="font-display text-lg font-bold text-volt-950">WhatsApp conectado</p>
+            <p className="font-data mt-0.5 flex items-center gap-1.5 text-sm text-aco/70">
+              <Smartphone className="h-3.5 w-3.5" aria-hidden="true" />
+              {instance?.phone ? `+${instance.phone}` : instance?.name}
+            </p>
+          </div>
+        </div>
+
+        {/* A saída deliberada. Até 31/08/2026 a ação existia na API sem nenhuma
+            tela chamá-la — o lojista não tinha como trocar de número sozinho. */}
+        <button
+          type="button"
+          onClick={onDisconnect}
+          disabled={loading}
+          className="font-data inline-flex items-center gap-1.5 rounded-xl border border-volt-950/10 px-4 py-2 text-[11px] uppercase tracking-wider text-aco/60 transition-colors duration-[160ms] hover:border-red-300 hover:text-red-600 disabled:opacity-50"
+        >
+          <Power className="h-3.5 w-3.5" aria-hidden="true" /> Desconectar
+        </button>
+      </section>
+
+      {error && (
+        <p role="alert" className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-900">
+          {error}
+        </p>
+      )}
+
+      <NumeroSaude />
+      <GruposProtecao />
+
+      <div className="mt-8">
+        <Link
+          href="/painel"
+          className="text-sm text-aco/60 transition-colors duration-[160ms] hover:text-volt-950"
+        >
+          ← Voltar ao painel
+        </Link>
+      </div>
+    </>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Sem sessão — parear pela primeira vez ou reconectar.                        */
+/* -------------------------------------------------------------------------- */
+
+function ModoPareamento({
+  instance,
+  jaPareou,
+  loading,
+  error,
+  upgradeUrl,
+  onRefreshQr,
+  onDisconnect,
+  onReload,
+}: {
+  instance: Instance | null;
+  /** Já houve pareamento antes: isto é reconexão, não primeiro acesso. */
+  jaPareou: boolean;
+  loading: boolean;
+  error: string | null;
+  upgradeUrl: string | null;
+  onRefreshQr: () => void;
+  onDisconnect: () => void;
+  onReload: (showSpinner?: boolean) => void;
+}) {
+  return (
+    <>
       <div className="text-center">
-        <span className="font-data inline-flex items-center gap-2 rounded-full bg-poco px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-aco/60">
-          <Zap className="h-3 w-3 text-cobalt-500" /> Primeiro acesso
-        </span>
-        <h1 className="font-display mt-4 text-4xl font-extrabold tracking-[-0.035em] text-volt-950">
-          {connected ? "WhatsApp conectado" : "Vamos conectar seu WhatsApp"}
+        {/* "Primeiro acesso" só quando é, de fato, o primeiro. */}
+        {!jaPareou && (
+          <span className="font-data inline-flex items-center gap-2 rounded-full bg-poco px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-aco/60">
+            <Zap className="h-3 w-3 text-cobalt-500" aria-hidden="true" /> Primeiro acesso
+          </span>
+        )}
+        <h1
+          className={cn(
+            "font-display text-4xl font-extrabold tracking-[-0.035em] text-volt-950",
+            !jaPareou && "mt-4",
+          )}
+        >
+          {jaPareou ? "Reconecte seu WhatsApp" : "Vamos conectar seu WhatsApp"}
         </h1>
         <p className="font-editorial mx-auto mt-2 max-w-md text-[19px] italic text-ardosia">
-          {connected
-            ? "Seus grupos já estão entrando. Agora é criar a primeira campanha."
+          {jaPareou
+            ? "A sessão caiu. Escaneie o código uma vez e seus grupos voltam sozinhos."
             : "É o seu número de sempre, com seus grupos. Leva 2 minutos e nada técnico."}
         </p>
       </div>
 
-      <Stepper connected={connected} />
+      {/* O roteiro de três passos é material de onboarding: quem já pareou uma
+          vez não está começando, está consertando. */}
+      {!jaPareou && <Stepper />}
 
       <div className="pn-card mt-10 grid gap-6 overflow-hidden rounded-2xl md:grid-cols-2">
         <Instrucoes />
@@ -43,26 +206,26 @@ export default function PainelConectar() {
           loading={loading}
           error={error}
           upgradeUrl={upgradeUrl}
-          onRefreshQr={refreshQr}
-          onDisconnect={disconnect}
+          onRefreshQr={onRefreshQr}
+          onDisconnect={onDisconnect}
         />
       </div>
 
-      {/* Saude do numero: so faz sentido depois que existe numero conectado.
-          Antes disso a tela e sobre parear, nao sobre ritmo de envio. */}
-      {connected && <NumeroSaude />}
-
-      {/* Proteção do ativo: só depois de conectar existe grupo administrado
-          para ficar órfão. */}
-      {connected && <GruposProtecao />}
+      {/* Com histórico, a saúde do número segue na tela mesmo sem sessão: é ela
+          que mostra o aquecimento acumulado e o aviso dos 14 dias — justamente
+          o que costuma explicar a queda. */}
+      {jaPareou && <NumeroSaude />}
 
       <div className="mt-6 flex items-center justify-between">
-        <Link href="/painel" className="text-sm text-aco/60 transition-colors duration-[160ms] hover:text-volt-950">
-          {connected ? "Ir para o painel" : "Pular por agora"}
+        <Link
+          href="/painel"
+          className="text-sm text-aco/60 transition-colors duration-[160ms] hover:text-volt-950"
+        >
+          {jaPareou ? "← Voltar ao painel" : "Pular por agora"}
         </Link>
         <button
           type="button"
-          onClick={() => void load(true)}
+          onClick={() => onReload(true)}
           disabled={loading}
           className="inline-flex items-center gap-2 rounded-xl bg-cobalt-500 px-5 py-2.5 text-sm font-medium text-white transition-[transform,filter] duration-[160ms] ease-[var(--ease-fluxo)] hover:-translate-y-0.5 hover:brightness-110 disabled:opacity-60 disabled:hover:translate-y-0"
         >
@@ -70,20 +233,16 @@ export default function PainelConectar() {
           {loading ? "Verificando…" : "Atualizar"}
         </button>
       </div>
-    </div>
+    </>
   );
 }
 
-function Stepper({ connected }: { connected: boolean }) {
-  // Reflete o estado real. Antes era constante de módulo: mesmo depois de
-  // conectar, o passo 1 continuava marcado como o atual.
-  // Rótulos da fonte única (@/lib/onboarding-steps) — esta tela dizia "Conectar
-  // número · Grupos entram · Primeira campanha" para os mesmos três passos que o
-  // painel chamava de outra coisa.
+/** O roteiro do primeiro acesso. Rótulos da fonte única (@/lib/onboarding-steps). */
+function Stepper() {
   const steps = [
-    { n: 1, label: activationLabel("connect"), done: connected, active: !connected },
-    { n: 2, label: activationLabel("groups"), done: false, active: connected },
-    { n: 3, label: activationLabel("campaign"), done: false, active: false },
+    { n: 1, label: activationLabel("connect"), active: true },
+    { n: 2, label: activationLabel("groups"), active: false },
+    { n: 3, label: activationLabel("campaign"), active: false },
   ];
 
   return (
@@ -98,19 +257,15 @@ function Stepper({ connected }: { connected: boolean }) {
             <span
               className={cn(
                 "flex h-8 w-8 items-center justify-center rounded-full font-data text-sm font-medium tabular-nums transition-colors duration-[240ms] ease-[var(--ease-fluxo)]",
-                s.done
-                  ? "bg-sucesso/10 text-sucesso"
-                  : s.active
-                    ? "bg-cobalt-500 text-white"
-                    : "bg-poco text-aco/50",
+                s.active ? "bg-cobalt-500 text-white" : "bg-poco text-aco/50",
               )}
             >
-              {s.done ? <Check className="h-4 w-4" /> : s.n}
+              {s.n}
             </span>
             <span
               className={cn(
                 "hidden text-sm sm:inline",
-                s.active ? "font-medium text-volt-950" : s.done ? "text-aco/70" : "text-aco/50",
+                s.active ? "font-medium text-volt-950" : "text-aco/50",
               )}
             >
               {s.label}
@@ -145,7 +300,7 @@ function Instrucoes() {
         ))}
       </ol>
       <div className="mt-7 flex items-center gap-3 rounded-2xl bg-poco px-4 py-3.5">
-        <ShieldCheck className="h-5 w-5 shrink-0 text-cobalt-500" />
+        <ShieldCheck className="h-5 w-5 shrink-0 text-cobalt-500" aria-hidden="true" />
         <p className="text-xs text-aco">
           Conexão segura e dentro da LGPD. Seus contatos são seus — desconectou, leva tudo.
         </p>
@@ -169,6 +324,10 @@ type Instance = {
   phone: string | null;
   status: InstanceStatus;
   qr_code: string | null;
+  /** Primeiro pareamento bem-sucedido. Nunca volta a ser null. */
+  connected_at: string | null;
+  /** Usado por `selectSessionRow` para desempatar entre linhas do tenant. */
+  updated_at: string | null;
   /** Guarda `lastDisconnectReason` — ver o webhook de `connection.update`. */
   metadata?: Record<string, unknown> | null;
 };
@@ -176,9 +335,8 @@ type Instance = {
 /**
  * Instância da Evolution + o ritmo de consulta.
  *
- * Vive acima do painel de QR porque o stepper e o cabeçalho também precisam
- * saber se já conectou — antes o estado era privado do QRPanel e o stepper
- * ficava congelado no passo 1 para sempre.
+ * Vive acima dos painéis porque o cabeçalho, a saúde e a proteção também
+ * precisam saber se já conectou — antes o estado era privado do QRPanel.
  */
 function useInstance() {
   const [instance, setInstance] = useState<Instance | null>(null);
@@ -218,10 +376,15 @@ function useInstance() {
         return nova;
       }
 
-      setInstance(list[0]);
+      // `list[0]` era a instância mais ANTIGA (a API ordena por `created_at`
+      // ascendente). Um tenant com mais de uma linha — que acontece, e é por
+      // isso que `session-select` existe — via a tela travada numa instância
+      // morta em `qr` enquanto a conectada estava logo atrás na lista.
+      const escolhida = selectSessionRow(list) ?? list[0] ?? null;
+      setInstance(escolhida);
       setError(null);
       delayRef.current = nextPollDelay(delayRef.current, "ok");
-      return list[0] ?? null;
+      return escolhida;
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setUpgradeUrl(upgradeUrlFrom(e));
@@ -243,7 +406,12 @@ function useInstance() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action }),
         });
-        if (!res.ok) throw new Error(falha);
+        if (!res.ok) {
+          // A API explica os casos conhecidos (pedir QR com a sessão viva, por
+          // exemplo); a mensagem genérica é só o último recurso.
+          const detalhe = (await res.json().catch(() => null)) as { error?: string } | null;
+          throw new Error(detalhe?.error || falha);
+        }
         setInstance((await res.json()) as Instance);
         setError(null);
       } catch (e) {
@@ -261,7 +429,6 @@ function useInstance() {
    * Sem instância carregada isto era `return void load(true)`: o clique
    * recarregava a lista e NUNCA pedia QR, sem dizer nada na tela — quem clicava
    * ficava em "Aguardando QR…" para sempre, sem erro nenhum para investigar.
-   * Agora carrega e segue com o pedido de verdade.
    */
   const refreshQr = useCallback(async () => {
     const alvo = instance ?? (await load(true));
@@ -272,9 +439,8 @@ function useInstance() {
   /**
    * Encerra a sessão na Evolution.
    *
-   * É a única saída quando o pareamento entra em ciclo (a sessão abre e cai
-   * sozinha, repetidamente). Até 31/08/2026 esta ação existia na API sem
-   * nenhuma tela chamá-la, então o lojista não tinha como se recuperar sozinho.
+   * É a saída para trocar de número e para quando o pareamento entra em ciclo
+   * (a sessão abre e cai sozinha, repetidamente).
    */
   const disconnect = useCallback(async () => {
     if (!instance) return;
@@ -282,13 +448,13 @@ function useInstance() {
   }, [instance, runAction]);
 
   /**
-   * Polling que sabe parar.
+   * Polling que muda de ritmo, mas não desiste.
    *
-   * Antes era um `setInterval(4s)` que nunca era cancelado: seguia consultando
-   * a Evolution depois de conectar e com a aba esquecida em segundo plano.
-   * Agora para ao conectar, pausa com a aba oculta (menos a primeira consulta,
-   * senão abrir numa aba de fundo trava a tela em "Verificando…") e espaça as
-   * tentativas quando a Evolution está fora do ar.
+   * Antes dava `return` ao ver `connected` e nunca mais perguntava. A sessão cai
+   * sozinha (celular sem internet, a vaga de aparelho tomada, os 14 dias de
+   * inatividade) e a tela seguia mostrando "conectado" com o número fora do ar
+   * até alguém dar F5. Conectado, a cadência cai para meio minuto — o bastante
+   * para notar a queda, barato o bastante para deixar a aba aberta.
    */
   useEffect(() => {
     let cancelled = false;
@@ -310,9 +476,7 @@ function useInstance() {
       const result = await load(isFirst);
       if (cancelled) return;
 
-      // Conectado: acabou o motivo de perguntar.
-      if (result?.status === "connected") return;
-      timer = setTimeout(tick, delayRef.current);
+      timer = setTimeout(tick, result?.status === "connected" ? WATCH_MS : delayRef.current);
     };
 
     void tick();
@@ -336,7 +500,7 @@ function useInstance() {
    *
    * A Evolution só emite `groups.upsert` para grupos criados DEPOIS da conexão;
    * os que já existiam nunca chegariam por webhook. Sem este fetch inicial, a
-   * tela de grupos fica vazia para sempre — que é o que acontecia antes.
+   * tela de grupos fica vazia para sempre.
    *
    * Falha aqui é silenciosa de propósito: a conexão deu certo, e o usuário tem
    * o botão "Sincronizar grupos" no painel de grupos como caminho explícito.
@@ -366,10 +530,6 @@ function QRPanel({
   onRefreshQr: () => void;
   onDisconnect: () => void;
 }) {
-  if (instance?.status === "connected") {
-    return <ConnectedPanel number={instance.phone} />;
-  }
-
   const qr = instance?.qr_code ?? null;
   // "connecting" = pareou e está subindo a sessão; não é erro nem espera de QR.
   const connecting = instance?.status === "connecting";
@@ -402,7 +562,7 @@ function QRPanel({
       ) : (
         <div className="flex h-[150px] w-[150px] items-center justify-center rounded-2xl bg-white/10">
           {loading || connecting ? (
-            <Loader2 className="h-8 w-8 animate-spin text-canvas-100/60" />
+            <Loader2 className="h-8 w-8 animate-spin text-canvas-100/60" aria-hidden="true" />
           ) : (
             <span className="px-3 text-center font-data text-[11px] uppercase tracking-wider text-canvas-100/60">
               Aguardando QR…
@@ -412,7 +572,9 @@ function QRPanel({
       )}
 
       <div className="flex items-center gap-2 text-sm text-canvas-100/70">
-        <span className={cn("hf-breathe h-2 w-2 rounded-full", qr ? "bg-cobalt-500" : "bg-canvas-100/40")} />
+        <span
+          className={cn("hf-breathe h-2 w-2 rounded-full", qr ? "bg-cobalt-500" : "bg-canvas-100/40")}
+        />
         {connecting ? "Conectando…" : qr ? "Escaneie no WhatsApp" : "Aguardando leitura…"}
       </div>
 
@@ -444,26 +606,6 @@ function QRPanel({
       <p className="font-data text-center text-[11px] uppercase tracking-wider text-canvas-100/40">
         o código expira em 60s · gera outro automático
       </p>
-    </div>
-  );
-}
-
-function ConnectedPanel({ number }: { number: string | null }) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-5 bg-volt-950 p-7 text-white sm:p-9">
-      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-400/20">
-        <Check className="h-10 w-10 text-emerald-300" strokeWidth={3} />
-      </div>
-      <div className="text-center">
-        <p className="font-display text-lg font-bold">WhatsApp conectado!</p>
-        {number && <p className="font-data mt-1 text-sm text-canvas-100/70">+{number}</p>}
-      </div>
-      <Link
-        href="/painel"
-        className="inline-flex items-center gap-2 rounded-xl bg-cobalt-500 px-5 py-2.5 text-sm font-medium text-white transition-[transform,filter] duration-[160ms] ease-[var(--ease-fluxo)] hover:-translate-y-0.5 hover:brightness-110"
-      >
-        Ir para o painel
-      </Link>
     </div>
   );
 }
