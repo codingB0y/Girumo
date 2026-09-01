@@ -3,10 +3,8 @@ import { PainelSidebar } from "@/components/painel/sidebar";
 import { PainelTopbar } from "@/components/painel/topbar";
 import { PainelMobileNav } from "@/components/painel/mobile-nav";
 import { PageTransition } from "@/components/painel/page-transition";
-import { CommandPalette } from "@/components/painel/command-palette";
 import { ToastProvider } from "@/components/toast";
 import { RoleProvider } from "@/components/painel/role-provider";
-import { RealtimeToasts } from "@/components/painel/realtime-toasts";
 import { SessionProvider } from "@/components/painel/session-provider";
 
 export const metadata: Metadata = {
@@ -27,8 +25,6 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
               </main>
             </div>
             <PainelMobileNav />
-            <CommandPalette />
-            <RealtimeToasts />
           </div>
         </ToastProvider>
       </SessionProvider>

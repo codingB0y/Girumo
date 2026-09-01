@@ -27,15 +27,15 @@ test("dia sem movimento vale zero — é informação, não buraco", () => {
 test("soma as entradas do mesmo dia", () => {
   const bars = weeklyRhythm(
     [
-      { enteredAt: "2026-08-12T01:00:00.000Z" },
-      { enteredAt: "2026-08-12T23:59:00.000Z" },
-      { enteredAt: "2026-08-11T12:00:00.000Z" },
+      { enteredAt: "2026-08-12T01:00:00.000Z" }, // 11/08 22h em SP → ontem
+      { enteredAt: "2026-08-12T23:59:00.000Z" }, // 12/08 20h59 em SP → hoje
+      { enteredAt: "2026-08-11T12:00:00.000Z" }, // 11/08 09h em SP → ontem
     ],
     NOW,
   );
 
-  assert.equal(bars[WEEK_DAYS - 1].count, 2);
-  assert.equal(bars[WEEK_DAYS - 2].count, 1);
+  assert.equal(bars[WEEK_DAYS - 1].count, 1);
+  assert.equal(bars[WEEK_DAYS - 2].count, 2);
 });
 
 test("ignora entrada fora da janela e entrada sem data", () => {
@@ -55,14 +55,15 @@ test("ignora entrada fora da janela e entrada sem data", () => {
   );
 });
 
-test("agrupa pelo dia UTC, igual ao resto do painel", () => {
-  // 2026-08-11T23:30Z é 20:30 de 11/ago em Brasília, mas o painel inteiro
-  // (getDateStr, dayKey) fatia o ISO em UTC. O gráfico tem que concordar com o
-  // card "Desde ontem" logo acima dele.
-  const bars = weeklyRhythm([{ enteredAt: "2026-08-11T23:30:00.000Z" }], NOW);
+test("agrupa pelo dia de Brasília, igual ao resto do painel", () => {
+  // 2026-08-12T02:00Z é 23h de 11/ago em Brasília. Fatiado em UTC, o painel
+  // colocava essa entrada em "hoje" — o lojista via a barra de hoje subir por
+  // causa de gente que entrou ontem à noite.
+  const bars = weeklyRhythm([{ enteredAt: "2026-08-12T02:00:00.000Z" }], NOW);
 
   assert.equal(bars[WEEK_DAYS - 2].date, "2026-08-11");
   assert.equal(bars[WEEK_DAYS - 2].count, 1);
+  assert.equal(bars[WEEK_DAYS - 1].count, 0);
 });
 
 test("rotula cada barra com dia da semana e data em pt-BR", () => {

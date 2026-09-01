@@ -70,4 +70,13 @@ export type DashboardData = {
   automations: Automation[];
   session: Session;
   settings: TenantSettings;
+  /**
+   * `/api/settings` respondeu. Falso = os campos de `settings` sao o DEFAULT,
+   * nao o que o tenant salvou.
+   *
+   * Quem le `onboardingDismissedAt` precisa saber a diferenca entre "ninguem
+   * fechou o card" e "nao consegui perguntar" — as duas chegavam aqui como
+   * `null`, e o card do roteiro reabria sozinho a cada falha de rede.
+   */
+  settingsOk: boolean;
 };

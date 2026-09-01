@@ -7,13 +7,13 @@
  * desse total seria desenhar ficção, então cliques ficam de fora até existir
  * registro por evento.
  *
- * O balde é o dia **UTC**, igual a `getDateStr` (KPIs da Início) e `dayKey`
- * (sparklines). Não é o dia de Brasília — mas é o mesmo recorte que o card
- * "Desde ontem" e a página de resultados usam, e um gráfico que discorda do
- * número logo acima dele é pior do que um gráfico com a virada às 21h.
+ * O balde é o dia de **Brasília**, igual aos KPIs da Início — os dois leem
+ * `@/lib/date-br`. Antes era UTC, e a justificativa era que o gráfico precisava
+ * concordar com o card logo acima dele; concordavam, mas os dois viravam o dia
+ * às 21h. Agora concordam no fuso certo.
  */
 
-import { dayKey } from "./sparkline";
+import { dayBRAgo, dayBROf } from "./date-br";
 
 /** Janela do gráfico, em dias, terminando hoje. */
 export const WEEK_DAYS = 7;
@@ -24,7 +24,7 @@ export type RhythmEntry = {
 };
 
 export type RhythmBar = {
-  /** `YYYY-MM-DD` em UTC. */
+  /** `YYYY-MM-DD` no fuso de Brasília. */
   date: string;
   /** Entradas nos grupos nesse dia. */
   count: number;
@@ -72,16 +72,16 @@ export function weeklyRhythm(
   now: Date = new Date(),
 ): RhythmBar[] {
   const buckets = new Map<string, number>();
-  for (let i = WEEK_DAYS - 1; i >= 0; i--) buckets.set(dayKey(i, now), 0);
+  for (let i = WEEK_DAYS - 1; i >= 0; i--) buckets.set(dayBRAgo(i, now), 0);
 
   for (const entry of entries) {
-    const key = entry.enteredAt?.slice(0, 10);
+    const key = dayBROf(entry.enteredAt);
     if (!key || !buckets.has(key)) continue;
     buckets.set(key, (buckets.get(key) ?? 0) + 1);
   }
 
-  const today = dayKey(0, now);
-  const yesterday = dayKey(1, now);
+  const today = dayBRAgo(0, now);
+  const yesterday = dayBRAgo(1, now);
 
   return [...buckets.entries()].map(([date, count]) => {
     const isToday = date === today;

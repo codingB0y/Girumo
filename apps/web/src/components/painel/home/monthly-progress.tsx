@@ -34,13 +34,11 @@ export function MonthlyProgress({
   kind,
   current,
   goal,
-  isSuggested,
   onSaved,
 }: {
   kind: GoalKind;
   current: number;
   goal: number | null;
-  isSuggested: boolean;
   onSaved: (value: number) => void;
 }) {
   const copy = GOAL_COPY[kind];
@@ -95,7 +93,6 @@ export function MonthlyProgress({
           <Target className="h-4 w-4 text-cobalt-500" strokeWidth={1.75} />
           <span className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/55">
             {copy.label}
-            {isSuggested && !editing ? " (meta sugerida)" : ""}
           </span>
         </div>
         {editing ? (
@@ -157,8 +154,6 @@ export function MonthlyProgress({
             <PartyPopper className="h-3.5 w-3.5 text-sucesso" strokeWidth={1.75} />
             Meta atingida! Continue crescendo.
           </>
-        ) : isSuggested ? (
-          <>Faltam {copy.format((goal ?? 0) - current)} pra bater a meta sugerida — clique pra definir a sua.</>
         ) : (
           <>Faltam {copy.format((goal ?? 0) - current)} pra bater a meta.</>
         )}

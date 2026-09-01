@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { Smartphone, WifiOff } from "lucide-react";
 import { LogoSymbol } from "@/components/brand/logo";
-import { CommandTrigger } from "@/components/painel/command-palette";
 import { NotificationBell } from "@/components/painel/notification-bell";
 import { usePanelSession } from "@/components/painel/session-provider";
 import { formatPhoneBR } from "@/lib/phone";
@@ -18,9 +17,6 @@ export function PainelTopbar() {
       </div>
 
       <ConnectedNumber />
-
-      {/* busca / ⌘K */}
-      <CommandTrigger />
 
       <NotificationBell />
     </header>
