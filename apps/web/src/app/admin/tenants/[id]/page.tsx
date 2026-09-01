@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { TenantActions } from "@/components/admin/tenant-actions";
+import { TenantPlanGrant } from "@/components/admin/tenant-plan-grant";
 
 export const dynamic = "force-dynamic";
 
@@ -69,7 +70,8 @@ export default async function AdminTenantDetailPage({ params }: Props) {
 
   const { data: plans, error: plansError } = await supabase
     .from("plans")
-    .select("id, code, name, price_cents");
+    .select("id, code, name, price_cents, active")
+    .order("sort_order");
 
   if (plansError) {
     console.error(`[admin/tenants/${id}] falha ao carregar plans:`, plansError.message);
@@ -214,6 +216,17 @@ export default async function AdminTenantDetailPage({ params }: Props) {
               <p className="px-5 py-6 text-center text-sm text-aco/50">Nenhuma assinatura.</p>
             )}
           </div>
+          {/* Concessao manual: so aparece quando o catalogo foi lido de verdade.
+              Com `plansError`, a lista viria vazia e o admin leria "nenhum plano
+              no catalogo" — afirmacao que a pagina nao tem como fazer. */}
+          {!plansError && (
+            <TenantPlanGrant
+              tenantId={org.id}
+              plans={plans ?? []}
+              currentPlanId={(subs ?? [])[0]?.plan_id ?? null}
+              currentStatus={(subs ?? [])[0]?.status ?? null}
+            />
+          )}
         </section>
 
         {/* Instâncias WhatsApp */}
