@@ -1,4 +1,5 @@
 import "server-only";
+import { cookies } from "next/headers";
 import { getSupabaseAdmin, getSupabaseAnonForToken } from "@/lib/supabase/server";
 import { SESSION_COOKIE, parseSession } from "@/lib/auth";
 import { isRevoked } from "@/lib/auth/session-revocation-store";
@@ -32,6 +33,30 @@ function getCookie(req: Request, name: string): string | null {
   return null;
 }
 
+/**
+ * 401 de sessao que tambem APAGA o cookie.
+ *
+ * O middleware roda no Edge e so sabe conferir assinatura e prazo; a revogacao
+ * — e todo o resto que precisa de banco — so e checada aqui. Um cookie revogado
+ * passava no gate da pagina e morria em TODA chamada de API: a tela abria, o
+ * painel ficava preso num erro generico e o F5 nao mudava nada, porque nada
+ * mandava o navegador se livrar do cookie. Apagando-o junto do 401, a proxima
+ * navegacao cai no /login sozinha, que e o que o usuario precisa fazer.
+ *
+ * Vale para o cookie legado apenas. O 401 de Bearer invalido nao passa por aqui:
+ * derrubar a sessao de cookie por causa de um access token vencido tiraria o
+ * usuario de uma sessao que ainda e valida.
+ */
+async function sessionExpired(message: string): Promise<Response> {
+  try {
+    (await cookies()).delete(SESSION_COOKIE);
+  } catch {
+    // `cookies()` so e mutavel em route handler. Fora dele o 401 ja basta —
+    // e virar 500 aqui seria pior que nao apagar.
+  }
+  return new Response(message, { status: 401 });
+}
+
 export async function getTenantContext(req: Request): Promise<TenantContext> {
   const accessToken = getBearerToken(req);
   const supabase = getSupabaseAdmin();
@@ -53,9 +78,9 @@ export async function getTenantContext(req: Request): Promise<TenantContext> {
     // middleware, porque o middleware roda em Edge e não tem banco — e é aqui
     // que os dados são servidos, então é aqui que a recusa importa.
     const claims = await parseSession(getCookie(req, SESSION_COOKIE));
-    if (!claims) throw new Response("Nao autenticado.", { status: 401 });
+    if (!claims) throw await sessionExpired("Nao autenticado.");
     if (await isRevoked(claims.authUserId, claims.issuedAt)) {
-      throw new Response("Sessao encerrada. Entre de novo.", { status: 401 });
+      throw await sessionExpired("Sessao encerrada. Entre de novo.");
     }
 
     authUserId = claims.authUserId;

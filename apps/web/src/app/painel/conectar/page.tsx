@@ -354,6 +354,16 @@ function useInstance() {
     if (showSpinner) setLoading(true);
     try {
       const res = await fetch("/api/instances", { cache: "no-store" });
+      // Sessao morta: o 401 do servidor ja apagou o cookie, entao ir para o
+      // login e o unico passo que falta. Sem isto a tela repetia "nao foi
+      // possivel carregar a instancia" a cada ciclo do polling — mensagem que
+      // faz o lojista achar que o WhatsApp dele caiu, quando ele so precisa
+      // entrar de novo.
+      if (res.status === 401) {
+        const next = encodeURIComponent(window.location.pathname);
+        window.location.href = `/login?next=${next}`;
+        return null;
+      }
       if (!res.ok) throw new Error("Nao foi possivel carregar a instancia.");
       const list = (await res.json()) as Instance[];
 
