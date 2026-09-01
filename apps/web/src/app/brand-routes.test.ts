@@ -132,7 +132,10 @@ test("mantém as páginas de terceiros fora do rastreio", () => {
 test("anuncia no sitemap só o que queremos no índice", () => {
   const paths = sitemap().map((entry) => new URL(entry.url).pathname);
 
-  assert.ok(paths.includes("/signup"), "criar conta é a página de conversão");
+  // /signup saiu na separação de domínios (01/09/2026): mora em app.girumo.com.br
+  // e www responde 308. Sitemap é declaração do que queremos no índice — URL que
+  // só redireciona não entra.
+  assert.ok(!paths.includes("/signup"), "o /signup mudou de host e responde 308 em www");
   assert.ok(!paths.includes("/demo"), "o /demo foi revertido em 31/08/2026 e não existe mais");
   assert.ok(paths.includes("/termos"));
   assert.ok(paths.includes("/privacidade"));
