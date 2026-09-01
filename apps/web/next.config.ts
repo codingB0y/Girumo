@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 import { withSentryConfig } from "@sentry/nextjs";
 
+import { appDomainRedirects } from "./src/lib/domain-redirects";
 import { SENTRY_CSP_HOST } from "./src/lib/observability/sentry-options";
 
 /**
@@ -98,7 +99,13 @@ const nextConfig: NextConfig = {
    * o sinal e tira a URL do indice.
    */
   async redirects() {
-    return [{ source: "/demo", destination: "/", permanent: true }];
+    return [
+      { source: "/demo", destination: "/", permanent: true },
+      // Separação de domínios: www é o site público, app é a aplicação. A lista
+      // e o porquê moram em `src/lib/domain-redirects.ts`, que tem teste — este
+      // arquivo importa @sentry/nextjs e não roda sob `tsx --test`.
+      ...appDomainRedirects(),
+    ];
   },
   async headers() {
     return [

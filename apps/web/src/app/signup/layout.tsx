@@ -10,6 +10,11 @@ export const metadata: Metadata = {
   title: "Criar conta",
   description: "Comece a encher seus grupos de WhatsApp de revendedores e a publicar sua grade em todos de uma vez.",
   alternates: { canonical: "/signup" },
+  // Virou página de aplicação na separação de domínios (01/09/2026): www/signup
+  // responde 308 para app/signup, porque a sessão criada aqui é host-only. Sem
+  // o noindex, o Google seguiria indexando a URL de www que só redireciona, e a
+  // versão de app duplicaria o mesmo conteúdo num segundo host.
+  robots: { index: false, follow: true },
 };
 
 export default function SignupLayout({ children }: { children: ReactNode }) {
