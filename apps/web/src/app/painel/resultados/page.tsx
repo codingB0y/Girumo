@@ -71,18 +71,11 @@ export default function PainelResultados() {
     return [...sums.entries()].map(([name, total]) => ({ name, total })).sort((a, b) => b.total - a.total);
   }, [orders, campanhas]);
 
-  const activity = useMemo(() => {
-    const c = { alto: 0, medio: 0, baixo: 0 };
-    for (const g of groups) c[g.engagement] = (c[g.engagement] ?? 0) + 1;
-    return [
-      { label: "Ativos", count: c.alto, color: "#1E8E5A" },
-      { label: "Mornos", count: c.medio, color: "#D99B2A" },
-      { label: "Parados", count: c.baixo, color: "#D84040" },
-    ];
-  }, [groups]);
-  const totalGroups = Math.max(groups.length, 1);
-  // Grupos parados (engajamento baixo) — alvo da campanha de reativação (P1.11).
-  const stalledGroups = useMemo(() => groups.filter((g) => g.engagement === "baixo"), [groups]);
+  // "Atividade dos grupos" vivia aqui e foi removido: lia `g.engagement`, campo
+  // que o servidor grava fixo em "medio". O donut era sempre 0 Ativos / N
+  // Mornos / 0 Parados, e o CTA "Criar reativação" (que dependia de engagement
+  // === "baixo") nunca renderizou uma vez. Mesmo motivo pelo qual a coluna
+  // "Saúde" já tinha saído de /painel/grupos.
 
   const byCampaign = useMemo(() => {
     const clicksByName = new Map<string, number>();
@@ -125,7 +118,10 @@ export default function PainelResultados() {
         <Tile label="Membros" value={totalMembers.toLocaleString("pt-BR")} />
         <Tile label="Conversão clique→entrada" value={`${conv}%`} tone="cobalt" />
         <Tile label="Clientes" value={clientes.toLocaleString("pt-BR")} tone="sucesso" />
-        <Tile label="Vendas registradas" value={brl.format(totalOrdersValue)} tone="sucesso" />
+        {/* "Vendas registradas" aqui somava TODOS os pedidos, enquanto a Início
+            mostra só o mês corrente com o mesmo verbo — o lojista via R$ 3.000
+            num lugar e R$ 12.000 no outro sem nenhuma tela dizer o período. */}
+        <Tile label="Vendas desde o início" value={brl.format(totalOrdersValue)} tone="sucesso" />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
@@ -158,40 +154,6 @@ export default function PainelResultados() {
           </div>
         </div>
 
-        {/* Atividade dos grupos */}
-        <div className="pn-card rounded-2xl p-6">
-          <h2 className="font-display text-base font-bold text-volt-950">Atividade dos grupos</h2>
-          <div className="pn-poco mt-4 flex h-3 w-full overflow-hidden rounded-full">
-            {activity.map((a) => (
-              <div key={a.label} style={{ width: `${(a.count / totalGroups) * 100}%`, background: a.color }} />
-            ))}
-          </div>
-          <div className="mt-4 space-y-2.5">
-            {activity.map((a) => (
-              <div key={a.label} className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-2 text-aco">
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: a.color }} />
-                  {a.label}
-                </span>
-                <span className="font-data tabular-nums text-volt-950">{a.count} grupos</span>
-              </div>
-            ))}
-          </div>
-          {stalledGroups.length > 0 && (
-            <Link
-              href={`/painel/campanhas/nova?preset=reativacao&groups=${stalledGroups.map((g) => g.id).join(",")}`}
-              className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-alerta/25 bg-alerta/[0.06] px-4 py-3 transition-[border-color] duration-[160ms] hover:border-alerta/40"
-            >
-              <span className="min-w-0">
-                <span className="block text-sm font-medium text-volt-950">
-                  {stalledGroups.length} grupo{stalledGroups.length > 1 ? "s" : ""} parado{stalledGroups.length > 1 ? "s" : ""}
-                </span>
-                <span className="mt-0.5 block text-xs text-aco/65">Mande uma novidade pra reativar antes que esfriem de vez.</span>
-              </span>
-              <span className="font-data shrink-0 rounded-lg bg-alerta px-3 py-1.5 text-xs font-medium text-white">Criar reativação</span>
-            </Link>
-          )}
-        </div>
       </div>
 
       {/* Membros por campanha */}

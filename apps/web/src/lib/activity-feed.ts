@@ -1,27 +1,32 @@
 /**
  * Linha do tempo do tenant, montada a partir do que já existe.
  *
- * Não há tabela de eventos e não deve haver: `leads`, `orders` e `schedules` já
+ * Não há tabela de eventos e não deve haver: `leads`, `orders` e `disparos` já
  * guardam quando cada coisa aconteceu, e uma quarta tabela só criaria uma
  * segunda verdade pra manter em dia. O preço é que o feed só sabe o que essas
  * três sabem — o que é honesto, e é o que o lojista consegue conferir clicando.
+ *
+ * O disparo vem de `/api/disparos`, não de `schedules`. A versão anterior
+ * filtrava `schedule.status === "sent"`, valor que não existe no enum de
+ * agendamento (`pending | running | done | failed`) — o ramo descartava todos
+ * os agendamentos, e a seção "Atividade" nunca mostrou um disparo sequer.
  */
 
 export type ActivitySources = {
   leads: readonly { id: string; name?: string; sourceGroup?: string; enteredAt?: string }[];
   orders: readonly { id: string; value?: number; created_at?: string }[];
-  schedules: readonly {
+  disparos: readonly {
     id: string;
-    campaignName?: string;
-    scheduledAt?: string;
-    status?: string;
+    status: string;
+    sent?: number;
+    dispatchedAt?: string;
   }[];
 };
 
 export type ActivityItem =
   | { id: string; kind: "lead"; at: string; name: string; group?: string }
   | { id: string; kind: "order"; at: string; value: number }
-  | { id: string; kind: "broadcast"; at: string; campaignName: string };
+  | { id: string; kind: "broadcast"; at: string; grupos: number };
 
 function isRealDate(iso: string | undefined): iso is string {
   return !!iso && Number.isFinite(new Date(iso).getTime());
@@ -59,15 +64,16 @@ export function buildActivityFeed(sources: ActivitySources, limit: number): Acti
     });
   }
 
-  for (const schedule of sources.schedules) {
+  for (const disparo of sources.disparos) {
     // Só o que já saiu. Agendado é futuro (vive no card "Próximos disparos") e
-    // falhado não é atividade da loja, é problema de operação.
-    if (schedule.status !== "sent" || !isRealDate(schedule.scheduledAt)) continue;
+    // falhado não é atividade da loja, é problema de operação. `dispatchedAt`
+    // nulo é disparo que nunca rodou.
+    if (disparo.status !== "sent" || !isRealDate(disparo.dispatchedAt)) continue;
     items.push({
-      id: `broadcast-${schedule.id}`,
+      id: `broadcast-${disparo.id}`,
       kind: "broadcast",
-      at: schedule.scheduledAt,
-      campaignName: schedule.campaignName?.trim() || "Campanha sem nome",
+      at: disparo.dispatchedAt,
+      grupos: disparo.sent ?? 0,
     });
   }
 

@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * POST /api/notifications/alerts
+ * GET /api/notifications/alerts
  *
  * Verifica condições operacionais e cria notificações automáticas.
  * Pode ser chamado por cron (Vercel Cron) ou engine.

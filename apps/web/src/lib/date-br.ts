@@ -24,6 +24,12 @@ const DIA = new Intl.DateTimeFormat("en-CA", {
 });
 
 const SO_DATA = /^\d{4}-\d{2}-\d{2}$/;
+const HORA = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: TZ,
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
 const UM_DIA_MS = 86_400_000;
 
 /** `YYYY-MM-DD` do instante, no fuso de Brasília. */
@@ -59,6 +65,18 @@ export function dayBROf(iso?: string | null): string | undefined {
   if (SO_DATA.test(iso)) return iso;
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? undefined : dayBR(d);
+}
+
+/**
+ * `HH:MM` de Brasília de um timestamp do banco.
+ *
+ * String vazia quando não há data ou ela não parseia — quem chama omite o
+ * trecho em vez de imprimir "às Invalid Date".
+ */
+export function horaBR(iso?: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : HORA.format(d);
 }
 
 /** Mês de Brasília em que um timestamp do banco aconteceu. */

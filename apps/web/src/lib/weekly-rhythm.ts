@@ -1,11 +1,13 @@
 /**
  * Ritmo da semana: entradas nos grupos por dia, nos últimos 7 dias.
  *
- * Só entra aqui o que tem data por evento. `leads.entered_at` tem; o contador
- * de cliques (`tracked_links.clicks`) não — é um acumulado que a rota `/r/:slug`
- * incrementa sem guardar quando cada clique aconteceu. Derivar uma curva diária
- * desse total seria desenhar ficção, então cliques ficam de fora até existir
- * registro por evento.
+ * Só entra aqui o que tem data por evento. `leads.entered_at` tem.
+ *
+ * Cliques ficam de fora por escolha, não por falta de dado: `tracked_links.clicks`
+ * é um acumulado sem data, mas a tabela `link_click_events` existe desde 11/08,
+ * é gravada a cada clique em `stores/tracked-links.ts` e tem índice por
+ * `(tenant_id, occurred_at)`. Ninguém a lê ainda. Quem for desenhar a curva de
+ * cliques deve partir dela — e não do contador, que continuaria sendo ficção.
  *
  * O balde é o dia de **Brasília**, igual aos KPIs da Início — os dois leem
  * `@/lib/date-br`. Antes era UTC, e a justificativa era que o gráfico precisava
