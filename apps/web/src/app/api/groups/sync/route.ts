@@ -9,8 +9,10 @@ import {
   type EvolutionGroup,
 } from "@/lib/evolution/client";
 import { tallyAdmins } from "@/lib/groups/admin-protection";
+import { escolherContagem } from "@/lib/groups/member-count";
 import { partitionByAdmin } from "@/lib/groups/sync-partition";
 import {
+  listMemberCounts,
   refreshMembersForKnownGroups,
   removeGroupsByWhatsappIds,
   syncGroupsFromProvider,
@@ -99,19 +101,26 @@ export async function POST(req: Request) {
       instance.phone,
     );
 
+    // Contagem já gravada, para não deixar um payload truncado apagá-la.
+    const anterior = await listMemberCounts(ctx.tenantId);
+    let protegidos = 0;
+
     const rows = gruposAdmin.map((g) => {
       const tally = tallyAdmins(g.participants, ourPhones);
+      // `size` é o campo declarado pela Evolution; `participants` é a lista que
+      // ela realmente entregou. Quando divergem, o maior é o que existe: um
+      // `size` menor que a lista significa contagem desatualizada do lado dela,
+      // e nunca o contrário — a lista não inventa gente.
+      const doProvedor = Math.max(
+        typeof g.size === "number" && g.size >= 0 ? g.size : 0,
+        g.participants?.length ?? 0,
+      );
+      const contagem = escolherContagem(doProvedor, anterior.get(String(g.id)));
+      if (contagem.protegido) protegidos += 1;
       return {
         whatsapp_group_id: String(g.id),
         name: (g.subject ?? "").trim().slice(0, 200) || "Grupo sem nome",
-        // `size` é o campo declarado pela Evolution; `participants` é a lista
-        // que ela realmente entregou. Quando divergem, o maior é o que existe:
-        // um `size` menor que a lista significa contagem desatualizada do lado
-        // dela, e nunca o contrário — a lista não inventa gente.
-        members: Math.max(
-          typeof g.size === "number" && g.size >= 0 ? g.size : 0,
-          g.participants?.length ?? 0,
-        ),
+        members: contagem.members,
         is_admin: true,
         // Esta é a única leitura que vê a lista inteira de participantes; o
         // webhook só mantém o número vivo daqui em diante.
@@ -152,7 +161,7 @@ export async function POST(req: Request) {
       event: "groups.synced",
       message: deteccaoSuspeita
         ? `Nenhum grupo admin detectado entre os ${remoteGroups.length} do numero — nada foi importado nem removido.`
-        : `${synced} grupos admin sincronizados (${remoteGroups.length - adminCount} ignorados por nao sermos admin, ${removidos} removidos).`,
+        : `${synced} grupos admin sincronizados (${remoteGroups.length - adminCount} ignorados por nao sermos admin, ${removidos} removidos, ${protegidos} com contagem preservada de payload truncado).`,
       metadata: {
         instance_id: instance.id,
         count: synced,
@@ -162,6 +171,9 @@ export async function POST(req: Request) {
         ignorados: remoteGroups.length - adminCount,
         // Quantos não-admin já gravados este sync limpou.
         removidos,
+        // Grupos cuja contagem antiga foi mantida porque o provedor devolveu
+        // payload truncado (evolution-api#2124).
+        protegidos,
         // Quantos grupos ficariam órfãos se este número caísse.
         sem_backup: semBackup,
         // Quanto a Evolution levou. Cresce com o número de grupos; é o que
@@ -213,12 +225,20 @@ async function syncLeve(
   }
   const fetchLeveMs = Date.now() - iniciou;
 
+  // Mesma proteção do caminho completo: a lista leve também vem truncada para
+  // parte dos grupos, e aqui não há nem `participants` para contrastar.
+  const anterior = await listMemberCounts(ctx.tenantId);
+  let protegidos = 0;
   const counts = leves
     .filter((g) => typeof g.id === "string" && g.id.length > 0)
-    .map((g) => ({
-      whatsapp_group_id: String(g.id),
-      members: typeof g.size === "number" && g.size >= 0 ? g.size : 0,
-    }));
+    .map((g) => {
+      const contagem = escolherContagem(
+        typeof g.size === "number" && g.size >= 0 ? g.size : 0,
+        anterior.get(String(g.id)),
+      );
+      if (contagem.protegido) protegidos += 1;
+      return { whatsapp_group_id: String(g.id), members: contagem.members };
+    });
   const atualizados = await refreshMembersForKnownGroups(ctx.tenantId, counts);
 
   await getSupabaseAdmin().from("logs").insert({
@@ -230,6 +250,7 @@ async function syncLeve(
     metadata: {
       instance_id: instanceId,
       atualizados,
+      protegidos,
       grupos_no_provedor: leves.length,
       fetch_pesado_ms: fetchPesadoMs,
       fetch_leve_ms: fetchLeveMs,
