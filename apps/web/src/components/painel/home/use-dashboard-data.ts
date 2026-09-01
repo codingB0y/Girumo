@@ -101,6 +101,7 @@ export function useDashboardData(): DashboardDataHandle {
         schedules: asArray<Schedule>(schedules),
         automations: asArray<RawAutomation>(automations).map(toAutomation),
         session: session.data ?? {},
+        settingsOk: settings.ok,
         settings: {
           monthlyGoalContacts: (settings.ok ? settings.data?.monthlyGoalContacts : null) ?? null,
           monthlyGoalRevenue: (settings.ok ? settings.data?.monthlyGoalRevenue : null) ?? null,
