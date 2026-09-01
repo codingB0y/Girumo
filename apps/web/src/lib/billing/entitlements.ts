@@ -113,6 +113,13 @@ export async function assertUploadLimit(tenantId: string, nextBytes: number): Pr
 
   if (uploadsMb === undefined || uploadsMb === null || uploadsMb < 0) return;
 
+  // Teto zero e "nao tem plano", nao "acabou o espaco". Mesmo defeito de
+  // fraseado que `planLimitBody` ja corrige no caminho de contagem: sem
+  // assinatura o teto vem de BLOCKED_LIMITS, e a frase de espaco cheio acusava
+  // o cliente de ter gasto 0 MB que ele nunca teve. De quebra, some a leitura
+  // de `uploads` num caminho cujo desfecho ja esta decidido.
+  if (uploadsMb === 0) throw Response.json(planBlockedBody("uploads:create"), { status: 402 });
+
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase.from("uploads").select("size").eq("tenant_id", tenantId);
 
