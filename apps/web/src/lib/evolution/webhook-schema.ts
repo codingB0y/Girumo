@@ -120,12 +120,41 @@ const messagesUpdate = z.object({
   }),
 });
 
+/**
+ * Mensagem nova. Assinado por causa da Oferta Relâmpago: é o único evento que
+ * mostra o que as clientes escrevem no grupo.
+ *
+ * `looseObject` em `key` e no `data`: a Evolution acrescenta campos entre
+ * versões (`participantAlt`, `senderPn`), e descartá-los aqui apagaria
+ * justamente o telefone que o `@lid` não traz — em produção 100% dos
+ * participantes chegam como `@lid` (medido em 01/09/2026 sobre engine_events).
+ *
+ * `message` é opcional porque revogação e alguns tipos de mídia chegam sem ele.
+ * Não é erro: o receiver descarta no terceiro degrau.
+ */
+const messagesUpsert = z.object({
+  ...envelopeShape,
+  event: z.literal("messages.upsert"),
+  data: z.looseObject({
+    key: z.looseObject({
+      remoteJid: z.string().min(1),
+      id: z.string().min(1),
+      fromMe: z.boolean().optional(),
+      participant: z.string().optional(),
+    }),
+    pushName: z.string().nullable().optional(),
+    message: z.looseObject({}).nullable().optional(),
+    messageTimestamp: z.union([z.number(), z.string()]).optional(),
+  }),
+});
+
 export const evolutionWebhookSchema = z.discriminatedUnion("event", [
   qrcodeUpdated,
   connectionUpdate,
   groupParticipantsUpdate,
   groupsUpsert,
   messagesUpdate,
+  messagesUpsert,
 ]);
 
 export type EvolutionWebhookEvent = z.infer<typeof evolutionWebhookSchema>;

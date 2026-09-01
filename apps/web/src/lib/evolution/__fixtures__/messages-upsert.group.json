@@ -1,0 +1,20 @@
+{
+  "event": "messages.upsert",
+  "instance": "gr_00000000-0000-4000-8000-000000000000",
+  "date_time": "2026-09-01T14:03:11.000Z",
+  "server_url": "https://evo.example.com",
+  "apikey": "REMOVIDO",
+  "sender": "550000000000@s.whatsapp.net",
+  "data": {
+    "key": {
+      "remoteJid": "120363000000000000@g.us",
+      "fromMe": false,
+      "id": "3EB0C767D26A8A3B1F27",
+      "participant": "221000000000000009@lid"
+    },
+    "pushName": "Ana",
+    "message": { "conversation": "EU QUERO 😍" },
+    "messageTimestamp": 1788267791,
+    "messageType": "conversation"
+  }
+}

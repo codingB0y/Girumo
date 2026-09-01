@@ -294,3 +294,10 @@ apps/web/supabase/migrations/20260831140000_definer_sem_authenticated.sql
 # (run cancelado nao reprova: PR verde com a suite sem ter rodado). Parametro no
 # fim com default null = comportamento de hoje, worker de producao intacto.
 apps/web/supabase/migrations/20260831160000_claim_por_tenant.sql
+
+# 01/09/2026 - Oferta Relampago. Quatro tabelas e duas RPCs. Os indices carregam
+# as regras que a tela nao consegue garantir: uma oferta aberta por grupo, uma
+# vendedora por cliente, um lugar por pessoa, reentrega idempotente. As duas RPCs
+# recebem tenant_id como PARAMETRO, entao o revoke de public/anon/authenticated e
+# obrigatorio — sem ele qualquer usuario logado chamaria com o tenant de outro.
+apps/web/supabase/migrations/20260901180000_flash_offers.sql

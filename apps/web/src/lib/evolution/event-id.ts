@@ -79,6 +79,12 @@ function eventName(event: EvolutionWebhookEvent): string {
       // Sem date_time: a transição de status de uma mensagem é única e estável.
       // Incluir o timestamp faria a mesma transição reentregue virar evento novo.
       return `${event.instance}|messages.update|${event.data.keyId}|${event.data.status}`;
+
+    case "messages.upsert":
+      // Sem date_time, pela mesma razão: a mensagem é única e estável. Aqui o
+      // custo de errar é maior — cada reentrega considerada nova seria a mesma
+      // cliente entrando duas vezes na fila da promoção.
+      return `${event.instance}|messages.upsert|${event.data.key.id}`;
   }
 }
 
