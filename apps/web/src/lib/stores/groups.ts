@@ -37,11 +37,20 @@ export type Group = {
 
 const TABLE = "groups";
 
+/**
+ * Lista os grupos do tenant, do maior para o menor.
+ *
+ * A ordem é por número de membros, não por nome: quem abre a tela quer ver
+ * primeiro onde está a audiência. Ordem alfabética empurrava um grupo de 1014
+ * pessoas para o meio da lista só porque o nome começa com "M". Desempate por
+ * nome mantém a ordem estável entre dois grupos do mesmo tamanho.
+ */
 export async function listGroups(tenantId: string): Promise<Group[]> {
   const { data, error } = await getSupabaseAdmin()
     .from(TABLE)
     .select("*")
     .eq("tenant_id", tenantId)
+    .order("members", { ascending: false })
     .order("name");
   if (error) throw new Error(error.message);
   return data ?? [];

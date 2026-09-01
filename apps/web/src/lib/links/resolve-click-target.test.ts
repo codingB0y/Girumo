@@ -30,6 +30,17 @@ assert.equal(isGroupAvailable(group({ whatsapp_group_id: "a@g.us", capacity: 0, 
 assert.equal(isGroupAvailable(group({ whatsapp_group_id: "a@g.us", invite_url: "chat.whatsapp.com/AAA" })), false);
 assert.equal(isGroupAvailable(group({ whatsapp_group_id: "a@g.us", invite_url: "" })), false);
 
+// Grupo que não administramos nunca recebe o cliente: lá nada é capturado e a
+// lista vira audiência de terceiro. `undefined` (linha antiga da tabela) passa.
+assert.equal(isGroupAvailable(group({ whatsapp_group_id: "a@g.us", is_admin: false })), false);
+assert.equal(isGroupAvailable(group({ whatsapp_group_id: "a@g.us", is_admin: true })), true);
+assert.equal(isGroupAvailable(group({ whatsapp_group_id: "a@g.us", is_admin: undefined })), true);
+// Não-admin perde para tudo: nem vazio, nem com convite, nem com capacidade.
+assert.equal(
+  isGroupAvailable(group({ whatsapp_group_id: "a@g.us", is_admin: false, members: 0, capacity: 1024 })),
+  false,
+);
+
 // --- rotação sequencial ("lota sozinho") -----------------------------------
 
 const pool = ["a@g.us", "b@g.us", "c@g.us"];
@@ -147,3 +158,38 @@ assert.deepEqual(
 );
 
 console.log("resolve-click-target tests passed");
+
+// --- diagnóstico do pool: não-admin não é "cheio" --------------------------
+
+// Pool inteiro de grupo alheio precisa dizer isso, e não "todos cheios" — o
+// motivo errado manda o lojista procurar o problema no lugar errado.
+{
+  const alheios = [
+    group({ whatsapp_group_id: "x@g.us", is_admin: false }),
+    group({ whatsapp_group_id: "y@g.us", is_admin: false }),
+  ];
+  const alvo = resolveClickTarget({
+    link: { campaign_group_id: "cg1", target_url: "https://x", clicks: 0, metadata: {} },
+    campaign: { group_ids: ["x@g.us", "y@g.us"] },
+    groups: alheios,
+  });
+  assert.deepEqual(alvo, { kind: "blocked", reason: "no-admin" });
+}
+
+// Um admin no meio de alheios ainda é destino válido.
+{
+  const alvo = resolveClickTarget({
+    link: { campaign_group_id: "cg1", target_url: "https://x", clicks: 0, metadata: {} },
+    campaign: { group_ids: ["x@g.us", "y@g.us"] },
+    groups: [
+      group({ whatsapp_group_id: "x@g.us", is_admin: false }),
+      group({ whatsapp_group_id: "y@g.us", is_admin: true, invite_url: "https://chat.whatsapp.com/BBB" }),
+    ],
+  });
+  assert.deepEqual(alvo, {
+    kind: "redirect",
+    url: "https://chat.whatsapp.com/BBB",
+    groupId: "y@g.us",
+    pixelId: undefined,
+  });
+}

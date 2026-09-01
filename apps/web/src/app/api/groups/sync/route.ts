@@ -87,7 +87,14 @@ export async function POST(req: Request) {
       return {
         whatsapp_group_id: String(g.id),
         name: (g.subject ?? "").trim().slice(0, 200) || "Grupo sem nome",
-        members: typeof g.size === "number" && g.size >= 0 ? g.size : 0,
+        // `size` é o campo declarado pela Evolution; `participants` é a lista
+        // que ela realmente entregou. Quando divergem, o maior é o que existe:
+        // um `size` menor que a lista significa contagem desatualizada do lado
+        // dela, e nunca o contrário — a lista não inventa gente.
+        members: Math.max(
+          typeof g.size === "number" && g.size >= 0 ? g.size : 0,
+          g.participants?.length ?? 0,
+        ),
         is_admin: true,
         // Esta é a única leitura que vê a lista inteira de participantes; o
         // webhook só mantém o número vivo daqui em diante.
