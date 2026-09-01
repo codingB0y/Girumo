@@ -7,5 +7,12 @@
     "O proprio gate sinaliza entradas ociosas (objeto ja aplicado nos dois bancos) —",
     "quando aparecer 'Allowlist ociosa' no log do CI, apague a linha."
   ],
-  "entradas": []
+  "entradas": [
+    {
+      "objeto": "f|apply_group_members_delta(target_tenant_id uuid, target_group_id text, delta integer)",
+      "motivo": "Orfa em dev: nenhum caminho do repo a chama (git grep vazio) e o codigo de contagem usa apply_group_admin_delta. A fonte tem quebras \\r\\n, ou seja foi colada a mao no console durante o trabalho de contagem de membros (#219/#220) e nunca virou migracao nem chegou a prod. A decisao correta e DROPAR em dev, nao aplicar em prod — nao ha funcionalidade dependendo dela. Tolerada aqui apenas para nao segurar PR alheio.",
+      "desde": "2026-09-01",
+      "prazo": "2026-09-15"
+    }
+  ]
 }
