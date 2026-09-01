@@ -163,6 +163,59 @@ function fixtureCampanhaEdicao(): FixtureDinamica {
   };
 }
 
+// ------------------------------------------------------------ relampago
+
+/**
+ * Oferta Relampago. Criada e FECHADA de verdade — nao ha DELETE, mas fechar e
+ * o que importa: enquanto a oferta esta aberta o indice unico parcial
+ * (`flash_offer_groups_um_aberto_uidx`) trava o grupo, e a proxima execucao
+ * levaria 409 no lugar de um fixture.
+ *
+ * Precisa de um grupo com `is_admin` — sem admin a instancia nao enxerga os
+ * participantes e a oferta nao teria como resolver telefone nenhum. Quando o
+ * ambiente nao tem, o erro diz isso em vez de estourar num 404 generico.
+ */
+type GrupoResumo = { id: string; name: string; isAdmin?: boolean };
+
+const fixtureRelampago: FixtureDinamica = {
+  inexistente: UUID_INEXISTENTE,
+  async criar(request) {
+    const grupos = await json<GrupoResumo[]>(request, "/api/groups");
+    const alvo = Array.isArray(grupos) ? grupos.find((g) => g?.isAdmin) : undefined;
+    if (!alvo) {
+      throw new Error(
+        "Nenhum grupo com is_admin no ambiente de QA; a oferta relampago nao pode ser aberta.",
+      );
+    }
+
+    const nome = `E2E oferta relampago ${Date.now().toString(36)}`;
+    const res = await request.post("/api/relampago/offers", {
+      data: {
+        name: nome,
+        keyword: "eu quero",
+        slots: 3,
+        timerMinutes: 10,
+        groupIds: [alvo.id],
+      },
+    });
+    if (!res.ok()) {
+      throw new Error(`POST /api/relampago/offers respondeu ${res.status()}: ${await res.text()}`);
+    }
+
+    const criada = (await res.json()) as { offer: { id: string } };
+
+    return {
+      valor: criada.offer.id,
+      marca: { tipo: "texto", valor: nome },
+      apagar: async () => {
+        // Fecha a oferta E libera o grupo. Sem isto a proxima execucao bate no
+        // indice unico e o fixture passa a falhar sozinho.
+        await request.post(`/api/relampago/offers/${criada.offer.id}`);
+      },
+    };
+  },
+};
+
 // ------------------------------------------------------------------- mapa
 
 /**
@@ -175,6 +228,7 @@ export const FIXTURES_DINAMICAS: Record<string, FixtureDinamica> = {
   "/painel/pages/[id]": fixturePagina,
   "/painel/campanhas/[slug]": fixtureCampanha(),
   "/painel/campanhas/[slug]/editar": fixtureCampanhaEdicao(),
+  "/painel/relampago/[id]": fixtureRelampago,
 };
 
 /** Troca o segmento dinamico do padrao pelo valor real. */
