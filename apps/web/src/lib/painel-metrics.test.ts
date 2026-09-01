@@ -32,14 +32,31 @@ test("returns zero for a month with no orders", () => {
 
 test("counts the orders backing the monthly figure", () => {
   const orders = [
+    // 31/07 às 21h em Brasília — venda de julho, apesar do carimbo de agosto.
     { value: 10, created_at: "2026-08-01T00:00:00Z" },
     { value: 20, created_at: "2026-08-09T00:00:00Z" },
     { value: 30, created_at: "2026-06-09T00:00:00Z" },
     { value: 40 },
   ];
-  assert.equal(ordersInMonth(orders, MONTH).length, 2);
+  assert.equal(ordersInMonth(orders, MONTH).length, 1);
+});
+
+test("o mês é o de Brasília, não o do carimbo UTC", () => {
+  // Pedido fechado às 22h do dia 31 chega ao banco com carimbo do dia 1º. Ele
+  // pertence ao mês em que o lojista o vendeu — senão o faturamento de agosto
+  // ganha uma venda de julho e perde as três últimas horas do dia 31.
+  const virada = [
+    { value: 100, created_at: "2026-09-01T01:00:00Z" }, // 31/08 22h SP
+    { value: 200, created_at: "2026-08-01T02:00:00Z" }, // 31/07 23h SP
+  ];
+  assert.equal(revenueInMonth(virada, "2026-08"), 100);
+  assert.equal(revenueInMonth(virada, "2026-07"), 200);
 });
 
 test("formats the current month as YYYY-MM", () => {
   assert.equal(currentMonth(new Date("2026-08-03T12:00:00Z")), "2026-08");
+});
+
+test("às 21h do dia 31 o mês corrente ainda é o que está terminando", () => {
+  assert.equal(currentMonth(new Date("2026-09-01T02:00:00Z")), "2026-08");
 });

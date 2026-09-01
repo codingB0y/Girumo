@@ -1,11 +1,6 @@
 export const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
-export function getDateStr(daysAgo: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - daysAgo);
-  return d.toISOString().slice(0, 10);
-}
-
-export function getMonthStr(): string {
-  return new Date().toISOString().slice(0, 7); // YYYY-MM
-}
+// `getDateStr`/`getMonthStr` viviam aqui e fatiavam `toISOString()`, que é UTC:
+// às 21h de Brasília o dia já tinha virado. Foram substituídos por
+// `@/lib/date-br`, que é compartilhado com as métricas e o gráfico da semana —
+// os três precisam concordar sobre que dia é hoje.

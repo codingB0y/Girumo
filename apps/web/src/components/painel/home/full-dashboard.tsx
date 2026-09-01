@@ -19,12 +19,13 @@ import { CelebrationModal } from "@/components/painel/celebration-modal";
 import { EmptyState } from "@/components/painel/empty-state";
 import { ordersInMonth, revenueInMonth } from "@/lib/painel-metrics";
 import { dailySeries } from "@/lib/sparkline";
+import { dayBR, dayBRAgo, dayBROf, monthBR, monthBROf } from "@/lib/date-br";
 import type { Activation } from "@/lib/onboarding-steps";
 import { ActivationChecklist } from "./activation-checklist";
 import { ActivityFeed } from "./activity-feed";
 import { AutomationsSummary } from "./automations-summary";
 import { UpcomingBroadcasts } from "./upcoming-broadcasts";
-import { brl, getDateStr, getMonthStr } from "./format";
+import { brl } from "./format";
 import { MonthlyProgress } from "./monthly-progress";
 import { QuickAction } from "./quick-action";
 import { SectionLabel } from "./section-label";
@@ -83,9 +84,12 @@ export function FullDashboard({
   const conversion = totalClicks > 0 ? Math.round((totalContatos / totalClicks) * 100) : 0;
   const clientes = useMemo(() => leads.filter((l) => l.status === "comprou").length, [leads]);
 
-  const today = getDateStr(0);
-  const yesterday = getDateStr(1);
-  const month = getMonthStr();
+  // Dia e mês de Brasília — ver @/lib/date-br. O lojista fecha o mês no fuso
+  // dele, não no do servidor: um lead das 22h chega ao banco com carimbo UTC
+  // do dia seguinte, e o prefixo cru o jogava para o dia (e o mês) errado.
+  const today = dayBR();
+  const yesterday = dayBRAgo(1);
+  const month = monthBR();
 
   // Faturamento do mês corrente. Pedido sem `created_at` fica de fora do
   // recorte mensal em vez de inflar o número.
@@ -106,23 +110,23 @@ export function FullDashboard({
   );
 
   const leadsToday = useMemo(
-    () => leads.filter((l) => l.enteredAt?.startsWith(today)).length,
+    () => leads.filter((l) => dayBROf(l.enteredAt) === today).length,
     [leads, today],
   );
   const leadsYesterday = useMemo(
-    () => leads.filter((l) => l.enteredAt?.startsWith(yesterday)).length,
+    () => leads.filter((l) => dayBROf(l.enteredAt) === yesterday).length,
     [leads, yesterday],
   );
   const leadsThisMonth = useMemo(
-    () => leads.filter((l) => l.enteredAt?.startsWith(month)).length,
+    () => leads.filter((l) => monthBROf(l.enteredAt) === month).length,
     [leads, month],
   );
 
   const suggestedGoal = useMemo(() => {
     const lastMonth = new Date();
     lastMonth.setMonth(lastMonth.getMonth() - 1);
-    const lastMonthStr = lastMonth.toISOString().slice(0, 7);
-    const lastMonthLeads = leads.filter((l) => l.enteredAt?.startsWith(lastMonthStr)).length;
+    const lastMonthStr = monthBR(lastMonth);
+    const lastMonthLeads = leads.filter((l) => monthBROf(l.enteredAt) === lastMonthStr).length;
     return Math.max(lastMonthLeads > 0 ? Math.round(lastMonthLeads * 1.5) : 50, 20);
   }, [leads]);
   const hasSavedGoal = settings.monthlyGoalContacts != null;
