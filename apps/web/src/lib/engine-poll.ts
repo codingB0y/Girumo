@@ -14,6 +14,16 @@ export const POLL_MS = 4_000;
 export const POLL_MAX_MS = 30_000;
 
 /**
+ * Cadência de vigilância depois que a sessão abre.
+ *
+ * Conectar não é o fim da história: a sessão cai sozinha (celular sem internet,
+ * 4 aparelhos vinculados, os 14 dias de inatividade). Antes o polling dava
+ * `return` ao ver `connected` e nunca mais perguntava, então a tela seguia
+ * mostrando "conectado" com o número fora do ar até alguém dar F5.
+ */
+export const WATCH_MS = 30_000;
+
+/**
  * Próximo intervalo: volta ao normal a cada sucesso, dobra a cada falha até o
  * teto.
  */

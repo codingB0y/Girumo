@@ -83,6 +83,14 @@ export type NumberHealth = {
   instanceId: string;
   phone: string | null;
   connected: boolean;
+  /**
+   * Ja houve pareamento bem-sucedido alguma vez (`connected_at` carimbado).
+   *
+   * Separa "numero que caiu" de "numero que nunca pareou", que e a diferenca
+   * entre mostrar historico util e mostrar rampa de aquecimento para quem
+   * sequer escaneou o QR.
+   */
+  everConnected: boolean;
   /** Aquecimento em base 1; null depois de graduar. */
   warmupDay: number | null;
   graduated: boolean;
@@ -112,6 +120,7 @@ export function deriveHealth(row: InstanceHealthRow, now: Date = new Date()): Nu
     instanceId: row.instance_id,
     phone: row.phone,
     connected,
+    everConnected: row.connected_at !== null,
     warmupDay: row.warmup_graduated ? null : Math.max(1, row.warmup_day),
     graduated: row.warmup_graduated,
     dailyCap,
