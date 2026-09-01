@@ -7,18 +7,18 @@ import {
   ArrowUpRight,
   Layers,
   MousePointerClick,
+  Send,
   ShoppingBag,
-  TrendingUp,
   UserPlus,
   WifiOff,
   type LucideIcon,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { Group } from "@/lib/mock-data";
 import { PlaybookCard } from "@/components/painel/playbook-card";
 import { CelebrationModal } from "@/components/painel/celebration-modal";
 import { EmptyState } from "@/components/painel/empty-state";
 import { ordersInMonth, revenueInMonth } from "@/lib/painel-metrics";
-import { dailySeries } from "@/lib/sparkline";
 import { dayBR, dayBRAgo, dayBROf, monthBR, monthBROf } from "@/lib/date-br";
 import type { Activation } from "@/lib/onboarding-steps";
 import { ActivationChecklist } from "./activation-checklist";
@@ -29,8 +29,6 @@ import { brl } from "./format";
 import { MonthlyProgress } from "./monthly-progress";
 import { QuickAction } from "./quick-action";
 import { SectionLabel } from "./section-label";
-import { SinceYesterday } from "./since-yesterday";
-import { Sparkline } from "./sparkline";
 import { WeeklyRhythm } from "./weekly-rhythm";
 import type {
   Automation,
@@ -42,9 +40,6 @@ import type {
   TrackedLink,
 } from "./types";
 
-/** Janela dos sparklines dos KPIs. */
-const SPARK_DAYS = 14;
-
 export function FullDashboard({
   groups,
   campanhas,
@@ -54,6 +49,7 @@ export function FullDashboard({
   schedules,
   automations,
   settings,
+  settingsOk,
   isConnected,
   partial,
   activation,
@@ -69,6 +65,8 @@ export function FullDashboard({
   schedules: Schedule[];
   automations: Automation[];
   settings: TenantSettings;
+  /** `/api/settings` respondeu. Ver DashboardData.settingsOk. */
+  settingsOk: boolean;
   isConnected: boolean;
   /** Algum endpoint de números falhou — os totais podem estar incompletos. */
   partial: boolean;
@@ -80,8 +78,6 @@ export function FullDashboard({
   const totalMembers = useMemo(() => groups.reduce((a, g) => a + (g.members ?? 0), 0), [groups]);
   const totalClicks = useMemo(() => links.reduce((a, l) => a + (l.clicks ?? 0), 0), [links]);
   const totalContatos = leads.length;
-  // Conversão = entradas atribuídas (leads capturados) ÷ cliques — nunca estoque de membros.
-  const conversion = totalClicks > 0 ? Math.round((totalContatos / totalClicks) * 100) : 0;
   const clientes = useMemo(() => leads.filter((l) => l.status === "comprou").length, [leads]);
 
   // Dia e mês de Brasília — ver @/lib/date-br. O lojista fecha o mês no fuso
@@ -96,19 +92,6 @@ export function FullDashboard({
   const ordersThisMonth = useMemo(() => ordersInMonth(orders, month).length, [orders, month]);
   const revenueThisMonth = useMemo(() => revenueInMonth(orders, month), [orders, month]);
 
-  // Tendência de 14 dias. Só para o que tem data por evento: pedidos e
-  // contatos. Cliques não entram — `tracked_links.clicks` é um contador
-  // acumulado, sem registro de quando cada clique aconteceu, e inventar uma
-  // curva a partir do total seria desenhar ficção.
-  const revenueSeries = useMemo(
-    () => dailySeries(orders.map((o) => ({ date: o.created_at, value: o.value ?? 0 })), SPARK_DAYS),
-    [orders],
-  );
-  const contactsSeries = useMemo(
-    () => dailySeries(leads.map((l) => ({ date: l.enteredAt, value: 1 })), SPARK_DAYS),
-    [leads],
-  );
-
   const leadsToday = useMemo(
     () => leads.filter((l) => dayBROf(l.enteredAt) === today).length,
     [leads, today],
@@ -122,16 +105,6 @@ export function FullDashboard({
     [leads, month],
   );
 
-  const suggestedGoal = useMemo(() => {
-    const lastMonth = new Date();
-    lastMonth.setMonth(lastMonth.getMonth() - 1);
-    const lastMonthStr = monthBR(lastMonth);
-    const lastMonthLeads = leads.filter((l) => monthBROf(l.enteredAt) === lastMonthStr).length;
-    return Math.max(lastMonthLeads > 0 ? Math.round(lastMonthLeads * 1.5) : 50, 20);
-  }, [leads]);
-  const hasSavedGoal = settings.monthlyGoalContacts != null;
-  const monthlyGoal = hasSavedGoal ? (settings.monthlyGoalContacts as number) : suggestedGoal;
-
   const almostFull = useMemo(
     () => groups.filter((g) => g.capacity > 0 && g.members / g.capacity >= 0.9),
     [groups],
@@ -142,14 +115,20 @@ export function FullDashboard({
   // O roteiro fica até o lojista fechar. Completar não some com ele sozinho:
   // sumir no instante em que o quinto passo acende esconderia justamente a
   // única tela que diz que deu certo.
-  const showChecklist = settings.onboardingDismissedAt == null;
+  //
+  // `settingsOk` é o que impede o card de reabrir sozinho: com `/api/settings`
+  // fora, `onboardingDismissedAt` chega `null` por falta de resposta, não por
+  // decisão do lojista — e tratar isso como "ainda não fechou" ressuscitava um
+  // card que ele já tinha dispensado. Na dúvida, não insistir: quem de fato
+  // nunca fechou volta a ver o roteiro no primeiro load que responder.
+  const showChecklist = settingsOk && settings.onboardingDismissedAt == null;
 
   // Marco de ativação, gravado uma vez só (o servidor ignora reenvio).
   useEffect(() => {
-    if (activation.complete && settings.onboardingCompletedAt == null) {
+    if (settingsOk && activation.complete && settings.onboardingCompletedAt == null) {
       onOnboardingComplete();
     }
-  }, [activation.complete, settings.onboardingCompletedAt, onOnboardingComplete]);
+  }, [settingsOk, activation.complete, settings.onboardingCompletedAt, onOnboardingComplete]);
 
   // KPIs claros (romaneio) — números sempre em mono tabular.
   // Faturamento vem primeiro: é o número que o lojista quer ver. Conversão
@@ -161,8 +140,6 @@ export function FullDashboard({
     sub?: string;
     icon: LucideIcon;
     href: string;
-    series?: number[];
-    tone?: "cobalt" | "sucesso";
   }[] = [
     {
       label: "Faturamento no mês",
@@ -170,24 +147,20 @@ export function FullDashboard({
       sub: ordersThisMonth === 1 ? "1 pedido registrado" : `${ordersThisMonth} pedidos registrados`,
       icon: ShoppingBag,
       href: "/painel/resultados",
-      series: revenueSeries,
-      tone: "sucesso",
     },
     {
       label: "Contatos captados",
       value: totalContatos.toLocaleString("pt-BR"),
-      sub: clientes > 0 ? `${clientes.toLocaleString("pt-BR")} já compraram` : undefined,
+      sub: clientes > 0 ? `${clientes.toLocaleString("pt-BR")} com pedido registrado` : undefined,
       icon: UserPlus,
       href: "/painel/contatos",
-      series: contactsSeries,
-      tone: "cobalt",
     },
     {
-      // Sem sparkline: só temos o contador acumulado de cliques, sem data por
-      // evento. Ver comentário nas séries acima.
+      // Sem taxa de conversão: cliques inclui links que não geram entrada e
+      // contatos inclui quem o lojista adicionou na mão, então a divisão
+      // comparava conjuntos que não se contêm — dava para passar de 100%.
       label: "Cliques nas campanhas",
       value: totalClicks.toLocaleString("pt-BR"),
-      sub: totalClicks > 0 ? `${conversion}% viraram contato` : undefined,
       icon: MousePointerClick,
       href: "/painel/campanhas",
     },
@@ -200,9 +173,6 @@ export function FullDashboard({
       {/* Header */}
       <header>
         <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-volt-950">Início</h1>
-        <p className="font-editorial mt-1 text-[19px] italic text-ardosia">
-          Bom te ver por aqui — a loja está no ar.
-        </p>
       </header>
 
       {partial && (
@@ -234,7 +204,11 @@ export function FullDashboard({
         <ActivationChecklist activation={activation} onDismiss={onDismissOnboarding} />
       )}
 
-      <PlaybookCard />
+      {/* O playbook dos 30 dias só entra depois que o roteiro de ativação
+          fechou. Enquanto os dois apareciam juntos, eram dois cards de
+          progresso empilhados acima do primeiro número da tela, com três
+          passos repetidos — e o playbook não tem como ser fechado. */}
+      {settings.onboardingCompletedAt != null && <PlaybookCard />}
 
       {/* Bento hero: Peça Escura + 3 KPIs claros */}
       <section className="grid grid-cols-1 gap-5 lg:grid-cols-12">
@@ -244,22 +218,31 @@ export function FullDashboard({
           aria-label={`Ver grupos — ${totalMembers.toLocaleString("pt-BR")} membros nos seus grupos`}
           className="pn-aurora group relative flex min-h-[176px] flex-col justify-between overflow-hidden rounded-2xl p-6 lg:col-span-5"
         >
-          <div className="flex items-center justify-between">
-            <span className="font-data text-[11px] uppercase tracking-[0.08em] text-canvas-100/50">
-              Membros nos seus grupos
-            </span>
-            <span className="pn-etiqueta bg-white/10 text-canvas-100/80">ao vivo</span>
-          </div>
+          <span className="font-data text-[11px] uppercase tracking-[0.08em] text-canvas-100/50">
+            Membros nos seus grupos
+          </span>
           <div>
             <p className="font-data text-[44px] font-medium leading-none tracking-[-0.03em] tabular-nums text-white">
               {totalMembers.toLocaleString("pt-BR")}
             </p>
-            {leadsToday > 0 && (
-              <p className="mt-3 flex items-center gap-1.5 font-data text-[13px] tabular-nums text-sucesso">
-                <ArrowUpRight className="h-3.5 w-3.5" />
-                +{leadsToday} {leadsToday === 1 ? "contato" : "contatos"} hoje
-              </p>
-            )}
+            {/* Incondicional: o card "Desde ontem" só aparecia com movimento,
+                e o dia parado é exatamente o que o lojista precisa ver. */}
+            <p
+              className={cn(
+                "mt-3 flex items-center gap-1.5 font-data text-[13px] tabular-nums",
+                leadsToday > 0 ? "text-sucesso" : "text-canvas-100/50",
+              )}
+            >
+              {leadsToday > 0 && <ArrowUpRight className="h-3.5 w-3.5" />}
+              {leadsToday > 0
+                ? `+${leadsToday} ${leadsToday === 1 ? "contato" : "contatos"} hoje`
+                : "Nenhum contato novo hoje"}
+              {deltaLeads !== 0 && (
+                <span className="text-canvas-100/45">
+                  {deltaLeads > 0 ? `+${deltaLeads}` : deltaLeads} vs ontem
+                </span>
+              )}
+            </p>
           </div>
         </Link>
 
@@ -280,7 +263,6 @@ export function FullDashboard({
                   {k.value}
                 </p>
                 {k.sub && <p className="mt-1.5 text-xs text-aco/55">{k.sub}</p>}
-                {k.series && <Sparkline values={k.series} tone={k.tone ?? "cobalt"} />}
               </div>
             </Link>
           ))}
@@ -290,22 +272,19 @@ export function FullDashboard({
       {/* Desde ontem + Meta do mês */}
       <section className="space-y-4">
         <SectionLabel n="01">Seu ritmo</SectionLabel>
-        <SinceYesterday leadsToday={leadsToday} deltaLeads={deltaLeads} />
         {/* Mesma fonte dos KPIs acima (os leads já carregados), pra que o
             gráfico não possa discordar do número que ele acompanha. */}
         <WeeklyRhythm leads={leads} />
         <MonthlyProgress
           kind="contacts"
           current={leadsThisMonth}
-          goal={monthlyGoal}
-          isSuggested={!hasSavedGoal}
+          goal={settings.monthlyGoalContacts}
           onSaved={(v) => onSettingsSaved({ ...settings, monthlyGoalContacts: v })}
         />
         <MonthlyProgress
           kind="revenue"
           current={revenueThisMonth}
           goal={settings.monthlyGoalRevenue}
-          isSuggested={false}
           onSaved={(v) => onSettingsSaved({ ...settings, monthlyGoalRevenue: v })}
         />
       </section>
@@ -364,16 +343,18 @@ export function FullDashboard({
       <section className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">
           <SectionLabel n="04">Ações rápidas</SectionLabel>
+          {/* O gesto diário: chegou grade nova, posta em todos os grupos. Não
+              tinha porta na Início nem na barra do celular. "Ver contatos" e
+              "Ver resultados" saíram — os KPIs acima já levam aos dois. */}
           <div className="pn-card rounded-2xl p-2">
+            <QuickAction href="/painel/disparos" icon={Send} label="Postar novidade nos grupos" />
             <QuickAction href="/painel/campanhas/nova" icon={Layers} label="Nova campanha" />
-            <QuickAction href="/painel/contatos" icon={UserPlus} label="Ver contatos" />
-            <QuickAction href="/painel/resultados" icon={TrendingUp} label="Ver resultados" />
           </div>
         </div>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <SectionLabel n="05">Campanhas ativas</SectionLabel>
+            <SectionLabel n="05">Campanhas recentes</SectionLabel>
             <Link
               href="/painel/campanhas"
               className="font-data text-[11px] uppercase tracking-[0.08em] text-cobalt-500 transition hover:text-cobalt-700"
