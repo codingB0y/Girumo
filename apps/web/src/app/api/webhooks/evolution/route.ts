@@ -8,12 +8,13 @@ import {
   type EvolutionWebhookEvent,
 } from "@/lib/evolution/webhook-schema";
 import { adminCountDelta } from "@/lib/groups/admin-protection";
+import { memberCountDelta } from "@/lib/groups/member-delta";
 import { podeAplicarQr } from "@/lib/instance-qr-guard";
 import { matchesKeyword } from "@/lib/relampago/keyword";
 import { parseUpsertMessage } from "@/lib/relampago/upsert-message";
 import { resolveSecret } from "@/lib/runtime-secrets";
 import { findOpenWindow, insertEntry } from "@/lib/stores/flash-offers";
-import { applyAdminCountDelta } from "@/lib/stores/groups";
+import { applyAdminCountDelta, applyMemberCountDelta } from "@/lib/stores/groups";
 import {
   findByProviderInstanceId,
   listInstances,
@@ -97,7 +98,8 @@ async function applyConnectionUpdate(
 }
 
 /**
- * Mantém viva a contagem de administradores do grupo (proteção do ativo, R1).
+ * Mantém vivas as duas contagens do grupo: quantos membros tem e quantos
+ * administradores (proteção do ativo, R1).
  *
  * Sem isto, saber se um grupo depende de um único admin exigiria refazer o
  * `fetchAllGroups` — que busca a foto de perfil de CADA grupo em série e leva
@@ -108,12 +110,30 @@ async function applyConnectionUpdate(
  * reentregar, e na reentrega `isNew` seria falso — o delta não seria aplicado
  * de qualquer jeito. Fica o log, e o próximo sync recalibra a contagem.
  */
-async function applyAdminDelta(instance: Instance, event: EvolutionWebhookEvent): Promise<void> {
+async function applyGroupDeltas(instance: Instance, event: EvolutionWebhookEvent): Promise<void> {
   if (event.event !== "group-participants.update") return;
 
-  // Primeiro sem dono: a decisão de ignorar o evento depende só da ação e do
-  // papel do participante. `add` é o evento mais frequente do produto (gente
-  // entrando no grupo VIP) e nunca muda contagem de admin — sair aqui evita
+  // A contagem de MEMBROS vem antes porque `add` — o evento mais frequente do
+  // produto, gente entrando no grupo VIP — não mexe em admin nenhum e era
+  // descartado logo abaixo. Era por isso que o número de membros só andava
+  // quando alguém clicava em sincronizar.
+  const deltaMembros = memberCountDelta(event.data.action, event.data.participants);
+  if (deltaMembros !== 0) {
+    try {
+      await applyMemberCountDelta(instance.tenant_id, event.data.id, deltaMembros);
+    } catch (e) {
+      // Mesmo contrato do delta de admin: não derruba a resposta. Devolver 500
+      // faria a Evolution reentregar o evento, e a reentrega somaria de novo —
+      // inflando justamente o número que se queria corrigir.
+      console.error(
+        `[webhook/evolution] delta de membros falhou para o grupo ${event.data.id}:`,
+        e,
+      );
+    }
+  }
+
+  // Daqui pra baixo é só contagem de admin. Sem dono ainda: a decisão de
+  // ignorar depende só da ação e do papel do participante, e sair aqui evita
   // uma leitura de instâncias por entrada de cliente.
   if (adminCountDelta(event.data.action, event.data.participants, []).total === 0) return;
 
@@ -259,7 +279,7 @@ export async function POST(req: Request) {
   // Só DEPOIS de gravar, e só na primeira entrega: o delta é relativo, então
   // uma reentrega o somaria de novo.
   if (recorded.isNew) {
-    await applyAdminDelta(instance, event);
+    await applyGroupDeltas(instance, event);
   }
 
   return Response.json({ received: true });

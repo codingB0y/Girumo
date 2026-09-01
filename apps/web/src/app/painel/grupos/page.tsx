@@ -161,7 +161,7 @@ export default function PainelGrupos() {
         <MiniStat
           label="Membros totais"
           value={totalMembers.toLocaleString("pt-BR")}
-          hint={sincronizadoEm ? `sincronizado ${sincronizadoEm}` : null}
+          hint={sincronizadoEm ? `conferido ${sincronizadoEm}` : null}
         />
         <MiniStat label="Cheios" value={String(counts.full ?? 0)} tone="cobalt" />
         <MiniStat label="Sem convite" value={String(counts.missing_invite ?? 0)} tone="atencao" />
@@ -309,9 +309,13 @@ export default function PainelGrupos() {
 }
 
 /**
- * Idade do dado em texto curto. `members` e o total sao o retrato do ultimo
- * sync — entrada de cliente nao os atualiza —, entao a tela diz quando olhou
- * em vez de deixar o numero passar por ao vivo.
+ * Idade da ultima CONFERENCIA contra o WhatsApp.
+ *
+ * O total anda sozinho entre um sync e outro: cada entrada e saida chega por
+ * webhook e e somada na contagem. Isso o mantem vivo, mas tambem o torna uma
+ * soma acumulada — um evento perdido nunca se corrige sozinho. Por isso a tela
+ * continua dizendo ha quanto tempo o numero foi de fato checado na fonte, e nao
+ * so ha quanto tempo ele mudou.
  */
 function idadeDoDado(iso: string | null | undefined): string | null {
   if (!iso) return null;
