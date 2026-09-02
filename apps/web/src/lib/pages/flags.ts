@@ -19,7 +19,9 @@
  * porque alguém escreveu "false" achando que desligava é o pior tipo de bug.
  */
 export function parseFlag(value: string | undefined): boolean {
-  return value === "on";
+  // Caixa e espaços não contam: em 02/09/2026 a Vercel recebeu "ON" e a galeria v3
+  // ficou escondida em produção sem nenhum aviso. "false"/"0"/"true" seguem desligados.
+  return value?.trim().toLowerCase() === "on";
 }
 
 export function isLpEditorV2Enabled(): boolean {
