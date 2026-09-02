@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 import { Download, QrCode, X } from "lucide-react";
 
@@ -11,6 +11,16 @@ import { Download, QrCode, X } from "lucide-react";
 export function QrLink({ url, nome }: { url: string; nome: string }) {
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
+
+  // Diálogo fecha com Esc, como qualquer diálogo.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
 
   function baixar() {
     const canvas = wrap.current?.querySelector("canvas");
