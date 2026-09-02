@@ -4,7 +4,7 @@
 import { ArrowRight } from "lucide-react";
 import { TEMPLATE_LIST, type LpTemplateKey } from "@/lib/pages/templates-v3";
 
-export type GalleryPick = LpTemplateKey | "acesso-vip";
+export type GalleryPick = LpTemplateKey;
 
 const DIRECTION_LABEL: Record<string, string> = {
   impacto: "Escura · impacto",
@@ -14,36 +14,34 @@ const DIRECTION_LABEL: Record<string, string> = {
 
 /**
  * Galeria de modelos (§7.1): miniatura REAL do render mobile, nome, uma linha
- * de descrição, quando usar e "Usar este modelo". O "Acesso VIP" (editorial v2)
- * continua disponível como modelo — ele é o único claro por enquanto.
- * As miniaturas vivem em /lp-templates/<chave>.jpg, geradas do render.
+ * de descrição, quando usar e "Usar este modelo". A ordem dos cards é a de
+ * TEMPLATE_LIST. As miniaturas vivem em /lp-templates/<chave>.jpg, geradas do
+ * render; sem a imagem, o card mostra só o fundo.
  */
 export function TemplateGallery({ onPick, disabled }: { onPick: (key: GalleryPick) => void; disabled?: boolean }) {
-  const cards = [
-    ...TEMPLATE_LIST.map((t) => ({
-      key: t.key as GalleryPick,
-      name: t.name,
-      description: t.description,
-      usage: t.usage,
-      direction: DIRECTION_LABEL[t.direction],
-      thumb: `/lp-templates/${t.key}.jpg`,
-    })),
-    {
-      key: "acesso-vip" as GalleryPick,
-      name: "Acesso VIP",
-      description: "Grupo VIP da loja, com foto grande e galeria de peças.",
-      usage: "Para loja que capta pro grupo com coleção e preço de atacado.",
-      direction: DIRECTION_LABEL.editorial,
-      thumb: "/lp-templates/acesso-vip.jpg",
-    },
-  ];
+  const cards = TEMPLATE_LIST.map((t) => ({
+    key: t.key,
+    name: t.name,
+    description: t.description,
+    usage: t.usage,
+    direction: DIRECTION_LABEL[t.direction],
+    thumb: `/lp-templates/${t.key}.jpg`,
+  }));
 
   return (
     <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3" aria-label="Modelos de página">
       {cards.map((c) => (
         <li key={c.key} className="flex flex-col overflow-hidden rounded-2xl border border-volt-950/[0.08] bg-white shadow-card">
           <div className="relative aspect-[9/14] bg-canvas-100">
-            <img src={c.thumb} alt={`Miniatura do modelo ${c.name} no celular`} className="absolute inset-0 h-full w-full object-cover object-top" loading="lazy" />
+            <img
+              src={c.thumb}
+              alt={`Miniatura do modelo ${c.name} no celular`}
+              className="absolute inset-0 h-full w-full object-cover object-top"
+              loading="lazy"
+              onError={(e) => {
+                e.currentTarget.hidden = true;
+              }}
+            />
           </div>
           <div className="flex flex-1 flex-col p-5">
             <p className="font-data text-[10px] uppercase tracking-wider text-aco/50">{c.direction}</p>
