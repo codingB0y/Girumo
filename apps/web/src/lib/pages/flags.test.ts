@@ -13,7 +13,8 @@ assert.equal(parseFlag("off"), false);
 assert.equal(parseFlag("false"), false);
 assert.equal(parseFlag("0"), false);
 assert.equal(parseFlag("true"), false); // explícito: só "on" vale
-assert.equal(parseFlag("ON"), false); // sem adivinhação de caixa
+assert.equal(parseFlag("ON"), true); // caixa não desliga: "ON" na Vercel escondeu a v3 em prod (02/09)
+assert.equal(parseFlag(" on "), true);
 
 // O template do modelo único é o que a tela de criação procura por slug.
 assert.equal(V2_TEMPLATE_SLUG, "oferta-impacto");
