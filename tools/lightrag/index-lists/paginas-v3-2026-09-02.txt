@@ -1,0 +1,9 @@
+# Paginas v3 — Fase 1 (PR #223, 02/09/2026). Inserts de 02/09 falharam por cota do embedding;
+# reindexar no dia seguinte: rag index --list tools/lightrag/index-lists/paginas-v3-2026-09-02.txt --full --retry-failed
+docs/handoff-2026-09-02-paginas-v3.md
+docs/superpowers/plans/2026-09-01-paginas-v3-fase1.md
+docs/superpowers/specs/2026-07-14-girumo-landing-page-builder-design.md
+apps/web/src/lib/pages/sections.ts
+apps/web/src/lib/pages/content-v3.ts
+apps/web/src/lib/pages/templates-v3.ts
+apps/web/src/components/pages/templates/v3/sections-page.tsx

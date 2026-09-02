@@ -1,16 +1,21 @@
 import { notFound } from "next/navigation";
 import { ConversionEditorial } from "@/components/pages/templates/structures/conversion-editorial";
+import { SectionsPage } from "@/components/pages/templates/v3/sections-page";
 import { derivePalette } from "@/lib/pages/palette";
 import type { LpContentV2 } from "@/lib/pages/content";
+import { instantiateTemplate, isTemplateKey } from "@/lib/pages/templates-v3";
 
 /**
- * Fixture DEV-ONLY (§ decisão C2 da Fase 2): renderiza a estrutura editorial v2
- * com o conteúdo do modelo de referência (Lume Atacado) para inspeção visual
- * (mobile/desktop) e screenshots. Guardada por `NODE_ENV` — 404 em produção. Fica
- * em `/lp-preview` (não em `/dev/...`) de propósito: o matcher do middleware libera
- * o prefixo `lp`, então a rota é alcançável sem sessão em desenvolvimento. NÃO
- * substitui o E2E real (Fase 3+ com editor). Imagens são SVG data-URI para
- * renderizar sem rede/CSP — no modelo real são fotos de moda.
+ * Fixture DEV-ONLY (§ decisão C2 da Fase 2): renderiza os modelos com conteúdo
+ * de exemplo para inspeção visual (mobile/desktop) e screenshots. Guardada por
+ * `NODE_ENV` — 404 em produção. Fica em `/lp-preview` (não em `/dev/...`) de
+ * propósito: o matcher do middleware libera o prefixo `lp`, então a rota é
+ * alcançável sem sessão em desenvolvimento. NÃO substitui o E2E real.
+ *
+ * Sem `?modelo=`: a estrutura editorial v2 com o modelo Lume. Com
+ * `?modelo=<chave v3>`: o template v3 correspondente, com foto de exemplo no
+ * hero e no "quem está por trás" (os exemplos reais nascem sem mídia).
+ * Imagens são SVG data-URI para renderizar sem rede/CSP.
  */
 export const dynamic = "force-dynamic";
 
@@ -53,8 +58,26 @@ const MOCK: LpContentV2 = {
   },
 };
 
-export default function LpPreviewFixture() {
+type Props = { searchParams: Promise<{ modelo?: string }> };
+
+export default async function LpPreviewFixture({ searchParams }: Props) {
   if (process.env.NODE_ENV === "production") notFound();
+  const { modelo } = await searchParams;
+
+  if (modelo) {
+    if (!isTemplateKey(modelo)) notFound();
+    const content = instantiateTemplate(modelo);
+    for (const s of content.sections) {
+      if (s.type === "hero") s.data.media = { url: svg(800, 1000, "Foto", "#1d2731", "#8593a0"), alt: "Foto de exemplo" };
+      if (s.type === "about") s.data.media = { url: svg(800, 1000, "Retrato", "#1d2731", "#8593a0"), alt: "Retrato de exemplo" };
+      if (s.type === "proof" && s.variant === "prints") {
+        s.enabled = true;
+        s.data.prints = [1, 2, 3].map((n) => ({ url: svg(540, 960, `Print ${n}`, "#1d2731", "#8593a0"), alt: `Print ${n}` }));
+      }
+    }
+    return <SectionsPage slug="dev-preview" content={content} />;
+  }
+
   const palette = derivePalette(MOCK.brand_color) ?? notFound();
   return <ConversionEditorial slug="dev-preview" content={MOCK} palette={palette} />;
 }

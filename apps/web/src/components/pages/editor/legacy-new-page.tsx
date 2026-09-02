@@ -37,7 +37,8 @@ export function NovaPaginaLegacy() {
         // O modelo do v2 vive no mesmo endpoint, mas o `component_key` dele
         // ("conversion") não existe no registry legado — listá-lo aqui ofereceria
         // à lojista um modelo que esta tela não sabe renderizar.
-        const legacy = data.filter((t) => t.slug !== V2_TEMPLATE_SLUG);
+        // Idem para os templates v3 (motor de secoes): so a galeria v3 os oferece.
+        const legacy = data.filter((t) => t.slug !== V2_TEMPLATE_SLUG && t.component_key !== "sections");
         setTemplates(legacy);
         if (legacy.length > 0) setTemplateId(legacy[0].id);
       })

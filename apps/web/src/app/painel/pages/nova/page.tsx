@@ -1,7 +1,8 @@
 "use client";
 
-import { isLpEditorV2Enabled } from "@/lib/pages/flags";
+import { isLpEditorV2Enabled, isLpTemplatesV3Enabled } from "@/lib/pages/flags";
 import { NovaPaginaV2 } from "@/components/pages/editor/new-page-v2";
+import { NovaPaginaV3 } from "@/components/pages/editor/v3/new-page-v3";
 import { NovaPaginaLegacy } from "@/components/pages/editor/legacy-new-page";
 
 /**
@@ -10,5 +11,6 @@ import { NovaPaginaLegacy } from "@/components/pages/editor/legacy-new-page";
  * render escolhe pelo `schema_version` do conteúdo, não por esta tela.
  */
 export default function NovaPaginaPage() {
+  if (isLpTemplatesV3Enabled()) return <NovaPaginaV3 />;
   return isLpEditorV2Enabled() ? <NovaPaginaV2 /> : <NovaPaginaLegacy />;
 }

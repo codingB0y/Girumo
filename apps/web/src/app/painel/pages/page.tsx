@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Copy, ExternalLink, Eye, Loader2, Plus, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buildDuplicatePayload } from "@/lib/pages/duplicate";
-import type { LandingPage, LpStatus } from "@/lib/pages/schema";
+import { pageSummary, type LandingPage, type LpStatus } from "@/lib/pages/schema";
 
 const STATUS: Record<LpStatus, { label: string; pill: string }> = {
   draft: { label: "Rascunho", pill: "bg-canvas-100 text-aco/70" },
@@ -128,7 +128,7 @@ export default function PagesListPage() {
                   {STATUS[p.status].label}
                 </span>
               </div>
-              <p className="mt-1.5 line-clamp-2 text-sm text-aco/70">{p.content.headline}</p>
+              <p className="mt-1.5 line-clamp-2 text-sm text-aco/70">{pageSummary(p.content).headline}</p>
               <div className="mt-4 flex items-center gap-4 border-t border-volt-950/[0.06] pt-3 text-xs text-aco/60">
                 <span className="flex items-center gap-1.5">
                   <Eye className="h-3.5 w-3.5" /> {p.views_count} visitas

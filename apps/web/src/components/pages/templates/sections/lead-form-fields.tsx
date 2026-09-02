@@ -6,8 +6,8 @@ import { noticeTextV2 } from "@/lib/pages/schema";
 import { collectAttribution, trackBeacon } from "@/components/pages/tracking-scripts";
 
 const FIELD =
-  "mt-1.5 w-full rounded-lg border border-[#ddd2c2] bg-white px-4 py-3 text-base text-[#221a13] placeholder:text-[#a89e8f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--lp-brand)]";
-const LABEL = "block text-sm font-semibold text-[#221a13]";
+  "mt-1.5 w-full rounded-lg border border-[color:var(--lp-field-border,#ddd2c2)] bg-[var(--lp-field-bg,#ffffff)] px-4 py-3 text-base text-[color:var(--lp-field-ink,#221a13)] placeholder:text-[color:var(--lp-field-placeholder,#a89e8f)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--lp-brand)]";
+const LABEL = "block text-sm font-semibold text-[color:var(--lp-ink,#221a13)]";
 
 /**
  * Formulário de captura da estrutura editorial (modelo LUME).
@@ -99,11 +99,11 @@ export function LeadFormFields({
 
   if (status === "done") {
     return (
-      <div className="rounded-xl border border-[#ddd2c2] bg-white p-5 text-center">
-        <p className="font-serif text-lg text-[#221a13]">
+      <div className="rounded-xl border border-[color:var(--lp-field-border,#ddd2c2)] bg-[var(--lp-field-bg,#ffffff)] p-5 text-center">
+        <p className="[font-family:var(--lp-font-display,ui-serif,Georgia,serif)] text-lg text-[color:var(--lp-ink,#221a13)]">
           Cadastro concluído{name ? `, ${name.split(" ")[0]}` : ""}.
         </p>
-        <p className="mt-1 text-sm text-[#6f6558]">Agora toque para entrar no grupo.</p>
+        <p className="mt-1 text-sm text-[color:var(--lp-muted,#6f6558)]">Agora toque para entrar no grupo.</p>
         <a
           href={redirectUrl ?? "#"}
           onClick={handleGroupJoin}
@@ -183,10 +183,10 @@ export function LeadFormFields({
         </button>
       </fieldset>
 
-      <p className="mt-3 text-xs font-semibold text-[#6f6558]">
+      <p className="mt-3 text-xs font-semibold text-[color:var(--lp-muted,#6f6558)]">
         Grupo gratuito • ofertas e novidades em primeira mão • saia quando quiser
       </p>
-      <p className="mt-2 text-xs leading-relaxed text-[#6f6558]">
+      <p className="mt-2 text-xs leading-relaxed text-[color:var(--lp-muted,#6f6558)]">
         {noticeText ?? noticeTextV2(storeName)}
       </p>
     </form>

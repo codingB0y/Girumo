@@ -15,13 +15,14 @@ import {
   UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { LandingPage, LpStatus } from "@/lib/pages/schema";
-import { isLpContentV2 } from "@/lib/pages/render";
+import { pageSummary, type LandingPage, type LpStatus } from "@/lib/pages/schema";
+import { isLpContentV2, isLpContentV3 } from "@/lib/pages/render";
 import type { LpLeadRow, LpMetrics } from "@/lib/pages/store";
 import { EditorForm, type EditorValues } from "@/components/pages/editor/form";
 import { ShareKit } from "@/components/pages/share-kit";
 import { EditorFormV2 } from "@/components/pages/editor/form-v2";
 import { EditorPreviewV2 } from "@/components/pages/editor/preview-v2";
+import { EditPageV3 } from "@/components/pages/editor/v3/edit-page-v3";
 import {
   contentV2ToEditorValues,
   editorValuesToContentV2,
@@ -61,6 +62,8 @@ export default function PaginaDetalhePage() {
   const [copied, setCopied] = useState(false);
   const autosaveRef = useRef<AutosaveCoordinator<EditorValuesV2> | null>(null);
   const latestValuesV2Ref = useRef<EditorValuesV2 | null>(null);
+  /** v3: o editor próprio registra aqui como descarregar o autosave antes de publicar. */
+  const flushV3Ref = useRef<null | (() => Promise<void>)>(null);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/pages/${id}`);
@@ -88,6 +91,8 @@ export default function PaginaDetalhePage() {
       return;
     }
     latestValuesV2Ref.current = null;
+    // v3 (seções) é editado pelo componente próprio, que carrega o content da página.
+    if (isLpContentV3(content)) return;
     setValues({
       store_name: content.store_name,
       photo_url: content.photo_url,
@@ -198,6 +203,7 @@ export default function PaginaDetalhePage() {
     setError(null);
     setBusy(true);
     try {
+      if (flushV3Ref.current) await flushV3Ref.current();
       const coordinator = autosaveRef.current;
       const updated = coordinator
         ? await coordinator.runAfterFlush(() => requestStatus(status))
@@ -305,8 +311,12 @@ export default function PaginaDetalhePage() {
       <ShareKit
         slug={page.slug}
         storeName={page.content.store_name}
-        headline={page.content.headline}
-        brandColor={isLpContentV2(page.content) ? page.content.brand_color : LEGACY_BRAND_HEX}
+        headline={pageSummary(page.content).headline}
+        brandColor={
+          isLpContentV2(page.content) || isLpContentV3(page.content)
+            ? page.content.brand_color
+            : LEGACY_BRAND_HEX
+        }
         published={page.status === "published"}
       />
 
@@ -362,6 +372,11 @@ export default function PaginaDetalhePage() {
           </div>
         )}
       </div>
+
+      {/* edição v3: seções, salvando sozinho */}
+      {isLpContentV3(page.content) ? (
+        <EditPageV3 page={page} content={page.content} published={page.status === "published"} flushRef={flushV3Ref} />
+      ) : null}
 
       {/* edição v2: form + prévia ao vivo, salvando sozinho */}
       {valuesV2 ? (

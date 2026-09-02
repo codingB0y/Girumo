@@ -26,5 +26,14 @@ export function isLpEditorV2Enabled(): boolean {
   return parseFlag(process.env.NEXT_PUBLIC_LP_EDITOR_V2);
 }
 
+/**
+ * Templates v3 (páginas com seções). Mesmo contrato da v2: gate só na CRIAÇÃO —
+ * a galeria de modelos aparece com a flag; página já criada em v3 edita e renderiza
+ * sem depender dela. Ligar: NEXT_PUBLIC_LP_TEMPLATES_V3=on.
+ */
+export function isLpTemplatesV3Enabled(): boolean {
+  return parseFlag(process.env.NEXT_PUBLIC_LP_TEMPLATES_V3);
+}
+
 /** Slug do template do modelo único (§3). Páginas novas em v2 nascem com ele. */
 export const V2_TEMPLATE_SLUG = "oferta-impacto";

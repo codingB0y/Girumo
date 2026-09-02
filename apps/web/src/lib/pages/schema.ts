@@ -6,8 +6,14 @@
 // Girumo LP v2 — barrel do domínio novo (conteúdo, paleta, vídeo, telefone).
 import type { LpContentV2, LpStructure, LpVisualDirection } from "./content";
 import { toContentV2, validateContentV2 } from "./content";
-import { isLpContentV2 } from "./render";
+import { toContentV3, validateContentV3, type LpContentV3 } from "./content-v3";
+import { isLpContentV2, isLpContentV3 } from "./render";
+import { contentSummary } from "./content-v3";
+import { mediaSrc } from "./media";
 export * from "./content";
+export * from "./content-v3";
+export * from "./sections";
+export * from "./templates-v3";
 export * from "./palette";
 export * from "./video";
 export { normalizeWhatsappBR } from "./phone";
@@ -50,8 +56,8 @@ export type LandingPage = {
   template_id: string;
   slug: string;
   status: LpStatus;
-  content: LpContent | LpContentV2;
-  /** Versão do shape em `content` — 2 = editorial v2, 1 = legado (Flow Pages). */
+  content: LpContent | LpContentV2 | LpContentV3;
+  /** Versão do shape em `content` — 3 = seções, 2 = editorial v2, 1 = legado (Flow Pages). */
   content_schema_version: LpContentSchemaVersion;
   campaign_slug: string | null;
   target_group_url: string | null;
@@ -74,7 +80,7 @@ export type LandingPage = {
 };
 
 export function normalizeLandingPage<T extends LandingPage>(page: T): T {
-  if (isLpContentV2(page.content)) return page;
+  if (isLpContentV2(page.content) || isLpContentV3(page.content)) return page;
 
   return {
     ...page,
@@ -214,8 +220,12 @@ export function finalizeLandingPageUpdate(
 
 export type LpCreateInput = {
   template_id: string;
-  content: LpContent | LpContentV2;
+  content: LpContent | LpContentV2 | LpContentV3;
   content_schema_version: LpContentSchemaVersion;
+  /** Dimensões do modelo (v3): sem elas o banco usa os defaults da editorial v2. */
+  structure?: LpStructure;
+  visual_direction?: LpVisualDirection;
+  model_version?: number;
   campaign_slug?: string | null;
   target_group_url?: string | null;
   meta_pixel_id?: string | null;
@@ -280,12 +290,13 @@ export function toContent(input: Record<string, unknown>): LpContent {
 /* ------------------- entrada do editor: legado × v2 ------------------- */
 
 /** Versão do shape do content — espelha a coluna `content_schema_version`. */
-export type LpContentSchemaVersion = 1 | 2;
+export type LpContentSchemaVersion = 1 | 2 | 3;
 
 export type ContentParseResult =
   | { ok: false; errors: string[] }
   | { ok: true; schema_version: 1; content: LpContent }
-  | { ok: true; schema_version: 2; content: LpContentV2 };
+  | { ok: true; schema_version: 2; content: LpContentV2 }
+  | { ok: true; schema_version: 3; content: LpContentV3 };
 
 /**
  * Porta de entrada única do `content` vindo do client (POST/PATCH de páginas).
@@ -297,6 +308,16 @@ export type ContentParseResult =
 export function parseContentInput(input: unknown): ContentParseResult {
   if (typeof input !== "object" || input === null) {
     return { ok: false, errors: ["content inválido."] };
+  }
+
+  if (isLpContentV3(input)) {
+    const errors = validateContentV3(input);
+    if (errors.length > 0) return { ok: false, errors };
+    return {
+      ok: true,
+      schema_version: 3,
+      content: toContentV3(input as unknown as Record<string, unknown>),
+    };
   }
 
   if (isLpContentV2(input)) {
@@ -334,10 +355,26 @@ export function noticeTextV2(storeName: string): string {
  * como evidência do que a pessoa leu. Por isso o render cria a string aqui,
  * mostra a mesma string no form e a assina no contexto que a rota persiste.
  */
-export function noticeTextFor(content: LpContent | LpContentV2): string {
-  return isLpContentV2(content)
+export function noticeTextFor(content: LpContent | LpContentV2 | LpContentV3): string {
+  return isLpContentV2(content) || isLpContentV3(content)
     ? noticeTextV2(content.store_name)
     : consentText(content.store_name, content.group_topic);
+}
+
+/** Título, descrição e imagem de compartilhamento, qualquer que seja a versão do conteúdo. */
+export function pageSummary(content: LpContent | LpContentV2 | LpContentV3): {
+  headline: string;
+  description: string;
+  ogImage: string;
+} {
+  if (isLpContentV3(content)) {
+    const s = contentSummary(content);
+    return { headline: s.headline, description: s.description, ogImage: s.ogImage ? mediaSrc(s.ogImage) : "" };
+  }
+  if (isLpContentV2(content)) {
+    return { headline: content.headline, description: content.description, ogImage: mediaSrc(content.hero) };
+  }
+  return { headline: content.headline, description: content.description, ogImage: content.photo_url };
 }
 
 /** Destino do lead: campanha rastreada (rotação) > URL fixa de grupo. */
