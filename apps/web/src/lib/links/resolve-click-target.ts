@@ -5,6 +5,8 @@
  * que quebra `tsx --test`. Aqui a lógica de rotação/cheio/cap fica testável.
  */
 
+import { ENTRADA_DEFAULTS, isClosedAt, type EntradaSettings } from "@/lib/campaigns/settings";
+
 /** Capacidade padrão de grupo do WhatsApp (até a engine reportar o limite real). */
 export const DEFAULT_GROUP_CAPACITY = 1024;
 /** Grupo é "cheio" ao atingir esta fração da capacidade (deixa folga p/ não estourar). */
@@ -12,6 +14,8 @@ export const GROUP_FULL_RATIO = 0.95;
 
 export type ResolvableGroup = {
   whatsapp_group_id: string;
+  /** Nome do grupo no WhatsApp — a tela de entrada mostra "você vai entrar em …". */
+  name?: string;
   members: number;
   capacity: number;
   invite_url?: string | null;
@@ -40,10 +44,12 @@ export type BlockedReason =
   /** Há grupos no pool, mas nenhum é administrado por um número nosso. */
   | "no-admin"
   /** Todos os grupos com convite já bateram ~95% da capacidade. */
-  | "all-full";
+  | "all-full"
+  /** Campanha passou de `encerra_em` (fim do dia em Brasília). */
+  | "closed";
 
 export type ClickTarget =
-  | { kind: "redirect"; url: string; groupId?: string; pixelId?: string }
+  | { kind: "redirect"; url: string; groupId?: string; groupName?: string; pixelId?: string }
   | { kind: "blocked"; reason: BlockedReason };
 
 /** Convite utilizável: `Response.redirect` estoura em URL relativa/lixo. */
@@ -111,26 +117,54 @@ function diagnosePool(groupIds: readonly string[], groups: readonly ResolvableGr
 }
 
 /**
- * Para onde este clique vai. Link mestre de campanha rotaciona pelo pool;
- * link comum vai pro destino fixo respeitando o teto de cliques.
+ * Grupo lembrado pelo cookie: vence MESMO lotado (quem clicou uma vez quase
+ * sempre já está dentro; mandar para outro é o que fabrica duplicata). Só cai
+ * na rotação se saiu da campanha, perdeu o convite ou não é mais nosso.
+ */
+function rememberedGroup(
+  id: string | null | undefined,
+  groupIds: readonly string[],
+  groups: readonly ResolvableGroup[],
+): ResolvableGroup | null {
+  if (!id || !groupIds.includes(id)) return null;
+  const g = groups.find((x) => x.whatsapp_group_id === id);
+  if (!g || g.is_admin === false || !isUsableInvite(g.invite_url)) return null;
+  return g;
+}
+
+/**
+ * Para onde este clique vai. Link mestre de campanha rotaciona pelo pool
+ * (respeitando encerramento e grupo lembrado); link comum vai pro destino fixo
+ * respeitando o teto de cliques.
  */
 export function resolveClickTarget(input: {
   link: ResolvableLink;
   campaign: { group_ids: string[] } | null;
   groups: readonly ResolvableGroup[];
+  entrada?: EntradaSettings;
+  rememberedGroupId?: string | null;
+  now?: Date;
 }): ClickTarget {
   const { link, campaign, groups } = input;
 
-  // 1) Link MESTRE de campanha → próximo grupo disponível do pool.
+  // 1) Link MESTRE de campanha → grupo lembrado ou próximo disponível do pool.
   if (link.campaign_group_id) {
     // Campanha sumiu (ou o link ficou órfão): trata como pool vazio, nunca redireciona.
     if (!campaign) return { kind: "blocked", reason: "empty-pool" };
-    const target = nextAvailableGroup(campaign.group_ids, groups);
+    const entrada = input.entrada ?? ENTRADA_DEFAULTS;
+    if (isClosedAt(entrada.encerra_em, input.now ?? new Date())) return { kind: "blocked", reason: "closed" };
+    const remembered = entrada.um_grupo_por_pessoa
+      ? rememberedGroup(input.rememberedGroupId, campaign.group_ids, groups)
+      : null;
+    const target = remembered ?? nextAvailableGroup(campaign.group_ids, groups);
     if (!target) return { kind: "blocked", reason: diagnosePool(campaign.group_ids, groups) };
     return {
       kind: "redirect",
       url: target.invite_url!,
       groupId: target.whatsapp_group_id,
+      // Só quando existe: chave `undefined` mudaria a forma que os testes de
+      // rotação comparam com deepEqual estrito.
+      ...(target.name ? { groupName: target.name } : {}),
       pixelId: readPixelId(link.metadata),
     };
   }

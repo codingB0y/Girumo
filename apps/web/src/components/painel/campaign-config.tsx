@@ -8,6 +8,9 @@ import { CopyLink } from "@/components/painel/copy-link";
 import type { Group } from "@/lib/mock-data";
 import { PlanLimitAlert } from "@/components/painel/plan-limit-alert";
 import { CAMPAIGN_PRESETS, getCampaignPreset, resolvePresetName, type CampaignPreset } from "@/lib/campaign-presets";
+import { ENTRADA_DEFAULTS, isHttpsUrl, type EntradaSettings } from "@/lib/campaigns/settings";
+import { EntradaForm } from "@/components/painel/campanhas/entrada-form";
+import { AjudaPainel } from "@/components/painel/campanhas/ajuda-painel";
 
 /**
  * Erro de requisição que preserva o caminho de saída.
@@ -38,6 +41,7 @@ type Campanha = {
   slug?: string;
   autoGrow?: boolean;
   growTemplate?: GrowTemplate | null;
+  settings?: { entrada: EntradaSettings };
 };
 
 /** Nome do próximo grupo. O `{n}` é o número que a numeração substitui. */
@@ -49,7 +53,7 @@ function defaultSubjectPattern(campanhaName: string): string {
 export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?: string }) {
   const router = useRouter();
   // O passo "Objetivo" (presets) só existe na criação. Edição segue igual.
-  const SECTIONS = mode === "create" ? ["Objetivo", "Cadastro", "Grupos"] : ["Cadastro", "Grupos"];
+  const SECTIONS = mode === "create" ? ["Objetivo", "Cadastro", "Grupos"] : ["Cadastro", "Grupos", "Entrada"];
   const cadastroIdx = mode === "create" ? 1 : 0;
 
   const [groups, setGroups] = useState<Group[]>([]);
@@ -69,6 +73,10 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
   const [selected, setSelected] = useState<Set<string>>(new Set());
   // Mensagem-modelo do preset escolhido — sugestão pra postar com o link (não persiste).
   const [suggestedMsg, setSuggestedMsg] = useState<string | null>(null);
+  // Comportamento do link mestre (aba Entrada) — só existe na edição.
+  const [entrada, setEntrada] = useState<EntradaSettings>(ENTRADA_DEFAULTS);
+  // Páginas publicadas da conta, opções da lista de espera.
+  const [pages, setPages] = useState<{ slug: string; title: string }[]>([]);
 
   const [idx, setIdx] = useState(0);
   const [origin, setOrigin] = useState("");
@@ -115,7 +123,12 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
             setAutoGrow(c.autoGrow ?? true);
             setGrowSubject(c.growTemplate?.subjectPattern ?? "");
             setSelected(new Set(c.groupIds ?? []));
+            setEntrada(c.settings?.entrada ?? ENTRADA_DEFAULTS);
           }
+          const pgs: { slug: string; title?: string; status?: string }[] = await fetch("/api/pages").then((r) => r.json()).catch(() => []);
+          setPages(Array.isArray(pgs) ? pgs.filter((p) => p.status === "published").map((p) => ({ slug: p.slug, title: p.title ?? "" })) : []);
+          // ?aba=entrada — os chips do cabeçalho da campanha chegam direto na aba.
+          if (new URLSearchParams(window.location.search).get("aba") === "entrada") setIdx(2);
         }
       } finally {
         setLoading(false);
@@ -125,7 +138,11 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
 
   const backHref = mode === "edit" && (createdSlug || slug) ? `/painel/campanhas/${createdSlug ?? slug}` : "/painel/campanhas";
   const isObjetivoStep = mode === "create" && idx === 0;
-  const canAdvance = isObjetivoStep ? true : name.trim().length > 0;
+  // Entrada válida: destino "outro link" só com https; "Página" só com uma escolhida.
+  const entradaValida =
+    (entrada.lotado.modo !== "url" || isHttpsUrl(entrada.lotado.url)) &&
+    (entrada.lotado.modo !== "pagina" || entrada.lotado.pagina_slug.length > 0);
+  const canAdvance = isObjetivoStep ? true : name.trim().length > 0 && (mode !== "edit" || entradaValida);
   // O molde efetivo: o que o lojista escreveu, ou o sugerido pelo nome da campanha.
   // Sem molde o auto-grow não teria como nomear o grupo e ficaria ligado sem agir.
   const growPattern = growSubject.trim() || defaultSubjectPattern(name);
@@ -175,7 +192,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
         const res = await fetch("/api/campanhas", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id, name: name.trim(), groupIds, autoGrow, ...growTemplatePatch() }),
+          body: JSON.stringify({ id, name: name.trim(), groupIds, autoGrow, ...growTemplatePatch(), settings: { entrada } }),
         });
         if (!res.ok) throw await toRequestError(res, "Erro ao salvar.");
         router.push(backHref);
@@ -338,7 +355,13 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
     </Card>
   );
 
-  const sections = mode === "create" ? [objetivoCard, cadastroCard, gruposCard] : [cadastroCard, gruposCard];
+  const entradaCard = (
+    <Card key="entrada">
+      <EntradaForm value={entrada} onChange={setEntrada} pages={pages} />
+    </Card>
+  );
+
+  const sections = mode === "create" ? [objetivoCard, cadastroCard, gruposCard] : [cadastroCard, gruposCard, entradaCard];
 
   return (
     <div className="mx-auto max-w-[760px] px-4 py-8 sm:px-8">
@@ -346,7 +369,12 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
         <button onClick={() => router.push(backHref)} aria-label="Voltar" className="flex h-9 w-9 items-center justify-center rounded-lg border border-volt-950/10 bg-papel text-aco transition-colors duration-[160ms] hover:text-volt-950">
           <ArrowLeft className="h-4 w-4" />
         </button>
-        <h1 className="font-display text-2xl font-extrabold tracking-[-0.03em] text-volt-950">{mode === "edit" ? "Editar campanha" : "Nova campanha"}</h1>
+        <h1 className="font-display text-2xl font-extrabold tracking-[-0.03em] text-volt-950">{mode === "edit" ? "Configurações da campanha" : "Nova campanha"}</h1>
+        {mode === "edit" && (
+          <div className="ml-auto">
+            <AjudaPainel />
+          </div>
+        )}
       </div>
 
       {/* Navegação */}

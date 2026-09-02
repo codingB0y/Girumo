@@ -1,0 +1,13 @@
+# Configurações da campanha — PR A (Entrada), 02/09/2026. Reindexar depois do merge:
+# rag index --list tools/lightrag/index-lists/config-campanha-2026-09-02.txt --full --retry-failed
+docs/handoff-2026-09-02-config-campanha.md
+docs/superpowers/specs/2026-09-02-config-grupos-campanha-design.md
+docs/superpowers/plans/2026-09-02-config-campanha-entrada.md
+apps/web/src/lib/campaigns/settings.ts
+apps/web/src/lib/campaigns/entry-page.ts
+apps/web/src/lib/links/deep-link.ts
+apps/web/src/lib/links/resolve-click-target.ts
+apps/web/src/app/r/[slug]/route.ts
+apps/web/src/app/api/campanhas/route.ts
+apps/web/src/components/painel/campanhas/entrada-form.tsx
+apps/web/src/components/painel/campanhas/config-chips.tsx

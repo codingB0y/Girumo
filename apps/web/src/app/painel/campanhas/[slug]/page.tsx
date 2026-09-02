@@ -12,7 +12,7 @@ import {
   Unlock,
   MousePointerClick,
   AlertTriangle,
-  Pencil,
+  Settings2,
   RefreshCw,
   Trash2,
   Loader2,
@@ -27,10 +27,22 @@ import {
 import type { Group } from "@/lib/mock-data";
 import { MessagesTab } from "@/components/painel/messages";
 import { AcoesEmMassa } from "@/components/painel/grupos/acoes-em-massa";
+import { ConfigChips } from "@/components/painel/campanhas/config-chips";
+import { QrLink } from "@/components/painel/campanhas/qr-link";
+import { AjudaPainel } from "@/components/painel/campanhas/ajuda-painel";
+import { ENTRADA_DEFAULTS, type EntradaSettings } from "@/lib/campaigns/settings";
 import { clicksForCampaign } from "@/lib/links/click-attribution";
 import { countCampaignEntries, entriesPerClick, type EntryLead } from "@/lib/campaigns/campaign-entries";
 
-type Campanha = { id: string; name: string; loja?: string; groupIds: string[]; slug?: string; createdAt: string };
+type Campanha = {
+  id: string;
+  name: string;
+  loja?: string;
+  groupIds: string[];
+  slug?: string;
+  createdAt: string;
+  settings?: { entrada: EntradaSettings };
+};
 type TrackedLink = { campaignGroupId?: string | null; campaignName?: string; clicks: number };
 type Order = { id: string; value: number; campaign_id?: string | null };
 
@@ -171,14 +183,24 @@ export default function CampanhaDetalhe() {
             <div>
               <h1 className="font-display text-2xl font-extrabold tracking-[-0.03em] text-volt-950">{campanha.name}</h1>
               {masterUrl && <CopyLink url={masterUrl} className="mt-1" />}
+              {masterUrl && (
+                <div className="mt-1.5">
+                  <QrLink url={masterUrl} nome={campanha.name} />
+                </div>
+              )}
+              <ConfigChips
+                entrada={campanha.settings?.entrada ?? ENTRADA_DEFAULTS}
+                href={`/painel/campanhas/${campanha.slug ?? campanha.id}/editar?aba=entrada`}
+              />
             </div>
           </div>
           <div className="relative flex gap-2">
+            <AjudaPainel />
             <Link
               href={`/painel/campanhas/${campanha.slug ?? campanha.id}/editar`}
               className="inline-flex items-center gap-2 rounded-xl bg-cobalt-500 px-4 py-2.5 text-sm font-medium text-white transition-[transform,filter] duration-[160ms] ease-[var(--ease-fluxo)] hover:-translate-y-0.5 hover:brightness-110"
             >
-              <Pencil className="h-4 w-4" /> Editar
+              <Settings2 className="h-4 w-4" /> Configurar
             </Link>
             <button onClick={() => setMenu((v) => !v)} aria-label="Mais ações" className="flex h-10 w-10 items-center justify-center rounded-xl border border-volt-950/10 bg-papel text-aco transition-colors duration-[160ms] hover:text-volt-950">
               <MoreHorizontal className="h-5 w-5" />
@@ -191,7 +213,7 @@ export default function CampanhaDetalhe() {
                     href={`/painel/campanhas/${campanha.slug ?? campanha.id}/editar`}
                     className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-aco transition-colors duration-[160ms] hover:bg-poco hover:text-volt-950"
                   >
-                    <Pencil className="h-4 w-4 text-aco/50" /> Editar
+                    <Settings2 className="h-4 w-4 text-aco/50" /> Configurar
                   </Link>
                   <button
                     onClick={handleRefresh}

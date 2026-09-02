@@ -6,7 +6,9 @@ import { resolveClickTarget, type BlockedReason } from "@/lib/links/resolve-clic
 import { getLink, recordClick, clickCounts, type ClickEvent } from "@/lib/store";
 import { findCampanhaBySlug } from "@/lib/campanhas-store";
 import { listGroups as listLegacyGroups, nextAvailableGroup as legacyNextGroup } from "@/lib/groups-store";
-import { nonceAttribute } from "@/lib/security/csp";
+import { ENTRADA_DEFAULTS, readEntrada } from "@/lib/campaigns/settings";
+import { lotadoRedirect, renderBlockedPage, renderEntryPage } from "@/lib/campaigns/entry-page";
+import { isMobileUa, readCookie, rememberCookieHeader, rememberCookieName, whatsappDeepLink } from "@/lib/links/deep-link";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,11 +26,13 @@ const BLOCKED_MESSAGE: Record<BlockedReason, string> = {
   "no-invite": "Esta campanha ainda não está aberta. Volte daqui a pouco. 💛",
   "no-admin": "Esta campanha ainda não está aberta. Volte daqui a pouco. 💛",
   "empty-pool": "Esta campanha ainda não está aberta. Volte daqui a pouco. 💛",
+  closed: "Esta campanha já encerrou. Fique de olho: em breve tem novidade. 💛",
 };
 
 // GET /r/:slug — redireciona um clique para um grupo. Dois tipos de link:
-//  1) link MESTRE de campanha (`campaign_group_id` preenchido) → próximo grupo
-//     DISPONÍVEL do pool ("lota sozinho").
+//  1) link MESTRE de campanha (`campaign_group_id` preenchido) → grupo lembrado
+//     pelo cookie ou próximo grupo DISPONÍVEL do pool ("lota sozinho"), obedecendo
+//     às configurações de entrada da campanha (deep link, encerramento, lotado).
 //  2) link comum → destino fixo, respeitando clickCap ("grupo cheio").
 export async function GET(req: Request, ctx: { params: Promise<{ slug: string }> }) {
   const { slug } = await ctx.params;
@@ -50,8 +54,20 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
       ])
     : [null, []];
 
-  const target = resolveClickTarget({ link, campaign, groups });
-  if (target.kind === "blocked") return fullPage(BLOCKED_MESSAGE[target.reason]);
+  const entrada = campaign ? readEntrada(campaign.metadata) : ENTRADA_DEFAULTS;
+  const loja = campaign ? String(campaign.metadata?.loja ?? "") : "";
+  const cookieName = campaign ? rememberCookieName(campaign.id) : null;
+  const rememberedGroupId = cookieName ? readCookie(req.headers.get("cookie"), cookieName) : null;
+  const reqUrl = new URL(req.url);
+
+  const target = resolveClickTarget({ link, campaign, groups, entrada, rememberedGroupId });
+  if (target.kind === "blocked") {
+    // Lotado/encerrada pode ir para a lista de espera; campanha não configurada
+    // mostra a mensagem honesta (ver lotadoRedirect).
+    const destino = lotadoRedirect(target.reason, entrada.lotado, reqUrl.origin);
+    if (destino) return Response.redirect(destino, 302);
+    return html(renderBlockedPage({ loja, title: "Grupo cheio", message: BLOCKED_MESSAGE[target.reason] }), 200);
+  }
 
   if (human) {
     // Duas gravações independentes: o contador (total) e o evento com data
@@ -63,21 +79,38 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
     ]);
   }
 
-  // Com Pixel do Facebook: intersticial que dispara "Lead" e só então redireciona.
-  if (target.pixelId) {
-    // Nonce da CSP desta request, posto pelo middleware. Sem ele os dois
-    // scripts inline abaixo seriam bloqueados e o clique nunca converteria.
-    const nonce = req.headers.get("x-nonce");
-    return new Response(pixelInterstitial(target.pixelId, target.url, nonce), {
-      headers: { "content-type": "text/html; charset=utf-8" },
-    });
+  const headers = new Headers();
+  // Grupo lembrado: só gente real, só campanha, só quando a opção está ligada.
+  if (human && cookieName && target.groupId && entrada.um_grupo_por_pessoa) {
+    headers.append("set-cookie", rememberCookieHeader(cookieName, target.groupId, slug, reqUrl.protocol === "https:"));
   }
-  return Response.redirect(target.url, 302);
+
+  const deepLinkUrl = campaign && entrada.deep_link && isMobileUa(ua) ? whatsappDeepLink(target.url) : null;
+  if (target.pixelId || deepLinkUrl) {
+    // Tela de entrada: dispara o pixel e/ou tenta o app. Nonce da CSP desta
+    // request, posto pelo middleware — sem ele os scripts inline morrem.
+    headers.set("content-type", "text/html; charset=utf-8");
+    return new Response(
+      renderEntryPage({
+        loja,
+        campaignName: campaign?.name ?? "",
+        groupName: target.groupName ?? null,
+        httpsUrl: target.url,
+        deepLinkUrl,
+        nonce: req.headers.get("x-nonce"),
+        pixelId: target.pixelId,
+      }),
+      { headers },
+    );
+  }
+  headers.set("location", target.url);
+  return new Response(null, { status: 302, headers });
 }
 
 /**
  * Caminho JSON legado (HUBFLOW_USE_SUPABASE=0, só emergência/dev local).
- * Mantido intacto de propósito — some junto com os stores de arquivo.
+ * Mantido intacto de propósito — some junto com os stores de arquivo. As
+ * configurações de entrada não existem aqui.
  */
 async function legacyGet(req: Request, slug: string, ua: string, human: boolean): Promise<Response> {
   const url = new URL(req.url);
@@ -101,10 +134,18 @@ async function legacyGet(req: Request, slug: string, ua: string, human: boolean)
     }
     if (human) await recordClick(click());
     if (link.pixelId && /^\d{5,20}$/.test(link.pixelId)) {
-      const nonce = req.headers.get("x-nonce");
-      return new Response(pixelInterstitial(link.pixelId, link.destinationUrl, nonce), {
-        headers: { "content-type": "text/html; charset=utf-8" },
-      });
+      return html(
+        renderEntryPage({
+          loja: "",
+          campaignName: "",
+          groupName: null,
+          httpsUrl: link.destinationUrl,
+          deepLinkUrl: null,
+          nonce: req.headers.get("x-nonce"),
+          pixelId: link.pixelId,
+        }),
+        200,
+      );
     }
     return Response.redirect(link.destinationUrl, 302);
   }
@@ -122,39 +163,16 @@ async function legacyGet(req: Request, slug: string, ua: string, human: boolean)
   return notFoundPage();
 }
 
+function html(body: string, status: number): Response {
+  return new Response(body, { status, headers: { "content-type": "text/html; charset=utf-8" } });
+}
+
 /** 404 amigável — quem clicou é cliente da loja, não deve ver erro cru. */
 function notFoundPage(): Response {
-  return page("Este link não existe ou foi desativado.", 404, "Link não encontrado");
+  return html(renderBlockedPage({ loja: "", title: "Link não encontrado", message: "Este link não existe ou foi desativado." }), 404);
 }
 
 /** Página amigável de "grupo cheio" (200 p/ o visitante ver a mensagem, não um erro). */
 function fullPage(message: string): Response {
-  return page(message, 200, "Grupo cheio");
-}
-
-function page(message: string, status: number, title: string): Response {
-  const safe = message.replace(/</g, "&lt;");
-  return new Response(
-    `<!doctype html><html lang="pt-br"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>
-<style>body{font-family:system-ui,Arial;background:#faf7ff;color:#2a2140;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;padding:24px}
-.card{max-width:420px;text-align:center;background:#fff;border:1px solid #e7defb;border-radius:16px;padding:32px}</style>
-</head><body><div class="card"><p style="font-size:18px;font-weight:600">${safe}</p></div></body></html>`,
-    { status, headers: { "content-type": "text/html; charset=utf-8" } },
-  );
-}
-
-function pixelInterstitial(pixelId: string, dest: string, nonce: string | null): string {
-  const safeDest = dest.replace(/"/g, "%22").replace(/</g, "%3C");
-  // base64 do nonce não tem aspas nem `<`, então cabe cru no atributo. Sem nonce
-  // (middleware não rodou) também não há CSP nesta rota — o atributo some.
-  const nonceAttr = nonceAttribute(nonce);
-  return `<!doctype html><html lang="pt-br"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>Entrando no grupo…</title>
-<script${nonceAttr}>!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
-fbq('init','${pixelId}');fbq('track','PageView');fbq('track','Lead');</script>
-<style>body{font-family:system-ui,Arial;background:#0f0a1f;color:#fff;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0}</style>
-</head><body><div style="text-align:center"><p style="font-size:18px;font-weight:600">Entrando no grupo…</p><p style="opacity:.6">aguarde um instante</p></div>
-<script${nonceAttr}>setTimeout(function(){location.replace("${safeDest}")},700);</script>
-<noscript><meta http-equiv="refresh" content="0;url=${safeDest}"></noscript></body></html>`;
+  return html(renderBlockedPage({ loja: "", title: "Grupo cheio", message }), 200);
 }
