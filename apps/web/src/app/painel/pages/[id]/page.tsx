@@ -199,30 +199,6 @@ export default function PaginaDetalhePage() {
     return data;
   }
 
-  async function changeStatus(status: LpStatus) {
-    if (busy) return;
-    setError(null);
-    setBusy(true);
-    try {
-      if (flushV3Ref.current) await flushV3Ref.current();
-      const coordinator = autosaveRef.current;
-      const updated = coordinator
-        ? await coordinator.runAfterFlush(() => requestStatus(status))
-        : await requestStatus(status);
-      // Atualiza somente o snapshot remoto da página. Os valores do editor são
-      // locais e não podem ser substituídos por uma resposta/load mais antiga.
-      setDetail((current) => (current ? { ...current, page: updated } : current));
-    } catch (statusError) {
-      setError(
-        statusError instanceof Error
-          ? statusError.message
-          : "Não foi possível atualizar o status.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
   /**
    * Migração v2 → v3 (D3): explícita, por página, com cópia guardada no servidor.
    * Descarrega o autosave antes, senão a rota migraria um content já velho.
@@ -243,6 +219,30 @@ export default function PaginaDetalhePage() {
       await load();
     } catch {
       setError("Sem conexão. Tente de novo.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function changeStatus(status: LpStatus) {
+    if (busy) return;
+    setError(null);
+    setBusy(true);
+    try {
+      if (flushV3Ref.current) await flushV3Ref.current();
+      const coordinator = autosaveRef.current;
+      const updated = coordinator
+        ? await coordinator.runAfterFlush(() => requestStatus(status))
+        : await requestStatus(status);
+      // Atualiza somente o snapshot remoto da página. Os valores do editor são
+      // locais e não podem ser substituídos por uma resposta/load mais antiga.
+      setDetail((current) => (current ? { ...current, page: updated } : current));
+    } catch (statusError) {
+      setError(
+        statusError instanceof Error
+          ? statusError.message
+          : "Não foi possível atualizar o status.",
+      );
     } finally {
       setBusy(false);
     }

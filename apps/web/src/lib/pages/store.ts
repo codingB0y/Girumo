@@ -4,6 +4,7 @@ import { generateSlug } from "@/lib/pages/slug";
 import { legacyAliasFor, type LpCanonicalEvent } from "@/lib/pages/capture";
 import type {
   LandingPage,
+  LandingPageMigrateToV3Patch,
   LandingPageUpdatePatch,
   LpCreateInput,
   LpTemplate,
@@ -170,6 +171,38 @@ export async function compareAndSwapLandingPage(
     .eq("id", id)
     .eq("published_version", expected.published_version)
     .eq("status", expected.status)
+    .select("*")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? normalizeLandingPage(data as LandingPage) : null;
+}
+
+export type LpMigrateToV3Patch = LandingPageMigrateToV3Patch;
+
+/**
+ * Migração v2→v3 numa única escrita condicional: `updated_at` tem que ser o
+ * que a rota leu (a v2 convertida é exatamente a que está gravada, e duas
+ * migrações em corrida não gravam as duas). `null` = a linha sumiu ou mudou
+ * no meio. `content_before_v3` só vem no patch quando ainda estava nulo.
+ */
+export async function migrateLandingPageToV3(
+  tenantId: string,
+  id: string,
+  patch: LpMigrateToV3Patch,
+  expectedUpdatedAt: string,
+): Promise<LandingPage | null> {
+  const now = new Date().toISOString();
+  const { data, error } = await getSupabaseAdmin()
+    .from(PAGES)
+    .update({
+      ...patch,
+      content_schema_version: 3,
+      migrated_to_v3_at: now,
+      updated_at: now,
+    })
+    .eq("tenant_id", tenantId)
+    .eq("id", id)
+    .eq("updated_at", expectedUpdatedAt)
     .select("*")
     .maybeSingle();
   if (error) throw new Error(error.message);

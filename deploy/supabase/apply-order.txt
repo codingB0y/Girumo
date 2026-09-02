@@ -306,3 +306,8 @@ apps/web/supabase/migrations/20260901180000_flash_offers.sql
 # landing_pages fixavam a editorial v2; passam a aceitar chave de template (regex) e
 # as tres direcoes. Seed idempotente do template evento-ao-vivo. Aplicar nos DOIS.
 apps/web/supabase/migrations/20260902090000_lp_v3_secoes.sql
+
+# 03/09/2026 - Paginas v3, Fase 2: migracao v2 -> v3. Colunas content_before_v3 (copia da
+# primeira v2, para reversao) e migrated_to_v3_at em landing_pages; seed idempotente dos
+# templates acesso-vip e lista-de-espera. Aplicar nos DOIS.
+apps/web/supabase/migrations/20260903090000_lp_v3_migracao.sql

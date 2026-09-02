@@ -44,7 +44,9 @@ export function DevModeBanner() {
   }, [isDev]);
 
   // Não renderizar fora de dev (depois dos hooks — rules-of-hooks)
-  if (!isDev || pathname === PREVIEW_PATH) return null;
+  // A LP pública (/p/) e a fixture /lp-preview são a página do lojista, não o painel:
+  // a barra ali vira parte da captura (as miniaturas da galeria saíram com ela).
+  if (!isDev || pathname === PREVIEW_PATH || pathname.startsWith("/lp-preview") || pathname.startsWith("/p/")) return null;
 
   function switchTenant(tenantId: string) {
     localStorage.setItem("hubflow_active_tenant_id", tenantId);
