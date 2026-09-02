@@ -1,10 +1,18 @@
 import assert from "node:assert/strict";
 import {
   ENTRADA_DEFAULTS,
+  INTEGRACOES_DEFAULTS,
+  hasIntegracao,
   isClosedAt,
+  maskToken,
+  mergeIntegracoes,
   parseEntradaPatch,
+  parseIntegracoesPatch,
   readEntrada,
+  readIntegracoes,
   withEntrada,
+  withIntegracoes,
+  type Integracoes,
 } from "./settings";
 
 // --- leitura tolerante ------------------------------------------------------
@@ -70,5 +78,102 @@ assert.equal(isClosedAt("2026-09-30", new Date("2026-10-01T02:00:00Z")), false);
 assert.equal(isClosedAt("2026-09-30", new Date("2026-10-01T03:00:00Z")), true);
 // Data inválida nunca fecha (o /r/ não pode morrer por dado ruim).
 assert.equal(isClosedAt("lixo", new Date()), false);
+
+// --- integrações: leitura tolerante -----------------------------------------
+
+// Sem nada gravado → defaults (evento Lead, resto vazio).
+assert.deepEqual(readIntegracoes(null), INTEGRACOES_DEFAULTS);
+assert.deepEqual(readIntegracoes({}), INTEGRACOES_DEFAULTS);
+assert.deepEqual(readIntegracoes({ settings: { integracoes: "lixo" } }), INTEGRACOES_DEFAULTS);
+
+// Campo inválido cai no padrão SÓ dele; o vizinho válido sobrevive.
+const misto = readIntegracoes({
+  settings: { integracoes: { meta: { pixel_id: "abc", evento: "Contact" }, ga4: { id: "G-ABC123" } } },
+});
+assert.equal(misto.meta.pixel_id, "", '"abc" não casa ^\\d{5,20}$');
+assert.equal(misto.meta.evento, "Contact", "evento válido é preservado");
+assert.equal(misto.ga4.id, "G-ABC123");
+
+// Evento fora do formato volta pro padrão.
+assert.equal(readIntegracoes({ settings: { integracoes: { meta: { evento: "1nvalido!" } } } }).meta.evento, "Lead");
+
+// --- integrações: patch estrito ---------------------------------------------
+
+// Pixel curto demais é recusado nomeando o campo.
+const pixelRuim = parseIntegracoesPatch({
+  meta: { pixel_id: "12", evento: "Lead", test_code: "" },
+  ga4: { id: "" },
+  google_ads: { id: "", label: "" },
+});
+assert.equal(pixelRuim.ok, false);
+if (!pixelRuim.ok) assert.match(pixelRuim.error, /meta\.pixel_id/);
+
+// Evento personalizado e campos preenchidos passam.
+assert.equal(
+  parseIntegracoesPatch({
+    meta: { pixel_id: "1234567890", evento: "EntrouNoGrupo", test_code: "TEST123" },
+    ga4: { id: "G-AB12CD34" },
+    google_ads: { id: "AW-987654321", label: "abc_DEF-123" },
+  }).ok,
+  true,
+);
+
+// Chave desconhecida é recusada (strictObject) — nada de config fantasma.
+assert.equal(
+  parseIntegracoesPatch({
+    meta: { pixel_id: "", evento: "Lead", test_code: "", tiktok: "x" },
+    ga4: { id: "" },
+    google_ads: { id: "", label: "" },
+  }).ok,
+  false,
+);
+
+// --- integrações: token write-only ------------------------------------------
+
+const comToken: Integracoes = {
+  ...INTEGRACOES_DEFAULTS,
+  meta: { pixel_id: "1234567890", evento: "Lead", capi_token: "EAAsegredo", test_code: "" },
+};
+const patchBase = { ga4: { id: "" }, google_ads: { id: "", label: "" } };
+
+// Omitir o token MANTÉM o que está no banco (o painel nunca o recebeu).
+assert.equal(
+  mergeIntegracoes(comToken, { ...patchBase, meta: { pixel_id: "1234567890", evento: "Lead", test_code: "" } }).meta
+    .capi_token,
+  "EAAsegredo",
+);
+// String vazia APAGA de propósito.
+assert.equal(
+  mergeIntegracoes(comToken, {
+    ...patchBase,
+    meta: { pixel_id: "1234567890", evento: "Lead", capi_token: "", test_code: "" },
+  }).meta.capi_token,
+  "",
+);
+
+// A máscara nunca deixa o valor escapar.
+assert.deepEqual(maskToken(""), { capi_token_set: false, capi_token_last4: "" });
+const mascarado = maskToken("EAAabcdefgh3456");
+assert.deepEqual(mascarado, { capi_token_set: true, capi_token_last4: "3456" });
+assert.equal(JSON.stringify(mascarado).includes("abcdefgh"), false);
+
+// --- integrações: tem alguma configurada? -----------------------------------
+
+assert.equal(hasIntegracao(INTEGRACOES_DEFAULTS), false);
+assert.equal(hasIntegracao({ ...INTEGRACOES_DEFAULTS, ga4: { id: "G-X1" } }), true);
+assert.equal(
+  hasIntegracao({ ...INTEGRACOES_DEFAULTS, meta: { ...INTEGRACOES_DEFAULTS.meta, pixel_id: "1234567890" } }),
+  true,
+);
+// Google Ads sem rótulo não conta: sem `send_to` o gtag não dispara nada.
+assert.equal(hasIntegracao({ ...INTEGRACOES_DEFAULTS, google_ads: { id: "AW-1", label: "" } }), false);
+
+// --- integrações: merge sem mutação -----------------------------------------
+
+const antesInt = { loja: "Mega Stock", settings: { entrada: ENTRADA_DEFAULTS } };
+const depoisInt = withIntegracoes(antesInt, INTEGRACOES_DEFAULTS);
+assert.equal(depoisInt.loja, "Mega Stock", "preserva o resto do metadata");
+assert.deepEqual((depoisInt.settings as { entrada: unknown }).entrada, ENTRADA_DEFAULTS, "preserva a entrada");
+assert.equal(Object.hasOwn(antesInt.settings, "integracoes"), false, "não muta o original");
 
 console.log("settings.test ok");

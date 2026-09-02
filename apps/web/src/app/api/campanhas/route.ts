@@ -7,7 +7,16 @@ import { assertPlanLimit } from "@/lib/billing/entitlements";
 import { getTenantContext } from "@/lib/supabase/tenant-context";
 import { assertPermission } from "@/lib/permissions";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
-import { parseEntradaPatch, readEntrada, withEntrada } from "@/lib/campaigns/settings";
+import {
+  mergeIntegracoes,
+  parseEntradaPatch,
+  parseIntegracoesPatch,
+  readEntrada,
+  readIntegracoes,
+  withEntrada,
+  withIntegracoes,
+} from "@/lib/campaigns/settings";
+import { apresentaIntegracoes } from "./apresenta";
 import { listLandingPages } from "@/lib/pages/store";
 
 export const runtime = "nodejs";
@@ -47,7 +56,10 @@ export async function GET(req: Request) {
     slug: c.slug,
     autoGrow: c.auto_grow,
     growTemplate: c.grow_template,
-    settings: { entrada: readEntrada(c.metadata as Record<string, unknown>) },
+    settings: {
+      entrada: readEntrada(c.metadata as Record<string, unknown>),
+      integracoes: apresentaIntegracoes(readIntegracoes(c.metadata as Record<string, unknown>)),
+    },
     createdAt: c.created_at,
   }));
   return Response.json(mapped);
@@ -136,7 +148,10 @@ export async function POST(req: Request) {
     groupIds: rec.group_ids,
     slug: rec.slug,
     autoGrow: rec.auto_grow,
-    settings: { entrada: readEntrada(rec.metadata as Record<string, unknown>) },
+    settings: {
+      entrada: readEntrada(rec.metadata as Record<string, unknown>),
+      integracoes: apresentaIntegracoes(readIntegracoes(rec.metadata as Record<string, unknown>)),
+    },
     createdAt: rec.created_at,
   }, { status: 201 });
 }
@@ -210,7 +225,17 @@ export async function PATCH(req: Request) {
     // `loja` e o que mais estiver lá.
     const current = await supaStore.getCampaignGroupById(tenantId, id);
     if (!current) return Response.json({ error: "Campanha não encontrada." }, { status: 404 });
-    patch.metadata = withEntrada(current.metadata as Record<string, unknown>, parsed.entrada);
+    let metadata = withEntrada(current.metadata as Record<string, unknown>, parsed.entrada);
+
+    if (s.integracoes !== undefined) {
+      const pi = parseIntegracoesPatch(s.integracoes);
+      if (!pi.ok) return Response.json({ error: pi.error }, { status: 400 });
+      // O painel nunca recebeu o token, então não pode reenviá-lo: o merge é
+      // quem decide entre manter o que está no banco e apagar de propósito.
+      const atual = readIntegracoes(current.metadata as Record<string, unknown>);
+      metadata = withIntegracoes(metadata, mergeIntegracoes(atual, pi.patch));
+    }
+    patch.metadata = metadata;
   }
 
   const updated = await supaStore.updateCampaignGroup(tenantId, id, patch);
@@ -223,7 +248,10 @@ export async function PATCH(req: Request) {
     slug: updated.slug,
     autoGrow: updated.auto_grow,
     growTemplate: updated.grow_template,
-    settings: { entrada: readEntrada(updated.metadata as Record<string, unknown>) },
+    settings: {
+      entrada: readEntrada(updated.metadata as Record<string, unknown>),
+      integracoes: apresentaIntegracoes(readIntegracoes(updated.metadata as Record<string, unknown>)),
+    },
     createdAt: updated.created_at,
   });
 }

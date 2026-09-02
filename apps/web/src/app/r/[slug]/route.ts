@@ -6,9 +6,18 @@ import { resolveClickTarget, type BlockedReason } from "@/lib/links/resolve-clic
 import { getLink, recordClick, clickCounts, type ClickEvent } from "@/lib/store";
 import { findCampanhaBySlug } from "@/lib/campanhas-store";
 import { listGroups as listLegacyGroups, nextAvailableGroup as legacyNextGroup } from "@/lib/groups-store";
-import { ENTRADA_DEFAULTS, readEntrada } from "@/lib/campaigns/settings";
+import { after } from "next/server";
+import {
+  ENTRADA_DEFAULTS,
+  INTEGRACOES_DEFAULTS,
+  hasIntegracao,
+  readEntrada,
+  readIntegracoes,
+} from "@/lib/campaigns/settings";
+import { buildCapiPayload, firstForwardedIp, sendCapiEvent } from "@/lib/campaigns/meta-capi";
 import { lotadoRedirect, renderBlockedPage, renderEntryPage } from "@/lib/campaigns/entry-page";
 import { isMobileUa, readCookie, rememberCookieHeader, rememberCookieName, whatsappDeepLink } from "@/lib/links/deep-link";
+import { capiEnvio, pixelDaTela } from "./decisao";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,6 +64,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
     : [null, []];
 
   const entrada = campaign ? readEntrada(campaign.metadata) : ENTRADA_DEFAULTS;
+  const integracoes = campaign ? readIntegracoes(campaign.metadata) : INTEGRACOES_DEFAULTS;
   const loja = campaign ? String(campaign.metadata?.loja ?? "") : "";
   const cookieName = campaign ? rememberCookieName(campaign.id) : null;
   const rememberedGroupId = cookieName ? readCookie(req.headers.get("cookie"), cookieName) : null;
@@ -86,8 +96,37 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
   }
 
   const deepLinkUrl = campaign && entrada.deep_link && isMobileUa(ua) ? whatsappDeepLink(target.url) : null;
-  if (target.pixelId || deepLinkUrl) {
-    // Tela de entrada: dispara o pixel e/ou tenta o app. Nonce da CSP desta
+  const pixelId = pixelDaTela(integracoes, target.pixelId);
+  // UM id por clique: o mesmo vai no fbq do HTML e no CAPI. É ele que faz a
+  // Meta juntar navegador e servidor num Lead só, em vez de contar dois.
+  const eventId = crypto.randomUUID();
+
+  if (capiEnvio(integracoes, human)) {
+    // `after()`: roda DEPOIS da resposta sair. O visitante nunca espera a Meta.
+    after(async () => {
+      const r = await sendCapiEvent({
+        pixelId: integracoes.meta.pixel_id,
+        token: integracoes.meta.capi_token,
+        payload: buildCapiPayload({
+          eventName: integracoes.meta.evento,
+          eventId,
+          eventTimeMs: Date.now(),
+          sourceUrl: reqUrl.toString(),
+          clientIp: firstForwardedIp(req.headers.get("x-forwarded-for")),
+          userAgent: ua,
+          fbclid: reqUrl.searchParams.get("fbclid"),
+          fbp: readCookie(req.headers.get("cookie"), "_fbp"),
+          campaignName: campaign?.name ?? "",
+          groupId: target.groupId ?? null,
+          testCode: integracoes.meta.test_code || undefined,
+        }),
+      });
+      if (!r.ok) console.warn(`[r/capi] ${slug}: ${r.error}`);
+    });
+  }
+
+  if (pixelId || hasIntegracao(integracoes) || deepLinkUrl) {
+    // Tela de entrada: dispara as tags e/ou tenta o app. Nonce da CSP desta
     // request, posto pelo middleware — sem ele os scripts inline morrem.
     headers.set("content-type", "text/html; charset=utf-8");
     return new Response(
@@ -98,7 +137,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
         httpsUrl: target.url,
         deepLinkUrl,
         nonce: req.headers.get("x-nonce"),
-        pixelId: target.pixelId,
+        pixelId,
+        evento: integracoes.meta.evento,
+        eventId,
+        ga4Id: integracoes.ga4.id || undefined,
+        googleAds: integracoes.google_ads.id ? integracoes.google_ads : undefined,
       }),
       { headers },
     );

@@ -70,15 +70,17 @@ function scriptSrc(nonce: string, isDev: boolean, ...hosts: string[]): string {
 
 export function buildCsp(surface: NonceSurface, nonce: string, isDev: boolean): string {
   if (surface === "click-redirect") {
-    // Intersticial de clique: dois scripts inline nossos (snippet do Pixel e o
-    // location.replace) — ambos nonce-ados no route handler. O fbevents.js vem
-    // do host do Meta; o resto da página é só HTML com <style> inline.
+    // Intersticial de clique: os scripts inline são nossos (snippet do Pixel, do
+    // gtag e o location.replace) — todos nonce-ados no route handler. De
+    // terceiros entram só os dois hosts de tag: fbevents.js do Meta e gtag.js do
+    // Google. A conversão do Google Ads chega como IMAGEM (googleads/doubleclick),
+    // não como fetch — sem esses dois no img-src ela morre em silêncio.
     return [
       "default-src 'self'",
-      scriptSrc(nonce, isDev, "https://connect.facebook.net"),
+      scriptSrc(nonce, isDev, "https://connect.facebook.net", "https://www.googletagmanager.com"),
       "style-src 'unsafe-inline'",
-      "img-src 'self' data: https://www.facebook.com",
-      `connect-src https://www.facebook.com ${SENTRY_CSP_HOST}`,
+      "img-src 'self' data: https://www.facebook.com https://www.google.com https://googleads.g.doubleclick.net",
+      `connect-src https://www.facebook.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com ${SENTRY_CSP_HOST}`,
       "font-src 'self'",
       "frame-src 'none'",
       "object-src 'none'",

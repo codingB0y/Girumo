@@ -1,38 +1,49 @@
 # Handoff — Configurações da campanha, PR A (Entrada) — 02/09/2026
 
-> Estado no fim da sessão: **PR A implementado e verificado localmente, NÃO pushado, sem PR aberto.**
-> Falta só a Task 10 do plano (gate local, push, PR, CI, quadro, merge).
+> **PR A: FECHADO.** Mergeado em [#226](https://github.com/codingB0y/Girumo/pull/226) (squash
+> `8df0888b`), branch remota apagada. CI verde nos sete checks (verify, drift, advisors, e2e e as
+> três da Vercel). Card `campanhas-config-entrada` em `no_ar_nao_verificado` — falta só a prova
+> em produção (abrir o `/r/<slug>` real no celular e ver o app abrir, e um chip mudar após salvar).
+>
+> **Próximo:** PR B (Integrações). Plano escrito em
+> `docs/superpowers/plans/2026-09-02-config-campanha-integracoes.md`, ainda **não** implementado.
 
-## Prompt para retomar (cole numa sessão nova)
+## Prompt para retomar o PR B (cole numa sessão nova)
 
 ```
-Retomar o PR A das configurações da campanha (aba Entrada). Leia primeiro, nesta ordem, e NÃO
-reimplemente nada:
-- docs/handoff-2026-09-02-config-campanha.md (este arquivo — estado e passos pendentes)
-- docs/superpowers/plans/2026-09-02-config-campanha-entrada.md (Task 10 é o que falta)
-- docs/superpowers/specs/2026-09-02-config-grupos-campanha-design.md (decisões D1–D11)
-- memória: config-grupos-campanha-proposta, tecnica-verificar-artifact-com-playwright
+Implementar o PR B das configurações da campanha (aba Integrações). Leia primeiro, nesta ordem:
+- docs/superpowers/plans/2026-09-02-config-campanha-integracoes.md (o plano — Tasks 0 a 10)
+- docs/superpowers/specs/2026-09-02-config-grupos-campanha-design.md (decisões D5, D6 e a
+  seção "API de Conversões")
+- docs/handoff-2026-09-02-config-campanha.md (este arquivo)
+- memória: config-grupos-campanha-proposta, pattern-e2e-contraste-api-x-tela,
+  finding-classificador-bloqueia-merge-e-ddl
 
 Contexto operacional:
-- Worktree: C:\Users\Igor\Desktop\HubFlow-platform\.claude\worktrees\config-grupos-campanha,
-  branch feat/config-campanha-entrada, 11 commits à frente de origin/main, árvore limpa.
-  Entrar com EnterWorktree(path). O cwd do Bash reseta: usar git -C "$W" e caminhos absolutos.
+- Worktree: C:\Users\Igor\Desktop\HubFlow-platform\.claude\worktrees\config-grupos-campanha.
+  Entrar com EnterWorktree(path). Branch nova a partir de origin/main:
+  feat/config-campanha-integracoes (Task 0 do plano). O cwd do Bash reseta: usar git -C "$W"
+  e caminhos absolutos.
 - node_modules já ligados por junction (raiz e apps/web). apps/web/.env.local já copiado.
-- Verificado localmente: suíte (795/801, 6 skip), tsc web+worker, lint, E2E
-  painel-campanha-entrada.spec.ts (2 rodadas), smoke do /r/grade-verao (iPhone → tela +
-  cookie + whatsapp://; desktop → 302; cookie de grupo não-admin ignorado).
-- Card do quadro em prod: campanhas-config-entrada (em_construcao).
+  NÃO rodar npm install.
+- Sem migração: tudo em campaign_groups.metadata.settings.integracoes.
+- `gh` e `git push` podem ser recusados pelo classificador na ferramenta Bash — rodar os
+  mesmos comandos pela ferramenta PowerShell.
+- Criar o card campanhas-config-integracoes em em_construcao ANTES de começar (Task 10 Step 6).
 
-Faça a Task 10 e feche o loop na mesma sessão:
-1. PowerShell: Set-Location "<worktree>"; powershell -ExecutionPolicy Bypass -File infra\scripts\verify-local.ps1
-2. git -C "$W" push -u origin feat/config-campanha-entrada
-3. gh pr create --repo codingB0y/Girumo --base main --head feat/config-campanha-entrada
-   (título e corpo estão no Task 10 do plano)
-4. gh pr checks <N> --watch → gh pr merge <N> --squash --delete-branch
-5. Em prod: select public.move_card('campanhas-config-entrada','no_ar_nao_verificado',
-   'PR A mergeado: aba Entrada + /r/ com deep link, cookie, encerramento e lotado','PR #<N>');
-6. Depois: PR B (Integrações) — plano ainda não escrito; partir da spec, seção "Fatiamento".
+Executar o plano task a task (superpowers:subagent-driven-development ou executing-plans),
+e fechar o loop na mesma sessão: gate local → push → PR → CI verde → merge → quadro.
 ```
+
+## Estado do PR A quando fechou
+
+- Verificado localmente antes do push: suíte 815 testes / 0 falhas / 6 skip, `tsc` web + worker,
+  lint limpo, `verify-local.ps1` com "Verificacao local concluida com sucesso.", E2E
+  `painel-campanha-entrada.spec.ts` (2 rodadas), smoke do `/r/grade-verao` (iPhone → tela +
+  cookie + `whatsapp://`; desktop → 302; cookie de grupo não-admin ignorado).
+- **Rebase antes do gate:** `main` tinha avançado com #225 (Páginas v3 Fase 2), que mexeu em
+  `deploy/supabase/schema-baseline.json`. Sem o rebase, o gate de drift compararia a produção
+  contra o baseline **antigo** desta branch e quebraria. Arquivos disjuntos, rebase limpo.
 
 ## O que foi entregue (commits em `feat/config-campanha-entrada`)
 
