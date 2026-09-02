@@ -10,6 +10,9 @@ import { PlanLimitAlert } from "@/components/painel/plan-limit-alert";
 import { CAMPAIGN_PRESETS, getCampaignPreset, resolvePresetName, type CampaignPreset } from "@/lib/campaign-presets";
 import { ENTRADA_DEFAULTS, isHttpsUrl, type EntradaSettings } from "@/lib/campaigns/settings";
 import { EntradaForm } from "@/components/painel/campanhas/entrada-form";
+import { EntradaPreview } from "@/components/painel/campanhas/entrada-preview";
+import { IntegracoesForm, type IntegracoesFormValue } from "@/components/painel/campanhas/integracoes-form";
+import type { IntegracoesPublicas } from "@/app/api/campanhas/apresenta";
 import { AjudaPainel } from "@/components/painel/campanhas/ajuda-painel";
 
 /**
@@ -41,7 +44,14 @@ type Campanha = {
   slug?: string;
   autoGrow?: boolean;
   growTemplate?: GrowTemplate | null;
-  settings?: { entrada: EntradaSettings };
+  settings?: { entrada: EntradaSettings; integracoes?: IntegracoesPublicas };
+};
+
+/** Forma vazia da aba Integrações — espelha `INTEGRACOES_DEFAULTS` já mascarado. */
+const INTEGRACOES_FORM_VAZIO: IntegracoesFormValue = {
+  meta: { pixel_id: "", evento: "Lead", test_code: "", capi_token_set: false, capi_token_last4: "" },
+  ga4: { id: "" },
+  google_ads: { id: "", label: "" },
 };
 
 /** Nome do próximo grupo. O `{n}` é o número que a numeração substitui. */
@@ -53,7 +63,8 @@ function defaultSubjectPattern(campanhaName: string): string {
 export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?: string }) {
   const router = useRouter();
   // O passo "Objetivo" (presets) só existe na criação. Edição segue igual.
-  const SECTIONS = mode === "create" ? ["Objetivo", "Cadastro", "Grupos"] : ["Cadastro", "Grupos", "Entrada"];
+  const SECTIONS =
+    mode === "create" ? ["Objetivo", "Cadastro", "Grupos"] : ["Cadastro", "Grupos", "Entrada", "Integrações"];
   const cadastroIdx = mode === "create" ? 1 : 0;
 
   const [groups, setGroups] = useState<Group[]>([]);
@@ -75,6 +86,10 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
   const [suggestedMsg, setSuggestedMsg] = useState<string | null>(null);
   // Comportamento do link mestre (aba Entrada) — só existe na edição.
   const [entrada, setEntrada] = useState<EntradaSettings>(ENTRADA_DEFAULTS);
+  // Pixel, CAPI, GA4 e Google Ads (aba Integrações) — só existe na edição.
+  const [integracoes, setIntegracoes] = useState<IntegracoesFormValue>(INTEGRACOES_FORM_VAZIO);
+  // Nome da loja, só para a prévia da tela de entrada.
+  const [loja, setLoja] = useState("");
   // Páginas publicadas da conta, opções da lista de espera.
   const [pages, setPages] = useState<{ slug: string; title: string }[]>([]);
 
@@ -124,11 +139,15 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
             setGrowSubject(c.growTemplate?.subjectPattern ?? "");
             setSelected(new Set(c.groupIds ?? []));
             setEntrada(c.settings?.entrada ?? ENTRADA_DEFAULTS);
+            setIntegracoes(c.settings?.integracoes ?? INTEGRACOES_FORM_VAZIO);
+            setLoja(typeof c.loja === "string" ? c.loja : "");
           }
           const pgs: { slug: string; title?: string; status?: string }[] = await fetch("/api/pages").then((r) => r.json()).catch(() => []);
           setPages(Array.isArray(pgs) ? pgs.filter((p) => p.status === "published").map((p) => ({ slug: p.slug, title: p.title ?? "" })) : []);
-          // ?aba=entrada — os chips do cabeçalho da campanha chegam direto na aba.
-          if (new URLSearchParams(window.location.search).get("aba") === "entrada") setIdx(2);
+          // ?aba=… — os chips do cabeçalho da campanha chegam direto na aba.
+          const aba = new URLSearchParams(window.location.search).get("aba");
+          if (aba === "entrada") setIdx(2);
+          if (aba === "integracoes") setIdx(3);
         }
       } finally {
         setLoading(false);
@@ -165,6 +184,25 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
     return { growTemplate: { subjectPattern: growPattern } };
   }
 
+  /**
+   * O formulário nunca recebeu o token, então não pode devolvê-lo: `capi_token`
+   * só entra no PATCH quando o lojista digitou algo (ou pediu para apagar,
+   * mandando ""). Omitido, o servidor mantém o que está no banco.
+   */
+  function integracoesPatch() {
+    const { capi_token_novo } = integracoes;
+    return {
+      meta: {
+        pixel_id: integracoes.meta.pixel_id,
+        evento: integracoes.meta.evento,
+        test_code: integracoes.meta.test_code,
+        ...(capi_token_novo === undefined ? {} : { capi_token: capi_token_novo }),
+      },
+      ga4: integracoes.ga4,
+      google_ads: integracoes.google_ads,
+    };
+  }
+
   async function save() {
     setError(null);
     setUpgradeUrl(null);
@@ -192,7 +230,14 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
         const res = await fetch("/api/campanhas", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id, name: name.trim(), groupIds, autoGrow, ...growTemplatePatch(), settings: { entrada } }),
+          body: JSON.stringify({
+            id,
+            name: name.trim(),
+            groupIds,
+            autoGrow,
+            ...growTemplatePatch(),
+            settings: { entrada, integracoes: integracoesPatch() },
+          }),
         });
         if (!res.ok) throw await toRequestError(res, "Erro ao salvar.");
         router.push(backHref);
@@ -357,11 +402,37 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
 
   const entradaCard = (
     <Card key="entrada">
-      <EntradaForm value={entrada} onChange={setEntrada} pages={pages} />
+      <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
+        <EntradaForm value={entrada} onChange={setEntrada} pages={pages} />
+        <EntradaPreview loja={loja} campaignName={name} />
+      </div>
     </Card>
   );
 
-  const sections = mode === "create" ? [objetivoCard, cadastroCard, gruposCard] : [cadastroCard, gruposCard, entradaCard];
+  const integracoesCard = (
+    <Card key="integracoes">
+      <IntegracoesForm
+        value={integracoes}
+        onChange={setIntegracoes}
+        // O teste lê o BANCO: com token digitado e não salvo, ele mediria outra
+        // configuração e diria "funciona" sobre o que não está no ar.
+        podeTestar={integracoes.capi_token_novo === undefined}
+        onTestar={async () => {
+          const chave = createdSlug ?? slug;
+          const res = await fetch(`/api/campanhas/${chave}/integracoes/teste`, { method: "POST" });
+          const j = (await res.json().catch(() => ({}))) as { events_received?: number; error?: string };
+          return res.ok
+            ? { ok: true, mensagem: `A Meta recebeu ${j.events_received ?? 0} evento(s) de teste.` }
+            : { ok: false, mensagem: j.error ?? "Não deu para enviar." };
+        }}
+      />
+    </Card>
+  );
+
+  const sections =
+    mode === "create"
+      ? [objetivoCard, cadastroCard, gruposCard]
+      : [cadastroCard, gruposCard, entradaCard, integracoesCard];
 
   return (
     <div className="mx-auto max-w-[760px] px-4 py-8 sm:px-8">

@@ -41,7 +41,7 @@ type Campanha = {
   groupIds: string[];
   slug?: string;
   createdAt: string;
-  settings?: { entrada: EntradaSettings };
+  settings?: { entrada: EntradaSettings; integracoes?: { meta: { pixel_id: string } } };
 };
 type TrackedLink = { campaignGroupId?: string | null; campaignName?: string; clicks: number };
 type Order = { id: string; value: number; campaign_id?: string | null };
@@ -190,6 +190,7 @@ export default function CampanhaDetalhe() {
               )}
               <ConfigChips
                 entrada={campanha.settings?.entrada ?? ENTRADA_DEFAULTS}
+                integracoes={campanha.settings?.integracoes}
                 href={`/painel/campanhas/${campanha.slug ?? campanha.id}/editar?aba=entrada`}
               />
             </div>
