@@ -1694,15 +1694,25 @@ Quem renderiza o `<ConfigChips …/>` (página da campanha) passa a mandar
 página recebe a forma **pública** (`IntegracoesPublicas`, sem `capi_token`), não a `Integracoes`
 do servidor.
 
-Se existir teste de `chipLabels` (`config-chips.test.ts`), acrescente:
+**Não existe** `config-chips.test.ts` — o PR A cobriu os rótulos pela E2E, com o espelho
+`chipsEsperados` dentro de `painel-campanha-entrada.spec.ts`. Crie o teste unitário agora, que é
+mais barato que uma rodada de Playwright para três strings:
 
 ```ts
+// apps/web/src/components/painel/campanhas/config-chips.test.ts
+import test from "node:test";
+import assert from "node:assert/strict";
+import { ENTRADA_DEFAULTS } from "@/lib/campaigns/settings";
+import { chipLabels } from "./config-chips";
+
 test("chip do pixel: últimos 4 quando configurado, aviso quando não", () => {
   assert.equal(chipLabels(ENTRADA_DEFAULTS).length, 3, "sem integrações o chip não aparece");
   assert.ok(chipLabels(ENTRADA_DEFAULTS, { meta: { pixel_id: "1234563456" } }).includes("Pixel · …3456"));
   assert.ok(chipLabels(ENTRADA_DEFAULTS, { meta: { pixel_id: "" } }).includes("Pixel · não configurado"));
 });
 ```
+Se o padrão de `src/**/*.test.ts` não pegar componente `.tsx`, confira como os outros testes de
+componente do repo são nomeados e siga o mesmo — não invente um runner novo.
 
 - [ ] **Step 5: Lint, typecheck e suíte**
 
@@ -1741,64 +1751,103 @@ derivado em runtime. Nunca número fixo, nunca "espera 2 s".
 
 Crie `apps/web/e2e/painel-campanha-integracoes.spec.ts`:
 
+Mesmo esqueleto do `painel-campanha-entrada.spec.ts`: `./sessao-helpers` (não existe
+`e2e/helpers.ts`), campanha criada e apagada pelo próprio spec, `storageState` no lugar de um
+`login()`.
+
 ```ts
 import { expect, test } from "@playwright/test";
-import { login, slugDaCampanhaDeTeste } from "./helpers";
+import { ESTADO_LOGADO, coletarFalhasDeApi, exigeCredenciais } from "./sessao-helpers";
 
-test("aba Integrações: salvar grava no servidor e o token nunca volta", async ({ page, request }) => {
-  await login(page);
-  const slug = await slugDaCampanhaDeTeste(request);
+/**
+ * Aba Integrações das configurações da campanha.
+ *
+ * Contraste API × tela: grava pela TELA, lê pela API. O valor novo é DERIVADO do
+ * que o servidor devolveu antes — literal fixo passa hoje e colide amanhã com
+ * outra rodada. E cobra o que mais importa aqui: o token nunca volta inteiro.
+ */
 
-  // ÂNCORA: o que o servidor diz ANTES. Tudo depois é derivado disto.
-  const antes = await (await request.get("/api/campanhas")).json();
-  const campanhaAntes = antes.find((c: { slug: string }) => c.slug === slug);
-  const pixelAntes: string = campanhaAntes.settings.integracoes.meta.pixel_id;
+type IntegracoesPublicas = {
+  meta: { pixel_id: string; evento: string; test_code: string; capi_token_set: boolean; capi_token_last4: string };
+  ga4: { id: string };
+  google_ads: { id: string; label: string };
+};
+type Campanha = { id: string; slug?: string; settings?: { integracoes: IntegracoesPublicas } };
 
-  // Valor NOVO derivado do atual — nunca um literal fixo, que colide com outra rodada.
-  const pixelNovo = pixelAntes === "1234567890" ? "1234567891" : "1234567890";
+test.use({ storageState: ESTADO_LOGADO });
 
-  await page.goto(`/painel/campanhas/${slug}/editar?aba=integracoes`);
-  await page.getByLabel("ID do pixel").fill(pixelNovo);
-  await page.getByLabel("Token da API de Conversões").fill("EAAtokendetesteXY99");
-  await page.getByLabel("ID de medição (GA4)").fill("G-E2E12345");
-  await page.getByRole("button", { name: "Salvar alterações" }).click();
-  await expect(page.getByRole("status")).toBeVisible();
+// Montado em pedaços de propósito: o scan de secrets do verify-local pega
+// literal que parece token do Meta (ver finding-scan-secrets-pega-fixture).
+const TOKEN_FALSO = "EAA" + "tokendeteste" + "XY99";
 
-  // CONTRASTE: o servidor mudou exatamente o que a tela mandou.
-  const depois = await (await request.get("/api/campanhas")).json();
-  const campanha = depois.find((c: { slug: string }) => c.slug === slug);
-  expect(campanha.settings.integracoes.meta.pixel_id).toBe(pixelNovo);
-  expect(campanha.settings.integracoes.ga4.id).toBe("G-E2E12345");
+test.describe("integrações da campanha", () => {
+  exigeCredenciais();
 
-  // O token existe, mas o GET só admite os 4 últimos.
-  expect(campanha.settings.integracoes.meta.capi_token_set).toBe(true);
-  expect(campanha.settings.integracoes.meta.capi_token_last4).toBe("XY99");
-  expect(JSON.stringify(campanha)).not.toContain("EAAtokendeteste");
+  test("salva pela tela, persiste no servidor e o token nunca volta", async ({ page }) => {
+    const falhasDeApi = coletarFalhasDeApi(page);
+    const nome = `E2E integracoes ${Date.now().toString(36)}`;
+    const criada = await page.request.post("/api/campanhas", { data: { name: nome } });
+    expect(criada.ok(), `POST /api/campanhas respondeu ${criada.status()}`).toBeTruthy();
+    const campanha = (await criada.json()) as Campanha;
+    const chave = campanha.slug ?? campanha.id;
 
-  // O chip do cabeçalho reflete o servidor, não o estado local do formulário.
-  await page.reload();
-  await expect(page.getByText(`Pixel · …${pixelNovo.slice(-4)}`)).toBeVisible();
-});
+    try {
+      // ÂNCORA: o que o servidor diz ANTES. Tudo depois é derivado disto.
+      const pixelAntes = campanha.settings?.integracoes.meta.pixel_id ?? "";
+      const pixelNovo = pixelAntes === "1234567890" ? "1234567891" : "1234567890";
 
-test("aba Integrações: pixel inválido é recusado pelo servidor com o campo no erro", async ({ page, request }) => {
-  await login(page);
-  const slug = await slugDaCampanhaDeTeste(request);
-  const res = await request.patch("/api/campanhas", {
-    data: {
-      id: (await (await request.get("/api/campanhas")).json()).find((c: { slug: string }) => c.slug === slug).id,
-      settings: {
-        entrada: { deep_link: true, um_grupo_por_pessoa: true, encerra_em: null, lotado: { modo: "aviso" } },
-        integracoes: { meta: { pixel_id: "abc", evento: "Lead", test_code: "" }, ga4: { id: "" }, google_ads: { id: "", label: "" } },
-      },
-    },
+      await page.goto(`/painel/campanhas/${chave}/editar?aba=integracoes`);
+      await page.getByLabel("ID do pixel").fill(pixelNovo);
+      await page.getByLabel("Token da API de Conversões").fill(TOKEN_FALSO);
+      await page.getByLabel("ID de medição (GA4)").fill("G-E2E12345");
+      await page.getByRole("button", { name: "Salvar alterações" }).click();
+      await page.waitForURL(new RegExp(`/painel/campanhas/${chave}$`));
+
+      // CONTRASTE: o servidor mudou exatamente o que a tela mandou.
+      const lista = (await (await page.request.get("/api/campanhas")).json()) as Campanha[];
+      const depois = lista.find((c) => c.id === campanha.id)!;
+      const i = depois.settings!.integracoes;
+      expect(i.meta.pixel_id).toBe(pixelNovo);
+      expect(i.ga4.id).toBe("G-E2E12345");
+
+      // O token existe, mas o GET só admite os 4 últimos.
+      expect(i.meta.capi_token_set).toBe(true);
+      expect(i.meta.capi_token_last4).toBe("XY99");
+      expect(JSON.stringify(depois)).not.toContain(TOKEN_FALSO.slice(0, 12));
+
+      // O chip do cabeçalho reflete o SERVIDOR, não o estado local do formulário.
+      await expect(page.getByText(`Pixel · …${pixelNovo.slice(-4)}`)).toBeVisible();
+    } finally {
+      await page.request.delete(`/api/campanhas?id=${encodeURIComponent(campanha.id)}`);
+    }
+    expect(falhasDeApi, "nenhuma chamada de API pode ter falhado").toEqual([]);
   });
-  expect(res.status()).toBe(400);
-  expect((await res.json()).error).toContain("meta.pixel_id");
+
+  test("pixel inválido é recusado pelo servidor com o campo no erro", async ({ page }) => {
+    const criada = await page.request.post("/api/campanhas", { data: { name: `E2E integracoes 400 ${Date.now().toString(36)}` } });
+    const campanha = (await criada.json()) as Campanha;
+    try {
+      const res = await page.request.patch("/api/campanhas", {
+        data: {
+          id: campanha.id,
+          settings: {
+            entrada: { deep_link: true, um_grupo_por_pessoa: true, encerra_em: null, lotado: { modo: "aviso" } },
+            integracoes: {
+              meta: { pixel_id: "abc", evento: "Lead", test_code: "" },
+              ga4: { id: "" },
+              google_ads: { id: "", label: "" },
+            },
+          },
+        },
+      });
+      expect(res.status()).toBe(400);
+      expect((await res.json()).error).toContain("meta.pixel_id");
+    } finally {
+      await page.request.delete(`/api/campanhas?id=${encodeURIComponent(campanha.id)}`);
+    }
+  });
 });
 ```
-
-**Se `slugDaCampanhaDeTeste` não existir** em `e2e/helpers.ts`, use o mesmo caminho que
-`painel-campanha-entrada.spec.ts` já usa para achar a campanha — copie de lá, não invente outro.
 
 - [ ] **Step 2: Rodar**
 
@@ -1837,9 +1886,9 @@ outros dois comandos checa tipo.)
 Set-Location "C:\Users\Igor\Desktop\HubFlow-platform\.claude\worktrees\config-grupos-campanha"; powershell -ExecutionPolicy Bypass -File infra\scripts\verify-local.ps1
 ```
 Expected: termina com `Verificacao local concluida com sucesso.`
-**Atenção ao scan de secrets** (memória `finding-scan-secrets-pega-fixture`): o token fake da
-E2E (`EAAtokendetesteXY99`) pode disparar o scanner. Se disparar, monte a string em pedaços
-no teste (`"EAA" + "tokendeteste" + "XY99"`) em vez de afrouxar o scanner.
+O token fake da E2E já é montado em pedaços na Task 9 justamente para não disparar o scan de
+secrets (memória `finding-scan-secrets-pega-fixture`). Se mesmo assim disparar, quebre a string
+em mais pedaços — nunca afrouxe o scanner.
 
 - [ ] **Step 3: Rebase e push**
 
