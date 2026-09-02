@@ -97,10 +97,37 @@ test("nonce attribute refuses anything that could break out of the attribute", (
   }
 });
 
-test("click interstitial stays closed to everything but the Meta pixel", () => {
+test("click interstitial stays closed to everything but the ad tags", () => {
   const csp = buildCsp("click-redirect", generateNonce(), false);
   assert.ok(csp.includes("frame-src 'none'"));
   assert.ok(csp.includes("object-src 'none'"));
   assert.ok(csp.includes("connect-src https://www.facebook.com"));
-  assert.ok(!csp.includes("googletagmanager"));
+  assert.ok(csp.includes("base-uri 'self'"));
+  assert.ok(csp.includes("form-action 'self'"));
+  // A allowlist de script é FECHADA: só os dois hosts de tag entram. Host novo
+  // aqui tem de ser uma decisão consciente, não um efeito colateral.
+  const hostsDeScript = (csp.split(";").map((d) => d.trim()).find((d) => d.startsWith("script-src")) ?? "")
+    .split(" ")
+    .filter((t) => t.startsWith("https://"));
+  assert.deepEqual(hostsDeScript.sort(), ["https://connect.facebook.net", "https://www.googletagmanager.com"]);
+});
+
+test("click-redirect libera o gtag: script, img e connect do Google", () => {
+  const csp = buildCsp("click-redirect", generateNonce(), false);
+  const dir = (nome: string) => csp.split(";").map((d) => d.trim()).find((d) => d.startsWith(nome)) ?? "";
+  assert.match(dir("script-src"), /https:\/\/www\.googletagmanager\.com/);
+  assert.match(dir("connect-src"), /https:\/\/\*\.google-analytics\.com/);
+  assert.match(dir("connect-src"), /https:\/\/\*\.analytics\.google\.com/);
+  // A conversão do Google Ads chega como PIXEL (img), não como fetch.
+  assert.match(dir("img-src"), /https:\/\/www\.google\.com/);
+  assert.match(dir("img-src"), /https:\/\/googleads\.g\.doubleclick\.net/);
+});
+
+test("click-redirect continua sem 'unsafe-inline' e sem 'unsafe-eval' em produção", () => {
+  const scriptSrc = buildCsp("click-redirect", generateNonce(), false)
+    .split(";")
+    .map((d) => d.trim())
+    .find((d) => d.startsWith("script-src"))!;
+  assert.equal(scriptSrc.includes("'unsafe-inline'"), false);
+  assert.equal(scriptSrc.includes("'unsafe-eval'"), false);
 });
