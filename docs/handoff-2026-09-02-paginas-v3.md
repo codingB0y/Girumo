@@ -61,7 +61,7 @@ aberta como **PR #223** (`feat/paginas-v3-secoes`). Este arquivo é o ponto de r
 
 - Bash: heredoc engole `\\` e o cwd muda entre chamadas — usar path absoluto e scripts em arquivo.
 - Arquivos do repo são CRLF: patch por string precisa normalizar `\r\n`.
-- `kg_query` (LightRAG) devolveu `None` o dia inteiro; `kg_insert_text` funciona. Fallback:
+- `kg_query` (LightRAG) devolveu `None` o dia inteiro e `kg_insert_text` diz "Inserted" mas o doc fica `failed` (ver seção RAG). Fallback:
   `graphify query`.
 - Screenshot `fullPage` desenha o CTA fixo escondido abaixo da dobra (parece bug, não é).
 - Playwright não clica em `input.sr-only`: clicar no `<label>` pai (pista do interruptor).
