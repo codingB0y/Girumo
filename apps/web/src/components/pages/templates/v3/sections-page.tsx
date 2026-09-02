@@ -1,16 +1,17 @@
 import { Fragment, type ReactNode } from "react";
-import { Bricolage_Grotesque } from "next/font/google";
+import { Bricolage_Grotesque, Fraunces } from "next/font/google";
 import type { LpContentV3 } from "@/lib/pages/content-v3";
 import type { LpSection, UrgencySection } from "@/lib/pages/sections";
-import { deriveDarkPalette, type AccessiblePalette } from "@/lib/pages/palette";
+import { deriveDarkPalette, derivePalette, type AccessiblePalette } from "@/lib/pages/palette";
 import { LeadFormFields } from "@/components/pages/templates/sections/lead-form-fields";
 import { StickyCta } from "@/components/pages/templates/sections/sticky-cta";
-import { IMPACTO, impactoStyle } from "@/components/pages/templates/v3/tokens";
+import { directionBackground, directionStyle } from "@/components/pages/templates/v3/tokens";
 import { HeroImpacto } from "@/components/pages/templates/v3/sections/hero";
 import { UrgencyBand, UrgencyTopBar } from "@/components/pages/templates/v3/sections/urgency";
 import { Deliverables } from "@/components/pages/templates/v3/sections/deliverables";
 import { Audience } from "@/components/pages/templates/v3/sections/audience";
 import { Proof } from "@/components/pages/templates/v3/sections/proof";
+import { Gallery } from "@/components/pages/templates/v3/sections/gallery";
 import { About } from "@/components/pages/templates/v3/sections/about";
 import { Schedule } from "@/components/pages/templates/v3/sections/schedule";
 import { AfterSignup, WhyFree } from "@/components/pages/templates/v3/sections/text-block";
@@ -25,6 +26,14 @@ import { FooterV3 } from "@/components/pages/templates/v3/sections/footer";
 const display = Bricolage_Grotesque({
   subsets: ["latin"],
   weight: ["600", "700", "800"],
+  variable: "--lp-font-display",
+  display: "swap",
+});
+
+/** Display da direção editorial: serifa de moda com eixo óptico (papel + serifa). */
+const displaySerif = Fraunces({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
   variable: "--lp-font-display",
   display: "swap",
 });
@@ -65,6 +74,8 @@ function renderSection(section: LpSection, content: LpContentV3, form: ReactNode
       return <Audience section={section} />;
     case "proof":
       return <Proof section={section} />;
+    case "gallery":
+      return <Gallery section={section} />;
     case "about":
       return <About section={section} />;
     case "schedule":
@@ -82,12 +93,19 @@ function renderSection(section: LpSection, content: LpContentV3, form: ReactNode
 
 /**
  * Página de seções (v3). A ordem é a do `content.sections` (que já veio ordenada
- * pelo template); só as ligadas entram. A barra de urgência `top_bar` é a única
+ * pelo template); só as ligadas entram. A direção (`content.direction`) troca só
+ * a pele: tokens, fonte display e como a paleta da marca é derivada (sobre o
+ * escuro ou sobre o papel) — os renderers são os mesmos. A barra de urgência `top_bar` é a única
  * que sai do lugar: vai acima do hero, como no ONM ao Vivo. O formulário é um
  * só (#captura), dentro do hero; faixa e CTA fixo rolam até ele.
  */
 export function SectionsPage({ slug, content, noticeText, renderContext, preview }: SectionsPageProps) {
-  const palette = deriveDarkPalette(content.brand_color, IMPACTO.bg) ?? FALLBACK_PALETTE;
+  const editorial = content.direction === "editorial";
+  const bg = directionBackground(content.direction);
+  const palette =
+    (editorial ? derivePalette(content.brand_color, { background: bg }) : deriveDarkPalette(content.brand_color, bg)) ??
+    FALLBACK_PALETTE;
+  const font = editorial ? displaySerif : display;
   const enabled = content.sections.filter((s) => s.enabled);
   const topBar = enabled.find(isTopBar);
 
@@ -106,8 +124,8 @@ export function SectionsPage({ slug, content, noticeText, renderContext, preview
 
   return (
     <main
-      style={impactoStyle(palette)}
-      className={`${display.variable} bg-[var(--lp-bg)] text-[color:var(--lp-ink)] ${preview ? "" : "min-h-svh"}`}
+      style={directionStyle(content.direction, palette)}
+      className={`${font.variable} bg-[var(--lp-bg)] text-[color:var(--lp-ink)] ${preview ? "" : "min-h-svh"}`}
     >
       {topBar ? <UrgencyTopBar section={topBar} /> : null}
       {enabled.map((s) => (

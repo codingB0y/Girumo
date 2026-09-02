@@ -11,6 +11,7 @@
 
 import type { CSSProperties } from "react";
 import type { AccessiblePalette } from "@/lib/pages/palette";
+import type { LpDirection } from "@/lib/pages/sections";
 
 export const IMPACTO = {
   bg: "#0f1418",
@@ -39,7 +40,62 @@ export function impactoStyle(palette: AccessiblePalette): CSSProperties {
     "--lp-field-ink": IMPACTO.ink,
     "--lp-field-placeholder": "#8593a0",
     "--lp-sticky-bg": "rgba(15,20,24,0.94)",
+    // brilho de 1px no topo dos cartões e fundo das pílulas: luz sobre o escuro
+    "--lp-glint": "rgba(255,255,255,0.06)",
+    "--lp-chip": "rgba(255,255,255,0.04)",
+    "--lp-display-weight": "800",
+    "--lp-display-tracking": "-0.03em",
   } as CSSProperties;
+}
+
+/**
+ * Tokens da direção "editorial" (Fase 2): a mesma superfície papel/tinta/vinho
+ * da editorial v2, agora servida pelo motor de seções. Serifa no display com
+ * peso médio e tracking mais solto — a composição vem das mesmas seções, só a
+ * pele muda. A marca entra por `derivePalette` (contraste sobre o papel).
+ */
+export const EDITORIAL = {
+  paper: "#efe9df",
+  paperShade: "#e7dfd2",
+  ink: "#221a13",
+  inkSoft: "#6f6558",
+  line: "#ddd2c2",
+  wine: "#6d2436",
+} as const;
+
+export function editorialStyle(palette: AccessiblePalette): CSSProperties {
+  return {
+    "--lp-bg": EDITORIAL.paper,
+    "--lp-surface": EDITORIAL.paperShade,
+    "--lp-surface-2": "#ded4c4",
+    "--lp-ink": EDITORIAL.ink,
+    "--lp-muted": EDITORIAL.inkSoft,
+    "--lp-line": EDITORIAL.line,
+    "--lp-brand": palette.brand,
+    "--lp-on-brand": palette.onBrand,
+    "--lp-accent": palette.accent,
+    "--lp-brand-soft": `${palette.brand}1a`, // ~10%, como na v2
+    "--lp-brand-glow": `${palette.brand}26`, // luz discreta sobre o papel
+    "--lp-field-bg": "#ffffff",
+    "--lp-field-border": EDITORIAL.line,
+    "--lp-field-ink": EDITORIAL.ink,
+    "--lp-field-placeholder": "#9c9083",
+    "--lp-sticky-bg": "rgba(239,233,223,0.96)",
+    "--lp-glint": "rgba(255,255,255,0.55)",
+    "--lp-chip": "rgba(34,26,19,0.05)",
+    "--lp-display-weight": "500",
+    "--lp-display-tracking": "-0.015em",
+  } as CSSProperties;
+}
+
+/** Fundo da direção — é o que a paleta acessível da marca recebe como base. */
+export function directionBackground(direction: LpDirection): string {
+  return direction === "editorial" ? EDITORIAL.paper : IMPACTO.bg;
+}
+
+/** `vitrine` ainda não tem pele própria (Fase 3): cai na impacto. */
+export function directionStyle(direction: LpDirection, palette: AccessiblePalette): CSSProperties {
+  return direction === "editorial" ? editorialStyle(palette) : impactoStyle(palette);
 }
 
 /**
@@ -50,14 +106,14 @@ export function impactoStyle(palette: AccessiblePalette): CSSProperties {
 export const T = {
   eyebrow: "font-mono text-[11px] uppercase tracking-[0.2em] text-[color:var(--lp-accent)]",
   display:
-    "[font-family:var(--lp-font-display)] text-[2.35rem] font-extrabold leading-[1.02] tracking-[-0.03em] text-[color:var(--lp-ink)] sm:text-[3.1rem] lg:text-[3.9rem]",
-  h2: "[font-family:var(--lp-font-display)] text-[1.75rem] font-bold leading-[1.08] tracking-[-0.025em] text-[color:var(--lp-ink)] lg:text-[2.4rem]",
-  h3: "[font-family:var(--lp-font-display)] text-[1.15rem] font-bold leading-snug tracking-[-0.01em] text-[color:var(--lp-ink)]",
+    "[font-family:var(--lp-font-display)] [font-weight:var(--lp-display-weight)] [letter-spacing:var(--lp-display-tracking)] text-[2.35rem] leading-[1.02] text-[color:var(--lp-ink)] sm:text-[3.1rem] lg:text-[3.9rem]",
+  h2: "[font-family:var(--lp-font-display)] [font-weight:var(--lp-display-weight)] [letter-spacing:var(--lp-display-tracking)] text-[1.75rem] leading-[1.08] text-[color:var(--lp-ink)] lg:text-[2.4rem]",
+  h3: "[font-family:var(--lp-font-display)] [font-weight:var(--lp-display-weight)] text-[1.15rem] leading-snug tracking-[-0.01em] text-[color:var(--lp-ink)]",
   lead: "text-[1.05rem] leading-relaxed text-[color:var(--lp-muted)] lg:text-lg",
   body: "text-[0.95rem] leading-relaxed text-[color:var(--lp-muted)]",
   meta: "font-mono text-[11px] uppercase tracking-[0.18em] text-[color:var(--lp-muted)]",
   number:
-    "[font-family:var(--lp-font-display)] text-[2.6rem] font-extrabold leading-none tracking-[-0.04em] text-[color:var(--lp-accent)] tabular-nums lg:text-[3.4rem]",
+    "[font-family:var(--lp-font-display)] [font-weight:var(--lp-display-weight)] text-[2.6rem] leading-none tracking-[-0.04em] text-[color:var(--lp-accent)] tabular-nums lg:text-[3.4rem]",
 } as const;
 
 /** Container e ritmo vertical comuns a todas as seções. */

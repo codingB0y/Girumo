@@ -1,15 +1,44 @@
 import type { ProofSection } from "@/lib/pages/sections";
 import { LpImage } from "@/components/pages/templates/sections/lp-image";
 import { Card, Pill, SectionHead, Wrap } from "@/components/pages/templates/v3/primitives";
+import { VideoFacade } from "@/components/pages/templates/v3/sections/video-facade";
 import { SECTION, T } from "@/components/pages/templates/v3/tokens";
 
 /**
  * Prova social. Prints de WhatsApp (Aline Portela, Jornada Digital): cada print
  * numa moldura 9:16 com o selo "print enviado pela loja" — a prova é do
  * lojista, e a página diz isso. Cards (ONM): aspas grandes, frase, quem disse.
+ * Vídeo (editorial v2 migrada): capa 4:5 à esquerda, citação em display à
+ * direita; o iframe só nasce no clique.
  */
 export function Proof({ section }: { section: ProofSection }) {
-  const { title, prints, cards } = section.data;
+  const { title, prints, cards, video } = section.data;
+
+  if (section.variant === "video") {
+    if (!video) return null;
+    return (
+      <section className={`border-y border-[color:var(--lp-line)] bg-[var(--lp-surface)] ${SECTION}`}>
+        <Wrap className="grid gap-7 lg:grid-cols-[minmax(0,320px)_1fr] lg:items-center lg:gap-12">
+          <div className="relative mx-auto aspect-[4/5] w-full max-w-[320px] overflow-hidden rounded-2xl border border-[color:var(--lp-line)] bg-[#221a13]">
+            <VideoFacade
+              provider={video.provider}
+              id={video.id}
+              poster={video.poster}
+              title={`Depoimento de ${video.name}${video.detail ? ` — ${video.detail}` : ""}`}
+            />
+          </div>
+          <figure>
+            <p className={T.eyebrow}>{title}</p>
+            <blockquote className={`mt-3 ${T.h2}`}>&ldquo;{video.quote}&rdquo;</blockquote>
+            <figcaption className={`mt-4 ${T.body}`}>
+              <span className="font-semibold text-[color:var(--lp-ink)]">{video.name}</span>
+              {video.detail ? ` — ${video.detail}` : null}
+            </figcaption>
+          </figure>
+        </Wrap>
+      </section>
+    );
+  }
 
   if (section.variant === "prints") {
     return (

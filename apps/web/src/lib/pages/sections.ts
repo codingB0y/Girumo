@@ -7,7 +7,7 @@
  * validação vive em `content-v3.ts` e os presets em `templates-v3.ts`.
  */
 
-import type { LpMediaRef } from "./content";
+import type { LpMediaRef, LpVideoRef } from "./content";
 
 export const LP_DIRECTIONS = ["editorial", "impacto", "vitrine"] as const;
 export type LpDirection = (typeof LP_DIRECTIONS)[number];
@@ -18,6 +18,7 @@ export const SECTION_TYPES = [
   "deliverables",
   "audience",
   "proof",
+  "gallery",
   "about",
   "schedule",
   "why_free",
@@ -55,9 +56,13 @@ export const V3_MAX = {
   not_for: 4,
   prints: 6,
   proof_cards: 3,
+  gallery: 6,
   schedule: 6,
   faq: 6,
 } as const;
+
+/** Galeria abaixo disso não é galeria — mesma regra da editorial v2 (`GALLERY_MIN`). */
+export const V3_GALLERY_MIN = 2;
 
 /* ------------------------------- dados ------------------------------- */
 
@@ -83,7 +88,12 @@ export type DeliverablesData = { title: string; items: ListItem[] };
 export type AudienceData = { title: string; items: string[]; not_items?: string[] };
 
 export type ProofCard = { name: string; detail?: string; quote: string };
-export type ProofData = { title: string; prints: LpMediaRef[]; cards: ProofCard[] };
+/** Depoimento em vídeo (variante `video`): o embed + quem fala. Migra o `proof` da editorial v2. */
+export type ProofVideo = LpVideoRef & { name: string; detail?: string; quote: string };
+export type ProofData = { title: string; prints: LpMediaRef[]; cards: ProofCard[]; video?: ProofVideo };
+
+/** Fotos das peças (2–6). O `alt` de cada uma vira a legenda. */
+export type GalleryData = { title: string; items: LpMediaRef[] };
 
 export type AboutData = {
   title: string;
@@ -117,7 +127,8 @@ export type DeliverablesSection = Section<
   DeliverablesData
 >;
 export type AudienceSection = Section<"audience", "pain_cards" | "for_not_for", AudienceData>;
-export type ProofSection = Section<"proof", "prints" | "cards", ProofData>;
+export type ProofSection = Section<"proof", "prints" | "cards" | "video", ProofData>;
+export type GallerySection = Section<"gallery", "grid", GalleryData>;
 export type AboutSection = Section<"about", "single", AboutData>;
 export type ScheduleSection = Section<"schedule", "days" | "steps" | "rules", ScheduleData>;
 export type WhyFreeSection = Section<"why_free", "card", TextBlockData>;
@@ -131,6 +142,7 @@ export type LpSection =
   | DeliverablesSection
   | AudienceSection
   | ProofSection
+  | GallerySection
   | AboutSection
   | ScheduleSection
   | WhyFreeSection
@@ -194,7 +206,14 @@ export const SECTION_CATALOG: Record<LpSectionType, SectionMeta> = {
     variants: [
       { key: "prints", label: "Prints de WhatsApp" },
       { key: "cards", label: "Depoimentos em card" },
+      { key: "video", label: "Depoimento em vídeo" },
     ],
+  },
+  gallery: {
+    label: "Galeria de peças",
+    why: "Mostra o produto antes de pedir o número: quem vê a arara entra no grupo.",
+    required: false,
+    variants: [{ key: "grid", label: "Grade de fotos" }],
   },
   about: {
     label: "Quem está por trás",
@@ -262,6 +281,8 @@ export function emptySectionData(type: LpSectionType): LpSection["data"] {
       return { title: "", items: [] };
     case "proof":
       return { title: "", prints: [], cards: [] };
+    case "gallery":
+      return { title: "", items: [] };
     case "about":
       return { title: "", name: "", text: "", media: null };
     case "schedule":

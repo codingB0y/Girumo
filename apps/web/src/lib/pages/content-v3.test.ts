@@ -132,3 +132,52 @@ test("dimensions and summary come from the template and the hero", () => {
   assert.match(summary.headline, /lotar o grupo VIP/);
   assert.equal(summary.ogImage, null);
 });
+
+test("gallery needs 2 to 6 photos with alt, only when it is on", () => {
+  const content = instantiateTemplate("acesso-vip", NOW);
+  const gallery = content.sections.find((s) => s.type === "gallery");
+  assert.ok(gallery && gallery.type === "gallery" && gallery.enabled === false);
+  assert.deepEqual(validateContentV3(content), []);
+
+  gallery.enabled = true;
+  gallery.data.items = [{ media_id: "m1", alt: "Peça" }];
+  assert.ok(validateContentV3(content).some((e) => e.startsWith("gallery.items")));
+
+  gallery.data.items = [1, 2, 3, 4, 5, 6, 7].map((n) => ({ media_id: `m${n}`, alt: `Peça ${n}` }));
+  assert.ok(validateContentV3(content).some((e) => e.includes("no máximo 6")));
+
+  gallery.data.items = gallery.data.items.slice(0, 3);
+  assert.deepEqual(validateContentV3(content), []);
+  const clean = toContentV3(content as unknown as Record<string, unknown>);
+  const g = clean.sections.find((s) => s.type === "gallery");
+  assert.ok(g && g.type === "gallery");
+  assert.equal(g.data.items.length, 3);
+});
+
+test("video proof needs a known provider, an id, who speaks and the quote", () => {
+  const content = instantiateTemplate("acesso-vip", NOW);
+  const proof = content.sections.find((s) => s.type === "proof");
+  assert.ok(proof && proof.type === "proof" && proof.variant === "video");
+  proof.enabled = true;
+  assert.ok(validateContentV3(content).some((e) => e.startsWith("proof.video")));
+
+  proof.data.video = { provider: "vimeo", id: "1207228037", name: "Mariana", quote: "Ótima saída." };
+  assert.deepEqual(validateContentV3(content), []);
+
+  const clean = toContentV3(content as unknown as Record<string, unknown>);
+  const p = clean.sections.find((s) => s.type === "proof");
+  assert.ok(p && p.type === "proof");
+  assert.deepEqual(p.data.video, { provider: "vimeo", id: "1207228037", name: "Mariana", quote: "Ótima saída." });
+
+  // provider desconhecido é descartado na sanitização (e recusado na validação)
+  const bad = { ...content, sections: content.sections.map((s) => (s.type === "proof" ? { ...s, data: { ...s.data, video: { provider: "tiktok", id: "x", name: "A", quote: "B" } } } : s)) };
+  assert.ok(validateContentV3(bad).some((e) => e.startsWith("proof.video")));
+  const cleaned = toContentV3(bad as unknown as Record<string, unknown>).sections.find((s) => s.type === "proof");
+  assert.ok(cleaned && cleaned.type === "proof");
+  assert.equal("video" in cleaned.data, false);
+});
+
+test("editorial templates carry the editorial direction into the dimensions", () => {
+  assert.equal(contentDimensions(instantiateTemplate("acesso-vip", NOW)).visualDirection, "editorial");
+  assert.equal(contentDimensions(instantiateTemplate("lista-de-espera", NOW)).structure, "lista-de-espera");
+});

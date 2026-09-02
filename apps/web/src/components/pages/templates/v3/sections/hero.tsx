@@ -83,7 +83,7 @@ export function HeroImpacto({
             </h1>
             <p className={`mt-5 max-w-prose ${T.lead}`}>{description}</p>
 
-            <div className="mt-8 max-w-lg rounded-2xl border border-[color:var(--lp-line)] bg-[var(--lp-surface)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:p-5">
+            <div className="mt-8 max-w-lg rounded-2xl border border-[color:var(--lp-line)] bg-[var(--lp-surface)] p-4 shadow-[inset_0_1px_0_var(--lp-glint)] sm:p-5">
               {formSlot}
             </div>
           </div>

@@ -67,12 +67,22 @@ export default async function LpPreviewFixture({ searchParams }: Props) {
   if (modelo) {
     if (!isTemplateKey(modelo)) notFound();
     const content = instantiateTemplate(modelo);
+    const dark = content.direction !== "editorial";
+    const [bg, fg] = dark ? ["#1d2731", "#8593a0"] : ["#ddd0be", "#8d7f6d"];
     for (const s of content.sections) {
-      if (s.type === "hero") s.data.media = { url: svg(800, 1000, "Foto", "#1d2731", "#8593a0"), alt: "Foto de exemplo" };
-      if (s.type === "about") s.data.media = { url: svg(800, 1000, "Retrato", "#1d2731", "#8593a0"), alt: "Retrato de exemplo" };
+      if (s.type === "hero") s.data.media = { url: svg(800, 1000, "Foto", bg, fg), alt: "Foto de exemplo" };
+      if (s.type === "about") s.data.media = { url: svg(800, 1000, "Retrato", bg, fg), alt: "Retrato de exemplo" };
       if (s.type === "proof" && s.variant === "prints") {
         s.enabled = true;
-        s.data.prints = [1, 2, 3].map((n) => ({ url: svg(540, 960, `Print ${n}`, "#1d2731", "#8593a0"), alt: `Print ${n}` }));
+        s.data.prints = [1, 2, 3].map((n) => ({ url: svg(540, 960, `Print ${n}`, bg, fg), alt: `Print ${n}` }));
+      }
+      if (s.type === "proof" && s.variant === "video") {
+        s.enabled = true;
+        s.data.video = { provider: "vimeo", id: "1207228037", poster: { url: svg(600, 750, "Depoimento", bg, fg), alt: "" }, name: "Mariana Alves", detail: "Boutique MA · Goiânia", quote: "As peças têm ótima saída e o atendimento é sempre rápido." };
+      }
+      if (s.type === "gallery") {
+        s.enabled = true;
+        s.data.items = ["Vestido midi", "Conjunto de linho", "Vestido estampado"].map((alt, i) => ({ url: svg(600, 800, `Peça ${i + 1}`, bg, fg), alt }));
       }
     }
     return <SectionsPage slug="dev-preview" content={content} />;
