@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { fieldErrorsV3, newDraftV3, patchSection, toSavePayload } from "./editor-v3";
+import { fieldErrorsV3, newDraftV3, patchSection, toSavePayload, videoLinkOf } from "./editor-v3";
 import { validateContentV3 } from "./content-v3";
+import { parseVideoUrl } from "./video";
 
 const NOW = new Date("2026-09-01T12:00:00Z");
 
@@ -45,4 +46,10 @@ test("toSavePayload turns empty columns into null and keeps the content", () => 
 test("fieldErrorsV3 keys server details by the field path", () => {
   const errors = fieldErrorsV3(["hero.headline é obrigatório.", "faq.items[1].a excede 400 caracteres."]);
   assert.deepEqual(Object.keys(errors), ["hero.headline", "faq.items[1].a"]);
+});
+
+test("videoLinkOf rebuilds a link that parseVideoUrl accepts, for both providers", () => {
+  for (const video of [{ provider: "youtube", id: "dQw4w9WgXcQ" }, { provider: "vimeo", id: "123456" }] as const) {
+    assert.deepEqual(parseVideoUrl(videoLinkOf(video)), video);
+  }
 });

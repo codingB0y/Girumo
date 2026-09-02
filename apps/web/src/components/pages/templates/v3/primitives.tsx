@@ -42,7 +42,7 @@ export function Card({
       : "bg-[var(--lp-surface)] border-[color:var(--lp-line)]";
   return (
     <div
-      className={`rounded-2xl border ${base} shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ${className}`}
+      className={`rounded-2xl border ${base} shadow-[inset_0_1px_0_var(--lp-glint)] ${className}`}
     >
       {children}
     </div>
@@ -67,7 +67,7 @@ export function CheckIcon({ className = "h-5 w-5" }: { className?: string }) {
 export function CrossIcon({ className = "h-5 w-5" }: { className?: string }) {
   return (
     <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden>
-      <circle cx="10" cy="10" r="9" className="fill-white/[0.06]" />
+      <circle cx="10" cy="10" r="9" className="fill-[var(--lp-chip)]" />
       <path
         d="M7 7l6 6M13 7l-6 6"
         className="stroke-[var(--lp-muted)]"
@@ -104,7 +104,7 @@ export function Pill({ children, tone = "line" }: { children: ReactNode; tone?: 
   const cls =
     tone === "brand"
       ? "border-transparent bg-[var(--lp-brand)] text-[color:var(--lp-on-brand)]"
-      : "border-[color:var(--lp-line)] bg-white/[0.04] text-[color:var(--lp-ink)]";
+      : "border-[color:var(--lp-line)] bg-[var(--lp-chip)] text-[color:var(--lp-ink)]";
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-[11px] uppercase tracking-[0.14em] ${cls}`}

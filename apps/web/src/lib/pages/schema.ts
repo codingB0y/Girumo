@@ -6,7 +6,13 @@
 // Girumo LP v2 — barrel do domínio novo (conteúdo, paleta, vídeo, telefone).
 import type { LpContentV2, LpStructure, LpVisualDirection } from "./content";
 import { toContentV2, validateContentV2 } from "./content";
-import { toContentV3, validateContentV3, type LpContentV3 } from "./content-v3";
+import {
+  contentDimensions,
+  toContentV3,
+  validateContentV3,
+  type LpContentV3,
+} from "./content-v3";
+import { fromContentV2 } from "./migrate-v2";
 import { isLpContentV2, isLpContentV3 } from "./render";
 import { contentSummary } from "./content-v3";
 import { mediaSrc } from "./media";
@@ -75,6 +81,9 @@ export type LandingPage = {
   published_at: string | null;
   views_count: number;
   leads_count: number;
+  /** Cópia do content anterior à migração v2→v3 (reversão manual, spec 14/07 §15). Preenchido = já migrou. */
+  content_before_v3?: LpContentV2 | LpContent | null;
+  migrated_to_v3_at?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -216,6 +225,56 @@ export function finalizeLandingPageUpdate(
   }
 
   return { ok: true, patch };
+}
+
+/* ------------------------- migração v2 → v3 ------------------------- */
+
+/**
+ * O que a migração grava — o store completa `content_schema_version: 3` e
+ * `migrated_to_v3_at`. `content_before_v3` só entra quando ainda está nulo: a
+ * cópia é sempre a PRIMEIRA v2, nunca sobrescrita (reverter e migrar de novo
+ * a mesma página é permitido).
+ */
+export type LandingPageMigrateToV3Patch = {
+  content: LpContentV3;
+  structure: LpStructure;
+  visual_direction: LpVisualDirection;
+  model_version: number;
+  content_before_v3?: LpContentV2;
+};
+
+export type MigrationToV3Plan =
+  | { ok: true; patch: LandingPageMigrateToV3Patch }
+  | { ok: false; reason: "not_v2" }
+  | { ok: false; reason: "invalid"; errors: string[] };
+
+/**
+ * Monta o patch da migração v2→v3 (puro). Recusa o que não é v2 (uma página
+ * já migrada é v3, logo cai aqui); `invalid` é a invariante do adaptador
+ * falhando — a rota devolve 500.
+ * Não toca status, published_version, slug, campanha nem pixels.
+ */
+export function planMigrationToV3(
+  page: Pick<LandingPage, "content" | "content_before_v3">,
+): MigrationToV3Plan {
+  if (!isLpContentV2(page.content)) return { ok: false, reason: "not_v2" };
+
+  const next = fromContentV2(page.content);
+  const errors = validateContentV3(next);
+  if (errors.length > 0) return { ok: false, reason: "invalid", errors };
+
+  const content = toContentV3(next as unknown as Record<string, unknown>);
+  const dims = contentDimensions(content);
+  return {
+    ok: true,
+    patch: {
+      content,
+      structure: dims.structure,
+      visual_direction: dims.visualDirection,
+      model_version: dims.modelVersion,
+      ...(page.content_before_v3 ? {} : { content_before_v3: page.content }),
+    },
+  };
 }
 
 export type LpCreateInput = {

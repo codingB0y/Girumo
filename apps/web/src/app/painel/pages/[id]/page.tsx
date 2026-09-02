@@ -91,6 +91,7 @@ export default function PaginaDetalhePage() {
       return;
     }
     latestValuesV2Ref.current = null;
+    setValuesV2(null);
     // v3 (seções) é editado pelo componente próprio, que carrega o content da página.
     if (isLpContentV3(content)) return;
     setValues({
@@ -196,6 +197,31 @@ export default function PaginaDetalhePage() {
       );
     }
     return data;
+  }
+
+  /**
+   * Migração v2 → v3 (D3): explícita, por página, com cópia guardada no servidor.
+   * Descarrega o autosave antes, senão a rota migraria um content já velho.
+   */
+  async function migrateToV3() {
+    if (busy) return;
+    if (!window.confirm("Migrar esta página para o modelo novo? Uma cópia da versão atual fica guardada.")) return;
+    setError(null);
+    setBusy(true);
+    try {
+      await autosaveRef.current?.flush();
+      const res = await fetch(`/api/pages/${id}/migrate`, { method: "POST" });
+      if (!res.ok) {
+        const data = (await res.json()) as { error?: string };
+        setError(data.error ?? "Não foi possível migrar.");
+        return;
+      }
+      await load();
+    } catch {
+      setError("Sem conexão. Tente de novo.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function changeStatus(status: LpStatus) {
@@ -381,6 +407,23 @@ export default function PaginaDetalhePage() {
       {/* edição v2: form + prévia ao vivo, salvando sozinho */}
       {valuesV2 ? (
         <div className="space-y-3">
+          <section
+            aria-labelledby="migrar-v3-titulo"
+            className="rounded-2xl border border-volt-950/[0.06] bg-white p-5 shadow-card"
+          >
+            <h2 id="migrar-v3-titulo" className="font-medium text-volt-950">Modelo novo disponível</h2>
+            <p className="mt-1 text-sm text-aco/70">
+              Esta página usa o modelo anterior. Migrar mantém tudo que você escreveu (fotos, vídeo, galeria) e guarda uma cópia para voltar atrás.
+            </p>
+            <button
+              type="button"
+              onClick={() => void migrateToV3()}
+              disabled={busy}
+              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-cobalt-500 px-4 py-2.5 text-sm font-medium text-white shadow-brand transition hover:bg-cobalt-500 disabled:opacity-60"
+            >
+              Migrar para o modelo novo
+            </button>
+          </section>
           <div className="flex items-center justify-between gap-3">
             <h2 className="font-medium text-volt-950">Conteúdo da página</h2>
             <SaveStatus state={saveState} published={page.status === "published"} />

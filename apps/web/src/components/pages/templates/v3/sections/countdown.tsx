@@ -51,7 +51,7 @@ export function Countdown({ endsAt }: { endsAt: string }) {
       {UNITS.map((u) => (
         <div
           key={u.key}
-          className="min-w-[64px] rounded-xl border border-[color:var(--lp-line)] bg-white/[0.04] px-2 py-2.5 text-center"
+          className="min-w-[64px] rounded-xl border border-[color:var(--lp-line)] bg-[var(--lp-chip)] px-2 py-2.5 text-center"
         >
           <span className="block [font-family:var(--lp-font-display)] text-[1.75rem] font-extrabold leading-none tabular-nums text-[color:var(--lp-ink)]">
             {r ? String(r[u.key]).padStart(2, "0") : "--"}

@@ -11,11 +11,13 @@
 
 import type { LpMediaRef } from "./content";
 import { toMediaRef } from "./content";
+import type { LpVideoProvider } from "./video";
 import { parseHex } from "./palette";
 import { isLpContentV3 } from "./render";
 import {
   LP_DIRECTIONS,
   SECTION_CATALOG,
+  V3_GALLERY_MIN,
   V3_LIMITS,
   V3_MAX,
   emptySectionData,
@@ -24,6 +26,7 @@ import {
   type LpDirection,
   type LpSection,
   type LpSectionType,
+  type ProofVideo,
   type SectionOf,
 } from "./sections";
 import { TEMPLATES_V3, isTemplateKey, type LpTemplateKey } from "./templates-v3";
@@ -82,6 +85,8 @@ function list(errors: string[], v: unknown, path: string, min: number, max: numb
   if (v.length > max) errors.push(`${path} aceita no máximo ${max} itens.`);
   return v.map((item) => (typeof item === "object" && item !== null ? (item as Rec) : {}));
 }
+
+const VIDEO_PROVIDERS: readonly string[] = ["youtube", "vimeo"];
 
 function validIso(v: unknown): boolean {
   return typeof v === "string" && !Number.isNaN(Date.parse(v));
@@ -146,7 +151,16 @@ function validateSectionData(errors: string[], section: Rec): void {
     }
     case "proof": {
       text(errors, d.title, "proof.title", L.section_title, true);
-      if (variant === "prints") {
+      if (variant === "video") {
+        const v = (typeof d.video === "object" && d.video !== null ? d.video : {}) as Rec;
+        if (!VIDEO_PROVIDERS.includes(v.provider as string) || !str(v.id)) {
+          errors.push("proof.video precisa de um link de YouTube ou Vimeo válido.");
+        }
+        optionalMedia(errors, v.poster, "proof.video.poster");
+        text(errors, v.name, "proof.video.name", L.person, true);
+        text(errors, v.detail, "proof.video.detail", L.person, false);
+        text(errors, v.quote, "proof.video.quote", L.quote, true);
+      } else if (variant === "prints") {
         const prints = list(errors, d.prints, "proof.prints", 1, V3_MAX.prints);
         prints?.forEach((p, i) => media(errors, p, `proof.prints[${i}]`));
       } else {
@@ -157,6 +171,12 @@ function validateSectionData(errors: string[], section: Rec): void {
           text(errors, c.quote, `proof.cards[${i}].quote`, L.quote, true);
         });
       }
+      return;
+    }
+    case "gallery": {
+      text(errors, d.title, "gallery.title", L.section_title, true);
+      const items = list(errors, d.items, "gallery.items", V3_GALLERY_MIN, V3_MAX.gallery);
+      items?.forEach((it, i) => media(errors, it, `gallery.items[${i}]`));
       return;
     }
     case "about": {
@@ -280,6 +300,17 @@ function withOpt<T extends object>(base: T, extras: Record<string, unknown>): T 
   return out as T;
 }
 
+/** Vídeo do depoimento: só provider/id conhecidos; poster e detalhe são opcionais. */
+function sanitizeProofVideo(raw: unknown): ProofVideo | undefined {
+  if (typeof raw !== "object" || raw === null) return undefined;
+  const v = raw as Rec;
+  if (!VIDEO_PROVIDERS.includes(v.provider as string) || !str(v.id)) return undefined;
+  return withOpt(
+    { provider: v.provider as LpVideoProvider, id: v.id.trim(), name: reqText(v.name), quote: reqText(v.quote) },
+    { detail: optText(v.detail), poster: v.poster ? toMediaRef(v.poster) : undefined },
+  );
+}
+
 function sanitizeData(type: LpSectionType, variant: string, raw: unknown): LpSection["data"] {
   const d = (typeof raw === "object" && raw !== null ? raw : {}) as Rec;
   switch (type) {
@@ -303,13 +334,18 @@ function sanitizeData(type: LpSectionType, variant: string, raw: unknown): LpSec
         { not_items: d.not_items === undefined ? undefined : strings(d.not_items, V3_MAX.not_for) },
       );
     case "proof":
-      return {
-        title: reqText(d.title),
-        prints: objects(d.prints, V3_MAX.prints).map(toMediaRef),
-        cards: objects(d.cards, V3_MAX.proof_cards).map((c) =>
-          withOpt({ name: reqText(c.name), quote: reqText(c.quote) }, { detail: optText(c.detail) }),
-        ),
-      };
+      return withOpt(
+        {
+          title: reqText(d.title),
+          prints: objects(d.prints, V3_MAX.prints).map(toMediaRef),
+          cards: objects(d.cards, V3_MAX.proof_cards).map((c) =>
+            withOpt({ name: reqText(c.name), quote: reqText(c.quote) }, { detail: optText(c.detail) }),
+          ),
+        },
+        { video: sanitizeProofVideo(d.video) },
+      );
+    case "gallery":
+      return { title: reqText(d.title), items: objects(d.items, V3_MAX.gallery).map(toMediaRef) };
     case "about":
       return withOpt(
         { title: reqText(d.title), name: reqText(d.name), text: reqText(d.text), media: optMedia(d.media) },

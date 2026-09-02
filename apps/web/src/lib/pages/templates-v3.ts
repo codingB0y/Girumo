@@ -11,7 +11,7 @@
 import type { LpContentV3 } from "./content-v3";
 import type { LpDirection, LpSection, LpSectionType } from "./sections";
 
-export const TEMPLATE_KEYS = ["evento-ao-vivo", "promo-relampago"] as const;
+export const TEMPLATE_KEYS = ["evento-ao-vivo", "promo-relampago", "acesso-vip", "lista-de-espera"] as const;
 export type LpTemplateKey = (typeof TEMPLATE_KEYS)[number];
 
 export function isTemplateKey(value: unknown): value is LpTemplateKey {
@@ -224,6 +224,138 @@ const PROMO_SECTIONS: LpSection[] = [
   },
 ];
 
+/**
+ * Editorial (papel + serifa). "Acesso VIP" repete a ordem da editorial v2
+ * (abertura → depoimento → o que recebe → galeria) para que uma página migrada
+ * fique no mesmo lugar; o vídeo e a galeria nascem DESLIGADOS no exemplo porque
+ * exigem mídia real — o adaptador v2→v3 liga os dois com o conteúdo da página.
+ */
+const ACESSO_VIP_SECTIONS: LpSection[] = [
+  {
+    type: "hero",
+    variant: "form",
+    enabled: true,
+    data: {
+      badge: "Atacado de moda",
+      headline: "Lançamentos e preços de atacado primeiro no grupo",
+      highlight: "primeiro no grupo",
+      description:
+        "Veja novidades, reposições e condições exclusivas antes de todo mundo. O grupo é só da loja: sem revenda de terceiro, sem mensagem fora de hora.",
+      media: null,
+    },
+  },
+  {
+    type: "proof",
+    variant: "video",
+    enabled: false,
+    data: { title: "Quem compra, recomenda", prints: [], cards: [] },
+  },
+  {
+    type: "deliverables",
+    variant: "checklist",
+    enabled: true,
+    data: {
+      title: "O que você encontra no grupo",
+      items: [
+        { title: "Preço de atacado", description: "Direto do fabricante, sem intermediário." },
+        { title: "Novidades toda semana", description: "Coleção sempre atualizada, com foto e tamanho." },
+        { title: "Pedido mínimo acessível", description: "Mais giro na sua loja, menos peça parada." },
+      ],
+    },
+  },
+  {
+    type: "gallery",
+    variant: "grid",
+    enabled: false,
+    data: { title: "Um pouco do que tem lá dentro", items: [] },
+  },
+  {
+    type: "cta_band",
+    variant: "band",
+    enabled: true,
+    data: { title: "Entre no grupo e receba o link", note: "O convite chega logo depois do cadastro." },
+  },
+  {
+    type: "faq",
+    variant: "accordion",
+    enabled: false,
+    data: {
+      title: "Perguntas frequentes",
+      items: [
+        { q: "Precisa de CNPJ?", a: "Não. Pessoa física compra no atacado com o pedido mínimo." },
+        { q: "Vou receber mensagem todo dia?", a: "Só quando entra coleção nova. Você sai do grupo quando quiser." },
+      ],
+    },
+  },
+];
+
+const LISTA_DE_ESPERA_SECTIONS: LpSection[] = [
+  {
+    type: "hero",
+    variant: "form",
+    enabled: true,
+    data: {
+      badge: "Lista de espera",
+      headline: "A coleção nova abre primeiro pra quem está na lista",
+      highlight: "abre primeiro",
+      description:
+        "Deixe seu nome e receba o link do grupo no dia do lançamento, antes de a coleção ir pro site. Tamanhos e cores completos só nas primeiras horas.",
+      media: null,
+    },
+  },
+  {
+    type: "urgency",
+    variant: "date_badge",
+    enabled: true,
+    data: { label: "Lançamento na quinta, 18 de setembro, às 9h", note: "A lista fecha na véspera." },
+  },
+  {
+    type: "why_free",
+    variant: "card",
+    enabled: true,
+    data: {
+      title: "Por que entrar na lista",
+      text:
+        "Quem entra na lista vê a coleção 24 horas antes e escolhe com a grade inteira. Não custa nada e você sai quando quiser.",
+    },
+  },
+  {
+    type: "deliverables",
+    variant: "checklist",
+    enabled: true,
+    data: {
+      title: "O que chega no dia",
+      items: [
+        { title: "Catálogo completo com preço de atacado" },
+        { title: "Link do grupo com prioridade de pedido" },
+        { title: "Frete grátis nas primeiras 50 compras" },
+      ],
+    },
+  },
+  {
+    type: "gallery",
+    variant: "grid",
+    enabled: false,
+    data: { title: "Prévia da coleção", items: [] },
+  },
+  {
+    type: "after_signup",
+    variant: "notice",
+    enabled: true,
+    data: {
+      title: "O que acontece depois",
+      text:
+        "Você recebe uma única mensagem no dia do lançamento, com o link do grupo. Nada antes, nada depois.",
+    },
+  },
+  {
+    type: "cta_band",
+    variant: "band",
+    enabled: true,
+    data: { title: "Quero ver a coleção primeiro", note: "Sem custo. Sem compromisso." },
+  },
+];
+
 function presets(sections: LpSection[]): SectionPreset[] {
   return sections.map(({ type, variant, enabled }) => ({ type, variant, enabled }));
 }
@@ -264,6 +396,42 @@ export const TEMPLATES_V3: Record<LpTemplateKey, LpTemplateV3> = {
       brand_color: "#E11D48",
       cta: "Quero entrar no grupo",
       sections: PROMO_SECTIONS,
+    },
+  },
+  "acesso-vip": {
+    key: "acesso-vip",
+    name: "Acesso VIP",
+    description: "Grupo VIP da loja, com foto grande e galeria de peças.",
+    usage: "Para loja que capta pro grupo com coleção e preço de atacado.",
+    direction: "editorial",
+    sections: presets(ACESSO_VIP_SECTIONS),
+    example: {
+      schema_version: 3,
+      template: "acesso-vip",
+      direction: "editorial",
+      store_name: "Lume",
+      logo: null,
+      brand_color: "#6D2436",
+      cta: "Quero entrar no grupo",
+      sections: ACESSO_VIP_SECTIONS,
+    },
+  },
+  "lista-de-espera": {
+    key: "lista-de-espera",
+    name: "Lista de espera",
+    description: "Coleção ou reposição com data: quem entra na lista vê primeiro.",
+    usage: "Para loja que quer fila formada antes de abrir a coleção.",
+    direction: "editorial",
+    sections: presets(LISTA_DE_ESPERA_SECTIONS),
+    example: {
+      schema_version: 3,
+      template: "lista-de-espera",
+      direction: "editorial",
+      store_name: "Casa Marés",
+      logo: null,
+      brand_color: "#1F5F5B",
+      cta: "Quero entrar na lista",
+      sections: LISTA_DE_ESPERA_SECTIONS,
     },
   },
 };

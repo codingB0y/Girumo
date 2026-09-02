@@ -9,19 +9,16 @@ import { fieldErrorsV3, newDraftV3, toSavePayload, type EditorStateV3 } from "@/
 import { EditorFormV3 } from "@/components/pages/editor/v3/form-v3";
 import { EditorPreviewV3 } from "@/components/pages/editor/v3/preview-v3";
 import { TemplateGallery, type GalleryPick } from "@/components/pages/editor/v3/template-gallery";
-import { NovaPaginaV2 } from "@/components/pages/editor/new-page-v2";
 
 /**
  * Criação v3: galeria de modelos → editor já preenchido pelo template → salvar
- * rascunho → tela da página (publicar lá, depois de revisar). O "Acesso VIP"
- * cai no fluxo v2 existente. O `template_id` vem da linha do banco com o mesmo
- * slug da chave do template: é o registro do modelo, não decide o render (o
- * render escolhe pelo `schema_version`).
+ * rascunho → tela da página (publicar lá, depois de revisar). O `template_id`
+ * vem da linha do banco com o mesmo slug da chave do template: é o registro do
+ * modelo, não decide o render (o render escolhe pelo `schema_version`).
  */
 export function NovaPaginaV3() {
   const router = useRouter();
   const [templates, setTemplates] = useState<LpTemplate[] | null>(null);
-  const [pick, setPick] = useState<GalleryPick | null>(null);
   const [state, setState] = useState<EditorStateV3 | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -34,11 +31,8 @@ export function NovaPaginaV3() {
       .catch((e: Error) => setError(e.message));
   }, []);
 
-  if (pick === "acesso-vip") return <NovaPaginaV2 />;
-
   function choose(key: GalleryPick) {
-    setPick(key);
-    if (key !== "acesso-vip") setState(newDraftV3(key));
+    setState(newDraftV3(key));
   }
 
   async function handleSave() {
@@ -93,7 +87,7 @@ export function NovaPaginaV3() {
       ) : (
         <div className="grid items-start gap-6 lg:grid-cols-[1fr_1.1fr]">
           <div>
-            <button type="button" onClick={() => { setState(null); setPick(null); setErrors({}); }} className="mb-3 text-xs text-aco/60 hover:text-volt-950">
+            <button type="button" onClick={() => { setState(null); setErrors({}); }} className="mb-3 text-xs text-aco/60 hover:text-volt-950">
               ← Trocar de modelo
             </button>
             <EditorFormV3 state={state} onChange={setState} errors={errors} disabled={saving} />
