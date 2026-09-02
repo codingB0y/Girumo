@@ -7,6 +7,8 @@ import { assertPlanLimit } from "@/lib/billing/entitlements";
 import { getTenantContext } from "@/lib/supabase/tenant-context";
 import { assertPermission } from "@/lib/permissions";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
+import { parseEntradaPatch, readEntrada, withEntrada } from "@/lib/campaigns/settings";
+import { listLandingPages } from "@/lib/pages/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,6 +47,7 @@ export async function GET(req: Request) {
     slug: c.slug,
     autoGrow: c.auto_grow,
     growTemplate: c.grow_template,
+    settings: { entrada: readEntrada(c.metadata as Record<string, unknown>) },
     createdAt: c.created_at,
   }));
   return Response.json(mapped);
@@ -133,6 +136,7 @@ export async function POST(req: Request) {
     groupIds: rec.group_ids,
     slug: rec.slug,
     autoGrow: rec.auto_grow,
+    settings: { entrada: readEntrada(rec.metadata as Record<string, unknown>) },
     createdAt: rec.created_at,
   }, { status: 201 });
 }
@@ -154,6 +158,8 @@ export async function PATCH(req: Request) {
   if (!id) return Response.json({ error: "id obrigatório." }, { status: 400 });
 
   if (!USE_SUPABASE) {
+    // Configurações de entrada (`settings`) só existem no ramo Supabase — o
+    // JSON legado é emergência/dev antigo e as ignora.
     const owned = (await campanhasColl.list()).some((item) => item.id === id && item.tenantId === tenantId);
     if (!owned) return Response.json({ error: "Campanha não encontrada." }, { status: 404 });
     const patch: Partial<Campanha> = {};
@@ -187,6 +193,26 @@ export async function PATCH(req: Request) {
     patch.grow_template = b.growTemplate as Record<string, unknown>;
   }
 
+  if (b.settings !== undefined) {
+    const s = (b.settings ?? {}) as Record<string, unknown>;
+    const parsed = parseEntradaPatch(s.entrada);
+    if (!parsed.ok) return Response.json({ error: parsed.error }, { status: 400 });
+    if (parsed.entrada.lotado.modo === "pagina") {
+      // O slug vem do painel, mas quem manda é o banco: só página PUBLICADA
+      // deste tenant pode ser destino — /p/<slug> de outra conta seria vazamento.
+      const slug = parsed.entrada.lotado.pagina_slug;
+      const pages = await listLandingPages(tenantId);
+      if (!pages.some((p) => p.slug === slug && p.status === "published")) {
+        return Response.json({ error: "Página não encontrada ou não publicada." }, { status: 400 });
+      }
+    }
+    // `metadata` é substituído inteiro pelo update: lê o atual para não perder
+    // `loja` e o que mais estiver lá.
+    const current = await supaStore.getCampaignGroupById(tenantId, id);
+    if (!current) return Response.json({ error: "Campanha não encontrada." }, { status: 404 });
+    patch.metadata = withEntrada(current.metadata as Record<string, unknown>, parsed.entrada);
+  }
+
   const updated = await supaStore.updateCampaignGroup(tenantId, id, patch);
   if (!updated) return Response.json({ error: "Campanha não encontrada." }, { status: 404 });
   return Response.json({
@@ -197,6 +223,7 @@ export async function PATCH(req: Request) {
     slug: updated.slug,
     autoGrow: updated.auto_grow,
     growTemplate: updated.grow_template,
+    settings: { entrada: readEntrada(updated.metadata as Record<string, unknown>) },
     createdAt: updated.created_at,
   });
 }
