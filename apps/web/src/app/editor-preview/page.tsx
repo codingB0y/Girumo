@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { ConversionEditorial } from "@/components/pages/templates/structures/conversion-editorial";
+import { SectionsPage } from "@/components/pages/templates/v3/sections-page";
 import { derivePalette, type AccessiblePalette } from "@/lib/pages/palette";
+import type { LpContentV3 } from "@/lib/pages/content-v3";
 import {
   EMPTY_EDITOR_VALUES_V2,
   editorValuesToContentV2,
@@ -12,13 +14,14 @@ import { PREVIEW_MESSAGE, type PreviewMessage } from "@/components/pages/editor/
 
 /**
  * Alvo do <iframe> do editor. Existe como ROTA (e não como um <div> dentro do
- * editor) por um motivo concreto: a estrutura editorial decide o layout por
+ * editor) por um motivo concreto: as estruturas decidem o layout por
  * breakpoints do Tailwind, que respondem ao VIEWPORT — dentro de um div de 390px
  * numa tela grande, o `lg:` continuaria valendo e o preview mobile seria mentira.
  * Um iframe tem viewport próprio, então o que aparece aqui é o que a cliente vê.
  *
  * Recebe o rascunho por postMessage (mesma origem) a cada tecla, sem salvar nada:
- * o autosave é assunto da tela de edição, não do preview.
+ * o autosave é assunto da tela de edição, não do preview. Aceita os dois
+ * editores: `values` (v2, editorial) ou `content` (v3, seções).
  */
 
 const FALLBACK_PALETTE: AccessiblePalette = {
@@ -48,8 +51,18 @@ function withPlaceholders(values: EditorValuesV2): EditorValuesV2 {
   };
 }
 
+/** v3 nasce preenchido pelo template; só o nome e o botão podem ficar vazios no meio da edição. */
+function withPlaceholdersV3(content: LpContentV3): LpContentV3 {
+  return {
+    ...content,
+    store_name: content.store_name || "Sua loja",
+    cta: content.cta || "Quero entrar no grupo",
+  };
+}
+
 export default function EditorPreviewFrame() {
   const [values, setValues] = useState<EditorValuesV2>(EMPTY_EDITOR_VALUES_V2);
+  const [contentV3, setContentV3] = useState<LpContentV3 | null>(null);
 
   useEffect(() => {
     function onMessage(event: MessageEvent) {
@@ -59,8 +72,9 @@ export default function EditorPreviewFrame() {
       const data = event.data as PreviewMessage | undefined;
       // O próprio "pronto" que mandamos pro pai volta aqui em alguns browsers —
       // só interessa a mensagem que traz rascunho.
-      if (data?.type !== PREVIEW_MESSAGE || !data.values) return;
-      setValues(data.values);
+      if (data?.type !== PREVIEW_MESSAGE) return;
+      if (data.content) setContentV3(data.content);
+      else if (data.values) setValues(data.values);
     }
 
     window.addEventListener("message", onMessage);
@@ -68,6 +82,10 @@ export default function EditorPreviewFrame() {
     window.parent?.postMessage({ type: PREVIEW_MESSAGE, ready: true }, window.location.origin);
     return () => window.removeEventListener("message", onMessage);
   }, []);
+
+  if (contentV3) {
+    return <SectionsPage slug="preview" content={withPlaceholdersV3(contentV3)} preview />;
+  }
 
   const content = editorValuesToContentV2(withPlaceholders(values));
   const palette = derivePalette(content.brand_color) ?? FALLBACK_PALETTE;

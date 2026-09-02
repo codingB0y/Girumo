@@ -1,6 +1,6 @@
 import { getTenantContext } from "@/lib/supabase/tenant-context";
 import { createLandingPage, getLpTemplateById, listLandingPages } from "@/lib/pages/store";
-import { parseContentInput, validateTargetGroupUrl } from "@/lib/pages/schema";
+import { contentDimensions, parseContentInput, validateTargetGroupUrl } from "@/lib/pages/schema";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -63,10 +63,15 @@ export async function POST(req: Request) {
       return Response.json({ error: "Template não encontrado." }, { status: 404 });
     }
 
+    // v3 grava as dimensões do modelo (o que a pessoa vai ver); v2/legado ficam nos defaults.
+    const dims = parsed.schema_version === 3 ? contentDimensions(parsed.content) : null;
     const page = await createLandingPage(ctx.tenantId, {
       template_id: template.id,
       content: parsed.content,
       content_schema_version: parsed.schema_version,
+      ...(dims
+        ? { structure: dims.structure, visual_direction: dims.visualDirection, model_version: dims.modelVersion }
+        : {}),
       campaign_slug: campaignSlug,
       target_group_url: targetGroupUrl,
       meta_pixel_id: typeof body.meta_pixel_id === "string" ? body.meta_pixel_id : null,

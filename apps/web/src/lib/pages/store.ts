@@ -129,6 +129,13 @@ export async function createLandingPage(
         status: "draft",
         content: input.content,
         content_schema_version: input.content_schema_version,
+        ...(input.structure
+          ? {
+              structure: input.structure,
+              visual_direction: input.visual_direction,
+              model_version: input.model_version,
+            }
+          : {}),
         campaign_slug: input.campaign_slug ?? null,
         target_group_url: input.target_group_url ?? null,
         meta_pixel_id: input.meta_pixel_id ?? null,

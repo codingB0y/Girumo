@@ -1,4 +1,5 @@
 import type { EditorValuesV2 } from "@/lib/pages/editor-values";
+import type { LpContentV3 } from "@/lib/pages/content-v3";
 
 /**
  * Contrato do postMessage entre o editor e o <iframe> de preview. Fica num módulo
@@ -18,7 +19,9 @@ export const PREVIEW_MESSAGE = "girumo:lp-preview";
 export const PREVIEW_PATH = "/editor-preview";
 
 export type PreviewMessage =
-  /** editor → frame: o rascunho atual */
-  | { type: typeof PREVIEW_MESSAGE; values: EditorValuesV2; ready?: never }
+  /** editor v2 → frame: o rascunho atual */
+  | { type: typeof PREVIEW_MESSAGE; values: EditorValuesV2; content?: never; ready?: never }
+  /** editor v3 → frame: o content inteiro (o rascunho v3 É um content) */
+  | { type: typeof PREVIEW_MESSAGE; content: LpContentV3; values?: never; ready?: never }
   /** frame → editor: montei, pode mandar o estado */
-  | { type: typeof PREVIEW_MESSAGE; ready: true; values?: never };
+  | { type: typeof PREVIEW_MESSAGE; ready: true; values?: never; content?: never };

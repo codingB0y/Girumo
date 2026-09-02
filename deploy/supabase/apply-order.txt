@@ -301,3 +301,8 @@ apps/web/supabase/migrations/20260831160000_claim_por_tenant.sql
 # recebem tenant_id como PARAMETRO, entao o revoke de public/anon/authenticated e
 # obrigatorio — sem ele qualquer usuario logado chamaria com o tenant de outro.
 apps/web/supabase/migrations/20260901180000_flash_offers.sql
+
+# 02/09/2026 - Paginas v3 (secoes). Os checks de structure/visual_direction em
+# landing_pages fixavam a editorial v2; passam a aceitar chave de template (regex) e
+# as tres direcoes. Seed idempotente do template evento-ao-vivo. Aplicar nos DOIS.
+apps/web/supabase/migrations/20260902090000_lp_v3_secoes.sql
