@@ -1,39 +1,69 @@
-# Handoff — Configurações da campanha, PR A (Entrada) — 02/09/2026
+# Handoff — Configurações da campanha (PRs A e B fechados) — 02/09/2026
 
-> **PR A: FECHADO.** Mergeado em [#226](https://github.com/codingB0y/Girumo/pull/226) (squash
-> `8df0888b`), branch remota apagada. CI verde nos sete checks (verify, drift, advisors, e2e e as
-> três da Vercel). Card `campanhas-config-entrada` em `no_ar_nao_verificado` — falta só a prova
-> em produção (abrir o `/r/<slug>` real no celular e ver o app abrir, e um chip mudar após salvar).
+> **PR A (Entrada): FECHADO** — [#226](https://github.com/codingB0y/Girumo/pull/226), squash `8df0888b`.
+> **PR B (Integrações): FECHADO** — [#227](https://github.com/codingB0y/Girumo/pull/227), squash `2a3207b0`.
 >
-> **Próximo:** PR B (Integrações). Plano escrito em
-> `docs/superpowers/plans/2026-09-02-config-campanha-integracoes.md`, ainda **não** implementado.
+> Os dois com CI verde nos sete checks (verify, drift, advisors, e2e e as três da Vercel), branch
+> remota apagada. Cards `campanhas-config-entrada` e `campanhas-config-integracoes` em
+> **`no_ar_nao_verificado`** — nenhum dos dois tem prova colhida em produção ainda.
+>
+> **Próximo:** PR C (Configurações dos grupos: Estado e Revisar links). Plano **não escrito** —
+> partir da spec, seção "Fatiamento" item 3, e das decisões D7 e D8.
 
-## Prompt para retomar o PR B (cole numa sessão nova)
+## Falta verificar em produção (é o que trava `no_ar_verificado`)
+
+**PR A** — abrir o `/r/<slug>` real no celular e ver o WhatsApp abrir; salvar na aba Entrada e
+ver um chip mudar no cabeçalho da campanha.
+
+**PR B** — (1) configurar pixel + token numa campanha real e ver o evento aparecer na aba
+"Testar eventos" do Gerenciador; (2) clicar num anúncio real (URL com `fbclid`) e confirmar
+**um** Lead no Gerenciador, marcado como navegador **e** servidor (dedup pelo `event_id`).
+
+## Prompt para retomar no PR C (cole numa sessão nova)
 
 ```
-Implementar o PR B das configurações da campanha (aba Integrações). Leia primeiro, nesta ordem:
-- docs/superpowers/plans/2026-09-02-config-campanha-integracoes.md (o plano — Tasks 0 a 10)
-- docs/superpowers/specs/2026-09-02-config-grupos-campanha-design.md (decisões D5, D6 e a
-  seção "API de Conversões")
+Escrever e executar o PR C das configurações dos grupos (Estado + Revisar links). Leia primeiro:
+- docs/superpowers/specs/2026-09-02-config-grupos-campanha-design.md (seção "Fatiamento" item 3,
+  decisões D7 e D8, e a seção "PR C — revisão de links")
+- docs/superpowers/plans/2026-09-02-config-campanha-integracoes.md (formato de plano a espelhar)
 - docs/handoff-2026-09-02-config-campanha.md (este arquivo)
 - memória: config-grupos-campanha-proposta, pattern-e2e-contraste-api-x-tela,
-  finding-classificador-bloqueia-merge-e-ddl
+  finding-classificador-bloqueia-merge-e-ddl, gate-drift-schema-ci
+
+ATENÇÃO — o PR C TEM MIGRAÇÃO (ação `check_invite` na CHECK constraint + colunas de revisão),
+ao contrário de A e B. Isso muda o roteiro: aplicar nos DOIS bancos (dev wfjuwogxaupyadwhvoxy e
+prod nidoatbxaylrkcgbszns), atualizar deploy/supabase/apply-order.txt e o schema-baseline.json,
+e conferir por SQL se o objeto já existe antes de escrever a migração. O gate de drift do CI
+quebra se faltar em um dos dois.
 
 Contexto operacional:
 - Worktree: C:\Users\Igor\Desktop\HubFlow-platform\.claude\worktrees\config-grupos-campanha.
-  Entrar com EnterWorktree(path). Branch nova a partir de origin/main:
-  feat/config-campanha-integracoes (Task 0 do plano). O cwd do Bash reseta: usar git -C "$W"
-  e caminhos absolutos.
+  Entrar com EnterWorktree(path). Branch nova a partir de origin/main. O cwd do Bash reseta:
+  usar git -C "$W" e caminhos absolutos.
 - node_modules já ligados por junction (raiz e apps/web). apps/web/.env.local já copiado.
   NÃO rodar npm install.
-- Sem migração: tudo em campaign_groups.metadata.settings.integracoes.
 - `gh` e `git push` podem ser recusados pelo classificador na ferramenta Bash — rodar os
   mesmos comandos pela ferramenta PowerShell.
-- Criar o card campanhas-config-integracoes em em_construcao ANTES de começar (Task 10 Step 6).
+- Criar o card do quadro em em_construcao ANTES de começar.
 
-Executar o plano task a task (superpowers:subagent-driven-development ou executing-plans),
-e fechar o loop na mesma sessão: gate local → push → PR → CI verde → merge → quadro.
+Fechar o loop na mesma sessão: gate local (verify-local.ps1) → push → PR → CI verde → merge →
+quadro.
 ```
+
+## Achados da execução do PR B (valem para o PR C)
+
+- **Estilo de teste não é uniforme:** `settings.test.ts` e `entry-page.test.ts` são `assert`
+  soltos no topo do arquivo, sem `node:test`; `csp.test.ts` e os arquivos novos usam `test()`.
+  Siga o arquivo que você está editando. Como o escopo é único no arquivo de asserts soltos,
+  **nome de `const` colide** — foi o que quebrou o primeiro run (`scripts` já existia).
+- **Trocar interpolação por `JSON.stringify` no HTML muda aspas simples para duplas** e derruba
+  assert antigo que casava `fbq('init','123')`. Foi mudança deliberada (escapa melhor); os
+  asserts antigos é que acompanharam.
+- **Teste de CSP que afirma ausência de host** (`!csp.includes("googletagmanager")`) vira
+  bloqueio quando o host passa a ser desejado. Substituído por comparação da lista inteira de
+  hosts do `script-src`, que segue barrando host novo sem virar um "não" permanente.
+- `chipLabels` ganhou segundo parâmetro **opcional** para o chip do pixel — assim nenhuma
+  chamada existente quebrou.
 
 ## Estado do PR A quando fechou
 
