@@ -10,6 +10,7 @@ import type { LandingPage } from "./schema";
 import type { LpContentV3 } from "./content-v3";
 import type { LpSection, LpSectionType, SectionOf } from "./sections";
 import { instantiateTemplate, type LpTemplateKey } from "./templates-v3";
+import type { LpVideoEmbed } from "./video";
 
 export type EditorStateV3 = {
   content: LpContentV3;
@@ -78,4 +79,9 @@ export function toSavePayload(state: EditorStateV3): Record<string, unknown> {
  */
 export function fieldErrorsV3(details: string[] | undefined): Record<string, string> {
   return Object.fromEntries((details ?? []).map((d) => [d.trim().split(" ")[0].replace(/\.$/, ""), d]));
+}
+
+/** Link canônico do vídeo — o que o editor mostra no campo quando já há `data.video`. */
+export function videoLinkOf(video: LpVideoEmbed): string {
+  return video.provider === "vimeo" ? `https://vimeo.com/${video.id}` : `https://youtu.be/${video.id}`;
 }

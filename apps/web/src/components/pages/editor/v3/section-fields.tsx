@@ -1,9 +1,11 @@
 "use client";
 
 import { Plus, Trash2 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { LpMediaRef } from "@/lib/pages/content";
-import { V3_LIMITS, V3_MAX, type LpSection, type SectionOf } from "@/lib/pages/sections";
+import { V3_GALLERY_MIN, V3_LIMITS, V3_MAX, type LpSection, type ProofVideo, type SectionOf } from "@/lib/pages/sections";
+import { parseVideoUrl } from "@/lib/pages/video";
+import { videoLinkOf } from "@/lib/pages/editor-v3";
 import { Field, TextField } from "@/components/pages/editor/fields";
 import { UploadField } from "@/components/pages/editor/upload-field";
 import { CropFocal } from "@/components/pages/editor/crop-focal";
@@ -153,8 +155,59 @@ function AudienceFields({ section, patch, errors, disabled }: { section: Section
 
 /* ------------------------------- proof ------------------------------- */
 
+const VIDEO_LINK_ERROR = "Cole um link de YouTube ou Vimeo";
+
+/**
+ * O link é texto livre que só vira `{ provider, id }` depois de passar pelo
+ * `parseVideoUrl`; link que não parseia fica só na tela (não grava) com erro
+ * local. Nome/frase/capa só aparecem com o vídeo definido — `ProofVideo` exige
+ * provider+id, então não existe "vídeo pela metade" no rascunho.
+ */
+function ProofVideoFields({ video, patch, errors, disabled }: { video?: ProofVideo; patch: Patch<SectionOf<"proof">>; errors: Errors; disabled?: boolean }) {
+  const [link, setLink] = useState(video ? videoLinkOf(video) : "");
+  const [linkError, setLinkError] = useState<string | undefined>();
+  const set = (p: Partial<ProofVideo>) => (video ? patch({ video: { ...video, ...p } }) : undefined);
+  const onLink = (raw: string) => {
+    setLink(raw);
+    if (!raw.trim()) {
+      setLinkError(undefined);
+      patch({ video: undefined });
+      return;
+    }
+    const parsed = parseVideoUrl(raw);
+    setLinkError(parsed ? undefined : VIDEO_LINK_ERROR);
+    if (parsed) patch({ video: { name: "", quote: "", ...video, ...parsed } });
+  };
+  return (
+    <>
+      <Field label="Link do vídeo (YouTube ou Vimeo)" hint="cole o link público do vídeo" error={linkError ?? errors["proof.video"]}>
+        <input type="url" className={INPUT} disabled={disabled} value={link} placeholder="https://youtu.be/..." onChange={(e) => onLink(e.target.value)} />
+      </Field>
+      {video ? (
+        <>
+          <UploadField label="Capa" hint="opcional — aparece antes do play" value={video.poster ?? null} onChange={(poster) => set({ poster: poster ?? undefined })} aspect="aspect-video" disabled={disabled} />
+          {errors["proof.video.poster"] ? <p role="alert" className="-mt-3 text-xs text-alerta">{errors["proof.video.poster"]}</p> : null}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <TextField label="Quem fala" value={video.name} onChange={(name) => set({ name })} max={L.person} error={errors["proof.video.name"]} disabled={disabled} />
+            <TextField label="Loja e cidade" hint="opcional" value={video.detail ?? ""} onChange={(detail) => set({ detail })} max={L.person} error={errors["proof.video.detail"]} placeholder="Ex.: Boutique MA · Goiânia" disabled={disabled} />
+          </div>
+          <TextField label="Frase" hint="o que a pessoa diz no vídeo, em uma linha" value={video.quote} onChange={(quote) => set({ quote })} max={L.quote} error={errors["proof.video.quote"]} multiline disabled={disabled} />
+        </>
+      ) : null}
+    </>
+  );
+}
+
 function ProofFields({ section, patch, errors, disabled }: { section: SectionOf<"proof">; patch: Patch<SectionOf<"proof">>; errors: Errors; disabled?: boolean }) {
-  const { title, prints, cards } = section.data;
+  const { title, prints, cards, video } = section.data;
+  if (section.variant === "video") {
+    return (
+      <>
+        <TitleField value={title} onChange={(t) => patch({ title: t })} error={errors["proof.title"]} disabled={disabled} />
+        <ProofVideoFields video={video} patch={patch} errors={errors} disabled={disabled} />
+      </>
+    );
+  }
   if (section.variant === "prints") {
     return (
       <>
@@ -189,6 +242,29 @@ function ProofFields({ section, patch, errors, disabled }: { section: SectionOf<
       </div>
       {cards.length < V3_MAX.proof_cards ? <AddButton label="Adicionar depoimento" disabled={disabled} onClick={() => patch({ cards: [...cards, { name: "", quote: "" }] })} /> : null}
       {errors["proof.cards"] ? <p role="alert" className="text-xs text-alerta">{errors["proof.cards"]}</p> : null}
+    </>
+  );
+}
+
+/* ------------------------------ gallery ------------------------------ */
+
+function GalleryFields({ section, patch, errors, disabled }: { section: SectionOf<"gallery">; patch: Patch<SectionOf<"gallery">>; errors: Errors; disabled?: boolean }) {
+  const { title, items } = section.data;
+  const full = items.length >= V3_MAX.gallery;
+  return (
+    <>
+      <TitleField value={title} onChange={(t) => patch({ title: t })} error={errors["gallery.title"]} disabled={disabled} />
+      <p className="text-sm font-medium text-volt-950">Fotos <span className="ml-1 text-xs font-normal text-aco/50">de {V3_GALLERY_MIN} a {V3_MAX.gallery} — a legenda é opcional</span></p>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {items.map((it, i) => (
+          <div key={i}>
+            <UploadField label={`Foto ${i + 1}`} value={it} onChange={(ref) => patch({ items: ref ? items.map((x, j) => (i === j ? ref : x)) : items.filter((_, j) => j !== i) })} altHint="a legenda que aparece embaixo da foto" aspect="aspect-square" disabled={disabled} />
+            {errors[`gallery.items[${i}]`] ? <p role="alert" className="mt-1 text-xs text-alerta">{errors[`gallery.items[${i}]`]}</p> : null}
+          </div>
+        ))}
+        <UploadField key={`new-${items.length}`} label="Adicionar foto" hint={full ? "máximo atingido" : undefined} value={null} onChange={(ref) => (ref ? patch({ items: [...items, ref] }) : undefined)} aspect="aspect-square" disabled={disabled || full} />
+      </div>
+      {errors["gallery.items"] ? <p role="alert" className="text-xs text-alerta">{errors["gallery.items"]}</p> : null}
     </>
   );
 }
@@ -300,6 +376,8 @@ export function SectionFields({
       return <AudienceFields section={section} patch={p} errors={errors} disabled={disabled} />;
     case "proof":
       return <ProofFields section={section} patch={p} errors={errors} disabled={disabled} />;
+    case "gallery":
+      return <GalleryFields section={section} patch={p} errors={errors} disabled={disabled} />;
     case "about":
       return <AboutFields section={section} patch={p} errors={errors} disabled={disabled} />;
     case "schedule":
