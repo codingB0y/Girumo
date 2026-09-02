@@ -65,3 +65,18 @@ aberta como **PR #223** (`feat/paginas-v3-secoes`). Este arquivo é o ponto de r
   `graphify query`.
 - Screenshot `fullPage` desenha o CTA fixo escondido abaixo da dobra (parece bug, não é).
 - Playwright não clica em `input.sr-only`: clicar no `<label>` pai (pista do interruptor).
+
+## RAG (LightRAG) — NÃO indexado em 02/09
+
+Os inserts `decisao-2026-09-01` e `handoff-2026-09-02-paginas-v3` entraram como `failed`
+("Embedding func: Worker execution timeout after 60s" = cota diária do Gemini esgotada; 293
+docs failed no grafo `tech`). Retry no mesmo dia não resolve. No dia seguinte, no checkout
+principal, com o venv ativo:
+
+```
+rag index --list tools/lightrag/index-lists/paginas-v3-2026-09-02.txt --full --retry-failed
+```
+
+Depois conferir com `kg_query("handoff das páginas v3", mode="naive")`. Enquanto isso, a
+continuidade está neste arquivo, no plano e na memória do Claude Code — não no grafo.
+Não reutilizar o source `decisao-2026-09-01`: já tem 11 registros `dup-*` bloqueando retry.
