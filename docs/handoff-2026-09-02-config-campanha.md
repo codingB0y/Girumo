@@ -82,9 +82,18 @@ Sem migração: tudo em `campaign_groups.metadata.settings.entrada`.
 - **PR D — Remover pessoas:** `remove_participants` (migração), listagem de participantes no
   worker, descadastrados + números colados.
 
-## Indexar no RAG
+## Indexar no RAG — SÓ DEPOIS DO MERGE
+
+O CLI resolve cada linha da lista contra o checkout principal (`config.REPO_ROOT` vem da
+localização do pacote, não do cwd). Antes do merge os arquivos novos não existem lá e o
+`rag index` morre com `FileNotFoundError`. Ordem certa, no checkout principal:
 
 ```powershell
+git pull origin main
 rag index --list tools/lightrag/index-lists/config-campanha-2026-09-02.txt --full --retry-failed
 rag stats
 ```
+
+Enquanto o PR não mergeia, o que dá para fazer é destravar o backlog de cota (277 falhos,
+166 pendentes em 02/09): `rag index --retry-failed`. A decisão em texto já foi inserida pelo
+`kg_insert_text` (source `decisao-2026-09-02`) e entra nesse retry.
