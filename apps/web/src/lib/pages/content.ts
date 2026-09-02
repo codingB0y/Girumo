@@ -6,9 +6,12 @@
 
 import { parseHex } from "./palette";
 import type { LpVideoProvider } from "./video";
+import type { LpDirection } from "./sections";
+import type { LpTemplateKey } from "./templates-v3";
 
-export type LpStructure = "conversion";
-export type LpVisualDirection = "premium";
+/** `conversion` é a estrutura editorial v2; as demais são chaves de template v3. */
+export type LpStructure = "conversion" | LpTemplateKey;
+export type LpVisualDirection = "premium" | LpDirection;
 
 /** Limites de caracteres por campo (contrato com o editor guiado). */
 export const CONTENT_LIMITS = {
@@ -180,7 +183,7 @@ function optText(v: unknown): string | undefined {
   return isNonEmptyString(v) ? v.trim() : undefined;
 }
 
-function toMediaRef(input: unknown): LpMediaRef {
+export function toMediaRef(input: unknown): LpMediaRef {
   const m = (input ?? {}) as Record<string, unknown>;
   const mediaId = optText(m.media_id);
   const url = optText(m.url);

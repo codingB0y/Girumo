@@ -15,9 +15,13 @@ export function StickyCta({ label }: { label: string }) {
   useEffect(() => {
     const el = document.getElementById("captura");
     if (!el) return;
-    const obs = new IntersectionObserver(([entry]) => setShow(!entry.isIntersecting), {
-      threshold: 0,
-    });
+    // A ÚLTIMA entry é o estado atual: num pulo de rolagem o observer entrega
+    // várias de uma vez e a primeira (a mais antiga) dizia "saiu da tela" quando o
+    // form já estava de volta — era isso que fazia a barra cobrir o botão do form.
+    const obs = new IntersectionObserver(
+      (entries) => setShow(!entries[entries.length - 1].isIntersecting),
+      { threshold: 0 },
+    );
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
@@ -33,7 +37,7 @@ export function StickyCta({ label }: { label: string }) {
   return (
     <div
       aria-hidden={!show}
-      className={`fixed inset-x-0 bottom-0 z-40 border-t border-[#ddd2c2] bg-[#efe9df]/95 p-3 backdrop-blur transition-transform duration-200 lg:hidden ${
+      className={`fixed inset-x-0 bottom-0 z-40 border-t border-[color:var(--lp-line,#ddd2c2)] bg-[var(--lp-sticky-bg,#efe9dff2)] p-3 backdrop-blur transition-transform duration-200 lg:hidden ${
         show ? "translate-y-0" : "pointer-events-none translate-y-full"
       }`}
     >

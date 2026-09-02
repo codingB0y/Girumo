@@ -111,3 +111,50 @@ export function derivePalette(brandHex: string, opts?: { background?: string }):
     reason: `Cor da marca ${brandNorm} não atingiu ${MIN_CONTRAST}:1 nem escurecendo; usando tinta ${INK}.`,
   };
 }
+
+/**
+ * Paleta pra fundo ESCURO (direção "impacto"): o mesmo contrato do papel, mas o
+ * accent é a marca CLAREADA (mistura com branco) até ler ≥ 4.5:1 sobre o fundo —
+ * escurecer, como no papel, só a afundaria no preto.
+ */
+export function deriveDarkPalette(brandHex: string, backgroundHex: string): AccessiblePalette | null {
+  const brand = parseHex(brandHex);
+  const background = parseHex(backgroundHex);
+  if (!brand || !background) return null;
+
+  const white = parseHex(LIGHT) as Rgb;
+  const ink = parseHex(INK) as Rgb;
+  const brandNorm = toHex(brand);
+  const onBrand = contrastRatio(brand, white) >= contrastRatio(brand, ink) ? LIGHT : INK;
+
+  const baseContrast = contrastRatio(brand, background);
+  if (baseContrast >= MIN_CONTRAST) {
+    return { brand: brandNorm, accent: brandNorm, onBrand, adjusted: false, reason: null };
+  }
+
+  for (let t = 0; t <= 1; t += 0.02) {
+    const candidate: Rgb = {
+      r: brand.r + (255 - brand.r) * t,
+      g: brand.g + (255 - brand.g) * t,
+      b: brand.b + (255 - brand.b) * t,
+    };
+    if (contrastRatio(candidate, background) >= MIN_CONTRAST) {
+      const accent = toHex(candidate);
+      return {
+        brand: brandNorm,
+        accent,
+        onBrand,
+        adjusted: true,
+        reason: `Cor da marca ${brandNorm} tinha contraste ${baseContrast.toFixed(2)}:1 sobre o fundo escuro (mín. ${MIN_CONTRAST}:1); clareada para ${accent}.`,
+      };
+    }
+  }
+
+  return {
+    brand: brandNorm,
+    accent: LIGHT,
+    onBrand,
+    adjusted: true,
+    reason: `Cor da marca ${brandNorm} não atingiu ${MIN_CONTRAST}:1 nem clareando; usando branco.`,
+  };
+}

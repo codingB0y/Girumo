@@ -15,8 +15,8 @@ import {
   UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { LandingPage, LpStatus } from "@/lib/pages/schema";
-import { isLpContentV2 } from "@/lib/pages/render";
+import { pageSummary, type LandingPage, type LpStatus } from "@/lib/pages/schema";
+import { isLpContentV2, isLpContentV3 } from "@/lib/pages/render";
 import type { LpLeadRow, LpMetrics } from "@/lib/pages/store";
 import { EditorForm, type EditorValues } from "@/components/pages/editor/form";
 import { ShareKit } from "@/components/pages/share-kit";
@@ -88,6 +88,8 @@ export default function PaginaDetalhePage() {
       return;
     }
     latestValuesV2Ref.current = null;
+    // v3 (seções) é editado pelo componente próprio, que carrega o content da página.
+    if (isLpContentV3(content)) return;
     setValues({
       store_name: content.store_name,
       photo_url: content.photo_url,
@@ -305,8 +307,12 @@ export default function PaginaDetalhePage() {
       <ShareKit
         slug={page.slug}
         storeName={page.content.store_name}
-        headline={page.content.headline}
-        brandColor={isLpContentV2(page.content) ? page.content.brand_color : LEGACY_BRAND_HEX}
+        headline={pageSummary(page.content).headline}
+        brandColor={
+          isLpContentV2(page.content) || isLpContentV3(page.content)
+            ? page.content.brand_color
+            : LEGACY_BRAND_HEX
+        }
         published={page.status === "published"}
       />
 

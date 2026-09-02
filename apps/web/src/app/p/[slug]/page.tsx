@@ -4,12 +4,12 @@ import { headers } from "next/headers";
 import { unstable_cache } from "next/cache";
 import { getPublishedPageBySlug } from "@/lib/pages/store";
 import type { ReactNode } from "react";
-import { noticeTextFor, resolveTargetUrl } from "@/lib/pages/schema";
-import { isLpContentV2 } from "@/lib/pages/render";
+import { noticeTextFor, pageSummary, resolveTargetUrl } from "@/lib/pages/schema";
+import { isLpContentV2, isLpContentV3 } from "@/lib/pages/render";
 import { createRenderContextToken } from "@/lib/pages/render-context";
 import { derivePalette, type AccessiblePalette } from "@/lib/pages/palette";
-import { mediaSrc } from "@/lib/pages/media";
 import { resolveTemplate, resolveStructure } from "@/components/pages/templates";
+import { SectionsPage } from "@/components/pages/templates/v3/sections-page";
 import { TrackingScripts } from "@/components/pages/tracking-scripts";
 
 export const runtime = "nodejs";
@@ -55,15 +55,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!page) return { title: "Página não encontrada" };
 
   const content = page.content;
-  const ogImage = isLpContentV2(content) ? mediaSrc(content.hero) : content.photo_url;
+  const summary = pageSummary(content);
 
   return {
-    title: `${content.headline} · ${content.store_name}`,
-    description: content.description,
+    title: `${summary.headline} · ${content.store_name}`,
+    description: summary.description,
     openGraph: {
-      title: content.headline,
-      description: content.description,
-      images: [{ url: ogImage }],
+      title: summary.headline,
+      description: summary.description,
+      images: [{ url: summary.ogImage }],
       locale: "pt_BR",
       type: "website",
     },
@@ -116,6 +116,16 @@ export default async function PublicLandingPage({ params }: PageProps) {
         slug={slug}
         content={content}
         palette={palette}
+        noticeText={noticeText}
+        renderContext={renderContext}
+      />
+    );
+  } else if (isLpContentV3(content)) {
+    // Conteúdo v3 → página de seções (direção do template).
+    body = (
+      <SectionsPage
+        slug={slug}
+        content={content}
         noticeText={noticeText}
         renderContext={renderContext}
       />

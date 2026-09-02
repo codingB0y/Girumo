@@ -1,10 +1,14 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { LpStructure, LpVisualDirection } from "./content";
+import { LP_DIRECTIONS } from "./sections";
 
 const DOMAIN = "girumo-lp-render-context.v1";
 const MAX_TOKEN_LENGTH = 4096;
 const SLUG_RE = /^[a-z0-9-]{3,60}$/;
 const BASE64URL_RE = /^[A-Za-z0-9_-]+$/;
+/** `conversion` (editorial v2) ou chave de template v3; mesma regra do check no banco. */
+const STRUCTURE_RE = /^[a-z0-9-]{3,40}$/;
+const DIRECTIONS: readonly string[] = ["premium", ...LP_DIRECTIONS];
 
 export type LpRenderContext = {
   slug: string;
@@ -63,8 +67,10 @@ function isRenderContext(value: unknown): value is LpRenderContext {
     Number.isInteger(candidate.publishedVersion) &&
     (candidate.publishedVersion as number) >= 0 &&
     (candidate.publishedVersion as number) <= 2_147_483_647 &&
-    candidate.structure === "conversion" &&
-    candidate.visualDirection === "premium" &&
+    typeof candidate.structure === "string" &&
+    STRUCTURE_RE.test(candidate.structure) &&
+    typeof candidate.visualDirection === "string" &&
+    DIRECTIONS.includes(candidate.visualDirection) &&
     Number.isInteger(candidate.modelVersion) &&
     (candidate.modelVersion as number) >= 0 &&
     (candidate.modelVersion as number) <= 2_147_483_647 &&
