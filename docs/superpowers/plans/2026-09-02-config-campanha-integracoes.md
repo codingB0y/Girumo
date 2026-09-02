@@ -48,6 +48,15 @@ o item 2 do "Fatiamento": PR B. Revisão de links e remoção de pessoas são pl
   `^G-[A-Z0-9]+$` · `google_ads.id` `^AW-\d+$` · `google_ads.label` `^[A-Za-z0-9_-]+$` ·
   `meta.evento` `^[A-Za-z][A-Za-z0-9_]{0,39}$` (padrões oferecidos: `Lead`, `Contact`,
   `CompleteRegistration`) · `test_code` `^[A-Za-z0-9]{1,32}$`.
+- **Estilo de teste: siga o arquivo, não este plano.** O repo mistura dois estilos e a regra é
+  não inventar um terceiro dentro de um arquivo que já escolheu:
+  - `settings.test.ts` e `entry-page.test.ts` **não importam `node:test`** — são `assert` no
+    topo do arquivo, com comentário acima de cada bloco. Ao acrescentar casos neles
+    (Tasks 1 e 3), **transponha** os `test("nome", () => { … })` deste plano para asserts
+    soltos, com o nome do caso virando comentário. O corpo das asserções não muda.
+  - `csp.test.ts` e os arquivos **novos** (`meta-capi.test.ts`, `route.integracoes.test.ts`,
+    `campanhas.integracoes.test.ts`, `config-chips.test.ts`) usam `test()` de `node:test`
+    normalmente, como escrito aqui.
 - **Copy em pt-BR na voz do produto**, direta e sem jargão.
 - **Nomes exatos** (a E2E casa por eles): aba `Integrações`; campos `ID do pixel`,
   `Evento de conversão`, `Token da API de Conversões`, `Código de teste`, `ID de medição (GA4)`,
