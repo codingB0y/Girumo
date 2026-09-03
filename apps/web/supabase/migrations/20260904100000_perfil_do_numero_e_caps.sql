@@ -109,6 +109,9 @@ as $$
   select c.per_day from app.instance_caps(target_instance_id) c;
 $$;
 
+revoke all on function app.instance_daily_cap(uuid) from public, anon, authenticated;
+grant execute on function app.instance_daily_cap(uuid) to service_role;
+
 -- 4) Claim de envio: mesmos predicados, tetos vindos de instance_caps.
 --    `for update of cand`: a função na cláusula FROM não é lockável.
 create or replace function app.claim_send_commands(
@@ -172,6 +175,9 @@ begin
 end;
 $function$;
 
+revoke all on function app.claim_send_commands(integer, uuid) from public, anon, authenticated;
+grant execute on function app.claim_send_commands(integer, uuid) to service_role;
+
 -- 5) record_send: reset do warm-up em 14 dias (era 72 h), só para quem não graduou.
 create or replace function app.record_send(target_instance_id uuid, target_tenant_id uuid)
 returns void
@@ -211,6 +217,9 @@ begin
   insert into public.instance_sends (instance_id) values (target_instance_id);
 end;
 $$;
+
+revoke all on function app.record_send(uuid, uuid) from public, anon, authenticated;
+grant execute on function app.record_send(uuid, uuid) to service_role;
 
 -- 6) record_send_failure ganha rate_limited. Parâmetro novo = sobrecarga, então
 --    drop antes do create (ver 20260831160000_claim_por_tenant.sql).
