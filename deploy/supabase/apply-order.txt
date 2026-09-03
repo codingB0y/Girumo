@@ -273,6 +273,12 @@ apps/web/supabase/migrations/20260830120000_group_bulk_jobs.sql
 # ultima palavra aqui e quem define o privilegio que o banco fica.
 apps/web/supabase/migrations/20260830210000_lp_rpc_sem_authenticated.sql
 
+# 30/08/2026 - Segmento (ramo) do tenant: produto horizontal, marketing vertical.
+# Coluna texto SEM CHECK (validacao na fronteira da API, lib/segments.ts) e
+# backfill 'moda_atacado' nos tenants existentes - a base atual veio inteira do
+# funil de moda e perderia as copies da biblioteca sem isso.
+apps/web/supabase/migrations/20260830233000_tenant_settings_segment.sql
+
 # 31/08/2026 - Tira `authenticated` das quatro funcoes `security definer` de
 # `public` que ainda o tinham. As duas que importam sao de LEITURA do funil:
 # `funnel_tenant_matrix` devolve tenant_id, name (com e-mail de cliente) e marcos
