@@ -98,15 +98,26 @@ export function IntegracoesForm({
 
         <label className="block">
           <span className={ROTULO}>Token da API de Conversões</span>
+          {/*
+            `autoComplete="off"` NÃO segura o Chrome num campo `type="password"`:
+            em 02/09/2026 ele preencheu o e-mail da conta por cima de um token
+            já guardado. `new-password` é o valor que os navegadores respeitam,
+            e o `name` fora do vocabulário de credencial tira o campo da
+            heurística. O servidor recusa o que não parecer token de qualquer
+            forma — isto aqui é para o acidente não chegar lá.
+          */}
           <input
             className={CAMPO}
             type="password"
-            autoComplete="off"
+            name="capi-token"
+            autoComplete="new-password"
+            data-1p-ignore
+            data-lpignore="true"
             placeholder={
               value.meta.capi_token_set ? `Guardado · termina em ${value.meta.capi_token_last4}` : "Cole o token aqui"
             }
             value={value.capi_token_novo ?? ""}
-            onChange={(e) => onChange({ ...value, capi_token_novo: e.target.value })}
+            onChange={(e) => onChange({ ...value, capi_token_novo: e.target.value.trim() })}
           />
           <p className={DICA}>
             Sem ele, quem bloqueia rastreamento no celular some da sua conta.
