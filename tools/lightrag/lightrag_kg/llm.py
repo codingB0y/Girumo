@@ -88,10 +88,15 @@ async def llm_model_func(
         raise
 
 
+# O free tier de embedding tem teto por minuto (100 req/min em
+# gemini-embedding-1.0) e o 429 vem com `retryDelay` de ~32s. Com `max=6` as tres
+# tentativas queimavam em ~7s, todas levavam 429, e o RetryError subia ate matar o
+# flush do vetor ("IndexFlushError ... index flush failed"). Mesma escada do LLM
+# aqui em cima, que ja esperava ate 60s.
 @retry(
     retry=retry_if_exception(_is_retryable),
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=1, max=6),
+    stop=stop_after_attempt(6),
+    wait=wait_exponential(multiplier=2, min=5, max=60),
 )
 async def _embed_content(model: str, texts: list[str]):
     await _throttle()
