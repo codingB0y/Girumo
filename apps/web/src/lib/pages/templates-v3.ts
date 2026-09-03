@@ -11,7 +11,7 @@
 import type { LpContentV3 } from "./content-v3";
 import type { LpDirection, LpSection, LpSectionType } from "./sections";
 
-export const TEMPLATE_KEYS = ["evento-ao-vivo", "promo-relampago", "acesso-vip", "lista-de-espera"] as const;
+export const TEMPLATE_KEYS = ["evento-ao-vivo", "promo-relampago", "acesso-vip", "lista-de-espera", "vitrine"] as const;
 export type LpTemplateKey = (typeof TEMPLATE_KEYS)[number];
 
 export function isTemplateKey(value: unknown): value is LpTemplateKey {
@@ -360,6 +360,81 @@ function presets(sections: LpSection[]): SectionPreset[] {
   return sections.map(({ type, variant, enabled }) => ({ type, variant, enabled }));
 }
 
+const VITRINE_SECTIONS: LpSection[] = [
+  {
+    type: "hero",
+    variant: "form",
+    enabled: true,
+    data: {
+      badge: "Catálogo do grupo",
+      headline: "As peças da semana com preço, direto no seu WhatsApp",
+      highlight: "com preço",
+      description:
+        "Foto, tamanho e valor de atacado na hora que a coleção chega. Quem está no grupo escolhe antes de a peça acabar.",
+      media: null,
+    },
+  },
+  {
+    // Nasce desligada como no acesso-vip: seção de mídia sem foto não valida
+    // (2 fotos no mínimo). O lojista sobe as peças e liga — é o primeiro passo
+    // que o editor pede neste modelo.
+    type: "gallery",
+    variant: "carousel",
+    enabled: false,
+    data: { title: "O que está no grupo agora", items: [] },
+  },
+  {
+    type: "deliverables",
+    variant: "checklist",
+    enabled: true,
+    data: {
+      title: "Como funciona a compra",
+      items: [
+        { title: "Preço na foto", description: "Cada peça vai com valor e tamanhos disponíveis." },
+        { title: "Reserva por ordem", description: "Quem responde primeiro leva — sem leilão, sem fila paralela." },
+        { title: "Envio combinado", description: "Frete e prazo fechados no privado depois do pedido." },
+      ],
+    },
+  },
+  {
+    type: "proof",
+    variant: "prints",
+    enabled: false,
+    data: { title: "Quem já comprou", prints: [], cards: [] },
+  },
+  {
+    type: "schedule",
+    variant: "rules",
+    enabled: true,
+    data: {
+      title: "Regras do grupo",
+      items: [
+        { label: "Postagem", title: "Só a loja publica", description: "Ninguém mais posta: o grupo não vira lista de recado." },
+        { label: "Pedido", title: "Responda a foto da peça", description: "Assim a reserva fica registrada na ordem certa." },
+        { label: "Saída", title: "Sai quando quiser", description: "Sem cobrança e sem precisar avisar." },
+      ],
+    },
+  },
+  {
+    type: "cta_band",
+    variant: "band",
+    enabled: true,
+    data: { title: "Entre e veja a coleção de hoje", note: "O convite chega logo depois do cadastro." },
+  },
+  {
+    type: "faq",
+    variant: "accordion",
+    enabled: false,
+    data: {
+      title: "Perguntas frequentes",
+      items: [
+        { q: "Tem pedido mínimo?", a: "Sim, e ele aparece na descrição de cada peça no grupo." },
+        { q: "Posso comprar uma peça só?", a: "Depende da grade. A loja confirma no privado antes do pagamento." },
+      ],
+    },
+  },
+];
+
 export const TEMPLATES_V3: Record<LpTemplateKey, LpTemplateV3> = {
   "evento-ao-vivo": {
     key: "evento-ao-vivo",
@@ -432,6 +507,24 @@ export const TEMPLATES_V3: Record<LpTemplateKey, LpTemplateV3> = {
       brand_color: "#1F5F5B",
       cta: "Quero entrar na lista",
       sections: LISTA_DE_ESPERA_SECTIONS,
+    },
+  },
+  vitrine: {
+    key: "vitrine",
+    name: "Vitrine",
+    description: "Carrossel de peças com preço, regras do grupo e cadastro no topo.",
+    usage: "Para quem vende pelo grupo e quer mostrar a peça e o valor antes de pedir o número.",
+    direction: "vitrine",
+    sections: presets(VITRINE_SECTIONS),
+    example: {
+      schema_version: 3,
+      template: "vitrine",
+      direction: "vitrine",
+      store_name: "Bazar Norte",
+      logo: null,
+      brand_color: "#1F6F43",
+      cta: "Quero ver o catálogo",
+      sections: VITRINE_SECTIONS,
     },
   },
 };

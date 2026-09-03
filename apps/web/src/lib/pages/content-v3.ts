@@ -21,6 +21,7 @@ import {
   V3_LIMITS,
   V3_MAX,
   emptySectionData,
+  type GalleryItem,
   isSectionType,
   isVariantOf,
   type LpDirection,
@@ -176,7 +177,10 @@ function validateSectionData(errors: string[], section: Rec): void {
     case "gallery": {
       text(errors, d.title, "gallery.title", L.section_title, true);
       const items = list(errors, d.items, "gallery.items", V3_GALLERY_MIN, V3_MAX.gallery);
-      items?.forEach((it, i) => media(errors, it, `gallery.items[${i}]`));
+      items?.forEach((it, i) => {
+        media(errors, it, `gallery.items[${i}]`);
+        text(errors, it.price, `gallery.items[${i}].price`, L.price, false);
+      });
       return;
     }
     case "about": {
@@ -345,7 +349,12 @@ function sanitizeData(type: LpSectionType, variant: string, raw: unknown): LpSec
         { video: sanitizeProofVideo(d.video) },
       );
     case "gallery":
-      return { title: reqText(d.title), items: objects(d.items, V3_MAX.gallery).map(toMediaRef) };
+      return {
+        title: reqText(d.title),
+        items: objects(d.items, V3_MAX.gallery).map((it) =>
+          withOpt(toMediaRef(it) as GalleryItem, { price: optText(it.price) }),
+        ),
+      };
     case "about":
       return withOpt(
         { title: reqText(d.title), name: reqText(d.name), text: reqText(d.text), media: optMedia(d.media) },

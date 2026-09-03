@@ -154,6 +154,52 @@ test("gallery needs 2 to 6 photos with alt, only when it is on", () => {
   assert.equal(g.data.items.length, 3);
 });
 
+test("gallery price is optional, capped and survives the sanitize", () => {
+  const content = instantiateTemplate("vitrine", NOW);
+  const gallery = content.sections.find((s) => s.type === "gallery");
+  assert.ok(gallery && gallery.type === "gallery");
+  assert.equal(gallery.variant, "carousel");
+
+  gallery.enabled = true;
+  gallery.data.items = [
+    { media_id: "m1", alt: "Vestido" },
+    { media_id: "m2", alt: "Conjunto", price: "R$ 39,90" },
+  ];
+  assert.deepEqual(validateContentV3(content), [], "preço opcional: uma foto sem preço vale");
+
+  gallery.data.items[0].price = "R$ 1.234.567.890,00";
+  assert.ok(validateContentV3(content).some((e) => e.startsWith("gallery.items[0].price")));
+
+  gallery.data.items[0].price = "3x R$ 20";
+  assert.deepEqual(validateContentV3(content), []);
+  const clean = toContentV3(content as unknown as Record<string, unknown>);
+  const g = clean.sections.find((s) => s.type === "gallery");
+  assert.ok(g && g.type === "gallery");
+  assert.deepEqual(
+    g.data.items.map((it) => it.price),
+    ["3x R$ 20", "R$ 39,90"],
+  );
+});
+
+test("gallery accepts the three variants and refuses anything else", () => {
+  const content = instantiateTemplate("vitrine", NOW);
+  const gallery = content.sections.find((s) => s.type === "gallery");
+  assert.ok(gallery && gallery.type === "gallery");
+  gallery.enabled = true;
+  gallery.data.items = [
+    { media_id: "m1", alt: "Peça 1" },
+    { media_id: "m2", alt: "Peça 2" },
+  ];
+
+  for (const variant of ["grid", "masonry", "carousel"] as const) {
+    gallery.variant = variant;
+    assert.deepEqual(validateContentV3(content), [], `${variant} deveria valer`);
+  }
+
+  (gallery as { variant: string }).variant = "mosaico";
+  assert.ok(validateContentV3(content).some((e) => e.includes("gallery")));
+});
+
 test("video proof needs a known provider, an id, who speaks and the quote", () => {
   const content = instantiateTemplate("acesso-vip", NOW);
   const proof = content.sections.find((s) => s.type === "proof");

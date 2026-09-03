@@ -151,6 +151,21 @@ test.describe("páginas v3 (seções)", () => {
     await expect(page.getByRole("button", { name: /Salvar rascunho/ })).toBeVisible();
     await semErroDeRuntime(page);
   });
+
+  test("a galeria oferece a Vitrine, com carrossel de peças na direção vitrine", async ({ page }) => {
+    test.skip(process.env.NEXT_PUBLIC_LP_TEMPLATES_V3 !== "on", "NEXT_PUBLIC_LP_TEMPLATES_V3 desligada no servidor alvo");
+    await page.goto("/painel/pages/nova");
+    const card = page.getByRole("listitem").filter({ hasText: "Vitrine" });
+    await expect(card).toBeVisible();
+    await expect(card).toContainText(/vitrine/i);
+    await card.getByRole("button", { name: "Usar este modelo" }).click();
+    // A galeria nasce desligada (seção de mídia sem foto não valida) mas já no carrossel.
+    const galeria = page.getByRole("switch", { name: /Galeria de peças/ });
+    await expect(galeria).toBeVisible();
+    await expect(page.getByRole("switch", { name: /Programação/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Salvar rascunho/ })).toBeVisible();
+    await semErroDeRuntime(page);
+  });
 });
 
 /* ------------------------- migração v2 → v3 (Fase 2) ------------------------- */

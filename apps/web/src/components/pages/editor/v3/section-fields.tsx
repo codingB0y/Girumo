@@ -254,12 +254,21 @@ function GalleryFields({ section, patch, errors, disabled }: { section: SectionO
   return (
     <>
       <TitleField value={title} onChange={(t) => patch({ title: t })} error={errors["gallery.title"]} disabled={disabled} />
-      <p className="text-sm font-medium text-volt-950">Fotos <span className="ml-1 text-xs font-normal text-aco/50">de {V3_GALLERY_MIN} a {V3_MAX.gallery} — a legenda é opcional</span></p>
+      <p className="text-sm font-medium text-volt-950">Fotos <span className="ml-1 text-xs font-normal text-aco/50">de {V3_GALLERY_MIN} a {V3_MAX.gallery} — legenda e preço são opcionais</span></p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {items.map((it, i) => (
           <div key={i}>
             <UploadField label={`Foto ${i + 1}`} value={it} onChange={(ref) => patch({ items: ref ? items.map((x, j) => (i === j ? ref : x)) : items.filter((_, j) => j !== i) })} altHint="a legenda que aparece embaixo da foto" aspect="aspect-square" disabled={disabled} />
             {errors[`gallery.items[${i}]`] ? <p role="alert" className="mt-1 text-xs text-alerta">{errors[`gallery.items[${i}]`]}</p> : null}
+            <TextField
+              label={`Preço da foto ${i + 1}`}
+              hint="opcional — sai como etiqueta em cima da foto"
+              value={it.price ?? ""}
+              onChange={(price) => patch({ items: items.map((x, j) => (i === j ? { ...x, price } : x)) })}
+              max={L.price}
+              error={errors[`gallery.items[${i}].price`]}
+              disabled={disabled}
+            />
           </div>
         ))}
         <UploadField key={`new-${items.length}`} label="Adicionar foto" hint={full ? "máximo atingido" : undefined} value={null} onChange={(ref) => (ref ? patch({ items: [...items, ref] }) : undefined)} aspect="aspect-square" disabled={disabled || full} />
