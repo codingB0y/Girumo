@@ -9,6 +9,7 @@ import { SignupProgress } from "@/components/signup-progress";
 import { FirstTouchCookie } from "@/components/analytics/first-touch-cookie";
 import { persistSupabaseSession, startGoogleOAuth } from "@/lib/supabase/client";
 import { LEGAL_VERSION } from "@/lib/legal";
+import { SEGMENTS } from "@/lib/segments";
 
 function GoogleIcon() {
   return (
@@ -33,6 +34,8 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [acceptedLegal, setAcceptedLegal] = useState(false);
+  // Ramo do negócio — opcional de propósito (atrito zero no cadastro).
+  const [segment, setSegment] = useState("");
 
   const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
   const valid = name.trim().length > 0 && emailOk && password.length >= 6 && acceptedLegal;
@@ -65,7 +68,13 @@ export default function SignupPage() {
       const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, legalVersion: LEGAL_VERSION }),
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+          legalVersion: LEGAL_VERSION,
+          ...(segment ? { segment } : {}),
+        }),
       });
 
       if (response.ok) {
@@ -138,6 +147,25 @@ export default function SignupPage() {
           {password.length > 0 && password.length < 6 && (
             <p className="mt-1 text-xs text-canvas-100/80">A senha precisa de pelo menos 6 caracteres.</p>
           )}
+        </div>
+        <div>
+          {/* Alimenta os packs de conteúdo do painel; quem pular escolhe em Configurações. */}
+          <label htmlFor="signup-segment" className="mb-1.5 block text-sm font-medium text-canvas-100/70">
+            O que você vende? <span className="font-normal text-canvas-100/40">(opcional)</span>
+          </label>
+          <select
+            id="signup-segment"
+            value={segment}
+            onChange={(e) => setSegment(e.target.value)}
+            className={inputClass}
+          >
+            <option value="">Escolher depois</option>
+            {SEGMENTS.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         <LegalConsentCheckbox checked={acceptedLegal} onChange={setAcceptedLegal} />

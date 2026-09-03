@@ -3,16 +3,22 @@
 import { useMemo, useState } from "react";
 import { Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { LIBRARY_CATEGORIES, LIBRARY_COPIES, type LibraryCategory } from "@/lib/library-copies";
+import { LIBRARY_CATEGORIES, type LibraryCategory } from "@/lib/library-copies";
+import { libraryCopiesForSegment } from "@/lib/content-packs";
+import { useTenantSegment } from "@/components/painel/use-tenant-segment";
 
 // Biblioteca incorporada dentro de Campanhas (sem item próprio na sidebar).
 export default function PainelBiblioteca() {
   const [active, setActive] = useState<LibraryCategory | "all">("all");
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  // Pack pelo ramo do tenant. Enquanto o ramo carrega, a grade mostra skeleton
+  // em vez de piscar do pack neutro pro pack certo.
+  const segment = useTenantSegment();
+  const base = useMemo(() => libraryCopiesForSegment(segment ?? null), [segment]);
   const copies = useMemo(
-    () => (active === "all" ? LIBRARY_COPIES : LIBRARY_COPIES.filter((c) => c.category === active)),
-    [active],
+    () => (active === "all" ? base : base.filter((c) => c.category === active)),
+    [active, base],
   );
 
   async function handleCopy(id: string, body: string) {
@@ -61,7 +67,13 @@ export default function PainelBiblioteca() {
       </div>
 
       {/* Cards de copy */}
-      {copies.length === 0 ? (
+      {segment === undefined ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="pn-skeleton h-40 rounded-2xl" />
+          ))}
+        </div>
+      ) : copies.length === 0 ? (
         <div className="pn-card rounded-2xl px-5 py-16 text-center">
           <p className="font-editorial text-[22px] italic text-volt-950">Nenhuma copy nessa categoria ainda.</p>
         </div>

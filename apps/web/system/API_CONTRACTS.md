@@ -326,3 +326,15 @@ só vira marca depois que a instância provou que responde — pelo menos um con
 preenchido no mesmo run. Enquanto não provar, ele conta como `skipped`; e 3
 seguidos sem nenhum convite param o loop daquele tenant (log `console.error`) e o
 run segue para os outros tenants.
+
+## Settings do tenant + segmento (GET/PATCH /api/settings) — 30/08/2026
+
+GET → `200` `{ tenantId, weeklyReportEnabled, disconnectAlertEnabled, broadcastAlertEnabled,
+monthlyGoalContacts, monthlyGoalRevenue, segment, onboardingDismissedAt, onboardingCompletedAt, updatedAt? }`
+
+PATCH body (todos opcionais): os campos acima, sendo `segment: SegmentId | null` — ids canônicos em
+`src/lib/segments.ts` (`moda_atacado`, `calcados`, `beleza`, `mercado`, `moveis`, `outro`); valor fora do
+catálogo → `400`; `null`/`""` limpam. `segment` alimenta os packs de conteúdo (`src/lib/content-packs.ts`):
+`moda_atacado` → copies originais da biblioteca; `mercado` → pack próprio; demais/`null` → pack neutro.
+`POST /api/auth/signup` aceita `segment` opcional e grava best-effort após criar o tenant (conta > ramo).
+Tenants anteriores à migração `20260830233000` foram backfillados como `moda_atacado`.
