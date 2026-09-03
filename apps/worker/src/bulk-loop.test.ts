@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   bulkDidWork,
+  drainInFlight,
   runBulkTick,
   type BulkAck,
   type BulkDeps,
@@ -252,6 +253,47 @@ test("falha carrega o status HTTP — e o que separa passageiro de permanente", 
   assert.equal(ack.status, "failed");
   assert.equal(ack.httpStatus, 403);
   assert.ok(ack.detail?.includes("not-authorized"), "detail deve levar a causa da Evolution");
+});
+
+test("o tick devolve antes da Evolution terminar e o ack chega depois", async () => {
+  let resolveEvolution!: () => void;
+  const { deps, rec } = makeDeps({
+    claimJobs: async () => [job({ id: "j1", action: "open" })],
+    setOpenToAll: () =>
+      new Promise<void>((resolve) => {
+        resolveEvolution = resolve;
+      }),
+  });
+
+  const summary = await runBulkTick(deps);
+
+  assert.equal(summary.started, 1);
+  assert.deepEqual(rec.acks, [], "ack nao pode ter chegado antes da Evolution responder");
+
+  resolveEvolution();
+  await drainInFlight();
+
+  assert.deepEqual(
+    rec.acks.map((a) => a.jobId),
+    ["j1"],
+  );
+});
+
+test("tenants correm em paralelo: dois tenants, um tick, dois starts", async () => {
+  const starts: string[] = [];
+  const { deps } = makeDeps({
+    listTenants: async () => ["t1", "t2"],
+    claimJobs: async (tenantId) => [job({ id: `j-${tenantId}` })],
+    setOpenToAll: async () => {
+      starts.push("x");
+    },
+  });
+
+  const summary = await runBulkTick(deps);
+  await drainInFlight();
+
+  assert.equal(summary.started, 2);
+  assert.equal(starts.length, 2);
 });
 
 test("acao sem dado nao poe a chave invite no ack", async () => {

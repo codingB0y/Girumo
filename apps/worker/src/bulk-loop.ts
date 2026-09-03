@@ -12,6 +12,13 @@
  * Quinze chamadas de admin no mesmo segundo e 55s de silêncio dariam o mesmo
  * número por minuto e são exatamente o padrão de automação que se quer evitar.
  *
+ * O espaçamento é entre INÍCIOS, não entre fins: o tick agenda a chamada à
+ * Evolution e devolve — não espera ela terminar. Esperar o fim faria um tenant
+ * lento (ou uma Evolution devagar) atrasar o início de todos os outros no mesmo
+ * tick, o que é exatamente o oposto de "espaçado". O ack de cada job chega
+ * quando a chamada resolve, possivelmente depois do tick já ter retornado; quem
+ * precisa esperar esse resto em voo (shutdown) chama `drainInFlight`.
+ *
  * O teto vive em DOIS lugares de propósito: no `p_limit` da RPC `claim_bulk_jobs`
  * e aqui. Um `p_limit` alterado sem querer não pode virar rajada silenciosa.
  *
@@ -79,7 +86,11 @@ export type BulkDeps = {
 export type BulkTickSummary = {
   tenants: number;
   claimed: number;
+  /** Jobs agendados (chamada à Evolution disparada) neste tick. */
+  started: number;
+  /** Acks concluídos com sucesso — pode fechar depois que o tick já retornou. */
   done: number;
+  /** Acks concluídos com falha — idem `done`, fecha quando a chamada resolve. */
   failed: number;
 };
 
@@ -91,6 +102,15 @@ export const DEFERRED_REASON =
 
 function reason(error: unknown): string {
   return error instanceof Error ? error.message : "erro desconhecido";
+}
+
+/** Execuções em voo. O tick agenda e devolve; o ack fecha aqui. */
+const inFlight = new Set<Promise<void>>();
+
+/** Agenda `p` para rodar sem bloquear quem chamou, mas continua rastreável. */
+function track(p: Promise<void>): void {
+  inFlight.add(p);
+  void p.finally(() => inFlight.delete(p));
 }
 
 /**
@@ -154,6 +174,37 @@ function detalhaFalha(error: unknown): { error: string; httpStatus?: number; det
     : { error: mensagem };
 }
 
+/**
+ * Aplica UM job e faz o ack correspondente — sucesso ou falha. Roda desacoplada
+ * do tick (ver `track` em `runTenant`), então NUNCA pode rejeitar: se o ack de
+ * falha também falhar, só resta logar — não há mais ninguém no call stack para
+ * capturar.
+ */
+async function executeAndAck(
+  deps: BulkDeps,
+  tenantId: string,
+  instanceName: string,
+  job: BulkJobClaim,
+  summary: BulkTickSummary,
+): Promise<void> {
+  try {
+    const invite = await applyJob(deps, tenantId, instanceName, job);
+    summary.done += 1;
+    await deps.ack(tenantId, job.id, {
+      status: "done",
+      // Só a revisão devolve dado; as outras não põem a chave no ack.
+      ...(job.action === "check_invite" ? { invite: invite ?? null } : {}),
+    });
+  } catch (error) {
+    summary.failed += 1;
+    try {
+      await deps.ack(tenantId, job.id, { status: "failed", ...detalhaFalha(error) });
+    } catch (ackError) {
+      log.error("ações em massa: ack falhou", { job: job.id, error: reason(ackError) });
+    }
+  }
+}
+
 async function runTenant(
   deps: BulkDeps,
   tenantId: string,
@@ -178,18 +229,11 @@ async function runTenant(
       continue;
     }
 
-    try {
-      const invite = await applyJob(deps, tenantId, instanceName, job);
-      summary.done += 1;
-      await deps.ack(tenantId, job.id, {
-        status: "done",
-        // Só a revisão devolve dado; as outras não põem a chave no ack.
-        ...(job.action === "check_invite" ? { invite: invite ?? null } : {}),
-      });
-    } catch (error) {
-      summary.failed += 1;
-      await deps.ack(tenantId, job.id, { status: "failed", ...detalhaFalha(error) });
-    }
+    // Fire-and-track: agenda a chamada à Evolution e segue para o próximo
+    // tenant sem esperar. O ack (done/failed) fecha quando `executeAndAck`
+    // resolver, rastreado em `inFlight` para o shutdown poder esperar.
+    summary.started += 1;
+    track(executeAndAck(deps, tenantId, instanceName, job, summary));
   }
 
   for (const job of excedente) {
@@ -199,29 +243,34 @@ async function runTenant(
 }
 
 export async function runBulkTick(deps: BulkDeps): Promise<BulkTickSummary> {
-  const summary: BulkTickSummary = { tenants: 0, claimed: 0, done: 0, failed: 0 };
+  const summary: BulkTickSummary = { tenants: 0, claimed: 0, started: 0, done: 0, failed: 0 };
 
   const tenants = await deps.listTenants();
   summary.tenants = tenants.length;
 
-  for (const tenantId of tenants) {
-    try {
-      await runTenant(deps, tenantId, summary);
-    } catch (error) {
+  // Tenants em paralelo: um tenant lento para claim/instanceFor não pode
+  // atrasar o início dos outros no mesmo tick.
+  const results = await Promise.allSettled(
+    tenants.map((tenantId) => runTenant(deps, tenantId, summary)),
+  );
+  results.forEach((result, index) => {
+    if (result.status === "rejected") {
       // Um tenant fora do ar não pode travar a fila dos outros.
       log.warn("ações em massa: tenant falhou no tick", {
-        tenant_id: tenantId,
-        error: reason(error),
+        tenant_id: tenants[index],
+        error: reason(result.reason),
       });
     }
-  }
+  });
 
   return summary;
 }
 
 export function bulkDidWork(summary: BulkTickSummary): boolean {
-  return summary.claimed > 0 || summary.done > 0 || summary.failed > 0;
+  return summary.claimed > 0 || summary.started > 0 || summary.done > 0 || summary.failed > 0;
 }
 
-// ponytail: stub — C2 implementa o dreno real das ações em massa em voo no shutdown.
-export async function drainInFlight(): Promise<void> {}
+/** Espera o que estiver em voo — chamar no shutdown, antes de encerrar o processo. */
+export async function drainInFlight(): Promise<void> {
+  await Promise.allSettled([...inFlight]);
+}
