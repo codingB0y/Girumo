@@ -5,7 +5,7 @@ import type { LpSection, UrgencySection } from "@/lib/pages/sections";
 import { deriveDarkPalette, derivePalette, type AccessiblePalette } from "@/lib/pages/palette";
 import { LeadFormFields } from "@/components/pages/templates/sections/lead-form-fields";
 import { StickyCta } from "@/components/pages/templates/sections/sticky-cta";
-import { directionBackground, directionStyle } from "@/components/pages/templates/v3/tokens";
+import { directionBackground, directionStyle, isLightDirection } from "@/components/pages/templates/v3/tokens";
 import { HeroImpacto } from "@/components/pages/templates/v3/sections/hero";
 import { UrgencyBand, UrgencyTopBar } from "@/components/pages/templates/v3/sections/urgency";
 import { Deliverables } from "@/components/pages/templates/v3/sections/deliverables";
@@ -100,12 +100,13 @@ function renderSection(section: LpSection, content: LpContentV3, form: ReactNode
  * só (#captura), dentro do hero; faixa e CTA fixo rolam até ele.
  */
 export function SectionsPage({ slug, content, noticeText, renderContext, preview }: SectionsPageProps) {
-  const editorial = content.direction === "editorial";
+  const light = isLightDirection(content.direction);
   const bg = directionBackground(content.direction);
   const palette =
-    (editorial ? derivePalette(content.brand_color, { background: bg }) : deriveDarkPalette(content.brand_color, bg)) ??
+    (light ? derivePalette(content.brand_color, { background: bg }) : deriveDarkPalette(content.brand_color, bg)) ??
     FALLBACK_PALETTE;
-  const font = editorial ? displaySerif : display;
+  // Serifa é assinatura da editorial; vitrine e impacto escrevem em sans.
+  const font = content.direction === "editorial" ? displaySerif : display;
   const enabled = content.sections.filter((s) => s.enabled);
   const topBar = enabled.find(isTopBar);
 

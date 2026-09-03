@@ -67,8 +67,13 @@ export default async function LpPreviewFixture({ searchParams }: Props) {
   if (modelo) {
     if (!isTemplateKey(modelo)) notFound();
     const content = instantiateTemplate(modelo);
-    const dark = content.direction !== "editorial";
-    const [bg, fg] = dark ? ["#1d2731", "#8593a0"] : ["#ddd0be", "#8d7f6d"];
+    // Só a impacto é escura: editorial e vitrine querem placeholder claro.
+    const dark = content.direction === "impacto";
+    const [bg, fg] = dark
+      ? ["#1d2731", "#8593a0"]
+      : content.direction === "vitrine"
+        ? ["#e8e7e3", "#8b9099"]
+        : ["#ddd0be", "#8d7f6d"];
     for (const s of content.sections) {
       if (s.type === "hero") s.data.media = { url: svg(800, 1000, "Foto", bg, fg), alt: "Foto de exemplo" };
       if (s.type === "about") s.data.media = { url: svg(800, 1000, "Retrato", bg, fg), alt: "Retrato de exemplo" };
@@ -82,7 +87,13 @@ export default async function LpPreviewFixture({ searchParams }: Props) {
       }
       if (s.type === "gallery") {
         s.enabled = true;
-        s.data.items = ["Vestido midi", "Conjunto de linho", "Vestido estampado"].map((alt, i) => ({ url: svg(600, 800, `Peça ${i + 1}`, bg, fg), alt }));
+        // Preço só na vitrine: é a variante que existe pra mostrar valor.
+        const precos = content.direction === "vitrine" ? ["R$ 39,90", "R$ 54,90", "3x R$ 20"] : [];
+        s.data.items = ["Vestido midi", "Conjunto de linho", "Vestido estampado"].map((alt, i) => ({
+          url: svg(600, 800, `Peça ${i + 1}`, bg, fg),
+          alt,
+          ...(precos[i] ? { price: precos[i] } : {}),
+        }));
       }
     }
     return <SectionsPage slug="dev-preview" content={content} />;

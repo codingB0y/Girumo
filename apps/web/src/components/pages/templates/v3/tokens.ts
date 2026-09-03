@@ -88,14 +88,63 @@ export function editorialStyle(palette: AccessiblePalette): CSSProperties {
   } as CSSProperties;
 }
 
-/** Fundo da direção — é o que a paleta acessível da marca recebe como base. */
-export function directionBackground(direction: LpDirection): string {
-  return direction === "editorial" ? EDITORIAL.paper : IMPACTO.bg;
+/**
+ * Tokens da direção "vitrine" (Fase 3): a pele de quem vende peça. Fundo quase
+ * branco e superfície branca para a foto ser a única cor forte da tela — o
+ * oposto da impacto, onde o fundo escuro é o palco. Fio fino e sem brilho: aqui
+ * o cartão é etiqueta, não peça de vitrine iluminada. Display em sans pesado
+ * com tracking curto, do jeito que catálogo de atacado escreve preço.
+ */
+export const VITRINE = {
+  bg: "#f7f7f5",
+  surface: "#ffffff",
+  surface2: "#f0efec",
+  ink: "#14161a",
+  muted: "#6a6f78",
+  line: "#e3e2de",
+} as const;
+
+export function vitrineStyle(palette: AccessiblePalette): CSSProperties {
+  return {
+    "--lp-bg": VITRINE.bg,
+    "--lp-surface": VITRINE.surface,
+    "--lp-surface-2": VITRINE.surface2,
+    "--lp-ink": VITRINE.ink,
+    "--lp-muted": VITRINE.muted,
+    "--lp-line": VITRINE.line,
+    "--lp-brand": palette.brand,
+    "--lp-on-brand": palette.onBrand,
+    "--lp-accent": palette.accent,
+    "--lp-brand-soft": `${palette.brand}14`, // ~8%: etiqueta de preço sobre o branco
+    "--lp-brand-glow": `${palette.brand}1f`,
+    "--lp-field-bg": "#ffffff",
+    "--lp-field-border": VITRINE.line,
+    "--lp-field-ink": VITRINE.ink,
+    "--lp-field-placeholder": "#9aa0a8",
+    "--lp-sticky-bg": "rgba(247,247,245,0.96)",
+    "--lp-glint": "rgba(255,255,255,0.9)",
+    "--lp-chip": "rgba(20,22,26,0.04)",
+    "--lp-display-weight": "700",
+    "--lp-display-tracking": "-0.02em",
+  } as CSSProperties;
 }
 
-/** `vitrine` ainda não tem pele própria (Fase 3): cai na impacto. */
+/** Fundo da direção — é o que a paleta acessível da marca recebe como base. */
+export function directionBackground(direction: LpDirection): string {
+  if (direction === "editorial") return EDITORIAL.paper;
+  if (direction === "vitrine") return VITRINE.bg;
+  return IMPACTO.bg;
+}
+
+/** Direções claras derivam a paleta da marca SOBRE o claro; a impacto, sobre o escuro. */
+export function isLightDirection(direction: LpDirection): boolean {
+  return direction !== "impacto";
+}
+
 export function directionStyle(direction: LpDirection, palette: AccessiblePalette): CSSProperties {
-  return direction === "editorial" ? editorialStyle(palette) : impactoStyle(palette);
+  if (direction === "editorial") return editorialStyle(palette);
+  if (direction === "vitrine") return vitrineStyle(palette);
+  return impactoStyle(palette);
 }
 
 /**

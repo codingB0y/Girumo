@@ -311,3 +311,9 @@ apps/web/supabase/migrations/20260902090000_lp_v3_secoes.sql
 # primeira v2, para reversao) e migrated_to_v3_at em landing_pages; seed idempotente dos
 # templates acesso-vip e lista-de-espera. Aplicar nos DOIS.
 apps/web/supabase/migrations/20260903090000_lp_v3_migracao.sql
+
+# 03/09/2026 - Paginas v3, Fase 3: registro do modelo "Vitrine" em
+# landing_page_templates. Sem DDL: o CHECK de structure e regex e visual_direction ja
+# aceita vitrine desde a Fase 1. Sem esta linha o modelo aparece na galeria e recusa ao
+# salvar. Aplicar nos DOIS.
+apps/web/supabase/migrations/20260903120000_lp_v3_vitrine.sql

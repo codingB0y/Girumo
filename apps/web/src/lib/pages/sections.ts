@@ -44,6 +44,7 @@ export const V3_LIMITS = {
   long_text: 400,
   person: 60,
   quote: 180,
+  price: 16,
   urgency_label: 80,
   faq_q: 120,
   faq_a: 400,
@@ -93,7 +94,10 @@ export type ProofVideo = LpVideoRef & { name: string; detail?: string; quote: st
 export type ProofData = { title: string; prints: LpMediaRef[]; cards: ProofCard[]; video?: ProofVideo };
 
 /** Fotos das peças (2–6). O `alt` de cada uma vira a legenda. */
-export type GalleryData = { title: string; items: LpMediaRef[] };
+/** Foto da galeria. `price` é etiqueta livre ("R$ 39,90", "3x R$ 20") — a
+ *  vitrine mostra quando existe; grade e mosaico também, se o lojista preencher. */
+export type GalleryItem = LpMediaRef & { price?: string };
+export type GalleryData = { title: string; items: GalleryItem[] };
 
 export type AboutData = {
   title: string;
@@ -128,7 +132,7 @@ export type DeliverablesSection = Section<
 >;
 export type AudienceSection = Section<"audience", "pain_cards" | "for_not_for", AudienceData>;
 export type ProofSection = Section<"proof", "prints" | "cards" | "video", ProofData>;
-export type GallerySection = Section<"gallery", "grid", GalleryData>;
+export type GallerySection = Section<"gallery", "grid" | "masonry" | "carousel", GalleryData>;
 export type AboutSection = Section<"about", "single", AboutData>;
 export type ScheduleSection = Section<"schedule", "days" | "steps" | "rules", ScheduleData>;
 export type WhyFreeSection = Section<"why_free", "card", TextBlockData>;
@@ -213,7 +217,11 @@ export const SECTION_CATALOG: Record<LpSectionType, SectionMeta> = {
     label: "Galeria de peças",
     why: "Mostra o produto antes de pedir o número: quem vê a arara entra no grupo.",
     required: false,
-    variants: [{ key: "grid", label: "Grade de fotos" }],
+    variants: [
+      { key: "grid", label: "Grade de fotos" },
+      { key: "masonry", label: "Mosaico" },
+      { key: "carousel", label: "Carrossel com preço" },
+    ],
   },
   about: {
     label: "Quem está por trás",
