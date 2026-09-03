@@ -244,6 +244,9 @@ begin
 end;
 $$;
 
+revoke all on function app.record_send_failure(uuid, uuid, boolean) from public, anon, authenticated;
+grant execute on function app.record_send_failure(uuid, uuid, boolean) to service_role;
+
 create function public.record_send_failure(
   target_instance_id uuid,
   target_tenant_id uuid,
@@ -326,6 +329,9 @@ as $$
   where i.tenant_id = target_tenant_id
   order by (i.status = 'connected') desc, i.updated_at desc;
 $$;
+
+revoke all on function app.instance_health(uuid) from public, anon, authenticated;
+grant execute on function app.instance_health(uuid) to service_role;
 
 create function public.instance_health(target_tenant_id uuid)
 returns table (
