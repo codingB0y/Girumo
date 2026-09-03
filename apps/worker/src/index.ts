@@ -182,45 +182,57 @@ async function main(): Promise<void> {
   };
 
   // 1) eventos + automações + varredura + manutenção, no pollMs de sempre.
+  //    Ciclo e manutenção têm try/catch PRÓPRIOS (como no while original): uma
+  //    falha em runTick/automações não pode impedir a manutenção de rodar no
+  //    mesmo tick — lease vencido, progresso de broadcast e agendamento não
+  //    dependem do resto do ciclo ter ido bem.
   const principal = startLoop({
     name: "principal",
     intervalMs: env.pollMs,
     isStopping,
-    onError: falhou("ciclo"),
+    onError: falhou("ciclo"), // rede de segurança; os dois blocos abaixo já se isolam.
     async tick() {
-      const summary = await runTick(supabase, deps, env.batchSize, env.requeueAfterSeconds);
-      const automationsSummary = await runAutomationsTick(
-        supabase,
-        automationDeps,
-        env.batchSize,
-        env.requeueAfterSeconds,
-      );
-      state.lastTickAt = Date.now();
-      state.healthy = true;
-      state.lastError = null;
-      if (summary.claimed > 0) {
-        log.info("ciclo", summary);
-      }
-      if (automationsSummary.claimed > 0) {
-        log.info("ciclo automacoes", automationsSummary);
-      }
-
-      if (Date.now() - lastScanAt >= SCAN_INTERVAL_MS) {
-        lastScanAt = Date.now();
-        const scansSummary = await runAutomationScansTick(scanDeps);
-        const totalCreated =
-          scansSummary.groupFullCreated + scansSummary.groupStalledCreated + scansSummary.weeklyRecurringCreated;
-        if (totalCreated > 0) {
-          log.info("varredura de gatilhos", scansSummary);
+      try {
+        const summary = await runTick(supabase, deps, env.batchSize, env.requeueAfterSeconds);
+        const automationsSummary = await runAutomationsTick(
+          supabase,
+          automationDeps,
+          env.batchSize,
+          env.requeueAfterSeconds,
+        );
+        state.lastTickAt = Date.now();
+        state.healthy = true;
+        state.lastError = null;
+        if (summary.claimed > 0) {
+          log.info("ciclo", summary);
         }
+        if (automationsSummary.claimed > 0) {
+          log.info("ciclo automacoes", automationsSummary);
+        }
+
+        if (Date.now() - lastScanAt >= SCAN_INTERVAL_MS) {
+          lastScanAt = Date.now();
+          const scansSummary = await runAutomationScansTick(scanDeps);
+          const totalCreated =
+            scansSummary.groupFullCreated + scansSummary.groupStalledCreated + scansSummary.weeklyRecurringCreated;
+          if (totalCreated > 0) {
+            log.info("varredura de gatilhos", scansSummary);
+          }
+        }
+      } catch (err) {
+        falhou("ciclo")(err);
       }
 
-      const now = Date.now();
-      const shouldPrune = now - lastPruneAt >= PRUNE_INTERVAL_MS;
-      const summary2 = await runHousekeeping(supabase, { prune: shouldPrune });
-      if (shouldPrune) lastPruneAt = now;
-      if (housekeepingDidWork(summary2)) {
-        log.info("manutenção", summary2);
+      try {
+        const now = Date.now();
+        const shouldPrune = now - lastPruneAt >= PRUNE_INTERVAL_MS;
+        const summary2 = await runHousekeeping(supabase, { prune: shouldPrune });
+        if (shouldPrune) lastPruneAt = now;
+        if (housekeepingDidWork(summary2)) {
+          log.info("manutenção", summary2);
+        }
+      } catch (err) {
+        falhou("manutenção")(err);
       }
     },
   });
