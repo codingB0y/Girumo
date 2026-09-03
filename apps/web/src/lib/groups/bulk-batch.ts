@@ -32,7 +32,8 @@ export type BulkTargetGroup = {
 /** Uma linha de `group_bulk_jobs`, pronta para insert. */
 export type BulkJobInsert = {
   tenant_id: string;
-  campaign_group_id: string;
+  /** `null` no backfill de convite pela fila do lote — não pertence a campanha. */
+  campaign_group_id: string | null;
   batch_id: string;
   action: BulkAction;
   group_id: string;
