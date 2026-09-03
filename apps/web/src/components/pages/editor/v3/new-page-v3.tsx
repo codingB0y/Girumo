@@ -9,6 +9,7 @@ import { fieldErrorsV3, newDraftV3, toSavePayload, type EditorStateV3 } from "@/
 import { EditorFormV3 } from "@/components/pages/editor/v3/form-v3";
 import { EditorPreviewV3 } from "@/components/pages/editor/v3/preview-v3";
 import { TemplateGallery, type GalleryPick } from "@/components/pages/editor/v3/template-gallery";
+import { useTenantSegment } from "@/components/painel/use-tenant-segment";
 
 /**
  * Criação v3: galeria de modelos → editor já preenchido pelo template → salvar
@@ -18,6 +19,7 @@ import { TemplateGallery, type GalleryPick } from "@/components/pages/editor/v3/
  */
 export function NovaPaginaV3() {
   const router = useRouter();
+  const segment = useTenantSegment();
   const [templates, setTemplates] = useState<LpTemplate[] | null>(null);
   const [state, setState] = useState<EditorStateV3 | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -32,7 +34,7 @@ export function NovaPaginaV3() {
   }, []);
 
   function choose(key: GalleryPick) {
-    setState(newDraftV3(key));
+    setState(newDraftV3(key, undefined, segment));
   }
 
   async function handleSave() {
