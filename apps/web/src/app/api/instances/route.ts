@@ -6,6 +6,7 @@ import {
   providerInstanceId,
   setWebhook,
 } from "@/lib/evolution/client";
+import { parseNumeroPerfil } from "@/lib/instances/numero-perfil";
 import { resolveSecret } from "@/lib/runtime-secrets";
 import { deleteInstanceRow, listInstances, setProviderInstanceId } from "@/lib/stores/instances";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
@@ -51,9 +52,16 @@ export async function POST(req: Request) {
 
     await assertPlanLimit(ctx.tenantId, "instances:create");
 
-    const body = (await req.json().catch(() => ({}))) as { name?: string; phone?: string };
+    const body = (await req.json().catch(() => ({}))) as {
+      name?: string;
+      phone?: string;
+      numero_perfil?: unknown;
+    };
     const name = String(body.name ?? "WhatsApp").trim().slice(0, 80) || "WhatsApp";
     const phone = String(body.phone ?? "").trim() || null;
+
+    const perfil = parseNumeroPerfil(body.numero_perfil);
+    if (!perfil.ok) return Response.json({ error: perfil.error }, { status: 400 });
 
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
@@ -65,6 +73,7 @@ export async function POST(req: Request) {
         status: "pending",
         provider: "evolution",
         metadata: {},
+        numero_perfil: perfil.value,
       })
       .select("id, name, phone, status, created_at")
       .single();
