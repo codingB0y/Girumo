@@ -91,7 +91,10 @@ function Masonry({ items }: { items: GalleryItem[] }) {
 
 function Carousel({ items }: { items: GalleryItem[] }) {
   return (
-    <div className="-mx-4 mt-10 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    // Sangra até a borda da tela: as margens negativas anulam exatamente o padding
+    // do WRAP (px-6 / lg:px-10), então o trilho encosta no canto sem criar rolagem
+    // horizontal na página.
+    <div className="-mx-6 mt-10 overflow-x-auto px-6 pb-2 lg:-mx-10 lg:px-10 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <ul className="flex snap-x snap-mandatory gap-3 lg:gap-5">
         {items.map((m, i) => (
           <li key={key(m, i)} className="w-[68%] shrink-0 snap-start sm:w-[42%] lg:w-[28%]">
