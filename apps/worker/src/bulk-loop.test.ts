@@ -85,6 +85,7 @@ test("open chama setOpenToAll e conclui", async () => {
   const { deps, rec } = makeDeps();
 
   const summary = await runBulkTick(deps);
+  await drainInFlight();
 
   assert.deepEqual(rec.opened, ["111@g.us"]);
   assert.deepEqual(rec.acks, [{ jobId: "job-1", ack: { status: "done" } }]);
@@ -119,6 +120,7 @@ test("set_picture assina a midia antes de aplicar", async () => {
   });
 
   await runBulkTick(deps);
+  await drainInFlight();
 
   assert.deepEqual(rec.pictured, [{ jid: "111@g.us", url: "https://signed.local/foto.jpg" }]);
 });
@@ -130,6 +132,7 @@ test("midia que nao assina falha o job SEM chamar a Evolution", async () => {
   });
 
   const summary = await runBulkTick(deps);
+  await drainInFlight();
 
   assert.equal(rec.pictured.length, 0, "nao pode chamar updateGroupPicture sem URL");
   assert.equal(summary.failed, 1);
@@ -155,6 +158,7 @@ test("erro da Evolution vira ack failed com a mensagem", async () => {
   });
 
   const summary = await runBulkTick(deps);
+  await drainInFlight();
 
   assert.equal(summary.failed, 1);
   assert.match(String(rec.acks[0]?.ack.error), /403/);
@@ -168,6 +172,7 @@ test("teto de ritmo: so a primeira operacao roda; o excedente falha explicito", 
   });
 
   const summary = await runBulkTick(deps);
+  await drainInFlight();
 
   assert.deepEqual(rec.opened, ["111@g.us"], "so UMA operacao real por tenant por tick");
   assert.equal(summary.done, 1);
@@ -185,6 +190,7 @@ test("falha de um tenant nao impede o proximo", async () => {
   });
 
   const summary = await runBulkTick(deps);
+  await drainInFlight();
 
   assert.equal(summary.done, 1);
   assert.equal(rec.opened.length, 1);
@@ -212,6 +218,7 @@ test("check_invite le o convite e devolve no ack", async () => {
   });
 
   const summary = await runBulkTick(deps);
+  await drainInFlight();
 
   assert.deepEqual(rec.invitesLidos, ["111@g.us"]);
   assert.deepEqual(rec.acks, [
@@ -229,6 +236,7 @@ test("Evolution sem convite: ack manda invite null, nao falha", async () => {
   });
 
   const summary = await runBulkTick(deps);
+  await drainInFlight();
 
   assert.deepEqual(rec.acks, [{ jobId: "rev-2", ack: { status: "done", invite: null } }]);
   assert.equal(summary.done, 1);
@@ -247,6 +255,7 @@ test("falha carrega o status HTTP — e o que separa passageiro de permanente", 
   });
 
   await runBulkTick(deps);
+  await drainInFlight();
 
   assert.equal(rec.acks.length, 1);
   const ack = rec.acks[0]!.ack;
@@ -304,6 +313,7 @@ test("acao sem dado nao poe a chave invite no ack", async () => {
   });
 
   await runBulkTick(deps);
+  await drainInFlight();
 
   assert.deepEqual(rec.acks, [{ jobId: "abre", ack: { status: "done" } }]);
 });

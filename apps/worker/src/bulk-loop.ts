@@ -179,6 +179,11 @@ function detalhaFalha(error: unknown): { error: string; httpStatus?: number; det
  * do tick (ver `track` em `runTenant`), então NUNCA pode rejeitar: se o ack de
  * falha também falhar, só resta logar — não há mais ninguém no call stack para
  * capturar.
+ *
+ * Loga o resultado de CADA job aqui, no ponto onde ele fecha de verdade — o
+ * `summary` que `index.ts` loga ao fim do tick é lido cedo demais (`done`/
+ * `failed` ainda podem estar zerados nesse instante, já que fecham depois que o
+ * tick já retornou); esse log por job é a fonte confiável do resultado.
  */
 async function executeAndAck(
   deps: BulkDeps,
@@ -195,8 +200,10 @@ async function executeAndAck(
       // Só a revisão devolve dado; as outras não põem a chave no ack.
       ...(job.action === "check_invite" ? { invite: invite ?? null } : {}),
     });
+    log.info("ação em massa concluída", { job: job.id, action: job.action, status: "done" });
   } catch (error) {
     summary.failed += 1;
+    log.warn("ação em massa falhou", { job: job.id, action: job.action, error: reason(error) });
     try {
       await deps.ack(tenantId, job.id, { status: "failed", ...detalhaFalha(error) });
     } catch (ackError) {
