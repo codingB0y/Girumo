@@ -30,6 +30,13 @@ async def get_rag():
                 func=embedding_func,
             ),
             llm_model_max_async=2,
+            # `_throttle()` em llm.py serializa TODA chamada ao Gemini com 4,5s de
+            # intervalo, LLM e embedding na mesma fila. Com os 8 workers de embedding
+            # que o LightRAG sobe por padrao, o ultimo da fila espera ~36s e estoura o
+            # timeout de 30s da funcao — o pipeline inteiro morre em "Worker execution
+            # timeout after 60s", que e o sintoma que aparecia no log. Dois workers
+            # (mesmo teto do LLM) deixam a espera maxima em ~9s.
+            embedding_func_max_async=2,
             max_parallel_insert=1,
             embedding_batch_num=32,
             chunk_token_size=1200,
