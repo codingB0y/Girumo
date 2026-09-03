@@ -54,7 +54,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
       }),
     });
 
-    if (!r.ok) return Response.json({ error: r.error ?? "A Meta recusou o evento." }, { status: 400 });
+    if (!r.ok) {
+      // O erro cru (com `fbtrace_id`) só existe aqui: a Meta não o repete, e é
+      // ele que o suporte dela pede. Sem token — `raw` é só a resposta.
+      console.warn(`[capi/teste] ${slug}: ${JSON.stringify(r.raw ?? { message: r.error })}`);
+      return Response.json({ error: r.error ?? "A Meta recusou o evento." }, { status: 400 });
+    }
     return Response.json({ events_received: r.eventsReceived ?? 0 });
   } catch (e) {
     if (e instanceof Response) return e;

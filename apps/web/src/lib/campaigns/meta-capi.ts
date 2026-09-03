@@ -95,16 +95,45 @@ export function buildCapiPayload(i: CapiInput): CapiPayload {
 }
 
 /**
+ * Erro da Graph API. `message` é a categoria ("Invalid parameter"); QUAL campo
+ * está errado vem em `error_user_msg`. Guardar só o `message` deixa o lojista
+ * com uma frase que não diz o que arrumar — e nós sem como diagnosticar.
+ */
+export type GraphError = {
+  message?: string;
+  type?: string;
+  code?: number;
+  error_subcode?: number;
+  error_user_title?: string;
+  error_user_msg?: string;
+  fbtrace_id?: string;
+};
+
+/**
+ * Mensagem que o painel mostra. Prefere o texto específico da Meta; cai no
+ * genérico só quando ela não mandou nada melhor. O código vai junto porque é
+ * por ele que se acha o caso na documentação e no suporte.
+ */
+export function descreveErro(e: GraphError | undefined, status: number): string {
+  const detalhe = e?.error_user_msg?.trim() || e?.message?.trim() || `HTTP ${status}`;
+  const codigo = [e?.code, e?.error_subcode].filter((n) => typeof n === "number").join("/");
+  return codigo ? `${detalhe} (código ${codigo})` : detalhe;
+}
+
+/**
  * Envia e NUNCA lança: quem chama está num `after()` do /r/, e uma exceção ali
  * viraria ruído no log sem ajudar ninguém. O token vai no CORPO, nunca na URL —
  * URL entra em log de proxy e de CDN.
+ *
+ * `raw` volta com o erro cru para quem quiser logar (`fbtrace_id` é o que o
+ * suporte da Meta pede). Nunca contém o token: ele só vai na requisição.
  */
 export async function sendCapiEvent(a: {
   pixelId: string;
   token: string;
   payload: CapiPayload;
   timeoutMs?: number;
-}): Promise<{ ok: boolean; eventsReceived?: number; error?: string }> {
+}): Promise<{ ok: boolean; eventsReceived?: number; error?: string; raw?: GraphError }> {
   try {
     const res = await fetch(capiEndpoint(a.pixelId), {
       method: "POST",
@@ -114,9 +143,9 @@ export async function sendCapiEvent(a: {
     });
     const json = (await res.json().catch(() => ({}))) as {
       events_received?: number;
-      error?: { message?: string };
+      error?: GraphError;
     };
-    if (!res.ok) return { ok: false, error: json.error?.message ?? `HTTP ${res.status}` };
+    if (!res.ok) return { ok: false, error: descreveErro(json.error, res.status), raw: json.error };
     return { ok: true, eventsReceived: json.events_received ?? 0 };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };

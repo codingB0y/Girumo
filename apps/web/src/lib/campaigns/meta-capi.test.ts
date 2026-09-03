@@ -1,6 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { GRAPH_API_VERSION, buildCapiPayload, capiEndpoint, firstForwardedIp, sendCapiEvent } from "./meta-capi";
+import {
+  GRAPH_API_VERSION,
+  buildCapiPayload,
+  capiEndpoint,
+  descreveErro,
+  firstForwardedIp,
+  sendCapiEvent,
+} from "./meta-capi";
 
 const base = {
   eventName: "Lead",
@@ -93,6 +100,41 @@ test("sendCapiEvent: erro da Meta NÃO lança, devolve ok:false com a mensagem",
     const r = await sendCapiEvent({ pixelId: "1234567890", token: "ruim", payload: buildCapiPayload(base) });
     assert.equal(r.ok, false);
     assert.match(r.error ?? "", /Invalid OAuth token/);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("descreveErro: prefere error_user_msg, que é o que diz QUAL campo está errado", () => {
+  // Foi este caso que apareceu em produção: "Invalid parameter" sozinho não
+  // dá ação nenhuma ao lojista.
+  assert.equal(
+    descreveErro(
+      { message: "Invalid parameter", code: 100, error_subcode: 2804003, error_user_msg: 'Chave inesperada "campaign".' },
+      400,
+    ),
+    'Chave inesperada "campaign". (código 100/2804003)',
+  );
+});
+
+test("descreveErro: sem error_user_msg cai no message, ainda com o código", () => {
+  assert.equal(descreveErro({ message: "Invalid parameter", code: 100 }, 400), "Invalid parameter (código 100)");
+});
+
+test("descreveErro: sem erro nenhum descreve o status HTTP", () => {
+  assert.equal(descreveErro(undefined, 500), "HTTP 500");
+  assert.equal(descreveErro({}, 503), "HTTP 503");
+});
+
+test("sendCapiEvent: devolve o erro cru para o log, e ele não carrega o token", async () => {
+  const bruto = { message: "Invalid parameter", code: 100, fbtrace_id: "Abc123" };
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response(JSON.stringify({ error: bruto }), { status: 400 })) as unknown as typeof fetch;
+  try {
+    const r = await sendCapiEvent({ pixelId: "1234567890", token: "EAAsegredo", payload: buildCapiPayload(base) });
+    assert.deepEqual(r.raw, bruto);
+    assert.equal(JSON.stringify(r).includes("EAAsegredo"), false, "o retorno não pode carregar o token");
   } finally {
     globalThis.fetch = realFetch;
   }
