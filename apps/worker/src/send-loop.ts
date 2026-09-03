@@ -73,10 +73,11 @@ export function makeSendDeps(supabase: SupabaseClient, sender: EvolutionSender):
       if (error) throw new Error(`record_send: ${error.message}`);
     },
 
-    async recordSendFailure(instanceId, tenantId) {
+    async recordSendFailure(instanceId, tenantId, rateLimited) {
       const { error } = await supabase.rpc("record_send_failure", {
         target_instance_id: instanceId,
         target_tenant_id: tenantId,
+        rate_limited: rateLimited,
       });
       if (error) throw new Error(`record_send_failure: ${error.message}`);
     },
@@ -115,25 +116,28 @@ export async function runSendTick(
   let sent = 0;
   let failed = 0;
 
-  for (const row of rows) {
-    try {
-      const outcome = await sendFromCommand(row, deps);
-      if (outcome.status === "sent") {
-        sent += 1;
-      } else {
-        failed += 1;
-        log.warn("comando de envio falhou", { command_id: row.command_id, reason: outcome.reason });
-      }
-    } catch (err) {
-      // Infra fora no meio (record/complete): não fecha o comando → lease expira →
-      // requeue no próximo ciclo. Conta como falha só para o resumo.
+  // Paralelo entre linhas: o claim já garante no máx. 1 comando por instância
+  // por lote, então cada row é de um número distinto — não há corrida no
+  // breaker/gate por número.
+  const outcomes = await Promise.allSettled(rows.map((row) => sendFromCommand(row, deps)));
+  const results = rows.map((row, i) => ({ row, outcome: outcomes[i]! }));
+  results.forEach(({ row, outcome: r }) => {
+    if (r.status === "fulfilled" && r.value.status === "sent") {
+      sent += 1;
+    } else {
       failed += 1;
-      log.error("envio falhou (infra)", {
-        command_id: row.command_id,
-        error: err instanceof Error ? err.message : "erro desconhecido",
-      });
+      if (r.status === "fulfilled") {
+        log.warn("comando de envio falhou", { command_id: row.command_id, reason: r.value.reason });
+      } else {
+        // Infra fora no meio (record/complete): não fecha o comando → lease expira →
+        // requeue no próximo ciclo.
+        log.error("envio falhou (infra)", {
+          command_id: row.command_id,
+          error: r.reason instanceof Error ? r.reason.message : "erro desconhecido",
+        });
+      }
     }
-  }
+  });
 
   return { claimed: rows.length, sent, failed };
 }

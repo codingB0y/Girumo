@@ -31,7 +31,7 @@ import { makeScanDeps, runAutomationScansTick } from "./automation-scans.js";
 import { loadEnv, type WorkerEnv } from "./env.js";
 import { makeBulkDeps } from "./bulk-deps.js";
 import { withBulkDryRun } from "./bulk-dry-run.js";
-import { bulkDidWork, runBulkTick, type BulkDeps } from "./bulk-loop.js";
+import { bulkDidWork, drainInFlight, runBulkTick, type BulkDeps } from "./bulk-loop.js";
 import { createEvolutionGroups } from "./evolution-groups.js";
 import { createEvolutionSender } from "./evolution-sender.js";
 import { makeDeps, runTick } from "./event-loop.js";
@@ -41,6 +41,7 @@ import { growDidWork, runGrowTick, type GrowDeps } from "./grow-loop.js";
 import { startHealthServer, type HealthState } from "./health.js";
 import { housekeepingDidWork, runHousekeeping } from "./housekeeping.js";
 import { log } from "./log.js";
+import { startLoop } from "./loop.js";
 import type { SendDeps } from "./send-command.js";
 import { withDryRun } from "./send-dry-run.js";
 import { makeSendDeps, runSendTick } from "./send-loop.js";
@@ -51,10 +52,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // 3s) — rodar `groups`/`leads` inteiro nessa frequência seria puro desperdício,
 // já que o dedupe_key faz o reenvio ser sempre um no-op mesmo se rodasse toda hora.
 const SCAN_INTERVAL_MS = 5 * 60_000;
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 const PRUNE_INTERVAL_MS = 3_600_000; // poda o log de envios ~1×/hora
 
@@ -150,11 +147,6 @@ async function main(): Promise<void> {
 
   const growDeps = buildGrowDeps(env, supabase);
   const bulkDeps = buildBulkDeps(env, supabase);
-  // Começa em 0 para o primeiro ciclo de grow rodar logo no boot: o `pending` é
-  // barato quando não há nada a criar (o gate responde `[]`) e, se houver job
-  // esperando, não faz sentido segurá-lo mais 5 minutos.
-  let lastGrowAt = 0;
-  let lastBulkAt = 0;
 
   const state: HealthState = { healthy: true, lastTickAt: null, lastError: null };
   const server = startHealthServer(env.healthPort, () => state);
@@ -181,120 +173,117 @@ async function main(): Promise<void> {
     health_port: env.healthPort,
   });
 
-  while (!stopping) {
-    try {
-      const summary = await runTick(supabase, deps, env.batchSize, env.requeueAfterSeconds);
-      const automationsSummary = await runAutomationsTick(
-        supabase,
-        automationDeps,
-        env.batchSize,
-        env.requeueAfterSeconds,
-      );
-      state.lastTickAt = Date.now();
-      state.healthy = true;
-      state.lastError = null;
-      if (summary.claimed > 0) {
-        log.info("ciclo", summary);
-      }
-      if (automationsSummary.claimed > 0) {
-        log.info("ciclo automacoes", automationsSummary);
-      }
+  const isStopping = () => stopping;
+  const falhou = (escopo: string) => (err: unknown) => {
+    const message = err instanceof Error ? err.message : "erro desconhecido";
+    state.healthy = false;
+    state.lastError = message;
+    log.error(`${escopo} falhou`, { error: message });
+  };
 
-      if (Date.now() - lastScanAt >= SCAN_INTERVAL_MS) {
-        lastScanAt = Date.now();
-        const scansSummary = await runAutomationScansTick(scanDeps);
-        const totalCreated =
-          scansSummary.groupFullCreated + scansSummary.groupStalledCreated + scansSummary.weeklyRecurringCreated;
-        if (totalCreated > 0) {
-          log.info("varredura de gatilhos", scansSummary);
-        }
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "erro desconhecido";
-      state.healthy = false;
-      state.lastError = message;
-      log.error("ciclo falhou", { error: message });
-    }
-
-    // Loop de envio (F4), isolado do de captura: a falha de um não derruba o outro.
-    if (!stopping && sendDeps) {
+  // 1) eventos + automações + varredura + manutenção, no pollMs de sempre.
+  //    Ciclo e manutenção têm try/catch PRÓPRIOS (como no while original): uma
+  //    falha em runTick/automações não pode impedir a manutenção de rodar no
+  //    mesmo tick — lease vencido, progresso de broadcast e agendamento não
+  //    dependem do resto do ciclo ter ido bem.
+  const principal = startLoop({
+    name: "principal",
+    intervalMs: env.pollMs,
+    isStopping,
+    onError: falhou("ciclo"), // rede de segurança; os dois blocos abaixo já se isolam.
+    async tick() {
       try {
-        const sent = await runSendTick(supabase, sendDeps, env.sendBatchSize);
+        const summary = await runTick(supabase, deps, env.batchSize, env.requeueAfterSeconds);
+        const automationsSummary = await runAutomationsTick(
+          supabase,
+          automationDeps,
+          env.batchSize,
+          env.requeueAfterSeconds,
+        );
         state.lastTickAt = Date.now();
-        if (sent.claimed > 0) {
-          log.info("ciclo de envio", sent);
+        state.healthy = true;
+        state.lastError = null;
+        if (summary.claimed > 0) {
+          log.info("ciclo", summary);
+        }
+        if (automationsSummary.claimed > 0) {
+          log.info("ciclo automacoes", automationsSummary);
+        }
+
+        if (Date.now() - lastScanAt >= SCAN_INTERVAL_MS) {
+          lastScanAt = Date.now();
+          const scansSummary = await runAutomationScansTick(scanDeps);
+          const totalCreated =
+            scansSummary.groupFullCreated + scansSummary.groupStalledCreated + scansSummary.weeklyRecurringCreated;
+          if (totalCreated > 0) {
+            log.info("varredura de gatilhos", scansSummary);
+          }
         }
       } catch (err) {
-        const message = err instanceof Error ? err.message : "erro desconhecido";
-        state.healthy = false;
-        state.lastError = message;
-        log.error("ciclo de envio falhou", { error: message });
+        falhou("ciclo")(err);
       }
-    }
 
-    // Loop de AUTO-GROW, em cadência própria e bem mais lenta que a do poll: o
-    // intervalo É o anti-ban de `create` (ver grow-loop.ts), então ele não pode
-    // seguir o ritmo dos outros loops. Isolado como os demais: falha aqui não
-    // derruba envio nem captura.
-    if (!stopping && growDeps && Date.now() - lastGrowAt >= env.growIntervalMs) {
-      lastGrowAt = Date.now();
-      try {
-        const grown = await runGrowTick(growDeps);
-        state.lastTickAt = Date.now();
-        if (growDidWork(grown)) {
-          log.info("ciclo de auto-grow", grown);
-        }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "erro desconhecido";
-        state.healthy = false;
-        state.lastError = message;
-        log.error("ciclo de auto-grow falhou", { error: message });
-      }
-    }
-
-    // Loop de AÇÕES EM MASSA, em cadência própria e mais rápida que a do grow: o
-    // intervalo é metade do anti-ban destas operações (ver bulk-loop.ts) — uma
-    // por tenant a cada 4s dá ~15/min espaçados. Isolado como os demais.
-    if (!stopping && bulkDeps && Date.now() - lastBulkAt >= env.bulkIntervalMs) {
-      lastBulkAt = Date.now();
-      try {
-        const applied = await runBulkTick(bulkDeps);
-        state.lastTickAt = Date.now();
-        if (bulkDidWork(applied)) {
-          log.info("ciclo de ações em massa", applied);
-        }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "erro desconhecido";
-        state.healthy = false;
-        state.lastError = message;
-        log.error("ciclo de ações em massa falhou", { error: message });
-      }
-    }
-
-    // Manutenção da fila — FORA do `if (sendDeps)`: lease vencido, progresso de
-    // broadcast e agendamento não dependem de a Evolution estar configurada.
-    if (!stopping) {
       try {
         const now = Date.now();
         const shouldPrune = now - lastPruneAt >= PRUNE_INTERVAL_MS;
-        const summary = await runHousekeeping(supabase, { prune: shouldPrune });
+        const summary2 = await runHousekeeping(supabase, { prune: shouldPrune });
         if (shouldPrune) lastPruneAt = now;
-        if (housekeepingDidWork(summary)) {
-          log.info("manutenção", summary);
+        if (housekeepingDidWork(summary2)) {
+          log.info("manutenção", summary2);
         }
       } catch (err) {
-        const message = err instanceof Error ? err.message : "erro desconhecido";
-        state.healthy = false;
-        state.lastError = message;
-        log.error("manutenção falhou", { error: message });
+        falhou("manutenção")(err);
       }
-    }
+    },
+  });
 
-    // Sai já se um sinal chegou durante o tick, sem esperar o poll inteiro.
-    if (stopping) break;
-    await sleep(env.pollMs);
-  }
+  // 2) envio, poll curto; o gap do número vive no claim.
+  const envio = sendDeps
+    ? startLoop({
+        name: "envio",
+        intervalMs: env.sendPollMs,
+        isStopping,
+        onError: falhou("ciclo de envio"),
+        async tick() {
+          const sent = await runSendTick(supabase, sendDeps, env.sendBatchSize);
+          state.lastTickAt = Date.now();
+          if (sent.claimed > 0) log.info("ciclo de envio", sent);
+        },
+      })
+    : null;
 
+  // 3) auto-grow, intervalo próprio (é o anti-ban de create).
+  const grow = growDeps
+    ? startLoop({
+        name: "grow",
+        intervalMs: env.growIntervalMs,
+        isStopping,
+        onError: falhou("ciclo de auto-grow"),
+        async tick() {
+          const grown = await runGrowTick(growDeps);
+          state.lastTickAt = Date.now();
+          if (growDidWork(grown)) log.info("ciclo de auto-grow", grown);
+        },
+      })
+    : null;
+
+  // 4) ações em massa, 4 s entre CLAIMS; a execução não bloqueia (ver bulk-loop.ts).
+  const lote = bulkDeps
+    ? startLoop({
+        name: "lote",
+        intervalMs: env.bulkIntervalMs,
+        isStopping,
+        onError: falhou("ciclo de ações em massa"),
+        async tick() {
+          const applied = await runBulkTick(bulkDeps);
+          state.lastTickAt = Date.now();
+          if (bulkDidWork(applied)) log.info("ciclo de ações em massa", applied);
+        },
+      })
+    : null;
+
+  await Promise.all([principal.done, envio?.done, grow?.done, lote?.done]);
+  if (bulkDeps) await drainInFlight();
   log.info("worker encerrado");
 }
 
