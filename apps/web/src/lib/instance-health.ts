@@ -23,6 +23,11 @@ export type InstanceHealthRow = {
   failures_24h: number;
   last_active_at: string | null;
   last_event_at: string | null;
+  /** "novo" | "veterano" — decidido por app.instance_caps, não recalculado aqui. */
+  perfil: "novo" | "veterano";
+  per_hour: number;
+  per_min: number;
+  admin_groups: number;
 };
 
 /**
@@ -106,6 +111,10 @@ export type NumberHealth = {
   pausedSeconds: number;
   silence: SilenceRisk | null;
   tone: HealthTone;
+  perfil: "novo" | "veterano";
+  hourlyCap: number;
+  minuteCap: number;
+  adminGroups: number;
 };
 
 /** Traduz a linha da RPC para o que a tela mostra. */
@@ -136,6 +145,10 @@ export function deriveHealth(row: InstanceHealthRow, now: Date = new Date()): Nu
     tone: !connected || pausedSeconds > 0 || silence?.shouldWarn ? "risco"
       : row.consecutive_failures > 0 ? "atencao"
       : "ok",
+    perfil: row.perfil,
+    hourlyCap: Math.max(0, row.per_hour),
+    minuteCap: Math.max(0, row.per_min),
+    adminGroups: Math.max(0, row.admin_groups),
   };
 }
 
