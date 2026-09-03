@@ -3,7 +3,8 @@ import { expect, test } from "@playwright/test";
 import { coletarFalhasDeApi, exigeCredenciais } from "./sessao-helpers";
 
 /**
- * Bloco "Ações em massa" na aba Grupos da campanha.
+ * Bloco "Configurações dos grupos" na aba Grupos da campanha (chamava-se "Ações
+ * em massa" até o PR C).
  *
  * Desenho por CONTRASTE, como `painel-protecao-grupos.spec.ts`: o número de
  * grupos administrados depende de `groups.is_admin`, que nenhum ambiente
@@ -47,7 +48,7 @@ test("o alcance do lote reflete os grupos administrados da campanha", async ({ p
 
   await page.goto(`/painel/campanhas/${campanha.slug ?? campanha.id}`);
 
-  const bloco = page.getByRole("region", { name: "Ações em massa" });
+  const bloco = page.getByRole("region", { name: "Configurações dos grupos" });
   await expect(bloco).toBeVisible();
 
   const alcance = bloco.getByTestId("acoes-massa-alcance");
@@ -89,7 +90,7 @@ test("o progresso do lote reflete a rota de lotes", async ({ page }) => {
   const lote = (await resLote.json()) as { total: number; done: number; failed: number } | null;
 
   await page.goto(`/painel/campanhas/${slug}`);
-  const bloco = page.getByRole("region", { name: "Ações em massa" });
+  const bloco = page.getByRole("region", { name: "Configurações dos grupos" });
   await expect(bloco).toBeVisible();
 
   const progresso = bloco.getByTestId("acoes-massa-progresso");
@@ -102,6 +103,101 @@ test("o progresso do lote reflete a rota de lotes", async ({ page }) => {
     await expect(bloco.getByTestId("acoes-massa-contador")).toHaveText(
       `${lote.done + lote.failed} de ${lote.total}`,
     );
+  }
+
+  expect(falhasDeApi, "5xx da propria app durante a navegacao").toEqual([]);
+});
+
+test("a contagem de Estado reflete o send_state que a API devolve", async ({ page }) => {
+  const falhasDeApi = coletarFalhasDeApi(page);
+
+  const resCampanhas = await page.request.get("/api/campanhas");
+  const campanhas = (await resCampanhas.json()) as Campanha[];
+  const campanha = campanhas.find((c) => c.groupIds.length > 0);
+  test.skip(!campanha, "Nenhuma campanha com grupos neste ambiente.");
+  if (!campanha) return;
+
+  const resGrupos = await page.request.get("/api/groups");
+  const grupos = (await resGrupos.json()) as Grupo[];
+  const daCampanha = grupos.filter((g) => campanha.groupIds.includes(g.id));
+
+  // Expectativa DERIVADA em runtime, nunca numero fixo: `send_state` muda a cada
+  // lote aplicado, entao "3 abertos" escrito aqui viraria armadilha permanente.
+  const abertos = daCampanha.filter((g) => g.sendState === "open").length;
+  const fechados = daCampanha.filter((g) => g.sendState === "closed").length;
+  const semInfo = daCampanha.length - abertos - fechados;
+
+  await page.goto(`/painel/campanhas/${campanha.slug ?? campanha.id}`);
+  const bloco = page.getByRole("region", { name: "Configurações dos grupos" });
+  await expect(bloco).toBeVisible();
+
+  const administrados = daCampanha.filter((g) => g.isAdmin).length;
+  if (administrados === 0) {
+    // Sem admin o bloco inteiro some — nao ha o que contar.
+    await expect(bloco.getByTestId("grupos-estado-contagem")).toHaveCount(0);
+    expect(falhasDeApi, "5xx da propria app durante a navegacao").toEqual([]);
+    return;
+  }
+
+  const contagem = bloco.getByTestId("grupos-estado-contagem");
+  await expect(contagem).toContainText(`${abertos} abertos`);
+  await expect(contagem).toContainText(`${fechados} fechados`);
+
+  // "Sem informacao" TEM de aparecer quando existe: e o que impede a tela de
+  // dizer que um grupo esta aberto quando nunca aplicamos nada nele.
+  if (semInfo > 0) {
+    await expect(contagem).toContainText(`${semInfo} sem informação`);
+  } else {
+    await expect(contagem).not.toContainText("sem informação");
+  }
+
+  expect(falhasDeApi, "5xx da propria app durante a navegacao").toEqual([]);
+});
+
+test("Revisar links mostra o que a rota de revisao respondeu", async ({ page }) => {
+  const falhasDeApi = coletarFalhasDeApi(page);
+
+  const resCampanhas = await page.request.get("/api/campanhas");
+  const campanhas = (await resCampanhas.json()) as Campanha[];
+  const campanha = campanhas.find((c) => c.groupIds.length > 0);
+  test.skip(!campanha, "Nenhuma campanha com grupos neste ambiente.");
+  if (!campanha) return;
+
+  const slug = campanha.slug ?? campanha.id;
+  const resRevisao = await page.request.get(`/api/campanhas/${slug}/grupos/revisao`);
+  expect(resRevisao.ok(), `GET .../grupos/revisao respondeu ${resRevisao.status()}`).toBeTruthy();
+  const revisao = (await resRevisao.json()) as {
+    iguais: number;
+    trocados: number;
+    quebrados: number;
+    ultimaRevisao: string | null;
+    revisaveis: number;
+  };
+
+  await page.goto(`/painel/campanhas/${slug}`);
+  const bloco = page.getByRole("region", { name: "Configurações dos grupos" });
+  await expect(bloco).toBeVisible();
+
+  if (revisao.revisaveis === 0) {
+    await expect(bloco.getByTestId("grupos-revisar-links")).toHaveCount(0);
+    expect(falhasDeApi, "5xx da propria app durante a navegacao").toEqual([]);
+    return;
+  }
+
+  const revisar = bloco.getByTestId("grupos-revisar-links");
+  await expect(revisar).toBeVisible();
+  await expect(revisar.getByRole("button", { name: "Revisar agora" })).toBeVisible();
+
+  // Nunca revisado NAO pode ser desenhado como "0 quebrados": as duas coisas sao
+  // diferentes, e confundi-las e o defeito que este teste existe para pegar.
+  if (revisao.ultimaRevisao === null) {
+    await expect(revisar.getByTestId("revisao-quando")).toHaveText("Nunca revisado");
+    await expect(revisar.getByTestId("revisao-contagens")).toHaveCount(0);
+  } else {
+    const contagens = revisar.getByTestId("revisao-contagens");
+    await expect(contagens).toContainText(`${revisao.iguais} iguais`);
+    await expect(contagens).toContainText(`${revisao.trocados} trocados`);
+    await expect(contagens).toContainText(`${revisao.quebrados} quebrados`);
   }
 
   expect(falhasDeApi, "5xx da propria app durante a navegacao").toEqual([]);

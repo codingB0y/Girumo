@@ -107,3 +107,14 @@ begin
   returning j.*;
 end;
 $function$;
+
+-- O `create or replace` acima PRESERVA o ACL num banco onde a função já existe
+-- (conferido em 03/09: nos dois, `postgres=X | service_role=X`, sem
+-- `authenticated`). Mas num replay da apply-order do zero ela nasceria com o
+-- default privilege do grantor `postgres`, que concede EXECUTE a
+-- `authenticated` — e esta função é `security definer` e recebe o tenant como
+-- PARÂMETRO. Sem o revoke, qualquer usuário logado chamaria
+-- /rest/v1/rpc/claim_bulk_jobs com o tenant que quisesse e reivindicaria a fila
+-- alheia. O revoke aqui é o que mantém as duas histórias iguais.
+revoke all on function public.claim_bulk_jobs(uuid, integer) from public, anon, authenticated;
+grant execute on function public.claim_bulk_jobs(uuid, integer) to service_role;
