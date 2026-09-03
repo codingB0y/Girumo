@@ -332,6 +332,12 @@ apps/web/supabase/migrations/20260903120000_lp_v3_vitrine.sql
 # Conferido por SQL nos dois bancos (pg_get_constraintdef + pg_get_functiondef).
 apps/web/supabase/migrations/20260903130000_check_invite_e_revisao.sql
 
+# 2026-09-04 · perfil do numero (instances.numero_perfil) + app.instance_caps como fonte
+# unica dos tetos; claim_send_commands, record_send (reset 14d), record_send_failure
+# (rate_limited), instance_health (+perfil, per_hour, per_min, admin_groups). Aplicada nos DOIS.
+# O gate de drift so ve a coluna nova; conferir corpo das funcoes com pg_get_functiondef.
+apps/web/supabase/migrations/20260904100000_perfil_do_numero_e_caps.sql
+
 # 04/09/2026 - check_invite volta ao ritmo do lote (15/min), sem a janela de 60s de
 # D7 (91 grupos levavam 1h31 para um GET). Libera group_bulk_jobs.campaign_group_id
 # (drop not null): o backfill de convite passa a entrar nesta fila a partir do sync,
