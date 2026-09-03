@@ -10,14 +10,39 @@
 > **Próximo:** PR C (Configurações dos grupos: Estado e Revisar links). Plano **não escrito** —
 > partir da spec, seção "Fatiamento" item 3, e das decisões D7 e D8.
 
+## Correções depois do merge do PR B (mesma noite, tudo mergeado)
+
+O botão "Enviar teste" foi exercido em produção na campanha BOTA FORA e falhou **três vezes**,
+cada uma revelando um defeito real. Vale ler antes de mexer no CAPI:
+
+| PR | Erro | Causa |
+|---|---|---|
+| [#229](https://github.com/codingB0y/Girumo/pull/229) | `Invalid parameter` | O erro da Graph API estava tipado como `{ message }`. `message` é a **categoria**; a causa vem em `error_user_msg`. Descartávamos isso, `code`, `error_subcode` e `fbtrace_id` — impossível diagnosticar sem deploy. |
+| [#231](https://github.com/codingB0y/Girumo/pull/231) | `100/2804050` | A rota de teste mandava `clientIp: null`, então o `user_data` ia só com `client_user_agent` — que sozinho não identifica ninguém. O `/r/` **nunca** esteve afetado: já mandava o IP. Guarda `temSinalDeCasamento()` agora recusa antes da rede. |
+| [#232](https://github.com/codingB0y/Girumo/pull/232) | `190 Bad signature` | O Chrome autopreencheu o **e-mail da conta por cima do token** (204 chars → 19). `autoComplete="off"` não segura campo `type="password"`. Agora: `new-password` no cliente e validação de formato do token no servidor. |
+
+Duas hipóteses minhas foram **refutadas pela evidência**, e teriam custado deploys no lugar
+errado se eu tivesse chutado: chaves não-padrão em `custom_data` (a Meta aceitou `campaign`
+numa boa) e o `event_source_url` atrás do proxy.
+
 ## Falta verificar em produção (é o que trava `no_ar_verificado`)
 
 **PR A** — abrir o `/r/<slug>` real no celular e ver o WhatsApp abrir; salvar na aba Entrada e
 ver um chip mudar no cabeçalho da campanha.
 
-**PR B** — (1) configurar pixel + token numa campanha real e ver o evento aparecer na aba
-"Testar eventos" do Gerenciador; (2) clicar num anúncio real (URL com `fbclid`) e confirmar
-**um** Lead no Gerenciador, marcado como navegador **e** servidor (dedup pelo `event_id`).
+**PR B** — prova 1 de 2 **já colhida** em 02/09: evento de teste chegou ao Gerenciador (Lead,
+Processado, `event_id` 7a66aa76, `campaign: BOTA FORA`, chaves de usuário IP + user agent).
+Falta a **prova 2**: clicar num anúncio real (URL com `fbclid`) e confirmar **um** Lead,
+marcado como navegador **e** servidor. Se aparecerem dois, o `event_id` não casou e o dedup
+falhou — que é a razão de o PR B existir.
+
+## Dívida conhecida (não é bug, é honestidade de rótulo)
+
+A etiqueta **`recebendo eventos`** no card da Meta acende só porque pixel e token estão
+preenchidos — não porque evento nenhum chegou. Durante as três falhas acima ela dizia
+"recebendo eventos" enquanto nada era recebido. É a mesma armadilha da coluna "Feito" que foi
+tirada do quadro. Trocar por `configurado`, e reservar `recebendo eventos` para depois de um
+teste bem-sucedido.
 
 ## Prompt para retomar no PR C (cole numa sessão nova)
 
