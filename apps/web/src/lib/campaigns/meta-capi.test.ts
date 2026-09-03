@@ -7,6 +7,7 @@ import {
   descreveErro,
   firstForwardedIp,
   sendCapiEvent,
+  temSinalDeCasamento,
 } from "./meta-capi";
 
 const base = {
@@ -100,6 +101,35 @@ test("sendCapiEvent: erro da Meta NÃO lança, devolve ok:false com a mensagem",
     const r = await sendCapiEvent({ pixelId: "1234567890", token: "ruim", payload: buildCapiPayload(base) });
     assert.equal(r.ok, false);
     assert.match(r.error ?? "", /Invalid OAuth token/);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("temSinalDeCasamento: user agent sozinho não identifica ninguém", () => {
+  // Foi este o erro em produção: 100/2804050, "combinação de parâmetros de
+  // informações de clientes muito ampla".
+  assert.equal(temSinalDeCasamento({ client_user_agent: "Mozilla/5.0" }), false);
+  assert.equal(temSinalDeCasamento({}), false);
+  // Qualquer um dos três resolve — não é preciso o par inteiro.
+  assert.equal(temSinalDeCasamento({ client_user_agent: "M", client_ip_address: "203.0.113.7" }), true);
+  assert.equal(temSinalDeCasamento({ fbc: "fb.1.1.x" }), true);
+  assert.equal(temSinalDeCasamento({ fbp: "fb.1.1.2" }), true);
+});
+
+test("sendCapiEvent: recusa ANTES da rede quando não há sinal de casamento", async () => {
+  let chamou = false;
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    chamou = true;
+    return new Response("{}", { status: 200 });
+  }) as unknown as typeof fetch;
+  try {
+    const semSinal = buildCapiPayload({ ...base, clientIp: null, fbclid: null, fbp: null });
+    const r = await sendCapiEvent({ pixelId: "1234567890", token: "EAAx", payload: semSinal });
+    assert.equal(r.ok, false);
+    assert.equal(chamou, false, "não faz sentido gastar a ida à Meta para levar 100/2804050");
+    assert.match(r.error ?? "", /identifica/i);
   } finally {
     globalThis.fetch = realFetch;
   }

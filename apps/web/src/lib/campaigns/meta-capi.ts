@@ -94,6 +94,23 @@ export function buildCapiPayload(i: CapiInput): CapiPayload {
   return payload;
 }
 
+type UserData = CapiPayload["data"][0]["user_data"];
+
+/**
+ * O evento tem algum sinal que IDENTIFIQUE quem clicou?
+ *
+ * `client_user_agent` sozinho não identifica: milhões de pessoas usam o mesmo
+ * navegador. A Meta recusa esse evento com **100/2804050** ("combinação de
+ * parâmetros de informações de clientes muito ampla") — foi exatamente o que o
+ * botão "Enviar teste" levou em produção, por mandar `client_ip_address: null`.
+ *
+ * Basta UM dos três: o IP (junto do UA forma o par padrão de evento de site),
+ * o `fbc` (clique de anúncio) ou o `fbp` (cookie do pixel).
+ */
+export function temSinalDeCasamento(u: UserData): boolean {
+  return Boolean(u.client_ip_address || u.fbc || u.fbp);
+}
+
 /**
  * Erro da Graph API. `message` é a categoria ("Invalid parameter"); QUAL campo
  * está errado vem em `error_user_msg`. Guardar só o `message` deixa o lojista
@@ -134,6 +151,15 @@ export async function sendCapiEvent(a: {
   payload: CapiPayload;
   timeoutMs?: number;
 }): Promise<{ ok: boolean; eventsReceived?: number; error?: string; raw?: GraphError }> {
+  // Guarda no ponto único por onde todo chamador passa: sem sinal de casamento
+  // a Meta vai recusar de qualquer jeito, e um erro nosso aqui é mais claro
+  // (e mais barato) do que a ida até lá para voltar com 100/2804050.
+  if (!a.payload.data.every((e) => temSinalDeCasamento(e.user_data))) {
+    return {
+      ok: false,
+      error: "Falta o IP de quem clicou: só o navegador não identifica ninguém, e a Meta recusa o evento.",
+    };
+  }
   try {
     const res = await fetch(capiEndpoint(a.pixelId), {
       method: "POST",
