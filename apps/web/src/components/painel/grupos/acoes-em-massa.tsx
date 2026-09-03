@@ -3,10 +3,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ImagePlus, Loader2, Lock, Unlock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { RevisarLinks } from "./revisar-links";
 
 /**
- * Ações em massa sobre os grupos que JÁ EXISTEM na campanha: foto, descrição e
- * abrir/fechar.
+ * "Configurações dos grupos" — o bloco de OPERAR os grupos que já existem na
+ * campanha, dividido em três seções:
+ *
+ * - **Identidade** — foto e descrição, aplicadas em lote.
+ * - **Estado** — quantos estão abertos/fechados, e os botões de abrir e fechar.
+ * - **Manutenção** — revisar os links de convite (`revisar-links.tsx`).
+ *
+ * Chamava-se "Ações em massa". O nome novo é o da spec de 02/09: o que se faz
+ * aqui é CONFIGURAR os grupos; o que persiste sobre a campanha (pixel, deep
+ * link, o que acontece ao lotar) mora em `/editar`.
  *
  * O que o componente NÃO faz, e por quê:
  *
@@ -42,6 +51,12 @@ type Props = {
   administrados: number;
   /** Total de grupos da campanha, para explicar a diferença. */
   totais: number;
+  /**
+   * Contagem por `send_state`, como NÓS aplicamos por último. `semInfo` não é
+   * lacuna de dado: é "nunca aplicamos aqui" — o WhatsApp não é consultado para
+   * preencher isso, e chamar de "aberto" seria inventar.
+   */
+  estado: { abertos: number; fechados: number; semInfo: number };
   /** Chamado quando um lote termina, para a tela recarregar os selos. */
   onLoteConcluido: () => void;
 };
@@ -55,6 +70,7 @@ const ROTULO_ACAO: Record<string, string> = {
   set_picture: "foto",
   open: "abertura",
   close: "fechamento",
+  check_invite: "revisão dos links",
 };
 
 function descreveLote(actions: string[]): string {
@@ -64,7 +80,7 @@ function descreveLote(actions: string[]): string {
   return `${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]}`;
 }
 
-export function AcoesEmMassa({ slug, administrados, totais, onLoteConcluido }: Props) {
+export function AcoesEmMassa({ slug, administrados, totais, estado, onLoteConcluido }: Props) {
   const [descricao, setDescricao] = useState("");
   const [mediaId, setMediaId] = useState<string | null>(null);
   const [nomeArquivo, setNomeArquivo] = useState<string | null>(null);
@@ -226,9 +242,9 @@ export function AcoesEmMassa({ slug, administrados, totais, onLoteConcluido }: P
       : 0;
 
   return (
-    <section aria-label="Ações em massa" className="pn-card mb-4 rounded-2xl p-5">
+    <section aria-label="Configurações dos grupos" className="pn-card mb-4 rounded-2xl p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="font-display text-base font-bold text-volt-950">Ações em massa</h2>
+        <h2 className="font-display text-base font-bold text-volt-950">Configurações dos grupos</h2>
         <p className="font-data text-[11px] text-aco/50" data-testid="acoes-massa-alcance">
           {administrados === totais
             ? `${administrados} grupo(s)`
@@ -243,7 +259,10 @@ export function AcoesEmMassa({ slug, administrados, totais, onLoteConcluido }: P
         </p>
       ) : (
         <>
-          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <span className="font-data mt-4 block text-[10px] uppercase tracking-wider text-aco/50">
+            Identidade
+          </span>
+          <div className="mt-2 grid gap-4 lg:grid-cols-2">
             <div>
               <label
                 htmlFor="acoes-massa-descricao"
@@ -298,10 +317,34 @@ export function AcoesEmMassa({ slug, administrados, totais, onLoteConcluido }: P
             </div>
           </div>
 
-          <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-aco/10 pt-4">
-            <span className="font-data text-[10px] uppercase tracking-wider text-aco/50">
-              Estado dos grupos
-            </span>
+          <div className="mt-5 border-t border-aco/10 pt-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <span className="font-data text-[10px] uppercase tracking-wider text-aco/50">
+                Estado
+              </span>
+              {/*
+                A contagem vem de `groups.send_state`, que registra o que NÓS
+                aplicamos por último — o WhatsApp não é consultado. Por isso
+                "sem informação" aparece como categoria própria em vez de ser
+                somada aos abertos: dizer "aberto" sobre grupo em que nunca
+                aplicamos nada seria inventar estado.
+              */}
+              <span
+                className="font-data text-[11px] tabular-nums text-aco/50"
+                data-testid="grupos-estado-contagem"
+              >
+                <span className="text-volt-950">{estado.abertos}</span> abertos ·{" "}
+                <span className="text-volt-950">{estado.fechados}</span> fechados
+                {estado.semInfo > 0 && ` · ${estado.semInfo} sem informação`}
+              </span>
+            </div>
+            <p className="font-data mt-1 text-[10px] text-aco/45">
+              Abrir e fechar é sobre quem pode mandar mensagem. Horário automático por dia da
+              semana é o próximo passo.
+            </p>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => aplicarEstado("open")}
@@ -329,6 +372,8 @@ export function AcoesEmMassa({ slug, administrados, totais, onLoteConcluido }: P
               Fechar agora
             </button>
           </div>
+
+          <RevisarLinks slug={slug} ocupado={ocupado || rodando} onEnfileirado={lerProgresso} />
         </>
       )}
 

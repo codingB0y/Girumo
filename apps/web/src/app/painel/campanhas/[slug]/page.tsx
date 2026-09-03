@@ -301,6 +301,17 @@ export default function CampanhaDetalhe() {
                 slug={campanha.slug ?? campanha.id}
                 administrados={o.groups.filter((g) => g.group?.isAdmin).length}
                 totais={o.groups.length}
+                estado={{
+                  abertos: o.groups.filter((g) => g.group?.sendState === "open").length,
+                  fechados: o.groups.filter((g) => g.group?.sendState === "closed").length,
+                  // Tudo que não é open nem closed cai aqui — inclusive o grupo
+                  // sem `group` resolvido. `send_state` nulo é "nunca aplicamos",
+                  // e somá-lo aos abertos diria ao lojista que o grupo está
+                  // aberto sem nunca termos tocado nele.
+                  semInfo: o.groups.filter(
+                    (g) => g.group?.sendState !== "open" && g.group?.sendState !== "closed",
+                  ).length,
+                }}
                 onLoteConcluido={loadData}
               />
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

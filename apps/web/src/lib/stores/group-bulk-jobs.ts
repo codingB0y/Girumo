@@ -1,6 +1,7 @@
 import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import type { BulkAction, BulkJobInsert } from "@/lib/groups/bulk-batch";
+import { decideInviteReview } from "@/lib/groups/invite-review";
 
 /**
  * Fila de ações em massa sobre grupos que já existem (foto, descrição,
@@ -138,15 +139,30 @@ export async function claimBulk(tenantId: string): Promise<BulkJobClaim[]> {
 }
 
 /**
+ * O que o worker reporta. `invite`, `httpStatus` e `detail` só existem para
+ * `check_invite`, que é a única ação que devolve DADO em vez de só sucesso.
+ */
+export type BulkAckInput = {
+  status: "done" | "failed";
+  error?: string | null;
+  /** `check_invite` concluído: o convite lido, ou `null` se não veio nenhum. */
+  invite?: string | null;
+  /** `check_invite` falhado: 0 = não chegou na Evolution, senão o status HTTP. */
+  httpStatus?: number;
+  detail?: string | null;
+};
+
+/**
  * Registra o resultado de uma ação.
  *
  * Em `open`/`close` concluído, propaga para `groups.send_state` — é o que a tela
- * lê para mostrar aberto/fechado sem perguntar ao WhatsApp grupo a grupo.
+ * lê para mostrar aberto/fechado sem perguntar ao WhatsApp grupo a grupo. Em
+ * `check_invite`, propaga o veredito da revisão pelo mesmo caminho.
  */
 export async function ackBulk(
   tenantId: string,
   id: string,
-  ack: { status: "done" | "failed"; error?: string | null },
+  ack: BulkAckInput,
 ): Promise<BulkJobRow | null> {
   const now = new Date().toISOString();
 
@@ -169,24 +185,92 @@ export async function ackBulk(
   const job = data as BulkJobRow;
 
   if (ack.status === "done" && (job.action === "open" || job.action === "close")) {
-    const { error: stateError } = await getSupabaseAdmin()
-      .from("groups")
-      .update({
-        send_state: job.action === "open" ? "open" : "closed",
-        send_state_at: now,
-      })
-      .eq("tenant_id", tenantId)
-      .eq("id", job.group_id);
+    await propagaParaGrupo(tenantId, job.group_id, "send_state", {
+      send_state: job.action === "open" ? "open" : "closed",
+      send_state_at: now,
+    });
+  }
 
-    // Não derruba o ack: o job JÁ foi aplicado no WhatsApp. Perder o reflexo na
-    // tela é ruim; perder o ack seria pior, porque o job voltaria a ser aplicado
-    // — e reaplicar é justamente o que gasta janela anti-ban à toa.
-    if (stateError) {
-      console.error("[group-bulk-jobs] falha ao gravar send_state:", stateError.message);
-    }
+  if (job.action === "check_invite") {
+    await gravaRevisao(tenantId, job, ack, now);
   }
 
   return job;
+}
+
+/**
+ * Escrita secundária em `groups` — nunca derruba o ack.
+ *
+ * O job JÁ aconteceu do lado do WhatsApp. Perder o reflexo na tela é ruim;
+ * perder o ack seria pior, porque o job voltaria a ser aplicado — e reaplicar é
+ * justamente o que gasta janela anti-ban à toa.
+ */
+async function propagaParaGrupo(
+  tenantId: string,
+  groupId: string,
+  rotulo: string,
+  patch: Record<string, unknown>,
+): Promise<void> {
+  const { error } = await getSupabaseAdmin()
+    .from("groups")
+    .update(patch)
+    .eq("tenant_id", tenantId)
+    .eq("id", groupId);
+
+  if (error) {
+    console.error(`[group-bulk-jobs] falha ao gravar ${rotulo}:`, error.message);
+  }
+}
+
+/**
+ * Grava o veredito da revisão de convite.
+ *
+ * Lê o `invite_url` guardado ANTES de decidir: é a comparação com ele que separa
+ * `same` de `changed`. A decisão em si é pura (`decideInviteReview`) — aqui só
+ * mora o I/O.
+ *
+ * Falha passageira não grava nada: a revisão não aconteceu, e marcar `broken`
+ * numa queda da Evolution acusaria de quebrado um grupo que está bom.
+ */
+async function gravaRevisao(
+  tenantId: string,
+  job: BulkJobRow,
+  ack: BulkAckInput,
+  now: string,
+): Promise<void> {
+  const { data, error } = await getSupabaseAdmin()
+    .from("groups")
+    .select("invite_url")
+    .eq("tenant_id", tenantId)
+    .eq("id", job.group_id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[group-bulk-jobs] falha ao ler invite_url para revisão:", error.message);
+    return;
+  }
+  if (!data) return;
+
+  const decisao = decideInviteReview({
+    guardado: (data as { invite_url: string | null }).invite_url,
+    lido: ack.status === "done" ? (ack.invite ?? null) : undefined,
+    falha:
+      ack.status === "failed"
+        ? { status: ack.httpStatus ?? 0, detail: ack.detail ?? ack.error ?? null }
+        : undefined,
+  });
+
+  if (!decisao.grava) return;
+
+  await propagaParaGrupo(tenantId, job.group_id, "invite_check", {
+    invite_check: decisao.verdict,
+    invite_checked_at: now,
+    // Convite trocado no WhatsApp: o guardado virou lixo e o `/r/` mandaria o
+    // cliente para lugar nenhum. Só o caminho `changed` reescreve — `broken`
+    // PRESERVA o guardado de propósito, porque perder acesso não é o mesmo que
+    // o link ter mudado, e apagar deixaria a campanha sem destino nenhum.
+    ...(decisao.inviteUrl ? { invite_url: decisao.inviteUrl } : {}),
+  });
 }
 
 export type BatchCounts = {

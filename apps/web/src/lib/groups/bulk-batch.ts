@@ -16,7 +16,13 @@
  *   ação diz que é.
  */
 
-export type BulkAction = "set_description" | "set_picture" | "open" | "close";
+/**
+ * `check_invite` é a única que LÊ em vez de escrever: confere se o convite
+ * guardado ainda vale. Por isso não tem carga (nem `description` nem `media_id`)
+ * e corre num ritmo próprio, muito mais lento — ver a cadência de D7 dentro de
+ * `claim_bulk_jobs`.
+ */
+export type BulkAction = "set_description" | "set_picture" | "open" | "close" | "check_invite";
 
 export type BulkTargetGroup = {
   id: string;

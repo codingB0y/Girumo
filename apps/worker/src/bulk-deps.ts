@@ -82,6 +82,9 @@ export function makeBulkDeps(
 
     setOpenToAll: (instanceName, jid) => groups.setOpenToAll(instanceName, jid),
     setAnnounceOnly: (instanceName, jid) => groups.setAnnounceOnly(instanceName, jid),
+    // `inviteUrl` já existia para o auto-grow — a revisão de link não precisou de
+    // chamada HTTP nova, só de ser exposta ao loop.
+    inviteUrl: (instanceName, jid) => groups.inviteUrl(instanceName, jid),
     setDescription: (instanceName, jid, description) =>
       groups.setDescription(instanceName, jid, description),
     setPicture: (instanceName, jid, imageUrl) => groups.setPicture(instanceName, jid, imageUrl),

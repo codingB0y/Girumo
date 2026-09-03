@@ -278,3 +278,39 @@ test("campo nao enviado nao e apagado do template", () => {
 test("template nulo vira objeto novo", () => {
   assert.deepEqual(mergeGrowIdentity(null, { description: "x" }), { desc: "x" });
 });
+
+test("check_invite entra sem carga e sem exigir nada", () => {
+  // As duas acoes de identidade LANCAM sem carga (descricao vazia apagaria a
+  // descricao de todos). check_invite le, nao escreve: nao tem carga para
+  // esquecer, entao passar sem `description`/`mediaId` e o caminho normal.
+  const jobs = buildBulkJobs({
+    ...BASE,
+    action: "check_invite",
+    groups: [
+      { id: "g1", whatsapp_group_id: "120363001@g.us" },
+      { id: "g2", whatsapp_group_id: "120363002@g.us" },
+    ],
+  });
+
+  assert.equal(jobs.length, 2);
+  for (const job of jobs) {
+    assert.equal(job.action, "check_invite");
+    assert.equal(job.description, null);
+    assert.equal(job.media_id, null);
+  }
+});
+
+test("check_invite tambem descarta grupo sem id do WhatsApp", () => {
+  const jobs = buildBulkJobs({
+    ...BASE,
+    action: "check_invite",
+    groups: [
+      { id: "g1", whatsapp_group_id: null },
+      { id: "g2", whatsapp_group_id: "120363002@g.us" },
+    ] as BulkTargetGroup[],
+  });
+  assert.deepEqual(
+    jobs.map((j) => j.group_id),
+    ["g2"],
+  );
+});
