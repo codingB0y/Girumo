@@ -77,3 +77,24 @@ a Fase 2 está implementada e aberta como **PR #225** (`feat/paginas-v3-fase2`),
   depois de `changeStatus` quebra o teste — colocar antes.
 - Os inserts no LightRAG de 01–02/09 ficaram `failed` (cota do Gemini). Lista de retry desta fase:
   `tools/lightrag/index-lists/paginas-v3-fase2-2026-09-02.txt`.
+
+## Fecho da sessão da noite de 02/09 (Igor aprovou D1–D6)
+
+- **PR #225 mergeado** (squash `b0c89d5f`) e branch remota apagada. O commit de docs que criou este
+  arquivo ficou fora do squash (foi escrito depois do merge) e voltou por cherry-pick.
+- **Migradas em prod pelo botão**, nesta ordem: `mega-store-9ypy` (rascunho, 23:53Z) e
+  `mega-store-vcbm` (publicada, 00:02Z). As duas: `content_schema_version=3`, `structure=acesso-vip`,
+  `visual_direction=editorial`, `content_before_v3` gravado, `published_version` intacto.
+  Conferido em `/p/mega-store-vcbm`: h1 em Fraunces (antes `ui-serif`), galeria grid com as 3 fotos,
+  prova em vídeo com facade, faixa de CTA. Logo, foto do hero, vídeo e galeria preservados.
+- **`mega-stock-n8aq` NÃO foi migrada**: é de outro tenant (`a4cd4de5-…`, org
+  `blaia1511.bm@gmail.com`) — a sessão do Igor recebe 404 nela, e é página publicada de cliente.
+  Migrar exige a conta do cliente ou decisão explícita.
+- Card `paginas-v3-editorial` → `no_ar_verificado` (prova acima). `prova-v3-02-09-tzzk` pausada.
+
+### Armadilha nova: `window.confirm` congela a automação do Chrome
+
+`migrateToV3()` abre um `window.confirm` nativo. Clicar o botão por `javascript_tool` trava o renderer
+(CDP `Runtime.evaluate` estoura 45s e a aba fica inutilizável — foi preciso fechar duas abas).
+O que funciona: `window.confirm = () => true` e disparar o clique com `setTimeout(…, 0)`, para o eval
+retornar antes do handler rodar. Vale para qualquer botão do painel que confirme antes de agir.
