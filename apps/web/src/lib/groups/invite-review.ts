@@ -98,13 +98,11 @@ export function resumoRevisao(grupos: readonly GrupoRevisado[]): RevisaoResumo {
 }
 
 /**
- * Ritmo de D7: 10 leituras a cada 10 min = UMA por minuto, por tenant.
- *
- * A constante existe para a tela dar um ETA que bate com a realidade. O lote de
- * identidade corre a ~15/min; usar aquele número aqui prometeria 6 minutos para
- * uma revisão de 91 grupos que leva uma hora e meia.
+ * A revisão corre no ritmo do lote: uma leitura a cada 4 s por tenant (~15/min).
+ * Antes era 1/min (D7): 91 grupos levavam 1 h 31 para um GET que ninguém
+ * documentou como risco. A escrita de admin continua espaçada pelo bulk-loop.
  */
-export const LEITURAS_POR_MINUTO = 1;
+export const LEITURAS_POR_MINUTO = 15;
 
 export function etaRevisaoMin(grupos: number): number {
   return Math.max(1, Math.ceil(grupos / LEITURAS_POR_MINUTO));

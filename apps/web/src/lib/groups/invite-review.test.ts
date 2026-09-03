@@ -92,9 +92,13 @@ test("resumo de lista vazia nao inventa data", () => {
   assert.equal(resumoRevisao([]).ultimaRevisao, null);
 });
 
-test("ETA usa o ritmo da revisao (1/min), nao o do lote de identidade", () => {
-  // 91 grupos a 15/min dariam 7 min — a promessa errada que este teste barra.
-  assert.equal(etaRevisaoMin(91), 91);
+test("ETA da revisão segue o ritmo do lote (15/min)", () => {
+  assert.equal(etaRevisaoMin(1), 1);
+  assert.equal(etaRevisaoMin(91), 7);
+  assert.equal(etaRevisaoMin(200), 14);
+});
+
+test("ETA nunca cai a zero e nao inventa fracao de minuto", () => {
   assert.equal(etaRevisaoMin(0), 1);
   assert.equal(formataEta(91), "≈ 1 h 31");
   assert.equal(formataEta(45), "≈ 45 min");
