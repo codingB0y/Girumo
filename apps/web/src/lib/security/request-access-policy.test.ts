@@ -51,11 +51,12 @@ test("cron endpoints use handler-level authentication", () => {
   assert.equal(classifyRequest("/api/notifications/alerts", "GET"), "cron");
 });
 
-test("every scheduled cron path is on the allowlist", () => {
-  // Regressão: /api/cron/group-invites ficou de fora e caía no gate de sessão,
-  // que valida JWT do Supabase — o Bearer <CRON_SECRET> do Vercel nunca passa.
-  // O cron respondia 401 em toda execução, com o ambiente todo configurado.
-  assert.equal(classifyRequest("/api/cron/group-invites", "GET"), "cron");
+test("a path removed from the cron allowlist falls back to the session gate", () => {
+  // /api/cron/group-invites foi removido: o backfill de convite virou parte da
+  // fila do lote (ver invite-backfill em groups/sync), sem cron diário. O path
+  // não pode continuar classificado como "cron" — senão qualquer rota nova sob
+  // esse nome herdaria acesso sem sessão por engano.
+  assert.equal(classifyRequest("/api/cron/group-invites", "GET"), "user");
 });
 
 test("the Evolution webhook is session-less and rate limited", () => {

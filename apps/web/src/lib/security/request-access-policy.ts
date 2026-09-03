@@ -69,7 +69,6 @@ export function classifyRequest(pathname: string, method: string): AccessKind {
   // produção, com o ambiente todo configurado.
   if (
     pathname === "/api/cron/emails" ||
-    pathname === "/api/cron/group-invites" ||
     pathname === "/api/notifications/alerts"
   ) {
     return "cron";
