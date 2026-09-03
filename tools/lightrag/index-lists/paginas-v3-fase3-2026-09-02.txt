@@ -1,0 +1,14 @@
+# Paginas v3 - Fase 3 (PR #233, 02/09/2026). Reindexar (o indice esta com 430 docs failed
+# no perfil tech; a raiz que o rag usa e a do repo, entao rode com o checkout na main):
+#   rag index --list tools/lightrag/index-lists/paginas-v3-fase3-2026-09-02.txt --full --retry-failed
+# Sem BOM neste arquivo de proposito: com BOM a primeira linha vira um "path nao encontrado".
+docs/handoff-2026-09-02-paginas-v3-fase3.md
+docs/handoff-2026-09-02-paginas-v3-fase2.md
+apps/web/src/lib/pages/sections.ts
+apps/web/src/lib/pages/content-v3.ts
+apps/web/src/lib/pages/templates-v3.ts
+apps/web/src/components/pages/templates/v3/tokens.ts
+apps/web/src/components/pages/templates/v3/sections/gallery.tsx
+apps/web/src/components/pages/templates/v3/sections-page.tsx
+apps/web/src/components/pages/editor/v3/new-page-v3.tsx
+apps/web/supabase/migrations/20260903120000_lp_v3_vitrine.sql
