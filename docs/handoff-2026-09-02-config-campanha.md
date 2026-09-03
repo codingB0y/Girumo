@@ -36,13 +36,18 @@ Falta a **prova 2**: clicar num anúncio real (URL com `fbclid`) e confirmar **u
 marcado como navegador **e** servidor. Se aparecerem dois, o `event_id` não casou e o dedup
 falhou — que é a razão de o PR B existir.
 
-## Dívida conhecida (não é bug, é honestidade de rótulo)
+## Dívida conhecida (não é bug, é honestidade de rótulo) — **PAGA em 03/09**
 
-A etiqueta **`recebendo eventos`** no card da Meta acende só porque pixel e token estão
+A etiqueta **`recebendo eventos`** no card da Meta acendia só porque pixel e token estavam
 preenchidos — não porque evento nenhum chegou. Durante as três falhas acima ela dizia
 "recebendo eventos" enquanto nada era recebido. É a mesma armadilha da coluna "Feito" que foi
-tirada do quadro. Trocar por `configurado`, e reservar `recebendo eventos` para depois de um
-teste bem-sucedido.
+tirada do quadro.
+
+**Resolvido:** os três cards (Meta, GA4, Google Ads) dizem `configurado`. O rótulo
+`recebendo eventos` **não existe mais** — não foi adiado, foi retirado: a tela não tem como
+saber se a Meta recebeu algo, e nenhuma evidência de recebimento é gravada hoje. Se voltar,
+tem de vir de um teste bem-sucedido persistido, não de campo preenchido. Um teste de guarda
+(`integracoes-form.test.ts`) reprova qualquer etiqueta que volte a afirmar recebimento.
 
 ## Prompt para retomar no PR C (cole numa sessão nova)
 

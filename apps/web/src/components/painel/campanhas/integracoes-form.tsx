@@ -14,11 +14,19 @@ import type { IntegracoesPublicas } from "@/app/api/campanhas/apresenta";
  */
 export type IntegracoesFormValue = IntegracoesPublicas & { capi_token_novo?: string };
 
-/** `recebendo eventos` só quando dá para MEDIR de verdade: pixel + token. */
-export function etiquetaMeta(v: IntegracoesFormValue): "recebendo eventos" | "sem token" | "não configurado" {
+/**
+ * A etiqueta diz o que a tela REALMENTE sabe: que os campos estão preenchidos.
+ *
+ * Não existe mais `recebendo eventos` aqui. Daqui não dá para saber se evento
+ * algum chegou à Meta, e durante as três falhas do CAPI (#229, #231, #232) essa
+ * etiqueta afirmou "recebendo eventos" enquanto nada era recebido — a mesma
+ * armadilha da coluna "Feito" que foi tirada do quadro. Se um dia voltar, tem de
+ * vir de evidência gravada (um teste bem-sucedido), não de campo preenchido.
+ */
+export function etiquetaMeta(v: IntegracoesFormValue): "configurado" | "sem token" | "não configurado" {
   if (!v.meta.pixel_id) return "não configurado";
   const temToken = v.capi_token_novo === undefined ? v.meta.capi_token_set : v.capi_token_novo.length > 0;
-  return temToken ? "recebendo eventos" : "sem token";
+  return temToken ? "configurado" : "sem token";
 }
 
 const CAMPO =
@@ -173,7 +181,7 @@ export function IntegracoesForm({
         </p>
       </Card>
 
-      <Card titulo="Google Analytics 4" etiqueta={value.ga4.id ? "recebendo eventos" : "não configurado"}>
+      <Card titulo="Google Analytics 4" etiqueta={value.ga4.id ? "configurado" : "não configurado"}>
         <label className="block">
           <span className={ROTULO}>ID de medição (GA4)</span>
           <input
@@ -188,7 +196,7 @@ export function IntegracoesForm({
 
       <Card
         titulo="Google Ads"
-        etiqueta={value.google_ads.id && value.google_ads.label ? "recebendo eventos" : "não configurado"}
+        etiqueta={value.google_ads.id && value.google_ads.label ? "configurado" : "não configurado"}
       >
         <label className="block">
           <span className={ROTULO}>ID de conversão (Google Ads)</span>
