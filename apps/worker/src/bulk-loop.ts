@@ -222,3 +222,6 @@ export async function runBulkTick(deps: BulkDeps): Promise<BulkTickSummary> {
 export function bulkDidWork(summary: BulkTickSummary): boolean {
   return summary.claimed > 0 || summary.done > 0 || summary.failed > 0;
 }
+
+// ponytail: stub — C2 implementa o dreno real das ações em massa em voo no shutdown.
+export async function drainInFlight(): Promise<void> {}
