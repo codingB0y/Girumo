@@ -30,6 +30,13 @@ export type Group = {
    */
   send_state?: "open" | "closed" | null;
   send_state_at?: string | null;
+  /**
+   * Resultado da última revisão do convite. `null`/ausente = NUNCA revisado, que
+   * é diferente de `broken` — sem essa distinção a tela acusaria de quebrado
+   * todo grupo que ainda não foi olhado. Escrito só pelo ack de `check_invite`.
+   */
+  invite_check?: "same" | "changed" | "broken" | null;
+  invite_checked_at?: string | null;
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;

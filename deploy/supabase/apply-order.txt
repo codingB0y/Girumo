@@ -317,3 +317,11 @@ apps/web/supabase/migrations/20260903090000_lp_v3_migracao.sql
 # aceita vitrine desde a Fase 1. Sem esta linha o modelo aparece na galeria e recusa ao
 # salvar. Aplicar nos DOIS.
 apps/web/supabase/migrations/20260903120000_lp_v3_vitrine.sql
+
+# 03/09/2026 - PR C das configuracoes dos grupos: acao check_invite na CHECK de
+# group_bulk_jobs.action, colunas invite_checked_at/invite_check em groups, e a cadencia
+# de D7 (1 leitura/min por tenant) dentro de claim_bulk_jobs. Aplicada nos DOIS.
+# ATENCAO: o gate de drift so enxerga as duas colunas novas - CHECK constraint e corpo de
+# funcao NAO entram em schema_signature(), entao aplicar num banco so ficaria VERDE no CI.
+# Conferido por SQL nos dois bancos (pg_get_constraintdef + pg_get_functiondef).
+apps/web/supabase/migrations/20260903130000_check_invite_e_revisao.sql

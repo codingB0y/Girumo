@@ -26,7 +26,7 @@
 
 import { log } from "./log.js";
 
-export type BulkAction = "set_description" | "set_picture" | "open" | "close";
+export type BulkAction = "set_description" | "set_picture" | "open" | "close" | "check_invite";
 
 /** O que o app entrega no claim. Autocontido: o worker não consulta o banco. */
 export type BulkJobClaim = {
@@ -37,7 +37,25 @@ export type BulkJobClaim = {
   mediaId?: string;
 };
 
-export type BulkAck = { status: "done" | "failed"; error?: string };
+/**
+ * `invite`, `httpStatus` e `detail` só existem para `check_invite`.
+ *
+ * O worker NÃO classifica a revisão. Ele devolve o que leu, ou o erro cru com o
+ * status HTTP, e o servidor decide `same`/`changed`/`broken` — é lá que o
+ * `invite_url` guardado está, e onde `classifyInviteFailure` já mora. Repassar o
+ * status é o que permite separar "perdi o admin" (permanente) de "a Evolution
+ * caiu" (passageiro): sem ele, uma queda de rede marcaria 91 grupos bons como
+ * quebrados.
+ */
+export type BulkAck = {
+  status: "done" | "failed";
+  error?: string;
+  /** `check_invite` concluído: o convite lido, ou `null` se não veio nenhum. */
+  invite?: string | null;
+  /** 0 = não chegou na Evolution (timeout/rede); senão o status HTTP. */
+  httpStatus?: number;
+  detail?: string;
+};
 
 export type BulkDeps = {
   /** Tenants com fila a drenar. */
@@ -52,6 +70,8 @@ export type BulkDeps = {
   setAnnounceOnly(instanceName: string, groupJid: string): Promise<void>;
   setDescription(instanceName: string, groupJid: string, description: string): Promise<void>;
   setPicture(instanceName: string, groupJid: string, imageUrl: string): Promise<void>;
+  /** Convite canônico do grupo, ou `null` se a Evolution não devolveu um válido. */
+  inviteUrl(instanceName: string, groupJid: string): Promise<string | null>;
   /** URL assinada de TTL curto, ou null (mídia apagada / id inválido). */
   signedMediaUrl(mediaId: string, tenantId: string): Promise<string | null>;
 };
@@ -73,19 +93,30 @@ function reason(error: unknown): string {
   return error instanceof Error ? error.message : "erro desconhecido";
 }
 
-/** Executa UMA ação. Lança em falha — quem chama transforma em ack. */
+/**
+ * Executa UMA ação. Lança em falha — quem chama transforma em ack.
+ *
+ * Devolve o convite lido quando a ação é `check_invite`; `undefined` para as
+ * outras, que não produzem dado nenhum.
+ */
 async function applyJob(
   deps: BulkDeps,
   tenantId: string,
   instanceName: string,
   job: BulkJobClaim,
-): Promise<void> {
+): Promise<string | null | undefined> {
   switch (job.action) {
     case "open":
-      return deps.setOpenToAll(instanceName, job.whatsappGroupId);
+      return deps.setOpenToAll(instanceName, job.whatsappGroupId).then(() => undefined);
 
     case "close":
-      return deps.setAnnounceOnly(instanceName, job.whatsappGroupId);
+      return deps.setAnnounceOnly(instanceName, job.whatsappGroupId).then(() => undefined);
+
+    // Única ação que LÊ. `null` é resposta legítima ("a Evolution não devolveu
+    // convite utilizável"), não erro — quem decide o que isso significa para o
+    // lojista é o servidor.
+    case "check_invite":
+      return deps.inviteUrl(instanceName, job.whatsappGroupId);
 
     case "set_description": {
       // String vazia é ação legítima (apagar a descrição), então o teste é de
@@ -94,16 +125,33 @@ async function applyJob(
       if (typeof job.description !== "string") {
         throw new Error("Job de descrição sem texto.");
       }
-      return deps.setDescription(instanceName, job.whatsappGroupId, job.description);
+      await deps.setDescription(instanceName, job.whatsappGroupId, job.description);
+      return undefined;
     }
 
     case "set_picture": {
       if (!job.mediaId) throw new Error("Job de foto sem imagem.");
       const url = await deps.signedMediaUrl(job.mediaId, tenantId);
       if (!url) throw new Error("A imagem não está mais disponível.");
-      return deps.setPicture(instanceName, job.whatsappGroupId, url);
+      await deps.setPicture(instanceName, job.whatsappGroupId, url);
+      return undefined;
     }
   }
+}
+
+/**
+ * Erro da Evolution → o que o ack precisa carregar.
+ *
+ * O `status` é o que separa passageiro de permanente do outro lado. Sem ele todo
+ * erro chegaria como texto e a classificação teria de adivinhar — que é o que
+ * marcaria 91 grupos bons como quebrados numa queda de rede.
+ */
+function detalhaFalha(error: unknown): { error: string; httpStatus?: number; detail?: string } {
+  const mensagem = reason(error);
+  const status = (error as { status?: unknown })?.status;
+  return typeof status === "number"
+    ? { error: mensagem, httpStatus: status, detail: mensagem }
+    : { error: mensagem };
 }
 
 async function runTenant(
@@ -131,12 +179,16 @@ async function runTenant(
     }
 
     try {
-      await applyJob(deps, tenantId, instanceName, job);
+      const invite = await applyJob(deps, tenantId, instanceName, job);
       summary.done += 1;
-      await deps.ack(tenantId, job.id, { status: "done" });
+      await deps.ack(tenantId, job.id, {
+        status: "done",
+        // Só a revisão devolve dado; as outras não põem a chave no ack.
+        ...(job.action === "check_invite" ? { invite: invite ?? null } : {}),
+      });
     } catch (error) {
       summary.failed += 1;
-      await deps.ack(tenantId, job.id, { status: "failed", error: reason(error) });
+      await deps.ack(tenantId, job.id, { status: "failed", ...detalhaFalha(error) });
     }
   }
 

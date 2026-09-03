@@ -6,11 +6,16 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST /api/groups/bulk/ack — o WORKER reporta o resultado de uma ação.
- * body { id, status: "done"|"failed", error? }
+ * body { id, status: "done"|"failed", error?, invite?, httpStatus?, detail? }
  *
  * Só dois status terminais: não existe `running` intermediário como no
  * auto-grow, porque aqui a operação é UMA chamada, não uma sequência
  * create → descrição → foto → convite que valha reportar em etapas.
+ *
+ * `invite`, `httpStatus` e `detail` só valem para `check_invite`, a única ação
+ * que devolve DADO. O worker não classifica nada: manda o que leu, ou o erro cru
+ * com o status HTTP, e quem decide `same`/`changed`/`broken` é o servidor — é
+ * deste lado que o `invite_url` guardado está.
  */
 export async function POST(req: Request) {
   try {
@@ -32,6 +37,12 @@ export async function POST(req: Request) {
     const job = await ackBulk(tenantId, id, {
       status,
       error: typeof body.error === "string" ? body.error : null,
+      // `null` explícito é resposta ("a Evolution não devolveu convite") e tem de
+      // sobreviver: trocar por `undefined` faria a decisão achar que não houve
+      // leitura nenhuma.
+      invite: typeof body.invite === "string" ? body.invite : body.invite === null ? null : undefined,
+      httpStatus: typeof body.httpStatus === "number" ? body.httpStatus : undefined,
+      detail: typeof body.detail === "string" ? body.detail : null,
     });
     if (!job) return Response.json({ error: "Job não encontrado." }, { status: 404 });
 
