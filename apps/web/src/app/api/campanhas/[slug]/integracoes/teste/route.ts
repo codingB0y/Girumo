@@ -1,6 +1,6 @@
 import { resolveBulkCampaign } from "@/lib/groups/bulk-request";
 import { readIntegracoes } from "@/lib/campaigns/settings";
-import { buildCapiPayload, sendCapiEvent } from "@/lib/campaigns/meta-capi";
+import { buildCapiPayload, firstForwardedIp, sendCapiEvent } from "@/lib/campaigns/meta-capi";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,7 +44,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
         eventId: crypto.randomUUID(),
         eventTimeMs: Date.now(),
         sourceUrl: `${new URL(req.url).origin}/r/${slug}`,
-        clientIp: null,
+        // O IP vai JUNTO do user agent: sozinho, o UA não identifica ninguém e
+        // a Meta recusa com 100/2804050. Aqui o `x-forwarded-for` é o IP de
+        // quem está no painel — é dele o navegador que dispara este teste.
+        clientIp: firstForwardedIp(req.headers.get("x-forwarded-for")),
         userAgent: req.headers.get("user-agent") ?? "",
         fbclid: null,
         fbp: null,
