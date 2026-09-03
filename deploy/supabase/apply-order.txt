@@ -331,3 +331,11 @@ apps/web/supabase/migrations/20260903120000_lp_v3_vitrine.sql
 # funcao NAO entram em schema_signature(), entao aplicar num banco so ficaria VERDE no CI.
 # Conferido por SQL nos dois bancos (pg_get_constraintdef + pg_get_functiondef).
 apps/web/supabase/migrations/20260903130000_check_invite_e_revisao.sql
+
+# 04/09/2026 - check_invite volta ao ritmo do lote (15/min), sem a janela de 60s de
+# D7 (91 grupos levavam 1h31 para um GET). Libera group_bulk_jobs.campaign_group_id
+# (drop not null): o backfill de convite passa a entrar nesta fila a partir do sync,
+# sem campanha. O gate de drift so ve a assinatura da funcao - a janela removida do
+# corpo e o drop not null NAO entram no hash; conferido por SQL nos dois bancos
+# (pg_get_functiondef sem "60 seconds" + information_schema.columns.is_nullable).
+apps/web/supabase/migrations/20260904110000_check_invite_sem_janela.sql
