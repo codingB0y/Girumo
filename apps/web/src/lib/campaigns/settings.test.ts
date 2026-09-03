@@ -128,6 +128,42 @@ assert.equal(
   false,
 );
 
+// --- integrações: o token tem de PARECER um token ---------------------------
+
+// O caso real de 02/09/2026: o Chrome autopreencheu o e-mail da conta por cima
+// do token guardado, e o PATCH aceitou. 19 caracteres com "@" nunca são token.
+const emailNoLugarDoToken = parseIntegracoesPatch({
+  meta: { pixel_id: "598174140927554", evento: "Lead", capi_token: "igor@exemplo.com.br", test_code: "" },
+  ga4: { id: "" },
+  google_ads: { id: "", label: "" },
+});
+assert.equal(emailNoLugarDoToken.ok, false, "e-mail não pode virar token");
+if (!emailNoLugarDoToken.ok) assert.match(emailNoLugarDoToken.error, /capi_token/);
+
+// Curto demais também não passa (token da Meta passa de 190 caracteres).
+assert.equal(
+  parseIntegracoesPatch({
+    meta: { pixel_id: "", evento: "Lead", capi_token: "EAAcurtinho", test_code: "" },
+    ga4: { id: "" },
+    google_ads: { id: "", label: "" },
+  }).ok,
+  false,
+);
+
+// Token plausível passa, e "" continua apagando de propósito.
+const tokenPlausivel = "EAAV" + "x".repeat(200);
+for (const valor of [tokenPlausivel, ""]) {
+  assert.equal(
+    parseIntegracoesPatch({
+      meta: { pixel_id: "", evento: "Lead", capi_token: valor, test_code: "" },
+      ga4: { id: "" },
+      google_ads: { id: "", label: "" },
+    }).ok,
+    true,
+    `deveria aceitar ${valor === "" ? '""' : "token plausível"}`,
+  );
+}
+
 // --- integrações: token write-only ------------------------------------------
 
 const comToken: Integracoes = {

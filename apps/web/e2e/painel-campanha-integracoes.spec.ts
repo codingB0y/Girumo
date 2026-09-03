@@ -22,7 +22,11 @@ test.use({ storageState: ESTADO_LOGADO });
 
 // Montado em pedaços de propósito: o scan de secrets do verify-local pega
 // literal que se pareça com token do Meta.
-const TOKEN_FALSO = "EAA" + "tokendeteste" + "XY99";
+//
+// Tem de ter 50+ caracteres do alfabeto de token: o servidor recusa o que não
+// PARECE token, para o autofill do navegador não gravar um e-mail por cima de
+// uma credencial de verdade (foi o que aconteceu em 02/09/2026).
+const TOKEN_FALSO = "EAA" + "tokendeteste".repeat(4) + "XY99";
 
 test.describe("integrações da campanha", () => {
   exigeCredenciais();

@@ -148,6 +148,16 @@ const ADS_ID = /^AW-\d+$/;
 const ADS_LABEL = /^[A-Za-z0-9_-]+$/;
 const EVENTO = /^[A-Za-z][A-Za-z0-9_]{0,39}$/;
 const TEST_CODE = /^[A-Za-z0-9]{1,32}$/;
+/**
+ * Token da API de Conversões: só o alfabeto de token, e longo.
+ *
+ * Existe porque o campo é `type="password"` e o Chrome ignora
+ * `autocomplete="off"` — em 02/09/2026 ele autopreencheu o e-mail da conta por
+ * cima do token de 204 caracteres, e o PATCH gravou. Um `@` ou 19 caracteres
+ * nunca são um token: recusar aqui é o que impede o autofill de destruir uma
+ * credencial em silêncio. O piso de 50 é folgado (os da Meta passam de 190).
+ */
+const CAPI_TOKEN = /^[A-Za-z0-9_-]{50,500}$/;
 
 /** "" é sempre aceito (campo não configurado); preenchido tem de casar o regex. */
 const vazioOu = (re: RegExp, msg: string) => z.string().refine((v) => v === "" || re.test(v), msg);
@@ -156,7 +166,14 @@ const integracoesPatchSchema = z.strictObject({
   meta: z.strictObject({
     pixel_id: vazioOu(PIXEL_ID, "o ID do pixel tem de ser só números (5 a 20 dígitos)"),
     evento: z.string().regex(EVENTO, "nome de evento inválido"),
-    capi_token: z.string().max(500).optional(),
+    // "" apaga de propósito; qualquer outra coisa tem de PARECER um token.
+    capi_token: z
+      .string()
+      .refine(
+        (v) => v === "" || CAPI_TOKEN.test(v),
+        "isso não parece um token da API de Conversões — confira se o navegador não preencheu o campo sozinho",
+      )
+      .optional(),
     test_code: vazioOu(TEST_CODE, "código de teste inválido"),
   }),
   ga4: z.strictObject({ id: vazioOu(GA4_ID, 'o ID do GA4 começa com "G-"') }),
