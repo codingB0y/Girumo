@@ -45,3 +45,19 @@ def test_backoff_do_embedding_alcanca_o_retry_delay_do_429():
 
     decorator = inspect.getsource(llm).split("async def _embed_content")[0].rsplit("@retry(", 1)[1]
     assert "max=60" in decorator, "o backoff do embedding precisa alcancar o retryDelay de ~32s do 429"
+
+
+def test_backoff_do_embedding_cabe_no_timeout_da_funcao():
+    """Esperar o 429 nao pode estourar o timeout que o LightRAG da a funcao.
+
+    As duas defesas brigam: subir o backoff para alcancar o retryDelay do 429 faz a
+    chamada demorar mais do que o `default_embedding_timeout`, e o pipeline morre em
+    "Worker execution timeout" — o mesmo sintoma, pelo outro lado. Medido em 03/09.
+    """
+    import inspect
+
+    from lightrag_kg import rag
+
+    fonte = inspect.getsource(rag.get_rag)
+    assert "default_embedding_timeout=240" in fonte, "o timeout precisa ser explicito"
+    assert 60 < 240, "o teto do backoff tem que caber no timeout da funcao"
