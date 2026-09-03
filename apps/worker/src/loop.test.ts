@@ -27,22 +27,22 @@ test("startLoop não reentra: um tick lento não sobrepõe o próximo", async ()
 });
 
 test("startLoop encerra rápido mesmo com intervalMs grande (sleep interrompível)", async () => {
-  let ticks = 0;
   let stopping = false;
-  const start = Date.now();
   const loop = startLoop({
     name: "t",
-    intervalMs: 10_000,
+    intervalMs: 3000,
     isStopping: () => stopping,
     onError: () => undefined,
     async tick() {
-      ticks += 1;
-      stopping = true;
+      // não seta stopping aqui — o loop precisa estar DORMINDO quando o sinal chegar
     },
   });
+  setTimeout(() => {
+    stopping = true;
+  }, 50);
+  const start = Date.now();
   await loop.done;
-  assert.equal(ticks, 1);
-  assert.ok(Date.now() - start < 500, "não deveria esperar o intervalMs inteiro pra encerrar");
+  assert.ok(Date.now() - start < 1000, `esperava <1000ms, levou ${Date.now() - start}ms`);
 });
 
 test("startLoop isola erro do tick e continua", async () => {
