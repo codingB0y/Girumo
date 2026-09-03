@@ -225,8 +225,11 @@ ainda em grupo, botão perigoso com confirmação, e "Colar números…"). Progr
 "? Ajuda" no cabeçalho. **Entrada:** dois toggles com estado à direita, "Encerrar
 automaticamente" (data + "faltam N dias"), "Quando lotar" como grupo de rádios (aviso / Página
 da conta com seletor das páginas publicadas / outro link), prévia da tela ao lado.
-**Integrações:** um card por serviço com etiqueta de estado (`recebendo eventos`, `sem token`,
+**Integrações:** um card por serviço com etiqueta de estado (`configurado`, `sem token`,
 `não configurado`), campos, "Enviar teste" e o aviso "Lead registrado mesmo com deep link".
+A etiqueta afirma só o que a tela sabe — campo preenchido. **Não existe `recebendo eventos`**:
+ela foi tentada e mentiu durante as três falhas do CAPI (#229/#231/#232), dizendo "recebendo"
+enquanto nada chegava. Se voltar um dia, tem de vir de evidência gravada, não de campo cheio.
 Texto explicativo curto abaixo de cada campo; a consequência técnica fica no painel de ajuda.
 
 ## Testes
