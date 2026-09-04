@@ -106,9 +106,9 @@ function CartaoNumero({ health }: { health: NumberHealth }) {
 
       <div className={cn("mt-5 grid gap-5 sm:grid-cols-2", !health.connected && "hidden")}>
         <div>
-          <Rotulo icone={<Flame className="h-3.5 w-3.5" aria-hidden="true" />}>
-            {health.graduated ? "Aquecimento concluído" : `Dia ${health.warmupDay} de aquecimento`}
-          </Rotulo>
+          <span className="rounded-full bg-cobalt-500/10 px-2 py-0.5 text-xs font-medium text-cobalt-700">
+            {health.perfil === "veterano" ? "Número veterano" : `Número novo · dia ${health.warmupDay} de 7`}
+          </span>
           <p className="font-display mt-1.5 text-[28px] font-extrabold leading-none tracking-[-0.03em] text-volt-950">
             {health.usedToday}
             <span className="text-aco/40"> / {health.dailyCap}</span>
@@ -116,9 +116,9 @@ function CartaoNumero({ health }: { health: NumberHealth }) {
           <p className="mt-1 text-sm text-ardosia">mensagens hoje · restam {restante}</p>
           <BarraUso ratio={health.usedRatio} usadas={health.usedToday} teto={health.dailyCap} />
           <p className="mt-2 text-[13px] leading-relaxed text-aco/70">
-            {health.graduated
-              ? "Seu número já passou pela rampa e opera no teto cheio."
-              : "Número novo que dispara muito é o que o WhatsApp bloqueia. O teto sobe sozinho a cada dia."}
+            {health.perfil === "veterano"
+              ? `Até ${health.dailyCap} mensagens por dia e ${health.hourlyCap} por hora, calculado pelos seus ${health.adminGroups} grupos com gente. Enviamos 1 a cada 5 s para parecer uso humano.`
+              : `Número novo que dispara muito é o que o WhatsApp bloqueia. Hoje o teto é ${health.dailyCap}; ele sobe sozinho a cada dia até o 7º.`}
           </p>
         </div>
 
@@ -133,7 +133,11 @@ function CartaoNumero({ health }: { health: NumberHealth }) {
             icone={<Activity className="h-3.5 w-3.5" aria-hidden="true" />}
             rotulo="Última hora"
             valor={`${health.sentLastHour}`}
-            nota="teto de 120/h"
+            nota={
+              health.pausedSeconds > 60
+                ? `Pausado ${Math.ceil(health.pausedSeconds / 60)} min: o WhatsApp pediu para desacelerar.`
+                : `teto de ${health.hourlyCap}/h`
+            }
           />
           <Metrica
             icone={<ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />}
@@ -236,15 +240,6 @@ function RegraDosQuatorzeDias() {
         </div>
       </dl>
     </div>
-  );
-}
-
-function Rotulo({ children, icone }: { children: React.ReactNode; icone: React.ReactNode }) {
-  return (
-    <span className="font-data inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-aco/60">
-      {icone}
-      {children}
-    </span>
   );
 }
 
