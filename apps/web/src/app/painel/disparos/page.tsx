@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { MessageComposer, type ComposerPayload } from "@/components/painel/messages/message-composer";
 import { ScheduleComposer, type SchedulePayload } from "@/components/painel/messages/schedule-composer";
 import type { TenantDispatchView } from "@/lib/campaigns/dispatch-view";
+import { etaDisparo } from "@/lib/campaigns/dispatch-eta";
 
 type Campanha = { id: string; name: string; slug?: string; groupIds: string[] };
 
@@ -217,6 +218,7 @@ export default function PainelDisparos() {
               const badge = STATUS[d.status] ?? STATUS.draft;
               const BadgeIcon = badge.icon;
               const quando = d.scheduledAt ?? d.dispatchedAt ?? d.createdAt;
+              const eta = d.status === "queued" || d.status === "running" ? etaDisparo(d) : null;
               return (
                 <div key={d.id} className="px-5 py-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -226,6 +228,7 @@ export default function PainelDisparos() {
                           <BadgeIcon className={cn("h-3 w-3", (d.status === "running" || d.status === "queued") && "animate-spin")} />
                           {badge.label}
                         </span>
+                        {eta && <span className="text-xs text-aco/60">{d.sent} de {d.total} · {eta}</span>}
                         {d.campaignSlug ? (
                           <Link href={`/painel/campanhas/${d.campaignSlug}`} className="text-sm font-medium text-cobalt-500 hover:underline">
                             {d.campaignName}

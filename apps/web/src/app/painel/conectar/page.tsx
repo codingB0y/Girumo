@@ -8,11 +8,13 @@ import { toPlanLimitError, upgradeUrlFrom } from "@/lib/billing/plan-limit-clien
 import { PlanLimitAlert } from "@/components/painel/plan-limit-alert";
 import { NumeroSaude } from "@/components/painel/numero-saude";
 import { GruposProtecao } from "@/components/painel/grupos-protecao";
+import { PerguntaPerfilNumero } from "@/components/painel/pergunta-perfil-numero";
 import { cn } from "@/lib/utils";
 import { POLL_MS, WATCH_MS, nextPollDelay } from "@/lib/engine-poll";
 import { precisaParearDeNovo } from "@/lib/instance-disconnect-reason";
 import { activationLabel } from "@/lib/onboarding-steps";
 import { selectSessionRow } from "@/lib/session-select";
+import type { NumeroPerfilDeclarado } from "@/lib/instances/numero-perfil";
 
 /**
  * A casa do número — três estados na mesma rota.
@@ -30,7 +32,17 @@ import { selectSessionRow } from "@/lib/session-select";
  *   conectado           → "Seu número": estado, saúde e proteção
  */
 export default function PainelConectar() {
-  const { instance, loading, error, upgradeUrl, load, refreshQr, disconnect } = useInstance();
+  const {
+    instance,
+    loading,
+    error,
+    upgradeUrl,
+    precisaPerfil,
+    load,
+    refreshQr,
+    disconnect,
+    onEscolherPerfil,
+  } = useInstance();
   const connected = instance?.status === "connected";
   const jaPareou = Boolean(instance?.connected_at);
 
@@ -51,9 +63,11 @@ export default function PainelConectar() {
           loading={loading}
           error={error}
           upgradeUrl={upgradeUrl}
+          precisaPerfil={precisaPerfil}
           onRefreshQr={refreshQr}
           onDisconnect={disconnect}
           onReload={load}
+          onEscolherPerfil={onEscolherPerfil}
         />
       )}
     </div>
@@ -157,9 +171,11 @@ function ModoPareamento({
   loading,
   error,
   upgradeUrl,
+  precisaPerfil,
   onRefreshQr,
   onDisconnect,
   onReload,
+  onEscolherPerfil,
 }: {
   instance: Instance | null;
   /** Já houve pareamento antes: isto é reconexão, não primeiro acesso. */
@@ -167,9 +183,12 @@ function ModoPareamento({
   loading: boolean;
   error: string | null;
   upgradeUrl: string | null;
+  /** Sem instância e sem perfil declarado: a pergunta bloqueia o QR. */
+  precisaPerfil: boolean;
   onRefreshQr: () => void;
   onDisconnect: () => void;
   onReload: (showSpinner?: boolean) => void;
+  onEscolherPerfil: (perfil: NumeroPerfilDeclarado) => void;
 }) {
   return (
     <>
@@ -201,14 +220,20 @@ function ModoPareamento({
 
       <div className="pn-card mt-10 grid gap-6 overflow-hidden rounded-2xl md:grid-cols-2">
         <Instrucoes />
-        <QRPanel
-          instance={instance}
-          loading={loading}
-          error={error}
-          upgradeUrl={upgradeUrl}
-          onRefreshQr={onRefreshQr}
-          onDisconnect={onDisconnect}
-        />
+        {precisaPerfil && !instance ? (
+          <div className="p-7 sm:p-9">
+            <PerguntaPerfilNumero ocupado={loading} onEscolher={onEscolherPerfil} />
+          </div>
+        ) : (
+          <QRPanel
+            instance={instance}
+            loading={loading}
+            error={error}
+            upgradeUrl={upgradeUrl}
+            onRefreshQr={onRefreshQr}
+            onDisconnect={onDisconnect}
+          />
+        )}
       </div>
 
       {/* Com histórico, a saúde do número segue na tela mesmo sem sessão: é ela
@@ -343,12 +368,17 @@ function useInstance() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [upgradeUrl, setUpgradeUrl] = useState<string | null>(null);
+  // Sem instância e sem resposta do lojista: a criação espera a pergunta.
+  const [precisaPerfil, setPrecisaPerfil] = useState(false);
   const delayRef = useRef(POLL_MS);
   // Guarda contra o polling disparar uma segunda criação antes da primeira
   // responder — cada POST cria uma instância de verdade na Evolution.
   const creating = useRef(false);
   // Idem para o sync inicial: o polling continua rodando enquanto ele responde.
   const synced = useRef(false);
+  // Resposta do "número é novo?" — ref, não state: `load` é um `useCallback`
+  // com polling, e ler de state ali seria closure velha (sempre `null`).
+  const perfilRef = useRef<NumeroPerfilDeclarado | null>(null);
 
   const load = useCallback(async (showSpinner = false) => {
     if (showSpinner) setLoading(true);
@@ -368,12 +398,18 @@ function useInstance() {
       const list = (await res.json()) as Instance[];
 
       if (list.length === 0) {
+        // Sem número novo ou antigo declarado, a criação espera: é essa
+        // resposta que decide o teto inicial de envio (ver numero-perfil.ts).
+        if (!perfilRef.current) {
+          setPrecisaPerfil(true);
+          return null;
+        }
         if (creating.current) return null;
         creating.current = true;
         const created = await fetch("/api/instances", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: "WhatsApp" }),
+          body: JSON.stringify({ name: "WhatsApp", numero_perfil: perfilRef.current }),
         });
         if (!created.ok) {
           throw await toPlanLimitError(created, "Nao foi possivel criar a instancia.");
@@ -457,6 +493,16 @@ function useInstance() {
     await runAction(instance.id, "disconnect", "Nao foi possivel desconectar.");
   }, [instance, runAction]);
 
+  /** Resposta da pergunta do perfil: guarda na ref e libera a criação. */
+  const onEscolherPerfil = useCallback(
+    (perfil: NumeroPerfilDeclarado) => {
+      perfilRef.current = perfil;
+      setPrecisaPerfil(false);
+      void load(true);
+    },
+    [load],
+  );
+
   /**
    * Polling que muda de ritmo, mas não desiste.
    *
@@ -521,7 +567,17 @@ function useInstance() {
     void fetch("/api/groups/sync", { method: "POST" }).catch(() => undefined);
   }, [instance?.status]);
 
-  return { instance, loading, error, upgradeUrl, load, refreshQr, disconnect };
+  return {
+    instance,
+    loading,
+    error,
+    upgradeUrl,
+    precisaPerfil,
+    load,
+    refreshQr,
+    disconnect,
+    onEscolherPerfil,
+  };
 }
 
 function QRPanel({
