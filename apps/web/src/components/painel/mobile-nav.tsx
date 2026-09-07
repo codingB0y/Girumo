@@ -28,7 +28,7 @@ export function PainelMobileNav() {
   return (
     <>
       {/* Barra inferior */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line-200 bg-canvas-100 pb-[env(safe-area-inset-bottom)] lg:hidden">
+      <nav data-testid="painel-mobile-nav" className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line-200 bg-canvas-100 pb-[env(safe-area-inset-bottom)] lg:hidden">
         {NAV_MOBILE_PRIMARY.map(({ href, label, icon: Icon }) => {
           const active = isNavItemActive(pathname, href);
           return (
@@ -69,7 +69,7 @@ export function PainelMobileNav() {
           <button
             aria-label="Fechar menu"
             onClick={() => setOpen(false)}
-            className="absolute inset-0 bg-volt-950/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-volt-950/60"
           />
           <div
             ref={drawerRef}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ArrowLeft, ArrowRight, CheckCircle2, Users, Sparkles, Copy, Target } from "lucide-react";
+import { Check, ArrowLeft, ArrowRight, CheckCircle2, Users, Copy, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CopyLink } from "@/components/painel/copy-link";
 import type { Group } from "@/lib/mock-data";
@@ -258,7 +258,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
           <CheckCircle2 className="h-8 w-8" />
         </span>
         <h1 className="font-display mt-6 text-2xl font-extrabold tracking-[-0.03em] text-volt-950">Campanha criada!</h1>
-        <p className="font-editorial mt-2 text-[18px] italic text-ardosia">Seu link de captação está pronto pra divulgar.</p>
+        <p className="mt-2 text-[18px] text-ardosia">Seu link de captação está pronto pra divulgar.</p>
         <div className="pn-card mt-4 rounded-xl px-4 py-3">
           <CopyLink url={`${origin}/r/${createdSlug}`} />
         </div>
@@ -275,8 +275,8 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
   if (loading) {
     return (
       <div className="mx-auto max-w-[760px] space-y-4 px-4 py-10 sm:px-8">
-        <div className="pn-skeleton h-10 w-48 rounded-lg" />
-        <div className="pn-skeleton h-72 rounded-2xl" />
+        <div className="pn-skeleton h-10 w-48 rounded-lg" data-testid="painel-skeleton" />
+        <div className="pn-skeleton h-72 rounded-xl" data-testid="painel-skeleton" />
       </div>
     );
   }
@@ -291,7 +291,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
             <button
               key={p.id}
               onClick={() => applyPreset(p)}
-              className="flex flex-col gap-1 rounded-2xl border border-volt-950/[0.08] bg-papel p-4 text-left transition-[border-color,background-color] duration-[160ms] ease-[var(--ease-fluxo)] hover:border-cobalt-500/40 hover:bg-cobalt-500/[0.03]"
+              className="flex flex-col gap-1 rounded-xl border border-volt-950/[0.08] bg-papel p-4 text-left transition-[border-color,background-color] duration-[160ms] ease-[var(--ease-fluxo)] hover:border-cobalt-500/40 hover:bg-cobalt-500/[0.03]"
             >
               <span className="flex items-center gap-2 text-sm font-medium text-volt-950">
                 <Target className="h-4 w-4 text-cobalt-500" strokeWidth={1.75} />
@@ -368,7 +368,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
       </div>
       <p className="-mt-2 text-xs text-aco/55">Os grupos que o link vai encher. Dá pra adicionar/remover depois.</p>
       {groups.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-volt-950/15 px-4 py-8 text-center">
+        <div className="rounded-xl border border-dashed border-volt-950/15 px-4 py-8 text-center">
           <p className="text-sm text-aco">Nenhum grupo sincronizado ainda.</p>
           <p className="mt-1 text-xs text-aco/55">Conecte o WhatsApp e os grupos aparecem aqui.</p>
         </div>
@@ -380,7 +380,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
               <button
                 key={g.id}
                 onClick={() => toggle(g.id)}
-                className={cn("flex items-center gap-3 rounded-2xl border p-3 text-left transition-[border-color,background-color] duration-[160ms] ease-[var(--ease-fluxo)]", sel ? "border-cobalt-500 bg-cobalt-500/[0.05]" : "border-volt-950/[0.08] bg-papel hover:border-cobalt-500/30")}
+                className={cn("flex items-center gap-3 rounded-xl border p-3 text-left transition-[border-color,background-color] duration-[160ms] ease-[var(--ease-fluxo)]", sel ? "border-cobalt-500 bg-cobalt-500/[0.05]" : "border-volt-950/[0.08] bg-papel hover:border-cobalt-500/30")}
               >
                 <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", sel ? "bg-cobalt-500 text-white" : "bg-cobalt-500/10 text-cobalt-500")}>
                   <Users className="h-4 w-4" strokeWidth={1.75} />
@@ -506,7 +506,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
             disabled={saving || !canAdvance}
             className={cn("inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-medium text-white transition-[transform,filter] duration-[160ms] ease-[var(--ease-fluxo)]", saving || !canAdvance ? "cursor-not-allowed bg-cobalt-500/40" : "bg-cobalt-500 hover:-translate-y-0.5 hover:brightness-110")}
           >
-            {mode === "edit" ? <Check className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+            {mode === "edit" ? <Check className="h-4 w-4" /> : <ArrowRight className="h-4 w-4" />}
             {saving ? "Salvando…" : mode === "edit" ? "Salvar alterações" : "Criar campanha"}
           </button>
         )}
@@ -521,7 +521,7 @@ const inputCls =
   "w-full rounded-[10px] border border-volt-950/10 bg-poco px-3.5 py-2.5 text-sm text-volt-950 outline-none transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] placeholder:text-aco/40 focus:border-cobalt-500/50 focus:bg-papel focus:shadow-[0_0_0_3px_var(--color-cobalt-soft)]";
 
 function Card({ children }: { children: React.ReactNode }) {
-  return <div className="pn-card space-y-5 rounded-2xl p-6 sm:p-7">{children}</div>;
+  return <div className="pn-card space-y-5 rounded-xl p-6 sm:p-7">{children}</div>;
 }
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {

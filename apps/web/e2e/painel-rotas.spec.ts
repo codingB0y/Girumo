@@ -87,7 +87,7 @@ test.describe("rotas do painel renderizam", () => {
       // Redirect para o login aqui significa sessao perdida, nao rota ausente.
       await expect(page, `${rota} devolveu ao login com sessao valida`).not.toHaveURL(/\/login/);
 
-      await expect(page.locator(".pn-root"), `${rota} nao montou o shell do painel`).toBeVisible();
+      await expect(page.getByTestId("painel-root"), `${rota} nao montou o shell do painel`).toBeVisible();
       await semErroDeRuntime(page);
 
       // ---- ancora: a rota renderizou, nao so o shell -------------------------

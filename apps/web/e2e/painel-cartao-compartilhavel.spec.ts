@@ -50,14 +50,14 @@ async function definirMeta(page: Page, valor: number | null) {
  * Espera o dashboard TER OS DADOS, nao so ter montado.
  *
  * O modal so e decidido depois que as sete buscas do dashboard voltam, e o
- * `.pn-root` aparece muito antes disso — com o dev server compilando a rota
+ * `painel-root` aparece muito antes disso — com o dev server compilando a rota
  * pela primeira vez, a diferenca passou de 10s e o assert do cartao falhou
  * medindo tempo de compilacao em vez de comportamento. Ancorar num numero que
  * so existe com dado carregado elimina esse ruido, e faz o assert NEGATIVO
  * valer: sem isso, "ainda nao carregou" passaria por "nao ha marco".
  */
 async function aguardarDashboard(page: Page) {
-  await expect(page.locator(".pn-root")).toBeVisible();
+  await expect(page.getByTestId("painel-root")).toBeVisible();
   // Pelo LINK, nao por getByText: o texto casa por substring e ignorando
   // maiusculas, entao "Contatos captados" do card do dashboard e o "contatos
   // captados" do proprio cartao compartilhavel viram dois resultados e o strict
@@ -67,7 +67,7 @@ async function aguardarDashboard(page: Page) {
   await expect(page.getByRole("link", { name: /^Contatos captados/ })).toBeVisible({
     timeout: 60_000,
   });
-  await expect(page.locator(".pn-skeleton")).toHaveCount(0);
+  await expect(page.getByTestId("painel-skeleton")).toHaveCount(0);
 }
 
 /** Largura e altura lidas do IHDR — os 8 bytes seguintes ao nome do chunk. */

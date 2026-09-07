@@ -242,7 +242,7 @@ export function AcoesEmMassa({ slug, administrados, totais, estado, onLoteConclu
       : 0;
 
   return (
-    <section aria-label="Configurações dos grupos" className="pn-card mb-4 rounded-2xl p-5">
+    <section aria-label="Configurações dos grupos" className="pn-card mb-4 rounded-xl p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="font-display text-base font-bold text-volt-950">Configurações dos grupos</h2>
         <p className="font-data text-[11px] text-aco/50" data-testid="acoes-massa-alcance">

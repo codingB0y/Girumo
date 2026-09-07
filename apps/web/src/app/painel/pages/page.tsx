@@ -77,19 +77,19 @@ export default function PagesListPage() {
       </div>
 
       {error ? (
-        <div className="rounded-2xl border border-alerta/20 bg-alerta/[0.06] px-5 py-4 text-sm text-alerta">
+        <div className="rounded-xl border border-alerta/20 bg-alerta/[0.06] px-5 py-4 text-sm text-alerta">
           {error}
         </div>
       ) : null}
 
       {pages === null && !error ? (
-        <div className="rounded-2xl border border-volt-950/[0.06] bg-white px-5 py-16 text-center text-sm text-aco/60">
+        <div className="rounded-xl border border-volt-950/[0.06] bg-white px-5 py-16 text-center text-sm text-aco/60">
           Carregando páginas...
         </div>
       ) : null}
 
       {pages !== null && pages.length === 0 ? (
-        <div className="rounded-2xl border border-volt-950/[0.06] bg-white px-5 py-16 text-center">
+        <div className="rounded-xl border border-volt-950/[0.06] bg-white px-5 py-16 text-center">
           <p className="font-medium text-volt-950">Nenhuma página ainda.</p>
           <p className="mt-1 text-sm text-aco/60">
             Crie a primeira em 2 minutos: escolha um modelo, preencha 7 campos e publique.
@@ -108,14 +108,14 @@ export default function PagesListPage() {
           {pages.map((p) => (
             <div
               key={p.id}
-              className="group relative rounded-2xl border border-volt-950/[0.06] bg-white p-5 shadow-card transition hover:-translate-y-0.5 hover:shadow-card-hover"
+              className="group relative rounded-xl border border-volt-950/[0.06] bg-white p-5 shadow-card transition hover:-translate-y-0.5 hover:shadow-card-hover"
             >
               {/* Link cobre o card inteiro; o botão de duplicar sobe com z-10.
                   Assim o card continua clicável sem aninhar botão dentro de <a>. */}
               <Link
                 href={`/painel/pages/${p.id}`}
                 aria-label={`Abrir ${p.content.store_name}`}
-                className="absolute inset-0 rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
+                className="absolute inset-0 rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
               />
               <div className="flex items-start justify-between gap-3">
                 <p className="font-medium text-volt-950">{p.content.store_name}</p>

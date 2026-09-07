@@ -88,7 +88,7 @@ export function PlaybookCard() {
   const concluidos = data.steps.filter((s) => s.done);
 
   return (
-    <section aria-labelledby="playbook-title" className="pn-card rounded-2xl p-6">
+    <section aria-labelledby="playbook-title" className="pn-card rounded-xl p-6">
       <div className="flex items-center justify-between">
         <h2 id="playbook-title" className="font-display text-base font-bold text-volt-950">
           Seus primeiros 30 dias

@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 
 export function PainelTopbar() {
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-line-200 bg-canvas-100 px-4 sm:px-6">
+    <header data-testid="painel-topbar" className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-line-200 bg-canvas-100 px-4 sm:px-6">
       {/* logo só no mobile (sidebar some) */}
       <div className="lg:hidden">
         <LogoSymbol className="h-7 w-7 text-volt-950" />
@@ -33,7 +33,7 @@ function ConnectedNumber() {
   const { session, loading } = usePanelSession();
 
   if (loading) {
-    return <div className="pn-skeleton hidden h-9 w-44 rounded-[10px] sm:block" />;
+    return <div className="pn-skeleton hidden h-9 w-44 rounded-[10px] sm:block" data-testid="painel-skeleton" />;
   }
 
   // Sem resposta da API: some em vez de inventar um estado.

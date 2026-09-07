@@ -67,7 +67,7 @@ export function ActivityFeed({
   }
 
   return (
-    <ol className="pn-card rounded-2xl p-2">
+    <ol className="pn-card rounded-xl p-2">
       {items.map((item) => {
         const { icon: Icon, tint } = STYLE[item.kind];
         const { title, detail } = describe(item);

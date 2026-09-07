@@ -50,6 +50,10 @@ jobs:
       # Antes do verify-local de proposito: leva ~1s e nao precisa de deps.
       - run: npm run --workspace apps/web brand:check
 
+      # Lint da casca "Vitrine Aberta" (spec 2026-09-07, regras 1 e 9): raio, blur,
+      # confete, itálico e teto de Acid em fundo no painel do cliente. ~1s.
+      - run: npm run --workspace apps/web painel:check
+
       # Chama o script direto: o npm script `verify:local` invoca `powershell`,
       # que so existe no Windows. O script em si e cross-platform.
       - run: pwsh -File infra/scripts/verify-local.ps1

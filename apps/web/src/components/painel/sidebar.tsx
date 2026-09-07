@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Sparkles, type LucideIcon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/brand/logo";
 import { usePanelSession } from "@/components/painel/session-provider";
@@ -52,7 +52,7 @@ export function PainelSidebar() {
   const connected = sessionLoading || !session ? null : session.live;
 
   return (
-    <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-volt-800 bg-volt-950 lg:flex">
+    <aside data-testid="painel-sidebar" className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-volt-800 bg-volt-950 lg:flex">
       <div className="flex h-16 items-center px-5">
         <Logo className="text-paper-0" />
       </div>
@@ -197,7 +197,7 @@ function PlanCard() {
   if (loading) {
     return (
       <div className="px-3 pb-4">
-        <div className="pn-skeleton h-[104px] rounded-2xl" />
+        <div className="pn-skeleton h-[104px] rounded-xl" data-testid="painel-skeleton" />
       </div>
     );
   }
@@ -206,9 +206,9 @@ function PlanCard() {
 
   return (
     <div className="px-3 pb-4">
-      <div className="pn-aurora overflow-hidden rounded-2xl p-4">
+      <div className="pn-aurora overflow-hidden rounded-xl p-4">
         <p className="font-data flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-acid-500">
-          <Sparkles className="h-3 w-3" /> {info ? info.title : "Sem plano ativo"}
+          {info ? info.title : "Sem plano ativo"}
         </p>
         <p className="mt-2 text-xs text-canvas-100/70">
           {info ? info.detail : "Escolha um plano pra liberar todos os recursos."}

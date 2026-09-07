@@ -64,7 +64,7 @@ export default function PainelContatos() {
     <div className="mx-auto max-w-[1200px] space-y-8 px-4 py-8 sm:px-8">
       <header>
         <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-volt-950">Contatos</h1>
-        <p className="font-editorial mt-1 text-[19px] italic text-ardosia">
+        <p className="mt-1 text-[19px] text-ardosia">
           Quem entrou nos seus grupos pelas campanhas — e quem já saiu.
         </p>
       </header>
@@ -107,9 +107,9 @@ export default function PainelContatos() {
       </div>
 
       {loading ? (
-        <div className="pn-skeleton h-80 rounded-2xl" />
+        <div className="pn-skeleton h-80 rounded-xl" data-testid="painel-skeleton" />
       ) : (
-        <div className="pn-card overflow-hidden rounded-2xl">
+        <div className="pn-card overflow-hidden rounded-xl">
           <div className="hidden border-b border-volt-950/[0.06] bg-poco px-5 py-3 md:grid md:grid-cols-[1.6fr_1fr_0.8fr_auto] md:gap-4">
             {["Contato", "Origem", "Status", ""].map((h) => (
               <span key={h} className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/50">{h}</span>
@@ -174,7 +174,7 @@ export default function PainelContatos() {
             })}
             {rows.length === 0 && (
               <div className="px-5 py-16 text-center">
-                <p className="font-editorial text-[22px] italic text-volt-950">
+                <p className="text-[22px] text-volt-950">
                   {leads.length === 0 ? "Nenhum contato ainda." : "Nenhum contato aqui."}
                 </p>
                 <p className="mt-1 text-sm text-aco/60">
@@ -242,8 +242,8 @@ function OrderModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-volt-950/60 backdrop-blur-sm px-4">
-      <div className="w-full max-w-sm rounded-2xl border border-volt-950/10 bg-white p-6 shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-volt-950/60 px-4">
+      <div className="w-full max-w-sm rounded-xl border border-volt-950/10 bg-white p-6 shadow-xl">
         <div className="flex items-start justify-between">
           <div>
             <h2 className="font-display text-lg font-bold text-volt-950">Registrar pedido</h2>
@@ -295,7 +295,7 @@ function OrderModal({
 
 function MiniStat({ label, value, tone }: { label: string; value: string; tone?: "cobalt" | "sucesso" }) {
   return (
-    <div className="pn-card rounded-2xl px-4 py-3.5">
+    <div className="pn-card rounded-xl px-4 py-3.5">
       <p className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/55">{label}</p>
       <p className={cn("font-data mt-2 text-[26px] font-medium tabular-nums tracking-[-0.02em]", tone === "cobalt" ? "text-cobalt-500" : tone === "sucesso" ? "text-sucesso" : "text-volt-950")}>
         {value}

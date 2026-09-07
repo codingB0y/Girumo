@@ -105,7 +105,7 @@ export default function PainelCampanhas() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <header>
           <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-volt-950">Campanhas</h1>
-          <p className="font-editorial mt-1 text-[19px] italic text-ardosia">
+          <p className="mt-1 text-[19px] text-ardosia">
             Cada campanha é um link que enche seus grupos no automático.
           </p>
           <Link
@@ -161,12 +161,12 @@ export default function PainelCampanhas() {
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="pn-skeleton h-64 rounded-2xl" />
+            <div key={i} className="pn-skeleton h-64 rounded-xl" data-testid="painel-skeleton" />
           ))}
         </div>
       ) : rows.length === 0 ? (
-        <div className="pn-card rounded-2xl px-5 py-16 text-center">
-          <p className="font-editorial text-[22px] italic text-volt-950">
+        <div className="pn-card rounded-xl px-5 py-16 text-center">
+          <p className="text-[22px] text-volt-950">
             {campanhas.length === 0 ? "Nenhuma campanha ainda." : "Nenhuma campanha aqui."}
           </p>
           <p className="mt-1 text-sm text-aco/60">
@@ -193,11 +193,11 @@ export default function PainelCampanhas() {
               <div
                 key={c.id}
                 onClick={() => router.push(to)}
-                className="pn-card pn-card-hover group flex cursor-pointer flex-col rounded-2xl p-5"
+                className="pn-card pn-card-hover group flex cursor-pointer flex-col rounded-xl p-5"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-3">
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#25D366] text-white">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#25D366] text-white">
                       <MessageCircle className="h-6 w-6" />
                     </span>
                     <p className="font-display text-[15px] font-bold leading-tight text-volt-950">{c.name}</p>

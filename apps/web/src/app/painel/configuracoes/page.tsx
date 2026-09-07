@@ -315,7 +315,7 @@ export default function PainelConfiguracoes() {
     <div className="mx-auto max-w-[1200px] space-y-8 px-4 py-8 sm:px-8">
       <header>
         <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-volt-950">Configurações</h1>
-        <p className="font-editorial mt-1 text-[19px] italic text-ardosia">
+        <p className="mt-1 text-[19px] text-ardosia">
           Conexão, equipe, plano e conta — tudo num balcão só.
         </p>
         {playbookGraduated && (
@@ -348,7 +348,7 @@ export default function PainelConfiguracoes() {
             <Panel title="Conexão do WhatsApp" desc="O número que capta e dispara nos seus grupos.">
               <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-4">
-                  <span className={cn("flex h-12 w-12 items-center justify-center rounded-2xl", live ? "bg-sucesso/10 text-sucesso" : "bg-alerta/10 text-alerta")}>
+                  <span className={cn("flex h-12 w-12 items-center justify-center rounded-xl", live ? "bg-sucesso/10 text-sucesso" : "bg-alerta/10 text-alerta")}>
                     {live ? <Wifi className="h-6 w-6" strokeWidth={1.75} /> : <WifiOff className="h-6 w-6" strokeWidth={1.75} />}
                   </span>
                   <div>
@@ -366,7 +366,7 @@ export default function PainelConfiguracoes() {
                   <RefreshCw className="h-4 w-4" strokeWidth={1.75} /> {live ? "Gerenciar" : "Conectar"}
                 </Link>
               </div>
-              <div className="mt-6 flex items-center gap-3 rounded-2xl bg-poco px-4 py-3.5">
+              <div className="mt-6 flex items-center gap-3 rounded-xl bg-poco px-4 py-3.5">
                 <ShieldCheck className="h-5 w-5 shrink-0 text-cobalt-500" strokeWidth={1.75} />
                 <p className="text-sm text-aco">Número mascarado e dentro da LGPD. Seus contatos são seus.</p>
               </div>
@@ -410,7 +410,7 @@ export default function PainelConfiguracoes() {
               )}
 
               {members.length === 0 ? (
-                <p className="font-editorial mt-4 text-[17px] italic text-ardosia">Só você por enquanto. Convide alguém acima.</p>
+                <p className="mt-4 text-[17px] text-ardosia">Só você por enquanto. Convide alguém acima.</p>
               ) : (
                 <div className="mt-4 divide-y divide-dashed divide-volt-950/[0.09]">
                   {members.map((m) => (
@@ -456,14 +456,14 @@ export default function PainelConfiguracoes() {
                   return (
                     <div
                       key={p.key}
-                      className="flex items-start justify-between gap-4 rounded-2xl bg-poco px-4 py-3.5"
+                      className="flex items-start justify-between gap-4 rounded-xl bg-poco px-4 py-3.5"
                     >
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-volt-950">{p.titulo}</p>
                         <p className="mt-0.5 text-xs text-aco/60">{p.desc}</p>
                       </div>
                       {ligado === undefined ? (
-                        <span className="pn-skeleton h-6 w-11 shrink-0 rounded-full" />
+                        <span className="pn-skeleton h-6 w-11 shrink-0 rounded-full" data-testid="painel-skeleton" />
                       ) : (
                         <button
                           role="switch"
@@ -509,7 +509,7 @@ export default function PainelConfiguracoes() {
             >
               {/* Portal button */}
               {currentPlanCode && currentPlanCode !== "FREE" && (
-                <div className="mb-4 flex items-center justify-between rounded-2xl bg-poco px-4 py-3">
+                <div className="mb-4 flex items-center justify-between rounded-xl bg-poco px-4 py-3">
                   <p className="text-sm text-aco">Gerenciar faturas, método de pagamento ou cancelar:</p>
                   <button
                     onClick={openPortal}
@@ -536,7 +536,7 @@ export default function PainelConfiguracoes() {
                 {plans.filter((p) => p.code !== "FREE").map((p) => {
                   const atual = p.code === currentPlanCode;
                   return (
-                    <div key={p.id} className={cn("rounded-2xl border p-4 text-center", atual ? "border-cobalt-500/40 bg-cobalt-500/[0.05]" : "border-volt-950/[0.08] bg-poco")}>
+                    <div key={p.id} className={cn("rounded-xl border p-4 text-center", atual ? "border-cobalt-500/40 bg-cobalt-500/[0.05]" : "border-volt-950/[0.08] bg-poco")}>
                       <p className="font-display text-sm font-bold text-volt-950">{p.name}</p>
                       {p.limits && (
                         <p className="font-data mt-1 text-[11px] text-aco/55">
@@ -570,7 +570,7 @@ export default function PainelConfiguracoes() {
                     </div>
                   );
                 })}
-                {plans.length === 0 && <p className="font-editorial text-[17px] italic text-ardosia">Carregando planos…</p>}
+                {plans.length === 0 && <p className="text-[17px] text-ardosia">Carregando planos…</p>}
               </div>
               {billingError && (
                 <p role="alert" className="mt-3 text-sm text-alerta">
@@ -581,7 +581,7 @@ export default function PainelConfiguracoes() {
           )}
           {section === "Conta" && (
             <Panel title="Conta" desc="Seus dados de acesso.">
-              <div className="mb-6 rounded-2xl bg-poco px-4 py-3.5">
+              <div className="mb-6 rounded-xl bg-poco px-4 py-3.5">
                 <label htmlFor="segmento" className="text-sm font-medium text-volt-950">
                   Seu ramo
                 </label>
@@ -589,7 +589,7 @@ export default function PainelConfiguracoes() {
                   Ajusta os modelos de mensagem da biblioteca pro seu tipo de negócio.
                 </p>
                 {segment === undefined ? (
-                  <span className="pn-skeleton mt-2 block h-10 w-full max-w-sm rounded-xl" />
+                  <span className="pn-skeleton mt-2 block h-10 w-full max-w-sm rounded-xl" data-testid="painel-skeleton" />
                 ) : (
                   <select
                     id="segmento"
@@ -624,7 +624,7 @@ export default function PainelConfiguracoes() {
 
 function Panel({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) {
   return (
-    <section className="pn-card overflow-hidden rounded-2xl">
+    <section className="pn-card overflow-hidden rounded-xl">
       <div className="border-b border-volt-950/[0.06] px-6 py-5">
         <h2 className="font-display text-lg font-bold text-volt-950">{title}</h2>
         {desc && <p className="mt-0.5 text-sm text-aco/65">{desc}</p>}

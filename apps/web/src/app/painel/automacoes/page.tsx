@@ -177,7 +177,7 @@ export default function PainelAutomacoes() {
     return (
       <div className="mx-auto max-w-[1200px] space-y-5 px-4 py-6 sm:px-6">
         <div className="h-10 w-64 animate-pulse rounded-lg bg-white" />
-        <div className="h-48 animate-pulse rounded-3xl bg-white" />
+        <div className="h-48 animate-pulse rounded-xl bg-white" />
       </div>
     );
   }
@@ -185,7 +185,7 @@ export default function PainelAutomacoes() {
   if (loadError) {
     return (
       <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6">
-        <section className="rounded-3xl border border-dashed border-alerta/30 bg-white/50 px-6 py-16 text-center">
+        <section className="rounded-xl border border-dashed border-alerta/30 bg-white/50 px-6 py-16 text-center">
           <Zap className="mx-auto h-12 w-12 text-alerta/40" />
           <h3 className="font-display mt-4 text-lg font-bold text-volt-950">Não deu pra carregar as automações</h3>
           <p className="mt-1.5 text-sm text-aco/60">Verifique sua conexão e tente novamente.</p>
@@ -237,8 +237,8 @@ export default function PainelAutomacoes() {
 
       {/* Templates modal */}
       {showTemplates && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-volt-950/60 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl border border-volt-950/10 bg-white p-6 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-volt-950/60">
+          <div className="w-full max-w-lg rounded-xl border border-volt-950/10 bg-white p-6 shadow-xl">
             <h2 className="font-display text-xl font-bold text-volt-950">Escolha um template</h2>
             <p className="mt-1 text-sm text-aco/60">Comece com um modelo pronto e personalize depois.</p>
             <div className="mt-5 space-y-3">
@@ -277,7 +277,7 @@ export default function PainelAutomacoes() {
 
       {/* Lista de automações */}
       {automations.length === 0 ? (
-        <section className="rounded-3xl border border-dashed border-volt-950/10 bg-white/50 px-6 py-16 text-center">
+        <section className="rounded-xl border border-dashed border-volt-950/10 bg-white/50 px-6 py-16 text-center">
           <Zap className="mx-auto h-12 w-12 text-aco/20" />
           <h3 className="font-display mt-4 text-lg font-bold text-volt-950">Nenhuma automação ativa</h3>
           <p className="mt-1.5 text-sm text-aco/60">
@@ -299,7 +299,7 @@ export default function PainelAutomacoes() {
               <section
                 key={auto.id}
                 className={cn(
-                  "overflow-hidden rounded-2xl border bg-white transition",
+                  "overflow-hidden rounded-xl border bg-white transition",
                   auto.enabled ? "border-volt-950/[0.08]" : "border-volt-950/[0.04] opacity-60",
                 )}
               >

@@ -87,7 +87,7 @@ export default function CancelarPage() {
   if (loading || !stats) {
     return (
       <div className="mx-auto max-w-[600px] px-4 py-10 sm:px-6">
-        <div className="pn-skeleton h-64 rounded-2xl" />
+        <div className="pn-skeleton h-64 rounded-xl" data-testid="painel-skeleton" />
       </div>
     );
   }
@@ -101,16 +101,16 @@ export default function CancelarPage() {
         <ArrowLeft className="h-4 w-4" strokeWidth={1.75} /> Voltar
       </Link>
 
-      <div className="mt-6 rounded-2xl border border-alerta/20 bg-papel p-8 shadow-[var(--shadow-pn)]">
+      <div className="mt-6 rounded-xl border border-alerta/20 bg-papel p-8 shadow-[var(--shadow-pn)]">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-alerta/10">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-xl bg-alerta/10">
             <AlertTriangle className="h-8 w-8 text-alerta" strokeWidth={1.75} />
           </div>
           <h1 className="font-display mt-4 text-2xl font-extrabold text-volt-950">
             Tem certeza que quer cancelar?
           </h1>
-          <p className="font-editorial mt-2 text-[17px] italic text-ardosia">
+          <p className="mt-2 text-[17px] text-ardosia">
             Se cancelar, você perde acesso a tudo que construiu:
           </p>
         </div>
@@ -154,7 +154,7 @@ export default function CancelarPage() {
         )}
 
         {step === "confirm" && (
-          <div className="mt-6 rounded-2xl border border-alerta/20 bg-alerta/[0.05] p-5">
+          <div className="mt-6 rounded-xl border border-alerta/20 bg-alerta/[0.05] p-5">
             <p className="text-sm font-medium text-volt-950">
               Último passo: confirme o cancelamento
             </p>
@@ -193,7 +193,7 @@ export default function CancelarPage() {
 
 function LossCard({ icon: Icon, label, value }: { icon: typeof Users; label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-alerta/10 bg-alerta/[0.03] p-4 text-center">
+    <div className="rounded-xl border border-alerta/10 bg-alerta/[0.03] p-4 text-center">
       <Icon className="mx-auto h-5 w-5 text-alerta/60" strokeWidth={1.75} />
       <p className="font-data mt-2 text-xl font-medium tabular-nums text-volt-950">{value}</p>
       <p className="mt-0.5 text-[11px] text-aco/55">{label}</p>

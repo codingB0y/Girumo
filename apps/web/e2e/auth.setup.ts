@@ -25,7 +25,7 @@ setup("autentica uma vez", async ({ page }) => {
   await page.getByPlaceholder("Sua senha").fill(CREDENCIAIS.senha);
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 30_000 });
-  await page.locator(".pn-root").waitFor({ state: "visible" });
+  await page.getByTestId("painel-root").waitFor({ state: "visible" });
 
   await page.context().storageState({ path: ESTADO_LOGADO });
 });

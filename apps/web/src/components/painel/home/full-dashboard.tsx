@@ -228,7 +228,7 @@ export function FullDashboard({
       </header>
 
       {partial && (
-        <p className="flex items-center gap-2 rounded-2xl border border-atencao/25 bg-atencao/[0.06] px-5 py-3 text-xs text-aco/75">
+        <p className="flex items-center gap-2 rounded-xl border border-atencao/25 bg-atencao/[0.06] px-5 py-3 text-xs text-aco/75">
           <AlertTriangle className="h-4 w-4 shrink-0 text-atencao" strokeWidth={2} />
           Alguns números não carregaram e podem estar incompletos. Recarregue a página pra tentar de novo.
         </p>
@@ -237,7 +237,7 @@ export function FullDashboard({
       {!isConnected && (
         <Link
           href="/painel/conectar"
-          className="flex items-center gap-3 rounded-2xl border border-alerta/25 bg-alerta/[0.06] px-5 py-4 transition hover:border-alerta/40"
+          className="flex items-center gap-3 rounded-xl border border-alerta/25 bg-alerta/[0.06] px-5 py-4 transition hover:border-alerta/40"
         >
           <WifiOff className="h-5 w-5 shrink-0 text-alerta" strokeWidth={2} />
           <div className="min-w-0 flex-1">
@@ -268,7 +268,7 @@ export function FullDashboard({
         <Link
           href="/painel/grupos"
           aria-label={`Ver grupos — ${totalMembers.toLocaleString("pt-BR")} membros nos seus grupos`}
-          className="pn-aurora group relative flex min-h-[176px] flex-col justify-between overflow-hidden rounded-2xl p-6 lg:col-span-5"
+          className="pn-aurora group relative flex min-h-[176px] flex-col justify-between overflow-hidden rounded-xl p-6 lg:col-span-5"
         >
           <span className="font-data text-[11px] uppercase tracking-[0.08em] text-canvas-100/50">
             Membros nos seus grupos
@@ -304,7 +304,7 @@ export function FullDashboard({
             <Link
               key={k.label}
               href={k.href}
-              className="pn-card pn-card-hover flex flex-col justify-between rounded-2xl p-5"
+              className="pn-card pn-card-hover flex flex-col justify-between rounded-xl p-5"
             >
               <div className="flex items-center gap-2">
                 <k.icon className="h-4 w-4 text-cobalt-500" strokeWidth={1.75} />
@@ -343,7 +343,7 @@ export function FullDashboard({
 
       {/* Alerta: grupos quase cheios */}
       {almostFull.length > 0 && (
-        <div className="rounded-2xl border border-atencao/25 bg-atencao/[0.06] px-5 py-4">
+        <div className="rounded-xl border border-atencao/25 bg-atencao/[0.06] px-5 py-4">
           <p className="flex items-center gap-2 text-sm font-medium text-volt-950">
             <AlertTriangle className="h-4 w-4 text-atencao" strokeWidth={2} />
             {almostFull.length} {almostFull.length === 1 ? "grupo está" : "grupos estão"} quase
@@ -398,7 +398,7 @@ export function FullDashboard({
           {/* O gesto diário: chegou grade nova, posta em todos os grupos. Não
               tinha porta na Início nem na barra do celular. "Ver contatos" e
               "Ver resultados" saíram — os KPIs acima já levam aos dois. */}
-          <div className="pn-card rounded-2xl p-2">
+          <div className="pn-card rounded-xl p-2">
             <QuickAction href="/painel/disparos" icon={Send} label="Postar novidade nos grupos" />
             <QuickAction href="/painel/campanhas/nova" icon={Layers} label="Nova campanha" />
           </div>
@@ -423,7 +423,7 @@ export function FullDashboard({
               ctaHref="/painel/campanhas/nova"
             />
           ) : (
-            <div className="pn-card rounded-2xl p-2">
+            <div className="pn-card rounded-xl p-2">
               {campanhas.slice(0, 4).map((c) => {
                 const campClicks = links
                   .filter((l) => l.campaignName === c.name)

@@ -66,7 +66,7 @@ export function PlanGate({ resource, variant = "inline", className }: PlanGatePr
     return (
       <div
         className={cn(
-          "rounded-2xl border px-5 py-4",
+          "rounded-xl border px-5 py-4",
           atLimit
             ? "border-atencao/30 bg-atencao/[0.05]"
             : "border-cobalt-500/20 bg-cobalt-500/[0.03]",

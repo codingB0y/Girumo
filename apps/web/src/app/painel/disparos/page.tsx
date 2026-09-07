@@ -109,8 +109,8 @@ export default function PainelDisparos() {
   if (loading) {
     return (
       <div className="mx-auto max-w-[1100px] space-y-4 px-4 py-8 sm:px-8">
-        <div className="pn-skeleton h-40 rounded-2xl" />
-        <div className="pn-skeleton h-64 rounded-2xl" />
+        <div className="pn-skeleton h-40 rounded-xl" data-testid="painel-skeleton" />
+        <div className="pn-skeleton h-64 rounded-xl" data-testid="painel-skeleton" />
       </div>
     );
   }
@@ -122,14 +122,14 @@ export default function PainelDisparos() {
     <div className="mx-auto max-w-[1100px] space-y-6 px-4 py-8 sm:px-8">
       <header>
         <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-volt-950">Disparos</h1>
-        <p className="font-editorial mt-1 text-[19px] italic text-ardosia">
+        <p className="mt-1 text-[19px] text-ardosia">
           Sua oferta nos grupos, agora ou na hora marcada.
         </p>
       </header>
 
       {/* Sequência de ativação: só aparece o passo que falta, na ordem que resolve. */}
       {(semConexao || semCampanha) && (
-        <div className="pn-card rounded-2xl p-6">
+        <div className="pn-card rounded-xl p-6">
           <h2 className="font-display text-base font-bold text-volt-950">Falta um passo pra disparar</h2>
           <ol className="mt-4 space-y-3">
             <PassoAtivacao
@@ -152,7 +152,7 @@ export default function PainelDisparos() {
       )}
 
       {!semCampanha && (
-        <div className="pn-card rounded-2xl p-5 sm:p-6">
+        <div className="pn-card rounded-xl p-5 sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <label className="flex items-center gap-2.5">
               <span className="font-data text-[11px] uppercase tracking-[0.08em] text-aco/55">Campanha</span>
@@ -203,13 +203,13 @@ export default function PainelDisparos() {
         </div>
       )}
 
-      <div className="pn-card overflow-hidden rounded-2xl">
+      <div className="pn-card overflow-hidden rounded-xl">
         <div className="border-b border-volt-950/[0.06] bg-poco px-5 py-3">
           <span className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/50">Histórico</span>
         </div>
         {dispatches.length === 0 ? (
           <div className="px-5 py-16 text-center">
-            <p className="font-editorial text-[22px] italic text-volt-950">Nenhum disparo ainda.</p>
+            <p className="text-[22px] text-volt-950">Nenhum disparo ainda.</p>
             <p className="mt-1 text-sm text-aco/60">O que você enviar aparece aqui, com o progresso grupo a grupo.</p>
           </div>
         ) : (

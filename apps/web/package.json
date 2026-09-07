@@ -12,6 +12,7 @@
     "e2e:report": "playwright show-report e2e-report",
     "brand:export": "tsx scripts/export-girumo-brand.ts",
     "brand:check": "node scripts/check-girumo-brand.mjs",
+    "painel:check": "tsx scripts/check-painel-vitrine.ts",
     "qa:prepare-brand": "tsx scripts/prepare-girumo-qa-state.ts",
     "qa:render-brand-emails": "tsx scripts/render-girumo-email-fixtures.ts"
   },

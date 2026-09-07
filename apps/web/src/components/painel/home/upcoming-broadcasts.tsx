@@ -34,7 +34,7 @@ export function UpcomingBroadcasts({ schedules }: { schedules: Schedule[] }) {
   }
 
   return (
-    <ul className="pn-card rounded-2xl p-2">
+    <ul className="pn-card rounded-xl p-2">
       {next.map((s) => (
         <li key={s.id}>
           <Link

@@ -35,7 +35,7 @@ export default function PainelBiblioteca() {
     <div className="mx-auto max-w-[1200px] space-y-8 px-4 py-8 sm:px-8">
       <header>
         <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-volt-950">Biblioteca</h1>
-        <p className="font-editorial mt-1 text-[19px] italic text-ardosia">
+        <p className="mt-1 text-[19px] text-ardosia">
           Modelos prontos pra copiar e postar nos seus grupos.
         </p>
       </header>
@@ -70,19 +70,19 @@ export default function PainelBiblioteca() {
       {segment === undefined ? (
         <div className="grid gap-4 sm:grid-cols-2">
           {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="pn-skeleton h-40 rounded-2xl" />
+            <div key={i} className="pn-skeleton h-40 rounded-xl" data-testid="painel-skeleton" />
           ))}
         </div>
       ) : copies.length === 0 ? (
-        <div className="pn-card rounded-2xl px-5 py-16 text-center">
-          <p className="font-editorial text-[22px] italic text-volt-950">Nenhuma copy nessa categoria ainda.</p>
+        <div className="pn-card rounded-xl px-5 py-16 text-center">
+          <p className="text-[22px] text-volt-950">Nenhuma copy nessa categoria ainda.</p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {copies.map((copy) => {
             const copied = copiedId === copy.id;
             return (
-              <div key={copy.id} className="pn-card flex flex-col rounded-2xl p-5">
+              <div key={copy.id} className="pn-card flex flex-col rounded-xl p-5">
                 <p className="font-medium text-volt-950">{copy.title}</p>
                 <p className="mt-2 flex-1 whitespace-pre-line text-sm leading-relaxed text-aco">{copy.body}</p>
                 <button

@@ -113,7 +113,7 @@ export function MessagesAgenda({ messages, onCancel, onDelete, className }: Prop
       </div>
 
       {view === "calendar" && (
-        <div className="rounded-2xl border border-volt-950/[0.08] bg-white p-4">
+        <div className="rounded-xl border border-volt-950/[0.08] bg-white p-4">
           {/* Month nav */}
           <div className="flex items-center justify-between">
             <button
@@ -179,7 +179,7 @@ export function MessagesAgenda({ messages, onCancel, onDelete, className }: Prop
 
       {/* Timeline */}
       {messages.length === 0 ? (
-        <div className="rounded-2xl border border-volt-950/[0.08] bg-white px-5 py-12 text-center">
+        <div className="rounded-xl border border-volt-950/[0.08] bg-white px-5 py-12 text-center">
           <p className="font-display text-base font-bold text-volt-950">Nenhuma mensagem ainda</p>
           <p className="mt-1 text-sm text-aco/60">Envie ou agende mensagens para os grupos desta campanha.</p>
         </div>

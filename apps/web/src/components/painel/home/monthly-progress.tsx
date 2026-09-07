@@ -77,7 +77,7 @@ export function MonthlyProgress({
           setDraft("");
           setEditing(true);
         }}
-        className="pn-card group flex w-full items-center gap-2 rounded-2xl px-5 py-4 text-left transition-colors duration-[160ms] hover:bg-poco"
+        className="pn-card group flex w-full items-center gap-2 rounded-xl px-5 py-4 text-left transition-colors duration-[160ms] hover:bg-poco"
       >
         <Target className="h-4 w-4 text-aco/40 transition-colors group-hover:text-cobalt-500" strokeWidth={1.75} />
         <span className="text-sm text-aco/70">{copy.emptyCta}</span>
@@ -87,7 +87,7 @@ export function MonthlyProgress({
   }
 
   return (
-    <div className="pn-card rounded-2xl px-5 py-4">
+    <div className="pn-card rounded-xl px-5 py-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Target className="h-4 w-4 text-cobalt-500" strokeWidth={1.75} />
