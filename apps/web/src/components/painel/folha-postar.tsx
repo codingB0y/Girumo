@@ -10,6 +10,7 @@ import { Folha } from "./folha";
 type Campanha = { id: string; name: string; slug?: string; groupIds?: string[] };
 
 type Props = {
+  id?: string;
   aberta: boolean;
   aoFechar: () => void;
   /** Chamado depois de um post aceito, pra barra mostrar o "7/13". */
@@ -23,7 +24,7 @@ const hora = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digi
  * prévia na bolha, como chega no celular de quem compra. Posta pela mesma rota
  * que a tela de Disparos.
  */
-export function FolhaPostar({ aberta, aoFechar, aoPostar }: Props) {
+export function FolhaPostar({ id, aberta, aoFechar, aoPostar }: Props) {
   const toast = useToast();
   const [campanhas, setCampanhas] = useState<Campanha[]>([]);
   const [slug, setSlug] = useState("");
@@ -34,7 +35,11 @@ export function FolhaPostar({ aberta, aoFechar, aoPostar }: Props) {
   const [texto, setTexto] = useState("");
 
   useEffect(() => {
-    if (!aberta) return;
+    if (!aberta) {
+      // A folha não desmonta ao fechar; sem isto a prévia antiga piscaria ao reabrir.
+      setTexto("");
+      return;
+    }
     let cancelado = false;
     setCarregando(true);
     setErro(null);
@@ -86,7 +91,7 @@ export function FolhaPostar({ aberta, aoFechar, aoPostar }: Props) {
   }
 
   return (
-    <Folha aberta={aberta} aoFechar={aoFechar} titulo="Postar" testId="painel-folha-postar">
+    <Folha id={id} aberta={aberta} aoFechar={aoFechar} titulo="Postar" testId="painel-folha-postar">
       {carregando ? (
         <div className="space-y-3 pb-4">
           <div className="pn-skeleton h-12 rounded-[var(--radius-control)]" data-testid="painel-skeleton" />

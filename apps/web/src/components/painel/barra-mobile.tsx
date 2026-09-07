@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV_BARRA_DIREITA, NAV_BARRA_ESQUERDA, isNavItemActive, type NavItem } from "@/lib/painel-nav";
@@ -12,23 +12,33 @@ import { FolhaPostar } from "./folha-postar";
 
 type EmVoo = { sent: number; total: number } | null;
 
+async function disparoEmVoo(): Promise<EmVoo> {
+  const lista: TenantDispatchView[] = await fetch("/api/disparos")
+    .then((r) => (r.ok ? r.json() : []))
+    .catch(() => []);
+  const ativo = Array.isArray(lista)
+    ? lista.find((d) => d.status === "queued" || d.status === "running")
+    : undefined;
+  return ativo && ativo.total > 0 ? { sent: ativo.sent, total: ativo.total } : null;
+}
+
 /** Disparo em voo (fila ou enviando). Só consulta enquanto houver um. */
 function useDisparoEmVoo() {
   const [emVoo, setEmVoo] = useState<EmVoo>(null);
 
   const recarregar = useCallback(async () => {
-    const lista: TenantDispatchView[] = await fetch("/api/disparos")
-      .then((r) => (r.ok ? r.json() : []))
-      .catch(() => []);
-    const ativo = Array.isArray(lista)
-      ? lista.find((d) => d.status === "queued" || d.status === "running")
-      : undefined;
-    setEmVoo(ativo && ativo.total > 0 ? { sent: ativo.sent, total: ativo.total } : null);
+    setEmVoo(await disparoEmVoo());
   }, []);
 
   useEffect(() => {
-    void recarregar();
-  }, [recarregar]);
+    let cancelado = false;
+    void disparoEmVoo().then((voo) => {
+      if (!cancelado) setEmVoo(voo);
+    });
+    return () => {
+      cancelado = true;
+    };
+  }, []);
 
   const voando = emVoo !== null;
   useEffect(() => {
@@ -45,7 +55,7 @@ function Item({ item, pathname }: { item: NavItem; pathname: string }) {
   const Icon = item.icon;
   return (
     <Link href={item.href} aria-current={ativo ? "page" : undefined} className="pn-barra-mobile__item">
-      <Icon className="h-5 w-5" strokeWidth={1.75} />
+      <Icon className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
       {item.label}
     </Link>
   );
@@ -61,6 +71,8 @@ export function BarraMobile() {
   const [folha, setFolha] = useState<"postar" | "mais" | null>(null);
   const fechar = useCallback(() => setFolha(null), []);
   const { emVoo, recarregar } = useDisparoEmVoo();
+  const idPostar = useId();
+  const idMais = useId();
 
   return (
     <>
@@ -79,6 +91,7 @@ export function BarraMobile() {
               data-testid="painel-postar"
               aria-haspopup="dialog"
               aria-expanded={folha === "postar"}
+              aria-controls={idPostar}
               aria-label={emVoo ? `Postar (enviando ${emVoo.sent} de ${emVoo.total} grupos)` : "Postar"}
               onClick={() => setFolha("postar")}
               className={cn("pn-postar", emVoo && "pn-postar--voo")}
@@ -101,16 +114,17 @@ export function BarraMobile() {
           type="button"
           aria-haspopup="dialog"
           aria-expanded={folha === "mais"}
+          aria-controls={idMais}
           onClick={() => setFolha("mais")}
           className="pn-barra-mobile__item"
         >
-          <Menu className="h-5 w-5" strokeWidth={1.75} />
+          <Menu className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
           Mais
         </button>
       </nav>
 
-      <FolhaPostar aberta={folha === "postar"} aoFechar={fechar} aoPostar={recarregar} />
-      <FolhaMais aberta={folha === "mais"} aoFechar={fechar} />
+      <FolhaPostar id={idPostar} aberta={folha === "postar"} aoFechar={fechar} aoPostar={recarregar} />
+      <FolhaMais id={idMais} aberta={folha === "mais"} aoFechar={fechar} />
     </>
   );
 }

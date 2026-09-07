@@ -27,7 +27,7 @@ async function lista(url: string): Promise<Linha[]> {
  * "Mais" da casca mobile (spec 3.2): todos os módulos por grupo do corredor, com
  * o estado de cada um antes do toque. Busca só quando abre.
  */
-export function FolhaMais({ aberta, aoFechar }: { aberta: boolean; aoFechar: () => void }) {
+export function FolhaMais({ id, aberta, aoFechar }: { id?: string; aberta: boolean; aoFechar: () => void }) {
   const pathname = usePathname();
   const [dados, setDados] = useState<ResumoDados | null>(null);
 
@@ -59,7 +59,7 @@ export function FolhaMais({ aberta, aoFechar }: { aberta: boolean; aoFechar: () 
   const linhas = dados ? resumo(dados) : {};
 
   return (
-    <Folha aberta={aberta} aoFechar={aoFechar} titulo="Mais" testId="painel-folha-mais">
+    <Folha id={id} aberta={aberta} aoFechar={aoFechar} titulo="Mais" testId="painel-folha-mais">
       <nav aria-label="Todos os módulos" className="space-y-4 pb-2">
         {NAV_GRUPOS_ORDEM.map((grupo) => (
           <section key={grupo}>
@@ -77,7 +77,7 @@ export function FolhaMais({ aberta, aoFechar }: { aberta: boolean; aoFechar: () 
                       aria-current={ativo ? "page" : undefined}
                       className="pn-folha__item"
                     >
-                      <Icon className="h-[18px] w-[18px] shrink-0 text-slate-600" strokeWidth={1.75} />
+                      <Icon className="h-[18px] w-[18px] shrink-0 text-slate-600" strokeWidth={1.75} aria-hidden="true" />
                       <span className={linhas[href] ? "font-data text-13 tabular-nums" : "font-medium"}>
                         {linhas[href] ?? label}
                       </span>

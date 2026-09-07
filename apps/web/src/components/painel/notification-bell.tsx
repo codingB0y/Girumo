@@ -136,10 +136,11 @@ export function NotificationBell({ tom = "claro" }: { tom?: "claro" | "escuro" }
       <button
         onClick={() => setOpen(!open)}
         className={cn(
-          "relative flex h-10 w-10 items-center justify-center rounded-xl border transition",
+          "relative flex items-center justify-center rounded-xl border transition",
+          // No letreiro mobile o alvo de toque é 44px, como o resto da casca nova.
           tom === "escuro"
-            ? "border-volt-800 bg-volt-900 text-paper-0 hover:border-cobalt-500"
-            : "border-volt-950/10 bg-white text-aco hover:border-cobalt-500/30",
+            ? "h-11 w-11 border-volt-800 bg-volt-900 text-paper-0 hover:border-cobalt-500"
+            : "h-10 w-10 border-volt-950/10 bg-white text-aco hover:border-cobalt-500/30",
         )}
         aria-label={`Notificações${unreadCount > 0 ? ` (${unreadCount} não lidas)` : ""}`}
       >
