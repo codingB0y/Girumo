@@ -38,6 +38,9 @@ test.describe("Disparos na Vitrine Aberta", () => {
 
     const alcance = page.getByTestId("disparos-alcance");
     await expect(alcance).toBeVisible();
+    // A contagem chega depois das campanhas: ler antes disso mede o estado
+    // intermediario e o teste vira moeda ao ar.
+    await expect(alcance).not.toContainText("Contando");
     const texto = await alcance.innerText();
 
     const postar = page.getByRole("button", { name: /^Postar/ });
@@ -58,9 +61,31 @@ test.describe("Disparos na Vitrine Aberta", () => {
     }
   });
 
+  test("enquanto os grupos nao chegam, a tela nao afirma que eles sumiram", async ({ page }) => {
+    // /api/groups responde depois das campanhas no mundo real. Com a lista
+    // ainda vazia, "nao casou nenhum grupo" e indistinguivel de "os grupos
+    // sumiram" — e a tela acusava a campanha de estar quebrada.
+    await page.route("**/api/groups**", async (rota) => {
+      await new Promise((pronto) => setTimeout(pronto, 4000));
+      await rota.continue();
+    });
+
+    await page.goto("/painel/disparos", { waitUntil: "load" });
+
+    const alcance = page.getByTestId("disparos-alcance");
+    await expect(alcance).toBeVisible();
+    await expect(alcance).toContainText("Contando");
+    await expect(alcance).not.toContainText("não estão mais na sua lista");
+
+    // E o botao nao pode destacar em Acid uma contagem que ainda nao existe.
+    const classes = (await page.getByRole("button", { name: /^Postar/ }).getAttribute("class")) ?? "";
+    expect(classes).not.toContain("bg-acid");
+  });
+
   test("campanha sem grupos nao oferece o destaque de postar", async ({ page }) => {
     await page.goto("/painel/disparos", { waitUntil: "load" });
 
+    await expect(page.getByTestId("disparos-alcance")).not.toContainText("Contando");
     const alcance = await page.getByTestId("disparos-alcance").innerText();
     const semGrupos = !/Vai pra/.test(alcance);
     test.skip(!semGrupos, "a campanha escolhida tem grupos; nada a afirmar aqui");

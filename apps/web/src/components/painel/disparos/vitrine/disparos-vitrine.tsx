@@ -22,6 +22,8 @@ type Props = {
   grupos: readonly Group[];
   /** Falso quando /api/groups não respondeu: "0 pessoas" seria mentira. */
   gruposOk: boolean;
+  /** Enquanto true a contagem ainda não existe — e ausência não é zero. */
+  gruposCarregando: boolean;
   disparos: readonly TenantDispatchView[];
   enviando: boolean;
   erro: string | null;
@@ -51,6 +53,7 @@ export function DisparosVitrine({
   aoTrocarCampanha,
   grupos,
   gruposOk,
+  gruposCarregando,
   disparos,
   enviando,
   erro,
@@ -64,6 +67,10 @@ export function DisparosVitrine({
   const agora = new Date();
   const campanha = campanhas.find((c) => (c.slug ?? c.id) === slug) ?? null;
   const alvo = alcance(grupos, campanha?.groupIds);
+  // Só depois de ter a lista de grupos a contagem pode aparecer no aviso e no
+  // botão: antes disso ela diria "os grupos sumiram" a quem só esperou meio
+  // segundo a mais pela rota de grupos.
+  const contagemPronta = gruposOk && !gruposCarregando;
   const semCampanha = campanhas.length === 0;
 
   return (
@@ -106,18 +113,19 @@ export function DisparosVitrine({
               type="button"
               onClick={() => setAgendando((v) => !v)}
               aria-pressed={agendando}
+              aria-controls="disparos-compositor"
               className={cn(
                 "ml-auto inline-flex h-11 items-center gap-2 rounded-[var(--radius-control)] border px-4 text-[14px]",
                 agendando ? "border-volt-950 bg-volt-950 text-paper-0" : "border-line-200 bg-paper-0 text-volt-950",
               )}
             >
-              <CalendarClock className="h-4 w-4" strokeWidth={1.75} />
+              <CalendarClock className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
               Agendar
             </button>
           </div>
 
           <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_340px]">
-            <div className="order-2 lg:order-1">
+            <div className="order-2 lg:order-1" id="disparos-compositor">
               {agendando ? (
                 <ScheduleComposer onSchedule={aoDisparar} scheduling={enviando} />
               ) : (
@@ -126,8 +134,8 @@ export function DisparosVitrine({
                   onSend={aoDisparar}
                   sending={enviando}
                   onBodyChange={setTexto}
-                  rotuloEnviar={rotuloPostar(alvo)}
-                  acid={alvo.grupos > 0}
+                  rotuloEnviar={contagemPronta ? rotuloPostar(alvo) : "Postar"}
+                  acid={contagemPronta && alvo.grupos > 0}
                 />
               )}
             </div>
@@ -145,12 +153,16 @@ export function DisparosVitrine({
                 data-testid="disparos-alcance"
                 className={cn(
                   "mt-2 text-13",
-                  alvo.grupos > 0 ? "font-data tabular-nums text-volt-950" : "text-slate-600",
+                  contagemPronta && alvo.grupos > 0
+                    ? "font-data tabular-nums text-volt-950"
+                    : "text-slate-600",
                 )}
               >
-                {gruposOk
-                  ? fraseAlcance(alvo)
-                  : `Vai pra ${campanha?.groupIds.length ?? 0} grupos · não deu pra contar as pessoas agora.`}
+                {gruposCarregando
+                  ? "Contando quantas pessoas veem…"
+                  : gruposOk
+                    ? fraseAlcance(alvo)
+                    : `Vai pra ${campanha?.groupIds.length ?? 0} grupos · não deu pra contar as pessoas agora.`}
               </p>
             </aside>
           </div>

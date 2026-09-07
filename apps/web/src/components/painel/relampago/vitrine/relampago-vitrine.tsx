@@ -70,6 +70,7 @@ export function RelampagoVitrine({ ofertas, elegiveis, carregando, abrindo, erro
           type="button"
           onClick={() => setForm((v) => !v)}
           aria-expanded={form}
+          aria-controls="relampago-nova-oferta"
           className="inline-flex h-11 items-center gap-2 rounded-[var(--radius-control)] border border-line-200 bg-paper-0 px-4 text-[14px] text-volt-950"
         >
           <Plus className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
@@ -78,7 +79,7 @@ export function RelampagoVitrine({ ofertas, elegiveis, carregando, abrindo, erro
       </header>
 
       {form && (
-        <section className="pn-card space-y-4 rounded-[var(--radius-control)] p-4 sm:p-5">
+        <section id="relampago-nova-oferta" className="pn-card space-y-4 rounded-[var(--radius-control)] p-4 sm:p-5">
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
               <span className="text-13 font-semibold text-slate-600">Nome da promoção</span>

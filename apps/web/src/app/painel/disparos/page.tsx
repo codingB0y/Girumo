@@ -51,6 +51,9 @@ export default function PainelDisparos() {
   const [grupos, setGrupos] = useState<Group[]>([]);
   // Sem isto, "0 pessoas veem" por falha de rede fica igual a campanha vazia.
   const [gruposOk, setGruposOk] = useState(true);
+  // E sem ISTO, "ainda nao respondeu" fica igual a "respondeu vazio": os grupos
+  // chegam depois das campanhas, e a tela afirmaria que eles sumiram da lista.
+  const [gruposCarregando, setGruposCarregando] = useState(true);
 
   useEffect(() => {
     if (!vitrine) return;
@@ -62,6 +65,9 @@ export default function PainelDisparos() {
       })
       .catch(() => {
         if (vivo) setGruposOk(false);
+      })
+      .finally(() => {
+        if (vivo) setGruposCarregando(false);
       });
     return () => {
       vivo = false;
@@ -146,6 +152,7 @@ export default function PainelDisparos() {
         aoTrocarCampanha={setCampaignSlug}
         grupos={grupos}
         gruposOk={gruposOk}
+        gruposCarregando={gruposCarregando}
         disparos={dispatches}
         enviando={sending}
         erro={erro}
