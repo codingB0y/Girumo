@@ -52,11 +52,27 @@ function isOptedOut(tenantId: string, phone: string): Promise<boolean> {
     : legacyIsOptedOut(tenantId, phone);
 }
 
-// GET /api/leads — lista leads reais (capturados ao entrar no grupo).
+const LIMITE_MAXIMO = 100;
+
+/** `?limit=N` (1 a 100): o ticker do letreiro só quer a entrada mais recente. */
+function lerLimite(raw: string | null): number | undefined | null {
+  if (raw === null) return undefined;
+  const n = Number(raw);
+  return Number.isInteger(n) && n >= 1 && n <= LIMITE_MAXIMO ? n : null;
+}
+
+// GET /api/leads — lista leads reais (capturados ao entrar no grupo), mais recentes primeiro.
 export async function GET(req: Request) {
   const { tenantId } = await getRouteTenantContext(req, { allowEngine: true });
-  if (!USE_SUPABASE) return Response.json(await legacyList(tenantId));
-  const leads = await supaLeads.listLeads(tenantId);
+  const limit = lerLimite(new URL(req.url).searchParams.get("limit"));
+  if (limit === null) {
+    return Response.json({ error: `limit inválido: inteiro de 1 a ${LIMITE_MAXIMO}.` }, { status: 400 });
+  }
+  if (!USE_SUPABASE) {
+    const lista = await legacyList(tenantId);
+    return Response.json(limit ? lista.slice(0, limit) : lista);
+  }
+  const leads = await supaLeads.listLeads(tenantId, limit);
   return Response.json(leads.map(toLegacyShape));
 }
 

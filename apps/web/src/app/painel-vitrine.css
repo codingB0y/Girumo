@@ -542,14 +542,7 @@
 }
 
 /* --- Casca mobile (PR 2): letreiro 56px, folha, Postar em voo --- */
-.pn-letreiro--mobile {
-  height: var(--spacing-letreiro-mobile);
-  gap: 10px;
-  padding: 0 16px;
-}
-.pn-letreiro__loja--mobile {
-  font-size: 15px;
-}
+/* Um letreiro só: 64px no desktop, 56px abaixo de lg (ver media query no fim). */
 /* A sombra dura precisa ficar acima do fundo da barra e abaixo do botão. */
 .pn-postar-sombra {
   isolation: isolate;
@@ -626,6 +619,76 @@
 .pn-folha__item[aria-current="page"] {
   background: var(--color-canvas-100);
   box-shadow: inset 3px 0 0 var(--color-acid-500);
+}
+
+/* --- Casca desktop (PR 3a): avatar no letreiro, rodapé do corredor, recolhimento --- */
+.pn-ponto--indefinido {
+  background: var(--color-line-200);
+}
+.pn-letreiro__avatar {
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-chip);
+  background: var(--color-acid-500);
+  color: var(--color-volt-950);
+  font-family: var(--font-brand);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.pn-corredor__rodape {
+  border-top: 1px solid var(--color-line-200);
+  padding: 8px 0 12px;
+}
+.pn-corredor__romaneio {
+  display: block;
+  margin: 6px 16px 0;
+  font-family: var(--font-data);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--color-slate-600);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Mobile: letreiro de 56px, só símbolo, nome, ponto e sino. */
+@media (max-width: 1023.98px) {
+  .pn-letreiro {
+    height: var(--spacing-letreiro-mobile);
+    gap: 10px;
+    padding: 0 16px;
+  }
+  .pn-letreiro__loja {
+    font-size: 15px;
+  }
+}
+/* Entre lg e 1280: corredor recolhe a 64px só com ícones; o title vira a dica. */
+@media (min-width: 1024px) and (max-width: 1279.98px) {
+  .pn-corredor {
+    width: var(--spacing-corredor-recolhido);
+  }
+  /* Cabeçalho do grupo some da tela, não da árvore de acessibilidade. */
+  .pn-corredor__grupo {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .pn-corredor__rotulo,
+  .pn-corredor__romaneio {
+    display: none;
+  }
+  .pn-corredor__item {
+    justify-content: center;
+    gap: 0;
+    padding: 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
