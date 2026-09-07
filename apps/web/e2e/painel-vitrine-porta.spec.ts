@@ -19,7 +19,7 @@ const APARELHO = "girumo.aparelho";
  * outra conta" para limpar.
  */
 test.describe("casca antiga nao lembra o aparelho", () => {
-  test.skip(VITRINE, "NEXT_PUBLIC_PAINEL_VITRINE ligada: a porta esta no ar");
+  test.skip(VITRINE, "flag ligada: o CI roda COM a Vitrine desde 07/09/2026. Este bloco cobre a casca antiga e so roda local com a flag off; sai no PR 10 junto com ela");
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test("o login antigo ignora e-mail guardado no aparelho", async ({ page }) => {

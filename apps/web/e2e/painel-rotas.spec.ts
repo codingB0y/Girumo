@@ -99,11 +99,19 @@ test.describe("rotas do painel renderizam", () => {
       // dado e passava por terminar cedo demais. Esperar a ancora e esperar o
       // fato que interessa: o auto-wait do expect segura ate a rota ter
       // renderizado, e estoura se ela nunca renderizar.
+      // 30s, nao os 10s do padrao: medido em 07/09/2026, a Inicio da Vitrine
+      // leva ~8,5s para sair do skeleton com o servidor quente (~15s na
+      // primeira carga) porque dispara quinze chamadas de API. Isso esta na
+      // beira do limite padrao e derrubava o teste de forma intermitente.
+      //
+      // O numero maior aqui NAO torna 8,5s aceitavel: e a primeira tela que a
+      // lojista ve. Enquanto nao for atacado, este timeout evita vermelho
+      // intermitente sem esconder a causa — que fica escrita aqui.
       await expect(
         page.getByText(esperado.ancora).first(),
         `${rota} montou o shell mas a propria tela nao renderizou ` +
           `(nada casou ${esperado.ancora}) — skeleton eterno, tela de erro ou miolo vazio`,
-      ).toBeVisible();
+      ).toBeVisible({ timeout: 30_000 });
 
       await shellBuscouDados;
 

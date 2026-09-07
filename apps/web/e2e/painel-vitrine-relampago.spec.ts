@@ -3,8 +3,8 @@ import { expect, test } from "@playwright/test";
 import { FIXTURES_DINAMICAS } from "./fixtures-dinamicas";
 
 /**
- * Oferta Relampago da Vitrine Aberta (cena 5). Roda local com
- * NEXT_PUBLIC_PAINEL_VITRINE=on; liga no CI no PR 10.
+ * Oferta Relampago da Vitrine Aberta (cena 5). Roda no CI com
+ * NEXT_PUBLIC_PAINEL_VITRINE=on desde 07/09/2026, que e o que producao usa.
  *
  * Reusa o fixture que ja existe para /painel/relampago/[id]: ele abre a oferta
  * e a FECHA no fim. Deixar uma aberta travaria o indice unico parcial e a
@@ -88,7 +88,7 @@ test.describe("Oferta Relampago na Vitrine Aberta", () => {
 });
 
 test.describe("Oferta Relampago com a Vitrine desligada", () => {
-  test.skip(VITRINE, "flag ligada: este bloco cobre o caminho antigo, que e como o CI roda");
+  test.skip(VITRINE, "flag ligada: o CI roda COM a Vitrine desde 07/09/2026. Este bloco cobre a casca antiga e so roda local com a flag off; sai no PR 10 junto com ela");
 
   test("a tela antiga segue intacta e sem nenhuma peca da Vitrine", async ({ page }) => {
     await page.goto("/painel/relampago", { waitUntil: "load" });
