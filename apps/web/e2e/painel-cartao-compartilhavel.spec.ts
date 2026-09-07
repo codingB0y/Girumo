@@ -64,9 +64,13 @@ async function aguardarDashboard(page: Page) {
   // mode derruba o teste. Aconteceu em 21/08/2026 — falhou numa rodada e passou
   // na seguinte sem ninguem tocar no codigo, que e o pior tipo de vermelho.
   // O cartao usa <p>; so o card do dashboard e um link.
-  await expect(page.getByRole("link", { name: /^Contatos captados/ })).toBeVisible({
-    timeout: 60_000,
-  });
+  //
+  // A Vitrine (PR 3b) nao tem esse card: o equivalente "so existe com dado
+  // carregado" e a caixa do mes. Uma das duas basta — ate o PR 10 tirar a antiga.
+  const carregou = page
+    .getByRole("link", { name: /^Contatos captados/ })
+    .or(page.getByTestId("inicio-caixa"));
+  await expect(carregou.first()).toBeVisible({ timeout: 60_000 });
   await expect(page.getByTestId("painel-skeleton")).toHaveCount(0);
 }
 

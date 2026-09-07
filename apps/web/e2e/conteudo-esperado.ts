@@ -94,7 +94,11 @@ export const CONTEUDO_ESPERADO: Record<string, ConteudoEsperado> = {
   "/painel": {
     // NAO "Inicio": `dashboard-states.tsx` renderiza esse mesmo <h1> na tela de
     // erro, entao ele passaria com o dashboard sem ter carregado nada.
-    ancora: /Seu ritmo/,
+    //
+    // Duas cascas convivem ate o PR 10 da Vitrine: "Seu ritmo" e o dashboard
+    // antigo, "Estoque de grupos" e o bloco 6 da Inicio nova. Nenhum dos dois
+    // aparece na tela de erro. Quando a casca antiga sair, fica so o segundo.
+    ancora: /Seu ritmo|Estoque de grupos/,
     lista: {
       api: "/api/groups",
       marca: (j) => primeiroTexto(j, ...NOME),
@@ -178,7 +182,9 @@ export const CONTEUDO_ESPERADO: Record<string, ConteudoEsperado> = {
     lista: {
       api: "/api/disparos",
       marca: (j) => primeiroTexto(j, ...NOME),
-      vazio: /Nenhum disparo/i,
+      // "disparo" na casca antiga, "post" na Vitrine — a tela nova fala como a
+      // lojista fala. Vale nas duas ate o PR 10.
+      vazio: /Nenhum (disparo|post)/i,
     },
   },
 
