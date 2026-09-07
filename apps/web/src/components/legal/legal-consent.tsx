@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { isPainelVitrineEnabled } from "@/lib/painel/flags";
 
 import { LEGAL_PAGES } from "@/lib/public-pages";
 
@@ -17,18 +18,18 @@ import { LEGAL_PAGES } from "@/lib/public-pages";
  * formulário já preenchido.
  */
 
-const linkClass =
-  "font-medium text-acid-500 underline underline-offset-2 transition-colors hover:text-canvas-100";
+const LINK_ANTIGO = "font-medium text-acid-500 underline underline-offset-2 transition-colors hover:text-canvas-100";
+const LINK_PORTA = "pn-porta__link underline underline-offset-2";
 
 function LegalLinks() {
   return (
     <>
-      <Link href={LEGAL_PAGES.terms} target="_blank" rel="noreferrer" className={linkClass}>
+      <Link href={LEGAL_PAGES.terms} target="_blank" rel="noreferrer" className={isPainelVitrineEnabled() ? LINK_PORTA : LINK_ANTIGO}>
         Termos de Uso
         <span className="sr-only"> (abre em nova aba)</span>
       </Link>
       {" e a "}
-      <Link href={LEGAL_PAGES.privacy} target="_blank" rel="noreferrer" className={linkClass}>
+      <Link href={LEGAL_PAGES.privacy} target="_blank" rel="noreferrer" className={isPainelVitrineEnabled() ? LINK_PORTA : LINK_ANTIGO}>
         Política de Privacidade
         <span className="sr-only"> (abre em nova aba)</span>
       </Link>
@@ -55,9 +56,13 @@ export function LegalConsentCheckbox({ checked, onChange }: LegalConsentCheckbox
         // anunciava "Li e concordo com os e a" — frase sem sentido. Os links
         // seguem navegáveis por conta própria, na ordem de tabulação.
         aria-label="Li e concordo com os Termos de Uso e a Política de Privacidade"
-        className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded-[4px] border border-volt-800 bg-volt-950 accent-acid-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
+        className={
+          isPainelVitrineEnabled()
+            ? "mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded-[4px] border border-line-200 bg-canvas-100 accent-cobalt-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
+            : "mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded-[4px] border border-volt-800 bg-volt-950 accent-acid-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
+        }
       />
-      <label htmlFor="legal-consent" className="cursor-pointer text-xs leading-5 text-canvas-100/70">
+      <label htmlFor="legal-consent" className={`cursor-pointer text-xs leading-5 ${isPainelVitrineEnabled() ? "text-slate-600" : "text-canvas-100/70"}`}>
         Li e concordo com os <LegalLinks />.
       </label>
     </div>
@@ -73,7 +78,7 @@ export function LegalConsentCheckbox({ checked, onChange }: LegalConsentCheckbox
  */
 export function LegalConsentNotice() {
   return (
-    <p className="text-center text-xs leading-5 text-canvas-100/50">
+    <p className={`text-center text-xs leading-5 ${isPainelVitrineEnabled() ? "text-slate-600" : "text-canvas-100/50"}`}>
       Ao continuar, você concorda com os <LegalLinks />.
     </p>
   );

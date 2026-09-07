@@ -54,8 +54,9 @@ export function exigeCredenciaisAdmin() {
  */
 export async function entrar(page: Page, destino = "/painel") {
   await page.goto(`/login?next=${encodeURIComponent(destino)}`);
-  await page.getByPlaceholder("voce@email.com").fill(CREDENCIAIS.email);
-  await page.getByPlaceholder("Sua senha").fill(CREDENCIAIS.senha);
+  // Por testid: a porta da Vitrine (PR 4) troca os textos dos campos.
+  await page.getByTestId("login-email").fill(CREDENCIAIS.email);
+  await page.getByTestId("login-senha").fill(CREDENCIAIS.senha);
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
 
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 30_000 });
