@@ -8,6 +8,7 @@ import { Odometro } from "@/components/painel/home/vitrine/odometro";
 import { diaHoraCurto, iniciais, marcasDaFita, rotulosDaFita } from "@/lib/painel/inicio";
 import { ordersInMonth, revenueInMonth, type MonthlyOrder } from "@/lib/painel-metrics";
 import { monthBR } from "@/lib/date-br";
+import { parseValorDoPedido } from "@/lib/orders/valor-do-pedido";
 import type { Lead, LeadStatus } from "@/lib/painel/types";
 
 const PASSO_DA_MARCA = 5_000;
@@ -21,10 +22,15 @@ const FILTROS: { valor: Filtro; rotulo: string }[] = [
   { valor: "comprou", rotulo: "Clientes" },
 ];
 
-const CHIP: Record<LeadStatus, { texto: string; classe: string }> = {
-  novo: { texto: "NOVO", classe: "bg-canvas-100 text-volt-950" },
-  ativo: { texto: "ATIVO", classe: "bg-canvas-100 text-volt-950" },
-  comprou: { texto: "CLIENTE", classe: "bg-canvas-100 text-volt-950" },
+/**
+ * Três chips iguais não diziam nada. Cliente é o estado que a lojista procura,
+ * então ele inverte (Volt sólido); novo ganha o ponto Zap, que na gramática é
+ * gente chegando; ativo fica neutro.
+ */
+const CHIP: Record<LeadStatus, { texto: string; classe: string; ponto: boolean }> = {
+  novo: { texto: "NOVO", classe: "bg-canvas-100 text-volt-950", ponto: true },
+  ativo: { texto: "ATIVO", classe: "bg-canvas-100 text-volt-950", ponto: false },
+  comprou: { texto: "CLIENTE", classe: "bg-volt-950 text-paper-0", ponto: false },
 };
 
 type Props = {
@@ -32,8 +38,10 @@ type Props = {
   pedidos: readonly MonthlyOrder[];
   meta: number | null;
   carregando: boolean;
-  /** Some o pedido no total do mês na hora, para o caixa subir sem esperar o refetch. */
-  onPedidoRegistrado: (valor: number) => void;
+  /** Soma o pedido no caixa e promove o contato a cliente sem esperar o refetch. */
+  onPedidoRegistrado: (leadId: string, valor: number) => void;
+  /** false quando /api/orders ou /api/settings falhou: zero por falta de dado não é zero de verdade. */
+  caixaOk: boolean;
 };
 
 /**
@@ -42,7 +50,7 @@ type Props = {
  * roteiro ("o caixa sobe"), e é também o que a lojista quer ver: a conta do mês
  * andando enquanto ela atende.
  */
-export function ContatosVitrine({ contatos, pedidos, meta, carregando, onPedidoRegistrado }: Props) {
+export function ContatosVitrine({ contatos, pedidos, meta, carregando, caixaOk, onPedidoRegistrado }: Props) {
   const [filtro, setFiltro] = useState<Filtro>("todos");
   const [busca, setBusca] = useState("");
   const [registrando, setRegistrando] = useState<string | null>(null);
@@ -90,45 +98,7 @@ export function ContatosVitrine({ contatos, pedidos, meta, carregando, onPedidoR
         </p>
       </header>
 
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-1" role="group" aria-label="Filtrar contatos">
-          {FILTROS.map((f) => {
-            const ativo = filtro === f.valor;
-            return (
-              <button
-                key={f.valor}
-                type="button"
-                onClick={() => setFiltro(f.valor)}
-                aria-pressed={ativo}
-                className={cn(
-                  "inline-flex h-10 items-center gap-1.5 rounded-[var(--radius-control)] px-3 text-[14px]",
-                  ativo ? "bg-volt-950 text-paper-0" : "bg-paper-0 text-volt-950 hover:bg-canvas-100",
-                )}
-              >
-                {f.rotulo}
-                <span className="font-data tabular-nums opacity-70">{contagens[f.valor] ?? 0}</span>
-              </button>
-            );
-          })}
-        </div>
-        <div className="relative">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600"
-            aria-hidden="true"
-          />
-          <label className="sr-only" htmlFor="contatos-busca">
-            Buscar contato
-          </label>
-          <input
-            id="contatos-busca"
-            data-testid="contatos-busca"
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar contato"
-            className="h-10 w-[280px] max-w-full rounded-[var(--radius-control)] border border-line-200 bg-paper-0 pl-9 pr-3 text-[16px] text-volt-950 placeholder:text-slate-600"
-          />
-        </div>
-      </div>
+      <Filtros contagens={contagens} filtro={filtro} onFiltro={setFiltro} busca={busca} onBusca={setBusca} />
 
       <section className="mt-4" data-testid="contatos-lista">
         {visiveis.length === 0 ? (
@@ -153,7 +123,64 @@ export function ContatosVitrine({ contatos, pedidos, meta, carregando, onPedidoR
         )}
       </section>
 
-      <CaixaDoRodape faturamento={faturamento} meta={meta} pedidos={pedidosDoMes.length} />
+      <CaixaDoRodape faturamento={faturamento} meta={meta} pedidos={pedidosDoMes.length} ok={caixaOk} />
+    </div>
+  );
+}
+
+/** Recorta a lista sem sair da tela — mesmo desenho da tela de Grupos. */
+function Filtros({
+  contagens,
+  filtro,
+  onFiltro,
+  busca,
+  onBusca,
+}: {
+  contagens: Record<string, number>;
+  filtro: Filtro;
+  onFiltro: (f: Filtro) => void;
+  busca: string;
+  onBusca: (v: string) => void;
+}) {
+  return (
+    <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap gap-1" role="group" aria-label="Filtrar contatos">
+        {FILTROS.map((f) => {
+          const ativo = filtro === f.valor;
+          return (
+            <button
+              key={f.valor}
+              type="button"
+              onClick={() => onFiltro(f.valor)}
+              aria-pressed={ativo}
+              className={cn(
+                "inline-flex h-10 items-center gap-1.5 rounded-[var(--radius-control)] px-3 text-[14px]",
+                ativo ? "bg-volt-950 text-paper-0" : "bg-paper-0 text-volt-950 hover:bg-canvas-100",
+              )}
+            >
+              {f.rotulo}
+              <span className="font-data tabular-nums opacity-70">{contagens[f.valor] ?? 0}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="relative">
+        <Search
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600"
+          aria-hidden="true"
+        />
+        <label className="sr-only" htmlFor="contatos-busca">
+          Buscar contato
+        </label>
+        <input
+          id="contatos-busca"
+          data-testid="contatos-busca"
+          value={busca}
+          onChange={(e) => onBusca(e.target.value)}
+          placeholder="Buscar contato"
+          className="h-10 w-[280px] max-w-full rounded-[var(--radius-control)] border border-line-200 bg-paper-0 pl-9 pr-3 text-[16px] text-volt-950 placeholder:text-slate-600"
+        />
+      </div>
     </div>
   );
 }
@@ -166,10 +193,12 @@ function CaixaDoRodape({
   faturamento,
   meta,
   pedidos,
+  ok,
 }: {
   faturamento: number;
   meta: number | null;
   pedidos: number;
+  ok: boolean;
 }) {
   const progresso = meta && meta > 0 ? Math.min(1, faturamento / meta) : 0;
 
@@ -187,8 +216,15 @@ function CaixaDoRodape({
           />
         </div>
         <p className="font-data text-13 tabular-nums text-slate-600">
-          {pedidos} {pedidos === 1 ? "pedido no mês" : "pedidos no mês"}
-          {meta && meta > 0 ? ` · de ${brl.format(meta)}` : ""}
+          {ok ? (
+            <>
+              {pedidos} {pedidos === 1 ? "pedido no mês" : "pedidos no mês"}
+              {meta && meta > 0 ? ` · de ${brl.format(meta)}` : ""}
+            </>
+          ) : (
+            // Zerado por falta de dado é diferente de mês sem venda.
+            "não deu pra carregar o caixa agora"
+          )}
         </p>
       </div>
 
@@ -239,7 +275,7 @@ function FichaDoContato({
   registrando: boolean;
   onAbrir: () => void;
   onFechar: () => void;
-  onRegistrado: (valor: number) => void;
+  onRegistrado: (leadId: string, valor: number) => void;
 }) {
   const chip = CHIP[contato.status];
 
@@ -266,6 +302,7 @@ function FichaDoContato({
             chip.classe,
           )}
         >
+          {chip.ponto && <span className="pn-ponto mr-1.5" aria-hidden="true" />}
           {chip.texto}
         </span>
 
@@ -273,13 +310,18 @@ function FichaDoContato({
           type="button"
           onClick={onAbrir}
           aria-expanded={registrando}
+          aria-controls={`registro-${contato.id}`}
           className="h-9 shrink-0 rounded-[var(--radius-control)] border border-line-200 bg-paper-0 px-3 text-13 text-volt-950"
         >
           {registrando ? "Fechar" : "Registrar pedido"}
         </button>
       </div>
 
-      {registrando && <RegistroDePedido contato={contato} onFechar={onFechar} onRegistrado={onRegistrado} />}
+      {registrando && (
+        <div id={`registro-${contato.id}`}>
+          <RegistroDePedido contato={contato} onFechar={onFechar} onRegistrado={onRegistrado} />
+        </div>
+      )}
     </div>
   );
 }
@@ -292,7 +334,7 @@ function RegistroDePedido({
 }: {
   contato: Lead;
   onFechar: () => void;
-  onRegistrado: (valor: number) => void;
+  onRegistrado: (leadId: string, valor: number) => void;
 }) {
   const [valor, setValor] = useState("");
   const [salvando, setSalvando] = useState(false);
@@ -300,8 +342,10 @@ function RegistroDePedido({
 
   async function salvar() {
     if (salvando) return;
-    const centavos = Number(valor.replace(/\./g, "").replace(",", "."));
-    if (!Number.isFinite(centavos) || centavos <= 0) {
+    // Mesma função da rota: se as duas lerem "149.90" diferente, o caixa da
+    // tela fica diferente do que foi gravado, e continua assim até um reload.
+    const reais = parseValorDoPedido(valor);
+    if (!Number.isFinite(reais) || reais <= 0) {
       setErro("Digite o valor do pedido.");
       return;
     }
@@ -318,7 +362,7 @@ function RegistroDePedido({
         setErro(corpo?.error || "Não foi possível registrar o pedido.");
         return;
       }
-      onRegistrado(centavos);
+      onRegistrado(contato.id, reais);
       onFechar();
     } catch {
       setErro("Não foi possível registrar o pedido.");

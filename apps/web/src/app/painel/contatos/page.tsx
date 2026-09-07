@@ -42,17 +42,31 @@ export default function PainelContatos() {
   const vitrine = isPainelVitrineEnabled();
   const [pedidos, setPedidos] = useState<MonthlyOrder[]>([]);
   const [meta, setMeta] = useState<number | null>(null);
+  // Sem isto, "R$ 0,00" por falha de rede fica igual a mês sem venda nenhuma.
+  const [caixaOk, setCaixaOk] = useState(true);
+  const [caixaCarregando, setCaixaCarregando] = useState(true);
 
   useEffect(() => {
     if (!vitrine) return;
-    fetch("/api/orders")
-      .then((r) => r.json())
-      .then((o) => setPedidos(Array.isArray(o) ? o : []))
-      .catch(() => {});
-    fetch("/api/settings")
-      .then((r) => r.json())
-      .then((s) => setMeta(typeof s?.monthlyGoalRevenue === "number" ? s.monthlyGoalRevenue : null))
-      .catch(() => {});
+    let vivo = true;
+    Promise.all([
+      fetch("/api/orders").then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))),
+      fetch("/api/settings").then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))),
+    ])
+      .then(([o, s]) => {
+        if (!vivo) return;
+        setPedidos(Array.isArray(o) ? o : []);
+        setMeta(typeof s?.monthlyGoalRevenue === "number" ? s.monthlyGoalRevenue : null);
+      })
+      .catch(() => {
+        if (vivo) setCaixaOk(false);
+      })
+      .finally(() => {
+        if (vivo) setCaixaCarregando(false);
+      });
+    return () => {
+      vivo = false;
+    };
   }, [vitrine]);
 
   useEffect(() => {
@@ -85,10 +99,14 @@ export default function PainelContatos() {
         contatos={leads}
         pedidos={pedidos}
         meta={meta}
-        carregando={loading}
-        onPedidoRegistrado={(valor) => {
+        carregando={loading || caixaCarregando}
+        caixaOk={caixaOk}
+        onPedidoRegistrado={(leadId, valor) => {
           // Soma no total na hora: o caixa do rodapé sobe sem esperar o refetch.
           setPedidos((p) => [...p, { value: valor, created_at: new Date().toISOString() }]);
+          // O servidor promove o lead a cliente; sem isto o chip ficava em "NOVO"
+          // e os contadores de filtro não subiam até um reload.
+          setLeads((l) => l.map((x) => (x.id === leadId ? { ...x, status: "comprou" } : x)));
         }}
       />
     );
