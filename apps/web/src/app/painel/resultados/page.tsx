@@ -97,9 +97,9 @@ export default function PainelResultados() {
   if (loading) {
     return (
       <div className="mx-auto max-w-[1200px] space-y-8 px-4 py-8 sm:px-8">
-        <div className="pn-skeleton h-10 w-56 rounded-lg" />
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{[0, 1, 2, 3].map((i) => <div key={i} className="pn-skeleton h-24 rounded-2xl" />)}</div>
-        <div className="pn-skeleton h-72 rounded-2xl" />
+        <div className="pn-skeleton h-10 w-56 rounded-lg" data-testid="painel-skeleton" />
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{[0, 1, 2, 3].map((i) => <div key={i} className="pn-skeleton h-24 rounded-xl" data-testid="painel-skeleton" />)}</div>
+        <div className="pn-skeleton h-72 rounded-xl" data-testid="painel-skeleton" />
       </div>
     );
   }
@@ -108,7 +108,7 @@ export default function PainelResultados() {
     <div className="mx-auto max-w-[1200px] space-y-8 px-4 py-8 sm:px-8">
       <header>
         <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-volt-950">Resultados</h1>
-        <p className="font-editorial mt-1 text-[19px] italic text-ardosia">
+        <p className="mt-1 text-[19px] text-ardosia">
           Do clique ao cliente — sem número inflado.
         </p>
       </header>
@@ -126,7 +126,7 @@ export default function PainelResultados() {
 
       <div className="grid gap-5 lg:grid-cols-3">
         {/* Funil real */}
-        <div className="pn-card rounded-2xl p-6 lg:col-span-2">
+        <div className="pn-card rounded-xl p-6 lg:col-span-2">
           <div className="flex items-center gap-2.5">
             <h2 className="font-display text-base font-bold text-volt-950">O caminho até a venda</h2>
             <span className="font-data rounded-full bg-poco px-2 py-0.5 text-[10px] uppercase tracking-[0.08em] text-aco/55">real</span>
@@ -157,10 +157,10 @@ export default function PainelResultados() {
       </div>
 
       {/* Membros por campanha */}
-      <div className="pn-card rounded-2xl p-6">
+      <div className="pn-card rounded-xl p-6">
         <h2 className="font-display text-base font-bold text-volt-950">Membros por campanha</h2>
         {byCampaign.length === 0 ? (
-          <p className="font-editorial mt-4 text-[17px] italic text-ardosia">Crie campanhas pra ver o desempenho aqui.</p>
+          <p className="mt-4 text-[17px] text-ardosia">Crie campanhas pra ver o desempenho aqui.</p>
         ) : (
           <div className="mt-5 space-y-4">
             {byCampaign.map((c) => (
@@ -185,10 +185,10 @@ export default function PainelResultados() {
       </div>
 
       {/* R$ por campanha */}
-      <div className="pn-card rounded-2xl p-6">
+      <div className="pn-card rounded-xl p-6">
         <h2 className="font-display text-base font-bold text-volt-950">R$ por campanha</h2>
         {orders.length === 0 ? (
-          <p className="font-editorial mt-4 text-[17px] italic text-ardosia">
+          <p className="mt-4 text-[17px] text-ardosia">
             Registre seus pedidos na tela Contatos pra ver o caminho completo até a venda.
           </p>
         ) : (
@@ -218,10 +218,10 @@ export default function PainelResultados() {
       </div>
 
       {/* De onde veio cada venda */}
-      <div className="pn-card rounded-2xl p-6">
+      <div className="pn-card rounded-xl p-6">
         <h2 className="font-display text-base font-bold text-volt-950">De onde veio cada venda</h2>
         {orders.length === 0 ? (
-          <p className="font-editorial mt-4 text-[17px] italic text-ardosia">
+          <p className="mt-4 text-[17px] text-ardosia">
             Registre seus pedidos na tela Contatos pra ver o caminho completo até a venda.
           </p>
         ) : (
@@ -255,7 +255,7 @@ export default function PainelResultados() {
 
 function Tile({ label, value, tone }: { label: string; value: string; tone?: "cobalt" | "sucesso" }) {
   return (
-    <div className="pn-card rounded-2xl p-4">
+    <div className="pn-card rounded-xl p-4">
       <p className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/55">{label}</p>
       <p className={cn("font-data mt-2 text-[26px] font-medium tabular-nums tracking-[-0.02em]", tone === "cobalt" ? "text-cobalt-500" : tone === "sucesso" ? "text-sucesso" : "text-volt-950")}>
         {value}

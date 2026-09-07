@@ -99,7 +99,7 @@ function ModoNumero({
           <h1 className="font-display text-4xl font-extrabold tracking-[-0.035em] text-volt-950">
             Seu número
           </h1>
-          <p className="font-editorial mt-2 max-w-md text-[19px] italic text-ardosia">
+          <p className="mt-2 max-w-md text-[19px] text-ardosia">
             Conectado e trabalhando. Aqui você acompanha o ritmo que protege ele de bloqueio.
           </p>
         </div>
@@ -114,7 +114,7 @@ function ModoNumero({
         </button>
       </header>
 
-      <section className="pn-card mt-8 flex flex-wrap items-center justify-between gap-5 rounded-2xl p-6">
+      <section className="pn-card mt-8 flex flex-wrap items-center justify-between gap-5 rounded-xl p-6">
         <div className="flex items-center gap-4">
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-sucesso/10">
             <Check className="h-6 w-6 text-sucesso" strokeWidth={3} aria-hidden="true" />
@@ -207,7 +207,7 @@ function ModoPareamento({
         >
           {jaPareou ? "Reconecte seu WhatsApp" : "Vamos conectar seu WhatsApp"}
         </h1>
-        <p className="font-editorial mx-auto mt-2 max-w-md text-[19px] italic text-ardosia">
+        <p className="mx-auto mt-2 max-w-md text-[19px] text-ardosia">
           {jaPareou
             ? "A sessão caiu. Escaneie o código uma vez e seus grupos voltam sozinhos."
             : "É o seu número de sempre, com seus grupos. Leva 2 minutos e nada técnico."}
@@ -218,7 +218,7 @@ function ModoPareamento({
           vez não está começando, está consertando. */}
       {!jaPareou && <Stepper />}
 
-      <div className="pn-card mt-10 grid gap-6 overflow-hidden rounded-2xl md:grid-cols-2">
+      <div className="pn-card mt-10 grid gap-6 overflow-hidden rounded-xl md:grid-cols-2">
         <Instrucoes />
         {precisaPerfil && !instance ? (
           <div className="p-7 sm:p-9">
@@ -324,7 +324,7 @@ function Instrucoes() {
           </li>
         ))}
       </ol>
-      <div className="mt-7 flex items-center gap-3 rounded-2xl bg-poco px-4 py-3.5">
+      <div className="mt-7 flex items-center gap-3 rounded-xl bg-poco px-4 py-3.5">
         <ShieldCheck className="h-5 w-5 shrink-0 text-cobalt-500" aria-hidden="true" />
         <p className="text-xs text-aco">
           Conexão segura e dentro da LGPD. Seus contatos são seus — desconectou, leva tudo.
@@ -622,11 +622,11 @@ function QRPanel({
       )}
 
       {qr ? (
-        <div className="rounded-2xl bg-white p-4">
+        <div className="rounded-xl bg-white p-4">
           <RealQR data={qr} />
         </div>
       ) : (
-        <div className="flex h-[150px] w-[150px] items-center justify-center rounded-2xl bg-white/10">
+        <div className="flex h-[150px] w-[150px] items-center justify-center rounded-xl bg-white/10">
           {loading || connecting ? (
             <Loader2 className="h-8 w-8 animate-spin text-canvas-100/60" aria-hidden="true" />
           ) : (

@@ -122,7 +122,7 @@ export default function PainelRelampago() {
           <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-volt-950">
             Oferta Relâmpago
           </h1>
-          <p className="font-editorial mt-1 text-[19px] italic text-ardosia">
+          <p className="mt-1 text-[19px] text-ardosia">
             Quem comentou primeiro tem prioridade — e a fila decide, não a memória.
           </p>
           {erro && <p className="mt-2 text-sm text-alerta">{erro}</p>}
@@ -138,7 +138,7 @@ export default function PainelRelampago() {
       </header>
 
       {form && (
-        <section className="pn-card space-y-4 rounded-2xl p-5">
+        <section className="pn-card space-y-4 rounded-xl p-5">
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
               <span className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/50">
@@ -253,13 +253,13 @@ export default function PainelRelampago() {
       )}
 
       {loading ? (
-        <div className="pn-skeleton h-40 rounded-2xl" />
+        <div className="pn-skeleton h-40 rounded-xl" data-testid="painel-skeleton" />
       ) : (
         <>
           {aberta && (
             <Link
               href={`/painel/relampago/${aberta.id}`}
-              className="pn-card block rounded-2xl bg-sucesso/[0.04] p-5 transition-transform duration-[160ms] ease-[var(--ease-fluxo)] hover:-translate-y-0.5"
+              className="pn-card block rounded-xl bg-sucesso/[0.04] p-5 transition-transform duration-[160ms] ease-[var(--ease-fluxo)] hover:-translate-y-0.5"
             >
               <div className="flex flex-wrap items-center gap-2">
                 <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", STATUS.open.pill)}>
@@ -281,7 +281,7 @@ export default function PainelRelampago() {
               Nenhuma oferta ainda. Abra uma antes de postar a promoção no grupo.
             </p>
           ) : (
-            <div className="pn-card overflow-hidden rounded-2xl">
+            <div className="pn-card overflow-hidden rounded-xl">
               <div className="hidden border-b border-volt-950/[0.06] bg-poco px-5 py-3 md:grid md:grid-cols-[2fr_1fr_0.8fr_0.8fr] md:gap-4">
                 {["Oferta", "Palavra-chave", "Peças", "Status"].map((h) => (
                   <span

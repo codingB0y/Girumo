@@ -97,7 +97,7 @@ export function MessageComposer({ onSend, sending, className }: Props) {
   };
 
   return (
-    <div className={cn("rounded-2xl border border-volt-950/[0.08] bg-white p-4", className)}>
+    <div className={cn("rounded-xl border border-volt-950/[0.08] bg-white p-4", className)}>
       <input ref={fileRef} type="file" className="hidden" aria-hidden="true" />
 
       {/* Media preview */}

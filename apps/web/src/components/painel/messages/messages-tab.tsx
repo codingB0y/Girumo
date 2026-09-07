@@ -122,7 +122,7 @@ export function MessagesTab({ campaignSlug, groupIds }: Props) {
   };
 
   if (loading) {
-    return <div className="h-40 animate-pulse rounded-2xl bg-white" />;
+    return <div className="h-40 animate-pulse rounded-xl bg-white" />;
   }
 
   return (

@@ -35,7 +35,7 @@ export function AutomationsSummary({ automations }: { automations: Automation[] 
 
   if (active.length === 0) {
     return (
-      <div className="pn-card rounded-2xl px-5 py-4">
+      <div className="pn-card rounded-xl px-5 py-4">
         <p className="text-sm font-medium text-volt-950">
           {automations.length === 1
             ? "Sua automação está desligada"
@@ -55,7 +55,7 @@ export function AutomationsSummary({ automations }: { automations: Automation[] 
   }
 
   return (
-    <ul className="pn-card rounded-2xl p-2">
+    <ul className="pn-card rounded-xl p-2">
       {active.slice(0, MAX_ITEMS).map((a) => {
         const trigger = TRIGGER_LABELS[a.trigger];
         const Icon = trigger?.icon ?? Zap;

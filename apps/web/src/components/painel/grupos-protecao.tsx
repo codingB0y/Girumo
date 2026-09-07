@@ -55,7 +55,7 @@ export function GruposProtecao() {
           {resumo.administrados} {resumo.administrados === 1 ? "grupo seu" : "grupos seus"}
         </span>
       </div>
-      <p className="font-editorial mt-1 text-[17px] italic text-ardosia">
+      <p className="mt-1 text-[17px] text-ardosia">
         Quem mais administra os seus grupos, se o seu número sair do ar.
       </p>
 
@@ -76,7 +76,7 @@ function EmRisco({ resumo }: { resumo: ProtectionSummary }) {
   const plural = resumo.semBackup !== 1;
 
   return (
-    <article className="pn-card rounded-2xl p-5 sm:p-6">
+    <article className="pn-card rounded-xl p-5 sm:p-6">
       {/* Mesmo tratamento do aviso de silêncio em numero-saude.tsx: o alerta é
           o fundo âmbar, não uma borda de destaque. */}
       <header className="flex items-start gap-3 rounded-xl bg-amber-500/10 px-4 py-3">
@@ -147,7 +147,7 @@ function EmRisco({ resumo }: { resumo: ProtectionSummary }) {
 
 function Protegido({ resumo }: { resumo: ProtectionSummary }) {
   return (
-    <article className="pn-card rounded-2xl p-5 sm:p-6">
+    <article className="pn-card rounded-xl p-5 sm:p-6">
       <div className="flex items-start gap-3">
         <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden="true" />
         <div>
@@ -175,7 +175,7 @@ function Protegido({ resumo }: { resumo: ProtectionSummary }) {
 
 function NaoMedido() {
   return (
-    <article className="pn-card rounded-2xl p-5 sm:p-6">
+    <article className="pn-card rounded-xl p-5 sm:p-6">
       <p className="text-sm leading-relaxed text-ardosia">
         Ainda não conferimos quem administra os seus grupos.{" "}
         <Link href="/painel/grupos" className="underline underline-offset-2 hover:text-volt-950">

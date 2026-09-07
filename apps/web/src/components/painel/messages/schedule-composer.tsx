@@ -48,7 +48,7 @@ export function ScheduleComposer({ onSchedule, scheduling, className }: Props) {
   return (
     <div className={cn("space-y-4", className)}>
       {/* Date/time picker */}
-      <div className="rounded-2xl border border-volt-950/[0.08] bg-white p-4">
+      <div className="rounded-xl border border-volt-950/[0.08] bg-white p-4">
         <h3 className="flex items-center gap-2 text-sm font-medium text-volt-950">
           <Calendar className="h-4 w-4 text-cobalt-500" /> Agendar envio
         </h3>

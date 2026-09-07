@@ -135,7 +135,7 @@ export default function PainelGrupos() {
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-volt-950">Grupos</h1>
-          <p className="font-editorial mt-1 text-[19px] italic text-ardosia">
+          <p className="mt-1 text-[19px] text-ardosia">
             Seus grupos, sincronizados direto do WhatsApp.
           </p>
           {syncError && <p className="mt-2 text-sm text-alerta">{syncError}</p>}
@@ -198,9 +198,9 @@ export default function PainelGrupos() {
       </div>
 
       {loading ? (
-        <div className="pn-skeleton h-80 rounded-2xl" />
+        <div className="pn-skeleton h-80 rounded-xl" data-testid="painel-skeleton" />
       ) : (
-        <div className="pn-card overflow-hidden rounded-2xl">
+        <div className="pn-card overflow-hidden rounded-xl">
           <div className="hidden border-b border-volt-950/[0.06] bg-poco px-5 py-3 md:grid md:grid-cols-[1.8fr_1fr_0.8fr_auto] md:gap-4">
             {["Grupo", "Membros", "Status", ""].map((h) => (
               <span key={h} className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/50">{h}</span>
@@ -293,7 +293,7 @@ export default function PainelGrupos() {
             })}
             {rows.length === 0 && (
               <div className="px-5 py-16 text-center">
-                <p className="font-editorial text-[22px] italic text-volt-950">
+                <p className="text-[22px] text-volt-950">
                   {groups.length === 0 ? "Nenhum grupo sincronizado ainda." : "Nenhum grupo por aqui."}
                 </p>
                 <p className="mt-1 text-sm text-aco/60">
@@ -332,7 +332,7 @@ function idadeDoDado(iso: string | null | undefined): string | null {
 
 function MiniStat({ label, value, tone, hint }: { label: string; value: string; tone?: "cobalt" | "atencao"; hint?: string | null }) {
   return (
-    <div className="pn-card rounded-2xl px-4 py-3.5">
+    <div className="pn-card rounded-xl px-4 py-3.5">
       <p className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/55">{label}</p>
       <p
         className={cn(

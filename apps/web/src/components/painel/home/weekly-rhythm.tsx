@@ -26,7 +26,7 @@ export function WeeklyRhythm({ leads }: { leads: readonly RhythmEntry[] }) {
   const peak = useMemo(() => Math.max(...bars.map((b) => b.count)), [bars]);
 
   return (
-    <section className="pn-card rounded-2xl px-5 py-4">
+    <section className="pn-card rounded-xl px-5 py-4">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <p className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/55">
           Entradas nos grupos — últimos {WEEK_DAYS} dias

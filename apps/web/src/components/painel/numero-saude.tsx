@@ -60,13 +60,13 @@ export function NumeroSaude() {
           atualiza sozinho
         </span>
       </div>
-      <p className="font-editorial mt-1 text-[17px] italic text-ardosia">
+      <p className="mt-1 text-[17px] text-ardosia">
         O ritmo que protege seu WhatsApp de bloqueio — em número, não em promessa.
       </p>
 
       <div className="mt-4 grid gap-4">
         {numbers === null ? (
-          <div className="pn-card pn-skeleton h-[180px] rounded-2xl" aria-hidden="true" />
+          <div className="pn-card pn-skeleton h-[180px] rounded-xl" data-testid="painel-skeleton" aria-hidden="true" />
         ) : (
           comHistorico.map((n) => <CartaoNumero key={n.instanceId} health={n} />)
         )}
@@ -81,7 +81,7 @@ function CartaoNumero({ health }: { health: NumberHealth }) {
   const restante = Math.max(0, health.dailyCap - health.usedToday);
 
   return (
-    <article className="pn-card rounded-2xl p-5 sm:p-6">
+    <article className="pn-card rounded-xl p-5 sm:p-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Smartphone className="h-4 w-4 text-aco/50" aria-hidden="true" />
@@ -213,7 +213,7 @@ function AvisoSilencio({ dias }: { dias: number }) {
 /** O que ninguém explica ao lojista — e que derruba a operação sem dar erro. */
 function RegraDosQuatorzeDias() {
   return (
-    <div className="pn-poco mt-4 rounded-2xl p-5">
+    <div className="pn-poco mt-4 rounded-xl p-5">
       <h3 className="font-data text-[11px] uppercase tracking-wider text-aco/60">
         Duas regras do WhatsApp que ninguém te conta
       </h3>

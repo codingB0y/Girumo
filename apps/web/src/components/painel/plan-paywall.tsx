@@ -83,7 +83,7 @@ export function PlanPaywall({ motivo, onClose }: PlanPaywallProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="paywall-titulo"
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4">

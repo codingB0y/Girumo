@@ -191,8 +191,8 @@ export default function PainelIndicacao() {
     return (
       <div className="mx-auto max-w-[1200px] space-y-5 px-4 py-6 sm:px-6">
         <div className="h-10 w-64 animate-pulse rounded-lg bg-white" />
-        <div className="h-48 animate-pulse rounded-3xl bg-white" />
-        <div className="h-32 animate-pulse rounded-3xl bg-white" />
+        <div className="h-48 animate-pulse rounded-xl bg-white" />
+        <div className="h-32 animate-pulse rounded-xl bg-white" />
       </div>
     );
   }
@@ -207,14 +207,13 @@ export default function PainelIndicacao() {
       </div>
 
       {loadError && (
-        <p className="rounded-2xl border border-alerta/25 bg-alerta/[0.06] px-4 py-3 text-sm text-alerta">
+        <p className="rounded-xl border border-alerta/25 bg-alerta/[0.06] px-4 py-3 text-sm text-alerta">
           {loadError}
         </p>
       )}
 
       {/* Regra do programa — recompensa e meta, editáveis */}
-      <section className="relative overflow-hidden rounded-3xl bg-volt-950 p-6 text-white sm:p-8">
-        <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-cobalt-500/20 blur-[80px]" />
+      <section className="relative overflow-hidden rounded-xl bg-volt-950 p-6 text-white sm:p-8">
         <div className="relative">
           <div className="flex items-center gap-2">
             <Gift className="h-5 w-5 text-cobalt-500" />
@@ -269,7 +268,7 @@ export default function PainelIndicacao() {
       </section>
 
       {/* Cadastro de indicadora */}
-      <section className="rounded-3xl border border-volt-950/[0.08] bg-white p-5 sm:p-6">
+      <section className="rounded-xl border border-volt-950/[0.08] bg-white p-5 sm:p-6">
         <h2 className="font-display text-base font-bold text-volt-950">Nova indicadora</h2>
         <p className="mt-1 text-xs text-aco/60">
           O link de convite é o do seu grupo no WhatsApp — é pra lá que o clique vai.
@@ -330,7 +329,7 @@ export default function PainelIndicacao() {
       </div>
 
       {ranking.length > 0 ? (
-        <section className="overflow-hidden rounded-3xl border border-volt-950/[0.08] bg-white">
+        <section className="overflow-hidden rounded-xl border border-volt-950/[0.08] bg-white">
           <div className="flex items-center justify-between border-b border-volt-950/[0.06] px-5 py-4">
             <h2 className="font-display text-base font-bold text-volt-950">Ranking</h2>
             <span className="font-data text-[10px] uppercase tracking-wider text-aco/50">
@@ -408,7 +407,7 @@ export default function PainelIndicacao() {
           </p>
         </section>
       ) : (
-        <section className="rounded-3xl border border-volt-950/[0.08] bg-white p-8 text-center">
+        <section className="rounded-xl border border-volt-950/[0.08] bg-white p-8 text-center">
           <Gift className="mx-auto h-10 w-10 text-aco/25" />
           <p className="font-display mt-3 text-sm font-bold text-volt-950">Nenhuma indicadora ainda</p>
           <p className="mt-1 text-xs text-aco/60">
@@ -422,7 +421,7 @@ export default function PainelIndicacao() {
 
 function StatCard({ icon: Icon, label, value }: { icon: typeof Gift; label: string; value: number }) {
   return (
-    <div className="rounded-2xl border border-volt-950/[0.08] bg-white p-4">
+    <div className="rounded-xl border border-volt-950/[0.08] bg-white p-4">
       <div className="flex items-center gap-2">
         <Icon className="h-4 w-4 text-cobalt-500" />
         <span className="font-data text-[10px] uppercase tracking-wider text-aco/55">{label}</span>

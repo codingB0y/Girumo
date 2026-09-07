@@ -59,7 +59,7 @@ export async function entrar(page: Page, destino = "/painel") {
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
 
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 30_000 });
-  await expect(page.locator(".pn-root")).toBeVisible();
+  await expect(page.getByTestId("painel-root")).toBeVisible();
 }
 
 /**

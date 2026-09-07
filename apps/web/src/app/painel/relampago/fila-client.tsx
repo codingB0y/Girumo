@@ -155,7 +155,7 @@ export function FilaClient({ offerId }: { offerId: string }) {
   if (!dados) {
     return (
       <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-8">
-        <div className="pn-skeleton h-64 rounded-2xl" />
+        <div className="pn-skeleton h-64 rounded-xl" data-testid="painel-skeleton" />
       </div>
     );
   }
@@ -176,8 +176,8 @@ export function FilaClient({ offerId }: { offerId: string }) {
           <h1 className="font-display mt-1 text-[28px] font-extrabold tracking-[-0.02em] text-volt-950">
             {offer.name}
           </h1>
-          <p className="font-editorial mt-1 text-[19px] italic text-ardosia">
-            Palavra-chave <strong className="not-italic">{offer.keyword}</strong> · {offer.slots}{" "}
+          <p className="mt-1 text-[19px] text-ardosia">
+            Palavra-chave <strong>{offer.keyword}</strong> · {offer.slots}{" "}
             peças · {vendidas} vendida{vendidas === 1 ? "" : "s"}
           </p>
           {aviso && <p className="mt-2 text-sm text-atencao">{aviso}</p>}
@@ -219,7 +219,7 @@ export function FilaClient({ offerId }: { offerId: string }) {
         />
       )}
 
-      <section className="pn-card overflow-hidden rounded-2xl">
+      <section className="pn-card overflow-hidden rounded-xl">
         <div className="hidden border-b border-volt-950/[0.06] bg-poco px-5 py-3 md:grid md:grid-cols-[auto_1.6fr_1fr_auto] md:gap-4">
           {["#", "Cliente", "Comentário", "Situação"].map((h) => (
             <span key={h} className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/50">
@@ -363,7 +363,7 @@ function CardDaVendedora({
   );
 
   return (
-    <section className="pn-card space-y-4 rounded-2xl bg-cobalt-500/[0.04] p-5">
+    <section className="pn-card space-y-4 rounded-xl bg-cobalt-500/[0.04] p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/50">

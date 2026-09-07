@@ -132,7 +132,7 @@ export function AccountSection() {
               <Trash2 className="h-4 w-4" /> Deletar conta
             </button>
           ) : (
-            <div className="rounded-2xl border border-alerta/30 bg-alerta/5 p-4">
+            <div className="rounded-xl border border-alerta/30 bg-alerta/5 p-4">
               <p className="text-sm font-medium text-alerta">
                 Tem certeza? Essa ação é irreversível. Todos os dados serão apagados.
               </p>

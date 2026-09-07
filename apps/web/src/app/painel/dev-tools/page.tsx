@@ -98,8 +98,8 @@ export default function DevToolsPage() {
       description: "Envia webhook fake de pagamento",
       icon: Webhook,
       url: "/api/admin/dev-tools/simulate-webhook",
-      color: "text-purple-400",
-      bgColor: "bg-purple-500/10 hover:bg-purple-500/20",
+      color: "text-cobalt-500",
+      bgColor: "bg-cobalt-500/10 hover:bg-cobalt-500/20",
     },
     {
       id: "simulate-ban",
@@ -193,7 +193,7 @@ export default function DevToolsPage() {
         </div>
         <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
           <p className="text-xs text-cinza-500">Supabase</p>
-          <p className="text-sm font-medium text-purple-400 truncate">
+          <p className="text-sm font-medium text-cobalt-500 truncate">
             {process.env.NEXT_PUBLIC_SUPABASE_URL?.replace("https://", "").split(".")[0] || "não configurado"}
           </p>
         </div>

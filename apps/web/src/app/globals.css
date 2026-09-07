@@ -925,15 +925,15 @@ body {
 }
 .pn-pop { animation: pn-pop 0.2s var(--ease-fluxo-over) both; }
 
-/* Carimbo (conclusão de fluxo): serif itálico rotacionado assentando */
+/* Carimbo (conclusão de fluxo): Manrope bold rotacionado assentando */
 @keyframes pn-carimbo {
   from { opacity: 0; transform: rotate(-2deg) scale(1.15); }
   to { opacity: 1; transform: rotate(-2deg) scale(1); }
 }
 .pn-carimbo {
   display: inline-block;
-  font-family: var(--font-editorial);
-  font-style: italic;
+  font-family: var(--font-brand);
+  font-weight: 700;
   border: 1.5px solid var(--color-success-700);
   color: var(--color-success-700);
   border-radius: 8px;
@@ -990,22 +990,6 @@ body {
 @keyframes pn-rise-rm {
   from { opacity: 0; }
   to { opacity: 1; }
-}
-
-/* Confetti animation */
-@keyframes confetti-fall {
-  0% {
-    transform: translateY(0) rotate(0deg);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(100vh) rotate(720deg);
-    opacity: 0;
-  }
-}
-
-.animate-confetti-fall {
-  animation: confetti-fall 2s ease-in forwards;
 }
 
 @media (prefers-reduced-motion: reduce) {

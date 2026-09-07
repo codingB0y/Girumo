@@ -88,7 +88,7 @@ test.describe("tela de detalhe da pagina", () => {
   test("o editor salva o que foi digitado e o valor volta do servidor", async ({ page }) => {
     const pagina = await prepararPagina(page);
     await page.goto(`/painel/pages/${pagina.id}`);
-    await expect(page.locator(".pn-root")).toBeVisible();
+    await expect(page.getByTestId("painel-root")).toBeVisible();
 
     await abrirGrupo(page, "Chamada");
     const descricao = page.getByLabel("Descrição");
