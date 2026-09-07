@@ -42,7 +42,7 @@ export function PlanLimitAlert({ message, upgradeUrl, className }: PlanLimitAler
           <button
             type="button"
             onClick={() => setAbrirPlanos(true)}
-            className="inline-flex shrink-0 items-center rounded-[var(--radius-control)] bg-acid-500 px-4 py-2 text-xs font-semibold text-volt-950 transition-[filter] duration-[var(--duration-micro)] hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
+            className="inline-flex shrink-0 items-center rounded-[var(--radius-control)] bg-cobalt-500 px-4 py-2 text-xs font-semibold text-white transition-[filter] duration-[var(--duration-micro)] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
           >
             Ver planos
           </button>
