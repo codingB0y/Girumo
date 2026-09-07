@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useCasca } from "@/components/painel/casca-context";
 import { usePanelSession } from "@/components/painel/session-provider";
 import { romaneioDoPlano, type AssinaturaResumo } from "@/lib/painel/casca";
 import { NAV_ALL, NAV_FOOTER, NAV_GRUPOS_ORDEM, NAV_GRUPO_TITULO, isNavItemActive, type NavItem } from "@/lib/painel-nav";
@@ -57,6 +58,8 @@ export function Corredor() {
   const pathname = usePathname();
   const { session, loading } = usePanelSession();
   const sub = useAssinatura();
+  const { passos } = useCasca();
+  const mostrarPassos = passos !== null && passos.feitos < passos.total;
   const ponto = loading || !session
     ? "pn-ponto--indefinido"
     : session.live
@@ -93,6 +96,15 @@ export function Corredor() {
         {NAV_FOOTER.map((item) => (
           <Item key={item.href} item={item} pathname={pathname} />
         ))}
+        {/* Roteiro de ativação em uma linha (spec 3.1); some quando completa. */}
+        {mostrarPassos && passos && (
+          <Link href="/painel" data-testid="painel-passos" className="pn-corredor__passos" aria-label={`Primeiros passos: ${passos.feitos} de ${passos.total}`}>
+            <span className="pn-corredor__rotulo">
+              {passos.feitos} de {passos.total} passos
+            </span>
+            <span className="pn-corredor__passos-barra" aria-hidden="true" style={{ ["--p" as string]: passos.feitos / passos.total }} />
+          </Link>
+        )}
         <Link href="/painel/configuracoes" data-testid="painel-romaneio" className="pn-corredor__romaneio">
           {sub === undefined ? "…" : romaneioDoPlano(sub)}
         </Link>

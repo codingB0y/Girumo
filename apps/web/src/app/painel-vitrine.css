@@ -382,15 +382,14 @@
   transform: scaleX(var(--p, 0));
   transition: transform var(--dur-slow) var(--ease-girumo);
 }
-/* Marcas de costureira a cada 1/--marcas da fita: um traço Volt de 1px repetido */
-.pn-fita::after {
-  content: "";
+/* Marcas de costureira: um <i class="pn-fita__marca"> por marca, posicionado
+   pelo componente. (background-size esticava o SVG de 1px até a célula inteira.) */
+.pn-fita__marca {
   position: absolute;
-  inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2' height='12'%3E%3Crect width='1' height='12' fill='%23071923'/%3E%3C/svg%3E");
-  background-repeat: repeat-x;
-  background-size: calc(100% / var(--marcas, 10)) 100%;
-  background-position: right 0 top 0;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--color-volt-950);
   opacity: 0.6;
 }
 .pn-fita__cursor {
@@ -653,8 +652,157 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* Mobile: letreiro de 56px, só símbolo, nome, ponto e sino. */
+/* --- Início (PR 3b): fita com rótulos, ficha de 56, prateleira mini, aviso, interruptor --- */
+.pn-fita__rotulos {
+  position: relative;
+  height: 16px;
+  margin-top: 6px;
+  font-family: var(--font-data);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-slate-600);
+}
+.pn-fita__rotulos > span {
+  position: absolute;
+  top: 0;
+  transform: translateX(-100%);
+  white-space: nowrap;
+}
+.pn-ficha--56 {
+  min-height: 56px;
+  padding: 6px 0;
+}
+.pn-ficha--56:last-child {
+  border-bottom: 0;
+}
+.pn-ficha__iniciais--32 {
+  width: 32px;
+  height: 32px;
+  font-size: 13px;
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%);
+}
+.pn-prateleira--mini {
+  --caixa: 14px;
+  grid-template-columns: repeat(13, var(--caixa));
+  gap: 2px;
+}
+.pn-prateleira--mini .pn-prateleira__caixa {
+  width: var(--caixa);
+  height: var(--caixa);
+  border-radius: 2px;
+}
+.pn-prateleira--mini .pn-prateleira__caixa--cheia {
+  box-shadow: inset 0 1px 0 var(--color-acid-500);
+}
+.pn-aviso {
+  padding: 12px 16px;
+  border-left: 3px solid var(--color-warning-700);
+  background: var(--color-aviso-fundo);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--color-volt-950);
+}
+.pn-etiqueta-preco--fechada {
+  background: var(--color-canvas-100);
+}
+.pn-etiqueta-preco--fechada .pn-etiqueta-preco__nome {
+  color: var(--color-slate-600);
+}
+.pn-etiqueta-preco__barra {
+  position: relative;
+  display: block;
+  height: 6px;
+  border-radius: 2px;
+  background: var(--color-line-200);
+  overflow: hidden;
+}
+.pn-etiqueta-preco__barra::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--color-cobalt-500);
+  transform-origin: left;
+  transform: scaleX(var(--p, 0));
+  transition: transform var(--dur-slow) var(--ease-girumo);
+}
+.pn-chip--line {
+  background: var(--color-line-200);
+  color: var(--color-slate-600);
+}
+/* Interruptor 48x28 (44x26 no mobile): Volt ligado, Line desligado, bolinha Paper. */
+.pn-interruptor {
+  position: relative;
+  flex: none;
+  width: 48px;
+  height: 28px;
+  border-radius: 9999px;
+  background: var(--color-line-200);
+  transition: background-color var(--dur-fast) var(--ease-girumo);
+}
+.pn-interruptor[aria-checked="true"] {
+  background: var(--color-volt-950);
+}
+.pn-interruptor__bolinha {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  background: var(--color-paper-0);
+  transition: transform var(--dur-fast) var(--ease-girumo);
+}
+.pn-interruptor[aria-checked="true"] .pn-interruptor__bolinha {
+  transform: translateX(20px);
+}
+.pn-interruptor:disabled {
+  opacity: 0.6;
+}
+/* Roteiro no rodapé do corredor: "7 de 8 passos" + barra 4px Cobalt. */
+.pn-corredor__passos {
+  display: block;
+  margin: 6px 16px 0;
+  font-family: var(--font-data);
+  font-size: 12px;
+  color: var(--color-slate-600);
+}
+.pn-corredor__passos-barra {
+  position: relative;
+  display: block;
+  height: 4px;
+  margin-top: 4px;
+  border-radius: 2px;
+  background: var(--color-line-200);
+  overflow: hidden;
+}
+.pn-corredor__passos-barra::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--color-cobalt-500);
+  transform-origin: left;
+  transform: scaleX(var(--p, 0));
+}
+
+/* Mobile: letreiro de 56px, só símbolo, nome, ponto e sino; prateleira mini de 22px; interruptor 44x26. */
 @media (max-width: 1023.98px) {
+  .pn-prateleira--mini {
+    --caixa: 22px;
+  }
+  .pn-interruptor {
+    width: 44px;
+    height: 26px;
+  }
+  .pn-interruptor__bolinha {
+    width: 20px;
+    height: 20px;
+  }
+  .pn-interruptor[aria-checked="true"] .pn-interruptor__bolinha {
+    transform: translateX(18px);
+  }
+  .pn-corredor__passos {
+    display: none;
+  }
   .pn-letreiro {
     height: var(--spacing-letreiro-mobile);
     gap: 10px;
@@ -681,7 +829,8 @@
     white-space: nowrap;
   }
   .pn-corredor__rotulo,
-  .pn-corredor__romaneio {
+  .pn-corredor__romaneio,
+  .pn-corredor__passos {
     display: none;
   }
   .pn-corredor__item {
@@ -693,6 +842,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .pn-folha { animation: none; }
-  .pn-postar--voo::before { transition: none; }
+  .pn-postar--voo::before,
+  .pn-etiqueta-preco__barra::before,
+  .pn-interruptor__bolinha { transition: none; }
 }
 }
