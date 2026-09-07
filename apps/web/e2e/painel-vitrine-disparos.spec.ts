@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * Tela de Disparos da Vitrine Aberta (cena 2). Roda local com
- * NEXT_PUBLIC_PAINEL_VITRINE=on; liga no CI no PR 10.
+ * Tela de Disparos da Vitrine Aberta (cena 2). Roda no CI com
+ * NEXT_PUBLIC_PAINEL_VITRINE=on desde 07/09/2026, que e o que producao usa.
  *
  * Nao posta de verdade: um POST na rota de mensagens da campanha poria mensagem
  * na fila de um numero real. O que da pra afirmar sem enviar nada e que a bolha
@@ -98,7 +98,7 @@ test.describe("Disparos na Vitrine Aberta", () => {
 });
 
 test.describe("Disparos com a Vitrine desligada", () => {
-  test.skip(VITRINE, "flag ligada: este bloco cobre o caminho antigo, que e como o CI roda");
+  test.skip(VITRINE, "flag ligada: o CI roda COM a Vitrine desde 07/09/2026. Este bloco cobre a casca antiga e so roda local com a flag off; sai no PR 10 junto com ela");
 
   test("a tela antiga nao busca os grupos: a flag cobre o fetch, nao so o JSX", async ({ page }) => {
     // Flag pela metade foi o erro mais caro da serie (PR 4). Cobrar so o JSX
@@ -120,7 +120,8 @@ test.describe("Disparos com a Vitrine desligada", () => {
     await page.goto("/painel/disparos", { waitUntil: "load" });
 
     // Flag pela metade foi o erro mais caro da serie (PR 4): o JSX ficava atras
-    // da flag mas o efeito nao. Aqui nenhuma peca nova pode aparecer.
+    // da flag mas o efeito nao. Aqui nenhuma peca nova pode aparecer. Desde que
+    // o CI passou a rodar com a flag, este bloco so roda local.
     await expect(page.getByTestId("disparos-bolha-previa")).toHaveCount(0);
     await expect(page.getByTestId("disparos-alcance")).toHaveCount(0);
     await expect(page.getByRole("button", { name: /^Postar em/ })).toHaveCount(0);
