@@ -25,7 +25,7 @@ const ANTIGA: ClassesDaPorta = {
     "h-11 w-full rounded-[var(--radius-control)] border border-volt-800 bg-volt-950 px-4 text-sm text-canvas-100 placeholder:text-canvas-100/35 outline-none transition-[border-color,box-shadow] duration-[var(--duration-micro)] ease-[var(--ease-girumo)] focus:border-cobalt-500 focus:ring-2 focus:ring-cobalt-500/30",
   rotulo: "mb-1.5 block text-sm font-medium text-canvas-100/70",
   primario:
-    "flex h-11 w-full items-center justify-center gap-2 rounded-[var(--radius-control)] bg-acid-500 text-sm font-semibold text-volt-950 transition-[filter] duration-[var(--duration-micro)] hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500 disabled:pointer-events-none disabled:opacity-50",
+    "flex h-11 w-full items-center justify-center rounded-[var(--radius-control)] bg-acid-500 text-sm font-semibold text-volt-950 transition-[filter] duration-[var(--duration-micro)] hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500 disabled:pointer-events-none disabled:opacity-50",
   secundario:
     "flex h-11 w-full items-center justify-center gap-2.5 rounded-[var(--radius-control)] border border-volt-800 bg-volt-950 text-sm font-medium text-canvas-100 transition-colors duration-[var(--duration-micro)] hover:border-cobalt-500 hover:bg-volt-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500 disabled:pointer-events-none disabled:opacity-50",
   erro: "rounded-[var(--radius-control)] border border-danger-700/40 bg-danger-700/15 px-3 py-2 text-sm text-canvas-100",

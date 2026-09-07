@@ -10,7 +10,8 @@ import { isPainelVitrineEnabled } from "@/lib/painel/flags";
 import { classesDaPorta } from "@/lib/painel/auth-classes";
 
 export default function ResetPasswordPage() {
-  const c = classesDaPorta(isPainelVitrineEnabled());
+  const vitrine = isPainelVitrineEnabled();
+  const c = classesDaPorta(vitrine);
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -62,12 +63,12 @@ export default function ResetPasswordPage() {
           />
         </div>
         {password.length > 0 && password.length < 6 && (
-          <p className={c.aviso}>A senha precisa de pelo menos 6 caracteres.</p>
+          <p className={vitrine ? c.aviso : "text-xs text-canvas-100/80"}>A senha precisa de pelo menos 6 caracteres.</p>
         )}
         {confirmPassword.length > 0 && password !== confirmPassword && (
-          <p className={c.aviso}>As senhas precisam ser iguais.</p>
+          <p className={vitrine ? c.aviso : "text-xs text-canvas-100/80"}>As senhas precisam ser iguais.</p>
         )}
-        {error && <p className={c.erro}>{error}</p>}
+        {error && <p className={vitrine ? c.erro : "rounded-[var(--radius-control)] bg-danger-700/15 px-3 py-2 text-sm text-canvas-100"}>{error}</p>}
         <Button className="w-full" type="submit" disabled={loading || !valid}>
           {loading ? "Salvando..." : "Salvar nova senha"}
         </Button>

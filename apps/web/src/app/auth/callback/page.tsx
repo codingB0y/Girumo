@@ -19,7 +19,8 @@ import { classesDaPorta } from "@/lib/painel/auth-classes";
  * de sessao — o fragmento nunca chegaria ao servidor por conta propria.
  */
 export default function OAuthCallbackPage() {
-  const c = classesDaPorta(isPainelVitrineEnabled());
+  const vitrine = isPainelVitrineEnabled();
+  const c = classesDaPorta(vitrine);
   const router = useRouter();
   const [error, setError] = useState("");
   const startedRef = useRef(false);
@@ -98,7 +99,7 @@ export default function OAuthCallbackPage() {
           </p>
           <Link
             href="/login"
-            className={c.primario}
+            className={vitrine ? c.primario : "flex h-11 w-full items-center justify-center rounded-[var(--radius-control)] bg-acid-500 text-sm font-semibold text-volt-950 transition-[filter] duration-[var(--duration-micro)] hover:brightness-95"}
           >
             Voltar para o login
           </Link>

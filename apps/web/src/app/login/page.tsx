@@ -103,13 +103,7 @@ function LoginForm({
   return (
     <form className="space-y-4" onSubmit={submit}>
       {vitrine && aparelho ? (
-        // Aparelho lembrado: o e-mail já está no campo, então ele vira contexto e não pergunta.
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <p className="font-data text-13 text-volt-950">{aparelho.email}</p>
-          <button type="button" onClick={esquecer} className="pn-porta__link min-h-11 text-13">
-            Entrar com outra conta
-          </button>
-        </div>
+        <AparelhoLembrado email={aparelho.email} onEsquecer={esquecer} />
       ) : (
         <div>
           <label className={c.rotulo} htmlFor="login-email">
@@ -140,6 +134,9 @@ function LoginForm({
         <input
           id="login-senha"
           data-testid="login-senha"
+          // Remonta quando o aparelho é reconhecido: autoFocus só age no mount,
+          // e no primeiro render `aparelho` ainda é null.
+          key={aparelho ? "lembrado" : "visitante"}
           type="password"
           placeholder={vitrine ? "" : "Sua senha"}
           value={password}
@@ -196,6 +193,18 @@ function LoginForm({
   );
 }
 
+/** Aparelho lembrado: o e-mail já está no campo, então ele vira contexto e não pergunta. */
+function AparelhoLembrado({ email, onEsquecer }: { email: string; onEsquecer: () => void }) {
+  return (
+    <div className="flex flex-wrap items-baseline justify-between gap-2">
+      <p className="font-data text-13 text-volt-950">{email}</p>
+      <button type="button" onClick={onEsquecer} className="pn-porta__link min-h-11 text-13">
+        Entrar com outra conta
+      </button>
+    </div>
+  );
+}
+
 export default function LoginPage() {
   return (
     <Suspense>
@@ -222,9 +231,12 @@ function LoginPageContent() {
   const destination = routeLabels[next] ?? "a área solicitada";
   const [aparelho, setAparelho] = useState<Aparelho | null>(null);
 
+  // Só a porta lembra o aparelho. Com a flag desligada o /login antigo não pode
+  // pré-preencher o e-mail do último usuário: num computador compartilhado isso
+  // mostra a conta de quem entrou antes, e a casca antiga não tem o "não é você".
   useEffect(() => {
-    setAparelho(aparelhoLembrado());
-  }, []);
+    if (vitrine) setAparelho(aparelhoLembrado());
+  }, [vitrine]);
 
   function esquecer() {
     esquecerAparelho();
@@ -232,7 +244,7 @@ function LoginPageContent() {
   }
 
   function lembrar(email: string) {
-    lembrarAparelho(email);
+    if (vitrine) lembrarAparelho(email);
   }
 
   return (
@@ -248,7 +260,7 @@ function LoginPageContent() {
       context={next !== "/painel" ? `Entre para continuar para ${destination}.` : undefined}
       footer={
         <>
-          Ainda não tem conta?{" "}
+          {vitrine ? "Ainda não tem conta?" : "Não tem conta?"}{" "}
           <Link
             href="/signup"
             className={classesDaPorta(vitrine).link}

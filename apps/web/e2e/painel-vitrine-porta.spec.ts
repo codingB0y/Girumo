@@ -11,6 +11,29 @@ const VITRINE = (process.env.NEXT_PUBLIC_PAINEL_VITRINE ?? "").trim().toLowerCas
 
 const APARELHO = "girumo.aparelho";
 
+/**
+ * O contrário do arquivo: este bloco só roda com a flag DESLIGADA, que é como o
+ * CI e a produção rodam hoje. O "aparelho lembrado" é feature da porta — se ele
+ * vazar para a casca antiga, o /login de produção passa a pré-preencher o e-mail
+ * do último usuário num computador compartilhado, e lá não existe o "entrar com
+ * outra conta" para limpar.
+ */
+test.describe("casca antiga nao lembra o aparelho", () => {
+  test.skip(VITRINE, "NEXT_PUBLIC_PAINEL_VITRINE ligada: a porta esta no ar");
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test("o login antigo ignora e-mail guardado no aparelho", async ({ page }) => {
+    await page.goto("/login");
+    await page.evaluate(
+      ([chave, valor]) => window.localStorage.setItem(chave, valor),
+      [APARELHO, JSON.stringify({ email: "outra.pessoa@exemplo.com.br" })],
+    );
+    await page.reload();
+
+    await expect(page.getByTestId("login-email")).toHaveValue("");
+  });
+});
+
 test.describe("porta da Vitrine Aberta", () => {
   test.skip(!VITRINE, "NEXT_PUBLIC_PAINEL_VITRINE desligada: a casca antiga esta no ar");
   // A porta é a tela de quem ainda não entrou: o estado logado não vale aqui.

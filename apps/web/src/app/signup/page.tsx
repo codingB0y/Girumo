@@ -114,8 +114,11 @@ export default function SignupPage() {
       <SignupProgress current={1} />
       <form className="space-y-4" onSubmit={submit}>
         <div>
-          <label className={c.rotulo}>Seu nome</label>
+          <label className={c.rotulo} htmlFor="signup-nome">
+            Seu nome
+          </label>
           <input
+            id="signup-nome"
             placeholder="Ex: Maria da Silva"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -125,8 +128,11 @@ export default function SignupPage() {
           />
         </div>
         <div>
-          <label className={c.rotulo}>E-mail</label>
+          <label className={c.rotulo} htmlFor="signup-email">
+            E-mail
+          </label>
           <input
+            id="signup-email"
             type="email"
             placeholder="voce@email.com"
             value={email}
@@ -139,8 +145,11 @@ export default function SignupPage() {
           )}
         </div>
         <div>
-          <label className={c.rotulo}>Senha</label>
+          <label className={c.rotulo} htmlFor="signup-senha">
+            Senha
+          </label>
           <input
+            id="signup-senha"
             type="password"
             placeholder="Mínimo 6 caracteres"
             value={password}

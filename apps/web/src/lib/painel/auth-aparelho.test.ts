@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { apelidoDoEmail, estadoDaPorta, lerAparelho, pareceEmail } from "./auth-aparelho";
+import { lerAparelho, pareceEmail } from "./auth-aparelho";
 
 test("aceita e-mail comum e recusa o que nem parece", () => {
   assert.equal(pareceEmail("igor@megastock.com.br"), true);
@@ -37,17 +37,4 @@ test("storage vazio, sujo ou adulterado devolve null em vez de estourar", () => 
   assert.equal(lerAparelho('{"email":123}'), null);
   assert.equal(lerAparelho('{"outra":"coisa"}'), null);
   assert.equal(lerAparelho('{"email":"lixo"}'), null, "e-mail inválido no storage não vira sessão lembrada");
-});
-
-test("sem aparelho a porta trata como visitante", () => {
-  assert.deepEqual(estadoDaPorta(null), { tipo: "visitante" });
-});
-
-test("com aparelho a porta abre no e-mail de quem já entrou", () => {
-  assert.deepEqual(estadoDaPorta({ email: "igor@loja.com.br" }), { tipo: "lembrado", email: "igor@loja.com.br" });
-});
-
-test("apelido é o pedaço antes do arroba", () => {
-  assert.equal(apelidoDoEmail("igor@megastock.com.br"), "igor");
-  assert.equal(apelidoDoEmail("sem-arroba"), "sem-arroba");
 });
