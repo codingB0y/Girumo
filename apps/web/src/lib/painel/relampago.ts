@@ -8,6 +8,8 @@
  * que corre é o tempo no ar, contado de `opened_at` — é ele que a tela mostra.
  */
 
+import { horaSegundoBR } from "@/lib/date-br";
+
 export type OfertaLike = {
   slots: number;
   status: "draft" | "open" | "closed";
@@ -24,19 +26,15 @@ export function ordinal(indice: number): string {
   return `${indice + 1}ª`;
 }
 
-const HORA_SEGUNDOS = new Intl.DateTimeFormat("pt-BR", {
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-});
-
 /**
  * "12:03:41". Na fila o segundo é o que separa a 1ª da 2ª: duas pessoas
  * comentam no mesmo minuto e a ordem precisa ficar visível.
+ *
+ * O fuso é o de Brasília, decidido uma vez em `date-br.ts`: sem ele o horário
+ * segue o relógio de quem abre a tela, e no CI (UTC) já saiu três horas fora.
  */
 export function horarioComSegundos(iso: string): string {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? "" : HORA_SEGUNDOS.format(d);
+  return horaSegundoBR(iso);
 }
 
 /** "4:12" a partir de segundos; passa de uma hora vira "1:04:12". */
