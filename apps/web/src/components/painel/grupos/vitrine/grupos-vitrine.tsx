@@ -11,6 +11,7 @@ import {
   estadoDoGrupo,
   lotacao,
   maisCheioPrimeiro,
+  numero,
   prestesALotar,
   romaneio,
   type EstadoDoGrupo,
@@ -54,7 +55,7 @@ export function GruposVitrine({
 
   const agora = new Date();
   const total = romaneio(grupos);
-  const contagens = contagensDosFiltros(grupos);
+  const contagens = contagensDosFiltros(total);
   const aviso = prestesALotar(grupos);
 
   const ordenados = useMemo(() => maisCheioPrimeiro(grupos), [grupos]);
@@ -72,13 +73,11 @@ export function GruposVitrine({
     });
   }, [ordenados, filtro, busca]);
 
+  // Sem memo: preso a [grupos], o `agora` capturado congelava e o cabeçalho
+  // ficava em "há 1 min" enquanto as fichas já diziam "há 11 min".
+  const carimbos = grupos.map((g) => g.syncedAt).filter((v): v is string => !!v);
   // O total só é tão fresco quanto o grupo consultado há mais tempo.
-  const conferido = useMemo(() => {
-    const carimbos = grupos.map((g) => g.syncedAt).filter((v): v is string => !!v);
-    if (carimbos.length === 0) return "";
-    return conferidoHa(carimbos.reduce((a, b) => (a < b ? a : b)), agora);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `agora` é novo a cada render de propósito
-  }, [grupos]);
+  const conferido = carimbos.length > 0 ? conferidoHa(carimbos.reduce((a, b) => (a < b ? a : b)), agora) : "";
 
   if (carregando) {
     return (
@@ -91,47 +90,22 @@ export function GruposVitrine({
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-6 px-4 py-5 lg:px-8 lg:py-8">
-      {/* Bloco 1: cabeçalho */}
-      <header className="flex flex-wrap items-start justify-between gap-3" data-testid="grupos-cabecalho">
-        <div>
-          <h1 className="font-brand text-28 font-bold tracking-[-0.4px] text-volt-950">Grupos</h1>
-          <p className="mt-1 text-[14px] text-slate-600">
-            {total.grupos} {total.grupos === 1 ? "grupo" : "grupos"} do seu número.{" "}
-            {conferido
-              ? `Contagem conferida ${conferido} pelo próprio WhatsApp.`
-              : "Sincronize para conferir a contagem no WhatsApp."}
-          </p>
-          {erroDoSync && (
-            <p role="alert" className="mt-2 text-13 text-danger-700">
-              {erroDoSync}
-            </p>
-          )}
-          {avisoDoSync && (
-            <p className={cn("mt-2 text-13", avisoDoSync.alerta ? "text-danger-700" : "text-slate-600")}>
-              {avisoDoSync.texto}
-            </p>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={onSincronizar}
-            disabled={sincronizando}
-            className="inline-flex h-11 items-center gap-2 rounded-[var(--radius-control)] border border-line-200 bg-paper-0 px-4 text-[14px] text-volt-950 disabled:opacity-50"
-          >
-            <RefreshCw className={cn("h-4 w-4", sincronizando && "animate-spin")} aria-hidden="true" />
-            {sincronizando ? "Sincronizando…" : "Sincronizar"}
-          </button>
-          {acoesEmMassa}
-        </div>
-      </header>
+      <Cabecalho
+        grupos={total.grupos}
+        conferido={conferido}
+        sincronizando={sincronizando}
+        erroDoSync={erroDoSync}
+        avisoDoSync={avisoDoSync}
+        onSincronizar={onSincronizar}
+        acoesEmMassa={acoesEmMassa}
+      />
 
       <div className="grid items-start gap-6 lg:grid-cols-12">
         {/* Bloco 2: a prateleira */}
         <section className="pn-card rounded-[var(--radius-control)] p-5 lg:col-span-8 lg:p-6">
           <Prateleira grupos={ordenados} />
           <div className="font-data mt-4 flex flex-wrap items-center gap-4 text-12 text-slate-600">
-            <Legenda className="bg-zap" texto="gente" />
+            <Legenda className="bg-volt-800" texto="gente" />
             <Legenda className="bg-volt-950" texto="lotou" />
             <Legenda className="border border-warning-700 bg-aviso-fundo" texto="quase" />
           </div>
@@ -140,13 +114,13 @@ export function GruposVitrine({
         {/* Bloco 3: o romaneio */}
         <section className="lg:col-span-4" data-testid="grupos-romaneio">
           <p className="font-data text-[40px] font-medium leading-none tabular-nums text-volt-950">
-            {total.pessoas.toLocaleString("pt-BR")}
+            {numero(total.pessoas)}
           </p>
           <p className="mt-1 text-[14px] text-slate-600">
             pessoas nos {total.grupos} {total.grupos === 1 ? "grupo" : "grupos"}
           </p>
           <p className="font-data mt-4 text-20 tabular-nums text-volt-950">
-            {total.vagas.toLocaleString("pt-BR")} vagas livres
+            {numero(total.vagas)} vagas livres
           </p>
           <p className="font-data mt-1 text-13 tabular-nums text-slate-600">
             {total.lotados} {total.lotados === 1 ? "lotou" : "lotaram"} · {total.semConvite} sem convite ·{" "}
@@ -158,7 +132,7 @@ export function GruposVitrine({
               <p className="text-[14px] text-volt-950">
                 <strong className="font-semibold">{aviso.grupo.name}</strong> ·{" "}
                 <span className="font-data tabular-nums">
-                  {aviso.grupo.members.toLocaleString("pt-BR")} / {aviso.grupo.capacity.toLocaleString("pt-BR")}
+                  {numero(aviso.grupo.members)} / {numero(aviso.grupo.capacity)}
                 </span>
                 . {aviso.faltam === 1 ? "Falta 1 vaga." : `Faltam ${aviso.faltam}.`}
               </p>
@@ -173,54 +147,7 @@ export function GruposVitrine({
         </section>
       </div>
 
-      {/* Bloco 4: filtros */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-1" role="group" aria-label="Filtrar grupos">
-          {FILTROS.map((f) => {
-            const quantos =
-              f.valor === "todos"
-                ? contagens.todos
-                : f.valor === "ativos"
-                  ? contagens.ativos
-                  : f.valor === "cheios"
-                    ? contagens.cheios
-                    : contagens.semConvite;
-            const ativo = filtro === f.valor;
-            return (
-              <button
-                key={f.valor}
-                type="button"
-                onClick={() => setFiltro(f.valor)}
-                aria-pressed={ativo}
-                className={cn(
-                  "inline-flex h-10 items-center gap-1.5 rounded-[var(--radius-control)] px-3 text-[14px]",
-                  ativo ? "bg-volt-950 text-paper-0" : "bg-paper-0 text-volt-950 hover:bg-canvas-100",
-                )}
-              >
-                {f.rotulo}
-                <span className="font-data tabular-nums opacity-70">{quantos}</span>
-              </button>
-            );
-          })}
-        </div>
-        <div className="relative">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600"
-            aria-hidden="true"
-          />
-          <label className="sr-only" htmlFor="grupos-busca">
-            Buscar grupo
-          </label>
-          <input
-            id="grupos-busca"
-            data-testid="grupos-busca"
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar grupo"
-            className="h-10 w-[280px] max-w-full rounded-[var(--radius-control)] border border-line-200 bg-paper-0 pl-9 pr-3 text-[16px] text-volt-950 placeholder:text-slate-600"
-          />
-        </div>
-      </div>
+      <Filtros contagens={contagens} filtro={filtro} onFiltro={setFiltro} busca={busca} onBusca={setBusca} />
 
       {/* Bloco 5: a lista */}
       <section data-testid="grupos-lista">
@@ -251,6 +178,126 @@ export function GruposVitrine({
   );
 }
 
+/** Bloco 1 da spec 12.5: o que a tela é e o que dá pra fazer com ela. */
+function Cabecalho({
+  grupos,
+  conferido,
+  sincronizando,
+  erroDoSync,
+  avisoDoSync,
+  onSincronizar,
+  acoesEmMassa,
+}: {
+  grupos: number;
+  conferido: string;
+  sincronizando: boolean;
+  erroDoSync: string | null;
+  avisoDoSync: { texto: string; alerta: boolean } | null;
+  onSincronizar: () => void;
+  acoesEmMassa?: React.ReactNode;
+}) {
+  return (
+    <header className="flex flex-wrap items-start justify-between gap-3" data-testid="grupos-cabecalho">
+      <div>
+        <h1 className="font-brand text-28 font-bold tracking-[-0.4px] text-volt-950">Grupos</h1>
+        <p className="mt-1 text-[14px] text-slate-600">
+          {grupos} {grupos === 1 ? "grupo" : "grupos"} do seu número.{" "}
+          {conferido
+            ? `Contagem conferida ${conferido} pelo próprio WhatsApp.`
+            : "Sincronize para conferir a contagem no WhatsApp."}
+        </p>
+        {erroDoSync && (
+          <p role="alert" className="mt-2 text-13 text-danger-700">
+            {erroDoSync}
+          </p>
+        )}
+        {avisoDoSync && (
+          <p className={cn("mt-2 text-13", avisoDoSync.alerta ? "text-danger-700" : "text-slate-600")}>
+            {avisoDoSync.texto}
+          </p>
+        )}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={onSincronizar}
+          disabled={sincronizando}
+          className="inline-flex h-11 items-center gap-2 rounded-[var(--radius-control)] border border-line-200 bg-paper-0 px-4 text-[14px] text-volt-950 disabled:opacity-50"
+        >
+          <RefreshCw className={cn("h-4 w-4", sincronizando && "animate-spin")} aria-hidden="true" />
+          {sincronizando ? "Sincronizando…" : "Sincronizar"}
+        </button>
+        {acoesEmMassa}
+      </div>
+    </header>
+  );
+}
+
+/** Bloco 4 da spec 12.5: recortar a lista sem sair da tela. */
+function Filtros({
+  contagens,
+  filtro,
+  onFiltro,
+  busca,
+  onBusca,
+}: {
+  contagens: { todos: number; ativos: number; cheios: number; semConvite: number };
+  filtro: Filtro;
+  onFiltro: (f: Filtro) => void;
+  busca: string;
+  onBusca: (v: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap gap-1" role="group" aria-label="Filtrar grupos">
+        {FILTROS.map((f) => {
+          const quantos =
+            f.valor === "todos"
+              ? contagens.todos
+              : f.valor === "ativos"
+                ? contagens.ativos
+                : f.valor === "cheios"
+                  ? contagens.cheios
+                  : contagens.semConvite;
+          const ativo = filtro === f.valor;
+          return (
+            <button
+              key={f.valor}
+              type="button"
+              onClick={() => onFiltro(f.valor)}
+              aria-pressed={ativo}
+              className={cn(
+                "inline-flex h-10 items-center gap-1.5 rounded-[var(--radius-control)] px-3 text-[14px]",
+                ativo ? "bg-volt-950 text-paper-0" : "bg-paper-0 text-volt-950 hover:bg-canvas-100",
+              )}
+            >
+              {f.rotulo}
+              <span className="font-data tabular-nums opacity-70">{quantos}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="relative">
+        <Search
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600"
+          aria-hidden="true"
+        />
+        <label className="sr-only" htmlFor="grupos-busca">
+          Buscar grupo
+        </label>
+        <input
+          id="grupos-busca"
+          data-testid="grupos-busca"
+          value={busca}
+          onChange={(e) => onBusca(e.target.value)}
+          placeholder="Buscar grupo"
+          className="h-10 w-[280px] max-w-full rounded-[var(--radius-control)] border border-line-200 bg-paper-0 pl-9 pr-3 text-[16px] text-volt-950 placeholder:text-slate-600"
+        />
+      </div>
+    </div>
+  );
+}
+
 function Legenda({ className, texto }: { className: string; texto: string }) {
   return (
     <span className="inline-flex items-center gap-1.5">
@@ -263,7 +310,7 @@ function Legenda({ className, texto }: { className: string; texto: string }) {
 /** 13 colunas por 7 linhas: o estoque inteiro numa olhada só. */
 function Prateleira({ grupos }: { grupos: readonly Group[] }) {
   return (
-    <div className="pn-prateleira" data-testid="grupos-prateleira">
+    <div className="pn-prateleira" data-testid="grupos-prateleira" aria-hidden="true">
       {grupos.map((g) => {
         const estado = estadoDoGrupo(g);
         return (
@@ -275,7 +322,7 @@ function Prateleira({ grupos }: { grupos: readonly Group[] }) {
               estado === "quase" && "pn-prateleira__caixa--quase",
             )}
             style={{ ["--lotacao" as string]: lotacao(g.members, g.capacity) }}
-            title={`${g.name} · ${g.members.toLocaleString("pt-BR")} / ${g.capacity.toLocaleString("pt-BR")}`}
+            title={`${g.name} · ${numero(g.members)} / ${numero(g.capacity)}`}
           />
         );
       })}
@@ -333,7 +380,7 @@ function FichaDoGrupo({
         </div>
 
         <p className="font-data w-[120px] shrink-0 text-right text-15 tabular-nums text-volt-950">
-          {grupo.members.toLocaleString("pt-BR")} / {grupo.capacity.toLocaleString("pt-BR")}
+          {numero(grupo.members)} / {numero(grupo.capacity)}
         </p>
 
         <span
@@ -402,6 +449,10 @@ function CopiarConvite({ url }: { url?: string }) {
       className="h-9 rounded-[var(--radius-control)] border border-line-200 bg-paper-0 px-3 text-13 text-volt-950"
     >
       {copiado ? "Copiado" : "Copiar convite"}
+      {/* O botão troca de texto, mas leitor de tela não reanuncia rótulo de botão focado. */}
+      <span role="status" aria-live="polite" className="sr-only">
+        {copiado ? "Convite copiado" : ""}
+      </span>
     </button>
   );
 }

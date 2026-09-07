@@ -13,6 +13,15 @@ export const QUASE_LOTADO = 0.85;
 
 export type EstadoDoGrupo = "cheio" | "quase" | "ativo" | "sem_convite";
 
+/**
+ * Número para a tela. `null`/`undefined`/`NaN` viram "0" em vez de derrubar o
+ * render: `null.toLocaleString()` é TypeError, e como a lista inteira sai de um
+ * `map`, um grupo torto apagaria os outros noventa.
+ */
+export function numero(valor: number | null | undefined): string {
+  return Number.isFinite(valor) ? (valor as number).toLocaleString("pt-BR") : "0";
+}
+
 /** 0 a 1. Capacidade ausente ou zero vale 0 — nunca Infinity nem NaN na barra. */
 export function lotacao(membros: number, capacidade: number): number {
   if (!Number.isFinite(membros) || !Number.isFinite(capacidade) || capacidade <= 0) return 0;
@@ -78,14 +87,17 @@ export function prestesALotar(grupos: readonly Group[]): { grupo: Group; faltam:
   for (const g of grupos) {
     if (estadoDoGrupo(g) !== "quase") continue;
     const ocupacao = lotacao(g.members, g.capacity);
-    if (ocupacao > maior) {
+    // Empate desempata pelo nome, igual à ordenação: senão o aviso troca de
+    // grupo entre um sync e outro sem a lotação ter mudado.
+    if (ocupacao > maior || (ocupacao === maior && escolhido && g.name.localeCompare(escolhido.name, "pt-BR") < 0)) {
       maior = ocupacao;
       escolhido = g;
     }
   }
 
   if (!escolhido) return null;
-  return { grupo: escolhido, faltam: Math.max(0, escolhido.capacity - escolhido.members) };
+  const faltam = escolhido.capacity - escolhido.members;
+  return { grupo: escolhido, faltam: Number.isFinite(faltam) ? Math.max(0, faltam) : 0 };
 }
 
 /** Mais cheio primeiro; empate desempata pelo nome, pra ordem não dançar entre renders. */
@@ -118,13 +130,12 @@ export function conferidoHa(syncedAt: string | null | undefined, agora: Date): s
   return dias === 1 ? "ontem" : `há ${dias} dias`;
 }
 
-/** Quantos grupos caem em cada filtro do segmentado (bloco 4). */
-export function contagensDosFiltros(grupos: readonly Group[]): {
+/** Quantos grupos caem em cada filtro do segmentado (bloco 4). Deriva do romaneio já contado. */
+export function contagensDosFiltros(total: Romaneio): {
   todos: number;
   ativos: number;
   cheios: number;
   semConvite: number;
 } {
-  const total = romaneio(grupos);
   return { todos: total.grupos, ativos: total.ativos, cheios: total.lotados, semConvite: total.semConvite };
 }

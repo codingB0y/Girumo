@@ -8,6 +8,7 @@ import {
   estadoDoGrupo,
   lotacao,
   maisCheioPrimeiro,
+  numero,
   prestesALotar,
   romaneio,
 } from "./grupos";
@@ -138,5 +139,20 @@ test("contagens do segmentado batem com o romaneio", () => {
     grupo({ name: "ativo", members: 100 }),
     grupo({ name: "sem", members: 5, inviteUrl: undefined }),
   ];
-  assert.deepEqual(contagensDosFiltros(grupos), { todos: 3, ativos: 1, cheios: 1, semConvite: 1 });
+  assert.deepEqual(contagensDosFiltros(romaneio(grupos)), { todos: 3, ativos: 1, cheios: 1, semConvite: 1 });
+});
+
+test("grupo com mais membros que a capacidade não gera vaga negativa no romaneio", () => {
+  const total = romaneio([grupo({ name: "estourado", members: 1200, capacity: 1024 })]);
+  assert.equal(total.vagas, 0, "vaga negativa viraria subtração no total do romaneio");
+  assert.equal(total.pessoas, 1200);
+  assert.equal(total.lotados, 1);
+});
+
+test("número para a tela: dado torto vira zero em vez de derrubar o render", () => {
+  assert.equal(numero(1024), "1.024");
+  assert.equal(numero(0), "0");
+  assert.equal(numero(null), "0");
+  assert.equal(numero(undefined), "0");
+  assert.equal(numero(Number.NaN), "0");
 });

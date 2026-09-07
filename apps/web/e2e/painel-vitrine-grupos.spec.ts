@@ -71,14 +71,35 @@ test.describe("Grupos na Vitrine Aberta", () => {
     await expect(page.getByRole("dialog")).toHaveCount(0);
   });
 
-  test("a tela nunca escreve a URL do convite", async ({ page }) => {
+  test("a lista em repouso nao escreve a URL do convite, nem em campo", async ({ page }) => {
     await page.goto("/painel/grupos", { waitUntil: "load" });
-    await expect(page.getByTestId("grupos-lista")).toBeVisible();
+    const lista = page.getByTestId("grupos-lista");
+    await expect(lista).toBeVisible();
 
     // Spec 12.5: o botão copia, mas não mostra. Link de grupo na tela é convite
     // aberto para quem estiver olhando por cima do ombro.
-    const texto = await page.getByTestId("grupos-lista").innerText();
-    expect(texto).not.toMatch(/chat\.whatsapp\.com/i);
-    await expect(page.getByTestId("grupos-lista").getByRole("button", { name: /copiar convite/i }).first()).toBeVisible();
+    expect(await lista.innerText()).not.toMatch(/chat\.whatsapp\.com/i);
+
+    // `innerText` NÃO lê o value de um input — a primeira versão deste teste
+    // passava mesmo com o link à mostra num campo. Aqui a lista está em repouso
+    // (nenhum editor aberto), então nenhum campo deve carregar a URL.
+    const valores = await lista.locator("input").evaluateAll((campos) =>
+      campos.map((c) => (c as HTMLInputElement).value),
+    );
+    expect(valores.join(" ")).not.toMatch(/chat\.whatsapp\.com/i);
+
+    await expect(lista.getByRole("button", { name: /copiar convite/i }).first()).toBeVisible();
+  });
+
+  test("o editor mostra o convite so depois de a lojista abrir a ficha", async ({ page }) => {
+    await page.goto("/painel/grupos", { waitUntil: "load" });
+    const primeira = page.getByTestId("grupos-lista").getByRole("listitem").first();
+
+    // O campo de convite existe para ser editado, então ali a URL aparece de
+    // propósito. O que a tela garante é que isso exige uma ação deliberada —
+    // não é o estado em que a tela fica aberta no balcão.
+    await primeira.getByRole("button", { name: "Configurar" }).click();
+    const campos = primeira.locator("input");
+    await expect(campos.first()).toBeVisible();
   });
 });
