@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./painel-vitrine.css";
 
 @theme inline {
   /* Paleta canônica Girumo. */
