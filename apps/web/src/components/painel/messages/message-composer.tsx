@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Send,
   Image,
@@ -28,10 +28,15 @@ type Props = {
   onSend: (payload: ComposerPayload) => Promise<void>;
   sending?: boolean;
   className?: string;
+  /** Texto atual, pra quem mostra a prévia fora do compositor (folha de postar). */
+  onBodyChange?: (body: string) => void;
 };
 
-export function MessageComposer({ onSend, sending, className }: Props) {
+export function MessageComposer({ onSend, sending, className, onBodyChange }: Props) {
   const [body, setBody] = useState("");
+  useEffect(() => {
+    onBodyChange?.(body);
+  }, [body, onBodyChange]);
   const [mentionAll, setMentionAll] = useState(false);
   const [mediaId, setMediaId] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<"image" | "video" | "audio" | "file" | null>(null);

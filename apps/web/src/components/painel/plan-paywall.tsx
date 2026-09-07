@@ -147,7 +147,7 @@ export function PlanPaywall({ motivo, onClose }: PlanPaywallProps) {
                 type="button"
                 onClick={() => assinar(plano.code)}
                 disabled={assinando !== null}
-                className="shrink-0 rounded-[var(--radius-control)] bg-acid-500 px-4 py-2 text-sm font-semibold text-volt-950 transition-[filter] duration-[var(--duration-micro)] hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500 disabled:opacity-50"
+                className="shrink-0 rounded-[var(--radius-control)] bg-cobalt-500 px-4 py-2 text-sm font-semibold text-white transition-[filter] duration-[var(--duration-micro)] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500 disabled:opacity-50"
               >
                 {assinando === plano.code ? "Abrindo…" : "Assinar"}
               </button>

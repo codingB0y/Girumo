@@ -215,7 +215,7 @@ function PlanCard() {
         </p>
         <Link
           href="/painel/configuracoes"
-          className="mt-3 flex w-full items-center justify-center rounded-[var(--radius-control)] bg-acid-500 py-2 text-xs font-semibold text-volt-950 transition-[filter] duration-[var(--duration-micro)] hover:brightness-95"
+          className="mt-3 flex w-full items-center justify-center rounded-[var(--radius-control)] bg-cobalt-500 py-2 text-xs font-semibold text-white transition-[filter] duration-[var(--duration-micro)] hover:brightness-110"
         >
           {info ? "Gerenciar plano" : "Ver planos"}
         </Link>

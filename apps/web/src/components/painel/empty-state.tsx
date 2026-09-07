@@ -32,7 +32,7 @@ export function EmptyState({
       <p className="type-body-s mt-1.5 max-w-xs text-slate-600">{description}</p>
       <Link
         href={ctaHref}
-        className="mt-5 inline-flex h-[var(--control-height-prominent)] items-center gap-2 rounded-[var(--radius-control)] bg-acid-500 px-5 text-sm font-semibold text-volt-950 shadow-sm transition-[filter] duration-[var(--duration-micro)] ease-[var(--ease-girumo)] hover:brightness-95 active:brightness-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
+        className="mt-5 inline-flex h-[var(--control-height-prominent)] items-center gap-2 rounded-[var(--radius-control)] bg-cobalt-500 px-5 text-sm font-semibold text-white shadow-sm transition-[filter] duration-[var(--duration-micro)] ease-[var(--ease-girumo)] hover:brightness-110 active:brightness-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
       >
         <CtaIcon className="h-4 w-4 [stroke-width:var(--icon-stroke)]" />
         {ctaLabel}
