@@ -6,6 +6,8 @@ import { Search, Users, RefreshCw, ShieldCheck, SlidersHorizontal } from "lucide
 import { cn } from "@/lib/utils";
 import { CopyLink } from "@/components/painel/copy-link";
 import { GroupSettings } from "@/components/painel/grupos/group-settings";
+import { GruposVitrine } from "@/components/painel/grupos/vitrine/grupos-vitrine";
+import { isPainelVitrineEnabled } from "@/lib/painel/flags";
 import { getCampaignGroupStatus, type CampaignGroupStatus } from "@/lib/campaign-groups-overview";
 import type { Group } from "@/lib/mock-data";
 
@@ -129,6 +131,22 @@ export default function PainelGrupos() {
     if (carimbos.length === 0) return null;
     return idadeDoDado(carimbos.reduce((a, b) => (a < b ? a : b)));
   }, [groups]);
+
+  // PR 5 da Vitrine Aberta: a prateleira e o romaneio. Todo o estado continua
+  // aqui; só o desenho muda.
+  if (isPainelVitrineEnabled()) {
+    return (
+      <GruposVitrine
+        grupos={groups}
+        carregando={loading}
+        sincronizando={syncing}
+        erroDoSync={syncError}
+        avisoDoSync={syncNote}
+        onSincronizar={syncGroups}
+        onRecarregar={loadGroups}
+      />
+    );
+  }
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-8 px-4 py-8 sm:px-8">

@@ -840,6 +840,25 @@
   }
 }
 
+/* Barra de lotação da ficha de grupo (spec 12.5, bloco 5). */
+.pn-lotacao {
+  height: 6px;
+  width: 100%;
+  border-radius: 9999px;
+  background: var(--color-line-200);
+  overflow: hidden;
+}
+.pn-lotacao__cheio {
+  display: block;
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--color-volt-950);
+}
+/* A partir de 95% a ponta acende: é o Acid desta lista, junto do carimbo LOTOU. */
+.pn-lotacao__cheio--ponta {
+  box-shadow: inset -2px 0 0 var(--color-acid-500);
+}
+
 /* ----------------------------------------------------------------------
    A porta (spec 12.1 e 12.2): fora Volt, a rua; dentro Paper, a porta acesa.
    É a única parte da Vitrine onde o claro fica sobre o escuro, então os
