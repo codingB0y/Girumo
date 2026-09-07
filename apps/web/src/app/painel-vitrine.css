@@ -1,0 +1,540 @@
+/* ======================================================================
+   Vitrine Aberta — tokens e primitivos da casca nova do painel do cliente.
+   Spec: docs/superpowers/specs/2026-09-07-painel-vitrine-aberta-design.md
+
+   Só adiciona: nada aqui altera classe existente. As telas passam a usar
+   estes primitivos atrás da flag NEXT_PUBLIC_PAINEL_VITRINE (PRs 2 a 9);
+   com a flag desligada nenhuma tela os referencia.
+
+   Gramática: letreiro escuro (única peça Volt) + corredor claro + balcão
+   Canvas. Acid só em Postar, AO VIVO e LOTOU. Zap só em gente entrando.
+   Cobalt só em ação. Sem gradiente, glow, blur ou textura.
+   ====================================================================== */
+@theme inline {
+  /* Único desvio de marca aprovado: cores da conversa, só dentro de pn-bolha */
+  --color-zap-fundo: #EFE7DD;
+  --color-zap-bolha: #E7FFDB;
+  --color-aviso-fundo: #FFF6E5;
+  --color-hover-ficha: #FBF9F3;
+  --color-porta-ativa: #ECE7DC;
+
+  /* Raios: chip 4, controle/etiqueta/ficha 8 (já existe), porta 12. Nenhum 16. */
+  --radius-chip: 4px;
+  --radius-porta: 12px;
+
+  /* Medidas da casca */
+  --spacing-letreiro: 64px;
+  --spacing-letreiro-mobile: 56px;
+  --spacing-corredor: 224px;
+  --spacing-corredor-recolhido: 64px;
+  --spacing-balcao-max: 1200px;
+  --spacing-barra-mobile: 56px;
+
+  /* Escala de 8 degraus (text-12 … text-64). Piso absoluto: 12px. */
+  --text-12: 12px;
+  --text-12--line-height: 16px;
+  --text-13: 13px;
+  --text-13--line-height: 18px;
+  --text-15: 15px;
+  --text-15--line-height: 22px;
+  --text-20: 20px;
+  --text-20--line-height: 24px;
+  --text-28: 28px;
+  --text-28--line-height: 32px;
+  --text-32: 32px;
+  --text-32--line-height: 36px;
+  --text-48: 48px;
+  --text-48--line-height: 52px;
+  --text-64: 64px;
+  --text-64--line-height: 64px;
+}
+
+/* --- Letreiro: faixa Volt de 64px, a única peça escura do painel --- */
+.pn-letreiro {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: var(--spacing-letreiro);
+  padding: 0 24px;
+  background: var(--color-volt-950);
+  color: var(--color-paper-0);
+}
+.pn-letreiro__loja {
+  font-family: var(--font-brand);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.pn-letreiro__ticker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-family: var(--font-data);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-line-200);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pn-letreiro__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--color-volt-800);
+  border-radius: var(--radius-control);
+  font-family: var(--font-data);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-paper-0);
+}
+/* Ponto de gente (Zap) e ponto de conexão (Success). Desconectado não respira. */
+.pn-ponto {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--color-zap);
+  flex: none;
+}
+.pn-ponto--conectado {
+  background: var(--color-success-700);
+}
+.pn-ponto--desconectado {
+  background: var(--color-danger-700);
+}
+
+/* --- Corredor: sidebar clara de 224px, menu por verbo --- */
+.pn-corredor {
+  width: var(--spacing-corredor);
+  background: var(--color-paper-0);
+  border-right: 1px solid var(--color-line-200);
+}
+.pn-corredor__grupo {
+  padding: 16px 16px 6px;
+  font-family: var(--font-data);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-slate-600);
+}
+.pn-corredor__item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-volt-950);
+  transition: background-color var(--dur-fast) var(--ease-girumo);
+}
+.pn-corredor__item:hover {
+  background: var(--color-hover-ficha);
+}
+.pn-corredor__item[aria-current="page"] {
+  background: var(--color-canvas-100);
+  box-shadow: inset 3px 0 0 var(--color-acid-500);
+}
+
+/* --- Etiqueta de preço: campanha, oferta e página como etiqueta de peça --- */
+.pn-etiqueta-preco {
+  position: relative;
+  background: var(--color-paper-0);
+  border: 1px solid var(--color-line-200);
+  border-radius: var(--radius-control);
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
+  padding: 16px 20px 16px 36px;
+  min-height: 96px;
+}
+/* Furo da etiqueta: círculo Canvas com fio, centrado a 16px da borda */
+.pn-etiqueta-preco::before {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 16px;
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background: var(--color-canvas-100);
+  box-shadow: inset 0 0 0 1px var(--color-line-200);
+}
+.pn-etiqueta-preco__nome {
+  font-family: var(--font-brand);
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  color: var(--color-volt-950);
+}
+
+/* Chip de estado: PRONTA (Volt sobre Canvas); AO VIVO e LOTOU (Volt sobre Acid) */
+.pn-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: var(--radius-chip);
+  background: var(--color-canvas-100);
+  font-family: var(--font-data);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-volt-950);
+  white-space: nowrap;
+}
+.pn-chip--acid {
+  background: var(--color-acid-500);
+}
+
+/* --- Ficha de revendedora: linha de 64px, sem card em volta --- */
+.pn-ficha {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-line-200);
+  transition: background-color var(--dur-fast) var(--ease-girumo);
+}
+.pn-ficha:hover {
+  background: var(--color-hover-ficha);
+}
+/* Iniciais como etiqueta quadrada com canto cortado (não avatar circular) */
+.pn-ficha__iniciais {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  background: var(--color-canvas-100);
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+  font-family: var(--font-brand);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-volt-950);
+}
+/* Filete Zap na base: quem entrou nas últimas 24h */
+.pn-ficha__iniciais--hoje::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--color-zap);
+}
+.pn-ficha__nome {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--color-volt-950);
+}
+.pn-ficha__origem {
+  font-family: var(--font-data);
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--color-slate-600);
+}
+
+/* --- Prova de conversa: a mensagem como ela chega no WhatsApp --- */
+.pn-bolha-chat {
+  background: var(--color-zap-fundo);
+  border-radius: var(--radius-control);
+  padding: 16px;
+}
+.pn-bolha-chat__grupo {
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-slate-600);
+}
+.pn-bolha {
+  position: relative;
+  max-width: 320px;
+  margin-left: auto;
+  padding: 8px 12px 20px;
+  background: var(--color-zap-bolha);
+  border-radius: var(--radius-control) var(--radius-control) 2px var(--radius-control);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--color-volt-950);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  transform-origin: bottom right;
+}
+/* Rabinho da bolha, em CSS puro (sem SVG, sem imagem) */
+.pn-bolha::before {
+  content: "";
+  position: absolute;
+  right: -6px;
+  bottom: 0;
+  width: 8px;
+  height: 10px;
+  background: var(--color-zap-bolha);
+  clip-path: polygon(0 0, 100% 100%, 0 100%);
+}
+.pn-bolha__hora {
+  position: absolute;
+  right: 8px;
+  bottom: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-data);
+  font-size: 11px;
+  color: var(--color-slate-600);
+}
+.pn-bolha__check {
+  width: 14px;
+  height: 14px;
+  color: var(--color-cobalt-500);
+}
+@keyframes pn-bolha-nasce {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+.pn-bolha--nasce {
+  animation: pn-bolha-nasce var(--dur-base) var(--ease-girumo) both;
+}
+
+/* --- Prateleira: os 91 grupos como caixas que enchem --- */
+.pn-prateleira {
+  display: grid;
+  grid-template-columns: repeat(13, minmax(0, 1fr));
+  gap: 4px;
+}
+.pn-prateleira__caixa {
+  position: relative;
+  aspect-ratio: 1;
+  border: 1px solid var(--color-line-200);
+  border-radius: var(--radius-chip);
+  background: var(--color-canvas-100);
+  overflow: hidden;
+}
+/* Enche de baixo pra cima na proporção da lotação: --lotacao de 0 a 1.
+   Por scaleY (nunca height): só transform anima. */
+.pn-prateleira__caixa::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--color-volt-800);
+  transform-origin: bottom;
+  transform: scaleY(var(--lotacao, 0));
+  transition: transform var(--dur-story) var(--ease-girumo);
+}
+.pn-prateleira__caixa--quase {
+  border-color: var(--color-warning-700);
+}
+.pn-prateleira__caixa--cheia {
+  background: var(--color-volt-950);
+  border-color: var(--color-volt-950);
+  box-shadow: inset 0 3px 0 var(--color-acid-500);
+}
+.pn-prateleira__caixa--cheia::before {
+  transform: scaleY(1);
+  background: var(--color-volt-950);
+}
+/* Ponto Zap: entrou gente hoje */
+.pn-prateleira__caixa--entrou::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--color-zap);
+}
+@keyframes pn-pulso {
+  50% { transform: scale(1.06); }
+}
+.pn-prateleira__caixa--pulso {
+  animation: pn-pulso var(--dur-base) var(--ease-girumo) 1;
+}
+
+/* --- Fita métrica: a meta do mês --- */
+.pn-fita {
+  position: relative;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--color-line-200);
+  overflow: hidden;
+}
+/* Preenchimento Acid por scaleX (nunca width): --p de 0 a 1 */
+.pn-fita::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--color-acid-500);
+  transform-origin: left;
+  transform: scaleX(var(--p, 0));
+  transition: transform var(--dur-slow) var(--ease-girumo);
+}
+/* Marcas de costureira a cada 1/--marcas da fita: um traço Volt de 1px repetido */
+.pn-fita::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2' height='12'%3E%3Crect width='1' height='12' fill='%23071923'/%3E%3C/svg%3E");
+  background-repeat: repeat-x;
+  background-size: calc(100% / var(--marcas, 10)) 100%;
+  background-position: right 0 top 0;
+  opacity: 0.6;
+}
+.pn-fita__cursor {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  background: var(--color-volt-950);
+  left: calc(var(--p, 0) * 100%);
+}
+
+/* --- Carimbo de evento: LOTOU, ENVIADO. Um por viewport. --- */
+@keyframes pn-carimbo-evento {
+  from { opacity: 0; transform: rotate(-4deg) scale(1.12); }
+  to { opacity: 1; transform: rotate(-4deg) scale(1); }
+}
+.pn-carimbo-evento {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 8px;
+  border: 2px solid var(--color-volt-950);
+  border-radius: var(--radius-chip);
+  background: var(--color-acid-500);
+  font-family: var(--font-data);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-volt-950);
+  transform: rotate(-4deg);
+  animation: pn-carimbo-evento var(--dur-fast) var(--ease-girumo) both;
+}
+
+/* --- Cupom: histórico de disparos --- */
+.pn-cupom {
+  font-family: var(--font-data);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-volt-950);
+}
+.pn-cupom__linha {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 32px;
+  border-bottom: 1px dashed var(--color-line-200);
+}
+.pn-cupom__quadrados {
+  display: inline-flex;
+  gap: 2px;
+}
+.pn-cupom__quadrados i {
+  display: block;
+  width: 8px;
+  height: 8px;
+  background: var(--color-line-200);
+}
+.pn-cupom__quadrados i.is-entregue {
+  background: var(--color-volt-950);
+}
+
+/* --- Odômetro: só o dígito que muda rola --- */
+.pn-odometro {
+  display: inline-flex;
+  font-variant-numeric: tabular-nums;
+}
+.pn-odometro__digito {
+  display: inline-block;
+  height: 1em;
+  line-height: 1;
+  overflow: hidden;
+}
+.pn-odometro__digito > span {
+  display: block;
+  transition: transform var(--dur-base) var(--ease-girumo);
+}
+
+/* --- Postar: o único Acid tocável do painel (barra inferior mobile) --- */
+.pn-postar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 60px;
+  height: 52px;
+  background: var(--color-acid-500);
+  color: var(--color-volt-950);
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+  font-family: var(--font-brand);
+  font-size: 16px;
+  font-weight: 600;
+  transition: transform 160ms var(--ease-girumo);
+}
+.pn-postar:active {
+  transform: scale(0.97);
+}
+/* A sombra dura é um segundo bloco Volt atrás do botão, pra não cortar com o clip-path */
+.pn-postar-sombra {
+  position: relative;
+  display: inline-block;
+}
+.pn-postar-sombra::after {
+  content: "";
+  position: absolute;
+  inset: 3px -3px -3px 3px;
+  background: var(--color-volt-950);
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+  z-index: -1;
+}
+
+/* Barra inferior mobile clara: a loja é clara por dentro */
+.pn-barra-mobile {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  align-items: center;
+  height: calc(var(--spacing-barra-mobile) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--color-paper-0);
+  border-top: 1px solid var(--color-line-200);
+}
+.pn-barra-mobile__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 44px;
+  font-size: 12px;
+  color: var(--color-slate-600);
+}
+.pn-barra-mobile__item[aria-current="page"] {
+  color: var(--color-volt-950);
+  box-shadow: inset 0 3px 0 var(--color-acid-500);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pn-bolha--nasce,
+  .pn-prateleira__caixa--pulso,
+  .pn-carimbo-evento {
+    animation: none;
+    opacity: 1;
+  }
+  .pn-prateleira__caixa::before,
+  .pn-fita::before,
+  .pn-odometro__digito > span {
+    transition: none;
+  }
+}
