@@ -4,6 +4,8 @@ import Link from "next/link";
 import { CheckCircle2, LockKeyhole } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/brand/logo";
+import { AuthShellVitrine } from "@/components/auth/auth-shell-vitrine";
+import { isPainelVitrineEnabled } from "@/lib/painel/flags";
 import { BRAND } from "@/lib/brand";
 
 type AuthShellProps = {
@@ -14,6 +16,8 @@ type AuthShellProps = {
   context?: string;
   checklist?: string[];
   compact?: boolean;
+  /** Só a porta da Vitrine usa: quem já entrou neste aparelho vê outra headline. */
+  lembrado?: boolean;
 };
 
 const defaultChecklist = [
@@ -22,7 +26,20 @@ const defaultChecklist = [
   "Envie ofertas para todos os grupos sem repetir o trabalho",
 ];
 
-export function AuthShell({
+export function AuthShell(props: AuthShellProps) {
+  // PR 4 da Vitrine Aberta: a porta nova cobre as cinco telas de auth de uma vez.
+  if (isPainelVitrineEnabled()) {
+    const { title, subtitle, children, footer, context, lembrado } = props;
+    return (
+      <AuthShellVitrine title={title} subtitle={subtitle} footer={footer} context={context} lembrado={lembrado}>
+        {children}
+      </AuthShellVitrine>
+    );
+  }
+  return <AuthShellAntiga {...props} />;
+}
+
+function AuthShellAntiga({
   title,
   subtitle,
   children,
