@@ -8,16 +8,9 @@ import { usePanelSession } from "@/components/painel/session-provider";
 import { formatPhoneBR } from "@/lib/phone";
 import { cn } from "@/lib/utils";
 
-/** `somenteDesktop`: com a Vitrine ligada o mobile tem o letreiro; esta barra fica só no lg+. */
-export function PainelTopbar({ somenteDesktop = false }: { somenteDesktop?: boolean } = {}) {
+export function PainelTopbar() {
   return (
-    <header
-      data-testid="painel-topbar"
-      className={cn(
-        "sticky top-0 z-20 h-16 items-center gap-3 border-b border-line-200 bg-canvas-100 px-4 sm:px-6",
-        somenteDesktop ? "hidden lg:flex" : "flex",
-      )}
-    >
+    <header data-testid="painel-topbar" className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-line-200 bg-canvas-100 px-4 sm:px-6">
       {/* logo só no mobile (sidebar some) */}
       <div className="lg:hidden">
         <LogoSymbol className="h-7 w-7 text-volt-950" />

@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { PainelSidebar } from "@/components/painel/sidebar";
 import { PainelTopbar } from "@/components/painel/topbar";
 import { PainelMobileNav } from "@/components/painel/mobile-nav";
-import { LetreiroMobile } from "@/components/painel/letreiro-mobile";
+import { Letreiro } from "@/components/painel/letreiro";
+import { Corredor } from "@/components/painel/corredor";
 import { BarraMobile } from "@/components/painel/barra-mobile";
 import { PageTransition } from "@/components/painel/page-transition";
 import { ToastProvider } from "@/components/toast";
@@ -15,18 +16,17 @@ export const metadata: Metadata = {
 };
 
 export default function PainelLayout({ children }: { children: React.ReactNode }) {
-  // Casca mobile da Vitrine Aberta (PR 2). Desligada, nada muda; o desktop
-  // continua na casca antiga até o corredor e o letreiro de 64px entrarem.
+  // Casca da Vitrine Aberta (PRs 2 e 3a): letreiro + corredor no desktop,
+  // letreiro + barra no mobile. Desligada, a casca antiga inteira continua.
   const vitrine = isPainelVitrineEnabled();
   return (
     <RoleProvider>
       <SessionProvider>
         <ToastProvider>
           <div data-testid="painel-root" className="pn-root font-body flex min-h-screen w-full bg-canvas-100 text-volt-950">
-            <PainelSidebar />
+            {vitrine ? <Corredor /> : <PainelSidebar />}
             <div className="flex min-w-0 flex-1 flex-col">
-              {vitrine && <LetreiroMobile />}
-              <PainelTopbar somenteDesktop={vitrine} />
+              {vitrine ? <Letreiro /> : <PainelTopbar />}
               <main className="flex-1 pb-20 lg:pb-0">
                 <PageTransition>{children}</PageTransition>
               </main>
