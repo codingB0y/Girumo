@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/toast";
 import { MessageComposer, type ComposerPayload } from "@/components/painel/messages/message-composer";
 import type { TenantDispatchView } from "@/lib/campaigns/dispatch-view";
+import { Bolha } from "./bolha";
 import { Folha } from "./folha";
 
 type Campanha = { id: string; name: string; slug?: string; groupIds?: string[] };
@@ -140,25 +141,13 @@ export function FolhaPostar({ id, aberta, aoFechar, aoPostar }: Props) {
             )}
           </label>
 
-          <div className="pn-bolha-chat">
-            <p className="pn-bolha-chat__grupo">{campanha?.name ?? "Seu grupo"}</p>
-            <div className="pn-bolha" data-testid="painel-bolha-previa">
-              {texto || <span className="text-slate-600">Sua novidade aparece aqui como chega no celular.</span>}
-              <span className="pn-bolha__hora">
-                {hora.format(new Date())}
-                <svg viewBox="0 0 16 16" className="pn-bolha__check" aria-hidden="true">
-                  <path
-                    d="M1.5 8.5l3 3 6-6M6.5 11.5l7-7"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </span>
-            </div>
-          </div>
+          <Bolha
+            grupo={campanha?.name ?? "Seu grupo"}
+            hora={hora.format(new Date())}
+            texto={texto}
+            vazio="Sua novidade aparece aqui como chega no celular."
+            testId="painel-bolha-previa"
+          />
 
           <MessageComposer onSend={postar} sending={enviando} onBodyChange={setTexto} />
           {erro && <p className="text-13 text-alerta">{erro}</p>}

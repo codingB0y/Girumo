@@ -30,9 +30,13 @@ type Props = {
   className?: string;
   /** Texto atual, pra quem mostra a prévia fora do compositor (folha de postar). */
   onBodyChange?: (body: string) => void;
+  /** Rótulo do botão principal. Padrão "Enviar" — a Vitrine diz "Postar em 13 grupos". */
+  rotuloEnviar?: string;
+  /** Botão em Acid (regra 10: só Postar, AO VIVO e LOTOU). Padrão Cobalt. */
+  acid?: boolean;
 };
 
-export function MessageComposer({ onSend, sending, className, onBodyChange }: Props) {
+export function MessageComposer({ onSend, sending, className, onBodyChange, rotuloEnviar, acid }: Props) {
   const [body, setBody] = useState("");
   useEffect(() => {
     onBodyChange?.(body);
@@ -237,14 +241,16 @@ export function MessageComposer({ onSend, sending, className, onBodyChange }: Pr
           onClick={handleSend}
           disabled={!canSend || sending}
           className={cn(
-            "ml-auto inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-medium text-white shadow-sm transition",
-            canSend && !sending
-              ? "bg-cobalt-500 hover:-translate-y-0.5 hover:bg-cobalt-500 shadow-brand"
-              : "cursor-not-allowed bg-aco/20",
+            "ml-auto inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-medium shadow-sm transition",
+            !canSend || sending
+              ? "cursor-not-allowed bg-aco/20 text-white"
+              : acid
+                ? "bg-acid-500 text-volt-950"
+                : "bg-cobalt-500 text-white hover:-translate-y-0.5 hover:bg-cobalt-500 shadow-brand",
           )}
         >
           {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          Enviar
+          {rotuloEnviar ?? "Enviar"}
         </button>
       </div>
     </div>

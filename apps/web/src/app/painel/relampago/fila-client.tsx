@@ -6,6 +6,8 @@ import { ArrowLeft, Check, MessageCircle, Phone, UserX } from "lucide-react";
 
 import { claimState, deadlineOf, type ClaimState } from "@/lib/relampago/claim-state";
 import { cn } from "@/lib/utils";
+import { FilaVitrine } from "@/components/painel/relampago/vitrine/fila-vitrine";
+import { isPainelVitrineEnabled } from "@/lib/painel/flags";
 
 type Offer = {
   id: string;
@@ -14,6 +16,7 @@ type Offer = {
   slots: number;
   timer_seconds: number | null;
   status: "draft" | "open" | "closed";
+  opened_at?: string | null;
 };
 
 type Claim = {
@@ -161,6 +164,22 @@ export function FilaClient({ offerId }: { offerId: string }) {
   }
 
   const { offer, queue, me } = dados;
+
+  if (isPainelVitrineEnabled()) {
+    return (
+      <FilaVitrine
+        oferta={offer}
+        fila={queue}
+        me={me}
+        agora={agora}
+        ocupado={ocupado}
+        aviso={aviso}
+        aoPegarProxima={() => void pegarProxima()}
+        aoAgir={acao}
+        aoFechar={() => void fechar()}
+      />
+    );
+  }
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-8 px-4 py-8 sm:px-8">

@@ -7,6 +7,8 @@ import { Flame, Plus } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { Group } from "@/lib/mock-data";
+import { RelampagoVitrine, type NovaOferta } from "@/components/painel/relampago/vitrine/relampago-vitrine";
+import { isPainelVitrineEnabled } from "@/lib/painel/flags";
 
 type Offer = {
   id: string;
@@ -80,20 +82,14 @@ export default function PainelRelampago() {
   const aberta = offers.find((o) => o.status === "open") ?? null;
   const demais = offers.filter((o) => o.status !== "open");
 
-  async function abrir() {
+  async function abrir(corpo: NovaOferta) {
     setAbrindo(true);
     setErro(null);
     try {
       const res = await fetch("/api/relampago/offers", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          name: nome,
-          keyword: palavra,
-          slots: pecas,
-          timerMinutes: timer > 0 ? timer : null,
-          groupIds: alvos,
-        }),
+        body: JSON.stringify(corpo),
       });
 
       const dados = await res.json().catch(() => null);
@@ -114,6 +110,19 @@ export default function PainelRelampago() {
   }
 
   const podeAbrir = nome.trim().length > 0 && pecas > 0 && alvos.length > 0 && !abrindo;
+
+  if (isPainelVitrineEnabled()) {
+    return (
+      <RelampagoVitrine
+        ofertas={offers}
+        elegiveis={elegiveis}
+        carregando={loading}
+        abrindo={abrindo}
+        erro={erro}
+        aoAbrir={abrir}
+      />
+    );
+  }
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-8 px-4 py-8 sm:px-8">
@@ -242,7 +251,15 @@ export default function PainelRelampago() {
 
           <button
             type="button"
-            onClick={abrir}
+            onClick={() =>
+              void abrir({
+                name: nome,
+                keyword: palavra,
+                slots: pecas,
+                timerMinutes: timer > 0 ? timer : null,
+                groupIds: alvos,
+              })
+            }
             disabled={!podeAbrir}
             className="inline-flex items-center gap-2 rounded-xl bg-cobalt-500 px-4 py-2.5 text-sm font-medium text-white transition-[transform,filter] duration-[160ms] ease-[var(--ease-fluxo)] hover:-translate-y-0.5 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
           >

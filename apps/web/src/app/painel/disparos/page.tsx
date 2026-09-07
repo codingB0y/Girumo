@@ -17,6 +17,9 @@ import { MessageComposer, type ComposerPayload } from "@/components/painel/messa
 import { ScheduleComposer, type SchedulePayload } from "@/components/painel/messages/schedule-composer";
 import type { TenantDispatchView } from "@/lib/campaigns/dispatch-view";
 import { etaDisparo } from "@/lib/campaigns/dispatch-eta";
+import { DisparosVitrine } from "@/components/painel/disparos/vitrine/disparos-vitrine";
+import { isPainelVitrineEnabled } from "@/lib/painel/flags";
+import type { Group } from "@/lib/mock-data";
 
 type Campanha = { id: string; name: string; slug?: string; groupIds: string[] };
 
@@ -43,6 +46,33 @@ export default function PainelDisparos() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  // Só a Vitrine conta as pessoas alcançadas; a tela antiga não pede os grupos.
+  const vitrine = isPainelVitrineEnabled();
+  const [grupos, setGrupos] = useState<Group[]>([]);
+  // Sem isto, "0 pessoas veem" por falha de rede fica igual a campanha vazia.
+  const [gruposOk, setGruposOk] = useState(true);
+  // E sem ISTO, "ainda nao respondeu" fica igual a "respondeu vazio": os grupos
+  // chegam depois das campanhas, e a tela afirmaria que eles sumiram da lista.
+  const [gruposCarregando, setGruposCarregando] = useState(true);
+
+  useEffect(() => {
+    if (!vitrine) return;
+    let vivo = true;
+    fetch("/api/groups")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((g) => {
+        if (vivo) setGrupos(Array.isArray(g) ? g : []);
+      })
+      .catch(() => {
+        if (vivo) setGruposOk(false);
+      })
+      .finally(() => {
+        if (vivo) setGruposCarregando(false);
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [vitrine]);
 
   const loadDispatches = useCallback(async () => {
     const d = await fetch("/api/disparos").then((r) => r.json()).catch(() => []);
@@ -104,6 +134,32 @@ export default function PainelDisparos() {
     } finally {
       setSending(false);
     }
+  }
+
+  if (vitrine) {
+    if (loading) {
+      return (
+        <div className="mx-auto max-w-[1100px] space-y-4 px-4 py-8 sm:px-8">
+          <div className="pn-skeleton h-40 rounded-xl" data-testid="painel-skeleton" />
+          <div className="pn-skeleton h-64 rounded-xl" data-testid="painel-skeleton" />
+        </div>
+      );
+    }
+    return (
+      <DisparosVitrine
+        campanhas={campanhas}
+        slug={campaignSlug}
+        aoTrocarCampanha={setCampaignSlug}
+        grupos={grupos}
+        gruposOk={gruposOk}
+        gruposCarregando={gruposCarregando}
+        disparos={dispatches}
+        enviando={sending}
+        erro={erro}
+        live={live}
+        aoDisparar={dispatch}
+      />
+    );
   }
 
   if (loading) {
