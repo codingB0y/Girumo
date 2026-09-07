@@ -669,7 +669,17 @@
   .pn-corredor {
     width: var(--spacing-corredor-recolhido);
   }
-  .pn-corredor__grupo,
+  /* Cabeçalho do grupo some da tela, não da árvore de acessibilidade. */
+  .pn-corredor__grupo {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
   .pn-corredor__rotulo,
   .pn-corredor__romaneio {
     display: none;

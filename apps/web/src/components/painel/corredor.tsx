@@ -12,7 +12,14 @@ function Item({ item, pathname }: { item: NavItem; pathname: string }) {
   const ativo = isNavItemActive(pathname, item.href);
   const Icon = item.icon;
   return (
-    <Link href={item.href} title={item.label} aria-current={ativo ? "page" : undefined} className="pn-corredor__item">
+    // aria-label explícito: recolhido, o rótulo visível sai e o nome não pode depender do title.
+    <Link
+      href={item.href}
+      title={item.label}
+      aria-label={item.label}
+      aria-current={ativo ? "page" : undefined}
+      className="pn-corredor__item"
+    >
       <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.75} aria-hidden="true" />
       <span className="pn-corredor__rotulo truncate">{item.label}</span>
     </Link>
@@ -74,6 +81,7 @@ export function Corredor() {
         <Link
           href="/painel/conectar"
           title={!loading && session ? `Seu número: ${session.live ? "conectado" : "desconectado"}` : "Seu número"}
+          aria-label={!loading && session ? `Seu número: ${session.live ? "conectado" : "desconectado"}` : "Seu número"}
           aria-current={isNavItemActive(pathname, "/painel/conectar") ? "page" : undefined}
           className="pn-corredor__item"
         >

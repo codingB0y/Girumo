@@ -30,6 +30,12 @@ test("sem entrada em 24h, mostra o último post com dia da semana e grupos", () 
   assert.deepEqual(t, { tipo: "post", texto: "Último post qua 12:12 · 13/13 grupos" });
 });
 
+test("data inválida na entrada cai pro post; no post, cai pro vazio", () => {
+  const post = { quando: new Date(2026, 8, 1, 9, 5).toISOString(), enviados: 2, total: 3 };
+  assert.equal(textoDoTicker({ nome: "Ana", quando: "ontem" }, post, agora).tipo, "post");
+  assert.equal(textoDoTicker({ nome: "Ana", quando: "ontem" }, { ...post, quando: "?" }, agora).tipo, "vazio");
+});
+
 test("sem entrada nem post, aponta o próximo passo em vez de zero", () => {
   const t = textoDoTicker(null, null, agora);
   assert.equal(t.tipo, "vazio");

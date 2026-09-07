@@ -90,9 +90,12 @@ test.describe("casca desktop da Vitrine Aberta", () => {
     await page.goto("/painel/grupos", { waitUntil: "load" });
     const corredor = page.getByTestId("painel-corredor");
     await expect(corredor).toBeVisible();
+    // 64 exatos porque o box-sizing e border-box: a borda de 1px ja esta dentro da largura.
     const caixa = await corredor.boundingBox();
     expect(caixa?.width).toBe(64);
-    await expect(corredor.getByRole("heading", { name: "Vender" })).toBeHidden();
+    // O rotulo some da tela; o cabecalho do grupo e o nome do link seguem na arvore de acessibilidade.
+    await expect(corredor.getByText("Configurações", { exact: true })).toBeHidden();
+    await expect(corredor.getByRole("heading", { name: "Vender" })).toHaveCount(1);
     await expect(corredor.getByRole("link", { name: "Grupos" })).toHaveAttribute("aria-current", "page");
   });
 });
