@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Search, MessageCircle, ShoppingBag, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Lead, LeadStatus } from "@/lib/painel/types";
+import { ContatosVitrine } from "@/components/painel/contatos/vitrine/contatos-vitrine";
+import { isPainelVitrineEnabled } from "@/lib/painel/flags";
+import type { MonthlyOrder } from "@/lib/painel-metrics";
 
 const STATUS: Record<LeadStatus, { label: string; pill: string }> = {
   novo: { label: "Novo", pill: "bg-cobalt-500/[0.07] text-cobalt-500" },
@@ -35,6 +38,22 @@ export default function PainelContatos() {
   const [filter, setFilter] = useState<"all" | LeadStatus>("all");
   const [q, setQ] = useState("");
   const [orderLead, setOrderLead] = useState<Lead | null>(null);
+  // Só a Vitrine mostra o caixa do mês no rodapé; a tela antiga não pede estes dados.
+  const vitrine = isPainelVitrineEnabled();
+  const [pedidos, setPedidos] = useState<MonthlyOrder[]>([]);
+  const [meta, setMeta] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!vitrine) return;
+    fetch("/api/orders")
+      .then((r) => r.json())
+      .then((o) => setPedidos(Array.isArray(o) ? o : []))
+      .catch(() => {});
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((s) => setMeta(typeof s?.monthlyGoalRevenue === "number" ? s.monthlyGoalRevenue : null))
+      .catch(() => {});
+  }, [vitrine]);
 
   useEffect(() => {
     fetch("/api/leads")
@@ -59,6 +78,21 @@ export default function PainelContatos() {
       ),
     [leads, filter, q],
   );
+
+  if (vitrine) {
+    return (
+      <ContatosVitrine
+        contatos={leads}
+        pedidos={pedidos}
+        meta={meta}
+        carregando={loading}
+        onPedidoRegistrado={(valor) => {
+          // Soma no total na hora: o caixa do rodapé sobe sem esperar o refetch.
+          setPedidos((p) => [...p, { value: valor, created_at: new Date().toISOString() }]);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-8 px-4 py-8 sm:px-8">
