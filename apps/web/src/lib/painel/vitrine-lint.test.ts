@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { lintPainelSource } from "./vitrine-lint";
+import { lintPainelSource, onlyPnBlocks } from "./vitrine-lint";
 
 test("fonte limpa não gera achado", () => {
   const source = `<div className="rounded-xl bg-acid-500 hover:bg-acid-400 not-italic">ok</div>`;
@@ -11,7 +11,7 @@ test("fonte limpa não gera achado", () => {
 test("aponta cada token proibido com linha", () => {
   const source = [
     `<div className="rounded-2xl">`,
-    `<div className="rounded-3xl">`,
+    `<div className="sm:rounded-t-3xl">`,
     `<div className="backdrop-blur-sm">`,
     `<div className="blur-[80px]">`,
     `<div className="bg-gradient-to-r">`,
@@ -32,10 +32,22 @@ test("CSS: font-style italic e gradiente também contam", () => {
 });
 
 test("Acid em fundo: até dois por arquivo, variantes de estado não contam", () => {
-  const dois = `bg-acid-500 hover:bg-acid-400\nbg-acid-500 focus:bg-acid-500`;
+  const dois = `bg-acid-500 hover:bg-acid-400\nbg-acid-500 focus:bg-acid-500 group-hover:bg-acid-500`;
   assert.deepEqual(lintPainelSource("ok.tsx", dois), []);
   const tres = `bg-acid-500\nbg-acid-500\nbg-acid-500`;
   const findings = lintPainelSource("demais.tsx", tres);
   assert.equal(findings.length, 1);
   assert.match(findings[0], /3 fundos Acid/);
+});
+
+test("Acid em fundo: variantes de tamanho e tema contam como fundo", () => {
+  const source = `bg-acid-500\nmd:bg-acid-500\ndark:bg-acid-500`;
+  assert.match(lintPainelSource("resp.tsx", source)[0], /3 fundos Acid/);
+});
+
+test("onlyPnBlocks mantém só regras .pn-* e preserva as linhas", () => {
+  const css = `.hf-glow {\n  filter: blur(6px);\n}\n.pn-carimbo {\n  font-style: italic;\n}\n`;
+  const filtered = onlyPnBlocks(css);
+  assert.equal(filtered.split("\n").length, css.split("\n").length);
+  assert.deepEqual(lintPainelSource("globals.css", filtered), ["globals.css:5: italic (itálico editorial)"]);
 });

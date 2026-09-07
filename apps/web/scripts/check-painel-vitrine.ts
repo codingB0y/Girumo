@@ -1,9 +1,11 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
-import { PAINEL_ROOTS, lintPainelSource } from "../src/lib/painel/vitrine-lint";
+import { PAINEL_ROOTS, lintPainelSource, onlyPnBlocks } from "../src/lib/painel/vitrine-lint";
 
 const EXTENSIONS = new Set([".ts", ".tsx", ".css"]);
+// Casca antiga vive em globals.css junto da landing; só os blocos .pn-* entram.
+const SHARED_CSS = "src/app/globals.css";
 
 function sources(root: string): string[] {
   const absolute = path.resolve(root);
@@ -15,9 +17,10 @@ function sources(root: string): string[] {
     .filter((file) => !/\.test\.tsx?$/.test(file));
 }
 
-const findings = PAINEL_ROOTS.flatMap(sources).flatMap((file) => {
+const findings = [...PAINEL_ROOTS, SHARED_CSS].flatMap(sources).flatMap((file) => {
   const relative = path.relative(process.cwd(), file).replaceAll("\\", "/");
-  return lintPainelSource(relative, readFileSync(file, "utf8"));
+  const source = readFileSync(file, "utf8");
+  return lintPainelSource(relative, relative === SHARED_CSS ? onlyPnBlocks(source) : source);
 });
 
 for (const finding of findings) console.log(`FORBIDDEN ${finding}`);
