@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useToast } from "@/components/toast";
 import { brl } from "@/components/painel/home/format";
 import { diasRestantesNoMes, marcasDaFita, rotulosDaFita } from "@/lib/painel/inicio";
 import { Odometro } from "./odometro";
@@ -14,6 +15,8 @@ type Props = {
   pedidos: number;
   quemMaisVendeu: { nome: string; valor: number } | null;
   meta: number | null;
+  /** false quando /api/settings falhou: meta ausente é falta de dado, não meta em branco. */
+  metaOk: boolean;
   agora: Date;
   onMetaSalva: (valor: number) => void;
 };
@@ -23,7 +26,8 @@ type Props = {
  * 64/44 (spec 3.3), fita métrica com marcas a cada R$ 5.000. Sem pedido, o
  * estado é onboarding ("Registrar pedido"), nunca R$ 0.
  */
-export function CaixaDoMes({ mes, faturamento, pedidos, quemMaisVendeu, meta, agora, onMetaSalva }: Props) {
+export function CaixaDoMes({ mes, faturamento, pedidos, quemMaisVendeu, meta, metaOk, agora, onMetaSalva }: Props) {
+  const toast = useToast();
   const [editando, setEditando] = useState(false);
   const [rascunho, setRascunho] = useState("");
   const [salvando, setSalvando] = useState(false);
@@ -38,10 +42,11 @@ export function CaixaDoMes({ mes, faturamento, pedidos, quemMaisVendeu, meta, ag
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ monthlyGoalRevenue: valor }),
       });
-      if (res.ok) {
-        onMetaSalva(valor);
-        setEditando(false);
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      onMetaSalva(valor);
+      setEditando(false);
+    } catch {
+      toast("Não foi possível salvar a meta.", "error");
     } finally {
       setSalvando(false);
     }
@@ -127,8 +132,10 @@ export function CaixaDoMes({ mes, faturamento, pedidos, quemMaisVendeu, meta, ag
         </div>
       ) : (
         <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-line-200 pt-4">
-          <span className="text-15 text-slate-600">A fita mede o mês contra a sua meta.</span>
-          {editando ? (
+          <span className="text-15 text-slate-600">
+            {metaOk ? "A fita mede o mês contra a sua meta." : "Não deu pra carregar a sua meta agora."}
+          </span>
+          {!metaOk ? null : editando ? (
             <MetaEditor rascunho={rascunho} salvando={salvando} onChange={setRascunho} onSalvar={salvarMeta} onCancelar={() => setEditando(false)} />
           ) : (
             <button

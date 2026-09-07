@@ -78,7 +78,9 @@ export function InicioVitrine({
   onDismissOnboarding,
   onOnboardingComplete,
 }: Props) {
-  const agora = useMemo(() => new Date(), []);
+  // Sem memo de propósito: preso no mount, o cabeçalho continuava na sexta
+  // depois da meia-noite e "entradas hoje" contava o dia errado.
+  const agora = new Date();
   const hoje = dayBR(agora);
   const mes = monthBR(agora);
   const { definirPassos } = useCasca();
@@ -93,10 +95,8 @@ export function InicioVitrine({
   }, [settingsOk, activation.complete, settings.onboardingCompletedAt, onOnboardingComplete]);
 
   const entradasHoje = useMemo(() => leads.filter((l) => dayBROf(l.enteredAt) === hoje).length, [leads, hoje]);
-  const entradasSemana = useMemo(() => {
-    const dias = new Set(Array.from({ length: 7 }, (_, i) => dayBRAgo(i, agora)));
-    return leads.filter((l) => dias.has(dayBROf(l.enteredAt) ?? "")).length;
-  }, [leads, agora]);
+  const diasDaSemana = new Set(Array.from({ length: 7 }, (_, i) => dayBRAgo(i, agora)));
+  const entradasSemana = leads.filter((l) => diasDaSemana.has(dayBROf(l.enteredAt) ?? "")).length;
 
   const ultimoPost = useMemo(
     () =>
@@ -204,6 +204,7 @@ export function InicioVitrine({
             pedidos={pedidosDoMes.length}
             quemMaisVendeu={quemMaisVendeu}
             meta={settings.monthlyGoalRevenue}
+            metaOk={settingsOk}
             agora={agora}
             onMetaSalva={(v) => onSettingsSaved({ ...settings, monthlyGoalRevenue: v })}
           />
