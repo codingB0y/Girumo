@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Search, MessageCircle, ShoppingBag, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Lead, LeadStatus } from "@/lib/painel/types";
+import { ContatosVitrine } from "@/components/painel/contatos/vitrine/contatos-vitrine";
+import { isPainelVitrineEnabled } from "@/lib/painel/flags";
+import type { MonthlyOrder } from "@/lib/painel-metrics";
 
 const STATUS: Record<LeadStatus, { label: string; pill: string }> = {
   novo: { label: "Novo", pill: "bg-cobalt-500/[0.07] text-cobalt-500" },
@@ -35,6 +38,36 @@ export default function PainelContatos() {
   const [filter, setFilter] = useState<"all" | LeadStatus>("all");
   const [q, setQ] = useState("");
   const [orderLead, setOrderLead] = useState<Lead | null>(null);
+  // Só a Vitrine mostra o caixa do mês no rodapé; a tela antiga não pede estes dados.
+  const vitrine = isPainelVitrineEnabled();
+  const [pedidos, setPedidos] = useState<MonthlyOrder[]>([]);
+  const [meta, setMeta] = useState<number | null>(null);
+  // Sem isto, "R$ 0,00" por falha de rede fica igual a mês sem venda nenhuma.
+  const [caixaOk, setCaixaOk] = useState(true);
+  const [caixaCarregando, setCaixaCarregando] = useState(true);
+
+  useEffect(() => {
+    if (!vitrine) return;
+    let vivo = true;
+    Promise.all([
+      fetch("/api/orders").then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))),
+      fetch("/api/settings").then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))),
+    ])
+      .then(([o, s]) => {
+        if (!vivo) return;
+        setPedidos(Array.isArray(o) ? o : []);
+        setMeta(typeof s?.monthlyGoalRevenue === "number" ? s.monthlyGoalRevenue : null);
+      })
+      .catch(() => {
+        if (vivo) setCaixaOk(false);
+      })
+      .finally(() => {
+        if (vivo) setCaixaCarregando(false);
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [vitrine]);
 
   useEffect(() => {
     fetch("/api/leads")
@@ -59,6 +92,25 @@ export default function PainelContatos() {
       ),
     [leads, filter, q],
   );
+
+  if (vitrine) {
+    return (
+      <ContatosVitrine
+        contatos={leads}
+        pedidos={pedidos}
+        meta={meta}
+        carregando={loading || caixaCarregando}
+        caixaOk={caixaOk}
+        onPedidoRegistrado={(leadId, valor) => {
+          // Soma no total na hora: o caixa do rodapé sobe sem esperar o refetch.
+          setPedidos((p) => [...p, { value: valor, created_at: new Date().toISOString() }]);
+          // O servidor promove o lead a cliente; sem isto o chip ficava em "NOVO"
+          // e os contadores de filtro não subiam até um reload.
+          setLeads((l) => l.map((x) => (x.id === leadId ? { ...x, status: "comprou" } : x)));
+        }}
+      />
+    );
+  }
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-8 px-4 py-8 sm:px-8">
