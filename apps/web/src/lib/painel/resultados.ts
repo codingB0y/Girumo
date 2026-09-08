@@ -142,9 +142,11 @@ export function membrosPorCampanha(
   grupos: readonly GrupoResumo[],
   limite = 5,
 ): FatiaDoTotal[] {
-  const linhas = campanhas.map((c) => ({
-    nome: c.name,
-    total: vagasDaCampanha(c.groupIds, grupos).pessoas,
-  }));
+  const linhas = campanhas
+    .map((c) => ({ nome: c.name, total: vagasDaCampanha(c.groupIds, grupos).pessoas }))
+    // Quem juntou zero não entra num ranking de "quem mais juntou". Sem este
+    // filtro a lista mostrava uma campanha real e quatro zeros, cada um com
+    // sua barrinha de 2% — ruído com aparência de medição.
+    .filter((l) => l.total > 0);
   return ranquear(linhas).slice(0, limite);
 }

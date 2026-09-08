@@ -593,6 +593,25 @@
   border-radius: 9999px;
   background: var(--color-line-200);
 }
+/* Em tela larga a folha vira diálogo centrado: o bottom sheet é gesto de
+   polegar, e num monitor ele fica longe demais da mão e do olho. Só vale para
+   a folha aberta por botão que existe no desktop (`emQualquerLargura`). */
+@media (min-width: 1024px) {
+  .pn-folha--dialogo {
+    inset-inline: auto;
+    top: 50%;
+    left: 50%;
+    bottom: auto;
+    width: min(520px, calc(100vw - 48px));
+    transform: translate(-50%, -50%);
+    border-radius: var(--radius-porta);
+    padding: 8px 0 16px;
+    animation: none;
+  }
+  .pn-folha--dialogo .pn-folha__alca {
+    display: none;
+  }
+}
 .pn-folha__fechar {
   min-height: 44px;
   padding: 0 12px;

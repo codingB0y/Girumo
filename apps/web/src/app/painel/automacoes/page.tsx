@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { TRIGGER_LABELS } from "@/lib/automations/trigger-labels";
 import { AutomacoesVitrine } from "@/components/painel/automacoes/vitrine/automacoes-vitrine";
 import { isPainelVitrineEnabled } from "@/lib/painel/flags";
-import { visiveisParaOLojista } from "@/lib/painel/automacoes";
+import { comEnabled, reinserirNaPosicao, visiveisParaOLojista } from "@/lib/painel/automacoes";
 import type { Carga } from "@/lib/painel/types";
 
 type AutomationStep = {
@@ -136,7 +136,7 @@ export default function PainelAutomacoes() {
 
   async function toggleEnabled(id: string, enabled: boolean) {
     setActionError(null);
-    setAutomations((prev) => prev.map((a) => (a.id === id ? { ...a, enabled } : a)));
+    setAutomations((prev) => comEnabled(prev, id, enabled));
     try {
       const res = await fetch("/api/automations", {
         method: "PATCH",
@@ -147,7 +147,7 @@ export default function PainelAutomacoes() {
     } catch {
       // Reverte só o campo desta automação — não um snapshot inteiro, pra não
       // engolir updates otimistas concorrentes de outras linhas.
-      setAutomations((prev) => prev.map((a) => (a.id === id ? { ...a, enabled: !enabled } : a)));
+      setAutomations((prev) => comEnabled(prev, id, !enabled));
       setActionError("Não foi possível atualizar a automação. Tente de novo.");
     }
   }
@@ -162,12 +162,7 @@ export default function PainelAutomacoes() {
       const res = await fetch(`/api/automations?id=${encodeURIComponent(id)}`, { method: "DELETE" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
     } catch {
-      setAutomations((prev) => {
-        if (prev.some((a) => a.id === id)) return prev;
-        const next = [...prev];
-        next.splice(Math.min(index, next.length), 0, removed);
-        return next;
-      });
+      setAutomations((prev) => reinserirNaPosicao(prev, removed, index));
       setActionError("Não foi possível excluir a automação. Verifique sua permissão e tente de novo.");
     }
   }

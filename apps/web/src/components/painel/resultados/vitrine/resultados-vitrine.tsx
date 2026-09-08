@@ -92,7 +92,7 @@ export function ResultadosVitrine({ links, grupos, leads, pedidos, campanhas, ao
       </header>
 
       {cena === "erro" ? (
-        <div className="pn-card rounded-[var(--radius-control)] p-6">
+        <div className="pn-card rounded-[var(--radius-control)] p-6" role="alert">
           <p className="text-15 text-volt-950">Não deu para carregar seus resultados.</p>
           <p className="mt-1 text-13 text-slate-600">
             Nenhuma das consultas respondeu. Seus números continuam registrados.
@@ -162,7 +162,14 @@ export function ResultadosVitrine({ links, grupos, leads, pedidos, campanhas, ao
           <Barras
             titulo="Quem mais juntou gente"
             fatias={porCampanha}
-            vazio="Crie campanhas pra ver o desempenho aqui."
+            // Ter campanha e não ter ninguém dentro é diferente de não ter
+            // campanha — mandar "crie campanhas" a quem já criou cinco só
+            // esconde o problema real, que é grupo vazio.
+            vazio={
+              campanhas.lista.length > 0
+                ? "Suas campanhas ainda não juntaram ninguém."
+                : "Crie campanhas pra ver o desempenho aqui."
+            }
             rodape={{ href: "/painel/campanhas", texto: "Ver campanhas →" }}
           />
 

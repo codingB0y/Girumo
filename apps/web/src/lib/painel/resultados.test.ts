@@ -160,6 +160,27 @@ test("membros por campanha: top 5, do maior para o menor", () => {
   assert.equal(fatias[0].largura, 1);
 });
 
+test("campanha que não juntou ninguém fica fora do ranking", () => {
+  // Mutante: soltar o filtro devolve a lista com zeros. Visto na captura de
+  // tela: uma campanha real e quatro linhas de "0", cada uma com barrinha de
+  // 2% — ruído com aparência de medição, numa lista que promete ranking.
+  const grupos = [{ id: "g1", name: "VIP", whatsappGroupId: "w1", members: 900, capacity: 1024 }];
+  const fatias = membrosPorCampanha(
+    [
+      { id: "a", name: "Com gente", groupIds: ["g1"] },
+      { id: "b", name: "Vazia", groupIds: [] },
+      { id: "c", name: "Órfã", groupIds: ["sumiu"] },
+    ],
+    grupos,
+  );
+  assert.deepEqual(
+    fatias.map((f) => f.nome),
+    ["Com gente"],
+  );
+  // Nenhuma juntou ninguém: lista vazia, não cinco zeros.
+  assert.deepEqual(membrosPorCampanha([{ id: "b", name: "Vazia", groupIds: [] }], grupos), []);
+});
+
 test("campanha casa o grupo pelo id do WhatsApp, não só pelo UUID", () => {
   // Mutante: casar só por `id`. Em produção o groupIds guarda o id do
   // WhatsApp, e a tela mostraria zero membro para toda campanha real.

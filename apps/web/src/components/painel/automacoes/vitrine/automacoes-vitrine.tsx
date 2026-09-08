@@ -76,6 +76,8 @@ export function AutomacoesVitrine({
         <button
           type="button"
           onClick={() => setFolhaAberta(true)}
+          aria-haspopup="dialog"
+          aria-expanded={folhaAberta}
           aria-controls="folha-templates"
           className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] bg-volt-950 px-4 text-15 font-semibold text-paper-0 transition-colors hover:bg-volt-800"
         >
@@ -109,7 +111,7 @@ export function AutomacoesVitrine({
       )}
 
       {cena === "erro" && (
-        <div className="pn-card rounded-[var(--radius-control)] p-6">
+        <div className="pn-card rounded-[var(--radius-control)] p-6" role="alert">
           <p className="text-15 text-volt-950">Não deu para carregar as automações.</p>
           <p className="mt-1 text-13 text-slate-600">
             As que você já criou continuam rodando — só esta lista não chegou.
@@ -133,6 +135,9 @@ export function AutomacoesVitrine({
           <button
             type="button"
             onClick={() => setFolhaAberta(true)}
+            aria-haspopup="dialog"
+            aria-expanded={folhaAberta}
+            aria-controls="folha-templates"
             className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] bg-volt-950 px-4 text-15 font-semibold text-paper-0 transition-colors hover:bg-volt-800"
           >
             <Plus className="h-4 w-4" aria-hidden="true" /> Criar a primeira
@@ -156,6 +161,7 @@ export function AutomacoesVitrine({
         titulo="Escolha um modelo"
         testId="folha-templates"
         id="folha-templates"
+        emQualquerLargura
       >
         <p className="text-13 text-slate-600">
           Comece por um modelo pronto e ajuste a mensagem depois. Nenhum deles manda mensagem no

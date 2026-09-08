@@ -88,10 +88,10 @@ export function comEnabled<T extends { id: string; enabled: boolean }>(
  * re-renderizar a lista inteira à toa.
  */
 export function reinserirNaPosicao<T extends { id: string }>(
-  lista: readonly T[],
+  lista: T[],
   item: T,
   indice: number,
-): readonly T[] {
+): T[] {
   if (lista.some((a) => a.id === item.id)) return lista;
   const proxima = [...lista];
   proxima.splice(Math.min(Math.max(0, indice), proxima.length), 0, item);
