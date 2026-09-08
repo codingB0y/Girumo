@@ -77,6 +77,10 @@ export default function PainelIndicacao() {
 
   const load = useCallback(async () => {
     setCargaDoRanking("carregando");
+    // Cada tentativa começa limpa. Sem isto, um retry BEM-SUCEDIDO deixa o
+    // aviso da falha anterior preso na tela, contradizendo o ranking que
+    // aparece logo abaixo.
+    setErroDaCarga(null);
     try {
       const res = await authenticatedFetch("/api/referrals");
       if (!res.ok) throw new Error(await readError(res, "Não foi possível carregar as indicações."));

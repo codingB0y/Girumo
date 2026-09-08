@@ -13,9 +13,9 @@ import {
   ordenarRanking,
   podeCriarIndicadora,
   progressoDaIndicadora,
+  quadrosDaIndicacao,
   resumoDoPrograma,
   textoDeCliques,
-  totaisDaIndicacao,
   type ConfigDoPrograma,
   type IndicadoraNaFicha,
 } from "@/lib/painel/indicacao";
@@ -83,7 +83,7 @@ export function IndicacaoVitrine({
   }, [config.reward, config.goal]);
 
   const ordenado = useMemo(() => ordenarRanking(ranking), [ranking]);
-  const totais = useMemo(() => totaisDaIndicacao(ranking), [ranking]);
+  const quadros = useMemo(() => quadrosDaIndicacao(ranking, carga), [ranking, carga]);
   const cena = cenaDoRanking({ carga, total: ranking.length });
   const podeCriar = podeCriarIndicadora({ nome, grupo, inviteUrl }) && !criando;
 
@@ -159,6 +159,7 @@ export function IndicacaoVitrine({
               value={meta}
               onChange={(e) => setMeta(e.target.value)}
               aria-invalid={erroDaMeta !== null}
+              aria-describedby={erroDaMeta ? "erro-da-meta" : undefined}
               className="mt-1.5 min-h-11 w-full rounded-[var(--radius-control)] border border-paper-0/15 bg-paper-0/10 px-4 text-15 text-paper-0 outline-none focus:border-cobalt-500"
             />
           </label>
@@ -171,7 +172,7 @@ export function IndicacaoVitrine({
           </button>
         </form>
         {(erroDaMeta || erroDaConfig) && (
-          <p className="mt-2 text-13 text-paper-0" role="alert">
+          <p id="erro-da-meta" className="mt-2 text-13 text-paper-0" role="alert">
             {erroDaMeta ?? erroDaConfig}
           </p>
         )}
@@ -219,9 +220,9 @@ export function IndicacaoVitrine({
       </section>
 
       <div className="grid grid-cols-3 gap-3">
-        <Quadro rotulo="Indicadoras" valor={totais.pessoas} />
-        <Quadro rotulo="Cliques" valor={totais.cliques} />
-        <Quadro rotulo="Bateram a meta" valor={totais.bateram} />
+        {quadros.map((q) => (
+          <Quadro key={q.rotulo} rotulo={q.rotulo} valor={q.valor} />
+        ))}
       </div>
 
       {cena === "carregando" && (
@@ -343,7 +344,7 @@ function Ficha({
           type="button"
           onClick={() => aoApagar(item)}
           disabled={apagando}
-          aria-label={`Apagar a indicação de ${item.referrerName}`}
+          aria-label={`Apagar indicação de ${item.referrerName}`}
           className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-slate-600 transition-colors hover:bg-canvas-100 hover:text-volt-950 disabled:opacity-40"
         >
           <Trash2 className="h-4 w-4" aria-hidden="true" />
@@ -392,12 +393,18 @@ function Campo({
   );
 }
 
-function Quadro({ rotulo, valor }: { rotulo: string; valor: number }) {
+function Quadro({ rotulo, valor }: { rotulo: string; valor: string | null }) {
   return (
     <div className="pn-card rounded-[var(--radius-control)] p-4">
       <p className="font-data text-12 uppercase tracking-[0.06em] text-slate-600">{rotulo}</p>
-      <p className="font-data mt-2 text-28 tabular-nums text-volt-950">
-        {valor.toLocaleString("pt-BR")}
+      {/* Travessão, não zero: antes de a lista chegar a tela não sabe. */}
+      <p
+        className={cn(
+          "font-data mt-2 text-28 tabular-nums",
+          valor === null ? "text-slate-600" : "text-volt-950",
+        )}
+      >
+        {valor ?? "—"}
       </p>
     </div>
   );

@@ -7,6 +7,7 @@ import {
   linkDaIndicadora,
   metaValida,
   ordenarRanking,
+  quadrosDaIndicacao,
   podeCriarIndicadora,
   progressoDaIndicadora,
   resumoDoPrograma,
@@ -158,4 +159,34 @@ test("criar indicadora exige os três campos com conteúdo", () => {
   assert.equal(podeCriarIndicadora({ nome: "  ", grupo: "G1", inviteUrl: "https://x" }), false);
   assert.equal(podeCriarIndicadora({ nome: "Ana", grupo: "", inviteUrl: "https://x" }), false);
   assert.equal(podeCriarIndicadora({ nome: "Ana", grupo: "G1", inviteUrl: "   " }), false);
+});
+
+test("os quadros do topo nao afirmam zero antes da lista chegar", () => {
+  // Mutante: ler os totais sem olhar a carga. Visto na captura de tela: com a
+  // lista ainda em esqueleto, os tres quadros ja mostravam "0", afirmando que
+  // a lojista nao tem indicadora nenhuma antes de saber.
+  assert.deepEqual(
+    quadrosDaIndicacao([], "carregando").map((q) => q.valor),
+    [null, null, null],
+  );
+  assert.deepEqual(
+    quadrosDaIndicacao([], "erro").map((q) => q.valor),
+    [null, null, null],
+  );
+  // Com a resposta em mãos, zero é medição de verdade.
+  assert.deepEqual(
+    quadrosDaIndicacao([], "ok").map((q) => q.valor),
+    ["0", "0", "0"],
+  );
+  assert.deepEqual(
+    quadrosDaIndicacao(
+      [ficha({ id: "a", cliques: 1200, atingiu: true }), ficha({ id: "b", cliques: 2 })],
+      "ok",
+    ).map((q) => [q.rotulo, q.valor]),
+    [
+      ["Indicadoras", "2"],
+      ["Cliques", "1.202"],
+      ["Bateram a meta", "1"],
+    ],
+  );
 });

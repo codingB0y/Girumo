@@ -89,6 +89,26 @@ export function totaisDaIndicacao(ranking: readonly IndicadoraNaFicha[]): {
 }
 
 /**
+ * Os três quadros do topo, prontos para a tela.
+ *
+ * `null` enquanto o ranking não chegou: com a lista ainda em esqueleto,
+ * `totaisDaIndicacao([])` devolve 0/0/0 e a tela **afirma** que a lojista não
+ * tem indicadora nenhuma antes de saber. Travessão é a resposta honesta.
+ */
+export function quadrosDaIndicacao(
+  ranking: readonly IndicadoraNaFicha[],
+  carga: Carga,
+): { rotulo: string; valor: string | null }[] {
+  const t = totaisDaIndicacao(ranking);
+  const numero = (n: number) => (carga === "ok" ? n.toLocaleString("pt-BR") : null);
+  return [
+    { rotulo: "Indicadoras", valor: numero(t.pessoas) },
+    { rotulo: "Cliques", valor: numero(t.cliques) },
+    { rotulo: "Bateram a meta", valor: numero(t.bateram) },
+  ];
+}
+
+/**
  * Recalcula quem bateu a meta depois que a meta muda.
  *
  * Sem isto, baixar a meta de 5 para 2 deixava o selo "Bateu a meta" ausente em

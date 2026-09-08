@@ -76,7 +76,10 @@ test("indicação: cadastra pela tela, o link do ranking redireciona e conta cli
     criada = ranking.find((r) => r.referrerName === nome) ?? null;
     expect(criada, "a indicação criada não voltou no ranking da API").not.toBeNull();
     expect(criada!.path).toBe(`/r/${criada!.slug}`);
-    await expect(page.getByRole("button", { name: new RegExp(criada!.slug) })).toBeVisible();
+    // Pelo TEXTO, não pelo nome acessível do botão: na Vitrine o caminho fica
+    // num rótulo ao lado e o botão se chama "Copiar o link de <nome>". Cobrar
+    // o nome do botão amarraria a prova à casca.
+    await expect(page.getByText(criada!.path, { exact: false }).first()).toBeVisible();
 
     // 3) O link EXISTE e leva ao convite. Este era o elo quebrado: o link nascia
     //    num store que `/r/:slug` nem consulta.
