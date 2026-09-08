@@ -81,7 +81,7 @@ export function GruposVitrine({
 
   if (carregando) {
     return (
-      <div className="mx-auto max-w-[1200px] space-y-6 px-4 py-5 lg:px-8 lg:py-8">
+      <div className="mx-auto max-w-[1200px] space-y-6 px-4 py-5 lg:px-8 lg:py-8" role="status" aria-label="Carregando os grupos">
         <div className="pn-skeleton h-24 rounded-xl" data-testid="painel-skeleton" />
         <div className="pn-skeleton h-72 rounded-xl" data-testid="painel-skeleton" />
       </div>

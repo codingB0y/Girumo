@@ -180,7 +180,7 @@ export default function PainelCampanhas() {
 
       {/* Conteúdo */}
       {loading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" role="status" aria-label="Carregando as campanhas">
           {[0, 1, 2].map((i) => (
             <div key={i} className="pn-skeleton h-64 rounded-xl" data-testid="painel-skeleton" />
           ))}

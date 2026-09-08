@@ -94,7 +94,7 @@ export function FolhaPostar({ id, aberta, aoFechar, aoPostar }: Props) {
   return (
     <Folha id={id} aberta={aberta} aoFechar={aoFechar} titulo="Postar" testId="painel-folha-postar">
       {carregando ? (
-        <div className="space-y-3 pb-4">
+        <div className="space-y-3 pb-4" role="status" aria-label="Carregando as campanhas">
           <div className="pn-skeleton h-12 rounded-[var(--radius-control)]" data-testid="painel-skeleton" />
           <div className="pn-skeleton h-32 rounded-[var(--radius-control)]" data-testid="painel-skeleton" />
         </div>

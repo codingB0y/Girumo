@@ -197,7 +197,7 @@ function PlanCard() {
   if (loading) {
     return (
       <div className="px-3 pb-4">
-        <div className="pn-skeleton h-[104px] rounded-xl" data-testid="painel-skeleton" />
+        <div className="pn-skeleton h-[104px] rounded-xl" data-testid="painel-skeleton" aria-hidden="true" />
       </div>
     );
   }

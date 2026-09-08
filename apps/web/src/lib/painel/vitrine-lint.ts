@@ -43,6 +43,9 @@ function isStateVariant(prefixes: string): boolean {
   return prefixes.split(":").some((variant) => STATE_VARIANTS.has(variant));
 }
 
+const SKELETON = /\bpn-skeleton\b/;
+const ANUNCIADO = /role="status"|aria-hidden/;
+
 export function lintPainelSource(relativeFile: string, source: string): string[] {
   const findings: string[] = [];
   for (const [pattern, why] of FORBIDDEN) {
@@ -53,6 +56,15 @@ export function lintPainelSource(relativeFile: string, source: string): string[]
   const acid = [...source.matchAll(ACID_BG)].filter((match) => !isStateVariant(match[1])).length;
   if (acid > MAX_ACID_BG_PER_FILE) {
     findings.push(`${relativeFile}: ${acid} fundos Acid (máximo ${MAX_ACID_BG_PER_FILE} por arquivo)`);
+  }
+  // Esqueleto sem `role="status"` não avisa a quem não vê que a tela está
+  // esperando resposta; sem `aria-hidden` num placeholder decorativo, o leitor
+  // encontra uma caixa muda. Proxy POR ARQUIVO, igual ao dos fundos Acid: não
+  // pega um esqueleto anunciado e outro mudo no mesmo arquivo, mas pega o caso
+  // que aparece de verdade — tela nova com esqueleto que ninguém marcou.
+  // Só .tsx: no CSS `.pn-skeleton` é a definição da classe, não um uso.
+  if (relativeFile.endsWith(".tsx") && SKELETON.test(source) && !ANUNCIADO.test(source)) {
+    findings.push(`${relativeFile}: pn-skeleton sem role="status" nem aria-hidden`);
   }
   return findings;
 }

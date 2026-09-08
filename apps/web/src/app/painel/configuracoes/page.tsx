@@ -648,7 +648,7 @@ export default function PainelConfiguracoes() {
                         <p className="mt-0.5 text-xs text-aco/60">{p.desc}</p>
                       </div>
                       {ligado === undefined ? (
-                        <span className="pn-skeleton h-6 w-11 shrink-0 rounded-full" data-testid="painel-skeleton" />
+                        <span className="pn-skeleton h-6 w-11 shrink-0 rounded-full" data-testid="painel-skeleton" aria-hidden="true" />
                       ) : (
                         <button
                           role="switch"
@@ -774,7 +774,7 @@ export default function PainelConfiguracoes() {
                   Ajusta os modelos de mensagem da biblioteca pro seu tipo de negócio.
                 </p>
                 {segment === undefined ? (
-                  <span className="pn-skeleton mt-2 block h-10 w-full max-w-sm rounded-xl" data-testid="painel-skeleton" />
+                  <span className="pn-skeleton mt-2 block h-10 w-full max-w-sm rounded-xl" data-testid="painel-skeleton" aria-hidden="true" />
                 ) : (
                   <select
                     id="segmento"

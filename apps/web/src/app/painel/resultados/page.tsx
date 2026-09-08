@@ -124,7 +124,7 @@ export default function PainelResultados() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-[1200px] space-y-8 px-4 py-8 sm:px-8">
+      <div className="mx-auto max-w-[1200px] space-y-8 px-4 py-8 sm:px-8" role="status" aria-label="Carregando os resultados">
         <div className="pn-skeleton h-10 w-56 rounded-lg" data-testid="painel-skeleton" />
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{[0, 1, 2, 3].map((i) => <div key={i} className="pn-skeleton h-24 rounded-xl" data-testid="painel-skeleton" />)}</div>
         <div className="pn-skeleton h-72 rounded-xl" data-testid="painel-skeleton" />

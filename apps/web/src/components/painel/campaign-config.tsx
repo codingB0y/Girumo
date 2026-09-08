@@ -274,7 +274,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-[760px] space-y-4 px-4 py-10 sm:px-8">
+      <div className="mx-auto max-w-[760px] space-y-4 px-4 py-10 sm:px-8" role="status" aria-label="Carregando a campanha">
         <div className="pn-skeleton h-10 w-48 rounded-lg" data-testid="painel-skeleton" />
         <div className="pn-skeleton h-72 rounded-xl" data-testid="painel-skeleton" />
       </div>

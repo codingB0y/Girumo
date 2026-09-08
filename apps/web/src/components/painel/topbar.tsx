@@ -33,7 +33,13 @@ function ConnectedNumber() {
   const { session, loading } = usePanelSession();
 
   if (loading) {
-    return <div className="pn-skeleton hidden h-9 w-44 rounded-[10px] sm:block" data-testid="painel-skeleton" />;
+    return (
+      <div
+        className="pn-skeleton hidden h-9 w-44 rounded-[10px] sm:block"
+        data-testid="painel-skeleton"
+        aria-hidden="true"
+      />
+    );
   }
 
   // Sem resposta da API: some em vez de inventar um estado.
