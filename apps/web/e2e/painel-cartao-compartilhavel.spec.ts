@@ -7,8 +7,8 @@ import { exigeCredenciais, semErroDeRuntime } from "./sessao-helpers";
  *
  * ONDE ELE VIVE: na HOME do painel, nao em campanhas. O card do quadro nasceu
  * na coluna "Campanhas", mas o mecanismo e `CelebrationModal` renderizado por
- * `home/full-dashboard.tsx`, alimentado por `computeCelebrations` e desenhado
- * por `/api/og`. Nao ha nada de compartilhavel no modulo de campanhas.
+ * `home/vitrine/inicio-vitrine.tsx`, alimentado por `computeCelebrations` e
+ * desenhado por `/api/og`. Nao ha nada de compartilhavel no modulo de campanhas.
  *
  * POR QUE O TESTE MEXE NA META: o modal so aparece quando ha marco ATINGIDO e
  * NAO celebrado. Os tres gatilhos possiveis nao servem igual:
