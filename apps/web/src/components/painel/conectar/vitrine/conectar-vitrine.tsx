@@ -4,8 +4,8 @@ import Link from "next/link";
 import { Power, RefreshCw, ShieldCheck } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { cn } from "@/lib/utils";
-import { GruposProtecao } from "@/components/painel/grupos-protecao";
-import { NumeroSaude } from "@/components/painel/numero-saude";
+import { GruposProtecaoVitrine } from "@/components/painel/conectar/vitrine/grupos-protecao-vitrine";
+import { NumeroSaudeVitrine } from "@/components/painel/conectar/vitrine/numero-saude-vitrine";
 import { PerguntaPerfilNumero } from "@/components/painel/pergunta-perfil-numero";
 import { PlanLimitAlert } from "@/components/painel/plan-limit-alert";
 import { precisaParearDeNovo } from "@/lib/instance-disconnect-reason";
@@ -229,8 +229,8 @@ function CenaDoNumero({
         </div>
       </section>
 
-      <NumeroSaude />
-      <GruposProtecao />
+      <NumeroSaudeVitrine />
+      <GruposProtecaoVitrine />
 
       <Link href="/painel" className="inline-block text-13 text-slate-600 hover:text-volt-950">
         ← Voltar ao painel
@@ -334,7 +334,7 @@ function CenaDoPareamento({
       {/* Com histórico, a saúde do número segue na tela mesmo sem sessão: é ela
           que mostra o aquecimento acumulado e o aviso dos 14 dias — justamente
           o que costuma explicar a queda. */}
-      {reconexao && <NumeroSaude />}
+      {reconexao && <NumeroSaudeVitrine />}
 
       <Link href="/painel" className="inline-block text-13 text-slate-600 hover:text-volt-950">
         {reconexao ? "← Voltar ao painel" : "Pular por agora"}
