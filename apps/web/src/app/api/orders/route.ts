@@ -1,4 +1,4 @@
-import { listOrders, addOrder, removeOrder, countOrders } from "@/lib/stores/orders";
+import { addOrder, removeOrder, countOrders, listOrdersByTenant } from "@/lib/stores/orders";
 import { updateLeadStatus } from "@/lib/leads-store";
 import { getLeadSourceCampaign } from "@/lib/stores/leads";
 import { listCampaignGroups } from "@/lib/stores/campaign-groups";
@@ -10,9 +10,16 @@ import { parseValorDoPedido as parseOrderValue } from "@/lib/orders/valor-do-ped
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
+  let tenantId: string;
   try {
-    return Response.json(await listOrders());
+    ({ tenantId } = await getRouteTenantContext(req, { allowEngine: false }));
+  } catch (e) {
+    if (e instanceof Response) return e;
+    return Response.json({ error: (e as Error).message }, { status: 500 });
+  }
+  try {
+    return Response.json(await listOrdersByTenant(tenantId));
   } catch (e) {
     return Response.json({ error: (e as Error).message }, { status: 500 });
   }

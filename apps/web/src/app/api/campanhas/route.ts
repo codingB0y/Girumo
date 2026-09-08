@@ -1,10 +1,11 @@
 import { USE_SUPABASE } from "@/lib/stores/use-supabase";
 import * as supaStore from "@/lib/stores/campaign-groups";
 import * as linksStore from "@/lib/stores/tracked-links";
-import { campanhasColl, ensureSlugs, uniqueCampanhaSlug, type Campanha } from "@/lib/campanhas-store";
+import { campanhasColl, uniqueCampanhaSlug, type Campanha } from "@/lib/campanhas-store";
 import { listLinks, slugify } from "@/lib/store";
 import { assertPlanLimit } from "@/lib/billing/entitlements";
 import { getTenantContext } from "@/lib/supabase/tenant-context";
+import { carregarCampanhas } from "@/lib/painel/inicio-carga";
 import { assertPermission } from "@/lib/permissions";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import {
@@ -39,30 +40,10 @@ async function uniqueMasterSlug(name: string, takenInTenant: Set<string>): Promi
   return `${base}-${crypto.randomUUID().slice(0, 8)}`;
 }
 
-// GET /api/campanhas
+// GET /api/campanhas — mesmo corpo que a rota agregada da Início serve.
 export async function GET(req: Request) {
   const { tenantId } = await getTenantContext(req);
-  if (!USE_SUPABASE) {
-    await ensureSlugs();
-    return Response.json((await campanhasColl.list()).filter((item) => item.tenantId === tenantId));
-  }
-  const list = await supaStore.listCampaignGroups(tenantId);
-  // Map to legacy frontend shape
-  const mapped = list.map((c) => ({
-    id: c.id,
-    name: c.name,
-    loja: (c.metadata as Record<string, unknown>)?.loja ?? "Minha loja",
-    groupIds: c.group_ids,
-    slug: c.slug,
-    autoGrow: c.auto_grow,
-    growTemplate: c.grow_template,
-    settings: {
-      entrada: readEntrada(c.metadata as Record<string, unknown>),
-      integracoes: apresentaIntegracoes(readIntegracoes(c.metadata as Record<string, unknown>)),
-    },
-    createdAt: c.created_at,
-  }));
-  return Response.json(mapped);
+  return Response.json(await carregarCampanhas(tenantId));
 }
 
 // POST /api/campanhas

@@ -1,4 +1,5 @@
-import { getSession, setSession, isLive, type EngineStats } from "@/lib/session-store";
+import { setSession, type EngineStats } from "@/lib/session-store";
+import { carregarSessao } from "@/lib/painel/inicio-carga";
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
 
 export const runtime = "nodejs";
@@ -7,8 +8,7 @@ export const dynamic = "force-dynamic";
 // GET /api/session — status real (live = status conectado, sem abandono >24h; ver isLive()).
 export async function GET(req: Request) {
   const { tenantId } = await getRouteTenantContext(req, { allowEngine: true });
-  const s = await getSession(tenantId);
-  return Response.json({ ...s, live: isLive(s) });
+  return Response.json(await carregarSessao(tenantId));
 }
 
 // POST /api/session — heartbeat/atualização vinda da engine.

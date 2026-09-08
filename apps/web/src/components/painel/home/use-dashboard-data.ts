@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { Group } from "@/lib/mock-data";
+import type { Parte } from "@/lib/painel/inicio-resposta";
 import type {
   Automation,
   Campanha,
@@ -28,10 +29,8 @@ function toAutomation(a: RawAutomation): Automation {
   return { id: a.id, name: a.name, trigger: a.trigger, enabled: a.enabled, lastRunAt: a.last_run_at };
 }
 
-type FetchResult<T> = { ok: true; data: T } | { ok: false };
-
 /** Busca que separa "veio vazio" de "não deu pra buscar". */
-async function loadJson<T>(url: string): Promise<FetchResult<T>> {
+async function loadJson<T>(url: string): Promise<Parte<T>> {
   try {
     const res = await fetch(url);
     if (!res.ok) return { ok: false };
@@ -41,8 +40,33 @@ async function loadJson<T>(url: string): Promise<FetchResult<T>> {
   }
 }
 
-function asArray<T>(result: FetchResult<unknown>): T[] {
+function asArray<T>(result: Parte<unknown>): T[] {
   return result.ok && Array.isArray(result.data) ? (result.data as T[]) : [];
+}
+
+/**
+ * As dez partes de `/api/painel/inicio`. Cada uma diz se carregou: um array
+ * vazio não distingue "sem nada" de "não deu pra buscar", e essa diferença é o
+ * que separa a tela de erro do aviso de carga parcial.
+ */
+type Carga = {
+  groups: Parte<Group[]>;
+  campanhas: Parte<Campanha[]>;
+  links: Parte<TrackedLink[]>;
+  leads: Parte<Lead[]>;
+  orders: Parte<Order[]>;
+  schedules: Parte<Schedule[]>;
+  disparos: Parte<Disparo[]>;
+  automations: Parte<RawAutomation[]>;
+  session: Parte<Session>;
+  settings: Parte<TenantSettings>;
+};
+
+const NAO_VEIO: Parte<never> = { ok: false };
+
+/** Parte ausente na resposta conta como falha, não como estouro no render. */
+function parte<T>(valor: Parte<T> | undefined): Parte<T> {
+  return valor ?? NAO_VEIO;
 }
 
 export type LoadState =
@@ -68,29 +92,25 @@ export function useDashboardData(): DashboardDataHandle {
   const load = useCallback(async () => {
     setState({ status: "loading" });
 
-    const [
-      groups,
-      campanhas,
-      links,
-      leads,
-      orders,
-      schedules,
-      disparos,
-      automations,
-      session,
-      settings,
-    ] = await Promise.all([
-        loadJson<Group[]>("/api/groups"),
-        loadJson<Campanha[]>("/api/campanhas"),
-        loadJson<TrackedLink[]>("/api/links"),
-        loadJson<Lead[]>("/api/leads"),
-        loadJson<Order[]>("/api/orders"),
-        loadJson<Schedule[]>("/api/schedules"),
-        loadJson<Disparo[]>("/api/disparos"),
-        loadJson<RawAutomation[]>("/api/automations"),
-        loadJson<Session>("/api/session"),
-        loadJson<TenantSettings>("/api/settings"),
-      ]);
+    // Uma chamada, não dez: a rota agregada resolve o tenant uma vez e roda os
+    // dez stores em paralelo no servidor. As dez rotas soltas continuam de pé
+    // para as outras telas, chamando a mesma função de carga que esta usa.
+    const carga = await loadJson<Carga>("/api/painel/inicio");
+    if (!carga.ok) {
+      setState({ status: "error" });
+      return;
+    }
+
+    const groups = parte(carga.data.groups);
+    const campanhas = parte(carga.data.campanhas);
+    const links = parte(carga.data.links);
+    const leads = parte(carga.data.leads);
+    const orders = parte(carga.data.orders);
+    const schedules = parte(carga.data.schedules);
+    const disparos = parte(carga.data.disparos);
+    const automations = parte(carga.data.automations);
+    const session = parte(carga.data.session);
+    const settings = parte(carga.data.settings);
 
     // Estes três decidem entre onboarding e dashboard. Se algum falhar, não dá
     // pra decidir — e o palpite errado joga uma conta veterana de volta em
