@@ -9,6 +9,8 @@ import { PlanLimitAlert } from "@/components/painel/plan-limit-alert";
 import { NumeroSaude } from "@/components/painel/numero-saude";
 import { GruposProtecao } from "@/components/painel/grupos-protecao";
 import { PerguntaPerfilNumero } from "@/components/painel/pergunta-perfil-numero";
+import { ConectarVitrine } from "@/components/painel/conectar/vitrine/conectar-vitrine";
+import { isPainelVitrineEnabled } from "@/lib/painel/flags";
 import { cn } from "@/lib/utils";
 import { POLL_MS, WATCH_MS, nextPollDelay } from "@/lib/engine-poll";
 import { precisaParearDeNovo } from "@/lib/instance-disconnect-reason";
@@ -45,6 +47,25 @@ export default function PainelConectar() {
   } = useInstance();
   const connected = instance?.status === "connected";
   const jaPareou = Boolean(instance?.connected_at);
+
+  // PR 8 da Vitrine Aberta: o cartão do número e o código na caixinha Canvas.
+  // Todo o estado acima continua aqui — só o desenho muda, e nenhuma consulta,
+  // efeito ou storage entra ou sai por causa da flag.
+  if (isPainelVitrineEnabled()) {
+    return (
+      <ConectarVitrine
+        instancia={instance}
+        carregando={loading}
+        erro={error}
+        upgradeUrl={upgradeUrl}
+        precisaPerfil={precisaPerfil}
+        onAtualizar={() => load(true)}
+        onRefreshQr={refreshQr}
+        onDesconectar={disconnect}
+        onEscolherPerfil={onEscolherPerfil}
+      />
+    );
+  }
 
   return (
     <div className="mx-auto max-w-[1000px] px-4 py-10 sm:px-8">
