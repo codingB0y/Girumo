@@ -15,6 +15,10 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { authenticatedFetch } from "@/lib/supabase/client";
+import { IndicacaoVitrine } from "@/components/painel/indicacao/vitrine/indicacao-vitrine";
+import { isPainelVitrineEnabled } from "@/lib/painel/flags";
+import { comMetaRecalculada } from "@/lib/painel/indicacao";
+import type { Carga } from "@/lib/painel/types";
 
 /** Espelha o `ranking` de `GET /api/referrals`. */
 type Ranked = {
@@ -46,8 +50,14 @@ async function readError(res: Response, fallback: string): Promise<string> {
 export default function PainelIndicacao() {
   const [ranking, setRanking] = useState<Ranked[]>([]);
   const [config, setConfig] = useState<Config>(CONFIG_FALLBACK);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [cargaDoRanking, setCargaDoRanking] = useState<Carga>("carregando");
+  /**
+   * Falha de APAGAR, separada da falha de carregar. A casca antiga usava um
+   * estado só para as duas: um DELETE recusado tinha a mesma cara de uma
+   * consulta que nunca respondeu.
+   */
+  const [avisoDeAcao, setAvisoDeAcao] = useState<string | null>(null);
+  const [erroDaCarga, setErroDaCarga] = useState<string | null>(null);
   const [origin, setOrigin] = useState("");
 
   const [name, setName] = useState("");
@@ -66,7 +76,11 @@ export default function PainelIndicacao() {
   const [removing, setRemoving] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    setLoadError(null);
+    setCargaDoRanking("carregando");
+    // Cada tentativa começa limpa. Sem isto, um retry BEM-SUCEDIDO deixa o
+    // aviso da falha anterior preso na tela, contradizendo o ranking que
+    // aparece logo abaixo.
+    setErroDaCarga(null);
     try {
       const res = await authenticatedFetch("/api/referrals");
       if (!res.ok) throw new Error(await readError(res, "Não foi possível carregar as indicações."));
@@ -79,14 +93,19 @@ export default function PainelIndicacao() {
       setReward(cfg.reward);
       setGoal(String(cfg.goal));
       setRanking(Array.isArray(data.ranking) ? data.ranking : []);
+      setCargaDoRanking("ok");
     } catch (e) {
       // Sem isto a falha vira "nenhuma indicadora ainda": tela idêntica à de quem
       // realmente não tem nenhuma, e ninguém descobre que a chamada quebrou.
-      setLoadError(e instanceof Error ? e.message : "Não foi possível carregar as indicações.");
-    } finally {
-      setLoading(false);
+      setCargaDoRanking("erro");
+      setErroDaCarga(e instanceof Error ? e.message : "Não foi possível carregar as indicações.");
     }
   }, []);
+
+  // A casca antiga lê um booleano e um erro só; a nova separa a carga do
+  // ranking do aviso de uma ação que falhou.
+  const loading = cargaDoRanking === "carregando";
+  const loadError = avisoDeAcao ?? erroDaCarga;
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -102,8 +121,12 @@ export default function PainelIndicacao() {
     [ranking],
   );
 
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
+  /**
+   * Recebe os campos em vez de ler o estado da página: a casca nova tem o
+   * formulário dela, e as duas precisam da MESMA chamada — senão só uma
+   * ganharia a próxima correção.
+   */
+  async function criarIndicadora(dados: { nome: string; grupo: string; inviteUrl: string }) {
     if (creating) return;
     setCreating(true);
     setFormError(null);
@@ -112,9 +135,9 @@ export default function PainelIndicacao() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          referrerName: name.trim(),
-          group: group.trim(),
-          inviteUrl: inviteUrl.trim(),
+          referrerName: dados.nome,
+          group: dados.grupo,
+          inviteUrl: dados.inviteUrl,
         }),
       });
       if (!res.ok) throw new Error(await readError(res, "Não foi possível criar o link."));
@@ -129,8 +152,7 @@ export default function PainelIndicacao() {
     }
   }
 
-  async function handleSaveConfig(e: React.FormEvent) {
-    e.preventDefault();
+  async function salvarConfig(dados: { reward: string; goal: number }) {
     if (savingConfig) return;
     setSavingConfig(true);
     setConfigError(null);
@@ -139,7 +161,7 @@ export default function PainelIndicacao() {
       const res = await authenticatedFetch("/api/referrals/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reward: reward.trim(), goal: Number(goal) }),
+        body: JSON.stringify({ reward: dados.reward, goal: dados.goal }),
       });
       if (!res.ok) throw new Error(await readError(res, "Não foi possível salvar."));
       const saved = (await res.json()) as Config;
@@ -147,7 +169,7 @@ export default function PainelIndicacao() {
       setReward(saved.reward);
       setGoal(String(saved.goal));
       // A meta mudou: quem bateu e quem não bateu muda junto.
-      setRanking((prev) => prev.map((r) => ({ ...r, atingiu: r.cliques >= saved.goal })));
+      setRanking((prev) => comMetaRecalculada(prev, saved.goal));
       setConfigSaved(true);
       setTimeout(() => setConfigSaved(false), 2500);
     } catch (err) {
@@ -157,10 +179,21 @@ export default function PainelIndicacao() {
     }
   }
 
+  function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    void criarIndicadora({ nome: name.trim(), grupo: group.trim(), inviteUrl: inviteUrl.trim() });
+  }
+
+  function handleSaveConfig(e: React.FormEvent) {
+    e.preventDefault();
+    void salvarConfig({ reward: reward.trim(), goal: Number(goal) });
+  }
+
   async function handleRemove(item: Ranked) {
     if (removing) return;
     if (!window.confirm(`Apagar o link de ${item.referrerName}? Ele para de funcionar na hora.`)) return;
     setRemoving(item.id);
+    setAvisoDeAcao(null);
     try {
       const res = await authenticatedFetch(`/api/referrals?id=${encodeURIComponent(item.id)}`, {
         method: "DELETE",
@@ -168,7 +201,7 @@ export default function PainelIndicacao() {
       if (!res.ok) throw new Error(await readError(res, "Não foi possível apagar."));
       setRanking((prev) => prev.filter((r) => r.id !== item.id));
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : "Não foi possível apagar.");
+      setAvisoDeAcao(err instanceof Error ? err.message : "Não foi possível apagar.");
     } finally {
       setRemoving(null);
     }
@@ -185,6 +218,31 @@ export default function PainelIndicacao() {
       // melhor do que um botão que pisca e não copia nada.
       window.prompt("Copie o link:", url);
     }
+  }
+
+  // PR 12 da Vitrine Aberta: a indicadora vira FICHA (pn-ficha), porque é
+  // pessoa, não mercadoria. Nenhuma consulta, efeito ou storage entra ou sai
+  // por causa da flag — só o desenho muda.
+  if (isPainelVitrineEnabled()) {
+    return (
+      <IndicacaoVitrine
+        ranking={ranking}
+        config={config}
+        carga={cargaDoRanking}
+        origin={origin}
+        avisoDeAcao={avisoDeAcao ?? (cargaDoRanking === "ok" ? erroDaCarga : null)}
+        criando={creating}
+        erroDoFormulario={formError}
+        aoCriar={(dados) => void criarIndicadora(dados)}
+        salvandoConfig={savingConfig}
+        configSalva={configSaved}
+        erroDaConfig={configError}
+        aoSalvarConfig={(dados) => void salvarConfig(dados)}
+        apagando={removing}
+        aoApagar={(item) => void handleRemove(item as Ranked)}
+        aoTentarDeNovo={() => void load()}
+      />
+    );
   }
 
   if (loading) {
