@@ -2,18 +2,14 @@ import { expect, test } from "@playwright/test";
 
 /**
  * Tela de Contatos da Vitrine Aberta. Só vale com a flag ligada — desligada, a
- * tela antiga está no ar e este arquivo pula inteiro. Liga no CI no PR 10.
- *
- * Roda local com NEXT_PUBLIC_PAINEL_VITRINE=on.
+ * A tela antiga saiu junto com a flag; esta é a única que existe.
  *
  * Não registra pedido de verdade: o POST em /api/orders sujaria o faturamento
  * do ambiente e o próprio teste passaria a medir o lixo que deixou. O que dá
  * pra afirmar sem gravar nada é o caminho até o campo e a coerência do caixa.
  */
-const VITRINE = (process.env.NEXT_PUBLIC_PAINEL_VITRINE ?? "").trim().toLowerCase() === "on";
 
 test.describe("Contatos na Vitrine Aberta", () => {
-  test.skip(!VITRINE, "NEXT_PUBLIC_PAINEL_VITRINE desligada: a tela antiga esta no ar");
 
   test("lista, filtros e o caixa do mes no rodape", async ({ page }) => {
     await page.goto("/painel/contatos", { waitUntil: "load" });

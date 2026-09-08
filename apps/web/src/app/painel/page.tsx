@@ -1,9 +1,7 @@
 "use client";
 
 import { resolveActivation } from "@/lib/onboarding-steps";
-import { isPainelVitrineEnabled } from "@/lib/painel/flags";
 import { DashboardSkeleton, LoadError } from "@/components/painel/home/dashboard-states";
-import { FullDashboard } from "@/components/painel/home/full-dashboard";
 import { InicioVitrine } from "@/components/painel/home/vitrine/inicio-vitrine";
 import { useDashboardData } from "@/components/painel/home/use-dashboard-data";
 
@@ -15,8 +13,7 @@ export default function PainelPage() {
   if (state.status === "error") return <LoadError onRetry={reload} />;
 
   const { data, partial } = state;
-  const { groups, campanhas, links, leads, orders, schedules, disparos, automations, session, settings } =
-    data;
+  const { groups, campanhas, links, leads, orders, disparos, automations, session, settings } = data;
   const { settingsOk } = data;
   const isConnected = session.live === true;
 
@@ -31,37 +28,14 @@ export default function PainelPage() {
     leadCount: leads.length,
   });
 
-  // Vitrine Aberta (PR 3b): mesma carga de dados, outra tela. Flag desligada = a Início de sempre.
-  if (isPainelVitrineEnabled()) {
-    return (
-      <InicioVitrine
-        groups={groups}
-        campanhas={campanhas}
-        links={links}
-        leads={leads}
-        orders={orders}
-        disparos={disparos}
-        automations={automations}
-        settings={settings}
-        settingsOk={settingsOk}
-        isConnected={isConnected}
-        partial={partial}
-        activation={activation}
-        onSettingsSaved={applySettings}
-        onDismissOnboarding={dismissOnboarding}
-        onOnboardingComplete={markOnboardingComplete}
-      />
-    );
-  }
-
+  // Vitrine Aberta (PR 3b): mesma carga de dados, outra tela.
   return (
-    <FullDashboard
+    <InicioVitrine
       groups={groups}
       campanhas={campanhas}
       links={links}
       leads={leads}
       orders={orders}
-      schedules={schedules}
       disparos={disparos}
       automations={automations}
       settings={settings}

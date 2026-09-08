@@ -3,11 +3,9 @@
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AuthShell } from "@/components/auth-shell";
-import { LegalConsentNotice } from "@/components/legal/legal-consent";
+import { AuthShellVitrine as AuthShell } from "@/components/auth/auth-shell-vitrine";
 import { safeNextPath } from "@/lib/auth/oauth-account";
-import { isPainelVitrineEnabled } from "@/lib/painel/flags";
-import { classesDaPorta } from "@/lib/painel/auth-classes";
+import { CLASSES_DA_PORTA } from "@/lib/painel/auth-classes";
 import { type Aparelho, aparelhoLembrado, esquecerAparelho, lembrarAparelho } from "@/lib/painel/auth-aparelho";
 import { persistSupabaseSession, startGoogleOAuth } from "@/lib/supabase/client";
 
@@ -35,12 +33,10 @@ function LoginForm({
   onEsquecer: () => void;
   onLembrar: (email: string) => void;
 }) {
-  const vitrine = isPainelVitrineEnabled();
-  const c = classesDaPorta(vitrine);
+  const c = CLASSES_DA_PORTA;
   const router = useRouter();
   const params = useSearchParams();
   const next = safeNextPath(params.get("next"));
-  const destination = routeLabels[next] ?? "a área solicitada";
   const redirectError = params.get("error");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -102,7 +98,7 @@ function LoginForm({
 
   return (
     <form className="space-y-4" onSubmit={submit}>
-      {vitrine && aparelho ? (
+      {aparelho ? (
         <AparelhoLembrado email={aparelho.email} onEsquecer={esquecer} />
       ) : (
         <div>
@@ -113,7 +109,7 @@ function LoginForm({
             id="login-email"
             data-testid="login-email"
             type="email"
-            placeholder={vitrine ? "voce@loja.com.br" : "voce@email.com"}
+            placeholder="voce@loja.com.br"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoFocus
@@ -127,8 +123,8 @@ function LoginForm({
           <label className={c.rotulo} htmlFor="login-senha">
             Senha
           </label>
-          <Link href="/forgot-password" className={`mb-1.5 ${c.link} ${vitrine ? "text-13" : "text-xs"}`}>
-            {vitrine ? "Esqueci a senha" : "Esqueci"}
+          <Link href="/forgot-password" className={`mb-1.5 ${c.link} text-13`}>
+            Esqueci a senha
           </Link>
         </div>
         <input
@@ -138,10 +134,10 @@ function LoginForm({
           // e no primeiro render `aparelho` ainda é null.
           key={aparelho ? "lembrado" : "visitante"}
           type="password"
-          placeholder={vitrine ? "" : "Sua senha"}
+          placeholder=""
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          autoFocus={vitrine && aparelho != null}
+          autoFocus={aparelho != null}
           autoComplete="current-password"
           className={c.campo}
         />
@@ -161,18 +157,7 @@ function LoginForm({
         {loading ? "Entrando..." : "Entrar"}
       </button>
 
-      {vitrine ? (
-        <p className="pn-porta__ou my-1">ou</p>
-      ) : (
-        <div className="relative my-2">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-volt-800" />
-          </div>
-          <div className="relative flex justify-center">
-            <span className="bg-volt-900 px-3 text-xs text-canvas-100/40">ou</span>
-          </div>
-        </div>
-      )}
+      <p className="pn-porta__ou my-1">ou</p>
 
       <button
         type="button"
@@ -183,12 +168,6 @@ function LoginForm({
         <GoogleIcon />
         {googleLoading ? "Abrindo o Google..." : "Entrar com Google"}
       </button>
-
-      {!vitrine && <LegalConsentNotice />}
-
-      {!vitrine && (
-        <p className="text-center text-xs leading-5 text-canvas-100/50">Ao entrar, você volta para {destination}.</p>
-      )}
     </form>
   );
 }
@@ -225,18 +204,15 @@ function GoogleIcon() {
 }
 
 function LoginPageContent() {
-  const vitrine = isPainelVitrineEnabled();
   const params = useSearchParams();
   const next = safeNextPath(params.get("next"));
   const destination = routeLabels[next] ?? "a área solicitada";
   const [aparelho, setAparelho] = useState<Aparelho | null>(null);
 
-  // Só a porta lembra o aparelho. Com a flag desligada o /login antigo não pode
-  // pré-preencher o e-mail do último usuário: num computador compartilhado isso
-  // mostra a conta de quem entrou antes, e a casca antiga não tem o "não é você".
+  // A porta reconhece o aparelho e preenche o e-mail do último usuário.
   useEffect(() => {
-    if (vitrine) setAparelho(aparelhoLembrado());
-  }, [vitrine]);
+    setAparelho(aparelhoLembrado());
+  }, []);
 
   function esquecer() {
     esquecerAparelho();
@@ -244,26 +220,21 @@ function LoginPageContent() {
   }
 
   function lembrar(email: string) {
-    if (vitrine) lembrarAparelho(email);
+    lembrarAparelho(email);
   }
 
   return (
     <AuthShell
       title="Entrar"
-      subtitle={vitrine ? "Use o e-mail da sua conta." : "Acesse sua central de operação"}
+      subtitle="Use o e-mail da sua conta."
       lembrado={aparelho != null}
-      checklist={[
-        "Veja todos os seus grupos num painel só",
-        "Envie e agende com um clique",
-        "Acompanhe resultados em tempo real",
-      ]}
       context={next !== "/painel" ? `Entre para continuar para ${destination}.` : undefined}
       footer={
         <>
-          {vitrine ? "Ainda não tem conta?" : "Não tem conta?"}{" "}
+          Ainda não tem conta?{" "}
           <Link
             href="/signup"
-            className={classesDaPorta(vitrine).link}
+            className={CLASSES_DA_PORTA.link}
           >
             Criar conta
           </Link>

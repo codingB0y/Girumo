@@ -17,12 +17,10 @@ import { expect, test } from "@playwright/test";
  * máquina local alcançam a Evolution, e forçar um 402 de verdade exigiria
  * mexer no plano do tenant de teste.
  */
-const VITRINE = (process.env.NEXT_PUBLIC_PAINEL_VITRINE ?? "").trim().toLowerCase() === "on";
 
 const MOTIVO = "Seu plano nao permite mais um numero conectado.";
 
 test.describe("Conectar na Vitrine Aberta", () => {
-  test.skip(!VITRINE, "NEXT_PUBLIC_PAINEL_VITRINE desligada: a tela antiga esta no ar");
 
   test("gate de plano mostra o motivo e uma saida, nunca um esqueleto eterno", async ({ page }) => {
     // O caminho real do 402: a lista vem VAZIA (200) e é a CRIAÇÃO que o gate

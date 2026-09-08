@@ -105,7 +105,6 @@ test("applies Girumo control contracts to shared primitives", () => {
   const card = readSource("components", "ui", "card.tsx");
   const badge = readSource("components", "ui", "badge.tsx");
   const skeleton = readSource("components", "ui", "skeleton.tsx");
-  const emptyState = readSource("components", "painel", "empty-state.tsx");
 
   assert.match(button, /primary:\s*"bg-acid-500 text-volt-950 shadow-sm hover:brightness-95 active:brightness-90"/);
   assert.match(button, /focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500/);
@@ -113,10 +112,8 @@ test("applies Girumo control contracts to shared primitives", () => {
   assert.match(input, /var\(--control-height\)/);
   assert.match(input, /cobalt-500/);
   assert.match(card, /var\(--radius-card\)/);
-  assert.match(emptyState, /var\(--radius-panel\)/);
-  assert.match(emptyState, /var\(--icon-stroke\)/);
 
-  for (const source of [button, input, card, badge, skeleton, emptyState]) {
+  for (const source of [button, input, card, badge, skeleton]) {
     assert.doesNotMatch(source, /rgba\(106,\s*75,\s*240|#(?:7c5cff|6a4bf0|8a6cff|3d1fb0|3d5af1)/i);
   }
 });
@@ -144,11 +141,12 @@ test("uses opaque global navigation surfaces", () => {
 });
 
 test("uses Paper for every reverse logo on persistent Volt surfaces", () => {
+  // As superfícies Volt que sobraram depois que a casca antiga do painel saiu:
+  // o corredor do admin e a coluna da porta. No painel do cliente a única peça
+  // escura é o letreiro, e lá o símbolo herda a cor do texto — não leva Logo.
   const sources = [
-    readSource("components", "auth-shell.tsx"),
     readSource("components", "admin", "sidebar.tsx"),
-    readSource("components", "painel", "sidebar.tsx"),
-    readSource("components", "painel", "mobile-nav.tsx"),
+    readSource("components", "auth", "auth-shell-vitrine.tsx"),
   ];
 
   for (const source of sources) {

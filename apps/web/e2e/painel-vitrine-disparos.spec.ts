@@ -1,19 +1,16 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * Tela de Disparos da Vitrine Aberta (cena 2). Roda no CI com
- * NEXT_PUBLIC_PAINEL_VITRINE=on desde 07/09/2026, que e o que producao usa.
+ * Tela de Disparos da Vitrine Aberta (cena 2).
  *
  * Nao posta de verdade: um POST na rota de mensagens da campanha poria mensagem
  * na fila de um numero real. O que da pra afirmar sem enviar nada e que a bolha
  * escreve junto e que a conta do alcance e a mesma no aviso e no botao.
  */
-const VITRINE = (process.env.NEXT_PUBLIC_PAINEL_VITRINE ?? "").trim().toLowerCase() === "on";
 
 const TEXTO = "BOTA FORA de setembro comecou. Kit infantil 50 pecas, vagas limitadas.";
 
 test.describe("Disparos na Vitrine Aberta", () => {
-  test.skip(!VITRINE, "NEXT_PUBLIC_PAINEL_VITRINE desligada: a tela antiga esta no ar");
 
   test("a bolha escreve junto com o que esta sendo digitado", async ({ page }) => {
     await page.goto("/painel/disparos", { waitUntil: "load" });
@@ -94,43 +91,5 @@ test.describe("Disparos na Vitrine Aberta", () => {
     // postar nao vai acontecer — o botao nao pode gritar.
     const classes = (await page.getByRole("button", { name: /^Postar/ }).getAttribute("class")) ?? "";
     expect(classes).not.toContain("bg-acid");
-  });
-});
-
-test.describe("Disparos com a Vitrine desligada", () => {
-  test.skip(VITRINE, "flag ligada: o CI roda COM a Vitrine desde 07/09/2026. Este bloco cobre a casca antiga e so roda local com a flag off; sai no PR 10 junto com ela");
-
-  test("a tela antiga nao busca os grupos: a flag cobre o fetch, nao so o JSX", async ({ page }) => {
-    // Flag pela metade foi o erro mais caro da serie (PR 4). Cobrar so o JSX
-    // deixaria passar um efeito que roda em producao sem ninguem ver.
-    let chamadas = 0;
-    await page.route("**/api/groups**", (rota) => {
-      chamadas += 1;
-      return rota.continue();
-    });
-
-    await page.goto("/painel/disparos", { waitUntil: "load" });
-    await expect(page.getByRole("heading", { name: "Disparos" })).toBeVisible();
-    await page.waitForTimeout(1500);
-
-    expect(chamadas, "a tela antiga nao precisa da lista de grupos").toBe(0);
-  });
-
-  test("a tela antiga segue intacta e sem nenhuma peca da Vitrine", async ({ page }) => {
-    await page.goto("/painel/disparos", { waitUntil: "load" });
-
-    // Flag pela metade foi o erro mais caro da serie (PR 4): o JSX ficava atras
-    // da flag mas o efeito nao. Aqui nenhuma peca nova pode aparecer. Desde que
-    // o CI passou a rodar com a flag, este bloco so roda local.
-    await expect(page.getByTestId("disparos-bolha-previa")).toHaveCount(0);
-    await expect(page.getByTestId("disparos-alcance")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /^Postar em/ })).toHaveCount(0);
-
-    await expect(page.getByRole("heading", { name: "Disparos" })).toBeVisible();
-    const campo = page.getByPlaceholder("Digite sua mensagem...");
-    if (await campo.count()) {
-      // O rotulo do botao do compositor antigo nao pode ter mudado.
-      await expect(page.getByRole("button", { name: "Enviar", exact: true })).toBeVisible();
-    }
   });
 });

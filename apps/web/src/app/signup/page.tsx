@@ -3,12 +3,11 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AuthShell } from "@/components/auth-shell";
+import { AuthShellVitrine as AuthShell } from "@/components/auth/auth-shell-vitrine";
 import { LegalConsentCheckbox } from "@/components/legal/legal-consent";
 import { SignupProgress } from "@/components/signup-progress";
 import { FirstTouchCookie } from "@/components/analytics/first-touch-cookie";
-import { isPainelVitrineEnabled } from "@/lib/painel/flags";
-import { classesDaPorta } from "@/lib/painel/auth-classes";
+import { CLASSES_DA_PORTA } from "@/lib/painel/auth-classes";
 import { persistSupabaseSession, startGoogleOAuth } from "@/lib/supabase/client";
 import { LEGAL_VERSION } from "@/lib/legal";
 import { SEGMENTS } from "@/lib/segments";
@@ -25,8 +24,7 @@ function GoogleIcon() {
 }
 
 export default function SignupPage() {
-  const vitrine = isPainelVitrineEnabled();
-  const c = classesDaPorta(vitrine);
+  const c = CLASSES_DA_PORTA;
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -164,7 +162,7 @@ export default function SignupPage() {
         <div>
           {/* Alimenta os packs de conteúdo do painel; quem pular escolhe em Configurações. */}
           <label htmlFor="signup-segment" className={c.rotulo}>
-            O que você vende? <span className={vitrine ? "font-normal text-slate-600" : "font-normal text-canvas-100/40"}>(opcional)</span>
+            O que você vende? <span className="font-normal text-slate-600">(opcional)</span>
           </label>
           <select
             id="signup-segment"
@@ -200,18 +198,7 @@ export default function SignupPage() {
           {loading ? "Criando..." : "Criar conta"}
         </button>
 
-        {vitrine ? (
-          <p className="pn-porta__ou my-1">ou</p>
-        ) : (
-        <div className="relative my-2">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-volt-800" />
-          </div>
-          <div className="relative flex justify-center">
-            <span className="bg-volt-900 px-3 text-xs text-canvas-100/40">ou</span>
-          </div>
-        </div>
-        )}
+        <p className="pn-porta__ou my-1">ou</p>
 
         <button
           type="button"
@@ -224,11 +211,6 @@ export default function SignupPage() {
         </button>
 
         {/* Na porta da Vitrine o rodapé de privacidade vem do shell — aqui seria a segunda vez. */}
-        {!vitrine && (
-          <p className="text-center text-xs leading-5 text-canvas-100/50">
-            Seus dados ficam protegidos e só você tem acesso. Cancele quando quiser.
-          </p>
-        )}
       </form>
       <FirstTouchCookie />
     </AuthShell>

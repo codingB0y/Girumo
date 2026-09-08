@@ -3,14 +3,10 @@ import { expect, test } from "@playwright/test";
 /**
  * Tela de Grupos da Vitrine Aberta (spec 12.5). Só vale com a flag ligada —
  * desligada, a tela antiga está no ar e este arquivo pula inteiro. Liga no CI
- * no PR 10, junto com a casca.
- *
- * Roda local com NEXT_PUBLIC_PAINEL_VITRINE=on.
+ * A casca antiga saiu junto com a flag; esta é a única que existe.
  */
-const VITRINE = (process.env.NEXT_PUBLIC_PAINEL_VITRINE ?? "").trim().toLowerCase() === "on";
 
 test.describe("Grupos na Vitrine Aberta", () => {
-  test.skip(!VITRINE, "NEXT_PUBLIC_PAINEL_VITRINE desligada: a tela antiga esta no ar");
 
   test("prateleira, romaneio e lista aparecem, e o romaneio bate com a lista", async ({ page }) => {
     await page.goto("/painel/grupos", { waitUntil: "load" });
