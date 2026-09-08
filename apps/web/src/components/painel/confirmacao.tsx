@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Folha } from "./folha";
 
@@ -50,6 +50,16 @@ export function useConfirmacao() {
     });
   }, []);
 
+  // O `inert` da folha barra clique dentro da página, mas não o botão voltar do
+  // navegador: sair com a pergunta aberta deixaria quem chamou suspenso para
+  // sempre. Sair é dizer não.
+  useEffect(() => {
+    return () => {
+      pendente.current?.(false);
+      pendente.current = null;
+    };
+  }, []);
+
   const responder = useCallback((ok: boolean) => {
     pendente.current?.(ok);
     pendente.current = null;
@@ -73,14 +83,18 @@ export function useConfirmacao() {
         >
           Cancelar
         </button>
+        {/*
+          Fundo sólido, e não borda colorida: `globals.css` tem
+          `* { border-color: var(--color-line-200) }` FORA de `@layer`, e regra
+          sem camada vence toda utilitária do Tailwind v4 — `border-danger-700`
+          renderiza cinza. Medido em runtime, não suposto.
+        */}
         <button
           type="button"
           onClick={() => responder(true)}
           className={cn(
-            "min-h-11 rounded-[var(--radius-control)] border px-4 text-[15px] font-semibold transition-colors",
-            aberto?.destrutivo
-              ? "border-danger-700 text-danger-700 hover:bg-canvas-100"
-              : "border-cobalt-500 bg-cobalt-500 text-paper-0 hover:brightness-95",
+            "min-h-11 rounded-[var(--radius-control)] px-4 text-[15px] font-semibold text-paper-0 transition-[filter] hover:brightness-95",
+            aberto?.destrutivo ? "bg-danger-700" : "bg-cobalt-500",
           )}
         >
           {aberto?.rotulo ?? "Confirmar"}
