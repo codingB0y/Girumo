@@ -25,15 +25,23 @@ export type LeituraDaConexao = {
   erro: string | null;
 };
 
-export type CenaDaConexao = "conectado" | "reconexao" | "primeiro-acesso" | "indefinido";
+export type CenaDaConexao =
+  | "conectado"
+  | "reconexao"
+  | "primeiro-acesso"
+  | "consultando"
+  | "sem-resposta";
 
 /**
  * Qual tela mostrar.
  *
- * `indefinido` existe porque `instancia === null` responde a duas perguntas
- * diferentes: "este tenant nunca pareou" e "a consulta ainda não respondeu (ou
- * falhou)". Sem separar as duas, quem está conectado há meses recebia o
- * onboarding de boas-vindas sempre que `/api/instances` engasgava.
+ * `instancia === null` responde a TRÊS perguntas diferentes, e cada uma pede
+ * uma tela: "este tenant nunca pareou", "a consulta ainda não respondeu" e "a
+ * consulta respondeu que falhou". Sem separar a primeira das outras, quem está
+ * conectado há meses recebia o onboarding de boas-vindas sempre que
+ * `/api/instances` engasgava. Sem separar a segunda da terceira, o gate de
+ * plano (402, que devolve erro e nenhuma instância) virava esqueleto eterno: a
+ * mensagem e o link de upgrade nunca chegavam à tela.
  */
 export function cenaDaConexao({ instancia, carregando, erro }: LeituraDaConexao): CenaDaConexao {
   if (instancia) {
@@ -42,7 +50,8 @@ export function cenaDaConexao({ instancia, carregando, erro }: LeituraDaConexao)
   }
   // Só sem instância na mão é que não saber importa: com ela, recarregar em
   // segundo plano não pode apagar a cena que já está na tela.
-  if (carregando || erro) return "indefinido";
+  if (erro) return "sem-resposta";
+  if (carregando) return "consultando";
   return "primeiro-acesso";
 }
 
@@ -85,8 +94,13 @@ export function etiquetaDaConexao({
   return { texto: "Gerando código", tom: "espera" };
 }
 
-/** Abaixo disto não há DDI + DDD + número para separar. */
-const MINIMO_DE_DIGITOS = 10;
+/**
+ * DDI (2) + DDD (2) + oito dígitos. O formato assume código de país na frente,
+ * que é o que a Evolution grava; um número doméstico de 11 dígitos lido como
+ * DDI+DDD sairia "+11 98 191•1314" — errado e plausível, o pior tipo de defeito
+ * de tela. Abaixo deste piso a tela cai no nome da instância.
+ */
+const MINIMO_DE_DIGITOS = 12;
 
 /**
  * O número como o cartão mostra: `+55 62 9819•1314`.

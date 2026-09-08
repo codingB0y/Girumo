@@ -8,6 +8,7 @@ import { GruposProtecao } from "@/components/painel/grupos-protecao";
 import { NumeroSaude } from "@/components/painel/numero-saude";
 import { PerguntaPerfilNumero } from "@/components/painel/pergunta-perfil-numero";
 import { PlanLimitAlert } from "@/components/painel/plan-limit-alert";
+import { precisaParearDeNovo } from "@/lib/instance-disconnect-reason";
 import type { NumeroPerfilDeclarado } from "@/lib/instances/numero-perfil";
 import { activationLabel } from "@/lib/onboarding-steps";
 import {
@@ -60,9 +61,14 @@ export function ConectarVitrine({
 }: Props) {
   const cena = cenaDaConexao({ instancia, carregando, erro });
 
-  if (cena === "indefinido") {
+  if (cena === "consultando") {
     return (
-      <div className="mx-auto max-w-[1000px] space-y-6 px-4 py-5 lg:px-8 lg:py-8">
+      <div
+        className="mx-auto max-w-[1000px] space-y-6 px-4 py-5 lg:px-8 lg:py-8"
+        role="status"
+        aria-live="polite"
+        aria-label="Consultando o seu número"
+      >
         <div className="pn-skeleton h-28 rounded-[var(--radius-control)]" data-testid="painel-skeleton" />
         <div className="pn-skeleton h-80 rounded-[var(--radius-control)]" data-testid="painel-skeleton" />
       </div>
@@ -71,7 +77,14 @@ export function ConectarVitrine({
 
   return (
     <div className="mx-auto max-w-[1000px] space-y-6 px-4 py-5 lg:px-8 lg:py-8">
-      {cena === "conectado" ? (
+      {cena === "sem-resposta" ? (
+        <CenaSemResposta
+          erro={erro}
+          upgradeUrl={upgradeUrl}
+          carregando={carregando}
+          onAtualizar={onAtualizar}
+        />
+      ) : cena === "conectado" ? (
         <CenaDoNumero
           instancia={instancia}
           carregando={carregando}
@@ -94,6 +107,57 @@ export function ConectarVitrine({
         />
       )}
     </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* A consulta respondeu que falhou: mostrar o motivo e a saída.               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * O gate de plano (402) devolve erro e nenhuma instância. Desenhar isso como
+ * esqueleto engolia a mensagem e o botão "Ver planos" para sempre — o cliente
+ * ficava preso numa tela cinza no passo 2 do onboarding, sem nada em que clicar.
+ */
+function CenaSemResposta({
+  erro,
+  upgradeUrl,
+  carregando,
+  onAtualizar,
+}: {
+  erro: string | null;
+  upgradeUrl: string | null;
+  carregando: boolean;
+  onAtualizar: () => void;
+}) {
+  return (
+    <>
+      <header className="flex flex-wrap items-start justify-between gap-3" data-testid="conectar-cabecalho">
+        <div>
+          <h1 className="font-brand text-28 font-bold tracking-[-0.4px] text-volt-950">Seu número</h1>
+          <p className="mt-1 text-[14px] text-slate-600">
+            Não deu para consultar o estado da conexão agora.
+          </p>
+        </div>
+        <BotaoAtualizar carregando={carregando} onAtualizar={onAtualizar} />
+      </header>
+
+      <section className="pn-card rounded-[var(--radius-control)] p-6 lg:p-8">
+        <PlanLimitAlert
+          message={erro}
+          upgradeUrl={upgradeUrl}
+          className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-control)] border-l-[3px] border-danger-700 bg-canvas-100 px-4 py-3 text-[14px] text-danger-700"
+        />
+        <p className="mt-4 text-13 text-slate-600">
+          Seu número não foi desconectado por isto: só a consulta falhou. Tente atualizar em alguns
+          instantes.
+        </p>
+      </section>
+
+      <Link href="/painel" className="inline-block text-13 text-slate-600 hover:text-volt-950">
+        ← Voltar ao painel
+      </Link>
+    </>
   );
 }
 
@@ -338,7 +402,10 @@ function PainelDoCodigo({
 }) {
   const etiqueta = etiquetaDaConexao({ instancia, carregando, erro });
   const qr = instancia?.qr_code ?? null;
-  const alerta = etiqueta.tom === "atencao";
+  // Do motivo da queda, não do texto da etiqueta: mudar a cópia de
+  // `etiquetaDaConexao` não pode apagar calado o aviso que segura o usuário
+  // longe do `440 connectionReplaced`.
+  const sessaoRemovida = precisaParearDeNovo(instancia?.metadata);
 
   return (
     <div className="flex flex-col items-center gap-4" data-testid="conectar-codigo">
@@ -354,7 +421,7 @@ function PainelDoCodigo({
           pareamento novo. Dizer isso evita o clique repetido em "atualizar",
           que é justamente o que substitui a conexão recém-aberta e prende o
           usuário no ciclo. */}
-      {alerta && etiqueta.texto === "Parear de novo" && (
+      {sessaoRemovida && (
         <p className="pn-aviso w-full">
           A conexão foi removida no celular. Escaneie o código <strong>uma vez</strong> e aguarde —
           pedir outro código no meio derruba o pareamento em andamento.
@@ -375,7 +442,12 @@ function PainelDoCodigo({
             />
           </div>
         ) : (
-          <div className="flex h-[200px] w-[200px] items-center justify-center rounded-[var(--radius-chip)] bg-paper-0">
+          <div className="flex h-[200px] w-[200px] flex-col items-center justify-center gap-3 rounded-[var(--radius-chip)] bg-paper-0">
+            {/* Sem sinal de atividade, "Gerando código" parado é
+                indistinguível de tela travada em rede lenta. */}
+            {(carregando || etiqueta.tom === "andamento") && (
+              <RefreshCw className="h-6 w-6 animate-spin text-slate-600" aria-hidden="true" />
+            )}
             <span className="font-data px-4 text-center text-12 uppercase tracking-[0.06em] text-slate-600">
               {etiqueta.texto}
             </span>

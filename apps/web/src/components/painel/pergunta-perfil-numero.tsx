@@ -32,7 +32,7 @@ export function PerguntaPerfilNumero({ onEscolher, ocupado }: Props) {
   return (
     <section aria-labelledby="perfil-titulo" className="space-y-4">
       <h2 id="perfil-titulo" className="text-lg font-semibold">Antes do QR code: esse número é novo?</h2>
-      <p className="text-sm text-aco/70">
+      <p className="text-sm text-slate-600">
         A resposta define o ritmo de envio. Você não perde nada respondendo com honestidade — um número
         antigo libera mais; um número novo é protegido enquanto aquece.
       </p>
@@ -51,7 +51,7 @@ export function PerguntaPerfilNumero({ onEscolher, ocupado }: Props) {
           >
             <Icone className="mb-2 h-5 w-5 text-cobalt-700" aria-hidden />
             <div className="font-medium">{titulo}</div>
-            <div className="mt-1 text-sm text-aco/70">{texto}</div>
+            <div className="mt-1 text-sm text-slate-600">{texto}</div>
           </button>
         ))}
       </div>

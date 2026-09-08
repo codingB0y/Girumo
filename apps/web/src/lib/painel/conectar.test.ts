@@ -63,17 +63,24 @@ test("tenant ainda sem instância nenhuma é primeiro acesso", () => {
  * Ausência de dado ≠ primeiro acesso. Se a consulta ainda não respondeu ou
  * falhou, `instancia` é null pelos mesmos dois motivos que "este tenant nunca
  * pareou" — e a tela dizia "Vamos conectar seu WhatsApp · leva 2 minutos" para
- * quem está conectado há meses. Quarto estado, não dois.
+ * quem está conectado há meses.
  */
-test("sem resposta da consulta a cena é indefinida, não primeiro acesso", () => {
-  assert.equal(
-    cenaDaConexao({ instancia: null, carregando: true, erro: null }),
-    "indefinido",
-  );
-  assert.equal(
-    cenaDaConexao({ instancia: null, carregando: false, erro: "500" }),
-    "indefinido",
-  );
+test("consulta em voo é cena de espera, não primeiro acesso", () => {
+  assert.equal(cenaDaConexao({ instancia: null, carregando: true, erro: null }), "consultando");
+});
+
+/**
+ * "Ainda não respondeu" e "respondeu que falhou" são cenas DIFERENTES, e é a
+ * segunda que trava o cliente: o gate de plano (402) devolve erro sem instância
+ * nenhuma, então uma cena só, desenhada como esqueleto, engolia a mensagem e o
+ * link de upgrade — sem botão, sem texto, para sempre.
+ */
+test("consulta que falhou é cena própria, não a mesma da espera", () => {
+  assert.equal(cenaDaConexao({ instancia: null, carregando: false, erro: "500" }), "sem-resposta");
+});
+
+test("erro vence a espera: quem já sabe da falha não fica no esqueleto", () => {
+  assert.equal(cenaDaConexao({ instancia: null, carregando: true, erro: "402" }), "sem-resposta");
 });
 
 test("com instância na mão, carregar de novo não apaga a cena", () => {
@@ -176,6 +183,17 @@ test("telefone já pontuado é normalizado antes de formatar", () => {
 
 test("celular com o nono dígito mantém tudo, só separa os quatro últimos", () => {
   assert.equal(telefoneNaVitrine("5562981911314"), "+55 62 98191•1314");
+});
+
+/**
+ * O formato assume DDI na frente — é o que a Evolution grava. Um número
+ * doméstico de 11 dígitos (DDD + celular) seria lido como DDI+DDD e sairia
+ * como "+11 98 191•1314": errado e plausível, o pior tipo de defeito de tela.
+ * Melhor recusar e cair no nome da instância.
+ */
+test("número sem código de país é recusado em vez de virar DDI falso", () => {
+  assert.equal(telefoneNaVitrine("11981911314"), null);
+  assert.equal(telefoneNaVitrine("6298191314"), null);
 });
 
 /**
