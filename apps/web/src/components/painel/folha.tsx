@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
+import { cn } from "@/lib/utils";
 import { useFocusTrap } from "./use-focus-trap";
 
 type Props = {
@@ -11,6 +12,13 @@ type Props = {
   testId: string;
   /** Pra `aria-controls` no botão que abre. */
   id?: string;
+  /**
+   * Por padrão a folha é peça da casca MOBILE (`lg:hidden`), porque os gatilhos
+   * dela vivem na `BarraMobile`, que também some no desktop. Quem abre a folha
+   * a partir de um botão que aparece em qualquer largura precisa disto — sem
+   * ele o clique não produz nada em tela larga, sem erro e sem log.
+   */
+  emQualquerLargura?: boolean;
   children: React.ReactNode;
 };
 
@@ -22,7 +30,7 @@ const RAIZ = '[data-testid="painel-root"]';
  * dentro e o resto da tela vira `inert` enquanto está aberta. Vai pro body por
  * portal, porque a raiz do painel é justamente o que fica inerte.
  */
-export function Folha({ aberta, aoFechar, titulo, testId, id, children }: Props) {
+export function Folha({ aberta, aoFechar, titulo, testId, id, emQualquerLargura, children }: Props) {
   // Antes do focus trap de propósito: a limpeza corre na ordem de declaração, e o
   // foco só consegue voltar pro botão que abriu depois de a raiz deixar de ser inerte.
   useEffect(() => {
@@ -48,7 +56,9 @@ export function Folha({ aberta, aoFechar, titulo, testId, id, children }: Props)
   if (!aberta) return null;
 
   return createPortal(
-    <div className="font-body fixed inset-0 z-50 text-volt-950 lg:hidden">
+    <div
+      className={cn("font-body fixed inset-0 z-50 text-volt-950", !emQualquerLargura && "lg:hidden")}
+    >
       <button type="button" aria-label="Fechar" onClick={aoFechar} className="absolute inset-0 bg-volt-950/60" />
       <div
         ref={ref}
@@ -57,7 +67,7 @@ export function Folha({ aberta, aoFechar, titulo, testId, id, children }: Props)
         aria-modal="true"
         aria-label={titulo}
         data-testid={testId}
-        className="pn-folha"
+        className={cn("pn-folha", emQualquerLargura && "pn-folha--dialogo")}
       >
         <div className="pn-folha__alca" aria-hidden="true" />
         <div className="flex items-center justify-between pl-4 pr-1">
