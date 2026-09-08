@@ -1,8 +1,9 @@
 import { USE_SUPABASE } from "@/lib/stores/use-supabase";
 import * as supaStore from "@/lib/stores/tracked-links";
-import { listLinks, createLink, clickCounts, slugify } from "@/lib/store";
+import { createLink, slugify } from "@/lib/store";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { resolveSessionTenantId } from "@/lib/session-tenant";
+import { carregarLinks } from "@/lib/painel/inicio-carga";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,34 +40,14 @@ async function resolveCampaignGroupId(
   return data?.length === 1 ? data[0].id : undefined;
 }
 
-// GET /api/links
+// GET /api/links — mesmo corpo que a rota agregada da Início serve.
 export async function GET(req: Request) {
-  if (!USE_SUPABASE) {
-    const [links, counts] = await Promise.all([listLinks(), clickCounts()]);
-    const data = links
-      .map((l) => ({ ...l, clicks: counts[l.slug] ?? 0 }))
-      .sort((a, b) => b.clicks - a.clicks);
-    return Response.json(data);
-  }
-
-  const tenantId = await resolveSessionTenantId(req);
-  if (!tenantId) return Response.json([]);
-  const links = await supaStore.listTrackedLinks(tenantId);
-  const mapped = links
-    .map((l) => ({
-      id: l.id,
-      slug: l.slug,
-      destinationUrl: l.target_url,
-      // Vínculo por ID: é o que sobrevive a renomear a campanha. `campaignName`
-      // continua exposto só para os links antigos, que ainda não têm o ID.
-      campaignGroupId: l.campaign_group_id,
-      campaignName: (l.metadata as Record<string, unknown>)?.campaignName ?? "",
-      targetGroupName: (l.metadata as Record<string, unknown>)?.targetGroupName ?? "",
-      clicks: l.clicks,
-      createdAt: l.created_at,
-    }))
-    .sort((a, b) => b.clicks - a.clicks);
-  return Response.json(mapped);
+  // Sem Supabase os links do modo JSON não têm dono; com Supabase, sem tenant
+  // não há o que listar. Os dois casos caem em lista vazia, não em 403 — é o
+  // contrato que as telas desta rota já esperavam.
+  const tenantId = USE_SUPABASE ? await resolveSessionTenantId(req) : "";
+  if (USE_SUPABASE && !tenantId) return Response.json([]);
+  return Response.json(await carregarLinks(tenantId ?? ""));
 }
 
 // POST /api/links

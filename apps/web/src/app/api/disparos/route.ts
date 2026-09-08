@@ -1,9 +1,6 @@
-import * as broadcastsStore from "@/lib/stores/broadcasts";
-import * as schedulesStore from "@/lib/stores/schedules";
-import * as campaignsStore from "@/lib/stores/campaign-groups";
 import { USE_SUPABASE } from "@/lib/stores/use-supabase";
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
-import { buildTenantDispatchList, type CampaignRef } from "@/lib/campaigns/dispatch-view";
+import { carregarDisparos } from "@/lib/painel/inicio-carga";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,24 +19,10 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: Request) {
   // Sem Supabase não existe pipeline de broadcasts — a página mostra vazio em
-  // vez de quebrar (o fallback JSON nunca teve disparo de verdade).
+  // vez de quebrar (o fallback JSON nunca teve disparo de verdade). Sai ANTES de
+  // resolver o tenant, que é o que a rota sempre fez.
   if (!USE_SUPABASE) return Response.json([]);
 
   const { tenantId } = await getRouteTenantContext(req, { allowEngine: false });
-
-  const [broadcasts, campaigns] = await Promise.all([
-    broadcastsStore.listBroadcasts(tenantId),
-    campaignsStore.listCampaignGroups(tenantId),
-  ]);
-
-  const schedules = await schedulesStore.listSchedulesByBroadcastIds(
-    tenantId,
-    broadcasts.map((b) => b.id),
-  );
-
-  const campaignById = new Map<string, CampaignRef>(
-    campaigns.map((c) => [c.id, { name: c.name, slug: c.slug }]),
-  );
-
-  return Response.json(buildTenantDispatchList(broadcasts, schedules, campaignById));
+  return Response.json(await carregarDisparos(tenantId));
 }

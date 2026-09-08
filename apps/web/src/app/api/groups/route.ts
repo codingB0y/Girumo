@@ -1,8 +1,9 @@
 import { USE_SUPABASE } from "@/lib/stores/use-supabase";
 import * as supaStore from "@/lib/stores/groups";
-import { listGroups as legacyList, replaceGroups as legacyReplace, updateGroup as legacyUpdate, type SyncGroupInput } from "@/lib/groups-store";
+import { replaceGroups as legacyReplace, updateGroup as legacyUpdate, type SyncGroupInput } from "@/lib/groups-store";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
+import { carregarGrupos } from "@/lib/painel/inicio-carga";
 import { normalizeInviteUrl } from "@/lib/groups/invite-url";
 import { clearInviteFetchMarker } from "@/lib/groups/invite-backfill";
 import { DEFAULT_GROUP_CAPACITY } from "@/lib/links/resolve-click-target";
@@ -10,32 +11,10 @@ import { DEFAULT_GROUP_CAPACITY } from "@/lib/links/resolve-click-target";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// GET /api/groups
+// GET /api/groups — mesmo corpo que a rota agregada da Início serve.
 export async function GET(req: Request) {
   const { tenantId } = await getRouteTenantContext(req, { allowEngine: true });
-  if (!USE_SUPABASE) {
-    return Response.json(await legacyList(tenantId));
-  }
-  const groups = await supaStore.listGroups(tenantId);
-  // Map to legacy shape for frontend compatibility
-  const mapped = groups.map((g) => ({
-    id: g.whatsapp_group_id,
-    name: g.name,
-    whatsappGroupId: g.whatsapp_group_id,
-    members: g.members,
-    capacity: g.capacity,
-    selected: g.selected,
-    engagement: g.engagement,
-    isAdmin: g.is_admin ?? false,
-    inviteUrl: g.invite_url,
-    displayNameBase: g.display_name_base,
-    displayNumber: g.display_number,
-    sendState: g.send_state ?? null,
-    // Idade do dado. `members` vem do último sync e não é atualizado quando um
-    // cliente entra no grupo — a tela precisa poder dizer isso.
-    syncedAt: g.admins_counted_at ?? null,
-  }));
-  return Response.json(mapped);
+  return Response.json(await carregarGrupos(tenantId));
 }
 
 // POST /api/groups — sync da engine
