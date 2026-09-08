@@ -4,6 +4,18 @@ import { useCallback, useEffect, useState } from "react";
 import type { Group } from "@/lib/mock-data";
 import type { Parte } from "@/lib/painel/inicio-resposta";
 import type {
+  carregarAgendamentos,
+  carregarCampanhas,
+  carregarDisparos,
+  carregarGrupos,
+  carregarLeads,
+  carregarLinks,
+  carregarSessao,
+} from "@/lib/painel/inicio-carga";
+import type { listAutomations } from "@/lib/stores/automations";
+import type { listOrdersByTenant } from "@/lib/stores/orders";
+import type { getTenantSettings } from "@/lib/stores/tenant-settings";
+import type {
   Automation,
   Campanha,
   DashboardData,
@@ -11,7 +23,6 @@ import type {
   Lead,
   Order,
   Schedule,
-  Session,
   TenantSettings,
   TrackedLink,
 } from "./types";
@@ -48,18 +59,23 @@ function asArray<T>(result: Parte<unknown>): T[] {
  * As dez partes de `/api/painel/inicio`. Cada uma diz se carregou: um array
  * vazio não distingue "sem nada" de "não deu pra buscar", e essa diferença é o
  * que separa a tela de erro do aviso de carga parcial.
+ *
+ * Os tipos saem das próprias funções de carga do servidor, e não de uma cópia
+ * escrita à mão aqui: com dez partes numa resposta só, uma delas mudando de
+ * forma lá passaria calada até aparecer torta na tela. Os `import type` são
+ * apagados na compilação — nada de `server-only` entra no bundle do cliente.
  */
 type Carga = {
-  groups: Parte<Group[]>;
-  campanhas: Parte<Campanha[]>;
-  links: Parte<TrackedLink[]>;
-  leads: Parte<Lead[]>;
-  orders: Parte<Order[]>;
-  schedules: Parte<Schedule[]>;
-  disparos: Parte<Disparo[]>;
-  automations: Parte<RawAutomation[]>;
-  session: Parte<Session>;
-  settings: Parte<TenantSettings>;
+  groups: Parte<Awaited<ReturnType<typeof carregarGrupos>>>;
+  campanhas: Parte<Awaited<ReturnType<typeof carregarCampanhas>>>;
+  links: Parte<Awaited<ReturnType<typeof carregarLinks>>>;
+  leads: Parte<Awaited<ReturnType<typeof carregarLeads>>>;
+  orders: Parte<Awaited<ReturnType<typeof listOrdersByTenant>>>;
+  schedules: Parte<Awaited<ReturnType<typeof carregarAgendamentos>>>;
+  disparos: Parte<Awaited<ReturnType<typeof carregarDisparos>>>;
+  automations: Parte<Awaited<ReturnType<typeof listAutomations>>>;
+  session: Parte<Awaited<ReturnType<typeof carregarSessao>>>;
+  settings: Parte<Awaited<ReturnType<typeof getTenantSettings>>>;
 };
 
 const NAO_VEIO: Parte<never> = { ok: false };
