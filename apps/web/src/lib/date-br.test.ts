@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { dayBR, monthBR, dayBRAgo, dayBROf, monthBROf, horaBR } from "./date-br";
+import { dayBR, monthBR, dayBRAgo, dayBROf, monthBROf, horaBR, diaMesBR } from "./date-br";
 
 /**
  * 31/08/2026 às 23h30 em Brasília = 01/09/2026 às 02h30 UTC.
@@ -60,4 +60,16 @@ test("valor ausente ou não-data não vira data", () => {
   assert.equal(dayBROf(""), undefined);
   assert.equal(dayBROf("sem data"), undefined);
   assert.equal(monthBROf(undefined), undefined);
+});
+
+test("diaMesBR devolve DD/MM no fuso de Brasília", () => {
+  assert.equal(diaMesBR("2026-10-04"), "04/10");
+  // 03/10 às 22h em SP é 04/10 em UTC: quem lê o relógio errado anda um dia.
+  assert.equal(diaMesBR("2026-10-04T01:30:00Z"), "03/10");
+});
+
+test("diaMesBR não inventa data quando não há", () => {
+  assert.equal(diaMesBR(null), undefined);
+  assert.equal(diaMesBR(""), undefined);
+  assert.equal(diaMesBR("nao e data"), undefined);
 });
