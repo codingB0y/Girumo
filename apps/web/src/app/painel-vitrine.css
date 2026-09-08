@@ -748,6 +748,13 @@
 .pn-etiqueta-preco__barra--quase::before {
   background: var(--color-warning-700);
 }
+/* Risco: o chip carrega a severidade sem depender de o olho ler o texto.
+   Reusar --line para "atenção" E "requer ação" fazia os dois ficarem no mesmo
+   cinza — a leitura rápida perdia a diferença. */
+.pn-chip--risco {
+  background: var(--color-aviso-fundo);
+  color: var(--color-danger-700);
+}
 .pn-chip--line {
   background: var(--color-line-200);
   color: var(--color-slate-600);

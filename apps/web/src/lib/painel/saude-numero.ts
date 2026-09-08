@@ -108,7 +108,13 @@ export function cenaDaProtecao(resumo: ResumoDaProtecao | null): CenaDaProtecao 
   return "nao-medido";
 }
 
-/** "3 grupos seus" / "1 grupo seu". */
+/**
+ * "3 grupos seus" / "1 grupo seu".
+ *
+ * O separador de milhar é acréscimo deliberado sobre o original, que imprimia
+ * o número cru: sem efeito prático hoje (ninguém administra mil grupos), mas
+ * alinha com o resto do painel, onde todo número passa por pt-BR.
+ */
 export function textoDeGruposSeus(administrados: number): string {
   const n = Math.max(0, administrados);
   return `${n.toLocaleString("pt-BR")} ${n === 1 ? "grupo seu" : "grupos seus"}`;

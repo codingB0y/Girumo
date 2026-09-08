@@ -93,11 +93,13 @@ function CartaoNumero({ health }: { health: NumberHealth }) {
             {health.phone ? `+${health.phone}` : "Número conectado"}
           </span>
         </span>
+        {/* Três tons, três chips: sem isso "Atenção" e "Requer ação" ficam no
+            mesmo cinza e a severidade só existe para quem lê o texto. */}
         <span
           className={cn(
             "pn-chip",
-            etiqueta.tom === "risco" && "pn-chip--line",
             etiqueta.tom === "atencao" && "pn-chip--line",
+            etiqueta.tom === "risco" && "pn-chip--risco",
           )}
         >
           {etiqueta.texto}
