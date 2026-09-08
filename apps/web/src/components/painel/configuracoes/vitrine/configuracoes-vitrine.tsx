@@ -186,11 +186,14 @@ function AbaAvisos({ preferencias, itens, salvando, erro, onAlternar }: PropsDos
                 <p className="mt-0.5 text-13 text-slate-600">{item.desc}</p>
               </div>
               {ligado === undefined ? (
+                // `aria-hidden`, e NÃO `role="status"`: este span está dentro do
+                // `map` da lista, e as preferências chegam todas do mesmo fetch —
+                // um status por linha faria o leitor anunciar a mesma espera uma
+                // vez por item. O título e a descrição da linha já foram lidos.
                 <span
                   className="pn-skeleton h-7 w-12 shrink-0 rounded-full"
                   data-testid="painel-skeleton"
-                  role="status"
-                  aria-label={`Carregando ${item.titulo}`}
+                  aria-hidden="true"
                 />
               ) : (
                 <button

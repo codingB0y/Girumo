@@ -43,8 +43,31 @@ function isStateVariant(prefixes: string): boolean {
   return prefixes.split(":").some((variant) => STATE_VARIANTS.has(variant));
 }
 
-const SKELETON = /\bpn-skeleton\b/;
+const SKELETON = /\bpn-skeleton\b/g;
 const ANUNCIADO = /role="status"|aria-hidden/;
+/**
+ * Até onde procurar a marcação a partir do `pn-skeleton`: o resto da tag do
+ * próprio elemento mais o container que o envolve, que é onde o `role="status"`
+ * de uma região costuma estar.
+ *
+ * Calibrado no JSX real do painel — o pior caso legítimo é
+ * `dashboard-states.tsx`, cujo container anunciado fica ~700 caracteres acima do
+ * último esqueleto porque as linhas carregam `style` inline. Alcance menor
+ * acusaria esqueleto que ESTÁ dentro de região anunciada.
+ *
+ * O limite conhecido na outra direção: uma marcação alheia (o `aria-hidden` de
+ * um ícone, digamos) a menos de mil caracteres do esqueleto ainda o mascara.
+ * Continua estritamente melhor que olhar o arquivo inteiro, que é alcance
+ * infinito — e o que o gate não alcança, a revisão alcança.
+ */
+const ALCANCE_DO_ANUNCIO = 1000;
+
+/** Trecho em volta da ocorrência: da abertura da tag até o fim do alcance. */
+function vizinhanca(source: string, offset: number): string {
+  const abertura = source.lastIndexOf("<", offset);
+  const inicio = Math.max(0, abertura === -1 ? offset - ALCANCE_DO_ANUNCIO : abertura - ALCANCE_DO_ANUNCIO);
+  return source.slice(inicio, offset + ALCANCE_DO_ANUNCIO);
+}
 
 export function lintPainelSource(relativeFile: string, source: string): string[] {
   const findings: string[] = [];
@@ -59,12 +82,18 @@ export function lintPainelSource(relativeFile: string, source: string): string[]
   }
   // Esqueleto sem `role="status"` não avisa a quem não vê que a tela está
   // esperando resposta; sem `aria-hidden` num placeholder decorativo, o leitor
-  // encontra uma caixa muda. Proxy POR ARQUIVO, igual ao dos fundos Acid: não
-  // pega um esqueleto anunciado e outro mudo no mesmo arquivo, mas pega o caso
-  // que aparece de verdade — tela nova com esqueleto que ninguém marcou.
+  // encontra uma caixa muda. A conta é POR OCORRÊNCIA, não por arquivo: um
+  // arquivo com dois esqueletos, um marcado e outro mudo, passaria — e um
+  // `aria-hidden` de ícone decorativo em outro canto da tela mascararia o
+  // esqueleto mudo inteiro.
   // Só .tsx: no CSS `.pn-skeleton` é a definição da classe, não um uso.
-  if (relativeFile.endsWith(".tsx") && SKELETON.test(source) && !ANUNCIADO.test(source)) {
-    findings.push(`${relativeFile}: pn-skeleton sem role="status" nem aria-hidden`);
+  if (relativeFile.endsWith(".tsx")) {
+    for (const match of source.matchAll(SKELETON)) {
+      if (ANUNCIADO.test(vizinhanca(source, match.index))) continue;
+      findings.push(
+        `${relativeFile}:${lineAt(source, match.index)}: pn-skeleton sem role="status" nem aria-hidden`,
+      );
+    }
   }
   return findings;
 }

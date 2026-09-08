@@ -69,3 +69,25 @@ test("esqueleto: exige role=status ou aria-hidden, e só em .tsx", () => {
   const css = `.pn-skeleton { background: var(--color-canvas-100); }`;
   assert.deepEqual(lintPainelSource("painel-vitrine.css", css), []);
 });
+
+test("esqueleto: a conta é por ocorrência, não por arquivo", () => {
+  // Um marcado e outro mudo no mesmo arquivo: o mudo tem que aparecer. Era o
+  // falso negativo do proxy por arquivo — foi assim que um `role="status"` por
+  // linha de lista passou pelo gate.
+  const misto = [
+    `<div role="status" aria-label="Carregando"><div className="pn-skeleton h-40" /></div>`,
+    ...Array(30).fill("// separa as duas ocorrências para além do alcance da vizinhança"),
+    `<span className="pn-skeleton h-4" />`,
+  ].join("\n");
+  const achados = lintPainelSource("misto.tsx", misto);
+  assert.equal(achados.length, 1);
+  assert.match(achados[0], /:32: pn-skeleton sem/);
+
+  // `aria-hidden` de ícone decorativo em outro canto não vale como marcação.
+  const iconeLonge = [
+    `<Check aria-hidden="true" />`,
+    ...Array(30).fill("// um ícone decorativo não diz nada sobre o esqueleto lá embaixo"),
+    `<div className="pn-skeleton h-40" />`,
+  ].join("\n");
+  assert.equal(lintPainelSource("icone.tsx", iconeLonge).length, 1);
+});
