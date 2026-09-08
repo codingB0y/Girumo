@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ImagePlus, Loader2, Lock, Unlock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useConfirmacao } from "@/components/painel/confirmacao";
 import { RevisarLinks } from "./revisar-links";
 
 /**
@@ -81,6 +82,7 @@ function descreveLote(actions: string[]): string {
 }
 
 export function AcoesEmMassa({ slug, administrados, totais, estado, onLoteConcluido }: Props) {
+  const { pedirConfirmacao, folhaDeConfirmacao } = useConfirmacao();
   const [descricao, setDescricao] = useState("");
   const [mediaId, setMediaId] = useState<string | null>(null);
   const [nomeArquivo, setNomeArquivo] = useState<string | null>(null);
@@ -180,9 +182,12 @@ export function AcoesEmMassa({ slug, administrados, totais, estado, onLoteConclu
     // descrição em branco, o lote é só de foto e nada é apagado.
     const apagandoDescricao = texto === "" && !temFoto;
     if (apagandoDescricao) {
-      const ok = window.confirm(
-        `Isso vai APAGAR a descrição de ${administrados} grupo(s) no WhatsApp. Confirmar?`,
-      );
+      const ok = await pedirConfirmacao({
+        titulo: "Apagar a descrição",
+        texto: `Isso vai APAGAR a descrição de ${administrados} grupo(s) no WhatsApp.`,
+        rotulo: "Apagar a descrição",
+        destrutivo: true,
+      });
       if (!ok) return;
     }
 
@@ -406,6 +411,7 @@ export function AcoesEmMassa({ slug, administrados, totais, estado, onLoteConclu
           )}
         </div>
       )}
+      {folhaDeConfirmacao}
     </section>
   );
 }

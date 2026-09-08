@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toPlanLimitError } from "@/lib/billing/plan-limit-client";
 import { PlanLimitAlert } from "@/components/painel/plan-limit-alert";
 import { cn } from "@/lib/utils";
+import { useConfirmacao } from "@/components/painel/confirmacao";
 import { MessageComposer, type ComposerPayload } from "./message-composer";
 import { ScheduleComposer, type SchedulePayload } from "./schedule-composer";
 import { MessagesAgenda } from "./messages-agenda";
@@ -18,6 +19,7 @@ type Props = {
 };
 
 export function MessagesTab({ campaignSlug, groupIds }: Props) {
+  const { pedirConfirmacao, folhaDeConfirmacao } = useConfirmacao();
   const [subTab, setSubTab] = useState<SubTab>("Enviar agora");
   const [sendError, setSendError] = useState<string | null>(null);
   const [sendUpgradeUrl, setSendUpgradeUrl] = useState<string | null>(null);
@@ -114,7 +116,13 @@ export function MessagesTab({ campaignSlug, groupIds }: Props) {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Excluir essa mensagem?")) return;
+    const ok = await pedirConfirmacao({
+      titulo: "Excluir a mensagem",
+      texto: "Excluir essa mensagem? Ela sai da agenda e não será enviada.",
+      rotulo: "Excluir",
+      destrutivo: true,
+    });
+    if (!ok) return;
     const res = await fetch(`/api/campanhas/${campaignSlug}/messages?id=${id}`, {
       method: "DELETE",
     });
@@ -167,6 +175,7 @@ export function MessagesTab({ campaignSlug, groupIds }: Props) {
           />
         )}
       </div>
+      {folhaDeConfirmacao}
     </div>
   );
 }
