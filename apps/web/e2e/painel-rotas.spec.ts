@@ -99,14 +99,20 @@ test.describe("rotas do painel renderizam", () => {
       // dado e passava por terminar cedo demais. Esperar a ancora e esperar o
       // fato que interessa: o auto-wait do expect segura ate a rota ter
       // renderizado, e estoura se ela nunca renderizar.
-      // 30s, nao os 10s do padrao: medido em 07/09/2026, a Inicio da Vitrine
-      // leva ~8,5s para sair do skeleton com o servidor quente (~15s na
-      // primeira carga) porque dispara quinze chamadas de API. Isso esta na
-      // beira do limite padrao e derrubava o teste de forma intermitente.
+      // 30s, nao os 10s do padrao. A Inicio dispara QUINZE chamadas de API para
+      // renderizar (dez do useDashboardData, cinco da casca), e nenhuma delas e
+      // lenta sozinha: medidas entre 0,5s e 1,5s. O custo e a fila — HTTP/1.1
+      // abre seis conexoes por origem, entao elas saem em ondas.
       //
-      // O numero maior aqui NAO torna 8,5s aceitavel: e a primeira tela que a
-      // lojista ve. Enquanto nao for atacado, este timeout evita vermelho
-      // intermitente sem esconder a causa — que fica escrita aqui.
+      // Medido em 07/09/2026: 8,9s aqui (`next dev`, servidor quente) e acima
+      // dos 10s do padrao neste job, o que derrubava o teste de forma
+      // intermitente. PRODUCAO nao foi medida: /painel exige sessao. E la o
+      // gargalo pode nem existir, porque a Vercel serve em HTTP/2 e o limite de
+      // seis conexoes cai.
+      //
+      // Ou seja: este timeout compra estabilidade para o gate, e o numero acima
+      // NAO autoriza dizer que a lojista espera 9s. Antes de otimizar, medir em
+      // producao — senao e otimizar as cegas.
       await expect(
         page.getByText(esperado.ancora).first(),
         `${rota} montou o shell mas a propria tela nao renderizou ` +
