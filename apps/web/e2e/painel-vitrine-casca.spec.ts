@@ -3,14 +3,10 @@ import { ROTAS_DO_PAINEL } from "./rotas";
 
 /**
  * Casca da Vitrine Aberta (spec 2026-09-07, 3.1 e 3.2). Só vale com a flag
- * ligada — desligada, a casca antiga está no ar e este arquivo pula inteiro.
- * Liga no CI no PR 10, quando a flag sai; até lá roda local com
- * NEXT_PUBLIC_PAINEL_VITRINE=on.
+ * A casca antiga saiu junto com a flag; esta é a única que existe.
  */
-const VITRINE = (process.env.NEXT_PUBLIC_PAINEL_VITRINE ?? "").trim().toLowerCase() === "on";
 
 test.describe("casca mobile da Vitrine Aberta", () => {
-  test.skip(!VITRINE, "NEXT_PUBLIC_PAINEL_VITRINE desligada: a casca antiga esta no ar");
   test.use({ viewport: { width: 390, height: 844 } });
 
   // Um teste por rota, como o painel-rotas: rota que redireciona no cliente
@@ -73,7 +69,6 @@ test.describe("casca mobile da Vitrine Aberta", () => {
 });
 
 test.describe("casca desktop da Vitrine Aberta", () => {
-  test.skip(!VITRINE, "NEXT_PUBLIC_PAINEL_VITRINE desligada: a casca antiga esta no ar");
   test.use({ viewport: { width: 1440, height: 900 } });
 
   test("corredor, letreiro e ticker no lugar; barra e casca antiga fora", async ({ page }) => {
@@ -94,8 +89,6 @@ test.describe("casca desktop da Vitrine Aberta", () => {
     await expect(page.getByTestId("painel-ticker")).not.toBeEmpty();
 
     await expect(page.getByTestId("painel-mobile-nav")).toBeHidden();
-    await expect(page.getByTestId("painel-sidebar")).toHaveCount(0);
-    await expect(page.getByTestId("painel-topbar")).toHaveCount(0);
   });
 
   test("Inicio na Vitrine: caixa do mes, quem chegou, estoque e campanhas no lugar", async ({ page }) => {

@@ -3,13 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Mail, ArrowLeft } from "lucide-react";
-import { AuthShell } from "@/components/auth-shell";
+import { AuthShellVitrine as AuthShell } from "@/components/auth/auth-shell-vitrine";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { isPainelVitrineEnabled } from "@/lib/painel/flags";
-import { classesDaPorta } from "@/lib/painel/auth-classes";
+import { CLASSES_DA_PORTA } from "@/lib/painel/auth-classes";
 
 export default function ForgotPasswordPage() {
-  const c = classesDaPorta(isPainelVitrineEnabled());
+  const c = CLASSES_DA_PORTA;
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
@@ -36,12 +35,6 @@ export default function ForgotPasswordPage() {
     <AuthShell
       title="Recuperar senha"
       subtitle="Enviaremos um link para redefinir sua senha"
-      compact
-      checklist={[
-        "Você recebe um e-mail com o link",
-        "Clique no link para criar nova senha",
-        "Volte a acessar seu painel",
-      ]}
       footer={
         <>
           Lembrou a senha?{" "}

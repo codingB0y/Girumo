@@ -244,13 +244,6 @@ jobs:
           # passa a cobrar Stripe e Evolution, que o smoke nao exercita.
           NEXT_PUBLIC_APP_ENV: development
           NEXT_PUBLIC_APP_URL: http://localhost:3000
-          # Producao roda com a Vitrine LIGADA desde 07/09/2026 (a env existe so
-          # no ambiente Production do projeto girumo). Sem esta linha o CI media
-          # a casca ANTIGA, que ja nao e o que o cliente ve — gate verde sobre um
-          # caminho que ninguem executa. Precisa estar nos DOIS passos: o build
-          # embute NEXT_PUBLIC_* no bundle, e a suite le a mesma variavel pra
-          # decidir quais specs pulam.
-          NEXT_PUBLIC_PAINEL_VITRINE: "on"
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
           SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
@@ -280,13 +273,6 @@ jobs:
           # passa a cobrar Stripe e Evolution, que o smoke nao exercita.
           NEXT_PUBLIC_APP_ENV: development
           NEXT_PUBLIC_APP_URL: http://localhost:3000
-          # Producao roda com a Vitrine LIGADA desde 07/09/2026 (a env existe so
-          # no ambiente Production do projeto girumo). Sem esta linha o CI media
-          # a casca ANTIGA, que ja nao e o que o cliente ve — gate verde sobre um
-          # caminho que ninguem executa. Precisa estar nos DOIS passos: o build
-          # embute NEXT_PUBLIC_* no bundle, e a suite le a mesma variavel pra
-          # decidir quais specs pulam.
-          NEXT_PUBLIC_PAINEL_VITRINE: "on"
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
           SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}

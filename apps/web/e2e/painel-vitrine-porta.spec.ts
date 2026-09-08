@@ -3,11 +3,8 @@ import { expect, test } from "@playwright/test";
 /**
  * A porta da Vitrine Aberta (spec 2026-09-07, 12.1 e 12.2): as telas de auth.
  * Só vale com a flag ligada — desligada, a casca escura antiga está no ar e
- * este arquivo pula inteiro. Liga no CI no PR 10, junto com a casca.
- *
- * Roda local com NEXT_PUBLIC_PAINEL_VITRINE=on.
+ * A casca antiga saiu junto com a flag; esta é a única que existe.
  */
-const VITRINE = (process.env.NEXT_PUBLIC_PAINEL_VITRINE ?? "").trim().toLowerCase() === "on";
 
 const APARELHO = "girumo.aparelho";
 
@@ -18,24 +15,8 @@ const APARELHO = "girumo.aparelho";
  * do último usuário num computador compartilhado, e lá não existe o "entrar com
  * outra conta" para limpar.
  */
-test.describe("casca antiga nao lembra o aparelho", () => {
-  test.skip(VITRINE, "flag ligada: o CI roda COM a Vitrine desde 07/09/2026. Este bloco cobre a casca antiga e so roda local com a flag off; sai no PR 10 junto com ela");
-  test.use({ storageState: { cookies: [], origins: [] } });
-
-  test("o login antigo ignora e-mail guardado no aparelho", async ({ page }) => {
-    await page.goto("/login");
-    await page.evaluate(
-      ([chave, valor]) => window.localStorage.setItem(chave, valor),
-      [APARELHO, JSON.stringify({ email: "outra.pessoa@exemplo.com.br" })],
-    );
-    await page.reload();
-
-    await expect(page.getByTestId("login-email")).toHaveValue("");
-  });
-});
 
 test.describe("porta da Vitrine Aberta", () => {
-  test.skip(!VITRINE, "NEXT_PUBLIC_PAINEL_VITRINE desligada: a casca antiga esta no ar");
   // A porta é a tela de quem ainda não entrou: o estado logado não vale aqui.
   test.use({ storageState: { cookies: [], origins: [] } });
 

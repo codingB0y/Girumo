@@ -15,10 +15,8 @@ import { expect, test } from "@playwright/test";
  * com `display: none`. Só `toBeVisible()` — que consulta o layout de verdade —
  * separa "existe no DOM" de "a lojista consegue usar".
  */
-const VITRINE = (process.env.NEXT_PUBLIC_PAINEL_VITRINE ?? "").trim().toLowerCase() === "on";
 
 test.describe("Automações na Vitrine Aberta", () => {
-  test.skip(!VITRINE, "NEXT_PUBLIC_PAINEL_VITRINE desligada: a tela antiga esta no ar");
 
   test("a folha de modelos abre VISIVEL no desktop, nao so no DOM", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });

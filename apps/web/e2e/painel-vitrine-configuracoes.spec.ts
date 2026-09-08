@@ -10,10 +10,8 @@ import { expect, test } from "@playwright/test";
  * lista vazia e `live: false` chegavam iguais quer o dado fosse esse, quer a
  * rota tivesse morrido.
  */
-const VITRINE = (process.env.NEXT_PUBLIC_PAINEL_VITRINE ?? "").trim().toLowerCase() === "on";
 
 test.describe("Configurações na Vitrine Aberta", () => {
-  test.skip(!VITRINE, "NEXT_PUBLIC_PAINEL_VITRINE desligada: a tela antiga esta no ar");
 
   test("cada porta mostra o proprio estado antes do clique", async ({ page }) => {
     await page.goto("/painel/configuracoes", { waitUntil: "load" });
