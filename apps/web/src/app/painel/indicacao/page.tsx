@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { authenticatedFetch } from "@/lib/supabase/client";
+import { useConfirmacao } from "@/components/painel/confirmacao";
 import { IndicacaoVitrine } from "@/components/painel/indicacao/vitrine/indicacao-vitrine";
 import { isPainelVitrineEnabled } from "@/lib/painel/flags";
 import { comMetaRecalculada } from "@/lib/painel/indicacao";
@@ -48,6 +49,7 @@ async function readError(res: Response, fallback: string): Promise<string> {
 }
 
 export default function PainelIndicacao() {
+  const { pedirConfirmacao, folhaDeConfirmacao } = useConfirmacao();
   const [ranking, setRanking] = useState<Ranked[]>([]);
   const [config, setConfig] = useState<Config>(CONFIG_FALLBACK);
   const [cargaDoRanking, setCargaDoRanking] = useState<Carga>("carregando");
@@ -191,7 +193,13 @@ export default function PainelIndicacao() {
 
   async function handleRemove(item: Ranked) {
     if (removing) return;
-    if (!window.confirm(`Apagar o link de ${item.referrerName}? Ele para de funcionar na hora.`)) return;
+    const ok = await pedirConfirmacao({
+      titulo: "Apagar o link",
+      texto: `Apagar o link de ${item.referrerName}? Ele para de funcionar na hora.`,
+      rotulo: "Apagar",
+      destrutivo: true,
+    });
+    if (!ok) return;
     setRemoving(item.id);
     setAvisoDeAcao(null);
     try {
@@ -225,6 +233,7 @@ export default function PainelIndicacao() {
   // por causa da flag — só o desenho muda.
   if (isPainelVitrineEnabled()) {
     return (
+      <>
       <IndicacaoVitrine
         ranking={ranking}
         config={config}
@@ -242,6 +251,8 @@ export default function PainelIndicacao() {
         aoApagar={(item) => void handleRemove(item as Ranked)}
         aoTentarDeNovo={() => void load()}
       />
+      {folhaDeConfirmacao}
+      </>
     );
   }
 
@@ -473,6 +484,7 @@ export default function PainelIndicacao() {
           </p>
         </section>
       )}
+      {folhaDeConfirmacao}
     </div>
   );
 }

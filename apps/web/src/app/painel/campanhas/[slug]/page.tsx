@@ -26,6 +26,7 @@ import {
 } from "@/lib/campaign-groups-overview";
 import type { Group } from "@/lib/mock-data";
 import { MessagesTab } from "@/components/painel/messages";
+import { useConfirmacao } from "@/components/painel/confirmacao";
 import { AcoesEmMassa } from "@/components/painel/grupos/acoes-em-massa";
 import { ConfigChips } from "@/components/painel/campanhas/config-chips";
 import { QrLink } from "@/components/painel/campanhas/qr-link";
@@ -54,6 +55,7 @@ type Tab = (typeof TABS)[number];
 export default function CampanhaDetalhe() {
   const params = useParams<{ slug: string }>();
   const router = useRouter();
+  const { pedirConfirmacao, folhaDeConfirmacao } = useConfirmacao();
   const key = params?.slug ?? "";
 
   const [campanhas, setCampanhas] = useState<Campanha[]>([]);
@@ -128,7 +130,13 @@ export default function CampanhaDetalhe() {
 
   async function handleDelete() {
     if (!campanha) return;
-    if (!confirm(`Excluir a campanha "${campanha.name}"? Essa ação não pode ser desfeita.`)) return;
+    const ok = await pedirConfirmacao({
+      titulo: "Excluir a campanha",
+      texto: `Excluir a campanha "${campanha.name}"? Essa ação não pode ser desfeita.`,
+      rotulo: "Excluir",
+      destrutivo: true,
+    });
+    if (!ok) return;
     setDeleting(true);
     setMenu(false);
     try {
@@ -394,6 +402,7 @@ export default function CampanhaDetalhe() {
           </div>
         )}
       </div>
+      {folhaDeConfirmacao}
     </div>
   );
 }

@@ -19,6 +19,7 @@ import { subscriptionAccess, subscriptionNotice } from "@/lib/billing/subscripti
 import { SEGMENTS } from "@/lib/segments";
 import { ConfiguracoesVitrine } from "@/components/painel/configuracoes/vitrine/configuracoes-vitrine";
 import { isPainelVitrineEnabled } from "@/lib/painel/flags";
+import { useConfirmacao } from "@/components/painel/confirmacao";
 import { useRole } from "@/components/painel/role-provider";
 
 type Section = "Conexão" | "Equipe" | "Notificações" | "Plano" | "Conta";
@@ -108,6 +109,7 @@ export default function PainelConfiguracoes() {
   // A casca já carregou o papel: a porta "Conta" o mostra em português sem
   // custar uma consulta nova.
   const { role } = useRole();
+  const { pedirConfirmacao, folhaDeConfirmacao } = useConfirmacao();
   const [section, setSection] = useState<Section>("Conexão");
   const [session, setSession] = useState<Session>({});
   const [members, setMembers] = useState<Membership[]>([]);
@@ -360,7 +362,14 @@ export default function PainelConfiguracoes() {
   }
 
   async function removeMember(m: Membership) {
-    if (!window.confirm(removalPrompt(m))) return;
+    const removendo = Boolean(m.accepted_at);
+    const ok = await pedirConfirmacao({
+      titulo: removendo ? "Remover da equipe" : "Revogar o convite",
+      texto: removalPrompt(m),
+      rotulo: removendo ? "Remover" : "Revogar",
+      destrutivo: true,
+    });
+    if (!ok) return;
     setRemovingId(m.id);
     setInviteError(null);
     setRemoveNotice(null);
@@ -389,6 +398,7 @@ export default function PainelConfiguracoes() {
   if (isPainelVitrineEnabled()) {
     const aceitos = members.filter((m) => m.accepted_at).length;
     return (
+      <>
       <ConfiguracoesVitrine
         porta={section}
         onPorta={setSection}
@@ -481,6 +491,8 @@ export default function PainelConfiguracoes() {
           </>
         }
       />
+      {folhaDeConfirmacao}
+      </>
     );
   }
 
@@ -791,6 +803,7 @@ export default function PainelConfiguracoes() {
         </div>
 
       </div>
+      {folhaDeConfirmacao}
     </div>
   );
 }

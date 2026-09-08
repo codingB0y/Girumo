@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { coletarFalhasDeApi, exigeCredenciais, semErroDeRuntime } from "./sessao-helpers";
+import { confirmarNaFolha } from "./confirmacao";
 
 /**
  * Fluxo de ponta a ponta da area de Indicacao.
@@ -101,10 +102,10 @@ test("indicação: cadastra pela tela, o link do ranking redireciona e conta cli
       .toBeGreaterThanOrEqual(1);
 
     // 5) Apagar remove de verdade: some da tela E o link para de responder.
-    page.once("dialog", (d) => void d.accept());
     await page
       .getByRole("button", { name: `Apagar indicação de ${nome}` })
       .click();
+    await confirmarNaFolha(page, "Apagar");
     await expect(page.getByText(nome)).toHaveCount(0);
 
     const depois = await page.request.get(criada!.path, { maxRedirects: 0 });

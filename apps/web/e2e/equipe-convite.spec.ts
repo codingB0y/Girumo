@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { exigeCredenciais } from "./sessao-helpers";
+import { confirmarNaFolha } from "./confirmacao";
 
 /**
  * Convidar -> aparece na lista -> revogar -> some.
@@ -68,10 +69,9 @@ test.describe("convite de equipe", () => {
     const botaoRevogar = page.getByRole("button", { name: `Revogar convite de ${convidado}` });
     await expect(botaoRevogar, "o botao de revogar nao chegou na tela (regressao do #114)").toBeVisible();
 
-    // A revogacao pede confirmacao via window.confirm; sem aceitar, o dialog
-    // fica pendurado e o clique nao completa.
-    page.once("dialog", (dialog) => void dialog.accept());
+    // A revogacao pergunta antes de agir; sem responder a folha, nada acontece.
     await botaoRevogar.click();
+    await confirmarNaFolha(page, "Revogar");
 
     await expect(linhaDoConvidado, "convite continuou na lista depois de revogar").toHaveCount(0);
   });

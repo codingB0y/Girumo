@@ -15,6 +15,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useConfirmacao } from "@/components/painel/confirmacao";
 import { pageSummary, type LandingPage, type LpStatus } from "@/lib/pages/schema";
 import { isLpContentV2, isLpContentV3 } from "@/lib/pages/render";
 import type { LpLeadRow, LpMetrics } from "@/lib/pages/store";
@@ -52,6 +53,7 @@ const STATUS: Record<LpStatus, { label: string; pill: string }> = {
 
 export default function PaginaDetalhePage() {
   const { id } = useParams<{ id: string }>();
+  const { pedirConfirmacao, folhaDeConfirmacao } = useConfirmacao();
   const [detail, setDetail] = useState<Detail | null>(null);
   const [values, setValues] = useState<EditorValues | null>(null);
   const [valuesV2, setValuesV2] = useState<EditorValuesV2 | null>(null);
@@ -205,7 +207,12 @@ export default function PaginaDetalhePage() {
    */
   async function migrateToV3() {
     if (busy) return;
-    if (!window.confirm("Migrar esta página para o modelo novo? Uma cópia da versão atual fica guardada.")) return;
+    const ok = await pedirConfirmacao({
+      titulo: "Migrar a página",
+      texto: "Migrar esta página para o modelo novo? Uma cópia da versão atual fica guardada.",
+      rotulo: "Migrar",
+    });
+    if (!ok) return;
     setError(null);
     setBusy(true);
     try {
@@ -489,6 +496,7 @@ export default function PaginaDetalhePage() {
           </div>
         </details>
       ) : null}
+      {folhaDeConfirmacao}
     </div>
   );
 }
