@@ -23,7 +23,7 @@ type Props = {
   porta: Porta;
   onPorta: (p: Porta) => void;
   leitura: LeituraDasPortas;
-  conexao: { live: boolean; telefone: string | null; ok: boolean };
+  conexao: { live: boolean; telefone: string | null; carga: "carregando" | "ok" | "erro" };
   equipe: PropsDaEquipe;
   avisos: PropsDosAvisos;
   plano: PropsDoPlano;
@@ -64,12 +64,16 @@ export function ConfiguracoesVitrine({
           aria-label="Seções das configurações"
           data-testid="configuracoes-portas"
         >
+          {/* `aria-current="true"`, não `"page"`: estas portas trocam a seção da
+              MESMA página. `"page"` anunciaria a leitor de tela uma navegação
+              que não acontece — quem troca de rota é o corredor, e é lá que
+              `"page"` está certo. */}
           {PORTAS.map((p) => (
             <button
               key={p}
               type="button"
               onClick={() => onPorta(p)}
-              aria-current={porta === p ? "page" : undefined}
+              aria-current={porta === p ? "true" : undefined}
               className={cn(
                 "shrink-0 border-l-[3px] px-3 py-2 text-left lg:w-full",
                 porta === p
@@ -105,13 +109,25 @@ export function ConfiguracoesVitrine({
 function AbaConexao({
   live,
   telefone,
-  ok,
+  carga,
 }: {
   live: boolean;
   telefone: string | null;
-  ok: boolean;
+  carga: "carregando" | "ok" | "erro";
 }) {
   const numero = telefoneNaVitrine(telefone);
+  const ok = carga === "ok";
+
+  if (carga === "carregando") {
+    return (
+      <div
+        className="pn-skeleton h-40 rounded-[var(--radius-control)]"
+        data-testid="painel-skeleton"
+        role="status"
+        aria-label="Carregando a conexão"
+      />
+    );
+  }
 
   return (
     <section className="pn-card rounded-[var(--radius-control)] p-6 lg:p-8" data-testid="configuracoes-conexao">

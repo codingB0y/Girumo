@@ -8,8 +8,13 @@ import { diaMesBR } from "@/lib/date-br";
 export type PlanoNaTela = { id: string; code: string; name: string };
 
 export type PropsDoPlano = {
-  /** `false` = a consulta falhou; não afirmar "sem plano" por falta de resposta. */
-  ok: boolean;
+  /**
+   * Três valores, não dois: "ainda não voltou" e "voltou com falha" pedem telas
+   * diferentes. Tratar o primeiro como o segundo mostra "Não deu para carregar"
+   * a quem só esperou meio segundo — e tratá-lo como sucesso afirma "sem plano"
+   * a quem tem plano.
+   */
+  carga: "carregando" | "ok" | "erro";
   nome: string | null;
   codigo: string | null;
   /** Cruzado com o estado da assinatura, não lido do `plan_id`. */
@@ -18,6 +23,8 @@ export type PropsDoPlano = {
   recado: string | null;
   renovaEm: string | null;
   planos: readonly PlanoNaTela[];
+  /** A consulta do catálogo é outra: pode falhar sozinha. */
+  cargaDosPlanos: "carregando" | "ok" | "erro";
   assinando: string | null;
   abrindoPortal: boolean;
   erro: string | null;
@@ -33,13 +40,14 @@ export type PropsDoPlano = {
  * pagou caro para não ter.
  */
 export function AbaPlano({
-  ok,
+  carga,
   nome,
   codigo,
   vigente,
   recado,
   renovaEm,
   planos,
+  cargaDosPlanos,
   assinando,
   abrindoPortal,
   erro,
@@ -49,7 +57,18 @@ export function AbaPlano({
   const renova = diaMesBR(renovaEm);
   const outros = planos.filter((p) => p.code !== "FREE" && p.code !== codigo);
 
-  if (!ok) {
+  if (carga === "carregando") {
+    return (
+      <div
+        className="pn-skeleton h-40 rounded-[var(--radius-control)]"
+        data-testid="painel-skeleton"
+        role="status"
+        aria-label="Carregando o plano"
+      />
+    );
+  }
+
+  if (carga === "erro") {
     return (
       <section className="pn-card rounded-[var(--radius-control)] p-6 lg:p-8" data-testid="configuracoes-plano">
         <p className="text-[14px] text-slate-600">
@@ -79,6 +98,10 @@ export function AbaPlano({
               : (recado ?? "Assinatura sem cobrança em dia")}
           </p>
 
+          {/* FREE nunca teve Stripe: sem o gate, o POST /api/billing/portal
+              devolve 404 "Cliente Stripe nao encontrado" e o cliente ve erro
+              tecnico num botao que a casca antiga nem mostrava. */}
+          {codigo && codigo !== "FREE" && (
           <div className="mt-5 flex flex-wrap items-center gap-4">
             <button
               type="button"
@@ -93,6 +116,7 @@ export function AbaPlano({
               Cancelar assinatura
             </Link>
           </div>
+          )}
         </div>
       ) : (
         <div className="pn-etiqueta-preco">
@@ -128,7 +152,10 @@ export function AbaPlano({
         </div>
       )}
 
-      {planos.length === 0 && (
+      {/* "Nenhum outro plano" é sobre a lista já filtrada, não sobre o catálogo
+          inteiro — e só vale quando a consulta de planos respondeu: com ela fora
+          do ar a lista chega vazia, e a frase seria mentira. */}
+      {cargaDosPlanos === "ok" && outros.length === 0 && (
         <p className="text-[14px] text-slate-600">Nenhum outro plano disponível agora.</p>
       )}
 

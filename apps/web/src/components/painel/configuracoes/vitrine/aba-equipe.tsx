@@ -14,8 +14,11 @@ export type MembroNaTela = {
 
 export type PropsDaEquipe = {
   membros: readonly MembroNaTela[];
-  /** `false` = a consulta falhou; lista vazia não é o mesmo que "só você". */
-  ok: boolean;
+  /**
+   * Lista vazia não é o mesmo que "só você", e "ainda não voltou" não é o mesmo
+   * que "falhou" — são três telas, não duas.
+   */
+  carga: "carregando" | "ok" | "erro";
   email: string;
   onEmail: (v: string) => void;
   convidando: boolean;
@@ -35,7 +38,7 @@ export type PropsDaEquipe = {
  */
 export function AbaEquipe({
   membros,
-  ok,
+  carga,
   email,
   onEmail,
   convidando,
@@ -48,17 +51,26 @@ export function AbaEquipe({
 }: PropsDaEquipe) {
   return (
     <section className="pn-card rounded-[var(--radius-control)] p-6 lg:p-8" data-testid="configuracoes-equipe">
-      {ok && membros.length === 0 ? (
-        <p className="text-[14px] text-slate-600">Só você por enquanto. Convide alguém abaixo.</p>
-      ) : !ok ? (
+      {carga === "carregando" ? (
+        <div
+          className="pn-skeleton h-32 rounded-[var(--radius-control)]"
+          data-testid="painel-skeleton"
+          role="status"
+          aria-label="Carregando a equipe"
+        />
+      ) : carga === "erro" ? (
         // Lista vazia por falha de rota diria "só você" a quem tem equipe.
         <p className="text-[14px] text-slate-600">
           Não deu para carregar a equipe agora. Atualize a página em alguns instantes.
         </p>
+      ) : membros.length === 0 ? (
+        <p className="text-[14px] text-slate-600">Só você por enquanto. Convide alguém abaixo.</p>
       ) : (
         <ul>
           {membros.map((m) => (
-            <li key={m.id} className="pn-ficha">
+            // A última ficha perde a borda: com ela, a linha da ficha e a do
+            // bloco de convite logo abaixo desenhavam um filete duplo.
+            <li key={m.id} className="pn-ficha last:border-b-0">
               <span className="pn-ficha__iniciais" aria-hidden="true">
                 {iniciaisDoEmail(m.invited_email)}
               </span>

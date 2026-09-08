@@ -95,6 +95,14 @@ type Subscription = {
   current_period_end?: string | null;
 } | null;
 
+/**
+ * Estado de cada consulta da tela. Tres valores, nao dois: "ainda nao voltou" e
+ * "voltou com falha" pedem telas diferentes — tratar o primeiro como o segundo
+ * mostra "Nao deu para carregar" a quem so esperou meio segundo.
+ */
+type Carga = "carregando" | "ok" | "erro";
+type ChaveDaCarga = "settings" | "session" | "members" | "plans" | "sub";
+
 export default function PainelConfiguracoes() {
   // A casca já carregou o papel: a porta "Conta" o mostra em português sem
   // custar uma consulta nova.
@@ -135,12 +143,12 @@ export default function PainelConfiguracoes() {
    * casos. As portas da Vitrine preferem não escrever nada a escrever o que não
    * sabem.
    */
-  const [respondeu, setRespondeu] = useState({
-    settings: false,
-    session: false,
-    members: false,
-    plans: false,
-    sub: false,
+  const [respondeu, setRespondeu] = useState<Record<ChaveDaCarga, Carga>>({
+    settings: "carregando",
+    session: "carregando",
+    members: "carregando",
+    plans: "carregando",
+    sub: "carregando",
   });
 
   // Deep-link `?secao=notificacoes` do rodapé do e-mail. Lido de
@@ -161,11 +169,12 @@ export default function PainelConfiguracoes() {
       .then((d) => {
         setPrefs(lerPreferencias(d));
         setSegment(typeof d?.segment === "string" ? d.segment : null);
-        setRespondeu((o) => ({ ...o, settings: true }));
+        setRespondeu((o) => ({ ...o, settings: "ok" }));
       })
       .catch(() => {
         setPrefs(lerPreferencias(null));
         setSegment(null);
+        setRespondeu((o) => ({ ...o, settings: "erro" }));
       });
     fetch("/api/session")
       .then((r) => {
@@ -174,9 +183,9 @@ export default function PainelConfiguracoes() {
       })
       .then((d) => {
         setSession(d);
-        setRespondeu((o) => ({ ...o, session: true }));
+        setRespondeu((o) => ({ ...o, session: "ok" }));
       })
-      .catch(() => {});
+      .catch(() => setRespondeu((o) => ({ ...o, session: "erro" })));
     fetch("/api/members")
       .then((r) => {
         if (!r.ok) throw new Error("members");
@@ -184,9 +193,9 @@ export default function PainelConfiguracoes() {
       })
       .then((d) => {
         setMembers(Array.isArray(d) ? d : d?.members ?? []);
-        setRespondeu((o) => ({ ...o, members: true }));
+        setRespondeu((o) => ({ ...o, members: "ok" }));
       })
-      .catch(() => {});
+      .catch(() => setRespondeu((o) => ({ ...o, members: "erro" })));
     fetch("/api/plans")
       .then((r) => {
         if (!r.ok) throw new Error("plans");
@@ -194,9 +203,9 @@ export default function PainelConfiguracoes() {
       })
       .then((d) => {
         setPlans(Array.isArray(d) ? d : []);
-        setRespondeu((o) => ({ ...o, plans: true }));
+        setRespondeu((o) => ({ ...o, plans: "ok" }));
       })
-      .catch(() => {});
+      .catch(() => setRespondeu((o) => ({ ...o, plans: "erro" })));
     authenticatedFetch("/api/subscription")
       .then((r) => {
         if (!r.ok) throw new Error("subscription");
@@ -204,9 +213,9 @@ export default function PainelConfiguracoes() {
       })
       .then((d) => {
         setSub(d);
-        setRespondeu((o) => ({ ...o, sub: true }));
+        setRespondeu((o) => ({ ...o, sub: "ok" }));
       })
-      .catch(() => {});
+      .catch(() => setRespondeu((o) => ({ ...o, sub: "erro" })));
     fetch("/api/playbook")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => setPlaybookGraduated(Boolean(d?.graduated)))
@@ -383,20 +392,20 @@ export default function PainelConfiguracoes() {
         porta={section}
         onPorta={setSection}
         leitura={{
-          conexao: { ok: respondeu.session, live },
-          equipe: { ok: respondeu.members, aceitos, pendentes: members.length - aceitos },
+          conexao: { ok: respondeu.session === "ok", live },
+          equipe: { ok: respondeu.members === "ok", aceitos, pendentes: members.length - aceitos },
           avisos: {
-            ok: respondeu.settings,
+            ok: respondeu.settings === "ok",
             ligados: prefs ? PREFERENCIAS.filter((p) => prefs[p.key]).length : 0,
             total: PREFERENCIAS.length,
           },
-          plano: { ok: respondeu.sub, nome: currentPlanName, vigente: planoVigente },
+          plano: { ok: respondeu.sub === "ok", nome: currentPlanName, vigente: planoVigente },
           conta: { papel: role },
         }}
-        conexao={{ ok: respondeu.session, live, telefone: session.phone ?? null }}
+        conexao={{ carga: respondeu.session, live, telefone: session.phone ?? null }}
         equipe={{
           membros: members,
-          ok: respondeu.members,
+          carga: respondeu.members,
           email: inviteEmail,
           onEmail: setInviteEmail,
           convidando: inviteBusy,
@@ -415,13 +424,14 @@ export default function PainelConfiguracoes() {
           onAlternar: (key, proximo) => void togglePref(key as PreferenciaKey, proximo),
         }}
         plano={{
-          ok: respondeu.sub,
+          carga: respondeu.sub,
           nome: currentPlanName,
           codigo: currentPlanCode,
           vigente: planoVigente,
           recado: acessoPlano ? subscriptionNotice(acessoPlano.state) : null,
           renovaEm: sub?.current_period_end ?? null,
-          planos: respondeu.plans ? plans : [],
+          planos: respondeu.plans === "ok" ? plans : [],
+          cargaDosPlanos: respondeu.plans,
           assinando: busyPlan,
           abrindoPortal: portalBusy,
           erro: billingError,
