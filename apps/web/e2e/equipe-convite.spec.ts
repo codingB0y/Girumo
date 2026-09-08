@@ -22,7 +22,10 @@ test.describe("convite de equipe", () => {
 
     // Sessao vem do auth.setup.ts; aqui so navega.
     await page.goto("/painel/configuracoes");
-    await page.getByRole("button", { name: "Equipe", exact: true }).click();
+    // Sem `exact`: na Vitrine a porta carrega o resumo embaixo do rótulo, então
+    // o nome acessível vira "Equipe 2 pessoas" assim que a consulta responde —
+    // com `exact: true` o teste virava corrida com o fetch.
+    await page.getByRole("button", { name: /^Equipe/ }).first().click();
 
     const campoEmail = page.getByLabel("Email do convidado");
     const botaoConvidar = page.getByRole("button", { name: "Convidar", exact: true });
@@ -32,8 +35,15 @@ test.describe("convite de equipe", () => {
     // hidratar poe o texto no DOM sem por no state: o botao continua disabled e
     // o clique nao faz nada. Foi assim que a primeira versao deste teste falhou
     // com a API respondendo 201 normalmente.
+    // "Ativo" é da casca antiga; a Vitrine mostra o papel em português ("Dono",
+    // "Administração"), porque "owner"/"operator" não podem chegar à tela. O
+    // teste vale nas duas até a casca antiga sair.
     await expect(
-      page.getByText("Ativo").or(page.getByText("Só você por enquanto")).first(),
+      page
+        .getByText("Ativo")
+        .or(page.getByText("Dono"))
+        .or(page.getByText("Só você por enquanto"))
+        .first(),
     ).toBeVisible();
 
     await campoEmail.fill(convidado);

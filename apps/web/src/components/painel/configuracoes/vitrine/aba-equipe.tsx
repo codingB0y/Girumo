@@ -102,8 +102,11 @@ export function AbaEquipe({
       )}
 
       <div className="mt-6 border-t border-line-200 pt-5">
+        {/* O rótulo visível É o nome acessível do campo: `aria-label` diferente
+            do texto na tela quebra "label in name" (WCAG 2.5.3) e some com o
+            seletor que o E2E de convite usa nas duas cascas. */}
         <label htmlFor="convite-email" className="block text-13 text-slate-600">
-          Convidar pessoa
+          Email do convidado
         </label>
         <div className="mt-2 flex flex-col gap-2 sm:flex-row">
           <input
