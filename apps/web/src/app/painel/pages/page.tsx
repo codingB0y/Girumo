@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Copy, ExternalLink, Eye, Loader2, Plus, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buildDuplicatePayload } from "@/lib/pages/duplicate";
 import { pageSummary, type LandingPage, type LpStatus } from "@/lib/pages/schema";
+import { PagesVitrine } from "@/components/painel/pages/vitrine/pages-vitrine";
+import { isPainelVitrineEnabled } from "@/lib/painel/flags";
+import type { Carga } from "@/lib/painel/types";
 
 const STATUS: Record<LpStatus, { label: string; pill: string }> = {
   draft: { label: "Rascunho", pill: "bg-canvas-100 text-aco/70" },
@@ -17,15 +20,35 @@ const STATUS: Record<LpStatus, { label: string; pill: string }> = {
 export default function PagesListPage() {
   const router = useRouter();
   const [pages, setPages] = useState<LandingPage[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [cargaDaLista, setCargaDaLista] = useState<Carga>("carregando");
+  const [erroDaDuplicacao, setErroDaDuplicacao] = useState<string | null>(null);
   const [duplicando, setDuplicando] = useState<string | null>(null);
+  const [origin, setOrigin] = useState("");
+
+  const carregar = useCallback(() => {
+    setOrigin(window.location.origin);
+    setCargaDaLista("carregando");
+    fetch("/api/pages", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("Falha ao carregar."))))
+      .then((data: LandingPage[]) => {
+        if (!Array.isArray(data)) throw new Error("Resposta fora do formato.");
+        setPages(data);
+        setCargaDaLista("ok");
+      })
+      .catch(() => setCargaDaLista("erro"));
+  }, []);
 
   useEffect(() => {
-    fetch("/api/pages")
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("Falha ao carregar."))))
-      .then((data: LandingPage[]) => setPages(data))
-      .catch((e: Error) => setError(e.message));
-  }, []);
+    carregar();
+  }, [carregar]);
+
+  /**
+   * A casca antiga lê um erro só, para a faixa no topo. A nova separa: falhar
+   * ao carregar troca a cena, falhar ao duplicar é um aviso que convive com a
+   * lista — sumir com as páginas por causa de um botão perderia o trabalho de
+   * vista.
+   */
+  const error = erroDaDuplicacao ?? (cargaDaLista === "erro" ? "Falha ao carregar." : null);
 
   /**
    * Duplica a partir do GET de detalhe, não do item da lista: a lista pode vir
@@ -35,7 +58,7 @@ export default function PagesListPage() {
   async function duplicar(id: string) {
     if (duplicando) return;
     setDuplicando(id);
-    setError(null);
+    setErroDaDuplicacao(null);
 
     try {
       const detalhe = await fetch(`/api/pages/${id}`);
@@ -54,9 +77,26 @@ export default function PagesListPage() {
 
       router.push(`/painel/pages/${nova.id}`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Não consegui duplicar.");
+      setErroDaDuplicacao(e instanceof Error ? e.message : "Não consegui duplicar.");
       setDuplicando(null);
     }
+  }
+
+  // PR 10 da Vitrine Aberta: a página vira etiqueta de peça, com a conversão
+  // no lugar das vagas. Nenhuma consulta, efeito ou storage entra ou sai por
+  // causa da flag — só o desenho muda.
+  if (isPainelVitrineEnabled()) {
+    return (
+      <PagesVitrine
+        paginas={pages ?? []}
+        carga={cargaDaLista}
+        origin={origin}
+        avisoDeDuplicacao={erroDaDuplicacao}
+        duplicando={duplicando}
+        aoDuplicar={(id) => void duplicar(id)}
+        aoTentarDeNovo={carregar}
+      />
+    );
   }
 
   return (

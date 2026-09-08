@@ -1,18 +1,53 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus, Search, MessageCircle, MoreHorizontal, Users, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CopyLink } from "@/components/painel/copy-link";
 import { PlanGate } from "@/components/painel/plan-gate";
+import { CampanhasVitrine } from "@/components/painel/campanhas/vitrine/campanhas-vitrine";
+import { isPainelVitrineEnabled } from "@/lib/painel/flags";
+import type { Carga } from "@/lib/painel/types";
 import {
   buildCampaignGroupsOverview,
   type CampaignOperationalStatus,
 } from "@/lib/campaign-groups-overview";
 import type { Group } from "@/lib/mock-data";
 import { clicksByCampaign } from "@/lib/links/click-attribution";
+
+/**
+ * Uma consulta, uma carga.
+ *
+ * `r.json()` sem checar `r.ok` transforma o corpo de um 500 em lista vazia, e
+ * a tela diz "nenhuma campanha" para quem tem quarenta. E a carga é por rota
+ * porque uma falha em /api/groups não pode zerar as vagas de todo mundo:
+ * ausência de dado não é zero.
+ */
+async function buscarLista<T>(
+  url: string,
+  guardar: (itens: T[]) => void,
+  marcar: (carga: Carga) => void,
+): Promise<void> {
+  marcar("carregando");
+  try {
+    const resposta = await fetch(url, { cache: "no-store" });
+    if (!resposta.ok) {
+      marcar("erro");
+      return;
+    }
+    const corpo: unknown = await resposta.json();
+    if (!Array.isArray(corpo)) {
+      marcar("erro");
+      return;
+    }
+    guardar(corpo as T[]);
+    marcar("ok");
+  } catch {
+    marcar("erro");
+  }
+}
 
 type Campanha = {
   id: string;
@@ -44,28 +79,29 @@ export default function PainelCampanhas() {
   const [campanhas, setCampanhas] = useState<Campanha[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [links, setLinks] = useState<TrackedLink[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [cargaDasCampanhas, setCargaDasCampanhas] = useState<Carga>("carregando");
+  const [cargaDosGrupos, setCargaDosGrupos] = useState<Carga>("carregando");
+  const [cargaDosLinks, setCargaDosLinks] = useState<Carga>("carregando");
   const [filter, setFilter] = useState<"all" | CampaignOperationalStatus>("all");
   const [q, setQ] = useState("");
   const [origin, setOrigin] = useState("");
 
-  useEffect(() => {
+  const carregar = useCallback(() => {
     setOrigin(window.location.origin);
-    (async () => {
-      try {
-        const [c, g, l] = await Promise.all([
-          fetch("/api/campanhas").then((r) => r.json()).catch(() => []),
-          fetch("/api/groups").then((r) => r.json()).catch(() => []),
-          fetch("/api/links").then((r) => r.json()).catch(() => []),
-        ]);
-        setCampanhas(Array.isArray(c) ? c : []);
-        setGroups(Array.isArray(g) ? g : []);
-        setLinks(Array.isArray(l) ? l : []);
-      } finally {
-        setLoading(false);
-      }
-    })();
+    void buscarLista<Campanha>("/api/campanhas", setCampanhas, setCargaDasCampanhas);
+    void buscarLista<Group>("/api/groups", setGroups, setCargaDosGrupos);
+    void buscarLista<TrackedLink>("/api/links", setLinks, setCargaDosLinks);
   }, []);
+
+  useEffect(() => {
+    carregar();
+  }, [carregar]);
+
+  // A casca antiga só sabia esperar por todas — mantido para ela.
+  const loading =
+    cargaDasCampanhas === "carregando" ||
+    cargaDosGrupos === "carregando" ||
+    cargaDosLinks === "carregando";
 
   // Atribuição por ID da campanha (nome só cobre link legado) — renomear
   // campanha não pode zerar o histórico de cliques.
@@ -98,6 +134,22 @@ export default function PainelCampanhas() {
       ),
     [overviews, filter, q],
   );
+
+  // PR 10 da Vitrine Aberta: campanha vira etiqueta de peça. Nenhuma consulta,
+  // efeito ou storage entra ou sai por causa da flag — só o desenho muda. O
+  // filtro e a busca passam a viver dentro da tela nova, que tem os seus.
+  if (isPainelVitrineEnabled()) {
+    return (
+      <CampanhasVitrine
+        campanhas={overviews}
+        cargaDasCampanhas={cargaDasCampanhas}
+        cargaDosGrupos={cargaDosGrupos}
+        cargaDosLinks={cargaDosLinks}
+        origin={origin}
+        aoTentarDeNovo={carregar}
+      />
+    );
+  }
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-8 px-4 py-8 sm:px-8">
