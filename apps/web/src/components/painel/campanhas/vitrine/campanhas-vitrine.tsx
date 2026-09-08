@@ -192,6 +192,14 @@ export function CampanhasVitrine({
 
       {cena === "lista" && (
         <ul className="space-y-3">
+          {/* Um anúncio para a lista inteira: a carga dos grupos é a mesma para
+              todas as etiquetas, e um role="status" por linha faria o leitor de
+              tela repetir a mesma frase uma vez por campanha. */}
+          {cargaDosGrupos === "carregando" && (
+            <li className="sr-only" role="status">
+              Carregando as vagas das campanhas.
+            </li>
+          )}
           {visiveis.map((campanha) => (
             <li key={campanha.campaign.id}>
               <Etiqueta
@@ -270,13 +278,18 @@ function Etiqueta({
       {vagas.tipo === "sem-grupos" && (
         <p className="mt-3 text-13 text-slate-600">Nenhum grupo escolhido ainda.</p>
       )}
+      {vagas.tipo === "sem-contagem" && (
+        <p className="mt-3 text-13 text-slate-600">
+          {vagas.grupos === 1 ? "1 grupo escolhido" : `${vagas.grupos} grupos escolhidos`}, ainda sem
+          contagem de membros.
+        </p>
+      )}
       {/* Espera é esqueleto; falha é frase. Fundir os dois põe "indisponível"
           em toda abertura normal da tela — o defeito do PR #262. */}
       {vagas.tipo === "carregando" && (
         <span
           className="pn-skeleton mt-3 block h-4 w-48 rounded-[var(--radius-chip)]"
-          role="status"
-          aria-label="Carregando as vagas"
+          aria-hidden="true"
         />
       )}
       {vagas.tipo === "indisponivel" && (

@@ -88,13 +88,19 @@ export function quaseLotada(fillPct: number): boolean {
 export type LinhaDeVagas =
   | { tipo: "vagas"; texto: string; porcentagem: string; lotacao: number; quase: boolean }
   | { tipo: "sem-grupos" }
+  | { tipo: "sem-contagem"; grupos: number }
   | { tipo: "carregando" }
   | { tipo: "indisponivel" };
 
 export function linhaDeVagas(campanha: CampanhaNaEtiqueta, cargaDosGrupos: Carga): LinhaDeVagas {
   if (cargaDosGrupos === "carregando") return { tipo: "carregando" };
   if (cargaDosGrupos === "erro") return { tipo: "indisponivel" };
-  if (campanha.totalCapacity <= 0) return { tipo: "sem-grupos" };
+  // Quem decide "sem grupos" é a contagem de grupos, NÃO a capacidade. Uma
+  // campanha pode apontar para grupos que sumiram de /api/groups (id órfão):
+  // a capacidade soma zero, mas os grupos foram escolhidos. Dizer "nenhum
+  // grupo escolhido" ali manda a lojista escolher grupos que ela já escolheu.
+  if (campanha.groupCount === 0) return { tipo: "sem-grupos" };
+  if (campanha.totalCapacity <= 0) return { tipo: "sem-contagem", grupos: campanha.groupCount };
 
   const pt = (n: number) => n.toLocaleString("pt-BR");
   return {

@@ -94,6 +94,21 @@ test("campanha sem grupo nenhum diz isso, com os grupos já carregados", () => {
   );
 });
 
+test("grupo escolhido que sumiu não vira 'nenhum grupo escolhido'", () => {
+  // Mutante: decidir "sem grupos" pela capacidade em vez da contagem. Uma
+  // campanha cujos grupos saíram de /api/groups (id órfão) soma capacidade 0
+  // com groupCount 3 — e a tela mandava escolher grupos que já foram
+  // escolhidos. Visto na captura de tela: chip LOTOU ao lado de "Nenhum grupo
+  // escolhido ainda", na mesma etiqueta.
+  assert.deepEqual(
+    linhaDeVagas(
+      campanha({ totalCapacity: 0, totalMembers: 0, groupCount: 3, fillPct: 0, operationalStatus: "full" }),
+      "ok",
+    ),
+    { tipo: "sem-contagem", grupos: 3 },
+  );
+});
+
 test("linha de vagas formata em pt-BR e carrega o aviso de quase cheia", () => {
   const linha = linhaDeVagas(campanha(), "ok");
   assert.equal(linha.tipo, "vagas");
