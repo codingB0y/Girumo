@@ -23,7 +23,11 @@ test("senha exige 6; nome e e-mail aceitam qualquer conteúdo", () => {
   assert.equal(podeSalvarCampo("password", "123456"), true);
   // Mutante: `>` no lugar de `>=` recusa a senha de exatamente 6, que é o
   // mínimo que o Supabase aceita.
-  assert.equal(podeSalvarCampo("name", "A"), true);
+  // O nome tem mínimo próprio, que a rota já exigia: aceitar 1 letra aqui
+  // manda o lojista clicar para receber um toast que a tela sabia prever.
+  assert.equal(podeSalvarCampo("name", "A"), false);
+  assert.equal(podeSalvarCampo("name", "Ao"), true);
+  assert.equal(motivoDoBloqueio("name", "A"), "O nome precisa de pelo menos 2 letras.");
   assert.equal(podeSalvarCampo("email", "a@b.co"), true);
 });
 

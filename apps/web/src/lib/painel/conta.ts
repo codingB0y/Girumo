@@ -10,6 +10,9 @@ export type CampoDaConta = "name" | "email" | "password";
 /** O mínimo que o Supabase aceita; abaixo disso o PATCH volta com erro. */
 export const MINIMO_DA_SENHA = 6;
 
+/** `api/auth/account` recusa nome com menos que isto — o client para antes. */
+export const MINIMO_DO_NOME = 2;
+
 /**
  * O botão "Salvar" só liga quando há o que salvar.
  *
@@ -23,6 +26,9 @@ export function podeSalvarCampo(campo: CampoDaConta, valor: string): boolean {
   const limpo = valor.trim();
   if (limpo.length === 0) return false;
   if (campo === "password") return limpo.length >= MINIMO_DA_SENHA;
+  // O servidor exige 2 no nome; aceitar 1 aqui manda o lojista clicar para
+  // receber um toast de erro que a tela já sabia prever.
+  if (campo === "name") return limpo.length >= MINIMO_DO_NOME;
   return true;
 }
 
@@ -30,6 +36,7 @@ export function podeSalvarCampo(campo: CampoDaConta, valor: string): boolean {
 export function motivoDoBloqueio(campo: CampoDaConta, valor: string): string | null {
   if (podeSalvarCampo(campo, valor)) return null;
   if (valor.trim().length === 0) return null; // campo intocado não acusa nada
+  if (campo === "name") return `O nome precisa de pelo menos ${MINIMO_DO_NOME} letras.`;
   return `A senha precisa de pelo menos ${MINIMO_DA_SENHA} caracteres.`;
 }
 
