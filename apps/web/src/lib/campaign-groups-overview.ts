@@ -103,7 +103,7 @@ export function buildCampaignGroupsOverview(input: CampaignGroupsOverviewInput):
     groupCount,
     availableCount,
     missingInviteCount,
-    unknownCount,
+    fullCount,
   });
 
   return {
@@ -125,27 +125,35 @@ export function buildCampaignGroupsOverview(input: CampaignGroupsOverviewInput):
 }
 
 /**
- * Os quatro contadores decidem juntos, e a ordem é o desenho.
+ * Os quatro contadores decidem juntos, e cada um tem seu próprio teste: o
+ * `return` final não absorve caso nenhum. Era exatamente disso que vinha o
+ * defeito — `unknownCount` nem chegava aqui, e o antigo `return "full"`
+ * engolia a campanha cujos grupos sumiram.
  *
- * `unknownCount` cede a `ready` e a `needs_invites`: um grupo que funciona faz
- * a campanha funcionar, e o id órfão ao lado é ruído, não a manchete. Mas ganha
- * de `full`, porque sem nenhum grupo utilizável o órfão é a explicação — era
- * daí que vinha o LOTOU sobre "0 / 0 vagas".
+ * O órfão é o ÚLTIMO a decidir, e isso é o desenho. Ele perde para
+ * `available` e `missing_invite` pelo motivo óbvio (um grupo que funciona faz
+ * a campanha funcionar), mas perde para `full` por um motivo menos óbvio: a
+ * etiqueta mostra `totalMembers / totalCapacity` ao lado do chip, e esses
+ * números vêm dos grupos que RESOLVERAM. Com um grupo real cheio no meio, a
+ * linha diz "195 / 200 vagas" — anunciar "Grupos sumiram" em cima disso
+ * trocaria uma contradição por outra. Quando `fullCount` é zero, os números
+ * ao lado são "0 / 0" e o órfão é a única explicação que sobra.
  *
- * Com o teste de órfãos no lugar, `return "full"` deixa de ser catch-all: só
- * chega ali quem tem grupo de verdade, cheio.
+ * Chegar ao `return` final significa: há grupo escolhido, nenhum disponível,
+ * nenhum sem convite, nenhum cheio. Como os quatro contadores somam
+ * `groupCount`, só restam órfãos.
  */
 function getOperationalStatus(input: {
   groupCount: number;
   availableCount: number;
   missingInviteCount: number;
-  unknownCount: number;
+  fullCount: number;
 }): CampaignOperationalStatus {
   if (input.groupCount === 0) return "empty";
   if (input.availableCount > 0) return "ready";
   if (input.missingInviteCount > 0) return "needs_invites";
-  if (input.unknownCount > 0) return "orphan_groups";
-  return "full";
+  if (input.fullCount > 0) return "full";
+  return "orphan_groups";
 }
 
 function getPrimaryAction(status: CampaignOperationalStatus): CampaignPrimaryAction {

@@ -73,19 +73,31 @@ const orfaoComVaga = buildCampaignGroupsOverview({
 assert.equal(orfaoComVaga.unknownCount, 1);
 assert.equal(orfaoComVaga.operationalStatus, "ready");
 
-// Mutante: descer o teste de órfãos abaixo do `return "full"` (ou seja, não
-// mexer em nada). Sem grupo utilizável, o órfão É a explicação — e este é
-// exatamente o caso que rotulava LOTOU.
+// Mutante: subir o teste de órfãos acima do `fullCount > 0`. Com um grupo real
+// cheio no meio, `totalMembers / totalCapacity` sai dos grupos que resolveram —
+// a etiqueta mostra "195 / 200 vagas". Anunciar "Grupos sumiram" sobre esses
+// números trocaria uma contradição por outra, que é o oposto do conserto.
+// O órfão só é a manchete quando os números ao lado são "0 / 0".
 const orfaoComCheio = buildCampaignGroupsOverview({
   campaign: { ...input.campaign, groupIds: ["g2", "sumiu"] },
   groups: baseGroups,
 });
 assert.equal(orfaoComCheio.fullCount, 1);
 assert.equal(orfaoComCheio.unknownCount, 1);
-assert.equal(orfaoComCheio.operationalStatus, "orphan_groups");
+assert.equal(orfaoComCheio.totalMembers, 195);
+assert.equal(orfaoComCheio.totalCapacity, 200);
+assert.equal(orfaoComCheio.operationalStatus, "full");
+assert.equal(orfaoComCheio.primaryAction.kind, "add_groups");
 
-// Mutante: trocar `unknownCount > 0` por `>= 0`, que engoliria todo o resto.
-// Campanha sem nenhum órfão continua decidindo pelos outros contadores.
+// Mutante: trocar `fullCount > 0` por `>= 0`, que faria toda campanha sem
+// disponível e sem missing_invite virar "full" — de volta ao catch-all que
+// causou o defeito. A campanha só-órfã acima é quem mata esse.
+//
+// Mutante: apagar o `groupCount === 0` inicial. Campanha sem grupo nenhum tem
+// os quatro contadores zerados e cairia no `return` final, virando
+// "orphan_groups" — "Grupos sumiram" para quem nunca escolheu grupo.
+assert.equal(emptyOverview.unknownCount, 0);
+assert.equal(emptyOverview.operationalStatus, "empty");
 assert.equal(overview.unknownCount, 0);
 assert.equal(overview.operationalStatus, "ready");
 
