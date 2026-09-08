@@ -725,6 +725,10 @@
   transform: scaleX(var(--p, 0));
   transition: transform var(--dur-slow) var(--ease-girumo);
 }
+/* Quase lotada (>= 85%): a barra vira Aviso, como fazia a casca antiga. */
+.pn-etiqueta-preco__barra--quase::before {
+  background: var(--color-warning-700);
+}
 .pn-chip--line {
   background: var(--color-line-200);
   color: var(--color-slate-600);
