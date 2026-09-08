@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AccountSection } from "@/components/painel/account-section";
+import { ContaVitrine } from "@/components/painel/configuracoes/vitrine/conta-vitrine";
 import { Smartphone, Users, CreditCard, User, ShieldCheck, RefreshCw, Wifi, WifiOff, Check, Loader2, ExternalLink, PartyPopper, Bell, Trash2 } from "lucide-react";
 import { toPlanLimitError, upgradeUrlFrom } from "@/lib/billing/plan-limit-client";
 import { PlanLimitAlert } from "@/components/painel/plan-limit-alert";
@@ -475,7 +476,7 @@ export default function PainelConfiguracoes() {
               </p>
             )}
             <div className="mt-6 border-t border-line-200 pt-5">
-              <AccountSection />
+              <ContaVitrine />
             </div>
           </>
         }
