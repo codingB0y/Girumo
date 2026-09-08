@@ -14,9 +14,10 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TRIGGER_LABELS } from "@/lib/automations/trigger-labels";
-
-// Triggers de lifecycle do SaaS — nunca aparecem na tela do lojista (P0.7).
-const RETIRED_LOJISTA_TRIGGERS = ["no_connect_24h", "trial_ending"];
+import { AutomacoesVitrine } from "@/components/painel/automacoes/vitrine/automacoes-vitrine";
+import { isPainelVitrineEnabled } from "@/lib/painel/flags";
+import { visiveisParaOLojista } from "@/lib/painel/automacoes";
+import type { Carga } from "@/lib/painel/types";
 
 type AutomationStep = {
   id: string;
@@ -99,11 +100,9 @@ export default function PainelAutomacoes() {
       const res = await fetch("/api/automations");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: unknown = await res.json();
-      setAutomations(
-        Array.isArray(data)
-          ? (data as Automation[]).filter((a) => !RETIRED_LOJISTA_TRIGGERS.includes(a.trigger))
-          : [],
-      );
+      // O filtro dos gatilhos de lifecycle do SaaS (P0.7) mora em
+      // lib/painel/automacoes.ts — fonte única, com teste e mutante.
+      setAutomations(Array.isArray(data) ? visiveisParaOLojista(data as Automation[]) : []);
     } catch {
       setLoadError(true);
     } finally {
@@ -171,6 +170,27 @@ export default function PainelAutomacoes() {
       });
       setActionError("Não foi possível excluir a automação. Verifique sua permissão e tente de novo.");
     }
+  }
+
+  // PR 11 da Vitrine Aberta: a automação vira peça com interruptor, e o modal
+  // caseiro vira a Folha (que já tem Esc, foco preso e o resto da tela inerte).
+  // Nenhuma consulta, efeito ou storage entra ou sai por causa da flag.
+  if (isPainelVitrineEnabled()) {
+    const carga: Carga = loading ? "carregando" : loadError ? "erro" : "ok";
+    return (
+      <AutomacoesVitrine
+        automacoes={automations}
+        carga={carga}
+        criando={creating}
+        erroDeAcao={actionError}
+        templates={TEMPLATES}
+        aoCriar={(indice) => void createFromTemplate(indice)}
+        aoAlternar={(id, ligada) => void toggleEnabled(id, ligada)}
+        aoExcluir={(id) => void deleteAutomation(id)}
+        aoFecharAviso={() => setActionError(null)}
+        aoTentarDeNovo={() => void loadAutomations()}
+      />
+    );
   }
 
   if (loading) {

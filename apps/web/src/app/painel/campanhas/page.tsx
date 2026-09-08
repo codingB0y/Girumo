@@ -10,44 +10,13 @@ import { PlanGate } from "@/components/painel/plan-gate";
 import { CampanhasVitrine } from "@/components/painel/campanhas/vitrine/campanhas-vitrine";
 import { isPainelVitrineEnabled } from "@/lib/painel/flags";
 import type { Carga } from "@/lib/painel/types";
+import { buscarLista } from "@/lib/painel/carregar";
 import {
   buildCampaignGroupsOverview,
   type CampaignOperationalStatus,
 } from "@/lib/campaign-groups-overview";
 import type { Group } from "@/lib/mock-data";
 import { clicksByCampaign } from "@/lib/links/click-attribution";
-
-/**
- * Uma consulta, uma carga.
- *
- * `r.json()` sem checar `r.ok` transforma o corpo de um 500 em lista vazia, e
- * a tela diz "nenhuma campanha" para quem tem quarenta. E a carga é por rota
- * porque uma falha em /api/groups não pode zerar as vagas de todo mundo:
- * ausência de dado não é zero.
- */
-async function buscarLista<T>(
-  url: string,
-  guardar: (itens: T[]) => void,
-  marcar: (carga: Carga) => void,
-): Promise<void> {
-  marcar("carregando");
-  try {
-    const resposta = await fetch(url, { cache: "no-store" });
-    if (!resposta.ok) {
-      marcar("erro");
-      return;
-    }
-    const corpo: unknown = await resposta.json();
-    if (!Array.isArray(corpo)) {
-      marcar("erro");
-      return;
-    }
-    guardar(corpo as T[]);
-    marcar("ok");
-  } catch {
-    marcar("erro");
-  }
-}
 
 type Campanha = {
   id: string;
