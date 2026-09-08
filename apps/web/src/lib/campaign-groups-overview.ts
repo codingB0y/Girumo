@@ -3,7 +3,20 @@ import { GROUP_FULL_RATIO } from "@/lib/links/resolve-click-target";
 
 export type CampaignGroupStatus = "available" | "full" | "missing_invite" | "unknown";
 
-export type CampaignOperationalStatus = "empty" | "ready" | "needs_invites" | "full";
+/**
+ * `orphan_groups` é o caso em que a campanha escolheu grupos e nenhum deles
+ * resolve mais em `/api/groups` — apagados no WhatsApp, ou `group_ids` gravado
+ * com o uuid da linha em vez do JID. Ele existe porque sem ele esse caso caía
+ * no `full`, e a etiqueta anunciava LOTOU para uma campanha que não tem grupo
+ * nenhum para lotar. `grow-headroom.ts` já separa os dois do lado do
+ * auto-grow: id órfão é dado quebrado, não lotação.
+ */
+export type CampaignOperationalStatus =
+  | "empty"
+  | "ready"
+  | "needs_invites"
+  | "full"
+  | "orphan_groups";
 
 export type CampaignPrimaryAction =
   | { kind: "choose_groups" }
@@ -90,6 +103,7 @@ export function buildCampaignGroupsOverview(input: CampaignGroupsOverviewInput):
     groupCount,
     availableCount,
     missingInviteCount,
+    unknownCount,
   });
 
   return {
@@ -110,14 +124,27 @@ export function buildCampaignGroupsOverview(input: CampaignGroupsOverviewInput):
   };
 }
 
+/**
+ * Os quatro contadores decidem juntos, e a ordem é o desenho.
+ *
+ * `unknownCount` cede a `ready` e a `needs_invites`: um grupo que funciona faz
+ * a campanha funcionar, e o id órfão ao lado é ruído, não a manchete. Mas ganha
+ * de `full`, porque sem nenhum grupo utilizável o órfão é a explicação — era
+ * daí que vinha o LOTOU sobre "0 / 0 vagas".
+ *
+ * Com o teste de órfãos no lugar, `return "full"` deixa de ser catch-all: só
+ * chega ali quem tem grupo de verdade, cheio.
+ */
 function getOperationalStatus(input: {
   groupCount: number;
   availableCount: number;
   missingInviteCount: number;
+  unknownCount: number;
 }): CampaignOperationalStatus {
   if (input.groupCount === 0) return "empty";
   if (input.availableCount > 0) return "ready";
   if (input.missingInviteCount > 0) return "needs_invites";
+  if (input.unknownCount > 0) return "orphan_groups";
   return "full";
 }
 
@@ -125,5 +152,8 @@ function getPrimaryAction(status: CampaignOperationalStatus): CampaignPrimaryAct
   if (status === "empty") return { kind: "choose_groups" };
   if (status === "needs_invites") return { kind: "configure_invites" };
   if (status === "ready") return { kind: "copy_link" };
+  // Os grupos escolhidos não existem mais: escolher outros é a saída, e
+  // "adicionar" pressuporia que os atuais servem para alguma coisa.
+  if (status === "orphan_groups") return { kind: "choose_groups" };
   return { kind: "add_groups" };
 }

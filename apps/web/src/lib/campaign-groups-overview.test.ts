@@ -46,4 +46,47 @@ const fullOverview = buildCampaignGroupsOverview({ campaign: { ...input.campaign
 assert.equal(fullOverview.operationalStatus, "full");
 assert.equal(fullOverview.primaryAction.kind, "add_groups");
 
+// Campanha cujos grupos saíram de /api/groups: apagados no WhatsApp, ou
+// `group_ids` gravado com o uuid da linha em vez do JID (dado assim existe em
+// dev). Antes deste teste os quatro contadores existiam mas só três chegavam a
+// `getOperationalStatus`, e o `return "full"` final era um catch-all: a
+// etiqueta dizia LOTOU com "0 / 0 vagas" ao lado. `grow-headroom.ts` já tinha
+// decidido a mesma questão do outro lado do domínio — id órfão é dado
+// quebrado, não lotação.
+const orfaoOverview = buildCampaignGroupsOverview({
+  campaign: { ...input.campaign, groupIds: ["sumiu1", "sumiu2"] },
+  groups: baseGroups,
+});
+assert.equal(orfaoOverview.unknownCount, 2);
+assert.equal(orfaoOverview.operationalStatus, "orphan_groups");
+assert.equal(orfaoOverview.primaryAction.kind, "choose_groups");
+// A contradição que a captura de tela mostraria: lotação zero sob o chip LOTOU.
+assert.equal(orfaoOverview.totalCapacity, 0);
+
+// Mutante: subir o teste de órfãos acima de `availableCount > 0`. Um grupo que
+// funciona faz a campanha funcionar — o id órfão ao lado é ruído, não a
+// manchete, e roubar o chip "Pronta" dela seria trocar uma mentira por outra.
+const orfaoComVaga = buildCampaignGroupsOverview({
+  campaign: { ...input.campaign, groupIds: ["g1", "sumiu"] },
+  groups: baseGroups,
+});
+assert.equal(orfaoComVaga.unknownCount, 1);
+assert.equal(orfaoComVaga.operationalStatus, "ready");
+
+// Mutante: descer o teste de órfãos abaixo do `return "full"` (ou seja, não
+// mexer em nada). Sem grupo utilizável, o órfão É a explicação — e este é
+// exatamente o caso que rotulava LOTOU.
+const orfaoComCheio = buildCampaignGroupsOverview({
+  campaign: { ...input.campaign, groupIds: ["g2", "sumiu"] },
+  groups: baseGroups,
+});
+assert.equal(orfaoComCheio.fullCount, 1);
+assert.equal(orfaoComCheio.unknownCount, 1);
+assert.equal(orfaoComCheio.operationalStatus, "orphan_groups");
+
+// Mutante: trocar `unknownCount > 0` por `>= 0`, que engoliria todo o resto.
+// Campanha sem nenhum órfão continua decidindo pelos outros contadores.
+assert.equal(overview.unknownCount, 0);
+assert.equal(overview.operationalStatus, "ready");
+
 console.log("campaign-groups-overview tests passed");

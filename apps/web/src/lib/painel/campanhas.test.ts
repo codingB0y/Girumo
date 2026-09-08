@@ -216,8 +216,40 @@ test("contagem por filtro: 'all' é o total e cada estado soma o seu", () => {
     needs_invites: 0,
     full: 1,
     empty: 1,
+    orphan_groups: 0,
   });
   // Mutante: iniciar as contas sem as chaves zeradas devolve `undefined` na
   // aba vazia, e "Sem convite" perde o número.
   assert.equal(contarPorFiltro([]).needs_invites, 0);
+  assert.equal(contarPorFiltro([]).orphan_groups, 0);
+});
+
+test("campanha com grupos sumidos não vira 'Sem grupos' no chip", () => {
+  // Mutante: não dar braço próprio a `orphan_groups` em chipDaCampanha. O
+  // último `return` da função é um catch-all, então o status novo cairia em
+  // "Sem grupos" — a frase que o PR #263 tirou da linha de vagas justamente
+  // por mandar a lojista escolher grupos que ela já escolheu. O `tsc` não
+  // pega: é if/return, não switch exaustivo.
+  const chip = chipDaCampanha("orphan_groups");
+  assert.equal(chip.texto, "Grupos sumiram");
+  assert.notEqual(chip.texto, "Sem grupos");
+  // Acid é reservado a AO VIVO e LOTOU (regra 10): estado de problema é Line.
+  assert.equal(chip.tom, "line");
+});
+
+test("campanha com grupos sumidos sai da contagem de Lotadas", () => {
+  // O ponto do card: mexer só no texto do chip deixaria a aba "Lotadas 2"
+  // contando uma campanha cuja etiqueta não diz "Lotou". A coerência entre a
+  // aba e a etiqueta vem de as duas lerem o mesmo operationalStatus.
+  const lista = [
+    campanha({ operationalStatus: "full" }),
+    campanha({ operationalStatus: "orphan_groups" }),
+    campanha({ operationalStatus: "orphan_groups" }),
+  ];
+  const contas = contarPorFiltro(lista);
+  assert.equal(contas.full, 1);
+  assert.equal(contas.orphan_groups, 2);
+  assert.equal(contas.all, 3);
+  assert.equal(filtrarCampanhas(lista, "full", "").length, 1);
+  assert.equal(filtrarCampanhas(lista, "orphan_groups", "").length, 2);
 });

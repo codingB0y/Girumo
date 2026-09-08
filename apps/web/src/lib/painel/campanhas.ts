@@ -59,13 +59,21 @@ export type ChipDeEstado = { texto: string; tom: TomDeChip };
  * clique foi em março seria inventar movimento que não existe. A página, que
  * tem `status === "published"`, é quem ganha o Acid de AO VIVO.
  *
- * Os dois estados de problema (`needs_invites`, `empty`) continuam visíveis:
- * são a diferença entre uma campanha que trabalha e uma que só parece pronta.
+ * Os três estados de problema (`needs_invites`, `orphan_groups`, `empty`)
+ * continuam visíveis: são a diferença entre uma campanha que trabalha e uma
+ * que só parece pronta.
+ *
+ * `orphan_groups` precisa de braço PRÓPRIO, não do `return` final. Cair no
+ * catch-all faria a campanha cujos grupos sumiram dizer "Sem grupos" — a
+ * mesma frase que o PR #263 tirou da linha de vagas por mandar a lojista
+ * escolher grupos que ela já tinha escolhido. O `tsc` não protege disto: a
+ * função é if/return, não switch exaustivo.
  */
 export function chipDaCampanha(status: CampaignOperationalStatus): ChipDeEstado {
   if (status === "full") return { texto: "Lotou", tom: "acid" };
   if (status === "ready") return { texto: "Pronta", tom: "canvas" };
   if (status === "needs_invites") return { texto: "Sem convite", tom: "line" };
+  if (status === "orphan_groups") return { texto: "Grupos sumiram", tom: "line" };
   return { texto: "Sem grupos", tom: "line" };
 }
 
@@ -182,6 +190,7 @@ export function contarPorFiltro(
     needs_invites: 0,
     full: 0,
     empty: 0,
+    orphan_groups: 0,
   };
   for (const c of campanhas) contas[c.operationalStatus] += 1;
   return contas;
