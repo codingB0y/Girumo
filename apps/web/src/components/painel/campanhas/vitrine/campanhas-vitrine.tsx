@@ -34,12 +34,16 @@ type Props = {
   aoTentarDeNovo: () => void;
 };
 
+// Lista literal: o `tsc` cobra que cada `valor` seja um FiltroDeCampanha, mas
+// não cobra que todos estejam aqui. Estado novo em CampaignOperationalStatus
+// precisa de linha nova nesta lista, senão a aba some sem erro de compilação.
 const FILTROS: { valor: FiltroDeCampanha; rotulo: string }[] = [
   { valor: "all", rotulo: "Todas" },
   { valor: "ready", rotulo: "Prontas" },
   { valor: "needs_invites", rotulo: "Sem convite" },
   { valor: "full", rotulo: "Lotadas" },
   { valor: "empty", rotulo: "Sem grupos" },
+  { valor: "orphan_groups", rotulo: "Grupos sumiram" },
 ];
 
 function classeDoChip(tom: TomDeChip): string {
