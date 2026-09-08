@@ -33,7 +33,16 @@ function ConnectedNumber() {
   const { session, loading } = usePanelSession();
 
   if (loading) {
-    return <div className="pn-skeleton hidden h-9 w-44 rounded-[10px] sm:block" data-testid="painel-skeleton" />;
+    // `aria-hidden` de propósito: o chip resolvido também não é anunciado (não
+    // tem `aria-live`), então um "carregando o número" aqui prometeria um aviso
+    // que nunca chega. Enquanto o estado final for mudo, a espera também é.
+    return (
+      <div
+        className="pn-skeleton hidden h-9 w-44 rounded-[10px] sm:block"
+        data-testid="painel-skeleton"
+        aria-hidden="true"
+      />
+    );
   }
 
   // Sem resposta da API: some em vez de inventar um estado.

@@ -86,7 +86,7 @@ export default function CancelarPage() {
 
   if (loading || !stats) {
     return (
-      <div className="mx-auto max-w-[600px] px-4 py-10 sm:px-6">
+      <div className="mx-auto max-w-[600px] px-4 py-10 sm:px-6" role="status" aria-label="Carregando o plano">
         <div className="pn-skeleton h-64 rounded-xl" data-testid="painel-skeleton" />
       </div>
     );

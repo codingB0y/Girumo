@@ -191,7 +191,12 @@ export function RelampagoVitrine({ ofertas, elegiveis, carregando, abrindo, erro
       )}
 
       {carregando ? (
-        <div className="pn-skeleton h-40 rounded-[var(--radius-control)]" data-testid="painel-skeleton" />
+        <div
+          className="pn-skeleton h-40 rounded-[var(--radius-control)]"
+          data-testid="painel-skeleton"
+          role="status"
+          aria-label="Carregando as ofertas"
+        />
       ) : ofertas.length === 0 ? (
         <p className="text-15 text-volt-950">
           Nenhuma oferta ainda.{" "}

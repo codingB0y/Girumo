@@ -35,7 +35,14 @@ export function VitrineAgora() {
   }, []);
 
   if (ofertas === null) {
-    return <div className="pn-skeleton h-28 rounded-[var(--radius-control)]" data-testid="painel-skeleton" />;
+    return (
+      <div
+        className="pn-skeleton h-28 rounded-[var(--radius-control)]"
+        data-testid="painel-skeleton"
+        role="status"
+        aria-label="Carregando o que está na vitrine"
+      />
+    );
   }
 
   const aberta = ofertas.find((o) => o.status === "open") ?? null;

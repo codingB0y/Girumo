@@ -68,7 +68,7 @@ export default function PainelBiblioteca() {
 
       {/* Cards de copy */}
       {segment === undefined ? (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2" role="status" aria-label="Carregando as copies">
           {[0, 1, 2, 3].map((i) => (
             <div key={i} className="pn-skeleton h-40 rounded-xl" data-testid="painel-skeleton" />
           ))}

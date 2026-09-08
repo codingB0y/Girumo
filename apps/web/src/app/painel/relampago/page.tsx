@@ -270,7 +270,7 @@ export default function PainelRelampago() {
       )}
 
       {loading ? (
-        <div className="pn-skeleton h-40 rounded-xl" data-testid="painel-skeleton" />
+        <div className="pn-skeleton h-40 rounded-xl" data-testid="painel-skeleton" role="status" aria-label="Carregando as ofertas" />
       ) : (
         <>
           {aberta && (

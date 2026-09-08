@@ -196,7 +196,7 @@ function PlanCard() {
   // não inventamos um plano. Sem assinatura, o CTA vira convite pra escolher um.
   if (loading) {
     return (
-      <div className="px-3 pb-4">
+      <div className="px-3 pb-4" role="status" aria-label="Carregando o plano">
         <div className="pn-skeleton h-[104px] rounded-xl" data-testid="painel-skeleton" />
       </div>
     );

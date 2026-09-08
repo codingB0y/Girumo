@@ -216,7 +216,7 @@ export default function PainelGrupos() {
       </div>
 
       {loading ? (
-        <div className="pn-skeleton h-80 rounded-xl" data-testid="painel-skeleton" />
+        <div className="pn-skeleton h-80 rounded-xl" data-testid="painel-skeleton" role="status" aria-label="Carregando os grupos" />
       ) : (
         <div className="pn-card overflow-hidden rounded-xl">
           <div className="hidden border-b border-volt-950/[0.06] bg-poco px-5 py-3 md:grid md:grid-cols-[1.8fr_1fr_0.8fr_auto] md:gap-4">

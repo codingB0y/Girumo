@@ -149,7 +149,7 @@ export default function CampanhaDetalhe() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-[1100px] space-y-4 px-4 py-8 sm:px-8">
+      <div className="mx-auto max-w-[1100px] space-y-4 px-4 py-8 sm:px-8" role="status" aria-label="Carregando a campanha">
         <div className="pn-skeleton h-40 rounded-xl" data-testid="painel-skeleton" />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[0, 1, 2].map((i) => <div key={i} className="pn-skeleton h-56 rounded-xl" data-testid="painel-skeleton" />)}

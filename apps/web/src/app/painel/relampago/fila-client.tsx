@@ -157,7 +157,7 @@ export function FilaClient({ offerId }: { offerId: string }) {
 
   if (!dados) {
     return (
-      <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-8">
+      <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-8" role="status" aria-label="Carregando a oferta">
         <div className="pn-skeleton h-64 rounded-xl" data-testid="painel-skeleton" />
       </div>
     );
