@@ -16,6 +16,9 @@ import {
 import { authenticatedFetch } from "@/lib/supabase/client";
 import { subscriptionAccess, subscriptionNotice } from "@/lib/billing/subscription-access";
 import { SEGMENTS } from "@/lib/segments";
+import { ConfiguracoesVitrine } from "@/components/painel/configuracoes/vitrine/configuracoes-vitrine";
+import { isPainelVitrineEnabled } from "@/lib/painel/flags";
+import { useRole } from "@/components/painel/role-provider";
 
 type Section = "Conexão" | "Equipe" | "Notificações" | "Plano" | "Conta";
 const NAV: { key: Section; icon: typeof Smartphone }[] = [
@@ -92,7 +95,18 @@ type Subscription = {
   current_period_end?: string | null;
 } | null;
 
+/**
+ * Estado de cada consulta da tela. Tres valores, nao dois: "ainda nao voltou" e
+ * "voltou com falha" pedem telas diferentes — tratar o primeiro como o segundo
+ * mostra "Nao deu para carregar" a quem so esperou meio segundo.
+ */
+type Carga = "carregando" | "ok" | "erro";
+type ChaveDaCarga = "settings" | "session" | "members" | "plans" | "sub";
+
 export default function PainelConfiguracoes() {
+  // A casca já carregou o papel: a porta "Conta" o mostra em português sem
+  // custar uma consulta nova.
+  const { role } = useRole();
   const [section, setSection] = useState<Section>("Conexão");
   const [session, setSession] = useState<Session>({});
   const [members, setMembers] = useState<Membership[]>([]);
@@ -120,6 +134,22 @@ export default function PainelConfiguracoes() {
   const [segment, setSegment] = useState<string | null | undefined>(undefined);
   const [segmentBusy, setSegmentBusy] = useState(false);
   const [segmentError, setSegmentError] = useState<string | null>(null);
+  /**
+   * Quais consultas responderam bem.
+   *
+   * Os cinco fetches desta tela têm `catch` silencioso, então lista vazia e
+   * `live: false` chegavam iguais quer o dado fosse esse, quer a rota tivesse
+   * caído — e a tela afirmava "Desconectado" e "Só você por enquanto" nos dois
+   * casos. As portas da Vitrine preferem não escrever nada a escrever o que não
+   * sabem.
+   */
+  const [respondeu, setRespondeu] = useState<Record<ChaveDaCarga, Carga>>({
+    settings: "carregando",
+    session: "carregando",
+    members: "carregando",
+    plans: "carregando",
+    sub: "carregando",
+  });
 
   // Deep-link `?secao=notificacoes` do rodapé do e-mail. Lido de
   // `window.location` em vez de `useSearchParams` para não exigir uma fronteira
@@ -132,19 +162,60 @@ export default function PainelConfiguracoes() {
 
   useEffect(() => {
     authenticatedFetch("/api/settings")
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => {
+        if (!r.ok) throw new Error("settings");
+        return r.json();
+      })
       .then((d) => {
         setPrefs(lerPreferencias(d));
         setSegment(typeof d?.segment === "string" ? d.segment : null);
+        setRespondeu((o) => ({ ...o, settings: "ok" }));
       })
       .catch(() => {
         setPrefs(lerPreferencias(null));
         setSegment(null);
+        setRespondeu((o) => ({ ...o, settings: "erro" }));
       });
-    fetch("/api/session").then((r) => r.json()).then(setSession).catch(() => {});
-    fetch("/api/members").then((r) => r.json()).then((d) => setMembers(Array.isArray(d) ? d : d?.members ?? [])).catch(() => {});
-    fetch("/api/plans").then((r) => r.json()).then((d) => setPlans(Array.isArray(d) ? d : [])).catch(() => {});
-    authenticatedFetch("/api/subscription").then((r) => (r.ok ? r.json() : null)).then(setSub).catch(() => {});
+    fetch("/api/session")
+      .then((r) => {
+        if (!r.ok) throw new Error("session");
+        return r.json();
+      })
+      .then((d) => {
+        setSession(d);
+        setRespondeu((o) => ({ ...o, session: "ok" }));
+      })
+      .catch(() => setRespondeu((o) => ({ ...o, session: "erro" })));
+    fetch("/api/members")
+      .then((r) => {
+        if (!r.ok) throw new Error("members");
+        return r.json();
+      })
+      .then((d) => {
+        setMembers(Array.isArray(d) ? d : d?.members ?? []);
+        setRespondeu((o) => ({ ...o, members: "ok" }));
+      })
+      .catch(() => setRespondeu((o) => ({ ...o, members: "erro" })));
+    fetch("/api/plans")
+      .then((r) => {
+        if (!r.ok) throw new Error("plans");
+        return r.json();
+      })
+      .then((d) => {
+        setPlans(Array.isArray(d) ? d : []);
+        setRespondeu((o) => ({ ...o, plans: "ok" }));
+      })
+      .catch(() => setRespondeu((o) => ({ ...o, plans: "erro" })));
+    authenticatedFetch("/api/subscription")
+      .then((r) => {
+        if (!r.ok) throw new Error("subscription");
+        return r.json();
+      })
+      .then((d) => {
+        setSub(d);
+        setRespondeu((o) => ({ ...o, sub: "ok" }));
+      })
+      .catch(() => setRespondeu((o) => ({ ...o, sub: "erro" })));
     fetch("/api/playbook")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => setPlaybookGraduated(Boolean(d?.graduated)))
@@ -309,6 +380,107 @@ export default function PainelConfiguracoes() {
     } finally {
       setRemovingId(null);
     }
+  }
+
+  // PR 9 da Vitrine Aberta: as portas com o dado de cada uma antes do clique.
+  // Todo o estado acima continua aqui — só o desenho muda, e nenhuma consulta,
+  // efeito ou storage entra ou sai por causa da flag.
+  if (isPainelVitrineEnabled()) {
+    const aceitos = members.filter((m) => m.accepted_at).length;
+    return (
+      <ConfiguracoesVitrine
+        porta={section}
+        onPorta={setSection}
+        leitura={{
+          conexao: { ok: respondeu.session === "ok", live },
+          equipe: { ok: respondeu.members === "ok", aceitos, pendentes: members.length - aceitos },
+          avisos: {
+            ok: respondeu.settings === "ok",
+            ligados: prefs ? PREFERENCIAS.filter((p) => prefs[p.key]).length : 0,
+            total: PREFERENCIAS.length,
+          },
+          plano: { ok: respondeu.sub === "ok", nome: currentPlanName, vigente: planoVigente },
+          conta: { papel: role },
+        }}
+        conexao={{ carga: respondeu.session, live, telefone: session.phone ?? null }}
+        equipe={{
+          membros: members,
+          carga: respondeu.members,
+          email: inviteEmail,
+          onEmail: setInviteEmail,
+          convidando: inviteBusy,
+          erro: inviteError,
+          upgradeUrl: inviteUpgradeUrl,
+          aviso: removeNotice,
+          removendoId: removingId,
+          onConvidar: () => void inviteMember(),
+          onRemover: (m) => void removeMember(m),
+        }}
+        avisos={{
+          preferencias: prefs,
+          itens: PREFERENCIAS,
+          salvando: prefBusy,
+          erro: prefError,
+          onAlternar: (key, proximo) => void togglePref(key as PreferenciaKey, proximo),
+        }}
+        plano={{
+          carga: respondeu.sub,
+          nome: currentPlanName,
+          codigo: currentPlanCode,
+          vigente: planoVigente,
+          recado: acessoPlano ? subscriptionNotice(acessoPlano.state) : null,
+          renovaEm: sub?.current_period_end ?? null,
+          planos: respondeu.plans === "ok" ? plans : [],
+          cargaDosPlanos: respondeu.plans,
+          assinando: busyPlan,
+          abrindoPortal: portalBusy,
+          erro: billingError,
+          onAssinar: (codigo) => void openCheckout(codigo),
+          onPortal: () => void openPortal(),
+        }}
+        conta={
+          <>
+            <label htmlFor="segmento" className="block text-[14px] text-volt-950">
+              Seu ramo
+            </label>
+            <p className="mt-0.5 text-13 text-slate-600">
+              Ajusta os modelos de mensagem da biblioteca pro seu tipo de negócio.
+            </p>
+            {segment === undefined ? (
+              <span
+                className="pn-skeleton mt-2 block h-12 w-full max-w-sm rounded-[var(--radius-control)]"
+                data-testid="painel-skeleton"
+                role="status"
+                aria-label="Carregando o ramo"
+              />
+            ) : (
+              <select
+                id="segmento"
+                value={segment ?? ""}
+                disabled={segmentBusy}
+                onChange={(e) => saveSegment(e.target.value)}
+                className="mt-2 block h-12 w-full max-w-sm rounded-[var(--radius-control)] border border-line-200 bg-canvas-100 px-3 text-[16px] text-volt-950 disabled:opacity-60"
+              >
+                <option value="">Ainda não escolhi</option>
+                {SEGMENTS.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            )}
+            {segmentError && (
+              <p role="alert" className="mt-2 text-13 text-danger-700">
+                {segmentError}
+              </p>
+            )}
+            <div className="mt-6 border-t border-line-200 pt-5">
+              <AccountSection />
+            </div>
+          </>
+        }
+      />
+    );
   }
 
   return (

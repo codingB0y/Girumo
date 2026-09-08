@@ -76,6 +76,19 @@ export function dayBROf(iso?: string | null): string | undefined {
 }
 
 /**
+ * `DD/MM` de Brasília, para data que a tela mostra sem o ano ("Renova em 04/10").
+ *
+ * Sai de `dayBROf`, que já fixa o fuso: um `Intl` novo aqui leria o relógio de
+ * quem roda e a data andaria um dia no CI, que é UTC.
+ */
+export function diaMesBR(iso?: string | null): string | undefined {
+  const dia = dayBROf(iso);
+  if (!dia) return undefined;
+  const [, mes, d] = dia.split("-");
+  return `${d}/${mes}`;
+}
+
+/**
  * `HH:MM` de Brasília de um timestamp do banco.
  *
  * String vazia quando não há data ou ela não parseia — quem chama omite o
