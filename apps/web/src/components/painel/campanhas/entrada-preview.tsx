@@ -30,14 +30,14 @@ export function EntradaPreview({
   });
   return (
     <div className="rounded-xl border border-aco/10 bg-poco p-3">
-      <p className="mb-2 font-data text-[11px] uppercase tracking-[0.08em] text-aco/55">Prévia da tela</p>
+      <p className="mb-2 font-data text-12 uppercase tracking-[0.08em] text-aco">Prévia da tela</p>
       <iframe
         title="Prévia da tela de entrada"
         srcDoc={html}
         sandbox=""
         className="h-[360px] w-full rounded-xl border-0 bg-white"
       />
-      <p className="mt-2 text-xs text-aco/60">É o que a pessoa vê por um instante antes de o WhatsApp abrir.</p>
+      <p className="mt-2 text-xs text-aco">É o que a pessoa vê por um instante antes de o WhatsApp abrir.</p>
     </div>
   );
 }

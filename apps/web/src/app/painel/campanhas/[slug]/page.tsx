@@ -178,7 +178,7 @@ export default function CampanhaDetalhe() {
     <div className="mx-auto max-w-[1100px] space-y-6 px-4 py-8 sm:px-8">
       <Link
         href="/painel/campanhas"
-        className="font-data inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.08em] text-aco/55 transition-colors duration-[160ms] hover:text-cobalt-500"
+        className="font-data inline-flex items-center gap-1.5 text-12 uppercase tracking-[0.08em] text-aco transition-colors duration-[160ms] hover:text-cobalt-500"
       >
         <ArrowLeft className="h-3.5 w-3.5" /> Campanhas
       </Link>
@@ -222,14 +222,14 @@ export default function CampanhaDetalhe() {
                     href={`/painel/campanhas/${campanha.slug ?? campanha.id}/editar`}
                     className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-aco transition-colors duration-[160ms] hover:bg-poco hover:text-volt-950"
                   >
-                    <Settings2 className="h-4 w-4 text-aco/50" /> Configurar
+                    <Settings2 className="h-4 w-4 text-aco" /> Configurar
                   </Link>
                   <button
                     onClick={handleRefresh}
                     disabled={refreshing}
                     className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-aco transition-colors duration-[160ms] hover:bg-poco hover:text-volt-950"
                   >
-                    {refreshing ? <Loader2 className="h-4 w-4 animate-spin text-aco/50" /> : <RefreshCw className="h-4 w-4 text-aco/50" />}
+                    {refreshing ? <Loader2 className="h-4 w-4 animate-spin text-aco" /> : <RefreshCw className="h-4 w-4 text-aco" />}
                     Atualizar dados
                   </button>
                   <button
@@ -254,7 +254,7 @@ export default function CampanhaDetalhe() {
               </div>
               <span className={cn("font-data text-sm font-medium tabular-nums", fill >= 85 ? "text-atencao" : "text-cobalt-500")}>{fill}%</span>
             </div>
-            <p className="font-data mt-1.5 text-[11px] tabular-nums text-aco/50">
+            <p className="font-data mt-1.5 text-12 tabular-nums text-aco">
               {o.totalMembers.toLocaleString("pt-BR")} / {o.totalCapacity.toLocaleString("pt-BR")} membros
             </p>
           </div>
@@ -283,7 +283,7 @@ export default function CampanhaDetalhe() {
       {/* Abas */}
       <div className="flex gap-1 overflow-x-auto border-b border-volt-950/[0.08]">
         {TABS.map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={cn("relative shrink-0 px-4 py-2.5 text-sm font-medium transition-colors duration-[160ms]", tab === t ? "text-volt-950" : "text-aco/55 hover:text-volt-950")}>
+          <button key={t} onClick={() => setTab(t)} className={cn("relative shrink-0 px-4 py-2.5 text-sm font-medium transition-colors duration-[160ms]", tab === t ? "text-volt-950" : "text-aco hover:text-volt-950")}>
             {t}
             {tab === t && <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-cobalt-500" />}
           </button>
@@ -295,7 +295,7 @@ export default function CampanhaDetalhe() {
           o.groups.length === 0 ? (
             <div className="pn-card rounded-xl px-5 py-16 text-center">
               <p className="text-[22px] text-volt-950">Sem grupos ainda.</p>
-              <p className="mt-1 text-sm text-aco/60">Adicione grupos pra essa campanha começar a captar.</p>
+              <p className="mt-1 text-sm text-aco">Adicione grupos pra essa campanha começar a captar.</p>
               <Link
                 href={`/painel/campanhas/${campanha.slug ?? campanha.id}/editar`}
                 className="mt-4 inline-flex items-center gap-2 rounded-xl bg-cobalt-500 px-4 py-2.5 text-sm font-medium text-white transition-[transform,filter] duration-[160ms] ease-[var(--ease-fluxo)] hover:-translate-y-0.5 hover:brightness-110"
@@ -390,12 +390,12 @@ export default function CampanhaDetalhe() {
                   );
                 })}
               </div>
-              <p className="mt-4 text-[13px] leading-relaxed text-aco/60">
+              <p className="mt-4 text-13 leading-relaxed text-aco">
                 Entradas são quem entrou nos grupos desta campanha depois que ela foi criada.
                 O convite do WhatsApp é o mesmo pra todo mundo, então quem foi adicionado à
                 mão entra nessa conta igual — não é prova de que veio do link.
               </p>
-              <Link href="/painel/resultados" className="font-data mt-5 inline-flex items-center gap-1 text-[11px] uppercase tracking-[0.08em] text-cobalt-500 transition-[gap] duration-[160ms] hover:gap-1.5">
+              <Link href="/painel/resultados" className="font-data mt-5 inline-flex items-center gap-1 text-12 uppercase tracking-[0.08em] text-cobalt-500 transition-[gap] duration-[160ms] hover:gap-1.5">
                 Ver resultados completos →
               </Link>
             </div>
@@ -422,22 +422,22 @@ function GroupCard({ g, live, origin }: { g: CampaignGroupOverview; live: boolea
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#25D366] text-white"><MessageCircle className="h-5 w-5" /></span>
           <div className="min-w-0">
             <p className="font-display truncate text-sm font-bold text-volt-950">{name}</p>
-            <p className="font-data text-[10px] uppercase tracking-wider text-aco/45">WhatsApp</p>
+            <p className="font-data text-12 uppercase tracking-wider text-aco">WhatsApp</p>
           </div>
         </div>
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {g.status === "missing_invite" ? (
-          <span className="font-data inline-flex items-center gap-1.5 rounded-full bg-atencao/10 px-2.5 py-1 text-[10px] uppercase tracking-wider text-atencao">
+          <span className="font-data inline-flex items-center gap-1.5 rounded-full bg-atencao/10 px-2.5 py-1 text-12 uppercase tracking-wider text-atencao">
             <Lock className="h-3 w-3" /> Sem convite
           </span>
         ) : conectado ? (
-          <span className="font-data inline-flex items-center gap-1.5 rounded-full bg-sucesso/10 px-2.5 py-1 text-[10px] uppercase tracking-wider text-sucesso">
+          <span className="font-data inline-flex items-center gap-1.5 rounded-full bg-sucesso/10 px-2.5 py-1 text-12 uppercase tracking-wider text-sucesso">
             <Unlock className="h-3 w-3" /> {g.status === "full" ? "Cheio" : "Ativo"}
           </span>
         ) : (
-          <span className="font-data inline-flex items-center gap-1.5 rounded-full bg-alerta/10 px-2.5 py-1 text-[10px] uppercase tracking-wider text-alerta">
+          <span className="font-data inline-flex items-center gap-1.5 rounded-full bg-alerta/10 px-2.5 py-1 text-12 uppercase tracking-wider text-alerta">
             <Lock className="h-3 w-3" /> Desconectado
           </span>
         )}
@@ -446,19 +446,19 @@ function GroupCard({ g, live, origin }: { g: CampaignGroupOverview; live: boolea
 
       <div className="mt-4">
         <div className="flex items-center justify-between">
-          <span className="font-data text-[10px] uppercase tracking-wider text-aco/50">Capacidade</span>
+          <span className="font-data text-12 uppercase tracking-wider text-aco">Capacidade</span>
           <span className={cn("font-data text-sm font-medium tabular-nums", quase ? "text-atencao" : "text-cobalt-500")}>{Math.round(cap)}%</span>
         </div>
         <div className="pn-poco mt-1.5 h-2 w-full overflow-hidden rounded-full">
           <div className="pn-fill h-full w-full rounded-full" style={{ transform: `scaleX(${Math.max(cap / 100, 0.02)})`, background: quase ? "#D99B2A" : "var(--color-cobalt-500)" }} />
         </div>
-        <p className="font-data mt-1 text-[10px] tabular-nums text-aco/45">{g.members.toLocaleString("pt-BR")} membros · limite {g.capacity.toLocaleString("pt-BR")}</p>
+        <p className="font-data mt-1 text-12 tabular-nums text-aco">{g.members.toLocaleString("pt-BR")} membros · limite {g.capacity.toLocaleString("pt-BR")}</p>
       </div>
 
       {g.inviteUrl ? (
         <CopyLink url={origin && !g.inviteUrl.startsWith("http") ? `${origin}${g.inviteUrl}` : g.inviteUrl} className="mt-3" />
       ) : (
-        <p className="font-data mt-3 text-[11px] text-atencao">Configure o link de convite</p>
+        <p className="font-data mt-3 text-12 text-atencao">Configure o link de convite</p>
       )}
     </div>
   );
@@ -469,7 +469,7 @@ function GroupCard({ g, live, origin }: { g: CampaignGroupOverview; live: boolea
 function HeaderStat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/50">{label}</p>
+      <p className="font-data text-12 uppercase tracking-[0.08em] text-aco">{label}</p>
       <p className="font-data text-xl font-medium tabular-nums text-volt-950">{value}</p>
     </div>
   );
@@ -478,7 +478,7 @@ function HeaderStat({ label, value }: { label: string; value: string }) {
 function Tile({ label, value, tone }: { label: string; value: string; tone?: "cobalt" | "atencao" }) {
   return (
     <div className="pn-card rounded-xl p-4">
-      <p className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/50">{label}</p>
+      <p className="font-data text-12 uppercase tracking-[0.08em] text-aco">{label}</p>
       <p className={cn("font-data mt-2 text-[26px] font-medium tabular-nums tracking-[-0.02em]", tone === "cobalt" ? "text-cobalt-500" : tone === "atencao" ? "text-atencao" : "text-volt-950")}>{value}</p>
     </div>
   );
@@ -487,7 +487,7 @@ function Tile({ label, value, tone }: { label: string; value: string; tone?: "co
 function Mini({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl bg-poco px-4 py-3">
-      <p className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/50">{label}</p>
+      <p className="font-data text-12 uppercase tracking-[0.08em] text-aco">{label}</p>
       <p className="mt-1 text-sm font-medium text-volt-950">{value}</p>
     </div>
   );
@@ -504,20 +504,20 @@ function Mini({ label, value }: { label: string; value: string }) {
 function SeloEnvio({ estado }: { estado: "open" | "closed" | null }) {
   if (estado === "open") {
     return (
-      <span className="font-data inline-flex items-center gap-1.5 rounded-full bg-sucesso/10 px-2.5 py-1 text-[10px] uppercase tracking-wider text-sucesso">
+      <span className="font-data inline-flex items-center gap-1.5 rounded-full bg-sucesso/10 px-2.5 py-1 text-12 uppercase tracking-wider text-sucesso">
         <Unlock className="h-3 w-3" /> Aberto
       </span>
     );
   }
   if (estado === "closed") {
     return (
-      <span className="font-data inline-flex items-center gap-1.5 rounded-full bg-poco px-2.5 py-1 text-[10px] uppercase tracking-wider text-aco/70">
+      <span className="font-data inline-flex items-center gap-1.5 rounded-full bg-poco px-2.5 py-1 text-12 uppercase tracking-wider text-aco">
         <Lock className="h-3 w-3" /> Fechado
       </span>
     );
   }
   return (
-    <span className="font-data inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] uppercase tracking-wider text-aco/40">
+    <span className="font-data inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-12 uppercase tracking-wider text-aco">
       Envio: sem informação
     </span>
   );

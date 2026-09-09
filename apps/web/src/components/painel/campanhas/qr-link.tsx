@@ -51,14 +51,14 @@ export function QrLink({ url, nome }: { url: string; nome: string }) {
           <div className="pn-card w-full max-w-xs rounded-xl p-6 text-center" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium text-volt-950">Aponte a câmera</p>
-              <button type="button" onClick={() => setOpen(false)} aria-label="Fechar" className="text-aco/60 hover:text-volt-950">
+              <button type="button" onClick={() => setOpen(false)} aria-label="Fechar" className="text-aco hover:text-volt-950">
                 <X className="h-4 w-4" />
               </button>
             </div>
             <div ref={wrap} className="mt-4 inline-block rounded-xl bg-white p-3">
               <QRCodeCanvas value={url} size={512} level="M" marginSize={2} bgColor="#ffffff" fgColor="#071923" style={{ width: 208, height: 208 }} />
             </div>
-            <p className="font-data mt-3 break-all text-[11px] text-aco/60">{url}</p>
+            <p className="font-data mt-3 break-all text-12 text-aco">{url}</p>
             <button
               type="button"
               onClick={baixar}
