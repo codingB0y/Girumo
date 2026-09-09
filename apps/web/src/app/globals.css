@@ -94,8 +94,22 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-* {
-  border-color: var(--color-line-200);
+/* Dentro de `@layer base`, e nao solta.
+ *
+ * O preflight do Tailwind v4 zera a borda com `border: 0 solid`, sem cor — o
+ * default vira `currentColor`. Esta regra devolve o cinza do v3 para quem
+ * escreve `border` sem dizer a cor. Solta, porem, ela vencia TODAS as
+ * utilitarias: regra fora de camada tem precedencia sobre qualquer `@layer`,
+ * entao `*` (0,0,0) ganhava de `.border-danger-700` (0,1,0). Medido em runtime
+ * antes da correcao: border-danger-700, border-cobalt-500, border-volt-950 e
+ * ate border-red-500 devolviam os quatro rgb(216,215,207).
+ *
+ * Em `base` a cascata volta ao esperado: base perde para utilities, e o padrao
+ * cinza continua valendo para quem nao escolheu cor. */
+@layer base {
+  * {
+    border-color: var(--color-line-200);
+  }
 }
 
 ::selection {
