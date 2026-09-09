@@ -31,7 +31,7 @@ export function etiquetaMeta(v: IntegracoesFormValue): "configurado" | "sem toke
 
 const CAMPO =
   "mt-1 w-full rounded-xl border border-aco/15 bg-white px-3 py-2 text-sm text-volt-950 outline-none transition-colors duration-[160ms] focus:border-cobalt-500";
-const DICA = "mt-1 text-xs text-aco/60";
+const DICA = "mt-1 text-xs text-aco";
 const ROTULO = "text-sm font-medium text-volt-950";
 
 function Card({ titulo, etiqueta, children }: { titulo: string; etiqueta: string; children: React.ReactNode }) {
@@ -39,7 +39,7 @@ function Card({ titulo, etiqueta, children }: { titulo: string; etiqueta: string
     <section className="rounded-xl border border-aco/10 bg-white p-4">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-volt-950">{titulo}</h3>
-        <span className="pn-etiqueta bg-poco text-aco/70">{etiqueta}</span>
+        <span className="pn-etiqueta bg-poco text-aco">{etiqueta}</span>
       </div>
       <div className="space-y-4">{children}</div>
     </section>
@@ -168,7 +168,7 @@ export function IntegracoesForm({
           >
             {testando ? "Enviando…" : "Enviar teste"}
           </button>
-          {!podeTestar && <span className="text-xs text-aco/60">Salve as alterações antes de testar.</span>}
+          {!podeTestar && <span className="text-xs text-aco">Salve as alterações antes de testar.</span>}
           {resultado && (
             <span role="status" className={`text-xs ${resultado.ok ? "text-sucesso" : "text-erro"}`}>
               {resultado.mensagem}
@@ -176,7 +176,7 @@ export function IntegracoesForm({
           )}
         </div>
 
-        <p className="rounded-xl bg-poco px-3 py-2 text-xs text-aco/70">
+        <p className="rounded-xl bg-poco px-3 py-2 text-xs text-aco">
           Lead registrado mesmo com deep link — o evento sai antes de o WhatsApp abrir.
         </p>
       </Card>

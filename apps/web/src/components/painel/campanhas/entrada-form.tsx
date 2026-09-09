@@ -32,7 +32,7 @@ function Setting({ title, children, control }: { title: string; children: React.
     <div className="grid grid-cols-[1fr_auto] items-start gap-x-4 gap-y-1 border-t border-volt-950/[0.07] py-4 first:border-t-0 first:pt-0">
       <p className="text-sm font-medium text-volt-950">{title}</p>
       <div className="row-span-2 flex flex-col items-end gap-1">{control}</div>
-      <div className="max-w-[58ch] text-xs leading-relaxed text-aco/60">{children}</div>
+      <div className="max-w-[58ch] text-xs leading-relaxed text-aco">{children}</div>
     </div>
   );
 }
@@ -60,7 +60,7 @@ export function EntradaForm({ value, onChange, pages }: { value: EntradaSettings
     >
       <input type="radio" name={name} value={modo} checked={value.lotado.modo === modo} onChange={on} className="mt-0.5 accent-cobalt-500" aria-label={titulo} />
       <span className="text-sm font-medium text-volt-950">{titulo}</span>
-      <span className="col-start-2 text-xs text-aco/60">{desc}</span>
+      <span className="col-start-2 text-xs text-aco">{desc}</span>
     </label>
   );
 
@@ -71,7 +71,7 @@ export function EntradaForm({ value, onChange, pages }: { value: EntradaSettings
         control={
           <>
             <Switch label="Abrir direto no aplicativo do WhatsApp" checked={value.deep_link} onChange={(v) => set({ deep_link: v })} />
-            <span className="font-data text-[11px] text-aco/50">{value.deep_link ? "ligado" : "desligado"}</span>
+            <span className="font-data text-12 text-aco">{value.deep_link ? "ligado" : "desligado"}</span>
           </>
         }
       >
@@ -83,7 +83,7 @@ export function EntradaForm({ value, onChange, pages }: { value: EntradaSettings
         control={
           <>
             <Switch label="Um grupo por pessoa" checked={value.um_grupo_por_pessoa} onChange={(v) => set({ um_grupo_por_pessoa: v })} />
-            <span className="font-data text-[11px] text-aco/50">{value.um_grupo_por_pessoa ? "ligado" : "desligado"}</span>
+            <span className="font-data text-12 text-aco">{value.um_grupo_por_pessoa ? "ligado" : "desligado"}</span>
           </>
         }
       >
@@ -102,7 +102,7 @@ export function EntradaForm({ value, onChange, pages }: { value: EntradaSettings
               className={cn(inputCls, "w-auto border-volt-950/10 focus:border-cobalt-500/50")}
             />
             {dias !== null && (
-              <span className="font-data text-[11px] text-aco/50">{dias < 0 ? "encerrou" : dias === 0 ? "encerra hoje" : `faltam ${dias} dias`}</span>
+              <span className="font-data text-12 text-aco">{dias < 0 ? "encerrou" : dias === 0 ? "encerra hoje" : `faltam ${dias} dias`}</span>
             )}
           </>
         }
@@ -112,7 +112,7 @@ export function EntradaForm({ value, onChange, pages }: { value: EntradaSettings
 
       <div className="border-t border-volt-950/[0.07] py-4">
         <p className="text-sm font-medium text-volt-950">Quando lotar (ou encerrar)</p>
-        <p className="mb-3 mt-0.5 text-xs text-aco/60">O que o cliente vê quando não há vaga em nenhum grupo.</p>
+        <p className="mb-3 mt-0.5 text-xs text-aco">O que o cliente vê quando não há vaga em nenhum grupo.</p>
         <div className="grid gap-2" role="radiogroup" aria-label="Quando lotar">
           {radio("aviso", "Só um aviso", <>&ldquo;Todos os grupos estão cheios. Em breve abriremos um novo.&rdquo;</>, () => setLotado({ modo: "aviso" }))}
           {radio(

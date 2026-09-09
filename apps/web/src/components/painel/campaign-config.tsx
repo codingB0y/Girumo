@@ -285,7 +285,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
     <Card key="objetivo">
       <div>
         <p className="text-sm font-medium text-volt-950">Qual o objetivo?</p>
-        <p className="mb-3 mt-0.5 text-xs text-aco/55">Escolha e a gente pré-monta a campanha. Dá pra ajustar tudo depois.</p>
+        <p className="mb-3 mt-0.5 text-xs text-aco">Escolha e a gente pré-monta a campanha. Dá pra ajustar tudo depois.</p>
         <div className="grid gap-2 sm:grid-cols-2">
           {CAMPAIGN_PRESETS.map((p) => (
             <button
@@ -297,7 +297,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
                 <Target className="h-4 w-4 text-cobalt-500" strokeWidth={1.75} />
                 {p.label}
               </span>
-              <span className="text-xs text-aco/60">{p.description}</span>
+              <span className="text-xs text-aco">{p.description}</span>
             </button>
           ))}
         </div>
@@ -335,7 +335,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
         <ToggleInline on={autoGrow} setOn={setAutoGrow} labelOn="Sim, criar no automático" labelOff="Não, gerencio na mão" />
         {autoGrow && (
           <div className="mt-2">
-            <label htmlFor="grow-subject" className="text-xs text-aco/55">
+            <label htmlFor="grow-subject" className="text-xs text-aco">
               Nome dos grupos criados — <span className="font-data">{"{n}"}</span> vira o número
             </label>
             <input
@@ -346,7 +346,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
               className={cn(inputCls, "mt-1.5")}
             />
             {growPattern && (
-              <p className="mt-1.5 text-xs text-aco/55">
+              <p className="mt-1.5 text-xs text-aco">
                 O próximo vai se chamar{" "}
                 <span className="font-medium text-volt-950">
                   {growPattern.includes("{n}") ? growPattern.replace("{n}", String(selected.size + 1)) : `${growPattern} ${selected.size + 1}`}
@@ -364,13 +364,13 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
     <Card key="grupos">
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-volt-950">Grupos da campanha</p>
-        <span className="font-data text-xs uppercase tracking-[0.08em] tabular-nums text-aco/55">{selected.size} selecionados</span>
+        <span className="font-data text-xs uppercase tracking-[0.08em] tabular-nums text-aco">{selected.size} selecionados</span>
       </div>
-      <p className="-mt-2 text-xs text-aco/55">Os grupos que o link vai encher. Dá pra adicionar/remover depois.</p>
+      <p className="-mt-2 text-xs text-aco">Os grupos que o link vai encher. Dá pra adicionar/remover depois.</p>
       {groups.length === 0 ? (
         <div className="rounded-xl border border-dashed border-volt-950/15 px-4 py-8 text-center">
           <p className="text-sm text-aco">Nenhum grupo sincronizado ainda.</p>
-          <p className="mt-1 text-xs text-aco/55">Conecte o WhatsApp e os grupos aparecem aqui.</p>
+          <p className="mt-1 text-xs text-aco">Conecte o WhatsApp e os grupos aparecem aqui.</p>
         </div>
       ) : (
         <div className="grid max-h-[340px] gap-2 overflow-y-auto sm:grid-cols-2">
@@ -387,7 +387,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-volt-950">{g.name}</p>
-                  <p className="font-data text-[11px] tabular-nums text-aco/55">{g.members?.toLocaleString("pt-BR") ?? 0} membros{!g.inviteUrl ? " · sem convite" : ""}</p>
+                  <p className="font-data text-12 tabular-nums text-aco">{g.members?.toLocaleString("pt-BR") ?? 0} membros{!g.inviteUrl ? " · sem convite" : ""}</p>
                 </div>
                 <span className={cn("flex h-5 w-5 items-center justify-center rounded-md border transition", sel ? "border-cobalt-500 bg-cobalt-500 text-white" : "border-volt-950/20")}>
                   {sel && <Check className="h-3.5 w-3.5" />}
@@ -454,10 +454,10 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
           {SECTIONS.map((s, i) => (
             <li key={s} className="flex flex-1 items-center last:flex-none">
               <div className="flex items-center gap-2.5">
-                <span className={cn("flex h-8 w-8 items-center justify-center rounded-full font-data text-sm font-medium tabular-nums transition", i < idx ? "bg-sucesso text-white" : i === idx ? "bg-cobalt-500 text-white" : "bg-poco text-aco/50")}>
+                <span className={cn("flex h-8 w-8 items-center justify-center rounded-full font-data text-sm font-medium tabular-nums transition", i < idx ? "bg-sucesso text-white" : i === idx ? "bg-cobalt-500 text-white" : "bg-poco text-aco")}>
                   {i < idx ? <Check className="h-4 w-4" /> : i + 1}
                 </span>
-                <span className={cn("hidden text-sm sm:inline", i === idx ? "font-medium text-volt-950" : "text-aco/50")}>{s}</span>
+                <span className={cn("hidden text-sm sm:inline", i === idx ? "font-medium text-volt-950" : "text-aco")}>{s}</span>
               </div>
               {i < SECTIONS.length - 1 && <span className={cn("mx-3 h-px flex-1 transition", i < idx ? "bg-sucesso/40" : "bg-volt-950/10")} />}
             </li>
@@ -466,7 +466,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
       ) : (
         <div className="mt-6 flex gap-1 border-b border-volt-950/[0.08]">
           {SECTIONS.map((s, i) => (
-            <button key={s} onClick={() => setIdx(i)} className={cn("relative px-4 py-2.5 text-sm font-medium transition-colors duration-[160ms]", i === idx ? "text-volt-950" : "text-aco/55 hover:text-volt-950")}>
+            <button key={s} onClick={() => setIdx(i)} className={cn("relative px-4 py-2.5 text-sm font-medium transition-colors duration-[160ms]", i === idx ? "text-volt-950" : "text-aco hover:text-volt-950")}>
               {s}
               {i === idx && <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-cobalt-500" />}
             </button>
@@ -518,7 +518,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
 /* ---------- helpers ---------- */
 
 const inputCls =
-  "w-full rounded-[10px] border border-volt-950/10 bg-poco px-3.5 py-2.5 text-sm text-volt-950 outline-none transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] placeholder:text-aco/40 focus:border-cobalt-500/50 focus:bg-papel focus:shadow-[0_0_0_3px_var(--color-cobalt-soft)]";
+  "w-full rounded-[10px] border border-volt-950/10 bg-poco px-3.5 py-2.5 text-sm text-volt-950 outline-none transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] placeholder:text-aco focus:border-cobalt-500/50 focus:bg-papel focus:shadow-[0_0_0_3px_var(--color-cobalt-soft)]";
 
 function Card({ children }: { children: React.ReactNode }) {
   return <div className="pn-card space-y-5 rounded-xl p-6 sm:p-7">{children}</div>;
@@ -528,7 +528,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   return (
     <div>
       <p className="text-sm font-medium text-volt-950">{label}</p>
-      {hint && <p className="mb-2 mt-0.5 text-xs text-aco/55">{hint}</p>}
+      {hint && <p className="mb-2 mt-0.5 text-xs text-aco">{hint}</p>}
       <div className={hint ? "" : "mt-2"}>{children}</div>
     </div>
   );
@@ -537,7 +537,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 function ToggleInline({ on, setOn, labelOn, labelOff }: { on: boolean; setOn: (v: boolean) => void; labelOn: string; labelOff: string }) {
   return (
     <button onClick={() => setOn(!on)} className="flex w-full items-center justify-between rounded-xl border border-volt-950/10 bg-poco px-3.5 py-2.5 text-left text-sm transition-colors duration-[160ms] hover:border-cobalt-500/30">
-      <span className={cn("font-medium", on ? "text-volt-950" : "text-aco/70")}>{on ? labelOn : labelOff}</span>
+      <span className={cn("font-medium", on ? "text-volt-950" : "text-aco")}>{on ? labelOn : labelOff}</span>
       <span className={cn("relative h-6 w-11 rounded-full transition-colors duration-[160ms]", on ? "bg-cobalt-500" : "bg-volt-950/15")}>
         <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-[left] duration-[160ms] ease-[var(--ease-fluxo)]", on ? "left-[22px]" : "left-0.5")} />
       </span>
