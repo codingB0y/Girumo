@@ -32,7 +32,7 @@ export function ActivationChecklist({
         type="button"
         onClick={onDismiss}
         aria-label="Ocultar o roteiro de ativação"
-        className="absolute right-4 top-4 rounded-lg p-1.5 text-aco/35 transition-colors duration-[160ms] hover:bg-poco hover:text-volt-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
+        className="absolute right-4 top-4 rounded-lg p-1.5 text-slate-600 transition-colors duration-[160ms] hover:bg-poco hover:text-volt-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
       >
         <X className="h-4 w-4" strokeWidth={2} />
       </button>
@@ -41,7 +41,7 @@ export function ActivationChecklist({
         <h2 id="activation-title" className="font-display text-[17px] font-bold tracking-[-0.01em] text-volt-950">
           {complete ? "Sua loja está no ar" : "Comece por aqui"}
         </h2>
-        <p className="mt-1 text-sm text-aco/70">
+        <p className="mt-1 text-sm text-slate-600">
           {complete
             ? "Os cinco passos estão feitos. Daqui pra frente é ritmo — encha os grupos e dispare suas ofertas."
             : next
@@ -83,17 +83,17 @@ export function ActivationChecklist({
                 aria-current={isNext ? "step" : undefined}
                 className={cn(
                   "group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors duration-[160ms]",
-                  isNext ? "bg-cobalt-500/[0.06]" : "hover:bg-poco",
+                  isNext ? "bg-canvas-100" : "hover:bg-poco",
                 )}
               >
                 <span
                   className={cn(
                     "flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-data text-xs font-medium tabular-nums",
                     step.done
-                      ? "bg-sucesso/10 text-sucesso"
+                      ? "bg-canvas-100 text-sucesso"
                       : isNext
                         ? "bg-cobalt-500 text-white shadow-sm"
-                        : "pn-poco text-aco/40",
+                        : "pn-poco text-slate-600",
                   )}
                 >
                   {step.done ? <Check className="h-3.5 w-3.5" strokeWidth={2.5} /> : i + 1}
@@ -103,10 +103,10 @@ export function ActivationChecklist({
                   className={cn(
                     "min-w-0 flex-1 text-sm",
                     step.done
-                      ? "text-aco/60"
+                      ? "text-slate-600"
                       : isNext
                         ? "font-medium text-volt-950"
-                        : "text-aco/70",
+                        : "text-slate-600",
                   )}
                 >
                   {step.label}
@@ -114,7 +114,7 @@ export function ActivationChecklist({
                 </span>
 
                 {isNext && (
-                  <span className="font-data flex shrink-0 items-center gap-1 text-[11px] uppercase tracking-[0.08em] text-cobalt-500">
+                  <span className="font-data text-12 flex shrink-0 items-center gap-1 uppercase tracking-[0.08em] text-cobalt-500">
                     {step.ctaLabel}
                     <ArrowUpRight className="h-3.5 w-3.5 transition-transform duration-[160ms] ease-[var(--ease-fluxo)] group-hover:translate-x-0.5" />
                   </span>
@@ -126,7 +126,7 @@ export function ActivationChecklist({
       </ol>
 
       {complete && (
-        <p className="mt-5 flex items-center gap-2 border-t border-volt-950/[0.06] pt-5 text-sm text-aco/70">
+        <p className="mt-5 flex items-center gap-2 border-t border-line-200 pt-5 text-sm text-slate-600">
           <PartyPopper className="h-4 w-4 shrink-0 text-sucesso" strokeWidth={1.75} />
           Pode fechar este roteiro — ele não volta.
         </p>

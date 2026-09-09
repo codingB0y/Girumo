@@ -32,7 +32,7 @@ export function CopyPicker({ onPick, className }: { onPick: (body: string) => vo
         type="button"
         onClick={() => setOpen(true)}
         className={cn(
-          "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-aco/70 transition-colors duration-[160ms] hover:bg-poco hover:text-volt-950",
+          "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-slate-600 transition-colors duration-[160ms] hover:bg-poco hover:text-volt-950",
           className,
         )}
       >
@@ -42,16 +42,16 @@ export function CopyPicker({ onPick, className }: { onPick: (body: string) => vo
   }
 
   return (
-    <div className={cn("rounded-xl border border-volt-950/10 bg-poco p-3", className)}>
+    <div className={cn("rounded-xl border border-line-200 bg-poco p-3", className)}>
       <div className="flex items-center justify-between gap-3">
-        <span className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/55">
+        <span className="font-data text-12 uppercase tracking-[0.08em] text-slate-600">
           Escolha um modelo — ele entra no campo e você ajusta
         </span>
         <button
           type="button"
           onClick={() => setOpen(false)}
           aria-label="Fechar biblioteca"
-          className="flex h-7 w-7 items-center justify-center rounded-lg text-aco/60 transition-colors duration-[160ms] hover:bg-papel hover:text-volt-950"
+          className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-600 transition-colors duration-[160ms] hover:bg-papel hover:text-volt-950"
         >
           <X className="h-4 w-4" />
         </button>
@@ -79,10 +79,10 @@ export function CopyPicker({ onPick, className }: { onPick: (body: string) => vo
               onPick(copy.body);
               setOpen(false);
             }}
-            className="block w-full rounded-lg border border-volt-950/[0.06] bg-papel px-3 py-2.5 text-left transition-colors duration-[160ms] hover:border-cobalt-500/40 hover:bg-cobalt-500/[0.04]"
+            className="block w-full rounded-lg border border-line-200 bg-papel px-3 py-2.5 text-left transition-colors duration-[160ms] hover:border-cobalt-500 hover:bg-canvas-100"
           >
             <span className="block text-sm font-medium text-volt-950">{copy.title}</span>
-            <span className="mt-0.5 block line-clamp-2 text-[13px] leading-relaxed text-aco/70">{copy.body}</span>
+            <span className="mt-0.5 block line-clamp-2 text-[13px] leading-relaxed text-slate-600">{copy.body}</span>
           </button>
         ))}
       </div>
@@ -108,7 +108,7 @@ function CategoriaBtn({
       title={title}
       className={cn(
         "cursor-pointer rounded-lg px-2.5 py-1 text-[13px] font-medium transition-colors duration-[160ms]",
-        active ? "bg-volt-950 text-white" : "text-aco/70 hover:text-volt-950",
+        active ? "bg-volt-950 text-white" : "text-slate-600 hover:text-volt-950",
       )}
     >
       {label}

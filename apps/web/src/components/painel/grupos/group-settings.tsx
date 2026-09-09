@@ -55,10 +55,10 @@ export function GroupSettings({
   }
 
   return (
-    <div className="col-span-full mt-1 rounded-xl border border-volt-950/10 bg-poco p-4">
+    <div className="col-span-full mt-1 rounded-xl border border-line-200 bg-poco p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <label className="flex-1">
-          <span className="font-data block text-[10px] uppercase tracking-[0.08em] text-aco/55">
+          <span className="font-data text-12 block uppercase tracking-[0.08em] text-slate-600">
             Link de convite
           </span>
           <input
@@ -66,18 +66,18 @@ export function GroupSettings({
             onChange={(e) => setInvite(e.target.value)}
             placeholder="https://chat.whatsapp.com/…"
             autoComplete="off"
-            className="mt-1.5 w-full rounded-[10px] border border-volt-950/10 bg-papel px-3 py-2 text-sm text-volt-950 outline-none transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] placeholder:text-aco/40 focus:border-cobalt-500/50 focus:shadow-[0_0_0_3px_var(--color-cobalt-soft)]"
+            className="mt-1.5 w-full rounded-[10px] border border-line-200 bg-papel px-3 py-2 text-sm text-volt-950 outline-none transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] placeholder:text-slate-600 focus:border-cobalt-500 focus:shadow-[0_0_0_3px_var(--color-cobalt-soft)]"
           />
         </label>
         <label className="sm:w-32">
-          <span className="font-data block text-[10px] uppercase tracking-[0.08em] text-aco/55">
+          <span className="font-data text-12 block uppercase tracking-[0.08em] text-slate-600">
             Capacidade
           </span>
           <input
             value={cap}
             onChange={(e) => setCap(e.target.value)}
             inputMode="numeric"
-            className="font-data mt-1.5 w-full rounded-[10px] border border-volt-950/10 bg-papel px-3 py-2 text-sm tabular-nums text-volt-950 outline-none transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] focus:border-cobalt-500/50 focus:shadow-[0_0_0_3px_var(--color-cobalt-soft)]"
+            className="font-data mt-1.5 w-full rounded-[10px] border border-line-200 bg-papel px-3 py-2 text-sm tabular-nums text-volt-950 outline-none transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] focus:border-cobalt-500 focus:shadow-[0_0_0_3px_var(--color-cobalt-soft)]"
           />
         </label>
         <div className="flex gap-2">
@@ -95,7 +95,7 @@ export function GroupSettings({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl px-3 py-2 text-sm text-aco/70 transition-colors duration-[160ms] hover:text-volt-950"
+            className="rounded-xl px-3 py-2 text-sm text-slate-600 transition-colors duration-[160ms] hover:text-volt-950"
           >
             Cancelar
           </button>
@@ -106,7 +106,7 @@ export function GroupSettings({
           {error}
         </p>
       ) : (
-        <p className="mt-2 text-xs text-aco/55">
+        <p className="text-12 mt-2 text-slate-600">
           O convite é o destino do link da campanha. Deixe em branco para remover.
         </p>
       )}
