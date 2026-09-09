@@ -13,6 +13,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/toast";
 import { CopyPicker } from "./copy-picker";
 
 export type ComposerPayload = {
@@ -37,6 +38,7 @@ type Props = {
 };
 
 export function MessageComposer({ onSend, sending, className, onBodyChange, rotuloEnviar, acid }: Props) {
+  const toast = useToast();
   const [body, setBody] = useState("");
   useEffect(() => {
     onBodyChange?.(body);
@@ -65,11 +67,11 @@ export function MessageComposer({ onSend, sending, className, onBodyChange, rotu
       setMediaType(type);
       setMediaName(file.name);
     } catch {
-      alert("Erro ao enviar arquivo. Tente novamente.");
+      toast("Erro ao enviar arquivo. Tente novamente.", "error");
     } finally {
       setUploading(false);
     }
-  }, []);
+  }, [toast]);
 
   const pickFile = useCallback((accept: string, type: "image" | "video" | "audio" | "file") => {
     const input = fileRef.current;
@@ -106,7 +108,7 @@ export function MessageComposer({ onSend, sending, className, onBodyChange, rotu
   };
 
   return (
-    <div className={cn("rounded-xl border border-line-200 bg-white p-4", className)}>
+    <div className={cn("rounded-xl border border-line-200 bg-paper-0 p-4", className)}>
       <input ref={fileRef} type="file" className="hidden" aria-hidden="true" />
 
       {/* Media preview */}
@@ -143,7 +145,7 @@ export function MessageComposer({ onSend, sending, className, onBodyChange, rotu
             placeholder="Pergunta..."
             value={pollQuestion}
             onChange={(e) => setPollQuestion(e.target.value)}
-            className="w-full rounded-lg border border-line-200 bg-white px-3 py-2 text-sm text-volt-950 placeholder:text-slate-600 focus:border-cobalt-500 focus:outline-none"
+            className="w-full rounded-lg border border-line-200 bg-paper-0 px-3 py-2 text-sm text-volt-950 placeholder:text-slate-600 focus:border-cobalt-500 focus:outline-none"
           />
           {pollOptions.map((opt, i) => (
             <div key={i} className="flex items-center gap-2">
@@ -156,7 +158,7 @@ export function MessageComposer({ onSend, sending, className, onBodyChange, rotu
                   next[i] = e.target.value;
                   setPollOptions(next);
                 }}
-                className="flex-1 rounded-lg border border-line-200 bg-white px-3 py-1.5 text-sm text-volt-950 placeholder:text-slate-600 focus:border-cobalt-500 focus:outline-none"
+                className="flex-1 rounded-lg border border-line-200 bg-paper-0 px-3 py-1.5 text-sm text-volt-950 placeholder:text-slate-600 focus:border-cobalt-500 focus:outline-none"
               />
               {pollOptions.length > 2 && (
                 <button
