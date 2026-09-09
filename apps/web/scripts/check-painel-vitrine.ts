@@ -9,8 +9,9 @@ const SHARED_CSS = "src/app/globals.css";
 
 function sources(root: string): string[] {
   const absolute = path.resolve(root);
-  if (!statSync(absolute, { throwIfNoEntry: false })) return [];
-  if (statSync(absolute).isFile()) return [absolute];
+  const stat = statSync(absolute, { throwIfNoEntry: false });
+  if (!stat) throw new Error(`painel:check: caminho de PAINEL_ROOTS não existe: ${root}`);
+  if (stat.isFile()) return [absolute];
   return readdirSync(absolute, { recursive: true, withFileTypes: true })
     .filter((entry) => entry.isFile() && EXTENSIONS.has(path.extname(entry.name)))
     .map((entry) => path.join(entry.parentPath, entry.name))

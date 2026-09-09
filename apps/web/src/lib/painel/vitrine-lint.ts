@@ -12,7 +12,7 @@ export const PAINEL_ROOTS = [
   "src/app/painel",
   "src/app/painel-vitrine.css",
   "src/components/painel",
-  "src/components/auth-shell.tsx",
+  "src/components/auth",
   "src/app/login",
   "src/app/signup",
   "src/app/auth",
