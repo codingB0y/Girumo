@@ -51,10 +51,14 @@ export function QuemChegou({
         </div>
       ) : (
         <ul className="px-4">
-          {recentes.map((lead) => {
+          {recentes.map((lead, index) => {
             const hoje = agora.getTime() - new Date(lead.enteredAt).getTime() < DIA_MS;
             return (
-              <li key={lead.id} className="pn-ficha pn-ficha--56">
+              <li
+                key={lead.id}
+                className={cn("pn-ficha pn-ficha--56", index < 8 && "pn-entrada-lista")}
+                style={index < 8 ? { ["--i" as string]: index } : undefined}
+              >
                 <span className={cn("pn-ficha__iniciais pn-ficha__iniciais--32", hoje && "pn-ficha__iniciais--hoje")} aria-hidden="true">
                   {iniciais(lead.name)}
                 </span>
