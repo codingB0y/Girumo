@@ -10,10 +10,18 @@ type RoleCtx = {
   tenantId: string | null;
   /** Nome da loja, como aparece no letreiro. null enquanto carrega ou sem nome. */
   tenantName: string | null;
+  /** false até /api/auth/me responder (com sucesso ou erro): distingue "carregando" de "sem nome". */
+  carregado: boolean;
   can: (action: Action) => boolean;
 };
 
-const RoleContext = createContext<RoleCtx>({ role: null, tenantId: null, tenantName: null, can: () => true });
+const RoleContext = createContext<RoleCtx>({
+  role: null,
+  tenantId: null,
+  tenantName: null,
+  carregado: false,
+  can: () => true,
+});
 
 export const useRole = () => useContext(RoleContext);
 
@@ -21,6 +29,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<TenantRole | null>(null);
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [tenantName, setTenantName] = useState<string | null>(null);
+  const [carregado, setCarregado] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -30,7 +39,8 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         if (data?.tenantId) setTenantId(String(data.tenantId));
         if (typeof data?.tenantName === "string") setTenantName(data.tenantName);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setCarregado(true));
   }, []);
 
   const can = (action: Action): boolean => {
@@ -39,7 +49,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <RoleContext.Provider value={{ role, tenantId, tenantName, can }}>
+    <RoleContext.Provider value={{ role, tenantId, tenantName, carregado, can }}>
       {children}
     </RoleContext.Provider>
   );

@@ -88,7 +88,7 @@ function useIniciais(): string {
  * símbolo, nome da loja, ponto do número e sino.
  */
 export function Letreiro() {
-  const { tenantName } = useRole();
+  const { tenantName, carregado } = useRole();
   const { session } = usePanelSession();
   const ticker = useTicker();
   const iniciais = useIniciais();
@@ -101,9 +101,17 @@ export function Letreiro() {
 
   return (
     <header data-testid="painel-letreiro" className="pn-letreiro sticky top-0 z-20">
-      <Link href="/painel" className="flex min-w-0 shrink-0 items-center gap-2 lg:gap-3">
+      <Link href="/painel" className="flex min-h-11 min-w-0 shrink-0 items-center gap-2 lg:gap-3">
         <LogoSymbol className="h-[22px] w-[22px] shrink-0 lg:h-6 lg:w-6" title="Girumo" />
-        <span className="pn-letreiro__loja truncate">{tenantName ?? "Sua loja"}</span>
+        {carregado ? (
+          <span className="pn-letreiro__loja truncate">{tenantName ?? "Sua loja"}</span>
+        ) : (
+          <span
+            role="status"
+            aria-label="Carregando nome da loja"
+            className="pn-skeleton inline-block h-4 w-24 rounded-[var(--radius-chip)]"
+          />
+        )}
       </Link>
 
       {ticker && (
