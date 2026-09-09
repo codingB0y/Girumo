@@ -208,19 +208,28 @@ function CaixaDoRodape({
       className="sticky bottom-[var(--spacing-barra-mobile)] z-10 mt-8 border-t border-line-200 bg-canvas-100 py-4 lg:bottom-0"
     >
       <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <p className="text-13 text-slate-600">Vendido no mês</p>
-          <Odometro
-            valor={brl.format(faturamento)}
-            className="font-brand block text-[28px] font-extrabold leading-none tracking-[-0.02em] text-volt-950 lg:text-32"
-          />
-        </div>
+        {pedidos === 0 ? (
+          <div>
+            <p className="text-13 text-slate-600">Vendido no mês</p>
+            <p className="font-brand mt-1 text-15 font-bold text-volt-950">Nenhum pedido registrado</p>
+          </div>
+        ) : (
+          <div>
+            <p className="text-13 text-slate-600">Vendido no mês</p>
+            <Odometro
+              valor={brl.format(faturamento)}
+              className="font-brand block text-[28px] font-extrabold leading-none tracking-[-0.02em] text-volt-950 lg:text-32"
+            />
+          </div>
+        )}
         <p className="font-data text-13 tabular-nums text-slate-600">
           {ok ? (
-            <>
-              {pedidos} {pedidos === 1 ? "pedido no mês" : "pedidos no mês"}
-              {meta && meta > 0 ? ` · de ${brl.format(meta)}` : ""}
-            </>
+            pedidos > 0 && (
+              <>
+                {pedidos} {pedidos === 1 ? "pedido no mês" : "pedidos no mês"}
+                {meta && meta > 0 ? ` · de ${brl.format(meta)}` : ""}
+              </>
+            )
           ) : (
             // Zerado por falta de dado é diferente de mês sem venda.
             "não deu pra carregar o caixa agora"
