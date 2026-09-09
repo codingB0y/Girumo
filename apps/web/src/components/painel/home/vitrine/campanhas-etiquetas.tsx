@@ -89,8 +89,15 @@ export function CampanhasEtiquetas({
                 <span className="font-data shrink-0 text-13 tabular-nums text-volt-950">{vagas.texto}</span>
               </span>
             )}
+            {/* NÃO "Nenhum grupo escolhido ainda", que é a frase da tela de
+                Campanhas: aqui ela fica a um bloco de distância do "Estoque de
+                grupos", e "nenhum grupo" passa a se ler como a TELA sem grupo
+                nenhum. O E2E de /painel entendeu exatamente assim — a sentinela
+                de estado-vazio dele é /Nenhum grupo/i, e ficou vermelho com o
+                estoque cheio na tela. Se o teste se confundiu, a lojista
+                também. Esta frase fala da campanha, e só dela. */}
             {vagas.tipo === "sem-grupos" && (
-              <span className="mt-2 block text-13 text-slate-600">Nenhum grupo escolhido ainda.</span>
+              <span className="mt-2 block text-13 text-slate-600">Esta campanha ainda não tem grupos.</span>
             )}
             {/* Sem barra e sem "0 / 0": a campanha aponta para grupos, mas
                 nenhum deles voltou com contagem. A frase diz isso, e o chip ao
