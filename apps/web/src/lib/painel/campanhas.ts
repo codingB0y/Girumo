@@ -9,6 +9,7 @@
 
 import type { CampaignOperationalStatus } from "@/lib/campaign-groups-overview";
 import type { Carga } from "@/lib/painel/types";
+import { cn } from "@/lib/utils";
 
 /** A forma mínima que a etiqueta lê de um overview de campanha. */
 export type CampanhaNaEtiqueta = {
@@ -47,6 +48,16 @@ export function cenaDasCampanhas(input: {
 
 /** Tons de chip que o CSS conhece: `pn-chip`, `pn-chip--acid`, `pn-chip--line`. */
 export type TomDeChip = "canvas" | "acid" | "line";
+
+/**
+ * O tom como classe. Mora aqui, e não dentro de um componente, porque a Início
+ * e a tela de Campanhas desenham o MESMO chip: um tom novo em `TomDeChip`
+ * precisa aparecer nas duas telas de uma vez, e uma cópia por tela é como o
+ * widget da Início ficou com uma regra de "cheia" só dele.
+ */
+export function classeDoChip(tom: TomDeChip): string {
+  return cn("pn-chip", tom === "acid" && "pn-chip--acid", tom === "line" && "pn-chip--line");
+}
 
 export type ChipDeEstado = { texto: string; tom: TomDeChip };
 

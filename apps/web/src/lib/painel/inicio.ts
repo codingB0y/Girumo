@@ -3,6 +3,11 @@
  * research/direcao-d3.md, 12.3 e 12.4). Sem fetch: a tela passa os dados.
  */
 
+import { buildCampaignGroupsOverview } from "@/lib/campaign-groups-overview";
+import { clicksByCampaign, type AttributableLink } from "@/lib/links/click-attribution";
+import type { Group } from "@/lib/mock-data";
+import { ordenarPorLotacao, type CampanhaNaEtiqueta } from "@/lib/painel/campanhas";
+
 const DIAS_CURTOS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 const DIAS_LONGOS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 const MESES = [
@@ -87,6 +92,41 @@ export function vagasDaCampanha(
   const pessoas = meus.reduce((a, g) => a + (g.members ?? 0), 0);
   const capacidade = meus.reduce((a, g) => a + (g.capacity ?? 0), 0);
   return { pessoas, capacidade, lotacao: capacidade > 0 ? Math.min(1, pessoas / capacidade) : 0 };
+}
+
+/** A forma que a Início tem de uma campanha — `/api/painel/inicio` não traz mais que isto. */
+export type CampanhaDaInicio = { id: string; name: string; groupIds: string[]; slug?: string };
+
+/** Quantas etiquetas o bloco 7 mostra. */
+export const CAMPANHAS_NA_INICIO = 3;
+
+/**
+ * As campanhas do bloco 7, na forma que a etiqueta lê.
+ *
+ * Esta função não decide NADA sobre estado de campanha: ela só chama
+ * `buildCampaignGroupsOverview`, que é a mesma fonte de verdade da tela de
+ * Campanhas. O widget tinha uma regra própria de "cheia"
+ * (`capacidade > 0 && pessoas >= capacidade`), e a guarda de capacidade fazia
+ * a campanha cujos grupos sumiram — id que não resolve mais em `/api/groups` —
+ * cair no ramo de baixo e anunciar "Pronta" com "0 / 0 vagas" ao lado. Duas
+ * afirmações falsas: que não há nada a fazer, e um número medido que ninguém
+ * mediu. Com o overview, esse caso chega como `orphan_groups` e o chip diz o
+ * que aconteceu.
+ *
+ * Os cliques vêm de `clicksByCampaign` pelo mesmo motivo: casar link com
+ * campanha pelo NOME (o que o widget fazia) zera o histórico de quem renomeou
+ * a campanha.
+ */
+export function campanhasDaInicio(
+  campanhas: readonly CampanhaDaInicio[],
+  grupos: Group[],
+  links: readonly AttributableLink[],
+): CampanhaNaEtiqueta[] {
+  const cliques = clicksByCampaign(links, campanhas);
+  const overviews = campanhas.map((campanha) =>
+    buildCampaignGroupsOverview({ campaign: campanha, groups: grupos, clicks: cliques.get(campanha.id) ?? 0 }),
+  );
+  return ordenarPorLotacao(overviews).slice(0, CAMPANHAS_NA_INICIO);
 }
 
 /** "91 grupos · 9.736 pessoas · 82.448 vagas" e o grupo mais perto de lotar (≥ 90%). */

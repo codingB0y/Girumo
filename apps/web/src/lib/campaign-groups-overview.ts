@@ -40,7 +40,13 @@ export type CampaignGroupsOverviewInput = {
     loja?: string;
     groupIds: string[];
     slug?: string;
-    createdAt: string;
+    /**
+     * Opcional porque a Início não tem esse campo: `/api/painel/inicio` não o
+     * devolve na campanha, e nada aqui dentro lê o valor — ele só volta
+     * inteiro em `overview.campaign`. Exigi-lo obrigaria quem chama a inventar
+     * uma data só para satisfazer o compilador.
+     */
+    createdAt?: string;
   };
   groups: Group[];
   clicks?: number;

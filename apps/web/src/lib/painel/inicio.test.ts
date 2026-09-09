@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  CAMPANHAS_NA_INICIO,
   cabecalhoDoDia,
+  campanhasDaInicio,
   diaHoraCurto,
   diasRestantesNoMes,
   iniciais,
@@ -12,6 +14,7 @@ import {
   rotulosDaFita,
   vagasDaCampanha,
 } from "./inicio";
+import { chipDaCampanha, linhaDeVagas } from "./campanhas";
 
 const sexta = new Date(2026, 8, 4, 15, 0); // sexta, 04/09/2026
 
@@ -75,4 +78,77 @@ test("resumo do estoque soma pessoas e vagas e acha o grupo quase cheio", () => 
   assert.equal(r.vagas, 3072 - 1512);
   assert.equal(r.quaseCheio?.name, "B");
   assert.equal(resumoDoEstoque([grupos[0]]).quaseCheio, null);
+});
+
+// `g1` tem MAIS gente que `g2` e MENOS lotação — é isso que separa ordenar por
+// pessoas de ordenar por lotação. Com um grupo pequeno quase cheio ao lado de
+// um grupo grande com folga, os dois critérios devolvem ordens opostas.
+const gruposDoPainel = [
+  { id: "g1", whatsappGroupId: "w1@g.us", name: "Grande com folga", members: 100, capacity: 500, selected: false, engagement: "medio" as const, inviteUrl: "https://chat.whatsapp.com/one" },
+  { id: "g2", whatsappGroupId: "w2@g.us", name: "Pequeno cheio", members: 40, capacity: 40, selected: false, engagement: "medio" as const, inviteUrl: "https://chat.whatsapp.com/two" },
+];
+
+test("campanha cujos grupos sumiram não diz 'Pronta' nem inventa '0 / 0 vagas'", () => {
+  // O defeito inteiro em um caso: `group_ids` aponta para grupos que não
+  // resolvem mais em /api/groups (apagados no WhatsApp, ou gravados com o uuid
+  // da linha em vez do JID). A regra antiga do widget era
+  // `capacidade > 0 && pessoas >= capacidade`: a guarda de capacidade dava
+  // `false`, o chip caía em "Pronta" e a linha imprimia "0 / 0 vagas".
+  const [etiqueta] = campanhasDaInicio(
+    [{ id: "c1", name: "Reativação", groupIds: ["sumiu1", "sumiu2"], slug: "reativacao" }],
+    gruposDoPainel,
+    [],
+  );
+
+  assert.equal(etiqueta.operationalStatus, "orphan_groups");
+  const chip = chipDaCampanha(etiqueta.operationalStatus);
+  assert.equal(chip.texto, "Grupos sumiram");
+  assert.notEqual(chip.texto, "Pronta");
+
+  // Mutante: voltar a linha para o texto incondicional "pessoas / capacidade".
+  // Com os dois grupos órfãos isso é "0 / 0 vagas" — número inventado com cara
+  // de medição. A linha certa não é do tipo "vagas".
+  const vagas = linhaDeVagas(etiqueta, "ok");
+  assert.equal(vagas.tipo, "sem-contagem");
+  assert.notEqual(vagas.tipo, "vagas");
+});
+
+test("campanha com um grupo real continua com as vagas dele, e a ordem é por lotação", () => {
+  // Mutante 1: fazer `campanhasDaInicio` decidir "sem grupos" pela capacidade
+  // (o erro simétrico). Um órfão ao lado de um grupo que funciona é ruído — a
+  // campanha trabalha, e as vagas contadas são as do grupo que resolveu.
+  //
+  // Mutante 2: ordenar por `totalMembers` em vez de lotação. "Com folga" tem
+  // MAIS gente (100 contra 40) e MENOS lotação (20% contra 100%): por pessoas
+  // ela subiria para o primeiro lugar. É a única forma de o teste distinguir
+  // os dois critérios — com dados onde o maior também é o mais cheio, o
+  // mutante sobrevive.
+  const etiquetas = campanhasDaInicio(
+    [
+      { id: "c1", name: "Com folga", groupIds: ["w1@g.us", "sumiu"], slug: "com-folga" },
+      { id: "c2", name: "Cheia", groupIds: ["w2@g.us"], slug: "cheia" },
+      { id: "c3", name: "Vazia", groupIds: [], slug: "vazia" },
+    ],
+    gruposDoPainel,
+    [{ campaignGroupId: "c1", clicks: 7 }],
+  );
+
+  assert.deepEqual(
+    etiquetas.map((e) => [e.campaign.name, e.operationalStatus, e.fillPct, e.totalMembers]),
+    [
+      ["Cheia", "full", 100, 40],
+      ["Com folga", "ready", 20, 100],
+      ["Vazia", "empty", 0, 0],
+    ],
+  );
+  assert.equal(linhaDeVagas(etiquetas[1], "ok").tipo, "vagas");
+  // Mutante: casar cliques por nome (o que o widget fazia). O link só tem
+  // `campaignGroupId`, então a atribuição por nome devolveria 0.
+  assert.equal(etiquetas[1].clicks, 7);
+});
+
+test("o bloco 7 corta em três etiquetas", () => {
+  // Mutante: apagar o `.slice`. A Início vira a lista inteira de campanhas.
+  const muitas = ["a", "b", "c", "d"].map((k) => ({ id: k, name: k, groupIds: ["w1@g.us"] }));
+  assert.equal(campanhasDaInicio(muitas, gruposDoPainel, []).length, CAMPANHAS_NA_INICIO);
 });
