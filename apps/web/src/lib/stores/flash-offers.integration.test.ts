@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 import {
   claimNext,
+  closeOffer,
   insertEntry,
   listQueue,
   releaseExpired,
@@ -180,4 +181,42 @@ test("venda consome vaga para sempre", async (t) => {
   await settleClaim(TENANT, novo.claimId, "sold");
   const fila = await listQueue(TENANT, offerId);
   assert.equal(fila.find((e) => e.id === novo.entryId)?.outcome, "sold");
+});
+
+test("fechar a oferta libera o grupo: nova oferta no mesmo grupo não leva 409", async (t) => {
+  if (pular()) return t.skip();
+  const supabase = getSupabaseAdmin();
+
+  // Última: deixa a oferta principal do fixture fechada para o resto do arquivo.
+  await closeOffer(TENANT, offerId);
+
+  const { data: linha } = await supabase
+    .from("flash_offer_groups")
+    .select("closed_at")
+    .eq("offer_id", offerId)
+    .eq("group_id", groupId)
+    .single();
+  assert.ok(linha?.closed_at, "closeOffer deve carimbar closed_at na flash_offer_groups filha");
+
+  const { data: nova, error: erroNova } = await supabase
+    .from("flash_offers")
+    .insert({ tenant_id: TENANT, name: "reaproveita grupo", slots: 1, status: "open" })
+    .select("id")
+    .single();
+  assert.equal(erroNova, null);
+
+  const { error: erroJanela } = await supabase.from("flash_offer_groups").insert({
+    tenant_id: TENANT,
+    offer_id: nova!.id,
+    group_id: groupId,
+    whatsapp_group_id: GRUPO_WA,
+  });
+
+  assert.equal(
+    erroJanela,
+    null,
+    "índice único não deveria bloquear: o grupo foi liberado pelo closeOffer",
+  );
+
+  await supabase.from("flash_offers").delete().eq("id", nova!.id);
 });
