@@ -80,9 +80,12 @@ test("resumo do estoque soma pessoas e vagas e acha o grupo quase cheio", () => 
   assert.equal(resumoDoEstoque([grupos[0]]).quaseCheio, null);
 });
 
+// `g1` tem MAIS gente que `g2` e MENOS lotação — é isso que separa ordenar por
+// pessoas de ordenar por lotação. Com um grupo pequeno quase cheio ao lado de
+// um grupo grande com folga, os dois critérios devolvem ordens opostas.
 const gruposDoPainel = [
-  { id: "g1", whatsappGroupId: "w1@g.us", name: "Com vaga", members: 100, capacity: 200, selected: false, engagement: "medio" as const, inviteUrl: "https://chat.whatsapp.com/one" },
-  { id: "g2", whatsappGroupId: "w2@g.us", name: "Cheio", members: 195, capacity: 200, selected: false, engagement: "medio" as const, inviteUrl: "https://chat.whatsapp.com/two" },
+  { id: "g1", whatsappGroupId: "w1@g.us", name: "Grande com folga", members: 100, capacity: 500, selected: false, engagement: "medio" as const, inviteUrl: "https://chat.whatsapp.com/one" },
+  { id: "g2", whatsappGroupId: "w2@g.us", name: "Pequeno cheio", members: 40, capacity: 40, selected: false, engagement: "medio" as const, inviteUrl: "https://chat.whatsapp.com/two" },
 ];
 
 test("campanha cujos grupos sumiram não diz 'Pronta' nem inventa '0 / 0 vagas'", () => {
@@ -115,14 +118,14 @@ test("campanha com um grupo real continua com as vagas dele, e a ordem é por lo
   // (o erro simétrico). Um órfão ao lado de um grupo que funciona é ruído — a
   // campanha trabalha, e as vagas contadas são as do grupo que resolveu.
   //
-  // Mutante 2: ordenar por `pessoas` em vez de lotação. "Cheia" tem 195
-  // pessoas contra 100 de "Com vaga", mas o bloco 7 é ordenado por LOTAÇÃO
-  // (97% contra 50%) — com pessoas as duas ficariam na mesma ordem por acaso,
-  // então "Meia" (0 pessoas, 0%) precisa existir para o mutante morrer no
-  // último lugar.
+  // Mutante 2: ordenar por `totalMembers` em vez de lotação. "Com folga" tem
+  // MAIS gente (100 contra 40) e MENOS lotação (20% contra 100%): por pessoas
+  // ela subiria para o primeiro lugar. É a única forma de o teste distinguir
+  // os dois critérios — com dados onde o maior também é o mais cheio, o
+  // mutante sobrevive.
   const etiquetas = campanhasDaInicio(
     [
-      { id: "c1", name: "Com vaga", groupIds: ["w1@g.us", "sumiu"], slug: "com-vaga" },
+      { id: "c1", name: "Com folga", groupIds: ["w1@g.us", "sumiu"], slug: "com-folga" },
       { id: "c2", name: "Cheia", groupIds: ["w2@g.us"], slug: "cheia" },
       { id: "c3", name: "Vazia", groupIds: [], slug: "vazia" },
     ],
@@ -131,11 +134,11 @@ test("campanha com um grupo real continua com as vagas dele, e a ordem é por lo
   );
 
   assert.deepEqual(
-    etiquetas.map((e) => [e.campaign.name, e.operationalStatus, e.fillPct]),
+    etiquetas.map((e) => [e.campaign.name, e.operationalStatus, e.fillPct, e.totalMembers]),
     [
-      ["Cheia", "full", 98],
-      ["Com vaga", "ready", 50],
-      ["Vazia", "empty", 0],
+      ["Cheia", "full", 100, 40],
+      ["Com folga", "ready", 20, 100],
+      ["Vazia", "empty", 0, 0],
     ],
   );
   assert.equal(linhaDeVagas(etiquetas[1], "ok").tipo, "vagas");

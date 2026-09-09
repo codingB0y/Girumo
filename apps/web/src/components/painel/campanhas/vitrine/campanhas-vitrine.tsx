@@ -11,6 +11,7 @@ import {
   caminhoPublico,
   cenaDasCampanhas,
   chipDaCampanha,
+  classeDoChip,
   contarPorFiltro,
   filtrarCampanhas,
   linhaDeVagas,
@@ -19,7 +20,6 @@ import {
   textoDeCliques,
   type CampanhaNaEtiqueta,
   type FiltroDeCampanha,
-  type TomDeChip,
 } from "@/lib/painel/campanhas";
 import type { Carga } from "@/lib/painel/types";
 
@@ -45,10 +45,6 @@ const FILTROS: { valor: FiltroDeCampanha; rotulo: string }[] = [
   { valor: "empty", rotulo: "Sem grupos" },
   { valor: "orphan_groups", rotulo: "Grupos sumiram" },
 ];
-
-function classeDoChip(tom: TomDeChip): string {
-  return cn("pn-chip", tom === "acid" && "pn-chip--acid", tom === "line" && "pn-chip--line");
-}
 
 /**
  * Campanhas na Vitrine Aberta: cada campanha é uma etiqueta de peça
