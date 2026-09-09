@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react";
 import { BookOpen, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { LIBRARY_CATEGORIES, LIBRARY_COPIES, type LibraryCategory } from "@/lib/library-copies";
+import { LIBRARY_CATEGORIES, type LibraryCategory } from "@/lib/library-copies";
+import { libraryCopiesForSegment } from "@/lib/content-packs";
+import { useTenantSegment } from "@/components/painel/use-tenant-segment";
 
 /**
  * Biblioteca de copies dentro do compositor.
@@ -16,10 +18,13 @@ export function CopyPicker({ onPick, className }: { onPick: (body: string) => vo
   const [open, setOpen] = useState(false);
   const [category, setCategory] = useState<LibraryCategory | "all">("all");
 
-  const copies = useMemo(
-    () => (category === "all" ? LIBRARY_COPIES : LIBRARY_COPIES.filter((c) => c.category === category)),
-    [category],
-  );
+  // O picker é transiente: enquanto o ramo do tenant carrega, mostra o pack
+  // neutro em vez de travar o compositor.
+  const segment = useTenantSegment();
+  const copies = useMemo(() => {
+    const base = libraryCopiesForSegment(segment ?? null);
+    return category === "all" ? base : base.filter((c) => c.category === category);
+  }, [category, segment]);
 
   if (!open) {
     return (

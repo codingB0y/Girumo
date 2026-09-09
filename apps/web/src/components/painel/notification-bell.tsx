@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Bell, Check, CheckCheck, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -34,7 +34,9 @@ const TYPE_COLORS: Record<string, string> = {
   info: "bg-cobalt-500/10 text-cobalt-500",
 };
 
-export function NotificationBell() {
+/** `tom="escuro"` é pro letreiro Volt da casca mobile. */
+export function NotificationBell({ tom = "claro" }: { tom?: "claro" | "escuro" } = {}) {
+  const instancia = useId().replace(/[^a-zA-Z0-9]/g, "");
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
@@ -67,12 +69,16 @@ export function NotificationBell() {
   // A RLS de `notifications` já isola por tenant; o filtro é defesa em
   // profundidade e evita que o servidor avalie cada INSERT de cada tenant
   // contra esta assinatura.
+  //
+  // O nome do canal leva a instância: com a Vitrine ligada o sino monta duas
+  // vezes (letreiro mobile e topbar de desktop, uma sempre oculta por CSS), e o
+  // segundo `.on()` no mesmo canal já assinado derruba a tela inteira.
   useEffect(() => {
     if (!tenantId) return;
 
     const supabase = getSupabaseBrowserClient();
     const channel = supabase
-      .channel(`notifications-realtime-${tenantId}`)
+      .channel(`notifications-realtime-${tenantId}-${instancia}`)
       .on(
         "postgres_changes",
         {
@@ -91,7 +97,7 @@ export function NotificationBell() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [tenantId]);
+  }, [tenantId, instancia]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -129,19 +135,30 @@ export function NotificationBell() {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(!open)}
-        className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-volt-950/10 bg-white text-aco transition hover:border-cobalt-500/30"
+        className={cn(
+          "relative flex items-center justify-center rounded-xl border transition",
+          // No letreiro mobile o alvo de toque é 44px, como o resto da casca nova.
+          tom === "escuro"
+            ? "h-11 w-11 border-volt-800 bg-volt-900 text-paper-0 hover:border-cobalt-500"
+            : "h-10 w-10 border-volt-950/10 bg-white text-aco hover:border-cobalt-500/30",
+        )}
         aria-label={`Notificações${unreadCount > 0 ? ` (${unreadCount} não lidas)` : ""}`}
       >
         <Bell className="h-[18px] w-[18px]" />
         {unreadCount > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-cobalt-500 text-[9px] font-bold text-white ring-2 ring-canvas-100">
+          <span
+            className={cn(
+              "absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-cobalt-500 text-[9px] font-bold text-white ring-2",
+              tom === "escuro" ? "ring-volt-950" : "ring-canvas-100",
+            )}
+          >
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-12 z-50 w-80 overflow-hidden rounded-2xl border border-volt-950/10 bg-white shadow-xl sm:w-96">
+        <div className="absolute right-0 top-12 z-50 w-80 overflow-hidden rounded-xl border border-volt-950/10 bg-white shadow-xl sm:w-96">
           <div className="flex items-center justify-between border-b border-volt-950/[0.06] px-4 py-3">
             <h3 className="font-display text-sm font-bold text-volt-950">Notificações</h3>
             {unreadCount > 0 && (

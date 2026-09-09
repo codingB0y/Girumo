@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./painel-vitrine.css";
 
 @theme inline {
   /* Paleta canônica Girumo. */
@@ -93,8 +94,22 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-* {
-  border-color: var(--color-line-200);
+/* Dentro de `@layer base`, e nao solta.
+ *
+ * O preflight do Tailwind v4 zera a borda com `border: 0 solid`, sem cor — o
+ * default vira `currentColor`. Esta regra devolve o cinza do v3 para quem
+ * escreve `border` sem dizer a cor. Solta, porem, ela vencia TODAS as
+ * utilitarias: regra fora de camada tem precedencia sobre qualquer `@layer`,
+ * entao `*` (0,0,0) ganhava de `.border-danger-700` (0,1,0). Medido em runtime
+ * antes da correcao: border-danger-700, border-cobalt-500, border-volt-950 e
+ * ate border-red-500 devolviam os quatro rgb(216,215,207).
+ *
+ * Em `base` a cascata volta ao esperado: base perde para utilities, e o padrao
+ * cinza continua valendo para quem nao escolheu cor. */
+@layer base {
+  * {
+    border-color: var(--color-line-200);
+  }
 }
 
 ::selection {
@@ -924,15 +939,15 @@ body {
 }
 .pn-pop { animation: pn-pop 0.2s var(--ease-fluxo-over) both; }
 
-/* Carimbo (conclusão de fluxo): serif itálico rotacionado assentando */
+/* Carimbo (conclusão de fluxo): Manrope bold rotacionado assentando */
 @keyframes pn-carimbo {
   from { opacity: 0; transform: rotate(-2deg) scale(1.15); }
   to { opacity: 1; transform: rotate(-2deg) scale(1); }
 }
 .pn-carimbo {
   display: inline-block;
-  font-family: var(--font-editorial);
-  font-style: italic;
+  font-family: var(--font-brand);
+  font-weight: 700;
   border: 1.5px solid var(--color-success-700);
   color: var(--color-success-700);
   border-radius: 8px;
@@ -989,22 +1004,6 @@ body {
 @keyframes pn-rise-rm {
   from { opacity: 0; }
   to { opacity: 1; }
-}
-
-/* Confetti animation */
-@keyframes confetti-fall {
-  0% {
-    transform: translateY(0) rotate(0deg);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(100vh) rotate(720deg);
-    opacity: 0;
-  }
-}
-
-.animate-confetti-fall {
-  animation: confetti-fall 2s ease-in forwards;
 }
 
 @media (prefers-reduced-motion: reduce) {

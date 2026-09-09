@@ -59,7 +59,7 @@ export function AjudaPainel() {
             </div>
             <div className="mt-4 grid gap-3">
               {CARTOES.map((c) => (
-                <section key={c.titulo} className="rounded-2xl border border-volt-950/[0.08] bg-poco p-4">
+                <section key={c.titulo} className="rounded-xl border border-volt-950/[0.08] bg-poco p-4">
                   <h3 className="text-sm font-medium text-volt-950">{c.titulo}</h3>
                   <p className="mt-1 text-sm leading-relaxed text-aco">{c.texto}</p>
                 </section>

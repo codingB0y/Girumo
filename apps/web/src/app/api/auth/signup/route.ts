@@ -5,6 +5,8 @@ import { SESSION_COOKIE, signSession, sessionCookieOptions } from "@/lib/auth";
 import { acceptPendingInvite } from "@/lib/auth/accept-pending-invite";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { provisionEntrySubscription } from "@/lib/billing/entry-subscription";
+import { INVALID_SEGMENT, parseSegmentInput } from "@/lib/settings/segment-input";
+import { updateTenantSettings } from "@/lib/stores/tenant-settings";
 import { getAppUrl } from "@/lib/environment";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import { sendEmail } from "@/lib/email/send";
@@ -30,7 +32,7 @@ function toSlug(value: string): string {
 }
 
 export async function POST(req: Request) {
-  let body: { name?: string; email?: string; password?: string; legalVersion?: unknown };
+  let body: { name?: string; email?: string; password?: string; legalVersion?: unknown; segment?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -56,6 +58,13 @@ export async function POST(req: Request) {
   const legal = checkLegalVersion(body.legalVersion);
   if (!legal.ok) {
     return Response.json({ error: legal.error, code: legal.code }, { status: legal.status });
+  }
+
+  // Ramo (opcional, alimenta os packs de conteúdo). Lixo é recusado como
+  // qualquer outro campo; ausência vira null e o painel cai no pack neutro.
+  const segment = parseSegmentInput(body.segment ?? null);
+  if (segment === INVALID_SEGMENT) {
+    return Response.json({ error: "Segmento inválido." }, { status: 400 });
   }
 
   const acceptanceIp = clientIpFromHeaders(req.headers);
@@ -169,6 +178,17 @@ export async function POST(req: Request) {
   // ser o caso normal quando o FREE sair do catalogo — deixa de ser silencio e
   // vira desfecho nomeado e registrado.
   await provisionEntrySubscription(supabase, tenantId, "signup");
+
+  // Ramo escolhido no cadastro. Best-effort de propósito: personalização de
+  // conteúdo não pode impedir a conta de nascer — sem o ramo gravado, o painel
+  // usa o pack neutro e a pessoa escolhe depois em Configurações → Conta.
+  if (segment) {
+    try {
+      await updateTenantSettings(tenantId, { segment });
+    } catch {
+      // segue sem ramo; Configurações → Conta cobre o ajuste
+    }
+  }
 
   const { data: sessionData } = await supabase.auth.signInWithPassword({ email, password });
   const token = await signSession(authUserId);

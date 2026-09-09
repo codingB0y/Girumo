@@ -9,7 +9,7 @@ export type GalleryPick = LpTemplateKey;
 const DIRECTION_LABEL: Record<string, string> = {
   impacto: "Escura · impacto",
   editorial: "Clara · editorial",
-  vitrine: "Vitrine",
+  vitrine: "Clara · vitrine",
 };
 
 /**

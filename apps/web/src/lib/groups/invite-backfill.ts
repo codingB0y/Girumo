@@ -55,30 +55,6 @@ const PERMANENT_REASONS: ReadonlyArray<{ pattern: RegExp; reason: string }> = [
 
 const UNKNOWN_PERMANENT_REASON = "a Evolution não devolveu o convite";
 
-function hasFailedMarker(group: BackfillCandidate): boolean {
-  const marker = group.metadata?.inviteFetch;
-  return typeof marker === "object" && marker !== null && (marker as { failed?: unknown }).failed === true;
-}
-
-/**
- * Grupos que ainda podem ganhar convite, os mais cheios primeiro.
- *
- * A ordem por membros é o que prioriza quem está em zona de lotação sem
- * precisar de código especial pra isso.
- */
-export function selectBackfillCandidates(
-  groups: readonly BackfillCandidate[],
-  limit: number,
-): BackfillCandidate[] {
-  return groups
-    .filter((g) => g.is_admin === true)
-    .filter((g) => !g.invite_url || g.invite_url.trim() === "")
-    .filter((g) => !hasFailedMarker(g))
-    .slice()
-    .sort((a, b) => b.members - a.members)
-    .slice(0, Math.max(0, limit));
-}
-
 /**
  * Extrai o convite da resposta da Evolution (`{ inviteUrl, inviteCode }`).
  *
@@ -142,23 +118,4 @@ export function clearInviteFetchMarker(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { inviteFetch: _removed, ...rest } = metadata;
   return rest;
-}
-
-const MS_PER_DAY = 86_400_000;
-
-/**
- * Gira a lista para que um elemento diferente lidere a cada dia.
- *
- * Pura e imutável: devolve array novo, nunca muda `items`. `now` entra por
- * parâmetro pra ser testável, igual `buildInviteFetchMarker`. O índice do dia
- * vem de `now.getTime()` (UTC, não depende de fuso local), então toda chamada
- * no mesmo dia devolve a mesma ordem e o dia seguinte avança o líder em um.
- * Com N itens, cada um lidera exatamente uma vez a cada N dias — ninguém fica
- * pra trás pra sempre só por estar no fim da lista original.
- */
-export function rotateByDay<T>(items: readonly T[], now: Date): T[] {
-  if (items.length === 0) return [];
-  const dayIndex = Math.floor(now.getTime() / MS_PER_DAY);
-  const offset = dayIndex % items.length;
-  return [...items.slice(offset), ...items.slice(0, offset)];
 }

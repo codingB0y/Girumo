@@ -36,7 +36,7 @@ const ROTULO = "text-sm font-medium text-volt-950";
 
 function Card({ titulo, etiqueta, children }: { titulo: string; etiqueta: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-aco/10 bg-white p-4">
+    <section className="rounded-xl border border-aco/10 bg-white p-4">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-volt-950">{titulo}</h3>
         <span className="pn-etiqueta bg-poco text-aco/70">{etiqueta}</span>

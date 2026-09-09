@@ -5,80 +5,7 @@ import {
   classifyInviteFailure,
   clearInviteFetchMarker,
   parseInviteCodeResponse,
-  rotateByDay,
-  selectBackfillCandidates,
-  type BackfillCandidate,
 } from "./invite-backfill";
-
-function group(over: Partial<BackfillCandidate> = {}): BackfillCandidate {
-  return {
-    id: over.id ?? "row-1",
-    whatsapp_group_id: over.whatsapp_group_id ?? "120363000000000001@g.us",
-    name: over.name ?? "Atacado Infantil 1",
-    members: over.members ?? 100,
-    is_admin: over.is_admin ?? true,
-    invite_url: over.invite_url ?? null,
-    metadata: over.metadata ?? {},
-  };
-}
-
-// --- selectBackfillCandidates ---
-
-test("selects an admin group with no invite", () => {
-  const out = selectBackfillCandidates([group()], 10);
-  assert.equal(out.length, 1);
-});
-
-test("skips a group where we are not admin", () => {
-  // Sem admin não existe código de convite a buscar: a chamada gastaria cota
-  // do limite e voltaria 404 sempre.
-  const out = selectBackfillCandidates([group({ is_admin: false })], 10);
-  assert.deepEqual(out, []);
-});
-
-test("skips a group that already has an invite", () => {
-  const out = selectBackfillCandidates(
-    [group({ invite_url: "https://chat.whatsapp.com/AbCdEfGhIjK" })],
-    10,
-  );
-  assert.deepEqual(out, []);
-});
-
-test("skips a group whose invite fetch is marked as failed", () => {
-  const out = selectBackfillCandidates(
-    [group({ metadata: { inviteFetch: { failed: true, reason: "403", at: "2026-08-12T00:00:00.000Z" } } })],
-    10,
-  );
-  assert.deepEqual(out, []);
-});
-
-test("respects the limit", () => {
-  const many = Array.from({ length: 25 }, (_, i) => group({ id: `row-${i}`, whatsapp_group_id: `${i}@g.us` }));
-  assert.equal(selectBackfillCandidates(many, 10).length, 10);
-});
-
-test("puts the fullest group first", () => {
-  // Ordenar por membros é o que faz os grupos em zona de lotação virem antes,
-  // sem nenhum código de prioridade: quem está cheio é quem precisa do link.
-  const out = selectBackfillCandidates(
-    [
-      group({ id: "vazio", whatsapp_group_id: "a@g.us", members: 5 }),
-      group({ id: "cheio", whatsapp_group_id: "b@g.us", members: 980 }),
-      group({ id: "medio", whatsapp_group_id: "c@g.us", members: 400 }),
-    ],
-    10,
-  );
-  assert.deepEqual(out.map((g) => g.id), ["cheio", "medio", "vazio"]);
-});
-
-test("does not mutate the input array", () => {
-  const input = [
-    group({ id: "a", whatsapp_group_id: "a@g.us", members: 1 }),
-    group({ id: "b", whatsapp_group_id: "b@g.us", members: 2 }),
-  ];
-  selectBackfillCandidates(input, 10);
-  assert.deepEqual(input.map((g) => g.id), ["a", "b"]);
-});
 
 // --- parseInviteCodeResponse ---
 
@@ -186,64 +113,16 @@ test("truncates a very long reason", () => {
 
 // --- clearInviteFetchMarker ---
 
-test("clearing the marker returns the group to the queue", () => {
+test("clearing the marker strips inviteFetch and keeps the rest", () => {
   const cleared = clearInviteFetchMarker({
     inviteFetch: { failed: true, reason: "403", at: "2026-08-12T00:00:00.000Z" },
     outroCampo: "preservado",
   });
   assert.deepEqual(cleared, { outroCampo: "preservado" });
-  assert.deepEqual(selectBackfillCandidates([group({ metadata: cleared })], 10).length, 1);
 });
 
 test("clearing keeps other metadata untouched and handles empty input", () => {
   assert.deepEqual(clearInviteFetchMarker(null), {});
   assert.deepEqual(clearInviteFetchMarker(undefined), {});
   assert.deepEqual(clearInviteFetchMarker({ a: 1 }), { a: 1 });
-});
-
-// --- rotateByDay ---
-
-test("rotation advances between consecutive days", () => {
-  const items = ["a", "b", "c"];
-  const day1 = rotateByDay(items, new Date("2026-08-12T00:00:00.000Z"));
-  const day2 = rotateByDay(items, new Date("2026-08-13T00:00:00.000Z"));
-  assert.notDeepEqual(day1, day2);
-});
-
-test("two calls on the same day agree", () => {
-  const items = ["a", "b", "c"];
-  const morning = rotateByDay(items, new Date("2026-08-12T01:00:00.000Z"));
-  const night = rotateByDay(items, new Date("2026-08-12T23:59:59.000Z"));
-  assert.deepEqual(morning, night);
-});
-
-test("does not mutate the input array", () => {
-  const items = ["a", "b", "c"];
-  rotateByDay(items, new Date("2026-08-12T00:00:00.000Z"));
-  assert.deepEqual(items, ["a", "b", "c"]);
-});
-
-test("an empty list returns empty", () => {
-  assert.deepEqual(rotateByDay([], new Date("2026-08-12T00:00:00.000Z")), []);
-});
-
-test("a single-element list returns the same element", () => {
-  assert.deepEqual(rotateByDay(["only"], new Date("2026-08-12T00:00:00.000Z")), ["only"]);
-});
-
-test("every element survives the rotation, nothing dropped or duplicated", () => {
-  const items = ["a", "b", "c", "d", "e"];
-  const out = rotateByDay(items, new Date("2026-08-12T00:00:00.000Z"));
-  assert.equal(out.length, items.length);
-  assert.deepEqual([...out].sort(), [...items].sort());
-});
-
-test("over N consecutive days with N tenants, every tenant leads exactly once", () => {
-  const items = ["a", "b", "c"];
-  const leaders = new Set<string>();
-  for (let d = 0; d < items.length; d++) {
-    const date = new Date(Date.UTC(2026, 7, 12 + d));
-    leaders.add(rotateByDay(items, date)[0]);
-  }
-  assert.equal(leaders.size, items.length);
 });

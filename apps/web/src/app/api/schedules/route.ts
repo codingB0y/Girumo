@@ -5,6 +5,7 @@ import { collection } from "@/lib/json-collection";
 import { crudRoute } from "@/lib/crud-route";
 import type { Schedule, ScheduleStatus } from "@/lib/mock-data";
 import { resolveSessionTenantId } from "@/lib/session-tenant";
+import { carregarAgendamentos } from "@/lib/painel/inicio-carga";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,22 +24,11 @@ const legacy = crudRoute<Schedule>(coll, (b) => {
   };
 });
 
+// GET /api/schedules — mesmo corpo que a rota agregada da Início serve.
 export async function GET(req: Request) {
-  if (!USE_SUPABASE) return legacy.GET();
-  const tenantId = await resolveSessionTenantId(req);
-  if (!tenantId) return Response.json([]);
-  const list = await supaStore.listSchedules(tenantId);
-  // Map to legacy shape
-  const mapped = list.map((s) => ({
-    id: s.id,
-    campaignId: s.broadcast_id ?? s.campaign_message_id,
-    campaignName: s.name,
-    scheduledAt: s.scheduled_at,
-    recurrence: s.recurrence,
-    status: s.status,
-    lastRunAt: s.last_run_at,
-  }));
-  return Response.json(mapped);
+  const tenantId = USE_SUPABASE ? await resolveSessionTenantId(req) : "";
+  if (USE_SUPABASE && !tenantId) return Response.json([]);
+  return Response.json(await carregarAgendamentos(tenantId ?? ""));
 }
 
 export async function POST(req: Request) {

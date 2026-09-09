@@ -2,20 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { X, PartyPopper, Download, MessageCircle } from "lucide-react";
-import { cn } from "@/lib/utils";
 import type { Group } from "@/lib/mock-data";
 import { computeCelebrations, pendingCelebrations, type Celebration } from "@/lib/celebrations";
-
-// Peças de confete: posição/cor/atraso fixos por índice (decorativo, sem estado).
-const CONFETTI_PIECES = [
-  { left: "8%", bg: "bg-cobalt-500", delay: "0s" },
-  { left: "20%", bg: "bg-sucesso", delay: "0.15s" },
-  { left: "34%", bg: "bg-atencao", delay: "0.05s" },
-  { left: "48%", bg: "bg-cobalt-500", delay: "0.25s" },
-  { left: "62%", bg: "bg-sucesso", delay: "0.1s" },
-  { left: "76%", bg: "bg-atencao", delay: "0.3s" },
-  { left: "90%", bg: "bg-cobalt-500", delay: "0.2s" },
-];
 
 export function CelebrationModal({
   groups,
@@ -144,19 +132,8 @@ function CelebrationCard({ marco, onDismiss }: { marco: Celebration; onDismiss: 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-volt-950/60 backdrop-blur-sm px-4">
-      <div className="pn-palette-in relative w-full max-w-md overflow-hidden rounded-2xl border border-volt-950/10 bg-white p-6 shadow-xl">
-        {/* Confete decorativo */}
-        <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-24 overflow-hidden">
-          {CONFETTI_PIECES.map((p, i) => (
-            <span
-              key={i}
-              className={cn("animate-confetti-fall absolute top-0 h-2.5 w-2.5 rounded-sm", p.bg)}
-              style={{ left: p.left, animationDelay: p.delay }}
-            />
-          ))}
-        </div>
-
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-volt-950/60 px-4">
+      <div className="pn-palette-in relative w-full max-w-md overflow-hidden rounded-xl border border-volt-950/10 bg-white p-6 shadow-xl">
         <button
           onClick={handleClose}
           aria-label="Fechar"
@@ -166,7 +143,7 @@ function CelebrationCard({ marco, onDismiss }: { marco: Celebration; onDismiss: 
         </button>
 
         <div className="relative flex flex-col items-center pt-2 text-center">
-          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sucesso/10 text-sucesso">
+          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-sucesso/10 text-sucesso">
             <PartyPopper className="h-6 w-6" strokeWidth={1.75} />
           </span>
           <h2 className="font-display mt-4 text-xl font-bold text-volt-950">{marco.title}</h2>

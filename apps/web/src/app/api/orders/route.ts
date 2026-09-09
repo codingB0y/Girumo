@@ -1,29 +1,28 @@
-import { listOrders, addOrder, removeOrder, countOrders } from "@/lib/stores/orders";
+import { addOrder, removeOrder, countOrders, listOrdersByTenant } from "@/lib/stores/orders";
 import { updateLeadStatus } from "@/lib/leads-store";
 import { getLeadSourceCampaign } from "@/lib/stores/leads";
 import { listCampaignGroups } from "@/lib/stores/campaign-groups";
 import { matchCampaignId } from "@/lib/campaign-attribution";
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
+import { parseValorDoPedido as parseOrderValue } from "@/lib/orders/valor-do-pedido";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
+  let tenantId: string;
   try {
-    return Response.json(await listOrders());
+    ({ tenantId } = await getRouteTenantContext(req, { allowEngine: false }));
+  } catch (e) {
+    if (e instanceof Response) return e;
+    return Response.json({ error: (e as Error).message }, { status: 500 });
+  }
+  try {
+    return Response.json(await listOrdersByTenant(tenantId));
   } catch (e) {
     return Response.json({ error: (e as Error).message }, { status: 500 });
   }
-}
-
-// Aceita valor com vírgula decimal (e ponto de milhar): "149,90" → 149.90.
-function parseOrderValue(raw: unknown): number {
-  if (typeof raw === "number") return raw;
-  const str = String(raw ?? "").trim();
-  if (!str) return NaN;
-  const normalized = str.includes(",") ? str.replace(/\./g, "").replace(",", ".") : str;
-  return Number(normalized);
 }
 
 export async function POST(req: Request) {

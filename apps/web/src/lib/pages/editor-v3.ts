@@ -21,9 +21,9 @@ export type EditorStateV3 = {
   ga4_id: string;
 };
 
-export function newDraftV3(template: LpTemplateKey, now: Date = new Date()): EditorStateV3 {
+export function newDraftV3(template: LpTemplateKey, now: Date = new Date(), segment?: string | null): EditorStateV3 {
   return {
-    content: instantiateTemplate(template, now),
+    content: instantiateTemplate(template, now, segment),
     target_group_url: "",
     campaign_slug: "",
     meta_pixel_id: "",

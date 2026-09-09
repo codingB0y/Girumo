@@ -30,6 +30,14 @@ const HORA = new Intl.DateTimeFormat("pt-BR", {
   minute: "2-digit",
 });
 
+/** Igual a HORA, com o segundo: na fila da oferta ele e quem ordena. */
+const HORA_SEGUNDO = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: TZ,
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
+
 const UM_DIA_MS = 86_400_000;
 
 /** `YYYY-MM-DD` do instante, no fuso de Brasília. */
@@ -68,6 +76,19 @@ export function dayBROf(iso?: string | null): string | undefined {
 }
 
 /**
+ * `DD/MM` de Brasília, para data que a tela mostra sem o ano ("Renova em 04/10").
+ *
+ * Sai de `dayBROf`, que já fixa o fuso: um `Intl` novo aqui leria o relógio de
+ * quem roda e a data andaria um dia no CI, que é UTC.
+ */
+export function diaMesBR(iso?: string | null): string | undefined {
+  const dia = dayBROf(iso);
+  if (!dia) return undefined;
+  const [, mes, d] = dia.split("-");
+  return `${d}/${mes}`;
+}
+
+/**
  * `HH:MM` de Brasília de um timestamp do banco.
  *
  * String vazia quando não há data ou ela não parseia — quem chama omite o
@@ -77,6 +98,16 @@ export function horaBR(iso?: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? "" : HORA.format(d);
+}
+
+/**
+ * `HH:MM:SS` de Brasília. Duas clientes comentam no mesmo minuto e a ordem da
+ * fila depende do segundo — sem ele a 1ª e a 2ª ficam indistinguíveis.
+ */
+export function horaSegundoBR(iso?: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : HORA_SEGUNDO.format(d);
 }
 
 /** Mês de Brasília em que um timestamp do banco aconteceu. */

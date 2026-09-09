@@ -3,16 +3,22 @@
 import { useMemo, useState } from "react";
 import { Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { LIBRARY_CATEGORIES, LIBRARY_COPIES, type LibraryCategory } from "@/lib/library-copies";
+import { LIBRARY_CATEGORIES, type LibraryCategory } from "@/lib/library-copies";
+import { libraryCopiesForSegment } from "@/lib/content-packs";
+import { useTenantSegment } from "@/components/painel/use-tenant-segment";
 
 // Biblioteca incorporada dentro de Campanhas (sem item próprio na sidebar).
 export default function PainelBiblioteca() {
   const [active, setActive] = useState<LibraryCategory | "all">("all");
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  // Pack pelo ramo do tenant. Enquanto o ramo carrega, a grade mostra skeleton
+  // em vez de piscar do pack neutro pro pack certo.
+  const segment = useTenantSegment();
+  const base = useMemo(() => libraryCopiesForSegment(segment ?? null), [segment]);
   const copies = useMemo(
-    () => (active === "all" ? LIBRARY_COPIES : LIBRARY_COPIES.filter((c) => c.category === active)),
-    [active],
+    () => (active === "all" ? base : base.filter((c) => c.category === active)),
+    [active, base],
   );
 
   async function handleCopy(id: string, body: string) {
@@ -29,7 +35,7 @@ export default function PainelBiblioteca() {
     <div className="mx-auto max-w-[1200px] space-y-8 px-4 py-8 sm:px-8">
       <header>
         <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-volt-950">Biblioteca</h1>
-        <p className="font-editorial mt-1 text-[19px] italic text-ardosia">
+        <p className="mt-1 text-[19px] text-ardosia">
           Modelos prontos pra copiar e postar nos seus grupos.
         </p>
       </header>
@@ -61,16 +67,22 @@ export default function PainelBiblioteca() {
       </div>
 
       {/* Cards de copy */}
-      {copies.length === 0 ? (
-        <div className="pn-card rounded-2xl px-5 py-16 text-center">
-          <p className="font-editorial text-[22px] italic text-volt-950">Nenhuma copy nessa categoria ainda.</p>
+      {segment === undefined ? (
+        <div className="grid gap-4 sm:grid-cols-2" role="status" aria-label="Carregando as copies">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="pn-skeleton h-40 rounded-xl" data-testid="painel-skeleton" />
+          ))}
+        </div>
+      ) : copies.length === 0 ? (
+        <div className="pn-card rounded-xl px-5 py-16 text-center">
+          <p className="text-[22px] text-volt-950">Nenhuma copy nessa categoria ainda.</p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {copies.map((copy) => {
             const copied = copiedId === copy.id;
             return (
-              <div key={copy.id} className="pn-card flex flex-col rounded-2xl p-5">
+              <div key={copy.id} className="pn-card flex flex-col rounded-xl p-5">
                 <p className="font-medium text-volt-950">{copy.title}</p>
                 <p className="mt-2 flex-1 whitespace-pre-line text-sm leading-relaxed text-aco">{copy.body}</p>
                 <button

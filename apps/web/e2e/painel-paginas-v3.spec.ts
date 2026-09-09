@@ -2,6 +2,7 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 
 import { instantiateTemplate } from "../src/lib/pages/templates-v3";
 import { exigeCredenciais, semErroDeRuntime } from "./sessao-helpers";
+import { confirmarNaFolha } from "./confirmacao";
 
 /**
  * O que o fluxo v3 (páginas com seções) FAZ, de ponta a ponta:
@@ -250,8 +251,8 @@ test.describe("migração v2 → v3", () => {
     await page.goto(`/painel/pages/${pagina.id}`);
     await expect(page.getByRole("heading", { name: NOME_DA_PAGINA_V2 })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Modelo novo disponível" })).toBeVisible();
-    page.once("dialog", (d) => void d.accept());
     await page.getByRole("button", { name: "Migrar para o modelo novo" }).click();
+    await confirmarNaFolha(page, "Migrar");
 
     // A tela recarrega no editor de seções: a galeria migrada aparece como seção ligada.
     await expect(page.getByRole("switch", { name: /Galeria de peças/ })).toBeVisible({ timeout: 20_000 });

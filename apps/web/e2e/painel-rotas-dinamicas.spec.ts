@@ -61,7 +61,7 @@ test.describe("rotas dinamicas do painel", () => {
         const resposta = await page.goto(url, { waitUntil: "domcontentloaded" });
         expect(resposta?.status(), `${url} respondeu ${resposta?.status()}`).toBeLessThan(400);
         await expect(page, `${url} devolveu ao login com sessao valida`).not.toHaveURL(/\/login/);
-        await expect(page.locator(".pn-root"), `${url} nao montou o shell`).toBeVisible();
+        await expect(page.getByTestId("painel-root"), `${url} nao montou o shell`).toBeVisible();
 
         await expect
           .poll(() => contarMarca(page, registro.marca), {
@@ -86,7 +86,7 @@ test.describe("rotas dinamicas do painel", () => {
           respostaVazia?.status(),
           `${urlVazia} respondeu ${respostaVazia?.status()} — id inexistente nao deveria derrubar a rota`,
         ).toBeLessThan(400);
-        await expect(page.locator(".pn-root"), `${urlVazia} nao montou o shell`).toBeVisible();
+        await expect(page.getByTestId("painel-root"), `${urlVazia} nao montou o shell`).toBeVisible();
         await aguardarTelaAssentar(page);
 
         expect(
@@ -137,5 +137,5 @@ async function aguardarTelaAssentar(page: Page) {
   } catch {
     // Tela com polling nunca fica ociosa; o skeleton sumir ja basta como sinal.
   }
-  await expect(page.locator(".pn-skeleton")).toHaveCount(0);
+  await expect(page.getByTestId("painel-skeleton")).toHaveCount(0);
 }

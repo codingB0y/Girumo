@@ -17,7 +17,7 @@
  */
 
 import { resolveMediaPath } from "./media-id.js";
-import type { SendMediaInput, SendPollInput, SendTextOptions } from "./evolution-sender.js";
+import { EvolutionSendError, type SendMediaInput, type SendPollInput, type SendTextOptions } from "./evolution-sender.js";
 
 export type EngineCommandRow = {
   command_id: string;
@@ -46,8 +46,8 @@ export interface SendDeps {
   signedMediaUrl(storagePath: string): Promise<string | null>;
   /** Pós-envio OK: conta a janela + estica o gate de espaçamento + warmup. */
   recordSend(instanceId: string, tenantId: string): Promise<void>;
-  /** Pós-envio FALHA: alimenta o circuit breaker por número. */
-  recordSendFailure(instanceId: string, tenantId: string): Promise<void>;
+  /** Pós-envio FALHA: alimenta o circuit breaker por número. `rateLimited` vira pausa longa. */
+  recordSendFailure(instanceId: string, tenantId: string, rateLimited: boolean): Promise<void>;
   /** Fecha o comando: sucesso → done; falha → retry/backoff até max_attempts. */
   completeCommand(commandId: string, success: boolean, errorMessage?: string): Promise<void>;
 }
@@ -116,6 +116,12 @@ export function resolveSendTarget(payload: unknown): SendTarget {
 
 function errMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+/** 429 ou "rate-overlimit" no detalhe: o WhatsApp está freando ESTE número. */
+export function isRateLimited(error: unknown): boolean {
+  if (!(error instanceof EvolutionSendError)) return false;
+  return error.status === 429 || /rate-overlimit/i.test(error.message);
 }
 
 /**
@@ -194,7 +200,7 @@ export async function sendFromCommand(row: EngineCommandRow, deps: SendDeps): Pr
     await send(instanceName);
   } catch (err) {
     // Falha de envio real → alimenta o breaker do número + retry/backoff do comando.
-    await deps.recordSendFailure(row.instance_id, row.tenant_id);
+    await deps.recordSendFailure(row.instance_id, row.tenant_id, isRateLimited(err));
     await deps.completeCommand(row.command_id, false, errMessage(err));
     return { status: "failed", reason: "send-error" };
   }

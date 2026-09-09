@@ -9,6 +9,7 @@
  */
 
 import type { LpContentV3 } from "./content-v3";
+import { templateExampleForSegment } from "./content-packs-v3";
 import type { LpDirection, LpSection, LpSectionType } from "./sections";
 
 export const TEMPLATE_KEYS = ["evento-ao-vivo", "promo-relampago", "acesso-vip", "lista-de-espera", "vitrine"] as const;
@@ -535,10 +536,15 @@ export const TEMPLATE_LIST: LpTemplateV3[] = TEMPLATE_KEYS.map((k) => TEMPLATES_
  * Cópia profunda do exemplo pronta pra virar rascunho: datas relativas
  * (contagem) resolvidas a partir de `now`. Nunca devolve o objeto do módulo —
  * o editor muta o rascunho.
+ *
+ * `segment` troca só o TEXTO de exemplo pelo pack do ramo do tenant
+ * (`content-packs-v3.ts`) — a lista de seções, variantes e ordem continuam as
+ * do template base, por isso `sections: SectionPreset[]` nunca muda aqui.
  */
-export function instantiateTemplate(key: LpTemplateKey, now: Date = new Date()): LpContentV3 {
+export function instantiateTemplate(key: LpTemplateKey, now: Date = new Date(), segment?: string | null): LpContentV3 {
   const tpl = TEMPLATES_V3[key];
-  const content = structuredClone(tpl.example) as LpContentV3;
+  const example = templateExampleForSegment(key, segment) ?? tpl.example;
+  const content = structuredClone(example) as LpContentV3;
   if (tpl.countdownHours) {
     const ends = new Date(now.getTime() + tpl.countdownHours * 60 * 60 * 1000);
     for (const s of content.sections) {

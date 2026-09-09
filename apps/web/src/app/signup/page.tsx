@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AuthShell } from "@/components/auth-shell";
+import { AuthShellVitrine as AuthShell } from "@/components/auth/auth-shell-vitrine";
 import { LegalConsentCheckbox } from "@/components/legal/legal-consent";
 import { SignupProgress } from "@/components/signup-progress";
 import { FirstTouchCookie } from "@/components/analytics/first-touch-cookie";
+import { CLASSES_DA_PORTA } from "@/lib/painel/auth-classes";
 import { persistSupabaseSession, startGoogleOAuth } from "@/lib/supabase/client";
 import { LEGAL_VERSION } from "@/lib/legal";
+import { SEGMENTS } from "@/lib/segments";
 
 function GoogleIcon() {
   return (
@@ -21,10 +23,8 @@ function GoogleIcon() {
   );
 }
 
-const inputClass =
-  "h-11 w-full rounded-[var(--radius-control)] border border-volt-800 bg-volt-950 px-4 text-sm text-canvas-100 placeholder:text-canvas-100/35 outline-none transition-[border-color,box-shadow] duration-[var(--duration-micro)] ease-[var(--ease-girumo)] focus:border-cobalt-500 focus:ring-2 focus:ring-cobalt-500/30";
-
 export default function SignupPage() {
+  const c = CLASSES_DA_PORTA;
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -33,6 +33,8 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [acceptedLegal, setAcceptedLegal] = useState(false);
+  // Ramo do negócio — opcional de propósito (atrito zero no cadastro).
+  const [segment, setSegment] = useState("");
 
   const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
   const valid = name.trim().length > 0 && emailOk && password.length >= 6 && acceptedLegal;
@@ -65,7 +67,13 @@ export default function SignupPage() {
       const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, legalVersion: LEGAL_VERSION }),
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+          legalVersion: LEGAL_VERSION,
+          ...(segment ? { segment } : {}),
+        }),
       });
 
       if (response.ok) {
@@ -92,7 +100,10 @@ export default function SignupPage() {
       footer={
         <>
           Já tem conta?{" "}
-          <Link href="/login" className="font-medium text-acid-500 transition-colors hover:text-canvas-100">
+          <Link
+            href="/login"
+            className={c.link}
+          >
             Entrar
           </Link>
         </>
@@ -101,79 +112,105 @@ export default function SignupPage() {
       <SignupProgress current={1} />
       <form className="space-y-4" onSubmit={submit}>
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-canvas-100/70">Seu nome</label>
+          <label className={c.rotulo} htmlFor="signup-nome">
+            Seu nome
+          </label>
           <input
+            id="signup-nome"
             placeholder="Ex: Maria da Silva"
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoFocus
             autoComplete="name"
-            className={inputClass}
+            className={c.campo}
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-canvas-100/70">E-mail</label>
+          <label className={c.rotulo} htmlFor="signup-email">
+            E-mail
+          </label>
           <input
+            id="signup-email"
             type="email"
             placeholder="voce@email.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
-            className={inputClass}
+            className={c.campo}
           />
           {email.length > 0 && !emailOk && (
-            <p className="mt-1 text-xs text-canvas-100/80">Digite um e-mail válido.</p>
+            <p className={c.aviso}>Digite um e-mail válido.</p>
           )}
         </div>
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-canvas-100/70">Senha</label>
+          <label className={c.rotulo} htmlFor="signup-senha">
+            Senha
+          </label>
           <input
+            id="signup-senha"
             type="password"
             placeholder="Mínimo 6 caracteres"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="new-password"
-            className={inputClass}
+            className={c.campo}
           />
           {password.length > 0 && password.length < 6 && (
-            <p className="mt-1 text-xs text-canvas-100/80">A senha precisa de pelo menos 6 caracteres.</p>
+            <p className={c.aviso}>A senha precisa de pelo menos 6 caracteres.</p>
           )}
+        </div>
+        <div>
+          {/* Alimenta os packs de conteúdo do painel; quem pular escolhe em Configurações. */}
+          <label htmlFor="signup-segment" className={c.rotulo}>
+            O que você vende? <span className="font-normal text-slate-600">(opcional)</span>
+          </label>
+          <select
+            id="signup-segment"
+            value={segment}
+            onChange={(e) => setSegment(e.target.value)}
+            className={c.campo}
+          >
+            <option value="">Escolher depois</option>
+            {SEGMENTS.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         <LegalConsentCheckbox checked={acceptedLegal} onChange={setAcceptedLegal} />
 
-        {error && <p className="rounded-[var(--radius-control)] border border-danger-700/40 bg-danger-700/15 px-3 py-2 text-sm text-canvas-100">{error}</p>}
+        {error && (
+          <p
+            role="alert"
+            className={c.erro}
+          >
+            {error}
+          </p>
+        )}
 
         <button
           type="submit"
           disabled={loading || !valid}
-          className="flex h-11 w-full items-center justify-center rounded-[var(--radius-control)] bg-acid-500 text-sm font-semibold text-volt-950 transition-[filter] duration-[var(--duration-micro)] hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500 disabled:pointer-events-none disabled:opacity-50"
+          className={c.primario}
         >
           {loading ? "Criando..." : "Criar conta"}
         </button>
 
-        <div className="relative my-2">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-volt-800" />
-          </div>
-          <div className="relative flex justify-center">
-            <span className="bg-volt-900 px-3 text-xs text-canvas-100/40">ou</span>
-          </div>
-        </div>
+        <p className="pn-porta__ou my-1">ou</p>
 
         <button
           type="button"
           onClick={signUpWithGoogle}
           disabled={googleLoading}
-          className="flex h-11 w-full items-center justify-center gap-2.5 rounded-[var(--radius-control)] border border-volt-800 bg-volt-950 text-sm font-medium text-canvas-100 transition-colors duration-[var(--duration-micro)] hover:border-cobalt-500 hover:bg-volt-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500 disabled:pointer-events-none disabled:opacity-50"
+          className={c.secundario}
         >
           <GoogleIcon />
           {googleLoading ? "Abrindo o Google..." : "Criar conta com Google"}
         </button>
 
-        <p className="text-center text-xs leading-5 text-canvas-100/50">
-          Seus dados ficam protegidos e só você tem acesso. Cancele quando quiser.
-        </p>
+        {/* Na porta da Vitrine o rodapé de privacidade vem do shell — aqui seria a segunda vez. */}
       </form>
       <FirstTouchCookie />
     </AuthShell>

@@ -30,6 +30,10 @@ function row(over: Partial<InstanceHealthRow> = {}): InstanceHealthRow {
     failures_24h: 0,
     last_active_at: daysAgo(0),
     last_event_at: daysAgo(0),
+    perfil: "novo",
+    per_hour: 40,
+    per_min: 8,
+    admin_groups: 3,
     ...over,
   };
 }
@@ -140,6 +144,22 @@ assert.equal(silenceRisk(row({ last_event_at: daysAgo(-2) }), NOW), null);
 
   const vivo = deriveHealth(row(), NOW);
   assert.equal(vivo.everConnected, true);
+}
+
+// === Perfil e tetos por hora/minuto ===
+//
+// Vêm prontos de app.instance_caps (via instance_health); a tela só expõe o
+// que o banco já decidiu, não recalcula a rampa nem os tetos.
+{
+  const h = deriveHealth(
+    row({ perfil: "veterano", per_hour: 273, per_min: 10, admin_groups: 91, daily_cap: 1365 }),
+    NOW,
+  );
+  assert.equal(h.perfil, "veterano");
+  assert.equal(h.hourlyCap, 273);
+  assert.equal(h.minuteCap, 10);
+  assert.equal(h.adminGroups, 91);
+  assert.equal(h.dailyCap, 1365);
 }
 
 console.log("instance-health tests passed");

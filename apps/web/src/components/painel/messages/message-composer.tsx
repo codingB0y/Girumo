@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Send,
   Image,
@@ -28,10 +28,19 @@ type Props = {
   onSend: (payload: ComposerPayload) => Promise<void>;
   sending?: boolean;
   className?: string;
+  /** Texto atual, pra quem mostra a prévia fora do compositor (folha de postar). */
+  onBodyChange?: (body: string) => void;
+  /** Rótulo do botão principal. Padrão "Enviar" — a Vitrine diz "Postar em 13 grupos". */
+  rotuloEnviar?: string;
+  /** Botão em Acid (regra 10: só Postar, AO VIVO e LOTOU). Padrão Cobalt. */
+  acid?: boolean;
 };
 
-export function MessageComposer({ onSend, sending, className }: Props) {
+export function MessageComposer({ onSend, sending, className, onBodyChange, rotuloEnviar, acid }: Props) {
   const [body, setBody] = useState("");
+  useEffect(() => {
+    onBodyChange?.(body);
+  }, [body, onBodyChange]);
   const [mentionAll, setMentionAll] = useState(false);
   const [mediaId, setMediaId] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<"image" | "video" | "audio" | "file" | null>(null);
@@ -97,7 +106,7 @@ export function MessageComposer({ onSend, sending, className }: Props) {
   };
 
   return (
-    <div className={cn("rounded-2xl border border-volt-950/[0.08] bg-white p-4", className)}>
+    <div className={cn("rounded-xl border border-volt-950/[0.08] bg-white p-4", className)}>
       <input ref={fileRef} type="file" className="hidden" aria-hidden="true" />
 
       {/* Media preview */}
@@ -232,14 +241,16 @@ export function MessageComposer({ onSend, sending, className }: Props) {
           onClick={handleSend}
           disabled={!canSend || sending}
           className={cn(
-            "ml-auto inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-medium text-white shadow-sm transition",
-            canSend && !sending
-              ? "bg-cobalt-500 hover:-translate-y-0.5 hover:bg-cobalt-500 shadow-brand"
-              : "cursor-not-allowed bg-aco/20",
+            "ml-auto inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-medium shadow-sm transition",
+            !canSend || sending
+              ? "cursor-not-allowed bg-aco/20 text-white"
+              : acid
+                ? "bg-acid-500 text-volt-950"
+                : "bg-cobalt-500 text-white hover:-translate-y-0.5 hover:bg-cobalt-500 shadow-brand",
           )}
         >
           {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          Enviar
+          {rotuloEnviar ?? "Enviar"}
         </button>
       </div>
     </div>

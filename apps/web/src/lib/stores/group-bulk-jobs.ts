@@ -20,7 +20,8 @@ export type BulkJobStatus = "queued" | "running" | "done" | "failed";
 export type BulkJobRow = {
   id: string;
   tenant_id: string;
-  campaign_group_id: string;
+  /** `null` no backfill de convite pela fila do lote — não pertence a campanha. */
+  campaign_group_id: string | null;
   batch_id: string;
   action: BulkAction;
   group_id: string;
@@ -85,6 +86,18 @@ export async function enqueueBulkJobs(
 
   if (error) throw new Error(error.message);
   return data?.length ?? 0;
+}
+
+/** Grupos com check_invite ainda por rodar — evita enfileirar o mesmo grupo a cada sync. */
+export async function listPendingCheckInviteGroupIds(tenantId: string): Promise<Set<string>> {
+  const { data, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .select("group_id")
+    .eq("tenant_id", tenantId)
+    .eq("action", "check_invite")
+    .in("status", ["queued", "running"]);
+  if (error) throw new Error(error.message);
+  return new Set((data ?? []).map((r) => (r as { group_id: string }).group_id));
 }
 
 /**

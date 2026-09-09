@@ -9,9 +9,15 @@ import {
   type EvolutionGroup,
 } from "@/lib/evolution/client";
 import { tallyAdmins } from "@/lib/groups/admin-protection";
+import { selecionarGruposSemConvite } from "@/lib/groups/invite-enqueue";
 import { escolherContagem } from "@/lib/groups/member-count";
 import { partitionByAdmin } from "@/lib/groups/sync-partition";
 import {
+  enqueueBulkJobs,
+  listPendingCheckInviteGroupIds,
+} from "@/lib/stores/group-bulk-jobs";
+import {
+  listGroups,
   listMemberCounts,
   refreshMembersForKnownGroups,
   removeGroupsByWhatsappIds,
@@ -131,6 +137,35 @@ export async function POST(req: Request) {
     });
 
     const synced = await syncGroupsFromProvider(ctx.tenantId, rows);
+
+    // Backfill de convite pela fila do lote (15/min), no lugar do cron diário.
+    // Falha aqui não pode derrubar o sync: convite é enriquecimento.
+    let convitesEnfileirados = 0;
+    try {
+      const [grupos, jaNaFila] = await Promise.all([
+        listGroups(ctx.tenantId),
+        listPendingCheckInviteGroupIds(ctx.tenantId),
+      ]);
+      const alvos = selecionarGruposSemConvite(grupos, jaNaFila);
+      if (alvos.length > 0) {
+        convitesEnfileirados = await enqueueBulkJobs(
+          ctx.tenantId,
+          alvos.map((g) => ({
+            tenant_id: ctx.tenantId,
+            campaign_group_id: null,
+            batch_id: crypto.randomUUID(),
+            action: "check_invite" as const,
+            group_id: g.id,
+            whatsapp_group_id: g.whatsapp_group_id as string,
+            description: null,
+            media_id: null,
+          })),
+        );
+      }
+    } catch (err) {
+      console.error("[api/groups/sync] backfill de convite nao enfileirou:", err);
+    }
+
     // Limpa o que sobrou de antes de o filtro existir. `descartar` vem vazio
     // quando a detecção é suspeita, então uma quebra de contrato da Evolution
     // não apaga a base do lojista.
@@ -179,6 +214,8 @@ export async function POST(req: Request) {
         // Quanto a Evolution levou. Cresce com o número de grupos; é o que
         // decide se o teto de 50s ainda cabe.
         fetch_ms: fetchMs,
+        // Backfill de convite pela fila do lote, disparado neste mesmo sync.
+        convites_enfileirados: convitesEnfileirados,
       },
     });
 

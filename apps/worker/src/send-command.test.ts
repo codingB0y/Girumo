@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { EvolutionSendError } from "./evolution-sender.js";
 import {
+  isRateLimited,
   resolveSendTarget,
   sendFromCommand,
   type EngineCommandRow,
@@ -59,8 +61,8 @@ function fakeDeps(
     async recordSend(instanceId, tenantId) {
       calls.push({ m: "recordSend", args: [instanceId, tenantId] });
     },
-    async recordSendFailure(instanceId, tenantId) {
-      calls.push({ m: "recordSendFailure", args: [instanceId, tenantId] });
+    async recordSendFailure(instanceId, tenantId, rateLimited) {
+      calls.push({ m: "recordSendFailure", args: [instanceId, tenantId, rateLimited] });
     },
     async completeCommand(commandId, success, errorMessage) {
       calls.push({ m: "completeCommand", args: [commandId, success, errorMessage] });
@@ -133,6 +135,27 @@ test("falha de envio: recordSendFailure (breaker) + completeCommand(false), sem 
   assert.deepEqual(f.names(), ["instanceName", "sendText", "recordSendFailure", "completeCommand"]);
   assert.equal(f.calls.find((c) => c.m === "completeCommand")!.args[1], false);
   assert.equal(f.calls.some((c) => c.m === "recordSend"), false);
+});
+
+test("429 da Evolution registra falha com rateLimited=true", async () => {
+  const f = fakeDeps({ sendThrows: new EvolutionSendError(429, "rate-overlimit") });
+  const out = await sendFromCommand(cmd({ jid: "5511999990002@s.whatsapp.net", text: "oi" }), f.deps);
+  assert.equal(out.status, "failed");
+  assert.deepEqual(f.calls.find((c) => c.m === "recordSendFailure")!.args, [INSTANCE, TENANT, true]);
+});
+
+test("falha comum registra rateLimited=false", async () => {
+  const f = fakeDeps({ sendThrows: new EvolutionSendError(500, "boom") });
+  const out = await sendFromCommand(cmd({ jid: "5511999990002@s.whatsapp.net", text: "oi" }), f.deps);
+  assert.equal(out.status, "failed");
+  assert.deepEqual(f.calls.find((c) => c.m === "recordSendFailure")!.args, [INSTANCE, TENANT, false]);
+});
+
+test("isRateLimited: só EvolutionSendError com 429 ou detalhe rate-overlimit", () => {
+  assert.equal(isRateLimited(new EvolutionSendError(429, "x")), true);
+  assert.equal(isRateLimited(new EvolutionSendError(500, "rate-overlimit")), true);
+  assert.equal(isRateLimited(new EvolutionSendError(500, "boom")), false);
+  assert.equal(isRateLimited(new Error("qualquer coisa")), false);
 });
 
 test("payload ruim: completeCommand(false) sem tocar no número (nem sendText nem breaker)", async () => {
