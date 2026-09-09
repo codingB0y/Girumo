@@ -26,8 +26,9 @@ setup("autentica o admin de plataforma", async ({ page }) => {
   // nenhum (o login tolera — `api/auth/login/route.ts:47` grava tenantId null),
   // entao mandar para o painel do lojista cairia numa tela sem contexto.
   await page.goto("/login?next=%2Fadmin");
-  await page.getByPlaceholder("voce@email.com").fill(CREDENCIAIS_ADMIN.email);
-  await page.getByPlaceholder("Sua senha").fill(CREDENCIAIS_ADMIN.senha);
+  // Por testid: a porta da Vitrine (PR 4) troca os textos dos campos.
+  await page.getByTestId("login-email").fill(CREDENCIAIS_ADMIN.email);
+  await page.getByTestId("login-senha").fill(CREDENCIAIS_ADMIN.senha);
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 30_000 });
 

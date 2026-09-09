@@ -55,12 +55,15 @@ export async function getLeadSourceCampaign(tenantId: string, leadId: string): P
   return (data?.source_campaign as string | null) ?? null;
 }
 
-export async function listLeads(tenantId: string): Promise<Lead[]> {
-  const { data, error } = await getSupabaseAdmin()
+/** Mais recentes primeiro. `limit` é pro ticker do letreiro, que só quer o último. */
+export async function listLeads(tenantId: string, limit?: number): Promise<Lead[]> {
+  let query = getSupabaseAdmin()
     .from(TABLE)
     .select("*")
     .eq("tenant_id", tenantId)
     .order("entered_at", { ascending: false });
+  if (limit) query = query.limit(limit);
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return (data ?? []) as Lead[];
 }

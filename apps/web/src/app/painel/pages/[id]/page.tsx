@@ -15,6 +15,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useConfirmacao } from "@/components/painel/confirmacao";
 import { pageSummary, type LandingPage, type LpStatus } from "@/lib/pages/schema";
 import { isLpContentV2, isLpContentV3 } from "@/lib/pages/render";
 import type { LpLeadRow, LpMetrics } from "@/lib/pages/store";
@@ -52,6 +53,7 @@ const STATUS: Record<LpStatus, { label: string; pill: string }> = {
 
 export default function PaginaDetalhePage() {
   const { id } = useParams<{ id: string }>();
+  const { pedirConfirmacao, folhaDeConfirmacao } = useConfirmacao();
   const [detail, setDetail] = useState<Detail | null>(null);
   const [values, setValues] = useState<EditorValues | null>(null);
   const [valuesV2, setValuesV2] = useState<EditorValuesV2 | null>(null);
@@ -205,7 +207,12 @@ export default function PaginaDetalhePage() {
    */
   async function migrateToV3() {
     if (busy) return;
-    if (!window.confirm("Migrar esta página para o modelo novo? Uma cópia da versão atual fica guardada.")) return;
+    const ok = await pedirConfirmacao({
+      titulo: "Migrar a página",
+      texto: "Migrar esta página para o modelo novo? Uma cópia da versão atual fica guardada.",
+      rotulo: "Migrar",
+    });
+    if (!ok) return;
     setError(null);
     setBusy(true);
     try {
@@ -261,7 +268,7 @@ export default function PaginaDetalhePage() {
   if (!detail) {
     return (
       <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6">
-        <div className="rounded-2xl border border-volt-950/[0.06] bg-white px-5 py-16 text-center text-sm text-aco/60">
+        <div className="rounded-xl border border-volt-950/[0.06] bg-white px-5 py-16 text-center text-sm text-aco/60">
           {error ?? "Carregando..."}
         </div>
       </div>
@@ -354,7 +361,7 @@ export default function PaginaDetalhePage() {
       </div>
 
       {/* leads */}
-      <div className="rounded-2xl border border-volt-950/[0.06] bg-white shadow-card">
+      <div className="rounded-xl border border-volt-950/[0.06] bg-white shadow-card">
         <div className="border-b border-volt-950/[0.06] px-5 py-4">
           <h2 className="font-medium text-volt-950">Últimos leads</h2>
           <p className="text-xs text-aco/60">Os 20 mais recentes, com a origem de cada um.</p>
@@ -409,7 +416,7 @@ export default function PaginaDetalhePage() {
         <div className="space-y-3">
           <section
             aria-labelledby="migrar-v3-titulo"
-            className="rounded-2xl border border-volt-950/[0.06] bg-white p-5 shadow-card"
+            className="rounded-xl border border-volt-950/[0.06] bg-white p-5 shadow-card"
           >
             <h2 id="migrar-v3-titulo" className="font-medium text-volt-950">Modelo novo disponível</h2>
             <p className="mt-1 text-sm text-aco/70">
@@ -450,7 +457,7 @@ export default function PaginaDetalhePage() {
 
       {/* edição legada — páginas anteriores ao v2, até a migração */}
       {values ? (
-        <details className="rounded-2xl border border-volt-950/[0.06] bg-white shadow-card">
+        <details className="rounded-xl border border-volt-950/[0.06] bg-white shadow-card">
           <summary className="cursor-pointer px-5 py-4 font-medium text-volt-950">
             Editar conteúdo da página
           </summary>
@@ -489,6 +496,7 @@ export default function PaginaDetalhePage() {
           </div>
         </details>
       ) : null}
+      {folhaDeConfirmacao}
     </div>
   );
 }
@@ -526,7 +534,7 @@ function MetricCard({
   value: string;
 }) {
   return (
-    <div className="rounded-2xl border border-volt-950/[0.06] bg-white p-5 shadow-card">
+    <div className="rounded-xl border border-volt-950/[0.06] bg-white p-5 shadow-card">
       <p className="flex items-center gap-2 text-xs uppercase tracking-wider text-aco/50">
         <Icon className="h-4 w-4 text-cobalt-500" /> {label}
       </p>

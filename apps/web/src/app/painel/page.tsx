@@ -2,7 +2,7 @@
 
 import { resolveActivation } from "@/lib/onboarding-steps";
 import { DashboardSkeleton, LoadError } from "@/components/painel/home/dashboard-states";
-import { FullDashboard } from "@/components/painel/home/full-dashboard";
+import { InicioVitrine } from "@/components/painel/home/vitrine/inicio-vitrine";
 import { useDashboardData } from "@/components/painel/home/use-dashboard-data";
 
 export default function PainelPage() {
@@ -13,8 +13,7 @@ export default function PainelPage() {
   if (state.status === "error") return <LoadError onRetry={reload} />;
 
   const { data, partial } = state;
-  const { groups, campanhas, links, leads, orders, schedules, disparos, automations, session, settings } =
-    data;
+  const { groups, campanhas, links, leads, orders, disparos, automations, session, settings } = data;
   const { settingsOk } = data;
   const isConnected = session.live === true;
 
@@ -29,14 +28,14 @@ export default function PainelPage() {
     leadCount: leads.length,
   });
 
+  // Vitrine Aberta (PR 3b): mesma carga de dados, outra tela.
   return (
-    <FullDashboard
+    <InicioVitrine
       groups={groups}
       campanhas={campanhas}
       links={links}
       leads={leads}
       orders={orders}
-      schedules={schedules}
       disparos={disparos}
       automations={automations}
       settings={settings}

@@ -29,8 +29,15 @@ async function getTenantId(): Promise<string> {
   return data.tenant_id;
 }
 
-export async function listOrders(): Promise<Order[]> {
-  const tenantId = await getTenantId();
+/**
+ * Pedidos do tenant, mais recentes primeiro.
+ *
+ * Parametrizado de propósito: a versão que derivava o tenant da sessão por
+ * conta própria era a única das dez cargas da Início que ignorava o header
+ * `x-tenant-id`, então quem pertence a duas organizações via os pedidos da
+ * primeira enquanto o resto da tela falava da segunda.
+ */
+export async function listOrdersByTenant(tenantId: string): Promise<Order[]> {
   const { data, error } = await getSupabaseAdmin()
     .from("orders")
     .select("*")
@@ -40,7 +47,7 @@ export async function listOrders(): Promise<Order[]> {
   return (data ?? []) as Order[];
 }
 
-/** Total de pedidos do tenant (parametrizado — ao contrário de listOrders que deriva o tenant da sessão). */
+/** Total de pedidos do tenant. */
 export async function countOrders(tenantId: string): Promise<number> {
   const { count, error } = await getSupabaseAdmin()
     .from("orders")

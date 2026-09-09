@@ -7,8 +7,8 @@ import { exigeCredenciais, semErroDeRuntime } from "./sessao-helpers";
  *
  * ONDE ELE VIVE: na HOME do painel, nao em campanhas. O card do quadro nasceu
  * na coluna "Campanhas", mas o mecanismo e `CelebrationModal` renderizado por
- * `home/full-dashboard.tsx`, alimentado por `computeCelebrations` e desenhado
- * por `/api/og`. Nao ha nada de compartilhavel no modulo de campanhas.
+ * `home/vitrine/inicio-vitrine.tsx`, alimentado por `computeCelebrations` e
+ * desenhado por `/api/og`. Nao ha nada de compartilhavel no modulo de campanhas.
  *
  * POR QUE O TESTE MEXE NA META: o modal so aparece quando ha marco ATINGIDO e
  * NAO celebrado. Os tres gatilhos possiveis nao servem igual:
@@ -50,24 +50,28 @@ async function definirMeta(page: Page, valor: number | null) {
  * Espera o dashboard TER OS DADOS, nao so ter montado.
  *
  * O modal so e decidido depois que as sete buscas do dashboard voltam, e o
- * `.pn-root` aparece muito antes disso — com o dev server compilando a rota
+ * `painel-root` aparece muito antes disso — com o dev server compilando a rota
  * pela primeira vez, a diferenca passou de 10s e o assert do cartao falhou
  * medindo tempo de compilacao em vez de comportamento. Ancorar num numero que
  * so existe com dado carregado elimina esse ruido, e faz o assert NEGATIVO
  * valer: sem isso, "ainda nao carregou" passaria por "nao ha marco".
  */
 async function aguardarDashboard(page: Page) {
-  await expect(page.locator(".pn-root")).toBeVisible();
+  await expect(page.getByTestId("painel-root")).toBeVisible();
   // Pelo LINK, nao por getByText: o texto casa por substring e ignorando
   // maiusculas, entao "Contatos captados" do card do dashboard e o "contatos
   // captados" do proprio cartao compartilhavel viram dois resultados e o strict
   // mode derruba o teste. Aconteceu em 21/08/2026 — falhou numa rodada e passou
   // na seguinte sem ninguem tocar no codigo, que e o pior tipo de vermelho.
   // O cartao usa <p>; so o card do dashboard e um link.
-  await expect(page.getByRole("link", { name: /^Contatos captados/ })).toBeVisible({
-    timeout: 60_000,
-  });
-  await expect(page.locator(".pn-skeleton")).toHaveCount(0);
+  //
+  // A Vitrine (PR 3b) nao tem esse card: o equivalente "so existe com dado
+  // carregado" e a caixa do mes. Uma das duas basta — ate o PR 10 tirar a antiga.
+  const carregou = page
+    .getByRole("link", { name: /^Contatos captados/ })
+    .or(page.getByTestId("inicio-caixa"));
+  await expect(carregou.first()).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByTestId("painel-skeleton")).toHaveCount(0);
 }
 
 /** Largura e altura lidas do IHDR — os 8 bytes seguintes ao nome do chunk. */

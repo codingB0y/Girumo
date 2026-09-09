@@ -2,14 +2,6 @@
 
 Instruções persistentes para o Claude Code neste projeto.
 
-## Stack
-
-- **Frontend:** Next.js 15 (App Router) + React 19 + Tailwind CSS
-- **Backend:** Supabase (Auth, Postgres com RLS, Edge Functions) + Express engine
-- **Pagamentos:** Stripe (multi-tenant)
-- **Monorepo:** npm workspaces — `apps/web`, `hubflow-engine`
-- **Infra:** Deploy via Vercel/Coolify, scripts em PowerShell
-
 ## Knowledge Graph (LightRAG)
 
 Este projeto tem um grafo de conhecimento em `tools/lightrag/`.
@@ -221,49 +213,14 @@ pra mover um card e esquecer de registrar por quê.
 Quando a feature estiver parada, escreva o motivo em `blocker` — é o campo que teria
 mostrado "`invite_url` não tem UI" antes de virar incidente.
 
-## Comandos rápidos (diga isso no chat)
+## Comandos rápidos
 
-### /kg
-Quando eu disser `/kg`:
-1. Rode `kg_stats` pra ver o tamanho do grafo
-2. Rode `kg_query("resumo geral do sistema e módulos principais", mode="global")`
-3. Mostre top 10 entidades mais conectadas
-4. Liste decisões arquiteturais registradas
-
-### /review
-Quando eu disser `/review`:
-1. Rode `npm run web:lint`
-2. Leia `git diff` vs main
-3. Consulte `kg_query` pra verificar se alguma mudança contradiz decisões
-4. Liste problemas com severidade (critical/warning/info)
-5. Sugira fixes
-
-### /decide <texto>
-Quando eu disser `/decide <texto>`:
-1. Insira no grafo via `kg_insert_text(texto, source="decisao-YYYY-MM-DD")`
-2. Confirme o que foi inserido
-3. Sugira `rag export --clean` se relevante pro Obsidian
-
-### /map <módulo>
-Quando eu disser `/map <módulo>`:
-1. Rode `kg_query("como funciona <módulo>, quais componentes, fluxo de dados", mode="local")`
-2. Liste arquivos envolvidos
-3. Mostre diagrama simplificado do fluxo
-
-### /status
-Quando eu disser `/status`:
-1. Rode `kg_stats`
-2. Mostre git status resumido
-3. Liste TODOs/FIXMEs no código (`grep -r`)
-4. Verifique se build passa
+`/kg`, `/review`, `/decide <texto>`, `/map <módulo>`, `/status` viraram skills em
+`.claude/skills/` (mesmo nome) — o Claude carrega o corpo delas sob demanda.
 
 ## Comandos úteis (terminal)
 
 ```bash
-npm run web:dev          # dev server
-npm run web:build        # build production
-npm run web:lint         # eslint
-
 # Knowledge Graph
 source tools/lightrag/.venv/bin/activate
 rag search "como funciona X"    # consulta hybrid

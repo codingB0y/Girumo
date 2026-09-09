@@ -27,7 +27,7 @@ export function SignupProgress({ current }: { current: number }) {
             key={step.label}
             className={cn(
               "h-1.5 flex-1 rounded-full transition-all",
-              i < current ? "bg-cobalt-500" : "bg-volt-800",
+              i < current ? "bg-cobalt-500" : "bg-line-200",
             )}
           />
         ))}
@@ -38,7 +38,7 @@ export function SignupProgress({ current }: { current: number }) {
             key={step.label}
             className={cn(
               "text-[11px] font-medium",
-              i < current ? "text-cobalt-500" : "text-canvas-100/40",
+              i < current ? "text-cobalt-500" : "text-slate-600",
             )}
           >
             {step.label}

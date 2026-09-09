@@ -43,6 +43,9 @@ export type Disparo = {
   sent: number;
   total: number;
   dispatchedAt?: string;
+  /** Texto e campanha do post, pra Início mostrar o último como chegou no celular. */
+  body?: string;
+  campaignName?: string;
 };
 
 /** Forma que `/api/schedules` devolve (mapeada do store Supabase). */

@@ -26,7 +26,7 @@ export function ActivationChecklist({
   return (
     <section
       aria-labelledby="activation-title"
-      className="pn-card relative rounded-2xl p-6"
+      className="pn-card relative rounded-xl p-6"
     >
       <button
         type="button"

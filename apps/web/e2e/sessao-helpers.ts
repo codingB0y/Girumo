@@ -54,12 +54,21 @@ export function exigeCredenciaisAdmin() {
  */
 export async function entrar(page: Page, destino = "/painel") {
   await page.goto(`/login?next=${encodeURIComponent(destino)}`);
-  await page.getByPlaceholder("voce@email.com").fill(CREDENCIAIS.email);
-  await page.getByPlaceholder("Sua senha").fill(CREDENCIAIS.senha);
+  // Por testid: a porta da Vitrine (PR 4) troca os textos dos campos.
+  //
+  // E quando ela reconhece o aparelho, o campo de e-mail nem existe: vira um
+  // resumo com "Entrar com outra conta". Sem este ramo o helper esperava 2min
+  // por um campo que a tela decidiu nao mostrar.
+  const campoEmail = page.getByTestId("login-email");
+  if ((await campoEmail.count()) === 0) {
+    await page.getByRole("button", { name: "Entrar com outra conta" }).click();
+  }
+  await page.getByTestId("login-email").fill(CREDENCIAIS.email);
+  await page.getByTestId("login-senha").fill(CREDENCIAIS.senha);
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
 
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 30_000 });
-  await expect(page.locator(".pn-root")).toBeVisible();
+  await expect(page.getByTestId("painel-root")).toBeVisible();
 }
 
 /**

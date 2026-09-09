@@ -9,16 +9,16 @@ export function DashboardSkeleton() {
       role="status"
       aria-label="Carregando seu painel"
     >
-      <div className="pn-skeleton h-9 w-56 rounded-lg" style={{ ["--i" as string]: 0 }} />
+      <div className="pn-skeleton h-9 w-56 rounded-lg" data-testid="painel-skeleton" style={{ ["--i" as string]: 0 }} />
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-        <div className="pn-skeleton h-44 rounded-2xl lg:col-span-5" style={{ ["--i" as string]: 1 }} />
+        <div className="pn-skeleton h-44 rounded-xl lg:col-span-5" data-testid="painel-skeleton" style={{ ["--i" as string]: 1 }} />
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-3 lg:col-span-7">
           {[2, 3, 4].map((i) => (
-            <div key={i} className="pn-skeleton h-44 rounded-2xl" style={{ ["--i" as string]: i }} />
+            <div key={i} className="pn-skeleton h-44 rounded-xl" data-testid="painel-skeleton" style={{ ["--i" as string]: i }} />
           ))}
         </div>
       </div>
-      <div className="pn-skeleton h-24 rounded-2xl" style={{ ["--i" as string]: 5 }} />
+      <div className="pn-skeleton h-24 rounded-xl" data-testid="painel-skeleton" style={{ ["--i" as string]: 5 }} />
     </div>
   );
 }
@@ -32,9 +32,9 @@ export function LoadError({ onRetry }: { onRetry: () => void }) {
     <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-8">
       <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-volt-950">Início</h1>
 
-      <div className="pn-card mt-6 rounded-2xl p-8">
+      <div className="pn-card mt-6 rounded-xl p-8">
         <div className="flex flex-col items-center gap-6 text-center lg:flex-row lg:text-left">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-alerta/10 text-alerta">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-alerta/10 text-alerta">
             <AlertTriangle className="h-8 w-8" strokeWidth={1.75} />
           </div>
           <div className="flex-1">

@@ -3,7 +3,20 @@ import { GROUP_FULL_RATIO } from "@/lib/links/resolve-click-target";
 
 export type CampaignGroupStatus = "available" | "full" | "missing_invite" | "unknown";
 
-export type CampaignOperationalStatus = "empty" | "ready" | "needs_invites" | "full";
+/**
+ * `orphan_groups` é o caso em que a campanha escolheu grupos e nenhum deles
+ * resolve mais em `/api/groups` — apagados no WhatsApp, ou `group_ids` gravado
+ * com o uuid da linha em vez do JID. Ele existe porque sem ele esse caso caía
+ * no `full`, e a etiqueta anunciava LOTOU para uma campanha que não tem grupo
+ * nenhum para lotar. `grow-headroom.ts` já separa os dois do lado do
+ * auto-grow: id órfão é dado quebrado, não lotação.
+ */
+export type CampaignOperationalStatus =
+  | "empty"
+  | "ready"
+  | "needs_invites"
+  | "full"
+  | "orphan_groups";
 
 export type CampaignPrimaryAction =
   | { kind: "choose_groups" }
@@ -27,7 +40,13 @@ export type CampaignGroupsOverviewInput = {
     loja?: string;
     groupIds: string[];
     slug?: string;
-    createdAt: string;
+    /**
+     * Opcional porque a Início não tem esse campo: `/api/painel/inicio` não o
+     * devolve na campanha, e nada aqui dentro lê o valor — ele só volta
+     * inteiro em `overview.campaign`. Exigi-lo obrigaria quem chama a inventar
+     * uma data só para satisfazer o compilador.
+     */
+    createdAt?: string;
   };
   groups: Group[];
   clicks?: number;
@@ -90,6 +109,7 @@ export function buildCampaignGroupsOverview(input: CampaignGroupsOverviewInput):
     groupCount,
     availableCount,
     missingInviteCount,
+    fullCount,
   });
 
   return {
@@ -110,20 +130,44 @@ export function buildCampaignGroupsOverview(input: CampaignGroupsOverviewInput):
   };
 }
 
+/**
+ * Os quatro contadores decidem juntos, e cada um tem seu próprio teste: o
+ * `return` final não absorve caso nenhum. Era exatamente disso que vinha o
+ * defeito — `unknownCount` nem chegava aqui, e o antigo `return "full"`
+ * engolia a campanha cujos grupos sumiram.
+ *
+ * O órfão é o ÚLTIMO a decidir, e isso é o desenho. Ele perde para
+ * `available` e `missing_invite` pelo motivo óbvio (um grupo que funciona faz
+ * a campanha funcionar), mas perde para `full` por um motivo menos óbvio: a
+ * etiqueta mostra `totalMembers / totalCapacity` ao lado do chip, e esses
+ * números vêm dos grupos que RESOLVERAM. Com um grupo real cheio no meio, a
+ * linha diz "195 / 200 vagas" — anunciar "Grupos sumiram" em cima disso
+ * trocaria uma contradição por outra. Quando `fullCount` é zero, os números
+ * ao lado são "0 / 0" e o órfão é a única explicação que sobra.
+ *
+ * Chegar ao `return` final significa: há grupo escolhido, nenhum disponível,
+ * nenhum sem convite, nenhum cheio. Como os quatro contadores somam
+ * `groupCount`, só restam órfãos.
+ */
 function getOperationalStatus(input: {
   groupCount: number;
   availableCount: number;
   missingInviteCount: number;
+  fullCount: number;
 }): CampaignOperationalStatus {
   if (input.groupCount === 0) return "empty";
   if (input.availableCount > 0) return "ready";
   if (input.missingInviteCount > 0) return "needs_invites";
-  return "full";
+  if (input.fullCount > 0) return "full";
+  return "orphan_groups";
 }
 
 function getPrimaryAction(status: CampaignOperationalStatus): CampaignPrimaryAction {
   if (status === "empty") return { kind: "choose_groups" };
   if (status === "needs_invites") return { kind: "configure_invites" };
   if (status === "ready") return { kind: "copy_link" };
+  // Os grupos escolhidos não existem mais: escolher outros é a saída, e
+  // "adicionar" pressuporia que os atuais servem para alguma coisa.
+  if (status === "orphan_groups") return { kind: "choose_groups" };
   return { kind: "add_groups" };
 }

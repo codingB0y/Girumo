@@ -87,7 +87,7 @@ test.describe("rotas do painel renderizam", () => {
       // Redirect para o login aqui significa sessao perdida, nao rota ausente.
       await expect(page, `${rota} devolveu ao login com sessao valida`).not.toHaveURL(/\/login/);
 
-      await expect(page.locator(".pn-root"), `${rota} nao montou o shell do painel`).toBeVisible();
+      await expect(page.getByTestId("painel-root"), `${rota} nao montou o shell do painel`).toBeVisible();
       await semErroDeRuntime(page);
 
       // ---- ancora: a rota renderizou, nao so o shell -------------------------
@@ -99,11 +99,25 @@ test.describe("rotas do painel renderizam", () => {
       // dado e passava por terminar cedo demais. Esperar a ancora e esperar o
       // fato que interessa: o auto-wait do expect segura ate a rota ter
       // renderizado, e estoura se ela nunca renderizar.
+      // 30s, nao os 10s do padrao. A Inicio dispara QUINZE chamadas de API para
+      // renderizar (dez do useDashboardData, cinco da casca), e nenhuma delas e
+      // lenta sozinha: medidas entre 0,5s e 1,5s. O custo e a fila — HTTP/1.1
+      // abre seis conexoes por origem, entao elas saem em ondas.
+      //
+      // Medido em 07/09/2026: 8,9s aqui (`next dev`, servidor quente) e acima
+      // dos 10s do padrao neste job, o que derrubava o teste de forma
+      // intermitente. PRODUCAO nao foi medida: /painel exige sessao. E la o
+      // gargalo pode nem existir, porque a Vercel serve em HTTP/2 e o limite de
+      // seis conexoes cai.
+      //
+      // Ou seja: este timeout compra estabilidade para o gate, e o numero acima
+      // NAO autoriza dizer que a lojista espera 9s. Antes de otimizar, medir em
+      // producao — senao e otimizar as cegas.
       await expect(
         page.getByText(esperado.ancora).first(),
         `${rota} montou o shell mas a propria tela nao renderizou ` +
           `(nada casou ${esperado.ancora}) — skeleton eterno, tela de erro ou miolo vazio`,
-      ).toBeVisible();
+      ).toBeVisible({ timeout: 30_000 });
 
       await shellBuscouDados;
 

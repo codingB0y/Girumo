@@ -29,7 +29,7 @@ export function EntradaPreview({
     preview: true,
   });
   return (
-    <div className="rounded-2xl border border-aco/10 bg-poco p-3">
+    <div className="rounded-xl border border-aco/10 bg-poco p-3">
       <p className="mb-2 font-data text-[11px] uppercase tracking-[0.08em] text-aco/55">Prévia da tela</p>
       <iframe
         title="Prévia da tela de entrada"

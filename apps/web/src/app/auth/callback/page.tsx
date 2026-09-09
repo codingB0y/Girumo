@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AuthShell } from "@/components/auth-shell";
+import { AuthShellVitrine as AuthShell } from "@/components/auth/auth-shell-vitrine";
 import { LEGAL_VERSION } from "@/lib/legal";
 import { safeNextPath } from "@/lib/auth/oauth-account";
 import { getSupabaseBrowserClient, setActiveTenantId, takeOAuthNext } from "@/lib/supabase/client";
+import { CLASSES_DA_PORTA } from "@/lib/painel/auth-classes";
 
 /**
  * Retorno do consentimento do Google.
@@ -17,6 +18,7 @@ import { getSupabaseBrowserClient, setActiveTenantId, takeOAuthNext } from "@/li
  * de sessao — o fragmento nunca chegaria ao servidor por conta propria.
  */
 export default function OAuthCallbackPage() {
+  const c = CLASSES_DA_PORTA;
   const router = useRouter();
   const [error, setError] = useState("");
   const startedRef = useRef(false);
@@ -83,25 +85,24 @@ export default function OAuthCallbackPage() {
     <AuthShell
       title={error ? "Nao deu para entrar" : "Entrando..."}
       subtitle={error ? "Algo falhou ao concluir seu acesso" : "Confirmando seu acesso com o Google"}
-      compact
     >
       {error ? (
         <div className="space-y-4">
           <p
             role="alert"
-            className="rounded-[var(--radius-control)] border border-danger-700/40 bg-danger-700/15 px-3 py-2 text-sm text-canvas-100"
+            className={c.erro}
           >
             {error}
           </p>
           <Link
             href="/login"
-            className="flex h-11 w-full items-center justify-center rounded-[var(--radius-control)] bg-acid-500 text-sm font-semibold text-volt-950 transition-[filter] duration-[var(--duration-micro)] hover:brightness-95"
+            className={c.primario}
           >
             Voltar para o login
           </Link>
         </div>
       ) : (
-        <p className="text-sm text-canvas-100/60" aria-live="polite">
+        <p className={c.texto} aria-live="polite">
           Só um instante — estamos preparando seu painel.
         </p>
       )}

@@ -21,11 +21,13 @@ setup("autentica uma vez", async ({ page }) => {
   }
 
   await page.goto("/login?next=%2Fpainel");
-  await page.getByPlaceholder("voce@email.com").fill(CREDENCIAIS.email);
-  await page.getByPlaceholder("Sua senha").fill(CREDENCIAIS.senha);
+  // Por testid, nao por placeholder: a porta da Vitrine (PR 4) troca os textos
+  // dos campos, e o setup nao pode depender de qual casca esta ligada.
+  await page.getByTestId("login-email").fill(CREDENCIAIS.email);
+  await page.getByTestId("login-senha").fill(CREDENCIAIS.senha);
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 30_000 });
-  await page.locator(".pn-root").waitFor({ state: "visible" });
+  await page.getByTestId("painel-root").waitFor({ state: "visible" });
 
   await page.context().storageState({ path: ESTADO_LOGADO });
 });

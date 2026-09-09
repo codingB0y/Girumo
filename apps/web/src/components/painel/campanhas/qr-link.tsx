@@ -48,7 +48,7 @@ export function QrLink({ url, nome }: { url: string; nome: string }) {
           className="fixed inset-0 z-40 flex items-center justify-center bg-volt-950/40 p-4"
           onClick={() => setOpen(false)}
         >
-          <div className="pn-card w-full max-w-xs rounded-2xl p-6 text-center" onClick={(e) => e.stopPropagation()}>
+          <div className="pn-card w-full max-w-xs rounded-xl p-6 text-center" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium text-volt-950">Aponte a câmera</p>
               <button type="button" onClick={() => setOpen(false)} aria-label="Fechar" className="text-aco/60 hover:text-volt-950">

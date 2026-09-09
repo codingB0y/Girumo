@@ -1,5 +1,4 @@
 import {
-  listLeads as legacyList,
   addLead as legacyAdd,
   updateLeadStatus as legacyUpdate,
   removeLead as legacyRemove,
@@ -7,6 +6,7 @@ import {
 } from "@/lib/leads-store";
 import { isOptedOut as legacyIsOptedOut } from "@/lib/optout-store";
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
+import { carregarLeads, leadParaOPainel } from "@/lib/painel/inicio-carga";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import * as supaLeads from "@/lib/stores/leads";
 import * as supaOptouts from "@/lib/stores/optouts";
@@ -17,47 +17,29 @@ export const dynamic = "force-dynamic";
 
 const VALID: LeadStatus[] = ["novo", "ativo", "comprou"];
 
-/** Le `metadata.left_at` sem confiar na forma do jsonb. */
-function readLeftAt(metadata: unknown): string | null {
-  if (!metadata || typeof metadata !== "object") return null;
-  const value = (metadata as Record<string, unknown>).left_at;
-  return typeof value === "string" && value.length > 0 ? value : null;
-}
-
-/**
- * O painel consome a forma camelCase do store JSON antigo. Mapear aqui mantém
- * as telas intactas na troca de backend — mesmo padrão de `/api/groups`.
- */
-function toLegacyShape(lead: supaLeads.Lead) {
-  return {
-    id: lead.id,
-    name: lead.name ?? "Novo membro",
-    phone: lead.phone ?? "",
-    sourceGroup: lead.source_group_name ?? "",
-    sourceGroupId: lead.source_group_id ?? undefined,
-    sourceCampaign: lead.source_campaign ?? "—",
-    status: lead.status,
-    enteredAt: lead.entered_at,
-    lastSeenAt: lead.last_seen_at ?? undefined,
-    alsoIn: lead.also_in ?? [],
-    // `metadata.left_at` e escrito pelo worker quando chega
-    // `group-participants.update` com action "remove" (ver lead-capture).
-    leftAt: readLeftAt(lead.metadata),
-  };
-}
-
 function isOptedOut(tenantId: string, phone: string): Promise<boolean> {
   return USE_SUPABASE
     ? supaOptouts.isOptedOut(tenantId, phone)
     : legacyIsOptedOut(tenantId, phone);
 }
 
-// GET /api/leads — lista leads reais (capturados ao entrar no grupo).
+const LIMITE_MAXIMO = 100;
+
+/** `?limit=N` (1 a 100): o ticker do letreiro só quer a entrada mais recente. */
+function lerLimite(raw: string | null): number | undefined | null {
+  if (raw === null) return undefined;
+  const n = Number(raw);
+  return Number.isInteger(n) && n >= 1 && n <= LIMITE_MAXIMO ? n : null;
+}
+
+// GET /api/leads — lista leads reais (capturados ao entrar no grupo), mais recentes primeiro.
 export async function GET(req: Request) {
   const { tenantId } = await getRouteTenantContext(req, { allowEngine: true });
-  if (!USE_SUPABASE) return Response.json(await legacyList(tenantId));
-  const leads = await supaLeads.listLeads(tenantId);
-  return Response.json(leads.map(toLegacyShape));
+  const limit = lerLimite(new URL(req.url).searchParams.get("limit"));
+  if (limit === null) {
+    return Response.json({ error: `limit inválido: inteiro de 1 a ${LIMITE_MAXIMO}.` }, { status: 400 });
+  }
+  return Response.json(await carregarLeads(tenantId, limit));
 }
 
 // POST /api/leads — ingestão de uma entrada de grupo.
@@ -113,7 +95,7 @@ export async function POST(req: Request) {
     console.error(`[leads] funnel tracking falhou para ${tenantId}:`, (e as Error).message);
   }
 
-  return Response.json(toLegacyShape(lead), { status: 201 });
+  return Response.json(leadParaOPainel(lead), { status: 201 });
 }
 
 // PATCH /api/leads — muda o status do lead (novo/ativo/comprou). Body { id, status }
@@ -139,7 +121,7 @@ export async function PATCH(req: Request) {
 
   const lead = await supaLeads.updateLeadStatus(tenantId, id, status);
   if (!lead) return Response.json({ error: "Lead não encontrado." }, { status: 404 });
-  return Response.json(toLegacyShape(lead));
+  return Response.json(leadParaOPainel(lead));
 }
 
 // DELETE /api/leads?id= — exclusão por id (LGPD: direito de eliminação).

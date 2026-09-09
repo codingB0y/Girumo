@@ -2,7 +2,17 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { NAV_ALL, NAV_FOOTER, NAV_GROUPS, NAV_MOBILE_PRIMARY, isNavItemActive } from "./painel-nav";
+import {
+  NAV_ALL,
+  NAV_BARRA_DIREITA,
+  NAV_BARRA_ESQUERDA,
+  NAV_FOOTER,
+  NAV_GROUPS,
+  NAV_GRUPOS_ORDEM,
+  NAV_MOBILE_PRIMARY,
+  isNavItemActive,
+  resumo,
+} from "./painel-nav";
 
 const APP_DIR = path.join(process.cwd(), "src", "app");
 
@@ -67,4 +77,54 @@ test("marks only the exact home route active, and any nested route otherwise", (
   assert.equal(isNavItemActive("/painel", "/painel"), true);
   assert.equal(isNavItemActive("/painel/campanhas", "/painel"), false);
   assert.equal(isNavItemActive("/painel/campanhas/nova", "/painel/campanhas"), true);
+});
+
+// --- Vitrine Aberta (spec 2026-09-07): grupos do corredor, barra de 5 e resumo ---
+
+test("todo item de navegação pertence a um dos três grupos do corredor", () => {
+  for (const item of NAV_ALL) {
+    assert.ok(NAV_GRUPOS_ORDEM.includes(item.grupo), `${item.href} sem grupo válido`);
+  }
+});
+
+test("a barra da Vitrine só aponta pra rotas que existem na navegação", () => {
+  const hrefs = new Set(NAV_ALL.map((i) => i.href));
+  for (const item of [...NAV_BARRA_ESQUERDA, ...NAV_BARRA_DIREITA]) {
+    assert.ok(hrefs.has(item.href), `${item.href} fora de NAV_ALL`);
+  }
+  assert.equal(NAV_BARRA_ESQUERDA.length + NAV_BARRA_DIREITA.length, 3, "Postar e Mais completam os cinco");
+});
+
+test("resumo com dados mostra o estado de cada módulo", () => {
+  const ultimo = new Date(2026, 8, 2, 12, 12).toISOString();
+  const linhas = resumo({
+    campanhas: 3,
+    ultimoDisparo: ultimo,
+    relampagoAoVivo: true,
+    automacoes: { ligadas: 0, total: 3 },
+    paginasNoAr: 2,
+  });
+  assert.deepEqual(linhas, {
+    "/painel/campanhas": "Campanhas · 3",
+    "/painel/disparos": "Disparos · último 02/09 12:12",
+    "/painel/relampago": "Oferta Relâmpago · ao vivo",
+    "/painel/automacoes": "Automações · 0 de 3 ligadas",
+    "/painel/pages": "Páginas · 2 no ar",
+  });
+});
+
+test("resumo vazio diz que não há nada, nunca zero", () => {
+  const linhas = resumo({
+    campanhas: 0,
+    ultimoDisparo: null,
+    relampagoAoVivo: false,
+    automacoes: { ligadas: 0, total: 0 },
+    paginasNoAr: 0,
+  });
+  assert.equal(linhas["/painel/campanhas"], "Campanhas · nenhuma");
+  assert.equal(linhas["/painel/disparos"], "Disparos · nenhum ainda");
+  assert.equal(linhas["/painel/relampago"], "Oferta Relâmpago · nenhuma aberta");
+  assert.equal(linhas["/painel/automacoes"], "Automações · nenhuma");
+  assert.equal(linhas["/painel/pages"], "Páginas · nenhuma no ar");
+  assert.ok(!Object.values(linhas).some((l) => /\b0\b/.test(l)));
 });

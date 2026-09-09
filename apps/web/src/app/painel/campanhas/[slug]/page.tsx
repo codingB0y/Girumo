@@ -26,6 +26,7 @@ import {
 } from "@/lib/campaign-groups-overview";
 import type { Group } from "@/lib/mock-data";
 import { MessagesTab } from "@/components/painel/messages";
+import { useConfirmacao } from "@/components/painel/confirmacao";
 import { AcoesEmMassa } from "@/components/painel/grupos/acoes-em-massa";
 import { ConfigChips } from "@/components/painel/campanhas/config-chips";
 import { QrLink } from "@/components/painel/campanhas/qr-link";
@@ -54,6 +55,7 @@ type Tab = (typeof TABS)[number];
 export default function CampanhaDetalhe() {
   const params = useParams<{ slug: string }>();
   const router = useRouter();
+  const { pedirConfirmacao, folhaDeConfirmacao } = useConfirmacao();
   const key = params?.slug ?? "";
 
   const [campanhas, setCampanhas] = useState<Campanha[]>([]);
@@ -128,7 +130,13 @@ export default function CampanhaDetalhe() {
 
   async function handleDelete() {
     if (!campanha) return;
-    if (!confirm(`Excluir a campanha "${campanha.name}"? Essa ação não pode ser desfeita.`)) return;
+    const ok = await pedirConfirmacao({
+      titulo: "Excluir a campanha",
+      texto: `Excluir a campanha "${campanha.name}"? Essa ação não pode ser desfeita.`,
+      rotulo: "Excluir",
+      destrutivo: true,
+    });
+    if (!ok) return;
     setDeleting(true);
     setMenu(false);
     try {
@@ -141,10 +149,10 @@ export default function CampanhaDetalhe() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-[1100px] space-y-4 px-4 py-8 sm:px-8">
-        <div className="pn-skeleton h-40 rounded-2xl" />
+      <div className="mx-auto max-w-[1100px] space-y-4 px-4 py-8 sm:px-8" role="status" aria-label="Carregando a campanha">
+        <div className="pn-skeleton h-40 rounded-xl" data-testid="painel-skeleton" />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[0, 1, 2].map((i) => <div key={i} className="pn-skeleton h-56 rounded-2xl" />)}
+          {[0, 1, 2].map((i) => <div key={i} className="pn-skeleton h-56 rounded-xl" data-testid="painel-skeleton" />)}
         </div>
       </div>
     );
@@ -153,7 +161,7 @@ export default function CampanhaDetalhe() {
   if (!campanha || !o) {
     return (
       <div className="mx-auto max-w-[1100px] px-4 py-24 text-center sm:px-8">
-        <p className="font-editorial text-[22px] italic text-volt-950">Campanha não encontrada.</p>
+        <p className="text-[22px] text-volt-950">Campanha não encontrada.</p>
         <Link href="/painel/campanhas" className="mt-4 inline-block text-sm text-cobalt-500 hover:underline">
           ← Voltar pra campanhas
         </Link>
@@ -176,10 +184,10 @@ export default function CampanhaDetalhe() {
       </Link>
 
       {/* Header */}
-      <div className="pn-card rounded-2xl p-5 sm:p-6">
+      <div className="pn-card rounded-xl p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-3.5">
-            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#25D366] text-white"><MessageCircle className="h-6 w-6" /></span>
+            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#25D366] text-white"><MessageCircle className="h-6 w-6" /></span>
             <div>
               <h1 className="font-display text-2xl font-extrabold tracking-[-0.03em] text-volt-950">{campanha.name}</h1>
               {masterUrl && <CopyLink url={masterUrl} className="mt-1" />}
@@ -209,7 +217,7 @@ export default function CampanhaDetalhe() {
             {menu && (
               <>
                 <button className="fixed inset-0 z-10 cursor-default" onClick={() => setMenu(false)} aria-label="Fechar" />
-                <div className="hf-enter absolute right-0 top-12 z-20 w-52 overflow-hidden rounded-2xl border border-volt-950/10 bg-papel py-1.5 shadow-deep">
+                <div className="hf-enter absolute right-0 top-12 z-20 w-52 overflow-hidden rounded-xl border border-volt-950/10 bg-papel py-1.5 shadow-deep">
                   <Link
                     href={`/painel/campanhas/${campanha.slug ?? campanha.id}/editar`}
                     className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-aco transition-colors duration-[160ms] hover:bg-poco hover:text-volt-950"
@@ -256,7 +264,7 @@ export default function CampanhaDetalhe() {
         </div>
 
         {(offline || semConvite > 0) && (
-          <div className="mt-4 flex items-center gap-3 rounded-2xl border border-alerta/20 bg-alerta/[0.04] px-4 py-3">
+          <div className="mt-4 flex items-center gap-3 rounded-xl border border-alerta/20 bg-alerta/[0.04] px-4 py-3">
             <AlertTriangle className="h-5 w-5 shrink-0 text-alerta" />
             <p className="flex-1 text-sm text-aco">
               {offline ? (
@@ -285,8 +293,8 @@ export default function CampanhaDetalhe() {
       <div className="hf-enter" key={tab}>
         {tab === "Grupos" && (
           o.groups.length === 0 ? (
-            <div className="pn-card rounded-2xl px-5 py-16 text-center">
-              <p className="font-editorial text-[22px] italic text-volt-950">Sem grupos ainda.</p>
+            <div className="pn-card rounded-xl px-5 py-16 text-center">
+              <p className="text-[22px] text-volt-950">Sem grupos ainda.</p>
               <p className="mt-1 text-sm text-aco/60">Adicione grupos pra essa campanha começar a captar.</p>
               <Link
                 href={`/painel/campanhas/${campanha.slug ?? campanha.id}/editar`}
@@ -332,7 +340,7 @@ export default function CampanhaDetalhe() {
               <Tile label="Preenchimento" value={`${fill}%`} tone={fill >= 85 ? "atencao" : "cobalt"} />
               <Tile label="Cliques" value={o.clicks.toLocaleString("pt-BR")} />
             </div>
-            <div className="pn-card rounded-2xl p-6 lg:col-span-2">
+            <div className="pn-card rounded-xl p-6 lg:col-span-2">
               <h2 className="font-display text-base font-bold text-volt-950">Como está a campanha</h2>
               <p className="mt-2 text-sm text-aco">
                 Cada clique no link é distribuído pro próximo grupo com vaga. Quando um grupo enche, o
@@ -361,7 +369,7 @@ export default function CampanhaDetalhe() {
               <Tile label="Vendas" value={brl.format(campaignRevenue)} tone="cobalt" />
               <Tile label="Pedidos" value={campaignOrders.length.toLocaleString("pt-BR")} />
             </div>
-            <div className="pn-card rounded-2xl p-6">
+            <div className="pn-card rounded-xl p-6">
               {/* O funil antigo comparava clicks com `totalMembers`, que inclui quem já
                   estava no grupo antes do link existir — por isso passava de 100%. Agora
                   a 2ª etapa é ENTRADA (leads têm `entered_at`), que é o que de fato
@@ -394,6 +402,7 @@ export default function CampanhaDetalhe() {
           </div>
         )}
       </div>
+      {folhaDeConfirmacao}
     </div>
   );
 }
@@ -407,7 +416,7 @@ function GroupCard({ g, live, origin }: { g: CampaignGroupOverview; live: boolea
   const name = g.group?.name ?? "Grupo";
 
   return (
-    <div className={cn("pn-card rounded-2xl p-5", !conectado && "border-alerta/20")}>
+    <div className={cn("pn-card rounded-xl p-5", !conectado && "border-alerta/20")}>
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-2.5">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#25D366] text-white"><MessageCircle className="h-5 w-5" /></span>
@@ -468,7 +477,7 @@ function HeaderStat({ label, value }: { label: string; value: string }) {
 
 function Tile({ label, value, tone }: { label: string; value: string; tone?: "cobalt" | "atencao" }) {
   return (
-    <div className="pn-card rounded-2xl p-4">
+    <div className="pn-card rounded-xl p-4">
       <p className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/50">{label}</p>
       <p className={cn("font-data mt-2 text-[26px] font-medium tabular-nums tracking-[-0.02em]", tone === "cobalt" ? "text-cobalt-500" : tone === "atencao" ? "text-atencao" : "text-volt-950")}>{value}</p>
     </div>
@@ -477,7 +486,7 @@ function Tile({ label, value, tone }: { label: string; value: string; tone?: "co
 
 function Mini({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-poco px-4 py-3">
+    <div className="rounded-xl bg-poco px-4 py-3">
       <p className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/50">{label}</p>
       <p className="mt-1 text-sm font-medium text-volt-950">{value}</p>
     </div>

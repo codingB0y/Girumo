@@ -66,7 +66,7 @@ export function PlanGate({ resource, variant = "inline", className }: PlanGatePr
     return (
       <div
         className={cn(
-          "rounded-2xl border px-5 py-4",
+          "rounded-xl border px-5 py-4",
           atLimit
             ? "border-atencao/30 bg-atencao/[0.05]"
             : "border-cobalt-500/20 bg-cobalt-500/[0.03]",
@@ -93,7 +93,7 @@ export function PlanGate({ resource, variant = "inline", className }: PlanGatePr
           {atLimit && (
             <Link
               href="/painel/configuracoes"
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-[var(--radius-control)] bg-acid-500 px-4 py-2.5 text-xs font-semibold text-volt-950 transition-[filter] duration-[var(--duration-micro)] hover:brightness-95"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-[var(--radius-control)] bg-cobalt-500 px-4 py-2.5 text-xs font-semibold text-white transition-[filter] duration-[var(--duration-micro)] hover:brightness-110"
             >
               <Zap className="h-3.5 w-3.5" aria-hidden /> {semPlano ? "Ver planos" : "Upgrade"}
             </Link>
