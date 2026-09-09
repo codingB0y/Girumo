@@ -177,7 +177,7 @@ export function InicioVitrine({
       {!isConnected && (
         <Link
           href="/painel/conectar"
-          className="flex items-center gap-3 rounded-[var(--radius-control)] border border-alerta/25 bg-alerta/[0.06] px-4 py-3"
+          className="flex items-center gap-3 rounded-[var(--radius-control)] border border-alerta bg-canvas-100 px-4 py-3"
         >
           <WifiOff className="h-5 w-5 shrink-0 text-alerta" strokeWidth={2} aria-hidden="true" />
           <span className="min-w-0 flex-1">
