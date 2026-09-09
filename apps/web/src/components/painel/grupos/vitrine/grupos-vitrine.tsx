@@ -5,6 +5,7 @@ import Link from "next/link";
 import { RefreshCw, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GroupSettings } from "@/components/painel/grupos/group-settings";
+import { useCarimboEvento } from "@/lib/painel/use-carimbo-evento";
 import {
   conferidoHa,
   contagensDosFiltros,
@@ -159,8 +160,12 @@ export function GruposVitrine({
           </p>
         ) : (
           <ul>
-            {visiveis.map((g) => (
-              <li key={g.id}>
+            {visiveis.map((g, index) => (
+              <li
+                key={g.id}
+                className={index < 8 ? "pn-entrada-lista" : undefined}
+                style={index < 8 ? { ["--i" as string]: index } : undefined}
+              >
                 <FichaDoGrupo
                   grupo={g}
                   agora={agora}
@@ -354,6 +359,7 @@ function FichaDoGrupo({
 }) {
   const estado = estadoDoGrupo(grupo);
   const chip = CHIP[estado];
+  const acabouDeLotar = useCarimboEvento(estado === "cheio") && estado === "cheio";
   const ocupacao = lotacao(grupo.members, grupo.capacity);
   const conferido = conferidoHa(grupo.syncedAt, agora);
 
@@ -384,10 +390,14 @@ function FichaDoGrupo({
         </p>
 
         <span
-          className={cn(
-            "font-data inline-flex h-6 shrink-0 items-center rounded-[var(--radius-chip)] px-2 text-12",
-            chip.classe,
-          )}
+          className={
+            acabouDeLotar
+              ? "pn-carimbo-evento"
+              : cn(
+                  "font-data inline-flex h-6 shrink-0 items-center rounded-[var(--radius-chip)] px-2 text-12",
+                  chip.classe,
+                )
+          }
         >
           {chip.texto}
         </span>

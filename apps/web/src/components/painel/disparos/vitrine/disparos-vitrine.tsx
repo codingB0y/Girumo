@@ -10,6 +10,7 @@ import { MessageComposer, type ComposerPayload } from "@/components/painel/messa
 import { ScheduleComposer, type SchedulePayload } from "@/components/painel/messages/schedule-composer";
 import { alcance, fraseAlcance, quadradinhos, rotuloPostar } from "@/lib/painel/disparos";
 import { diaHoraCurto } from "@/lib/painel/inicio";
+import { useCarimboEvento } from "@/lib/painel/use-carimbo-evento";
 import type { Group } from "@/lib/mock-data";
 import type { TenantDispatchView } from "@/lib/campaigns/dispatch-view";
 
@@ -185,44 +186,53 @@ export function DisparosVitrine({
           </p>
         ) : (
           <ul className="mt-2">
-            {disparos.map((d) => {
-              const estado = ESTADO[d.status] ?? ESTADO.draft;
-              const q = quadradinhos(d);
-              const quando = d.scheduledAt ?? d.dispatchedAt ?? d.createdAt;
-              return (
-                <li key={d.id} className="border-b border-dashed border-line-200 py-3 last:border-0" data-testid="disparos-linha">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className={estado.classe}>{estado.texto}</span>
-                    {d.campaignSlug ? (
-                      <Link href={`/painel/campanhas/${d.campaignSlug}`} className="text-15 font-semibold text-cobalt-500">
-                        {d.campaignName}
-                      </Link>
-                    ) : (
-                      <span className="text-15 font-semibold text-volt-950">{d.campaignName}</span>
-                    )}
-                    <span className="font-data ml-auto text-13 tabular-nums text-volt-950">
-                      {d.sent} / {d.total} <span className="text-slate-600">grupos</span>
-                    </span>
-                  </div>
-                  <p className="mt-1 line-clamp-2 text-13 text-slate-600">{d.body || "Post com mídia, sem texto."}</p>
-                  {d.error && <p className="mt-1 text-13 text-alerta">{d.error}</p>}
-                  <div className="pn-cupom mt-2 flex flex-wrap items-center justify-between gap-2">
-                    <span>{diaHoraCurto(quando, agora)}</span>
-                    {q.total > 0 && (
-                      <span className="pn-cupom__quadrados" aria-hidden="true">
-                        {Array.from({ length: q.total }, (_, i) => (
-                          <i key={i} className={i < q.entregues ? "is-entregue" : undefined} />
-                        ))}
-                      </span>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
+            {disparos.map((d) => (
+              <LinhaDoDisparo key={d.id} disparo={d} agora={agora} />
+            ))}
           </ul>
         )}
       </section>
     </div>
+  );
+}
+
+/** Vira pn-carimbo-evento (ENVIADO) só na transição real pra "sent", não a cada render. */
+function LinhaDoDisparo({ disparo: d, agora }: { disparo: TenantDispatchView; agora: Date }) {
+  const estado = ESTADO[d.status] ?? ESTADO.draft;
+  const acabouDeEnviar = useCarimboEvento(d.status === "sent") && d.status === "sent";
+  const q = quadradinhos(d);
+  const quando = d.scheduledAt ?? d.dispatchedAt ?? d.createdAt;
+
+  return (
+    <li className="border-b border-dashed border-line-200 py-3 last:border-0" data-testid="disparos-linha">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={acabouDeEnviar ? "pn-carimbo-evento" : estado.classe}>
+          {acabouDeEnviar ? "ENVIADO" : estado.texto}
+        </span>
+        {d.campaignSlug ? (
+          <Link href={`/painel/campanhas/${d.campaignSlug}`} className="text-15 font-semibold text-cobalt-500">
+            {d.campaignName}
+          </Link>
+        ) : (
+          <span className="text-15 font-semibold text-volt-950">{d.campaignName}</span>
+        )}
+        <span className="font-data ml-auto text-13 tabular-nums text-volt-950">
+          {d.sent} / {d.total} <span className="text-slate-600">grupos</span>
+        </span>
+      </div>
+      <p className="mt-1 line-clamp-2 text-13 text-slate-600">{d.body || "Post com mídia, sem texto."}</p>
+      {d.error && <p className="mt-1 text-13 text-alerta">{d.error}</p>}
+      <div className="pn-cupom mt-2 flex flex-wrap items-center justify-between gap-2">
+        <span>{diaHoraCurto(quando, agora)}</span>
+        {q.total > 0 && (
+          <span className="pn-cupom__quadrados" aria-hidden="true">
+            {Array.from({ length: q.total }, (_, i) => (
+              <i key={i} className={i < q.entregues ? "is-entregue" : undefined} />
+            ))}
+          </span>
+        )}
+      </div>
+    </li>
   );
 }
 

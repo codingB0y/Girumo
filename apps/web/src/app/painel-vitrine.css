@@ -424,6 +424,16 @@
   animation: pn-carimbo-evento var(--dur-fast) var(--ease-girumo) both;
 }
 
+/* --- Entrada em stagger: 8 primeiras linhas de uma lista, 40ms cada --- */
+@keyframes pn-entrada-lista {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.pn-entrada-lista {
+  animation: pn-entrada-lista var(--dur-base) var(--ease-girumo) both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+
 /* --- Cupom: histórico de disparos --- */
 .pn-cupom {
   font-family: var(--font-data);
@@ -529,7 +539,8 @@
 @media (prefers-reduced-motion: reduce) {
   .pn-bolha--nasce,
   .pn-prateleira__caixa--pulso,
-  .pn-carimbo-evento {
+  .pn-carimbo-evento,
+  .pn-entrada-lista {
     animation: none;
     opacity: 1;
   }
