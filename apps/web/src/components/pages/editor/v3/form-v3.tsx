@@ -109,7 +109,7 @@ function SectionRow({
     <details
       open={section.type === "hero"}
       className={cn(
-        "group rounded-2xl border bg-white [&[open]>summary]:border-b",
+        "group rounded-xl border bg-white [&[open]>summary]:border-b",
         hasError ? "border-alerta/50" : "border-volt-950/[0.08]",
         !section.enabled && "opacity-70",
       )}

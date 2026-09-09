@@ -100,7 +100,7 @@ export function PreviewFrame({ message }: { message: PreviewMessage }) {
 
       <div
         ref={boxRef}
-        className="overflow-hidden rounded-2xl border border-volt-950/[0.08] bg-canvas-100/50"
+        className="overflow-hidden rounded-xl border border-volt-950/[0.08] bg-canvas-100/50"
         style={{ height: height * scale }}
       >
         <iframe

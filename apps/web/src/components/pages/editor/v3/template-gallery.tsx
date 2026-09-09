@@ -31,7 +31,7 @@ export function TemplateGallery({ onPick, disabled }: { onPick: (key: GalleryPic
   return (
     <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3" aria-label="Modelos de página">
       {cards.map((c) => (
-        <li key={c.key} className="flex flex-col overflow-hidden rounded-2xl border border-volt-950/[0.08] bg-white shadow-card">
+        <li key={c.key} className="flex flex-col overflow-hidden rounded-xl border border-volt-950/[0.08] bg-white shadow-card">
           <div className="relative aspect-[9/14] bg-canvas-100">
             <img
               src={c.thumb}

@@ -34,7 +34,7 @@ export function Group({
   return (
     <details
       open={defaultOpen}
-      className="group rounded-2xl border border-volt-950/[0.08] bg-white [&[open]>summary]:border-b"
+      className="group rounded-xl border border-volt-950/[0.08] bg-white [&[open]>summary]:border-b"
     >
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 border-volt-950/[0.06] px-5 py-4">
         <span>
