@@ -45,8 +45,8 @@ export default function PainelBiblioteca() {
         <button
           onClick={() => setActive("all")}
           className={cn(
-            "font-data rounded-full px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-[0.08em] transition-colors duration-[160ms]",
-            active === "all" ? "bg-cobalt-500 text-white" : "bg-poco text-aco hover:text-volt-950",
+            "font-data inline-flex min-h-11 items-center rounded-full px-3.5 py-1.5 text-12 font-medium uppercase tracking-[0.08em] transition-colors duration-[160ms]",
+            active === "all" ? "bg-volt-950 text-paper-0" : "bg-poco text-aco hover:text-volt-950",
           )}
         >
           Todas
@@ -57,8 +57,8 @@ export default function PainelBiblioteca() {
             onClick={() => setActive(cat.id)}
             title={cat.hint}
             className={cn(
-              "font-data rounded-full px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-[0.08em] transition-colors duration-[160ms]",
-              active === cat.id ? "bg-cobalt-500 text-white" : "bg-poco text-aco hover:text-volt-950",
+              "font-data inline-flex min-h-11 items-center rounded-full px-3.5 py-1.5 text-12 font-medium uppercase tracking-[0.08em] transition-colors duration-[160ms]",
+              active === cat.id ? "bg-volt-950 text-paper-0" : "bg-poco text-aco hover:text-volt-950",
             )}
           >
             {cat.label}
@@ -88,7 +88,7 @@ export default function PainelBiblioteca() {
                 <button
                   onClick={() => handleCopy(copy.id, copy.body)}
                   className={cn(
-                    "font-data mt-4 inline-flex w-fit items-center gap-1.5 rounded-xl px-3.5 py-2 text-[11px] font-medium uppercase tracking-[0.08em] transition-colors duration-[160ms]",
+                    "font-data mt-4 inline-flex w-fit items-center gap-1.5 rounded-xl px-3.5 py-2 text-12 font-medium uppercase tracking-[0.08em] transition-colors duration-[160ms]",
                     copied ? "bg-sucesso/10 text-sucesso" : "bg-poco text-aco hover:text-volt-950",
                   )}
                 >

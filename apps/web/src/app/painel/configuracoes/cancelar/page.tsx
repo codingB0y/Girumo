@@ -96,7 +96,7 @@ export default function CancelarPage() {
     <div className="mx-auto max-w-[600px] px-4 py-10 sm:px-6">
       <Link
         href="/painel/configuracoes"
-        className="inline-flex items-center gap-1.5 text-sm text-aco/60 transition-colors duration-[160ms] ease-[var(--ease-fluxo)] hover:text-volt-950"
+        className="inline-flex min-h-11 items-center gap-1.5 text-sm text-aco transition-colors duration-[160ms] ease-[var(--ease-fluxo)] hover:text-volt-950"
       >
         <ArrowLeft className="h-4 w-4" strokeWidth={1.75} /> Voltar
       </Link>
@@ -110,7 +110,7 @@ export default function CancelarPage() {
           <h1 className="font-display mt-4 text-2xl font-extrabold text-volt-950">
             Tem certeza que quer cancelar?
           </h1>
-          <p className="mt-2 text-[17px] text-ardosia">
+          <p className="mt-2 text-15 text-ardosia">
             Se cancelar, você perde acesso a tudo que construiu:
           </p>
         </div>
@@ -127,7 +127,7 @@ export default function CancelarPage() {
           <>
             {/* Reason */}
             <div className="mt-6">
-              <label htmlFor="cancel-reason" className="font-data text-[10px] uppercase tracking-[0.08em] text-aco/50">
+              <label htmlFor="cancel-reason" className="font-data text-12 uppercase tracking-[0.08em] text-aco">
                 O que podemos melhorar?
               </label>
               <textarea
@@ -135,7 +135,7 @@ export default function CancelarPage() {
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 placeholder="Conta pra gente o motivo..."
-                className="mt-2 w-full rounded-xl border border-volt-950/10 bg-poco px-4 py-3 text-sm text-volt-950 outline-none transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] placeholder:text-aco/40 focus:border-cobalt-500/50 focus:bg-papel focus:shadow-[0_0_0_3px_var(--color-cobalt-soft)]"
+                className="mt-2 w-full rounded-xl border border-volt-950/10 bg-poco px-4 py-3 text-sm text-volt-950 outline-none transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] placeholder:text-aco focus:border-cobalt-500/50 focus:bg-papel focus:shadow-[0_0_0_3px_var(--color-cobalt-soft)]"
                 rows={3}
               />
             </div>
@@ -145,7 +145,7 @@ export default function CancelarPage() {
               {/* Cancel */}
               <button
                 onClick={() => setStep("confirm")}
-                className="flex w-full cursor-pointer items-center justify-center rounded-xl px-5 py-3 text-sm text-aco/60 transition-colors duration-[160ms] ease-[var(--ease-fluxo)] hover:text-alerta"
+                className="flex w-full cursor-pointer items-center justify-center rounded-xl px-5 py-3 text-sm text-aco transition-colors duration-[160ms] ease-[var(--ease-fluxo)] hover:text-alerta"
               >
                 Quero cancelar mesmo assim
               </button>
@@ -158,7 +158,7 @@ export default function CancelarPage() {
             <p className="text-sm font-medium text-volt-950">
               Último passo: confirme o cancelamento
             </p>
-            <p className="mt-1 text-xs text-aco/60">
+            <p className="mt-1 text-xs text-aco">
               Você será redirecionado ao portal de pagamentos. Seus dados ficam disponíveis por 30
               dias após o cancelamento.
             </p>
@@ -194,9 +194,9 @@ export default function CancelarPage() {
 function LossCard({ icon: Icon, label, value }: { icon: typeof Users; label: string; value: string }) {
   return (
     <div className="rounded-xl border border-alerta/10 bg-alerta/[0.03] p-4 text-center">
-      <Icon className="mx-auto h-5 w-5 text-alerta/60" strokeWidth={1.75} />
+      <Icon className="mx-auto h-5 w-5 text-alerta" strokeWidth={1.75} />
       <p className="font-data mt-2 text-xl font-medium tabular-nums text-volt-950">{value}</p>
-      <p className="mt-0.5 text-[11px] text-aco/55">{label}</p>
+      <p className="mt-0.5 text-12 text-aco">{label}</p>
     </div>
   );
 }
