@@ -132,7 +132,7 @@ export function InicioVitrine({
   const mostrarChecklist = settingsOk && settings.onboardingDismissedAt == null && !activation.complete;
 
   return (
-    <div className="mx-auto max-w-[1200px] space-y-8 px-4 py-5 lg:px-8 lg:py-8">
+    <div className="space-y-8 px-4 py-5 lg:px-8 lg:py-8">
       <CelebrationModal groups={groups} leads={leads} monthlyGoal={settings.monthlyGoalContacts} />
 
       {/* Mobile (12.4): o ticker do letreiro vira a primeira linha do conteúdo. */}

@@ -32,7 +32,7 @@ export default function PainelBiblioteca() {
   }
 
   return (
-    <div className="mx-auto max-w-[1200px] space-y-8 px-4 py-8 sm:px-8">
+    <div className="space-y-8 px-4 py-8 sm:px-8">
       <header>
         <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-volt-950">Biblioteca</h1>
         <p className="mt-1 text-[19px] text-ardosia">

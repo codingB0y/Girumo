@@ -78,7 +78,7 @@ export function ContatosVitrine({ contatos, pedidos, meta, carregando, caixaOk, 
 
   if (carregando) {
     return (
-      <div className="mx-auto max-w-[1200px] space-y-6 px-4 py-5 lg:px-8 lg:py-8" role="status" aria-label="Carregando os contatos">
+      <div className="space-y-6 px-4 py-5 lg:px-8 lg:py-8" role="status" aria-label="Carregando os contatos">
         <div className="pn-skeleton h-16 rounded-xl" data-testid="painel-skeleton" />
         <div className="pn-skeleton h-80 rounded-xl" data-testid="painel-skeleton" />
       </div>
@@ -86,7 +86,7 @@ export function ContatosVitrine({ contatos, pedidos, meta, carregando, caixaOk, 
   }
 
   return (
-    <div className="mx-auto max-w-[1200px] px-4 py-5 lg:px-8 lg:py-8">
+    <div className="px-4 py-5 lg:px-8 lg:py-8">
       <header data-testid="contatos-cabecalho">
         <h1 className="font-brand text-28 font-bold tracking-[-0.4px] text-volt-950">Contatos</h1>
         <p className="mt-1 text-[14px] text-slate-600">

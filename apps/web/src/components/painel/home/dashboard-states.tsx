@@ -5,7 +5,7 @@ import { AlertTriangle, RefreshCw } from "lucide-react";
 export function DashboardSkeleton() {
   return (
     <div
-      className="mx-auto max-w-[1200px] space-y-5 px-4 py-8 sm:px-8"
+      className="space-y-5 px-4 py-8 sm:px-8"
       role="status"
       aria-label="Carregando seu painel"
     >
@@ -29,7 +29,7 @@ export function DashboardSkeleton() {
  */
 export function LoadError({ onRetry }: { onRetry: () => void }) {
   return (
-    <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-8">
+    <div className="px-4 py-8 sm:px-8">
       <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-volt-950">Início</h1>
 
       <div className="pn-card mt-6 rounded-xl p-8">

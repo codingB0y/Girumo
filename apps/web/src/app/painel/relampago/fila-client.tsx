@@ -121,12 +121,12 @@ export function FilaClient({ offerId }: { offerId: string }) {
   }
 
   if (erro) {
-    return <p className="mx-auto max-w-[1200px] px-4 py-8 text-sm text-alerta sm:px-8">{erro}</p>;
+    return <p className="px-4 py-8 text-sm text-alerta sm:px-8">{erro}</p>;
   }
 
   if (!dados) {
     return (
-      <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-8" role="status" aria-label="Carregando a oferta">
+      <div className="px-4 py-8 sm:px-8" role="status" aria-label="Carregando a oferta">
         <div className="pn-skeleton h-64 rounded-xl" data-testid="painel-skeleton" />
       </div>
     );
