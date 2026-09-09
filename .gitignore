@@ -99,3 +99,4 @@ CLAUDE.local.md
 # Scratch do supabase CLI: expõe endpoint do pooler, organization_id e o
 # patch level exato de postgres/gotrue/storage/rest. O CLI regenera sozinho.
 apps/web/supabase/.temp/
+.claude/settings.json
