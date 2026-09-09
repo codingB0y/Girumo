@@ -191,7 +191,7 @@ export function ShareKit({ slug, storeName, headline, brandColor, published }: S
   }, [message]);
 
   return (
-    <section className="rounded-2xl border border-volt-950/[0.06] bg-white shadow-card">
+    <section className="rounded-xl border border-volt-950/[0.06] bg-white shadow-card">
       <div className="border-b border-volt-950/[0.06] px-5 py-4">
         <h2 className="font-medium text-volt-950">Kit de divulgação</h2>
         <p className="text-xs text-aco/60">

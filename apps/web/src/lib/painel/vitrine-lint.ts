@@ -13,6 +13,12 @@ export const PAINEL_ROOTS = [
   "src/app/painel-vitrine.css",
   "src/components/painel",
   "src/components/auth",
+  // Só o editor (chrome do painel), NUNCA "src/components/pages" inteiro:
+  // templates/, lead-form.tsx e tracking-scripts.tsx renderizam a página
+  // PÚBLICA do lojista em app/p/[slug] — gradiente e blur ali são de
+  // marketing, não do painel, e a regra 9 não se aplica a eles.
+  "src/components/pages/editor",
+  "src/components/pages/share-kit.tsx",
   "src/app/login",
   "src/app/signup",
   "src/app/auth",

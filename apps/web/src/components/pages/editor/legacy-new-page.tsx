@@ -109,7 +109,7 @@ export function NovaPaginaLegacy() {
             aria-checked={templateId === t.id}
             onClick={() => setTemplateId(t.id)}
             className={cn(
-              "rounded-2xl border bg-white p-4 text-left transition",
+              "rounded-xl border bg-white p-4 text-left transition",
               templateId === t.id
                 ? "border-cobalt-500 shadow-brand"
                 : "border-volt-950/[0.08] hover:border-cobalt-500/40",
@@ -125,7 +125,7 @@ export function NovaPaginaLegacy() {
 
       <div className="grid items-start gap-6 lg:grid-cols-[1fr_1.1fr]">
         {/* form */}
-        <div className="rounded-2xl border border-volt-950/[0.06] bg-white p-6 shadow-card">
+        <div className="rounded-xl border border-volt-950/[0.06] bg-white p-6 shadow-card">
           <EditorForm values={values} onChange={(patch) => setValues((v) => ({ ...v, ...patch }))} />
 
           {error ? (

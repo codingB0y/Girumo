@@ -81,7 +81,7 @@ export function EditorForm({
           required
           value={values.headline}
           onChange={(e) => onChange({ headline: e.target.value })}
-          placeholder="Ex.: ⚡ 40% OFF só até meia-noite"
+          placeholder="Ex.: 40% OFF só até meia-noite"
           className={inputClass}
         />
       </Field>
