@@ -52,7 +52,7 @@ export function ConfiguracoesVitrine({
   const resumos = resumoDasPortas(leitura);
 
   return (
-    <div className="mx-auto max-w-[1200px] space-y-6 px-4 py-5 lg:px-8 lg:py-8">
+    <div className="space-y-6 px-4 py-5 lg:px-8 lg:py-8">
       <header data-testid="configuracoes-cabecalho">
         <h1 className="font-brand text-28 font-bold tracking-[-0.4px] text-volt-950">Configurações</h1>
       </header>
