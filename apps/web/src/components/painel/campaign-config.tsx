@@ -82,6 +82,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
   // sugerido a partir do nome da campanha (o preset de Objetivo já preenche esse).
   const [growSubject, setGrowSubject] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [groupSearch, setGroupSearch] = useState("");
   // Mensagem-modelo do preset escolhido — sugestão pra postar com o link (não persiste).
   const [suggestedMsg, setSuggestedMsg] = useState<string | null>(null);
   // Comportamento do link mestre (aba Entrada) — só existe na edição.
@@ -360,6 +361,18 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
     </Card>
   );
 
+  const filteredGroups = groupSearch.trim()
+    ? groups.filter((g) => g.name.toLowerCase().includes(groupSearch.trim().toLowerCase()))
+    : groups;
+  const allFilteredSelected = filteredGroups.length > 0 && filteredGroups.every((g) => selected.has(g.id));
+  const toggleSelectAllFiltered = () =>
+    setSelected((s) => {
+      const n = new Set(s);
+      if (allFilteredSelected) filteredGroups.forEach((g) => n.delete(g.id));
+      else filteredGroups.forEach((g) => n.add(g.id));
+      return n;
+    });
+
   const gruposCard = (
     <Card key="grupos">
       <div className="flex items-center justify-between">
@@ -367,14 +380,36 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
         <span className="font-data text-xs uppercase tracking-[0.08em] tabular-nums text-aco">{selected.size} selecionados</span>
       </div>
       <p className="-mt-2 text-xs text-aco">Os grupos que o link vai encher. Dá pra adicionar/remover depois.</p>
+      {groups.length > 0 && (
+        <div className="flex items-center gap-2">
+          <input
+            value={groupSearch}
+            onChange={(e) => setGroupSearch(e.target.value)}
+            placeholder="Pesquisar grupos…"
+            className={cn(inputCls, "flex-1")}
+          />
+          <button
+            type="button"
+            onClick={toggleSelectAllFiltered}
+            disabled={filteredGroups.length === 0}
+            className="shrink-0 whitespace-nowrap rounded-xl border border-volt-950/15 bg-papel px-3 py-2 text-sm font-medium text-volt-950 transition-colors duration-[160ms] hover:border-cobalt-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {allFilteredSelected ? "Remover todos" : "Selecionar todos"}
+          </button>
+        </div>
+      )}
       {groups.length === 0 ? (
         <div className="rounded-xl border border-dashed border-volt-950/15 px-4 py-8 text-center">
           <p className="text-sm text-aco">Nenhum grupo sincronizado ainda.</p>
           <p className="mt-1 text-xs text-aco">Conecte o WhatsApp e os grupos aparecem aqui.</p>
         </div>
+      ) : filteredGroups.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-volt-950/15 px-4 py-8 text-center">
+          <p className="text-sm text-aco">Nenhum grupo bate com &quot;{groupSearch}&quot;.</p>
+        </div>
       ) : (
         <div className="grid max-h-[340px] gap-2 overflow-y-auto sm:grid-cols-2">
-          {groups.map((g) => {
+          {filteredGroups.map((g) => {
             const sel = selected.has(g.id);
             return (
               <button
