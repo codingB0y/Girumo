@@ -90,7 +90,7 @@ export function CampanhasVitrine({
         </div>
         <Link
           href="/painel/campanhas/nova"
-          className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] bg-volt-950 px-4 text-15 font-semibold text-paper-0 transition-colors hover:bg-volt-800"
+          className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] bg-cobalt-500 px-4 text-15 font-semibold text-paper-0 transition-colors hover:brightness-110"
         >
           <Plus className="h-4 w-4" aria-hidden="true" /> Nova campanha
         </Link>
@@ -176,7 +176,7 @@ export function CampanhasVitrine({
           </p>
           <Link
             href="/painel/campanhas/nova"
-            className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] bg-volt-950 px-4 text-15 font-semibold text-paper-0 transition-colors hover:bg-volt-800"
+            className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] bg-cobalt-500 px-4 text-15 font-semibold text-paper-0 transition-colors hover:brightness-110"
           >
             <Plus className="h-4 w-4" aria-hidden="true" /> Criar a primeira
           </Link>
@@ -191,26 +191,32 @@ export function CampanhasVitrine({
       )}
 
       {cena === "lista" && (
-        <ul className="space-y-3">
-          {/* Um anúncio para a lista inteira: a carga dos grupos é a mesma para
-              todas as etiquetas, e um role="status" por linha faria o leitor de
-              tela repetir a mesma frase uma vez por campanha. */}
-          {cargaDosGrupos === "carregando" && (
-            <li className="sr-only" role="status">
-              Carregando as vagas das campanhas.
-            </li>
-          )}
-          {visiveis.map((campanha) => (
-            <li key={campanha.campaign.id}>
-              <Etiqueta
-                campanha={campanha}
-                cargaDosGrupos={cargaDosGrupos}
-                cargaDosLinks={cargaDosLinks}
-                origin={origin}
-              />
-            </li>
-          ))}
-        </ul>
+        <div>
+          <ul className="space-y-3">
+            {/* Um anúncio para a lista inteira: a carga dos grupos é a mesma para
+                todas as etiquetas, e um role="status" por linha faria o leitor de
+                tela repetir a mesma frase uma vez por campanha. */}
+            {cargaDosGrupos === "carregando" && (
+              <li className="sr-only" role="status">
+                Carregando as vagas das campanhas.
+              </li>
+            )}
+            {visiveis.map((campanha) => (
+              <li key={campanha.campaign.id}>
+                <Etiqueta
+                  campanha={campanha}
+                  cargaDosGrupos={cargaDosGrupos}
+                  cargaDosLinks={cargaDosLinks}
+                  origin={origin}
+                />
+              </li>
+            ))}
+          </ul>
+          <p className="pn-total mt-3 pt-3 text-13 text-slate-600">
+            <span className="font-data tabular-nums">{visiveis.length}</span>{" "}
+            {visiveis.length === 1 ? "campanha no total" : "campanhas no total"}
+          </p>
+        </div>
       )}
     </div>
   );
