@@ -194,7 +194,7 @@ export function ShareKit({ slug, storeName, headline, brandColor, published }: S
     <section className="rounded-xl border border-volt-950/[0.06] bg-white shadow-card">
       <div className="border-b border-volt-950/[0.06] px-5 py-4">
         <h2 className="font-medium text-volt-950">Kit de divulgação</h2>
-        <p className="text-xs text-aco/60">
+        <p className="text-xs text-aco">
           QR pro bazar e pro story, e a mensagem pronta pra mandar no WhatsApp.
         </p>
       </div>
@@ -277,7 +277,7 @@ export function ShareKit({ slug, storeName, headline, brandColor, published }: S
           </div>
 
           <div>
-            <p className="text-xs text-aco/60">Mensagem que vai junto:</p>
+            <p className="text-xs text-aco">Mensagem que vai junto:</p>
             <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-canvas-100 px-3 py-2 text-xs text-aco">
               {message || "…"}
             </pre>

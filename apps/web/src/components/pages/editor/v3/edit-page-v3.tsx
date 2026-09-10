@@ -85,7 +85,7 @@ export function EditPageV3({
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <h2 className="font-medium text-volt-950">Conteúdo da página</h2>
-        <p className={`text-xs ${saveState === "error" ? "text-alerta" : "text-aco/60"}`} aria-live="polite">{label}</p>
+        <p className={`text-xs ${saveState === "error" ? "text-alerta" : "text-aco"}`} aria-live="polite">{label}</p>
       </div>
       <div className="grid items-start gap-6 lg:grid-cols-[1fr_1.1fr]">
         <EditorFormV3

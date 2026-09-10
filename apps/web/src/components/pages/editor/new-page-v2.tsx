@@ -79,12 +79,12 @@ export function NovaPaginaV2() {
       <div>
         <Link
           href="/painel/pages"
-          className="inline-flex items-center gap-1.5 text-sm text-aco/60 transition hover:text-volt-950"
+          className="inline-flex items-center gap-1.5 text-sm text-aco transition hover:text-volt-950"
         >
           <ArrowLeft className="h-4 w-4" /> Páginas
         </Link>
         <h1 className="font-display mt-2 text-3xl font-extrabold tracking-[-0.03em]">Nova página</h1>
-        <p className="mt-1 text-sm text-aco/70">
+        <p className="mt-1 text-sm text-aco">
           Preencha os campos e veja o resultado ao vivo. Publica em 2 minutos.
         </p>
       </div>
@@ -112,7 +112,7 @@ export function NovaPaginaV2() {
           >
             {saving ? "Salvando..." : "Salvar rascunho"} <ArrowRight className="h-4 w-4" />
           </button>
-          <p className="mt-2 text-center text-xs text-aco/50">
+          <p className="mt-2 text-center text-xs text-aco">
             Você publica na próxima tela, depois de revisar.
           </p>
         </div>

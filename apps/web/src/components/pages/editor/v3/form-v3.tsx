@@ -40,7 +40,7 @@ export function EditorFormV3({
 
       <div>
         <p className="px-1 pb-2 text-sm font-medium text-volt-950">
-          Seções <span className="ml-1 text-xs font-normal text-aco/50">ligue, desligue e escolha o formato; a ordem é a do modelo</span>
+          Seções <span className="ml-1 text-xs font-normal text-aco">ligue, desligue e escolha o formato; a ordem é a do modelo</span>
         </p>
         <div className="space-y-2">
           {content.sections.map((section) => (
@@ -79,7 +79,7 @@ export function EditorFormV3({
 }
 
 const INPUT =
-  "w-full rounded-xl border border-volt-950/15 px-3.5 py-2.5 text-sm text-volt-950 placeholder:text-aco/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500";
+  "w-full rounded-xl border border-volt-950/15 px-3.5 py-2.5 text-sm text-volt-950 placeholder:text-aco focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500";
 
 /**
  * Uma seção no painel: cabeçalho com o interruptor (só nas opcionais), o nome,
@@ -116,7 +116,7 @@ function SectionRow({
     >
       <summary className="flex cursor-pointer list-none items-center gap-3 border-volt-950/[0.06] px-4 py-3.5">
         {meta.required ? (
-          <span className="font-data rounded-md bg-canvas-100 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-aco/60">fixa</span>
+          <span className="font-data rounded-md bg-canvas-100 px-1.5 py-0.5 text-12 uppercase tracking-wider text-aco">fixa</span>
         ) : (
           <label className="relative inline-flex h-6 w-10 shrink-0 cursor-pointer items-center" onClick={(e) => e.stopPropagation()}>
             <input
@@ -134,9 +134,9 @@ function SectionRow({
         )}
         <span className="min-w-0 flex-1">
           <span className="block font-medium text-volt-950">{meta.label}</span>
-          <span className="block truncate text-xs text-aco/50">{meta.why}</span>
+          <span className="block truncate text-xs text-aco">{meta.why}</span>
         </span>
-        <ChevronDown className="h-4 w-4 shrink-0 text-aco/40 transition group-open:rotate-180" aria-hidden />
+        <ChevronDown className="h-4 w-4 shrink-0 text-aco transition group-open:rotate-180" aria-hidden />
       </summary>
 
       <div className="space-y-5 p-4 sm:p-5">
@@ -153,7 +153,7 @@ function SectionRow({
                   onClick={() => onVariant(v.key)}
                   className={cn(
                     "rounded-xl border px-3.5 py-2 text-sm transition",
-                    section.variant === v.key ? "border-cobalt-500 font-medium text-volt-950" : "border-volt-950/15 text-aco/60 hover:border-cobalt-500/40",
+                    section.variant === v.key ? "border-cobalt-500 font-medium text-volt-950" : "border-volt-950/15 text-aco hover:border-cobalt-500/40",
                   )}
                 >
                   {v.label}

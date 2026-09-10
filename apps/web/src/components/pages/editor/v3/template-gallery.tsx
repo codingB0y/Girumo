@@ -44,10 +44,10 @@ export function TemplateGallery({ onPick, disabled }: { onPick: (key: GalleryPic
             />
           </div>
           <div className="flex flex-1 flex-col p-5">
-            <p className="font-data text-[10px] uppercase tracking-wider text-aco/50">{c.direction}</p>
+            <p className="font-data text-12 uppercase tracking-wider text-aco">{c.direction}</p>
             <h2 className="mt-1 font-display text-lg font-bold tracking-[-0.02em] text-volt-950">{c.name}</h2>
-            <p className="mt-1 text-sm text-aco/80">{c.description}</p>
-            <p className="mt-2 text-xs text-aco/60">{c.usage}</p>
+            <p className="mt-1 text-sm text-aco">{c.description}</p>
+            <p className="mt-2 text-xs text-aco">{c.usage}</p>
             <button
               type="button"
               disabled={disabled}

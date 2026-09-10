@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
  */
 
 const INPUT =
-  "w-full rounded-xl border px-3.5 py-2.5 text-sm text-volt-950 placeholder:text-aco/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500";
+  "w-full rounded-xl border px-3.5 py-2.5 text-sm text-volt-950 placeholder:text-aco focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500";
 
 function inputClass(hasError: boolean): string {
   return cn(INPUT, hasError ? "border-alerta bg-alerta/[0.03]" : "border-volt-950/15");
@@ -39,10 +39,10 @@ export function Group({
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 border-volt-950/[0.06] px-5 py-4">
         <span>
           <span className="font-medium text-volt-950">{title}</span>
-          {hint ? <span className="ml-2 text-xs text-aco/50">{hint}</span> : null}
+          {hint ? <span className="ml-2 text-xs text-aco">{hint}</span> : null}
         </span>
         <ChevronDown
-          className="h-4 w-4 shrink-0 text-aco/40 transition group-open:rotate-180"
+          className="h-4 w-4 shrink-0 text-aco transition group-open:rotate-180"
           aria-hidden
         />
       </summary>
@@ -69,7 +69,7 @@ export function Field({
       <label htmlFor={htmlFor} className="text-sm font-medium text-volt-950">
         {label}
       </label>
-      {hint ? <span className="ml-2 text-xs text-aco/50">{hint}</span> : null}
+      {hint ? <span className="ml-2 text-xs text-aco">{hint}</span> : null}
       <div className="mt-1.5">{children}</div>
       {error ? (
         <p role="alert" className="mt-1 text-xs text-alerta">
@@ -138,8 +138,8 @@ export function TextField({
       </div>
       <p
         className={cn(
-          "font-data mt-1 text-right text-[11px]",
-          near ? "text-atencao" : "text-aco/40",
+          "font-data mt-1 text-right text-12",
+          near ? "text-atencao" : "text-aco",
         )}
       >
         {value.length}/{max}

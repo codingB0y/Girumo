@@ -37,7 +37,7 @@ export function EditorPreview({
         <span className="h-2.5 w-2.5 rounded-[3px] bg-acid-500" />
         <span className="h-2.5 w-2.5 rounded-[3px] bg-cobalt-500" />
         <span className="h-2.5 w-2.5 rounded-[3px] bg-paper-0/35" />
-        <span className="ml-2 truncate font-data text-[11px] text-canvas-100/70">
+        <span className="ml-2 truncate font-data text-12 text-canvas-100">
           {PUBLIC_SITE_LABEL}/p/{values.store_name ? "sua-pagina" : "..."}
         </span>
       </div>

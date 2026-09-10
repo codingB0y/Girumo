@@ -178,7 +178,7 @@ export function EditorFormV2({
                       "rounded-xl border px-3.5 py-2 text-sm transition",
                       proof.kind === kind
                         ? "border-cobalt-500 font-medium text-volt-950"
-                        : "border-volt-950/15 text-aco/60 hover:border-cobalt-500/40",
+                        : "border-volt-950/15 text-aco hover:border-cobalt-500/40",
                     )}
                   >
                     {kind === "video" ? "Vídeo" : "Foto"}
@@ -271,7 +271,7 @@ export function EditorFormV2({
             disabled={disabled}
             placeholder="https://chat.whatsapp.com/..."
             onChange={(e) => onChange({ target_group_url: e.target.value })}
-            className="w-full rounded-xl border border-volt-950/15 px-3.5 py-2.5 text-sm text-volt-950 placeholder:text-aco/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500"
+            className="w-full rounded-xl border border-volt-950/15 px-3.5 py-2.5 text-sm text-volt-950 placeholder:text-aco focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500"
           />
         </Field>
         <Field
@@ -284,7 +284,7 @@ export function EditorFormV2({
             disabled={disabled}
             placeholder="Ex.: ofertas-verao"
             onChange={(e) => onChange({ campaign_slug: e.target.value })}
-            className="w-full rounded-xl border border-volt-950/15 px-3.5 py-2.5 text-sm text-volt-950 placeholder:text-aco/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500"
+            className="w-full rounded-xl border border-volt-950/15 px-3.5 py-2.5 text-sm text-volt-950 placeholder:text-aco focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500"
           />
         </Field>
       </Group>
@@ -298,7 +298,7 @@ export function EditorFormV2({
             disabled={disabled}
             placeholder="Ex.: 123456789012345"
             onChange={(e) => onChange({ meta_pixel_id: e.target.value })}
-            className="font-data w-full rounded-xl border border-volt-950/15 px-3.5 py-2.5 text-sm text-volt-950 placeholder:text-aco/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500"
+            className="font-data w-full rounded-xl border border-volt-950/15 px-3.5 py-2.5 text-sm text-volt-950 placeholder:text-aco focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500"
           />
         </Field>
         <Field label="Google Analytics 4 ID">
@@ -308,7 +308,7 @@ export function EditorFormV2({
             disabled={disabled}
             placeholder="Ex.: G-XXXXXXXXXX"
             onChange={(e) => onChange({ ga4_id: e.target.value })}
-            className="font-data w-full rounded-xl border border-volt-950/15 px-3.5 py-2.5 text-sm text-volt-950 placeholder:text-aco/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500"
+            className="font-data w-full rounded-xl border border-volt-950/15 px-3.5 py-2.5 text-sm text-volt-950 placeholder:text-aco focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500"
           />
         </Field>
       </Group>
@@ -344,7 +344,7 @@ function VideoUrlField({
         placeholder="https://www.youtube.com/watch?v=..."
         onChange={(e) => onChange(e.target.value)}
         className={cn(
-          "w-full rounded-xl border px-3.5 py-2.5 text-sm text-volt-950 placeholder:text-aco/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500",
+          "w-full rounded-xl border px-3.5 py-2.5 text-sm text-volt-950 placeholder:text-aco focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500",
           invalid || error ? "border-alerta bg-alerta/[0.03]" : "border-volt-950/15",
         )}
       />
@@ -374,7 +374,7 @@ function BenefitsEditor({
   return (
     <div>
       <p className="text-sm font-medium text-volt-950">
-        Vantagens <span className="ml-1 font-normal text-xs text-aco/50">até {BENEFITS_MAX}</span>
+        Vantagens <span className="ml-1 font-normal text-xs text-aco">até {BENEFITS_MAX}</span>
       </p>
 
       <div className="mt-2 space-y-3">
@@ -406,7 +406,7 @@ function BenefitsEditor({
                 disabled={disabled}
                 onClick={() => onChange(benefits.filter((_, j) => j !== i))}
                 aria-label={`Remover vantagem ${i + 1}`}
-                className="mt-6 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-aco/50 transition hover:bg-alerta/[0.08] hover:text-alerta"
+                className="mt-6 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-aco transition hover:bg-alerta/[0.08] hover:text-alerta"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -420,7 +420,7 @@ function BenefitsEditor({
           type="button"
           disabled={disabled}
           onClick={() => onChange([...benefits, { title: "", description: "" }])}
-          className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-dashed border-volt-950/20 px-3.5 py-2 text-sm text-aco/70 transition hover:border-cobalt-500/50 hover:text-volt-950"
+          className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-dashed border-volt-950/20 px-3.5 py-2 text-sm text-aco transition hover:border-cobalt-500/50 hover:text-volt-950"
         >
           <Plus className="h-4 w-4" /> Adicionar vantagem
         </button>
@@ -446,7 +446,7 @@ function GalleryEditor({
     <div>
       <p className="text-sm font-medium text-volt-950">
         Galeria
-        <span className="ml-1 text-xs font-normal text-aco/50">
+        <span className="ml-1 text-xs font-normal text-aco">
           {GALLERY_MIN} a {GALLERY_MAX} fotos das peças
         </span>
       </p>
@@ -481,7 +481,7 @@ function GalleryEditor({
           {error}
         </p>
       ) : missing > 0 ? (
-        <p className="mt-2 text-xs text-aco/50">
+        <p className="mt-2 text-xs text-aco">
           Faltam {missing} foto{missing > 1 ? "s" : ""} pra publicar.
         </p>
       ) : null}
