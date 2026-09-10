@@ -186,7 +186,7 @@ export function EditorForm({
 }
 
 const inputClass =
-  "min-h-10 w-full rounded-[var(--radius-control)] border border-line-200 bg-paper-0 px-3.5 py-2.5 text-sm text-volt-950 placeholder:text-slate-600/65 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500 disabled:bg-canvas-100";
+  "min-h-10 w-full rounded-[var(--radius-control)] border border-line-200 bg-paper-0 px-3.5 py-2.5 text-sm text-volt-950 placeholder:text-slate-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500 disabled:bg-canvas-100";
 
 function Field({
   label,

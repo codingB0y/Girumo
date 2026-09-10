@@ -67,7 +67,7 @@ export function PreviewFrame({ message }: { message: PreviewMessage }) {
     // pixel, não o espaço ocupado — sem isso a coluna do form é esmagada.
     <div className="min-w-0">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="flex items-center gap-1.5 text-xs text-aco/50">
+        <p className="flex items-center gap-1.5 text-xs text-aco">
           <DeviceIcon className="h-3.5 w-3.5" aria-hidden />
           Prévia ao vivo — não salva nada
         </p>
@@ -87,7 +87,7 @@ export function PreviewFrame({ message }: { message: PreviewMessage }) {
                 onClick={() => setDevice(key)}
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition",
-                  device === key ? "bg-canvas-100 font-medium text-volt-950" : "text-aco/60 hover:text-volt-950",
+                  device === key ? "bg-canvas-100 font-medium text-volt-950" : "text-aco hover:text-volt-950",
                 )}
               >
                 <Icon className="h-3.5 w-3.5" aria-hidden />

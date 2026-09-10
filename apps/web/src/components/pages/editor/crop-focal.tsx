@@ -61,9 +61,9 @@ export function CropFocal({
 
   return (
     <div>
-      <p id={labelId} className="text-xs font-medium text-aco/70">
+      <p id={labelId} className="text-xs font-medium text-aco">
         Ponto de interesse{" "}
-        <span className="font-normal text-aco/50">
+        <span className="font-normal text-aco">
           — marque o assunto da foto; é o que fica visível quando a imagem é cortada
         </span>
       </p>
@@ -92,7 +92,7 @@ export function CropFocal({
         />
       </div>
 
-      <p id={`${labelId}-pos`} className="font-data mt-1 text-[11px] text-aco/50">
+      <p id={`${labelId}-pos`} className="font-data mt-1 text-12 text-aco">
         {Math.round(x * 100)}% · {Math.round(y * 100)}% — use as setas do teclado para ajustar
       </p>
     </div>

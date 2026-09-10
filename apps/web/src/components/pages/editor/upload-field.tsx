@@ -89,7 +89,7 @@ export function UploadField({
       <label htmlFor={inputId} className="text-sm font-medium text-volt-950">
         {label}
       </label>
-      {hint ? <span className="ml-2 text-xs text-aco/50">{hint}</span> : null}
+      {hint ? <span className="ml-2 text-xs text-aco">{hint}</span> : null}
 
       <div className="mt-1.5">
         {value ? (
@@ -111,8 +111,8 @@ export function UploadField({
               </button>
             </div>
 
-            <label htmlFor={altId} className="block text-xs font-medium text-aco/70">
-              Texto alternativo <span className="font-normal text-aco/50">— {altHint}</span>
+            <label htmlFor={altId} className="block text-xs font-medium text-aco">
+              Texto alternativo <span className="font-normal text-aco">— {altHint}</span>
             </label>
             <input
               id={altId}
@@ -122,7 +122,7 @@ export function UploadField({
               disabled={disabled}
               onChange={(e) => onChange({ ...value, alt: e.target.value })}
               placeholder="Ex.: arara com peças da coleção nova"
-              className="w-full rounded-lg border border-volt-950/15 px-3 py-2 text-sm text-volt-950 placeholder:text-aco/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500"
+              className="w-full rounded-lg border border-volt-950/15 px-3 py-2 text-sm text-volt-950 placeholder:text-aco focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500"
             />
           </div>
         ) : (
@@ -131,7 +131,7 @@ export function UploadField({
             onClick={() => inputRef.current?.click()}
             disabled={disabled || busy}
             className={cn(
-              "flex w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-volt-950/20 bg-canvas-100/40 text-sm text-aco/60 transition hover:border-cobalt-500/50 hover:text-volt-950 disabled:opacity-60",
+              "flex w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-volt-950/20 bg-canvas-100/40 text-sm text-aco transition hover:border-cobalt-500/50 hover:text-volt-950 disabled:opacity-60",
               aspect,
             )}
           >
@@ -144,7 +144,7 @@ export function UploadField({
               <>
                 <ImagePlus className="h-5 w-5" aria-hidden />
                 Escolher imagem
-                <span className="text-xs text-aco/40">até {LIMITS[kind].label}</span>
+                <span className="text-xs text-aco">até {LIMITS[kind].label}</span>
               </>
             )}
           </button>

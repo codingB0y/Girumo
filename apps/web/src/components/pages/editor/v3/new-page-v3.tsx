@@ -71,11 +71,11 @@ export function NovaPaginaV3() {
   return (
     <div className="mx-auto max-w-[1200px] space-y-6 px-4 py-6 sm:px-6">
       <div>
-        <Link href="/painel/pages" className="inline-flex items-center gap-1.5 text-sm text-aco/60 transition hover:text-volt-950">
+        <Link href="/painel/pages" className="inline-flex items-center gap-1.5 text-sm text-aco transition hover:text-volt-950">
           <ArrowLeft className="h-4 w-4" /> Páginas
         </Link>
         <h1 className="font-display mt-2 text-3xl font-extrabold tracking-[-0.03em]">Nova página</h1>
-        <p className="mt-1 text-sm text-aco/70">
+        <p className="mt-1 text-sm text-aco">
           {state ? "A página já vem preenchida. Escreva por cima, ligue e desligue seções, e veja ao vivo." : "Escolha um modelo. Todos já vêm com texto de exemplo do seu ramo."}
         </p>
       </div>
@@ -89,7 +89,7 @@ export function NovaPaginaV3() {
       ) : (
         <div className="grid items-start gap-6 lg:grid-cols-[1fr_1.1fr]">
           <div>
-            <button type="button" onClick={() => { setState(null); setErrors({}); }} className="mb-3 text-xs text-aco/60 hover:text-volt-950">
+            <button type="button" onClick={() => { setState(null); setErrors({}); }} className="mb-3 text-xs text-aco hover:text-volt-950">
               ← Trocar de modelo
             </button>
             <EditorFormV3 state={state} onChange={setState} errors={errors} disabled={saving} />
@@ -101,7 +101,7 @@ export function NovaPaginaV3() {
             >
               {saving ? "Salvando..." : "Salvar rascunho"} <ArrowRight className="h-4 w-4" />
             </button>
-            <p className="mt-2 text-center text-xs text-aco/50">Você publica na próxima tela, depois de revisar.</p>
+            <p className="mt-2 text-center text-xs text-aco">Você publica na próxima tela, depois de revisar.</p>
           </div>
           <div className="min-w-0 lg:sticky lg:top-6">
             <EditorPreviewV3 content={state.content} />

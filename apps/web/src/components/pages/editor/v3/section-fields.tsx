@@ -21,7 +21,7 @@ type Patch<T extends LpSection> = (data: Partial<T["data"]>) => void;
 
 const L = V3_LIMITS;
 const INPUT =
-  "w-full rounded-xl border border-volt-950/15 px-3.5 py-2.5 text-sm text-volt-950 placeholder:text-aco/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500";
+  "w-full rounded-xl border border-volt-950/15 px-3.5 py-2.5 text-sm text-volt-950 placeholder:text-aco focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500";
 
 function ItemBox({ children, onRemove, label, disabled }: { children: ReactNode; onRemove: () => void; label: string; disabled?: boolean }) {
   return (
@@ -32,7 +32,7 @@ function ItemBox({ children, onRemove, label, disabled }: { children: ReactNode;
         disabled={disabled}
         onClick={onRemove}
         aria-label={`Remover ${label}`}
-        className="mt-6 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-aco/50 transition hover:bg-alerta/[0.08] hover:text-alerta"
+        className="mt-6 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-aco transition hover:bg-alerta/[0.08] hover:text-alerta"
       >
         <Trash2 className="h-4 w-4" />
       </button>
@@ -46,7 +46,7 @@ function AddButton({ onClick, label, disabled }: { onClick: () => void; label: s
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-dashed border-volt-950/20 px-3.5 py-2 text-sm text-aco/70 transition hover:border-cobalt-500/50 hover:text-volt-950"
+      className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-dashed border-volt-950/20 px-3.5 py-2 text-sm text-aco transition hover:border-cobalt-500/50 hover:text-volt-950"
     >
       <Plus className="h-4 w-4" /> {label}
     </button>
@@ -129,7 +129,7 @@ function DeliverablesFields({ section, patch, errors, disabled }: { section: Sec
 function StringList({ label, items, max, prefix, onChange, errors, disabled }: { label: string; items: string[]; max: number; prefix: string; onChange: (items: string[]) => void; errors: Errors; disabled?: boolean }) {
   return (
     <div>
-      <p className="text-sm font-medium text-volt-950">{label} <span className="ml-1 text-xs font-normal text-aco/50">até {max}</span></p>
+      <p className="text-sm font-medium text-volt-950">{label} <span className="ml-1 text-xs font-normal text-aco">até {max}</span></p>
       <div className="mt-2 space-y-3">
         {items.map((t, i) => (
           <ItemBox key={i} label={`frase ${i + 1}`} disabled={disabled} onRemove={() => onChange(items.filter((_, j) => j !== i))}>
@@ -254,7 +254,7 @@ function GalleryFields({ section, patch, errors, disabled }: { section: SectionO
   return (
     <>
       <TitleField value={title} onChange={(t) => patch({ title: t })} error={errors["gallery.title"]} disabled={disabled} />
-      <p className="text-sm font-medium text-volt-950">Fotos <span className="ml-1 text-xs font-normal text-aco/50">de {V3_GALLERY_MIN} a {V3_MAX.gallery} — legenda e preço são opcionais</span></p>
+      <p className="text-sm font-medium text-volt-950">Fotos <span className="ml-1 text-xs font-normal text-aco">de {V3_GALLERY_MIN} a {V3_MAX.gallery} — legenda e preço são opcionais</span></p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {items.map((it, i) => (
           <div key={i}>
