@@ -10,6 +10,7 @@ import {
   TrendingUp,
   Gift,
   Settings,
+  BookOpen,
   type LucideIcon,
 } from "lucide-react";
 
@@ -24,7 +25,7 @@ import {
  * Rotas deliberadamente fora daqui:
  * - /painel/conectar — entra pelo status de conexão e pelas ações, não pelo menu
  * - /painel/dev-tools — ferramenta interna
- * - /painel/agenda, /painel/biblioteca — redirects para campanhas
+ * - /painel/agenda — redirect para campanhas
  *
  * /painel/disparos ENTROU: deixou de ser redirect e virou a tela própria de
  * disparo (compositor + histórico com progresso real). Sem item de menu, a
@@ -58,6 +59,7 @@ export type NavGroup = {
 const INICIO: NavItem = { href: "/painel", label: "Início", icon: Sun, grupo: "loja" };
 const CAMPANHAS: NavItem = { href: "/painel/campanhas", label: "Campanhas", icon: Layers, grupo: "lotar" };
 const DISPAROS: NavItem = { href: "/painel/disparos", label: "Disparos", icon: Send, grupo: "vender" };
+const BIBLIOTECA: NavItem = { href: "/painel/biblioteca", label: "Biblioteca", icon: BookOpen, grupo: "vender" };
 const RELAMPAGO: NavItem = { href: "/painel/relampago", label: "Oferta Relâmpago", icon: Flame, grupo: "vender" };
 const AUTOMACOES: NavItem = { href: "/painel/automacoes", label: "Automações", icon: Zap, grupo: "vender" };
 const GRUPOS: NavItem = { href: "/painel/grupos", label: "Grupos", icon: Users, grupo: "loja" };
@@ -68,7 +70,7 @@ const INDICACAO: NavItem = { href: "/painel/indicacao", label: "Indicação", ic
 const CONFIGURACOES: NavItem = { href: "/painel/configuracoes", label: "Configurações", icon: Settings, grupo: "loja" };
 
 export const NAV_GROUPS: NavGroup[] = [
-  { title: null, items: [INICIO, CAMPANHAS, DISPAROS, RELAMPAGO, AUTOMACOES, GRUPOS, CONTATOS] },
+  { title: null, items: [INICIO, CAMPANHAS, DISPAROS, BIBLIOTECA, RELAMPAGO, AUTOMACOES, GRUPOS, CONTATOS] },
   { title: "Crescimento", items: [PAGINAS, RESULTADOS, INDICACAO] },
 ];
 
