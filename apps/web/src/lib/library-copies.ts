@@ -9,6 +9,11 @@
  * Igor em 29/jul — não reescrever aqui). Quem escolhe o pack pelo ramo do
  * tenant é `content-packs.ts`; as CATEGORIAS abaixo são o chrome compartilhado
  * por todos os packs, então os hints ficam neutros.
+ *
+ * Desde a Biblioteca virar pastas por tenant (11/09), `LIBRARY_CATEGORIES`
+ * também nomeia as 5 pastas seedadas na 1ª visita de cada tenant — ver
+ * `lib/stores/template-folders.ts`. Dali em diante são pastas normais
+ * (renomear/apagar/criar); este arquivo só fornece o conteúdo inicial.
  */
 
 export type LibraryCategory = "novidade" | "reposicao" | "evento" | "reativacao" | "boas-vindas";

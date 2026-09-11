@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BookOpen, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { LIBRARY_CATEGORIES, type LibraryCategory } from "@/lib/library-copies";
-import { libraryCopiesForSegment } from "@/lib/content-packs";
-import { useTenantSegment } from "@/components/painel/use-tenant-segment";
+import { authenticatedFetch } from "@/lib/supabase/client";
+
+type MessageTemplate = { id: string; folder_id: string; name: string; body: string };
+type Folder = { id: string; name: string; templates: MessageTemplate[] };
 
 /**
  * Biblioteca de copies dentro do compositor.
@@ -13,18 +14,27 @@ import { useTenantSegment } from "@/components/painel/use-tenant-segment";
  * A biblioteca existia só como página própria (`/painel/biblioteca`), alcançável
  * por um link solto na lista de campanhas — ou seja, longe do único lugar onde
  * ela serve pra algo: a hora de escrever a mensagem. Aqui ela entra como picker.
+ *
+ * Lê as MESMAS pastas/copies da aba Biblioteca (`/api/library`) — nada de lista
+ * própria divergente. Buscado uma vez, na 1ª abertura.
  */
 export function CopyPicker({ onPick, className }: { onPick: (body: string) => void; className?: string }) {
   const [open, setOpen] = useState(false);
-  const [category, setCategory] = useState<LibraryCategory | "all">("all");
+  const [folders, setFolders] = useState<Folder[] | null>(null);
+  const [folderId, setFolderId] = useState<string | "all">("all");
 
-  // O picker é transiente: enquanto o ramo do tenant carrega, mostra o pack
-  // neutro em vez de travar o compositor.
-  const segment = useTenantSegment();
+  useEffect(() => {
+    if (!open || folders !== null) return;
+    authenticatedFetch("/api/library", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((data: Folder[]) => setFolders(data))
+      .catch(() => setFolders([]));
+  }, [open, folders]);
+
   const copies = useMemo(() => {
-    const base = libraryCopiesForSegment(segment ?? null);
-    return category === "all" ? base : base.filter((c) => c.category === category);
-  }, [category, segment]);
+    const all = (folders ?? []).flatMap((f) => f.templates);
+    return folderId === "all" ? all : (folders ?? []).find((f) => f.id === folderId)?.templates ?? [];
+  }, [folders, folderId]);
 
   if (!open) {
     return (
@@ -57,55 +67,47 @@ export function CopyPicker({ onPick, className }: { onPick: (body: string) => vo
         </button>
       </div>
 
-      <div className="mt-2.5 flex flex-wrap gap-1">
-        <CategoriaBtn active={category === "all"} onClick={() => setCategory("all")} label="Todas" />
-        {LIBRARY_CATEGORIES.map((c) => (
-          <CategoriaBtn
-            key={c.id}
-            active={category === c.id}
-            onClick={() => setCategory(c.id)}
-            label={c.label}
-            title={c.hint}
-          />
-        ))}
-      </div>
+      {folders === null ? (
+        <p className="mt-2.5 text-[13px] text-slate-600">Carregando…</p>
+      ) : (
+        <>
+          <div className="mt-2.5 flex flex-wrap gap-1">
+            <CategoriaBtn active={folderId === "all"} onClick={() => setFolderId("all")} label="Todas" />
+            {folders.map((f) => (
+              <CategoriaBtn key={f.id} active={folderId === f.id} onClick={() => setFolderId(f.id)} label={f.name} />
+            ))}
+          </div>
 
-      <div className="mt-2.5 max-h-64 space-y-1.5 overflow-y-auto">
-        {copies.map((copy) => (
-          <button
-            key={copy.id}
-            type="button"
-            onClick={() => {
-              onPick(copy.body);
-              setOpen(false);
-            }}
-            className="block w-full rounded-lg border border-line-200 bg-papel px-3 py-2.5 text-left transition-colors duration-[160ms] hover:border-cobalt-500 hover:bg-canvas-100"
-          >
-            <span className="block text-sm font-medium text-volt-950">{copy.title}</span>
-            <span className="mt-0.5 block line-clamp-2 text-[13px] leading-relaxed text-slate-600">{copy.body}</span>
-          </button>
-        ))}
-      </div>
+          <div className="mt-2.5 max-h-64 space-y-1.5 overflow-y-auto">
+            {copies.length === 0 && <p className="px-1 py-2 text-[13px] text-slate-600">Nenhuma copy aqui ainda.</p>}
+            {copies.map((copy) => (
+              <button
+                key={copy.id}
+                type="button"
+                onClick={() => {
+                  onPick(copy.body);
+                  setOpen(false);
+                }}
+                className="block w-full rounded-lg border border-line-200 bg-papel px-3 py-2.5 text-left transition-colors duration-[160ms] hover:border-cobalt-500 hover:bg-canvas-100"
+              >
+                <span className="block text-sm font-medium text-volt-950">{copy.name}</span>
+                <span className="mt-0.5 block line-clamp-2 text-[13px] leading-relaxed text-slate-600">
+                  {copy.body}
+                </span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
-function CategoriaBtn({
-  active,
-  onClick,
-  label,
-  title,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  title?: string;
-}) {
+function CategoriaBtn({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      title={title}
       className={cn(
         "cursor-pointer rounded-lg px-2.5 py-1 text-[13px] font-medium transition-colors duration-[160ms]",
         active ? "bg-volt-950 text-white" : "text-slate-600 hover:text-volt-950",

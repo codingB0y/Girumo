@@ -345,3 +345,11 @@ apps/web/supabase/migrations/20260904100000_perfil_do_numero_e_caps.sql
 # corpo e o drop not null NAO entram no hash; conferido por SQL nos dois bancos
 # (pg_get_functiondef sem "60 seconds" + information_schema.columns.is_nullable).
 apps/web/supabase/migrations/20260904110000_check_invite_sem_janela.sql
+
+# 11/09/2026 - Biblioteca de copys vira pastas de verdade. `template_folders`
+# (tenant_id + name unique) substitui a `category` fixa de `templates`
+# (folder_id NOT NULL, on delete cascade). RLS igual ao Pattern B ja usado em
+# `templates` (app.user_tenant_ids()/app.user_operator_tenant_ids()). Backfill:
+# dev tinha 5 linhas de seed com categorias soltas de um tenant, viraram pastas
+# com o nome da categoria antiga; prod estava vazia (no-op). Aplicada nos DOIS.
+apps/web/supabase/migrations/20260911010000_template_folders.sql

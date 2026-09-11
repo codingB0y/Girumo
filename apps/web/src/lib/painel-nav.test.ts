@@ -42,15 +42,19 @@ test("exposes Disparos — sem item de menu, a única porta pro envio era achar 
   assert.ok(NAV_ALL.map((i) => i.href).includes("/painel/disparos"));
 });
 
+test("exposes Biblioteca — virou aba própria com pastas por tenant, deixou de ser redirect", () => {
+  assert.ok(NAV_ALL.map((i) => i.href).includes("/painel/biblioteca"));
+});
+
 test("does not expose internal or redirect-only routes", () => {
   const hrefs = NAV_ALL.map((i) => i.href);
   for (const hidden of [
     "/painel/dev-tools", // ferramenta interna
     "/painel/ds", // não existe
-    // /painel/disparos saiu desta lista: deixou de ser redirect e virou tela
-    // própria de disparo, então AGORA precisa estar no menu (teste abaixo).
+    // /painel/disparos e /painel/biblioteca saíram desta lista: deixaram de
+    // ser redirect e viraram tela própria, então AGORA precisam estar no
+    // menu (testes acima).
     "/painel/agenda",
-    "/painel/biblioteca",
   ]) {
     assert.ok(!hrefs.includes(hidden), `${hidden} não deveria estar no menu`);
   }
