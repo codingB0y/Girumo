@@ -42,7 +42,7 @@ export function CopyPicker({ onPick, className }: { onPick: (body: string) => vo
         type="button"
         onClick={() => setOpen(true)}
         className={cn(
-          "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-slate-600 transition-colors duration-[160ms] hover:bg-poco hover:text-volt-950",
+          "inline-flex items-center gap-1.5 rounded-lg border border-cobalt-500/30 bg-cobalt-500/10 px-2.5 py-1.5 text-[13px] font-medium text-cobalt-700 transition-colors duration-[160ms] hover:bg-cobalt-500/20",
           className,
         )}
       >
