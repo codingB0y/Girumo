@@ -83,7 +83,7 @@ export function CampanhasVitrine({
           </p>
           <Link
             href="/painel/biblioteca"
-            className="font-data mt-2 inline-flex min-h-11 items-center text-13 text-cobalt-500"
+            className="font-data mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-[var(--radius-control)] border border-cobalt-500/30 bg-cobalt-500/10 px-3 text-13 font-semibold text-cobalt-700 transition-colors hover:bg-cobalt-500/20"
           >
             Biblioteca de copies →
           </Link>
