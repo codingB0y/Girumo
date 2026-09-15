@@ -141,8 +141,9 @@ export const CONTEUDO_ESPERADO: Record<string, ConteudoEsperado> = {
 
   "/painel/comunidades": {
     // NAO "Comunidades": e o rotulo do item de menu (painel-nav.ts), entao
-    // passaria com a tela morta no skeleton ou no erro. O subtitulo so existe
-    // depois do fetch resolver.
+    // casaria em qualquer tela do painel. O subtitulo e do cabecalho desta
+    // pagina (renderiza sem esperar o fetch); quem prova que a lista carregou
+    // e o `lista` abaixo.
     ancora: /Agrupe seus grupos de WhatsApp/,
     lista: {
       api: "/api/comunidades",

@@ -57,7 +57,7 @@ export default function ComunidadeDetalhe() {
   async function desvincular(whatsappGroupId: string, nomeDoGrupo: string) {
     const ok = await pedirConfirmacao({
       titulo: "Desvincular grupo",
-      texto: `Tirar "${nomeDoGrupo}" desta comunidade? O grupo continua existindo, só sai da coleção.`,
+      texto: `Tirar "${nomeDoGrupo}" desta comunidade? O grupo continua existindo, mas sai do link e dos disparos desta campanha.`,
       rotulo: "Desvincular",
       destrutivo: true,
     });
@@ -149,8 +149,9 @@ export default function ComunidadeDetalhe() {
 
       {/*
        * Sem botão "Criar no WhatsApp": a Fase 0 terminou em 403 na Evolution
-       * (ver task-2.2-brief.md) — o recurso é read-only contra o WhatsApp até
-       * essa porta abrir de outro jeito.
+       * (ver docs/superpowers/specs/2026-09-04-gestao-de-comunidade-design.md
+       * §6) — o recurso é read-only contra o WhatsApp até essa porta abrir de
+       * outro jeito.
        */}
       <div className="pn-card rounded-[var(--radius-control)] p-5">
         <p className="font-data text-20 tabular-nums text-volt-950">{numero(totalMembros)} membros</p>

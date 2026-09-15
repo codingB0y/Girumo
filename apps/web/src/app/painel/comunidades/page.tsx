@@ -134,7 +134,7 @@ export default function PainelComunidades() {
       </header>
 
       {erro && (
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-alerta/20 bg-alerta/[0.06] px-4 py-3 text-sm text-alerta">
+        <div role="alert" className="flex items-center justify-between gap-3 rounded-xl border border-alerta/20 bg-alerta/[0.06] px-4 py-3 text-sm text-alerta">
           <span>{erro}</span>
           <button type="button" onClick={carregar} className="font-medium underline underline-offset-2">
             Tentar de novo
@@ -200,7 +200,11 @@ export default function PainelComunidades() {
             className="mt-1.5 w-full rounded-[10px] border border-volt-950/10 bg-poco px-3.5 py-2.5 text-sm text-volt-950 outline-none focus:border-cobalt-500/50"
           />
         </label>
-        {erroForm && <p className="mt-2 text-sm text-alerta">{erroForm}</p>}
+        {erroForm && (
+          <p role="alert" className="mt-2 text-sm text-alerta">
+            {erroForm}
+          </p>
+        )}
         <div className="mt-6 flex justify-end gap-2">
           <button
             type="button"

@@ -166,42 +166,32 @@ function fixtureCampanhaEdicao(): FixtureDinamica {
 // ---------------------------------------------------------- comunidades
 
 /**
- * Comunidade nao tem DELETE — a Task 2.5 so cobre criar, vincular e
- * desvincular grupo, nao apagar a comunidade em si. Por isso o fixture segue
- * o padrao de `fixturePagina`: procura pela marca primeiro, so cria se nao
- * achar, e `apagar` fica no-op documentado. Sem isso, uma comunidade orfa por
- * execucao de CI se acumularia no tenant de QA para sempre.
+ * Comunidade e a mesma linha de `campaign_groups` que a campanha, entao o
+ * `DELETE /api/campanhas?id=` apaga ela tambem — mesmo padrao de
+ * `fixtureCampanha`: cria com nome unico e apaga de verdade no fim.
  *
- * Pre-requisito de CI: `GET /api/comunidades` 500 at a coluna
- * `whatsapp_community_jid` ser migrada em produção e QA (Task 2.4) — ate la
- * este fixture falha no `criar()`, com a mensagem do proprio 500, nao em
- * silencio.
+ * Pre-requisito de CI: `/api/comunidades` responde 500 ate a coluna
+ * `whatsapp_community_jid` ser migrada no banco do ambiente (migracao
+ * 20260915120000_community_jid.sql) — ate la este fixture falha no `criar()`,
+ * com a mensagem do proprio 500, nao em silencio.
  */
-const MARCA_DA_COMUNIDADE = "Fixture E2E de comunidade";
-
-type ComunidadeResumo = { nome: string; slug: string };
-type RespostaComunidades = { comunidades: ComunidadeResumo[] };
-
 const fixtureComunidade: FixtureDinamica = {
   inexistente: "comunidade-que-nao-existe-e2e",
   async criar(request) {
-    const marca: Marca = { tipo: "texto", valor: MARCA_DA_COMUNIDADE };
-    const { comunidades } = await json<RespostaComunidades>(request, "/api/comunidades");
-    const jaExiste = Array.isArray(comunidades)
-      ? comunidades.find((c) => c?.nome === MARCA_DA_COMUNIDADE)
-      : undefined;
-
-    if (jaExiste) {
-      return { valor: jaExiste.slug, marca, apagar: async () => {} };
-    }
-
-    const res = await request.post("/api/comunidades", { data: { nome: MARCA_DA_COMUNIDADE } });
+    const nome = `E2E comunidade ${Date.now().toString(36)}`;
+    const res = await request.post("/api/comunidades", { data: { nome } });
     if (!res.ok()) {
       throw new Error(`POST /api/comunidades respondeu ${res.status()}: ${await res.text()}`);
     }
 
-    const criada = (await res.json()) as { slug: string };
-    return { valor: criada.slug, marca, apagar: async () => {} };
+    const criada = (await res.json()) as { id: string; slug: string };
+    return {
+      valor: criada.slug,
+      marca: { tipo: "texto", valor: nome },
+      apagar: async () => {
+        await request.delete(`/api/campanhas?id=${encodeURIComponent(criada.id)}`);
+      },
+    };
   },
 };
 

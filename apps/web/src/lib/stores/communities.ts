@@ -1,13 +1,14 @@
 import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
-import { toSlug } from "@/lib/auth/oauth-account";
+import { criarLinkMestreOuDesfazer, uniqueMasterSlug } from "@/lib/campaigns/master-link";
 
 /**
  * Comunidades são `campaign_groups` vistas por outra ótica — mesma tabela que
  * `stores/campaign-groups.ts`, sem tabela nova. `whatsapp_community_jid` é
  * NULL enquanto a coleção for só uma gaveta da Girumo (a Fase 0 da comunidade
- * nativa do WhatsApp terminou em 403 — ver task-2.2-brief.md — então este
- * store não chama a Evolution; fica só no banco).
+ * nativa do WhatsApp terminou em 403 — ver
+ * docs/superpowers/specs/2026-09-04-gestao-de-comunidade-design.md §6 — então
+ * este store não chama a Evolution; fica só no banco).
  */
 export type Comunidade = {
   id: string;
@@ -19,8 +20,6 @@ export type Comunidade = {
 };
 
 const TABLE = "campaign_groups";
-const UNIQUE_VIOLATION = "23505";
-const SLUG_RETRY_ATTEMPTS = 5;
 const ROW_FIELDS = "id, name, slug, group_ids, auto_grow, whatsapp_community_jid";
 
 type ComunidadeRow = {
@@ -66,34 +65,36 @@ export async function listarComunidades(tenantId: string): Promise<Comunidade[]>
 }
 
 /**
- * Slug derivado do nome, único por (tenant_id, slug). Primeira tentativa usa
- * o slug legível puro (comunidades não são URL pública, diferente de
- * `pages/slug.ts`); só em colisão entra sufixo aleatório — mesmo padrão de
- * `createLandingPage` em `lib/pages/store.ts`.
+ * Comunidade É campanha: nasce com o mesmo invariante de `POST /api/campanhas`
+ * — slug livre GLOBALMENTE (é o `/r/<slug>` do link mestre) e a linha em
+ * `tracked_links`. Sem isso a comunidade aparece em /painel/campanhas com link
+ * morto, ou com o QR apontando pro link de outro tenant.
+ *
+ * Devolve `null` quando o link mestre não pôde ser criado (corrida de slug); a
+ * linha de `campaign_groups` já foi desfeita nesse caso.
  */
-export async function criarComunidade(tenantId: string, dados: { nome: string }): Promise<Comunidade> {
+export async function criarComunidade(tenantId: string, dados: { nome: string }): Promise<Comunidade | null> {
   const { tenantId: tid } = montarQueryComunidades(tenantId);
-  const base = toSlug(dados.nome) || "comunidade";
-  let slug = base;
+  const existentes = await listarComunidades(tid);
+  const slug = await uniqueMasterSlug(dados.nome, new Set(existentes.map((c) => c.slug)), "comunidade");
 
-  for (let attempt = 0; attempt < SLUG_RETRY_ATTEMPTS; attempt++) {
-    const { data, error } = await getSupabaseAdmin()
-      .from(TABLE)
-      .insert({
-        tenant_id: tid,
-        name: dados.nome,
-        slug,
-        group_ids: [],
-        auto_grow: false,
-        whatsapp_community_jid: null,
-      })
-      .select(ROW_FIELDS)
-      .single();
-    if (!error) return mapRow(data as ComunidadeRow);
-    if (error.code !== UNIQUE_VIOLATION) throw new Error(error.message);
-    slug = `${base}-${Math.random().toString(36).slice(2, 6)}`;
-  }
-  throw new Error(`Não foi possível gerar um slug único para "${dados.nome}"`);
+  const { data, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .insert({
+      tenant_id: tid,
+      name: dados.nome,
+      slug,
+      group_ids: [],
+      auto_grow: false,
+      whatsapp_community_jid: null,
+    })
+    .select(ROW_FIELDS)
+    .single();
+  if (error) throw new Error(error.message);
+
+  const comunidade = mapRow(data as ComunidadeRow);
+  const temLink = await criarLinkMestreOuDesfazer(tid, { id: comunidade.id, slug: comunidade.slug, name: comunidade.nome });
+  return temLink ? comunidade : null;
 }
 
 async function buscarPorSlug(tenantId: string, slug: string): Promise<{ id: string; groupIds: string[] }> {

@@ -29,11 +29,17 @@ export function OrfaosFaixa({ grupos, comunidades, aoVincular }: Props) {
       {comunidades.length === 0 ? (
         <p className="mt-2 text-13 text-slate-600">Crie uma comunidade acima para poder vincular estes grupos.</p>
       ) : (
-        <ul className="mt-3 divide-y divide-line-200">
-          {grupos.map((grupo) => (
-            <LinhaOrfao key={grupo.whatsappGroupId} grupo={grupo} comunidades={comunidades} aoVincular={aoVincular} />
-          ))}
-        </ul>
+        <>
+          <p className="mt-2 text-13 text-slate-600">
+            Cada comunidade é também uma campanha: o grupo vinculado entra no link dela e recebe os disparos
+            dela.
+          </p>
+          <ul className="mt-3 divide-y divide-line-200">
+            {grupos.map((grupo) => (
+              <LinhaOrfao key={grupo.whatsappGroupId} grupo={grupo} comunidades={comunidades} aoVincular={aoVincular} />
+            ))}
+          </ul>
+        </>
       )}
     </section>
   );

@@ -56,7 +56,8 @@ export async function GET(req: Request) {
  * `campaign:create` e `campaigns:create` (mesmo teto de plano das campanhas):
  * comunidade é uma linha nova em `campaign_groups`, a mesma tabela que o teto
  * de campanhas já conta — sem o gate aqui, criar "comunidades" seria uma
- * porta pra furar o limite de campanhas do plano.
+ * porta pra furar o limite de campanhas do plano. Pelo mesmo motivo nasce com
+ * o link mestre `/r/<slug>` (ver `criarComunidade`).
  */
 export async function POST(req: Request) {
   try {
@@ -77,6 +78,12 @@ export async function POST(req: Request) {
     await assertPlanLimit(ctx.tenantId, "campaigns:create");
 
     const comunidade = await criarComunidade(ctx.tenantId, { nome: validado.nome });
+    if (!comunidade) {
+      return Response.json(
+        { error: "Não foi possível gerar o link da comunidade. Tente de novo." },
+        { status: 409 },
+      );
+    }
     return Response.json(comunidade, { status: 201 });
   } catch (error) {
     if (error instanceof Response) return error;
