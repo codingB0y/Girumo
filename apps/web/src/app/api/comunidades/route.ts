@@ -28,8 +28,17 @@ export async function GET(req: Request) {
     // `campaign_groups.group_ids` guarda whatsapp_group_id, não o UUID de
     // `groups.id` — casar pelo mesmo campo é o que faz o cálculo de órfãos
     // bater com produção (ver comentário em lib/communities/orfaos.ts).
+    //
+    // `name` e `members` viajam junto (Task 2.5): a faixa de órfãos da tela
+    // precisa exibir nome e tamanho de cada grupo sem uma segunda chamada a
+    // /api/groups. `gruposOrfaos<T>` é genérica — devolver um objeto mais rico
+    // que `GrupoRef` continua satisfazendo a assinatura.
     const orfaos = gruposOrfaos(
-      grupos.map((grupo) => ({ whatsappGroupId: grupo.whatsapp_group_id })),
+      grupos.map((grupo) => ({
+        whatsappGroupId: grupo.whatsapp_group_id,
+        name: grupo.name,
+        members: grupo.members,
+      })),
       comunidades,
     );
 
