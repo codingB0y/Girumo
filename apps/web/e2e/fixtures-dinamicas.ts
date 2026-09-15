@@ -163,6 +163,48 @@ function fixtureCampanhaEdicao(): FixtureDinamica {
   };
 }
 
+// ---------------------------------------------------------- comunidades
+
+/**
+ * Comunidade nao tem DELETE — a Task 2.5 so cobre criar, vincular e
+ * desvincular grupo, nao apagar a comunidade em si. Por isso o fixture segue
+ * o padrao de `fixturePagina`: procura pela marca primeiro, so cria se nao
+ * achar, e `apagar` fica no-op documentado. Sem isso, uma comunidade orfa por
+ * execucao de CI se acumularia no tenant de QA para sempre.
+ *
+ * Pre-requisito de CI: `GET /api/comunidades` 500 at a coluna
+ * `whatsapp_community_jid` ser migrada em produção e QA (Task 2.4) — ate la
+ * este fixture falha no `criar()`, com a mensagem do proprio 500, nao em
+ * silencio.
+ */
+const MARCA_DA_COMUNIDADE = "Fixture E2E de comunidade";
+
+type ComunidadeResumo = { nome: string; slug: string };
+type RespostaComunidades = { comunidades: ComunidadeResumo[] };
+
+const fixtureComunidade: FixtureDinamica = {
+  inexistente: "comunidade-que-nao-existe-e2e",
+  async criar(request) {
+    const marca: Marca = { tipo: "texto", valor: MARCA_DA_COMUNIDADE };
+    const { comunidades } = await json<RespostaComunidades>(request, "/api/comunidades");
+    const jaExiste = Array.isArray(comunidades)
+      ? comunidades.find((c) => c?.nome === MARCA_DA_COMUNIDADE)
+      : undefined;
+
+    if (jaExiste) {
+      return { valor: jaExiste.slug, marca, apagar: async () => {} };
+    }
+
+    const res = await request.post("/api/comunidades", { data: { nome: MARCA_DA_COMUNIDADE } });
+    if (!res.ok()) {
+      throw new Error(`POST /api/comunidades respondeu ${res.status()}: ${await res.text()}`);
+    }
+
+    const criada = (await res.json()) as { slug: string };
+    return { valor: criada.slug, marca, apagar: async () => {} };
+  },
+};
+
 // ------------------------------------------------------------ relampago
 
 /**
@@ -229,6 +271,7 @@ export const FIXTURES_DINAMICAS: Record<string, FixtureDinamica> = {
   "/painel/campanhas/[slug]": fixtureCampanha(),
   "/painel/campanhas/[slug]/editar": fixtureCampanhaEdicao(),
   "/painel/relampago/[id]": fixtureRelampago,
+  "/painel/comunidades/[slug]": fixtureComunidade,
 };
 
 /** Troca o segmento dinamico do padrao pelo valor real. */

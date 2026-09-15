@@ -58,13 +58,20 @@ export default function PainelComunidades() {
     carregar();
   }, [carregar]);
 
+  /**
+   * Lança em vez de engolir o erro: quem chama (`OrfaosFaixa`) é quem sabe
+   * onde mostrar a mensagem — ao lado do botão daquela linha, não num banner
+   * solto no topo da tela (achado de review, round 1).
+   */
   async function vincular(whatsappGroupId: string, slug: string) {
     const res = await authenticatedFetch(`/api/comunidades/${slug}/grupos`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ whatsappGroupId }),
     });
-    if (res.ok) await carregar();
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.error ?? "Não deu pra vincular o grupo.");
+    await carregar();
   }
 
   function abrirForm() {

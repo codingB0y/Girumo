@@ -50,12 +50,19 @@ function LinhaOrfao({
 }) {
   const [destino, setDestino] = useState("");
   const [vinculando, setVinculando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
 
   async function vincular() {
     if (!destino) return;
     setVinculando(true);
+    setErro(null);
     try {
       await aoVincular(grupo.whatsappGroupId, destino);
+    } catch (e) {
+      // Cobre tanto o erro que `aoVincular` lança (404/500 da API, com a
+      // mensagem dela) quanto falha de rede (fetch rejeitando antes de
+      // qualquer resposta) — as duas caem no mesmo `catch`.
+      setErro(e instanceof Error ? e.message : "Não deu pra vincular o grupo.");
     } finally {
       setVinculando(false);
     }
@@ -68,6 +75,11 @@ function LinhaOrfao({
       <div className="min-w-0 flex-1">
         <p className="truncate text-15 text-volt-950">{grupo.name}</p>
         <p className="font-data text-12 tabular-nums text-slate-600">{numero(grupo.members)} membros</p>
+        {erro && (
+          <p role="alert" className="mt-1 text-12 text-alerta">
+            {erro}
+          </p>
+        )}
       </div>
 
       <label className="sr-only" htmlFor={seletorId}>

@@ -387,9 +387,7 @@ function FichaDoGrupo({
             {grupo.isAdmin === false && (
               <span className="rounded-[var(--radius-chip)] bg-canvas-100 px-1.5 py-0.5">não admin</span>
             )}
-            <span aria-label={nomeComunidade ? `Comunidade: ${nomeComunidade}` : "Sem comunidade"}>
-              · {nomeComunidade ?? "—"}
-            </span>
+            <span>· {nomeComunidade ?? "—"}</span>
           </p>
         </div>
 

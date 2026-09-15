@@ -27,6 +27,9 @@ export default function ComunidadeDetalhe() {
   const [grupos, setGrupos] = useState<Group[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [desvinculando, setDesvinculando] = useState<string | null>(null);
+  /** Erro da última tentativa de desvincular, preso ao grupo que falhou — não
+   * um banner solto, senão some de vista se a lista rolar. */
+  const [erroDesvincular, setErroDesvincular] = useState<{ id: string; mensagem: string } | null>(null);
 
   const carregar = useCallback(async () => {
     setErro(null);
@@ -61,13 +64,23 @@ export default function ComunidadeDetalhe() {
     if (!ok) return;
 
     setDesvinculando(whatsappGroupId);
+    setErroDesvincular(null);
     try {
       const res = await authenticatedFetch(`/api/comunidades/${slug}/grupos`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ whatsappGroupId }),
       });
-      if (res.ok) await carregar();
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? "Não deu pra desvincular o grupo.");
+      await carregar();
+    } catch (e) {
+      // Cobre a resposta de erro da API (404 de comunidade/grupo, 500) e falha
+      // de rede (fetch rejeitando antes de qualquer resposta) no mesmo lugar.
+      setErroDesvincular({
+        id: whatsappGroupId,
+        mensagem: e instanceof Error ? e.message : "Não deu pra desvincular o grupo.",
+      });
     } finally {
       setDesvinculando(null);
     }
@@ -161,6 +174,11 @@ export default function ComunidadeDetalhe() {
                   <p className="truncate text-15 text-volt-950">{grupo?.name ?? "Grupo não encontrado"}</p>
                   {grupo && (
                     <p className="font-data text-12 tabular-nums text-slate-600">{numero(grupo.members)} membros</p>
+                  )}
+                  {erroDesvincular?.id === id && (
+                    <p role="alert" className="mt-1 text-12 text-alerta">
+                      {erroDesvincular.mensagem}
+                    </p>
                   )}
                 </div>
                 <button
