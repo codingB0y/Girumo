@@ -152,7 +152,7 @@ export default function ComunidadeDetalhe() {
       <section>
         <h2 className="text-[15px] font-semibold text-volt-950">Grupos</h2>
         {gruposDaComunidade.length === 0 ? (
-          <p className="mt-2 text-14 text-slate-600">Nenhum grupo vinculado ainda.</p>
+          <p className="mt-2 text-14 text-slate-600">Esta comunidade ainda não tem grupo nenhum.</p>
         ) : (
           <ul className="mt-2 divide-y divide-line-200">
             {gruposDaComunidade.map(({ id, grupo }) => (
