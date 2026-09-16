@@ -8,6 +8,7 @@ import { authenticatedFetch } from "@/lib/supabase/client";
 import { useConfirmacao } from "@/components/painel/confirmacao";
 import { numero } from "@/lib/painel/grupos";
 import type { Group } from "@/lib/mock-data";
+import { MessagesTab } from "@/components/painel/messages";
 
 type Comunidade = {
   id: string;
@@ -194,6 +195,13 @@ export default function ComunidadeDetalhe() {
             ))}
           </ul>
         )}
+      </section>
+
+      <section>
+        <h2 className="text-[15px] font-semibold text-volt-950">Mensagens</h2>
+        <div className="mt-2">
+          <MessagesTab campaignSlug={comunidade.slug} groupIds={comunidade.groupIds} />
+        </div>
       </section>
 
       {folhaDeConfirmacao}
