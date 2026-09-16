@@ -77,7 +77,7 @@ export async function POST(req: Request) {
 
     await assertPlanLimit(ctx.tenantId, "campaigns:create");
 
-    const comunidade = await criarComunidade(ctx.tenantId, { nome: validado.nome });
+    const comunidade = await criarComunidade(ctx.tenantId, { nome: validado.nome }, ctx.authUserId);
     if (!comunidade) {
       return Response.json(
         { error: "Não foi possível gerar o link da comunidade. Tente de novo." },
