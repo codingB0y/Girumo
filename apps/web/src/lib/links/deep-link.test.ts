@@ -29,10 +29,11 @@ assert.equal(readCookie("a=1; gr_x=1203%40g.us; b=2", "gr_x"), "1203@g.us");
 assert.equal(readCookie("a=1", "gr_x"), null);
 assert.equal(readCookie(null, "gr_x"), null);
 
-// Header de gravação: HttpOnly, Lax, 90 dias, path só do slug; Secure só em https.
-const h = rememberCookieHeader("gr_x", "1203@g.us", "saldao", true);
+// Header de gravação: HttpOnly, Lax, 90 dias, path como veio; Secure só em https.
+const h = rememberCookieHeader("gr_x", "1203@g.us", "/r/saldao", true);
 assert.equal(h, `gr_x=1203%40g.us; Path=/r/saldao; Max-Age=${REMEMBER_MAX_AGE_S}; HttpOnly; SameSite=Lax; Secure`);
-assert.equal(rememberCookieHeader("gr_x", "1203@g.us", "saldao", false).includes("Secure"), false);
+assert.equal(rememberCookieHeader("gr_x", "1203@g.us", "/r/saldao", false).includes("Secure"), false);
+assert.equal(rememberCookieHeader("gr_x", "1203@g.us", "/c/saldao", true).includes("Path=/c/saldao"), true);
 assert.equal(REMEMBER_MAX_AGE_S, 90 * 24 * 60 * 60);
 
 console.log("deep-link.test ok");

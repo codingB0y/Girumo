@@ -92,7 +92,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
   const headers = new Headers();
   // Grupo lembrado: só gente real, só campanha, só quando a opção está ligada.
   if (human && cookieName && target.groupId && entrada.um_grupo_por_pessoa) {
-    headers.append("set-cookie", rememberCookieHeader(cookieName, target.groupId, slug, reqUrl.protocol === "https:"));
+    headers.append("set-cookie", rememberCookieHeader(cookieName, target.groupId, `/r/${slug}`, reqUrl.protocol === "https:"));
   }
 
   const deepLinkUrl = campaign && entrada.deep_link && isMobileUa(ua) ? whatsappDeepLink(target.url) : null;
