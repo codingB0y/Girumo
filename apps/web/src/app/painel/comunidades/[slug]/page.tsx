@@ -19,6 +19,13 @@ type Comunidade = {
   whatsappCommunityJid: string | null;
 };
 
+type Sugestao = {
+  grupos: Array<{ whatsappGroupId: string; name: string; pessoasNovas: number }>;
+  pessoasCobertas: number;
+  pessoasTotais: number;
+  cobertura: number;
+};
+
 export default function ComunidadeDetalhe() {
   const params = useParams<{ slug: string }>();
   const slug = params?.slug ?? "";
@@ -26,6 +33,7 @@ export default function ComunidadeDetalhe() {
 
   const [comunidade, setComunidade] = useState<Comunidade | null | undefined>(undefined);
   const [grupos, setGrupos] = useState<Group[]>([]);
+  const [cobertura, setCobertura] = useState<Sugestao | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [desvinculando, setDesvinculando] = useState<string | null>(null);
   /** Erro da última tentativa de desvincular, preso ao grupo que falhou — não
@@ -35,9 +43,10 @@ export default function ComunidadeDetalhe() {
   const carregar = useCallback(async () => {
     setErro(null);
     try {
-      const [resComunidades, resGrupos] = await Promise.all([
+      const [resComunidades, resGrupos, resCobertura] = await Promise.all([
         authenticatedFetch("/api/comunidades", { cache: "no-store" }),
         authenticatedFetch("/api/groups", { cache: "no-store" }),
+        authenticatedFetch(`/api/comunidades/${slug}/cobertura`, { cache: "no-store" }),
       ]);
       if (!resComunidades.ok) throw new Error("Não deu pra carregar a comunidade.");
       const data: { comunidades: Comunidade[] } = await resComunidades.json();
@@ -46,6 +55,10 @@ export default function ComunidadeDetalhe() {
 
       setComunidade(encontrada);
       setGrupos(Array.isArray(listaGrupos) ? listaGrupos : []);
+      if (resCobertura.ok) {
+        const dataCobertura: { sugestao: Sugestao } = await resCobertura.json();
+        setCobertura(dataCobertura.sugestao);
+      }
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Não deu pra carregar a comunidade.");
     }
@@ -122,7 +135,11 @@ export default function ComunidadeDetalhe() {
 
   const membrosPorGrupo = new Map(grupos.map((g) => [g.whatsappGroupId, g] as const));
   const gruposDaComunidade = comunidade.groupIds.map((id) => ({ id, grupo: membrosPorGrupo.get(id) ?? null }));
-  const totalMembros = gruposDaComunidade.reduce((total, g) => total + (g.grupo?.members ?? 0), 0);
+  const totalMembrosSoma = gruposDaComunidade.reduce((total, g) => total + (g.grupo?.members ?? 0), 0);
+  // `??` só cai no fallback em null/undefined, não em 0 — e `pessoasTotais: 0`
+  // é exatamente o que a rota /cobertura devolve antes do primeiro sync.
+  const temAlcanceReal = cobertura !== null && cobertura.pessoasTotais > 0;
+  const totalMembros = temAlcanceReal ? cobertura.pessoasTotais : totalMembrosSoma;
 
   return (
     <div className="mx-auto max-w-[900px] space-y-6 px-4 py-8 sm:px-8">
@@ -157,9 +174,15 @@ export default function ComunidadeDetalhe() {
       <div className="pn-card rounded-[var(--radius-control)] p-5">
         <p className="font-data text-20 tabular-nums text-volt-950">{numero(totalMembros)} membros</p>
         <p className="mt-1 text-13 text-slate-600">
-          Soma de quem está nos {comunidade.groupIds.length}{" "}
-          {comunidade.groupIds.length === 1 ? "grupo" : "grupos"} desta comunidade. As comunidades
-          nativas do WhatsApp têm um teto de tamanho que a Girumo ainda não mediu — não dá pra
+          {temAlcanceReal ? (
+            "Alcance real desta comunidade — pessoas únicas, sem contar quem está em mais de um grupo duas vezes."
+          ) : (
+            <>
+              Soma de quem está nos {comunidade.groupIds.length}{" "}
+              {comunidade.groupIds.length === 1 ? "grupo" : "grupos"} desta comunidade.
+            </>
+          )}{" "}
+          As comunidades nativas do WhatsApp têm um teto de tamanho que a Girumo ainda não mediu — não dá pra
           garantir que este total cabe numa comunidade só antes de tentar criar uma de verdade.
         </p>
       </div>
@@ -196,6 +219,25 @@ export default function ComunidadeDetalhe() {
           </ul>
         )}
       </section>
+
+      {cobertura && cobertura.pessoasTotais > 0 && (
+        <section>
+          <h2 className="text-[15px] font-semibold text-volt-950">Cobertura</h2>
+          <p className="mt-1 text-13 text-slate-600">
+            Estes {cobertura.grupos.length} grupo{cobertura.grupos.length === 1 ? "" : "s"} cobrem{" "}
+            {Math.round(cobertura.cobertura * 100)}% das {numero(cobertura.pessoasTotais)} pessoas desta
+            comunidade. É sugestão de leitura — a Girumo nunca corta grupo sozinha.
+          </p>
+          <ul className="mt-2 divide-y divide-line-200">
+            {cobertura.grupos.map((g) => (
+              <li key={g.whatsappGroupId} className="flex items-center justify-between gap-3 py-2">
+                <span className="truncate text-14 text-volt-950">{g.name}</span>
+                <span className="font-data text-12 tabular-nums text-slate-600">+{numero(g.pessoasNovas)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section>
         <h2 className="text-[15px] font-semibold text-volt-950">Mensagens</h2>
