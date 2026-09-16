@@ -353,3 +353,9 @@ apps/web/supabase/migrations/20260904110000_check_invite_sem_janela.sql
 # dev tinha 5 linhas de seed com categorias soltas de um tenant, viraram pastas
 # com o nome da categoria antiga; prod estava vazia (no-op). Aplicada nos DOIS.
 apps/web/supabase/migrations/20260911010000_template_folders.sql
+
+# 15/09/2026 - Gestao de Comunidade Fase 2: `campaign_groups.whatsapp_community_jid`
+# (text, nullable). NULL = colecao so da Girumo; guarda o JID quando a comunidade
+# nativa do WhatsApp existir. Sem RLS nova (a tabela ja tem). O gate de drift ve a
+# coluna nova; regenerar schema-baseline.json com credencial de prod apos aplicar nos DOIS.
+apps/web/supabase/migrations/20260915120000_community_jid.sql

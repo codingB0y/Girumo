@@ -163,6 +163,38 @@ function fixtureCampanhaEdicao(): FixtureDinamica {
   };
 }
 
+// ---------------------------------------------------------- comunidades
+
+/**
+ * Comunidade e a mesma linha de `campaign_groups` que a campanha, entao o
+ * `DELETE /api/campanhas?id=` apaga ela tambem — mesmo padrao de
+ * `fixtureCampanha`: cria com nome unico e apaga de verdade no fim.
+ *
+ * Pre-requisito de CI: `/api/comunidades` responde 500 ate a coluna
+ * `whatsapp_community_jid` ser migrada no banco do ambiente (migracao
+ * 20260915120000_community_jid.sql) — ate la este fixture falha no `criar()`,
+ * com a mensagem do proprio 500, nao em silencio.
+ */
+const fixtureComunidade: FixtureDinamica = {
+  inexistente: "comunidade-que-nao-existe-e2e",
+  async criar(request) {
+    const nome = `E2E comunidade ${Date.now().toString(36)}`;
+    const res = await request.post("/api/comunidades", { data: { nome } });
+    if (!res.ok()) {
+      throw new Error(`POST /api/comunidades respondeu ${res.status()}: ${await res.text()}`);
+    }
+
+    const criada = (await res.json()) as { id: string; slug: string };
+    return {
+      valor: criada.slug,
+      marca: { tipo: "texto", valor: nome },
+      apagar: async () => {
+        await request.delete(`/api/campanhas?id=${encodeURIComponent(criada.id)}`);
+      },
+    };
+  },
+};
+
 // ------------------------------------------------------------ relampago
 
 /**
@@ -229,6 +261,7 @@ export const FIXTURES_DINAMICAS: Record<string, FixtureDinamica> = {
   "/painel/campanhas/[slug]": fixtureCampanha(),
   "/painel/campanhas/[slug]/editar": fixtureCampanhaEdicao(),
   "/painel/relampago/[id]": fixtureRelampago,
+  "/painel/comunidades/[slug]": fixtureComunidade,
 };
 
 /** Troca o segmento dinamico do padrao pelo valor real. */

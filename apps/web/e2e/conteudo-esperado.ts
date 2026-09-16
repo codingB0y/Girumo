@@ -139,6 +139,25 @@ export const CONTEUDO_ESPERADO: Record<string, ConteudoEsperado> = {
     semLista: "Formulario de criacao; nao lista registro existente.",
   },
 
+  "/painel/comunidades": {
+    // NAO "Comunidades": e o rotulo do item de menu (painel-nav.ts), entao
+    // casaria em qualquer tela do painel. O subtitulo e do cabecalho desta
+    // pagina (renderiza sem esperar o fetch); quem prova que a lista carregou
+    // e o `lista` abaixo.
+    ancora: /Agrupe seus grupos de WhatsApp/,
+    lista: {
+      api: "/api/comunidades",
+      // A rota devolve `{ comunidades: [...], orfaos: [...] }`, nao um array
+      // cru — mesma forma de /painel/indicacao e /painel/relampago. O campo e
+      // `nome`, nao `name`: e a mesma tabela de campanhas, mas outra vista.
+      marca: (j) => {
+        const comunidades = (j as { comunidades?: unknown } | null)?.comunidades;
+        return primeiroTexto(comunidades, "nome");
+      },
+      vazio: /Nenhuma comunidade/i,
+    },
+  },
+
   "/painel/conectar": {
     // Dois modos na mesma rota: "Como conectar" (pareamento) e "Seu número"
     // (sessao aberta). Cobrar so o primeiro faria o smoke quebrar no dia em que

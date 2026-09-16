@@ -2,10 +2,23 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { GruposVitrine } from "@/components/painel/grupos/vitrine/grupos-vitrine";
+import { authenticatedFetch } from "@/lib/supabase/client";
 import type { Group } from "@/lib/mock-data";
+
+type Comunidade = { nome: string; groupIds: string[] };
+
+/** whatsappGroupId → nome da comunidade que o contém (Task 2.5, Step 6). */
+function mapaComunidadePorGrupo(comunidades: Comunidade[]): Map<string, string> {
+  const mapa = new Map<string, string>();
+  for (const c of comunidades) {
+    for (const id of c.groupIds) mapa.set(id, c.nome);
+  }
+  return mapa;
+}
 
 export default function PainelGrupos() {
   const [groups, setGroups] = useState<Group[]>([]);
+  const [comunidadePorGrupo, setComunidadePorGrupo] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
@@ -22,11 +35,24 @@ export default function PainelGrupos() {
     setGroups(Array.isArray(data) ? data : []);
   }, []);
 
+  // Falha aqui não derruba a tela de grupos: sem o mapa, a coluna nova mostra
+  // traço em todo grupo — degradação visível, não quebra.
+  const loadComunidades = useCallback(async () => {
+    try {
+      const res = await authenticatedFetch("/api/comunidades", { cache: "no-store" });
+      if (!res.ok) return;
+      const data: { comunidades: Comunidade[] } = await res.json();
+      setComunidadePorGrupo(mapaComunidadePorGrupo(data.comunidades ?? []));
+    } catch {
+      // sem sinal de comunidades, a coluna nova cai pro traço — ver comentário acima
+    }
+  }, []);
+
   useEffect(() => {
-    loadGroups()
+    Promise.all([loadGroups(), loadComunidades()])
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [loadGroups]);
+  }, [loadGroups, loadComunidades]);
 
   /**
    * Importa os grupos da instância conectada.
@@ -75,6 +101,7 @@ export default function PainelGrupos() {
   return (
     <GruposVitrine
       grupos={groups}
+      comunidadePorGrupo={comunidadePorGrupo}
       carregando={loading}
       sincronizando={syncing}
       erroDoSync={syncError}

@@ -11,6 +11,7 @@ import {
   Gift,
   Settings,
   BookOpen,
+  Boxes,
   type LucideIcon,
 } from "lucide-react";
 
@@ -62,6 +63,7 @@ const DISPAROS: NavItem = { href: "/painel/disparos", label: "Disparos", icon: S
 const BIBLIOTECA: NavItem = { href: "/painel/biblioteca", label: "Biblioteca", icon: BookOpen, grupo: "vender" };
 const RELAMPAGO: NavItem = { href: "/painel/relampago", label: "Oferta Relâmpago", icon: Flame, grupo: "vender" };
 const AUTOMACOES: NavItem = { href: "/painel/automacoes", label: "Automações", icon: Zap, grupo: "vender" };
+const COMUNIDADES: NavItem = { href: "/painel/comunidades", label: "Comunidades", icon: Boxes, grupo: "loja" };
 const GRUPOS: NavItem = { href: "/painel/grupos", label: "Grupos", icon: Users, grupo: "loja" };
 const CONTATOS: NavItem = { href: "/painel/contatos", label: "Contatos", icon: UserPlus, grupo: "loja" };
 const PAGINAS: NavItem = { href: "/painel/pages", label: "Páginas", icon: PanelsTopLeft, grupo: "lotar" };
@@ -70,7 +72,7 @@ const INDICACAO: NavItem = { href: "/painel/indicacao", label: "Indicação", ic
 const CONFIGURACOES: NavItem = { href: "/painel/configuracoes", label: "Configurações", icon: Settings, grupo: "loja" };
 
 export const NAV_GROUPS: NavGroup[] = [
-  { title: null, items: [INICIO, CAMPANHAS, DISPAROS, BIBLIOTECA, RELAMPAGO, AUTOMACOES, GRUPOS, CONTATOS] },
+  { title: null, items: [INICIO, CAMPANHAS, DISPAROS, BIBLIOTECA, RELAMPAGO, AUTOMACOES, COMUNIDADES, GRUPOS, CONTATOS] },
   { title: "Crescimento", items: [PAGINAS, RESULTADOS, INDICACAO] },
 ];
 

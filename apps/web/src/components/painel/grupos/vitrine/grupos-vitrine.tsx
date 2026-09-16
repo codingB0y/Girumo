@@ -19,10 +19,12 @@ import {
 } from "@/lib/painel/grupos";
 import type { Group } from "@/lib/mock-data";
 
-type Filtro = "todos" | "ativos" | "cheios" | "sem_convite";
+type Filtro = "todos" | "ativos" | "cheios" | "sem_convite" | "sem_comunidade";
 
 type Props = {
   grupos: readonly Group[];
+  /** whatsappGroupId → nome da comunidade (Task 2.5, Step 6). Vazio = traço na coluna. */
+  comunidadePorGrupo: Map<string, string>;
   carregando: boolean;
   sincronizando: boolean;
   erroDoSync: string | null;
@@ -37,11 +39,13 @@ const FILTROS: { valor: Filtro; rotulo: string }[] = [
   { valor: "ativos", rotulo: "Ativos" },
   { valor: "cheios", rotulo: "Cheios" },
   { valor: "sem_convite", rotulo: "Sem convite" },
+  { valor: "sem_comunidade", rotulo: "Sem comunidade" },
 ];
 
 /** A prateleira é o retrato do estoque; a lista é o balcão. Spec 12.5. */
 export function GruposVitrine({
   grupos,
+  comunidadePorGrupo,
   carregando,
   sincronizando,
   erroDoSync,
@@ -56,7 +60,10 @@ export function GruposVitrine({
 
   const agora = new Date();
   const total = romaneio(grupos);
-  const contagens = contagensDosFiltros(total);
+  const contagens = {
+    ...contagensDosFiltros(total),
+    semComunidade: grupos.filter((g) => !comunidadePorGrupo.has(g.whatsappGroupId)).length,
+  };
   const aviso = prestesALotar(grupos);
 
   const ordenados = useMemo(() => maisCheioPrimeiro(grupos), [grupos]);
@@ -69,10 +76,11 @@ export function GruposVitrine({
         filtro === "todos" ||
         (filtro === "cheios" && estado === "cheio") ||
         (filtro === "sem_convite" && estado === "sem_convite") ||
+        (filtro === "sem_comunidade" && !comunidadePorGrupo.has(g.whatsappGroupId)) ||
         (filtro === "ativos" && (estado === "ativo" || estado === "quase"));
       return passaNoFiltro && (termo === "" || g.name.toLowerCase().includes(termo));
     });
-  }, [ordenados, filtro, busca]);
+  }, [ordenados, filtro, busca, comunidadePorGrupo]);
 
   // Sem memo: preso a [grupos], o `agora` capturado congelava e o cabeçalho
   // ficava em "há 1 min" enquanto as fichas já diziam "há 11 min".
@@ -169,6 +177,7 @@ export function GruposVitrine({
                 <FichaDoGrupo
                   grupo={g}
                   agora={agora}
+                  nomeComunidade={comunidadePorGrupo.get(g.whatsappGroupId) ?? null}
                   editando={editando === g.whatsappGroupId}
                   onEditar={() => setEditando(editando === g.whatsappGroupId ? null : g.whatsappGroupId)}
                   onFechar={() => setEditando(null)}
@@ -246,7 +255,7 @@ function Filtros({
   busca,
   onBusca,
 }: {
-  contagens: { todos: number; ativos: number; cheios: number; semConvite: number };
+  contagens: { todos: number; ativos: number; cheios: number; semConvite: number; semComunidade: number };
   filtro: Filtro;
   onFiltro: (f: Filtro) => void;
   busca: string;
@@ -263,7 +272,9 @@ function Filtros({
                 ? contagens.ativos
                 : f.valor === "cheios"
                   ? contagens.cheios
-                  : contagens.semConvite;
+                  : f.valor === "sem_convite"
+                    ? contagens.semConvite
+                    : contagens.semComunidade;
           const ativo = filtro === f.valor;
           return (
             <button
@@ -345,6 +356,7 @@ const CHIP: Record<EstadoDoGrupo, { texto: string; classe: string }> = {
 function FichaDoGrupo({
   grupo,
   agora,
+  nomeComunidade,
   editando,
   onEditar,
   onFechar,
@@ -352,6 +364,8 @@ function FichaDoGrupo({
 }: {
   grupo: Group;
   agora: Date;
+  /** Nome da comunidade que contém este grupo, ou `null` sem nenhuma (Task 2.5). */
+  nomeComunidade: string | null;
   editando: boolean;
   onEditar: () => void;
   onFechar: () => void;
@@ -373,6 +387,7 @@ function FichaDoGrupo({
             {grupo.isAdmin === false && (
               <span className="rounded-[var(--radius-chip)] bg-canvas-100 px-1.5 py-0.5">não admin</span>
             )}
+            <span>· {nomeComunidade ?? "—"}</span>
           </p>
         </div>
 
