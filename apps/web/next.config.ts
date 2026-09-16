@@ -115,7 +115,7 @@ const nextConfig: NextConfig = {
         // `p$`/`r$` cobrem os paths exatos /p e /r: `:path*` na regra dedicada
         // casa zero segmentos, então sem eles esses dois sairiam com dois
         // headers de CSP.
-        source: "/((?!p/|p$|r/|r$|editor-preview).*)",
+        source: "/((?!p/|p$|r/|r$|c/|c$|editor-preview).*)",
         headers: securityHeaders,
       },
       {
@@ -129,6 +129,10 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/r/:path*",
+        headers: headersWithoutCsp,
+      },
+      {
+        source: "/c/:path*",
         headers: headersWithoutCsp,
       },
     ];

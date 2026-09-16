@@ -125,6 +125,7 @@ test("mantém as páginas de terceiros fora do rastreio", () => {
   // de rastreio.
   assert.ok(paths.includes("/p/"), "as LPs dos lojistas precisam sair do rastreio");
   assert.ok(paths.includes("/r/"), "o redirect de link rastreado precisa sair do rastreio");
+  assert.ok(paths.includes("/c/"), "a rota da comunidade precisa sair do rastreio");
   assert.ok(paths.includes("/painel"), "a área logada continua fora");
   assert.ok(paths.includes("/api"), "as rotas internas continuam fora");
 });
