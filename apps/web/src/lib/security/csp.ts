@@ -27,6 +27,7 @@ export type NonceSurface = "public-lp" | "click-redirect";
 export function surfaceForPath(pathname: string): NonceSurface | null {
   if (pathname === "/p" || pathname.startsWith("/p/")) return "public-lp";
   if (pathname === "/r" || pathname.startsWith("/r/")) return "click-redirect";
+  if (pathname === "/c" || pathname.startsWith("/c/")) return "click-redirect";
   return null;
 }
 

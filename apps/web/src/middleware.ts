@@ -188,5 +188,6 @@ export const config = {
     "/((?!login|signup|forgot-password|reset-password|auth/callback|api/p/|lp|_next/static|_next/image|favicon.ico|.*\\.).*)",
     "/p/:path*",
     "/r/:path*",
+    "/c/:path*",
   ],
 };

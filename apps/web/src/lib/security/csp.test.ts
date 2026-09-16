@@ -24,6 +24,7 @@ function nonceSeenByNext(csp: string): string | undefined {
 test("nonce surfaces are the routes that render per request", () => {
   assert.equal(surfaceForPath("/p/loja-teste"), "public-lp");
   assert.equal(surfaceForPath("/r/abc123"), "click-redirect");
+  assert.equal(surfaceForPath("/c/abc123"), "click-redirect");
 });
 
 test("pre-rendered routes get no nonce", () => {

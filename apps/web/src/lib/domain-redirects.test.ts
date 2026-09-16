@@ -49,9 +49,9 @@ test("nunca redireciona /api — webhook não segue 308", () => {
 test("deixa o site público onde ele está", () => {
   const sources: readonly string[] = APP_ONLY_PATHS;
 
-  // Estas são o ativo de SEO e vivem em www: a home é a canônica, /p/ e /r/ são
-  // as superfícies públicas dos lojistas.
-  for (const publicPath of ["/", "/p/:path*", "/r/:path*", "/termos", "/privacidade"]) {
+  // Estas são o ativo de SEO e vivem em www: a home é a canônica, /p/, /r/ e
+  // /c/ são as superfícies públicas dos lojistas.
+  for (const publicPath of ["/", "/p/:path*", "/r/:path*", "/c/:path*", "/termos", "/privacidade"]) {
     assert.ok(!sources.includes(publicPath), `${publicPath} não pode sair de www`);
   }
 });

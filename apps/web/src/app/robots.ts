@@ -16,7 +16,7 @@ export default function robots(): MetadataRoute.Robots {
       // gate real — o Disallow aqui apenas evita gastar orçamento de rastreio.
       // Os dois juntos são de propósito: Disallow sozinho impediria o robô de
       // LER o noindex de uma URL que ele já conhecesse por link externo.
-      disallow: ["/painel", "/api", "/p/", "/r/"],
+      disallow: ["/painel", "/api", "/p/", "/r/", "/c/"],
     },
     sitemap: `${siteUrl}/sitemap.xml`,
     host: siteUrl,

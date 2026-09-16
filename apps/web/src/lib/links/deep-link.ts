@@ -51,11 +51,13 @@ export function readCookie(header: string | null, name: string): string | null {
 /**
  * Path restrito ao slug: o cookie de uma campanha não viaja para as outras.
  * HttpOnly porque nenhum script precisa lê-lo; Lax porque o clique vem de fora.
+ * `cookiePath` vem pronto do caller (ex.: `/r/saldao` ou `/c/saldao`) — quem
+ * decide o prefixo de rota é quem chama, não esta função.
  */
-export function rememberCookieHeader(name: string, whatsappGroupId: string, slug: string, secure: boolean): string {
+export function rememberCookieHeader(name: string, whatsappGroupId: string, cookiePath: string, secure: boolean): string {
   const attrs = [
     `${name}=${encodeURIComponent(whatsappGroupId)}`,
-    `Path=/r/${slug}`,
+    `Path=${cookiePath}`,
     `Max-Age=${REMEMBER_MAX_AGE_S}`,
     "HttpOnly",
     "SameSite=Lax",
