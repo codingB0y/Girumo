@@ -136,7 +136,10 @@ export default function ComunidadeDetalhe() {
   const membrosPorGrupo = new Map(grupos.map((g) => [g.whatsappGroupId, g] as const));
   const gruposDaComunidade = comunidade.groupIds.map((id) => ({ id, grupo: membrosPorGrupo.get(id) ?? null }));
   const totalMembrosSoma = gruposDaComunidade.reduce((total, g) => total + (g.grupo?.members ?? 0), 0);
-  const totalMembros = cobertura?.pessoasTotais ?? totalMembrosSoma;
+  // `??` só cai no fallback em null/undefined, não em 0 — e `pessoasTotais: 0`
+  // é exatamente o que a rota /cobertura devolve antes do primeiro sync.
+  const temAlcanceReal = cobertura !== null && cobertura.pessoasTotais > 0;
+  const totalMembros = temAlcanceReal ? cobertura.pessoasTotais : totalMembrosSoma;
 
   return (
     <div className="mx-auto max-w-[900px] space-y-6 px-4 py-8 sm:px-8">
@@ -171,7 +174,7 @@ export default function ComunidadeDetalhe() {
       <div className="pn-card rounded-[var(--radius-control)] p-5">
         <p className="font-data text-20 tabular-nums text-volt-950">{numero(totalMembros)} membros</p>
         <p className="mt-1 text-13 text-slate-600">
-          {cobertura ? (
+          {temAlcanceReal ? (
             "Alcance real desta comunidade — pessoas únicas, sem contar quem está em mais de um grupo duas vezes."
           ) : (
             <>

@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import {
   EvolutionError,
@@ -141,22 +142,31 @@ export async function POST(req: Request) {
 
     // Fase 3 de Comunidades: mesma leitura do sync já tem os participantes —
     // zero chamada nova à Evolution. Falha aqui não pode derrubar o sync:
-    // alcance real é enriquecimento, não o que o lojista veio fazer.
-    await Promise.allSettled(
-      gruposAdmin.map((g) =>
-        upsertParticipantesDoGrupo(
-          ctx.tenantId,
-          String(g.id),
-          (g.participants ?? [])
-            .filter((p): p is { id: string; phoneNumber?: string | null; admin?: string | null } => Boolean(p?.id))
-            .map((p) => ({
-              participantLid: p.id,
-              phone: p.phoneNumber ?? null,
-              isAdmin: p.admin === "admin" || p.admin === "superadmin",
-            })),
+    // alcance real é enriquecimento, não o que o lojista veio fazer. E não
+    // pode ficar no caminho crítico da resposta: esta rota já tem
+    // maxDuration=60 por causa da Evolution, `after()` roda depois que a
+    // resposta já saiu (mesmo padrão de short-link-click.ts).
+    after(async () => {
+      const r = await Promise.allSettled(
+        gruposAdmin.map((g) =>
+          upsertParticipantesDoGrupo(
+            ctx.tenantId,
+            String(g.id),
+            (g.participants ?? [])
+              .filter((p): p is { id: string; phoneNumber?: string | null; admin?: string | null } => Boolean(p?.id))
+              .map((p) => ({
+                participantLid: p.id,
+                phone: p.phoneNumber ?? null,
+                isAdmin: p.admin === "admin" || p.admin === "superadmin",
+              })),
+          ),
         ),
-      ),
-    );
+      );
+      const falhas = r.filter((x) => x.status === "rejected");
+      if (falhas.length > 0) {
+        console.error(`[api/groups/sync] ${falhas.length} grupo(s) sem participantes gravados:`, falhas[0]);
+      }
+    });
 
     // Backfill de convite pela fila do lote (15/min), no lugar do cron diário.
     // Falha aqui não pode derrubar o sync: convite é enriquecimento.
