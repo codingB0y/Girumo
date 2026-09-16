@@ -273,11 +273,8 @@ async function ackGrowSupabase(tenantId: string, input: {
       members: input.members ?? 0,
       inviteUrl: input.inviteLink,
     });
-    const campanha = await supaCampaigns.getCampaignGroupById(tenantId, row.campaign_group_id);
-    if (campanha && !campanha.group_ids.includes(input.whatsappGroupId)) {
-      await supaCampaigns.updateCampaignGroup(tenantId, campanha.id, {
-        group_ids: [...campanha.group_ids, input.whatsappGroupId],
-      });
+    if (row.campaign_group_id) {
+      await supaCampaigns.appendGroupId(tenantId, row.campaign_group_id, input.whatsappGroupId);
     }
   }
   return toGrowJob(row);

@@ -84,6 +84,23 @@ export async function updateCampaignGroup(
   return data;
 }
 
+/**
+ * Acrescenta 1 id a `group_ids` sem ler o array primeiro — `campaign_group_append_group_id`
+ * faz o append num UPDATE só, atômico por linha. O auto-grow do worker e a
+ * tela de comunidades escrevem na mesma coleção; ler-alterar-regravar em JS
+ * (como este arquivo fazia antes) perde a escrita de quem correu por último.
+ * Idempotente: repetir com o mesmo id não duplica. Requer a migração
+ * `20260916040000_campaign_group_ids_rpc.sql` aplicada nos dois bancos.
+ */
+export async function appendGroupId(tenantId: string, id: string, whatsappGroupId: string): Promise<void> {
+  const { error } = await getSupabaseAdmin().rpc("campaign_group_append_group_id", {
+    p_tenant_id: tenantId,
+    p_id: id,
+    p_whatsapp_group_id: whatsappGroupId,
+  });
+  if (error) throw new Error(error.message);
+}
+
 export async function deleteCampaignGroup(tenantId: string, id: string): Promise<void> {
   const { error } = await getSupabaseAdmin()
     .from(TABLE)

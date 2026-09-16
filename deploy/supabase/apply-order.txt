@@ -359,3 +359,12 @@ apps/web/supabase/migrations/20260911010000_template_folders.sql
 # nativa do WhatsApp existir. Sem RLS nova (a tabela ja tem). O gate de drift ve a
 # coluna nova; regenerar schema-baseline.json com credencial de prod apos aplicar nos DOIS.
 apps/web/supabase/migrations/20260915120000_community_jid.sql
+
+# 16/09/2026 - PR #293: campaign_group_append_group_id / campaign_group_remove_group_id.
+# RPC atomica (security definer) pra append/remove em campaign_groups.group_ids sem
+# ler-alterar-regravar em JS -- mata o lost update entre a tela de comunidades e o
+# auto-grow do worker. Revoke de public/anon/authenticated, grant so a service_role.
+# Aplicada manualmente nos DOIS bancos (DDL bloqueado pelo classificador do agente);
+# schema-baseline.json regenerado por SQL direto (schema_signature() em prod) apos
+# confirmar as duas funcoes com o mesmo ACL nos dois bancos.
+apps/web/supabase/migrations/20260916040000_campaign_group_ids_rpc.sql

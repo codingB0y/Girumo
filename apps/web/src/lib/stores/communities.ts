@@ -1,6 +1,7 @@
 import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { criarLinkMestreOuDesfazer, uniqueMasterSlug } from "@/lib/campaigns/master-link";
+import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 
 /**
  * Comunidades são `campaign_groups` vistas por outra ótica — mesma tabela que
@@ -72,8 +73,18 @@ export async function listarComunidades(tenantId: string): Promise<Comunidade[]>
  *
  * Devolve `null` quando o link mestre não pôde ser criado (corrida de slug); a
  * linha de `campaign_groups` já foi desfeita nesse caso.
+ *
+ * `userId` é só pra atribuir o marco de ativação (`first_campaign_created`) a
+ * quem criou — passar `null` quando não houver usuário logado no contexto.
+ * Comunidade e campanha são a mesma tabela, então o marco dispara em qualquer
+ * uma que nascer primeiro: sem isso, um tenant que só cria comunidades nunca
+ * ativava no funil (POST /api/campanhas era o único caminho que disparava).
  */
-export async function criarComunidade(tenantId: string, dados: { nome: string }): Promise<Comunidade | null> {
+export async function criarComunidade(
+  tenantId: string,
+  dados: { nome: string },
+  userId: string | null = null,
+): Promise<Comunidade | null> {
   const { tenantId: tid } = montarQueryComunidades(tenantId);
   const existentes = await listarComunidades(tid);
   const slug = await uniqueMasterSlug(dados.nome, new Set(existentes.map((c) => c.slug)), "comunidade");
@@ -94,39 +105,54 @@ export async function criarComunidade(tenantId: string, dados: { nome: string })
 
   const comunidade = mapRow(data as ComunidadeRow);
   const temLink = await criarLinkMestreOuDesfazer(tid, { id: comunidade.id, slug: comunidade.slug, name: comunidade.nome });
-  return temLink ? comunidade : null;
+  if (!temLink) return null;
+
+  if (existentes.length === 0) {
+    void trackFunnelEvent({ tenantId: tid, userId, event: "first_campaign_created", onlyFirst: true, metadata: { campaignId: comunidade.id, via: "comunidade" } });
+  }
+
+  return comunidade;
 }
 
-async function buscarPorSlug(tenantId: string, slug: string): Promise<{ id: string; groupIds: string[] }> {
+async function buscarIdPorSlug(tenantId: string, slug: string): Promise<string> {
   const { data, error } = await getSupabaseAdmin()
     .from(TABLE)
-    .select("id, group_ids")
+    .select("id")
     .eq("tenant_id", tenantId)
     .eq("slug", slug)
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) throw new Error(`Comunidade "${slug}" não encontrada`);
-  return { id: data.id as string, groupIds: (data.group_ids as string[] | null) ?? [] };
+  return data.id as string;
 }
 
-async function salvarGroupIds(tenantId: string, id: string, groupIds: string[]): Promise<void> {
-  const { error } = await getSupabaseAdmin()
-    .from(TABLE)
-    .update({ group_ids: groupIds })
-    .eq("tenant_id", tenantId)
-    .eq("id", id);
-  if (error) throw new Error(error.message);
-}
-
+/**
+ * Vincula/desvincula sem ler o array primeiro: `campaign_group_append_group_id`
+ * e `campaign_group_remove_group_id` fazem o append/remove num UPDATE só,
+ * atômico por linha no Postgres. Ler `group_ids`, alterar em JS e regravar o
+ * array inteiro (o que este store fazia antes) perde escrita quando a tela e
+ * o auto-grow do worker mexem na mesma coleção ao mesmo tempo — clássico lost
+ * update. Requer a migração `20260916040000_campaign_group_ids_rpc.sql`
+ * aplicada nos dois bancos.
+ */
 export async function vincularGrupo(tenantId: string, slug: string, whatsappGroupId: string): Promise<void> {
   const { tenantId: tid } = montarQueryComunidades(tenantId);
-  const { id, groupIds } = await buscarPorSlug(tid, slug);
-  const atualizado = groupIds.includes(whatsappGroupId) ? [...groupIds] : [...groupIds, whatsappGroupId];
-  await salvarGroupIds(tid, id, atualizado);
+  const id = await buscarIdPorSlug(tid, slug);
+  const { error } = await getSupabaseAdmin().rpc("campaign_group_append_group_id", {
+    p_tenant_id: tid,
+    p_id: id,
+    p_whatsapp_group_id: whatsappGroupId,
+  });
+  if (error) throw new Error(error.message);
 }
 
 export async function desvincularGrupo(tenantId: string, slug: string, whatsappGroupId: string): Promise<void> {
   const { tenantId: tid } = montarQueryComunidades(tenantId);
-  const { id, groupIds } = await buscarPorSlug(tid, slug);
-  await salvarGroupIds(tid, id, groupIds.filter((g) => g !== whatsappGroupId));
+  const id = await buscarIdPorSlug(tid, slug);
+  const { error } = await getSupabaseAdmin().rpc("campaign_group_remove_group_id", {
+    p_tenant_id: tid,
+    p_id: id,
+    p_whatsapp_group_id: whatsappGroupId,
+  });
+  if (error) throw new Error(error.message);
 }
