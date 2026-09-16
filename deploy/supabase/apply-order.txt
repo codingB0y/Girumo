@@ -368,3 +368,8 @@ apps/web/supabase/migrations/20260915120000_community_jid.sql
 # schema-baseline.json regenerado por SQL direto (schema_signature() em prod) apos
 # confirmar as duas funcoes com o mesmo ACL nos dois bancos.
 apps/web/supabase/migrations/20260916040000_campaign_group_ids_rpc.sql
+
+# 2026-09-16 - Gestao de Comunidade Fase 3: tabela group_participants.
+# Participantes por grupo, alimentada pelo sync de grupos (fetchAllGroups com
+# participantes, ja chamado hoje). RLS com app.has_membership(tenant_id).
+apps/web/supabase/migrations/20260917000000_group_participants.sql
