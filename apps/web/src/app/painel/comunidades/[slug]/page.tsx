@@ -250,7 +250,14 @@ export default function ComunidadeDetalhe() {
       <section>
         <h2 className="text-[15px] font-semibold text-volt-950">Mensagens</h2>
         <div className="mt-2">
-          <MessagesTab campaignSlug={comunidade.slug} groupIds={comunidade.groupIds} />
+          <MessagesTab
+            campaignSlug={comunidade.slug}
+            groupIds={comunidade.groupIds}
+            avisoGroupId={comunidade.avisoGroupId}
+            alcanceAvisos={comunidade.alcanceAvisos}
+            alcanceGrupoAGrupo={totalMembrosSoma}
+            avisoIsAdmin={comunidade.avisoIsAdmin}
+          />
         </div>
       </section>
 

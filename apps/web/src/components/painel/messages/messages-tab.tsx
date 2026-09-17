@@ -5,6 +5,7 @@ import { toPlanLimitError } from "@/lib/billing/plan-limit-client";
 import { PlanLimitAlert } from "@/components/painel/plan-limit-alert";
 import { cn } from "@/lib/utils";
 import { useConfirmacao } from "@/components/painel/confirmacao";
+import { numero } from "@/lib/painel/grupos";
 import { MessageComposer, type ComposerPayload } from "./message-composer";
 import { ScheduleComposer, type SchedulePayload } from "./schedule-composer";
 import { MessagesAgenda } from "./messages-agenda";
@@ -16,9 +17,25 @@ type SubTab = (typeof SUB_TABS)[number];
 type Props = {
   campaignSlug: string;
   groupIds: string[];
+  /** Grupo de Avisos da comunidade nativa. NULL quando a comunidade não é
+   * nativa — a escolha de modo de envio nem aparece. */
+  avisoGroupId?: string | null;
+  /** `members` do Avisos: a comunidade inteira, já deduplicada pelo WhatsApp. */
+  alcanceAvisos?: number | null;
+  /** Soma de `members` dos grupos filhos — pode contar a mesma pessoa mais de uma vez. */
+  alcanceGrupoAGrupo?: number;
+  /** Só admin escreve em grupo `announce`. Sem isso a opção do Avisos some do clique. */
+  avisoIsAdmin?: boolean;
 };
 
-export function MessagesTab({ campaignSlug, groupIds }: Props) {
+export function MessagesTab({
+  campaignSlug,
+  groupIds,
+  avisoGroupId = null,
+  alcanceAvisos = null,
+  alcanceGrupoAGrupo = 0,
+  avisoIsAdmin = false,
+}: Props) {
   const { pedirConfirmacao, folhaDeConfirmacao } = useConfirmacao();
   const [subTab, setSubTab] = useState<SubTab>("Enviar agora");
   const [sendError, setSendError] = useState<string | null>(null);
@@ -26,6 +43,11 @@ export function MessagesTab({ campaignSlug, groupIds }: Props) {
   const [messages, setMessages] = useState<CampaignMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  // Nenhum padrão silencioso: o lojista escolhe o Avisos de propósito — o
+  // ponto de partida é sempre grupo a grupo, o que já acontecia antes desta
+  // opção existir.
+  const [usarAvisos, setUsarAvisos] = useState(false);
+  const alvos = usarAvisos && avisoGroupId ? [avisoGroupId] : groupIds;
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -60,7 +82,7 @@ export function MessagesTab({ campaignSlug, groupIds }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...payload,
-          groupIds,
+          groupIds: alvos,
         }),
       });
       if (res.ok) {
@@ -92,7 +114,7 @@ export function MessagesTab({ campaignSlug, groupIds }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...payload,
-          groupIds,
+          groupIds: alvos,
         }),
       });
       if (res.ok) {
@@ -136,6 +158,48 @@ export function MessagesTab({ campaignSlug, groupIds }: Props) {
   return (
     <div className="space-y-4">
       <PlanLimitAlert message={sendError} upgradeUrl={sendUpgradeUrl} />
+      {avisoGroupId && (
+        <fieldset className="pn-card rounded-[var(--radius-control)] p-4">
+          <legend className="px-1 text-13 font-semibold text-volt-950">Como enviar</legend>
+          <label className="mt-2 flex items-start gap-2 text-14 text-volt-950">
+            <input
+              type="radio"
+              name="modo-envio"
+              className="mt-1"
+              checked={!usarAvisos}
+              onChange={() => setUsarAvisos(false)}
+            />
+            <span>
+              Enviar grupo a grupo ({groupIds.length} {groupIds.length === 1 ? "envio" : "envios"})
+              <span className="font-data block text-12 text-slate-600">
+                alcance <span className="tabular-nums">{numero(alcanceGrupoAGrupo)}</span> — soma dos
+                grupos, pode contar a mesma pessoa mais de uma vez
+              </span>
+            </span>
+          </label>
+          <label className="mt-3 flex items-start gap-2 text-14 text-volt-950">
+            <input
+              type="radio"
+              name="modo-envio"
+              className="mt-1"
+              checked={usarAvisos}
+              onChange={() => setUsarAvisos(true)}
+              disabled={!avisoIsAdmin}
+            />
+            <span>
+              Enviar pelo Avisos (1 envio)
+              <span className="font-data block text-12 text-slate-600">
+                alcance <span className="tabular-nums">{numero(alcanceAvisos)}</span>
+              </span>
+            </span>
+          </label>
+          {!avisoIsAdmin && (
+            <p className="mt-2 text-12 text-alerta">
+              Sua conta não é admin do grupo de Avisos — não dá pra enviar por ele.
+            </p>
+          )}
+        </fieldset>
+      )}
       {/* Sub-tabs */}
       <div className="flex gap-1">
         {SUB_TABS.map((t) => (
