@@ -40,9 +40,15 @@ export function comunidadesNativas(grupos: GrupoClassificado[]): ComunidadeNativ
 
     const pai = doJid.find((g) => g.communityRole === "parent");
     const aviso = doJid.find((g) => g.communityRole === "announce");
+    // Sem pai nem Avisos não há quem batize a comunidade — o sync já filtrou
+    // por admin antes de gravar, então um tenant que só administra filhos
+    // nunca teria essas duas linhas. `dono` também é o guard: se nenhum dos
+    // dois existe, pulamos antes de montar a saída.
+    const dono = pai ?? aviso;
+    if (!dono) continue;
     saida.push({
       communityJid,
-      nome: (pai ?? aviso ?? doJid[0]).nome,
+      nome: dono.nome,
       avisoGroupId: aviso?.whatsappGroupId ?? null,
       memberGroupIds: doJid
         .filter((g) => g.communityRole === "member")

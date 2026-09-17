@@ -75,6 +75,11 @@ test("duas comunidades saem separadas", () => {
   assert.deepEqual(r.map((c) => c.communityJid).sort(), ["pai2@g.us", "pai@g.us"]);
 });
 
+test("comunidade so com membros, sem pai nem avisos, fica de fora", () => {
+  const soFilhos = [filho("104"), filho("105")];
+  assert.deepEqual(comunidadesNativas(soFilhos), []);
+});
+
 test("o pai nao entra na lista de membros", () => {
   const r = comunidadesNativas([pai, avisos, filho("104")]);
   assert.ok(!r[0].memberGroupIds.includes("pai@g.us"));
