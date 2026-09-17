@@ -314,3 +314,30 @@ test("check_invite tambem descarta grupo sem id do WhatsApp", () => {
     ["g2"],
   );
 });
+
+/* ---------- remove_participant ---------- */
+
+test("remove_participant carrega o telefone e zera descricao/midia", () => {
+  const [job] = buildBulkJobs({
+    ...BASE,
+    action: "remove_participant",
+    groups: [GRUPOS[0]],
+    targetPhone: "5511999990001",
+  });
+
+  assert.equal(job.target_phone, "5511999990001");
+  assert.equal(job.description, null);
+  assert.equal(job.media_id, null);
+});
+
+test("remove_participant sem telefone e erro — nao ha quem remover", () => {
+  assert.throws(
+    () => buildBulkJobs({ ...BASE, action: "remove_participant", groups: GRUPOS }),
+    /telefone/i,
+  );
+});
+
+test("outras acoes nao carregam target_phone", () => {
+  const [job] = buildBulkJobs({ ...BASE, action: "open", groups: [GRUPOS[0]] });
+  assert.equal(job.target_phone, null);
+});

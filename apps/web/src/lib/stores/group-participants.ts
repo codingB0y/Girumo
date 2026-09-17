@@ -46,17 +46,22 @@ export async function upsertParticipantesDoGrupo(
   if (error) throw new Error(error.message);
 }
 
-/** Participantes de vários grupos de uma vez — usado pelo cálculo de cobertura. */
+/**
+ * Participantes de vários grupos de uma vez — usado pelo cálculo de cobertura
+ * (`cobertura/route.ts`, que lê só `whatsappGroupId`/`participantLid`) e pela
+ * detecção de duplicado (`duplicate-removal.ts`, que também precisa de
+ * `phone`).
+ */
 export async function listarParticipantesDosGrupos(
   tenantId: string,
   whatsappGroupIds: string[],
-): Promise<Array<{ whatsappGroupId: string; participantLid: string }>> {
+): Promise<Array<{ whatsappGroupId: string; participantLid: string; phone: string | null }>> {
   const { tenantId: tid } = montarQueryParticipantes(tenantId);
   if (whatsappGroupIds.length === 0) return [];
 
   const { data, error } = await getSupabaseAdmin()
     .from(TABLE)
-    .select("whatsapp_group_id, participant_lid")
+    .select("whatsapp_group_id, participant_lid, phone")
     .eq("tenant_id", tid)
     .in("whatsapp_group_id", whatsappGroupIds);
   if (error) throw new Error(error.message);
@@ -64,5 +69,6 @@ export async function listarParticipantesDosGrupos(
   return (data ?? []).map((r) => ({
     whatsappGroupId: r.whatsapp_group_id as string,
     participantLid: r.participant_lid as string,
+    phone: (r.phone as string | null) ?? null,
   }));
 }

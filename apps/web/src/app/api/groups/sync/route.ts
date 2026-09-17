@@ -189,6 +189,7 @@ export async function POST(req: Request) {
             whatsapp_group_id: g.whatsapp_group_id as string,
             description: null,
             media_id: null,
+            target_phone: null,
           })),
         );
       }
