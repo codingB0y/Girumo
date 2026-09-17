@@ -2,6 +2,8 @@ import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { criarLinkMestreOuDesfazer, uniqueMasterSlug } from "@/lib/campaigns/master-link";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
+import { comunidadesNativas } from "@/lib/communities/reconciliar";
+import type { PapelComunidade } from "@/lib/communities/papel";
 
 /**
  * Comunidades são `campaign_groups` vistas por outra ótica — mesma tabela que
@@ -155,4 +157,98 @@ export async function desvincularGrupo(tenantId: string, slug: string, whatsappG
     p_whatsapp_group_id: whatsappGroupId,
   });
   if (error) throw new Error(error.message);
+}
+
+/**
+ * Espelha em `campaign_groups` cada comunidade nativa que o tenant administra.
+ *
+ * A gaveta espelho é um retrato do WhatsApp, não uma coleção editável: quem
+ * manda é `linkedParent`, e o próximo sync sobrescreve `group_ids`. Por isso a
+ * tela desabilita vincular/desvincular quando `whatsapp_community_jid` existe
+ * (spec §3.4) — desvincular aqui não desvincularia lá.
+ */
+export async function espelharComunidadesNativas(tenantId: string): Promise<number> {
+  const { tenantId: tid } = montarQueryComunidades(tenantId);
+
+  const { data: linhas, error: erroGrupos } = await getSupabaseAdmin()
+    .from("groups")
+    .select("whatsapp_group_id, name, is_admin, community_jid, community_role")
+    .eq("tenant_id", tid)
+    .not("community_jid", "is", null);
+  if (erroGrupos) throw new Error(erroGrupos.message);
+
+  const nativas = comunidadesNativas(
+    (linhas ?? []).map((l) => ({
+      whatsappGroupId: l.whatsapp_group_id as string,
+      nome: (l.name as string) ?? "",
+      isAdmin: Boolean(l.is_admin),
+      communityJid: l.community_jid as string | null,
+      communityRole: l.community_role as PapelComunidade | null,
+    })),
+  );
+  if (nativas.length === 0) return 0;
+
+  const { data: existentes, error: erroGavetas } = await getSupabaseAdmin()
+    .from(TABLE)
+    .select("id, slug, whatsapp_community_jid")
+    .eq("tenant_id", tid)
+    .not("whatsapp_community_jid", "is", null);
+  if (erroGavetas) throw new Error(erroGavetas.message);
+
+  const porJid = new Map<string, { id: string }>();
+  for (const g of existentes ?? []) {
+    porJid.set(g.whatsapp_community_jid as string, { id: g.id as string });
+  }
+
+  // Uma leitura só, antes do laço: cada slug que este laço cria entra no
+  // mesmo Set, então uma comunidade nova nunca colide com a que acabou de
+  // nascer duas iterações atrás. Consultar `listarComunidades` a cada volta
+  // seria uma query por comunidade sem ganho nenhum.
+  const slugsEmUso = new Set((await listarComunidades(tid)).map((c) => c.slug));
+
+  let tocadas = 0;
+  for (const nativa of nativas) {
+    const ja = porJid.get(nativa.communityJid);
+    if (ja) {
+      const { error } = await getSupabaseAdmin()
+        .from(TABLE)
+        .update({ name: nativa.nome, group_ids: nativa.memberGroupIds })
+        .eq("tenant_id", tid)
+        .eq("id", ja.id);
+      if (error) throw new Error(error.message);
+    } else {
+      // Assinatura: uniqueMasterSlug(name, takenInTenant, fallback) — mesma
+      // ordem que `criarComunidade` usa logo acima neste arquivo.
+      const slug = await uniqueMasterSlug(nativa.nome, slugsEmUso, "comunidade");
+      slugsEmUso.add(slug);
+
+      const { data, error } = await getSupabaseAdmin()
+        .from(TABLE)
+        .insert({
+          tenant_id: tid,
+          name: nativa.nome,
+          slug,
+          group_ids: nativa.memberGroupIds,
+          // `auto_grow: false` não é detalhe: o worker do auto-grow escreve em
+          // `group_ids` pela RPC atômica, e esta função regrava o array
+          // inteiro. Espelho do WhatsApp e auto-grow na mesma linha seriam
+          // lost update garantido.
+          auto_grow: false,
+          whatsapp_community_jid: nativa.communityJid,
+        })
+        .select(ROW_FIELDS)
+        .single();
+      if (error) throw new Error(error.message);
+
+      // Sem link mestre a rota /c/[slug] da Fase 5 não resolve esta coleção.
+      const criada = mapRow(data as ComunidadeRow);
+      await criarLinkMestreOuDesfazer(tid, {
+        id: criada.id,
+        slug: criada.slug,
+        name: criada.nome,
+      });
+    }
+    tocadas += 1;
+  }
+  return tocadas;
 }

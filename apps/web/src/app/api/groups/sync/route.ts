@@ -26,6 +26,7 @@ import {
   removeGroupsByWhatsappIds,
   syncGroupsFromProvider,
 } from "@/lib/stores/groups";
+import { espelharComunidadesNativas } from "@/lib/stores/communities";
 import { getInstance, listInstances } from "@/lib/stores/instances";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { getTenantContext } from "@/lib/supabase/tenant-context";
@@ -174,6 +175,14 @@ export async function POST(req: Request) {
       const falhas = r.filter((x) => x.status === "rejected");
       if (falhas.length > 0) {
         console.error(`[api/groups/sync] ${falhas.length} grupo(s) sem participantes gravados:`, falhas[0]);
+      }
+
+      try {
+        await espelharComunidadesNativas(ctx.tenantId);
+      } catch (e) {
+        // Espelhar comunidade é enriquecimento; falhar aqui não pode derrubar
+        // um sync que o lojista veio fazer por outro motivo.
+        console.error("[groups/sync] falha ao espelhar comunidades nativas:", e);
       }
     });
 
