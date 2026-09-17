@@ -241,12 +241,23 @@ export async function espelharComunidadesNativas(tenantId: string): Promise<numb
       if (error) throw new Error(error.message);
 
       // Sem link mestre a rota /c/[slug] da Fase 5 não resolve esta coleção.
+      // `criarLinkMestreOuDesfazer` já desfaz a linha em `campaign_groups`
+      // quando o link falha (corrida de slug) — mesmo padrão de
+      // `criarComunidade` logo acima. Sem checar o retorno, esta função
+      // contaria como "tocada" uma gaveta que não existe mais no banco.
       const criada = mapRow(data as ComunidadeRow);
-      await criarLinkMestreOuDesfazer(tid, {
+      const temLink = await criarLinkMestreOuDesfazer(tid, {
         id: criada.id,
         slug: criada.slug,
         name: criada.nome,
       });
+      if (!temLink) {
+        // A linha foi apagada por dentro, então o slug nunca chegou a
+        // existir de verdade — tira do Set para não recusar à toa um slug
+        // livre para a próxima comunidade nesta mesma chamada.
+        slugsEmUso.delete(slug);
+        continue;
+      }
     }
     tocadas += 1;
   }
