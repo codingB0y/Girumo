@@ -44,6 +44,11 @@ test("user mutations on shared resources do not accept engine credentials", () =
   assert.equal(classifyRequest("/api/optout", "DELETE"), "user");
   assert.equal(classifyRequest("/api/welcome", "POST"), "user");
   assert.equal(classifyRequest("/api/media", "POST"), "user");
+  // Preparo e registro do upload direto (uploadMediaFile) — mesmo gate de
+  // sessão do upload multipart, sem entrar em ENGINE_ONLY nem em
+  // SHARED_PREFIXES (que só cobre GET).
+  assert.equal(classifyRequest("/api/media/prepare", "POST"), "user");
+  assert.equal(classifyRequest("/api/media/register", "POST"), "user");
 });
 
 test("cron endpoints use handler-level authentication", () => {

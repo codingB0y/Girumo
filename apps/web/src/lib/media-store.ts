@@ -1,53 +1,48 @@
 import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { mediaPathBelongsToTenant } from "@/lib/media-path";
+import { assertUploadLimit } from "@/lib/billing/entitlements";
+import {
+  EXT_MIME,
+  MEDIA_BUCKET,
+  buildMediaStoragePath,
+  classifyMediaType,
+  resolveUploadLimitBytes,
+  isLpMediaAllowed,
+  type MediaKind,
+} from "@/lib/media-mime";
 
-const BUCKET = "uploads";
+export type { MediaKind } from "@/lib/media-mime";
 
-const MIME_EXT: Record<string, string> = {
-  "image/jpeg": "jpg",
-  "image/jpg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-  "image/gif": "gif",
-  "video/mp4": "mp4",
-  "video/quicktime": "mov",
-  "video/webm": "webm",
-  "video/3gpp": "3gp",
-  "audio/mpeg": "mp3",
-  "audio/mp3": "mp3",
-  "audio/ogg": "ogg",
-  "audio/opus": "opus",
-  "audio/wav": "wav",
-  "audio/aac": "aac",
-  "application/pdf": "pdf",
-  "application/zip": "zip",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
-};
+const BUCKET = MEDIA_BUCKET;
 
-const EXT_MIME: Record<string, string> = {
-  jpg: "image/jpeg",
-  png: "image/png",
-  webp: "image/webp",
-  gif: "image/gif",
-  mp4: "video/mp4",
-  mov: "video/quicktime",
-  webm: "video/webm",
-  "3gp": "video/3gpp",
-  mp3: "audio/mpeg",
-  ogg: "audio/ogg",
-  opus: "audio/opus",
-  wav: "audio/wav",
-  aac: "audio/aac",
-  pdf: "application/pdf",
-  zip: "application/zip",
-  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-};
-
-const VIDEO_EXT = new Set(["mp4", "mov", "webm", "3gp"]);
-const AUDIO_EXT = new Set(["mp3", "ogg", "opus", "wav", "aac"]);
+/** Grava a linha de metadata; em erro, desfaz o upload pra não deixar objeto órfão no bucket. */
+async function insertUploadRow(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  row: {
+    tenantId: string;
+    kind: MediaKind;
+    storagePath: string;
+    mime: string;
+    size: number;
+    authUserId: string;
+  },
+): Promise<void> {
+  const { error } = await supabase.from("uploads").insert({
+    tenant_id: row.tenantId,
+    kind: row.kind,
+    bucket: BUCKET,
+    path: `uploads/${row.storagePath}`,
+    mime_type: row.mime,
+    size: row.size,
+    created_by: row.authUserId,
+    metadata: { storage_path: row.storagePath },
+  });
+  if (error) {
+    await supabase.storage.from(BUCKET).remove([row.storagePath]).catch(() => {});
+    throw new Error(error.message);
+  }
+}
 
 function encodeMediaId(storagePath: string): string {
   return Buffer.from(storagePath, "utf8").toString("base64url");
@@ -70,8 +65,6 @@ function decodeMediaId(id: string): string | null {
  * leitura pública: o id é só o storage path em base64url, então sem esse filtro
  * qualquer upload privado vazaria para quem tivesse o id em mãos.
  */
-export type MediaKind = "media" | "lp-media" | "lp-logo";
-
 const PUBLIC_LP_KINDS: readonly MediaKind[] = ["lp-media", "lp-logo"];
 
 export async function saveMedia(
@@ -82,42 +75,108 @@ export async function saveMedia(
   kind: MediaKind = "media",
 ): Promise<{ id: string; type: "image" | "video" | "audio" | "file" }> {
   const supabase = getSupabaseAdmin();
-  const ext = MIME_EXT[mime] ?? "jpg";
-  const filename = `${crypto.randomUUID()}.${ext}`;
-  const storagePath = `${tenantId}/media/${filename}`;
-  const metadataPath = `uploads/${storagePath}`;
+  const storagePath = buildMediaStoragePath(tenantId, mime);
 
   const { error: uploadError } = await supabase.storage.from(BUCKET).upload(storagePath, buffer, {
     contentType: mime,
     upsert: false,
   });
-
   if (uploadError) throw new Error(uploadError.message);
 
-  const { error: metadataError } = await supabase.from("uploads").insert({
-    tenant_id: tenantId,
-    kind,
-    bucket: BUCKET,
-    path: metadataPath,
-    mime_type: mime,
-    size: buffer.length,
-    created_by: authUserId,
-    metadata: { storage_path: storagePath },
-  });
+  await insertUploadRow(supabase, { tenantId, kind, storagePath, mime, size: buffer.length, authUserId });
 
-  if (metadataError) {
-    await supabase.storage.from(BUCKET).remove([storagePath]).catch(() => {});
-    throw new Error(metadataError.message);
+  const ext = storagePath.split(".").pop()?.toLowerCase() ?? "jpg";
+  return { id: encodeMediaId(storagePath), type: classifyMediaType(mime, ext) };
+}
+
+/**
+ * Decide ONDE o browser vai subir o arquivo direto pro Storage — sem receber
+ * o binário. Existe porque uma Vercel Function tem um limite fixo de 4.5MB de
+ * corpo de requisição (infra, não contornável por código): vídeo/áudio reais
+ * estouram isso o tempo todo, então o binário nunca pode passar por uma rota
+ * desta app; só o path (JSON minúsculo) sai daqui.
+ *
+ * O tenant continua 100% resolvido no SERVIDOR (mesma auth de sempre) — o
+ * client não precisa saber seu próprio tenant pra montar o path, então isto
+ * funciona mesmo se o localStorage do painel estiver vazio/desatualizado.
+ */
+export function prepareMediaUpload(
+  mime: string,
+  tenantId: string,
+  kind: MediaKind = "media",
+): { storagePath: string } {
+  if (!isLpMediaAllowed(kind, mime)) {
+    throw Response.json({ error: "Envie uma imagem (PNG, JPEG ou WebP)." }, { status: 415 });
+  }
+  return { storagePath: buildMediaStoragePath(tenantId, mime) };
+}
+
+/**
+ * Registra a metadata de um arquivo que o PRÓPRIO BROWSER já subiu direto pro
+ * Storage (via `getSupabaseBrowserClient()`, autorizado pela RLS de
+ * `storage.objects` — ver `prepareMediaUpload`). Reaplica as MESMAS regras do
+ * upload direto (`saveMedia`): tamanho por kind/tipo, `assertUploadLimit`, e
+ * que o path pertence ao tenant do chamador.
+ *
+ * O `mime`/`size` usados em toda decisão de negócio vêm do OBJETO REAL no
+ * Storage (`list()`), nunca do que o client alega — um client não confiável
+ * poderia mentir o mime pra outro limite/visibilidade, e o `File.type` do
+ * browser é tão forjável quanto o `mime` de um JSON.
+ */
+export async function registerUploadedMedia(
+  storagePath: string,
+  tenantId: string,
+  authUserId: string,
+  kind: MediaKind = "media",
+): Promise<{ id: string; type: "image" | "video" | "audio" | "file" }> {
+  if (!mediaPathBelongsToTenant(storagePath, tenantId)) {
+    throw Response.json({ error: "Caminho de mídia inválido." }, { status: 400 });
   }
 
-  const mediaType: "video" | "audio" | "image" | "file" = VIDEO_EXT.has(ext)
-    ? "video"
-    : AUDIO_EXT.has(ext)
-      ? "audio"
-      : mime.startsWith("image/")
-        ? "image"
-        : "file";
-  return { id: encodeMediaId(storagePath), type: mediaType };
+  const supabase = getSupabaseAdmin();
+  const dir = `${tenantId}/media`;
+  const filename = storagePath.slice(dir.length + 1);
+  const { data: listing, error: listError } = await supabase.storage.from(BUCKET).list(dir, {
+    search: filename,
+  });
+  const found = listing?.find((item) => item.name === filename);
+  if (listError || !found) {
+    throw Response.json({ error: "Arquivo não encontrado no storage." }, { status: 404 });
+  }
+
+  // `metadata.size` ausente é tratado como falha, não como "0 bytes" — um
+  // fallback silencioso furaria o limite por kind/tipo E a cota de plano
+  // (que soma `uploads.size`) pra sempre, já que a linha nasceria com 0.
+  const rawSize = found.metadata?.size;
+  if (rawSize === undefined || rawSize === null) {
+    await supabase.storage.from(BUCKET).remove([storagePath]).catch(() => {});
+    throw Response.json({ error: "Não foi possível confirmar o arquivo enviado." }, { status: 500 });
+  }
+  const size = Number(rawSize);
+  const mime: string = found.metadata?.mimetype ?? "application/octet-stream";
+
+  try {
+    if (!isLpMediaAllowed(kind, mime)) {
+      throw Response.json({ error: "Envie uma imagem (PNG, JPEG ou WebP)." }, { status: 415 });
+    }
+
+    const limit = resolveUploadLimitBytes(kind, mime);
+    if (size > limit) {
+      const maxLabel = `${Math.round(limit / 1_000_000)}MB`;
+      throw Response.json({ error: `Arquivo grande demais (max ${maxLabel}).` }, { status: 413 });
+    }
+
+    await assertUploadLimit(tenantId, size);
+    await insertUploadRow(supabase, { tenantId, kind, storagePath, mime, size, authUserId });
+  } catch (error) {
+    // insertUploadRow já limpa o storage no erro DELE; os outros três throws
+    // acima ainda não tocaram no arquivo — sem este catch ele ficava órfão.
+    await supabase.storage.from(BUCKET).remove([storagePath]).catch(() => {});
+    throw error;
+  }
+
+  const ext = storagePath.split(".").pop()?.toLowerCase() ?? "jpg";
+  return { id: encodeMediaId(storagePath), type: classifyMediaType(mime, ext) };
 }
 
 /**
