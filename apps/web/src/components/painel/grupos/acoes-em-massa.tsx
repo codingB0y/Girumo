@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ImagePlus, Loader2, Lock, Unlock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useConfirmacao } from "@/components/painel/confirmacao";
+import { uploadMediaFile } from "@/lib/media-upload-client";
 import { RevisarLinks } from "./revisar-links";
 import { RemoverDuplicados } from "./remover-duplicados";
 
@@ -128,18 +129,11 @@ export function AcoesEmMassa({ slug, administrados, totais, estado, onLoteConclu
     setEnviandoFoto(true);
     setErro(null);
     try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch("/api/media", { method: "POST", body: form });
-      if (!res.ok) {
-        // A rota diz POR QUE recusou — arquivo grande demais, formato errado, ou
-        // o 402 de plano sem assinatura valida. Trocar isso por uma frase
-        // generica deixava o lojista (e quem fosse investigar) sem nada: o
-        // sintoma "deu erro" nao distingue foto de 8MB de assinatura vencida.
-        const erro = await res.json().catch(() => null);
-        throw new Error(erro?.error ?? "Não foi possível enviar a imagem.");
-      }
-      const data = (await res.json()) as { id: string };
+      // Upload direto pro Storage (não pela function): uma foto de celular
+      // moderno passa fácil do limite de corpo de requisição da Vercel. A
+      // mensagem de erro continua vindo do servidor de verdade — ver
+      // uploadMediaFile.
+      const data = await uploadMediaFile(file);
       setMediaId(data.id);
       setNomeArquivo(file.name);
     } catch (e) {
