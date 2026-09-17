@@ -2,6 +2,7 @@ import "server-only";
 
 import { buildTenantDispatchList, type CampaignRef } from "@/lib/campaigns/dispatch-view";
 import { campanhasColl, ensureSlugs } from "@/lib/campanhas-store";
+import { ehEstruturaDeComunidade } from "@/lib/communities/estrutura";
 import { listGroups as legacyListGroups } from "@/lib/groups-store";
 import { collection } from "@/lib/json-collection";
 import { listLeads as legacyListLeads } from "@/lib/leads-store";
@@ -39,9 +40,12 @@ export async function carregarGrupos(tenantId: string) {
   // medidos) não são grupos de disparo comuns: disparar no pai não alcança
   // ninguém, e disparar no Avisos alcança todo mundo sem aviso nenhum na
   // tela — root cause único, porque /painel/grupos e /painel/disparos (via
-  // /api/painel/inicio) consomem esta mesma função (Task 6 Step 4).
+  // /api/painel/inicio) consomem esta mesma função (Task 6 Step 4). Mesmo
+  // predicado de `lib/communities/estrutura.ts` usado pela faixa de órfãos
+  // em /api/comunidades — as duas listas precisam concordar sobre o que é
+  // "estrutura" e não grupo de envio.
   return grupos
-    .filter((g) => g.community_role !== "parent" && g.community_role !== "announce")
+    .filter((g) => !ehEstruturaDeComunidade(g))
     .map((g) => ({
       id: g.whatsapp_group_id,
       name: g.name,
