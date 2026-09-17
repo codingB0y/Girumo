@@ -46,11 +46,22 @@ export async function upsertParticipantesDoGrupo(
   if (error) throw new Error(error.message);
 }
 
+/** Teto de linhas por página do PostgREST. Acima disso ele trunca em silêncio, sem erro. */
+const PAGE_SIZE = 1000;
+
 /**
  * Participantes de vários grupos de uma vez — usado pelo cálculo de cobertura
  * (`cobertura/route.ts`, que lê só `whatsappGroupId`/`participantLid`) e pela
  * detecção de duplicado (`duplicate-removal.ts`, que também precisa de
  * `phone`).
+ *
+ * Pagina em `PAGE_SIZE` porque um `.select()` sem `.range()` no Supabase
+ * corta no teto padrão do PostgREST (1000 linhas) SEM erro — devolve uma
+ * página parcial como se fosse o total. Um grupo grande sozinho já estoura
+ * isso (medido: 1981 participantes numa única campanha de teste), e a
+ * consequência não é "resultado incompleto e óbvio": é "zero duplicado
+ * encontrado" quando as linhas do segundo grupo nunca chegam a entrar na
+ * página, ou "alcance real" subcontado sem nenhum aviso na tela.
  */
 export async function listarParticipantesDosGrupos(
   tenantId: string,
@@ -59,16 +70,32 @@ export async function listarParticipantesDosGrupos(
   const { tenantId: tid } = montarQueryParticipantes(tenantId);
   if (whatsappGroupIds.length === 0) return [];
 
-  const { data, error } = await getSupabaseAdmin()
-    .from(TABLE)
-    .select("whatsapp_group_id, participant_lid, phone")
-    .eq("tenant_id", tid)
-    .in("whatsapp_group_id", whatsappGroupIds);
-  if (error) throw new Error(error.message);
+  const linhas: Array<{ whatsappGroupId: string; participantLid: string; phone: string | null }> = [];
+  let desde = 0;
 
-  return (data ?? []).map((r) => ({
-    whatsappGroupId: r.whatsapp_group_id as string,
-    participantLid: r.participant_lid as string,
-    phone: (r.phone as string | null) ?? null,
-  }));
+  for (;;) {
+    const { data, error } = await getSupabaseAdmin()
+      .from(TABLE)
+      .select("whatsapp_group_id, participant_lid, phone")
+      .eq("tenant_id", tid)
+      .in("whatsapp_group_id", whatsappGroupIds)
+      .range(desde, desde + PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+
+    const pagina = data ?? [];
+    for (const r of pagina) {
+      linhas.push({
+        whatsappGroupId: r.whatsapp_group_id as string,
+        participantLid: r.participant_lid as string,
+        phone: (r.phone as string | null) ?? null,
+      });
+    }
+
+    // Página incompleta é o sinal de fim — pedir a próxima só quando a atual
+    // veio cheia evita uma chamada extra vazia no caso comum (poucas linhas).
+    if (pagina.length < PAGE_SIZE) break;
+    desde += PAGE_SIZE;
+  }
+
+  return linhas;
 }
