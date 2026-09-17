@@ -373,3 +373,8 @@ apps/web/supabase/migrations/20260916040000_campaign_group_ids_rpc.sql
 # Participantes por grupo, alimentada pelo sync de grupos (fetchAllGroups com
 # participantes, ja chamado hoje). RLS com app.has_membership(tenant_id).
 apps/web/supabase/migrations/20260917000000_group_participants.sql
+
+# 2026-09-17 - Comunidade nativa: vinculo do grupo com a comunidade do WhatsApp.
+# community_jid + community_role, preenchidos pelo sync a partir de linkedParent /
+# isCommunity / isCommunityAnnounce, que a Evolution ja devolve. Aplicado nos dois bancos.
+apps/web/supabase/migrations/20260917181500_groups_community.sql
