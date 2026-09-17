@@ -21,8 +21,20 @@
  * guardado ainda vale. Por isso não tem carga (nem `description` nem `media_id`)
  * e corre num ritmo próprio, muito mais lento — ver a cadência de D7 dentro de
  * `claim_bulk_jobs`.
+ *
+ * `remove_participant` remove UM telefone de UM grupo (carga em `target_phone`).
+ * Diferente das outras, não é "mesma carga em todos os grupos": duplicados
+ * diferentes saem de grupos diferentes — por isso `buildBulkJobs` é chamada
+ * uma vez por telefone (ver `duplicate-removal.ts`), nunca uma vez pro lote
+ * inteiro.
  */
-export type BulkAction = "set_description" | "set_picture" | "open" | "close" | "check_invite";
+export type BulkAction =
+  | "set_description"
+  | "set_picture"
+  | "open"
+  | "close"
+  | "check_invite"
+  | "remove_participant";
 
 export type BulkTargetGroup = {
   id: string;
@@ -40,6 +52,8 @@ export type BulkJobInsert = {
   whatsapp_group_id: string;
   description: string | null;
   media_id: string | null;
+  /** Dígitos com DDI. Só preenchido em `remove_participant`. */
+  target_phone: string | null;
 };
 
 export type BuildBulkJobsInput = {
@@ -50,6 +64,7 @@ export type BuildBulkJobsInput = {
   groups: readonly BulkTargetGroup[];
   description?: string | null;
   mediaId?: string | null;
+  targetPhone?: string | null;
 };
 
 export function buildBulkJobs(input: BuildBulkJobsInput): BulkJobInsert[] {
@@ -61,9 +76,13 @@ export function buildBulkJobs(input: BuildBulkJobsInput): BulkJobInsert[] {
   if (action === "set_picture" && !input.mediaId) {
     throw new Error("A imagem é obrigatória para aplicar foto em massa.");
   }
+  if (action === "remove_participant" && !input.targetPhone) {
+    throw new Error("O telefone é obrigatório para remover um participante.");
+  }
 
   const description = action === "set_description" ? (input.description as string) : null;
   const mediaId = action === "set_picture" ? (input.mediaId as string) : null;
+  const targetPhone = action === "remove_participant" ? (input.targetPhone as string) : null;
 
   return input.groups
     .filter((g): g is BulkTargetGroup & { whatsapp_group_id: string } =>
@@ -78,6 +97,7 @@ export function buildBulkJobs(input: BuildBulkJobsInput): BulkJobInsert[] {
       whatsapp_group_id: g.whatsapp_group_id,
       description,
       media_id: mediaId,
+      target_phone: targetPhone,
     }));
 }
 

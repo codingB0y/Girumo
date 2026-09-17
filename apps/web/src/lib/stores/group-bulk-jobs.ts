@@ -28,6 +28,8 @@ export type BulkJobRow = {
   whatsapp_group_id: string;
   description: string | null;
   media_id: string | null;
+  /** Dígitos com DDI. Só preenchido em `remove_participant`. */
+  target_phone: string | null;
   status: BulkJobStatus;
   attempts: number;
   error: string | null;
@@ -44,6 +46,7 @@ export type BulkJobClaim = {
   whatsappGroupId: string;
   description?: string;
   mediaId?: string;
+  targetPhone?: string;
 };
 
 const TABLE = "group_bulk_jobs";
@@ -148,6 +151,7 @@ export async function claimBulk(tenantId: string): Promise<BulkJobClaim[]> {
     whatsappGroupId: row.whatsapp_group_id,
     description: row.description ?? undefined,
     mediaId: row.media_id ?? undefined,
+    targetPhone: row.target_phone ?? undefined,
   }));
 }
 

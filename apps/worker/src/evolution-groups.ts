@@ -19,6 +19,10 @@
  *        action ∈ announcement | not_announcement | locked | unlocked
  *   POST /group/updateGroupPicture/{instance}       required: groupJid, image
  *   GET  /group/inviteCode/{instance}?groupJid=     (já usado no backfill)
+ *   POST /group/updateParticipant/{instance}?groupJid=
+ *        required: action (add|remove|promote|demote), participants (telefones com DDI)
+ *        contrato confirmado na doc oficial (não vendorizada aqui):
+ *        https://doc.evolution-api.com/v2/api-reference/group-controller/update-participant
  *
  * `groupJid` pode ir na query: `groupValidate` (abstract.router.ts) lê do corpo
  * e cai para `request.query.groupJid`.
@@ -73,6 +77,11 @@ export interface EvolutionGroups {
   setPicture(instanceName: string, groupJid: string, imageUrl: string): Promise<void>;
   /** Convite canônico do grupo, ou null se a Evolution não devolveu um válido. */
   inviteUrl(instanceName: string, groupJid: string): Promise<string | null>;
+  /**
+   * Remove UM participante do grupo. `participantPhone` é telefone com DDI,
+   * sem `+` — a Evolution não aceita LID em `participants`, só telefone.
+   */
+  removeParticipant(instanceName: string, groupJid: string, participantPhone: string): Promise<void>;
 }
 
 type FetchLike = (input: string, init: RequestInit) => Promise<Response>;
@@ -204,6 +213,17 @@ export function createEvolutionGroups(config: EvolutionGroupsConfig): EvolutionG
         { method: "GET" },
       );
       return parseInviteResponse(body);
+    },
+
+    async removeParticipant(instanceName, groupJid, participantPhone) {
+      await request(
+        "group/updateParticipant",
+        withJid("/group/updateParticipant", instanceName, groupJid),
+        {
+          method: "POST",
+          body: JSON.stringify({ action: "remove", participants: [participantPhone] }),
+        },
+      );
     },
   };
 }

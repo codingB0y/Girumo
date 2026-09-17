@@ -5,6 +5,7 @@ import { ImagePlus, Loader2, Lock, Unlock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useConfirmacao } from "@/components/painel/confirmacao";
 import { RevisarLinks } from "./revisar-links";
+import { RemoverDuplicados } from "./remover-duplicados";
 
 /**
  * "Configurações dos grupos" — o bloco de OPERAR os grupos que já existem na
@@ -72,6 +73,7 @@ const ROTULO_ACAO: Record<string, string> = {
   open: "abertura",
   close: "fechamento",
   check_invite: "revisão dos links",
+  remove_participant: "remoção de duplicado",
 };
 
 function descreveLote(actions: string[]): string {
@@ -379,6 +381,7 @@ export function AcoesEmMassa({ slug, administrados, totais, estado, onLoteConclu
           </div>
 
           <RevisarLinks slug={slug} ocupado={ocupado || rodando} onEnfileirado={lerProgresso} />
+          <RemoverDuplicados slug={slug} ocupado={ocupado || rodando} onEnfileirado={lerProgresso} />
         </>
       )}
 
