@@ -93,6 +93,41 @@ Um vínculo por mês não paga uma dívida de infra permanente. Além disso:
 **Decisão:** o fork `evolution-girumo-community-test` e a instância `prova-comunidade`
 no Coolify não serão usados. Desligá-los é trabalho separado (ver seção 7).
 
+### 2.5 O mutirão parcial validou o desenho (17/09/2026, mesmo dia)
+
+O Igor vinculou 8 grupos reais à `Mega stock atacado infantil #1` pelo celular. A
+medição seguinte confirmou, sem nenhuma escrita pela Girumo:
+
+| medida | antes | depois |
+|---|---|---|
+| `linkedParent` na instância Mega Stock | 3 | **11** |
+| grupos com `linkedParent` = pai da `#1` | 0 | **8** |
+| recusas do WhatsApp | — | **nenhuma** |
+
+Os oito (`Mega Stock Atacado #104 #105 #106 #108 #110 #111 #112 #114`) aparecem
+imediatamente com `linkedParent=120363314352216368@g.us`, e o Avisos da `#1` é
+`120363317004683243@g.us`. Todos existem em `groups` nos dois tenants, todos com
+`is_admin = true` — o filtro da seção 3.3 os alcança.
+
+### 2.6 O alcance da comunidade já está medido — no Avisos
+
+O dado mais valioso do mutirão não foi o vínculo, e sim o `members` de cada peça:
+
+| grupo | papel | `members` |
+|---|---|---|
+| `120363317004683243` | **Avisos** da `#1` | **1.984** |
+| `120363314352216368` | pai da `#1` | 1 |
+| `120363047246515568` | filho (`#112`) | 59 |
+| `556284947821-1556328662` | filho (`#114`) | 61 |
+
+**O grupo de Avisos carrega a contagem de toda a comunidade, já deduplicada pelo
+WhatsApp.** O grupo-pai é só um contêiner (1 membro). Isso significa que o alcance
+real do disparo único é legível de um campo que a Evolution já entrega — não depende
+de `group_participants`, que está vazio no tenant principal.
+
+*Nota: os 1.984 são de um sync anterior ao vínculo dos oito grupos; a comunidade já
+tinha gente adicionada diretamente. O número deve subir no próximo sync.*
+
 ---
 
 ## 3. Arquitetura
@@ -156,7 +191,14 @@ Gaveta com `whatsapp_community_jid` preenchido ganha:
 - vincular/desvincular **desabilitados**, com a nota *"gerencie no WhatsApp"*.
   Desvincular na Girumo não desvincula no WhatsApp — deixar o botão ativo seria
   mentir para o usuário sobre o efeito da ação;
-- o grupo de Avisos identificado e a contagem de grupos vinculados.
+- o grupo de Avisos identificado, a contagem de grupos vinculados e o **alcance lido
+  do `members` do Avisos** (seção 2.6).
+
+**Efeito colateral a corrigir na mesma mudança:** hoje o grupo-pai e o Avisos aparecem
+em `/painel/grupos` como grupos comuns, porque o sync não os distingue. O pai tem 1
+membro (disparar nele não faz nada) e o Avisos tem 1.984 (disparar nele alcança a
+comunidade toda sem o usuário saber disso). Com `community_role` preenchido, os dois
+saem da lista de grupos de envio e ganham tratamento próprio.
 
 Design system: namespace `pn-*`, Aurora VIP, motion `ease-fluxo`.
 
@@ -208,11 +250,12 @@ desenho, mas pode mudar onde o código entra.
 mutirão parcial mede o teto real de graça; o modelo suporta N comunidades porque
 `campaign_groups` é N:N, e a Mega Stock já tem três.
 
-**R2 — alcance do Avisos não é a soma dos grupos.** Quem está em três grupos
-vinculados é uma pessoa na comunidade, não três. O número que a tela mostrar tem que
-ser de pessoas distintas, não soma de `members` — e hoje `group_participants` está
-vazio no tenant principal (seção 5), então esse número não existe ainda.
-**Mitigação:** a tela declara "alcance não medido" em vez de somar `members` e mentir.
+**R2 — alcance do Avisos não é a soma dos grupos.** ~~Quem está em três grupos
+vinculados é uma pessoa na comunidade, não três, e `group_participants` está vazio no
+tenant principal.~~ **Resolvido pela seção 2.6:** o `members` do grupo de Avisos já é a
+contagem da comunidade inteira, deduplicada pelo WhatsApp (1.984 na `#1`). A tela lê
+esse campo e não soma nada. O risco que resta é só de frescor — o número vale do
+último sync, como qualquer outro `members`.
 
 **R3 — reconciliação ressuscitando gaveta apagada.** Se o usuário apagar a gaveta de
 uma comunidade nativa, o próximo sync a recria. **Mitigação:** aceitar por ora — a
