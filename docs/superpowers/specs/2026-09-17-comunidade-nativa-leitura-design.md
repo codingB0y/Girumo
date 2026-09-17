@@ -210,10 +210,19 @@ Avisos"** ao lado do envio normal, mostrando o alcance de cada opção antes da 
 O envio em si é uma mensagem para um grupo — capacidade que o Girumo já tem. Não há
 rota nova na Evolution.
 
-**A confirmar na implementação:** o disparo entregue na Fase 4 (PR #296) não passa por
-`stores/communities.ts` — apenas três rotas o importam, nenhuma de mensagem. Rastrear
-como o botão resolve os grupos hoje antes de encaixar o Avisos. Isso não muda o
-desenho, mas pode mudar onde o código entra.
+**Confirmado em 17/09 (o spec dizia "a confirmar"; foi rastreado):** a Fase 4 (PR #296)
+renderiza `<MessagesTab campaignSlug groupIds />` na tela da comunidade, e o
+`MessagesTab` envia `groupIds` no corpo do POST para `/api/campanhas/[slug]/messages`.
+Essa rota **já** sobrepõe os grupos da campanha quando o corpo traz a lista:
+
+```ts
+const groupIds = Array.isArray(body.groupIds) && body.groupIds.length > 0
+  ? body.groupIds.map(String) : camp.groupIds;
+```
+
+Logo, disparar pelo Avisos é mandar `[avisoGroupId]` no lugar da lista de filhos —
+**sem backend novo**. A única guarda a acrescentar é que o Avisos tem `announce: true`
+e só admin escreve nele.
 
 ---
 
