@@ -35,23 +35,30 @@ import { readEntrada, readIntegracoes } from "@/lib/campaigns/settings";
 export async function carregarGrupos(tenantId: string) {
   if (!USE_SUPABASE) return legacyListGroups(tenantId);
   const grupos = await groupsStore.listGroups(tenantId);
-  return grupos.map((g) => ({
-    id: g.whatsapp_group_id,
-    name: g.name,
-    whatsappGroupId: g.whatsapp_group_id,
-    members: g.members,
-    capacity: g.capacity,
-    selected: g.selected,
-    engagement: g.engagement,
-    isAdmin: g.is_admin ?? false,
-    inviteUrl: g.invite_url,
-    displayNameBase: g.display_name_base,
-    displayNumber: g.display_number,
-    sendState: g.send_state ?? null,
-    // Idade do dado. `members` vem do último sync e não é atualizado quando um
-    // cliente entra no grupo — a tela precisa poder dizer isso.
-    syncedAt: g.admins_counted_at ?? null,
-  }));
+  // Pai (1 membro, medido) e Avisos (a comunidade inteira, 1.984 membros
+  // medidos) não são grupos de disparo comuns: disparar no pai não alcança
+  // ninguém, e disparar no Avisos alcança todo mundo sem aviso nenhum na
+  // tela — root cause único, porque /painel/grupos e /painel/disparos (via
+  // /api/painel/inicio) consomem esta mesma função (Task 6 Step 4).
+  return grupos
+    .filter((g) => g.community_role !== "parent" && g.community_role !== "announce")
+    .map((g) => ({
+      id: g.whatsapp_group_id,
+      name: g.name,
+      whatsappGroupId: g.whatsapp_group_id,
+      members: g.members,
+      capacity: g.capacity,
+      selected: g.selected,
+      engagement: g.engagement,
+      isAdmin: g.is_admin ?? false,
+      inviteUrl: g.invite_url,
+      displayNameBase: g.display_name_base,
+      displayNumber: g.display_number,
+      sendState: g.send_state ?? null,
+      // Idade do dado. `members` vem do último sync e não é atualizado quando um
+      // cliente entra no grupo — a tela precisa poder dizer isso.
+      syncedAt: g.admins_counted_at ?? null,
+    }));
 }
 
 export async function carregarCampanhas(tenantId: string) {

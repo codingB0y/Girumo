@@ -1,13 +1,28 @@
 import { getTenantContext } from "@/lib/supabase/tenant-context";
 import { assertPermission } from "@/lib/permissions";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
-import { vincularGrupo, desvincularGrupo } from "@/lib/stores/communities";
+import { vincularGrupo, desvincularGrupo, listarComunidades } from "@/lib/stores/communities";
 import { validarWhatsappGroupId } from "@/lib/communities/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const COMUNIDADE_NAO_ENCONTRADA = "não encontrada";
+
+/**
+ * A gaveta espelha uma comunidade nativa? Se sim, recusa a escrita: quem
+ * manda em `group_ids` é o próximo sync, e um POST/DELETE direto aqui
+ * dessincroniza a gaveta do WhatsApp até lá. Botão desabilitado na tela é
+ * aparência — esta é a barreira real (spec, Task 6 Step 2).
+ */
+async function recusarSeNativa(tenantId: string, slug: string): Promise<Response | null> {
+  const alvo = (await listarComunidades(tenantId)).find((c) => c.slug === slug);
+  if (!alvo?.whatsappCommunityJid) return null;
+  return Response.json(
+    { error: "Esta comunidade é do WhatsApp. Vincule ou desvincule grupos pelo aplicativo." },
+    { status: 409 },
+  );
+}
 
 /**
  * O grupo pertence ao tenant?
@@ -52,6 +67,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     const ctx = await getTenantContext(req);
     assertPermission(ctx.role, "campaign:edit");
 
+    const recusa = await recusarSeNativa(ctx.tenantId, slug);
+    if (recusa) return recusa;
+
     const lido = await lerWhatsappGroupId(req);
     if (!lido.ok) return lido.response;
 
@@ -78,6 +96,9 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ slug:
   try {
     const ctx = await getTenantContext(req);
     assertPermission(ctx.role, "campaign:edit");
+
+    const recusa = await recusarSeNativa(ctx.tenantId, slug);
+    if (recusa) return recusa;
 
     const lido = await lerWhatsappGroupId(req);
     if (!lido.ok) return lido.response;

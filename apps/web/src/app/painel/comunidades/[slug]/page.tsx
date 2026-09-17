@@ -17,6 +17,9 @@ type Comunidade = {
   groupIds: string[];
   autoGrow: boolean;
   whatsappCommunityJid: string | null;
+  avisoGroupId: string | null;
+  alcanceAvisos: number | null;
+  avisoIsAdmin: boolean;
 };
 
 type Sugestao = {
@@ -153,7 +156,7 @@ export default function ComunidadeDetalhe() {
           <div className="mt-2 flex flex-wrap items-center gap-2">
             {comunidade.whatsappCommunityJid !== null && (
               <span className="font-data inline-flex h-6 items-center rounded-[var(--radius-chip)] bg-sucesso/10 px-2 text-12 text-sucesso">
-                No WhatsApp
+                nativa do WhatsApp
               </span>
             )}
             {comunidade.autoGrow && (
@@ -209,7 +212,12 @@ export default function ComunidadeDetalhe() {
                 <button
                   type="button"
                   onClick={() => desvincular(id, grupo?.name ?? id)}
-                  disabled={desvinculando === id}
+                  disabled={desvinculando === id || comunidade.whatsappCommunityJid !== null}
+                  title={
+                    comunidade.whatsappCommunityJid !== null
+                      ? "Gerencie os grupos desta comunidade pelo WhatsApp"
+                      : undefined
+                  }
                   className="h-9 rounded-[var(--radius-control)] px-3 text-13 font-semibold text-danger-700 disabled:opacity-50"
                 >
                   {desvinculando === id ? "Desvinculando…" : "Desvincular"}

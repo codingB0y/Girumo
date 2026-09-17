@@ -20,6 +20,12 @@ export type Comunidade = {
   groupIds: string[];
   autoGrow: boolean;
   whatsappCommunityJid: string | null;
+  /** Grupo de Avisos da comunidade nativa. NULL quando a gaveta é só da Girumo. */
+  avisoGroupId: string | null;
+  /** `members` do Avisos: a comunidade inteira, já deduplicada pelo WhatsApp. */
+  alcanceAvisos: number | null;
+  /** Só admin escreve em grupo `announce`. Sem isso, o disparo falha no clique. */
+  avisoIsAdmin: boolean;
 };
 
 const TABLE = "campaign_groups";
@@ -34,7 +40,11 @@ type ComunidadeRow = {
   whatsapp_community_jid: string | null;
 };
 
-function mapRow(row: ComunidadeRow): Comunidade {
+/** O que `listarComunidades` sabe do grupo de Avisos de uma comunidade nativa. */
+type AvisoInfo = { whatsappGroupId: string; members: number; isAdmin: boolean };
+
+function mapRow(row: ComunidadeRow, avisoPorJid?: Map<string, AvisoInfo>): Comunidade {
+  const aviso = row.whatsapp_community_jid ? avisoPorJid?.get(row.whatsapp_community_jid) : undefined;
   return {
     id: row.id,
     nome: row.name,
@@ -42,6 +52,9 @@ function mapRow(row: ComunidadeRow): Comunidade {
     groupIds: row.group_ids ?? [],
     autoGrow: row.auto_grow,
     whatsappCommunityJid: row.whatsapp_community_jid,
+    avisoGroupId: aviso?.whatsappGroupId ?? null,
+    alcanceAvisos: aviso?.members ?? null,
+    avisoIsAdmin: aviso?.isAdmin ?? false,
   };
 }
 
@@ -56,15 +69,45 @@ export function montarQueryComunidades(tenantId: string): { tenantId: string } {
   return { tenantId };
 }
 
+/**
+ * Uma query extra por listagem (nunca uma por gaveta): busca todo grupo
+ * `announce` do tenant de uma vez e casa por `community_jid` em memória. Uma
+ * gaveta pode não ter Avisos ainda (sync não achou, ou comunidade sem o
+ * recurso) — nesse caso o `Map` simplesmente não tem a chave.
+ */
+async function buscarAvisosPorJid(tenantId: string): Promise<Map<string, AvisoInfo>> {
+  const { data, error } = await getSupabaseAdmin()
+    .from("groups")
+    .select("community_jid, whatsapp_group_id, members, is_admin")
+    .eq("tenant_id", tenantId)
+    .eq("community_role", "announce");
+  if (error) throw new Error(error.message);
+
+  const porJid = new Map<string, AvisoInfo>();
+  for (const row of data ?? []) {
+    const jid = row.community_jid as string | null;
+    if (!jid) continue;
+    porJid.set(jid, {
+      whatsappGroupId: row.whatsapp_group_id as string,
+      members: row.members as number,
+      isAdmin: Boolean(row.is_admin),
+    });
+  }
+  return porJid;
+}
+
 export async function listarComunidades(tenantId: string): Promise<Comunidade[]> {
   const { tenantId: tid } = montarQueryComunidades(tenantId);
-  const { data, error } = await getSupabaseAdmin()
-    .from(TABLE)
-    .select(ROW_FIELDS)
-    .eq("tenant_id", tid)
-    .order("created_at", { ascending: false });
+  const [{ data, error }, avisoPorJid] = await Promise.all([
+    getSupabaseAdmin()
+      .from(TABLE)
+      .select(ROW_FIELDS)
+      .eq("tenant_id", tid)
+      .order("created_at", { ascending: false }),
+    buscarAvisosPorJid(tid),
+  ]);
   if (error) throw new Error(error.message);
-  return ((data ?? []) as ComunidadeRow[]).map(mapRow);
+  return ((data ?? []) as ComunidadeRow[]).map((row) => mapRow(row, avisoPorJid));
 }
 
 /**

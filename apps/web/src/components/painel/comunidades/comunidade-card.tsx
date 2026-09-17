@@ -9,6 +9,9 @@ export type ComunidadeResumo = {
   totalMembros: number;
   autoGrow: boolean;
   whatsappCommunityJid: string | null;
+  /** `members` do grupo de Avisos — a comunidade inteira, já deduplicada pelo
+   * WhatsApp. NULL numa gaveta nativa sem Avisos, ou numa gaveta só-Girumo. */
+  alcanceAvisos: number | null;
 };
 
 /**
@@ -17,7 +20,8 @@ export type ComunidadeResumo = {
  * uma coleção de grupos (spec 2.5, Step 2).
  */
 export function ComunidadeCard({ comunidade }: { comunidade: ComunidadeResumo }) {
-  const { nome, slug, totalGrupos, totalMembros, autoGrow, whatsappCommunityJid } = comunidade;
+  const { nome, slug, totalGrupos, totalMembros, autoGrow, whatsappCommunityJid, alcanceAvisos } = comunidade;
+  const nativa = whatsappCommunityJid !== null;
 
   return (
     <Link
@@ -26,16 +30,28 @@ export function ComunidadeCard({ comunidade }: { comunidade: ComunidadeResumo })
     >
       <div className="flex items-start justify-between gap-2">
         <p className="truncate text-[17px] font-semibold text-volt-950">{nome}</p>
-        {whatsappCommunityJid !== null && (
+        {nativa && (
           <span className="font-data inline-flex h-6 shrink-0 items-center rounded-[var(--radius-chip)] bg-sucesso/10 px-2 text-12 text-sucesso">
-            No WhatsApp
+            nativa do WhatsApp
           </span>
         )}
       </div>
 
       <p className="font-data mt-3 text-13 text-slate-600">
         {totalGrupos} {totalGrupos === 1 ? "grupo" : "grupos"} ·{" "}
-        <span className="tabular-nums">{numero(totalMembros)}</span> membros
+        {nativa ? (
+          alcanceAvisos !== null ? (
+            <>
+              alcance <span className="tabular-nums">{numero(alcanceAvisos)}</span>
+            </>
+          ) : (
+            "alcance não medido"
+          )
+        ) : (
+          <>
+            <span className="tabular-nums">{numero(totalMembros)}</span> membros
+          </>
+        )}
       </p>
 
       {autoGrow && (
