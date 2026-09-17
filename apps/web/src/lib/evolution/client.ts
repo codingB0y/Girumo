@@ -243,6 +243,14 @@ export type EvolutionGroup = {
   participants?: Array<{ id?: string | null; phoneNumber?: string | null; admin?: string | null }>;
   owner?: string | null;
   ownerPn?: string | null;
+  /**
+   * Campos de comunidade nativa. A Evolution 2.3.7 os repassa do
+   * `GroupMetadata` do Baileys sem filtrar (medido em 17/09/2026) — o dado já
+   * chegava aqui e era descartado porque o tipo não o declarava.
+   */
+  isCommunity?: boolean;
+  isCommunityAnnounce?: boolean;
+  linkedParent?: string | null;
 };
 
 /**

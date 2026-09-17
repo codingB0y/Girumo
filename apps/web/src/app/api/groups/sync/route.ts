@@ -1,5 +1,6 @@
 import { after } from "next/server";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
+import { classificarPapel } from "@/lib/communities/papel";
 import {
   EvolutionError,
   FETCH_GROUPS_TIMEOUT_MS,
@@ -125,6 +126,12 @@ export async function POST(req: Request) {
       );
       const contagem = escolherContagem(doProvedor, anterior.get(String(g.id)));
       if (contagem.protegido) protegidos += 1;
+      const vinculo = classificarPapel({
+        id: String(g.id),
+        isCommunity: g.isCommunity,
+        isCommunityAnnounce: g.isCommunityAnnounce,
+        linkedParent: g.linkedParent,
+      });
       return {
         whatsapp_group_id: String(g.id),
         name: (g.subject ?? "").trim().slice(0, 200) || "Grupo sem nome",
@@ -135,6 +142,8 @@ export async function POST(req: Request) {
         admins_total: tally.total,
         admins_ours: tally.ours,
         admins_counted_at: countedAt,
+        community_jid: vinculo.communityJid,
+        community_role: vinculo.communityRole,
       };
     });
 

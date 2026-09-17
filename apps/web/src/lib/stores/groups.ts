@@ -123,6 +123,8 @@ export async function syncGroupsFromProvider(
     admins_total: number;
     admins_ours: number;
     admins_counted_at: string;
+    community_jid: string | null;
+    community_role: string | null;
   }>,
 ): Promise<number> {
   if (groups.length === 0) return 0;
