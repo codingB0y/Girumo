@@ -88,6 +88,7 @@ export function makeBulkDeps(
     setDescription: (instanceName, jid, description) =>
       groups.setDescription(instanceName, jid, description),
     setPicture: (instanceName, jid, imageUrl) => groups.setPicture(instanceName, jid, imageUrl),
+    removeParticipant: (instanceName, jid, phone) => groups.removeParticipant(instanceName, jid, phone),
 
     async signedMediaUrl(mediaId, tenantId) {
       // A checagem de tenant é obrigatória: o mediaId é o storage path em

@@ -5,12 +5,15 @@ import { useId, useRef, useState } from "react";
 import { ImagePlus, Loader2, Trash2 } from "lucide-react";
 import type { LpMediaRef } from "@/lib/pages/content";
 import { mediaSrc } from "@/lib/pages/media";
+import { uploadMediaFile } from "@/lib/media-upload-client";
 import { cn } from "@/lib/utils";
 
 /**
  * Envio de imagem do editor (§7.3: a lojista escolhe um arquivo, nunca cola URL).
- * O upload vai pro POST /api/media com o `kind` que autoriza a leitura pública da
- * LP (`lp-media`/`lp-logo`) — mídia de campanha continua privada.
+ * O upload vai direto pro Storage com o `kind` que autoriza a leitura pública da
+ * LP (`lp-media`/`lp-logo`) — mídia de campanha continua privada. Direto porque
+ * uma foto de LP em alta resolução passa fácil do limite de corpo de requisição
+ * da Vercel (4.5MB) — o binário nunca pode passar pela function.
  *
  * O erro vive AQUI dentro, não sobe pro form: se um envio falha, o resto do que a
  * lojista já escreveu continua intacto na tela, e ela só repete o arquivo.
@@ -66,18 +69,10 @@ export function UploadField({
 
     setBusy(true);
     try {
-      const form = new FormData();
-      form.append("file", file);
-      form.append("kind", kind);
-      const res = await fetch("/api/media", { method: "POST", body: form });
-      const data = (await res.json()) as { id?: string; error?: string };
-      if (!res.ok || !data.id) {
-        setError(data.error ?? "Não deu pra enviar. Tente de novo.");
-        return;
-      }
+      const data = await uploadMediaFile(file, kind);
       onChange({ media_id: data.id, alt: value?.alt ?? "" });
-    } catch {
-      setError("Sem conexão. Tente de novo.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Não deu pra enviar. Tente de novo.");
     } finally {
       setBusy(false);
       if (inputRef.current) inputRef.current.value = ""; // reenviar o mesmo arquivo dispara change

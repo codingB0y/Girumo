@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-16T23:00:23.633Z",
+  "gerado_em": "2026-09-17T19:04:28.563Z",
   "projeto": "nidoatbxaylrkcgbszns",
   "objetos": {
     "f|advance_automation_run(target_run_id uuid, next_step integer, next_at timestamp with time zone)": "9915acbf605c133627ee5aa950df3dc4",
@@ -65,7 +65,7 @@
     "t|flash_offers": "52db680b1fc06e8877d48cd320285cb0",
     "t|funnel_events": "cfd4fd98dcdbb1301222952febc64526",
     "t|funnels": "3438704d01f9224952add6375239855e",
-    "t|group_bulk_jobs": "b7b3d2815d586da30aa2a25c239c35b4",
+    "t|group_bulk_jobs": "724c57f27290a37964105a851f2b82cc",
     "t|group_grow_jobs": "c5cf83857f283071bc2a034b3e729a69",
     "t|group_participants": "3f3381073d7a4bcc20d9744041153a46",
     "t|groups": "3ac68e071dcd68532a717e688c265543",

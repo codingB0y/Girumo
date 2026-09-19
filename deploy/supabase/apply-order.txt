@@ -374,6 +374,13 @@ apps/web/supabase/migrations/20260916040000_campaign_group_ids_rpc.sql
 # participantes, ja chamado hoje). RLS com app.has_membership(tenant_id).
 apps/web/supabase/migrations/20260917000000_group_participants.sql
 
+# 17/09/2026 - Acao remove_participant na fila de acoes em massa (grupos), pra
+# "remover duplicados" e "remover pessoa de todos os grupos" na tela de
+# campanha. So CHECK constraint nova (action) + coluna target_phone; nao mexe
+# em claim_bulk_jobs. Lembrete: CHECK nao entra no hash do gate de drift
+# (achado de 03/09) -- conferencia e SQL direto nos dois bancos.
+apps/web/supabase/migrations/20260917010000_group_bulk_remove_participant.sql
+
 # 2026-09-17 - Comunidade nativa: vinculo do grupo com a comunidade do WhatsApp.
 # community_jid + community_role, preenchidos pelo sync a partir de linkedParent /
 # isCommunity / isCommunityAnnounce, que a Evolution ja devolve. Aplicado nos dois bancos.

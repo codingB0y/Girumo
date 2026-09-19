@@ -33,7 +33,13 @@
 
 import { log } from "./log.js";
 
-export type BulkAction = "set_description" | "set_picture" | "open" | "close" | "check_invite";
+export type BulkAction =
+  | "set_description"
+  | "set_picture"
+  | "open"
+  | "close"
+  | "check_invite"
+  | "remove_participant";
 
 /** O que o app entrega no claim. Autocontido: o worker não consulta o banco. */
 export type BulkJobClaim = {
@@ -42,6 +48,8 @@ export type BulkJobClaim = {
   whatsappGroupId: string;
   description?: string;
   mediaId?: string;
+  /** Telefone (dígitos, com DDI) a remover. Só existe em `remove_participant`. */
+  targetPhone?: string;
 };
 
 /**
@@ -81,6 +89,7 @@ export type BulkDeps = {
   inviteUrl(instanceName: string, groupJid: string): Promise<string | null>;
   /** URL assinada de TTL curto, ou null (mídia apagada / id inválido). */
   signedMediaUrl(mediaId: string, tenantId: string): Promise<string | null>;
+  removeParticipant(instanceName: string, groupJid: string, participantPhone: string): Promise<void>;
 };
 
 export type BulkTickSummary = {
@@ -154,6 +163,14 @@ async function applyJob(
       const url = await deps.signedMediaUrl(job.mediaId, tenantId);
       if (!url) throw new Error("A imagem não está mais disponível.");
       await deps.setPicture(instanceName, job.whatsappGroupId, url);
+      return undefined;
+    }
+
+    case "remove_participant": {
+      // Mesmo padrão de `set_description`: checagem de TIPO, não de verdade —
+      // um job sem telefone é malformado e não pode virar remoção de ninguém.
+      if (!job.targetPhone) throw new Error("Job de remoção sem telefone.");
+      await deps.removeParticipant(instanceName, job.whatsappGroupId, job.targetPhone);
       return undefined;
     }
   }

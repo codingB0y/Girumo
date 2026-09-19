@@ -19,6 +19,7 @@ type Recorded = {
   described: Array<{ jid: string; text: string }>;
   pictured: Array<{ jid: string; url: string }>;
   invitesLidos: string[];
+  removidos: Array<{ jid: string; phone: string }>;
 };
 
 /**
@@ -42,6 +43,7 @@ function makeDeps(over: Partial<BulkDeps> = {}): { deps: BulkDeps; rec: Recorded
     described: [],
     pictured: [],
     invitesLidos: [],
+    removidos: [],
   };
   const deps: BulkDeps = {
     listTenants: async () => ["tenant-a"],
@@ -66,6 +68,9 @@ function makeDeps(over: Partial<BulkDeps> = {}): { deps: BulkDeps; rec: Recorded
     inviteUrl: async (_i, jid) => {
       rec.invitesLidos.push(jid);
       return "https://chat.whatsapp.com/ABCdef123456";
+    },
+    removeParticipant: async (_i, jid, phone) => {
+      rec.removidos.push({ jid, phone });
     },
     ...over,
   };
@@ -303,6 +308,36 @@ test("tenants correm em paralelo: dois tenants, um tick, dois starts", async () 
 
   assert.equal(summary.started, 2);
   assert.equal(starts.length, 2);
+});
+
+test("remove_participant chama removeParticipant com o telefone exato", async () => {
+  const { deps, rec } = makeDeps({
+    claimJobs: async () => [
+      job({ id: "rm-1", action: "remove_participant", targetPhone: "5511999990001" }),
+    ],
+  });
+
+  const summary = await runBulkTick(deps);
+  await drainInFlight();
+
+  assert.deepEqual(rec.removidos, [{ jid: "111@g.us", phone: "5511999990001" }]);
+  assert.deepEqual(rec.acks, [{ jobId: "rm-1", ack: { status: "done" } }]);
+  assert.equal(summary.done, 1);
+});
+
+test("remove_participant sem telefone falha o job SEM chamar a Evolution", async () => {
+  // Mesmo padrao de set_description: job malformado nao pode virar remocao de
+  // ninguem so porque um `?? ""` engoliria o campo ausente.
+  const { deps, rec } = makeDeps({
+    claimJobs: async () => [job({ id: "rm-2", action: "remove_participant" })],
+  });
+
+  const summary = await runBulkTick(deps);
+  await drainInFlight();
+
+  assert.equal(rec.removidos.length, 0, "nao pode chamar updateParticipant sem telefone");
+  assert.equal(summary.failed, 1);
+  assert.match(String(rec.acks[0]?.ack.error), /telefone/i);
 });
 
 test("acao sem dado nao poe a chave invite no ack", async () => {

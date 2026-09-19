@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/toast";
+import { uploadMediaFile } from "@/lib/media-upload-client";
 import { CopyPicker } from "./copy-picker";
 
 export type ComposerPayload = {
@@ -58,16 +59,21 @@ export function MessageComposer({ onSend, sending, className, onBodyChange, rotu
   const handleUpload = useCallback(async (file: File, type: "image" | "video" | "audio" | "file") => {
     setUploading(true);
     try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch("/api/media", { method: "POST", body: form });
-      if (!res.ok) throw new Error("Upload falhou");
-      const data = await res.json();
+      // `type` vem do botão que o usuário clicou, não da classificação do
+      // servidor por mime/extensão: celular manda variantes de mime (ex.:
+      // nota de voz `audio/x-m4a` do iPhone) que a tabela de mimes conhecidos
+      // não cobre, e aí o servidor classificaria como arquivo genérico.
+      const data = await uploadMediaFile(file);
       setMediaId(data.id);
       setMediaType(type);
       setMediaName(file.name);
-    } catch {
-      toast("Erro ao enviar arquivo. Tente novamente.", "error");
+    } catch (error) {
+      // A rota (e o Storage) dizem POR QUE recusou — arquivo grande demais,
+      // formato errado, ou limite de plano. Uma frase genérica escondia isso
+      // e "tente novamente" nunca resolvia (ex.: vídeo real quase sempre
+      // passa do limite de corpo de requisição da Vercel).
+      const message = error instanceof Error ? error.message : "Erro ao enviar arquivo.";
+      toast(message, "error");
     } finally {
       setUploading(false);
     }
