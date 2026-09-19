@@ -10,6 +10,10 @@ export type CampaignGroup = {
   auto_grow: boolean;
   grow_template: Record<string, unknown> | null;
   metadata: Record<string, unknown>;
+  /** Preenchido quando a linha é a gaveta espelho de uma comunidade nativa do
+   * WhatsApp (ver `lib/stores/communities.ts#espelharComunidadesNativas`).
+   * `group_ids` é regravado a cada sync — não é editável pelo painel. */
+  whatsapp_community_jid: string | null;
   created_at: string;
   updated_at: string;
 };

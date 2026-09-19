@@ -79,6 +79,10 @@ export async function carregarCampanhas(tenantId: string) {
     slug: c.slug,
     autoGrow: c.auto_grow,
     growTemplate: c.grow_template,
+    // Gaveta espelho de comunidade nativa: o painel usa isto pra desabilitar
+    // edição de grupos/auto-grow (o servidor já recusa em `PATCH /api/campanhas`,
+    // isto é só pra não deixar o botão clicável até chegar lá).
+    whatsappCommunityJid: c.whatsapp_community_jid,
     settings: {
       entrada: readEntrada(c.metadata as Record<string, unknown>),
       integracoes: apresentaIntegracoes(readIntegracoes(c.metadata as Record<string, unknown>)),

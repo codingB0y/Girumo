@@ -6,6 +6,16 @@
 
 const NOME_MAX_LENGTH = 60;
 
+/**
+ * Mensagem única para toda recusa de escrita numa gaveta espelho de
+ * comunidade nativa (`whatsapp_community_jid` preenchido): quem manda em
+ * grupos ali é o próximo sync. Usada por `app/api/comunidades/[slug]/grupos`
+ * (vincular/desvincular) e por `app/api/campanhas` (PATCH de `groupIds`/
+ * `autoGrow`) — uma string só, pra não divergir entre as duas rotas.
+ */
+export const COMUNIDADE_NATIVA_MENSAGEM =
+  "Esta comunidade é do WhatsApp. Vincule ou desvincule grupos pelo aplicativo.";
+
 export type ValidationResult<T> = ({ ok: true } & T) | { ok: false; error: string };
 
 /** Nome da comunidade: não-vazio (depois de `trim`) e até 60 caracteres. */

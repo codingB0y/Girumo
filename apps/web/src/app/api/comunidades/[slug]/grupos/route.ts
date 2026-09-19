@@ -2,7 +2,7 @@ import { getTenantContext } from "@/lib/supabase/tenant-context";
 import { assertPermission } from "@/lib/permissions";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { vincularGrupo, desvincularGrupo, listarComunidades } from "@/lib/stores/communities";
-import { validarWhatsappGroupId } from "@/lib/communities/validation";
+import { COMUNIDADE_NATIVA_MENSAGEM, validarWhatsappGroupId } from "@/lib/communities/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,10 +18,7 @@ const COMUNIDADE_NAO_ENCONTRADA = "não encontrada";
 async function recusarSeNativa(tenantId: string, slug: string): Promise<Response | null> {
   const alvo = (await listarComunidades(tenantId)).find((c) => c.slug === slug);
   if (!alvo?.whatsappCommunityJid) return null;
-  return Response.json(
-    { error: "Esta comunidade é do WhatsApp. Vincule ou desvincule grupos pelo aplicativo." },
-    { status: 409 },
-  );
+  return Response.json({ error: COMUNIDADE_NATIVA_MENSAGEM }, { status: 409 });
 }
 
 /**
