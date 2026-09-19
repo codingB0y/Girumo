@@ -15,6 +15,9 @@ type Comunidade = {
   groupIds: string[];
   autoGrow: boolean;
   whatsappCommunityJid: string | null;
+  avisoGroupId: string | null;
+  alcanceAvisos: number | null;
+  avisoIsAdmin: boolean;
 };
 
 type RespostaComunidades = { comunidades: Comunidade[]; orfaos: GrupoOrfao[] };
@@ -112,7 +115,14 @@ export default function PainelComunidades() {
     totalMembros: somaMembros(c.groupIds, membrosPorGrupo),
     autoGrow: c.autoGrow,
     whatsappCommunityJid: c.whatsappCommunityJid,
+    alcanceAvisos: c.alcanceAvisos,
   }));
+
+  // Vincular um órfão numa gaveta nativa é recusado no servidor (Task 6
+  // Step 2) — quem manda em `group_ids` ali é o próximo sync. Tirar essas
+  // gavetas do destino evita que o lojista escolha uma opção que só devolve
+  // 409 no clique.
+  const destinosVinculaveis = resumos.filter((c) => c.whatsappCommunityJid === null);
 
   return (
     <div className="mx-auto max-w-[1100px] space-y-8 px-4 py-8 sm:px-8">
@@ -120,8 +130,8 @@ export default function PainelComunidades() {
         <div>
           <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-volt-950">Comunidades</h1>
           <p className="mt-1 text-[15px] text-slate-600">
-            Agrupe seus grupos de WhatsApp em coleções — hoje só uma gaveta na Girumo, sem depender do
-            WhatsApp aceitar a comunidade nativa.
+            As comunidades do WhatsApp que você administra aparecem aqui sozinhas; as outras são coleções
+            de grupos que só existem na Girumo.
           </p>
         </div>
         <button
@@ -175,7 +185,7 @@ export default function PainelComunidades() {
 
             <OrfaosFaixa
               grupos={orfaos}
-              comunidades={resumos.map((c) => ({ slug: c.slug, nome: c.nome }))}
+              comunidades={destinosVinculaveis.map((c) => ({ slug: c.slug, nome: c.nome }))}
               aoVincular={vincular}
             />
           </>

@@ -1,5 +1,6 @@
 import { after } from "next/server";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
+import { classificarPapel } from "@/lib/communities/papel";
 import {
   EvolutionError,
   FETCH_GROUPS_TIMEOUT_MS,
@@ -25,6 +26,7 @@ import {
   removeGroupsByWhatsappIds,
   syncGroupsFromProvider,
 } from "@/lib/stores/groups";
+import { espelharComunidadesNativas } from "@/lib/stores/communities";
 import { getInstance, listInstances } from "@/lib/stores/instances";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { getTenantContext } from "@/lib/supabase/tenant-context";
@@ -125,6 +127,12 @@ export async function POST(req: Request) {
       );
       const contagem = escolherContagem(doProvedor, anterior.get(String(g.id)));
       if (contagem.protegido) protegidos += 1;
+      const vinculo = classificarPapel({
+        id: String(g.id),
+        isCommunity: g.isCommunity,
+        isCommunityAnnounce: g.isCommunityAnnounce,
+        linkedParent: g.linkedParent,
+      });
       return {
         whatsapp_group_id: String(g.id),
         name: (g.subject ?? "").trim().slice(0, 200) || "Grupo sem nome",
@@ -135,6 +143,8 @@ export async function POST(req: Request) {
         admins_total: tally.total,
         admins_ours: tally.ours,
         admins_counted_at: countedAt,
+        community_jid: vinculo.communityJid,
+        community_role: vinculo.communityRole,
       };
     });
 
@@ -165,6 +175,14 @@ export async function POST(req: Request) {
       const falhas = r.filter((x) => x.status === "rejected");
       if (falhas.length > 0) {
         console.error(`[api/groups/sync] ${falhas.length} grupo(s) sem participantes gravados:`, falhas[0]);
+      }
+
+      try {
+        await espelharComunidadesNativas(ctx.tenantId);
+      } catch (e) {
+        // Espelhar comunidade é enriquecimento; falhar aqui não pode derrubar
+        // um sync que o lojista veio fazer por outro motivo.
+        console.error("[groups/sync] falha ao espelhar comunidades nativas:", e);
       }
     });
 

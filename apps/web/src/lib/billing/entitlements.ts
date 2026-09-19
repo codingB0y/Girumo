@@ -2,6 +2,7 @@ import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import {
   hasReachedLimit,
+  mirrorExclusionColumn,
   resolveLimitCheck,
   tenantLimitsFrom,
   type Limits,
@@ -92,10 +93,15 @@ export async function assertPlanLimit(tenantId: string, capability: PlanCapabili
   }
 
   const supabase = getSupabaseAdmin();
-  const { count, error } = await supabase
+  let query = supabase
     .from(check.table)
     .select("id", { count: "exact", head: true })
     .eq("tenant_id", tenantId);
+  // Espelho de comunidade nativa (whatsapp_community_jid preenchido) nao e
+  // campanha criada pelo lojista — nao pode contar pro teto do plano.
+  const mirrorColumn = mirrorExclusionColumn(check.table);
+  if (mirrorColumn) query = query.is(mirrorColumn, null);
+  const { count, error } = await query;
 
   if (error) throw new Response("Nao foi possivel validar limites do plano.", { status: 500 });
   if (hasReachedLimit(count ?? 0, check.limit)) {

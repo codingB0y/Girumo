@@ -19,6 +19,7 @@ import {
 } from "@/lib/campaigns/settings";
 import { apresentaIntegracoes } from "./apresenta";
 import { listLandingPages } from "@/lib/pages/store";
+import { COMUNIDADE_NATIVA_MENSAGEM } from "@/lib/communities/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -156,6 +157,23 @@ export async function PATCH(req: Request) {
 
   const patch: Partial<Pick<supaStore.CampaignGroup, "name" | "slug" | "group_ids" | "auto_grow" | "grow_template" | "metadata">> = {};
   if (typeof b.name === "string") patch.name = b.name.trim();
+
+  // A gaveta espelho de comunidade nativa não é editável nisso: quem manda em
+  // `group_ids` é o próximo sync (`espelharComunidadesNativas`). Sem esta
+  // trava, o painel liga auto-grow na gaveta, o worker cria um grupo real de
+  // WhatsApp, e o sync seguinte apaga esse id do array — grupo real órfão,
+  // sem aviso. Mesma mensagem que `recusarSeNativa` usa em
+  // `app/api/comunidades/[slug]/grupos/route.ts` — uma string só.
+  const querMexerEmGrupos = Array.isArray(b.groupIds) || b.autoGrow === true;
+  let current: supaStore.CampaignGroup | null = null;
+  if (querMexerEmGrupos || b.settings !== undefined) {
+    current = await supaStore.getCampaignGroupById(tenantId, id);
+    if (!current) return Response.json({ error: "Campanha não encontrada." }, { status: 404 });
+  }
+  if (querMexerEmGrupos && current?.whatsapp_community_jid) {
+    return Response.json({ error: COMUNIDADE_NATIVA_MENSAGEM }, { status: 409 });
+  }
+
   if (Array.isArray(b.groupIds)) patch.group_ids = b.groupIds.map(String);
   if (typeof b.autoGrow === "boolean") patch.auto_grow = b.autoGrow;
   if (b.growTemplate && typeof b.growTemplate === "object") {
@@ -176,8 +194,9 @@ export async function PATCH(req: Request) {
       }
     }
     // `metadata` é substituído inteiro pelo update: lê o atual para não perder
-    // `loja` e o que mais estiver lá.
-    const current = await supaStore.getCampaignGroupById(tenantId, id);
+    // `loja` e o que mais estiver lá. `current` já foi buscado acima — nunca
+    // nulo aqui, porque `b.settings !== undefined` já disparou a busca e o
+    // retorno 404 antes deste ponto.
     if (!current) return Response.json({ error: "Campanha não encontrada." }, { status: 404 });
     let metadata = withEntrada(current.metadata as Record<string, unknown>, parsed.entrada);
 

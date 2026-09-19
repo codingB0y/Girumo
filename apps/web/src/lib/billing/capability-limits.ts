@@ -104,6 +104,21 @@ export function hasReachedLimit(count: number, limit: number): boolean {
 }
 
 /**
+ * Coluna que, quando NÃO NULA, marca uma linha de `table` como espelho — não
+ * o recurso real do lojista, e por isso fora da contagem de limite do plano.
+ *
+ * Hoje só `campaign_groups`: `espelharComunidadesNativas`
+ * (`lib/stores/communities.ts`) grava ali uma linha por comunidade nativa do
+ * WhatsApp que o lojista administra, com `whatsapp_community_jid` preenchido.
+ * Essa linha nasce do sync, não de `POST /api/campanhas` — contá-la faz um
+ * Starter (`campaigns: 10`) com 8 campanhas e 3 comunidades nativas estourar o
+ * teto e devolver 402 em TODO envio, inclusive das campanhas antigas.
+ */
+export function mirrorExclusionColumn(table: string): string | null {
+  return table === "campaign_groups" ? "whatsapp_community_jid" : null;
+}
+
+/**
  * Teto de quem não tem assinatura: zero em tudo.
  *
  * Aqui morava `FREE_FALLBACK_LIMITS`, que espelhava o plano FREE de produção.

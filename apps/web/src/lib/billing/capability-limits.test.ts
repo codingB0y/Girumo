@@ -5,6 +5,7 @@ import {
   CAPABILITY_TABLE,
   BLOCKED_LIMITS,
   hasReachedLimit,
+  mirrorExclusionColumn,
   resolveLimitCheck,
   tenantLimitsFrom,
   extrasFromMetadata,
@@ -101,6 +102,25 @@ test("toda capability que consome recurso contavel tem tabela", () => {
 
   for (const cap of contaveis) {
     assert.ok(CAPABILITY_TABLE[cap], `${cap} ficou sem tabela para contar`);
+  }
+});
+
+/**
+ * O bug que esta secao existe para nao deixar voltar: `espelharComunidadesNativas`
+ * (lib/stores/communities.ts) grava em `campaign_groups` uma linha por
+ * comunidade nativa do WhatsApp que o lojista administra, com
+ * `whatsapp_community_jid` preenchido. Sem exclusao, um Starter (campaigns: 10)
+ * com 8 campanhas e 3 comunidades nativas sincroniza, vai a 11, e todo POST em
+ * /api/campanhas/[slug]/messages passa a devolver 402 — inclusive das
+ * campanhas antigas que nada tem a ver com comunidade nativa.
+ */
+test("contagem de campaign_groups exclui a gaveta espelho de comunidade nativa", () => {
+  assert.equal(mirrorExclusionColumn("campaign_groups"), "whatsapp_community_jid");
+});
+
+test("as demais tabelas contadas nao tem exclusao de espelho", () => {
+  for (const table of ["leads", "instances", "memberships", "funnels"]) {
+    assert.equal(mirrorExclusionColumn(table), null, `${table} nao deveria ter coluna de exclusao`);
   }
 });
 

@@ -4,6 +4,7 @@ import { assertPlanLimit } from "@/lib/billing/entitlements";
 import { listarComunidades, criarComunidade } from "@/lib/stores/communities";
 import * as groupsStore from "@/lib/stores/groups";
 import { gruposOrfaos } from "@/lib/communities/orfaos";
+import { ehEstruturaDeComunidade } from "@/lib/communities/estrutura";
 import { validarNomeComunidade } from "@/lib/communities/validation";
 
 export const runtime = "nodejs";
@@ -33,12 +34,21 @@ export async function GET(req: Request) {
     // precisa exibir nome e tamanho de cada grupo sem uma segunda chamada a
     // /api/groups. `gruposOrfaos<T>` é genérica — devolver um objeto mais rico
     // que `GrupoRef` continua satisfazendo a assinatura.
+    //
+    // Pai e Avisos de uma comunidade nativa nunca entram em `group_ids`
+    // (`memberGroupIds` os exclui de propósito, ver reconciliar.ts) — sem
+    // este filtro os dois nunca contam como "atribuídos" e a faixa de órfãos
+    // acusa "sem comunidade" justamente as duas peças da comunidade que os
+    // tem. Mesmo predicado de `lib/communities/estrutura.ts` usado por
+    // `carregarGrupos` para tirar os dois da lista de disparo.
     const orfaos = gruposOrfaos(
-      grupos.map((grupo) => ({
-        whatsappGroupId: grupo.whatsapp_group_id,
-        name: grupo.name,
-        members: grupo.members,
-      })),
+      grupos
+        .filter((grupo) => !ehEstruturaDeComunidade(grupo))
+        .map((grupo) => ({
+          whatsappGroupId: grupo.whatsapp_group_id,
+          name: grupo.name,
+          members: grupo.members,
+        })),
       comunidades,
     );
 

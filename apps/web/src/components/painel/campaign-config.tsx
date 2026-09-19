@@ -44,6 +44,10 @@ type Campanha = {
   slug?: string;
   autoGrow?: boolean;
   growTemplate?: GrowTemplate | null;
+  /** Preenchido quando a campanha é a gaveta espelho de uma comunidade nativa
+   * do WhatsApp — grupos e auto-grow não são editáveis por aqui (o próximo
+   * sync regrava `group_ids`; ver PATCH /api/campanhas no servidor). */
+  whatsappCommunityJid?: string | null;
   settings?: { entrada: EntradaSettings; integracoes?: IntegracoesPublicas };
 };
 
@@ -76,6 +80,9 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
 
   const [id, setId] = useState<string | null>(null);
   const [createdSlug, setCreatedSlug] = useState<string | null>(null);
+  // Gaveta espelho de comunidade nativa: grupos/auto-grow ficam bloqueados na
+  // tela (o servidor já recusa o PATCH — isto evita o clique morto).
+  const [comunidadeNativa, setComunidadeNativa] = useState(false);
   const [name, setName] = useState("");
   const [autoGrow, setAutoGrow] = useState(true);
   // Molde do nome do grupo que a Girumo cria quando o pool lota. Vazio = usa o
@@ -136,6 +143,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
             setId(c.id);
             setCreatedSlug(c.slug ?? null);
             setName(c.name ?? "");
+            setComunidadeNativa(Boolean(c.whatsappCommunityJid));
             setAutoGrow(c.autoGrow ?? true);
             setGrowSubject(c.growTemplate?.subjectPattern ?? "");
             setSelected(new Set(c.groupIds ?? []));
@@ -234,9 +242,10 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
           body: JSON.stringify({
             id,
             name: name.trim(),
-            groupIds,
-            autoGrow,
-            ...growTemplatePatch(),
+            // Gaveta espelho de comunidade nativa: nunca manda groupIds/autoGrow
+            // — o servidor recusa com 409, e o próximo sync regrava o array de
+            // qualquer jeito.
+            ...(comunidadeNativa ? {} : { groupIds, autoGrow, ...growTemplatePatch() }),
             settings: { entrada, integracoes: integracoesPatch() },
           }),
         });
@@ -332,9 +341,24 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
           </div>
         </Field>
       )}
-      <Field label="Automatizar criação de grupos?" hint="A Girumo cria um grupo novo automaticamente quando o atual lota (a partir de 90%).">
-        <ToggleInline on={autoGrow} setOn={setAutoGrow} labelOn="Sim, criar no automático" labelOff="Não, gerencio na mão" />
-        {autoGrow && (
+      <Field
+        label="Automatizar criação de grupos?"
+        hint={
+          comunidadeNativa
+            ? "Esta comunidade é do WhatsApp — os grupos são geridos pelo aplicativo, não por aqui."
+            : "A Girumo cria um grupo novo automaticamente quando o atual lota (a partir de 90%)."
+        }
+      >
+        <div title={comunidadeNativa ? "Esta comunidade é do WhatsApp. Gerencie os grupos pelo aplicativo." : undefined}>
+          <ToggleInline
+            on={comunidadeNativa ? false : autoGrow}
+            setOn={setAutoGrow}
+            labelOn="Sim, criar no automático"
+            labelOff="Não, gerencio na mão"
+            disabled={comunidadeNativa}
+          />
+        </div>
+        {!comunidadeNativa && autoGrow && (
           <div className="mt-2">
             <label htmlFor="grow-subject" className="text-xs text-aco">
               Nome dos grupos criados — <span className="font-data">{"{n}"}</span> vira o número
@@ -379,58 +403,70 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
         <p className="text-sm font-medium text-volt-950">Grupos da campanha</p>
         <span className="font-data text-xs uppercase tracking-[0.08em] tabular-nums text-aco">{selected.size} selecionados</span>
       </div>
-      <p className="-mt-2 text-xs text-aco">Os grupos que o link vai encher. Dá pra adicionar/remover depois.</p>
-      {groups.length > 0 && (
-        <div className="flex items-center gap-2">
-          <input
-            value={groupSearch}
-            onChange={(e) => setGroupSearch(e.target.value)}
-            placeholder="Pesquisar grupos…"
-            className={cn(inputCls, "flex-1")}
-          />
-          <button
-            type="button"
-            onClick={toggleSelectAllFiltered}
-            disabled={filteredGroups.length === 0}
-            className="shrink-0 whitespace-nowrap rounded-xl border border-volt-950/15 bg-papel px-3 py-2 text-sm font-medium text-volt-950 transition-colors duration-[160ms] hover:border-cobalt-500/30 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {allFilteredSelected ? "Remover todos" : "Selecionar todos"}
-          </button>
-        </div>
-      )}
-      {groups.length === 0 ? (
+      {comunidadeNativa ? (
         <div className="rounded-xl border border-dashed border-volt-950/15 px-4 py-8 text-center">
-          <p className="text-sm text-aco">Nenhum grupo sincronizado ainda.</p>
-          <p className="mt-1 text-xs text-aco">Conecte o WhatsApp e os grupos aparecem aqui.</p>
-        </div>
-      ) : filteredGroups.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-volt-950/15 px-4 py-8 text-center">
-          <p className="text-sm text-aco">Nenhum grupo bate com &quot;{groupSearch}&quot;.</p>
+          <p className="text-sm text-aco">Esta comunidade é do WhatsApp.</p>
+          <p className="mt-1 text-xs text-aco">
+            Os grupos vêm direto do aplicativo e são atualizados a cada sincronização — não dá pra
+            adicionar ou remover por aqui.
+          </p>
         </div>
       ) : (
-        <div className="grid max-h-[340px] gap-2 overflow-y-auto sm:grid-cols-2">
-          {filteredGroups.map((g) => {
-            const sel = selected.has(g.id);
-            return (
+        <>
+          <p className="-mt-2 text-xs text-aco">Os grupos que o link vai encher. Dá pra adicionar/remover depois.</p>
+          {groups.length > 0 && (
+            <div className="flex items-center gap-2">
+              <input
+                value={groupSearch}
+                onChange={(e) => setGroupSearch(e.target.value)}
+                placeholder="Pesquisar grupos…"
+                className={cn(inputCls, "flex-1")}
+              />
               <button
-                key={g.id}
-                onClick={() => toggle(g.id)}
-                className={cn("flex items-center gap-3 rounded-xl border p-3 text-left transition-[border-color,background-color] duration-[160ms] ease-[var(--ease-fluxo)]", sel ? "border-cobalt-500 bg-cobalt-500/[0.05]" : "border-volt-950/[0.08] bg-papel hover:border-cobalt-500/30")}
+                type="button"
+                onClick={toggleSelectAllFiltered}
+                disabled={filteredGroups.length === 0}
+                className="shrink-0 whitespace-nowrap rounded-xl border border-volt-950/15 bg-papel px-3 py-2 text-sm font-medium text-volt-950 transition-colors duration-[160ms] hover:border-cobalt-500/30 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", sel ? "bg-cobalt-500 text-white" : "bg-cobalt-500/10 text-cobalt-500")}>
-                  <Users className="h-4 w-4" strokeWidth={1.75} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-volt-950">{g.name}</p>
-                  <p className="font-data text-12 tabular-nums text-aco">{g.members?.toLocaleString("pt-BR") ?? 0} membros{!g.inviteUrl ? " · sem convite" : ""}</p>
-                </div>
-                <span className={cn("flex h-5 w-5 items-center justify-center rounded-md border transition", sel ? "border-cobalt-500 bg-cobalt-500 text-white" : "border-volt-950/20")}>
-                  {sel && <Check className="h-3.5 w-3.5" />}
-                </span>
+                {allFilteredSelected ? "Remover todos" : "Selecionar todos"}
               </button>
-            );
-          })}
-        </div>
+            </div>
+          )}
+          {groups.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-volt-950/15 px-4 py-8 text-center">
+              <p className="text-sm text-aco">Nenhum grupo sincronizado ainda.</p>
+              <p className="mt-1 text-xs text-aco">Conecte o WhatsApp e os grupos aparecem aqui.</p>
+            </div>
+          ) : filteredGroups.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-volt-950/15 px-4 py-8 text-center">
+              <p className="text-sm text-aco">Nenhum grupo bate com &quot;{groupSearch}&quot;.</p>
+            </div>
+          ) : (
+            <div className="grid max-h-[340px] gap-2 overflow-y-auto sm:grid-cols-2">
+              {filteredGroups.map((g) => {
+                const sel = selected.has(g.id);
+                return (
+                  <button
+                    key={g.id}
+                    onClick={() => toggle(g.id)}
+                    className={cn("flex items-center gap-3 rounded-xl border p-3 text-left transition-[border-color,background-color] duration-[160ms] ease-[var(--ease-fluxo)]", sel ? "border-cobalt-500 bg-cobalt-500/[0.05]" : "border-volt-950/[0.08] bg-papel hover:border-cobalt-500/30")}
+                  >
+                    <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", sel ? "bg-cobalt-500 text-white" : "bg-cobalt-500/10 text-cobalt-500")}>
+                      <Users className="h-4 w-4" strokeWidth={1.75} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-volt-950">{g.name}</p>
+                      <p className="font-data text-12 tabular-nums text-aco">{g.members?.toLocaleString("pt-BR") ?? 0} membros{!g.inviteUrl ? " · sem convite" : ""}</p>
+                    </div>
+                    <span className={cn("flex h-5 w-5 items-center justify-center rounded-md border transition", sel ? "border-cobalt-500 bg-cobalt-500 text-white" : "border-volt-950/20")}>
+                      {sel && <Check className="h-3.5 w-3.5" />}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
     </Card>
   );
@@ -569,9 +605,25 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   );
 }
 
-function ToggleInline({ on, setOn, labelOn, labelOff }: { on: boolean; setOn: (v: boolean) => void; labelOn: string; labelOff: string }) {
+function ToggleInline({
+  on,
+  setOn,
+  labelOn,
+  labelOff,
+  disabled,
+}: {
+  on: boolean;
+  setOn: (v: boolean) => void;
+  labelOn: string;
+  labelOff: string;
+  disabled?: boolean;
+}) {
   return (
-    <button onClick={() => setOn(!on)} className="flex w-full items-center justify-between rounded-xl border border-volt-950/10 bg-poco px-3.5 py-2.5 text-left text-sm transition-colors duration-[160ms] hover:border-cobalt-500/30">
+    <button
+      onClick={() => !disabled && setOn(!on)}
+      disabled={disabled}
+      className="flex w-full items-center justify-between rounded-xl border border-volt-950/10 bg-poco px-3.5 py-2.5 text-left text-sm transition-colors duration-[160ms] hover:border-cobalt-500/30 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-volt-950/10"
+    >
       <span className={cn("font-medium", on ? "text-volt-950" : "text-aco")}>{on ? labelOn : labelOff}</span>
       <span className={cn("relative h-6 w-11 rounded-full transition-colors duration-[160ms]", on ? "bg-cobalt-500" : "bg-volt-950/15")}>
         <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-[left] duration-[160ms] ease-[var(--ease-fluxo)]", on ? "left-[22px]" : "left-0.5")} />

@@ -1,5 +1,6 @@
 import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import type { PapelComunidade } from "@/lib/communities/papel";
 
 export type Group = {
   id: string;
@@ -37,6 +38,10 @@ export type Group = {
    */
   invite_check?: "same" | "changed" | "broken" | null;
   invite_checked_at?: string | null;
+  /** JID da comunidade nativa que este grupo integra. `null` fora de uma. */
+  community_jid?: string | null;
+  /** Papel do grupo na comunidade nativa (Task 3). `null` fora de uma. */
+  community_role?: PapelComunidade | null;
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
@@ -123,6 +128,8 @@ export async function syncGroupsFromProvider(
     admins_total: number;
     admins_ours: number;
     admins_counted_at: string;
+    community_jid: string | null;
+    community_role: string | null;
   }>,
 ): Promise<number> {
   if (groups.length === 0) return 0;

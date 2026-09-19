@@ -2,6 +2,8 @@ import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { criarLinkMestreOuDesfazer, uniqueMasterSlug } from "@/lib/campaigns/master-link";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
+import { comunidadesNativas } from "@/lib/communities/reconciliar";
+import type { PapelComunidade } from "@/lib/communities/papel";
 
 /**
  * Comunidades são `campaign_groups` vistas por outra ótica — mesma tabela que
@@ -18,6 +20,12 @@ export type Comunidade = {
   groupIds: string[];
   autoGrow: boolean;
   whatsappCommunityJid: string | null;
+  /** Grupo de Avisos da comunidade nativa. NULL quando a gaveta é só da Girumo. */
+  avisoGroupId: string | null;
+  /** `members` do Avisos: a comunidade inteira, já deduplicada pelo WhatsApp. */
+  alcanceAvisos: number | null;
+  /** Só admin escreve em grupo `announce`. Sem isso, o disparo falha no clique. */
+  avisoIsAdmin: boolean;
 };
 
 const TABLE = "campaign_groups";
@@ -32,7 +40,11 @@ type ComunidadeRow = {
   whatsapp_community_jid: string | null;
 };
 
-function mapRow(row: ComunidadeRow): Comunidade {
+/** O que `listarComunidades` sabe do grupo de Avisos de uma comunidade nativa. */
+type AvisoInfo = { whatsappGroupId: string; members: number; isAdmin: boolean };
+
+function mapRow(row: ComunidadeRow, avisoPorJid?: Map<string, AvisoInfo>): Comunidade {
+  const aviso = row.whatsapp_community_jid ? avisoPorJid?.get(row.whatsapp_community_jid) : undefined;
   return {
     id: row.id,
     nome: row.name,
@@ -40,6 +52,9 @@ function mapRow(row: ComunidadeRow): Comunidade {
     groupIds: row.group_ids ?? [],
     autoGrow: row.auto_grow,
     whatsappCommunityJid: row.whatsapp_community_jid,
+    avisoGroupId: aviso?.whatsappGroupId ?? null,
+    alcanceAvisos: aviso?.members ?? null,
+    avisoIsAdmin: aviso?.isAdmin ?? false,
   };
 }
 
@@ -54,15 +69,45 @@ export function montarQueryComunidades(tenantId: string): { tenantId: string } {
   return { tenantId };
 }
 
+/**
+ * Uma query extra por listagem (nunca uma por gaveta): busca todo grupo
+ * `announce` do tenant de uma vez e casa por `community_jid` em memória. Uma
+ * gaveta pode não ter Avisos ainda (sync não achou, ou comunidade sem o
+ * recurso) — nesse caso o `Map` simplesmente não tem a chave.
+ */
+async function buscarAvisosPorJid(tenantId: string): Promise<Map<string, AvisoInfo>> {
+  const { data, error } = await getSupabaseAdmin()
+    .from("groups")
+    .select("community_jid, whatsapp_group_id, members, is_admin")
+    .eq("tenant_id", tenantId)
+    .eq("community_role", "announce");
+  if (error) throw new Error(error.message);
+
+  const porJid = new Map<string, AvisoInfo>();
+  for (const row of data ?? []) {
+    const jid = row.community_jid as string | null;
+    if (!jid) continue;
+    porJid.set(jid, {
+      whatsappGroupId: row.whatsapp_group_id as string,
+      members: row.members as number,
+      isAdmin: Boolean(row.is_admin),
+    });
+  }
+  return porJid;
+}
+
 export async function listarComunidades(tenantId: string): Promise<Comunidade[]> {
   const { tenantId: tid } = montarQueryComunidades(tenantId);
-  const { data, error } = await getSupabaseAdmin()
-    .from(TABLE)
-    .select(ROW_FIELDS)
-    .eq("tenant_id", tid)
-    .order("created_at", { ascending: false });
+  const [{ data, error }, avisoPorJid] = await Promise.all([
+    getSupabaseAdmin()
+      .from(TABLE)
+      .select(ROW_FIELDS)
+      .eq("tenant_id", tid)
+      .order("created_at", { ascending: false }),
+    buscarAvisosPorJid(tid),
+  ]);
   if (error) throw new Error(error.message);
-  return ((data ?? []) as ComunidadeRow[]).map(mapRow);
+  return ((data ?? []) as ComunidadeRow[]).map((row) => mapRow(row, avisoPorJid));
 }
 
 /**
@@ -155,4 +200,109 @@ export async function desvincularGrupo(tenantId: string, slug: string, whatsappG
     p_whatsapp_group_id: whatsappGroupId,
   });
   if (error) throw new Error(error.message);
+}
+
+/**
+ * Espelha em `campaign_groups` cada comunidade nativa que o tenant administra.
+ *
+ * A gaveta espelho é um retrato do WhatsApp, não uma coleção editável: quem
+ * manda é `linkedParent`, e o próximo sync sobrescreve `group_ids`. Por isso a
+ * tela desabilita vincular/desvincular quando `whatsapp_community_jid` existe
+ * (spec §3.4) — desvincular aqui não desvincularia lá.
+ */
+export async function espelharComunidadesNativas(tenantId: string): Promise<number> {
+  const { tenantId: tid } = montarQueryComunidades(tenantId);
+
+  const { data: linhas, error: erroGrupos } = await getSupabaseAdmin()
+    .from("groups")
+    .select("whatsapp_group_id, name, is_admin, community_jid, community_role")
+    .eq("tenant_id", tid)
+    .not("community_jid", "is", null);
+  if (erroGrupos) throw new Error(erroGrupos.message);
+
+  const nativas = comunidadesNativas(
+    (linhas ?? []).map((l) => ({
+      whatsappGroupId: l.whatsapp_group_id as string,
+      nome: (l.name as string) ?? "",
+      isAdmin: Boolean(l.is_admin),
+      communityJid: l.community_jid as string | null,
+      communityRole: l.community_role as PapelComunidade | null,
+    })),
+  );
+  if (nativas.length === 0) return 0;
+
+  const { data: existentes, error: erroGavetas } = await getSupabaseAdmin()
+    .from(TABLE)
+    .select("id, slug, whatsapp_community_jid")
+    .eq("tenant_id", tid)
+    .not("whatsapp_community_jid", "is", null);
+  if (erroGavetas) throw new Error(erroGavetas.message);
+
+  const porJid = new Map<string, { id: string }>();
+  for (const g of existentes ?? []) {
+    porJid.set(g.whatsapp_community_jid as string, { id: g.id as string });
+  }
+
+  // Uma leitura só, antes do laço: cada slug que este laço cria entra no
+  // mesmo Set, então uma comunidade nova nunca colide com a que acabou de
+  // nascer duas iterações atrás. Consultar `listarComunidades` a cada volta
+  // seria uma query por comunidade sem ganho nenhum.
+  const slugsEmUso = new Set((await listarComunidades(tid)).map((c) => c.slug));
+
+  let tocadas = 0;
+  for (const nativa of nativas) {
+    const ja = porJid.get(nativa.communityJid);
+    if (ja) {
+      const { error } = await getSupabaseAdmin()
+        .from(TABLE)
+        .update({ name: nativa.nome, group_ids: nativa.memberGroupIds })
+        .eq("tenant_id", tid)
+        .eq("id", ja.id);
+      if (error) throw new Error(error.message);
+    } else {
+      // Assinatura: uniqueMasterSlug(name, takenInTenant, fallback) — mesma
+      // ordem que `criarComunidade` usa logo acima neste arquivo.
+      const slug = await uniqueMasterSlug(nativa.nome, slugsEmUso, "comunidade");
+      slugsEmUso.add(slug);
+
+      const { data, error } = await getSupabaseAdmin()
+        .from(TABLE)
+        .insert({
+          tenant_id: tid,
+          name: nativa.nome,
+          slug,
+          group_ids: nativa.memberGroupIds,
+          // `auto_grow: false` não é detalhe: o worker do auto-grow escreve em
+          // `group_ids` pela RPC atômica, e esta função regrava o array
+          // inteiro. Espelho do WhatsApp e auto-grow na mesma linha seriam
+          // lost update garantido.
+          auto_grow: false,
+          whatsapp_community_jid: nativa.communityJid,
+        })
+        .select(ROW_FIELDS)
+        .single();
+      if (error) throw new Error(error.message);
+
+      // Sem link mestre a rota /c/[slug] da Fase 5 não resolve esta coleção.
+      // `criarLinkMestreOuDesfazer` já desfaz a linha em `campaign_groups`
+      // quando o link falha (corrida de slug) — mesmo padrão de
+      // `criarComunidade` logo acima. Sem checar o retorno, esta função
+      // contaria como "tocada" uma gaveta que não existe mais no banco.
+      const criada = mapRow(data as ComunidadeRow);
+      const temLink = await criarLinkMestreOuDesfazer(tid, {
+        id: criada.id,
+        slug: criada.slug,
+        name: criada.nome,
+      });
+      if (!temLink) {
+        // A linha foi apagada por dentro, então o slug nunca chegou a
+        // existir de verdade — tira do Set para não recusar à toa um slug
+        // livre para a próxima comunidade nesta mesma chamada.
+        slugsEmUso.delete(slug);
+        continue;
+      }
+    }
+    tocadas += 1;
+  }
+  return tocadas;
 }

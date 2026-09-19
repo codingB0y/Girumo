@@ -17,6 +17,9 @@ type Comunidade = {
   groupIds: string[];
   autoGrow: boolean;
   whatsappCommunityJid: string | null;
+  avisoGroupId: string | null;
+  alcanceAvisos: number | null;
+  avisoIsAdmin: boolean;
 };
 
 type Sugestao = {
@@ -153,7 +156,7 @@ export default function ComunidadeDetalhe() {
           <div className="mt-2 flex flex-wrap items-center gap-2">
             {comunidade.whatsappCommunityJid !== null && (
               <span className="font-data inline-flex h-6 items-center rounded-[var(--radius-chip)] bg-sucesso/10 px-2 text-12 text-sucesso">
-                No WhatsApp
+                nativa do WhatsApp
               </span>
             )}
             {comunidade.autoGrow && (
@@ -172,19 +175,34 @@ export default function ComunidadeDetalhe() {
        * outro jeito.
        */}
       <div className="pn-card rounded-[var(--radius-control)] p-5">
-        <p className="font-data text-20 tabular-nums text-volt-950">{numero(totalMembros)} membros</p>
-        <p className="mt-1 text-13 text-slate-600">
-          {temAlcanceReal ? (
-            "Alcance real desta comunidade — pessoas únicas, sem contar quem está em mais de um grupo duas vezes."
-          ) : (
-            <>
-              Soma de quem está nos {comunidade.groupIds.length}{" "}
-              {comunidade.groupIds.length === 1 ? "grupo" : "grupos"} desta comunidade.
-            </>
-          )}{" "}
-          As comunidades nativas do WhatsApp têm um teto de tamanho que a Girumo ainda não mediu — não dá pra
-          garantir que este total cabe numa comunidade só antes de tentar criar uma de verdade.
-        </p>
+        {comunidade.whatsappCommunityJid !== null ? (
+          <>
+            <p className="font-data text-20 tabular-nums text-volt-950">
+              {comunidade.alcanceAvisos !== null ? `${numero(comunidade.alcanceAvisos)} membros` : "Alcance não medido"}
+            </p>
+            <p className="mt-1 text-13 text-slate-600">
+              {comunidade.alcanceAvisos !== null
+                ? "Alcance desta comunidade no WhatsApp, contado pelo grupo de Avisos — pessoas únicas, já deduplicadas pelo próprio WhatsApp."
+                : "A comunidade ainda não tem um grupo de Avisos sincronizado pra medir o alcance."}
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="font-data text-20 tabular-nums text-volt-950">{numero(totalMembros)} membros</p>
+            <p className="mt-1 text-13 text-slate-600">
+              {temAlcanceReal ? (
+                "Alcance real desta comunidade — pessoas únicas, sem contar quem está em mais de um grupo duas vezes."
+              ) : (
+                <>
+                  Soma de quem está nos {comunidade.groupIds.length}{" "}
+                  {comunidade.groupIds.length === 1 ? "grupo" : "grupos"} desta comunidade.
+                </>
+              )}{" "}
+              As comunidades nativas do WhatsApp têm um teto de tamanho que a Girumo ainda não mediu — não dá pra
+              garantir que este total cabe numa comunidade só antes de tentar criar uma de verdade.
+            </p>
+          </>
+        )}
       </div>
 
       <section>
@@ -209,7 +227,12 @@ export default function ComunidadeDetalhe() {
                 <button
                   type="button"
                   onClick={() => desvincular(id, grupo?.name ?? id)}
-                  disabled={desvinculando === id}
+                  disabled={desvinculando === id || comunidade.whatsappCommunityJid !== null}
+                  title={
+                    comunidade.whatsappCommunityJid !== null
+                      ? "Gerencie os grupos desta comunidade pelo WhatsApp"
+                      : undefined
+                  }
                   className="h-9 rounded-[var(--radius-control)] px-3 text-13 font-semibold text-danger-700 disabled:opacity-50"
                 >
                   {desvinculando === id ? "Desvinculando…" : "Desvincular"}
@@ -242,7 +265,14 @@ export default function ComunidadeDetalhe() {
       <section>
         <h2 className="text-[15px] font-semibold text-volt-950">Mensagens</h2>
         <div className="mt-2">
-          <MessagesTab campaignSlug={comunidade.slug} groupIds={comunidade.groupIds} />
+          <MessagesTab
+            campaignSlug={comunidade.slug}
+            groupIds={comunidade.groupIds}
+            avisoGroupId={comunidade.avisoGroupId}
+            alcanceAvisos={comunidade.alcanceAvisos}
+            alcanceGrupoAGrupo={totalMembrosSoma}
+            avisoIsAdmin={comunidade.avisoIsAdmin}
+          />
         </div>
       </section>
 

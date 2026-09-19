@@ -2,6 +2,7 @@ import "server-only";
 
 import { buildTenantDispatchList, type CampaignRef } from "@/lib/campaigns/dispatch-view";
 import { campanhasColl, ensureSlugs } from "@/lib/campanhas-store";
+import { ehEstruturaDeComunidade } from "@/lib/communities/estrutura";
 import { listGroups as legacyListGroups } from "@/lib/groups-store";
 import { collection } from "@/lib/json-collection";
 import { listLeads as legacyListLeads } from "@/lib/leads-store";
@@ -35,23 +36,33 @@ import { readEntrada, readIntegracoes } from "@/lib/campaigns/settings";
 export async function carregarGrupos(tenantId: string) {
   if (!USE_SUPABASE) return legacyListGroups(tenantId);
   const grupos = await groupsStore.listGroups(tenantId);
-  return grupos.map((g) => ({
-    id: g.whatsapp_group_id,
-    name: g.name,
-    whatsappGroupId: g.whatsapp_group_id,
-    members: g.members,
-    capacity: g.capacity,
-    selected: g.selected,
-    engagement: g.engagement,
-    isAdmin: g.is_admin ?? false,
-    inviteUrl: g.invite_url,
-    displayNameBase: g.display_name_base,
-    displayNumber: g.display_number,
-    sendState: g.send_state ?? null,
-    // Idade do dado. `members` vem do último sync e não é atualizado quando um
-    // cliente entra no grupo — a tela precisa poder dizer isso.
-    syncedAt: g.admins_counted_at ?? null,
-  }));
+  // Pai (1 membro, medido) e Avisos (a comunidade inteira, 1.984 membros
+  // medidos) não são grupos de disparo comuns: disparar no pai não alcança
+  // ninguém, e disparar no Avisos alcança todo mundo sem aviso nenhum na
+  // tela — root cause único, porque /painel/grupos e /painel/disparos (via
+  // /api/painel/inicio) consomem esta mesma função (Task 6 Step 4). Mesmo
+  // predicado de `lib/communities/estrutura.ts` usado pela faixa de órfãos
+  // em /api/comunidades — as duas listas precisam concordar sobre o que é
+  // "estrutura" e não grupo de envio.
+  return grupos
+    .filter((g) => !ehEstruturaDeComunidade(g))
+    .map((g) => ({
+      id: g.whatsapp_group_id,
+      name: g.name,
+      whatsappGroupId: g.whatsapp_group_id,
+      members: g.members,
+      capacity: g.capacity,
+      selected: g.selected,
+      engagement: g.engagement,
+      isAdmin: g.is_admin ?? false,
+      inviteUrl: g.invite_url,
+      displayNameBase: g.display_name_base,
+      displayNumber: g.display_number,
+      sendState: g.send_state ?? null,
+      // Idade do dado. `members` vem do último sync e não é atualizado quando um
+      // cliente entra no grupo — a tela precisa poder dizer isso.
+      syncedAt: g.admins_counted_at ?? null,
+    }));
 }
 
 export async function carregarCampanhas(tenantId: string) {
@@ -68,6 +79,10 @@ export async function carregarCampanhas(tenantId: string) {
     slug: c.slug,
     autoGrow: c.auto_grow,
     growTemplate: c.grow_template,
+    // Gaveta espelho de comunidade nativa: o painel usa isto pra desabilitar
+    // edição de grupos/auto-grow (o servidor já recusa em `PATCH /api/campanhas`,
+    // isto é só pra não deixar o botão clicável até chegar lá).
+    whatsappCommunityJid: c.whatsapp_community_jid,
     settings: {
       entrada: readEntrada(c.metadata as Record<string, unknown>),
       integracoes: apresentaIntegracoes(readIntegracoes(c.metadata as Record<string, unknown>)),
