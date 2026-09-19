@@ -175,19 +175,34 @@ export default function ComunidadeDetalhe() {
        * outro jeito.
        */}
       <div className="pn-card rounded-[var(--radius-control)] p-5">
-        <p className="font-data text-20 tabular-nums text-volt-950">{numero(totalMembros)} membros</p>
-        <p className="mt-1 text-13 text-slate-600">
-          {temAlcanceReal ? (
-            "Alcance real desta comunidade — pessoas únicas, sem contar quem está em mais de um grupo duas vezes."
-          ) : (
-            <>
-              Soma de quem está nos {comunidade.groupIds.length}{" "}
-              {comunidade.groupIds.length === 1 ? "grupo" : "grupos"} desta comunidade.
-            </>
-          )}{" "}
-          As comunidades nativas do WhatsApp têm um teto de tamanho que a Girumo ainda não mediu — não dá pra
-          garantir que este total cabe numa comunidade só antes de tentar criar uma de verdade.
-        </p>
+        {comunidade.whatsappCommunityJid !== null ? (
+          <>
+            <p className="font-data text-20 tabular-nums text-volt-950">
+              {comunidade.alcanceAvisos !== null ? `${numero(comunidade.alcanceAvisos)} membros` : "Alcance não medido"}
+            </p>
+            <p className="mt-1 text-13 text-slate-600">
+              {comunidade.alcanceAvisos !== null
+                ? "Alcance desta comunidade no WhatsApp, contado pelo grupo de Avisos — pessoas únicas, já deduplicadas pelo próprio WhatsApp."
+                : "A comunidade ainda não tem um grupo de Avisos sincronizado pra medir o alcance."}
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="font-data text-20 tabular-nums text-volt-950">{numero(totalMembros)} membros</p>
+            <p className="mt-1 text-13 text-slate-600">
+              {temAlcanceReal ? (
+                "Alcance real desta comunidade — pessoas únicas, sem contar quem está em mais de um grupo duas vezes."
+              ) : (
+                <>
+                  Soma de quem está nos {comunidade.groupIds.length}{" "}
+                  {comunidade.groupIds.length === 1 ? "grupo" : "grupos"} desta comunidade.
+                </>
+              )}{" "}
+              As comunidades nativas do WhatsApp têm um teto de tamanho que a Girumo ainda não mediu — não dá pra
+              garantir que este total cabe numa comunidade só antes de tentar criar uma de verdade.
+            </p>
+          </>
+        )}
       </div>
 
       <section>
