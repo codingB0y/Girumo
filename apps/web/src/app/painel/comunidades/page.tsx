@@ -130,8 +130,8 @@ export default function PainelComunidades() {
         <div>
           <h1 className="font-display text-[28px] font-extrabold tracking-[-0.02em] text-volt-950">Comunidades</h1>
           <p className="mt-1 text-[15px] text-slate-600">
-            Agrupe seus grupos de WhatsApp em coleções — hoje só uma gaveta na Girumo, sem depender do
-            WhatsApp aceitar a comunidade nativa.
+            As comunidades do WhatsApp que você administra aparecem aqui sozinhas; as outras são coleções
+            de grupos que só existem na Girumo.
           </p>
         </div>
         <button

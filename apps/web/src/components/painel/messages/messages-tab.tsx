@@ -43,10 +43,19 @@ export function MessagesTab({
   const [messages, setMessages] = useState<CampaignMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  // Nenhum padrão silencioso: o lojista escolhe o Avisos de propósito — o
-  // ponto de partida é sempre grupo a grupo, o que já acontecia antes desta
-  // opção existir.
-  const [usarAvisos, setUsarAvisos] = useState(false);
+  // Sem grupo filho vinculado, "grupo a grupo" manda groupIds: [] e o
+  // servidor devolve 400 — o Avisos é a única opção que funciona, então
+  // começa nele em vez de num radio morto.
+  const semGruposVinculados = groupIds.length === 0 && Boolean(avisoGroupId);
+  // Nenhum padrão silencioso no caso normal: o lojista escolhe o Avisos de
+  // propósito — o ponto de partida é grupo a grupo, o que já acontecia antes
+  // desta opção existir. Sem grupo vinculado essa regra não se aplica.
+  const [usarAvisos, setUsarAvisos] = useState(semGruposVinculados);
+  // Reage a props que mudam sem remontar o componente (ex.: desvincular o
+  // último grupo e continuar na mesma tela).
+  useEffect(() => {
+    if (semGruposVinculados) setUsarAvisos(true);
+  }, [semGruposVinculados]);
   const alvos = usarAvisos && avisoGroupId ? [avisoGroupId] : groupIds;
 
   const fetchMessages = useCallback(async () => {
@@ -168,6 +177,7 @@ export function MessagesTab({
               className="mt-1"
               checked={!usarAvisos}
               onChange={() => setUsarAvisos(false)}
+              disabled={semGruposVinculados}
             />
             <span>
               Enviar grupo a grupo ({groupIds.length} {groupIds.length === 1 ? "envio" : "envios"})
@@ -177,6 +187,11 @@ export function MessagesTab({
               </span>
             </span>
           </label>
+          {semGruposVinculados && (
+            <p className="mt-1 text-12 text-aco">
+              Não há grupo vinculado a esta comunidade — envie pelo Avisos.
+            </p>
+          )}
           <label className="mt-3 flex items-start gap-2 text-14 text-volt-950">
             <input
               type="radio"
