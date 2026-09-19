@@ -144,7 +144,7 @@ export const CONTEUDO_ESPERADO: Record<string, ConteudoEsperado> = {
     // casaria em qualquer tela do painel. O subtitulo e do cabecalho desta
     // pagina (renderiza sem esperar o fetch); quem prova que a lista carregou
     // e o `lista` abaixo.
-    ancora: /Agrupe seus grupos de WhatsApp/,
+    ancora: /comunidades do WhatsApp que você administra/,
     lista: {
       api: "/api/comunidades",
       // A rota devolve `{ comunidades: [...], orfaos: [...] }`, nao um array
