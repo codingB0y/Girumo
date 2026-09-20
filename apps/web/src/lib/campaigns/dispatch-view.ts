@@ -31,6 +31,8 @@ export type BroadcastRow = {
   running_since: string | null;
   last_ack_at: string | null;
   created_at: string;
+  funnel_template_id?: string | null;
+  funnel_run_id?: string | null;
 };
 
 export type ScheduleRow = {
@@ -65,6 +67,9 @@ export type DispatchView = {
   lastAckAt?: string;
   /** Agendamento que ainda vai promover este broadcast (usado p/ cancelar). */
   scheduleId?: string;
+  /** Presentes só em mensagens criadas pela sub-aba Funil. */
+  funnelTemplateId?: string;
+  funnelRunId?: string;
 };
 
 const MEDIA_TYPES = ["image", "video", "audio", "file"] as const;
@@ -116,6 +121,8 @@ export function toDispatchView(
     runningSince: broadcast.running_since ?? undefined,
     lastAckAt: broadcast.last_ack_at ?? undefined,
     scheduleId: pendingSchedule?.id,
+    funnelTemplateId: broadcast.funnel_template_id ?? undefined,
+    funnelRunId: broadcast.funnel_run_id ?? undefined,
   };
 }
 

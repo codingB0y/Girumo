@@ -176,4 +176,16 @@ const agendadoTenant = buildTenantDispatchList(
 assert.equal(agendadoTenant[0].status, "scheduled");
 assert.equal(agendadoTenant[0].scheduleId, "s1");
 
+// Campos do funil passam quando existem e somem quando nulos.
+const comFunil = toDispatchView(
+  broadcast({ id: "f1", funnel_template_id: "live", funnel_run_id: "run-1" }),
+  "slug",
+  null,
+);
+assert.equal(comFunil.funnelTemplateId, "live");
+assert.equal(comFunil.funnelRunId, "run-1");
+const semFunil = toDispatchView(broadcast({ id: "f2" }), "slug", null);
+assert.equal(semFunil.funnelTemplateId, undefined);
+assert.equal(semFunil.funnelRunId, undefined);
+
 console.log("dispatch-view tests passed");

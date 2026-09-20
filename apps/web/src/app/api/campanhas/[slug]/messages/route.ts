@@ -12,6 +12,7 @@ import { getSession, isLive } from "@/lib/session-store";
 import { buildDispatchList, toDispatchView } from "@/lib/campaigns/dispatch-view";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import { getSessionAccountId } from "@/lib/session";
+import { parseFunnelFields } from "@/lib/funnels/api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -92,6 +93,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
       ? body.groupIds.map(String)
       : camp.groupIds;
 
+    // Mesmo contrato do caminho Supabase: o 400 do spec 4.4 não pode depender
+    // de USE_SUPABASE. Antes deste fix, "nope"/"" aqui devolvia 201 e sumia.
+    const funnelLegacy = parseFunnelFields(body);
+    if (!funnelLegacy.ok) return Response.json({ error: funnelLegacy.error }, { status: 400 });
+
     const msg = await createMessage({
       campaignId: camp.id,
       campaignSlug: camp.slug ?? camp.id,
@@ -105,6 +111,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
       mentionAll: body.mentionAll === true,
       scheduledAt: body.scheduledAt ? String(body.scheduledAt) : undefined,
       recurrence: resolveRecurrence(body) as CampaignMessage["recurrence"],
+      funnelTemplateId: funnelLegacy.fields?.funnel_template_id,
+      funnelRunId: funnelLegacy.fields?.funnel_run_id,
     });
     return Response.json(msg, { status: 201 });
   }
@@ -157,6 +165,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     return Response.json({ error: "Data de agendamento inválida." }, { status: 400 });
   }
 
+  const funnel = parseFunnelFields(body);
+  if (!funnel.ok) return Response.json({ error: funnel.error }, { status: 400 });
+
   const broadcast = await broadcastsStore.createBroadcast(tenantId, {
     campaign_group_id: camp.id,
     name: camp.name,
@@ -167,6 +178,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     media_name: body.mediaName ? String(body.mediaName) : undefined,
     mention_all: body.mentionAll === true,
     poll,
+    ...(funnel.fields ?? {}),
   });
 
   // Agendado: fica `draft` e quem promove é o worker no horário. Enfileirar aqui

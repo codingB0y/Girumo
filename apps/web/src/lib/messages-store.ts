@@ -29,6 +29,9 @@ export type CampaignMessage = {
   scheduledAt?: string;
   /** Recorrência do agendamento */
   recurrence: "none" | "daily" | "weekly";
+  /** Presentes só em mensagens criadas pela sub-aba Funil. */
+  funnelTemplateId?: string;
+  funnelRunId?: string;
   /** Status do envio */
   status: MessageStatus;
   /** Contadores de progresso */

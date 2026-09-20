@@ -1,4 +1,5 @@
 import { fetchAllGroups, providerInstanceId } from "@/lib/evolution/client";
+import { isDraftMode, validateOfferBody, type OfferBody } from "@/lib/funnels/draft-offer";
 import { normalizeKeyword } from "@/lib/relampago/keyword";
 import { lidMapFromParticipants, mergeLidMaps } from "@/lib/relampago/lid-map";
 import { lidMapFromHistory, listOffers } from "@/lib/stores/flash-offers";
@@ -33,23 +34,84 @@ export async function POST(req: Request) {
     throw e;
   }
 
-  const body = (await req.json().catch(() => null)) as {
-    name?: string;
-    keyword?: string;
-    slots?: number;
-    timerMinutes?: number | null;
-    groupIds?: string[];
-  } | null;
+  const body = (await req.json().catch(() => null)) as OfferBody | null;
 
-  if (!body?.name?.trim()) return Response.json({ error: "nome obrigatorio" }, { status: 400 });
-  if (!Number.isInteger(body.slots) || (body.slots ?? 0) < 1) {
-    return Response.json({ error: "informe quantas pecas" }, { status: 400 });
-  }
-  if (!body.groupIds?.length) {
-    return Response.json({ error: "escolha ao menos um grupo" }, { status: 400 });
-  }
+  const erroValidacao = validateOfferBody(body);
+  if (erroValidacao) return Response.json(erroValidacao, { status: 400 });
+  if (!body) return Response.json({ error: "corpo invalido" }, { status: 400 });
 
   const supabase = getSupabaseAdmin();
+
+  // Funil: a oferta nasce em rascunho ligada ao broadcast da etapa e quem abre
+  // e a promote_due_schedules, na hora do disparo (spec D3). Sem grupos aqui:
+  // eles saem de broadcasts.group_ids na abertura.
+  if (isDraftMode(body)) {
+    const { data: broadcast, error: erroBroadcast } = await supabase
+      .from("broadcasts")
+      .select("id")
+      .eq("tenant_id", ctx.tenantId)
+      .eq("id", body.broadcastId)
+      .maybeSingle();
+    // Banco fora do ar ou uuid malformado (22P02) nao sao "nao encontrado": sem
+    // este throw a lojista via 400 com o disparo intacto na Agenda e nada no log.
+    if (erroBroadcast) throw erroBroadcast;
+    if (!broadcast) return Response.json({ error: "broadcast nao encontrado" }, { status: 400 });
+
+    // A oferta so abre dentro de app.promote_due_schedules, e ela so olha
+    // agendamento pendente. Duas armadilhas que isso fecha:
+    //  - disparo sem agendamento sai na hora (messages/route.ts enfileira
+    //    direto) e a promote nunca o ve: a mensagem sairia e a oferta ficaria
+    //    em rascunho para sempre;
+    //  - disparo recorrente abre a oferta na 1a ocorrencia e, na 2a, nao acha
+    //    rascunho nenhum -- a mensagem sai sem oferta e a primeira fica aberta
+    //    segurando flash_offer_groups_um_aberto_uidx dos grupos.
+    const { data: agendamento, error: erroAgendamento } = await supabase
+      .from("schedules")
+      .select("id")
+      .eq("tenant_id", ctx.tenantId)
+      .eq("broadcast_id", body.broadcastId)
+      .eq("status", "pending")
+      .eq("recurrence", "none")
+      // A pergunta e "existe pelo menos um", nao "existe no maximo um": POST
+      // /api/schedules cria agendamento por broadcast_id sem unicidade, e dois
+      // pendentes no mesmo broadcast fariam o maybeSingle sozinho levantar
+      // PGRST116 -- 500 onde o certo era 201. Qual dos dois vem nao importa:
+      // a linha so e usada como sinal de existencia, o id nunca e lido.
+      .limit(1)
+      .maybeSingle();
+    if (erroAgendamento) throw erroAgendamento;
+    if (!agendamento) {
+      return Response.json(
+        {
+          error:
+            "A oferta so abre junto de um disparo agendado que acontece uma vez. Esse disparo nao tem agendamento pendente, ou se repete.",
+        },
+        { status: 400 },
+      );
+    }
+
+    const { data: rascunho, error: erroRascunho } = await supabase
+      .from("flash_offers")
+      .insert({
+        tenant_id: ctx.tenantId,
+        name: body.name!.trim(),
+        keyword: normalizeKeyword(body.keyword || "eu quero"),
+        slots: body.slots,
+        timer_seconds: body.timerMinutes ? Math.round(body.timerMinutes * 60) : null,
+        status: "draft",
+        broadcast_id: body.broadcastId,
+        created_by: ctx.authUserId,
+      })
+      .select("*")
+      .single();
+    if (erroRascunho) {
+      if (erroRascunho.code === "23505") {
+        return Response.json({ error: "esse disparo ja tem uma oferta ligada" }, { status: 409 });
+      }
+      throw erroRascunho;
+    }
+    return Response.json({ offer: rascunho }, { status: 201 });
+  }
 
   // `groupIds` vem do `/api/groups`, que expõe `id` como o whatsapp_group_id —
   // é essa a identidade de grupo em todo o painel, não o uuid da linha. Casar
@@ -58,7 +120,7 @@ export async function POST(req: Request) {
     .from("groups")
     .select("id, whatsapp_group_id")
     .eq("tenant_id", ctx.tenantId)
-    .in("whatsapp_group_id", body.groupIds);
+    .in("whatsapp_group_id", body.groupIds ?? []);
 
   if (erroGrupos) throw erroGrupos;
   if (!grupos?.length) return Response.json({ error: "grupo nao encontrado" }, { status: 404 });
@@ -69,7 +131,7 @@ export async function POST(req: Request) {
     .from("flash_offers")
     .insert({
       tenant_id: ctx.tenantId,
-      name: body.name.trim(),
+      name: body.name!.trim(),
       keyword: normalizeKeyword(body.keyword || "eu quero"),
       slots: body.slots,
       timer_seconds: body.timerMinutes ? Math.round(body.timerMinutes * 60) : null,
@@ -120,7 +182,9 @@ export async function POST(req: Request) {
   if (erroJanela) {
     // 23505 = já existe oferta aberta num desses grupos. Recusado pelo Postgres,
     // não pela tela. Desfaz a oferta órfã.
-    await supabase.from("flash_offers").delete().eq("id", oferta.id);
+    // Filtro de tenant mesmo com o id recem-inserido: com service-role o RLS
+    // nao protege, o `.eq("tenant_id")` e a protecao (CLAUDE.md).
+    await supabase.from("flash_offers").delete().eq("tenant_id", ctx.tenantId).eq("id", oferta.id);
     if (erroJanela.code === "23505") {
       return Response.json(
         { error: "Um desses grupos ja tem uma oferta aberta. Feche a anterior primeiro." },

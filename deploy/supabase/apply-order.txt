@@ -385,3 +385,7 @@ apps/web/supabase/migrations/20260917010000_group_bulk_remove_participant.sql
 # community_jid + community_role, preenchidos pelo sync a partir de linkedParent /
 # isCommunity / isCommunityAnnounce, que a Evolution ja devolve. Aplicado nos dois bancos.
 apps/web/supabase/migrations/20260917181500_groups_community.sql
+
+# 2026-09-19 - funil de disparos (PR 1, motor). Tres colunas de rastreio e a
+# promote_due_schedules abrindo a Oferta Relampago ligada ao broadcast promovido.
+apps/web/supabase/migrations/20260919120000_funnel_dispatch.sql

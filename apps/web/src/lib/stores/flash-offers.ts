@@ -146,6 +146,7 @@ export type OfferRow = {
   opened_at: string | null;
   closed_at: string | null;
   created_at: string;
+  broadcast_id: string | null;
 };
 
 export type QueueEntry = {
