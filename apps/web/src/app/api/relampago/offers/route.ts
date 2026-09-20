@@ -1,4 +1,5 @@
 import { fetchAllGroups, providerInstanceId } from "@/lib/evolution/client";
+import { isDraftMode, validateOfferBody, type OfferBody } from "@/lib/funnels/draft-offer";
 import { normalizeKeyword } from "@/lib/relampago/keyword";
 import { lidMapFromParticipants, mergeLidMaps } from "@/lib/relampago/lid-map";
 import { lidMapFromHistory, listOffers } from "@/lib/stores/flash-offers";
@@ -33,23 +34,48 @@ export async function POST(req: Request) {
     throw e;
   }
 
-  const body = (await req.json().catch(() => null)) as {
-    name?: string;
-    keyword?: string;
-    slots?: number;
-    timerMinutes?: number | null;
-    groupIds?: string[];
-  } | null;
+  const body = (await req.json().catch(() => null)) as OfferBody | null;
 
-  if (!body?.name?.trim()) return Response.json({ error: "nome obrigatorio" }, { status: 400 });
-  if (!Number.isInteger(body.slots) || (body.slots ?? 0) < 1) {
-    return Response.json({ error: "informe quantas pecas" }, { status: 400 });
-  }
-  if (!body.groupIds?.length) {
-    return Response.json({ error: "escolha ao menos um grupo" }, { status: 400 });
-  }
+  const erroValidacao = validateOfferBody(body);
+  if (erroValidacao) return Response.json(erroValidacao, { status: 400 });
+  if (!body) return Response.json({ error: "corpo invalido" }, { status: 400 });
 
   const supabase = getSupabaseAdmin();
+
+  // Funil: a oferta nasce em rascunho ligada ao broadcast da etapa e quem abre
+  // e a promote_due_schedules, na hora do disparo (spec D3). Sem grupos aqui:
+  // eles saem de broadcasts.group_ids na abertura.
+  if (isDraftMode(body)) {
+    const { data: broadcast } = await supabase
+      .from("broadcasts")
+      .select("id")
+      .eq("tenant_id", ctx.tenantId)
+      .eq("id", body.broadcastId)
+      .maybeSingle();
+    if (!broadcast) return Response.json({ error: "broadcast nao encontrado" }, { status: 400 });
+
+    const { data: rascunho, error: erroRascunho } = await supabase
+      .from("flash_offers")
+      .insert({
+        tenant_id: ctx.tenantId,
+        name: body.name!.trim(),
+        keyword: normalizeKeyword(body.keyword || "eu quero"),
+        slots: body.slots,
+        timer_seconds: body.timerMinutes ? Math.round(body.timerMinutes * 60) : null,
+        status: "draft",
+        broadcast_id: body.broadcastId,
+        created_by: ctx.authUserId,
+      })
+      .select("*")
+      .single();
+    if (erroRascunho) {
+      if (erroRascunho.code === "23505") {
+        return Response.json({ error: "esse disparo ja tem uma oferta ligada" }, { status: 409 });
+      }
+      throw erroRascunho;
+    }
+    return Response.json({ offer: rascunho }, { status: 201 });
+  }
 
   // `groupIds` vem do `/api/groups`, que expõe `id` como o whatsapp_group_id —
   // é essa a identidade de grupo em todo o painel, não o uuid da linha. Casar
@@ -58,7 +84,7 @@ export async function POST(req: Request) {
     .from("groups")
     .select("id, whatsapp_group_id")
     .eq("tenant_id", ctx.tenantId)
-    .in("whatsapp_group_id", body.groupIds);
+    .in("whatsapp_group_id", body.groupIds ?? []);
 
   if (erroGrupos) throw erroGrupos;
   if (!grupos?.length) return Response.json({ error: "grupo nao encontrado" }, { status: 404 });
@@ -69,7 +95,7 @@ export async function POST(req: Request) {
     .from("flash_offers")
     .insert({
       tenant_id: ctx.tenantId,
-      name: body.name.trim(),
+      name: body.name!.trim(),
       keyword: normalizeKeyword(body.keyword || "eu quero"),
       slots: body.slots,
       timer_seconds: body.timerMinutes ? Math.round(body.timerMinutes * 60) : null,
