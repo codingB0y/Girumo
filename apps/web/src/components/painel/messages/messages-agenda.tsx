@@ -16,9 +16,11 @@ import {
   FileUp,
   BarChart3,
   AtSign,
+  Workflow,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { CampaignMessage } from "@/lib/messages-store";
+import { indexFunnelRuns, type FunnelChip } from "@/lib/funnels/agenda";
 
 type Props = {
   messages: CampaignMessage[];
@@ -67,6 +69,8 @@ export function MessagesAgenda({ messages, onCancel, onDelete, className }: Prop
 
   // Calendar dots
   const daysWithMessages = useMemo(() => new Set(Object.keys(grouped)), [grouped]);
+
+  const funil = useMemo(() => indexFunnelRuns(messages), [messages]);
 
   // Current month calendar
   const [calMonth, setCalMonth] = useState(() => {
@@ -192,7 +196,7 @@ export function MessagesAgenda({ messages, onCancel, onDelete, className }: Prop
               </h4>
               <div className="space-y-2">
                 {msgs.map((m) => (
-                  <MessageRow key={m.id} msg={m} onCancel={onCancel} onDelete={onDelete} />
+                  <MessageRow key={m.id} msg={m} funnel={funil.get(m.id)} onCancel={onCancel} onDelete={onDelete} />
                 ))}
               </div>
             </div>
@@ -205,10 +209,12 @@ export function MessagesAgenda({ messages, onCancel, onDelete, className }: Prop
 
 function MessageRow({
   msg,
+  funnel,
   onCancel,
   onDelete,
 }: {
   msg: CampaignMessage;
+  funnel?: FunnelChip;
   onCancel: (id: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }) {
@@ -238,6 +244,12 @@ function MessageRow({
           {msg.scheduledAt && (
             <span className="font-data text-12 text-slate-600">
               {new Date(msg.scheduledAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
+          {funnel && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-cobalt-500/10 px-2 py-0.5 text-[10px] font-medium text-cobalt-700">
+              <Workflow className="h-3 w-3" />
+              {funnel.label} · {funnel.index}/{funnel.total}
             </span>
           )}
           {msg.recurrence !== "none" && (
