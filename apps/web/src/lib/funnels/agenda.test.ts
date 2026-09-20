@@ -25,4 +25,14 @@ assert.equal(idx.has("solta"), false);
 const antigo = indexFunnelRuns([{ ...m("q", "r9", "2026-10-10T10:00:00Z"), funnelTemplateId: "sumiu" }]);
 assert.equal(antigo.get("q")?.label, "Funil");
 
+// Mesmo segundo, larguras diferentes de fracao (como o PostgREST realmente
+// serializa timestamptz): localeCompare inverteria a ordem por colacao ICU
+// dependendo do locale; comparacao simples de string nao.
+const misto = indexFunnelRuns([
+  { id: "y", funnelTemplateId: "live", funnelRunId: "r3", scheduledAt: "2026-10-10T21:30:00.893866+00:00", createdAt: "2026-09-19T10:00:00Z" },
+  { id: "x", funnelTemplateId: "live", funnelRunId: "r3", scheduledAt: "2026-10-10T21:30:00+00:00", createdAt: "2026-09-19T10:00:00Z" },
+]);
+assert.equal(misto.get("x")?.index, 1);
+assert.equal(misto.get("y")?.index, 2);
+
 console.log("funnels/agenda tests passed");

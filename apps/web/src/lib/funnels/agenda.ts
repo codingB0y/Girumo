@@ -27,9 +27,19 @@ export function indexFunnelRuns(messages: ReadonlyArray<Linha>): Map<string, Fun
 
   const saida = new Map<string, FunnelChip>();
   for (const linhas of porRun.values()) {
-    const ordenadas = [...linhas].sort((a, b) =>
-      (a.scheduledAt ?? a.createdAt).localeCompare(b.scheduledAt ?? b.createdAt),
-    );
+    // Comparação por `<`/`>`, não `localeCompare`: o Postgres/PostgREST serializa
+    // timestamptz com largura variável (corta zeros à direita da fração), e a
+    // colação ICU de `localeCompare` não é ordem por codepoint — duas datas no
+    // mesmo segundo, uma com microssegundos e outra sem, saíam fora de ordem
+    // dependendo do locale/ICU do navegador. Mesmo padrão de `dispatch-view.ts`.
+    // Após o envio, `scheduledAt` some (`toDispatchView`) e a chave vira
+    // `createdAt` — a ordem sobrevive porque os inserts da confirmação são
+    // sequenciais, não porque `createdAt` reflete o horário de cada etapa.
+    const ordenadas = [...linhas].sort((a, b) => {
+      const ka = a.scheduledAt ?? a.createdAt;
+      const kb = b.scheduledAt ?? b.createdAt;
+      return ka < kb ? -1 : ka > kb ? 1 : 0;
+    });
     const label = getFunnelTemplate(ordenadas[0].funnelTemplateId ?? "")?.label ?? "Funil";
     ordenadas.forEach((msg, i) => {
       saida.set(msg.id, { label, index: i + 1, total: ordenadas.length });

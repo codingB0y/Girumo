@@ -247,7 +247,7 @@ function MessageRow({
             </span>
           )}
           {funnel && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-cobalt-500/10 px-2 py-0.5 text-[10px] font-medium text-cobalt-700">
+            <span className="text-12 inline-flex items-center gap-1 rounded-full bg-cobalt-500/10 px-2 py-0.5 font-medium text-cobalt-700">
               <Workflow className="h-3 w-3" />
               {funnel.label} · {funnel.index}/{funnel.total}
             </span>
