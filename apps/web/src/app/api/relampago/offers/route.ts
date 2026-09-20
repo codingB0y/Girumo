@@ -72,6 +72,12 @@ export async function POST(req: Request) {
       .eq("broadcast_id", body.broadcastId)
       .eq("status", "pending")
       .eq("recurrence", "none")
+      // A pergunta e "existe pelo menos um", nao "existe no maximo um": POST
+      // /api/schedules cria agendamento por broadcast_id sem unicidade, e dois
+      // pendentes no mesmo broadcast fariam o maybeSingle sozinho levantar
+      // PGRST116 -- 500 onde o certo era 201. Qual dos dois vem nao importa:
+      // a linha so e usada como sinal de existencia, o id nunca e lido.
+      .limit(1)
       .maybeSingle();
     if (erroAgendamento) throw erroAgendamento;
     if (!agendamento) {
