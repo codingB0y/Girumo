@@ -12,6 +12,7 @@ import { getSession, isLive } from "@/lib/session-store";
 import { buildDispatchList, toDispatchView } from "@/lib/campaigns/dispatch-view";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import { getSessionAccountId } from "@/lib/session";
+import { parseFunnelFields } from "@/lib/funnels/api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -157,6 +158,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     return Response.json({ error: "Data de agendamento inválida." }, { status: 400 });
   }
 
+  const funnel = parseFunnelFields(body);
+  if (!funnel.ok) return Response.json({ error: funnel.error }, { status: 400 });
+
   const broadcast = await broadcastsStore.createBroadcast(tenantId, {
     campaign_group_id: camp.id,
     name: camp.name,
@@ -167,6 +171,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     media_name: body.mediaName ? String(body.mediaName) : undefined,
     mention_all: body.mentionAll === true,
     poll,
+    ...(funnel.fields ?? {}),
   });
 
   // Agendado: fica `draft` e quem promove é o worker no horário. Enfileirar aqui

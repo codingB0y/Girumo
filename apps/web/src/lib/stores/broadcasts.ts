@@ -25,6 +25,9 @@ export type Broadcast = {
   dispatched_at: string | null;
   running_since: string | null;
   last_ack_at: string | null;
+  /** Roteiro e confirmação do funil que geraram este broadcast. Null fora do funil. */
+  funnel_template_id: string | null;
+  funnel_run_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -53,6 +56,8 @@ export async function createBroadcast(
     media_name?: string;
     mention_all?: boolean;
     poll?: { question: string; options: string[] };
+    funnel_template_id?: string;
+    funnel_run_id?: string;
   },
 ): Promise<Broadcast> {
   const { data, error } = await getSupabaseAdmin()
@@ -71,6 +76,8 @@ export async function createBroadcast(
       status: "draft" as BroadcastStatus,
       sent: 0,
       total: input.group_ids.length,
+      funnel_template_id: input.funnel_template_id ?? null,
+      funnel_run_id: input.funnel_run_id ?? null,
     })
     .select("*")
     .single();
