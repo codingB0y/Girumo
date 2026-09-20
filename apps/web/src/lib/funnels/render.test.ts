@@ -25,12 +25,18 @@ assert.equal(live.getTime(), new Date(2026, 9, 10, 20, 0).getTime());
 const etapas = getFunnelTemplate("live")!.steps.map((s) => resolveStepDate(live, s).getTime());
 assert.deepEqual([...etapas].sort((a, b) => a - b), etapas);
 
+// Ramo `time` zera segundos/ms da ancora (comportamento atual, travado por teste).
+const comSegundos = new Date(2026, 9, 10, 20, 0, 37, 500);
+assert.deepEqual(resolveStepDate(comSegundos, passo({ days: 0, time: "06:00" })), new Date(2026, 9, 10, 6, 0, 0, 0));
+
 // Valores da ancora para a copy.
 const a = anchorValues(live);
 assert.ok(a.dia.includes("10/10"), a.dia);
 assert.ok(/s[aá]bado/i.test(a.dia), a.dia);
 assert.equal(a.hora, "20h");
 assert.equal(anchorValues(new Date(2026, 9, 10, 19, 30)).hora, "19h30");
+// Minuto de um digito usa padStart (senao "20h5" em vez de "20h05").
+assert.equal(anchorValues(new Date(2026, 9, 10, 20, 5)).hora, "20h05");
 
 // renderCopy troca todas as chaves, inclusive repetidas e com espaco.
 assert.equal(
@@ -47,8 +53,10 @@ assert.equal(renderCopy("sem chave", {}), "sem chave");
 const grade = getFunnelTemplate("grade-do-dia")!.steps[0];
 assert.deepEqual(missingFields(grade, { "peça": "vestido", "preço": "", grade: "P ao GG" }), ["preço", "quantidade"]);
 assert.deepEqual(missingFields(grade, { "peça": "v", "preço": "p", grade: "g", quantidade: "120" }), []);
+// Campo so-espacos tambem conta como faltando (mesmo trim de renderCopy).
+assert.deepEqual(missingFields(grade, { "peça": "vestido", "preço": "   ", grade: "P ao GG", quantidade: "120" }), ["preço"]);
 
-// copyKeys lista as chaves na ordem em que aparecem.
-assert.deepEqual(copyKeys("{dia} {loja} {dia}"), ["dia", "loja", "dia"]);
+// copyKeys lista as chaves na ordem em que aparecem (entrada assimetrica, nao palindromo).
+assert.deepEqual(copyKeys("{loja} {dia} {hora}"), ["loja", "dia", "hora"]);
 
 console.log("funnels/render tests passed");
