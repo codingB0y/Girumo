@@ -68,6 +68,92 @@ for (const t of FUNNEL_TEMPLATES) {
   }
 }
 
+// Fingerprint por roteiro, transcrito do spec (docs/superpowers/specs/2026-09-19-funil-de-disparos-design.md,
+// seção 3) — NÃO gerado a partir do módulo. Cobre label, dia/hora, tipo, mentionAll, wantsMedia e a copy
+// caractere a caractere; as asserções estruturais acima não veem esses campos.
+type Fingerprint = [
+  label: string,
+  days: number,
+  time: string | undefined,
+  minutes: number | undefined,
+  kind: string,
+  mentionAll: boolean,
+  wantsMedia: boolean,
+  copy: string,
+];
+
+const fingerprint = (s: FunnelStep): Fingerprint => [
+  s.label,
+  s.at.days,
+  s.at.time,
+  s.at.minutes,
+  s.kind,
+  s.mentionAll,
+  s.wantsMedia,
+  s.copy,
+];
+
+const fingerprints = (id: string): Fingerprint[] =>
+  (getFunnelTemplate(id)?.steps ?? []).map(fingerprint);
+
+// 3.1 Grade do dia
+assert.deepEqual(fingerprints("grade-do-dia"), [
+  ["Grade de hoje", 0, "06:00", undefined, "relampago", true, true,
+    "Bom dia! Grade de hoje da {loja}: {peça} por {preço} no atacado, grade {grade}. Só {quantidade} peças. Quer? Manda *EU QUERO* aqui no grupo que eu separo a sua."],
+  ["Vagas de hoje", 0, "06:12", undefined, "link", false, false,
+    "Pra quem ainda não entrou: o link de pedido da {loja} é este, com as vagas de hoje: {link}"],
+  ["Últimas da grade", 0, "12:00", undefined, "texto", false, false,
+    "Sobrou pouca coisa da grade de hoje. Quem mandou EU QUERO já está na fila; quem ficou de fora ainda pega o que restou por aqui."],
+]);
+
+// 3.2 Evento de 2 dias
+assert.deepEqual(fingerprints("evento-2-dias"), [
+  ["Vem aí", -2, "19:00", undefined, "midia", false, true,
+    "{dia} tem evento de 2 dias da {loja}, só pra quem está nos grupos: {nicho} com preço de atacado que não vai pro site. Guarda a data."],
+  ["Prévia", -1, "19:00", undefined, "midia", false, true,
+    "Amanhã 06:00 abre. Prévia: {peça} a partir de {preço}, grade {grade}. Quem estiver no grupo às 6 pega primeiro."],
+  ["Abriu · dia 1", 0, "06:00", undefined, "relampago", true, true,
+    "Abriu! Dia 1 do evento da {loja}: {peça} por {preço}, grade {grade}, {quantidade} peças. Manda *EU QUERO* que eu separo na ordem."],
+  ["Ainda dá tempo", 0, "12:00", undefined, "texto", false, false,
+    "Meio-dia e o evento segue. O que saiu de manhã não volta; o que sobrou está por aqui."],
+  ["Abriu · dia 2", 1, "06:00", undefined, "relampago", true, true,
+    "Dia 2! Nova grade da {loja}: {peça} por {preço}, grade {grade}, {quantidade} peças. Manda *EU QUERO*."],
+  ["Última chamada", 1, "18:00", undefined, "link", true, false,
+    "Última chamada do evento. Pedido pelo link até hoje à noite: {link}"],
+  ["Sobras", 2, "10:00", undefined, "link", false, false,
+    "Sobras do evento com o mesmo preço, enquanto durar: {link}"],
+]);
+
+// 3.3 Lançamento de live
+assert.deepEqual(fingerprints("live"), [
+  ["Prévia da grade", -1, "19:00", undefined, "midia", false, true,
+    "Amanhã {hora} tem live da {loja}! Prévia da grade de {nicho}: {peça} a partir de {preço} no atacado, grade {grade}, {quantidade} peças. Quem estiver ao vivo leva condição exclusiva."],
+  ["Entra agora", 0, undefined, -15, "link", true, false,
+    "Tô entrando ao vivo em 15 min! Entra aqui: {link da live}. Pedido é pelo grupo, na condição da live."],
+  ["Grade da live", 0, undefined, 90, "relampago", false, true,
+    "Grade da live liberada: {peça} {preço}, {grade}. Só {quantidade} peças. Manda *EU QUERO* aqui que eu separo a sua."],
+  ["Sobras da live", 1, "10:00", undefined, "link", false, false,
+    "Sobrou da live e ainda está na condição de ontem. Pedido por aqui: {link}"],
+]);
+
+// 3.4 Black Friday do atacado
+assert.deepEqual(fingerprints("black-friday-atacado"), [
+  ["Vem aí", -7, "19:00", undefined, "midia", false, true,
+    "Black Friday do atacado da {loja} é {dia}. Antes da BF das lojas, pra você revender na BF delas. Só nos grupos."],
+  ["Prévia", -3, "19:00", undefined, "midia", false, true,
+    "Prévia da Black do atacado: {peça} vai sair por {preço}, grade {grade}. Na {dia} às 06:00."],
+  ["Véspera", -1, "19:00", undefined, "texto", true, false,
+    "Amanhã 06:00. A grade sai aqui no grupo primeiro; quem mandar EU QUERO cedo pega."],
+  ["Abriu", 0, "06:00", undefined, "relampago", true, true,
+    "Abriu a Black do atacado da {loja}! {peça} por {preço}, grade {grade}, {quantidade} peças. Manda *EU QUERO* que eu separo na ordem."],
+  ["Reforço", 0, "12:00", undefined, "texto", false, false,
+    "Metade do dia e metade da grade já foi. O que sobrou continua no mesmo preço até hoje à noite."],
+  ["Última chamada", 0, "18:00", undefined, "link", true, false,
+    "Última chamada da Black do atacado. Pedido pelo link até meia-noite: {link}"],
+  ["Sobras", 1, "10:00", undefined, "link", false, false,
+    "Sobras da Black no mesmo preço, enquanto durar: {link}"],
+]);
+
 // getFunnelTemplate.
 assert.equal(getFunnelTemplate("live")?.label, "Lançamento de live");
 assert.equal(getFunnelTemplate("nope"), undefined);

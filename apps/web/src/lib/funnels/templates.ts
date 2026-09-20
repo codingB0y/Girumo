@@ -17,29 +17,29 @@ export const ANCHOR_KEYS = ["dia", "hora"] as const;
 export const CAMPAIGN_KEYS = ["link"] as const;
 
 export type FunnelStep = {
-  id: string;
-  label: string;
+  readonly id: string;
+  readonly label: string;
   /** `time` = hora fixa naquele dia; `minutes` = relativo à hora da âncora. Um dos dois. */
-  at: { days: number; time?: string; minutes?: number };
-  kind: FunnelStepKind;
+  readonly at: { readonly days: number; readonly time?: string; readonly minutes?: number };
+  readonly kind: FunnelStepKind;
   /** Campos obrigatórios para gerar a copy. */
-  fields: FunnelField[];
-  mentionAll: boolean;
+  readonly fields: readonly FunnelField[];
+  readonly mentionAll: boolean;
   /** Sugere anexar 1 foto; não obriga. */
-  wantsMedia: boolean;
-  copy: string;
+  readonly wantsMedia: boolean;
+  readonly copy: string;
 };
 
 export type FunnelTemplateId = "grade-do-dia" | "evento-2-dias" | "live" | "black-friday-atacado";
 
 export type FunnelTemplate = {
-  id: FunnelTemplateId;
-  label: string;
-  description: string;
-  anchorLabel: string;
-  anchorNeedsTime: boolean;
-  suggestAnchor?: (today: Date) => Date;
-  steps: FunnelStep[];
+  readonly id: FunnelTemplateId;
+  readonly label: string;
+  readonly description: string;
+  readonly anchorLabel: string;
+  readonly anchorNeedsTime: boolean;
+  readonly suggestAnchor?: (today: Date) => Date;
+  readonly steps: readonly FunnelStep[];
 };
 
 /** Última sexta de novembro menos 21 dias; se já passou, a do ano seguinte. */
@@ -55,9 +55,9 @@ export function blackFridayAtacado(today: Date): Date {
   return esteAno >= today ? esteAno : paraAno(today.getFullYear() + 1);
 }
 
-const CAMPOS_GRADE: FunnelField[] = ["peça", "preço", "grade", "quantidade"];
+const CAMPOS_GRADE: readonly FunnelField[] = ["peça", "preço", "grade", "quantidade"];
 
-export const FUNNEL_TEMPLATES: FunnelTemplate[] = [
+export const FUNNEL_TEMPLATES: readonly FunnelTemplate[] = [
   {
     id: "grade-do-dia",
     label: "Grade do dia",
