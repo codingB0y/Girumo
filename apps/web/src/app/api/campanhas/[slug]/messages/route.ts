@@ -93,6 +93,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
       ? body.groupIds.map(String)
       : camp.groupIds;
 
+    // Mesmo contrato do caminho Supabase: o 400 do spec 4.4 não pode depender
+    // de USE_SUPABASE. Antes deste fix, "nope"/"" aqui devolvia 201 e sumia.
+    const funnelLegacy = parseFunnelFields(body);
+    if (!funnelLegacy.ok) return Response.json({ error: funnelLegacy.error }, { status: 400 });
+
     const msg = await createMessage({
       campaignId: camp.id,
       campaignSlug: camp.slug ?? camp.id,
@@ -106,6 +111,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
       mentionAll: body.mentionAll === true,
       scheduledAt: body.scheduledAt ? String(body.scheduledAt) : undefined,
       recurrence: resolveRecurrence(body) as CampaignMessage["recurrence"],
+      funnelTemplateId: funnelLegacy.fields?.funnel_template_id,
+      funnelRunId: funnelLegacy.fields?.funnel_run_id,
     });
     return Response.json(msg, { status: 201 });
   }

@@ -14,6 +14,9 @@ export function parseFunnelFields(
   const template = body.funnelTemplateId;
   const run = body.funnelRunId;
   if (template === undefined && run === undefined) return { ok: true, fields: null };
+  if (template === undefined || run === undefined) {
+    return { ok: false, error: "Informe funnelTemplateId e funnelRunId juntos." };
+  }
   if (typeof template !== "string" || !FUNNEL_TEMPLATE_IDS.has(template)) {
     return { ok: false, error: "Roteiro de funil desconhecido." };
   }
