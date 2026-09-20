@@ -70,6 +70,14 @@ as $$
       and e.type = 'group-participants.update'
       and e.created_at >= now() - interval '90 days'
       and e.payload #>> '{data,id}' = p_whatsapp_group_id
+      -- Guarda de tipo: jsonb_array_elements levanta 22023 se participants vier
+      -- objeto ou escalar, e a excecao sobe por promote_due_schedules -- que e
+      -- uma transacao so para TODOS os tenants. Uma linha malformada travaria a
+      -- promocao de todo mundo, inclusive de quem nem usa funil, e o proximo
+      -- tick repetiria o erro ate a linha passar dos 90 dias. Descartar a linha
+      -- nao muda nada para payload bem formado: sem participants o coalesce ja
+      -- expandia para zero linhas.
+      and jsonb_typeof(e.payload #> '{data,participants}') = 'array'
     order by e.created_at desc
     limit 500
   ),
@@ -172,6 +180,10 @@ begin
             coalesce(array_length(v_group_ids, 1), 0) = 0
             or g.whatsapp_group_id = any(v_group_ids)
           )
+        -- Caso limite sem sinal na tela: se TODOS os grupos ja tiverem oferta
+        -- aberta, o do nothing deixa a oferta abrir com ZERO linhas em
+        -- flash_offer_groups. A mensagem "manda EU QUERO" sai e nenhum
+        -- comentario entra na fila. O spec cobre o caso parcial, nao este.
         on conflict (tenant_id, whatsapp_group_id) where closed_at is null do nothing;
       end if;
     end if;

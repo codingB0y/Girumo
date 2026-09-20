@@ -45,3 +45,14 @@ export function renderCopy(copy: string, values: Record<string, string>): string
 export function missingFields(step: FunnelStep, values: Record<string, string>): FunnelField[] {
   return step.fields.filter((f) => !values[f]?.trim());
 }
+
+/**
+ * Toda chave da copy que está vazia — inclusive loja/nicho/link/dia/hora.
+ *
+ * `missingFields` só olha `step.fields`, então não vê essas cinco; e é
+ * exatamente por elas que `renderCopy` lança. Quem for decidir se o botão
+ * "Agendar" pode ser clicado precisa desta, não daquela.
+ */
+export function missingKeys(copy: string, values: Record<string, string>): string[] {
+  return [...new Set(copyKeys(copy))].filter((k) => !values[k]?.trim());
+}

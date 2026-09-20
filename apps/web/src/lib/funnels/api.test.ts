@@ -24,6 +24,22 @@ assert.equal(parseFunnelFields({ funnelTemplateId: "live", funnelRunId: "123" })
 // Tipos errados.
 assert.equal(parseFunnelFields({ funnelTemplateId: 1, funnelRunId: RUN }).ok, false);
 
+// null nos DOIS: nao e funil, segue como mensagem comum (formulario que manda
+// campo vazio como null nao pode levar o erro de par incompleto).
+assert.deepEqual(parseFunnelFields({ funnelTemplateId: null, funnelRunId: null }), {
+  ok: true,
+  fields: null,
+});
+// null misturado com undefined tambem e ausencia dos dois.
+assert.deepEqual(parseFunnelFields({ funnelTemplateId: null }), { ok: true, fields: null });
+// null em UM so, com o outro preenchido: par incompleto de verdade, 400.
+const runNulo = parseFunnelFields({ funnelTemplateId: "live", funnelRunId: null });
+assert.equal(runNulo.ok, false);
+assert.equal(!runNulo.ok && runNulo.error, "Informe funnelTemplateId e funnelRunId juntos.");
+const templateNulo = parseFunnelFields({ funnelTemplateId: null, funnelRunId: RUN });
+assert.equal(templateNulo.ok, false);
+assert.equal(!templateNulo.ok && templateNulo.error, "Informe funnelTemplateId e funnelRunId juntos.");
+
 // Ancora do regex de uuid: lixo em volta de um uuid valido tem que reprovar,
 // senao "<uuid>\nDROP TABLE" ou "xx<uuid>yy" viram valor gravado no banco.
 assert.equal(parseFunnelFields({ funnelTemplateId: "live", funnelRunId: `x${RUN}` }).ok, false);

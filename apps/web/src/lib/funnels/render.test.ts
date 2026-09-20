@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { anchorValues, copyKeys, missingFields, renderCopy, resolveStepDate } from "./render";
+import { anchorValues, copyKeys, missingFields, missingKeys, renderCopy, resolveStepDate } from "./render";
 import { getFunnelTemplate, type FunnelStep } from "./templates";
 
 const passo = (at: FunnelStep["at"]): FunnelStep => ({
@@ -58,5 +58,27 @@ assert.deepEqual(missingFields(grade, { "peça": "vestido", "preço": "   ", gra
 
 // copyKeys lista as chaves na ordem em que aparecem (entrada assimetrica, nao palindromo).
 assert.deepEqual(copyKeys("{loja} {dia} {hora}"), ["loja", "dia", "hora"]);
+
+// missingKeys: chave repetida aparece uma vez so; preenchida nao aparece.
+assert.deepEqual(missingKeys("{loja} e {loja} com {link}", { link: "https://x" }), ["loja"]);
+// So-espacos conta como vazia (mesmo trim de renderCopy).
+assert.deepEqual(missingKeys("{loja}", { loja: "   " }), ["loja"]);
+// Copy sem chave nenhuma.
+assert.deepEqual(missingKeys("sem chave", {}), []);
+// Tudo preenchido.
+assert.deepEqual(missingKeys("{loja} {nicho}", { loja: "Mega", nicho: "moda" }), []);
+
+// O ponto: copy real de roteiro, campos da etapa preenchidos, {loja} vazia.
+// missingFields aprova (so olha step.fields) e renderCopy lanca -- e o buraco
+// pelo qual o botao "Agendar" passava com a loja em branco.
+const abriu = getFunnelTemplate("grade-do-dia")!.steps[0];
+const semLoja = { "peça": "vestido", "preço": "R$ 39", grade: "P ao GG", quantidade: "120" };
+assert.deepEqual(missingFields(abriu, semLoja), []);
+assert.deepEqual(missingKeys(abriu.copy, semLoja), ["loja"]);
+assert.throws(() => renderCopy(abriu.copy, semLoja), /loja/);
+// Com a loja preenchida, missingKeys esvazia e renderCopy passa -- os dois concordam.
+const comLoja = { ...semLoja, loja: "Mega Stock" };
+assert.deepEqual(missingKeys(abriu.copy, comLoja), []);
+assert.ok(renderCopy(abriu.copy, comLoja).includes("Mega Stock"));
 
 console.log("funnels/render tests passed");

@@ -42,7 +42,15 @@ export type FunnelTemplate = {
   readonly steps: readonly FunnelStep[];
 };
 
-/** Última sexta de novembro menos 21 dias; se já passou, a do ano seguinte. */
+/**
+ * Última sexta de novembro menos 21 dias; se já passou, a do ano seguinte.
+ *
+ * CONHECIDO E INTENCIONAL — não "conserte": em 2029, 2035 e 2040 (anos em que
+ * 1º de novembro cai numa quinta) a última sexta de novembro NÃO é a Black
+ * Friday, que é o dia seguinte à 4ª quinta. Nesses três anos a sugestão cai 14
+ * dias antes da BF, não 21. Fica assim por decisão de produto: é só uma
+ * sugestão e a âncora é editável na tela.
+ */
 export function blackFridayAtacado(today: Date): Date {
   const paraAno = (ano: number): Date => {
     const d = new Date(ano, 10, 30);

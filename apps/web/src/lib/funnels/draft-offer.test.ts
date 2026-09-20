@@ -34,6 +34,9 @@ test("validateOfferBody exige groupIds fora do modo rascunho", () => {
   );
 });
 
+// O rascunho passa aqui de proposito: a exigencia de "existe um schedules
+// pendente, recurrence none, deste tenant" e I/O e vive na rota. Se alguem
+// mover essa regra para ca, estes dois asserts viram vermelho e apontam onde.
 test("validateOfferBody dispensa groupIds no modo rascunho", () => {
   assert.equal(
     validateOfferBody({ name: "oferta", slots: 5, broadcastId: "b1" }),

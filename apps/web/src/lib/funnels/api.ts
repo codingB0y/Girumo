@@ -13,8 +13,11 @@ export function parseFunnelFields(
 ): { ok: true; fields: FunnelFields | null } | { ok: false; error: string } {
   const template = body.funnelTemplateId;
   const run = body.funnelRunId;
-  if (template === undefined && run === undefined) return { ok: true, fields: null };
-  if (template === undefined || run === undefined) {
+  // `== null` cobre `null` alem de `undefined`: formulario que serializa campo
+  // vazio como null nao e um par incompleto, e nao pode levar o erro de par.
+  // Os dois nulos = mensagem comum; um nulo so = par incompleto de verdade.
+  if (template == null && run == null) return { ok: true, fields: null };
+  if (template == null || run == null) {
     return { ok: false, error: "Informe funnelTemplateId e funnelRunId juntos." };
   }
   if (typeof template !== "string" || !FUNNEL_TEMPLATE_IDS.has(template)) {

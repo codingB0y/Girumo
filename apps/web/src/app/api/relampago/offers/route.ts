@@ -46,13 +46,43 @@ export async function POST(req: Request) {
   // e a promote_due_schedules, na hora do disparo (spec D3). Sem grupos aqui:
   // eles saem de broadcasts.group_ids na abertura.
   if (isDraftMode(body)) {
-    const { data: broadcast } = await supabase
+    const { data: broadcast, error: erroBroadcast } = await supabase
       .from("broadcasts")
       .select("id")
       .eq("tenant_id", ctx.tenantId)
       .eq("id", body.broadcastId)
       .maybeSingle();
+    // Banco fora do ar ou uuid malformado (22P02) nao sao "nao encontrado": sem
+    // este throw a lojista via 400 com o disparo intacto na Agenda e nada no log.
+    if (erroBroadcast) throw erroBroadcast;
     if (!broadcast) return Response.json({ error: "broadcast nao encontrado" }, { status: 400 });
+
+    // A oferta so abre dentro de app.promote_due_schedules, e ela so olha
+    // agendamento pendente. Duas armadilhas que isso fecha:
+    //  - disparo sem agendamento sai na hora (messages/route.ts enfileira
+    //    direto) e a promote nunca o ve: a mensagem sairia e a oferta ficaria
+    //    em rascunho para sempre;
+    //  - disparo recorrente abre a oferta na 1a ocorrencia e, na 2a, nao acha
+    //    rascunho nenhum -- a mensagem sai sem oferta e a primeira fica aberta
+    //    segurando flash_offer_groups_um_aberto_uidx dos grupos.
+    const { data: agendamento, error: erroAgendamento } = await supabase
+      .from("schedules")
+      .select("id")
+      .eq("tenant_id", ctx.tenantId)
+      .eq("broadcast_id", body.broadcastId)
+      .eq("status", "pending")
+      .eq("recurrence", "none")
+      .maybeSingle();
+    if (erroAgendamento) throw erroAgendamento;
+    if (!agendamento) {
+      return Response.json(
+        {
+          error:
+            "A oferta so abre junto de um disparo agendado que acontece uma vez. Esse disparo nao tem agendamento pendente, ou se repete.",
+        },
+        { status: 400 },
+      );
+    }
 
     const { data: rascunho, error: erroRascunho } = await supabase
       .from("flash_offers")
@@ -146,7 +176,9 @@ export async function POST(req: Request) {
   if (erroJanela) {
     // 23505 = já existe oferta aberta num desses grupos. Recusado pelo Postgres,
     // não pela tela. Desfaz a oferta órfã.
-    await supabase.from("flash_offers").delete().eq("id", oferta.id);
+    // Filtro de tenant mesmo com o id recem-inserido: com service-role o RLS
+    // nao protege, o `.eq("tenant_id")` e a protecao (CLAUDE.md).
+    await supabase.from("flash_offers").delete().eq("tenant_id", ctx.tenantId).eq("id", oferta.id);
     if (erroJanela.code === "23505") {
       return Response.json(
         { error: "Um desses grupos ja tem uma oferta aberta. Feche a anterior primeiro." },
