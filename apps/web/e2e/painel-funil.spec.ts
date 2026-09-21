@@ -212,10 +212,18 @@ test("prova visual: sub-aba Funil em 1280 e 390 sem erro de console", async ({ p
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByTestId("funil-previa-previa-da-grade")).toBeVisible();
   await testInfo.attach("funil-390", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
-  const semRolagemLateral = await page.evaluate(
-    () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
-  );
-  expect(semRolagemLateral, "a página rola na horizontal em 390 px").toBe(true);
+  // Em vez de só "rola ou não", lista quem passa da borda: a 1ª falha aqui
+  // foi o cabeçalho da campanha (URL mestra sem min-w-0), não o funil, e sem
+  // o nome do elemento o vermelho não dizia onde olhar.
+  const estouros = await page.evaluate(() => {
+    const largura = document.documentElement.clientWidth;
+    if (document.documentElement.scrollWidth <= largura) return [];
+    return [...document.querySelectorAll("body *")]
+      .filter((el) => getComputedStyle(el).position !== "fixed" && el.getBoundingClientRect().right > largura + 0.5)
+      .slice(0, 8)
+      .map((el) => `${el.tagName.toLowerCase()}.${String(el.getAttribute("class") ?? "").split(" ").slice(0, 3).join(".")} "${(el.textContent ?? "").trim().slice(0, 30)}"`);
+  });
+  expect(estouros, "a página rola na horizontal em 390 px").toEqual([]);
 
   expect(chamadas).toHaveLength(0);
   expect(erros).toEqual([]);
