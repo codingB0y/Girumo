@@ -1,8 +1,9 @@
+// React no escopo: o tsx do teste usa o runtime clássico de JSX (mesmo padrão de brand/logo.tsx).
+import React from "react";
+
 import { anchorValues } from "@/lib/funnels/render";
 import type { FunnelTemplateId } from "@/lib/funnels/templates";
 import { cn } from "@/lib/utils";
-// React no escopo: o tsx do teste usa o runtime clássico de JSX (mesmo padrão de brand/logo.tsx).
-import React from "react";
 
 const FRASE: Readonly<Record<FunnelTemplateId, (dia: string) => string>> = {
   "grade-do-dia": (dia) => `A grade de ${dia}, pronta pro grupo.`,
@@ -25,7 +26,11 @@ const plural = (n: number, um: string, varios: string) => (n === 1 ? um : varios
 
 /** Única peça escura da tela (letreiro Volt). Liso: a Vitrine proíbe gradiente. */
 export function FunnelHero(p: Props) {
-  const frase = p.anchor ? FRASE[p.templateId](anchorValues(p.anchor).dia) : "Escolha a data para montar o roteiro.";
+  // Invalid Date é truthy: sem checar getTime() a frase sairia "Sua live de Invalid Date".
+  const frase =
+    p.anchor && !Number.isNaN(p.anchor.getTime())
+      ? FRASE[p.templateId](anchorValues(p.anchor).dia)
+      : "Escolha a data para montar o roteiro.";
   return (
     <section
       aria-labelledby="funil-hero-titulo"

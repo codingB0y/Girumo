@@ -30,9 +30,32 @@ test("números em pt-BR e plural certo", () => {
   assert.match(um, />ofertas relâmpago</);
 });
 
+test("plural de grupo e revendedora no singular", () => {
+  const um = renderToStaticMarkup(createElement(FunnelHero, { ...props, grupos: 1, revendedoras: 1 }));
+  assert.match(um, />grupo</);
+  assert.match(um, />revendedora</);
+});
+
+test("cada roteiro tem a sua frase exata", () => {
+  const esperado = {
+    "grade-do-dia": "A grade de sábado, 10/10, pronta pro grupo.",
+    "evento-2-dias": "Seu evento de 2 dias começa sábado, 10/10.",
+    live: "Sua live de sábado, 10/10, pronta pra vender.",
+    "black-friday-atacado": "Sua Black do atacado, sábado, 10/10.",
+  } as const;
+  for (const [templateId, frase] of Object.entries(esperado)) {
+    const html = renderToStaticMarkup(
+      createElement(FunnelHero, { ...props, templateId: templateId as keyof typeof esperado }),
+    );
+    assert.ok(html.includes(`>${frase}</h2>`), `${templateId}: esperava "${frase}"`);
+  }
+});
+
 test("sem âncora válida, pede a data", () => {
   const html = renderToStaticMarkup(createElement(FunnelHero, { ...props, anchor: null }));
   assert.match(html, /Escolha a data/);
+  const invalida = renderToStaticMarkup(createElement(FunnelHero, { ...props, anchor: new Date("x") }));
+  assert.match(invalida, /Escolha a data/);
 });
 
 test("nada de gradiente nem itálico (regra 9 da Vitrine)", () => {
