@@ -30,3 +30,18 @@ test("tipo errado e tamanho acima do teto são recusados", () => {
   assert.equal(parseProfileInput({ niche: "x".repeat(NICHE_MAX + 1) }).ok, false);
   assert.equal(parseProfileInput({ storeName: "x".repeat(STORE_NAME_MAX) }).ok, true);
 });
+
+test("nicho com exatamente o teto de caracteres é aceito", () => {
+  assert.deepEqual(parseProfileInput({ niche: "x".repeat(NICHE_MAX) }), {
+    ok: true,
+    input: { niche: "x".repeat(NICHE_MAX) },
+  });
+});
+
+test("teto do nome é medido depois do trim, não antes", () => {
+  const nome = "x".repeat(STORE_NAME_MAX);
+  assert.deepEqual(parseProfileInput({ storeName: `  ${nome}  ` }), {
+    ok: true,
+    input: { storeName: nome },
+  });
+});
