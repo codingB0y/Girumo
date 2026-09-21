@@ -9,7 +9,7 @@ import { FUNNEL_TEMPLATES, type FunnelField, type FunnelTemplateId } from "@/lib
 import { cn } from "@/lib/utils";
 import { FunnelHero } from "./funnel-hero";
 import { FunnelStepCard } from "./funnel-step-card";
-import { EMPTY_PROGRESS, confirmFunnel, isStepDone, type ConfirmFailure, type FunnelProgress } from "./funnel-confirm";
+import { EMPTY_PROGRESS, applyProgress, confirmFunnel, isStepDone, type ConfirmFailure, type FunnelProgress } from "./funnel-confirm";
 import { anchorFrom, blockerLabels, defaultAnchorDate, isBlocked, planFunnel, type StepDraft, type StepPlan } from "./funnel-plan";
 
 export type FunnelTabProps = {
@@ -52,6 +52,8 @@ export function FunnelTab(props: FunnelTabProps) {
   const [uploading, setUploading] = useState<string | null>(null);
   const [runId, setRunId] = useState(() => crypto.randomUUID());
   const [progress, setProgress] = useState<FunnelProgress>(EMPTY_PROGRESS);
+  // Plano de cada etapa no momento em que foi agendada (ver `applyProgress`).
+  const [frozen, setFrozen] = useState<Readonly<Record<string, StepPlan>>>({});
   const [failure, setFailure] = useState<ConfirmFailure | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [now, setNow] = useState(() => new Date());
@@ -72,8 +74,10 @@ export function FunnelTab(props: FunnelTabProps) {
     fetch("/api/settings")
       .then((r) => (r.ok ? r.json() : null))
       .then((s: { storeName?: string; niche?: string | null } | null) => {
-        if (!vivo || !s) return;
-        const salvo = { loja: s.storeName ?? "", nicho: s.niche ?? "" };
+        // Sem `storeName` o perfil falhou no servidor: perfilSalvo fica null e o
+        // PATCH só manda o que não está vazio (nunca apaga o nicho salvo).
+        if (!vivo || !s || typeof s.storeName !== "string") return;
+        const salvo = { loja: s.storeName, nicho: s.niche ?? "" };
         // Não atropela o que o lojista já começou a digitar.
         setLoja((atual) => atual || salvo.loja);
         setNicho((atual) => atual || salvo.nicho);
@@ -95,11 +99,8 @@ export function FunnelTab(props: FunnelTabProps) {
   const anchor = anchorFrom(anchorDate, anchorTime, template.anchorNeedsTime);
   const ctx = anchor ? { anchor, now, loja, nicho, link: props.masterUrl } : null;
   const travada = (stepId: string) => stepId in progress.scheduled;
-  // Etapa com mensagem no servidor e oferta pendente sempre entra na retomada:
-  // desmarcar ou virar passado não pode deixar a mensagem sem oferta. Quem
-  // decide é o servidor (agendamento já promovido → a rota da oferta recusa).
-  const comRetomada = (ps: StepPlan[]) =>
-    ps.map((p) => (travada(p.step.id) && !isStepDone(p, progress) ? { ...p, included: true } : p));
+  // Etapa com mensagem no servidor volta congelada e sempre entra na retomada.
+  const comRetomada = (ps: StepPlan[]) => applyProgress(ps, progress, frozen);
   const pendentesDe = (ps: StepPlan[]) => ps.filter((p) => p.included && !isStepDone(p, progress));
   const plans = ctx ? comRetomada(planFunnel(template, drafts, ctx)) : [];
   const started = Object.keys(progress.scheduled).length > 0;
@@ -171,15 +172,27 @@ export function FunnelTab(props: FunnelTabProps) {
 
   async function salvarPerfilSeMudou() {
     const atual = { loja: loja.trim(), nicho: nicho.trim() };
-    if (perfilSalvo && perfilSalvo.loja === atual.loja && perfilSalvo.nicho === atual.nicho) return;
+    // Só o que mudou. A rota recusa `storeName` vazio (400); roteiro sem {loja}
+    // deixa agendar sem ela. Sem o salvo (GET falhou), o nicho só vai se tiver
+    // texto: `niche: null` apaga, e isso só quando o lojista apagou o campo.
+    const mudouLoja = atual.loja !== "" && atual.loja !== perfilSalvo?.loja;
+    const mudouNicho = perfilSalvo ? atual.nicho !== perfilSalvo.nicho : atual.nicho !== "";
+    if (!mudouLoja && !mudouNicho) return;
     // Falhar aqui não impede agendar: a copy já foi montada com o que está na tela.
     const res = await fetch("/api/settings", {
       method: "PATCH",
       headers: JSON_HEADERS,
-      // A rota recusa `storeName` vazio (400); roteiro sem {loja} deixa agendar sem ela.
-      body: JSON.stringify({ ...(atual.loja ? { storeName: atual.loja } : {}), niche: atual.nicho || null }),
+      body: JSON.stringify({
+        ...(mudouLoja ? { storeName: atual.loja } : {}),
+        ...(mudouNicho ? { niche: atual.nicho || null } : {}),
+      }),
     }).catch(() => null);
-    if (res?.ok) setPerfilSalvo(atual);
+    if (res?.ok) {
+      setPerfilSalvo({
+        loja: mudouLoja ? atual.loja : (perfilSalvo?.loja ?? ""),
+        nicho: mudouNicho ? atual.nicho : (perfilSalvo?.nicho ?? ""),
+      });
+    }
     else toast("Não deu pra salvar loja e nicho para a próxima vez. As mensagens seguem com o que está na tela.", "error");
   }
 
@@ -206,11 +219,13 @@ export function FunnelTab(props: FunnelTabProps) {
       });
       if (out.failure) {
         setProgress(out.progress);
+        setFrozen((atual) => ({ ...atual, ...out.scheduledPlans }));
         setFailure(out.failure);
         return;
       }
       Object.values(drafts).forEach((d) => d.media && revogar(d.media.previewUrl));
       setProgress(EMPTY_PROGRESS);
+      setFrozen({});
       setRunId(crypto.randomUUID());
       setDrafts({});
       await props.onScheduled();
@@ -274,15 +289,15 @@ export function FunnelTab(props: FunnelTabProps) {
               </Campo>
             )}
             <Campo rotulo="Sua loja">
-              <input value={loja} maxLength={80} onChange={(e) => setLoja(e.target.value)} className={INPUT_TOPO} />
+              <input value={loja} maxLength={80} disabled={started} onChange={(e) => setLoja(e.target.value)} className={INPUT_TOPO} />
             </Campo>
             <Campo rotulo="Seu nicho">
-              <input value={nicho} maxLength={60} placeholder="moda infantil" onChange={(e) => setNicho(e.target.value)} className={INPUT_TOPO} />
+              <input value={nicho} maxLength={60} placeholder="moda infantil" disabled={started} onChange={(e) => setNicho(e.target.value)} className={INPUT_TOPO} />
             </Campo>
           </div>
           {started && (
             <p className="mt-3 text-12 text-slate-600">
-              Parte deste funil já está na Agenda: roteiro e data ficam travados até terminar.
+              Parte deste funil já está na Agenda: roteiro, data, loja e nicho ficam travados até terminar.
             </p>
           )}
         </Bisel>

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { getFunnelTemplate, type FunnelTemplate } from "@/lib/funnels/templates";
 import { planFunnel, type FunnelContext, type StepDraft } from "./funnel-plan";
-import { EMPTY_PROGRESS, confirmFunnel, isStepDone, type PostJson } from "./funnel-confirm";
+import { EMPTY_PROGRESS, applyProgress, confirmFunnel, isStepDone, type PostJson } from "./funnel-confirm";
 
 const live = getFunnelTemplate("live") as FunnelTemplate;
 const ctx: FunnelContext = {
@@ -180,4 +180,55 @@ test("etapa incompleta incluída: falha na mensagem sem POST nenhum", async () =
   assert.equal(out.failure?.stepId, "previa-da-grade");
   assert.equal(out.failure?.stage, "mensagem");
   assert.equal(out.failure?.upgradeUrl, null);
+});
+
+const comQuantidade = (q: string): Record<string, StepDraft> => ({
+  ...drafts,
+  "previa-da-grade": { fields: { ...drafts["previa-da-grade"].fields, quantidade: q } },
+});
+
+test("applyProgress: etapa agendada usa o plano congelado, mesmo com a quantidade mudada depois", () => {
+  const congelado = planFunnel(live, comQuantidade("120"), ctx)[2];
+  const novos = planFunnel(live, comQuantidade("100"), ctx);
+  const progress = { scheduled: { "grade-da-live": "b-3" }, offersCreated: [] };
+  const [, , grade] = applyProgress(novos, progress, { "grade-da-live": congelado });
+  assert.equal(grade.values.quantidade, "120");
+  assert.equal(grade.text, congelado.text);
+  assert.notEqual(grade.text, novos[2].text);
+});
+
+test("applyProgress: etapa agendada que virou passado entra mesmo assim", () => {
+  const depois = { ...ctx, now: new Date(2026, 9, 9, 20, 0) };
+  const novos = planFunnel(live, drafts, depois);
+  assert.equal(novos[0].included, false);
+  const progress = { scheduled: { "previa-da-grade": "b-1" }, offersCreated: [] };
+  // Com e sem plano congelado (o fallback recalculado também tem que entrar).
+  const [comCongelado] = applyProgress(novos, progress, { "previa-da-grade": planFunnel(live, drafts, ctx)[0] });
+  const [semCongelado] = applyProgress(novos, progress, {});
+  assert.equal(comCongelado.included, true);
+  assert.equal(semCongelado.included, true);
+});
+
+test("applyProgress: etapa não agendada passa intacta", () => {
+  const novos = planFunnel(live, drafts, ctx);
+  const out = applyProgress(novos, { scheduled: { "previa-da-grade": "b-1" }, offersCreated: [] }, {});
+  assert.equal(out[1], novos[1]);
+  assert.equal(out[3], novos[3]);
+  assert.notEqual(out[0], novos[0]);
+  assert.deepEqual(novos.map((p) => p.included), [true, true, true, true]);
+});
+
+test("retomada com oferta pendente cria a oferta com as vagas do plano congelado", async () => {
+  const primeira = postFalso({ 3: Response.json({ error: "Seu plano não inclui relâmpago." }, { status: 402 }) });
+  const out = await confirmFunnel({ slug: "saldao", plans: planFunnel(live, comQuantidade("120"), ctx), run, progress: EMPTY_PROGRESS, post: primeira.post });
+  assert.equal(out.failure?.stage, "oferta");
+  assert.deepEqual(Object.keys(out.scheduledPlans), ["previa-da-grade", "entra-agora", "grade-da-live"]);
+
+  // O lojista "corrige" a quantidade no 1º card depois da falha.
+  const novos = planFunnel(live, comQuantidade("100"), ctx);
+  const segunda = postFalso();
+  await confirmFunnel({ slug: "saldao", plans: applyProgress(novos, out.progress, out.scheduledPlans), run, progress: out.progress, post: segunda.post });
+  const oferta = segunda.chamadas.find((c) => c.url === "/api/relampago/offers");
+  assert.equal(oferta?.body.slots, 120);
+  assert.equal(oferta?.body.broadcastId, "b-3");
 });

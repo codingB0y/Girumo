@@ -89,7 +89,8 @@ export function FunnelStepCard(props: FunnelStepCardProps) {
           {plan.edited && <span className={cn(CHIP, "bg-atencao/10 text-atencao")}>editado</span>}
         </div>
 
-        {plan.isPast && <p className="mt-2 pl-[52px] text-12 text-slate-600">Já passou: esta etapa não será enviada.</p>}
+        {/* Travada já está na Agenda: "não será enviada" seria falso. */}
+        {plan.isPast && !props.locked && <p className="mt-2 pl-[52px] text-12 text-slate-600">Já passou: esta etapa não será enviada.</p>}
         {props.locked && <p className="mt-2 pl-[52px] text-12 text-sucesso">Agendada. Está na Agenda.</p>}
         {bloqueada && <p className="mt-2 pl-[52px] text-12 text-alerta">Falta: {blockerLabels(plan).join(", ")}</p>}
 

@@ -30,7 +30,12 @@ export type ConfirmFailure = {
   upgradeUrl: string | null;
 };
 
-export type ConfirmOutcome = { progress: FunnelProgress; failure: ConfirmFailure | null };
+export type ConfirmOutcome = {
+  progress: FunnelProgress;
+  failure: ConfirmFailure | null;
+  /** Plano de cada etapa cuja mensagem foi agendada NESTA chamada (ver `applyProgress`). */
+  scheduledPlans: Readonly<Record<string, StepPlan>>;
+};
 
 export const EMPTY_PROGRESS: FunnelProgress = { scheduled: {}, offersCreated: [] };
 
@@ -40,6 +45,21 @@ const ETAPA_INVALIDA = "Etapa com campo faltando ou quantidade inválida. Revise
 export function isStepDone(p: StepPlan, progress: FunnelProgress): boolean {
   const id = p.step.id;
   return id in progress.scheduled && (p.step.kind !== "relampago" || progress.offersCreated.includes(id));
+}
+
+/**
+ * Etapa com mensagem no servidor usa o plano de quando foi agendada (`frozen`),
+ * não o recalculado: etapas anteriores, loja e nicho seguem editáveis e a oferta
+ * da retomada tem que sair com o que o texto no grupo anunciou. E sempre entra
+ * (`included: true`): desmarcar ou virar passado não deixa a mensagem sem
+ * oferta — quem decide é o servidor.
+ */
+export function applyProgress(
+  plans: readonly StepPlan[],
+  progress: FunnelProgress,
+  frozen: Readonly<Record<string, StepPlan>>,
+): StepPlan[] {
+  return plans.map((p) => (p.step.id in progress.scheduled ? { ...(frozen[p.step.id] ?? p), included: true } : p));
 }
 
 /** Monta o corpo e posta; exceção vira texto de erro (nada escapa). */
@@ -72,7 +92,8 @@ export async function confirmFunnel(opts: {
 }): Promise<ConfirmOutcome> {
   let scheduled: Readonly<Record<string, string>> = { ...opts.progress.scheduled };
   let offersCreated: readonly string[] = [...opts.progress.offersCreated];
-  const agora = (failure: ConfirmFailure | null): ConfirmOutcome => ({ progress: { scheduled, offersCreated }, failure });
+  let scheduledPlans: Readonly<Record<string, StepPlan>> = {};
+  const agora = (failure: ConfirmFailure | null): ConfirmOutcome => ({ progress: { scheduled, offersCreated }, failure, scheduledPlans });
   const urlMensagens = `/api/campanhas/${encodeURIComponent(opts.slug)}/messages`;
 
   for (const p of opts.plans) {
@@ -87,6 +108,7 @@ export async function confirmFunnel(opts: {
         return agora({ stepId: id, stage: "mensagem", message: "A mensagem pode ter sido agendada, mas a resposta veio sem id. Confira a Agenda antes de tentar de novo.", upgradeUrl: null });
       }
       scheduled = { ...scheduled, [id]: criada.id };
+      scheduledPlans = { ...scheduledPlans, [id]: p };
     }
 
     if (p.step.kind === "relampago" && !offersCreated.includes(id)) {

@@ -91,6 +91,12 @@ test("agendada (locked) numa etapa futura: aviso e checkbox desabilitado", () =>
   assert.match(html, /<input[^>]*type="checkbox"[^>]*disabled=""|<input[^>]*disabled=""[^>]*type="checkbox"/);
 });
 
+test("agendada que virou passado: não diz que não será enviada", () => {
+  const html = card({ locked: true, c: { ...ctx, now: new Date(2026, 9, 10, 23, 0) } });
+  assert.match(html, /Agendada\. Está na Agenda\./);
+  assert.doesNotMatch(html, /Já passou/);
+});
+
 /** Texto visível de uma subárvore (sem expandir componentes filhos). */
 function textOf(node: ReactNode): string {
   if (typeof node === "string" || typeof node === "number") return String(node);

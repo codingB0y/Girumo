@@ -42,6 +42,10 @@ export function MessagesTab({
 }: Props) {
   const { pedirConfirmacao, folhaDeConfirmacao } = useConfirmacao();
   const [subTab, setSubTab] = useState<SubTab>("Enviar agora");
+  // O Funil monta na 1ª visita e não desmonta mais: progresso, runId e o
+  // relatório de falha sobrevivem à ida até a Agenda (senão a volta recomeça o
+  // funil e reagendar duplica mensagens nos grupos).
+  const [funilAberto, setFunilAberto] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [sendUpgradeUrl, setSendUpgradeUrl] = useState<string | null>(null);
   const [messages, setMessages] = useState<CampaignMessage[]>([]);
@@ -225,7 +229,11 @@ export function MessagesTab({
           <button
             key={t}
             type="button"
-            onClick={() => setSubTab(t)}
+            aria-pressed={subTab === t}
+            onClick={() => {
+              setSubTab(t);
+              if (t === "Funil") setFunilAberto(true);
+            }}
             className={cn(
               "shrink-0 rounded-xl px-4 py-2 text-sm font-medium transition",
               subTab === t
@@ -256,7 +264,16 @@ export function MessagesTab({
         {subTab === "Agendar" && (
           <ScheduleComposer onSchedule={handleSchedule} scheduling={sending} />
         )}
-        {subTab === "Funil" && funil && (
+        {subTab === "Agenda" && (
+          <MessagesAgenda
+            messages={messages}
+            onCancel={handleCancel}
+            onDelete={handleDelete}
+          />
+        )}
+      </div>
+      {funil && funilAberto && (
+        <div hidden={subTab !== "Funil"}>
           <FunnelTab
             campaignSlug={campaignSlug}
             campaignName={funil.campaignName}
@@ -270,15 +287,8 @@ export function MessagesTab({
             }}
             onFromScratch={() => setSubTab("Agendar")}
           />
-        )}
-        {subTab === "Agenda" && (
-          <MessagesAgenda
-            messages={messages}
-            onCancel={handleCancel}
-            onDelete={handleDelete}
-          />
-        )}
-      </div>
+        </div>
+      )}
       {folhaDeConfirmacao}
     </div>
   );

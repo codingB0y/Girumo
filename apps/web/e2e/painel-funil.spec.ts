@@ -25,6 +25,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SUBABA_FUNIL = /^Funil/;
 // "Agenda" com ou sem o contador; não pode casar "Agendar".
 const SUBABA_AGENDA = /^Agenda\s*\d*$/;
+// O botão de confirmar; `/^Agendar/` sozinho casa também a sub-aba "Agendar".
+const BOTAO_AGENDAR = /^Agendar \d+ mensage/;
 
 function daquiA(dias: number): string {
   const d = new Date();
@@ -40,13 +42,19 @@ async function campanhaComGrupos(page: Page): Promise<Campanha> {
   return campanha as Campanha;
 }
 
-/** Intercepta toda escrita; o GET da Agenda devolve o que "foi criado". */
-async function simularServidor(page: Page, campanha: Campanha) {
+/**
+ * Intercepta toda escrita; o GET da Agenda devolve o que "foi criado".
+ * `falharOferta`: o 1º POST de oferta devolve 400 (os seguintes, 201).
+ */
+async function simularServidor(page: Page, campanha: Campanha, opts: { falharOferta?: boolean } = {}) {
   const chamadas: Chamada[] = [];
   const agenda: Record<string, unknown>[] = [];
   let n = 0;
+  let ofertaFalhou = false;
 
-  await page.route(`**/api/campanhas/${campanha.slug}/messages`, async (rota) => {
+  // Codificado como o confirmFunnel codifica: um slug que o escape altere não
+  // pode escapar do mock e escrever de verdade.
+  await page.route(`**/api/campanhas/${encodeURIComponent(campanha.slug as string)}/messages`, async (rota) => {
     const req = rota.request();
     if (req.method() === "GET") return rota.fulfill({ json: agenda });
     if (req.method() !== "POST") return rota.continue();
@@ -77,6 +85,10 @@ async function simularServidor(page: Page, campanha: Campanha) {
   await page.route("**/api/relampago/offers", async (rota) => {
     if (rota.request().method() !== "POST") return rota.continue();
     chamadas.push({ alvo: "oferta", body: rota.request().postDataJSON() as Record<string, unknown> });
+    if (opts.falharOferta && !ofertaFalhou) {
+      ofertaFalhou = true;
+      return rota.fulfill({ status: 400, json: { error: "grupo ocupado com outra oferta" } });
+    }
     return rota.fulfill({ status: 201, json: { offer: { id: "oferta-e2e", status: "draft" } } });
   });
 
@@ -115,6 +127,13 @@ async function preencherPrevia(page: Page) {
   await previa.getByLabel("quantidade", { exact: true }).fill("120");
 }
 
+/** O link da live é o único campo da Live que não herda da prévia. */
+async function preencherLinkDaLive(page: Page) {
+  const entra = page.getByRole("article", { name: "Entra agora" });
+  await entra.getByRole("button", { name: /Entra agora/ }).click();
+  await entra.getByLabel("link da live", { exact: true }).fill("https://instagram.com/lojae2e/live");
+}
+
 test("Live: 4 mensagens em série, oferta ligada à 3ª, chip na Agenda", async ({ page }) => {
   const campanha = await campanhaComGrupos(page);
   const { chamadas } = await simularServidor(page, campanha);
@@ -123,9 +142,7 @@ test("Live: 4 mensagens em série, oferta ligada à 3ª, chip na Agenda", async 
   await preencherPrevia(page);
   await expect(page.getByTestId("funil-previa-previa-da-grade")).toContainText("Amanhã 20h tem live da Loja E2E!");
 
-  const entra = page.getByRole("article", { name: "Entra agora" });
-  await entra.getByRole("button", { name: /Entra agora/ }).click();
-  await entra.getByLabel("link da live", { exact: true }).fill("https://instagram.com/lojae2e/live");
+  await preencherLinkDaLive(page);
 
   const agendar = page.getByRole("button", { name: /^Agendar 4 mensagens/ });
   await expect(agendar).toBeEnabled();
@@ -134,9 +151,8 @@ test("Live: 4 mensagens em série, oferta ligada à 3ª, chip na Agenda", async 
   // A Agenda é a prova de que a confirmação terminou.
   await expect(page.getByText("Lançamento de live · 4/4")).toBeVisible();
   for (const i of [1, 2, 3]) await expect(page.getByText(`Lançamento de live · ${i}/4`)).toBeVisible();
-  // A sub-aba não expõe aria-selected; a selecionada é a única com o cobalto.
-  await expect(page.getByRole("button", { name: SUBABA_AGENDA })).toHaveClass(/text-cobalt-500/);
-  await expect(page.getByRole("button", { name: SUBABA_FUNIL })).not.toHaveClass(/text-cobalt-500/);
+  await expect(page.getByRole("button", { name: SUBABA_AGENDA })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: SUBABA_FUNIL })).toHaveAttribute("aria-pressed", "false");
 
   expect(chamadas.map((c) => c.alvo)).toEqual(["mensagem", "mensagem", "mensagem", "oferta", "mensagem"]);
   const mensagens = chamadas.filter((c) => c.alvo === "mensagem").map((c) => c.body);
@@ -148,6 +164,8 @@ test("Live: 4 mensagens em série, oferta ligada à 3ª, chip na Agenda", async 
     expect(m.recurrence).toBe("none");
     expect(typeof m.scheduledAt).toBe("string");
     expect(String(m.body)).not.toMatch(/\{[^}]+\}/);
+    // Campanha com grupos: os alvos são os groupIds dela (disparo pro público certo).
+    expect(m.groupIds).toEqual(campanha.groupIds);
   }
   const oferta = chamadas[3].body;
   expect(oferta.broadcastId).toBe("00000000-0000-4000-8000-0000000f0003");
@@ -159,9 +177,15 @@ test("sem 'Sua loja' o botão não agenda e diz o que falta", async ({ page }) =
   const campanha = await campanhaComGrupos(page);
   const { chamadas } = await simularServidor(page, campanha);
   await abrirFunilDaLive(page, campanha.slug as string);
-  await page.getByLabel("Sua loja", { exact: true }).fill("");
+  // Tudo o mais que a Live pede está preenchido: o botão habilita. Só assim o
+  // "desabilita" abaixo prova o gate da loja, e não um campo vazio qualquer.
+  await preencherPrevia(page);
+  await preencherLinkDaLive(page);
+  const agendar = page.getByRole("button", { name: BOTAO_AGENDAR });
+  await expect(agendar).toBeEnabled();
 
-  await expect(page.getByRole("button", { name: /^Agendar/ })).toBeDisabled();
+  await page.getByLabel("Sua loja", { exact: true }).fill("");
+  await expect(agendar).toBeDisabled();
   await expect(page.locator("#funil-motivo")).toContainText("Sua loja");
   expect(chamadas).toHaveLength(0);
 });
@@ -189,12 +213,44 @@ test("prova visual: sub-aba Funil em 1280 e 390 sem erro de console", async ({ p
   await expect(page.getByTestId("funil-previa-previa-da-grade")).toBeVisible();
   await testInfo.attach("funil-390", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
   const semRolagemLateral = await page.evaluate(
-    () => document.documentElement.scrollWidth <= window.innerWidth,
+    () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
   );
   expect(semRolagemLateral, "a página rola na horizontal em 390 px").toBe(true);
 
   expect(chamadas).toHaveLength(0);
   expect(erros).toEqual([]);
+});
+
+test("falha na oferta sobrevive à ida até a Agenda e a retomada não duplica mensagem", async ({ page }) => {
+  const campanha = await campanhaComGrupos(page);
+  const { chamadas } = await simularServidor(page, campanha, { falharOferta: true });
+  await abrirFunilDaLive(page, campanha.slug as string);
+  await preencherPrevia(page);
+  await preencherLinkDaLive(page);
+
+  await page.getByRole("button", { name: /^Agendar 4 mensagens/ }).click();
+  const relatorio = page.getByRole("alert").filter({ hasText: "Parou em “Grade da live”" });
+  await expect(relatorio).toBeVisible();
+  expect(chamadas.map((c) => c.alvo)).toEqual(["mensagem", "mensagem", "mensagem", "oferta"]);
+
+  // O relatório manda conferir a Agenda; ida e volta não pode zerar o funil.
+  await page.getByRole("button", { name: SUBABA_AGENDA }).click();
+  await expect(page.getByRole("button", { name: SUBABA_AGENDA })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: SUBABA_FUNIL }).click();
+  await expect(relatorio).toBeVisible();
+
+  // Sobram a oferta da 3ª e a mensagem da 4ª: nada das três já agendadas volta.
+  const antes = chamadas.length;
+  await page.getByRole("button", { name: /^Agendar 2 mensagens/ }).click();
+  await expect(page.getByText("Lançamento de live · 4/4")).toBeVisible();
+
+  const retomada = chamadas.slice(antes);
+  expect(retomada.map((c) => c.alvo)).toEqual(["oferta", "mensagem"]);
+  expect(retomada[0].body.broadcastId).toBe("00000000-0000-4000-8000-0000000f0003");
+  const mensagens = chamadas.filter((c) => c.alvo === "mensagem").map((c) => c.body);
+  expect(mensagens).toHaveLength(4);
+  expect(new Set(mensagens.map((m) => m.scheduledAt)).size).toBe(4);
+  expect(new Set(mensagens.map((m) => m.funnelRunId)).size).toBe(1);
 });
 
 test("comunidade não tem a sub-aba Funil", async ({ page }) => {

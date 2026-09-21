@@ -29,7 +29,10 @@ export async function GET(req: Request) {
     // e o gate de `missingKeys` impede agendar sem loja.
     const [settings, perfil] = await Promise.all([
       getTenantSettings(tenantId),
-      getOrganizationProfile(tenantId).catch(() => null),
+      getOrganizationProfile(tenantId).catch((e: unknown) => {
+        console.error("[api/settings] perfil da organizacao:", e);
+        return null;
+      }),
     ]);
     return Response.json({ ...settings, ...(perfil ?? {}) });
   } catch (e) {
