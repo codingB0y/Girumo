@@ -7,6 +7,9 @@ import {
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import { INVALID_GOAL, parseGoalInput } from "@/lib/settings/goal-input";
 import { INVALID_SEGMENT, parseSegmentInput } from "@/lib/settings/segment-input";
+import { assertPermission, type TenantRole } from "@/lib/permissions";
+import { parseProfileInput } from "@/lib/settings/profile-input";
+import { getOrganizationProfile, updateOrganizationProfile } from "@/lib/stores/organization-profile";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,7 +24,17 @@ export async function GET(req: Request) {
     return Response.json({ error: (e as Error).message }, { status: 500 });
   }
   try {
-    return Response.json(await getTenantSettings(tenantId));
+    // O perfil é do funil; se falhar, a tela de configurações (meta do mês,
+    // alertas) não pode cair junto. O funil trata ausência como campo vazio,
+    // e o gate de `missingKeys` impede agendar sem loja.
+    const [settings, perfil] = await Promise.all([
+      getTenantSettings(tenantId),
+      getOrganizationProfile(tenantId).catch((e: unknown) => {
+        console.error("[api/settings] perfil da organizacao:", e);
+        return null;
+      }),
+    ]);
+    return Response.json({ ...settings, ...(perfil ?? {}) });
   } catch (e) {
     return Response.json({ error: (e as Error).message }, { status: 500 });
   }
@@ -31,14 +44,16 @@ export async function GET(req: Request) {
 // Body: { weeklyReportEnabled?: boolean, disconnectAlertEnabled?: boolean,
 //         broadcastAlertEnabled?: boolean, monthlyGoalContacts?: number|null,
 //         monthlyGoalRevenue?: number|null, segment?: SegmentId|null,
-//         onboardingDismissed?: boolean, onboardingCompleted?: boolean }
+//         onboardingDismissed?: boolean, onboardingCompleted?: boolean,
+//         storeName?: string, niche?: string | null }
 //
 // Os dois campos de onboarding são SINAIS, não datas: quem carimba o horário é o
 // servidor. O cliente não escolhe quando algo aconteceu.
 export async function PATCH(req: Request) {
   let tenantId: string;
+  let role: TenantRole | null;
   try {
-    ({ tenantId } = await getRouteTenantContext(req, { allowEngine: false }));
+    ({ tenantId, role } = await getRouteTenantContext(req, { allowEngine: false }));
   } catch (e) {
     if (e instanceof Response) return e;
     return Response.json({ error: (e as Error).message }, { status: 500 });
@@ -49,6 +64,21 @@ export async function PATCH(req: Request) {
     body = await req.json();
   } catch {
     return Response.json({ error: "JSON inválido." }, { status: 400 });
+  }
+
+  const perfil = parseProfileInput(body);
+  if (!perfil.ok) return Response.json({ error: perfil.error }, { status: 400 });
+  const temPerfil = Object.keys(perfil.input).length > 0;
+  if (temPerfil) {
+    // Nome da loja aparece nas mensagens que saem para os grupos: mesma
+    // permissão de disparar pela campanha.
+    if (!role) return Response.json({ error: "Sem permissão para esta ação." }, { status: 403 });
+    try {
+      assertPermission(role, "campaign:edit");
+    } catch (e) {
+      if (e instanceof Response) return e;
+      throw e;
+    }
   }
 
   const input: TenantSettingsInput = {};
@@ -95,13 +125,17 @@ export async function PATCH(req: Request) {
   }
 
   try {
-    const settings = await updateTenantSettings(tenantId, input);
+    // Sem campo de settings no corpo, não toca em tenant_settings — só lê.
+    const settings = !temPerfil || Object.keys(input).length > 0
+      ? await updateTenantSettings(tenantId, input)
+      : await getTenantSettings(tenantId);
+    const perfilSalvo = temPerfil ? await updateOrganizationProfile(tenantId, perfil.input) : null;
     // Marco de ativação: definiu a meta do mês (contatos ou receita não-nulos).
     // onlyFirst → só a 1ª vez conta; re-salvar não bumpa o tempo-até-marco.
     if (input.monthlyGoalContacts != null || input.monthlyGoalRevenue != null) {
       void trackFunnelEvent({ tenantId, userId: null, event: "goal_set", onlyFirst: true });
     }
-    return Response.json(settings);
+    return Response.json({ ...settings, ...(perfilSalvo ?? {}) });
   } catch (e) {
     return Response.json({ error: (e as Error).message }, { status: 500 });
   }

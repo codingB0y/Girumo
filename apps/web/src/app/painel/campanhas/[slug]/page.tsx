@@ -186,10 +186,13 @@ export default function CampanhaDetalhe() {
       {/* Header */}
       <div className="pn-card rounded-xl p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#25D366] text-white"><MessageCircle className="h-6 w-6" /></span>
-            <div>
-              <h1 className="font-display text-2xl font-extrabold tracking-[-0.03em] text-volt-950">{campanha.name}</h1>
+          {/* min-w-0 nos dois níveis: sem ele o flex não encolhe abaixo da URL
+              mestra e o `truncate` da CopyLink nunca atua — a página rolava de
+              lado em 390 px. */}
+          <div className="flex min-w-0 items-center gap-3.5">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#25D366] text-white"><MessageCircle className="h-6 w-6" /></span>
+            <div className="min-w-0">
+              <h1 className="font-display break-words text-2xl font-extrabold tracking-[-0.03em] text-volt-950">{campanha.name}</h1>
               {masterUrl && <CopyLink url={masterUrl} className="mt-1" />}
               {masterUrl && (
                 <div className="mt-1.5">
@@ -330,7 +333,11 @@ export default function CampanhaDetalhe() {
         )}
 
         {tab === "Mensagens" && (
-          <MessagesTab campaignSlug={campanha.slug ?? campanha.id} groupIds={campanha.groupIds} />
+          <MessagesTab
+            campaignSlug={campanha.slug ?? campanha.id}
+            groupIds={campanha.groupIds}
+            funil={{ campaignName: campanha.name, masterUrl, groupCount: o.groupCount, memberCount: o.totalMembers }}
+          />
         )}
 
         {tab === "Visão geral" && (
