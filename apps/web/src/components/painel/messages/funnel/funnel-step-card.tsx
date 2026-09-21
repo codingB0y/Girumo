@@ -32,7 +32,7 @@ const EXEMPLO: Readonly<Record<FunnelField, string>> = {
   "preço": "R$ 39,90",
   grade: "P ao GG",
   quantidade: "120",
-  "link da live": "instagram.com/sualoja/live",
+  "link da live": "https://instagram.com/sualoja/live",
 };
 
 const CHIP = "inline-flex items-center gap-1 rounded-chip px-2 py-0.5 text-12 font-semibold";
@@ -53,7 +53,6 @@ export function FunnelStepCard(props: FunnelStepCardProps) {
         className={cn(
           "rounded-lg border bg-paper-0 p-4 sm:p-5",
           bloqueada ? "border-alerta" : "border-line-200",
-          !plan.included && "opacity-75",
         )}
       >
         <div className="flex items-start gap-2">
@@ -71,7 +70,7 @@ export function FunnelStepCard(props: FunnelStepCardProps) {
             type="button"
             onClick={props.onToggleOpen}
             aria-expanded={open}
-            aria-controls={corpoId}
+            aria-controls={open ? corpoId : undefined}
             className="flex min-h-11 flex-1 items-start justify-between gap-2 text-left"
           >
             <span className="flex flex-col gap-0.5">
@@ -177,7 +176,7 @@ export function FunnelStepCard(props: FunnelStepCardProps) {
 
             {plan.edited && (
               <label className="flex flex-col gap-1">
-                <span className="text-12 text-atencao">Texto editado à mão: mudar os campos não altera esta mensagem.</span>
+                <span className="text-12 text-atencao">Texto editado à mão: os campos só preenchem as {"{chaves}"} que ficaram no texto.</span>
                 <textarea
                   aria-label={`Texto de ${step.label}`}
                   value={draft.customText ?? ""}
