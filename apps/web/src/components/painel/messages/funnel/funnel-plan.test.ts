@@ -68,9 +68,14 @@ test("link da campanha vazio bloqueia as etapas de link", () => {
 test("quantidade precisa ser inteiro ≥ 1", () => {
   for (const q of ["0", "1,5", "12a", "-3"]) {
     const drafts = { ...cheio, "previa-da-grade": { fields: { ...cheio["previa-da-grade"].fields, quantidade: q } } };
-    const [previa] = planFunnel(live, drafts, ctx);
+    const plans = planFunnel(live, drafts, ctx);
+    const [previa] = plans;
     assert.equal(previa.quantidadeInvalida, true, q);
     assert.equal(isBlocked(previa), true, q);
+    // A grade da live (relâmpago) herda a quantidade inválida: vira `slots`, tem que travar.
+    assert.equal(plans[2].step.id, "grade-da-live");
+    assert.equal(plans[2].quantidadeInvalida, true, q);
+    assert.equal(isBlocked(plans[2]), true, q);
   }
 });
 
@@ -101,6 +106,22 @@ test("etapa no passado fica desmarcada; as outras não", () => {
   const plans = planFunnel(live, cheio, { ...ctx, now: new Date(2026, 9, 10, 19, 50) });
   assert.deepEqual(plans.map((p) => p.included), [false, false, true, true]);
   assert.deepEqual(plans.map((p) => p.isPast), [true, true, false, false]);
+});
+
+test("etapa exatamente no horário de agora já conta como passada", () => {
+  // Âncora 20:00; "Entra agora" é 19:45 — igual a `now`.
+  const plans = planFunnel(live, cheio, { ...ctx, now: new Date(2026, 9, 10, 19, 45) });
+  assert.equal(plans[1].step.id, "entra-agora");
+  assert.equal(plans[1].isPast, true);
+  assert.equal(plans[1].included, false);
+});
+
+test("chave com nome de propriedade de Object.prototype não derruba a tela", () => {
+  const drafts = { ...cheio, "sobras-da-live": { customText: "Oi {constructor} {__proto__} {toString}" } };
+  const plans = planFunnel(live, drafts, ctx);
+  assert.deepEqual(plans[3].missing, ["constructor", "__proto__", "toString"]);
+  assert.equal(plans[3].text, null);
+  assert.equal(plans[3].preview, "Oi [constructor] [__proto__] [toString]");
 });
 
 test("etapa passada não bloqueia o botão mesmo com campo vazio", () => {
@@ -151,6 +172,13 @@ test("payload recusa etapa incompleta em vez de mandar chave crua", () => {
 test("payload da oferta: nome da etapa, 'eu quero', slots inteiros", () => {
   const plans = planFunnel(live, cheio, ctx);
   assert.deepEqual(offerPayload(plans[2], "b-3"), { name: "Grade da live", keyword: "eu quero", slots: 120, broadcastId: "b-3" });
+});
+
+test("payload da oferta recusa quantidade que não é inteiro ≥ 1 (nada de slots NaN)", () => {
+  for (const q of ["", "0", "1,5", "abc"]) {
+    const drafts = { ...cheio, "previa-da-grade": { fields: { ...cheio["previa-da-grade"].fields, quantidade: q } } };
+    assert.throws(() => offerPayload(planFunnel(live, drafts, ctx)[2], "b"), q);
+  }
 });
 
 test("stepWhen formata dia da semana, data e hora", () => {

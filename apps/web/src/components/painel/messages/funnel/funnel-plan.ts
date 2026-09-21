@@ -120,13 +120,16 @@ export function planFunnel(
     const draft = drafts[step.id] ?? {};
     const at = resolveStepDate(ctx.anchor, step);
     const isPast = at.getTime() <= ctx.now.getTime();
-    const values: Record<string, string> = {
+    // Sem protótipo: o texto editado é livre, e `{constructor}`/`{toString}`/
+    // `{__proto__}` num objeto comum resolveriam para o Object.prototype e
+    // `missingKeys`/`renderCopy` lançariam TypeError ao chamar `.trim()`.
+    const values: Record<string, string> = Object.assign(Object.create(null) as Record<string, string>, {
       loja: ctx.loja.trim(),
       nicho: ctx.nicho.trim(),
       link: ctx.link.trim(),
       ...ancora,
       ...inheritedFields(t.steps, drafts, i),
-    };
+    });
     const edited = draft.customText !== undefined;
     const source = draft.customText ?? step.copy;
     const faltando = edited && !source.trim() ? ["texto"] : missingKeys(source, values);
@@ -137,7 +140,7 @@ export function planFunnel(
       : faltando;
     const quantidadeInvalida = quantidade !== "" && step.fields.includes("quantidade") && !QUANTIDADE.test(quantidade);
     // `missingKeys` é provadamente consistente com `renderCopy`: sem chave
-    // faltando, não lança.
+    // faltando, não lança (vale porque `values` não tem protótipo).
     const text = missing.length === 0 ? renderCopy(source, values) : null;
     const preview = source.replace(CHAVE, (_, chave: string) => values[chave]?.trim() || `[${chave}]`);
     return {
@@ -194,5 +197,8 @@ export function messagePayload(p: StepPlan, run: FunnelRun): MessagePayload {
 }
 
 export function offerPayload(p: StepPlan, broadcastId: string): OfferPayload {
-  return { name: p.step.label, keyword: "eu quero", slots: Number(p.values.quantidade), broadcastId };
+  const quantidade = p.values.quantidade ?? "";
+  // Nada de `slots: NaN`/0 chegando na rota da oferta.
+  if (!QUANTIDADE.test(quantidade)) throw new Error(`quantidade inválida: ${p.step.id}`);
+  return { name: p.step.label, keyword: "eu quero", slots: Number(quantidade), broadcastId };
 }
