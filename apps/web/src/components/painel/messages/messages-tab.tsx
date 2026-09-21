@@ -154,6 +154,23 @@ export function MessagesTab({
     if (res.ok) await fetchMessages();
   };
 
+  // Reusa a rota de uma mensagem (escopo por tenant + permissão já estão lá).
+  // Em série: se uma falhar, as seguintes seguem agendadas e a Agenda mostra.
+  const handleCancelFunnel = async (ids: readonly string[], label: string) => {
+    const ok = await pedirConfirmacao({
+      titulo: "Cancelar o funil",
+      texto: `Cancelar as ${ids.length} mensagens ainda agendadas de "${label}"? O que já saiu não volta.`,
+      rotulo: "Cancelar funil",
+      destrutivo: true,
+    });
+    if (!ok) return;
+    for (const id of ids) {
+      const res = await fetch(`/api/campanhas/${campaignSlug}/messages/cancel?id=${id}`, { method: "PATCH" });
+      if (!res.ok) break;
+    }
+    await fetchMessages();
+  };
+
   const handleDelete = async (id: string) => {
     const ok = await pedirConfirmacao({
       titulo: "Excluir a mensagem",
@@ -268,6 +285,7 @@ export function MessagesTab({
           <MessagesAgenda
             messages={messages}
             onCancel={handleCancel}
+            onCancelFunnel={handleCancelFunnel}
             onDelete={handleDelete}
           />
         )}

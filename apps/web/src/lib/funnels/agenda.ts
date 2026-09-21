@@ -1,6 +1,7 @@
 import { getFunnelTemplate } from "./templates";
 
-export type FunnelChip = { label: string; index: number; total: number };
+/** `pendentes`: ids das etapas da mesma confirmação ainda agendadas — o "Cancelar funil". */
+export type FunnelChip = { label: string; index: number; total: number; pendentes: readonly string[] };
 
 /**
  * Tipo estrutural de propósito — não importa `CampaignMessage` nem
@@ -14,6 +15,7 @@ type Linha = {
   funnelTemplateId?: string;
   funnelRunId?: string;
   createdAt: string;
+  status?: string;
 };
 
 /** Chip "Live · 2/4" por mensagem: agrupa por confirmação e ordena pela criação. */
@@ -38,8 +40,9 @@ export function indexFunnelRuns(messages: ReadonlyArray<Linha>): Map<string, Fun
       a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0,
     );
     const label = getFunnelTemplate(ordenadas[0].funnelTemplateId ?? "")?.label ?? "Funil";
+    const pendentes = ordenadas.filter((msg) => msg.status === "scheduled").map((msg) => msg.id);
     ordenadas.forEach((msg, i) => {
-      saida.set(msg.id, { label, index: i + 1, total: ordenadas.length });
+      saida.set(msg.id, { label, index: i + 1, total: ordenadas.length, pendentes });
     });
   }
   return saida;
