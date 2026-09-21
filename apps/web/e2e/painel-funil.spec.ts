@@ -191,12 +191,16 @@ test("sem 'Sua loja' o botão não agenda e diz o que falta", async ({ page }) =
 });
 
 test("prova visual: sub-aba Funil em 1280 e 390 sem erro de console", async ({ page }, testInfo) => {
-  // Nada é filtrado: as rotas interceptadas por `simularServidor` respondem 2xx,
-  // então não geram "Failed to load resource". Qualquer erro aqui é real — a URL
-  // vai junto para o relatório apontar a rota.
+  // Um único recurso é ignorado, por ser do AMBIENTE e não da tela: a faixa
+  // "LOCAL DEV MODE" (dev-mode-banner.tsx, só com NEXT_PUBLIC_APP_ENV=development,
+  // que é como o CI roda) lista tenants em /api/admin/tenants/list, e o usuário
+  // de QA não é admin de propósito — 403 em toda página do painel. Em produção a
+  // faixa não renderiza. Qualquer outro erro é real; a URL vai junto no relatório.
+  const RUIDO_DO_AMBIENTE = "/api/admin/tenants/list";
   const erros: string[] = [];
   page.on("console", (msg) => {
-    if (msg.type() === "error") erros.push(`${msg.text()} @ ${msg.location().url}`);
+    const url = msg.location().url;
+    if (msg.type() === "error" && !url.endsWith(RUIDO_DO_AMBIENTE)) erros.push(`${msg.text()} @ ${url}`);
   });
   page.on("pageerror", (err) => erros.push(`pageerror: ${err.message}`));
 
