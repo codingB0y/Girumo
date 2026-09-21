@@ -28,3 +28,13 @@ test("sem texto, @todos não aparece sozinho sobre o 'vazio'", () => {
   const html = renderToStaticMarkup(createElement(Bolha, { ...base, texto: "", vazio: "aparece aqui", mencaoTodos: true }));
   assert.doesNotMatch(html, /@todos/);
 });
+
+test("texto só com espaços conta como vazio: @todos não aparece", () => {
+  const html = renderToStaticMarkup(createElement(Bolha, { ...base, texto: "   ", vazio: "aparece aqui", mencaoTodos: true }));
+  assert.doesNotMatch(html, /@todos/);
+});
+
+test("foto vazia não vira <img>", () => {
+  const html = renderToStaticMarkup(createElement(Bolha, { ...base, foto: "" }));
+  assert.doesNotMatch(html, /<img/);
+});
