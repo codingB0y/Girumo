@@ -133,3 +133,51 @@ test("quantidade inválida chegando ao confirm: falha na oferta, mensagem da eta
   assert.equal(chamadas.filter((c) => c.url === "/api/relampago/offers").length, 0);
   assert.equal(chamadas.length, 3);
 });
+
+test("retomada: oferta já criada no servidor (409 do rascunho) conta como feita e o funil segue", async () => {
+  const { post, chamadas } = postFalso({ 0: Response.json({ error: "esse disparo ja tem uma oferta ligada" }, { status: 409 }) });
+  const progress = { scheduled: { "previa-da-grade": "b-1", "entra-agora": "b-2", "grade-da-live": "b-3" }, offersCreated: [] };
+  const out = await confirmFunnel({ slug: "saldao", plans: planFunnel(live, drafts, ctx), run, progress, post });
+  assert.equal(out.failure, null);
+  assert.deepEqual(out.progress.offersCreated, ["grade-da-live"]);
+  assert.deepEqual(chamadas.map((c) => c.url), ["/api/relampago/offers", "/api/campanhas/saldao/messages"]);
+  assert.equal(out.progress.scheduled["sobras-da-live"], "b-1");
+});
+
+test("2xx de mensagem sem id: para e manda conferir a Agenda", async () => {
+  const { post, chamadas } = postFalso({ 0: Response.json({}, { status: 201 }) });
+  const out = await confirmFunnel({ slug: "saldao", plans: planFunnel(live, drafts, ctx), run, progress: EMPTY_PROGRESS, post });
+  assert.equal(chamadas.length, 1);
+  assert.equal(out.failure?.stepId, "previa-da-grade");
+  assert.equal(out.failure?.stage, "mensagem");
+  assert.match(out.failure?.message ?? "", /^A mensagem pode ter sido agendada/);
+  assert.deepEqual(out.progress.scheduled, {});
+});
+
+test("402 do plano leva o upgradeUrl para a falha", async () => {
+  const erro = Response.json({ error: "Seu plano não inclui agendar mensagem.", upgradeUrl: "/painel/plano" }, { status: 402 });
+  const { post } = postFalso({ 0: erro });
+  const out = await confirmFunnel({ slug: "saldao", plans: planFunnel(live, drafts, ctx), run, progress: EMPTY_PROGRESS, post });
+  assert.equal(out.failure?.upgradeUrl, "/painel/plano");
+  assert.equal(out.failure?.message, "Seu plano não inclui agendar mensagem.");
+});
+
+test("slug vai codificado na URL da mensagem", async () => {
+  const { post, chamadas } = postFalso();
+  const slug = "saldão de set";
+  await confirmFunnel({ slug, plans: planFunnel(live, drafts, ctx), run, progress: EMPTY_PROGRESS, post });
+  assert.equal(chamadas[0].url, `/api/campanhas/${encodeURIComponent(slug)}/messages`);
+  assert.notEqual(chamadas[0].url, `/api/campanhas/${slug}/messages`);
+});
+
+test("etapa incompleta incluída: falha na mensagem sem POST nenhum", async () => {
+  const { post, chamadas } = postFalso();
+  const semPeca = { ...drafts, "previa-da-grade": { fields: { ...drafts["previa-da-grade"].fields, "peça": "" } } };
+  const plans = planFunnel(live, semPeca, ctx);
+  assert.ok(plans[0].included && plans[0].text === null);
+  const out = await confirmFunnel({ slug: "saldao", plans, run, progress: EMPTY_PROGRESS, post });
+  assert.equal(chamadas.length, 0);
+  assert.equal(out.failure?.stepId, "previa-da-grade");
+  assert.equal(out.failure?.stage, "mensagem");
+  assert.equal(out.failure?.upgradeUrl, null);
+});

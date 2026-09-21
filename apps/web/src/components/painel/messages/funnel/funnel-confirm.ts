@@ -92,7 +92,11 @@ export async function confirmFunnel(opts: {
     if (p.step.kind === "relampago" && !offersCreated.includes(id)) {
       const broadcastId = scheduled[id];
       const res = await enviar(opts.post, "/api/relampago/offers", () => offerPayload(p, broadcastId));
-      if (typeof res === "string" || !res.ok) return agora(await falha(res, id, "oferta", "Erro ao criar a oferta relâmpago."));
+      // 409 em modo rascunho só sai do unique de flash_offers.broadcast_id
+      // (23505): a oferta JÁ existe — criada numa tentativa cuja resposta se
+      // perdeu. Tratar como erro travaria toda retomada nesta etapa.
+      const jaExiste = typeof res !== "string" && res.status === 409;
+      if (!jaExiste && (typeof res === "string" || !res.ok)) return agora(await falha(res, id, "oferta", "Erro ao criar a oferta relâmpago."));
       offersCreated = [...offersCreated, id];
     }
   }
