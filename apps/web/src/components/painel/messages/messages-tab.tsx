@@ -9,9 +9,10 @@ import { numero } from "@/lib/painel/grupos";
 import { MessageComposer, type ComposerPayload } from "./message-composer";
 import { ScheduleComposer, type SchedulePayload } from "./schedule-composer";
 import { MessagesAgenda } from "./messages-agenda";
+import { FunnelTab } from "./funnel/funnel-tab";
 import type { CampaignMessage } from "@/lib/messages-store";
 
-const SUB_TABS = ["Enviar agora", "Agendar", "Agenda"] as const;
+const SUB_TABS = ["Enviar agora", "Agendar", "Funil", "Agenda"] as const;
 type SubTab = (typeof SUB_TABS)[number];
 
 type Props = {
@@ -26,6 +27,8 @@ type Props = {
   alcanceGrupoAGrupo?: number;
   /** Só admin escreve em grupo `announce`. Sem isso a opção do Avisos some do clique. */
   avisoIsAdmin?: boolean;
+  /** Só a página de campanha passa: comunidade não tem funil. */
+  funil?: { campaignName: string; masterUrl: string; groupCount: number; memberCount: number };
 };
 
 export function MessagesTab({
@@ -35,6 +38,7 @@ export function MessagesTab({
   alcanceAvisos = null,
   alcanceGrupoAGrupo = 0,
   avisoIsAdmin = false,
+  funil,
 }: Props) {
   const { pedirConfirmacao, folhaDeConfirmacao } = useConfirmacao();
   const [subTab, setSubTab] = useState<SubTab>("Enviar agora");
@@ -216,19 +220,25 @@ export function MessagesTab({
         </fieldset>
       )}
       {/* Sub-tabs */}
-      <div className="flex gap-1">
-        {SUB_TABS.map((t) => (
+      <div className="flex gap-1 overflow-x-auto">
+        {SUB_TABS.filter((t) => t !== "Funil" || funil).map((t) => (
           <button
             key={t}
+            type="button"
             onClick={() => setSubTab(t)}
             className={cn(
-              "rounded-xl px-4 py-2 text-sm font-medium transition",
+              "shrink-0 rounded-xl px-4 py-2 text-sm font-medium transition",
               subTab === t
                 ? "bg-canvas-100 text-cobalt-500"
                 : "text-slate-600 hover:bg-canvas-100 hover:text-volt-950",
             )}
           >
             {t}
+            {t === "Funil" && (
+              <span className="text-12 ml-1.5 rounded-sm bg-cobalt-500/10 px-1.5 py-0.5 font-semibold text-cobalt-700">
+                Novo
+              </span>
+            )}
             {t === "Agenda" && messages.length > 0 && (
               <span className="text-12 ml-1.5 rounded-full bg-cobalt-500 px-1.5 py-0.5 font-bold tabular-nums text-white">
                 {messages.length}
@@ -245,6 +255,21 @@ export function MessagesTab({
         )}
         {subTab === "Agendar" && (
           <ScheduleComposer onSchedule={handleSchedule} scheduling={sending} />
+        )}
+        {subTab === "Funil" && funil && (
+          <FunnelTab
+            campaignSlug={campaignSlug}
+            campaignName={funil.campaignName}
+            groupIds={alvos}
+            masterUrl={funil.masterUrl}
+            groupCount={usarAvisos ? 1 : funil.groupCount}
+            memberCount={funil.memberCount}
+            onScheduled={async () => {
+              await fetchMessages();
+              setSubTab("Agenda");
+            }}
+            onFromScratch={() => setSubTab("Agendar")}
+          />
         )}
         {subTab === "Agenda" && (
           <MessagesAgenda

@@ -330,7 +330,11 @@ export default function CampanhaDetalhe() {
         )}
 
         {tab === "Mensagens" && (
-          <MessagesTab campaignSlug={campanha.slug ?? campanha.id} groupIds={campanha.groupIds} />
+          <MessagesTab
+            campaignSlug={campanha.slug ?? campanha.id}
+            groupIds={campanha.groupIds}
+            funil={{ campaignName: campanha.name, masterUrl, groupCount: o.groupCount, memberCount: o.totalMembers }}
+          />
         )}
 
         {tab === "Visão geral" && (
