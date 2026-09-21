@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { PlanLimitAlert } from "@/components/painel/plan-limit-alert";
 import { useToast } from "@/components/toast";
@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { FunnelHero } from "./funnel-hero";
 import { FunnelStepCard } from "./funnel-step-card";
 import { EMPTY_PROGRESS, confirmFunnel, isStepDone, type ConfirmFailure, type FunnelProgress } from "./funnel-confirm";
-import { anchorFrom, blockerLabels, defaultAnchorDate, isBlocked, planFunnel, type StepDraft } from "./funnel-plan";
+import { anchorFrom, blockerLabels, defaultAnchorDate, isBlocked, planFunnel, type StepDraft, type StepPlan } from "./funnel-plan";
 
 export type FunnelTabProps = {
   campaignSlug: string;
@@ -55,6 +55,16 @@ export function FunnelTab(props: FunnelTabProps) {
   const [failure, setFailure] = useState<ConfirmFailure | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [now, setNow] = useState(() => new Date());
+  // previewUrl vivos: revogados ao trocar/remover a foto e, no fim, ao desmontar.
+  const blobs = useRef(new Set<string>());
+
+  useEffect(() => {
+    const vivos = blobs.current;
+    return () => {
+      vivos.forEach((url) => URL.revokeObjectURL(url));
+      vivos.clear();
+    };
+  }, []);
 
   // Loja e nicho vêm da organização; a 1ª vez o lojista preenche, as próximas já vêm.
   useEffect(() => {
@@ -84,17 +94,27 @@ export function FunnelTab(props: FunnelTabProps) {
 
   const anchor = anchorFrom(anchorDate, anchorTime, template.anchorNeedsTime);
   const ctx = anchor ? { anchor, now, loja, nicho, link: props.masterUrl } : null;
-  const plans = ctx ? planFunnel(template, drafts, ctx) : [];
+  const travada = (stepId: string) => stepId in progress.scheduled;
+  // Etapa com mensagem no servidor e oferta pendente sempre entra na retomada:
+  // desmarcar ou virar passado não pode deixar a mensagem sem oferta. Quem
+  // decide é o servidor (agendamento já promovido → a rota da oferta recusa).
+  const comRetomada = (ps: StepPlan[]) =>
+    ps.map((p) => (travada(p.step.id) && !isStepDone(p, progress) ? { ...p, included: true } : p));
+  const pendentesDe = (ps: StepPlan[]) => ps.filter((p) => p.included && !isStepDone(p, progress));
+  const plans = ctx ? comRetomada(planFunnel(template, drafts, ctx)) : [];
   const started = Object.keys(progress.scheduled).length > 0;
-  const pendentes = plans.filter((p) => p.included && !isStepDone(p, progress));
+  const pendentes = pendentesDe(plans);
   const bloqueios = pendentes.filter(isBlocked);
   const semGrupos = props.groupIds.length === 0;
-  const podeAgendar = anchor !== null && !semGrupos && pendentes.length > 0 && bloqueios.length === 0 && !confirming;
+  const podeAgendar =
+    anchor !== null && !semGrupos && uploading === null && pendentes.length > 0 && bloqueios.length === 0 && !confirming;
   const motivo = !anchor
     ? "Escolha a data."
     : semGrupos
       ? "Esta campanha ainda não tem grupos."
-      : pendentes.length === 0
+      : uploading !== null
+        ? "Aguarde a foto terminar de enviar."
+        : pendentes.length === 0
         ? "Marque ao menos uma mensagem."
         : bloqueios.length > 0
           ? `Preencha: ${[...new Set(bloqueios.flatMap(blockerLabels))].join(", ")}.`
@@ -102,14 +122,22 @@ export function FunnelTab(props: FunnelTabProps) {
   const incluidas = plans.filter((p) => p.included);
   const rotuloDe = (stepId: string) => template.steps.find((s) => s.id === stepId)?.label ?? stepId;
 
+  function revogar(url: string) {
+    URL.revokeObjectURL(url);
+    blobs.current.delete(url);
+  }
+
+  // Etapa travada (mensagem já no servidor) não muda mais: o card só desabilita
+  // o checkbox, então a trava dos campos fica aqui.
   function mudarDraft(stepId: string, muda: (d: StepDraft) => StepDraft) {
+    if (travada(stepId)) return;
     setDrafts((atual) => ({ ...atual, [stepId]: muda(atual[stepId] ?? {}) }));
   }
 
   function escolherRoteiro(id: FunnelTemplateId) {
     if (started || id === templateId) return;
     const t = FUNNEL_TEMPLATES.find((x) => x.id === id) ?? FUNNEL_TEMPLATES[0];
-    Object.values(drafts).forEach((d) => d.media && URL.revokeObjectURL(d.media.previewUrl));
+    Object.values(drafts).forEach((d) => d.media && revogar(d.media.previewUrl));
     setTemplateId(t.id);
     setDrafts({});
     setOpenStep(t.steps[0].id);
@@ -118,12 +146,14 @@ export function FunnelTab(props: FunnelTabProps) {
   }
 
   async function anexarFoto(stepId: string, arquivo: File) {
+    if (travada(stepId)) return;
     setUploading(stepId);
     try {
       const enviado = await uploadMediaFile(arquivo);
       const anterior = drafts[stepId]?.media;
-      if (anterior) URL.revokeObjectURL(anterior.previewUrl);
+      if (anterior) revogar(anterior.previewUrl);
       const media = { id: enviado.id, name: arquivo.name, previewUrl: URL.createObjectURL(arquivo) };
+      blobs.current.add(media.previewUrl);
       mudarDraft(stepId, (d) => ({ ...d, media }));
     } catch (e) {
       toast(e instanceof Error ? e.message : "Erro ao enviar a foto.", "error");
@@ -133,8 +163,9 @@ export function FunnelTab(props: FunnelTabProps) {
   }
 
   function removerFoto(stepId: string) {
+    if (travada(stepId)) return;
     const media = drafts[stepId]?.media;
-    if (media) URL.revokeObjectURL(media.previewUrl);
+    if (media) revogar(media.previewUrl);
     mudarDraft(stepId, (d) => ({ ...d, media: undefined }));
   }
 
@@ -157,12 +188,15 @@ export function FunnelTab(props: FunnelTabProps) {
     setConfirming(true);
     setFailure(null);
     try {
-      await salvarPerfilSeMudou();
       // Recalcula com o relógio de AGORA: etapa que virou passado entre a
       // renderização e o clique não sai.
       const agora = new Date();
       setNow(agora);
-      const frescos = planFunnel(template, drafts, { anchor, now: agora, loja, nicho, link: props.masterUrl });
+      const frescos = comRetomada(planFunnel(template, drafts, { anchor, now: agora, loja, nicho, link: props.masterUrl }));
+      // Nada sobrou com o relógio do clique: não fecha como sucesso vazio; o
+      // `now` novo já faz o motivo explicar.
+      if (pendentesDe(frescos).length === 0) return;
+      await salvarPerfilSeMudou();
       const out = await confirmFunnel({
         slug: props.campaignSlug,
         plans: frescos,
@@ -175,7 +209,7 @@ export function FunnelTab(props: FunnelTabProps) {
         setFailure(out.failure);
         return;
       }
-      Object.values(drafts).forEach((d) => d.media && URL.revokeObjectURL(d.media.previewUrl));
+      Object.values(drafts).forEach((d) => d.media && revogar(d.media.previewUrl));
       setProgress(EMPTY_PROGRESS);
       setRunId(crypto.randomUUID());
       setDrafts({});
@@ -268,7 +302,7 @@ export function FunnelTab(props: FunnelTabProps) {
               open={openStep === plan.step.id}
               grupoNome={props.campaignName}
               uploading={uploading === plan.step.id}
-              locked={isStepDone(plan, progress)}
+              locked={travada(plan.step.id)}
               onToggleOpen={() => setOpenStep((atual) => (atual === plan.step.id ? null : plan.step.id))}
               onIncludedChange={(incluir) => mudarDraft(plan.step.id, (d) => ({ ...d, excluded: !incluir }))}
               onFieldChange={(campo: FunnelField, valor) =>
