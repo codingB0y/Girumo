@@ -25,6 +25,7 @@ import { indexFunnelRuns, type FunnelChip } from "@/lib/funnels/agenda";
 type Props = {
   messages: CampaignMessage[];
   onCancel: (id: string) => Promise<void>;
+  onCancelFunnel: (ids: readonly string[], label: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   className?: string;
 };
@@ -47,7 +48,7 @@ const TYPE_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
   poll: BarChart3,
 };
 
-export function MessagesAgenda({ messages, onCancel, onDelete, className }: Props) {
+export function MessagesAgenda({ messages, onCancel, onCancelFunnel, onDelete, className }: Props) {
   const [view, setView] = useState<"timeline" | "calendar">("timeline");
 
   // Agrupa por dia
@@ -196,7 +197,7 @@ export function MessagesAgenda({ messages, onCancel, onDelete, className }: Prop
               </h4>
               <div className="space-y-2">
                 {msgs.map((m) => (
-                  <MessageRow key={m.id} msg={m} funnel={funil.get(m.id)} onCancel={onCancel} onDelete={onDelete} />
+                  <MessageRow key={m.id} msg={m} funnel={funil.get(m.id)} onCancel={onCancel} onCancelFunnel={onCancelFunnel} onDelete={onDelete} />
                 ))}
               </div>
             </div>
@@ -211,11 +212,13 @@ function MessageRow({
   msg,
   funnel,
   onCancel,
+  onCancelFunnel,
   onDelete,
 }: {
   msg: CampaignMessage;
   funnel?: FunnelChip;
   onCancel: (id: string) => Promise<void>;
+  onCancelFunnel: (ids: readonly string[], label: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }) {
   const badge = STATUS_BADGE[msg.status] ?? STATUS_BADGE.draft;
@@ -223,6 +226,8 @@ function MessageRow({
   const TypeIcon = TYPE_ICON[msg.type] ?? Send;
   const isScheduled = msg.status === "scheduled";
   const canDelete = ["draft", "sent", "failed"].includes(msg.status);
+  // Com uma etapa só pendente, o X da linha já resolve.
+  const podeCancelarFunil = isScheduled && funnel !== undefined && funnel.pendentes.length > 1;
 
   return (
     <div className="flex items-start gap-3 rounded-xl border border-line-200 bg-white p-3 transition hover:border-line-200">
@@ -251,6 +256,16 @@ function MessageRow({
               <Workflow className="h-3 w-3" />
               {funnel.label} · {funnel.index}/{funnel.total}
             </span>
+          )}
+          {podeCancelarFunil && (
+            <button
+              type="button"
+              onClick={() => onCancelFunnel(funnel.pendentes, funnel.label)}
+              className="text-12 inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium text-slate-600 transition hover:bg-canvas-100 hover:text-atencao"
+            >
+              <XCircle className="h-3 w-3" />
+              Cancelar funil ({funnel.pendentes.length})
+            </button>
           )}
           {msg.recurrence !== "none" && (
             <span className="text-12 inline-flex items-center gap-0.5 text-slate-600">

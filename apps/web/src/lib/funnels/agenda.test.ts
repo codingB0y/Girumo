@@ -15,11 +15,11 @@ const idx = indexFunnelRuns([
 ]);
 
 // Ordenado pela criacao dentro da mesma confirmacao.
-assert.deepEqual(idx.get("a"), { label: "Lançamento de live", index: 1, total: 3 });
-assert.deepEqual(idx.get("b"), { label: "Lançamento de live", index: 2, total: 3 });
-assert.deepEqual(idx.get("c"), { label: "Lançamento de live", index: 3, total: 3 });
+assert.deepEqual(idx.get("a"), { label: "Lançamento de live", index: 1, total: 3, pendentes: [] });
+assert.deepEqual(idx.get("b"), { label: "Lançamento de live", index: 2, total: 3, pendentes: [] });
+assert.deepEqual(idx.get("c"), { label: "Lançamento de live", index: 3, total: 3, pendentes: [] });
 // Outra confirmacao, outro roteiro.
-assert.deepEqual(idx.get("z"), { label: "Black Friday do atacado", index: 1, total: 1 });
+assert.deepEqual(idx.get("z"), { label: "Black Friday do atacado", index: 1, total: 1, pendentes: [] });
 // Mensagem fora do funil nao entra.
 assert.equal(idx.has("solta"), false);
 // Roteiro desconhecido (dado antigo) ganha rotulo generico.
@@ -38,6 +38,20 @@ const linhasDaAgenda = [
 ];
 const misturado = indexFunnelRuns(linhasDaAgenda);
 assert.deepEqual(["e1", "e2", "e3", "e4"].map((id) => misturado.get(id)?.index), [1, 2, 3, 4]);
+
+// "Cancelar funil": toda etapa do funil carrega os ids ainda agendados daquele
+// funil, na ordem do roteiro — enviada, cancelada (draft) e de outro funil ficam fora.
+const comStatus = [
+  { ...m("p3", "r5", "2026-09-21T17:12:19Z"), status: "scheduled" },
+  { ...m("p1", "r5", "2026-09-21T17:12:17Z"), status: "sent" },
+  { ...m("p2", "r5", "2026-09-21T17:12:18Z"), status: "scheduled" },
+  { ...m("p4", "r5", "2026-09-21T17:12:20Z"), status: "draft" },
+  { ...m("outro", "r6", "2026-09-21T17:12:21Z"), status: "scheduled" },
+];
+const pend = indexFunnelRuns(comStatus);
+assert.deepEqual(pend.get("p1")?.pendentes, ["p2", "p3"]);
+assert.deepEqual(pend.get("p4")?.pendentes, ["p2", "p3"]);
+assert.deepEqual(pend.get("outro")?.pendentes, ["outro"]);
 
 // Mesmo segundo, larguras diferentes de fracao (como o PostgREST realmente
 // serializa timestamptz): localeCompare inverteria a ordem por colacao ICU
