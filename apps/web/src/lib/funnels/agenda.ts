@@ -13,11 +13,10 @@ type Linha = {
   id: string;
   funnelTemplateId?: string;
   funnelRunId?: string;
-  scheduledAt?: string;
   createdAt: string;
 };
 
-/** Chip "Live · 2/4" por mensagem: agrupa por confirmação e ordena por data. */
+/** Chip "Live · 2/4" por mensagem: agrupa por confirmação e ordena pela criação. */
 export function indexFunnelRuns(messages: ReadonlyArray<Linha>): Map<string, FunnelChip> {
   const porRun = new Map<string, Linha[]>();
   for (const msg of messages) {
@@ -32,14 +31,12 @@ export function indexFunnelRuns(messages: ReadonlyArray<Linha>): Map<string, Fun
     // colação ICU de `localeCompare` não é ordem por codepoint — duas datas no
     // mesmo segundo, uma com microssegundos e outra sem, saíam fora de ordem
     // dependendo do locale/ICU do navegador. Mesmo padrão de `dispatch-view.ts`.
-    // Após o envio, `scheduledAt` some (`toDispatchView`) e a chave vira
-    // `createdAt` — a ordem sobrevive porque os inserts da confirmação são
-    // sequenciais, não porque `createdAt` reflete o horário de cada etapa.
-    const ordenadas = [...linhas].sort((a, b) => {
-      const ka = a.scheduledAt ?? a.createdAt;
-      const kb = b.scheduledAt ?? b.createdAt;
-      return ka < kb ? -1 : ka > kb ? 1 : 0;
-    });
+    // Chave é só `createdAt`: `confirmFunnel` insere as etapas uma a uma, na
+    // ordem do roteiro (retomada pula as já criadas). `scheduledAt` não serve —
+    // some ao enviar ou cancelar, e a etapa pulava pra frente das pendentes.
+    const ordenadas = [...linhas].sort((a, b) =>
+      a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0,
+    );
     const label = getFunnelTemplate(ordenadas[0].funnelTemplateId ?? "")?.label ?? "Funil";
     ordenadas.forEach((msg, i) => {
       saida.set(msg.id, { label, index: i + 1, total: ordenadas.length });
