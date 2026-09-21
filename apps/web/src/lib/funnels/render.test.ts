@@ -46,6 +46,11 @@ assert.equal(
 // Campo faltando ou vazio lanca com o nome da chave.
 assert.throws(() => renderCopy("oi {peça}", {}), /peça/);
 assert.throws(() => renderCopy("oi {peça}", { "peça": "  " }), /peça/);
+// Valor que abre frase ganha maiuscula ({dia} vem "sábado, 10/10"); no meio da frase, nao.
+const dia = { dia: "sábado, 10/10", loja: "mega" };
+assert.equal(renderCopy("{dia} tem live.", dia), "Sábado, 10/10 tem live.");
+assert.equal(renderCopy("Oi! {dia} tem. Já {dia}?\n{dia}", dia), "Oi! Sábado, 10/10 tem. Já sábado, 10/10?\nSábado, 10/10");
+assert.equal(renderCopy("Black da {loja} é {dia}.", dia), "Black da mega é sábado, 10/10.");
 // Sem chaves, devolve igual.
 assert.equal(renderCopy("sem chave", {}), "sem chave");
 
