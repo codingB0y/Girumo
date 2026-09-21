@@ -170,12 +170,16 @@ export function FunnelTab(props: FunnelTabProps) {
     mudarDraft(stepId, (d) => ({ ...d, media: undefined }));
   }
 
+  // A loja salva é o nome da organização (topo do painel, páginas públicas):
+  // trocar aqui troca lá. Mesmo critério do PATCH abaixo, pra o aviso não mentir.
+  const lojaVaiMudar = loja.trim() !== "" && loja.trim() !== perfilSalvo?.loja;
+
   async function salvarPerfilSeMudou() {
     const atual = { loja: loja.trim(), nicho: nicho.trim() };
     // Só o que mudou. A rota recusa `storeName` vazio (400); roteiro sem {loja}
     // deixa agendar sem ela. Sem o salvo (GET falhou), o nicho só vai se tiver
     // texto: `niche: null` apaga, e isso só quando o lojista apagou o campo.
-    const mudouLoja = atual.loja !== "" && atual.loja !== perfilSalvo?.loja;
+    const mudouLoja = lojaVaiMudar;
     const mudouNicho = perfilSalvo ? atual.nicho !== perfilSalvo.nicho : atual.nicho !== "";
     if (!mudouLoja && !mudouNicho) return;
     // Falhar aqui não impede agendar: a copy já foi montada com o que está na tela.
@@ -295,6 +299,11 @@ export function FunnelTab(props: FunnelTabProps) {
               <input value={nicho} maxLength={60} placeholder="moda infantil" disabled={started} onChange={(e) => setNicho(e.target.value)} className={INPUT_TOPO} />
             </Campo>
           </div>
+          {!started && lojaVaiMudar && (
+            <p className="mt-3 text-12 text-atencao" role="status">
+              Ao agendar, “{loja.trim()}” vira o nome da sua loja em todo o Girumo: no topo do painel e nas suas páginas.
+            </p>
+          )}
           {started && (
             <p className="mt-3 text-12 text-slate-600">
               Parte deste funil já está na Agenda: roteiro, data, loja e nicho ficam travados até terminar.
