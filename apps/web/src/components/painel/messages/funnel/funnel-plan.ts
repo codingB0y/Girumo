@@ -22,6 +22,8 @@ export type StepDraft = {
   mentionAll?: boolean;
   excluded?: boolean;
   media?: StepMedia;
+  /** Hora digitada nesta etapa ("14:00"); vence a do roteiro e a da praça. */
+  time?: string;
 };
 
 export type FunnelContext = {
@@ -38,6 +40,8 @@ export type StepPlan = {
   step: FunnelStep;
   at: Date;
   isPast: boolean;
+  /** A hora veio do lojista, não do roteiro/praça. */
+  timeEdited: boolean;
   included: boolean;
   mentionAll: boolean;
   edited: boolean;
@@ -71,6 +75,7 @@ export type MessagePayload = {
 export type OfferPayload = { name: string; keyword: "eu quero"; slots: number; broadcastId: string };
 
 const QUANTIDADE = /^[1-9]\d*$/;
+const HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
 const CHAVE = /\{([^}]+)\}/g;
 const DIAS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"] as const;
 
@@ -106,6 +111,16 @@ export function anchorFrom(date: string, time: string, needsTime: boolean): Date
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+/**
+ * Hora editada vale no MESMO dia da etapa (`days` fica): "Prévia" de D−1 às
+ * 21:00 continua na véspera. Etapa relativa à hora da live vira hora fixa.
+ * Valor fora de HH:MM é ignorado (volta a hora do roteiro), nunca vira data inválida.
+ */
+export function withTime(step: FunnelStep, time: string | undefined): FunnelStep {
+  if (time === undefined || !HORA.test(time)) return step;
+  return { ...step, at: { days: step.at.days, time } };
+}
+
 export function inheritedFields(
   steps: readonly FunnelStep[],
   drafts: Readonly<Record<string, StepDraft>>,
@@ -128,8 +143,9 @@ export function planFunnel(
   const ancora = anchorValues(ctx.anchor);
   const abertura = ctx.opening ?? ROTEIRO_OPENING;
   return t.steps.map((original, i) => {
-    const step = atOpening(original, abertura);
-    const draft = drafts[step.id] ?? {};
+    const draft = drafts[original.id] ?? {};
+    const doRoteiro = atOpening(original, abertura);
+    const step = withTime(doRoteiro, draft.time);
     const at = resolveStepDate(ctx.anchor, step);
     const isPast = at.getTime() <= ctx.now.getTime();
     // Sem protótipo: o texto editado é livre, e `{constructor}`/`{toString}`/
@@ -160,6 +176,7 @@ export function planFunnel(
       step,
       at,
       isPast,
+      timeEdited: step !== doRoteiro,
       included: !isPast && !draft.excluded,
       mentionAll: draft.mentionAll ?? step.mentionAll,
       edited,

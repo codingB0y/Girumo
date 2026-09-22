@@ -27,7 +27,7 @@ function buildProps(over: Over = {}): FunnelStepCardProps {
   return {
     plan, draft: d[plan.step.id] ?? {}, open: false, grupoNome: "Saldão", uploading: false, locked: false,
     onToggleOpen: noop, onIncludedChange: noop, onFieldChange: noop, onMentionToggle: noop,
-    onTextChange: noop, onPhotoPick: noop, onPhotoRemove: noop, ...rest,
+    onTextChange: noop, onTimeChange: noop, onPhotoPick: noop, onPhotoRemove: noop, ...rest,
   };
 }
 
@@ -139,4 +139,18 @@ test("Editar texto com campo faltando semeia a copy com {chave} crua, nunca [cha
   const semente = seedFromEditButton({ d: {} });
   assert.match(semente ?? "", /\{peça\}/);
   assert.doesNotMatch(semente ?? "", /\[peça\]/);
+});
+
+test("aberto: campo Hora com a hora da etapa; editada ganha selo e botão de voltar", () => {
+  const normal = card({ open: true });
+  assert.match(normal, /aria-label="Hora de Prévia da grade"[^>]*value="19:00"|value="19:00"[^>]*aria-label="Hora de Prévia da grade"/);
+  assert.doesNotMatch(normal, /hora editada/);
+  assert.doesNotMatch(normal, /Voltar à hora do roteiro/);
+
+  const d = { ...drafts, "previa-da-grade": { ...drafts["previa-da-grade"], time: "21:00" } };
+  const editada = card({ open: true, d });
+  assert.match(editada, /value="21:00"/);
+  assert.match(editada, /hora editada/);
+  assert.match(editada, /Voltar à hora do roteiro/);
+  assert.doesNotMatch(card({ open: true, d, locked: true }), /Voltar à hora do roteiro/);
 });
