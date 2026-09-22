@@ -149,6 +149,16 @@ export type OfferRow = {
   broadcast_id: string | null;
 };
 
+/** Totais de uma oferta para a aba Resultados (ver `offerTotalsByBroadcastIds`). */
+export type OfferTotalsRow = {
+  broadcastId: string;
+  slots: number;
+  pediram: number;
+  atendidas: number;
+  vendeu: number;
+  desistiram: number;
+};
+
 export type QueueEntry = {
   id: string;
   participant_jid: string;
@@ -352,4 +362,60 @@ export async function closeOffer(tenantId: string, offerId: string): Promise<voi
     .is("closed_at", null);
 
   if (erroGrupos) throw erroGrupos;
+}
+
+/**
+ * Totais das ofertas nascidas de etapas de funil, por broadcast.
+ *
+ * Uma linha por pessoa que mandou a palavra (`flash_offer_entries`); quem
+ * entrou em atendimento é quem teve reserva (`flash_offer_claims`), inclusive
+ * as já fechadas — `outcome` guarda o desfecho na própria entrada.
+ *
+ * Paginado em 1000: o PostgREST corta em 1000 SEM erro, e uma oferta de grupo
+ * grande passa disso fácil (mesma armadilha do PR #300).
+ */
+export async function offerTotalsByBroadcastIds(
+  tenantId: string,
+  broadcastIds: readonly string[],
+): Promise<OfferTotalsRow[]> {
+  if (broadcastIds.length === 0) return [];
+  const supabase = getSupabaseAdmin();
+
+  const { data: ofertas, error: erroOfertas } = await supabase
+    .from("flash_offers")
+    .select("id, slots, broadcast_id")
+    .eq("tenant_id", tenantId)
+    .in("broadcast_id", [...broadcastIds]);
+
+  if (erroOfertas) throw erroOfertas;
+  if (!ofertas || ofertas.length === 0) return [];
+
+  type Entrada = { offer_id: string; outcome: string | null; flash_offer_claims: unknown[] | null };
+  const ids = ofertas.map((o) => o.id as string);
+  const entradas: Entrada[] = [];
+  const PAGINA = 1000;
+  for (let de = 0; ; de += PAGINA) {
+    const { data, error } = await supabase
+      .from("flash_offer_entries")
+      .select("offer_id, outcome, flash_offer_claims(id)")
+      .eq("tenant_id", tenantId)
+      .in("offer_id", ids)
+      .range(de, de + PAGINA - 1);
+    if (error) throw error;
+    const pagina = (data ?? []) as unknown as Entrada[];
+    entradas.push(...pagina);
+    if (pagina.length < PAGINA) break;
+  }
+
+  return ofertas.map((oferta) => {
+    const minhas = entradas.filter((e) => e.offer_id === oferta.id);
+    return {
+      broadcastId: oferta.broadcast_id as string,
+      slots: (oferta.slots as number) ?? 0,
+      pediram: minhas.length,
+      atendidas: minhas.filter((e) => (e.flash_offer_claims ?? []).length > 0).length,
+      vendeu: minhas.filter((e) => e.outcome === "sold").length,
+      desistiram: minhas.filter((e) => e.outcome === "dropped").length,
+    };
+  });
 }
