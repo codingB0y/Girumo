@@ -190,6 +190,27 @@ test("sem 'Sua loja' o botão não agenda e diz o que falta", async ({ page }) =
   expect(chamadas).toHaveLength(0);
 });
 
+test("funil em preenchimento sobrevive à troca da aba de cima", async ({ page }) => {
+  const campanha = await campanhaComGrupos(page);
+  const { chamadas } = await simularServidor(page, campanha);
+  await abrirFunilDaLive(page, campanha.slug as string);
+  await preencherPrevia(page);
+  await preencherLinkDaLive(page);
+
+  await page.getByRole("button", { name: "Grupos", exact: true }).click();
+  await expect(page.getByLabel("Sua loja", { exact: true })).toBeHidden();
+  await page.getByRole("button", { name: "Mensagens", exact: true }).click();
+
+  // Volta direto no Funil, com o que foi digitado. O card aberto é o último
+  // mexido ("Entra agora"; os cards são acordeão); o botão habilitado prova
+  // que a prévia também sobreviveu — ele exige peça, preço, grade e quantidade.
+  await expect(page.getByRole("button", { name: SUBABA_FUNIL })).toHaveAttribute("aria-pressed", "true");
+  const entra = page.getByRole("article", { name: "Entra agora" });
+  await expect(entra.getByLabel("link da live", { exact: true })).toHaveValue("https://instagram.com/lojae2e/live");
+  await expect(page.getByRole("button", { name: /^Agendar 4 mensagens/ })).toBeEnabled();
+  expect(chamadas).toHaveLength(0);
+});
+
 test("prova visual: sub-aba Funil em 1280 e 390 sem erro de console", async ({ page }, testInfo) => {
   // Um único recurso é ignorado, por ser do AMBIENTE e não da tela: a faixa
   // "LOCAL DEV MODE" (dev-mode-banner.tsx, só com NEXT_PUBLIC_APP_ENV=development,

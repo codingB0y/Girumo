@@ -67,6 +67,9 @@ export default function CampanhaDetalhe() {
   const [loading, setLoading] = useState(true);
   const [origin, setOrigin] = useState("");
   const [tab, setTab] = useState<Tab>("Grupos");
+  // Mensagens fica montada depois da 1ª visita: o funil em preenchimento
+  // (e a foto já enviada) sobrevive à troca de aba.
+  const [mensagensVista, setMensagensVista] = useState(false);
   const [menu, setMenu] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -286,7 +289,7 @@ export default function CampanhaDetalhe() {
       {/* Abas */}
       <div className="flex gap-1 overflow-x-auto border-b border-volt-950/[0.08]">
         {TABS.map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={cn("relative shrink-0 px-4 py-2.5 text-sm font-medium transition-colors duration-[160ms]", tab === t ? "text-volt-950" : "text-aco hover:text-volt-950")}>
+          <button key={t} onClick={() => { setTab(t); if (t === "Mensagens") setMensagensVista(true); }} className={cn("relative shrink-0 px-4 py-2.5 text-sm font-medium transition-colors duration-[160ms]", tab === t ? "text-volt-950" : "text-aco hover:text-volt-950")}>
             {t}
             {tab === t && <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-cobalt-500" />}
           </button>
@@ -330,14 +333,6 @@ export default function CampanhaDetalhe() {
               </div>
             </>
           )
-        )}
-
-        {tab === "Mensagens" && (
-          <MessagesTab
-            campaignSlug={campanha.slug ?? campanha.id}
-            groupIds={campanha.groupIds}
-            funil={{ campaignName: campanha.name, masterUrl, groupCount: o.groupCount, memberCount: o.totalMembers }}
-          />
         )}
 
         {tab === "Visão geral" && (
@@ -409,6 +404,16 @@ export default function CampanhaDetalhe() {
           </div>
         )}
       </div>
+      {/* Fora do `key={tab}` acima, que remontaria tudo a cada troca. */}
+      {mensagensVista && (
+        <div hidden={tab !== "Mensagens"}>
+          <MessagesTab
+            campaignSlug={campanha.slug ?? campanha.id}
+            groupIds={campanha.groupIds}
+            funil={{ campaignName: campanha.name, masterUrl, groupCount: o.groupCount, memberCount: o.totalMembers }}
+          />
+        </div>
+      )}
       {folhaDeConfirmacao}
     </div>
   );
