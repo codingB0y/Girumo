@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   ANCHOR_KEYS,
+  OPENING_KEYS,
   CAMPAIGN_KEYS,
   FUNNEL_TEMPLATES,
   FUNNEL_TEMPLATE_IDS,
@@ -59,7 +60,7 @@ for (const t of FUNNEL_TEMPLATES) {
     const temLink = s.copy.includes("{link}") || s.copy.includes("{link da live}");
     assert.equal(temLink, s.kind === "link", `${t.id}/${s.id}: link fora de etapa link`);
     // Toda chave da copy e campo da etapa, da loja, da ancora ou da campanha.
-    const permitidas = new Set<string>([...s.fields, ...STORE_KEYS, ...ANCHOR_KEYS, ...CAMPAIGN_KEYS]);
+    const permitidas = new Set<string>([...s.fields, ...STORE_KEYS, ...ANCHOR_KEYS, ...OPENING_KEYS, ...CAMPAIGN_KEYS]);
     for (const [, chave] of s.copy.matchAll(/\{([^}]+)\}/g)) {
       assert.ok(permitidas.has(chave), `${t.id}/${s.id}: chave {${chave}} sem campo`);
     }
@@ -111,7 +112,7 @@ assert.deepEqual(fingerprints("evento-2-dias"), [
   ["Vem aí", -2, "19:00", undefined, "midia", false, true,
     "{dia} tem evento de 2 dias da {loja}, só pra quem está nos grupos: {nicho} com preço de atacado que não vai pro site. Guarda a data."],
   ["Prévia", -1, "19:00", undefined, "midia", false, true,
-    "Amanhã 06:00 abre. Prévia: {peça} a partir de {preço}, grade {grade}. Quem estiver no grupo às 6 pega primeiro."],
+    "Amanhã {abertura} abre. Prévia: {peça} a partir de {preço}, grade {grade}. Quem estiver no grupo às {abertura} pega primeiro."],
   ["Abriu · dia 1", 0, "06:00", undefined, "relampago", true, true,
     "Abriu! Dia 1 do evento da {loja}: {peça} por {preço}, grade {grade}, {quantidade} peças. Manda *EU QUERO* que eu separo na ordem."],
   ["Ainda dá tempo", 0, "12:00", undefined, "texto", false, false,
@@ -141,9 +142,9 @@ assert.deepEqual(fingerprints("black-friday-atacado"), [
   ["Vem aí", -7, "19:00", undefined, "midia", false, true,
     "Black Friday do atacado da {loja} é {dia}. Antes da BF das lojas, pra você revender na BF delas. Só nos grupos."],
   ["Prévia", -3, "19:00", undefined, "midia", false, true,
-    "Prévia da Black do atacado: {peça} vai sair por {preço}, grade {grade}. Na {dia} às 06:00."],
+    "Prévia da Black do atacado: {peça} vai sair por {preço}, grade {grade}. Na {dia} às {abertura}."],
   ["Véspera", -1, "19:00", undefined, "texto", true, false,
-    "Amanhã 06:00. A grade sai aqui no grupo primeiro; quem mandar EU QUERO cedo pega."],
+    "Amanhã {abertura}. A grade sai aqui no grupo primeiro; quem mandar EU QUERO cedo pega."],
   ["Abriu", 0, "06:00", undefined, "relampago", true, true,
     "Abriu a Black do atacado da {loja}! {peça} por {preço}, grade {grade}, {quantidade} peças. Manda *EU QUERO* que eu separo na ordem."],
   ["Reforço", 0, "12:00", undefined, "texto", false, false,

@@ -7,6 +7,7 @@
  * chave vazia, e uma exceção no meio da confirmação deixaria mensagens já
  * agendadas.
  */
+import { ROTEIRO_OPENING, atOpening } from "@/lib/funnels/pracas";
 import { anchorValues, missingKeys, renderCopy, resolveStepDate } from "@/lib/funnels/render";
 import type { FunnelField, FunnelStep, FunnelTemplate, FunnelTemplateId } from "@/lib/funnels/templates";
 
@@ -23,7 +24,15 @@ export type StepDraft = {
   media?: StepMedia;
 };
 
-export type FunnelContext = { anchor: Date; now: Date; loja: string; nicho: string; link: string };
+export type FunnelContext = {
+  anchor: Date;
+  now: Date;
+  loja: string;
+  nicho: string;
+  link: string;
+  /** Abertura da praça ("08:00"); ausente = a do roteiro. */
+  opening?: string;
+};
 
 export type StepPlan = {
   step: FunnelStep;
@@ -71,6 +80,7 @@ const ROTULO: Readonly<Record<string, string>> = {
   link: "link da campanha",
   dia: "data",
   hora: "hora",
+  abertura: "hora da abertura",
   texto: "texto da mensagem",
 };
 
@@ -116,7 +126,9 @@ export function planFunnel(
   ctx: FunnelContext,
 ): StepPlan[] {
   const ancora = anchorValues(ctx.anchor);
-  return t.steps.map((step, i) => {
+  const abertura = ctx.opening ?? ROTEIRO_OPENING;
+  return t.steps.map((original, i) => {
+    const step = atOpening(original, abertura);
     const draft = drafts[step.id] ?? {};
     const at = resolveStepDate(ctx.anchor, step);
     const isPast = at.getTime() <= ctx.now.getTime();
@@ -127,6 +139,7 @@ export function planFunnel(
       loja: ctx.loja.trim(),
       nicho: ctx.nicho.trim(),
       link: ctx.link.trim(),
+      abertura,
       ...ancora,
       ...inheritedFields(t.steps, drafts, i),
     });
