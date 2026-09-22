@@ -178,8 +178,12 @@ export function stepTime(at: Date): string {
   return `${dois(at.getHours())}:${dois(at.getMinutes())}`;
 }
 
+export function stepDay(at: Date): string {
+  return `${DIAS[at.getDay()]} ${dois(at.getDate())}/${dois(at.getMonth() + 1)}`;
+}
+
 export function stepWhen(at: Date): string {
-  return `${DIAS[at.getDay()]} ${dois(at.getDate())}/${dois(at.getMonth() + 1)} · ${stepTime(at)}`;
+  return `${stepDay(at)} · ${stepTime(at)}`;
 }
 
 export function messagePayload(p: StepPlan, run: FunnelRun): MessagePayload {

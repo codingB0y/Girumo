@@ -286,6 +286,58 @@ test("falha na oferta sobrevive à ida até a Agenda e a retomada não duplica m
   expect(new Set(mensagens.map((m) => m.funnelRunId)).size).toBe(1);
 });
 
+test("Grade do dia repetida: um funil por dia, dia seguinte herda e troca só a peça", async ({ page }) => {
+  const campanha = await campanhaComGrupos(page);
+  const { chamadas } = await simularServidor(page, campanha);
+  await page.goto(`/painel/campanhas/${campanha.slug}`, { waitUntil: "load" });
+  await page.getByRole("button", { name: "Mensagens", exact: true }).click();
+  const perfil = page.waitForResponse((r) => r.url().endsWith("/api/settings") && r.request().method() === "GET");
+  await page.getByRole("button", { name: SUBABA_FUNIL }).click();
+  await perfil;
+  // Grade do dia é o roteiro padrão.
+  await expect(page.getByRole("button", { name: "Grade do dia", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.getByLabel("Dia da grade", { exact: true }).fill(daquiA(10));
+  await page.getByLabel("Sua loja", { exact: true }).fill("Loja E2E");
+  await page.getByLabel("Seu nicho", { exact: true }).fill("moda infantil");
+
+  const grade = page.getByRole("article", { name: "Grade de hoje" });
+  await grade.getByLabel("peça", { exact: true }).fill("body manga longa");
+  await grade.getByLabel("preço", { exact: true }).fill("R$ 29,90");
+  await grade.getByLabel("grade", { exact: true }).fill("1 ao 8");
+  await grade.getByLabel("quantidade", { exact: true }).fill("40");
+
+  const d = new Date();
+  d.setDate(d.getDate() + 11);
+  const dias = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+  const rotulo = `${dias[d.getDay()]} ${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+  await page.getByRole("group", { name: "Repetir nos dias seguintes" }).getByRole("button", { name: rotulo, exact: true }).click();
+  await page.getByRole("group", { name: "Dia" }).getByRole("button", { name: rotulo, exact: true }).click();
+
+  // O dia seguinte vem igual ao primeiro: o botão já conta os 6 e habilita.
+  await expect(page.getByTestId("funil-previa-grade-de-hoje")).toContainText("body manga longa");
+  await grade.getByLabel("peça", { exact: true }).fill("conjunto moletom");
+  await expect(page.getByTestId("funil-previa-grade-de-hoje")).toContainText("conjunto moletom por R$ 29,90");
+
+  await page.getByRole("button", { name: /^Agendar 6 mensagens/ }).click();
+  await expect(page.getByText("Grade do dia · 3/3")).toHaveCount(2);
+
+  expect(chamadas.map((c) => c.alvo)).toEqual([
+    "mensagem", "oferta", "mensagem", "mensagem",
+    "mensagem", "oferta", "mensagem", "mensagem",
+  ]);
+  const mensagens = chamadas.filter((c) => c.alvo === "mensagem").map((c) => c.body);
+  const runs = mensagens.map((m) => m.funnelRunId);
+  expect(new Set(runs.slice(0, 3)).size).toBe(1);
+  expect(new Set(runs.slice(3)).size).toBe(1);
+  expect(runs[0]).not.toBe(runs[3]);
+  for (const m of mensagens) expect(m.recurrence).toBe("none");
+  expect(String(mensagens[0].body)).toContain("body manga longa");
+  expect(String(mensagens[3].body)).toContain("conjunto moletom");
+  // Cada dia abre a própria oferta, ligada à grade daquele dia.
+  expect(chamadas[1].body.broadcastId).toBe("00000000-0000-4000-8000-0000000f0001");
+  expect(chamadas[5].body.broadcastId).toBe("00000000-0000-4000-8000-0000000f0004");
+});
+
 test("comunidade não tem a sub-aba Funil", async ({ page }) => {
   const res = await page.request.get("/api/comunidades");
   expect(res.ok(), `GET /api/comunidades respondeu ${res.status()}`).toBeTruthy();

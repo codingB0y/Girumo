@@ -83,6 +83,28 @@ async function falha(res: Response | string, stepId: string, stage: ConfirmFailu
   return { stepId, stage, message: erro.message, upgradeUrl: erro.upgradeUrl };
 }
 
+export type DayJob = { day: string; plans: readonly StepPlan[]; run: FunnelRun; progress: FunnelProgress };
+
+export type DaysOutcome = {
+  /** Só os dias que rodaram nesta chamada. */
+  outcomes: Readonly<Record<string, ConfirmOutcome>>;
+  failedDay: string | null;
+};
+
+/**
+ * Um funil por dia (Grade do dia repetida), em ordem. Para no primeiro dia que
+ * falhar: os seguintes nem começam, e a retomada passa o `progress` de cada dia.
+ */
+export async function confirmDays(opts: { slug: string; jobs: readonly DayJob[]; post: PostJson }): Promise<DaysOutcome> {
+  let outcomes: Readonly<Record<string, ConfirmOutcome>> = {};
+  for (const job of opts.jobs) {
+    const out = await confirmFunnel({ slug: opts.slug, plans: job.plans, run: job.run, progress: job.progress, post: opts.post });
+    outcomes = { ...outcomes, [job.day]: out };
+    if (out.failure) return { outcomes, failedDay: job.day };
+  }
+  return { outcomes, failedDay: null };
+}
+
 export async function confirmFunnel(opts: {
   slug: string;
   plans: readonly StepPlan[];
