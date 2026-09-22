@@ -33,12 +33,18 @@ export function copyKeys(copy: string): string[] {
   return [...copy.matchAll(CHAVE)].map((m) => m[1]);
 }
 
-/** Troca as {chaves}. Lança se alguma estiver ausente ou vazia. */
+// Começo da copy, ou depois de . ! ? ou quebra de linha (com espaços no meio).
+const INICIO_DE_FRASE = /(^|[.!?\n])\s*$/;
+
+/**
+ * Troca as {chaves}. Lança se alguma estiver ausente ou vazia. Valor que abre
+ * frase ganha maiúscula: `{dia}` vem "sábado, 10/10" do toLocaleDateString.
+ */
 export function renderCopy(copy: string, values: Record<string, string>): string {
-  return copy.replace(CHAVE, (_, chave: string) => {
+  return copy.replace(CHAVE, (_, chave: string, offset: number) => {
     const valor = values[chave]?.trim();
     if (!valor) throw new Error(`campo vazio: ${chave}`);
-    return valor;
+    return INICIO_DE_FRASE.test(copy.slice(0, offset)) ? valor[0].toUpperCase() + valor.slice(1) : valor;
   });
 }
 
