@@ -389,3 +389,8 @@ apps/web/supabase/migrations/20260917181500_groups_community.sql
 # 2026-09-19 - funil de disparos (PR 1, motor). Tres colunas de rastreio e a
 # promote_due_schedules abrindo a Oferta Relampago ligada ao broadcast promovido.
 apps/web/supabase/migrations/20260919120000_funnel_dispatch.sql
+
+# 2026-09-22 - funil: a oferta relampago nova fecha a de FUNIL anterior nos mesmos
+# grupos (so fechava na mao; o dia 2 da Grade repetida e do Evento abria com zero
+# grupos). Oferta criada a mao nao e tocada. Aplicado nos dois bancos.
+apps/web/supabase/migrations/20260922230000_funnel_offer_supersedes.sql
