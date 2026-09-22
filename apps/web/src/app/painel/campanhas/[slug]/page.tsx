@@ -26,6 +26,7 @@ import {
 } from "@/lib/campaign-groups-overview";
 import type { Group } from "@/lib/mock-data";
 import { MessagesTab } from "@/components/painel/messages";
+import { FunnelResults } from "@/components/painel/campaigns/funnel-results";
 import { useConfirmacao } from "@/components/painel/confirmacao";
 import { AcoesEmMassa } from "@/components/painel/grupos/acoes-em-massa";
 import { ConfigChips } from "@/components/painel/campanhas/config-chips";
@@ -401,6 +402,7 @@ export default function CampanhaDetalhe() {
                 Ver resultados completos →
               </Link>
             </div>
+            <FunnelResults campaignSlug={campanha.slug ?? campanha.id} />
           </div>
         )}
       </div>
