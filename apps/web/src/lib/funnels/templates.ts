@@ -39,6 +39,8 @@ export type FunnelTemplate = {
   readonly anchorLabel: string;
   readonly anchorNeedsTime: boolean;
   readonly suggestAnchor?: (today: Date) => Date;
+  /** Dá para agendar o mesmo roteiro nos dias seguintes, um funil por dia. */
+  readonly repeatable?: boolean;
   readonly steps: readonly FunnelStep[];
 };
 
@@ -72,6 +74,7 @@ export const FUNNEL_TEMPLATES: readonly FunnelTemplate[] = [
     description: "A grade das 06:00, o link com vagas 12 minutos depois e o reforço do meio-dia.",
     anchorLabel: "Dia da grade",
     anchorNeedsTime: false,
+    repeatable: true,
     steps: [
       {
         id: "grade-de-hoje", label: "Grade de hoje", at: { days: 0, time: "06:00" },

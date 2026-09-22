@@ -9,7 +9,8 @@ import { FUNNEL_TEMPLATES, type FunnelField, type FunnelTemplateId } from "@/lib
 import { cn } from "@/lib/utils";
 import { FunnelHero } from "./funnel-hero";
 import { FunnelStepCard } from "./funnel-step-card";
-import { EMPTY_PROGRESS, applyProgress, confirmFunnel, isStepDone, type ConfirmFailure, type FunnelProgress } from "./funnel-confirm";
+import { EMPTY_PROGRESS, applyProgress, confirmDays, isStepDone, type ConfirmFailure, type FunnelProgress } from "./funnel-confirm";
+import { dayLabel, draftsForDay, funnelDays, repeatOptions } from "./funnel-days";
 import { anchorFrom, blockerLabels, defaultAnchorDate, isBlocked, planFunnel, type StepDraft, type StepPlan } from "./funnel-plan";
 
 export type FunnelTabProps = {
@@ -32,11 +33,19 @@ const postJson = (url: string, body: unknown) =>
   fetch(url, { method: "POST", headers: JSON_HEADERS, body: JSON.stringify(body) });
 
 const PILULA = "inline-flex min-h-11 items-center rounded-full border px-5 text-13 font-medium transition-colors";
+const PILULA_ATIVA = "border-volt-950 bg-volt-950 font-semibold text-paper-0";
+const PILULA_INATIVA = "border-line-200 bg-paper-0 text-volt-950 hover:border-cobalt-500";
+const PILULA_TRAVADA = "disabled:cursor-not-allowed disabled:opacity-50";
 const INPUT_TOPO =
   "h-11 w-full rounded-full border border-line-200 bg-canvas-100/40 px-4 text-base text-volt-950 focus:border-cobalt-500 focus:outline-none disabled:opacity-60";
 const MINUTO = 60_000;
 
 type Perfil = { loja: string; nicho: string };
+
+/** Um funil por dia: run próprio, progresso próprio (ver `confirmDays`). */
+type DiaRun = { runId: string; progress: FunnelProgress; frozen: Readonly<Record<string, StepPlan>> };
+const RUN_VAZIO: DiaRun = { runId: "", progress: EMPTY_PROGRESS, frozen: {} };
+type Falha = ConfirmFailure & { day: string };
 
 export function FunnelTab(props: FunnelTabProps) {
   const toast = useToast();
@@ -47,14 +56,17 @@ export function FunnelTab(props: FunnelTabProps) {
   const [loja, setLoja] = useState("");
   const [nicho, setNicho] = useState("");
   const [perfilSalvo, setPerfilSalvo] = useState<Perfil | null>(null);
+  // Rascunho do dia da âncora; os dias repetidos guardam só o que trocaram por cima dele.
   const [drafts, setDrafts] = useState<Record<string, StepDraft>>({});
+  const [dayDrafts, setDayDrafts] = useState<Readonly<Record<string, Record<string, StepDraft>>>>({});
+  const [repeat, setRepeat] = useState<readonly string[]>([]);
+  const [activeDay, setActiveDay] = useState<string | null>(null);
   const [openStep, setOpenStep] = useState<string | null>(FUNNEL_TEMPLATES[0].steps[0].id);
+  /** `${dia}|${stepId}` da foto subindo. */
   const [uploading, setUploading] = useState<string | null>(null);
-  const [runId, setRunId] = useState(() => crypto.randomUUID());
-  const [progress, setProgress] = useState<FunnelProgress>(EMPTY_PROGRESS);
-  // Plano de cada etapa no momento em que foi agendada (ver `applyProgress`).
-  const [frozen, setFrozen] = useState<Readonly<Record<string, StepPlan>>>({});
-  const [failure, setFailure] = useState<ConfirmFailure | null>(null);
+  // Por dia. `frozen` = plano de cada etapa no momento em que foi agendada (ver `applyProgress`).
+  const [runs, setRuns] = useState<Readonly<Record<string, DiaRun>>>({});
+  const [failure, setFailure] = useState<Falha | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [now, setNow] = useState(() => new Date());
   // previewUrl vivos: revogados ao trocar/remover a foto e, no fim, ao desmontar.
@@ -97,15 +109,29 @@ export function FunnelTab(props: FunnelTabProps) {
   }, []);
 
   const anchor = anchorFrom(anchorDate, anchorTime, template.anchorNeedsTime);
-  const ctx = anchor ? { anchor, now, loja, nicho, link: props.masterUrl } : null;
-  const travada = (stepId: string) => stepId in progress.scheduled;
-  // Etapa com mensagem no servidor volta congelada e sempre entra na retomada.
-  const comRetomada = (ps: StepPlan[]) => applyProgress(ps, progress, frozen);
-  const pendentesDe = (ps: StepPlan[]) => ps.filter((p) => p.included && !isStepDone(p, progress));
-  const plans = ctx ? comRetomada(planFunnel(template, drafts, ctx)) : [];
-  const started = Object.keys(progress.scheduled).length > 0;
-  const pendentes = pendentesDe(plans);
-  const bloqueios = pendentes.filter(isBlocked);
+  const days = template.repeatable ? funnelDays(anchorDate, repeat) : [anchorDate];
+  const varios = days.length > 1;
+  const diaAtivo = activeDay !== null && days.includes(activeDay) ? activeDay : anchorDate;
+  const runDe = (day: string) => runs[day] ?? RUN_VAZIO;
+  const draftsDe = (day: string) => (day === anchorDate ? drafts : draftsForDay(drafts, dayDrafts[day] ?? {}));
+  /** Só o que foi digitado NAQUELE dia (o card mostra o herdado como placeholder). */
+  const proprioDe = (day: string, stepId: string) => (day === anchorDate ? drafts[stepId] : dayDrafts[day]?.[stepId]);
+  const travada = (day: string, stepId: string) => stepId in runDe(day).progress.scheduled;
+  const pendentesDe = (day: string, ps: StepPlan[]) => ps.filter((p) => p.included && !isStepDone(p, runDe(day).progress));
+  function planosDoDia(day: string, agora: Date): StepPlan[] {
+    const a = anchorFrom(day, anchorTime, template.anchorNeedsTime);
+    if (!a) return [];
+    const r = runDe(day);
+    // Etapa com mensagem no servidor volta congelada e sempre entra na retomada.
+    return applyProgress(planFunnel(template, draftsDe(day), { anchor: a, now: agora, loja, nicho, link: props.masterUrl }), r.progress, r.frozen);
+  }
+  const porDia = anchor ? days.map((day) => ({ day, plans: planosDoDia(day, now) })) : [];
+  const plans = porDia.find((d) => d.day === diaAtivo)?.plans ?? [];
+  const started = days.some((d) => Object.keys(runDe(d).progress.scheduled).length > 0);
+  const pendentes = porDia.flatMap(({ day, plans: ps }) => pendentesDe(day, ps).map((p) => ({ day, p })));
+  const bloqueios = pendentes.filter((x) => isBlocked(x.p));
+  const diaBloqueado = bloqueios[0]?.day ?? anchorDate;
+  const faltaNoDia = [...new Set(bloqueios.filter((x) => x.day === diaBloqueado).flatMap((x) => blockerLabels(x.p)))];
   const semGrupos = props.groupIds.length === 0;
   const podeAgendar =
     anchor !== null && !semGrupos && uploading === null && pendentes.length > 0 && bloqueios.length === 0 && !confirming;
@@ -118,9 +144,9 @@ export function FunnelTab(props: FunnelTabProps) {
         : pendentes.length === 0
         ? "Marque ao menos uma mensagem."
         : bloqueios.length > 0
-          ? `Preencha: ${[...new Set(bloqueios.flatMap(blockerLabels))].join(", ")}.`
+          ? `Preencha${varios ? ` (${dayLabel(diaBloqueado)})` : ""}: ${faltaNoDia.join(", ")}.`
           : null;
-  const incluidas = plans.filter((p) => p.included);
+  const incluidas = porDia.flatMap((d) => d.plans.filter((p) => p.included));
   const rotuloDe = (stepId: string) => template.steps.find((s) => s.id === stepId)?.label ?? stepId;
 
   function revogar(url: string) {
@@ -128,34 +154,59 @@ export function FunnelTab(props: FunnelTabProps) {
     blobs.current.delete(url);
   }
 
+  function revogarTodas() {
+    [drafts, ...Object.values(dayDrafts)].forEach((ds) =>
+      Object.values(ds).forEach((d) => d.media && revogar(d.media.previewUrl)),
+    );
+  }
+
+  function recomecar() {
+    revogarTodas();
+    setDrafts({});
+    setDayDrafts({});
+    setRepeat([]);
+    setActiveDay(null);
+    setRuns({});
+  }
+
   // Etapa travada (mensagem já no servidor) não muda mais: o card só desabilita
-  // o checkbox, então a trava dos campos fica aqui.
-  function mudarDraft(stepId: string, muda: (d: StepDraft) => StepDraft) {
-    if (travada(stepId)) return;
-    setDrafts((atual) => ({ ...atual, [stepId]: muda(atual[stepId] ?? {}) }));
+  // o checkbox, então a trava dos campos fica aqui. O dia vem de quem chamou,
+  // nunca do dia ativo: a foto termina de subir depois de o lojista trocar de dia.
+  function mudarDraft(day: string, stepId: string, muda: (d: StepDraft) => StepDraft) {
+    if (travada(day, stepId)) return;
+    if (day === anchorDate) {
+      setDrafts((atual) => ({ ...atual, [stepId]: muda(atual[stepId] ?? {}) }));
+      return;
+    }
+    setDayDrafts((atual) => ({ ...atual, [day]: { ...atual[day], [stepId]: muda(atual[day]?.[stepId] ?? {}) } }));
   }
 
   function escolherRoteiro(id: FunnelTemplateId) {
     if (started || id === templateId) return;
     const t = FUNNEL_TEMPLATES.find((x) => x.id === id) ?? FUNNEL_TEMPLATES[0];
-    Object.values(drafts).forEach((d) => d.media && revogar(d.media.previewUrl));
+    recomecar();
     setTemplateId(t.id);
-    setDrafts({});
     setOpenStep(t.steps[0].id);
     setAnchorDate(defaultAnchorDate(t, new Date()));
     setFailure(null);
   }
 
-  async function anexarFoto(stepId: string, arquivo: File) {
-    if (travada(stepId)) return;
-    setUploading(stepId);
+  function alternarDia(day: string) {
+    if (started) return;
+    setRepeat((atual) => (atual.includes(day) ? atual.filter((d) => d !== day) : [...atual, day]));
+  }
+
+  async function anexarFoto(day: string, stepId: string, arquivo: File) {
+    if (travada(day, stepId)) return;
+    setUploading(`${day}|${stepId}`);
     try {
       const enviado = await uploadMediaFile(arquivo);
-      const anterior = drafts[stepId]?.media;
+      // Só revoga a foto DESTE dia: a herdada do 1º dia continua na bolha de lá.
+      const anterior = proprioDe(day, stepId)?.media;
       if (anterior) revogar(anterior.previewUrl);
       const media = { id: enviado.id, name: arquivo.name, previewUrl: URL.createObjectURL(arquivo) };
       blobs.current.add(media.previewUrl);
-      mudarDraft(stepId, (d) => ({ ...d, media }));
+      mudarDraft(day, stepId, (d) => ({ ...d, media }));
     } catch (e) {
       toast(e instanceof Error ? e.message : "Erro ao enviar a foto.", "error");
     } finally {
@@ -163,11 +214,12 @@ export function FunnelTab(props: FunnelTabProps) {
     }
   }
 
-  function removerFoto(stepId: string) {
-    if (travada(stepId)) return;
-    const media = drafts[stepId]?.media;
+  function removerFoto(day: string, stepId: string) {
+    if (travada(day, stepId)) return;
+    const media = proprioDe(day, stepId)?.media;
     if (media) revogar(media.previewUrl);
-    mudarDraft(stepId, (d) => ({ ...d, media: undefined }));
+    // `media: undefined` explícito: no dia repetido, tira a foto herdada só dele.
+    mudarDraft(day, stepId, (d) => ({ ...d, media: undefined }));
   }
 
   // A loja salva é o nome da organização (topo do painel, páginas públicas):
@@ -209,36 +261,49 @@ export function FunnelTab(props: FunnelTabProps) {
       // renderização e o clique não sai.
       const agora = new Date();
       setNow(agora);
-      const frescos = comRetomada(planFunnel(template, drafts, { anchor, now: agora, loja, nicho, link: props.masterUrl }));
+      // runId nasce no 1º clique e fica: a retomada de um dia usa o mesmo.
+      const atuais: Record<string, DiaRun> = Object.fromEntries(
+        days.map((day) => [day, runs[day] ?? { ...RUN_VAZIO, runId: crypto.randomUUID() }]),
+      );
+      const jobs = days
+        .map((day) => ({
+          day,
+          plans: planosDoDia(day, agora),
+          run: { templateId, runId: atuais[day].runId, groupIds: props.groupIds },
+          progress: atuais[day].progress,
+        }))
+        .filter((j) => pendentesDe(j.day, j.plans).length > 0);
       // Nada sobrou com o relógio do clique: não fecha como sucesso vazio; o
       // `now` novo já faz o motivo explicar.
-      if (pendentesDe(frescos).length === 0) return;
+      if (jobs.length === 0) return;
+      setRuns((atual) => ({ ...atuais, ...atual }));
       await salvarPerfilSeMudou();
-      const out = await confirmFunnel({
-        slug: props.campaignSlug,
-        plans: frescos,
-        run: { templateId, runId, groupIds: props.groupIds },
-        progress,
-        post: postJson,
-      });
-      if (out.failure) {
-        setProgress(out.progress);
-        setFrozen((atual) => ({ ...atual, ...out.scheduledPlans }));
-        setFailure(out.failure);
+      const out = await confirmDays({ slug: props.campaignSlug, jobs, post: postJson });
+      if (out.failedDay) {
+        const falhou = out.failedDay;
+        setRuns((atual) => {
+          const proximo = { ...atual };
+          for (const [day, o] of Object.entries(out.outcomes)) {
+            proximo[day] = { runId: atuais[day].runId, progress: o.progress, frozen: { ...atuais[day].frozen, ...o.scheduledPlans } };
+          }
+          return proximo;
+        });
+        const f = out.outcomes[falhou]?.failure;
+        if (f) setFailure({ ...f, day: falhou });
+        // Mostra os cards do dia que parou: é lá que está o que corrigir.
+        setActiveDay(falhou);
         return;
       }
-      Object.values(drafts).forEach((d) => d.media && revogar(d.media.previewUrl));
-      setProgress(EMPTY_PROGRESS);
-      setFrozen({});
-      setRunId(crypto.randomUUID());
-      setDrafts({});
+      recomecar();
       await props.onScheduled();
     } finally {
       setConfirming(false);
     }
   }
 
-  const agendadas = Object.keys(progress.scheduled).map(rotuloDe);
+  const agendadas = days.flatMap((day) =>
+    Object.keys(runDe(day).progress.scheduled).map((id) => (varios ? `${rotuloDe(id)} (${dayLabel(day)})` : rotuloDe(id))),
+  );
   const n = pendentes.length;
 
   return (
@@ -264,11 +329,7 @@ export function FunnelTab(props: FunnelTabProps) {
                 aria-pressed={ativo}
                 disabled={started && !ativo}
                 onClick={() => escolherRoteiro(t.id)}
-                className={cn(
-                  PILULA,
-                  ativo ? "border-volt-950 bg-volt-950 font-semibold text-paper-0" : "border-line-200 bg-paper-0 text-volt-950 hover:border-cobalt-500",
-                  "disabled:cursor-not-allowed disabled:opacity-50",
-                )}
+                className={cn(PILULA, ativo ? PILULA_ATIVA : PILULA_INATIVA, PILULA_TRAVADA)}
               >
                 {t.label}
               </button>
@@ -299,6 +360,33 @@ export function FunnelTab(props: FunnelTabProps) {
               <input value={nicho} maxLength={60} placeholder="moda infantil" disabled={started} onChange={(e) => setNicho(e.target.value)} className={INPUT_TOPO} />
             </Campo>
           </div>
+          {template.repeatable && (
+            <div className="mt-4 space-y-2 border-t border-dashed border-line-200 pt-4">
+              <span id="funil-repetir" className="font-data text-12 uppercase tracking-[0.08em] text-slate-600">
+                Repetir nos dias seguintes
+              </span>
+              <div role="group" aria-labelledby="funil-repetir" className="flex flex-wrap gap-2">
+                {repeatOptions(anchorDate).map((day) => {
+                  const marcado = repeat.includes(day);
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      aria-pressed={marcado}
+                      disabled={started}
+                      onClick={() => alternarDia(day)}
+                      className={cn(PILULA, marcado ? PILULA_ATIVA : PILULA_INATIVA, PILULA_TRAVADA)}
+                    >
+                      {dayLabel(day)}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-12 text-slate-600">
+                Cada dia vira um funil próprio na Agenda e começa igual ao primeiro. Troque só o que muda: a peça, a foto, a quantidade.
+              </p>
+            </div>
+          )}
           {!started && lojaVaiMudar && (
             <p className="mt-3 text-12 text-atencao" role="status">
               Ao agendar, “{loja.trim()}” vira o nome da sua loja em todo o Girumo: no topo do painel e nas suas páginas.
@@ -306,7 +394,7 @@ export function FunnelTab(props: FunnelTabProps) {
           )}
           {started && (
             <p className="mt-3 text-12 text-slate-600">
-              Parte deste funil já está na Agenda: roteiro, data, loja e nicho ficam travados até terminar.
+              Parte deste funil já está na Agenda: roteiro, datas, loja e nicho ficam travados até terminar.
             </p>
           )}
         </Bisel>
@@ -314,39 +402,71 @@ export function FunnelTab(props: FunnelTabProps) {
 
       <Secao
         numero="03"
-        titulo={`As ${template.steps.length} mensagens`}
+        titulo={`As ${template.steps.length} mensagens${varios ? " de cada dia" : ""}`}
         aside="Troque só o que quiser. O resto já está no tom certo."
       >
+        {varios && (
+          <div role="group" aria-label="Dia" className="flex flex-wrap gap-2">
+            {days.map((day) => {
+              const ativo = day === diaAtivo;
+              const falta = bloqueios.some((b) => b.day === day);
+              return (
+                <button
+                  key={day}
+                  type="button"
+                  aria-pressed={ativo}
+                  onClick={() => setActiveDay(day)}
+                  className={cn(PILULA, ativo ? PILULA_ATIVA : PILULA_INATIVA, falta && !ativo && "border-alerta text-alerta")}
+                >
+                  {dayLabel(day)}
+                  {falta && " · falta campo"}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {varios && diaAtivo !== anchorDate && (
+          <p className="text-12 text-slate-600">
+            Vem igual a {dayLabel(anchorDate)}. O que você trocar aqui vale só para {dayLabel(diaAtivo)}.
+          </p>
+        )}
         <div className="space-y-3">
-          {plans.map((plan) => (
-            <FunnelStepCard
-              key={plan.step.id}
-              plan={plan}
-              draft={drafts[plan.step.id] ?? {}}
-              open={openStep === plan.step.id}
-              grupoNome={props.campaignName}
-              uploading={uploading === plan.step.id}
-              locked={travada(plan.step.id)}
-              onToggleOpen={() => setOpenStep((atual) => (atual === plan.step.id ? null : plan.step.id))}
-              onIncludedChange={(incluir) => mudarDraft(plan.step.id, (d) => ({ ...d, excluded: !incluir }))}
-              onFieldChange={(campo: FunnelField, valor) =>
-                mudarDraft(plan.step.id, (d) => ({ ...d, fields: { ...d.fields, [campo]: valor } }))
-              }
-              onMentionToggle={() => mudarDraft(plan.step.id, (d) => ({ ...d, mentionAll: !plan.mentionAll }))}
-              onTextChange={(texto) =>
-                // `undefined` volta para a copy do roteiro (planFunnel: edited = customText !== undefined).
-                mudarDraft(plan.step.id, (d) => ({ ...d, customText: texto }))
-              }
-              onPhotoPick={(arquivo) => void anexarFoto(plan.step.id, arquivo)}
-              onPhotoRemove={() => removerFoto(plan.step.id)}
-            />
-          ))}
+          {plans.map((plan) => {
+            const id = plan.step.id;
+            const dia = diaAtivo;
+            return (
+              <FunnelStepCard
+                key={`${dia}:${id}`}
+                plan={plan}
+                draft={proprioDe(dia, id) ?? {}}
+                open={openStep === id}
+                grupoNome={props.campaignName}
+                uploading={uploading === `${dia}|${id}`}
+                locked={travada(dia, id)}
+                herancaRotulo={dia === anchorDate ? undefined : `igual a ${dayLabel(anchorDate)}`}
+                onToggleOpen={() => setOpenStep((atual) => (atual === id ? null : id))}
+                onIncludedChange={(incluir) => mudarDraft(dia, id, (d) => ({ ...d, excluded: !incluir }))}
+                onFieldChange={(campo: FunnelField, valor) =>
+                  mudarDraft(dia, id, (d) => ({ ...d, fields: { ...d.fields, [campo]: valor } }))
+                }
+                onMentionToggle={() => mudarDraft(dia, id, (d) => ({ ...d, mentionAll: !plan.mentionAll }))}
+                onTextChange={(texto) =>
+                  // `undefined` volta para a copy do roteiro (planFunnel: edited = customText !== undefined).
+                  mudarDraft(dia, id, (d) => ({ ...d, customText: texto }))
+                }
+                onPhotoPick={(arquivo) => void anexarFoto(dia, id, arquivo)}
+                onPhotoRemove={() => removerFoto(dia, id)}
+              />
+            );
+          })}
         </div>
       </Secao>
 
       {failure && (
         <div role="alert" className="space-y-2 rounded-xl border border-alerta bg-paper-0 p-4 text-13 text-volt-950">
-          <p className="font-semibold">Parou em “{rotuloDe(failure.stepId)}”.</p>
+          <p className="font-semibold">
+            Parou em “{rotuloDe(failure.stepId)}”{varios ? ` de ${dayLabel(failure.day)}` : ""}.
+          </p>
           <PlanLimitAlert message={failure.message} upgradeUrl={failure.upgradeUrl} />
           {failure.stage === "oferta" && (
             <p className="text-slate-600">

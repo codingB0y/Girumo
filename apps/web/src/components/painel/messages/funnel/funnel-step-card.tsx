@@ -18,6 +18,8 @@ export type FunnelStepCardProps = {
   uploading: boolean;
   /** Já agendada nesta rodada: não dá mais para desmarcar. */
   locked: boolean;
+  /** De onde vem o valor herdado de um campo vazio. */
+  herancaRotulo?: string;
   onToggleOpen: () => void;
   onIncludedChange: (included: boolean) => void;
   onFieldChange: (field: FunnelField, value: string) => void;
@@ -85,7 +87,7 @@ export function FunnelStepCard(props: FunnelStepCardProps) {
           {plan.mentionAll && <span className={cn(CHIP, "bg-cobalt-500/10 text-cobalt-700")}><AtSign aria-hidden className="h-3 w-3" />todos</span>}
           {step.kind === "link" && <span className={cn(CHIP, "bg-cobalt-500/10 text-cobalt-700")}><Link2 aria-hidden className="h-3 w-3" />link</span>}
           {step.kind === "relampago" && <span className={cn(CHIP, "bg-volt-950 text-acid-500")}><Zap aria-hidden className="h-3 w-3" />relâmpago · EU QUERO</span>}
-          {step.wantsMedia && <span className={cn(CHIP, "bg-volt-950/[0.06] text-volt-950")}><ImagePlus aria-hidden className="h-3 w-3" />{draft.media ? "1 foto" : "foto"}</span>}
+          {step.wantsMedia && <span className={cn(CHIP, "bg-volt-950/[0.06] text-volt-950")}><ImagePlus aria-hidden className="h-3 w-3" />{plan.media ? "1 foto" : "foto"}</span>}
           {plan.edited && <span className={cn(CHIP, "bg-atencao/10 text-atencao")}>editado</span>}
         </div>
 
@@ -115,7 +117,7 @@ export function FunnelStepCard(props: FunnelStepCardProps) {
                         onChange={(e) => props.onFieldChange(campo, e.target.value)}
                         className={INPUT}
                       />
-                      {herdado && <span className="text-12 text-slate-600">igual à etapa anterior</span>}
+                      {herdado && <span className="text-12 text-slate-600">{props.herancaRotulo ?? "igual à etapa anterior"}</span>}
                     </label>
                   );
                 })}
@@ -123,9 +125,9 @@ export function FunnelStepCard(props: FunnelStepCardProps) {
             )}
 
             {step.wantsMedia &&
-              (draft.media ? (
+              (plan.media ? (
                 <div className="flex items-center gap-2 rounded-lg bg-canvas-100 pl-3 text-13 text-volt-950">
-                  <span className="truncate">{draft.media.name}</span>
+                  <span className="truncate">{plan.media.name}</span>
                   <button type="button" onClick={props.onPhotoRemove} aria-label="Remover foto" className="ml-auto flex h-11 w-11 items-center justify-center text-slate-600 hover:text-alerta">
                     <X aria-hidden className="h-4 w-4" />
                   </button>
@@ -152,7 +154,7 @@ export function FunnelStepCard(props: FunnelStepCardProps) {
               grupo={props.grupoNome}
               hora={stepTime(plan.at)}
               texto={plan.preview}
-              foto={draft.media?.previewUrl}
+              foto={plan.media?.previewUrl}
               mencaoTodos={plan.mentionAll}
               testId={`funil-previa-${step.id}`}
             />
@@ -180,7 +182,7 @@ export function FunnelStepCard(props: FunnelStepCardProps) {
                 <span className="text-12 text-atencao">Texto editado à mão: os campos só preenchem as {"{chaves}"} que ficaram no texto.</span>
                 <textarea
                   aria-label={`Texto de ${step.label}`}
-                  value={draft.customText ?? ""}
+                  value={plan.source}
                   onChange={(e) => props.onTextChange(e.target.value)}
                   rows={4}
                   className="w-full resize-y rounded-lg border border-line-200 bg-canvas-100/40 px-3 py-2 text-base text-volt-950 focus:border-cobalt-500 focus:outline-none"

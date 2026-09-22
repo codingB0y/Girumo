@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { getFunnelTemplate, type FunnelTemplate } from "@/lib/funnels/templates";
 import { planFunnel, type FunnelContext, type StepDraft } from "./funnel-plan";
-import { EMPTY_PROGRESS, applyProgress, confirmFunnel, isStepDone, type PostJson } from "./funnel-confirm";
+import { EMPTY_PROGRESS, applyProgress, confirmDays, confirmFunnel, isStepDone, type PostJson } from "./funnel-confirm";
 
 const live = getFunnelTemplate("live") as FunnelTemplate;
 const ctx: FunnelContext = {
@@ -231,4 +231,42 @@ test("retomada com oferta pendente cria a oferta com as vagas do plano congelado
   const oferta = segunda.chamadas.find((c) => c.url === "/api/relampago/offers");
   assert.equal(oferta?.body.slots, 120);
   assert.equal(oferta?.body.broadcastId, "b-3");
+});
+
+test("repetição: um run por dia, dias em ordem; falha num dia para os seguintes e a retomada não duplica", async () => {
+  const grade = getFunnelTemplate("grade-do-dia") as FunnelTemplate;
+  const campos: Record<string, StepDraft> = {
+    "grade-de-hoje": { fields: { "peça": "body", "preço": "R$ 29,90", grade: "1 ao 8", quantidade: "40" } },
+  };
+  const dia = (d: number) => planFunnel(grade, campos, { ...ctx, anchor: new Date(2026, 9, d) });
+  const runDo = (n: number) => ({ templateId: "grade-do-dia" as const, runId: `7d6f1e1a-0000-4000-8000-00000000000${n}`, groupIds: ["g1"] });
+  // Por dia: mensagem da grade, oferta, vagas, últimas. A 7ª chamada é "vagas" do dia 11.
+  const { post, chamadas } = postFalso({ 6: Response.json({ error: "limite" }, { status: 402 }) });
+  const jobs = [
+    { day: "2026-10-10", plans: dia(10), run: runDo(1), progress: EMPTY_PROGRESS },
+    { day: "2026-10-11", plans: dia(11), run: runDo(2), progress: EMPTY_PROGRESS },
+    { day: "2026-10-12", plans: dia(12), run: runDo(3), progress: EMPTY_PROGRESS },
+  ];
+  const out = await confirmDays({ slug: "saldao", jobs, post });
+  assert.equal(out.failedDay, "2026-10-11");
+  assert.deepEqual(Object.keys(out.outcomes), ["2026-10-10", "2026-10-11"]);
+  assert.equal(out.outcomes["2026-10-10"].failure, null);
+  const runs = chamadas.filter((c) => c.url.endsWith("/messages")).map((c) => c.body.funnelRunId);
+  assert.deepEqual(runs, [runDo(1).runId, runDo(1).runId, runDo(1).runId, runDo(2).runId, runDo(2).runId]);
+  // A grade do dia 11 é um disparo avulso no próprio dia, com oferta própria.
+  assert.equal(chamadas[4].body.recurrence, "none");
+  assert.equal(new Date(String(chamadas[4].body.scheduledAt)).getTime(), new Date(2026, 9, 11, 6, 0).getTime());
+  assert.equal(chamadas[5].url, "/api/relampago/offers");
+  assert.equal(chamadas[5].body.broadcastId, "b-4");
+
+  const antes = chamadas.length;
+  const retomada = await confirmDays({
+    slug: "saldao",
+    jobs: jobs.slice(1).map((j) => ({ ...j, progress: out.outcomes[j.day]?.progress ?? EMPTY_PROGRESS })),
+    post,
+  });
+  assert.equal(retomada.failedDay, null);
+  const novas = chamadas.slice(antes).filter((c) => c.url.endsWith("/messages")).map((c) => c.body.funnelRunId);
+  // Dia 11 retoma em "vagas" (grade e oferta já existem), dia 12 inteiro.
+  assert.deepEqual(novas, [runDo(2).runId, runDo(2).runId, runDo(3).runId, runDo(3).runId, runDo(3).runId]);
 });
