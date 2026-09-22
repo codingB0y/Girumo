@@ -76,7 +76,8 @@ test("mostra cada funil com etapas, entrega e os números da oferta", async ({ p
   await expect(page.getByText("24/26 grupos")).toBeVisible();
 
   // A etapa que entregou a todos e a que falhou em 2 grupos aparecem diferentes.
-  await expect(page.getByText("13/13 grupos")).toBeVisible();
+  // "13/13 grupos" sai nos dois funis do fixture, daí o `first`.
+  await expect(page.getByText("13/13 grupos").first()).toBeVisible();
   await expect(page.getByText("11/13 grupos")).toBeVisible();
 
   // Oferta relâmpago: números na etapa dela.
