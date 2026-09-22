@@ -14,6 +14,8 @@ export type FunnelField = "peça" | "preço" | "grade" | "quantidade" | "link da
 /** Chaves que não são campo da etapa. */
 export const STORE_KEYS = ["loja", "nicho"] as const;
 export const ANCHOR_KEYS = ["dia", "hora"] as const;
+/** Hora em que a praça do lojista abre (ver ./pracas.ts). */
+export const OPENING_KEYS = ["abertura"] as const;
 export const CAMPAIGN_KEYS = ["link"] as const;
 
 export type FunnelStep = {
@@ -27,6 +29,11 @@ export type FunnelStep = {
   readonly mentionAll: boolean;
   /** Sugere anexar 1 foto; não obriga. */
   readonly wantsMedia: boolean;
+  /**
+   * Hora presa à abertura da praça: o `time` do roteiro vale para o Brás
+   * (06:00) e anda junto quando a praça abre em outra hora (`atOpening`).
+   */
+  readonly followsOpening?: boolean;
   readonly copy: string;
 };
 
@@ -71,18 +78,18 @@ export const FUNNEL_TEMPLATES: readonly FunnelTemplate[] = [
   {
     id: "grade-do-dia",
     label: "Grade do dia",
-    description: "A grade das 06:00, o link com vagas 12 minutos depois e o reforço do meio-dia.",
+    description: "A grade na abertura da sua praça, o link com vagas 12 minutos depois e o reforço do meio-dia.",
     anchorLabel: "Dia da grade",
     anchorNeedsTime: false,
     repeatable: true,
     steps: [
       {
-        id: "grade-de-hoje", label: "Grade de hoje", at: { days: 0, time: "06:00" },
+        id: "grade-de-hoje", label: "Grade de hoje", at: { days: 0, time: "06:00" }, followsOpening: true,
         kind: "relampago", fields: CAMPOS_GRADE, mentionAll: true, wantsMedia: true,
         copy: "Bom dia! Grade de hoje da {loja}: {peça} por {preço} no atacado, grade {grade}. Só {quantidade} peças. Quer? Manda *EU QUERO* aqui no grupo que eu separo a sua.",
       },
       {
-        id: "vagas-de-hoje", label: "Vagas de hoje", at: { days: 0, time: "06:12" },
+        id: "vagas-de-hoje", label: "Vagas de hoje", at: { days: 0, time: "06:12" }, followsOpening: true,
         kind: "link", fields: [], mentionAll: false, wantsMedia: false,
         copy: "Pra quem ainda não entrou: o link de pedido da {loja} é este, com as vagas de hoje: {link}",
       },
@@ -96,7 +103,7 @@ export const FUNNEL_TEMPLATES: readonly FunnelTemplate[] = [
   {
     id: "evento-2-dias",
     label: "Evento de 2 dias",
-    description: "Aviso, prévia, duas aberturas às 06:00, última chamada e sobras. Serve para coleção nova e queima de estoque.",
+    description: "Aviso, prévia, duas aberturas na hora da sua praça, última chamada e sobras. Serve para coleção nova e queima de estoque.",
     anchorLabel: "Dia 1",
     anchorNeedsTime: false,
     steps: [
@@ -108,10 +115,10 @@ export const FUNNEL_TEMPLATES: readonly FunnelTemplate[] = [
       {
         id: "previa", label: "Prévia", at: { days: -1, time: "19:00" },
         kind: "midia", fields: ["peça", "preço", "grade"], mentionAll: false, wantsMedia: true,
-        copy: "Amanhã 06:00 abre. Prévia: {peça} a partir de {preço}, grade {grade}. Quem estiver no grupo às 6 pega primeiro.",
+        copy: "Amanhã {abertura} abre. Prévia: {peça} a partir de {preço}, grade {grade}. Quem estiver no grupo às {abertura} pega primeiro.",
       },
       {
-        id: "abriu-dia-1", label: "Abriu · dia 1", at: { days: 0, time: "06:00" },
+        id: "abriu-dia-1", label: "Abriu · dia 1", at: { days: 0, time: "06:00" }, followsOpening: true,
         kind: "relampago", fields: CAMPOS_GRADE, mentionAll: true, wantsMedia: true,
         copy: "Abriu! Dia 1 do evento da {loja}: {peça} por {preço}, grade {grade}, {quantidade} peças. Manda *EU QUERO* que eu separo na ordem.",
       },
@@ -121,7 +128,7 @@ export const FUNNEL_TEMPLATES: readonly FunnelTemplate[] = [
         copy: "Meio-dia e o evento segue. O que saiu de manhã não volta; o que sobrou está por aqui.",
       },
       {
-        id: "abriu-dia-2", label: "Abriu · dia 2", at: { days: 1, time: "06:00" },
+        id: "abriu-dia-2", label: "Abriu · dia 2", at: { days: 1, time: "06:00" }, followsOpening: true,
         kind: "relampago", fields: CAMPOS_GRADE, mentionAll: true, wantsMedia: true,
         copy: "Dia 2! Nova grade da {loja}: {peça} por {preço}, grade {grade}, {quantidade} peças. Manda *EU QUERO*.",
       },
@@ -182,15 +189,15 @@ export const FUNNEL_TEMPLATES: readonly FunnelTemplate[] = [
       {
         id: "previa", label: "Prévia", at: { days: -3, time: "19:00" },
         kind: "midia", fields: ["peça", "preço", "grade"], mentionAll: false, wantsMedia: true,
-        copy: "Prévia da Black do atacado: {peça} vai sair por {preço}, grade {grade}. Na {dia} às 06:00.",
+        copy: "Prévia da Black do atacado: {peça} vai sair por {preço}, grade {grade}. Na {dia} às {abertura}.",
       },
       {
         id: "vespera", label: "Véspera", at: { days: -1, time: "19:00" },
         kind: "texto", fields: [], mentionAll: true, wantsMedia: false,
-        copy: "Amanhã 06:00. A grade sai aqui no grupo primeiro; quem mandar EU QUERO cedo pega.",
+        copy: "Amanhã {abertura}. A grade sai aqui no grupo primeiro; quem mandar EU QUERO cedo pega.",
       },
       {
-        id: "abriu", label: "Abriu", at: { days: 0, time: "06:00" },
+        id: "abriu", label: "Abriu", at: { days: 0, time: "06:00" }, followsOpening: true,
         kind: "relampago", fields: CAMPOS_GRADE, mentionAll: true, wantsMedia: true,
         copy: "Abriu a Black do atacado da {loja}! {peça} por {preço}, grade {grade}, {quantidade} peças. Manda *EU QUERO* que eu separo na ordem.",
       },

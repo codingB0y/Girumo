@@ -5,6 +5,7 @@ import { ArrowRight, Loader2 } from "lucide-react";
 import { PlanLimitAlert } from "@/components/painel/plan-limit-alert";
 import { useToast } from "@/components/toast";
 import { uploadMediaFile } from "@/lib/media-upload-client";
+import { PRACAS, isValidOpening, openingOf, type PracaId } from "@/lib/funnels/pracas";
 import { FUNNEL_TEMPLATES, type FunnelField, type FunnelTemplateId } from "@/lib/funnels/templates";
 import { cn } from "@/lib/utils";
 import { FunnelHero } from "./funnel-hero";
@@ -42,6 +43,28 @@ const MINUTO = 60_000;
 
 type Perfil = { loja: string; nicho: string };
 
+/** Praça lembrada neste navegador: é conveniência, não dado da loja. */
+const CHAVE_PRACA = "girumo:funil:praca";
+type PracaSalva = { praca: PracaId; hora: string };
+
+function lerPraca(): PracaSalva | null {
+  try {
+    const salvo = JSON.parse(window.localStorage.getItem(CHAVE_PRACA) ?? "null") as Partial<PracaSalva> | null;
+    if (!salvo || !PRACAS.some((p) => p.id === salvo.praca)) return null;
+    return { praca: salvo.praca as PracaId, hora: typeof salvo.hora === "string" ? salvo.hora : "" };
+  } catch {
+    return null;
+  }
+}
+
+function gravarPraca(v: PracaSalva) {
+  try {
+    window.localStorage.setItem(CHAVE_PRACA, JSON.stringify(v));
+  } catch {
+    // Navegador sem storage (aba anônima, bloqueio): a escolha vale só nesta tela.
+  }
+}
+
 /** Um funil por dia: run próprio, progresso próprio (ver `confirmDays`). */
 type DiaRun = { runId: string; progress: FunnelProgress; frozen: Readonly<Record<string, StepPlan>> };
 const RUN_VAZIO: DiaRun = { runId: "", progress: EMPTY_PROGRESS, frozen: {} };
@@ -69,6 +92,8 @@ export function FunnelTab(props: FunnelTabProps) {
   const [failure, setFailure] = useState<Falha | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [now, setNow] = useState(() => new Date());
+  const [praca, setPraca] = useState<PracaId>("bras");
+  const [horaOutra, setHoraOutra] = useState("07:00");
   // previewUrl vivos: revogados ao trocar/remover a foto e, no fim, ao desmontar.
   const blobs = useRef(new Set<string>());
 
@@ -102,6 +127,14 @@ export function FunnelTab(props: FunnelTabProps) {
     };
   }, []);
 
+  // Depois de montar: no servidor não há localStorage.
+  useEffect(() => {
+    const salvo = lerPraca();
+    if (!salvo) return;
+    setPraca(salvo.praca);
+    if (salvo.hora) setHoraOutra(salvo.hora);
+  }, []);
+
   // "Já passou" muda com o relógio, não só com a âncora.
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), MINUTO);
@@ -109,6 +142,10 @@ export function FunnelTab(props: FunnelTabProps) {
   }, []);
 
   const anchor = anchorFrom(anchorDate, anchorTime, template.anchorNeedsTime);
+  // Só roteiro com etapa presa à abertura pergunta a praça (a Live não tem).
+  const temAbertura = template.steps.some((s) => s.followsOpening);
+  const opening = openingOf(praca, horaOutra);
+  const aberturaOk = !temAbertura || isValidOpening(opening);
   const days = template.repeatable ? funnelDays(anchorDate, repeat) : [anchorDate];
   const varios = days.length > 1;
   const diaAtivo = activeDay !== null && days.includes(activeDay) ? activeDay : anchorDate;
@@ -123,7 +160,7 @@ export function FunnelTab(props: FunnelTabProps) {
     if (!a) return [];
     const r = runDe(day);
     // Etapa com mensagem no servidor volta congelada e sempre entra na retomada.
-    return applyProgress(planFunnel(template, draftsDe(day), { anchor: a, now: agora, loja, nicho, link: props.masterUrl }), r.progress, r.frozen);
+    return applyProgress(planFunnel(template, draftsDe(day), { anchor: a, now: agora, loja, nicho, link: props.masterUrl, opening }), r.progress, r.frozen);
   }
   const porDia = anchor ? days.map((day) => ({ day, plans: planosDoDia(day, now) })) : [];
   const plans = porDia.find((d) => d.day === diaAtivo)?.plans ?? [];
@@ -134,9 +171,11 @@ export function FunnelTab(props: FunnelTabProps) {
   const faltaNoDia = [...new Set(bloqueios.filter((x) => x.day === diaBloqueado).flatMap((x) => blockerLabels(x.p)))];
   const semGrupos = props.groupIds.length === 0;
   const podeAgendar =
-    anchor !== null && !semGrupos && uploading === null && pendentes.length > 0 && bloqueios.length === 0 && !confirming;
+    anchor !== null && aberturaOk && !semGrupos && uploading === null && pendentes.length > 0 && bloqueios.length === 0 && !confirming;
   const motivo = !anchor
     ? "Escolha a data."
+    : !aberturaOk
+      ? "A hora da abertura precisa ser até 11:00: o reforço sai ao meio-dia."
     : semGrupos
       ? "Esta campanha ainda não tem grupos."
       : uploading !== null
@@ -189,6 +228,18 @@ export function FunnelTab(props: FunnelTabProps) {
     setOpenStep(t.steps[0].id);
     setAnchorDate(defaultAnchorDate(t, new Date()));
     setFailure(null);
+  }
+
+  function escolherPraca(id: PracaId) {
+    if (started) return;
+    setPraca(id);
+    gravarPraca({ praca: id, hora: horaOutra });
+  }
+
+  function mudarHoraOutra(hora: string) {
+    if (started) return;
+    setHoraOutra(hora);
+    gravarPraca({ praca, hora });
   }
 
   function alternarDia(day: string) {
@@ -360,6 +411,44 @@ export function FunnelTab(props: FunnelTabProps) {
               <input value={nicho} maxLength={60} placeholder="moda infantil" disabled={started} onChange={(e) => setNicho(e.target.value)} className={INPUT_TOPO} />
             </Campo>
           </div>
+          {temAbertura && (
+            <div className="mt-4 space-y-2 border-t border-dashed border-line-200 pt-4">
+              <span id="funil-praca" className="font-data text-12 uppercase tracking-[0.08em] text-slate-600">
+                Sua praça
+              </span>
+              <div role="group" aria-labelledby="funil-praca" className="flex flex-wrap items-center gap-2">
+                {PRACAS.map((p) => {
+                  const ativa = p.id === praca;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      aria-pressed={ativa}
+                      disabled={started}
+                      onClick={() => escolherPraca(p.id)}
+                      className={cn(PILULA, ativa ? PILULA_ATIVA : PILULA_INATIVA, PILULA_TRAVADA)}
+                    >
+                      {p.label}
+                    </button>
+                  );
+                })}
+                {praca === "outra" && (
+                  <input
+                    type="time"
+                    aria-label="Hora da abertura"
+                    value={horaOutra}
+                    max="11:00"
+                    disabled={started}
+                    onChange={(e) => mudarHoraOutra(e.target.value)}
+                    className={cn(INPUT_TOPO, "w-36")}
+                  />
+                )}
+              </div>
+              <p className="text-12 text-slate-600">
+                A grade sai às {aberturaOk ? opening : "—"}. {PRACAS.find((p) => p.id === praca)?.nota}
+              </p>
+            </div>
+          )}
           {template.repeatable && (
             <div className="mt-4 space-y-2 border-t border-dashed border-line-200 pt-4">
               <span id="funil-repetir" className="font-data text-12 uppercase tracking-[0.08em] text-slate-600">

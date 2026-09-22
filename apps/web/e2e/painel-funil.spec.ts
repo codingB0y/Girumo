@@ -338,6 +338,45 @@ test("Grade do dia repetida: um funil por dia, dia seguinte herda e troca só a 
   expect(chamadas[5].body.broadcastId).toBe("00000000-0000-4000-8000-0000000f0004");
 });
 
+test("hora por praça: Bom Retiro manda a grade às 08:00; outro horário depois das 11:00 trava", async ({ page }) => {
+  const campanha = await campanhaComGrupos(page);
+  const { chamadas } = await simularServidor(page, campanha);
+  await page.goto(`/painel/campanhas/${campanha.slug}`, { waitUntil: "load" });
+  await page.getByRole("button", { name: "Mensagens", exact: true }).click();
+  const perfil = page.waitForResponse((r) => r.url().endsWith("/api/settings") && r.request().method() === "GET");
+  await page.getByRole("button", { name: SUBABA_FUNIL }).click();
+  await perfil;
+  await page.getByLabel("Dia da grade", { exact: true }).fill(daquiA(10));
+  await page.getByLabel("Sua loja", { exact: true }).fill("Loja E2E");
+  await page.getByLabel("Seu nicho", { exact: true }).fill("moda infantil");
+  const grade = page.getByRole("article", { name: "Grade de hoje" });
+  await grade.getByLabel("peça", { exact: true }).fill("body manga longa");
+  await grade.getByLabel("preço", { exact: true }).fill("R$ 29,90");
+  await grade.getByLabel("grade", { exact: true }).fill("1 ao 8");
+  await grade.getByLabel("quantidade", { exact: true }).fill("40");
+
+  const pracas = page.getByRole("group", { name: "Sua praça" });
+  await pracas.getByRole("button", { name: "Outro horário", exact: true }).click();
+  await page.getByLabel("Hora da abertura", { exact: true }).fill("12:00");
+  const agendar = page.getByRole("button", { name: BOTAO_AGENDAR });
+  await expect(agendar).toBeDisabled();
+  await expect(page.locator("#funil-motivo")).toContainText("até 11:00");
+
+  await pracas.getByRole("button", { name: "Bom Retiro", exact: true }).click();
+  await expect(grade).toContainText("08:00");
+  await expect(agendar).toBeEnabled();
+  await agendar.click();
+  await expect(page.getByText("Grade do dia · 3/3")).toBeVisible();
+
+  const horas = chamadas
+    .filter((c) => c.alvo === "mensagem")
+    .map((c) => {
+      const d = new Date(String(c.body.scheduledAt));
+      return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+    });
+  expect(horas).toEqual(["8:00", "8:12", "12:00"]);
+});
+
 test("comunidade não tem a sub-aba Funil", async ({ page }) => {
   const res = await page.request.get("/api/comunidades");
   expect(res.ok(), `GET /api/comunidades respondeu ${res.status()}`).toBeTruthy();
