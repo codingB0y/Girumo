@@ -55,6 +55,12 @@ const SCAN_INTERVAL_MS = 5 * 60_000;
 
 const PRUNE_INTERVAL_MS = 3_600_000; // poda o log de envios ~1×/hora
 
+// Manutenção (requeue de lease vencido, progresso de broadcast, agendamentos
+// vencidos) não precisa da cadência do poll: são 5 RPCs que, a cada 3s, viravam
+// ~100 mil requisições/dia e estouraram a cota de saída do Supabase (set/2026).
+// Custo: agendamento pode sair até 30s depois do horário.
+const HOUSEKEEPING_INTERVAL_MS = 30_000;
+
 /**
  * Cria as deps de envio se a Evolution estiver configurada; senão null (sender off).
  *
@@ -144,6 +150,7 @@ async function main(): Promise<void> {
 
   const sendDeps = buildSendDeps(env, supabase);
   let lastPruneAt = 0;
+  let lastHousekeepingAt = 0;
 
   const growDeps = buildGrowDeps(env, supabase);
   const bulkDeps = buildBulkDeps(env, supabase);
@@ -225,6 +232,8 @@ async function main(): Promise<void> {
 
       try {
         const now = Date.now();
+        if (now - lastHousekeepingAt < HOUSEKEEPING_INTERVAL_MS) return;
+        lastHousekeepingAt = now;
         const shouldPrune = now - lastPruneAt >= PRUNE_INTERVAL_MS;
         const summary2 = await runHousekeeping(supabase, { prune: shouldPrune });
         if (shouldPrune) lastPruneAt = now;

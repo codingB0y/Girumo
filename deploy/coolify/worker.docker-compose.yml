@@ -20,6 +20,9 @@ services:
       EVOLUTION_API_URL: ${EVOLUTION_API_URL:-http://evolution:8080}
       EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
       WORKER_SEND_BATCH_SIZE: ${WORKER_SEND_BATCH_SIZE:-10}
+      # Cada poll é 1 requisição ao Supabase mesmo com a fila vazia: 1s dava
+      # ~70 mil/dia só aqui. O gap anti-ban vive no claim, não neste intervalo.
+      WORKER_SEND_POLL_MS: ${WORKER_SEND_POLL_MS:-5000}
       # DRY-RUN por default: o loop de envio roda inteiro (claim sob anti-ban,
       # instância, mídia, record_send, complete) e loga o que enviaria, sem chamar
       # a Evolution. Só vire "true" depois de ler os logs `DRY-RUN: enviaria ...`
