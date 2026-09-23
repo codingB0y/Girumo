@@ -54,7 +54,9 @@ O dev server sobe sozinho (`reuseExistingServer`). Contra outro alvo:
 
 ## No CI
 
-Roda como o job `e2e` do workflow `Verify`, em todo PR e todo push para `main`.
+Roda como o job `e2e` do workflow `Verify`, **só em PR**. O push em `main` não
+repete: depois do squash o conteúdo é idêntico ao que acabou de passar no PR, e
+cada run é cobrado à parte (a cota de 2.000 min/mês acabou em 28/08/2026).
 Aponta para o Supabase de **dev**, com o mesmo `qa-user@girumo.test`.
 
 Duas diferenças em relação ao local:
@@ -125,9 +127,11 @@ quebraria os seis testes H1 de `seguranca-impersonation.spec.ts`.
 
 ## Fora do smoke de propósito
 
-- **Cadeia de automação** (gatilho → Evolution → WhatsApp): a automação
-  "Grupo lotou" está ligada e o grupo real está em 1022/1024. Disparar
-  `group_full` mandaria mensagem para 1024 clientes. Precisa de tenant isolado.
+- **Integração das stores** (`apps/web/src/lib/stores/*.integration.test.ts`):
+  só rodam com `E2E_TENANT_ID` definido, na máquina de alguém. Usam esse tenant
+  fixo com chaves fixas sob índice único — no banco de dev compartilhado, dois
+  PRs em paralelo se atropelam, e um run cancelado deixa oferta aberta que
+  reprova os seguintes. Entram no CI quando o fixture criar tenant com UUID novo.
 - **Entrega de e-mail**: depende de caixa externa e deixaria a suíte instável.
   Desde o #112 a entrega vira linha em `public.logs`, conferível por SQL.
 - **Entrega real de mensagem**: nenhum spec constrói `EvolutionSender`.
