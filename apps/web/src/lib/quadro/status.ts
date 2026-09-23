@@ -4,6 +4,7 @@ export const BOARD_STATUSES = [
   "no_ar_nao_verificado",
   "no_ar_verificado",
   "quebrado",
+  "finalizado",
 ] as const;
 
 export type BoardStatus = (typeof BOARD_STATUSES)[number];
@@ -36,6 +37,7 @@ export const STATUS_LABELS: Record<BoardStatus, string> = {
   no_ar_nao_verificado: "No ar, sem prova",
   no_ar_verificado: "Provado em produção",
   quebrado: "Quebrado",
+  finalizado: "Finalizado",
 };
 
 /** Uma linha sob o cabeçalho: o nome não precisa carregar a definição sozinho. */
@@ -45,7 +47,16 @@ export const STATUS_HINTS: Record<BoardStatus, string> = {
   no_ar_nao_verificado: "mergeado, ninguém olhou",
   no_ar_verificado: "alguém viu funcionando",
   quebrado: "está lá e está errado",
+  finalizado: "provado, sem pendência, não vence",
 };
+
+/**
+ * Status que só entram com prova nova em `ref`. Finalizado é o "Feito" que a D3 do spec
+ * recusava — só que aqui o banco cobra prova e blocker vazio, então ele não mente.
+ */
+export function requiresProof(status: BoardStatus): boolean {
+  return status === "no_ar_verificado" || status === "finalizado";
+}
 
 export const BOARD_AREAS = [
   "Grupos",

@@ -6,6 +6,7 @@ import {
   isBoardArea,
   isBoardPriority,
   isBoardStatus,
+  requiresProof,
   type BoardPriority,
   type BoardStatus,
 } from "@/lib/quadro/status";
@@ -65,9 +66,9 @@ export async function PATCH(req: NextRequest) {
     if (!body.note?.trim()) {
       return NextResponse.json({ error: "mover exige motivo" }, { status: 400 });
     }
-    if (body.status === "no_ar_verificado" && !body.ref?.trim()) {
+    if (requiresProof(body.status) && !body.ref?.trim()) {
       return NextResponse.json(
-        { error: "mover para verificado exige prova" },
+        { error: "mover para verificado/finalizado exige prova" },
         { status: 400 },
       );
     }
