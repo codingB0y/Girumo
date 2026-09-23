@@ -57,15 +57,6 @@ export type Schedule = {
   recurrence?: string;
 };
 
-/** Subconjunto de `/api/automations` que a Início usa. */
-export type Automation = {
-  id: string;
-  name: string;
-  trigger: string;
-  enabled: boolean;
-  lastRunAt?: string | null;
-};
-
 export type Session = {
   live?: boolean;
   phone?: string | null;
@@ -88,7 +79,6 @@ export type DashboardData = {
   orders: Order[];
   schedules: Schedule[];
   disparos: Disparo[];
-  automations: Automation[];
   session: Session;
   settings: TenantSettings;
   /**

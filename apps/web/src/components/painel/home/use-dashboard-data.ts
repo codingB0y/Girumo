@@ -12,11 +12,9 @@ import type {
   carregarLinks,
   carregarSessao,
 } from "@/lib/painel/inicio-carga";
-import type { listAutomations } from "@/lib/stores/automations";
 import type { listOrdersByTenant } from "@/lib/stores/orders";
 import type { getTenantSettings } from "@/lib/stores/tenant-settings";
 import type {
-  Automation,
   Campanha,
   DashboardData,
   Disparo,
@@ -26,19 +24,6 @@ import type {
   TenantSettings,
   TrackedLink,
 } from "./types";
-
-/** Forma crua de `/api/automations` — o store devolve snake_case. */
-type RawAutomation = {
-  id: string;
-  name: string;
-  trigger: string;
-  enabled: boolean;
-  last_run_at: string | null;
-};
-
-function toAutomation(a: RawAutomation): Automation {
-  return { id: a.id, name: a.name, trigger: a.trigger, enabled: a.enabled, lastRunAt: a.last_run_at };
-}
 
 /** Busca que separa "veio vazio" de "não deu pra buscar". */
 async function loadJson<T>(url: string): Promise<Parte<T>> {
@@ -56,12 +41,12 @@ function asArray<T>(result: Parte<unknown>): T[] {
 }
 
 /**
- * As dez partes de `/api/painel/inicio`. Cada uma diz se carregou: um array
+ * As nove partes de `/api/painel/inicio`. Cada uma diz se carregou: um array
  * vazio não distingue "sem nada" de "não deu pra buscar", e essa diferença é o
  * que separa a tela de erro do aviso de carga parcial.
  *
  * Os tipos saem das próprias funções de carga do servidor, e não de uma cópia
- * escrita à mão aqui: com dez partes numa resposta só, uma delas mudando de
+ * escrita à mão aqui: com nove partes numa resposta só, uma delas mudando de
  * forma lá passaria calada até aparecer torta na tela. Os `import type` são
  * apagados na compilação — nada de `server-only` entra no bundle do cliente.
  */
@@ -73,7 +58,6 @@ type Carga = {
   orders: Parte<Awaited<ReturnType<typeof listOrdersByTenant>>>;
   schedules: Parte<Awaited<ReturnType<typeof carregarAgendamentos>>>;
   disparos: Parte<Awaited<ReturnType<typeof carregarDisparos>>>;
-  automations: Parte<Awaited<ReturnType<typeof listAutomations>>>;
   session: Parte<Awaited<ReturnType<typeof carregarSessao>>>;
   settings: Parte<Awaited<ReturnType<typeof getTenantSettings>>>;
 };
@@ -108,8 +92,8 @@ export function useDashboardData(): DashboardDataHandle {
   const load = useCallback(async () => {
     setState({ status: "loading" });
 
-    // Uma chamada, não dez: a rota agregada resolve o tenant uma vez e roda os
-    // dez stores em paralelo no servidor. As dez rotas soltas continuam de pé
+    // Uma chamada, não nove: a rota agregada resolve o tenant uma vez e roda os
+    // nove stores em paralelo no servidor. As nove rotas soltas continuam de pé
     // para as outras telas, chamando a mesma função de carga que esta usa.
     const carga = await loadJson<Carga>("/api/painel/inicio");
     if (!carga.ok) {
@@ -124,7 +108,6 @@ export function useDashboardData(): DashboardDataHandle {
     const orders = parte(carga.data.orders);
     const schedules = parte(carga.data.schedules);
     const disparos = parte(carga.data.disparos);
-    const automations = parte(carga.data.automations);
     const session = parte(carga.data.session);
     const settings = parte(carga.data.settings);
 
@@ -144,8 +127,7 @@ export function useDashboardData(): DashboardDataHandle {
         !orders.ok ||
         !settings.ok ||
         !schedules.ok ||
-        !disparos.ok ||
-        !automations.ok,
+        !disparos.ok,
       data: {
         groups: asArray<Group>(groups),
         campanhas: asArray<Campanha>(campanhas),
@@ -154,7 +136,6 @@ export function useDashboardData(): DashboardDataHandle {
         orders: asArray<Order>(orders),
         schedules: asArray<Schedule>(schedules),
         disparos: asArray<Disparo>(disparos),
-        automations: asArray<RawAutomation>(automations).map(toAutomation),
         session: session.data ?? {},
         settingsOk: settings.ok,
         settings: {

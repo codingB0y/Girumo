@@ -13,7 +13,7 @@ export type PlaybookStepKey =
   | "first_campaign"
   | "share_link"
   | "first_broadcast"
-  | "welcome_automation"
+  | "first_funnel"
   | "leads_50"
   | "first_order"
   | "monthly_goal";
@@ -62,12 +62,12 @@ export const PLAYBOOK_STEPS: PlaybookStep[] = [
     ctaLabel: "Postar novidade",
   },
   {
-    key: "welcome_automation",
-    title: "Ativar boas-vindas de revendedor",
-    description: "Quem entra recebe as regras do balcão sozinho.",
+    key: "first_funnel",
+    title: "Montar o 1º funil",
+    description: "Automatize o roteiro de mensagens de um funil.",
     auto: true,
-    ctaHref: "/painel/automacoes",
-    ctaLabel: "Ativar boas-vindas",
+    ctaHref: "/painel/funis",
+    ctaLabel: "Montar funil",
   },
   {
     key: "leads_50",
