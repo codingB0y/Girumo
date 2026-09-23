@@ -174,7 +174,7 @@ jobs:
     timeout-minutes: 25
     # Ate 31/08/2026 este job era serializado num `concurrency` GLOBAL
     # (`e2e-supabase-dev`, `cancel-in-progress: false`), porque o teste da cadeia
-    # de automacao chama `claim_send_commands` e a fila era global, sem filtro de
+    # de automacao chamava `claim_send_commands` e a fila era global, sem filtro de
     # tenant: dois runs simultaneos se roubavam o comando e um reprovava sem ter
     # nada errado no codigo (PRs #143 e #144, em 24/08/2026).
     #
@@ -184,7 +184,8 @@ jobs:
     # sem ter rodado. Gate que nao roda e pior que gate ausente.
     #
     # A migracao 20260831160000 deu `p_tenant` opcional as duas RPCs de claim, o
-    # teste passa o tenant dele e a corrida deixou de existir. Agora o grupo e por
+    # teste passou a mandar o tenant dele e a corrida deixou de existir (o teste
+    # saiu em 23/09/2026 com o executor de Automacoes, #321). Agora o grupo e por
     # ref, como em `verify` e `drift`: PRs diferentes rodam em paralelo, e so o
     # run obsoleto do MESMO PR e cancelado.
     concurrency:
@@ -214,22 +215,6 @@ jobs:
 
       - if: steps.credenciais.outputs.tem == 'true'
         run: npm ci
-
-      # Cadeia de automacao (gatilho -> run -> comando -> claim) contra o banco
-      # de DEV. Roda antes do build de proposito: leva ~10s e o build leva
-      # minutos, entao a cadeia quebrada aparece rapido em vez de no fim.
-      #
-      # No job `verify` este mesmo teste roda sem SUPABASE_* e se auto-pula. So
-      # aqui ele tem credencial, e so aqui ele prova alguma coisa.
-      #
-      # Nao manda mensagem para ninguem: nenhum EvolutionSender e construido no
-      # arquivo, e os fixtures vivem num tenant com UUID novo a cada execucao.
-      - if: steps.credenciais.outputs.tem == 'true'
-        name: Integracao da cadeia de automacao (Supabase de dev)
-        run: npm --workspace apps/worker exec -- tsx --test src/cadeia-automacao.integration.test.ts
-        env:
-          SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
 
       - if: steps.credenciais.outputs.tem == 'true'
         run: npm --workspace apps/web exec -- playwright install --with-deps chromium
