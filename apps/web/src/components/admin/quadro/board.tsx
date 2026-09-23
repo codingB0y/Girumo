@@ -104,14 +104,14 @@ export function QuadroBoard({ initial }: QuadroBoardProps) {
       </div>
 
       <div className="flex flex-col gap-4 lg:flex-row">
-        <div className="flex min-w-0 flex-1 gap-3 overflow-x-auto pb-2">
+        <div className="grid min-w-0 flex-1 grid-cols-1 items-start gap-3 pb-2 sm:grid-cols-2 xl:grid-cols-3">
           {BOARD_STATUSES.map((status) => {
             const cards = groups[status];
             const hasLimit = status === "em_construcao";
             const wip = hasLimit ? wipState(cards.length, WIP_LIMIT_EM_CONSTRUCAO) : "ok";
 
             return (
-              <section key={status} className="flex w-64 shrink-0 flex-col gap-2">
+              <section key={status} className="flex min-w-0 flex-col gap-2">
                 <header className="px-1">
                   <div className="flex items-baseline justify-between gap-2">
                     <h2 className="font-data text-[11px] uppercase tracking-wider text-aco/70">
