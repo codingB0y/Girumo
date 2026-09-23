@@ -86,6 +86,24 @@ test("quem digita a rota com outra caixa vai para a pagina, nao para o login", (
   assert.equal(publicPageCaseAlias("/Automatico"), "/automatico");
 });
 
+test("quem digita a rota com acento tambem vai para a pagina", () => {
+  // O nextUrl.pathname chega codificado: "/automático" vira "/autom%C3%A1tico".
+  assert.equal(publicPageCaseAlias("/autom%C3%A1tico"), "/automatico");
+  assert.equal(publicPageCaseAlias("/Autom%C3%81tico"), "/automatico");
+  assert.equal(publicPageCaseAlias("/44eBr%C3%A1s"), "/44eBras");
+  // Acento decomposto (a + acento agudo combinante), como alguns teclados mandam.
+  assert.equal(publicPageCaseAlias("/automa%CC%81tico"), "/automatico");
+  // Se algum dia chegar já decodificado, funciona igual.
+  assert.equal(publicPageCaseAlias("/automático"), "/automatico");
+});
+
+test("porcentagem malformada nao derruba o middleware", () => {
+  // decodeURIComponent lança URIError com isso; o alias responde null e o gate segue.
+  assert.equal(publicPageCaseAlias("/%E0%A4%A"), null);
+  assert.equal(publicPageCaseAlias("/44eBras%"), null);
+  assert.equal(publicPageCaseAlias("/44eBras%2Fx"), null);
+});
+
 test("o alias nao redireciona a propria pagina nem rota que nao e publica", () => {
   // A grafia certa devolver null e o que impede o redirect em loop.
   for (const rota of ["/44eBras", "/automatico", "/", "/termos"]) {

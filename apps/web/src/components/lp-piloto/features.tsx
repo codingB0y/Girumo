@@ -139,7 +139,7 @@ export function PilotoRecursos() {
     <section aria-labelledby="piloto-recursos" className={cn("py-10 lg:py-24", FAIXA)}>
       <div className={cn(MIOLO, "flex flex-col gap-3.5 lg:gap-10")}>
         <h2 id="piloto-recursos" className={cn("text-[34px] lg:max-w-[900px] lg:text-[56px]", TITULO)}>
-          Tudo que você faz na mão, a Girumo faz sozinha.
+          O que você repete na mão, a Girumo faz sozinha.
         </h2>
 
         {/* Lado a lado só a partir de 1280: entre 1024 e 1279 a coluna da conversa ficaria com ~140 px. */}

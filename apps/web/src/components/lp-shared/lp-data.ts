@@ -1,7 +1,28 @@
-import { LP3_FAQ } from "@/components/lp3/landing-data";
+import { LP3_FAQ, PLANS } from "@/components/lp3/landing-data";
 
 /** As três landings que usam a base comum: `/` (cartaz), `/automatico` (piloto) e `/44eBras` (atacado). */
 export type LpVariant = "cartaz" | "piloto" | "atacado";
+
+/** Maior desconto do anual entre os planos — sai de PLANS, não é digitado. */
+export const MAX_OFF = Math.max(...PLANS.map((p) => Math.round((1 - p.annualPrice / p.price) * 100)));
+
+export const PERGUNTA_ANUAL = "Como funciona o plano anual?";
+
+/**
+ * A resposta do anual herdada do LP3_FAQ tem preço digitado ("R$ 197 em vez de
+ * R$ 297", "voltam R$ 1.473"). Aqui ela é refeita a partir de PLANS, com a mesma
+ * regra do reembolso: os meses usados passam a valer o preço mensal.
+ */
+function respostaAnual(): string {
+  const plano = PLANS.find((p) => p.featured) ?? PLANS[0];
+  const mesesUsados = 3;
+  const devolvido = plano.annualPrice * 12 - mesesUsados * plano.price;
+  return (
+    `Você paga 1x ao ano e o mês sai até ${MAX_OFF}% mais barato — no ${plano.name}, R$ ${plano.annualPrice} em vez de R$ ${plano.price}. ` +
+    "Se cancelar no meio do caminho, devolvemos os meses não usados: os meses que você usou passam a valer o preço mensal e o resto volta pra você. " +
+    `Cancelando o ${plano.name} anual depois de ${mesesUsados} meses, por exemplo, voltam R$ ${devolvido.toLocaleString("pt-BR")}.`
+  );
+}
 
 /**
  * FAQ das landings novas: o da home anterior (LP3_FAQ) com a pergunta do risco
@@ -14,9 +35,11 @@ export const LP_FAQ: ReadonlyArray<readonly [string, string]> = [
   ...LP3_FAQ.slice(0, 1),
   [
     "Meu número corre risco?",
-    "A Girumo só posta em grupo que você administra e nunca manda mensagem no privado — disparo em massa no privado é o que mais derruba número. Os envios seguem um ritmo seguro pra cada número, sem você configurar nada, e se o celular desconectar você recebe o aviso na hora.",
+    "A Girumo só posta em grupo que você administra e nunca manda mensagem no privado — disparo em massa no privado é o que mais derruba número. Os envios seguem um ritmo seguro pra cada número, sem você configurar nada, e se o celular desconectar você recebe um aviso por e-mail.",
   ],
-  ...LP3_FAQ.slice(1),
+  ...LP3_FAQ.slice(1).map(([pergunta, resposta]): readonly [string, string] =>
+    pergunta === PERGUNTA_ANUAL ? [pergunta, respostaAnual()] : [pergunta, resposta],
+  ),
 ];
 
 export interface LpFoto {

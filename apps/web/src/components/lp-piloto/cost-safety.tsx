@@ -17,7 +17,7 @@ const PROTECOES: ReadonlyArray<{ icone: LucideIcon; destaque: string; resto: str
     resto: "Nunca manda mensagem no privado, em nenhum plano.",
   },
   { icone: Clock, destaque: "Ritmo seguro pra cada número.", resto: "Você não precisa configurar intervalo." },
-  { icone: Bell, destaque: "Aviso na hora", resto: "se o celular desconectar." },
+  { icone: Bell, destaque: "Aviso por e-mail", resto: "se o celular desconectar." },
 ];
 
 /** Números de ilustração do quadro do painel — não são fatos da Mega Stock. */

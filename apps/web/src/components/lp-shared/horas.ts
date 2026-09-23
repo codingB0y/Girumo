@@ -8,6 +8,8 @@
 
 export const DIAS_NO_MES = 30;
 const MINUTOS_POR_HORA = 60;
+/** O dia tem 24 h: acima disso a conta perde o sentido e o número estoura o cartão. */
+const MINUTOS_NO_DIA = 24 * MINUTOS_POR_HORA;
 
 export interface TempoNaMao {
   minutosPorDia: number;
@@ -20,8 +22,8 @@ function naoNegativo(valor: number): number {
 }
 
 export function horasNaMao(grupos: number, minutos: number, posts: number): TempoNaMao {
-  // O produto também passa pelo filtro: entradas finitas enormes estouram em Infinity.
-  const minutosPorDia = naoNegativo(naoNegativo(grupos) * naoNegativo(minutos) * naoNegativo(posts));
+  // Entradas finitas enormes estouram em Infinity; o teto do dia segura as duas coisas.
+  const minutosPorDia = Math.min(MINUTOS_NO_DIA, naoNegativo(grupos) * naoNegativo(minutos) * naoNegativo(posts));
   return {
     minutosPorDia,
     horasPorDia: minutosPorDia / MINUTOS_POR_HORA,

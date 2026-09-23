@@ -49,9 +49,18 @@ export const PERGUNTA_SEGMENTO: LeadStep = {
   ],
 };
 
-/** Nome digitado sem espaço sobrando e sem virar parágrafo na conversa. */
+/**
+ * Nome digitado sem espaço sobrando e sem virar parágrafo na conversa. Corta
+ * em 60 caracteres de verdade (Array.from anda por code point): `.slice` conta
+ * unidades UTF-16 e partia um emoji ao meio.
+ */
 export function limpaNome(nome: string): string {
-  return nome.replace(/\s+/g, " ").trim().slice(0, 60);
+  return Array.from(nome.replace(/\s+/g, " ").trim()).slice(0, 60).join("").trimEnd();
+}
+
+/** Surrogate solto vira "�": com ele o encodeURIComponent lança URIError. */
+function semSurrogateSolto(texto: string): string {
+  return Array.from(texto, (c) => (c.length === 1 && c >= "\uD800" && c <= "\uDFFF" ? "�" : c)).join("");
 }
 
 export function buildLeadMessage(nome: string, phrases: readonly string[]): string {
@@ -77,5 +86,5 @@ export function withWhatsAppText(baseUrl: string, text: string): string {
   }
   url.searchParams.delete("text");
   const resto = url.searchParams.toString();
-  return `${url.origin}${url.pathname}?${resto ? `${resto}&` : ""}text=${encodeURIComponent(text)}`;
+  return `${url.origin}${url.pathname}?${resto ? `${resto}&` : ""}text=${encodeURIComponent(semSurrogateSolto(text))}`;
 }

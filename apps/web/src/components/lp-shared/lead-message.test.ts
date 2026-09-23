@@ -34,6 +34,20 @@ test("o nome digitado nao vira paragrafo nem texto gigante", () => {
   assert.equal(limpaNome("x".repeat(200)).length, 60);
 });
 
+test("emoji no limite do nome nao vira meio emoji nem derruba o link", () => {
+  // 59 letras + 1 emoji (2 unidades UTF-16): cortar por unidade deixava meio emoji,
+  // e o encodeURIComponent lançava URIError no render do formulário.
+  const nome = limpaNome(`${"a".repeat(59)}😀 resto`);
+  assert.equal(nome, `${"a".repeat(59)}😀`);
+  const url = withWhatsAppText("https://wa.me/5562998191314", buildLeadMessage(`${"b".repeat(59)}😀`, []));
+  assert.match(url, /text=Ol%C3%A1!%20Sou%20b+%F0%9F%98%80\./);
+});
+
+test("texto com surrogate solto vira caractere de troca em vez de lancar", () => {
+  const url = withWhatsAppText("https://wa.me/5562998191314", "Olá \uD83D");
+  assert.equal(url, "https://wa.me/5562998191314?text=Ol%C3%A1%20%EF%BF%BD");
+});
+
 test("troca so o texto do link e codifica espaco como %20", () => {
   const url = withWhatsAppText("https://wa.me/5562998191314?text=Ol%C3%A1!", "Olá! Sou Ana.");
   assert.equal(url, "https://wa.me/5562998191314?text=Ol%C3%A1!%20Sou%20Ana.");

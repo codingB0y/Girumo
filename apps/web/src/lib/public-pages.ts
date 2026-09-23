@@ -47,12 +47,28 @@ export function isPublicPage(pathname: string): boolean {
 }
 
 /**
- * Grafia certa de uma página pública digitada com outra caixa, ou `null`.
+ * "/Autom%C3%A1tico" → "/automatico": decodifica, tira acento e caixa. `null`
+ * quando a %-sequência é inválida — decodeURIComponent lançaria no middleware.
+ */
+function semCaixaNemAcento(caminho: string): string | null {
+  let decodificado: string;
+  try {
+    decodificado = decodeURIComponent(caminho);
+  } catch {
+    return null;
+  }
+  return decodificado.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+
+/**
+ * Grafia certa de uma página pública digitada com outra caixa ou com acento,
+ * ou `null`.
  *
  * O caso que motivou: `/44eBras` tem maiúscula no meio, e quem digita tudo
  * minúsculo (`/44ebras`) não casa com `isPublicPage` — que é exato de propósito
- * — e cairia no 307 para o login. O middleware usa este retorno para um 308 até
- * a grafia certa, antes do gate.
+ * — e cairia no 307 para o login. Com acento (`/automático`, `/44eBrás`) é o
+ * mesmo problema. O middleware usa este retorno para um 308 até a grafia certa,
+ * antes do gate.
  *
  * Por que no middleware e NÃO em `redirects()` do next.config: os redirects do
  * Next casam o `source` SEM diferenciar maiúscula (path-to-regexp com
@@ -66,8 +82,9 @@ export function isPublicPage(pathname: string): boolean {
  */
 export function publicPageCaseAlias(pathname: string): string | null {
   if (isPublicPage(pathname)) return null;
-  const digitado = pathname.toLowerCase();
-  return PUBLIC_PAGES.find((pagina) => pagina.toLowerCase() === digitado) ?? null;
+  const digitado = semCaixaNemAcento(pathname);
+  if (digitado === null) return null;
+  return PUBLIC_PAGES.find((pagina) => semCaixaNemAcento(pagina) === digitado) ?? null;
 }
 
 /**

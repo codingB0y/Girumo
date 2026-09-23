@@ -5,13 +5,10 @@ import { Check } from "lucide-react";
 import { WhatsAppIcon } from "@/components/landing/icons";
 import { PLANS, WHATSAPP_URL, type Plan } from "@/components/lp3/landing-data";
 import { withWhatsAppText } from "@/components/lp-shared/lead-message";
-import type { LpVariant } from "@/components/lp-shared/lp-data";
+import { MAX_OFF, type LpVariant } from "@/components/lp-shared/lp-data";
 import { cn } from "@/lib/utils";
 
 type Ciclo = "mensal" | "anual";
-
-/** Maior desconto do anual entre os planos — sai de PLANS, não é digitado. */
-const MAX_OFF = Math.max(...PLANS.map((p) => Math.round((1 - p.annualPrice / p.price) * 100)));
 
 /**
  * No celular os cartões empilham com o recomendado primeiro; no desktop voltam
@@ -48,6 +45,8 @@ interface EstiloPlanos {
   cta: string;
   ctaLivre: string;
   ctaDestaque: string;
+  /** Cor do anel de foco no botão do recomendado, quando o volt do FOCO some no fundo do cartão. */
+  focoDestaque: string;
   /** Ícone do WhatsApp no botão do recomendado (cartaz e atacado, como nos mockups). */
   ctaComIcone: boolean;
   /** Linha compacta de Essencial e Operação no celular. */
@@ -68,8 +67,9 @@ const ESTILO: Record<LpVariant, EstiloPlanos> = {
   cartaz: {
     seletor:
       "grid grid-cols-2 overflow-hidden rounded-[10px] border-[1.5px] border-volt-950 bg-paper-0 text-[15px] font-bold text-volt-950 lg:inline-flex lg:text-base",
-    opcao: "min-h-11 px-2 hover:bg-[#F2FFE0] lg:px-5",
-    opcaoAtiva: "bg-volt-950 text-paper-0 hover:bg-volt-950",
+    // Anel por dentro do botão: o seletor tem overflow-hidden e cortaria o anel de fora.
+    opcao: "min-h-11 px-2 hover:bg-[#F2FFE0] focus-visible:outline-offset-[-4px] lg:px-5",
+    opcaoAtiva: "bg-volt-950 text-paper-0 hover:bg-volt-950 focus-visible:outline-paper-0",
     grade: "gap-3.5 lg:gap-5",
     cartao: "gap-3.5 rounded-[14px] border-[1.5px] border-volt-950 bg-white p-[22px] text-volt-950 lg:gap-4 lg:p-[30px]",
     cartaoDestaque: "bg-acid-500",
@@ -89,6 +89,7 @@ const ESTILO: Record<LpVariant, EstiloPlanos> = {
     cta: "mt-auto inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-[10px] px-4 text-center text-lg font-extrabold uppercase tracking-[.015em] [font-stretch:75%] transition-colors lg:min-h-[60px] xl:px-7 xl:text-[21px]",
     ctaLivre: "text-volt-950 shadow-[inset_0_0_0_2px_#071923] hover:bg-volt-950 hover:text-paper-0",
     ctaDestaque: "bg-volt-950 text-paper-0 hover:bg-volt-800",
+    focoDestaque: "",
     ctaComIcone: true,
     compacta: "rounded-[14px] border-[1.5px] border-volt-950 bg-white px-[18px] py-4 text-volt-950",
     compactaNome: "font-[family-name:var(--font-cartaz)] text-[26px] font-black leading-[.9] [font-stretch:68%]",
@@ -119,6 +120,8 @@ const ESTILO: Record<LpVariant, EstiloPlanos> = {
     cta: PILULA,
     ctaLivre: PILULA_CLARA,
     ctaDestaque: "border-acid-500 bg-acid-500 text-volt-950 hover:bg-[#C4FF74]",
+    // O recomendado do piloto é volt-950: anel volt ali não aparece.
+    focoDestaque: "focus-visible:outline-acid-500",
     ctaComIcone: false,
     compacta:
       "rounded-[20px] border border-line-200 bg-white px-[18px] py-4 text-volt-950 shadow-[0_1px_2px_rgba(7,25,35,.06),0_12px_32px_rgba(7,25,35,.08)]",
@@ -151,6 +154,7 @@ const ESTILO: Record<LpVariant, EstiloPlanos> = {
     cta: PILULA,
     ctaLivre: PILULA_CLARA,
     ctaDestaque: "border-volt-950 bg-volt-950 text-paper-0 hover:bg-volt-800",
+    focoDestaque: "",
     ctaComIcone: true,
     compacta: "rounded-2xl border-2 border-volt-950 bg-white px-4 py-3.5 text-volt-950",
     compactaNome: "text-[17px] font-bold",
@@ -243,7 +247,7 @@ function Cartao({ plano, ciclo, variant }: CartaoProps) {
       <a
         href={linkDoPlano(plano, ciclo)}
         data-outbound="whatsapp_click"
-        className={cn(e.cta, destaque ? e.ctaDestaque : e.ctaLivre, FOCO)}
+        className={cn(e.cta, destaque ? e.ctaDestaque : e.ctaLivre, FOCO, destaque && e.focoDestaque)}
       >
         {destaque && e.ctaComIcone && <WhatsAppIcon className="size-5 shrink-0 text-acid-500 lg:size-[22px]" />}
         Quero {ARTIGO[plano.name] ?? "o"} {plano.name}
@@ -259,6 +263,7 @@ function Cartao({ plano, ciclo, variant }: CartaoProps) {
  */
 function LinhaCompacta({ plano, ciclo, variant }: CartaoProps) {
   const e = ESTILO[variant];
+  const anual = ciclo === "anual";
 
   return (
     <a
@@ -270,9 +275,17 @@ function LinhaCompacta({ plano, ciclo, variant }: CartaoProps) {
         <span className={cn("block", e.compactaNome)}>{plano.name}</span>
         <span className={cn("block", e.compactaResumo)}>{plano.short}</span>
       </span>
-      <span className={cn("shrink-0 whitespace-nowrap tabular-nums", e.compactaPreco)}>
-        R$ {ciclo === "anual" ? plano.annualPrice : plano.price}
-        <span className={e.compactaMes}>/mês</span>
+      <span className="shrink-0 text-right">
+        <span className={cn("block whitespace-nowrap tabular-nums", e.compactaPreco)}>
+          R$ {anual ? plano.annualPrice : plano.price}
+          <span className={e.compactaMes}>/mês</span>
+        </span>
+        {/* No anual o total sai de uma vez: a linha diz quanto, como o cartão inteiro diz. */}
+        {anual && (
+          <span className="mt-1 block whitespace-nowrap text-xs tabular-nums text-slate-600">
+            R$ {brl(plano.annualPrice * 12)} 1x ao ano
+          </span>
+        )}
       </span>
     </a>
   );
@@ -309,7 +322,8 @@ export function PlanCards({ variant, header, className }: PlanCardsProps) {
               type="button"
               aria-pressed={ciclo === opcao}
               onClick={() => setCiclo(opcao)}
-              className={cn("transition-colors", e.opcao, ciclo === opcao && e.opcaoAtiva, FOCO)}
+              // FOCO antes das classes da variante: elas podem trocar a cor e o recuo do anel.
+              className={cn("transition-colors", FOCO, e.opcao, ciclo === opcao && e.opcaoAtiva)}
             >
               {opcao === "mensal" ? "Mensal" : `Anual · até ${MAX_OFF}% off`}
             </button>

@@ -162,8 +162,9 @@ const SEGURANCA: ReadonlyArray<{ celular: string; desktop: string }> = [
     desktop: "Posta num ritmo seguro, grupo por grupo, sem você configurar intervalo nenhum.",
   },
   {
-    celular: "Celular desconectou? Você recebe o aviso na hora.",
-    desktop: "Se o celular desconectar, você recebe o aviso na hora e sabe o que fazer.",
+    // "por e-mail", como no PLANS: o aviso sai pela checagem periódica, não no mesmo segundo.
+    celular: "Celular desconectou? Você recebe um aviso por e-mail.",
+    desktop: "Se o celular desconectar, você recebe um aviso por e-mail e sabe o que fazer.",
   },
 ];
 

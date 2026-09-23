@@ -69,7 +69,8 @@ export function CartazHero() {
           <span className="-ml-2 bg-acid-500 px-2 lg:-ml-3 lg:px-3">Pedido chegando.</span>
         </h1>
         <p className="leading-normal lg:max-w-[590px] lg:text-[19px]">
-          A Girumo enche seus grupos de revendedores, posta as novidades em todos de uma vez e mostra de{" "}
+          {/* "grupos de WhatsApp" aqui, na 1ª tela: o h1 não tem a palavra-chave, e a etiqueta que tem só aparece no desktop. */}
+          A Girumo enche seus grupos de WhatsApp, posta as novidades em todos de uma vez e mostra de{" "}
           <ViewportText mobile="onde" desktop="qual grupo" /> veio cada pedido.
           <span className="hidden lg:inline">
             {" "}
@@ -155,7 +156,8 @@ function HeroCollage() {
 
 function HeroChat() {
   return (
-    <ChatFrame title="Mega Stock Atacado #109" subtitle="578 participantes" avatar="MS" className="h-[440px] w-[290px]">
+    // #51: os grupos reais do print vão até o 51 ("50+ grupos"); um número acima disso contradiria a página.
+    <ChatFrame title="Mega Stock Atacado #51" subtitle="578 participantes" avatar="MS" className="h-[440px] w-[290px]">
       <Bubble me time="07:00" read>
         <span className="relative mb-1.5 block h-24 overflow-hidden rounded-md">
           <Image

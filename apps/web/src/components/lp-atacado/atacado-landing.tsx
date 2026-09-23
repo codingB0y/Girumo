@@ -50,7 +50,8 @@ function Topo() {
 
 function Rodape() {
   const link = cn(
-    "inline-flex min-h-11 items-center text-paper-0 underline underline-offset-4 hover:text-acid-500",
+    // min-w-11: "Entrar" em 13 px tem ~38 px de largura; o alvo de toque é 44.
+    "inline-flex min-h-11 min-w-11 items-center justify-center text-paper-0 underline underline-offset-4 hover:text-acid-500",
     FOCO_ESCURO,
   );
   return (
@@ -67,7 +68,7 @@ function Rodape() {
           <a href="/privacidade" className={link}>
             Privacidade
           </a>
-          <span>© 2026 Girumo</span>
+          <span>© {new Date().getFullYear()} Girumo</span>
         </nav>
       </div>
     </footer>

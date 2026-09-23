@@ -17,11 +17,7 @@ import { cn } from "@/lib/utils";
 
 const TAMANHO_ETIQUETA = "px-3 py-1.5 text-xs lg:px-4 lg:py-2 lg:text-[15px]";
 
-/**
- * Letra das bolhas do celular do herói: 12,5 px no celular (como o mockup) e
- * o padrão de 13,5 px no desktop. O leading vai junto porque, sem ele, o cn()
- * da Bubble descarta o leading dela ao receber outro tamanho.
- */
+/** Letra das bolhas do celular do herói: 12,5 px no celular (como o mockup) e o padrão de 13,5 px no desktop. */
 const BOLHA = "text-[12.5px] lg:text-[13.5px]";
 
 /** Fotos do post de lançamento, cada uma com o seu recorte. O 4º quadrado é o "+14". */

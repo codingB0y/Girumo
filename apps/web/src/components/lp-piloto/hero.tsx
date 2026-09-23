@@ -86,7 +86,6 @@ export function PilotoHero() {
                   src={FOTOS.filaFachada.src}
                   alt=""
                   fill
-                  priority
                   sizes="44px"
                   className="object-cover object-[50%_78%]"
                 />

@@ -226,9 +226,15 @@ export function LeadWizard({ variant, steps, title, subtitle, className }: LeadW
                     key={opcao.label}
                     type="button"
                     aria-pressed={escolhida}
-                    onClick={() => escolher(indice)}
+                    // detail > 1 = 2º clique de um duplo: a opção nova já está no mesmo lugar
+                    // e responderia a pergunta seguinte sozinha. Pelo teclado detail é 0.
+                    onClick={(evento) => {
+                      if (evento.detail > 1) return;
+                      escolher(indice);
+                    }}
                     className={cn(
-                      "flex items-center justify-center gap-2.5 border-[1.5px] px-3 text-center font-bold leading-tight text-volt-950 transition-colors lg:px-3.5",
+                      // [line-height:…] e não leading-tight: o text-[…] de e.opcao apagaria o leading no cn.
+                      "flex items-center justify-center gap-2.5 border-[1.5px] px-3 text-center font-bold [line-height:1.25] text-volt-950 transition-colors lg:px-3.5",
                       e.opcao,
                       escolhida ? e.opcaoEscolhida : e.opcaoLivre,
                       comPino && "lg:justify-start lg:text-left",
@@ -288,7 +294,7 @@ export function LeadWizard({ variant, steps, title, subtitle, className }: LeadW
               className="h-14 w-full rounded-xl border-[1.5px] border-[#7C8A86] bg-white px-4 text-[17px] font-medium text-volt-950 focus:border-volt-950 focus:outline-2 focus:outline-offset-1 focus:outline-volt-950"
             />
             {faltaNome && (
-              <p id={erroId} className="text-sm font-semibold text-danger-700">
+              <p id={erroId} role="alert" className="text-sm font-semibold text-danger-700">
                 Escreva o seu nome pra gente saber com quem fala.
               </p>
             )}

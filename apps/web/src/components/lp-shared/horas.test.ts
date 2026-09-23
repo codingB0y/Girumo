@@ -38,6 +38,13 @@ test("numero grande sai com separador de milhar", () => {
   assert.equal(formatHoras(1200), "1.200 horas");
 });
 
+test("a conta para em 24 horas por dia, mesmo com numero absurdo", () => {
+  // 99999 nos três campos dava "16.666.500.005.000 horas" e estourava o cartão no celular.
+  assert.deepEqual(horasNaMao(99999, 99999, 99999), { minutosPorDia: 1440, horasPorDia: 24, horasPorMes: 720 });
+  // Produto que estoura em Infinity também para no teto, em vez de virar 0.
+  assert.equal(horasNaMao(1e200, 1e200, 1).horasPorDia, 24);
+});
+
 test("campo vazio, negativo ou lixo vira 0 em vez de tempo negativo ou NaN", () => {
   for (const invalido of [-5, Number.NaN, Number.POSITIVE_INFINITY, Number("")]) {
     assert.equal(horasNaMao(invalido, 2, 2).minutosPorDia, 0, String(invalido));

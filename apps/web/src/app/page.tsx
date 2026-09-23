@@ -33,10 +33,10 @@ const JSON_LD_SOFTWARE = {
   offers: {
     "@type": "AggregateOffer",
     priceCurrency: "BRL",
-    // "197" hoje. O preço EXIBIDO na página é o mensal (o seletor dos planos abre
-    // em Mensal; o anual de R$ 127 só aparece se a pessoa trocar). A faixa do
-    // dado estruturado acompanha o que a pessoa vê — senão o snippet do Google
-    // promete um preço que a página não mostra. Sai de PLANS para não divergir.
+    // "197" hoje. O preço EM DESTAQUE na página é o mensal (o seletor dos planos
+    // abre em Mensal; o anual aparece só na linha menor, "ou R$ 127/mês no plano
+    // anual"). A faixa do dado estruturado acompanha o destaque — senão o snippet
+    // do Google promete um preço que a página não destaca. Sai de PLANS.
     lowPrice: String(Math.min(...MENSAIS)),
     highPrice: String(Math.max(...MENSAIS)),
     // Essencial, Growth e Operação. Sem este campo o AggregateOffer fica
