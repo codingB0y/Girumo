@@ -123,8 +123,11 @@ export const ROTAS_DO_PAINEL = coletarRotas("painel");
  */
 export const ROTAS_DO_ADMIN = coletarRotas("admin");
 
-/** Publicas: tem que responder sem sessao nenhuma. */
-export const ROTAS_PUBLICAS = ["/", "/login", "/signup"];
+/**
+ * Publicas: tem que responder sem sessao nenhuma. `/automatico` e `/44eBras`
+ * sao as landings de anuncio e `/lp3` e a home anterior, guardada em 23/09/2026.
+ */
+export const ROTAS_PUBLICAS = ["/", "/login", "/signup", "/lp3", "/automatico", "/44eBras"];
 
 /**
  * Padroes dinamicos sob /painel — cobertos com fixture e sessao real.

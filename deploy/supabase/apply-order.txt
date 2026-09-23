@@ -395,6 +395,14 @@ apps/web/supabase/migrations/20260919120000_funnel_dispatch.sql
 # grupos). Oferta criada a mao nao e tocada. Aplicado nos dois bancos.
 apps/web/supabase/migrations/20260922230000_funnel_offer_supersedes.sql
 
+# 2026-09-23 - Remove a feature de indicacao/referral (programa de indicadoras),
+# considerada desnecessaria: dropa referrals e referral_configs. Indices e RLS
+# policies somem em cascata com o DROP TABLE. Aplicado nos dois bancos.
+apps/web/supabase/migrations/20260923130000_drop_referrals.sql
+
 # 2026-09-23 - biblioteca: copy com foto/video anexado (media_id/media_type/media_name
 # em templates). Aplicado nos dois bancos.
 apps/web/supabase/migrations/20260923120000_templates_media.sql
+# 2026-09-23 - quadro: coluna finalizado (prova + sem blocker, nao vence) e move_card
+# cobrando prova para ela. Aplicado nos dois bancos.
+apps/web/supabase/migrations/20260923140000_board_finalizado.sql

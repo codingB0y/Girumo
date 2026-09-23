@@ -9,7 +9,6 @@ import {
   carregarSessao,
 } from "@/lib/painel/inicio-carga";
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
-import { listAutomations } from "@/lib/stores/automations";
 import { listOrdersByTenant } from "@/lib/stores/orders";
 import { getTenantSettings } from "@/lib/stores/tenant-settings";
 
@@ -19,21 +18,21 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/painel/inicio — a carga inteira da tela Início numa resposta só.
  *
- * A Início dependia de dez chamadas, e o navegador as fazia em fila. Cada uma
+ * A Início dependia de nove chamadas, e o navegador as fazia em fila. Cada uma
  * resolvia o tenant por conta própria, e resolver tenant não é barato: são três
- * idas ao Supabase (usuário, revogação da sessão, membership). Dez rotas = trinta
- * idas só para descobrir de quem é a tela, antes de qualquer dado.
+ * idas ao Supabase (usuário, revogação da sessão, membership). Nove rotas = vinte
+ * e sete idas só para descobrir de quem é a tela, antes de qualquer dado.
  *
- * Aqui o tenant é resolvido UMA vez e os dez stores rodam em paralelo do lado do
+ * Aqui o tenant é resolvido UMA vez e os nove stores rodam em paralelo do lado do
  * servidor, onde a latência até o banco é baixa e o limite de conexões do
  * navegador não existe.
  *
- * As dez rotas soltas continuam de pé: outras telas as consomem, e cada uma
+ * As nove rotas soltas continuam de pé: outras telas as consomem, e cada uma
  * chama exatamente a mesma função de carga que esta rota chama.
  *
  * Cada parte carrega seu próprio `ok` porque uma parte que falha não pode
  * derrubar a tela — é a distinção entre "não deu pra carregar" e "carregou com
- * um pedaço faltando" que a Início já fazia com dez `fetch` separados.
+ * um pedaço faltando" que a Início já fazia com nove `fetch` separados.
  */
 export async function GET(req: Request) {
   let tenantId: string;
@@ -52,7 +51,6 @@ export async function GET(req: Request) {
     orders: () => listOrdersByTenant(tenantId),
     schedules: () => carregarAgendamentos(tenantId),
     disparos: () => carregarDisparos(tenantId),
-    automations: () => listAutomations(tenantId),
     session: () => carregarSessao(tenantId),
     settings: () => getTenantSettings(tenantId),
   });

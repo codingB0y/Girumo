@@ -16,7 +16,7 @@ import {
 
 const APP_DIR = path.join(process.cwd(), "src", "app");
 
-/** `/painel/automacoes` → `src/app/painel/automacoes/page.tsx` */
+/** `/painel/funis` → `src/app/painel/funis/page.tsx` */
 function routeFileFor(href: string): string {
   return path.join(APP_DIR, ...href.split("/").filter(Boolean), "page.tsx");
 }
@@ -31,11 +31,10 @@ test("every navigation destination is a route that exists", () => {
   }
 });
 
-test("keeps Automações and Indicação reachable", () => {
-  // Os dois módulos existiam sem nenhum link em toda a aplicação.
+test("Funis entrou no lugar de Automações", () => {
   const hrefs = NAV_ALL.map((i) => i.href);
-  assert.ok(hrefs.includes("/painel/automacoes"));
-  assert.ok(hrefs.includes("/painel/indicacao"));
+  assert.ok(hrefs.includes("/painel/funis"));
+  assert.ok(!hrefs.includes("/painel/automacoes"));
 });
 
 test("exposes Disparos — sem item de menu, a única porta pro envio era achar a aba dentro de uma campanha", () => {
@@ -105,14 +104,14 @@ test("resumo com dados mostra o estado de cada módulo", () => {
     campanhas: 3,
     ultimoDisparo: ultimo,
     relampagoAoVivo: true,
-    automacoes: { ligadas: 0, total: 3 },
+    funisAgendados: 2,
     paginasNoAr: 2,
   });
   assert.deepEqual(linhas, {
     "/painel/campanhas": "Campanhas · 3",
     "/painel/disparos": "Disparos · último 02/09 12:12",
     "/painel/relampago": "Oferta Relâmpago · ao vivo",
-    "/painel/automacoes": "Automações · 0 de 3 ligadas",
+    "/painel/funis": "Funis · 2 agendados",
     "/painel/pages": "Páginas · 2 no ar",
   });
 });
@@ -122,13 +121,13 @@ test("resumo vazio diz que não há nada, nunca zero", () => {
     campanhas: 0,
     ultimoDisparo: null,
     relampagoAoVivo: false,
-    automacoes: { ligadas: 0, total: 0 },
+    funisAgendados: 0,
     paginasNoAr: 0,
   });
   assert.equal(linhas["/painel/campanhas"], "Campanhas · nenhuma");
   assert.equal(linhas["/painel/disparos"], "Disparos · nenhum ainda");
   assert.equal(linhas["/painel/relampago"], "Oferta Relâmpago · nenhuma aberta");
-  assert.equal(linhas["/painel/automacoes"], "Automações · nenhuma");
+  assert.equal(linhas["/painel/funis"], "Funis · nenhum agendado");
   assert.equal(linhas["/painel/pages"], "Páginas · nenhuma no ar");
   assert.ok(!Object.values(linhas).some((l) => /\b0\b/.test(l)));
 });

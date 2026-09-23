@@ -6,6 +6,7 @@ import {
   BOARD_STATUSES,
   STATUS_LABELS,
   isVerificationStale,
+  requiresProof,
   type BoardFeature,
   type BoardPriority,
   type BoardStatus,
@@ -41,7 +42,7 @@ export function QuadroCard({ feature, nowMs, onChanged }: QuadroCardProps) {
   const [editBlocker, setEditBlocker] = useState(feature.blocker ?? "");
   const [editPriority, setEditPriority] = useState<BoardPriority>(feature.priority);
 
-  const proofRequired = target === "no_ar_verificado";
+  const proofRequired = target !== null && requiresProof(target);
 
   function handleCancel() {
     setTarget(null);
@@ -108,7 +109,7 @@ export function QuadroCard({ feature, nowMs, onChanged }: QuadroCardProps) {
       return;
     }
     if (proofRequired && !ref.trim()) {
-      setError("Verificado exige prova (PR, query, arquivo).");
+      setError("Verificado/finalizado exige prova (PR, query, arquivo).");
       return;
     }
 
@@ -170,6 +171,13 @@ export function QuadroCard({ feature, nowMs, onChanged }: QuadroCardProps) {
         >
           {stale ? "⚠ verificação vencida · " : "verificado "}
           há {daysSince(feature.evidenceAt, nowMs)} dias
+          {feature.evidence ? ` · ${feature.evidence}` : ""}
+        </p>
+      ) : null}
+
+      {feature.status === "finalizado" && feature.evidenceAt ? (
+        <p className="font-data mt-2 text-[10px] uppercase tracking-wider text-aco/45">
+          finalizado há {daysSince(feature.evidenceAt, nowMs)} dias
           {feature.evidence ? ` · ${feature.evidence}` : ""}
         </p>
       ) : null}

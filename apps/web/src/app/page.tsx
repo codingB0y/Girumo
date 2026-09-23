@@ -1,4 +1,6 @@
-import { Lp3Landing, LP3_FAQ } from "@/components/lp3/landing";
+import { CartazLanding } from "@/components/lp-cartaz/cartaz-landing";
+import { LP_FAQ } from "@/components/lp-shared/lp-data";
+import { PLANS } from "@/components/lp3/landing-data";
 import { BRAND, getBrandAssetUrl, getPublicSiteUrl } from "@/lib/brand";
 
 /* ============================== SEO ============================== */
@@ -11,12 +13,14 @@ const OG_DESC = BRAND.description;
 const JSON_LD_FAQ = {
   "@context": "https://schema.org",
   "@type": "FAQPage",
-  mainEntity: LP3_FAQ.map(([q, a]) => ({
+  mainEntity: LP_FAQ.map(([q, a]) => ({
     "@type": "Question",
     name: q,
     acceptedAnswer: { "@type": "Answer", text: a },
   })),
 };
+
+const MENSAIS = PLANS.map((p) => p.price);
 
 const JSON_LD_SOFTWARE = {
   "@context": "https://schema.org",
@@ -29,12 +33,16 @@ const JSON_LD_SOFTWARE = {
   offers: {
     "@type": "AggregateOffer",
     priceCurrency: "BRL",
-    lowPrice: "127",
-    highPrice: "497",
-    // Essencial, Growth e Operação (ver PLANS em lp3/landing-data.ts). Sem este
-    // campo o AggregateOffer fica incompleto e o Google costuma descartar o
-    // bloco inteiro em vez de exibir a faixa de preço.
-    offerCount: "3",
+    // "197" hoje. O preço EM DESTAQUE na página é o mensal (o seletor dos planos
+    // abre em Mensal; o anual aparece só na linha menor, "ou R$ 127/mês no plano
+    // anual"). A faixa do dado estruturado acompanha o destaque — senão o snippet
+    // do Google promete um preço que a página não destaca. Sai de PLANS.
+    lowPrice: String(Math.min(...MENSAIS)),
+    highPrice: String(Math.max(...MENSAIS)),
+    // Essencial, Growth e Operação. Sem este campo o AggregateOffer fica
+    // incompleto e o Google costuma descartar o bloco inteiro em vez de exibir
+    // a faixa de preço.
+    offerCount: String(PLANS.length),
   },
 };
 
@@ -104,7 +112,7 @@ export default function HomePage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD_ORGANIZATION) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD_FAQ) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD_SOFTWARE) }} />
-      <Lp3Landing />
+      <CartazLanding />
     </>
   );
 }

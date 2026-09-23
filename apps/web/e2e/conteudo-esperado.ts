@@ -112,11 +112,20 @@ export const CONTEUDO_ESPERADO: Record<string, ConteudoEsperado> = {
   },
 
   "/painel/automacoes": {
-    ancora: /Automações/,
+    ancora: /Roteiros prontos de disparo/,
+    semLista: "Redirect para /painel/funis (Automacoes saiu em 23/09/2026); quem confere e ela.",
+  },
+
+  "/painel/funis": {
+    ancora: /Roteiros prontos de disparo/,
     lista: {
-      api: "/api/automations",
-      marca: (j) => primeiroTexto(j, ...NOME),
-      vazio: /Nenhuma automação/i,
+      api: "/api/funis",
+      // Envelope { agendados, enviados }: a tela mostra o nome da campanha de cada funil.
+      marca: (j) => {
+        const o = (j ?? {}) as { agendados?: { campaign?: { name?: string } }[]; enviados?: { campaign?: { name?: string } }[] };
+        return [...(o.agendados ?? []), ...(o.enviados ?? [])][0]?.campaign?.name ?? null;
+      },
+      vazio: /Nenhum funil ainda/i,
     },
   },
 
@@ -148,8 +157,8 @@ export const CONTEUDO_ESPERADO: Record<string, ConteudoEsperado> = {
     lista: {
       api: "/api/comunidades",
       // A rota devolve `{ comunidades: [...], orfaos: [...] }`, nao um array
-      // cru — mesma forma de /painel/indicacao e /painel/relampago. O campo e
-      // `nome`, nao `name`: e a mesma tabela de campanhas, mas outra vista.
+      // cru — mesma forma de /painel/relampago. O campo e `nome`, nao `name`:
+      // e a mesma tabela de campanhas, mas outra vista.
       marca: (j) => {
         const comunidades = (j as { comunidades?: unknown } | null)?.comunidades;
         return primeiroTexto(comunidades, "nome");
@@ -229,23 +238,6 @@ export const CONTEUDO_ESPERADO: Record<string, ConteudoEsperado> = {
       api: "/api/groups",
       marca: (j) => primeiroTexto(j, ...NOME),
       vazio: /Nenhum grupo/i,
-    },
-  },
-
-  "/painel/indicacao": {
-    // NAO "Indicação": esse e o rotulo do item de menu, entao a ancora passaria
-    // com a tela morta. "Nova indicadora" so existe depois do fetch resolver.
-    ancora: /Nova indicadora/,
-    lista: {
-      api: "/api/referrals",
-      // A rota devolve `{ config, ranking }` — a lista e o `ranking`. A isencao
-      // que estava aqui ("nao e lista plana") deixou passar a tela lendo a
-      // resposta como array: ela ficava SEMPRE vazia e o CI nao via.
-      marca: (j) => {
-        const ranking = j && typeof j === "object" ? (j as { ranking?: unknown }).ranking : null;
-        return primeiroTexto(ranking, "referrerName", "slug");
-      },
-      vazio: /Nenhuma indicadora/i,
     },
   },
 

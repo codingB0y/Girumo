@@ -14,7 +14,7 @@ export type PlaybookSignals = {
   isConnected: boolean;
   campaignCount: number;
   broadcastCount: number;
-  hasWelcomeAutomation: boolean;
+  hasFirstFunnel: boolean;
   leadCount: number;
   orderCount: number;
   hasGoal: boolean;
@@ -48,7 +48,7 @@ export function liveStepSignals(s: PlaybookSignals): Record<PlaybookStepKey, boo
     first_campaign: s.campaignCount > 0,
     share_link: false,
     first_broadcast: s.broadcastCount > 0,
-    welcome_automation: s.hasWelcomeAutomation,
+    first_funnel: s.hasFirstFunnel,
     leads_50: s.leadCount >= 50,
     first_order: s.orderCount >= 1,
     monthly_goal: s.hasGoal,

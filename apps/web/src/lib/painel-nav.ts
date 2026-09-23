@@ -8,7 +8,6 @@ import {
   UserPlus,
   PanelsTopLeft,
   TrendingUp,
-  Gift,
   Settings,
   BookOpen,
   Boxes,
@@ -20,8 +19,8 @@ import {
  *
  * Antes, sidebar, menu mobile e command palette mantinham listas próprias e
  * divergentes: Páginas só existia na sidebar, Equipe AI só no mobile, e
- * Automações e Indicação — dois módulos completos — não apareciam em lugar
- * nenhum. A palette ainda apontava para /painel/ds, que não existe.
+ * Automações — um módulo completo — não aparecia em lugar nenhum. A palette
+ * ainda apontava para /painel/ds, que não existe.
  *
  * Rotas deliberadamente fora daqui:
  * - /painel/conectar — entra pelo status de conexão e pelas ações, não pelo menu
@@ -36,7 +35,7 @@ import {
 /**
  * Grupo do corredor da Vitrine Aberta (spec 2026-09-07, 3.1): VENDER é o que
  * sai da loja (disparo, oferta, automação), LOTAR é o que traz gente (campanha,
- * página, indicação), LOJA é o balcão (início, grupos, contatos, resultados,
+ * página), LOJA é o balcão (início, grupos, contatos, resultados,
  * configurações).
  */
 export type NavGrupo = "vender" | "lotar" | "loja";
@@ -62,18 +61,17 @@ const CAMPANHAS: NavItem = { href: "/painel/campanhas", label: "Campanhas", icon
 const DISPAROS: NavItem = { href: "/painel/disparos", label: "Disparos", icon: Send, grupo: "vender" };
 const BIBLIOTECA: NavItem = { href: "/painel/biblioteca", label: "Biblioteca", icon: BookOpen, grupo: "vender" };
 const RELAMPAGO: NavItem = { href: "/painel/relampago", label: "Oferta Relâmpago", icon: Flame, grupo: "vender" };
-const AUTOMACOES: NavItem = { href: "/painel/automacoes", label: "Automações", icon: Zap, grupo: "vender" };
+const FUNIS: NavItem = { href: "/painel/funis", label: "Funis", icon: Zap, grupo: "vender" };
 const COMUNIDADES: NavItem = { href: "/painel/comunidades", label: "Comunidades", icon: Boxes, grupo: "loja" };
 const GRUPOS: NavItem = { href: "/painel/grupos", label: "Grupos", icon: Users, grupo: "loja" };
 const CONTATOS: NavItem = { href: "/painel/contatos", label: "Contatos", icon: UserPlus, grupo: "loja" };
 const PAGINAS: NavItem = { href: "/painel/pages", label: "Páginas", icon: PanelsTopLeft, grupo: "lotar" };
 const RESULTADOS: NavItem = { href: "/painel/resultados", label: "Resultados", icon: TrendingUp, grupo: "loja" };
-const INDICACAO: NavItem = { href: "/painel/indicacao", label: "Indicação", icon: Gift, grupo: "lotar" };
 const CONFIGURACOES: NavItem = { href: "/painel/configuracoes", label: "Configurações", icon: Settings, grupo: "loja" };
 
 export const NAV_GROUPS: NavGroup[] = [
-  { title: null, items: [INICIO, CAMPANHAS, DISPAROS, BIBLIOTECA, RELAMPAGO, AUTOMACOES, COMUNIDADES, GRUPOS, CONTATOS] },
-  { title: "Crescimento", items: [PAGINAS, RESULTADOS, INDICACAO] },
+  { title: null, items: [INICIO, CAMPANHAS, DISPAROS, BIBLIOTECA, RELAMPAGO, FUNIS, COMUNIDADES, GRUPOS, CONTATOS] },
+  { title: "Crescimento", items: [PAGINAS, RESULTADOS] },
 ];
 
 /** Itens do rodapé da sidebar, abaixo do status de conexão. */
@@ -112,7 +110,8 @@ export type ResumoDados = {
   /** ISO do disparo mais recente; null sem histórico. */
   ultimoDisparo: string | null;
   relampagoAoVivo: boolean;
-  automacoes: { ligadas: number; total: number };
+  /** Funis com mensagem ainda agendada. */
+  funisAgendados: number;
   paginasNoAr: number;
 };
 
@@ -128,12 +127,11 @@ function diaHora(iso: string): string {
  * 02/09 12:12"). Estado vazio aponta que não há nada, nunca "0".
  */
 export function resumo(dados: ResumoDados): Record<string, string> {
-  const { automacoes } = dados;
   return {
     [CAMPANHAS.href]: `Campanhas · ${dados.campanhas === 0 ? "nenhuma" : dados.campanhas}`,
     [DISPAROS.href]: `Disparos · ${dados.ultimoDisparo ? `último ${diaHora(dados.ultimoDisparo)}` : "nenhum ainda"}`,
     [RELAMPAGO.href]: `Oferta Relâmpago · ${dados.relampagoAoVivo ? "ao vivo" : "nenhuma aberta"}`,
-    [AUTOMACOES.href]: `Automações · ${automacoes.total === 0 ? "nenhuma" : `${automacoes.ligadas} de ${automacoes.total} ligadas`}`,
+    [FUNIS.href]: `Funis · ${dados.funisAgendados === 0 ? "nenhum agendado" : `${dados.funisAgendados} agendado${dados.funisAgendados === 1 ? "" : "s"}`}`,
     [PAGINAS.href]: `Páginas · ${dados.paginasNoAr === 0 ? "nenhuma no ar" : `${dados.paginasNoAr} no ar`}`,
   };
 }

@@ -42,6 +42,19 @@ test("o /demo removido vai para a home, nao para o gate de sessao", async ({ pag
   expect(new URL(page.url()).pathname).toBe("/");
 });
 
+// "/44eBras" tem maiuscula no meio: quem digita tudo minusculo cairia neste
+// gate (307 para /login). O middleware devolve 308 para a grafia certa, e o
+// teste unitario de public-pages nao alcanca o middleware — so aqui ele roda.
+// A query tem que atravessar: o anuncio chega com utm_*, e perder isso apaga a
+// origem do lead.
+test("/44ebras em minuscula chega na landing, com a query do anuncio", async ({ page }) => {
+  await page.goto("/44ebras?utm_source=teste");
+  await page.waitForURL((url) => url.pathname === "/44eBras", { timeout: 15_000 });
+  const url = new URL(page.url());
+  expect(url.pathname).toBe("/44eBras");
+  expect(url.searchParams.get("utm_source")).toBe("teste");
+});
+
 // O controle que o achado de 17/08 pede: se a rota inventada se comportasse
 // diferente das reais, o laco acima estaria medindo outra coisa.
 test("controle: rota inventada tambem cai no gate (por isso o gate nao prova existencia)", async ({ page }) => {

@@ -6,14 +6,13 @@ import { RefreshCw, Send, WifiOff } from "lucide-react";
 import { useCasca } from "@/components/painel/casca-context";
 import { CelebrationModal } from "@/components/painel/celebration-modal";
 import { ActivationChecklist } from "@/components/painel/home/activation-checklist";
-import type { Automation, Campanha, Disparo, Lead, Order, TenantSettings, TrackedLink } from "@/components/painel/home/types";
+import type { Campanha, Disparo, Lead, Order, TenantSettings, TrackedLink } from "@/components/painel/home/types";
 import { dayBR, dayBRAgo, dayBROf, monthBR } from "@/lib/date-br";
 import type { Group } from "@/lib/mock-data";
 import type { Activation } from "@/lib/onboarding-steps";
 import { textoDoTicker } from "@/lib/painel/casca";
 import { cabecalhoDoDia, linhaDoDia } from "@/lib/painel/inicio";
 import { ordersInMonth, revenueInMonth } from "@/lib/painel-metrics";
-import { AutomacoesLinhas } from "./automacoes-linhas";
 import { CaixaDoMes } from "./caixa-do-mes";
 import { CampanhasEtiquetas } from "./campanhas-etiquetas";
 import { EstoqueDeGrupos } from "./estoque-de-grupos";
@@ -45,7 +44,6 @@ type Props = {
   leads: Lead[];
   orders: Order[];
   disparos: Disparo[];
-  automations: Automation[];
   settings: TenantSettings;
   settingsOk: boolean;
   isConnected: boolean;
@@ -68,7 +66,6 @@ export function InicioVitrine({
   leads,
   orders,
   disparos,
-  automations,
   settings,
   settingsOk,
   isConnected,
@@ -241,19 +238,10 @@ export function InicioVitrine({
         <EstoqueDeGrupos grupos={groups} />
       </Secao>
 
-      {/* Blocos 7 e 8 */}
-      <div className="grid gap-6 lg:grid-cols-12">
-        <div className="lg:col-span-7">
-          <Secao numero="04" titulo="Campanhas">
-            <CampanhasEtiquetas campanhas={campanhas} grupos={groups} links={links} />
-          </Secao>
-        </div>
-        <div className="lg:col-span-5">
-          <Secao numero="05" titulo="Automações">
-            <AutomacoesLinhas automacoes={automations} agora={agora} />
-          </Secao>
-        </div>
-      </div>
+      {/* Bloco 7 */}
+      <Secao numero="04" titulo="Campanhas">
+        <CampanhasEtiquetas campanhas={campanhas} grupos={groups} links={links} />
+      </Secao>
     </div>
   );
 }

@@ -13,7 +13,7 @@ export default function PainelPage() {
   if (state.status === "error") return <LoadError onRetry={reload} />;
 
   const { data, partial } = state;
-  const { groups, campanhas, links, leads, orders, disparos, automations, session, settings } = data;
+  const { groups, campanhas, links, leads, orders, disparos, session, settings } = data;
   const { settingsOk } = data;
   const isConnected = session.live === true;
 
@@ -37,7 +37,6 @@ export default function PainelPage() {
       leads={leads}
       orders={orders}
       disparos={disparos}
-      automations={automations}
       settings={settings}
       settingsOk={settingsOk}
       isConnected={isConnected}

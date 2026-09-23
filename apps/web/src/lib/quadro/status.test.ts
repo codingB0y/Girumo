@@ -10,6 +10,7 @@ import {
   isBoardArea,
   isBoardPriority,
   isBoardStatus,
+  requiresProof,
   isVerificationStale,
   wipState,
   type BoardFeature,
@@ -38,8 +39,10 @@ function feature(partial: Partial<BoardFeature> = {}): BoardFeature {
   };
 }
 
-// Não existe coluna "Feito": o vocabulário é o ponto do quadro.
-assert.equal(BOARD_STATUSES.length, 5);
+// O vocabulário é o ponto do quadro. "Finalizado" é o único destino final e só entra com
+// prova (ver requiresProof e a constraint no banco) — não existe "Feito" sem prova.
+assert.equal(BOARD_STATUSES.length, 6);
+assert.equal(BOARD_STATUSES.at(-1), "finalizado");
 assert.ok(!BOARD_STATUSES.includes("feito" as never), "sem coluna Feito");
 // O par verificado × não-verificado é o que mais se lê no quadro: os rótulos não podem
 // diferir só por uma negação, senão as duas colunas viram a mesma no cabeçalho.
@@ -86,6 +89,18 @@ assert.equal(
   false,
 );
 
+// Finalizado não vence: é o destino final, a prova já foi colhida ao entrar.
+assert.equal(
+  isVerificationStale(feature({ status: "finalizado", evidence: "PR #1", evidenceAt: daysAgo(365) }), now),
+  false,
+);
+
+// Prova é obrigatória para verificado e finalizado — e só para eles.
+assert.deepEqual(
+  BOARD_STATUSES.filter(requiresProof),
+  ["no_ar_verificado", "finalizado"],
+);
+
 // WIP: abaixo do teto, no teto, acima do teto.
 assert.equal(WIP_LIMIT_EM_CONSTRUCAO, 3);
 assert.equal(wipState(2, 3), "ok");
@@ -93,13 +108,13 @@ assert.equal(wipState(3, 3), "cheio");
 assert.equal(wipState(4, 3), "estourado");
 assert.equal(wipState(0, 3), "ok");
 
-// Agrupamento devolve as 5 chaves, mesmo vazias — a coluna existe sem card.
+// Agrupamento devolve as 6 chaves, mesmo vazias — a coluna existe sem card.
 {
   const grupos = groupByStatus([
     feature({ id: "a", key: "a", status: "quebrado" }),
     feature({ id: "b", key: "b", status: "quebrado" }),
   ]);
-  assert.equal(Object.keys(grupos).length, 5);
+  assert.equal(Object.keys(grupos).length, BOARD_STATUSES.length);
   assert.equal(grupos.quebrado.length, 2);
   assert.equal(grupos.nao_existe.length, 0);
 }

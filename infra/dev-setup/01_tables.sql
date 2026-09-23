@@ -304,25 +304,6 @@ create table if not exists orders (
   created_at timestamptz not null default now()
 );
 
--- REFERRALS
-create table if not exists referrals (
-  id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references organizations(id) on delete cascade,
-  referrer_name text not null,
-  group_name text not null,
-  slug text not null,
-  invite_url text not null,
-  created_at timestamptz not null default now()
-);
-
--- REFERRAL CONFIGS
-create table if not exists referral_configs (
-  tenant_id uuid primary key references organizations(id) on delete cascade,
-  reward text not null default 'Frete grátis no próximo pedido',
-  goal integer not null default 3,
-  updated_at timestamptz not null default now()
-);
-
 -- TESTIMONIALS
 create table if not exists testimonials (
   id uuid primary key default gen_random_uuid(),
