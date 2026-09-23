@@ -2,7 +2,6 @@ import { getRouteTenantContext } from "@/lib/route-tenant-context";
 import { getSession, isLive } from "@/lib/session-store";
 import { listCampaignGroups } from "@/lib/stores/campaign-groups";
 import { listBroadcasts } from "@/lib/stores/broadcasts";
-import { listAutomations } from "@/lib/stores/automations";
 import { countLeads } from "@/lib/stores/leads";
 import { countOrders } from "@/lib/stores/orders";
 import { getTenantSettings } from "@/lib/stores/tenant-settings";
@@ -19,12 +18,11 @@ const settled = <T,>(r: PromiseSettledResult<T>, fallback: T): T => (r.status ==
 // degrada o sinal em vez de derrubar o card), computa o estado e faz o
 // write-through sticky dos autos já atingidos.
 async function buildPlaybookState(tenantId: string): Promise<PlaybookState> {
-  const [session, campaigns, broadcasts, automations, leadCount, orderCount, settings, persisted] =
+  const [session, campaigns, broadcasts, leadCount, orderCount, settings, persisted] =
     await Promise.allSettled([
       getSession(tenantId),
       listCampaignGroups(tenantId),
       listBroadcasts(tenantId),
-      listAutomations(tenantId),
       countLeads(tenantId),
       countOrders(tenantId),
       getTenantSettings(tenantId),
@@ -32,14 +30,14 @@ async function buildPlaybookState(tenantId: string): Promise<PlaybookState> {
     ]);
 
   const sessionInfo = session.status === "fulfilled" ? session.value : null;
-  const automationRows = settled(automations, []);
+  const broadcastRows = settled(broadcasts, []);
   const persistedDoneAt = settled(persisted, {});
 
   const state = computePlaybook({
     isConnected: sessionInfo ? isLive(sessionInfo) : false,
     campaignCount: settled(campaigns, []).length,
-    broadcastCount: settled(broadcasts, []).length,
-    hasWelcomeAutomation: automationRows.some((a) => a.trigger === "lead_entered" && a.enabled),
+    broadcastCount: broadcastRows.length,
+    hasFirstFunnel: broadcastRows.some((b) => b.funnel_run_id != null),
     leadCount: settled(leadCount, 0),
     orderCount: settled(orderCount, 0),
     hasGoal: (settings.status === "fulfilled" ? settings.value.monthlyGoalContacts : null) != null,

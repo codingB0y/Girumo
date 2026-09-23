@@ -9,7 +9,6 @@ const read = (relativePath: string) => readFileSync(path.join(root, relativePath
 const templates = read("src/lib/email/templates.ts");
 const client = read("src/lib/email/client.ts");
 const brand = read("src/lib/brand.ts");
-const automations = read("src/lib/stores/automations.ts");
 const signup = read("src/app/api/auth/signup/route.ts");
 const cron = read("src/app/api/cron/emails/route.ts");
 const oauthComplete = read("src/app/api/auth/oauth-complete/route.ts");
@@ -56,22 +55,8 @@ test("sends from the Girumo domain, verified in Resend", () => {
 });
 
 test("removes stale public email language and pricing", () => {
-  const publicCopy = `${templates}\n${automations}`;
-  assert.doesNotMatch(publicCopy, /HubFlow|WhatsApp Growth OS|disparos?|R\$\s*47/i);
+  assert.doesNotMatch(templates, /HubFlow|WhatsApp Growth OS|disparos?|R\$\s*47/i);
   assert.match(templates, /Ver planos e assinar/);
-});
-
-test("retires SaaS-lifecycle triggers from lojista templates and keeps the copy brand-neutral", () => {
-  // P0.7 (feat 44cada03) moved the SaaS-lifecycle triggers (no_connect_24h /
-  // trial_ending) out of the lojista's automation templates into lib/email +
-  // cron (see the disconnection e-mail feature). The templates that remain are
-  // the lojista talking to their own customers inside the WhatsApp groups, so
-  // they carry no SaaS brand name at all — neither Girumo nor HubFlow.
-  assert.equal((automations.match(/Girumo/g) ?? []).length, 0);
-  assert.doesNotMatch(automations, /HubFlow/);
-  assert.match(automations, /RETIRED_LOJISTA_TRIGGERS/);
-  assert.doesNotMatch(automations, /trigger:\s*["'](?:no_connect_24h|trial_ending)["']/);
-  assert.match(automations, /delay_minutes:\s*0/);
 });
 
 test("sources the app host from one place in every e-mail sender", () => {
