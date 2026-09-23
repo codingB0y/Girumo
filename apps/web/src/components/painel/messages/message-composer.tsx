@@ -192,7 +192,15 @@ export function MessageComposer({ onSend, sending, className, onBodyChange, rotu
           "o que escrevo?" — depois do texto pronto ela não faz falta. */}
       <CopyPicker
         className="mb-2"
-        onPick={(copy) => setBody((atual) => (atual.trim() ? `${atual.trimEnd()}\n\n${copy}` : copy))}
+        onPick={({ body: copy, media }) => {
+          setBody((atual) => (atual.trim() ? `${atual.trimEnd()}\n\n${copy}` : copy));
+          // Copy com anexo traz a mídia junto (troca a que estiver no campo).
+          if (media) {
+            setMediaId(media.media_id);
+            setMediaType(media.media_type);
+            setMediaName(media.media_name);
+          }
+        }}
       />
 
       {/* Text area */}

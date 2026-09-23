@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { getTenantSettings } from "@/lib/stores/tenant-settings";
 import { LIBRARY_CATEGORIES } from "@/lib/library-copies";
 import { libraryCopiesForSegment } from "@/lib/content-packs";
+import type { TemplateMediaColumns } from "@/lib/template-media";
 
 export type TemplateFolder = {
   id: string;
@@ -17,6 +18,9 @@ export type MessageTemplate = {
   body: string;
   uses: number;
   created_at: string;
+  media_id: string | null;
+  media_type: "image" | "video" | null;
+  media_name: string | null;
 };
 
 export type FolderWithTemplates = TemplateFolder & { templates: MessageTemplate[] };
@@ -128,11 +132,18 @@ export async function deleteFolder(tenantId: string, id: string): Promise<boolea
 
 export async function createTemplateInFolder(
   tenantId: string,
-  input: { folder_id: string; name: string; body: string },
+  input: { folder_id: string; name: string; body: string; media?: TemplateMediaColumns },
 ): Promise<MessageTemplate> {
   const { data, error } = await getSupabaseAdmin()
     .from("templates")
-    .insert({ tenant_id: tenantId, folder_id: input.folder_id, name: input.name, body: input.body, uses: 0 })
+    .insert({
+      tenant_id: tenantId,
+      folder_id: input.folder_id,
+      name: input.name,
+      body: input.body,
+      uses: 0,
+      ...input.media,
+    })
     .select()
     .single();
   if (error) throw new Error(error.message);
@@ -142,11 +153,12 @@ export async function createTemplateInFolder(
 export async function updateTemplate(
   tenantId: string,
   id: string,
-  patch: { name?: string; body?: string },
+  patch: { name?: string; body?: string; media?: TemplateMediaColumns },
 ): Promise<MessageTemplate> {
+  const { media, ...texto } = patch;
   const { data, error } = await getSupabaseAdmin()
     .from("templates")
-    .update(patch)
+    .update({ ...texto, ...media })
     .eq("id", id)
     .eq("tenant_id", tenantId)
     .select()
