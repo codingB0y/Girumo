@@ -445,7 +445,7 @@ export function FunnelTab(props: FunnelTabProps) {
                 )}
               </div>
               <p className="text-12 text-slate-600">
-                A grade sai às {aberturaOk ? opening : "—"}. {PRACAS.find((p) => p.id === praca)?.nota}
+                Abertura às {aberturaOk ? opening : "—"}. {PRACAS.find((p) => p.id === praca)?.nota}
               </p>
             </div>
           )}
@@ -543,6 +543,7 @@ export function FunnelTab(props: FunnelTabProps) {
                   // `undefined` volta para a copy do roteiro (planFunnel: edited = customText !== undefined).
                   mudarDraft(dia, id, (d) => ({ ...d, customText: texto }))
                 }
+                onTimeChange={(hora) => mudarDraft(dia, id, (d) => ({ ...d, time: hora }))}
                 onPhotoPick={(arquivo) => void anexarFoto(dia, id, arquivo)}
                 onPhotoRemove={() => removerFoto(dia, id)}
               />

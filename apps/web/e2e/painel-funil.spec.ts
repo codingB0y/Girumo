@@ -377,6 +377,42 @@ test("hora por praça: Bom Retiro manda a grade às 08:00; outro horário depois
   expect(horas).toEqual(["8:00", "8:12", "12:00"]);
 });
 
+test("hora editável por etapa: só o reforço muda de hora, e a mudança vai no agendamento", async ({ page }) => {
+  const campanha = await campanhaComGrupos(page);
+  const { chamadas } = await simularServidor(page, campanha);
+  await page.goto(`/painel/campanhas/${campanha.slug}`, { waitUntil: "load" });
+  await page.getByRole("button", { name: "Mensagens", exact: true }).click();
+  const perfil = page.waitForResponse((r) => r.url().endsWith("/api/settings") && r.request().method() === "GET");
+  await page.getByRole("button", { name: SUBABA_FUNIL }).click();
+  await perfil;
+  // Brás explícito: a praça fica lembrada no navegador e não pode vazar de outro teste.
+  await page.getByRole("group", { name: "Sua praça" }).getByRole("button", { name: "Brás", exact: true }).click();
+  await page.getByLabel("Dia da grade", { exact: true }).fill(daquiA(10));
+  await page.getByLabel("Sua loja", { exact: true }).fill("Loja E2E");
+  await page.getByLabel("Seu nicho", { exact: true }).fill("moda infantil");
+  const grade = page.getByRole("article", { name: "Grade de hoje" });
+  await grade.getByLabel("peça", { exact: true }).fill("body manga longa");
+  await grade.getByLabel("preço", { exact: true }).fill("R$ 29,90");
+  await grade.getByLabel("grade", { exact: true }).fill("1 ao 8");
+  await grade.getByLabel("quantidade", { exact: true }).fill("40");
+
+  const ultimas = page.getByRole("article", { name: "Últimas da grade" });
+  await ultimas.getByRole("button", { name: /Últimas da grade/ }).click();
+  await ultimas.getByLabel("Hora de Últimas da grade", { exact: true }).fill("14:30");
+  await expect(ultimas).toContainText("hora editada");
+  await expect(ultimas).toContainText("14:30");
+
+  await page.getByRole("button", { name: /^Agendar 3 mensagens/ }).click();
+  await expect(page.getByText("Grade do dia · 3/3")).toBeVisible();
+  const horas = chamadas
+    .filter((c) => c.alvo === "mensagem")
+    .map((c) => {
+      const d = new Date(String(c.body.scheduledAt));
+      return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+    });
+  expect(horas).toEqual(["6:00", "6:12", "14:30"]);
+});
+
 test("comunidade não tem a sub-aba Funil", async ({ page }) => {
   const res = await page.request.get("/api/comunidades");
   expect(res.ok(), `GET /api/comunidades respondeu ${res.status()}`).toBeTruthy();

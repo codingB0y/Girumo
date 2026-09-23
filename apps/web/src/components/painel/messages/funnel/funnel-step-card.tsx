@@ -25,6 +25,8 @@ export type FunnelStepCardProps = {
   onFieldChange: (field: FunnelField, value: string) => void;
   onMentionToggle: () => void;
   onTextChange: (text: string | undefined) => void;
+  /** `undefined` volta para a hora do roteiro. */
+  onTimeChange: (time: string | undefined) => void;
   onPhotoPick: (file: File) => void;
   onPhotoRemove: () => void;
 };
@@ -89,6 +91,7 @@ export function FunnelStepCard(props: FunnelStepCardProps) {
           {step.kind === "relampago" && <span className={cn(CHIP, "bg-volt-950 text-acid-500")}><Zap aria-hidden className="h-3 w-3" />relâmpago · EU QUERO</span>}
           {step.wantsMedia && <span className={cn(CHIP, "bg-volt-950/[0.06] text-volt-950")}><ImagePlus aria-hidden className="h-3 w-3" />{plan.media ? "1 foto" : "foto"}</span>}
           {plan.edited && <span className={cn(CHIP, "bg-atencao/10 text-atencao")}>editado</span>}
+          {plan.timeEdited && <span className={cn(CHIP, "bg-atencao/10 text-atencao")}>hora editada</span>}
         </div>
 
         {/* Travada já está na Agenda: "não será enviada" seria falso. */}
@@ -98,6 +101,33 @@ export function FunnelStepCard(props: FunnelStepCardProps) {
 
         {open && (
           <div id={corpoId} className="mt-4 space-y-4">
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="flex flex-col gap-1">
+                <span className="font-data text-12 uppercase tracking-[0.08em] text-slate-600">Hora</span>
+                <input
+                  type="time"
+                  aria-label={`Hora de ${step.label}`}
+                  value={stepTime(plan.at)}
+                  disabled={props.locked}
+                  // Vazio é segmento apagado no meio da digitação, não "voltar": tratar
+                  // como reset devolvia a hora do roteiro ao campo a cada tecla. O
+                  // reset é só o botão ao lado.
+                  onChange={(e) => {
+                    if (e.target.value) props.onTimeChange(e.target.value);
+                  }}
+                  className={cn(INPUT, "w-36")}
+                />
+              </label>
+              {plan.timeEdited && !props.locked && (
+                <button
+                  type="button"
+                  onClick={() => props.onTimeChange(undefined)}
+                  className={cn(FERRAMENTA, "border-line-200 bg-paper-0 text-slate-600 hover:border-cobalt-500")}
+                >
+                  Voltar à hora do roteiro
+                </button>
+              )}
+            </div>
             {step.fields.length > 0 && (
               <div className="grid gap-3 sm:grid-cols-2">
                 {step.fields.map((campo) => {
