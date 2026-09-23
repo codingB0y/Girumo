@@ -112,11 +112,20 @@ export const CONTEUDO_ESPERADO: Record<string, ConteudoEsperado> = {
   },
 
   "/painel/automacoes": {
-    ancora: /Automações/,
+    ancora: /Roteiros prontos de disparo/,
+    semLista: "Redirect para /painel/funis (Automacoes saiu em 23/09/2026); quem confere e ela.",
+  },
+
+  "/painel/funis": {
+    ancora: /Roteiros prontos de disparo/,
     lista: {
-      api: "/api/automations",
-      marca: (j) => primeiroTexto(j, ...NOME),
-      vazio: /Nenhuma automação/i,
+      api: "/api/funis",
+      // Envelope { agendados, enviados }: a tela mostra o nome da campanha de cada funil.
+      marca: (j) => {
+        const o = (j ?? {}) as { agendados?: { campaign?: { name?: string } }[]; enviados?: { campaign?: { name?: string } }[] };
+        return [...(o.agendados ?? []), ...(o.enviados ?? [])][0]?.campaign?.name ?? null;
+      },
+      vazio: /Nenhum funil ainda/i,
     },
   },
 

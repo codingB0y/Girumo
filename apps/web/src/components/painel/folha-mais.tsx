@@ -35,11 +35,12 @@ export function FolhaMais({ id, aberta, aoFechar }: { id?: string; aberta: boole
     if (!aberta) return;
     let cancelado = false;
     (async () => {
-      const [campanhas, disparos, ofertas, automacoes, paginas] = await Promise.all([
+      const [campanhas, disparos, ofertas, funisAgendados, paginas] = await Promise.all([
         lista("/api/campanhas"),
         lista("/api/disparos"),
         lista("/api/relampago/offers"),
-        lista("/api/automations"),
+        // Envelope { agendados, enviados }: `lista` pega o 1º array, que é `agendados`.
+        lista("/api/funis"),
         lista("/api/pages"),
       ]);
       if (cancelado) return;
@@ -47,7 +48,7 @@ export function FolhaMais({ id, aberta, aoFechar }: { id?: string; aberta: boole
         campanhas: campanhas.length,
         ultimoDisparo: disparos[0]?.createdAt ?? null,
         relampagoAoVivo: ofertas.some((o) => o.status === "open"),
-        automacoes: { ligadas: automacoes.filter((a) => a.enabled).length, total: automacoes.length },
+        funisAgendados: funisAgendados.length,
         paginasNoAr: paginas.filter((p) => p.status === "published").length,
       });
     })();

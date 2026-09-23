@@ -61,7 +61,7 @@ const CAMPANHAS: NavItem = { href: "/painel/campanhas", label: "Campanhas", icon
 const DISPAROS: NavItem = { href: "/painel/disparos", label: "Disparos", icon: Send, grupo: "vender" };
 const BIBLIOTECA: NavItem = { href: "/painel/biblioteca", label: "Biblioteca", icon: BookOpen, grupo: "vender" };
 const RELAMPAGO: NavItem = { href: "/painel/relampago", label: "Oferta Relâmpago", icon: Flame, grupo: "vender" };
-const AUTOMACOES: NavItem = { href: "/painel/automacoes", label: "Automações", icon: Zap, grupo: "vender" };
+const FUNIS: NavItem = { href: "/painel/funis", label: "Funis", icon: Zap, grupo: "vender" };
 const COMUNIDADES: NavItem = { href: "/painel/comunidades", label: "Comunidades", icon: Boxes, grupo: "loja" };
 const GRUPOS: NavItem = { href: "/painel/grupos", label: "Grupos", icon: Users, grupo: "loja" };
 const CONTATOS: NavItem = { href: "/painel/contatos", label: "Contatos", icon: UserPlus, grupo: "loja" };
@@ -70,7 +70,7 @@ const RESULTADOS: NavItem = { href: "/painel/resultados", label: "Resultados", i
 const CONFIGURACOES: NavItem = { href: "/painel/configuracoes", label: "Configurações", icon: Settings, grupo: "loja" };
 
 export const NAV_GROUPS: NavGroup[] = [
-  { title: null, items: [INICIO, CAMPANHAS, DISPAROS, BIBLIOTECA, RELAMPAGO, AUTOMACOES, COMUNIDADES, GRUPOS, CONTATOS] },
+  { title: null, items: [INICIO, CAMPANHAS, DISPAROS, BIBLIOTECA, RELAMPAGO, FUNIS, COMUNIDADES, GRUPOS, CONTATOS] },
   { title: "Crescimento", items: [PAGINAS, RESULTADOS] },
 ];
 
@@ -110,7 +110,8 @@ export type ResumoDados = {
   /** ISO do disparo mais recente; null sem histórico. */
   ultimoDisparo: string | null;
   relampagoAoVivo: boolean;
-  automacoes: { ligadas: number; total: number };
+  /** Funis com mensagem ainda agendada. */
+  funisAgendados: number;
   paginasNoAr: number;
 };
 
@@ -126,12 +127,11 @@ function diaHora(iso: string): string {
  * 02/09 12:12"). Estado vazio aponta que não há nada, nunca "0".
  */
 export function resumo(dados: ResumoDados): Record<string, string> {
-  const { automacoes } = dados;
   return {
     [CAMPANHAS.href]: `Campanhas · ${dados.campanhas === 0 ? "nenhuma" : dados.campanhas}`,
     [DISPAROS.href]: `Disparos · ${dados.ultimoDisparo ? `último ${diaHora(dados.ultimoDisparo)}` : "nenhum ainda"}`,
     [RELAMPAGO.href]: `Oferta Relâmpago · ${dados.relampagoAoVivo ? "ao vivo" : "nenhuma aberta"}`,
-    [AUTOMACOES.href]: `Automações · ${automacoes.total === 0 ? "nenhuma" : `${automacoes.ligadas} de ${automacoes.total} ligadas`}`,
+    [FUNIS.href]: `Funis · ${dados.funisAgendados === 0 ? "nenhum agendado" : `${dados.funisAgendados} agendado${dados.funisAgendados === 1 ? "" : "s"}`}`,
     [PAGINAS.href]: `Páginas · ${dados.paginasNoAr === 0 ? "nenhuma no ar" : `${dados.paginasNoAr} no ar`}`,
   };
 }
