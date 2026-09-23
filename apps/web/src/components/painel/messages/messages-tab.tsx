@@ -29,6 +29,8 @@ type Props = {
   avisoIsAdmin?: boolean;
   /** Só a página de campanha passa: comunidade não tem funil. */
   funil?: { campaignName: string; masterUrl: string; groupCount: number; memberCount: number };
+  /** Abre direto na sub-aba Funil (vindo de "Novo funil" na tela Funis). */
+  abrirNoFunil?: boolean;
 };
 
 export function MessagesTab({
@@ -39,13 +41,15 @@ export function MessagesTab({
   alcanceGrupoAGrupo = 0,
   avisoIsAdmin = false,
   funil,
+  abrirNoFunil = false,
 }: Props) {
   const { pedirConfirmacao, folhaDeConfirmacao } = useConfirmacao();
-  const [subTab, setSubTab] = useState<SubTab>("Enviar agora");
+  const comecaNoFunil = abrirNoFunil && Boolean(funil);
+  const [subTab, setSubTab] = useState<SubTab>(comecaNoFunil ? "Funil" : "Enviar agora");
   // O Funil monta na 1ª visita e não desmonta mais: progresso, runId e o
   // relatório de falha sobrevivem à ida até a Agenda (senão a volta recomeça o
   // funil e reagendar duplica mensagens nos grupos).
-  const [funilAberto, setFunilAberto] = useState(false);
+  const [funilAberto, setFunilAberto] = useState(comecaNoFunil);
   const [sendError, setSendError] = useState<string | null>(null);
   const [sendUpgradeUrl, setSendUpgradeUrl] = useState<string | null>(null);
   const [messages, setMessages] = useState<CampaignMessage[]>([]);

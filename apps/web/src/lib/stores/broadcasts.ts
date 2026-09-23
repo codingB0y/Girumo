@@ -99,6 +99,26 @@ export async function listBroadcastsByCampaign(
   return data ?? [];
 }
 
+/** Teto da tela Funis: os mais novos bastam, e a lista de ids vai para o `in` dos agendamentos. */
+export const FUNNEL_BROADCASTS_LIMIT = 300;
+
+/**
+ * Broadcasts nascidos de funil, de todas as campanhas do tenant, do mais novo
+ * pro mais velho. ponytail: teto fixo, ~100 funis de 3 etapas; paginar quando
+ * algum lojista passar disso.
+ */
+export async function listFunnelBroadcasts(tenantId: string): Promise<Broadcast[]> {
+  const { data, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .not("funnel_run_id", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(FUNNEL_BROADCASTS_LIMIT);
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
 export async function getBroadcast(tenantId: string, id: string): Promise<Broadcast | null> {
   const { data, error } = await getSupabaseAdmin()
     .from(TABLE)

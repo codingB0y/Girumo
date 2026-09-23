@@ -71,6 +71,16 @@ export default function CampanhaDetalhe() {
   // Mensagens fica montada depois da 1ª visita: o funil em preenchimento
   // (e a foto já enviada) sobrevive à troca de aba.
   const [mensagensVista, setMensagensVista] = useState(false);
+  // `?abrir=funil` vem do "Novo funil" da tela Funis. Lido depois de montar
+  // (sem localização no servidor); a aba Mensagens só monta depois disso, então
+  // o MessagesTab já nasce na sub-aba Funil.
+  const [abrirNoFunil, setAbrirNoFunil] = useState(false);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("abrir") !== "funil") return;
+    setAbrirNoFunil(true);
+    setTab("Mensagens");
+    setMensagensVista(true);
+  }, []);
   const [menu, setMenu] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -413,6 +423,7 @@ export default function CampanhaDetalhe() {
             campaignSlug={campanha.slug ?? campanha.id}
             groupIds={campanha.groupIds}
             funil={{ campaignName: campanha.name, masterUrl, groupCount: o.groupCount, memberCount: o.totalMembers }}
+            abrirNoFunil={abrirNoFunil}
           />
         </div>
       )}
