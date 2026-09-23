@@ -53,8 +53,6 @@ alter table funnel_events enable row level security;
 alter table admin_alerts enable row level security;
 alter table templates enable row level security;
 alter table orders enable row level security;
-alter table referrals enable row level security;
-alter table referral_configs enable row level security;
 alter table testimonials enable row level security;
 alter table public.groups enable row level security;
 alter table public.campaign_groups enable row level security;
@@ -214,7 +212,7 @@ create policy "tracked_links_read" on public.tracked_links for select
 create policy "tracked_links_write" on public.tracked_links for all
   using (app.has_role(tenant_id, array['owner','admin']::public.member_role[]));
 
--- ========== TEMPLATES / ORDERS / REFERRALS ==========
+-- ========== TEMPLATES / ORDERS ==========
 create policy "templates_read" on templates for select
   using (app.has_membership(tenant_id));
 create policy "templates_write" on templates for all
@@ -224,16 +222,6 @@ create policy "orders_read" on orders for select
   using (app.has_membership(tenant_id));
 create policy "orders_write" on orders for all
   using (app.has_membership(tenant_id));
-
-create policy "referrals_read" on referrals for select
-  using (app.has_membership(tenant_id));
-create policy "referrals_write" on referrals for all
-  using (app.has_membership(tenant_id));
-
-create policy "referral_configs_read" on referral_configs for select
-  using (app.has_membership(tenant_id));
-create policy "referral_configs_write" on referral_configs for all
-  using (app.has_role(tenant_id, array['owner','admin']::public.member_role[]));
 
 -- Testimonials: public read, tenant write
 create policy "testimonials_public_read" on testimonials

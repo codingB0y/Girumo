@@ -31,11 +31,10 @@ test("every navigation destination is a route that exists", () => {
   }
 });
 
-test("keeps Automações and Indicação reachable", () => {
-  // Os dois módulos existiam sem nenhum link em toda a aplicação.
+test("keeps Automações reachable", () => {
+  // O módulo existia sem nenhum link em toda a aplicação.
   const hrefs = NAV_ALL.map((i) => i.href);
   assert.ok(hrefs.includes("/painel/automacoes"));
-  assert.ok(hrefs.includes("/painel/indicacao"));
 });
 
 test("exposes Disparos — sem item de menu, a única porta pro envio era achar a aba dentro de uma campanha", () => {
