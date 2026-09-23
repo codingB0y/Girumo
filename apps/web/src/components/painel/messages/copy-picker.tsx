@@ -1,11 +1,22 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { BookOpen, X } from "lucide-react";
+import { BookOpen, Image, Video, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { authenticatedFetch } from "@/lib/supabase/client";
+import type { TemplateMedia } from "@/lib/template-media";
 
-type MessageTemplate = { id: string; folder_id: string; name: string; body: string };
+type MessageTemplate = {
+  id: string;
+  folder_id: string;
+  name: string;
+  body: string;
+  media_id: string | null;
+  media_type: "image" | "video" | null;
+  media_name: string | null;
+};
+
+export type PickedCopy = { body: string; media: TemplateMedia | null };
 type Folder = { id: string; name: string; templates: MessageTemplate[] };
 
 /**
@@ -18,7 +29,7 @@ type Folder = { id: string; name: string; templates: MessageTemplate[] };
  * Lê as MESMAS pastas/copies da aba Biblioteca (`/api/library`) — nada de lista
  * própria divergente. Buscado uma vez, na 1ª abertura.
  */
-export function CopyPicker({ onPick, className }: { onPick: (body: string) => void; className?: string }) {
+export function CopyPicker({ onPick, className }: { onPick: (copy: PickedCopy) => void; className?: string }) {
   const [open, setOpen] = useState(false);
   const [folders, setFolders] = useState<Folder[] | null>(null);
   const [folderId, setFolderId] = useState<string | "all">("all");
@@ -85,12 +96,22 @@ export function CopyPicker({ onPick, className }: { onPick: (body: string) => vo
                 key={copy.id}
                 type="button"
                 onClick={() => {
-                  onPick(copy.body);
+                  onPick({
+                    body: copy.body,
+                    media:
+                      copy.media_id && copy.media_type
+                        ? { media_id: copy.media_id, media_type: copy.media_type, media_name: copy.media_name }
+                        : null,
+                  });
                   setOpen(false);
                 }}
                 className="block w-full rounded-lg border border-line-200 bg-papel px-3 py-2.5 text-left transition-colors duration-[160ms] hover:border-cobalt-500 hover:bg-canvas-100"
               >
-                <span className="block text-sm font-medium text-volt-950">{copy.name}</span>
+                <span className="flex items-center gap-1.5 text-sm font-medium text-volt-950">
+                  {copy.name}
+                  {copy.media_type === "image" && <Image className="h-3.5 w-3.5 text-slate-600" aria-label="com foto" />}
+                  {copy.media_type === "video" && <Video className="h-3.5 w-3.5 text-slate-600" aria-label="com vídeo" />}
+                </span>
                 <span className="mt-0.5 block line-clamp-2 text-[13px] leading-relaxed text-slate-600">
                   {copy.body}
                 </span>

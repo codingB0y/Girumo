@@ -1,5 +1,6 @@
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
 import { updateTemplate, deleteTemplateById } from "@/lib/stores/template-folders";
+import { parseTemplateMedia, type TemplateMediaColumns } from "@/lib/template-media";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,11 +25,16 @@ export async function PATCH(req: Request, { params }: RouteProps) {
     return Response.json({ error: "JSON inválido." }, { status: 400 });
   }
 
-  const patch: { name?: string; body?: string } = {};
+  const patch: { name?: string; body?: string; media?: TemplateMediaColumns } = {};
   if (typeof body.name === "string" && body.name.trim()) patch.name = body.name.trim();
   if (typeof body.body === "string" && body.body.trim()) patch.body = body.body.trim();
-  if (!patch.name && !patch.body) {
-    return Response.json({ error: "informe name e/ou body." }, { status: 400 });
+  try {
+    patch.media = parseTemplateMedia(body.media, tenantId);
+  } catch (e) {
+    return Response.json({ error: (e as Error).message }, { status: 400 });
+  }
+  if (!patch.name && !patch.body && !patch.media) {
+    return Response.json({ error: "informe name, body e/ou media." }, { status: 400 });
   }
 
   try {
