@@ -84,7 +84,10 @@ summary em vez de ficar vermelho: PR de fork não enxerga segredo, e CI vermelho
 por falta de segredo é como o time aprende a ignorar a suíte.
 
 O relatório HTML sobe como artefato `e2e-report` (14 dias) mesmo quando a suíte
-falha — sem isso, falha no CI vira "deu vermelho" sem screenshot de nada.
+falha — sem isso, falha no CI vira "deu vermelho" sem screenshot de nada. Antes,
+`infra/scripts/redigir-segredos-e2e.py` apaga as três senhas, inclusive do zip
+em base64 que o Playwright embute no `index.html` (o título de todo `fill` é
+`Fill "<valor>"`, de teste que passa também). Se a redação falhar, nada sobe.
 
 Antes do build, o mesmo job roda os testes de integração das stores
 (`apps/web/src/lib/stores/*.integration.test.ts`) contra o banco de dev: são os
