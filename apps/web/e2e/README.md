@@ -14,7 +14,7 @@ real.
 | `painel-rotas-dinamicas.spec.ts` | sim | Cada tela de **detalhe** carrega o registro do id — e não carrega um id inexistente |
 | `admin-gate.spec.ts` | sim | Nenhuma rota de `/admin` abre para lojista logado |
 | `equipe-convite.spec.ts` | sim | Convidar → aparece → revogar → some |
-| `sessao.spec.ts` | sim | Logout derruba o acesso |
+| `sessao.spec.ts` | sim, com usuário próprio | Logout derruba o acesso |
 
 **`auth-gate` não prova que a rota existe.** Redirect para `/login` sai igual
 para rota real e para rota inventada, porque o middleware intercepta antes do
@@ -31,8 +31,11 @@ A lista de rotas sai do filesystem (`rotas.ts`), não de uma lista escrita à m�
 npm run web:e2e
 ```
 
-Sem `E2E_EMAIL`/`E2E_PASSWORD` só o `auth-gate` roda; o resto aparece como
-skipped, não como falha. Para a suíte inteira, use um usuário do Supabase de
+Sem `E2E_EMAIL`/`E2E_PASSWORD` só o `auth-gate` roda entre os specs do usuário
+de QA; o resto aparece como skipped, não como falha. `admin-rotas.spec.ts` e
+`sessao.spec.ts` têm conta própria e dependem só do par deles (`E2E_ADMIN_*`,
+`E2E_SESSAO_*`) — ver "Por que o `sessao.spec.ts` tem usuário próprio", mais
+abaixo. Para a suíte inteira, use um usuário do Supabase de
 **dev** — `qa-user@girumo.test` já existe lá, criado por
 `npm run qa:prepare-brand`:
 
@@ -78,10 +81,13 @@ Os segredos vivem em Settings → Secrets do repositório, todos com prefixo
 | `E2E_SUPABASE_SERVICE_ROLE_KEY` | Service role de dev |
 | `E2E_AUTH_SECRET` | Segredo próprio do CI, não o da máquina de ninguém |
 | `E2E_EMAIL` / `E2E_PASSWORD` | Credencial do `qa-user@girumo.test` |
+| `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` | Admin de plataforma, só para `admin-rotas.spec.ts` |
+| `E2E_SESSAO_EMAIL` / `E2E_SESSAO_PASSWORD` | Credencial do `qa-sessao@girumo.test`, só para `sessao.spec.ts` |
 
 Faltando `E2E_SUPABASE_URL` ou `E2E_EMAIL`, o job se **pula com aviso** no
 summary em vez de ficar vermelho: PR de fork não enxerga segredo, e CI vermelho
-por falta de segredo é como o time aprende a ignorar a suíte.
+por falta de segredo é como o time aprende a ignorar a suíte. Faltando o par
+`E2E_ADMIN_*` ou `E2E_SESSAO_*`, só o spec que usa aquele par se marca skip.
 
 O relatório HTML sobe como artefato `e2e-report` (14 dias) mesmo quando a suíte
 falha — sem isso, falha no CI vira "deu vermelho" sem screenshot de nada. Antes,
@@ -103,6 +109,38 @@ em grupos `cnttest-*`, participantes em `pagtest-*`, oferta de 2020 aberta em
 
 **Não roda contra preview da Vercel**: preview não recebe env de Supabase, então
 não existe login lá (achado de 11/08).
+
+### Por que o `sessao.spec.ts` tem usuário próprio
+
+O logout revoga **todas** as sessões do usuário, não só a do navegador que saiu
+(`session_revocations` é por `auth_user_id`, #116). Enquanto o spec entrava com
+o `qa-user@girumo.test`, cada run cortava a sessão de todo outro run de e2e no
+ar ao mesmo tempo — CI de outro PR ou Playwright local, todos no mesmo banco de
+dev. Em 23/09/2026 um corte derrubou dois runs alheios: 656 respostas 401 e
+runs de ~18 min em vez de ~8. Era essa a "corrida de conexão" de 401 em
+cascata vista desde 09/09.
+
+Com conta própria o corte só alcança quem saiu. O spec também roda com
+navegador limpo (o estado do setup traria o cookie do usuário compartilhado e o
+aparelho lembrado, que preenche o login com o e-mail dele) e reprova se
+`E2E_SESSAO_EMAIL` apontar para o mesmo usuário de `E2E_EMAIL`.
+
+A conta existe só no Supabase de **dev**: criada confirmada em Authentication e
+ligada ao tenant de QA como `operator` por este SQL (idempotente):
+
+```sql
+insert into public.memberships (tenant_id, user_id, role, accepted_at)
+select o.id, u.id, 'operator'::member_role, now()
+from public.organizations o, auth.users u
+where o.slug = 'girumo-qa' and u.email = 'qa-sessao@girumo.test'
+on conflict (tenant_id, user_id) do nothing;
+
+insert into public.users (tenant_id, auth_user_id, email, name, metadata)
+select o.id, u.id, u.email, 'Sessão Girumo QA', '{"fixture": true, "persona": "sessao"}'::jsonb
+from public.organizations o, auth.users u
+where o.slug = 'girumo-qa' and u.email = 'qa-sessao@girumo.test'
+on conflict (tenant_id, auth_user_id) do nothing;
+```
 
 ## A prova para o quadro
 
