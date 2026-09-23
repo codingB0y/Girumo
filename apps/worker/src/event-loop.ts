@@ -99,31 +99,6 @@ export function makeDeps(supabase: SupabaseClient): CaptureDeps {
       if (updateError) throw new Error(`markLeftGroup: ${updateError.message}`);
       return true;
     },
-
-    async triggerLeadEnteredAutomations({ tenantId, leadId, groupJid }) {
-      const { data: automations, error } = await supabase
-        .from("automations")
-        .select("id")
-        .eq("tenant_id", tenantId)
-        .eq("trigger", "lead_entered")
-        .eq("enabled", true);
-      if (error) throw new Error(`triggerLeadEnteredAutomations: ${error.message}`);
-
-      for (const automation of (automations ?? []) as { id: string }[]) {
-        const { error: insertError } = await supabase.from("automation_runs").insert({
-          tenant_id: tenantId,
-          automation_id: automation.id,
-          trigger_context: { lead_id: leadId },
-          target_group_jid: groupJid,
-          dedupe_key: `lead:${leadId}:${automation.id}`,
-        });
-        // Unique violation no dedupe_key = essa automação já disparou pra esse
-        // lead antes (reentrada no grupo). Idempotente por desenho: ignora.
-        if (insertError && insertError.code !== "23505") {
-          throw new Error(`triggerLeadEnteredAutomations: ${insertError.message}`);
-        }
-      }
-    },
   };
   return deps;
 }

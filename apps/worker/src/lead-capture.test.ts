@@ -10,7 +10,6 @@ import {
   type CaptureDeps,
   type EngineEventRow,
   type GroupInfo,
-  type LeadEnteredTriggerInput,
   type MarkLeftGroupInput,
   type UpsertLeadInput,
 } from "./lead-capture.js";
@@ -40,7 +39,6 @@ function fakeDeps(overrides: {
 } = {}) {
   const upserts: UpsertLeadInput[] = [];
   const optOutChecks: string[] = [];
-  const triggers: LeadEnteredTriggerInput[] = [];
   const leftMarks: MarkLeftGroupInput[] = [];
   let getGroupCalls = 0;
   let nextLeadId = 1;
@@ -58,9 +56,6 @@ function fakeDeps(overrides: {
       upserts.push(input);
       return `lead-${nextLeadId++}`;
     },
-    async triggerLeadEnteredAutomations(input) {
-      triggers.push(input);
-    },
     async markLeftGroup(input) {
       leftMarks.push(input);
       return overrides.leadAusente ? false : true;
@@ -71,7 +66,6 @@ function fakeDeps(overrides: {
     deps,
     upserts,
     optOutChecks,
-    triggers,
     leftMarks,
     getGroupCalls: () => getGroupCalls,
   };
@@ -98,12 +92,11 @@ test("saída de participante marca o lead como fora do grupo", async () => {
   assert.equal(f.leftMarks[0].phone, "5511999990002");
 });
 
-test("saída não cria lead nem dispara automação de entrada", async () => {
+test("saída não cria lead", async () => {
   const f = fakeDeps();
   const outcome = await captureFromEvent(eventRow(fixture("group-participants-update.remove.json")), f.deps);
   assert.equal(outcome.leads, 0);
   assert.equal(f.upserts.length, 0);
-  assert.equal(f.triggers.length, 0);
 });
 
 test("saída de quem nunca foi lead não conta como saída registrada", async () => {
@@ -169,35 +162,6 @@ test("participante em opt-out é pulado, sem lead", async () => {
   assert.equal(outcome.leads, 0);
   assert.equal(outcome.optedOut, 1);
   assert.equal(f.upserts.length, 0);
-  // Opt-out bloqueia a captura inteira — nunca chega a disparar automação.
-  assert.equal(f.triggers.length, 0);
-});
-
-test("lead capturado dispara lead_entered com o id do lead e o grupo em que entrou", async () => {
-  const f = fakeDeps();
-  await captureFromEvent(eventRow(fixture("group-participants-update.add.json")), f.deps);
-  assert.equal(f.triggers.length, 1);
-  assert.equal(f.triggers[0].tenantId, TENANT);
-  assert.equal(f.triggers[0].leadId, "lead-1");
-  assert.equal(f.triggers[0].groupJid, "12036120363099999999999@g.us");
-});
-
-test("cada participante capturado num evento em lote dispara seu próprio trigger", async () => {
-  const payload = {
-    data: {
-      id: "12036120363099999999999@g.us",
-      action: "add",
-      participants: [
-        { id: "a@lid", phoneNumber: "5511999990010@s.whatsapp.net" },
-        { id: "b@lid", phoneNumber: "5511999990011@s.whatsapp.net" },
-      ],
-    },
-  };
-  const f = fakeDeps();
-  await captureFromEvent(eventRow(payload), f.deps);
-  assert.equal(f.triggers.length, 2);
-  assert.equal(f.triggers[0].leadId, "lead-1");
-  assert.equal(f.triggers[1].leadId, "lead-2");
 });
 
 test("participante @lid sem telefone vira lead com phone null, sem checar opt-out", async () => {
