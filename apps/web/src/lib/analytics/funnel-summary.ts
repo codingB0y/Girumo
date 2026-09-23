@@ -15,8 +15,7 @@ export type FunnelEvent =
   | "leads_50"
   | "first_order"
   | "goal_set"
-  | "payment_completed"
-  | "referral_sent";
+  | "payment_completed";
 // `trial_started` foi removido: a oferta atual não tem trial (ver o comentário em
 // api/cron/emails, que aposentou o e-mail de trial pelo mesmo motivo). O evento
 // existia no tipo desde o começo, nunca teve quem o emitisse e nunca gerou uma

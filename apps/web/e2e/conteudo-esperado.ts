@@ -148,8 +148,8 @@ export const CONTEUDO_ESPERADO: Record<string, ConteudoEsperado> = {
     lista: {
       api: "/api/comunidades",
       // A rota devolve `{ comunidades: [...], orfaos: [...] }`, nao um array
-      // cru — mesma forma de /painel/indicacao e /painel/relampago. O campo e
-      // `nome`, nao `name`: e a mesma tabela de campanhas, mas outra vista.
+      // cru — mesma forma de /painel/relampago. O campo e `nome`, nao `name`:
+      // e a mesma tabela de campanhas, mas outra vista.
       marca: (j) => {
         const comunidades = (j as { comunidades?: unknown } | null)?.comunidades;
         return primeiroTexto(comunidades, "nome");
@@ -229,23 +229,6 @@ export const CONTEUDO_ESPERADO: Record<string, ConteudoEsperado> = {
       api: "/api/groups",
       marca: (j) => primeiroTexto(j, ...NOME),
       vazio: /Nenhum grupo/i,
-    },
-  },
-
-  "/painel/indicacao": {
-    // NAO "Indicação": esse e o rotulo do item de menu, entao a ancora passaria
-    // com a tela morta. "Nova indicadora" so existe depois do fetch resolver.
-    ancora: /Nova indicadora/,
-    lista: {
-      api: "/api/referrals",
-      // A rota devolve `{ config, ranking }` — a lista e o `ranking`. A isencao
-      // que estava aqui ("nao e lista plana") deixou passar a tela lendo a
-      // resposta como array: ela ficava SEMPRE vazia e o CI nao via.
-      marca: (j) => {
-        const ranking = j && typeof j === "object" ? (j as { ranking?: unknown }).ranking : null;
-        return primeiroTexto(ranking, "referrerName", "slug");
-      },
-      vazio: /Nenhuma indicadora/i,
     },
   },
 

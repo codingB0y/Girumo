@@ -8,7 +8,6 @@ import {
   UserPlus,
   PanelsTopLeft,
   TrendingUp,
-  Gift,
   Settings,
   BookOpen,
   Boxes,
@@ -20,8 +19,8 @@ import {
  *
  * Antes, sidebar, menu mobile e command palette mantinham listas próprias e
  * divergentes: Páginas só existia na sidebar, Equipe AI só no mobile, e
- * Automações e Indicação — dois módulos completos — não apareciam em lugar
- * nenhum. A palette ainda apontava para /painel/ds, que não existe.
+ * Automações — um módulo completo — não aparecia em lugar nenhum. A palette
+ * ainda apontava para /painel/ds, que não existe.
  *
  * Rotas deliberadamente fora daqui:
  * - /painel/conectar — entra pelo status de conexão e pelas ações, não pelo menu
@@ -36,7 +35,7 @@ import {
 /**
  * Grupo do corredor da Vitrine Aberta (spec 2026-09-07, 3.1): VENDER é o que
  * sai da loja (disparo, oferta, automação), LOTAR é o que traz gente (campanha,
- * página, indicação), LOJA é o balcão (início, grupos, contatos, resultados,
+ * página), LOJA é o balcão (início, grupos, contatos, resultados,
  * configurações).
  */
 export type NavGrupo = "vender" | "lotar" | "loja";
@@ -68,12 +67,11 @@ const GRUPOS: NavItem = { href: "/painel/grupos", label: "Grupos", icon: Users, 
 const CONTATOS: NavItem = { href: "/painel/contatos", label: "Contatos", icon: UserPlus, grupo: "loja" };
 const PAGINAS: NavItem = { href: "/painel/pages", label: "Páginas", icon: PanelsTopLeft, grupo: "lotar" };
 const RESULTADOS: NavItem = { href: "/painel/resultados", label: "Resultados", icon: TrendingUp, grupo: "loja" };
-const INDICACAO: NavItem = { href: "/painel/indicacao", label: "Indicação", icon: Gift, grupo: "lotar" };
 const CONFIGURACOES: NavItem = { href: "/painel/configuracoes", label: "Configurações", icon: Settings, grupo: "loja" };
 
 export const NAV_GROUPS: NavGroup[] = [
   { title: null, items: [INICIO, CAMPANHAS, DISPAROS, BIBLIOTECA, RELAMPAGO, AUTOMACOES, COMUNIDADES, GRUPOS, CONTATOS] },
-  { title: "Crescimento", items: [PAGINAS, RESULTADOS, INDICACAO] },
+  { title: "Crescimento", items: [PAGINAS, RESULTADOS] },
 ];
 
 /** Itens do rodapé da sidebar, abaixo do status de conexão. */
