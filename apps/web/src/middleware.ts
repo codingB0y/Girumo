@@ -4,7 +4,7 @@ import { SESSION_COOKIE, ENGINE_TOKEN, verifySession } from "@/lib/auth";
 import { classifyRequest, decideEngineAccess } from "@/lib/security/request-access-policy";
 import { buildCsp, generateNonce, surfaceForPath } from "@/lib/security/csp";
 import { checkRateLimit } from "@/lib/security/rate-limit";
-import { isPublicPage } from "@/lib/public-pages";
+import { isPublicPage, publicPageCaseAlias } from "@/lib/public-pages";
 
 const RATE_LIMIT_WINDOW = 60_000; // 1 minuto
 const RATE_LIMITS: Record<string, number> = {
@@ -89,6 +89,17 @@ export async function middleware(req: NextRequest) {
   }
 
   const accessKind = classifyRequest(pathname, req.method);
+
+  // Página pública digitada com outra caixa ("/44ebras"): 308 até a grafia
+  // certa, antes do gate — senão vira 307 para o login. O clone mantém a query:
+  // o anúncio chega com utm_*, e perder isso apaga a origem do lead. Por que
+  // não é `redirects()` do next.config está em `publicPageCaseAlias`.
+  const caseAlias = publicPageCaseAlias(pathname);
+  if (caseAlias) {
+    const url = req.nextUrl.clone();
+    url.pathname = caseAlias;
+    return NextResponse.redirect(url, 308);
+  }
 
   // Páginas públicas. A lista mora em `lib/public-pages` porque o middleware
   // não roda sob `tsx --test` — de lá ela é testável de verdade, em vez de por
