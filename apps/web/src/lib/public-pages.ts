@@ -12,9 +12,22 @@
  * ainda está decidindo criar uma, e para o robô de verificação do Stripe.
  *
  * Rotas de autenticação (`/login`, `/signup`, …) NÃO entram aqui: elas já saem
- * antes, pelo `matcher` do middleware.
+ * antes, pelo `matcher` do middleware. O mesmo vale para `/lp3` (a home
+ * anterior, guardada em 23/09/2026): o matcher exclui todo caminho que começa
+ * com "lp".
+ *
+ * `/automatico` e `/44eBras` são as landings de anúncio: `index: false`, mas
+ * quem chega por elas nunca teve conta — fora da lista, o clique pago morre num
+ * 307 para o login.
  */
-export const PUBLIC_PAGES: readonly string[] = ["/", "/home-v2", "/termos", "/privacidade"];
+export const PUBLIC_PAGES: readonly string[] = [
+  "/",
+  "/home-v2",
+  "/termos",
+  "/privacidade",
+  "/automatico",
+  "/44eBras",
+];
 
 /** Páginas legais — usadas também pelo rodapé e pelo aceite no cadastro. */
 export const LEGAL_PAGES = {
@@ -31,6 +44,30 @@ export const LEGAL_PAGES = {
  */
 export function isPublicPage(pathname: string): boolean {
   return PUBLIC_PAGES.includes(pathname);
+}
+
+/**
+ * Grafia certa de uma página pública digitada com outra caixa, ou `null`.
+ *
+ * O caso que motivou: `/44eBras` tem maiúscula no meio, e quem digita tudo
+ * minúsculo (`/44ebras`) não casa com `isPublicPage` — que é exato de propósito
+ * — e cairia no 307 para o login. O middleware usa este retorno para um 308 até
+ * a grafia certa, antes do gate.
+ *
+ * Por que no middleware e NÃO em `redirects()` do next.config: os redirects do
+ * Next casam o `source` SEM diferenciar maiúscula (path-to-regexp com
+ * `sensitive: false`, a não ser ligando `experimental.caseSensitiveRoutes` para
+ * o app inteiro). Uma regra `/44ebras → /44eBras` casaria também o próprio
+ * `/44eBras` e redirecionaria para ele mesmo, em loop. Aqui a grafia certa
+ * devolve `null`, e é isso que fecha o loop.
+ *
+ * O destino sai sempre de PUBLIC_PAGES, nunca do que foi digitado: não vira
+ * redirect aberto, e rota fora da lista continua indo para o gate.
+ */
+export function publicPageCaseAlias(pathname: string): string | null {
+  if (isPublicPage(pathname)) return null;
+  const digitado = pathname.toLowerCase();
+  return PUBLIC_PAGES.find((pagina) => pagina.toLowerCase() === digitado) ?? null;
 }
 
 /**

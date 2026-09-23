@@ -1,9 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-import { AUTH_PAGES, isAuthPage, isPublicPage, LEGAL_PAGES, PUBLIC_PAGES } from "./public-pages";
+import {
+  AUTH_PAGES,
+  isAuthPage,
+  isPublicPage,
+  LEGAL_PAGES,
+  PUBLIC_PAGES,
+  publicPageCaseAlias,
+} from "./public-pages";
+
+const LANDINGS_DE_ANUNCIO = ["/automatico", "/44eBras"];
 
 test("os documentos legais abrem sem sessao", () => {
   // O estado ate 26/08: GET /termos e GET /privacidade respondiam 307 para o
@@ -47,6 +56,44 @@ test("o middleware usa a lista em vez de repetir os caminhos", () => {
   // deixa de ser a fonte unica e este modulo passa a testar algo que nao vale.
   const fonte = readFileSync(path.join(process.cwd(), "src", "middleware.ts"), "utf8");
   assert.match(fonte, /isPublicPage/, "middleware precisa consultar isPublicPage");
+  assert.match(fonte, /publicPageCaseAlias/, "middleware precisa consultar publicPageCaseAlias");
+});
+
+test("as landings de anuncio abrem sem sessao", () => {
+  // Quem chega pelo anuncio nunca teve conta: fora da lista, o gate responde
+  // 307 para o login e o clique pago morre ali.
+  for (const rota of LANDINGS_DE_ANUNCIO) {
+    assert.ok(isPublicPage(rota), `${rota} precisa ser publica`);
+  }
+});
+
+test("as landings de anuncio existem no disco com a grafia exata da rota", () => {
+  // readdirSync, e nao so readFileSync: o disco do Windows nao diferencia
+  // maiuscula, entao uma pasta "44ebras" passaria aqui e daria 404 na Vercel.
+  const appDir = path.join(process.cwd(), "src", "app");
+  const pastas = readdirSync(appDir);
+  for (const rota of LANDINGS_DE_ANUNCIO) {
+    const pasta = rota.replace(/^\//, "");
+    assert.ok(pastas.includes(pasta), `src/app/${pasta} nao existe com essa grafia`);
+    readFileSync(path.join(appDir, pasta, "page.tsx"), "utf8"); // estoura se nao existir
+  }
+});
+
+test("quem digita a rota com outra caixa vai para a pagina, nao para o login", () => {
+  // O caso que motivou: "/44eBras" tem maiuscula no meio e quase ninguem digita assim.
+  assert.equal(publicPageCaseAlias("/44ebras"), "/44eBras");
+  assert.equal(publicPageCaseAlias("/44EBRAS"), "/44eBras");
+  assert.equal(publicPageCaseAlias("/Automatico"), "/automatico");
+});
+
+test("o alias nao redireciona a propria pagina nem rota que nao e publica", () => {
+  // A grafia certa devolver null e o que impede o redirect em loop.
+  for (const rota of ["/44eBras", "/automatico", "/", "/termos"]) {
+    assert.equal(publicPageCaseAlias(rota), null, `${rota} ja e a grafia certa`);
+  }
+  for (const rota of ["/painel", "/Painel", "/44ebras/x", "/44ebras-teste", "/login"]) {
+    assert.equal(publicPageCaseAlias(rota), null, `${rota} nao e pagina publica`);
+  }
 });
 
 test("as telas de autenticacao sao reconhecidas", () => {
