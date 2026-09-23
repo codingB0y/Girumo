@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 import { authenticatedFetch } from "@/lib/supabase/client";
 import { Folha } from "@/components/painel/folha";
 import { useConfirmacao } from "@/components/painel/confirmacao";
+import { CopyMediaChip, CopyMediaField } from "@/components/painel/copy-media-field";
+import type { TemplateMedia } from "@/lib/template-media";
 
 type MessageTemplate = {
   id: string;
@@ -13,7 +15,16 @@ type MessageTemplate = {
   name: string;
   body: string;
   uses: number;
+  media_id: string | null;
+  media_type: "image" | "video" | null;
+  media_name: string | null;
 };
+
+function mediaDe(copy: MessageTemplate): TemplateMedia | null {
+  return copy.media_id && copy.media_type
+    ? { media_id: copy.media_id, media_type: copy.media_type, media_name: copy.media_name }
+    : null;
+}
 
 type Folder = {
   id: string;
@@ -50,6 +61,7 @@ export default function PainelBiblioteca() {
   const [copyForm, setCopyForm] = useState<CopyForm | null>(null);
   const [copyName, setCopyName] = useState("");
   const [copyBody, setCopyBody] = useState("");
+  const [copyMedia, setCopyMedia] = useState<TemplateMedia | null>(null);
   const [copyErro, setCopyErro] = useState<string | null>(null);
   const [salvandoCopy, setSalvandoCopy] = useState(false);
 
@@ -146,6 +158,7 @@ export default function PainelBiblioteca() {
     setCopyErro(null);
     setCopyName("");
     setCopyBody("");
+    setCopyMedia(null);
     setCopyForm({ mode: "create", folderId });
   }
 
@@ -153,6 +166,7 @@ export default function PainelBiblioteca() {
     setCopyErro(null);
     setCopyName(copy.name);
     setCopyBody(copy.body);
+    setCopyMedia(mediaDe(copy));
     setCopyForm({ mode: "edit", id: copy.id, folderId: copy.folder_id, name: copy.name, body: copy.body });
   }
 
@@ -170,8 +184,11 @@ export default function PainelBiblioteca() {
     try {
       const url = copyForm.mode === "create" ? "/api/library/templates" : `/api/library/templates/${copyForm.id}`;
       const method = copyForm.mode === "create" ? "POST" : "PATCH";
+      // Na edição `media: null` remove o anexo; na criação só vai quando existe.
       const payload =
-        copyForm.mode === "create" ? { folder_id: copyForm.folderId, name, body } : { name, body };
+        copyForm.mode === "create"
+          ? { folder_id: copyForm.folderId, name, body, ...(copyMedia ? { media: copyMedia } : {}) }
+          : { name, body, media: copyMedia };
       const res = await authenticatedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
@@ -329,6 +346,7 @@ export default function PainelBiblioteca() {
             <div className="grid gap-4 sm:grid-cols-2">
               {visibleCopies.map((copy) => {
                 const copied = copiedId === copy.id;
+                const media = mediaDe(copy);
                 return (
                   <div key={copy.id} className="pn-card flex flex-col rounded-xl p-5">
                     {copy.folderName && (
@@ -338,6 +356,11 @@ export default function PainelBiblioteca() {
                     )}
                     <p className="font-medium text-volt-950">{copy.name}</p>
                     <p className="mt-2 flex-1 whitespace-pre-line text-sm leading-relaxed text-aco">{copy.body}</p>
+                    {media && (
+                      <div className="mt-3">
+                        <CopyMediaChip media={media} />
+                      </div>
+                    )}
                     <div className="mt-4 flex flex-wrap items-center gap-1.5">
                       <button
                         onClick={() => handleCopy(copy.id, copy.body)}
@@ -455,6 +478,7 @@ export default function PainelBiblioteca() {
             className={cn(inputCls, "mt-1.5 resize-none")}
           />
         </label>
+        <CopyMediaField value={copyMedia} onChange={setCopyMedia} />
         {copyErro && <p className="mt-2 text-sm text-alerta">{copyErro}</p>}
         <div className="mt-6 flex justify-end gap-2">
           <button

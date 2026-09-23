@@ -1,5 +1,6 @@
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
 import { createTemplateInFolder } from "@/lib/stores/template-folders";
+import { parseTemplateMedia, type TemplateMediaColumns } from "@/lib/template-media";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,8 +27,15 @@ export async function POST(req: Request) {
     return Response.json({ error: "folder_id, name e body são obrigatórios." }, { status: 400 });
   }
 
+  let media: TemplateMediaColumns | undefined;
   try {
-    return Response.json(await createTemplateInFolder(tenantId, { folder_id, name, body: copyBody }), {
+    media = parseTemplateMedia(body.media, tenantId);
+  } catch (e) {
+    return Response.json({ error: (e as Error).message }, { status: 400 });
+  }
+
+  try {
+    return Response.json(await createTemplateInFolder(tenantId, { folder_id, name, body: copyBody, media }), {
       status: 201,
     });
   } catch (e) {
