@@ -311,7 +311,7 @@ test("Grade do dia repetida: um funil por dia, dia seguinte herda e troca só a 
   const dias = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
   const rotulo = `${dias[d.getDay()]} ${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
   await page.getByRole("group", { name: "Repetir nos dias seguintes" }).getByRole("button", { name: rotulo, exact: true }).click();
-  await page.getByRole("group", { name: "Dia" }).getByRole("button", { name: rotulo, exact: true }).click();
+  await page.getByRole("group", { name: "Dia", exact: true }).getByRole("button", { name: rotulo, exact: true }).click();
 
   // O dia seguinte vem igual ao primeiro: o botão já conta os 6 e habilita.
   await expect(page.getByTestId("funil-previa-grade-de-hoje")).toContainText("body manga longa");
