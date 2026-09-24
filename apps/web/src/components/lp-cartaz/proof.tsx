@@ -1,8 +1,7 @@
 import Image from "next/image";
-import { Play, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import {
   ETIQUETA_CEL,
-  FOCO,
   LATERAL,
   Polaroid,
   PriceTag,
@@ -11,13 +10,6 @@ import {
 } from "@/components/lp-cartaz/cartaz-ui";
 import { FOTOS, PRINT_GRUPOS } from "@/components/lp-shared/lp-data";
 import { cn } from "@/lib/utils";
-
-/**
- * O vídeo de 42 s do Saldão que já está no ar (o mesmo do BazarVideo da /lp3).
- * Aqui é link, e não o BazarVideo: o estilo dele mora no lp3.css, que só a /lp3
- * carrega, e o cartão dele é um 9:16 escuro que não é o do mockup.
- */
-const VIDEO_URL = "https://vimeo.com/1207228037";
 
 /** "Avisou no grupo. Deu fila na calçada." — a prova com as fotos do Saldão. */
 export function CartazProof() {
@@ -32,7 +24,7 @@ export function CartazProof() {
       )}
     >
       {/* `contents` no celular: os filhos entram direto na coluna da seção, e o
-          `order-1` joga etiquetas e vídeo pra depois da colagem, como no mockup. */}
+          `order-1` joga as etiquetas pra depois da colagem, como no mockup. */}
       <div className="contents lg:flex lg:flex-col lg:gap-[22px]">
         <h2 id="cartaz-prova" className={cn(TITULO, "text-[46px] lg:text-[84px]")}>
           Avisou no grupo. Deu fila na calçada.
@@ -49,34 +41,6 @@ export function CartazProof() {
           <PriceTag className={ETIQUETA_CEL}>Atacado infantil · região da 44</PriceTag>
           <PriceTag className={ETIQUETA_CEL}>20 mil peças em 2 dias</PriceTag>
         </p>
-        <a
-          href={VIDEO_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={cn(
-            "order-1 flex items-center gap-3.5 rounded-[14px] bg-volt-950 p-3.5 text-paper-0 transition-colors hover:bg-volt-800 lg:mt-1.5 lg:gap-[18px] lg:p-4",
-            FOCO,
-          )}
-        >
-          <span
-            aria-hidden
-            className="grid size-[52px] shrink-0 place-items-center rounded-full bg-acid-500 text-volt-950 lg:size-[60px]"
-          >
-            <Play className="ml-0.5 size-[22px] fill-current lg:size-6" />
-          </span>
-          <span className="min-w-0">
-            <b className="block text-[17px] leading-[normal] lg:text-[19px]">
-              Veja o evento em 42 <ViewportText mobile="s" desktop="segundos" />
-            </b>
-            <span className="block text-sm leading-[normal] text-line-200 lg:text-base">
-              <ViewportText
-                mobile="Avisado só nos grupos."
-                desktop="Loja cheia e fila na porta, avisados só nos grupos."
-              />
-            </span>
-            <span className="sr-only"> (abre o vídeo no Vimeo, em outra aba)</span>
-          </span>
-        </a>
       </div>
       <ProofCollage />
     </section>
