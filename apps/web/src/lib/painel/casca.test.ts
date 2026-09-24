@@ -1,9 +1,16 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { abreviaNome, romaneioDoPlano, textoDoTicker } from "./casca";
+import { abreviaNome, iniciaisDaLoja, romaneioDoPlano, textoDoTicker } from "./casca";
 
 const agora = new Date(2026, 8, 2, 12, 30); // qua 02/09/2026 12:30
+
+test("iniciaisDaLoja pega as duas primeiras palavras, em maiúscula", () => {
+  assert.equal(iniciaisDaLoja("Mega Stock Atacado"), "MS");
+  assert.equal(iniciaisDaLoja("  girumo  "), "G");
+  assert.equal(iniciaisDaLoja(""), "•");
+  assert.equal(iniciaisDaLoja(null), "•");
+});
 
 test("abreviaNome guarda só o primeiro nome e a inicial do segundo", () => {
   assert.equal(abreviaNome("Josiane Maria Silva"), "Josiane M.");

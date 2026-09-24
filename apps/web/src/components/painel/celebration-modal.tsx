@@ -133,7 +133,7 @@ function CelebrationCard({ marco, onDismiss }: { marco: Celebration; onDismiss: 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-volt-950/60 px-4">
-      <div className="pn-palette-in relative w-full max-w-md overflow-hidden rounded-xl border border-volt-950/10 bg-white p-6 shadow-xl">
+      <div className="pn-palette-in relative w-full max-w-md overflow-hidden rounded-xl border border-volt-950/10 bg-paper-0 p-6 shadow-xl">
         <button
           onClick={handleClose}
           aria-label="Fechar"

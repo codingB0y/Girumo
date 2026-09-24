@@ -14,6 +14,17 @@ const DIA_MS = 24 * 60 * 60 * 1000;
 const DIAS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 const dois = (n: number) => String(n).padStart(2, "0");
 
+/** Iniciais da loja no topo do corredor: "Mega Stock Atacado" → "MS". */
+export function iniciaisDaLoja(nome?: string | null): string {
+  const partes = (nome ?? "").trim().split(/\s+/).filter(Boolean);
+  if (partes.length === 0) return "•";
+  return partes
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join("")
+    .toUpperCase();
+}
+
 /** "Josiane Maria Silva" → "Josiane M." (regra 6: nome completo só em Contatos). */
 export function abreviaNome(nome?: string | null): string {
   const partes = (nome ?? "").trim().split(/\s+/).filter(Boolean);

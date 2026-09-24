@@ -131,7 +131,7 @@ function CategoriaBtn({ active, onClick, label }: { active: boolean; onClick: ()
       onClick={onClick}
       className={cn(
         "cursor-pointer rounded-lg px-2.5 py-1 text-[13px] font-medium transition-colors duration-[160ms]",
-        active ? "bg-volt-950 text-white" : "text-slate-600 hover:text-volt-950",
+        active ? "bg-volt-950 text-paper-0" : "text-slate-600 hover:text-volt-950",
       )}
     >
       {label}

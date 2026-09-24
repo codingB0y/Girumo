@@ -13,13 +13,19 @@ tabela de grupos — com acabamento de produto sênior, densa e escura.
 
 ## Decisões
 
-1. **Tema noite no painel inteiro, pela camada de tokens.** Dentro de `[data-testid=painel-root]` as
-   variáveis de cor do `@theme` ganham valores de noite: `--color-canvas-100` vira o fundo, `--color-paper-0`
-   a superfície, `--color-volt-950` a tinta clara, `--color-line-200` o fio, `--color-slate-600` o texto de
-   apoio. As 13 telas trocam de tema sem mexer nos componentes; o que não inverter certo vira ajuste por
-   seletor, listado no PR A (link `text-cobalt-*` precisa de tom claro, verde/vermelho de texto idem; a bolha
-   do WhatsApp continua clara). Consequência aceita: dentro do painel, `volt-950` passa a significar "tinta",
-   e `bg-volt-950` vira botão claro sobre fundo escuro. Trocar tela por tela custaria 13 PRs.
+1. **Tema noite no painel inteiro, pela camada de tokens.** Enquanto o painel está montado
+   (`:root:has(.pn-root)`), as variáveis de cor ganham valores de noite: `--color-canvas-100` vira o fundo,
+   `--color-paper-0` a superfície, `--color-volt-950` a tinta clara, `--color-line-200` o fio,
+   `--color-slate-600` o texto de apoio. Para isso a paleta sai de `@theme inline` (que escreve a cor literal
+   em cada utilitária) e vai para `@theme`, com a utilitária lendo a variável; as fontes continuam `inline`.
+   As 13 telas trocam de tema sem mexer nos componentes. Ajustes feitos no PR A:
+   - ilhas claras (bolha do WhatsApp e tudo com fundo Acid) voltam à paleta clara;
+   - texto de estado (`text-cobalt-*`, sucesso, aviso, perigo) ganha tom claro;
+   - botão de cor fica com texto branco;
+   - 16 `bg-white` com texto de token viraram `bg-paper-0` (ficam brancos só o QR, a bolinha dos interruptores e a prévia da página pública).
+
+   Consequência aceita: dentro do painel, `volt-950` passa a significar "tinta", e `bg-volt-950` vira botão
+   claro sobre fundo escuro. Trocar tela por tela custaria 13 PRs.
 2. **Archivo no painel** (a mesma família das landings). Números em Archivo tabular: `.font-data` passa a
    apontar para Archivo dentro do painel. O root continua com Manrope/Plex (`brand-css.test.ts`).
 3. **Acid só em Postar, AO VIVO e LOTOU** (já é regra do `vitrine-lint`: no máximo 2 `bg-acid` por arquivo).

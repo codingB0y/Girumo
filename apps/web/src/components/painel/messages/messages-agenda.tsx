@@ -118,7 +118,7 @@ export function MessagesAgenda({ messages, onCancel, onCancelFunnel, onDelete, c
       </div>
 
       {view === "calendar" && (
-        <div className="rounded-xl border border-line-200 bg-white p-4">
+        <div className="rounded-xl border border-line-200 bg-paper-0 p-4">
           {/* Month nav */}
           <div className="flex items-center justify-between">
             <button
@@ -184,7 +184,7 @@ export function MessagesAgenda({ messages, onCancel, onCancelFunnel, onDelete, c
 
       {/* Timeline */}
       {messages.length === 0 ? (
-        <div className="rounded-xl border border-line-200 bg-white px-5 py-12 text-center">
+        <div className="rounded-xl border border-line-200 bg-paper-0 px-5 py-12 text-center">
           <p className="font-display text-base font-bold text-volt-950">Nenhuma mensagem ainda</p>
           <p className="mt-1 text-sm text-slate-600">Envie ou agende mensagens para os grupos desta campanha.</p>
         </div>
@@ -230,7 +230,7 @@ function MessageRow({
   const podeCancelarFunil = isScheduled && funnel !== undefined && funnel.pendentes.length > 1;
 
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-line-200 bg-white p-3 transition hover:border-line-200">
+    <div className="flex items-start gap-3 rounded-xl border border-line-200 bg-paper-0 p-3 transition hover:border-line-200">
       {/* Type icon */}
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-canvas-100">
         <TypeIcon className="h-4 w-4 text-slate-600" />

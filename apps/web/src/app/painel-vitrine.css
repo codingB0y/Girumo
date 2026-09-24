@@ -10,14 +10,17 @@
    Canvas. Acid só em Postar, AO VIVO e LOTOU. Zap só em gente entrando.
    Cobalt só em ação. Sem gradiente, glow, blur ou textura.
    ====================================================================== */
-@theme inline {
-  /* Único desvio de marca aprovado: cores da conversa, só dentro de pn-bolha */
+@theme {
+  /* Único desvio de marca aprovado: cores da conversa, só dentro de pn-bolha.
+     Sem `inline`: o tema noite troca estes valores (fim do arquivo). */
   --color-zap-fundo: #EFE7DD;
   --color-zap-bolha: #E7FFDB;
   --color-aviso-fundo: #FFF6E5;
   --color-hover-ficha: #FBF9F3;
   --color-porta-ativa: #ECE7DC;
+}
 
+@theme inline {
   /* Raios: chip 4, controle/etiqueta/ficha 8 (já existe), porta 12. Nenhum 16. */
   --radius-chip: 4px;
   --radius-porta: 12px;
@@ -25,7 +28,7 @@
   /* Medidas da casca */
   --spacing-letreiro: 64px;
   --spacing-letreiro-mobile: 56px;
-  --spacing-corredor: 224px;
+  --spacing-corredor: 248px;
   --spacing-corredor-recolhido: 64px;
   --spacing-balcao-max: 1200px;
   --spacing-barra-mobile: 56px;
@@ -51,21 +54,27 @@
 
 /* Em @layer components: utilitário do Tailwind (lg:hidden, bg-*) vence o primitivo. */
 @layer components {
-/* --- Letreiro: faixa Volt de 64px, a única peça escura do painel --- */
+/* --- Letreiro (direção D): barra de cima no fundo da página, com fio embaixo.
+   Desktop: nome da seção + ticker + sino. Mobile: símbolo, loja, ponto e sino. --- */
 .pn-letreiro {
   display: flex;
   align-items: center;
   gap: 16px;
   height: var(--spacing-letreiro);
   padding: 0 24px;
-  background: var(--color-volt-950);
-  color: var(--color-paper-0);
+  background: var(--color-canvas-100);
+  color: var(--color-volt-950);
+  border-bottom: 1px solid var(--color-line-200);
 }
 .pn-letreiro__loja {
-  font-family: var(--font-brand);
   font-size: 16px;
   font-weight: 700;
   letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.pn-letreiro__secao {
+  font-size: 15px;
+  font-weight: 600;
   white-space: nowrap;
 }
 .pn-letreiro__ticker {
@@ -73,26 +82,12 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
-  font-family: var(--font-data);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
-  color: var(--color-line-200);
+  color: var(--color-slate-600);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.pn-letreiro__chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 36px;
-  padding: 0 12px;
-  border: 1px solid var(--color-volt-800);
-  border-radius: var(--radius-control);
-  font-family: var(--font-data);
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-  color: var(--color-paper-0);
 }
 /* Ponto de gente (Zap) e ponto de conexão (Success). Desconectado não respira. */
 .pn-ponto {
@@ -110,19 +105,17 @@
   background: var(--color-danger-700);
 }
 
-/* --- Corredor: sidebar clara de 224px, menu por verbo --- */
+/* --- Corredor (direção D): trilho de 248px, loja no topo, módulos por verbo,
+   campanhas abertas sob "Campanhas", cartão do número no rodapé --- */
 .pn-corredor {
   width: var(--spacing-corredor);
-  background: var(--color-paper-0);
+  background: var(--pn-trilho, var(--color-paper-0));
   border-right: 1px solid var(--color-line-200);
 }
 .pn-corredor__grupo {
-  padding: 16px 16px 6px;
-  font-family: var(--font-data);
-  font-size: 12px;
+  padding: 16px 18px 6px;
+  font-size: 12.5px;
   font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--color-slate-600);
 }
 .pn-corredor__item {
@@ -130,19 +123,117 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  height: 40px;
-  padding: 0 16px;
+  height: 36px;
+  margin: 1px 8px;
+  padding: 0 10px;
+  border-radius: 6px;
   font-size: 14px;
   font-weight: 500;
-  color: var(--color-volt-950);
-  transition: background-color var(--dur-fast) var(--ease-girumo);
+  color: var(--color-slate-600);
+  transition: background-color var(--dur-fast) var(--ease-girumo), color var(--dur-fast) var(--ease-girumo);
 }
 .pn-corredor__item:hover {
   background: var(--color-hover-ficha);
+  color: var(--color-volt-950);
 }
 .pn-corredor__item[aria-current="page"] {
-  background: var(--color-canvas-100);
-  box-shadow: inset 3px 0 0 var(--color-acid-500);
+  background: var(--pn-selecionado, var(--color-canvas-100));
+  color: var(--color-volt-950);
+}
+.pn-corredor__contagem {
+  margin-left: auto;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-slate-600);
+}
+/* Loja no topo: iniciais + nome (sem seta: não existe troca de loja). */
+.pn-corredor__loja {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 8px 4px;
+  padding: 8px;
+  border: 1px solid var(--color-line-200);
+  border-radius: 8px;
+  background: var(--color-paper-0);
+}
+.pn-corredor__iniciais {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: 6px;
+  background: var(--pn-selecionado, var(--color-canvas-100));
+  color: var(--color-volt-950);
+  font-size: 12px;
+  font-weight: 700;
+}
+.pn-corredor__loja-nome {
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--color-volt-950);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Campanhas sob o item "Campanhas": nome e número de grupos. */
+.pn-corredor__sub {
+  margin: 0 8px 4px 29px;
+  padding-left: 8px;
+  border-left: 1px solid var(--color-line-200);
+}
+.pn-corredor__subitem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--color-slate-600);
+}
+.pn-corredor__subitem:hover {
+  background: var(--color-hover-ficha);
+  color: var(--color-volt-950);
+}
+.pn-corredor__subitem[aria-current="page"] {
+  background: var(--pn-selecionado, var(--color-canvas-100));
+  color: var(--color-volt-950);
+}
+/* Cartão do número: estado, perfil (veterano/novo) e telefone. */
+.pn-corredor__numero {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 4px 8px 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-line-200);
+  border-radius: 8px;
+  background: var(--color-paper-0);
+  font-size: 12.5px;
+  color: var(--color-slate-600);
+}
+.pn-corredor__numero[aria-current="page"] {
+  background: var(--pn-selecionado, var(--color-canvas-100));
+}
+.pn-corredor__numero-estado {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-volt-950);
+}
+.pn-corredor__perfil {
+  margin-left: auto;
+  padding: 1px 6px;
+  border: 1px solid var(--color-line-200);
+  border-radius: var(--radius-chip);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--color-slate-600);
 }
 
 /* --- Etiqueta de preço: campanha, oferta e página como etiqueta de peça --- */
@@ -519,14 +610,14 @@
   z-index: -1;
 }
 
-/* Barra inferior mobile clara: a loja é clara por dentro */
+/* Barra inferior mobile, no trilho da casca */
 .pn-barra-mobile {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   align-items: center;
   height: calc(var(--spacing-barra-mobile) + env(safe-area-inset-bottom));
   padding-bottom: env(safe-area-inset-bottom);
-  background: var(--color-paper-0);
+  background: var(--pn-trilho, var(--color-paper-0));
   border-top: 1px solid var(--color-line-200);
 }
 .pn-barra-mobile__item {
@@ -660,20 +751,7 @@
 
 /* --- Casca desktop (PR 3a): avatar no letreiro, rodapé do corredor, recolhimento --- */
 .pn-ponto--indefinido {
-  background: var(--color-line-200);
-}
-.pn-letreiro__avatar {
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-chip);
-  background: var(--color-acid-500);
-  color: var(--color-volt-950);
-  font-family: var(--font-brand);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  background: var(--color-slate-600);
 }
 .pn-corredor__rodape {
   border-top: 1px solid var(--color-line-200);
@@ -879,13 +957,26 @@
   }
   .pn-corredor__rotulo,
   .pn-corredor__romaneio,
-  .pn-corredor__passos {
+  .pn-corredor__passos,
+  .pn-corredor__contagem,
+  .pn-corredor__sub,
+  .pn-corredor__loja-nome,
+  .pn-corredor__perfil,
+  .pn-corredor__numero-detalhe {
     display: none;
   }
-  .pn-corredor__item {
+  .pn-corredor__item,
+  .pn-corredor__numero-estado {
     justify-content: center;
     gap: 0;
     padding: 0;
+  }
+  .pn-corredor__loja,
+  .pn-corredor__numero {
+    justify-content: center;
+    padding: 8px 0;
+    border: 0;
+    background: none;
   }
 }
 
@@ -1017,4 +1108,92 @@
   .pn-etiqueta-preco__barra::before,
   .pn-interruptor__bolinha { transition: none; }
 }
+}
+
+/* ======================================================================
+   Tema noite — direção D (docs/superpowers/specs/2026-09-24-painel-direcao-d-design.md).
+
+   O painel inteiro fica escuro trocando os VALORES da paleta enquanto ele
+   está montado; nenhum componente muda de classe: bg-paper-0 vira a
+   superfície, text-volt-950 a tinta clara, bg-volt-950 um botão claro.
+   Funciona porque a paleta do @theme não é `inline` (globals.css). O seletor
+   sobe até o :root para alcançar toast e folha fora de .pn-root.
+
+   Fora de @layer de propósito: regra sem camada vence a utilitária.
+   ====================================================================== */
+:root:has(.pn-root) {
+  color-scheme: dark;
+  --color-canvas-100: #061620; /* fundo */
+  --color-paper-0: #0B2230; /* superfície */
+  --color-volt-950: #E9F1F3; /* tinta */
+  --color-volt-900: #D5E2E6;
+  --color-volt-800: #BDD0D6;
+  --color-slate-600: #93AAB3; /* apoio: 6,4:1 sobre a superfície */
+  --color-line-200: #1E3B4B; /* fio */
+  --color-aviso-fundo: #2A2715;
+  --color-hover-ficha: #102C3B;
+  --color-porta-ativa: #16384A;
+  /* Aliases são resolvidos onde nascem (:root claro): sem redeclarar, herdariam o valor claro. */
+  --color-aco: var(--color-slate-600);
+  --color-ardosia: var(--color-slate-600);
+  --color-papel: var(--color-paper-0);
+  --color-poco: color-mix(in srgb, var(--color-line-200) 45%, var(--color-paper-0));
+  --color-balcao: var(--color-canvas-100);
+  --color-void: var(--color-volt-950);
+  --color-void-2: var(--color-volt-900);
+  --background: var(--color-canvas-100);
+  --foreground: var(--color-volt-950);
+  /* Casca: o trilho fica um degrau abaixo do fundo; o selecionado, um acima da superfície. */
+  --pn-trilho: #05131B;
+  --pn-selecionado: #16384A;
+}
+
+/* Archivo no painel (a família das landings). A variável do next/font mora no
+   .pn-root, então a troca das três famílias também mora nele. */
+.pn-root {
+  --font-plex-sans: var(--font-painel);
+  --font-plex-mono: var(--font-painel);
+  --font-manrope: var(--font-painel);
+}
+
+/* Ilhas claras: a conversa do WhatsApp e tudo que tem fundo Acid ficam com a
+   paleta clara — Acid só aceita texto Volt, e a bolha é a cor do WhatsApp. */
+:root:has(.pn-root) :is(.pn-bolha-chat, .pn-bolha, .bg-acid-500, .pn-chip--acid, .pn-postar, .pn-carimbo-evento) {
+  --color-volt-950: #071923;
+  --color-volt-900: #0C2835;
+  --color-volt-800: #123746;
+  --color-paper-0: #FFFEFA;
+  --color-canvas-100: #F4F0E7;
+  --color-slate-600: #52646C;
+  --color-line-200: #D8D7CF;
+  color: var(--color-volt-950);
+}
+
+/* Texto de estado sobre o escuro: o tom de marca (#1947C9, #0C7346…) não passa
+   de 3:1 na superfície; o texto ganha o tom claro, o fundo (bg-*) continua. */
+:root:has(.pn-root) :is(.text-cobalt-500, .text-cobalt-600, .text-cobalt-700, .text-info-700, .text-brand-500) {
+  color: #8FB2FF;
+}
+:root:has(.pn-root) :is(.text-success-700, .text-sucesso) {
+  color: #45D38A;
+}
+:root:has(.pn-root) :is(.text-warning-700, .text-atencao) {
+  color: #F2B84B;
+}
+:root:has(.pn-root) :is(.text-danger-700, .text-alerta) {
+  color: #FF7B7B;
+}
+/* Botão de cor: o texto do token (text-paper-0) viraria escuro sobre o azul. */
+:root:has(.pn-root) :is(.bg-cobalt-500, .bg-cobalt-600, .bg-cobalt-700, .bg-danger-700, .bg-alerta, .bg-success-700, .bg-sucesso) {
+  color: #FFFFFF;
+}
+:root:has(.pn-root) .pn-ponto--conectado {
+  background: #45D38A;
+}
+:root:has(.pn-root) .pn-ponto--desconectado {
+  background: #FF6B6B;
+}
+/* A sombra dura do Postar era Volt; no escuro vira um degrau abaixo do trilho. */
+:root:has(.pn-root) .pn-postar-sombra::after {
+  background: #020A0E;
 }

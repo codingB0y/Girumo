@@ -104,6 +104,17 @@ export function isNavItemActive(pathname: string, href: string): boolean {
   return href === "/painel" ? pathname === href : pathname.startsWith(href);
 }
 
+/**
+ * Nome da seção na barra de cima (direção D): o item do menu que casa com a
+ * rota. Conectar fica fora do menu de propósito, mas tem nome.
+ */
+export function tituloDaSecao(pathname: string): string {
+  const item = NAV_ALL.find((i) => i.href !== "/painel" && isNavItemActive(pathname, i.href));
+  if (item) return item.label;
+  if (pathname.startsWith("/painel/conectar")) return "Seu número";
+  return INICIO.label;
+}
+
 /** Estado de cada módulo, como o "Mais" mostra antes do toque. */
 export type ResumoDados = {
   campanhas: number;
