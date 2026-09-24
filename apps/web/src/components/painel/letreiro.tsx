@@ -111,7 +111,7 @@ export function Letreiro() {
             <span className={cn("pn-ponto", ponto)} aria-hidden="true" />
           </Link>
         )}
-        <NotificationBell tom="escuro" />
+        <NotificationBell />
       </div>
     </header>
   );

@@ -35,8 +35,8 @@ const TYPE_COLORS: Record<string, string> = {
   info: "bg-canvas-100 text-cobalt-500",
 };
 
-/** `tom="escuro"` é pro letreiro Volt da casca mobile. */
-export function NotificationBell({ tom = "claro" }: { tom?: "claro" | "escuro" } = {}) {
+/** Um tom só: no tema noite a superfície já é escura e o ícone, claro. */
+export function NotificationBell() {
   const instancia = useId().replace(/[^a-zA-Z0-9]/g, "");
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -136,23 +136,15 @@ export function NotificationBell({ tom = "claro" }: { tom?: "claro" | "escuro" }
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(!open)}
-        className={cn(
-          // Alvo de toque 44px (regra 4) nos dois tons.
-          "relative flex h-11 w-11 items-center justify-center rounded-xl border transition",
-          tom === "escuro"
-            ? "border-volt-800 bg-volt-900 text-paper-0 hover:border-cobalt-500"
-            : "border-line-200 bg-paper-0 text-slate-600 hover:border-cobalt-500",
-        )}
+        // Alvo de toque 44px (regra 4).
+        className="relative flex h-11 w-11 items-center justify-center rounded-xl border border-line-200 bg-paper-0 text-slate-600 transition hover:border-cobalt-500"
         aria-label={`Notificações${unreadCount > 0 ? ` (${unreadCount} não lidas)` : ""}`}
       >
         <Bell className="h-[18px] w-[18px]" />
         {unreadCount > 0 && (
           <span
-            className={cn(
-              // Piso de 12px (regra 4): o círculo cresce de 16 pra 20px pra caber o número sem apertar.
-              "font-data absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-cobalt-500 text-12 font-bold text-white ring-2",
-              tom === "escuro" ? "ring-volt-950" : "ring-canvas-100",
-            )}
+            // Piso de 12px (regra 4): o círculo cresce de 16 pra 20px pra caber o número sem apertar.
+            className="font-data absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-cobalt-500 text-12 font-bold text-white ring-2 ring-canvas-100"
           >
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>

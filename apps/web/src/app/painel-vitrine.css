@@ -1197,3 +1197,7 @@
 :root:has(.pn-root) .pn-postar-sombra::after {
   background: #020A0E;
 }
+/* O esqueleto era lilás claro fixo (#e4e1ea, globals.css) e acendia no escuro. */
+:root:has(.pn-root) .pn-skeleton {
+  background: #16384A;
+}
