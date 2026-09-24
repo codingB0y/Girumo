@@ -112,13 +112,16 @@ test.describe("rotas dinamicas do painel", () => {
  * campo nao e texto do documento, e o Playwright nao tem localizador por valor
  * (`getByDisplayValue` e da Testing Library, nao daqui), entao esse caso so se
  * resolve lendo `.value` no DOM.
+ *
+ * Conta só dentro do `<main>`: o corredor lista as campanhas pelo nome em toda
+ * tela (direção D), e o que o teste mede é a TELA da rota, não o menu.
  */
 async function contarMarca(page: Page, marca: Marca): Promise<number> {
   if (marca.tipo === "texto") {
-    return page.getByText(marca.valor, { exact: false }).count();
+    return page.locator("main").getByText(marca.valor, { exact: false }).count();
   }
   return page.evaluate((valor) => {
-    const campos = Array.from(document.querySelectorAll("input, textarea"));
+    const campos = Array.from(document.querySelectorAll("main input, main textarea"));
     return campos.filter((campo) =>
       (campo as HTMLInputElement | HTMLTextAreaElement).value?.includes(valor),
     ).length;
