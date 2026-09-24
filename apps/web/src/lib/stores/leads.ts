@@ -43,16 +43,19 @@ export async function countLeads(tenantId: string): Promise<number> {
   return count ?? 0;
 }
 
-/** source_campaign de um lead (pra atribuir a campanha ao pedido). null se não achar. */
-export async function getLeadSourceCampaign(tenantId: string, leadId: string): Promise<string | null> {
+/** Origem de um lead (pra atribuir a campanha ao pedido). null se não achar. */
+export async function getLeadAttribution(
+  tenantId: string,
+  leadId: string,
+): Promise<Pick<Lead, "source_campaign" | "source_group_id"> | null> {
   const { data, error } = await getSupabaseAdmin()
     .from(TABLE)
-    .select("source_campaign")
+    .select("source_campaign, source_group_id")
     .eq("tenant_id", tenantId)
     .eq("id", leadId)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  return (data?.source_campaign as string | null) ?? null;
+  return data ?? null;
 }
 
 /** Mais recentes primeiro. `limit` é pro ticker do letreiro, que só quer o último. */
