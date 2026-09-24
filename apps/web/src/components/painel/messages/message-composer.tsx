@@ -5,8 +5,6 @@ import {
   Send,
   Image,
   Video,
-  Mic,
-  FileUp,
   AtSign,
   BarChart3,
   X,
@@ -17,10 +15,16 @@ import { useToast } from "@/components/toast";
 import { uploadMediaFile } from "@/lib/media-upload-client";
 import { CopyPicker } from "./copy-picker";
 
+/**
+ * Só foto e vídeo: o envio para os grupos não entrega áudio nem arquivo (ver
+ * `resolvePostMediaType`). Os botões voltam quando o fan-out e o worker souberem.
+ */
+type MidiaDoPost = "image" | "video";
+
 export type ComposerPayload = {
   body: string;
   mediaId?: string;
-  mediaType?: "image" | "video" | "audio" | "file";
+  mediaType?: MidiaDoPost;
   mediaName?: string;
   mentionAll: boolean;
   poll?: { question: string; options: string[] };
@@ -46,7 +50,7 @@ export function MessageComposer({ onSend, sending, className, onBodyChange, rotu
   }, [body, onBodyChange]);
   const [mentionAll, setMentionAll] = useState(false);
   const [mediaId, setMediaId] = useState<string | null>(null);
-  const [mediaType, setMediaType] = useState<"image" | "video" | "audio" | "file" | null>(null);
+  const [mediaType, setMediaType] = useState<MidiaDoPost | null>(null);
   const [mediaName, setMediaName] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [showPoll, setShowPoll] = useState(false);
@@ -56,13 +60,13 @@ export function MessageComposer({ onSend, sending, className, onBodyChange, rotu
 
   const canSend = Boolean(body.trim() || mediaId || (showPoll && pollQuestion.trim() && pollOptions.filter(Boolean).length >= 2));
 
-  const handleUpload = useCallback(async (file: File, type: "image" | "video" | "audio" | "file") => {
+  const handleUpload = useCallback(async (file: File, type: MidiaDoPost) => {
     setUploading(true);
     try {
       // `type` vem do botão que o usuário clicou, não da classificação do
-      // servidor por mime/extensão: celular manda variantes de mime (ex.:
-      // nota de voz `audio/x-m4a` do iPhone) que a tabela de mimes conhecidos
-      // não cobre, e aí o servidor classificaria como arquivo genérico.
+      // servidor por mime/extensão: celular manda variantes de mime que a
+      // tabela de mimes conhecidos não cobre, e aí o servidor classificaria
+      // como arquivo genérico.
       const data = await uploadMediaFile(file);
       setMediaId(data.id);
       setMediaType(type);
@@ -79,7 +83,7 @@ export function MessageComposer({ onSend, sending, className, onBodyChange, rotu
     }
   }, [toast]);
 
-  const pickFile = useCallback((accept: string, type: "image" | "video" | "audio" | "file") => {
+  const pickFile = useCallback((accept: string, type: MidiaDoPost) => {
     const input = fileRef.current;
     if (!input) return;
     input.accept = accept;
@@ -123,8 +127,6 @@ export function MessageComposer({ onSend, sending, className, onBodyChange, rotu
           <span className="text-xs text-aco">
             {mediaType === "image" && "📷"}
             {mediaType === "video" && "🎬"}
-            {mediaType === "audio" && "🎵"}
-            {mediaType === "file" && "📎"}
             {" "}{mediaName ?? "Arquivo"}
           </span>
           <button
@@ -224,18 +226,6 @@ export function MessageComposer({ onSend, sending, className, onBodyChange, rotu
           icon={Video}
           label="Vídeo"
           onClick={() => pickFile("video/*", "video")}
-          disabled={uploading}
-        />
-        <ToolBtn
-          icon={Mic}
-          label="Áudio"
-          onClick={() => pickFile("audio/*", "audio")}
-          disabled={uploading}
-        />
-        <ToolBtn
-          icon={FileUp}
-          label="Arquivo"
-          onClick={() => pickFile("*/*", "file")}
           disabled={uploading}
         />
         <ToolBtn
