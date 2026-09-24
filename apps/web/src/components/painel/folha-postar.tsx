@@ -111,13 +111,14 @@ export function FolhaPostar({ id, aberta, aoFechar, aoPostar }: Props) {
         </div>
       ) : (
         <div className="space-y-4 pb-2">
+          {/* A API recusa postar E agendar sem número conectado (409): nada fica na fila. */}
           {live === false && (
             <p className="rounded-[var(--radius-control)] bg-aviso-fundo px-3 py-2 text-13 text-volt-950">
-              WhatsApp desconectado: o post fica na fila até você{" "}
+              WhatsApp desconectado: pra postar ou agendar,{" "}
               <Link href="/painel/conectar" onClick={aoFechar} className="font-semibold text-cobalt-500">
-                reconectar
-              </Link>
-              .
+                reconecte o número
+              </Link>{" "}
+              primeiro.
             </p>
           )}
 

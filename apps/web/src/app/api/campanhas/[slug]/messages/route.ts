@@ -10,6 +10,7 @@ import { assertPermission, type TenantRole } from "@/lib/permissions";
 import { assertPlanLimit } from "@/lib/billing/entitlements";
 import { getSession, isLive } from "@/lib/session-store";
 import { buildDispatchList, toDispatchView } from "@/lib/campaigns/dispatch-view";
+import { resolvePostMediaType } from "@/lib/campaigns/post-media";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import { getSessionAccountId } from "@/lib/session";
 import { parseFunnelFields } from "@/lib/funnels/api";
@@ -85,6 +86,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     return Response.json({ error: "Informe uma mensagem, mídia ou enquete." }, { status: 400 });
   }
 
+  let mediaType: "image" | "video" | undefined;
+  try {
+    mediaType = resolvePostMediaType(body);
+  } catch (e) {
+    return Response.json({ error: e instanceof Error ? e.message : "Mídia inválida." }, { status: 400 });
+  }
+
   if (!USE_SUPABASE) {
     const camp = await resolveCampaignLegacy(slug);
     if (!camp) return Response.json({ error: "Campanha não encontrada." }, { status: 404 });
@@ -101,11 +109,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     const msg = await createMessage({
       campaignId: camp.id,
       campaignSlug: camp.slug ?? camp.id,
-      type: resolveType(body) as CampaignMessage["type"],
+      type: resolveType(body, mediaType),
       body: messageBody,
       groupIds,
       mediaId: body.mediaId ? String(body.mediaId) : undefined,
-      mediaType: resolveMediaType(body) as CampaignMessage["mediaType"],
+      mediaType,
       mediaName: body.mediaName ? String(body.mediaName) : undefined,
       poll,
       mentionAll: body.mentionAll === true,
@@ -174,7 +182,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     message: messageBody,
     group_ids: groupIds,
     media_id: body.mediaId ? String(body.mediaId) : undefined,
-    media_type: resolveMediaType(body),
+    media_type: mediaType,
     media_name: body.mediaName ? String(body.mediaName) : undefined,
     mention_all: body.mentionAll === true,
     poll,
@@ -268,19 +276,8 @@ function resolveRecurrence(body: Record<string, unknown>): string {
   return ["none", "daily", "weekly"].includes(raw) ? raw : "none";
 }
 
-function resolveType(body: Record<string, unknown>): string {
+/** Tipo gravado no store JSON do dev; a mídia já vem resolvida por `resolvePostMediaType`. */
+function resolveType(body: Record<string, unknown>, mediaType: "image" | "video" | undefined): CampaignMessage["type"] {
   if (body.poll) return "poll";
-  if (body.mediaType === "audio") return "audio";
-  if (body.mediaType === "file") return "file";
-  if (body.mediaType === "video") return "video";
-  if (body.mediaType === "image") return "image";
-  if (body.mediaId) return "image";
-  return "text";
-}
-
-function resolveMediaType(body: Record<string, unknown>): string | undefined {
-  if (!body.mediaId) return undefined;
-  const t = String(body.mediaType ?? "image");
-  if (["image", "video", "audio", "file"].includes(t)) return t;
-  return "image";
+  return mediaType ?? "text";
 }
