@@ -190,7 +190,7 @@ export function MessagesTab({
   };
 
   if (loading) {
-    return <div className="h-40 animate-pulse rounded-xl bg-white" />;
+    return <div className="h-40 animate-pulse rounded-xl bg-paper-0" />;
   }
 
   return (

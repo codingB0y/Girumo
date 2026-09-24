@@ -12,7 +12,17 @@ import {
   NAV_MOBILE_PRIMARY,
   isNavItemActive,
   resumo,
+  tituloDaSecao,
 } from "./painel-nav";
+
+test("a barra de cima nomeia a seção pelo item do menu que casa com a rota", () => {
+  assert.equal(tituloDaSecao("/painel"), "Início");
+  assert.equal(tituloDaSecao("/painel/campanhas/vip-revenda"), "Campanhas");
+  assert.equal(tituloDaSecao("/painel/relampago/123"), "Oferta Relâmpago");
+  assert.equal(tituloDaSecao("/painel/configuracoes/cancelar"), "Configurações");
+  // Conectar fica fora do menu, mas a barra ainda diz onde a pessoa está.
+  assert.equal(tituloDaSecao("/painel/conectar"), "Seu número");
+});
 
 const APP_DIR = path.join(process.cwd(), "src", "app");
 

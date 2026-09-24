@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LogoSymbol } from "@/components/brand/logo";
 import { NotificationBell } from "@/components/painel/notification-bell";
@@ -8,7 +9,7 @@ import { useRole } from "@/components/painel/role-provider";
 import { usePanelSession } from "@/components/painel/session-provider";
 import type { TenantDispatchView } from "@/lib/campaigns/dispatch-view";
 import { textoDoTicker, type Entrada, type Ticker, type UltimoPost } from "@/lib/painel/casca";
-import { formatPhoneBR } from "@/lib/phone";
+import { tituloDaSecao } from "@/lib/painel-nav";
 import { cn } from "@/lib/utils";
 
 type LeadLinha = { name?: string; sourceGroup?: string; enteredAt?: string };
@@ -61,38 +62,16 @@ function useTicker(): Ticker | null {
   return ticker;
 }
 
-/** Iniciais do avatar: nome da conta, senão o e-mail. */
-function useIniciais(): string {
-  const [iniciais, setIniciais] = useState("");
-  useEffect(() => {
-    let cancelado = false;
-    fetch("/api/auth/account")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((conta: { name?: string; email?: string } | null) => {
-        if (cancelado || !conta) return;
-        const base = (conta.name || conta.email || "").trim();
-        const partes = base.split(/[\s@.]+/).filter(Boolean);
-        setIniciais(partes.slice(0, 2).map((p) => p[0]).join("").toUpperCase());
-      })
-      .catch(() => {});
-    return () => {
-      cancelado = true;
-    };
-  }, []);
-  return iniciais;
-}
-
 /**
- * Letreiro (spec 3.1 e 3.2): a única peça escura do painel. 64px no desktop com
- * ticker de entradas, chip do número, sino e avatar; 56px no mobile só com
- * símbolo, nome da loja, ponto do número e sino.
+ * Letreiro (direção D, spec 2026-09-24): barra de cima no fundo da página.
+ * Desktop: nome da seção, ticker de entradas e sino (a loja e o número moram no
+ * corredor). Mobile, 56px: símbolo, nome da loja, ponto do número e sino.
  */
 export function Letreiro() {
+  const pathname = usePathname();
   const { tenantName, carregado } = useRole();
   const { session } = usePanelSession();
   const ticker = useTicker();
-  const iniciais = useIniciais();
-  const telefone = session?.live ? formatPhoneBR(session.phone) : null;
   const ponto = session
     ? session.live
       ? "pn-ponto--conectado pn-respira"
@@ -101,8 +80,8 @@ export function Letreiro() {
 
   return (
     <header data-testid="painel-letreiro" className="pn-letreiro sticky top-0 z-20">
-      <Link href="/painel" className="flex min-h-11 min-w-0 shrink-0 items-center gap-2 lg:gap-3">
-        <LogoSymbol className="h-[22px] w-[22px] shrink-0 lg:h-6 lg:w-6" title="Girumo" />
+      <Link href="/painel" className="flex min-h-11 min-w-0 shrink-0 items-center gap-2 lg:hidden">
+        <LogoSymbol className="h-[22px] w-[22px] shrink-0" title="Girumo" />
         {carregado ? (
           <span className="pn-letreiro__loja truncate">{tenantName ?? "Sua loja"}</span>
         ) : (
@@ -113,6 +92,7 @@ export function Letreiro() {
           />
         )}
       </Link>
+      <p className="pn-letreiro__secao hidden shrink-0 lg:block">{tituloDaSecao(pathname)}</p>
 
       {ticker && (
         <p data-testid="painel-ticker" className="pn-letreiro__ticker hidden min-w-0 flex-1 lg:flex">
@@ -131,20 +111,7 @@ export function Letreiro() {
             <span className={cn("pn-ponto", ponto)} aria-hidden="true" />
           </Link>
         )}
-        {session && (
-          <Link
-            href="/painel/conectar"
-            title={session.live ? (session.profileName ?? undefined) : "Reconectar WhatsApp"}
-            className="pn-letreiro__chip hidden lg:inline-flex"
-          >
-            <span className={cn("pn-ponto", ponto)} aria-hidden="true" />
-            {session.live ? (telefone ?? session.profileName ?? "Conectado") : "Desconectado"}
-          </Link>
-        )}
         <NotificationBell tom="escuro" />
-        <Link href="/painel/configuracoes" aria-label="Sua conta" className="pn-letreiro__avatar hidden lg:inline-flex">
-          {iniciais || "•"}
-        </Link>
       </div>
     </header>
   );

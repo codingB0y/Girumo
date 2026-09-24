@@ -1,8 +1,10 @@
 @import "tailwindcss";
 @import "./painel-vitrine.css";
 
-@theme inline {
-  /* Paleta canônica Girumo. */
+@theme {
+  /* Paleta canônica Girumo. Sem `inline` de propósito: a utilitária lê a
+     variável (bg-paper-0 → var(--color-paper-0)), e o tema noite do painel
+     troca só os valores (painel-vitrine.css, :root:has(.pn-root)). */
   --color-volt-950: #071923;
   --color-volt-900: #0C2835;
   --color-volt-800: #123746;
@@ -33,6 +35,15 @@
   --color-zap: #25D366;
   --color-brand-500: var(--color-cobalt-500);
 
+  --shadow-card: 0 1px 2px rgba(7, 25, 35, 0.06);
+  --shadow-card-hover: 0 8px 24px rgba(7, 25, 35, 0.1);
+  --shadow-brand: 0 1px 2px rgba(46, 102, 255, 0.18);
+  --shadow-deep: 0 30px 70px -20px rgba(7, 25, 35, 0.5);
+}
+
+@theme inline {
+  /* Fontes ficam inline: a variável do next/font mora no elemento que recebe a
+     classe, não no :root. */
   --font-brand: var(--font-manrope), sans-serif;
   --font-body: var(--font-plex-sans), sans-serif;
   --font-data: var(--font-plex-mono), monospace;
@@ -41,11 +52,6 @@
   --font-display: var(--font-brand);
   --font-editorial: var(--font-brand);
   --font-tech: var(--font-brand);
-
-  --shadow-card: 0 1px 2px rgba(7, 25, 35, 0.06);
-  --shadow-card-hover: 0 8px 24px rgba(7, 25, 35, 0.1);
-  --shadow-brand: 0 1px 2px rgba(46, 102, 255, 0.18);
-  --shadow-deep: 0 30px 70px -20px rgba(7, 25, 35, 0.5);
 }
 
 :root {
