@@ -1,8 +1,7 @@
 import { addOrder, removeOrder, countOrders, listOrdersByTenant } from "@/lib/stores/orders";
-import { updateLeadStatus } from "@/lib/leads-store";
-import { getLeadSourceCampaign } from "@/lib/stores/leads";
+import { getLeadAttribution, updateLeadStatus } from "@/lib/stores/leads";
 import { listCampaignGroups } from "@/lib/stores/campaign-groups";
-import { matchCampaignId } from "@/lib/campaign-attribution";
+import { resolveCampaignId } from "@/lib/campaign-attribution";
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import { parseValorDoPedido as parseOrderValue } from "@/lib/orders/valor-do-pedido";
@@ -47,18 +46,16 @@ export async function POST(req: Request) {
   try {
     const leadId = b.leadId ? String(b.leadId) : undefined;
 
-    // Atribuição de campanha: infere do lead (source_campaign → id da campanha).
+    // Atribuição de campanha: infere do lead — grupo de origem → campanha que o contém.
     // Best-effort — falha aqui não deve derrubar o registro do pedido.
     let campaignId: string | undefined;
     if (leadId) {
       try {
-        const source = await getLeadSourceCampaign(tenantId, leadId);
-        if (source) {
-          const campaigns = await listCampaignGroups(tenantId);
-          campaignId = matchCampaignId(source, campaigns.map((c) => ({ id: c.id, name: c.name, slug: c.slug }))) ?? undefined;
-        }
-      } catch {
+        const lead = await getLeadAttribution(tenantId, leadId);
+        if (lead) campaignId = resolveCampaignId(lead, await listCampaignGroups(tenantId)) ?? undefined;
+      } catch (e) {
         // sem atribuição → cai em "sem origem"
+        console.error(`[orders] atribuição de campanha falhou para ${tenantId}:`, (e as Error).message);
       }
     }
 
@@ -70,7 +67,8 @@ export async function POST(req: Request) {
       campaignId,
     });
     if (leadId) {
-      // Fonte da verdade no server; lead não encontrado não deve derrubar o pedido já criado.
+      // Supabase, como o pedido (o ndjson legado nunca via esse lead). Lead não
+      // encontrado não deve derrubar o pedido já criado.
       await updateLeadStatus(tenantId, leadId, "comprou").catch(() => null);
     }
 
