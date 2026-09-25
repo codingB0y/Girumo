@@ -67,6 +67,7 @@ test("o alcance do lote reflete os grupos administrados da campanha", async ({ p
   const administrados = daCampanha.filter((g) => g.isAdmin).length;
 
   await page.goto(`/painel/campanhas/${campanha.slug ?? campanha.id}`);
+  await page.getByRole("button", { name: "Grupos", exact: true }).click();
 
   const bloco = page.getByRole("region", { name: "Configurações dos grupos" });
   await expect(bloco).toBeVisible();
@@ -108,6 +109,7 @@ test("o progresso do lote reflete a rota de lotes", async ({ page }) => {
   const lote = (await resLote.json()) as { total: number; done: number; failed: number } | null;
 
   await page.goto(`/painel/campanhas/${slug}`);
+  await page.getByRole("button", { name: "Grupos", exact: true }).click();
   const bloco = page.getByRole("region", { name: "Configurações dos grupos" });
   await expect(bloco).toBeVisible();
 
@@ -142,6 +144,7 @@ test("a contagem de Estado reflete o send_state que a API devolve", async ({ pag
   const semInfo = daCampanha.length - abertos - fechados;
 
   await page.goto(`/painel/campanhas/${campanha.slug ?? campanha.id}`);
+  await page.getByRole("button", { name: "Grupos", exact: true }).click();
   const bloco = page.getByRole("region", { name: "Configurações dos grupos" });
   await expect(bloco).toBeVisible();
 
@@ -186,6 +189,7 @@ test("Revisar links mostra o que a rota de revisao respondeu", async ({ page }) 
   };
 
   await page.goto(`/painel/campanhas/${slug}`);
+  await page.getByRole("button", { name: "Grupos", exact: true }).click();
   const bloco = page.getByRole("region", { name: "Configurações dos grupos" });
   await expect(bloco).toBeVisible();
 
