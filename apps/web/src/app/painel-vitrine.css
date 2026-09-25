@@ -18,6 +18,9 @@
   --color-aviso-fundo: #FFF6E5;
   --color-hover-ficha: #FBF9F3;
   --color-porta-ativa: #ECE7DC;
+  /* Gráficos da campanha (direção D): a série de entradas e o "quase lotado". */
+  --color-serie: #2E66FF;
+  --color-quase: #D99B2A;
 }
 
 @theme inline {
@@ -1133,6 +1136,8 @@
   --color-aviso-fundo: #2A2715;
   --color-hover-ficha: #102C3B;
   --color-porta-ativa: #16384A;
+  --color-serie: #6FA0FF;
+  --color-quase: #F2B84B;
   /* Aliases são resolvidos onde nascem (:root claro): sem redeclarar, herdariam o valor claro. */
   --color-aco: var(--color-slate-600);
   --color-ardosia: var(--color-slate-600);

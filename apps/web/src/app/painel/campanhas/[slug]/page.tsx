@@ -12,8 +12,9 @@ import {
   Unlock,
   MousePointerClick,
   AlertTriangle,
-  Settings2,
+  Pencil,
   RefreshCw,
+  Send,
   Trash2,
   Loader2,
 } from "lucide-react";
@@ -25,6 +26,7 @@ import {
   type CampaignGroupsOverview,
 } from "@/lib/campaign-groups-overview";
 import type { Group } from "@/lib/mock-data";
+import type { DispatchView } from "@/lib/campaigns/dispatch-view";
 import { MessagesTab } from "@/components/painel/messages";
 import { FunnelResults } from "@/components/painel/campaigns/funnel-results";
 import { useConfirmacao } from "@/components/painel/confirmacao";
@@ -32,9 +34,13 @@ import { AcoesEmMassa } from "@/components/painel/grupos/acoes-em-massa";
 import { ConfigChips } from "@/components/painel/campanhas/config-chips";
 import { QrLink } from "@/components/painel/campanhas/qr-link";
 import { AjudaPainel } from "@/components/painel/campanhas/ajuda-painel";
+import { VisaoGeralCampanha } from "@/components/painel/campanhas/detalhe/visao-geral";
 import { ENTRADA_DEFAULTS, type EntradaSettings } from "@/lib/campaigns/settings";
 import { clicksForCampaign } from "@/lib/links/click-attribution";
-import { countCampaignEntries, entriesPerClick, type EntryLead } from "@/lib/campaigns/campaign-entries";
+import { countCampaignEntries, entriesPerClick } from "@/lib/campaigns/campaign-entries";
+import { horaBR } from "@/lib/date-br";
+import type { LeadResumo } from "@/lib/painel/campanha-visao";
+import { QUASE_LOTADO } from "@/lib/painel/grupos";
 
 type Campanha = {
   id: string;
@@ -43,6 +49,7 @@ type Campanha = {
   groupIds: string[];
   slug?: string;
   createdAt: string;
+  autoGrow?: boolean;
   settings?: { entrada: EntradaSettings; integracoes?: { meta: { pixel_id: string } } };
 };
 type TrackedLink = { campaignGroupId?: string | null; campaignName?: string; clicks: number };
@@ -50,7 +57,9 @@ type Order = { id: string; value: number; campaign_id?: string | null };
 
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
-const TABS = ["Grupos", "Mensagens", "Visão geral", "Resultados"] as const;
+// Direção D (spec 2026-09-24, PR B): a campanha abre na Visão geral. "Posts"
+// é a antiga "Mensagens" (Enviar agora, Agendar, Funil, Agenda).
+const TABS = ["Visão geral", "Grupos", "Posts", "Resultados"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function CampanhaDetalhe() {
@@ -64,23 +73,32 @@ export default function CampanhaDetalhe() {
   const [clicks, setClicks] = useState(0);
   const [entries, setEntries] = useState(0);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [leads, setLeads] = useState<LeadResumo[]>([]);
+  // null enquanto os posts carregam: "Hoje na campanha" mostra o esqueleto.
+  const [posts, setPosts] = useState<DispatchView[] | null>(null);
+  const [atualizadoEm, setAtualizadoEm] = useState(() => new Date());
   const [live, setLive] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [origin, setOrigin] = useState("");
-  const [tab, setTab] = useState<Tab>("Grupos");
-  // Mensagens fica montada depois da 1ª visita: o funil em preenchimento
+  const [tab, setTab] = useState<Tab>("Visão geral");
+  // Posts fica montada depois da 1ª visita: o funil em preenchimento
   // (e a foto já enviada) sobrevive à troca de aba.
   const [mensagensVista, setMensagensVista] = useState(false);
   // `?abrir=funil` vem do "Novo funil" da tela Funis. Lido depois de montar
-  // (sem localização no servidor); a aba Mensagens só monta depois disso, então
+  // (sem localização no servidor); a aba Posts só monta depois disso, então
   // o MessagesTab já nasce na sub-aba Funil.
   const [abrirNoFunil, setAbrirNoFunil] = useState(false);
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("abrir") !== "funil") return;
     setAbrirNoFunil(true);
-    setTab("Mensagens");
+    setTab("Posts");
     setMensagensVista(true);
   }, []);
+
+  function abrirAba(t: Tab) {
+    setTab(t);
+    if (t === "Posts") setMensagensVista(true);
+  }
   const [menu, setMenu] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -108,10 +126,18 @@ export default function CampanhaDetalhe() {
         // Entradas contam quem ENTROU nos grupos da campanha (leads têm
         // entered_at), não o total de membros — que inclui quem já estava lá.
         // O corte pela criação da campanha tira quem entrou antes dela existir.
-        const leadsList: EntryLead[] = Array.isArray(lds) ? lds : [];
+        const leadsList: LeadResumo[] = Array.isArray(lds) ? lds : [];
+        setLeads(leadsList);
         setEntries(countCampaignEntries(leadsList, camp.groupIds, { since: camp.createdAt }));
+        // Posts do dia para "Hoje na campanha". Sem await: a tela não espera por
+        // eles, e falha vira lista vazia (nunca esqueleto eterno).
+        void fetch(`/api/campanhas/${camp.slug ?? camp.id}/messages`)
+          .then((r) => (r.ok ? r.json() : []))
+          .catch(() => [])
+          .then((p: unknown) => setPosts(Array.isArray(p) ? (p as DispatchView[]) : []));
       }
     } finally {
+      setAtualizadoEm(new Date());
       setLoading(false);
     }
   }
@@ -183,76 +209,61 @@ export default function CampanhaDetalhe() {
     );
   }
 
-  const fill = o.fillPct;
   const masterUrl = campanha.slug ? `${origin}/r/${campanha.slug}` : "";
   const offline = live === false;
   const semConvite = o.missingInviteCount;
 
-  return (
-    <div className="mx-auto max-w-[1100px] space-y-6 px-4 py-8 sm:px-8">
-      <Link
-        href="/painel/campanhas"
-        className="font-data inline-flex items-center gap-1.5 text-12 uppercase tracking-[0.08em] text-aco transition-colors duration-[160ms] hover:text-cobalt-500"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" /> Campanhas
-      </Link>
+  const editar = `/painel/campanhas/${campanha.slug ?? campanha.id}/editar`;
 
-      {/* Header */}
-      <div className="pn-card rounded-xl p-5 sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          {/* min-w-0 nos dois níveis: sem ele o flex não encolhe abaixo da URL
-              mestra e o `truncate` da CopyLink nunca atua — a página rolava de
-              lado em 390 px. */}
-          <div className="flex min-w-0 items-center gap-3.5">
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#25D366] text-white"><MessageCircle className="h-6 w-6" /></span>
-            <div className="min-w-0">
-              <h1 className="font-display break-words text-2xl font-extrabold tracking-[-0.03em] text-volt-950">{campanha.name}</h1>
-              {masterUrl && <CopyLink url={masterUrl} className="mt-1" />}
-              {masterUrl && (
-                <div className="mt-1.5">
-                  <QrLink url={masterUrl} nome={campanha.name} />
-                </div>
-              )}
-              <ConfigChips
-                entrada={campanha.settings?.entrada ?? ENTRADA_DEFAULTS}
-                integracoes={campanha.settings?.integracoes}
-                href={`/painel/campanhas/${campanha.slug ?? campanha.id}/editar?aba=entrada`}
-              />
-            </div>
-          </div>
-          <div className="relative flex gap-2">
+  return (
+    <div className="mx-auto max-w-[1180px] space-y-6 px-4 py-6 sm:px-8">
+      {/* Cabeçalho da campanha (direção D): nome, ações, e numa linha só o link,
+          o tamanho, o "abre outro sozinho" e o número. Sem cartão em volta. */}
+      <header className="space-y-3">
+        <Link href="/painel/campanhas" className="inline-flex items-center gap-1.5 text-13 text-slate-600 transition-colors hover:text-volt-950">
+          <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" /> Campanhas
+        </Link>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h1 className="min-w-0 break-words text-28 font-semibold tracking-[-0.01em] text-volt-950">{campanha.name}</h1>
+          <div className="relative flex flex-wrap items-center gap-2">
             <AjudaPainel />
-            <Link
-              href={`/painel/campanhas/${campanha.slug ?? campanha.id}/editar`}
-              className="inline-flex items-center gap-2 rounded-xl bg-cobalt-500 px-4 py-2.5 text-sm font-medium text-white transition-[transform,filter] duration-[160ms] ease-[var(--ease-fluxo)] hover:-translate-y-0.5 hover:brightness-110"
-            >
-              <Settings2 className="h-4 w-4" /> Configurar
+            {o.groupCount > 0 && (
+              <button
+                type="button"
+                onClick={() => abrirAba("Posts")}
+                className="inline-flex h-10 items-center gap-2 rounded-lg bg-acid-500 px-4 text-sm font-semibold text-volt-950 transition hover:brightness-95"
+              >
+                <Send className="h-4 w-4" aria-hidden="true" /> Postar em {o.groupCount} {o.groupCount === 1 ? "grupo" : "grupos"}
+              </button>
+            )}
+            <Link href={editar} className="inline-flex h-10 items-center gap-2 rounded-lg border border-line-200 bg-paper-0 px-3.5 text-sm font-medium text-volt-950 transition-colors hover:border-slate-600">
+              <Pencil className="h-4 w-4" aria-hidden="true" /> Editar campanha
             </Link>
-            <button onClick={() => setMenu((v) => !v)} aria-label="Mais ações" className="flex h-10 w-10 items-center justify-center rounded-xl border border-volt-950/10 bg-papel text-aco transition-colors duration-[160ms] hover:text-volt-950">
+            <button
+              type="button"
+              onClick={() => setMenu((v) => !v)}
+              aria-label="Mais ações"
+              aria-expanded={menu}
+              className="flex h-10 w-10 items-center justify-center rounded-lg border border-line-200 bg-paper-0 text-slate-600 transition-colors hover:text-volt-950"
+            >
               <MoreHorizontal className="h-5 w-5" />
             </button>
             {menu && (
               <>
                 <button className="fixed inset-0 z-10 cursor-default" onClick={() => setMenu(false)} aria-label="Fechar" />
-                <div className="hf-enter absolute right-0 top-12 z-20 w-52 overflow-hidden rounded-xl border border-volt-950/10 bg-papel py-1.5 shadow-deep">
-                  <Link
-                    href={`/painel/campanhas/${campanha.slug ?? campanha.id}/editar`}
-                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-aco transition-colors duration-[160ms] hover:bg-poco hover:text-volt-950"
-                  >
-                    <Settings2 className="h-4 w-4 text-aco" /> Configurar
-                  </Link>
+                <div className="hf-enter absolute right-0 top-12 z-20 w-52 overflow-hidden rounded-lg border border-line-200 bg-paper-0 py-1.5 shadow-deep">
                   <button
                     onClick={handleRefresh}
                     disabled={refreshing}
-                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-aco transition-colors duration-[160ms] hover:bg-poco hover:text-volt-950"
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-slate-600 transition-colors hover:bg-hover-ficha hover:text-volt-950"
                   >
-                    {refreshing ? <Loader2 className="h-4 w-4 animate-spin text-aco" /> : <RefreshCw className="h-4 w-4 text-aco" />}
+                    {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                     Atualizar dados
                   </button>
                   <button
                     onClick={handleDelete}
                     disabled={deleting}
-                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-alerta transition-colors duration-[160ms] hover:bg-alerta/5"
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-danger-700 transition-colors hover:bg-hover-ficha"
                   >
                     {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                     Excluir campanha
@@ -262,50 +273,77 @@ export default function CampanhaDetalhe() {
             )}
           </div>
         </div>
-
-        <div className="mt-5 grid gap-4 sm:grid-cols-[1.4fr_1fr_1fr_1fr] sm:items-center">
-          <div>
-            <div className="flex items-center gap-3">
-              <div className="pn-poco h-2 flex-1 overflow-hidden rounded-full">
-                <div className="pn-fill h-full w-full rounded-full" style={{ transform: `scaleX(${Math.max(fill / 100, 0.02)})`, background: fill >= 85 ? "#D99B2A" : "var(--color-cobalt-500)" }} />
-              </div>
-              <span className={cn("font-data text-sm font-medium tabular-nums", fill >= 85 ? "text-atencao" : "text-cobalt-500")}>{fill}%</span>
-            </div>
-            <p className="font-data mt-1.5 text-12 tabular-nums text-aco">
-              {o.totalMembers.toLocaleString("pt-BR")} / {o.totalCapacity.toLocaleString("pt-BR")} membros
-            </p>
-          </div>
-          <HeaderStat label="Grupos" value={o.groupCount.toLocaleString("pt-BR")} />
-          <HeaderStat label="Membros" value={o.totalMembers.toLocaleString("pt-BR")} />
-          <HeaderStat label="Cliques" value={o.clicks.toLocaleString("pt-BR")} />
+        {/* min-w-0 + max-w-full: sem eles a URL mestra não encolhe e a página
+            rolava de lado em 390 px. */}
+        <div className="flex min-w-0 flex-wrap items-center gap-x-5 gap-y-2 text-13 text-slate-600">
+          {masterUrl && <CopyLink url={masterUrl} className="min-w-0 max-w-full" />}
+          {masterUrl && <QrLink url={masterUrl} nome={campanha.name} />}
+          <span>
+            <strong className="font-semibold tabular-nums text-volt-950">{o.groupCount.toLocaleString("pt-BR")}</strong> grupos ·{" "}
+            <strong className="font-semibold tabular-nums text-volt-950">{o.totalMembers.toLocaleString("pt-BR")}</strong> pessoas
+          </span>
+          {typeof campanha.autoGrow === "boolean" && (
+            <Link href={editar} className="transition-colors hover:text-volt-950">
+              Grupo lotou → abre outro: <strong className="font-semibold text-volt-950">{campanha.autoGrow ? "ligado" : "desligado"}</strong>
+            </Link>
+          )}
+          {live !== null && (
+            <span className="inline-flex items-center gap-1.5">
+              <span className={cn("pn-ponto", live ? "pn-ponto--conectado" : "pn-ponto--desconectado")} aria-hidden="true" />
+              número {live ? "conectado" : "desconectado"}
+            </span>
+          )}
+          <button type="button" onClick={handleRefresh} disabled={refreshing} className="inline-flex items-center gap-1.5 transition-colors hover:text-volt-950">
+            {refreshing ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />}
+            atualizado {horaBR(atualizadoEm.toISOString())}
+          </button>
         </div>
-
+        <ConfigChips
+          entrada={campanha.settings?.entrada ?? ENTRADA_DEFAULTS}
+          integracoes={campanha.settings?.integracoes}
+          href={`${editar}?aba=entrada`}
+        />
         {(offline || semConvite > 0) && (
-          <div className="mt-4 flex items-center gap-3 rounded-xl border border-alerta/20 bg-alerta/[0.04] px-4 py-3">
-            <AlertTriangle className="h-5 w-5 shrink-0 text-alerta" />
-            <p className="flex-1 text-sm text-aco">
+          <div className="flex items-center gap-3 rounded-lg border border-danger-700/40 bg-aviso-fundo px-4 py-3">
+            <AlertTriangle className="h-5 w-5 shrink-0 text-danger-700" aria-hidden="true" />
+            <p className="flex-1 text-sm text-slate-600">
               {offline ? (
-                <><strong className="text-volt-950">WhatsApp desconectado</strong> — leads não entram até reconectar.</>
+                <><strong className="text-volt-950">WhatsApp desconectado</strong> — ninguém entra nem recebe post até reconectar.</>
               ) : (
-                <><strong className="text-volt-950">{semConvite} grupos sem convite</strong> — não recebem leads até configurar o link.</>
+                <><strong className="text-volt-950">{semConvite} {semConvite === 1 ? "grupo sem convite" : "grupos sem convite"}</strong> — não recebem gente nova até configurar o link.</>
               )}
             </p>
-            <Link href="/painel/conectar" className="rounded-lg bg-alerta px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90">
+            <Link href={offline ? "/painel/conectar" : editar} className="rounded-lg bg-danger-700 px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90">
               {offline ? "Reconectar" : "Configurar"}
             </Link>
           </div>
         )}
-      </div>
+      </header>
 
-      {/* Abas */}
-      <div className="flex gap-1 overflow-x-auto border-b border-volt-950/[0.08]">
+      {/* Abas: Configurar é a tela de edição, por isso é link e não aba. A contagem
+          fica fora do nome acessível ("Grupos"), que é contrato dos testes. */}
+      <nav aria-label="Seções da campanha" className="-mx-4 flex gap-1 overflow-x-auto border-b border-line-200 px-4 sm:mx-0 sm:px-0">
         {TABS.map((t) => (
-          <button key={t} onClick={() => { setTab(t); if (t === "Mensagens") setMensagensVista(true); }} className={cn("relative shrink-0 px-4 py-2.5 text-sm font-medium transition-colors duration-[160ms]", tab === t ? "text-volt-950" : "text-aco hover:text-volt-950")}>
+          <button
+            key={t}
+            type="button"
+            aria-pressed={tab === t}
+            onClick={() => abrirAba(t)}
+            className={cn("relative shrink-0 px-3 py-2.5 text-sm font-medium transition-colors", tab === t ? "text-volt-950" : "text-slate-600 hover:text-volt-950")}
+          >
             {t}
-            {tab === t && <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-cobalt-500" />}
+            {t === "Grupos" && (
+              <span aria-hidden="true" className="ml-1.5 rounded bg-hover-ficha px-1.5 py-0.5 text-12 tabular-nums text-slate-600">
+                {o.groupCount}
+              </span>
+            )}
+            {tab === t && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-volt-950" />}
           </button>
         ))}
-      </div>
+        <Link href={editar} className="shrink-0 px-3 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:text-volt-950">
+          Configurar
+        </Link>
+      </nav>
 
       <div className="hf-enter" key={tab}>
         {tab === "Grupos" && (
@@ -347,27 +385,18 @@ export default function CampanhaDetalhe() {
         )}
 
         {tab === "Visão geral" && (
-          <div className="grid gap-5 lg:grid-cols-3">
-            <div className="space-y-3 lg:col-span-1">
-              <Tile label="Grupos" value={String(o.groupCount)} />
-              <Tile label="Preenchimento" value={`${fill}%`} tone={fill >= 85 ? "atencao" : "cobalt"} />
-              <Tile label="Cliques" value={o.clicks.toLocaleString("pt-BR")} />
-            </div>
-            <div className="pn-card rounded-xl p-6 lg:col-span-2">
-              <h2 className="font-display text-base font-bold text-volt-950">Como está a campanha</h2>
-              <p className="mt-2 text-sm text-aco">
-                Cada clique no link é distribuído pro próximo grupo com vaga. Quando um grupo enche, o
-                sistema usa o próximo — você só acompanha.
-              </p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <Mini label="Vaga restante" value={`${Math.max(o.totalCapacity - o.totalMembers, 0).toLocaleString("pt-BR")} membros`} />
-                <Mini
-                  label="Entradas por clique"
-                  value={taxaEntrada === null ? "—" : `${taxaEntrada}%`}
-                />
-              </div>
-            </div>
-          </div>
+          <VisaoGeralCampanha
+            groupIds={campanha.groupIds}
+            overview={o}
+            taxaEntrada={taxaEntrada}
+            receita={campaignRevenue}
+            pedidos={campaignOrders.length}
+            leads={leads}
+            posts={posts}
+            agora={atualizadoEm}
+            aoVerGrupos={() => abrirAba("Grupos")}
+            aoVerPosts={() => abrirAba("Posts")}
+          />
         )}
 
         {tab === "Resultados" && (
@@ -418,7 +447,7 @@ export default function CampanhaDetalhe() {
       </div>
       {/* Fora do `key={tab}` acima, que remontaria tudo a cada troca. */}
       {mensagensVista && (
-        <div hidden={tab !== "Mensagens"}>
+        <div hidden={tab !== "Posts"}>
           <MessagesTab
             campaignSlug={campanha.slug ?? campanha.id}
             groupIds={campanha.groupIds}
@@ -436,7 +465,8 @@ export default function CampanhaDetalhe() {
 
 function GroupCard({ g, live, origin }: { g: CampaignGroupOverview; live: boolean | null; origin: string }) {
   const cap = g.capacity > 0 ? (g.members / g.capacity) * 100 : 0;
-  const quase = cap >= 80;
+  // O mesmo limiar da tela de Grupos e da Visão geral (era 80 só aqui).
+  const quase = cap >= QUASE_LOTADO * 100;
   const conectado = live !== false && g.status !== "missing_invite";
   const name = g.group?.name ?? "Grupo";
 
@@ -491,29 +521,11 @@ function GroupCard({ g, live, origin }: { g: CampaignGroupOverview; live: boolea
 
 /* ---------- helpers ---------- */
 
-function HeaderStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="font-data text-12 uppercase tracking-[0.08em] text-aco">{label}</p>
-      <p className="font-data text-xl font-medium tabular-nums text-volt-950">{value}</p>
-    </div>
-  );
-}
-
 function Tile({ label, value, tone }: { label: string; value: string; tone?: "cobalt" | "atencao" }) {
   return (
     <div className="pn-card rounded-xl p-4">
       <p className="font-data text-12 uppercase tracking-[0.08em] text-aco">{label}</p>
       <p className={cn("font-data mt-2 text-[26px] font-medium tabular-nums tracking-[-0.02em]", tone === "cobalt" ? "text-cobalt-500" : tone === "atencao" ? "text-atencao" : "text-volt-950")}>{value}</p>
-    </div>
-  );
-}
-
-function Mini({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl bg-poco px-4 py-3">
-      <p className="font-data text-12 uppercase tracking-[0.08em] text-aco">{label}</p>
-      <p className="mt-1 text-sm font-medium text-volt-950">{value}</p>
     </div>
   );
 }

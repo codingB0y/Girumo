@@ -102,7 +102,7 @@ async function simularServidor(page: Page, campanha: Campanha, opts: { falharOfe
 
 async function abrirFunilDaLive(page: Page, slug: string) {
   await page.goto(`/painel/campanhas/${slug}`, { waitUntil: "load" });
-  await page.getByRole("button", { name: "Mensagens", exact: true }).click();
+  await page.getByRole("button", { name: "Posts", exact: true }).click();
   // O GET /api/settings do funil preenche loja/nicho só se o campo ainda estiver
   // vazio. Esperar a resposta antes de digitar tira a corrida com o `fill("")`
   // do 2º teste (a loja salva do tenant voltaria para o campo).
@@ -199,7 +199,7 @@ test("funil em preenchimento sobrevive à troca da aba de cima", async ({ page }
 
   await page.getByRole("button", { name: "Grupos", exact: true }).click();
   await expect(page.getByLabel("Sua loja", { exact: true })).toBeHidden();
-  await page.getByRole("button", { name: "Mensagens", exact: true }).click();
+  await page.getByRole("button", { name: "Posts", exact: true }).click();
 
   // Volta direto no Funil, com o que foi digitado. O card aberto é o último
   // mexido ("Entra agora"; os cards são acordeão); o botão habilitado prova
@@ -290,7 +290,7 @@ test("Grade do dia repetida: um funil por dia, dia seguinte herda e troca só a 
   const campanha = await campanhaComGrupos(page);
   const { chamadas } = await simularServidor(page, campanha);
   await page.goto(`/painel/campanhas/${campanha.slug}`, { waitUntil: "load" });
-  await page.getByRole("button", { name: "Mensagens", exact: true }).click();
+  await page.getByRole("button", { name: "Posts", exact: true }).click();
   const perfil = page.waitForResponse((r) => r.url().endsWith("/api/settings") && r.request().method() === "GET");
   await page.getByRole("button", { name: SUBABA_FUNIL }).click();
   await perfil;
@@ -342,7 +342,7 @@ test("hora por praça: Bom Retiro manda a grade às 08:00; outro horário depois
   const campanha = await campanhaComGrupos(page);
   const { chamadas } = await simularServidor(page, campanha);
   await page.goto(`/painel/campanhas/${campanha.slug}`, { waitUntil: "load" });
-  await page.getByRole("button", { name: "Mensagens", exact: true }).click();
+  await page.getByRole("button", { name: "Posts", exact: true }).click();
   const perfil = page.waitForResponse((r) => r.url().endsWith("/api/settings") && r.request().method() === "GET");
   await page.getByRole("button", { name: SUBABA_FUNIL }).click();
   await perfil;
@@ -381,7 +381,7 @@ test("hora editável por etapa: só o reforço muda de hora, e a mudança vai no
   const campanha = await campanhaComGrupos(page);
   const { chamadas } = await simularServidor(page, campanha);
   await page.goto(`/painel/campanhas/${campanha.slug}`, { waitUntil: "load" });
-  await page.getByRole("button", { name: "Mensagens", exact: true }).click();
+  await page.getByRole("button", { name: "Posts", exact: true }).click();
   const perfil = page.waitForResponse((r) => r.url().endsWith("/api/settings") && r.request().method() === "GET");
   await page.getByRole("button", { name: SUBABA_FUNIL }).click();
   await perfil;
