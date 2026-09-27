@@ -104,6 +104,7 @@ export function GraficoDeBarras({ barras, resumo, unidade, rotuloACada = 1, agor
           onPointerDown={apontar}
           // No toque o "sair" vem logo depois de soltar o dedo: a dica fica até o próximo toque.
           onPointerLeave={(e) => e.pointerType !== "touch" && setAtiva(null)}
+          onPointerCancel={() => setAtiva(null)}
         >
           <div aria-hidden="true" className="absolute inset-0 flex flex-col justify-between">
             <span className="block border-t border-line-200" />

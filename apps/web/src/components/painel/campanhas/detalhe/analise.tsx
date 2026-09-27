@@ -44,7 +44,11 @@ export function useAtividade(slug: string, versao: number) {
         setErro(null);
       })
       .catch((e: unknown) => {
-        if (vivo) setErro(e instanceof Error ? e.message : "Não deu para ler a análise da campanha.");
+        if (!vivo) return;
+        // Sem série nova, a faixa de números não pode seguir mostrando a leitura
+        // anterior ao lado de um "atualizado" que já é o de agora.
+        setAtividade(null);
+        setErro(e instanceof Error ? e.message : "Não deu para ler a análise da campanha.");
       });
     return () => {
       vivo = false;
@@ -150,6 +154,7 @@ function Graficos({ atividade: a, periodo, posts }: { atividade: AtividadeDaCamp
           <p className="mt-0.5 text-13 text-slate-600">{fraseDeNovas}</p>
         </figcaption>
         <GraficoDeBarras
+          key={periodo}
           barras={novas}
           resumo={`Novas pessoas ${quando}: ${fraseDeNovas}`}
           unidade={unidadeDeNovas}
@@ -157,7 +162,7 @@ function Graficos({ atividade: a, periodo, posts }: { atividade: AtividadeDaCamp
           agora={periodo === "hoje" ? (hh * 60 + mm) / 1440 : undefined}
           marcas={marcas}
         />
-        <p className="mt-3 text-12 text-slate-600">quem entrou pela 1ª vez num grupo da campanha</p>
+        <p className="mt-3 text-12 text-slate-600">quem chegou à sua base pela 1ª vez por um grupo desta campanha</p>
       </figure>
 
       <figure className="m-0 min-w-0 border-t border-line-200 px-5 pb-4 pt-5 lg:border-l lg:border-t-0">
@@ -178,6 +183,7 @@ function Graficos({ atividade: a, periodo, posts }: { atividade: AtividadeDaCamp
         ) : (
           <>
             <GraficoDeBarras
+              key={periodo}
               barras={cliques}
               resumo={`Cliques no link ${quando}: ${frase(cliques, totalCliques, quando, unidadeDeCliques, "")}`}
               unidade={unidadeDeCliques}
@@ -197,16 +203,23 @@ function soma(barras: Barra[]): number {
   return barras.reduce((s, b) => s + b.valor, 0);
 }
 
-function frase(barras: Barra[], total: number, quando: string, [um, varios]: [string, string], vazio: string): string {
+/** "1 clique", "12 cliques". */
+function contagem(n: number, [um, varios]: [string, string]): string {
+  return `${numero(n)} ${n === 1 ? um : varios}`;
+}
+
+function frase(barras: Barra[], total: number, quando: string, unidade: [string, string], vazio: string): string {
   if (total === 0) return vazio;
   const pico = barras.reduce((m, b) => (b.valor > m.valor ? b : m), barras[0]);
-  return `${numero(total)} ${total === 1 ? um : varios} ${quando}; o pico foi ${pico.rotuloLongo}, com ${numero(pico.valor)}.`;
+  return `${contagem(total, unidade)} ${quando}; o pico foi ${pico.rotuloLongo}, com ${numero(pico.valor)}.`;
 }
 
 /** Cliques que viraram pessoa nova; quando entra mais gente do que clicou, diz isso em vez de mostrar 100%. */
 function conversao(novas: number, cliques: number): string {
-  if (novas > cliques) return `${numero(novas)} pessoas novas para ${numero(cliques)} cliques: tem gente entrando sem passar pelo link.`;
-  return `${Math.round((novas / cliques) * 100)}% viraram pessoa nova: ${numero(novas)} de ${numero(cliques)} cliques.`;
+  if (novas > cliques) {
+    return `${contagem(novas, unidadeDeNovas)} para ${contagem(cliques, unidadeDeCliques)}: tem gente entrando sem passar pelo link.`;
+  }
+  return `${Math.round((novas / cliques) * 100)}% viraram pessoa nova: ${numero(novas)} de ${contagem(cliques, unidadeDeCliques)}.`;
 }
 
 function Comparacao({ hoje, antes, dia }: { hoje: number; antes: number; dia: string }) {
@@ -219,7 +232,7 @@ function Comparacao({ hoje, antes, dia }: { hoje: number; antes: number; dia: st
         {delta > 0 ? "+" : ""}
         {delta}%
       </span>{" "}
-      vs {dia}
+      vs {dia}, mesma hora
     </>
   );
 }
