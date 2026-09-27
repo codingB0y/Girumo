@@ -34,7 +34,7 @@ type Props = {
   slug: string;
   groupIds: string[];
   overview: CampaignGroupsOverview;
-  /** Entradas por clique (%), null sem clique. */
+  /** Entradas por clique (%), null sem clique ou sem a contagem do servidor. */
   taxaEntrada: number | null;
   receita: number;
   pedidos: number;
@@ -101,7 +101,7 @@ export function VisaoGeralCampanha({ slug, groupIds, overview: o, taxaEntrada, r
         <Celula rotulo="Cliques no link hoje" valor={cliquesHoje === null ? "—" : numero(cliquesHoje)}>
           {o.clicks === 0
             ? "ninguém clicou no link ainda"
-            : `${numero(o.clicks)} no total${taxaEntrada === null ? "" : ` · ${taxaEntrada}% viraram entrada`}`}
+            : `${numero(o.clicks)} no total · ${taxaEntrada === null ? "—" : `${taxaEntrada}%`} viraram entrada`}
         </Celula>
         <Celula rotulo="Pessoas nos grupos" valor={numero(o.totalMembers)}>
           <span className="pn-lotacao mb-1.5 block" aria-hidden="true">
