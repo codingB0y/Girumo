@@ -386,6 +386,7 @@ export default function CampanhaDetalhe() {
 
         {tab === "Visão geral" && (
           <VisaoGeralCampanha
+            slug={campanha.slug ?? campanha.id}
             groupIds={campanha.groupIds}
             overview={o}
             taxaEntrada={taxaEntrada}

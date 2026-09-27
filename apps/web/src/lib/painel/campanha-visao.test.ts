@@ -9,13 +9,8 @@ import {
   filtrarGrupos,
   hojeNaCampanha,
   novasHojePorGrupo,
-  novasHojeVsSemanaPassada,
-  novasPorDia,
-  novasPorHoraHoje,
   ordenarGrupos,
-  tetoDoEixo,
   ultimasEntradas,
-  variacao,
 } from "./campanha-visao";
 
 // qua 23/09/2026 14:10 em Brasília (UTC-3).
@@ -51,36 +46,8 @@ const leads = [
 ];
 const ids = ["g40", "g39"];
 
-test("novas pessoas por hora contam só a campanha, no relógio de Brasília, e marcam o futuro", () => {
-  const barras = novasPorHoraHoje(leads, ids, agora);
-  assert.equal(barras.length, 24);
-  assert.equal(barras[12].valor, 2);
-  assert.equal(barras[9].valor, 1);
-  assert.equal(barras[10].valor, 0, "o lead de outra campanha não entra");
-  assert.equal(barras[14].atual, true);
-  assert.equal(barras[15].futuro, true);
-  assert.equal(barras[13].futuro, false);
-});
-
-test("novas pessoas por dia terminam hoje e rotulam o dia da semana", () => {
-  const barras = novasPorDia(leads, ids, 7, agora);
-  assert.deepEqual(barras.map((b) => b.rotulo), ["qui 17", "sex 18", "sáb 19", "dom 20", "seg 21", "ter 22", "hoje"]);
-  assert.deepEqual(barras.map((b) => b.valor), [0, 0, 0, 0, 0, 1, 3]);
-});
-
-test("a comparação é com o mesmo dia da semana passada, só até a mesma hora", () => {
-  assert.deepEqual(novasHojeVsSemanaPassada(leads, ids, agora), { hoje: 3, antes: 1, diaDaSemana: "qua" });
-  assert.equal(variacao(3, 1), 200);
-  assert.equal(variacao(3, 0), null);
+test("novas de hoje por grupo: só a campanha, no dia de Brasília", () => {
   assert.deepEqual([...novasHojePorGrupo(leads, ids, agora)], [["g40", 2], ["g39", 1]]);
-});
-
-test("o teto do eixo é redondo e nunca menor que 5", () => {
-  assert.equal(tetoDoEixo(0), 5);
-  assert.equal(tetoDoEixo(3), 5);
-  assert.equal(tetoDoEixo(42), 50);
-  assert.equal(tetoDoEixo(100), 100);
-  assert.equal(tetoDoEixo(101), 200);
 });
 
 test("últimas entradas: só a campanha, a mais recente primeiro", () => {
