@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-23T12:28:09.000Z",
+  "gerado_em": "2026-09-27T12:00:00.000Z",
   "projeto": "nidoatbxaylrkcgbszns",
   "objetos": {
     "f|advance_automation_run(target_run_id uuid, next_step integer, next_at timestamp with time zone)": "9915acbf605c133627ee5aa950df3dc4",
@@ -7,6 +7,7 @@
     "f|apply_group_admin_delta(target_tenant_id uuid, target_group_id text, delta_total integer, delta_ours integer)": "88c7d4485a52fccae1e448cd2eca880e",
     "f|apply_group_members_delta(target_tenant_id uuid, target_group_id text, delta integer)": "88c7d4485a52fccae1e448cd2eca880e",
     "f|board_features_log_move()": "26ead0e8fd16fff6ceb67c11f43216fd",
+    "f|campaign_activity(p_tenant uuid, p_campaign uuid, p_group_ids text[], p_from timestamp with time zone, p_to timestamp with time zone, p_bucket text)": "716be5cab162037be90ede057edb9d8f",
     "f|campaign_group_append_group_id(p_tenant_id uuid, p_id uuid, p_whatsapp_group_id text)": "46c3ef0c3f44116f7b2f238041440bf6",
     "f|campaign_group_remove_group_id(p_tenant_id uuid, p_id uuid, p_whatsapp_group_id text)": "46c3ef0c3f44116f7b2f238041440bf6",
     "f|claim_automation_runs(max_runs integer, p_tenant uuid)": "ac5f9e873fbd99d781cdd388e5622d84",

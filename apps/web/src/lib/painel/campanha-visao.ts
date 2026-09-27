@@ -4,10 +4,10 @@ import { dayBR, dayBRAgo, dayBROf, diaMesBR, horaBR } from "@/lib/date-br";
 import { estadoDoGrupo, type EstadoDoGrupo } from "@/lib/painel/grupos";
 
 /**
- * Visão geral da campanha na direção D (spec 2026-09-24, PR B): o que a tela
- * lê sem navegador. Só dado que já existe — as novas pessoas saem de
- * `leads.entered_at` (1ª entrada de cada pessoa, no grupo de origem). Cliques
- * por hora e saídas dependem de dado que a tela ainda não lê (PRs C e D).
+ * Visão geral da campanha na direção D (spec 2026-09-24, PR B): grupos, o dia
+ * dos posts e as últimas entradas. As novas pessoas saem de `leads.entered_at`
+ * (1ª entrada de cada pessoa, no grupo de origem). As séries por hora e por dia
+ * vêm do banco, em `atividade.ts` (PR C); saídas, no PR D.
  */
 
 export type LeadResumo = {
@@ -64,75 +64,6 @@ function daCampanha(leads: LeadResumo[], groupIds: string[]): LeadResumo[] {
   return leads.filter((l) => l.sourceGroupId && ids.has(l.sourceGroupId) && l.enteredAt);
 }
 
-const DIAS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
-
-/** Dia da semana de um "YYYY-MM-DD" (a data já é de Brasília; o meio-dia UTC não vira o dia). */
-function diaDaSemana(dia: string): string {
-  const [a, m, d] = dia.split("-").map(Number);
-  return DIAS[new Date(Date.UTC(a, m - 1, d, 12)).getUTCDay()];
-}
-
-export type Barra = {
-  chave: string;
-  /** Rótulo do eixo: "09h", "qua 17". */
-  rotulo: string;
-  /** Rótulo por extenso, para a dica e o leitor de tela. */
-  rotuloLongo: string;
-  valor: number;
-  /** Hora que ainda não chegou: desenhada apagada, nunca como zero. */
-  futuro: boolean;
-  /** A hora (ou o dia) em curso: ainda está enchendo. */
-  atual: boolean;
-};
-
-/** Novas pessoas por hora hoje, no relógio de Brasília. */
-export function novasPorHoraHoje(leads: LeadResumo[], groupIds: string[], agora = new Date()): Barra[] {
-  const hoje = dayBR(agora);
-  const horaAgora = Number(horaBR(agora.toISOString()).slice(0, 2));
-  const valores = new Array<number>(24).fill(0);
-  for (const l of daCampanha(leads, groupIds)) {
-    if (dayBROf(l.enteredAt) !== hoje) continue;
-    valores[Number(horaBR(l.enteredAt).slice(0, 2))] += 1;
-  }
-  return valores.map((valor, h) => {
-    const hh = String(h).padStart(2, "0");
-    const atual = h === horaAgora;
-    return { chave: hh, rotulo: atual ? "agora" : `${hh}h`, rotuloLongo: `${hh}h às ${hh}h59`, valor, futuro: h > horaAgora, atual };
-  });
-}
-
-/** Novas pessoas por dia nos últimos `dias` (o último é hoje, ainda enchendo). */
-export function novasPorDia(leads: LeadResumo[], groupIds: string[], dias = 7, agora = new Date()): Barra[] {
-  const chaves = Array.from({ length: dias }, (_, i) => dayBRAgo(dias - 1 - i, agora));
-  const contagem = new Map(chaves.map((k) => [k, 0]));
-  for (const l of daCampanha(leads, groupIds)) {
-    const dia = dayBROf(l.enteredAt);
-    if (dia && contagem.has(dia)) contagem.set(dia, (contagem.get(dia) ?? 0) + 1);
-  }
-  return chaves.map((k, i) => {
-    const hoje = i === dias - 1;
-    const rotulo = hoje ? "hoje" : `${diaDaSemana(k)} ${Number(k.slice(8))}`;
-    return { chave: k, rotulo, rotuloLongo: hoje ? "hoje" : `${diaDaSemana(k)}, ${k.slice(8)}/${k.slice(5, 7)}`, valor: contagem.get(k) ?? 0, futuro: false, atual: hoje };
-  });
-}
-
-export type Comparacao = { hoje: number; antes: number; diaDaSemana: string };
-
-/** Hoje contra o mesmo dia da semana passada, até a mesma hora: compara dia parcial com dia parcial. */
-export function novasHojeVsSemanaPassada(leads: LeadResumo[], groupIds: string[], agora = new Date()): Comparacao {
-  const hoje = dayBR(agora);
-  const antes = dayBRAgo(7, agora);
-  const ateHora = horaBR(agora.toISOString());
-  let a = 0;
-  let b = 0;
-  for (const l of daCampanha(leads, groupIds)) {
-    const dia = dayBROf(l.enteredAt);
-    if (dia === hoje) a += 1;
-    else if (dia === antes && horaBR(l.enteredAt) <= ateHora) b += 1;
-  }
-  return { hoje: a, antes: b, diaDaSemana: diaDaSemana(antes) };
-}
-
 /** Novas pessoas de hoje por grupo de origem. */
 export function novasHojePorGrupo(leads: LeadResumo[], groupIds: string[], agora = new Date()): Map<string, number> {
   const hoje = dayBR(agora);
@@ -142,20 +73,6 @@ export function novasHojePorGrupo(leads: LeadResumo[], groupIds: string[], agora
     porGrupo.set(l.sourceGroupId, (porGrupo.get(l.sourceGroupId) ?? 0) + 1);
   }
   return porGrupo;
-}
-
-/** Variação em %, ou null quando não há base (dividir por zero não é "+∞%"). */
-export function variacao(atual: number, antes: number): number | null {
-  if (!Number.isFinite(atual) || !Number.isFinite(antes) || antes <= 0) return null;
-  return Math.round(((atual - antes) / antes) * 100);
-}
-
-/** Teto do eixo: o próximo número redondo (1, 2 ou 5 × 10ⁿ) acima do máximo, no mínimo 5. */
-export function tetoDoEixo(maximo: number): number {
-  if (!Number.isFinite(maximo) || maximo <= 5) return 5;
-  const ordem = 10 ** Math.floor(Math.log10(maximo));
-  for (const m of [1, 2, 5]) if (m * ordem >= maximo) return m * ordem;
-  return 10 * ordem;
 }
 
 export function ultimasEntradas(leads: LeadResumo[], groupIds: string[], quantas = 5): LeadResumo[] {
@@ -177,7 +94,8 @@ export type ItemDoDia = {
   repete: DispatchRecurrence;
 };
 
-function textoDoPost(p: DispatchView): string {
+/** A 1ª linha do post (até 70 caracteres), ou o que ele é quando não tem texto. */
+export function textoDoPost(p: DispatchView): string {
   const linha = p.body.split("\n").map((s) => s.trim()).find(Boolean);
   if (linha) return linha.length > 70 ? `${linha.slice(0, 69)}…` : linha;
   if (p.poll) return `Enquete: ${p.poll.question}`;
@@ -186,7 +104,8 @@ function textoDoPost(p: DispatchView): string {
   return "Post";
 }
 
-function quandoDoPost(p: DispatchView): string {
+/** Quando o post saiu (ou começou a sair); o rascunho, quando foi criado. */
+export function quandoDoPost(p: DispatchView): string {
   return p.runningSince ?? p.dispatchedAt ?? p.createdAt;
 }
 

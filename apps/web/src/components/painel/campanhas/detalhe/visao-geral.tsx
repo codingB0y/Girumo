@@ -7,19 +7,15 @@ import type { DispatchView } from "@/lib/campaigns/dispatch-view";
 import { dayBR, dayBROf, diaMesBR, horaBR } from "@/lib/date-br";
 import { GROUP_FULL_RATIO } from "@/lib/links/resolve-click-target";
 import { abreviaNome } from "@/lib/painel/casca";
+import { barrasDaAtividade, diaDaSemanaPassada, somaDa, variacao, type Barra } from "@/lib/painel/atividade";
 import {
   estadoNaCampanha,
   faixaDeLotacao,
   filtrarGrupos,
   hojeNaCampanha,
   novasHojePorGrupo,
-  novasHojeVsSemanaPassada,
-  novasPorDia,
-  novasPorHoraHoje,
   ordenarGrupos,
   ultimasEntradas,
-  variacao,
-  type Barra,
   type EstadoDoPost,
   type EstadoNaCampanha,
   type FiltroDeGrupos,
@@ -28,12 +24,14 @@ import {
 } from "@/lib/painel/campanha-visao";
 import { lotacao, numero } from "@/lib/painel/grupos";
 import { cn } from "@/lib/utils";
-import { GraficoDeBarras } from "./grafico-barras";
+import { AnaliseDaCampanha, useAtividade } from "./analise";
 
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const LINHAS = 8;
 
 type Props = {
+  /** Slug (ou id) da campanha: a série vem de /api/campanhas/[slug]/atividade. */
+  slug: string;
   groupIds: string[];
   overview: CampaignGroupsOverview;
   /** Entradas por clique (%), null sem clique. */
@@ -50,32 +48,23 @@ type Props = {
 };
 
 /**
- * Visão geral da campanha, direção D (spec 2026-09-24, PR B): faixa de
- * números num painel só, novas pessoas por hora e por dia, a tabela dos grupos
- * e o dia da campanha. Só dado que já existe; cliques por hora e saídas entram
- * nos PRs C e D.
+ * Visão geral da campanha, direção D (spec 2026-09-24): faixa de números num
+ * painel só, a análise por hora, dia e mês (série do banco, PR C), a tabela dos
+ * grupos e o dia da campanha. Saídas entram no PR D.
  */
-export function VisaoGeralCampanha({ groupIds, overview: o, taxaEntrada, receita, pedidos, leads, posts, agora, aoVerGrupos, aoVerPosts }: Props) {
-  const [periodo, setPeriodo] = useState<"hoje" | "7d">("hoje");
+export function VisaoGeralCampanha({ slug, groupIds, overview: o, taxaEntrada, receita, pedidos, leads, posts, agora, aoVerGrupos, aoVerPosts }: Props) {
   const [filtro, setFiltro] = useState<FiltroDeGrupos>("todos");
+  const { atividade, erro, tentarDeNovo } = useAtividade(slug, agora.getTime());
 
   const faixa = useMemo(() => faixaDeLotacao(o.groups), [o.groups]);
-  const comp = useMemo(() => novasHojeVsSemanaPassada(leads, groupIds, agora), [leads, groupIds, agora]);
-  const porDia = useMemo(() => novasPorDia(leads, groupIds, 7, agora), [leads, groupIds, agora]);
-  const porHora = useMemo(() => novasPorHoraHoje(leads, groupIds, agora), [leads, groupIds, agora]);
   const hojePorGrupo = useMemo(() => novasHojePorGrupo(leads, groupIds, agora), [leads, groupIds, agora]);
   const grupos = useMemo(() => filtrarGrupos(ordenarGrupos(o.groups), filtro), [o.groups, filtro]);
   const dia = useMemo(() => (posts ? hojeNaCampanha(posts, agora) : null), [posts, agora]);
   const entradas = useMemo(() => ultimasEntradas(leads, groupIds, 5), [leads, groupIds]);
+  const seteDias = useMemo(() => (atividade ? barrasDaAtividade(atividade, "7d", "novas") : null), [atividade]);
 
-  const delta = variacao(comp.hoje, comp.antes);
-  const barras = periodo === "hoje" ? porHora : porDia;
-  const total = barras.reduce((s, b) => s + b.valor, 0);
-  const pico = barras.reduce((m, b) => (b.valor > m.valor ? b : m), barras[0]);
-  const resumo =
-    total === 0
-      ? periodo === "hoje" ? "Ninguém novo entrou hoje ainda." : "Ninguém novo entrou nos últimos 7 dias."
-      : `${numero(total)} ${total === 1 ? "pessoa nova" : "pessoas novas"} ${periodo === "hoje" ? "hoje" : "em 7 dias"}; o pico foi ${pico.rotuloLongo}, com ${pico.valor}.`;
+  const novasHoje = atividade ? somaDa(atividade.porHora, "novas") : null;
+  const cliquesHoje = atividade ? somaDa(atividade.porHora, "cliques") : null;
   const filtros: [FiltroDeGrupos, string, number][] = [
     ["todos", "Todos", o.groups.length],
     ["lotados", "Lotados", faixa.lotados],
@@ -90,26 +79,29 @@ export function VisaoGeralCampanha({ groupIds, overview: o, taxaEntrada, receita
         <div className="bg-paper-0 px-5 py-4 sm:col-span-2 lg:col-span-1">
           <p className="text-13 text-slate-600">Novas pessoas hoje</p>
           <div className="mt-2 flex items-end justify-between gap-4">
-            <p className="text-[44px] font-semibold leading-none tabular-nums text-volt-950 [font-stretch:75%]">{numero(comp.hoje)}</p>
-            <Faisca barras={porDia} />
+            <p className="text-[44px] font-semibold leading-none tabular-nums text-volt-950 [font-stretch:75%]">
+              {novasHoje === null ? "—" : numero(novasHoje)}
+            </p>
+            {seteDias && <Faisca barras={seteDias} />}
           </div>
           <p className="mt-2 text-13 text-slate-600">
-            {delta === null ? (
-              `${numero(comp.antes)} na ${comp.diaDaSemana} passada, mesma hora`
+            {atividade ? (
+              <ContraSemanaPassada
+                hoje={novasHoje ?? 0}
+                antes={atividade.semanaPassada.novas}
+                diaPassado={diaDaSemanaPassada(dayBR(new Date(atividade.geradoEm)), true)}
+              />
+            ) : erro ? (
+              "a série não carregou"
             ) : (
-              <>
-                <span className={cn("inline-flex items-center font-semibold", delta >= 0 ? "text-success-700" : "text-danger-700")}>
-                  {delta >= 0 ? <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" /> : <ArrowDownRight className="h-3.5 w-3.5" aria-hidden="true" />}
-                  {delta > 0 ? "+" : ""}
-                  {delta}%
-                </span>{" "}
-                vs {numero(comp.antes)} na {comp.diaDaSemana} passada, mesma hora
-              </>
+              "lendo a série…"
             )}
           </p>
         </div>
-        <Celula rotulo="Cliques no link" valor={numero(o.clicks)}>
-          {taxaEntrada === null ? "nenhum clique ainda" : `no total · ${taxaEntrada}% viraram entrada`}
+        <Celula rotulo="Cliques no link hoje" valor={cliquesHoje === null ? "—" : numero(cliquesHoje)}>
+          {o.clicks === 0
+            ? "ninguém clicou no link ainda"
+            : `${numero(o.clicks)} no total${taxaEntrada === null ? "" : ` · ${taxaEntrada}% viraram entrada`}`}
         </Celula>
         <Celula rotulo="Pessoas nos grupos" valor={numero(o.totalMembers)}>
           <span className="pn-lotacao mb-1.5 block" aria-hidden="true">
@@ -130,39 +122,7 @@ export function VisaoGeralCampanha({ groupIds, overview: o, taxaEntrada, receita
         </Celula>
       </section>
 
-      <section aria-labelledby="analise-titulo" className="rounded-[10px] border border-line-200 bg-paper-0">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line-200 px-5 py-3">
-          <h2 id="analise-titulo" className="text-16 font-semibold text-volt-950">
-            Novas pessoas nos grupos
-          </h2>
-          <div role="group" aria-label="Período" className="flex rounded-lg bg-canvas-100 p-0.5">
-            {(
-              [
-                ["hoje", "Hoje, por hora"],
-                ["7d", "7 dias"],
-              ] as const
-            ).map(([p, rotulo]) => (
-              <button
-                key={p}
-                type="button"
-                aria-pressed={periodo === p}
-                onClick={() => setPeriodo(p)}
-                className={cn(
-                  "h-8 rounded-md px-3 text-13 font-medium transition-colors",
-                  periodo === p ? "bg-paper-0 text-volt-950" : "text-slate-600 hover:text-volt-950",
-                )}
-              >
-                {rotulo}
-              </button>
-            ))}
-          </div>
-          <p className="text-12 text-slate-600 sm:ml-auto">quem entrou pela 1ª vez · dados até {horaBR(agora.toISOString())}</p>
-        </div>
-        <div className="px-5 pb-4 pt-6">
-          <GraficoDeBarras barras={barras} resumo={resumo} rotuloACada={periodo === "hoje" ? 3 : 1} />
-          <p className="mt-3 text-13 text-slate-600">{resumo}</p>
-        </div>
-      </section>
+      <AnaliseDaCampanha atividade={atividade} erro={erro} aoTentarDeNovo={tentarDeNovo} posts={posts} />
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <section aria-labelledby="grupos-titulo" className="min-w-0 rounded-[10px] border border-line-200 bg-paper-0">
@@ -296,7 +256,7 @@ export function VisaoGeralCampanha({ groupIds, overview: o, taxaEntrada, receita
               <h2 id="entradas-titulo" className="text-16 font-semibold text-volt-950">
                 Últimas entradas
               </h2>
-              <span className="text-13 tabular-nums text-slate-600">{numero(comp.hoje)} hoje</span>
+              {novasHoje !== null && <span className="text-13 tabular-nums text-slate-600">{numero(novasHoje)} hoje</span>}
             </div>
             {entradas.length === 0 ? (
               <p className="py-4 text-13 text-slate-600">Ninguém entrou pelos grupos desta campanha ainda.</p>
@@ -329,6 +289,22 @@ function Celula({ rotulo, valor, children }: { rotulo: string; valor: string; ch
       <p className="mt-2 text-[30px] font-semibold leading-none tabular-nums text-volt-950 [font-stretch:75%]">{valor}</p>
       <div className="mt-2.5 text-13 text-slate-600">{children}</div>
     </div>
+  );
+}
+
+/** Hoje contra o mesmo dia da semana passada, até a mesma hora: dia parcial contra dia parcial. */
+function ContraSemanaPassada({ hoje, antes, diaPassado }: { hoje: number; antes: number; diaPassado: string }) {
+  const delta = variacao(hoje, antes);
+  if (delta === null) return <>{numero(antes)} {diaPassado}, mesma hora</>;
+  return (
+    <>
+      <span className={cn("inline-flex items-center font-semibold", delta >= 0 ? "text-success-700" : "text-danger-700")}>
+        {delta >= 0 ? <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" /> : <ArrowDownRight className="h-3.5 w-3.5" aria-hidden="true" />}
+        {delta > 0 ? "+" : ""}
+        {delta}%
+      </span>{" "}
+      vs {numero(antes)} {diaPassado}, mesma hora
+    </>
   );
 }
 
