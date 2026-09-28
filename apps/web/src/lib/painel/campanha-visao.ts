@@ -1,13 +1,15 @@
 import type { CampaignGroupOverview } from "@/lib/campaign-groups-overview";
 import type { DispatchRecurrence, DispatchView } from "@/lib/campaigns/dispatch-view";
 import { dayBR, dayBRAgo, dayBROf, diaMesBR, horaBR } from "@/lib/date-br";
+import { abreviaNome } from "@/lib/painel/casca";
 import { estadoDoGrupo, type EstadoDoGrupo } from "@/lib/painel/grupos";
 
 /**
  * Visão geral da campanha na direção D (spec 2026-09-24, PR B): grupos, o dia
  * dos posts e as últimas entradas. As novas pessoas saem de `leads.entered_at`
  * (1ª entrada de cada pessoa, no grupo de origem). As séries por hora e por dia
- * vêm do banco, em `atividade.ts` (PR C); saídas, no PR D.
+ * vêm do banco, em `atividade.ts` (PR C); saídas, no PR D. As últimas entradas
+ * e as novas de hoje por grupo, de GET /api/campanhas/[slug]/entradas.
  */
 
 export type LeadResumo = {
@@ -17,6 +19,24 @@ export type LeadResumo = {
   sourceGroupId?: string | null;
   enteredAt?: string | null;
 };
+
+/** Uma linha de "Últimas entradas" como sai do servidor: sem telefone, e o nome abreviado. */
+export type EntradaRecente = { id: string; nome: string; grupo: string; entrouEm: string };
+
+/** GET /api/campanhas/[slug]/entradas: lido no banco, sem o teto de 1000 linhas de /api/leads. */
+export type EntradasDaCampanha = {
+  /** Quem entrou nos grupos desde a criação da campanha. */
+  entradas: number;
+  /** As mais recentes, de qualquer dia. */
+  ultimas: EntradaRecente[];
+  /** Entradas de hoje (dia de Brasília) por grupo de origem; grupo sem ninguém fica de fora. */
+  novasHojePorGrupo: Record<string, number>;
+};
+
+/** O nome inteiro e o telefone não saem do servidor: "Daiane S. veio pelo VIP #40" basta. */
+export function paraEntradaRecente(l: LeadResumo): EntradaRecente {
+  return { id: l.id ?? "", nome: abreviaNome(l.name), grupo: l.sourceGroup ?? "", entrouEm: l.enteredAt ?? "" };
+}
 
 export type EstadoNaCampanha = EstadoDoGrupo | "sumiu";
 export type FiltroDeGrupos = "todos" | "lotados" | "quase" | "com_vaga";
@@ -64,7 +84,11 @@ function daCampanha(leads: LeadResumo[], groupIds: string[]): LeadResumo[] {
   return leads.filter((l) => l.sourceGroupId && ids.has(l.sourceGroupId) && l.enteredAt);
 }
 
-/** Novas pessoas de hoje por grupo de origem. */
+/**
+ * Novas pessoas de hoje por grupo de origem. Esta e `ultimasEntradas` servem ao
+ * JSON, que não tem teto de linhas; com Supabase a rota lê no banco
+ * (`countEntriesByGroupSince` e `listLatestEntries`, em stores/leads.ts).
+ */
 export function novasHojePorGrupo(leads: LeadResumo[], groupIds: string[], agora = new Date()): Map<string, number> {
   const hoje = dayBR(agora);
   const porGrupo = new Map<string, number>();

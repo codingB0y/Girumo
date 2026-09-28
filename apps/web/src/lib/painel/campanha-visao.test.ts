@@ -10,6 +10,7 @@ import {
   hojeNaCampanha,
   novasHojePorGrupo,
   ordenarGrupos,
+  paraEntradaRecente,
   ultimasEntradas,
 } from "./campanha-visao";
 
@@ -52,6 +53,13 @@ test("novas de hoje por grupo: só a campanha, no dia de Brasília", () => {
 
 test("últimas entradas: só a campanha, a mais recente primeiro", () => {
   assert.deepEqual(ultimasEntradas(leads, ids, 3).map((l) => l.id), ["b", "a", "c"]);
+});
+
+test("a entrada que sai do servidor leva o nome abreviado e nada de telefone", () => {
+  const lead = { id: "a", name: "Daiane Souza Lima", phone: "5511987654321", sourceGroup: "VIP #40", sourceGroupId: "g40", enteredAt: br("2026-09-23", "12:05") };
+  // deepEqual estrito: uma chave a mais (phone, sourceGroupId) reprova.
+  assert.deepEqual(paraEntradaRecente(lead), { id: "a", nome: "Daiane S.", grupo: "VIP #40", entrouEm: lead.enteredAt });
+  assert.equal(paraEntradaRecente({ ...lead, name: null }).nome, "Alguém");
 });
 
 function post(extra: Partial<DispatchView>): DispatchView {

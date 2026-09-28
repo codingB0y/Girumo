@@ -39,7 +39,7 @@ import { ENTRADA_DEFAULTS, type EntradaSettings } from "@/lib/campaigns/settings
 import { clicksForCampaign } from "@/lib/links/click-attribution";
 import { entriesPerClick } from "@/lib/campaigns/campaign-entries";
 import { horaBR } from "@/lib/date-br";
-import type { LeadResumo } from "@/lib/painel/campanha-visao";
+import type { EntradasDaCampanha } from "@/lib/painel/campanha-visao";
 import { QUASE_LOTADO } from "@/lib/painel/grupos";
 
 type Campanha = {
@@ -71,10 +71,10 @@ export default function CampanhaDetalhe() {
   const [campanhas, setCampanhas] = useState<Campanha[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [clicks, setClicks] = useState(0);
-  // null quando a contagem não veio: "—" na tela, nunca um 0 que ninguém mediu.
-  const [entries, setEntries] = useState<number | null>(null);
+  // null quando a leitura não veio: "—" na tela, nunca um 0 ou um "ninguém
+  // entrou" que ninguém mediu.
+  const [entradas, setEntradas] = useState<EntradasDaCampanha | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [leads, setLeads] = useState<LeadResumo[]>([]);
   // null enquanto os posts carregam: "Hoje na campanha" mostra o esqueleto.
   const [posts, setPosts] = useState<DispatchView[] | null>(null);
   const [atualizadoEm, setAtualizadoEm] = useState(() => new Date());
@@ -106,13 +106,12 @@ export default function CampanhaDetalhe() {
 
   async function loadData() {
     try {
-      const [c, g, l, s, o, lds, ent] = await Promise.all([
+      const [c, g, l, s, o, ent] = await Promise.all([
         fetch("/api/campanhas").then((r) => r.json()).catch(() => []),
         fetch("/api/groups").then((r) => r.json()).catch(() => []),
         fetch("/api/links").then((r) => r.json()).catch(() => []),
         fetch("/api/session").then((r) => r.json()).catch(() => ({})),
         fetch("/api/orders").then((r) => r.json()).catch(() => []),
-        fetch("/api/leads").then((r) => r.json()).catch(() => []),
         fetch(`/api/campanhas/${encodeURIComponent(key)}/entradas`)
           .then((r) => (r.ok ? r.json() : null))
           .catch(() => null),
@@ -127,12 +126,11 @@ export default function CampanhaDetalhe() {
         const ls: TrackedLink[] = Array.isArray(l) ? l : [];
         // Por ID: comparar o nome fazia o histórico sumir quando a campanha era renomeada.
         setClicks(clicksForCampaign(ls, camp));
-        const leadsList: LeadResumo[] = Array.isArray(lds) ? lds : [];
-        setLeads(leadsList);
         // Entradas contam quem ENTROU nos grupos da campanha desde que ela foi
-        // criada, não o total de membros. Contadas no servidor: a lista de
-        // /api/leads para em 1000 linhas, e campanha grande passa disso.
-        setEntries(typeof ent?.entradas === "number" ? ent.entradas : null);
+        // criada, não o total de membros. Elas, as últimas e as de hoje por
+        // grupo vêm do servidor: a lista de /api/leads para em 1000 linhas, e
+        // loja grande passa disso.
+        setEntradas(typeof ent?.entradas === "number" ? ent : null);
         // Posts do dia para "Hoje na campanha". Sem await: a tela não espera por
         // eles, e falha vira lista vazia (nunca esqueleto eterno).
         void fetch(`/api/campanhas/${camp.slug ?? camp.id}/messages`)
@@ -162,6 +160,7 @@ export default function CampanhaDetalhe() {
     [orders, campanha],
   );
   const campaignRevenue = useMemo(() => campaignOrders.reduce((a, ord) => a + (ord.value ?? 0), 0), [campaignOrders]);
+  const entries = entradas?.entradas ?? null;
   // null = ainda não houve clique (ou a contagem falhou). Mostrar 0% aí leria "ninguém converteu".
   const taxaEntrada = useMemo(() => (entries === null ? null : entriesPerClick(entries, clicks)), [entries, clicks]);
 
@@ -391,12 +390,12 @@ export default function CampanhaDetalhe() {
         {tab === "Visão geral" && (
           <VisaoGeralCampanha
             slug={campanha.slug ?? campanha.id}
-            groupIds={campanha.groupIds}
             overview={o}
             taxaEntrada={taxaEntrada}
             receita={campaignRevenue}
             pedidos={campaignOrders.length}
-            leads={leads}
+            ultimas={entradas?.ultimas ?? null}
+            novasHojePorGrupo={entradas?.novasHojePorGrupo ?? null}
             posts={posts}
             agora={atualizadoEm}
             aoVerGrupos={() => abrirAba("Grupos")}

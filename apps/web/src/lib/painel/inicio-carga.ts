@@ -122,6 +122,9 @@ function readLeftAt(metadata: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
+/** Nome do lead sem nome, que é quase todo: o worker grava `name` nulo (o payload não traz). */
+export const LEAD_SEM_NOME = "Novo membro";
+
 /**
  * O painel consome a forma camelCase do store JSON antigo. Mapear aqui mantém
  * as telas intactas na troca de backend — mesmo padrão de `/api/groups`.
@@ -129,7 +132,7 @@ function readLeftAt(metadata: unknown): string | null {
 export function leadParaOPainel(lead: leadsStore.Lead) {
   return {
     id: lead.id,
-    name: lead.name ?? "Novo membro",
+    name: lead.name ?? LEAD_SEM_NOME,
     phone: lead.phone ?? "",
     sourceGroup: lead.source_group_name ?? "",
     sourceGroupId: lead.source_group_id ?? undefined,
