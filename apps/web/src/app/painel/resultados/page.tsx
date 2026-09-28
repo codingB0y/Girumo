@@ -2,20 +2,26 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ResultadosVitrine } from "@/components/painel/resultados/vitrine/resultados-vitrine";
-import { buscarLista } from "@/lib/painel/carregar";
+import { buscar, buscarLista } from "@/lib/painel/carregar";
+import type { carregarContagemDeLeads } from "@/lib/painel/inicio-carga";
 import type { Group } from "@/lib/mock-data";
 import type { Carga } from "@/lib/painel/types";
 
 type Campanha = { id: string; name: string; groupIds: string[]; slug?: string; createdAt: string };
 type TrackedLink = { campaignName?: string; clicks: number };
-type Lead = { status: "novo" | "ativo" | "comprou" };
+type ContagemDeLeads = Awaited<ReturnType<typeof carregarContagemDeLeads>>;
 type Order = { id: string; value: number; group_name?: string | null; campaign_id?: string | null };
+
+function ehContagemDeLeads(corpo: unknown): corpo is ContagemDeLeads {
+  const c = corpo as Partial<ContagemDeLeads> | null;
+  return typeof c?.total === "number" && typeof c.clientes === "number";
+}
 
 export default function PainelResultados() {
   const [campanhas, setCampanhas] = useState<Campanha[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [links, setLinks] = useState<TrackedLink[]>([]);
-  const [leads, setLeads] = useState<Lead[]>([]);
+  const [contagem, setContagem] = useState<ContagemDeLeads>({ total: 0, clientes: 0 });
   const [orders, setOrders] = useState<Order[]>([]);
   const [cargaDasCampanhas, setCargaDasCampanhas] = useState<Carga>("carregando");
   const [cargaDosGrupos, setCargaDosGrupos] = useState<Carga>("carregando");
@@ -32,7 +38,9 @@ export default function PainelResultados() {
     void buscarLista<Campanha>("/api/campanhas", setCampanhas, setCargaDasCampanhas);
     void buscarLista<Group>("/api/groups", setGroups, setCargaDosGrupos);
     void buscarLista<TrackedLink>("/api/links", setLinks, setCargaDosLinks);
-    void buscarLista<Lead>("/api/leads", setLeads, setCargaDosLeads);
+    // Contados no servidor: a lista de /api/leads para em 1000 linhas, e contar
+    // ela aqui subcontava a loja grande.
+    void buscar("/api/leads/contagem", ehContagemDeLeads, setContagem, setCargaDosLeads);
     void buscarLista<Order>("/api/orders", setOrders, setCargaDosPedidos);
   }, []);
 
@@ -41,8 +49,6 @@ export default function PainelResultados() {
   }, [carregar]);
 
   const totalClicks = useMemo(() => links.reduce((a, l) => a + (l.clicks ?? 0), 0), [links]);
-  const totalEntradas = leads.length;
-  const clientes = useMemo(() => leads.filter((l) => l.status === "comprou").length, [leads]);
 
   // PR 11 da Vitrine Aberta: o quadro de giz do balcão. Cada número sabe de
   // qual consulta veio, e quem não respondeu mostra travessão em vez de zero.
@@ -50,7 +56,7 @@ export default function PainelResultados() {
     <ResultadosVitrine
       links={{ cliques: totalClicks, carga: cargaDosLinks }}
       grupos={{ lista: groups, carga: cargaDosGrupos }}
-      leads={{ entradas: totalEntradas, clientes, carga: cargaDosLeads }}
+      leads={{ entradas: contagem.total, clientes: contagem.clientes, carga: cargaDosLeads }}
       pedidos={{ lista: orders, carga: cargaDosPedidos }}
       campanhas={{ lista: campanhas, carga: cargaDasCampanhas }}
       aoTentarDeNovo={carregar}

@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
 
 import { getSupabaseAdmin } from "@/lib/supabase/server";
-import { countEntriesSince } from "./leads";
+import { countEntriesSince, countLeads } from "./leads";
 
 /**
  * Contra o Supabase de DEV. A página da campanha contava as entradas na lista de
@@ -97,4 +97,16 @@ test("outra loja com os mesmos grupos não vê estas entradas", async (t) => {
 
   // O service-role passa por cima do RLS: é o filtro de tenant que isola.
   assert.equal(await countEntriesSince(randomUUID(), [GRUPO_A, GRUPO_B], DESDE), 0);
+});
+
+test("a loja inteira conta acima de 1000, e clientes só quem comprou", async (t) => {
+  if (pular()) return t.skip();
+
+  // Resultados e o cancelamento contavam a lista de /api/leads, que para em 1000.
+  const deste = TOTAL_A + TOTAL_B + ANTES_DA_CAMPANHA + NO_OUTRO_GRUPO;
+  const total = await countLeads(TENANT);
+  assert.ok(total >= deste, `a conta parou em ${total}, abaixo das ${deste} linhas deste run`);
+  // As linhas deste run nascem 'novo': nenhuma delas pode entrar em clientes.
+  assert.ok((await countLeads(TENANT, "comprou")) <= total - deste);
+  assert.equal(await countLeads(randomUUID()), 0);
 });

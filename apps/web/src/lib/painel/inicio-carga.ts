@@ -153,6 +153,24 @@ export async function carregarLeads(tenantId: string, limit?: number) {
   return leads.map(leadParaOPainel);
 }
 
+/**
+ * Quantos leads a loja tem, e quantos compraram. Contado no banco: a lista de
+ * `carregarLeads` para nas 1000 linhas que o PostgREST devolve sem erro, e
+ * loja grande passa disso.
+ */
+export async function carregarContagemDeLeads(tenantId: string) {
+  if (!USE_SUPABASE) {
+    // O arquivo JSON não tem teto de linhas: a lista inteira cabe na conta.
+    const lista = await legacyListLeads(tenantId);
+    return { total: lista.length, clientes: lista.filter((l) => l.status === "comprou").length };
+  }
+  const [total, clientes] = await Promise.all([
+    leadsStore.countLeads(tenantId),
+    leadsStore.countLeads(tenantId, "comprou"),
+  ]);
+  return { total, clientes };
+}
+
 export async function carregarAgendamentos(tenantId: string) {
   if (!USE_SUPABASE) return collection<Schedule>("schedules.json").list();
   const lista = await schedulesStore.listSchedules(tenantId);
