@@ -18,23 +18,35 @@ import {
  */
 
 const TENANT = process.env.E2E_TENANT_ID ?? "";
-const GRUPO_WA = "120363999999999999@g.us";
+// Estas linhas são do tenant de QA: apontado para produção, o teste não roda.
+const EM_PRODUCAO = (process.env.SUPABASE_URL ?? "").includes("nidoatbxaylrkcgbszns");
+// Grupo e mensagens só deste run: os índices de oferta aberta por grupo e de
+// message_id valem para o tenant inteiro. Com chave fixa, dois PRs no CI ao mesmo
+// tempo se recusam, e um run cancelado antes do after() deixa a chave presa e
+// reprova todos os seguintes.
+const RUN = crypto.randomUUID().slice(0, 8);
+const GRUPO_WA = `reltest-${RUN}@g.us`;
+// Em 2020, como as leads do teste de leads: a lista de ofertas sai por created_at
+// desc, e o smoke do Playwright de outro PR cobra a primeira dela na tela.
+const CRIADA_EM = "2020-01-01T00:00:00.000Z";
 let offerId = "";
 let groupId = "";
 
 before(async () => {
-  if (!TENANT) return;
+  if (!TENANT || EM_PRODUCAO) return;
   const supabase = getSupabaseAdmin();
 
-  const { data: grupo } = await supabase
+  const { data: grupo, error: erroGrupo } = await supabase
     .from("groups")
     .select("id")
     .eq("tenant_id", TENANT)
     .limit(1)
     .maybeSingle();
-  groupId = grupo?.id ?? "";
+  if (erroGrupo) throw new Error(erroGrupo.message);
+  if (!grupo) throw new Error("o tenant de QA não tem grupo nenhum");
+  groupId = grupo.id;
 
-  const { data: oferta } = await supabase
+  const { data: oferta, error: erroOferta } = await supabase
     .from("flash_offers")
     .insert({
       tenant_id: TENANT,
@@ -44,26 +56,35 @@ before(async () => {
       timer_seconds: 60,
       status: "open",
       opened_at: new Date().toISOString(),
+      created_at: CRIADA_EM,
     })
     .select("id")
     .single();
+  if (erroOferta) throw new Error(erroOferta.message);
   offerId = oferta!.id;
 
-  await supabase.from("flash_offer_groups").insert({
+  const { error } = await supabase.from("flash_offer_groups").insert({
     tenant_id: TENANT,
     offer_id: offerId,
     group_id: groupId,
     whatsapp_group_id: GRUPO_WA,
     opened_at: new Date(Date.now() - 60_000).toISOString(),
   });
+  // Engolido, este erro reaparece lá embaixo disfarçado de "closeOffer deve carimbar closed_at".
+  if (error) throw new Error(error.message);
 });
 
 after(async () => {
-  if (!TENANT || !offerId) return;
-  await getSupabaseAdmin().from("flash_offers").delete().eq("id", offerId);
+  if (!TENANT || EM_PRODUCAO || !offerId) return;
+  const { error } = await getSupabaseAdmin().from("flash_offers").delete().eq("id", offerId);
+  if (error) throw new Error(error.message);
 });
 
 function pular(): boolean {
+  if (EM_PRODUCAO) {
+    console.log("SUPABASE_URL é de produção — teste de integração pulado");
+    return true;
+  }
   if (!TENANT) {
     console.log("E2E_TENANT_ID ausente — teste de integração pulado");
     return true;
@@ -80,7 +101,7 @@ const entrada = (n: number, quando: Date) => ({
   phone: null,
   pushName: `Cliente ${n}`,
   messageText: "eu quero",
-  messageId: `MSG${n}`,
+  messageId: `${RUN}-MSG${n}`,
   commentedAt: quando,
 });
 
@@ -93,7 +114,7 @@ test("mesmo message_id duas vezes vira uma entrada só", async (t) => {
 
 test("mesma pessoa comentando de novo ocupa um lugar só", async (t) => {
   if (pular()) return t.skip();
-  const outraMensagem = { ...entrada(1, new Date()), messageId: "MSG1-BIS" };
+  const outraMensagem = { ...entrada(1, new Date()), messageId: `${RUN}-MSG1-BIS` };
   assert.equal(await insertEntry(outraMensagem), false);
 });
 
@@ -118,7 +139,7 @@ test("segunda oferta aberta no mesmo grupo é recusada pelo banco", async (t) =>
   const supabase = getSupabaseAdmin();
   const { data: outra } = await supabase
     .from("flash_offers")
-    .insert({ tenant_id: TENANT, name: "conflito", slots: 1, status: "open" })
+    .insert({ tenant_id: TENANT, name: "conflito", slots: 1, status: "open", created_at: CRIADA_EM })
     .select("id")
     .single();
 
@@ -200,7 +221,7 @@ test("fechar a oferta libera o grupo: nova oferta no mesmo grupo não leva 409",
 
   const { data: nova, error: erroNova } = await supabase
     .from("flash_offers")
-    .insert({ tenant_id: TENANT, name: "reaproveita grupo", slots: 1, status: "open" })
+    .insert({ tenant_id: TENANT, name: "reaproveita grupo", slots: 1, status: "open", created_at: CRIADA_EM })
     .select("id")
     .single();
   assert.equal(erroNova, null);
