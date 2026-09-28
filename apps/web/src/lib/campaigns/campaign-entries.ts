@@ -24,6 +24,9 @@ export type EntryLead = {
  *
  * `since` (opcional) descarta entradas anteriores a uma data — útil para não
  * contar quem entrou antes de a campanha existir.
+ *
+ * Com Supabase a conta é feita no banco, com a mesma regra
+ * (`countEntriesSince` em stores/leads.ts): esta aqui serve ao JSON.
  */
 export function countCampaignEntries(
   leads: readonly EntryLead[],

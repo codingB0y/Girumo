@@ -155,6 +155,11 @@ Campanha = ESCOPO de grupos (loja → campanhas → grupos), **não** é disparo
 (`loja` default "Minha loja", `groupIds[]`). PATCH `{ id, name?, loja?, groupIds? }`. DELETE `?id=`.
 `Campanha = { id, name, loja, groupIds, createdAt }`. A campanha ativa vive no cookie `dz_campanha`.
 
+### GET /api/campanhas/[slug]/entradas  (navegador, cookie)
+→ `200 { entradas: number }`: quem entrou nos grupos da campanha desde a criação dela
+(`leads.source_group_id` no pool, `entered_at >= created_at`). Contado no banco, porque a lista de
+`/api/leads` para em 1000 linhas. `404` se a campanha não é do tenant · `500` se a contagem falhar.
+
 > ⚠️ **Aberto (handoff Engine):** as mensagens já usam variáveis além de `{nome}`
 > (`{nome_loja}`, `{preco}`, `{link_catalogo}` etc.), mas o contrato de welcome diz "{nome} é a única
 > variável". Definir/registrar quem expande quais variáveis no disparo de broadcast — hoje não documentado.

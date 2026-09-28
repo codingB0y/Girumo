@@ -37,7 +37,7 @@ import { AjudaPainel } from "@/components/painel/campanhas/ajuda-painel";
 import { VisaoGeralCampanha } from "@/components/painel/campanhas/detalhe/visao-geral";
 import { ENTRADA_DEFAULTS, type EntradaSettings } from "@/lib/campaigns/settings";
 import { clicksForCampaign } from "@/lib/links/click-attribution";
-import { countCampaignEntries, entriesPerClick } from "@/lib/campaigns/campaign-entries";
+import { entriesPerClick } from "@/lib/campaigns/campaign-entries";
 import { horaBR } from "@/lib/date-br";
 import type { LeadResumo } from "@/lib/painel/campanha-visao";
 import { QUASE_LOTADO } from "@/lib/painel/grupos";
@@ -71,7 +71,8 @@ export default function CampanhaDetalhe() {
   const [campanhas, setCampanhas] = useState<Campanha[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [clicks, setClicks] = useState(0);
-  const [entries, setEntries] = useState(0);
+  // null quando a contagem não veio: "—" na tela, nunca um 0 que ninguém mediu.
+  const [entries, setEntries] = useState<number | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [leads, setLeads] = useState<LeadResumo[]>([]);
   // null enquanto os posts carregam: "Hoje na campanha" mostra o esqueleto.
@@ -105,13 +106,16 @@ export default function CampanhaDetalhe() {
 
   async function loadData() {
     try {
-      const [c, g, l, s, o, lds] = await Promise.all([
+      const [c, g, l, s, o, lds, ent] = await Promise.all([
         fetch("/api/campanhas").then((r) => r.json()).catch(() => []),
         fetch("/api/groups").then((r) => r.json()).catch(() => []),
         fetch("/api/links").then((r) => r.json()).catch(() => []),
         fetch("/api/session").then((r) => r.json()).catch(() => ({})),
         fetch("/api/orders").then((r) => r.json()).catch(() => []),
         fetch("/api/leads").then((r) => r.json()).catch(() => []),
+        fetch(`/api/campanhas/${encodeURIComponent(key)}/entradas`)
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null),
       ]);
       const list: Campanha[] = Array.isArray(c) ? c : [];
       setCampanhas(list);
@@ -123,12 +127,12 @@ export default function CampanhaDetalhe() {
         const ls: TrackedLink[] = Array.isArray(l) ? l : [];
         // Por ID: comparar o nome fazia o histórico sumir quando a campanha era renomeada.
         setClicks(clicksForCampaign(ls, camp));
-        // Entradas contam quem ENTROU nos grupos da campanha (leads têm
-        // entered_at), não o total de membros — que inclui quem já estava lá.
-        // O corte pela criação da campanha tira quem entrou antes dela existir.
         const leadsList: LeadResumo[] = Array.isArray(lds) ? lds : [];
         setLeads(leadsList);
-        setEntries(countCampaignEntries(leadsList, camp.groupIds, { since: camp.createdAt }));
+        // Entradas contam quem ENTROU nos grupos da campanha desde que ela foi
+        // criada, não o total de membros. Contadas no servidor: a lista de
+        // /api/leads para em 1000 linhas, e campanha grande passa disso.
+        setEntries(typeof ent?.entradas === "number" ? ent.entradas : null);
         // Posts do dia para "Hoje na campanha". Sem await: a tela não espera por
         // eles, e falha vira lista vazia (nunca esqueleto eterno).
         void fetch(`/api/campanhas/${camp.slug ?? camp.id}/messages`)
@@ -158,8 +162,8 @@ export default function CampanhaDetalhe() {
     [orders, campanha],
   );
   const campaignRevenue = useMemo(() => campaignOrders.reduce((a, ord) => a + (ord.value ?? 0), 0), [campaignOrders]);
-  // null = ainda não houve clique. Mostrar 0% aí leria "ninguém converteu".
-  const taxaEntrada = useMemo(() => entriesPerClick(entries, clicks), [entries, clicks]);
+  // null = ainda não houve clique (ou a contagem falhou). Mostrar 0% aí leria "ninguém converteu".
+  const taxaEntrada = useMemo(() => (entries === null ? null : entriesPerClick(entries, clicks)), [entries, clicks]);
 
   async function handleRefresh() {
     setRefreshing(true);
@@ -405,7 +409,7 @@ export default function CampanhaDetalhe() {
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <Tile label="Cliques" value={o.clicks.toLocaleString("pt-BR")} />
               <Tile label="Membros" value={o.totalMembers.toLocaleString("pt-BR")} />
-              <Tile label="Entradas" value={entries.toLocaleString("pt-BR")} tone="cobalt" />
+              <Tile label="Entradas" value={entries === null ? "—" : entries.toLocaleString("pt-BR")} tone="cobalt" />
               <Tile label="Grupos cheios" value={String(o.fullCount)} tone="atencao" />
             </div>
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -428,7 +432,7 @@ export default function CampanhaDetalhe() {
                   return (
                     <div key={s.label} className="flex items-center justify-between">
                       <span className="flex items-center gap-2 text-sm text-aco"><Icon className="h-4 w-4 text-cobalt-500" strokeWidth={1.75} />{s.label}</span>
-                      <span className="font-data text-base font-medium tabular-nums text-volt-950">{s.value.toLocaleString("pt-BR")}</span>
+                      <span className="font-data text-base font-medium tabular-nums text-volt-950">{s.value === null ? "—" : s.value.toLocaleString("pt-BR")}</span>
                     </div>
                   );
                 })}
