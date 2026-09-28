@@ -86,6 +86,18 @@ por falta de segredo é como o time aprende a ignorar a suíte.
 O relatório HTML sobe como artefato `e2e-report` (14 dias) mesmo quando a suíte
 falha — sem isso, falha no CI vira "deu vermelho" sem screenshot de nada.
 
+Antes do build, o mesmo job roda os testes de integração das stores
+(`apps/web/src/lib/stores/*.integration.test.ts`) contra o banco de dev: são os
+únicos que provam leitura acima do teto de 1000 linhas do PostgREST, que corta
+sem erro. Gravam no tenant de QA, derivado no próprio passo pelo login de
+`E2E_EMAIL` (a membership aceita mais antiga, como faz a rota de login), com
+chaves sorteadas a cada run — com chave fixa sob índice único, dois PRs em
+paralelo se recusariam e um run cancelado travaria os seguintes. O passo
+reprova se algum teste pular ou se nenhum rodar: teste pulado sai com código 0.
+Run cancelado no meio do passo ainda deixa lixo no tenant de QA (leads de 2020
+em grupos `cnttest-*`, participantes em `pagtest-*`, oferta de 2020 aberta em
+`reltest-*`), mas nada que reprove o run seguinte.
+
 **Não roda contra preview da Vercel**: preview não recebe env de Supabase, então
 não existe login lá (achado de 11/08).
 
@@ -127,11 +139,6 @@ quebraria os seis testes H1 de `seguranca-impersonation.spec.ts`.
 
 ## Fora do smoke de propósito
 
-- **Integração das stores** (`apps/web/src/lib/stores/*.integration.test.ts`):
-  só rodam com `E2E_TENANT_ID` definido, na máquina de alguém. Usam esse tenant
-  fixo com chaves fixas sob índice único — no banco de dev compartilhado, dois
-  PRs em paralelo se atropelam, e um run cancelado deixa oferta aberta que
-  reprova os seguintes. Entram no CI quando o fixture criar tenant com UUID novo.
 - **Entrega de e-mail**: depende de caixa externa e deixaria a suíte instável.
   Desde o #112 a entrega vira linha em `public.logs`, conferível por SQL.
 - **Entrega real de mensagem**: nenhum spec constrói `EvolutionSender`.

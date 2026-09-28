@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
 
 import { getSupabaseAdmin } from "@/lib/supabase/server";
@@ -13,12 +14,21 @@ import { listarParticipantesDosGrupos } from "./group-participants";
  */
 
 const TENANT = process.env.E2E_TENANT_ID ?? "";
-const GRUPO_A = "pagtest-a@g.us";
-const GRUPO_B = "pagtest-b@g.us";
+// Estas linhas são do tenant de QA: apontado para produção, o teste não roda.
+const EM_PRODUCAO = (process.env.SUPABASE_URL ?? "").includes("nidoatbxaylrkcgbszns");
+// Grupos só deste run: dois runs ao mesmo tempo (dois PRs no CI) não batem na
+// chave primária nem apagam as linhas um do outro.
+const RUN = randomUUID().slice(0, 8);
+const GRUPO_A = `pagtest-${RUN}-a@g.us`;
+const GRUPO_B = `pagtest-${RUN}-b@g.us`;
 const TOTAL_A = 1200;
 const TOTAL_B = 500;
 
 function pular(): boolean {
+  if (EM_PRODUCAO) {
+    console.log("SUPABASE_URL é de produção — teste de integração pulado");
+    return true;
+  }
   if (!TENANT) {
     console.log("E2E_TENANT_ID ausente — teste de integração pulado");
     return true;
@@ -37,23 +47,25 @@ function linhas(whatsappGroupId: string, quantidade: number, offset: number) {
 }
 
 before(async () => {
-  if (!TENANT) return;
-  const supabase = getSupabaseAdmin();
+  if (!TENANT || EM_PRODUCAO) return;
 
   // Acima do teto de 1000 do PostgREST, espalhado em dois grupos — é a forma
   // real do bug: nenhum dos dois grupos sozinho precisa passar de 1000 para o
   // TOTAL da campanha passar, e foi assim que 1981 + 567 sumiu em produção.
-  await supabase.from("group_participants").insert(linhas(GRUPO_A, TOTAL_A, 0));
-  await supabase.from("group_participants").insert(linhas(GRUPO_B, TOTAL_B, TOTAL_A));
+  const { error } = await getSupabaseAdmin()
+    .from("group_participants")
+    .insert([...linhas(GRUPO_A, TOTAL_A, 0), ...linhas(GRUPO_B, TOTAL_B, TOTAL_A)]);
+  if (error) throw new Error(error.message);
 });
 
 after(async () => {
-  if (!TENANT) return;
-  await getSupabaseAdmin()
+  if (!TENANT || EM_PRODUCAO) return;
+  const { error } = await getSupabaseAdmin()
     .from("group_participants")
     .delete()
     .eq("tenant_id", TENANT)
     .in("whatsapp_group_id", [GRUPO_A, GRUPO_B]);
+  if (error) throw new Error(error.message);
 });
 
 test("mais de 1000 linhas entre dois grupos vêm todas, não só a primeira página", async (t) => {

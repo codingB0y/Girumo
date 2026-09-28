@@ -216,6 +216,43 @@ jobs:
       - if: steps.credenciais.outputs.tem == 'true'
         run: npm ci
 
+      # Os `*.integration.test.ts` das stores sao os unicos testes que provam
+      # leitura acima do teto de 1000 linhas do PostgREST, que corta SEM erro
+      # (PRs #300 e #337). No `verify` eles se pulam: la nao ha credencial de
+      # banco. Levam segundos, e vem antes do build para reprovar cedo.
+      #
+      # O tenant e aquele em que o usuario de E2E cai ao logar: a rota de login
+      # pega a membership aceita mais antiga, e aqui tambem. Derivado, e nao um
+      # segredo a mais, para nao envelhecer se o tenant de QA for recriado.
+      - if: steps.credenciais.outputs.tem == 'true'
+        name: Integracao das stores contra o banco de dev
+        timeout-minutes: 3
+        env:
+          SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
+          E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+        run: |
+          url=${SUPABASE_URL%/}
+          user=$(jq -n '{email: env.E2E_EMAIL, password: env.E2E_PASSWORD}' |
+            curl -sSf "$url/auth/v1/token?grant_type=password" \
+              -H "apikey: $SUPABASE_ANON_KEY" -H "Content-Type: application/json" --data-binary @- |
+            jq -er .user.id) || { echo "::error::login do usuario de E2E falhou"; exit 1; }
+          E2E_TENANT_ID=$(curl -sSf "$url/rest/v1/memberships?select=tenant_id&user_id=eq.$user&accepted_at=not.is.null&order=created_at.asc&limit=1" \
+              -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" |
+            jq -er '.[0].tenant_id') || { echo "::error::consulta de memberships falhou ou nao achou membership aceita"; exit 1; }
+          export E2E_TENANT_ID
+          tap="$RUNNER_TEMP/integracao.tap"
+          npm --workspace apps/web exec tsx -- --import ./src/test/server-only-shim.mjs \
+            --test-reporter=spec --test-reporter-destination=stdout \
+            --test-reporter=tap --test-reporter-destination="$tap" \
+            --test "src/**/*.integration.test.ts"
+          # Teste pulado sai 0, e glob que nao casa nada tambem: sem esta conferencia,
+          # um E2E_TENANT_ID renomeado deixaria o passo verde sem rodar teste nenhum.
+          grep -qx '# skipped 0' "$tap" && grep -qE '^# pass [1-9]' "$tap" ||
+            { echo "::error::nenhum teste de integracao rodou de verdade (pulado ou fora do glob)"; exit 1; }
+
       - if: steps.credenciais.outputs.tem == 'true'
         run: npm --workspace apps/web exec -- playwright install --with-deps chromium
 
