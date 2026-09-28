@@ -10,7 +10,8 @@ type Stats = {
   members: number;
   campaigns: number;
   clicks: number;
-  contacts: number;
+  /** Contado no servidor. `null` quando a contagem não veio: "—", nunca 0. */
+  contacts: number | null;
 };
 
 export default function CancelarPage() {
@@ -24,25 +25,28 @@ export default function CancelarPage() {
   useEffect(() => {
     (async () => {
       try {
-        const [groups, campanhas, links, leads] = await Promise.all([
+        const [groups, campanhas, links, contagem] = await Promise.all([
           fetch("/api/groups").then((r) => r.json()).catch(() => []),
           fetch("/api/campanhas").then((r) => r.json()).catch(() => []),
           fetch("/api/links").then((r) => r.json()).catch(() => []),
-          fetch("/api/leads").then((r) => r.json()).catch(() => []),
+          // A lista de /api/leads para em 1000 linhas: contar ela aqui dizia a
+          // quem tem mais que perderia só 1.000 contatos.
+          fetch("/api/leads/contagem")
+            .then((r) => (r.ok ? r.json() : null))
+            .catch(() => null),
         ]);
         const g = Array.isArray(groups) ? groups : [];
         const c = Array.isArray(campanhas) ? campanhas : [];
         const l = Array.isArray(links) ? links : [];
-        const le = Array.isArray(leads) ? leads : [];
         setStats({
           groups: g.length,
           members: g.reduce((a: number, gr: { members?: number }) => a + (gr.members ?? 0), 0),
           campaigns: c.length,
           clicks: l.reduce((a: number, lk: { clicks?: number }) => a + (lk.clicks ?? 0), 0),
-          contacts: le.length,
+          contacts: typeof contagem?.total === "number" ? contagem.total : null,
         });
       } catch {
-        setStats({ groups: 0, members: 0, campaigns: 0, clicks: 0, contacts: 0 });
+        setStats({ groups: 0, members: 0, campaigns: 0, clicks: 0, contacts: null });
       } finally {
         setLoading(false);
       }
@@ -120,7 +124,11 @@ export default function CancelarPage() {
           <LossCard icon={Users} label="Membros nos grupos" value={stats.members.toLocaleString("pt-BR")} />
           <LossCard icon={Layers} label="Campanhas criadas" value={String(stats.campaigns)} />
           <LossCard icon={MousePointerClick} label="Cliques acumulados" value={stats.clicks.toLocaleString("pt-BR")} />
-          <LossCard icon={Users} label="Contatos captados" value={stats.contacts.toLocaleString("pt-BR")} />
+          <LossCard
+            icon={Users}
+            label="Contatos captados"
+            value={stats.contacts === null ? "—" : stats.contacts.toLocaleString("pt-BR")}
+          />
         </div>
 
         {step === "show" && (

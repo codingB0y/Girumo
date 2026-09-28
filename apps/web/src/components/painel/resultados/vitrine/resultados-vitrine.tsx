@@ -52,9 +52,15 @@ export function ResultadosVitrine({ links, grupos, leads, pedidos, campanhas, ao
     () => pedidos.lista.reduce((soma, p) => soma + (p.value ?? 0), 0),
     [pedidos.lista],
   );
+  // Passo cuja consulta não respondeu entra como null: travessão, não zero.
   const funil = useMemo(
-    () => funilDaVenda({ cliques: links.cliques, entradas: leads.entradas, pedidos: pedidos.lista.length }),
-    [links.cliques, leads.entradas, pedidos.lista.length],
+    () =>
+      funilDaVenda({
+        cliques: links.carga === "ok" ? links.cliques : null,
+        entradas: leads.carga === "ok" ? leads.entradas : null,
+        pedidos: pedidos.carga === "ok" ? pedidos.lista.length : null,
+      }),
+    [links.cliques, links.carga, leads.entradas, leads.carga, pedidos.lista.length, pedidos.carga],
   );
   const porCampanha = useMemo(
     () => membrosPorCampanha(campanhas.lista, grupos.lista),
@@ -142,7 +148,7 @@ export function ResultadosVitrine({ links, grupos, leads, pedidos, campanhas, ao
                     <span className="text-15 text-volt-950">{passo.rotulo}</span>
                     <span className="flex items-baseline gap-2">
                       <span className="font-data text-20 tabular-nums text-volt-950">
-                        {passo.valor.toLocaleString("pt-BR")}
+                        {passo.valor === null ? NADA : passo.valor.toLocaleString("pt-BR")}
                       </span>
                       {passo.doPassoAnterior && (
                         <span className="font-data text-12 text-slate-600">{passo.doPassoAnterior}</span>

@@ -87,6 +87,34 @@ test("passo maior que o anterior não estoura o trilho", () => {
   assert.equal(passos[1].doPassoAnterior, "400% do passo");
 });
 
+test("passo que não carregou mostra travessão, não zero, e sem barra", () => {
+  // Mutante: tratar a consulta que falhou como 0. O funil escrevia "Entraram no
+  // grupo 0" quando a conta dos contatos não respondia.
+  const passos = funilDaVenda({ cliques: 200, entradas: null, pedidos: 10 });
+  assert.deepEqual(
+    passos.map((p) => [p.valor, p.largura, p.doPassoAnterior]),
+    [
+      [200, 1, null],
+      [null, 0, null],
+      [10, 0.05, null],
+    ],
+  );
+});
+
+test("sem os cliques nenhuma barra aparece, e a taxa entre dois passos medidos continua", () => {
+  // Mutante: cair no piso de 4% do passo vazio. A mesma barrinha embaixo de
+  // 1.503 e de 42 leria como proporção contra uma base que ninguém mediu.
+  const passos = funilDaVenda({ cliques: null, entradas: 1503, pedidos: 42 });
+  assert.deepEqual(
+    passos.map((p) => [p.valor, p.largura, p.doPassoAnterior]),
+    [
+      [null, 0, null],
+      [1503, 0, null],
+      [42, 0, "3% do passo"],
+    ],
+  );
+});
+
 test("venda sem grupo vira 'Sem grupo' em vez de sumir da soma", () => {
   const fatias = vendasPorGrupo([
     { value: 100, group_name: "VIP 1" },

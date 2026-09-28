@@ -166,6 +166,12 @@ da campanha), porque a lista de `/api/leads` para em 1000 linhas:
 
 `404` se a campanha não é do tenant · `500` se qualquer leitura falhar.
 
+### GET /api/leads/contagem  (navegador, cookie)
+→ `200 { total: number, clientes: number }`: quantos leads o tenant tem, e quantos têm
+`status = 'comprou'`. Contado no banco (HEAD + `count=exact`), porque a lista de `/api/leads` para em
+1000 linhas. Consumida por `/painel/resultados` e `/painel/configuracoes/cancelar`. Engine não entra
+(`403`, embora o prefixo `/api/leads` seja compartilhado no middleware) · `500` se a contagem falhar.
+
 > ⚠️ **Aberto (handoff Engine):** as mensagens já usam variáveis além de `{nome}`
 > (`{nome_loja}`, `{preco}`, `{link_catalogo}` etc.), mas o contrato de welcome diz "{nome} é a única
 > variável". Definir/registrar quem expande quais variáveis no disparo de broadcast — hoje não documentado.

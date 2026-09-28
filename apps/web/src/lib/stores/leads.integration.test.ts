@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
 
 import { getSupabaseAdmin } from "@/lib/supabase/server";
-import { countEntriesByGroupSince, countEntriesSince, listLatestEntries } from "./leads";
+import { countEntriesByGroupSince, countEntriesSince, countLeads, listLatestEntries } from "./leads";
 
 /**
  * Contra o Supabase de DEV. A página da campanha lia as entradas na lista de
@@ -139,4 +139,16 @@ test("campanha quieta: acha as entradas dela mesmo com 1000 leads mais novas na 
   const ultimas = await listLatestEntries(TENANT, [GRUPO_A], 5);
   assert.equal(ultimas.length, 5);
   assert.ok(ultimas.every((l) => Date.parse(l.entered_at) === Date.parse(DEPOIS)));
+});
+
+test("a loja inteira conta acima de 1000, e clientes só quem comprou", async (t) => {
+  if (pular()) return t.skip();
+
+  // Resultados e o cancelamento contavam a lista de /api/leads, que para em 1000.
+  const deste = TOTAL_A + TOTAL_B + ANTES_DA_CAMPANHA + NO_OUTRO_GRUPO + NOMEADAS.length;
+  const total = await countLeads(TENANT);
+  assert.ok(total >= deste, `a conta parou em ${total}, abaixo das ${deste} linhas deste run`);
+  // As linhas deste run nascem 'novo': nenhuma delas pode entrar em clientes.
+  assert.ok((await countLeads(TENANT, "comprou")) <= total - deste);
+  assert.equal(await countLeads(randomUUID()), 0);
 });
