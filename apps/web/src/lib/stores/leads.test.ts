@@ -4,7 +4,7 @@ import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
 
 import type { carregarContagemDeLeads as CarregarContagem } from "@/lib/painel/inicio-carga";
-import { countEntriesSince, countLeads } from "./leads";
+import { countEntriesByGroupSince, countEntriesSince, countLeads, listLatestEntries } from "./leads";
 
 /**
  * O cliente real do Supabase conversando com um PostgREST de mentira: a query
@@ -14,11 +14,11 @@ import { countEntriesSince, countLeads } from "./leads";
  *
  * As respostas imitam o postgrest-js 2.108.2 (`processResponse`): HEAD não tem
  * corpo, a contagem vem no `Content-Range`, um 404 vazio volta como 204 sem
- * contagem e um 500 volta com `error.message` vazio.
+ * contagem e um 500 volta com `error.message` vazio. GET traz as linhas no corpo.
  */
 
 type Pedido = { metodo: string; url: URL; prefer: string };
-type Resposta = { status: number; contentRange?: string };
+type Resposta = { status: number; contentRange?: string; corpo?: unknown };
 
 const pedidos: Pedido[] = [];
 let responder: (url: URL) => Resposta = () => ({ status: 500 });
@@ -26,10 +26,11 @@ let responder: (url: URL) => Resposta = () => ({ status: 500 });
 const postgrest = createServer((req, res) => {
   const url = new URL(req.url ?? "/", "http://postgrest.falso");
   pedidos.push({ metodo: req.method ?? "", url, prefer: String(req.headers.prefer ?? "") });
-  const { status, contentRange } = responder(url);
+  const { status, contentRange, corpo } = responder(url);
   if (contentRange) res.setHeader("Content-Range", contentRange);
+  if (corpo !== undefined) res.setHeader("Content-Type", "application/json");
   res.statusCode = status;
-  res.end();
+  res.end(corpo === undefined ? undefined : JSON.stringify(corpo));
 });
 
 let carregarContagemDeLeads: typeof CarregarContagem;
@@ -106,4 +107,56 @@ test("contagem que não veio é erro, nunca um zero que ninguém mediu", async (
   // `count === null` e vira `null` no JSON da rota sem ninguém saber por quê.
   responder = () => ({ status: 200, contentRange: "*/*" });
   await assert.rejects(countLeads("loja-a"), /sem contagem/);
+});
+
+test("novas de hoje por grupo: pagina até a página incompleta e soma acima de 1000", async () => {
+  pedidos.length = 0;
+  const linhas = (grupo: string, n: number) => Array.from({ length: n }, () => ({ source_group_id: grupo }));
+  // 1001 entradas: a 1ª página vem cheia, no teto do PostgREST, e a 2ª traz a que sobrou.
+  responder = (url) => ({
+    status: 200,
+    corpo: url.searchParams.get("offset") === "0" ? [...linhas("a@g.us", 700), ...linhas("b@g.us", 300)] : linhas("b@g.us", 1),
+  });
+
+  // Mutante: parar na 1ª página daria b = 300.
+  const porGrupo = await countEntriesByGroupSince("loja-a", ["a@g.us", "b@g.us"], "2026-09-28T03:00:00.000Z");
+  assert.deepEqual(Object.fromEntries(porGrupo), { "a@g.us": 700, "b@g.us": 301 });
+
+  assert.deepEqual(
+    pedidos.map((p) => [p.metodo, p.url.pathname, p.url.searchParams.get("offset")]),
+    [
+      ["GET", "/rest/v1/leads", "0"],
+      ["GET", "/rest/v1/leads", "1000"],
+    ],
+  );
+  // Sem o tenant, o service-role conta todas as lojas; sem a ordem, uma página pode repetir a outra.
+  assert.deepEqual(filtros(pedidos[0].url), {
+    tenant_id: "eq.loja-a",
+    source_group_id: "in.(a@g.us,b@g.us)",
+    entered_at: "gte.2026-09-28T03:00:00.000Z",
+    order: "id.asc",
+    offset: "0",
+    limit: "1000",
+  });
+});
+
+test("últimas entradas: loja e grupos filtrados no banco, a mais nova primeiro, sem telefone", async () => {
+  pedidos.length = 0;
+  const linha = { id: "l1", name: null, source_group_name: "VIP #40", entered_at: "2026-09-28T12:05:00+00:00" };
+  responder = () => ({ status: 200, corpo: [linha] });
+
+  assert.deepEqual(await listLatestEntries("loja-a", ["a@g.us"], 5), [linha]);
+
+  assert.equal(pedidos.length, 1);
+  const [{ metodo, url }] = pedidos;
+  assert.equal(metodo, "GET");
+  assert.equal(url.pathname, "/rest/v1/leads");
+  // Mutantes: `select *` traria o telefone; filtrar os grupos depois, no JS, é o bug da campanha quieta.
+  assert.equal(url.searchParams.get("select"), "id,name,source_group_name,entered_at");
+  assert.deepEqual(filtros(url), {
+    tenant_id: "eq.loja-a",
+    source_group_id: "in.(a@g.us)",
+    order: "entered_at.desc",
+    limit: "5",
+  });
 });

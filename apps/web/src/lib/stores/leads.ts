@@ -80,6 +80,69 @@ export async function countEntriesSince(tenantId: string, groupIds: string[], si
   );
 }
 
+/**
+ * O teto de linhas do PostgREST (max-rows do projeto, hoje 1000): página cheia é
+ * sinal de que pode haver mais. Se o teto baixar, a 1ª página já viria curta, o
+ * laço pararia nela e a conta sairia baixa sem erro.
+ */
+const PAGINA = 1000;
+
+/**
+ * Entradas desde `since`, por grupo de origem. Não há como agrupar sem puxar as
+ * linhas (o PostgREST daqui não agrega), então pagina: um dia cheio numa loja
+ * grande passa das 1000 que ele devolve sem avisar.
+ */
+export async function countEntriesByGroupSince(
+  tenantId: string,
+  groupIds: string[],
+  since: string,
+): Promise<Map<string, number>> {
+  const porGrupo = new Map<string, number>();
+  if (groupIds.length === 0) return porGrupo;
+  for (let de = 0; ; de += PAGINA) {
+    const { data, error } = await getSupabaseAdmin()
+      .from(TABLE)
+      .select("source_group_id")
+      .eq("tenant_id", tenantId)
+      .in("source_group_id", groupIds)
+      .gte("entered_at", since)
+      // Sem ordem, o Postgres não garante que uma página não repita a outra.
+      .order("id")
+      .range(de, de + PAGINA - 1);
+    if (error) throw new Error(error.message);
+    const pagina = (data ?? []) as Pick<Lead, "source_group_id">[];
+    for (const { source_group_id: grupo } of pagina) {
+      if (grupo) porGrupo.set(grupo, (porGrupo.get(grupo) ?? 0) + 1);
+    }
+    if (pagina.length < PAGINA) return porGrupo;
+  }
+}
+
+/**
+ * As `limit` entradas mais recentes nos grupos, filtradas aqui e não no
+ * navegador: campanha quieta numa loja grande não aparecia entre as 1000 leads
+ * mais novas da loja. Sem telefone, que a lista não mostra.
+ */
+export async function listLatestEntries(
+  tenantId: string,
+  groupIds: string[],
+  limit: number,
+): Promise<Pick<Lead, "id" | "name" | "source_group_name" | "entered_at">[]> {
+  if (groupIds.length === 0) return [];
+  // ponytail: o índice que serve é (tenant_id, entered_at desc); campanha com
+  // menos de `limit` entradas percorre o histórico da loja inteira. Se a rota
+  // pesar, (tenant_id, source_group_id, entered_at desc) nos dois bancos.
+  const { data, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .select("id, name, source_group_name, entered_at")
+    .eq("tenant_id", tenantId)
+    .in("source_group_id", groupIds)
+    .order("entered_at", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Pick<Lead, "id" | "name" | "source_group_name" | "entered_at">[];
+}
+
 /** Origem de um lead (pra atribuir a campanha ao pedido). null se não achar. */
 export async function getLeadAttribution(
   tenantId: string,

@@ -6,21 +6,18 @@ import type { CampaignGroupsOverview } from "@/lib/campaign-groups-overview";
 import type { DispatchView } from "@/lib/campaigns/dispatch-view";
 import { dayBR, dayBROf, diaMesBR, horaBR } from "@/lib/date-br";
 import { GROUP_FULL_RATIO } from "@/lib/links/resolve-click-target";
-import { abreviaNome } from "@/lib/painel/casca";
 import { barrasDaAtividade, diaDaSemanaPassada, somaDa, variacao, type Barra } from "@/lib/painel/atividade";
 import {
   estadoNaCampanha,
   faixaDeLotacao,
   filtrarGrupos,
   hojeNaCampanha,
-  novasHojePorGrupo,
   ordenarGrupos,
-  ultimasEntradas,
+  type EntradaRecente,
   type EstadoDoPost,
   type EstadoNaCampanha,
   type FiltroDeGrupos,
   type ItemDoDia,
-  type LeadResumo,
 } from "@/lib/painel/campanha-visao";
 import { lotacao, numero } from "@/lib/painel/grupos";
 import { cn } from "@/lib/utils";
@@ -32,13 +29,15 @@ const LINHAS = 8;
 type Props = {
   /** Slug (ou id) da campanha: a série vem de /api/campanhas/[slug]/atividade. */
   slug: string;
-  groupIds: string[];
   overview: CampaignGroupsOverview;
   /** Entradas por clique (%), null sem clique ou sem a contagem do servidor. */
   taxaEntrada: number | null;
   receita: number;
   pedidos: number;
-  leads: LeadResumo[];
+  /** As entradas mais recentes, lidas no servidor; null se a leitura falhou. */
+  ultimas: EntradaRecente[] | null;
+  /** Novas de hoje por grupo de origem, contadas no servidor; null se a conta falhou. */
+  novasHojePorGrupo: Record<string, number> | null;
   /** null enquanto os posts carregam. */
   posts: DispatchView[] | null;
   /** Quando os dados foram lidos: "hoje" e "agora" saem daqui. */
@@ -52,15 +51,13 @@ type Props = {
  * painel só, a análise por hora, dia e mês (série do banco, PR C), a tabela dos
  * grupos e o dia da campanha. Saídas entram no PR D.
  */
-export function VisaoGeralCampanha({ slug, groupIds, overview: o, taxaEntrada, receita, pedidos, leads, posts, agora, aoVerGrupos, aoVerPosts }: Props) {
+export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pedidos, ultimas, novasHojePorGrupo, posts, agora, aoVerGrupos, aoVerPosts }: Props) {
   const [filtro, setFiltro] = useState<FiltroDeGrupos>("todos");
   const { atividade, erro, tentarDeNovo } = useAtividade(slug, agora.getTime());
 
   const faixa = useMemo(() => faixaDeLotacao(o.groups), [o.groups]);
-  const hojePorGrupo = useMemo(() => novasHojePorGrupo(leads, groupIds, agora), [leads, groupIds, agora]);
   const grupos = useMemo(() => filtrarGrupos(ordenarGrupos(o.groups), filtro), [o.groups, filtro]);
   const dia = useMemo(() => (posts ? hojeNaCampanha(posts, agora) : null), [posts, agora]);
-  const entradas = useMemo(() => ultimasEntradas(leads, groupIds, 5), [leads, groupIds]);
   const seteDias = useMemo(() => (atividade ? barrasDaAtividade(atividade, "7d", "novas") : null), [atividade]);
 
   const novasHoje = atividade ? somaDa(atividade.porHora, "novas") : null;
@@ -166,7 +163,7 @@ export function VisaoGeralCampanha({ slug, groupIds, overview: o, taxaEntrada, r
                 <tbody>
                   {grupos.slice(0, LINHAS).map((g) => {
                     const fracao = lotacao(g.members, g.capacity);
-                    const novas = hojePorGrupo.get(g.id) ?? 0;
+                    const novas = novasHojePorGrupo?.[g.id] ?? 0;
                     return (
                       <tr key={g.id} className="border-b border-line-200 last:border-0 hover:bg-hover-ficha">
                         <td className="max-w-[280px] truncate px-5 py-2.5 font-medium text-volt-950">{g.group?.name ?? "Grupo sem registro"}</td>
@@ -189,7 +186,7 @@ export function VisaoGeralCampanha({ slug, groupIds, overview: o, taxaEntrada, r
               <ul className="sm:hidden">
                 {grupos.slice(0, LINHAS).map((g) => {
                   const fracao = lotacao(g.members, g.capacity);
-                  const novas = hojePorGrupo.get(g.id) ?? 0;
+                  const novas = novasHojePorGrupo?.[g.id] ?? 0;
                   return (
                     <li key={g.id} className="flex items-center gap-3 border-b border-line-200 px-4 py-3 last:border-0">
                       <div className="min-w-0 flex-1">
@@ -258,18 +255,21 @@ export function VisaoGeralCampanha({ slug, groupIds, overview: o, taxaEntrada, r
               </h2>
               {novasHoje !== null && <span className="text-13 tabular-nums text-slate-600">{numero(novasHoje)} hoje</span>}
             </div>
-            {entradas.length === 0 ? (
+            {/* Falha de leitura não vira "ninguém entrou": a faixa de números pode estar dizendo o contrário. */}
+            {ultimas === null ? (
+              <p className="py-4 text-13 text-slate-600">Não deu para ler as últimas entradas.</p>
+            ) : ultimas.length === 0 ? (
               <p className="py-4 text-13 text-slate-600">Ninguém entrou pelos grupos desta campanha ainda.</p>
             ) : (
               <ul>
-                {entradas.map((l) => (
-                  <li key={l.id ?? `${l.sourceGroupId}-${l.enteredAt}`} className="flex items-baseline gap-2 border-b border-line-200 py-2.5 text-13 last:border-0">
+                {ultimas.map((l) => (
+                  <li key={l.id} className="flex items-baseline gap-2 border-b border-line-200 py-2.5 text-13 last:border-0">
                     <span className="min-w-0 flex-1 truncate">
-                      <strong className="font-semibold text-volt-950">{abreviaNome(l.name)}</strong>{" "}
-                      <span className="text-slate-600">veio pelo {l.sourceGroup || "grupo"}</span>
+                      <strong className="font-semibold text-volt-950">{l.nome}</strong>{" "}
+                      <span className="text-slate-600">veio pelo {l.grupo || "grupo"}</span>
                     </span>
                     <span className="shrink-0 tabular-nums text-slate-600">
-                      {dayBROf(l.enteredAt) === dayBR(agora) ? horaBR(l.enteredAt) : diaMesBR(l.enteredAt)}
+                      {dayBROf(l.entrouEm) === dayBR(agora) ? horaBR(l.entrouEm) : diaMesBR(l.entrouEm)}
                     </span>
                   </li>
                 ))}
