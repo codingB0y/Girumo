@@ -33,37 +33,51 @@ export type Lead = {
 
 const TABLE = "leads";
 
-/** Total de leads do tenant (head+count, sem puxar as linhas). */
-export async function countLeads(tenantId: string): Promise<number> {
-  const { count, error } = await getSupabaseAdmin()
+type RespostaDoHead = { count: number | null; error: { message: string } | null; status: number };
+
+/**
+ * A contagem de uma consulta HEAD. HEAD não tem corpo: o erro chega sem
+ * mensagem, um 404 vazio volta como 204 sem contagem, e um `Content-Range`
+ * com `*` no lugar do total vira NaN. Tudo isso é erro, nunca um número que
+ * ninguém mediu.
+ */
+function contagemDoHead({ count, error, status }: RespostaDoHead): number {
+  if (error) throw new Error(error.message || `HTTP ${status}`);
+  if (count === null || !Number.isInteger(count)) throw new Error(`HTTP ${status} sem contagem`);
+  return count;
+}
+
+/**
+ * Leads do tenant, ou só os de um status (head+count, sem puxar as linhas).
+ * Contar a lista de `listLeads` parava nas 1000 linhas que o PostgREST devolve
+ * sem erro.
+ */
+export async function countLeads(tenantId: string, status?: LeadStatus): Promise<number> {
+  let query = getSupabaseAdmin()
     .from(TABLE)
     .select("id", { count: "exact", head: true })
     .eq("tenant_id", tenantId);
-  if (error) throw new Error(error.message);
-  return count ?? 0;
+  if (status) query = query.eq("status", status);
+  return contagemDoHead(await query);
 }
 
 /**
  * Entradas nos grupos desde `since` (head+count, sem puxar as linhas): a regra de
- * `campaign_activity`, grupo de origem no pool e `entered_at >= since`. Contar a
- * lista de `listLeads` parava nas 1000 linhas que o PostgREST devolve sem erro.
+ * `campaign_activity`, grupo de origem no pool e `entered_at >= since`.
  */
 export async function countEntriesSince(tenantId: string, groupIds: string[], since: string): Promise<number> {
   if (groupIds.length === 0) return 0;
   // ponytail: os JIDs vão na URL; passando de ~230 grupos ela cruza os 8 mil
   // caracteres em que o postgrest-js já avisa do limite do servidor. Aí, fatiar
   // em lotes e somar (cada lead tem um grupo de origem só).
-  const { count, error, status } = await getSupabaseAdmin()
-    .from(TABLE)
-    .select("id", { count: "exact", head: true })
-    .eq("tenant_id", tenantId)
-    .in("source_group_id", groupIds)
-    .gte("entered_at", since);
-  // HEAD não tem corpo: o erro chega sem mensagem, e um 404 vazio volta como
-  // 204 sem contagem. Os dois viram erro, nunca um 0 que ninguém mediu.
-  if (error) throw new Error(error.message || `HTTP ${status}`);
-  if (count === null) throw new Error(`HTTP ${status} sem contagem`);
-  return count;
+  return contagemDoHead(
+    await getSupabaseAdmin()
+      .from(TABLE)
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .in("source_group_id", groupIds)
+      .gte("entered_at", since),
+  );
 }
 
 /** Origem de um lead (pra atribuir a campanha ao pedido). null se não achar. */

@@ -60,10 +60,11 @@ export function conversaoCliqueEntrada(entradas: number, cliques: number, carga:
 
 export type PassoDoFunil = {
   rotulo: string;
-  valor: number;
-  /** 0..1 para a barra; piso de 4% pra o passo vazio não sumir do desenho. */
+  /** `null` quando a consulta do passo não respondeu: travessão, não zero. */
+  valor: number | null;
+  /** 0..1 para a barra; piso de 4% pra o passo vazio não sumir do desenho. Sem valor ou sem cliques, sem barra. */
   largura: number;
-  /** "38% do passo", ou `null` no primeiro passo e quando o anterior é zero. */
+  /** "38% do passo", ou `null` no primeiro passo, quando o anterior é zero ou um dos dois não veio. */
   doPassoAnterior: string | null;
 };
 
@@ -73,11 +74,15 @@ export type PassoDoFunil = {
  * A casca antiga fixava 100% no primeiro passo. Com zero clique aquilo
  * desenhava uma barra cheia embaixo de um zero.
  */
-export function funilDaVenda(input: { cliques: number; entradas: number; pedidos: number }): PassoDoFunil[] {
+export function funilDaVenda(input: {
+  cliques: number | null;
+  entradas: number | null;
+  pedidos: number | null;
+}): PassoDoFunil[] {
   const passos = [
-    { rotulo: "Clicaram no link", valor: Math.max(0, input.cliques) },
-    { rotulo: "Entraram no grupo", valor: Math.max(0, input.entradas) },
-    { rotulo: "Viraram pedidos", valor: Math.max(0, input.pedidos) },
+    { rotulo: "Clicaram no link", valor: naoNegativo(input.cliques) },
+    { rotulo: "Entraram no grupo", valor: naoNegativo(input.entradas) },
+    { rotulo: "Viraram pedidos", valor: naoNegativo(input.pedidos) },
   ];
   const topo = passos[0].valor;
 
@@ -85,11 +90,24 @@ export function funilDaVenda(input: { cliques: number; entradas: number; pedidos
     const anterior = i > 0 ? passos[i - 1].valor : null;
     return {
       ...passo,
-      largura: topo > 0 ? Math.min(1, Math.max(passo.valor / topo, 0.04)) : 0.04,
+      largura: larguraDoPasso(passo.valor, topo),
       doPassoAnterior:
-        anterior && anterior > 0 ? `${Math.round((passo.valor / anterior) * 100)}% do passo` : null,
+        passo.valor !== null && anterior && anterior > 0
+          ? `${Math.round((passo.valor / anterior) * 100)}% do passo`
+          : null,
     };
   });
+}
+
+function naoNegativo(valor: number | null): number | null {
+  return valor === null ? null : Math.max(0, valor);
+}
+
+function larguraDoPasso(valor: number | null, topo: number | null): number {
+  // Sem o valor, ou sem os cliques que dão a escala, não há proporção a desenhar.
+  if (valor === null || topo === null) return 0;
+  if (topo <= 0) return 0.04;
+  return Math.min(1, Math.max(valor / topo, 0.04));
 }
 
 export type FatiaDoTotal = { nome: string; total: number; largura: number };

@@ -15,9 +15,19 @@ import type { Carga } from "@/lib/painel/types";
  * `cache: "no-store"` para que o botão "Tentar de novo" realmente vá à rede em
  * vez de servir a mesma resposta do cache do navegador.
  */
-export async function buscarLista<T>(
+export function buscarLista<T>(
   url: string,
   guardar: (itens: T[]) => void,
+  marcar: (carga: Carga) => void,
+): Promise<void> {
+  return buscar(url, (corpo): corpo is T[] => Array.isArray(corpo), guardar, marcar);
+}
+
+/** Idem para qualquer forma: corpo que `valido` recusa é erro, nunca dado. */
+export async function buscar<T>(
+  url: string,
+  valido: (corpo: unknown) => corpo is T,
+  guardar: (valor: T) => void,
   marcar: (carga: Carga) => void,
 ): Promise<void> {
   marcar("carregando");
@@ -28,11 +38,11 @@ export async function buscarLista<T>(
       return;
     }
     const corpo: unknown = await resposta.json();
-    if (!Array.isArray(corpo)) {
+    if (!valido(corpo)) {
       marcar("erro");
       return;
     }
-    guardar(corpo as T[]);
+    guardar(corpo);
     marcar("ok");
   } catch {
     marcar("erro");
