@@ -9,7 +9,9 @@ import {
   janelasDaAtividade,
   marcasDePost,
   nomeDoMes,
+  semanaPassadaMedida,
   somaDa,
+  somaMedida,
   tetoDoEixo,
   variacao,
   type AtividadeDaCampanha,
@@ -45,12 +47,17 @@ test("às 23h30 de Brasília o dia ainda não virou, mesmo com o UTC já no dia 
   assert.equal(iso(j.porDia.ate), "2026-10-01T03:00:00.000Z");
 });
 
-/** Série do banco: um ponto por hora (ou dia) a partir de `de`, com os valores dados. */
-function serie(de: string, passoMs: number, n: number, valores: Record<number, [number, number]> = {}): PontoDaSerie[] {
+/**
+ * Série do banco: um ponto por hora (ou dia) a partir de `de`, com os valores
+ * dados como [novas, cliques, entraram, saíram].
+ */
+function serie(de: string, passoMs: number, n: number, valores: Record<number, number[]> = {}): PontoDaSerie[] {
   return Array.from({ length: n }, (_, i) => ({
     inicio: new Date(Date.parse(de) + i * passoMs).toISOString(),
     novas: valores[i]?.[0] ?? 0,
     cliques: valores[i]?.[1] ?? 0,
+    entraram: valores[i]?.[2] ?? 0,
+    sairam: valores[i]?.[3] ?? 0,
   }));
 }
 
@@ -59,9 +66,12 @@ const DIA = 86_400_000;
 
 const atividade: AtividadeDaCampanha = {
   geradoEm: agora.toISOString(),
-  porHora: serie("2026-09-23T03:00:00Z", HORA, 24, { 9: [1, 4], 12: [2, 7] }),
-  porDia: serie("2026-09-01T03:00:00Z", DIA, 30, { 21: [1, 0], 22: [3, 11] }),
-  semanaPassada: { novas: 1, cliques: 5 },
+  // Medição de entradas e saídas desde segunda 21/09 às 10h.
+  entradasDesde: "2026-09-21T13:00:00.000Z",
+  porHora: serie("2026-09-23T03:00:00Z", HORA, 24, { 9: [1, 4, 6, 1], 12: [2, 7, 9, 2] }),
+  porDia: serie("2026-09-01T03:00:00Z", DIA, 30, { 19: [0, 0, 5, 5], 20: [0, 0, 4, 1], 21: [1, 0, 7, 0], 22: [3, 11, 15, 3] }),
+  semanaPassada: { novas: 1, cliques: 5, entraram: 0, sairam: 0 },
+  hojePorGrupo: {},
 };
 
 test("por hora: a hora em curso é 'agora', a que não chegou é futuro, e cada medida lê a sua coluna", () => {
@@ -94,9 +104,11 @@ test("o mês mostra o mês inteiro: rótulo em 1, 5, 10…, hoje aceso e o resto
 test("no começo do mês, 7 dias atravessam a virada e o mês só tem o mês novo", () => {
   const outubro: AtividadeDaCampanha = {
     geradoEm: "2026-10-02T15:00:00Z",
+    entradasDesde: "2026-09-01T03:00:00.000Z",
     porHora: serie("2026-10-02T03:00:00Z", HORA, 24),
     porDia: serie("2026-09-26T03:00:00Z", DIA, 36),
-    semanaPassada: { novas: 0, cliques: 0 },
+    semanaPassada: { novas: 0, cliques: 0, entraram: 0, sairam: 0 },
+    hojePorGrupo: {},
   };
   assert.deepEqual(
     barrasDaAtividade(outubro, "7d", "novas").map((b) => b.rotulo),
@@ -105,6 +117,43 @@ test("no começo do mês, 7 dias atravessam a virada e o mês só tem o mês nov
   const mes = barrasDaAtividade(outubro, "mes", "novas");
   assert.equal(mes.length, 31);
   assert.equal(mes[0].chave, "2026-10-01");
+});
+
+test("entradas e saídas: antes da medição a barra é 'sem medição', nunca zero, e a soma só conta o medido", () => {
+  // Medição desde seg 21/09 às 10h: de qui 17 a dom 20 não há o que medir.
+  const dias = barrasDaAtividade(atividade, "7d", "entraram", "sairam");
+  assert.deepEqual(dias.map((b) => b.semMedicao), [true, true, true, true, false, false, false]);
+  assert.deepEqual(
+    dias.slice(4).map((b) => [b.valor, b.abaixo]),
+    [
+      [4, 1],
+      [7, 0],
+      [15, 3],
+    ],
+  );
+  // Mutante: somar o domingo (5 e 5, gravados antes da medição) daria 31 e 9.
+  assert.deepEqual(somaMedida(dias), { entraram: 26, sairam: 4 });
+
+  const horas = barrasDaAtividade(atividade, "hoje", "entraram", "sairam");
+  assert.ok(horas.every((b) => !b.semMedicao), "hoje inteiro já era medido");
+  assert.deepEqual(somaMedida(horas), { entraram: 15, sairam: 3 });
+});
+
+test("a hora em que a medição começou conta; as de antes, não", () => {
+  const comecouHoje = { ...atividade, entradasDesde: br("2026-09-23", "10:20") };
+  const horas = barrasDaAtividade(comecouHoje, "hoje", "entraram", "sairam");
+  assert.equal(horas[9].semMedicao, true, "09h às 09h59 terminou antes das 10h20");
+  assert.equal(horas[10].semMedicao, false, "10h às 10h59 já tem medição a partir das 10h20");
+  assert.deepEqual(somaMedida(horas), { entraram: 9, sairam: 2 });
+  // Novas pessoas e cliques não dependem desta medição.
+  assert.ok(barrasDaAtividade(comecouHoje, "hoje", "cliques").every((b) => !b.semMedicao));
+  assert.ok(barrasDaAtividade(comecouHoje, "7d", "novas").every((b) => !b.semMedicao));
+});
+
+test("a comparação de entradas com a semana passada só vale quando aquele dia já era medido", () => {
+  assert.equal(semanaPassadaMedida(atividade), false, "qua 16 foi antes de seg 21");
+  assert.equal(semanaPassadaMedida({ ...atividade, entradasDesde: "2026-09-16T03:00:00.000Z" }), true);
+  assert.equal(semanaPassadaMedida({ ...atividade, entradasDesde: "2026-09-16T13:00:00.000Z" }), false, "medido só a partir das 10h não compara o dia");
 });
 
 test("somas, variação e teto do eixo", () => {

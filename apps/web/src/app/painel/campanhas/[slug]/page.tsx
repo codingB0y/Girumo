@@ -401,7 +401,6 @@ export default function CampanhaDetalhe() {
             receita={campaignRevenue}
             pedidos={campaignOrders.length}
             ultimas={entradas?.ultimas ?? null}
-            novasHojePorGrupo={entradas?.novasHojePorGrupo ?? null}
             posts={posts}
             agora={atualizadoEm}
             aoVerGrupos={() => abrirAba("Grupos")}

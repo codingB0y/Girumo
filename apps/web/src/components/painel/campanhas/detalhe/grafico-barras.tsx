@@ -12,12 +12,19 @@ type Props = {
   resumo: string;
   /** O que cada barra conta, para a dica: ["pessoa nova", "pessoas novas"]. */
   unidade: [string, string];
+  /**
+   * Com a série de baixo (`Barra.abaixo`): as barras dela descem da mesma linha
+   * do zero, na mesma escala das de cima. Ex.: ["saiu", "saíram"].
+   */
+  unidadeAbaixo?: [string, string];
   /** Rótulo do eixo a cada N barras: 24 horas não cabem em 390 px. */
   rotuloACada?: number;
   /** Onde fica agora no eixo (0 a 1), no gráfico de hoje. */
   agora?: number;
   /** Posts do dia: linha no minuto em que saíram, com a hora e o começo do texto. */
   marcas?: MarcaNoGrafico[];
+  /** O texto da faixa das barras anteriores à medição ("medindo desde 29/09"). */
+  rotuloSemMedicao?: string;
   baixo?: boolean;
 };
 
@@ -39,18 +46,42 @@ function linhasDosRotulos(marcas: MarcaNoGrafico[]): (0 | 1 | null)[] {
   });
 }
 
+/** "1 saiu", "4 saíram". */
+function contagem(n: number, [um, varios]: [string, string]): string {
+  return `${n.toLocaleString("pt-BR")} ${n === 1 ? um : varios}`;
+}
+
 /**
  * Colunas em HTML (não SVG): o texto do eixo fica em 12 px de verdade em
  * qualquer largura, em vez de encolher junto com o viewBox no celular.
- * A hora que ainda não chegou é um traço, nunca uma coluna zerada.
+ * A hora que ainda não chegou é um traço, nunca uma coluna zerada; a que veio
+ * antes da medição fica sem barra, debaixo de uma faixa que diz isso.
  */
-export function GraficoDeBarras({ barras, resumo, unidade, rotuloACada = 1, agora, marcas = [], baixo = false }: Props) {
+export function GraficoDeBarras({
+  barras,
+  resumo,
+  unidade,
+  unidadeAbaixo,
+  rotuloACada = 1,
+  agora,
+  marcas = [],
+  rotuloSemMedicao = "sem medição",
+  baixo = false,
+}: Props) {
   const [ativa, setAtiva] = useState<number | null>(null);
   const n = barras.length;
-  const teto = tetoDoEixo(Math.max(0, ...barras.map((b) => b.valor)));
-  const pico = barras.reduce((m, b, i) => (b.valor > barras[m].valor ? i : m), 0);
+  const medidas = barras.filter((b) => !b.semMedicao);
+  const tetoCima = tetoDoEixo(Math.max(0, ...medidas.map((b) => b.valor)));
+  const maxAbaixo = Math.max(0, ...medidas.map((b) => b.abaixo ?? 0));
+  // Mesma escala nos dois sentidos: o espaço de baixo é proporcional ao teto de
+  // baixo. Sem ninguém saindo, sobra só uma faixa fina para a linha do zero.
+  const tetoBaixo = !unidadeAbaixo ? 0 : maxAbaixo > 0 ? tetoDoEixo(maxAbaixo) : tetoCima / 10;
+  const zero = tetoCima / (tetoCima + tetoBaixo);
+  const pico = barras.reduce((m, b, i) => (!b.semMedicao && b.valor > barras[m].valor ? i : m), 0);
   const atual = barras.findIndex((b) => b.atual);
   const primeiroFuturo = barras.findIndex((b) => b.futuro);
+  const primeiroMedido = barras.findIndex((b) => !b.semMedicao);
+  const semMedicaoAte = primeiroMedido < 0 ? n : primeiroMedido;
   const linhas = linhasDosRotulos(marcas);
   const faixaDasMarcas = marcas.length === 0 ? 0 : linhas.includes(1) ? 2 : 1;
   const mostraRotulo = (i: number) =>
@@ -64,6 +95,7 @@ export function GraficoDeBarras({ barras, resumo, unidade, rotuloACada = 1, agor
 
   const dica = ativa === null ? null : barras[ativa];
   const lado = ativa === null ? 0 : (ativa + 0.5) / n;
+  const altura = baixo ? "h-32" : "h-44";
 
   return (
     <figure className="m-0">
@@ -88,29 +120,44 @@ export function GraficoDeBarras({ barras, resumo, unidade, rotuloACada = 1, agor
         </div>
       )}
       <div className="flex gap-2">
-        <div aria-hidden="true" className={cn("relative w-7 shrink-0 text-right text-12 tabular-nums leading-none text-slate-600", baixo ? "h-32" : "h-44")}>
+        <div aria-hidden="true" className={cn("relative w-7 shrink-0 text-right text-12 tabular-nums leading-none text-slate-600", altura)}>
           {/* O meio só ganha número quando é inteiro: "2,5 pessoas" não existe. */}
-          {[teto, teto / 2, 0].map((m, i) =>
+          {[tetoCima, tetoCima / 2, 0].map((m, i) =>
             Number.isInteger(m) ? (
-              <span key={m} className="absolute right-0 -translate-y-1/2" style={{ top: `${i * 50}%` }}>
+              <span key={`c${m}`} className="absolute right-0 -translate-y-1/2" style={{ top: `${i * 50 * zero}%` }}>
                 {m.toLocaleString("pt-BR")}
               </span>
             ) : null,
           )}
+          {maxAbaixo > 0 && Number.isInteger(tetoBaixo) && (
+            <span className="absolute bottom-0 right-0 translate-y-1/2">{tetoBaixo.toLocaleString("pt-BR")}</span>
+          )}
         </div>
         <div
-          className={cn("relative min-w-0 flex-1 touch-pan-y", baixo ? "h-32" : "h-44")}
+          className={cn("relative min-w-0 flex-1 touch-pan-y", altura)}
           onPointerMove={apontar}
           onPointerDown={apontar}
           // No toque o "sair" vem logo depois de soltar o dedo: a dica fica até o próximo toque.
           onPointerLeave={(e) => e.pointerType !== "touch" && setAtiva(null)}
           onPointerCancel={() => setAtiva(null)}
         >
-          <div aria-hidden="true" className="absolute inset-0 flex flex-col justify-between">
+          <div aria-hidden="true" className="absolute inset-x-0 top-0 flex flex-col justify-between" style={{ height: `${zero * 100}%` }}>
             <span className="block border-t border-line-200" />
             <span className="block border-t border-line-200" />
             <span className="block border-t border-slate-600/50" />
           </div>
+          {unidadeAbaixo && <span aria-hidden="true" className="absolute inset-x-0 bottom-0 block border-t border-line-200" />}
+          {semMedicaoAte > 0 && (
+            <div
+              aria-hidden="true"
+              className="absolute inset-y-0 left-0 flex items-center justify-center border-r border-dashed border-slate-600/50 bg-canvas-100/60"
+              style={{ width: pct(semMedicaoAte, n) }}
+            >
+              {semMedicaoAte >= 4 && (
+                <span className="rounded bg-paper-0 px-1.5 text-center text-12 text-slate-600">{rotuloSemMedicao}</span>
+              )}
+            </div>
+          )}
           {primeiroFuturo > 0 && (
             <div
               aria-hidden="true"
@@ -120,24 +167,36 @@ export function GraficoDeBarras({ barras, resumo, unidade, rotuloACada = 1, agor
               {n - primeiroFuturo >= 4 && <span className="px-2 text-center text-12 text-slate-600">ainda não aconteceu</span>}
             </div>
           )}
-          <ol role="img" aria-label={resumo} className="absolute inset-0 flex items-end gap-[3px]">
+          <ol role="img" aria-label={resumo} className="absolute inset-0 flex gap-[3px]">
             {barras.map((b, i) => (
-              <li key={b.chave} className={cn("relative flex h-full min-w-0 flex-1 items-end rounded-sm", i === ativa && "bg-hover-ficha")}>
-                {b.futuro ? (
-                  <span className="block h-0.5 w-full rounded-full bg-line-200" />
-                ) : (
-                  <span
-                    className={cn("block w-full rounded-t-[2px] bg-serie", b.atual && "opacity-60")}
-                    style={{ height: pct(b.valor, teto), minHeight: b.valor > 0 ? 2 : 0 }}
-                  />
-                )}
-                {i === pico && b.valor > 0 && (
-                  <span
-                    className="absolute inset-x-0 text-center text-12 font-semibold tabular-nums text-volt-950"
-                    style={{ bottom: `calc(${pct(b.valor, teto)} + 4px)` }}
-                  >
-                    {b.valor}
-                  </span>
+              <li key={b.chave} className={cn("flex h-full min-w-0 flex-1 flex-col rounded-sm", i === ativa && "bg-hover-ficha")}>
+                <div className="relative flex items-end" style={{ height: `${zero * 100}%` }}>
+                  {b.semMedicao ? null : b.futuro ? (
+                    <span className="block h-0.5 w-full rounded-full bg-line-200" />
+                  ) : (
+                    <span
+                      className={cn("block w-full rounded-t-[2px] bg-serie", b.atual && "opacity-60")}
+                      style={{ height: pct(b.valor, tetoCima), minHeight: b.valor > 0 ? 2 : 0 }}
+                    />
+                  )}
+                  {i === pico && b.valor > 0 && !b.semMedicao && (
+                    <span
+                      className="absolute inset-x-0 text-center text-12 font-semibold tabular-nums text-volt-950"
+                      style={{ bottom: `calc(${pct(b.valor, tetoCima)} + 4px)` }}
+                    >
+                      {b.valor}
+                    </span>
+                  )}
+                </div>
+                {unidadeAbaixo && (
+                  <div className="flex items-start" style={{ height: `${(1 - zero) * 100}%` }}>
+                    {!b.semMedicao && !b.futuro && (b.abaixo ?? 0) > 0 && (
+                      <span
+                        className={cn("mt-px block w-full rounded-b-[2px] bg-saida", b.atual && "opacity-60")}
+                        style={{ height: pct(b.abaixo ?? 0, tetoBaixo), minHeight: 2 }}
+                      />
+                    )}
+                  </div>
                 )}
               </li>
             ))}
@@ -165,11 +224,24 @@ export function GraficoDeBarras({ barras, resumo, unidade, rotuloACada = 1, agor
               style={{ left: `${lado * 100}%` }}
             >
               <p className="font-semibold">{dica.rotuloLongo}</p>
-              <p className="tabular-nums">
-                {dica.futuro
-                  ? "ainda não aconteceu"
-                  : `${dica.valor.toLocaleString("pt-BR")} ${dica.valor === 1 ? unidade[0] : unidade[1]}${dica.atual ? " até agora" : ""}`}
-              </p>
+              {dica.semMedicao ? (
+                <p>{rotuloSemMedicao}</p>
+              ) : dica.futuro ? (
+                <p>ainda não aconteceu</p>
+              ) : (
+                <>
+                  <p className="tabular-nums">
+                    {contagem(dica.valor, unidade)}
+                    {dica.atual ? " até agora" : ""}
+                  </p>
+                  {unidadeAbaixo && (
+                    <>
+                      <p className="tabular-nums">{contagem(dica.abaixo ?? 0, unidadeAbaixo)}</p>
+                      <p className="tabular-nums">saldo {saldo(dica.valor - (dica.abaixo ?? 0))}</p>
+                    </>
+                  )}
+                </>
+              )}
             </div>
           )}
         </div>
@@ -187,4 +259,11 @@ export function GraficoDeBarras({ barras, resumo, unidade, rotuloACada = 1, agor
       </ol>
     </figure>
   );
+}
+
+/** "+29", "−3", "0": o sinal de menos tipográfico, não o hífen. */
+export function saldo(n: number): string {
+  if (n > 0) return `+${n.toLocaleString("pt-BR")}`;
+  if (n < 0) return `−${Math.abs(n).toLocaleString("pt-BR")}`;
+  return "0";
 }
