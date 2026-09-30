@@ -409,3 +409,7 @@ apps/web/supabase/migrations/20260923140000_board_finalizado.sql
 # 2026-09-26 - painel D (PR C): campaign_activity (novas pessoas + cliques por hora/dia
 # de Brasilia) e indice de link_click_events por campanha. Aplicado nos dois bancos.
 apps/web/supabase/migrations/20260926120000_campaign_activity.sql
+# 2026-09-29 - painel D (PR D): group_member_events (entrada e saida por pessoa, gravada
+# pelo webhook), campaign_activity com entraram/sairam e campaign_group_member_counts.
+# Aplicado nos dois bancos.
+apps/web/supabase/migrations/20260929120000_group_member_events.sql
