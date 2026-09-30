@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import type { CampaignGroupsOverview } from "@/lib/campaign-groups-overview";
+import { etaDisparo } from "@/lib/campaigns/dispatch-eta";
 import type { DispatchView } from "@/lib/campaigns/dispatch-view";
 import { dayBR, dayBROf, diaMesBR, horaBR } from "@/lib/date-br";
 import { GROUP_FULL_RATIO } from "@/lib/links/resolve-click-target";
@@ -13,15 +14,18 @@ import {
   filtrarGrupos,
   hojeNaCampanha,
   ordenarGrupos,
+  quandoDoPost,
   type EntradaRecente,
   type EstadoDoPost,
   type EstadoNaCampanha,
   type FiltroDeGrupos,
   type ItemDoDia,
 } from "@/lib/painel/campanha-visao";
+import { aindaSaindo, postDaTabela, resumoDaEntrega } from "@/lib/painel/entrega";
 import { lotacao, numero } from "@/lib/painel/grupos";
 import { cn } from "@/lib/utils";
 import { AnaliseDaCampanha, useAtividade } from "./analise";
+import { CelulaDaEntrega, LegendaDaEntrega, useEntrega } from "./entrega";
 
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const LINHAS = 8;
@@ -57,8 +61,31 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
 
   const faixa = useMemo(() => faixaDeLotacao(o.groups), [o.groups]);
   const grupos = useMemo(() => filtrarGrupos(ordenarGrupos(o.groups), filtro), [o.groups, filtro]);
-  const dia = useMemo(() => (posts ? hojeNaCampanha(posts, agora) : null), [posts, agora]);
   const seteDias = useMemo(() => (atividade ? barrasDaAtividade(atividade, "7d", "novas") : null), [atividade]);
+
+  // O post que a tabela acompanha grupo a grupo (PR E): o que está saindo, ou o último de hoje.
+  const postTabela = useMemo(() => (posts ? postDaTabela(posts, agora) : null), [posts, agora]);
+  const { entrega } = useEntrega(postTabela?.id ?? null, agora.getTime());
+  const entregaPorGrupo = useMemo(() => new Map((entrega?.grupos ?? []).map((g) => [g.grupo, g])), [entrega]);
+  const resumo = useMemo(() => (entrega ? resumoDaEntrega(entrega.grupos) : null), [entrega]);
+  const horaDoPost = postTabela ? horaBR(quandoDoPost(postTabela)) : "";
+
+  // O dia da campanha com o post em curso na contagem ao vivo: a lista de posts
+  // foi lida uma vez, a entrega é relida enquanto ele sai.
+  const dia = useMemo((): ItemAoVivo[] | null => {
+    if (!posts) return null;
+    return hojeNaCampanha(posts, agora).map((item) => {
+      if (!entrega || !resumo || item.id !== entrega.postId || resumo.total === 0) return item;
+      const saindo = aindaSaindo(resumo);
+      return {
+        ...item,
+        estado: saindo ? item.estado : resumo.entregues > 0 ? "postado" : "falhou",
+        enviados: resumo.entregues,
+        total: resumo.total,
+        restantes: resumo.postando + resumo.naFila,
+      };
+    });
+  }, [posts, agora, entrega, resumo]);
 
   const novasHoje = atividade ? somaDa(atividade.porHora, "novas") : null;
   const cliquesHoje = atividade ? somaDa(atividade.porHora, "cliques") : null;
@@ -145,6 +172,11 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
               ))}
             </div>
           </div>
+          {postTabela && resumo && resumo.total > 0 && (
+            <div className="border-b border-line-200 px-5 py-2.5">
+              <LegendaDaEntrega hora={horaDoPost} resumo={resumo} />
+            </div>
+          )}
 
           {grupos.length === 0 ? (
             <p className="px-5 py-8 text-center text-13 text-slate-600">Nenhum grupo neste filtro.</p>
@@ -157,7 +189,8 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
                     <th scope="col" className="px-3 py-2.5 text-right font-medium">Pessoas</th>
                     <th scope="col" className="px-3 py-2.5 font-medium">Lotação</th>
                     <th scope="col" className="px-3 py-2.5 text-right font-medium">Novas hoje</th>
-                    <th scope="col" className="px-5 py-2.5 font-medium">Status</th>
+                    <th scope="col" className={cn("py-2.5 font-medium", postTabela ? "px-3" : "px-5")}>Status</th>
+                    {postTabela && <th scope="col" className="px-5 py-2.5 font-medium">Post das {horaDoPost}</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -175,9 +208,14 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
                           </span>
                         </td>
                         <td className="px-3 py-2.5 text-right tabular-nums text-volt-950">{novas > 0 ? `+${numero(novas)}` : "—"}</td>
-                        <td className="px-5 py-2.5">
+                        <td className={cn("py-2.5", postTabela ? "px-3" : "px-5")}>
                           <SeloDoGrupo estado={estadoNaCampanha(g)} />
                         </td>
+                        {postTabela && (
+                          <td className="px-5 py-2.5">
+                            <CelulaDaEntrega entrega={entregaPorGrupo.get(g.id)} lendo={!entrega} />
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -198,6 +236,11 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
                             {novas > 0 ? ` · +${numero(novas)} hoje` : ""}
                           </span>
                         </p>
+                        {postTabela && (
+                          <p className="mt-1 flex items-center gap-1.5 text-12 text-slate-600">
+                            Post das {horaDoPost}: <CelulaDaEntrega entrega={entregaPorGrupo.get(g.id)} lendo={!entrega} />
+                          </p>
+                        )}
                       </div>
                       <SeloDoGrupo estado={estadoNaCampanha(g)} />
                     </li>
@@ -210,6 +253,12 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
           <div className="flex items-center justify-between border-t border-line-200 px-5 py-3 text-13 text-slate-600">
             <span className="tabular-nums">
               {Math.min(grupos.length, LINHAS)} de {grupos.length}
+              {postTabela && resumo && resumo.total > 0 && (
+                <span className="hidden md:inline">
+                  {" "}
+                  · o post das {horaDoPost} {aindaSaindo(resumo) ? "já saiu" : "saiu"} em {numero(resumo.entregues)} de {numero(resumo.total)} grupos
+                </span>
+              )}
             </span>
             <button type="button" onClick={aoVerGrupos} className="font-medium text-cobalt-500 hover:underline">
               Ver todos e configurar →
@@ -377,12 +426,17 @@ const ROTULO_DO_ESTADO: Record<EstadoDoPost, string> = {
   agendado: "Agendado",
 };
 
-function ItemDoDiaLinha({ item }: { item: ItemDoDia }) {
+/** Item do dia; o post em curso traz quantos grupos ainda esperam, lidos ao vivo. */
+type ItemAoVivo = ItemDoDia & { restantes?: number };
+
+function ItemDoDiaLinha({ item }: { item: ItemAoVivo }) {
   const emCurso = item.estado === "postando" || item.estado === "na_fila";
+  const restantes = item.restantes ?? item.total - item.enviados;
+  const falta = emCurso ? etaDisparo({ sent: item.total - restantes, total: item.total }) : null;
   const detalhe =
     item.estado === "agendado"
       ? item.repete === "daily" ? " · repete todo dia" : item.repete === "weekly" ? " · repete toda semana" : ""
-      : item.total > 0 ? ` · ${numero(item.enviados)} de ${numero(item.total)} grupos` : "";
+      : item.total > 0 ? ` · ${numero(item.enviados)} de ${numero(item.total)} grupos${falta ? ` · falta ${falta}` : ""}` : "";
   return (
     <li className="grid grid-cols-[56px_1fr] gap-3 border-b border-line-200 py-3 last:border-0">
       <span className="text-13 font-semibold leading-tight tabular-nums text-volt-950">{item.hora}</span>
