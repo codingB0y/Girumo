@@ -1,6 +1,6 @@
 import type { DispatchView } from "@/lib/campaigns/dispatch-view";
 import { dayBR, dayBRAgo, dayBROf, horaBR, monthBROf } from "@/lib/date-br";
-import { quandoDoPost, textoDoPost } from "@/lib/painel/campanha-visao";
+import { apelidoDoGrupo, quandoDoPost, textoDoPost } from "@/lib/painel/campanha-visao";
 
 /**
  * Séries da campanha na direção D (spec 2026-09-24, PRs C e D). Quem agrupa é o
@@ -11,6 +11,9 @@ import { quandoDoPost, textoDoPost } from "@/lib/painel/campanha-visao";
 export type PontoDaSerie = { inicio: string; novas: number; cliques: number; entraram: number; sairam: number };
 
 export type Movimento = { entraram: number; sairam: number };
+
+/** Grupo que o "Grupo lotou → abre outro" criou hoje, com a hora em que passou a existir. */
+export type GrupoAberto = { nome: string; grupo: string | null; quando: string };
 
 export type AtividadeDaCampanha = {
   /** O "agora" do servidor: é ele que diz qual hora ainda está enchendo. */
@@ -25,6 +28,8 @@ export type AtividadeDaCampanha = {
   semanaPassada: Omit<PontoDaSerie, "inicio">;
   /** Entraram e saíram hoje em cada grupo da campanha, por `whatsapp_group_id`. */
   hojePorGrupo: Record<string, Movimento>;
+  /** Grupos abertos sozinhos hoje, do mais antigo ao mais novo. */
+  gruposAbertosHoje: GrupoAberto[];
 };
 
 export type Fatia = "hour" | "day";
@@ -260,4 +265,13 @@ export function marcasDePost(posts: DispatchView[], agora: Date): MarcaDePost[] 
       return { id: p.id, hora, posicao: (hh * 60 + mm) / 1440, texto: textoDoPost(p) };
     })
     .sort((x, y) => x.posicao - y.posicao);
+}
+
+/** Os grupos abertos hoje como marcas no gráfico por hora: "#40 aberto". */
+export function marcasDeGrupoAberto(grupos: GrupoAberto[]): MarcaDePost[] {
+  return grupos.map((g) => {
+    const hora = horaBR(g.quando);
+    const [hh, mm] = hora.split(":").map(Number);
+    return { id: `grupo:${g.grupo ?? g.nome}:${g.quando}`, hora, posicao: (hh * 60 + mm) / 1440, texto: `${apelidoDoGrupo(g.nome)} aberto` };
+  });
 }

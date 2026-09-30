@@ -5,6 +5,7 @@ import type { CampaignGroupOverview } from "@/lib/campaign-groups-overview";
 import type { DispatchView } from "@/lib/campaigns/dispatch-view";
 import type { Group } from "@/lib/mock-data";
 import {
+  apelidoDoGrupo,
   faixaDeLotacao,
   filtrarGrupos,
   hojeNaCampanha,
@@ -101,4 +102,35 @@ test("o dia da campanha: saindo agora, o que saiu hoje e os próximos agendados"
     ],
   );
   assert.equal(itens[1].texto, "NOVIDADES DO DIA", "a primeira linha do post vira o título");
+});
+
+test("o grupo aberto sozinho hoje entra no dia da campanha, na ordem da hora", () => {
+  const itens = hojeNaCampanha(
+    [
+      post({ id: "novidades", status: "sent", dispatchedAt: br("2026-09-23", "06:30") }),
+      post({ id: "reposicao", status: "running", runningSince: br("2026-09-23", "14:08") }),
+    ],
+    agora,
+    2,
+    [
+      { nome: "VIP Revenda #40", grupo: "g40@g.us", quando: br("2026-09-23", "09:14") },
+      { nome: "VIP Revenda #39", grupo: "g39@g.us", quando: br("2026-09-22", "20:00") },
+    ],
+  );
+  // Mutante: sem o filtro do dia, o #39 de ontem apareceria no dia de hoje.
+  assert.deepEqual(
+    itens.map((i) => [i.estado, i.hora, i.texto]),
+    [
+      ["postando", "14:08", "Post"],
+      ["grupo_aberto", "09:14", "#40 aberto sozinho"],
+      ["postado", "06:30", "Post"],
+    ],
+  );
+});
+
+test("o apelido do grupo é o número do fim do nome; sem número, o nome inteiro", () => {
+  assert.equal(apelidoDoGrupo("Mega Stock Atacado #40"), "#40");
+  assert.equal(apelidoDoGrupo("Mega Stock # 7 "), "#7");
+  assert.equal(apelidoDoGrupo("Grupo da Loja"), "Grupo da Loja");
+  assert.equal(apelidoDoGrupo("#3 Promoções"), "#3 Promoções", "número no começo não é o número do grupo");
 });

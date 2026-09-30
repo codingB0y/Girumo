@@ -1,6 +1,7 @@
 import type { CampaignGroupOverview } from "@/lib/campaign-groups-overview";
 import type { DispatchRecurrence, DispatchView } from "@/lib/campaigns/dispatch-view";
 import { dayBR, dayBRAgo, dayBROf, diaMesBR, horaBR } from "@/lib/date-br";
+import type { GrupoAberto } from "@/lib/painel/atividade";
 import { abreviaNome } from "@/lib/painel/casca";
 import { estadoDoGrupo, type EstadoDoGrupo } from "@/lib/painel/grupos";
 
@@ -105,7 +106,8 @@ export function ultimasEntradas(leads: LeadResumo[], groupIds: string[], quantas
     .slice(0, quantas);
 }
 
-export type EstadoDoPost = "postando" | "na_fila" | "postado" | "falhou" | "agendado";
+/** O que um item do dia é: um post em cada momento, ou um grupo novo que o "abre outro" criou. */
+export type EstadoDoPost = "postando" | "na_fila" | "postado" | "falhou" | "agendado" | "grupo_aberto";
 
 export type ItemDoDia = {
   id: string;
@@ -128,6 +130,14 @@ export function textoDoPost(p: DispatchView): string {
   return "Post";
 }
 
+/**
+ * "#40" quando o nome termina no número do grupo (é como o "abre outro" nomeia),
+ * senão o nome inteiro: "Mega Stock Atacado #40" vira "#40".
+ */
+export function apelidoDoGrupo(nome: string): string {
+  return nome.match(/#\s*\d+\s*$/)?.[0].replace(/\s+/g, "") ?? nome;
+}
+
 /** Quando o post saiu (ou começou a sair); o rascunho, quando foi criado. */
 export function quandoDoPost(p: DispatchView): string {
   return p.runningSince ?? p.dispatchedAt ?? p.createdAt;
@@ -135,10 +145,11 @@ export function quandoDoPost(p: DispatchView): string {
 
 /**
  * O dia da campanha, como a linha do tempo mostra: primeiro o que está saindo
- * agora, depois o que saiu hoje (mais recente em cima) e, por fim, os próximos
- * agendados. Rascunho não entra.
+ * agora, depois o que aconteceu hoje (posts que saíram e grupos abertos
+ * sozinhos, mais recente em cima) e, por fim, os próximos agendados. Rascunho
+ * não entra.
  */
-export function hojeNaCampanha(posts: DispatchView[], agora = new Date(), proximos = 2): ItemDoDia[] {
+export function hojeNaCampanha(posts: DispatchView[], agora = new Date(), proximos = 2, gruposAbertos: GrupoAberto[] = []): ItemDoDia[] {
   const hoje = dayBR(agora);
   const amanha = dayBRAgo(-1, agora);
   const item = (p: DispatchView, estado: EstadoDoPost, iso: string): ItemDoDia => {
@@ -150,10 +161,24 @@ export function hojeNaCampanha(posts: DispatchView[], agora = new Date(), proxim
   const emCurso = posts
     .filter((p) => p.status === "running" || p.status === "queued")
     .map((p) => item(p, p.status === "running" ? "postando" : "na_fila", quandoDoPost(p)));
-  const feitos = posts
+  const postsFeitos = posts
     .filter((p) => (p.status === "sent" || p.status === "failed") && dayBROf(quandoDoPost(p)) === hoje)
-    .sort((a, b) => Date.parse(quandoDoPost(b)) - Date.parse(quandoDoPost(a)))
-    .map((p) => item(p, p.status === "sent" ? "postado" : "falhou", quandoDoPost(p)));
+    .map((p) => ({ quando: Date.parse(quandoDoPost(p)), item: item(p, p.status === "sent" ? "postado" : "falhou", quandoDoPost(p)) }));
+  const abertos = gruposAbertos
+    .filter((g) => dayBROf(g.quando) === hoje)
+    .map((g) => ({
+      quando: Date.parse(g.quando),
+      item: {
+        id: `grupo:${g.grupo ?? g.nome}:${g.quando}`,
+        hora: horaBR(g.quando),
+        estado: "grupo_aberto" as const,
+        texto: `${apelidoDoGrupo(g.nome)} aberto sozinho`,
+        enviados: 0,
+        total: 0,
+        repete: "none" as const,
+      },
+    }));
+  const feitos = [...postsFeitos, ...abertos].sort((a, b) => b.quando - a.quando).map((f) => f.item);
   const agendados = posts
     .filter((p) => p.status === "scheduled" && p.scheduledAt && Date.parse(p.scheduledAt) >= agoraMs)
     .sort((a, b) => Date.parse(a.scheduledAt ?? "") - Date.parse(b.scheduledAt ?? ""))
