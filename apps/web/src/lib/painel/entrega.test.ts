@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { DispatchView } from "@/lib/campaigns/dispatch-view";
-import { aindaSaindo, estadoDaEntrega, postDaTabela, resumoDaEntrega, type EntregaNoGrupo } from "./entrega";
+import type { ItemDoDia } from "./campanha-visao";
+import { aindaSaindo, estadoDaEntrega, itemAoVivo, postDaTabela, resumoDaEntrega, type EntregaNoGrupo, type ResumoDaEntrega } from "./entrega";
 
 // qua 23/09/2026 14:10 em Brasília (UTC-3).
 const agora = new Date("2026-09-23T17:10:00Z");
@@ -59,4 +60,31 @@ test("a tabela acompanha o post que está saindo; sem isso, o último que saiu h
   assert.equal(postDaTabela([novidades, saindo, almoco, ontem], agora)?.id, "reposicao");
   assert.equal(postDaTabela([novidades, almoco, ontem, agendado], agora)?.id, "almoco");
   assert.equal(postDaTabela([ontem, agendado], agora), null, "post de ontem e agendado não viram coluna");
+});
+
+const naFila: ItemDoDia = { id: "p", hora: "14:08", estado: "na_fila", texto: "Reposição", enviados: 0, total: 40, repete: "none" };
+const resumo = (r: Partial<ResumoDaEntrega>): ResumoDaEntrega => {
+  const base = { entregues: 0, postando: 0, naFila: 0, falharam: 0, cancelados: 0, ...r };
+  return { ...base, total: base.entregues + base.postando + base.naFila + base.falharam + base.cancelados };
+};
+
+test("o post em curso passa a 'postando' assim que um grupo recebe, e conta ao vivo", () => {
+  // A página abriu com o post ainda na fila; a entrega de agora já tem 27 entregues.
+  assert.deepEqual(itemAoVivo(naFila, resumo({ entregues: 27, postando: 1, naFila: 12 })), {
+    ...naFila,
+    estado: "postando",
+    enviados: 27,
+    total: 40,
+    restantes: 13,
+  });
+  assert.equal(itemAoVivo(naFila, resumo({ naFila: 40 })).estado, "na_fila", "ninguém recebeu ainda: continua na fila");
+  assert.equal(itemAoVivo(naFila, resumo({ postando: 1, naFila: 39 })).estado, "postando", "o 1º grupo recebendo já é postando");
+});
+
+test("terminado, o post vira 'postado' ou 'falhou'; cancelado antes de sair fica como estava", () => {
+  assert.equal(itemAoVivo(naFila, resumo({ entregues: 38, falharam: 2 })).estado, "postado");
+  assert.equal(itemAoVivo(naFila, resumo({ falharam: 40 })).estado, "falhou");
+  // Mutante: tratar a rodada cancelada como falha mostraria "Falhou · 0 de 40".
+  assert.deepEqual(itemAoVivo(naFila, resumo({ cancelados: 40 })), naFila);
+  assert.deepEqual(itemAoVivo(naFila, resumo({})), naFila, "sem comando nenhum, nada a sobrescrever");
 });

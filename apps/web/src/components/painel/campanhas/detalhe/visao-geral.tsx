@@ -19,9 +19,8 @@ import {
   type EstadoDoPost,
   type EstadoNaCampanha,
   type FiltroDeGrupos,
-  type ItemDoDia,
 } from "@/lib/painel/campanha-visao";
-import { aindaSaindo, postDaTabela, resumoDaEntrega } from "@/lib/painel/entrega";
+import { aindaSaindo, itemAoVivo, postDaTabela, resumoDaEntrega, type ItemAoVivo } from "@/lib/painel/entrega";
 import { lotacao, numero } from "@/lib/painel/grupos";
 import { cn } from "@/lib/utils";
 import { AnaliseDaCampanha, useAtividade } from "./analise";
@@ -65,26 +64,15 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
 
   // O post que a tabela acompanha grupo a grupo (PR E): o que está saindo, ou o último de hoje.
   const postTabela = useMemo(() => (posts ? postDaTabela(posts, agora) : null), [posts, agora]);
-  const { entrega } = useEntrega(postTabela?.id ?? null, agora.getTime());
+  const { entrega, leitura, desatualizada } = useEntrega(postTabela?.id ?? null, agora.getTime());
   const entregaPorGrupo = useMemo(() => new Map((entrega?.grupos ?? []).map((g) => [g.grupo, g])), [entrega]);
   const resumo = useMemo(() => (entrega ? resumoDaEntrega(entrega.grupos) : null), [entrega]);
   const horaDoPost = postTabela ? horaBR(quandoDoPost(postTabela)) : "";
 
-  // O dia da campanha com o post em curso na contagem ao vivo: a lista de posts
-  // foi lida uma vez, a entrega é relida enquanto ele sai.
+  // O dia da campanha com o post em curso na contagem ao vivo.
   const dia = useMemo((): ItemAoVivo[] | null => {
     if (!posts) return null;
-    return hojeNaCampanha(posts, agora).map((item) => {
-      if (!entrega || !resumo || item.id !== entrega.postId || resumo.total === 0) return item;
-      const saindo = aindaSaindo(resumo);
-      return {
-        ...item,
-        estado: saindo ? item.estado : resumo.entregues > 0 ? "postado" : "falhou",
-        enviados: resumo.entregues,
-        total: resumo.total,
-        restantes: resumo.postando + resumo.naFila,
-      };
-    });
+    return hojeNaCampanha(posts, agora).map((item) => (entrega && resumo && item.id === entrega.postId ? itemAoVivo(item, resumo) : item));
   }, [posts, agora, entrega, resumo]);
 
   const novasHoje = atividade ? somaDa(atividade.porHora, "novas") : null;
@@ -174,7 +162,7 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
           </div>
           {postTabela && resumo && resumo.total > 0 && (
             <div className="border-b border-line-200 px-5 py-2.5">
-              <LegendaDaEntrega hora={horaDoPost} resumo={resumo} />
+              <LegendaDaEntrega hora={horaDoPost} resumo={resumo} desatualizada={desatualizada} />
             </div>
           )}
 
@@ -213,7 +201,7 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
                         </td>
                         {postTabela && (
                           <td className="px-5 py-2.5">
-                            <CelulaDaEntrega entrega={entregaPorGrupo.get(g.id)} lendo={!entrega} />
+                            <CelulaDaEntrega entrega={entregaPorGrupo.get(g.id)} leitura={leitura} />
                           </td>
                         )}
                       </tr>
@@ -238,7 +226,7 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
                         </p>
                         {postTabela && (
                           <p className="mt-1 flex items-center gap-1.5 text-12 text-slate-600">
-                            Post das {horaDoPost}: <CelulaDaEntrega entrega={entregaPorGrupo.get(g.id)} lendo={!entrega} />
+                            Post das {horaDoPost}: <CelulaDaEntrega entrega={entregaPorGrupo.get(g.id)} leitura={leitura} />
                           </p>
                         )}
                       </div>
@@ -425,9 +413,6 @@ const ROTULO_DO_ESTADO: Record<EstadoDoPost, string> = {
   falhou: "Falhou",
   agendado: "Agendado",
 };
-
-/** Item do dia; o post em curso traz quantos grupos ainda esperam, lidos ao vivo. */
-type ItemAoVivo = ItemDoDia & { restantes?: number };
 
 function ItemDoDiaLinha({ item }: { item: ItemAoVivo }) {
   const emCurso = item.estado === "postando" || item.estado === "na_fila";

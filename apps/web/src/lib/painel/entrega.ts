@@ -1,6 +1,6 @@
 import type { DispatchView } from "@/lib/campaigns/dispatch-view";
 import { dayBR, dayBROf } from "@/lib/date-br";
-import { quandoDoPost } from "@/lib/painel/campanha-visao";
+import { quandoDoPost, type ItemDoDia } from "@/lib/painel/campanha-visao";
 
 /**
  * Entrega do post grupo a grupo (painel direção D, PR E; spec 2026-09-24).
@@ -63,6 +63,27 @@ export function resumoDaEntrega(grupos: EntregaNoGrupo[]): ResumoDaEntrega {
 /** Ainda tem grupo esperando: vale ler de novo daqui a pouco. */
 export function aindaSaindo(resumo: ResumoDaEntrega): boolean {
   return resumo.postando + resumo.naFila > 0;
+}
+
+/** Item do dia com a contagem lida ao vivo; `restantes` é quantos grupos ainda esperam. */
+export type ItemAoVivo = ItemDoDia & { restantes?: number };
+
+/**
+ * O post em curso de "Hoje na campanha" com a entrega lida agora: a lista de
+ * posts foi lida uma vez, a entrega é relida enquanto ele sai.
+ *
+ * O estado sai da entrega, não da carga da página: um post que estava na fila
+ * quando a página abriu passa a "postando" assim que um grupo recebe. Rodada
+ * toda cancelada antes de sair não é falha: o item fica como estava.
+ */
+export function itemAoVivo(item: ItemDoDia, resumo: ResumoDaEntrega): ItemAoVivo {
+  if (resumo.total === 0) return item;
+  const saindo = aindaSaindo(resumo);
+  if (!saindo && resumo.entregues === 0 && resumo.falharam === 0) return item;
+  const estado = saindo
+    ? resumo.entregues + resumo.postando > 0 ? "postando" : "na_fila"
+    : resumo.entregues > 0 ? "postado" : "falhou";
+  return { ...item, estado, enviados: resumo.entregues, total: resumo.total, restantes: resumo.postando + resumo.naFila };
 }
 
 /**

@@ -99,6 +99,16 @@ export default function CampanhaDetalhe() {
   function abrirAba(t: Tab) {
     setTab(t);
     if (t === "Posts") setMensagensVista(true);
+    // Quem acabou de postar em Posts volta e quer ver ESTE post saindo, não o da manhã.
+    if (t === "Visão geral" && campanha) lerPosts(campanha.slug ?? campanha.id);
+  }
+
+  /** Posts do dia para "Hoje na campanha" e a coluna da entrega. Falha vira lista vazia, nunca esqueleto eterno. */
+  function lerPosts(slugOuId: string) {
+    void fetch(`/api/campanhas/${slugOuId}/messages`)
+      .then((r) => (r.ok ? r.json() : []))
+      .catch(() => [])
+      .then((p: unknown) => setPosts(Array.isArray(p) ? (p as DispatchView[]) : []));
   }
   const [menu, setMenu] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -131,12 +141,8 @@ export default function CampanhaDetalhe() {
         // grupo vêm do servidor: a lista de /api/leads para em 1000 linhas, e
         // loja grande passa disso.
         setEntradas(typeof ent?.entradas === "number" ? ent : null);
-        // Posts do dia para "Hoje na campanha". Sem await: a tela não espera por
-        // eles, e falha vira lista vazia (nunca esqueleto eterno).
-        void fetch(`/api/campanhas/${camp.slug ?? camp.id}/messages`)
-          .then((r) => (r.ok ? r.json() : []))
-          .catch(() => [])
-          .then((p: unknown) => setPosts(Array.isArray(p) ? (p as DispatchView[]) : []));
+        // Sem await: a tela não espera pelos posts.
+        lerPosts(camp.slug ?? camp.id);
       }
     } finally {
       setAtualizadoEm(new Date());

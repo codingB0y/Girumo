@@ -16,44 +16,90 @@ import { cn } from "@/lib/utils";
 
 /** Enquanto o post sai, a tabela relê a entrega a cada 20 s; parou de sair, para de ler. */
 const RELER_A_CADA_MS = 20_000;
+/**
+ * Teto da espera entre leituras. Grupo pode ficar horas na fila com razão
+ * (teto por hora do número novo, breaker): parada, a releitura vai espaçando até
+ * aqui em vez de bater no banco a cada 20 s a tarde inteira.
+ */
+const RELER_NO_MAXIMO_A_CADA_MS = 120_000;
+
+export type LeituraDaEntrega = "lendo" | "pronta" | "falhou";
 
 /**
  * A entrega do post grupo a grupo, de `GET /api/disparos/[id]/grupos`. Lê de
  * novo quando a página atualiza (`versao`) e, sozinha, enquanto houver grupo
- * postando ou na fila.
+ * postando ou na fila; com a aba escondida, espera ela voltar.
  */
 export function useEntrega(postId: string | null, versao: number) {
   const [entrega, setEntrega] = useState<EntregaDoPost | null>(null);
-  const [erro, setErro] = useState(false);
+  // De qual post é o erro: o de outro post não pode pintar "não carregou" neste.
+  const [erroDe, setErroDe] = useState<string | null>(null);
 
   useEffect(() => {
     if (!postId) return;
     let vivo = true;
     let proxima: ReturnType<typeof setTimeout> | undefined;
+    let intervalo = RELER_A_CADA_MS;
+    let ultimaContagem = "";
+    let esperandoAba = false;
+
+    function agendar() {
+      if (!vivo) return;
+      if (document.hidden) {
+        esperandoAba = true;
+        return;
+      }
+      proxima = setTimeout(ler, intervalo);
+    }
 
     async function ler() {
       try {
         const r = await fetch(`/api/disparos/${encodeURIComponent(postId ?? "")}/grupos`);
+        // 4xx (e o 501 de quem roda sem banco) não melhora insistindo.
+        if (!r.ok && (r.status < 500 || r.status === 501)) {
+          if (vivo) setErroDe(postId);
+          return;
+        }
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const lida = (await r.json()) as EntregaDoPost;
         if (!vivo) return;
         setEntrega(lida);
-        setErro(false);
-        if (aindaSaindo(resumoDaEntrega(lida.grupos))) proxima = setTimeout(ler, RELER_A_CADA_MS);
+        setErroDe(null);
+        const resumo = resumoDaEntrega(lida.grupos);
+        if (!aindaSaindo(resumo)) return;
+        const contagem = `${resumo.entregues}/${resumo.postando}/${resumo.naFila}/${resumo.falharam}`;
+        intervalo = contagem === ultimaContagem ? Math.min(intervalo * 2, RELER_NO_MAXIMO_A_CADA_MS) : RELER_A_CADA_MS;
+        ultimaContagem = contagem;
+        agendar();
       } catch {
-        if (vivo) setErro(true);
+        if (!vivo) return;
+        // Rede ou 5xx no meio do envio: a linha não pode congelar em "postando".
+        setErroDe(postId);
+        intervalo = Math.min(intervalo * 2, RELER_NO_MAXIMO_A_CADA_MS);
+        agendar();
       }
     }
 
+    function aoMudarDeAba() {
+      if (document.hidden || !esperandoAba) return;
+      esperandoAba = false;
+      void ler();
+    }
+
+    document.addEventListener("visibilitychange", aoMudarDeAba);
     void ler();
     return () => {
       vivo = false;
       if (proxima) clearTimeout(proxima);
+      document.removeEventListener("visibilitychange", aoMudarDeAba);
     };
   }, [postId, versao]);
 
   // A entrega de outro post (a página trocou de post e a leitura nova não voltou) não vale.
-  return { entrega: entrega && entrega.postId === postId ? entrega : null, erro: postId ? erro : false };
+  const daquele = entrega && entrega.postId === postId ? entrega : null;
+  const falhou = postId !== null && erroDe === postId;
+  const leitura: LeituraDaEntrega = daquele ? "pronta" : falhou ? "falhou" : "lendo";
+  return { entrega: daquele, leitura, desatualizada: Boolean(daquele && falhou) };
 }
 
 const ESTADO: Record<EstadoDaEntrega, { texto: string; classe: string; Icone: typeof Check }> = {
@@ -70,9 +116,23 @@ function IconeDoEstado({ estado }: { estado: EstadoDaEntrega }) {
 }
 
 /** Como o post está neste grupo. Grupo que não recebeu este post (entrou depois, ou sem admin) fica "—". */
-export function CelulaDaEntrega({ entrega, lendo }: { entrega: EntregaNoGrupo | undefined; lendo: boolean }) {
+export function CelulaDaEntrega({ entrega, leitura }: { entrega: EntregaNoGrupo | undefined; leitura: LeituraDaEntrega }) {
   if (!entrega) {
-    return <span className="text-slate-600">{lendo ? "…" : <span title="Este grupo não recebeu este post">—</span>}</span>;
+    if (leitura === "lendo") {
+      return (
+        <span className="text-slate-600">
+          <span aria-hidden="true">…</span>
+          <span className="sr-only">lendo a entrega</span>
+        </span>
+      );
+    }
+    if (leitura === "falhou") return <span className="text-slate-600">não carregou</span>;
+    return (
+      <span className="text-slate-600">
+        <span aria-hidden="true">—</span>
+        <span className="sr-only">este grupo não recebeu este post</span>
+      </span>
+    );
   }
   const { texto, classe } = ESTADO[entrega.estado];
   return (
@@ -84,8 +144,11 @@ export function CelulaDaEntrega({ entrega, lendo }: { entrega: EntregaNoGrupo | 
   );
 }
 
-/** "Post das 14:08: 27 entregues · 1 postando · 12 na fila": o que falta aparece; zero não. */
-export function LegendaDaEntrega({ hora, resumo }: { hora: string; resumo: ResumoDaEntrega }) {
+/**
+ * "Post das 14:08: 27 entregues · 1 postando · 12 na fila": o que falta aparece;
+ * zero não. Sem conseguir reler, diz que o número é o da última leitura.
+ */
+export function LegendaDaEntrega({ hora, resumo, desatualizada = false }: { hora: string; resumo: ResumoDaEntrega; desatualizada?: boolean }) {
   const partes: [EstadoDaEntrega, number, string][] = [
     ["entregue", resumo.entregues, resumo.entregues === 1 ? "entregue" : "entregues"],
     ["postando", resumo.postando, "postando"],
@@ -106,6 +169,7 @@ export function LegendaDaEntrega({ hora, resumo }: { hora: string; resumo: Resum
             </span>
           </span>
         ))}
+      {desatualizada && <span>· não deu para atualizar agora; tentando de novo</span>}
     </p>
   );
 }
