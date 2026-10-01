@@ -1,4 +1,4 @@
-import { Archivo, Martian_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import { ArrowRight } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { WhatsAppIcon } from "@/components/landing/icons";
@@ -28,16 +28,21 @@ export { LP3_FAQ };
 /* Sistema tipográfico próprio da /lp3 (sem herança do site, por ordem do Igor):
    Archivo variable (display expandido via font-stretch) + Martian Mono (etiquetas).
    Paleta: volt-carvão + acid (#A7FF2F) da marca Girumo. */
-const archivo = Archivo({
-  subsets: ["latin"],
-  axes: ["wdth"],
+const archivo = localFont({
+  src: "../../fonts/archivo/archivo-latin.woff2",
+  weight: "100 900",
+  style: "normal",
+  declarations: [{ prop: "font-stretch", value: "62% 125%" }],
   variable: "--font-lp4",
   display: "swap",
 });
 
-const martian = Martian_Mono({
-  subsets: ["latin"],
-  weight: ["400", "600"],
+const martian = localFont({
+  src: [
+    { path: "../../fonts/martian-mono/martian-mono-latin.woff2", weight: "400", style: "normal" },
+    { path: "../../fonts/martian-mono/martian-mono-latin.woff2", weight: "600", style: "normal" },
+  ],
+  declarations: [{ prop: "font-stretch", value: "100%" }],
   variable: "--font-lp4-mono",
   display: "swap",
 });

@@ -1,26 +1,37 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, IBM_Plex_Sans, Manrope } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { ImpersonateBanner } from "@/components/impersonate-banner";
 import { DevModeBanner } from "@/components/dev-mode-banner";
 import { BRAND, getPublicSiteUrl } from "@/lib/brand";
 
-const manrope = Manrope({
-  subsets: ["latin"],
+// Fontes versionadas em src/fonts (subset latin, os mesmos bytes que o Google
+// servia): o build não depende mais da rede. Ver src/fonts/README.md.
+const manrope = localFont({
+  src: "../fonts/manrope/manrope-latin.woff2",
+  weight: "200 800",
+  style: "normal",
   variable: "--font-manrope",
   display: "swap",
 });
 
-const plexSans = IBM_Plex_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+// Um arquivo variável, declarado uma vez por peso: espelha o CSS que o Google gerava.
+const plexSans = localFont({
+  src: [
+    { path: "../fonts/ibm-plex-sans/ibm-plex-sans-latin.woff2", weight: "400", style: "normal" },
+    { path: "../fonts/ibm-plex-sans/ibm-plex-sans-latin.woff2", weight: "500", style: "normal" },
+    { path: "../fonts/ibm-plex-sans/ibm-plex-sans-latin.woff2", weight: "600", style: "normal" },
+  ],
+  declarations: [{ prop: "font-stretch", value: "100%" }],
   variable: "--font-plex-sans",
   display: "swap",
 });
 
-const plexMono = IBM_Plex_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
+const plexMono = localFont({
+  src: [
+    { path: "../fonts/ibm-plex-mono/ibm-plex-mono-latin-400.woff2", weight: "400", style: "normal" },
+    { path: "../fonts/ibm-plex-mono/ibm-plex-mono-latin-500.woff2", weight: "500", style: "normal" },
+  ],
   variable: "--font-plex-mono",
   display: "swap",
 });

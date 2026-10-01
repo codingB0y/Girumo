@@ -1,4 +1,4 @@
-import { Archivo } from "next/font/google";
+import localFont from "next/font/local";
 import { FirstTouchCookie } from "@/components/analytics/first-touch-cookie";
 import { Logo } from "@/components/brand/logo";
 import { OutboundTracker } from "@/components/lp3/outbound-tracker";
@@ -13,7 +13,14 @@ import { LeadWizard } from "@/components/lp-shared/lead-wizard";
 import { cn } from "@/lib/utils";
 
 /** Archivo com o eixo de largura: os títulos são o condensado a 68% (cartaz de loja). */
-const archivo = Archivo({ subsets: ["latin"], axes: ["wdth"], variable: "--font-cartaz", display: "swap" });
+const archivo = localFont({
+  src: "../../fonts/archivo/archivo-latin.woff2",
+  weight: "100 900",
+  style: "normal",
+  declarations: [{ prop: "font-stretch", value: "62% 125%" }],
+  variable: "--font-cartaz",
+  display: "swap",
+});
 
 /**
  * Cartaz+ — a home (`/`). Mockups aprovados em 23/09/2026: cp-desktop (1440) e

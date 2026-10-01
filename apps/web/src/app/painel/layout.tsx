@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Archivo } from "next/font/google";
+import localFont from "next/font/local";
 import { Letreiro } from "@/components/painel/letreiro";
 import { Corredor } from "@/components/painel/corredor";
 import { BarraMobile } from "@/components/painel/barra-mobile";
@@ -15,7 +15,14 @@ export const metadata: Metadata = {
 
 // Direção D: o painel fala Archivo, a família das landings. O .pn-root troca
 // as três famílias do tema por esta variável (painel-vitrine.css).
-const archivo = Archivo({ subsets: ["latin"], axes: ["wdth"], variable: "--font-painel", display: "swap" });
+const archivo = localFont({
+  src: "../../fonts/archivo/archivo-latin.woff2",
+  weight: "100 900",
+  style: "normal",
+  declarations: [{ prop: "font-stretch", value: "62% 125%" }],
+  variable: "--font-painel",
+  display: "swap",
+});
 
 export default function PainelLayout({ children }: { children: React.ReactNode }) {
   // Casca da direção D (spec 2026-09-24): corredor + letreiro no desktop,
