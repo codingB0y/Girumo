@@ -2,13 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { DispatchView } from "@/lib/campaigns/dispatch-view";
-import { dayBR, horaBR } from "@/lib/date-br";
+import { dayBR, diaMesBR, horaBR } from "@/lib/date-br";
 import {
   barrasDaAtividade,
   diaDaSemanaPassada,
   diaPorExtenso,
+  marcasDeGrupoAberto,
   marcasDePost,
   nomeDoMes,
+  somaMedida,
   variacao,
   type AtividadeDaCampanha,
   type Barra,
@@ -16,7 +18,7 @@ import {
 } from "@/lib/painel/atividade";
 import { numero } from "@/lib/painel/grupos";
 import { cn } from "@/lib/utils";
-import { GraficoDeBarras } from "./grafico-barras";
+import { GraficoDeBarras, saldo } from "./grafico-barras";
 
 /**
  * A série da campanha, de `GET /api/campanhas/[slug]/atividade`. Busca de novo
@@ -66,12 +68,20 @@ type Props = {
   posts: DispatchView[] | null;
 };
 
-const unidadeDeNovas: [string, string] = ["pessoa nova", "pessoas novas"];
+const unidadeDeEntradas: [string, string] = ["entrou", "entraram"];
+const unidadeDeSaidas: [string, string] = ["saiu", "saíram"];
 const unidadeDeCliques: [string, string] = ["clique", "cliques"];
 
+/** "medindo desde 29/09" ou, quando a medição começou no meio do dia, "medindo desde 29/09, 16h". */
+export function medindoDesde(iso: string): string {
+  const hora = horaBR(iso);
+  return hora === "00:00" ? `medindo desde ${diaMesBR(iso)}` : `medindo desde ${diaMesBR(iso)}, ${hora.slice(0, 2)}h`;
+}
+
 /**
- * Seção Análise da direção D (spec 2026-09-24, PR C): novas pessoas e cliques
- * no link, hoje por hora, nos 7 dias ou no mês, com os posts do dia marcados.
+ * Seção Análise da direção D (spec 2026-09-24, PRs C e D): quem entrou e saiu dos
+ * grupos e os cliques no link, hoje por hora, nos 7 dias ou no mês, com os posts
+ * do dia marcados.
  */
 export function AnaliseDaCampanha({ atividade, erro, aoTentarDeNovo, posts }: Props) {
   const [periodo, setPeriodo] = useState<Periodo>("hoje");
@@ -133,36 +143,53 @@ export function AnaliseDaCampanha({ atividade, erro, aoTentarDeNovo, posts }: Pr
 
 function Graficos({ atividade: a, periodo, posts }: { atividade: AtividadeDaCampanha; periodo: Periodo; posts: DispatchView[] | null }) {
   const hoje = dayBR(new Date(a.geradoEm));
-  const novas = useMemo(() => barrasDaAtividade(a, periodo, "novas"), [a, periodo]);
+  const entradas = useMemo(() => barrasDaAtividade(a, periodo, "entraram", "sairam"), [a, periodo]);
   const cliques = useMemo(() => barrasDaAtividade(a, periodo, "cliques"), [a, periodo]);
+  // Hoje por hora: o que pode explicar um pico, os posts e os grupos abertos sozinhos.
   const marcas = useMemo(
-    () => (periodo === "hoje" && posts ? marcasDePost(posts, new Date(a.geradoEm)) : []),
-    [periodo, posts, a.geradoEm],
+    () =>
+      periodo === "hoje"
+        ? [...(posts ? marcasDePost(posts, new Date(a.geradoEm)) : []), ...marcasDeGrupoAberto(a.gruposAbertosHoje)].sort(
+            (x, y) => x.posicao - y.posicao,
+          )
+        : [],
+    [periodo, posts, a.geradoEm, a.gruposAbertosHoje],
   );
 
   const quando = periodo === "hoje" ? "hoje" : periodo === "7d" ? "nos últimos 7 dias" : `em ${nomeDoMes(hoje).toLowerCase()}`;
   const [hh, mm] = horaBR(a.geradoEm).split(":").map(Number);
-  const totalNovas = soma(novas);
+  const desde = medindoDesde(a.entradasDesde);
+  const algoSemMedicao = entradas.some((b) => b.semMedicao);
+  const movimento = somaMedida(entradas);
   const totalCliques = soma(cliques);
-  const fraseDeNovas = frase(novas, totalNovas, quando, unidadeDeNovas, `Ninguém novo entrou ${quando}.`);
+  // A conversão só compara o que foi medido dos dois lados: clique de antes da
+  // medição não tem entrada gravada para virar.
+  const cliquesMedidos = cliques.reduce((s, b, i) => (entradas[i] && !entradas[i].semMedicao && !b.futuro ? s + b.valor : s), 0);
+  const fraseDeEntradas = fraseDoMovimento(entradas, movimento, quando, algoSemMedicao ? desde : null);
 
   return (
     <div className="grid lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
       <figure className="m-0 min-w-0 px-5 pb-4 pt-5">
         <figcaption className="mb-4">
-          <p className="text-sm font-semibold text-volt-950">Novas pessoas {quando}</p>
-          <p className="mt-0.5 text-13 text-slate-600">{fraseDeNovas}</p>
+          <p className="text-sm font-semibold text-volt-950">Entradas e saídas {quando}</p>
+          <p className="mt-0.5 text-13 text-slate-600">{fraseDeEntradas}</p>
         </figcaption>
         <GraficoDeBarras
           key={periodo}
-          barras={novas}
-          resumo={`Novas pessoas ${quando}: ${fraseDeNovas}`}
-          unidade={unidadeDeNovas}
+          barras={entradas}
+          resumo={`Entradas e saídas ${quando}: ${fraseDeEntradas}`}
+          unidade={unidadeDeEntradas}
+          unidadeAbaixo={unidadeDeSaidas}
           rotuloACada={periodo === "hoje" ? 3 : 1}
           agora={periodo === "hoje" ? (hh * 60 + mm) / 1440 : undefined}
           marcas={marcas}
+          rotuloSemMedicao={desde}
         />
-        <p className="mt-3 text-12 text-slate-600">quem chegou à sua base pela 1ª vez por um grupo desta campanha</p>
+        <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-12 text-slate-600">
+          <Legenda cor="bg-serie">Entraram</Legenda>
+          <Legenda cor="bg-saida">Saíram</Legenda>
+          <span>cada entrada e saída nos grupos da campanha, como o WhatsApp avisa</span>
+        </p>
       </figure>
 
       <figure className="m-0 min-w-0 border-t border-line-200 px-5 pb-4 pt-5 lg:border-l lg:border-t-0">
@@ -191,7 +218,12 @@ function Graficos({ atividade: a, periodo, posts }: { atividade: AtividadeDaCamp
               agora={periodo === "hoje" ? (hh * 60 + mm) / 1440 : undefined}
               baixo
             />
-            <p className="mt-3 text-13 text-slate-600">{conversao(totalNovas, totalCliques)}</p>
+            {cliquesMedidos > 0 && (
+              <p className="mt-3 text-13 text-slate-600">
+                {conversao(movimento.entraram, cliquesMedidos)}
+                {algoSemMedicao ? ` (${desde})` : ""}
+              </p>
+            )}
           </>
         )}
       </figure>
@@ -214,12 +246,34 @@ function frase(barras: Barra[], total: number, quando: string, unidade: [string,
   return `${contagem(total, unidade)} ${quando}; o pico foi ${pico.rotuloLongo}, com ${numero(pico.valor)}.`;
 }
 
-/** Cliques que viraram pessoa nova; quando entra mais gente do que clicou, diz isso em vez de mostrar 100%. */
-function conversao(novas: number, cliques: number): string {
-  if (novas > cliques) {
-    return `${contagem(novas, unidadeDeNovas)} para ${contagem(cliques, unidadeDeCliques)}: tem gente entrando sem passar pelo link.`;
+/**
+ * "12 entraram e 3 saíram hoje; saldo +9. O pico foi 12h às 12h59, com 5." Com
+ * parte do período antes da medição, diz desde quando conta.
+ */
+function fraseDoMovimento(barras: Barra[], m: { entraram: number; sairam: number }, quando: string, desde: string | null): string {
+  if (barras.every((b) => b.semMedicao)) return `Entradas e saídas ainda não eram medidas neste período (${desde}).`;
+  const nota = desde ? ` (${desde})` : "";
+  if (m.entraram + m.sairam === 0) return `Ninguém entrou nem saiu ${quando}${nota}.`;
+  const pico = barras.reduce((p, b) => (!b.semMedicao && b.valor > p.valor ? b : p), barras.find((b) => !b.semMedicao) ?? barras[0]);
+  const base = `${contagem(m.entraram, unidadeDeEntradas)} e ${contagem(m.sairam, unidadeDeSaidas)} ${quando}${nota}; saldo ${saldo(m.entraram - m.sairam)}.`;
+  return pico.valor > 0 ? `${base} O pico foi ${pico.rotuloLongo}, com ${numero(pico.valor)}.` : base;
+}
+
+/** Cliques que viraram entrada; quando entra mais gente do que clicou, diz isso em vez de mostrar 100%. */
+function conversao(entraram: number, cliques: number): string {
+  if (entraram > cliques) {
+    return `${numero(entraram)} ${entraram === 1 ? "entrada" : "entradas"} para ${contagem(cliques, unidadeDeCliques)}: tem gente entrando sem passar pelo link.`;
   }
-  return `${Math.round((novas / cliques) * 100)}% viraram pessoa nova: ${numero(novas)} de ${contagem(cliques, unidadeDeCliques)}.`;
+  return `${Math.round((entraram / cliques) * 100)}% viraram entrada: ${numero(entraram)} de ${contagem(cliques, unidadeDeCliques)}.`;
+}
+
+function Legenda({ cor, children }: { cor: string; children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className={cn("h-2 w-2 rounded-[2px]", cor)} aria-hidden="true" />
+      {children}
+    </span>
+  );
 }
 
 function Comparacao({ hoje, antes, dia }: { hoje: number; antes: number; dia: string }) {

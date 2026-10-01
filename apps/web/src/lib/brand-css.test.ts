@@ -92,9 +92,10 @@ test("defines the named Girumo typography scale", () => {
 });
 
 test("uses the three Girumo root fonts only", () => {
-  assert.match(layout, /Manrope/);
-  assert.match(layout, /IBM_Plex_Sans/);
-  assert.match(layout, /IBM_Plex_Mono/);
+  assert.match(layout, /fonts\/manrope\/manrope-latin\.woff2/);
+  assert.match(layout, /fonts\/ibm-plex-sans\/ibm-plex-sans-latin\.woff2/);
+  assert.match(layout, /fonts\/ibm-plex-mono\/ibm-plex-mono-latin-400\.woff2/);
+  assert.doesNotMatch(layout, /next\/font\/google/);
   assert.match(layout, /className=\{`\$\{manrope\.variable\} \$\{plexSans\.variable\} \$\{plexMono\.variable\}`\}/);
   assert.doesNotMatch(layout, /Bricolage|Instrument|Space_Grotesk|font-space|font-instrument|font-bricolage/);
 });

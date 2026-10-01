@@ -1,6 +1,7 @@
 import type { CampaignGroupOverview } from "@/lib/campaign-groups-overview";
 import type { DispatchRecurrence, DispatchView } from "@/lib/campaigns/dispatch-view";
 import { dayBR, dayBRAgo, dayBROf, diaMesBR, horaBR } from "@/lib/date-br";
+import type { GrupoAberto } from "@/lib/painel/atividade";
 import { abreviaNome } from "@/lib/painel/casca";
 import { estadoDoGrupo, type EstadoDoGrupo } from "@/lib/painel/grupos";
 
@@ -8,8 +9,8 @@ import { estadoDoGrupo, type EstadoDoGrupo } from "@/lib/painel/grupos";
  * Visão geral da campanha na direção D (spec 2026-09-24, PR B): grupos, o dia
  * dos posts e as últimas entradas. As novas pessoas saem de `leads.entered_at`
  * (1ª entrada de cada pessoa, no grupo de origem). As séries por hora e por dia
- * vêm do banco, em `atividade.ts` (PR C); saídas, no PR D. As últimas entradas
- * e as novas de hoje por grupo, de GET /api/campanhas/[slug]/entradas.
+ * vêm do banco, em `atividade.ts` (PR C); saídas, no PR D. As últimas entradas,
+ * de GET /api/campanhas/[slug]/entradas.
  */
 
 export type LeadResumo = {
@@ -29,8 +30,6 @@ export type EntradasDaCampanha = {
   entradas: number;
   /** As mais recentes, de qualquer dia. */
   ultimas: EntradaRecente[];
-  /** Entradas de hoje (dia de Brasília) por grupo de origem; grupo sem ninguém fica de fora. */
-  novasHojePorGrupo: Record<string, number>;
 };
 
 /** O nome inteiro e o telefone não saem do servidor: "Daiane S. veio pelo VIP #40" basta. */
@@ -85,27 +84,17 @@ function daCampanha(leads: LeadResumo[], groupIds: string[]): LeadResumo[] {
 }
 
 /**
- * Novas pessoas de hoje por grupo de origem. Esta e `ultimasEntradas` servem ao
- * JSON, que não tem teto de linhas; com Supabase a rota lê no banco
- * (`countEntriesByGroupSince` e `listLatestEntries`, em stores/leads.ts).
+ * Serve ao JSON, que não tem teto de linhas; com Supabase a rota lê no banco
+ * (`listLatestEntries`, em stores/leads.ts).
  */
-export function novasHojePorGrupo(leads: LeadResumo[], groupIds: string[], agora = new Date()): Map<string, number> {
-  const hoje = dayBR(agora);
-  const porGrupo = new Map<string, number>();
-  for (const l of daCampanha(leads, groupIds)) {
-    if (dayBROf(l.enteredAt) !== hoje || !l.sourceGroupId) continue;
-    porGrupo.set(l.sourceGroupId, (porGrupo.get(l.sourceGroupId) ?? 0) + 1);
-  }
-  return porGrupo;
-}
-
 export function ultimasEntradas(leads: LeadResumo[], groupIds: string[], quantas = 5): LeadResumo[] {
   return daCampanha(leads, groupIds)
     .sort((a, b) => Date.parse(b.enteredAt ?? "") - Date.parse(a.enteredAt ?? ""))
     .slice(0, quantas);
 }
 
-export type EstadoDoPost = "postando" | "na_fila" | "postado" | "falhou" | "agendado";
+/** O que um item do dia é: um post em cada momento, ou um grupo novo que o "abre outro" criou. */
+export type EstadoDoPost = "postando" | "na_fila" | "postado" | "falhou" | "agendado" | "grupo_aberto";
 
 export type ItemDoDia = {
   id: string;
@@ -128,6 +117,14 @@ export function textoDoPost(p: DispatchView): string {
   return "Post";
 }
 
+/**
+ * "#40": o número que o "abre outro" pôs no nome, qualquer que seja o molde. O
+ * padrão é "<campanha> {n}", sem "#", então ler o número do nome não serve.
+ */
+export function apelidoDoGrupo(g: Pick<GrupoAberto, "seq">): string {
+  return `#${g.seq}`;
+}
+
 /** Quando o post saiu (ou começou a sair); o rascunho, quando foi criado. */
 export function quandoDoPost(p: DispatchView): string {
   return p.runningSince ?? p.dispatchedAt ?? p.createdAt;
@@ -135,10 +132,11 @@ export function quandoDoPost(p: DispatchView): string {
 
 /**
  * O dia da campanha, como a linha do tempo mostra: primeiro o que está saindo
- * agora, depois o que saiu hoje (mais recente em cima) e, por fim, os próximos
- * agendados. Rascunho não entra.
+ * agora, depois o que aconteceu hoje (posts que saíram e grupos abertos
+ * sozinhos, mais recente em cima) e, por fim, os próximos agendados. Rascunho
+ * não entra.
  */
-export function hojeNaCampanha(posts: DispatchView[], agora = new Date(), proximos = 2): ItemDoDia[] {
+export function hojeNaCampanha(posts: DispatchView[], agora = new Date(), proximos = 2, gruposAbertos: GrupoAberto[] = []): ItemDoDia[] {
   const hoje = dayBR(agora);
   const amanha = dayBRAgo(-1, agora);
   const item = (p: DispatchView, estado: EstadoDoPost, iso: string): ItemDoDia => {
@@ -150,10 +148,24 @@ export function hojeNaCampanha(posts: DispatchView[], agora = new Date(), proxim
   const emCurso = posts
     .filter((p) => p.status === "running" || p.status === "queued")
     .map((p) => item(p, p.status === "running" ? "postando" : "na_fila", quandoDoPost(p)));
-  const feitos = posts
+  const postsFeitos = posts
     .filter((p) => (p.status === "sent" || p.status === "failed") && dayBROf(quandoDoPost(p)) === hoje)
-    .sort((a, b) => Date.parse(quandoDoPost(b)) - Date.parse(quandoDoPost(a)))
-    .map((p) => item(p, p.status === "sent" ? "postado" : "falhou", quandoDoPost(p)));
+    .map((p) => ({ quando: Date.parse(quandoDoPost(p)), item: item(p, p.status === "sent" ? "postado" : "falhou", quandoDoPost(p)) }));
+  const abertos = gruposAbertos
+    .filter((g) => dayBROf(g.quando) === hoje)
+    .map((g) => ({
+      quando: Date.parse(g.quando),
+      item: {
+        id: `grupo:${g.grupo ?? g.nome}:${g.quando}`,
+        hora: horaBR(g.quando),
+        estado: "grupo_aberto" as const,
+        texto: `${apelidoDoGrupo(g)} aberto sozinho`,
+        enviados: 0,
+        total: 0,
+        repete: "none" as const,
+      },
+    }));
+  const feitos = [...postsFeitos, ...abertos].sort((a, b) => b.quando - a.quando).map((f) => f.item);
   const agendados = posts
     .filter((p) => p.status === "scheduled" && p.scheduledAt && Date.parse(p.scheduledAt) >= agoraMs)
     .sort((a, b) => Date.parse(a.scheduledAt ?? "") - Date.parse(b.scheduledAt ?? ""))

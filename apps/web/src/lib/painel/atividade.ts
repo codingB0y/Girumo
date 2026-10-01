@@ -1,30 +1,51 @@
 import type { DispatchView } from "@/lib/campaigns/dispatch-view";
 import { dayBR, dayBRAgo, dayBROf, horaBR, monthBROf } from "@/lib/date-br";
-import { quandoDoPost, textoDoPost } from "@/lib/painel/campanha-visao";
+import { apelidoDoGrupo, quandoDoPost, textoDoPost } from "@/lib/painel/campanha-visao";
 
 /**
- * Séries da campanha na direção D (spec 2026-09-24, PR C). Quem agrupa é o banco
- * (`public.campaign_activity`); aqui ficam as janelas que a rota pede e as barras
- * que a tela desenha, tudo no relógio de Brasília.
+ * Séries da campanha na direção D (spec 2026-09-24, PRs C e D). Quem agrupa é o
+ * banco (`public.campaign_activity`); aqui ficam as janelas que a rota pede e as
+ * barras que a tela desenha, tudo no relógio de Brasília.
  */
 
-export type PontoDaSerie = { inicio: string; novas: number; cliques: number };
+export type PontoDaSerie = { inicio: string; novas: number; cliques: number; entraram: number; sairam: number };
+
+export type Movimento = { entraram: number; sairam: number };
+
+/** Grupo que o "Grupo lotou → abre outro" criou hoje, com a hora em que passou a existir. */
+/** `seq` é o `{n}` que o "Grupo lotou → abre outro" põe no nome do grupo. */
+export type GrupoAberto = { nome: string; seq: number; grupo: string | null; quando: string };
 
 export type AtividadeDaCampanha = {
   /** O "agora" do servidor: é ele que diz qual hora ainda está enchendo. */
   geradoEm: string;
+  /** Desde quando o webhook grava entradas e saídas: antes disso não há medição. */
+  entradasDesde: string;
   /** Hoje, as 24 horas; as que não chegaram vêm zeradas. */
   porHora: PontoDaSerie[];
   /** Do menor entre o dia 1º e 6 dias atrás até o último dia do mês. */
   porDia: PontoDaSerie[];
   /** O mesmo dia da semana passada, até a mesma hora e minuto de agora. */
-  semanaPassada: { novas: number; cliques: number };
+  semanaPassada: Omit<PontoDaSerie, "inicio">;
+  /** Entraram e saíram hoje em cada grupo da campanha, por `whatsapp_group_id`. */
+  hojePorGrupo: Record<string, Movimento>;
+  /** Grupos abertos sozinhos hoje, do mais antigo ao mais novo. */
+  gruposAbertosHoje: GrupoAberto[];
 };
 
 export type Fatia = "hour" | "day";
 export type Janela = { de: Date; ate: Date; fatia: Fatia };
 export type Periodo = "hoje" | "7d" | "mes";
-export type Medida = "novas" | "cliques";
+export type Medida = "novas" | "cliques" | "entraram" | "sairam";
+
+/**
+ * Quando o webhook passou a gravar entradas e saídas (`group_member_events`):
+ * o deploy de produção do #342 em app.girumo.com.br. Não existe histórico para
+ * trás: hora ou dia anterior a isto é "sem medição" no gráfico, nunca zero.
+ */
+export const ENTRADAS_E_SAIDAS_DESDE = "2026-09-30T23:01:58-03:00";
+
+const MEDIDAS_DE_EVENTO: ReadonlySet<Medida> = new Set(["entraram", "sairam"]);
 
 const UMA_HORA_MS = 3_600_000;
 const UM_DIA_MS = 86_400_000;
@@ -76,6 +97,15 @@ export function somaDa(serie: PontoDaSerie[], medida: Medida): number {
   return serie.reduce((s, p) => s + p[medida], 0);
 }
 
+/**
+ * A comparação de entradas com a semana passada só vale quando aquele dia já
+ * estava medido; antes disso, o "zero" da semana passada é ausência de dado.
+ */
+export function semanaPassadaMedida(a: AtividadeDaCampanha): boolean {
+  const inicioDeHoje = meiaNoiteBR(dayBR(new Date(a.geradoEm))).getTime();
+  return inicioDeHoje - 7 * UM_DIA_MS >= Date.parse(a.entradasDesde);
+}
+
 /** Dia da semana de um `YYYY-MM-DD` (a data já é de Brasília; o meio-dia UTC não vira o dia). */
 function diaDaSemanaDe(dia: string, nomes: string[]): string {
   const [a, m, d] = dia.split("-").map(Number);
@@ -115,14 +145,19 @@ export type Barra = {
   /** Rótulo por extenso, para a dica e o leitor de tela. */
   rotuloLongo: string;
   valor: number;
+  /** A série de baixo (saíram), na mesma escala da de cima; só no gráfico de entradas e saídas. */
+  abaixo?: number;
   /** Hora (ou dia) que ainda não chegou: desenhada apagada, nunca como zero. */
   futuro: boolean;
   /** A hora (ou o dia) em curso: ainda está enchendo. */
   atual: boolean;
+  /** Antes de a medição existir (entradas e saídas): sem barra e sem zero. */
+  semMedicao: boolean;
 };
 
-function barrasPorHora(a: AtividadeDaCampanha, medida: Medida): Barra[] {
+function barrasPorHora(a: AtividadeDaCampanha, medida: Medida, abaixo?: Medida): Barra[] {
   const agora = Date.parse(a.geradoEm);
+  const desde = MEDIDAS_DE_EVENTO.has(medida) ? Date.parse(a.entradasDesde) : -Infinity;
   return a.porHora.map((p) => {
     const inicio = Date.parse(p.inicio);
     const hh = horaBR(p.inicio).slice(0, 2);
@@ -132,16 +167,20 @@ function barrasPorHora(a: AtividadeDaCampanha, medida: Medida): Barra[] {
       rotulo: atual ? "agora" : `${hh}h`,
       rotuloLongo: `${hh}h às ${hh}h59`,
       valor: p[medida],
+      ...(abaixo ? { abaixo: p[abaixo] } : {}),
       futuro: inicio > agora,
       atual,
+      // A hora em que a medição começou conta, mesmo que só a partir do meio dela.
+      semMedicao: inicio + UMA_HORA_MS <= desde,
     };
   });
 }
 
-function barrasPorDia(a: AtividadeDaCampanha, periodo: "7d" | "mes", medida: Medida): Barra[] {
+function barrasPorDia(a: AtividadeDaCampanha, periodo: "7d" | "mes", medida: Medida, abaixo?: Medida): Barra[] {
   const agora = new Date(a.geradoEm);
   const hoje = dayBR(agora);
   const limite = dayBRAgo(7, agora);
+  const desde = MEDIDAS_DE_EVENTO.has(medida) ? Date.parse(a.entradasDesde) : -Infinity;
   const dias = a.porDia.filter((p) => {
     const dia = dayBROf(p.inicio) ?? "";
     return periodo === "7d" ? dia > limite && dia <= hoje : monthBROf(p.inicio) === hoje.slice(0, 7);
@@ -157,15 +196,35 @@ function barrasPorDia(a: AtividadeDaCampanha, periodo: "7d" | "mes", medida: Med
       rotulo,
       rotuloLongo: atual ? "hoje" : `${semana}, ${dia.slice(8)}/${dia.slice(5, 7)}`,
       valor: p[medida],
+      ...(abaixo ? { abaixo: p[abaixo] } : {}),
       futuro: dia > hoje,
       atual,
+      // Ao contrário da hora, o dia em que a medição começou só conta se ela começou
+      // à meia-noite: pela metade, a soma dele (e a conversão dos cliques) sairia baixa.
+      semMedicao: Date.parse(p.inicio) < desde,
     };
   });
 }
 
-/** As barras de um período e de uma medida, prontas para o gráfico. */
-export function barrasDaAtividade(a: AtividadeDaCampanha, periodo: Periodo, medida: Medida): Barra[] {
-  return periodo === "hoje" ? barrasPorHora(a, medida) : barrasPorDia(a, periodo, medida);
+/**
+ * As barras de um período e de uma medida, prontas para o gráfico. Com
+ * `abaixo`, cada barra traz também a série de baixo (entraram em cima, saíram
+ * embaixo).
+ */
+export function barrasDaAtividade(a: AtividadeDaCampanha, periodo: Periodo, medida: Medida, abaixo?: Medida): Barra[] {
+  return periodo === "hoje" ? barrasPorHora(a, medida, abaixo) : barrasPorDia(a, periodo, medida, abaixo);
+}
+
+/** Soma o que foi medido e já aconteceu: hora sem medição ou futura não entra. */
+export function somaMedida(barras: Barra[]): Movimento {
+  let entraram = 0;
+  let sairam = 0;
+  for (const b of barras) {
+    if (b.semMedicao || b.futuro) continue;
+    entraram += b.valor;
+    sairam += b.abaixo ?? 0;
+  }
+  return { entraram, sairam };
 }
 
 /** Variação em %, ou null quando não há base (dividir por zero não é "+∞%"). */
@@ -207,4 +266,13 @@ export function marcasDePost(posts: DispatchView[], agora: Date): MarcaDePost[] 
       return { id: p.id, hora, posicao: (hh * 60 + mm) / 1440, texto: textoDoPost(p) };
     })
     .sort((x, y) => x.posicao - y.posicao);
+}
+
+/** Os grupos abertos hoje como marcas no gráfico por hora: "#40 aberto". */
+export function marcasDeGrupoAberto(grupos: GrupoAberto[]): MarcaDePost[] {
+  return grupos.map((g) => {
+    const hora = horaBR(g.quando);
+    const [hh, mm] = hora.split(":").map(Number);
+    return { id: `grupo:${g.grupo ?? g.nome}:${g.quando}`, hora, posicao: (hh * 60 + mm) / 1440, texto: `${apelidoDoGrupo(g)} aberto` };
+  });
 }

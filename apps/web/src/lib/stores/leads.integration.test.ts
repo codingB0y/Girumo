@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
 
 import { getSupabaseAdmin } from "@/lib/supabase/server";
-import { countEntriesByGroupSince, countEntriesSince, countLeads, listLatestEntries } from "./leads";
+import { countEntriesSince, countLeads, listLatestEntries } from "./leads";
 
 /**
  * Contra o Supabase de DEV. A página da campanha lia as entradas na lista de
@@ -111,16 +111,7 @@ test("outra loja com os mesmos grupos não vê estas entradas", async (t) => {
   // O service-role passa por cima do RLS: é o filtro de tenant que isola.
   const outraLoja = randomUUID();
   assert.equal(await countEntriesSince(outraLoja, [GRUPO_A, GRUPO_B], DESDE), 0);
-  assert.equal((await countEntriesByGroupSince(outraLoja, [GRUPO_A, GRUPO_B], DESDE)).size, 0);
   assert.equal((await listLatestEntries(outraLoja, [GRUPO_A, GRUPO_C], 5)).length, 0);
-});
-
-test("por grupo, soma acima de 1000 sem parar na 1ª página", async (t) => {
-  if (pular()) return t.skip();
-
-  // Uma página só daria 1000 no total; o grupo de fora e quem entrou antes ficam de fora.
-  const porGrupo = await countEntriesByGroupSince(TENANT, [GRUPO_A, GRUPO_B], DESDE);
-  assert.deepEqual(Object.fromEntries(porGrupo), { [GRUPO_A]: TOTAL_A, [GRUPO_B]: TOTAL_B });
 });
 
 test("últimas entradas: as mais novas dos grupos da campanha, sem telefone", async (t) => {

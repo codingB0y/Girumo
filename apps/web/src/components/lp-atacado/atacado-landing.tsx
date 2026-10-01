@@ -1,4 +1,4 @@
-import { League_Spartan } from "next/font/google";
+import localFont from "next/font/local";
 import { MapPin } from "lucide-react";
 import { FirstTouchCookie } from "@/components/analytics/first-touch-cookie";
 import { Logo } from "@/components/brand/logo";
@@ -13,11 +13,16 @@ import { WHATSAPP_URL } from "@/components/lp3/landing-data";
 import { OutboundTracker } from "@/components/lp3/outbound-tracker";
 import { cn } from "@/lib/utils";
 
-const spartan = League_Spartan({
-  subsets: ["latin"],
-  weight: ["700", "800", "900"],
+const spartan = localFont({
+  src: [
+    { path: "../../fonts/league-spartan/league-spartan-latin.woff2", weight: "700", style: "normal" },
+    { path: "../../fonts/league-spartan/league-spartan-latin.woff2", weight: "800", style: "normal" },
+    { path: "../../fonts/league-spartan/league-spartan-latin.woff2", weight: "900", style: "normal" },
+  ],
   variable: "--font-spartan",
   display: "swap",
+  adjustFontFallback: false,
+  fallback: ["'League Spartan Fallback'"],
 });
 
 /** Sem menu: só a marca, o público do anúncio e o atalho do WhatsApp de vendas. */

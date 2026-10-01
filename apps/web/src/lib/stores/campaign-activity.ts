@@ -1,8 +1,10 @@
 import "server-only";
-import type { Janela, PontoDaSerie } from "@/lib/painel/atividade";
+import type { Janela, Movimento, PontoDaSerie } from "@/lib/painel/atividade";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
-type Linha = { bucket: string; novas_pessoas: number | string; cliques: number | string };
+type Quantidade = number | string;
+type Linha = { bucket: string; novas_pessoas: Quantidade; cliques: Quantidade; entraram: Quantidade; sairam: Quantidade };
+type LinhaDoGrupo = { whatsapp_group_id: string; entraram: Quantidade; sairam: Quantidade };
 
 /**
  * Série da campanha (`public.campaign_activity`): uma linha por hora ou dia da
@@ -27,5 +29,28 @@ export async function campaignActivity(
     inicio: new Date(l.bucket).toISOString(),
     novas: Number(l.novas_pessoas),
     cliques: Number(l.cliques),
+    entraram: Number(l.entraram),
+    sairam: Number(l.sairam),
   }));
+}
+
+/**
+ * Entraram e saíram de cada grupo da campanha na janela
+ * (`public.campaign_group_member_counts`). Grupo sem movimento não vem.
+ */
+export async function campaignGroupMemberCounts(
+  tenantId: string,
+  groupIds: string[],
+  janela: Janela,
+): Promise<Record<string, Movimento>> {
+  const { data, error } = await getSupabaseAdmin().rpc("campaign_group_member_counts", {
+    p_tenant: tenantId,
+    p_group_ids: groupIds,
+    p_from: janela.de.toISOString(),
+    p_to: janela.ate.toISOString(),
+  });
+  if (error) throw new Error(error.message);
+  return Object.fromEntries(
+    ((data ?? []) as LinhaDoGrupo[]).map((l) => [l.whatsapp_group_id, { entraram: Number(l.entraram), sairam: Number(l.sairam) }]),
+  );
 }
