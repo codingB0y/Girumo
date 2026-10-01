@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type PointerEvent } from "react";
-import { tetoDoEixo, type Barra } from "@/lib/painel/atividade";
+import { mostraRotulo, tetoDoEixo, type Barra } from "@/lib/painel/atividade";
 import { cn } from "@/lib/utils";
 
 export type MarcaNoGrafico = { id: string; posicao: number; hora: string; texto: string };
@@ -78,14 +78,11 @@ export function GraficoDeBarras({
   const tetoBaixo = !unidadeAbaixo ? 0 : maxAbaixo > 0 ? tetoDoEixo(maxAbaixo) : tetoCima / 10;
   const zero = tetoCima / (tetoCima + tetoBaixo);
   const pico = barras.reduce((m, b, i) => (!b.semMedicao && b.valor > barras[m].valor ? i : m), 0);
-  const atual = barras.findIndex((b) => b.atual);
   const primeiroFuturo = barras.findIndex((b) => b.futuro);
   const primeiroMedido = barras.findIndex((b) => !b.semMedicao);
   const semMedicaoAte = primeiroMedido < 0 ? n : primeiroMedido;
   const linhas = linhasDosRotulos(marcas);
   const faixaDasMarcas = marcas.length === 0 ? 0 : linhas.includes(1) ? 2 : 1;
-  const mostraRotulo = (i: number) =>
-    barras[i].rotulo !== "" && (i === atual || (i % rotuloACada === 0 && (atual < 0 || Math.abs(i - atual) > 1)));
 
   function apontar(e: PointerEvent<HTMLDivElement>) {
     const caixa = e.currentTarget.getBoundingClientRect();
@@ -249,7 +246,7 @@ export function GraficoDeBarras({
       <ol aria-hidden="true" className="ml-9 mt-2 flex h-4 gap-[3px] text-12 text-slate-600">
         {barras.map((b, i) => (
           <li key={b.chave} className="relative min-w-0 flex-1">
-            {mostraRotulo(i) && (
+            {mostraRotulo(barras, i, rotuloACada) && (
               <span className={cn("absolute left-1/2 -translate-x-1/2 whitespace-nowrap", b.atual && "font-semibold text-volt-950")}>
                 {b.rotulo}
               </span>

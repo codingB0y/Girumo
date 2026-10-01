@@ -227,6 +227,22 @@ export function somaMedida(barras: Barra[]): Movimento {
   return { entraram, sairam };
 }
 
+/** Até este tanto de barras (os 7 dias), o rótulo do vizinho de agora cabe do lado do dele, até em 390 px. */
+const BARRAS_COM_ROTULO_VIZINHO = 7;
+
+/**
+ * Se o eixo escreve o rótulo da barra `i`. A de agora sempre tem o seu; as
+ * outras seguem `rotuloACada`. Com barras estreitas (as 24 horas, os dias do
+ * mês), o vizinho de agora fica sem rótulo para os dois não se encostarem.
+ */
+export function mostraRotulo(barras: Barra[], i: number, rotuloACada: number): boolean {
+  if (barras[i].rotulo === "") return false;
+  const atual = barras.findIndex((b) => b.atual);
+  if (i === atual) return true;
+  if (i % rotuloACada !== 0) return false;
+  return atual < 0 || barras.length <= BARRAS_COM_ROTULO_VIZINHO || Math.abs(i - atual) > 1;
+}
+
 /** Variação em %, ou null quando não há base (dividir por zero não é "+∞%"). */
 export function variacao(atual: number, antes: number): number | null {
   if (!Number.isFinite(atual) || !Number.isFinite(antes) || antes <= 0) return null;

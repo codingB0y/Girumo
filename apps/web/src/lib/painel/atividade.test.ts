@@ -9,6 +9,7 @@ import {
   janelasDaAtividade,
   marcasDeGrupoAberto,
   marcasDePost,
+  mostraRotulo,
   nomeDoMes,
   semanaPassadaMedida,
   somaDa,
@@ -92,6 +93,21 @@ test("7 dias terminam hoje e rotulam o dia da semana", () => {
   assert.deepEqual(barras.map((b) => b.rotulo), ["qui 17", "sex 18", "sáb 19", "dom 20", "seg 21", "ter 22", "hoje"]);
   assert.deepEqual(barras.map((b) => b.valor), [0, 0, 0, 0, 0, 1, 3]);
   assert.ok(barras.every((b) => !b.futuro));
+});
+
+test("o eixo dos 7 dias escreve todos os dias; nas 24 horas, o vizinho de agora fica sem rótulo", () => {
+  const dias = barrasDaAtividade(atividade, "7d", "novas");
+  // Mutante: esconder o vizinho de "hoje" também aqui apagava o "ter 22" (o ontem).
+  assert.deepEqual(
+    dias.filter((_, i) => mostraRotulo(dias, i, 1)).map((b) => b.rotulo),
+    ["qui 17", "sex 18", "sáb 19", "dom 20", "seg 21", "ter 22", "hoje"],
+  );
+  // Às 14h10, "agora" é a barra das 14h: o "15h" encostaria nele e sai; o "12h" fica.
+  const horas = barrasDaAtividade(atividade, "hoje", "novas");
+  assert.deepEqual(
+    horas.filter((_, i) => mostraRotulo(horas, i, 3)).map((b) => b.rotulo),
+    ["00h", "03h", "06h", "09h", "12h", "agora", "18h", "21h"],
+  );
 });
 
 test("o mês mostra o mês inteiro: rótulo em 1, 5, 10…, hoje aceso e o resto do mês por vir", () => {
