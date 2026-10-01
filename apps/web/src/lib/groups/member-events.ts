@@ -26,7 +26,9 @@ const UM_MINUTO_MS = 60_000;
  *
  * O horário é truncado no minuto de propósito: dois números da mesma loja no
  * mesmo grupo recebem o mesmo aviso com milissegundos de diferença, e o índice
- * único da tabela só junta os dois se o horário for igual.
+ * único da tabela só junta os dois se o horário for igual. Se as duas entregas
+ * caírem dos dois lados da virada do minuto, a pessoa conta duas vezes: raro
+ * (só loja com 2+ números no grupo) e aceito.
  */
 export function movimentoDeMembros(
   action: string,

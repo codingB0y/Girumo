@@ -20,7 +20,8 @@ create table if not exists public.group_member_events (
   -- Não é telefone e nunca vira telefone.
   participant text not null,
   kind text not null check (kind in ('join', 'leave')),
-  -- O minuto do aviso (`date_time` da Evolution). Truncado de propósito: dois
+  -- O minuto em que o aviso chegou ao webhook (o `date_time` da Evolution é a
+  -- hora de Brasília com "Z", então não serve; corrigido no #345). Truncado de propósito: dois
   -- números da mesma loja no mesmo grupo recebem o mesmo aviso com poucos
   -- milissegundos de diferença, e o índice único abaixo conta a pessoa uma vez.
   occurred_at timestamptz not null,

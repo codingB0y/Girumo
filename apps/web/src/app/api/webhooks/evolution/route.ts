@@ -160,9 +160,9 @@ async function applyGroupDeltas(instance: Instance, event: EvolutionWebhookEvent
  * erro não derruba a resposta, porque a reentrega que o 500 provocaria já não
  * seria nova.
  */
-async function recordMemberEvents(instance: Instance, event: EvolutionWebhookEvent): Promise<void> {
+async function recordMemberEvents(instance: Instance, event: EvolutionWebhookEvent, chegouEm: Date): Promise<void> {
   if (event.event !== "group-participants.update") return;
-  const movimento = movimentoDeMembros(event.data.action, event.data.participants);
+  const movimento = movimentoDeMembros(event.data.action, event.data.participants, chegouEm);
   if (!movimento) return;
   try {
     await recordGroupMemberEvents(instance.tenant_id, event.data.id, movimento);
@@ -232,6 +232,8 @@ async function applyFlashOfferComment(
 }
 
 export async function POST(req: Request) {
+  // Antes de qualquer await: é a hora do fato (o date_time da Evolution não serve).
+  const chegouEm = new Date();
   const expectedSecret = resolveSecret(
     "EVOLUTION_WEBHOOK_SECRET",
     process.env.EVOLUTION_WEBHOOK_SECRET,
@@ -300,7 +302,7 @@ export async function POST(req: Request) {
   // uma reentrega o somaria de novo.
   if (recorded.isNew) {
     await applyGroupDeltas(instance, event);
-    await recordMemberEvents(instance, event);
+    await recordMemberEvents(instance, event, chegouEm);
   }
 
   return Response.json({ received: true });
