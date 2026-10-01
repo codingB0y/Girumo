@@ -9,11 +9,13 @@ import {
 } from "@/lib/evolution/webhook-schema";
 import { adminCountDelta } from "@/lib/groups/admin-protection";
 import { memberCountDelta } from "@/lib/groups/member-delta";
+import { movimentoDeMembros } from "@/lib/groups/member-events";
 import { podeAplicarQr } from "@/lib/instance-qr-guard";
 import { matchesKeyword } from "@/lib/relampago/keyword";
 import { parseUpsertMessage } from "@/lib/relampago/upsert-message";
 import { resolveSecret } from "@/lib/runtime-secrets";
 import { findOpenWindow, insertEntry } from "@/lib/stores/flash-offers";
+import { recordGroupMemberEvents } from "@/lib/stores/group-member-events";
 import { applyAdminCountDelta, applyMemberCountDelta } from "@/lib/stores/groups";
 import {
   findByProviderInstanceId,
@@ -152,6 +154,24 @@ async function applyGroupDeltas(instance: Instance, event: EvolutionWebhookEvent
 }
 
 /**
+ * Entrada e saída de verdade (painel D, PR D): cada pessoa de um `add` ou
+ * `remove` vira uma linha em `group_member_events`, fonte de "Entraram" e
+ * "Saíram" na campanha. Mesmo contrato dos deltas: só na primeira entrega, e
+ * erro não derruba a resposta, porque a reentrega que o 500 provocaria já não
+ * seria nova.
+ */
+async function recordMemberEvents(instance: Instance, event: EvolutionWebhookEvent): Promise<void> {
+  if (event.event !== "group-participants.update") return;
+  const movimento = movimentoDeMembros(event.data.action, event.data.participants, event.date_time);
+  if (!movimento) return;
+  try {
+    await recordGroupMemberEvents(instance.tenant_id, event.data.id, movimento);
+  } catch (e) {
+    console.error(`[webhook/evolution] entrada/saída não gravada para o grupo ${event.data.id}:`, e);
+  }
+}
+
+/**
  * Oferta Relâmpago: captura o comentário que casa uma janela aberta.
  *
  * Descarte do mais barato para o mais caro. Ligar `messages.upsert` faz chegar
@@ -280,6 +300,7 @@ export async function POST(req: Request) {
   // uma reentrega o somaria de novo.
   if (recorded.isNew) {
     await applyGroupDeltas(instance, event);
+    await recordMemberEvents(instance, event);
   }
 
   return Response.json({ received: true });
