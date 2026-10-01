@@ -1,5 +1,5 @@
 import { Fragment, type ReactNode } from "react";
-import { Bricolage_Grotesque, Fraunces } from "next/font/google";
+import localFont from "next/font/local";
 import type { LpContentV3 } from "@/lib/pages/content-v3";
 import type { LpSection, UrgencySection } from "@/lib/pages/sections";
 import { deriveDarkPalette, derivePalette, type AccessiblePalette } from "@/lib/pages/palette";
@@ -20,22 +20,33 @@ import { Faq } from "@/components/pages/templates/v3/sections/faq";
 import { FooterV3 } from "@/components/pages/templates/v3/sections/footer";
 
 /**
- * Display da direção impacto. `next/font` baixa e serve a fonte do nosso domínio
- * no build — nada externo em runtime, então a CSP da LP pública fica igual.
+ * Display da direção impacto. A fonte é versionada em src/fonts e servida do nosso
+ * domínio — nada externo em runtime, então a CSP da LP pública fica igual.
  */
-const display = Bricolage_Grotesque({
-  subsets: ["latin"],
-  weight: ["600", "700", "800"],
+const display = localFont({
+  src: [
+    { path: "../../../../fonts/bricolage-grotesque/bricolage-grotesque-latin.woff2", weight: "600", style: "normal" },
+    { path: "../../../../fonts/bricolage-grotesque/bricolage-grotesque-latin.woff2", weight: "700", style: "normal" },
+    { path: "../../../../fonts/bricolage-grotesque/bricolage-grotesque-latin.woff2", weight: "800", style: "normal" },
+  ],
+  declarations: [{ prop: "font-stretch", value: "100%" }],
   variable: "--lp-font-display",
   display: "swap",
+  adjustFontFallback: false,
+  fallback: ["'Bricolage Grotesque Fallback'"],
 });
 
 /** Display da direção editorial: serifa de moda com eixo óptico (papel + serifa). */
-const displaySerif = Fraunces({
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
+const displaySerif = localFont({
+  src: [
+    { path: "../../../../fonts/fraunces/fraunces-latin.woff2", weight: "500", style: "normal" },
+    { path: "../../../../fonts/fraunces/fraunces-latin.woff2", weight: "600", style: "normal" },
+    { path: "../../../../fonts/fraunces/fraunces-latin.woff2", weight: "700", style: "normal" },
+  ],
   variable: "--lp-font-display",
   display: "swap",
+  adjustFontFallback: false,
+  fallback: ["'Fraunces Fallback'"],
 });
 
 /** Só se `brand_color` for inválido (não deve ocorrer em v3 publicado). */
