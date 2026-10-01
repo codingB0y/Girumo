@@ -2,6 +2,7 @@ import { ENTRADAS_E_SAIDAS_DESDE, janelasDaAtividade, somaDa, type AtividadeDaCa
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
 import { campaignActivity, campaignGroupMemberCounts } from "@/lib/stores/campaign-activity";
 import * as supaCampaigns from "@/lib/stores/campaign-groups";
+import { listGroupsCreatedSince } from "@/lib/stores/group-grow-jobs";
 import { USE_SUPABASE } from "@/lib/stores/use-supabase";
 
 export const runtime = "nodejs";
@@ -29,11 +30,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
     const agora = new Date();
     const janelas = janelasDaAtividade(agora);
     const campanha = { id: camp.id, groupIds: camp.group_ids ?? [] };
-    const [porHora, porDia, antes, hojePorGrupo] = await Promise.all([
+    const [porHora, porDia, antes, hojePorGrupo, abertos] = await Promise.all([
       campaignActivity(tenantId, campanha, janelas.porHora),
       campaignActivity(tenantId, campanha, janelas.porDia),
       campaignActivity(tenantId, campanha, janelas.semanaPassada),
       campaignGroupMemberCounts(tenantId, campanha.groupIds, janelas.porHora),
+      listGroupsCreatedSince(tenantId, campanha.id, janelas.porHora.de.toISOString()),
     ]);
 
     const resposta: AtividadeDaCampanha = {
@@ -48,6 +50,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
         sairam: somaDa(antes, "sairam"),
       },
       hojePorGrupo,
+      gruposAbertosHoje: abertos.map((g) => ({ nome: g.subject, seq: g.seq, grupo: g.whatsapp_group_id, quando: g.updated_at })),
     };
     return Response.json(resposta);
   } catch (error) {

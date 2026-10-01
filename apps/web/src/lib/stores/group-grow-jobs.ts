@@ -122,6 +122,26 @@ export async function claimQueued(tenantId: string): Promise<GrowJobRow[]> {
   return data ?? [];
 }
 
+export type GrupoCriado = { seq: number; subject: string; whatsapp_group_id: string | null; updated_at: string };
+
+/**
+ * Grupos que o "Grupo lotou → abre outro" criou para a campanha desde `desde`,
+ * do mais antigo ao mais novo. `updated_at` é a hora do ack `created`, o último
+ * que o job recebe: é quando o grupo passou a existir e a receber gente.
+ */
+export async function listGroupsCreatedSince(tenantId: string, campaignGroupId: string, desde: string): Promise<GrupoCriado[]> {
+  const { data, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .select("seq,subject,whatsapp_group_id,updated_at")
+    .eq("tenant_id", tenantId)
+    .eq("campaign_group_id", campaignGroupId)
+    .eq("status", "created")
+    .gte("updated_at", desde)
+    .order("updated_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as GrupoCriado[];
+}
+
 export async function getGrowJob(tenantId: string, id: string): Promise<GrowJobRow | null> {
   const { data, error } = await getSupabaseAdmin()
     .from(TABLE)

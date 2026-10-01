@@ -102,3 +102,29 @@ test("o dia da campanha: saindo agora, o que saiu hoje e os próximos agendados"
   );
   assert.equal(itens[1].texto, "NOVIDADES DO DIA", "a primeira linha do post vira o título");
 });
+
+test("o grupo aberto sozinho hoje entra no dia da campanha, na ordem da hora", () => {
+  const itens = hojeNaCampanha(
+    [
+      post({ id: "novidades", status: "sent", dispatchedAt: br("2026-09-23", "06:30") }),
+      post({ id: "reposicao", status: "running", runningSince: br("2026-09-23", "14:08") }),
+    ],
+    agora,
+    2,
+    [
+      // O nome padrão do "abre outro" é "<campanha> {n}", sem "#": o apelido vem do seq.
+      { nome: "VIP Revenda 40", seq: 40, grupo: "g40@g.us", quando: br("2026-09-23", "09:14") },
+      { nome: "VIP Revenda 39", seq: 39, grupo: "g39@g.us", quando: br("2026-09-22", "22:30") },
+    ],
+  );
+  // Mutantes: sem o filtro do dia, ou com o dia em UTC (22h30 de ontem em
+  // Brasília já é hoje em UTC), o #39 de ontem apareceria no dia de hoje.
+  assert.deepEqual(
+    itens.map((i) => [i.estado, i.hora, i.texto]),
+    [
+      ["postando", "14:08", "Post"],
+      ["grupo_aberto", "09:14", "#40 aberto sozinho"],
+      ["postado", "06:30", "Post"],
+    ],
+  );
+});

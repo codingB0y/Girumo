@@ -78,11 +78,15 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
   const resumo = useMemo(() => (entrega ? resumoDaEntrega(entrega.grupos) : null), [entrega]);
   const horaDoPost = postTabela ? horaBR(quandoDoPost(postTabela)) : "";
 
-  // O dia da campanha com o post em curso na contagem ao vivo.
+  // O dia da campanha: posts e grupos abertos sozinhos, com o post em curso na contagem ao vivo.
+  const gruposAbertos = useMemo(() => atividade?.gruposAbertosHoje ?? [], [atividade]);
+  const abertoHojePorGrupo = useMemo(() => new Map(gruposAbertos.flatMap((g) => (g.grupo ? [[g.grupo, g.quando] as const] : []))), [gruposAbertos]);
   const dia = useMemo((): ItemAoVivo[] | null => {
     if (!posts) return null;
-    return hojeNaCampanha(posts, agora).map((item) => (entrega && resumo && item.id === entrega.postId ? itemAoVivo(item, resumo) : item));
-  }, [posts, agora, entrega, resumo]);
+    return hojeNaCampanha(posts, agora, 2, gruposAbertos).map((item) =>
+      entrega && resumo && item.id === entrega.postId ? itemAoVivo(item, resumo) : item,
+    );
+  }, [posts, agora, entrega, resumo, gruposAbertos]);
 
   const novasHoje = atividade ? somaDa(atividade.porHora, "novas") : null;
   const cliquesHoje = atividade ? somaDa(atividade.porHora, "cliques") : null;
@@ -211,7 +215,12 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
                     const movimento = atividade?.hojePorGrupo[g.id];
                     return (
                       <tr key={g.id} className="border-b border-line-200 last:border-0 hover:bg-hover-ficha">
-                        <td className="max-w-[280px] truncate px-5 py-2.5 font-medium text-volt-950">{g.group?.name ?? "Grupo sem registro"}</td>
+                        <td className="max-w-[280px] px-5 py-2.5">
+                          <span className="block truncate font-medium text-volt-950">{g.group?.name ?? "Grupo sem registro"}</span>
+                          {abertoHojePorGrupo.has(g.id) && (
+                            <span className="block text-12 text-slate-600">aberto hoje às {horaBR(abertoHojePorGrupo.get(g.id))}</span>
+                          )}
+                        </td>
                         <td className="px-3 py-2.5 text-right tabular-nums text-volt-950">{numero(g.members)}</td>
                         <td className="px-3 py-2.5">
                           <span className="flex items-center gap-2">
@@ -243,6 +252,9 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
                     <li key={g.id} className="flex items-center gap-3 border-b border-line-200 px-4 py-3 last:border-0">
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-volt-950">{g.group?.name ?? "Grupo sem registro"}</p>
+                        {abertoHojePorGrupo.has(g.id) && (
+                          <p className="text-12 text-slate-600">aberto hoje às {horaBR(abertoHojePorGrupo.get(g.id))}</p>
+                        )}
                         <p className="mt-1.5 flex items-center gap-2 text-12 text-slate-600">
                           <Lotacao fracao={fracao} className="w-14 shrink-0" />
                           <span className="tabular-nums">
@@ -469,6 +481,7 @@ const ROTULO_DO_ESTADO: Record<EstadoDoPost, string> = {
   postado: "Postado",
   falhou: "Falhou",
   agendado: "Agendado",
+  grupo_aberto: "Criado pelo \"Grupo lotou → abre outro\"",
 };
 
 function ItemDoDiaLinha({ item }: { item: ItemAoVivo }) {

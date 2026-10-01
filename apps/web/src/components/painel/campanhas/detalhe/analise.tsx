@@ -7,6 +7,7 @@ import {
   barrasDaAtividade,
   diaDaSemanaPassada,
   diaPorExtenso,
+  marcasDeGrupoAberto,
   marcasDePost,
   nomeDoMes,
   somaMedida,
@@ -144,9 +145,15 @@ function Graficos({ atividade: a, periodo, posts }: { atividade: AtividadeDaCamp
   const hoje = dayBR(new Date(a.geradoEm));
   const entradas = useMemo(() => barrasDaAtividade(a, periodo, "entraram", "sairam"), [a, periodo]);
   const cliques = useMemo(() => barrasDaAtividade(a, periodo, "cliques"), [a, periodo]);
+  // Hoje por hora: o que pode explicar um pico, os posts e os grupos abertos sozinhos.
   const marcas = useMemo(
-    () => (periodo === "hoje" && posts ? marcasDePost(posts, new Date(a.geradoEm)) : []),
-    [periodo, posts, a.geradoEm],
+    () =>
+      periodo === "hoje"
+        ? [...(posts ? marcasDePost(posts, new Date(a.geradoEm)) : []), ...marcasDeGrupoAberto(a.gruposAbertosHoje)].sort(
+            (x, y) => x.posicao - y.posicao,
+          )
+        : [],
+    [periodo, posts, a.geradoEm, a.gruposAbertosHoje],
   );
 
   const quando = periodo === "hoje" ? "hoje" : periodo === "7d" ? "nos últimos 7 dias" : `em ${nomeDoMes(hoje).toLowerCase()}`;
