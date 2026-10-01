@@ -6,10 +6,11 @@ import { CopyLink } from "@/components/painel/copy-link";
 import { QrLink } from "@/components/painel/campanhas/qr-link";
 import type { EntradaSettings } from "@/lib/campaigns/settings";
 import { dayBR, horaBR } from "@/lib/date-br";
-import { resolveClickTarget, type BlockedReason, type ResolvableGroup } from "@/lib/links/resolve-click-target";
+import { resolveClickTarget, type ResolvableGroup } from "@/lib/links/resolve-click-target";
 import type { Group } from "@/lib/mock-data";
 import { barrasDaAtividade, nomeDoMes, somaDa, type Periodo } from "@/lib/painel/atividade";
 import { lotacao, numero } from "@/lib/painel/grupos";
+import { paradoDoLink } from "@/lib/painel/link-parado";
 import { cn } from "@/lib/utils";
 import { medindoDesde, useAtividade } from "./analise";
 import { GraficoDeBarras } from "./grafico-barras";
@@ -26,15 +27,6 @@ type Props = {
   cliquesNoTotal: number;
   agora: Date;
   editarHref: string;
-};
-
-/** Por que o link não manda ninguém para grupo nenhum, e o que fazer. */
-const PARADO: Record<Exclude<BlockedReason, "cap-reached">, string> = {
-  "empty-pool": "A campanha ainda não tem grupos: quem clicar agora não entra em lugar nenhum.",
-  "no-invite": "Nenhum grupo da campanha tem convite configurado: quem clicar agora não entra.",
-  "no-admin": "Seu número não é admin de nenhum grupo da campanha: o link não manda gente para grupo que não é seu.",
-  "all-full": "Todos os grupos passaram de 95%: quem clicar agora não entra. Abra um grupo novo ou ligue \"Grupo lotou → abre outro\".",
-  closed: "A campanha passou da data de encerramento: o link não manda mais para grupo nenhum.",
 };
 
 const unidadeDeCliques: [string, string] = ["clique", "cliques"];
@@ -64,7 +56,9 @@ export function LinkECliques({ slug, nome, linkMestre, groupIds, grupos, entrada
       entrada,
       now: agora,
     });
-    if (alvo.kind === "blocked") return { grupo: null, parado: alvo.reason === "cap-reached" ? null : PARADO[alvo.reason] };
+    if (alvo.kind === "blocked") {
+      return { grupo: null, parado: alvo.reason === "cap-reached" ? null : paradoDoLink(alvo.reason, groupIds, grupos.length, entrada.lotado) };
+    }
     return { grupo: grupos.find((g) => g.whatsappGroupId === alvo.groupId) ?? null, parado: null };
   }, [grupos, groupIds, entrada, agora]);
 
@@ -98,7 +92,7 @@ export function LinkECliques({ slug, nome, linkMestre, groupIds, grupos, entrada
               <CopyLink url={linkMestre} className="min-w-0 max-w-full" />
               <QrLink url={linkMestre} nome={nome} />
             </div>
-            <p className="mt-4 text-13 text-slate-600">Para quem clicar agora, o link manda para</p>
+            <p className="mt-4 text-13 text-slate-600">Para quem clicar pela primeira vez agora, o link manda para</p>
             {destino.grupo ? (
               <p className="mt-1 flex flex-wrap items-baseline gap-x-2 text-sm">
                 <strong className="font-semibold text-volt-950">{destino.grupo.name}</strong>
@@ -108,7 +102,9 @@ export function LinkECliques({ slug, nome, linkMestre, groupIds, grupos, entrada
                 </span>
               </p>
             ) : (
-              <p className="mt-1 text-sm font-medium text-danger-700">{destino.parado ?? "Nenhum grupo agora."}</p>
+              <p className={cn("mt-1 text-sm font-medium", destino.parado?.grave === false ? "text-volt-950" : "text-danger-700")}>
+                {destino.parado?.texto ?? "Nenhum grupo agora."}
+              </p>
             )}
             <p className="mt-2 text-12 text-slate-600">
               O link enche um grupo até 95% e passa para o próximo da lista.{" "}
