@@ -70,9 +70,21 @@ export default function PainelGrupos() {
         error?: string;
         synced?: number;
         ignorados?: number;
+        parcial?: boolean;
+        motivo?: string;
       };
       if (!res.ok) {
         throw new Error(payload.error ?? "Nao foi possivel sincronizar.");
+      }
+      // Plano B do sync: só a contagem foi atualizada e grupo novo NÃO entrou.
+      // Antes isto passava como sucesso silencioso.
+      if (payload.parcial) {
+        setSyncNote({
+          alerta: true,
+          texto: payload.motivo ?? "Sincronizacao incompleta: grupo novo pode nao ter entrado. Tente de novo em alguns minutos.",
+        });
+        await loadGroups();
+        return;
       }
       const ignorados = payload.ignorados ?? 0;
       setSyncNote(

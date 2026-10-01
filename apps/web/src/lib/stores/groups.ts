@@ -143,6 +143,27 @@ export async function syncGroupsFromProvider(
 }
 
 /**
+ * Grava só grupos que ainda não existem — porta do webhook `groups.upsert`.
+ *
+ * `ignoreDuplicates` faz o ON CONFLICT virar DO NOTHING: grupo que já está aqui
+ * fica intocado (contagem, seleção, capacidade), e uma reentrega do evento não
+ * muda nada. Atualizar grupo existente continua sendo trabalho do sync.
+ */
+export async function insertNewGroups(
+  tenantId: string,
+  groups: ReadonlyArray<Parameters<typeof syncGroupsFromProvider>[1][number]>,
+): Promise<number> {
+  if (groups.length === 0) return 0;
+  const rows = groups.map((g) => ({ ...g, tenant_id: tenantId }));
+  const { data, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .upsert(rows, { onConflict: "tenant_id,whatsapp_group_id", ignoreDuplicates: true })
+    .select("id");
+  if (error) throw new Error(error.message);
+  return data?.length ?? 0;
+}
+
+/**
  * `whatsapp_group_id` -> membros já gravados.
  *
  * Serve para o sync não aceitar cegamente a contagem do provedor: a Evolution
