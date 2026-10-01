@@ -20,6 +20,8 @@ const archivo = localFont({
   declarations: [{ prop: "font-stretch", value: "62% 125%" }],
   variable: "--font-cartaz",
   display: "swap",
+  adjustFontFallback: false,
+  fallback: ["'Archivo Fallback'"],
 });
 
 /**

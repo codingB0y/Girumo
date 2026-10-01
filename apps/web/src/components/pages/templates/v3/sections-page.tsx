@@ -32,6 +32,8 @@ const display = localFont({
   declarations: [{ prop: "font-stretch", value: "100%" }],
   variable: "--lp-font-display",
   display: "swap",
+  adjustFontFallback: false,
+  fallback: ["'Bricolage Grotesque Fallback'"],
 });
 
 /** Display da direção editorial: serifa de moda com eixo óptico (papel + serifa). */
@@ -43,7 +45,8 @@ const displaySerif = localFont({
   ],
   variable: "--lp-font-display",
   display: "swap",
-  adjustFontFallback: "Times New Roman",
+  adjustFontFallback: false,
+  fallback: ["'Fraunces Fallback'"],
 });
 
 /** Só se `brand_color` for inválido (não deve ocorrer em v3 publicado). */

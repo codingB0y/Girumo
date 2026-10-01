@@ -35,6 +35,8 @@ const archivo = localFont({
   declarations: [{ prop: "font-stretch", value: "62% 125%" }],
   variable: "--font-lp4",
   display: "swap",
+  adjustFontFallback: false,
+  fallback: ["'Archivo Fallback'"],
 });
 
 const martian = localFont({
@@ -45,6 +47,8 @@ const martian = localFont({
   declarations: [{ prop: "font-stretch", value: "100%" }],
   variable: "--font-lp4-mono",
   display: "swap",
+  adjustFontFallback: false,
+  fallback: ["'Martian Mono Fallback'"],
 });
 
 /**

@@ -21,6 +21,8 @@ const spartan = localFont({
   ],
   variable: "--font-spartan",
   display: "swap",
+  adjustFontFallback: false,
+  fallback: ["'League Spartan Fallback'"],
 });
 
 /** Sem menu: só a marca, o público do anúncio e o atalho do WhatsApp de vendas. */

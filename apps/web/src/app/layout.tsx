@@ -1,18 +1,22 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import "../fonts/fallbacks.css";
 import { ImpersonateBanner } from "@/components/impersonate-banner";
 import { DevModeBanner } from "@/components/dev-mode-banner";
 import { BRAND, getPublicSiteUrl } from "@/lib/brand";
 
 // Fontes versionadas em src/fonts (subset latin, os mesmos bytes que o Google
-// servia): o build não depende mais da rede. Ver src/fonts/README.md.
+// servia): o build não depende mais da rede. O fallback de cada uma vem de
+// fonts/fallbacks.css, com as métricas do Google. Ver src/fonts/README.md.
 const manrope = localFont({
   src: "../fonts/manrope/manrope-latin.woff2",
   weight: "200 800",
   style: "normal",
   variable: "--font-manrope",
   display: "swap",
+  adjustFontFallback: false,
+  fallback: ["'Manrope Fallback'"],
 });
 
 // Um arquivo variável, declarado uma vez por peso: espelha o CSS que o Google gerava.
@@ -25,6 +29,8 @@ const plexSans = localFont({
   declarations: [{ prop: "font-stretch", value: "100%" }],
   variable: "--font-plex-sans",
   display: "swap",
+  adjustFontFallback: false,
+  fallback: ["'IBM Plex Sans Fallback'"],
 });
 
 const plexMono = localFont({
@@ -34,6 +40,8 @@ const plexMono = localFont({
   ],
   variable: "--font-plex-mono",
   display: "swap",
+  adjustFontFallback: false,
+  fallback: ["'IBM Plex Mono Fallback'"],
 });
 
 export const metadata: Metadata = {

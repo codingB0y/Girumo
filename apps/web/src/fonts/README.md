@@ -21,6 +21,13 @@ próprio loader dele (`next@15.5.24`, 01/10/2026), só o subset **latin**, que e
 | `bricolage-grotesque` | Bricolage Grotesque | `bricolage-grotesque-latin.woff2`       | páginas v3 (impacto) |
 | `fraunces`            | Fraunces            | `fraunces-latin.woff2`                  | páginas v3 (editorial) |
 
+Cada `localFont()` usa `adjustFontFallback: false` e aponta para uma face de
+`fallbacks.css`, com as métricas que o `next/font/google` usava. Não é detalhe de swap:
+caractere que a fonte não tem (→, ✓, ★) é desenhado sempre pelo fallback, e as
+métricas que o `next/font/local` calcula sozinho alargavam a seta do letreiro da `/lp3`.
+Família nova: copiar as métricas de `calculateSizeAdjustValues` em
+`next/dist/server/font-utils`.
+
 Todas são SIL Open Font License 1.1 (`OFL.txt` em cada pasta, copiado de
 `github.com/google/fonts/ofl/<família>`). A IBM Plex reserva o nome "Plex": não
 redistribuir versão **modificada** destes arquivos com esse nome.
