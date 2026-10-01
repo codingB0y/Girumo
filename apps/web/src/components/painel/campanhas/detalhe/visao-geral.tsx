@@ -7,7 +7,16 @@ import { etaDisparo } from "@/lib/campaigns/dispatch-eta";
 import type { DispatchView } from "@/lib/campaigns/dispatch-view";
 import { dayBR, dayBROf, diaMesBR, horaBR } from "@/lib/date-br";
 import { GROUP_FULL_RATIO } from "@/lib/links/resolve-click-target";
-import { barrasDaAtividade, diaDaSemanaPassada, somaDa, variacao, type Barra } from "@/lib/painel/atividade";
+import {
+  barrasDaAtividade,
+  diaDaSemanaPassada,
+  semanaPassadaMedida,
+  somaDa,
+  somaMedida,
+  variacao,
+  type Barra,
+  type Movimento,
+} from "@/lib/painel/atividade";
 import {
   estadoNaCampanha,
   faixaDeLotacao,
@@ -23,8 +32,9 @@ import {
 import { aindaSaindo, itemAoVivo, postDaTabela, resumoDaEntrega, type ItemAoVivo } from "@/lib/painel/entrega";
 import { lotacao, numero } from "@/lib/painel/grupos";
 import { cn } from "@/lib/utils";
-import { AnaliseDaCampanha, useAtividade } from "./analise";
+import { AnaliseDaCampanha, medindoDesde, useAtividade } from "./analise";
 import { CelulaDaEntrega, LegendaDaEntrega, useEntrega } from "./entrega";
+import { saldo } from "./grafico-barras";
 
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const LINHAS = 8;
@@ -39,8 +49,6 @@ type Props = {
   pedidos: number;
   /** As entradas mais recentes, lidas no servidor; null se a leitura falhou. */
   ultimas: EntradaRecente[] | null;
-  /** Novas de hoje por grupo de origem, contadas no servidor; null se a conta falhou. */
-  novasHojePorGrupo: Record<string, number> | null;
   /** null enquanto os posts carregam. */
   posts: DispatchView[] | null;
   /** Quando os dados foram lidos: "hoje" e "agora" saem daqui. */
@@ -51,16 +59,17 @@ type Props = {
 
 /**
  * Visão geral da campanha, direção D (spec 2026-09-24): faixa de números num
- * painel só, a análise por hora, dia e mês (série do banco, PR C), a tabela dos
- * grupos e o dia da campanha. Saídas entram no PR D.
+ * painel só, a análise por hora, dia e mês (série do banco, PRs C e D), a tabela
+ * dos grupos com a entrega do post (PR E) e o dia da campanha.
  */
-export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pedidos, ultimas, novasHojePorGrupo, posts, agora, aoVerGrupos, aoVerPosts }: Props) {
+export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pedidos, ultimas, posts, agora, aoVerGrupos, aoVerPosts }: Props) {
   const [filtro, setFiltro] = useState<FiltroDeGrupos>("todos");
   const { atividade, erro, tentarDeNovo } = useAtividade(slug, agora.getTime());
 
   const faixa = useMemo(() => faixaDeLotacao(o.groups), [o.groups]);
   const grupos = useMemo(() => filtrarGrupos(ordenarGrupos(o.groups), filtro), [o.groups, filtro]);
-  const seteDias = useMemo(() => (atividade ? barrasDaAtividade(atividade, "7d", "novas") : null), [atividade]);
+  const seteDias = useMemo(() => (atividade ? barrasDaAtividade(atividade, "7d", "entraram") : null), [atividade]);
+  const hoje = useMemo(() => (atividade ? somaMedida(barrasDaAtividade(atividade, "hoje", "entraram", "sairam")) : null), [atividade]);
 
   // O post que a tabela acompanha grupo a grupo (PR E): o que está saindo, ou o último de hoje.
   const postTabela = useMemo(() => (posts ? postDaTabela(posts, agora) : null), [posts, agora]);
@@ -87,22 +96,29 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
   return (
     <div className="space-y-6">
       {/* Faixa de números: um painel só, fio entre as células (gap-px sobre o fundo do fio). */}
-      <section aria-label="Números da campanha" className="grid gap-px overflow-hidden rounded-[10px] border border-line-200 bg-line-200 sm:grid-cols-2 lg:grid-cols-[1.35fr_1fr_1fr_1.15fr_1fr]">
+      <section
+        aria-label="Números da campanha"
+        className="grid gap-px overflow-hidden rounded-[10px] border border-line-200 bg-line-200 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[1.3fr_1fr_1fr_1fr_1.1fr_1fr]"
+      >
         <div className="bg-paper-0 px-5 py-4 sm:col-span-2 lg:col-span-1">
-          <p className="text-13 text-slate-600">Novas pessoas hoje</p>
+          <p className="text-13 text-slate-600">Entraram hoje</p>
           <div className="mt-2 flex items-end justify-between gap-4">
             <p className="text-[44px] font-semibold leading-none tabular-nums text-volt-950 [font-stretch:75%]">
-              {novasHoje === null ? "—" : numero(novasHoje)}
+              {hoje === null ? "—" : numero(hoje.entraram)}
             </p>
             {seteDias && <Faisca barras={seteDias} />}
           </div>
           <p className="mt-2 text-13 text-slate-600">
-            {atividade ? (
-              <ContraSemanaPassada
-                hoje={novasHoje ?? 0}
-                antes={atividade.semanaPassada.novas}
-                diaPassado={diaDaSemanaPassada(dayBR(new Date(atividade.geradoEm)), true)}
-              />
+            {atividade && hoje ? (
+              semanaPassadaMedida(atividade) ? (
+                <ContraSemanaPassada
+                  hoje={hoje.entraram}
+                  antes={atividade.semanaPassada.entraram}
+                  diaPassado={diaDaSemanaPassada(dayBR(new Date(atividade.geradoEm)), true)}
+                />
+              ) : (
+                `${medindoDesde(atividade.entradasDesde)} · a comparação com a semana passada começa em 7 dias`
+              )
             ) : erro ? (
               "a série não carregou"
             ) : (
@@ -110,6 +126,14 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
             )}
           </p>
         </div>
+        <Celula rotulo="Saíram hoje" valor={hoje === null ? "—" : numero(hoje.sairam)}>
+          {hoje && (
+            <>
+              <EntrouSaiu entraram={hoje.entraram} sairam={hoje.sairam} />
+              saldo de {saldo(hoje.entraram - hoje.sairam)} hoje
+            </>
+          )}
+        </Celula>
         <Celula rotulo="Cliques no link hoje" valor={cliquesHoje === null ? "—" : numero(cliquesHoje)}>
           {o.clicks === 0
             ? "ninguém clicou no link ainda"
@@ -129,7 +153,7 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
             <Legenda cor="bg-slate-600">{faixa.comVaga} com vaga</Legenda>
           </span>
         </Celula>
-        <Celula rotulo="Vendas anotadas" valor={brl.format(receita)}>
+        <Celula rotulo="Vendas anotadas" valor={brl.format(receita)} className="sm:col-span-2 lg:col-span-1">
           {pedidos === 0 ? "nenhum pedido desta campanha" : `${numero(pedidos)} ${pedidos === 1 ? "pedido" : "pedidos"}`}
         </Celula>
       </section>
@@ -176,7 +200,7 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
                     <th scope="col" className="px-5 py-2.5 font-medium">Grupo</th>
                     <th scope="col" className="px-3 py-2.5 text-right font-medium">Pessoas</th>
                     <th scope="col" className="px-3 py-2.5 font-medium">Lotação</th>
-                    <th scope="col" className="px-3 py-2.5 text-right font-medium">Novas hoje</th>
+                    <th scope="col" className="px-3 py-2.5 text-right font-medium">Entraram hoje</th>
                     <th scope="col" className={cn("py-2.5 font-medium", postTabela ? "px-3" : "px-5")}>Status</th>
                     {postTabela && <th scope="col" className="px-5 py-2.5 font-medium">Post das {horaDoPost}</th>}
                   </tr>
@@ -184,7 +208,7 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
                 <tbody>
                   {grupos.slice(0, LINHAS).map((g) => {
                     const fracao = lotacao(g.members, g.capacity);
-                    const novas = novasHojePorGrupo?.[g.id] ?? 0;
+                    const movimento = atividade?.hojePorGrupo[g.id];
                     return (
                       <tr key={g.id} className="border-b border-line-200 last:border-0 hover:bg-hover-ficha">
                         <td className="max-w-[280px] truncate px-5 py-2.5 font-medium text-volt-950">{g.group?.name ?? "Grupo sem registro"}</td>
@@ -195,7 +219,9 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
                             <span className="w-9 text-right tabular-nums text-slate-600">{Math.round(fracao * 100)}%</span>
                           </span>
                         </td>
-                        <td className="px-3 py-2.5 text-right tabular-nums text-volt-950">{novas > 0 ? `+${numero(novas)}` : "—"}</td>
+                        <td className="px-3 py-2.5 text-right tabular-nums text-volt-950">
+                          <MovimentoDoGrupo movimento={movimento} />
+                        </td>
                         <td className={cn("py-2.5", postTabela ? "px-3" : "px-5")}>
                           <SeloDoGrupo estado={estadoNaCampanha(g)} />
                         </td>
@@ -212,7 +238,7 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
               <ul className="sm:hidden">
                 {grupos.slice(0, LINHAS).map((g) => {
                   const fracao = lotacao(g.members, g.capacity);
-                  const novas = novasHojePorGrupo?.[g.id] ?? 0;
+                  const movimento = atividade?.hojePorGrupo[g.id];
                   return (
                     <li key={g.id} className="flex items-center gap-3 border-b border-line-200 px-4 py-3 last:border-0">
                       <div className="min-w-0 flex-1">
@@ -221,8 +247,12 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
                           <Lotacao fracao={fracao} className="w-14 shrink-0" />
                           <span className="tabular-nums">
                             {numero(g.members)} de {numero(g.capacity)}
-                            {novas > 0 ? ` · +${numero(novas)} hoje` : ""}
                           </span>
+                          {movimento && movimento.entraram + movimento.sairam > 0 && (
+                            <span className="tabular-nums">
+                              · <MovimentoDoGrupo movimento={movimento} /> hoje
+                            </span>
+                          )}
                         </p>
                         {postTabela && (
                           <p className="mt-1 flex items-center gap-1.5 text-12 text-slate-600">
@@ -290,7 +320,12 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
               <h2 id="entradas-titulo" className="text-16 font-semibold text-volt-950">
                 Últimas entradas
               </h2>
-              {novasHoje !== null && <span className="text-13 tabular-nums text-slate-600">{numero(novasHoje)} hoje</span>}
+              {/* A lista é de quem chegou à base pela 1ª vez: o número ao lado conta a mesma coisa, não "Entraram". */}
+              {novasHoje !== null && (
+                <span className="text-13 tabular-nums text-slate-600">
+                  {numero(novasHoje)} {novasHoje === 1 ? "nova" : "novas"} hoje
+                </span>
+              )}
             </div>
             {/* Falha de leitura não vira "ninguém entrou": a faixa de números pode estar dizendo o contrário. */}
             {ultimas === null ? (
@@ -319,9 +354,9 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
   );
 }
 
-function Celula({ rotulo, valor, children }: { rotulo: string; valor: string; children: React.ReactNode }) {
+function Celula({ rotulo, valor, className, children }: { rotulo: string; valor: string; className?: string; children: React.ReactNode }) {
   return (
-    <div className="bg-paper-0 px-5 py-4">
+    <div className={cn("bg-paper-0 px-5 py-4", className)}>
       <p className="text-13 text-slate-600">{rotulo}</p>
       <p className="mt-2 text-[30px] font-semibold leading-none tabular-nums text-volt-950 [font-stretch:75%]">{valor}</p>
       <div className="mt-2.5 text-13 text-slate-600">{children}</div>
@@ -345,17 +380,39 @@ function ContraSemanaPassada({ hoje, antes, diaPassado }: { hoje: number; antes:
   );
 }
 
-/** Os últimos 7 dias em miniatura; o de hoje aceso. */
+/** "+12 −2" no grupo: saídas na cor de saída; sem movimento, "—". */
+function MovimentoDoGrupo({ movimento }: { movimento: Movimento | undefined }) {
+  if (!movimento || movimento.entraram + movimento.sairam === 0) return <>—</>;
+  return (
+    <>
+      {movimento.entraram > 0 && <span>+{numero(movimento.entraram)}</span>}
+      {movimento.sairam > 0 && <span className="ml-1.5 text-saida">−{numero(movimento.sairam)}</span>}
+    </>
+  );
+}
+
+/** Entraram contra saíram hoje, numa barra só. */
+function EntrouSaiu({ entraram, sairam }: { entraram: number; sairam: number }) {
+  const total = entraram + sairam;
+  return (
+    <span className="mb-1.5 flex h-1.5 gap-px overflow-hidden rounded-full bg-line-200" aria-hidden="true">
+      {total > 0 && <span className="bg-serie" style={{ width: `${(entraram / total) * 100}%` }} />}
+      {total > 0 && <span className="bg-saida" style={{ width: `${(sairam / total) * 100}%` }} />}
+    </span>
+  );
+}
+
+/** Os últimos 7 dias em miniatura; o de hoje aceso, e dia sem medição só com o traço. */
 function Faisca({ barras }: { barras: Barra[] }) {
-  const max = Math.max(1, ...barras.map((b) => b.valor));
+  const max = Math.max(1, ...barras.map((b) => (b.semMedicao ? 0 : b.valor)));
   return (
     <span className="flex shrink-0 flex-col items-end gap-1" aria-hidden="true">
       <span className="flex h-8 items-end gap-[3px]">
         {barras.map((b) => (
           <span
             key={b.chave}
-            className={cn("block w-[5px] rounded-t-[1px]", b.atual ? "bg-serie" : "bg-slate-600/50")}
-            style={{ height: `${Math.max(8, (b.valor / max) * 100)}%` }}
+            className={cn("block w-[5px] rounded-t-[1px]", b.semMedicao ? "bg-line-200" : b.atual ? "bg-serie" : "bg-slate-600/50")}
+            style={{ height: b.semMedicao ? 2 : `${Math.max(8, (b.valor / max) * 100)}%` }}
           />
         ))}
       </span>
