@@ -8,7 +8,6 @@ import {
   faixaDeLotacao,
   filtrarGrupos,
   hojeNaCampanha,
-  novasHojePorGrupo,
   ordenarGrupos,
   paraEntradaRecente,
   ultimasEntradas,
@@ -46,10 +45,6 @@ const leads = [
   { id: "g", name: "Semana tarde", sourceGroup: "VIP #39", sourceGroupId: "g39", enteredAt: br("2026-09-16", "16:00") },
 ];
 const ids = ["g40", "g39"];
-
-test("novas de hoje por grupo: só a campanha, no dia de Brasília", () => {
-  assert.deepEqual([...novasHojePorGrupo(leads, ids, agora)], [["g40", 2], ["g39", 1]]);
-});
 
 test("últimas entradas: só a campanha, a mais recente primeiro", () => {
   assert.deepEqual(ultimasEntradas(leads, ids, 3).map((l) => l.id), ["b", "a", "c"]);

@@ -1,12 +1,5 @@
 import { countCampaignEntries } from "@/lib/campaigns/campaign-entries";
-import { dayBR } from "@/lib/date-br";
-import { meiaNoiteBR } from "@/lib/painel/atividade";
-import {
-  novasHojePorGrupo,
-  paraEntradaRecente,
-  ultimasEntradas,
-  type EntradasDaCampanha,
-} from "@/lib/painel/campanha-visao";
+import { paraEntradaRecente, ultimasEntradas, type EntradasDaCampanha } from "@/lib/painel/campanha-visao";
 import { carregarCampanhas, carregarLeads, LEAD_SEM_NOME } from "@/lib/painel/inicio-carga";
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
 import * as supaCampaigns from "@/lib/stores/campaign-groups";
@@ -23,8 +16,8 @@ const naoEncontrada = () => Response.json({ error: "Campanha não encontrada." }
 
 /**
  * GET /api/campanhas/[slug]/entradas — `EntradasDaCampanha`: quantas pessoas
- * entraram nos grupos da campanha desde que ela foi criada, as últimas entradas
- * e as de hoje por grupo. Lê no banco; a página lia a lista de /api/leads, que o
+ * entraram nos grupos da campanha desde que ela foi criada e as últimas
+ * entradas. Lê no banco; a página lia a lista de /api/leads, que o
  * PostgREST corta em 1000 linhas sem avisar.
  */
 export async function GET(req: Request, { params }: { params: Promise<{ slug: string }> }) {
@@ -32,8 +25,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
 
   try {
     const { tenantId } = await getRouteTenantContext(req, { allowEngine: false });
-    const agora = new Date();
-
     if (!USE_SUPABASE) {
       // O arquivo JSON não tem teto de linhas: a lista inteira cabe na conta.
       const [campanhas, leads] = await Promise.all([carregarCampanhas(tenantId), carregarLeads(tenantId)]);
@@ -42,7 +33,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
       const resposta: EntradasDaCampanha = {
         entradas: countCampaignEntries(leads, camp.groupIds, { since: camp.createdAt }),
         ultimas: ultimasEntradas(leads, camp.groupIds, ULTIMAS).map(paraEntradaRecente),
-        novasHojePorGrupo: Object.fromEntries(novasHojePorGrupo(leads, camp.groupIds, agora)),
       };
       return Response.json(resposta);
     }
@@ -50,12 +40,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
     const camp = await supaCampaigns.getCampaignGroupBySlug(tenantId, slug);
     if (!camp) return naoEncontrada();
     const groupIds = camp.group_ids ?? [];
-    // ponytail: as três levam os JIDs na URL; o teto de ~230 grupos anotado em
-    // countEntriesSince vale para todas.
-    const [entradas, ultimas, hojePorGrupo] = await Promise.all([
+    // ponytail: as duas levam os JIDs na URL; o teto de ~230 grupos anotado em
+    // countEntriesSince vale para ambas.
+    const [entradas, ultimas] = await Promise.all([
       supaLeads.countEntriesSince(tenantId, groupIds, camp.created_at),
       supaLeads.listLatestEntries(tenantId, groupIds, ULTIMAS),
-      supaLeads.countEntriesByGroupSince(tenantId, groupIds, meiaNoiteBR(dayBR(agora)).toISOString()),
     ]);
     const resposta: EntradasDaCampanha = {
       entradas,
@@ -63,7 +52,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
       ultimas: ultimas.map((l) =>
         paraEntradaRecente({ id: l.id, name: l.name ?? LEAD_SEM_NOME, sourceGroup: l.source_group_name, enteredAt: l.entered_at }),
       ),
-      novasHojePorGrupo: Object.fromEntries(hojePorGrupo),
     };
     return Response.json(resposta);
   } catch (error) {

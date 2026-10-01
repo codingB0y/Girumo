@@ -9,8 +9,8 @@ import { estadoDoGrupo, type EstadoDoGrupo } from "@/lib/painel/grupos";
  * Visão geral da campanha na direção D (spec 2026-09-24, PR B): grupos, o dia
  * dos posts e as últimas entradas. As novas pessoas saem de `leads.entered_at`
  * (1ª entrada de cada pessoa, no grupo de origem). As séries por hora e por dia
- * vêm do banco, em `atividade.ts` (PR C); saídas, no PR D. As últimas entradas
- * e as novas de hoje por grupo, de GET /api/campanhas/[slug]/entradas.
+ * vêm do banco, em `atividade.ts` (PR C); saídas, no PR D. As últimas entradas,
+ * de GET /api/campanhas/[slug]/entradas.
  */
 
 export type LeadResumo = {
@@ -30,8 +30,6 @@ export type EntradasDaCampanha = {
   entradas: number;
   /** As mais recentes, de qualquer dia. */
   ultimas: EntradaRecente[];
-  /** Entradas de hoje (dia de Brasília) por grupo de origem; grupo sem ninguém fica de fora. */
-  novasHojePorGrupo: Record<string, number>;
 };
 
 /** O nome inteiro e o telefone não saem do servidor: "Daiane S. veio pelo VIP #40" basta. */
@@ -86,20 +84,9 @@ function daCampanha(leads: LeadResumo[], groupIds: string[]): LeadResumo[] {
 }
 
 /**
- * Novas pessoas de hoje por grupo de origem. Esta e `ultimasEntradas` servem ao
- * JSON, que não tem teto de linhas; com Supabase a rota lê no banco
- * (`countEntriesByGroupSince` e `listLatestEntries`, em stores/leads.ts).
+ * Serve ao JSON, que não tem teto de linhas; com Supabase a rota lê no banco
+ * (`listLatestEntries`, em stores/leads.ts).
  */
-export function novasHojePorGrupo(leads: LeadResumo[], groupIds: string[], agora = new Date()): Map<string, number> {
-  const hoje = dayBR(agora);
-  const porGrupo = new Map<string, number>();
-  for (const l of daCampanha(leads, groupIds)) {
-    if (dayBROf(l.enteredAt) !== hoje || !l.sourceGroupId) continue;
-    porGrupo.set(l.sourceGroupId, (porGrupo.get(l.sourceGroupId) ?? 0) + 1);
-  }
-  return porGrupo;
-}
-
 export function ultimasEntradas(leads: LeadResumo[], groupIds: string[], quantas = 5): LeadResumo[] {
   return daCampanha(leads, groupIds)
     .sort((a, b) => Date.parse(b.enteredAt ?? "") - Date.parse(a.enteredAt ?? ""))

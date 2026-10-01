@@ -156,13 +156,11 @@ Campanha = ESCOPO de grupos (loja → campanhas → grupos), **não** é disparo
 `Campanha = { id, name, loja, groupIds, createdAt }`. A campanha ativa vive no cookie `dz_campanha`.
 
 ### GET /api/campanhas/[slug]/entradas  (navegador, cookie)
-→ `200 { entradas, ultimas, novasHojePorGrupo }`, tudo lido no banco (`leads.source_group_id` no pool
+→ `200 { entradas, ultimas }`, tudo lido no banco (`leads.source_group_id` no pool
 da campanha), porque a lista de `/api/leads` para em 1000 linhas:
 - `entradas: number` — quem entrou desde a criação da campanha (`entered_at >= created_at`).
 - `ultimas: { id, nome, grupo, entrouEm }[]` — as 5 entradas mais recentes, de qualquer dia. `nome` já
   vem abreviado ("Daiane S."); telefone e nome inteiro não saem do servidor (LGPD).
-- `novasHojePorGrupo: Record<groupId, number>` — entradas de hoje (dia de Brasília) por grupo de
-  origem; grupo sem ninguém hoje não aparece.
 
 `404` se a campanha não é do tenant · `500` se qualquer leitura falhar.
 
