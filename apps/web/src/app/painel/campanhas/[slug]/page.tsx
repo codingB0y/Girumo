@@ -34,6 +34,7 @@ import { AcoesEmMassa } from "@/components/painel/grupos/acoes-em-massa";
 import { ConfigChips } from "@/components/painel/campanhas/config-chips";
 import { QrLink } from "@/components/painel/campanhas/qr-link";
 import { AjudaPainel } from "@/components/painel/campanhas/ajuda-painel";
+import { LinkECliques } from "@/components/painel/campanhas/detalhe/link-e-cliques";
 import { VisaoGeralCampanha } from "@/components/painel/campanhas/detalhe/visao-geral";
 import { ENTRADA_DEFAULTS, type EntradaSettings } from "@/lib/campaigns/settings";
 import { clicksForCampaign } from "@/lib/links/click-attribution";
@@ -59,7 +60,7 @@ const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" 
 
 // Direção D (spec 2026-09-24, PR B): a campanha abre na Visão geral. "Posts"
 // é a antiga "Mensagens" (Enviar agora, Agendar, Funil, Agenda).
-const TABS = ["Visão geral", "Grupos", "Posts", "Resultados"] as const;
+const TABS = ["Visão geral", "Grupos", "Posts", "Resultados", "Link e cliques"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function CampanhaDetalhe() {
@@ -391,6 +392,20 @@ export default function CampanhaDetalhe() {
               </div>
             </>
           )
+        )}
+
+        {tab === "Link e cliques" && (
+          <LinkECliques
+            slug={campanha.slug ?? campanha.id}
+            nome={campanha.name}
+            linkMestre={masterUrl}
+            groupIds={campanha.groupIds}
+            grupos={groups}
+            entrada={campanha.settings?.entrada ?? ENTRADA_DEFAULTS}
+            cliquesNoTotal={o.clicks}
+            agora={atualizadoEm}
+            editarHref={editar}
+          />
         )}
 
         {tab === "Visão geral" && (
