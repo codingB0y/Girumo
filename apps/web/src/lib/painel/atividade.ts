@@ -13,7 +13,8 @@ export type PontoDaSerie = { inicio: string; novas: number; cliques: number; ent
 export type Movimento = { entraram: number; sairam: number };
 
 /** Grupo que o "Grupo lotou → abre outro" criou hoje, com a hora em que passou a existir. */
-export type GrupoAberto = { nome: string; grupo: string | null; quando: string };
+/** `seq` é o `{n}` que o "Grupo lotou → abre outro" põe no nome do grupo. */
+export type GrupoAberto = { nome: string; seq: number; grupo: string | null; quando: string };
 
 export type AtividadeDaCampanha = {
   /** O "agora" do servidor: é ele que diz qual hora ainda está enchendo. */
@@ -272,6 +273,6 @@ export function marcasDeGrupoAberto(grupos: GrupoAberto[]): MarcaDePost[] {
   return grupos.map((g) => {
     const hora = horaBR(g.quando);
     const [hh, mm] = hora.split(":").map(Number);
-    return { id: `grupo:${g.grupo ?? g.nome}:${g.quando}`, hora, posicao: (hh * 60 + mm) / 1440, texto: `${apelidoDoGrupo(g.nome)} aberto` };
+    return { id: `grupo:${g.grupo ?? g.nome}:${g.quando}`, hora, posicao: (hh * 60 + mm) / 1440, texto: `${apelidoDoGrupo(g)} aberto` };
   });
 }

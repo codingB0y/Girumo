@@ -33,14 +33,14 @@ after(() => {
 
 test("lê só os grupos criados pela campanha da loja desde o começo do dia, do mais antigo ao mais novo", async () => {
   pedidos.length = 0;
-  linhas = [{ subject: "Mega Stock #40", whatsapp_group_id: "g40@g.us", updated_at: "2026-09-29T12:14:00+00:00" }];
+  linhas = [{ seq: 40, subject: "Mega Stock 40", whatsapp_group_id: "g40@g.us", updated_at: "2026-09-29T12:14:00+00:00" }];
 
   assert.deepEqual(await listGroupsCreatedSince("loja-a", "camp-1", "2026-09-29T03:00:00.000Z"), linhas);
 
   assert.equal(pedidos.length, 1);
   const [url] = pedidos;
   assert.equal(url.pathname, "/rest/v1/group_grow_jobs");
-  assert.equal(url.searchParams.get("select"), "subject,whatsapp_group_id,updated_at");
+  assert.equal(url.searchParams.get("select"), "seq,subject,whatsapp_group_id,updated_at");
   // Mutantes: sem o tenant, a campanha de outra loja com o mesmo id; sem o status,
   // o job que falhou apareceria como grupo aberto.
   assert.deepEqual(Object.fromEntries([...url.searchParams].filter(([k]) => k !== "select")), {

@@ -50,7 +50,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
         sairam: somaDa(antes, "sairam"),
       },
       hojePorGrupo,
-      gruposAbertosHoje: abertos.map((g) => ({ nome: g.subject, grupo: g.whatsapp_group_id, quando: g.updated_at })),
+      gruposAbertosHoje: abertos.map((g) => ({ nome: g.subject, seq: g.seq, grupo: g.whatsapp_group_id, quando: g.updated_at })),
     };
     return Response.json(resposta);
   } catch (error) {

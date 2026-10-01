@@ -131,11 +131,11 @@ export function textoDoPost(p: DispatchView): string {
 }
 
 /**
- * "#40" quando o nome termina no número do grupo (é como o "abre outro" nomeia),
- * senão o nome inteiro: "Mega Stock Atacado #40" vira "#40".
+ * "#40": o número que o "abre outro" pôs no nome, qualquer que seja o molde. O
+ * padrão é "<campanha> {n}", sem "#", então ler o número do nome não serve.
  */
-export function apelidoDoGrupo(nome: string): string {
-  return nome.match(/#\s*\d+\s*$/)?.[0].replace(/\s+/g, "") ?? nome;
+export function apelidoDoGrupo(g: Pick<GrupoAberto, "seq">): string {
+  return `#${g.seq}`;
 }
 
 /** Quando o post saiu (ou começou a sair); o rascunho, quando foi criado. */
@@ -172,7 +172,7 @@ export function hojeNaCampanha(posts: DispatchView[], agora = new Date(), proxim
         id: `grupo:${g.grupo ?? g.nome}:${g.quando}`,
         hora: horaBR(g.quando),
         estado: "grupo_aberto" as const,
-        texto: `${apelidoDoGrupo(g.nome)} aberto sozinho`,
+        texto: `${apelidoDoGrupo(g)} aberto sozinho`,
         enviados: 0,
         total: 0,
         repete: "none" as const,

@@ -229,14 +229,15 @@ test("as marcas são os posts que saíram hoje, na hora e no minuto em que saír
 
 test("o grupo aberto sozinho vira marca no minuto em que passou a existir, pelo número", () => {
   const marcas = marcasDeGrupoAberto([
-    { nome: "Mega Stock Atacado #40", grupo: "g40@g.us", quando: br("2026-09-23", "09:14") },
-    { nome: "Grupo da Loja", grupo: null, quando: br("2026-09-23", "11:00") },
+    { nome: "Mega Stock Atacado 40", seq: 40, grupo: "g40@g.us", quando: br("2026-09-23", "09:14") },
+    // Molde sem número no nome: o "abre outro" acrescenta o seq no fim, e o apelido segue.
+    { nome: "Grupo da Loja 41", seq: 41, grupo: null, quando: br("2026-09-23", "11:00") },
   ]);
   assert.deepEqual(
     marcas.map((m) => [m.hora, m.texto]),
     [
       ["09:14", "#40 aberto"],
-      ["11:00", "Grupo da Loja aberto"],
+      ["11:00", "#41 aberto"],
     ],
   );
   assert.equal(marcas[0].posicao, (9 * 60 + 14) / 1440);
