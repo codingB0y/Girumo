@@ -162,7 +162,7 @@ async function applyGroupDeltas(instance: Instance, event: EvolutionWebhookEvent
  */
 async function recordMemberEvents(instance: Instance, event: EvolutionWebhookEvent): Promise<void> {
   if (event.event !== "group-participants.update") return;
-  const movimento = movimentoDeMembros(event.data.action, event.data.participants, event.date_time);
+  const movimento = movimentoDeMembros(event.data.action, event.data.participants);
   if (!movimento) return;
   try {
     await recordGroupMemberEvents(instance.tenant_id, event.data.id, movimento);
