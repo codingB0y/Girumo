@@ -21,12 +21,10 @@ const DUAS_HORAS_ATRAS = () => new Date(Date.now() - 2 * HORA_MS).toISOString();
 
 const broadcastIds: string[] = [];
 const scheduleIds: string[] = [];
-const commandIds: string[] = [];
 
 after(async () => {
   if (!TENANT || EM_PRODUCAO) return;
   const supabase = getSupabaseAdmin();
-  if (commandIds.length) await supabase.from("engine_commands").delete().in("id", commandIds);
   if (broadcastIds.length) {
     await supabase.from("engine_commands").delete().in("origin_id", broadcastIds);
   }
@@ -137,26 +135,32 @@ test("agendamento dentro da tolerância segue o caminho normal", async () => {
   assert.equal(s!.status, "done");
 });
 
-test("envio parado na fila de número sem envio recente é cancelado, não sai atrasado", async () => {
-  if (pular()) return;
+/**
+ * O tenant de QA não tem número (e os e2e contam com isso). Cada teste de fila
+ * cria um só para ele e apaga no fim; os comandos e envios do número vão junto
+ * (on delete cascade).
+ */
+async function comNumeroTemporario(usar: (instanceId: string) => Promise<void>) {
   const supabase = getSupabaseAdmin();
-  const { data: inst, error: ei } = await supabase
-    .from("instances").select("id").eq("tenant_id", TENANT).limit(1).maybeSingle();
-  if (ei) throw new Error(ei.message);
-  if (!inst) throw new Error("o tenant de QA não tem instância nenhuma");
+  const { data: inst, error } = await supabase
+    .from("instances")
+    .insert({ tenant_id: TENANT, name: `perdeu-hora-${RUN}`, status: "disconnected" })
+    .select("id")
+    .single();
+  if (error) throw new Error(error.message);
+  try {
+    await usar(inst!.id as string);
+  } finally {
+    await supabase.from("instances").delete().eq("tenant_id", TENANT).eq("id", inst!.id);
+  }
+}
 
-  const { count: enviosRecentes, error: eir } = await supabase
-    .from("instance_sends")
-    .select("instance_id", { count: "exact", head: true })
-    .eq("instance_id", inst.id)
-    .gt("sent_at", new Date(Date.now() - 15 * MIN_MS).toISOString());
-  if (eir) throw new Error(eir.message);
-
-  const { data: cmd, error: ec } = await supabase
+async function comandoParadoNaFila(instanceId: string): Promise<string> {
+  const { data: cmd, error } = await getSupabaseAdmin()
     .from("engine_commands")
     .insert({
       tenant_id: TENANT,
-      instance_id: inst.id,
+      instance_id: instanceId,
       type: "send_message",
       status: "queued",
       payload: { jid: `perdeu-hora-${RUN}@g.us`, text: "teste" },
@@ -166,20 +170,34 @@ test("envio parado na fila de número sem envio recente é cancelado, não sai a
     })
     .select("id")
     .single();
-  if (ec) throw new Error(ec.message);
-  commandIds.push(cmd!.id);
+  if (error) throw new Error(error.message);
+  return cmd!.id as string;
+}
 
+async function statusDepoisDoClaim(commandId: string) {
+  const supabase = getSupabaseAdmin();
   const { error } = await supabase.rpc("claim_send_commands", { max_commands: 1, p_tenant: TENANT });
   if (error) throw new Error(error.message);
+  const { data } = await supabase
+    .from("engine_commands").select("status, error").eq("tenant_id", TENANT).eq("id", commandId).single();
+  return data!;
+}
 
-  const { data: depois } = await supabase
-    .from("engine_commands").select("status, error").eq("tenant_id", TENANT).eq("id", cmd!.id).single();
+test("envio parado na fila de número sem envio recente é cancelado, não sai atrasado", async () => {
+  if (pular()) return;
+  await comNumeroTemporario(async (instanceId) => {
+    const depois = await statusDepoisDoClaim(await comandoParadoNaFila(instanceId));
+    assert.equal(depois.status, "canceled");
+    assert.match(depois.error ?? "", /parado na fila/);
+  });
+});
 
-  if ((enviosRecentes ?? 0) > 0) {
-    // Número enviando agora: é fila andando sob o anti-ban, não pode expirar.
-    assert.notEqual(depois!.status, "canceled");
-  } else {
-    assert.equal(depois!.status, "canceled");
-    assert.match(depois!.error ?? "", /parado na fila/);
-  }
+test("número com envio recente é fila andando sob o anti-ban: o comando antigo não expira", async () => {
+  if (pular()) return;
+  await comNumeroTemporario(async (instanceId) => {
+    const { error } = await getSupabaseAdmin().from("instance_sends").insert({ instance_id: instanceId });
+    if (error) throw new Error(error.message);
+    const depois = await statusDepoisDoClaim(await comandoParadoNaFila(instanceId));
+    assert.notEqual(depois.status, "canceled");
+  });
 });
