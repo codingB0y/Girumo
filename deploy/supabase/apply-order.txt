@@ -409,3 +409,7 @@ apps/web/supabase/migrations/20260923140000_board_finalizado.sql
 # 2026-09-26 - painel D (PR C): campaign_activity (novas pessoas + cliques por hora/dia
 # de Brasilia) e indice de link_click_events por campanha. Aplicado nos dois bancos.
 apps/web/supabase/migrations/20260926120000_campaign_activity.sql
+# 2026-09-30 - agendamento que perdeu a hora (>15 min, app.missed_send_tolerance) nao
+# dispara atrasado: promote_due_schedules descarta, claim_send_commands cancela envio
+# parado na fila de numero sem envio recente. Incidente VPS fora do ar 28-30/09.
+apps/web/supabase/migrations/20260930120000_agendamento_perdeu_a_hora.sql
