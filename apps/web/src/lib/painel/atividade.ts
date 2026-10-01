@@ -33,11 +33,11 @@ export type Periodo = "hoje" | "7d" | "mes";
 export type Medida = "novas" | "cliques" | "entraram" | "sairam";
 
 /**
- * Quando o webhook passou a gravar entradas e saídas (`group_member_events`,
- * PR D). Não existe histórico para trás: hora ou dia anterior a isto é "sem
- * medição" no gráfico, nunca zero.
+ * Quando o webhook passou a gravar entradas e saídas (`group_member_events`):
+ * o deploy de produção do #342 em app.girumo.com.br. Não existe histórico para
+ * trás: hora ou dia anterior a isto é "sem medição" no gráfico, nunca zero.
  */
-export const ENTRADAS_E_SAIDAS_DESDE = "2026-09-29T00:00:00-03:00";
+export const ENTRADAS_E_SAIDAS_DESDE = "2026-09-30T23:01:58-03:00";
 
 const MEDIDAS_DE_EVENTO: ReadonlySet<Medida> = new Set(["entraram", "sairam"]);
 
@@ -174,7 +174,7 @@ function barrasPorDia(a: AtividadeDaCampanha, periodo: "7d" | "mes", medida: Med
   const agora = new Date(a.geradoEm);
   const hoje = dayBR(agora);
   const limite = dayBRAgo(7, agora);
-  const primeiroDiaMedido = MEDIDAS_DE_EVENTO.has(medida) ? dayBR(new Date(a.entradasDesde)) : "";
+  const desde = MEDIDAS_DE_EVENTO.has(medida) ? Date.parse(a.entradasDesde) : -Infinity;
   const dias = a.porDia.filter((p) => {
     const dia = dayBROf(p.inicio) ?? "";
     return periodo === "7d" ? dia > limite && dia <= hoje : monthBROf(p.inicio) === hoje.slice(0, 7);
@@ -193,7 +193,9 @@ function barrasPorDia(a: AtividadeDaCampanha, periodo: "7d" | "mes", medida: Med
       ...(abaixo ? { abaixo: p[abaixo] } : {}),
       futuro: dia > hoje,
       atual,
-      semMedicao: dia < primeiroDiaMedido,
+      // Ao contrário da hora, o dia em que a medição começou só conta se ela começou
+      // à meia-noite: pela metade, a soma dele (e a conversão dos cliques) sairia baixa.
+      semMedicao: Date.parse(p.inicio) < desde,
     };
   });
 }

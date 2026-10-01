@@ -120,31 +120,36 @@ test("no começo do mês, 7 dias atravessam a virada e o mês só tem o mês nov
 });
 
 test("entradas e saídas: antes da medição a barra é 'sem medição', nunca zero, e a soma só conta o medido", () => {
-  // Medição desde seg 21/09 às 10h: de qui 17 a dom 20 não há o que medir.
+  // Medição desde seg 21/09 às 10h: de qui 17 a dom 20 não há o que medir, e a
+  // seg 21, medida só das 10h em diante, não entra como dia inteiro.
   const dias = barrasDaAtividade(atividade, "7d", "entraram", "sairam");
-  assert.deepEqual(dias.map((b) => b.semMedicao), [true, true, true, true, false, false, false]);
+  assert.deepEqual(dias.map((b) => b.semMedicao), [true, true, true, true, true, false, false]);
   assert.deepEqual(
-    dias.slice(4).map((b) => [b.valor, b.abaixo]),
+    dias.slice(5).map((b) => [b.valor, b.abaixo]),
     [
-      [4, 1],
       [7, 0],
       [15, 3],
     ],
   );
-  // Mutante: somar o domingo (5 e 5, gravados antes da medição) daria 31 e 9.
-  assert.deepEqual(somaMedida(dias), { entraram: 26, sairam: 4 });
+  // Mutantes: somar a seg 21 (4 e 1, só desde as 10h) daria 26 e 4; somar também o domingo, 31 e 9.
+  assert.deepEqual(somaMedida(dias), { entraram: 22, sairam: 3 });
+  // À meia-noite em ponto, o dia conta inteiro.
+  const desdeMeiaNoite = { ...atividade, entradasDesde: "2026-09-21T03:00:00.000Z" };
+  assert.equal(barrasDaAtividade(desdeMeiaNoite, "7d", "entraram")[4].semMedicao, false);
 
   const horas = barrasDaAtividade(atividade, "hoje", "entraram", "sairam");
   assert.ok(horas.every((b) => !b.semMedicao), "hoje inteiro já era medido");
   assert.deepEqual(somaMedida(horas), { entraram: 15, sairam: 3 });
 });
 
-test("a hora em que a medição começou conta; as de antes, não", () => {
+test("a hora em que a medição começou conta; as de antes e o dia começado pela metade, não", () => {
   const comecouHoje = { ...atividade, entradasDesde: br("2026-09-23", "10:20") };
   const horas = barrasDaAtividade(comecouHoje, "hoje", "entraram", "sairam");
   assert.equal(horas[9].semMedicao, true, "09h às 09h59 terminou antes das 10h20");
   assert.equal(horas[10].semMedicao, false, "10h às 10h59 já tem medição a partir das 10h20");
   assert.deepEqual(somaMedida(horas), { entraram: 9, sairam: 2 });
+  // O dia, não: começou às 10h20, então hoje fica fora dos 7 dias.
+  assert.equal(barrasDaAtividade(comecouHoje, "7d", "entraram").at(-1)?.semMedicao, true);
   // Novas pessoas e cliques não dependem desta medição.
   assert.ok(barrasDaAtividade(comecouHoje, "hoje", "cliques").every((b) => !b.semMedicao));
   assert.ok(barrasDaAtividade(comecouHoje, "7d", "novas").every((b) => !b.semMedicao));
