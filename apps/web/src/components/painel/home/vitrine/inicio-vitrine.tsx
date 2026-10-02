@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo } from "react";
-import { RefreshCw, Send, WifiOff } from "lucide-react";
-import { useCasca } from "@/components/painel/casca-context";
+import { useMemo } from "react";
+import { RefreshCw, Send } from "lucide-react";
 import { CelebrationModal } from "@/components/painel/celebration-modal";
 import { ActivationChecklist } from "@/components/painel/home/activation-checklist";
+import { AvisoParcial, BannerDesconectado, useAtivacaoNaCasca } from "@/components/painel/home/avisos";
 import type { Campanha, Disparo, Lead, Order, TenantSettings, TrackedLink } from "@/components/painel/home/types";
 import { dayBR, dayBRAgo, dayBROf, monthBR } from "@/lib/date-br";
 import type { Group } from "@/lib/mock-data";
@@ -80,16 +80,7 @@ export function InicioVitrine({
   const agora = new Date();
   const hoje = dayBR(agora);
   const mes = monthBR(agora);
-  const { definirPassos } = useCasca();
-
-  // O corredor mostra "N de 5 passos" com o que a Início calculou.
-  useEffect(() => {
-    definirPassos({ feitos: activation.doneCount, total: activation.total });
-  }, [activation.doneCount, activation.total, definirPassos]);
-
-  useEffect(() => {
-    if (settingsOk && activation.complete && settings.onboardingCompletedAt == null) onOnboardingComplete();
-  }, [settingsOk, activation.complete, settings.onboardingCompletedAt, onOnboardingComplete]);
+  useAtivacaoNaCasca({ activation, settings, settingsOk, onOnboardingComplete });
 
   const entradasHoje = useMemo(() => leads.filter((l) => dayBROf(l.enteredAt) === hoje).length, [leads, hoje]);
   const diasDaSemana = new Set(Array.from({ length: 7 }, (_, i) => dayBRAgo(i, agora)));
@@ -165,25 +156,9 @@ export function InicioVitrine({
         </div>
       </header>
 
-      {partial && (
-        <p className="rounded-[var(--radius-control)] bg-aviso-fundo px-4 py-3 text-13 text-volt-950">
-          Alguns números não carregaram e podem estar incompletos. Recarregue a página pra tentar de novo.
-        </p>
-      )}
+      {partial && <AvisoParcial />}
 
-      {!isConnected && (
-        <Link
-          href="/painel/conectar"
-          className="flex items-center gap-3 rounded-[var(--radius-control)] border border-alerta bg-canvas-100 px-4 py-3"
-        >
-          <WifiOff className="h-5 w-5 shrink-0 text-alerta" strokeWidth={2} aria-hidden="true" />
-          <span className="min-w-0 flex-1">
-            <span className="block text-15 font-semibold text-volt-950">Seu WhatsApp está desconectado</span>
-            <span className="block text-13 text-slate-600">Nada sai e ninguém entra até reconectar.</span>
-          </span>
-          <span className="shrink-0 text-13 font-semibold text-cobalt-500">Reconectar</span>
-        </Link>
-      )}
+      {!isConnected && <BannerDesconectado />}
 
       {/* No desktop o roteiro vive no corredor ("N de 5 passos"); no mobile continua aqui. */}
       {mostrarChecklist && (
