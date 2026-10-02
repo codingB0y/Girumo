@@ -24,7 +24,7 @@ qual grupo lotou e quem está esperando na relâmpago, tudo numa tela.
    Vitrine e o que só ela usava.
 3. **Uma chamada só.** A tela continua lendo `/api/painel/inicio` (#260). Entram partes novas em
    `resolverPartes`, cada uma com seu `ok`: parte que falha mostra "não deu pra carregar" no bloco dela e
-   o resto da tela fica de pé.
+   o resto da tela fica de pé. Enquanto a tela nova está atrás de `?ao-vivo`, a parte `atividade` só vem quando a chamada leva `?ao-vivo` — a Vitrine não paga por ela.
 4. **Verdade do produto acima do mockup.** Onde o mockup promete o que o produto não faz, a tela muda:
    - Sem "na ordem de envio": a ordem entre grupos é aleatória (spec D, decisão 8). A grade de entrega
      mostra os grupos **por número**.
@@ -71,10 +71,10 @@ por SQL depois de aplicar.
 ### Faixa de status (topo, uma linha separada por fios)
 
 - ● **AO VIVO** (chip acid) · dia e hora · à direita "atualizado há N min".
-- **Entraram hoje** + sparkline por hora · comparação com o mesmo dia da semana anterior a partir de 08/10.
+- **Entraram hoje** + os últimos 7 dias em miniatura (a mesma da página da campanha) · comparação com o mesmo dia da semana anterior a partir de 08/10.
 - **Saíram** · **Saldo** (+ a semana, somando só o que foi medido).
 - **Cliques nos links hoje** + o total histórico dos links (o recorte por campanha exigiria cliques de hoje por campanha, que nenhuma parte traz — fica para quando pedir).
-- **Pedidos anotados hoje** · R$ · "outubro em X% da meta". Sem meta: "sem meta" com link para definir.
+- **Pedidos anotados hoje** · R$ · a faixa mostra "X% da meta do mês" ou "sem meta do mês". O editor da meta mora hoje na Vitrine (`CaixaDoMes`): o PR 7 precisa trazer um jeito de definir a meta antes de apagar a Vitrine.
 
 ### Mapa dos grupos (centro)
 
@@ -152,7 +152,7 @@ verificação em produção logado (1440 / 1100 / 390 + auditoria de contraste).
 | 4 | Postando agora: prévia, grade por número, término estimado, Pediram, Próximos | — |
 | 5 | Relâmpago AO VIVO (parte `relampago`) | — |
 | 6 | Celular com abas + estados de loja nova + e2e | — |
-| 7 | A Início nova vira padrão; apagar `InicioVitrine` e o que só ela usava | — |
+| 7 | A Início nova vira padrão; apagar `InicioVitrine` e o que só ela usava; levar o editor da meta; tirar o `?ao-vivo` da rota e do hook (a parte `atividade` passa a vir sempre) | — |
 
 ## Testes
 
