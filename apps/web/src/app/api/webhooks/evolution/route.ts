@@ -10,13 +10,14 @@ import {
 import { adminCountDelta } from "@/lib/groups/admin-protection";
 import { memberCountDelta } from "@/lib/groups/member-delta";
 import { movimentoDeMembros } from "@/lib/groups/member-events";
+import { gruposNovosDoUpsert } from "@/lib/groups/upsert-novos";
 import { podeAplicarQr } from "@/lib/instance-qr-guard";
 import { matchesKeyword } from "@/lib/relampago/keyword";
 import { parseUpsertMessage } from "@/lib/relampago/upsert-message";
 import { resolveSecret } from "@/lib/runtime-secrets";
 import { findOpenWindow, insertEntry } from "@/lib/stores/flash-offers";
 import { recordGroupMemberEvents } from "@/lib/stores/group-member-events";
-import { applyAdminCountDelta, applyMemberCountDelta } from "@/lib/stores/groups";
+import { applyAdminCountDelta, applyMemberCountDelta, insertNewGroups } from "@/lib/stores/groups";
 import {
   findByProviderInstanceId,
   listInstances,
@@ -150,6 +151,25 @@ async function applyGroupDeltas(instance: Instance, event: EvolutionWebhookEvent
       `[webhook/evolution] delta de admins falhou para o grupo ${event.data.id}:`,
       e,
     );
+  }
+}
+
+/**
+ * Grupo criado (ou em que o número entrou) depois da conexão entra sozinho.
+ *
+ * Só insere: grupo que já existe fica com o sync. Por isso roda em toda
+ * entrega, não só na primeira — a reentrega é no-op no banco, e se a primeira
+ * tentativa falhou ela é a segunda chance. Erro não derruba a resposta: o
+ * próximo sync importa o grupo do mesmo jeito.
+ */
+async function applyNewGroups(instance: Instance, event: EvolutionWebhookEvent): Promise<void> {
+  if (event.event !== "groups.upsert") return;
+  try {
+    const ourPhones = (await listInstances(instance.tenant_id)).map((i) => i.phone);
+    const rows = gruposNovosDoUpsert(event.data, instance.phone, ourPhones, new Date().toISOString());
+    await insertNewGroups(instance.tenant_id, rows);
+  } catch (e) {
+    console.error(`[webhook/evolution] grupo novo não gravado:`, e);
   }
 }
 
@@ -304,6 +324,7 @@ export async function POST(req: Request) {
     await applyGroupDeltas(instance, event);
     await recordMemberEvents(instance, event, chegouEm);
   }
+  await applyNewGroups(instance, event);
 
   return Response.json({ received: true });
 }
