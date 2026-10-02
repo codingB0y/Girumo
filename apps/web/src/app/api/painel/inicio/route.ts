@@ -8,9 +8,11 @@ import {
   carregarLinks,
   carregarSessao,
 } from "@/lib/painel/inicio-carga";
+import { carregarAtividade } from "@/lib/painel/atividade-carga";
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
 import { listOrdersByTenant } from "@/lib/stores/orders";
 import { getTenantSettings } from "@/lib/stores/tenant-settings";
+import { USE_SUPABASE } from "@/lib/stores/use-supabase";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,7 +25,7 @@ export const dynamic = "force-dynamic";
  * idas ao Supabase (usuário, revogação da sessão, membership). Nove rotas = vinte
  * e sete idas só para descobrir de quem é a tela, antes de qualquer dado.
  *
- * Aqui o tenant é resolvido UMA vez e os nove stores rodam em paralelo do lado do
+ * Aqui o tenant é resolvido UMA vez e as partes rodam em paralelo do lado do
  * servidor, onde a latência até o banco é baixa e o limite de conexões do
  * navegador não existe.
  *
@@ -43,8 +45,12 @@ export async function GET(req: Request) {
     return Response.json({ error: (e as Error).message }, { status: 500 });
   }
 
+  // Os grupos são lidos uma vez e servem a duas partes: a lista e a atividade da loja.
+  const grupos = carregarGrupos(tenantId);
+  // PR 7 (Início ao vivo) tira este gate quando a tela nova vira a padrão: até lá a Vitrine não paga pela série.
+  const comAtividade = new URL(req.url).searchParams.has("ao-vivo");
   const partes = await resolverPartes({
-    groups: () => carregarGrupos(tenantId),
+    groups: () => grupos,
     campanhas: () => carregarCampanhas(tenantId),
     links: () => carregarLinks(tenantId),
     leads: () => carregarLeads(tenantId),
@@ -53,6 +59,17 @@ export async function GET(req: Request) {
     disparos: () => carregarDisparos(tenantId),
     session: () => carregarSessao(tenantId),
     settings: () => getTenantSettings(tenantId),
+    ...(comAtividade && {
+      // O JSON de dev não guarda entrada nem clique com data: sem banco não há série.
+      atividade: async () =>
+        USE_SUPABASE
+          ? carregarAtividade(
+              tenantId,
+              { campanhaId: null, groupIds: (await grupos).map((g) => g.whatsappGroupId) },
+              new Date(),
+            )
+          : null,
+    }),
   });
 
   return Response.json(partes);
