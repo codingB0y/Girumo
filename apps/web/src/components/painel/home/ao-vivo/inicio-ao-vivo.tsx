@@ -19,6 +19,8 @@ type Props = {
   orders: Order[];
   settings: TenantSettings;
   settingsOk: boolean;
+  ordersOk: boolean;
+  linksOk: boolean;
   isConnected: boolean;
   partial: boolean;
   activation: Activation;
@@ -39,6 +41,8 @@ export function InicioAoVivo({
   orders,
   settings,
   settingsOk,
+  ordersOk,
+  linksOk,
   isConnected,
   partial,
   activation,
@@ -64,7 +68,16 @@ export function InicioAoVivo({
           <ActivationChecklist activation={activation} onDismiss={onDismissOnboarding} />
         </div>
       )}
-      <FaixaDeStatus atividade={atividade} links={links} orders={orders} metaDoMes={settings.monthlyGoalRevenue} agora={agora} />
+      <FaixaDeStatus
+        atividade={atividade}
+        links={links}
+        orders={orders}
+        metaDoMes={settings.monthlyGoalRevenue}
+        agora={agora}
+        ordersOk={ordersOk}
+        linksOk={linksOk}
+        settingsOk={settingsOk}
+      />
     </div>
   );
 }

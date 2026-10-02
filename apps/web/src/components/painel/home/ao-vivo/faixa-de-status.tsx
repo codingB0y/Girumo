@@ -18,10 +18,14 @@ type Props = {
   orders: Order[];
   metaDoMes: number | null;
   agora: Date;
+  /** Falso = a parte não carregou: mostrar isso, não um zero que parece fato. */
+  ordersOk: boolean;
+  linksOk: boolean;
+  settingsOk: boolean;
 };
 
 /** A faixa de status da Início "Ao vivo": a loja inteira hoje, numa linha. */
-export function FaixaDeStatus({ atividade, links, orders, metaDoMes, agora }: Props) {
+export function FaixaDeStatus({ atividade, links, orders, metaDoMes, agora, ordersOk, linksOk, settingsOk }: Props) {
   const n = atividade ? numerosDaFaixa(atividade) : null;
   const pedidos = pedidosDeHoje(orders, metaDoMes, agora);
   const cliquesNoTotal = links.reduce((s, l) => s + (l.clicks ?? 0), 0);
@@ -63,12 +67,22 @@ export function FaixaDeStatus({ atividade, links, orders, metaDoMes, agora }: Pr
           {n ? `${saldo(n.saldoSemana)} em 7 dias` : null}
         </Celula>
         <Celula rotulo="Cliques nos links hoje" valor={n ? numero(n.cliques) : "—"}>
-          {cliquesNoTotal === 0 ? "ninguém clicou num link ainda" : `${numero(cliquesNoTotal)} no total`}
+          {!linksOk
+            ? "os links não carregaram"
+            : cliquesNoTotal === 0
+              ? "ninguém clicou num link ainda"
+              : `${numero(cliquesNoTotal)} no total`}
         </Celula>
-        <Celula rotulo="Pedidos anotados hoje" valor={brl.format(pedidos.valor)} className="sm:col-span-2 lg:col-span-1">
-          {pedidos.quantidade === 0 ? "nenhum pedido hoje" : `${numero(pedidos.quantidade)} ${pedidos.quantidade === 1 ? "pedido" : "pedidos"}`}
-          {" · "}
-          {pedidos.metaPct === null ? "sem meta do mês" : `${pedidos.metaPct}% da meta do mês`}
+        <Celula rotulo="Pedidos anotados hoje" valor={ordersOk ? brl.format(pedidos.valor) : "—"} className="sm:col-span-2 lg:col-span-1">
+          {!ordersOk ? (
+            "os pedidos não carregaram"
+          ) : (
+            <>
+              {pedidos.quantidade === 0 ? "nenhum pedido hoje" : `${numero(pedidos.quantidade)} ${pedidos.quantidade === 1 ? "pedido" : "pedidos"}`}
+              {" · "}
+              {!settingsOk ? "meta não carregou" : pedidos.metaPct === null ? "sem meta do mês" : `${pedidos.metaPct}% da meta do mês`}
+            </>
+          )}
         </Celula>
       </div>
     </section>

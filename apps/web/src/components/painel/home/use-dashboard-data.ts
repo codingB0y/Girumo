@@ -144,6 +144,8 @@ export function useDashboardData(): DashboardDataHandle {
         disparos: asArray<Disparo>(disparos),
         session: session.data ?? {},
         settingsOk: settings.ok,
+        ordersOk: orders.ok,
+        linksOk: links.ok,
         atividade: atividade.ok ? (atividade.data ?? null) : null,
         settings: {
           monthlyGoalContacts: (settings.ok ? settings.data?.monthlyGoalContacts : null) ?? null,
