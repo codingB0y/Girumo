@@ -142,6 +142,19 @@ export async function listGroupsCreatedSince(tenantId: string, campaignGroupId: 
   return (data ?? []) as GrupoCriado[];
 }
 
+/** Os mesmos grupos abertos, de todas as campanhas da loja: o "novo 09:14" do mapa da Início. */
+export async function listGroupsCreatedSinceByTenant(tenantId: string, desde: string): Promise<GrupoCriado[]> {
+  const { data, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .select("seq,subject,whatsapp_group_id,updated_at")
+    .eq("tenant_id", tenantId)
+    .eq("status", "created")
+    .gte("updated_at", desde)
+    .order("updated_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as GrupoCriado[];
+}
+
 export async function getGrowJob(tenantId: string, id: string): Promise<GrowJobRow | null> {
   const { data, error } = await getSupabaseAdmin()
     .from(TABLE)

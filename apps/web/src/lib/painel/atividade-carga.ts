@@ -1,12 +1,13 @@
 import "server-only";
 import { ENTRADAS_E_SAIDAS_DESDE, janelasDaAtividade, somaDa, type AtividadeDaCampanha } from "@/lib/painel/atividade";
 import { campaignActivity, campaignGroupMemberCounts } from "@/lib/stores/campaign-activity";
-import { listGroupsCreatedSince } from "@/lib/stores/group-grow-jobs";
+import { listGroupsCreatedSince, listGroupsCreatedSinceByTenant } from "@/lib/stores/group-grow-jobs";
 
 /**
  * A análise de entradas, saídas e cliques num formato só, para a página da
  * campanha e para a Início. `campanhaId` nulo = a loja inteira: os grupos são
- * todos os do tenant e os cliques, de todos os links.
+ * todos os do tenant, os cliques, de todos os links, e os grupos abertos hoje,
+ * de todas as campanhas.
  */
 export async function carregarAtividade(
   tenantId: string,
@@ -20,7 +21,9 @@ export async function carregarAtividade(
     campaignActivity(tenantId, campanha, janelas.porDia),
     campaignActivity(tenantId, campanha, janelas.semanaPassada),
     campaignGroupMemberCounts(tenantId, alvo.groupIds, janelas.porHora),
-    alvo.campanhaId ? listGroupsCreatedSince(tenantId, alvo.campanhaId, janelas.porHora.de.toISOString()) : Promise.resolve([]),
+    alvo.campanhaId
+      ? listGroupsCreatedSince(tenantId, alvo.campanhaId, janelas.porHora.de.toISOString())
+      : listGroupsCreatedSinceByTenant(tenantId, janelas.porHora.de.toISOString()),
   ]);
 
   return {
