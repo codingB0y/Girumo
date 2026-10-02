@@ -10,10 +10,11 @@ type LinhaDoGrupo = { whatsapp_group_id: string; entraram: Quantidade; sairam: Q
  * Série da campanha (`public.campaign_activity`): uma linha por hora ou dia da
  * janela, com zero onde não houve nada. O tenant vai explícito porque o
  * service-role passa por cima do RLS; é este parâmetro que isola as lojas.
+ * `id` nulo é a loja inteira: cliques de todos os links (a Início).
  */
 export async function campaignActivity(
   tenantId: string,
-  campanha: { id: string; groupIds: string[] },
+  campanha: { id: string | null; groupIds: string[] },
   janela: Janela,
 ): Promise<PontoDaSerie[]> {
   const { data, error } = await getSupabaseAdmin().rpc("campaign_activity", {

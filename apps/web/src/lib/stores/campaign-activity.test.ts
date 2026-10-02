@@ -74,3 +74,13 @@ test("a contagem por grupo leva a loja e os grupos da campanha, e volta indexada
     p_to: "2026-09-30T03:00:00.000Z",
   });
 });
+
+test("a loja inteira vai com p_campaign nulo, e os grupos continuam na RPC", async () => {
+  pedidos.length = 0;
+  linhas = [];
+
+  await campaignActivity("loja-a", { id: null, groupIds: ["g40@g.us", "g7@g.us"] }, hoje);
+  assert.equal(pedidos[0].corpo.p_tenant, "loja-a");
+  assert.equal(pedidos[0].corpo.p_campaign, null);
+  assert.deepEqual(pedidos[0].corpo.p_group_ids, ["g40@g.us", "g7@g.us"]);
+});
