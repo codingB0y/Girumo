@@ -6,7 +6,7 @@ import { saldo } from "@/components/painel/campanhas/detalhe/grafico-barras";
 import type { Order, TrackedLink } from "@/components/painel/home/types";
 import { horaBR } from "@/lib/date-br";
 import type { AtividadeDaCampanha } from "@/lib/painel/atividade";
-import { atualizadoHa, numerosDaFaixa, pedidosDeHoje } from "@/lib/painel/ao-vivo/faixa";
+import { atualizadoHa, comparacaoComecaEm, numerosDaFaixa, pedidosDeHoje } from "@/lib/painel/ao-vivo/faixa";
 import { numero } from "@/lib/painel/grupos";
 
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -34,7 +34,9 @@ export function FaixaDeStatus({ atividade, links, orders, metaDoMes, agora, orde
     <section data-testid="inicio-faixa" aria-label="A loja hoje" className="overflow-hidden rounded-[10px] border border-line-200 bg-line-200">
       <div className="flex flex-wrap items-center justify-between gap-2 bg-paper-0 px-5 py-2.5">
         <p className="flex items-center gap-2.5">
-          <span className="pn-chip pn-chip--acid">● AO VIVO</span>
+          <span className="pn-chip pn-chip--acid">
+            <span aria-hidden="true">●</span> AO VIVO
+          </span>
           <span className="text-13 capitalize text-slate-600">
             {DIA.format(agora)} · {horaBR(agora.toISOString())}
           </span>
@@ -56,7 +58,7 @@ export function FaixaDeStatus({ atividade, links, orders, metaDoMes, agora, orde
               ? "a série não carregou"
               : n.comparacao.tipo === "contra"
                 ? <ContraSemanaPassada hoje={n.entraram} antes={n.comparacao.antes} diaPassado={n.comparacao.diaPassado} />
-                : `${medindoDesde(n.comparacao.desde)} · a comparação com a semana passada começa em 7 dias`}
+                : `${medindoDesde(n.comparacao.desde)} · a comparação com a semana passada começa em ${comparacaoComecaEm(n.comparacao.desde)}`}
           </p>
         </div>
         <Celula rotulo="Saíram hoje" valor={n ? numero(n.sairam) : "—"}>
@@ -64,7 +66,7 @@ export function FaixaDeStatus({ atividade, links, orders, metaDoMes, agora, orde
           {n ? "nos grupos em que você é admin" : null}
         </Celula>
         <Celula rotulo="Saldo hoje" valor={n ? saldo(n.saldo) : "—"}>
-          {n ? `${saldo(n.saldoSemana)} em 7 dias` : null}
+          {n ? `${saldo(n.saldoSemana)} ${n.comparacao.tipo === "medindo" ? "na semana (medido)" : "em 7 dias"}` : null}
         </Celula>
         <Celula rotulo="Cliques nos links hoje" valor={n ? numero(n.cliques) : "—"}>
           {!linksOk

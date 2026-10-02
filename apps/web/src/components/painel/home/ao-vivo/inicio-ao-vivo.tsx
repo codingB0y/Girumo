@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import { CelebrationModal } from "@/components/painel/celebration-modal";
 import { ActivationChecklist } from "@/components/painel/home/activation-checklist";
 import { AvisoParcial, BannerDesconectado, useAtivacaoNaCasca } from "@/components/painel/home/avisos";
@@ -11,6 +12,7 @@ import { FaixaDeStatus } from "./faixa-de-status";
 import { useRecarga } from "./use-recarga";
 
 const RECARGA_MS = 60_000;
+const RELOGIO_MS = 30_000;
 
 type Props = {
   groups: Group[];
@@ -51,8 +53,10 @@ export function InicioAoVivo({
   onDismissOnboarding,
   onOnboardingComplete,
 }: Props) {
-  // Sem memo: a hora da faixa e o "atualizado há" andam a cada recarga.
-  const agora = new Date();
+  // Relógio próprio: a hora da faixa e o "atualizado há" andam mesmo quando a recarga falha ou não traz nada novo.
+  const [agora, setAgora] = useState(() => new Date());
+  const tick = useCallback(() => setAgora(new Date()), []);
+  useRecarga(tick, RELOGIO_MS);
   useAtivacaoNaCasca({ activation, settings, settingsOk, onOnboardingComplete });
   useRecarga(onAtualizar, RECARGA_MS);
   const mostrarChecklist = settingsOk && settings.onboardingDismissedAt == null && !activation.complete;

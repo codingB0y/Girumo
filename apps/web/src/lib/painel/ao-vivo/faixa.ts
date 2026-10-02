@@ -1,7 +1,8 @@
-import { dayBR, dayBROf, monthBR } from "@/lib/date-br";
+import { dayBR, dayBROf, diaMesBR, monthBR } from "@/lib/date-br";
 import {
   barrasDaAtividade,
   diaDaSemanaPassada,
+  meiaNoiteBR,
   semanaPassadaMedida,
   somaDa,
   somaMedida,
@@ -33,6 +34,7 @@ export type NumerosDaFaixa = {
 export type PedidosDeHoje = { quantidade: number; valor: number; metaPct: number | null };
 
 const MIN_MS = 60_000;
+const DIA_MS = 86_400_000;
 
 export function numerosDaFaixa(a: AtividadeDaCampanha): NumerosDaFaixa {
   const hoje = somaMedida(barrasDaAtividade(a, "hoje", "entraram", "sairam"));
@@ -66,4 +68,17 @@ export function atualizadoHa(geradoEm: string, agora: Date): string {
   if (minutos < 1) return "atualizado agora";
   if (minutos < 60) return `atualizado há ${minutos} min`;
   return `atualizado há ${Math.floor(minutos / 60)} h`;
+}
+
+/**
+ * `DD/MM` do primeiro dia em que a comparação com a semana passada vale: o dia D
+ * cuja meia-noite, menos 7 dias, já é depois do início da medição
+ * (a mesma conta de `semanaPassadaMedida`).
+ */
+export function comparacaoComecaEm(entradasDesde: string): string {
+  const desde = Date.parse(entradasDesde);
+  const meiaNoite = meiaNoiteBR(dayBR(new Date(desde))).getTime();
+  // Medição que começou no meio do dia: o primeiro dia inteiro medido é o seguinte.
+  const primeiroDiaInteiro = meiaNoite < desde ? meiaNoite + DIA_MS : meiaNoite;
+  return diaMesBR(new Date(primeiroDiaInteiro + 7 * DIA_MS).toISOString()) ?? "";
 }

@@ -99,7 +99,10 @@ export function useDashboardData(): DashboardDataHandle {
     // Uma chamada, não nove: a rota agregada resolve o tenant uma vez e roda os
     // nove stores em paralelo no servidor. As nove rotas soltas continuam de pé
     // para as outras telas, chamando a mesma função de carga que esta usa.
-    const carga = await loadJson<Carga>("/api/painel/inicio");
+    // `?ao-vivo` pede também a série da loja; a Vitrine não usa e não paga por ela.
+    // PR 7 (Início ao vivo) tira o gate quando a tela nova vira a padrão.
+    const aoVivo = new URLSearchParams(window.location.search).has("ao-vivo");
+    const carga = await loadJson<Carga>(aoVivo ? "/api/painel/inicio?ao-vivo" : "/api/painel/inicio");
     if (!carga.ok) {
       // A recarga de fundo que falha mantém a tela como estava: piscar erro a cada minuto sem rede seria pior.
       if (!silencioso) setState({ status: "error" });

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { AtividadeDaCampanha, PontoDaSerie } from "@/lib/painel/atividade";
-import { atualizadoHa, numerosDaFaixa, pedidosDeHoje } from "./faixa";
+import { atualizadoHa, comparacaoComecaEm, numerosDaFaixa, pedidosDeHoje } from "./faixa";
 
 const ponto = (inicio: string, p: Partial<PontoDaSerie> = {}): PontoDaSerie => ({
   inicio, novas: 0, cliques: 0, entraram: 0, sairam: 0, ...p,
@@ -74,4 +74,11 @@ test("atualizado há: agora, minutos e horas", () => {
   assert.equal(atualizadoHa("2026-10-02T17:09:40.000Z", agora), "atualizado agora");
   assert.equal(atualizadoHa("2026-10-02T17:07:00.000Z", agora), "atualizado há 3 min");
   assert.equal(atualizadoHa("2026-10-02T15:05:00.000Z", agora), "atualizado há 2 h");
+});
+
+test("a comparação começa no primeiro dia com 7 dias medidos antes dele", () => {
+  // Mediu a partir de 30/09 23:01 (Brasília): o primeiro dia inteiro medido é 01/10, e a semana passada dele fecha em 08/10.
+  assert.equal(comparacaoComecaEm("2026-09-30T23:01:58-03:00"), "08/10");
+  // Medição que começa à meia-noite exata: aquele dia já é inteiro.
+  assert.equal(comparacaoComecaEm("2026-10-01T00:00:00-03:00"), "08/10");
 });

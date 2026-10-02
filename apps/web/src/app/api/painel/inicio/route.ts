@@ -47,6 +47,8 @@ export async function GET(req: Request) {
 
   // Os grupos são lidos uma vez e servem a duas partes: a lista e a atividade da loja.
   const grupos = carregarGrupos(tenantId);
+  // PR 7 (Início ao vivo) tira este gate quando a tela nova vira a padrão: até lá a Vitrine não paga pela série.
+  const comAtividade = new URL(req.url).searchParams.has("ao-vivo");
   const partes = await resolverPartes({
     groups: () => grupos,
     campanhas: () => carregarCampanhas(tenantId),
@@ -57,15 +59,17 @@ export async function GET(req: Request) {
     disparos: () => carregarDisparos(tenantId),
     session: () => carregarSessao(tenantId),
     settings: () => getTenantSettings(tenantId),
-    // O JSON de dev não guarda entrada nem clique com data: sem banco não há série.
-    atividade: async () =>
-      USE_SUPABASE
-        ? carregarAtividade(
-            tenantId,
-            { campanhaId: null, groupIds: (await grupos).map((g) => g.whatsappGroupId) },
-            new Date(),
-          )
-        : null,
+    ...(comAtividade && {
+      // O JSON de dev não guarda entrada nem clique com data: sem banco não há série.
+      atividade: async () =>
+        USE_SUPABASE
+          ? carregarAtividade(
+              tenantId,
+              { campanhaId: null, groupIds: (await grupos).map((g) => g.whatsappGroupId) },
+              new Date(),
+            )
+          : null,
+    }),
   });
 
   return Response.json(partes);
