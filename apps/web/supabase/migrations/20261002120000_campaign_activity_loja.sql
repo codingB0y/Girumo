@@ -1,6 +1,8 @@
 -- Início "Ao vivo" (spec 2026-10-02): a faixa de status conta os cliques da loja
 -- inteira. campaign_activity passa a aceitar p_campaign nulo; o resto da função
 -- (novas pessoas e entradas/saídas, filtradas por p_group_ids) não muda.
+-- Os cliques vão em dois ramos de union all: o filtro por campanha fica uma igualdade simples e
+-- o índice por tenant/campanha/tempo continua usável no plano genérico da função.
 -- create or replace não preserva ACL em dev: o revoke/grant vai de novo.
 
 create or replace function public.campaign_activity(
@@ -39,11 +41,20 @@ as $$
     group by 1
   ),
   clique as (
+    -- Dois ramos, só um dá linha: o "p_campaign is null or ..." num ramo só impede o índice por campanha.
+    -- Nulo = a loja inteira (a Início): todo clique do tenant, de link com ou sem campanha.
     select date_trunc(p_bucket, e.occurred_at at time zone 'America/Sao_Paulo') as inicio, count(*) as n
     from public.link_click_events e
     where e.tenant_id = p_tenant
-      -- Nulo = a loja inteira (a Início): todo clique do tenant, de link com ou sem campanha.
-      and (p_campaign is null or e.campaign_group_id = p_campaign)
+      and p_campaign is null
+      and e.occurred_at >= p_from
+      and e.occurred_at < p_to
+    group by 1
+    union all
+    select date_trunc(p_bucket, e.occurred_at at time zone 'America/Sao_Paulo') as inicio, count(*) as n
+    from public.link_click_events e
+    where e.tenant_id = p_tenant
+      and e.campaign_group_id = p_campaign
       and e.occurred_at >= p_from
       and e.occurred_at < p_to
     group by 1
