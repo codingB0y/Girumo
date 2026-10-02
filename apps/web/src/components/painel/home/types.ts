@@ -1,4 +1,5 @@
 import type { Group } from "@/lib/mock-data";
+import type { AtividadeDaCampanha } from "@/lib/painel/atividade";
 
 export type Campanha = {
   id: string;
@@ -90,4 +91,6 @@ export type DashboardData = {
    * `null`, e o card do roteiro reabria sozinho a cada falha de rede.
    */
   settingsOk: boolean;
+  /** Entradas, saídas e cliques da loja inteira (Início "Ao vivo"). Nulo = não carregou ou sem banco. */
+  atividade: AtividadeDaCampanha | null;
 };

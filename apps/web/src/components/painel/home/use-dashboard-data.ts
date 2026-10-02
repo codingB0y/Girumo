@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { Group } from "@/lib/mock-data";
+import type { AtividadeDaCampanha } from "@/lib/painel/atividade";
 import type { Parte } from "@/lib/painel/inicio-resposta";
 import type {
   carregarAgendamentos,
@@ -60,6 +61,7 @@ type Carga = {
   disparos: Parte<Awaited<ReturnType<typeof carregarDisparos>>>;
   session: Parte<Awaited<ReturnType<typeof carregarSessao>>>;
   settings: Parte<Awaited<ReturnType<typeof getTenantSettings>>>;
+  atividade: Parte<AtividadeDaCampanha | null>;
 };
 
 const NAO_VEIO: Parte<never> = { ok: false };
@@ -78,6 +80,8 @@ export type LoadState =
 export type DashboardDataHandle = {
   state: LoadState;
   reload: () => void;
+  /** Busca de novo sem o skeleton; falha mantém o dado anterior. */
+  atualizar: () => void;
   /** Grava a meta recém-salva sem refazer as sete buscas. */
   applySettings: (next: TenantSettings) => void;
   /** O lojista fechou o roteiro de ativação. */
@@ -89,15 +93,16 @@ export type DashboardDataHandle = {
 export function useDashboardData(): DashboardDataHandle {
   const [state, setState] = useState<LoadState>({ status: "loading" });
 
-  const load = useCallback(async () => {
-    setState({ status: "loading" });
+  const load = useCallback(async (silencioso = false) => {
+    if (!silencioso) setState({ status: "loading" });
 
     // Uma chamada, não nove: a rota agregada resolve o tenant uma vez e roda os
     // nove stores em paralelo no servidor. As nove rotas soltas continuam de pé
     // para as outras telas, chamando a mesma função de carga que esta usa.
     const carga = await loadJson<Carga>("/api/painel/inicio");
     if (!carga.ok) {
-      setState({ status: "error" });
+      // A recarga de fundo que falha mantém a tela como estava: piscar erro a cada minuto sem rede seria pior.
+      if (!silencioso) setState({ status: "error" });
       return;
     }
 
@@ -110,12 +115,13 @@ export function useDashboardData(): DashboardDataHandle {
     const disparos = parte(carga.data.disparos);
     const session = parte(carga.data.session);
     const settings = parte(carga.data.settings);
+    const atividade = parte(carga.data.atividade);
 
     // Estes três decidem entre onboarding e dashboard. Se algum falhar, não dá
     // pra decidir — e o palpite errado joga uma conta veterana de volta em
     // "Bem-vindo, conecte seu WhatsApp". Melhor admitir que não carregou.
     if (!session.ok || !campanhas.ok || !groups.ok) {
-      setState({ status: "error" });
+      if (!silencioso) setState({ status: "error" });
       return;
     }
 
@@ -138,6 +144,7 @@ export function useDashboardData(): DashboardDataHandle {
         disparos: asArray<Disparo>(disparos),
         session: session.data ?? {},
         settingsOk: settings.ok,
+        atividade: atividade.ok ? (atividade.data ?? null) : null,
         settings: {
           monthlyGoalContacts: (settings.ok ? settings.data?.monthlyGoalContacts : null) ?? null,
           monthlyGoalRevenue: (settings.ok ? settings.data?.monthlyGoalRevenue : null) ?? null,
@@ -185,5 +192,7 @@ export function useDashboardData(): DashboardDataHandle {
     patchOnboarding({ onboardingCompleted: true }, { onboardingCompletedAt: new Date().toISOString() });
   }, [patchOnboarding]);
 
-  return { state, reload: () => void load(), applySettings, dismissOnboarding, markOnboardingComplete };
+  const atualizar = useCallback(() => void load(true), [load]);
+
+  return { state, reload: () => void load(), atualizar, applySettings, dismissOnboarding, markOnboardingComplete };
 }
