@@ -73,7 +73,7 @@ por SQL depois de aplicar.
 - ● **AO VIVO** (chip acid) · dia e hora · à direita "atualizado há N min".
 - **Entraram hoje** + sparkline por hora · comparação com o mesmo dia da semana anterior a partir de 08/10.
 - **Saíram** · **Saldo** (+ a semana, somando só o que foi medido).
-- **Cliques nos links** + as 2–3 campanhas com mais cliques.
+- **Cliques nos links hoje** + o total histórico dos links (o recorte por campanha exigiria cliques de hoje por campanha, que nenhuma parte traz — fica para quando pedir).
 - **Pedidos anotados hoje** · R$ · "outubro em X% da meta". Sem meta: "sem meta" com link para definir.
 
 ### Mapa dos grupos (centro)
