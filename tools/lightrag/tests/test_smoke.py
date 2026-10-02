@@ -27,9 +27,12 @@ def test_embedding_concurrency_cabe_no_timeout_do_lightrag():
     from lightrag_kg import rag
     from lightrag_kg.llm import _MIN_CALL_INTERVAL_SECONDS
 
+    import re
+
     fonte = inspect.getsource(rag.get_rag)
-    assert "embedding_func_max_async=2" in fonte, "a concorrencia de embedding precisa ser explicita"
-    espera_maxima = 2 * _MIN_CALL_INTERVAL_SECONDS
+    workers = re.search(r"embedding_func_max_async=(\d+)", fonte)
+    assert workers, "a concorrencia de embedding precisa ser explicita"
+    espera_maxima = int(workers.group(1)) * _MIN_CALL_INTERVAL_SECONDS
     assert espera_maxima < 30, f"fila de {espera_maxima}s estoura o timeout de 30s do embedding"
 
 

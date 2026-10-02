@@ -1,4 +1,5 @@
 import asyncio
+import os
 import time
 
 import numpy as np
@@ -10,7 +11,10 @@ _client = None
 _resolved_llm_model = None
 _resolved_embedding_model = None
 
-_MIN_CALL_INTERVAL_SECONDS = 4.5
+# Tier pago (creditos pre-pagos no AI Studio desde 02/10/2026): sem intervalo
+# entre chamadas — o teto vem da concorrencia em rag.py e o 429 do backoff abaixo.
+# Se o projeto voltar ao free tier, LIGHTRAG_MIN_CALL_INTERVAL=4.5 restaura a trava.
+_MIN_CALL_INTERVAL_SECONDS = float(os.environ.get("LIGHTRAG_MIN_CALL_INTERVAL", "0"))
 _throttle_lock = asyncio.Lock()
 _last_call_ts = 0.0
 
