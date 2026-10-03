@@ -112,10 +112,19 @@ export default function TermosPage() {
           continua com acesso até lá.
         </p>
         <p>
+          <strong>Teste grátis de 7 dias:</strong> a assinatura pode começar com 7 dias grátis. Para
+          ativar o teste é preciso cadastrar um cartão de crédito, e nada é cobrado durante o teste.
+          Ao fim dos 7 dias, o plano escolhido passa a ser cobrado automaticamente no cartão, todo
+          mês, até você cancelar. Avisamos por e-mail antes da primeira cobrança, e cancelando antes
+          do fim do teste nada é cobrado. O teste vale uma vez por conta e por cartão: se o cartão já
+          tiver sido usado num teste, o teste não é ativado e nada é cobrado.
+        </p>
+        <p>
           <strong>Arrependimento em 7 dias:</strong> por se tratar de contratação feita pela
           internet, você tem o direito do art. 49 do Código de Defesa do Consumidor — desistir em
           até 7 dias contados da contratação e receber de volta o que pagou, monetariamente
-          atualizado. Basta pedir por {LEGAL_CONTACT_EMAIL}.
+          atualizado. Quando a assinatura começa por teste grátis, os 7 dias contam a partir da
+          primeira cobrança. Basta pedir por {LEGAL_CONTACT_EMAIL}.
         </p>
         <p>
           <strong>Cancelamento do plano anual:</strong> se você cancelar um plano anual depois dos 7
