@@ -1886,7 +1886,15 @@ o revisor de segurança deve olhar: ninguém além do servidor decide `comTeste`
 - [ ] **Step 4: Pendências do Igor (juntas, no fim — memória `feedback-execucao-autonoma-pendencias-no-fim`)**
 
 1. Aplicar a migração nos dois bancos (comandos da Task 1, Step 4) e mandar o resultado da consulta do
-   gatilho `guard_trial_columns` (1 linha em cada banco).
+   gatilho `guard_trial_columns` (1 linha em cada banco). O gate de drift não enxerga gatilho: essa
+   consulta é a única prova de que ele existe. Junto, a do furo aceito (função `security definer` que
+   escreve em `organizations` passa pela guarda; qualquer linha que faça update/delete merece olhar):
+
+   ```sql
+   select p.oid::regprocedure from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where p.prosecdef and n.nspname in ('public', 'app')
+      and pg_get_functiondef(p.oid) ~* 'organizations';
+   ```
 2. Atualizar a baseline do gate de drift: rodar em **prod**
 
    ```sql
