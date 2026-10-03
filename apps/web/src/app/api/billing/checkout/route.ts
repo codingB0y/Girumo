@@ -1,8 +1,7 @@
 import { getAppUrl, getStripe } from "@/lib/billing/stripe";
 import { getStripePriceId, normalizePlanCode } from "@/lib/billing/plans";
 import { resolveCheckoutCustomerId } from "@/lib/billing/checkout-customer";
-import { checkoutSessionParams } from "@/lib/billing/checkout-session";
-import { trialEligible } from "@/lib/billing/trial";
+import { checkoutSessionParams, trialApplies } from "@/lib/billing/checkout-session";
 import { readTrialFacts } from "@/lib/billing/trial-facts";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { assertBillingRole, getTenantContext } from "@/lib/supabase/tenant-context";
@@ -36,7 +35,9 @@ export async function POST(req: Request) {
 
     // O cliente não pede teste: o servidor aplica quando a conta é elegível. O único
     // pedido aceito é o contrário — "sem teste", que é o caminho do boleto.
-    const comTeste = body.semTeste !== true && trialEligible(await readTrialFacts(supabase, ctx.tenantId));
+    // `semTeste` curto-circuita antes da leitura: o boleto não depende dos fatos do teste.
+    const comTeste =
+      body.semTeste === true ? false : trialApplies(body.semTeste, await readTrialFacts(supabase, ctx.tenantId));
 
     const stripe = getStripe();
 

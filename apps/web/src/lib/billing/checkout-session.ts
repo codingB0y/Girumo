@@ -1,6 +1,6 @@
 import type Stripe from "stripe";
 
-import { TRIAL_DAYS } from "./trial";
+import { TRIAL_DAYS, trialEligible, type TrialFacts } from "./trial";
 
 /**
  * A sessão de Checkout do Stripe, montada fora da rota para ser testada.
@@ -47,4 +47,15 @@ export function checkoutSessionParams(i: CheckoutSessionInput): Stripe.Checkout.
       trial_settings: { end_behavior: { missing_payment_method: "cancel" } },
     },
   };
+}
+
+/**
+ * O checkout leva teste só se a conta for elegível E o cliente não tiver desistido.
+ *
+ * O cliente nunca pede teste — só pode recusá-lo, e só com o booleano `true`
+ * (é o caminho do boleto). Qualquer outro valor, `"true"` incluso, segue a regra
+ * do servidor.
+ */
+export function trialApplies(semTeste: unknown, facts: TrialFacts): boolean {
+  return semTeste !== true && trialEligible(facts);
 }

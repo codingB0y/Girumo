@@ -1,7 +1,8 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 
-import { checkoutSessionParams } from "./checkout-session";
+import { checkoutSessionParams, trialApplies } from "./checkout-session";
+import type { TrialFacts } from "./trial";
 
 const BASE = {
   customerId: "cus_1",
@@ -42,4 +43,25 @@ test("com teste: só cartão, 7 dias, cancela sem cartão e volta pro painel", (
   });
   assert.equal(p.success_url, "https://app.girumo.com.br/painel?billing=trial_started");
   assert.equal(p.customer, "cus_1");
+});
+
+const ELEGIVEL: TrialFacts = { trialSubscriptionId: null, subscription: null };
+const JA_TESTOU: TrialFacts = { trialSubscriptionId: "sub_1", subscription: null };
+
+test("semTeste === true tira o teste mesmo da conta elegível (caminho do boleto)", () => {
+  assert.equal(trialApplies(true, ELEGIVEL), false);
+});
+
+test("conta que já testou não ganha teste, pedindo ou não", () => {
+  assert.equal(trialApplies(undefined, JA_TESTOU), false);
+  assert.equal(trialApplies(false, JA_TESTOU), false);
+});
+
+test("conta elegível sem pedido de 'sem teste' ganha o teste", () => {
+  assert.equal(trialApplies(undefined, ELEGIVEL), true);
+  assert.equal(trialApplies(false, ELEGIVEL), true);
+});
+
+test("só o booleano true desiste do teste: a string \"true\" não conta", () => {
+  assert.equal(trialApplies("true", ELEGIVEL), true);
 });

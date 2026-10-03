@@ -28,6 +28,9 @@ export async function readTrialFacts(supabase: SupabaseClient, tenantId: string)
   if (org.error) throw org.error;
   if (sub.error) throw sub.error;
 
+  // Sem a linha da organização não há como saber se já testou: "nunca testou" seria chute.
+  if (!org.data) throw new Error(`organizacao ${tenantId} nao encontrada`);
+
   const linha = sub.data;
   const plano = (linha?.plans ?? null) as { name?: string | null; price_cents?: number | null } | null;
   const meta = (linha?.metadata ?? null) as { cancel_reason?: string | null } | null;
