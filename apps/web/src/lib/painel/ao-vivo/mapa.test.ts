@@ -127,3 +127,28 @@ test("nome acessível diz tudo o que a cor diz", () => {
     "Outros grupos #7, Brás atacado 7, 100 de 1.000, sem convite",
   );
 });
+
+test("lê o número no fim do nome (sem #), ordena numericamente e deixa o sem número por último", () => {
+  const mapa = montarMapa({
+    grupos: [
+      grupo("a", { name: "X 10" }),
+      grupo("b", { name: "Clientes antigos" }),
+      grupo("c", { name: "X 2" }),
+      grupo("d", { name: "X 9" }),
+    ],
+    campanhas: [],
+    hojePorGrupo: {},
+    abertosHoje: [],
+  });
+  assert.deepEqual(mapa.blocos[0].celulas.map((c) => c.rotulo), ["#2", "#9", "#10", "4º"]);
+});
+
+test("displayNumber 0 conta como ausente e cai no número do nome", () => {
+  const mapa = montarMapa({
+    grupos: [grupo("a", { name: "VIP #5", displayNumber: 0 })],
+    campanhas: [],
+    hojePorGrupo: {},
+    abertosHoje: [],
+  });
+  assert.equal(mapa.blocos[0].celulas[0].rotulo, "#5");
+});

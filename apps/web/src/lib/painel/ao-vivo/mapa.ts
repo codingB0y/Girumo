@@ -57,9 +57,10 @@ export const TEXTO_DO_ESTADO: Record<EstadoDoGrupo, string> = {
 
 const GRUPOS = "/painel/grupos";
 
+/** `displayNumber`, depois "#n" em qualquer ponto do nome, depois o número no fim ("VIP Revenda 41", o nome padrão do abre-outro). */
 function numeroDoGrupo(g: Group): number | null {
-  if (typeof g.displayNumber === "number" && Number.isFinite(g.displayNumber)) return g.displayNumber;
-  const m = /#\s?(\d+)/.exec(g.name);
+  if (typeof g.displayNumber === "number" && Number.isFinite(g.displayNumber) && g.displayNumber > 0) return g.displayNumber;
+  const m = /#\s?(\d+)/.exec(g.name) ?? /\s(\d+)\s*$/.exec(g.name);
   return m ? Number(m[1]) : null;
 }
 
@@ -70,7 +71,7 @@ function emOrdem(grupos: Group[]): Group[] {
     const nb = numeroDoGrupo(b);
     if (na !== null && nb !== null && na !== nb) return na - nb;
     if ((na === null) !== (nb === null)) return na === null ? 1 : -1;
-    return a.name.localeCompare(b.name, "pt-BR");
+    return a.name.localeCompare(b.name, "pt-BR", { numeric: true });
   });
 }
 
