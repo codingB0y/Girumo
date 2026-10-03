@@ -1919,11 +1919,32 @@ o revisor de segurança deve olhar: ninguém além do servidor decide `comTeste`
 6. CI verde → `gh pr merge <N> --squash --delete-branch` (merge à mão — `main` sem proteção, nunca
    auto-merge).
 7. **Não** ligar `BILLING_TRIAL_ENABLED` agora. O PR 1 entra desligado (sem a chave o checkout é o de
-   antes, então a ordem deploy × migração deixa de importar); liga na Task 15, Step 6.
+   antes, então a ordem deploy × migração deixa de importar); liga na Task 15, Step 6. Ordem para
+   ligar: migração nos dois bancos → eventos no endpoint → chave. O webhook não olha a chave: qualquer
+   assinatura `trialing` (até uma criada à mão no Stripe) já passa pelas travas, que precisam das colunas.
+8. **Corrigir coluna do teste à mão:** o gatilho `guard_trial_columns` é default-deny (só `service_role`,
+   `postgres`, `supabase_admin`). Usar o SQL editor ou `supabase db query --linked` (`select current_user`
+   → `postgres`); o Table Editor pode rodar com outro papel e tomar 42501. Restore lógico (dump) com
+   linhas de teste preenchidas também precisa rodar como `postgres`.
 
 ---
 
 # PR 2 — telas do painel (branch nova `feat/trial-7-dias-painel` a partir de `origin/main` com o PR 1 mergeado)
+
+**Notas da revisão final do PR 1 (03/10) — valem para as Tasks 10–14:**
+
+- O contrato mudou depois deste plano: `trialView().emTeste` ganhou `semCobranca` (cancelou no portal),
+  `subscriptionAccess` aceita `cancelAtPeriodEnd` e tem o estado `trial_canceled` (concede o plano;
+  aviso "Teste cancelado — termina em DD/MM sem cobrança"). A faixa (Task 12) e Configurações (Task 14)
+  **não** anunciam cobrança quando `semCobranca`. Task 14 passa `cancelAtPeriodEnd` e `periodEnd` a
+  `subscriptionAccess`/`subscriptionNotice` (hoje `configuracoes/page.tsx` não passa nenhum dos dois, e
+  `aba-plano` diz "Renova em DD/MM" para teste).
+- Checkout com a chave ligada devolve **409** `{ error }` para conta em `trialing`: `abrirCheckout`
+  (Task 10) e os chamadores (`aba-plano`, `PlanPaywall`) mostram essa mensagem; troca de plano no teste
+  vai pelo portal.
+- `GET /api/billing/trial` responde 500 para conta sem linha em `organizations` (fail-closed): o
+  `useTrial` (Task 10) trata 500 como "sem oferta", sem quebrar a tela.
+- Com a chave desligada, o `GET` responde `{ elegivel: false, emTeste: null, cartaoRepetido: false }`.
 
 ### Task 10: Textos puros, chamada de checkout e hook de leitura
 
