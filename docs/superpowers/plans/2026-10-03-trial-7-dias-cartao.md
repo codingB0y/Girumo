@@ -1476,6 +1476,8 @@ git commit -m "feat(billing): count first paid invoice and send trial-ending not
 - Test: `apps/web/src/lib/email/trial-ending-copy.test.ts`
 - Modify: `apps/web/src/lib/email/templates.ts:343-366` (função `trialEndingEmail`)
 - Modify: `apps/web/src/lib/email/delivery-log.ts:9-20` (`EmailKind`)
+- Modify: `apps/web/src/lib/email/send.ts` (`SendOptions.idempotencyKey?`, repassado como
+  `resend.emails.send(payload, { idempotencyKey })`; resend 4.8.0 aceita)
 - Modify: `apps/web/src/lib/email/brand-copy.test.ts:58`
 - Modify: `apps/web/src/app/api/cron/emails/route.ts:45-46` (comentário)
 - Modify: `apps/web/src/app/api/billing/webhook/route.ts`
@@ -1767,7 +1769,15 @@ E no objeto devolvido, depois de `trackFunnelEvent`:
           appUrl: getAppUrl(),
         });
 
-        const ok = await sendEmail({ to: email, subject, html, tenantId, kind: "trial_ending" });
+        // A chave segura o e-mail único: o handler devolve erro na falha e o Stripe reenvia o evento.
+        const ok = await sendEmail({
+          to: email,
+          subject,
+          html,
+          tenantId,
+          kind: "trial_ending",
+          idempotencyKey: `trial-ending/${subscription.id}`,
+        });
         return { error: ok ? null : "envio falhou (ver email.failed nos logs)" };
       } catch (err) {
         return { error: err instanceof Error ? err.message : String(err) };

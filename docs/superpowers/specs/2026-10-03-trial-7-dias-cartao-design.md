@@ -161,8 +161,12 @@ Retry depois do cancelamento lê a assinatura fresca, vê `canceled` e não entr
 **`invoice.paid` com `amount_paid > 0`** → `payment_completed` com `onlyFirst: true`. Vale para a
 conversão do teste e para qualquer primeira cobrança real; renovações não reescrevem o marco.
 
-**`customer.subscription.trial_will_end`** → e-mail de aviso (4.6). Falha no envio vira log
-`warn` e **2xx**: reenviar o evento duplicaria o e-mail para quem recebeu.
+**`customer.subscription.trial_will_end`** → e-mail de aviso (4.6). Relê a assinatura no Stripe
+antes de decidir (o evento pode chegar velho num reenvio) e não avisa se ela não está mais em
+`trialing` ou já tem cancelamento marcado. Falha no envio vira **erro** e o Stripe reenvia: o envio
+leva a chave de idempotência `trial-ending/{subscription.id}` no Resend, então quem já recebeu não
+recebe de novo. A maioria das falhas (Stripe, `plans`, cartão) acontece antes do envio, e engolir
+essas deixaria o cliente sem o aviso que os Termos prometem.
 
 ### 4.5 Estado e textos
 
