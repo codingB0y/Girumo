@@ -2,6 +2,7 @@
 
 import { useState, type PointerEvent } from "react";
 import { mostraRotulo, tetoDoEixo, type Barra } from "@/lib/painel/atividade";
+import { saldo } from "@/lib/painel/atividade-texto";
 import { cn } from "@/lib/utils";
 
 export type MarcaNoGrafico = { id: string; posicao: number; hora: string; texto: string };
@@ -256,11 +257,4 @@ export function GraficoDeBarras({
       </ol>
     </figure>
   );
-}
-
-/** "+29", "−3", "0": o sinal de menos tipográfico, não o hífen. */
-export function saldo(n: number): string {
-  if (n > 0) return `+${n.toLocaleString("pt-BR")}`;
-  if (n < 0) return `−${Math.abs(n).toLocaleString("pt-BR")}`;
-  return "0";
 }

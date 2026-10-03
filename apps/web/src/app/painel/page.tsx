@@ -40,6 +40,7 @@ export default function PainelPage() {
         links={links}
         leads={leads}
         orders={orders}
+        disparos={disparos}
         settings={settings}
         settingsOk={settingsOk}
         ordersOk={ordersOk}

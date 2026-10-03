@@ -284,11 +284,14 @@ export function marcasDePost(posts: DispatchView[], agora: Date): MarcaDePost[] 
     .sort((x, y) => x.posicao - y.posicao);
 }
 
-/** Os grupos abertos hoje como marcas no gráfico por hora: "#40 aberto". */
-export function marcasDeGrupoAberto(grupos: GrupoAberto[]): MarcaDePost[] {
+/**
+ * Os grupos abertos hoje como marcas no gráfico por hora: "#40 aberto". Na loja
+ * inteira o número se repete entre campanhas, então `comNome` troca por "<nome> aberto".
+ */
+export function marcasDeGrupoAberto(grupos: GrupoAberto[], opcoes: { comNome?: boolean } = {}): MarcaDePost[] {
   return grupos.map((g) => {
     const hora = horaBR(g.quando);
     const [hh, mm] = hora.split(":").map(Number);
-    return { id: `grupo:${g.grupo ?? g.nome}:${g.quando}`, hora, posicao: (hh * 60 + mm) / 1440, texto: `${apelidoDoGrupo(g)} aberto` };
+    return { id: `grupo:${g.grupo ?? g.nome}:${g.quando}`, hora, posicao: (hh * 60 + mm) / 1440, texto: `${opcoes.comNome ? g.nome : apelidoDoGrupo(g)} aberto` };
   });
 }

@@ -1,3 +1,4 @@
+import type { TenantDispatchView } from "@/lib/campaigns/dispatch-view";
 import type { Group } from "@/lib/mock-data";
 import type { AtividadeDaCampanha } from "@/lib/painel/atividade";
 
@@ -34,22 +35,13 @@ export type Order = {
 };
 
 /**
- * Subconjunto de `/api/disparos` que a Início usa.
+ * O que `/api/disparos` devolve (`buildTenantDispatchList`).
  *
  * `sent` e `total` contam GRUPOS alcançados, não mensagens individuais — o
  * rótulo na tela precisa dizer "grupos", senão vira número inventado por outro
  * caminho.
  */
-export type Disparo = {
-  id: string;
-  status: string;
-  sent: number;
-  total: number;
-  dispatchedAt?: string;
-  /** Texto e campanha do post, pra Início mostrar o último como chegou no celular. */
-  body?: string;
-  campaignName?: string;
-};
+export type Disparo = TenantDispatchView;
 
 /** Forma que `/api/schedules` devolve (mapeada do store Supabase). */
 export type Schedule = {

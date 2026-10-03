@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { DispatchView } from "@/lib/campaigns/dispatch-view";
-import { dayBR, diaMesBR, horaBR } from "@/lib/date-br";
+import { dayBR, horaBR } from "@/lib/date-br";
 import {
   barrasDaAtividade,
   diaDaSemanaPassada,
@@ -16,9 +16,10 @@ import {
   type Barra,
   type Periodo,
 } from "@/lib/painel/atividade";
+import { contagem, fraseDoMovimento, medindoDesde, unidadeDeEntradas, unidadeDeSaidas } from "@/lib/painel/atividade-texto";
 import { numero } from "@/lib/painel/grupos";
 import { cn } from "@/lib/utils";
-import { GraficoDeBarras, saldo } from "./grafico-barras";
+import { GraficoDeBarras } from "./grafico-barras";
 
 /**
  * A série da campanha, de `GET /api/campanhas/[slug]/atividade`. Busca de novo
@@ -68,15 +69,7 @@ type Props = {
   posts: DispatchView[] | null;
 };
 
-const unidadeDeEntradas: [string, string] = ["entrou", "entraram"];
-const unidadeDeSaidas: [string, string] = ["saiu", "saíram"];
 const unidadeDeCliques: [string, string] = ["clique", "cliques"];
-
-/** "medindo desde 29/09" ou, quando a medição começou no meio do dia, "medindo desde 29/09, 16h". */
-export function medindoDesde(iso: string): string {
-  const hora = horaBR(iso);
-  return hora === "00:00" ? `medindo desde ${diaMesBR(iso)}` : `medindo desde ${diaMesBR(iso)}, ${hora.slice(0, 2)}h`;
-}
 
 /**
  * Seção Análise da direção D (spec 2026-09-24, PRs C e D): quem entrou e saiu dos
@@ -235,28 +228,10 @@ function soma(barras: Barra[]): number {
   return barras.reduce((s, b) => s + b.valor, 0);
 }
 
-/** "1 clique", "12 cliques". */
-function contagem(n: number, [um, varios]: [string, string]): string {
-  return `${numero(n)} ${n === 1 ? um : varios}`;
-}
-
 function frase(barras: Barra[], total: number, quando: string, unidade: [string, string], vazio: string): string {
   if (total === 0) return vazio;
   const pico = barras.reduce((m, b) => (b.valor > m.valor ? b : m), barras[0]);
   return `${contagem(total, unidade)} ${quando}; o pico foi ${pico.rotuloLongo}, com ${numero(pico.valor)}.`;
-}
-
-/**
- * "12 entraram e 3 saíram hoje; saldo +9. O pico foi 12h às 12h59, com 5." Com
- * parte do período antes da medição, diz desde quando conta.
- */
-function fraseDoMovimento(barras: Barra[], m: { entraram: number; sairam: number }, quando: string, desde: string | null): string {
-  if (barras.every((b) => b.semMedicao)) return `Entradas e saídas ainda não eram medidas neste período (${desde}).`;
-  const nota = desde ? ` (${desde})` : "";
-  if (m.entraram + m.sairam === 0) return `Ninguém entrou nem saiu ${quando}${nota}.`;
-  const pico = barras.reduce((p, b) => (!b.semMedicao && b.valor > p.valor ? b : p), barras.find((b) => !b.semMedicao) ?? barras[0]);
-  const base = `${contagem(m.entraram, unidadeDeEntradas)} e ${contagem(m.sairam, unidadeDeSaidas)} ${quando}${nota}; saldo ${saldo(m.entraram - m.sairam)}.`;
-  return pico.valor > 0 ? `${base} O pico foi ${pico.rotuloLongo}, com ${numero(pico.valor)}.` : base;
 }
 
 /** Cliques que viraram entrada; quando entra mais gente do que clicou, diz isso em vez de mostrar 100%. */

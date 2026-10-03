@@ -27,12 +27,12 @@ import {
   type EstadoNaCampanha,
   type FiltroDeGrupos,
 } from "@/lib/painel/campanha-visao";
+import { medindoDesde, saldo } from "@/lib/painel/atividade-texto";
 import { aindaSaindo, itemAoVivo, postDaTabela, resumoDaEntrega, type ItemAoVivo } from "@/lib/painel/entrega";
 import { lotacao, numero } from "@/lib/painel/grupos";
 import { cn } from "@/lib/utils";
-import { AnaliseDaCampanha, medindoDesde, useAtividade } from "./analise";
+import { AnaliseDaCampanha, useAtividade } from "./analise";
 import { CelulaDaEntrega, LegendaDaEntrega, useEntrega } from "./entrega";
-import { saldo } from "./grafico-barras";
 
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const LINHAS = 8;
