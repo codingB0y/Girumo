@@ -1918,6 +1918,8 @@ o revisor de segurança deve olhar: ninguém além do servidor decide `comTeste`
    `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
 6. CI verde → `gh pr merge <N> --squash --delete-branch` (merge à mão — `main` sem proteção, nunca
    auto-merge).
+7. **Não** ligar `BILLING_TRIAL_ENABLED` agora. O PR 1 entra desligado (sem a chave o checkout é o de
+   antes, então a ordem deploy × migração deixa de importar); liga na Task 15, Step 6.
 
 ---
 
@@ -2880,7 +2882,8 @@ verificação visual da Task 12 — sem afirmar QA de ponta a ponta.
 - [ ] **Step 1: Webhook local**
 
 `stripe listen --forward-to localhost:3000/api/billing/webhook` (copiar o `whsec_` impresso para
-`STRIPE_WEBHOOK_SECRET` do `.env.local` e reiniciar o `next dev`).
+`STRIPE_WEBHOOK_SECRET` do `.env.local` e reiniciar o `next dev`). No `.env.local`,
+`BILLING_TRIAL_ENABLED=1` — sem ela o teste não aparece (chave da revisão final do PR 1).
 
 - [ ] **Step 2: Teste novo** — conta de dev nova → modal abre → Growth → cartão `4242 4242 4242 4242` →
 volta para `/painel?billing=trial_started` → "Ativando…" → faixa "faltam 7 dias". Conferir no banco de
@@ -2901,6 +2904,10 @@ dev, fazer o checkout de teste com ela. Avançar o relógio 4 dias → evento `t
 - [ ] **Step 5: Fechar o PR 2** — `verify-local.ps1` verde, **Code Reviewer** + **Accessibility Auditor**
 em paralelo no diff, push, `gh pr create` (corpo com capturas da Task 12 e o resultado do QA, rodapé
 `🤖 Generated with [Claude Code](https://claude.com/claude-code)`), CI verde, `gh pr merge <N> --squash --delete-branch`.
+
+- [ ] **Step 6: Ligar o teste em produção (Igor)** — só com o PR 2 no ar, a migração aplicada nos dois
+bancos e os eventos do Stripe habilitados: Vercel → `BILLING_TRIAL_ENABLED=1` em Production → redeploy.
+Desligar é o freio de emergência (mesmo caminho, valor vazio).
 
 ---
 

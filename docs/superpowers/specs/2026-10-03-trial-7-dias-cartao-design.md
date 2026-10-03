@@ -227,11 +227,23 @@ A devolução proporcional do **anual** também sai do FAQ das LPs (`lp-shared/l
 
 | PR | Conteúdo | Visível para o cliente? |
 |---|---|---|
-| 1 — servidor + Termos | migração, `trial.ts`, checkout, webhook, `GET /api/billing/trial`, e-mail, Termos | Sim: quem clicar em "Assinar" já vê o teste no Checkout do Stripe |
-| 2 — painel | `TrialOffer`, `TrialBanner`, `PlanPaywall` em modo teste, aviso de cartão repetido, Configurações › Plano | Sim |
+| 1 — servidor + Termos | migração, `trial.ts`, checkout, webhook, `GET /api/billing/trial`, e-mail, Termos | Só os Termos: o teste sai **desligado** (`BILLING_TRIAL_ENABLED`) |
+| 2 — painel | `TrialOffer`, `TrialBanner`, `PlanPaywall` em modo teste, aviso de cartão repetido, Configurações › Plano | Sim, depois de ligar a chave |
 | 3 — copy das LPs + cadastro | 4.9 | Sim |
 
-PR 1 e PR 2 mergeiam na mesma sessão. Pré-requisitos de PR 1 no ar (mão do Igor):
+**Chave `BILLING_TRIAL_ENABLED`** (revisão final do PR 1, 03/10). Desligada (o padrão), o checkout e o
+`GET /api/billing/trial` se comportam exatamente como antes: não leem os fatos do teste, não oferecem
+teste, não recusam nada. Motivo: o PR 1 sozinho no ar tiraria o boleto de conta elegível (nenhuma tela
+manda `semTeste` antes do PR 2), deixaria "Ativa · Renova em…" e a promessa de devolução do paywall
+ao lado de um Checkout com teste, e, se o deploy viesse antes da migração, derrubaria **todo** checkout
+(a leitura das colunas novas lança). Liga depois do PR 2 no ar e do QA da Task 15. Também serve de
+freio de emergência se aparecer abuso.
+
+Com a chave ligada, o checkout recusa (409) conta cuja assinatura está em `trialing` — troca de plano
+no teste vai pelo portal — e a sessão com teste expira em 30 min (o mínimo do Stripe), para uma sessão
+velha não virar uma segunda assinatura depois de outro checkout.
+
+PR 1 e PR 2 mergeiam na mesma sessão. Pré-requisitos para ligar a chave (mão do Igor):
 
 - migração nos dois bancos;
 - `customer.subscription.trial_will_end` e `invoice.paid` habilitados no endpoint do webhook;
@@ -245,10 +257,26 @@ PR 1 e PR 2 mergeiam na mesma sessão. Pré-requisitos de PR 1 no ar (mão do Ig
 | Duas abas concluem dois checkouts de teste | A segunda perde a reserva → cancelada sem cobrança, vencedora re-sincronizada |
 | Mesmo cartão em duas contas ao mesmo tempo | Índice único decide; a perdedora é cancelada |
 | Cartão recusado no 8º dia | `past_due` → `subscriptionAccess` nega → faixa "Pagamento pendente" que já existe |
-| Cliente cancela no portal durante o teste | `cancel_at_period_end` → fim do teste sem fatura → `canceled` |
+| Cliente cancela no portal durante o teste | `cancel_at_period_end` → fim do teste sem fatura → `canceled`. Os fatos do teste carregam `cancelAtPeriodEnd`: tela e aviso dizem "Teste cancelado — termina em DD/MM sem cobrança", nunca anunciam a cobrança |
+| `checkout.session.completed` falha até o Stripe desistir (~3 dias) | O `trial_will_end` (dia 4) refaz as travas de conta e de cartão **antes** do e-mail: perdedora ou cartão repetido é cancelada ali e não recebe aviso |
 | Webhook do `trial_will_end` perdido | Cliente não recebe o aviso; o Stripe ainda cobra. Mitigação: a falha devolve erro e o Stripe reenvia por ~3 dias (chave de idempotência no Resend); o erro fica em `stripe.webhook.failed` |
 | Conta com concessão manual (`active` sem Stripe) | Não vê oferta (não toma 402); continua elegível se um dia perder a concessão |
 | Checkout sem teste (boleto) | Fluxo atual, intocado |
+
+**Limites conhecidos (aceitos):**
+
+- **Carteira digital.** O fingerprint do Apple/Google Pay é o do número tokenizado, não o do cartão:
+  o mesmo cartão físico, digitado numa conta e pela carteira em outra, passa como cartões diferentes.
+- **Sem `default_payment_method`.** Se o Checkout não preencher, o teste segue sem trava de cartão
+  (só o log `stripe.trial.sem_cartao`). O QA manual da seção 7 (segundo tenant com o mesmo 4242)
+  prova que preenche.
+- **Sessão velha além de 30 min.** Fora da janela de expiração não há; dentro dela, uma sessão de
+  teste concluída depois de outro checkout ainda vira segunda assinatura (o webhook não consulta as
+  outras assinaturas do customer no Stripe).
+- **Reativação no portal depois do `trial_will_end`.** Quem cancela antes do aviso e reativa depois
+  não recebe o e-mail (o Stripe manda o evento uma vez). Foi o próprio cliente que escolheu seguir.
+- **Função `security definer`** de dono `postgres` que escreva em `organizations` passa pelo gatilho
+  `guard_trial_columns`. Nenhuma conhecida; o runbook da Task 9 tem a consulta.
 
 ## 7. Testes
 
