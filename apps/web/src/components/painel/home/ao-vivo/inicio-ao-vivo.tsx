@@ -4,11 +4,12 @@ import { useCallback, useState } from "react";
 import { CelebrationModal } from "@/components/painel/celebration-modal";
 import { ActivationChecklist } from "@/components/painel/home/activation-checklist";
 import { AvisoParcial, BannerDesconectado, useAtivacaoNaCasca } from "@/components/painel/home/avisos";
-import type { Lead, Order, TenantSettings, TrackedLink } from "@/components/painel/home/types";
+import type { Campanha, Lead, Order, TenantSettings, TrackedLink } from "@/components/painel/home/types";
 import type { Group } from "@/lib/mock-data";
 import type { Activation } from "@/lib/onboarding-steps";
 import type { AtividadeDaCampanha } from "@/lib/painel/atividade";
 import { FaixaDeStatus } from "./faixa-de-status";
+import { MapaDosGrupos } from "./mapa-dos-grupos";
 import { useRecarga } from "./use-recarga";
 
 const RECARGA_MS = 60_000;
@@ -16,6 +17,7 @@ const RELOGIO_MS = 30_000;
 
 type Props = {
   groups: Group[];
+  campanhas: Campanha[];
   links: TrackedLink[];
   leads: Lead[];
   orders: Order[];
@@ -34,10 +36,11 @@ type Props = {
 
 /**
  * Início "Ao vivo" (spec 2026-10-02, mockup F): a sala de controle da loja.
- * PR 1 = a faixa de status; mapa, postando agora e relâmpago entram nos PRs 2–5.
+ * PR 1 a faixa, PR 2 o mapa; postando agora e relâmpago entram nos PRs 4–5.
  */
 export function InicioAoVivo({
   groups,
+  campanhas,
   links,
   leads,
   orders,
@@ -82,6 +85,7 @@ export function InicioAoVivo({
         linksOk={linksOk}
         settingsOk={settingsOk}
       />
+      <MapaDosGrupos grupos={groups} campanhas={campanhas} atividade={atividade} />
     </div>
   );
 }

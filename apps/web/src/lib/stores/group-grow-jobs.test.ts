@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
 
-import { listGroupsCreatedSince } from "./group-grow-jobs";
+import { listGroupsCreatedSince, listGroupsCreatedSinceByTenant } from "./group-grow-jobs";
 
 /**
  * O cliente real do Supabase contra um PostgREST de mentira (o desenho de
@@ -48,6 +48,25 @@ test("lê só os grupos criados pela campanha da loja desde o começo do dia, do
     campaign_group_id: "eq.camp-1",
     status: "eq.created",
     updated_at: "gte.2026-09-29T03:00:00.000Z",
+    order: "updated_at.asc",
+  });
+});
+
+test("na loja inteira, lê os grupos abertos de todas as campanhas da loja, sem filtrar campanha", async () => {
+  pedidos.length = 0;
+  linhas = [{ seq: 7, subject: "Brás 7", whatsapp_group_id: "g7@g.us", updated_at: "2026-10-02T12:14:00+00:00" }];
+
+  assert.deepEqual(await listGroupsCreatedSinceByTenant("loja-a", "2026-10-02T03:00:00.000Z"), linhas);
+
+  assert.equal(pedidos.length, 1);
+  const [url] = pedidos;
+  assert.equal(url.pathname, "/rest/v1/group_grow_jobs");
+  assert.equal(url.searchParams.get("select"), "seq,subject,whatsapp_group_id,updated_at");
+  // Mutante: sem o tenant, a Início de uma loja mostraria "novo 09:14" de outra.
+  assert.deepEqual(Object.fromEntries([...url.searchParams].filter(([k]) => k !== "select")), {
+    tenant_id: "eq.loja-a",
+    status: "eq.created",
+    updated_at: "gte.2026-10-02T03:00:00.000Z",
     order: "updated_at.asc",
   });
 });

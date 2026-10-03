@@ -53,9 +53,9 @@ qual grupo lotou e quem está esperando na relâmpago, tudo numa tela.
 | Parte nova em `/api/painel/inicio` | Fonte | Alimenta |
 |---|---|---|
 | `atividade` | `campaign_activity(p_tenant, null, todos os grupos, hoje, agora, 'hour')` + a semana | faixa (entraram, saíram, saldo, cliques), sparkline, gráfico |
-| `grupos_hoje` | `campaign_group_member_counts` com todos os grupos do tenant | "+n hoje" das células |
-| `grupos_novos` | `listGroupsCreatedSince` (do PR G; o #353 já faz grupo novo entrar pelo webhook) | "novo HH:MM" |
 | `relampago` | `listOffers` → abertas; totais da oferta (mesma conta de `offerTotalsByBroadcastIds`); próximas 5 da `listQueue` | card Relâmpago |
+
+"+n hoje" e "novo HH:MM" vêm da própria parte `atividade` (`hojePorGrupo`, `gruposAbertosHoje`), que no PR 2 passa a ler os grupos abertos do tenant inteiro — sem parte nova.
 
 Pedidos, meta, agendamentos, disparos, grupos e campanhas já vêm na resposta de hoje.
 
@@ -87,11 +87,19 @@ por SQL depois de aplicar.
 - Filtros Todos · Lotou · Quase · Ativo · Sem convite, com contagem.
 - "Lotou → abre outro: ligado/desligado" por campanha, só leitura, com link para a configuração da
   campanha.
-- Até 3 alertas acima do mapa: grupo sem convite ("Configurar convite" → o grupo); campanha com todos os
+- Até 3 alertas acima do mapa: grupo sem convite ("Configurar convite" → leva à tela de Grupos, onde o convite se edita na linha); campanha com todos os
   grupos lotados e o abre-outro desligado.
-- Clique na célula abre o grupo. Nome acessível completo ("VIP Revenda #39, 935 de 1.024, quase lotado,
+- Clique na célula abre a campanha do grupo (`/painel/campanhas/<slug>`); em "Outros grupos", a tela de Grupos. Não existe página de um grupo só. Nome acessível completo ("VIP Revenda #39, 935 de 1.024, quase lotado,
   38 entraram hoje"); o estado também é texto, nunca só cor.
 - Mais de ~200 grupos: cada campanha mostra os 60 mais cheios + "ver todos".
+
+**Antes do PR 7** (achados da revisão final do PR 2):
+
+- No modo 200+, um filtro diferente de "Todos" tem de buscar em todos os grupos, não só nos 60 visíveis
+  por bloco (hoje "Sem convite 5" pode listar nada).
+- O tooltip da célula tem de fechar com Esc e poder receber o mouse (WCAG 1.4.13).
+- O mapa deixa de fora do bloco da campanha os grupos que não estão no cadastro; a página da campanha
+  os mostra como "sumiu".
 
 ### Entradas e saídas por hora (abaixo do mapa)
 
@@ -147,7 +155,7 @@ verificação em produção logado (1440 / 1100 / 390 + auditoria de contraste).
 | # | Entrega | DDL |
 |---|---|---|
 | 1 | Casca `InicioAoVivo` + seletor `?ao-vivo` + faixa de status + partes `atividade` + polling de 60 s | `campaign_activity` com `p_campaign` nulo (Igor, dois bancos) |
-| 2 | Mapa dos grupos: estado, +n hoje, novo, filtros, tooltip, alertas, Outros grupos (`grupos_hoje`, `grupos_novos`) | — |
+| 2 | Mapa dos grupos: estado, +n hoje, novo, filtros, tooltip, alertas, Outros grupos (`hojePorGrupo`, `gruposAbertosHoje`) | — |
 | 3 | Entradas e saídas por hora da loja, com marcas | — |
 | 4 | Postando agora: prévia, grade por número, término estimado, Pediram, Próximos | — |
 | 5 | Relâmpago AO VIVO (parte `relampago`) | — |
