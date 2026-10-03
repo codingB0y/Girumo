@@ -12,6 +12,10 @@ import { numero } from "@/lib/painel/grupos";
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const DIA = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "2-digit", month: "2-digit", timeZone: "America/Sao_Paulo" });
 
+function primeiraMaiuscula(texto: string): string {
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
 type Props = {
   atividade: AtividadeDaCampanha | null;
   links: TrackedLink[];
@@ -37,8 +41,8 @@ export function FaixaDeStatus({ atividade, links, orders, metaDoMes, agora, orde
           <span className="pn-chip pn-chip--acid">
             <span aria-hidden="true">●</span> AO VIVO
           </span>
-          <span className="text-13 capitalize text-slate-600">
-            {DIA.format(agora)} · {horaBR(agora.toISOString())}
+          <span className="text-13 text-slate-600">
+            {primeiraMaiuscula(DIA.format(agora))} · {horaBR(agora.toISOString())}
           </span>
         </p>
         <p className="text-12 text-slate-600">{atividade ? atualizadoHa(atividade.geradoEm, agora) : "a série não carregou"}</p>

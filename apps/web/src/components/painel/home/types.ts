@@ -6,6 +6,8 @@ export type Campanha = {
   name: string;
   groupIds: string[];
   slug?: string;
+  /** "Lotou → abre outro" ligado. Já vem em /api/painel/inicio (`carregarCampanhas`). */
+  autoGrow?: boolean;
 };
 
 export type TrackedLink = {

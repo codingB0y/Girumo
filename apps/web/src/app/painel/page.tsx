@@ -36,6 +36,7 @@ export default function PainelPage() {
     return (
       <InicioAoVivo
         groups={groups}
+        campanhas={campanhas}
         links={links}
         leads={leads}
         orders={orders}
