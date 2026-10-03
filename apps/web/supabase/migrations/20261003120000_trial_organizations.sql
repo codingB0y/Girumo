@@ -36,12 +36,15 @@ create unique index if not exists organizations_trial_card_fingerprint_key
 -- é para função definer; esta é invoker, mas fixa search_path = '' e qualifica tudo
 -- do mesmo jeito.
 --
--- Barrados: authenticated e anon. Passam: service_role (o servidor do app, webhook
--- incluso), postgres (migração) e supabase_admin (painel).
+-- Default-deny: passam SÓ service_role (o servidor do app, webhook incluso),
+-- postgres (migração) e supabase_admin (painel). Qualquer outro papel é barrado —
+-- authenticated, anon e qualquer um que venha a existir. Ninguém mais tem motivo
+-- para mexer nessas colunas, e a guarda só dispara quando uma delas é gravada,
+-- trocada ou apagada.
 -- Furo conhecido e aceito: uma função security definer de dono postgres que escreva
 -- em organizations roda como postgres e passa pela guarda. Nenhuma conhecida hoje.
--- Sem grant/revoke: o trigger dispara sem EXECUTE de quem escreve, e o Postgres
--- recusa chamada direta a função `returns trigger`.
+-- Sem grant/revoke na função: o trigger dispara sem EXECUTE de quem escreve, e o
+-- Postgres recusa chamada direta a função `returns trigger`.
 --
 -- Cada ramo devolve a linha certa: no DELETE é OLD (NEW é nulo, e devolver nulo num
 -- BEFORE trigger cancela o delete em silêncio); no INSERT e no UPDATE é NEW.
@@ -52,7 +55,7 @@ security invoker
 set search_path = ''
 as $$
 declare
-  is_blocked_role constant boolean := current_user in ('authenticated', 'anon');
+  is_blocked_role constant boolean := current_user not in ('service_role', 'postgres', 'supabase_admin');
   refusal constant text := 'trial_subscription_id e trial_card_fingerprint sao so do servidor';
 begin
   if tg_op = 'DELETE' then
@@ -90,6 +93,12 @@ create trigger guard_trial_columns
   for each row
   execute function public.guard_trial_columns();
 
+-- TRUNCATE pula trigger de linha e RLS, então furaria a guarda acima. O PostgREST
+-- não expõe TRUNCATE; revogar é defesa em profundidade de graça (idempotente).
+revoke truncate on public.organizations from authenticated;
+
 -- Conferência depois de aplicar (espera 1 linha em cada banco):
 -- select tgname from pg_trigger
 --  where tgrelid = 'public.organizations'::regclass and tgname = 'guard_trial_columns';
+-- E espera false:
+-- select has_table_privilege('authenticated', 'public.organizations', 'TRUNCATE');

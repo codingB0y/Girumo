@@ -637,7 +637,10 @@ function trialWillEnd(over: Partial<Stripe.Subscription> = {}): Stripe.Event {
  * O handler decide por ela, não pelo snapshot do evento — um reenvio chega velho.
  */
 function storeComFresca(fresca: Partial<Stripe.Subscription>, options: FakeOptions = {}) {
-  return makeStore({ ...options, subscriptionsById: { sub_123: makeSubscription(fresca) } });
+  return makeStore({
+    ...options,
+    subscriptionsById: { ...options.subscriptionsById, sub_123: makeSubscription(fresca) },
+  });
 }
 
 test("aviso de fim de teste manda o e-mail", async () => {
@@ -691,4 +694,81 @@ test("falha no aviso devolve 5xx sem marcador: o Stripe reenvia e a chave do Res
   assert.ok(res.status >= 500, `engolir a falha perde o aviso que os Termos prometem; veio ${res.status}`);
   assert.equal(f.processedEvents.has("evt_twe"), false, "marcador gravado bloquearia o reenvio");
   assert.ok(f.logs.some((l) => l.event === "stripe.webhook.failed" && l.metadata.error === "resend fora"));
+});
+
+// ---------------------------------------------------------------------------
+// trial_will_end como segunda chance das travas do teste. Se o
+// checkout.session.completed falhou até o Stripe desistir (~3 dias), a perdedora
+// ou o cartão repetido seguem vivos: sem isto, recebiam "termina em 3 dias" e
+// eram cobrados no 8º dia — o cancelamento do teste nunca cobra.
+// ---------------------------------------------------------------------------
+
+const META_TESTE = { tenant_id: TENANT, plan_id: PLAN, plan_code: "GROWTH" };
+
+test("aviso: perdedora do teste da conta e cancelada sem cobrar e nao recebe e-mail", async () => {
+  const f = storeComFresca(
+    { status: "trialing" },
+    { trialHolder: "sub_win", subscriptionsById: { sub_win: trialing("sub_win") } },
+  );
+
+  const res = await handleStripeEvent(trialWillEnd(), f.store);
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(f.cancels, [{ id: "sub_123", reason: "trial_duplicate" }]);
+  assert.deepEqual(f.emails, []);
+  assert.deepEqual(f.upserts.map((u) => u.stripe_subscription_id), ["sub_win"]);
+  assert.deepEqual(f.funnelEvents, []);
+});
+
+test("aviso: cartao ja testado em outra conta e cancelado sem cobrar e nao recebe e-mail", async () => {
+  const f = storeComFresca({ status: "trialing" }, { trialHolder: "sub_123", takenFingerprints: ["fp_cartao_a"] });
+
+  const res = await handleStripeEvent(trialWillEnd(), f.store);
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(f.cancels, [{ id: "sub_123", reason: "trial_card_reused" }]);
+  assert.deepEqual(f.emails, []);
+  assert.deepEqual(f.funnelEvents, []);
+});
+
+test("aviso: motivo de cancelamento ja gravado (cancel falhou antes) re-cancela e nao manda e-mail", async () => {
+  // Sem trialHolder nem cartao tomado: so o motivo gravado manda cancelar. As
+  // travas, sozinhas, deixariam passar.
+  for (const reason of ["trial_card_reused", "trial_duplicate"] as const) {
+    const f = storeComFresca({ status: "trialing", metadata: { ...META_TESTE, cancel_reason: reason } });
+
+    const res = await handleStripeEvent(trialWillEnd(), f.store);
+
+    assert.equal(res.status, 200, reason);
+    assert.deepEqual(f.cancels, [{ id: "sub_123", reason }], reason);
+    assert.deepEqual(f.emails, [], reason);
+  }
+});
+
+test("aviso: teste legitimo (reserva propria, cartao proprio) recebe o e-mail e nao reconta trial_started", async () => {
+  const f = storeComFresca({ status: "trialing" }, { trialHolder: "sub_123" });
+
+  const res = await handleStripeEvent(trialWillEnd(), f.store);
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(f.cancels, []);
+  assert.deepEqual(f.emails, ["sub_123"]);
+  assert.deepEqual(f.funnelEvents, [], "trial_started ja saiu (ou sai) do checkout");
+});
+
+test("aviso: erro do store nas travas devolve 5xx sem marcador e sem e-mail", async () => {
+  const cenarios: { nome: string; opts: FakeOptions }[] = [
+    { nome: "claimTrial", opts: { claimError: "db fora" } },
+    { nome: "cancelTrialSubscription", opts: { cancelError: "stripe 500", takenFingerprints: ["fp_cartao_a"] } },
+  ];
+
+  for (const { nome, opts } of cenarios) {
+    const f = storeComFresca({ status: "trialing" }, opts);
+
+    const res = await handleStripeEvent(trialWillEnd(), f.store);
+
+    assert.ok(res.status >= 500, `${nome}: o Stripe so reenvia em nao-2xx; veio ${res.status}`);
+    assert.equal(f.processedEvents.has("evt_twe"), false, `${nome}: marcador bloquearia o reenvio`);
+    assert.deepEqual(f.emails, [], `${nome}: sem trava conferida, nada de aviso de cobranca`);
+  }
 });
