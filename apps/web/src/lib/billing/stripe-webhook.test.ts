@@ -461,3 +461,89 @@ test("motivo do cancelamento chega na linha de subscriptions", async () => {
 
   assert.equal(f.upserts[0].metadata.cancel_reason, "trial_card_reused");
 });
+
+// ---------------------------------------------------------------------------
+// Primeira fatura paga (a venda real do teste grátis) e aviso de fim de teste.
+// ---------------------------------------------------------------------------
+
+function invoiceEvent(
+  amountPaid: number,
+  meta: Record<string, string> | null = { tenant_id: TENANT, plan_code: "GROWTH" },
+): Stripe.Event {
+  return {
+    id: `evt_inv_${amountPaid}`,
+    type: "invoice.paid",
+    created: 1_700_000_000,
+    data: {
+      object: {
+        id: "in_1",
+        amount_paid: amountPaid,
+        billing_reason: "subscription_cycle",
+        parent: meta ? { subscription_details: { subscription: "sub_trial", metadata: meta } } : null,
+      },
+    },
+  } as unknown as Stripe.Event;
+}
+
+test("primeira fatura paga (fim do teste) conta a venda, uma vez so", async () => {
+  const f = makeStore();
+
+  const res = await handleStripeEvent(invoiceEvent(29700), f.store);
+
+  assert.equal(res.status, 200);
+  assert.equal(f.funnelEvents.length, 1);
+  assert.equal(f.funnelEvents[0].event, "payment_completed");
+  assert.equal(f.funnelEvents[0].onlyFirst, true);
+});
+
+test("fatura de R$ 0 (a que abre o teste) nao e venda", async () => {
+  const f = makeStore();
+
+  await handleStripeEvent(invoiceEvent(0), f.store);
+
+  assert.equal(f.funnelEvents.length, 0);
+});
+
+test("fatura sem assinatura (sem tenant) e ignorada sem erro", async () => {
+  const f = makeStore();
+
+  const res = await handleStripeEvent(invoiceEvent(29700, null), f.store);
+
+  assert.equal(res.status, 200);
+  assert.equal(f.funnelEvents.length, 0);
+});
+
+function trialWillEnd(over: Partial<Stripe.Subscription> = {}): Stripe.Event {
+  return makeEvent({
+    id: "evt_twe",
+    type: "customer.subscription.trial_will_end",
+    data: { object: makeSubscription({ status: "trialing", ...over }) },
+  } as unknown as Partial<Stripe.Event>);
+}
+
+test("aviso de fim de teste manda o e-mail", async () => {
+  const f = makeStore();
+
+  const res = await handleStripeEvent(trialWillEnd(), f.store);
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(f.emails, ["sub_123"]);
+});
+
+test("teste ja cancelado pelo cliente nao recebe aviso de cobranca", async () => {
+  const f = makeStore();
+
+  await handleStripeEvent(trialWillEnd({ cancel_at_period_end: true }), f.store);
+
+  assert.deepEqual(f.emails, []);
+});
+
+test("falha no e-mail vira log e 2xx: reenvio duplicaria o e-mail de quem recebeu", async () => {
+  const f = makeStore({ emailError: "resend fora" });
+
+  const res = await handleStripeEvent(trialWillEnd(), f.store);
+
+  assert.equal(res.status, 200);
+  assert.ok(f.logs.some((l) => l.event === "stripe.trial.aviso_falhou"));
+  assert.ok(f.processedEvents.has("evt_twe"));
+});

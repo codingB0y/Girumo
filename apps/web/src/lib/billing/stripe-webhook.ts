@@ -366,6 +366,67 @@ async function handleCheckoutSession(
   return { error: null };
 }
 
+/**
+ * Primeira fatura PAGA = venda. Vale para o fim do teste grátis e para qualquer
+ * primeira cobrança; `onlyFirst` impede que renovações reescrevam o marco.
+ *
+ * A fatura de R$ 0 que abre o teste também chega como `invoice.paid` — o valor é
+ * o filtro. O tenant vem do metadata da assinatura copiado na fatura
+ * (`parent.subscription_details`, API dahlia).
+ */
+async function handleInvoicePaid(invoice: Stripe.Invoice, store: WebhookStore): Promise<StoreResult> {
+  if (!invoice.amount_paid || invoice.amount_paid <= 0) return { error: null };
+
+  const meta = invoice.parent?.subscription_details?.metadata ?? null;
+  const tenantId = meta?.tenant_id;
+  if (!tenantId) return { error: null };
+
+  await store.trackFunnelEvent({
+    tenantId,
+    userId: meta?.user_id ?? null,
+    event: "payment_completed",
+    metadata: {
+      plan_code: meta?.plan_code ?? null,
+      stripe_invoice_id: invoice.id,
+      billing_reason: invoice.billing_reason ?? null,
+    },
+    onlyFirst: true,
+  });
+
+  return { error: null };
+}
+
+/**
+ * O Stripe avisa 3 dias antes do fim do teste. Mandamos o e-mail com valor, data
+ * e como cancelar — exigência das bandeiras para teste com cartão, e o que segura
+ * chargeback.
+ *
+ * Falha no envio NÃO pede reenvio: o Stripe reentregaria o evento e quem já
+ * recebeu ganharia um segundo e-mail. Vira log e o marcador é gravado.
+ */
+async function handleTrialWillEnd(
+  subscription: Stripe.Subscription,
+  store: WebhookStore,
+): Promise<StoreResult> {
+  const tenantId = subscription.metadata.tenant_id;
+  if (!tenantId || subscription.status !== "trialing") return { error: null };
+  // Cancelou durante o teste: não vai haver cobrança, e o aviso seria mentira.
+  if (subscription.cancel_at_period_end) return { error: null };
+
+  const sent = await store.sendTrialEndingEmail(subscription);
+  if (sent.error) {
+    await store.insertLog({
+      tenant_id: tenantId,
+      level: "warn",
+      event: "stripe.trial.aviso_falhou",
+      message: "E-mail de fim de teste nao saiu.",
+      metadata: { stripe_subscription_id: subscription.id, error: sent.error },
+    });
+  }
+
+  return { error: null };
+}
+
 export async function handleStripeEvent(
   event: Stripe.Event,
   store: WebhookStore,
@@ -426,6 +487,14 @@ export async function handleStripeEvent(
       store,
       { pagamentoFalhou: true },
     );
+  }
+
+  if (event.type === "invoice.paid") {
+    processed = await handleInvoicePaid(event.data.object as Stripe.Invoice, store);
+  }
+
+  if (event.type === "customer.subscription.trial_will_end") {
+    processed = await handleTrialWillEnd(event.data.object as Stripe.Subscription, store);
   }
 
   if (processed.error) {
