@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Link2Off } from "lucide-react";
 import { numero } from "@/lib/painel/grupos";
 import { rotuloAcessivel, TEXTO_DO_ESTADO, type CelulaDoMapa } from "@/lib/painel/ao-vivo/mapa";
 import { cn } from "@/lib/utils";
@@ -8,6 +9,9 @@ import { cn } from "@/lib/utils";
  * cor do estado e um fio sólido no topo: com o tom fraco o número continua
  * legível em cima dele, e o fio ainda diz "lotou" de longe. O Acid fica no
  * `span` — nunca na classe do link (regra 10, e2e da casca).
+ *
+ * Sem convite = contorno vermelho + ícone. O vermelho é `saida`: tem tom próprio
+ * no tema noite (7,2:1 na superfície; o `danger-700` dava 2,7:1 ali).
  */
 const PREENCHIMENTO: Record<CelulaDoMapa["estado"], string> = {
   cheio: "bg-acid-500/25 border-t-2 border-acid-500",
@@ -27,10 +31,11 @@ export function CelulaDoGrupo({ celula: c, bloco }: { celula: CelulaDoMapa; bloc
         aria-hidden="true"
         className={cn(
           "relative flex h-full w-full flex-col justify-between overflow-hidden rounded-md border bg-paper-0 p-1 tabular-nums",
-          c.estado === "sem_convite" ? "border-danger-700" : "border-line-200",
+          c.estado === "sem_convite" ? "border-saida" : "border-line-200",
         )}
       >
         <span className={cn("absolute inset-x-0 bottom-0", PREENCHIMENTO[c.estado])} style={{ height: `${Math.round(c.lotacao * 100)}%` }} />
+        {c.estado === "sem_convite" && <Link2Off className="absolute right-1 top-1 h-3 w-3 text-saida" aria-hidden="true" />}
         <span className="relative text-12 font-semibold leading-none text-volt-950">{c.rotulo}</span>
         <span className="relative text-[11px] leading-none text-volt-950">
           {c.novoAs ? `novo ${c.novoAs}` : c.entraram > 0 ? `+${numero(c.entraram)}` : ""}

@@ -23,7 +23,7 @@ const LEGENDA: [string, string][] = [
   ["bg-acid-500", "lotou"],
   ["bg-quase", "quase"],
   ["bg-slate-600", "com vaga"],
-  ["border border-danger-700", "sem convite"],
+  ["border border-saida", "sem convite"],
 ];
 
 type Props = { grupos: Group[]; campanhas: Campanha[]; atividade: AtividadeDaCampanha | null };
@@ -96,6 +96,10 @@ export function MapaDosGrupos({ grupos, campanhas, atividade }: Props) {
                 </li>
               ))}
             </ul>
+          )}
+
+          {!mapa.blocos.some((b) => filtro === "todos" || b.celulas.some((c) => c.estado === filtro)) && (
+            <p className="text-13 text-slate-600">Nenhum grupo em &quot;{FILTROS.find(([f]) => f === filtro)?.[1]}&quot;.</p>
           )}
 
           {mapa.blocos.map((b) => {
