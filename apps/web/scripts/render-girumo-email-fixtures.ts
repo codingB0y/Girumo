@@ -7,7 +7,13 @@ import { pathToFileURL } from "node:url";
 type EmailResult = { subject: string; html: string };
 type EmailTemplates = {
   welcomeEmail: (name: string, appUrl: string) => EmailResult;
-  trialEndingEmail: (name: string, appUrl: string, daysLeft: number) => EmailResult;
+  trialEndingEmail: (input: {
+    planName: string;
+    amountCents: number;
+    chargeAt: string;
+    cardLast4: string | null;
+    appUrl: string;
+  }) => EmailResult;
 };
 type ResolveFilename = (
   request: string,
@@ -47,7 +53,12 @@ function resolveQaAppUrl(env: NodeJS.ProcessEnv = process.env): string {
 export const GIRUMO_EMAIL_QA_DATA = Object.freeze({
   name: "Marina Girumo QA",
   appUrl: resolveQaAppUrl(),
-  trialDaysLeft: 2,
+  trial: Object.freeze({
+    planName: "Growth",
+    amountCents: 29700,
+    chargeAt: "2026-10-10T15:00:00.000Z",
+    cardLast4: "4242",
+  }),
 });
 
 const require = createRequire(import.meta.url);
@@ -95,11 +106,10 @@ const { welcomeEmail, trialEndingEmail } = loadRealEmailTemplates();
 export function buildGirumoEmailFixtureFiles(): GirumoEmailFixtureFiles {
   return {
     "welcome.html": welcomeEmail(GIRUMO_EMAIL_QA_DATA.name, GIRUMO_EMAIL_QA_DATA.appUrl).html,
-    "trial-ending.html": trialEndingEmail(
-      GIRUMO_EMAIL_QA_DATA.name,
-      GIRUMO_EMAIL_QA_DATA.appUrl,
-      GIRUMO_EMAIL_QA_DATA.trialDaysLeft,
-    ).html,
+    "trial-ending.html": trialEndingEmail({
+      ...GIRUMO_EMAIL_QA_DATA.trial,
+      appUrl: GIRUMO_EMAIL_QA_DATA.appUrl,
+    }).html,
   };
 }
 

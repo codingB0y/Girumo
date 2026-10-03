@@ -1,9 +1,12 @@
 import type Stripe from "stripe";
-import { getStripe } from "@/lib/billing/stripe";
+import { getAppUrl, getStripe } from "@/lib/billing/stripe";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
+import { sendEmail } from "@/lib/email/send";
+import { trialEndingEmail } from "@/lib/email/templates";
 import {
   handleStripeEvent,
+  type DefaultCard,
   type WebhookStore,
 } from "@/lib/billing/stripe-webhook";
 
@@ -18,6 +21,13 @@ const UNIQUE_VIOLATION = "23505";
 
 function createStore(): WebhookStore {
   const supabase = getSupabaseAdmin();
+
+  async function lerCartao(subscription: Stripe.Subscription): Promise<DefaultCard> {
+    const pm = subscription.default_payment_method;
+    if (!pm) return { fingerprint: null, last4: null };
+    const metodo = typeof pm === "string" ? await getStripe().paymentMethods.retrieve(pm) : pm;
+    return { fingerprint: metodo.card?.fingerprint ?? null, last4: metodo.card?.last4 ?? null };
+  }
 
   return {
     async hasProcessedEvent(stripeEventId) {
@@ -69,6 +79,104 @@ function createStore(): WebhookStore {
 
     async trackFunnelEvent(input) {
       await trackFunnelEvent(input);
+    },
+
+    async claimTrial({ tenantId, subscriptionId }) {
+      const { data, error } = await supabase
+        .from("organizations")
+        .update({ trial_subscription_id: subscriptionId })
+        .eq("id", tenantId)
+        .eq("tenant_id", tenantId)
+        .is("trial_subscription_id", null)
+        .select("trial_subscription_id")
+        .maybeSingle();
+      if (error) return { outcome: "lost", winnerId: null, error: error.message };
+      if (data) return { outcome: "won", winnerId: subscriptionId, error: null };
+
+      // Nada casou: alguém já reservou. Pode ser esta mesma assinatura (retry).
+      const { data: atual, error: readError } = await supabase
+        .from("organizations")
+        .select("trial_subscription_id")
+        .eq("id", tenantId)
+        .eq("tenant_id", tenantId)
+        .maybeSingle();
+      if (readError) return { outcome: "lost", winnerId: null, error: readError.message };
+      const winnerId = (atual?.trial_subscription_id as string | null | undefined) ?? null;
+      // Sem organização não há onde reservar: erro, para o Stripe reenviar e o log mostrar.
+      if (!winnerId) return { outcome: "lost", winnerId: null, error: `organizacao ${tenantId} nao encontrada` };
+      return { outcome: winnerId === subscriptionId ? "same" : "lost", winnerId, error: null };
+    },
+
+    defaultCard: lerCartao,
+
+    async claimCardFingerprint({ tenantId, fingerprint }) {
+      const { error } = await supabase
+        .from("organizations")
+        .update({ trial_card_fingerprint: fingerprint })
+        .eq("id", tenantId)
+        .eq("tenant_id", tenantId)
+        .is("trial_card_fingerprint", null);
+      // Índice único: outra conta já testou com este cartão. Não é falha, é a trava.
+      if (error?.code === UNIQUE_VIOLATION) return { outcome: "taken", error: null };
+      if (error) return { outcome: "ok", error: error.message };
+      // Zero linhas casadas também é "ok": a conta já tinha o cartão gravado (retry).
+      return { outcome: "ok", error: null };
+    },
+
+    async cancelTrialSubscription({ subscription, reason }) {
+      try {
+        const stripe = getStripe();
+        // Motivo ANTES do cancelamento: o `subscription.deleted` que vem em seguida
+        // carrega o metadata, e é por ele que a tela explica e o upsert decide.
+        await stripe.subscriptions.update(subscription.id, {
+          metadata: { ...subscription.metadata, cancel_reason: reason },
+        });
+        await stripe.subscriptions.cancel(subscription.id);
+        return { error: null };
+      } catch (err) {
+        return { error: err instanceof Error ? err.message : String(err) };
+      }
+    },
+
+    async sendTrialEndingEmail(subscription) {
+      try {
+        const tenantId = subscription.metadata.tenant_id;
+        if (!tenantId || !subscription.trial_end) return { error: "assinatura sem tenant ou sem trial_end" };
+
+        const customer = await getStripe().customers.retrieve(String(subscription.customer));
+        const email = customer.deleted ? null : customer.email;
+        if (!email) return { error: "customer sem e-mail" };
+
+        // `plans` é catálogo global: sem filtro de tenant, de propósito (ver /api/plans).
+        const { data: plano, error: planError } = await supabase
+          .from("plans")
+          .select("name")
+          .eq("id", subscription.metadata.plan_id)
+          .maybeSingle();
+        if (planError) return { error: planError.message };
+
+        const cartao = await lerCartao(subscription);
+        const { subject, html } = trialEndingEmail({
+          planName: (plano?.name as string | undefined) ?? "seu plano",
+          amountCents: subscription.items.data[0]?.price.unit_amount ?? 0,
+          chargeAt: new Date(subscription.trial_end * 1000).toISOString(),
+          cardLast4: cartao.last4,
+          appUrl: getAppUrl(),
+        });
+
+        // A chave segura o e-mail único: o handler devolve erro na falha e o Stripe reenvia o evento.
+        const ok = await sendEmail({
+          to: email,
+          subject,
+          html,
+          tenantId,
+          kind: "trial_ending",
+          idempotencyKey: `trial-ending/${subscription.id}`,
+        });
+        return { error: ok ? null : "envio falhou (ver email.failed nos logs)" };
+      } catch (err) {
+        return { error: err instanceof Error ? err.message : String(err) };
+      }
     },
   };
 }
