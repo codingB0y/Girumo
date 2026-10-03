@@ -20,6 +20,7 @@ function daysToMilestone(createdAt: string, occurredAt?: string): number | null 
 
 const FUNNEL_STEPS: { event: FunnelEvent; label: string; icon: typeof Users; color: string }[] = [
   { event: "signup", label: "Signup", icon: UserPlus, color: "text-blue-600 bg-blue-50" },
+  { event: "trial_started", label: "Teste grátis", icon: Check, color: "text-sky-600 bg-sky-50" },
   { event: "qr_connected", label: "QR Conectado", icon: Radio, color: "text-emerald-600 bg-emerald-50" },
   { event: "first_group_synced", label: "Grupo Sincronizado", icon: Users, color: "text-purple-600 bg-purple-50" },
   { event: "first_dispatch", label: "1º Disparo", icon: Send, color: "text-amber-600 bg-amber-50" },

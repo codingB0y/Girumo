@@ -49,18 +49,29 @@ type FakeOptions = {
   upsertError?: string | null;
   /** Assinatura que o Stripe devolve no `retrieveSubscription`. */
   subscription?: Stripe.Subscription;
+  /** Assinaturas por id — para quando o handler busca OUTRA (a vencedora do teste). */
+  subscriptionsById?: Record<string, Stripe.Subscription>;
+  /** Quem já reservou o teste desta conta (`organizations.trial_subscription_id`). */
+  trialHolder?: string | null;
+  /** Fingerprints já reservados por OUTRAS contas. */
+  takenFingerprints?: string[];
+  card?: { fingerprint: string | null; last4: string | null };
+  emailError?: string | null;
 };
 
 /**
- * Fake que modela o que importa para estes testes: o marcador de idempotencia
- * e o estado da assinatura, ambos com falha injetavel.
+ * Fake que modela o que importa para estes testes: o marcador de idempotencia,
+ * o estado da assinatura e as reservas do teste grátis, com falha injetavel.
  */
 function makeStore(options: FakeOptions = {}) {
   const processedEvents = new Set<string>();
   const upserts: SubscriptionRow[] = [];
   const logs: LogRow[] = [];
   const funnelEvents: FunnelInput[] = [];
+  const cancels: { id: string; reason: string }[] = [];
+  const emails: string[] = [];
   let upsertError = options.upsertError ?? null;
+  let trialHolder = options.trialHolder ?? null;
 
   const store: WebhookStore = {
     async hasProcessedEvent(id) {
@@ -79,11 +90,37 @@ function makeStore(options: FakeOptions = {}) {
       logs.push(row);
       return { error: null };
     },
-    async retrieveSubscription() {
-      return options.subscription ?? makeSubscription();
+    async retrieveSubscription(id) {
+      return options.subscriptionsById?.[id] ?? options.subscription ?? makeSubscription();
     },
     async trackFunnelEvent(input) {
       funnelEvents.push(input);
+    },
+    async claimTrial({ subscriptionId }) {
+      if (!trialHolder) {
+        trialHolder = subscriptionId;
+        return { outcome: "won", winnerId: subscriptionId, error: null };
+      }
+      return {
+        outcome: trialHolder === subscriptionId ? "same" : "lost",
+        winnerId: trialHolder,
+        error: null,
+      };
+    },
+    async defaultCard() {
+      return options.card ?? { fingerprint: "fp_cartao_a", last4: "4242" };
+    },
+    async claimCardFingerprint({ fingerprint }) {
+      const taken = (options.takenFingerprints ?? []).includes(fingerprint);
+      return { outcome: taken ? "taken" : "ok", error: null };
+    },
+    async cancelTrialSubscription({ subscription, reason }) {
+      cancels.push({ id: subscription.id, reason });
+      return { error: null };
+    },
+    async sendTrialEndingEmail(subscription) {
+      emails.push(subscription.id);
+      return { error: options.emailError ?? null };
     },
   };
 
@@ -92,6 +129,8 @@ function makeStore(options: FakeOptions = {}) {
     upserts,
     logs,
     funnelEvents,
+    cancels,
+    emails,
     processedEvents,
     recuperaBanco: () => {
       upsertError = null;
@@ -311,4 +350,114 @@ test("MUTANTE C.3: incomplete nao vira past_due", () => {
   assert.equal(mapStripeStatus("active"), "active");
   assert.equal(mapStripeStatus("past_due"), "past_due");
   assert.equal(mapStripeStatus("canceled"), "canceled");
+});
+
+// ---------------------------------------------------------------------------
+// Teste grátis de 7 dias (spec 2026-10-03). O checkout de teste volta com
+// `payment_status: no_payment_required` — o mesmo do cupom de 100% —, e é o
+// status da ASSINATURA (`trialing`) que separa os dois.
+// ---------------------------------------------------------------------------
+
+function trialing(id: string, metadata: Record<string, string> = {}): Stripe.Subscription {
+  return makeSubscription({
+    id,
+    status: "trialing",
+    metadata: { tenant_id: TENANT, plan_id: PLAN, plan_code: "GROWTH", ...metadata },
+  });
+}
+
+test("teste novo: reserva, conta trial_started e NAO conta venda", async () => {
+  const f = makeStore({ subscription: trialing("sub_trial") });
+
+  const res = await handleStripeEvent(makeCheckoutEvent("no_payment_required"), f.store);
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(f.funnelEvents.map((e) => e.event), ["trial_started"]);
+  assert.equal(f.funnelEvents[0].onlyFirst, true);
+  assert.equal(f.cancels.length, 0);
+});
+
+test("teste ja reservado por esta mesma assinatura (retry) segue sem cancelar", async () => {
+  const f = makeStore({ subscription: trialing("sub_trial"), trialHolder: "sub_trial" });
+
+  const res = await handleStripeEvent(makeCheckoutEvent("no_payment_required"), f.store);
+
+  assert.equal(res.status, 200);
+  assert.equal(f.cancels.length, 0);
+  assert.deepEqual(f.funnelEvents.map((e) => e.event), ["trial_started"]);
+});
+
+test("cartao usado em teste de outra conta: cancela sem cobrar e nao conta teste", async () => {
+  const f = makeStore({
+    subscription: trialing("sub_trial"),
+    card: { fingerprint: "fp_repetido", last4: "4242" },
+    takenFingerprints: ["fp_repetido"],
+  });
+
+  const res = await handleStripeEvent(makeCheckoutEvent("no_payment_required"), f.store);
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(f.cancels, [{ id: "sub_trial", reason: "trial_card_reused" }]);
+  assert.equal(f.funnelEvents.length, 0);
+  assert.ok(f.logs.some((l) => l.event === "stripe.trial.cartao_repetido"));
+});
+
+test("segundo checkout de teste da mesma conta: cancela o perdedor e devolve a linha a vencedora", async () => {
+  const vencedora = trialing("sub_win");
+  const f = makeStore({
+    subscription: trialing("sub_dup"),
+    trialHolder: "sub_win",
+    subscriptionsById: { sub_win: vencedora },
+  });
+
+  const res = await handleStripeEvent(makeCheckoutEvent("no_payment_required"), f.store);
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(f.cancels, [{ id: "sub_dup", reason: "trial_duplicate" }]);
+  assert.equal(f.upserts.at(-1)?.stripe_subscription_id, "sub_win");
+  assert.equal(f.funnelEvents.length, 0);
+});
+
+test("teste sem fingerprint de cartao segue, mas deixa rastro", async () => {
+  const f = makeStore({
+    subscription: trialing("sub_trial"),
+    card: { fingerprint: null, last4: null },
+  });
+
+  await handleStripeEvent(makeCheckoutEvent("no_payment_required"), f.store);
+
+  assert.ok(f.logs.some((l) => l.event === "stripe.trial.sem_cartao"));
+  assert.deepEqual(f.funnelEvents.map((e) => e.event), ["trial_started"]);
+});
+
+test("eventos da assinatura duplicada nao sobrescrevem a linha", async () => {
+  const f = makeStore();
+  const dup = makeSubscription({
+    id: "sub_dup",
+    status: "canceled",
+    metadata: { tenant_id: TENANT, plan_id: PLAN, plan_code: "GROWTH", cancel_reason: "trial_duplicate" },
+  });
+
+  const res = await handleStripeEvent(
+    makeEvent({ type: "customer.subscription.deleted", data: { object: dup } } as unknown as Partial<Stripe.Event>),
+    f.store,
+  );
+
+  assert.equal(res.status, 200);
+  assert.equal(f.upserts.length, 0);
+});
+
+test("motivo do cancelamento chega na linha de subscriptions", async () => {
+  const f = makeStore();
+  const sub = makeSubscription({
+    status: "canceled",
+    metadata: { tenant_id: TENANT, plan_id: PLAN, plan_code: "GROWTH", cancel_reason: "trial_card_reused" },
+  });
+
+  await handleStripeEvent(
+    makeEvent({ type: "customer.subscription.deleted", data: { object: sub } } as unknown as Partial<Stripe.Event>),
+    f.store,
+  );
+
+  assert.equal(f.upserts[0].metadata.cancel_reason, "trial_card_reused");
 });
