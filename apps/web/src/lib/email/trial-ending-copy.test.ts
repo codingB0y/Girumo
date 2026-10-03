@@ -1,6 +1,7 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 
+import { trialEndingEmail } from "./templates";
 import { trialEndingCopy } from "./trial-ending-copy";
 
 const BASE = {
@@ -32,4 +33,10 @@ test("sem o final do cartao, a frase nao inventa numero", () => {
 
 test("o e-mail nao fala em reembolso (decisao 03/10/2026: so nos Termos)", () => {
   assert.doesNotMatch(JSON.stringify(trialEndingCopy(BASE)), /reembols|devolv|desist|arrepend/i);
+});
+
+test("o nome do plano vem do banco e sai escapado no HTML", () => {
+  const { html } = trialEndingEmail({ ...BASE, planName: 'Growth <b>&"x"', appUrl: "https://app.example" });
+  assert.match(html, /Growth &lt;b&gt;&amp;&quot;x&quot;/);
+  assert.doesNotMatch(html, /<b>/);
 });

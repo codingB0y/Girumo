@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import { sendEmail } from "@/lib/email/send";
 import { trialEndingEmail } from "@/lib/email/templates";
+import { claimCardFingerprint, claimTrial } from "@/lib/billing/trial-claims";
 import {
   handleStripeEvent,
   type DefaultCard,
@@ -81,47 +82,12 @@ function createStore(): WebhookStore {
       await trackFunnelEvent(input);
     },
 
-    async claimTrial({ tenantId, subscriptionId }) {
-      const { data, error } = await supabase
-        .from("organizations")
-        .update({ trial_subscription_id: subscriptionId })
-        .eq("id", tenantId)
-        .eq("tenant_id", tenantId)
-        .is("trial_subscription_id", null)
-        .select("trial_subscription_id")
-        .maybeSingle();
-      if (error) return { outcome: "lost", winnerId: null, error: error.message };
-      if (data) return { outcome: "won", winnerId: subscriptionId, error: null };
-
-      // Nada casou: alguém já reservou. Pode ser esta mesma assinatura (retry).
-      const { data: atual, error: readError } = await supabase
-        .from("organizations")
-        .select("trial_subscription_id")
-        .eq("id", tenantId)
-        .eq("tenant_id", tenantId)
-        .maybeSingle();
-      if (readError) return { outcome: "lost", winnerId: null, error: readError.message };
-      const winnerId = (atual?.trial_subscription_id as string | null | undefined) ?? null;
-      // Sem organização não há onde reservar: erro, para o Stripe reenviar e o log mostrar.
-      if (!winnerId) return { outcome: "lost", winnerId: null, error: `organizacao ${tenantId} nao encontrada` };
-      return { outcome: winnerId === subscriptionId ? "same" : "lost", winnerId, error: null };
-    },
+    // As reservas moram em trial-claims.ts, onde os filtros de tenant têm teste.
+    claimTrial: (input) => claimTrial(supabase, input),
 
     defaultCard: lerCartao,
 
-    async claimCardFingerprint({ tenantId, fingerprint }) {
-      const { error } = await supabase
-        .from("organizations")
-        .update({ trial_card_fingerprint: fingerprint })
-        .eq("id", tenantId)
-        .eq("tenant_id", tenantId)
-        .is("trial_card_fingerprint", null);
-      // Índice único: outra conta já testou com este cartão. Não é falha, é a trava.
-      if (error?.code === UNIQUE_VIOLATION) return { outcome: "taken", error: null };
-      if (error) return { outcome: "ok", error: error.message };
-      // Zero linhas casadas também é "ok": a conta já tinha o cartão gravado (retry).
-      return { outcome: "ok", error: null };
-    },
+    claimCardFingerprint: (input) => claimCardFingerprint(supabase, input),
 
     async cancelTrialSubscription({ subscription, reason }) {
       try {
@@ -142,6 +108,10 @@ function createStore(): WebhookStore {
       try {
         const tenantId = subscription.metadata.tenant_id;
         if (!tenantId || !subscription.trial_end) return { error: "assinatura sem tenant ou sem trial_end" };
+        // O valor é parte do aviso que as bandeiras exigem: sem ele, "R$ 0" seria um
+        // aviso falso. Erro, para o Stripe reenviar e o log mostrar.
+        const amountCents = subscription.items.data[0]?.price.unit_amount;
+        if (amountCents == null) return { error: "assinatura sem preco unitario" };
 
         const customer = await getStripe().customers.retrieve(String(subscription.customer));
         const email = customer.deleted ? null : customer.email;
@@ -158,7 +128,7 @@ function createStore(): WebhookStore {
         const cartao = await lerCartao(subscription);
         const { subject, html } = trialEndingEmail({
           planName: (plano?.name as string | undefined) ?? "seu plano",
-          amountCents: subscription.items.data[0]?.price.unit_amount ?? 0,
+          amountCents,
           chargeAt: new Date(subscription.trial_end * 1000).toISOString(),
           cardLast4: cartao.last4,
           appUrl: getAppUrl(),

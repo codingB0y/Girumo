@@ -51,6 +51,8 @@ test("buildGirumoEmailFixtureFiles usa os templates reais com dados fixos de QA"
   assert.match(first["welcome.html"], /https:\/\/girumo-qa\.example\/painel/);
   assert.match(first["trial-ending.html"], /Girumo/);
   assert.match(first["trial-ending.html"], /termina em 10\/10/);
+  // O teste do texto só olha o objeto de copy; aqui é o HTML inteiro, rodapé fixo incluso.
+  assert.doesNotMatch(first["trial-ending.html"], /reembols|devolu|garantia/i);
   assert.match(first["trial-ending.html"], /https:\/\/girumo-qa\.example\/painel\/configuracoes/);
 });
 
