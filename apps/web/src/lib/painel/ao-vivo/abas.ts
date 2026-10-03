@@ -28,3 +28,11 @@ export function contadoresDasAbas(e: {
     grupos: e.grupos > 0 ? String(e.grupos) : null,
   };
 }
+
+/** Query string com `aba` trocada; as outras chaves ficam, e as sem valor (`ao-vivo`) continuam nuas, sem `=`. */
+export function buscaComAba(search: string, aba: Aba): string {
+  const partes = [...new URLSearchParams(search)]
+    .filter(([chave]) => chave !== "aba")
+    .map(([chave, valor]) => (valor ? `${encodeURIComponent(chave)}=${encodeURIComponent(valor)}` : encodeURIComponent(chave)));
+  return `?${[...partes, `aba=${aba}`].join("&")}`;
+}

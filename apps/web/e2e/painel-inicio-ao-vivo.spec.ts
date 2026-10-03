@@ -44,10 +44,13 @@ test.describe("Início ao vivo", () => {
   test("no celular não há rolagem para o lado", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/painel?ao-vivo", { waitUntil: "load" });
-    // Sem oferta nem post saindo a aba inicial é Grupos: a Relâmpago fica escondida até escolher a aba.
-    await expect(page.getByTestId("inicio-mapa")).toBeVisible({ timeout: 30_000 });
-    const sobra = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-    expect(sobra).toBeLessThanOrEqual(0);
+    // Qual aba abre primeiro depende da loja: não esperar um painel específico.
+    await expect(page.getByTestId("inicio-ao-vivo")).toBeVisible({ timeout: 30_000 });
+    for (const nome of [/Relâmpago/, /Postando/, /Grupos/]) {
+      await page.getByRole("tablist", { name: "Seções da tela ao vivo" }).getByRole("tab", { name: nome }).click();
+      const sobra = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+      expect(sobra).toBeLessThanOrEqual(0);
+    }
   });
 
   test("sem o parâmetro, continua a Vitrine", async ({ page }) => {
@@ -69,13 +72,41 @@ test.describe("Início ao vivo no celular", () => {
     await abas.getByRole("tab", { name: /Grupos/ }).click();
     await expect(page.getByTestId("inicio-mapa")).toBeVisible();
     await expect(page.getByTestId("inicio-postando")).toBeHidden();
-    await expect(page).toHaveURL(/aba=grupos/);
-    await expect(page).toHaveURL(/ao-vivo/);
+    await expect(page).toHaveURL(/\?ao-vivo&aba=grupos$/);
     await abas.getByRole("tab", { name: /Postando/ }).click();
     await expect(page.getByTestId("inicio-postando")).toBeVisible();
     await expect(page.getByTestId("inicio-mapa")).toBeHidden();
-    const sobra = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-    expect(sobra).toBeLessThanOrEqual(0);
+    await abas.getByRole("tab", { name: /Relâmpago/ }).click();
+    await expect(page.getByTestId("inicio-relampago")).toBeVisible();
+    await expect(page.getByTestId("inicio-postando")).toBeHidden();
+    for (const nome of [/Relâmpago/, /Postando/, /Grupos/]) {
+      await abas.getByRole("tab", { name: nome }).click();
+      const sobra = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+      expect(sobra).toBeLessThanOrEqual(0);
+    }
+  });
+
+  test("a faixa rola de lado e nenhuma célula passa de 260 px", async ({ page }) => {
+    await page.goto("/painel?ao-vivo", { waitUntil: "load" });
+    await expect(page.getByTestId("inicio-faixa")).toBeVisible({ timeout: 30_000 });
+    const larguras = await page
+      .getByRole("group", { name: "Números de hoje" })
+      .evaluate((el) => ({ celulas: [...el.children].map((c) => c.getBoundingClientRect().width), rola: el.scrollWidth > el.clientWidth }));
+    expect(larguras.celulas).toHaveLength(5);
+    expect(Math.max(...larguras.celulas)).toBeLessThanOrEqual(260);
+    expect(larguras.rola).toBe(true);
+  });
+
+  test("setas do teclado movem a seleção entre as abas", async ({ page }) => {
+    await page.goto("/painel?ao-vivo&aba=relampago", { waitUntil: "load" });
+    await expect(page.getByTestId("inicio-ao-vivo")).toBeVisible({ timeout: 30_000 });
+    const abas = page.getByRole("tablist", { name: "Seções da tela ao vivo" });
+    await abas.getByRole("tab", { selected: true }).focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(abas.getByRole("tab", { name: /Postando/ })).toHaveAttribute("aria-selected", "true");
+    await expect(abas.getByRole("tab", { name: /Postando/ })).toBeFocused();
+    await page.keyboard.press("End");
+    await expect(abas.getByRole("tab", { name: /Grupos/ })).toHaveAttribute("aria-selected", "true");
   });
 
   test("?aba= vale ao abrir; valor inválido cai na aba inicial", async ({ page }) => {
@@ -83,7 +114,9 @@ test.describe("Início ao vivo no celular", () => {
     await expect(page.getByTestId("inicio-postando")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId("inicio-mapa")).toBeHidden();
     await page.goto("/painel?ao-vivo&aba=x", { waitUntil: "load" });
-    await expect(page.getByTestId("inicio-mapa")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("inicio-ao-vivo")).toBeVisible({ timeout: 30_000 });
+    // Cai na regra da aba inicial: exatamente uma aba selecionada, e é uma das três.
+    await expect(page.getByRole("tablist", { name: "Seções da tela ao vivo" }).getByRole("tab", { selected: true })).toHaveCount(1);
   });
 });
 

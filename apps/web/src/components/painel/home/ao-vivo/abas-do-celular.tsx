@@ -30,7 +30,7 @@ export function AbasDoCelular({ aba, contadores, onEscolher }: Props) {
   }
 
   return (
-    <div role="tablist" aria-label="Seções da tela ao vivo" className="grid grid-cols-3 border-b border-line-200 md:hidden">
+    <div role="tablist" aria-label="Seções da tela ao vivo" className="-mx-4 mb-2 grid grid-cols-3 border-b border-line-200 md:hidden">
       {ABAS.map((a) => {
         const ativa = a === aba;
         const contador = contadores[a];

@@ -49,7 +49,7 @@ export function MapaDosGrupos({ grupos, campanhas, atividade }: Props) {
   const pessoas = grupos.reduce((s, g) => s + (Number.isFinite(g.members) ? g.members : 0), 0);
 
   return (
-    <section data-testid="inicio-mapa" aria-labelledby="mapa-titulo" className="rounded-[10px] border border-line-200 bg-paper-0">
+    <section data-testid="inicio-mapa" aria-labelledby="mapa-titulo" className="rounded-[10px] border border-line-200 bg-paper-0 max-md:-mx-4 max-md:rounded-none max-md:border-x-0">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line-200 px-5 py-3">
         <h2 id="mapa-titulo" className="text-[16px] font-semibold text-volt-950">
           Mapa dos grupos

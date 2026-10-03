@@ -18,9 +18,10 @@ export function Celula({ rotulo, valor, className, children }: { rotulo: string;
 }
 
 /** Hoje contra o mesmo dia da semana passada, até a mesma hora: dia parcial contra dia parcial. */
-export function ContraSemanaPassada({ hoje, antes, diaPassado }: { hoje: number; antes: number; diaPassado: string }) {
+export function ContraSemanaPassada({ hoje, antes, diaPassado, curto = false }: { hoje: number; antes: number; diaPassado: string; curto?: boolean }) {
   const delta = variacao(hoje, antes);
-  if (delta === null) return <>{numero(antes)} {diaPassado}, mesma hora</>;
+  // Curto (celular): "↗ +18% · 181 na terça passada", sem o "vs" nem o "mesma hora".
+  if (delta === null) return curto ? <>{numero(antes)} {diaPassado}</> : <>{numero(antes)} {diaPassado}, mesma hora</>;
   return (
     <>
       <span className={cn("inline-flex items-center font-semibold", delta >= 0 ? "text-success-700" : "text-danger-700")}>
@@ -28,7 +29,7 @@ export function ContraSemanaPassada({ hoje, antes, diaPassado }: { hoje: number;
         {delta > 0 ? "+" : ""}
         {delta}%
       </span>{" "}
-      vs {numero(antes)} {diaPassado}, mesma hora
+      {curto ? `· ${numero(antes)} ${diaPassado}` : `vs ${numero(antes)} ${diaPassado}, mesma hora`}
     </>
   );
 }

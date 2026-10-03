@@ -8,7 +8,7 @@ import type { Campanha, Disparo, Lead, Order, RelampagoDaInicio, Schedule, Tenan
 import type { Group } from "@/lib/mock-data";
 import type { Activation } from "@/lib/onboarding-steps";
 import type { AtividadeDaCampanha } from "@/lib/painel/atividade";
-import { abaDaUrl, abaInicial, contadoresDasAbas, type Aba } from "@/lib/painel/ao-vivo/abas";
+import { abaDaUrl, abaInicial, buscaComAba, contadoresDasAbas, type Aba } from "@/lib/painel/ao-vivo/abas";
 import { estaSaindo } from "@/lib/painel/ao-vivo/postando";
 import { postDaTabela } from "@/lib/painel/entrega";
 import { cn } from "@/lib/utils";
@@ -93,10 +93,8 @@ export function InicioAoVivo({
   );
   const escolherAba = (nova: Aba) => {
     setAba(nova);
-    // Sem navegação nem recarga: só a barra de endereço acompanha, mantendo ?ao-vivo.
-    const url = new URL(window.location.href);
-    url.searchParams.set("aba", nova);
-    window.history.replaceState(window.history.state, "", url);
+    // Sem navegação nem recarga: só a barra de endereço acompanha, mantendo `?ao-vivo` limpo (sem "=").
+    window.history.replaceState(null, "", `${window.location.pathname}${buscaComAba(window.location.search, nova)}`);
   };
   // Abaixo de 768 px só a aba escolhida aparece; de 768 px para cima as três ficam juntas (a lista de abas some).
   const painel = (a: Aba) => (a === aba ? "" : "max-md:hidden");
@@ -123,11 +121,6 @@ export function InicioAoVivo({
         linksOk={linksOk}
         settingsOk={settingsOk}
       />
-      {/*
-        Três colunas a partir de 1400 px (Postando | mapa + gráfico | Relâmpago); de 1280 a 1400 duas, com a
-        Relâmpago na coluna da esquerda, em cima do Postando se há oferta no ar; abaixo de 1280, empilhado
-        (relâmpago no ar, Postando, mapa e gráfico). Sem oferta no ar a Relâmpago vai depois do Postando.
-      */}
       <AbasDoCelular
         aba={aba}
         onEscolher={escolherAba}
@@ -139,6 +132,12 @@ export function InicioAoVivo({
           grupos: groups.length,
         })}
       />
+      {/*
+        Três colunas a partir de 1400 px (Postando | mapa + gráfico | Relâmpago); de 1280 a 1400 duas, com a
+        Relâmpago na coluna da esquerda, em cima do Postando se há oferta no ar; abaixo de 1280, empilhado
+        (relâmpago no ar, Postando, mapa e gráfico). Sem oferta no ar a Relâmpago vai depois do Postando.
+        Abaixo de 768 px só o painel da aba escolhida aparece.
+      */}
       <div className="grid grid-cols-[minmax(0,1fr)] gap-6 min-[80rem]:grid-cols-[340px_minmax(0,1fr)] min-[80rem]:grid-rows-[auto_1fr] min-[80rem]:items-start min-[87.5rem]:grid-cols-[300px_minmax(0,1fr)_300px] min-[87.5rem]:grid-rows-none">
         <div
           id="painel-relampago"
@@ -177,7 +176,7 @@ export function InicioAoVivo({
           role="tabpanel"
           aria-labelledby="aba-grupos"
           className={cn(
-            "min-w-0 space-y-6 min-[80rem]:col-start-2 min-[80rem]:row-span-2 min-[80rem]:row-start-1 min-[87.5rem]:row-span-1",
+            "min-w-0 space-y-6 max-md:space-y-2 min-[80rem]:col-start-2 min-[80rem]:row-span-2 min-[80rem]:row-start-1 min-[87.5rem]:row-span-1",
             !noAr && "order-2 min-[80rem]:order-none",
             painel("grupos"),
           )}
