@@ -93,6 +93,14 @@ por SQL depois de aplicar.
   38 entraram hoje"); o estado também é texto, nunca só cor.
 - Mais de ~200 grupos: cada campanha mostra os 60 mais cheios + "ver todos".
 
+**Antes do PR 7** (achados da revisão final do PR 2):
+
+- No modo 200+, um filtro diferente de "Todos" tem de buscar em todos os grupos, não só nos 60 visíveis
+  por bloco (hoje "Sem convite 5" pode listar nada).
+- O tooltip da célula tem de fechar com Esc e poder receber o mouse (WCAG 1.4.13).
+- O mapa deixa de fora do bloco da campanha os grupos que não estão no cadastro; a página da campanha
+  os mostra como "sumiu".
+
 ### Entradas e saídas por hora (abaixo do mapa)
 
 `GraficoDeBarras` da loja inteira, períodos Hoje · 7 dias · Mês. Marcas no eixo: posts (hora de início),
