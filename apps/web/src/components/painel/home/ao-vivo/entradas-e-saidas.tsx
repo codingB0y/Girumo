@@ -35,7 +35,7 @@ export function EntradasESaidas({ atividade, posts, ofertasDoDia }: Props) {
         <h2 id="entradas-titulo" className="text-[16px] font-semibold text-volt-950">
           Entradas e saídas
         </h2>
-        <div role="group" aria-label="Período" className="flex rounded-lg bg-canvas-100 p-0.5">
+        <div role="group" aria-label="Período" className="flex rounded-lg bg-canvas-100 p-0.5 max-md:hidden">
           {(
             [
               ["hoje", "Hoje, por hora"],

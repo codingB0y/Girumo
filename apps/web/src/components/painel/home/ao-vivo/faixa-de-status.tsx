@@ -8,6 +8,10 @@ import { medindoDesde, saldo } from "@/lib/painel/atividade-texto";
 import { atualizadoHa, comparacaoComecaEm, numerosDaFaixa, pedidosDeHoje } from "@/lib/painel/ao-vivo/faixa";
 import { numero } from "@/lib/painel/grupos";
 
+/** A célula como item da faixa rolável do celular: largura pelo conteúdo, um fio à esquerda. */
+const NA_FAIXA = "max-md:flex-none max-md:whitespace-nowrap max-md:px-4";
+const COM_FIO = "max-md:border-l max-md:border-line-200";
+
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const DIA = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "2-digit", month: "2-digit", timeZone: "America/Sao_Paulo" });
 
@@ -47,8 +51,17 @@ export function FaixaDeStatus({ atividade, links, orders, metaDoMes, agora, orde
         <p className="text-12 text-slate-600">{atividade ? atualizadoHa(atividade.geradoEm, agora) : "a série não carregou"}</p>
       </div>
 
-      <div className="mt-px grid gap-px sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr_1fr_1.2fr]">
-        <div className="bg-paper-0 px-5 py-4 sm:col-span-2 lg:col-span-1">
+      {/*
+        Abaixo de 768 px as cinco células viram uma faixa que rola para o lado (largura pelo conteúdo, um fio
+        entre elas); tabIndex deixa as setas rolarem. De 768 px para cima, a grade de sempre.
+      */}
+      <div
+        role="group"
+        aria-label="Números de hoje, role para o lado"
+        tabIndex={0}
+        className="mt-px grid gap-px max-md:flex max-md:gap-0 max-md:overflow-x-auto max-md:bg-paper-0 max-md:[scrollbar-width:none] sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr_1fr_1.2fr]"
+      >
+        <div className={`bg-paper-0 px-5 py-4 sm:col-span-2 lg:col-span-1 ${NA_FAIXA}`}>
           <p className="text-13 text-slate-600">Entraram hoje</p>
           <div className="mt-2 flex items-end justify-between gap-4">
             <p className="text-[44px] font-semibold leading-none tabular-nums text-volt-950 [font-stretch:75%]">
@@ -64,21 +77,21 @@ export function FaixaDeStatus({ atividade, links, orders, metaDoMes, agora, orde
                 : `${medindoDesde(n.comparacao.desde)} · a comparação com a semana passada começa em ${comparacaoComecaEm(n.comparacao.desde)}`}
           </p>
         </div>
-        <Celula rotulo="Saíram hoje" valor={n ? numero(n.sairam) : "—"}>
+        <Celula rotulo="Saíram hoje" valor={n ? numero(n.sairam) : "—"} className={`${NA_FAIXA} ${COM_FIO}`}>
           {n && <EntrouSaiu entraram={n.entraram} sairam={n.sairam} />}
           {n ? "nos grupos em que você é admin" : null}
         </Celula>
-        <Celula rotulo="Saldo hoje" valor={n ? saldo(n.saldo) : "—"}>
+        <Celula rotulo="Saldo hoje" valor={n ? saldo(n.saldo) : "—"} className={`${NA_FAIXA} ${COM_FIO}`}>
           {n ? `${saldo(n.saldoSemana)} ${n.comparacao.tipo === "medindo" ? "na semana (medido)" : "em 7 dias"}` : null}
         </Celula>
-        <Celula rotulo="Cliques nos links hoje" valor={n ? numero(n.cliques) : "—"}>
+        <Celula rotulo="Cliques nos links hoje" valor={n ? numero(n.cliques) : "—"} className={`${NA_FAIXA} ${COM_FIO}`}>
           {!linksOk
             ? "os links não carregaram"
             : cliquesNoTotal === 0
               ? "ninguém clicou num link ainda"
               : `${numero(cliquesNoTotal)} no total`}
         </Celula>
-        <Celula rotulo="Pedidos anotados hoje" valor={ordersOk ? brl.format(pedidos.valor) : "—"} className="sm:col-span-2 lg:col-span-1">
+        <Celula rotulo="Pedidos anotados hoje" valor={ordersOk ? brl.format(pedidos.valor) : "—"} className={`sm:col-span-2 lg:col-span-1 ${NA_FAIXA} ${COM_FIO}`}>
           {!ordersOk ? (
             "os pedidos não carregaram"
           ) : (
