@@ -6,6 +6,9 @@ import {
   horarioComSegundos,
   noArHa,
   ordinal,
+  pecasRestantes,
+  placarDaOferta,
+  proximaDaFila,
   relogio,
   resumoDaOferta,
   type EntradaLike,
@@ -92,4 +95,40 @@ test("etiqueta escreve a cena 5", () => {
 
 test("oferta sem nome não vira etiqueta em branco", () => {
   assert.equal(etiquetaDaOferta("   ", 3), "Oferta · 3 peças");
+});
+
+// Fila de exemplo na ordem: vendida, dropped, em conversa, reservada, duas esperando.
+const emConversa: EntradaLike & { id: string } = { id: "e3", outcome: null, claim: { id: "c4", contacted_at: "x" } };
+const fila = [
+  { id: "e1", ...vendida },
+  { id: "e2", ...desistiu },
+  emConversa,
+  { id: "e4", ...reservada },
+  { id: "e5", ...naFila },
+  { id: "e6", ...naFila },
+];
+
+test("placar: pediram é a fila; atendidas tem claim ou desfecho; esperando não tem nenhum", () => {
+  assert.deepEqual(placarDaOferta(fila), { pediram: 6, atendidas: 4, vendeu: 1, esperando: 2 });
+});
+
+test("placar da fila vazia é tudo zero", () => {
+  assert.deepEqual(placarDaOferta([]), { pediram: 0, atendidas: 0, vendeu: 0, esperando: 0 });
+});
+
+test("próxima da fila é a primeira, na ordem, sem reserva e sem desfecho", () => {
+  assert.equal(proximaDaFila(fila)?.id, "e5");
+});
+
+test("sem ninguém esperando, não há próxima", () => {
+  assert.equal(proximaDaFila(fila.slice(0, 4)), null);
+  assert.equal(proximaDaFila([]), null);
+});
+
+test("peças restantes é slots menos vendidas; reserva ainda não tirou a peça", () => {
+  assert.deepEqual(pecasRestantes({ slots: 5, status: "open" }, fila), { restantes: 4, pecas: 5 });
+});
+
+test("peças restantes nunca fica negativa", () => {
+  assert.deepEqual(pecasRestantes({ slots: 1, status: "open" }, [vendida, vendida]), { restantes: 0, pecas: 1 });
 });

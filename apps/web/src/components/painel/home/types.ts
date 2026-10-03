@@ -1,6 +1,7 @@
 import type { TenantDispatchView } from "@/lib/campaigns/dispatch-view";
 import type { Group } from "@/lib/mock-data";
 import type { AtividadeDaCampanha } from "@/lib/painel/atividade";
+import type { OfertaDaInicio, OfferRow, OfferTotalsRow } from "@/lib/stores/flash-offers";
 
 export type Campanha = {
   id: string;
@@ -66,6 +67,13 @@ export type TenantSettings = {
   onboardingCompletedAt: string | null;
 };
 
+/** As ofertas Relâmpago da Início "Ao vivo" (`/api/painel/inicio?ao-vivo`). */
+export type RelampagoDaInicio = {
+  abertas: OfertaDaInicio[];
+  doDia: OfferRow[];
+  totaisDoDia: OfferTotalsRow[];
+};
+
 export type DashboardData = {
   groups: Group[];
   campanhas: Campanha[];
@@ -93,4 +101,8 @@ export type DashboardData = {
   schedulesOk: boolean;
   /** Entradas, saídas e cliques da loja inteira (Início "Ao vivo"). Nulo = não carregou ou sem banco. */
   atividade: AtividadeDaCampanha | null;
+  /** Ofertas Relâmpago no ar e do dia. Nulo = não carregou (veja `relampagoOk`) ou sem banco. */
+  relampago: RelampagoDaInicio | null;
+  /** Falso = `relampago` é nulo porque a busca falhou, não porque não há oferta. */
+  relampagoOk: boolean;
 };

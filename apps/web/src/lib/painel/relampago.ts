@@ -82,6 +82,36 @@ export function resumoDaOferta(oferta: OfertaLike, fila: readonly EntradaLike[])
   };
 }
 
+export type PlacarDaOferta = { pediram: number; atendidas: number; vendeu: number; esperando: number };
+
+const estaEsperando = (e: EntradaLike) => !e.claim && !e.outcome;
+
+/** O placar da oferta no ar: quem pediu, quem já foi atendida, quem comprou, quem espera. */
+export function placarDaOferta(fila: readonly EntradaLike[]): PlacarDaOferta {
+  const esperando = fila.filter(estaEsperando).length;
+  return {
+    pediram: fila.length,
+    atendidas: fila.length - esperando,
+    vendeu: fila.filter((e) => e.outcome === "sold").length,
+    esperando,
+  };
+}
+
+/** A próxima a ser atendida: a primeira, na ordem da fila, sem reserva e sem desfecho. */
+export function proximaDaFila<T extends EntradaLike>(fila: readonly T[]): T | null {
+  return fila.find(estaEsperando) ?? null;
+}
+
+/** Peças que ainda não foram vendidas; reserva em andamento ainda não tirou a peça. */
+export function pecasRestantes(
+  oferta: OfertaLike,
+  fila: readonly EntradaLike[],
+): { restantes: number; pecas: number } {
+  const pecas = Math.max(0, oferta.slots ?? 0);
+  const vendidas = fila.filter((e) => e.outcome === "sold").length;
+  return { restantes: Math.max(0, pecas - vendidas), pecas };
+}
+
 /** "NOVO KIT · 5 peças" — nome em caixa alta na etiqueta, contagem ao lado. */
 export function etiquetaDaOferta(nome: string, pecas: number): string {
   const limpo = nome.trim() || "Oferta";

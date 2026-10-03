@@ -188,6 +188,53 @@ export async function listOffers(tenantId: string): Promise<OfferRow[]> {
   return (data ?? []) as OfferRow[];
 }
 
+export type OfertaDaInicio = OfferRow & { groupIds: string[] };
+
+/**
+ * O que a Início "Ao vivo" precisa em duas leituras paralelas: as ofertas no ar
+ * (com os grupos da janela ainda aberta) e as abertas desde `desde`, em qualquer
+ * status, para o placar do dia.
+ */
+export async function listOfertasDaInicio(
+  tenantId: string,
+  desde: string,
+): Promise<{ abertas: OfertaDaInicio[]; doDia: OfferRow[] }> {
+  const supabase = getSupabaseAdmin();
+
+  const [abertasRes, doDiaRes] = await Promise.all([
+    supabase
+      .from("flash_offers")
+      .select("*, flash_offer_groups(whatsapp_group_id, closed_at)")
+      .eq("tenant_id", tenantId)
+      .eq("status", "open")
+      .order("opened_at", { ascending: false }),
+    supabase
+      .from("flash_offers")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .gte("opened_at", desde)
+      .order("opened_at", { ascending: true })
+      .limit(50),
+  ]);
+
+  if (abertasRes.error) throw abertasRes.error;
+  if (doDiaRes.error) throw doDiaRes.error;
+
+  const abertas = (abertasRes.data ?? []).map((linha) => {
+    const { flash_offer_groups, ...oferta } = linha as OfferRow & {
+      flash_offer_groups: Array<{ whatsapp_group_id: string; closed_at: string | null }> | null;
+    };
+    return {
+      ...oferta,
+      groupIds: (flash_offer_groups ?? [])
+        .filter((g) => g.closed_at === null)
+        .map((g) => g.whatsapp_group_id),
+    };
+  });
+
+  return { abertas, doDia: (doDiaRes.data ?? []) as OfferRow[] };
+}
+
 export async function getOffer(tenantId: string, offerId: string): Promise<OfferRow | null> {
   const { data, error } = await getSupabaseAdmin()
     .from("flash_offers")
