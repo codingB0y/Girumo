@@ -108,7 +108,7 @@ export function FaixaDeStatus({ atividade, links, orders, metaDoMes, agora, orde
           {!linksOk
             ? "os links não carregaram"
             : cliquesNoTotal === 0
-              ? "ninguém clicou num link ainda"
+              ? <>ninguém clicou<span className="max-md:hidden"> num link</span> ainda</>
               : `${numero(cliquesNoTotal)} no total`}
         </Celula>
         <Celula rotulo="Pedidos anotados hoje" valor={ordersOk ? brl.format(pedidos.valor) : "—"} className={`sm:col-span-2 lg:col-span-1 ${NA_FAIXA} ${COM_FIO} ${NUMERO_28}`}>
@@ -116,9 +116,9 @@ export function FaixaDeStatus({ atividade, links, orders, metaDoMes, agora, orde
             "os pedidos não carregaram"
           ) : (
             <>
-              {pedidos.quantidade === 0 ? "nenhum pedido hoje" : `${numero(pedidos.quantidade)} ${pedidos.quantidade === 1 ? "pedido" : "pedidos"}`}
+              {pedidos.quantidade === 0 ? <>nenhum pedido<span className="max-md:hidden"> hoje</span></> : `${numero(pedidos.quantidade)} ${pedidos.quantidade === 1 ? "pedido" : "pedidos"}`}
               {" · "}
-              {!settingsOk ? "meta não carregou" : pedidos.metaPct === null ? "sem meta do mês" : `${pedidos.metaPct}% da meta do mês`}
+              {!settingsOk ? "meta não carregou" : pedidos.metaPct === null ? <>sem meta<span className="max-md:hidden"> do mês</span></> : `${pedidos.metaPct}% da meta do mês`}
             </>
           )}
         </Celula>
