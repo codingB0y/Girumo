@@ -68,7 +68,10 @@ export interface WebhookStore {
   claimTrial(input: { tenantId: string; subscriptionId: string }): Promise<ClaimTrialResult>;
   /** Cartão padrão da assinatura. Lança se o Stripe falhar (vira 5xx e reenvio). */
   defaultCard(subscription: Stripe.Subscription): Promise<DefaultCard>;
-  /** Grava `organizations.trial_card_fingerprint`; o índice único decide entre contas. */
+  /**
+   * Grava `organizations.trial_card_fingerprint`; o índice único decide entre contas.
+   * Devolve `ok` também quando o fingerprint já é DESTA conta (retry do mesmo evento).
+   */
   claimCardFingerprint(input: { tenantId: string; fingerprint: string }): Promise<ClaimCardResult>;
   /** Grava `metadata.cancel_reason` e cancela a assinatura no Stripe, sem cobrar. */
   cancelTrialSubscription(input: {
@@ -91,7 +94,10 @@ export type WebhookResult = { status: number; body: Record<string, unknown> };
  * dias). Tratar os dois como a mesma coisa registra receita que nao existe.
  *
  * `no_payment_required` entra porque e o caso legitimo de valor zero (cupom de
- * 100%, trial sem cartao): nao ha o que cobrar, e a assinatura vale.
+ * 100%): nao ha o que cobrar, e a assinatura vale. O teste gratis com cartao
+ * tambem volta `no_payment_required`, mas nunca chega a este gate: assinatura
+ * `trialing` vai para `handleTrialStart`, e a ja cancelada no teste
+ * (`cancel_reason`) sai antes, em `handleCheckoutSession`.
  */
 const PAGAMENTO_CONFIRMADO: ReadonlySet<Stripe.Checkout.Session["payment_status"]> = new Set([
   "paid",
@@ -203,6 +209,22 @@ async function upsertSubscription(
 }
 
 /**
+ * A perdedora de dois checkouts de teste já foi cancelada, mas o upsert do topo
+ * deixou a linha de `subscriptions` (unique(tenant_id)) com o snapshot dela, e os
+ * eventos seguintes dela são ignorados. Devolve a linha à vencedora.
+ *
+ * Sem vencedora não há o que consertar: erro em vez de 2xx mudo, para o Stripe
+ * reenviar — a guarda de `cancel_reason` torna o reenvio seguro.
+ */
+async function resyncTrialWinner(winnerId: string | null, store: WebhookStore): Promise<StoreResult> {
+  if (!winnerId) return { error: "Teste duplicado cancelado sem vencedora registrada." };
+  // `now` e nao o `created` deste evento: e uma leitura fresca do Stripe, e o
+  // banco descarta evento mais velho que o ultimo gravado (C.2).
+  const vencedora = await store.retrieveSubscription(winnerId);
+  return upsertSubscription(vencedora, new Date().toISOString(), store);
+}
+
+/**
  * O checkout terminou e a assinatura nasceu em teste.
  *
  * Três travas, nesta ordem:
@@ -215,8 +237,11 @@ async function upsertSubscription(
  * 3. Só então o funil ganha `trial_started` — e nunca `payment_completed`, que
  *    agora sai da primeira fatura paga (`invoice.paid`).
  *
- * Retry é seguro: as duas reservas reconhecem a própria assinatura, e um retry
- * depois do cancelamento lê a assinatura fresca, já `canceled`, e nem entra aqui.
+ * Retry ANTES do cancelamento é seguro: as duas reservas reconhecem a própria
+ * assinatura. Retry DEPOIS do cancelamento lê a assinatura fresca, já `canceled`,
+ * e não entra aqui — e por isso, sem tratamento próprio, cairia no gate de
+ * pagamento de `handleCheckoutSession` com `no_payment_required` e viraria
+ * `payment_completed` falso. Quem o trata é a guarda de `cancel_reason` lá.
  */
 async function handleTrialStart(
   subscription: Stripe.Subscription,
@@ -238,11 +263,7 @@ async function handleTrialStart(
       metadata: { stripe_subscription_id: subscription.id, vencedora: claim.winnerId },
     });
 
-    if (!claim.winnerId) return { error: null };
-    // `now` e nao o `created` deste evento: e uma leitura fresca do Stripe, e o
-    // banco descarta evento mais velho que o ultimo gravado (C.2).
-    const vencedora = await store.retrieveSubscription(claim.winnerId);
-    return upsertSubscription(vencedora, new Date().toISOString(), store);
+    return resyncTrialWinner(claim.winnerId, store);
   }
 
   const card = await store.defaultCard(subscription);
@@ -321,6 +342,18 @@ async function handleCheckoutSession(
   // `no_payment_required` vem tanto do cupom de 100% quanto do teste grátis; o
   // que separa os dois é o status da assinatura.
   if (subscription.status === "trialing") return handleTrialStart(subscription, tenantId, store);
+
+  // Reentrega de um checkout de teste que JÁ cancelamos (ver handleTrialStart): a
+  // assinatura volta `canceled` e o `no_payment_required` cairia no gate de
+  // pagamento abaixo como venda. Nunca houve cobrança — sai aqui.
+  if (subscription.metadata.cancel_reason) {
+    if (subscription.metadata.cancel_reason !== "trial_duplicate") return { error: null };
+    // O upsert do topo ignorou a perdedora; se a 1ª tentativa falhou antes do
+    // re-sync, a linha ainda está com o snapshot `trialing` dela.
+    const claim = await store.claimTrial({ tenantId, subscriptionId: subscription.id });
+    if (claim.error) return { error: claim.error };
+    return resyncTrialWinner(claim.outcome === "lost" ? claim.winnerId : null, store);
+  }
 
   const metadataComum = {
     stripe_subscription_id: subscription.id,
