@@ -137,6 +137,13 @@ do `GraficoDeBarras`; as que não cabem ficam só com o traço.
 - Fila compacta: próximas 5 com horário e estado + "ver fila inteira".
 - "Fechar oferta" discreto, confirmação na própria tela (nunca `window.confirm`).
 - Quieto: "Nenhuma relâmpago no ar", a última oferta (vendeu X de Y), "Abrir relâmpago".
+- **PR 5:** a coluna lê a oferta pela rota da fila (`useOferta`, poll de 10 s), a mesma da tela da fila. O
+  "última oferta (vendeu X de Y)" virou "Última hoje: <nome>" (a parte `relampago` traz o nome, não o
+  placar da oferta fechada). Três colunas a partir de 1400 px, não de 1280, porque o menu lateral da D
+  ocupa a largura que o mockup dava às colunas; de 1280 a 1400 a Relâmpago empilha na coluna da esquerda,
+  em cima do Postando quando há oferta no ar. "Pediram até agora" entra no Postando pelo `broadcast_id` da
+  oferta, e a marca "Relâmpago no ar" entra no gráfico de Hoje. A fila marca a posição real (`commented_at`).
+  "Pegar a próxima" é cobalt: o Acid fica no chip AO VIVO (um `span`), nunca em botão.
 - Erro de ação: mensagem do servidor no card, sem sumir sozinha. 409 "já pegaram" recarrega a fila.
 
 ### Celular (< 768 px)
