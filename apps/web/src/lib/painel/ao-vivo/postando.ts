@@ -102,6 +102,24 @@ export function textoDoPost(p: { body: string; poll?: { question: string; option
   return p.poll?.question?.trim() || p.body.trim();
 }
 
+/** Post `failed` nunca está saindo, mesmo com linha ainda na fila; sem entrega lida, vale o status. */
+export function estaSaindo(post: { status: string }, resumo: ResumoDaEntrega | null): boolean {
+  if (post.status === "failed") return false;
+  return resumo ? aindaSaindo(resumo) : post.status === "running" || post.status === "queued";
+}
+
+const STATUS_DO_POST = ["draft", "scheduled", "queued", "running", "sent", "failed"];
+
+/**
+ * Número que só muda quando o post muda de verdade (status ou contagem). Passado a
+ * `useEntrega`, faz reler a entrega quando um post na fila passa a sair (a leitura
+ * vazia de antes não se atualiza sozinha), sem reler a cada recarga da página.
+ */
+export function versaoDoPost(post: { status: string; sent: number } | null): number {
+  if (!post) return 0;
+  return (STATUS_DO_POST.indexOf(post.status) + 2) * 1_000_000 + post.sent;
+}
+
 const falharam = (n: number) => `${numero(n)} ${n === 1 ? "falhou" : "falharam"}`;
 
 /**
@@ -116,8 +134,7 @@ export function fraseDoAndamento(a: {
   termino: string | null;
 }): string {
   const { post, resumo, hora, termino } = a;
-  const saindo = resumo ? aindaSaindo(resumo) : post.status === "running" || post.status === "queued";
-  if (saindo) return termino ? `termina por volta de ${termino}` : "saindo agora";
+  if (estaSaindo(post, resumo)) return termino ? `termina por volta de ${termino}` : "saindo agora";
   const todosFalharam = resumo !== null && resumo.entregues === 0 && resumo.falharam > 0;
   if (post.status === "failed" || todosFalharam) {
     if (post.error) return `Não saiu · ${post.error}`;

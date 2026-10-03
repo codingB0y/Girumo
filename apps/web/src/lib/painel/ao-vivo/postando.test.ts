@@ -12,6 +12,7 @@ import {
   terminaPorVolta,
   textoDoPost,
   tituloDaGrade,
+  versaoDoPost,
 } from "./postando";
 
 const CONVITE = "https://chat.whatsapp.com/abc";
@@ -144,4 +145,18 @@ test("frase: post que falhou nunca diz Saiu, com ou sem entrega lida", () => {
   // Todos os grupos falharam, mesmo com o post marcado como enviado.
   assert.equal(fraseDoAndamento({ post: post(), resumo: resumo({ falharam: 3, total: 3 }), hora: "14:08", termino: null }), "Não saiu · 3 falharam");
   assert.equal(fraseDoAndamento({ post: post(), resumo: resumo({ falharam: 1, total: 1 }), hora: "14:08", termino: null }), "Não saiu · 1 falhou");
+});
+
+test("failed vence: post que falhou nao fica saindo mesmo com linha na fila", () => {
+  const r = resumo({ naFila: 2, falharam: 1, total: 3 });
+  assert.equal(fraseDoAndamento({ post: post({ status: "failed", error: "sem admin" }), resumo: r, hora: "14:08", termino: "14:09" }), "Não saiu · sem admin");
+  assert.equal(fraseDoAndamento({ post: post({ status: "failed" }), resumo: r, hora: "14:08", termino: null }), "Não saiu · 1 falhou");
+});
+
+test("versao do post muda so com status ou contagem diferentes", () => {
+  const a = versaoDoPost({ status: "queued", sent: 0 });
+  assert.equal(versaoDoPost({ status: "queued", sent: 0 }), a);
+  assert.notEqual(versaoDoPost({ status: "running", sent: 0 }), a);
+  assert.notEqual(versaoDoPost({ status: "running", sent: 5 }), versaoDoPost({ status: "running", sent: 0 }));
+  assert.equal(versaoDoPost(null), 0);
 });

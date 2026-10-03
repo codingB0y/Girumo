@@ -9,6 +9,7 @@ import type { Disparo, Schedule } from "@/components/painel/home/types";
 import { horaBR } from "@/lib/date-br";
 import type { Group } from "@/lib/mock-data";
 import {
+  estaSaindo,
   fraseDoAndamento,
   gradeDaEntrega,
   placarDosGrupos,
@@ -17,9 +18,10 @@ import {
   terminaPorVolta,
   textoDoPost,
   tituloDaGrade,
+  versaoDoPost,
 } from "@/lib/painel/ao-vivo/postando";
 import { quandoDoPost } from "@/lib/painel/campanha-visao";
-import { aindaSaindo, postDaTabela, resumoDaEntrega, type EstadoDaEntrega } from "@/lib/painel/entrega";
+import { postDaTabela, resumoDaEntrega, type EstadoDaEntrega } from "@/lib/painel/entrega";
 import { cn } from "@/lib/utils";
 
 /**
@@ -126,7 +128,7 @@ function Grade({ post, grupos, leitura, entrega, desatualizada, hora }: {
           );
         })}
       </ul>
-      <p className="flex flex-wrap gap-x-3 gap-y-1 text-12 text-slate-600">
+      <p aria-hidden="true" className="flex flex-wrap gap-x-3 gap-y-1 text-12 text-slate-600">
         {ORDEM_DA_LEGENDA.map((estado) => (
           <span key={estado} className="inline-flex items-center gap-1">
             <span className={cn("h-2.5 w-2.5 rounded-[2px]", CELULA[estado].classe)} aria-hidden="true" />
@@ -148,7 +150,7 @@ function Andamento({ post, agora, entrega, hora }: {
   const resumo = entrega && entrega.grupos.length > 0 ? resumoDaEntrega(entrega.grupos) : null;
   const feitos = resumo ? resumo.entregues : post.sent;
   const total = resumo ? resumo.total : post.total;
-  const saindo = resumo ? aindaSaindo(resumo) : post.status === "running" || post.status === "queued";
+  const saindo = estaSaindo(post, resumo);
   const termino = saindo && resumo ? terminaPorVolta(resumo, agora) : null;
   const pct = total > 0 ? Math.min(100, Math.round((feitos / total) * 100)) : 0;
   const frase = fraseDoAndamento({ post, resumo, hora, termino });
@@ -213,8 +215,8 @@ export function PostandoAgora({ posts, grupos, agendamentos, agora, disparosOk, 
   // postDaTabela devolve DispatchView; o Disparo (com campaignName) é o mesmo item da lista.
   const escolhido = postDaTabela(posts, agora);
   const post = posts.find((p) => p.id === escolhido?.id) ?? null;
-  // A entrega faz a própria releitura enquanto o post sai; trocar de post já lê de novo.
-  const { entrega, leitura, desatualizada } = useEntrega(post?.id ?? null, 0);
+  // A entrega faz a própria releitura enquanto o post sai; trocar de post, ou ele mudar de status/contagem na recarga da página, lê de novo.
+  const { entrega, leitura, desatualizada } = useEntrega(post?.id ?? null, versaoDoPost(post));
   const campanha = post?.campaignName || "Post";
   const hora = post ? horaBR(quandoDoPost(post)) : "";
   const abertura = (post ? textoDoPost(post) : "").split("\n")[0];
