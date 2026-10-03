@@ -3,7 +3,16 @@ import { test } from "node:test";
 
 import type { EntregaNoGrupo, ResumoDaEntrega } from "@/lib/painel/entrega";
 import type { Group } from "@/lib/mock-data";
-import { gradeDaEntrega, proximosAgendamentos, rotuloDaCelula, terminaPorVolta } from "./postando";
+import {
+  fraseDoAndamento,
+  gradeDaEntrega,
+  placarDosGrupos,
+  proximosAgendamentos,
+  rotuloDaCelula,
+  terminaPorVolta,
+  textoDoPost,
+  tituloDaGrade,
+} from "./postando";
 
 const CONVITE = "https://chat.whatsapp.com/abc";
 
@@ -37,8 +46,8 @@ test("grade ordena pelo numero do grupo, depois os sem numero pelo nome, e o for
     { grupo: "c@g.us", estado: "na_fila", quando: null },
   ];
   const grade = gradeDaEntrega(entrega, grupos);
-  assert.deepEqual(grade.map((c) => c.rotulo), ["#2", "#9", "#10", "4º", "5º"]);
-  assert.deepEqual(grade.map((c) => c.nome), ["X 2", "X 9", "X 10", "Clientes antigos", "fantasma@g.us"]);
+  assert.deepEqual(grade.map((c) => c.rotulo), ["#2", "#9", "#10", "Clientes antigos", "grupo fora do cadastro"]);
+  assert.deepEqual(grade.map((c) => c.nome), ["X 2", "X 9", "X 10", "Clientes antigos", "grupo fora do cadastro"]);
   assert.equal(grade[0].estado, "entregue");
   assert.equal(grade[0].quando, "2026-10-03T17:08:00Z");
   assert.equal(grade[0].id, "a@g.us");
@@ -68,4 +77,71 @@ test("rotulo da celula diz o estado por extenso e nao repete o nome igual ao rot
   assert.equal(rotuloDaCelula({ ...base, estado: "falhou" }), "#3, Moda Sul 03: falhou");
   assert.equal(rotuloDaCelula({ ...base, estado: "cancelado" }), "#3, Moda Sul 03: cancelado");
   assert.equal(rotuloDaCelula({ ...base, nome: "#3", estado: "na_fila" }), "#3: na fila");
+});
+
+test("grupo sem numero usa o nome, cortado, e nunca uma posicao", () => {
+  const nome = "Clientes antigas de Fortaleza e região";
+  const [c] = gradeDaEntrega([{ grupo: "d@g.us", estado: "na_fila", quando: null }], [grupo("d", nome)]);
+  assert.equal(c.nome, nome);
+  assert.ok(c.rotulo.endsWith("…") && c.rotulo.length < nome.length);
+  assert.ok(!/\dº/.test(c.rotulo));
+  // A etiqueta cortada nao repete o nome inteiro: o nome completo basta.
+  assert.equal(rotuloDaCelula(c), `${nome}: na fila`);
+});
+
+test("rotulo do grupo fora do cadastro nao repete a frase", () => {
+  const [c] = gradeDaEntrega([{ grupo: "x@g.us", estado: "falhou", quando: null }], []);
+  assert.equal(rotuloDaCelula(c), "grupo fora do cadastro: falhou");
+});
+
+test("titulo da grade e placar no singular e no plural", () => {
+  assert.equal(tituloDaGrade(1), "Entrega no 1 grupo");
+  assert.equal(tituloDaGrade(40), "Entrega nos 40 grupos");
+  assert.equal(placarDosGrupos(1, 1), "1 de 1 grupo");
+  assert.equal(placarDosGrupos(27, 40), "27 de 40 grupos");
+  assert.equal(placarDosGrupos(0, 0), "0 de 0 grupos");
+});
+
+test("texto do post: enquete mostra a pergunta, o resto o corpo", () => {
+  assert.equal(textoDoPost({ body: "Oi", poll: undefined }), "Oi");
+  assert.equal(textoDoPost({ body: "", poll: { question: "Qual cor?", options: ["a", "b"] } }), "Qual cor?");
+  assert.equal(textoDoPost({ body: "  ", poll: undefined }), "");
+});
+
+const post = (p: Partial<{ status: string; error?: string; sent: number; total: number }> = {}) => ({ status: "sent", sent: 0, total: 0, ...p });
+
+test("frase: saindo com e sem estimativa", () => {
+  const r = resumo({ postando: 1, naFila: 3, entregues: 4, total: 8 });
+  assert.equal(fraseDoAndamento({ post: post({ status: "running" }), resumo: r, hora: "14:08", termino: "14:11" }), "termina por volta de 14:11");
+  assert.equal(fraseDoAndamento({ post: post({ status: "running" }), resumo: r, hora: "14:08", termino: null }), "saindo agora");
+  assert.equal(fraseDoAndamento({ post: post({ status: "queued" }), resumo: null, hora: "14:08", termino: null }), "saindo agora");
+});
+
+test("frase: saiu, sem e com falhas", () => {
+  assert.equal(fraseDoAndamento({ post: post(), resumo: resumo({ entregues: 40, total: 40 }), hora: "14:08", termino: null }), "Saiu às 14:08 · 40 de 40");
+  assert.equal(
+    fraseDoAndamento({ post: post(), resumo: resumo({ entregues: 38, falharam: 2, total: 40 }), hora: "14:08", termino: null }),
+    "Saiu às 14:08 · 38 de 40 · 2 falharam",
+  );
+  assert.equal(
+    fraseDoAndamento({ post: post(), resumo: resumo({ entregues: 39, falharam: 1, total: 40 }), hora: "14:08", termino: null }),
+    "Saiu às 14:08 · 39 de 40 · 1 falhou",
+  );
+  // Entrega ainda sem carregar: vale o contador do post.
+  assert.equal(fraseDoAndamento({ post: post({ sent: 12, total: 12 }), resumo: null, hora: "14:08", termino: null }), "Saiu às 14:08 · 12 de 12");
+});
+
+test("frase: post que falhou nunca diz Saiu, com ou sem entrega lida", () => {
+  assert.equal(fraseDoAndamento({ post: post({ status: "failed" }), resumo: null, hora: "14:08", termino: null }), "Não saiu");
+  assert.equal(
+    fraseDoAndamento({ post: post({ status: "failed", error: "número desconectado" }), resumo: null, hora: "14:08", termino: null }),
+    "Não saiu · número desconectado",
+  );
+  assert.equal(
+    fraseDoAndamento({ post: post({ status: "failed", error: "sem admin" }), resumo: resumo({ falharam: 3, total: 3 }), hora: "14:08", termino: null }),
+    "Não saiu · sem admin",
+  );
+  // Todos os grupos falharam, mesmo com o post marcado como enviado.
+  assert.equal(fraseDoAndamento({ post: post(), resumo: resumo({ falharam: 3, total: 3 }), hora: "14:08", termino: null }), "Não saiu · 3 falharam");
+  assert.equal(fraseDoAndamento({ post: post(), resumo: resumo({ falharam: 1, total: 1 }), hora: "14:08", termino: null }), "Não saiu · 1 falhou");
 });

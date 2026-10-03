@@ -1,71 +1,89 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { Ban, Check, Clock, Loader2, X, type LucideIcon } from "lucide-react";
 import { Bolha } from "@/components/painel/bolha";
 import { useEntrega, LegendaDaEntrega, type LeituraDaEntrega } from "@/components/painel/campanhas/detalhe/entrega";
 import type { Disparo, Schedule } from "@/components/painel/home/types";
 import { horaBR } from "@/lib/date-br";
 import type { Group } from "@/lib/mock-data";
-import { gradeDaEntrega, proximosAgendamentos, rotuloDaCelula, terminaPorVolta } from "@/lib/painel/ao-vivo/postando";
+import {
+  fraseDoAndamento,
+  gradeDaEntrega,
+  placarDosGrupos,
+  proximosAgendamentos,
+  rotuloDaCelula,
+  terminaPorVolta,
+  textoDoPost,
+  tituloDaGrade,
+} from "@/lib/painel/ao-vivo/postando";
 import { quandoDoPost } from "@/lib/painel/campanha-visao";
 import { aindaSaindo, postDaTabela, resumoDaEntrega, type EstadoDaEntrega } from "@/lib/painel/entrega";
-import { numero } from "@/lib/painel/grupos";
 import { cn } from "@/lib/utils";
 
-/** Mais que isto (caracteres ou quebras de linha) e a prévia vem cortada em ~6 linhas. */
-const TEXTO_LONGO_CARACTERES = 280;
-const TEXTO_LONGO_LINHAS = 6;
-/** 6 linhas de 20 px da bolha + o respiro dela; a foto (até 180 px + margem) soma por cima. */
-const ALTURA_DE_6_LINHAS_PX = 148;
-const ALTURA_DA_FOTO_PX = 192;
-
-const COR_DA_CELULA: Record<EstadoDaEntrega, string> = {
-  entregue: "bg-success-700/70",
-  postando: "bg-cobalt-500 motion-safe:animate-pulse",
-  na_fila: "bg-line-200",
-  falhou: "bg-saida",
-  cancelado: "bg-slate-600/40",
+/**
+ * Cada estado diz o que é por ícone (12 px) e por contorno ou preenchimento; a cor
+ * nunca está sozinha. "Na fila" e "falhou" são só contorno: um preenchimento fraco
+ * não chega a 3:1 na superfície (nos dois temas), o contorno em slate/saida chega.
+ */
+const CELULA: Record<EstadoDaEntrega, { classe: string; Icone: LucideIcon; texto: string }> = {
+  entregue: { classe: "bg-success-700 text-white", Icone: Check, texto: "entregue" },
+  postando: { classe: "bg-cobalt-500 text-white", Icone: Loader2, texto: "postando" },
+  na_fila: { classe: "border border-slate-600 text-slate-600", Icone: Clock, texto: "na fila" },
+  falhou: { classe: "border border-saida text-saida", Icone: X, texto: "falhou" },
+  cancelado: { classe: "bg-slate-600/40 text-slate-600", Icone: Ban, texto: "cancelado" },
 };
+const ORDEM_DA_LEGENDA: EstadoDaEntrega[] = ["entregue", "postando", "na_fila", "falhou", "cancelado"];
 
-const MIDIA_SEM_FOTO: Record<string, string> = { video: "com vídeo", audio: "com áudio", file: "com arquivo" };
-
-const textoLongo = (t: string) => t.length > TEXTO_LONGO_CARACTERES || t.split("\n").length > TEXTO_LONGO_LINHAS;
+const OUTRA_MIDIA: Record<string, string> = { video: "com vídeo", audio: "com áudio", file: "com arquivo" };
 
 function Previa({ post, campanha }: { post: Disparo; campanha: string }) {
   const [aberta, setAberta] = useState(false);
+  const [cortado, setCortado] = useState(false);
+  const textoRef = useRef<HTMLSpanElement>(null);
+  const idDaPrevia = useId();
+  const texto = textoDoPost(post);
   const foto = post.mediaType === "image" && post.mediaId ? `/api/media/${post.mediaId}` : undefined;
-  const longo = textoLongo(post.body);
-  const corta = longo && !aberta;
-  const semFoto = post.mediaType ? MIDIA_SEM_FOTO[post.mediaType] : undefined;
+  const nota = post.poll ? `enquete com ${post.poll.options.length} opções` : post.mediaType ? OUTRA_MIDIA[post.mediaType] : undefined;
+
+  // Mede o texto cortado em vez de adivinhar pelo tamanho: "ver tudo" só aparece se algo ficou de fora.
+  useEffect(() => {
+    const el = textoRef.current;
+    if (!el || aberta) return;
+    const medir = () => setCortado(el.scrollHeight > el.clientHeight);
+    medir();
+    const observador = new ResizeObserver(medir);
+    observador.observe(el);
+    return () => observador.disconnect();
+  }, [aberta, texto]);
+
   return (
     <div>
-      <div
-        id="postando-previa"
-        className={cn(corta && "overflow-hidden")}
-        style={corta ? { maxHeight: ALTURA_DE_6_LINHAS_PX + (foto ? ALTURA_DA_FOTO_PX : 0) } : undefined}
-      >
+      <div id={idDaPrevia}>
         <Bolha
           grupo={campanha}
           hora={horaBR(quandoDoPost(post))}
-          texto={post.body}
+          texto={texto}
           vazio="Post com mídia, sem texto."
           foto={foto}
           mencaoTodos={post.mentionAll}
+          cortar={!aberta}
+          textoRef={textoRef}
         />
       </div>
-      {longo && (
+      {(cortado || aberta) && (
         <button
           type="button"
           aria-expanded={aberta}
-          aria-controls="postando-previa"
+          aria-controls={idDaPrevia}
           onClick={() => setAberta((v) => !v)}
           className="mt-1.5 text-13 font-semibold text-cobalt-500 hover:underline"
         >
           {aberta ? "ver menos" : "ver tudo"}
         </button>
       )}
-      {semFoto && <p className="mt-1.5 text-12 text-slate-600">{semFoto}</p>}
+      {nota && <p className="mt-1.5 text-12 text-slate-600">{nota}</p>}
     </div>
   );
 }
@@ -89,17 +107,33 @@ function Grade({ post, grupos, leitura, entrega, desatualizada, hora }: {
   if (celulas.length === 0) return <p className="text-13 text-slate-600">Nenhum grupo na entrega ainda.</p>;
   return (
     <div className="space-y-2">
-      <h3 className="text-13 font-semibold text-volt-950">Entrega nos {numero(celulas.length)} grupos</h3>
+      <h3 className="text-13 font-semibold text-volt-950">{tituloDaGrade(celulas.length)}</h3>
       <ul className="flex flex-wrap gap-1">
         {celulas.map((c) => {
           const rotulo = rotuloDaCelula(c);
+          const { classe, Icone } = CELULA[c.estado];
           return (
             <li key={`${post.id}:${c.id}`}>
-              <span role="img" aria-label={rotulo} title={rotulo} className={cn("block h-[22px] w-[22px] rounded-[3px]", COR_DA_CELULA[c.estado])} />
+              <span
+                role="img"
+                aria-label={rotulo}
+                title={rotulo}
+                className={cn("flex h-[22px] w-[22px] items-center justify-center rounded-[3px]", classe, c.estado === "postando" && "motion-safe:animate-pulse")}
+              >
+                <Icone aria-hidden="true" className={cn("h-3 w-3", c.estado === "postando" && "motion-safe:animate-spin")} />
+              </span>
             </li>
           );
         })}
       </ul>
+      <p className="flex flex-wrap gap-x-3 gap-y-1 text-12 text-slate-600">
+        {ORDEM_DA_LEGENDA.map((estado) => (
+          <span key={estado} className="inline-flex items-center gap-1">
+            <span className={cn("h-2.5 w-2.5 rounded-[2px]", CELULA[estado].classe)} aria-hidden="true" />
+            {CELULA[estado].texto}
+          </span>
+        ))}
+      </p>
       <LegendaDaEntrega hora={hora} resumo={resumo} desatualizada={desatualizada} />
     </div>
   );
@@ -115,16 +149,9 @@ function Andamento({ post, agora, entrega, hora }: {
   const feitos = resumo ? resumo.entregues : post.sent;
   const total = resumo ? resumo.total : post.total;
   const saindo = resumo ? aindaSaindo(resumo) : post.status === "running" || post.status === "queued";
-  const falharam = resumo?.falharam ?? 0;
   const termino = saindo && resumo ? terminaPorVolta(resumo, agora) : null;
   const pct = total > 0 ? Math.min(100, Math.round((feitos / total) * 100)) : 0;
-  const placar = `${numero(feitos)} de ${numero(total)} grupos`;
-
-  let frase: string;
-  if (saindo) frase = termino ? `termina por volta de ${termino}` : "saindo agora";
-  else if (resumo && resumo.entregues === 0 && falharam > 0) frase = `Não saiu · ${numero(falharam)} ${falharam === 1 ? "falhou" : "falharam"}`;
-  else if (falharam > 0) frase = `Saiu às ${hora} · ${numero(feitos)} de ${numero(total)} · ${numero(falharam)} ${falharam === 1 ? "falhou" : "falharam"}`;
-  else frase = `Saiu às ${hora} · ${numero(feitos)} de ${numero(total)}`;
+  const frase = fraseDoAndamento({ post, resumo, hora, termino });
 
   return (
     <div className="space-y-1.5">
@@ -132,7 +159,7 @@ function Andamento({ post, agora, entrega, hora }: {
         <span className="pn-lotacao__cheio" style={{ width: `${pct}%` }} />
       </span>
       <p className="flex flex-wrap items-baseline gap-x-2 text-13 text-slate-600">
-        {saindo && <span className="font-semibold tabular-nums text-volt-950">{placar}</span>}
+        {saindo && <span className="font-semibold tabular-nums text-volt-950">{placarDosGrupos(feitos, total)}</span>}
         <span>{frase}</span>
         {!saindo && post.campaignSlug && (
           <Link href={`/painel/campanhas/${post.campaignSlug}`} className="font-semibold text-cobalt-500 hover:underline">
@@ -144,12 +171,14 @@ function Andamento({ post, agora, entrega, hora }: {
   );
 }
 
-function ProximosAgendamentos({ agendamentos, agora }: { agendamentos: Schedule[]; agora: Date }) {
+function ProximosAgendamentos({ agendamentos, agora, carregou }: { agendamentos: Schedule[]; agora: Date; carregou: boolean }) {
   const proximos = proximosAgendamentos(agendamentos, agora);
   return (
     <div className="space-y-2">
       <h3 className="text-13 font-semibold text-volt-950">Próximos</h3>
-      {proximos.length === 0 ? (
+      {!carregou ? (
+        <p className="text-13 text-slate-600">A agenda não carregou.</p>
+      ) : proximos.length === 0 ? (
         <p className="text-13 text-slate-600">
           Nada agendado.{" "}
           <Link href="/painel/agenda" className="font-semibold text-cobalt-500 hover:underline">
@@ -169,20 +198,29 @@ function ProximosAgendamentos({ agendamentos, agora }: { agendamentos: Schedule[
   );
 }
 
-type Props = { posts: Disparo[]; grupos: Group[]; agendamentos: Schedule[]; agora: Date; versao: number };
+type Props = {
+  posts: Disparo[];
+  grupos: Group[];
+  agendamentos: Schedule[];
+  agora: Date;
+  /** Falso = a lista de posts não carregou: "Nada saindo agora" seria falso. */
+  disparosOk: boolean;
+  schedulesOk: boolean;
+};
 
 /** "Postando agora" da Início "Ao vivo" (spec 2026-10-02): o post que sai, grupo a grupo, e o que vem depois. */
-export function PostandoAgora({ posts, grupos, agendamentos, agora, versao }: Props) {
+export function PostandoAgora({ posts, grupos, agendamentos, agora, disparosOk, schedulesOk }: Props) {
   // postDaTabela devolve DispatchView; o Disparo (com campaignName) é o mesmo item da lista.
   const escolhido = postDaTabela(posts, agora);
   const post = posts.find((p) => p.id === escolhido?.id) ?? null;
-  const { entrega, leitura, desatualizada } = useEntrega(post?.id ?? null, versao);
+  // A entrega faz a própria releitura enquanto o post sai; trocar de post já lê de novo.
+  const { entrega, leitura, desatualizada } = useEntrega(post?.id ?? null, 0);
   const campanha = post?.campaignName || "Post";
   const hora = post ? horaBR(quandoDoPost(post)) : "";
-  const abertura = post?.body.trim().split("\n")[0] ?? "";
+  const abertura = (post ? textoDoPost(post) : "").split("\n")[0];
 
   return (
-    <section data-testid="inicio-postando" aria-labelledby="postando-titulo" className="rounded-[10px] border border-line-200 bg-paper-0">
+    <section data-testid="inicio-postando" aria-labelledby="postando-titulo" className="min-w-0 rounded-[10px] border border-line-200 bg-paper-0">
       <div className="border-b border-line-200 px-5 py-3">
         <h2 id="postando-titulo" className="text-[16px] font-semibold text-volt-950">
           Postando agora
@@ -195,9 +233,11 @@ export function PostandoAgora({ posts, grupos, agendamentos, agora, versao }: Pr
               <span className="font-semibold text-volt-950">{abertura || "Post com mídia"}</span> · {campanha}
             </p>
             <Andamento post={post} agora={agora} entrega={entrega} hora={hora} />
-            <Previa post={post} campanha={campanha} />
+            <Previa key={post.id} post={post} campanha={campanha} />
             <Grade post={post} grupos={grupos} leitura={leitura} entrega={entrega} desatualizada={desatualizada} hora={hora} />
           </>
+        ) : !disparosOk ? (
+          <p className="text-13 text-slate-600">Os posts não carregaram.</p>
         ) : (
           <div>
             <p className="text-15 font-semibold text-volt-950">Nada saindo agora.</p>
@@ -207,7 +247,7 @@ export function PostandoAgora({ posts, grupos, agendamentos, agora, versao }: Pr
             </Link>
           </div>
         )}
-        <ProximosAgendamentos agendamentos={agendamentos} agora={agora} />
+        <ProximosAgendamentos agendamentos={agendamentos} agora={agora} carregou={schedulesOk} />
       </div>
     </section>
   );

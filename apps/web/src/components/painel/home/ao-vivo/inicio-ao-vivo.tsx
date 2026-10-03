@@ -25,6 +25,8 @@ type Props = {
   orders: Order[];
   disparos: Disparo[];
   schedules: Schedule[];
+  disparosOk: boolean;
+  schedulesOk: boolean;
   settings: TenantSettings;
   settingsOk: boolean;
   ordersOk: boolean;
@@ -50,6 +52,8 @@ export function InicioAoVivo({
   orders,
   disparos,
   schedules,
+  disparosOk,
+  schedulesOk,
   settings,
   settingsOk,
   ordersOk,
@@ -68,8 +72,6 @@ export function InicioAoVivo({
   useRecarga(tick, RELOGIO_MS);
   useAtivacaoNaCasca({ activation, settings, settingsOk, onOnboardingComplete });
   useRecarga(onAtualizar, RECARGA_MS);
-  // A entrega do Postando relê a cada recarga de 60 s da página.
-  const versao = Date.parse(atividade?.geradoEm ?? "") || 0;
   const mostrarChecklist = settingsOk && settings.onboardingDismissedAt == null && !activation.complete;
 
   return (
@@ -94,9 +96,9 @@ export function InicioAoVivo({
         settingsOk={settingsOk}
       />
       {/* Colunas a partir de 1280 px; abaixo, empilhado com o Postando em cima. O PR 5 acrescenta a terceira coluna (Relâmpago, _340px). */}
-      <div className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)] xl:items-start">
-        <PostandoAgora posts={disparos} grupos={groups} agendamentos={schedules} agora={agora} versao={versao} />
-        <div className="space-y-6">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[340px_minmax(0,1fr)] xl:items-start">
+        <PostandoAgora posts={disparos} grupos={groups} agendamentos={schedules} agora={agora} disparosOk={disparosOk} schedulesOk={schedulesOk} />
+        <div className="min-w-0 space-y-6">
           <MapaDosGrupos grupos={groups} campanhas={campanhas} atividade={atividade} />
           <EntradasESaidas atividade={atividade} posts={disparos} />
         </div>

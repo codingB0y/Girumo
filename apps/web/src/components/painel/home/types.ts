@@ -88,6 +88,9 @@ export type DashboardData = {
   /** Falso = `orders` / `links` vieram vazios porque a busca falhou, não porque não há nada. */
   ordersOk: boolean;
   linksOk: boolean;
+  /** Falso = `disparos` / `schedules` vieram vazios porque a busca falhou, não porque não há nada. */
+  disparosOk: boolean;
+  schedulesOk: boolean;
   /** Entradas, saídas e cliques da loja inteira (Início "Ao vivo"). Nulo = não carregou ou sem banco. */
   atividade: AtividadeDaCampanha | null;
 };

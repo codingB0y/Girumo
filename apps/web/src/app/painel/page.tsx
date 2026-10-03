@@ -15,7 +15,7 @@ export default function PainelPage() {
 
   const { data, partial } = state;
   const { groups, campanhas, links, leads, orders, disparos, schedules, session, settings } = data;
-  const { settingsOk, ordersOk, linksOk, atividade } = data;
+  const { settingsOk, ordersOk, linksOk, disparosOk, schedulesOk, atividade } = data;
   const isConnected = session.live === true;
 
   // Cinco passos derivados dos dados — regra e testes em @/lib/onboarding-steps.
@@ -42,6 +42,8 @@ export default function PainelPage() {
         orders={orders}
         disparos={disparos}
         schedules={schedules}
+        disparosOk={disparosOk}
+        schedulesOk={schedulesOk}
         settings={settings}
         settingsOk={settingsOk}
         ordersOk={ordersOk}

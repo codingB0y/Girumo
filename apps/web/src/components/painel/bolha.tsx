@@ -15,6 +15,8 @@ export function Bolha({
   testId,
   foto,
   mencaoTodos,
+  cortar,
+  textoRef,
 }: {
   /** Cabeçalho de chat: nome do grupo ou da campanha. */
   grupo: string;
@@ -28,6 +30,9 @@ export function Bolha({
   foto?: string;
   /** Mostra "@todos" antes do texto, como o WhatsApp mostra a menção. */
   mencaoTodos?: boolean;
+  /** Corta o texto em 6 linhas (Início "Ao vivo"); quem chama mede `textoRef` para saber se cortou. */
+  cortar?: boolean;
+  textoRef?: React.Ref<HTMLSpanElement>;
 }) {
   const corpo = texto.trim();
   return (
@@ -37,8 +42,17 @@ export function Bolha({
         {/* blob: local, não passa pelo otimizador do next/image */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {foto && <img src={foto} alt="" className="pn-bolha__foto" />}
-        {mencaoTodos && corpo && <span className="font-semibold text-cobalt-700">@todos </span>}
-        {corpo || <span className="text-slate-600">{vazio}</span>}
+        {textoRef || cortar ? (
+          <span ref={textoRef} className={cortar ? "line-clamp-6" : undefined}>
+            {mencaoTodos && corpo && <span className="font-semibold text-cobalt-700">@todos </span>}
+            {corpo || <span className="text-slate-600">{vazio}</span>}
+          </span>
+        ) : (
+          <>
+            {mencaoTodos && corpo && <span className="font-semibold text-cobalt-700">@todos </span>}
+            {corpo || <span className="text-slate-600">{vazio}</span>}
+          </>
+        )}
         <span className="pn-bolha__hora">
           {hora}
           <svg viewBox="0 0 16 16" className="pn-bolha__check" aria-hidden="true">
