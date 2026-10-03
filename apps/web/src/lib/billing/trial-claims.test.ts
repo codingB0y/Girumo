@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { claimCardFingerprint, claimTrial } from "./trial-claims";
 
+/** `data` = a linha que a query casa (null = nenhuma). O fake molda o formato (ver abaixo). */
 type Resposta = { data: unknown; error: { message: string; code?: string } | null };
 type Filtro = [op: "eq" | "is", coluna: string, valor: unknown];
 type Chamada = { tabela: string; update: Record<string, unknown> | null; filtros: Filtro[] };
@@ -20,8 +21,12 @@ const FILTRO_TENANT: Filtro[] = [
  * service-role ignora RLS, entao esses filtros SAO o isolamento entre tenants — sem
  * eles o update gravaria o teste em toda organizacao com a coluna nula.
  *
- * A cadeia e "thenable" porque `claimCardFingerprint` aguarda o update direto, sem
- * `.maybeSingle()`.
+ * O formato de `data` segue o PostgREST, porque o código decide por ele:
+ * - `.maybeSingle()` → a linha ou null;
+ * - cadeia aguardada direto (o `then`) → array: `[]` quando nada casou, `[linha]` quando casou;
+ * - update sem `.select()` → null, porque não pediu a linha de volta.
+ * Um fake que devolvesse a linha crua em qualquer caso deixava passar um `claimTrial`
+ * sem `.maybeSingle()`: em produção o `[]` é truthy e toda reserva viraria `won`.
  */
 function fakeSupabase(respostas: Resposta[]) {
   const chamadas: Chamada[] = [];
@@ -29,13 +34,23 @@ function fakeSupabase(respostas: Resposta[]) {
     from(tabela: string) {
       const chamada: Chamada = { tabela, update: null, filtros: [] };
       const indice = chamadas.push(chamada) - 1;
-      const resposta = (): Resposta => respostas[indice] ?? VAZIO;
+      let selecionou = false;
+      const resposta = (unica: boolean): Resposta => {
+        const { data: linha, error } = respostas[indice] ?? VAZIO;
+        if (error) return { data: null, error };
+        if (chamada.update && !selecionou) return { data: null, error: null };
+        if (unica) return { data: linha ?? null, error: null };
+        return { data: linha == null ? [] : [linha], error: null };
+      };
       const cadeia = {
         update: (valores: Record<string, unknown>) => {
           chamada.update = valores;
           return cadeia;
         },
-        select: () => cadeia,
+        select: () => {
+          selecionou = true;
+          return cadeia;
+        },
         eq: (coluna: string, valor: unknown) => {
           chamada.filtros.push(["eq", coluna, valor]);
           return cadeia;
@@ -44,9 +59,9 @@ function fakeSupabase(respostas: Resposta[]) {
           chamada.filtros.push(["is", coluna, valor]);
           return cadeia;
         },
-        maybeSingle: async () => resposta(),
+        maybeSingle: async () => resposta(true),
         then: (ok: (r: Resposta) => unknown, falha?: (e: unknown) => unknown) =>
-          Promise.resolve(resposta()).then(ok, falha),
+          Promise.resolve(resposta(false)).then(ok, falha),
       };
       return cadeia;
     },
