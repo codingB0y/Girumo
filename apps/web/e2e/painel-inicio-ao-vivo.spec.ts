@@ -20,6 +20,8 @@ test.describe("Início ao vivo", () => {
     await expect(page.getByTestId("inicio-mapa").getByRole("heading", { name: "Mapa dos grupos" })).toBeVisible();
     await expect(page.getByTestId("inicio-entradas").getByRole("heading", { name: "Entradas e saídas" })).toBeVisible();
     await expect(page.getByTestId("inicio-postando").getByRole("heading", { name: "Postando agora" })).toBeVisible();
+    // O tenant de QA não tem oferta aberta: a coluna aparece no estado quieto.
+    await expect(page.getByTestId("inicio-relampago").getByRole("heading", { name: "Relâmpago" })).toBeVisible();
   });
 
   test("nenhum botão ou link em Acid (regra 10)", async ({ page }) => {

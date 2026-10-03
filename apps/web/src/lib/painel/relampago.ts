@@ -117,3 +117,19 @@ export function etiquetaDaOferta(nome: string, pecas: number): string {
   const limpo = nome.trim() || "Oferta";
   return `${limpo} · ${pecas} ${pecas === 1 ? "peça" : "peças"}`;
 }
+
+/** "em 3 grupos: VIP 1, VIP 2 e mais 1" — até 2 nomes; o que não acha nome fica só na contagem. */
+export function fraseDosGrupos(
+  groupIds: readonly string[],
+  grupos: ReadonlyArray<{ whatsappGroupId: string; name: string }>,
+): string {
+  const n = groupIds.length;
+  if (n === 0) return "sem grupo aberto";
+  const nomes = groupIds
+    .map((id) => grupos.find((g) => g.whatsappGroupId === id)?.name)
+    .filter((nome): nome is string => !!nome);
+  const base = `em ${n} ${n === 1 ? "grupo" : "grupos"}`;
+  if (nomes.length === 0) return base;
+  const resto = n - 2;
+  return `${base}: ${nomes.slice(0, 2).join(", ")}${resto > 0 ? ` e mais ${resto}` : ""}`;
+}

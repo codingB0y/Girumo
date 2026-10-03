@@ -4,6 +4,7 @@ import { test } from "node:test";
 import {
   etiquetaDaOferta,
   horarioComSegundos,
+  fraseDosGrupos,
   noArHa,
   ordinal,
   pecasRestantes,
@@ -131,4 +132,16 @@ test("peças restantes é slots menos vendidas; reserva ainda não tirou a peça
 
 test("peças restantes nunca fica negativa", () => {
   assert.deepEqual(pecasRestantes({ slots: 1, status: "open" }, [vendida, vendida]), { restantes: 0, pecas: 1 });
+});
+
+test("frase dos grupos: até dois nomes e 'e mais N'; sem nome achado, só a contagem", () => {
+  const grupos = [
+    { whatsappGroupId: "a@g.us", name: "VIP 1" },
+    { whatsappGroupId: "b@g.us", name: "VIP 2" },
+    { whatsappGroupId: "c@g.us", name: "VIP 3" },
+  ];
+  assert.equal(fraseDosGrupos(["a@g.us"], grupos), "em 1 grupo: VIP 1");
+  assert.equal(fraseDosGrupos(["a@g.us", "b@g.us", "c@g.us"], grupos), "em 3 grupos: VIP 1, VIP 2 e mais 1");
+  assert.equal(fraseDosGrupos(["x@g.us", "y@g.us"], grupos), "em 2 grupos");
+  assert.equal(fraseDosGrupos([], grupos), "sem grupo aberto");
 });
