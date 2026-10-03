@@ -28,15 +28,18 @@ EMBEDDING_MODEL_PRIMARY = "gemini-embedding-001"
 EMBEDDING_MODEL_FALLBACK = "text-embedding-004"
 EMBEDDING_DIM = 3072
 
+# Descoberta sem `--list` (o `rag index` incremental) — só docs e infra.
+# Código-fonte fica no perfil `code`, por lista explícita: em 02/10/2026 o `tech`
+# tinha 591 arquivos de apps/web/src indexados de novo, pagando duas vezes pelo
+# mesmo código.
 INCLUDE_GLOBS = [
-    "apps/web/src/**/*.ts",
-    "apps/web/src/**/*.tsx",
-    "hubflow-engine/**/*.js",
     "*.md",
     "docs/**/*.md",
-    "apps/web/package.json",
-    "package.json",
-    "hubflow-engine/package.json",
+    "deploy/**/*.md",
+    "deploy/**/*.yml",
+    "infra/**/*.md",
+    "infra/**/*.sql",
+    "hubflow-engine/**/*.md",
 ]
 
 EXCLUDE_DIR_NAMES = {
