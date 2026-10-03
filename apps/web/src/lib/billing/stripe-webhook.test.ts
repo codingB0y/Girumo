@@ -241,6 +241,20 @@ test("MUTANTE C.2: evento fora de ordem carrega o timestamp para o banco decidir
   );
 });
 
+test("cancelamento agendado por cancel_at grava cancel_at_period_end: a tela nao promete cobranca", async () => {
+  // O portal (API dahlia) pode agendar o fim por `cancel_at` com o booleano em
+  // false. As telas leem só `subscriptions.cancel_at_period_end`.
+  const f = makeStore();
+  const sub = makeSubscription({ status: "trialing", cancel_at_period_end: false, cancel_at: 1_702_000_000 });
+
+  await handleStripeEvent(
+    makeEvent({ type: "customer.subscription.updated", data: { object: sub } } as unknown as Partial<Stripe.Event>),
+    f.store,
+  );
+
+  assert.equal(f.upserts[0].cancel_at_period_end, true);
+});
+
 test("assinatura sem tenant_id nao grava e registra aviso", async () => {
   const f = makeStore();
   const semMetadata = makeEvent({

@@ -180,7 +180,10 @@ async function upsertSubscription(
     current_period_end: item?.current_period_end
       ? new Date(item.current_period_end * 1000).toISOString()
       : null,
-    cancel_at_period_end: subscription.cancel_at_period_end,
+    // "Vai acabar sem cobrar". O portal (API dahlia) pode agendar o fim por
+    // `cancel_at` com o booleano em false; as telas leem só esta coluna, e sem o
+    // `cancel_at` anunciariam uma cobrança que não vem.
+    cancel_at_period_end: subscription.cancel_at_period_end || subscription.cancel_at != null,
     canceled_at: subscription.canceled_at
       ? new Date(subscription.canceled_at * 1000).toISOString()
       : null,
