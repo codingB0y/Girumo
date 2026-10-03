@@ -164,13 +164,13 @@ supabase db query --linked -f supabase\migrations\20261003120000_trial_organizat
 git checkout -- supabase/.temp/
 ```
 
-E conferir se algum caminho `authenticated` consegue escrever em `organizations` (se conseguir, o
-cliente poderia zerar `trial_subscription_id` pela API — a elegibilidade ainda barra pela linha de
-`subscriptions`, mas registrar no PR):
+A migração traz o gatilho `guard_trial_columns` (Task 1b, decisão do Igor em 03/10): `authenticated`
+e `anon` não criam, mudam nem apagam linha com as colunas do teste, seja qual for a policy de
+`organizations`. Conferir depois de aplicar, nos dois bancos (espera 1 linha):
 
 ```sql
-select polname, polcmd, pg_get_expr(polqual, polrelid) as using_expr
-from pg_policy where polrelid = 'public.organizations'::regclass and polcmd in ('w', '*');
+select tgname from pg_trigger
+ where tgrelid = 'public.organizations'::regclass and tgname = 'guard_trial_columns';
 ```
 
 - [ ] **Step 5: Commit**
@@ -1885,8 +1885,8 @@ o revisor de segurança deve olhar: ninguém além do servidor decide `comTeste`
 
 - [ ] **Step 4: Pendências do Igor (juntas, no fim — memória `feedback-execucao-autonoma-pendencias-no-fim`)**
 
-1. Aplicar a migração nos dois bancos (comandos da Task 1, Step 4) e mandar o resultado da consulta de
-   `pg_policy`.
+1. Aplicar a migração nos dois bancos (comandos da Task 1, Step 4) e mandar o resultado da consulta do
+   gatilho `guard_trial_columns` (1 linha em cada banco).
 2. Atualizar a baseline do gate de drift: rodar em **prod**
 
    ```sql
