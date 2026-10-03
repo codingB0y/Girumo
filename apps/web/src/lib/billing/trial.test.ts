@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 
-import { trialEligible, trialView, type TrialFacts, type TrialSubscriptionFacts } from "./trial";
+import { trialEligible, trialEnabled, trialView, type TrialFacts, type TrialSubscriptionFacts } from "./trial";
 
 function facts(
   trialSubscriptionId: string | null,
@@ -19,6 +19,7 @@ function facts(
             cancelReason: null,
             planName: null,
             priceCents: null,
+            cancelAtPeriodEnd: false,
             ...sub,
           },
   };
@@ -56,7 +57,7 @@ test("em teste: devolve fim, plano e preço", () => {
   );
   assert.deepEqual(v, {
     elegivel: false,
-    emTeste: { fim: "2026-10-10T12:00:00.000Z", plano: "Growth", precoCents: 29700 },
+    emTeste: { fim: "2026-10-10T12:00:00.000Z", plano: "Growth", precoCents: 29700, semCobranca: false },
     cartaoRepetido: false,
   });
 });
@@ -95,4 +96,38 @@ test("cancel_reason trial_card_reused numa assinatura que não está cancelada n
     }),
   );
   assert.equal(v.cartaoRepetido, false);
+});
+
+test("teste cancelado no portal: continua em teste até o fim, mas sem cobrança", () => {
+  // O Stripe mantém `trialing` com cancel_at_period_end até o teste acabar: anunciar a
+  // cobrança aqui seria prometer um débito que não vai acontecer.
+  const v = trialView(
+    facts("sub_trial", {
+      status: "trialing",
+      stripeSubscriptionId: "sub_trial",
+      periodEnd: "2026-10-10T12:00:00.000Z",
+      planName: "Growth",
+      priceCents: 29700,
+      cancelAtPeriodEnd: true,
+    }),
+  );
+  assert.deepEqual(v.emTeste, {
+    fim: "2026-10-10T12:00:00.000Z",
+    plano: "Growth",
+    precoCents: 29700,
+    semCobranca: true,
+  });
+});
+
+test("flag do teste liga com 1/true/on/yes, sem ligar pra caixa nem espaço", () => {
+  // A Vercel já entregou flag como "ON": comparar só com "1" desligaria o teste calado.
+  for (const v of ["1", "true", "on", "yes", "ON", " On ", "TRUE", "Yes\n"]) {
+    assert.equal(trialEnabled(v), true, JSON.stringify(v));
+  }
+});
+
+test("flag do teste: ausente ou qualquer outro valor é desligado", () => {
+  for (const v of [undefined, "", "  ", "0", "false", "off", "no", "2", "enabled", "onn"]) {
+    assert.equal(trialEnabled(v), false, JSON.stringify(v));
+  }
 });

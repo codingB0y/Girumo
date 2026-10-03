@@ -6,8 +6,9 @@ import { Calendar, RotateCcw, Users, type LucideIcon } from "lucide-react";
  * das duas.
  *
  * Só os gatilhos que o lojista vê. `no_connect_24h` e `trial_ending` são
- * lifecycle do SaaS (vivem em `lib/email` + cron) e foram retirados da tela
- * dele no P0.7 — por isso não têm rótulo aqui.
+ * lifecycle do SaaS e foram retirados da tela dele no P0.7 — por isso não têm
+ * rótulo aqui. O aviso de fim do teste (`trial_ending`) sai do webhook do Stripe
+ * (`customer.subscription.trial_will_end`), não de automação.
  */
 export const TRIGGER_LABELS: Record<string, { label: string; icon: LucideIcon }> = {
   lead_entered: { label: "Contato entrou no grupo", icon: Users },

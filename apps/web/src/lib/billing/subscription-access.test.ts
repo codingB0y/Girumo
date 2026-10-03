@@ -168,3 +168,33 @@ test("aviso do teste traz a data do fim, em Brasília", () => {
   );
   assert.equal(subscriptionNotice("trial", null), "Teste grátis ativo.");
 });
+
+test("teste cancelado no portal concede até o fim e avisa que não haverá cobrança", () => {
+  // O Stripe mantém `trialing` com cancel_at_period_end até o teste acabar.
+  const r = subscriptionAccess(
+    { status: "trialing", stripeStatus: "trialing", periodEnd: emDias(4), cancelAtPeriodEnd: true },
+    AGORA,
+  );
+  assert.deepEqual(r, { grantsPlan: true, state: "trial_canceled" });
+  assert.equal(
+    subscriptionNotice(r.state, "2026-10-10T15:00:00.000Z"),
+    "Teste cancelado — termina em 10/10 sem cobrança.",
+  );
+  assert.equal(subscriptionNotice(r.state, null), "Teste cancelado — termina sem cobrança.");
+});
+
+test("teste sem cancelamento marcado continua sendo só teste", () => {
+  const r = subscriptionAccess(
+    { status: "trialing", stripeStatus: "trialing", periodEnd: emDias(4), cancelAtPeriodEnd: false },
+    AGORA,
+  );
+  assert.equal(r.state, "trial");
+});
+
+test("cancel_at_period_end numa assinatura paga não vira teste cancelado", () => {
+  const r = subscriptionAccess(
+    { status: "active", stripeStatus: "active", periodEnd: emDias(4), cancelAtPeriodEnd: true },
+    AGORA,
+  );
+  assert.deepEqual(r, { grantsPlan: true, state: "active" });
+});

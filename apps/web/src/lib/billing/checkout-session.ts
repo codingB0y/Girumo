@@ -20,7 +20,18 @@ export type CheckoutSessionInput = {
   comTeste: boolean;
 };
 
-export function checkoutSessionParams(i: CheckoutSessionInput): Stripe.Checkout.SessionCreateParams {
+/**
+ * Validade da sessão COM teste. 30 min é o mínimo do Stripe, contado da criação no
+ * relógio dele; o minuto a mais cobre latência e relógio, que senão fariam o Stripe
+ * recusar a sessão. Curta de propósito: encolhe a janela em que uma sessão de
+ * teste esquecida conclui depois de outro checkout.
+ */
+const TRIAL_SESSION_TTL_S = 31 * 60;
+
+export function checkoutSessionParams(
+  i: CheckoutSessionInput,
+  agora: Date = new Date(),
+): Stripe.Checkout.SessionCreateParams {
   const metadata = { tenant_id: i.tenantId, plan_id: i.planId, plan_code: i.planCode };
   const base: Stripe.Checkout.SessionCreateParams = {
     mode: "subscription",
@@ -39,6 +50,7 @@ export function checkoutSessionParams(i: CheckoutSessionInput): Stripe.Checkout.
     ...base,
     payment_method_types: ["card"],
     payment_method_collection: "always",
+    expires_at: Math.floor(agora.getTime() / 1000) + TRIAL_SESSION_TTL_S,
     // Volta para o Início: é lá que a faixa confirma "teste até DD/MM".
     success_url: `${i.appUrl}/painel?billing=trial_started`,
     subscription_data: {
@@ -58,4 +70,28 @@ export function checkoutSessionParams(i: CheckoutSessionInput): Stripe.Checkout.
  */
 export function trialApplies(semTeste: unknown, facts: TrialFacts): boolean {
   return semTeste !== true && trialEligible(facts);
+}
+
+export type TrialCheckoutDecision = "sem_teste" | "com_teste" | "em_teste";
+
+/**
+ * O que o teste decide sobre um checkout.
+ *
+ * - Flag desligada: o checkout de antes do teste — nem lê os fatos.
+ * - Conta em teste (`trialing`): `em_teste`, boleto incluso. Uma segunda assinatura
+ *   ao lado do teste cobraria em dobro; troca de plano no teste é pelo portal.
+ *   `active`/`past_due` passam: é o "Trocar de plano" de quem já assina.
+ * - Senão, `trialApplies`.
+ *
+ * Erro de leitura sobe: a rota responde 500, nunca um checkout no escuro.
+ */
+export async function trialCheckoutDecision(i: {
+  enabled: boolean;
+  semTeste: unknown;
+  readFacts: () => Promise<TrialFacts>;
+}): Promise<TrialCheckoutDecision> {
+  if (!i.enabled) return "sem_teste";
+  const facts = await i.readFacts();
+  if (facts.subscription?.status === "trialing") return "em_teste";
+  return trialApplies(i.semTeste, facts) ? "com_teste" : "sem_teste";
 }

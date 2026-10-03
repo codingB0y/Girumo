@@ -1,7 +1,8 @@
 import { getAppUrl, getStripe } from "@/lib/billing/stripe";
 import { getStripePriceId, normalizePlanCode } from "@/lib/billing/plans";
 import { resolveCheckoutCustomerId } from "@/lib/billing/checkout-customer";
-import { checkoutSessionParams, trialApplies } from "@/lib/billing/checkout-session";
+import { checkoutSessionParams, trialCheckoutDecision } from "@/lib/billing/checkout-session";
+import { trialEnabled } from "@/lib/billing/trial";
 import { readTrialFacts } from "@/lib/billing/trial-facts";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { assertBillingRole, getTenantContext } from "@/lib/supabase/tenant-context";
@@ -34,10 +35,20 @@ export async function POST(req: Request) {
     }
 
     // O cliente não pede teste: o servidor aplica quando a conta é elegível. O único
-    // pedido aceito é o contrário — "sem teste", que é o caminho do boleto.
-    // `semTeste` curto-circuita antes da leitura: o boleto não depende dos fatos do teste.
-    const comTeste =
-      body.semTeste === true ? false : trialApplies(body.semTeste, await readTrialFacts(supabase, ctx.tenantId));
+    // pedido aceito é o contrário — "sem teste", que é o caminho do boleto. Com a
+    // flag desligada, é o checkout de antes do teste (ver `trialCheckoutDecision`).
+    const decisao = await trialCheckoutDecision({
+      enabled: trialEnabled(process.env.BILLING_TRIAL_ENABLED),
+      semTeste: body.semTeste,
+      readFacts: () => readTrialFacts(supabase, ctx.tenantId),
+    });
+    if (decisao === "em_teste") {
+      return Response.json(
+        { error: "Você está no teste grátis. Para trocar de plano, use Gerenciar cobrança." },
+        { status: 409 },
+      );
+    }
+    const comTeste = decisao === "com_teste";
 
     const stripe = getStripe();
 

@@ -8,9 +8,10 @@
  * "não inclui X" e ficava sem saber o que fazer, ou via um `alert()` nativo,
  * onde link nem cabe.
  *
- * Isso importa mais aqui do que num produto qualquer: sem trial, o paywall é o
- * único momento de conversão. Um bloqueio sem saída é uma venda perdida no
- * exato instante em que o cliente decidiu que queria usar.
+ * Isso importa mais aqui do que num produto qualquer: o paywall é o principal
+ * momento de conversão (o teste grátis de 7 dias também passa por ele, pelo
+ * checkout). Um bloqueio sem saída é uma venda perdida no exato instante em que
+ * o cliente decidiu que queria usar.
  */
 
 /** Erro que preserva o caminho de saída, além da mensagem. */

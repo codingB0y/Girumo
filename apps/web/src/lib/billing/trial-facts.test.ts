@@ -16,11 +16,15 @@ const ORG_OK: Resposta = { data: { trial_subscription_id: null }, error: null };
  */
 function fakeSupabase(opts: { org: Resposta; sub: Resposta }) {
   const filtros: Record<string, Filtro[]> = { organizations: [], subscriptions: [] };
+  const colunas: Record<string, string> = {};
   const client = {
     from(tabela: string) {
       const resposta = tabela === "organizations" ? opts.org : opts.sub;
       const cadeia = {
-        select: () => cadeia,
+        select: (cols: string) => {
+          colunas[tabela] = cols;
+          return cadeia;
+        },
         eq: (coluna: string, valor: unknown) => {
           filtros[tabela].push([coluna, valor]);
           return cadeia;
@@ -31,7 +35,7 @@ function fakeSupabase(opts: { org: Resposta; sub: Resposta }) {
     },
   } as unknown as SupabaseClient;
 
-  return { client, filtros };
+  return { client, filtros, colunas };
 }
 
 test("cada leitura filtra pelo tenant: é isso que isola as contas, não o RLS", async () => {
@@ -71,6 +75,7 @@ test("mapeia plano, metadata e o id do teste já consumido", async () => {
         stripe_subscription_id: "sub_1",
         current_period_end: "2026-10-10T00:00:00Z",
         metadata: { cancel_reason: "trial_card_reused" },
+        cancel_at_period_end: true,
         plans: { name: "Growth", price_cents: 19700 },
       },
       error: null,
@@ -86,6 +91,7 @@ test("mapeia plano, metadata e o id do teste já consumido", async () => {
       cancelReason: "trial_card_reused",
       planName: "Growth",
       priceCents: 19700,
+      cancelAtPeriodEnd: true,
     },
   });
 });
@@ -93,4 +99,10 @@ test("mapeia plano, metadata e o id do teste já consumido", async () => {
 test("sem linha de assinatura, subscription é null", async () => {
   const { client } = fakeSupabase({ org: ORG_OK, sub: { data: null, error: null } });
   assert.deepEqual(await readTrialFacts(client, "T"), { trialSubscriptionId: null, subscription: null });
+});
+
+test("lê cancel_at_period_end: sem ele, teste cancelado no portal ainda anunciaria cobrança", async () => {
+  const { client, colunas } = fakeSupabase({ org: ORG_OK, sub: { data: null, error: null } });
+  await readTrialFacts(client, "T");
+  assert.match(colunas.subscriptions, /\bcancel_at_period_end\b/);
 });

@@ -20,7 +20,7 @@ export async function readTrialFacts(supabase: SupabaseClient, tenantId: string)
       .maybeSingle(),
     supabase
       .from("subscriptions")
-      .select("status, stripe_subscription_id, current_period_end, metadata, plans(name, price_cents)")
+      .select("status, stripe_subscription_id, current_period_end, cancel_at_period_end, metadata, plans(name, price_cents)")
       .eq("tenant_id", tenantId)
       .maybeSingle(),
   ]);
@@ -45,6 +45,7 @@ export async function readTrialFacts(supabase: SupabaseClient, tenantId: string)
           cancelReason: meta?.cancel_reason ?? null,
           planName: plano?.name ?? null,
           priceCents: plano?.price_cents ?? null,
+          cancelAtPeriodEnd: linha.cancel_at_period_end === true,
         }
       : null,
   };

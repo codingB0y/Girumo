@@ -59,6 +59,8 @@ export type SubscriptionAccessInput = {
   periodEnd: string | null;
   /** `subscriptions.metadata.cancel_reason` — por que o webhook cancelou (teste grátis). */
   cancelReason?: string | null;
+  /** `subscriptions.cancel_at_period_end` — cancelado no portal, termina sem cobrar. */
+  cancelAtPeriodEnd?: boolean | null;
 };
 
 export type SubscriptionState =
@@ -74,6 +76,8 @@ export type SubscriptionState =
   | "canceled"
   /** Teste grátis de 7 dias em andamento. Concede o plano. */
   | "trial"
+  /** Teste cancelado no portal: concede até o fim e termina sem cobrança. */
+  | "trial_canceled"
   /** Teste cancelado sem cobrança: o cartão já tinha feito teste em outra conta. */
   | "trial_card_reused"
   /** Sem assinatura. */
@@ -102,7 +106,9 @@ export function subscriptionAccess(
   // Antes de CONCEDE_DIRETO: `trialing` concede igual, mas a tela precisa dizer
   // "teste até 10/10" e não "renova em 10/10" — a frase errada faz o cliente achar
   // que já está pagando.
-  if (status === "trialing") return { grantsPlan: true, state: "trial" };
+  if (status === "trialing") {
+    return { grantsPlan: true, state: input.cancelAtPeriodEnd ? "trial_canceled" : "trial" };
+  }
   if (CONCEDE_DIRETO.has(status)) return { grantsPlan: true, state: "active" };
   if (status === "canceled") {
     return {
@@ -136,6 +142,10 @@ export function subscriptionNotice(state: SubscriptionState, periodEnd?: string 
     case "trial": {
       const fim = diaMesBR(periodEnd);
       return fim ? `Teste grátis até ${fim}. Depois a assinatura segue sozinha.` : "Teste grátis ativo.";
+    }
+    case "trial_canceled": {
+      const fim = diaMesBR(periodEnd);
+      return fim ? `Teste cancelado — termina em ${fim} sem cobrança.` : "Teste cancelado — termina sem cobrança.";
     }
     case "trial_card_reused":
       return "Esse cartão já foi usado num teste grátis. Assine direto pra continuar.";

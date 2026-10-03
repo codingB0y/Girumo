@@ -8,6 +8,20 @@
 
 export const TRIAL_DAYS = 7;
 
+const LIGADO: ReadonlySet<string> = new Set(["1", "true", "on", "yes"]);
+
+/**
+ * `BILLING_TRIAL_ENABLED`: o teste só existe com a flag ligada. Desligada, o checkout
+ * é o de antes do teste e ninguém lê os fatos — é o que deixa o código ir pra
+ * produção antes das telas e da migração.
+ *
+ * Aceita "1", "true", "on" ou "yes", sem caixa nem espaço: a Vercel já entregou
+ * flag como "ON". Qualquer outro valor, ausente incluso, é desligado.
+ */
+export function trialEnabled(env: string | undefined): boolean {
+  return LIGADO.has((env ?? "").trim().toLowerCase());
+}
+
 /** Por que o webhook cancelou uma assinatura de teste. Vai em `metadata.cancel_reason`. */
 export type TrialCancelReason = "trial_card_reused" | "trial_duplicate";
 
@@ -22,6 +36,11 @@ export type TrialSubscriptionFacts = {
   cancelReason: string | null;
   planName: string | null;
   priceCents: number | null;
+  /**
+   * `subscriptions.cancel_at_period_end`. Cancelado no portal durante o teste, o
+   * Stripe mantém `trialing` até o fim — e não cobra.
+   */
+  cancelAtPeriodEnd: boolean;
 };
 
 export type TrialFacts = {
@@ -32,7 +51,8 @@ export type TrialFacts = {
 
 export type TrialView = {
   elegivel: boolean;
-  emTeste: { fim: string; plano: string; precoCents: number } | null;
+  /** `semCobranca`: o teste foi cancelado e termina sem cobrar. */
+  emTeste: { fim: string; plano: string; precoCents: number; semCobranca: boolean } | null;
   cartaoRepetido: boolean;
 };
 
@@ -51,7 +71,12 @@ export function trialView(facts: TrialFacts): TrialView {
   const sub = facts.subscription;
   const emTeste =
     sub?.status === "trialing" && sub.periodEnd
-      ? { fim: sub.periodEnd, plano: sub.planName ?? "", precoCents: sub.priceCents ?? 0 }
+      ? {
+          fim: sub.periodEnd,
+          plano: sub.planName ?? "",
+          precoCents: sub.priceCents ?? 0,
+          semCobranca: sub.cancelAtPeriodEnd,
+        }
       : null;
 
   return {
