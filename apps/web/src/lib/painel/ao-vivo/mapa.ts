@@ -58,7 +58,7 @@ export const TEXTO_DO_ESTADO: Record<EstadoDoGrupo, string> = {
 const GRUPOS = "/painel/grupos";
 
 /** `displayNumber`, depois "#n" em qualquer ponto do nome, depois o número no fim ("VIP Revenda 41", o nome padrão do abre-outro). */
-function numeroDoGrupo(g: Group): number | null {
+export function numeroDoGrupo(g: Group): number | null {
   if (typeof g.displayNumber === "number" && Number.isFinite(g.displayNumber) && g.displayNumber > 0) return g.displayNumber;
   const m = /#\s?(\d+)/.exec(g.name) ?? /\s(\d+)\s*$/.exec(g.name);
   return m ? Number(m[1]) : null;
@@ -180,8 +180,8 @@ export function rotuloAcessivel(bloco: string, c: CelulaDoMapa): string {
   // O grupo costuma se chamar exatamente "<campanha> #n": não repetir.
   const partes = c.nome === titulo ? [titulo] : [titulo, c.nome];
   partes.push(`${numero(c.membros)} de ${numero(c.capacidade)}`, TEXTO_DO_ESTADO[c.estado]);
-  if (c.entraram > 0) partes.push(`${numero(c.entraram)} entraram hoje`);
-  if (c.sairam > 0) partes.push(`${numero(c.sairam)} saíram hoje`);
+  if (c.entraram > 0) partes.push(`${numero(c.entraram)} ${c.entraram === 1 ? "entrou" : "entraram"} hoje`);
+  if (c.sairam > 0) partes.push(`${numero(c.sairam)} ${c.sairam === 1 ? "saiu" : "saíram"} hoje`);
   if (c.novoAs) partes.push(`aberto hoje às ${c.novoAs}`);
   return partes.join(", ");
 }

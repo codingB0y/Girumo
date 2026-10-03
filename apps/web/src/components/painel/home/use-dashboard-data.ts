@@ -149,6 +149,8 @@ export function useDashboardData(): DashboardDataHandle {
         settingsOk: settings.ok,
         ordersOk: orders.ok,
         linksOk: links.ok,
+        disparosOk: disparos.ok,
+        schedulesOk: schedules.ok,
         atividade: atividade.ok ? (atividade.data ?? null) : null,
         settings: {
           monthlyGoalContacts: (settings.ok ? settings.data?.monthlyGoalContacts : null) ?? null,

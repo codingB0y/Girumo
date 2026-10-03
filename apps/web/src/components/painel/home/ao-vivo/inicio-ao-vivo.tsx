@@ -4,13 +4,14 @@ import { useCallback, useState } from "react";
 import { CelebrationModal } from "@/components/painel/celebration-modal";
 import { ActivationChecklist } from "@/components/painel/home/activation-checklist";
 import { AvisoParcial, BannerDesconectado, useAtivacaoNaCasca } from "@/components/painel/home/avisos";
-import type { Campanha, Disparo, Lead, Order, TenantSettings, TrackedLink } from "@/components/painel/home/types";
+import type { Campanha, Disparo, Lead, Order, Schedule, TenantSettings, TrackedLink } from "@/components/painel/home/types";
 import type { Group } from "@/lib/mock-data";
 import type { Activation } from "@/lib/onboarding-steps";
 import type { AtividadeDaCampanha } from "@/lib/painel/atividade";
 import { EntradasESaidas } from "./entradas-e-saidas";
 import { FaixaDeStatus } from "./faixa-de-status";
 import { MapaDosGrupos } from "./mapa-dos-grupos";
+import { PostandoAgora } from "./postando-agora";
 import { useRecarga } from "./use-recarga";
 
 const RECARGA_MS = 60_000;
@@ -23,6 +24,9 @@ type Props = {
   leads: Lead[];
   orders: Order[];
   disparos: Disparo[];
+  schedules: Schedule[];
+  disparosOk: boolean;
+  schedulesOk: boolean;
   settings: TenantSettings;
   settingsOk: boolean;
   ordersOk: boolean;
@@ -38,7 +42,7 @@ type Props = {
 
 /**
  * Início "Ao vivo" (spec 2026-10-02, mockup F): a sala de controle da loja.
- * PR 1 a faixa, PR 2 o mapa, PR 3 o gráfico; postando agora e relâmpago entram nos PRs 4–5.
+ * PR 1 a faixa, PR 2 o mapa, PR 3 o gráfico, PR 4 o postando agora; a relâmpago entra no PR 5.
  */
 export function InicioAoVivo({
   groups,
@@ -47,6 +51,9 @@ export function InicioAoVivo({
   leads,
   orders,
   disparos,
+  schedules,
+  disparosOk,
+  schedulesOk,
   settings,
   settingsOk,
   ordersOk,
@@ -88,8 +95,14 @@ export function InicioAoVivo({
         linksOk={linksOk}
         settingsOk={settingsOk}
       />
-      <MapaDosGrupos grupos={groups} campanhas={campanhas} atividade={atividade} />
-      <EntradasESaidas atividade={atividade} posts={disparos} />
+      {/* Colunas a partir de 1280 px; abaixo, empilhado com o Postando em cima. O PR 5 acrescenta a terceira coluna (Relâmpago, _340px). */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[340px_minmax(0,1fr)] xl:items-start">
+        <PostandoAgora posts={disparos} grupos={groups} agendamentos={schedules} agora={agora} disparosOk={disparosOk} schedulesOk={schedulesOk} />
+        <div className="min-w-0 space-y-6">
+          <MapaDosGrupos grupos={groups} campanhas={campanhas} atividade={atividade} />
+          <EntradasESaidas atividade={atividade} posts={disparos} />
+        </div>
+      </div>
     </div>
   );
 }
