@@ -212,9 +212,11 @@ Sobe `LEGAL_VERSION` e `LEGAL_EFFECTIVE_DATE` em `lib/legal.ts` no mesmo commit.
 
 ### 4.9 Copy fora do painel
 
-"7 dias pra desistir / devolvemos tudo" sai de **9 lugares** e vira "7 dias grátis":
+"7 dias pra desistir / devolvemos tudo" sai de **10 lugares** e vira "7 dias grátis":
 `app/signup/page.tsx`, `lp-cartaz/{hero,plans,cartaz-landing}.tsx`, `lp3/{landing,landing-data,
-landing-desktop,landing-mobile}.tsx`, `lp-atacado/atacado-closing.tsx`, `lp-piloto/proof-plans.tsx`.
+landing-desktop,landing-mobile}.tsx`, `lp-atacado/atacado-closing.tsx`, `lp-piloto/{proof-plans,closing}.tsx`.
+A devolução proporcional do **anual** também sai do FAQ das LPs (`lp-shared/lp-data.ts` e
+`lp3/landing-data.ts`) — continua escrita só nos Termos.
 
 ## 5. Divisão em PRs
 
