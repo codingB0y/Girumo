@@ -180,7 +180,8 @@ essas deixaria o cliente sem o aviso que os Termos prometem.
 `trialEndingEmail` é reescrito (o atual fala em "dados guardados 30 dias", que não vale mais):
 assunto "Seu teste grátis termina em 3 dias", plano, valor, data da cobrança, final do cartão
 (lido do payment method no próprio handler; ausente → frase sem o final), botão "Continuar no
-plano" e link "Cancele o teste até DD/MM" (portal). Rodapé: "Cancelamento sem multa a qualquer
+plano" e link "Cancele o teste até DD/MM", que leva a `/painel/configuracoes` (de lá o botão abre o
+portal; a sessão do portal expira e não cabe num e-mail). Rodapé: "Cancelamento sem multa a qualquer
 momento · Termos de uso". **Sem menção a reembolso.** Destinatário: e-mail do Customer do Stripe.
 
 ### 4.7 Telas (mockup v4)
@@ -245,7 +246,7 @@ PR 1 e PR 2 mergeiam na mesma sessão. Pré-requisitos de PR 1 no ar (mão do Ig
 | Mesmo cartão em duas contas ao mesmo tempo | Índice único decide; a perdedora é cancelada |
 | Cartão recusado no 8º dia | `past_due` → `subscriptionAccess` nega → faixa "Pagamento pendente" que já existe |
 | Cliente cancela no portal durante o teste | `cancel_at_period_end` → fim do teste sem fatura → `canceled` |
-| Webhook do `trial_will_end` perdido | Cliente não recebe o aviso; o Stripe ainda cobra. Mitigação: log `stripe.trial.aviso_falhou` visível no admin |
+| Webhook do `trial_will_end` perdido | Cliente não recebe o aviso; o Stripe ainda cobra. Mitigação: a falha devolve erro e o Stripe reenvia por ~3 dias (chave de idempotência no Resend); o erro fica em `stripe.webhook.failed` |
 | Conta com concessão manual (`active` sem Stripe) | Não vê oferta (não toma 402); continua elegível se um dia perder a concessão |
 | Checkout sem teste (boleto) | Fluxo atual, intocado |
 
@@ -259,7 +260,7 @@ Unitários (`tsx --test`), sem credencial:
 - `handleStripeEvent` com store falso: teste novo (reserva + `trial_started`, sem
   `payment_completed`); retry do mesmo evento; teste duplicado (cancela perdedora, re-sincroniza);
   cartão repetido (metadata + cancel); `invoice.paid` com e sem valor; `trial_will_end` com envio
-  falhando (2xx + log).
+  falhando (erro, sem marcador, para o Stripe reenviar).
 - `subscriptionAccess`/`subscriptionNotice`: estado `trial` e cartão repetido.
 
 Manual em modo teste do Stripe (antes do merge do PR 2): cartão `4242` → teste ativo; **Test Clock**
