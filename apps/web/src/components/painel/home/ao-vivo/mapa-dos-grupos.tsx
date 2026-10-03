@@ -26,6 +26,11 @@ const LEGENDA: [string, string][] = [
   ["border border-saida", "sem convite"],
 ];
 
+const textoAbreOutro = (ligado: boolean) => `Lotou → abre outro: ${ligado ? "ligado" : "desligado"}`;
+
+/** Só a campanha com slug tem tela de configuração; "/painel/campanhas" e "Outros grupos" não. */
+const linkDaCampanha = (href: string) => href.startsWith("/painel/campanhas/") && href !== "/painel/campanhas";
+
 type Props = { grupos: Group[]; campanhas: Campanha[]; atividade: AtividadeDaCampanha | null };
 
 /** O mapa dos grupos da Início "Ao vivo" (spec 2026-10-02): onde está entrando gente e o que lotou. */
@@ -46,7 +51,7 @@ export function MapaDosGrupos({ grupos, campanhas, atividade }: Props) {
   return (
     <section data-testid="inicio-mapa" aria-labelledby="mapa-titulo" className="rounded-[10px] border border-line-200 bg-paper-0">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line-200 px-5 py-3">
-        <h2 id="mapa-titulo" className="text-16 font-semibold text-volt-950">
+        <h2 id="mapa-titulo" className="text-[16px] font-semibold text-volt-950">
           Mapa dos grupos
         </h2>
         {grupos.length > 0 && (
@@ -115,7 +120,15 @@ export function MapaDosGrupos({ grupos, campanhas, atividade }: Props) {
                     <span className="font-normal tabular-nums text-slate-600">{b.celulas.length + b.ocultos}</span>
                   </h3>
                   {b.autoGrow !== null && (
-                    <p className="text-12 text-slate-600">Lotou → abre outro: {b.autoGrow ? "ligado" : "desligado"}</p>
+                    <p className="text-12 text-slate-600">
+                      {linkDaCampanha(b.href) ? (
+                        <Link href={`${b.href}/editar`} className="hover:underline">
+                          {textoAbreOutro(b.autoGrow)}
+                        </Link>
+                      ) : (
+                        textoAbreOutro(b.autoGrow)
+                      )}
+                    </p>
                   )}
                 </div>
                 <ul className="flex flex-wrap gap-1.5">
