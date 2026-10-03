@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { etiquetaDaOferta, noArHa } from "@/lib/painel/relampago";
+import { etiquetaDaOferta, fraseNoAr, noArHa } from "@/lib/painel/relampago";
 import type { Group } from "@/lib/mock-data";
 
 export type OfertaResumo = {
@@ -229,7 +229,7 @@ function Etiqueta({ oferta, agora }: { oferta: OfertaResumo; agora: Date }) {
           <span className={noAr ? "pn-chip pn-chip--acid" : "pn-chip pn-chip--line"}>
             {noAr ? "AO VIVO" : oferta.status === "closed" ? "FECHADA" : "RASCUNHO"}
           </span>
-          {tempo && <span className="font-data text-12 tabular-nums text-slate-600">no ar há {tempo}</span>}
+          {tempo && <span className="font-data text-12 tabular-nums text-slate-600">{fraseNoAr(tempo)}</span>}
         </div>
         <p className="pn-etiqueta-preco__nome mt-2">{etiquetaDaOferta(oferta.name, oferta.slots)}</p>
         <p className="font-data mt-1 text-13 text-slate-600">

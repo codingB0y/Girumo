@@ -8,7 +8,11 @@ import type { Campanha, Disparo, Lead, Order, RelampagoDaInicio, Schedule, Tenan
 import type { Group } from "@/lib/mock-data";
 import type { Activation } from "@/lib/onboarding-steps";
 import type { AtividadeDaCampanha } from "@/lib/painel/atividade";
+import { abaDaUrl, abaInicial, buscaComAba, contadoresDasAbas, type Aba } from "@/lib/painel/ao-vivo/abas";
+import { estaSaindo } from "@/lib/painel/ao-vivo/postando";
+import { postDaTabela } from "@/lib/painel/entrega";
 import { cn } from "@/lib/utils";
+import { AbasDoCelular } from "./abas-do-celular";
 import { EntradasESaidas } from "./entradas-e-saidas";
 import { FaixaDeStatus } from "./faixa-de-status";
 import { MapaDosGrupos } from "./mapa-dos-grupos";
@@ -46,7 +50,7 @@ type Props = {
 
 /**
  * Início "Ao vivo" (spec 2026-10-02, mockup F): a sala de controle da loja.
- * PR 1 a faixa, PR 2 o mapa, PR 3 o gráfico, PR 4 o postando agora, PR 5 a relâmpago.
+ * PR 1 a faixa, PR 2 o mapa, PR 3 o gráfico, PR 4 o postando agora, PR 5 a relâmpago, PR 6 o celular (faixa rolável e abas).
  */
 export function InicioAoVivo({
   groups,
@@ -79,6 +83,21 @@ export function InicioAoVivo({
   useAtivacaoNaCasca({ activation, settings, settingsOk, onOnboardingComplete });
   useRecarga(onAtualizar, RECARGA_MS);
   const noAr = relampagoOk && (relampago?.abertas.length ?? 0) > 0;
+  const postAtual = postDaTabela(disparos, agora);
+  const postSaindo = postAtual !== null && estaSaindo(postAtual, null);
+  // A tela só monta depois do skeleton, então a URL já existe; ?aba= inválido cai na regra da aba inicial.
+  const [aba, setAba] = useState<Aba>(
+    () =>
+      (typeof window === "undefined" ? null : abaDaUrl(new URLSearchParams(window.location.search).get("aba"))) ??
+      abaInicial({ relampagoNoAr: noAr, postSaindo }),
+  );
+  const escolherAba = (nova: Aba) => {
+    setAba(nova);
+    // Sem navegação nem recarga: só a barra de endereço acompanha, mantendo `?ao-vivo` limpo (sem "=").
+    window.history.replaceState(null, "", `${window.location.pathname}${buscaComAba(window.location.search, nova)}`);
+  };
+  // Abaixo de 768 px só a aba escolhida aparece; de 768 px para cima as três ficam juntas (a lista de abas some).
+  const painel = (a: Aba) => (a === aba ? "" : "max-md:hidden");
   const mostrarChecklist = settingsOk && settings.onboardingDismissedAt == null && !activation.complete;
 
   return (
@@ -102,37 +121,64 @@ export function InicioAoVivo({
         linksOk={linksOk}
         settingsOk={settingsOk}
       />
+      <AbasDoCelular
+        aba={aba}
+        onEscolher={escolherAba}
+        contadores={contadoresDasAbas({
+          relampagoNoAr: noAr,
+          // A fila só é lida dentro da coluna; sem o número, a aba mostra "●".
+          esperando: null,
+          post: postAtual ? { entregues: postAtual.sent, total: postAtual.total, saindo: postSaindo } : null,
+          grupos: groups.length,
+        })}
+      />
       {/*
         Três colunas a partir de 1400 px (Postando | mapa + gráfico | Relâmpago); de 1280 a 1400 duas, com a
         Relâmpago na coluna da esquerda, em cima do Postando se há oferta no ar; abaixo de 1280, empilhado
         (relâmpago no ar, Postando, mapa e gráfico). Sem oferta no ar a Relâmpago vai depois do Postando.
+        Abaixo de 768 px só o painel da aba escolhida aparece.
       */}
       <div className="grid grid-cols-[minmax(0,1fr)] gap-6 min-[80rem]:grid-cols-[340px_minmax(0,1fr)] min-[80rem]:grid-rows-[auto_1fr] min-[80rem]:items-start min-[87.5rem]:grid-cols-[300px_minmax(0,1fr)_300px] min-[87.5rem]:grid-rows-none">
-        <RelampagoAoVivo
-          relampago={relampago}
-          relampagoOk={relampagoOk}
-          grupos={groups}
-          agora={agora}
-          onAtualizar={onAtualizar}
-          className={cn(
-            "min-[80rem]:col-start-1 min-[87.5rem]:col-start-3 min-[87.5rem]:row-start-1",
-            noAr ? "min-[80rem]:row-start-1" : "order-1 min-[80rem]:order-none min-[80rem]:row-start-2 min-[87.5rem]:row-start-1",
-          )}
-        />
-        <PostandoAgora
-          posts={disparos}
-          grupos={groups}
-          agendamentos={schedules}
-          agora={agora}
-          disparosOk={disparosOk}
-          schedulesOk={schedulesOk}
-          totaisDoDia={relampago?.totaisDoDia ?? []}
-          className={cn("min-[80rem]:col-start-1 min-[87.5rem]:row-start-1", noAr ? "min-[80rem]:row-start-2" : "min-[80rem]:row-start-1")}
-        />
         <div
+          id="painel-relampago"
+          role="tabpanel"
+          aria-labelledby="aba-relampago"
           className={cn(
-            "min-w-0 space-y-6 min-[80rem]:col-start-2 min-[80rem]:row-span-2 min-[80rem]:row-start-1 min-[87.5rem]:row-span-1",
+            "min-w-0 min-[80rem]:col-start-1 min-[87.5rem]:col-start-3 min-[87.5rem]:row-start-1",
+            noAr ? "min-[80rem]:row-start-1" : "order-1 min-[80rem]:order-none min-[80rem]:row-start-2 min-[87.5rem]:row-start-1",
+            painel("relampago"),
+          )}
+        >
+          <RelampagoAoVivo relampago={relampago} relampagoOk={relampagoOk} grupos={groups} agora={agora} onAtualizar={onAtualizar} />
+        </div>
+        <div
+          id="painel-postando"
+          role="tabpanel"
+          aria-labelledby="aba-postando"
+          className={cn(
+            "min-w-0 min-[80rem]:col-start-1 min-[87.5rem]:row-start-1",
+            noAr ? "min-[80rem]:row-start-2" : "min-[80rem]:row-start-1",
+            painel("postando"),
+          )}
+        >
+          <PostandoAgora
+            posts={disparos}
+            grupos={groups}
+            agendamentos={schedules}
+            agora={agora}
+            disparosOk={disparosOk}
+            schedulesOk={schedulesOk}
+            totaisDoDia={relampago?.totaisDoDia ?? []}
+          />
+        </div>
+        <div
+          id="painel-grupos"
+          role="tabpanel"
+          aria-labelledby="aba-grupos"
+          className={cn(
+            "min-w-0 space-y-6 max-md:space-y-2 min-[80rem]:col-start-2 min-[80rem]:row-span-2 min-[80rem]:row-start-1 min-[87.5rem]:row-span-1",
             !noAr && "order-2 min-[80rem]:order-none",
+            painel("grupos"),
           )}
         >
           <MapaDosGrupos grupos={groups} campanhas={campanhas} atividade={atividade} />
