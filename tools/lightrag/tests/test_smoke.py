@@ -13,6 +13,14 @@ def test_doc_id_deterministic():
     assert doc_id_for("apps/web/src/App.tsx") == doc_id_for("apps/web/src/App.tsx")
 
 
+def test_descoberta_sem_lista_nao_pega_codigo_fonte():
+    """Código-fonte é do perfil `code`; o incremental sem `--list` não pode duplicá-lo."""
+    from lightrag_kg.index import discover_files
+
+    codigo = [p for p in discover_files() if p.suffix in {".ts", ".tsx", ".js", ".jsx"}]
+    assert not codigo, f"descoberta pegou código-fonte: {codigo[:5]}"
+
+
 def test_embedding_concurrency_cabe_no_timeout_do_lightrag():
     """A fila do throttle nao pode passar do timeout da funcao de embedding.
 
