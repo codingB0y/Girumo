@@ -73,6 +73,26 @@ test("cartão repetido: cancelada com cancel_reason trial_card_reused", () => {
 });
 
 test("assinatura ativa: nem oferta, nem teste, nem aviso", () => {
-  const v = trialView(facts("sub_trial", { status: "active", stripeSubscriptionId: "sub_trial" }));
+  // Linha realista (com periodEnd/plano/preço): sem isso, tirar o gate `status === "trialing"` passaria despercebido.
+  const v = trialView(
+    facts("sub_trial", {
+      status: "active",
+      stripeSubscriptionId: "sub_trial",
+      periodEnd: "2026-10-10T12:00:00.000Z",
+      planName: "Growth",
+      priceCents: 29700,
+    }),
+  );
   assert.deepEqual(v, { elegivel: false, emTeste: null, cartaoRepetido: false });
+});
+
+test("cancel_reason trial_card_reused numa assinatura que não está cancelada não gera aviso", () => {
+  const v = trialView(
+    facts("sub_trial", {
+      status: "active",
+      stripeSubscriptionId: "sub_trial",
+      cancelReason: "trial_card_reused",
+    }),
+  );
+  assert.equal(v.cartaoRepetido, false);
 });
