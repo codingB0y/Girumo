@@ -104,7 +104,9 @@ por SQL depois de aplicar.
 ### Entradas e saídas por hora (abaixo do mapa)
 
 `GraficoDeBarras` da loja inteira, períodos Hoje · 7 dias · Mês. Marcas no eixo: posts (hora de início),
-grupo aberto, relâmpago no ar. No máximo 4 marcas visíveis; as demais no tooltip.
+grupo aberto (com o nome, "VIP Revenda 40 aberto", porque "#40" é ambíguo entre campanhas). A marca
+"relâmpago no ar" entra no PR 5, junto com a parte `relampago`. As marcas usam as até duas linhas de rótulo
+do `GraficoDeBarras`; as que não cabem ficam só com o traço.
 
 ### Postando agora (esquerda)
 
