@@ -1,0 +1,24 @@
+import { trialView } from "@/lib/billing/trial";
+import { readTrialFacts } from "@/lib/billing/trial-facts";
+import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { getTenantContext } from "@/lib/supabase/tenant-context";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+/**
+ * GET /api/billing/trial — o que as telas do teste grátis precisam saber
+ * (spec 2026-10-03, 4.2): se a conta pode testar, se está testando e se o
+ * cartão já tinha sido usado num teste.
+ */
+export async function GET(req: Request) {
+  try {
+    const ctx = await getTenantContext(req);
+    const facts = await readTrialFacts(getSupabaseAdmin(), ctx.tenantId);
+    return Response.json(trialView(facts));
+  } catch (error) {
+    if (error instanceof Response) return error;
+    console.error(error);
+    return Response.json({ error: "Nao foi possivel ler o teste gratis." }, { status: 500 });
+  }
+}

@@ -1,6 +1,9 @@
 import { getAppUrl, getStripe } from "@/lib/billing/stripe";
 import { getStripePriceId, normalizePlanCode } from "@/lib/billing/plans";
 import { resolveCheckoutCustomerId } from "@/lib/billing/checkout-customer";
+import { checkoutSessionParams } from "@/lib/billing/checkout-session";
+import { trialEligible } from "@/lib/billing/trial";
+import { readTrialFacts } from "@/lib/billing/trial-facts";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { assertBillingRole, getTenantContext } from "@/lib/supabase/tenant-context";
 
@@ -12,7 +15,7 @@ export async function POST(req: Request) {
     const ctx = await getTenantContext(req);
     assertBillingRole(ctx);
 
-    const body = (await req.json().catch(() => ({}))) as { planCode?: string };
+    const body = (await req.json().catch(() => ({}))) as { planCode?: string; semTeste?: boolean };
     const planCode = normalizePlanCode(body.planCode);
 
     const supabase = getSupabaseAdmin();
@@ -30,6 +33,10 @@ export async function POST(req: Request) {
     if (!priceId) {
       return Response.json({ error: "Plano pago invalido ou sem Stripe Price ID." }, { status: 400 });
     }
+
+    // O cliente não pede teste: o servidor aplica quando a conta é elegível. O único
+    // pedido aceito é o contrário — "sem teste", que é o caminho do boleto.
+    const comTeste = body.semTeste !== true && trialEligible(await readTrialFacts(supabase, ctx.tenantId));
 
     const stripe = getStripe();
 
@@ -107,26 +114,17 @@ export async function POST(req: Request) {
     // e quem ja tivesse pago cairia de volta numa sessao concluida. Sessao
     // sobrando expira sozinha; customer sobrando fica para sempre — por isso a
     // chave esta so na criacao do Customer.
-    const session = await stripe.checkout.sessions.create({
-      mode: "subscription",
-      customer: customerId,
-      line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${appUrl}/painel/configuracoes?billing=success`,
-      cancel_url: `${appUrl}/painel/configuracoes?billing=cancelled`,
-      client_reference_id: ctx.tenantId,
-      metadata: {
-        tenant_id: ctx.tenantId,
-        plan_id: String(plan.id),
-        plan_code: planCode,
-      },
-      subscription_data: {
-        metadata: {
-          tenant_id: ctx.tenantId,
-          plan_id: String(plan.id),
-          plan_code: planCode,
-        },
-      },
-    });
+    const session = await stripe.checkout.sessions.create(
+      checkoutSessionParams({
+        customerId,
+        priceId,
+        appUrl,
+        tenantId: ctx.tenantId,
+        planId: String(plan.id),
+        planCode,
+        comTeste,
+      }),
+    );
 
     await supabase.from("logs").insert({
       tenant_id: ctx.tenantId,
@@ -134,7 +132,7 @@ export async function POST(req: Request) {
       level: "info",
       event: "stripe.checkout.created",
       message: `Checkout Stripe criado para o plano ${planCode}.`,
-      metadata: { checkout_session_id: session.id, plan_code: planCode },
+      metadata: { checkout_session_id: session.id, plan_code: planCode, com_teste: comTeste },
     });
 
     return Response.json({ url: session.url });
