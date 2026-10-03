@@ -116,6 +116,10 @@ do `GraficoDeBarras`; as que não cabem ficam só com o traço.
 - Prévia na bolha do WhatsApp (texto + foto; texto cortado em 6 linhas com "ver tudo").
 - Grade "Entrega nos N grupos", por número: entregue ✓✓ · enviando · na fila · falhou.
 - "Pediram até agora: N" só com oferta ligada (decisão 4).
+- **PR 4:** "Pediram até agora" **não** entrou; o número vem das ofertas relâmpago e chega com a parte
+  `relampago` no PR 5. O "termina por volta de" usa a mesma promessa de `etaDisparo` (6 s por mensagem), não o
+  ritmo medido dos últimos envios. Colunas (Postando | mapa + gráfico) a partir de 1280 px; abaixo, empilhado
+  com o Postando em cima.
 - Terminado: "Saiu às 14:08 · 40 de 40" ou "38 de 40 · 2 falharam" com link para a entrega.
 - Quieto (nenhum post hoje): "Nada saindo agora" + Postar.
 - **Próximos:** 3 agendamentos (hora, nome, campanha; "amanhã" quando for). Vazio: "Nada agendado" +
