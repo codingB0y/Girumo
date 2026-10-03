@@ -1,11 +1,10 @@
 "use client";
 
 import { ContraSemanaPassada, Celula, EntrouSaiu, Faisca } from "@/components/painel/numeros";
-import { medindoDesde } from "@/components/painel/campanhas/detalhe/analise";
-import { saldo } from "@/components/painel/campanhas/detalhe/grafico-barras";
 import type { Order, TrackedLink } from "@/components/painel/home/types";
 import { horaBR } from "@/lib/date-br";
 import type { AtividadeDaCampanha } from "@/lib/painel/atividade";
+import { medindoDesde, saldo } from "@/lib/painel/atividade-texto";
 import { atualizadoHa, comparacaoComecaEm, numerosDaFaixa, pedidosDeHoje } from "@/lib/painel/ao-vivo/faixa";
 import { numero } from "@/lib/painel/grupos";
 

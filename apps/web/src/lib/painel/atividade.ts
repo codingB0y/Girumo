@@ -1,5 +1,6 @@
 import type { DispatchView } from "@/lib/campaigns/dispatch-view";
 import { dayBR, dayBRAgo, dayBROf, horaBR, monthBROf } from "@/lib/date-br";
+import type { OfferRow } from "@/lib/stores/flash-offers";
 import { apelidoDoGrupo, quandoDoPost, textoDoPost } from "@/lib/painel/campanha-visao";
 
 /**
@@ -284,11 +285,27 @@ export function marcasDePost(posts: DispatchView[], agora: Date): MarcaDePost[] 
     .sort((x, y) => x.posicao - y.posicao);
 }
 
-/** Os grupos abertos hoje como marcas no gráfico por hora: "#40 aberto". */
-export function marcasDeGrupoAberto(grupos: GrupoAberto[]): MarcaDePost[] {
+/**
+ * Os grupos abertos hoje como marcas no gráfico por hora: "#40 aberto". Na loja
+ * inteira o número se repete entre campanhas, então `comNome` troca por "<nome> aberto".
+ */
+export function marcasDeGrupoAberto(grupos: GrupoAberto[], opcoes: { comNome?: boolean } = {}): MarcaDePost[] {
   return grupos.map((g) => {
     const hora = horaBR(g.quando);
     const [hh, mm] = hora.split(":").map(Number);
-    return { id: `grupo:${g.grupo ?? g.nome}:${g.quando}`, hora, posicao: (hh * 60 + mm) / 1440, texto: `${apelidoDoGrupo(g)} aberto` };
+    return { id: `grupo:${g.grupo ?? g.nome}:${g.quando}`, hora, posicao: (hh * 60 + mm) / 1440, texto: `${opcoes.comNome ? g.nome : apelidoDoGrupo(g)} aberto` };
   });
+}
+
+/** As relâmpagos abertas hoje como marcas no gráfico por hora: "Relâmpago no ar", na hora em que abriram. */
+export function marcasDeRelampago(ofertas: OfferRow[], agora: Date): MarcaDePost[] {
+  const hoje = dayBR(agora);
+  return ofertas
+    .filter((o) => o.opened_at && dayBROf(o.opened_at) === hoje)
+    .map((o) => {
+      const hora = horaBR(o.opened_at as string);
+      const [hh, mm] = hora.split(":").map(Number);
+      return { id: `relampago:${o.id}`, hora, posicao: (hh * 60 + mm) / 1440, texto: "Relâmpago no ar" };
+    })
+    .sort((x, y) => x.posicao - y.posicao);
 }

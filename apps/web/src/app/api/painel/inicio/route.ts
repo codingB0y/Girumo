@@ -8,8 +8,10 @@ import {
   carregarLinks,
   carregarSessao,
 } from "@/lib/painel/inicio-carga";
+import { janelasDaAtividade } from "@/lib/painel/atividade";
 import { carregarAtividade } from "@/lib/painel/atividade-carga";
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
+import { listOfertasDaInicio, offerTotalsByBroadcastIds } from "@/lib/stores/flash-offers";
 import { listOrdersByTenant } from "@/lib/stores/orders";
 import { getTenantSettings } from "@/lib/stores/tenant-settings";
 import { USE_SUPABASE } from "@/lib/stores/use-supabase";
@@ -69,6 +71,14 @@ export async function GET(req: Request) {
               new Date(),
             )
           : null,
+      // As ofertas Relâmpago da Início "Ao vivo". Supabase-only, como a própria tabela.
+      relampago: async () => {
+        if (!USE_SUPABASE) return null;
+        const desde = janelasDaAtividade(new Date()).porHora.de.toISOString();
+        const { abertas, doDia } = await listOfertasDaInicio(tenantId, desde);
+        const broadcastIds = doDia.flatMap((o) => (o.broadcast_id ? [o.broadcast_id] : []));
+        return { abertas, doDia, totaisDoDia: await offerTotalsByBroadcastIds(tenantId, broadcastIds) };
+      },
     }),
   });
 

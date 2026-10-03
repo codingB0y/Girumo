@@ -1,5 +1,7 @@
+import type { TenantDispatchView } from "@/lib/campaigns/dispatch-view";
 import type { Group } from "@/lib/mock-data";
 import type { AtividadeDaCampanha } from "@/lib/painel/atividade";
+import type { OfertaDaInicio, OfferRow, OfferTotalsRow } from "@/lib/stores/flash-offers";
 
 export type Campanha = {
   id: string;
@@ -34,22 +36,13 @@ export type Order = {
 };
 
 /**
- * Subconjunto de `/api/disparos` que a Início usa.
+ * O que `/api/disparos` devolve (`buildTenantDispatchList`).
  *
  * `sent` e `total` contam GRUPOS alcançados, não mensagens individuais — o
  * rótulo na tela precisa dizer "grupos", senão vira número inventado por outro
  * caminho.
  */
-export type Disparo = {
-  id: string;
-  status: string;
-  sent: number;
-  total: number;
-  dispatchedAt?: string;
-  /** Texto e campanha do post, pra Início mostrar o último como chegou no celular. */
-  body?: string;
-  campaignName?: string;
-};
+export type Disparo = TenantDispatchView;
 
 /** Forma que `/api/schedules` devolve (mapeada do store Supabase). */
 export type Schedule = {
@@ -74,6 +67,13 @@ export type TenantSettings = {
   onboardingCompletedAt: string | null;
 };
 
+/** As ofertas Relâmpago da Início "Ao vivo" (`/api/painel/inicio?ao-vivo`). */
+export type RelampagoDaInicio = {
+  abertas: OfertaDaInicio[];
+  doDia: OfferRow[];
+  totaisDoDia: OfferTotalsRow[];
+};
+
 export type DashboardData = {
   groups: Group[];
   campanhas: Campanha[];
@@ -96,6 +96,13 @@ export type DashboardData = {
   /** Falso = `orders` / `links` vieram vazios porque a busca falhou, não porque não há nada. */
   ordersOk: boolean;
   linksOk: boolean;
+  /** Falso = `disparos` / `schedules` vieram vazios porque a busca falhou, não porque não há nada. */
+  disparosOk: boolean;
+  schedulesOk: boolean;
   /** Entradas, saídas e cliques da loja inteira (Início "Ao vivo"). Nulo = não carregou ou sem banco. */
   atividade: AtividadeDaCampanha | null;
+  /** Ofertas Relâmpago no ar e do dia. Nulo = não carregou (veja `relampagoOk`) ou sem banco. */
+  relampago: RelampagoDaInicio | null;
+  /** Falso = `relampago` é nulo porque a busca falhou, não porque não há oferta. */
+  relampagoOk: boolean;
 };

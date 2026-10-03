@@ -152,3 +152,16 @@ test("displayNumber 0 conta como ausente e cai no número do nome", () => {
   });
   assert.equal(mapa.blocos[0].celulas[0].rotulo, "#5");
 });
+
+test("o rotulo acessivel concorda no singular: 1 entrou, 1 saiu", () => {
+  const mapa = montarMapa({
+    grupos: [grupo("39")],
+    campanhas: [vip],
+    hojePorGrupo: { "39@g.us": { entraram: 1, sairam: 1 } },
+    abertosHoje: [],
+  });
+  assert.equal(
+    rotuloAcessivel("VIP Revenda", mapa.blocos[0].celulas[0]),
+    "VIP Revenda #39, VIP #39, 100 de 1.000, com vaga, 1 entrou hoje, 1 saiu hoje",
+  );
+});

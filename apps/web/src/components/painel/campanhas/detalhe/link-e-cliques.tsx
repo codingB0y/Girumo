@@ -9,10 +9,11 @@ import { dayBR, horaBR } from "@/lib/date-br";
 import { resolveClickTarget, type ResolvableGroup } from "@/lib/links/resolve-click-target";
 import type { Group } from "@/lib/mock-data";
 import { barrasDaAtividade, nomeDoMes, somaDa, type Periodo } from "@/lib/painel/atividade";
+import { medindoDesde } from "@/lib/painel/atividade-texto";
 import { lotacao, numero } from "@/lib/painel/grupos";
 import { paradoDoLink } from "@/lib/painel/link-parado";
 import { cn } from "@/lib/utils";
-import { medindoDesde, useAtividade } from "./analise";
+import { useAtividade } from "./analise";
 import { GraficoDeBarras } from "./grafico-barras";
 
 type Props = {

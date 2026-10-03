@@ -14,8 +14,8 @@ export default function PainelPage() {
   if (state.status === "error") return <LoadError onRetry={reload} />;
 
   const { data, partial } = state;
-  const { groups, campanhas, links, leads, orders, disparos, session, settings } = data;
-  const { settingsOk, ordersOk, linksOk, atividade } = data;
+  const { groups, campanhas, links, leads, orders, disparos, schedules, session, settings } = data;
+  const { settingsOk, ordersOk, linksOk, disparosOk, schedulesOk, atividade, relampago, relampagoOk } = data;
   const isConnected = session.live === true;
 
   // Cinco passos derivados dos dados — regra e testes em @/lib/onboarding-steps.
@@ -40,6 +40,10 @@ export default function PainelPage() {
         links={links}
         leads={leads}
         orders={orders}
+        disparos={disparos}
+        schedules={schedules}
+        disparosOk={disparosOk}
+        schedulesOk={schedulesOk}
         settings={settings}
         settingsOk={settingsOk}
         ordersOk={ordersOk}
@@ -48,6 +52,8 @@ export default function PainelPage() {
         partial={partial}
         activation={activation}
         atividade={atividade}
+        relampago={relampago}
+        relampagoOk={relampagoOk}
         onAtualizar={atualizar}
         onDismissOnboarding={dismissOnboarding}
         onOnboardingComplete={markOnboardingComplete}

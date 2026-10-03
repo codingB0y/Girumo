@@ -1,5 +1,5 @@
 /** 10/min é o teto de veterano; 6 s por mensagem é a promessa que não mente para cima. */
-const SEGUNDOS_POR_MENSAGEM = 6;
+export const SEGUNDOS_POR_MENSAGEM = 6;
 
 export function etaDisparo(view: { sent: number; total: number }): string | null {
   const restantes = Math.max(0, view.total - view.sent);

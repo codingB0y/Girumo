@@ -55,7 +55,7 @@ const RESTANTE: Record<ClaimState, string> = {
   expirada_cliente: "sem resposta",
 };
 
-function nomeDe(e: FilaEntrada): string {
+export function nomeDe(e: FilaEntrada): string {
   return e.push_name?.trim() || "sem nome";
 }
 
@@ -192,7 +192,7 @@ export function FilaVitrine({
   );
 }
 
-function Situacao({
+export function Situacao({
   entrada,
   me,
   timerSeconds,
@@ -224,7 +224,7 @@ function Situacao({
   return <span className="pn-chip pn-chip--line">{RESTANTE[estado]}</span>;
 }
 
-function NaSuaMao({
+export function NaSuaMao({
   entrada,
   claim,
   timerSeconds,

@@ -104,7 +104,9 @@ por SQL depois de aplicar.
 ### Entradas e saídas por hora (abaixo do mapa)
 
 `GraficoDeBarras` da loja inteira, períodos Hoje · 7 dias · Mês. Marcas no eixo: posts (hora de início),
-grupo aberto, relâmpago no ar. No máximo 4 marcas visíveis; as demais no tooltip.
+grupo aberto (com o nome, "VIP Revenda 40 aberto", porque "#40" é ambíguo entre campanhas). A marca
+"relâmpago no ar" entra no PR 5, junto com a parte `relampago`. As marcas usam as até duas linhas de rótulo
+do `GraficoDeBarras`; as que não cabem ficam só com o traço.
 
 ### Postando agora (esquerda)
 
@@ -114,6 +116,10 @@ grupo aberto, relâmpago no ar. No máximo 4 marcas visíveis; as demais no tool
 - Prévia na bolha do WhatsApp (texto + foto; texto cortado em 6 linhas com "ver tudo").
 - Grade "Entrega nos N grupos", por número: entregue ✓✓ · enviando · na fila · falhou.
 - "Pediram até agora: N" só com oferta ligada (decisão 4).
+- **PR 4:** "Pediram até agora" **não** entrou; o número vem das ofertas relâmpago e chega com a parte
+  `relampago` no PR 5. O "termina por volta de" usa a mesma promessa de `etaDisparo` (6 s por mensagem), não o
+  ritmo medido dos últimos envios. Colunas (Postando | mapa + gráfico) a partir de 1280 px; abaixo, empilhado
+  com o Postando em cima.
 - Terminado: "Saiu às 14:08 · 40 de 40" ou "38 de 40 · 2 falharam" com link para a entrega.
 - Quieto (nenhum post hoje): "Nada saindo agora" + Postar.
 - **Próximos:** 3 agendamentos (hora, nome, campanha; "amanhã" quando for). Vazio: "Nada agendado" +
@@ -131,6 +137,13 @@ grupo aberto, relâmpago no ar. No máximo 4 marcas visíveis; as demais no tool
 - Fila compacta: próximas 5 com horário e estado + "ver fila inteira".
 - "Fechar oferta" discreto, confirmação na própria tela (nunca `window.confirm`).
 - Quieto: "Nenhuma relâmpago no ar", a última oferta (vendeu X de Y), "Abrir relâmpago".
+- **PR 5:** a coluna lê a oferta pela rota da fila (`useOferta`, poll de 10 s), a mesma da tela da fila. O
+  "última oferta (vendeu X de Y)" virou "Última hoje: <nome>" (a parte `relampago` traz o nome, não o
+  placar da oferta fechada). Três colunas a partir de 1400 px, não de 1280, porque o menu lateral da D
+  ocupa a largura que o mockup dava às colunas; de 1280 a 1400 a Relâmpago empilha na coluna da esquerda,
+  em cima do Postando quando há oferta no ar. "Pediram até agora" entra no Postando pelo `broadcast_id` da
+  oferta, e a marca "Relâmpago no ar" entra no gráfico de Hoje. A fila marca a posição real (`commented_at`).
+  "Pegar a próxima" é cobalt: o Acid fica no chip AO VIVO (um `span`), nunca em botão.
 - Erro de ação: mensagem do servidor no card, sem sumir sozinha. 409 "já pegaram" recarrega a fila.
 
 ### Celular (< 768 px)
