@@ -19,6 +19,7 @@ test.describe("Início ao vivo", () => {
     // O mapa aparece com ou sem grupos no tenant de QA: o título é o mesmo nos dois estados.
     await expect(page.getByTestId("inicio-mapa").getByRole("heading", { name: "Mapa dos grupos" })).toBeVisible();
     await expect(page.getByTestId("inicio-entradas").getByRole("heading", { name: "Entradas e saídas" })).toBeVisible();
+    await expect(page.getByTestId("inicio-postando").getByRole("heading", { name: "Postando agora" })).toBeVisible();
   });
 
   test("nenhum botão ou link em Acid (regra 10)", async ({ page }) => {
