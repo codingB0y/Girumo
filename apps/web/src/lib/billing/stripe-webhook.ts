@@ -346,10 +346,21 @@ async function handleCheckoutSession(
   // Reentrega de um checkout de teste que JÁ cancelamos (ver handleTrialStart): a
   // assinatura volta `canceled` e o `no_payment_required` cairia no gate de
   // pagamento abaixo como venda. Nunca houve cobrança — sai aqui.
+  //
+  // Fica ABAIXO do ramo `trialing` de propósito: o cancelamento grava
+  // `cancel_reason` antes de chamar o Stripe, e se o cancel falhar o reenvio lê a
+  // assinatura ainda `trialing` com o motivo já gravado. Ela precisa voltar à
+  // trava e ser cancelada; acima daqui, sairia 2xx e seria cobrada no 8º dia.
   if (subscription.metadata.cancel_reason) {
     if (subscription.metadata.cancel_reason !== "trial_duplicate") return { error: null };
     // O upsert do topo ignorou a perdedora; se a 1ª tentativa falhou antes do
     // re-sync, a linha ainda está com o snapshot `trialing` dela.
+    //
+    // Pressuposto deste `claimTrial` (que ESCREVE se a coluna estiver vazia):
+    // nada no código limpa `organizations.trial_subscription_id` — nem
+    // cancelamento, nem fim do teste. A vencedora reservou primeiro, então a
+    // perdedora sempre recebe `lost`. Se algo passar a limpar a coluna, este
+    // reenvio reservaria o teste para uma assinatura cancelada.
     const claim = await store.claimTrial({ tenantId, subscriptionId: subscription.id });
     if (claim.error) return { error: claim.error };
     return resyncTrialWinner(claim.outcome === "lost" ? claim.winnerId : null, store);
@@ -394,6 +405,10 @@ async function handleCheckoutSession(
       plan_code: subscription.metadata.plan_code,
       stripe_subscription_id: subscription.id,
     },
+    // Sem isto o upsert do funil reescreve o marco: quem cancela e reassina pelo
+    // Checkout teria a 1ª venda movida para a data da reassinatura. O emit em si
+    // fica: cupom de 100% tem `amount_paid` 0 e não passa por `invoice.paid`.
+    onlyFirst: true,
   });
 
   return { error: null };
@@ -434,30 +449,26 @@ async function handleInvoicePaid(invoice: Stripe.Invoice, store: WebhookStore): 
  * e como cancelar — exigência das bandeiras para teste com cartão, e o que segura
  * chargeback.
  *
- * Falha no envio NÃO pede reenvio: o Stripe reentregaria o evento e quem já
- * recebeu ganharia um segundo e-mail. Vira log e o marcador é gravado.
+ * Decide pela assinatura FRESCA, como `handleCheckoutSession`: um reenvio chega
+ * com o snapshot de dias atrás, e o Stripe também manda este evento quando o
+ * teste é encerrado na hora (assinatura já `active`).
+ *
+ * Falha vira ERRO e o Stripe reenvia. A maioria das falhas acontece antes do
+ * envio (Stripe, `plans`, cartão), e engolir deixaria o cliente sem o aviso que
+ * os Termos prometem. Quem já recebeu não recebe de novo: o envio leva a chave de
+ * idempotência `trial-ending/{subscription.id}` no Resend (spec 4.4).
  */
 async function handleTrialWillEnd(
-  subscription: Stripe.Subscription,
+  snapshot: Stripe.Subscription,
   store: WebhookStore,
 ): Promise<StoreResult> {
-  const tenantId = subscription.metadata.tenant_id;
-  if (!tenantId || subscription.status !== "trialing") return { error: null };
-  // Cancelou durante o teste: não vai haver cobrança, e o aviso seria mentira.
-  if (subscription.cancel_at_period_end) return { error: null };
+  const subscription = await store.retrieveSubscription(snapshot.id);
+  if (!subscription.metadata.tenant_id || subscription.status !== "trialing") return { error: null };
+  // Cancelamento marcado (no fim do teste ou numa data): não vai haver cobrança,
+  // e o aviso seria mentira.
+  if (subscription.cancel_at_period_end || subscription.cancel_at != null) return { error: null };
 
-  const sent = await store.sendTrialEndingEmail(subscription);
-  if (sent.error) {
-    await store.insertLog({
-      tenant_id: tenantId,
-      level: "warn",
-      event: "stripe.trial.aviso_falhou",
-      message: "E-mail de fim de teste nao saiu.",
-      metadata: { stripe_subscription_id: subscription.id, error: sent.error },
-    });
-  }
-
-  return { error: null };
+  return store.sendTrialEndingEmail(subscription);
 }
 
 export async function handleStripeEvent(
