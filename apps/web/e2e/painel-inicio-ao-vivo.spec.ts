@@ -20,12 +20,33 @@ test.describe("Início ao vivo", () => {
     await expect(page.getByTestId("inicio-mapa").getByRole("heading", { name: "Mapa dos grupos" })).toBeVisible();
     await expect(page.getByTestId("inicio-entradas").getByRole("heading", { name: "Entradas e saídas" })).toBeVisible();
     await expect(page.getByTestId("inicio-postando").getByRole("heading", { name: "Postando agora" })).toBeVisible();
+    // O tenant de QA não tem oferta aberta: a coluna aparece no estado quieto.
+    await expect(page.getByTestId("inicio-relampago").getByRole("heading", { name: "Relâmpago" })).toBeVisible();
   });
 
   test("nenhum botão ou link em Acid (regra 10)", async ({ page }) => {
     await page.goto("/painel?ao-vivo", { waitUntil: "load" });
     await expect(page.getByTestId("inicio-ao-vivo")).toBeVisible({ timeout: 30_000 });
     await expect(page.locator('button[class*="bg-acid"], a[class*="bg-acid"]')).toHaveCount(0);
+  });
+
+  test("a partir de 1400 px a Relâmpago fica na terceira coluna, mesmo quieta", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/painel?ao-vivo", { waitUntil: "load" });
+    await expect(page.getByTestId("inicio-ao-vivo")).toBeVisible({ timeout: 30_000 });
+    const relampago = await page.getByTestId("inicio-relampago").boundingBox();
+    const mapa = await page.getByTestId("inicio-mapa").boundingBox();
+    expect(relampago).not.toBeNull();
+    expect(mapa).not.toBeNull();
+    expect(relampago!.x).toBeGreaterThan(mapa!.x + mapa!.width - 1);
+  });
+
+  test("no celular não há rolagem para o lado", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/painel?ao-vivo", { waitUntil: "load" });
+    await expect(page.getByTestId("inicio-relampago")).toBeVisible({ timeout: 30_000 });
+    const sobra = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    expect(sobra).toBeLessThanOrEqual(0);
   });
 
   test("sem o parâmetro, continua a Vitrine", async ({ page }) => {

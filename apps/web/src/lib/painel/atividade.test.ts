@@ -9,6 +9,7 @@ import {
   janelasDaAtividade,
   marcasDeGrupoAberto,
   marcasDePost,
+  marcasDeRelampago,
   mostraRotulo,
   nomeDoMes,
   semanaPassadaMedida,
@@ -263,4 +264,38 @@ test("o grupo aberto sozinho vira marca no minuto em que passou a existir, pelo 
     ],
   );
   assert.equal(marcas[0].posicao, (9 * 60 + 14) / 1440);
+});
+
+const oferta = (id: string, opened_at: string | null) => ({
+  id,
+  tenant_id: "t",
+  name: id,
+  keyword: "EU QUERO",
+  slots: 5,
+  timer_seconds: null,
+  status: "open" as const,
+  opened_at,
+  closed_at: null,
+  created_at: opened_at ?? br("2026-09-23", "00:00"),
+  broadcast_id: null,
+});
+
+test("a relâmpago aberta hoje vira marca na hora em que abriu; de ontem ou sem abertura, não", () => {
+  const marcas = marcasDeRelampago(
+    [
+      oferta("tarde", br("2026-09-23", "13:45")),
+      oferta("manha", br("2026-09-23", "09:05")),
+      oferta("ontem", br("2026-09-22", "23:50")),
+      oferta("rascunho", null),
+    ],
+    agora,
+  );
+  assert.deepEqual(
+    marcas.map((m) => [m.id, m.hora, m.texto]),
+    [
+      ["relampago:manha", "09:05", "Relâmpago no ar"],
+      ["relampago:tarde", "13:45", "Relâmpago no ar"],
+    ],
+  );
+  assert.equal(marcas[0].posicao, (9 * 60 + 5) / 1440);
 });

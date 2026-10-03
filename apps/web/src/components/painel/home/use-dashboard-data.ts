@@ -23,6 +23,7 @@ import type {
   Order,
   Schedule,
   TenantSettings,
+  RelampagoDaInicio,
   TrackedLink,
 } from "./types";
 
@@ -62,6 +63,7 @@ type Carga = {
   session: Parte<Awaited<ReturnType<typeof carregarSessao>>>;
   settings: Parte<Awaited<ReturnType<typeof getTenantSettings>>>;
   atividade: Parte<AtividadeDaCampanha | null>;
+  relampago: Parte<RelampagoDaInicio | null>;
 };
 
 const NAO_VEIO: Parte<never> = { ok: false };
@@ -119,6 +121,7 @@ export function useDashboardData(): DashboardDataHandle {
     const session = parte(carga.data.session);
     const settings = parte(carga.data.settings);
     const atividade = parte(carga.data.atividade);
+    const relampago = parte(carga.data.relampago);
 
     // Estes três decidem entre onboarding e dashboard. Se algum falhar, não dá
     // pra decidir — e o palpite errado joga uma conta veterana de volta em
@@ -152,6 +155,9 @@ export function useDashboardData(): DashboardDataHandle {
         disparosOk: disparos.ok,
         schedulesOk: schedules.ok,
         atividade: atividade.ok ? (atividade.data ?? null) : null,
+        relampago: relampago.ok ? (relampago.data ?? null) : null,
+        // Sem `?ao-vivo` a parte nem existe: não é falha, e a Vitrine não a lê.
+        relampagoOk: relampago.ok,
         settings: {
           monthlyGoalContacts: (settings.ok ? settings.data?.monthlyGoalContacts : null) ?? null,
           monthlyGoalRevenue: (settings.ok ? settings.data?.monthlyGoalRevenue : null) ?? null,

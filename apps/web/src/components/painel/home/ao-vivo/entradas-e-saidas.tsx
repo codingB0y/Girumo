@@ -9,21 +9,23 @@ import {
   diaPorExtenso,
   marcasDeGrupoAberto,
   marcasDePost,
+  marcasDeRelampago,
   nomeDoMes,
   somaMedida,
   type AtividadeDaCampanha,
   type Periodo,
 } from "@/lib/painel/atividade";
 import { fraseDoMovimento, medindoDesde, unidadeDeEntradas, unidadeDeSaidas } from "@/lib/painel/atividade-texto";
+import type { OfferRow } from "@/lib/stores/flash-offers";
 import { cn } from "@/lib/utils";
 
-type Props = { atividade: AtividadeDaCampanha | null; posts: TenantDispatchView[] };
+type Props = { atividade: AtividadeDaCampanha | null; posts: TenantDispatchView[]; ofertasDoDia: OfferRow[] };
 
 /**
  * Entradas e saídas da loja inteira, hoje por hora, 7 dias ou o mês, com os posts
  * e os grupos abertos do dia marcados (spec 2026-10-02, PR 3).
  */
-export function EntradasESaidas({ atividade, posts }: Props) {
+export function EntradasESaidas({ atividade, posts, ofertasDoDia }: Props) {
   const [periodo, setPeriodo] = useState<Periodo>("hoje");
   const hoje = atividade ? dayBR(new Date(atividade.geradoEm)) : "";
 
@@ -63,7 +65,7 @@ export function EntradasESaidas({ atividade, posts }: Props) {
       </div>
 
       {atividade ? (
-        <Grafico atividade={atividade} periodo={periodo} posts={posts} />
+        <Grafico atividade={atividade} periodo={periodo} posts={posts} ofertasDoDia={ofertasDoDia} />
       ) : (
         // A faixa já diz o mesmo; a recarga de 60 s tenta de novo sozinha.
         <p className="px-5 py-8 text-center text-13 text-slate-600">A série não carregou.</p>
@@ -72,18 +74,18 @@ export function EntradasESaidas({ atividade, posts }: Props) {
   );
 }
 
-function Grafico({ atividade: a, periodo, posts }: { atividade: AtividadeDaCampanha; periodo: Periodo; posts: TenantDispatchView[] }) {
+function Grafico({ atividade: a, periodo, posts, ofertasDoDia }: { atividade: AtividadeDaCampanha; periodo: Periodo; posts: TenantDispatchView[]; ofertasDoDia: OfferRow[] }) {
   const hoje = dayBR(new Date(a.geradoEm));
   const entradas = useMemo(() => barrasDaAtividade(a, periodo, "entraram", "sairam"), [a, periodo]);
-  // Hoje por hora: o que pode explicar um pico, os posts e os grupos abertos sozinhos.
+  // Hoje por hora: o que pode explicar um pico, os posts, as relâmpagos e os grupos abertos sozinhos.
   const marcas = useMemo(
     () =>
       periodo === "hoje"
-        ? [...marcasDePost(posts, new Date(a.geradoEm)), ...marcasDeGrupoAberto(a.gruposAbertosHoje, { comNome: true })].sort(
+        ? [...marcasDePost(posts, new Date(a.geradoEm)), ...marcasDeRelampago(ofertasDoDia, new Date(a.geradoEm)), ...marcasDeGrupoAberto(a.gruposAbertosHoje, { comNome: true })].sort(
             (x, y) => x.posicao - y.posicao,
           )
         : [],
-    [periodo, posts, a.geradoEm, a.gruposAbertosHoje],
+    [periodo, posts, ofertasDoDia, a.geradoEm, a.gruposAbertosHoje],
   );
 
   const quando = periodo === "hoje" ? "hoje" : periodo === "7d" ? "nos últimos 7 dias" : `em ${nomeDoMes(hoje).toLowerCase()}`;

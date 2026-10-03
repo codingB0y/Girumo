@@ -22,6 +22,7 @@ import {
 } from "@/lib/painel/ao-vivo/postando";
 import { quandoDoPost } from "@/lib/painel/campanha-visao";
 import { postDaTabela, resumoDaEntrega, type EstadoDaEntrega } from "@/lib/painel/entrega";
+import type { OfferTotalsRow } from "@/lib/stores/flash-offers";
 import { cn } from "@/lib/utils";
 
 /**
@@ -208,10 +209,14 @@ type Props = {
   /** Falso = a lista de posts não carregou: "Nada saindo agora" seria falso. */
   disparosOk: boolean;
   schedulesOk: boolean;
+  /** Totais das relâmpagos do dia, por post: a linha "Pediram até agora" só existe com oferta ligada ao post. */
+  totaisDoDia: OfferTotalsRow[];
+  /** Posição na grade da Início (a coluna é posicionada por quem a monta). */
+  className?: string;
 };
 
 /** "Postando agora" da Início "Ao vivo" (spec 2026-10-02): o post que sai, grupo a grupo, e o que vem depois. */
-export function PostandoAgora({ posts, grupos, agendamentos, agora, disparosOk, schedulesOk }: Props) {
+export function PostandoAgora({ posts, grupos, agendamentos, agora, disparosOk, schedulesOk, totaisDoDia, className }: Props) {
   // postDaTabela devolve DispatchView; o Disparo (com campaignName) é o mesmo item da lista.
   const escolhido = postDaTabela(posts, agora);
   const post = posts.find((p) => p.id === escolhido?.id) ?? null;
@@ -220,9 +225,10 @@ export function PostandoAgora({ posts, grupos, agendamentos, agora, disparosOk, 
   const campanha = post?.campaignName || "Post";
   const hora = post ? horaBR(quandoDoPost(post)) : "";
   const abertura = (post ? textoDoPost(post) : "").split("\n")[0];
+  const pedidos = post ? totaisDoDia.find((t) => t.broadcastId === post.id) : undefined;
 
   return (
-    <section data-testid="inicio-postando" aria-labelledby="postando-titulo" className="min-w-0 rounded-[10px] border border-line-200 bg-paper-0">
+    <section data-testid="inicio-postando" aria-labelledby="postando-titulo" className={cn("min-w-0 rounded-[10px] border border-line-200 bg-paper-0", className)}>
       <div className="border-b border-line-200 px-5 py-3">
         <h2 id="postando-titulo" className="text-[16px] font-semibold text-volt-950">
           Postando agora
@@ -235,6 +241,12 @@ export function PostandoAgora({ posts, grupos, agendamentos, agora, disparosOk, 
               <span className="font-semibold text-volt-950">{abertura || "Post com mídia"}</span> · {campanha}
             </p>
             <Andamento post={post} agora={agora} entrega={entrega} hora={hora} />
+            {pedidos && (
+              <p className="text-13 text-slate-600">
+                <span className="font-semibold text-volt-950">Pediram até agora: <span className="tabular-nums">{pedidos.pediram}</span></span>
+                {pedidos.vendeu > 0 && <> · {pedidos.vendeu} {pedidos.vendeu === 1 ? "vendida" : "vendidas"}</>}
+              </p>
+            )}
             <Previa key={post.id} post={post} campanha={campanha} />
             <Grade post={post} grupos={grupos} leitura={leitura} entrega={entrega} desatualizada={desatualizada} hora={hora} />
           </>
