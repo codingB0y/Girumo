@@ -26,6 +26,8 @@
  * conversão do produto.
  */
 
+import { diaMesBR } from "../date-br";
+
 /** Status crus do Stripe que significam "primeira cobrança ainda pendente". */
 const STRIPE_PENDENTE: ReadonlySet<string> = new Set(["incomplete"]);
 
@@ -55,6 +57,8 @@ export type SubscriptionAccessInput = {
   stripeStatus: string | null;
   /** `subscriptions.current_period_end`. */
   periodEnd: string | null;
+  /** `subscriptions.metadata.cancel_reason` — por que o webhook cancelou (teste grátis). */
+  cancelReason?: string | null;
 };
 
 export type SubscriptionState =
@@ -68,6 +72,10 @@ export type SubscriptionState =
   | "payment_failed"
   /** Assinatura cancelada. */
   | "canceled"
+  /** Teste grátis de 7 dias em andamento. Concede o plano. */
+  | "trial"
+  /** Teste cancelado sem cobrança: o cartão já tinha feito teste em outra conta. */
+  | "trial_card_reused"
   /** Sem assinatura. */
   | "none";
 
@@ -91,8 +99,17 @@ export function subscriptionAccess(
   const status = input.status?.trim() ?? "";
 
   if (!status) return { grantsPlan: false, state: "none" };
+  // Antes de CONCEDE_DIRETO: `trialing` concede igual, mas a tela precisa dizer
+  // "teste até 10/10" e não "renova em 10/10" — a frase errada faz o cliente achar
+  // que já está pagando.
+  if (status === "trialing") return { grantsPlan: true, state: "trial" };
   if (CONCEDE_DIRETO.has(status)) return { grantsPlan: true, state: "active" };
-  if (status === "canceled") return { grantsPlan: false, state: "canceled" };
+  if (status === "canceled") {
+    return {
+      grantsPlan: false,
+      state: input.cancelReason === "trial_card_reused" ? "trial_card_reused" : "canceled",
+    };
+  }
 
   // `unpaid` só concede quando o Stripe diz que é primeira cobrança pendente.
   // Sem `stripe_status` (linha antiga) o desconhecido é tratado como falha: em
@@ -114,8 +131,14 @@ export function subscriptionAccess(
  * "regularize" para quem está com acesso liberado por boleto emitido é o
  * defeito original, só que ao contrário.
  */
-export function subscriptionNotice(state: SubscriptionState): string {
+export function subscriptionNotice(state: SubscriptionState, periodEnd?: string | null): string {
   switch (state) {
+    case "trial": {
+      const fim = diaMesBR(periodEnd);
+      return fim ? `Teste grátis até ${fim}. Depois a assinatura segue sozinha.` : "Teste grátis ativo.";
+    }
+    case "trial_card_reused":
+      return "Esse cartão já foi usado num teste grátis. Assine direto pra continuar.";
     case "pending_payment":
       return "Boleto emitido — seu acesso já está liberado. Confirmamos assim que o pagamento compensar.";
     case "pending_expired":
