@@ -6,6 +6,7 @@ import {
   horarioComSegundos,
   fraseDosGrupos,
   motivoDoBotao,
+  fraseNoAr,
   noArHa,
   ordinal,
   pecasRestantes,
@@ -41,9 +42,32 @@ test("relógio acima de uma hora ganha a casa das horas", () => {
   assert.equal(relogio(3852), "1:04:12");
 });
 
-test("noArHa conta de opened_at", () => {
-  const agora = new Date("2026-09-07T12:04:12.000Z");
-  assert.equal(noArHa("2026-09-07T12:00:00.000Z", agora), "4:12");
+const ABRIU = "2026-09-07T12:00:00.000Z";
+const depois = (ms: number) => new Date(Date.parse(ABRIU) + ms);
+const MIN = 60_000;
+const H = 60 * MIN;
+const DIA = 24 * H;
+
+test("noArHa abaixo de 1 min é agora, abaixo de 1 h são minutos", () => {
+  assert.equal(noArHa(ABRIU, depois(0)), "agora");
+  assert.equal(noArHa(ABRIU, depois(59_999)), "agora");
+  assert.equal(noArHa(ABRIU, depois(MIN)), "1 min");
+  assert.equal(noArHa(ABRIU, depois(4 * MIN + 12_000)), "4 min");
+  assert.equal(noArHa(ABRIU, depois(H - 1)), "59 min");
+});
+
+test("noArHa abaixo de 24 h são horas, sem '0 min'", () => {
+  assert.equal(noArHa(ABRIU, depois(H)), "1 h");
+  assert.equal(noArHa(ABRIU, depois(2 * H + 10 * MIN)), "2 h 10 min");
+  assert.equal(noArHa(ABRIU, depois(5 * H)), "5 h");
+  assert.equal(noArHa(ABRIU, depois(DIA - 1)), "23 h 59 min");
+});
+
+test("noArHa de 24 h para cima são dias inteiros", () => {
+  assert.equal(noArHa(ABRIU, depois(DIA)), "1 dia");
+  assert.equal(noArHa(ABRIU, depois(25 * H)), "1 dia");
+  assert.equal(noArHa(ABRIU, depois(2 * DIA)), "2 dias");
+  assert.equal(noArHa(ABRIU, depois(11 * DIA + 3 * H)), "11 dias");
 });
 
 test("sem opened_at não existe cronômetro (nunca um 0:00 inventado)", () => {
@@ -53,9 +77,13 @@ test("sem opened_at não existe cronômetro (nunca um 0:00 inventado)", () => {
   assert.equal(noArHa("nao é data", agora), null);
 });
 
-test("relógio do navegador atrasado não mostra tempo negativo", () => {
-  const agora = new Date("2026-09-07T11:59:00.000Z");
-  assert.equal(noArHa("2026-09-07T12:00:00.000Z", agora), "0:00");
+test("relógio do navegador adiantado (idade negativa) não mostra tempo negativo", () => {
+  assert.equal(noArHa(ABRIU, depois(-60_000)), "agora");
+});
+
+test("fraseNoAr: 'no ar agora' em vez de 'no ar há agora'", () => {
+  assert.equal(fraseNoAr("agora"), "no ar agora");
+  assert.equal(fraseNoAr("2 h 10 min"), "no ar há 2 h 10 min");
 });
 
 const vendida: EntradaLike = { outcome: "sold", claim: { id: "c1" } };

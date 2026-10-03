@@ -5,7 +5,7 @@ import { ArrowLeft, Check, MessageCircle, Phone, UserX } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { claimState, deadlineOf, type ClaimState } from "@/lib/relampago/claim-state";
-import { etiquetaDaOferta, horarioComSegundos, noArHa, ordinal, relogio, resumoDaOferta } from "@/lib/painel/relampago";
+import { etiquetaDaOferta, fraseNoAr, horarioComSegundos, noArHa, ordinal, relogio, resumoDaOferta } from "@/lib/painel/relampago";
 
 export type FilaOferta = {
   id: string;
@@ -95,7 +95,7 @@ export function FilaVitrine({
           </span>
           {tempo && (
             <span className="font-data text-12 tabular-nums text-slate-600" data-testid="relampago-no-ar">
-              no ar há {tempo}
+              {fraseNoAr(tempo)}
             </span>
           )}
         </div>
