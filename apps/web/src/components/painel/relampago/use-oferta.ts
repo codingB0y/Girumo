@@ -58,47 +58,47 @@ export function useOferta(offerId: string | null, opcoes: { pollMs: number }) {
 
   const agora = new Date(Date.now() + deriva.current);
 
-  async function agir(claimId: string, action: "contacted" | "sold" | "dropped") {
+  /**
+   * POST de uma ação da vendedora. Falha (HTTP ou rede) vira `aviso` com a mensagem do
+   * servidor, que fica na tela até a próxima ação. 409 não é erro de rede: outra
+   * vendedora ganhou a corrida, a fila recarrega e segue. Devolve se o servidor aceitou.
+   */
+  async function enviar(url: string, corpo: unknown, falha: string): Promise<boolean> {
     setOcupado(true);
+    setAviso(null);
+    let ok = false;
     try {
-      await fetch(`/api/relampago/claims/${claimId}`, {
+      const res = await fetch(url, {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action }),
+        ...(corpo === undefined ? {} : { headers: { "content-type": "application/json" }, body: JSON.stringify(corpo) }),
       });
+      ok = res.ok;
+      if (!res.ok) {
+        const resposta = await res.json().catch(() => null);
+        setAviso(resposta?.error ?? falha);
+      }
       await carregar();
+    } catch {
+      if (!ok) setAviso(falha);
     } finally {
       setOcupado(false);
     }
+    return ok;
+  }
+
+  async function agir(claimId: string, action: "contacted" | "sold" | "dropped") {
+    await enviar(`/api/relampago/claims/${claimId}`, { action }, "Não deu para registrar.");
   }
 
   async function pegarProxima() {
     if (!offerId) return;
-    setOcupado(true);
-    setAviso(null);
-    try {
-      const res = await fetch(`/api/relampago/offers/${offerId}/claim`, { method: "POST" });
-      if (!res.ok) {
-        const corpo = await res.json().catch(() => null);
-        // 409 não é erro: outra vendedora ganhou a corrida. Recarrega e segue.
-        setAviso(corpo?.error ?? "Nao foi possivel pegar a proxima.");
-      }
-      await carregar();
-    } finally {
-      setOcupado(false);
-    }
+    await enviar(`/api/relampago/offers/${offerId}/claim`, undefined, "Não deu para pegar a próxima.");
   }
 
-  async function fechar() {
-    if (!offerId) return;
-    setOcupado(true);
-    try {
-      await fetch(`/api/relampago/offers/${offerId}`, { method: "POST" });
-      await carregar();
-    } finally {
-      setOcupado(false);
-    }
+  async function fechar(): Promise<boolean> {
+    if (!offerId) return false;
+    return enviar(`/api/relampago/offers/${offerId}`, undefined, "Não deu para fechar a oferta.");
   }
 
-  return { dados, erro, aviso, ocupado, agora, agir, pegarProxima, fechar, recarregar: carregar };
+  return { dados, erro, aviso, ocupado, agora, agir, pegarProxima, fechar };
 }

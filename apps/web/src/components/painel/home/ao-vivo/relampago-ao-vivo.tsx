@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import type { RelampagoDaInicio } from "@/components/painel/home/types";
 import { useOferta } from "@/components/painel/relampago/use-oferta";
 import { NaSuaMao, Situacao, nomeDe } from "@/components/painel/relampago/vitrine/fila-vitrine";
@@ -9,12 +9,12 @@ import type { Group } from "@/lib/mock-data";
 import {
   fraseDosGrupos,
   horarioComSegundos,
+  motivoDoBotao,
   noArHa,
   ordinal,
   pecasRestantes,
   placarDaOferta,
   proximaDaFila,
-  resumoDaOferta,
 } from "@/lib/painel/relampago";
 import type { OfertaDaInicio } from "@/lib/stores/flash-offers";
 import { cn } from "@/lib/utils";
@@ -28,13 +28,15 @@ type Props = {
   relampagoOk: boolean;
   grupos: Group[];
   agora: Date;
+  /** Recarrega a página da Início (a oferta fechada sai das abertas). */
+  onAtualizar: () => void;
   className?: string;
 };
 
 const linkDiscreto = "font-semibold text-cobalt-500 hover:underline";
 
 /** "Relâmpago" da Início "Ao vivo" (spec 2026-10-02): a oferta no ar, a conversa na mão e a fila, sem sair da Início. */
-export function RelampagoAoVivo({ relampago, relampagoOk, grupos, agora, className }: Props) {
+export function RelampagoAoVivo({ relampago, relampagoOk, grupos, agora, onAtualizar, className }: Props) {
   const abertas = relampago?.abertas ?? [];
   const oferta = abertas[0] ?? null;
   const tituloId = useId();
@@ -56,7 +58,7 @@ export function RelampagoAoVivo({ relampago, relampagoOk, grupos, agora, classNa
           <p className="text-13 text-slate-600">A relâmpago não carregou.</p>
         ) : oferta ? (
           <>
-            <OfertaNoAr key={oferta.id} oferta={oferta} grupos={grupos} agoraDaPagina={agora} />
+            <OfertaNoAr key={oferta.id} oferta={oferta} grupos={grupos} agoraDaPagina={agora} onAtualizar={onAtualizar} />
             {abertas.length > 1 && (
               <p className="text-13 text-slate-600">
                 <Link href="/painel/relampago" className={linkDiscreto}>
@@ -94,7 +96,7 @@ function Cabecalho({ oferta, grupos, noAr, placar }: { oferta: OfertaDaInicio; g
   return (
     <div className="space-y-1.5">
       <p className="truncate text-15 font-semibold text-volt-950">{oferta.name}</p>
-      <p className="text-13 text-slate-600">
+      <p className="break-words text-13 text-slate-600">
         {fraseDosGrupos(oferta.groupIds, grupos)}
         {noAr && <> · no ar há <span className="font-data tabular-nums">{noAr}</span></>}
       </p>
@@ -112,9 +114,11 @@ function Cabecalho({ oferta, grupos, noAr, placar }: { oferta: OfertaDaInicio; g
   );
 }
 
-function OfertaNoAr({ oferta, grupos, agoraDaPagina }: { oferta: OfertaDaInicio; grupos: Group[]; agoraDaPagina: Date }) {
+function OfertaNoAr({ oferta, grupos, agoraDaPagina, onAtualizar }: { oferta: OfertaDaInicio; grupos: Group[]; agoraDaPagina: Date; onAtualizar: () => void }) {
   const { dados, erro, aviso, ocupado, agora, agir, pegarProxima, fechar } = useOferta(oferta.id, { pollMs: POLL_MS });
   const [confirmando, setConfirmando] = useState(false);
+  const botaoFechar = useRef<HTMLButtonElement>(null);
+  const motivoId = useId();
 
   // Sem leitura da fila ainda, o relógio da página basta para o "no ar há".
   const relogio = dados ? agora : agoraDaPagina;
@@ -146,18 +150,9 @@ function OfertaNoAr({ oferta, grupos, agoraDaPagina }: { oferta: OfertaDaInicio;
   }
   const pecas = pecasRestantes(offer, queue);
   const placar = placarDaOferta(queue);
-  const livres = resumoDaOferta(offer, queue).livres;
   const proxima = proximaDaFila(queue);
   const minha = queue.find((e) => e.claim?.seller_user_id === me && !e.outcome) ?? null;
-  const motivo = minha
-    ? "termine a conversa atual antes"
-    : pecas.restantes <= 0
-      ? "as peças acabaram"
-      : livres <= 0
-        ? "todas as peças estão reservadas"
-        : !proxima
-          ? "ninguém esperando"
-          : null;
+  const motivo = motivoDoBotao(offer, queue, !!minha);
   const proximas = queue
     .map((entrada, posicao) => ({ entrada, posicao }))
     .filter(({ entrada }) => !entrada.outcome)
@@ -194,11 +189,12 @@ function OfertaNoAr({ oferta, grupos, agoraDaPagina }: { oferta: OfertaDaInicio;
           type="button"
           onClick={() => void pegarProxima()}
           disabled={ocupado || motivo != null}
-          className="inline-flex min-h-11 w-full items-center justify-center rounded-[var(--radius-control)] bg-cobalt-500 px-4 text-[14px] font-semibold text-white disabled:opacity-50"
+          aria-describedby={motivo ? motivoId : undefined}
+          className="inline-flex min-h-11 w-full min-w-0 items-center justify-center rounded-[var(--radius-control)] bg-cobalt-500 px-4 text-[14px] font-semibold text-white disabled:opacity-50"
         >
-          Pegar a próxima{proxima ? `: ${nomeDe(proxima)}` : ""}
+          <span className="min-w-0 truncate">Pegar a próxima{proxima ? `: ${nomeDe(proxima)}` : ""}</span>
         </button>
-        {motivo && <p className="text-13 text-slate-600">{motivo}</p>}
+        {motivo && <p id={motivoId} className="text-13 text-slate-600">{motivo}</p>}
         {aviso && <p role="status" className="text-13 text-atencao">{aviso}</p>}
       </div>
 
@@ -230,21 +226,31 @@ function OfertaNoAr({ oferta, grupos, agoraDaPagina }: { oferta: OfertaDaInicio;
             <button
               type="button"
               disabled={ocupado}
-              onClick={() => void fechar().then(() => setConfirmando(false))}
-              className="inline-flex min-h-11 items-center rounded-[var(--radius-control)] border border-saida px-4 text-[14px] font-semibold text-saida disabled:opacity-50"
+              onClick={() =>
+                void fechar().then((ok) => {
+                  setConfirmando(false);
+                  if (ok) onAtualizar();
+                })
+              }
+              className="inline-flex min-h-11 items-center rounded-[var(--radius-control)] border border-saida px-4 text-[14px] font-semibold text-alerta disabled:opacity-50"
             >
               Fechar
             </button>
             <button
               type="button"
-              onClick={() => setConfirmando(false)}
+              autoFocus
+              onClick={() => {
+                setConfirmando(false);
+                // O botão de fechar só volta ao DOM depois deste render.
+                requestAnimationFrame(() => botaoFechar.current?.focus());
+              }}
               className="inline-flex min-h-11 items-center rounded-[var(--radius-control)] border border-line-200 px-4 text-[14px] text-volt-950"
             >
               Cancelar
             </button>
           </div>
         ) : (
-          <button type="button" onClick={() => setConfirmando(true)} className="inline-flex min-h-11 items-center text-13 text-slate-600 hover:underline">
+          <button ref={botaoFechar} type="button" onClick={() => setConfirmando(true)} className="inline-flex min-h-11 items-center text-13 text-slate-600 hover:underline">
             Fechar oferta
           </button>
         )}

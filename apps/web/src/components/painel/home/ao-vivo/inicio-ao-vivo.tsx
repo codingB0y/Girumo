@@ -107,15 +107,16 @@ export function InicioAoVivo({
         Relâmpago na coluna da esquerda, em cima do Postando se há oferta no ar; abaixo de 1280, empilhado
         (relâmpago no ar, Postando, mapa e gráfico). Sem oferta no ar a Relâmpago vai depois do Postando.
       */}
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[340px_minmax(0,1fr)] xl:items-start min-[1400px]:grid-cols-[300px_minmax(0,1fr)_300px]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 min-[80rem]:grid-cols-[340px_minmax(0,1fr)] min-[80rem]:grid-rows-[auto_1fr] min-[80rem]:items-start min-[87.5rem]:grid-cols-[300px_minmax(0,1fr)_300px] min-[87.5rem]:grid-rows-none">
         <RelampagoAoVivo
           relampago={relampago}
           relampagoOk={relampagoOk}
           grupos={groups}
           agora={agora}
+          onAtualizar={onAtualizar}
           className={cn(
-            "xl:col-start-1 min-[1400px]:col-start-3 min-[1400px]:row-start-1",
-            noAr ? "xl:row-start-1" : "order-1 xl:order-none xl:row-start-2 min-[1400px]:row-start-1",
+            "min-[80rem]:col-start-1 min-[87.5rem]:col-start-3 min-[87.5rem]:row-start-1",
+            noAr ? "min-[80rem]:row-start-1" : "order-1 min-[80rem]:order-none min-[80rem]:row-start-2 min-[87.5rem]:row-start-1",
           )}
         />
         <PostandoAgora
@@ -126,9 +127,14 @@ export function InicioAoVivo({
           disparosOk={disparosOk}
           schedulesOk={schedulesOk}
           totaisDoDia={relampago?.totaisDoDia ?? []}
-          className={cn("xl:col-start-1 min-[1400px]:row-start-1", noAr ? "xl:row-start-2" : "xl:row-start-1")}
+          className={cn("min-[80rem]:col-start-1 min-[87.5rem]:row-start-1", noAr ? "min-[80rem]:row-start-2" : "min-[80rem]:row-start-1")}
         />
-        <div className={cn("min-w-0 space-y-6 xl:col-start-2 xl:row-span-2 xl:row-start-1 min-[1400px]:row-span-1", !noAr && "order-2 xl:order-none")}>
+        <div
+          className={cn(
+            "min-w-0 space-y-6 min-[80rem]:col-start-2 min-[80rem]:row-span-2 min-[80rem]:row-start-1 min-[87.5rem]:row-span-1",
+            !noAr && "order-2 min-[80rem]:order-none",
+          )}
+        >
           <MapaDosGrupos grupos={groups} campanhas={campanhas} atividade={atividade} />
           <EntradasESaidas atividade={atividade} posts={disparos} ofertasDoDia={relampago?.doDia ?? []} />
         </div>

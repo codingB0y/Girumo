@@ -133,3 +133,20 @@ export function fraseDosGrupos(
   const resto = n - 2;
   return `${base}: ${nomes.slice(0, 2).join(", ")}${resto > 0 ? ` e mais ${resto}` : ""}`;
 }
+
+/**
+ * Por que "Pegar a próxima" está desligado, na ordem em que a vendedora precisa saber;
+ * `null` = pode pegar. "Acabaram" só quando as peças foram vendidas: reserva de outra
+ * vendedora ainda pode voltar para a fila, e dizer "acabaram" seria falso.
+ */
+export function motivoDoBotao(
+  oferta: OfertaLike,
+  fila: readonly EntradaLike[],
+  temConversaNaMao: boolean,
+): string | null {
+  if (temConversaNaMao) return "termine a conversa atual antes";
+  if (pecasRestantes(oferta, fila).restantes <= 0) return "as peças acabaram";
+  if (resumoDaOferta(oferta, fila).livres <= 0) return "todas as peças estão reservadas";
+  if (!proximaDaFila(fila)) return "ninguém esperando";
+  return null;
+}

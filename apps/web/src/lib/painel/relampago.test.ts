@@ -5,6 +5,7 @@ import {
   etiquetaDaOferta,
   horarioComSegundos,
   fraseDosGrupos,
+  motivoDoBotao,
   noArHa,
   ordinal,
   pecasRestantes,
@@ -144,4 +145,16 @@ test("frase dos grupos: até dois nomes e 'e mais N'; sem nome achado, só a con
   assert.equal(fraseDosGrupos(["a@g.us", "b@g.us", "c@g.us"], grupos), "em 3 grupos: VIP 1, VIP 2 e mais 1");
   assert.equal(fraseDosGrupos(["x@g.us", "y@g.us"], grupos), "em 2 grupos");
   assert.equal(fraseDosGrupos([], grupos), "sem grupo aberto");
+});
+
+test("motivo do botão: conversa na mão, peças acabaram, todas reservadas, ninguém esperando, livre", () => {
+  const of = { slots: 2, status: "open" as const };
+  const espera: EntradaLike = { outcome: null, claim: null };
+  const reserva: EntradaLike = { outcome: null, claim: {} };
+  const vendida: EntradaLike = { outcome: "sold", claim: {} };
+  assert.equal(motivoDoBotao(of, [espera], true), "termine a conversa atual antes");
+  assert.equal(motivoDoBotao(of, [vendida, vendida, espera], false), "as peças acabaram");
+  assert.equal(motivoDoBotao(of, [reserva, reserva, espera], false), "todas as peças estão reservadas");
+  assert.equal(motivoDoBotao(of, [vendida], false), "ninguém esperando");
+  assert.equal(motivoDoBotao(of, [espera], false), null);
 });

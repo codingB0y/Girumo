@@ -30,6 +30,25 @@ test.describe("Início ao vivo", () => {
     await expect(page.locator('button[class*="bg-acid"], a[class*="bg-acid"]')).toHaveCount(0);
   });
 
+  test("a partir de 1400 px a Relâmpago fica na terceira coluna, mesmo quieta", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/painel?ao-vivo", { waitUntil: "load" });
+    await expect(page.getByTestId("inicio-ao-vivo")).toBeVisible({ timeout: 30_000 });
+    const relampago = await page.getByTestId("inicio-relampago").boundingBox();
+    const mapa = await page.getByTestId("inicio-mapa").boundingBox();
+    expect(relampago).not.toBeNull();
+    expect(mapa).not.toBeNull();
+    expect(relampago!.x).toBeGreaterThan(mapa!.x + mapa!.width - 1);
+  });
+
+  test("no celular não há rolagem para o lado", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/painel?ao-vivo", { waitUntil: "load" });
+    await expect(page.getByTestId("inicio-relampago")).toBeVisible({ timeout: 30_000 });
+    const sobra = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    expect(sobra).toBeLessThanOrEqual(0);
+  });
+
   test("sem o parâmetro, continua a Vitrine", async ({ page }) => {
     await page.goto("/painel", { waitUntil: "load" });
     await expect(page.getByTestId("painel-skeleton")).toHaveCount(0, { timeout: 30_000 });
