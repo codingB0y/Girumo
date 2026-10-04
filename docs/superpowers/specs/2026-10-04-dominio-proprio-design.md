@@ -58,7 +58,8 @@ alheio. O token é novo a cada cadastro, então o TXT velho de B não serve para
       desafios da Vercel devolvidos na resposta (caso raro: raiz do lojista em outra conta Vercel).
    4. `GET /v6/domains/:host/config` com `misconfigured = true` → `"dns"` (CNAME ainda não chegou).
    5. Tudo certo → `status = active`, `verified_at`.
-   Falha de rede ou 5xx da Vercel → `"vercel-erro"`, status inalterado.
+   Falha de rede ou 5xx da Vercel → `"vercel-erro"`. Verificar **só promove**: domínio ativo não é
+   reverificado (TXT apagado depois da ativação não derruba links no ar).
 4. **Remover** (`DELETE /api/dominio`, owner/admin): tira do projeto Vercel (404 é sucesso) e apaga a
    linha. Falha na Vercel é logada e a linha sai mesmo assim: domínio no projeto sem dono no banco
    responde 404 em tudo, e um novo cadastro ainda precisa provar posse.
@@ -87,8 +88,15 @@ texto literal (o Next exige config estática) e um teste compara os dois.
 ## Dados
 
 `public.custom_domains` — `id`, `tenant_id` (FK `organizations`, **unique**: um por conta),
-`hostname` (**unique**, minúsculo por check), `verification_token`, `status` (`pending|active`),
-`last_error`, `checked_at`, `verified_at`, `created_at`. RLS ligado com leitura por
+`hostname` (minúsculo por check; **único só entre ativos**, índice parcial), `verification_token`, `status` (`pending|active`),
+`last_error`, `checked_at`, `verified_at`, `created_at`.
+
+Por que o host não é único na tabela inteira: com unique global, quem cadastrasse primeiro o
+subdomínio de outra loja (sem conseguir provar posse) travaria o dono de verdade. Pendentes podem
+coexistir; só um vira ativo, e só quem tem o TXT chega lá. Se dois tenants provarem posse (o mesmo
+dono com duas contas), o segundo a ativar fica `pending` com `em-uso`.
+
+RLS ligado com leitura por
 `app.has_membership(tenant_id)`; escrita só do servidor (revoke de `authenticated`), no padrão das
 migrações de 03/10.
 
