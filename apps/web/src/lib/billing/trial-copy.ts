@@ -18,9 +18,13 @@ export type Faixa = {
   acao: string;
 } | null;
 
-/** Dias inteiros até o fim. Menos de 24 h é o último dia, não "faltam 0 dias". */
+/**
+ * Dias até o fim, arredondados para cima: recém-ativado lê 7 (o que o modal
+ * prometeu), e as últimas horas leem "falta 1 dia". "Último dia" sobra para o fim
+ * já alcançado com o webhook atrasado — nunca "faltam 0 dias".
+ */
 function faltam(fim: string, agora: Date): string {
-  const dias = Math.floor((Date.parse(fim) - agora.getTime()) / DIA_MS);
+  const dias = Math.ceil((Date.parse(fim) - agora.getTime()) / DIA_MS);
   if (!Number.isFinite(dias) || dias <= 0) return "último dia";
   return dias === 1 ? "falta 1 dia" : `faltam ${dias} dias`;
 }

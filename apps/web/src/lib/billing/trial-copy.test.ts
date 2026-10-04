@@ -29,10 +29,18 @@ test("em teste: dias que faltam, data e valor da cobranca", () => {
   });
 });
 
-test("ultimo dia do teste", () => {
+test("ultimas horas do teste: falta 1 dia, nao 'faltam 0 dias'", () => {
   const fim = new Date(AGORA.getTime() + 5 * 3_600_000).toISOString();
   const faixa = faixaDoTeste(
     { ...NADA, emTeste: { fim, plano: "Growth", precoCents: 29700, semCobranca: false } },
+    AGORA,
+  );
+  assert.match(faixa?.texto ?? "", /^Teste grátis do plano Growth: falta 1 dia\./);
+});
+
+test("fim ja alcancado (webhook atrasado): ultimo dia", () => {
+  const faixa = faixaDoTeste(
+    { ...NADA, emTeste: { fim: AGORA.toISOString(), plano: "Growth", precoCents: 29700, semCobranca: false } },
     AGORA,
   );
   assert.match(faixa?.texto ?? "", /^Teste grátis do plano Growth: último dia\./);
@@ -46,13 +54,19 @@ function faixaComFim(fim: string, extra: { plano?: string; precoCents?: number }
   );
 }
 
-test("dias contados para baixo: 3,5 dias ainda sao 3", () => {
+test("dias contados para cima: 3,5 dias sao 4", () => {
   const fim = new Date(AGORA.getTime() + 3.5 * 86_400_000).toISOString();
-  assert.match(faixaComFim(fim)?.texto ?? "", /: faltam 3 dias\./);
+  assert.match(faixaComFim(fim)?.texto ?? "", /: faltam 4 dias\./);
+});
+
+test("recem-ativado le 7 dias, nao 6", () => {
+  // O que o QA e o modal prometem: logo depois de ativar, a faixa diz 7.
+  const fim = new Date(AGORA.getTime() + 7 * 86_400_000 - 60_000).toISOString();
+  assert.match(faixaComFim(fim)?.texto ?? "", /: faltam 7 dias\./);
 });
 
 test("um dia restante no singular", () => {
-  const fim = new Date(AGORA.getTime() + 1.5 * 86_400_000).toISOString();
+  const fim = new Date(AGORA.getTime() + 86_400_000).toISOString();
   assert.match(faixaComFim(fim)?.texto ?? "", /: falta 1 dia\./);
 });
 
