@@ -11,6 +11,8 @@ export type TenantSettings = {
   monthlyGoalRevenue: number | null;
   /** Ramo do negócio (packs de conteúdo). Texto validado na API; null = neutro. */
   segment: string | null;
+  /** Add-on Instagram liberado (fase 1: à mão; fase 4: pelo Stripe). Só leitura pela API. */
+  instagramEnabled: boolean;
   onboardingDismissedAt: string | null;
   onboardingCompletedAt: string | null;
   updatedAt?: string;
@@ -29,7 +31,10 @@ const PREFERENCE_COLUMNS = "disconnect_alert_enabled, broadcast_alert_enabled";
 const SEGMENT_COLUMNS = "segment";
 /** Sem a coluna `segment` (banco anterior à migração 20260830233000). */
 const LEGACY_ALL_COLUMNS = `${BASE_COLUMNS}, ${ONBOARDING_COLUMNS}, ${PREFERENCE_COLUMNS}`;
-const ALL_COLUMNS = `${LEGACY_ALL_COLUMNS}, ${SEGMENT_COLUMNS}`;
+const INSTAGRAM_COLUMNS = "instagram_enabled";
+/** Sem a coluna `instagram_enabled` (banco anterior à migração 20261003120000). */
+const PRE_INSTAGRAM_COLUMNS = `${LEGACY_ALL_COLUMNS}, ${SEGMENT_COLUMNS}`;
+const ALL_COLUMNS = `${PRE_INSTAGRAM_COLUMNS}, ${INSTAGRAM_COLUMNS}`;
 
 /**
  * `42703` = coluna inexistente. Os dois bancos (dev e prod) recebem as migrações
@@ -50,6 +55,7 @@ type SettingsRow = {
   monthly_goal_contacts?: number | null;
   monthly_goal_revenue?: number | null;
   segment?: string | null;
+  instagram_enabled?: boolean | null;
   onboarding_dismissed_at?: string | null;
   onboarding_completed_at?: string | null;
   updated_at?: string;
@@ -64,6 +70,7 @@ function toSettings(tenantId: string, row: SettingsRow | null): TenantSettings {
     monthlyGoalContacts: row?.monthly_goal_contacts ?? null,
     monthlyGoalRevenue: row?.monthly_goal_revenue ?? null,
     segment: row?.segment ?? null,
+    instagramEnabled: row?.instagram_enabled ?? false,
     onboardingDismissedAt: row?.onboarding_dismissed_at ?? null,
     onboardingCompletedAt: row?.onboarding_completed_at ?? null,
     updatedAt: row?.updated_at,
@@ -79,6 +86,7 @@ export async function getTenantSettings(tenantId: string): Promise<TenantSetting
       .maybeSingle();
 
   let { data, error } = await read(ALL_COLUMNS);
+  if (isMissingColumn(error)) ({ data, error } = await read(PRE_INSTAGRAM_COLUMNS));
   if (isMissingColumn(error)) ({ data, error } = await read(LEGACY_ALL_COLUMNS));
   if (isMissingColumn(error)) ({ data, error } = await read(BASE_COLUMNS));
   if (error) throw new Error(error.message);
@@ -128,6 +136,12 @@ export async function updateTenantSettings(
       .single();
 
   let { data, error } = await write({ ...base, ...onboarding, ...preferences, ...segmento }, ALL_COLUMNS);
+  if (isMissingColumn(error)) {
+    ({ data, error } = await write(
+      { ...base, ...onboarding, ...preferences, ...segmento },
+      PRE_INSTAGRAM_COLUMNS,
+    ));
+  }
   if (isMissingColumn(error)) {
     ({ data, error } = await write({ ...base, ...onboarding, ...preferences }, LEGACY_ALL_COLUMNS));
   }
