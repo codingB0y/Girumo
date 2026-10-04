@@ -48,6 +48,7 @@ export type Group = {
 };
 
 const TABLE = "groups";
+const PAGE_SIZE = 1000;
 
 /**
  * Lista os grupos do tenant, do maior para o menor.
@@ -58,14 +59,26 @@ const TABLE = "groups";
  * nome mantém a ordem estável entre dois grupos do mesmo tamanho.
  */
 export async function listGroups(tenantId: string): Promise<Group[]> {
-  const { data, error } = await getSupabaseAdmin()
-    .from(TABLE)
-    .select("*")
-    .eq("tenant_id", tenantId)
-    .order("members", { ascending: false })
-    .order("name");
-  if (error) throw new Error(error.message);
-  return data ?? [];
+  const supabase = getSupabaseAdmin();
+  const grupos: Group[] = [];
+  // Pagina: sem `.range()` o PostgREST corta em 1000 linhas SEM erro, e a loja
+  // com mais grupos veria o resto "sumir" (o mapa da Início os chamaria de "sumiu").
+  for (let de = 0; ; de += PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .order("members", { ascending: false })
+      .order("name")
+      // Desempate final: sem ele, dois grupos iguais em membros e nome podem cair
+      // nas duas páginas (ou em nenhuma) entre uma chamada e outra.
+      .order("id")
+      .range(de, de + PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    const pagina = (data ?? []) as Group[];
+    grupos.push(...pagina);
+    if (pagina.length < PAGE_SIZE) return grupos;
+  }
 }
 /**
  * O que um sync pode gravar. Só `whatsapp_group_id`, `name` e `members` são
