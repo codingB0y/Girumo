@@ -237,6 +237,23 @@ export const CONTEUDO_ESPERADO: Record<string, ConteudoEsperado> = {
     },
   },
 
+  "/painel/instagram": {
+    // Subtitulo do cabecalho da lista liberada; o estado "nao liberado" nao o tem.
+    ancora: /respondem comentário e direct/,
+    lista: {
+      api: "/api/ig/flows",
+      // A API devolve `{ flows: [...] }`, nao um array cru.
+      marca: (j) => primeiroTexto((j as { flows?: unknown } | null)?.flows, "name"),
+      vazio: /Nenhum fluxo ainda/i,
+    },
+  },
+
+  "/painel/instagram/novo": {
+    // NAO "Novo fluxo": casa com o breadcrumb e com o estado "nao liberado".
+    ancora: /Escolha por onde começar/,
+    semLista: "Formulario de criacao; nao lista registro existente.",
+  },
+
   "/painel/pages": {
     ancora: /Páginas/,
     lista: {
