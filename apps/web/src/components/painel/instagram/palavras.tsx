@@ -3,13 +3,17 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import { MAX_KEYWORDS, MAX_KEYWORD_LENGTH } from "@/lib/ig/flow/types";
+import { normalizeForMatch } from "@/lib/ig/match-keyword";
 
 export function Palavras({ palavras, aoMudar }: { palavras: string[]; aoMudar: (lista: string[]) => void }) {
   const [digitando, setDigitando] = useState("");
+  const cheio = palavras.length >= MAX_KEYWORDS;
   const acrescentar = () => {
     const nova = digitando.trim().slice(0, MAX_KEYWORD_LENGTH);
-    if (!nova || palavras.length >= MAX_KEYWORDS) return;
-    aoMudar([...palavras, nova]);
+    if (!nova || cheio) return;
+    // Mesma normalização do validador/casador: "Quero" e "quéro" são a mesma palavra.
+    const chave = normalizeForMatch(nova);
+    if (!palavras.some((p) => normalizeForMatch(p) === chave)) aoMudar([...palavras, nova]);
     setDigitando("");
   };
   return (
@@ -33,7 +37,8 @@ export function Palavras({ palavras, aoMudar }: { palavras: string[]; aoMudar: (
           }
         }}
         onBlur={acrescentar}
-        placeholder={palavras.length ? "" : "adicionar palavra"}
+        disabled={cheio}
+        placeholder={cheio ? `Máximo de ${MAX_KEYWORDS} palavras` : palavras.length ? "" : "adicionar palavra"}
         className="min-w-[8ch] flex-1 bg-transparent text-13 text-volt-950 outline-none placeholder:text-slate-600"
       />
     </div>

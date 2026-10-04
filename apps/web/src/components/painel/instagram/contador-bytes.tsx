@@ -6,9 +6,13 @@ export function ContadorBytes({ texto, max, reserva = 0, emCaracteres = false }:
   const usado = (emCaracteres ? [...texto].length : utf8Bytes(texto)) + reserva;
   const estourou = usado > max;
   return (
-    <span aria-live="polite" className={cn("font-data text-12 tabular-nums", estourou ? "text-danger-700" : "text-slate-600")}>
+    <span className={cn("font-data text-12 tabular-nums", estourou ? "text-danger-700" : "text-slate-600")}>
       {usado.toLocaleString("pt-BR")} de {max.toLocaleString("pt-BR")}
       {reserva > 0 && <span className="ml-1">(com o link)</span>}
+      {/* Só tem conteúdo acima do limite: o aviso não depende de cor nem de número. */}
+      <span aria-live="polite" className="ml-1">
+        {estourou ? "acima do limite" : ""}
+      </span>
     </span>
   );
 }

@@ -9,7 +9,7 @@ export function Interruptor({ ligado, aoMudar, rotulo }: { ligado: boolean; aoMu
       onClick={() => aoMudar(!ligado)}
       className="pn-interruptor shrink-0"
     >
-      <span className="pn-interruptor__bolinha" />
+      <span className="pn-interruptor__bolinha" aria-hidden="true" />
     </button>
   );
 }
