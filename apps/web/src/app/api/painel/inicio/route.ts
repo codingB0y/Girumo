@@ -1,9 +1,10 @@
+import { semEstrutura } from "@/lib/communities/estrutura";
 import { resolverPartes } from "@/lib/painel/inicio-resposta";
 import {
   carregarAgendamentos,
   carregarCampanhas,
   carregarDisparos,
-  carregarGrupos,
+  carregarGruposEEstrutura,
   carregarLeads,
   carregarLinks,
   carregarSessao,
@@ -48,12 +49,14 @@ export async function GET(req: Request) {
   }
 
   // Os grupos são lidos uma vez e servem a duas partes: a lista e a atividade da loja.
-  const grupos = carregarGrupos(tenantId);
+  const lidos = carregarGruposEEstrutura(tenantId);
+  const grupos = lidos.then((l) => l.grupos);
   // PR 7 (Início ao vivo) tira este gate quando a tela nova vira a padrão: até lá a Vitrine não paga pela série.
   const comAtividade = new URL(req.url).searchParams.has("ao-vivo");
   const partes = await resolverPartes({
     groups: () => grupos,
-    campanhas: () => carregarCampanhas(tenantId),
+    campanhas: async () =>
+      semEstrutura<Awaited<ReturnType<typeof carregarCampanhas>>[number]>(await carregarCampanhas(tenantId), (await lidos).estrutura),
     links: () => carregarLinks(tenantId),
     leads: () => carregarLeads(tenantId),
     orders: () => listOrdersByTenant(tenantId),

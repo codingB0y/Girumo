@@ -49,6 +49,8 @@ export function MapaDosGrupos({ grupos, campanhas, atividade }: Props) {
     [grupos, campanhas, atividade],
   );
   const filtros = FILTROS.filter(([f]) => f !== "sumiu" || mapa.contagens.sumiu > 0);
+  // O filtro escolhido some da lista quando a recarga zera o número (ex.: "Sumiu"): volta para "Todos".
+  const ativo = filtros.some(([f]) => f === filtro) ? filtro : "todos";
   const pessoas = grupos.reduce((s, g) => s + (Number.isFinite(g.members) ? g.members : 0), 0);
 
   return (
@@ -59,7 +61,7 @@ export function MapaDosGrupos({ grupos, campanhas, atividade }: Props) {
         </h2>
         {mapa.contagens.todos > 0 && (
           <p className="text-13 tabular-nums text-slate-600">
-            {numero(grupos.length)} {grupos.length === 1 ? "grupo" : "grupos"} · {numero(pessoas)} pessoas
+            {numero(mapa.contagens.todos)} {mapa.contagens.todos === 1 ? "grupo" : "grupos"} · {numero(pessoas)} pessoas
           </p>
         )}
         {mapa.contagens.todos > 0 && (
@@ -68,11 +70,11 @@ export function MapaDosGrupos({ grupos, campanhas, atividade }: Props) {
               <button
                 key={f}
                 type="button"
-                aria-pressed={filtro === f}
+                aria-pressed={ativo === f}
                 onClick={() => setFiltro(f)}
                 className={cn(
                   "h-8 shrink-0 rounded-md border px-2.5 text-13 transition-colors",
-                  filtro === f ? "border-slate-600 bg-hover-ficha text-volt-950" : "border-line-200 text-slate-600 hover:text-volt-950",
+                  ativo === f ? "border-slate-600 bg-hover-ficha text-volt-950" : "border-line-200 text-slate-600 hover:text-volt-950",
                 )}
               >
                 {rotulo} <span className="tabular-nums">{mapa.contagens[f]}</span>
@@ -106,12 +108,12 @@ export function MapaDosGrupos({ grupos, campanhas, atividade }: Props) {
             </ul>
           )}
 
-          {!mapa.blocos.some((b) => filtro === "todos" || b.todas.some((c) => c.estado === filtro)) && (
-            <p className="text-13 text-slate-600">Nenhum grupo em &quot;{FILTROS.find(([f]) => f === filtro)?.[1]}&quot;.</p>
+          {!mapa.blocos.some((b) => ativo === "todos" || b.todas.some((c) => c.estado === ativo)) && (
+            <p className="text-13 text-slate-600">Nenhum grupo em &quot;{filtros.find(([f]) => f === ativo)?.[1]}&quot;.</p>
           )}
 
           {mapa.blocos.map((b) => {
-            const { celulas, ocultos } = celulasDoFiltro(b, filtro);
+            const { celulas, ocultos } = celulasDoFiltro(b, ativo);
             if (celulas.length === 0) return null;
             return (
               <div key={b.chave}>

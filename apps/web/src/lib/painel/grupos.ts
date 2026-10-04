@@ -101,11 +101,13 @@ export function prestesALotar(grupos: readonly Group[]): { grupo: Group; faltam:
 }
 
 /** Mais cheio primeiro; empate desempata pelo nome, pra ordem não dançar entre renders. */
+export function porLotacaoDecrescente(a: { lotacao: number; nome: string }, b: { lotacao: number; nome: string }): number {
+  return b.lotacao - a.lotacao || a.nome.localeCompare(b.nome, "pt-BR");
+}
+
 export function maisCheioPrimeiro(grupos: readonly Group[]): Group[] {
-  return [...grupos].sort((a, b) => {
-    const diferenca = lotacao(b.members, b.capacity) - lotacao(a.members, a.capacity);
-    return diferenca !== 0 ? diferenca : a.name.localeCompare(b.name, "pt-BR");
-  });
+  const chave = (g: Group) => ({ lotacao: lotacao(g.members, g.capacity), nome: g.name });
+  return [...grupos].sort((a, b) => porLotacaoDecrescente(chave(a), chave(b)));
 }
 
 /**

@@ -2,7 +2,7 @@ import { horaBR } from "@/lib/date-br";
 import type { Group } from "@/lib/mock-data";
 import type { GrupoAberto, Movimento } from "@/lib/painel/atividade";
 import type { EstadoNaCampanha } from "@/lib/painel/campanha-visao";
-import { estadoDoGrupo, lotacao, numero } from "@/lib/painel/grupos";
+import { estadoDoGrupo, lotacao, numero, porLotacaoDecrescente } from "@/lib/painel/grupos";
 
 /**
  * O mapa dos grupos da Início "Ao vivo" (spec 2026-10-02): uma célula por grupo,
@@ -34,11 +34,7 @@ export type BlocoDoMapa = {
   href: string;
   /** Nulo em "Outros grupos" e quando a campanha não diz. */
   autoGrow: boolean | null;
-  /** Com o filtro "Todos": no limite (lojas com mais de 200 grupos) só os mais cheios. */
-  celulas: CelulaDoMapa[];
-  /** Grupos que ficaram fora de `celulas` no limite. */
-  ocultos: number;
-  /** Todos os grupos do bloco, em ordem; é onde um filtro procura (`celulasDoFiltro`). */
+  /** Todos os grupos do bloco, em ordem; é onde um filtro procura (`celulasDoFiltro`, que aplica o limite de 200+). */
   todas: CelulaDoMapa[];
   limitado: boolean;
 };
@@ -96,6 +92,8 @@ function gruposDa(c: CampanhaDoMapa, porId: Map<string, Group>): Group[] {
 
 /** Os ids da campanha sem registro no cadastro (a página da campanha os chama de "sumiu"). */
 function sumidosDa(c: CampanhaDoMapa, porId: Map<string, Group>): string[] {
+  // Cadastro vazio = loja sem grupos (ou sem sincronizar): é o estado vazio da tela, não uma fila de "sumiu".
+  if (porId.size === 0) return [];
   return [...new Set(c.groupIds)].filter((id) => !porId.has(id));
 }
 
@@ -122,10 +120,10 @@ function bloco(chave: string, titulo: string, href: string, autoGrow: boolean | 
     };
   });
   const sumiram = sumidos.map(
-    (id, i): CelulaDoMapa => ({
+    (id): CelulaDoMapa => ({
       id,
       rotulo: "sumiu",
-      nome: `Grupo ${i + 1} da campanha`,
+      nome: "Grupo sem registro",
       membros: 0,
       capacidade: 0,
       lotacao: 0,
@@ -134,8 +132,7 @@ function bloco(chave: string, titulo: string, href: string, autoGrow: boolean | 
       href,
     }),
   );
-  const parcial: BlocoDoMapa = { chave, titulo, href, autoGrow, celulas: [], ocultos: 0, todas: [...cadastrados, ...sumiram], limitado: ctx.limitar };
-  return { ...parcial, ...celulasDoFiltro(parcial, "todos") };
+  return { chave, titulo, href, autoGrow, todas: [...cadastrados, ...sumiram], limitado: ctx.limitar };
 }
 
 /**
@@ -149,7 +146,7 @@ export function celulasDoFiltro(b: BlocoDoMapa, filtro: FiltroDoMapa): { celulas
   if (!b.limitado || cadastrados.length <= CELULAS_POR_BLOCO_NO_LIMITE) return { celulas: base, ocultos: 0 };
   const ficam = new Set(
     [...cadastrados]
-      .sort((a, z) => z.lotacao - a.lotacao || a.nome.localeCompare(z.nome, "pt-BR"))
+      .sort(porLotacaoDecrescente)
       .slice(0, CELULAS_POR_BLOCO_NO_LIMITE)
       .map((c) => c.id),
   );
