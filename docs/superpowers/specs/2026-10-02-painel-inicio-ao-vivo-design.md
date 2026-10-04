@@ -156,11 +156,16 @@ do `GraficoDeBarras`; as que não cabem ficam só com o traço.
   Relâmpago se há oferta no ar, senão na Postando se há post saindo, senão em Grupos. ● na aba com
   coisa acontecendo.
 - Grupos: mapa com células menores e o gráfico só com Hoje. Barra de baixo da D igual.
-- **PR 6:** o contador da Relâmpago é "●" enquanto o número de pessoas esperando não vem na parte
-  `relampago` (pode entrar depois somando a fila na rota); Postando mostra "27/40" só enquanto o post
-  sai, Grupos mostra a quantidade. O mapa no celular segue com as células de 56 px (5 por linha em 390),
-  sem versão compacta separada. O gráfico fica em Hoje (o seletor de período some abaixo de 768 px).
-  De 768 px para cima não há abas: as três seções ficam visíveis juntas.
+- **PR 6:** Postando mostra "27/40" só enquanto o post sai, Grupos mostra a quantidade. O gráfico fica
+  em Hoje (o seletor de período some abaixo de 768 px). De 768 px para cima não há abas: as três seções
+  ficam visíveis juntas.
+- **PR 8 (celular fiel ao mockup):** (1) o contador da Relâmpago é a pílula "N esperando" (texto para
+  leitor de tela), alimentada pela fila que a própria coluna já lê (`onEsperando`; a coluna segue montada
+  com a aba escondida, então o número fica vivo); "●" + "no ar" só até a primeira leitura. (2) Mapa
+  compacto: grade de 10 colunas, vão de 3 px, células de 36 px; o cabeçalho de cada campanha vira
+  "título +N hoje" e, embaixo, "N grupos · N pessoas · N% das vagas" (`resumoDoBloco`). A dica da célula
+  não aparece no celular (o toque já leva ao grupo e a caixa passaria da borda da tela). (3) Fim da seção:
+  botões lado a lado, a ação do primeiro alerta (se houver) e "Ver os N grupos". Nada muda a partir de 768 px.
 
 ### Loja nova e estados do dia
 
