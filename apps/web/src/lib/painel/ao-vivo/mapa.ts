@@ -153,6 +153,21 @@ export function celulasDoFiltro(b: BlocoDoMapa, filtro: FiltroDoMapa): { celulas
   return { celulas: base.filter((c) => c.estado === "sumiu" || ficam.has(c.id)), ocultos: cadastrados.length - CELULAS_POR_BLOCO_NO_LIMITE };
 }
 
+export type ResumoDoBloco = { grupos: number; pessoas: number; pctDasVagas: number; entraramHoje: number };
+
+/** Os números do cabeçalho do bloco no celular. Quem sumiu do cadastro conta como grupo e como entrada, mas não como vaga. */
+export function resumoDoBloco(b: BlocoDoMapa): ResumoDoBloco {
+  const cadastrados = b.todas.filter((c) => c.estado !== "sumiu");
+  const pessoas = cadastrados.reduce((s, c) => s + (Number.isFinite(c.membros) ? c.membros : 0), 0);
+  const vagas = cadastrados.reduce((s, c) => s + (Number.isFinite(c.capacidade) ? c.capacidade : 0), 0);
+  return {
+    grupos: b.todas.length,
+    pessoas,
+    pctDasVagas: vagas > 0 ? Math.round((pessoas / vagas) * 100) : 0,
+    entraramHoje: b.todas.reduce((s, c) => s + c.entraram, 0),
+  };
+}
+
 function alertasDoMapa(grupos: Group[], campanhas: CampanhaDoMapa[], porId: Map<string, Group>): AlertaDoMapa[] {
   const alertas: AlertaDoMapa[] = [];
   for (const c of campanhas) {

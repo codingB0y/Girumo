@@ -6,7 +6,7 @@ import { AlertTriangle } from "lucide-react";
 import type { Campanha } from "@/components/painel/home/types";
 import type { Group } from "@/lib/mock-data";
 import type { AtividadeDaCampanha } from "@/lib/painel/atividade";
-import { celulasDoFiltro, montarMapa, type FiltroDoMapa } from "@/lib/painel/ao-vivo/mapa";
+import { celulasDoFiltro, montarMapa, resumoDoBloco, type FiltroDoMapa } from "@/lib/painel/ao-vivo/mapa";
 import { numero } from "@/lib/painel/grupos";
 import { cn } from "@/lib/utils";
 import { CelulaDoGrupo } from "./celula-do-grupo";
@@ -27,6 +27,9 @@ const LEGENDA: [string, string][] = [
   ["border border-saida", "sem convite"],
   ["border border-dashed border-slate-600", "sumiu do cadastro"],
 ];
+
+const BOTAO_DO_MAPA =
+  "inline-flex min-h-11 min-w-0 items-center justify-center rounded-[var(--radius-control)] border border-line-200 px-3 text-center text-[14px] font-medium text-volt-950";
 
 const textoAbreOutro = (ligado: boolean) => `Lotou → abre outro: ${ligado ? "ligado" : "desligado"}`;
 
@@ -115,6 +118,7 @@ export function MapaDosGrupos({ grupos, campanhas, atividade }: Props) {
           {mapa.blocos.map((b) => {
             const { celulas, ocultos } = celulasDoFiltro(b, ativo);
             if (celulas.length === 0) return null;
+            const resumo = resumoDoBloco(b);
             return (
               <div key={b.chave}>
                 <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -122,8 +126,12 @@ export function MapaDosGrupos({ grupos, campanhas, atividade }: Props) {
                     <Link href={b.href} className="hover:underline">
                       {b.titulo}
                     </Link>{" "}
-                    <span className="font-normal tabular-nums text-slate-600">{b.todas.length}</span>
+                    <span className="font-normal tabular-nums text-slate-600 max-md:hidden">{b.todas.length}</span>
+                    {resumo.entraramHoje > 0 && <span className="ml-1 font-normal tabular-nums text-serie md:hidden">+{numero(resumo.entraramHoje)} hoje</span>}
                   </h3>
+                  <p className="w-full text-12 tabular-nums text-slate-600 md:hidden">
+                    {numero(resumo.grupos)} {resumo.grupos === 1 ? "grupo" : "grupos"} · {numero(resumo.pessoas)} pessoas · {resumo.pctDasVagas}% das vagas
+                  </p>
                   {b.autoGrow !== null && (
                     <p className="text-12 text-slate-600">
                       {linkDaCampanha(b.href) ? (
@@ -136,9 +144,9 @@ export function MapaDosGrupos({ grupos, campanhas, atividade }: Props) {
                     </p>
                   )}
                 </div>
-                <ul className="flex flex-wrap gap-1.5">
+                <ul className="flex flex-wrap gap-1.5 max-md:grid max-md:grid-cols-10 max-md:gap-[3px]">
                   {celulas.map((c) => (
-                    <li key={c.id}>
+                    <li key={c.id} className="max-md:min-w-0">
                       <CelulaDoGrupo celula={c} bloco={b.titulo} />
                     </li>
                   ))}
@@ -164,6 +172,19 @@ export function MapaDosGrupos({ grupos, campanhas, atividade }: Props) {
             ))}
             <span>· +n = entraram hoje</span>
           </p>
+        </div>
+      )}
+      {mapa.contagens.todos > 0 && (
+        // Só no celular (o mockup .f-mact): fora do contêiner com space-y para não mexer no espaçamento do desktop.
+        <div className={cn("grid gap-2 px-5 pb-4 md:hidden", mapa.alertas.length > 0 ? "grid-cols-2" : "grid-cols-1")}>
+          {mapa.alertas[0] && (
+            <Link href={mapa.alertas[0].acao.href} className={BOTAO_DO_MAPA}>
+              {mapa.alertas[0].acao.rotulo}
+            </Link>
+          )}
+          <Link href="/painel/grupos" className={BOTAO_DO_MAPA}>
+            {mapa.contagens.todos === 1 ? "Ver o grupo" : `Ver os ${numero(mapa.contagens.todos)} grupos`}
+          </Link>
         </div>
       )}
     </section>

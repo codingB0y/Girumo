@@ -7,6 +7,7 @@ import {
   celulasDoFiltro,
   MAX_ALERTAS,
   montarMapa,
+  resumoDoBloco,
   rotuloAcessivel,
   type BlocoDoMapa,
   type CampanhaDoMapa,
@@ -239,4 +240,19 @@ test("campanha em que todos os grupos sumiram ainda vira bloco; sem nenhum grupo
   assert.equal(vis(b).celulas.length, CELULAS_POR_BLOCO_NO_LIMITE + 1);
   assert.equal(vis(b).celulas.at(-1)?.estado, "sumiu");
   assert.equal(vis(b).ocultos, 201 - CELULAS_POR_BLOCO_NO_LIMITE);
+});
+
+test("resumo do bloco: grupos, pessoas, % das vagas e entradas de hoje (o sumiu conta como grupo, não como vaga)", () => {
+  const mapa = montarMapa({
+    grupos: [grupo("40", { members: 900, capacity: 1000 }), grupo("39", { members: 500, capacity: 1000 })],
+    campanhas: [{ ...vip, groupIds: ["40@g.us", "39@g.us", "sumido@g.us"] }],
+    hojePorGrupo: { "40@g.us": { entraram: 64, sairam: 2 }, "39@g.us": { entraram: 7, sairam: 0 }, "sumido@g.us": { entraram: 1, sairam: 0 } },
+    abertosHoje: [],
+  });
+  assert.deepEqual(resumoDoBloco(mapa.blocos[0]), { grupos: 3, pessoas: 1400, pctDasVagas: 70, entraramHoje: 72 });
+});
+
+test("resumo do bloco sem capacidade conhecida: 0% e sem dividir por zero", () => {
+  const mapa = montarMapa({ grupos: [grupo("1", { members: 10, capacity: 0 })], campanhas: [], hojePorGrupo: {}, abertosHoje: [] });
+  assert.deepEqual(resumoDoBloco(mapa.blocos[0]), { grupos: 1, pessoas: 10, pctDasVagas: 0, entraramHoje: 0 });
 });

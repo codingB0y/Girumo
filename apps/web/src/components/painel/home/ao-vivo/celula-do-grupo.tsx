@@ -56,7 +56,8 @@ export function CelulaDoGrupo({ celula: c, bloco }: { celula: CelulaDoMapa; bloc
 
   return (
     <div
-      className="relative h-14 w-14"
+      data-testid="celula-do-grupo"
+      className="relative h-14 w-14 max-md:h-9 max-md:w-auto"
       onMouseEnter={() => setMouse(true)}
       onMouseLeave={() => setMouse(false)}
       onFocus={() => setFoco(true)}
@@ -69,20 +70,28 @@ export function CelulaDoGrupo({ celula: c, bloco }: { celula: CelulaDoMapa; bloc
       >
         <span
           aria-hidden="true"
-          className={cn("relative flex h-full w-full flex-col justify-between overflow-hidden rounded-md border bg-paper-0 p-1 tabular-nums", BORDA[c.estado])}
+          className={cn("relative flex h-full w-full flex-col justify-between overflow-hidden rounded-md border bg-paper-0 p-1 tabular-nums max-md:rounded-[4px] max-md:px-1 max-md:py-[3px]", BORDA[c.estado])}
         >
           <span className={cn("absolute inset-x-0 bottom-0", PREENCHIMENTO[c.estado])} style={{ height: `${Math.round(c.lotacao * 100)}%` }} />
-          {c.estado === "sem_convite" && <Link2Off className="absolute right-1 top-1 h-3 w-3 text-saida" aria-hidden="true" />}
-          <span className="relative text-12 font-semibold leading-none text-volt-950">{c.rotulo}</span>
-          <span className="relative text-[11px] leading-none text-volt-950">
-            {c.novoAs ? `novo ${c.novoAs}` : c.entraram > 0 ? `+${numero(c.entraram)}` : ""}
+          {c.estado === "sem_convite" && <Link2Off className="absolute right-0.5 top-0.5 h-3 w-3 text-saida max-md:h-2.5 max-md:w-2.5" aria-hidden="true" />}
+          <span className={cn("relative text-12 font-semibold leading-none text-volt-950", c.estado === "sumiu" && "max-md:text-[10px]")}>{c.rotulo}</span>
+          <span className="relative text-[11px] leading-none text-volt-950 max-md:text-12">
+            {c.novoAs ? (
+              <>
+                novo<span className="max-md:hidden"> {c.novoAs}</span>
+              </>
+            ) : c.entraram > 0 ? (
+              `+${numero(c.entraram)}`
+            ) : (
+              ""
+            )}
           </span>
         </span>
       </Link>
-      {/* Dica no hover e no foco do teclado; o leitor de tela já tem tudo no aria-label. O pb-1.5 faz a ponte
+      {/* Dica no hover e no foco do teclado (no celular não: a célula é um toque que já leva ao grupo, e a dica passaria da borda da tela); o leitor de tela já tem tudo no aria-label. O pb-1.5 faz a ponte
           entre a célula e a caixa: o mouse não passa por um vão ao subir até ela. */}
       {aberta && (
-        <span aria-hidden="true" className="absolute bottom-full left-1/2 z-20 -translate-x-1/2 pb-1.5">
+        <span aria-hidden="true" className="absolute bottom-full max-md:hidden left-1/2 z-20 -translate-x-1/2 pb-1.5">
           <span className="block w-max max-w-[220px] rounded-md bg-volt-950 px-2.5 py-1.5 text-12 leading-snug text-paper-0 shadow-lg">
             <span className="block font-semibold">{c.nome}</span>
             {c.estado === "sumiu" ? (
