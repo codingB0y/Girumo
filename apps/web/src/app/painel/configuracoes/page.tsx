@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ContaVitrine } from "@/components/painel/configuracoes/vitrine/conta-vitrine";
+import { abrirCheckout } from "@/lib/billing/checkout-client";
 import { toPlanLimitError, upgradeUrlFrom } from "@/lib/billing/plan-limit-client";
 import {
   removalPrompt,
@@ -30,6 +32,25 @@ const SECAO_POR_SLUG: Record<string, Section> = {
   plano: "Plano",
   conta: "Conta",
 };
+
+/**
+ * Segue o `?secao=` da URL enquanto a página está aberta, não só ao montar.
+ *
+ * A faixa do teste linka `?secao=plano` também de dentro da própria
+ * Configurações, e nem o `PageTransition` nem o App Router remontam a página por
+ * mudança de busca: lido uma vez, o link trocava a URL e deixava a aba anterior
+ * aberta. Fica num componente
+ * que não desenha nada para que a fronteira de Suspense que o `useSearchParams`
+ * exige no pré-render cubra só ele — a página continua pré-renderizada inteira.
+ */
+function SeguirSecaoDaUrl({ onSecao }: { onSecao: (secao: Section) => void }) {
+  const slug = useSearchParams().get("secao");
+  useEffect(() => {
+    const alvo = slug ? SECAO_POR_SLUG[slug.toLowerCase()] : undefined;
+    if (alvo) onSecao(alvo);
+  }, [slug, onSecao]);
+  return null;
+}
 
 /**
  * Preferências de aviso. A chave é o nome do campo no `PATCH /api/settings` —
@@ -135,14 +156,18 @@ export default function PainelConfiguracoes() {
     sub: "carregando",
   });
 
-  // Deep-link `?secao=notificacoes` do rodapé do e-mail. Lido de
-  // `window.location` em vez de `useSearchParams` para não exigir uma fronteira
-  // de Suspense nesta página inteira só por causa de um parâmetro opcional.
-  useEffect(() => {
-    const slug = new URLSearchParams(window.location.search).get("secao");
-    const alvo = slug ? SECAO_POR_SLUG[slug.toLowerCase()] : undefined;
-    if (alvo) setSection(alvo);
-  }, []);
+  function escolherSecao(alvo: Section) {
+    setSection(alvo);
+    // A URL acompanha a aba, sem navegação nem recarga (como as abas do Início).
+    // Sem isso, quem chegou por `?secao=plano` e foi para Equipe ficava com a URL
+    // ainda em `plano`, e o próximo link para lá não mudava nada que
+    // `SeguirSecaoDaUrl` enxergue: a tela continuava em Equipe.
+    const slug = Object.keys(SECAO_POR_SLUG).find((k) => SECAO_POR_SLUG[k] === alvo);
+    if (!slug) return;
+    const busca = new URLSearchParams(window.location.search);
+    busca.set("secao", slug);
+    window.history.replaceState(null, "", `${window.location.pathname}?${busca}`);
+  }
 
   useEffect(() => {
     authenticatedFetch("/api/settings")
@@ -268,14 +293,9 @@ export default function PainelConfiguracoes() {
     setBusyPlan(planCode);
     setBillingError(null);
     try {
-      const res = await authenticatedFetch("/api/billing/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planCode }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.url) throw new Error(data.error || "Checkout indisponível.");
-      window.location.href = data.url;
+      // Mesma chamada do paywall e do modal: a mensagem do servidor (inclusive o
+      // 409 de quem já está no teste) volta como `Error`.
+      await abrirCheckout(planCode);
     } catch (e) {
       // Engolir aqui apagava o único sinal que existia: o botão girava, parava,
       // e a tela ficava idêntica a antes do clique. Preço configurado errado,
@@ -364,9 +384,12 @@ export default function PainelConfiguracoes() {
   const aceitos = members.filter((m) => m.accepted_at).length;
   return (
     <>
+    <Suspense fallback={null}>
+      <SeguirSecaoDaUrl onSecao={setSection} />
+    </Suspense>
     <ConfiguracoesVitrine
       porta={section}
-      onPorta={setSection}
+      onPorta={escolherSecao}
       leitura={{
         conexao: { ok: respondeu.session === "ok", live },
         equipe: { ok: respondeu.members === "ok", aceitos, pendentes: members.length - aceitos },

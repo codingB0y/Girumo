@@ -51,7 +51,9 @@ test("sem entrada nem post, aponta o próximo passo em vez de zero", () => {
 });
 
 test("romaneio: nome do plano em caixa alta e a data de renovação", () => {
-  const fim = new Date(2026, 9, 4).toISOString();
+  // Instante fixo (12:00 de Brasília em 04/10): `new Date(2026, 9, 4)` dependia
+  // do fuso de quem roda o teste.
+  const fim = "2026-10-04T15:00:00.000Z";
   assert.equal(romaneioDoPlano({ status: "active", current_period_end: fim, plans: { name: "Growth" } }), "GROWTH · renova 04/10");
   assert.equal(
     romaneioDoPlano({ status: "trialing", current_period_end: fim, plans: { name: "Starter" } }),
@@ -63,4 +65,29 @@ test("romaneio: nome do plano em caixa alta e a data de renovação", () => {
   );
   assert.equal(romaneioDoPlano({ status: "active", current_period_end: null, plans: { name: "Pro" } }), "PRO");
   assert.equal(romaneioDoPlano(null), "SEM PLANO · escolher");
+});
+
+test("romaneio: data no fuso de Brasília, não no do navegador", () => {
+  // 22:30 de 04/10 em Brasília já é 05/10 em UTC: com `getDate()` o rodapé dizia
+  // "05/10" a quem roda em UTC, um dia depois de Configurações e da faixa.
+  const quaseMeiaNoite = "2026-10-05T01:30:00.000Z";
+  assert.equal(
+    romaneioDoPlano({ status: "active", current_period_end: quaseMeiaNoite, plans: { name: "Growth" } }),
+    "GROWTH · renova 04/10",
+  );
+});
+
+test("romaneio: assinatura cancelada não renova nem concede plano", () => {
+  // O teste com cartão repetido termina `canceled` com o plano ainda apontado: o
+  // rodapé dizia "GROWTH · renova DD/MM" enquanto a faixa dizia "Não cobramos nada"
+  // e Configurações, "Inativa". Cancelada é o mesmo acesso de quem não tem plano.
+  const fim = "2026-10-10T15:00:00.000Z";
+  assert.equal(
+    romaneioDoPlano({ status: "canceled", current_period_end: fim, plans: { name: "Growth" } }),
+    "SEM PLANO · escolher",
+  );
+  assert.equal(
+    romaneioDoPlano({ status: "canceled", current_period_end: null, plans: { name: "Growth" } }),
+    "SEM PLANO · escolher",
+  );
 });

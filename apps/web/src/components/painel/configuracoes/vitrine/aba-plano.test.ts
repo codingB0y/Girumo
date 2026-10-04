@@ -41,7 +41,8 @@ test("assinatura paga continua como era: Ativa, Renova em, Cancelar assinatura",
 test("teste mostra data e valor da 1ª cobrança e nunca Renova em", () => {
   const h = html({ estado: "trial", recado: subscriptionNotice("trial", FIM) });
   assert.match(h, />Teste grátis</);
-  assert.match(h, /Teste grátis · 1ª cobrança de R\$\s?297 em 10\/10/);
+  // "/mês" como a faixa e o modal: sem ele, R$ 297 lê como cobrança única.
+  assert.match(h, /Teste grátis · 1ª cobrança de R\$\s?297\/mês em 10\/10/);
   assert.match(h, /Cancelar teste \(sem cobrança\)/);
   assert.doesNotMatch(h, /Renova em|>Ativa<|Cancelar assinatura/);
 });

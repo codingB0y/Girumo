@@ -59,7 +59,8 @@ function linhaDoEstado(
   if (estado === "trial_canceled") return recado ?? "Teste cancelado — termina sem cobrança.";
   if (estado === "trial") {
     if (!renova) return recado ?? "Teste grátis ativo.";
-    const valor = precoCents ? ` de ${formatarPreco(precoCents)}` : "";
+    // "/mês" como a faixa e o modal: "R$ 297" sozinho lê como cobrança única.
+    const valor = precoCents ? ` de ${formatarPreco(precoCents)}/mês` : "";
     return `Teste grátis · 1ª cobrança${valor} em ${renova}`;
   }
   if (!vigente) return recado ?? "Assinatura sem cobrança em dia";
