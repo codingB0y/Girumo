@@ -42,9 +42,11 @@ export async function POST(req: Request) {
       semTeste: body.semTeste,
       readFacts: () => readTrialFacts(supabase, ctx.tenantId),
     });
+    // A frase diz ONDE está o botão: ela também aparece no paywall, que não tem
+    // "Gerenciar cobrança" — só Configurações › Plano tem.
     if (decisao === "em_teste") {
       return Response.json(
-        { error: "Você está no teste grátis. Para trocar de plano, use Gerenciar cobrança." },
+        { error: "Você está no teste grátis. Para trocar de plano, use Gerenciar cobrança em Configurações › Plano." },
         { status: 409 },
       );
     }

@@ -8,9 +8,12 @@ import {
   removalSuccess,
 } from "@/lib/auth/member-removal";
 import { authenticatedFetch } from "@/lib/supabase/client";
-import { subscriptionAccess, subscriptionNotice } from "@/lib/billing/subscription-access";
 import { SEGMENTS } from "@/lib/segments";
 import { ConfiguracoesVitrine } from "@/components/painel/configuracoes/vitrine/configuracoes-vitrine";
+import {
+  estadoDoPlano,
+  type LinhaDaAssinatura,
+} from "@/components/painel/configuracoes/vitrine/plano-estado";
 import { useConfirmacao } from "@/components/painel/confirmacao";
 import { useRole } from "@/components/painel/role-provider";
 
@@ -69,20 +72,12 @@ function lerPreferencias(d: Partial<Preferencias> | null): Preferencias {
 type Session = { live?: boolean; phone?: string | null; profileName?: string | null; stats?: { warmup?: { day?: number; totalDays?: number } } };
 type Membership = { id: string; role: string; invited_email?: string | null; accepted_at?: string | null };
 type Plan = { id: string; code: string; name: string; limits?: Record<string, number | boolean | null>; stripe_price_id?: string | null };
-// A rota faz `select("*, plans(*)")`, entao `metadata` e `current_period_end` ja
-// vinham no payload — era o tipo local que os escondia. Sem os dois nao da para
-// separar boleto emitido (que CONCEDE acesso) de cobranca falhada, e a tela
-// acabava afirmando o plano pelo `plan_id`, que e o plano ESCOLHIDO, nao o pago.
-// `cancel_at_period_end` separa o teste cancelado no portal (termina sem cobrar)
-// do teste que cobra no 8o dia: sem ele, a tela anunciaria uma cobranca que nao vem.
-type Subscription = {
-  status?: string;
+// Os campos que decidem o estado (`LinhaDaAssinatura`) vivem com a decisão, em
+// `plano-estado.ts`; aqui ficam só os que a tela mostra.
+type Subscription = (LinhaDaAssinatura & {
   plans?: { name?: string; code?: string; price_cents?: number | null } | null;
   plan?: { name?: string; code?: string };
-  metadata?: { stripe_status?: string | null; cancel_reason?: string | null } | null;
-  current_period_end?: string | null;
-  cancel_at_period_end?: boolean | null;
-} | null;
+}) | null;
 
 /**
  * Estado de cada consulta da tela. Tres valores, nao dois: "ainda nao voltou" e
@@ -220,18 +215,7 @@ export default function PainelConfiguracoes() {
    * tudo e nao tinha como ligar uma coisa na outra. O sidebar ja cruzava; era so
    * esta tela que afirmava sozinha.
    */
-  const acessoPlano = sub
-    ? subscriptionAccess(
-        {
-          status: sub.status ?? null,
-          stripeStatus: sub.metadata?.stripe_status ?? null,
-          periodEnd: sub.current_period_end ?? null,
-          cancelReason: sub.metadata?.cancel_reason ?? null,
-          cancelAtPeriodEnd: sub.cancel_at_period_end ?? null,
-        },
-        new Date(),
-      )
-    : null;
+  const acessoPlano = estadoDoPlano(sub, new Date());
   const planoVigente = acessoPlano?.grantsPlan ?? false;
 
   async function togglePref(key: PreferenciaKey, proximo: boolean) {
@@ -420,7 +404,7 @@ export default function PainelConfiguracoes() {
         nome: currentPlanName,
         codigo: currentPlanCode,
         vigente: planoVigente,
-        recado: acessoPlano ? subscriptionNotice(acessoPlano.state, sub?.current_period_end ?? null) : null,
+        recado: acessoPlano?.recado ?? null,
         renovaEm: sub?.current_period_end ?? null,
         estado: acessoPlano?.state ?? null,
         precoCents: sub?.plans?.price_cents ?? null,

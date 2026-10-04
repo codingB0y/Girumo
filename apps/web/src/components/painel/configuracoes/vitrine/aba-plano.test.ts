@@ -56,13 +56,15 @@ test("teste cancelado no portal termina sem cobrança e nunca anuncia a cobranç
   const h = html({ estado: "trial_canceled", recado: subscriptionNotice("trial_canceled", FIM) });
   assert.match(h, /Teste cancelado — termina em 10\/10 sem cobrança\./);
   assert.doesNotMatch(h, /Renova em|1ª cobrança|R\$/);
+  // Concede o plano até o fim, mas não é assinatura paga: "Ativa" diria que já cobra.
+  assert.doesNotMatch(h, />Ativa</);
   // Já cancelado: oferecer "cancelar" de novo confunde. O portal desfaz, se quiser.
   assert.doesNotMatch(h, /Cancelar teste|Cancelar assinatura/);
   assert.match(h, /Gerenciar cobrança/);
 });
 
 test("erro do checkout chega à tela (409 de quem está no teste)", () => {
-  const msg = "Você está no teste grátis. Para trocar de plano, use Gerenciar cobrança.";
+  const msg = "Você está no teste grátis. Para trocar de plano, use Gerenciar cobrança em Configurações › Plano.";
   const h = html({ estado: "trial", erro: msg });
   assert.match(h, /role="alert"/);
   assert.ok(h.includes(msg));

@@ -36,9 +36,14 @@ export function faixaDoTeste(view: TrialView | null, agora: Date): Faixa {
     if (semCobranca) {
       return { tipo: "em_teste", texto: subscriptionNotice("trial_canceled", fim), acao: "Ver plano" };
     }
+    // "do plano X", não "do X": Essencial e Operação pedem o feminino.
+    // Preço desconhecido (0) some da frase em vez de virar "R$ 0/mês", como em
+    // Configurações › Plano: a tela não inventa valor.
+    const doPlano = plano ? `do plano ${plano}` : "do seu plano";
+    const valor = precoCents > 0 ? ` de ${formatarPreco(precoCents)}/mês` : "";
     return {
       tipo: "em_teste",
-      texto: `Teste grátis do ${plano || "seu plano"}: ${faltam(fim, agora)}. Em ${diaMesBR(fim) ?? "breve"} começa a cobrança de ${formatarPreco(precoCents)}/mês no cartão cadastrado.`,
+      texto: `Teste grátis ${doPlano}: ${faltam(fim, agora)}. Em ${diaMesBR(fim) ?? "breve"} começa a cobrança${valor} no cartão cadastrado.`,
       acao: "Ver plano",
     };
   }
