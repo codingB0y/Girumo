@@ -52,7 +52,7 @@ type Props = {
 
 /**
  * Início "Ao vivo" (spec 2026-10-02, mockup F): a sala de controle da loja.
- * PR 1 a faixa, PR 2 o mapa, PR 3 o gráfico, PR 4 o postando agora, PR 5 a relâmpago, PR 6 o celular (faixa rolável e abas).
+ * PR 1 a faixa, PR 2 o mapa, PR 3 o gráfico, PR 4 o postando agora, PR 5 a relâmpago, PR 6 o celular (faixa rolável e abas), PR 7 a tela padrão de /painel (com o editor da meta na faixa).
  */
 export function InicioAoVivo({
   groups,
@@ -96,7 +96,7 @@ export function InicioAoVivo({
   );
   const escolherAba = (nova: Aba) => {
     setAba(nova);
-    // Sem navegação nem recarga: só a barra de endereço acompanha, mantendo `?ao-vivo` limpo (sem "=").
+    // Sem navegação nem recarga: só a barra de endereço acompanha, deixando chaves sem valor (o `?ao-vivo` de links antigos) nuas, sem "=".
     window.history.replaceState(null, "", `${window.location.pathname}${buscaComAba(window.location.search, nova)}`);
   };
   // Abaixo de 768 px só a aba escolhida aparece; de 768 px para cima as três ficam juntas (a lista de abas some).

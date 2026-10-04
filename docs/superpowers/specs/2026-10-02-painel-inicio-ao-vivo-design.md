@@ -74,7 +74,7 @@ por SQL depois de aplicar.
 - **Entraram hoje** + os últimos 7 dias em miniatura (a mesma da página da campanha) · comparação com o mesmo dia da semana anterior a partir de 08/10.
 - **Saíram** · **Saldo** (+ a semana, somando só o que foi medido).
 - **Cliques nos links hoje** + o total histórico dos links (o recorte por campanha exigiria cliques de hoje por campanha, que nenhuma parte traz — fica para quando pedir).
-- **Pedidos anotados hoje** · R$ · a faixa mostra "X% da meta do mês" ou "sem meta do mês". O editor da meta mora hoje na Vitrine (`CaixaDoMes`): o PR 7 precisa trazer um jeito de definir a meta antes de apagar a Vitrine.
+- **Pedidos anotados hoje** · R$ · a faixa mostra "X% da meta do mês" ou "sem meta do mês". O editor da meta morava na Vitrine (`CaixaDoMes`); o PR 7 o trouxe para esta célula (ver a nota do PR 7 abaixo).
 
 ### Mapa dos grupos (centro)
 

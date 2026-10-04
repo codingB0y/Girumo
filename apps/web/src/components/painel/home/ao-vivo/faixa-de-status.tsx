@@ -138,18 +138,21 @@ export function FaixaDeStatus({ atividade, links, orders, metaDoMes, agora, orde
                 "meta não carregou"
               ) : (
                 <>
-                  {pedidos.metaPct === null ? <>sem meta<span className="max-md:hidden"> do mês</span></> : `${pedidos.metaPct}% da meta do mês`}
+                  {pedidos.metaPct === null ? <>sem meta<span className="max-md:hidden"> do mês</span></> : <>{pedidos.metaPct}% da meta<span className="max-md:hidden"> do mês</span></>}
                   {!editando && (
                     <>
-                      {" · "}
-                      <button
-                        ref={botaoDaMeta}
-                        type="button"
-                        onClick={() => setEditando(true)}
-                        className={BOTAO_DA_META}
-                      >
-                        {metaDoMes ? "editar meta" : "definir meta"}
-                      </button>
+                      <span className="max-md:hidden">{" · "}</span>
+                      {/* No celular o botão desce para a própria linha: a célula não passa de 260 px. */}
+                      <span className="max-md:mt-1 max-md:block">
+                        <button
+                          ref={botaoDaMeta}
+                          type="button"
+                          onClick={() => setEditando(true)}
+                          className={BOTAO_DA_META}
+                        >
+                          {metaDoMes ? "editar meta" : "definir meta"}
+                        </button>
+                      </span>
                     </>
                   )}
                 </>
