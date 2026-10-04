@@ -1,0 +1,32 @@
+-- organizations: so o servidor escreve.
+--
+-- infra/rls/202606240002_rls_policies.sql (e a copia de infra/dev-setup/03) criam uma
+-- policy de UPDATE para o owner sem restringir coluna, e uma de INSERT para qualquer
+-- logado. Com o privilegio de tabela default do Supabase em `authenticated`, um owner
+-- edita QUALQUER coluna da propria org pelo PostgREST com o proprio JWT:
+--   status / suspended_at  -> desfaz uma suspensao do admin
+--   stripe_customer_id     -> o checkout le daqui; aponta para o cliente Stripe de outro
+--   metadata, slug, ...
+-- E qualquer logado cria uma org nova ja com esses campos preenchidos.
+--
+-- Medido em dev em 03/10/2026: policy org_update_owner sem WITH CHECK e authenticated
+-- com INSERT/UPDATE/DELETE/TRUNCATE em todas as colunas. Prod nao foi lido nesta data.
+--
+-- O app nao perde nada: toda escrita em organizations (signup, oauth-complete, checkout,
+-- admin, webhook) vai por getSupabaseAdmin (service_role). Conferido em 03/10/2026.
+--
+-- Privilegio e nao trigger: e allowlist. Coluna nova nasce fechada para `authenticated`
+-- sem ninguem lembrar de incluir numa lista, e o INSERT fecha junto. Se um dia a UI
+-- precisar editar alguma coluna pelo JWT do usuario (ex.: name), o caminho e
+-- `grant update (name) on public.organizations to authenticated` — a policy de UPDATE
+-- continua cuidando de QUAL linha; o grant por coluna, de QUAL coluna.
+--
+-- SELECT fica: organizations_select_member e uma das policies que funcionam.
+-- TRUNCATE entra porque pula RLS e trigger de linha.
+-- anon e public entram so por idempotencia: anon esta zerado em public desde 22/08, e
+-- tabela nao nasce com grant para PUBLIC — mas se tivesse, authenticated herdaria.
+-- Revoke de tabela leva junto os grants por coluna do mesmo privilegio.
+revoke insert, update, delete, truncate on public.organizations from public, anon, authenticated;
+
+-- Conferencia depois de aplicar, nos dois bancos (o gate de drift nao ve privilegio):
+-- infra/tests/organizations-escrita-check.sql — 'privilege' todo false, 'column' vazio.

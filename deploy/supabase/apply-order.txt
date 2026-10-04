@@ -428,6 +428,11 @@ apps/web/supabase/migrations/20261002120000_campaign_activity_loja.sql
 # 2026-10-03 - Teste gratis de 7 dias com cartao: organizations.trial_subscription_id
 # e trial_card_fingerprint (indice unico = um teste por cartao).
 apps/web/supabase/migrations/20261003120000_trial_organizations.sql
+# 2026-10-03 - organizations: so o servidor escreve. Revoga insert/update/delete/truncate
+# de authenticated (a policy de UPDATE do owner nao restringia coluna: status,
+# suspended_at, stripe_customer_id). O gate de drift nao ve privilegio — conferir com
+# infra/tests/organizations-escrita-check.sql nos dois bancos.
+apps/web/supabase/migrations/20261003150000_organizations_escrita_so_servidor.sql
 # 2026-10-03 - memberships e users: so o servidor escreve. Revoga insert/update/delete/
 # truncate de authenticated (policies de UPDATE/INSERT sem restricao de coluna: admin se
 # promovia a owner, usuario editava tenant_id/auth_user_id da propria linha). O gate de
