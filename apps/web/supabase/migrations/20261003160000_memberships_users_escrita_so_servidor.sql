@@ -1,0 +1,39 @@
+-- memberships e users: so o servidor escreve. Irmao de 20261003150000 (organizations).
+--
+-- infra/rls/202606240002_rls_policies.sql (e a copia de infra/dev-setup/03) criam policies
+-- de INSERT/UPDATE sem restringir coluna e sem WITH CHECK proprio. Com o privilegio de
+-- tabela default do Supabase em `authenticated`, pelo PostgREST com o proprio JWT:
+--   memberships_update  -> admin troca o proprio role para 'owner' (escalada), ou o de
+--                          qualquer membro; mexe em accepted_at / user_id / invited_email
+--   memberships_insert  -> admin cria membership de qualquer user_id ja como 'owner' e aceita
+--   users_update        -> qualquer usuario edita qualquer coluna da propria linha
+--                          (tenant_id, auth_user_id, email, metadata); admin, a de qualquer
+--                          usuario do tenant
+--   users_insert        -> admin cria linha de users com auth_user_id de terceiro
+--
+-- Medido em dev em 03/10/2026 com infra/tests/memberships-users-escrita-check.sql:
+-- authenticated com INSERT/UPDATE/DELETE/TRUNCATE em todas as colunas das duas tabelas;
+-- policies de UPDATE com check=- (o USING vale para a linha nova). Prod nao foi lido.
+--
+-- O app nao perde nada. Conferido em 03/10/2026:
+--   - toda escrita (signup, oauth-complete, members, members/accept, accept-pending-invite,
+--     admin/*, seed) vai por getSupabaseAdmin (service_role);
+--   - getSupabaseServerAnon / getSupabaseAnonForToken / cliente de browser so chamam .auth.*;
+--   - scripts e CI (prepare-girumo-qa-state, seed-test-tenants, verify.yml) usam service_role;
+--   - nenhuma funcao em public/app escreve nessas tabelas; as que leem (has_role,
+--     has_membership, user_*_tenant_ids) sao security definer.
+-- Por isso nenhum grant por coluna: a UI nao edita nada disto pelo JWT do usuario. Se um
+-- dia precisar (ex.: users.name no perfil), o caminho e
+-- `grant update (name) on public.users to authenticated` — a policy cuida de QUAL linha,
+-- o grant por coluna de QUAL coluna.
+--
+-- Privilegio e nao trigger: e allowlist, coluna nova nasce fechada.
+-- SELECT fica: memberships_select / users_select_member sao policies que funcionam.
+-- TRUNCATE entra porque pula RLS e trigger de linha.
+-- anon e public entram so por idempotencia (anon zerado em public desde 22/08).
+-- Revoke de tabela leva junto os grants por coluna do mesmo privilegio.
+revoke insert, update, delete, truncate on public.memberships from public, anon, authenticated;
+revoke insert, update, delete, truncate on public.users from public, anon, authenticated;
+
+-- Conferencia depois de aplicar, nos dois bancos (o gate de drift nao ve privilegio):
+-- infra/tests/memberships-users-escrita-check.sql — 'privilege' todo false, 'column' vazio.

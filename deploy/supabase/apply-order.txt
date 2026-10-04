@@ -420,3 +420,8 @@ apps/web/supabase/migrations/20260930120000_agendamento_perdeu_a_hora.sql
 # 2026-10-02 - Inicio "Ao vivo": campaign_activity com p_campaign nulo conta os
 # cliques de todos os links da loja (faixa de status da Inicio).
 apps/web/supabase/migrations/20261002120000_campaign_activity_loja.sql
+# 2026-10-03 - memberships e users: so o servidor escreve. Revoga insert/update/delete/
+# truncate de authenticated (policies de UPDATE/INSERT sem restricao de coluna: admin se
+# promovia a owner, usuario editava tenant_id/auth_user_id da propria linha). O gate de
+# drift nao ve privilegio — conferir com infra/tests/memberships-users-escrita-check.sql.
+apps/web/supabase/migrations/20261003160000_memberships_users_escrita_so_servidor.sql
