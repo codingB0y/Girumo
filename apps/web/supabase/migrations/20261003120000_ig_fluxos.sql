@@ -50,7 +50,7 @@ create unique index if not exists ig_accounts_provider_account_uidx
 drop policy if exists "ig_accounts_tenant_isolation" on public.ig_accounts;
 drop policy if exists "ig_accounts_tenant_read" on public.ig_accounts;
 create policy "ig_accounts_tenant_read" on public.ig_accounts
-  for select using (app.has_membership(tenant_id));
+  for select to authenticated using (app.has_membership(tenant_id));
 revoke insert, update, delete, truncate on public.ig_accounts from authenticated;
 
 -- ------------------------------------------------------------
@@ -101,8 +101,16 @@ create index if not exists ig_flows_tenant_idx on public.ig_flows (tenant_id, up
 alter table public.ig_flows enable row level security;
 drop policy if exists "ig_flows_tenant_read" on public.ig_flows;
 create policy "ig_flows_tenant_read" on public.ig_flows
-  for select using (app.has_membership(tenant_id));
-revoke insert, update, delete, truncate on public.ig_flows from authenticated;
+  for select to authenticated using (app.has_membership(tenant_id));
+revoke all on public.ig_flows from authenticated;
+grant select on public.ig_flows to authenticated;
+
+-- Indice do lado filho dos FKs: o on delete set null/cascade varre a tabela sem ele.
+create index if not exists ig_flows_account_idx on public.ig_flows (ig_account_id);
+
+drop trigger if exists set_updated_at_ig_flows on public.ig_flows;
+create trigger set_updated_at_ig_flows before update on public.ig_flows
+  for each row execute function app.set_updated_at();
 
 -- ------------------------------------------------------------
 -- 4) ig_runs: uma pessoa passando por um fluxo
@@ -151,8 +159,17 @@ create index if not exists ig_runs_wake_idx on public.ig_runs (wake_at) where st
 alter table public.ig_runs enable row level security;
 drop policy if exists "ig_runs_tenant_read" on public.ig_runs;
 create policy "ig_runs_tenant_read" on public.ig_runs
-  for select using (app.has_membership(tenant_id));
-revoke insert, update, delete, truncate on public.ig_runs from authenticated;
+  for select to authenticated using (app.has_membership(tenant_id));
+revoke all on public.ig_runs from authenticated;
+grant select on public.ig_runs to authenticated;
+
+create index if not exists ig_runs_account_idx on public.ig_runs (ig_account_id);
+-- ig_runs_flow_idx comeca em tenant_id; o FK flow_id precisa de indice proprio.
+create index if not exists ig_runs_flow_fk_idx on public.ig_runs (flow_id);
+
+drop trigger if exists set_updated_at_ig_runs on public.ig_runs;
+create trigger set_updated_at_ig_runs before update on public.ig_runs
+  for each row execute function app.set_updated_at();
 
 -- ------------------------------------------------------------
 -- 5) ig_run_steps: cada transição; a fonte dos números por passo
@@ -175,8 +192,11 @@ create index if not exists ig_run_steps_flow_idx on public.ig_run_steps (tenant_
 alter table public.ig_run_steps enable row level security;
 drop policy if exists "ig_run_steps_tenant_read" on public.ig_run_steps;
 create policy "ig_run_steps_tenant_read" on public.ig_run_steps
-  for select using (app.has_membership(tenant_id));
-revoke insert, update, delete, truncate on public.ig_run_steps from authenticated;
+  for select to authenticated using (app.has_membership(tenant_id));
+revoke all on public.ig_run_steps from authenticated;
+grant select on public.ig_run_steps to authenticated;
+
+create index if not exists ig_run_steps_run_idx on public.ig_run_steps (run_id);
 
 -- ------------------------------------------------------------
 -- 6) A liberação por loja (add-on). Ligada à mão até a fase 4 (cobrança).
@@ -186,3 +206,34 @@ alter table public.tenant_settings
 
 comment on column public.tenant_settings.instagram_enabled is
   'Add-on Instagram liberado para a loja. Até a fase 4 é ligado à mão; depois, pelo webhook do Stripe.';
+
+-- tenant_settings tem policy de UPDATE para qualquer membro (campos de
+-- autoatendimento). Sem esta trava, um membro faria PATCH {"instagram_enabled":
+-- true} direto no PostgREST e destravaria o add-on pago. Só service role e
+-- migração (postgres) mudam a flag.
+create or replace function public.tenant_settings_guard_instagram_flag()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public, pg_temp
+as $$
+begin
+  if current_user in ('authenticated', 'anon') then
+    if tg_op = 'INSERT' then
+      if new.instagram_enabled is true then
+        raise exception 'instagram_enabled so pode ser alterado pelo servidor' using errcode = '42501';
+      end if;
+    elsif new.instagram_enabled is distinct from old.instagram_enabled then
+      raise exception 'instagram_enabled so pode ser alterado pelo servidor' using errcode = '42501';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.tenant_settings_guard_instagram_flag() from public, anon, authenticated;
+
+drop trigger if exists tenant_settings_guard_instagram_flag on public.tenant_settings;
+create trigger tenant_settings_guard_instagram_flag
+  before insert or update on public.tenant_settings
+  for each row execute function public.tenant_settings_guard_instagram_flag();
