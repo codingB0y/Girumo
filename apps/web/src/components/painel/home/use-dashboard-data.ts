@@ -101,10 +101,7 @@ export function useDashboardData(): DashboardDataHandle {
     // Uma chamada, não nove: a rota agregada resolve o tenant uma vez e roda os
     // nove stores em paralelo no servidor. As nove rotas soltas continuam de pé
     // para as outras telas, chamando a mesma função de carga que esta usa.
-    // `?ao-vivo` pede também a série da loja; a Vitrine não usa e não paga por ela.
-    // PR 7 (Início ao vivo) tira o gate quando a tela nova vira a padrão.
-    const aoVivo = new URLSearchParams(window.location.search).has("ao-vivo");
-    const carga = await loadJson<Carga>(aoVivo ? "/api/painel/inicio?ao-vivo" : "/api/painel/inicio");
+    const carga = await loadJson<Carga>("/api/painel/inicio");
     if (!carga.ok) {
       // A recarga de fundo que falha mantém a tela como estava: piscar erro a cada minuto sem rede seria pior.
       if (!silencioso) setState({ status: "error" });
@@ -156,7 +153,6 @@ export function useDashboardData(): DashboardDataHandle {
         schedulesOk: schedules.ok,
         atividade: atividade.ok ? (atividade.data ?? null) : null,
         relampago: relampago.ok ? (relampago.data ?? null) : null,
-        // Sem `?ao-vivo` a parte nem existe: não é falha, e a Vitrine não a lê.
         relampagoOk: relampago.ok,
         settings: {
           monthlyGoalContacts: (settings.ok ? settings.data?.monthlyGoalContacts : null) ?? null,

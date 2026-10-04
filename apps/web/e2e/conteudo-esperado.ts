@@ -95,15 +95,11 @@ export const CONTEUDO_ESPERADO: Record<string, ConteudoEsperado> = {
     // NAO "Inicio": `dashboard-states.tsx` renderiza esse mesmo <h1> na tela de
     // erro, entao ele passaria com o dashboard sem ter carregado nada.
     //
-    // Duas cascas convivem ate o PR 10 da Vitrine: "Seu ritmo" e o dashboard
-    // antigo, "Estoque de grupos" e o bloco 6 da Inicio nova. Nenhum dos dois
-    // aparece na tela de erro. Quando a casca antiga sair, fica so o segundo.
-    ancora: /Seu ritmo|Estoque de grupos/,
-    lista: {
-      api: "/api/groups",
-      marca: (j) => primeiroTexto(j, ...NOME),
-      vazio: /Nenhum grupo/i,
-    },
+    // "Entraram hoje" e o rotulo da faixa da Inicio ao vivo; a tela de erro nao o tem.
+    ancora: /Entraram hoje/,
+    semLista:
+      "O mapa mostra cada grupo como celula (numero + aria-label/tooltip), sem o nome como texto visivel; " +
+      "a ancora ja prova que a faixa carregou os dados do tenant.",
   },
 
   "/painel/agenda": {

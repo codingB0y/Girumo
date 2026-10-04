@@ -51,8 +51,6 @@ export async function GET(req: Request) {
   // Os grupos são lidos uma vez e servem a duas partes: a lista e a atividade da loja.
   const lidos = carregarGruposEEstrutura(tenantId);
   const grupos = lidos.then((l) => l.grupos);
-  // PR 7 (Início ao vivo) tira este gate quando a tela nova vira a padrão: até lá a Vitrine não paga pela série.
-  const comAtividade = new URL(req.url).searchParams.has("ao-vivo");
   const partes = await resolverPartes({
     groups: () => grupos,
     campanhas: async () =>
@@ -64,25 +62,23 @@ export async function GET(req: Request) {
     disparos: () => carregarDisparos(tenantId),
     session: () => carregarSessao(tenantId),
     settings: () => getTenantSettings(tenantId),
-    ...(comAtividade && {
-      // O JSON de dev não guarda entrada nem clique com data: sem banco não há série.
-      atividade: async () =>
-        USE_SUPABASE
-          ? carregarAtividade(
-              tenantId,
-              { campanhaId: null, groupIds: (await grupos).map((g) => g.whatsappGroupId) },
-              new Date(),
-            )
-          : null,
-      // As ofertas Relâmpago da Início "Ao vivo". Supabase-only, como a própria tabela.
-      relampago: async () => {
-        if (!USE_SUPABASE) return null;
-        const desde = janelasDaAtividade(new Date()).porHora.de.toISOString();
-        const { abertas, doDia } = await listOfertasDaInicio(tenantId, desde);
-        const broadcastIds = doDia.flatMap((o) => (o.broadcast_id ? [o.broadcast_id] : []));
-        return { abertas, doDia, totaisDoDia: await offerTotalsByBroadcastIds(tenantId, broadcastIds) };
-      },
-    }),
+    // O JSON de dev não guarda entrada nem clique com data: sem banco não há série.
+    atividade: async () =>
+      USE_SUPABASE
+        ? carregarAtividade(
+            tenantId,
+            { campanhaId: null, groupIds: (await grupos).map((g) => g.whatsappGroupId) },
+            new Date(),
+          )
+        : null,
+    // As ofertas Relâmpago da Início "Ao vivo". Supabase-only, como a própria tabela.
+    relampago: async () => {
+      if (!USE_SUPABASE) return null;
+      const desde = janelasDaAtividade(new Date()).porHora.de.toISOString();
+      const { abertas, doDia } = await listOfertasDaInicio(tenantId, desde);
+      const broadcastIds = doDia.flatMap((o) => (o.broadcast_id ? [o.broadcast_id] : []));
+      return { abertas, doDia, totaisDoDia: await offerTotalsByBroadcastIds(tenantId, broadcastIds) };
+    },
   });
 
   return Response.json(partes);

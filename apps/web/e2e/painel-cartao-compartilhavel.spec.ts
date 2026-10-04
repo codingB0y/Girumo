@@ -7,7 +7,7 @@ import { exigeCredenciais, semErroDeRuntime } from "./sessao-helpers";
  *
  * ONDE ELE VIVE: na HOME do painel, nao em campanhas. O card do quadro nasceu
  * na coluna "Campanhas", mas o mecanismo e `CelebrationModal` renderizado por
- * `home/vitrine/inicio-vitrine.tsx`, alimentado por `computeCelebrations` e
+ * `home/ao-vivo/inicio-ao-vivo.tsx`, alimentado por `computeCelebrations` e
  * desenhado por `/api/og`. Nao ha nada de compartilhavel no modulo de campanhas.
  *
  * POR QUE O TESTE MEXE NA META: o modal so aparece quando ha marco ATINGIDO e
@@ -65,12 +65,9 @@ async function aguardarDashboard(page: Page) {
   // na seguinte sem ninguem tocar no codigo, que e o pior tipo de vermelho.
   // O cartao usa <p>; so o card do dashboard e um link.
   //
-  // A Vitrine (PR 3b) nao tem esse card: o equivalente "so existe com dado
-  // carregado" e a caixa do mes. Uma das duas basta — ate o PR 10 tirar a antiga.
-  const carregou = page
-    .getByRole("link", { name: /^Contatos captados/ })
-    .or(page.getByTestId("inicio-caixa"));
-  await expect(carregou.first()).toBeVisible({ timeout: 60_000 });
+  // A Inicio ao vivo nao tem esse card: o equivalente "so existe com dado
+  // carregado" e a faixa da loja, que so monta depois do skeleton.
+  await expect(page.getByTestId("inicio-faixa")).toBeVisible({ timeout: 60_000 });
   await expect(page.getByTestId("painel-skeleton")).toHaveCount(0);
 }
 

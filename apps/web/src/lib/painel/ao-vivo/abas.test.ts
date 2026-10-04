@@ -47,3 +47,8 @@ test("buscaComAba mantém ao-vivo como chave nua e troca só o aba", () => {
   assert.equal(buscaComAba("?ao-vivo=&x=1", "relampago"), "?ao-vivo&x=1&aba=relampago");
   assert.equal(buscaComAba("", "postando"), "?aba=postando");
 });
+
+test("buscaComAba de /painel limpo e de ?ao-vivo antigo dá uma URL sem lixo", () => {
+  assert.equal(buscaComAba("?", "grupos"), "?aba=grupos");
+  assert.equal(buscaComAba("?ao-vivo", "grupos"), "?ao-vivo&aba=grupos");
+});
