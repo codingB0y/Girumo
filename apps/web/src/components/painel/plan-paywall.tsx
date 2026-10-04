@@ -30,11 +30,14 @@ import {
 import type { TrialView } from "@/lib/billing/trial";
 import { linhaDoPrecoNoTeste } from "@/lib/billing/trial-copy";
 
-export type ModoDoPaywall = "normal" | "teste" | "em_teste";
+export type ModoDoPaywall = "carregando" | "normal" | "teste" | "em_teste";
 
 /**
  * Qual paywall mostrar.
  *
+ * - `carregando`: a leitura do teste ainda não voltou. Fora do painel o paywall lê
+ *   sozinho e nasce sem resposta; abrir como "Escolha um plano" e virar "Teste 7 dias
+ *   grátis" segundos depois fazia o leitor de tela anunciar um diálogo e mostrar outro.
  * - `em_teste`: o checkout recusa (409) quem já está testando — cancelado ou não —,
  *   então N botões "Assinar" seriam N becos sem saída. Vem antes de `elegivel` para
  *   o teste em andamento nunca ver o rodapé que anuncia a cobrança.
@@ -43,11 +46,24 @@ export type ModoDoPaywall = "normal" | "teste" | "em_teste";
  *   convite a ativar duas vezes.
  * - `normal`: flag desligada ou leitura falhou (`view` nulo) → o paywall de antes do teste.
  */
-export function modoDoPaywall(view: TrialView | null, ativando: boolean): ModoDoPaywall {
+export function modoDoPaywall(view: TrialView | null, ativando: boolean, carregado: boolean): ModoDoPaywall {
+  if (!carregado) return "carregando";
   if (view?.emTeste) return "em_teste";
   if (view?.elegivel === true && !ativando) return "teste";
   return "normal";
 }
+
+const TITULO: Record<ModoDoPaywall, string> = {
+  carregando: "Carregando…",
+  normal: "Escolha um plano pra continuar",
+  teste: "Teste 7 dias grátis pra continuar",
+  em_teste: "Você está no teste grátis",
+};
+
+// Hover escurece (cobalt-700, 7,5:1) em vez de clarear: brightness-110 tirava o
+// branco do mínimo de 4,5:1.
+const BOTAO_COBALTO =
+  "min-h-11 rounded-[var(--radius-control)] bg-cobalt-500 px-4 py-2 text-sm font-semibold text-white transition-colors duration-[var(--duration-micro)] hover:bg-cobalt-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500";
 
 interface PlanPaywallProps {
   /** A mensagem do 402, para o cliente saber o que o trouxe até aqui. */
@@ -66,8 +82,8 @@ export function PlanPaywall({ motivo, onClose }: PlanPaywallProps) {
   // O foco entra no primeiro tabulável (o Fechar), fica preso no diálogo e volta
   // ao "Ver planos" que o abriu: aria-modal só promete isso, quem cumpre é a trava.
   const dialogoRef = useFocusTrap<HTMLDivElement>(true);
-  const { view, ativando } = useTrial();
-  const modo = modoDoPaywall(view, ativando);
+  const { view, ativando, carregado } = useTrial();
+  const modo = modoDoPaywall(view, ativando, carregado);
   const comTeste = modo === "teste";
 
   useEffect(() => {
@@ -95,20 +111,50 @@ export function PlanPaywall({ motivo, onClose }: PlanPaywallProps) {
     return () => document.removeEventListener("keydown", aoTeclar);
   }, [fechar]);
 
-  const assinar = useCallback(async (planCode: string, semTeste = false) => {
-    setAssinando({ planCode, semTeste });
-    setErro(null);
-    try {
-      await abrirCheckout(planCode, { semTeste });
-    } catch (e) {
-      // Mesma razão do painel de configurações: engolir aqui deixaria o botão
-      // girar, parar, e a tela idêntica a antes do clique — inclusive para o
-      // suporte, porque o cliente só sabe dizer "não acontece". Inclui o 409 de
-      // quem está em teste e clicou antes de `view` chegar.
-      setErro(e instanceof Error ? e.message : "Não foi possível abrir o checkout.");
-      setAssinando(null);
-    }
+  // Voltar do Stripe pelo botão Voltar restaura a página do bfcache com o estado de
+  // antes da navegação: sem isto o diálogo ficaria em "Abrindo…", e mudo, para sempre.
+  useEffect(() => {
+    const aoVoltar = (e: PageTransitionEvent) => {
+      if (e.persisted) setAssinando(null);
+    };
+    window.addEventListener("pageshow", aoVoltar);
+    return () => window.removeEventListener("pageshow", aoVoltar);
   }, []);
+
+  const assinar = useCallback(
+    async (botao: HTMLButtonElement, planCode: string, semTeste = false) => {
+      // O botão que abre fica só `aria-disabled` (desabilitado, perderia o foco):
+      // quem barra o segundo clique é esta guarda.
+      if (assinando) return;
+      // O Safari não foca botão no clique: o foco ficaria no ×, que desabilita
+      // agora, e cairia no <body>.
+      botao.focus();
+      setAssinando({ planCode, semTeste });
+      setErro(null);
+      try {
+        await abrirCheckout(planCode, { semTeste });
+      } catch (e) {
+        // Mesma razão do painel de configurações: engolir aqui deixaria o botão
+        // girar, parar, e a tela idêntica a antes do clique — inclusive para o
+        // suporte, porque o cliente só sabe dizer "não acontece". Inclui o 409 de
+        // quem está em teste e clicou antes de `view` chegar.
+        setErro(e instanceof Error ? e.message : "Não foi possível abrir o checkout.");
+        setAssinando(null);
+      }
+    },
+    [assinando],
+  );
+
+  // Montado desde o 1º render: região viva que nasce já com texto não é anunciada.
+  // Só conta os planos quando a lista está na tela, e cala depois de um erro — o
+  // alerta já fala, e "N planos" de novo seria ruído.
+  const listaNaTela = (modo === "normal" || comTeste) && !carregando && planos.length > 0;
+  const status = assinando
+    ? "Abrindo o checkout seguro…"
+    : erro || !listaNaTela
+      ? ""
+      : `${planos.length} ${planos.length === 1 ? "plano carregado" : "planos carregados"}`;
+  const abrindoBoleto = assinando?.semTeste === true;
 
   return (
     <div
@@ -127,7 +173,7 @@ export function PlanPaywall({ motivo, onClose }: PlanPaywallProps) {
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <h2 id="paywall-titulo" className="text-lg font-semibold text-volt-950">
-              {comTeste ? "Teste 7 dias grátis pra continuar" : "Escolha um plano pra continuar"}
+              {TITULO[modo]}
             </h2>
             <p id="paywall-motivo" className="mt-1 text-sm text-volt-950/70">
               {motivo}
@@ -138,11 +184,15 @@ export function PlanPaywall({ motivo, onClose }: PlanPaywallProps) {
             onClick={onClose}
             disabled={assinando !== null}
             aria-label="Fechar"
-            className="shrink-0 rounded-[var(--radius-control)] px-2 py-1 text-xl leading-none text-volt-950/50 transition-colors hover:text-volt-950 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
+            className="min-h-11 min-w-11 shrink-0 rounded-[var(--radius-control)] px-2 py-1 text-xl leading-none text-volt-950/50 transition-colors hover:text-volt-950 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
           >
             ×
           </button>
         </div>
+
+        <p role="status" className="sr-only">
+          {status}
+        </p>
 
         {erro && (
           <p role="alert" className="mt-4 rounded-xl bg-alerta/10 px-4 py-3 text-sm text-alerta">
@@ -150,19 +200,18 @@ export function PlanPaywall({ motivo, onClose }: PlanPaywallProps) {
           </p>
         )}
 
-        {modo === "em_teste" ? (
+        {modo === "carregando" ? null : modo === "em_teste" ? (
           // Um caminho só: no teste, a troca de plano vai pelo portal. `<a>` e não
-          // `Link`: a página lê `?secao=` só ao montar, e um 402 aberto dentro da
-          // própria Configurações não a remontaria.
+          // `Link`: a navegação inteira desmonta o paywall de onde quer que ele tenha
+          // aberto. Com `Link`, quem o abriu e sobrevive à navegação (a faixa do
+          // layout, um 402 na própria Configurações) o deixaria aberto por cima.
           <div className="mt-5 space-y-3">
             <p className="text-sm text-volt-950/70">
               Durante o teste grátis, a troca de plano é feita em Gerenciar cobrança.
             </p>
-            <a
-              href="/painel/configuracoes?secao=plano"
-              className="inline-flex min-h-11 items-center rounded-[var(--radius-control)] bg-cobalt-500 px-4 py-2 text-sm font-semibold text-white transition-[filter] duration-[var(--duration-micro)] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
-            >
-              Trocar de plano em Configurações › Plano
+            {/* "aba Plano", não "› Plano": o leitor de tela lê o "›" como sinal. */}
+            <a href="/painel/configuracoes?secao=plano" className={`inline-flex items-center ${BOTAO_COBALTO}`}>
+              Trocar de plano em Configurações, aba Plano
             </a>
           </div>
         ) : (
@@ -180,7 +229,7 @@ export function PlanPaywall({ motivo, onClose }: PlanPaywallProps) {
               // carregar" no segundo caso seria mentira.
               <p className="text-sm text-volt-950/70">
                 Não consegui listar os planos aqui. Abra{" "}
-                <a className="font-medium underline" href="/painel/configuracoes">
+                <a className="font-medium underline" href="/painel/configuracoes?secao=plano">
                   Configurações
                 </a>{" "}
                 pra escolher.
@@ -191,27 +240,26 @@ export function PlanPaywall({ motivo, onClose }: PlanPaywallProps) {
               const abrindoEste = assinando?.planCode === plano.code && !assinando.semTeste;
               const acao = comTeste ? "Testar grátis" : "Assinar";
               return (
+                // flex-wrap: a 320px o botão desce para baixo do preço em vez de espremê-lo.
                 <div
                   key={plano.code}
-                  className="flex items-center justify-between gap-4 rounded-xl border border-volt-950/[0.08] px-4 py-3"
+                  className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl border border-volt-950/[0.08] px-4 py-3"
                 >
                   <div className="min-w-0">
                     <p className="font-medium text-volt-950">{plano.name}</p>
                     <p className="text-sm text-volt-950/60">
-                      {comTeste ? (
-                        linhaDoPrecoNoTeste(plano.price_cents ?? 0)
-                      ) : (
-                        <>
-                          {formatarPreco(plano.price_cents ?? 0)}
-                          <span className="text-volt-950/40"> /mês</span>
-                        </>
-                      )}
+                      {comTeste
+                        ? linhaDoPrecoNoTeste(plano.price_cents ?? 0)
+                        : `${formatarPreco(plano.price_cents ?? 0)} /mês`}
                     </p>
                   </div>
+                  {/* Quem abre o Checkout fica focável (`aria-disabled`, sem esmaecer):
+                      com `disabled` o foco caía no <body> e o "Abrindo…" nunca era lido. */}
                   <button
                     type="button"
-                    onClick={() => void assinar(plano.code)}
-                    disabled={assinando !== null}
+                    onClick={(e) => void assinar(e.currentTarget, plano.code)}
+                    disabled={assinando !== null && !abrindoEste}
+                    aria-disabled={abrindoEste || undefined}
                     // Três botões "Assinar" iguais não dizem a quem usa leitor de tela
                     // qual plano cada um assina.
                     aria-label={
@@ -219,7 +267,7 @@ export function PlanPaywall({ motivo, onClose }: PlanPaywallProps) {
                         ? `Abrindo o checkout do plano ${plano.name}`
                         : `${acao} o plano ${plano.name}`
                     }
-                    className="min-h-11 shrink-0 rounded-[var(--radius-control)] bg-cobalt-500 px-4 py-2 text-sm font-semibold text-white transition-[filter] duration-[var(--duration-micro)] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500 disabled:opacity-50"
+                    className={`shrink-0 disabled:opacity-50 ${BOTAO_COBALTO}`}
                   >
                     {abrindoEste ? "Abrindo…" : acao}
                   </button>
@@ -229,25 +277,26 @@ export function PlanPaywall({ motivo, onClose }: PlanPaywallProps) {
           </div>
         )}
 
-        {comTeste ? (
+        {modo === "carregando" ? null : comTeste ? (
           <div className="mt-5 space-y-2 text-center text-xs text-volt-950/60">
             <p>A cobrança começa no 8º dia, no cartão que você cadastrar. Cancele antes e não paga nada.</p>
-            {/* ponytail: boleto abre o 1º plano (o de entrada); boleto em outro plano
-                vai pelo modal de oferta (TrialOffer), que tem a escolha do plano.
-                Seletor aqui só se o suporte pedir. */}
+            {/* ponytail: boleto abre o 1º plano (o de entrada), e o texto diz qual;
+                boleto em outro plano vai pelo modal de oferta (TrialOffer), que tem a
+                escolha do plano. Seletor aqui só se o suporte pedir. */}
             {planos[0] && (
               <button
                 type="button"
-                onClick={() => void assinar(planos[0].code, true)}
-                disabled={assinando !== null}
-                className="rounded-[var(--radius-control)] font-medium text-cobalt-700 underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500 disabled:opacity-50"
+                onClick={(e) => void assinar(e.currentTarget, planos[0].code, true)}
+                disabled={assinando !== null && !abrindoBoleto}
+                aria-disabled={abrindoBoleto || undefined}
+                className="min-h-11 rounded-[var(--radius-control)] font-medium text-cobalt-700 underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500 disabled:opacity-50"
               >
-                {assinando?.semTeste ? "Abrindo…" : "Prefere boleto? Assine sem teste grátis"}
+                {abrindoBoleto ? "Abrindo…" : `Prefere boleto? Assine o plano ${planos[0].name} sem teste grátis`}
               </button>
             )}
           </div>
         ) : (
-          <p className="mt-5 text-center text-xs text-volt-950/50">Cancele quando quiser, sem multa.</p>
+          <p className="mt-5 text-center text-xs text-volt-950/60">Cancele quando quiser, sem multa.</p>
         )}
       </div>
     </div>

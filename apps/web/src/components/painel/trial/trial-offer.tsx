@@ -66,9 +66,24 @@ export function TrialOffer({ onClose }: TrialOfferProps) {
     return () => document.removeEventListener("keydown", aoTeclar);
   }, [fechar]);
 
+  // Voltar do Stripe pelo botão Voltar restaura a página do bfcache com o estado de
+  // antes da navegação: sem isto o modal ficaria em "Abrindo…", e mudo, para sempre.
+  useEffect(() => {
+    const aoVoltar = (e: PageTransitionEvent) => {
+      if (e.persisted) setAbrindo(null);
+    };
+    window.addEventListener("pageshow", aoVoltar);
+    return () => window.removeEventListener("pageshow", aoVoltar);
+  }, []);
+
   const comecar = useCallback(
-    async (semTeste: boolean) => {
-      if (!escolhido) return;
+    async (botao: HTMLButtonElement, semTeste: boolean) => {
+      // O botão que abre fica só `aria-disabled` (desabilitado, perderia o foco):
+      // quem barra o segundo clique é esta guarda.
+      if (!escolhido || abrindo) return;
+      // O Safari não foca botão no clique: o foco ficaria no ×, que desabilita
+      // agora, e cairia no <body>.
+      botao.focus();
       setAbrindo(semTeste ? "boleto" : "teste");
       setErro(null);
       try {
@@ -80,10 +95,17 @@ export function TrialOffer({ onClose }: TrialOfferProps) {
         setAbrindo(null);
       }
     },
-    [escolhido],
+    [escolhido, abrindo],
   );
 
   const plano = planos.find((p) => p.code === escolhido) ?? null;
+  // Montado desde o 1º render: região viva que nasce já com texto não é anunciada.
+  // Depois de um erro fica calada — o alerta já fala, e "N planos" de novo seria ruído.
+  const status = abrindo
+    ? "Abrindo o checkout seguro…"
+    : erro || carregando || planos.length === 0
+      ? ""
+      : `${planos.length} ${planos.length === 1 ? "plano carregado" : "planos carregados"}`;
 
   return (
     <div
@@ -113,11 +135,15 @@ export function TrialOffer({ onClose }: TrialOfferProps) {
             onClick={onClose}
             disabled={abrindo !== null}
             aria-label="Fechar"
-            className={`shrink-0 rounded-[var(--radius-control)] px-2 py-1 text-xl leading-none text-volt-950/50 transition-colors hover:text-volt-950 disabled:opacity-50 ${FOCO}`}
+            className={`min-h-11 min-w-11 shrink-0 rounded-[var(--radius-control)] px-2 py-1 text-xl leading-none text-volt-950/50 transition-colors hover:text-volt-950 disabled:opacity-50 ${FOCO}`}
           >
             ×
           </button>
         </div>
+
+        <p role="status" className="sr-only">
+          {status}
+        </p>
 
         {erro && (
           <p role="alert" className="mt-4 rounded-xl bg-alerta/10 px-4 py-3 text-sm text-alerta">
@@ -136,7 +162,7 @@ export function TrialOffer({ onClose }: TrialOfferProps) {
             // catálogo falhou ou veio sem plano vendável (o banco de dev).
             <p className="text-sm text-volt-950/70">
               Não consegui listar os planos aqui. Abra{" "}
-              <a className="font-medium underline" href="/painel/configuracoes">
+              <a className="font-medium underline" href="/painel/configuracoes?secao=plano">
                 Configurações
               </a>{" "}
               pra escolher.
@@ -145,28 +171,43 @@ export function TrialOffer({ onClose }: TrialOfferProps) {
 
           {planos.length > 0 && (
             <div className="grid gap-3 sm:grid-cols-3">
-              {planos.map((p) => (
-                <label
-                  key={p.code}
-                  className={`block cursor-pointer rounded-xl border p-4 text-volt-950 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-cobalt-500 has-[:disabled]:cursor-default has-[:disabled]:opacity-60 ${
-                    escolhido === p.code ? "border-cobalt-500 ring-2 ring-cobalt-500/20" : "border-volt-950/[0.12]"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="plano-teste"
-                    value={p.code}
-                    checked={escolhido === p.code}
-                    onChange={() => setEscolhido(p.code)}
-                    className="sr-only"
-                  />
-                  <span className="block font-semibold">{p.name}</span>
-                  <span className="font-data mt-1 block text-lg tabular-nums">
-                    {formatarPreco(p.price_cents ?? 0)}
-                    <span className="text-sm text-volt-950/60"> /mês</span>
-                  </span>
-                </label>
-              ))}
+              {planos.map((p) => {
+                const marcado = escolhido === p.code;
+                return (
+                  <label
+                    key={p.code}
+                    className={`block cursor-pointer rounded-xl border p-4 text-volt-950 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-cobalt-500 has-[:disabled]:cursor-default has-[:disabled]:opacity-60 ${
+                      marcado ? "border-cobalt-500 ring-2 ring-cobalt-500" : "border-volt-950/[0.12]"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="plano-teste"
+                      value={p.code}
+                      checked={marcado}
+                      onChange={() => setEscolhido(p.code)}
+                      className="sr-only"
+                    />
+                    {/* O plano escolhido não pode ser só a cor da borda (WCAG 1.4.1): o
+                        ponto do rádio marca a escolha também pela forma. */}
+                    <span className="flex items-start justify-between gap-2">
+                      <span className="block font-semibold">{p.name}</span>
+                      <span
+                        aria-hidden="true"
+                        className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border-2 ${
+                          marcado ? "border-cobalt-500" : "border-volt-950/50"
+                        }`}
+                      >
+                        {marcado && <span className="size-2 rounded-full bg-cobalt-500" />}
+                      </span>
+                    </span>
+                    <span className="font-data mt-1 block text-lg tabular-nums">
+                      {formatarPreco(p.price_cents ?? 0)}
+                      <span className="text-sm text-volt-950/60"> /mês</span>
+                    </span>
+                  </label>
+                );
+              })}
             </div>
           )}
         </fieldset>
@@ -193,10 +234,13 @@ export function TrialOffer({ onClose }: TrialOfferProps) {
 
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
           {/* Boleto não renova sozinho: quem não tem cartão assina sem teste (spec 2). */}
+          {/* Quem abre o Checkout fica focável (`aria-disabled`, sem esmaecer): com
+              `disabled` o foco caía no <body> e o "Abrindo…" nunca era lido. */}
           <button
             type="button"
-            onClick={() => void comecar(true)}
-            disabled={abrindo !== null || !escolhido}
+            onClick={(e) => void comecar(e.currentTarget, true)}
+            disabled={(abrindo !== null && abrindo !== "boleto") || !escolhido}
+            aria-disabled={abrindo === "boleto" || undefined}
             className={`min-h-11 rounded-[var(--radius-control)] text-sm font-medium text-cobalt-700 underline disabled:opacity-50 ${FOCO}`}
           >
             {abrindo === "boleto" ? "Abrindo…" : "Prefere boleto? Assine sem teste grátis"}
@@ -212,9 +256,10 @@ export function TrialOffer({ onClose }: TrialOfferProps) {
             </button>
             <button
               type="button"
-              onClick={() => void comecar(false)}
-              disabled={abrindo !== null || !escolhido}
-              className={`min-h-11 rounded-[var(--radius-control)] bg-cobalt-500 px-5 text-sm font-semibold text-white transition-[filter] duration-[var(--duration-micro)] hover:brightness-110 disabled:opacity-50 ${FOCO}`}
+              onClick={(e) => void comecar(e.currentTarget, false)}
+              disabled={(abrindo !== null && abrindo !== "teste") || !escolhido}
+              aria-disabled={abrindo === "teste" || undefined}
+              className={`min-h-11 rounded-[var(--radius-control)] bg-cobalt-500 px-5 text-sm font-semibold text-white transition-colors duration-[var(--duration-micro)] hover:bg-cobalt-700 disabled:opacity-50 ${FOCO}`}
             >
               {abrindo === "teste" ? "Abrindo…" : `Começar 7 dias grátis${plano ? ` no plano ${plano.name}` : ""}`}
             </button>
