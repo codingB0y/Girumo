@@ -85,6 +85,8 @@ export function InicioAoVivo({
   useRecarga(tick, RELOGIO_MS);
   useAtivacaoNaCasca({ activation, settings, settingsOk, onOnboardingComplete });
   useRecarga(onAtualizar, RECARGA_MS);
+  // A coluna Relâmpago segue montada com a aba escondida (só CSS), então o número fica vivo.
+  const [esperando, setEsperando] = useState<number | null>(null);
   const noAr = relampagoOk && (relampago?.abertas.length ?? 0) > 0;
   const postAtual = postDaTabela(disparos, agora);
   const postSaindo = postAtual !== null && estaSaindo(postAtual, null);
@@ -130,8 +132,7 @@ export function InicioAoVivo({
         onEscolher={escolherAba}
         contadores={contadoresDasAbas({
           relampagoNoAr: noAr,
-          // A fila só é lida dentro da coluna; sem o número, a aba mostra "●".
-          esperando: null,
+          esperando,
           post: postAtual ? { entregues: postAtual.sent, total: postAtual.total, saindo: postSaindo } : null,
           grupos: groups.length,
         })}
@@ -153,7 +154,7 @@ export function InicioAoVivo({
             painel("relampago"),
           )}
         >
-          <RelampagoAoVivo relampago={relampago} relampagoOk={relampagoOk} grupos={groups} agora={agora} onAtualizar={onAtualizar} />
+          <RelampagoAoVivo relampago={relampago} relampagoOk={relampagoOk} grupos={groups} agora={agora} onAtualizar={onAtualizar} onEsperando={setEsperando} />
         </div>
         <div
           id="painel-postando"

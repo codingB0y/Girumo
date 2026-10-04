@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { RelampagoDaInicio } from "@/components/painel/home/types";
 import { useOferta } from "@/components/painel/relampago/use-oferta";
 import { NaSuaMao, Situacao, nomeDe } from "@/components/painel/relampago/vitrine/fila-vitrine";
@@ -31,12 +31,14 @@ type Props = {
   agora: Date;
   /** Recarrega a página da Início (a oferta fechada sai das abertas). */
   onAtualizar: () => void;
+  /** Pessoas esperando na fila da oferta no ar; null sem oferta ou antes da primeira leitura. Alimenta o contador da aba no celular. */
+  onEsperando: (esperando: number | null) => void;
 };
 
 const linkDiscreto = "font-semibold text-cobalt-500 hover:underline";
 
 /** "Relâmpago" da Início "Ao vivo" (spec 2026-10-02): a oferta no ar, a conversa na mão e a fila, sem sair da Início. */
-export function RelampagoAoVivo({ relampago, relampagoOk, grupos, agora, onAtualizar }: Props) {
+export function RelampagoAoVivo({ relampago, relampagoOk, grupos, agora, onAtualizar, onEsperando }: Props) {
   const abertas = relampago?.abertas ?? [];
   const oferta = abertas[0] ?? null;
   const tituloId = useId();
@@ -58,7 +60,7 @@ export function RelampagoAoVivo({ relampago, relampagoOk, grupos, agora, onAtual
           <p className="text-13 text-slate-600">A relâmpago não carregou.</p>
         ) : oferta ? (
           <>
-            <OfertaNoAr key={oferta.id} oferta={oferta} grupos={grupos} agoraDaPagina={agora} onAtualizar={onAtualizar} />
+            <OfertaNoAr key={oferta.id} oferta={oferta} grupos={grupos} agoraDaPagina={agora} onAtualizar={onAtualizar} onEsperando={onEsperando} />
             {abertas.length > 1 && (
               <p className="text-13 text-slate-600">
                 <Link href="/painel/relampago" className={linkDiscreto}>
@@ -114,11 +116,26 @@ function Cabecalho({ oferta, grupos, noAr, placar }: { oferta: OfertaDaInicio; g
   );
 }
 
-function OfertaNoAr({ oferta, grupos, agoraDaPagina, onAtualizar }: { oferta: OfertaDaInicio; grupos: Group[]; agoraDaPagina: Date; onAtualizar: () => void }) {
+type PropsOfertaNoAr = {
+  oferta: OfertaDaInicio;
+  grupos: Group[];
+  agoraDaPagina: Date;
+  onAtualizar: () => void;
+  onEsperando: (esperando: number | null) => void;
+};
+
+function OfertaNoAr({ oferta, grupos, agoraDaPagina, onAtualizar, onEsperando }: PropsOfertaNoAr) {
   const { dados, erro, aviso, ocupado, agora, agir, pegarProxima, fechar } = useOferta(oferta.id, { pollMs: POLL_MS });
   const [confirmando, setConfirmando] = useState(false);
   const botaoFechar = useRef<HTMLButtonElement>(null);
   const motivoId = useId();
+
+  // Oferta fechada ou ainda sem leitura = sem número; ao sair da tela o pai volta a "●".
+  const esperando = dados && dados.offer.status === "open" ? placarDaOferta(dados.queue).esperando : null;
+  useEffect(() => {
+    onEsperando(esperando);
+    return () => onEsperando(null);
+  }, [esperando, onEsperando]);
 
   // Sem leitura da fila ainda, o relógio da página basta para o "no ar há".
   const relogio = dados ? agora : agoraDaPagina;
