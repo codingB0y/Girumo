@@ -28,7 +28,8 @@ export function TrialOffer({ onClose }: TrialOfferProps) {
   const [planos, setPlanos] = useState<PlanoCatalogo[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [escolhido, setEscolhido] = useState<string | null>(null);
-  const [abrindo, setAbrindo] = useState(false);
+  // Qual botão levou ao Checkout: só ele mostra "Abrindo…".
+  const [abrindo, setAbrindo] = useState<"teste" | "boleto" | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   // O foco entra no primeiro tabulável (o Fechar), fica preso no modal e volta a
   // quem abriu: aria-modal só promete isso, quem cumpre é a trava.
@@ -48,21 +49,27 @@ export function TrialOffer({ onClose }: TrialOfferProps) {
       .finally(() => setCarregando(false));
   }, []);
 
-  // Só o Esc depende de `onClose`. O foco fica fora deste efeito: quem monta passa
+  // A caminho do Stripe, fechar não cancela nada: a navegação já foi pedida e o
+  // cliente cairia no Checkout depois de dizer "Agora não". Por isso Esc, fundo, ×
+  // e "Agora não" ficam mudos enquanto `abrindo`.
+  const fechar = abrindo ? undefined : onClose;
+
+  // Só o Esc depende de `fechar`. O foco fica fora deste efeito: quem monta passa
   // uma arrow nova a cada render, e refocar aqui arrancaria o foco da escolha do
   // plano e o jogaria no Fechar.
   useEffect(() => {
+    if (!fechar) return;
     const aoTeclar = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") fechar();
     };
     document.addEventListener("keydown", aoTeclar);
     return () => document.removeEventListener("keydown", aoTeclar);
-  }, [onClose]);
+  }, [fechar]);
 
   const comecar = useCallback(
     async (semTeste: boolean) => {
       if (!escolhido) return;
-      setAbrindo(true);
+      setAbrindo(semTeste ? "boleto" : "teste");
       setErro(null);
       try {
         await abrirCheckout(escolhido, { semTeste });
@@ -70,7 +77,7 @@ export function TrialOffer({ onClose }: TrialOfferProps) {
         // A mensagem é a do servidor (inclusive o 409 de quem já está em teste):
         // engolir deixaria o botão girar, parar, e a tela igual a antes do clique.
         setErro(e instanceof Error ? e.message : "Não foi possível abrir o checkout.");
-        setAbrindo(false);
+        setAbrindo(null);
       }
     },
     [escolhido],
@@ -81,7 +88,7 @@ export function TrialOffer({ onClose }: TrialOfferProps) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-volt-950/70 p-4 sm:py-14"
-      onClick={onClose}
+      onClick={fechar}
     >
       <div
         ref={dialogoRef}
@@ -104,8 +111,9 @@ export function TrialOffer({ onClose }: TrialOfferProps) {
           <button
             type="button"
             onClick={onClose}
+            disabled={abrindo !== null}
             aria-label="Fechar"
-            className={`shrink-0 rounded-[var(--radius-control)] px-2 py-1 text-xl leading-none text-volt-950/50 transition-colors hover:text-volt-950 ${FOCO}`}
+            className={`shrink-0 rounded-[var(--radius-control)] px-2 py-1 text-xl leading-none text-volt-950/50 transition-colors hover:text-volt-950 disabled:opacity-50 ${FOCO}`}
           >
             ×
           </button>
@@ -117,7 +125,9 @@ export function TrialOffer({ onClose }: TrialOfferProps) {
           </p>
         )}
 
-        <fieldset className="mt-5">
+        {/* Trocar o plano depois de "Começar" mudaria a 1ª cobrança na tela, mas o
+            Stripe recebe o plano do clique: travado enquanto `abrindo`. */}
+        <fieldset className="mt-5" disabled={abrindo !== null}>
           <legend className="sr-only">Plano</legend>
           {carregando && <p className="text-sm text-volt-950/60">Carregando planos…</p>}
 
@@ -138,7 +148,7 @@ export function TrialOffer({ onClose }: TrialOfferProps) {
               {planos.map((p) => (
                 <label
                   key={p.code}
-                  className={`block cursor-pointer rounded-xl border p-4 text-volt-950 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-cobalt-500 ${
+                  className={`block cursor-pointer rounded-xl border p-4 text-volt-950 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-cobalt-500 has-[:disabled]:cursor-default has-[:disabled]:opacity-60 ${
                     escolhido === p.code ? "border-cobalt-500 ring-2 ring-cobalt-500/20" : "border-volt-950/[0.12]"
                   }`}
                 >
@@ -186,26 +196,27 @@ export function TrialOffer({ onClose }: TrialOfferProps) {
           <button
             type="button"
             onClick={() => void comecar(true)}
-            disabled={abrindo || !escolhido}
+            disabled={abrindo !== null || !escolhido}
             className={`min-h-11 rounded-[var(--radius-control)] text-sm font-medium text-cobalt-700 underline disabled:opacity-50 ${FOCO}`}
           >
-            Prefere boleto? Assine sem teste grátis
+            {abrindo === "boleto" ? "Abrindo…" : "Prefere boleto? Assine sem teste grátis"}
           </button>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={onClose}
-              className={`min-h-11 rounded-[var(--radius-control)] border border-volt-950/[0.12] px-4 text-sm font-semibold text-volt-950 ${FOCO}`}
+              disabled={abrindo !== null}
+              className={`min-h-11 rounded-[var(--radius-control)] border border-volt-950/[0.12] px-4 text-sm font-semibold text-volt-950 disabled:opacity-50 ${FOCO}`}
             >
               Agora não
             </button>
             <button
               type="button"
               onClick={() => void comecar(false)}
-              disabled={abrindo || !escolhido}
+              disabled={abrindo !== null || !escolhido}
               className={`min-h-11 rounded-[var(--radius-control)] bg-cobalt-500 px-5 text-sm font-semibold text-white transition-[filter] duration-[var(--duration-micro)] hover:brightness-110 disabled:opacity-50 ${FOCO}`}
             >
-              {abrindo ? "Abrindo…" : `Começar 7 dias grátis${plano ? ` no ${plano.name}` : ""}`}
+              {abrindo === "teste" ? "Abrindo…" : `Começar 7 dias grátis${plano ? ` no plano ${plano.name}` : ""}`}
             </button>
           </div>
         </div>
