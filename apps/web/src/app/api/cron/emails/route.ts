@@ -42,8 +42,8 @@ const SP_TZ = "America/Sao_Paulo";
  * 6. Risco dos 14 dias: sessão conectada mas em silêncio → avisa antes do corte
  * 7. Grupo sem segundo admin: se o número cair, a lista fica órfã → avisa
  *
- * O e-mail de trial foi aposentado (a oferta atual não tem trial) — a cadência de
- * ativação tomou o lugar. `trialEndingEmail` segue versionado, mas não é disparado.
+ * O e-mail de fim de teste (`trialEndingEmail`) não sai daqui: desde 03/10/2026 quem
+ * o dispara é o webhook do Stripe (`customer.subscription.trial_will_end`).
  */
 
 // Escolhe o template do marco de cadência. D3 precisa do total de cliques do tenant.

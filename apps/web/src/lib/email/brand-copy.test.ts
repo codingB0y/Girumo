@@ -56,7 +56,7 @@ test("sends from the Girumo domain, verified in Resend", () => {
 
 test("removes stale public email language and pricing", () => {
   assert.doesNotMatch(templates, /HubFlow|WhatsApp Growth OS|disparos?|R\$\s*47/i);
-  assert.match(templates, /Ver planos e assinar/);
+  assert.match(templates, /Cancele o teste até/);
 });
 
 test("sources the app host from one place in every e-mail sender", () => {

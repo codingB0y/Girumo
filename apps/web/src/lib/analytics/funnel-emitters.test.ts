@@ -6,8 +6,10 @@ import { join } from "node:path";
 /**
  * Todo evento declarado precisa de alguém que o emita.
  *
- * Quatro eventos (`first_group_synced`, `first_schedule`, `referral_sent` e o já
- * removido `trial_started`) viveram no tipo desde o começo sem nenhum call-site.
+ * Quatro eventos (`first_group_synced`, `first_schedule`, `referral_sent` e
+ * `trial_started`) viveram no tipo desde o começo sem nenhum call-site.
+ * `trial_started` chegou a sair do union e voltou em 03/10/2026 já com emissor
+ * (o webhook do teste grátis de 7 dias) — o teste abaixo é o que cobra isso.
  * O funil do admin desenhava a etapa "Grupo Sincronizado" e ela ficava zerada
  * para sempre — parecia que ninguém sincronizava grupo, quando na verdade
  * ninguém registrava. Um tipo sozinho não prova que o dado existe.
@@ -52,12 +54,5 @@ test("every declared funnel event has at least one emitter in the codebase", () 
     [],
     `Evento(s) declarado(s) sem nenhum trackFunnelEvent que os emita: ${orphans.join(", ")}. ` +
       `Ou instrumente o call-site, ou remova do union — etapa sem emissor aparece zerada no funil do admin.`,
-  );
-});
-
-test("trial_started stays out: the current offer has no trial", () => {
-  assert.ok(
-    !declaredEvents().includes("trial_started"),
-    "trial_started voltou ao union — só re-adicione junto com um produto de trial e o call-site que o emite",
   );
 });

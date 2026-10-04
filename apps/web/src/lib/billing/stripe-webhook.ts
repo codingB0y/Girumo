@@ -1,5 +1,6 @@
 import type Stripe from "stripe";
 import type { FunnelEvent } from "@/lib/analytics/funnel-summary";
+import type { TrialCancelReason } from "./trial";
 
 export const SYSTEM_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -33,7 +34,17 @@ export type FunnelInput = {
   userId: string | null;
   event: FunnelEvent;
   metadata: Record<string, unknown>;
+  /** Preserva a 1ª ocorrência em vez de atualizar o timestamp (ver funnel-events.ts). */
+  onlyFirst?: boolean;
 };
+
+/** Reserva do teste da conta. `same` = retry do mesmo evento; `lost` = outra assinatura venceu. */
+export type ClaimTrialResult = { outcome: "won" | "same" | "lost"; winnerId: string | null } & StoreResult;
+
+/** Reserva do cartão do teste. `taken` = outra conta já testou com este cartão. */
+export type ClaimCardResult = { outcome: "ok" | "taken" } & StoreResult;
+
+export type DefaultCard = { fingerprint: string | null; last4: string | null };
 
 /**
  * Porta do webhook. Existe para que a logica seja testavel: os modulos reais
@@ -53,6 +64,22 @@ export interface WebhookStore {
   insertLog(row: LogRow): Promise<StoreResult>;
   retrieveSubscription(id: string): Promise<Stripe.Subscription>;
   trackFunnelEvent(input: FunnelInput): Promise<void>;
+  /** Grava `organizations.trial_subscription_id` se ainda estiver vazio. */
+  claimTrial(input: { tenantId: string; subscriptionId: string }): Promise<ClaimTrialResult>;
+  /** Cartão padrão da assinatura. Lança se o Stripe falhar (vira 5xx e reenvio). */
+  defaultCard(subscription: Stripe.Subscription): Promise<DefaultCard>;
+  /**
+   * Grava `organizations.trial_card_fingerprint`; o índice único decide entre contas.
+   * Devolve `ok` também quando o fingerprint já é DESTA conta (retry do mesmo evento).
+   */
+  claimCardFingerprint(input: { tenantId: string; fingerprint: string }): Promise<ClaimCardResult>;
+  /** Grava `metadata.cancel_reason` e cancela a assinatura no Stripe, sem cobrar. */
+  cancelTrialSubscription(input: {
+    subscription: Stripe.Subscription;
+    reason: TrialCancelReason;
+  }): Promise<StoreResult>;
+  /** E-mail "seu teste grátis termina em 3 dias". */
+  sendTrialEndingEmail(subscription: Stripe.Subscription): Promise<StoreResult>;
 }
 
 export type WebhookResult = { status: number; body: Record<string, unknown> };
@@ -67,7 +94,10 @@ export type WebhookResult = { status: number; body: Record<string, unknown> };
  * dias). Tratar os dois como a mesma coisa registra receita que nao existe.
  *
  * `no_payment_required` entra porque e o caso legitimo de valor zero (cupom de
- * 100%, trial sem cartao): nao ha o que cobrar, e a assinatura vale.
+ * 100%): nao ha o que cobrar, e a assinatura vale. O teste gratis com cartao
+ * tambem volta `no_payment_required`, mas nunca chega a este gate: assinatura
+ * `trialing` vai para `handleTrialStart`, e a ja cancelada no teste
+ * (`cancel_reason`) sai antes, em `handleCheckoutSession`.
  */
 const PAGAMENTO_CONFIRMADO: ReadonlySet<Stripe.Checkout.Session["payment_status"]> = new Set([
   "paid",
@@ -107,6 +137,20 @@ async function upsertSubscription(
   eventCreatedAt: string,
   store: WebhookStore,
 ): Promise<StoreResult> {
+  // A perdedora de dois checkouts de teste simultâneos (ver handleTrialStart). Os
+  // eventos dela chegam DEPOIS do cancelamento e sobrescreveriam a linha da
+  // vencedora — `subscriptions` tem unique(tenant_id).
+  if (subscription.metadata.cancel_reason === "trial_duplicate") {
+    await store.insertLog({
+      tenant_id: subscription.metadata.tenant_id ?? SYSTEM_TENANT_ID,
+      level: "info",
+      event: "stripe.trial.duplicado_ignorado",
+      message: "Evento de assinatura de teste duplicada ignorado.",
+      metadata: { stripe_subscription_id: subscription.id },
+    });
+    return { error: null };
+  }
+
   const tenantId = subscription.metadata.tenant_id;
   const planId = subscription.metadata.plan_id;
   const item = subscription.items.data[0];
@@ -136,7 +180,10 @@ async function upsertSubscription(
     current_period_end: item?.current_period_end
       ? new Date(item.current_period_end * 1000).toISOString()
       : null,
-    cancel_at_period_end: subscription.cancel_at_period_end,
+    // "Vai acabar sem cobrar". O portal (API dahlia) pode agendar o fim por
+    // `cancel_at` com o booleano em false; as telas leem só esta coluna, e sem o
+    // `cancel_at` anunciariam uma cobrança que não vem.
+    cancel_at_period_end: subscription.cancel_at_period_end || subscription.cancel_at != null,
     canceled_at: subscription.canceled_at
       ? new Date(subscription.canceled_at * 1000).toISOString()
       : null,
@@ -144,6 +191,8 @@ async function upsertSubscription(
     metadata: {
       stripe_status: subscription.status,
       plan_code: subscription.metadata.plan_code ?? null,
+      // A tela precisa saber POR QUE foi cancelada (cartão repetido no teste).
+      cancel_reason: subscription.metadata.cancel_reason ?? null,
     },
   });
 
@@ -157,6 +206,126 @@ async function upsertSubscription(
     event: "stripe.subscription.synced",
     message: "Assinatura Stripe sincronizada.",
     metadata: { stripe_subscription_id: subscription.id, status: subscription.status },
+  });
+
+  return { error: null };
+}
+
+/**
+ * A perdedora de dois checkouts de teste já foi cancelada, mas o upsert do topo
+ * deixou a linha de `subscriptions` (unique(tenant_id)) com o snapshot dela, e os
+ * eventos seguintes dela são ignorados. Devolve a linha à vencedora.
+ *
+ * Sem vencedora não há o que consertar: erro em vez de 2xx mudo, para o Stripe
+ * reenviar — a guarda de `cancel_reason` torna o reenvio seguro.
+ */
+async function resyncTrialWinner(winnerId: string | null, store: WebhookStore): Promise<StoreResult> {
+  if (!winnerId) return { error: "Teste duplicado cancelado sem vencedora registrada." };
+  // `now` e nao o `created` deste evento: e uma leitura fresca do Stripe, e o
+  // banco descarta evento mais velho que o ultimo gravado (C.2).
+  const vencedora = await store.retrieveSubscription(winnerId);
+  return upsertSubscription(vencedora, new Date().toISOString(), store);
+}
+
+/**
+ * As duas travas do teste, usadas no fim do checkout (`handleTrialStart`) e de
+ * novo no aviso de fim de teste (`handleTrialWillEnd`), a segunda chance caso o
+ * checkout tenha falhado até o Stripe desistir.
+ *
+ * 1. Um teste por conta: `claimTrial`. Duas abas podem concluir dois checkouts —
+ *    a segunda perde, é cancelada sem cobrança, e a linha de `subscriptions` (que
+ *    ela acabou de sobrescrever) volta para a vencedora.
+ * 2. Um teste por cartão: `claimCardFingerprint`. Cartão que já testou em outra
+ *    conta → cancela SEM cobrar. Cobrar na hora contrariaria a oferta "7 dias
+ *    grátis" que o Checkout já mostrou (CDC art. 30 e 35).
+ *
+ * `cancelled: true` = a assinatura perdeu e foi cancelada; quem chamou para aí.
+ */
+async function enforceTrialLocks(
+  subscription: Stripe.Subscription,
+  tenantId: string,
+  store: WebhookStore,
+): Promise<StoreResult & { cancelled: boolean }> {
+  const claim = await store.claimTrial({ tenantId, subscriptionId: subscription.id });
+  if (claim.error) return { error: claim.error, cancelled: false };
+
+  if (claim.outcome === "lost") {
+    const cancelled = await store.cancelTrialSubscription({ subscription, reason: "trial_duplicate" });
+    if (cancelled.error) return { error: cancelled.error, cancelled: false };
+
+    await store.insertLog({
+      tenant_id: tenantId,
+      level: "warn",
+      event: "stripe.trial.duplicado",
+      message: "Segundo checkout de teste da mesma conta: cancelado sem cobranca.",
+      metadata: { stripe_subscription_id: subscription.id, vencedora: claim.winnerId },
+    });
+
+    const resynced = await resyncTrialWinner(claim.winnerId, store);
+    return { error: resynced.error, cancelled: true };
+  }
+
+  const card = await store.defaultCard(subscription);
+  if (!card.fingerprint) {
+    // Nao deveria acontecer (o teste exige cartao). Segue sem a trava por cartao
+    // em vez de negar um teste legitimo — e deixa o rastro para alguem olhar.
+    await store.insertLog({
+      tenant_id: tenantId,
+      level: "warn",
+      event: "stripe.trial.sem_cartao",
+      message: "Teste iniciado sem fingerprint de cartao; trava por cartao nao aplicada.",
+      metadata: { stripe_subscription_id: subscription.id },
+    });
+  } else {
+    const cardClaim = await store.claimCardFingerprint({ tenantId, fingerprint: card.fingerprint });
+    if (cardClaim.error) return { error: cardClaim.error, cancelled: false };
+
+    if (cardClaim.outcome === "taken") {
+      const cancelled = await store.cancelTrialSubscription({ subscription, reason: "trial_card_reused" });
+      if (cancelled.error) return { error: cancelled.error, cancelled: false };
+
+      await store.insertLog({
+        tenant_id: tenantId,
+        level: "warn",
+        event: "stripe.trial.cartao_repetido",
+        message: "Cartao ja usado em teste de outra conta: assinatura de teste cancelada sem cobranca.",
+        metadata: { stripe_subscription_id: subscription.id },
+      });
+      return { error: null, cancelled: true };
+    }
+  }
+
+  return { error: null, cancelled: false };
+}
+
+/**
+ * O checkout terminou e a assinatura nasceu em teste: as travas
+ * (`enforceTrialLocks`) e, só se ela passar, `trial_started` no funil — nunca
+ * `payment_completed`, que sai da primeira fatura paga (`invoice.paid`).
+ *
+ * Retry ANTES do cancelamento é seguro: as duas reservas reconhecem a própria
+ * assinatura. Retry DEPOIS do cancelamento lê a assinatura fresca, já `canceled`,
+ * e não entra aqui — e por isso, sem tratamento próprio, cairia no gate de
+ * pagamento de `handleCheckoutSession` com `no_payment_required` e viraria
+ * `payment_completed` falso. Quem o trata é a guarda de `cancel_reason` lá.
+ */
+async function handleTrialStart(
+  subscription: Stripe.Subscription,
+  tenantId: string,
+  store: WebhookStore,
+): Promise<StoreResult> {
+  const locks = await enforceTrialLocks(subscription, tenantId, store);
+  if (locks.error || locks.cancelled) return { error: locks.error };
+
+  await store.trackFunnelEvent({
+    tenantId,
+    userId: subscription.metadata.user_id ?? null,
+    event: "trial_started",
+    metadata: {
+      plan_code: subscription.metadata.plan_code ?? null,
+      stripe_subscription_id: subscription.id,
+    },
+    onlyFirst: true,
   });
 
   return { error: null };
@@ -190,6 +359,33 @@ async function handleCheckoutSession(
   const tenantId = subscription.metadata.tenant_id;
   // Sem tenant nao ha a quem atribuir; `upsertSubscription` ja registrou o aviso.
   if (!tenantId) return { error: null };
+
+  // `no_payment_required` vem tanto do cupom de 100% quanto do teste grátis; o
+  // que separa os dois é o status da assinatura.
+  if (subscription.status === "trialing") return handleTrialStart(subscription, tenantId, store);
+
+  // Reentrega de um checkout de teste que JÁ cancelamos (ver handleTrialStart): a
+  // assinatura volta `canceled` e o `no_payment_required` cairia no gate de
+  // pagamento abaixo como venda. Nunca houve cobrança — sai aqui.
+  //
+  // Fica ABAIXO do ramo `trialing` de propósito: o cancelamento grava
+  // `cancel_reason` antes de chamar o Stripe, e se o cancel falhar o reenvio lê a
+  // assinatura ainda `trialing` com o motivo já gravado. Ela precisa voltar à
+  // trava e ser cancelada; acima daqui, sairia 2xx e seria cobrada no 8º dia.
+  if (subscription.metadata.cancel_reason) {
+    if (subscription.metadata.cancel_reason !== "trial_duplicate") return { error: null };
+    // O upsert do topo ignorou a perdedora; se a 1ª tentativa falhou antes do
+    // re-sync, a linha ainda está com o snapshot `trialing` dela.
+    //
+    // Pressuposto deste `claimTrial` (que ESCREVE se a coluna estiver vazia):
+    // nada no código limpa `organizations.trial_subscription_id` — nem
+    // cancelamento, nem fim do teste. A vencedora reservou primeiro, então a
+    // perdedora sempre recebe `lost`. Se algo passar a limpar a coluna, este
+    // reenvio reservaria o teste para uma assinatura cancelada.
+    const claim = await store.claimTrial({ tenantId, subscriptionId: subscription.id });
+    if (claim.error) return { error: claim.error };
+    return resyncTrialWinner(claim.outcome === "lost" ? claim.winnerId : null, store);
+  }
 
   const metadataComum = {
     stripe_subscription_id: subscription.id,
@@ -230,9 +426,89 @@ async function handleCheckoutSession(
       plan_code: subscription.metadata.plan_code,
       stripe_subscription_id: subscription.id,
     },
+    // Sem isto o upsert do funil reescreve o marco: quem cancela e reassina pelo
+    // Checkout teria a 1ª venda movida para a data da reassinatura. O emit em si
+    // fica: cupom de 100% tem `amount_paid` 0 e não passa por `invoice.paid`.
+    onlyFirst: true,
   });
 
   return { error: null };
+}
+
+/**
+ * Primeira fatura PAGA = venda. Vale para o fim do teste grátis e para qualquer
+ * primeira cobrança; `onlyFirst` impede que renovações reescrevam o marco.
+ *
+ * A fatura de R$ 0 que abre o teste também chega como `invoice.paid` — o valor é
+ * o filtro. O tenant vem do metadata da assinatura copiado na fatura
+ * (`parent.subscription_details`, API dahlia).
+ */
+async function handleInvoicePaid(invoice: Stripe.Invoice, store: WebhookStore): Promise<StoreResult> {
+  if (!invoice.amount_paid || invoice.amount_paid <= 0) return { error: null };
+
+  const meta = invoice.parent?.subscription_details?.metadata ?? null;
+  const tenantId = meta?.tenant_id;
+  if (!tenantId) return { error: null };
+
+  await store.trackFunnelEvent({
+    tenantId,
+    userId: meta?.user_id ?? null,
+    event: "payment_completed",
+    metadata: {
+      plan_code: meta?.plan_code ?? null,
+      stripe_invoice_id: invoice.id,
+      billing_reason: invoice.billing_reason ?? null,
+    },
+    onlyFirst: true,
+  });
+
+  return { error: null };
+}
+
+/**
+ * O Stripe avisa 3 dias antes do fim do teste. Mandamos o e-mail com valor, data
+ * e como cancelar — exigência das bandeiras para teste com cartão, e o que segura
+ * chargeback.
+ *
+ * Decide pela assinatura FRESCA, como `handleCheckoutSession`: um reenvio chega
+ * com o snapshot de dias atrás, e o Stripe também manda este evento quando o
+ * teste é encerrado na hora (assinatura já `active`).
+ *
+ * Antes do e-mail, as travas do teste rodam DE NOVO. Elas só rodavam no
+ * `checkout.session.completed`; se ele falhou até o Stripe desistir (~3 dias), a
+ * perdedora da conta ou o cartão repetido seguiam vivos, recebiam este aviso e
+ * eram cobrados no 8º dia — e o cancelamento do teste nunca cobra. Teste
+ * legítimo passa direto: `claimTrial` dá `same` e o cartão dá `ok`. Nada de funil
+ * aqui: `trial_started` é do checkout.
+ *
+ * Falha vira ERRO e o Stripe reenvia. A maioria das falhas acontece antes do
+ * envio (Stripe, `plans`, cartão), e engolir deixaria o cliente sem o aviso que
+ * os Termos prometem. Quem já recebeu não recebe de novo: o envio leva a chave de
+ * idempotência `trial-ending/{subscription.id}` no Resend (spec 4.4).
+ */
+async function handleTrialWillEnd(
+  snapshot: Stripe.Subscription,
+  store: WebhookStore,
+): Promise<StoreResult> {
+  const subscription = await store.retrieveSubscription(snapshot.id);
+  const tenantId = subscription.metadata.tenant_id;
+  if (!tenantId || subscription.status !== "trialing") return { error: null };
+
+  // Motivo já gravado e assinatura ainda em teste: o cancel do Stripe falhou
+  // depois de gravar o motivo. Re-emite sem reavaliar as travas.
+  const reason = subscription.metadata.cancel_reason;
+  if (reason === "trial_duplicate" || reason === "trial_card_reused") {
+    return store.cancelTrialSubscription({ subscription, reason });
+  }
+
+  const locks = await enforceTrialLocks(subscription, tenantId, store);
+  if (locks.error || locks.cancelled) return { error: locks.error };
+
+  // Cancelamento marcado (no fim do teste ou numa data): não vai haver cobrança,
+  // e o aviso seria mentira.
+  if (subscription.cancel_at_period_end || subscription.cancel_at != null) return { error: null };
+
+  return store.sendTrialEndingEmail(subscription);
 }
 
 export async function handleStripeEvent(
@@ -295,6 +571,14 @@ export async function handleStripeEvent(
       store,
       { pagamentoFalhou: true },
     );
+  }
+
+  if (event.type === "invoice.paid") {
+    processed = await handleInvoicePaid(event.data.object as Stripe.Invoice, store);
+  }
+
+  if (event.type === "customer.subscription.trial_will_end") {
+    processed = await handleTrialWillEnd(event.data.object as Stripe.Subscription, store);
   }
 
   if (processed.error) {

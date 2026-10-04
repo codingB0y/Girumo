@@ -17,7 +17,8 @@ export type EmailKind =
   | "broadcast_failed"
   | "inactivity_risk"
   | "group_admin_risk"
-  | "alert_optout";
+  | "alert_optout"
+  | "trial_ending";
 
 export type EmailDelivery = {
   tenantId: string;

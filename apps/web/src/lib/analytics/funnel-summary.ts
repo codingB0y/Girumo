@@ -15,12 +15,12 @@ export type FunnelEvent =
   | "leads_50"
   | "first_order"
   | "goal_set"
+  | "trial_started"
   | "payment_completed";
-// `trial_started` foi removido: a oferta atual não tem trial (ver o comentário em
-// api/cron/emails, que aposentou o e-mail de trial pelo mesmo motivo). O evento
-// existia no tipo desde o começo, nunca teve quem o emitisse e nunca gerou uma
-// linha em `funnel_events`. O `trialing` que aparece no admin é status de
-// assinatura do Stripe, não um marco do nosso funil.
+// `trial_started` voltou em 03/10/2026 com o teste grátis de 7 dias com cartão
+// (spec 2026-10-03): sai do webhook quando o checkout de teste termina. Desde
+// então `payment_completed` sai da primeira fatura PAGA (`invoice.paid`), e não
+// mais do checkout de teste, que volta `no_payment_required`.
 
 /**
  * Caminho linear de ativação (ordenado). `goal_set` fica FORA porque definir meta

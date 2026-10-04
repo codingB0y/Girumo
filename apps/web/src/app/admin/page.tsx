@@ -33,9 +33,9 @@ export default async function AdminDashboardPage() {
   const totalMemberships = membershipsRes.count ?? 0;
 
   const subscriptions = subsRes.data ?? [];
-  const activeSubs = subscriptions.filter(
-    (s) => s.status === "active" || s.status === "trialing",
-  ).length;
+  // Teste grátis não é assinatura paga: conta à parte.
+  const activeSubs = subscriptions.filter((s) => s.status === "active").length;
+  const trialSubs = subscriptions.filter((s) => s.status === "trialing").length;
   const pastDueSubs = subscriptions.filter((s) => s.status === "past_due");
   const freeSubs = subscriptions.filter((s) => s.status === "free").length;
 
@@ -141,6 +141,7 @@ export default async function AdminDashboardPage() {
         />
         <AdminStatCard label="Memberships" value={totalMemberships} icon={Users} tone="slate" />
         <AdminStatCard label="Assinaturas ativas" value={activeSubs} icon={CreditCard} tone="green" />
+        <AdminStatCard label="Em teste" value={trialSubs} icon={Clock} tone="blue" />
         <AdminStatCard label="Plano Free" value={freeSubs} icon={TrendingUp} tone="amber" />
         <AdminStatCard
           label="Instâncias online"
