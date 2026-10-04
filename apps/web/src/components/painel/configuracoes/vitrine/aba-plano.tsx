@@ -1,9 +1,14 @@
 "use client";
 
+// React no escopo: o tsx do teste usa o runtime clássico de JSX (mesmo padrão de funis-vitrine.tsx).
+import React from "react";
+
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { diaMesBR } from "@/lib/date-br";
+import { formatarPreco } from "@/lib/billing/plan-display";
+import type { SubscriptionState } from "@/lib/billing/subscription-access";
 
 export type PlanoNaTela = { id: string; code: string; name: string };
 
@@ -19,9 +24,13 @@ export type PropsDoPlano = {
   codigo: string | null;
   /** Cruzado com o estado da assinatura, não lido do `plan_id`. */
   vigente: boolean;
-  /** Frase do estado quando a assinatura não concede acesso. */
+  /** Frase do estado (`subscriptionNotice`): vale quando a assinatura não concede acesso e no teste cancelado. */
   recado: string | null;
   renovaEm: string | null;
+  /** De `subscriptionAccess`. Só o teste grátis (`trial`, `trial_canceled`) muda a tela. */
+  estado: SubscriptionState | null;
+  /** Preço do plano: no teste, é o valor da 1ª cobrança. */
+  precoCents: number | null;
   planos: readonly PlanoNaTela[];
   /** A consulta do catálogo é outra: pode falhar sozinha. */
   cargaDosPlanos: "carregando" | "ok" | "erro";
@@ -31,6 +40,31 @@ export type PropsDoPlano = {
   onAssinar: (codigo: string) => void;
   onPortal: () => void;
 };
+
+/**
+ * A linha sob o nome: o que a assinatura diz, não o que o `plan_id` aponta.
+ *
+ * Teste nunca diz "Renova em" — o cliente acharia que já está pagando — e mostra
+ * data e valor da 1ª cobrança, o aviso que as bandeiras exigem para teste com
+ * cartão. Teste cancelado no portal termina sem cobrar: a linha é o recado, que
+ * diz exatamente isso, e nunca anuncia a cobrança.
+ */
+function linhaDoEstado(
+  estado: SubscriptionState | null,
+  vigente: boolean,
+  recado: string | null,
+  renova: string | undefined,
+  precoCents: number | null,
+): string {
+  if (estado === "trial_canceled") return recado ?? "Teste cancelado — termina sem cobrança.";
+  if (estado === "trial") {
+    if (!renova) return recado ?? "Teste grátis ativo.";
+    const valor = precoCents ? ` de ${formatarPreco(precoCents)}` : "";
+    return `Teste grátis · 1ª cobrança${valor} em ${renova}`;
+  }
+  if (!vigente) return recado ?? "Assinatura sem cobrança em dia";
+  return renova ? `Renova em ${renova}` : "Assinatura ativa";
+}
 
 /**
  * O plano como etiqueta de peça (spec 12.6).
@@ -46,6 +80,8 @@ export function AbaPlano({
   vigente,
   recado,
   renovaEm,
+  estado,
+  precoCents,
   planos,
   cargaDosPlanos,
   assinando,
@@ -55,6 +91,7 @@ export function AbaPlano({
   onPortal,
 }: PropsDoPlano) {
   const renova = diaMesBR(renovaEm);
+  const emTeste = estado === "trial" || estado === "trial_canceled";
   const outros = planos.filter((p) => p.code !== "FREE" && p.code !== codigo);
 
   if (carga === "carregando") {
@@ -85,17 +122,12 @@ export function AbaPlano({
           <div className="flex flex-wrap items-center gap-3">
             <p className="pn-etiqueta-preco__nome text-[32px]">{nome}</p>
             <span className={cn("pn-chip", vigente ? "text-success-700" : "text-danger-700")}>
-              {vigente ? "Ativa" : "Inativa"}
+              {emTeste ? "Teste grátis" : vigente ? "Ativa" : "Inativa"}
             </span>
           </div>
 
-          {/* O que a assinatura diz, não o que o `plan_id` aponta. */}
           <p className="font-data mt-2 text-13 tabular-nums text-slate-600">
-            {vigente
-              ? renova
-                ? `Renova em ${renova}`
-                : "Assinatura ativa"
-              : (recado ?? "Assinatura sem cobrança em dia")}
+            {linhaDoEstado(estado, vigente, recado, renova, precoCents)}
           </p>
 
           {/* FREE nunca teve Stripe: sem o gate, o POST /api/billing/portal
@@ -112,9 +144,13 @@ export function AbaPlano({
               {abrindoPortal && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
               Gerenciar cobrança
             </button>
-            <Link href="/painel/configuracoes/cancelar" className="text-13 text-slate-600 hover:text-danger-700">
-              Cancelar assinatura
-            </Link>
+            {/* Teste já cancelado termina sozinho, sem cobrar: "cancelar" de novo
+                confunde. Quem mudar de ideia reativa pelo portal, no botão acima. */}
+            {estado !== "trial_canceled" && (
+              <Link href="/painel/configuracoes/cancelar" className="text-13 text-slate-600 hover:text-danger-700">
+                {estado === "trial" ? "Cancelar teste (sem cobrança)" : "Cancelar assinatura"}
+              </Link>
+            )}
           </div>
           )}
         </div>

@@ -73,12 +73,15 @@ type Plan = { id: string; code: string; name: string; limits?: Record<string, nu
 // vinham no payload — era o tipo local que os escondia. Sem os dois nao da para
 // separar boleto emitido (que CONCEDE acesso) de cobranca falhada, e a tela
 // acabava afirmando o plano pelo `plan_id`, que e o plano ESCOLHIDO, nao o pago.
+// `cancel_at_period_end` separa o teste cancelado no portal (termina sem cobrar)
+// do teste que cobra no 8o dia: sem ele, a tela anunciaria uma cobranca que nao vem.
 type Subscription = {
   status?: string;
-  plans?: { name?: string; code?: string } | null;
+  plans?: { name?: string; code?: string; price_cents?: number | null } | null;
   plan?: { name?: string; code?: string };
-  metadata?: { stripe_status?: string | null } | null;
+  metadata?: { stripe_status?: string | null; cancel_reason?: string | null } | null;
   current_period_end?: string | null;
+  cancel_at_period_end?: boolean | null;
 } | null;
 
 /**
@@ -223,6 +226,8 @@ export default function PainelConfiguracoes() {
           status: sub.status ?? null,
           stripeStatus: sub.metadata?.stripe_status ?? null,
           periodEnd: sub.current_period_end ?? null,
+          cancelReason: sub.metadata?.cancel_reason ?? null,
+          cancelAtPeriodEnd: sub.cancel_at_period_end ?? null,
         },
         new Date(),
       )
@@ -415,8 +420,10 @@ export default function PainelConfiguracoes() {
         nome: currentPlanName,
         codigo: currentPlanCode,
         vigente: planoVigente,
-        recado: acessoPlano ? subscriptionNotice(acessoPlano.state) : null,
+        recado: acessoPlano ? subscriptionNotice(acessoPlano.state, sub?.current_period_end ?? null) : null,
         renovaEm: sub?.current_period_end ?? null,
+        estado: acessoPlano?.state ?? null,
+        precoCents: sub?.plans?.price_cents ?? null,
         planos: respondeu.plans === "ok" ? plans : [],
         cargaDosPlanos: respondeu.plans,
         assinando: busyPlan,
