@@ -1,7 +1,8 @@
 import "server-only";
 import { BRAND, BRAND_COLORS, getBrandAssetUrl } from "@/lib/brand";
 import { broadcastFailedCopy } from "@/lib/email/broadcast-failed-copy";
-import { inviteCopy } from "@/lib/email/invite-copy";
+import { escapeHtml, inviteCopy } from "@/lib/email/invite-copy";
+import { trialEndingCopy, type TrialEndingCopyInput } from "@/lib/email/trial-ending-copy";
 
 /**
  * Templates de email transacional da Girumo.
@@ -340,27 +341,26 @@ export function activationD21Email(name: string, appUrl: string): { subject: str
   };
 }
 
-// --- Trial acabando (2 dias) — APOSENTADO ---
-// A oferta atual (paga desde o dia 1, sem trial e sem garantia de reembolso —
-// só cancelamento sem multa) não usa mais este e-mail. A
-// função fica versionada pra referência/histórico, mas o cron não a dispara —
-// a cadência de ativação (D3/D7/D14/D21) tomou o lugar.
-export function trialEndingEmail(name: string, appUrl: string, daysLeft: number): { subject: string; html: string } {
-  const firstName = name.split(" ")[0] || "lojista";
+// --- Fim do teste grátis (3 dias antes da 1ª cobrança) ---
+// Disparado pelo webhook do Stripe (`customer.subscription.trial_will_end`), não
+// pelo cron. Sem menção a reembolso: ele mora só nos Termos (decisão 03/10/2026).
+export function trialEndingEmail(
+  input: TrialEndingCopyInput & { appUrl: string },
+): { subject: string; html: string } {
+  const c = trialEndingCopy(input);
+  const { appUrl } = input;
   return {
-    subject: `⏰ Seu trial termina em ${daysLeft} dia${daysLeft > 1 ? "s" : ""}, ${firstName}`,
+    subject: c.subject,
     html: layout(`
-      <h1 style="margin:0 0 12px;font-size:22px;color:${BRAND_COLORS.volt}">Seu trial está acabando</h1>
-      <p style="margin:0 0 8px;font-size:15px;color:${BRAND_COLORS.volt};line-height:1.6">
-        ${firstName}, seu período grátis na ${BRAND.name} termina em <strong>${daysLeft} dia${daysLeft > 1 ? "s" : ""}</strong>.
-      </p>
-      <p style="margin:0 0 8px;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.6">
-        Pra continuar usando seus grupos, campanhas e automações sem interrupção, escolha o plano ideal para sua operação.
+      <h1 style="margin:0 0 12px;font-size:22px;color:${BRAND_COLORS.volt}">${escapeHtml(c.titulo)}</h1>
+      <p style="margin:0 0 8px;font-size:15px;color:${BRAND_COLORS.volt};line-height:1.6">${escapeHtml(c.cobranca)}</p>
+      ${button(escapeHtml(c.botao), `${appUrl}/painel`)}
+      <p style="margin:20px 0 8px;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.6">
+        Não quer continuar? <a href="${appUrl}/painel/configuracoes" style="color:${BRAND_COLORS.cobaltText}">Cancele o teste até ${escapeHtml(c.cancelarAte)}</a> e não cobramos nada.
       </p>
       <p style="margin:0;font-size:13px;color:${BRAND_COLORS.slate}">
-        Seus dados ficam guardados por 30 dias após o trial — mas os envios programados param.
+        Cancelamento sem multa a qualquer momento · <a href="${appUrl}/termos" style="color:${BRAND_COLORS.slate}">Termos de uso</a>
       </p>
-      ${button("Ver planos e assinar", `${appUrl}/painel/configuracoes`)}
     `),
   };
 }

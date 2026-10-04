@@ -50,7 +50,9 @@ test("buildGirumoEmailFixtureFiles usa os templates reais com dados fixos de QA"
   assert.match(first["welcome.html"], /Marina/);
   assert.match(first["welcome.html"], /https:\/\/girumo-qa\.example\/painel/);
   assert.match(first["trial-ending.html"], /Girumo/);
-  assert.match(first["trial-ending.html"], /2 dias/);
+  assert.match(first["trial-ending.html"], /termina em 10\/10/);
+  // O teste do texto só olha o objeto de copy; aqui é o HTML inteiro, rodapé fixo incluso.
+  assert.doesNotMatch(first["trial-ending.html"], /reembols|devolu|garantia/i);
   assert.match(first["trial-ending.html"], /https:\/\/girumo-qa\.example\/painel\/configuracoes/);
 });
 
@@ -66,7 +68,7 @@ test("renderGirumoEmailFixtures cria arquivos novos somente no temporário do SO
     assert.equal(first.welcomePath, path.join(first.directory, "welcome.html"));
     assert.equal(first.trialEndingPath, path.join(first.directory, "trial-ending.html"));
     assert.match(readFileSync(first.welcomePath, "utf8"), /Bem-vind\(a\), Marina!/);
-    assert.match(readFileSync(first.trialEndingPath, "utf8"), /Seu trial está acabando/);
+    assert.match(readFileSync(first.trialEndingPath, "utf8"), /Seu teste do Growth termina em 10\/10/);
   } finally {
     rmSync(first.directory, { recursive: true, force: true });
     rmSync(second.directory, { recursive: true, force: true });

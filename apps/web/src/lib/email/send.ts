@@ -11,6 +11,11 @@ type SendOptions = {
   tenantId: string;
   /** Qual e-mail transacional é este. Vira metadata.kind no log. */
   kind: EmailKind;
+  /**
+   * Vira o header `Idempotency-Key` do Resend: um reenvio com a mesma chave não
+   * gera um segundo e-mail. Para quem pede reenvio na falha (webhook do Stripe).
+   */
+  idempotencyKey?: string;
 };
 
 /**
@@ -47,16 +52,19 @@ async function recordDelivery(
  * e-mail quebrado só existia como console.error e passava semanas invisível.
  */
 export async function sendEmail(options: SendOptions): Promise<boolean> {
-  const { to, subject, html } = options;
+  const { to, subject, html, idempotencyKey } = options;
 
   try {
     const resend = getResend();
-    const { error } = await resend.emails.send({
-      from: FROM_EMAIL,
-      to,
-      subject,
-      html,
-    });
+    const { error } = await resend.emails.send(
+      {
+        from: FROM_EMAIL,
+        to,
+        subject,
+        html,
+      },
+      { idempotencyKey },
+    );
 
     if (error) {
       console.error(`[email] Failed to send to ${to}:`, error.message);

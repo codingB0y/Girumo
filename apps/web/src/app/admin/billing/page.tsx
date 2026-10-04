@@ -1,4 +1,4 @@
-import { CreditCard, TrendingUp, AlertTriangle, CheckCircle2, Receipt, DollarSign } from "lucide-react";
+import { CreditCard, TrendingUp, AlertTriangle, CheckCircle2, Receipt, DollarSign, Clock } from "lucide-react";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { AdminStatCard } from "@/components/admin/stat-card";
 import { getStripe } from "@/lib/billing/stripe";
@@ -97,7 +97,9 @@ export default async function AdminBillingPage() {
   const mrrConfiavel = !subsError && !plansError;
 
   const allSubs = subs ?? [];
-  const active = allSubs.filter((s) => s.status === "active" || s.status === "trialing");
+  // Teste grátis não é receita: fica fora do MRR e das ativas, com contagem própria.
+  const active = allSubs.filter((s) => s.status === "active");
+  const trialing = allSubs.filter((s) => s.status === "trialing");
   const free = allSubs.filter((s) => s.status === "free");
   const pastDue = allSubs.filter((s) => s.status === "past_due");
   const canceled = allSubs.filter((s) => s.status === "canceled");
@@ -183,6 +185,12 @@ export default async function AdminBillingPage() {
           value={subsError ? "—" : active.length}
           icon={CheckCircle2}
           tone={subsError ? "slate" : "green"}
+        />
+        <AdminStatCard
+          label="Em teste"
+          value={subsError ? "—" : trialing.length}
+          icon={Clock}
+          tone="blue"
         />
         <AdminStatCard
           label="Free"
