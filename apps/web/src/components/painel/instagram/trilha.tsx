@@ -44,7 +44,7 @@ function Bloco({ ctx, node, indice, ramos, fim }: { ctx: Contexto; node: FlowNod
               return (
                 <li key={r.out} className="text-13 text-slate-600">
                   <span className="font-medium text-volt-950">{rotuloDaSaida(r.out, node)}</span>
-                  {volta ? ` · volta pra “${tituloDoBloco(volta)}”` : r.alvo ? "" : " · parou aqui"}
+                  {volta ? ` · volta pra “${tituloDoBloco(volta)}”` : r.alvo ? "" : " · Parou aqui"}
                   {r.alvo && (
                     <ol className="mt-2 border-l-2 border-line-200 pl-4">
                       <Bloco ctx={ctx} node={r.alvo.node} indice={null} ramos={r.alvo.ramos} />

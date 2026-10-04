@@ -47,8 +47,17 @@ function useCampanhas(): CampanhaOpcao[] | null {
   return campanhas;
 }
 
-// Ordem dos nós e arestas é canônica, então comparar o JSON basta.
-const mudou = (draft: FlowDef, published: FlowDef | null) => !published || JSON.stringify(draft) !== JSON.stringify(published);
+/** JSON com as chaves dos objetos em ordem; arrays mantêm a ordem. */
+function canonico(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(canonico).join(",")}]`;
+  if (v && typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    return `{${Object.keys(o).sort().map((k) => `${JSON.stringify(k)}:${canonico(o[k])}`).join(",")}}`;
+  }
+  return JSON.stringify(v) ?? "null";
+}
+
+const mudou = (draft: FlowDef, published: FlowDef | null) => !published || canonico(draft) !== canonico(published);
 
 export function EditorDoFluxo({ id }: { id: string }) {
   useFoco();
@@ -60,6 +69,7 @@ export function EditorDoFluxo({ id }: { id: string }) {
   const campanhas = useCampanhas();
   const [issuesDoServidor, setIssuesDoServidor] = useState<Issue[] | null>(null);
   const [publicando, setPublicando] = useState(false);
+  const [nomeLocal, setNomeLocal] = useState<string | null>(null);
 
   // Depois da hidratação: o SSR não enxerga o localStorage.
   useEffect(() => {
@@ -91,8 +101,11 @@ export function EditorDoFluxo({ id }: { id: string }) {
     },
     [editar],
   );
+  // Nome vazio fica só na tela: o servidor recusa (400) e o PATCH seguinte levaria o mesmo nome.
   const renomearELimpar = useCallback(
     (nome: string) => {
+      setNomeLocal(nome);
+      if (!nome.trim()) return;
       setIssuesDoServidor(null);
       renomear(nome);
     },
@@ -154,20 +167,29 @@ export function EditorDoFluxo({ id }: { id: string }) {
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas-100">
-      <header className="flex h-14 items-center gap-3 border-b border-line-200 bg-paper-0 px-4">
+      <header className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-1 border-b border-line-200 bg-paper-0 px-4 py-2">
+        <h1 className="sr-only">{flow.name}</h1>
         <Link href="/painel/instagram" aria-label="Voltar pra lista de fluxos" className="flex h-9 items-center gap-1 text-13 text-slate-600 hover:text-volt-950">
-          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-          Instagram
+          <ChevronLeft className="h-5 w-5 sm:h-4 sm:w-4" aria-hidden="true" />
+          <span className="hidden sm:inline">Instagram</span>
         </Link>
+        {/* Abaixo de sm o nome ganha a linha de baixo, inteira. */}
         <input
           aria-label="Nome do fluxo"
-          value={flow.name}
+          value={nomeLocal ?? flow.name}
           onChange={(e) => renomearELimpar(e.target.value)}
+          onBlur={() => setNomeLocal(null)}
           maxLength={80}
-          className="min-w-0 flex-1 bg-transparent text-15 font-semibold text-volt-950 outline-none"
+          className="order-last h-9 min-w-0 basis-full bg-transparent text-15 font-semibold text-volt-950 outline-none sm:order-none sm:basis-0 sm:flex-1"
         />
-        <ChipEstado status={flow.status} />
-        <span role="status" className="hidden text-12 text-slate-600 sm:block">{textoDoSalvamento(salvamento)}</span>
+        <span className="ml-auto sm:ml-0"><ChipEstado status={flow.status} /></span>
+        {/* Falha de salvamento aparece em qualquer tela; "Salvo"/"Salvando…" só de sm pra cima. */}
+        <span
+          role="status"
+          className={cn("text-12 text-slate-600", salvamento === "erro" || salvamento === "falhou" ? "font-medium text-volt-950" : "hidden sm:block")}
+        >
+          {textoDoSalvamento(salvamento)}
+        </span>
         {mostraPublicar && (
           <button
             type="button"
@@ -193,7 +215,7 @@ export function EditorDoFluxo({ id }: { id: string }) {
                 aria-pressed={visao === v}
                 onClick={() => trocarVisao(v)}
                 className={cn(
-                  "flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-13",
+                  "flex h-8 items-center gap-1.5 rounded-[var(--radius-control)] border px-2.5 text-13",
                   visao === v ? "border-slate-600 bg-hover-ficha text-volt-950" : "border-line-200 text-slate-600 hover:text-volt-950",
                 )}
               >
