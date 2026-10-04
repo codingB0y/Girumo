@@ -1,6 +1,5 @@
 "use client";
 
-import { GitBranch, MessageCircle, Send, Users } from "lucide-react";
 import { canAddFollowGate, canAddReminder, hasFollowGate, hasReminder, setFollowGate, setReminder, updateNode } from "@/lib/ig/flow/edit";
 import { rotuloDaSaida, tituloDoBloco } from "@/lib/ig/flow/labels";
 import { linearize, type Passo, type Ramo } from "@/lib/ig/flow/linearize";
@@ -8,9 +7,8 @@ import { nodeById, triggerOf } from "@/lib/ig/flow/graph";
 import type { FlowDef, FlowNode } from "@/lib/ig/flow/types";
 import type { Issue } from "@/lib/ig/flow/validate";
 import { BlocoForm, type CampanhaOpcao } from "./bloco-form";
+import { ICONE } from "./icones";
 import { Interruptor } from "./interruptor";
-
-const ICONE = { trigger: MessageCircle, message: Send, invite: Users, condition: GitBranch } as const;
 
 type Editar = (fn: (d: FlowDef) => FlowDef) => void;
 type Contexto = { def: FlowDef; campanhas: CampanhaOpcao[]; issues: Issue[]; editar: Editar; primeiroDirectAposComentario: string | null };
