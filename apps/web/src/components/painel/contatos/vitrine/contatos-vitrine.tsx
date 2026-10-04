@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { brl } from "@/components/painel/home/format";
-import { Odometro } from "@/components/painel/home/vitrine/odometro";
+import { Odometro } from "@/components/painel/odometro";
 import { diaHoraCurto, iniciais, marcasDaFita, rotulosDaFita } from "@/lib/painel/inicio";
 import { ordersInMonth, revenueInMonth, type MonthlyOrder } from "@/lib/painel-metrics";
 import { monthBR } from "@/lib/date-br";
