@@ -15,3 +15,18 @@ export type GrupoComPapel = { community_role?: PapelComunidade | null };
 export function ehEstruturaDeComunidade(g: GrupoComPapel): boolean {
   return g.community_role === "parent" || g.community_role === "announce";
 }
+
+/** Os ids de WhatsApp dos grupos que são estrutura (pai e Avisos). */
+export function idsDeEstrutura(grupos: ReadonlyArray<GrupoComPapel & { whatsapp_group_id: string }>): Set<string> {
+  return new Set(grupos.filter(ehEstruturaDeComunidade).map((g) => g.whatsapp_group_id));
+}
+
+/**
+ * Tira dos `groupIds` da campanha os ids de estrutura. Eles existem, mas saem da
+ * lista de grupos (`carregarGrupos`); sem isto o mapa da Início, que acusa "sumiu"
+ * para todo id que não acha na lista, acusaria o pai ou o Avisos posto à mão na campanha.
+ */
+export function semEstrutura<C extends { groupIds: string[] }>(campanhas: C[], estrutura: ReadonlySet<string>): C[] {
+  if (estrutura.size === 0) return campanhas;
+  return campanhas.map((c) => ({ ...c, groupIds: c.groupIds.filter((id) => !estrutura.has(id)) }));
+}

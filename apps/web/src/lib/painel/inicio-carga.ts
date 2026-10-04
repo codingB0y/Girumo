@@ -2,7 +2,7 @@ import "server-only";
 
 import { buildTenantDispatchList, type CampaignRef } from "@/lib/campaigns/dispatch-view";
 import { campanhasColl, ensureSlugs } from "@/lib/campanhas-store";
-import { ehEstruturaDeComunidade } from "@/lib/communities/estrutura";
+import { ehEstruturaDeComunidade, idsDeEstrutura } from "@/lib/communities/estrutura";
 import { listGroups as legacyListGroups } from "@/lib/groups-store";
 import { collection } from "@/lib/json-collection";
 import { listLeads as legacyListLeads } from "@/lib/leads-store";
@@ -34,7 +34,16 @@ import { readEntrada, readIntegracoes } from "@/lib/campaigns/settings";
 
 /** Forma que o painel consome de `/api/groups` — camelCase do store JSON antigo. */
 export async function carregarGrupos(tenantId: string) {
-  if (!USE_SUPABASE) return legacyListGroups(tenantId);
+  return (await carregarGruposEEstrutura(tenantId)).grupos;
+}
+
+/**
+ * Os grupos da lista mais os ids de WhatsApp de pai/Avisos que ficaram de fora dela,
+ * numa leitura só (a Início usa os dois: o mapa não pode chamar de "sumiu" quem só
+ * não é grupo de disparo).
+ */
+export async function carregarGruposEEstrutura(tenantId: string) {
+  if (!USE_SUPABASE) return { grupos: await legacyListGroups(tenantId), estrutura: new Set<string>() };
   const grupos = await groupsStore.listGroups(tenantId);
   // Pai (1 membro, medido) e Avisos (a comunidade inteira, 1.984 membros
   // medidos) não são grupos de disparo comuns: disparar no pai não alcança
@@ -44,7 +53,7 @@ export async function carregarGrupos(tenantId: string) {
   // predicado de `lib/communities/estrutura.ts` usado pela faixa de órfãos
   // em /api/comunidades — as duas listas precisam concordar sobre o que é
   // "estrutura" e não grupo de envio.
-  return grupos
+  const visiveis = grupos
     .filter((g) => !ehEstruturaDeComunidade(g))
     .map((g) => ({
       id: g.whatsapp_group_id,
@@ -63,6 +72,7 @@ export async function carregarGrupos(tenantId: string) {
       // cliente entra no grupo — a tela precisa poder dizer isso.
       syncedAt: g.admins_counted_at ?? null,
     }));
+  return { grupos: visiveis, estrutura: idsDeEstrutura(grupos) };
 }
 
 export async function carregarCampanhas(tenantId: string) {
