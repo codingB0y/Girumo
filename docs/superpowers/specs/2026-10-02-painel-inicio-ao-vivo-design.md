@@ -96,10 +96,13 @@ por SQL depois de aplicar.
 **Antes do PR 7** (achados da revisão final do PR 2):
 
 - No modo 200+, um filtro diferente de "Todos" tem de buscar em todos os grupos, não só nos 60 visíveis
-  por bloco (hoje "Sem convite 5" pode listar nada).
-- O tooltip da célula tem de fechar com Esc e poder receber o mouse (WCAG 1.4.13).
+  por bloco (hoje "Sem convite 5" pode listar nada). **Feito no PR 7a:** `celulasDoFiltro` filtra todos os grupos do
+  bloco e só depois aplica o limite dos 60 mais cheios.
+- O tooltip da célula tem de fechar com Esc e poder receber o mouse (WCAG 1.4.13). **Feito no PR 7a:** a
+  dica é filha do contêiner da célula (ponte de `padding`) e um `keydown` de Esc a dispensa até o mouse/foco sair.
 - O mapa deixa de fora do bloco da campanha os grupos que não estão no cadastro; a página da campanha
-  os mostra como "sumiu".
+  os mostra como "sumiu". **Feito no PR 7a:** entram como célula "sumiu" (contorno tracejado, nome
+  acessível "… sumiu do cadastro"), contados, sem corte no modo 200+, com chip "Sumiu" (só se houver) e legenda.
 
 ### Entradas e saídas por hora (abaixo do mapa)
 
