@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LogoSymbol } from "@/components/brand/logo";
+import { useCasca } from "@/components/painel/casca-context";
 import { NotificationBell } from "@/components/painel/notification-bell";
 import { useRole } from "@/components/painel/role-provider";
 import { usePanelSession } from "@/components/painel/session-provider";
@@ -72,11 +73,13 @@ export function Letreiro() {
   const { tenantName, carregado } = useRole();
   const { session } = usePanelSession();
   const ticker = useTicker();
+  const { foco } = useCasca();
   const ponto = session
     ? session.live
       ? "pn-ponto--conectado pn-respira"
       : "pn-ponto--desconectado"
     : "pn-ponto--indefinido";
+  if (foco) return null;
 
   return (
     <header data-testid="painel-letreiro" className="pn-letreiro sticky top-0 z-20">

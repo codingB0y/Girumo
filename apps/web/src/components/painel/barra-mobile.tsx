@@ -7,6 +7,7 @@ import { Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV_BARRA_DIREITA, NAV_BARRA_ESQUERDA, isNavItemActive, type NavItem } from "@/lib/painel-nav";
 import type { TenantDispatchView } from "@/lib/campaigns/dispatch-view";
+import { useCasca } from "./casca-context";
 import { FolhaMais } from "./folha-mais";
 import { FolhaPostar } from "./folha-postar";
 
@@ -73,6 +74,8 @@ export function BarraMobile() {
   const { emVoo, recarregar } = useDisparoEmVoo();
   const idPostar = useId();
   const idMais = useId();
+  const { foco } = useCasca();
+  if (foco) return null;
 
   return (
     <>
