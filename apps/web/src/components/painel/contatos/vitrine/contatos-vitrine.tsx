@@ -9,6 +9,7 @@ import { diaHoraCurto, iniciais, marcasDaFita, rotulosDaFita } from "@/lib/paine
 import { ordersInMonth, revenueInMonth, type MonthlyOrder } from "@/lib/painel-metrics";
 import { monthBR } from "@/lib/date-br";
 import { parseValorDoPedido } from "@/lib/orders/valor-do-pedido";
+import { formatPhoneBR } from "@/lib/phone";
 import type { Lead, LeadStatus } from "@/lib/painel/types";
 
 const PASSO_DA_MARCA = 5_000;
@@ -69,10 +70,15 @@ export function ContatosVitrine({ contatos, pedidos, meta, carregando, caixaOk, 
 
   const visiveis = useMemo(() => {
     const termo = busca.trim().toLowerCase();
+    // O número aparece formatado (+55 11 98765-4321); quem copia dali tem que achar.
+    // Com letra no meio é busca por nome: "loja 2" não pode casar todo número com 2.
+    const digitos = /\p{L}/u.test(termo) ? "" : termo.replace(/\D/g, "");
     return contatos.filter(
       (l) =>
         (filtro === "todos" || l.status === filtro) &&
-        (termo === "" || l.name?.toLowerCase().includes(termo) || l.phone?.includes(termo)),
+        (termo === "" ||
+          l.name?.toLowerCase().includes(termo) ||
+          (digitos !== "" && l.phone?.includes(digitos))),
     );
   }, [contatos, filtro, busca]);
 
@@ -287,6 +293,9 @@ function FichaDoContato({
   onRegistrado: (leadId: string, valor: number) => void;
 }) {
   const chip = CHIP[contato.status];
+  // O aviso de entrada no grupo não traz nome: quase todo contato chega como
+  // "Novo membro", e o WhatsApp é o único jeito de saber quem é e de casar a venda.
+  const whatsapp = formatPhoneBR(contato.phone);
 
   return (
     <div className="border-b border-line-200">
@@ -301,6 +310,7 @@ function FichaDoContato({
         <div className="min-w-0 flex-1">
           <p className="truncate text-15 font-semibold text-volt-950">{contato.name?.trim() || contato.phone}</p>
           <p className="font-data mt-0.5 truncate text-12 text-slate-600">
+            {whatsapp && <span className="text-volt-950">{whatsapp} · </span>}
             veio pelo {contato.sourceGroup || "grupo"} · {diaHoraCurto(contato.enteredAt, agora)}
           </p>
         </div>
