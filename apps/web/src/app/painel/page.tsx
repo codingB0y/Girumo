@@ -55,6 +55,7 @@ export default function PainelPage() {
         relampago={relampago}
         relampagoOk={relampagoOk}
         onAtualizar={atualizar}
+        onSettingsSaved={applySettings}
         onDismissOnboarding={dismissOnboarding}
         onOnboardingComplete={markOnboardingComplete}
       />

@@ -44,6 +44,8 @@ type Props = {
   relampago: RelampagoDaInicio | null;
   relampagoOk: boolean;
   onAtualizar: () => void;
+  /** Settings recém-salvas (a meta do mês) entram no estado da tela sem refazer a carga. */
+  onSettingsSaved: (settings: TenantSettings) => void;
   onDismissOnboarding: () => void;
   onOnboardingComplete: () => void;
 };
@@ -73,6 +75,7 @@ export function InicioAoVivo({
   relampago,
   relampagoOk,
   onAtualizar,
+  onSettingsSaved,
   onDismissOnboarding,
   onOnboardingComplete,
 }: Props) {
@@ -120,6 +123,7 @@ export function InicioAoVivo({
         ordersOk={ordersOk}
         linksOk={linksOk}
         settingsOk={settingsOk}
+        onMetaSalva={(valor) => onSettingsSaved({ ...settings, monthlyGoalRevenue: valor })}
       />
       <AbasDoCelular
         aba={aba}

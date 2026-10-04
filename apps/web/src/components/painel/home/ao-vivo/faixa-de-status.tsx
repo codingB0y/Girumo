@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { ContraSemanaPassada, Celula, EntrouSaiu, Faisca } from "@/components/painel/numeros";
 import type { Order, TrackedLink } from "@/components/painel/home/types";
 import { horaBR } from "@/lib/date-br";
@@ -7,6 +8,7 @@ import type { AtividadeDaCampanha } from "@/lib/painel/atividade";
 import { medindoDesde, saldo } from "@/lib/painel/atividade-texto";
 import { atualizadoHa, comparacaoComecaEm, numerosDaFaixa, pedidosDeHoje } from "@/lib/painel/ao-vivo/faixa";
 import { numero } from "@/lib/painel/grupos";
+import { EditorDaMeta, useSalvarMeta } from "./meta-do-mes";
 
 /** A célula como item da faixa rolável do celular: largura pelo conteúdo, um fio à esquerda. */
 const NA_FAIXA = "max-md:flex-none max-md:whitespace-nowrap max-md:px-4 max-md:py-3";
@@ -31,10 +33,24 @@ type Props = {
   ordersOk: boolean;
   linksOk: boolean;
   settingsOk: boolean;
+  /** Meta de receita gravada: a tela atualiza o dado sem recarregar. */
+  onMetaSalva: (valor: number) => void;
 };
 
+const BOTAO_DA_META = "font-semibold text-cobalt-500 underline-offset-2 hover:underline";
+
 /** A faixa de status da Início "Ao vivo": a loja inteira hoje, numa linha. */
-export function FaixaDeStatus({ atividade, links, orders, metaDoMes, agora, ordersOk, linksOk, settingsOk }: Props) {
+export function FaixaDeStatus({ atividade, links, orders, metaDoMes, agora, ordersOk, linksOk, settingsOk, onMetaSalva }: Props) {
+  const [editando, setEditando] = useState(false);
+  const botaoDaMeta = useRef<HTMLButtonElement>(null);
+  const jaEditou = useRef(false);
+  const { salvando, salvar } = useSalvarMeta(onMetaSalva);
+  // Fechar o editor (Esc, Cancelar, Salvar) devolve o foco ao botão que o abriu.
+  useEffect(() => {
+    if (editando) jaEditou.current = true;
+    else if (jaEditou.current) botaoDaMeta.current?.focus();
+  }, [editando]);
+
   const n = atividade ? numerosDaFaixa(atividade) : null;
   const pedidos = pedidosDeHoje(orders, metaDoMes, agora);
   const cliquesNoTotal = links.reduce((s, l) => s + (l.clicks ?? 0), 0);
@@ -118,8 +134,37 @@ export function FaixaDeStatus({ atividade, links, orders, metaDoMes, agora, orde
             <>
               {pedidos.quantidade === 0 ? <>nenhum pedido<span className="max-md:hidden"> hoje</span></> : `${numero(pedidos.quantidade)} ${pedidos.quantidade === 1 ? "pedido" : "pedidos"}`}
               {" · "}
-              {!settingsOk ? "meta não carregou" : pedidos.metaPct === null ? <>sem meta<span className="max-md:hidden"> do mês</span></> : `${pedidos.metaPct}% da meta do mês`}
+              {!settingsOk ? (
+                "meta não carregou"
+              ) : (
+                <>
+                  {pedidos.metaPct === null ? <>sem meta<span className="max-md:hidden"> do mês</span></> : `${pedidos.metaPct}% da meta do mês`}
+                  {!editando && (
+                    <>
+                      {" · "}
+                      <button
+                        ref={botaoDaMeta}
+                        type="button"
+                        onClick={() => setEditando(true)}
+                        className={BOTAO_DA_META}
+                      >
+                        {metaDoMes ? "editar meta" : "definir meta"}
+                      </button>
+                    </>
+                  )}
+                </>
+              )}
             </>
+          )}
+          {ordersOk && settingsOk && editando && (
+            <EditorDaMeta
+              meta={metaDoMes}
+              salvando={salvando}
+              onSalvar={async (texto) => {
+                if (await salvar(texto)) setEditando(false);
+              }}
+              onCancelar={() => setEditando(false)}
+            />
           )}
         </Celula>
       </div>
