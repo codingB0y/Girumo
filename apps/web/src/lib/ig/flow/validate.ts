@@ -109,7 +109,9 @@ export function validateFlow(def: FlowDef, ctx: ValidateContext): Issue[] {
       if (node.button !== null) {
         if (node.button.trim() === "") add("botao_vazio", node.id, "Escreva o texto do botão ou tire o botão.");
         if ([...node.text].length > MAX_TEXT_WITH_BUTTON) add("texto_longo", node.id, `Com botão, a mensagem vai até ${MAX_TEXT_WITH_BUTTON} caracteres.`);
-      } else if (utf8Bytes(node.text) > MAX_MESSAGE_BYTES) {
+      }
+      // Os dois limites valem juntos: com botão, 640 caracteres E 1000 bytes.
+      if (utf8Bytes(node.text) > MAX_MESSAGE_BYTES) {
         add("texto_longo", node.id, `Mensagem longa demais: ${utf8Bytes(node.text)} de ${MAX_MESSAGE_BYTES} bytes.`);
       }
       if (node.wait && (node.wait.minutes < 1 || node.wait.minutes > MAX_WAIT_MINUTES)) add("espera_longa", node.id, "A espera vai de 1 minuto a 23 horas.");
@@ -150,10 +152,16 @@ export function validateFlow(def: FlowDef, ctx: ValidateContext): Issue[] {
     }
   }
 
-  for (const ciclo of ciclos(def)) {
-    if (!ciclo.some((id) => def.nodes.find((n) => n.id === id)?.type === "condition")) {
-      add("ciclo_sem_condicao", ciclo[0], "O fluxo volta pra um bloco sem passar por uma condição.");
-    }
+  // Sem as condições e as ligações delas, qualquer ciclo que sobre não passa por condição.
+  // (Procurar só o ciclo achado pelo DFS dependia da ordem das ligações.)
+  const ids = new Set(def.nodes.filter((n) => n.type !== "condition").map((n) => n.id));
+  const semCondicao: FlowDef = {
+    ...def,
+    nodes: def.nodes.filter((n) => ids.has(n.id)),
+    edges: def.edges.filter((e) => ids.has(e.from) && ids.has(e.to)),
+  };
+  for (const ciclo of ciclos(semCondicao)) {
+    add("ciclo_sem_condicao", ciclo[0], "O fluxo volta pra um bloco sem passar por uma condição.");
   }
 
   if (ctx.accountConnected === false) add("sem_conta", null, "Conecte o Instagram pra publicar.");

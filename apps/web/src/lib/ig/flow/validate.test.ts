@@ -107,6 +107,40 @@ test("bloco solto e ciclo sem condição", () => {
   assert.ok(codes(validateFlow(ciclo, ok)).includes("ciclo_sem_condicao"));
 });
 
+test("ciclo sem condição é achado em qualquer ordem das ligações", () => {
+  const nodes: FlowDef["nodes"] = [
+    { id: "gatilho", type: "trigger", on: "dm", keywords: ["quero"], postId: null, publicReply: null, storyReplies: false },
+    { id: "x", type: "invite", text: "Link:", campaignSlug: "vip", remindAfterMinutes: 60 },
+    { id: "k", type: "condition", check: "follows" },
+    { id: "y", type: "message", text: "y", button: null, wait: null },
+  ];
+  const base: FlowDef["edges"] = [
+    { from: "gatilho", out: "next", to: "x" },
+    { from: "k", out: "yes", to: "y" },
+    { from: "y", out: "next", to: "x" },
+  ];
+  const clicked = { from: "x", out: "clicked", to: "k" } as const;
+  const notClicked = { from: "x", out: "not_clicked", to: "y" } as const;
+  for (const edges of [[...base, clicked, notClicked], [...base, notClicked, clicked]]) {
+    assert.ok(codes(validateFlow({ v: 1, nodes, edges }, ok)).includes("ciclo_sem_condicao"));
+  }
+});
+
+test("com botão valem os dois limites: 640 caracteres e 1000 bytes", () => {
+  const def = comCampanha(RECIPES.dm_invite.build());
+  const comBotao = (text: string): FlowDef => ({
+    ...def,
+    nodes: [def.nodes[0], { id: "direct", type: "message", text, button: "Quero", wait: null }, def.nodes[1]],
+    edges: [
+      { from: "gatilho", out: "next", to: "direct" },
+      { from: "direct", out: "next", to: "convite" },
+    ],
+  });
+  // 300 emojis = 300 caracteres (< 640) mas 1200 bytes (> 1000).
+  assert.ok(codes(validateFlow(comBotao("😀".repeat(300)), ok)).includes("texto_longo"));
+  assert.deepEqual(validateFlow(comBotao("Oi"), ok), []);
+});
+
 test("id de bloco repetido e ligação pra bloco que não existe nunca viram fluxo válido", () => {
   const def = comCampanha(RECIPES.comment_invite.build());
   const duplicado: FlowDef = { ...def, nodes: [...def.nodes, { id: "convite", type: "message", text: "x", button: null, wait: null }] };
