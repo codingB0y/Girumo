@@ -121,7 +121,7 @@ test.describe("Início ao vivo no celular", () => {
     const mapa = page.getByTestId("inicio-mapa");
     await expect(mapa).toBeVisible({ timeout: 30_000 });
     const celulas = mapa.getByTestId("celula-do-grupo");
-    test.skip((await celulas.count()) === 0, "o tenant de QA ficou sem grupos: não há célula para medir");
+    expect(await celulas.count()).toBeGreaterThan(0);
     const caixa = await celulas.first().boundingBox();
     expect(caixa?.height).toBeLessThanOrEqual(40);
     const ver = mapa.getByRole("link", { name: /^Ver (os [\d.]+ grupos|o grupo)$/ });
@@ -171,7 +171,7 @@ test.describe("Início ao vivo a partir de 768 px", () => {
     const mapa = page.getByTestId("inicio-mapa");
     await expect(mapa).toBeVisible({ timeout: 30_000 });
     const celulas = mapa.getByTestId("celula-do-grupo");
-    test.skip((await celulas.count()) === 0, "o tenant de QA ficou sem grupos: não há célula para medir");
+    expect(await celulas.count()).toBeGreaterThan(0);
     expect((await celulas.first().boundingBox())?.height).toBe(56);
     await expect(mapa.getByRole("link", { name: /^Ver (os [\d.]+ grupos|o grupo)$/ })).toBeHidden();
   });

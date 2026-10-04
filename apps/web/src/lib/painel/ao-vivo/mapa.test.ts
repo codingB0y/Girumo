@@ -7,7 +7,10 @@ import {
   celulasDoFiltro,
   MAX_ALERTAS,
   montarMapa,
+  entradaNoCelular,
+  novoDoBloco,
   resumoDoBloco,
+  rotuloNoCelular,
   rotuloAcessivel,
   type BlocoDoMapa,
   type CampanhaDoMapa,
@@ -252,7 +255,46 @@ test("resumo do bloco: grupos, pessoas, % das vagas e entradas de hoje (o sumiu 
   assert.deepEqual(resumoDoBloco(mapa.blocos[0]), { grupos: 3, pessoas: 1400, pctDasVagas: 70, entraramHoje: 72 });
 });
 
-test("resumo do bloco sem capacidade conhecida: 0% e sem dividir por zero", () => {
-  const mapa = montarMapa({ grupos: [grupo("1", { members: 10, capacity: 0 })], campanhas: [], hojePorGrupo: {}, abertosHoje: [] });
-  assert.deepEqual(resumoDoBloco(mapa.blocos[0]), { grupos: 1, pessoas: 10, pctDasVagas: 0, entraramHoje: 0 });
+test("resumo do bloco: a % só olha grupos com capacidade; sem capacidade nenhuma ela é null", () => {
+  const misto = montarMapa({
+    grupos: [grupo("1", { members: 500, capacity: 1000 }), grupo("2", { members: 300, capacity: 0 })],
+    campanhas: [],
+    hojePorGrupo: {},
+    abertosHoje: [],
+  });
+  // As 300 pessoas do grupo sem capacidade contam como pessoas, mas não entram na % (500/1000, não 800/1000).
+  assert.deepEqual(resumoDoBloco(misto.blocos[0]), { grupos: 2, pessoas: 800, pctDasVagas: 50, entraramHoje: 0 });
+  const semVaga = montarMapa({ grupos: [grupo("1", { members: 10, capacity: 0 })], campanhas: [], hojePorGrupo: {}, abertosHoje: [] });
+  assert.deepEqual(resumoDoBloco(semVaga.blocos[0]), { grupos: 1, pessoas: 10, pctDasVagas: null, entraramHoje: 0 });
+});
+
+test("célula do celular: número sem #, +N em até 3 caracteres e sumiu sem a palavra", () => {
+  const mapa = montarMapa({
+    grupos: [grupo("40"), grupo("solto", { name: "Clientes antigos" })],
+    campanhas: [{ ...vip, groupIds: ["40@g.us", "fantasma@g.us"] }],
+    hojePorGrupo: {},
+    abertosHoje: [],
+  });
+  const [c40, sumiu] = vis(mapa.blocos[0]).celulas;
+  assert.equal(rotuloNoCelular(c40), "40");
+  assert.equal(rotuloNoCelular(sumiu), "");
+  assert.equal(rotuloNoCelular(vis(mapa.blocos[1]).celulas[0]), "1º");
+  assert.deepEqual([0, 7, 99, 100, 999, 1000, 1234, 54000, 250000].map(entradaNoCelular), ["", "+7", "+99", "100", "999", "1k", "1k", "54k", "99k"]);
+  for (const n of [1, 42, 99, 100, 999, 1000, 99999, 1e7]) assert.ok(entradaNoCelular(n).length <= 3);
+});
+
+test("novo do bloco: o aberto hoje mais recente entre as células mostradas", () => {
+  const mapa = montarMapa({
+    grupos: [grupo("39"), grupo("40"), grupo("2")],
+    campanhas: [vip],
+    hojePorGrupo: {},
+    abertosHoje: [
+      { nome: "VIP #39", seq: 39, grupo: "39@g.us", quando: "2026-10-02T12:10:00.000Z" },
+      { nome: "VIP #40", seq: 40, grupo: "40@g.us", quando: "2026-10-02T12:14:00.000Z" },
+    ],
+  });
+  const { celulas } = vis(mapa.blocos[0]);
+  assert.deepEqual(novoDoBloco(celulas), { hora: "09:14", rotulo: "#40" });
+  assert.equal(novoDoBloco(celulas.filter((c) => c.rotulo === "#2")), null);
+  assert.equal(novoDoBloco([]), null);
 });

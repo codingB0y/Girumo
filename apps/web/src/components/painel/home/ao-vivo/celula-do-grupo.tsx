@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Link2Off } from "lucide-react";
+import { CircleSlash, Link2Off } from "lucide-react";
 import { numero } from "@/lib/painel/grupos";
-import { rotuloAcessivel, TEXTO_DO_ESTADO, type CelulaDoMapa } from "@/lib/painel/ao-vivo/mapa";
+import { entradaNoCelular, rotuloAcessivel, rotuloNoCelular, TEXTO_DO_ESTADO, type CelulaDoMapa } from "@/lib/painel/ao-vivo/mapa";
 import { cn } from "@/lib/utils";
 
 /**
@@ -73,18 +73,23 @@ export function CelulaDoGrupo({ celula: c, bloco }: { celula: CelulaDoMapa; bloc
           className={cn("relative flex h-full w-full flex-col justify-between overflow-hidden rounded-md border bg-paper-0 p-1 tabular-nums max-md:rounded-[4px] max-md:px-1 max-md:py-[3px]", BORDA[c.estado])}
         >
           <span className={cn("absolute inset-x-0 bottom-0", PREENCHIMENTO[c.estado])} style={{ height: `${Math.round(c.lotacao * 100)}%` }} />
-          {c.estado === "sem_convite" && <Link2Off className="absolute right-0.5 top-0.5 h-3 w-3 text-saida max-md:h-2.5 max-md:w-2.5" aria-hidden="true" />}
-          <span className={cn("relative text-12 font-semibold leading-none text-volt-950", c.estado === "sumiu" && "max-md:text-[10px]")}>{c.rotulo}</span>
-          <span className="relative text-[11px] leading-none text-volt-950 max-md:text-12">
-            {c.novoAs ? (
-              <>
-                novo<span className="max-md:hidden"> {c.novoAs}</span>
-              </>
-            ) : c.entraram > 0 ? (
-              `+${numero(c.entraram)}`
-            ) : (
-              ""
-            )}
+          {c.estado === "sem_convite" && <Link2Off className="absolute right-1 top-1 h-3 w-3 text-saida max-md:hidden" aria-hidden="true" />}
+          <span className="relative text-12 font-semibold leading-none text-volt-950">
+            <span className="max-md:hidden">{c.rotulo}</span>
+            <span className="md:hidden">{rotuloNoCelular(c)}</span>
+          </span>
+          <span className="relative leading-none text-volt-950">
+            <span className="text-[11px] max-md:hidden">{c.novoAs ? `novo ${c.novoAs}` : c.entraram > 0 ? `+${numero(c.entraram)}` : ""}</span>
+            {/* Celular (mockup .f-cx): o ícone de alerta ocupa a linha de baixo e vence o "+N"; o "novo HH:MM" vira a anotação do bloco. */}
+            <span className="flex text-12 md:hidden">
+              {c.estado === "sem_convite" ? (
+                <Link2Off className="h-3 w-3 text-saida" aria-hidden="true" />
+              ) : c.estado === "sumiu" ? (
+                <CircleSlash className="h-3 w-3 text-slate-600" aria-hidden="true" />
+              ) : (
+                entradaNoCelular(c.entraram)
+              )}
+            </span>
           </span>
         </span>
       </Link>

@@ -164,8 +164,8 @@ do `GraficoDeBarras`; as que não cabem ficam só com o traço.
   com a aba escondida, então o número fica vivo); "●" + "no ar" só até a primeira leitura. (2) Mapa
   compacto: grade de 10 colunas, vão de 3 px, células de 36 px; o cabeçalho de cada campanha vira
   "título +N hoje" e, embaixo, "N grupos · N pessoas · N% das vagas" (`resumoDoBloco`). A dica da célula
-  não aparece no celular (o toque já leva ao grupo e a caixa passaria da borda da tela). (3) Fim da seção:
-  botões lado a lado, a ação do primeiro alerta (se houver) e "Ver os N grupos". Nada muda a partir de 768 px.
+  não aparece no celular (o toque já leva ao grupo e a caixa passaria da borda da tela). Na célula do celular o número vai sem "#", o "+N" cabe em 3 caracteres ("+42", "120", "1k"), o ícone de alerta (sem convite, sumiu) ocupa a linha de baixo, e o "novo HH:MM" sai da célula para a anotação "novo 09:14 · o link já leva pro #40" sob o bloco. (3) Fim da seção:
+  botão "Ver os N grupos" de largura cheia (a ação do alerta fica na linha do próprio alerta, sem repetir). Nada muda a partir de 768 px.
 
 ### Loja nova e estados do dia
 
