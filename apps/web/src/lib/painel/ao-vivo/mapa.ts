@@ -153,6 +153,47 @@ export function celulasDoFiltro(b: BlocoDoMapa, filtro: FiltroDoMapa): { celulas
   return { celulas: base.filter((c) => c.estado === "sumiu" || ficam.has(c.id)), ocultos: cadastrados.length - CELULAS_POR_BLOCO_NO_LIMITE };
 }
 
+export type ResumoDoBloco = { grupos: number; pessoas: number; pctDasVagas: number | null; entraramHoje: number };
+
+const finito = (n: number) => (Number.isFinite(n) ? n : 0);
+
+/**
+ * Os números do cabeçalho do bloco no celular. O sumiu entra como grupo e como entrada (membros e capacidade 0).
+ * A % das vagas só olha os grupos com capacidade conhecida: pessoas de grupo sem capacidade não inflam a conta;
+ * sem nenhuma capacidade conhecida ela é `null` e a tela omite a frase.
+ */
+export function resumoDoBloco(b: BlocoDoMapa): ResumoDoBloco {
+  const comVaga = b.todas.filter((c) => finito(c.capacidade) > 0);
+  const vagas = comVaga.reduce((s, c) => s + c.capacidade, 0);
+  const ocupadas = comVaga.reduce((s, c) => s + finito(c.membros), 0);
+  return {
+    grupos: b.todas.length,
+    pessoas: b.todas.reduce((s, c) => s + finito(c.membros), 0),
+    pctDasVagas: vagas > 0 ? Math.round((ocupadas / vagas) * 100) : null,
+    entraramHoje: b.todas.reduce((s, c) => s + c.entraram, 0),
+  };
+}
+
+/** Rótulo da célula no celular: sem o "#" ("40"); o sumiu não escreve a palavra (a célula mostra um ícone). */
+export function rotuloNoCelular(c: CelulaDoMapa): string {
+  return c.estado === "sumiu" ? "" : c.rotulo.replace(/^#/, "");
+}
+
+/** "+N" da célula do celular em no máximo 3 caracteres: "+42", "120" (sem o +), "1k". O nome acessível guarda o número inteiro. */
+export function entradaNoCelular(n: number): string {
+  if (!(n > 0)) return "";
+  if (n < 100) return `+${n}`;
+  if (n < 1000) return String(n);
+  return `${Math.min(99, Math.floor(n / 1000))}k`;
+}
+
+/** O grupo aberto hoje mais recente entre as células mostradas (horas "HH:MM" do mesmo dia comparam como texto). */
+export function novoDoBloco(celulas: CelulaDoMapa[]): { hora: string; rotulo: string } | null {
+  let achado: CelulaDoMapa | null = null;
+  for (const c of celulas) if (c.novoAs && (!achado || c.novoAs >= achado.novoAs!)) achado = c;
+  return achado ? { hora: achado.novoAs!, rotulo: achado.rotulo } : null;
+}
+
 function alertasDoMapa(grupos: Group[], campanhas: CampanhaDoMapa[], porId: Map<string, Group>): AlertaDoMapa[] {
   const alertas: AlertaDoMapa[] = [];
   for (const c of campanhas) {

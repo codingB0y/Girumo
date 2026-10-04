@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Link2Off } from "lucide-react";
+import { CircleSlash, Link2Off } from "lucide-react";
 import { numero } from "@/lib/painel/grupos";
-import { rotuloAcessivel, TEXTO_DO_ESTADO, type CelulaDoMapa } from "@/lib/painel/ao-vivo/mapa";
+import { entradaNoCelular, rotuloAcessivel, rotuloNoCelular, TEXTO_DO_ESTADO, type CelulaDoMapa } from "@/lib/painel/ao-vivo/mapa";
 import { cn } from "@/lib/utils";
 
 /**
@@ -56,7 +56,8 @@ export function CelulaDoGrupo({ celula: c, bloco }: { celula: CelulaDoMapa; bloc
 
   return (
     <div
-      className="relative h-14 w-14"
+      data-testid="celula-do-grupo"
+      className="relative h-14 w-14 max-md:h-9 max-md:w-auto"
       onMouseEnter={() => setMouse(true)}
       onMouseLeave={() => setMouse(false)}
       onFocus={() => setFoco(true)}
@@ -69,20 +70,33 @@ export function CelulaDoGrupo({ celula: c, bloco }: { celula: CelulaDoMapa; bloc
       >
         <span
           aria-hidden="true"
-          className={cn("relative flex h-full w-full flex-col justify-between overflow-hidden rounded-md border bg-paper-0 p-1 tabular-nums", BORDA[c.estado])}
+          className={cn("relative flex h-full w-full flex-col justify-between overflow-hidden rounded-md border bg-paper-0 p-1 tabular-nums max-md:rounded-[4px] max-md:px-1 max-md:py-[3px]", BORDA[c.estado])}
         >
           <span className={cn("absolute inset-x-0 bottom-0", PREENCHIMENTO[c.estado])} style={{ height: `${Math.round(c.lotacao * 100)}%` }} />
-          {c.estado === "sem_convite" && <Link2Off className="absolute right-1 top-1 h-3 w-3 text-saida" aria-hidden="true" />}
-          <span className="relative text-12 font-semibold leading-none text-volt-950">{c.rotulo}</span>
-          <span className="relative text-[11px] leading-none text-volt-950">
-            {c.novoAs ? `novo ${c.novoAs}` : c.entraram > 0 ? `+${numero(c.entraram)}` : ""}
+          {c.estado === "sem_convite" && <Link2Off className="absolute right-1 top-1 h-3 w-3 text-saida max-md:hidden" aria-hidden="true" />}
+          <span className="relative text-12 font-semibold leading-none text-volt-950">
+            <span className="max-md:hidden">{c.rotulo}</span>
+            <span className="md:hidden">{rotuloNoCelular(c)}</span>
+          </span>
+          <span className="relative leading-none text-volt-950">
+            <span className="text-[11px] max-md:hidden">{c.novoAs ? `novo ${c.novoAs}` : c.entraram > 0 ? `+${numero(c.entraram)}` : ""}</span>
+            {/* Celular (mockup .f-cx): o ícone de alerta ocupa a linha de baixo e vence o "+N"; o "novo HH:MM" vira a anotação do bloco. */}
+            <span className="flex text-12 md:hidden">
+              {c.estado === "sem_convite" ? (
+                <Link2Off className="h-3 w-3 text-saida" aria-hidden="true" />
+              ) : c.estado === "sumiu" ? (
+                <CircleSlash className="h-3 w-3 text-slate-600" aria-hidden="true" />
+              ) : (
+                entradaNoCelular(c.entraram)
+              )}
+            </span>
           </span>
         </span>
       </Link>
-      {/* Dica no hover e no foco do teclado; o leitor de tela já tem tudo no aria-label. O pb-1.5 faz a ponte
+      {/* Dica no hover e no foco do teclado (no celular não: a célula é um toque que já leva ao grupo, e a dica passaria da borda da tela); o leitor de tela já tem tudo no aria-label. O pb-1.5 faz a ponte
           entre a célula e a caixa: o mouse não passa por um vão ao subir até ela. */}
       {aberta && (
-        <span aria-hidden="true" className="absolute bottom-full left-1/2 z-20 -translate-x-1/2 pb-1.5">
+        <span aria-hidden="true" className="absolute bottom-full max-md:hidden left-1/2 z-20 -translate-x-1/2 pb-1.5">
           <span className="block w-max max-w-[220px] rounded-md bg-volt-950 px-2.5 py-1.5 text-12 leading-snug text-paper-0 shadow-lg">
             <span className="block font-semibold">{c.nome}</span>
             {c.estado === "sumiu" ? (

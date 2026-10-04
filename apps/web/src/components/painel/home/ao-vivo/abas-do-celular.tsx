@@ -57,14 +57,25 @@ export function AbasDoCelular({ aba, contadores, onEscolher }: Props) {
           >
             {ROTULO[a]}
             {contador && (
-              <span className="text-12 tabular-nums text-slate-600">
+              <span
+                className={cn(
+                  "tabular-nums",
+                  // Pessoas esperando na fila: pílula neutra (mockup .f-count); os outros contadores seguem como texto.
+                  a === "relampago" && contador !== "●"
+                    ? "inline-grid h-[18px] min-w-5 place-items-center rounded-full bg-poco px-1.5 text-12 font-bold leading-none text-volt-950"
+                    : "text-12 text-slate-600",
+                )}
+              >
                 {contador === "●" ? (
                   <>
                     <span aria-hidden="true">●</span>
                     <span className="sr-only">no ar</span>
                   </>
                 ) : (
-                  contador
+                  <>
+                    {contador}
+                    {a === "relampago" && <span className="sr-only"> esperando</span>}
+                  </>
                 )}
               </span>
             )}
