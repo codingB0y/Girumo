@@ -52,6 +52,14 @@ drop policy if exists "ig_accounts_tenant_read" on public.ig_accounts;
 create policy "ig_accounts_tenant_read" on public.ig_accounts
   for select to authenticated using (app.has_membership(tenant_id));
 revoke insert, update, delete, truncate on public.ig_accounts from authenticated;
+-- O token (mesmo cifrado) não sai pelo PostgREST: authenticated lê todas as
+-- colunas menos access_token_enc. O app lê pelo service role, que não é afetado.
+revoke select on public.ig_accounts from authenticated;
+grant select (
+  id, tenant_id, ig_user_id, username, token_expires_at, last_refresh_at,
+  webhook_subscribed, status, last_error, connected_at, updated_at,
+  provider, provider_account_id, provider_profile_id
+) on public.ig_accounts to authenticated;
 
 -- ------------------------------------------------------------
 -- 2) ig_triggers e ig_events saem (nunca tiveram código nem linha)
@@ -118,7 +126,9 @@ create trigger set_updated_at_ig_flows before update on public.ig_flows
 create table if not exists public.ig_runs (
   id                 uuid primary key default gen_random_uuid(),
   tenant_id          uuid not null references public.organizations(id) on delete cascade,
-  ig_account_id      uuid not null references public.ig_accounts(id) on delete cascade,
+  -- set null, não cascade: trocar a conta conectada (1 por loja) apaga a linha
+  -- de ig_accounts, e o histórico de runs tem que sobreviver a isso.
+  ig_account_id      uuid,
   flow_id            uuid not null references public.ig_flows(id) on delete cascade,
   flow_version       integer not null,
   source_kind        text not null check (source_kind in ('comment', 'dm', 'story')),
@@ -163,6 +173,30 @@ create policy "ig_runs_tenant_read" on public.ig_runs
 revoke all on public.ig_runs from authenticated;
 grant select on public.ig_runs to authenticated;
 
+-- O FK de ig_account_id fica fora do create table para a re-execução também
+-- converter uma versão anterior (not null + on delete cascade) em set null.
+alter table public.ig_runs alter column ig_account_id drop not null;
+do $$
+begin
+  if exists (
+    select 1 from pg_constraint
+    where conname = 'ig_runs_ig_account_id_fkey'
+      and conrelid = 'public.ig_runs'::regclass
+      and confdeltype <> 'n'
+  ) then
+    alter table public.ig_runs drop constraint ig_runs_ig_account_id_fkey;
+  end if;
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'ig_runs_ig_account_id_fkey'
+      and conrelid = 'public.ig_runs'::regclass
+  ) then
+    alter table public.ig_runs
+      add constraint ig_runs_ig_account_id_fkey
+      foreign key (ig_account_id) references public.ig_accounts(id) on delete set null;
+  end if;
+end $$;
+
 create index if not exists ig_runs_account_idx on public.ig_runs (ig_account_id);
 -- ig_runs_flow_idx comeca em tenant_id; o FK flow_id precisa de indice proprio.
 create index if not exists ig_runs_flow_fk_idx on public.ig_runs (flow_id);
@@ -197,6 +231,8 @@ revoke all on public.ig_run_steps from authenticated;
 grant select on public.ig_run_steps to authenticated;
 
 create index if not exists ig_run_steps_run_idx on public.ig_run_steps (run_id);
+-- ig_run_steps_flow_idx começa em tenant_id; o cascade de apagar fluxo precisa deste.
+create index if not exists ig_run_steps_flow_fk_idx on public.ig_run_steps (flow_id);
 
 -- ------------------------------------------------------------
 -- 6) A liberação por loja (add-on). Ligada à mão até a fase 4 (cobrança).
