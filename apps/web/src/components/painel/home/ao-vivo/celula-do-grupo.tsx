@@ -18,6 +18,7 @@ const PREENCHIMENTO: Record<CelulaDoMapa["estado"], string> = {
   quase: "bg-quase/25 border-t-2 border-quase",
   ativo: "bg-slate-600/20 border-t border-slate-600/60",
   sem_convite: "bg-slate-600/15",
+  sumiu: "",
 };
 
 export function CelulaDoGrupo({ celula: c, bloco }: { celula: CelulaDoMapa; bloco: string }) {
@@ -31,7 +32,7 @@ export function CelulaDoGrupo({ celula: c, bloco }: { celula: CelulaDoMapa; bloc
         aria-hidden="true"
         className={cn(
           "relative flex h-full w-full flex-col justify-between overflow-hidden rounded-md border bg-paper-0 p-1 tabular-nums",
-          c.estado === "sem_convite" ? "border-saida" : "border-line-200",
+          c.estado === "sem_convite" ? "border-saida" : c.estado === "sumiu" ? "border-dashed border-slate-600" : "border-line-200",
         )}
       >
         <span className={cn("absolute inset-x-0 bottom-0", PREENCHIMENTO[c.estado])} style={{ height: `${Math.round(c.lotacao * 100)}%` }} />
@@ -47,9 +48,13 @@ export function CelulaDoGrupo({ celula: c, bloco }: { celula: CelulaDoMapa; bloc
         className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1.5 hidden w-max max-w-[220px] -translate-x-1/2 rounded-md bg-volt-950 px-2.5 py-1.5 text-12 leading-snug text-paper-0 shadow-lg group-hover/celula:block group-focus-visible/celula:block"
       >
         <span className="block font-semibold">{c.nome}</span>
-        <span className="block tabular-nums">
-          {numero(c.membros)} / {numero(c.capacidade)} · {Math.round(c.lotacao * 100)}% · {TEXTO_DO_ESTADO[c.estado]}
-        </span>
+        {c.estado === "sumiu" ? (
+          <span className="block">{TEXTO_DO_ESTADO.sumiu}</span>
+        ) : (
+          <span className="block tabular-nums">
+            {numero(c.membros)} / {numero(c.capacidade)} · {Math.round(c.lotacao * 100)}% · {TEXTO_DO_ESTADO[c.estado]}
+          </span>
+        )}
         {(c.entraram > 0 || c.sairam > 0) && (
           <span className="block tabular-nums">
             hoje: +{numero(c.entraram)} −{numero(c.sairam)}

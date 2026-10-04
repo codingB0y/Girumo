@@ -6,7 +6,7 @@ import { AlertTriangle } from "lucide-react";
 import type { Campanha } from "@/components/painel/home/types";
 import type { Group } from "@/lib/mock-data";
 import type { AtividadeDaCampanha } from "@/lib/painel/atividade";
-import { montarMapa, type FiltroDoMapa } from "@/lib/painel/ao-vivo/mapa";
+import { celulasDoFiltro, montarMapa, type FiltroDoMapa } from "@/lib/painel/ao-vivo/mapa";
 import { numero } from "@/lib/painel/grupos";
 import { cn } from "@/lib/utils";
 import { CelulaDoGrupo } from "./celula-do-grupo";
@@ -17,6 +17,7 @@ const FILTROS: [FiltroDoMapa, string][] = [
   ["quase", "Quase"],
   ["ativo", "Ativo"],
   ["sem_convite", "Sem convite"],
+  ["sumiu", "Sumiu"],
 ];
 
 const LEGENDA: [string, string][] = [
@@ -24,6 +25,7 @@ const LEGENDA: [string, string][] = [
   ["bg-quase", "quase"],
   ["bg-slate-600", "com vaga"],
   ["border border-saida", "sem convite"],
+  ["border border-dashed border-slate-600", "sumiu do cadastro"],
 ];
 
 const textoAbreOutro = (ligado: boolean) => `Lotou → abre outro: ${ligado ? "ligado" : "desligado"}`;
@@ -46,6 +48,7 @@ export function MapaDosGrupos({ grupos, campanhas, atividade }: Props) {
       }),
     [grupos, campanhas, atividade],
   );
+  const filtros = FILTROS.filter(([f]) => f !== "sumiu" || mapa.contagens.sumiu > 0);
   const pessoas = grupos.reduce((s, g) => s + (Number.isFinite(g.members) ? g.members : 0), 0);
 
   return (
@@ -54,14 +57,14 @@ export function MapaDosGrupos({ grupos, campanhas, atividade }: Props) {
         <h2 id="mapa-titulo" className="text-[16px] font-semibold text-volt-950">
           Mapa dos grupos
         </h2>
-        {grupos.length > 0 && (
+        {mapa.contagens.todos > 0 && (
           <p className="text-13 tabular-nums text-slate-600">
             {numero(grupos.length)} {grupos.length === 1 ? "grupo" : "grupos"} · {numero(pessoas)} pessoas
           </p>
         )}
-        {grupos.length > 0 && (
+        {mapa.contagens.todos > 0 && (
           <div role="group" aria-label="Filtrar grupos" className="flex w-full gap-1 overflow-x-auto sm:ml-auto sm:w-auto">
-            {FILTROS.map(([f, rotulo]) => (
+            {filtros.map(([f, rotulo]) => (
               <button
                 key={f}
                 type="button"
@@ -79,7 +82,7 @@ export function MapaDosGrupos({ grupos, campanhas, atividade }: Props) {
         )}
       </div>
 
-      {grupos.length === 0 ? (
+      {mapa.contagens.todos === 0 ? (
         <div className="px-5 py-8 text-center">
           <p className="text-15 font-semibold text-volt-950">Nenhum grupo ainda</p>
           <p className="mt-1 text-13 text-slate-600">Crie ou importe seus grupos do WhatsApp para vê-los aqui.</p>
@@ -103,12 +106,12 @@ export function MapaDosGrupos({ grupos, campanhas, atividade }: Props) {
             </ul>
           )}
 
-          {!mapa.blocos.some((b) => filtro === "todos" || b.celulas.some((c) => c.estado === filtro)) && (
+          {!mapa.blocos.some((b) => filtro === "todos" || b.todas.some((c) => c.estado === filtro)) && (
             <p className="text-13 text-slate-600">Nenhum grupo em &quot;{FILTROS.find(([f]) => f === filtro)?.[1]}&quot;.</p>
           )}
 
           {mapa.blocos.map((b) => {
-            const celulas = filtro === "todos" ? b.celulas : b.celulas.filter((c) => c.estado === filtro);
+            const { celulas, ocultos } = celulasDoFiltro(b, filtro);
             if (celulas.length === 0) return null;
             return (
               <div key={b.chave}>
@@ -117,7 +120,7 @@ export function MapaDosGrupos({ grupos, campanhas, atividade }: Props) {
                     <Link href={b.href} className="hover:underline">
                       {b.titulo}
                     </Link>{" "}
-                    <span className="font-normal tabular-nums text-slate-600">{b.celulas.length + b.ocultos}</span>
+                    <span className="font-normal tabular-nums text-slate-600">{b.todas.length}</span>
                   </h3>
                   {b.autoGrow !== null && (
                     <p className="text-12 text-slate-600">
@@ -138,11 +141,11 @@ export function MapaDosGrupos({ grupos, campanhas, atividade }: Props) {
                     </li>
                   ))}
                 </ul>
-                {b.ocultos > 0 && (
+                {ocultos > 0 && (
                   <p className="mt-2 text-12 text-slate-600">
-                    mostrando os {b.celulas.length} mais cheios ·{" "}
+                    mostrando os {celulas.filter((c) => c.estado !== "sumiu").length} mais cheios ·{" "}
                     <Link href={b.href} className="font-semibold text-cobalt-500 hover:underline">
-                      ver todos os {numero(b.celulas.length + b.ocultos)}
+                      ver todos os {numero(celulas.length + ocultos)}
                     </Link>
                   </p>
                 )}

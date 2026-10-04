@@ -1,7 +1,8 @@
 import { horaBR } from "@/lib/date-br";
 import type { Group } from "@/lib/mock-data";
 import type { GrupoAberto, Movimento } from "@/lib/painel/atividade";
-import { estadoDoGrupo, lotacao, maisCheioPrimeiro, numero, type EstadoDoGrupo } from "@/lib/painel/grupos";
+import type { EstadoNaCampanha } from "@/lib/painel/campanha-visao";
+import { estadoDoGrupo, lotacao, numero } from "@/lib/painel/grupos";
 
 /**
  * O mapa dos grupos da Início "Ao vivo" (spec 2026-10-02): uma célula por grupo,
@@ -9,7 +10,8 @@ import { estadoDoGrupo, lotacao, maisCheioPrimeiro, numero, type EstadoDoGrupo }
  * de Grupos, para o mapa nunca discordar dela.
  */
 
-export type FiltroDoMapa = "todos" | EstadoDoGrupo;
+/** `sumiu` é o mesmo estado da página da campanha: o grupo está na campanha mas não no cadastro. */
+export type FiltroDoMapa = "todos" | EstadoNaCampanha;
 
 export type CelulaDoMapa = {
   id: string;
@@ -18,7 +20,7 @@ export type CelulaDoMapa = {
   membros: number;
   capacidade: number;
   lotacao: number;
-  estado: EstadoDoGrupo;
+  estado: EstadoNaCampanha;
   entraram: number;
   sairam: number;
   /** "09:14" quando o "Lotou → abre outro" abriu o grupo hoje. */
@@ -32,9 +34,13 @@ export type BlocoDoMapa = {
   href: string;
   /** Nulo em "Outros grupos" e quando a campanha não diz. */
   autoGrow: boolean | null;
+  /** Com o filtro "Todos": no limite (lojas com mais de 200 grupos) só os mais cheios. */
   celulas: CelulaDoMapa[];
-  /** Grupos que ficaram fora no limite (lojas com mais de 200 grupos). */
+  /** Grupos que ficaram fora de `celulas` no limite. */
   ocultos: number;
+  /** Todos os grupos do bloco, em ordem; é onde um filtro procura (`celulasDoFiltro`). */
+  todas: CelulaDoMapa[];
+  limitado: boolean;
 };
 
 export type AlertaDoMapa = { chave: string; texto: string; acao: { rotulo: string; href: string } };
@@ -48,11 +54,12 @@ export const LIMITE_DO_MAPA_INTEIRO = 200;
 export const CELULAS_POR_BLOCO_NO_LIMITE = 60;
 export const MAX_ALERTAS = 3;
 
-export const TEXTO_DO_ESTADO: Record<EstadoDoGrupo, string> = {
+export const TEXTO_DO_ESTADO: Record<EstadoNaCampanha, string> = {
   cheio: "lotou",
   quase: "quase lotado",
   ativo: "com vaga",
   sem_convite: "sem convite",
+  sumiu: "sumiu do cadastro",
 };
 
 const GRUPOS = "/painel/grupos";
@@ -87,15 +94,21 @@ function gruposDa(c: CampanhaDoMapa, porId: Map<string, Group>): Group[] {
   });
 }
 
+/** Os ids da campanha sem registro no cadastro (a página da campanha os chama de "sumiu"). */
+function sumidosDa(c: CampanhaDoMapa, porId: Map<string, Group>): string[] {
+  return [...new Set(c.groupIds)].filter((id) => !porId.has(id));
+}
+
 type Contexto = { hoje: Record<string, Movimento>; novos: Map<string, string>; limitar: boolean };
 
-function bloco(chave: string, titulo: string, href: string, autoGrow: boolean | null, grupos: Group[], ctx: Contexto): BlocoDoMapa {
-  const visiveis =
-    ctx.limitar && grupos.length > CELULAS_POR_BLOCO_NO_LIMITE ? maisCheioPrimeiro(grupos).slice(0, CELULAS_POR_BLOCO_NO_LIMITE) : grupos;
-  const celulas = emOrdem(visiveis).map((g, i): CelulaDoMapa => {
+function bloco(chave: string, titulo: string, href: string, autoGrow: boolean | null, grupos: Group[], sumidos: string[], ctx: Contexto): BlocoDoMapa {
+  const movimento = (id: string) => ({
+    entraram: ctx.hoje[id]?.entraram ?? 0,
+    sairam: ctx.hoje[id]?.sairam ?? 0,
+    novoAs: ctx.novos.has(id) ? horaBR(ctx.novos.get(id)!) : null,
+  });
+  const cadastrados = emOrdem(grupos).map((g, i): CelulaDoMapa => {
     const n = numeroDoGrupo(g);
-    const mov = ctx.hoje[g.whatsappGroupId];
-    const aberto = ctx.novos.get(g.whatsappGroupId);
     return {
       id: g.whatsappGroupId,
       rotulo: n !== null ? `#${n}` : `${i + 1}º`,
@@ -104,13 +117,43 @@ function bloco(chave: string, titulo: string, href: string, autoGrow: boolean | 
       capacidade: g.capacity,
       lotacao: lotacao(g.members, g.capacity),
       estado: estadoDoGrupo(g),
-      entraram: mov?.entraram ?? 0,
-      sairam: mov?.sairam ?? 0,
-      novoAs: aberto ? horaBR(aberto) : null,
+      ...movimento(g.whatsappGroupId),
       href,
     };
   });
-  return { chave, titulo, href, autoGrow, celulas, ocultos: grupos.length - visiveis.length };
+  const sumiram = sumidos.map(
+    (id, i): CelulaDoMapa => ({
+      id,
+      rotulo: "sumiu",
+      nome: `Grupo ${i + 1} da campanha`,
+      membros: 0,
+      capacidade: 0,
+      lotacao: 0,
+      estado: "sumiu",
+      ...movimento(id),
+      href,
+    }),
+  );
+  const parcial: BlocoDoMapa = { chave, titulo, href, autoGrow, celulas: [], ocultos: 0, todas: [...cadastrados, ...sumiram], limitado: ctx.limitar };
+  return { ...parcial, ...celulasDoFiltro(parcial, "todos") };
+}
+
+/**
+ * As células a mostrar para um filtro. O filtro age em TODOS os grupos do bloco e só
+ * depois vem o limite dos 60 mais cheios: "Sem convite 5" lista os 5 mesmo que nenhum
+ * esteja entre os 60 mais cheios. Quem sumiu do cadastro nunca é cortado — é o alerta.
+ */
+export function celulasDoFiltro(b: BlocoDoMapa, filtro: FiltroDoMapa): { celulas: CelulaDoMapa[]; ocultos: number } {
+  const base = filtro === "todos" ? b.todas : b.todas.filter((c) => c.estado === filtro);
+  const cadastrados = base.filter((c) => c.estado !== "sumiu");
+  if (!b.limitado || cadastrados.length <= CELULAS_POR_BLOCO_NO_LIMITE) return { celulas: base, ocultos: 0 };
+  const ficam = new Set(
+    [...cadastrados]
+      .sort((a, z) => z.lotacao - a.lotacao || a.nome.localeCompare(z.nome, "pt-BR"))
+      .slice(0, CELULAS_POR_BLOCO_NO_LIMITE)
+      .map((c) => c.id),
+  );
+  return { celulas: base.filter((c) => c.estado === "sumiu" || ficam.has(c.id)), ocultos: cadastrados.length - CELULAS_POR_BLOCO_NO_LIMITE };
 }
 
 function alertasDoMapa(grupos: Group[], campanhas: CampanhaDoMapa[], porId: Map<string, Group>): AlertaDoMapa[] {
@@ -161,25 +204,30 @@ export function montarMapa({
   const blocos: BlocoDoMapa[] = [];
   for (const c of campanhas) {
     const doBloco = gruposDa(c, porId);
-    if (doBloco.length === 0) continue;
+    const sumidos = sumidosDa(c, porId);
+    if (doBloco.length + sumidos.length === 0) continue;
     for (const g of doBloco) emCampanha.add(g.whatsappGroupId);
-    blocos.push(bloco(c.id, c.name, hrefDaCampanha(c), c.autoGrow ?? null, doBloco, ctx));
+    blocos.push(bloco(c.id, c.name, hrefDaCampanha(c), c.autoGrow ?? null, doBloco, sumidos, ctx));
   }
   const fora = grupos.filter((g) => !emCampanha.has(g.whatsappGroupId));
-  if (fora.length > 0) blocos.push(bloco("outros", "Outros grupos", GRUPOS, null, fora, ctx));
+  if (fora.length > 0) blocos.push(bloco("outros", "Outros grupos", GRUPOS, null, fora, [], ctx));
 
-  const contagens: Record<FiltroDoMapa, number> = { todos: grupos.length, cheio: 0, quase: 0, ativo: 0, sem_convite: 0 };
+  const contagens: Record<FiltroDoMapa, number> = { todos: 0, cheio: 0, quase: 0, ativo: 0, sem_convite: 0, sumiu: 0 };
   for (const g of grupos) contagens[estadoDoGrupo(g)] += 1;
+  for (const b of blocos) contagens.sumiu += b.todas.filter((c) => c.estado === "sumiu").length;
+  contagens.todos = grupos.length + contagens.sumiu;
 
   return { blocos, contagens, alertas: alertasDoMapa(grupos, campanhas, porId) };
 }
 
 /** O que a célula diz para quem não enxerga a cor (e para o leitor de tela). */
 export function rotuloAcessivel(bloco: string, c: CelulaDoMapa): string {
-  const titulo = `${bloco} ${c.rotulo}`;
+  const sumiu = c.estado === "sumiu";
+  const titulo = sumiu ? bloco : `${bloco} ${c.rotulo}`;
   // O grupo costuma se chamar exatamente "<campanha> #n": não repetir.
   const partes = c.nome === titulo ? [titulo] : [titulo, c.nome];
-  partes.push(`${numero(c.membros)} de ${numero(c.capacidade)}`, TEXTO_DO_ESTADO[c.estado]);
+  if (!sumiu) partes.push(`${numero(c.membros)} de ${numero(c.capacidade)}`);
+  partes.push(TEXTO_DO_ESTADO[c.estado]);
   if (c.entraram > 0) partes.push(`${numero(c.entraram)} ${c.entraram === 1 ? "entrou" : "entraram"} hoje`);
   if (c.sairam > 0) partes.push(`${numero(c.sairam)} ${c.sairam === 1 ? "saiu" : "saíram"} hoje`);
   if (c.novoAs) partes.push(`aberto hoje às ${c.novoAs}`);

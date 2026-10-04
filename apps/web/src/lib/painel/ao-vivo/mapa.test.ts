@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { Group } from "@/lib/mock-data";
-import { CELULAS_POR_BLOCO_NO_LIMITE, MAX_ALERTAS, montarMapa, rotuloAcessivel, type CampanhaDoMapa } from "./mapa";
+import { CELULAS_POR_BLOCO_NO_LIMITE, celulasDoFiltro, MAX_ALERTAS, montarMapa, rotuloAcessivel, type CampanhaDoMapa } from "./mapa";
 
 const CONVITE = "https://chat.whatsapp.com/abc";
 
@@ -29,10 +29,10 @@ test("agrupa por campanha, ordena pelo número do grupo e põe os fora de campan
   assert.equal(mapa.blocos[1].celulas[0].rotulo, "1º");
 });
 
-test("displayNumber vence o número do nome; campanha sem grupo cadastrado não vira bloco", () => {
+test("displayNumber vence o número do nome", () => {
   const mapa = montarMapa({
     grupos: [grupo("a", { name: "VIP #3", displayNumber: 12 })],
-    campanhas: [{ ...vip, groupIds: ["a@g.us"] }, { id: "c-vazia", name: "Vazia", groupIds: ["sumiu@g.us"] }],
+    campanhas: [{ ...vip, groupIds: ["a@g.us"] }, { id: "c-nada", name: "Nada", groupIds: [] }],
     hojePorGrupo: {},
     abertosHoje: [],
   });
@@ -60,7 +60,7 @@ test("estado, lotação, +n e −n de hoje e a hora de Brasília em que o grupo 
   assert.equal(c39.sairam, 2);
   assert.equal(c2.estado, "sem_convite");
   assert.equal(c2.entraram, 0);
-  assert.deepEqual(mapa.contagens, { todos: 3, cheio: 1, quase: 1, ativo: 0, sem_convite: 1 });
+  assert.deepEqual(mapa.contagens, { todos: 3, cheio: 1, quase: 1, ativo: 0, sem_convite: 1, sumiu: 0 });
 });
 
 test("acima de 200 grupos, cada campanha mostra os 60 mais cheios e conta os escondidos", () => {
@@ -164,4 +164,65 @@ test("o rotulo acessivel concorda no singular: 1 entrou, 1 saiu", () => {
     rotuloAcessivel("VIP Revenda", mapa.blocos[0].celulas[0]),
     "VIP Revenda #39, VIP #39, 100 de 1.000, com vaga, 1 entrou hoje, 1 saiu hoje",
   );
+});
+
+test("filtro diferente de Todos busca em todos os grupos do bloco, não só nos 60 mais cheios", () => {
+  const ids = Array.from({ length: 250 }, (_, i) => String(i + 1));
+  // Os 5 sem convite estão vazios, logo fora dos 60 mais cheios.
+  const semConvite = new Set(["1", "2", "3", "4", "5"]);
+  const mapa = montarMapa({
+    grupos: ids.map((id, i) => grupo(id, { members: semConvite.has(id) ? 0 : i + 10, inviteUrl: semConvite.has(id) ? "" : CONVITE })),
+    campanhas: [{ ...vip, groupIds: ids.map((id) => `${id}@g.us`) }],
+    hojePorGrupo: {},
+    abertosHoje: [],
+  });
+  const [b] = mapa.blocos;
+  assert.equal(b.celulas.some((c) => c.estado === "sem_convite"), false);
+  assert.equal(mapa.contagens.sem_convite, 5);
+  const filtrado = celulasDoFiltro(b, "sem_convite");
+  assert.deepEqual(filtrado.celulas.map((c) => c.rotulo), ["#1", "#2", "#3", "#4", "#5"]);
+  assert.equal(filtrado.ocultos, 0);
+  // "Todos" continua no limite; um filtro com mais de 60 também é cortado, depois de filtrar.
+  assert.deepEqual(celulasDoFiltro(b, "todos"), { celulas: b.celulas, ocultos: b.ocultos });
+  const ativos = celulasDoFiltro(b, "ativo");
+  assert.equal(ativos.celulas.length, CELULAS_POR_BLOCO_NO_LIMITE);
+  assert.equal(ativos.ocultos, 245 - CELULAS_POR_BLOCO_NO_LIMITE);
+});
+
+test("grupo da campanha que não está no cadastro entra no bloco como 'sumiu', contado e com nome acessível", () => {
+  const mapa = montarMapa({
+    grupos: [grupo("40")],
+    campanhas: [{ ...vip, groupIds: ["40@g.us", "x@g.us", "x@g.us", "y@g.us"] }],
+    hojePorGrupo: { "x@g.us": { entraram: 3, sairam: 0 } },
+    abertosHoje: [],
+  });
+  const [b] = mapa.blocos;
+  assert.deepEqual(b.celulas.map((c) => [c.rotulo, c.estado]), [["#40", "ativo"], ["sumiu", "sumiu"], ["sumiu", "sumiu"]]);
+  assert.equal(mapa.contagens.sumiu, 2);
+  assert.equal(mapa.contagens.todos, 3);
+  assert.equal(mapa.contagens.ativo, 1);
+  assert.deepEqual(celulasDoFiltro(b, "sumiu").celulas.map((c) => c.nome), ["Grupo 1 da campanha", "Grupo 2 da campanha"]);
+  assert.equal(rotuloAcessivel("VIP Revenda", b.celulas[1]), "VIP Revenda, Grupo 1 da campanha, sumiu do cadastro, 3 entraram hoje");
+});
+
+test("campanha em que todos os grupos sumiram ainda vira bloco; sumiu não é cortado no limite de 200+", () => {
+  const todosSumiram = montarMapa({
+    grupos: [],
+    campanhas: [{ id: "c-vazia", name: "Vazia", groupIds: ["a@g.us"] }],
+    hojePorGrupo: {},
+    abertosHoje: [],
+  });
+  assert.deepEqual(todosSumiram.blocos.map((b) => [b.titulo, b.celulas.length]), [["Vazia", 1]]);
+
+  const ids = Array.from({ length: 201 }, (_, i) => String(i + 1));
+  const mapa = montarMapa({
+    grupos: ids.map((id, i) => grupo(id, { members: i })),
+    campanhas: [{ ...vip, groupIds: [...ids.map((id) => `${id}@g.us`), "x@g.us"] }],
+    hojePorGrupo: {},
+    abertosHoje: [],
+  });
+  const [b] = mapa.blocos;
+  assert.equal(b.celulas.length, CELULAS_POR_BLOCO_NO_LIMITE + 1);
+  assert.equal(b.celulas.at(-1)?.estado, "sumiu");
+  assert.equal(b.ocultos, 201 - CELULAS_POR_BLOCO_NO_LIMITE);
 });
