@@ -37,7 +37,7 @@ function Bloco({ ctx, node, indice, ramos, fim }: { ctx: Contexto; node: FlowNod
         {(ramos.length > 0 || fim) && (
           <ul className="mt-4 grid gap-2">
             {fim && !fim.to && (
-              <li className="text-13 text-slate-600"><span className="font-medium text-volt-950">{rotuloDaSaida(fim.out, node)}</span> · fim do fluxo</li>
+              <li className="text-13 text-slate-600"><span className="font-medium text-volt-950">{rotuloDaSaida(fim.out, node)}</span> · Parou aqui</li>
             )}
             {ramos.map((r) => {
               const volta = r.volta ? nodeById(def, r.volta) : undefined;
