@@ -183,15 +183,16 @@ verificação em produção logado (1440 / 1100 / 390 + auditoria de contraste).
 | 6 | Celular com abas + estados de loja nova + e2e | — |
 | 7 | A Início nova vira padrão; apagar `InicioVitrine` e o que só ela usava; levar o editor da meta; tirar o `?ao-vivo` da rota e do hook (a parte `atividade` passa a vir sempre) | — |
 
+**PR 7 feito (7b).** `/painel` abre a Início nova; `?ao-vivo` de link antigo é ignorado. O editor da meta foi para a célula "Pedidos anotados hoje" da faixa ("definir meta" / "editar meta", campo inline, Enter salva, Esc devolve o foco ao botão). Apagados: `InicioVitrine`, `CaixaDoMes`, `CampanhasEtiquetas`, `EstoqueDeGrupos`, `QuemChegou`, `UltimoPost`, `VitrineAgora` e, em `lib/painel/inicio.ts`, `cabecalhoDoDia`, `linhaDoDia`, `diasRestantesNoMes`, `campanhasDaInicio` e `resumoDoEstoque` (com os testes). `Odometro` ficou, em `components/painel/odometro.tsx`, porque a Vitrine de Contatos o usa. Os e2e da casca e do cartão compartilhável apontam para a faixa.
+
 ## Testes
 
 - **Unitários** (`node --test`) em `lib/painel/ao-vivo/`: montagem da faixa (inclusive antes e depois de
   08/10), alertas do mapa, marcas do gráfico, término estimado, escolha da oferta e da aba inicial.
 - **Integração** (job e2e, banco de dev): `campaign_activity` com `p_campaign` nulo conta cliques de mais
   de uma campanha. Dado temporário no tenant de QA, apagado no fim. O QA continua **sem instância**.
-- **e2e:** `/painel?ao-vivo` com o tenant de QA (sem número): banner de desconectado, estados quietos,
-  zero botão/link acid, abas no celular. O e2e da casca da Vitrine continua valendo até o PR 7, que o
-  reaponta para a tela nova.
+- **e2e:** `/painel` (e o link antigo `?ao-vivo`) com o tenant de QA (sem número): banner de desconectado, estados quietos,
+  zero botão/link acid, abas no celular. O e2e da casca da Vitrine foi reapontado para a tela nova no PR 7b.
 
 ## Fora desta série
 
