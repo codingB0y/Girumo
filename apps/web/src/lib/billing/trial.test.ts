@@ -45,6 +45,18 @@ test("conta parada no FREE antigo (linha sem Stripe) é elegível", () => {
   assert.equal(trialEligible(facts(null, { status: "free", stripeSubscriptionId: null })), true);
 });
 
+test("concessão manual (active sem Stripe): continua elegível, mas não vê a oferta", () => {
+  // Spec 6: quem tem o plano concedido pelo admin não toma 402 e não deve ser empurrado
+  // para um teste em cima da concessão. Se um dia perder a concessão, a oferta volta.
+  const f = facts(null, { status: "active", stripeSubscriptionId: null, planName: "Growth" });
+  assert.equal(trialEligible(f), true);
+  assert.equal(trialView(f).elegivel, false);
+});
+
+test("conta parada no FREE antigo vê a oferta", () => {
+  assert.equal(trialView(facts(null, { status: "free", stripeSubscriptionId: null })).elegivel, true);
+});
+
 test("em teste: devolve fim, plano e preço", () => {
   const v = trialView(
     facts("sub_trial", {
