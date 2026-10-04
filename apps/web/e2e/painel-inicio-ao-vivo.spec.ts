@@ -1,13 +1,13 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * Início "Ao vivo" (spec 2026-10-02) atrás de ?ao-vivo. O tenant de QA não tem
- * número: a tela abre com o banner de desconectado e os números da loja.
+ * Início "Ao vivo" (spec 2026-10-02): a tela padrão de /painel. O tenant de QA
+ * não tem número: ela abre com o banner de desconectado e os números da loja.
  */
 
 test.describe("Início ao vivo", () => {
   test("abre com a faixa da loja e o número desconectado", async ({ page }) => {
-    await page.goto("/painel?ao-vivo", { waitUntil: "load" });
+    await page.goto("/painel", { waitUntil: "load" });
     await expect(page.getByTestId("painel-skeleton")).toHaveCount(0, { timeout: 30_000 });
     await expect(page.getByTestId("inicio-ao-vivo")).toBeVisible();
     const faixa = page.getByTestId("inicio-faixa");
@@ -25,14 +25,14 @@ test.describe("Início ao vivo", () => {
   });
 
   test("nenhum botão ou link em Acid (regra 10)", async ({ page }) => {
-    await page.goto("/painel?ao-vivo", { waitUntil: "load" });
+    await page.goto("/painel", { waitUntil: "load" });
     await expect(page.getByTestId("inicio-ao-vivo")).toBeVisible({ timeout: 30_000 });
     await expect(page.locator('button[class*="bg-acid"], a[class*="bg-acid"]')).toHaveCount(0);
   });
 
   test("a partir de 1400 px a Relâmpago fica na terceira coluna, mesmo quieta", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto("/painel?ao-vivo", { waitUntil: "load" });
+    await page.goto("/painel", { waitUntil: "load" });
     await expect(page.getByTestId("inicio-ao-vivo")).toBeVisible({ timeout: 30_000 });
     const relampago = await page.getByTestId("inicio-relampago").boundingBox();
     const mapa = await page.getByTestId("inicio-mapa").boundingBox();
@@ -43,7 +43,7 @@ test.describe("Início ao vivo", () => {
 
   test("no celular não há rolagem para o lado", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto("/painel?ao-vivo", { waitUntil: "load" });
+    await page.goto("/painel", { waitUntil: "load" });
     // Qual aba abre primeiro depende da loja: não esperar um painel específico.
     await expect(page.getByTestId("inicio-ao-vivo")).toBeVisible({ timeout: 30_000 });
     for (const nome of [/Relâmpago/, /Postando/, /Grupos/]) {
@@ -53,11 +53,30 @@ test.describe("Início ao vivo", () => {
     }
   });
 
-  test("sem o parâmetro, continua a Vitrine", async ({ page }) => {
+  test("o link antigo com ?ao-vivo abre a mesma tela", async ({ page }) => {
+    await page.goto("/painel?ao-vivo", { waitUntil: "load" });
+    await expect(page.getByTestId("inicio-ao-vivo")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("inicio-faixa")).toBeVisible();
+  });
+
+  // Não salva: o tenant de QA é compartilhado, e a meta dele não é nossa.
+  test("o editor da meta abre na faixa, Esc fecha e devolve o foco ao botão", async ({ page }) => {
     await page.goto("/painel", { waitUntil: "load" });
-    await expect(page.getByTestId("painel-skeleton")).toHaveCount(0, { timeout: 30_000 });
-    await expect(page.getByTestId("inicio-ao-vivo")).toHaveCount(0);
-    await expect(page.getByTestId("inicio-caixa")).toBeVisible();
+    const celula = page.getByTestId("inicio-faixa");
+    await expect(celula).toBeVisible({ timeout: 30_000 });
+    const botao = celula.getByRole("button", { name: /^(definir|editar) meta$/ });
+    await botao.click();
+    const campo = celula.getByRole("textbox", { name: "Meta do mês em R$" });
+    await expect(campo).toBeFocused();
+    await expect(celula.getByRole("button", { name: "Salvar" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(campo).toHaveCount(0);
+    await expect(botao).toBeFocused();
+    // Cancelar fecha do mesmo jeito.
+    await botao.click();
+    await celula.getByRole("button", { name: "Cancelar" }).click();
+    await expect(campo).toHaveCount(0);
+    await expect(botao).toBeFocused();
   });
 });
 
@@ -65,14 +84,14 @@ test.describe("Início ao vivo no celular", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
   test("as abas trocam a seção, a URL guarda a aba e a tela não rola para o lado", async ({ page }) => {
-    await page.goto("/painel?ao-vivo", { waitUntil: "load" });
+    await page.goto("/painel", { waitUntil: "load" });
     await expect(page.getByTestId("inicio-ao-vivo")).toBeVisible({ timeout: 30_000 });
     const abas = page.getByRole("tablist", { name: "Seções da tela ao vivo" });
     await expect(abas).toBeVisible();
     await abas.getByRole("tab", { name: /Grupos/ }).click();
     await expect(page.getByTestId("inicio-mapa")).toBeVisible();
     await expect(page.getByTestId("inicio-postando")).toBeHidden();
-    await expect(page).toHaveURL(/\?ao-vivo&aba=grupos$/);
+    await expect(page).toHaveURL(/\?aba=grupos$/);
     await abas.getByRole("tab", { name: /Postando/ }).click();
     await expect(page.getByTestId("inicio-postando")).toBeVisible();
     await expect(page.getByTestId("inicio-mapa")).toBeHidden();
@@ -87,7 +106,7 @@ test.describe("Início ao vivo no celular", () => {
   });
 
   test("a faixa rola de lado e nenhuma célula passa de 260 px", async ({ page }) => {
-    await page.goto("/painel?ao-vivo", { waitUntil: "load" });
+    await page.goto("/painel", { waitUntil: "load" });
     await expect(page.getByTestId("inicio-faixa")).toBeVisible({ timeout: 30_000 });
     const larguras = await page
       .getByRole("group", { name: "Números de hoje" })
@@ -98,7 +117,7 @@ test.describe("Início ao vivo no celular", () => {
   });
 
   test("setas do teclado movem a seleção entre as abas", async ({ page }) => {
-    await page.goto("/painel?ao-vivo&aba=relampago", { waitUntil: "load" });
+    await page.goto("/painel?aba=relampago", { waitUntil: "load" });
     await expect(page.getByTestId("inicio-ao-vivo")).toBeVisible({ timeout: 30_000 });
     const abas = page.getByRole("tablist", { name: "Seções da tela ao vivo" });
     await abas.getByRole("tab", { selected: true }).focus();
@@ -110,10 +129,10 @@ test.describe("Início ao vivo no celular", () => {
   });
 
   test("?aba= vale ao abrir; valor inválido cai na aba inicial", async ({ page }) => {
-    await page.goto("/painel?ao-vivo&aba=postando", { waitUntil: "load" });
+    await page.goto("/painel?aba=postando", { waitUntil: "load" });
     await expect(page.getByTestId("inicio-postando")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId("inicio-mapa")).toBeHidden();
-    await page.goto("/painel?ao-vivo&aba=x", { waitUntil: "load" });
+    await page.goto("/painel?aba=x", { waitUntil: "load" });
     await expect(page.getByTestId("inicio-ao-vivo")).toBeVisible({ timeout: 30_000 });
     // Cai na regra da aba inicial: exatamente uma aba selecionada, e é uma das três.
     await expect(page.getByRole("tablist", { name: "Seções da tela ao vivo" }).getByRole("tab", { selected: true })).toHaveCount(1);
@@ -124,7 +143,7 @@ test.describe("Início ao vivo a partir de 768 px", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
   test("sem abas: as três seções ficam visíveis ao mesmo tempo", async ({ page }) => {
-    await page.goto("/painel?ao-vivo", { waitUntil: "load" });
+    await page.goto("/painel", { waitUntil: "load" });
     await expect(page.getByTestId("inicio-ao-vivo")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("tablist", { name: "Seções da tela ao vivo" })).toBeHidden();
     await expect(page.getByTestId("inicio-mapa")).toBeVisible();

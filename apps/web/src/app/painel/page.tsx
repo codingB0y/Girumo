@@ -3,7 +3,6 @@
 import { resolveActivation } from "@/lib/onboarding-steps";
 import { DashboardSkeleton, LoadError } from "@/components/painel/home/dashboard-states";
 import { InicioAoVivo } from "@/components/painel/home/ao-vivo/inicio-ao-vivo";
-import { InicioVitrine } from "@/components/painel/home/vitrine/inicio-vitrine";
 import { useDashboardData } from "@/components/painel/home/use-dashboard-data";
 
 export default function PainelPage() {
@@ -29,53 +28,29 @@ export default function PainelPage() {
     leadCount: leads.length,
   });
 
-  // Início "Ao vivo" em construção atrás de ?ao-vivo (spec 2026-10-02). Lido aqui,
-  // depois do skeleton: servidor e cliente renderizam o skeleton igual, então ler
-  // window.location não quebra a hidratação nem pede fronteira de Suspense.
-  if (new URLSearchParams(window.location.search).has("ao-vivo")) {
-    return (
-      <InicioAoVivo
-        groups={groups}
-        campanhas={campanhas}
-        links={links}
-        leads={leads}
-        orders={orders}
-        disparos={disparos}
-        schedules={schedules}
-        disparosOk={disparosOk}
-        schedulesOk={schedulesOk}
-        settings={settings}
-        settingsOk={settingsOk}
-        ordersOk={ordersOk}
-        linksOk={linksOk}
-        isConnected={isConnected}
-        partial={partial}
-        activation={activation}
-        atividade={atividade}
-        relampago={relampago}
-        relampagoOk={relampagoOk}
-        onAtualizar={atualizar}
-        onSettingsSaved={applySettings}
-        onDismissOnboarding={dismissOnboarding}
-        onOnboardingComplete={markOnboardingComplete}
-      />
-    );
-  }
-
-  // Vitrine Aberta (PR 3b): mesma carga de dados, outra tela.
+  // Início "Ao vivo" (spec 2026-10-02) é a tela padrão. `?ao-vivo` dos links antigos é ignorado.
   return (
-    <InicioVitrine
+    <InicioAoVivo
       groups={groups}
       campanhas={campanhas}
       links={links}
       leads={leads}
       orders={orders}
       disparos={disparos}
+      schedules={schedules}
+      disparosOk={disparosOk}
+      schedulesOk={schedulesOk}
       settings={settings}
       settingsOk={settingsOk}
+      ordersOk={ordersOk}
+      linksOk={linksOk}
       isConnected={isConnected}
       partial={partial}
       activation={activation}
+      atividade={atividade}
+      relampago={relampago}
+      relampagoOk={relampagoOk}
+      onAtualizar={atualizar}
       onSettingsSaved={applySettings}
       onDismissOnboarding={dismissOnboarding}
       onOnboardingComplete={markOnboardingComplete}

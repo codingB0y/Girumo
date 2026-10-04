@@ -67,7 +67,7 @@ export type TenantSettings = {
   onboardingCompletedAt: string | null;
 };
 
-/** As ofertas Relâmpago da Início "Ao vivo" (`/api/painel/inicio?ao-vivo`). */
+/** As ofertas Relâmpago da Início "Ao vivo" (`/api/painel/inicio`). */
 export type RelampagoDaInicio = {
   abertas: OfertaDaInicio[];
   doDia: OfferRow[];

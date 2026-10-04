@@ -20,17 +20,11 @@ test.describe("casca mobile da Vitrine Aberta", () => {
     });
   }
 
-  test("Inicio no mobile: ticker como primeira linha, caixa e quem chegou empilhados", async ({ page }) => {
+  test("Inicio no mobile: faixa da loja e as abas das secoes", async ({ page }) => {
     await page.goto("/painel", { waitUntil: "load" });
     await expect(page.getByTestId("painel-skeleton")).toHaveCount(0, { timeout: 30_000 });
-    await expect(page.getByTestId("inicio-ticker")).not.toBeEmpty();
-    const titulo = page.getByRole("heading", { level: 1 });
-    await expect(titulo.getByText(/^(Dom|Seg|Ter|Qua|Qui|Sex|Sáb), \d{2} de /)).toBeVisible();
-    await expect(titulo.getByText(/^(Domingo|Segunda|Terça|Quarta|Quinta|Sexta|Sábado), /)).toBeHidden();
-    await expect(page.getByTestId("inicio-caixa")).toBeVisible();
-    await expect(page.getByTestId("inicio-quem-chegou")).toBeVisible();
-    // Os botoes do cabecalho sao de desktop; no mobile o Postar e o da barra.
-    await expect(page.getByTestId("inicio-acoes")).toBeHidden();
+    await expect(page.getByTestId("inicio-faixa")).toBeVisible();
+    await expect(page.getByRole("tablist", { name: "Seções da tela ao vivo" })).toBeVisible();
   });
 
   test("Postar abre a folha com campanha e previa na bolha", async ({ page }) => {
@@ -91,16 +85,13 @@ test.describe("casca desktop da Vitrine Aberta", () => {
     await expect(page.getByTestId("painel-mobile-nav")).toBeHidden();
   });
 
-  test("Inicio na Vitrine: caixa do mes, quem chegou, estoque e campanhas no lugar", async ({ page }) => {
+  test("Inicio ao vivo no desktop: faixa, mapa, postando e relampago no lugar", async ({ page }) => {
     await page.goto("/painel", { waitUntil: "load" });
     await expect(page.getByTestId("painel-skeleton")).toHaveCount(0, { timeout: 30_000 });
-    const titulo = page.getByRole("heading", { level: 1 });
-    await expect(titulo.getByText(/^(Domingo|Segunda|Terça|Quarta|Quinta|Sexta|Sábado), \d{2} de /)).toBeVisible();
-    await expect(page.getByTestId("inicio-acoes").getByRole("link", { name: "Postar novidade" })).toBeVisible();
-    await expect(page.getByTestId("inicio-caixa")).toContainText(/Vendido em|Nenhum pedido registrado/);
-    await expect(page.getByTestId("inicio-quem-chegou")).toBeVisible();
-    await expect(page.getByRole("heading", { name: /Estoque de grupos/ })).toBeVisible();
-    await expect(page.getByRole("heading", { name: /Campanhas/ })).toBeVisible();
+    await expect(page.getByTestId("inicio-faixa")).toBeVisible();
+    await expect(page.getByTestId("inicio-mapa")).toBeVisible();
+    await expect(page.getByTestId("inicio-postando")).toBeVisible();
+    await expect(page.getByTestId("inicio-relampago")).toBeVisible();
     // O roteiro migrou pro corredor: nao ha card "Comece por aqui" no desktop.
     await expect(page.getByText("Comece por aqui")).toBeHidden();
     // Sem fundo Acid alem do chip AO VIVO/LOTOU: nenhum botao Acid na tela.
