@@ -8,6 +8,7 @@ import { NaSuaMao, Situacao, nomeDe } from "@/components/painel/relampago/vitrin
 import type { Group } from "@/lib/mock-data";
 import {
   fraseDosGrupos,
+  fraseNoAr,
   horarioComSegundos,
   motivoDoBotao,
   noArHa,
@@ -30,13 +31,12 @@ type Props = {
   agora: Date;
   /** Recarrega a página da Início (a oferta fechada sai das abertas). */
   onAtualizar: () => void;
-  className?: string;
 };
 
 const linkDiscreto = "font-semibold text-cobalt-500 hover:underline";
 
 /** "Relâmpago" da Início "Ao vivo" (spec 2026-10-02): a oferta no ar, a conversa na mão e a fila, sem sair da Início. */
-export function RelampagoAoVivo({ relampago, relampagoOk, grupos, agora, onAtualizar, className }: Props) {
+export function RelampagoAoVivo({ relampago, relampagoOk, grupos, agora, onAtualizar }: Props) {
   const abertas = relampago?.abertas ?? [];
   const oferta = abertas[0] ?? null;
   const tituloId = useId();
@@ -45,7 +45,7 @@ export function RelampagoAoVivo({ relampago, relampagoOk, grupos, agora, onAtual
     <section
       data-testid="inicio-relampago"
       aria-labelledby={tituloId}
-      className={cn("min-w-0 rounded-[10px] border border-line-200 bg-paper-0", className)}
+      className="min-w-0 rounded-[10px] border border-line-200 bg-paper-0 max-md:-mx-4 max-md:rounded-none max-md:border-x-0"
     >
       <div className="flex items-center gap-2 border-b border-line-200 px-5 py-3">
         <h2 id={tituloId} className="text-[16px] font-semibold text-volt-950">
@@ -98,7 +98,7 @@ function Cabecalho({ oferta, grupos, noAr, placar }: { oferta: OfertaDaInicio; g
       <p className="truncate text-15 font-semibold text-volt-950">{oferta.name}</p>
       <p className="break-words text-13 text-slate-600">
         {fraseDosGrupos(oferta.groupIds, grupos)}
-        {noAr && <> · no ar há <span className="font-data tabular-nums">{noAr}</span></>}
+        {noAr && <> · {fraseNoAr(noAr)}</>}
       </p>
       {restantes != null && (
         <>

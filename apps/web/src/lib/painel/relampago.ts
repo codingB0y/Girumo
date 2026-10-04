@@ -48,15 +48,30 @@ export function relogio(segundos: number): string {
 }
 
 /**
- * Há quanto tempo a oferta está no ar. `null` quando não há `opened_at` — sem
- * abertura registrada não se inventa um cronômetro parado em 0:00.
+ * Há quanto tempo a oferta está no ar, em palavras ("agora", "12 min", "2 h 10 min", "3 dias"):
+ * oferta aberta há dias não vira "270:05:19". `null` quando não há `opened_at` — sem abertura
+ * registrada não se inventa um cronômetro. O relógio de contagem regressiva é `relogio()`.
  */
 export function noArHa(openedAt: string | null | undefined, agora: Date): string | null {
   if (!openedAt) return null;
   const abriu = new Date(openedAt).getTime();
   if (Number.isNaN(abriu)) return null;
-  // Relógio do navegador adiantado daria tempo negativo; relogio() pisa em 0:00.
-  return relogio((agora.getTime() - abriu) / 1000);
+  // Relógio do navegador adiantado daria idade negativa: vale "agora".
+  const minutos = Math.max(0, Math.floor((agora.getTime() - abriu) / 60_000));
+  if (minutos < 1) return "agora";
+  if (minutos < 60) return `${minutos} min`;
+  if (minutos < 24 * 60) {
+    const horas = Math.floor(minutos / 60);
+    const resto = minutos % 60;
+    return resto === 0 ? `${horas} h` : `${horas} h ${resto} min`;
+  }
+  const dias = Math.floor(minutos / (24 * 60));
+  return dias === 1 ? "1 dia" : `${dias} dias`;
+}
+
+/** "no ar há 2 h 10 min", ou "no ar agora" (nunca "no ar há agora"). */
+export function fraseNoAr(tempo: string): string {
+  return tempo === "agora" ? "no ar agora" : `no ar há ${tempo}`;
 }
 
 export type ResumoDaOferta = {

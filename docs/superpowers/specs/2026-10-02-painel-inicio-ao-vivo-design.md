@@ -153,6 +153,11 @@ do `GraficoDeBarras`; as que não cabem ficam só com o traço.
   Relâmpago se há oferta no ar, senão na Postando se há post saindo, senão em Grupos. ● na aba com
   coisa acontecendo.
 - Grupos: mapa com células menores e o gráfico só com Hoje. Barra de baixo da D igual.
+- **PR 6:** o contador da Relâmpago é "●" enquanto o número de pessoas esperando não vem na parte
+  `relampago` (pode entrar depois somando a fila na rota); Postando mostra "27/40" só enquanto o post
+  sai, Grupos mostra a quantidade. O mapa no celular segue com as células de 56 px (5 por linha em 390),
+  sem versão compacta separada. O gráfico fica em Hoje (o seletor de período some abaixo de 768 px).
+  De 768 px para cima não há abas: as três seções ficam visíveis juntas.
 
 ### Loja nova e estados do dia
 

@@ -26,7 +26,7 @@ test.describe("Oferta Relampago na Vitrine Aberta", () => {
 
       // O cronometro conta de opened_at. Um "no ar ha" sem numero seria pior que
       // nao ter cronometro: pareceria quebrado.
-      await expect(page.getByTestId("relampago-no-ar")).toContainText(/no ar há \d+:\d{2}/);
+      await expect(page.getByTestId("relampago-no-ar")).toContainText(/no ar (agora|há \d+ (min|h|dias?))/);
 
       // A palavra-chave e o que a cliente digita: sai em Mono, na caixinha.
       await expect(page.getByRole("code")).toContainText("eu quero");

@@ -211,12 +211,10 @@ type Props = {
   schedulesOk: boolean;
   /** Totais das relâmpagos do dia, por post: a linha "Pediram até agora" só existe com oferta ligada ao post. */
   totaisDoDia: OfferTotalsRow[];
-  /** Posição na grade da Início (a coluna é posicionada por quem a monta). */
-  className?: string;
 };
 
 /** "Postando agora" da Início "Ao vivo" (spec 2026-10-02): o post que sai, grupo a grupo, e o que vem depois. */
-export function PostandoAgora({ posts, grupos, agendamentos, agora, disparosOk, schedulesOk, totaisDoDia, className }: Props) {
+export function PostandoAgora({ posts, grupos, agendamentos, agora, disparosOk, schedulesOk, totaisDoDia }: Props) {
   // postDaTabela devolve DispatchView; o Disparo (com campaignName) é o mesmo item da lista.
   const escolhido = postDaTabela(posts, agora);
   const post = posts.find((p) => p.id === escolhido?.id) ?? null;
@@ -228,7 +226,7 @@ export function PostandoAgora({ posts, grupos, agendamentos, agora, disparosOk, 
   const pedidos = post ? totaisDoDia.find((t) => t.broadcastId === post.id) : undefined;
 
   return (
-    <section data-testid="inicio-postando" aria-labelledby="postando-titulo" className={cn("min-w-0 rounded-[10px] border border-line-200 bg-paper-0", className)}>
+    <section data-testid="inicio-postando" aria-labelledby="postando-titulo" className="min-w-0 rounded-[10px] border border-line-200 bg-paper-0 max-md:-mx-4 max-md:rounded-none max-md:border-x-0">
       <div className="border-b border-line-200 px-5 py-3">
         <h2 id="postando-titulo" className="text-[16px] font-semibold text-volt-950">
           Postando agora

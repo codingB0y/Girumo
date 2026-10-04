@@ -30,12 +30,12 @@ export function EntradasESaidas({ atividade, posts, ofertasDoDia }: Props) {
   const hoje = atividade ? dayBR(new Date(atividade.geradoEm)) : "";
 
   return (
-    <section data-testid="inicio-entradas" aria-labelledby="entradas-titulo" className="rounded-[10px] border border-line-200 bg-paper-0">
+    <section data-testid="inicio-entradas" aria-labelledby="entradas-titulo" className="rounded-[10px] border border-line-200 bg-paper-0 max-md:-mx-4 max-md:rounded-none max-md:border-x-0">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line-200 px-5 py-3">
         <h2 id="entradas-titulo" className="text-[16px] font-semibold text-volt-950">
           Entradas e saídas
         </h2>
-        <div role="group" aria-label="Período" className="flex rounded-lg bg-canvas-100 p-0.5">
+        <div role="group" aria-label="Período" className="flex rounded-lg bg-canvas-100 p-0.5 max-md:hidden">
           {(
             [
               ["hoje", "Hoje, por hora"],
