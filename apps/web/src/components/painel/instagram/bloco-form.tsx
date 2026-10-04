@@ -1,6 +1,6 @@
 "use client";
 
-import { horas } from "@/lib/ig/flow/labels";
+import { horas, tituloDoBloco } from "@/lib/ig/flow/labels";
 import type { NodePatch } from "@/lib/ig/flow/edit";
 import { DEFAULT_TEXTS } from "@/lib/ig/flow/recipes";
 import {
@@ -24,13 +24,16 @@ const MAX_TEXTO = 4000;
 const ESPERAS = [60, 360, 720, MAX_WAIT_MINUTES];
 const LEMBRETES = [60, 180, 360, MAX_WAIT_MINUTES];
 
+/** Opções do select; se o valor salvo não é uma das fixas (rascunho antigo), ele entra na lista pra não sumir. */
+const comAtual = (opcoes: number[], atual: number) => (opcoes.includes(atual) ? opcoes : [...opcoes, atual].sort((a, b) => a - b));
+
 const rotulo = "text-13 font-medium text-volt-950";
 const campo = "w-full rounded-[var(--radius-control)] border border-line-200 bg-canvas-100 px-3 py-2 text-13 text-volt-950 outline-none focus:border-slate-600";
 const ajuda = "mt-1 text-12 text-slate-600";
 const erro = "mt-1 text-12 text-warning-700";
 
 function Problemas({ issues }: { issues: Issue[] }) {
-  return issues.length ? <ul>{issues.map((i) => <li key={i.code + i.text} className={erro}>{i.text}</li>)}</ul> : null;
+  return issues.length ? <ul>{issues.map((i, n) => <li key={`${i.code}-${n}`} className={erro}>{i.text}</li>)}</ul> : null;
 }
 
 export function BlocoForm({ node, primeiroDepoisDoComentario, campanhas, issues, aoMudar }: {
@@ -41,6 +44,8 @@ export function BlocoForm({ node, primeiroDepoisDoComentario, campanhas, issues,
   aoMudar: (patch: NodePatch) => void;
 }) {
   const doBloco = issues.filter((i) => i.nodeId === node.id);
+  // Nome acessível único por bloco: dois diretos têm o mesmo título, o id desempata.
+  const nome = (campo: string) => `${campo}: ${tituloDoBloco(node)} (${node.id})`;
 
   if (node.type === "trigger") {
     return (
@@ -62,7 +67,7 @@ export function BlocoForm({ node, primeiroDepoisDoComentario, campanhas, issues,
                 <Interruptor ligado={node.publicReply !== null} aoMudar={(on) => aoMudar({ publicReply: on ? DEFAULT_TEXTS.respostaPublica : null })} rotulo="Responder no comentário" />
               </span>
               {node.publicReply !== null && (
-                <input aria-label="Resposta pública" maxLength={MAX_PUBLIC_REPLY} value={node.publicReply} onChange={(e) => aoMudar({ publicReply: e.target.value })} className={`${campo} mt-1`} />
+                <input aria-label={nome("Resposta pública")} maxLength={MAX_PUBLIC_REPLY} value={node.publicReply} onChange={(e) => aoMudar({ publicReply: e.target.value })} className={`${campo} mt-1`} />
               )}
             </div>
           </div>
@@ -86,31 +91,37 @@ export function BlocoForm({ node, primeiroDepoisDoComentario, campanhas, issues,
             <span className={rotulo}>Mensagem</span>
             <ContadorBytes texto={node.text} max={comBotao ? MAX_TEXT_WITH_BUTTON : MAX_MESSAGE_BYTES} emCaracteres={comBotao} />
           </span>
-          <textarea aria-label="Mensagem" maxLength={MAX_TEXTO} value={node.text} onChange={(e) => aoMudar({ text: e.target.value })} rows={3} className={`${campo} mt-1 resize-y`} />
+          <textarea aria-label={nome("Mensagem")} maxLength={MAX_TEXTO} value={node.text} onChange={(e) => aoMudar({ text: e.target.value })} rows={3} className={`${campo} mt-1 resize-y`} />
         </label>
         <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <span className="flex items-center justify-between">
-              <span className={rotulo}>Esperar a resposta</span>
-              <Interruptor ligado={node.wait !== null} aoMudar={(on) => aoMudar({ wait: on ? { minutes: MAX_WAIT_MINUTES } : null })} rotulo="Esperar a resposta" />
-            </span>
-            {node.wait && (
-              <select aria-label="Esperar por quanto tempo" value={node.wait.minutes} onChange={(e) => aoMudar({ wait: { minutes: Number(e.target.value) } })} className={`${campo} mt-1`}>
-                {ESPERAS.map((m) => <option key={m} value={m}>{horas(m)}</option>)}
-              </select>
-            )}
-            <p className={ajuda}>Quem não responde para aqui. A janela da Meta é de 24 h.</p>
-          </div>
+          {node.wait && (
+            <div>
+              <label className="block">
+                <span className={rotulo}>Esperar a resposta por</span>
+                <select aria-label={nome("Esperar por quanto tempo")} value={node.wait.minutes} onChange={(e) => aoMudar({ wait: { minutes: Number(e.target.value) } })} className={`${campo} mt-1`}>
+                  {comAtual(ESPERAS, node.wait.minutes).map((m) => <option key={m} value={m}>{horas(m)}</option>)}
+                </select>
+              </label>
+              <p className={ajuda}>Quem não responde para aqui. A janela da Meta é de 24 h.</p>
+            </div>
+          )}
           <div>
             {primeiroDepoisDoComentario ? (
-              <p className={ajuda}>Sem botão neste direct: é o único que a Meta deixa mandar por comentário, e o Instagram recusa botão pra quem não segue a loja.</p>
+              <>
+                <p className={ajuda}>Sem botão neste direct: é o único que a Meta deixa mandar por comentário, e o Instagram recusa botão pra quem não segue a loja.</p>
+                {comBotao && (
+                  <button type="button" onClick={() => aoMudar({ button: null })} className="mt-2 text-13 font-medium text-volt-950 underline underline-offset-2">
+                    Tirar botão
+                  </button>
+                )}
+              </>
             ) : (
               <>
                 <span className="flex items-center justify-between">
                   <span className={rotulo}>Botão</span>
-                  <Interruptor ligado={comBotao} aoMudar={(on) => aoMudar({ button: on ? "Quero o link" : null })} rotulo="Botão" />
+                  <Interruptor ligado={comBotao} aoMudar={(on) => aoMudar({ button: on ? "Quero o link" : null })} rotulo={nome("Botão")} />
                 </span>
-                {comBotao && <input aria-label="Texto do botão" maxLength={MAX_BUTTON_LABEL} value={node.button ?? ""} onChange={(e) => aoMudar({ button: e.target.value })} className={`${campo} mt-1`} />}
+                {comBotao && <input aria-label={nome("Texto do botão")} maxLength={MAX_BUTTON_LABEL} value={node.button ?? ""} onChange={(e) => aoMudar({ button: e.target.value })} className={`${campo} mt-1`} />}
               </>
             )}
           </div>
@@ -125,8 +136,11 @@ export function BlocoForm({ node, primeiroDepoisDoComentario, campanhas, issues,
       <div className="grid gap-4">
         <label className="block">
           <span className={rotulo}>Campanha do convite</span>
-          <select aria-label="Campanha do convite" value={node.campaignSlug ?? ""} onChange={(e) => aoMudar({ campaignSlug: e.target.value || null })} className={`${campo} mt-1`}>
+          <select aria-label={nome("Campanha do convite")} value={node.campaignSlug ?? ""} onChange={(e) => aoMudar({ campaignSlug: e.target.value || null })} className={`${campo} mt-1`}>
             <option value="">Escolha a campanha</option>
+            {node.campaignSlug && !campanhas.some((c) => c.slug === node.campaignSlug) && (
+              <option value={node.campaignSlug}>{node.campaignSlug} (não existe mais)</option>
+            )}
             {campanhas.map((c) => <option key={c.slug} value={c.slug}>{c.name}</option>)}
           </select>
           <p className={ajuda}>O link sai da campanha e leva a pessoa pro grupo com vaga.</p>
@@ -136,14 +150,14 @@ export function BlocoForm({ node, primeiroDepoisDoComentario, campanhas, issues,
             <span className={rotulo}>Mensagem</span>
             <ContadorBytes texto={node.text} max={MAX_MESSAGE_BYTES} reserva={LINK_RESERVE_BYTES} />
           </span>
-          <textarea aria-label="Mensagem do convite" maxLength={MAX_TEXTO} value={node.text} onChange={(e) => aoMudar({ text: e.target.value })} rows={3} className={`${campo} mt-1 resize-y`} />
+          <textarea aria-label={nome("Mensagem do convite")} maxLength={MAX_TEXTO} value={node.text} onChange={(e) => aoMudar({ text: e.target.value })} rows={3} className={`${campo} mt-1 resize-y`} />
           <p className={ajuda}>O link da campanha entra no fim, sozinho.</p>
         </label>
         {node.remindAfterMinutes !== null && (
           <label className="block">
             <span className={rotulo}>Lembrar quem não clicou depois de</span>
-            <select aria-label="Lembrar depois de" value={node.remindAfterMinutes} onChange={(e) => aoMudar({ remindAfterMinutes: Number(e.target.value) })} className={`${campo} mt-1`}>
-              {LEMBRETES.map((m) => <option key={m} value={m}>{horas(m)}</option>)}
+            <select aria-label={nome("Lembrar depois de")} value={node.remindAfterMinutes} onChange={(e) => aoMudar({ remindAfterMinutes: Number(e.target.value) })} className={`${campo} mt-1`}>
+              {comAtual(LEMBRETES, node.remindAfterMinutes).map((m) => <option key={m} value={m}>{horas(m)}</option>)}
             </select>
           </label>
         )}
