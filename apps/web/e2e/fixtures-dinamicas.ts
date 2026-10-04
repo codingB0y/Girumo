@@ -40,6 +40,13 @@ export type FixtureDinamica = {
    * formato em vez de "achou o registro".
    */
   inexistente: string;
+  /**
+   * Opcional: motivo pelo qual a rota nao pode ser exercitada NESTE ambiente
+   * (feature atras de liberacao por loja, por exemplo), ou null se pode. O spec
+   * pula o teste da rota com esse motivo em vez de falhar; a completude segue
+   * exigindo o fixture registrado.
+   */
+  indisponivel?(request: APIRequestContext): Promise<string | null>;
 };
 
 /** UUID fixo, fora de qualquer sequencia real; a rota tem que nao achar nada. */
@@ -248,6 +255,37 @@ const fixtureRelampago: FixtureDinamica = {
   },
 };
 
+// -------------------------------------------------------------- instagram
+
+/**
+ * Fluxo do Instagram. O nome fica num <input> na barra do editor, nao em texto
+ * corrido, por isso a marca e do tipo "campo". Apaga o rascunho no fim.
+ *
+ * Enquanto a loja de QA nao tiver `tenant_settings.instagram_enabled`, o POST
+ * devolve 403; `indisponivel` consulta /api/ig/status para o spec pular a rota.
+ */
+const fixtureFluxoInstagram: FixtureDinamica = {
+  inexistente: UUID_INEXISTENTE,
+  async indisponivel(request) {
+    const res = await request.get("/api/ig/status");
+    const liberado = res.ok() && ((await res.json()) as { enabled?: boolean }).enabled === true;
+    return liberado ? null : "A loja de QA nao tem instagram_enabled; libere em tenant_settings.";
+  },
+  async criar(request) {
+    const nome = `E2E fluxo instagram ${Date.now().toString(36)}`;
+    const res = await request.post("/api/ig/flows", { data: { recipe: "comment_invite", name: nome } });
+    if (!res.ok()) throw new Error(`POST /api/ig/flows respondeu ${res.status()}: ${await res.text()}`);
+    const criado = (await res.json()) as { flow: { id: string } };
+    return {
+      valor: criado.flow.id,
+      marca: { tipo: "campo", valor: nome },
+      apagar: async () => {
+        await request.delete(`/api/ig/flows/${criado.flow.id}`);
+      },
+    };
+  },
+};
+
 // ------------------------------------------------------------------- mapa
 
 /**
@@ -262,6 +300,7 @@ export const FIXTURES_DINAMICAS: Record<string, FixtureDinamica> = {
   "/painel/campanhas/[slug]/editar": fixtureCampanhaEdicao(),
   "/painel/relampago/[id]": fixtureRelampago,
   "/painel/comunidades/[slug]": fixtureComunidade,
+  "/painel/instagram/[id]": fixtureFluxoInstagram,
 };
 
 /** Troca o segmento dinamico do padrao pelo valor real. */
