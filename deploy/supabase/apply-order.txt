@@ -42,6 +42,11 @@ apps/web/supabase/migrations/20260729010000_automation_runs.sql
 # breaker) + claim anti-ban (claim_send_commands) + record_send/failure/prune.
 # Fundação do sender do worker; sem ela o claim de envio da F4 não existe.
 apps/web/supabase/migrations/20260729120000_engine_antiban_state.sql
+# Checklist e comemoracoes da Inicio (29/07). Aplicadas a mao nos dois bancos e faltavam
+# aqui; listadas em 03/10 porque 20261003170000 revoga nas duas tabelas e um banco montado
+# por esta lista abortava o revoke inteiro. Idempotentes.
+apps/web/supabase/migrations/20260729140000_playbook_progress.sql
+apps/web/supabase/migrations/20260729160000_celebrations_and_testimonial_consent.sql
 # F5 (Sprint 5): ponte disparo → fila do worker. Fan-out (app.enqueue_broadcast),
 # roll-up de progresso (reconcile_broadcast_progress) e agendamentos
 # (promote_due_schedules). Depende da anti-ban acima (tipos do claim de envio).
@@ -425,3 +430,13 @@ apps/web/supabase/migrations/20261002120000_campaign_activity_loja.sql
 # suspended_at, stripe_customer_id). O gate de drift nao ve privilegio — conferir com
 # infra/tests/organizations-escrita-check.sql nos dois bancos.
 apps/web/supabase/migrations/20261003150000_organizations_escrita_so_servidor.sql
+# 2026-10-03 - memberships e users: so o servidor escreve. Revoga insert/update/delete/
+# truncate de authenticated (policies de UPDATE/INSERT sem restricao de coluna: admin se
+# promovia a owner, usuario editava tenant_id/auth_user_id da propria linha). O gate de
+# drift nao ve privilegio — conferir com infra/tests/memberships-users-escrita-check.sql.
+apps/web/supabase/migrations/20261003160000_memberships_users_escrita_so_servidor.sql
+# 2026-10-03 - 28 tabelas de tenant: so o servidor escreve. Revoga insert/update/delete/
+# truncate de authenticated onde havia policy de escrita viva (sem restricao de coluna; FK
+# para linha de outro tenant, fila do worker, opt_out, limite de plano). O gate de drift nao
+# ve privilegio — conferir com infra/tests/tenant-tables-escrita-check.sql nos dois bancos.
+apps/web/supabase/migrations/20261003170000_tabelas_tenant_escrita_so_servidor.sql
