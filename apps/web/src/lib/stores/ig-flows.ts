@@ -74,14 +74,16 @@ export async function deleteFlow(tenantId: string, id: string): Promise<boolean>
 }
 
 /**
- * Copia o rascunho validado para `published` e sobe a versão. O `.eq("version")`
- * é a trava otimista: duas abas publicando ao mesmo tempo, só uma ganha.
+ * Grava o grafo validado em `published`, sobe a versão e põe o fluxo no ar. NÃO
+ * toca `draft`: o `.eq("version")` só trava publicações concorrentes (duas abas
+ * publicando, só uma ganha); edição de rascunho não sobe a versão, então reescrever
+ * `draft` aqui apagaria um autosave que chegou no meio.
  */
 export async function publishFlow(tenantId: string, id: string, def: FlowDef, fromVersion: number): Promise<FlowRow | null> {
   const agora = new Date().toISOString();
   const { data, error } = await getSupabaseAdmin()
     .from("ig_flows")
-    .update({ draft: def, published: def, status: "live", version: fromVersion + 1, published_at: agora, updated_at: agora })
+    .update({ published: def, status: "live", version: fromVersion + 1, published_at: agora, updated_at: agora })
     .eq("tenant_id", tenantId)
     .eq("id", id)
     .eq("version", fromVersion)

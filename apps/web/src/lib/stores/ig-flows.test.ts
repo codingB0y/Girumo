@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
 import { getAccount } from "./ig-accounts";
-import { deleteFlow, listFlows, updateDraft } from "./ig-flows";
+import { deleteFlow, listFlows, publishFlow, updateDraft } from "./ig-flows";
 
 /**
  * O cliente real do Supabase contra um PostgREST de mentira: a query que sai é a
@@ -55,6 +55,18 @@ test("salvar o rascunho e apagar filtram loja E id", async () => {
   await deleteFlow("loja-a", "f1");
   assert.equal(pedidos[1].metodo, "DELETE");
   assert.deepEqual(filtros(pedidos[1].url), { tenant_id: "eq.loja-a", id: "eq.f1" });
+});
+
+test("publicar trava por loja, id e versão, e não reescreve o rascunho", async () => {
+  pedidos.length = 0;
+  await publishFlow("loja-a", "f1", { v: 1, nodes: [], edges: [] }, 3);
+  assert.equal(pedidos[0].metodo, "PATCH");
+  assert.deepEqual(filtros(pedidos[0].url), { tenant_id: "eq.loja-a", id: "eq.f1", version: "eq.3" });
+  const corpo = pedidos[0].corpo as Record<string, unknown>;
+  assert.deepEqual(Object.keys(corpo).sort(), ["published", "published_at", "status", "updated_at", "version"]);
+  assert.equal(corpo.version, 4);
+  assert.equal(corpo.status, "live");
+  assert.ok(!("draft" in corpo), "publicar não pode sobrescrever um autosave do rascunho");
 });
 
 test("a conta nunca sai com o token", async () => {
