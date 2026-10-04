@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { resumoDoBloco, rotuloDaSaida, tituloDoBloco } from "@/lib/ig/flow/labels";
 import { layout, NODE_H, NODE_W, type EdgePos, type NodePos } from "@/lib/ig/flow/layout";
 import { outsOf, type FlowDef } from "@/lib/ig/flow/types";
@@ -26,10 +26,11 @@ export function Mapa({ def }: { def: FlowDef }) {
   const l = layout(def);
   const caixa = useRef<HTMLDivElement>(null);
   const [escala, setEscala] = useState(1);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = caixa.current;
     if (!el) return;
-    const medir = () => setEscala(Math.min(1, (el.clientWidth - 16) / l.width));
+    // Piso de 0.6: abaixo disso o texto fica ilegível; fluxos largos rolam na horizontal dentro da caixa.
+    const medir = () => setEscala(Math.max(0.6, Math.min(1, (el.clientWidth - 16) / l.width)));
     medir();
     const ro = new ResizeObserver(medir);
     ro.observe(el);
@@ -40,7 +41,7 @@ export function Mapa({ def }: { def: FlowDef }) {
   const pos = Object.fromEntries(unicos.map((n) => [n.id, n]));
 
   return (
-    <div ref={caixa} data-testid="ig-mapa" role="img" aria-label={`Mapa do fluxo com ${def.nodes.length} blocos`} className="overflow-auto rounded-[10px] border border-line-200 bg-canvas-100">
+    <div ref={caixa} data-testid="ig-mapa" role="region" tabIndex={0} aria-label={`Mapa do fluxo com ${def.nodes.length} blocos`} className="overflow-auto rounded-[10px] border border-line-200 bg-canvas-100">
       <div style={{ width: l.width * escala, height: l.height * escala }}>
         <div className="relative origin-top-left" style={{ width: l.width, height: l.height, transform: `scale(${escala})` }}>
           <svg className="absolute inset-0" width={l.width} height={l.height} aria-hidden="true">
