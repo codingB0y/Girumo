@@ -111,11 +111,7 @@ export function InicioAoVivo({
       <h1 className="sr-only">Início ao vivo</h1>
       {!isConnected && <BannerDesconectado />}
       {partial && <AvisoParcial />}
-      {mostrarChecklist && (
-        <div className="lg:hidden">
-          <ActivationChecklist activation={activation} onDismiss={onDismissOnboarding} />
-        </div>
-      )}
+      {mostrarChecklist && <ActivationChecklist activation={activation} onDismiss={onDismissOnboarding} />}
       <FaixaDeStatus
         atividade={atividade}
         links={links}

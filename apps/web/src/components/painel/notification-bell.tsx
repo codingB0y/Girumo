@@ -71,9 +71,8 @@ export function NotificationBell() {
   // profundidade e evita que o servidor avalie cada INSERT de cada tenant
   // contra esta assinatura.
   //
-  // O nome do canal leva a instância: com a Vitrine ligada o sino monta duas
-  // vezes (letreiro mobile e topbar de desktop, uma sempre oculta por CSS), e o
-  // segundo `.on()` no mesmo canal já assinado derruba a tela inteira.
+  // O nome do canal leva a instância: se o sino montar duas vezes na mesma
+  // tela, o segundo `.on()` no mesmo canal já assinado derruba a tela inteira.
   useEffect(() => {
     if (!tenantId) return;
 
@@ -136,15 +135,15 @@ export function NotificationBell() {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(!open)}
-        // Alvo de toque 44px (regra 4).
-        className="relative flex h-11 w-11 items-center justify-center rounded-xl border border-line-200 bg-paper-0 text-slate-600 transition hover:border-cobalt-500"
+        // Alvo de toque 44px (regra 4). O gatilho vive na barra volt.
+        className="relative flex h-11 w-11 items-center justify-center rounded-lg text-canvas-100/80 transition hover:bg-paper-0/10 hover:text-paper-0 lg:h-9 lg:w-9"
         aria-label={`Notificações${unreadCount > 0 ? ` (${unreadCount} não lidas)` : ""}`}
       >
         <Bell className="h-[18px] w-[18px]" />
         {unreadCount > 0 && (
           <span
             // Piso de 12px (regra 4): o círculo cresce de 16 pra 20px pra caber o número sem apertar.
-            className="font-data absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-cobalt-500 text-12 font-bold text-white ring-2 ring-canvas-100"
+            className="font-data absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-cobalt-500 text-12 font-bold text-white ring-2 ring-[#071923]"
           >
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { Letreiro } from "@/components/painel/letreiro";
-import { Corredor } from "@/components/painel/corredor";
+import { BarraDeCima } from "@/components/painel/barra-de-cima";
 import { BarraMobile } from "@/components/painel/barra-mobile";
 import { MioloDoPainel } from "@/components/painel/miolo";
 import { ToastProvider } from "@/components/toast";
@@ -15,23 +14,19 @@ export const metadata: Metadata = {
 };
 
 export default function PainelLayout({ children }: { children: React.ReactNode }) {
-  // Casca da direção D (spec 2026-09-24): corredor + letreiro no desktop,
-  // letreiro + barra no mobile. Tema claro G2 e fontes da raiz (spec 2026-10-05).
+  // Casca G2 (spec 2026-10-05): barra volt em cima em toda largura; barra inferior no celular.
   return (
     <RoleProvider>
       <SessionProvider>
         <ToastProvider>
           <CascaProvider>
-            <div data-testid="painel-root" className="pn-root font-body flex min-h-screen w-full bg-canvas-100 text-volt-950">
-              <Corredor />
-              <div className="flex min-w-0 flex-1 flex-col">
-                <Letreiro />
-                {/* Uma leitura do teste para a faixa e para todo paywall aberto nas telas. */}
-                <TrialProvider>
-                  <TrialBanner />
-                  <MioloDoPainel>{children}</MioloDoPainel>
-                </TrialProvider>
-              </div>
+            <div data-testid="painel-root" className="pn-root font-body flex min-h-screen w-full flex-col bg-canvas-100 text-volt-950">
+              <BarraDeCima />
+              {/* Uma leitura do teste para a faixa e para todo paywall aberto nas telas. */}
+              <TrialProvider>
+                <TrialBanner />
+                <MioloDoPainel>{children}</MioloDoPainel>
+              </TrialProvider>
               <BarraMobile />
             </div>
           </CascaProvider>
