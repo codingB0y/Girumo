@@ -41,15 +41,46 @@ export function hostnameFromHostHeader(host: string | null): string {
   return (host ?? "").split(":", 1)[0].trim().toLowerCase();
 }
 
-export type CustomHostRoute = "surface" | "public-api" | "not-found";
+export type CustomHostRoute = "surface" | "public-api" | "root-link" | "not-found";
+
+// Um segmento só, no formato de slug de campanha (ver lib/campaigns/rename-slug).
+// Ponto nunca casa: /favicon.ico e /robots.txt seguem 404.
+const ROOT_LINK_RE = /^\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
+// Prefixos das superfícies e da API: `/r` sozinho não vira `/r/r`.
+const ROOT_RESERVED = new Set(["/r", "/c", "/p", "/api"]);
 
 /**
  * O que um domínio de lojista serve: os links (/r, /c), as páginas (/p) e as
  * APIs públicas que essas páginas chamam (/api/p — lead, track e mídia).
  * Painel, login e API logada não existem nesse endereço.
+ *
+ * `root-link`: `/<slug>` é o mesmo que `/r/<slug>`. Só aqui — no host do Girumo
+ * a raiz é do app (/login, /painel…) e um slug `login` brigaria com a rota.
  */
 export function customHostRoute(pathname: string): CustomHostRoute {
   if (/^\/[rcp]\//.test(pathname)) return "surface";
   if (pathname.startsWith("/api/p/")) return "public-api";
+  if (ROOT_LINK_RE.test(pathname) && !ROOT_RESERVED.has(pathname)) return "root-link";
   return "not-found";
+}
+
+/**
+ * Caminho que o visitante abriu quando o middleware reescreveu `/<slug>` para
+ * `/r/<slug>`. O handler usa no `Path` do cookie de grupo lembrado — com o path
+ * do rewrite, o navegador nunca devolveria o cookie em `/<slug>`.
+ */
+export const LINK_PATH_HEADER = "x-girumo-link-path";
+
+/**
+ * Link público de campanha. No domínio do lojista vai na raiz
+ * (`links.loja.com.br/<slug>`); no host do Girumo, com `/r/`.
+ */
+export function campaignLinkPath(origin: string, slug: string): string {
+  let host = "";
+  try {
+    host = new URL(origin).hostname;
+  } catch {
+    // origem inválida: cai no formato que funciona em qualquer host
+  }
+  return host && !isFirstPartyHost(host) ? `/${slug}` : `/r/${slug}`;
 }

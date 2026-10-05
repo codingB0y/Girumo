@@ -17,7 +17,7 @@ import {
 import { buildCapiPayload, firstForwardedIp, sendCapiEvent } from "@/lib/campaigns/meta-capi";
 import { lotadoRedirect, renderBlockedPage, renderEntryPage } from "@/lib/campaigns/entry-page";
 import { isMobileUa, readCookie, rememberCookieHeader, rememberCookieName, whatsappDeepLink } from "@/lib/links/deep-link";
-import { hostnameFromHostHeader, isFirstPartyHost } from "@/lib/custom-domains/host";
+import { hostnameFromHostHeader, isFirstPartyHost, LINK_PATH_HEADER } from "@/lib/custom-domains/host";
 import { hostServesTenant } from "@/lib/custom-domains/serves-tenant";
 import { capiEnvio, pixelDaTela } from "./decisao";
 
@@ -83,6 +83,9 @@ export async function handleShortLinkClick(req: Request, slug: string): Promise<
   // escopado a /c/, quem clicou em /r/ tem o escopado a /r/ — sem isso o
   // "grupo lembrado" nunca volta na visita seguinte (paths diferentes).
   const prefix = reqUrl.pathname.startsWith("/c/") ? "/c/" : "/r/";
+  // `/<slug>` no domínio do lojista chega aqui reescrito pra /r/ — o cookie
+  // tem que ficar no caminho que o visitante abriu (ver LINK_PATH_HEADER).
+  const cookiePath = req.headers.get(LINK_PATH_HEADER) === `/${slug}` ? `/${slug}` : `${prefix}${slug}`;
 
   const target = resolveClickTarget({ link, campaign, groups, entrada, rememberedGroupId });
   if (target.kind === "blocked") {
@@ -106,7 +109,7 @@ export async function handleShortLinkClick(req: Request, slug: string): Promise<
   const headers = new Headers();
   // Grupo lembrado: só gente real, só campanha, só quando a opção está ligada.
   if (human && cookieName && target.groupId && entrada.um_grupo_por_pessoa) {
-    headers.append("set-cookie", rememberCookieHeader(cookieName, target.groupId, `${prefix}${slug}`, reqUrl.protocol === "https:"));
+    headers.append("set-cookie", rememberCookieHeader(cookieName, target.groupId, cookiePath, reqUrl.protocol === "https:"));
   }
 
   const deepLinkUrl = campaign && entrada.deep_link && isMobileUa(ua) ? whatsappDeepLink(target.url) : null;
