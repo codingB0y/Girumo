@@ -82,7 +82,7 @@ export function FaixaDeStatus({ atividade, links, orders, metaDoMes, agora, orde
         <div className={`bg-paper-0 px-5 py-4 sm:col-span-2 lg:col-span-1 ${NA_FAIXA}`}>
           <p className="text-13 text-slate-600">Entraram hoje</p>
           <div className="mt-2 flex items-end justify-between gap-4 max-md:gap-3">
-            <p className="text-[44px] max-md:text-[28px] font-semibold leading-none tabular-nums text-volt-950 [font-stretch:75%]">
+            <p className="font-display text-[40px] max-md:text-28 font-bold leading-none tracking-[-0.015em] tabular-nums text-volt-950">
               {n ? numero(n.entraram) : "—"}
             </p>
             {n && <Faisca barras={n.seteDias} />}

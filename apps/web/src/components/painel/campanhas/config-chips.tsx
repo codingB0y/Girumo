@@ -36,7 +36,7 @@ export function ConfigChips({
     <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Configurações de entrada">
       {chipLabels(entrada, integracoes).map((label) => (
         <li key={label}>
-          <Link href={href} className="pn-etiqueta bg-poco text-aco transition-colors duration-[160ms] hover:bg-cobalt-500/10 hover:text-cobalt-500">
+          <Link href={href} className="pn-etiqueta bg-poco text-aco transition-colors duration-[160ms] hover:bg-cobalt-500/10 hover:text-cobalt-700">
             {label}
           </Link>
         </li>

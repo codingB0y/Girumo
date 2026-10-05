@@ -78,7 +78,7 @@ export function ConfiguracoesVitrine({
               className={cn(
                 "shrink-0 border-l-[3px] px-3 py-2 text-left lg:w-full",
                 porta === p
-                  ? "border-acid-500 bg-porta-ativa"
+                  ? "border-volt-950 bg-porta-ativa"
                   : "border-transparent hover:bg-hover-ficha",
               )}
             >

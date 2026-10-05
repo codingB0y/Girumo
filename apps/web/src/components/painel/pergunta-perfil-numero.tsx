@@ -59,7 +59,7 @@ export function PerguntaPerfilNumero({ onEscolher, ocupado }: Props) {
         type="button"
         disabled={!escolha || ocupado}
         onClick={() => escolha && onEscolher(escolha)}
-        className="rounded-md bg-cobalt-600 px-4 py-2 text-white disabled:opacity-50"
+        className="min-h-11 rounded-md bg-cobalt-500 px-4 py-2 text-white disabled:opacity-50"
       >
         Gerar QR code
       </button>

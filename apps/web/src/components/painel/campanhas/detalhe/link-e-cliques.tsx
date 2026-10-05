@@ -194,7 +194,7 @@ function Numero({ rotulo, valor }: { rotulo: string; valor: string }) {
   return (
     <div className="bg-paper-0 px-5 py-4">
       <p className="text-13 text-slate-600">{rotulo}</p>
-      <p className="mt-2 text-[30px] font-semibold leading-none tabular-nums text-volt-950 [font-stretch:75%]">{valor}</p>
+      <p className="mt-2 font-display text-32 font-bold leading-none tracking-[-0.015em] tabular-nums text-volt-950">{valor}</p>
     </div>
   );
 }

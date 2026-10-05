@@ -12,16 +12,17 @@
    ====================================================================== */
 @theme {
   /* Único desvio de marca aprovado: cores da conversa, só dentro de pn-bolha.
-     Sem `inline`: o tema noite troca estes valores (fim do arquivo). */
+     Sem `inline`: o tema do painel (G2, fim do arquivo) troca estes valores. */
   --color-zap-fundo: #EFE7DD;
   --color-zap-bolha: #E7FFDB;
   --color-aviso-fundo: #FFF6E5;
   --color-hover-ficha: #FBF9F3;
   --color-porta-ativa: #ECE7DC;
-  /* Gráficos da campanha (direção D): a série de entradas, a de saídas e o "quase lotado". */
+  /* Gráficos da campanha (direção D): a série de entradas, a de saídas e o "quase lotado".
+     Saída 5,4:1 e quase 3,7:1 no branco: a saída vira texto ("−N"), o quase é fio e barra. */
   --color-serie: #2E66FF;
-  --color-saida: #D9483B;
-  --color-quase: #D99B2A;
+  --color-saida: #C03A2E;
+  --color-quase: #B07A1A;
 }
 
 @theme inline {
@@ -624,9 +625,10 @@
   font-size: 12px;
   color: var(--color-slate-600);
 }
+/* Ativo em Volt: Acid sobre o claro não chega a 3:1, e Acid é só Postar, AO VIVO e LOTOU. */
 .pn-barra-mobile__item[aria-current="page"] {
   color: var(--color-volt-950);
-  box-shadow: inset 0 3px 0 var(--color-acid-500);
+  box-shadow: inset 0 3px 0 var(--color-volt-950);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -740,7 +742,7 @@
 }
 .pn-folha__item[aria-current="page"] {
   background: var(--color-canvas-100);
-  box-shadow: inset 3px 0 0 var(--color-acid-500);
+  box-shadow: inset 3px 0 0 var(--color-volt-950);
 }
 
 /* --- Casca desktop (PR 3a): avatar no letreiro, rodapé do corredor, recolhimento --- */
@@ -1076,96 +1078,29 @@
 }
 
 /* ======================================================================
-   Tema noite — direção D (docs/superpowers/specs/2026-09-24-painel-direcao-d-design.md).
+   Tema do painel — G2 (docs/superpowers/specs/2026-10-05-painel-g2-barra-volt-design.md).
 
-   O painel inteiro fica escuro trocando os VALORES da paleta enquanto ele
-   está montado; nenhum componente muda de classe: bg-paper-0 vira a
-   superfície, text-volt-950 a tinta clara, bg-volt-950 um botão claro.
+   O painel é claro e frio: o fundo e a superfície do mockup G2 entram trocando
+   os VALORES da paleta enquanto ele está montado — o mesmo mecanismo do tema
+   noite da direção D, que saiu em 05/10. Nenhum componente muda de classe.
    Funciona porque a paleta do @theme não é `inline` (globals.css). O seletor
-   sobe até o :root para alcançar toast e folha fora de .pn-root.
+   sobe até o :root para alcançar toast e folha fora de .pn-root. A landing
+   continua no canvas creme.
 
    Fora de @layer de propósito: regra sem camada vence a utilitária.
    ====================================================================== */
 :root:has(.pn-root) {
-  color-scheme: dark;
-  --color-canvas-100: #061620; /* fundo */
-  --color-paper-0: #0B2230; /* superfície */
-  --color-volt-950: #E9F1F3; /* tinta */
-  --color-volt-900: #D5E2E6;
-  --color-volt-800: #BDD0D6;
-  --color-slate-600: #93AAB3; /* apoio: 6,4:1 sobre a superfície */
-  --color-line-200: #1E3B4B; /* fio */
-  --color-aviso-fundo: #2A2715;
-  --color-hover-ficha: #102C3B;
-  --color-porta-ativa: #16384A;
-  --color-serie: #6FA0FF;
-  --color-saida: #FF8B7B;
-  --color-quase: #F2B84B;
-  /* Aliases são resolvidos onde nascem (:root claro): sem redeclarar, herdariam o valor claro. */
-  --color-aco: var(--color-slate-600);
-  --color-ardosia: var(--color-slate-600);
+  color-scheme: light;
+  --color-canvas-100: #F3F5F7; /* fundo */
+  --color-paper-0: #FFFFFF; /* superfície */
+  --color-line-200: #DDE3E7; /* fio */
+  --color-hover-ficha: #F6F8F9;
+  --color-porta-ativa: #E8EDF0;
+  /* Aliases são resolvidos onde nascem (:root creme): sem redeclarar, herdariam o creme. */
   --color-papel: var(--color-paper-0);
   --color-poco: color-mix(in srgb, var(--color-line-200) 45%, var(--color-paper-0));
   --color-balcao: var(--color-canvas-100);
-  --color-void: var(--color-volt-950);
-  --color-void-2: var(--color-volt-900);
   --background: var(--color-canvas-100);
-  --foreground: var(--color-volt-950);
-  /* Casca: o trilho fica um degrau abaixo do fundo; o selecionado, um acima da superfície. */
-  --pn-trilho: #05131B;
-  --pn-selecionado: #16384A;
-}
-
-/* Archivo no painel (a família das landings). A variável do next/font mora no
-   .pn-root, então a troca das três famílias também mora nele. */
-.pn-root {
-  --font-plex-sans: var(--font-painel);
-  --font-plex-mono: var(--font-painel);
-  --font-manrope: var(--font-painel);
-}
-
-/* Ilhas claras: a conversa do WhatsApp e tudo que tem fundo Acid ficam com a
-   paleta clara — Acid só aceita texto Volt, e a bolha é a cor do WhatsApp. */
-:root:has(.pn-root) :is(.pn-bolha-chat, .pn-bolha, .bg-acid-500, .pn-chip--acid, .pn-postar, .pn-carimbo-evento) {
-  --color-volt-950: #071923;
-  --color-volt-900: #0C2835;
-  --color-volt-800: #123746;
-  --color-paper-0: #FFFEFA;
-  --color-canvas-100: #F4F0E7;
-  --color-slate-600: #52646C;
-  --color-line-200: #D8D7CF;
-  color: var(--color-volt-950);
-}
-
-/* Texto de estado sobre o escuro: o tom de marca (#1947C9, #0C7346…) não passa
-   de 3:1 na superfície; o texto ganha o tom claro, o fundo (bg-*) continua. */
-:root:has(.pn-root) :is(.text-cobalt-500, .text-cobalt-600, .text-cobalt-700, .text-info-700, .text-brand-500) {
-  color: #8FB2FF;
-}
-:root:has(.pn-root) :is(.text-success-700, .text-sucesso) {
-  color: #45D38A;
-}
-:root:has(.pn-root) :is(.text-warning-700, .text-atencao) {
-  color: #F2B84B;
-}
-:root:has(.pn-root) :is(.text-danger-700, .text-alerta) {
-  color: #FF7B7B;
-}
-/* Botão de cor: o texto do token (text-paper-0) viraria escuro sobre o azul. */
-:root:has(.pn-root) :is(.bg-cobalt-500, .bg-cobalt-600, .bg-cobalt-700, .bg-danger-700, .bg-alerta, .bg-success-700, .bg-sucesso) {
-  color: #FFFFFF;
-}
-:root:has(.pn-root) .pn-ponto--conectado {
-  background: #45D38A;
-}
-:root:has(.pn-root) .pn-ponto--desconectado {
-  background: #FF6B6B;
-}
-/* A sombra dura do Postar era Volt; no escuro vira um degrau abaixo do trilho. */
-:root:has(.pn-root) .pn-postar-sombra::after {
-  background: #020A0E;
-}
-/* O esqueleto era lilás claro fixo (#e4e1ea, globals.css) e acendia no escuro. */
-:root:has(.pn-root) .pn-skeleton {
-  background: #16384A;
+  /* Casca: o trilho é a própria superfície (o fallback já é paper-0); o selecionado, um degrau abaixo. */
+  --pn-selecionado: var(--color-porta-ativa);
 }

@@ -105,7 +105,7 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
         <div className="bg-paper-0 px-5 py-4 sm:col-span-2 lg:col-span-1">
           <p className="text-13 text-slate-600">Entraram hoje</p>
           <div className="mt-2 flex items-end justify-between gap-4">
-            <p className="text-[44px] font-semibold leading-none tabular-nums text-volt-950 [font-stretch:75%]">
+            <p className="font-display text-[40px] font-bold leading-none tracking-[-0.015em] tabular-nums text-volt-950">
               {hoje === null ? "—" : numero(hoje.entraram)}
             </p>
             {seteDias && <Faisca barras={seteDias} />}

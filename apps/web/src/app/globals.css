@@ -3,7 +3,7 @@
 
 @theme {
   /* Paleta canônica Girumo. Sem `inline` de propósito: a utilitária lê a
-     variável (bg-paper-0 → var(--color-paper-0)), e o tema noite do painel
+     variável (bg-paper-0 → var(--color-paper-0)), e o tema do painel (G2)
      troca só os valores (painel-vitrine.css, :root:has(.pn-root)). */
   --color-volt-950: #071923;
   --color-volt-900: #0C2835;
@@ -901,7 +901,8 @@ body {
   50% { opacity: 1; }
 }
 .pn-skeleton {
-  background: #e4e1ea;
+  /* O fio do tema: acompanha o painel (frio) e a landing (creme) sem um lilás fixo. */
+  background: var(--color-line-200);
   animation: pn-breathe 1.8s ease-in-out infinite;
   animation-delay: calc(var(--i, 0) * 150ms);
 }

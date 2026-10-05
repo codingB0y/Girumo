@@ -8,17 +8,17 @@ import { entradaNoCelular, rotuloAcessivel, rotuloNoCelular, TEXTO_DO_ESTADO, ty
 import { cn } from "@/lib/utils";
 
 /**
- * A lotação enche a célula de baixo para cima. O preenchimento é um tom com a
- * cor do estado e um fio sólido no topo: com o tom fraco o número continua
- * legível em cima dele, e o fio ainda diz "lotou" de longe. O Acid fica no
- * `span` — nunca na classe do link (regra 10, e2e da casca).
+ * A lotação enche a célula de baixo para cima. Lotou enche de Acid sólido (o
+ * número em Volt lê 14,5:1 em cima dele; um tom fraco de Acid some no branco);
+ * os outros estados usam um tom fraco da cor com um fio sólido no topo. O Acid
+ * fica no `span` — nunca na classe do link (regra 10, e2e da casca).
  *
- * Sem convite = contorno vermelho + ícone. O vermelho é `saida`: tem tom próprio
- * no tema noite (7,2:1 na superfície; o `danger-700` dava 2,7:1 ali).
+ * Sem convite = contorno vermelho + ícone. O vermelho é `saida`, a cor da série
+ * de saídas do gráfico (5,4:1 sobre a superfície branca; fio pede 3:1).
  * Sumiu do cadastro = contorno tracejado e a palavra "sumiu" na célula.
  */
 const PREENCHIMENTO: Record<CelulaDoMapa["estado"], string> = {
-  cheio: "bg-acid-500/25 border-t-2 border-acid-500",
+  cheio: "bg-acid-500",
   quase: "bg-quase/25 border-t-2 border-quase",
   ativo: "bg-slate-600/20 border-t border-slate-600/60",
   sem_convite: "bg-slate-600/15",
