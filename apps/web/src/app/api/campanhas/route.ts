@@ -3,6 +3,7 @@ import * as supaStore from "@/lib/stores/campaign-groups";
 import { campanhasColl, uniqueCampanhaSlug, type Campanha } from "@/lib/campanhas-store";
 import { listLinks } from "@/lib/store";
 import { criarLinkMestreOuDesfazer, uniqueMasterSlug } from "@/lib/campaigns/master-link";
+import { renomearSlugCampanha } from "@/lib/campaigns/rename-slug";
 import { assertPlanLimit } from "@/lib/billing/entitlements";
 import { getTenantContext } from "@/lib/supabase/tenant-context";
 import { carregarCampanhas } from "@/lib/painel/inicio-carga";
@@ -153,6 +154,13 @@ export async function PATCH(req: Request) {
     const updated = await campanhasColl.update(id, patch);
     if (!updated) return Response.json({ error: "Campanha não encontrada." }, { status: 404 });
     return Response.json(updated);
+  }
+
+  // Trocar o link (/r/:slug) mexe em duas tabelas e guarda o antigo como
+  // apelido — por isso vai por fora do `patch` (ver lib/campaigns/rename-slug.ts).
+  if (typeof b.slug === "string") {
+    const r = await renomearSlugCampanha(tenantId, id, b.slug);
+    if (!r.ok) return Response.json({ error: r.error }, { status: r.status });
   }
 
   const patch: Partial<Pick<supaStore.CampaignGroup, "name" | "slug" | "group_ids" | "auto_grow" | "grow_template" | "metadata">> = {};

@@ -101,6 +101,30 @@ export async function createTrackedLink(
 }
 
 /**
+ * Troca o slug do link de uma campanha. Filtra por tenant, campanha e slug
+ * atual — só o link mestre daquela campanha casa. Devolve `false` quando nada
+ * casou (campanha antiga sem link mestre). Slug já tomado estoura no
+ * `tracked_links_slug_unique`.
+ */
+export async function renameTrackedLinkSlug(
+  tenantId: string,
+  campaignGroupId: string,
+  oldSlug: string,
+  newSlug: string,
+): Promise<boolean> {
+  const { data, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .update({ slug: newSlug, updated_at: new Date().toISOString() })
+    .eq("tenant_id", tenantId)
+    .eq("campaign_group_id", campaignGroupId)
+    .eq("slug", oldSlug)
+    .select("id")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return Boolean(data);
+}
+
+/**
  * Remove o link de um slug do tenant. Usado quando a entidade dona do link
  * some (ex.: uma indicação apagada) — sem isso o `/r/:slug` continuaria
  * redirecionando para sempre um link que o painel já não mostra.
