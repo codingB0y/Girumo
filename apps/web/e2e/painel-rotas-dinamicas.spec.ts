@@ -48,6 +48,9 @@ test.describe("rotas dinamicas do painel", () => {
       const fixture = FIXTURES_DINAMICAS[padrao];
       test.skip(!fixture, `${padrao} nao tem fixture; o teste de completude acima ja cobra isso.`);
 
+      const motivo = await fixture.indisponivel?.(page.request);
+      test.skip(Boolean(motivo), motivo ?? "");
+
       const erros: string[] = [];
       page.on("pageerror", (erro) => erros.push(erro.message));
 
