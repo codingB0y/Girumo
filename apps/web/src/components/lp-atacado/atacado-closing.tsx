@@ -5,7 +5,7 @@ import { LeadWizard } from "@/components/lp-shared/lead-wizard";
 import { PlanCards } from "@/components/lp-shared/plan-cards";
 import { cn } from "@/lib/utils";
 
-/** Selo dos 7 dias: direito de arrependimento do CDC (art. 49), o mesmo texto do FAQ. */
+/** Selo dos 7 dias: o teste grátis com cartão (spec 2026-10-03). */
 function Garantia() {
   return (
     <div className="flex items-center gap-3 rounded-2xl border-2 border-volt-950 bg-white p-3.5 lg:gap-[22px] lg:rounded-[22px] lg:px-6 lg:py-5">
@@ -22,12 +22,12 @@ function Garantia() {
       </span>
       <p className="text-sm font-medium leading-[1.45] lg:text-[17px] lg:leading-normal">
         <b>
-          Testa 7 dias.<span className="hidden lg:inline"> Não gostou, devolvemos tudo.</span>
+          Testa 7 dias grátis.<span className="hidden lg:inline"> Cancelou antes, não paga nada.</span>
         </b>
-        <span className="lg:hidden"> Não gostou, devolvemos tudo. É lei.</span>
+        <span className="lg:hidden"> Cancelou antes, não paga nada.</span>
         <span className="hidden lg:inline">
           {" "}
-          É o direito de arrependimento do Código de Defesa do Consumidor. Depois, cancela na própria tela, sem multa.
+          Cadastra o cartão, usa tudo liberado, e a cobrança só começa no 8º dia. Depois, cancela na própria tela, sem multa.
           Os grupos e os contatos continuam seus.
         </span>
       </p>
@@ -94,7 +94,7 @@ export function Fecho() {
             A próxima coleção pode sair em todos os grupos de uma vez.
           </h2>
           <p className="order-last text-sm font-bold leading-normal lg:order-none lg:text-[17px] lg:font-semibold lg:leading-[1.55]">
-            <b>PS:</b> são 7 dias pra desistir. Se não gostar, devolvemos tudo e os grupos continuam seus.
+            <b>PS:</b> são 7 dias grátis. Cancelou antes, não paga nada, e os grupos continuam seus.
           </p>
         </div>
         <LeadWizard variant="atacado" steps={[PERGUNTA_LOJA, PERGUNTA_GRUPOS]} />

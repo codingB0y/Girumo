@@ -432,7 +432,7 @@ export function DesktopFecho() {
           Seu próximo grupo cheio começa com <span className="lp4-green">um link.</span>
         </h2>
         <p data-lp4-r className="mx-auto mt-6 max-w-md text-lg text-[var(--body)]">
-          Conecte seu WhatsApp em 2 minutos e veja a esteira trabalhar. Com 7 dias pra desistir.
+          Conecte seu WhatsApp em 2 minutos e veja a esteira trabalhar. Com 7 dias grátis.
         </p>
         <div data-lp4-r className="mt-10 flex items-center justify-center gap-3">
           <a href={WHATSAPP_URL} data-outbound="whatsapp_click" className="lp4-btn lp4-btn-green">

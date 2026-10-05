@@ -10,10 +10,10 @@ test("a resposta do plano anual sai de PLANS, nao de texto digitado", () => {
   assert.ok(anual, "pergunta do anual sumiu do FAQ");
   const plano = PLANS.find((p) => p.featured);
   assert.ok(plano);
-  const devolvido = (plano.annualPrice * 12 - 3 * plano.price).toLocaleString("pt-BR");
   assert.ok(anual[1].includes(`até ${MAX_OFF}% mais barato`), anual[1]);
   assert.ok(anual[1].includes(`R$ ${plano.annualPrice} em vez de R$ ${plano.price}`), anual[1]);
-  assert.ok(anual[1].endsWith(`voltam R$ ${devolvido}.`), anual[1]);
+  assert.ok(anual[1].endsWith("as regras do anual estão nos Termos de uso."), anual[1]);
+  assert.doesNotMatch(anual[1], /devolv|voltam|reembols/i);
 });
 
 test("o FAQ das landings tem a pergunta do risco do numero logo apos a do numero", () => {

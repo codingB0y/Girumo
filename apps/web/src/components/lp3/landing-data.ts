@@ -179,11 +179,11 @@ export const LP3_FAQ: ReadonlyArray<readonly [string, string]> = [
   ],
   [
     "E se eu não gostar?",
-    "Nos primeiros 7 dias você desiste e recebe tudo de volta — é o direito de arrependimento do art. 49 do Código de Defesa do Consumidor, e vale pra qualquer compra feita pela internet. Depois disso você cancela quando quiser, sem multa e sem fidelidade, na própria tela de configurações: o acesso vale até o fim do período já pago. Os grupos e os contatos são seus de qualquer jeito.",
+    "Você testa 7 dias grátis: cadastra o cartão, usa tudo liberado, e se cancelar antes do 8º dia não paga nada — a gente avisa por e-mail antes da primeira cobrança. Depois disso você cancela quando quiser, sem multa e sem fidelidade, na própria tela de configurações: o acesso vale até o fim do período já pago. Os grupos e os contatos são seus de qualquer jeito.",
   ],
   [
     "Como funciona o plano anual?",
-    "Você paga 1x ao ano e o mês sai até 40% mais barato — no Growth, R$ 197 em vez de R$ 297. Se cancelar no meio do caminho, devolvemos os meses não usados: os meses que você usou passam a valer o preço mensal e o resto volta pra você. Cancelando o Growth anual depois de 3 meses, por exemplo, voltam R$ 1.473.",
+    "Você paga 1x ao ano e o mês sai até 40% mais barato — no Growth, R$ 197 em vez de R$ 297. Cancelamento sem multa; as regras do anual estão nos Termos de uso.",
   ],
   [
     "Meus contatos ficam comigo se eu cancelar?",

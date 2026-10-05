@@ -35,7 +35,7 @@ export function CartazPlans() {
   );
 }
 
-/** Etiqueta kraft "7 dias PRA DESISTIR. É LEI." — o direito de arrependimento do CDC. */
+/** Etiqueta kraft "7 dias GRÁTIS PRA TESTAR." — o teste grátis com cartão. */
 function Guarantee() {
   return (
     <div className="mt-2 flex items-center gap-3.5 lg:mt-3.5 lg:gap-9">
@@ -64,15 +64,15 @@ function Guarantee() {
         <span className="absolute left-[34px] top-[11px] lg:left-[70px] lg:top-[26px]">
           <span className={cn(TITULO, "block text-[42px] tabular-nums lg:text-[88px]")}>7 dias</span>{" "}
           <span className={cn(ROTULO, "mt-0.5 block text-[10px] tracking-[.02em] lg:text-lg")}>
-            PRA DESISTIR. É LEI.
+            GRÁTIS PRA TESTAR.
           </span>
         </span>
       </p>
       <p className="text-sm leading-normal lg:text-[19px] lg:leading-[1.6]">
-        <b>Não gostou? Devolvemos tudo.</b>{" "}
+        <b>Não gostou? Cancela e não paga nada.</b>{" "}
         <ViewportText
-          mobile="Depois, cancela na própria tela, sem multa."
-          desktop="Nos primeiros 7 dias você desiste e recebe tudo de volta: é o direito de arrependimento do Código de Defesa do Consumidor. Depois, cancela quando quiser, na própria tela de configurações. Sem multa, sem fidelidade, e os grupos e os contatos continuam seus."
+          mobile="A cobrança só começa no 8º dia."
+          desktop="Você cadastra o cartão e usa tudo liberado por 7 dias. A cobrança só começa no 8º dia, e a gente avisa antes por e-mail. Depois, cancela quando quiser, na própria tela de configurações. Sem multa, sem fidelidade, e os grupos e os contatos continuam seus."
         />
       </p>
     </div>

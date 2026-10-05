@@ -45,7 +45,7 @@ export function CartazHeader() {
 const CONFIANCA = [
   { Icone: Check, texto: "Seu número de sempre" },
   { Icone: ShieldCheck, texto: "Nunca manda no privado" },
-  { Icone: Check, texto: "7 dias pra desistir" },
+  { Icone: Check, texto: "7 dias grátis" },
 ] as const;
 
 export function CartazHero() {
