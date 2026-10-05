@@ -35,7 +35,7 @@
 | `apps/web/src/lib/custom-domains/serves-tenant.ts` | `hostServesTenant` |
 | `apps/web/src/lib/custom-domains/view.ts` | `DominioView`, `toDominioView`, `textoDoProblema`, `customLinkOrigin` (client-safe) |
 | `apps/web/src/lib/stores/custom-domains.ts` | store da tabela |
-| `apps/web/supabase/migrations/20261004120000_custom_domains.sql` | tabela + RLS |
+| `apps/web/supabase/migrations/20261005120000_custom_domains.sql` | tabela + RLS |
 | `apps/web/src/middleware.ts` | ramo de host de lojista + entrada no `matcher` |
 | `apps/web/src/lib/links/short-link-click.ts` | checagem de tenant em `/r` `/c` |
 | `apps/web/src/app/p/[slug]/page.tsx` | checagem de tenant em `/p` |
@@ -562,7 +562,7 @@ export async function removeProjectDomain(name: string): Promise<void> {
 ### Task 4: Tabela `custom_domains` e store
 
 **Files:**
-- Create: `apps/web/supabase/migrations/20261004120000_custom_domains.sql`
+- Create: `apps/web/supabase/migrations/20261005120000_custom_domains.sql`
 - Modify: `deploy/supabase/apply-order.txt` (append no fim)
 - Modify: `infra/tests/tenant-tables-escrita-check.sql` (lista `t(name)`)
 - Create: `apps/web/src/lib/stores/custom-domains.ts`
@@ -571,7 +571,7 @@ export async function removeProjectDomain(name: string): Promise<void> {
 **Interfaces:**
 - Produces: `type CustomDomainStatus = "pending" | "active"`, `type CustomDomain = { tenantId; hostname; verificationToken; status; lastError: string | null; checkedAt: string | null; verifiedAt: string | null }`, `getCustomDomain(tenantId): Promise<CustomDomain | null>`, `getActiveDomainTenant(hostname): Promise<string | null>`, `claimCustomDomain(tenantId, hostname, verificationToken): Promise<{ ok: true; domain: CustomDomain } | { ok: false; reason: "exists" }>`, `saveVerification(tenantId, { status, lastError }): Promise<{ ok: true; domain: CustomDomain } | { ok: false; reason: "taken" | "gone" }>`, `deleteCustomDomain(tenantId): Promise<void>`.
 
-- [ ] **Step 1: Write the migration** — `apps/web/supabase/migrations/20261004120000_custom_domains.sql`
+- [ ] **Step 1: Write the migration** — `apps/web/supabase/migrations/20261005120000_custom_domains.sql`
 
 ```sql
 -- Domínio próprio do lojista para os links de grupo
@@ -613,16 +613,18 @@ create policy "custom_domains_tenant_read" on public.custom_domains
   for select using (app.has_membership(tenant_id));
 
 -- Só o servidor escreve: ativar um domínio decide qual tenant um host serve.
+-- O event trigger de 20261004120000 já revoga isto em tabela nova; fica
+-- explícito para não depender dele estar aplicado no banco.
 revoke insert, update, delete, truncate on public.custom_domains from authenticated;
 ```
 
 - [ ] **Step 2: Register the migration** — append ao fim de `deploy/supabase/apply-order.txt`:
 
 ```
-# 2026-10-04 - Dominio proprio do lojista (custom_domains): tabela nova, muda a baseline
+# 2026-10-05 - Dominio proprio do lojista (custom_domains): tabela nova, muda a baseline
 # (t|custom_domains). Escrita so do servidor — conferir com
 # infra/tests/tenant-tables-escrita-check.sql nos dois bancos.
-apps/web/supabase/migrations/20261004120000_custom_domains.sql
+apps/web/supabase/migrations/20261005120000_custom_domains.sql
 ```
 
 E em `infra/tests/tenant-tables-escrita-check.sql`, na lista `with t(name) as (values …)`, trocar a primeira linha
