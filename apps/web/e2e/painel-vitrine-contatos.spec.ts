@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { formatPhoneBR } from "../src/lib/phone";
+
 /**
  * Tela de Contatos da Vitrine Aberta. Só vale com a flag ligada — desligada, a
  * A tela antiga saiu junto com a flag; esta é a única que existe.
@@ -69,5 +71,23 @@ test.describe("Contatos na Vitrine Aberta", () => {
     await page.getByTestId("contatos-busca").fill(primeiro);
     await expect(lista).toContainText(primeiro);
     await expect(lista.getByRole("listitem").first()).toBeVisible();
+  });
+
+  test("a ficha mostra o WhatsApp e a busca acha pelo numero como aparece", async ({ page }) => {
+    // O aviso de entrada no grupo não traz nome: a ficha virava "Novo membro"
+    // sem número nenhum, e a lojista não tinha como casar a venda com a pessoa.
+    const resposta = await page.request.get("/api/leads");
+    expect(resposta.ok()).toBe(true);
+    const leads = (await resposta.json()) as { phone?: string }[];
+    const comTelefone = leads.find((l) => l.phone);
+    test.skip(!comTelefone, "tenant de E2E sem lead com telefone");
+
+    const whatsapp = formatPhoneBR(comTelefone!.phone)!;
+    await page.goto("/painel/contatos", { waitUntil: "load" });
+    const lista = page.getByTestId("contatos-lista");
+    await expect(lista).toBeVisible();
+
+    await page.getByTestId("contatos-busca").fill(whatsapp);
+    await expect(lista.getByRole("listitem").first()).toContainText(whatsapp);
   });
 });

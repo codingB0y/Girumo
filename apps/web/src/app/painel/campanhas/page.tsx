@@ -7,6 +7,7 @@ import { buscarLista } from "@/lib/painel/carregar";
 import { buildCampaignGroupsOverview } from "@/lib/campaign-groups-overview";
 import type { Group } from "@/lib/mock-data";
 import { clicksByCampaign } from "@/lib/links/click-attribution";
+import { useLinkOrigin } from "@/lib/painel/use-link-origin";
 
 type Campanha = {
   id: string;
@@ -25,10 +26,9 @@ export default function PainelCampanhas() {
   const [cargaDasCampanhas, setCargaDasCampanhas] = useState<Carga>("carregando");
   const [cargaDosGrupos, setCargaDosGrupos] = useState<Carga>("carregando");
   const [cargaDosLinks, setCargaDosLinks] = useState<Carga>("carregando");
-  const [origin, setOrigin] = useState("");
+  const origin = useLinkOrigin();
 
   const carregar = useCallback(() => {
-    setOrigin(window.location.origin);
     void buscarLista<Campanha>("/api/campanhas", setCampanhas, setCargaDasCampanhas);
     void buscarLista<Group>("/api/groups", setGroups, setCargaDosGrupos);
     void buscarLista<TrackedLink>("/api/links", setLinks, setCargaDosLinks);
