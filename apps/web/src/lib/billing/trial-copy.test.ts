@@ -29,45 +29,50 @@ test("em teste: dias que faltam, data e valor da cobranca", () => {
   });
 });
 
-test("ultimas horas do teste: falta 1 dia, nao 'faltam 0 dias'", () => {
-  const fim = new Date(AGORA.getTime() + 5 * 3_600_000).toISOString();
-  const faixa = faixaDoTeste(
-    { ...NADA, emTeste: { fim, plano: "Growth", precoCents: 29700, semCobranca: false } },
-    AGORA,
-  );
-  assert.match(faixa?.texto ?? "", /^Teste grátis do plano Growth: falta 1 dia\./);
-});
-
-test("fim ja alcancado (webhook atrasado): ultimo dia", () => {
-  const faixa = faixaDoTeste(
-    { ...NADA, emTeste: { fim: AGORA.toISOString(), plano: "Growth", precoCents: 29700, semCobranca: false } },
-    AGORA,
-  );
-  assert.match(faixa?.texto ?? "", /^Teste grátis do plano Growth: último dia\./);
-});
-
-/** Faixa de quem está no teste do Growth (R$ 297), com fim, plano ou preço trocados. */
-function faixaComFim(fim: string, extra: { plano?: string; precoCents?: number } = {}) {
+/** Faixa de quem está no teste do Growth (R$ 297), com fim, plano, preço ou "agora" trocados. */
+function faixaComFim(fim: string, extra: { plano?: string; precoCents?: number } = {}, agora = AGORA) {
   return faixaDoTeste(
     { ...NADA, emTeste: { fim, plano: "Growth", precoCents: 29700, semCobranca: false, ...extra } },
-    AGORA,
+    agora,
   );
 }
 
-test("dias contados para cima: 3,5 dias sao 4", () => {
-  const fim = new Date(AGORA.getTime() + 3.5 * 86_400_000).toISOString();
-  assert.match(faixaComFim(fim)?.texto ?? "", /: faltam 4 dias\./);
+// Os dias contam no calendário de Brasília, como a data "Em DD/MM" da mesma frase. Os
+// horários ficam perto da meia-noite, onde contar horas, ou contar dias de UTC, erra.
+/** Cobrança em 10/10 às 22:30 de Brasília, que já é 11/10 em UTC. */
+const FIM_DE_NOITE = "2026-10-11T01:30:00.000Z";
+
+test("dia da ativacao le 7 dias, ate a noite", () => {
+  // Ativado 03/10 às 20:00 de Brasília (fim 10/10 às 20:00) e lido às 22:30, já 04/10 em UTC.
+  const texto = faixaComFim("2026-10-10T23:00:00.000Z", {}, new Date("2026-10-04T01:30:00.000Z"))?.texto ?? "";
+  assert.match(texto, /: faltam 7 dias\. Em 10\/10 começa a cobrança/);
 });
 
-test("recem-ativado le 7 dias, nao 6", () => {
-  // O que o QA e o modal prometem: logo depois de ativar, a faixa diz 7.
-  const fim = new Date(AGORA.getTime() + 7 * 86_400_000 - 60_000).toISOString();
-  assert.match(faixaComFim(fim)?.texto ?? "", /: faltam 7 dias\./);
+test("vespera da cobranca le falta 1 dia o dia inteiro, com a data de amanha", () => {
+  const casos = [
+    // O relato: ativado 03/10 às 14:00, lido 09/10 às 10:00. Lia "faltam 2 dias. Em 10/10".
+    ["2026-10-10T17:00:00.000Z", "2026-10-09T13:00:00.000Z"],
+    // 09/10 às 00:10 e às 23:50 de Brasília (a segunda já é 10/10 em UTC).
+    [FIM_DE_NOITE, "2026-10-09T03:10:00.000Z"],
+    [FIM_DE_NOITE, "2026-10-10T02:50:00.000Z"],
+  ];
+  for (const [fim, agora] of casos) {
+    const texto = faixaComFim(fim, {}, new Date(agora))?.texto ?? "";
+    assert.match(texto, /: falta 1 dia\. Em 10\/10 começa a cobrança/, `lido em ${agora}`);
+  }
 });
 
-test("um dia restante no singular", () => {
-  const fim = new Date(AGORA.getTime() + 86_400_000).toISOString();
-  assert.match(faixaComFim(fim)?.texto ?? "", /: falta 1 dia\./);
+test("dia da cobranca le ultimo dia desde a meia-noite, nunca 'faltam 0 dias'", () => {
+  // 10/10 às 00:10 de Brasília: faltam 22 horas, mas a cobrança é hoje.
+  const texto = faixaComFim(FIM_DE_NOITE, {}, new Date("2026-10-10T03:10:00.000Z"))?.texto ?? "";
+  assert.match(texto, /: último dia\. Em 10\/10 começa a cobrança/);
+});
+
+test("fim ja passou (webhook atrasado): ultimo dia, nunca dias negativos", () => {
+  assert.match(faixaComFim(AGORA.toISOString())?.texto ?? "", /^Teste grátis do plano Growth: último dia\./);
+  // 11/10 às 10:00 de Brasília, com a cobrança de 10/10 ainda sem webhook.
+  const ontem = faixaComFim(FIM_DE_NOITE, {}, new Date("2026-10-11T13:00:00.000Z"))?.texto ?? "";
+  assert.match(ontem, /^Teste grátis do plano Growth: último dia\./);
 });
 
 test("data da cobranca no dia de Brasilia, nao no de UTC", () => {

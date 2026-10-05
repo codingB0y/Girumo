@@ -32,30 +32,39 @@ test("nenhum modo do paywall fala em reembolso", () => {
 });
 
 test("sem a leitura do teste, nenhum modo ainda", () => {
-  assert.equal(modoDoPaywall(null, false, false), "carregando");
-  assert.equal(modoDoPaywall(null, true, false), "carregando");
+  assert.equal(modoDoPaywall(null, false, false, false), "carregando");
+  assert.equal(modoDoPaywall(null, true, false, false), "carregando");
+});
+
+test("leitura do teste sem resposta no prazo: o paywall de antes, sem esperar mais", () => {
+  // A leitura não tem prazo. Com a flag desligada ela não traz nada, e o paywall de
+  // antes do teste não pode ficar preso em "Carregando…" esperando por ela.
+  assert.equal(modoDoPaywall(null, false, false, true), "normal");
+  assert.equal(modoDoPaywall(null, true, false, true), "normal");
 });
 
 test("elegível vê o teste", () => {
-  assert.equal(modoDoPaywall(ELEGIVEL, false, true), "teste");
+  assert.equal(modoDoPaywall(ELEGIVEL, false, true, false), "teste");
 });
 
 test("em teste não vê plano nenhum: só o caminho de Configurações, aba Plano", () => {
-  assert.equal(modoDoPaywall(EM_TESTE, false, true), "em_teste");
+  assert.equal(modoDoPaywall(EM_TESTE, false, true, false), "em_teste");
   // Teste cancelado no portal continua em teste até o fim.
   const cancelado: TrialView = { ...EM_TESTE, emTeste: { ...TESTE, semCobranca: true } };
-  assert.equal(modoDoPaywall(cancelado, false, true), "em_teste");
+  assert.equal(modoDoPaywall(cancelado, false, true, false), "em_teste");
   // Mesmo se as duas coisas vierem juntas, teste em andamento ganha.
-  assert.equal(modoDoPaywall({ ...EM_TESTE, elegivel: true }, false, true), "em_teste");
-  assert.equal(modoDoPaywall(EM_TESTE, true, true), "em_teste");
+  assert.equal(modoDoPaywall({ ...EM_TESTE, elegivel: true }, false, true, false), "em_teste");
+  assert.equal(modoDoPaywall(EM_TESTE, true, true, false), "em_teste");
+  // A leitura que chega depois do prazo ainda manda: N botões "Assinar" dariam 409.
+  assert.equal(modoDoPaywall(EM_TESTE, false, true, true), "em_teste");
 });
 
 test("voltando do Checkout (ativando) não oferece o teste de novo", () => {
-  assert.equal(modoDoPaywall(ELEGIVEL, true, true), "normal");
+  assert.equal(modoDoPaywall(ELEGIVEL, true, true, false), "normal");
 });
 
 test("leitura falhou, ou fora do teste, o paywall de antes", () => {
-  assert.equal(modoDoPaywall(null, false, true), "normal");
-  assert.equal(modoDoPaywall(null, true, true), "normal");
-  assert.equal(modoDoPaywall({ elegivel: false, emTeste: null, cartaoRepetido: true }, false, true), "normal");
+  assert.equal(modoDoPaywall(null, false, true, false), "normal");
+  assert.equal(modoDoPaywall(null, true, true, false), "normal");
+  assert.equal(modoDoPaywall({ elegivel: false, emTeste: null, cartaoRepetido: true }, false, true, false), "normal");
 });

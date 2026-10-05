@@ -30,8 +30,23 @@ export type EstadoDoTeste = {
  */
 export function aposLeitura(view: TrialView, tentativa: number): { ativando: boolean; continuar: boolean } {
   if (view.cartaoRepetido) return { ativando: false, continuar: false };
-  const cabe = tentativa < TENTATIVAS_APOS_CHECKOUT;
+  const cabe = cabeOutraLeitura(tentativa);
   return { ativando: !view.emTeste && cabe, continuar: cabe };
+}
+
+/**
+ * Leitura que falhou (resposta não-ok ou exceção): relê de novo? Voltando do Checkout,
+ * sim, enquanto couber no orçamento — a falha gasta uma tentativa. Um 500 entre o
+ * `trialing` e o cancelamento do cartão repetido encerrava a releitura ali, e a faixa
+ * voltava a anunciar a cobrança de um teste já cancelado. Fora da volta, uma leitura
+ * só, como sempre.
+ */
+export function releAposErro(voltou: boolean, tentativa: number): boolean {
+  return voltou && cabeOutraLeitura(tentativa);
+}
+
+function cabeOutraLeitura(tentativa: number): boolean {
+  return tentativa < TENTATIVAS_APOS_CHECKOUT;
 }
 
 function lerVoltaDoCheckout(): boolean {
@@ -84,10 +99,15 @@ function useLeituraDoTeste(ligado: boolean): EstadoDoTeste {
     setVoltouDoCheckout(voltou);
     setAtivando(voltou);
 
-    // Leitura sem resposta útil: encerra sem prender o "Ativando…" de quem voltou.
-    function encerrar() {
-      setAtivando(false);
+    // Leitura sem resposta útil: a `view` e o "Ativando…" ficam como estão e, se
+    // `releAposErro` deixar, relê; senão encerra sem prender o "Ativando…" de quem voltou.
+    function falhou() {
       setCarregado(true);
+      if (releAposErro(voltou, tentativa)) {
+        timer = setTimeout(ler, INTERVALO_MS);
+        return;
+      }
+      setAtivando(false);
     }
 
     async function ler() {
@@ -95,7 +115,7 @@ function useLeituraDoTeste(ligado: boolean): EstadoDoTeste {
       try {
         const res = await authenticatedFetch("/api/billing/trial");
         if (!vivo) return;
-        if (!res.ok) return encerrar();
+        if (!res.ok) return falhou();
         const dados = (await res.json()) as TrialView;
         if (!vivo) return;
         setView(dados);
@@ -105,7 +125,7 @@ function useLeituraDoTeste(ligado: boolean): EstadoDoTeste {
         setAtivando(passo.ativando);
         if (passo.continuar) timer = setTimeout(ler, INTERVALO_MS);
       } catch {
-        if (vivo) encerrar();
+        if (vivo) falhou();
       }
     }
 

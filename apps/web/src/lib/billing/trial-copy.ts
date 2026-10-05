@@ -1,4 +1,4 @@
-import { diaMesBR } from "../date-br";
+import { dayBR, dayBROf, diaMesBR } from "../date-br";
 import { formatarPreco } from "./plan-display";
 import { subscriptionNotice } from "./subscription-access";
 import { TRIAL_DAYS, type TrialView } from "./trial";
@@ -19,12 +19,16 @@ export type Faixa = {
 } | null;
 
 /**
- * Dias até o fim, arredondados para cima: recém-ativado lê 7 (o que o modal
- * prometeu), e as últimas horas leem "falta 1 dia". "Último dia" sobra para o fim
- * já alcançado com o webhook atrasado — nunca "faltam 0 dias".
+ * Dias entre hoje e o dia da cobrança, no calendário de Brasília — o mesmo da data
+ * "Em DD/MM" na frase: o dia da ativação lê 7 (o que o modal prometeu), a véspera
+ * "falta 1 dia", e o dia da cobrança, ou depois dele com o webhook atrasado, "último
+ * dia" — nunca "faltam 0 dias". Contar horas restantes dizia "faltam 2 dias. Em
+ * 10/10" na manhã de 09/10.
  */
 function faltam(fim: string, agora: Date): string {
-  const dias = Math.ceil((Date.parse(fim) - agora.getTime()) / DIA_MS);
+  const diaDoFim = dayBROf(fim);
+  // Datas `YYYY-MM-DD` parseiam como meia-noite UTC: a diferença é um número exato de dias.
+  const dias = diaDoFim ? (Date.parse(diaDoFim) - Date.parse(dayBR(agora))) / DIA_MS : Number.NaN;
   if (!Number.isFinite(dias) || dias <= 0) return "último dia";
   return dias === 1 ? "falta 1 dia" : `faltam ${dias} dias`;
 }

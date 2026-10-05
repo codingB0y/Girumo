@@ -38,20 +38,31 @@ export type ModoDoPaywall = "carregando" | "normal" | "teste" | "em_teste";
  * - `carregando`: a leitura do teste ainda não voltou. Fora do painel o paywall lê
  *   sozinho e nasce sem resposta; abrir como "Escolha um plano" e virar "Teste 7 dias
  *   grátis" segundos depois fazia o leitor de tela anunciar um diálogo e mostrar outro.
+ *   Mas só até o prazo (`esgotou`): a leitura não tem prazo próprio, e com a flag
+ *   desligada o paywall de antes do teste não pode ficar preso esperando por ela.
  * - `em_teste`: o checkout recusa (409) quem já está testando — cancelado ou não —,
  *   então N botões "Assinar" seriam N becos sem saída. Vem antes de `elegivel` para
  *   o teste em andamento nunca ver o rodapé que anuncia a cobrança.
  * - `teste`: elegível, e não acabou de voltar do Checkout. Durante `ativando` o
  *   webhook ainda não gravou o teste; oferecer "Testar grátis" de novo seria o
  *   convite a ativar duas vezes.
- * - `normal`: flag desligada ou leitura falhou (`view` nulo) → o paywall de antes do teste.
+ * - `normal`: flag desligada, leitura falhou ou passou do prazo (`view` nulo) → o
+ *   paywall de antes do teste. A leitura que chega depois do prazo ainda manda.
  */
-export function modoDoPaywall(view: TrialView | null, ativando: boolean, carregado: boolean): ModoDoPaywall {
-  if (!carregado) return "carregando";
+export function modoDoPaywall(
+  view: TrialView | null,
+  ativando: boolean,
+  carregado: boolean,
+  esgotou: boolean,
+): ModoDoPaywall {
+  if (!carregado && !esgotou) return "carregando";
   if (view?.emTeste) return "em_teste";
   if (view?.elegivel === true && !ativando) return "teste";
   return "normal";
 }
+
+/** Quanto o paywall espera a leitura do teste antes de abrir sem ela. */
+const PRAZO_DA_LEITURA_MS = 3000;
 
 const TITULO: Record<ModoDoPaywall, string> = {
   carregando: "Carregando…",
@@ -83,8 +94,15 @@ export function PlanPaywall({ motivo, onClose }: PlanPaywallProps) {
   // ao "Ver planos" que o abriu: aria-modal só promete isso, quem cumpre é a trava.
   const dialogoRef = useFocusTrap<HTMLDivElement>(true);
   const { view, ativando, carregado } = useTrial();
-  const modo = modoDoPaywall(view, ativando, carregado);
+  const [esgotou, setEsgotou] = useState(false);
+  const modo = modoDoPaywall(view, ativando, carregado, esgotou);
   const comTeste = modo === "teste";
+
+  useEffect(() => {
+    if (carregado) return;
+    const prazo = setTimeout(() => setEsgotou(true), PRAZO_DA_LEITURA_MS);
+    return () => clearTimeout(prazo);
+  }, [carregado]);
 
   useEffect(() => {
     fetch("/api/plans")
