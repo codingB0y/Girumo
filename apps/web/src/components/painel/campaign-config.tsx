@@ -59,6 +59,16 @@ const INTEGRACOES_FORM_VAZIO: IntegracoesFormValue = {
   google_ads: { id: "", label: "" },
 };
 
+/** Digitação do final do link: minúsculas, sem acento, o resto vira hífen. A regra final é do servidor. */
+function sanitizeSlugInput(raw: string): string {
+  return raw
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/-{2,}/g, "-");
+}
+
 /** Nome do próximo grupo. O `{n}` é o número que a numeração substitui. */
 function defaultSubjectPattern(campanhaName: string): string {
   const base = campanhaName.trim();
@@ -81,6 +91,8 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
 
   const [id, setId] = useState<string | null>(null);
   const [createdSlug, setCreatedSlug] = useState<string | null>(null);
+  // Final do link (/r/<slug>) editável — só vai no PATCH se mudou.
+  const [slugDraft, setSlugDraft] = useState("");
   // Gaveta espelho de comunidade nativa: grupos/auto-grow ficam bloqueados na
   // tela (o servidor já recusa o PATCH — isto evita o clique morto).
   const [comunidadeNativa, setComunidadeNativa] = useState(false);
@@ -142,6 +154,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
           if (c) {
             setId(c.id);
             setCreatedSlug(c.slug ?? null);
+            setSlugDraft(c.slug ?? "");
             setName(c.name ?? "");
             setComunidadeNativa(Boolean(c.whatsappCommunityJid));
             setAutoGrow(c.autoGrow ?? true);
@@ -247,10 +260,13 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
             // qualquer jeito.
             ...(comunidadeNativa ? {} : { groupIds, autoGrow, ...growTemplatePatch() }),
             settings: { entrada, integracoes: integracoesPatch() },
+            ...(createdSlug && slugDraft !== createdSlug ? { slug: slugDraft } : {}),
           }),
         });
         if (!res.ok) throw await toRequestError(res, "Erro ao salvar.");
-        router.push(backHref);
+        // A URL da campanha no painel é o slug: trocou o link, a página muda junto.
+        const saved = (await res.json().catch(() => ({}))) as { slug?: string };
+        router.push(saved.slug ? `/painel/campanhas/${saved.slug}` : backHref);
         return;
       }
     } catch (e) {
@@ -334,11 +350,34 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
           </div>
         </Field>
       )}
-      {mode === "edit" && (createdSlug || slug) && (
-        <Field label="Link da campanha" hint="É o link que você divulga — ele enche seus grupos.">
-          <div className="flex items-center rounded-xl border border-volt-950/10 bg-poco px-3.5 py-2.5">
-            {origin && <CopyLink url={`${origin}/r/${createdSlug ?? slug}`} />}
+      {mode === "edit" && createdSlug && (
+        <Field
+          label="Link da campanha"
+          hint={
+            slugDraft !== createdSlug
+              ? "O link antigo continua funcionando e leva pra mesma campanha."
+              : "É o link que você divulga — ele enche seus grupos. Dá pra trocar o final."
+          }
+        >
+          <div className="flex items-center rounded-xl border border-volt-950/10 bg-papel focus-within:border-cobalt-500/40">
+            <span className="shrink-0 truncate pl-3.5 text-sm text-aco" aria-hidden="true">
+              {origin ? `${origin.replace(/^https?:\/\//, "")}/r/` : "/r/"}
+            </span>
+            <input
+              aria-label="Final do link da campanha"
+              value={slugDraft}
+              onChange={(e) => setSlugDraft(sanitizeSlugInput(e.target.value))}
+              maxLength={60}
+              spellCheck={false}
+              autoCapitalize="off"
+              className="min-w-0 flex-1 bg-transparent py-2.5 pr-3.5 text-sm text-volt-950 outline-none"
+            />
           </div>
+          {origin && slugDraft === createdSlug && (
+            <div className="mt-2 flex items-center rounded-xl border border-volt-950/10 bg-poco px-3.5 py-2.5">
+              <CopyLink url={`${origin}/r/${createdSlug}`} />
+            </div>
+          )}
         </Field>
       )}
       <Field
