@@ -492,7 +492,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
                     onClick={() => toggle(g.id)}
                     className={cn("flex items-center gap-3 rounded-xl border p-3 text-left transition-[border-color,background-color] duration-[160ms] ease-[var(--ease-fluxo)]", sel ? "border-cobalt-500 bg-cobalt-500/[0.05]" : "border-volt-950/[0.08] bg-papel hover:border-cobalt-500/30")}
                   >
-                    <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", sel ? "bg-cobalt-500 text-white" : "bg-cobalt-500/10 text-cobalt-500")}>
+                    <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", sel ? "bg-cobalt-500 text-white" : "bg-cobalt-500/10 text-cobalt-700")}>
                       <Users className="h-4 w-4" strokeWidth={1.75} />
                     </span>
                     <div className="min-w-0 flex-1">

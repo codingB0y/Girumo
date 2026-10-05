@@ -43,7 +43,7 @@ function Copiavel({ valor, rotulo }: { valor: string; rotulo: string }) {
         type="button"
         onClick={copiar}
         aria-label={`Copiar ${rotulo}`}
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-slate-600 transition hover:bg-cobalt-500/10 hover:text-cobalt-500"
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-slate-600 transition hover:bg-cobalt-500/10 hover:text-cobalt-700"
       >
         {copiado ? <Check className="h-4 w-4" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
       </button>

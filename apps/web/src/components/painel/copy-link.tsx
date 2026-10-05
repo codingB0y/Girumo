@@ -25,7 +25,7 @@ export function CopyLink({ url, className }: { url: string; className?: string }
       <button
         onClick={copy}
         aria-label="Copiar link"
-        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-aco/40 transition hover:bg-cobalt-500/10 hover:text-cobalt-500"
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-aco/40 transition hover:bg-cobalt-500/10 hover:text-cobalt-700"
       >
         {copied ? <Check className="h-3.5 w-3.5 text-sucesso" /> : <Copy className="h-3.5 w-3.5" />}
       </button>

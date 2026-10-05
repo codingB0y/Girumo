@@ -12,16 +12,17 @@
    ====================================================================== */
 @theme {
   /* Único desvio de marca aprovado: cores da conversa, só dentro de pn-bolha.
-     Sem `inline`: o tema noite troca estes valores (fim do arquivo). */
+     Sem `inline`: o tema do painel (G2, fim do arquivo) troca estes valores. */
   --color-zap-fundo: #EFE7DD;
   --color-zap-bolha: #E7FFDB;
   --color-aviso-fundo: #FFF6E5;
   --color-hover-ficha: #FBF9F3;
   --color-porta-ativa: #ECE7DC;
-  /* Gráficos da campanha (direção D): a série de entradas, a de saídas e o "quase lotado". */
+  /* Gráficos da campanha (direção D): a série de entradas, a de saídas e o "quase lotado".
+     Saída 5,4:1 e quase 3,7:1 no branco: a saída vira texto ("−N"), o quase é fio e barra. */
   --color-serie: #2E66FF;
-  --color-saida: #D9483B;
-  --color-quase: #D99B2A;
+  --color-saida: #C03A2E;
+  --color-quase: #B07A1A;
 }
 
 @theme inline {
@@ -624,9 +625,10 @@
   font-size: 12px;
   color: var(--color-slate-600);
 }
+/* Ativo em Volt: Acid sobre o claro não chega a 3:1, e Acid é só Postar, AO VIVO e LOTOU. */
 .pn-barra-mobile__item[aria-current="page"] {
   color: var(--color-volt-950);
-  box-shadow: inset 0 3px 0 var(--color-acid-500);
+  box-shadow: inset 0 3px 0 var(--color-volt-950);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -740,7 +742,7 @@
 }
 .pn-folha__item[aria-current="page"] {
   background: var(--color-canvas-100);
-  box-shadow: inset 3px 0 0 var(--color-acid-500);
+  box-shadow: inset 3px 0 0 var(--color-volt-950);
 }
 
 /* --- Casca desktop (PR 3a): avatar no letreiro, rodapé do corredor, recolhimento --- */
@@ -1099,7 +1101,6 @@
   --color-poco: color-mix(in srgb, var(--color-line-200) 45%, var(--color-paper-0));
   --color-balcao: var(--color-canvas-100);
   --background: var(--color-canvas-100);
-  /* Casca: o trilho é a própria superfície; o selecionado, um degrau abaixo dela. */
-  --pn-trilho: #FFFFFF;
-  --pn-selecionado: #E8EDF0;
+  /* Casca: o trilho é a própria superfície (o fallback já é paper-0); o selecionado, um degrau abaixo. */
+  --pn-selecionado: var(--color-porta-ativa);
 }

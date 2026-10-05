@@ -18,7 +18,9 @@ test("o painel é claro e frio: fundo e superfície do G2, tinta volt da raiz", 
   assert.doesNotMatch(bloco, /--color-volt-950|--color-slate-600/);
 });
 
-test("nada da noite sobrou: nem cor escura, nem Archivo no painel", () => {
+test("nada da noite sobrou: um bloco só, sem cor escura, sem tinta trocada, sem Archivo", () => {
+  assert.equal(css.match(/:root:has\(\.pn-root\)\s*\{/g)?.length, 1);
+  assert.doesNotMatch(css, /color-scheme:\s*dark|--color-(volt-950|slate-600)\s*:/);
   assert.doesNotMatch(css, /#061620|#0B2230|#E9F1F3|#16384A/i);
   assert.doesNotMatch(css, /--font-painel/);
 });
