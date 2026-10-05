@@ -156,13 +156,6 @@ export async function PATCH(req: Request) {
     return Response.json(updated);
   }
 
-  // Trocar o link (/r/:slug) mexe em duas tabelas e guarda o antigo como
-  // apelido — por isso vai por fora do `patch` (ver lib/campaigns/rename-slug.ts).
-  if (typeof b.slug === "string") {
-    const r = await renomearSlugCampanha(tenantId, id, b.slug);
-    if (!r.ok) return Response.json({ error: r.error }, { status: r.status });
-  }
-
   const patch: Partial<Pick<supaStore.CampaignGroup, "name" | "slug" | "group_ids" | "auto_grow" | "grow_template" | "metadata">> = {};
   if (typeof b.name === "string") patch.name = b.name.trim();
 
@@ -217,6 +210,15 @@ export async function PATCH(req: Request) {
       metadata = withIntegracoes(metadata, mergeIntegracoes(atual, pi.patch));
     }
     patch.metadata = metadata;
+  }
+
+  // Trocar o link (/r/:slug) mexe em duas tabelas e guarda o antigo como
+  // apelido — por isso vai por fora do `patch` (ver lib/campaigns/rename-slug.ts).
+  // Depois de TODAS as validações: um 400 de outro campo não pode deixar o
+  // link trocado com a tela ainda apontando pro antigo.
+  if (typeof b.slug === "string") {
+    const r = await renomearSlugCampanha(tenantId, id, b.slug);
+    if (!r.ok) return Response.json({ error: r.error }, { status: r.status });
   }
 
   const updated = await supaStore.updateCampaignGroup(tenantId, id, patch);

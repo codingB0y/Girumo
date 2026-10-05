@@ -6,9 +6,10 @@ import * as linksStore from "@/lib/stores/tracked-links";
  *
  * O slug é a chave do link mestre em `tracked_links` e também de
  * `campaign_groups`. O link antigo já pode estar em grupo, anúncio ou página
- * (`pages.campaign_slug` monta `/r/<slug>`), então ele NÃO morre: vira um
- * apelido — outra linha de `tracked_links` apontando pra mesma campanha. Os
- * cliques somam por `campaign_group_id`, então o painel não percebe a divisão.
+ * (`pages.campaign_slug` monta `/r/<slug>`), então ele NÃO morre: a linha dele
+ * em `tracked_links` fica e vira apelido da mesma campanha, e o slug novo ganha
+ * linha própria. Os cliques somam por `campaign_group_id`, então o painel não
+ * percebe a divisão.
  */
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -41,8 +42,8 @@ const DEPS = {
   getCampaign: campaignsStore.getCampaignGroupById,
   updateCampaign: campaignsStore.updateCampaignGroup,
   getLinkBySlug: linksStore.getTrackedLinkBySlug,
-  renameLink: linksStore.renameTrackedLinkSlug,
   createLink: linksStore.createTrackedLink,
+  setLinkMetadata: linksStore.setTrackedLinkMetadata,
   deleteLinkBySlug: linksStore.deleteTrackedLinkBySlug,
 };
 export type RenomearDeps = typeof DEPS;
@@ -51,6 +52,23 @@ function isUniqueViolation(e: unknown): boolean {
   return e instanceof Error && /duplicate key|unique/i.test(e.message);
 }
 
+/** Compensação que falhou não derruba a resposta, mas não pode sumir calada. */
+function logCompensacao(etapa: string) {
+  return (e: unknown) => console.error(`[rename-slug] ${etapa}: ${e instanceof Error ? e.message : String(e)}`);
+}
+
+/** Mesmo metadata, com o papel trocado (`master` ou `alias`). */
+function comPapel(metadata: Record<string, unknown> | null, papel: "master" | "alias", campaignName: string) {
+  const resto = Object.fromEntries(Object.entries(metadata ?? {}).filter(([k]) => k !== "master" && k !== "alias"));
+  return { ...resto, campaignName, [papel]: true };
+}
+
+/**
+ * Nenhum passo LIBERA slug: o novo nasce como linha nova (ou já é um apelido
+ * da campanha) e o antigo continua de pé, só muda de papel. Slug solto por um
+ * instante podia ser tomado por outra conta — e o link divulgado abriria o
+ * grupo dela.
+ */
 export async function renomearSlugCampanha(
   tenantId: string,
   campaignId: string,
@@ -66,47 +84,51 @@ export async function renomearSlugCampanha(
   const antigo = campaign.slug;
   if (novo === antigo) return { ok: true, slug: novo };
 
+  const daCampanha = (l: { tenant_id: string; campaign_group_id: string | null } | null) =>
+    l !== null && l.tenant_id === tenantId && l.campaign_group_id === campaignId;
+  const [dono, mestre] = await Promise.all([deps.getLinkBySlug(novo), deps.getLinkBySlug(antigo)]);
   // Slug é único GLOBALMENTE. A única exceção é voltar para um apelido da
-  // própria campanha: ele sai da frente e o link mestre assume o nome.
-  const dono = await deps.getLinkBySlug(novo);
-  const apelidoProprio =
-    dono !== null &&
-    dono.tenant_id === tenantId &&
-    dono.campaign_group_id === campaignId &&
-    dono.metadata?.alias === true;
+  // própria campanha.
+  const apelidoProprio = daCampanha(dono) && dono?.metadata?.alias === true;
   if (dono && !apelidoProprio) return { ok: false, status: 409, error: EM_USO };
 
-  try {
-    await deps.updateCampaign(tenantId, campaignId, { slug: novo });
-  } catch (e) {
-    if (isUniqueViolation(e)) return { ok: false, status: 409, error: EM_USO };
-    throw e;
+  if (dono) {
+    await deps.setLinkMetadata(tenantId, dono.id, comPapel(dono.metadata, "master", campaign.name));
+    try {
+      await deps.updateCampaign(tenantId, campaignId, { slug: novo });
+    } catch (e) {
+      await deps.setLinkMetadata(tenantId, dono.id, dono.metadata).catch(logCompensacao("devolver apelido"));
+      if (isUniqueViolation(e)) return { ok: false, status: 409, error: EM_USO };
+      throw e;
+    }
+  } else {
+    try {
+      await deps.createLink(tenantId, {
+        slug: novo,
+        campaign_group_id: campaignId,
+        target_url: "",
+        metadata: comPapel(null, "master", campaign.name),
+      });
+    } catch (e) {
+      // Alguém pegou o slug entre a checagem e o insert: nada a desfazer.
+      if (isUniqueViolation(e)) return { ok: false, status: 409, error: EM_USO };
+      throw e;
+    }
+    try {
+      await deps.updateCampaign(tenantId, campaignId, { slug: novo });
+    } catch (e) {
+      await deps.deleteLinkBySlug(tenantId, novo).catch(logCompensacao("apagar link novo"));
+      if (isUniqueViolation(e)) return { ok: false, status: 409, error: EM_USO };
+      throw e;
+    }
   }
 
-  const meta = { campaignName: campaign.name };
-  let apagouApelido = false;
-  let renomeou = false;
-  try {
-    if (apelidoProprio) apagouApelido = await deps.deleteLinkBySlug(tenantId, novo);
-    renomeou = await deps.renameLink(tenantId, campaignId, antigo, novo);
-    if (renomeou) {
-      await deps.createLink(tenantId, { slug: antigo, campaign_group_id: campaignId, target_url: "", metadata: { ...meta, alias: true } });
-    } else {
-      // Campanha sem link mestre (backfill pulou): nasce agora, já no slug novo.
-      await deps.createLink(tenantId, { slug: novo, campaign_group_id: campaignId, target_url: "", metadata: { ...meta, master: true } });
-    }
-  } catch (e) {
-    // Desfaz na ordem inversa: campanha e link voltam juntos pro slug antigo,
-    // senão o painel mostraria um link que não abre.
-    if (renomeou) await deps.renameLink(tenantId, campaignId, novo, antigo).catch(() => false);
-    if (apagouApelido) {
-      await deps
-        .createLink(tenantId, { slug: novo, campaign_group_id: campaignId, target_url: "", metadata: { ...meta, alias: true } })
-        .catch(() => null);
-    }
-    await deps.updateCampaign(tenantId, campaignId, { slug: antigo }).catch(() => null);
-    if (isUniqueViolation(e)) return { ok: false, status: 409, error: EM_USO };
-    throw e;
+  // O link antigo vira apelido. Falhar aqui deixa dois "mestres" que abrem a
+  // mesma campanha — nenhum link quebra, só o rótulo fica errado.
+  if (mestre && daCampanha(mestre)) {
+    await deps
+      .setLinkMetadata(tenantId, mestre.id, comPapel(mestre.metadata, "alias", campaign.name))
+      .catch(logCompensacao("marcar apelido"));
   }
 
   return { ok: true, slug: novo };
