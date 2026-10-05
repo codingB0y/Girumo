@@ -270,7 +270,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
         <h1 className="font-display mt-6 text-2xl font-extrabold tracking-[-0.03em] text-volt-950">Campanha criada!</h1>
         <p className="mt-2 text-[18px] text-ardosia">Seu link de captação está pronto pra divulgar.</p>
         <div className="pn-card mt-4 rounded-xl px-4 py-3">
-          <CopyLink url={`${origin}/r/${createdSlug}`} />
+          {origin && <CopyLink url={`${origin}/r/${createdSlug}`} />}
         </div>
         <button
           onClick={() => router.push(`/painel/campanhas/${createdSlug}`)}
@@ -337,7 +337,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
       {mode === "edit" && (createdSlug || slug) && (
         <Field label="Link da campanha" hint="É o link que você divulga — ele enche seus grupos.">
           <div className="flex items-center rounded-xl border border-volt-950/10 bg-poco px-3.5 py-2.5">
-            <CopyLink url={`${origin}/r/${createdSlug ?? slug}`} />
+            {origin && <CopyLink url={`${origin}/r/${createdSlug ?? slug}`} />}
           </div>
         </Field>
       )}

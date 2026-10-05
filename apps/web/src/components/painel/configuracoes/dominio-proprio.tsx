@@ -6,7 +6,6 @@ import { useToast } from "@/components/toast";
 import { useRole } from "@/components/painel/role-provider";
 import type { DnsRecord } from "@/lib/custom-domains/hostname";
 import { textoDoProblema, type DominioView } from "@/lib/custom-domains/view";
-import { esquecerOrigemDoDominio } from "@/lib/painel/use-link-origin";
 import { authenticatedFetch } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -101,8 +100,6 @@ export function DominioProprio() {
 
   function trocar(dominio: DominioView | null) {
     setLeitura({ habilitado: true, dominio });
-    // A origem dos links de campanha foi lida com o domínio anterior.
-    esquecerOrigemDoDominio();
   }
 
   async function conectar(e: React.FormEvent) {
@@ -118,6 +115,7 @@ export function DominioProprio() {
       if (!res.ok) return setErro(await erroDa(res));
       trocar(((await res.json()) as { dominio: DominioView }).dominio);
       setHost("");
+      toast("Domínio cadastrado. Agora crie os dois registros abaixo no seu provedor.");
     } catch {
       setErro("Erro de conexão.");
     } finally {
@@ -134,6 +132,7 @@ export function DominioProprio() {
       trocar(corpo.dominio);
       setDesafios(corpo.desafios);
       if (corpo.dominio.status === "active") toast("Domínio ativo. Os links já saem com o seu endereço.");
+      else toast(textoDoProblema(corpo.dominio.problema) ?? "Ainda não ficou pronto. Tente de novo em alguns minutos.", "error");
     } catch {
       toast("Erro de conexão.", "error");
     } finally {
@@ -149,7 +148,7 @@ export function DominioProprio() {
       trocar(null);
       setDesafios([]);
       setConfirmando(false);
-      toast("Domínio removido. Os links voltam a sair com o endereço do Girumo.");
+      toast("Domínio removido. Links novos voltam a sair com o endereço do Girumo.");
     } catch {
       toast("Erro de conexão.", "error");
     } finally {
@@ -222,7 +221,7 @@ export function DominioProprio() {
                   aria-describedby={erro ? "dominio-proprio-erro" : undefined}
                 />
                 {erro && (
-                  <p id="dominio-proprio-erro" className="mt-1 text-13 text-danger-700">
+                  <p id="dominio-proprio-erro" role="alert" className="mt-1 text-13 text-danger-700">
                     {erro}
                   </p>
                 )}
@@ -282,6 +281,9 @@ export function DominioProprio() {
               )}
               {confirmando ? (
                 <>
+                  <p role="alert" className="w-full text-13 text-danger-700">
+                    Os links que já estão com o seu endereço (grupos, anúncios, QR impresso) vão parar de abrir.
+                  </p>
                   <button type="button" onClick={remover} disabled={acao !== null} className={cn(SECUNDARIO, "text-danger-700")}>
                     {acao === "remover" && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
                     Confirmar remoção
