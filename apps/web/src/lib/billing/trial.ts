@@ -79,8 +79,13 @@ export function trialView(facts: TrialFacts): TrialView {
         }
       : null;
 
+  // Concessão manual (`active` sem Stripe — `trialEligible` já barra quem tem Stripe):
+  // continua elegível para o dia em que perder a concessão, mas não vê a oferta —
+  // já tem o plano (spec 6). O FREE antigo (`free`) segue vendo: é o público do teste.
+  const concedido = sub?.status === "active";
+
   return {
-    elegivel: trialEligible(facts),
+    elegivel: trialEligible(facts) && !concedido,
     emTeste,
     cartaoRepetido: sub?.status === "canceled" && sub.cancelReason === "trial_card_reused",
   };

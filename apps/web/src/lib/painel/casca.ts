@@ -1,4 +1,5 @@
 import { timeAgo } from "@/lib/activity-feed";
+import { diaMesBR } from "@/lib/date-br";
 
 /**
  * Regras puras da casca da Vitrine Aberta (spec 2026-09-07, 3.1 e 3.5):
@@ -68,11 +69,15 @@ export type AssinaturaResumo = {
 /** Rodapé do corredor: "GROWTH · renova 04/10". Só afirma o que veio do banco. */
 export function romaneioDoPlano(sub: AssinaturaResumo): string {
   const nome = sub?.plans?.name?.trim();
-  if (!nome) return "SEM PLANO · escolher";
+  // `canceled` mantém o `plan_id` apontado, mas não concede nada (subscriptionAccess):
+  // é o fim do teste com cartão repetido e de toda assinatura encerrada. Dizer
+  // "renova" ali contradizia a faixa ("Não cobramos nada") e Configurações ("Inativa").
+  if (!nome || sub?.status === "canceled") return "SEM PLANO · escolher";
   const plano = nome.toUpperCase();
-  const fim = sub?.current_period_end ? new Date(sub.current_period_end) : null;
-  if (!fim || !Number.isFinite(fim.getTime())) return plano;
-  const data = `${dois(fim.getDate())}/${dois(fim.getMonth() + 1)}`;
+  // Fuso de Brasília, como o resto do painel: `getDate()` lia o do navegador, e
+  // perto da meia-noite o rodapé mostrava um dia diferente de Configurações e da faixa.
+  const data = diaMesBR(sub?.current_period_end);
+  if (!data) return plano;
   if (sub?.status === "trialing") return `${plano} · teste até ${data}`;
   if (sub?.cancel_at_period_end) return `${plano} · até ${data}`;
   return `${plano} · renova ${data}`;

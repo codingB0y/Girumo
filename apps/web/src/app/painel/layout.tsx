@@ -8,6 +8,8 @@ import { ToastProvider } from "@/components/toast";
 import { RoleProvider } from "@/components/painel/role-provider";
 import { SessionProvider } from "@/components/painel/session-provider";
 import { CascaProvider } from "@/components/painel/casca-context";
+import { TrialBanner } from "@/components/painel/trial/trial-banner";
+import { TrialProvider } from "@/components/painel/trial/use-trial";
 
 export const metadata: Metadata = {
   title: "Painel — Girumo",
@@ -38,9 +40,13 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
               <Corredor />
               <div className="flex min-w-0 flex-1 flex-col">
                 <Letreiro />
-                <main className="max-w-[var(--content-max)] flex-1 pb-20 lg:pb-0">
-                  <PageTransition>{children}</PageTransition>
-                </main>
+                {/* Uma leitura do teste para a faixa e para todo paywall aberto nas telas. */}
+                <TrialProvider>
+                  <TrialBanner />
+                  <main className="max-w-[var(--content-max)] flex-1 pb-20 lg:pb-0">
+                    <PageTransition>{children}</PageTransition>
+                  </main>
+                </TrialProvider>
               </div>
               <BarraMobile />
             </div>
