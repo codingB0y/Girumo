@@ -17,7 +17,7 @@ import {
 import { buildCapiPayload, firstForwardedIp, sendCapiEvent } from "@/lib/campaigns/meta-capi";
 import { lotadoRedirect, renderBlockedPage, renderEntryPage } from "@/lib/campaigns/entry-page";
 import { isMobileUa, readCookie, rememberCookieHeader, rememberCookieName, whatsappDeepLink } from "@/lib/links/deep-link";
-import { hostnameFromHostHeader, isFirstPartyHost, LINK_PATH_HEADER } from "@/lib/custom-domains/host";
+import { hostnameFromHostHeader, isFirstPartyHost } from "@/lib/custom-domains/host";
 import { hostServesTenant } from "@/lib/custom-domains/serves-tenant";
 import { capiEnvio, pixelDaTela } from "./decisao";
 
@@ -83,9 +83,10 @@ export async function handleShortLinkClick(req: Request, slug: string): Promise<
   // escopado a /c/, quem clicou em /r/ tem o escopado a /r/ — sem isso o
   // "grupo lembrado" nunca volta na visita seguinte (paths diferentes).
   const prefix = reqUrl.pathname.startsWith("/c/") ? "/c/" : "/r/";
-  // `/<slug>` no domínio do lojista chega aqui reescrito pra /r/ — o cookie
-  // tem que ficar no caminho que o visitante abriu (ver LINK_PATH_HEADER).
-  const cookiePath = req.headers.get(LINK_PATH_HEADER) === `/${slug}` ? `/${slug}` : `${prefix}${slug}`;
+  // Domínio do lojista só serve links: lá o cookie vale no host inteiro, e
+  // `/<slug>`, `/r/<slug>` e `/c/<slug>` lembram o mesmo grupo — senão quem
+  // abre duas formas do link entra em dois grupos. O nome já é por campanha.
+  const cookiePath = isFirstPartyHost(host) ? `${prefix}${slug}` : "/";
 
   const target = resolveClickTarget({ link, campaign, groups, entrada, rememberedGroupId });
   if (target.kind === "blocked") {

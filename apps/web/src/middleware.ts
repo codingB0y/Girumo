@@ -9,7 +9,6 @@ import {
   customHostRoute,
   hostnameFromHostHeader,
   isFirstPartyHost,
-  LINK_PATH_HEADER,
   skipsFirstPartyMiddleware,
 } from "@/lib/custom-domains/host";
 
@@ -77,9 +76,6 @@ function nonceResponse(req: NextRequest, csp: string, nonce: string, rewriteTo?:
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("content-security-policy", csp);
   requestHeaders.set("x-nonce", nonce);
-  // Só o middleware diz que o link veio pela raiz — o do visitante não vale.
-  requestHeaders.delete(LINK_PATH_HEADER);
-  if (rewriteTo) requestHeaders.set(LINK_PATH_HEADER, req.nextUrl.pathname);
   const init = { request: { headers: requestHeaders } };
   const res = rewriteTo ? NextResponse.rewrite(rewriteTo, init) : NextResponse.next(init);
   res.headers.set("Content-Security-Policy", csp);

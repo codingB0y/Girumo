@@ -65,13 +65,6 @@ export function customHostRoute(pathname: string): CustomHostRoute {
 }
 
 /**
- * Caminho que o visitante abriu quando o middleware reescreveu `/<slug>` para
- * `/r/<slug>`. O handler usa no `Path` do cookie de grupo lembrado — com o path
- * do rewrite, o navegador nunca devolveria o cookie em `/<slug>`.
- */
-export const LINK_PATH_HEADER = "x-girumo-link-path";
-
-/**
  * Link público de campanha. No domínio do lojista vai na raiz
  * (`links.loja.com.br/<slug>`); no host do Girumo, com `/r/`.
  */
