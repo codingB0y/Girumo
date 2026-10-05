@@ -3,6 +3,7 @@ import * as supaStore from "@/lib/stores/campaign-groups";
 import { campanhasColl, uniqueCampanhaSlug, type Campanha } from "@/lib/campanhas-store";
 import { listLinks } from "@/lib/store";
 import { criarLinkMestreOuDesfazer, uniqueMasterSlug } from "@/lib/campaigns/master-link";
+import { renomearSlugCampanha } from "@/lib/campaigns/rename-slug";
 import { assertPlanLimit } from "@/lib/billing/entitlements";
 import { getTenantContext } from "@/lib/supabase/tenant-context";
 import { carregarCampanhas } from "@/lib/painel/inicio-carga";
@@ -209,6 +210,15 @@ export async function PATCH(req: Request) {
       metadata = withIntegracoes(metadata, mergeIntegracoes(atual, pi.patch));
     }
     patch.metadata = metadata;
+  }
+
+  // Trocar o link (/r/:slug) mexe em duas tabelas e guarda o antigo como
+  // apelido — por isso vai por fora do `patch` (ver lib/campaigns/rename-slug.ts).
+  // Depois de TODAS as validações: um 400 de outro campo não pode deixar o
+  // link trocado com a tela ainda apontando pro antigo.
+  if (typeof b.slug === "string") {
+    const r = await renomearSlugCampanha(tenantId, id, b.slug);
+    if (!r.ok) return Response.json({ error: r.error }, { status: r.status });
   }
 
   const updated = await supaStore.updateCampaignGroup(tenantId, id, patch);

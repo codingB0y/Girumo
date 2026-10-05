@@ -101,6 +101,24 @@ export async function createTrackedLink(
 }
 
 /**
+ * Regrava o `metadata` de um link do tenant, por id. Serve pra trocar quem é o
+ * link mestre e quem é apelido sem mexer em slug — slug liberado, mesmo por um
+ * instante, pode ser tomado por outra conta.
+ */
+export async function setTrackedLinkMetadata(
+  tenantId: string,
+  id: string,
+  metadata: Record<string, unknown>,
+): Promise<void> {
+  const { error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .update({ metadata, updated_at: new Date().toISOString() })
+    .eq("tenant_id", tenantId)
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+/**
  * Remove o link de um slug do tenant. Usado quando a entidade dona do link
  * some (ex.: uma indicação apagada) — sem isso o `/r/:slug` continuaria
  * redirecionando para sempre um link que o painel já não mostra.
