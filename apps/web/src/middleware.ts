@@ -5,6 +5,11 @@ import { classifyRequest, decideEngineAccess } from "@/lib/security/request-acce
 import { buildCsp, generateNonce, surfaceForPath } from "@/lib/security/csp";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { isPublicPage, publicPageCaseAlias } from "@/lib/public-pages";
+import {
+  customHostRoute,
+  hostnameFromHostHeader,
+  isFirstPartyHost,
+} from "@/lib/custom-domains/host";
 
 const RATE_LIMIT_WINDOW = 60_000; // 1 minuto
 const RATE_LIMITS: Record<string, number> = {
@@ -75,8 +80,28 @@ function nonceResponse(req: NextRequest, csp: string, nonce: string): NextRespon
   return res;
 }
 
+/** 404 seco no domínio do lojista: lá não existe painel, login nem API logada. */
+function customHostNotFound(): NextResponse {
+  return new NextResponse("Link não encontrado.", {
+    status: 404,
+    headers: { "content-type": "text/plain; charset=utf-8" },
+  });
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  // Domínio próprio do lojista: só links e páginas. A checagem de que o link é
+  // do DONO do domínio fica no handler, que tem acesso ao banco — aqui só se
+  // decide o que pode existir nesse endereço. O host vem do header `Host` (a
+  // mesma fonte que o `missing` do matcher compara), não de `nextUrl`.
+  if (!isFirstPartyHost(hostnameFromHostHeader(req.headers.get("host")))) {
+    const route = customHostRoute(pathname);
+    if (route === "not-found") return customHostNotFound();
+    // /api/p/* em host do Girumo nem passa pelo middleware (fora do matcher).
+    if (route === "public-api") return NextResponse.next();
+    // "surface" (/r, /c, /p) segue o fluxo de sempre: CSP com nonce logo abaixo.
+  }
 
   const nonceSurface = surfaceForPath(pathname);
   if (nonceSurface) {
@@ -200,5 +225,20 @@ export const config = {
     "/p/:path*",
     "/r/:path*",
     "/c/:path*",
+    // Domínio próprio do lojista: o middleware roda em TODO path de host que
+    // não é do Girumo — inclusive os que a primeira entrada exclui (/login,
+    // /api/p/...) — para o ramo de host de lojista barrar o que não é link nem
+    // página. O `value` é o FIRST_PARTY_HOST_PATTERN literal (o Next exige
+    // config estática aqui); host.test.ts trava os dois iguais. Assets
+    // (`_next/*`, arquivos com ponto) ficam de fora: as LPs precisam deles.
+    {
+      source: "/((?!_next/static|_next/image|.*\\.).*)",
+      missing: [
+        {
+          type: "host",
+          value: "(?:localhost|127\\.0\\.0\\.1|(?:[a-z0-9-]+\\.)*(?:girumo\\.com\\.br|hubflow\\.com\\.br|vercel\\.app|localhost))",
+        },
+      ],
+    },
   ],
 };

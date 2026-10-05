@@ -1,6 +1,16 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { test } from "node:test";
-import { customHostRoute, hostnameFromHostHeader, isFirstPartyHost } from "./host";
+import { fileURLToPath } from "node:url";
+import {
+  FIRST_PARTY_HOST_PATTERN,
+  customHostRoute,
+  hostnameFromHostHeader,
+  isFirstPartyHost,
+} from "./host";
+
+const MIDDLEWARE = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "middleware.ts");
 
 test("hosts do Girumo, previews e dev local são first-party", () => {
   for (const host of [
@@ -45,4 +55,13 @@ test("domínio de lojista serve só links, páginas e as APIs públicas delas", 
   for (const path of ["/", "/login", "/signup", "/painel", "/painel/campanhas", "/admin", "/api/dominio", "/api/auth/login", "/r", "/p", "/rr/x"]) {
     assert.equal(customHostRoute(path), "not-found", path);
   }
+});
+
+test("o matcher do middleware usa o mesmo padrão de host, no `missing`", () => {
+  const fonte = readFileSync(MIDDLEWARE, "utf8");
+  assert.ok(
+    fonte.includes(`value: ${JSON.stringify(FIRST_PARTY_HOST_PATTERN)}`),
+    "o literal do matcher saiu de sincronia com FIRST_PARTY_HOST_PATTERN",
+  );
+  assert.match(fonte, /missing:\s*\[\s*\{\s*type:\s*"host"/);
 });
