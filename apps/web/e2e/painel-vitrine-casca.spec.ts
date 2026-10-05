@@ -12,11 +12,11 @@ test.describe("casca mobile da Vitrine Aberta", () => {
   // Um teste por rota, como o painel-rotas: rota que redireciona no cliente
   // aborta o goto seguinte quando tudo roda numa pagina so.
   for (const rota of ROTAS_DO_PAINEL) {
-    test(`${rota} tem o Postar e o letreiro`, async ({ page }) => {
+    test(`${rota} tem o Postar e a barra`, async ({ page }) => {
       await page.goto(rota, { waitUntil: "load" });
       await expect(page.getByTestId("painel-root"), `${rota} nao montou o shell`).toBeVisible();
       await expect(page.getByTestId("painel-postar"), `${rota} sem o Postar`).toBeVisible();
-      await expect(page.getByTestId("painel-letreiro"), `${rota} sem o letreiro`).toBeVisible();
+      await expect(page.getByTestId("painel-barra"), `${rota} sem a barra`).toBeVisible();
     });
   }
 
@@ -62,27 +62,53 @@ test.describe("casca mobile da Vitrine Aberta", () => {
   });
 });
 
-test.describe("casca desktop da Vitrine Aberta", () => {
+test.describe("casca desktop G2: barra volt em cima", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
-  test("corredor, letreiro e ticker no lugar; barra e casca antiga fora", async ({ page }) => {
+  test("barra com loja, módulos, número, Postar e avatar; Mais abre o painel; barra inferior fora", async ({ page }) => {
     await page.goto("/painel", { waitUntil: "load" });
     await expect(page.getByTestId("painel-root")).toBeVisible();
 
-    const corredor = page.getByTestId("painel-corredor");
-    await expect(corredor).toBeVisible();
-    for (const grupo of ["Vender", "Lotar", "Loja"]) {
-      await expect(corredor.getByRole("heading", { name: grupo })).toBeVisible();
+    const barra = page.getByTestId("painel-barra");
+    await expect(barra).toBeVisible();
+    await expect(barra.getByTestId("painel-barra-loja")).toBeVisible({ timeout: 30_000 });
+    const modulos = barra.getByRole("navigation", { name: "Módulos" });
+    for (const nome of ["Início", "Campanhas", "Disparos", "Relâmpago", "Grupos", "Contatos"]) {
+      await expect(modulos.getByRole("link", { name: nome, exact: true })).toBeVisible();
     }
-    await expect(corredor.getByRole("link", { name: /Seu número/ })).toBeVisible();
-    await expect(corredor.getByRole("link", { name: "Configurações" })).toBeVisible();
-    await expect(corredor.getByTestId("painel-romaneio")).not.toHaveText("…", { timeout: 30_000 });
+    await expect(modulos.getByRole("link", { name: "Início", exact: true })).toHaveAttribute("aria-current", "page");
+    await expect(barra.getByRole("link", { name: /Seu número/ })).toBeVisible();
+    await expect(barra.getByTestId("painel-postar-barra")).toBeVisible();
+    await expect(barra.getByRole("link", { name: /^Configurações/ })).toBeVisible();
 
-    await expect(page.getByTestId("painel-letreiro")).toBeVisible();
-    await expect(page.getByTestId("painel-ticker")).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByTestId("painel-ticker")).not.toBeEmpty();
+    await modulos.getByRole("button", { name: "Mais" }).click();
+    const menu = page.getByTestId("painel-menu-mais");
+    await expect(menu).toBeVisible();
+    for (const grupo of ["Vender", "Lotar", "Loja"]) {
+      await expect(menu.getByRole("heading", { name: grupo })).toBeVisible();
+    }
+    await expect(menu.getByRole("link", { name: /^Campanhas · / })).toBeVisible({ timeout: 30_000 });
+    await expect(menu.getByTestId("painel-romaneio")).not.toHaveText("…", { timeout: 30_000 });
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await expect(modulos.getByRole("button", { name: "Mais" })).toBeFocused();
 
     await expect(page.getByTestId("painel-mobile-nav")).toBeHidden();
+  });
+
+  test("Postar da barra abre a folha como diálogo e Esc fecha", async ({ page }) => {
+    await page.goto("/painel/grupos", { waitUntil: "load" });
+    await page.getByTestId("painel-postar-barra").click();
+    const folha = page.getByTestId("painel-folha-postar");
+    await expect(folha).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(folha).toHaveCount(0);
+  });
+
+  test("em Disparos a tela é o compositor: a barra não repete o Postar", async ({ page }) => {
+    await page.goto("/painel/disparos", { waitUntil: "load" });
+    await expect(page.getByTestId("painel-barra")).toBeVisible();
+    await expect(page.getByTestId("painel-postar-barra")).toHaveCount(0);
   });
 
   test("Inicio ao vivo no desktop: faixa, mapa, postando e relampago no lugar", async ({ page }) => {
@@ -92,24 +118,19 @@ test.describe("casca desktop da Vitrine Aberta", () => {
     await expect(page.getByTestId("inicio-mapa")).toBeVisible();
     await expect(page.getByTestId("inicio-postando")).toBeVisible();
     await expect(page.getByTestId("inicio-relampago")).toBeVisible();
-    // O roteiro migrou pro corredor: nao ha card "Comece por aqui" no desktop.
-    await expect(page.getByText("Comece por aqui")).toBeHidden();
-    // Sem fundo Acid alem do chip AO VIVO/LOTOU: nenhum botao Acid na tela.
+    // Sem fundo Acid alem do chip AO VIVO/LOTOU: nenhum botao Acid em classe Tailwind na tela.
     const acidButtons = await page.locator('button[class*="bg-acid"], a[class*="bg-acid"]').count();
     expect(acidButtons).toBe(0);
   });
 
-  test("abaixo de 1280 o corredor recolhe a 64px so com icones", async ({ page }) => {
-    await page.setViewportSize({ width: 1100, height: 800 });
+  test("entre 1024 e 1280 a barra esconde o nome da loja e cabe sem rolagem", async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 800 });
     await page.goto("/painel/grupos", { waitUntil: "load" });
-    const corredor = page.getByTestId("painel-corredor");
-    await expect(corredor).toBeVisible();
-    // 64 exatos porque o box-sizing e border-box: a borda de 1px ja esta dentro da largura.
-    const caixa = await corredor.boundingBox();
-    expect(caixa?.width).toBe(64);
-    // O rotulo some da tela; o cabecalho do grupo e o nome do link seguem na arvore de acessibilidade.
-    await expect(corredor.getByText("Configurações", { exact: true })).toBeHidden();
-    await expect(corredor.getByRole("heading", { name: "Vender" })).toHaveCount(1);
-    await expect(corredor.getByRole("link", { name: "Grupos" })).toHaveAttribute("aria-current", "page");
+    const barra = page.getByTestId("painel-barra");
+    await expect(barra).toBeVisible();
+    await expect(barra.getByTestId("painel-barra-loja")).toBeHidden();
+    await expect(barra.getByRole("link", { name: "Grupos", exact: true })).toHaveAttribute("aria-current", "page");
+    const largura = await page.evaluate(() => document.documentElement.scrollWidth);
+    expect(largura).toBeLessThanOrEqual(1024);
   });
 });
