@@ -4,6 +4,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import {
   NAV_ALL,
+  NAV_BARRA_DESKTOP,
   NAV_BARRA_DIREITA,
   NAV_BARRA_ESQUERDA,
   NAV_FOOTER,
@@ -13,17 +14,14 @@ import {
   isNavItemActive,
   liberado,
   resumo,
-  tituloDaSecao,
   type NavItem,
 } from "./painel-nav";
 
-test("a barra de cima nomeia a seção pelo item do menu que casa com a rota", () => {
-  assert.equal(tituloDaSecao("/painel"), "Início");
-  assert.equal(tituloDaSecao("/painel/campanhas/vip-revenda"), "Campanhas");
-  assert.equal(tituloDaSecao("/painel/relampago/123"), "Oferta Relâmpago");
-  assert.equal(tituloDaSecao("/painel/configuracoes/cancelar"), "Configurações");
-  // Conectar fica fora do menu, mas a barra ainda diz onde a pessoa está.
-  assert.equal(tituloDaSecao("/painel/conectar"), "Seu número");
+test("a barra de cima só aponta pra destinos do menu completo, no máximo seis, e o Relâmpago tem nome curto", () => {
+  for (const item of NAV_BARRA_DESKTOP) assert.ok(NAV_ALL.includes(item), `${item.href} fora do menu`);
+  assert.ok(NAV_BARRA_DESKTOP.length <= 6);
+  assert.deepEqual(NAV_BARRA_DESKTOP.map((i) => i.href), ["/painel", "/painel/campanhas", "/painel/disparos", "/painel/relampago", "/painel/grupos", "/painel/contatos"]);
+  assert.equal(NAV_BARRA_DESKTOP.find((i) => i.href === "/painel/relampago")?.curto, "Relâmpago");
 });
 
 const APP_DIR = path.join(process.cwd(), "src", "app");
@@ -154,5 +152,4 @@ test("Instagram fica em Lotar, logo depois de Campanhas, e só aparece com a lib
   assert.equal(liberado(instagram, { instagram: true }), true);
   const campanhas = NAV_ALL.find((i) => i.href === "/painel/campanhas") as NavItem;
   assert.equal(liberado(campanhas, null), true, "item sem liberação aparece sempre");
-  assert.equal(tituloDaSecao("/painel/instagram/abc"), "Instagram");
 });
