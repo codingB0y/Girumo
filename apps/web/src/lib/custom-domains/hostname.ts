@@ -18,7 +18,9 @@ export function dnsRecordsFor(hostname: string, token: string): { cname: DnsReco
 
 export type HostnameCheck = { ok: true; hostname: string } | { ok: false; error: string };
 
-const LABEL_RE = /^(?!-)[a-z0-9-]{1,63}(?<!-)$/;
+// Sem lookbehind: este módulo entra no bundle do cliente (via view.ts) e o
+// Safari < 16.4 não parseia `(?<!`, derrubando o chunk inteiro.
+const LABEL_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const TLD_RE = /^(?:[a-z]{2,63}|xn--[a-z0-9-]{1,59})$/;
 
 /**

@@ -1,9 +1,15 @@
 import { randomBytes } from "node:crypto";
 import { normalizeHostname } from "@/lib/custom-domains/hostname";
+import { shouldRemoveFromVercel } from "@/lib/custom-domains/removal";
 import { removeProjectDomain, vercelConfigured } from "@/lib/custom-domains/vercel";
 import { toDominioView } from "@/lib/custom-domains/view";
 import { assertPermission } from "@/lib/permissions";
-import { claimCustomDomain, deleteCustomDomain, getCustomDomain } from "@/lib/stores/custom-domains";
+import {
+  claimCustomDomain,
+  deleteCustomDomain,
+  getActiveDomainTenant,
+  getCustomDomain,
+} from "@/lib/stores/custom-domains";
 import { USE_SUPABASE } from "@/lib/stores/use-supabase";
 import { getTenantContext } from "@/lib/supabase/tenant-context";
 
@@ -69,11 +75,14 @@ export async function DELETE(req: Request) {
     const domain = await getCustomDomain(ctx.tenantId);
     if (!domain) return new Response(null, { status: 204 });
     if (vercelConfigured()) {
-      // Falha aqui não segura a remoção: host no projeto sem linha no banco
-      // responde 404 em tudo, e um novo cadastro ainda precisa provar posse.
-      await removeProjectDomain(domain.hostname).catch((err) =>
-        console.error(`[api/dominio] remover ${domain.hostname} da Vercel`, err),
-      );
+      const dono = await getActiveDomainTenant(domain.hostname);
+      if (shouldRemoveFromVercel(domain, dono, ctx.tenantId)) {
+        // Falha aqui não segura a remoção: host no projeto sem linha no banco
+        // responde 404 em tudo, e um novo cadastro ainda precisa provar posse.
+        await removeProjectDomain(domain.hostname).catch((err) =>
+          console.error(`[api/dominio] remover ${domain.hostname} da Vercel`, err),
+        );
+      }
     }
     await deleteCustomDomain(ctx.tenantId);
     return new Response(null, { status: 204 });

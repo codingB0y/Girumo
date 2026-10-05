@@ -9,6 +9,7 @@ import {
   customHostRoute,
   hostnameFromHostHeader,
   isFirstPartyHost,
+  skipsFirstPartyMiddleware,
 } from "@/lib/custom-domains/host";
 
 const RATE_LIMIT_WINDOW = 60_000; // 1 minuto
@@ -91,11 +92,17 @@ function customHostNotFound(): NextResponse {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // O host vem do header `Host` (a mesma fonte que o `missing` do matcher
+  // compara), não de `nextUrl`.
+  const firstParty = isFirstPartyHost(hostnameFromHostHeader(req.headers.get("host")));
+  // Caminhos que a primeira entrada do matcher exclui: em host do Girumo passam
+  // direto, mesmo que a plataforma rode o middleware neles (ver host.ts).
+  if (firstParty && skipsFirstPartyMiddleware(pathname)) return NextResponse.next();
+
   // Domínio próprio do lojista: só links e páginas. A checagem de que o link é
   // do DONO do domínio fica no handler, que tem acesso ao banco — aqui só se
-  // decide o que pode existir nesse endereço. O host vem do header `Host` (a
-  // mesma fonte que o `missing` do matcher compara), não de `nextUrl`.
-  if (!isFirstPartyHost(hostnameFromHostHeader(req.headers.get("host")))) {
+  // decide o que pode existir nesse endereço.
+  if (!firstParty) {
     const route = customHostRoute(pathname);
     if (route === "not-found") return customHostNotFound();
     // /api/p/* em host do Girumo nem passa pelo middleware (fora do matcher).
@@ -236,7 +243,7 @@ export const config = {
       missing: [
         {
           type: "host",
-          value: "(?:localhost|127\\.0\\.0\\.1|(?:[a-z0-9-]+\\.)*(?:girumo\\.com\\.br|hubflow\\.com\\.br|vercel\\.app|localhost))",
+          value: "(?:localhost|\\d{1,3}(?:\\.\\d{1,3}){3}|(?:[a-z0-9-]+\\.)*(?:girumo\\.com\\.br|hubflow\\.com\\.br|vercel\\.app|localhost))",
         },
       ],
     },

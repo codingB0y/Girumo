@@ -91,7 +91,11 @@ export type SaveResult = { ok: true; domain: CustomDomain } | { ok: false; reaso
 
 /**
  * Grava o resultado de uma verificação. `taken` = outro tenant já ativou este
- * host (o índice parcial recusou); `gone` = a linha sumiu no meio do caminho.
+ * host (o índice parcial recusou); `gone` = a linha sumiu no meio do caminho ou
+ * já não está pendente.
+ *
+ * Só mexe em linha pendente: verificar só promove — corrida entre duas
+ * verificações nunca rebaixa um domínio ativo (vira `gone`).
  */
 export async function saveVerification(
   tenantId: string,
@@ -107,6 +111,7 @@ export async function saveVerification(
       verified_at: patch.status === "active" ? now : null,
     })
     .eq("tenant_id", tenantId)
+    .eq("status", "pending")
     .select(COLS)
     .maybeSingle();
   if (error) {

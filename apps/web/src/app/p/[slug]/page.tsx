@@ -55,6 +55,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const page = await getCachedPage(slug);
   if (!page) return { title: "Página não encontrada" };
+  if (!(await hostServesTenant(hostnameFromHostHeader((await headers()).get("host")), page.tenant_id))) {
+    return { title: "Página não encontrada" };
+  }
 
   const content = page.content;
   const summary = pageSummary(content);

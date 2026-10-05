@@ -106,14 +106,14 @@ test("segundo domínio na mesma conta: exists", async () => {
   assert.deepEqual(await claimCustomDomain("loja-a", "outro.loja.com.br", "tok"), { ok: false, reason: "exists" });
 });
 
-test("ativar host já ativo em outra conta: taken, com filtro de tenant no update", async () => {
+test("ativar host já ativo em outra conta: taken, com filtro de tenant e só linha pendente no update", async () => {
   resposta = {
     status: 409,
     corpo: { code: "23505", message: 'duplicate key value violates unique constraint "custom_domains_hostname_ativo"', details: null, hint: null },
   };
   assert.deepEqual(await saveVerification("loja-a", { status: "active", lastError: null }), { ok: false, reason: "taken" });
   assert.equal(pedidos[0].metodo, "PATCH");
-  assert.deepEqual(filtros(pedidos[0].url), { tenant_id: "eq.loja-a" });
+  assert.deepEqual(filtros(pedidos[0].url), { tenant_id: "eq.loja-a", status: "eq.pending" });
 });
 
 test("verificação pendente grava o problema e não marca verified_at", async () => {
@@ -125,6 +125,8 @@ test("verificação pendente grava o problema e não marca verified_at", async (
   assert.equal(corpo.last_error, "txt");
   assert.equal(corpo.verified_at, null);
   assert.equal(typeof corpo.checked_at, "string");
+  // Verificar só promove: nunca rebaixa uma linha que outra verificação ativou.
+  assert.deepEqual(filtros(pedidos[0].url), { tenant_id: "eq.loja-a", status: "eq.pending" });
 });
 
 test("ativação marca verified_at", async () => {

@@ -8,6 +8,8 @@ import { getTenantContext } from "@/lib/supabase/tenant-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// Pior caso: várias chamadas encadeadas de até 10s à Vercel, mais o DNS.
+export const maxDuration = 60;
 
 const NAO_ENCONTRADO = "Nenhum domínio cadastrado.";
 
@@ -34,7 +36,13 @@ export async function POST(req: Request) {
     if (!saved.ok && saved.reason === "taken") {
       saved = await saveVerification(ctx.tenantId, { status: "pending", lastError: "em-uso" });
     }
-    if (!saved.ok) return Response.json({ error: NAO_ENCONTRADO }, { status: 404 });
+    if (!saved.ok) {
+      // `gone`: a linha sumiu ou já não está pendente (outra verificação ativou
+      // antes). Devolve o estado atual em vez de erro.
+      const atual = await getCustomDomain(ctx.tenantId);
+      if (!atual) return Response.json({ error: NAO_ENCONTRADO }, { status: 404 });
+      return Response.json({ dominio: toDominioView(atual), desafios: [] });
+    }
 
     return Response.json({
       dominio: toDominioView(saved.domain),

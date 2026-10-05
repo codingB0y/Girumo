@@ -18,7 +18,7 @@ test("recusa raiz da loja e pede subdomínio", () => {
 });
 
 test("recusa endereço inválido e IP", () => {
-  for (const ruim of ["", "   ", "links..loja.com", "-links.loja.com", "links_loja.com.br", "*.loja.com.br", "127.0.0.1", "links.loja.c0m"]) {
+  for (const ruim of ["", "   ", "links..loja.com", "-links.loja.com", "links-.loja.com.br", "links_loja.com.br", "*.loja.com.br", "127.0.0.1", "links.loja.c0m"]) {
     assert.equal(normalizeHostname(ruim).ok, false, JSON.stringify(ruim));
   }
 });
