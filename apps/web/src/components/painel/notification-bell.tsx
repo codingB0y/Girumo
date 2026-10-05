@@ -35,7 +35,7 @@ const TYPE_COLORS: Record<string, string> = {
   info: "bg-canvas-100 text-cobalt-500",
 };
 
-/** Um tom só: no tema noite a superfície já é escura e o ícone, claro. */
+/** Um tom só: a superfície é clara e o ícone fica no tom de apoio. */
 export function NotificationBell() {
   const instancia = useId().replace(/[^a-zA-Z0-9]/g, "");
   const [open, setOpen] = useState(false);

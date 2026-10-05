@@ -13,8 +13,8 @@ import { cn } from "@/lib/utils";
  * legível em cima dele, e o fio ainda diz "lotou" de longe. O Acid fica no
  * `span` — nunca na classe do link (regra 10, e2e da casca).
  *
- * Sem convite = contorno vermelho + ícone. O vermelho é `saida`: tem tom próprio
- * no tema noite (7,2:1 na superfície; o `danger-700` dava 2,7:1 ali).
+ * Sem convite = contorno vermelho + ícone. O vermelho é `saida`, a cor da série
+ * de saídas do gráfico (4,6:1 sobre a superfície branca; fio pede 3:1).
  * Sumiu do cadastro = contorno tracejado e a palavra "sumiu" na célula.
  */
 const PREENCHIMENTO: Record<CelulaDoMapa["estado"], string> = {
