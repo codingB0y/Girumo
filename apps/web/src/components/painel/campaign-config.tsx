@@ -14,6 +14,7 @@ import { EntradaPreview } from "@/components/painel/campanhas/entrada-preview";
 import { IntegracoesForm, type IntegracoesFormValue } from "@/components/painel/campanhas/integracoes-form";
 import type { IntegracoesPublicas } from "@/app/api/campanhas/apresenta";
 import { AjudaPainel } from "@/components/painel/campanhas/ajuda-painel";
+import { useLinkOrigin } from "@/lib/painel/use-link-origin";
 
 /**
  * Erro de requisição que preserva o caminho de saída.
@@ -102,7 +103,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
   const [pages, setPages] = useState<{ slug: string; title: string }[]>([]);
 
   const [idx, setIdx] = useState(0);
-  const [origin, setOrigin] = useState("");
+  const origin = useLinkOrigin();
 
   // Aplica um preset (passo Objetivo → Cadastro). "Do zero" só avança, sem pré-preencher.
   function applyPreset(preset: CampaignPreset) {
@@ -117,7 +118,6 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
   }
 
   useEffect(() => {
-    setOrigin(window.location.origin);
     (async () => {
       try {
         const g = await fetch("/api/groups").then((r) => r.json()).catch(() => []);

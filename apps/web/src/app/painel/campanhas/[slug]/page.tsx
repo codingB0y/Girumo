@@ -42,6 +42,7 @@ import { entriesPerClick } from "@/lib/campaigns/campaign-entries";
 import { horaBR } from "@/lib/date-br";
 import type { EntradasDaCampanha } from "@/lib/painel/campanha-visao";
 import { QUASE_LOTADO } from "@/lib/painel/grupos";
+import { useLinkOrigin } from "@/lib/painel/use-link-origin";
 
 type Campanha = {
   id: string;
@@ -81,7 +82,7 @@ export default function CampanhaDetalhe() {
   const [atualizadoEm, setAtualizadoEm] = useState(() => new Date());
   const [live, setLive] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
-  const [origin, setOrigin] = useState("");
+  const origin = useLinkOrigin();
   const [tab, setTab] = useState<Tab>("Visão geral");
   // Posts fica montada depois da 1ª visita: o funil em preenchimento
   // (e a foto já enviada) sobrevive à troca de aba.
@@ -152,7 +153,6 @@ export default function CampanhaDetalhe() {
   }
 
   useEffect(() => {
-    setOrigin(window.location.origin);
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
@@ -219,7 +219,9 @@ export default function CampanhaDetalhe() {
     );
   }
 
-  const masterUrl = campanha.slug ? `${origin}/r/${campanha.slug}` : "";
+  // Sem origem ainda (consulta do domínio próprio voltando), sem link: um
+  // "/r/slug" relativo copiado ou embutido no funil seria link quebrado.
+  const masterUrl = origin && campanha.slug ? `${origin}/r/${campanha.slug}` : "";
   const offline = live === false;
   const semConvite = o.missingInviteCount;
 
