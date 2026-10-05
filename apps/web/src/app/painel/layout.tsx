@@ -3,7 +3,7 @@ import localFont from "next/font/local";
 import { Letreiro } from "@/components/painel/letreiro";
 import { Corredor } from "@/components/painel/corredor";
 import { BarraMobile } from "@/components/painel/barra-mobile";
-import { PageTransition } from "@/components/painel/page-transition";
+import { MioloDoPainel } from "@/components/painel/miolo";
 import { ToastProvider } from "@/components/toast";
 import { RoleProvider } from "@/components/painel/role-provider";
 import { SessionProvider } from "@/components/painel/session-provider";
@@ -43,9 +43,7 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
                 {/* Uma leitura do teste para a faixa e para todo paywall aberto nas telas. */}
                 <TrialProvider>
                   <TrialBanner />
-                  <main className="max-w-[var(--content-max)] flex-1 pb-20 lg:pb-0">
-                    <PageTransition>{children}</PageTransition>
-                  </main>
+                  <MioloDoPainel>{children}</MioloDoPainel>
                 </TrialProvider>
               </div>
               <BarraMobile />

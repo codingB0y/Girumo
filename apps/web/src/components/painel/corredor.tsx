@@ -7,7 +7,7 @@ import { useCasca } from "@/components/painel/casca-context";
 import { useRole } from "@/components/painel/role-provider";
 import { usePanelSession } from "@/components/painel/session-provider";
 import { iniciaisDaLoja, romaneioDoPlano, type AssinaturaResumo } from "@/lib/painel/casca";
-import { NAV_ALL, NAV_FOOTER, NAV_GRUPOS_ORDEM, NAV_GRUPO_TITULO, isNavItemActive, type NavItem } from "@/lib/painel-nav";
+import { NAV_ALL, NAV_FOOTER, NAV_GRUPOS_ORDEM, NAV_GRUPO_TITULO, isNavItemActive, liberado, type NavItem } from "@/lib/painel-nav";
 import { formatPhoneBR } from "@/lib/phone";
 import { cn } from "@/lib/utils";
 
@@ -110,7 +110,7 @@ export function Corredor() {
   const sub = useAssinatura();
   const campanhas = useCampanhas(pathname);
   const perfil = usePerfilDoNumero();
-  const { passos } = useCasca();
+  const { passos, foco, liberacoes } = useCasca();
   const mostrarPassos = passos !== null && passos.feitos < passos.total;
   const nomeDaLoja = carregado ? (tenantName ?? "Sua loja") : "";
   const ponto = loading || !session
@@ -121,6 +121,8 @@ export function Corredor() {
   const estado = loading || !session ? "Verificando…" : session.live ? "Conectado" : "Desconectado";
   const telefone = session?.live ? formatPhoneBR(session.phone) : null;
   const nomeDoNumero = !loading && session ? `Seu número: ${session.live ? "conectado" : "desconectado"}` : "Seu número";
+
+  if (foco) return null;
 
   return (
     <aside data-testid="painel-corredor" className="pn-corredor sticky top-0 hidden h-screen shrink-0 flex-col lg:flex">
@@ -139,7 +141,7 @@ export function Corredor() {
         {NAV_GRUPOS_ORDEM.map((grupo) => (
           <section key={grupo}>
             <h2 className="pn-corredor__grupo">{NAV_GRUPO_TITULO[grupo]}</h2>
-            {NAV_ALL.filter((item) => item.grupo === grupo && !RODAPE.includes(item.href)).map((item) =>
+            {NAV_ALL.filter((item) => item.grupo === grupo && !RODAPE.includes(item.href) && liberado(item, liberacoes)).map((item) =>
               item.href === CAMPANHAS_HREF ? (
                 <div key={item.href}>
                   <Item item={item} pathname={pathname} contagem={campanhas.length > 0 ? campanhas.length : undefined} />

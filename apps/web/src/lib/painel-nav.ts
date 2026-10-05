@@ -11,6 +11,7 @@ import {
   Settings,
   BookOpen,
   Boxes,
+  Camera,
   type LucideIcon,
 } from "lucide-react";
 
@@ -40,6 +41,10 @@ import {
  */
 export type NavGrupo = "vender" | "lotar" | "loja";
 
+/** Add-ons: o item só aparece pra loja com a liberação ligada. */
+export type Liberacao = "instagram";
+export type Liberacoes = Record<Liberacao, boolean>;
+
 export const NAV_GRUPOS_ORDEM: NavGrupo[] = ["vender", "lotar", "loja"];
 export const NAV_GRUPO_TITULO: Record<NavGrupo, string> = { vender: "Vender", lotar: "Lotar", loja: "Loja" };
 
@@ -48,6 +53,7 @@ export type NavItem = {
   label: string;
   icon: LucideIcon;
   grupo: NavGrupo;
+  requer?: Liberacao;
 };
 
 export type NavGroup = {
@@ -58,6 +64,8 @@ export type NavGroup = {
 
 const INICIO: NavItem = { href: "/painel", label: "Início", icon: Sun, grupo: "loja" };
 const CAMPANHAS: NavItem = { href: "/painel/campanhas", label: "Campanhas", icon: Layers, grupo: "lotar" };
+// lucide-react não tem o ícone Instagram (ver lp-piloto/ui.tsx); Camera é o substituto.
+const INSTAGRAM: NavItem = { href: "/painel/instagram", label: "Instagram", icon: Camera, grupo: "lotar", requer: "instagram" };
 const DISPAROS: NavItem = { href: "/painel/disparos", label: "Disparos", icon: Send, grupo: "vender" };
 const BIBLIOTECA: NavItem = { href: "/painel/biblioteca", label: "Biblioteca", icon: BookOpen, grupo: "vender" };
 const RELAMPAGO: NavItem = { href: "/painel/relampago", label: "Oferta Relâmpago", icon: Flame, grupo: "vender" };
@@ -70,7 +78,7 @@ const RESULTADOS: NavItem = { href: "/painel/resultados", label: "Resultados", i
 const CONFIGURACOES: NavItem = { href: "/painel/configuracoes", label: "Configurações", icon: Settings, grupo: "loja" };
 
 export const NAV_GROUPS: NavGroup[] = [
-  { title: null, items: [INICIO, CAMPANHAS, DISPAROS, BIBLIOTECA, RELAMPAGO, FUNIS, COMUNIDADES, GRUPOS, CONTATOS] },
+  { title: null, items: [INICIO, CAMPANHAS, INSTAGRAM, DISPAROS, BIBLIOTECA, RELAMPAGO, FUNIS, COMUNIDADES, GRUPOS, CONTATOS] },
   { title: "Crescimento", items: [PAGINAS, RESULTADOS] },
 ];
 
@@ -102,6 +110,11 @@ export const NAV_ALL: NavItem[] = [
 
 export function isNavItemActive(pathname: string, href: string): boolean {
   return href === "/painel" ? pathname === href : pathname.startsWith(href);
+}
+
+/** `null` = a casca ainda não sabe: esconde o que depende de liberação em vez de piscar. */
+export function liberado(item: NavItem, liberacoes: Liberacoes | null): boolean {
+  return !item.requer || (liberacoes?.[item.requer] ?? false);
 }
 
 /**

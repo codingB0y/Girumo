@@ -73,6 +73,8 @@ test.describe("rotas do painel renderizam", () => {
     test(`${rota} renderiza`, async ({ page }, testInfo) => {
       const esperado = CONTEUDO_ESPERADO[rota];
       test.skip(!esperado, `${rota} nao tem conteudo declarado; o teste de completude ja cobra.`);
+      const motivo = await esperado.indisponivel?.(page.request);
+      test.skip(Boolean(motivo), motivo ?? "");
 
       const errosDeConsole: string[] = [];
       page.on("pageerror", (erro) => errosDeConsole.push(erro.message));

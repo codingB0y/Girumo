@@ -11,8 +11,10 @@ import {
   NAV_GRUPOS_ORDEM,
   NAV_MOBILE_PRIMARY,
   isNavItemActive,
+  liberado,
   resumo,
   tituloDaSecao,
+  type NavItem,
 } from "./painel-nav";
 
 test("a barra de cima nomeia a seção pelo item do menu que casa com a rota", () => {
@@ -140,4 +142,17 @@ test("resumo vazio diz que não há nada, nunca zero", () => {
   assert.equal(linhas["/painel/funis"], "Funis · nenhum agendado");
   assert.equal(linhas["/painel/pages"], "Páginas · nenhuma no ar");
   assert.ok(!Object.values(linhas).some((l) => /\b0\b/.test(l)));
+});
+
+test("Instagram fica em Lotar, logo depois de Campanhas, e só aparece com a liberação", () => {
+  const lotar = NAV_ALL.filter((i) => i.grupo === "lotar").map((i) => i.href);
+  assert.equal(lotar.indexOf("/painel/instagram"), lotar.indexOf("/painel/campanhas") + 1);
+  const instagram = NAV_ALL.find((i) => i.href === "/painel/instagram") as NavItem;
+  assert.equal(instagram.requer, "instagram");
+  assert.equal(liberado(instagram, null), false, "sem resposta ainda, esconde em vez de piscar");
+  assert.equal(liberado(instagram, { instagram: false }), false);
+  assert.equal(liberado(instagram, { instagram: true }), true);
+  const campanhas = NAV_ALL.find((i) => i.href === "/painel/campanhas") as NavItem;
+  assert.equal(liberado(campanhas, null), true, "item sem liberação aparece sempre");
+  assert.equal(tituloDaSecao("/painel/instagram/abc"), "Instagram");
 });

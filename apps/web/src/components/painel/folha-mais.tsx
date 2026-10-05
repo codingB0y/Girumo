@@ -8,9 +8,11 @@ import {
   NAV_GRUPOS_ORDEM,
   NAV_GRUPO_TITULO,
   isNavItemActive,
+  liberado,
   resumo,
   type ResumoDados,
 } from "@/lib/painel-nav";
+import { useCasca } from "./casca-context";
 import { Folha } from "./folha";
 
 type Linha = { status?: string; enabled?: boolean; createdAt?: string };
@@ -29,6 +31,7 @@ async function lista(url: string): Promise<Linha[]> {
  */
 export function FolhaMais({ id, aberta, aoFechar }: { id?: string; aberta: boolean; aoFechar: () => void }) {
   const pathname = usePathname();
+  const { liberacoes } = useCasca();
   const [dados, setDados] = useState<ResumoDados | null>(null);
 
   useEffect(() => {
@@ -68,7 +71,7 @@ export function FolhaMais({ id, aberta, aoFechar }: { id?: string; aberta: boole
               {NAV_GRUPO_TITULO[grupo]}
             </h3>
             <ul>
-              {NAV_ALL.filter((item) => item.grupo === grupo).map(({ href, label, icon: Icon }) => {
+              {NAV_ALL.filter((item) => item.grupo === grupo && liberado(item, liberacoes)).map(({ href, label, icon: Icon }) => {
                 const ativo = isNavItemActive(pathname, href);
                 return (
                   <li key={href}>

@@ -14,6 +14,8 @@
  * nova nasce sem cobertura em silencio — que e como este buraco nasceu.
  */
 
+import type { APIRequestContext } from "@playwright/test";
+
 /**
  * A fonte de dados da lista principal da tela.
  *
@@ -62,7 +64,20 @@ export type ConteudoEsperado = {
    * uma isencao sem procedencia.
    */
   semLista?: string;
+  /**
+   * Quando a tela depende de algo que a loja de QA pode nao ter (um add-on).
+   * Devolve o motivo e o spec pula a rota em vez de falhar; `null` = disponivel.
+   * A completude continua exigindo a entrada declarada.
+   */
+  indisponivel?(request: APIRequestContext): Promise<string | null>;
 };
+
+/** A ancora das telas do Instagram so existe com o add-on liberado. */
+async function instagramIndisponivel(request: APIRequestContext): Promise<string | null> {
+  const res = await request.get("/api/ig/status");
+  const liberado = res.ok() && ((await res.json()) as { enabled?: boolean }).enabled === true;
+  return liberado ? null : "A loja de QA nao tem instagram_enabled; libere em tenant_settings.";
+}
 
 /**
  * Pega o primeiro texto util de uma lista de registros da API.
@@ -235,6 +250,25 @@ export const CONTEUDO_ESPERADO: Record<string, ConteudoEsperado> = {
       marca: (j) => primeiroTexto(j, ...NOME),
       vazio: /Nenhum grupo/i,
     },
+  },
+
+  "/painel/instagram": {
+    // Subtitulo do cabecalho da lista liberada; o estado "nao liberado" nao o tem.
+    ancora: /respondem comentário e direct/,
+    indisponivel: instagramIndisponivel,
+    lista: {
+      api: "/api/ig/flows",
+      // A API devolve `{ flows: [...] }`, nao um array cru.
+      marca: (j) => primeiroTexto((j as { flows?: unknown } | null)?.flows, "name"),
+      vazio: /Nenhum fluxo ainda/i,
+    },
+  },
+
+  "/painel/instagram/novo": {
+    // NAO "Novo fluxo": casa com o breadcrumb e com o estado "nao liberado".
+    ancora: /Escolha por onde começar/,
+    indisponivel: instagramIndisponivel,
+    semLista: "Formulario de criacao; nao lista registro existente.",
   },
 
   "/painel/pages": {
