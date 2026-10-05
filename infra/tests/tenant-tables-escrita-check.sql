@@ -25,7 +25,7 @@
 --   que alguem tenha dado de proposito — ai ok=false ate tirar a tabela da lista).
 with t(name) as (values
   ('agent_configs'), ('broadcasts'), ('campaign_groups'), ('campaign_messages'), ('campaigns'),
-  ('custom_domains'),
+  ('custom_domains'), ('ig_accounts'), ('ig_flows'), ('ig_runs'), ('ig_run_steps'),
   ('celebrations'), ('contacts'), ('flash_offer_claims'), ('flash_offer_entries'),
   ('flash_offer_groups'), ('flash_offers'), ('funnels'), ('group_bulk_jobs'),
   ('group_participants'), ('groups'), ('instances'), ('landing_pages'), ('logs'), ('messages'),

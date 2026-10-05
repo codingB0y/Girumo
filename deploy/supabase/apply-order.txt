@@ -453,3 +453,8 @@ apps/web/supabase/migrations/20261004120000_authenticated_sem_escrita_em_public.
 # (t|custom_domains). Escrita so do servidor — conferir com
 # infra/tests/tenant-tables-escrita-check.sql nos dois bancos.
 apps/web/supabase/migrations/20261005120000_custom_domains.sql
+# 2026-10-03 - Fluxos do Instagram, fase 1 (spec 2026-10-02): ig_accounts ganha provider e
+# provider_account_id (Zernio) e solta o token; ig_triggers e ig_events (vazias, sem codigo)
+# saem; entram ig_flows, ig_runs, ig_run_steps e tenant_settings.instagram_enabled.
+# Aplicar nos dois bancos (pendente).
+apps/web/supabase/migrations/20261003120000_ig_fluxos.sql
