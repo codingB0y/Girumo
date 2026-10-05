@@ -30,7 +30,7 @@ const PROBLEMAS: Record<VerifyProblem, string> = {
   txt: "Ainda não encontramos o registro TXT. Depois de criar, ele pode levar até 1 hora para aparecer.",
   dns: "O registro CNAME ainda não aponta para o Girumo. Confira o valor e, se usa Cloudflare, deixe a nuvem cinza (somente DNS).",
   "em-uso": "Este endereço está ligado a outro site ou conta. Use outro subdomínio ou fale com o suporte.",
-  "vercel-verificacao": "O provedor pediu uma confirmação extra. Crie o registro abaixo e verifique de novo.",
+  "vercel-verificacao": "O provedor pediu uma confirmação extra. Clique em Verificar agora para ver o registro que falta.",
   "vercel-erro": "Não conseguimos verificar agora. Tente de novo em alguns minutos.",
 };
 

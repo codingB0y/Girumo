@@ -7,6 +7,7 @@ import { telefoneNaVitrine } from "@/lib/painel/conectar";
 import { resumoDasPortas, type LeituraDasPortas, type Porta } from "@/lib/painel/configuracoes";
 import { AbaEquipe, type PropsDaEquipe } from "./aba-equipe";
 import { AbaPlano, type PropsDoPlano } from "./aba-plano";
+import { DominioProprio } from "@/components/painel/configuracoes/dominio-proprio";
 
 const PORTAS: Porta[] = ["Conexão", "Equipe", "Notificações", "Plano", "Conta"];
 
@@ -92,7 +93,12 @@ export function ConfiguracoesVitrine({
         </nav>
 
         <div className="min-w-0">
-          {porta === "Conexão" && <AbaConexao {...conexao} />}
+          {porta === "Conexão" && (
+            <div className="space-y-6">
+              <AbaConexao {...conexao} />
+              <DominioProprio />
+            </div>
+          )}
           {porta === "Equipe" && <AbaEquipe {...equipe} />}
           {porta === "Notificações" && <AbaAvisos {...avisos} />}
           {porta === "Plano" && <AbaPlano {...plano} />}
