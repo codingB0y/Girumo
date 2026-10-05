@@ -119,7 +119,9 @@ export function useFluxo(id: string) {
   // Saiu da tela (ou trocou de fluxo) com edição por salvar: manda e esquece.
   useEffect(
     () => () => {
-      if (pendente.current) void patch(id, pendente.current, true).catch(() => {});
+      const corpo = pendente.current;
+      // Atrás do envio no ar: senão o PATCH antigo pode chegar depois e sobrescrever este.
+      if (corpo) (voo.current ?? Promise.resolve()).finally(() => void patch(id, corpo, true).catch(() => {}));
       pendente.current = null;
       tentativas.current = 0;
     },

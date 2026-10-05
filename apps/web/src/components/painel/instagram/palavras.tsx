@@ -17,7 +17,7 @@ export function Palavras({ palavras, aoMudar }: { palavras: string[]; aoMudar: (
     setDigitando("");
   };
   return (
-    <div className="flex min-h-10 flex-wrap items-center gap-1.5 rounded-[var(--radius-control)] border border-line-200 bg-canvas-100 px-2 py-1.5">
+    <div className="flex min-h-10 flex-wrap items-center gap-1.5 rounded-[var(--radius-control)] border border-line-200 bg-canvas-100 px-2 py-1.5 focus-within:border-cobalt-500">
       {palavras.map((p, i) => (
         <span key={`${p}-${i}`} className="inline-flex h-7 items-center gap-1 rounded-[var(--radius-chip)] bg-hover-ficha pl-2 pr-1 text-13 text-volt-950">
           {p}
@@ -39,7 +39,7 @@ export function Palavras({ palavras, aoMudar }: { palavras: string[]; aoMudar: (
         onBlur={acrescentar}
         disabled={cheio}
         placeholder={cheio ? `Máximo de ${MAX_KEYWORDS} palavras` : palavras.length ? "" : "adicionar palavra"}
-        className="min-w-[8ch] flex-1 bg-transparent text-13 text-volt-950 outline-none placeholder:text-slate-600"
+        className="min-w-[8ch] flex-1 bg-transparent text-13 text-volt-950 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500 placeholder:text-slate-600"
       />
     </div>
   );

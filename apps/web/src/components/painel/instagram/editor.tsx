@@ -136,6 +136,16 @@ export function EditorDoFluxo({ id }: { id: string }) {
     }
   };
 
+  if (instagram?.enabled === false) {
+    return (
+      <section className="px-5 py-6 lg:px-8">
+        <h1 className="text-20 font-semibold text-volt-950">Instagram</h1>
+        <p className="mt-2 max-w-[52ch] text-13 text-slate-600">
+          O Instagram ainda não está liberado para esta loja. Fale com a Girumo para ligar.
+        </p>
+      </section>
+    );
+  }
   if (carga === "carregando" && !flow) {
     return (
       <div className="p-6">
@@ -180,7 +190,7 @@ export function EditorDoFluxo({ id }: { id: string }) {
           onChange={(e) => renomearELimpar(e.target.value)}
           onBlur={() => setNomeLocal(null)}
           maxLength={80}
-          className="order-last h-9 min-w-0 basis-full bg-transparent text-15 font-semibold text-volt-950 outline-none sm:order-none sm:basis-0 sm:flex-1"
+          className="order-last h-9 min-w-0 basis-full bg-transparent text-15 font-semibold text-volt-950 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500 sm:order-none sm:basis-0 sm:flex-1"
         />
         <span className="ml-auto sm:ml-0"><ChipEstado status={flow.status} /></span>
         {/* Falha de salvamento aparece em qualquer tela; "Salvo"/"Salvando…" só de sm pra cima. */}
@@ -196,7 +206,7 @@ export function EditorDoFluxo({ id }: { id: string }) {
             onClick={() => void aoPublicar()}
             disabled={bloqueado || publicando}
             title={motivo}
-            className="inline-flex h-9 items-center rounded-[var(--radius-control)] bg-acid-500 px-3 text-13 font-medium text-volt-950 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-9 items-center rounded-[var(--radius-control)] bg-volt-950 px-3 text-13 font-medium text-canvas-100 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {flow.published ? "Publicar alteração" : "Publicar"}
           </button>
