@@ -15,6 +15,8 @@ import { IntegracoesForm, type IntegracoesFormValue } from "@/components/painel/
 import type { IntegracoesPublicas } from "@/app/api/campanhas/apresenta";
 import { AjudaPainel } from "@/components/painel/campanhas/ajuda-painel";
 import { useLinkOrigin } from "@/lib/painel/use-link-origin";
+import { linkPublico } from "@/lib/painel/campanhas";
+import { campaignLinkPath } from "@/lib/custom-domains/host";
 
 /**
  * Erro de requisição que preserva o caminho de saída.
@@ -91,7 +93,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
 
   const [id, setId] = useState<string | null>(null);
   const [createdSlug, setCreatedSlug] = useState<string | null>(null);
-  // Final do link (/r/<slug>) editável — só vai no PATCH se mudou.
+  // Final do link da campanha editável — só vai no PATCH se mudou.
   const [slugDraft, setSlugDraft] = useState("");
   // Gaveta espelho de comunidade nativa: grupos/auto-grow ficam bloqueados na
   // tela (o servidor já recusa o PATCH — isto evita o clique morto).
@@ -286,7 +288,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
         <h1 className="font-display mt-6 text-2xl font-extrabold tracking-[-0.03em] text-volt-950">Campanha criada!</h1>
         <p className="mt-2 text-[18px] text-ardosia">Seu link de captação está pronto pra divulgar.</p>
         <div className="pn-card mt-4 rounded-xl px-4 py-3">
-          {origin && <CopyLink url={`${origin}/r/${createdSlug}`} />}
+          {origin && <CopyLink url={linkPublico(origin, createdSlug) ?? ""} />}
         </div>
         <button
           onClick={() => router.push(`/painel/campanhas/${createdSlug}`)}
@@ -361,7 +363,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
         >
           <div className="flex items-center rounded-xl border border-volt-950/10 bg-papel focus-within:border-cobalt-500/40">
             <span className="shrink-0 truncate pl-3.5 text-sm text-aco" aria-hidden="true">
-              {origin ? `${origin.replace(/^https?:\/\//, "")}/r/` : "/r/"}
+              {`${origin.replace(/^https?:\/\//, "")}${campaignLinkPath(origin, "")}`}
             </span>
             <input
               aria-label="Final do link da campanha"
@@ -375,7 +377,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
           </div>
           {origin && slugDraft === createdSlug && (
             <div className="mt-2 flex items-center rounded-xl border border-volt-950/10 bg-poco px-3.5 py-2.5">
-              <CopyLink url={`${origin}/r/${createdSlug}`} />
+              <CopyLink url={linkPublico(origin, createdSlug) ?? ""} />
             </div>
           )}
         </Field>
