@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { unstable_cache } from "next/cache";
 import { getPublishedPageBySlug } from "@/lib/pages/store";
+import { hostnameFromHostHeader } from "@/lib/custom-domains/host";
+import { hostServesTenant } from "@/lib/custom-domains/serves-tenant";
 import type { ReactNode } from "react";
 import { noticeTextFor, pageSummary, resolveTargetUrl } from "@/lib/pages/schema";
 import { isLpContentV2, isLpContentV3 } from "@/lib/pages/render";
@@ -85,6 +87,10 @@ export default async function PublicLandingPage({ params }: PageProps) {
   const page = await getCachedPage(slug);
   if (!page) notFound();
 
+  // Domínio próprio: o host do lojista só mostra página do próprio lojista.
+  const requestHeaders = await headers();
+  if (!(await hostServesTenant(hostnameFromHostHeader(requestHeaders.get("host")), page.tenant_id))) notFound();
+
   // Guarda de integridade (server-only, não vaza no HTML): página publicada sem
   // destino não existe. O destino NUNCA vai pro client — só o POST /api/p/lead o
   // resolve e devolve como redirect_url após a captura bem-sucedida.
@@ -93,7 +99,7 @@ export default async function PublicLandingPage({ params }: PageProps) {
   // Nonce da CSP desta request (middleware). O tracking cria os scripts dos
   // vendors em runtime via createElement — sem o nonce neles o browser bloqueia
   // e o lojista perde Pixel/GA4 sem nenhum erro visível.
-  const nonce = (await headers()).get("x-nonce");
+  const nonce = requestHeaders.get("x-nonce");
 
   const content = page.content;
   const noticeText = noticeTextFor(content);

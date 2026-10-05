@@ -17,6 +17,8 @@ import {
 import { buildCapiPayload, firstForwardedIp, sendCapiEvent } from "@/lib/campaigns/meta-capi";
 import { lotadoRedirect, renderBlockedPage, renderEntryPage } from "@/lib/campaigns/entry-page";
 import { isMobileUa, readCookie, rememberCookieHeader, rememberCookieName, whatsappDeepLink } from "@/lib/links/deep-link";
+import { hostnameFromHostHeader, isFirstPartyHost } from "@/lib/custom-domains/host";
+import { hostServesTenant } from "@/lib/custom-domains/serves-tenant";
 import { capiEnvio, pixelDaTela } from "./decisao";
 
 // Crawlers/previews que NÃO são cliques humanos (não inflam o funil/CPL).
@@ -52,10 +54,15 @@ export async function handleShortLinkClick(req: Request, slug: string): Promise<
   // Só conta clique de gente real — bot/preview/crawler redireciona mas não conta.
   const human = !BOT_UA.test(ua);
 
-  if (!USE_SUPABASE) return legacyGet(req, slug, ua, human);
+  const host = hostnameFromHostHeader(req.headers.get("host"));
+  // Modo JSON (dev) não conhece domínio próprio: host de lojista não abre nada.
+  if (!USE_SUPABASE) return isFirstPartyHost(host) ? legacyGet(req, slug, ua, human) : notFoundPage();
 
   const link = await linksStore.getTrackedLinkBySlug(slug);
   if (!link) return notFoundPage();
+  // Domínio próprio: o host do lojista só abre link do próprio lojista. O slug
+  // é global, então sem isto qualquer loja abriria o link de outra no endereço dela.
+  if (!(await hostServesTenant(host, link.tenant_id))) return notFoundPage();
 
   // Daqui pra baixo o tenant sai da PRÓPRIA linha do link: toda query seguinte
   // filtra por ele (service-role bypassa RLS — o filtro é que isola o tenant).
