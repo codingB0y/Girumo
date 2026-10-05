@@ -72,13 +72,25 @@ async function validateBearerToken(token: string): Promise<boolean> {
  * que é de onde o Next lê pra assinar os próprios scripts inline, e em `x-nonce`,
  * que a page e o route handler leem pra assinar os scripts que eles mesmos criam.
  */
-function nonceResponse(req: NextRequest, csp: string, nonce: string): NextResponse {
+function nonceResponse(req: NextRequest, csp: string, nonce: string, rewriteTo?: URL): NextResponse {
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("content-security-policy", csp);
   requestHeaders.set("x-nonce", nonce);
-  const res = NextResponse.next({ request: { headers: requestHeaders } });
+  const init = { request: { headers: requestHeaders } };
+  const res = rewriteTo ? NextResponse.rewrite(rewriteTo, init) : NextResponse.next(init);
   res.headers.set("Content-Security-Policy", csp);
   return res;
+}
+
+/**
+ * `/<slug>` no domínio do lojista: serve `/r/<slug>` sem mudar a URL do
+ * visitante. Mesma CSP com nonce do /r/ (a tela de entrada tem script inline).
+ */
+function rootLinkResponse(req: NextRequest): NextResponse {
+  const nonce = generateNonce();
+  const destino = req.nextUrl.clone();
+  destino.pathname = `/r${req.nextUrl.pathname}`;
+  return nonceResponse(req, buildCsp("click-redirect", nonce, process.env.NODE_ENV === "development"), nonce, destino);
 }
 
 /** 404 seco no domínio do lojista: lá não existe painel, login nem API logada. */
@@ -107,6 +119,7 @@ export async function middleware(req: NextRequest) {
     if (route === "not-found") return customHostNotFound();
     // /api/p/* em host do Girumo nem passa pelo middleware (fora do matcher).
     if (route === "public-api") return NextResponse.next();
+    if (route === "root-link") return rootLinkResponse(req);
     // "surface" (/r, /c, /p) segue o fluxo de sempre: CSP com nonce logo abaixo.
   }
 

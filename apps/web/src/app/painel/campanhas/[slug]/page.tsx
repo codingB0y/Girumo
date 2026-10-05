@@ -43,6 +43,7 @@ import { horaBR } from "@/lib/date-br";
 import type { EntradasDaCampanha } from "@/lib/painel/campanha-visao";
 import { QUASE_LOTADO } from "@/lib/painel/grupos";
 import { useLinkOrigin } from "@/lib/painel/use-link-origin";
+import { linkPublico } from "@/lib/painel/campanhas";
 
 type Campanha = {
   id: string;
@@ -221,7 +222,7 @@ export default function CampanhaDetalhe() {
 
   // Sem origem ainda (consulta do domínio próprio voltando), sem link: um
   // "/r/slug" relativo copiado ou embutido no funil seria link quebrado.
-  const masterUrl = origin && campanha.slug ? `${origin}/r/${campanha.slug}` : "";
+  const masterUrl = linkPublico(origin, campanha.slug) ?? "";
   const offline = live === false;
   const semConvite = o.missingInviteCount;
 

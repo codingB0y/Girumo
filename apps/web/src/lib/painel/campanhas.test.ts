@@ -147,6 +147,9 @@ test("link público só existe com slug e com origin", () => {
   assert.equal(linkPublico("https://app.girumo.com.br", undefined), null);
   assert.equal(caminhoPublico("reativacao"), "/r/reativacao");
   assert.equal(caminhoPublico(undefined), null);
+  // Domínio próprio: o link vai na raiz.
+  assert.equal(linkPublico("https://links.loja.com.br", "reativacao"), "https://links.loja.com.br/reativacao");
+  assert.equal(caminhoPublico("reativacao", "https://links.loja.com.br"), "/reativacao");
 });
 
 test("busca ignora acento e caixa", () => {

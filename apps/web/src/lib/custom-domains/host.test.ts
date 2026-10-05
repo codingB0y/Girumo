@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import {
   FIRST_MATCHER_SKIPPED,
   FIRST_PARTY_HOST_PATTERN,
+  campaignLinkPath,
   customHostRoute,
   hostnameFromHostHeader,
   isFirstPartyHost,
@@ -55,9 +56,25 @@ test("domínio de lojista serve só links, páginas e as APIs públicas delas", 
   assert.equal(customHostRoute("/p/minha-loja"), "surface");
   assert.equal(customHostRoute("/api/p/lead"), "public-api");
   assert.equal(customHostRoute("/api/p/media/123"), "public-api");
-  for (const path of ["/", "/login", "/signup", "/painel", "/painel/campanhas", "/admin", "/api/dominio", "/api/auth/login", "/r", "/p", "/rr/x"]) {
+  for (const path of ["/", "/painel/campanhas", "/api/dominio", "/api/auth/login", "/r", "/c", "/p", "/api", "/rr/x", "/favicon.ico", "/robots.txt", "/Varejo", "/a--b", "/-x"]) {
     assert.equal(customHostRoute(path), "not-found", path);
   }
+});
+
+test("no domínio do lojista, /<slug> é o link da campanha (vira /r/<slug>)", () => {
+  for (const path of ["/gruposvarejo", "/moda-sul-varejo", "/vip2"]) {
+    assert.equal(customHostRoute(path), "root-link", path);
+  }
+  // Painel e login não existem lá: um segmento solto é só um slug — que, sem
+  // link com esse nome, cai no "Link não encontrado" do /r/.
+  assert.equal(customHostRoute("/login"), "root-link");
+});
+
+test("link da campanha: raiz no domínio do lojista, /r/ no host do Girumo", () => {
+  assert.equal(campaignLinkPath("https://links.modakidsdosul.com.br", "gruposvarejo"), "/gruposvarejo");
+  assert.equal(campaignLinkPath("https://app.girumo.com.br", "gruposvarejo"), "/r/gruposvarejo");
+  assert.equal(campaignLinkPath("http://localhost:3000", "gruposvarejo"), "/r/gruposvarejo");
+  assert.equal(campaignLinkPath("", "gruposvarejo"), "/r/gruposvarejo");
 });
 
 test("o matcher do middleware usa o mesmo padrão de host, no `missing`", () => {

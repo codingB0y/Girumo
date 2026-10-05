@@ -200,7 +200,7 @@ export function DominioProprio() {
       {!dominio && (
         <>
           <p className="mt-2 text-13 text-slate-600">
-            Os links dos seus grupos saem no seu endereço: <span className="font-data">links.sualoja.com.br/r/vip</span>{" "}
+            Os links dos seus grupos saem no seu endereço: <span className="font-data">links.sualoja.com.br/vip</span>{" "}
             em vez do endereço do Girumo.
           </p>
           {podeEditar && (
@@ -248,7 +248,7 @@ export function DominioProprio() {
           <p className="font-data mt-3 break-all text-[20px] text-volt-950">{dominio.hostname}</p>
           {ativo ? (
             <p className="mt-2 text-13 text-slate-600">
-              Seus links de campanha já saem assim: <span className="font-data">https://{dominio.hostname}/r/…</span>
+              Seus links de campanha já saem assim: <span className="font-data">https://{dominio.hostname}/…</span>
             </p>
           ) : (
             <>

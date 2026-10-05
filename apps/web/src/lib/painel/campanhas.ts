@@ -8,6 +8,7 @@
  */
 
 import type { CampaignOperationalStatus } from "@/lib/campaign-groups-overview";
+import { campaignLinkPath } from "@/lib/custom-domains/host";
 import type { Carga } from "@/lib/painel/types";
 import { cn } from "@/lib/utils";
 
@@ -148,12 +149,15 @@ export function textoDeCliques(cliques: number, cargaDosLinks: Carga): string | 
  */
 export function linkPublico(origin: string, slug: string | undefined): string | null {
   if (!slug || !origin) return null;
-  return `${origin}/r/${slug}`;
+  return `${origin}${campaignLinkPath(origin, slug)}`;
 }
 
-/** O caminho curto que a etiqueta mostra no lugar da URL: "/r/reativacao". */
-export function caminhoPublico(slug: string | undefined): string | null {
-  return slug ? `/r/${slug}` : null;
+/**
+ * O caminho curto que a etiqueta mostra no lugar da URL: "/r/reativacao", ou
+ * "/reativacao" no domínio do lojista. Sem origem ainda, o formato com /r/.
+ */
+export function caminhoPublico(slug: string | undefined, origin = ""): string | null {
+  return slug ? campaignLinkPath(origin, slug) : null;
 }
 
 /** Sem acento e sem caixa: buscar "reativacao" tem que achar "Reativação". */

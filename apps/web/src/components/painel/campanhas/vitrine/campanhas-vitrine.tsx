@@ -238,7 +238,7 @@ function Etiqueta({
   const chip = chipDaCampanha(campanha.operationalStatus);
   const vagas = linhaDeVagas(campanha, cargaDosGrupos);
   const cliques = textoDeCliques(campanha.clicks, cargaDosLinks);
-  const caminho = caminhoPublico(slug);
+  const caminho = caminhoPublico(slug, origin);
   const url = linkPublico(origin, slug);
 
   return (

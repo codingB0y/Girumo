@@ -83,6 +83,10 @@ export async function handleShortLinkClick(req: Request, slug: string): Promise<
   // escopado a /c/, quem clicou em /r/ tem o escopado a /r/ — sem isso o
   // "grupo lembrado" nunca volta na visita seguinte (paths diferentes).
   const prefix = reqUrl.pathname.startsWith("/c/") ? "/c/" : "/r/";
+  // Domínio do lojista só serve links: lá o cookie vale no host inteiro, e
+  // `/<slug>`, `/r/<slug>` e `/c/<slug>` lembram o mesmo grupo — senão quem
+  // abre duas formas do link entra em dois grupos. O nome já é por campanha.
+  const cookiePath = isFirstPartyHost(host) ? `${prefix}${slug}` : "/";
 
   const target = resolveClickTarget({ link, campaign, groups, entrada, rememberedGroupId });
   if (target.kind === "blocked") {
@@ -106,7 +110,7 @@ export async function handleShortLinkClick(req: Request, slug: string): Promise<
   const headers = new Headers();
   // Grupo lembrado: só gente real, só campanha, só quando a opção está ligada.
   if (human && cookieName && target.groupId && entrada.um_grupo_por_pessoa) {
-    headers.append("set-cookie", rememberCookieHeader(cookieName, target.groupId, `${prefix}${slug}`, reqUrl.protocol === "https:"));
+    headers.append("set-cookie", rememberCookieHeader(cookieName, target.groupId, cookiePath, reqUrl.protocol === "https:"));
   }
 
   const deepLinkUrl = campaign && entrada.deep_link && isMobileUa(ua) ? whatsappDeepLink(target.url) : null;
