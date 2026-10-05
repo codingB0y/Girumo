@@ -228,10 +228,10 @@ export function MobileTimeline() {
 export function MobileFecho() {
   return (
     <section className="bg-[var(--green)] px-5 pb-[60px] pt-14 text-center text-[var(--ink)]">
-      <p className="lp4-mono text-[9px] text-[rgba(7,25,35,0.65)]">direito garantido por lei</p>
-      <h2 className="lp4-x mt-3.5 text-balance text-[40px]">7 dias pra desistir. Sem multa nunca.</h2>
+      <p className="lp4-mono text-[9px] text-[rgba(7,25,35,0.65)]">teste sem compromisso</p>
+      <h2 className="lp4-x mt-3.5 text-balance text-[40px]">7 dias grátis. Sem multa nunca.</h2>
       <p className="mx-auto mt-3.5 max-w-[300px] text-sm leading-[1.55] text-[rgba(7,25,35,0.75)]">
-        Conecte seu WhatsApp em 2 minutos. Desistiu em 7 dias, devolvemos tudo — e os grupos continuam seus.
+        Conecte seu WhatsApp em 2 minutos. Cancelou nos 7 dias, não paga nada — e os grupos continuam seus.
       </p>
       <a
         href={WHATSAPP_URL}

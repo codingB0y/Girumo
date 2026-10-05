@@ -83,8 +83,8 @@ function ClosingCall() {
       <p className="text-[15px] font-semibold leading-normal lg:col-start-1 lg:row-start-3 lg:max-w-[560px] lg:text-[17px] lg:font-normal lg:leading-[1.55]">
         <b>PS:</b>{" "}
         <ViewportText
-          mobile="7 dias pra desistir. Os grupos continuam seus."
-          desktop="são 7 dias pra desistir. Se não gostar, devolvemos tudo, e os grupos continuam seus."
+          mobile="7 dias grátis. Os grupos continuam seus."
+          desktop="são 7 dias grátis. Cancelou antes, não paga nada, e os grupos continuam seus."
         />
       </p>
     </section>

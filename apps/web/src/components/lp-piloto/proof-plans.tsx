@@ -82,8 +82,8 @@ export function PilotoPlanos() {
             </span>
           </span>
           <p className="text-sm leading-[1.45] lg:text-[17px] lg:leading-normal">
-            <b className="font-bold">Testa 7 dias. Não gostou, devolvemos tudo.</b> É o direito de arrependimento do
-            Código de Defesa do Consumidor, e a gente cumpre sem burocracia. Depois, cancela na própria tela, sem multa.
+            <b className="font-bold">Testa 7 dias grátis. Cancelou antes, não paga nada.</b> A cobrança só começa no
+            8º dia, e a gente avisa antes por e-mail. Depois, cancela na própria tela, sem multa.
           </p>
         </div>
       </div>

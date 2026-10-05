@@ -10,17 +10,14 @@ export const PERGUNTA_ANUAL = "Como funciona o plano anual?";
 
 /**
  * A resposta do anual herdada do LP3_FAQ tem preço digitado ("R$ 197 em vez de
- * R$ 297", "voltam R$ 1.473"). Aqui ela é refeita a partir de PLANS, com a mesma
- * regra do reembolso: os meses usados passam a valer o preço mensal.
+ * R$ 297"). Aqui ela é refeita a partir de PLANS. A regra de devolução do anual
+ * vive só nos Termos desde 03/10/2026: a landing não anuncia reembolso.
  */
 function respostaAnual(): string {
   const plano = PLANS.find((p) => p.featured) ?? PLANS[0];
-  const mesesUsados = 3;
-  const devolvido = plano.annualPrice * 12 - mesesUsados * plano.price;
   return (
     `Você paga 1x ao ano e o mês sai até ${MAX_OFF}% mais barato — no ${plano.name}, R$ ${plano.annualPrice} em vez de R$ ${plano.price}. ` +
-    "Se cancelar no meio do caminho, devolvemos os meses não usados: os meses que você usou passam a valer o preço mensal e o resto volta pra você. " +
-    `Cancelando o ${plano.name} anual depois de ${mesesUsados} meses, por exemplo, voltam R$ ${devolvido.toLocaleString("pt-BR")}.`
+    "Cancelamento sem multa; as regras do anual estão nos Termos de uso."
   );
 }
 

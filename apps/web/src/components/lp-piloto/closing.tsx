@@ -49,8 +49,8 @@ export function PilotoFecho() {
               APOIO_ESCURO,
             )}
           >
-            <b className="font-bold text-paper-0">PS:</b> se em 7 dias você não gostar, devolvemos tudo. Você não
-            arrisca nada pra ver a Girumo rodando nos seus grupos.
+            <b className="font-bold text-paper-0">PS:</b> são 7 dias grátis: cancelando antes, você não
+            paga nada pra ver a Girumo rodando nos seus grupos.
           </p>
         </div>
         <div className="order-2 min-w-0 lg:order-none">
