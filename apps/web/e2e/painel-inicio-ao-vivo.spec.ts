@@ -116,6 +116,21 @@ test.describe("Início ao vivo no celular", () => {
     expect(larguras.rola).toBe(true);
   });
 
+  test("o mapa é compacto no celular: célula baixa e o atalho para os grupos", async ({ page }) => {
+    await page.goto("/painel?aba=grupos", { waitUntil: "load" });
+    const mapa = page.getByTestId("inicio-mapa");
+    await expect(mapa).toBeVisible({ timeout: 30_000 });
+    const celulas = mapa.getByTestId("celula-do-grupo");
+    expect(await celulas.count()).toBeGreaterThan(0);
+    const caixa = await celulas.first().boundingBox();
+    expect(caixa?.height).toBeLessThanOrEqual(40);
+    const ver = mapa.getByRole("link", { name: /^Ver (os [\d.]+ grupos|o grupo)$/ });
+    await expect(ver).toBeVisible();
+    await expect(ver).toHaveAttribute("href", "/painel/grupos");
+    expect((await ver.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+  });
+
   test("setas do teclado movem a seleção entre as abas", async ({ page }) => {
     await page.goto("/painel?aba=relampago", { waitUntil: "load" });
     await expect(page.getByTestId("inicio-ao-vivo")).toBeVisible({ timeout: 30_000 });
@@ -149,5 +164,15 @@ test.describe("Início ao vivo a partir de 768 px", () => {
     await expect(page.getByTestId("inicio-mapa")).toBeVisible();
     await expect(page.getByTestId("inicio-postando")).toBeVisible();
     await expect(page.getByTestId("inicio-relampago")).toBeVisible();
+  });
+
+  test("o mapa mantém as células de 56 px e não mostra os atalhos do celular", async ({ page }) => {
+    await page.goto("/painel", { waitUntil: "load" });
+    const mapa = page.getByTestId("inicio-mapa");
+    await expect(mapa).toBeVisible({ timeout: 30_000 });
+    const celulas = mapa.getByTestId("celula-do-grupo");
+    expect(await celulas.count()).toBeGreaterThan(0);
+    expect((await celulas.first().boundingBox())?.height).toBe(56);
+    await expect(mapa.getByRole("link", { name: /^Ver (os [\d.]+ grupos|o grupo)$/ })).toBeHidden();
   });
 });

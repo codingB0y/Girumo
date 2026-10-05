@@ -443,3 +443,9 @@ apps/web/supabase/migrations/20261003160000_memberships_users_escrita_so_servido
 # para linha de outro tenant, fila do worker, opt_out, limite de plano). O gate de drift nao
 # ve privilegio — conferir com infra/tests/tenant-tables-escrita-check.sql nos dois bancos.
 apps/web/supabase/migrations/20261003170000_tabelas_tenant_escrita_so_servidor.sql
+# 2026-10-04 - authenticated nao escreve em public: revoga insert/update/delete/truncate
+# das ~30 tabelas que sobraram (automations e notifications com policy viva so em prod),
+# fecha o default privilege do grantor postgres e estende ensure_anon_revoked para tabela/
+# view nova. O gate de drift nao ve privilegio nem corpo de funcao — conferir com
+# infra/tests/authenticated-sem-escrita-check.sql e -prova.sql nos dois bancos.
+apps/web/supabase/migrations/20261004120000_authenticated_sem_escrita_em_public.sql
