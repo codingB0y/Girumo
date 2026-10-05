@@ -255,6 +255,24 @@ test("cancelamento agendado por cancel_at grava cancel_at_period_end: a tela nao
   assert.equal(f.upserts[0].cancel_at_period_end, true);
 });
 
+test("cortesia do admin: a data em que a cobranca volta chega na linha", async () => {
+  const f = makeStore();
+  const sub = makeSubscription({
+    metadata: { tenant_id: TENANT, plan_id: PLAN, plan_code: "GROWTH", courtesy_until: "2027-01-20T00:00:00.000Z" },
+  });
+
+  await handleStripeEvent(
+    makeEvent({ type: "customer.subscription.updated", data: { object: sub } } as unknown as Partial<Stripe.Event>),
+    f.store,
+  );
+
+  assert.equal(f.upserts[0].metadata.courtesy_until, "2027-01-20T00:00:00.000Z");
+  // Sem cortesia, a chave vem nula: o "" que apaga a chave no Stripe não pode virar data.
+  const semCortesia = makeStore();
+  await handleStripeEvent(makeEvent({ id: "evt_2" }), semCortesia.store);
+  assert.equal(semCortesia.upserts[0].metadata.courtesy_until, null);
+});
+
 test("assinatura sem tenant_id nao grava e registra aviso", async () => {
   const f = makeStore();
   const semMetadata = makeEvent({
