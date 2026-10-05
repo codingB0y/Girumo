@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin-guard";
-import { buildManualGrant, buildManualRevoke } from "@/lib/billing/manual-grant";
+import { buildManualGrant, buildManualRevoke, revokeBlockedByStripe } from "@/lib/billing/manual-grant";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 type Params = { params: Promise<{ id: string }> };
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   // `subscriptions` tem unique(tenant_id): no máximo uma linha por tenant.
   const { data: atual, error: subError } = await supabase
     .from("subscriptions")
-    .select("id, metadata")
+    .select("id, metadata, stripe_subscription_id")
     .eq("tenant_id", id)
     .maybeSingle();
 
@@ -65,6 +65,15 @@ export async function POST(req: NextRequest, { params }: Params) {
   if (action === "revoke") {
     if (!atual) {
       return NextResponse.json({ error: "Este tenant não tem assinatura." }, { status: 404 });
+    }
+    if (revokeBlockedByStripe(atual)) {
+      return NextResponse.json(
+        {
+          error:
+            "Este tenant tem assinatura viva no Stripe (paga ou cortesia). Revogar aqui não para a cobrança e o próximo evento do Stripe devolve o acesso — cancele a assinatura no Dashboard do Stripe.",
+        },
+        { status: 409 },
+      );
     }
 
     const { error } = await supabase

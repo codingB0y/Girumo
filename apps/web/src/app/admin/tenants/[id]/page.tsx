@@ -59,7 +59,7 @@ export default async function AdminTenantDetailPage({ params }: Props) {
   // Subscription
   const { data: subs, error: subsError } = await supabase
     .from("subscriptions")
-    .select("id, status, plan_id, created_at")
+    .select("id, status, plan_id, created_at, metadata")
     .eq("tenant_id", id)
     .order("created_at", { ascending: false })
     .limit(5);
@@ -198,6 +198,7 @@ export default async function AdminTenantDetailPage({ params }: Props) {
           <div className="divide-y divide-volt-950/[0.04]">
             {(subs ?? []).map((s) => {
               const plan = planMap.get(s.plan_id);
+              const cortesia = cortesiaAte(s.metadata);
               return (
                 <div key={s.id} className="flex items-center justify-between px-5 py-3.5">
                   <div>
@@ -207,6 +208,11 @@ export default async function AdminTenantDetailPage({ params }: Props) {
                         ? `R$ ${(plan.price_cents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}/mês`
                         : "Grátis"}
                     </p>
+                    {cortesia && (
+                      <p className="font-data text-[11px] text-emerald-700">
+                        Cortesia · cobrança volta em {cortesia}
+                      </p>
+                    )}
                   </div>
                   <StatusBadge status={s.status} />
                 </div>
@@ -264,6 +270,15 @@ export default async function AdminTenantDetailPage({ params }: Props) {
       </div>
     </div>
   );
+}
+
+/** `metadata.courtesy_until` (gravado pelo webhook) ainda no futuro, formatado; senão null. */
+function cortesiaAte(metadata: unknown): string | null {
+  const ate = (metadata as { courtesy_until?: unknown } | null)?.courtesy_until;
+  if (typeof ate !== "string") return null;
+  const t = Date.parse(ate);
+  if (Number.isNaN(t) || t <= Date.now()) return null;
+  return new Date(t).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
 }
 
 function RoleBadge({ role }: { role: string }) {

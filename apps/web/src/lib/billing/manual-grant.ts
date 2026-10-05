@@ -85,6 +85,30 @@ export function buildManualGrant(input: {
   };
 }
 
+/** Status crus do Stripe (`metadata.stripe_status`) em que a assinatura ainda pode cobrar. */
+const STRIPE_VIVA: ReadonlySet<string> = new Set([
+  "active",
+  "trialing",
+  "past_due",
+  "unpaid",
+  "incomplete",
+  "paused",
+]);
+
+/**
+ * Revogar só mexe no banco. Com assinatura viva no Stripe — paga, ou a cortesia
+ * de `courtesy.ts` —, o próximo evento do webhook regrava `active` e o cartão
+ * segue sendo cobrado: o admin acharia que encerrou algo que continua.
+ */
+export function revokeBlockedByStripe(row: {
+  stripe_subscription_id?: string | null;
+  metadata?: unknown;
+}): boolean {
+  if (!row.stripe_subscription_id) return false;
+  const status = metadataBase(row.metadata).stripe_status;
+  return typeof status === "string" && STRIPE_VIVA.has(status);
+}
+
 export type ManualRevokeRow = {
   status: "canceled";
   canceled_at: string;

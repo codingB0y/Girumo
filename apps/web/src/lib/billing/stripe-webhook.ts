@@ -193,6 +193,8 @@ async function upsertSubscription(
       plan_code: subscription.metadata.plan_code ?? null,
       // A tela precisa saber POR QUE foi cancelada (cartão repetido no teste).
       cancel_reason: subscription.metadata.cancel_reason ?? null,
+      // Cortesia dada pelo admin (`courtesy.ts`): quando a cobrança volta.
+      courtesy_until: subscription.metadata.courtesy_until || null,
     },
   });
 

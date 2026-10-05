@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildManualGrant, buildManualRevoke } from "./manual-grant";
+import { buildManualGrant, buildManualRevoke, revokeBlockedByStripe } from "./manual-grant";
 import { subscriptionAccess } from "./subscription-access";
 
 const AGORA = new Date("2026-09-01T12:00:00.000Z");
@@ -108,4 +108,17 @@ test("revogacao NAO concede plano e mantem o rastro de quem concedeu", () => {
     revoked_by: "outro@girumo.com",
     revoked_at: depois.toISOString(),
   });
+});
+
+test("revogar e recusado com assinatura viva no Stripe: o webhook desfaria e o cartao seguiria cobrado", () => {
+  const viva = { stripe_subscription_id: "sub_1", metadata: { stripe_status: "active" } };
+  assert.equal(revokeBlockedByStripe(viva), true);
+  assert.equal(revokeBlockedByStripe({ ...viva, metadata: { stripe_status: "past_due" } }), true);
+
+  // Concessao manual por cima de assinatura que ja morreu: revogar e legitimo.
+  assert.equal(revokeBlockedByStripe({ ...viva, metadata: { stripe_status: "canceled" } }), false);
+  assert.equal(revokeBlockedByStripe({ ...viva, metadata: { stripe_status: "incomplete_expired" } }), false);
+  // Concessao manual pura, sem Stripe; e metadata que nao e objeto.
+  assert.equal(revokeBlockedByStripe({ stripe_subscription_id: null, metadata: { manual_grant: {} } }), false);
+  assert.equal(revokeBlockedByStripe({ stripe_subscription_id: "sub_1", metadata: "lixo" }), false);
 });
