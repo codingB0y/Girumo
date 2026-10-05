@@ -63,6 +63,21 @@ export type CourtesyTarget = {
   cancelScheduled: boolean;
 } | null;
 
+/** Status em que a assinatura já não cobra nada nunca mais. */
+const MORTAS: ReadonlySet<Stripe.Subscription.Status> = new Set(["canceled", "incomplete_expired"]);
+
+/**
+ * Antes de CRIAR, o Customer não pode ter assinatura viva no Stripe.
+ *
+ * A decisão olha a linha do banco, que só o webhook escreve — e ele descarta
+ * assinatura sem `metadata.tenant_id` (criada à mão no Dashboard) e pode estar
+ * atrasado logo depois de um checkout. Nos dois casos a linha diz "sem
+ * assinatura" e criar uma nova cobraria o mesmo cartão duas vezes no fim.
+ */
+export function hasLiveSubscription(statuses: readonly Stripe.Subscription.Status[]): boolean {
+  return statuses.some((s) => !MORTAS.has(s));
+}
+
 export type CourtesyDecision =
   | { kind: "update" }
   | { kind: "create" }
@@ -81,9 +96,7 @@ export type CourtesyDecision =
  *   a cliente seguiria bloqueada, com o admin achando que deu cortesia.
  */
 export function courtesyDecision(sub: CourtesyTarget): CourtesyDecision {
-  if (!sub || sub.status === "canceled" || sub.status === "incomplete_expired") {
-    return { kind: "create" };
-  }
+  if (!sub || MORTAS.has(sub.status)) return { kind: "create" };
   if (sub.status === "active" || sub.status === "trialing") {
     if (sub.cancelScheduled) {
       return {

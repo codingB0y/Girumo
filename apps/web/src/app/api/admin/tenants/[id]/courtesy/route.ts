@@ -10,6 +10,7 @@ import {
   courtesyMetadata,
   courtesyResumesAt,
   courtesyUpdateParams,
+  hasLiveSubscription,
   parseCourtesyMonths,
 } from "@/lib/billing/courtesy";
 import { getStripePriceId, normalizePlanCode } from "@/lib/billing/plans";
@@ -75,11 +76,19 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   const { data: plan, error: planError } = await supabase
     .from("plans")
-    .select("id, code, name, stripe_price_id")
+    .select("id, code, name, stripe_price_id, price_cents, active")
     .eq("id", planId)
     .maybeSingle();
   if (planError) return NextResponse.json({ error: planError.message }, { status: 500 });
   if (!plan) return NextResponse.json({ error: "Plano não encontrado." }, { status: 404 });
+  // A concessão manual aceita plano fora do catálogo; a cortesia não, porque no
+  // fim ela COBRA — e cobraria um preço que ninguém mais vende.
+  if (!plan.active) {
+    return NextResponse.json(
+      { error: `O plano ${plan.name} está fora do catálogo — escolha um plano à venda.` },
+      { status: 400 },
+    );
+  }
 
   const planCode = normalizePlanCode(plan.code);
   const priceId = (plan.stripe_price_id as string | null) ?? getStripePriceId(planCode);
@@ -135,6 +144,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     let last4: string | null;
     let subscriptionId: string;
+    let trocouPlano = false;
 
     if (decision.kind === "update") {
       // Nunca cair no ramo de criação com uma assinatura viva: seriam duas
@@ -153,6 +163,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       );
       subscriptionId = updated.id;
       last4 = cardLast4(atual.default_payment_method);
+      trocouPlano = item.price.id !== priceId;
     } else {
       const owner = await ownerOf(supabase, id);
       const customerId = await resolveTenantCustomerId({
@@ -162,6 +173,18 @@ export async function POST(req: NextRequest, { params }: Params) {
         email: owner?.email ?? null,
         authUserId: owner?.authUserId ?? null,
       });
+
+      const existentes = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 20 });
+      if (hasLiveSubscription(existentes.data.map((s) => s.status))) {
+        return NextResponse.json(
+          {
+            error:
+              "Este cliente já tem uma assinatura viva no Stripe que o painel ainda não registrou. Criar outra cobraria o cartão duas vezes — confira no Dashboard do Stripe.",
+          },
+          { status: 409 },
+        );
+      }
+
       const cards = await stripe.customers.listPaymentMethods(customerId, { type: "card", limit: 1 });
       const card = cards.data[0] ?? null;
 
@@ -173,9 +196,9 @@ export async function POST(req: NextRequest, { params }: Params) {
           paymentMethodId: card?.id ?? null,
           metadata,
         }),
-        // Chave por tenant e dia, sem os parâmetros: o duplo clique devolve a
-        // MESMA assinatura, e um segundo pedido diferente antes de o webhook
-        // gravar a primeira é recusado pelo Stripe — em vez de virar duas
+        // Chave por tenant e dia: um segundo pedido (duplo clique incluso — o
+        // `courtesy_until` muda a cada ms, então os parâmetros nunca batem) é
+        // recusado pelo Stripe com erro de idempotência, em vez de virar duas
         // assinaturas cobrando o mesmo cartão no fim da cortesia.
         { idempotencyKey: `cortesia-nova:${id}:${now.toISOString().slice(0, 10)}` },
       );
@@ -185,7 +208,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     const volta = resumesAt.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
 
-    await supabase.from("logs").insert({
+    const { error: logError } = await supabase.from("logs").insert({
       tenant_id: id,
       actor_user_id: admin.authUserId,
       level: "warn",
@@ -198,16 +221,26 @@ export async function POST(req: NextRequest, { params }: Params) {
         courtesy_until: resumesAt.toISOString(),
         stripe_subscription_id: subscriptionId,
         criou_assinatura: decision.kind === "create",
+        trocou_plano: trocouPlano,
       },
     });
+    // O Stripe já mudou: falhar a resposta aqui faria o admin repetir uma
+    // cortesia que existe. O rastro também está no metadata da assinatura.
+    if (logError) console.error("[admin/tenants/courtesy] log de auditoria falhou:", logError.message);
 
+    const valor = plan.price_cents
+      ? `R$ ${(Number(plan.price_cents) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}/mês`
+      : "o preço do plano";
     const cobranca = last4
-      ? `A cobrança normal volta em ${volta} no cartão final ${last4}.`
-      : `A cobrança volta em ${volta}, mas não há cartão salvo: o cliente vai precisar pagar pelo portal.`;
+      ? `Em ${volta} volta a cobrança de ${valor} no cartão final ${last4}.`
+      : `Em ${volta} volta a cobrança de ${valor}, mas não há cartão salvo: o cliente vai precisar pagar pelo portal.`;
+    // Trocar de plano é permanente, não só durante a cortesia — e é a parte que
+    // vira cobrança maior do que o cliente esperava.
+    const troca = trocouPlano ? ` O plano da assinatura mudou de vez para ${plan.name}.` : "";
 
     return NextResponse.json({
       success: true,
-      message: `"${org.name}": ${months} ${months === 1 ? "mês grátis" : "meses grátis"} no ${plan.name}. ${cobranca} O painel atualiza em alguns segundos.`,
+      message: `"${org.name}": ${months} ${months === 1 ? "mês grátis" : "meses grátis"} no ${plan.name}.${troca} ${cobranca} O painel atualiza em alguns segundos.`,
     });
   } catch (error) {
     if (error instanceof Stripe.errors.StripeIdempotencyError) {
@@ -260,6 +293,9 @@ async function ownerOf(
   const { data: user, error: userError } = await supabase
     .from("users")
     .select("email")
+    // `users` tem uma linha por tenant: sem este filtro, dono que também é
+    // membro de outra conta devolve duas linhas e o `maybeSingle` falha.
+    .eq("tenant_id", tenantId)
     .eq("auth_user_id", membership.user_id)
     .maybeSingle();
   if (userError) throw userError;

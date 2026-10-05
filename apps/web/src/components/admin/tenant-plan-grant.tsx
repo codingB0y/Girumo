@@ -46,7 +46,10 @@ export function TenantPlanGrant({ tenantId, plans, currentPlanId, currentStatus 
   const [result, setResult] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const meses = Number(months);
-  const cortesia = months.trim() !== "" && Number.isInteger(meses) && meses > 0;
+  const comMeses = months.trim() !== "";
+  const cortesia = comMeses && Number.isInteger(meses) && meses >= 1 && meses <= 36;
+  // "0" ou "1.5" não podem cair em silêncio na concessão permanente.
+  const mesesInvalidos = comMeses && !cortesia;
 
   async function chamar(action: "grant" | "revoke") {
     setLoading(action);
@@ -85,9 +88,11 @@ export function TenantPlanGrant({ tenantId, plans, currentPlanId, currentStatus 
       <div>
         <p className="text-sm font-semibold text-volt-950">Conceder plano manualmente</p>
         <p className="mt-0.5 text-xs text-aco/60" aria-live="polite">
-          {cortesia
-            ? `${meses} ${meses === 1 ? "mês grátis" : "meses grátis"} na assinatura do Stripe. No fim, a cobrança normal do plano volta sozinha no cartão do cliente — combine com ele antes.`
-            : "Sem meses: libera o plano sem cobrança e sem Stripe, até ser revogado. Com meses: cortesia no Stripe e a cobrança volta sozinha no fim."}
+          {mesesInvalidos
+            ? "Meses grátis: use um número inteiro de 1 a 36."
+            : cortesia
+              ? `${meses} ${meses === 1 ? "mês grátis" : "meses grátis"} na assinatura do Stripe. No fim, a cobrança normal do plano volta sozinha no cartão do cliente — combine com ele antes. Plano diferente do atual muda de vez.`
+              : "Sem meses: libera o plano sem cobrança e sem Stripe, até ser revogado. Com meses: cortesia no Stripe e a cobrança volta sozinha no fim."}
         </p>
       </div>
 
@@ -141,7 +146,7 @@ export function TenantPlanGrant({ tenantId, plans, currentPlanId, currentStatus 
 
         <button
           onClick={() => chamar("grant")}
-          disabled={loading !== null || !planId}
+          disabled={loading !== null || !planId || mesesInvalidos}
           className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50"
         >
           {loading === "grant" ? (

@@ -7,6 +7,7 @@ import {
   courtesyMetadata,
   courtesyResumesAt,
   courtesyUpdateParams,
+  hasLiveSubscription,
   parseCourtesyMonths,
 } from "./courtesy";
 
@@ -40,6 +41,14 @@ test("decisão: recusa cobrança pendente e cancelamento agendado", () => {
   }
   // Voltar a cobrar quem pediu pra parar não é cortesia.
   assert.equal(courtesyDecision({ status: "active", cancelScheduled: true }).kind, "refuse");
+});
+
+test("criar só quando o Customer não tem assinatura viva no Stripe", () => {
+  assert.equal(hasLiveSubscription([]), false);
+  assert.equal(hasLiveSubscription(["canceled", "incomplete_expired"]), false);
+  // A do Dashboard sem metadata, ou o checkout cujo webhook ainda não chegou.
+  assert.equal(hasLiveSubscription(["canceled", "active"]), true);
+  assert.equal(hasLiveSubscription(["past_due"]), true);
 });
 
 test("assinatura ativa: os meses grátis começam depois do período já pago", () => {
