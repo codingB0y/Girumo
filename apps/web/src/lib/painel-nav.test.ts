@@ -92,9 +92,9 @@ test("marks only the exact home route active, and any nested route otherwise", (
   assert.equal(isNavItemActive("/painel/campanhas/nova", "/painel/campanhas"), true);
 });
 
-// --- Vitrine Aberta (spec 2026-09-07): grupos do corredor, barra de 5 e resumo ---
+// --- Vitrine Aberta (spec 2026-09-07): grupos do Mais, barra de 5 e resumo ---
 
-test("todo item de navegação pertence a um dos três grupos do corredor", () => {
+test("todo item de navegação pertence a um dos três grupos do Mais", () => {
   for (const item of NAV_ALL) {
     assert.ok(NAV_GRUPOS_ORDEM.includes(item.grupo), `${item.href} sem grupo válido`);
   }

@@ -73,13 +73,15 @@ test.describe("casca desktop G2: barra volt em cima", () => {
     await expect(barra).toBeVisible();
     await expect(barra.getByTestId("painel-barra-loja")).toBeVisible({ timeout: 30_000 });
     const modulos = barra.getByRole("navigation", { name: "Módulos" });
-    for (const nome of ["Início", "Campanhas", "Disparos", "Relâmpago", "Grupos", "Contatos"]) {
+    for (const nome of ["Início", "Campanhas", "Disparos", "Grupos", "Contatos"]) {
       await expect(modulos.getByRole("link", { name: nome, exact: true })).toBeVisible();
     }
+    // Com oferta aberta o nome acessível vira "Relâmpago oferta no ar": casa pelo começo.
+    await expect(modulos.getByRole("link", { name: /^Relâmpago/ })).toBeVisible();
     await expect(modulos.getByRole("link", { name: "Início", exact: true })).toHaveAttribute("aria-current", "page");
-    await expect(barra.getByRole("link", { name: /Seu número/ })).toBeVisible();
+    await expect(barra.getByRole("link", { name: /· seu número$/ })).toBeVisible();
     await expect(barra.getByTestId("painel-postar-barra")).toBeVisible();
-    await expect(barra.getByRole("link", { name: /^Configurações/ })).toBeVisible();
+    await expect(barra.getByRole("link", { name: /· Configurações da loja$/ })).toBeVisible();
 
     await modulos.getByRole("button", { name: "Mais" }).click();
     const menu = page.getByTestId("painel-menu-mais");

@@ -101,10 +101,13 @@
 }
 .pn-barra__item:hover,
 .pn-barra__item[aria-current="page"],
+.pn-barra__item--ativo,
 .pn-barra__item[aria-expanded="true"] {
   color: #FFFFFF;
 }
-.pn-barra__item[aria-current="page"]::after {
+/* --ativo: o botão Mais quando a rota atual mora dentro dele (botão não leva aria-current). */
+.pn-barra__item[aria-current="page"]::after,
+.pn-barra__item--ativo::after {
   content: "";
   position: absolute;
   left: 10px;
@@ -114,13 +117,13 @@
   border-radius: 2px 2px 0 0;
   background: #FFFFFF;
 }
-/* Oferta no ar: o ponto Acid ao lado de "Relâmpago". */
+/* Oferta no ar: o ponto Paper ao lado de "Relâmpago" (Acid é só do Postar, AO VIVO e LOTOU). */
 .pn-barra__ponto {
   display: inline-block;
   width: 7px;
   height: 7px;
   border-radius: 9999px;
-  background: var(--color-acid-500);
+  background: var(--color-paper-0);
 }
 .pn-barra__direita {
   display: flex;
@@ -140,6 +143,17 @@
   font-weight: 600;
   color: #FFFFFF;
   white-space: nowrap;
+}
+/* Pontos de estado sobre o Volt #071923: os tons 700 do painel ficam abaixo de 3:1 (WCAG 1.4.11);
+   estes passam de 6:1. A palavra do chip segue escrita, então a cor não é o único sinal. */
+.pn-barra .pn-ponto--conectado {
+  background: #34D399;
+}
+.pn-barra .pn-ponto--desconectado {
+  background: #FF6B6B;
+}
+.pn-barra .pn-ponto--indefinido {
+  background: #9AA8B0;
 }
 /* O Postar da barra: o mesmo Acid do celular, sem o corte e sem a sombra dura. */
 .pn-barra .pn-postar {
@@ -213,13 +227,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* Entre lg e 1280: sem o nome da loja (ficam as iniciais) e o número só com o ponto. */
+/* Entre lg e 1280: sem o nome da loja (ficam as iniciais); conectado vira só o ponto,
+   desconectado e verificando mantêm a palavra. */
 @media (min-width: 1024px) and (max-width: 1279.98px) {
   .pn-barra__loja,
-  .pn-barra__numero-rotulo {
+  .pn-barra__numero--ok .pn-barra__numero-rotulo {
     display: none;
   }
-  .pn-barra__numero {
+  .pn-barra__numero--ok {
     width: 36px;
     padding: 0;
     justify-content: center;
@@ -863,16 +878,25 @@
   .pn-barra__loja {
     font-size: 15px;
   }
-  /* Só o ponto, no alvo de 44px do dedo. */
+  /* Alvo de 44px do dedo: conectado é só o ponto; os outros estados levam a palavra. */
   .pn-barra__numero {
-    width: 44px;
+    min-width: 44px;
     height: 44px;
-    padding: 0;
+    padding: 0 8px;
     border: 0;
     justify-content: center;
   }
-  .pn-barra__numero-rotulo {
+  .pn-barra__numero--ok {
+    width: 44px;
+    padding: 0;
+  }
+  .pn-barra__numero--ok .pn-barra__numero-rotulo {
     display: none;
+  }
+  .pn-barra__logo {
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
   }
 }
 

@@ -34,7 +34,7 @@ import {
  */
 
 /**
- * Grupo do corredor da Vitrine Aberta (spec 2026-09-07, 3.1): VENDER é o que
+ * Grupo do menu Mais da barra de cima (spec 2026-09-07, 3.1): VENDER é o que
  * sai da loja (disparo, oferta, automação), LOTAR é o que traz gente (campanha,
  * página), LOJA é o balcão (início, grupos, contatos, resultados,
  * configurações).

@@ -33,7 +33,7 @@ export function BannerDesconectado() {
 }
 
 /** A ativação completa é carimbada uma vez no servidor. */
-export function useAtivacaoNaCasca({
+export function useAtivacaoNoInicio({
   activation,
   settings,
   settingsOk,

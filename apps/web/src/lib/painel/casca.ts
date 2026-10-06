@@ -6,7 +6,7 @@ import { diaMesBR } from "@/lib/date-br";
  * Sem fetch aqui; os componentes buscam e passam os dados.
  */
 
-/** Iniciais da loja no topo do corredor: "Mega Stock Atacado" → "MS". */
+/** Iniciais da loja no avatar da barra de cima: "Mega Stock Atacado" → "MS". */
 export function iniciaisDaLoja(nome?: string | null): string {
   const partes = (nome ?? "").trim().split(/\s+/).filter(Boolean);
   if (partes.length === 0) return "•";
@@ -32,7 +32,7 @@ export type AssinaturaResumo = {
   plans: { name: string | null } | null;
 } | null;
 
-/** Rodapé do corredor: "GROWTH · renova 04/10". Só afirma o que veio do banco. */
+/** Rodapé do menu Mais: "GROWTH · renova 04/10". Só afirma o que veio do banco. */
 export function romaneioDoPlano(sub: AssinaturaResumo): string {
   const nome = sub?.plans?.name?.trim();
   // `canceled` mantém o `plan_id` apontado, mas não concede nada (subscriptionAccess):
