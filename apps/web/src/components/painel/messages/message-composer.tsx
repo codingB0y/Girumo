@@ -5,6 +5,7 @@ import {
   Send,
   Image,
   Video,
+  Mic,
   AtSign,
   BarChart3,
   X,
@@ -16,10 +17,10 @@ import { uploadMediaFile } from "@/lib/media-upload-client";
 import { CopyPicker } from "./copy-picker";
 
 /**
- * Só foto e vídeo: o envio para os grupos não entrega áudio nem arquivo (ver
- * `resolvePostMediaType`). Os botões voltam quando o fan-out e o worker souberem.
+ * Foto, vídeo e áudio. O áudio chega no grupo como mensagem de voz gravada na
+ * hora, sem legenda (ver `resolvePostMediaType`). Arquivo ainda não sai.
  */
-type MidiaDoPost = "image" | "video";
+type MidiaDoPost = "image" | "video" | "audio";
 
 export type ComposerPayload = {
   body: string;
@@ -127,6 +128,7 @@ export function MessageComposer({ onSend, sending, className, onBodyChange, rotu
           <span className="text-xs text-aco">
             {mediaType === "image" && "📷"}
             {mediaType === "video" && "🎬"}
+            {mediaType === "audio" && "🎤"}
             {" "}{mediaName ?? "Arquivo"}
           </span>
           <button
@@ -209,7 +211,11 @@ export function MessageComposer({ onSend, sending, className, onBodyChange, rotu
       <textarea
         value={body}
         onChange={(e) => setBody(e.target.value)}
-        placeholder="Digite sua mensagem..."
+        placeholder={
+          mediaType === "audio"
+            ? "Áudio sai como mensagem de voz, sem legenda. Mande o texto numa mensagem separada."
+            : "Digite sua mensagem..."
+        }
         rows={3}
         className="w-full resize-none rounded-xl border border-line-200 bg-canvas-100 px-4 py-3 text-sm text-volt-950 placeholder:text-slate-600 focus:border-cobalt-500 focus:outline-none"
       />
@@ -226,6 +232,12 @@ export function MessageComposer({ onSend, sending, className, onBodyChange, rotu
           icon={Video}
           label="Vídeo"
           onClick={() => pickFile("video/*", "video")}
+          disabled={uploading}
+        />
+        <ToolBtn
+          icon={Mic}
+          label="Áudio"
+          onClick={() => pickFile("audio/*", "audio")}
           disabled={uploading}
         />
         <ToolBtn

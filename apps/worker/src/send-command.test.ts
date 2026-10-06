@@ -50,6 +50,10 @@ function fakeDeps(
       calls.push({ m: "sendMedia", args: [instanceName, number, input] });
       if (overrides.sendThrows) throw overrides.sendThrows;
     },
+    async sendAudio(instanceName, number, input) {
+      calls.push({ m: "sendAudio", args: [instanceName, number, input] });
+      if (overrides.sendThrows) throw overrides.sendThrows;
+    },
     async sendPoll(instanceName, number, input) {
       calls.push({ m: "sendPoll", args: [instanceName, number, input] });
       if (overrides.sendThrows) throw overrides.sendThrows;
@@ -251,6 +255,24 @@ test("send_media: mediaType inválido cai para image", async () => {
   );
   const send = f.calls.find((c) => c.m === "sendMedia")!;
   assert.equal((send.args[2] as { mediatype: string }).mediatype, "image");
+});
+
+test("send_media: arquivo de áudio sai como nota de voz, mesmo com mediaType image do fan-out", async () => {
+  // O SQL do fan-out grava "image" para tudo que não é vídeo/documento; a
+  // extensão do arquivo é o que diz que é áudio.
+  const audioPath = `${TENANT}/media/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb.mp3`;
+  const f = fakeDeps();
+  const out = await sendFromCommand(
+    cmd(
+      { jid: "12036@g.us", mediaId: Buffer.from(audioPath, "utf8").toString("base64url"), mediaType: "image" },
+      { type: "send_media" },
+    ),
+    f.deps,
+  );
+  assert.equal(out.status, "sent");
+  assert.deepEqual(f.names(), ["instanceName", "signedMediaUrl", "sendAudio", "recordSend", "completeCommand"]);
+  const send = f.calls.find((c) => c.m === "sendAudio")!;
+  assert.deepEqual(send.args, ["gr_" + INSTANCE, "12036@g.us", { audio: "https://signed.example/x.jpg" }]);
 });
 
 // --- send_poll ---

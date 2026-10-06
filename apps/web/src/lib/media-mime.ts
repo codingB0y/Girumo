@@ -21,6 +21,14 @@ export const MIME_EXT: Record<string, string> = {
   "audio/opus": "opus",
   "audio/wav": "wav",
   "audio/aac": "aac",
+  // Nota de voz do iPhone e gravador do Chrome. Sem estes o fallback de
+  // `extForMime` gravava o áudio como .jpg e o worker o mandava como foto.
+  "audio/mp4": "m4a",
+  "audio/x-m4a": "m4a",
+  "audio/m4a": "m4a",
+  "audio/x-wav": "wav",
+  "audio/wave": "wav",
+  "audio/webm": "weba",
   "application/pdf": "pdf",
   "application/zip": "zip",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
@@ -41,6 +49,8 @@ export const EXT_MIME: Record<string, string> = {
   opus: "audio/opus",
   wav: "audio/wav",
   aac: "audio/aac",
+  m4a: "audio/mp4",
+  weba: "audio/webm",
   pdf: "application/pdf",
   zip: "application/zip",
   xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -50,7 +60,7 @@ export const EXT_MIME: Record<string, string> = {
 export const MEDIA_BUCKET = "uploads";
 
 const VIDEO_EXT = new Set(["mp4", "mov", "webm", "3gp"]);
-const AUDIO_EXT = new Set(["mp3", "ogg", "opus", "wav", "aac"]);
+const AUDIO_EXT = new Set(["mp3", "ogg", "opus", "wav", "aac", "m4a", "weba"]);
 
 export function extForMime(mime: string): string {
   return MIME_EXT[mime] ?? "jpg";

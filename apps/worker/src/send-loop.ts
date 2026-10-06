@@ -45,6 +45,10 @@ export function makeSendDeps(supabase: SupabaseClient, sender: EvolutionSender):
       await sender.sendMedia(instanceName, number, input);
     },
 
+    async sendAudio(instanceName, number, input) {
+      await sender.sendAudio(instanceName, number, input);
+    },
+
     async sendPoll(instanceName, number, input) {
       await sender.sendPoll(instanceName, number, input);
     },

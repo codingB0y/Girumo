@@ -30,6 +30,15 @@ export type SendMediaInput = {
   mentionAll?: boolean;
 };
 
+/**
+ * Áudio que chega no grupo como nota de voz gravada na hora (PTT: microfone e
+ * forma de onda), não como arquivo anexado. Nota de voz não tem legenda.
+ */
+export type SendAudioInput = {
+  /** URL alcançável pela Evolution (assinada na hora do envio) ou base64. */
+  audio: string;
+};
+
 export type SendPollInput = {
   question: string;
   options: string[];
@@ -38,6 +47,7 @@ export type SendPollInput = {
 export interface EvolutionSender {
   sendText(instanceName: string, number: string, text: string, opts?: SendTextOptions): Promise<void>;
   sendMedia(instanceName: string, number: string, input: SendMediaInput): Promise<void>;
+  sendAudio(instanceName: string, number: string, input: SendAudioInput): Promise<void>;
   sendPoll(instanceName: string, number: string, input: SendPollInput): Promise<void>;
 }
 
@@ -112,6 +122,18 @@ export function createEvolutionSender(config: EvolutionSenderConfig): EvolutionS
         media: input.media,
         ...(input.caption ? { caption: input.caption } : {}),
         ...(input.mentionAll ? { mentionsEveryOne: true } : {}),
+      });
+    },
+
+    async sendAudio(instanceName, number, input) {
+      // sendWhatsAppAudio (não sendMedia/audio): é o endpoint que manda como PTT.
+      // `encoding: true` faz a Evolution converter pra ogg/opus — sem isso um mp3
+      // vira arquivo de música em vez de nota de voz.
+      // ⚠️ Mesmo aviso do sendMedia — shape a confirmar no smoke e2e.
+      await post(`/message/sendWhatsAppAudio/${encodeURIComponent(instanceName)}`, {
+        number,
+        audio: input.audio,
+        encoding: true,
       });
     },
 
