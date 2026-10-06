@@ -6,8 +6,8 @@
    estes primitivos atrás da flag NEXT_PUBLIC_PAINEL_VITRINE (PRs 2 a 9);
    com a flag desligada nenhuma tela os referencia.
 
-   Gramática: letreiro escuro (única peça Volt) + corredor claro + balcão
-   Canvas. Acid só em Postar, AO VIVO e LOTOU. Zap só em gente entrando.
+   Gramática: barra volt em cima (única peça Volt) + balcão claro. Acid só
+   em Postar, AO VIVO e LOTOU. Zap só em gente entrando.
    Cobalt só em ação. Sem gradiente, glow, blur ou textura.
    ====================================================================== */
 @theme {
@@ -31,10 +31,8 @@
   --radius-porta: 12px;
 
   /* Medidas da casca */
-  --spacing-letreiro: 64px;
-  --spacing-letreiro-mobile: 56px;
-  --spacing-corredor: 248px;
-  --spacing-corredor-recolhido: 64px;
+  --spacing-barra: 56px;
+  --spacing-barra-topo-mobile: 52px;
   --spacing-balcao-max: 1200px;
   --spacing-barra-mobile: 56px;
 
@@ -59,41 +57,190 @@
 
 /* Em @layer components: utilitário do Tailwind (lg:hidden, bg-*) vence o primitivo. */
 @layer components {
-/* --- Letreiro (direção D): barra de cima no fundo da página, com fio embaixo.
-   Desktop: nome da seção + ticker + sino. Mobile: símbolo, loja, ponto e sino. --- */
-.pn-letreiro {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  height: var(--spacing-letreiro);
-  padding: 0 24px;
-  background: var(--color-canvas-100);
-  color: var(--color-volt-950);
-  border-bottom: 1px solid var(--color-line-200);
-}
-.pn-letreiro__loja {
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  white-space: nowrap;
-}
-.pn-letreiro__secao {
-  font-size: 15px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.pn-letreiro__ticker {
+/* --- Barra de cima (G2): a única peça Volt da casca. 56px no desktop, 52px no
+   celular. Volt literal: dentro do painel --color-volt-950 é a tinta. --- */
+.pn-barra {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-width: 0;
+  height: var(--spacing-barra);
+  padding: 0 24px;
+  background: #071923;
+  color: #FFFFFF;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.pn-barra__logo {
+  display: flex;
+  align-items: center;
+  color: #FFFFFF;
+}
+.pn-barra__loja {
+  max-width: 220px;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pn-barra__nav {
+  align-self: stretch;
+  gap: 2px;
+  margin-left: 8px;
+}
+.pn-barra__item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.72);
+  white-space: nowrap;
+  transition: color var(--dur-fast) var(--ease-girumo);
+}
+.pn-barra__item:hover,
+.pn-barra__item[aria-current="page"],
+.pn-barra__item--ativo,
+.pn-barra__item[aria-expanded="true"] {
+  color: #FFFFFF;
+}
+/* --ativo: o botão Mais quando a rota atual mora dentro dele (botão não leva aria-current). */
+.pn-barra__item[aria-current="page"]::after,
+.pn-barra__item--ativo::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: #FFFFFF;
+}
+/* Oferta no ar: o ponto Paper ao lado de "Relâmpago" (Acid é só do Postar, AO VIVO e LOTOU). */
+.pn-barra__ponto {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: var(--color-paper-0);
+}
+.pn-barra__direita {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+.pn-barra__numero {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 12px 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
   font-size: 13px;
-  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: #FFFFFF;
+  white-space: nowrap;
+}
+/* Pontos de estado sobre o Volt #071923: os tons 700 do painel ficam abaixo de 3:1 (WCAG 1.4.11);
+   estes passam de 6:1. A palavra do chip segue escrita, então a cor não é o único sinal. */
+.pn-barra .pn-ponto--conectado {
+  background: #34D399;
+}
+.pn-barra .pn-ponto--desconectado {
+  background: #FF6B6B;
+}
+.pn-barra .pn-ponto--indefinido {
+  background: #9AA8B0;
+}
+/* O Postar da barra: o mesmo Acid do celular, sem o corte e sem a sombra dura. */
+.pn-barra .pn-postar {
+  width: auto;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 8px;
+  clip-path: none;
+  font-size: 14px;
+}
+.pn-barra__avatar {
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-left: 4px;
+  border-radius: 9999px;
+  background: #FFFFFF;
+  color: #071923;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* --- Menu "Mais": painel ancorado ao botão, três colunas por verbo, romaneio no rodapé. --- */
+.pn-menu-mais {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 40;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px 24px;
+  width: min(640px, calc(100vw - 48px));
+  padding: 20px 24px 16px;
+  background: var(--color-paper-0);
+  color: var(--color-volt-950);
+  border: 1px solid var(--color-line-200);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(15, 36, 48, 0.14);
+}
+.pn-menu-mais__grupo {
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.pn-menu-mais__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  margin: 0 -8px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 14px;
+  color: var(--color-volt-950);
+}
+.pn-menu-mais__item:hover {
+  background: var(--color-hover-ficha);
+}
+.pn-menu-mais__item[aria-current="page"] {
+  background: var(--pn-selecionado);
+}
+.pn-menu-mais__rodape {
+  grid-column: 1 / -1;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-line-200);
+  font-family: var(--font-data);
+  font-size: 12px;
+  letter-spacing: 0.04em;
   color: var(--color-slate-600);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Entre lg e 1280: sem o nome da loja (ficam as iniciais); conectado vira só o ponto,
+   desconectado e verificando mantêm a palavra. */
+@media (min-width: 1024px) and (max-width: 1279.98px) {
+  .pn-barra__loja,
+  .pn-barra__numero--ok .pn-barra__numero-rotulo {
+    display: none;
+  }
+  .pn-barra__numero--ok {
+    width: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+}
+
 /* Ponto de gente (Zap) e ponto de conexão (Success). Desconectado não respira. */
 .pn-ponto {
   display: inline-block;
@@ -108,137 +255,6 @@
 }
 .pn-ponto--desconectado {
   background: var(--color-danger-700);
-}
-
-/* --- Corredor (direção D): trilho de 248px, loja no topo, módulos por verbo,
-   campanhas abertas sob "Campanhas", cartão do número no rodapé --- */
-.pn-corredor {
-  width: var(--spacing-corredor);
-  background: var(--pn-trilho, var(--color-paper-0));
-  border-right: 1px solid var(--color-line-200);
-}
-.pn-corredor__grupo {
-  padding: 16px 18px 6px;
-  font-size: 12.5px;
-  font-weight: 500;
-  color: var(--color-slate-600);
-}
-.pn-corredor__item {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  height: 36px;
-  margin: 1px 8px;
-  padding: 0 10px;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-slate-600);
-  transition: background-color var(--dur-fast) var(--ease-girumo), color var(--dur-fast) var(--ease-girumo);
-}
-.pn-corredor__item:hover {
-  background: var(--color-hover-ficha);
-  color: var(--color-volt-950);
-}
-.pn-corredor__item[aria-current="page"] {
-  background: var(--pn-selecionado, var(--color-canvas-100));
-  color: var(--color-volt-950);
-}
-.pn-corredor__contagem {
-  margin-left: auto;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  color: var(--color-slate-600);
-}
-/* Loja no topo: iniciais + nome (sem seta: não existe troca de loja). */
-.pn-corredor__loja {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 12px 8px 4px;
-  padding: 8px;
-  border: 1px solid var(--color-line-200);
-  border-radius: 8px;
-  background: var(--color-paper-0);
-}
-.pn-corredor__iniciais {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  flex: none;
-  border-radius: 6px;
-  background: var(--pn-selecionado, var(--color-canvas-100));
-  color: var(--color-volt-950);
-  font-size: 12px;
-  font-weight: 700;
-}
-.pn-corredor__loja-nome {
-  min-width: 0;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--color-volt-950);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-/* Campanhas sob o item "Campanhas": nome e número de grupos. */
-.pn-corredor__sub {
-  margin: 0 8px 4px 29px;
-  padding-left: 8px;
-  border-left: 1px solid var(--color-line-200);
-}
-.pn-corredor__subitem {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 32px;
-  padding: 0 8px;
-  border-radius: 6px;
-  font-size: 13px;
-  color: var(--color-slate-600);
-}
-.pn-corredor__subitem:hover {
-  background: var(--color-hover-ficha);
-  color: var(--color-volt-950);
-}
-.pn-corredor__subitem[aria-current="page"] {
-  background: var(--pn-selecionado, var(--color-canvas-100));
-  color: var(--color-volt-950);
-}
-/* Cartão do número: estado, perfil (veterano/novo) e telefone. */
-.pn-corredor__numero {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin: 4px 8px 8px;
-  padding: 10px 12px;
-  border: 1px solid var(--color-line-200);
-  border-radius: 8px;
-  background: var(--color-paper-0);
-  font-size: 12.5px;
-  color: var(--color-slate-600);
-}
-.pn-corredor__numero[aria-current="page"] {
-  background: var(--pn-selecionado, var(--color-canvas-100));
-}
-.pn-corredor__numero-estado {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-volt-950);
-}
-.pn-corredor__perfil {
-  margin-left: auto;
-  padding: 1px 6px;
-  border: 1px solid var(--color-line-200);
-  border-radius: var(--radius-chip);
-  font-size: 11.5px;
-  font-weight: 500;
-  color: var(--color-slate-600);
 }
 
 /* --- Etiqueta de preço: campanha, oferta e página como etiqueta de peça --- */
@@ -646,8 +662,8 @@
   }
 }
 
-/* --- Casca mobile (PR 2): letreiro 56px, folha, Postar em voo --- */
-/* Um letreiro só: 64px no desktop, 56px abaixo de lg (ver media query no fim). */
+/* --- Casca mobile (PR 2): barra de cima 52px, folha, Postar em voo --- */
+/* Uma barra de cima só: 56px no desktop, 52px abaixo de lg (ver media query no fim). */
 /* A sombra dura precisa ficar acima do fundo da barra e abaixo do botão. */
 .pn-postar-sombra {
   isolation: isolate;
@@ -745,24 +761,9 @@
   box-shadow: inset 3px 0 0 var(--color-volt-950);
 }
 
-/* --- Casca desktop (PR 3a): avatar no letreiro, rodapé do corredor, recolhimento --- */
+/* --- Casca desktop (PR 3a): ponto de estado indefinido --- */
 .pn-ponto--indefinido {
   background: var(--color-slate-600);
-}
-.pn-corredor__rodape {
-  border-top: 1px solid var(--color-line-200);
-  padding: 8px 0 12px;
-}
-.pn-corredor__romaneio {
-  display: block;
-  margin: 6px 16px 0;
-  font-family: var(--font-data);
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  color: var(--color-slate-600);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 /* --- Início (PR 3b): fita com rótulos, aviso, interruptor --- */
 .pn-fita__rotulos {
@@ -855,33 +856,8 @@
 .pn-interruptor:disabled {
   opacity: 0.6;
 }
-/* Roteiro no rodapé do corredor: "7 de 8 passos" + barra 4px Cobalt. */
-.pn-corredor__passos {
-  display: block;
-  margin: 6px 16px 0;
-  font-family: var(--font-data);
-  font-size: 12px;
-  color: var(--color-slate-600);
-}
-.pn-corredor__passos-barra {
-  position: relative;
-  display: block;
-  height: 4px;
-  margin-top: 4px;
-  border-radius: 2px;
-  background: var(--color-line-200);
-  overflow: hidden;
-}
-.pn-corredor__passos-barra::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: var(--color-cobalt-500);
-  transform-origin: left;
-  transform: scaleX(var(--p, 0));
-}
 
-/* Mobile: letreiro de 56px, só símbolo, nome, ponto e sino; interruptor 44x26. */
+/* Mobile: barra de 52px, só símbolo, nome, ponto e sino; interruptor 44x26. */
 @media (max-width: 1023.98px) {
   .pn-interruptor {
     width: 44px;
@@ -894,56 +870,33 @@
   .pn-interruptor[aria-checked="true"] .pn-interruptor__bolinha {
     transform: translateX(18px);
   }
-  .pn-corredor__passos {
-    display: none;
-  }
-  .pn-letreiro {
-    height: var(--spacing-letreiro-mobile);
+  .pn-barra {
+    height: var(--spacing-barra-topo-mobile);
     gap: 10px;
-    padding: 0 16px;
+    padding: 0 10px 0 14px;
   }
-  .pn-letreiro__loja {
+  .pn-barra__loja {
     font-size: 15px;
   }
-}
-/* Entre lg e 1280: corredor recolhe a 64px só com ícones; o title vira a dica. */
-@media (min-width: 1024px) and (max-width: 1279.98px) {
-  .pn-corredor {
-    width: var(--spacing-corredor-recolhido);
+  /* Alvo de 44px do dedo: conectado é só o ponto; os outros estados levam a palavra. */
+  .pn-barra__numero {
+    min-width: 44px;
+    height: 44px;
+    padding: 0 8px;
+    border: 0;
+    justify-content: center;
   }
-  /* Cabeçalho do grupo some da tela, não da árvore de acessibilidade. */
-  .pn-corredor__grupo {
-    position: absolute;
-    width: 1px;
-    height: 1px;
+  .pn-barra__numero--ok {
+    width: 44px;
     padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
   }
-  .pn-corredor__rotulo,
-  .pn-corredor__romaneio,
-  .pn-corredor__passos,
-  .pn-corredor__contagem,
-  .pn-corredor__sub,
-  .pn-corredor__loja-nome,
-  .pn-corredor__perfil,
-  .pn-corredor__numero-detalhe {
+  .pn-barra__numero--ok .pn-barra__numero-rotulo {
     display: none;
   }
-  .pn-corredor__item,
-  .pn-corredor__numero-estado {
+  .pn-barra__logo {
+    min-width: 44px;
+    min-height: 44px;
     justify-content: center;
-    gap: 0;
-    padding: 0;
-  }
-  .pn-corredor__loja,
-  .pn-corredor__numero {
-    justify-content: center;
-    padding: 8px 0;
-    border: 0;
-    background: none;
   }
 }
 

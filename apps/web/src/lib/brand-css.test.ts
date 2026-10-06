@@ -142,11 +142,11 @@ test("uses opaque global navigation surfaces", () => {
 });
 
 test("uses Paper for every reverse logo on persistent Volt surfaces", () => {
-  // As superfícies Volt que sobraram depois que a casca antiga do painel saiu:
-  // o corredor do admin e a coluna da porta. No painel do cliente a única peça
-  // escura é o letreiro, e lá o símbolo herda a cor do texto — não leva Logo.
+  // As superfícies Volt persistentes: o corredor do admin, a coluna da porta e a
+  // barra de cima do painel do cliente (a única peça escura da casca).
   const sources = [
     readSource("components", "admin", "sidebar.tsx"),
+    readSource("components", "painel", "barra-de-cima.tsx"),
     readSource("components", "auth", "auth-shell-vitrine.tsx"),
   ];
 

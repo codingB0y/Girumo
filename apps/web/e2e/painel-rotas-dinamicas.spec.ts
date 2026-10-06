@@ -116,8 +116,8 @@ test.describe("rotas dinamicas do painel", () => {
  * (`getByDisplayValue` e da Testing Library, nao daqui), entao esse caso so se
  * resolve lendo `.value` no DOM.
  *
- * Conta só dentro do `<main>`: o corredor lista as campanhas pelo nome em toda
- * tela (direção D), e o que o teste mede é a TELA da rota, não o menu.
+ * Conta só dentro do `<main>`: a barra de cima mostra o nome da loja em toda
+ * tela, e o que o teste mede é a TELA da rota, não a casca.
  */
 async function contarMarca(page: Page, marca: Marca): Promise<number> {
   if (marca.tipo === "texto") {

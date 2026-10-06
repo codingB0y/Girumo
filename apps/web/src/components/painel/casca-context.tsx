@@ -3,8 +3,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { Liberacoes } from "@/lib/painel-nav";
 
-export type Passos = { feitos: number; total: number };
-
 /** O que `GET /api/ig/status` devolve. */
 export type StatusInstagram = {
   enabled: boolean;
@@ -13,10 +11,7 @@ export type StatusInstagram = {
 };
 
 type CascaCtx = {
-  /** Passos da ativação, como a Início calculou. null = ainda não visitou a Início. */
-  passos: Passos | null;
-  definirPassos: (passos: Passos) => void;
-  /** Modo foco: a tela toma a janela inteira (editor de fluxo). Corredor, letreiro e barra somem. */
+  /** Modo foco: a tela toma a janela inteira (editor de fluxo). A barra de cima e a barra inferior somem. */
   foco: boolean;
   definirFoco: (ligado: boolean) => void;
   /** null enquanto a casca não perguntou; com a API fora vira `enabled: false`. */
@@ -26,8 +21,6 @@ type CascaCtx = {
 };
 
 const CascaContext = createContext<CascaCtx>({
-  passos: null,
-  definirPassos: () => {},
   foco: false,
   definirFoco: () => {},
   instagram: null,
@@ -49,13 +42,11 @@ export function useFoco() {
 const DESLIGADO: StatusInstagram = { enabled: false, account: null, live: 0 };
 
 /**
- * O corredor mostra "N de 5 passos" (spec 3.1) mas não tem os dados pra calcular;
- * a Início já os carrega. O layout não remonta entre rotas, então o valor
- * sobrevive à navegação. O mesmo vale pro status do Instagram: uma pergunta por
- * sessão do painel, e o item do menu aparece (ou não) em todas as telas.
+ * O layout não remonta entre rotas, então o valor sobrevive à navegação: o
+ * status do Instagram é uma pergunta por sessão do painel, e o item do menu
+ * aparece (ou não) em todas as telas.
  */
 export function CascaProvider({ children }: { children: React.ReactNode }) {
-  const [passos, definirPassos] = useState<Passos | null>(null);
   const [foco, definirFoco] = useState(false);
   const [instagram, setInstagram] = useState<StatusInstagram | null>(null);
   const [versao, setVersao] = useState(0);
@@ -79,15 +70,13 @@ export function CascaProvider({ children }: { children: React.ReactNode }) {
 
   const valor = useMemo<CascaCtx>(
     () => ({
-      passos,
-      definirPassos,
       foco,
       definirFoco,
       instagram,
       liberacoes: instagram ? { instagram: instagram.enabled } : null,
       recarregarInstagram,
     }),
-    [passos, foco, instagram, recarregarInstagram],
+    [foco, instagram, recarregarInstagram],
   );
   return <CascaContext.Provider value={valor}>{children}</CascaContext.Provider>;
 }

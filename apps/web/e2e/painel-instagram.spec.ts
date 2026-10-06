@@ -41,7 +41,7 @@ test.describe("Fluxos do Instagram", () => {
 
       // O editor e modo foco: a casca some, a raiz fica.
       await expect(page.getByTestId("painel-root")).toBeVisible();
-      await expect(page.getByTestId("painel-letreiro")).toHaveCount(0);
+      await expect(page.getByTestId("painel-barra")).toHaveCount(0);
       await semErroDeRuntime(page);
     } finally {
       // Sem isto cada rerun deixaria um rascunho na loja de QA.

@@ -34,7 +34,7 @@ import {
  */
 
 /**
- * Grupo do corredor da Vitrine Aberta (spec 2026-09-07, 3.1): VENDER é o que
+ * Grupo do menu Mais da barra de cima (spec 2026-09-07, 3.1): VENDER é o que
  * sai da loja (disparo, oferta, automação), LOTAR é o que traz gente (campanha,
  * página), LOJA é o balcão (início, grupos, contatos, resultados,
  * configurações).
@@ -54,6 +54,8 @@ export type NavItem = {
   icon: LucideIcon;
   grupo: NavGrupo;
   requer?: Liberacao;
+  /** Rótulo da barra de cima, quando o nome inteiro não cabe. */
+  curto?: string;
 };
 
 export type NavGroup = {
@@ -68,7 +70,7 @@ const CAMPANHAS: NavItem = { href: "/painel/campanhas", label: "Campanhas", icon
 const INSTAGRAM: NavItem = { href: "/painel/instagram", label: "Instagram", icon: Camera, grupo: "lotar", requer: "instagram" };
 const DISPAROS: NavItem = { href: "/painel/disparos", label: "Disparos", icon: Send, grupo: "vender" };
 const BIBLIOTECA: NavItem = { href: "/painel/biblioteca", label: "Biblioteca", icon: BookOpen, grupo: "vender" };
-const RELAMPAGO: NavItem = { href: "/painel/relampago", label: "Oferta Relâmpago", icon: Flame, grupo: "vender" };
+const RELAMPAGO: NavItem = { href: "/painel/relampago", label: "Oferta Relâmpago", icon: Flame, grupo: "vender", curto: "Relâmpago" };
 const FUNIS: NavItem = { href: "/painel/funis", label: "Funis", icon: Zap, grupo: "vender" };
 const COMUNIDADES: NavItem = { href: "/painel/comunidades", label: "Comunidades", icon: Boxes, grupo: "loja" };
 const GRUPOS: NavItem = { href: "/painel/grupos", label: "Grupos", icon: Users, grupo: "loja" };
@@ -102,6 +104,9 @@ export const NAV_MOBILE_PRIMARY: NavItem[] = [INICIO, CAMPANHAS, GRUPOS, PAGINAS
 export const NAV_BARRA_ESQUERDA: NavItem[] = [INICIO, GRUPOS];
 export const NAV_BARRA_DIREITA: NavItem[] = [CONTATOS];
 
+/** Barra de cima (spec G2, decisão 4): os seis módulos do dia; o resto fica no "Mais". */
+export const NAV_BARRA_DESKTOP: NavItem[] = [INICIO, CAMPANHAS, DISPAROS, RELAMPAGO, GRUPOS, CONTATOS];
+
 /** Tudo, achatado — para o drawer do mobile e a command palette. */
 export const NAV_ALL: NavItem[] = [
   ...NAV_GROUPS.flatMap((g) => g.items),
@@ -115,17 +120,6 @@ export function isNavItemActive(pathname: string, href: string): boolean {
 /** `null` = a casca ainda não sabe: esconde o que depende de liberação em vez de piscar. */
 export function liberado(item: NavItem, liberacoes: Liberacoes | null): boolean {
   return !item.requer || (liberacoes?.[item.requer] ?? false);
-}
-
-/**
- * Nome da seção na barra de cima (direção D): o item do menu que casa com a
- * rota. Conectar fica fora do menu de propósito, mas tem nome.
- */
-export function tituloDaSecao(pathname: string): string {
-  const item = NAV_ALL.find((i) => i.href !== "/painel" && isNavItemActive(pathname, i.href));
-  if (item) return item.label;
-  if (pathname.startsWith("/painel/conectar")) return "Seu número";
-  return INICIO.label;
 }
 
 /** Estado de cada módulo, como o "Mais" mostra antes do toque. */

@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { CelebrationModal } from "@/components/painel/celebration-modal";
 import { ActivationChecklist } from "@/components/painel/home/activation-checklist";
-import { AvisoParcial, BannerDesconectado, useAtivacaoNaCasca } from "@/components/painel/home/avisos";
+import { AvisoParcial, BannerDesconectado, useAtivacaoNoInicio } from "@/components/painel/home/avisos";
 import type { Campanha, Disparo, Lead, Order, RelampagoDaInicio, Schedule, TenantSettings, TrackedLink } from "@/components/painel/home/types";
 import type { Group } from "@/lib/mock-data";
 import type { Activation } from "@/lib/onboarding-steps";
@@ -83,7 +83,7 @@ export function InicioAoVivo({
   const [agora, setAgora] = useState(() => new Date());
   const tick = useCallback(() => setAgora(new Date()), []);
   useRecarga(tick, RELOGIO_MS);
-  useAtivacaoNaCasca({ activation, settings, settingsOk, onOnboardingComplete });
+  useAtivacaoNoInicio({ activation, settings, settingsOk, onOnboardingComplete });
   useRecarga(onAtualizar, RECARGA_MS);
   // A coluna Relâmpago segue montada com a aba escondida (só CSS), então o número fica vivo.
   const [esperando, setEsperando] = useState<number | null>(null);
@@ -111,11 +111,7 @@ export function InicioAoVivo({
       <h1 className="sr-only">Início ao vivo</h1>
       {!isConnected && <BannerDesconectado />}
       {partial && <AvisoParcial />}
-      {mostrarChecklist && (
-        <div className="lg:hidden">
-          <ActivationChecklist activation={activation} onDismiss={onDismissOnboarding} />
-        </div>
-      )}
+      {mostrarChecklist && <ActivationChecklist activation={activation} onDismiss={onDismissOnboarding} />}
       <FaixaDeStatus
         atividade={atividade}
         links={links}

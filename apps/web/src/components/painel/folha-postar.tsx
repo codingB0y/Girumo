@@ -16,6 +16,8 @@ type Props = {
   aoFechar: () => void;
   /** Chamado depois de um post aceito, pra barra mostrar o "7/13". */
   aoPostar: () => Promise<void> | void;
+  /** A barra de cima abre a folha em qualquer largura (diálogo centrado no desktop). */
+  emQualquerLargura?: boolean;
 };
 
 const hora = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -25,7 +27,7 @@ const hora = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digi
  * prévia na bolha, como chega no celular de quem compra. Posta pela mesma rota
  * que a tela de Disparos.
  */
-export function FolhaPostar({ id, aberta, aoFechar, aoPostar }: Props) {
+export function FolhaPostar({ id, aberta, aoFechar, aoPostar, emQualquerLargura }: Props) {
   const toast = useToast();
   const [campanhas, setCampanhas] = useState<Campanha[]>([]);
   const [slug, setSlug] = useState("");
@@ -92,7 +94,7 @@ export function FolhaPostar({ id, aberta, aoFechar, aoPostar }: Props) {
   }
 
   return (
-    <Folha id={id} aberta={aberta} aoFechar={aoFechar} titulo="Postar" testId="painel-folha-postar">
+    <Folha id={id} aberta={aberta} aoFechar={aoFechar} titulo="Postar" testId="painel-folha-postar" emQualquerLargura={emQualquerLargura}>
       {carregando ? (
         <div className="space-y-3 pb-4" role="status" aria-label="Carregando as campanhas">
           <div className="pn-skeleton h-12 rounded-[var(--radius-control)]" data-testid="painel-skeleton" />

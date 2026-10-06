@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect } from "react";
 import { WifiOff } from "lucide-react";
-import { useCasca } from "@/components/painel/casca-context";
 import type { TenantSettings } from "@/components/painel/home/types";
 import type { Activation } from "@/lib/onboarding-steps";
 
@@ -33,8 +32,8 @@ export function BannerDesconectado() {
   );
 }
 
-/** O corredor mostra "N de 5 passos"; e a ativação completa é carimbada uma vez no servidor. */
-export function useAtivacaoNaCasca({
+/** A ativação completa é carimbada uma vez no servidor. */
+export function useAtivacaoNoInicio({
   activation,
   settings,
   settingsOk,
@@ -45,10 +44,6 @@ export function useAtivacaoNaCasca({
   settingsOk: boolean;
   onOnboardingComplete: () => void;
 }) {
-  const { definirPassos } = useCasca();
-  useEffect(() => {
-    definirPassos({ feitos: activation.doneCount, total: activation.total });
-  }, [activation.doneCount, activation.total, definirPassos]);
   useEffect(() => {
     if (settingsOk && activation.complete && settings.onboardingCompletedAt == null) onOnboardingComplete();
   }, [settingsOk, activation.complete, settings.onboardingCompletedAt, onOnboardingComplete]);
