@@ -1,6 +1,6 @@
 "use client";
 
-/** Células da faixa de números: a da campanha (direção D) e a da Início "Ao vivo". */
+/** Peças da faixa de números da campanha (direção D); a faísca também está na faixa da Início "Ao vivo". */
 
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { variacao, type Barra } from "@/lib/painel/atividade";
@@ -18,10 +18,9 @@ export function Celula({ rotulo, valor, className, children }: { rotulo: string;
 }
 
 /** Hoje contra o mesmo dia da semana passada, até a mesma hora: dia parcial contra dia parcial. */
-export function ContraSemanaPassada({ hoje, antes, diaPassado, curto = false }: { hoje: number; antes: number; diaPassado: string; curto?: boolean }) {
+export function ContraSemanaPassada({ hoje, antes, diaPassado }: { hoje: number; antes: number; diaPassado: string }) {
   const delta = variacao(hoje, antes);
-  // Curto (celular): "↗ +18% · 181 na terça passada", sem o "vs" nem o "mesma hora".
-  if (delta === null) return curto ? <>{numero(antes)} {diaPassado}</> : <>{numero(antes)} {diaPassado}, mesma hora</>;
+  if (delta === null) return <>{numero(antes)} {diaPassado}, mesma hora</>;
   return (
     <>
       <span className={cn("inline-flex items-center font-semibold", delta >= 0 ? "text-success-700" : "text-danger-700")}>
@@ -29,7 +28,7 @@ export function ContraSemanaPassada({ hoje, antes, diaPassado, curto = false }: 
         {delta > 0 ? "+" : ""}
         {delta}%
       </span>{" "}
-      {curto ? `· ${numero(antes)} ${diaPassado}` : `vs ${numero(antes)} ${diaPassado}, mesma hora`}
+      {`vs ${numero(antes)} ${diaPassado}, mesma hora`}
     </>
   );
 }
@@ -45,8 +44,11 @@ export function EntrouSaiu({ entraram, sairam }: { entraram: number; sairam: num
   );
 }
 
-/** Os últimos 7 dias em miniatura; o de hoje aceso, e dia sem medição só com o traço. */
-export function Faisca({ barras }: { barras: Barra[] }) {
+/**
+ * Os últimos 7 dias em miniatura; o de hoje aceso, e dia sem medição só com o traço. Sem `legenda`,
+ * só as barras: na faixa da Início elas ficam ao lado do número, na altura dele.
+ */
+export function Faisca({ barras, legenda = true }: { barras: Barra[]; legenda?: boolean }) {
   const max = Math.max(1, ...barras.map((b) => (b.semMedicao ? 0 : b.valor)));
   return (
     <span className="flex shrink-0 flex-col items-end gap-1" aria-hidden="true">
@@ -59,7 +61,7 @@ export function Faisca({ barras }: { barras: Barra[] }) {
           />
         ))}
       </span>
-      <span className="text-12 text-slate-600">7 dias</span>
+      {legenda && <span className="text-12 text-slate-600">7 dias</span>}
     </span>
   );
 }

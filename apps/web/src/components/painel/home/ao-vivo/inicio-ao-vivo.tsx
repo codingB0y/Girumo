@@ -114,6 +114,7 @@ export function InicioAoVivo({
       {mostrarChecklist && <ActivationChecklist activation={activation} onDismiss={onDismissOnboarding} />}
       <FaixaDeStatus
         atividade={atividade}
+        campanhas={campanhas}
         links={links}
         orders={orders}
         metaDoMes={settings.monthlyGoalRevenue}
@@ -122,6 +123,7 @@ export function InicioAoVivo({
         linksOk={linksOk}
         settingsOk={settingsOk}
         onMetaSalva={(valor) => onSettingsSaved({ ...settings, monthlyGoalRevenue: valor })}
+        onAtualizar={onAtualizar}
       />
       <AbasDoCelular
         aba={aba}
