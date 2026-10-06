@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   cenaDaConexao,
+  codigoDePareamento,
   etiquetaDaConexao,
   telefoneNaVitrine,
   type InstanciaDaTela,
@@ -206,4 +207,36 @@ test("sem número utilizável devolve null em vez de texto torto", () => {
   assert.equal(telefoneNaVitrine(""), null);
   assert.equal(telefoneNaVitrine("abc"), null);
   assert.equal(telefoneNaVitrine("5562981"), null);
+});
+
+/* -------------------------------------------------------------------------- */
+/* Código de pareamento: a alternativa ao QR para quem está no próprio celular. */
+/* -------------------------------------------------------------------------- */
+
+test("código de pareamento sai com hífen no meio, como o WhatsApp mostra", () => {
+  assert.equal(
+    codigoDePareamento(instancia({ status: "qr", metadata: { pairing_code: "ABCD1234" } })),
+    "ABCD-1234",
+  );
+});
+
+/**
+ * O código de um pareamento que já fechou não vale mais: mostrá-lo com a sessão
+ * aberta (ou caída) faria o lojista digitar um código morto.
+ */
+test("fora da espera de leitura não há código, mesmo com um guardado", () => {
+  for (const status of ["connected", "connecting", "disconnected", "pending"]) {
+    assert.equal(
+      codigoDePareamento(instancia({ status, metadata: { pairing_code: "ABCD1234" } })),
+      null,
+      status,
+    );
+  }
+});
+
+test("sem código guardado, ou com lixo no lugar, devolve null", () => {
+  assert.equal(codigoDePareamento(instancia({ status: "qr" })), null);
+  assert.equal(codigoDePareamento(instancia({ status: "qr", metadata: { pairing_code: null } })), null);
+  assert.equal(codigoDePareamento(instancia({ status: "qr", metadata: { pairing_code: 42 } })), null);
+  assert.equal(codigoDePareamento(null), null);
 });

@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { Power, RefreshCw, ShieldCheck } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { cn } from "@/lib/utils";
+import { CodigoNoCelular } from "@/components/painel/conectar/vitrine/codigo-no-celular";
 import { GruposProtecaoVitrine } from "@/components/painel/conectar/vitrine/grupos-protecao-vitrine";
 import { NumeroSaudeVitrine } from "@/components/painel/conectar/vitrine/numero-saude-vitrine";
 import { PerguntaPerfilNumero } from "@/components/painel/pergunta-perfil-numero";
@@ -13,6 +15,7 @@ import type { NumeroPerfilDeclarado } from "@/lib/instances/numero-perfil";
 import { activationLabel } from "@/lib/onboarding-steps";
 import {
   cenaDaConexao,
+  codigoDePareamento,
   etiquetaDaConexao,
   telefoneNaVitrine,
   type InstanciaDaTela,
@@ -32,6 +35,7 @@ type Props = {
   precisaPerfil: boolean;
   onAtualizar: () => void;
   onRefreshQr: () => void;
+  onPedirCodigo: (telefone: string) => void;
   onDesconectar: () => void;
   onEscolherPerfil: (perfil: NumeroPerfilDeclarado) => void;
 };
@@ -56,6 +60,7 @@ export function ConectarVitrine({
   precisaPerfil,
   onAtualizar,
   onRefreshQr,
+  onPedirCodigo,
   onDesconectar,
   onEscolherPerfil,
 }: Props) {
@@ -102,6 +107,7 @@ export function ConectarVitrine({
           precisaPerfil={precisaPerfil}
           onAtualizar={onAtualizar}
           onRefreshQr={onRefreshQr}
+          onPedirCodigo={onPedirCodigo}
           onDesconectar={onDesconectar}
           onEscolherPerfil={onEscolherPerfil}
         />
@@ -259,6 +265,7 @@ function CenaDoPareamento({
   precisaPerfil,
   onAtualizar,
   onRefreshQr,
+  onPedirCodigo,
   onDesconectar,
   onEscolherPerfil,
 }: {
@@ -271,6 +278,7 @@ function CenaDoPareamento({
   precisaPerfil: boolean;
   onAtualizar: () => void;
   onRefreshQr: () => void;
+  onPedirCodigo: (telefone: string) => void;
   onDesconectar: () => void;
   onEscolherPerfil: (perfil: NumeroPerfilDeclarado) => void;
 }) {
@@ -325,6 +333,7 @@ function CenaDoPareamento({
               erro={erro}
               upgradeUrl={upgradeUrl}
               onRefreshQr={onRefreshQr}
+              onPedirCodigo={onPedirCodigo}
               onDesconectar={onDesconectar}
             />
           )}
@@ -379,11 +388,16 @@ function Passos() {
   );
 }
 
+type ModoDePareamento = "qr" | "codigo";
+
 /**
  * O código na caixinha Canvas.
  *
  * O QR em si continua desenhado em Volt sobre Paper: leitor de câmera precisa
  * do contraste cheio, e a caixinha é a moldura, não o fundo do código.
+ *
+ * O modo "código no celular" é para quem está conectando pelo próprio
+ * aparelho: não dá para escanear a tela em que se está.
  */
 function PainelDoCodigo({
   instancia,
@@ -391,6 +405,7 @@ function PainelDoCodigo({
   erro,
   upgradeUrl,
   onRefreshQr,
+  onPedirCodigo,
   onDesconectar,
 }: {
   instancia: InstanciaNaTela | null;
@@ -398,10 +413,22 @@ function PainelDoCodigo({
   erro: string | null;
   upgradeUrl: string | null;
   onRefreshQr: () => void;
+  onPedirCodigo: (telefone: string) => void;
   onDesconectar: () => void;
 }) {
   const etiqueta = etiquetaDaConexao({ instancia, carregando, erro });
   const qr = instancia?.qr_code ?? null;
+  const codigo = codigoDePareamento(instancia);
+  // Enquanto o lojista não escolhe, segue o dado: abre no código se já há um em
+  // andamento (recarregou a página no meio). Estado inicial fixo não serviria —
+  // o painel monta antes de a instância chegar, e congelaria em "qr".
+  const [escolhido, setModo] = useState<ModoDePareamento | null>(null);
+  const modo = escolhido ?? (codigo ? "codigo" : "qr");
+  const [telefone, setTelefone] = useState("");
+  // No código sem número na mão (recarregou), não há como pedir outro — e
+  // `refresh_qr` apagaria o código em andamento. Ele troca sozinho mesmo.
+  const outroCodigo =
+    modo === "qr" ? onRefreshQr : telefone ? () => onPedirCodigo(telefone) : null;
   // Do motivo da queda, não do texto da etiqueta: mudar a cópia de
   // `etiquetaDaConexao` não pode apagar calado o aviso que segura o usuário
   // longe do `440 connectionReplaced`.
@@ -428,45 +455,83 @@ function PainelDoCodigo({
         </p>
       )}
 
-      <div className="rounded-[var(--radius-control)] border border-line-200 bg-canvas-100 p-4">
-        {qr ? (
-          <div className="rounded-[var(--radius-chip)] bg-paper-0 p-3">
-            <QRCodeSVG
-              value={qr}
-              size={176}
-              marginSize={2}
-              bgColor="#FFFEFA"
-              fgColor="#071923"
-              title="QR Code WhatsApp"
-              className="h-[176px] w-[176px]"
-            />
-          </div>
-        ) : (
-          <div className="flex h-[200px] w-[200px] flex-col items-center justify-center gap-3 rounded-[var(--radius-chip)] bg-paper-0">
-            {/* Sem sinal de atividade, "Gerando código" parado é
-                indistinguível de tela travada em rede lenta. */}
-            {(carregando || etiqueta.tom === "andamento") && (
-              <RefreshCw className="h-6 w-6 animate-spin text-slate-600" aria-hidden="true" />
+      <div
+        className="flex rounded-[var(--radius-control)] border border-line-200 bg-canvas-100 p-1"
+        role="group"
+        aria-label="Como conectar"
+      >
+        {(
+          [
+            ["qr", "QR Code"],
+            ["codigo", "Código no celular"],
+          ] as const
+        ).map(([valor, rotulo]) => (
+          <button
+            key={valor}
+            type="button"
+            onClick={() => setModo(valor)}
+            aria-pressed={modo === valor}
+            className={cn(
+              "min-h-10 rounded-[var(--radius-chip)] px-4 text-13",
+              modo === valor ? "bg-paper-0 font-semibold text-volt-950" : "text-slate-600",
             )}
-            <span className="font-data px-4 text-center text-12 uppercase tracking-[0.06em] text-slate-600">
-              {etiqueta.texto}
-            </span>
-          </div>
-        )}
+          >
+            {rotulo}
+          </button>
+        ))}
       </div>
+
+      {modo === "codigo" ? (
+        <CodigoNoCelular
+          codigo={codigo}
+          telefone={telefone}
+          onTelefone={setTelefone}
+          carregando={carregando}
+          onPedirCodigo={onPedirCodigo}
+        />
+      ) : (
+        <div className="rounded-[var(--radius-control)] border border-line-200 bg-canvas-100 p-4">
+          {qr ? (
+            <div className="rounded-[var(--radius-chip)] bg-paper-0 p-3">
+              <QRCodeSVG
+                value={qr}
+                size={176}
+                marginSize={2}
+                bgColor="#FFFEFA"
+                fgColor="#071923"
+                title="QR Code WhatsApp"
+                className="h-[176px] w-[176px]"
+              />
+            </div>
+          ) : (
+            <div className="flex h-[200px] w-[200px] flex-col items-center justify-center gap-3 rounded-[var(--radius-chip)] bg-paper-0">
+              {/* Sem sinal de atividade, "Gerando código" parado é
+                  indistinguível de tela travada em rede lenta. */}
+              {(carregando || etiqueta.tom === "andamento") && (
+                <RefreshCw className="h-6 w-6 animate-spin text-slate-600" aria-hidden="true" />
+              )}
+              <span className="font-data px-4 text-center text-12 uppercase tracking-[0.06em] text-slate-600">
+                {etiqueta.texto}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       <Etiqueta texto={etiqueta.texto} tom={etiqueta.tom} />
 
       <div className="flex flex-wrap items-center justify-center gap-4">
-        <button
-          type="button"
-          onClick={onRefreshQr}
-          disabled={carregando}
-          className="inline-flex h-10 items-center gap-2 text-13 text-cobalt-500 disabled:opacity-50"
-        >
-          <RefreshCw className={cn("h-4 w-4", carregando && "animate-spin")} aria-hidden="true" />
-          Gerar outro código
-        </button>
+        {outroCodigo && (
+          <button
+            type="button"
+            onClick={outroCodigo}
+            disabled={carregando}
+            className="inline-flex h-10 items-center gap-2 text-13 text-cobalt-500 disabled:opacity-50"
+          >
+            <RefreshCw className={cn("h-4 w-4", carregando && "animate-spin")} aria-hidden="true" />
+            Gerar outro código
+          </button>
+        )}
 
         {/* Saída para quando o pareamento entra em ciclo (a sessão abre e cai
             sozinha): encerra a sessão na Evolution e deixa o próximo QR começar
@@ -483,7 +548,11 @@ function PainelDoCodigo({
         )}
       </div>
 
-      <p className="text-12 text-slate-600">O código expira em 60s e outro vem sozinho.</p>
+      <p className="text-12 text-slate-600">
+        {modo === "codigo" && codigo
+          ? "O código troca sozinho a cada poucos segundos. Se mudar enquanto você digita, use o novo."
+          : "O código expira em 60s e outro vem sozinho."}
+      </p>
     </div>
   );
 }

@@ -1,8 +1,10 @@
 import {
   connectInstance,
+  connectionState,
   logoutInstance,
   providerInstanceId,
 } from "@/lib/evolution/client";
+import { normalizarTelefonePareamento } from "@/lib/instances/pairing-phone";
 import { getInstance, updateInstanceStatus } from "@/lib/stores/instances";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { getTenantContext } from "@/lib/supabase/tenant-context";
@@ -12,7 +14,7 @@ export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string }> };
 
-const ACTIONS = ["connect", "disconnect", "refresh_qr"] as const;
+const ACTIONS = ["connect", "disconnect", "refresh_qr", "pairing_code"] as const;
 type Action = (typeof ACTIONS)[number];
 
 function isAction(value: unknown): value is Action {
@@ -21,6 +23,25 @@ function isAction(value: unknown): value is Action {
 
 function canManageInstances(role: string) {
   return role === "owner" || role === "admin";
+}
+
+const ESPERA_FECHAR_TENTATIVAS = 6;
+const ESPERA_FECHAR_MS = 500;
+
+/**
+ * Espera a Evolution assentar em `close` depois do logout prévio.
+ *
+ * Na v2.3.7, `connect` em `connecting` devolve o QR do ciclo atual e IGNORA o
+ * `number` — só em `close` ele reabre a sessão em modo código. O logout fecha a
+ * sessão por evento, não na resposta, então chamar `connect` logo em seguida
+ * pode pegar o estado antigo e voltar sem código.
+ */
+async function aguardarSessaoFechada(remoteName: string): Promise<void> {
+  for (let i = 0; i < ESPERA_FECHAR_TENTATIVAS; i++) {
+    const { state } = await connectionState(remoteName).catch(() => ({ state: null }));
+    if (state === "close") return;
+    await new Promise((resolve) => setTimeout(resolve, ESPERA_FECHAR_MS));
+  }
 }
 
 /**
@@ -38,11 +59,21 @@ export async function POST(req: Request, { params }: Params) {
     }
 
     const { id } = await params;
-    const body = (await req.json().catch(() => ({}))) as { action?: unknown };
+    const body = (await req.json().catch(() => ({}))) as { action?: unknown; phone?: unknown };
     if (!isAction(body.action)) {
       return Response.json({ error: "Acao invalida." }, { status: 400 });
     }
     const action = body.action;
+
+    // Validado antes de tocar na Evolution: o logout prévio abaixo derruba a
+    // tentativa em andamento, e número inválido não pode custar isso.
+    const numero = action === "pairing_code" ? normalizarTelefonePareamento(body.phone) : null;
+    if (action === "pairing_code" && !numero) {
+      return Response.json(
+        { error: "Informe o numero do WhatsApp com DDD. Ex.: (11) 99999-8888." },
+        { status: 400 },
+      );
+    }
 
     // Escopado por tenant: um id de outro tenant é 404, não 403 — não confirma
     // que a instância existe.
@@ -97,14 +128,26 @@ export async function POST(req: Request, { params }: Params) {
       // connect e refresh_qr são a mesma chamada: a Evolution reemite o QR.
       // O código também chega por webhook; devolvê-lo aqui evita esperar o
       // próximo ciclo de emissão na primeira renderização.
-      const { code } = await connectInstance(remoteName);
-      if (code) {
+      // pairing_code é a mesma chamada com o número: a Evolution devolve,
+      // além do QR, o código de 8 caracteres que o lojista digita no celular.
+      if (numero) await aguardarSessaoFechada(remoteName);
+      const { code, pairingCode } = await connectInstance(remoteName, numero ?? undefined);
+      if (code || pairingCode) {
         await updateInstanceStatus({
           tenantId: ctx.tenantId,
           instanceId: instance.id,
           status: "qr",
-          qrCode: code,
+          qrCode: code ?? null,
+          // Null no fluxo só de QR apaga o código de uma tentativa anterior.
+          metadata: { pairing_code: pairingCode ?? null },
         });
+      }
+      // Depois de gravar: o QR que veio junto continua valendo como saída.
+      if (action === "pairing_code" && !pairingCode) {
+        return Response.json(
+          { error: "Nao foi possivel gerar o codigo agora. Tente de novo ou use o QR Code." },
+          { status: 502 },
+        );
       }
     }
 

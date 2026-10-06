@@ -60,6 +60,12 @@ async function applyQrCode(instance: Instance, event: EvolutionWebhookEvent): Pr
     instanceId: instance.id,
     status: "qr",
     qrCode: event.data.qrcode.code,
+    // Só grava código que veio: a entrega não é ordenada, e um QR do ciclo
+    // anterior ao pedido (sem código) chegando atrasado apagaria o código
+    // recém-gerado. Quem zera é a rota de ações, quando o lojista volta ao QR.
+    ...(event.data.qrcode.pairingCode
+      ? { metadata: { pairing_code: event.data.qrcode.pairingCode } }
+      : {}),
   });
 
   // Observabilidade sem credencial: registra que houve QR, nunca qual.

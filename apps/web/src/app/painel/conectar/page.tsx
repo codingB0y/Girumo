@@ -31,6 +31,7 @@ export default function PainelConectar() {
     precisaPerfil,
     load,
     refreshQr,
+    pedirCodigo,
     disconnect,
     onEscolherPerfil,
   } = useInstance();
@@ -46,6 +47,7 @@ export default function PainelConectar() {
       precisaPerfil={precisaPerfil}
       onAtualizar={() => load(true)}
       onRefreshQr={refreshQr}
+      onPedirCodigo={pedirCodigo}
       onDesconectar={disconnect}
       onEscolherPerfil={onEscolherPerfil}
     />
@@ -162,13 +164,18 @@ function useInstance() {
 
   /** Dispara a ação e adota a instância devolvida, que já vem com estado fresco. */
   const runAction = useCallback(
-    async (id: string, action: "refresh_qr" | "disconnect", falha: string) => {
+    async (
+      id: string,
+      action: "refresh_qr" | "disconnect" | "pairing_code",
+      falha: string,
+      extra: { phone?: string } = {},
+    ) => {
       setLoading(true);
       try {
         const res = await fetch(`/api/instances/${id}/actions`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action }),
+          body: JSON.stringify({ action, ...extra }),
         });
         if (!res.ok) {
           // A API explica os casos conhecidos (pedir QR com a sessão viva, por
@@ -199,6 +206,22 @@ function useInstance() {
     if (!alvo) return; // `load` já colocou o motivo em `error`.
     await runAction(alvo.id, "refresh_qr", "Nao foi possivel gerar um novo QR.");
   }, [instance, load, runAction]);
+
+  /**
+   * Pede o código de pareamento para o número informado — a alternativa ao QR
+   * para quem conecta pelo próprio celular. O código chega em
+   * `metadata.pairing_code` e o polling traz cada troca de ciclo.
+   */
+  const pedirCodigo = useCallback(
+    async (telefone: string) => {
+      const alvo = instance ?? (await load(true));
+      if (!alvo) return;
+      await runAction(alvo.id, "pairing_code", "Nao foi possivel gerar o codigo.", {
+        phone: telefone,
+      });
+    },
+    [instance, load, runAction],
+  );
 
   /**
    * Encerra a sessão na Evolution.
@@ -293,6 +316,7 @@ function useInstance() {
     precisaPerfil,
     load,
     refreshQr,
+    pedirCodigo,
     disconnect,
     onEscolherPerfil,
   };

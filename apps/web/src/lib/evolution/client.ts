@@ -205,10 +205,18 @@ export type ConnectResult = {
  *
  * O QR também chega por webhook (`qrcode.updated`); esta chamada existe para a
  * primeira renderização não esperar o próximo ciclo de emissão.
+ *
+ * Com `number` (só dígitos, com DDI), a Evolution também gera o código de
+ * pareamento — e passa a gerar um novo a cada ciclo de QR, que chega no mesmo
+ * `qrcode.updated`.
  */
-export async function connectInstance(instanceName: string): Promise<ConnectResult> {
+export async function connectInstance(
+  instanceName: string,
+  number?: string,
+): Promise<ConnectResult> {
+  const query = number ? `?number=${encodeURIComponent(number)}` : "";
   const data = await request<{ code?: string; pairingCode?: string | null }>(
-    `/instance/connect/${encodeURIComponent(instanceName)}`,
+    `/instance/connect/${encodeURIComponent(instanceName)}${query}`,
   );
   return { code: data?.code, pairingCode: data?.pairingCode ?? null };
 }
