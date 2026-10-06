@@ -117,3 +117,21 @@ export function telefoneNaVitrine(phone: string | null | undefined): string | nu
   const resto = digitos.slice(4);
   return `+${ddi} ${ddd} ${resto.slice(0, -4)}•${resto.slice(-4)}`;
 }
+
+/**
+ * O código de pareamento como o WhatsApp mostra: `ABCD-1234`.
+ *
+ * A alternativa ao QR para quem conecta pelo próprio celular, que não tem como
+ * escanear a tela em que está. A Evolution gera um código novo a cada ciclo de
+ * QR; o webhook e a rota guardam o atual em `metadata.pairing_code` (a rota
+ * zera quando o lojista volta ao QR), e o polling da tela traz cada troca.
+ *
+ * Só vale enquanto a instância espera leitura: fora de `qr`, o código guardado
+ * é de um pareamento que já fechou.
+ */
+export function codigoDePareamento(instancia: InstanciaDaTela | null): string | null {
+  if (instancia?.status !== "qr") return null;
+  const codigo = instancia.metadata?.pairing_code;
+  if (typeof codigo !== "string" || codigo.length === 0) return null;
+  return codigo.length === 8 ? `${codigo.slice(0, 4)}-${codigo.slice(4)}` : codigo;
+}
