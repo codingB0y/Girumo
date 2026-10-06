@@ -105,15 +105,24 @@ test.describe("Início ao vivo no celular", () => {
     }
   });
 
-  test("a faixa rola de lado e nenhuma célula passa de 260 px", async ({ page }) => {
+  test("a faixa do celular: cabeçalho AO VIVO e quatro células roláveis de até 260 px, sem legendas nem Saldo", async ({ page }) => {
     await page.goto("/painel", { waitUntil: "load" });
-    await expect(page.getByTestId("inicio-faixa")).toBeVisible({ timeout: 30_000 });
-    const larguras = await page
+    const faixa = page.getByTestId("inicio-faixa");
+    await expect(faixa).toBeVisible({ timeout: 30_000 });
+    await expect(faixa.getByText(/AO VIVO/)).toBeVisible();
+    const medidas = await faixa
       .getByRole("group", { name: "Números de hoje" })
-      .evaluate((el) => ({ celulas: [...el.children].map((c) => c.getBoundingClientRect().width), rola: el.scrollWidth > el.clientWidth }));
-    expect(larguras.celulas).toHaveLength(5);
-    expect(Math.max(...larguras.celulas)).toBeLessThanOrEqual(260);
-    expect(larguras.rola).toBe(true);
+      .evaluate((el) => ({ celulas: [...el.children].map((c) => c.getBoundingClientRect().width), rolagem: getComputedStyle(el).overflowX }));
+    expect(medidas.celulas).toHaveLength(4);
+    expect(Math.max(...medidas.celulas)).toBeLessThanOrEqual(260);
+    // Rola quando não cabe. Com os números pequenos do tenant de QA as quatro podem caber em 390 px,
+    // então o contrato é a rolagem ligada, não o conteúdo transbordando.
+    expect(medidas.rolagem).toBe("auto");
+    await expect(faixa.getByText("Saldo hoje", { exact: true })).toHaveCount(0);
+    // Sem legenda no celular (spec G2, decisão 6): a das entradas está no DOM, escondida.
+    await expect(faixa.getByText(/^medindo desde|, mesma hora$/).first()).toBeHidden();
+    await expect(faixa.getByRole("button", { name: "Atualizar agora" })).toBeHidden();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
   });
 
   test("o mapa é compacto no celular: célula baixa e o atalho para os grupos", async ({ page }) => {
@@ -174,5 +183,47 @@ test.describe("Início ao vivo a partir de 768 px", () => {
     expect(await celulas.count()).toBeGreaterThan(0);
     expect((await celulas.first().boundingBox())?.height).toBe(56);
     await expect(mapa.getByRole("link", { name: /^Ver (os [\d.]+ grupos|o grupo)$/ })).toBeHidden();
+  });
+
+  test("a faixa é uma linha só: AO VIVO, quatro números e o atualizar no fim; o Saldo saiu", async ({ page }) => {
+    await page.goto("/painel", { waitUntil: "load" });
+    const faixa = page.getByTestId("inicio-faixa");
+    await expect(faixa).toBeVisible({ timeout: 30_000 });
+    for (const rotulo of ["Entraram hoje", "Saíram", "Cliques nos links", "Pedidos anotados hoje"]) {
+      await expect(faixa.getByText(rotulo, { exact: true })).toBeVisible();
+    }
+    await expect(faixa.getByText("Saldo hoje", { exact: true })).toHaveCount(0);
+    const atualizar = faixa.getByRole("button", { name: "Atualizar agora" });
+    await expect(atualizar).toBeVisible();
+    await expect(faixa.getByText(/^atualizado (agora|há \d+ (min|h))$|não carregou$/)).toBeVisible();
+    const [numeros, botao] = await Promise.all([faixa.getByRole("group", { name: "Números de hoje" }).boundingBox(), atualizar.boundingBox()]);
+    expect(numeros).not.toBeNull();
+    expect(botao).not.toBeNull();
+    // Mesma linha: o botão à direita dos números e dentro da altura deles.
+    expect(botao!.x).toBeGreaterThanOrEqual(numeros!.x + numeros!.width - 1);
+    const meio = botao!.y + botao!.height / 2;
+    expect(meio).toBeGreaterThan(numeros!.y);
+    expect(meio).toBeLessThan(numeros!.y + numeros!.height);
+    // O botão refaz a carga da tela (a mesma recarga silenciosa do minuto).
+    const recarga = page.waitForRequest((r) => r.url().includes("/api/painel/inicio"));
+    await atualizar.click();
+    await recarga;
+  });
+});
+
+test.describe("Início ao vivo entre 768 e 1400 px", () => {
+  test.use({ viewport: { width: 1100, height: 900 } });
+
+  test("a faixa põe AO VIVO e o atualizar numa linha em cima e os quatro números embaixo", async ({ page }) => {
+    await page.goto("/painel", { waitUntil: "load" });
+    const faixa = page.getByTestId("inicio-faixa");
+    await expect(faixa).toBeVisible({ timeout: 30_000 });
+    const grupo = faixa.getByRole("group", { name: "Números de hoje" });
+    await expect(grupo.locator(":scope > *")).toHaveCount(4);
+    const [numeros, botao] = await Promise.all([grupo.boundingBox(), faixa.getByRole("button", { name: "Atualizar agora" }).boundingBox()]);
+    expect(numeros).not.toBeNull();
+    expect(botao).not.toBeNull();
+    expect(botao!.y + botao!.height).toBeLessThanOrEqual(numeros!.y + 1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
   });
 });
