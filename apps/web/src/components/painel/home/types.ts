@@ -14,6 +14,8 @@ export type Campanha = {
 
 export type TrackedLink = {
   slug: string;
+  /** Vínculo com a campanha por ID (`carregarLinks` já devolve); `campaignName` só vale no link antigo. */
+  campaignGroupId?: string | null;
   campaignName?: string;
   clicks: number;
 };
