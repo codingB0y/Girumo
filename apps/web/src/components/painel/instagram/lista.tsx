@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { useCasca } from "@/components/painel/casca-context";
 import { useConfirmacao } from "@/components/painel/confirmacao";
@@ -11,6 +11,7 @@ import { buscar } from "@/lib/painel/carregar";
 import type { Carga } from "@/lib/painel/types";
 import type { FlowSummary } from "@/lib/stores/ig-flows";
 import { ChipEstado } from "./chip-estado";
+import { ContaDoInstagram } from "./conta";
 
 type Resposta = { flows: FlowSummary[] };
 const valida = (corpo: unknown): corpo is Resposta => !!corpo && typeof corpo === "object" && Array.isArray((corpo as Resposta).flows);
@@ -71,9 +72,12 @@ export function InstagramVitrine() {
         <div>
           <h1 className="text-20 font-semibold text-volt-950">Instagram</h1>
           <p className="mt-1 text-13 text-slate-600">Fluxos que respondem comentário e direct com o convite do grupo.</p>
-          <p className="mt-1 text-13 text-slate-600">
-            {instagram.account ? `@${instagram.account.username}` : "Nenhuma conta do Instagram conectada ainda."}
-          </p>
+          {/* Suspense: `useSearchParams` sem ele derruba o pré-render da página. */}
+          <div className="mt-2">
+            <Suspense fallback={null}>
+              <ContaDoInstagram />
+            </Suspense>
+          </div>
         </div>
         <Link href="/painel/instagram/novo" className="inline-flex h-9 items-center rounded-[var(--radius-control)] bg-volt-950 px-3 text-13 font-medium text-canvas-100">
           Novo fluxo
