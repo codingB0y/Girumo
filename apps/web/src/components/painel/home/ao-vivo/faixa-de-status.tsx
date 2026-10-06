@@ -56,7 +56,6 @@ const BOTAO_ATUALIZAR = [
   "inline-grid h-9 w-9 place-items-center rounded-[var(--radius-control)] text-slate-600 hover:bg-hover-ficha hover:text-volt-950",
   "focus-visible:outline-2 focus-visible:outline-cobalt-500 max-md:hidden",
 ].join(" ");
-const SEM_SERIE = "a série não carregou";
 
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -102,7 +101,7 @@ export function FaixaDeStatus({ atividade, campanhas, links, orders, metaDoMes, 
               </>
             )
           }
-          legenda={n ? legendaDaComparacao(n.comparacao, "entraram") : SEM_SERIE}
+          legenda={n ? legendaDaComparacao(n.comparacao, "entraram") : null}
         />
         <CelulaDaFaixa
           rotulo="Saíram"

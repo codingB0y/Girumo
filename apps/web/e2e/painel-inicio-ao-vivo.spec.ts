@@ -121,7 +121,9 @@ test.describe("Início ao vivo no celular", () => {
     await expect(faixa.getByText("Saldo hoje", { exact: true })).toHaveCount(0);
     // Sem legenda no celular (spec G2, decisão 6): a das entradas está no DOM, escondida.
     await expect(faixa.getByText(/^medindo desde|, mesma hora$/).first()).toBeHidden();
-    await expect(faixa.getByRole("button", { name: "Atualizar agora" })).toBeHidden();
+    const atualizar = faixa.getByRole("button", { name: "Atualizar agora", includeHidden: true });
+    await expect(atualizar).toHaveCount(1);
+    await expect(atualizar).toBeHidden();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
   });
 
@@ -195,7 +197,7 @@ test.describe("Início ao vivo a partir de 768 px", () => {
     await expect(faixa.getByText("Saldo hoje", { exact: true })).toHaveCount(0);
     const atualizar = faixa.getByRole("button", { name: "Atualizar agora" });
     await expect(atualizar).toBeVisible();
-    await expect(faixa.getByText(/^atualizado (agora|há \d+ (min|h))$|^não carregou$/)).toBeVisible();
+    await expect(faixa.getByText(/^atualizado (agora|há \d+ (min|h))$|^a série não carregou$/)).toBeVisible();
     const [numeros, botao] = await Promise.all([faixa.getByRole("group", { name: "Números de hoje" }).boundingBox(), atualizar.boundingBox()]);
     expect(numeros).not.toBeNull();
     expect(botao).not.toBeNull();

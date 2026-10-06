@@ -132,6 +132,9 @@ test("legenda dos pedidos: quantos, e o mês contra a meta", () => {
 test("há quanto: agora, minutos e horas", () => {
   const agora = new Date("2026-10-02T17:10:00.000Z");
   assert.equal(haQuanto("2026-10-02T17:09:40.000Z", agora), "agora");
+  // Fronteiras: 60 s já é minuto, 60 min já é hora.
+  assert.equal(haQuanto("2026-10-02T17:09:00.000Z", agora), "há 1 min");
+  assert.equal(haQuanto("2026-10-02T16:10:00.000Z", agora), "há 1 h");
   assert.equal(haQuanto("2026-10-02T17:07:00.000Z", agora), "há 3 min");
   assert.equal(haQuanto("2026-10-02T15:05:00.000Z", agora), "há 2 h");
 });
