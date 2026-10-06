@@ -1,5 +1,12 @@
 import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { extendTailwindMerge, validators } from "tailwind-merge";
+
+// O @theme (painel-vitrine.css) declara tamanhos numéricos: text-12 … text-64.
+// Sem isto o tailwind-merge lê `text-13` como cor e um `text-<cor>` posterior
+// apaga o tamanho em silêncio.
+const twMerge = extendTailwindMerge({
+  extend: { classGroups: { "font-size": [{ text: [validators.isInteger] }] } },
+});
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
