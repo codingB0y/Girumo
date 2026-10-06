@@ -195,7 +195,7 @@ test.describe("Início ao vivo a partir de 768 px", () => {
     await expect(faixa.getByText("Saldo hoje", { exact: true })).toHaveCount(0);
     const atualizar = faixa.getByRole("button", { name: "Atualizar agora" });
     await expect(atualizar).toBeVisible();
-    await expect(faixa.getByText(/^atualizado (agora|há \d+ (min|h))$|não carregou$/)).toBeVisible();
+    await expect(faixa.getByText(/^atualizado (agora|há \d+ (min|h))$|^não carregou$/)).toBeVisible();
     const [numeros, botao] = await Promise.all([faixa.getByRole("group", { name: "Números de hoje" }).boundingBox(), atualizar.boundingBox()]);
     expect(numeros).not.toBeNull();
     expect(botao).not.toBeNull();
