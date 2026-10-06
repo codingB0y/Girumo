@@ -1,7 +1,7 @@
 /**
  * Modo DRY-RUN do loop de envio (F4).
  *
- * Envolve as `SendDeps` reais e troca SÓ as três chamadas HTTP à Evolution por um
+ * Envolve as `SendDeps` reais e troca SÓ as quatro chamadas HTTP à Evolution por um
  * log. Todo o resto do caminho continua real: o claim já passou pelo gate anti-ban
  * (`claim_send_commands`), a instância é resolvida, a mídia é assinada, o payload é
  * montado, `record_send` conta a janela e `complete_engine_command` fecha o comando.
@@ -53,6 +53,13 @@ export function withDryRun(deps: SendDeps): SendDeps {
         mediatype: input.mediatype,
         tem_caption: typeof input.caption === "string" && input.caption.length > 0,
         mention_all: input.mentionAll === true,
+      });
+    },
+
+    async sendAudio(instanceName, number) {
+      log.info("DRY-RUN: enviaria audio", {
+        instance_name: instanceName,
+        destino: safeDestination(number),
       });
     },
 

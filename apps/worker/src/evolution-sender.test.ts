@@ -70,3 +70,21 @@ test("sendText: erro de rede vira EvolutionSendError status 0", async () => {
     (err: unknown) => err instanceof EvolutionSendError && err.status === 0,
   );
 });
+
+test("sendAudio: POST /message/sendWhatsAppAudio/{instance} com encoding pra sair como nota de voz", async () => {
+  const captured: Captured[] = [];
+  const sender = createEvolutionSender({
+    baseUrl: "https://wa.example.com",
+    apiKey: "k",
+    fetchImpl: fakeFetch(ok(), captured),
+  });
+
+  await sender.sendAudio("gr_abc", "12036@g.us", { audio: "https://signed.example/a.mp3" });
+
+  assert.equal(captured[0].url, "https://wa.example.com/message/sendWhatsAppAudio/gr_abc");
+  assert.deepEqual(JSON.parse(captured[0].init.body as string), {
+    number: "12036@g.us",
+    audio: "https://signed.example/a.mp3",
+    encoding: true,
+  });
+});

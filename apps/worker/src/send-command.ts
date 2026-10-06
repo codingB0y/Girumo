@@ -17,7 +17,13 @@
  */
 
 import { resolveMediaPath } from "./media-id.js";
-import { EvolutionSendError, type SendMediaInput, type SendPollInput, type SendTextOptions } from "./evolution-sender.js";
+import {
+  EvolutionSendError,
+  type SendAudioInput,
+  type SendMediaInput,
+  type SendPollInput,
+  type SendTextOptions,
+} from "./evolution-sender.js";
 
 export type EngineCommandRow = {
   command_id: string;
@@ -35,6 +41,7 @@ export interface SendDeps {
   instanceName(instanceId: string): Promise<string | null>;
   sendText(instanceName: string, number: string, text: string, opts?: SendTextOptions): Promise<void>;
   sendMedia(instanceName: string, number: string, input: SendMediaInput): Promise<void>;
+  sendAudio(instanceName: string, number: string, input: SendAudioInput): Promise<void>;
   sendPoll(instanceName: string, number: string, input: SendPollInput): Promise<void>;
   /**
    * URL assinada da mídia, gerada NA HORA DO ENVIO.
@@ -61,6 +68,18 @@ export type SendOutcome = {
 const SEND_TYPE = "send_message";
 const MEDIA_TYPE = "send_media";
 const POLL_TYPE = "send_poll";
+
+/** Mesmas extensões de áudio que o app grava (`AUDIO_EXT` em apps/web/src/lib/media-mime.ts). */
+const AUDIO_EXT = new Set(["mp3", "ogg", "opus", "wav", "aac", "m4a", "weba"]);
+
+/**
+ * Áudio é decidido pela extensão do arquivo, não pelo `mediaType` do payload: o
+ * fan-out em SQL (`app.enqueue_broadcast`) reduz tudo que não é vídeo/documento a
+ * "image". A extensão é escolhida pelo servidor a partir do mime real do upload.
+ */
+function isAudioPath(storagePath: string): boolean {
+  return AUDIO_EXT.has(storagePath.split(".").pop()?.toLowerCase() ?? "");
+}
 
 /** Tipos que passam pelo gate anti-ban (espelha o filtro de claim_send_commands). */
 export const SEND_TYPES = [SEND_TYPE, MEDIA_TYPE, POLL_TYPE] as const;
@@ -174,11 +193,13 @@ export async function sendFromCommand(row: EngineCommandRow, deps: SendDeps): Pr
       // não um segredo — sem isto um comando forjado leria mídia de outro tenant.
       const storagePath = resolveMediaPath(mediaId, row.tenant_id);
       if (!storagePath) throw new Error("mediaId inválido ou de outro tenant");
+      const audio = isAudioPath(storagePath);
       send = async (name) => {
         // Assinada agora, não no enqueue: a fila pode ter segurado isto por horas.
         const url = await deps.signedMediaUrl(storagePath);
         if (!url) throw new Error("mídia não encontrada no storage");
-        await deps.sendMedia(name, number, { media: url, mediatype, caption, mentionAll });
+        if (audio) await deps.sendAudio(name, number, { audio: url });
+        else await deps.sendMedia(name, number, { media: url, mediatype, caption, mentionAll });
       };
     } else {
       const text = firstString(p.text, p.message, p.body);
