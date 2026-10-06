@@ -1,5 +1,15 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { ROTAS_DO_PAINEL } from "./rotas";
+
+/**
+ * Em dev (NEXT_PUBLIC_APP_ENV=development, que é o que o CI sobe) o banner "Local Dev Mode"
+ * fica fixo no topo com z-index 9999 e cobre a barra: o clique no Mais e no Postar bate nele.
+ * Em produção o banner não existe. Fecha pelo botão dele antes de mexer na barra.
+ */
+async function fechaBannerDev(page: Page) {
+  const fechar = page.getByRole("button", { name: "Fechar banner dev" });
+  if (await fechar.isVisible()) await fechar.click();
+}
 
 /**
  * Casca da Vitrine Aberta (spec 2026-09-07, 3.1 e 3.2). Só vale com a flag
@@ -68,6 +78,7 @@ test.describe("casca desktop G2: barra volt em cima", () => {
   test("barra com loja, módulos, número, Postar e avatar; Mais abre o painel; barra inferior fora", async ({ page }) => {
     await page.goto("/painel", { waitUntil: "load" });
     await expect(page.getByTestId("painel-root")).toBeVisible();
+    await fechaBannerDev(page);
 
     const barra = page.getByTestId("painel-barra");
     await expect(barra).toBeVisible();
@@ -100,6 +111,7 @@ test.describe("casca desktop G2: barra volt em cima", () => {
 
   test("Postar da barra abre a folha como diálogo e Esc fecha", async ({ page }) => {
     await page.goto("/painel/grupos", { waitUntil: "load" });
+    await fechaBannerDev(page);
     await page.getByTestId("painel-postar-barra").click();
     const folha = page.getByTestId("painel-folha-postar");
     await expect(folha).toBeVisible();
