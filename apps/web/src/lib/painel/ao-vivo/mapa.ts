@@ -182,13 +182,13 @@ export function rotuloNaCelula(c: CelulaDoMapa): string {
 }
 
 /**
- * "+N" da célula em no máximo 3 caracteres: "+42", "120" (sem o +), "1k". Em 13 px cabe ao lado do número na
+ * "+N" da célula em no máximo 3 caracteres: "+42", "99+" (de 100 a 999: o "+" fica, o número exato está na dica), "1k". Em 13 px cabe ao lado do número na
  * célula de ~61 px do desktop e embaixo dele na de ~33 px do celular. O nome acessível e a dica guardam o número inteiro.
  */
 export function entradaNaCelula(n: number): string {
   if (!(n > 0)) return "";
   if (n < 100) return `+${n}`;
-  if (n < 1000) return String(n);
+  if (n < 1000) return "99+";
   return `${Math.min(99, Math.floor(n / 1000))}k`;
 }
 

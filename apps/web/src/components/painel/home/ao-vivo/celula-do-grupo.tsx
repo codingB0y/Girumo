@@ -24,8 +24,9 @@ import { cn } from "@/lib/utils";
  * gráfico (5,4:1 sobre a superfície branca; fio pede 3:1). Sumiu do cadastro = contorno tracejado e ícone.
  *
  * Texto de 13 px (decisão 3). A partir de 768 px: 40 px de altura e a largura da coluna da grade (~61 px na mais
- * estreita, a 1400 px), número e "+N" numa linha, embaixo. No celular a coluna tem ~33 px: 36 px de altura, com o
- * "+N" na segunda linha.
+ * estreita, a 1400 px: tirando 3 px de cada lado e o fio de 1 px sobram ~53 px, e "142" + "99+" em Plex 13 px tabular
+ * ocupam ~49 px; com 4 px de folga a barra de rolagem do Windows já cortava o "+N"), número e "+N" numa linha,
+ * embaixo. No celular a coluna tem ~33 px: 36 px de altura, com o "+N" na segunda linha.
  */
 const PREENCHIMENTO: Record<CelulaDoMapa["estado"], string> = {
   cheio: "bg-acid-500",
@@ -46,12 +47,14 @@ const BORDA: Record<CelulaDoMapa["estado"], string> = {
 const CAIXA = [
   "relative flex h-full w-full flex-col justify-between overflow-hidden rounded-[4px] border bg-paper-0 px-0.5 py-[3px]",
   "text-13 leading-none tabular-nums text-volt-950",
-  "md:flex-row md:items-end md:gap-1 md:rounded-md md:px-1 md:py-1",
+  "md:flex-row md:items-end md:gap-0.5 md:rounded-md md:px-[3px] md:py-1",
 ].join(" ");
 
-export function CelulaDoGrupo({ celula: c, bloco }: { celula: CelulaDoMapa; bloco: string }) {
-  // WCAG 1.4.13: a dica fecha com Esc sem tirar o foco/mouse, e o mouse pode ir da célula até ela
-  // (a dica é filha do mesmo contêiner, então sair da célula para a dica não conta como sair).
+/**
+ * Quando a dica aparece. WCAG 1.4.13: ela fecha com Esc sem tirar o foco/mouse, e o mouse pode ir da célula até ela
+ * (a dica é filha do mesmo contêiner, então sair da célula para a dica não conta como sair).
+ */
+function useDicaAberta() {
   const [mouse, setMouse] = useState(false);
   const [foco, setFoco] = useState(false);
   const [dispensada, setDispensada] = useState(false);
@@ -70,15 +73,20 @@ export function CelulaDoGrupo({ celula: c, bloco }: { celula: CelulaDoMapa; bloc
     return () => document.removeEventListener("keydown", aoTeclar);
   }, [aberta]);
 
+  return {
+    aberta,
+    aoEntrar: () => setMouse(true),
+    aoSair: () => setMouse(false),
+    aoFocar: () => setFoco(true),
+    aoDesfocar: () => setFoco(false),
+  };
+}
+
+export function CelulaDoGrupo({ celula: c, bloco }: { celula: CelulaDoMapa; bloco: string }) {
+  const { aberta, aoEntrar, aoSair, aoFocar, aoDesfocar } = useDicaAberta();
+
   return (
-    <div
-      data-testid="celula-do-grupo"
-      className="relative h-9 md:h-10"
-      onMouseEnter={() => setMouse(true)}
-      onMouseLeave={() => setMouse(false)}
-      onFocus={() => setFoco(true)}
-      onBlur={() => setFoco(false)}
-    >
+    <div data-testid="celula-do-grupo" className="relative h-9 md:h-10" onMouseEnter={aoEntrar} onMouseLeave={aoSair} onFocus={aoFocar} onBlur={aoDesfocar}>
       <Link
         href={c.href}
         aria-label={rotuloAcessivel(bloco, c)}

@@ -48,7 +48,8 @@ const SELO: Record<EstadoNaCampanha, string> = {
 
 const FOCO = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500";
 const BOTAO_DO_CELULAR = `flex min-h-11 w-full min-w-0 items-center justify-center rounded-[var(--radius-control)] border border-line-200 px-3 text-center text-[14px] font-medium text-volt-950 ${FOCO}`;
-const BOTAO_DO_ALERTA = `inline-flex h-8 shrink-0 items-center rounded-[var(--radius-control)] border border-line-200 bg-paper-0 px-3 text-13 font-semibold text-volt-950 hover:bg-hover-ficha ${FOCO}`;
+// 44 px de alvo no celular (regra 4 da Vitrine); 32 px a partir de 768 px, como no mockup.
+const BOTAO_DO_ALERTA = `inline-flex h-8 shrink-0 items-center rounded-[var(--radius-control)] border border-line-200 bg-paper-0 px-3 text-13 font-semibold text-volt-950 hover:bg-hover-ficha max-md:h-11 ${FOCO}`;
 
 /** Só a campanha com slug tem tela de configuração; "/painel/campanhas" e "Outros grupos" não. */
 const linkDaCampanha = (href: string) => href.startsWith("/painel/campanhas/") && href !== "/painel/campanhas";
@@ -71,6 +72,8 @@ export function MapaDosGrupos({ grupos, campanhas, atividade }: Props) {
   const filtros = FILTROS.filter(([f]) => f !== "sumiu" || mapa.contagens.sumiu > 0);
   // O filtro escolhido some da lista quando a recarga zera o número (ex.: "Sumiu"): volta para "Todos".
   const [ativo, rotuloDoAtivo] = filtros.find(([f]) => f === filtro) ?? filtros[0];
+  // E o estado acompanha: senão um "Sumiu" guardado voltaria a filtrar sozinho na recarga seguinte.
+  if (filtro !== ativo) setFiltro(ativo);
   const total = mapa.contagens.todos;
 
   return (
@@ -161,7 +164,7 @@ function Filtros({ filtros, ativo, contagens, onEscolher }: PropsDosFiltros) {
           aria-pressed={ativo === f}
           onClick={() => onEscolher(f)}
           className={cn(
-            "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[var(--radius-control)] border px-2 text-13 font-semibold transition-colors",
+            "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[var(--radius-control)] border px-2 text-13 font-semibold transition-colors max-md:h-11",
             FOCO,
             ativo === f ? "border-slate-600 bg-porta-ativa text-volt-950" : "border-line-200 bg-paper-0 text-slate-600 hover:text-volt-950",
           )}
@@ -197,9 +200,8 @@ function Blocos({ blocos, filtro, rotulo }: { blocos: BlocoDoMapa[]; filtro: Fil
 
 type PropsDoBloco = { bloco: BlocoDoMapa; celulas: CelulaDoMapa[]; ocultos: number; lugar: LugarDoBloco };
 
-/** Uma campanha: "40 grupos · 95% das vagas · +171 hoje", o "abre o próximo sozinho" e as células. */
+/** Uma campanha: o cabeçalho, as células e as notas "novo HH:MM" e "mostrando os N mais cheios". */
 function BlocoNoMapa({ bloco: b, celulas, ocultos, lugar }: PropsDoBloco) {
-  const resumo = resumoDoBloco(b);
   const novo = novoDoBloco(celulas);
   return (
     <div
@@ -208,26 +210,10 @@ function BlocoNoMapa({ bloco: b, celulas, ocultos, lugar }: PropsDoBloco) {
         ["--lugar" as string]: `${2 * lugar.linha - 1} / ${lugar.coluna} / span 2 / span ${lugar.largura}`,
         ["--colunas" as string]: lugar.largura,
       }}
-      className="flex min-w-0 flex-col md:grid md:grid-rows-subgrid md:[grid-area:var(--lugar)]"
+      // A coluna única do subgrid com min 0: um título sem espaço não alarga o bloco por cima do vizinho.
+      className="flex min-w-0 flex-col md:grid md:grid-cols-[minmax(0,1fr)] md:grid-rows-subgrid md:[grid-area:var(--lugar)]"
     >
-      <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 pb-2.5">
-        <h3 className="text-[14px] font-semibold text-volt-950">
-          <Link href={b.href} className="hover:underline">
-            {b.titulo}
-          </Link>
-        </h3>
-        <p className="text-13 tabular-nums text-slate-600">
-          {numero(resumo.grupos)} {resumo.grupos === 1 ? "grupo" : "grupos"}
-          {resumo.pctDasVagas !== null && <> · {resumo.pctDasVagas}% das vagas</>}
-          {resumo.entraramHoje > 0 && (
-            <>
-              {" · "}
-              <span className="font-semibold text-serie">+{numero(resumo.entraramHoje)} hoje</span>
-            </>
-          )}
-        </p>
-        {b.autoGrow && <AbreSozinho href={b.href} />}
-      </div>
+      <CabecalhoDoBloco bloco={b} />
       <div className="md:pb-5">
         <ul className="grid grid-cols-10 gap-[3px] md:gap-1 md:[grid-template-columns:repeat(var(--colunas),minmax(0,1fr))]">
           {celulas.map((c) => (
@@ -250,6 +236,31 @@ function BlocoNoMapa({ bloco: b, celulas, ocultos, lugar }: PropsDoBloco) {
           </p>
         )}
       </div>
+    </div>
+  );
+}
+
+/** "40 grupos · 95% das vagas · +171 hoje" e o "abre o próximo sozinho". O título quebra em qualquer ponto se não couber. */
+function CabecalhoDoBloco({ bloco: b }: { bloco: BlocoDoMapa }) {
+  const resumo = resumoDoBloco(b);
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 pb-2.5">
+      <h3 className="text-[14px] font-semibold text-volt-950 [overflow-wrap:anywhere]">
+        <Link href={b.href} className="hover:underline">
+          {b.titulo}
+        </Link>
+      </h3>
+      <p className="text-13 tabular-nums text-slate-600">
+        {numero(resumo.grupos)} {resumo.grupos === 1 ? "grupo" : "grupos"}
+        {resumo.pctDasVagas !== null && <> · {resumo.pctDasVagas}% das vagas</>}
+        {resumo.entraramHoje > 0 && (
+          <>
+            {" · "}
+            <span className="font-semibold text-serie">+{numero(resumo.entraramHoje)} hoje</span>
+          </>
+        )}
+      </p>
+      {b.autoGrow && <AbreSozinho href={b.href} />}
     </div>
   );
 }

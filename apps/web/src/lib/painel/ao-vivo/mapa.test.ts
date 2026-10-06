@@ -282,7 +282,7 @@ test("célula: número sem #, +N em até 3 caracteres e sumiu sem a palavra, em 
   assert.equal(rotuloNaCelula(c40), "40");
   assert.equal(rotuloNaCelula(sumiu), "");
   assert.equal(rotuloNaCelula(vis(mapa.blocos[1]).celulas[0]), "1º");
-  assert.deepEqual([0, 7, 99, 100, 999, 1000, 1234, 54000, 250000].map(entradaNaCelula), ["", "+7", "+99", "100", "999", "1k", "1k", "54k", "99k"]);
+  assert.deepEqual([0, 7, 99, 100, 999, 1000, 1234, 54000, 250000].map(entradaNaCelula), ["", "+7", "+99", "99+", "99+", "1k", "1k", "54k", "99k"]);
   for (const n of [1, 42, 99, 100, 999, 1000, 99999, 1e7]) assert.ok(entradaNaCelula(n).length <= 3);
 });
 
@@ -363,4 +363,20 @@ test("lugares: a maior na linha toda; as menores lado a lado com uma coluna vazi
     { linha: 2, coluna: 1, largura: 10 },
   ]);
   assert.deepEqual(lugaresDosBlocos([]), []);
+});
+
+test("lugares: em qualquer ordem, nenhum bloco passa da coluna 10 nem pisa no vizinho da mesma linha", () => {
+  const base = [2, 5, 7, 13, 1, 9];
+  for (const tamanhos of [base, [...base].reverse(), [13, 1, 9, 2, 5, 7], [9, 7, 5, 2, 1, 13]]) {
+    const lugares = lugaresDosBlocos(tamanhos);
+    assert.equal(lugares.length, tamanhos.length);
+    for (const l of lugares) assert.ok(l.coluna >= 1 && l.coluna + l.largura - 1 <= 10, JSON.stringify(l));
+    for (const a of lugares) {
+      for (const b of lugares) {
+        if (a === b || a.linha !== b.linha) continue;
+        const separados = a.coluna + a.largura <= b.coluna || b.coluna + b.largura <= a.coluna;
+        assert.ok(separados, `${JSON.stringify(a)} × ${JSON.stringify(b)}`);
+      }
+    }
+  }
 });
