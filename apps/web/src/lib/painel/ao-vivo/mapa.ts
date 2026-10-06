@@ -5,9 +5,10 @@ import type { EstadoNaCampanha } from "@/lib/painel/campanha-visao";
 import { estadoDoGrupo, lotacao, numero, porLotacaoDecrescente } from "@/lib/painel/grupos";
 
 /**
- * O mapa dos grupos da Início "Ao vivo" (spec 2026-10-02): uma célula por grupo,
- * agrupada por campanha, com o estado de `estadoDoGrupo` — a mesma regra da tela
- * de Grupos, para o mapa nunca discordar dela.
+ * O mapa dos grupos da Início "Ao vivo" (spec 2026-10-02; G2 em 2026-10-05, decisão 7):
+ * uma célula por grupo, agrupada por campanha, com o estado de `estadoDoGrupo` — a mesma
+ * regra da tela de Grupos, para o mapa nunca discordar dela. A campanha maior vem primeiro
+ * e as menores ficam lado a lado na grade de dez colunas (`lugaresDosBlocos`).
  */
 
 /** `sumiu` é o mesmo estado da página da campanha: o grupo está na campanha mas não no cadastro. */
@@ -49,6 +50,8 @@ export type MapaDosGrupos = { blocos: BlocoDoMapa[]; contagens: Record<FiltroDoM
 export const LIMITE_DO_MAPA_INTEIRO = 200;
 export const CELULAS_POR_BLOCO_NO_LIMITE = 60;
 export const MAX_ALERTAS = 3;
+/** Colunas da grade do mapa a partir de 768 px (spec G2, decisão 7). No celular todo bloco usa as dez. */
+export const COLUNAS_DO_MAPA = 10;
 
 export const TEXTO_DO_ESTADO: Record<EstadoNaCampanha, string> = {
   cheio: "lotou",
@@ -153,14 +156,14 @@ export function celulasDoFiltro(b: BlocoDoMapa, filtro: FiltroDoMapa): { celulas
   return { celulas: base.filter((c) => c.estado === "sumiu" || ficam.has(c.id)), ocultos: cadastrados.length - CELULAS_POR_BLOCO_NO_LIMITE };
 }
 
-export type ResumoDoBloco = { grupos: number; pessoas: number; pctDasVagas: number | null; entraramHoje: number };
+export type ResumoDoBloco = { grupos: number; pctDasVagas: number | null; entraramHoje: number };
 
 const finito = (n: number) => (Number.isFinite(n) ? n : 0);
 
 /**
- * Os números do cabeçalho do bloco no celular. O sumiu entra como grupo e como entrada (membros e capacidade 0).
- * A % das vagas só olha os grupos com capacidade conhecida: pessoas de grupo sem capacidade não inflam a conta;
- * sem nenhuma capacidade conhecida ela é `null` e a tela omite a frase.
+ * A linha do bloco: "40 grupos · 95% das vagas · +171 hoje" (spec G2, decisão 7). O sumiu entra como grupo e
+ * como entrada (capacidade 0). A % das vagas só olha os grupos com capacidade conhecida: pessoas de grupo sem
+ * capacidade não inflam a conta; sem nenhuma capacidade conhecida ela é `null` e a tela omite a frase.
  */
 export function resumoDoBloco(b: BlocoDoMapa): ResumoDoBloco {
   const comVaga = b.todas.filter((c) => finito(c.capacidade) > 0);
@@ -168,23 +171,60 @@ export function resumoDoBloco(b: BlocoDoMapa): ResumoDoBloco {
   const ocupadas = comVaga.reduce((s, c) => s + finito(c.membros), 0);
   return {
     grupos: b.todas.length,
-    pessoas: b.todas.reduce((s, c) => s + finito(c.membros), 0),
     pctDasVagas: vagas > 0 ? Math.round((ocupadas / vagas) * 100) : null,
     entraramHoje: b.todas.reduce((s, c) => s + c.entraram, 0),
   };
 }
 
-/** Rótulo da célula no celular: sem o "#" ("40"); o sumiu não escreve a palavra (a célula mostra um ícone). */
-export function rotuloNoCelular(c: CelulaDoMapa): string {
+/** Rótulo da célula: sem o "#" ("40", como no mockup G2); o sumiu não escreve a palavra (a célula mostra um ícone). */
+export function rotuloNaCelula(c: CelulaDoMapa): string {
   return c.estado === "sumiu" ? "" : c.rotulo.replace(/^#/, "");
 }
 
-/** "+N" da célula do celular em no máximo 3 caracteres: "+42", "120" (sem o +), "1k". O nome acessível guarda o número inteiro. */
-export function entradaNoCelular(n: number): string {
+/**
+ * "+N" da célula em no máximo 3 caracteres: "+42", "120" (sem o +), "1k". Em 13 px cabe ao lado do número na
+ * célula de ~61 px do desktop e embaixo dele na de ~33 px do celular. O nome acessível e a dica guardam o número inteiro.
+ */
+export function entradaNaCelula(n: number): string {
   if (!(n > 0)) return "";
   if (n < 100) return `+${n}`;
   if (n < 1000) return String(n);
   return `${Math.min(99, Math.floor(n / 1000))}k`;
+}
+
+/** Quanto da célula o preenchimento cobre: Lotou é Acid sólido na célula inteira (spec G2, decisão 11); os outros, a lotação. */
+export function preenchimentoDaCelula(c: CelulaDoMapa): number {
+  return c.estado === "cheio" ? 1 : c.lotacao;
+}
+
+export type LarguraDoBloco = 3 | 6 | 10;
+export type LugarDoBloco = { linha: number; coluna: number; largura: LarguraDoBloco };
+
+/** Até 6 grupos em 3 colunas e até 12 em 6 (no máximo duas fileiras, como no mockup G2); acima disso a linha toda. */
+export function larguraDoBloco(celulas: number): LarguraDoBloco {
+  if (celulas <= 6) return 3;
+  if (celulas <= 12) return 6;
+  return COLUNAS_DO_MAPA;
+}
+
+/**
+ * Onde cada bloco fica na grade de 10 colunas, na ordem dada: lado a lado enquanto cabe, com uma coluna vazia
+ * entre vizinhos (o 6 + 1 + 3 do mockup G2 fecha as dez). O que não cabe desce para a próxima linha.
+ */
+export function lugaresDosBlocos(celulas: readonly number[]): LugarDoBloco[] {
+  // ponytail: next-fit — não volta para preencher a sobra de uma linha anterior; first-fit se o vazio incomodar.
+  let linha = 1;
+  let coluna = 1;
+  return celulas.map((n) => {
+    const largura = larguraDoBloco(n);
+    if (coluna + largura - 1 > COLUNAS_DO_MAPA) {
+      linha += 1;
+      coluna = 1;
+    }
+    const lugar = { linha, coluna, largura };
+    coluna += largura + 1;
+    return lugar;
+  });
 }
 
 /** O grupo aberto hoje mais recente entre as células mostradas (horas "HH:MM" do mesmo dia comparam como texto). */
@@ -239,14 +279,17 @@ export function montarMapa({
   };
 
   const emCampanha = new Set<string>();
-  const blocos: BlocoDoMapa[] = [];
+  const dasCampanhas: BlocoDoMapa[] = [];
   for (const c of campanhas) {
     const doBloco = gruposDa(c, porId);
     const sumidos = sumidosDa(c, porId);
     if (doBloco.length + sumidos.length === 0) continue;
     for (const g of doBloco) emCampanha.add(g.whatsappGroupId);
-    blocos.push(bloco(c.id, c.name, hrefDaCampanha(c), c.autoGrow ?? null, doBloco, sumidos, ctx));
+    dasCampanhas.push(bloco(c.id, c.name, hrefDaCampanha(c), c.autoGrow ?? null, doBloco, sumidos, ctx));
   }
+  // A campanha maior primeiro (spec G2, decisão 7: as menores ficam lado a lado depois dela). O sort é estável:
+  // empate fica na ordem da lista. "Outros grupos" não é campanha: vai sempre por último.
+  const blocos = [...dasCampanhas].sort((a, b) => b.todas.length - a.todas.length);
   const fora = grupos.filter((g) => !emCampanha.has(g.whatsappGroupId));
   if (fora.length > 0) blocos.push(bloco("outros", "Outros grupos", GRUPOS, null, fora, [], ctx));
 

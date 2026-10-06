@@ -5,13 +5,16 @@ import type { Group } from "@/lib/mock-data";
 import {
   CELULAS_POR_BLOCO_NO_LIMITE,
   celulasDoFiltro,
+  entradaNaCelula,
+  larguraDoBloco,
+  lugaresDosBlocos,
   MAX_ALERTAS,
   montarMapa,
-  entradaNoCelular,
   novoDoBloco,
+  preenchimentoDaCelula,
   resumoDoBloco,
-  rotuloNoCelular,
   rotuloAcessivel,
+  rotuloNaCelula,
   type BlocoDoMapa,
   type CampanhaDoMapa,
 } from "./mapa";
@@ -245,14 +248,14 @@ test("campanha em que todos os grupos sumiram ainda vira bloco; sem nenhum grupo
   assert.equal(vis(b).ocultos, 201 - CELULAS_POR_BLOCO_NO_LIMITE);
 });
 
-test("resumo do bloco: grupos, pessoas, % das vagas e entradas de hoje (o sumiu conta como grupo, não como vaga)", () => {
+test("resumo do bloco: grupos, % das vagas e entradas de hoje (o sumiu conta como grupo, não como vaga)", () => {
   const mapa = montarMapa({
     grupos: [grupo("40", { members: 900, capacity: 1000 }), grupo("39", { members: 500, capacity: 1000 })],
     campanhas: [{ ...vip, groupIds: ["40@g.us", "39@g.us", "sumido@g.us"] }],
     hojePorGrupo: { "40@g.us": { entraram: 64, sairam: 2 }, "39@g.us": { entraram: 7, sairam: 0 }, "sumido@g.us": { entraram: 1, sairam: 0 } },
     abertosHoje: [],
   });
-  assert.deepEqual(resumoDoBloco(mapa.blocos[0]), { grupos: 3, pessoas: 1400, pctDasVagas: 70, entraramHoje: 72 });
+  assert.deepEqual(resumoDoBloco(mapa.blocos[0]), { grupos: 3, pctDasVagas: 70, entraramHoje: 72 });
 });
 
 test("resumo do bloco: a % só olha grupos com capacidade; sem capacidade nenhuma ela é null", () => {
@@ -262,13 +265,13 @@ test("resumo do bloco: a % só olha grupos com capacidade; sem capacidade nenhum
     hojePorGrupo: {},
     abertosHoje: [],
   });
-  // As 300 pessoas do grupo sem capacidade contam como pessoas, mas não entram na % (500/1000, não 800/1000).
-  assert.deepEqual(resumoDoBloco(misto.blocos[0]), { grupos: 2, pessoas: 800, pctDasVagas: 50, entraramHoje: 0 });
+  // O grupo sem capacidade conta como grupo, mas as 300 pessoas dele não entram na % (500/1000, não 800/1000).
+  assert.deepEqual(resumoDoBloco(misto.blocos[0]), { grupos: 2, pctDasVagas: 50, entraramHoje: 0 });
   const semVaga = montarMapa({ grupos: [grupo("1", { members: 10, capacity: 0 })], campanhas: [], hojePorGrupo: {}, abertosHoje: [] });
-  assert.deepEqual(resumoDoBloco(semVaga.blocos[0]), { grupos: 1, pessoas: 10, pctDasVagas: null, entraramHoje: 0 });
+  assert.deepEqual(resumoDoBloco(semVaga.blocos[0]), { grupos: 1, pctDasVagas: null, entraramHoje: 0 });
 });
 
-test("célula do celular: número sem #, +N em até 3 caracteres e sumiu sem a palavra", () => {
+test("célula: número sem #, +N em até 3 caracteres e sumiu sem a palavra, em todas as larguras", () => {
   const mapa = montarMapa({
     grupos: [grupo("40"), grupo("solto", { name: "Clientes antigos" })],
     campanhas: [{ ...vip, groupIds: ["40@g.us", "fantasma@g.us"] }],
@@ -276,11 +279,11 @@ test("célula do celular: número sem #, +N em até 3 caracteres e sumiu sem a p
     abertosHoje: [],
   });
   const [c40, sumiu] = vis(mapa.blocos[0]).celulas;
-  assert.equal(rotuloNoCelular(c40), "40");
-  assert.equal(rotuloNoCelular(sumiu), "");
-  assert.equal(rotuloNoCelular(vis(mapa.blocos[1]).celulas[0]), "1º");
-  assert.deepEqual([0, 7, 99, 100, 999, 1000, 1234, 54000, 250000].map(entradaNoCelular), ["", "+7", "+99", "100", "999", "1k", "1k", "54k", "99k"]);
-  for (const n of [1, 42, 99, 100, 999, 1000, 99999, 1e7]) assert.ok(entradaNoCelular(n).length <= 3);
+  assert.equal(rotuloNaCelula(c40), "40");
+  assert.equal(rotuloNaCelula(sumiu), "");
+  assert.equal(rotuloNaCelula(vis(mapa.blocos[1]).celulas[0]), "1º");
+  assert.deepEqual([0, 7, 99, 100, 999, 1000, 1234, 54000, 250000].map(entradaNaCelula), ["", "+7", "+99", "100", "999", "1k", "1k", "54k", "99k"]);
+  for (const n of [1, 42, 99, 100, 999, 1000, 99999, 1e7]) assert.ok(entradaNaCelula(n).length <= 3);
 });
 
 test("novo do bloco: o aberto hoje mais recente entre as células mostradas", () => {
@@ -297,4 +300,67 @@ test("novo do bloco: o aberto hoje mais recente entre as células mostradas", ()
   assert.deepEqual(novoDoBloco(celulas), { hora: "09:14", rotulo: "#40" });
   assert.equal(novoDoBloco(celulas.filter((c) => c.rotulo === "#2")), null);
   assert.equal(novoDoBloco([]), null);
+});
+
+test("a campanha maior vem primeiro; empate fica na ordem da lista; Outros grupos sempre por último", () => {
+  const mapa = montarMapa({
+    grupos: [
+      grupo("1"),
+      grupo("2"),
+      grupo("3"),
+      grupo("4"),
+      grupo("5"),
+      grupo("s1", { name: "Clientes antigos" }),
+      grupo("s2", { name: "Fornecedores" }),
+    ],
+    campanhas: [
+      { id: "c-bras", name: "Brás", groupIds: ["1@g.us"] },
+      { id: "c-vip", name: "VIP", groupIds: ["2@g.us", "3@g.us", "4@g.us"] },
+      { id: "c-sal", name: "Saldão", groupIds: ["5@g.us"] },
+    ],
+    hojePorGrupo: {},
+    abertosHoje: [],
+  });
+  // "Outros grupos" tem 2 e a Brás 1: mesmo maior, fica no fim (não é campanha).
+  assert.deepEqual(mapa.blocos.map((b) => b.titulo), ["VIP", "Brás", "Saldão", "Outros grupos"]);
+});
+
+test("lotou enche a célula inteira (Acid sólido, decisão 11); os outros estados enchem até a lotação", () => {
+  const mapa = montarMapa({
+    grupos: [grupo("40", { members: 980 }), grupo("39", { members: 900 }), grupo("2", { members: 10, inviteUrl: undefined })],
+    campanhas: [vip],
+    hojePorGrupo: {},
+    abertosHoje: [],
+  });
+  const [c2, c39, c40] = vis(mapa.blocos[0]).celulas;
+  assert.equal(c40.estado, "cheio");
+  assert.equal(preenchimentoDaCelula(c40), 1);
+  assert.equal(preenchimentoDaCelula(c39), 0.9);
+  assert.equal(preenchimentoDaCelula(c2), 0.01);
+});
+
+test("largura do bloco: até 6 grupos em 3 colunas, até 12 em 6, acima disso a linha toda", () => {
+  assert.deepEqual([1, 6, 7, 12, 13, 40].map((n) => larguraDoBloco(n)), [3, 3, 6, 6, 10, 10]);
+});
+
+test("lugares: a maior na linha toda; as menores lado a lado com uma coluna vazia entre elas (o 6 + 3 do mockup)", () => {
+  assert.deepEqual(lugaresDosBlocos([40, 12, 6]), [
+    { linha: 1, coluna: 1, largura: 10 },
+    { linha: 2, coluna: 1, largura: 6 },
+    { linha: 2, coluna: 8, largura: 3 },
+  ]);
+  // Dois de 6 não cabem lado a lado (6 + 1 + 6 > 10); três de 3 também não (3 + 1 + 3 + 1 + 3 > 10).
+  assert.deepEqual(lugaresDosBlocos([12, 7, 3, 2, 1]), [
+    { linha: 1, coluna: 1, largura: 6 },
+    { linha: 2, coluna: 1, largura: 6 },
+    { linha: 2, coluna: 8, largura: 3 },
+    { linha: 3, coluna: 1, largura: 3 },
+    { linha: 3, coluna: 5, largura: 3 },
+  ]);
+  // A linha toda depois de um bloco pequeno desce para a próxima linha.
+  assert.deepEqual(lugaresDosBlocos([3, 20]), [
+    { linha: 1, coluna: 1, largura: 3 },
+    { linha: 2, coluna: 1, largura: 10 },
+  ]);
+  assert.deepEqual(lugaresDosBlocos([]), []);
 });
