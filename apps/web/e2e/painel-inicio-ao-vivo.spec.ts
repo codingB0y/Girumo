@@ -1,9 +1,25 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 
 /**
  * Início "Ao vivo" (spec 2026-10-02): a tela padrão de /painel. O tenant de QA
  * não tem número: ela abre com o banner de desconectado e os números da loja.
  */
+
+/** Textos do mapa com menos de 13 px (spec G2, decisão 3). O `pn-chip` é a exceção: chip de estado de 12 px. */
+function textosAbaixoDe13px(regiao: Locator): Promise<string[]> {
+  return regiao.evaluate((el) =>
+    [...el.querySelectorAll("*")]
+      // nodeType 3 = texto: só os elementos que escrevem alguma coisa direto.
+      .filter((n) => !n.closest(".pn-chip") && [...n.childNodes].some((c) => c.nodeType === 3 && (c.textContent ?? "").trim() !== ""))
+      .filter((n) => parseFloat(getComputedStyle(n).fontSize) < 13)
+      .map((n) => (n.textContent ?? "").trim()),
+  );
+}
+
+/** Quantas colunas tem a grade de células do bloco desta célula. */
+function colunasDaGrade(celula: Locator): Promise<number> {
+  return celula.evaluate((el) => getComputedStyle(el.closest("ul")!).gridTemplateColumns.split(" ").length);
+}
 
 test.describe("Início ao vivo", () => {
   test("abre com a faixa da loja e o número desconectado", async ({ page }) => {
@@ -127,7 +143,7 @@ test.describe("Início ao vivo no celular", () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
   });
 
-  test("o mapa é compacto no celular: célula baixa e o atalho para os grupos", async ({ page }) => {
+  test("o mapa é compacto no celular: célula de até 40 px, dez colunas, texto de 13 px e o atalho para os grupos", async ({ page }) => {
     await page.goto("/painel?aba=grupos", { waitUntil: "load" });
     const mapa = page.getByTestId("inicio-mapa");
     await expect(mapa).toBeVisible({ timeout: 30_000 });
@@ -135,6 +151,9 @@ test.describe("Início ao vivo no celular", () => {
     expect(await celulas.count()).toBeGreaterThan(0);
     const caixa = await celulas.first().boundingBox();
     expect(caixa?.height).toBeLessThanOrEqual(40);
+    // No celular todo bloco usa as dez colunas: o lado a lado é a partir de 768 px (spec G2, decisão 7).
+    expect(await colunasDaGrade(celulas.first())).toBe(10);
+    expect(await textosAbaixoDe13px(mapa)).toEqual([]);
     const ver = mapa.getByRole("link", { name: /^Ver (os [\d.]+ grupos|o grupo)$/ });
     await expect(ver).toBeVisible();
     await expect(ver).toHaveAttribute("href", "/painel/grupos");
@@ -177,14 +196,40 @@ test.describe("Início ao vivo a partir de 768 px", () => {
     await expect(page.getByTestId("inicio-relampago")).toBeVisible();
   });
 
-  test("o mapa mantém as células de 56 px e não mostra os atalhos do celular", async ({ page }) => {
+  test("o mapa G2: células de 40 px sem percentual, texto de 13 px, filtros com contagem e o atalho Todos os grupos", async ({ page }) => {
     await page.goto("/painel", { waitUntil: "load" });
     const mapa = page.getByTestId("inicio-mapa");
     await expect(mapa).toBeVisible({ timeout: 30_000 });
     const celulas = mapa.getByTestId("celula-do-grupo");
     expect(await celulas.count()).toBeGreaterThan(0);
-    expect((await celulas.first().boundingBox())?.height).toBe(56);
+    expect((await celulas.first().boundingBox())?.height).toBe(40);
+    // Sem o percentual na célula (decisão 7): a lotação é o preenchimento; a dica confirma.
+    expect(await celulas.evaluateAll((cs) => cs.filter((c) => (c.textContent ?? "").includes("%")).length)).toBe(0);
+    // A partir de 768 px o bloco tem 3, 6 ou 10 colunas, conforme o tamanho da campanha.
+    expect([3, 6, 10]).toContain(await colunasDaGrade(celulas.first()));
+    expect(await textosAbaixoDe13px(mapa)).toEqual([]);
+    await expect(mapa.getByRole("link", { name: "Todos os grupos", exact: true })).toHaveAttribute("href", "/painel/grupos");
+    const filtros = mapa.getByRole("group", { name: "Filtrar grupos" });
+    await expect(filtros.getByRole("button", { name: /^Todos [\d.]+$/ })).toHaveAttribute("aria-pressed", "true");
     await expect(mapa.getByRole("link", { name: /^Ver (os [\d.]+ grupos|o grupo)$/ })).toBeHidden();
+  });
+
+  test("o filtro Lotou leva o selo Acid num span, não no botão, e mostra só os lotados", async ({ page }) => {
+    await page.goto("/painel", { waitUntil: "load" });
+    const mapa = page.getByTestId("inicio-mapa");
+    await expect(mapa).toBeVisible({ timeout: 30_000 });
+    // /i: o selo é `pn-chip` (caixa alta por CSS), e o nome acessível pode vir como "Lotou" ou "LOTOU".
+    const lotou = mapa.getByRole("group", { name: "Filtrar grupos" }).getByRole("button", { name: /^lotou [\d.]+$/i });
+    await expect(lotou.locator(".pn-chip--acid")).toHaveCount(1);
+    await lotou.click();
+    await expect(lotou).toHaveAttribute("aria-pressed", "true");
+    const nomes = await mapa
+      .getByTestId("celula-do-grupo")
+      .getByRole("link")
+      .evaluateAll((ls) => ls.map((l) => l.getAttribute("aria-label") ?? ""));
+    // O tenant de QA pode não ter grupo lotado: aí a tela diz isso.
+    if (nomes.length === 0) await expect(mapa.getByText('Nenhum grupo em "Lotou".')).toBeVisible();
+    for (const nome of nomes) expect(nome).toMatch(/, lotou(, |$)/);
   });
 
   test("a faixa é uma linha só: AO VIVO, quatro números e o atualizar no fim; o Saldo saiu", async ({ page }) => {
