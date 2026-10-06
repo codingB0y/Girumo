@@ -79,3 +79,8 @@ test("sem chave não sai pedido nenhum; rede fora vira erro passageiro; 404 ao a
   const { fetchImpl: f404 } = fetchFalso([{ status: 404, body: { error: "no", type: "not_found", code: "account_not_found" } }]);
   await createZernioTransport({ apiKey: "k", fetchImpl: f404 }).deleteAccount("sumiu");
 });
+
+test("connectUrl recusa authUrl que não é https", async () => {
+  const { fetchImpl } = fetchFalso([{ status: 200, body: { authUrl: "javascript:alert(1)" } }]);
+  await assert.rejects(() => createZernioTransport({ apiKey: "k", fetchImpl }).connectUrl("p", "https://app/x"), (e: unknown) => e instanceof ZernioError && e.code === "auth_url_missing");
+});

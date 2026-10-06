@@ -56,7 +56,8 @@ export function createZernioTransport(deps: { apiKey: string; fetchImpl?: typeof
     },
     async connectUrl(profileId, redirectUrl) {
       const r = await call<{ authUrl?: string }>({ method: "GET", path: "v1/connect/instagram", query: { profileId, redirect_url: redirectUrl, scopes: "comments,messaging" } });
-      if (!r.authUrl) throw new ZernioError(502, "api_error", "auth_url_missing", null, "Resposta sem authUrl.");
+      // O painel faz `location.assign` com isto: só https, nunca `javascript:` e afins.
+      if (!r.authUrl || !URL.canParse(r.authUrl) || new URL(r.authUrl).protocol !== "https:") throw new ZernioError(502, "api_error", "auth_url_missing", null, "Resposta sem authUrl https.");
       return r.authUrl;
     },
     async listAccounts(profileId) {

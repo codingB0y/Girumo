@@ -11,6 +11,7 @@ const ERROS: Record<string, string> = {
   cancelado: "Você cancelou a conexão.",
   conta: "Não achei a conta do Instagram que você autorizou. Tente de novo.",
   outra_loja: "Esta conta do Instagram já está conectada em outra loja.",
+  permissao: "Seu acesso nesta loja não permite conectar o Instagram.",
   zernio: "A Zernio não respondeu. Tente de novo.",
 };
 

@@ -1,7 +1,7 @@
 import { getAppUrl } from "@/lib/environment";
 import { requireInstagram } from "@/lib/ig/access";
 import { emitirEstado } from "@/lib/ig/connect/state";
-import { zernioApiKey, zernioWebhookSecret } from "@/lib/ig/segredos";
+import { connectStateSecret, zernioApiKey } from "@/lib/ig/segredos";
 import { mensagemParaLojista } from "@/lib/ig/transport/erros";
 import { ZernioError } from "@/lib/ig/transport/types";
 import { createZernioTransport } from "@/lib/ig/transport/zernio";
@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     assertPermission(ctx.role, "campaign:edit");
     const zernio = createZernioTransport({ apiKey: zernioApiKey() });
     const profileId = await zernio.ensureProfile(ctx.tenantId);
-    const estado = emitirEstado(ctx.tenantId, profileId, zernioWebhookSecret());
+    const estado = emitirEstado(ctx.tenantId, profileId, connectStateSecret());
     const volta = `${getAppUrl()}/api/ig/connect/callback?state=${encodeURIComponent(estado)}`;
     const authUrl = await zernio.connectUrl(profileId, volta);
     return Response.json({ authUrl });
