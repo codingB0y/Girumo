@@ -1,58 +1,21 @@
 import { SEGUNDOS_POR_MENSAGEM } from "@/lib/campaigns/dispatch-eta";
 import { dayBR, dayBRAgo, dayBROf, diaMesBR, horaBR } from "@/lib/date-br";
-import type { Group } from "@/lib/mock-data";
-import { numeroDoGrupo } from "@/lib/painel/ao-vivo/mapa";
-import { aindaSaindo, type EntregaNoGrupo, type EstadoDaEntrega, type ResumoDaEntrega } from "@/lib/painel/entrega";
+import { aindaSaindo, type EstadoDaEntrega, type ResumoDaEntrega } from "@/lib/painel/entrega";
 import { numero } from "@/lib/painel/grupos";
 
 /**
- * A coluna "Postando agora" da Início "Ao vivo": quando o post termina, a grade
- * de entrega e os próximos agendamentos. Sem ordem de envio nem posição na fila
- * (ver `lib/painel/entrega.ts`): a grade é por número do grupo.
+ * A coluna "Postando agora" da Início "Ao vivo": quando o post termina, a barra
+ * de entrega e os próximos agendamentos. A entrega grupo a grupo mora em Disparos
+ * (spec G2, decisão 8).
  */
 
-export type CelulaDaGrade = { id: string; rotulo: string; nome: string; estado: EstadoDaEntrega; quando: string | null };
 export type Proximo = { id: string; quando: string; nome: string };
-
-/** Rótulo curto do grupo sem número: o nome, cortado. Nunca uma posição, que pareceria ordem de envio. */
-const LIMITE_DO_ROTULO = 24;
-const GRUPO_FORA_DO_CADASTRO = "grupo fora do cadastro";
-
-const TEXTO_DO_ESTADO: Record<EstadoDaEntrega, string> = {
-  entregue: "entregue",
-  postando: "postando",
-  na_fila: "na fila",
-  falhou: "falhou",
-  cancelado: "cancelado",
-};
 
 /** "HH:MM" em que a rodada acaba, na mesma conta de `etaDisparo`: 6 s por mensagem, nunca otimista. Null sem restantes. */
 export function terminaPorVolta(resumo: ResumoDaEntrega, agora: Date): string | null {
   const restantes = resumo.postando + resumo.naFila;
   if (restantes <= 0) return null;
   return horaBR(new Date(agora.getTime() + restantes * SEGUNDOS_POR_MENSAGEM * 1000).toISOString());
-}
-
-/** Pelo número do grupo; sem número, depois, pelo nome; fora do cadastro por último. */
-export function gradeDaEntrega(entrega: EntregaNoGrupo[], grupos: Group[]): CelulaDaGrade[] {
-  const porId = new Map(grupos.map((g) => [g.whatsappGroupId, g]));
-  const itens = entrega.map((e) => {
-    const g = porId.get(e.grupo);
-    return { e, nome: g?.name ?? GRUPO_FORA_DO_CADASTRO, numero: g ? numeroDoGrupo(g) : null, cadastrado: g !== undefined };
-  });
-  itens.sort((a, b) => {
-    if (a.cadastrado !== b.cadastrado) return a.cadastrado ? -1 : 1;
-    if (a.numero !== null && b.numero !== null && a.numero !== b.numero) return a.numero - b.numero;
-    if ((a.numero === null) !== (b.numero === null)) return a.numero === null ? 1 : -1;
-    return a.nome.localeCompare(b.nome, "pt-BR", { numeric: true });
-  });
-  return itens.map(({ e, nome, numero }) => ({
-    id: e.grupo,
-    rotulo: numero !== null ? `#${numero}` : nome.length > LIMITE_DO_ROTULO ? `${nome.slice(0, LIMITE_DO_ROTULO - 1).trimEnd()}…` : nome,
-    nome,
-    estado: e.estado,
-    quando: e.quando,
-  }));
 }
 
 function quandoDoAgendamento(iso: string, agora: Date): string {
@@ -77,24 +40,28 @@ export function proximosAgendamentos(
     .map(({ a, iso }) => ({ id: a.id, quando: quandoDoAgendamento(iso, agora), nome: a.campaignName || "Post agendado" }));
 }
 
-/** O que a célula diz para quem não enxerga a cor: "#3, Moda Sul 03: entregue às 14:08". */
-export function rotuloDaCelula(c: CelulaDaGrade): string {
-  // Nome igual ao rótulo, ou rótulo que é só o nome cortado: o nome completo basta.
-  const titulo = c.nome === c.rotulo || c.rotulo.endsWith("…") ? c.nome : `${c.rotulo}, ${c.nome}`;
-  const hora = c.estado === "entregue" ? horaBR(c.quando) : "";
-  return `${titulo}: ${TEXTO_DO_ESTADO[c.estado]}${hora ? ` às ${hora}` : ""}`;
-}
-
 const grupos = (n: number) => (n === 1 ? "grupo" : "grupos");
-
-/** "Entrega no 1 grupo" / "Entrega nos 40 grupos". */
-export function tituloDaGrade(n: number): string {
-  return `Entrega ${n === 1 ? "no" : "nos"} ${numero(n)} ${grupos(n)}`;
-}
 
 /** "27 de 40 grupos", "1 de 1 grupo". */
 export function placarDosGrupos(feitos: number, total: number): string {
   return `${numero(feitos)} de ${numero(total)} ${grupos(total)}`;
+}
+
+export type SegmentoDaEntrega = { estado: EstadoDaEntrega; n: number; texto: string };
+
+/**
+ * Os segmentos da barra de entrega (spec G2, decisão 8): entregues sempre (é o que a lojista espera ver,
+ * mesmo em zero); enviando, na fila, falhou e cancelado só quando há alguém neles.
+ */
+export function segmentosDaEntrega(r: ResumoDaEntrega): SegmentoDaEntrega[] {
+  const todos: SegmentoDaEntrega[] = [
+    { estado: "entregue", n: r.entregues, texto: r.entregues === 1 ? "entregue" : "entregues" },
+    { estado: "postando", n: r.postando, texto: "enviando" },
+    { estado: "na_fila", n: r.naFila, texto: "na fila" },
+    { estado: "falhou", n: r.falharam, texto: r.falharam === 1 ? "falhou" : "falharam" },
+    { estado: "cancelado", n: r.cancelados, texto: r.cancelados === 1 ? "cancelado" : "cancelados" },
+  ];
+  return todos.filter((s) => s.n > 0 || s.estado === "entregue");
 }
 
 /** O que a bolha mostra: a pergunta quando é enquete (o corpo vem vazio), senão o texto. */
