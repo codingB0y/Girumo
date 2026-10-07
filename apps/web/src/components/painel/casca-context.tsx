@@ -8,6 +8,8 @@ export type StatusInstagram = {
   enabled: boolean;
   account: { username: string; status: string } | null;
   live: number;
+  /** Atendimentos iniciados na última hora (teto de 700/h por conta). */
+  startedLastHour: number;
 };
 
 type CascaCtx = {
@@ -39,7 +41,7 @@ export function useFoco() {
   }, [definirFoco]);
 }
 
-const DESLIGADO: StatusInstagram = { enabled: false, account: null, live: 0 };
+const DESLIGADO: StatusInstagram = { enabled: false, account: null, live: 0, startedLastHour: 0 };
 
 /**
  * O layout não remonta entre rotas, então o valor sobrevive à navegação: o
@@ -58,7 +60,7 @@ export function CascaProvider({ children }: { children: React.ReactNode }) {
       .then((r) => (r.ok ? r.json() : null))
       .then((raw: StatusInstagram | null) => {
         if (cancelado) return;
-        setInstagram(raw && typeof raw.enabled === "boolean" ? { enabled: raw.enabled, account: raw.account ?? null, live: Number(raw.live) || 0 } : DESLIGADO);
+        setInstagram(raw && typeof raw.enabled === "boolean" ? { enabled: raw.enabled, account: raw.account ?? null, live: Number(raw.live) || 0, startedLastHour: Number(raw.startedLastHour) || 0 } : DESLIGADO);
       })
       .catch(() => {
         if (!cancelado) setInstagram(DESLIGADO);

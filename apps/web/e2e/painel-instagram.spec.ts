@@ -38,6 +38,11 @@ test.describe("Fluxos do Instagram", () => {
       await expect(page.getByTestId("ig-mapa")).toBeVisible();
       await verComo.getByRole("button", { name: "Passo a passo" }).click();
       await expect(page.getByRole("heading", { name: "Roteiro" })).toBeVisible();
+      await page.getByRole("tab", { name: "Atendimentos" }).click();
+      await expect(page.getByRole("region", { name: "Atendimentos" })).toBeVisible();
+      await expect(page.getByText(/Ninguém chamou ainda/)).toBeVisible();
+      await page.getByRole("tab", { name: "Roteiro" }).click();
+      await expect(page.getByRole("heading", { name: "Roteiro" })).toBeVisible();
 
       // O editor e modo foco: a casca some, a raiz fica.
       await expect(page.getByTestId("painel-root")).toBeVisible();
