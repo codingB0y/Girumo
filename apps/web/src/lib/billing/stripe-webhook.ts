@@ -1,5 +1,6 @@
 import type Stripe from "stripe";
 import type { FunnelEvent } from "@/lib/analytics/funnel-summary";
+import { metadataBase } from "./manual-grant";
 import type { TrialCancelReason } from "./trial";
 
 export const SYSTEM_TENANT_ID = "00000000-0000-0000-0000-000000000001";
@@ -60,6 +61,12 @@ export interface WebhookStore {
     type: string;
     eventCreatedAt: string;
   }): Promise<StoreResult>;
+  /**
+   * `subscriptions.metadata` atual do tenant (null se não há linha). O upsert
+   * regrava a coluna inteira, então o webhook mescla por cima disto para não
+   * apagar chaves de outros escritores (`manual_grant` do admin).
+   */
+  subscriptionMetadata(tenantId: string): Promise<{ metadata: unknown } & StoreResult>;
   upsertSubscription(row: SubscriptionRow): Promise<StoreResult>;
   insertLog(row: LogRow): Promise<StoreResult>;
   retrieveSubscription(id: string): Promise<Stripe.Subscription>;
@@ -236,6 +243,11 @@ async function upsertSubscription(
     return { error: null };
   }
 
+  // ponytail: ler-e-mesclar tem janela de corrida com a concessão do admin
+  // (ms entre o select e o upsert); `metadata || $1` via RPC fecha, se um dia doer.
+  const current = await store.subscriptionMetadata(tenantId);
+  if (current.error) return current;
+
   const upserted = await store.upsertSubscription({
     tenant_id: tenantId,
     plan_id: planId,
@@ -258,6 +270,7 @@ async function upsertSubscription(
       : null,
     stripe_event_created_at: eventCreatedAt,
     metadata: {
+      ...metadataBase(current.metadata),
       stripe_status: subscription.status,
       plan_code: subscription.metadata.plan_code ?? null,
       // A tela precisa saber POR QUE foi cancelada (cartão repetido no teste).

@@ -67,6 +67,15 @@ function createStore(): WebhookStore {
       return { error: error?.message ?? null };
     },
 
+    async subscriptionMetadata(tenantId) {
+      const { data, error } = await supabase
+        .from("subscriptions")
+        .select("metadata")
+        .eq("tenant_id", tenantId)
+        .maybeSingle();
+      return { metadata: data?.metadata ?? null, error: error?.message ?? null };
+    },
+
     async upsertSubscription(row) {
       const { error } = await supabase
         .from("subscriptions")
