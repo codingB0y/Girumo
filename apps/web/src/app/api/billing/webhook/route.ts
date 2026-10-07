@@ -5,8 +5,12 @@ import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import { sendEmail } from "@/lib/email/send";
 import { trialEndingEmail } from "@/lib/email/templates";
 import { claimCardFingerprint, claimTrial } from "@/lib/billing/trial-claims";
+import { pauseLiveFlows } from "@/lib/stores/ig-flows";
+import { stopActiveRuns } from "@/lib/stores/ig-runs";
+import { setInstagramEnabled } from "@/lib/stores/tenant-settings";
 import {
   handleStripeEvent,
+  isInstagramAddon,
   type DefaultCard,
   type WebhookStore,
 } from "@/lib/billing/stripe-webhook";
@@ -144,6 +148,56 @@ function createStore(): WebhookStore {
           idempotencyKey: `trial-ending/${subscription.id}`,
         });
         return { error: ok ? null : "envio falhou (ver email.failed nos logs)" };
+      } catch (err) {
+        return { error: err instanceof Error ? err.message : String(err) };
+      }
+    },
+
+    async instagramAddonState({ tenantId, customerId }) {
+      try {
+        const { data: org, error } = await supabase.from("organizations").select("stripe_customer_id").eq("id", tenantId).maybeSingle();
+        if (error) return { live: false, customerOk: false, error: error.message };
+        if (!org || org.stripe_customer_id !== customerId) return { live: false, customerOk: false, error: null };
+        let live = false;
+        for await (const s of getStripe().subscriptions.list({ customer: customerId, status: "all", limit: 100 })) {
+          if (isInstagramAddon(s.metadata) && s.metadata.tenant_id === tenantId && (s.status === "active" || s.status === "trialing" || s.status === "past_due")) {
+            live = true;
+            break;
+          }
+        }
+        return { live, customerOk: true, error: null };
+      } catch (err) {
+        return { live: false, customerOk: false, error: err instanceof Error ? err.message : String(err) };
+      }
+    },
+
+    async setInstagramEnabled({ tenantId, enabled }) {
+      try {
+        await setInstagramEnabled(tenantId, enabled);
+        // Sem o add-on, nada fica no ar respondendo em nome da loja.
+        if (!enabled) {
+          await pauseLiveFlows(tenantId);
+          await stopActiveRuns(tenantId);
+        }
+        return { error: null };
+      } catch (err) {
+        return { error: err instanceof Error ? err.message : String(err) };
+      }
+    },
+
+    async cancelAddonSubscriptions(customerId) {
+      try {
+        const stripe = getStripe();
+        const vivas: Stripe.Subscription[] = [];
+        for await (const s of stripe.subscriptions.list({ customer: customerId, status: "all", limit: 100 })) {
+          if (s.status === "active" || s.status === "trialing" || s.status === "past_due") vivas.push(s);
+        }
+        // Ainda há plano vivo (ex.: reentrega do cancelamento de uma assinatura antiga): o add-on fica.
+        if (vivas.some((s) => !isInstagramAddon(s.metadata))) return { error: null };
+        for (const s of vivas) {
+          if (isInstagramAddon(s.metadata)) await stripe.subscriptions.cancel(s.id);
+        }
+        return { error: null };
       } catch (err) {
         return { error: err instanceof Error ? err.message : String(err) };
       }

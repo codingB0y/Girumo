@@ -153,3 +153,14 @@ export async function updateTenantSettings(
   if (error) throw new Error(error.message);
   return toSettings(tenantId, data as SettingsRow);
 }
+
+/**
+ * Liberação do add-on Instagram. Só o webhook do Stripe (servidor) chama: o
+ * trigger da migração 20261003120000 impede `authenticated` de mexer na coluna.
+ */
+export async function setInstagramEnabled(tenantId: string, enabled: boolean): Promise<void> {
+  const { error } = await getSupabaseAdmin()
+    .from("tenant_settings")
+    .upsert({ tenant_id: tenantId, instagram_enabled: enabled, updated_at: new Date().toISOString() }, { onConflict: "tenant_id" });
+  if (error) throw new Error(error.message);
+}
