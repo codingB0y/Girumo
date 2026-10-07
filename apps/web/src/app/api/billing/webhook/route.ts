@@ -7,6 +7,7 @@ import { trialEndingEmail } from "@/lib/email/templates";
 import { claimCardFingerprint, claimTrial } from "@/lib/billing/trial-claims";
 import { pauseLiveFlows } from "@/lib/stores/ig-flows";
 import { stopActiveRuns } from "@/lib/stores/ig-runs";
+import { markInviteUsed } from "@/lib/stores/instagram-invites";
 import { setInstagramEnabled } from "@/lib/stores/tenant-settings";
 import {
   handleStripeEvent,
@@ -179,6 +180,15 @@ function createStore(): WebhookStore {
           await pauseLiveFlows(tenantId);
           await stopActiveRuns(tenantId);
         }
+        return { error: null };
+      } catch (err) {
+        return { error: err instanceof Error ? err.message : String(err) };
+      }
+    },
+
+    async markInstagramInviteUsed({ tenantId, inviteId, subscriptionId }) {
+      try {
+        await markInviteUsed(tenantId, inviteId, subscriptionId);
         return { error: null };
       } catch (err) {
         return { error: err instanceof Error ? err.message : String(err) };

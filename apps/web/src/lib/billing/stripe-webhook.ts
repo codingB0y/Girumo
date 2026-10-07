@@ -88,6 +88,8 @@ export interface WebhookStore {
   instagramAddonState(input: { tenantId: string; customerId: string }): Promise<{ live: boolean; customerOk: boolean } & StoreResult>;
   /** Liga/desliga `tenant_settings.instagram_enabled`. Desligar também pausa os fluxos e para os atendimentos. */
   setInstagramEnabled(input: { tenantId: string; enabled: boolean }): Promise<StoreResult>;
+  /** O convite nominal desta assinatura foi usado (só se ainda aberto e da loja). */
+  markInstagramInviteUsed(input: { tenantId: string; inviteId: string; subscriptionId: string }): Promise<StoreResult>;
   /** Cancela as assinaturas do add-on Instagram do customer, se ele não tiver outro plano vivo. */
   cancelAddonSubscriptions(customerId: string): Promise<StoreResult>;
 }
@@ -182,6 +184,12 @@ async function handleInstagramAddon(subscription: Stripe.Subscription, store: We
 
   const r = await store.setInstagramEnabled({ tenantId, enabled });
   if (r.error) return r;
+  // Pago (não no clique): pagamento recusado não gasta o convite.
+  const inviteId = subscription.metadata.invite_id;
+  if (inviteId && subscription.status === "active") {
+    const usado = await store.markInstagramInviteUsed({ tenantId, inviteId, subscriptionId: subscription.id });
+    if (usado.error) return usado;
+  }
   await store.insertLog({
     tenant_id: tenantId,
     level: "info",
