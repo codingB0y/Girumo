@@ -373,6 +373,10 @@ WhatsApp não diz qual pessoa do Instagram entrou. A tela marca o número com "�
 
 ## 12. Cobrança (fase 4)
 
+> **Substituído em 07/10/2026** por `docs/superpowers/specs/2026-10-07-instagram-assinatura-design.md`:
+> implementação de **R$ 497** + R$ 297/mês, **assinatura separada** (não segundo item), link nominal
+> de desconto no admin. O texto abaixo fica só como histórico.
+
 - Stripe: preço recorrente de R$ 297 (`STRIPE_PRICE_INSTAGRAM`) como **segundo item** da
   assinatura que a loja já tem, mais R$ 200 avulsos na primeira fatura
   (`STRIPE_PRICE_INSTAGRAM_ATIVACAO`).
