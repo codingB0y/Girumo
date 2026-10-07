@@ -89,7 +89,9 @@ export async function POST(req: NextRequest, { params }: Params) {
       await createInvite(id, { id: inviteId, tokenHash: hash, discountPercent: desconto, stripeCouponId: cupomId, expiresAt: venceEm.toISOString(), createdBy: admin.authUserId });
     } catch (error) {
       // Sem a linha, o cupom não tem dono: apaga para não sobrar desconto solto.
-      if (cupomId) await getStripe().coupons.del(cupomId).catch(() => {});
+      if (cupomId) {
+        await getStripe().coupons.del(cupomId).catch((e) => console.error("[admin/tenants/instagram-invite] cupom órfão:", cupomId, e instanceof Error ? e.message : e));
+      }
       throw error;
     }
 

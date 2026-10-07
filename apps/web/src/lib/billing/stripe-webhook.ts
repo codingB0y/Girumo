@@ -186,7 +186,8 @@ async function handleInstagramAddon(subscription: Stripe.Subscription, store: We
   if (r.error) return r;
   // Pago (não no clique): pagamento recusado não gasta o convite.
   const inviteId = subscription.metadata.invite_id;
-  if (inviteId && subscription.status === "active") {
+  // Id torto viraria erro de uuid no banco e reenvio eterno do Stripe.
+  if (inviteId && subscription.status === "active" && /^[0-9a-f-]{36}$/i.test(inviteId)) {
     const usado = await store.markInstagramInviteUsed({ tenantId, inviteId, subscriptionId: subscription.id });
     if (usado.error) return usado;
   }

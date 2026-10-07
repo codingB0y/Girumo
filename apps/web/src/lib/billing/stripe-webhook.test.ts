@@ -913,9 +913,9 @@ test("add-on sem tenant_id nao liga nada e registra aviso", async () => {
 
 test("convite vira usado quando a assinatura dele fica ativa; incompleta nao gasta", async () => {
   const pago = makeStore();
-  await handleStripeEvent(makeEvent({ data: { object: addon({ metadata: { tenant_id: TENANT, addon: "instagram", invite_id: "conv-1" } }) } } as Partial<Stripe.Event>), pago.store);
-  assert.deepEqual(pago.invitesUsed, ["conv-1:sub_ig"]);
+  await handleStripeEvent(makeEvent({ data: { object: addon({ metadata: { tenant_id: TENANT, addon: "instagram", invite_id: "0b8e4f2a-1c3d-4e5f-8a9b-0c1d2e3f4a5b" } }) } } as Partial<Stripe.Event>), pago.store);
+  assert.deepEqual(pago.invitesUsed, ["0b8e4f2a-1c3d-4e5f-8a9b-0c1d2e3f4a5b:sub_ig"]);
   const pendente = makeStore({ addonLive: false });
-  await handleStripeEvent(makeEvent({ data: { object: addon({ status: "incomplete", metadata: { tenant_id: TENANT, addon: "instagram", invite_id: "conv-1" } }) } } as Partial<Stripe.Event>), pendente.store);
+  await handleStripeEvent(makeEvent({ data: { object: addon({ status: "incomplete", metadata: { tenant_id: TENANT, addon: "instagram", invite_id: "0b8e4f2a-1c3d-4e5f-8a9b-0c1d2e3f4a5b" } }) } } as Partial<Stripe.Event>), pendente.store);
   assert.deepEqual(pendente.invitesUsed, []);
 });

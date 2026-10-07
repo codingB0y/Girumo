@@ -29,12 +29,9 @@ comment on table public.instagram_invites is
 create unique index if not exists instagram_invites_um_aberto_por_loja
   on public.instagram_invites (tenant_id) where revoked_at is null and used_at is null;
 
--- RLS como segunda linha: quem grava e lê é o servidor, com o tenant explícito.
+-- Só o servidor lê e escreve: a tabela tem o hash do token e o cupom, e nenhuma
+-- tela lê como `authenticated`. RLS ligado SEM policy = deny-all de propósito
+-- (o login Google roda no cliente com JWT; uma policy de leitura exporia o hash).
 alter table public.instagram_invites enable row level security;
 drop policy if exists "instagram_invites_tenant_read" on public.instagram_invites;
-create policy "instagram_invites_tenant_read" on public.instagram_invites
-  for select using (app.has_membership(tenant_id));
-
--- Só o servidor escreve. O event trigger de 20261004120000 já revoga isto em
--- tabela nova; fica explícito para não depender dele estar aplicado no banco.
-revoke insert, update, delete, truncate on public.instagram_invites from authenticated;
+revoke all on public.instagram_invites from authenticated;
