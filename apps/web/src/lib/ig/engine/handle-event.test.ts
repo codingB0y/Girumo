@@ -92,10 +92,11 @@ test("proteções: entrada recente da pessoa e teto da conta não criam run", as
   assert.deepEqual(await tratarEvento(comentario, b.amb), { kind: "ignored", reason: "teto" });
 });
 
-test("reenvio: run existente recente é duplicado; na fila há mais de 2 min é retomado", async () => {
+test("reenvio: na fila há pouco pede nova tentativa; há mais de 2 min é retomado (mesmo com a trava de 24 h); terminado é duplicado", async () => {
   const base: RunRow = { id: "run-velho", tenant_id: "loja-a", ig_account_id: "a1", flow_id: "f-c", flow_version: 3, source_kind: "comment", source_id: "c-1", ig_user_id: "u1", username: null, matched_keyword: "quero", ref: "r", status: "queued", node_id: null, waiting: null, wake_at: null, window_expires_at: "2026-10-13T11:59:58.000Z", clicked_at: null, error_code: null, error_message: null, started_at: "2026-10-06T11:59:30Z", updated_at: "2026-10-06T11:59:30Z", finished_at: null };
-  assert.deepEqual(await tratarEvento(comentario, ambiente({ existente: base }).amb), { kind: "ignored", reason: "duplicado" });
-  const antigo = ambiente({ existente: { ...base, started_at: "2026-10-06T11:57:00Z" } });
+  assert.deepEqual(await tratarEvento(comentario, ambiente({ existente: base }).amb), { kind: "retry", reason: "em andamento" });
+  // O próprio run da 1ª tentativa casa a trava de 24 h: o reenvio precisa passar antes dela.
+  const antigo = ambiente({ existente: { ...base, started_at: "2026-10-06T11:57:00Z" }, recente: true });
   assert.deepEqual(await tratarEvento(comentario, antigo.amb), { kind: "handled", tenantId: "loja-a", runId: "run-velho", status: "done" });
   assert.equal((await tratarEvento(comentario, ambiente({ existente: { ...base, status: "done", started_at: "2026-10-06T11:00:00Z" } }).amb)).kind, "ignored");
 });
@@ -110,4 +111,11 @@ test("erro passageiro da Zernio pede reenvio e não grava falha; eventos de cont
   await tratarEvento({ id: "e9", event: "account.disconnected", account: { accountId: "z1", reason: "token expirou" }, timestamp: "t" }, b.amb);
   await tratarEvento({ id: "e10", event: "account.connected", account: { accountId: "z1" }, timestamp: "t" }, b.amb);
   assert.deepEqual(b.estados, [["loja-a", "expired", "token expirou"], ["loja-a", "active", null]]);
+});
+
+test("data da Zernio que não parseia conta a janela a partir de agora", async () => {
+  const { amb, criados } = ambiente();
+  const d = await tratarEvento({ ...comentario, id: "e11", comment: { ...comentario.comment, id: "c-9", createdAt: "ontem" } }, amb);
+  assert.equal(d.kind, "handled");
+  assert.equal((criados[0] as { windowExpiresAt: string }).windowExpiresAt, "2026-10-13T12:00:00.000Z");
 });

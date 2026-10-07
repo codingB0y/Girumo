@@ -53,7 +53,13 @@ type Entrada = {
 
 const iso = (ms: number) => new Date(ms).toISOString();
 
-function deComentario(ev: ComentarioRecebido): Entrada | null {
+/** Data da Zernio que não parseia vira "agora": nunca uma janela que não fecha. */
+const ou = (texto: string, agoraMs: number) => {
+  const ms = Date.parse(texto);
+  return Number.isFinite(ms) ? ms : agoraMs;
+};
+
+function deComentario(ev: ComentarioRecebido, agoraMs: number): Entrada | null {
   const c = ev.comment;
   if (c.platform !== "instagram" || c.author.isOwnAccount || c.isReply) return null;
   return {
@@ -64,11 +70,11 @@ function deComentario(ev: ComentarioRecebido): Entrada | null {
     username: c.author.username ?? null,
     comment: { platformPostId: c.platformPostId, commentId: c.id },
     conversationId: null,
-    windowExpiresAt: iso(Date.parse(c.createdAt) + SETE_DIAS_MS),
+    windowExpiresAt: iso(ou(c.createdAt, agoraMs) + SETE_DIAS_MS),
   };
 }
 
-function deMensagem(ev: MensagemRecebida): Entrada | null {
+function deMensagem(ev: MensagemRecebida, agoraMs: number): Entrada | null {
   const m = ev.message;
   if (m.platform !== "instagram" || m.direction !== "incoming" || !m.text) return null;
   const story = ev.metadata?.storyReply !== undefined;
@@ -80,7 +86,7 @@ function deMensagem(ev: MensagemRecebida): Entrada | null {
     username: m.sender.username ?? null,
     comment: null,
     conversationId: ev.conversation.id,
-    windowExpiresAt: iso(Date.parse(m.sentAt) + UM_DIA_MS),
+    windowExpiresAt: iso(ou(m.sentAt, agoraMs) + UM_DIA_MS),
   };
 }
 
@@ -106,33 +112,38 @@ export async function tratarEvento(ev: EventoZernio, amb: Ambiente): Promise<Des
   if (!(await amb.lojaLiberada(tenantId))) return { kind: "ignored", reason: "loja sem liberação" };
 
   // ponytail: na fase 3, um direct de quem tem run ativo esperando resposta avança o run em vez de abrir outro.
-  const entrada = ev.event === "comment.received" ? deComentario(ev) : deMensagem(ev);
+  const agora = amb.now();
+  const entrada = ev.event === "comment.received" ? deComentario(ev, agora.getTime()) : deMensagem(ev, agora.getTime());
   if (!entrada) return { kind: "ignored", reason: "evento sem gatilho" };
 
   const escolha = escolherFluxo(await amb.fluxosNoAr(tenantId), entrada.origem);
   if (!escolha) return { kind: "ignored", reason: "sem fluxo" };
 
-  const agora = amb.now();
-  if (await amb.runs.entradaRecente(tenantId, escolha.flowId, entrada.igUserId, iso(agora.getTime() - UM_DIA_MS))) return { kind: "ignored", reason: "24h" };
-  if ((await amb.runs.iniciadosDesde(tenantId, conta.id, iso(agora.getTime() - UMA_HORA_MS))) >= TETO_POR_HORA) return { kind: "ignored", reason: "teto" };
-
-  let run = await amb.runs.criar(tenantId, {
-    igAccountId: conta.id,
-    flowId: escolha.flowId,
-    flowVersion: escolha.version,
-    sourceKind: entrada.sourceKind,
-    sourceId: entrada.sourceId,
-    igUserId: entrada.igUserId,
-    username: entrada.username,
-    matchedKeyword: escolha.keyword,
-    ref: amb.novoRef(),
-    windowExpiresAt: entrada.windowExpiresAt,
-  });
-  if (!run) {
-    const existente = await amb.runs.porOrigem(tenantId, entrada.sourceId);
-    const retomavel = existente !== null && existente.status === "queued" && agora.getTime() - Date.parse(existente.started_at) > RETOMADA_MS;
-    if (!existente || !retomavel) return { kind: "ignored", reason: "duplicado" };
+  // Reenvio primeiro: o run da 1ª tentativa casaria a trava de 24 h e o reenvio seria descartado.
+  const existente = await amb.runs.porOrigem(tenantId, entrada.sourceId);
+  let run: RunRow | null;
+  if (existente) {
+    if (existente.status !== "queued") return { kind: "ignored", reason: "duplicado" };
+    // Na fila há pouco: a 1ª tentativa pode estar rodando. 500 faz a Zernio tentar de novo depois.
+    if (agora.getTime() - Date.parse(existente.started_at) <= RETOMADA_MS) return { kind: "retry", reason: "em andamento" };
     run = existente;
+  } else {
+    if (await amb.runs.entradaRecente(tenantId, escolha.flowId, entrada.igUserId, iso(agora.getTime() - UM_DIA_MS))) return { kind: "ignored", reason: "24h" };
+    if ((await amb.runs.iniciadosDesde(tenantId, conta.id, iso(agora.getTime() - UMA_HORA_MS))) >= TETO_POR_HORA) return { kind: "ignored", reason: "teto" };
+    run = await amb.runs.criar(tenantId, {
+      igAccountId: conta.id,
+      flowId: escolha.flowId,
+      flowVersion: escolha.version,
+      sourceKind: entrada.sourceKind,
+      sourceId: entrada.sourceId,
+      igUserId: entrada.igUserId,
+      username: entrada.username,
+      matchedKeyword: escolha.keyword,
+      ref: amb.novoRef(),
+      windowExpiresAt: entrada.windowExpiresAt,
+    });
+    // Outra requisição criou o mesmo run agora: o reenvio cai no ramo de cima.
+    if (!run) return { kind: "retry", reason: "corrida" };
   }
 
   const estado: RunState = {
