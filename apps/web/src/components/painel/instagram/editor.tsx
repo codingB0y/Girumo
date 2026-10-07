@@ -12,6 +12,7 @@ import type { FlowDef } from "@/lib/ig/flow/types";
 import { validateFlow, type Issue } from "@/lib/ig/flow/validate";
 import { guardarVisao, lerVisao, type Visao } from "@/lib/ig/visao";
 import { cn } from "@/lib/utils";
+import { Atendimentos } from "./atendimentos";
 import type { CampanhaOpcao } from "./bloco-form";
 import { ChipEstado } from "./chip-estado";
 import { Interruptor } from "./interruptor";
@@ -61,6 +62,8 @@ function canonico(v: unknown): string {
 
 const mudou = (draft: FlowDef, published: FlowDef | null) => !published || canonico(draft) !== canonico(published);
 
+const ABAS = [["roteiro", "Roteiro"], ["atendimentos", "Atendimentos"]] as const;
+
 export function EditorDoFluxo({ id }: { id: string }) {
   useFoco();
   const { instagram } = useCasca();
@@ -68,6 +71,7 @@ export function EditorDoFluxo({ id }: { id: string }) {
   const ver = useSearchParams().get("ver");
   const { flow, carga, naoAchou, salvamento, editar, renomear, publicar, mudarEstado } = useFluxo(id);
   const [visao, setVisao] = useState<Visao>("passo");
+  const [aba, setAba] = useState<(typeof ABAS)[number][0]>("roteiro");
   const campanhas = useCampanhas();
   const [issuesDoServidor, setIssuesDoServidor] = useState<Issue[] | null>(null);
   const [publicando, setPublicando] = useState(false);
@@ -232,45 +236,66 @@ export function EditorDoFluxo({ id }: { id: string }) {
       </header>
 
       <div className="flex h-11 items-center justify-between border-b border-line-200 bg-paper-0 px-4">
-        <span className="flex h-11 items-center border-b-2 border-volt-950 text-13 font-medium text-volt-950">Roteiro</span>
-        <div className="flex items-center gap-2">
-          <span className="text-12 text-slate-600">Ver como</span>
-          <div role="group" aria-label="Ver como" className="flex gap-1">
-            {VISOES.map(([v, Icone, texto]) => (
-              <button
-                key={v}
-                type="button"
-                aria-pressed={visao === v}
-                onClick={() => trocarVisao(v)}
-                className={cn(
-                  "flex h-8 items-center gap-1.5 rounded-[var(--radius-control)] border px-2.5 text-13",
-                  visao === v ? "border-slate-600 bg-hover-ficha text-volt-950" : "border-line-200 text-slate-600 hover:text-volt-950",
-                )}
-              >
-                <Icone className="h-3.5 w-3.5" aria-hidden="true" />
-                {texto}
-              </button>
-            ))}
-          </div>
+        <div role="tablist" aria-label="Abas do fluxo" className="flex h-11 items-center gap-4">
+          {ABAS.map(([chave, texto]) => (
+            <button
+              key={chave}
+              type="button"
+              role="tab"
+              aria-selected={aba === chave}
+              onClick={() => setAba(chave)}
+              className={cn("flex h-11 items-center border-b-2 text-13", aba === chave ? "border-volt-950 font-medium text-volt-950" : "border-transparent text-slate-600 hover:text-volt-950")}
+            >
+              {texto}
+            </button>
+          ))}
         </div>
+        {aba === "roteiro" && (
+          <div className="flex items-center gap-2">
+            <span className="text-12 text-slate-600">Ver como</span>
+            <div role="group" aria-label="Ver como" className="flex gap-1">
+              {VISOES.map(([v, Icone, texto]) => (
+                <button
+                  key={v}
+                  type="button"
+                  aria-pressed={visao === v}
+                  onClick={() => trocarVisao(v)}
+                  className={cn(
+                    "flex h-8 items-center gap-1.5 rounded-[var(--radius-control)] border px-2.5 text-13",
+                    visao === v ? "border-slate-600 bg-hover-ficha text-volt-950" : "border-line-200 text-slate-600 hover:text-volt-950",
+                  )}
+                >
+                  <Icone className="h-3.5 w-3.5" aria-hidden="true" />
+                  {texto}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {motivo && <p className="border-b border-line-200 bg-aviso-fundo px-4 py-2 text-13 text-volt-950">{motivo}</p>}
 
-      <div className="grid flex-1 gap-5 p-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:p-6">
-        {visao === "passo" ? (
-          <Trilha def={flow.draft} campanhas={campanhas ?? []} issues={issues} editar={editarELimpar} />
-        ) : (
-          <div className="grid content-start gap-3">
-            <Mapa def={flow.draft} />
-            <p className="text-12 text-slate-600">O mapa é só pra olhar por enquanto. Pra mudar um bloco, troque pra “Passo a passo”.</p>
-          </div>
-        )}
-        <aside className="grid gap-5 self-start">
-          <Previa def={flow.draft} handle={instagram?.account?.username ?? null} />
-          <PraPublicar issues={issues} />
-        </aside>
-      </div>
+      {aba === "roteiro" ? (
+        <div className="grid flex-1 gap-5 p-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:p-6">
+          {visao === "passo" ? (
+            <Trilha def={flow.draft} campanhas={campanhas ?? []} issues={issues} editar={editarELimpar} />
+          ) : (
+            <div className="grid content-start gap-3">
+              <Mapa def={flow.draft} />
+              <p className="text-12 text-slate-600">O mapa é só pra olhar por enquanto. Pra mudar um bloco, troque pra “Passo a passo”.</p>
+            </div>
+          )}
+          <aside className="grid gap-5 self-start">
+            <Previa def={flow.draft} handle={instagram?.account?.username ?? null} />
+            <PraPublicar issues={issues} />
+          </aside>
+        </div>
+      ) : (
+        <div className="flex-1 p-4 lg:p-6">
+          <Atendimentos id={id} />
+        </div>
+      )}
     </div>
   );
 }

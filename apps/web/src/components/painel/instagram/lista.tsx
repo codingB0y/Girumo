@@ -7,6 +7,7 @@ import { useCasca } from "@/components/painel/casca-context";
 import { useConfirmacao } from "@/components/painel/confirmacao";
 import { useToast } from "@/components/toast";
 import { RECIPES } from "@/lib/ig/flow/recipes";
+import { TETO_RUNS_POR_HORA } from "@/lib/ig/limites";
 import { buscar } from "@/lib/painel/carregar";
 import type { Carga } from "@/lib/painel/types";
 import type { FlowSummary } from "@/lib/stores/ig-flows";
@@ -78,6 +79,11 @@ export function InstagramVitrine() {
               <ContaDoInstagram />
             </Suspense>
           </div>
+          {instagram.startedLastHour >= TETO_RUNS_POR_HORA && (
+            <p role="status" className="mt-2 text-13 font-medium text-warning-700">
+              Teto de {TETO_RUNS_POR_HORA} pessoas por hora atingido. Quem comentar agora fica sem direct até a hora virar.
+            </p>
+          )}
         </div>
         <Link href="/painel/instagram/novo" className="inline-flex h-9 items-center rounded-[var(--radius-control)] bg-volt-950 px-3 text-13 font-medium text-canvas-100">
           Novo fluxo
