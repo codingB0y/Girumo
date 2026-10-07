@@ -153,6 +153,24 @@ function createStore(): WebhookStore {
       }
     },
 
+    async instagramAddonState({ tenantId, customerId }) {
+      try {
+        const { data: org, error } = await supabase.from("organizations").select("stripe_customer_id").eq("id", tenantId).maybeSingle();
+        if (error) return { live: false, customerOk: false, error: error.message };
+        if (!org || org.stripe_customer_id !== customerId) return { live: false, customerOk: false, error: null };
+        let live = false;
+        for await (const s of getStripe().subscriptions.list({ customer: customerId, status: "all", limit: 100 })) {
+          if (isInstagramAddon(s.metadata) && s.metadata.tenant_id === tenantId && (s.status === "active" || s.status === "trialing" || s.status === "past_due")) {
+            live = true;
+            break;
+          }
+        }
+        return { live, customerOk: true, error: null };
+      } catch (err) {
+        return { live: false, customerOk: false, error: err instanceof Error ? err.message : String(err) };
+      }
+    },
+
     async setInstagramEnabled({ tenantId, enabled }) {
       try {
         await setInstagramEnabled(tenantId, enabled);
@@ -170,8 +188,10 @@ function createStore(): WebhookStore {
     async cancelAddonSubscriptions(customerId) {
       try {
         const stripe = getStripe();
-        const todas = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 100 });
-        const vivas = todas.data.filter((s) => s.status === "active" || s.status === "trialing" || s.status === "past_due");
+        const vivas: Stripe.Subscription[] = [];
+        for await (const s of stripe.subscriptions.list({ customer: customerId, status: "all", limit: 100 })) {
+          if (s.status === "active" || s.status === "trialing" || s.status === "past_due") vivas.push(s);
+        }
         // Ainda há plano vivo (ex.: reentrega do cancelamento de uma assinatura antiga): o add-on fica.
         if (vivas.some((s) => !isInstagramAddon(s.metadata))) return { error: null };
         for (const s of vivas) {

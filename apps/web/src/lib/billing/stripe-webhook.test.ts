@@ -63,6 +63,9 @@ type FakeOptions = {
   cancelError?: string | null;
   /** Falha ao ligar/desligar o Instagram da loja. */
   instagramError?: string | null;
+  /** Estado atual do add-on no Stripe (padrão: vivo e customer da loja). */
+  addonLive?: boolean;
+  addonCustomerOk?: boolean;
 };
 
 /**
@@ -132,6 +135,9 @@ function makeStore(options: FakeOptions = {}) {
     async sendTrialEndingEmail(subscription) {
       emails.push(subscription.id);
       return { error: options.emailError ?? null };
+    },
+    async instagramAddonState() {
+      return { live: options.addonLive ?? true, customerOk: options.addonCustomerOk ?? true, error: null };
     },
     async setInstagramEnabled(input) {
       if (options.instagramError) return { error: options.instagramError };
@@ -835,17 +841,30 @@ test("add-on ativo liga o Instagram e NAO toca a linha do plano", async () => {
   assert.equal(f.upserts.length, 0);
 });
 
-test("add-on cancelado, sem pagamento ou expirado desliga; past_due e incomplete nao mexem", async () => {
-  for (const status of ["canceled", "unpaid", "incomplete_expired"] as const) {
-    const f = makeStore();
-    await handleStripeEvent(makeEvent({ type: "customer.subscription.updated", data: { object: addon({ status }) } } as Partial<Stripe.Event>), f.store);
-    assert.deepEqual(f.instagram, [{ tenantId: TENANT, enabled: false }], status);
-  }
-  for (const status of ["past_due", "incomplete"] as const) {
-    const f = makeStore();
-    await handleStripeEvent(makeEvent({ type: "customer.subscription.updated", data: { object: addon({ status }) } } as Partial<Stripe.Event>), f.store);
-    assert.deepEqual(f.instagram, [], status);
-  }
+test("decide pelo estado atual no Stripe, nao pelo status do evento: active atrasado depois do fim desliga", async () => {
+  // Evento antigo com `active` chegando depois do cancelamento: o Stripe diz que nao ha add-on vivo.
+  const atrasado = makeStore({ addonLive: false });
+  await handleStripeEvent(makeEvent({ type: "customer.subscription.updated", data: { object: addon({ status: "active" }) } } as Partial<Stripe.Event>), atrasado.store);
+  assert.deepEqual(atrasado.instagram, [{ tenantId: TENANT, enabled: false }]);
+  // `deleted` de uma assinatura duplicada velha, com outra ainda viva: continua ligado.
+  const duplicada = makeStore({ addonLive: true });
+  await handleStripeEvent(makeEvent({ type: "customer.subscription.deleted", data: { object: addon({ status: "canceled" }) } } as Partial<Stripe.Event>), duplicada.store);
+  assert.deepEqual(duplicada.instagram, [{ tenantId: TENANT, enabled: true }]);
+});
+
+test("customer do evento diferente do da loja nao liga nada", async () => {
+  const f = makeStore({ addonCustomerOk: false });
+  await handleStripeEvent(makeEvent({ data: { object: addon() } } as Partial<Stripe.Event>), f.store);
+  assert.deepEqual(f.instagram, []);
+  assert.ok(f.logs.some((l) => l.event === "stripe.addon.customer_mismatch"));
+});
+
+test("aviso de fim de teste de um add-on nao passa pelas travas nem manda e-mail do plano", async () => {
+  const f = makeStore({ subscription: addon({ status: "trialing" }) });
+  const ev = { id: "evt_tw_ig", type: "customer.subscription.trial_will_end", created: 1_700_000_000, data: { object: addon({ status: "trialing" }) } } as unknown as Stripe.Event;
+  const res = await handleStripeEvent(ev, f.store);
+  assert.equal(res.status, 200);
+  assert.deepEqual([f.cancels.length, f.emails.length, f.upserts.length], [0, 0, 0]);
 });
 
 test("falha ao ligar o Instagram devolve 5xx para o Stripe reenviar", async () => {

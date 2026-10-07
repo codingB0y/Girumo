@@ -80,6 +80,12 @@ export interface WebhookStore {
   }): Promise<StoreResult>;
   /** E-mail "seu teste grátis termina em 3 dias". */
   sendTrialEndingEmail(subscription: Stripe.Subscription): Promise<StoreResult>;
+  /**
+   * Estado ATUAL do add-on, lido no Stripe (não do evento, que pode chegar fora de
+   * ordem ou reenviado). `live` = alguma assinatura do add-on desta loja ativa;
+   * `customerOk` = o customer do evento é o da loja (`organizations.stripe_customer_id`).
+   */
+  instagramAddonState(input: { tenantId: string; customerId: string }): Promise<{ live: boolean; customerOk: boolean } & StoreResult>;
   /** Liga/desliga `tenant_settings.instagram_enabled`. Desligar também pausa os fluxos e para os atendimentos. */
   setInstagramEnabled(input: { tenantId: string; enabled: boolean }): Promise<StoreResult>;
   /** Cancela as assinaturas do add-on Instagram do customer, se ele não tiver outro plano vivo. */
@@ -139,12 +145,13 @@ export function mapStripeStatus(status: Stripe.Subscription.Status): string {
 /** Assinatura do add-on Instagram: separada da do plano, nunca vai para `subscriptions`. */
 export const isInstagramAddon = (metadata: Stripe.Metadata | null | undefined): boolean => metadata?.addon === "instagram";
 
-const ADDON_LIGA: ReadonlySet<Stripe.Subscription.Status> = new Set(["active", "trialing"]);
-const ADDON_DESLIGA: ReadonlySet<Stripe.Subscription.Status> = new Set(["canceled", "unpaid", "incomplete_expired"]);
-
 /**
- * O add-on Instagram liga e desliga a loja pela assinatura dele. `past_due` e
- * `incomplete` não mudam nada: o Stripe ainda está tentando cobrar.
+ * O add-on Instagram liga e desliga a loja. A decisão NÃO usa o status do evento:
+ * o Stripe não garante ordem, e um `updated` antigo com `active` chegando depois
+ * do `deleted` religaria de graça. Lê o estado atual (qualquer add-on da loja
+ * ativo ou em teste = ligado; `past_due` conta como desligado só quando não há
+ * outro vivo, e quem decide é o store). Reenvio e assinatura duplicada caem no
+ * mesmo resultado.
  */
 async function handleInstagramAddon(subscription: Stripe.Subscription, store: WebhookStore): Promise<StoreResult> {
   const tenantId = subscription.metadata.tenant_id;
@@ -158,8 +165,20 @@ async function handleInstagramAddon(subscription: Stripe.Subscription, store: We
     });
     return { error: null };
   }
-  const enabled = ADDON_LIGA.has(subscription.status) ? true : ADDON_DESLIGA.has(subscription.status) ? false : null;
-  if (enabled === null) return { error: null };
+  const estado = await store.instagramAddonState({ tenantId, customerId: String(subscription.customer) });
+  if (estado.error) return { error: estado.error };
+  if (!estado.customerOk) {
+    // tenant_id do metadata não bate com o customer da loja: não liga nada em loja alheia.
+    await store.insertLog({
+      tenant_id: tenantId,
+      level: "warn",
+      event: "stripe.addon.customer_mismatch",
+      message: "Assinatura do add-on Instagram com customer diferente do da loja; ignorada.",
+      metadata: { stripe_subscription_id: subscription.id, customer: String(subscription.customer) },
+    });
+    return { error: null };
+  }
+  const enabled = estado.live;
 
   const r = await store.setInstagramEnabled({ tenantId, enabled });
   if (r.error) return r;
@@ -167,7 +186,7 @@ async function handleInstagramAddon(subscription: Stripe.Subscription, store: We
     tenant_id: tenantId,
     level: "info",
     event: "stripe.addon.instagram",
-    message: enabled ? "Add-on Instagram ativo: Instagram liberado." : "Add-on Instagram encerrado: Instagram desligado.",
+    message: enabled ? "Add-on Instagram ativo: Instagram liberado." : "Sem add-on Instagram ativo: Instagram desligado.",
     metadata: { stripe_subscription_id: subscription.id, status: subscription.status },
   });
   return { error: null };
@@ -544,6 +563,8 @@ async function handleTrialWillEnd(
   snapshot: Stripe.Subscription,
   store: WebhookStore,
 ): Promise<StoreResult> {
+  // O add-on não tem teste nem as travas do teste do plano.
+  if (isInstagramAddon(snapshot.metadata)) return { error: null };
   const subscription = await store.retrieveSubscription(snapshot.id);
   const tenantId = subscription.metadata.tenant_id;
   if (!tenantId || subscription.status !== "trialing") return { error: null };
