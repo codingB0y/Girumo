@@ -7,6 +7,8 @@ import {
   fraseDosGrupos,
   motivoDoBotao,
   fraseNoAr,
+  janelaDaFila,
+  linhaDaFila,
   noArHa,
   ordinal,
   pecasRestantes,
@@ -153,6 +155,32 @@ test("próxima da fila é a primeira, na ordem, sem reserva e sem desfecho", () 
 test("sem ninguém esperando, não há próxima", () => {
   assert.equal(proximaDaFila(fila.slice(0, 4)), null);
   assert.equal(proximaDaFila([]), null);
+});
+
+test("janela da fila: começa uma linha antes da primeira em aberto e segue por N; o resto vira resumo", () => {
+  // fila: e1 vendida, e2 desistiu, e3 em conversa, e4 reservada, e5 e e6 esperando.
+  const cinco = janelaDaFila(fila, 5);
+  assert.deepEqual(cinco.linhas.map((l) => [l.entrada.id, l.posicao]), [["e2", 1], ["e3", 2], ["e4", 3], ["e5", 4], ["e6", 5]]);
+  assert.equal(cinco.vendidasAntes, 1);
+  assert.equal(cinco.maisEsperando, 0);
+
+  const tres = janelaDaFila(fila, 3);
+  assert.deepEqual(tres.linhas.map((l) => l.entrada.id), ["e2", "e3", "e4"]);
+  assert.equal(tres.maisEsperando, 2);
+});
+
+test("janela da fila: tudo resolvido mostra a última linha; fila vazia não mostra nada", () => {
+  const prontas = janelaDaFila([{ id: "a", ...vendida }, { id: "b", ...vendida }], 5);
+  assert.deepEqual(prontas.linhas.map((l) => l.entrada.id), ["b"]);
+  assert.equal(prontas.vendidasAntes, 1);
+  assert.deepEqual(janelaDaFila([], 5), { linhas: [], vendidasAntes: 0, maisEsperando: 0 });
+});
+
+test("linha da fila: só as partes que existem; nada quando a janela mostra tudo", () => {
+  assert.equal(linhaDaFila({ vendidasAntes: 4, maisEsperando: 5 }), "4 vendidas antes · mais 5 esperando");
+  assert.equal(linhaDaFila({ vendidasAntes: 1, maisEsperando: 0 }), "1 vendida antes");
+  assert.equal(linhaDaFila({ vendidasAntes: 0, maisEsperando: 1 }), "mais 1 esperando");
+  assert.equal(linhaDaFila({ vendidasAntes: 0, maisEsperando: 0 }), null);
 });
 
 test("peças restantes é slots menos vendidas; reserva ainda não tirou a peça", () => {

@@ -117,6 +117,39 @@ export function proximaDaFila<T extends EntradaLike>(fila: readonly T[]): T | nu
   return fila.find(estaEsperando) ?? null;
 }
 
+export type JanelaDaFila<T> = {
+  linhas: { entrada: T; posicao: number }[];
+  /** Vendidas que ficaram antes da janela. */
+  vendidasAntes: number;
+  /** Esperando (sem reserva e sem desfecho) que ficaram depois da janela. */
+  maisEsperando: number;
+};
+
+/**
+ * As linhas da fila em volta da posição atual (spec G2, decisão 9): uma linha já resolvida para dar
+ * contexto e, da primeira ainda em aberto em diante, as próximas. `posicao` é o índice na fila inteira
+ * (o ordinal que a tela mostra). O que ficou fora vai para `linhaDaFila`.
+ */
+export function janelaDaFila<T extends EntradaLike>(fila: readonly T[], linhas: number): JanelaDaFila<T> {
+  const primeiraAberta = fila.findIndex((e) => !e.outcome);
+  const inicio = Math.max(0, (primeiraAberta === -1 ? fila.length : primeiraAberta) - 1);
+  const dentro = fila.slice(inicio, inicio + linhas).map((entrada, i) => ({ entrada, posicao: inicio + i }));
+  return {
+    linhas: dentro,
+    vendidasAntes: fila.slice(0, inicio).filter((e) => e.outcome === "sold").length,
+    maisEsperando: fila.slice(inicio + dentro.length).filter(estaEsperando).length,
+  };
+}
+
+/** "4 vendidas antes · mais 5 esperando"; null quando a janela mostra a fila inteira. */
+export function linhaDaFila(j: { vendidasAntes: number; maisEsperando: number }): string | null {
+  const partes = [
+    j.vendidasAntes > 0 ? `${j.vendidasAntes} ${j.vendidasAntes === 1 ? "vendida" : "vendidas"} antes` : null,
+    j.maisEsperando > 0 ? `mais ${j.maisEsperando} esperando` : null,
+  ].filter((p): p is string => p !== null);
+  return partes.length > 0 ? partes.join(" · ") : null;
+}
+
 /** Peças que ainda não foram vendidas; reserva em andamento ainda não tirou a peça. */
 export function pecasRestantes(
   oferta: OfertaLike,
