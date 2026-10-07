@@ -5,7 +5,6 @@ import {
   EvolutionError,
   FETCH_GROUPS_TIMEOUT_MS,
   fetchAllGroups,
-  fetchAllGroupsLight,
   isEvolutionTimeout,
   providerInstanceId,
   type EvolutionGroup,
@@ -13,6 +12,7 @@ import {
 import { tallyAdmins } from "@/lib/groups/admin-protection";
 import { selecionarGruposSemConvite } from "@/lib/groups/invite-enqueue";
 import { escolherContagem } from "@/lib/groups/member-count";
+import { liberarSync, travarSync } from "@/lib/groups/sync-lock";
 import { partitionByAdmin } from "@/lib/groups/sync-partition";
 import {
   enqueueBulkJobs,
@@ -22,7 +22,6 @@ import { upsertParticipantesDoGrupo } from "@/lib/stores/group-participants";
 import {
   listGroups,
   listMemberCounts,
-  refreshMembersForKnownGroups,
   removeGroupsByWhatsappIds,
   syncGroupsFromProvider,
 } from "@/lib/stores/groups";
@@ -60,6 +59,9 @@ export async function POST(req: Request) {
     return Response.json({ error: "Erro ao sincronizar grupos." }, { status: 502 });
   }
 
+  // Id da instância cuja trava ESTE pedido segura — só ele pode liberá-la.
+  let travada: string | null = null;
+  let fetchMs: number | undefined;
   try {
     const body = (await req.json().catch(() => ({}))) as { instance_id?: string };
 
@@ -77,25 +79,34 @@ export async function POST(req: Request) {
       );
     }
 
+    // Um sync por número de cada vez (ver sync-lock.ts). O caso comum é o
+    // auto-sync de /painel/conectar ainda rodando quando o lojista clica.
+    if (!(await travarSync(instance.id))) {
+      return Response.json(
+        {
+          error:
+            "Os grupos deste numero ja estao sendo sincronizados. Aguarde um minuto e atualize a pagina.",
+        },
+        { status: 409 },
+      );
+    }
+    travada = instance.id;
+
     const remoteName = instance.provider_instance_id || providerInstanceId(instance.id);
 
-    // Mede o fetch para a próxima decisão sobre o teto não ser chute: o log de
-    // sucesso passa a carregar quanto a Evolution demorou. Foi a informação que
-    // faltou para escolher o timeout com fundamento em 31/08.
+    // Mede o fetch para a próxima decisão sobre o teto não ser chute: o log
+    // carrega quanto a Evolution demorou, no sucesso e no timeout.
+    //
+    // Não há plano B depois de um timeout. Existiu (lista sem participantes,
+    // 15s) e falhou 5 de 5 vezes entre 05 e 06/10: abortar o fetch daqui não
+    // para a Evolution, e a segunda chamada entrava na fila atrás da primeira.
     const iniciouFetch = Date.now();
     let remoteGroups: EvolutionGroup[];
     try {
       remoteGroups = await fetchAllGroups(remoteName);
-    } catch (error) {
-      // Estourar o tempo com a lista completa não pode ser o fim da linha: era
-      // aqui que o sync morria seis vezes seguidas em 01/09 sem entregar nada.
-      // A lista sem participantes custa muito menos e ainda atualiza a
-      // contagem — só não pode criar nem remover grupo, porque sem
-      // `participants` não há como saber quem administra o quê.
-      if (!isEvolutionTimeout(error)) throw error;
-      return await syncLeve(ctx, instance.id, remoteName, Date.now() - iniciouFetch);
+    } finally {
+      fetchMs = Date.now() - iniciouFetch;
     }
-    const fetchMs = Date.now() - iniciouFetch;
 
     // Proteção do ativo (R1): "nosso" é qualquer número do tenant, não só o que
     // está sincronizando. Quando houver uma segunda instância, é ela que faz o
@@ -261,7 +272,7 @@ export async function POST(req: Request) {
         // Quantos grupos ficariam órfãos se este número caísse.
         sem_backup: semBackup,
         // Quanto a Evolution levou. Cresce com o número de grupos; é o que
-        // decide se o teto de 50s ainda cabe.
+        // decide se o teto (FETCH_GROUPS_TIMEOUT_MS) ainda cabe.
         fetch_ms: fetchMs,
         // Backfill de convite pela fila do lote, disparado neste mesmo sync.
         convites_enfileirados: convitesEnfileirados,
@@ -277,77 +288,10 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     if (error instanceof Response) return error;
-    return await falhaDoSync(error, ctx);
+    return await falhaDoSync(error, ctx, fetchMs);
+  } finally {
+    if (travada) await liberarSync(travada);
   }
-}
-
-/**
- * Plano B: atualiza só a contagem de membros, sem participantes.
- *
- * Vale porque o caminho completo já falhou — o lojista estava com dado
- * congelado e nenhuma alternativa. O que ele NÃO faz é tão importante quanto o
- * que faz: não cria grupo (não sabe se é admin) e não remove nenhum (a
- * ausência aqui não prova nada). O filtro de admin continua sendo do sync
- * completo.
- *
- * O log carrega os dois tempos. É a medição que faltava para decidir se o
- * problema é volume de dados ou a Evolution inteira estar lenta — e ela sai de
- * graça, da própria tentativa de recuperação.
- */
-async function syncLeve(
-  ctx: Awaited<ReturnType<typeof getTenantContext>>,
-  instanceId: string,
-  remoteName: string,
-  fetchPesadoMs: number,
-): Promise<Response> {
-  const iniciou = Date.now();
-  let leves: EvolutionGroup[];
-  try {
-    leves = await fetchAllGroupsLight(remoteName);
-  } catch (error) {
-    // Os dois caminhos falharam: aí sim é a Evolution, não o tamanho da
-    // resposta. `falhaDoSync` registra e traduz.
-    return await falhaDoSync(error, ctx, { fetchPesadoMs, fetchLeveMs: Date.now() - iniciou });
-  }
-  const fetchLeveMs = Date.now() - iniciou;
-
-  // Mesma proteção do caminho completo: a lista leve também vem truncada para
-  // parte dos grupos, e aqui não há nem `participants` para contrastar.
-  const anterior = await listMemberCounts(ctx.tenantId);
-  let protegidos = 0;
-  const counts = leves
-    .filter((g) => typeof g.id === "string" && g.id.length > 0)
-    .map((g) => {
-      const contagem = escolherContagem(
-        typeof g.size === "number" && g.size >= 0 ? g.size : 0,
-        anterior.get(String(g.id)),
-      );
-      if (contagem.protegido) protegidos += 1;
-      return { whatsapp_group_id: String(g.id), members: contagem.members };
-    });
-  const atualizados = await refreshMembersForKnownGroups(ctx.tenantId, counts);
-
-  await getSupabaseAdmin().from("logs").insert({
-    tenant_id: ctx.tenantId,
-    actor_user_id: ctx.authUserId,
-    level: "warn",
-    event: "groups.synced_partial",
-    message: `A lista completa expirou em ${Math.round(fetchPesadoMs / 1000)}s; atualizei so a contagem de ${atualizados} grupo(s) em ${Math.round(fetchLeveMs / 1000)}s. Grupo novo nao entra por este caminho.`,
-    metadata: {
-      instance_id: instanceId,
-      atualizados,
-      protegidos,
-      grupos_no_provedor: leves.length,
-      fetch_pesado_ms: fetchPesadoMs,
-      fetch_leve_ms: fetchLeveMs,
-    },
-  });
-
-  return Response.json({
-    synced: atualizados,
-    parcial: true,
-    motivo: "A lista completa demorou demais. Atualizei o numero de membros dos grupos que ja estavam aqui; grupo novo entra na proxima sincronizacao que completar.",
-  });
 }
 
 /**
@@ -361,15 +305,13 @@ async function syncLeve(
 async function falhaDoSync(
   error: unknown,
   ctx: Awaited<ReturnType<typeof getTenantContext>>,
-  tempos?: { fetchPesadoMs: number; fetchLeveMs: number },
+  fetchMs: number | undefined,
 ): Promise<Response> {
   const evo = error instanceof EvolutionError ? error : null;
   const expirou = isEvolutionTimeout(error);
 
   const mensagem = expirou
-    ? tempos
-      ? "O WhatsApp não respondeu nem a lista completa nem a reduzida. Isso costuma ser instabilidade da conexão, não o tamanho da sua conta — tente de novo em alguns minutos."
-      : "O WhatsApp demorou demais para responder a lista de grupos. Isso costuma acontecer quando você tem muitos grupos. Tente de novo em alguns minutos."
+    ? "O WhatsApp demorou demais para responder a lista de grupos. Isso costuma acontecer logo depois de conectar ou com muitos grupos. Tente de novo em alguns minutos."
     : "Erro ao sincronizar grupos.";
 
   try {
@@ -385,11 +327,8 @@ async function falhaDoSync(
         timeout: expirou,
         status: evo?.status ?? null,
         detail: evo?.detail ?? null,
-        // Presentes quando o plano B também falhou: os dois tempos separam
-        // "resposta grande demais" de "Evolution fora do ar".
-        ...(tempos
-          ? { fetch_pesado_ms: tempos.fetchPesadoMs, fetch_leve_ms: tempos.fetchLeveMs }
-          : {}),
+        // Ausente quando a falha veio antes do fetch.
+        fetch_ms: fetchMs ?? null,
       },
     });
   } catch (logError) {
