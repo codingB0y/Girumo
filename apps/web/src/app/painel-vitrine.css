@@ -125,6 +125,22 @@
   border-radius: 9999px;
   background: var(--color-paper-0);
 }
+/* Oferta no ar com a fila lida: quantas pessoas esperam (decisão 4). Paper sobre Volt, 16,9:1; 12 px é a
+   exceção do contador (decisão 3). */
+.pn-barra__contador {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--color-paper-0);
+  color: #071923;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
 .pn-barra__direita {
   display: flex;
   align-items: center;

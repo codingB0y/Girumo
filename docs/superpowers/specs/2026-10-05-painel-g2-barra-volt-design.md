@@ -38,9 +38,8 @@ raio 12 com sombra suave; um acento só. O que não copiar: texto de 12 px em ta
    Campanhas · Disparos · Relâmpago · Grupos · Contatos · Mais ▾**, e à direita o estado do número
    ("Conectado"/"Desconectado", link para `/painel/conectar`), o sino, **Postar** e o avatar com as iniciais
    da loja (link para Configurações). Relâmpago carrega um contador com o número de pessoas esperando
-   quando há oferta no ar — entra no PR 5 junto com o placar, que é de onde o número vem; até lá o item
-   leva um ponto branco quando há oferta no ar (branco, não Acid: decisão 11). O item ativo tem a
-   tinta clara e um traço de 2 px embaixo.
+   quando há oferta no ar (a barra lê a fila da oferta aberta; sem a fila, um ponto branco — branco, não
+   Acid: decisão 11). O item ativo tem a tinta clara e um traço de 2 px embaixo.
    - **Mais ▾** abre um painel ancorado ao botão (não um modal) com todos os módulos por verbo (Vender,
      Lotar, Loja) e o estado de cada um, o mesmo conteúdo da folha "Mais" do celular, mais o romaneio do
      plano no rodapé ("GROWTH · renova 04/10"). Esc, clique fora e seleção fecham.
