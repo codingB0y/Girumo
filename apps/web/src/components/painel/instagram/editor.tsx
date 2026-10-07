@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronLeft, List, Workflow } from "lucide-react";
 import { useCasca, useFoco } from "@/components/painel/casca-context";
 import { useToast } from "@/components/toast";
+import { foraDaFase } from "@/lib/ig/flow/fase";
 import { textoDoSalvamento } from "@/lib/ig/flow/salvamento";
 import type { FlowDef } from "@/lib/ig/flow/types";
 import { validateFlow, type Issue } from "@/lib/ig/flow/validate";
@@ -13,6 +14,7 @@ import { guardarVisao, lerVisao, type Visao } from "@/lib/ig/visao";
 import { cn } from "@/lib/utils";
 import type { CampanhaOpcao } from "./bloco-form";
 import { ChipEstado } from "./chip-estado";
+import { Interruptor } from "./interruptor";
 import { Mapa } from "./mapa";
 import { PraPublicar } from "./pra-publicar";
 import { Previa } from "./previa";
@@ -64,7 +66,7 @@ export function EditorDoFluxo({ id }: { id: string }) {
   const { instagram } = useCasca();
   const toast = useToast();
   const ver = useSearchParams().get("ver");
-  const { flow, carga, naoAchou, salvamento, editar, renomear, publicar } = useFluxo(id);
+  const { flow, carga, naoAchou, salvamento, editar, renomear, publicar, mudarEstado } = useFluxo(id);
   const [visao, setVisao] = useState<Visao>("passo");
   const campanhas = useCampanhas();
   const [issuesDoServidor, setIssuesDoServidor] = useState<Issue[] | null>(null);
@@ -83,11 +85,14 @@ export function EditorDoFluxo({ id }: { id: string }) {
   const issuesDoCliente = useMemo(
     () =>
       flow
-        ? validateFlow(flow.draft, {
-            campaignSlugs: campanhas ? campanhas.map((c) => c.slug) : null,
-            accountConnected: instagram ? instagram.account?.status === "active" : null,
-            keywordsInUse: [],
-          })
+        ? [
+            ...validateFlow(flow.draft, {
+              campaignSlugs: campanhas ? campanhas.map((c) => c.slug) : null,
+              accountConnected: instagram ? instagram.account?.status === "active" : null,
+              keywordsInUse: [],
+            }),
+            ...foraDaFase(flow.draft),
+          ]
         : [],
     [flow, campanhas, instagram],
   );
@@ -193,6 +198,19 @@ export function EditorDoFluxo({ id }: { id: string }) {
           className="order-last h-9 min-w-0 basis-full bg-transparent text-15 font-semibold text-volt-950 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500 sm:order-none sm:basis-0 sm:flex-1"
         />
         <span className="ml-auto sm:ml-0"><ChipEstado status={flow.status} /></span>
+        {flow.published && (
+          <Interruptor
+            ligado={flow.status === "live"}
+            rotulo="No ar"
+            desabilitado={publicando}
+            aoMudar={(ligado) => {
+              void mudarEstado(ligado ? "live" : "paused").then((erro) => {
+                if (erro) toast(erro, "error");
+                else toast(ligado ? "Fluxo no ar." : "Fluxo pausado.", "success");
+              });
+            }}
+          />
+        )}
         {/* Falha de salvamento aparece em qualquer tela; "Salvo"/"Salvando…" só de sm pra cima. */}
         <span
           role="status"

@@ -6,6 +6,7 @@ import { createZernioTransport } from "@/lib/ig/transport/zernio";
 import { assertPermission } from "@/lib/permissions";
 import { getAccount, setAccountStatus } from "@/lib/stores/ig-accounts";
 import { pauseLiveFlows } from "@/lib/stores/ig-flows";
+import { stopActiveRuns } from "@/lib/stores/ig-runs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +22,7 @@ export async function DELETE(req: Request) {
     if (conta.provider_account_id) await createZernioTransport({ apiKey: zernioApiKey() }).deleteAccount(conta.provider_account_id);
     await setAccountStatus(ctx.tenantId, "disconnected", null);
     await pauseLiveFlows(ctx.tenantId);
+    await stopActiveRuns(ctx.tenantId);
     return new Response(null, { status: 204 });
   } catch (e) {
     if (e instanceof Response) return e;

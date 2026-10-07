@@ -79,14 +79,28 @@ export async function deleteFlow(tenantId: string, id: string): Promise<boolean>
  * publicando, só uma ganha); edição de rascunho não sobe a versão, então reescrever
  * `draft` aqui apagaria um autosave que chegou no meio.
  */
-export async function publishFlow(tenantId: string, id: string, def: FlowDef, fromVersion: number): Promise<FlowRow | null> {
+export async function publishFlow(tenantId: string, id: string, def: FlowDef, fromVersion: number, igAccountId: string): Promise<FlowRow | null> {
   const agora = new Date().toISOString();
   const { data, error } = await getSupabaseAdmin()
     .from("ig_flows")
-    .update({ published: def, status: "live", version: fromVersion + 1, published_at: agora, updated_at: agora })
+    .update({ published: def, status: "live", version: fromVersion + 1, published_at: agora, updated_at: agora, ig_account_id: igAccountId })
     .eq("tenant_id", tenantId)
     .eq("id", id)
     .eq("version", fromVersion)
+    .select(COLS)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data as unknown as FlowRow | null) ?? null;
+}
+
+/** O interruptor "No ar". `null` = fluxo inexistente ou nunca publicado. */
+export async function setFlowStatus(tenantId: string, id: string, status: "live" | "paused"): Promise<FlowRow | null> {
+  const { data, error } = await getSupabaseAdmin()
+    .from("ig_flows")
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq("tenant_id", tenantId)
+    .eq("id", id)
+    .not("published", "is", null)
     .select(COLS)
     .maybeSingle();
   if (error) throw new Error(error.message);
