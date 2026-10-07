@@ -3,7 +3,7 @@ import { matchKeyword } from "@/lib/ig/match-keyword";
 
 export type FluxoNoAr = { id: string; version: number; published: FlowDef | null };
 export type Origem = { kind: "comment"; postId: string; text: string } | { kind: "dm"; text: string } | { kind: "story"; text: string };
-export type Escolha = { flowId: string; version: number; def: FlowDef; trigger: TriggerNode; keyword: string | null };
+export type Escolha = { flowId: string; version: number; def: FlowDef; trigger: TriggerNode; keyword: string };
 
 function gatilhoDe(def: FlowDef): TriggerNode | null {
   const n = def.nodes.find((x) => x.type === "trigger");
@@ -12,8 +12,8 @@ function gatilhoDe(def: FlowDef): TriggerNode | null {
 
 /**
  * Post específico ganha de "qualquer post"; depois a palavra mais longa;
- * empate fica com o primeiro da lista. Comentário e direct exigem a palavra;
- * resposta a story dispara sem ela (gatilho com `storyReplies`).
+ * empate fica com o primeiro da lista. Comentário, direct e resposta a story
+ * (gatilho com `storyReplies`) exigem a palavra (spec §4.1, decisão de 06/10).
  */
 export function escolherFluxo(fluxos: readonly FluxoNoAr[], origem: Origem): Escolha | null {
   let melhor: { escolha: Escolha; especifico: boolean } | null = null;
@@ -29,13 +29,13 @@ export function escolherFluxo(fluxos: readonly FluxoNoAr[], origem: Origem): Esc
       if (origem.kind === "story" && !t.storyReplies) continue;
     }
     const keyword = matchKeyword(origem.text, t.keywords);
-    if (!keyword && origem.kind !== "story") continue;
+    if (!keyword) continue;
     const especifico = origem.kind === "comment" && t.postId !== null;
     const candidato = { escolha: { flowId: f.id, version: f.version, def: f.published, trigger: t, keyword }, especifico };
     const ganha =
       !melhor ||
       (candidato.especifico && !melhor.especifico) ||
-      (candidato.especifico === melhor.especifico && (keyword?.length ?? 0) > (melhor.escolha.keyword?.length ?? 0));
+      (candidato.especifico === melhor.especifico && keyword.length > melhor.escolha.keyword.length);
     if (ganha) melhor = candidato;
   }
   return melhor?.escolha ?? null;

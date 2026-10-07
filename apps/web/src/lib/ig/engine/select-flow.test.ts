@@ -27,13 +27,11 @@ test("direct só casa gatilho de direct; comentário só gatilho de comentário"
   assert.equal(escolherFluxo([deComentario], { kind: "dm", text: "quero" }), null);
 });
 
-test("story só com storyReplies; dispara sem palavra, e a palavra conta quando casa", () => {
+test("story só com storyReplies e só com a palavra", () => {
   const semStory = fluxo("s0", { on: "dm", storyReplies: false });
   const comStory = fluxo("s1", { on: "dm", storyReplies: true, keywords: ["quero"] });
-  assert.equal(escolherFluxo([semStory], { kind: "story", text: "lindo" }), null);
-  const semPalavra = escolherFluxo([comStory], { kind: "story", text: "lindo" });
-  assert.equal(semPalavra?.flowId, "s1");
-  assert.equal(semPalavra?.keyword, null);
+  assert.equal(escolherFluxo([semStory], { kind: "story", text: "quero" }), null);
+  assert.equal(escolherFluxo([comStory], { kind: "story", text: "lindo" }), null);
   assert.equal(escolherFluxo([comStory], { kind: "story", text: "quero" })?.keyword, "quero");
 });
 
