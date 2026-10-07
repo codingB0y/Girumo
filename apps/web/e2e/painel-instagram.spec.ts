@@ -48,4 +48,13 @@ test.describe("Fluxos do Instagram", () => {
       if (id) await page.request.delete(`/api/ig/flows/${id}`);
     }
   });
+
+  test("a lista mostra o estado da conta e o botão de conectar ou desconectar", async ({ page }) => {
+    const status = await page.request.get("/api/ig/status");
+    const liberado = status.ok() && ((await status.json()) as { enabled?: boolean }).enabled === true;
+    test.skip(!liberado, "A loja de QA nao tem instagram_enabled; libere em tenant_settings para rodar.");
+    await page.goto("/painel/instagram", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("button", { name: /^(Conectar Instagram|Desconectar)$/ })).toBeVisible();
+    await semErroDeRuntime(page);
+  });
 });

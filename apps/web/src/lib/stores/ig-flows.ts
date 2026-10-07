@@ -99,3 +99,9 @@ export async function listLiveFlows(tenantId: string): Promise<Pick<FlowRow, "id
   if (error) throw new Error(error.message);
   return (data ?? []) as unknown as Pick<FlowRow, "id" | "published">[];
 }
+
+/** Ao desconectar a conta: nada fica no ar sem conta. */
+export async function pauseLiveFlows(tenantId: string): Promise<void> {
+  const { error } = await getSupabaseAdmin().from("ig_flows").update({ status: "paused", updated_at: new Date().toISOString() }).eq("tenant_id", tenantId).eq("status", "live");
+  if (error) throw new Error(error.message);
+}
