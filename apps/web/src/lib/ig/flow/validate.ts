@@ -32,7 +32,8 @@ export type IssueCode =
   | "segundo_direct_sem_resposta"
   | "condicao_cedo"
   | "ciclo_sem_condicao"
-  | "sem_conta";
+  | "sem_conta"
+  | "fase_seguinte";
 
 export type Issue = { code: IssueCode; nodeId: string | null; text: string };
 
@@ -211,7 +212,7 @@ const GRUPOS: { chave: GrupoChave; rotulo: string; codes: IssueCode[] }[] = [
   { chave: "palavras", rotulo: "Palavras que disparam", codes: ["sem_gatilho", "gatilhos_demais", "sem_palavra", "palavra_repetida", "palavra_em_uso"] },
   { chave: "textos", rotulo: "Texto de cada direct", codes: ["texto_vazio", "texto_longo", "botao_vazio"] },
   { chave: "campanha", rotulo: "Campanha do convite", codes: ["sem_convite", "sem_campanha", "campanha_inexistente"] },
-  { chave: "regras", rotulo: "Regras do Instagram", codes: ["botao_no_primeiro_direct", "segundo_direct_sem_resposta", "condicao_cedo", "espera_longa"] },
+  { chave: "regras", rotulo: "Regras do Instagram", codes: ["botao_no_primeiro_direct", "segundo_direct_sem_resposta", "condicao_cedo", "espera_longa", "fase_seguinte"] },
   { chave: "ligacoes", rotulo: "Blocos ligados", codes: ["bloco_solto", "ciclo_sem_condicao", "aresta_invalida", "id_duplicado"] },
   { chave: "conta", rotulo: "Conta do Instagram conectada", codes: ["sem_conta"] },
 ];
