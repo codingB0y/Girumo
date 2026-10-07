@@ -66,6 +66,10 @@ type FakeOptions = {
   /** Estado atual do add-on no Stripe (padrão: vivo e customer da loja). */
   addonLive?: boolean;
   addonCustomerOk?: boolean;
+  /** `subscriptions.metadata` já gravado para o tenant (ex.: `manual_grant` do admin). */
+  currentMetadata?: unknown;
+  /** Falha do banco ao ler o metadata atual. */
+  metadataError?: string | null;
 };
 
 /**
@@ -91,6 +95,10 @@ function makeStore(options: FakeOptions = {}) {
     async markEventProcessed({ stripeEventId }) {
       processedEvents.add(stripeEventId);
       return { error: null };
+    },
+    async subscriptionMetadata() {
+      if (options.metadataError) return { metadata: null, error: options.metadataError };
+      return { metadata: options.currentMetadata ?? null, error: null };
     },
     async upsertSubscription(row): Promise<StoreResult> {
       if (upsertError) return { error: upsertError };
@@ -292,6 +300,37 @@ test("cortesia do admin: a data em que a cobranca volta chega na linha", async (
   const semCortesia = makeStore();
   await handleStripeEvent(makeEvent({ id: "evt_2" }), semCortesia.store);
   assert.equal(semCortesia.upserts[0].metadata.courtesy_until, null);
+});
+
+test("subscription.updated preserva metadata.manual_grant escrito pelo admin", async () => {
+  // O upsert regravava `metadata` inteiro: a cortesia manual sumia no próximo evento.
+  const grant = { granted_by: "admin@girumo.com", granted_at: "2026-10-01T00:00:00.000Z", reason: "parceria" };
+  const f = makeStore({ currentMetadata: { manual_grant: grant, stripe_status: "past_due", outra: 1 } });
+
+  await handleStripeEvent(
+    makeEvent({ type: "customer.subscription.updated", data: { object: makeSubscription() } } as unknown as Partial<Stripe.Event>),
+    f.store,
+  );
+
+  assert.deepEqual(f.upserts[0].metadata.manual_grant, grant);
+  assert.equal(f.upserts[0].metadata.outra, 1);
+  // As chaves do webhook continuam vencendo as antigas.
+  assert.equal(f.upserts[0].metadata.stripe_status, "active");
+});
+
+test("metadata atual que não é objeto vira base vazia, sem quebrar o upsert", async () => {
+  const f = makeStore({ currentMetadata: "lixo" });
+  await handleStripeEvent(makeEvent(), f.store);
+  assert.equal(f.upserts[0].metadata.stripe_status, "active");
+  assert.equal(f.upserts[0].metadata[0], undefined);
+});
+
+test("falha ao ler o metadata atual devolve erro em vez de regravar por cima", async () => {
+  const f = makeStore({ metadataError: "timeout" });
+  const res = await handleStripeEvent(makeEvent(), f.store);
+  assert.equal(f.upserts.length, 0);
+  assert.equal(f.processedEvents.size, 0);
+  assert.ok(res.status >= 500);
 });
 
 test("assinatura sem tenant_id nao grava e registra aviso", async () => {
