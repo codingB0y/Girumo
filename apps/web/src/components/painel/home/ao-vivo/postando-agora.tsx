@@ -2,42 +2,37 @@
 
 import Link from "next/link";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { Ban, Check, Clock, Loader2, X, type LucideIcon } from "lucide-react";
 import { Bolha } from "@/components/painel/bolha";
-import { useEntrega, LegendaDaEntrega, type LeituraDaEntrega } from "@/components/painel/campanhas/detalhe/entrega";
+import { useEntrega, type LeituraDaEntrega } from "@/components/painel/campanhas/detalhe/entrega";
 import type { Disparo, Schedule } from "@/components/painel/home/types";
 import { horaBR } from "@/lib/date-br";
-import type { Group } from "@/lib/mock-data";
 import {
   estaSaindo,
   fraseDoAndamento,
-  gradeDaEntrega,
   placarDosGrupos,
   proximosAgendamentos,
-  rotuloDaCelula,
+  segmentosDaEntrega,
   terminaPorVolta,
   textoDoPost,
-  tituloDaGrade,
   versaoDoPost,
 } from "@/lib/painel/ao-vivo/postando";
 import { quandoDoPost } from "@/lib/painel/campanha-visao";
 import { postDaTabela, resumoDaEntrega, type EstadoDaEntrega } from "@/lib/painel/entrega";
+import { numero } from "@/lib/painel/grupos";
 import type { OfferTotalsRow } from "@/lib/stores/flash-offers";
 import { cn } from "@/lib/utils";
 
 /**
- * Cada estado diz o que é por ícone (12 px) e por contorno ou preenchimento; a cor
- * nunca está sozinha. "Na fila" e "falhou" são só contorno: um preenchimento fraco
- * não chega a 3:1 na superfície (nos dois temas), o contorno em slate/saida chega.
+ * A cor de cada segmento da barra de entrega e do quadradinho da legenda (spec G2, decisão 8). A legenda
+ * escreve o estado, então a cor não está sozinha. "Na fila" é o tom do trilho: é o que ainda não saiu.
  */
-const CELULA: Record<EstadoDaEntrega, { classe: string; Icone: LucideIcon; texto: string }> = {
-  entregue: { classe: "bg-success-700 text-white", Icone: Check, texto: "entregue" },
-  postando: { classe: "bg-cobalt-500 text-white", Icone: Loader2, texto: "postando" },
-  na_fila: { classe: "border border-slate-600 text-slate-600", Icone: Clock, texto: "na fila" },
-  falhou: { classe: "border border-saida text-saida", Icone: X, texto: "falhou" },
-  cancelado: { classe: "bg-slate-600/40 text-slate-600", Icone: Ban, texto: "cancelado" },
+const SEGMENTO: Record<EstadoDaEntrega, string> = {
+  entregue: "bg-success-700",
+  postando: "bg-cobalt-500",
+  na_fila: "bg-line-200",
+  falhou: "bg-saida",
+  cancelado: "bg-slate-600/40",
 };
-const ORDEM_DA_LEGENDA: EstadoDaEntrega[] = ["entregue", "postando", "na_fila", "falhou", "cancelado"];
 
 const OUTRA_MIDIA: Record<string, string> = { video: "com vídeo", audio: "com áudio", file: "com arquivo" };
 
@@ -86,58 +81,46 @@ function Previa({ post, campanha }: { post: Disparo; campanha: string }) {
           {aberta ? "ver menos" : "ver tudo"}
         </button>
       )}
-      {nota && <p className="mt-1.5 text-12 text-slate-600">{nota}</p>}
+      {nota && <p className="mt-1.5 text-13 text-slate-600">{nota}</p>}
     </div>
   );
 }
 
-function Grade({ post, grupos, leitura, entrega, desatualizada, hora }: {
-  post: Disparo;
-  grupos: Group[];
+/**
+ * A barra de três segmentos e a legenda (spec G2, decisão 8): a grade de 40 células saiu; a entrega grupo a
+ * grupo mora em Disparos, para onde o link do cabeçalho leva. A barra é decorativa: a legenda é o texto.
+ */
+function BarraDaEntrega({ leitura, entrega, desatualizada }: {
   leitura: LeituraDaEntrega;
   entrega: ReturnType<typeof useEntrega>["entrega"];
   desatualizada: boolean;
-  hora: string;
 }) {
-  const celulas = useMemo(() => (entrega ? gradeDaEntrega(entrega.grupos, grupos) : []), [entrega, grupos]);
   const resumo = useMemo(() => (entrega ? resumoDaEntrega(entrega.grupos) : null), [entrega]);
-
   if (!entrega || !resumo) {
-    return (
-      <p className="text-13 text-slate-600">{leitura === "falhou" ? "A entrega não carregou." : "lendo a entrega…"}</p>
-    );
+    return <p className="text-13 text-slate-600">{leitura === "falhou" ? "A entrega não carregou." : "lendo a entrega…"}</p>;
   }
-  if (celulas.length === 0) return <p className="text-13 text-slate-600">Nenhum grupo na entrega ainda.</p>;
+  if (resumo.total === 0) return <p className="text-13 text-slate-600">Nenhum grupo na entrega ainda.</p>;
+  const segmentos = segmentosDaEntrega(resumo);
   return (
     <div className="space-y-2">
-      <h3 className="text-13 font-semibold text-volt-950">{tituloDaGrade(celulas.length)}</h3>
-      <ul className="flex flex-wrap gap-1">
-        {celulas.map((c) => {
-          const rotulo = rotuloDaCelula(c);
-          const { classe, Icone } = CELULA[c.estado];
-          return (
-            <li key={`${post.id}:${c.id}`}>
-              <span
-                role="img"
-                aria-label={rotulo}
-                title={rotulo}
-                className={cn("flex h-[22px] w-[22px] items-center justify-center rounded-[3px]", classe, c.estado === "postando" && "motion-safe:animate-pulse")}
-              >
-                <Icone aria-hidden="true" className={cn("h-3 w-3", c.estado === "postando" && "motion-safe:animate-spin")} />
-              </span>
-            </li>
-          );
-        })}
-      </ul>
-      <p aria-hidden="true" className="flex flex-wrap gap-x-3 gap-y-1 text-12 text-slate-600">
-        {ORDEM_DA_LEGENDA.map((estado) => (
-          <span key={estado} className="inline-flex items-center gap-1">
-            <span className={cn("h-2.5 w-2.5 rounded-[2px]", CELULA[estado].classe)} aria-hidden="true" />
-            {CELULA[estado].texto}
+      <div aria-hidden="true" className="flex h-2 gap-0.5 overflow-hidden rounded-[4px]">
+        {segmentos
+          .filter((s) => s.n > 0)
+          .map((s) => (
+            <span key={s.estado} className={cn("block", SEGMENTO[s.estado], s.estado === "postando" && "motion-safe:animate-pulse")} style={{ flex: s.n }} />
+          ))}
+      </div>
+      <p className="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-13 text-slate-600">
+        {segmentos.map((s) => (
+          <span key={s.estado} className="inline-flex items-center gap-1.5">
+            <span className={cn("h-2.5 w-2.5 rounded-[2px]", SEGMENTO[s.estado])} aria-hidden="true" />
+            <span>
+              <span className="font-semibold tabular-nums text-volt-950">{numero(s.n)}</span> {s.texto}
+            </span>
           </span>
         ))}
+        {desatualizada && <span>· não deu para atualizar agora; tentando de novo</span>}
       </p>
-      <LegendaDaEntrega hora={hora} resumo={resumo} desatualizada={desatualizada} />
     </div>
   );
 }
@@ -203,7 +186,6 @@ function ProximosAgendamentos({ agendamentos, agora, carregou }: { agendamentos:
 
 type Props = {
   posts: Disparo[];
-  grupos: Group[];
   agendamentos: Schedule[];
   agora: Date;
   /** Falso = a lista de posts não carregou: "Nada saindo agora" seria falso. */
@@ -213,8 +195,8 @@ type Props = {
   totaisDoDia: OfferTotalsRow[];
 };
 
-/** "Postando agora" da Início "Ao vivo" (spec 2026-10-02): o post que sai, grupo a grupo, e o que vem depois. */
-export function PostandoAgora({ posts, grupos, agendamentos, agora, disparosOk, schedulesOk, totaisDoDia }: Props) {
+/** "Postando agora" da Início "Ao vivo" (spec G2, decisão 8): o post que sai, a barra de entrega e o que vem depois. */
+export function PostandoAgora({ posts, agendamentos, agora, disparosOk, schedulesOk, totaisDoDia }: Props) {
   // postDaTabela devolve DispatchView; o Disparo (com campaignName) é o mesmo item da lista.
   const escolhido = postDaTabela(posts, agora);
   const post = posts.find((p) => p.id === escolhido?.id) ?? null;
@@ -227,10 +209,14 @@ export function PostandoAgora({ posts, grupos, agendamentos, agora, disparosOk, 
 
   return (
     <section data-testid="inicio-postando" aria-labelledby="postando-titulo" className="min-w-0 rounded-[10px] border border-line-200 bg-paper-0 max-md:-mx-4 max-md:rounded-none max-md:border-x-0">
-      <div className="border-b border-line-200 px-5 py-3">
+      <div className="flex items-center justify-between gap-3 border-b border-line-200 px-5 py-3">
         <h2 id="postando-titulo" className="text-[16px] font-semibold text-volt-950">
           Postando agora
         </h2>
+        {/* A entrega grupo a grupo mora em Disparos (decisão 8). */}
+        <Link href="/painel/disparos" className="shrink-0 text-13 font-semibold text-cobalt-500 hover:underline">
+          Ver em Disparos
+        </Link>
       </div>
       <div className="space-y-5 px-5 py-4">
         {post ? (
@@ -246,7 +232,7 @@ export function PostandoAgora({ posts, grupos, agendamentos, agora, disparosOk, 
               </p>
             )}
             <Previa key={post.id} post={post} campanha={campanha} />
-            <Grade post={post} grupos={grupos} leitura={leitura} entrega={entrega} desatualizada={desatualizada} hora={hora} />
+            <BarraDaEntrega leitura={leitura} entrega={entrega} desatualizada={desatualizada} />
           </>
         ) : !disparosOk ? (
           <p className="text-13 text-slate-600">Os posts não carregaram.</p>
