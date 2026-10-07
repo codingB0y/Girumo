@@ -11,7 +11,7 @@ const T0 = new Date("2026-10-06T12:00:00Z");
 const comentario: EventoZernio = { id: "e1", event: "comment.received", comment: { id: "c-1", platformPostId: "post-1", platform: "instagram", text: "quero", author: { id: "u1", username: "igortoled0", isOwnAccount: false }, createdAt: "2026-10-06T11:59:58Z", isReply: false }, account: { accountId: "z1" }, timestamp: "2026-10-06T11:59:59Z" };
 const direct: EventoZernio = { id: "e2", event: "message.received", message: { platformMessageId: "m-1", platform: "instagram", direction: "incoming", text: "quero", sender: { id: "u1", username: "igortoled0" }, sentAt: "2026-10-06T11:59:58Z" }, conversation: { id: "conv-1", participantId: "u1" }, account: { accountId: "z1" }, timestamp: "2026-10-06T11:59:59Z" };
 
-function ambiente(opts: { falhar?: Parameters<typeof createFakeTransport>[0]["falhar"]; conta?: Partial<{ status: string; tenant_id: string }> | null; liberada?: boolean; fluxos?: Ambiente["fluxosNoAr"]; recente?: boolean; iniciados?: number; existente?: RunRow | null } = {}) {
+function ambiente(opts: { falhar?: NonNullable<Parameters<typeof createFakeTransport>[0]>["falhar"]; conta?: Partial<{ status: string; tenant_id: string }> | null; liberada?: boolean; fluxos?: Ambiente["fluxosNoAr"]; recente?: boolean; iniciados?: number; existente?: RunRow | null } = {}) {
   const { transport, chamadas } = createFakeTransport({ falhar: opts.falhar });
   const criados: unknown[] = [];
   const patches: Array<[string, unknown]> = [];

@@ -93,11 +93,11 @@ export async function publishFlow(tenantId: string, id: string, def: FlowDef, fr
   return (data as unknown as FlowRow | null) ?? null;
 }
 
-/** Os fluxos no ar, com o grafo publicado: é de onde saem as palavras em uso. */
-export async function listLiveFlows(tenantId: string): Promise<Pick<FlowRow, "id" | "published">[]> {
-  const { data, error } = await getSupabaseAdmin().from("ig_flows").select("id, published").eq("tenant_id", tenantId).eq("status", "live");
+/** Os fluxos no ar, com o grafo publicado e a versão: palavras em uso e escolha do fluxo pelo motor. */
+export async function listLiveFlows(tenantId: string): Promise<Pick<FlowRow, "id" | "published" | "version">[]> {
+  const { data, error } = await getSupabaseAdmin().from("ig_flows").select("id, published, version").eq("tenant_id", tenantId).eq("status", "live");
   if (error) throw new Error(error.message);
-  return (data ?? []) as unknown as Pick<FlowRow, "id" | "published">[];
+  return (data ?? []) as unknown as Pick<FlowRow, "id" | "published" | "version">[];
 }
 
 /** Ao desconectar a conta: nada fica no ar sem conta. */
