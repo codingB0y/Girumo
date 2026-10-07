@@ -256,6 +256,20 @@ test.describe("Início ao vivo a partir de 768 px", () => {
     await atualizar.click();
     await recarga;
   });
+
+  test("Postando e Relâmpago G2: link para Disparos, sem grade por grupo, placar sem Atendidas e nada abaixo de 13 px", async ({ page }) => {
+    await page.goto("/painel", { waitUntil: "load" });
+    await expect(page.getByTestId("inicio-ao-vivo")).toBeVisible({ timeout: 30_000 });
+    const postando = page.getByTestId("inicio-postando");
+    const relampago = page.getByTestId("inicio-relampago");
+    await expect(postando.getByRole("link", { name: "Ver em Disparos" })).toHaveAttribute("href", "/painel/disparos");
+    // A grade de 40 células saiu (decisão 8): nenhuma célula por grupo, com ou sem post saindo.
+    await expect(postando.locator('[title*=": entregue"], [title*=": na fila"], [title*=": postando"]')).toHaveCount(0);
+    // O placar é Pediram · Vendeu · Esperando (decisão 9); com ou sem oferta, "Atendidas" não existe mais.
+    await expect(relampago.getByText("Atendidas")).toHaveCount(0);
+    expect(await textosAbaixoDe13px(postando)).toEqual([]);
+    expect(await textosAbaixoDe13px(relampago)).toEqual([]);
+  });
 });
 
 test.describe("Início ao vivo entre 768 e 1400 px", () => {
