@@ -1,4 +1,5 @@
 import type { FlowOut } from "@/lib/ig/flow/types";
+import { TETO_RUNS_POR_HORA } from "@/lib/ig/limites";
 import { ZernioError, type Transport } from "@/lib/ig/transport/types";
 import type { ComentarioRecebido, EventoZernio, MensagemRecebida } from "@/lib/ig/webhook/events";
 import type { AccountStatus, IgAccountComLoja } from "@/lib/stores/ig-accounts";
@@ -32,8 +33,6 @@ export type Desfecho =
   | { kind: "retry"; reason: string }
   | { kind: "handled"; tenantId: string; runId: string; status: "done" | "active" | "failed" };
 
-/** 750 por hora é o teto da Meta para resposta privada; paramos antes. */
-const TETO_POR_HORA = 700;
 const UMA_HORA_MS = 60 * 60_000;
 const UM_DIA_MS = 24 * UMA_HORA_MS;
 const SETE_DIAS_MS = 7 * UM_DIA_MS;
@@ -134,7 +133,7 @@ export async function tratarEvento(ev: EventoZernio, amb: Ambiente): Promise<Des
     run = existente;
   } else {
     if (await amb.runs.entradaRecente(tenantId, escolha.flowId, entrada.igUserId, iso(agora.getTime() - UM_DIA_MS))) return { kind: "ignored", reason: "24h" };
-    if ((await amb.runs.iniciadosDesde(tenantId, conta.id, iso(agora.getTime() - UMA_HORA_MS))) >= TETO_POR_HORA) return { kind: "ignored", reason: "teto" };
+    if ((await amb.runs.iniciadosDesde(tenantId, conta.id, iso(agora.getTime() - UMA_HORA_MS))) >= TETO_RUNS_POR_HORA) return { kind: "ignored", reason: "teto" };
     run = await amb.runs.criar(tenantId, {
       igAccountId: conta.id,
       flowId: escolha.flowId,
