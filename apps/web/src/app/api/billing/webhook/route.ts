@@ -5,8 +5,12 @@ import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import { sendEmail } from "@/lib/email/send";
 import { trialEndingEmail } from "@/lib/email/templates";
 import { claimCardFingerprint, claimTrial } from "@/lib/billing/trial-claims";
+import { pauseLiveFlows } from "@/lib/stores/ig-flows";
+import { stopActiveRuns } from "@/lib/stores/ig-runs";
+import { setInstagramEnabled } from "@/lib/stores/tenant-settings";
 import {
   handleStripeEvent,
+  isInstagramAddon,
   type DefaultCard,
   type WebhookStore,
 } from "@/lib/billing/stripe-webhook";
@@ -144,6 +148,36 @@ function createStore(): WebhookStore {
           idempotencyKey: `trial-ending/${subscription.id}`,
         });
         return { error: ok ? null : "envio falhou (ver email.failed nos logs)" };
+      } catch (err) {
+        return { error: err instanceof Error ? err.message : String(err) };
+      }
+    },
+
+    async setInstagramEnabled({ tenantId, enabled }) {
+      try {
+        await setInstagramEnabled(tenantId, enabled);
+        // Sem o add-on, nada fica no ar respondendo em nome da loja.
+        if (!enabled) {
+          await pauseLiveFlows(tenantId);
+          await stopActiveRuns(tenantId);
+        }
+        return { error: null };
+      } catch (err) {
+        return { error: err instanceof Error ? err.message : String(err) };
+      }
+    },
+
+    async cancelAddonSubscriptions(customerId) {
+      try {
+        const stripe = getStripe();
+        const todas = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 100 });
+        const vivas = todas.data.filter((s) => s.status === "active" || s.status === "trialing" || s.status === "past_due");
+        // Ainda há plano vivo (ex.: reentrega do cancelamento de uma assinatura antiga): o add-on fica.
+        if (vivas.some((s) => !isInstagramAddon(s.metadata))) return { error: null };
+        for (const s of vivas) {
+          if (isInstagramAddon(s.metadata)) await stripe.subscriptions.cancel(s.id);
+        }
+        return { error: null };
       } catch (err) {
         return { error: err instanceof Error ? err.message : String(err) };
       }

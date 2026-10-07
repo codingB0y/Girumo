@@ -80,6 +80,10 @@ export interface WebhookStore {
   }): Promise<StoreResult>;
   /** E-mail "seu teste grátis termina em 3 dias". */
   sendTrialEndingEmail(subscription: Stripe.Subscription): Promise<StoreResult>;
+  /** Liga/desliga `tenant_settings.instagram_enabled`. Desligar também pausa os fluxos e para os atendimentos. */
+  setInstagramEnabled(input: { tenantId: string; enabled: boolean }): Promise<StoreResult>;
+  /** Cancela as assinaturas do add-on Instagram do customer, se ele não tiver outro plano vivo. */
+  cancelAddonSubscriptions(customerId: string): Promise<StoreResult>;
 }
 
 export type WebhookResult = { status: number; body: Record<string, unknown> };
@@ -130,6 +134,43 @@ export function mapStripeStatus(status: Stripe.Subscription.Status): string {
   // Status novo do Stripe (ex.: `paused`): `past_due` e o conservador — nao
   // libera nada, e o log de sincronizacao guarda o valor cru em `stripe_status`.
   return "past_due";
+}
+
+/** Assinatura do add-on Instagram: separada da do plano, nunca vai para `subscriptions`. */
+export const isInstagramAddon = (metadata: Stripe.Metadata | null | undefined): boolean => metadata?.addon === "instagram";
+
+const ADDON_LIGA: ReadonlySet<Stripe.Subscription.Status> = new Set(["active", "trialing"]);
+const ADDON_DESLIGA: ReadonlySet<Stripe.Subscription.Status> = new Set(["canceled", "unpaid", "incomplete_expired"]);
+
+/**
+ * O add-on Instagram liga e desliga a loja pela assinatura dele. `past_due` e
+ * `incomplete` não mudam nada: o Stripe ainda está tentando cobrar.
+ */
+async function handleInstagramAddon(subscription: Stripe.Subscription, store: WebhookStore): Promise<StoreResult> {
+  const tenantId = subscription.metadata.tenant_id;
+  if (!tenantId) {
+    await store.insertLog({
+      tenant_id: SYSTEM_TENANT_ID,
+      level: "warn",
+      event: "stripe.addon.missing_metadata",
+      message: "Assinatura do add-on Instagram sem tenant_id.",
+      metadata: { stripe_subscription_id: subscription.id },
+    });
+    return { error: null };
+  }
+  const enabled = ADDON_LIGA.has(subscription.status) ? true : ADDON_DESLIGA.has(subscription.status) ? false : null;
+  if (enabled === null) return { error: null };
+
+  const r = await store.setInstagramEnabled({ tenantId, enabled });
+  if (r.error) return r;
+  await store.insertLog({
+    tenant_id: tenantId,
+    level: "info",
+    event: "stripe.addon.instagram",
+    message: enabled ? "Add-on Instagram ativo: Instagram liberado." : "Add-on Instagram encerrado: Instagram desligado.",
+    metadata: { stripe_subscription_id: subscription.id, status: subscription.status },
+  });
+  return { error: null };
 }
 
 async function upsertSubscription(
@@ -201,6 +242,13 @@ async function upsertSubscription(
   // Este erro era descartado. Era ele que transformava "cliente pagou e a
   // assinatura nao foi gravada" num 200 alegre para o Stripe.
   if (upserted.error) return upserted;
+
+  // "Cancelou o plano, cai o add-on junto." O store só cancela se o customer não
+  // tiver outro plano vivo (reentrega de uma assinatura antiga não derruba o add-on).
+  if (subscription.status === "canceled") {
+    const addon = await store.cancelAddonSubscriptions(String(subscription.customer));
+    if (addon.error) return addon;
+  }
 
   await store.insertLog({
     tenant_id: tenantId,
@@ -355,6 +403,8 @@ async function handleCheckoutSession(
   if (!session.subscription) return { error: null };
 
   const subscription = await store.retrieveSubscription(String(session.subscription));
+  // Add-on não é venda de plano: só liga o Instagram.
+  if (isInstagramAddon(subscription.metadata)) return handleInstagramAddon(subscription, store);
   const processed = await upsertSubscription(subscription, eventCreatedAt, store);
   if (processed.error) return processed;
 
@@ -449,6 +499,8 @@ async function handleInvoicePaid(invoice: Stripe.Invoice, store: WebhookStore): 
   if (!invoice.amount_paid || invoice.amount_paid <= 0) return { error: null };
 
   const meta = invoice.parent?.subscription_details?.metadata ?? null;
+  // A fatura do add-on não é a primeira venda do plano.
+  if (isInstagramAddon(meta)) return { error: null };
   const tenantId = meta?.tenant_id;
   if (!tenantId) return { error: null };
 
@@ -543,11 +595,10 @@ export async function handleStripeEvent(
     event.type === "customer.subscription.updated" ||
     event.type === "customer.subscription.deleted"
   ) {
-    processed = await upsertSubscription(
-      event.data.object as Stripe.Subscription,
-      eventCreatedAt,
-      store,
-    );
+    const subscription = event.data.object as Stripe.Subscription;
+    processed = isInstagramAddon(subscription.metadata)
+      ? await handleInstagramAddon(subscription, store)
+      : await upsertSubscription(subscription, eventCreatedAt, store);
   }
 
   // `async_payment_succeeded` e a confirmacao tardia de boleto/Pix e chega com

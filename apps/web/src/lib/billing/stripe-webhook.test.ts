@@ -61,6 +61,8 @@ type FakeOptions = {
   claimError?: string | null;
   /** Falha do Stripe ao cancelar a assinatura de teste. */
   cancelError?: string | null;
+  /** Falha ao ligar/desligar o Instagram da loja. */
+  instagramError?: string | null;
 };
 
 /**
@@ -74,6 +76,8 @@ function makeStore(options: FakeOptions = {}) {
   const funnelEvents: FunnelInput[] = [];
   const cancels: { id: string; reason: string }[] = [];
   const emails: string[] = [];
+  const instagram: { tenantId: string; enabled: boolean }[] = [];
+  const addonCancels: string[] = [];
   let upsertError = options.upsertError ?? null;
   let trialHolder = options.trialHolder ?? null;
 
@@ -129,6 +133,15 @@ function makeStore(options: FakeOptions = {}) {
       emails.push(subscription.id);
       return { error: options.emailError ?? null };
     },
+    async setInstagramEnabled(input) {
+      if (options.instagramError) return { error: options.instagramError };
+      instagram.push(input);
+      return { error: null };
+    },
+    async cancelAddonSubscriptions(customerId) {
+      addonCancels.push(customerId);
+      return { error: null };
+    },
   };
 
   return {
@@ -138,6 +151,8 @@ function makeStore(options: FakeOptions = {}) {
     funnelEvents,
     cancels,
     emails,
+    instagram,
+    addonCancels,
     processedEvents,
     recuperaBanco: () => {
       upsertError = null;
@@ -803,4 +818,70 @@ test("aviso: erro do store nas travas devolve 5xx sem marcador e sem e-mail", as
     assert.equal(f.processedEvents.has("evt_twe"), false, `${nome}: marcador bloquearia o reenvio`);
     assert.deepEqual(f.emails, [], `${nome}: sem trava conferida, nada de aviso de cobranca`);
   }
+});
+
+// ---------------------------------------------------------------------------
+// Add-on Instagram: assinatura separada (metadata.addon = "instagram").
+
+function addon(over: Partial<Stripe.Subscription> = {}): Stripe.Subscription {
+  return makeSubscription({ id: "sub_ig", metadata: { tenant_id: TENANT, addon: "instagram" }, ...over });
+}
+
+test("add-on ativo liga o Instagram e NAO toca a linha do plano", async () => {
+  const f = makeStore();
+  const res = await handleStripeEvent(makeEvent({ data: { object: addon() } } as Partial<Stripe.Event>), f.store);
+  assert.equal(res.status, 200);
+  assert.deepEqual(f.instagram, [{ tenantId: TENANT, enabled: true }]);
+  assert.equal(f.upserts.length, 0);
+});
+
+test("add-on cancelado, sem pagamento ou expirado desliga; past_due e incomplete nao mexem", async () => {
+  for (const status of ["canceled", "unpaid", "incomplete_expired"] as const) {
+    const f = makeStore();
+    await handleStripeEvent(makeEvent({ type: "customer.subscription.updated", data: { object: addon({ status }) } } as Partial<Stripe.Event>), f.store);
+    assert.deepEqual(f.instagram, [{ tenantId: TENANT, enabled: false }], status);
+  }
+  for (const status of ["past_due", "incomplete"] as const) {
+    const f = makeStore();
+    await handleStripeEvent(makeEvent({ type: "customer.subscription.updated", data: { object: addon({ status }) } } as Partial<Stripe.Event>), f.store);
+    assert.deepEqual(f.instagram, [], status);
+  }
+});
+
+test("falha ao ligar o Instagram devolve 5xx para o Stripe reenviar", async () => {
+  const f = makeStore({ instagramError: "banco fora" });
+  const res = await handleStripeEvent(makeEvent({ data: { object: addon() } } as Partial<Stripe.Event>), f.store);
+  assert.equal(res.status, 500);
+  assert.equal(f.processedEvents.size, 0);
+});
+
+test("checkout do add-on liga o Instagram e nao conta venda do plano", async () => {
+  const f = makeStore({ subscription: addon() });
+  await handleStripeEvent(makeCheckoutEvent("paid"), f.store);
+  assert.deepEqual(f.instagram, [{ tenantId: TENANT, enabled: true }]);
+  assert.equal(f.upserts.length, 0);
+  assert.equal(f.funnelEvents.length, 0);
+});
+
+test("fatura paga do add-on nao entra no funil do plano", async () => {
+  const f = makeStore();
+  const invoice = { id: "in_ig", amount_paid: 29700, billing_reason: "subscription_create", parent: { subscription_details: { metadata: { tenant_id: TENANT, addon: "instagram" } } } };
+  await handleStripeEvent({ id: "evt_inv_ig", type: "invoice.paid", created: 1_700_000_000, data: { object: invoice } } as unknown as Stripe.Event, f.store);
+  assert.equal(f.funnelEvents.length, 0);
+});
+
+test("plano cancelado cancela o add-on do mesmo customer; plano ativo nao", async () => {
+  const cancelado = makeStore();
+  await handleStripeEvent(makeEvent({ type: "customer.subscription.deleted", data: { object: makeSubscription({ status: "canceled" }) } } as Partial<Stripe.Event>), cancelado.store);
+  assert.deepEqual(cancelado.addonCancels, ["cus_123"]);
+  const ativo = makeStore();
+  await handleStripeEvent(makeEvent(), ativo.store);
+  assert.deepEqual(ativo.addonCancels, []);
+});
+
+test("add-on sem tenant_id nao liga nada e registra aviso", async () => {
+  const f = makeStore();
+  await handleStripeEvent(makeEvent({ data: { object: addon({ metadata: { addon: "instagram" } }) } } as Partial<Stripe.Event>), f.store);
+  assert.deepEqual(f.instagram, []);
+  assert.ok(f.logs.some((l) => l.event === "stripe.addon.missing_metadata"));
 });
