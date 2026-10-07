@@ -26,6 +26,9 @@ const RATE_LIMITS: Record<string, number> = {
   // Limitação conhecida: o contador é por instância serverless, então na Vercel
   // o teto efetivo é maior que 300. Aceito na F2.
   "/api/webhooks/evolution": 300,
+  // Webhook da Zernio (Instagram): mesmo raciocínio. O gate real é a assinatura
+  // HMAC no handler; isto só barra flood ingênuo.
+  "/api/ig/webhook": 300,
   // Beacon de clique de saída (wa.me) na landing. Teto folgado porque é UM
   // request por clique e uma pessoa lendo a página clica poucas vezes; o
   // handler ainda aplica o seu próprio teto por IP.

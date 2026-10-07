@@ -36,7 +36,7 @@ const ENGINE_ONLY = new Set([
  * `/api/webhooks/config` (rota autenticada de tenant, removida em 20/08 por ser
  * órfã) e vale igual para a próxima que aparecer aqui.
  */
-const PROVIDER_WEBHOOKS = new Set(["POST /api/webhooks/evolution"]);
+const PROVIDER_WEBHOOKS = new Set(["POST /api/webhooks/evolution", "POST /api/ig/webhook"]);
 
 const SHARED_PREFIXES = [
   "/api/session",

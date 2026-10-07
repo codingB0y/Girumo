@@ -68,6 +68,14 @@ test("the Evolution webhook is session-less and rate limited", () => {
   assert.equal(classifyRequest("/api/webhooks/evolution", "POST"), "webhook");
 });
 
+test("the Zernio webhook is session-less, POST only, exact path only", () => {
+  assert.equal(classifyRequest("/api/ig/webhook", "POST"), "webhook");
+  assert.equal(classifyRequest("/api/ig/webhook", "GET"), "user");
+  assert.equal(classifyRequest("/api/ig/webhook/replay", "POST"), "user");
+  // O resto de /api/ig continua exigindo sessão.
+  assert.equal(classifyRequest("/api/ig/flows", "POST"), "user");
+});
+
 test("the webhook prefix is not open — only the exact provider path is", () => {
   // Qualquer rota criada sob /api/webhooks/ nasce exigindo sessão. Classificar
   // por prefixo abriria todas elas. O caso concreto que motivou isto foi
