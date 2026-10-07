@@ -126,6 +126,11 @@ export async function tratarEvento(ev: EventoZernio, amb: Ambiente): Promise<Des
     if (existente.status !== "queued") return { kind: "ignored", reason: "duplicado" };
     // Na fila há pouco: a 1ª tentativa pode estar rodando. 500 faz a Zernio tentar de novo depois.
     if (agora.getTime() - Date.parse(existente.started_at) <= RETOMADA_MS) return { kind: "retry", reason: "em andamento" };
+    // O fluxo do run saiu do ar (ou outro ganhou a palavra) no meio: não executa um grafo que não é o dele.
+    if (existente.flow_id !== escolha.flowId) {
+      await amb.runs.atualizar(tenantId, existente.id, { status: "stopped", finished_at: agora.toISOString() });
+      return { kind: "ignored", reason: "fluxo mudou" };
+    }
     run = existente;
   } else {
     if (await amb.runs.entradaRecente(tenantId, escolha.flowId, entrada.igUserId, iso(agora.getTime() - UM_DIA_MS))) return { kind: "ignored", reason: "24h" };

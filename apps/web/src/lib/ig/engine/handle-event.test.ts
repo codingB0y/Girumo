@@ -99,6 +99,10 @@ test("reenvio: na fila há pouco pede nova tentativa; há mais de 2 min é retom
   const antigo = ambiente({ existente: { ...base, started_at: "2026-10-06T11:57:00Z" }, recente: true });
   assert.deepEqual(await tratarEvento(comentario, antigo.amb), { kind: "handled", tenantId: "loja-a", runId: "run-velho", status: "done" });
   assert.equal((await tratarEvento(comentario, ambiente({ existente: { ...base, status: "done", started_at: "2026-10-06T11:00:00Z" } }).amb)).kind, "ignored");
+  const trocado = ambiente({ existente: { ...base, flow_id: "f-outro", started_at: "2026-10-06T11:57:00Z" } });
+  assert.deepEqual(await tratarEvento(comentario, trocado.amb), { kind: "ignored", reason: "fluxo mudou" });
+  assert.equal((trocado.patches[0][1] as { status: string }).status, "stopped");
+  assert.equal(trocado.chamadas.length, 0);
 });
 
 test("erro passageiro da Zernio pede reenvio e não grava falha; eventos de conta mudam o estado", async () => {
