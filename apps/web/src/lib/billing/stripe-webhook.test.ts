@@ -81,6 +81,7 @@ function makeStore(options: FakeOptions = {}) {
   const emails: string[] = [];
   const instagram: { tenantId: string; enabled: boolean }[] = [];
   const addonCancels: string[] = [];
+  const invitesUsed: string[] = [];
   let upsertError = options.upsertError ?? null;
   let trialHolder = options.trialHolder ?? null;
 
@@ -144,6 +145,10 @@ function makeStore(options: FakeOptions = {}) {
       instagram.push(input);
       return { error: null };
     },
+    async markInstagramInviteUsed({ inviteId, subscriptionId }) {
+      invitesUsed.push(`${inviteId}:${subscriptionId}`);
+      return { error: null };
+    },
     async cancelAddonSubscriptions(customerId) {
       addonCancels.push(customerId);
       return { error: null };
@@ -159,6 +164,7 @@ function makeStore(options: FakeOptions = {}) {
     emails,
     instagram,
     addonCancels,
+    invitesUsed,
     processedEvents,
     recuperaBanco: () => {
       upsertError = null;
@@ -903,4 +909,13 @@ test("add-on sem tenant_id nao liga nada e registra aviso", async () => {
   await handleStripeEvent(makeEvent({ data: { object: addon({ metadata: { addon: "instagram" } }) } } as Partial<Stripe.Event>), f.store);
   assert.deepEqual(f.instagram, []);
   assert.ok(f.logs.some((l) => l.event === "stripe.addon.missing_metadata"));
+});
+
+test("convite vira usado quando a assinatura dele fica ativa; incompleta nao gasta", async () => {
+  const pago = makeStore();
+  await handleStripeEvent(makeEvent({ data: { object: addon({ metadata: { tenant_id: TENANT, addon: "instagram", invite_id: "0b8e4f2a-1c3d-4e5f-8a9b-0c1d2e3f4a5b" } }) } } as Partial<Stripe.Event>), pago.store);
+  assert.deepEqual(pago.invitesUsed, ["0b8e4f2a-1c3d-4e5f-8a9b-0c1d2e3f4a5b:sub_ig"]);
+  const pendente = makeStore({ addonLive: false });
+  await handleStripeEvent(makeEvent({ data: { object: addon({ status: "incomplete", metadata: { tenant_id: TENANT, addon: "instagram", invite_id: "0b8e4f2a-1c3d-4e5f-8a9b-0c1d2e3f4a5b" } }) } } as Partial<Stripe.Event>), pendente.store);
+  assert.deepEqual(pendente.invitesUsed, []);
 });
