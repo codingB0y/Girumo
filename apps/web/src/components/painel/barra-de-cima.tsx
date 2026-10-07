@@ -9,6 +9,8 @@ import { NotificationBell } from "@/components/painel/notification-bell";
 import { useRole } from "@/components/painel/role-provider";
 import { usePanelSession } from "@/components/painel/session-provider";
 import { iniciaisDaLoja } from "@/lib/painel/casca";
+import { numero } from "@/lib/painel/grupos";
+import { placarDaOferta, type EntradaLike } from "@/lib/painel/relampago";
 import { NAV_BARRA_DESKTOP, isNavItemActive, liberado } from "@/lib/painel-nav";
 import { cn } from "@/lib/utils";
 import { FolhaPostar } from "./folha-postar";
@@ -19,29 +21,43 @@ const RELAMPAGO = "/painel/relampago";
 const CONECTAR = "/painel/conectar";
 const REFRESCO_MS = 60_000;
 
-type Oferta = { status?: string };
+type Oferta = { id?: string; status?: string };
+type Relampago = { noAr: boolean; esperando: number | null };
+const QUIETO: Relampago = { noAr: false, esperando: null };
+
+async function lerJson(url: string): Promise<unknown> {
+  return fetch(url, { cache: "no-store" })
+    .then((r) => (r.ok ? r.json() : null))
+    .catch(() => null);
+}
+
+/** A oferta aberta e, se a fila vier, quantas pessoas esperam nela — duas leituras das rotas que já existem. */
+async function lerRelampago(): Promise<Relampago> {
+  const lista = (await lerJson("/api/relampago/offers")) as { offers?: Oferta[] } | null;
+  const aberta = (Array.isArray(lista?.offers) ? lista.offers : []).find((o) => o.status === "open");
+  if (!aberta?.id) return QUIETO;
+  const detalhe = (await lerJson(`/api/relampago/offers/${aberta.id}`)) as { queue?: EntradaLike[] } | null;
+  return { noAr: true, esperando: Array.isArray(detalhe?.queue) ? placarDaOferta(detalhe.queue).esperando : null };
+}
 
 /**
- * Há oferta relâmpago no ar? Busca ao montar, ao entrar ou sair de /relampago
- * e quando a aba volta a ficar visível depois de um minuto; com oferta no ar
- * confere a cada minuto, porque ela fecha por tempo. O layout não remonta
- * entre rotas. `ativo` falso (modo foco) não busca nada.
+ * Há oferta relâmpago no ar, e quantas pessoas esperam na fila dela (spec G2, decisão 4)? Busca ao montar,
+ * ao entrar ou sair de /relampago e quando a aba volta a ficar visível depois de um minuto; com oferta no
+ * ar confere a cada minuto, porque ela fecha por tempo e a fila anda. O layout não remonta entre rotas.
+ * `ativo` falso (modo foco) não busca nada.
  */
-function useRelampagoNoAr(ativo: boolean): boolean {
+function useRelampagoNaBarra(ativo: boolean): Relampago {
   const naArea = usePathname().startsWith(RELAMPAGO);
-  const [noAr, setNoAr] = useState(false);
+  const [relampago, setRelampago] = useState<Relampago>(QUIETO);
+  const noAr = relampago.noAr;
   useEffect(() => {
     if (!ativo) return;
     let cancelado = false;
     let ultimaBusca = 0;
     async function buscar() {
       ultimaBusca = Date.now();
-      const json = await fetch("/api/relampago/offers")
-        .then((r) => (r.ok ? r.json() : null))
-        .catch(() => null);
-      if (cancelado) return;
-      const ofertas: Oferta[] = Array.isArray(json?.offers) ? json.offers : [];
-      setNoAr(ofertas.some((o) => o.status === "open"));
+      const lido = await lerRelampago();
+      if (!cancelado) setRelampago(lido);
     }
     void buscar();
     const aoVoltar = () => {
@@ -59,7 +75,7 @@ function useRelampagoNoAr(ativo: boolean): boolean {
       clearInterval(conferir);
     };
   }, [ativo, naArea, noAr]);
-  return noAr;
+  return relampago;
 }
 
 const ESTADO_DO_NUMERO = {
@@ -92,8 +108,20 @@ function ChipDoNumero() {
   );
 }
 
+/** Oferta no ar: quantas pessoas esperam na fila (decisão 4); sem a fila lida, o ponto Paper de antes. */
+function SinalDoRelampago({ noAr, esperando }: Relampago) {
+  if (!noAr) return null;
+  if (esperando === null) return <span className="pn-barra__ponto" role="img" aria-label="oferta no ar" />;
+  return (
+    <span className="pn-barra__contador">
+      {numero(esperando)}
+      <span className="sr-only"> esperando</span>
+    </span>
+  );
+}
+
 /** Os seis módulos do dia e o Mais; só no desktop (no celular a navegação é a barra inferior). */
-function NavDaBarra({ noAr }: { noAr: boolean }) {
+function NavDaBarra({ relampago }: { relampago: Relampago }) {
   const pathname = usePathname();
   const { liberacoes } = useCasca();
   return (
@@ -101,7 +129,7 @@ function NavDaBarra({ noAr }: { noAr: boolean }) {
       {NAV_BARRA_DESKTOP.filter((item) => liberado(item, liberacoes)).map((item) => (
         <Link key={item.href} href={item.href} aria-current={isNavItemActive(pathname, item.href) ? "page" : undefined} className="pn-barra__item">
           {item.curto ?? item.label}
-          {item.href === RELAMPAGO && noAr && <span className="pn-barra__ponto" role="img" aria-label="oferta no ar" />}
+          {item.href === RELAMPAGO && <SinalDoRelampago {...relampago} />}
         </Link>
       ))}
       <MenuMais />
@@ -119,7 +147,7 @@ export function BarraDeCima() {
   const pathname = usePathname();
   const { tenantName, carregado } = useRole();
   const { foco } = useCasca();
-  const noAr = useRelampagoNoAr(!foco);
+  const relampago = useRelampagoNaBarra(!foco);
   const [postar, setPostar] = useState(false);
   const idPostar = useId();
   const fechar = useCallback(() => setPostar(false), []);
@@ -142,7 +170,7 @@ export function BarraDeCima() {
         ) : (
           <span role="status" aria-label="Carregando nome da loja" className="pn-skeleton inline-block h-4 w-24 rounded-[var(--radius-chip)]" />
         )}
-        <NavDaBarra noAr={noAr} />
+        <NavDaBarra relampago={relampago} />
         <div className="pn-barra__direita">
           <ChipDoNumero />
           <NotificationBell />

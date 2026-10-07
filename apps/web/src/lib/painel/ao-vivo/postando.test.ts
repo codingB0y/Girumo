@@ -1,25 +1,16 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { EntregaNoGrupo, ResumoDaEntrega } from "@/lib/painel/entrega";
-import type { Group } from "@/lib/mock-data";
+import type { ResumoDaEntrega } from "@/lib/painel/entrega";
 import {
   fraseDoAndamento,
-  gradeDaEntrega,
   placarDosGrupos,
   proximosAgendamentos,
-  rotuloDaCelula,
+  segmentosDaEntrega,
   terminaPorVolta,
   textoDoPost,
-  tituloDaGrade,
   versaoDoPost,
 } from "./postando";
-
-const CONVITE = "https://chat.whatsapp.com/abc";
-
-function grupo(id: string, name: string): Group {
-  return { id, name, whatsappGroupId: `${id}@g.us`, members: 100, capacity: 1000, selected: false, engagement: "medio", inviteUrl: CONVITE };
-}
 
 function resumo(p: Partial<ResumoDaEntrega>): ResumoDaEntrega {
   return { entregues: 0, postando: 0, naFila: 0, falharam: 0, cancelados: 0, total: 0, ...p };
@@ -37,21 +28,18 @@ test("termina por volta vira null quando nada resta", () => {
   assert.equal(terminaPorVolta(resumo({ entregues: 5, falharam: 1, total: 6 }), AGORA), null);
 });
 
-test("grade ordena pelo numero do grupo, depois os sem numero pelo nome, e o fora do cadastro por ultimo", () => {
-  const grupos = [grupo("a", "X 2"), grupo("b", "X 10"), grupo("c", "X 9"), grupo("d", "Clientes antigos")];
-  const entrega: EntregaNoGrupo[] = [
-    { grupo: "fantasma@g.us", estado: "falhou", quando: null },
-    { grupo: "d@g.us", estado: "na_fila", quando: null },
-    { grupo: "b@g.us", estado: "postando", quando: null },
-    { grupo: "a@g.us", estado: "entregue", quando: "2026-10-03T17:08:00Z" },
-    { grupo: "c@g.us", estado: "na_fila", quando: null },
-  ];
-  const grade = gradeDaEntrega(entrega, grupos);
-  assert.deepEqual(grade.map((c) => c.rotulo), ["#2", "#9", "#10", "Clientes antigos", "grupo fora do cadastro"]);
-  assert.deepEqual(grade.map((c) => c.nome), ["X 2", "X 9", "X 10", "Clientes antigos", "grupo fora do cadastro"]);
-  assert.equal(grade[0].estado, "entregue");
-  assert.equal(grade[0].quando, "2026-10-03T17:08:00Z");
-  assert.equal(grade[0].id, "a@g.us");
+test("segmentos da entrega: entregues sempre; enviando, na fila, falhou e cancelado só com gente", () => {
+  assert.deepEqual(segmentosDaEntrega(resumo({ entregues: 27, postando: 1, naFila: 12, total: 40 })), [
+    { estado: "entregue", n: 27, texto: "entregues" },
+    { estado: "postando", n: 1, texto: "enviando" },
+    { estado: "na_fila", n: 12, texto: "na fila" },
+  ]);
+  assert.deepEqual(segmentosDaEntrega(resumo({ entregues: 1, falharam: 1, cancelados: 2, total: 4 })), [
+    { estado: "entregue", n: 1, texto: "entregue" },
+    { estado: "falhou", n: 1, texto: "falhou" },
+    { estado: "cancelado", n: 2, texto: "cancelados" },
+  ]);
+  assert.deepEqual(segmentosDaEntrega(resumo({ total: 0 })), [{ estado: "entregue", n: 0, texto: "entregues" }]);
 });
 
 test("proximos agendamentos: so pendentes futuros, em ordem, ate o limite", () => {
@@ -70,34 +58,7 @@ test("proximos agendamentos: so pendentes futuros, em ordem, ate o limite", () =
   assert.equal(proximosAgendamentos(lista, AGORA, 2).length, 2);
 });
 
-test("rotulo da celula diz o estado por extenso e nao repete o nome igual ao rotulo", () => {
-  const base = { id: "a@g.us", rotulo: "#3", nome: "Moda Sul 03", quando: null };
-  assert.equal(rotuloDaCelula({ ...base, estado: "entregue", quando: "2026-10-03T17:08:00Z" }), "#3, Moda Sul 03: entregue às 14:08");
-  assert.equal(rotuloDaCelula({ ...base, estado: "postando" }), "#3, Moda Sul 03: postando");
-  assert.equal(rotuloDaCelula({ ...base, estado: "na_fila" }), "#3, Moda Sul 03: na fila");
-  assert.equal(rotuloDaCelula({ ...base, estado: "falhou" }), "#3, Moda Sul 03: falhou");
-  assert.equal(rotuloDaCelula({ ...base, estado: "cancelado" }), "#3, Moda Sul 03: cancelado");
-  assert.equal(rotuloDaCelula({ ...base, nome: "#3", estado: "na_fila" }), "#3: na fila");
-});
-
-test("grupo sem numero usa o nome, cortado, e nunca uma posicao", () => {
-  const nome = "Clientes antigas de Fortaleza e região";
-  const [c] = gradeDaEntrega([{ grupo: "d@g.us", estado: "na_fila", quando: null }], [grupo("d", nome)]);
-  assert.equal(c.nome, nome);
-  assert.ok(c.rotulo.endsWith("…") && c.rotulo.length < nome.length);
-  assert.ok(!/\dº/.test(c.rotulo));
-  // A etiqueta cortada nao repete o nome inteiro: o nome completo basta.
-  assert.equal(rotuloDaCelula(c), `${nome}: na fila`);
-});
-
-test("rotulo do grupo fora do cadastro nao repete a frase", () => {
-  const [c] = gradeDaEntrega([{ grupo: "x@g.us", estado: "falhou", quando: null }], []);
-  assert.equal(rotuloDaCelula(c), "grupo fora do cadastro: falhou");
-});
-
-test("titulo da grade e placar no singular e no plural", () => {
-  assert.equal(tituloDaGrade(1), "Entrega no 1 grupo");
-  assert.equal(tituloDaGrade(40), "Entrega nos 40 grupos");
+test("placar no singular e no plural", () => {
   assert.equal(placarDosGrupos(1, 1), "1 de 1 grupo");
   assert.equal(placarDosGrupos(27, 40), "27 de 40 grupos");
   assert.equal(placarDosGrupos(0, 0), "0 de 0 grupos");

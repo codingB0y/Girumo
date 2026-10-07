@@ -166,7 +166,6 @@ export function InicioAoVivo({
         >
           <PostandoAgora
             posts={disparos}
-            grupos={groups}
             agendamentos={schedules}
             agora={agora}
             disparosOk={disparosOk}
