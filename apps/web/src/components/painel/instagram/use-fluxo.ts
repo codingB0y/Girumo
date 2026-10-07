@@ -183,5 +183,23 @@ export function useFluxo(id: string) {
     }
   }, [id, drenar, recarregar]);
 
-  return { flow, carga, naoAchou, salvamento, editar, renomear, publicar, recarregar };
+  /** Interruptor "No ar". Devolve a mensagem de erro, ou `null` quando mudou. */
+  const mudarEstado = useCallback(
+    async (status: "live" | "paused"): Promise<string | null> => {
+      try {
+        const r = await fetch(`/api/ig/flows/${id}/status`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+        // assertPermission responde 403 em texto puro: o corpo pode não ser JSON.
+        const corpo = (await r.json().catch(() => null)) as { flow?: FlowRow; error?: string } | null;
+        if (!r.ok || !corpo?.flow) return corpo?.error ?? "Não deu pra mudar o estado. Tente de novo.";
+        const novo = corpo.flow;
+        setFlow((atual) => (atual ? { ...novo, name: atual.name, draft: atual.draft } : novo));
+        return null;
+      } catch {
+        return "Sem conexão. Tente de novo.";
+      }
+    },
+    [id],
+  );
+
+  return { flow, carga, naoAchou, salvamento, editar, renomear, publicar, recarregar, mudarEstado };
 }

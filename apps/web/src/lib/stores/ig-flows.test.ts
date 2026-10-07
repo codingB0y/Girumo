@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
 import { getAccount } from "./ig-accounts";
-import { deleteFlow, listFlows, publishFlow, updateDraft } from "./ig-flows";
+import { deleteFlow, listFlows, publishFlow, setFlowStatus, updateDraft } from "./ig-flows";
 
 /**
  * O cliente real do Supabase contra um PostgREST de mentira: a query que sai é a
@@ -59,11 +59,12 @@ test("salvar o rascunho e apagar filtram loja E id", async () => {
 
 test("publicar trava por loja, id e versão, e não reescreve o rascunho", async () => {
   pedidos.length = 0;
-  await publishFlow("loja-a", "f1", { v: 1, nodes: [], edges: [] }, 3);
+  await publishFlow("loja-a", "f1", { v: 1, nodes: [], edges: [] }, 3, "conta-1");
   assert.equal(pedidos[0].metodo, "PATCH");
   assert.deepEqual(filtros(pedidos[0].url), { tenant_id: "eq.loja-a", id: "eq.f1", version: "eq.3" });
   const corpo = pedidos[0].corpo as Record<string, unknown>;
-  assert.deepEqual(Object.keys(corpo).sort(), ["published", "published_at", "status", "updated_at", "version"]);
+  assert.deepEqual(Object.keys(corpo).sort(), ["ig_account_id", "published", "published_at", "status", "updated_at", "version"]);
+  assert.equal(corpo.ig_account_id, "conta-1");
   assert.equal(corpo.version, 4);
   assert.equal(corpo.status, "live");
   assert.ok(!("draft" in corpo), "publicar não pode sobrescrever um autosave do rascunho");
@@ -74,4 +75,12 @@ test("a conta nunca sai com o token", async () => {
   await getAccount("loja-a");
   assert.deepEqual(filtros(pedidos[0].url), { tenant_id: "eq.loja-a" });
   assert.ok(!pedidos[0].url.searchParams.get("select")?.includes("access_token"));
+});
+
+test("pausar e retomar só mexem em fluxo publicado da loja", async () => {
+  pedidos.length = 0;
+  await setFlowStatus("loja-a", "f1", "paused");
+  assert.equal(pedidos[0].metodo, "PATCH");
+  assert.deepEqual(filtros(pedidos[0].url), { tenant_id: "eq.loja-a", id: "eq.f1", published: "not.is.null" });
+  assert.deepEqual(Object.keys(pedidos[0].corpo as object).sort(), ["status", "updated_at"]);
 });
