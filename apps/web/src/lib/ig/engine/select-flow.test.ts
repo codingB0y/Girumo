@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { FlowDef, TriggerNode } from "@/lib/ig/flow/types";
+import type { TriggerNode } from "@/lib/ig/flow/types";
 import { escolherFluxo, type FluxoNoAr } from "./select-flow";
 
 const fluxo = (id: string, trigger: Partial<TriggerNode>): FluxoNoAr => ({
