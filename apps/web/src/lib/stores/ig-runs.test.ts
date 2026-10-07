@@ -45,8 +45,10 @@ test("criar o run grava a loja e nasce na fila; reenvio (23505) volta null", asy
   assert.equal(corpo.source_id, "c1");
   assert.equal(corpo.status, "queued");
   assert.equal(corpo.matched_keyword, "quero");
-  proxima = { status: 409, body: { code: "23505", message: "duplicate key", details: null, hint: null } };
+  proxima = { status: 409, body: { code: "23505", message: 'duplicate key value violates unique constraint "ig_runs_source_uidx"', details: null, hint: null } };
   assert.equal(await createRun("loja-a", novo), null);
+  proxima = { status: 409, body: { code: "23505", message: 'duplicate key value violates unique constraint "ig_runs_ref_uidx"', details: null, hint: null } };
+  await assert.rejects(() => createRun("loja-a", novo), /ig_runs_ref_uidx/);
 });
 
 test("ler por source_id, atualizar e gravar passo filtram a loja", async () => {

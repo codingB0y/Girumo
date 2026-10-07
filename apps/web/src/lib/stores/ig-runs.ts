@@ -48,7 +48,10 @@ export type NovoRun = {
 
 export type RunPatch = Partial<Pick<RunRow, "status" | "node_id" | "waiting" | "wake_at" | "error_code" | "error_message" | "finished_at">>;
 
-/** `null` = já existe run com este `source_id` (reenvio da Zernio): o índice único é a idempotência. */
+/**
+ * `null` = já existe run com este `source_id` (reenvio da Zernio): o índice único
+ * é a idempotência. Colisão em outro índice único (o do `ref`) NÃO é reenvio e estoura.
+ */
 export async function createRun(tenantId: string, input: NovoRun): Promise<RunRow | null> {
   const { data, error } = await getSupabaseAdmin()
     .from("ig_runs")
@@ -69,7 +72,7 @@ export async function createRun(tenantId: string, input: NovoRun): Promise<RunRo
     .select(COLS)
     .single();
   if (error) {
-    if (error.code === "23505") return null;
+    if (error.code === "23505" && `${error.message} ${error.details ?? ""}`.includes("ig_runs_source_uidx")) return null;
     throw new Error(error.message);
   }
   return data as unknown as RunRow;
