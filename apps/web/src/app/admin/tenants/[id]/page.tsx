@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { TenantActions } from "@/components/admin/tenant-actions";
+import { TenantInstagramInvite } from "@/components/admin/tenant-instagram-invite";
 import { TenantPlanGrant } from "@/components/admin/tenant-plan-grant";
 
 export const dynamic = "force-dynamic";
@@ -233,6 +234,7 @@ export default async function AdminTenantDetailPage({ params }: Props) {
               currentStatus={(subs ?? [])[0]?.status ?? null}
             />
           )}
+          <TenantInstagramInvite tenantId={org.id} />
         </section>
 
         {/* Instâncias WhatsApp */}

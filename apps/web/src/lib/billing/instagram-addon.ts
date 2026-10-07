@@ -6,24 +6,8 @@ import type Stripe from "stripe";
  * (docs/superpowers/specs/2026-10-07-instagram-assinatura-design.md). Puro: roda
  * sob `tsx --test`. Os ids de preço vêm do ambiente (ver `precoInstagram`).
  */
-export const IMPLANTACAO_CENTS = 49_700;
-export const MENSAL_CENTS = 29_700;
+export { IMPLANTACAO_CENTS, MENSAL_CENTS, formatarReais, implantacaoComDesconto, parseDesconto } from "./instagram-preco";
 export const CONVITE_VALIDADE_MS = 7 * 24 * 60 * 60 * 1000;
-
-/** Implementação depois do desconto do convite, em centavos (mesmo arredondamento do Stripe). */
-export function implantacaoComDesconto(descontoPercent: number): number {
-  return Math.round(IMPLANTACAO_CENTS * (1 - descontoPercent / 100));
-}
-
-export function formatarReais(cents: number): string {
-  return `R$ ${(cents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-/** Inteiro de 0 a 100; qualquer outra coisa é `null`. */
-export function parseDesconto(raw: unknown): number | null {
-  const n = typeof raw === "string" && raw.trim() !== "" ? Number(raw) : raw;
-  return typeof n === "number" && Number.isInteger(n) && n >= 0 && n <= 100 ? n : null;
-}
 
 /** O banco guarda só o SHA-256: quem lê a tabela não monta o link. */
 export function hashToken(token: string): string {
