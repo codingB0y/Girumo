@@ -59,7 +59,7 @@ export async function POST(req: Request) {
       }
     }
 
-    const order = await addOrder({
+    const order = await addOrder(tenantId, {
       value,
       phone: b.phone ? String(b.phone) : undefined,
       leadId,
@@ -88,10 +88,17 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
+  let tenantId: string;
+  try {
+    ({ tenantId } = await getRouteTenantContext(req, { allowEngine: false }));
+  } catch (e) {
+    if (e instanceof Response) return e;
+    return Response.json({ error: (e as Error).message }, { status: 500 });
+  }
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return Response.json({ error: "id obrigatório." }, { status: 400 });
   try {
-    const ok = await removeOrder(id);
+    const ok = await removeOrder(tenantId, id);
     return Response.json({ ok });
   } catch (e) {
     return Response.json({ error: (e as Error).message }, { status: 500 });
