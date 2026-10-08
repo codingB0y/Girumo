@@ -117,3 +117,62 @@ test("espera por resposta e desvio por clique deixam o run ativo pra fase 3; cic
   assert.equal(r3.errorCode, "cycle");
   assert.equal(chamadas.length, 4, "a, b, a, b e para antes da terceira visita");
 });
+
+/** Comentário → pergunta que espera "sim" → convite com botão de link. */
+const confirma: FlowDef = {
+  v: 1,
+  nodes: [
+    { id: "gatilho", type: "trigger", on: "comment", keywords: ["quero"], postId: null, publicReply: "Te chamei no direct.", storyReplies: false },
+    { id: "pergunta", type: "message", text: "Quer o link do grupo? Responde SIM.", button: null, wait: { minutes: 1380, keywords: ["sim"] } },
+    { id: "convite", type: "invite", text: "Clique no botão abaixo e entre no grupo VIP.", campaignSlug: "vip", button: "Entrar no grupo VIP", remindAfterMinutes: null },
+  ],
+  edges: [{ from: "gatilho", out: "next", to: "pergunta" }, { from: "pergunta", out: "replied", to: "convite" }],
+};
+
+test("confirmação: o comentário recebe só a pergunta (texto puro) e o run espera a resposta até a hora marcada", async () => {
+  const { deps, chamadas } = montar();
+  const r = await advance(confirma, base, deps);
+  assert.deepEqual([r.status, r.waiting, r.nodeId, r.directsSent, r.wakeAt], ["active", "reply", "pergunta", 1, "2026-10-07T11:00:00.000Z"]);
+  assert.deepEqual(chamadas.map((c) => c.metodo), ["publicReply", "privateReply"]);
+  assert.ok(chamadas[1].metodo === "privateReply" && chamadas[1].args.message === "Quer o link do grupo? Responde SIM.");
+});
+
+test("retomada depois do 'sim': o convite sai na conversa com o link no botão, sem link no texto, e o run termina", async () => {
+  const { deps, chamadas, passos } = montar();
+  const r = await advance(confirma, { ...base, conversationId: "conv-7", directsSent: 1 }, deps, { nodeId: "pergunta", out: "replied" });
+  assert.deepEqual([r.status, r.nodeId, r.wakeAt], ["done", "convite", null]);
+  assert.deepEqual(passos, [["pergunta", "replied"]]);
+  assert.equal(chamadas.length, 1, "sem resposta pública de novo");
+  const envio = chamadas[0];
+  assert.ok(envio.metodo === "sendMessage");
+  assert.deepEqual(envio.args, {
+    accountId: "z1",
+    conversationId: "conv-7",
+    message: "Clique no botão abaixo e entre no grupo VIP.",
+    buttons: [{ type: "url", title: "Entrar no grupo VIP", url: "https://app/r/vip?ig=ref123456789" }],
+    idempotencyKey: "run-1:convite",
+  });
+});
+
+test("botão em direct de conversa vira postback com o id do bloco; na resposta privada o link volta pro texto", async () => {
+  const dmDef: FlowDef = {
+    v: 1,
+    nodes: [
+      { id: "gatilho", type: "trigger", on: "dm", keywords: ["quero"], postId: null, publicReply: null, storyReplies: false },
+      { id: "pergunta", type: "message", text: "Quer o link?", button: "Sim, quero", wait: { minutes: 60 } },
+    ],
+    edges: [{ from: "gatilho", out: "next", to: "pergunta" }],
+  };
+  const { deps, chamadas } = montar();
+  await advance(dmDef, { ...base, sourceKind: "dm", comment: null, conversationId: "conv" }, deps);
+  assert.ok(chamadas[0].metodo === "sendMessage");
+  assert.deepEqual(chamadas[0].args.buttons, [{ type: "postback", title: "Sim, quero", payload: "pergunta" }]);
+
+  // Fluxo que a validação recusaria (botão no único direct do comentário): o motor manda o link no texto, nunca perde o convite.
+  const direto: FlowDef = { ...confirma, nodes: confirma.nodes.filter((n) => n.id !== "pergunta"), edges: [{ from: "gatilho", out: "next", to: "convite" }] };
+  const m = montar();
+  await advance(direto, base, m.deps);
+  const privada = m.chamadas[1];
+  assert.ok(privada.metodo === "privateReply");
+  assert.equal(privada.args.message, "Clique no botão abaixo e entre no grupo VIP.\nhttps://app/r/vip?ig=ref123456789");
+});

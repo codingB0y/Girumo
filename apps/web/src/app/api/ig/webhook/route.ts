@@ -7,7 +7,7 @@ import { createZernioTransport } from "@/lib/ig/transport/zernio";
 import { lerEvento } from "@/lib/ig/webhook/events";
 import { getAccountByProviderId, setAccountStatus } from "@/lib/stores/ig-accounts";
 import { listLiveFlows } from "@/lib/stores/ig-flows";
-import { countRunsStartedSince, createRun, getRunBySourceId, hasRecentRun, purgeOldRuns, recordStep, updateRun } from "@/lib/stores/ig-runs";
+import { claimWaitingRun, countRunsStartedSince, createRun, getRunBySourceId, getWaitingRun, hasRecentRun, purgeOldRuns, recordStep, updateRun } from "@/lib/stores/ig-runs";
 import { getTenantSettings } from "@/lib/stores/tenant-settings";
 
 export const runtime = "nodejs";
@@ -24,7 +24,7 @@ function ambiente(): Ambiente {
     mudarEstadoDaConta: setAccountStatus,
     lojaLiberada: async (tenantId) => (await getTenantSettings(tenantId)).instagramEnabled,
     fluxosNoAr: listLiveFlows,
-    runs: { criar: createRun, porOrigem: getRunBySourceId, atualizar: updateRun, passo: recordStep, iniciadosDesde: countRunsStartedSince, entradaRecente: hasRecentRun },
+    runs: { criar: createRun, porOrigem: getRunBySourceId, atualizar: updateRun, passo: recordStep, iniciadosDesde: countRunsStartedSince, entradaRecente: hasRecentRun, esperando: getWaitingRun, reivindicar: claimWaitingRun },
     link: linkDoConvite,
   };
 }

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { RECIPES } from "@/lib/ig/flow/recipes";
+import type { FlowDef } from "@/lib/ig/flow/types";
 import { createFakeTransport } from "@/lib/ig/transport/fake";
 import { ZernioError } from "@/lib/ig/transport/types";
 import type { EventoZernio } from "@/lib/ig/webhook/events";
@@ -11,10 +12,11 @@ const T0 = new Date("2026-10-06T12:00:00Z");
 const comentario: EventoZernio = { id: "e1", event: "comment.received", comment: { id: "c-1", platformPostId: "post-1", platform: "instagram", text: "quero", author: { id: "u1", username: "igortoled0", isOwnAccount: false }, createdAt: "2026-10-06T11:59:58Z", isReply: false }, account: { accountId: "z1" }, timestamp: "2026-10-06T11:59:59Z" };
 const direct: EventoZernio = { id: "e2", event: "message.received", message: { platformMessageId: "m-1", platform: "instagram", direction: "incoming", text: "quero", sender: { id: "u1", username: "igortoled0" }, sentAt: "2026-10-06T11:59:58Z" }, conversation: { id: "conv-1", participantId: "u1" }, account: { accountId: "z1" }, timestamp: "2026-10-06T11:59:59Z" };
 
-function ambiente(opts: { falhar?: NonNullable<Parameters<typeof createFakeTransport>[0]>["falhar"]; conta?: Partial<{ status: string; tenant_id: string }> | null; liberada?: boolean; fluxos?: Ambiente["fluxosNoAr"]; recente?: boolean; iniciados?: number; existente?: RunRow | null } = {}) {
+function ambiente(opts: { falhar?: NonNullable<Parameters<typeof createFakeTransport>[0]>["falhar"]; conta?: Partial<{ status: string; tenant_id: string }> | null; liberada?: boolean; fluxos?: Ambiente["fluxosNoAr"]; recente?: boolean; iniciados?: number; existente?: RunRow | null; esperando?: RunRow | null; reivindicado?: boolean } = {}) {
   const { transport, chamadas } = createFakeTransport({ falhar: opts.falhar });
   const criados: unknown[] = [];
   const patches: Array<[string, unknown]> = [];
+  const buscas: Array<[string, string | null]> = [];
   const estados: Array<[string, string, string | null]> = [];
   let proximoId = 1;
   const def = { ...RECIPES.comment_invite.build() };
@@ -40,10 +42,12 @@ function ambiente(opts: { falhar?: NonNullable<Parameters<typeof createFakeTrans
       passo: async () => {},
       iniciadosDesde: async () => opts.iniciados ?? 0,
       entradaRecente: async () => opts.recente ?? false,
+      esperando: async (_t, _conta, igUserId, username) => { buscas.push([igUserId, username]); return opts.esperando ?? null; },
+      reivindicar: async () => opts.reivindicado ?? true,
     },
     link: async (_t, slug, ref) => `https://app/r/${slug}?ig=${ref}`,
   };
-  return { amb, chamadas, criados, patches, estados };
+  return { amb, chamadas, criados, patches, estados, buscas };
 }
 
 test("comentário com a palavra vira run, resposta pública + privada com o link, e termina", async () => {
@@ -56,7 +60,7 @@ test("comentário com a palavra vira run, resposta pública + privada com o link
   assert.equal(novo.sourceId, "c-1");
   assert.equal(novo.matchedKeyword, "quero");
   assert.equal(novo.windowExpiresAt, "2026-10-13T11:59:58.000Z");
-  assert.deepEqual(patches[0][1], { status: "done", node_id: "convite", waiting: null, error_code: null, error_message: null, finished_at: T0.toISOString() });
+  assert.deepEqual(patches[0][1], { status: "done", node_id: "convite", waiting: null, wake_at: null, error_code: null, error_message: null, finished_at: T0.toISOString() });
 });
 
 test("finished_at é a hora do fim do passo, não a da chegada do evento", async () => {
@@ -131,4 +135,78 @@ test("data da Zernio que não parseia conta a janela a partir de agora", async (
   const d = await tratarEvento({ ...comentario, id: "e11", comment: { ...comentario.comment, id: "c-9", createdAt: "ontem" } }, amb);
   assert.equal(d.kind, "handled");
   assert.equal((criados[0] as { windowExpiresAt: string }).windowExpiresAt, "2026-10-13T12:00:00.000Z");
+});
+
+/** Comentário → pergunta que espera "sim" → convite com botão, já no ar. */
+const confirmaDef: FlowDef = {
+  v: 1,
+  nodes: [
+    { id: "gatilho", type: "trigger", on: "comment", keywords: ["quero"], postId: null, publicReply: null, storyReplies: false },
+    { id: "pergunta", type: "message", text: "Quer o link? Responde SIM.", button: null, wait: { minutes: 1380, keywords: ["sim"] } },
+    { id: "convite", type: "invite", text: "Clique no botão abaixo.", campaignSlug: "vip", button: "Entrar no grupo VIP", remindAfterMinutes: null },
+  ],
+  edges: [{ from: "gatilho", out: "next", to: "pergunta" }, { from: "pergunta", out: "replied", to: "convite" }],
+};
+const soConfirma: Ambiente["fluxosNoAr"] = async () => [{ id: "f-conf", version: 1, published: confirmaDef }];
+const esperandoRun: RunRow = { id: "run-esp", tenant_id: "loja-a", ig_account_id: "a1", flow_id: "f-conf", flow_version: 1, source_kind: "comment", source_id: "c-1", ig_user_id: "u1", username: "igortoled0", matched_keyword: "quero", ref: "ref-esp", status: "active", node_id: "pergunta", waiting: "reply", wake_at: "2026-10-07T11:00:00Z", window_expires_at: "2026-10-13T11:59:58.000Z", clicked_at: null, error_code: null, error_message: null, started_at: "2026-10-06T11:00:00Z", updated_at: "2026-10-06T11:00:01Z", finished_at: null };
+const resposta = (text: string, extra: Partial<EventoZernio> = {}): EventoZernio => ({ ...direct, message: { ...(direct as Extract<EventoZernio, { event: "message.received" }>).message, platformMessageId: `m-${text}`, text }, ...extra }) as EventoZernio;
+
+test("o comentário vira a pergunta e o run fica esperando a resposta até a hora marcada", async () => {
+  const { amb, chamadas, patches } = ambiente({ fluxos: soConfirma });
+  const d = await tratarEvento(comentario, amb);
+  assert.deepEqual(d, { kind: "handled", tenantId: "loja-a", runId: "run-1", status: "active" });
+  assert.deepEqual(chamadas.map((c) => c.metodo), ["privateReply"]);
+  assert.deepEqual(patches[0][1], { status: "active", node_id: "pergunta", waiting: "reply", wake_at: "2026-10-07T11:00:00.000Z", error_code: null, error_message: null, finished_at: null });
+});
+
+test("o 'sim' no direct retoma o run: convite com botão na conversa, run termina, nenhum run novo", async () => {
+  const { amb, chamadas, patches, criados, buscas } = ambiente({ fluxos: soConfirma, esperando: esperandoRun });
+  const d = await tratarEvento(resposta("Sim, quero!"), amb);
+  assert.deepEqual(d, { kind: "handled", tenantId: "loja-a", runId: "run-esp", status: "done" });
+  assert.deepEqual(buscas, [["u1", "igortoled0"]]);
+  assert.equal(criados.length, 0);
+  assert.ok(chamadas[0].metodo === "sendMessage");
+  assert.deepEqual(chamadas[0].args, { accountId: "z1", conversationId: "conv-1", message: "Clique no botão abaixo.", buttons: [{ type: "url", title: "Entrar no grupo VIP", url: "https://app/r/vip?ig=ref-esp" }], idempotencyKey: "run-esp:convite" });
+  assert.equal((patches[0][1] as { status: string }).status, "done");
+});
+
+test("o toque no botão da pergunta conta como resposta, mesmo com outro texto", async () => {
+  const { amb, chamadas } = ambiente({ fluxos: soConfirma, esperando: esperandoRun });
+  const d = await tratarEvento(resposta("Quero o link", { metadata: { postbackPayload: "pergunta" } }), amb);
+  assert.equal(d.kind, "handled");
+  assert.equal(chamadas.length, 1);
+});
+
+test("resposta sem a palavra esperada não retoma: segue o caminho normal e o run continua esperando", async () => {
+  const { amb, chamadas, patches } = ambiente({ fluxos: soConfirma, esperando: esperandoRun });
+  assert.deepEqual(await tratarEvento(resposta("quanto custa?"), amb), { kind: "ignored", reason: "sem fluxo" });
+  assert.equal(chamadas.length, 0);
+  assert.equal(patches.length, 0);
+});
+
+test("espera vencida: o run para como sem resposta e o direct segue o caminho normal", async () => {
+  const { amb, chamadas, patches } = ambiente({ fluxos: soConfirma, esperando: { ...esperandoRun, wake_at: "2026-10-06T11:30:00Z" } });
+  assert.deepEqual(await tratarEvento(resposta("sim"), amb), { kind: "ignored", reason: "sem fluxo" });
+  assert.equal(chamadas.length, 0);
+  assert.deepEqual(patches[0], ["run-esp", { status: "stopped", waiting: null, error_code: "no_reply", finished_at: T0.toISOString() }]);
+});
+
+test("o bloco que esperava sumiu do fluxo publicado: o run para e o direct segue o caminho normal", async () => {
+  const semPergunta: Ambiente["fluxosNoAr"] = async () => [{ id: "f-conf", version: 2, published: { ...confirmaDef, nodes: confirmaDef.nodes.filter((n) => n.id !== "pergunta"), edges: [] } }];
+  const { amb, patches } = ambiente({ fluxos: semPergunta, esperando: esperandoRun });
+  await tratarEvento(resposta("sim"), amb);
+  assert.equal((patches[0][1] as { status: string; error_code: string }).error_code, "flow_changed");
+});
+
+test("reenvio da mesma resposta: quem perde a reivindicação não manda nada", async () => {
+  const { amb, chamadas } = ambiente({ fluxos: soConfirma, esperando: esperandoRun, reivindicado: false });
+  assert.deepEqual(await tratarEvento(resposta("sim"), amb), { kind: "ignored", reason: "duplicado" });
+  assert.equal(chamadas.length, 0);
+});
+
+test("erro passageiro na retomada devolve o run à espera e pede reenvio", async () => {
+  const fora = new ZernioError(503, "api_error", "temporarily_unavailable", null, "x");
+  const { amb, patches } = ambiente({ fluxos: soConfirma, esperando: esperandoRun, falhar: { sendMessage: fora } });
+  assert.deepEqual(await tratarEvento(resposta("sim"), amb), { kind: "retry", reason: "temporarily_unavailable" });
+  assert.deepEqual(patches, [["run-esp", { waiting: "reply" }]]);
 });

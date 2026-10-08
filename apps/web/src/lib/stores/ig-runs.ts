@@ -89,6 +89,44 @@ export async function updateRun(tenantId: string, id: string, patch: RunPatch): 
   if (error) throw new Error(error.message);
 }
 
+/**
+ * O run desta pessoa que espera resposta no direct, o mais recente. Procura
+ * pelo id e, se não achar, pelo @: o id de quem comentou pode não ser o mesmo
+ * do direct. Duas consultas em vez de `.or()` porque o @ vem de fora.
+ */
+export async function getWaitingRun(tenantId: string, igAccountId: string, igUserId: string, username: string | null): Promise<RunRow | null> {
+  const buscar = async (coluna: "ig_user_id" | "username", valor: string) => {
+    const { data, error } = await getSupabaseAdmin()
+      .from("ig_runs")
+      .select(COLS)
+      .eq("tenant_id", tenantId)
+      .eq("ig_account_id", igAccountId)
+      .eq("status", "active")
+      .eq("waiting", "reply")
+      .eq(coluna, valor)
+      .order("updated_at", { ascending: false })
+      .limit(1);
+    if (error) throw new Error(error.message);
+    return ((data ?? []) as unknown as RunRow[])[0] ?? null;
+  };
+  return (await buscar("ig_user_id", igUserId)) ?? (username ? await buscar("username", username) : null);
+}
+
+/** Tira o run da espera só se ele ainda espera neste bloco. `false` = outra requisição já levou (reenvio). */
+export async function claimWaitingRun(tenantId: string, id: string, nodeId: string): Promise<boolean> {
+  const { data, error } = await getSupabaseAdmin()
+    .from("ig_runs")
+    .update({ waiting: null, updated_at: new Date().toISOString() })
+    .eq("tenant_id", tenantId)
+    .eq("id", id)
+    .eq("status", "active")
+    .eq("waiting", "reply")
+    .eq("node_id", nodeId)
+    .select("id");
+  if (error) throw new Error(error.message);
+  return (data ?? []).length === 1;
+}
+
 /** Uma linha por transição: é de onde saem os números (fase 3). */
 export async function recordStep(tenantId: string, input: { flowId: string; runId: string; nodeId: string; out: string }): Promise<void> {
   const { error } = await getSupabaseAdmin().from("ig_run_steps").insert({ tenant_id: tenantId, flow_id: input.flowId, run_id: input.runId, node_id: input.nodeId, out: input.out });

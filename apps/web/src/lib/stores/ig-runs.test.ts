@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
-import { countRunsStartedSince, createRun, getRunBySourceId, hasRecentRun, listRuns, purgeOldRuns, recordStep, stopActiveRuns, updateRun } from "./ig-runs";
+import { claimWaitingRun, countRunsStartedSince, createRun, getRunBySourceId, getWaitingRun, hasRecentRun, listRuns, purgeOldRuns, recordStep, stopActiveRuns, updateRun } from "./ig-runs";
 
 type Pedido = { metodo: string; url: URL; prefer: string; corpo: unknown };
 const pedidos: Pedido[] = [];
@@ -88,4 +88,24 @@ test("parar runs ativos, listar do fluxo e apagar os velhos filtram a loja", asy
   await purgeOldRuns("loja-a", "2026-07-08T00:00:00Z");
   assert.equal(pedidos[3].metodo, "DELETE");
   assert.deepEqual(filtros(pedidos[3].url), { tenant_id: "eq.loja-a", started_at: "lt.2026-07-08T00:00:00Z" });
+});
+
+test("run esperando resposta: busca pelo id, cai pro @ se não achar; reivindicar só pega quem ainda espera no bloco", async () => {
+  pedidos.length = 0;
+  assert.equal((await getWaitingRun("loja-a", "a1", "u1", "igortoled0"))?.id, "r1");
+  assert.deepEqual(filtros(pedidos[0].url), { tenant_id: "eq.loja-a", ig_account_id: "eq.a1", status: "eq.active", waiting: "eq.reply", ig_user_id: "eq.u1", order: "updated_at.desc", limit: "1" });
+  assert.equal(pedidos.length, 1, "achou pelo id: não procura pelo @");
+
+  pedidos.length = 0;
+  proxima = { status: 200, body: [] };
+  await getWaitingRun("loja-a", "a1", "u-direct", "igortoled0");
+  assert.equal(filtros(pedidos[1].url).username, "eq.igortoled0");
+
+  pedidos.length = 0;
+  assert.equal(await claimWaitingRun("loja-a", "r1", "pergunta"), true);
+  assert.equal(pedidos[0].metodo, "PATCH");
+  assert.deepEqual(filtros(pedidos[0].url), { tenant_id: "eq.loja-a", id: "eq.r1", status: "eq.active", waiting: "eq.reply", node_id: "eq.pergunta" });
+  assert.equal((pedidos[0].corpo as { waiting: unknown }).waiting, null);
+  proxima = { status: 200, body: [] };
+  assert.equal(await claimWaitingRun("loja-a", "r1", "pergunta"), false);
 });
