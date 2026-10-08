@@ -176,7 +176,8 @@ export async function tratarEvento(ev: EventoZernio, amb: Ambiente): Promise<Des
       waiting: r.waiting,
       error_code: r.errorCode,
       error_message: r.errorMessage,
-      finished_at: r.status === "active" ? null : agora.toISOString(),
+      // Relógio lido no fim: `started_at` é o now() do banco no insert, depois da chegada do evento.
+      finished_at: r.status === "active" ? null : amb.now().toISOString(),
     });
     return { kind: "handled", tenantId, runId, status: r.status };
   } catch (e) {
