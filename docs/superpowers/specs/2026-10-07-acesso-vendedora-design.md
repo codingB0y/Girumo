@@ -103,12 +103,30 @@ método exportado. Um typo no mapa não pode deixar o módulo mudo sem ninguém 
 Hoje declarado em três lugares (`permissions.ts:1`, `tenant-context.ts:7`, `member-removal.ts:13`).
 Passa a viver só em `permissions.ts` com `"seller"`; os outros importam.
 
-### RLS
+### RLS — a vendedora não lê nada direto do banco
 
-O helper do RLS lista `m.role in ('owner','admin','operator')` (`20260713100000_rls_standardization.sql:70`).
-**Fica assim de propósito:** a vendedora não tem nenhum caminho `authenticated` direto ao banco; tudo dela
-passa por rota com service-role + guard. Se um dia precisar, adicionar `seller` com policy própria, nunca
-alargar a existente.
+**Corrigido em 07/10 na revisão do plano do PR 2.** A primeira versão deste spec dizia que a vendedora não
+tinha caminho `authenticated` ao banco. Tem: o cliente de browser guarda o access token dela, a anon key é
+pública, `authenticated` mantém SELECT em `public`, e `app.user_tenant_ids()`
+(`20260713100000_rls_standardization.sql:32-43`) **não filtra papel** — só `user_id` + `accepted_at`. Com o
+próprio token ela leria pelo PostgREST `leads`, `orders` e as outras ~34 tabelas protegidas da loja inteira,
+passando por cima do guard da API e da decisão "só busca por número".
+
+Correção (PR 2, mesma migração B): os helpers de leitura que **não** filtram papel (`app.user_tenant_ids()`,
+`app.has_membership(...)` e qualquer outro que a Task 1 do PR 2 achar em prod com `pg_get_functiondef`)
+ganham `and m.role <> 'seller'`. Os que já listam papéis (`user_admin_tenant_ids`,
+`user_operator_tenant_ids`, `has_role`) já a excluem. Efeito: zero acesso `authenticated` para `seller`;
+tudo dela passa por rota service-role + guard. Nenhuma vendedora existe hoje, então ninguém atual perde
+acesso. O corpo vem de `pg_get_functiondef` **de prod** (as funções foram aplicadas à mão; o repo pode
+divergir), e o `create or replace` re-aplica revoke/grant depois (não preserva ACL em dev).
+
+Consequências a conferir nos PRs seguintes:
+- Realtime (`postgres_changes` respeita RLS): a casca da vendedora não recebe evento — e não deve assinar canal.
+- Upload de mídia do módulo `postar`: precisa ser por URL assinada emitida pela API (service-role). Se alguma
+  policy de `storage.objects` usar `user_tenant_ids()`, o upload da vendedora quebra — o PR 2 confere
+  `select polname, pg_get_expr(polqual, polrelid) from pg_policy where polrelid = 'storage.objects'::regclass`.
+- Teste de integração no PR 2: com o JWT de uma membership `seller`, `select` em `leads`/`orders`/`order_items`
+  via PostgREST devolve 0 linhas; com owner, devolve.
 
 ### Página
 
@@ -266,9 +284,11 @@ Passa a devolver `modules`. `RoleProvider` expõe `modules` e um `acesso` pronto
   venda". Embaixo: **Minhas vendas · mês**, total do mês e lista com **Corrigir** (até 24h) ou **Fechada**.
   Nome do produto: texto livre com `<datalist>` dos nomes que ela já usou (vindos das vendas do mês).
 - **Área não liberada** — página fora do acesso dela.
-- **Configurações › Equipe** — convite com **Função** (Administrador / Operador / Vendedora); Vendedora
-  abre os módulos (Registrar vendas travado ligado; Postar nos grupos). Linha da vendedora com chips dos
-  módulos e **Editar acesso**. Contador "N de M vagas do plano".
+- **Configurações › Equipe** — convite com **Função** usando os mesmos nomes da lista
+  (`papelEmPortugues`): Administração / Atendimento / Vendedora; Vendedora abre os módulos (Registrar
+  vendas travado ligado; Postar nos grupos). Linha da vendedora com chips dos módulos e **Editar acesso**.
+  Fora (decidido na revisão do plano): contador "N de M vagas" (o teto depende de plano + extras; o
+  limite já chega como 402 no convite), "Reenviar" e um "Remover" novo (a remoção que existe fica).
 - **Barra** — vendedora vê só Vendas (+ Disparos e o botão Postar se liberado) e o chip "Vendedora".
 
 Inputs com `font-size: 16px` (sem zoom no iOS), alvos ≥ 44px, `<label>` em todo campo, erro com
@@ -318,11 +338,17 @@ Inputs com `font-size: 16px` (sem zoom no iOS), alvos ≥ 44px, `<label>` em tod
 | 1 | `fix(orders)`: tenant da rota em `addOrder`/`removeOrder`, `DELETE` autenticado, `leadId` do tenant, remove `getSessionTenantId` | — |
 | 2 | `feat(db)`: `seller`, `modules`, `created_by`, `order_items`, RPCs — dev + prod + baseline | — |
 | 3 | `feat(auth)`: `modulos.ts`, guard nos 2 resolvedores, `TenantRole` único, `message:send`, `normalizeRole` estrito, `/api/auth/me` + `RoleProvider` com `modules`, migração das 3 rotas, testes estruturais | 2 |
-| 4 | `feat(vendas)`: `lib/orders/registrar.ts`, `api/vendas/*`, `/painel/vendas`, item de menu, casca e guarda de página da vendedora | 1, 3 |
-| 5 | `feat(equipe)`: convite com função e módulos, `PATCH /api/members`, aba Equipe | 3 |
+| 4 | `feat(vendas)` API: `lib/vendas/telefone.ts`, store de vendas, `lib/orders/registrar.ts`, `api/vendas/*` | 1, 2, 3 |
+| 5A | `feat(vendas)` tela: `/painel/vendas` | 4 |
+| 5B | `feat(vendedora)` casca: item de menu com `modulo`, filtro nos consumidores do menu, casca sem chamada proibida, guarda de página | 5A |
+| 5C | `feat(vendedora)` upload de mídia por token assinado (todo mundo) + E2E da vendedora | 5B |
+| 6 | `feat(equipe)`: convite com função e módulos, `PATCH /api/members`, aba Equipe — **mergeia por último** | 3 · 5C |
 
-4 e 5 em paralelo (arquivos disjuntos). Até o 5 entrar ninguém consegue convidar vendedora: 3 e 4 entram
-no escuro, sem flag.
+O PR 4 do desenho original virou 4 (API) + 5A/5B/5C (tela, casca, upload + E2E) por passar de 10
+arquivos. 5A–5C e 6 se desenvolvem em paralelo (arquivos disjuntos), mas o 6 mergeia por último: até ele
+entrar ninguém consegue convidar vendedora, então 3, 4 e 5A–5C entram no escuro, sem flag.
+
+Planos: `docs/superpowers/plans/2026-10-07-acesso-vendedora-pr{1..6}-*.md`.
 
 ## 9. Medições pendentes (prod, antes do plano fechar)
 
