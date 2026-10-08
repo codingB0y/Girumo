@@ -10,8 +10,8 @@
  * `LEGAL_EFFECTIVE_DATE` no mesmo commit.
  */
 
-export const LEGAL_VERSION = "2026-10-03.1";
-export const LEGAL_EFFECTIVE_DATE = "3 de outubro de 2026";
+export const LEGAL_VERSION = "2026-10-08.1";
+export const LEGAL_EFFECTIVE_DATE = "8 de outubro de 2026";
 
 /**
  * Identificação do responsável pela plataforma.
@@ -86,4 +86,5 @@ export const SUBPROCESSORS: ReadonlyArray<{ name: string; role: string; where: s
   { name: "Resend", role: "Envio de e-mails da plataforma", where: "Estados Unidos" },
   { name: "Upstash", role: "Controle de uso e limites de requisição", where: "Estados Unidos" },
   { name: "Sentry", role: "Registro de erros da aplicação", where: "Estados Unidos" },
+  { name: "Zernio (ARBICHAT, S.L.)", role: "Conexão com o Instagram: recebe comentários e mensagens da conta conectada e envia as respostas dos fluxos", where: "Espanha (União Europeia)" },
 ];
