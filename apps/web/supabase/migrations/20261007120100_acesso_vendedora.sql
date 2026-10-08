@@ -138,10 +138,10 @@ security invoker
 set search_path = ''
 as $$
 declare
-  item jsonb;
-  qtd numeric;
-  preco numeric;
-  total numeric := 0;
+  v_item jsonb;
+  v_qtd numeric;
+  v_preco numeric;
+  v_total numeric := 0;
 begin
   if p_items is null or jsonb_typeof(p_items) <> 'array' then
     raise exception 'itens_invalidos';
@@ -152,36 +152,36 @@ begin
     raise exception 'itens_invalidos';
   end if;
 
-  for item in select e.elemento from jsonb_array_elements(p_items) as e(elemento) loop
-    if jsonb_typeof(item) <> 'object'
-       or jsonb_typeof(item -> 'name') is distinct from 'string'
-       or jsonb_typeof(item -> 'quantity') is distinct from 'number'
-       or jsonb_typeof(item -> 'unit_price') is distinct from 'number' then
+  for v_item in select e.elemento from jsonb_array_elements(p_items) as e(elemento) loop
+    if jsonb_typeof(v_item) <> 'object'
+       or jsonb_typeof(v_item -> 'name') is distinct from 'string'
+       or jsonb_typeof(v_item -> 'quantity') is distinct from 'number'
+       or jsonb_typeof(v_item -> 'unit_price') is distinct from 'number' then
       raise exception 'itens_invalidos';
     end if;
 
-    qtd := (item ->> 'quantity')::numeric;
-    preco := (item ->> 'unit_price')::numeric;
-    if char_length(btrim(item ->> 'name')) not between 1 and 120
-       or qtd <> trunc(qtd)
-       or qtd not between 1 and 9999
-       or preco not between 0 and 999999.99 then
+    v_qtd := (v_item ->> 'quantity')::numeric;
+    v_preco := (v_item ->> 'unit_price')::numeric;
+    if char_length(btrim(v_item ->> 'name')) not between 1 and 120
+       or v_qtd <> trunc(v_qtd)
+       or v_qtd not between 1 and 9999
+       or v_preco not between 0 and 999999.99 then
       raise exception 'itens_invalidos';
     end if;
 
     -- O mesmo arredondamento que numeric(12,2) faz ao gravar o item: total = soma dos itens gravados.
-    total := total + qtd * round(preco, 2);
+    v_total := v_total + v_qtd * round(v_preco, 2);
   end loop;
 
   -- Teto de orders.value (numeric(12,2)): passar disso estouraria o insert com um erro sem nome.
-  if total > 9999999999.99 then
+  if v_total > 9999999999.99 then
     raise exception 'itens_invalidos';
   end if;
-  if total <= 0 then
+  if v_total <= 0 then
     raise exception 'total_zero';
   end if;
 
-  return round(total, 2);
+  return round(v_total, 2);
 end;
 $$;
 
@@ -208,7 +208,7 @@ security invoker
 set search_path = ''
 as $$
 declare
-  pedido public.orders;
+  v_pedido public.orders;
 begin
   insert into public.orders (tenant_id, created_by, lead_id, phone, group_name, campaign_id, value)
   values (
@@ -221,18 +221,18 @@ begin
     p_campaign_id,
     public.order_items_total(p_items)
   )
-  returning * into pedido;
+  returning * into v_pedido;
 
   insert into public.order_items (tenant_id, order_id, position, name, quantity, unit_price)
   select p_tenant_id,
-         pedido.id,
+         v_pedido.id,
          (e.ord - 1)::smallint,
          btrim(e.item ->> 'name'),
          (e.item ->> 'quantity')::numeric::integer,
          round((e.item ->> 'unit_price')::numeric, 2)
   from jsonb_array_elements(p_items) with ordinality as e(item, ord);
 
-  return pedido;
+  return v_pedido;
 end;
 $$;
 
@@ -257,10 +257,10 @@ security invoker
 set search_path = ''
 as $$
 declare
-  pedido public.orders;
-  total numeric;
+  v_pedido public.orders;
+  v_total numeric;
 begin
-  select * into pedido
+  select * into v_pedido
   from public.orders o
   where o.id = p_order_id
     and o.tenant_id = p_tenant_id
@@ -271,12 +271,12 @@ begin
   end if;
 
   if p_only_author is not null
-     and (pedido.created_by is distinct from p_only_author
-          or pedido.created_at <= now() - interval '24 hours') then
+     and (v_pedido.created_by is distinct from p_only_author
+          or v_pedido.created_at <= now() - interval '24 hours') then
     raise exception 'fora_da_janela';
   end if;
 
-  total := public.order_items_total(p_items);
+  v_total := public.order_items_total(p_items);
 
   delete from public.order_items i
   where i.tenant_id = p_tenant_id
@@ -292,12 +292,12 @@ begin
   from jsonb_array_elements(p_items) with ordinality as e(item, ord);
 
   update public.orders o
-  set value = total
+  set value = v_total
   where o.id = p_order_id
     and o.tenant_id = p_tenant_id
-  returning * into pedido;
+  returning * into v_pedido;
 
-  return pedido;
+  return v_pedido;
 end;
 $$;
 
