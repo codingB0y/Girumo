@@ -54,6 +54,14 @@ test.describe("Fluxos do Instagram", () => {
     }
   });
 
+  test("a página de assinar abre e mostra um estado da oferta", async ({ page }) => {
+    await page.goto("/painel/instagram/assinar", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { name: "Assinar o Instagram" })).toBeVisible();
+    // A loja de QA pode estar liberada (já assinado), sem plano ou com a oferta: qualquer um dos três vale.
+    await expect(page.getByText(/já está assinado|Assine um plano primeiro|Total hoje/).first()).toBeVisible();
+    await semErroDeRuntime(page);
+  });
+
   test("a lista mostra o estado da conta e o botão de conectar ou desconectar", async ({ page }) => {
     const status = await page.request.get("/api/ig/status");
     const liberado = status.ok() && ((await status.json()) as { enabled?: boolean }).enabled === true;
