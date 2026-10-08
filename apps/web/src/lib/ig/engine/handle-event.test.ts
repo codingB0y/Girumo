@@ -59,6 +59,15 @@ test("comentário com a palavra vira run, resposta pública + privada com o link
   assert.deepEqual(patches[0][1], { status: "done", node_id: "convite", waiting: null, error_code: null, error_message: null, finished_at: T0.toISOString() });
 });
 
+test("finished_at é a hora do fim do passo, não a da chegada do evento", async () => {
+  const { amb, patches } = ambiente();
+  let leituras = 0;
+  amb.now = () => new Date(T0.getTime() + 1000 * leituras++);
+  await tratarEvento(comentario, amb);
+  const fim = (patches[0][1] as { finished_at: string }).finished_at;
+  assert.ok(Date.parse(fim) > T0.getTime(), `finished_at ${fim} não pode ser a hora da chegada`);
+});
+
 test("direct e story pegam o fluxo de direct; a janela é de 24 h", async () => {
   const { amb, chamadas, criados } = ambiente();
   await tratarEvento(direct, amb);
