@@ -40,6 +40,9 @@ export type Retomada = { nodeId: string; out: FlowOut };
 const MAX_VISITAS = 2;
 const MAX_ERRO = 200;
 
+/** O que volta em `metadata.postbackPayload` quando a pessoa toca o botão de um direct que espera. */
+export const payloadDoBotao = (runId: string, nodeId: string) => `${runId}:${nodeId}`;
+
 type Envio = { ok: true } | { ok: false; code: string; message: string | null };
 type Direct = { texto: string; botao: MessageButton | null };
 
@@ -51,7 +54,8 @@ async function montarDirect(no: FlowNode, run: RunState, viaPrivada: boolean, de
     if (no.button && !viaPrivada) return { texto: no.text, botao: { type: "url", title: no.button, url } };
     return { texto: `${no.text}\n${url}`, botao: null };
   }
-  if (no.type === "message" && no.button && !viaPrivada) return { texto: no.text, botao: { type: "postback", title: no.button, payload: no.id } };
+  // O toque só vale onde há quem espere por ele; o payload leva o run pra um botão velho de outro fluxo não liberar este.
+  if (no.type === "message" && no.button && no.wait && !viaPrivada) return { texto: no.text, botao: { type: "postback", title: no.button, payload: payloadDoBotao(run.id, no.id) } };
   return { texto: no.type === "message" ? no.text : "", botao: null };
 }
 

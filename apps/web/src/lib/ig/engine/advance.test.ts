@@ -166,7 +166,11 @@ test("botão em direct de conversa vira postback com o id do bloco; na resposta 
   const { deps, chamadas } = montar();
   await advance(dmDef, { ...base, sourceKind: "dm", comment: null, conversationId: "conv" }, deps);
   assert.ok(chamadas[0].metodo === "sendMessage");
-  assert.deepEqual(chamadas[0].args.buttons, [{ type: "postback", title: "Sim, quero", payload: "pergunta" }]);
+  assert.deepEqual(chamadas[0].args.buttons, [{ type: "postback", title: "Sim, quero", payload: "run-1:pergunta" }]);
+  // Sem espera, o botão não teria quem o ouvisse: não vai.
+  const semEspera = montar();
+  await advance({ ...dmDef, nodes: dmDef.nodes.map((n) => (n.type === "message" ? { ...n, wait: null } : n)) }, { ...base, sourceKind: "dm", comment: null, conversationId: "conv" }, semEspera.deps);
+  assert.ok(semEspera.chamadas[0].metodo === "sendMessage" && semEspera.chamadas[0].args.buttons === undefined);
 
   // Fluxo que a validação recusaria (botão no único direct do comentário): o motor manda o link no texto, nunca perde o convite.
   const direto: FlowDef = { ...confirma, nodes: confirma.nodes.filter((n) => n.id !== "pergunta"), edges: [{ from: "gatilho", out: "next", to: "convite" }] };

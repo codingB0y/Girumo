@@ -94,7 +94,7 @@ export async function updateRun(tenantId: string, id: string, patch: RunPatch): 
  * pelo id e, se não achar, pelo @: o id de quem comentou pode não ser o mesmo
  * do direct. Duas consultas em vez de `.or()` porque o @ vem de fora.
  */
-export async function getWaitingRun(tenantId: string, igAccountId: string, igUserId: string, username: string | null): Promise<RunRow | null> {
+export async function getWaitingRun(tenantId: string, igAccountId: string, igUserId: string, username: string | null, agoraIso: string): Promise<RunRow | null> {
   const buscar = async (coluna: "ig_user_id" | "username", valor: string) => {
     const { data, error } = await getSupabaseAdmin()
       .from("ig_runs")
@@ -103,6 +103,8 @@ export async function getWaitingRun(tenantId: string, igAccountId: string, igUse
       .eq("ig_account_id", igAccountId)
       .eq("status", "active")
       .eq("waiting", "reply")
+      // Espera vencida não conta: senão um run velho da pessoa esconderia o que vale.
+      .gt("wake_at", agoraIso)
       .eq(coluna, valor)
       .order("updated_at", { ascending: false })
       .limit(1);
@@ -112,16 +114,45 @@ export async function getWaitingRun(tenantId: string, igAccountId: string, igUse
   return (await buscar("ig_user_id", igUserId)) ?? (username ? await buscar("username", username) : null);
 }
 
-/** Tira o run da espera só se ele ainda espera neste bloco. `false` = outra requisição já levou (reenvio). */
-export async function claimWaitingRun(tenantId: string, id: string, nodeId: string): Promise<boolean> {
+/**
+ * Tira o run da espera só se ele ainda espera neste bloco, carimbando o direct
+ * que o retomou. `false` = outra requisição já levou, ou este direct já
+ * retomou outro run (índice único de `resumed_by`).
+ */
+export async function claimWaitingRun(tenantId: string, id: string, nodeId: string, messageId: string): Promise<boolean> {
   const { data, error } = await getSupabaseAdmin()
     .from("ig_runs")
-    .update({ waiting: null, updated_at: new Date().toISOString() })
+    .update({ waiting: null, resumed_by: messageId, updated_at: new Date().toISOString() })
     .eq("tenant_id", tenantId)
     .eq("id", id)
     .eq("status", "active")
     .eq("waiting", "reply")
     .eq("node_id", nodeId)
+    .select("id");
+  if (error) {
+    if (error.code === "23505" && `${error.message} ${error.details ?? ""}`.includes("ig_runs_resumed_by_uidx")) return false;
+    throw new Error(error.message);
+  }
+  return (data ?? []).length === 1;
+}
+
+/** O run que este direct já retomou: o reenvio da Zernio cai aqui. */
+export async function getRunResumedBy(tenantId: string, messageId: string): Promise<RunRow | null> {
+  const { data, error } = await getSupabaseAdmin().from("ig_runs").select(COLS).eq("tenant_id", tenantId).eq("resumed_by", messageId).maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data as unknown as RunRow | null) ?? null;
+}
+
+/** Retomada que parou no meio (função caiu): só um reenvio leva, pelo `updated_at` que ele viu. */
+export async function retakeStalledRun(tenantId: string, id: string, updatedAt: string): Promise<boolean> {
+  const { data, error } = await getSupabaseAdmin()
+    .from("ig_runs")
+    .update({ updated_at: new Date().toISOString() })
+    .eq("tenant_id", tenantId)
+    .eq("id", id)
+    .eq("status", "active")
+    .is("waiting", null)
+    .eq("updated_at", updatedAt)
     .select("id");
   if (error) throw new Error(error.message);
   return (data ?? []).length === 1;

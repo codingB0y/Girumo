@@ -130,10 +130,10 @@ test("com botão valem os dois limites: 640 caracteres e 1000 bytes", () => {
   const def = comCampanha(RECIPES.dm_invite.build());
   const comBotao = (text: string): FlowDef => ({
     ...def,
-    nodes: [def.nodes[0], { id: "direct", type: "message", text, button: "Quero", wait: null }, def.nodes[1]],
+    nodes: [def.nodes[0], { id: "direct", type: "message", text, button: "Quero", wait: { minutes: 60 } }, def.nodes[1]],
     edges: [
       { from: "gatilho", out: "next", to: "direct" },
-      { from: "direct", out: "next", to: "convite" },
+      { from: "direct", out: "replied", to: "convite" },
     ],
   });
   // 300 emojis = 300 caracteres (< 640) mas 1200 bytes (> 1000).
@@ -170,6 +170,15 @@ test("convite com botão: rótulo vazio e texto acima de 640 caracteres são cob
   // Com botão o link não vai no texto: 600 caracteres passam; sem botão, 900 bytes mais o link não.
   assert.deepEqual(codes(validateFlow(confirma({ textoConvite: "a".repeat(600) }), ok)), []);
   assert.deepEqual(codes(validateFlow(confirma({ botaoNoConvite: null, textoConvite: "a".repeat(900) }), ok)), ["texto_longo"]);
+});
+
+test("botão em direct que não espera resposta é cobrado: ninguém ouviria o toque", () => {
+  const def = confirma();
+  const comBotao: FlowDef = { ...def, nodes: def.nodes.map((n) => (n.id === "pergunta" && n.type === "message" ? { ...n, button: "Sim" } : n)) };
+  // Na pergunta logo depois do comentário o botão já é recusado por outra regra; aqui só interessa a espera.
+  assert.ok(!codes(validateFlow(comBotao, ok)).includes("botao_sem_espera"));
+  const semEspera: FlowDef = { ...comBotao, nodes: comBotao.nodes.map((n) => (n.id === "pergunta" && n.type === "message" ? { ...n, wait: null } : n)), edges: [{ from: "gatilho", out: "next", to: "pergunta" }, { from: "pergunta", out: "next", to: "convite" }] };
+  assert.ok(codes(validateFlow(semEspera, ok)).includes("botao_sem_espera"));
 });
 
 test("convite com botão logo depois do comentário é recusado: é o único direct e o Instagram recusa botão", () => {

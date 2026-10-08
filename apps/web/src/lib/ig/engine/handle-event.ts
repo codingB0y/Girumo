@@ -5,7 +5,7 @@ import { ZernioError, type Transport } from "@/lib/ig/transport/types";
 import type { ComentarioRecebido, EventoZernio, MensagemRecebida } from "@/lib/ig/webhook/events";
 import type { AccountStatus, IgAccountComLoja } from "@/lib/stores/ig-accounts";
 import type { NovoRun, RunPatch, RunRow, SourceKind } from "@/lib/stores/ig-runs";
-import { advance, type Deps, type Resultado, type Retomada, type RunState } from "./advance";
+import { advance, payloadDoBotao, type Deps, type Resultado, type Retomada, type RunState } from "./advance";
 import { escolherFluxo, type FluxoNoAr, type Origem } from "./select-flow";
 
 /** Tudo que o tratamento toca, injetado: a rota liga nas stores de verdade; o teste, em memória. */
@@ -24,8 +24,10 @@ export type Ambiente = {
     passo: (tenantId: string, input: { flowId: string; runId: string; nodeId: string; out: FlowOut }) => Promise<void>;
     iniciadosDesde: (tenantId: string, igAccountId: string, sinceIso: string) => Promise<number>;
     entradaRecente: (tenantId: string, flowId: string, igUserId: string, sinceIso: string) => Promise<boolean>;
-    esperando: (tenantId: string, igAccountId: string, igUserId: string, username: string | null) => Promise<RunRow | null>;
-    reivindicar: (tenantId: string, id: string, nodeId: string) => Promise<boolean>;
+    esperando: (tenantId: string, igAccountId: string, igUserId: string, username: string | null, agoraIso: string) => Promise<RunRow | null>;
+    reivindicar: (tenantId: string, id: string, nodeId: string, messageId: string) => Promise<boolean>;
+    retomadoPor: (tenantId: string, messageId: string) => Promise<RunRow | null>;
+    retomarParado: (tenantId: string, id: string, updatedAt: string) => Promise<boolean>;
   };
   link: (tenantId: string, slug: string, ref: string) => Promise<string>;
 };
@@ -78,10 +80,12 @@ function deComentario(ev: ComentarioRecebido, agoraMs: number): Entrada | null {
 
 function deMensagem(ev: MensagemRecebida, agoraMs: number): Entrada | null {
   const m = ev.message;
-  if (m.platform !== "instagram" || m.direction !== "incoming" || !m.text) return null;
+  // O toque num botão pode chegar sem texto: ainda é resposta (a retomada lê o payload).
+  if (m.platform !== "instagram" || m.direction !== "incoming" || (!m.text && !ev.metadata?.postbackPayload)) return null;
+  const texto = m.text ?? "";
   const story = ev.metadata?.storyReply !== undefined;
   return {
-    origem: story ? { kind: "story", text: m.text } : { kind: "dm", text: m.text },
+    origem: story ? { kind: "story", text: texto } : { kind: "dm", text: texto },
     sourceKind: story ? "story" : "dm",
     sourceId: m.platformMessageId,
     igUserId: m.sender.id,
@@ -207,10 +211,33 @@ const parar = (tenantId: string, runId: string, code: string, amb: Ambiente) =>
   amb.runs.atualizar(tenantId, runId, { status: "stopped", waiting: null, error_code: code, finished_at: amb.now().toISOString() });
 
 /** A resposta libera o bloco: toque no botão dele, ou uma das palavras (sem palavras = qualquer resposta). */
-function liberou(no: MessageNode & { wait: NonNullable<MessageNode["wait"]> }, ev: MensagemRecebida): boolean {
-  if (ev.metadata?.postbackPayload === no.id) return true;
+function liberou(no: MessageNode & { wait: NonNullable<MessageNode["wait"]> }, runId: string, ev: MensagemRecebida): boolean {
+  if (ev.metadata?.postbackPayload === payloadDoBotao(runId, no.id)) return true;
   const palavras = (no.wait.keywords ?? []).filter((k) => k.trim());
   return palavras.length === 0 || matchKeyword(ev.message.text ?? "", palavras) !== null;
+}
+
+type Achado = { run: RunRow; reivindicado: boolean } | Desfecho | null;
+
+/**
+ * O run que este direct deve retomar. Primeiro o reenvio: um direct que já
+ * retomou um run nunca abre outro (nem cai no caminho normal e manda um
+ * segundo convite). Depois, o run da pessoa que espera resposta.
+ */
+async function acharRetomada(entrada: Entrada, igAccountId: string, tenantId: string, amb: Ambiente): Promise<Achado> {
+  const agora = amb.now();
+  const ja = await amb.runs.retomadoPor(tenantId, entrada.sourceId);
+  if (!ja) {
+    const run = await amb.runs.esperando(tenantId, igAccountId, entrada.igUserId, entrada.username, agora.toISOString());
+    return run ? { run, reivindicado: false } : null;
+  }
+  // Voltou pra espera depois de um erro passageiro: reivindica de novo, como da primeira vez.
+  if (ja.status === "active" && ja.waiting === "reply") return { run: ja, reivindicado: false };
+  if (ja.status !== "active" || ja.waiting !== null) return { kind: "ignored", reason: "duplicado" };
+  // Retomada sem desfecho gravado: a 1ª tentativa ainda roda, ou a função caiu no meio.
+  if (agora.getTime() - Date.parse(ja.updated_at) <= RETOMADA_MS) return { kind: "retry", reason: "em andamento" };
+  if (!(await amb.runs.retomarParado(tenantId, ja.id, ja.updated_at))) return { kind: "retry", reason: "corrida" };
+  return { run: ja, reivindicado: true };
 }
 
 /**
@@ -218,13 +245,11 @@ function liberou(no: MessageNode & { wait: NonNullable<MessageNode["wait"]> }, e
  * retomar (ou a resposta não liberou o bloco): o direct segue o caminho normal.
  */
 async function retomarSeEsperando(ev: MensagemRecebida, entrada: Entrada, igAccountId: string, tenantId: string, fluxos: readonly FluxoNoAr[], amb: Ambiente): Promise<Desfecho | null> {
-  const run = await amb.runs.esperando(tenantId, igAccountId, entrada.igUserId, entrada.username);
-  if (!run?.node_id) return null;
+  const achado = await acharRetomada(entrada, igAccountId, tenantId, amb);
+  if (!achado || "kind" in achado) return achado;
+  const { run } = achado;
+  if (!run.node_id) return null;
   const nodeId = run.node_id;
-  if (run.wake_at && amb.now().getTime() > Date.parse(run.wake_at)) {
-    await parar(tenantId, run.id, "no_reply", amb);
-    return null;
-  }
   // Fluxo editado e publicado de novo vale, desde que o bloco que esperava continue lá e esperando.
   const def = fluxos.find((f) => f.id === run.flow_id)?.published ?? null;
   const no = def?.nodes.find((n) => n.id === nodeId);
@@ -232,9 +257,10 @@ async function retomarSeEsperando(ev: MensagemRecebida, entrada: Entrada, igAcco
     await parar(tenantId, run.id, "flow_changed", amb);
     return null;
   }
-  if (!liberou({ ...no, wait: no.wait }, ev)) return null;
-  // ponytail: o mesmo direct reenviado depois de o run terminar cai no caminho normal; só abre run se casar um fluxo de direct.
-  if (!(await amb.runs.reivindicar(tenantId, run.id, nodeId))) return { kind: "ignored", reason: "duplicado" };
+  if (!achado.reivindicado) {
+    if (!liberou({ ...no, wait: no.wait }, run.id, ev)) return null;
+    if (!(await amb.runs.reivindicar(tenantId, run.id, nodeId, entrada.sourceId))) return { kind: "ignored", reason: "duplicado" };
+  }
 
   const estado: RunState = {
     id: run.id,

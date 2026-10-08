@@ -12,11 +12,12 @@ const T0 = new Date("2026-10-06T12:00:00Z");
 const comentario: EventoZernio = { id: "e1", event: "comment.received", comment: { id: "c-1", platformPostId: "post-1", platform: "instagram", text: "quero", author: { id: "u1", username: "igortoled0", isOwnAccount: false }, createdAt: "2026-10-06T11:59:58Z", isReply: false }, account: { accountId: "z1" }, timestamp: "2026-10-06T11:59:59Z" };
 const direct: EventoZernio = { id: "e2", event: "message.received", message: { platformMessageId: "m-1", platform: "instagram", direction: "incoming", text: "quero", sender: { id: "u1", username: "igortoled0" }, sentAt: "2026-10-06T11:59:58Z" }, conversation: { id: "conv-1", participantId: "u1" }, account: { accountId: "z1" }, timestamp: "2026-10-06T11:59:59Z" };
 
-function ambiente(opts: { falhar?: NonNullable<Parameters<typeof createFakeTransport>[0]>["falhar"]; conta?: Partial<{ status: string; tenant_id: string }> | null; liberada?: boolean; fluxos?: Ambiente["fluxosNoAr"]; recente?: boolean; iniciados?: number; existente?: RunRow | null; esperando?: RunRow | null; reivindicado?: boolean } = {}) {
+function ambiente(opts: { falhar?: NonNullable<Parameters<typeof createFakeTransport>[0]>["falhar"]; conta?: Partial<{ status: string; tenant_id: string }> | null; liberada?: boolean; fluxos?: Ambiente["fluxosNoAr"]; recente?: boolean; iniciados?: number; existente?: RunRow | null; esperando?: RunRow | null; reivindicado?: boolean; retomado?: RunRow | null; parado?: boolean } = {}) {
   const { transport, chamadas } = createFakeTransport({ falhar: opts.falhar });
   const criados: unknown[] = [];
   const patches: Array<[string, unknown]> = [];
-  const buscas: Array<[string, string | null]> = [];
+  const buscas: Array<[string, string | null, string]> = [];
+  const reivindicacoes: string[] = [];
   const estados: Array<[string, string, string | null]> = [];
   let proximoId = 1;
   const def = { ...RECIPES.comment_invite.build() };
@@ -42,12 +43,14 @@ function ambiente(opts: { falhar?: NonNullable<Parameters<typeof createFakeTrans
       passo: async () => {},
       iniciadosDesde: async () => opts.iniciados ?? 0,
       entradaRecente: async () => opts.recente ?? false,
-      esperando: async (_t, _conta, igUserId, username) => { buscas.push([igUserId, username]); return opts.esperando ?? null; },
-      reivindicar: async () => opts.reivindicado ?? true,
+      esperando: async (_t, _conta, igUserId, username, agoraIso) => { buscas.push([igUserId, username, agoraIso]); return opts.esperando ?? null; },
+      reivindicar: async (_t, _id, _no, messageId) => { reivindicacoes.push(messageId); return opts.reivindicado ?? true; },
+      retomadoPor: async () => opts.retomado ?? null,
+      retomarParado: async () => opts.parado ?? true,
     },
     link: async (_t, slug, ref) => `https://app/r/${slug}?ig=${ref}`,
   };
-  return { amb, chamadas, criados, patches, estados, buscas };
+  return { amb, chamadas, criados, patches, estados, buscas, reivindicacoes };
 }
 
 test("comentário com a palavra vira run, resposta pública + privada com o link, e termina", async () => {
@@ -163,18 +166,24 @@ test("o 'sim' no direct retoma o run: convite com botão na conversa, run termin
   const { amb, chamadas, patches, criados, buscas } = ambiente({ fluxos: soConfirma, esperando: esperandoRun });
   const d = await tratarEvento(resposta("Sim, quero!"), amb);
   assert.deepEqual(d, { kind: "handled", tenantId: "loja-a", runId: "run-esp", status: "done" });
-  assert.deepEqual(buscas, [["u1", "igortoled0"]]);
+  assert.deepEqual(buscas, [["u1", "igortoled0", T0.toISOString()]], "a busca só vê espera que não venceu");
   assert.equal(criados.length, 0);
   assert.ok(chamadas[0].metodo === "sendMessage");
   assert.deepEqual(chamadas[0].args, { accountId: "z1", conversationId: "conv-1", message: "Clique no botão abaixo.", buttons: [{ type: "url", title: "Entrar no grupo VIP", url: "https://app/r/vip?ig=ref-esp" }], idempotencyKey: "run-esp:convite" });
   assert.equal((patches[0][1] as { status: string }).status, "done");
 });
 
-test("o toque no botão da pergunta conta como resposta, mesmo com outro texto", async () => {
-  const { amb, chamadas } = ambiente({ fluxos: soConfirma, esperando: esperandoRun });
-  const d = await tratarEvento(resposta("Quero o link", { metadata: { postbackPayload: "pergunta" } }), amb);
-  assert.equal(d.kind, "handled");
-  assert.equal(chamadas.length, 1);
+test("o toque no botão da pergunta conta como resposta, mesmo com outro texto ou sem texto; botão de outro run não", async () => {
+  const toque = ambiente({ fluxos: soConfirma, esperando: esperandoRun });
+  assert.equal((await tratarEvento(resposta("Quero o link", { metadata: { postbackPayload: "run-esp:pergunta" } }), toque.amb)).kind, "handled");
+  assert.equal(toque.chamadas.length, 1);
+
+  const semTexto = ambiente({ fluxos: soConfirma, esperando: esperandoRun });
+  const ev = resposta("x", { metadata: { postbackPayload: "run-esp:pergunta" } }) as Extract<EventoZernio, { event: "message.received" }>;
+  assert.equal((await tratarEvento({ ...ev, message: { ...ev.message, text: null } }, semTexto.amb)).kind, "handled");
+
+  const velho = ambiente({ fluxos: soConfirma, esperando: esperandoRun });
+  assert.equal((await tratarEvento(resposta("Quero o link", { metadata: { postbackPayload: "run-velho:pergunta" } }), velho.amb)).kind, "ignored");
 });
 
 test("resposta sem a palavra esperada não retoma: segue o caminho normal e o run continua esperando", async () => {
@@ -182,13 +191,6 @@ test("resposta sem a palavra esperada não retoma: segue o caminho normal e o ru
   assert.deepEqual(await tratarEvento(resposta("quanto custa?"), amb), { kind: "ignored", reason: "sem fluxo" });
   assert.equal(chamadas.length, 0);
   assert.equal(patches.length, 0);
-});
-
-test("espera vencida: o run para como sem resposta e o direct segue o caminho normal", async () => {
-  const { amb, chamadas, patches } = ambiente({ fluxos: soConfirma, esperando: { ...esperandoRun, wake_at: "2026-10-06T11:30:00Z" } });
-  assert.deepEqual(await tratarEvento(resposta("sim"), amb), { kind: "ignored", reason: "sem fluxo" });
-  assert.equal(chamadas.length, 0);
-  assert.deepEqual(patches[0], ["run-esp", { status: "stopped", waiting: null, error_code: "no_reply", finished_at: T0.toISOString() }]);
 });
 
 test("o bloco que esperava sumiu do fluxo publicado: o run para e o direct segue o caminho normal", async () => {
@@ -209,4 +211,41 @@ test("erro passageiro na retomada devolve o run à espera e pede reenvio", async
   const { amb, patches } = ambiente({ fluxos: soConfirma, esperando: esperandoRun, falhar: { sendMessage: fora } });
   assert.deepEqual(await tratarEvento(resposta("sim"), amb), { kind: "retry", reason: "temporarily_unavailable" });
   assert.deepEqual(patches, [["run-esp", { waiting: "reply" }]]);
+});
+
+test("a reivindicação carimba o direct que retomou", async () => {
+  const { amb, reivindicacoes } = ambiente({ fluxos: soConfirma, esperando: esperandoRun });
+  await tratarEvento(resposta("sim"), amb);
+  assert.deepEqual(reivindicacoes, ["m-sim"]);
+});
+
+test("reenvio do direct que já retomou um run terminado: duplicado, mesmo com fluxo de direct com a mesma palavra no ar", async () => {
+  const comDm: Ambiente["fluxosNoAr"] = async () => [
+    { id: "f-conf", version: 1, published: confirmaDef },
+    { id: "f-d", version: 1, published: { ...RECIPES.dm_invite.build(), nodes: RECIPES.dm_invite.build().nodes.map((n) => (n.type === "invite" ? { ...n, campaignSlug: "vip" } : n)) } },
+  ];
+  const { amb, chamadas, criados } = ambiente({ fluxos: comDm, retomado: { ...esperandoRun, status: "done", waiting: null } });
+  assert.deepEqual(await tratarEvento(resposta("quero"), amb), { kind: "ignored", reason: "duplicado" });
+  assert.equal(chamadas.length, 0);
+  assert.equal(criados.length, 0);
+});
+
+test("reenvio enquanto a retomada não gravou desfecho: há pouco pede nova tentativa; parada há mais de 2 min é levada e termina", async () => {
+  const emCurso = { ...esperandoRun, waiting: null, updated_at: "2026-10-06T11:59:30Z" };
+  assert.deepEqual(await tratarEvento(resposta("sim"), ambiente({ fluxos: soConfirma, retomado: emCurso }).amb), { kind: "retry", reason: "em andamento" });
+
+  const parada = { ...emCurso, updated_at: "2026-10-06T11:50:00Z" };
+  const levou = ambiente({ fluxos: soConfirma, retomado: parada });
+  assert.deepEqual(await tratarEvento(resposta("sim"), levou.amb), { kind: "handled", tenantId: "loja-a", runId: "run-esp", status: "done" });
+  assert.deepEqual(levou.reivindicacoes, [], "já reivindicado pela 1ª tentativa");
+  assert.equal(levou.chamadas.length, 1);
+
+  assert.deepEqual(await tratarEvento(resposta("sim"), ambiente({ fluxos: soConfirma, retomado: parada, parado: false }).amb), { kind: "retry", reason: "corrida" });
+});
+
+test("reenvio depois de erro passageiro (run de volta à espera) retoma normalmente", async () => {
+  const { amb, chamadas, reivindicacoes } = ambiente({ fluxos: soConfirma, retomado: esperandoRun });
+  assert.equal((await tratarEvento(resposta("sim"), amb)).kind, "handled");
+  assert.deepEqual(reivindicacoes, ["m-sim"]);
+  assert.equal(chamadas.length, 1);
 });
