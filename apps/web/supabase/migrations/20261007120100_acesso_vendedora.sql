@@ -9,6 +9,9 @@
 -- O gate de drift não vê schema app, constraint, índice, policy, ACL nem corpo de função —
 -- conferir com infra/tests/acesso-vendedora-check.sql nos dois bancos.
 
+-- Se estourar o timeout (transação segurando memberships/orders), é só rodar de novo: a migração é idempotente.
+set lock_timeout = '5s';
+
 -- 0) RLS: a vendedora não lê nada direto do banco.
 --    O access token dela fica no browser (src/lib/supabase/client.ts) e a anon key é pública;
 --    authenticated mantém SELECT em public. Os helpers de LEITURA abaixo não filtravam papel, então
@@ -18,7 +21,8 @@
 --    Só estes dois mudam: user_admin_tenant_ids, user_operator_tenant_ids e has_role já listam
 --    papéis e excluem seller. Nenhuma policy muda. Nenhuma vendedora existe hoje: ninguém perde
 --    acesso. Corpo, linguagem, volatilidade, security definer e search_path copiados de
---    pg_get_functiondef de PROD (Task 1 do plano do PR 2); a única linha nova é a do seller.
+--    pg_get_functiondef de DEV (idêntico aos corpos do repo); prod é comparada com dev antes de
+--    aplicar (vendedora-compare-helpers.mjs). A única linha nova é a do seller.
 --    Consequência conhecida: o upload direto do browser para storage.objects (policy com
 --    app.has_membership) deixa de valer para seller — o módulo postar precisa de URL assinada.
 create or replace function app.user_tenant_ids()
