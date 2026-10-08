@@ -2,13 +2,17 @@ import type { FlowDef } from "./types";
 import type { Issue } from "./validate";
 
 /**
- * O que o motor só executa na fase 3: esperar resposta, "segue a loja?",
- * lembrete e desvio de quem não clicou. Dá pra montar no rascunho; não publica.
+ * O que o motor ainda não executa: tudo que depende de relógio ("não
+ * respondeu", lembrete, "não clicou") e "segue a loja?". Dá pra montar no
+ * rascunho; não publica. Esperar a resposta já roda (fase 3a, 08/10): o run
+ * retoma quando a pessoa responde no direct.
  */
 export function foraDaFase(def: FlowDef): Issue[] {
   const issues: Issue[] = [];
   for (const n of def.nodes) {
-    if (n.type === "message" && n.wait) issues.push({ code: "fase_seguinte", nodeId: n.id, text: "Esperar a resposta chega na próxima fase. Tire a espera ou use uma receita de um direct." });
+    if (n.type === "message" && n.wait && def.edges.some((e) => e.from === n.id && e.out === "timeout")) {
+      issues.push({ code: "fase_seguinte", nodeId: n.id, text: "O caminho de quem não respondeu chega na próxima fase. Tire essa ligação: quem não responde para aqui." });
+    }
     if (n.type === "condition") issues.push({ code: "fase_seguinte", nodeId: n.id, text: "“Segue a loja?” chega na próxima fase." });
     if (n.type === "invite" && n.remindAfterMinutes !== null) issues.push({ code: "fase_seguinte", nodeId: n.id, text: "O lembrete de quem não clicou chega na próxima fase." });
   }

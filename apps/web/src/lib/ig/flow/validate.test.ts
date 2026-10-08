@@ -130,10 +130,10 @@ test("com botão valem os dois limites: 640 caracteres e 1000 bytes", () => {
   const def = comCampanha(RECIPES.dm_invite.build());
   const comBotao = (text: string): FlowDef => ({
     ...def,
-    nodes: [def.nodes[0], { id: "direct", type: "message", text, button: "Quero", wait: null }, def.nodes[1]],
+    nodes: [def.nodes[0], { id: "direct", type: "message", text, button: "Quero", wait: { minutes: 60 } }, def.nodes[1]],
     edges: [
       { from: "gatilho", out: "next", to: "direct" },
-      { from: "direct", out: "next", to: "convite" },
+      { from: "direct", out: "replied", to: "convite" },
     ],
   });
   // 300 emojis = 300 caracteres (< 640) mas 1200 bytes (> 1000).
@@ -147,4 +147,42 @@ test("id de bloco repetido e ligação pra bloco que não existe nunca viram flu
   assert.ok(codes(validateFlow(duplicado, ok)).includes("id_duplicado"));
   const pendurada: FlowDef = { ...def, edges: [...def.edges, { from: "convite", out: "not_clicked", to: "fantasma" }] };
   assert.ok(codes(validateFlow(pendurada, ok)).includes("aresta_invalida"));
+});
+
+/** Comentário → pergunta que espera "sim" → convite com botão (a confirmação de 08/10). */
+const confirma = (over: { botaoNoConvite?: string | null; textoConvite?: string } = {}): FlowDef => ({
+  v: 1,
+  nodes: [
+    { id: "gatilho", type: "trigger", on: "comment", keywords: ["quero"], postId: null, publicReply: null, storyReplies: false },
+    { id: "pergunta", type: "message", text: "Quer o link do grupo? Responde SIM.", button: null, wait: { minutes: 1380, keywords: ["sim", "quero"] } },
+    { id: "convite", type: "invite", text: over.textoConvite ?? "Clique no botão abaixo e entre no grupo VIP.", campaignSlug: "vip", button: over.botaoNoConvite === undefined ? "Entrar no grupo VIP" : over.botaoNoConvite, remindAfterMinutes: null },
+  ],
+  edges: [{ from: "gatilho", out: "next", to: "pergunta" }, { from: "pergunta", out: "replied", to: "convite" }],
+});
+
+test("confirmação antes do link com botão no convite passa limpa", () => {
+  assert.deepEqual(validateFlow(confirma(), ok), []);
+});
+
+test("convite com botão: rótulo vazio e texto acima de 640 caracteres são cobrados; sem botão vale a reserva do link", () => {
+  assert.deepEqual(codes(validateFlow(confirma({ botaoNoConvite: "  " }), ok)), ["botao_vazio"]);
+  assert.deepEqual(codes(validateFlow(confirma({ textoConvite: "a".repeat(641) }), ok)), ["texto_longo"]);
+  // Com botão o link não vai no texto: 600 caracteres passam; sem botão, 900 bytes mais o link não.
+  assert.deepEqual(codes(validateFlow(confirma({ textoConvite: "a".repeat(600) }), ok)), []);
+  assert.deepEqual(codes(validateFlow(confirma({ botaoNoConvite: null, textoConvite: "a".repeat(900) }), ok)), ["texto_longo"]);
+});
+
+test("botão em direct que não espera resposta é cobrado: ninguém ouviria o toque", () => {
+  const def = confirma();
+  const comBotao: FlowDef = { ...def, nodes: def.nodes.map((n) => (n.id === "pergunta" && n.type === "message" ? { ...n, button: "Sim" } : n)) };
+  // Na pergunta logo depois do comentário o botão já é recusado por outra regra; aqui só interessa a espera.
+  assert.ok(!codes(validateFlow(comBotao, ok)).includes("botao_sem_espera"));
+  const semEspera: FlowDef = { ...comBotao, nodes: comBotao.nodes.map((n) => (n.id === "pergunta" && n.type === "message" ? { ...n, wait: null } : n)), edges: [{ from: "gatilho", out: "next", to: "pergunta" }, { from: "pergunta", out: "next", to: "convite" }] };
+  assert.ok(codes(validateFlow(semEspera, ok)).includes("botao_sem_espera"));
+});
+
+test("convite com botão logo depois do comentário é recusado: é o único direct e o Instagram recusa botão", () => {
+  const def = confirma();
+  const direto: FlowDef = { ...def, nodes: def.nodes.filter((n) => n.id !== "pergunta"), edges: [{ from: "gatilho", out: "next", to: "convite" }] };
+  assert.deepEqual(codes(validateFlow(direto, ok)), ["botao_no_primeiro_direct"]);
 });

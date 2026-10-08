@@ -462,3 +462,6 @@ apps/web/supabase/migrations/20261003120000_ig_fluxos.sql
 # baseline (t|instagram_invites). Escrita so do servidor — conferir com
 # infra/tests/tenant-tables-escrita-check.sql nos dois bancos.
 apps/web/supabase/migrations/20261007120000_instagram_invites.sql
+# 2026-10-08 - Fase 3a do Instagram: ig_runs.resumed_by (unico) + indices parciais da espera.
+# Muda a baseline (t|ig_runs).
+apps/web/supabase/migrations/20261008110000_ig_runs_retomada.sql

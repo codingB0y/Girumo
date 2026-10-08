@@ -27,10 +27,13 @@ export type MessageNode = {
   id: string;
   type: "message";
   text: string;
-  /** Rótulo do botão. Proibido no primeiro direct depois de comentário. */
+  /** Rótulo do botão (o toque conta como resposta). Proibido no primeiro direct depois de comentário. */
   button: string | null;
-  /** Espera a resposta (ou o toque) da pessoa. `null` = segue direto. */
-  wait: { minutes: number } | null;
+  /**
+   * Espera a resposta (ou o toque) da pessoa. `null` = segue direto.
+   * `keywords`: só uma resposta com uma delas libera o próximo bloco; vazio ou ausente = qualquer resposta.
+   */
+  wait: { minutes: number; keywords?: string[] } | null;
 };
 
 export type InviteNode = {
@@ -39,6 +42,8 @@ export type InviteNode = {
   text: string;
   /** Link mestre da campanha (`/r/<slug>`), acrescentado no fim do texto. */
   campaignSlug: string | null;
+  /** Rótulo do botão que abre o link (no lugar do link no fim do texto). Ausente em fluxo antigo = sem botão. */
+  button?: string | null;
   /** Depois de quanto tempo sem clique a saída `not_clicked` dispara. */
   remindAfterMinutes: number | null;
 };

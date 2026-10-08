@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
-import { countRunsStartedSince, createRun, getRunBySourceId, hasRecentRun, listRuns, purgeOldRuns, recordStep, stopActiveRuns, updateRun } from "./ig-runs";
+import { claimWaitingRun, countRunsStartedSince, createRun, getRunBySourceId, getRunResumedBy, getWaitingRun, hasRecentRun, retakeStalledRun, listRuns, purgeOldRuns, recordStep, stopActiveRuns, updateRun } from "./ig-runs";
 
 type Pedido = { metodo: string; url: URL; prefer: string; corpo: unknown };
 const pedidos: Pedido[] = [];
@@ -88,4 +88,34 @@ test("parar runs ativos, listar do fluxo e apagar os velhos filtram a loja", asy
   await purgeOldRuns("loja-a", "2026-07-08T00:00:00Z");
   assert.equal(pedidos[3].metodo, "DELETE");
   assert.deepEqual(filtros(pedidos[3].url), { tenant_id: "eq.loja-a", started_at: "lt.2026-07-08T00:00:00Z" });
+});
+
+test("run esperando resposta: busca pelo id, cai pro @ se não achar; reivindicar só pega quem ainda espera no bloco", async () => {
+  pedidos.length = 0;
+  assert.equal((await getWaitingRun("loja-a", "a1", "u1", "igortoled0", "2026-10-06T12:00:00Z"))?.id, "r1");
+  assert.deepEqual(filtros(pedidos[0].url), { tenant_id: "eq.loja-a", ig_account_id: "eq.a1", status: "eq.active", waiting: "eq.reply", wake_at: "gt.2026-10-06T12:00:00Z", ig_user_id: "eq.u1", order: "updated_at.desc", limit: "1" });
+  assert.equal(pedidos.length, 1, "achou pelo id: não procura pelo @");
+
+  pedidos.length = 0;
+  proxima = { status: 200, body: [] };
+  await getWaitingRun("loja-a", "a1", "u-direct", "igortoled0", "2026-10-06T12:00:00Z");
+  assert.equal(filtros(pedidos[1].url).username, "eq.igortoled0");
+
+  pedidos.length = 0;
+  assert.equal(await claimWaitingRun("loja-a", "r1", "pergunta", "m-9"), true);
+  assert.equal(pedidos[0].metodo, "PATCH");
+  assert.deepEqual(filtros(pedidos[0].url), { tenant_id: "eq.loja-a", id: "eq.r1", status: "eq.active", waiting: "eq.reply", node_id: "eq.pergunta" });
+  assert.deepEqual([(pedidos[0].corpo as { waiting: unknown }).waiting, (pedidos[0].corpo as { resumed_by: unknown }).resumed_by], [null, "m-9"]);
+  proxima = { status: 200, body: [] };
+  assert.equal(await claimWaitingRun("loja-a", "r1", "pergunta", "m-9"), false);
+  proxima = { status: 409, body: { code: "23505", message: 'duplicate key value violates unique constraint "ig_runs_resumed_by_uidx"', details: null, hint: null } };
+  assert.equal(await claimWaitingRun("loja-a", "r2", "pergunta", "m-9"), false, "este direct já retomou outro run");
+});
+
+test("reenvio da resposta: acha o run pelo direct que o retomou; retomada parada só é levada por quem viu o mesmo updated_at", async () => {
+  pedidos.length = 0;
+  await getRunResumedBy("loja-a", "m-9");
+  assert.deepEqual(filtros(pedidos[0].url), { tenant_id: "eq.loja-a", resumed_by: "eq.m-9" });
+  assert.equal(await retakeStalledRun("loja-a", "r1", "2026-10-06T00:00:00Z"), true);
+  assert.deepEqual(filtros(pedidos[1].url), { tenant_id: "eq.loja-a", id: "eq.r1", status: "eq.active", waiting: "is.null", updated_at: "eq.2026-10-06T00:00:00Z" });
 });
