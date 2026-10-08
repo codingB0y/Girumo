@@ -11,6 +11,7 @@ const POR_CODIGO: Record<string, string> = {
   unsupported_node: "Este bloco só roda na próxima fase.",
   cycle: "O fluxo deu voltas demais e parou.",
   account_inactive: "A conta do Instagram não está conectada.",
+  flow_changed: "O fluxo mudou e o bloco que esperava a resposta saiu.",
 };
 
 export function traduzErro(code: string | null): string {

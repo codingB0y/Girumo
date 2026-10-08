@@ -20,12 +20,23 @@ export function Previa({ def, handle }: { def: FlowDef; handle: string | null })
           </>
         )}
         <p className="mt-3 text-12 text-[#737373]">No direct</p>
-        {directs.map((n) => (
-          <p key={n.id} className="mt-2 max-w-[85%] rounded-xl bg-[#efefef] px-3 py-2">
-            {n.text || <span className="text-[#737373]">(sem texto ainda)</span>}
-            {n.type === "invite" && <span className="ml-1 rounded border border-dashed border-[#9aa0a6] px-1 text-12 text-[#5f6368]">link da campanha</span>}
-          </p>
-        ))}
+        {directs.map((n) => {
+          const botao = n.type === "invite" ? (n.button ?? null) : n.button;
+          return (
+            <div key={n.id}>
+              <div className="mt-2 max-w-[85%] overflow-hidden rounded-xl bg-[#efefef]">
+                <p className="px-3 py-2">
+                  {n.text || <span className="text-[#737373]">(sem texto ainda)</span>}
+                  {n.type === "invite" && !botao && <span className="ml-1 rounded border border-dashed border-[#9aa0a6] px-1 text-12 text-[#5f6368]">link da campanha</span>}
+                </p>
+                {botao && <p className="border-t border-[#dbdbdb] px-3 py-2 text-center font-semibold text-[#0095f6]">{botao}</p>}
+              </div>
+              {n.type === "message" && n.wait && (
+                <p className="ml-auto mt-2 w-fit max-w-[85%] rounded-xl bg-[#3797f0] px-3 py-2 text-white">{n.wait.keywords?.[0] ?? "responde"}</p>
+              )}
+            </div>
+          );
+        })}
       </div>
     </section>
   );

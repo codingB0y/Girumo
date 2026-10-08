@@ -20,9 +20,11 @@ export type Atendimento = {
   errorText: string;
   startedAt: string;
   finishedAt: string | null;
+  /** Esperou a resposta e o prazo passou: a pessoa não respondeu (o run não fecha sozinho, não há relógio). */
+  semResposta: boolean;
 };
 
-const paraTela = (r: RunRow): Atendimento => ({
+const paraTela = (r: RunRow, agoraMs: number): Atendimento => ({
   id: r.id,
   username: r.username,
   igUserId: r.ig_user_id,
@@ -34,6 +36,7 @@ const paraTela = (r: RunRow): Atendimento => ({
   errorText: traduzErro(r.error_code),
   startedAt: r.started_at,
   finishedAt: r.finished_at,
+  semResposta: r.status === "active" && r.waiting === "reply" && r.wake_at !== null && Date.parse(r.wake_at) < agoraMs,
 });
 
 // GET /api/ig/flows/[id]/runs — os últimos 50 atendimentos do fluxo. Leitura: qualquer papel da loja.
@@ -45,7 +48,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const flow = await getFlow(ctx.tenantId, id);
     if (!flow) return Response.json({ error: "Fluxo não encontrado." }, { status: 404 });
     const runs = await listRuns(ctx.tenantId, id);
-    return Response.json({ runs: runs.map(paraTela) });
+    const agoraMs = Date.now();
+    return Response.json({ runs: runs.map((r) => paraTela(r, agoraMs)) });
   } catch (e) {
     if (e instanceof Response) return e;
     throw e;
