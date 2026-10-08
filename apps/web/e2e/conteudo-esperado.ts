@@ -271,6 +271,12 @@ export const CONTEUDO_ESPERADO: Record<string, ConteudoEsperado> = {
     semLista: "Formulario de criacao; nao lista registro existente.",
   },
 
+  "/painel/instagram/assinar": {
+    // Subtitulo fixo da pagina: aparece em todos os estados (oferta, ja assinado, sem plano).
+    ancora: /recebe no direct o link do grupo de WhatsApp/,
+    semLista: "Oferta de assinatura do add-on; nao lista registro existente.",
+  },
+
   "/painel/pages": {
     ancora: /Páginas/,
     lista: {
