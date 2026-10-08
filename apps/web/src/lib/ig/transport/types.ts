@@ -5,7 +5,9 @@
  */
 export type PrivateReplyInput = { accountId: string; platformPostId: string; commentId: string; message: string; idempotencyKey: string };
 export type PublicReplyInput = { accountId: string; platformPostId: string; commentId: string; message: string; idempotencyKey: string };
-export type ConversationMessageInput = { accountId: string; conversationId: string; message: string; idempotencyKey: string };
+/** `url` abre o link; `postback` volta como `metadata.postbackPayload` no direct seguinte. Rótulo até 20 caracteres. */
+export type MessageButton = { type: "url"; title: string; url: string } | { type: "postback"; title: string; payload: string };
+export type ConversationMessageInput = { accountId: string; conversationId: string; message: string; buttons?: MessageButton[]; idempotencyKey: string };
 export type ZernioAccount = { id: string; username: string; isActive: boolean; needsReconnection: boolean };
 
 export type Transport = {

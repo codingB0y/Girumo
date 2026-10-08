@@ -58,7 +58,7 @@ export function Atendimentos({ id }: { id: string }) {
                 </td>
                 <td className="hidden px-3 py-3 text-slate-600 sm:table-cell">{dataCurta(a.startedAt)}</td>
                 <td className="px-3 py-3">
-                  <span className={a.status === "failed" ? "text-danger-700" : a.status === "done" ? "text-success-700" : "text-slate-600"}>{ESTADO[a.status]}</span>
+                  <span className={a.status === "failed" ? "text-danger-700" : a.status === "done" ? "text-success-700" : "text-slate-600"}>{a.semResposta ? "Sem resposta" : ESTADO[a.status]}</span>
                   {a.status === "failed" && a.errorText && <span className="block text-12 text-slate-600">{a.errorText}</span>}
                 </td>
               </tr>
