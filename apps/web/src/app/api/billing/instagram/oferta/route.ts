@@ -11,7 +11,9 @@ export async function GET(req: Request) {
     const ctx = await getTenantContext(req);
     const token = new URL(req.url).searchParams.get("convite")?.slice(0, 100) || null;
     const c = await contextoDaAssinatura(ctx.tenantId, token);
-    const customerId = c.bloqueio ? null : await customerDaLoja(ctx.tenantId);
+    const podeCobrar = ctx.role === "owner" || ctx.role === "admin";
+    // Bandeira e final do cartão só para quem pode cobrar.
+    const customerId = c.bloqueio || !podeCobrar ? null : await customerDaLoja(ctx.tenantId);
     const cartao = customerId ? await cartaoSalvo(customerId) : null;
     return Response.json({
       bloqueio: c.bloqueio,
@@ -19,7 +21,7 @@ export async function GET(req: Request) {
       cotacao: c.cotacao,
       cartao: cartao ? { brand: cartao.brand, last4: cartao.last4 } : null,
       configurado: c.precos !== null,
-      podeCobrar: ctx.role === "owner" || ctx.role === "admin",
+      podeCobrar,
     });
   } catch (e) {
     if (e instanceof Response) return e;

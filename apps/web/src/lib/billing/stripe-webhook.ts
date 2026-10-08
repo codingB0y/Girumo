@@ -85,7 +85,7 @@ export interface WebhookStore {
    * ordem ou reenviado). `live` = alguma assinatura do add-on desta loja ativa;
    * `customerOk` = o customer do evento é o da loja (`organizations.stripe_customer_id`).
    */
-  instagramAddonState(input: { tenantId: string; customerId: string }): Promise<{ live: boolean; customerOk: boolean } & StoreResult>;
+  instagramAddonState(input: { tenantId: string; customerId: string }): Promise<{ live: boolean; customerOk: boolean; vivas: number } & StoreResult>;
   /** Liga/desliga `tenant_settings.instagram_enabled`. Desligar também pausa os fluxos e para os atendimentos. */
   setInstagramEnabled(input: { tenantId: string; enabled: boolean }): Promise<StoreResult>;
   /** O convite nominal desta assinatura foi usado (só se ainda aberto e da loja). */
@@ -181,6 +181,17 @@ async function handleInstagramAddon(subscription: Stripe.Subscription, store: We
     return { error: null };
   }
   const enabled = estado.live;
+  if (estado.vivas > 1) {
+    // As rotas de assinar barram a segunda, mas um Checkout aberto numa aba e o
+    // cartão salvo pago na outra ainda passam. Fica alto no log para estornar.
+    await store.insertLog({
+      tenant_id: tenantId,
+      level: "error",
+      event: "stripe.addon.duplicado",
+      message: `Loja com ${estado.vivas} assinaturas do add-on Instagram vivas: cancelar e estornar a extra.`,
+      metadata: { stripe_subscription_id: subscription.id, customer: String(subscription.customer) },
+    });
+  }
 
   const r = await store.setInstagramEnabled({ tenantId, enabled });
   if (r.error) return r;

@@ -52,6 +52,27 @@ export async function cartaoSalvo(customerId: string): Promise<Cartao | null> {
   return pm?.card ? { id: pm.id, brand: pm.card.brand, last4: pm.card.last4 } : null;
 }
 
+export type AddonNoStripe = { viva: boolean; faturaPendente: string | null };
+
+/**
+ * O que já existe do add-on no Stripe para esta loja, ANTES de criar outro.
+ * `instagram_enabled` só muda depois do webhook: sem esta leitura, duas abas (ou
+ * uma recusa seguida de "outro cartão") criavam duas assinaturas cobráveis.
+ * Viva = não cria; `incomplete` = devolve a fatura aberta dela em vez de criar outra.
+ */
+export async function addonNoStripe(customerId: string, tenantId: string): Promise<AddonNoStripe> {
+  let faturaPendente: string | null = null;
+  for await (const s of getStripe().subscriptions.list({ customer: customerId, status: "all", limit: 100, expand: ["data.latest_invoice"] })) {
+    if (s.metadata.addon !== "instagram" || s.metadata.tenant_id !== tenantId) continue;
+    if (s.status === "active" || s.status === "trialing" || s.status === "past_due" || s.status === "unpaid") return { viva: true, faturaPendente: null };
+    if (s.status === "incomplete" && !faturaPendente) {
+      const f = s.latest_invoice;
+      faturaPendente = f && typeof f === "object" ? (f.hosted_invoice_url ?? null) : null;
+    }
+  }
+  return { viva: false, faturaPendente };
+}
+
 /** O customer da loja, se já existir (a página não cria customer só por abrir). */
 export async function customerDaLoja(tenantId: string): Promise<string | null> {
   const { data, error } = await getSupabaseAdmin().from("organizations").select("stripe_customer_id").eq("id", tenantId).maybeSingle();

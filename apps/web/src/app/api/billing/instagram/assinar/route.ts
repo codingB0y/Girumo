@@ -1,6 +1,6 @@
 import Stripe from "stripe";
 import { z } from "zod";
-import { cartaoSalvo, contextoDaAssinatura } from "@/lib/billing/instagram-contexto";
+import { addonNoStripe, cartaoSalvo, contextoDaAssinatura } from "@/lib/billing/instagram-contexto";
 import { subscriptionInstagramParams } from "@/lib/billing/instagram-oferta";
 import { getStripe } from "@/lib/billing/stripe";
 import { resolveTenantCustomerId } from "@/lib/billing/tenant-customer";
@@ -32,16 +32,20 @@ export async function POST(req: Request) {
     const supabase = getSupabaseAdmin();
     const stripe = getStripe();
     const customerId = await resolveTenantCustomerId({ supabase, stripe, tenantId: ctx.tenantId, email: ctx.email ?? null, authUserId: ctx.authUserId });
+    const existente = await addonNoStripe(customerId, ctx.tenantId);
+    if (existente.viva) return Response.json({ error: "O Instagram já está assinado. Pode levar alguns segundos para liberar." }, { status: 409 });
+    if (existente.faturaPendente) return Response.json({ redirect: existente.faturaPendente });
     const cartao = await cartaoSalvo(customerId);
     if (!cartao) return Response.json({ error: "Nenhum cartão salvo. Use outro cartão." }, { status: 409 });
 
     const sub = await stripe.subscriptions.create(
       subscriptionInstagramParams({ customerId, paymentMethodId: cartao.id, precos: c.precos, tenantId: ctx.tenantId, inviteId: c.convite?.id ?? null, cupomId: c.convite?.stripe_coupon_id ?? null }),
       // Clique duplo ou reenvio no mesmo dia não cria duas assinaturas.
-      { idempotencyKey: `ig-assinar:${ctx.tenantId}:${c.convite?.id ?? "sem-convite"}:${new Date().toISOString().slice(0, 10)}` },
+      // O cartão entra na chave: trocar o cartão padrão no mesmo dia muda os parâmetros e travaria em erro de idempotência.
+      { idempotencyKey: `ig-assinar:${ctx.tenantId}:${c.convite?.id ?? "sem-convite"}:${cartao.id}:${new Date().toISOString().slice(0, 10)}` },
     );
 
-    await supabase.from("logs").insert({
+    const { error: logError } = await supabase.from("logs").insert({
       tenant_id: ctx.tenantId,
       actor_user_id: ctx.authUserId,
       level: "info",
@@ -50,6 +54,8 @@ export async function POST(req: Request) {
       metadata: { stripe_subscription_id: sub.id, status: sub.status, invite_id: c.convite?.id ?? null },
     });
 
+    if (logError) console.error("[billing/instagram/assinar] log falhou:", logError.message);
+
     if (sub.status === "active") return Response.json({ status: "paid" });
     const fatura = typeof sub.latest_invoice === "object" ? sub.latest_invoice : null;
     if (fatura?.hosted_invoice_url) return Response.json({ redirect: fatura.hosted_invoice_url });
@@ -57,7 +63,6 @@ export async function POST(req: Request) {
   } catch (e) {
     if (e instanceof Response) return e;
     if (e instanceof Stripe.errors.StripeIdempotencyError) return Response.json({ error: "Já existe uma tentativa de hoje. Recarregue a página." }, { status: 409 });
-    if (e instanceof Stripe.errors.StripeCardError) return Response.json({ error: "O banco recusou o cartão. Use outro cartão." }, { status: 402 });
     console.error("[billing/instagram/assinar]", e);
     return Response.json({ error: "Não deu pra cobrar agora. Tente de novo." }, { status: 500 });
   }

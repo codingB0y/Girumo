@@ -66,6 +66,7 @@ type FakeOptions = {
   /** Estado atual do add-on no Stripe (padrão: vivo e customer da loja). */
   addonLive?: boolean;
   addonCustomerOk?: boolean;
+  addonVivas?: number;
 };
 
 /**
@@ -138,7 +139,8 @@ function makeStore(options: FakeOptions = {}) {
       return { error: options.emailError ?? null };
     },
     async instagramAddonState() {
-      return { live: options.addonLive ?? true, customerOk: options.addonCustomerOk ?? true, error: null };
+      const live = options.addonLive ?? true;
+      return { live, customerOk: options.addonCustomerOk ?? true, vivas: options.addonVivas ?? (live ? 1 : 0), error: null };
     },
     async setInstagramEnabled(input) {
       if (options.instagramError) return { error: options.instagramError };
@@ -918,4 +920,11 @@ test("convite vira usado quando a assinatura dele fica ativa; incompleta nao gas
   const pendente = makeStore({ addonLive: false });
   await handleStripeEvent(makeEvent({ data: { object: addon({ status: "incomplete", metadata: { tenant_id: TENANT, addon: "instagram", invite_id: "0b8e4f2a-1c3d-4e5f-8a9b-0c1d2e3f4a5b" } }) } } as Partial<Stripe.Event>), pendente.store);
   assert.deepEqual(pendente.invitesUsed, []);
+});
+
+test("duas assinaturas vivas do add-on: liga e grita no log para estornar", async () => {
+  const f = makeStore({ addonVivas: 2 });
+  await handleStripeEvent(makeEvent({ data: { object: addon() } } as Partial<Stripe.Event>), f.store);
+  assert.deepEqual(f.instagram, [{ tenantId: TENANT, enabled: true }]);
+  assert.ok(f.logs.some((l) => l.event === "stripe.addon.duplicado" && l.level === "error"));
 });

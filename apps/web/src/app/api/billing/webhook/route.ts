@@ -157,18 +157,15 @@ function createStore(): WebhookStore {
     async instagramAddonState({ tenantId, customerId }) {
       try {
         const { data: org, error } = await supabase.from("organizations").select("stripe_customer_id").eq("id", tenantId).maybeSingle();
-        if (error) return { live: false, customerOk: false, error: error.message };
-        if (!org || org.stripe_customer_id !== customerId) return { live: false, customerOk: false, error: null };
-        let live = false;
+        if (error) return { live: false, customerOk: false, vivas: 0, error: error.message };
+        if (!org || org.stripe_customer_id !== customerId) return { live: false, customerOk: false, vivas: 0, error: null };
+        let vivas = 0;
         for await (const s of getStripe().subscriptions.list({ customer: customerId, status: "all", limit: 100 })) {
-          if (isInstagramAddon(s.metadata) && s.metadata.tenant_id === tenantId && (s.status === "active" || s.status === "trialing" || s.status === "past_due")) {
-            live = true;
-            break;
-          }
+          if (isInstagramAddon(s.metadata) && s.metadata.tenant_id === tenantId && (s.status === "active" || s.status === "trialing" || s.status === "past_due")) vivas += 1;
         }
-        return { live, customerOk: true, error: null };
+        return { live: vivas > 0, customerOk: true, vivas, error: null };
       } catch (err) {
-        return { live: false, customerOk: false, error: err instanceof Error ? err.message : String(err) };
+        return { live: false, customerOk: false, vivas: 0, error: err instanceof Error ? err.message : String(err) };
       }
     },
 

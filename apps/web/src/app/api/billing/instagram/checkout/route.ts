@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { contextoDaAssinatura } from "@/lib/billing/instagram-contexto";
+import { addonNoStripe, contextoDaAssinatura } from "@/lib/billing/instagram-contexto";
 import { checkoutInstagramParams } from "@/lib/billing/instagram-oferta";
 import { getAppUrl, getStripe } from "@/lib/billing/stripe";
 import { resolveTenantCustomerId } from "@/lib/billing/tenant-customer";
@@ -30,6 +30,10 @@ export async function POST(req: Request) {
     const supabase = getSupabaseAdmin();
     const stripe = getStripe();
     const customerId = await resolveTenantCustomerId({ supabase, stripe, tenantId: ctx.tenantId, email: ctx.email ?? null, authUserId: ctx.authUserId });
+    const existente = await addonNoStripe(customerId, ctx.tenantId);
+    if (existente.viva) return Response.json({ error: "O Instagram já está assinado. Pode levar alguns segundos para liberar." }, { status: 409 });
+    // Tentativa anterior recusada ou pedindo 3D Secure: a fatura dela aceita outro cartão.
+    if (existente.faturaPendente) return Response.json({ url: existente.faturaPendente });
     const voltar = convite ? `/painel/instagram/assinar?convite=${encodeURIComponent(convite)}` : "/painel/instagram/assinar";
     const session = await stripe.checkout.sessions.create(
       checkoutInstagramParams({ customerId, precos: c.precos, appUrl: getAppUrl(), tenantId: ctx.tenantId, inviteId: c.convite?.id ?? null, cupomId: c.convite?.stripe_coupon_id ?? null, voltar }),
