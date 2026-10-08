@@ -98,7 +98,7 @@ export function BlocoForm({ node, primeiroDepoisDoComentario, campanhas, issues,
             <div>
               <label className="block">
                 <span className={rotulo}>Esperar a resposta por</span>
-                <select aria-label={nome("Esperar por quanto tempo")} value={node.wait.minutes} onChange={(e) => aoMudar({ wait: { minutes: Number(e.target.value) } })} className={`${campo} mt-1`}>
+                <select aria-label={nome("Esperar por quanto tempo")} value={node.wait.minutes} onChange={(e) => node.wait && aoMudar({ wait: { ...node.wait, minutes: Number(e.target.value) } })} className={`${campo} mt-1`}>
                   {comAtual(ESPERAS, node.wait.minutes).map((m) => <option key={m} value={m}>{horas(m)}</option>)}
                 </select>
               </label>
@@ -106,9 +106,13 @@ export function BlocoForm({ node, primeiroDepoisDoComentario, campanhas, issues,
             </div>
           )}
           <div>
-            {primeiroDepoisDoComentario ? (
+            {primeiroDepoisDoComentario || !node.wait ? (
               <>
-                <p className={ajuda}>Sem botão neste direct: é o único que a Meta deixa mandar por comentário, e o Instagram recusa botão pra quem não segue a loja.</p>
+                <p className={ajuda}>
+                  {primeiroDepoisDoComentario
+                    ? "Sem botão neste direct: é o único que a Meta deixa mandar por comentário, e o Instagram recusa botão pra quem não segue a loja."
+                    : "Botão só em direct que espera a resposta: o toque é a resposta."}
+                </p>
                 {comBotao && (
                   <button type="button" onClick={() => aoMudar({ button: null })} className="mt-2 text-13 font-medium text-volt-950 underline underline-offset-2">
                     Tirar botão
@@ -126,12 +130,22 @@ export function BlocoForm({ node, primeiroDepoisDoComentario, campanhas, issues,
             )}
           </div>
         </div>
+        {node.wait && (
+          <div>
+            <span className={rotulo}>Respostas que liberam o próximo passo <span className="font-normal text-slate-600">vazio = qualquer resposta</span></span>
+            <div className="mt-1">
+              <Palavras rotulo={nome("Adicionar resposta")} palavras={node.wait.keywords ?? []} aoMudar={(keywords) => node.wait && aoMudar({ wait: { ...node.wait, keywords } })} />
+            </div>
+            {(node.wait.keywords ?? []).length > 0 && <p className={ajuda}>Outra resposta não libera o próximo passo: a pessoa continua esperando e você responde à mão.</p>}
+          </div>
+        )}
         <Problemas issues={doBloco} />
       </div>
     );
   }
 
   if (node.type === "invite") {
+    const conviteComBotao = node.button != null;
     return (
       <div className="grid gap-4">
         <label className="block">
@@ -148,11 +162,33 @@ export function BlocoForm({ node, primeiroDepoisDoComentario, campanhas, issues,
         <label className="block">
           <span className="flex items-center justify-between">
             <span className={rotulo}>Mensagem</span>
-            <ContadorBytes texto={node.text} max={MAX_MESSAGE_BYTES} reserva={LINK_RESERVE_BYTES} />
+            {conviteComBotao ? (
+              <ContadorBytes texto={node.text} max={MAX_TEXT_WITH_BUTTON} emCaracteres />
+            ) : (
+              <ContadorBytes texto={node.text} max={MAX_MESSAGE_BYTES} reserva={LINK_RESERVE_BYTES} />
+            )}
           </span>
           <textarea aria-label={nome("Mensagem do convite")} maxLength={MAX_TEXTO} value={node.text} onChange={(e) => aoMudar({ text: e.target.value })} rows={3} className={`${campo} mt-1 resize-y`} />
-          <p className={ajuda}>O link da campanha entra no fim, sozinho.</p>
+          <p className={ajuda}>{conviteComBotao ? "O link da campanha vai no botão, embaixo da mensagem." : "O link da campanha entra no fim, sozinho."}</p>
         </label>
+        {primeiroDepoisDoComentario ? (
+          <div>
+            <p className={ajuda}>Sem botão neste direct: é o único que a Meta deixa mandar por comentário, e o Instagram recusa botão pra quem não segue a loja. Pra ter botão, pergunte antes (receita “Comentou, confirma e entra no grupo”).</p>
+            {conviteComBotao && (
+              <button type="button" onClick={() => aoMudar({ button: null })} className="mt-2 text-13 font-medium text-volt-950 underline underline-offset-2">
+                Tirar botão
+              </button>
+            )}
+          </div>
+        ) : (
+          <div>
+            <span className="flex items-center justify-between">
+              <span className={rotulo}>Link num botão</span>
+              <Interruptor ligado={conviteComBotao} aoMudar={(on) => aoMudar({ button: on ? DEFAULT_TEXTS.botaoConvite : null })} rotulo={nome("Link num botão")} />
+            </span>
+            {conviteComBotao && <input aria-label={nome("Texto do botão do convite")} maxLength={MAX_BUTTON_LABEL} value={node.button ?? ""} onChange={(e) => aoMudar({ button: e.target.value })} className={`${campo} mt-1`} />}
+          </div>
+        )}
         {node.remindAfterMinutes !== null && (
           <label className="block">
             <span className={rotulo}>Lembrar quem não clicou depois de</span>
