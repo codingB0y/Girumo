@@ -119,15 +119,20 @@ before(async () => {
 after(async () => {
   if (pular()) return;
   const supabase = getSupabaseAdmin();
+  // Tenta tudo, mesmo que um passo falhe: parar no primeiro erro deixaria usuários vazando.
+  const falhas: string[] = [];
+  const tentar = async (rotulo: string, passo: () => PromiseLike<{ error: { message: string } | null }>) => {
+    try {
+      const { error } = await passo();
+      if (error) falhas.push(`${rotulo}: ${error.message}`);
+    } catch (e) {
+      falhas.push(`${rotulo}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
   // A loja leva junto memberships, leads, orders e order_items (on delete cascade).
-  if (loja) {
-    const { error } = await supabase.from("organizations").delete().eq("tenant_id", loja);
-    if (error) throw new Error(error.message);
-  }
-  for (const id of usuarios) {
-    const { error } = await supabase.auth.admin.deleteUser(id);
-    if (error) throw new Error(error.message);
-  }
+  if (loja) await tentar("organizations", () => supabase.from("organizations").delete().eq("tenant_id", loja));
+  for (const id of usuarios) await tentar(`deleteUser ${id}`, () => supabase.auth.admin.deleteUser(id));
+  if (falhas.length) throw new Error(`limpeza incompleta:\n${falhas.join("\n")}`);
 });
 
 async function criar(itens: unknown): Promise<Resultado> {
