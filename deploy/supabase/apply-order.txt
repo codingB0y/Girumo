@@ -462,3 +462,15 @@ apps/web/supabase/migrations/20261003120000_ig_fluxos.sql
 # baseline (t|instagram_invites). Escrita so do servidor — conferir com
 # infra/tests/tenant-tables-escrita-check.sql nos dois bancos.
 apps/web/supabase/migrations/20261007120000_instagram_invites.sql
+# 2026-10-07 - Acesso da vendedora, PR 2: member_role ganha 'seller'. Sozinha: valor novo de
+# enum nao pode ser usado na transacao em que nasce — aplicar e commitar antes da seguinte.
+apps/web/supabase/migrations/20261007120000_member_role_seller.sql
+# 2026-10-07 - Acesso da vendedora, PR 2: app.user_tenant_ids() e app.has_membership() excluem
+# seller (a vendedora nao le nada pelo caminho authenticated; corpo copiado de prod), mais
+# memberships.modules (+ memberships_modules_validos), orders.created_by, order_items (RLS;
+# leitura no padrao de orders; escrita so do servidor) e as RPCs create_order_with_items /
+# replace_order_items / order_items_total (execute so service_role). Muda a baseline
+# (t|memberships, t|orders, t|order_items e tres f|). O gate nao ve schema app, enum,
+# constraint, policy, ACL nem corpo — conferir com infra/tests/acesso-vendedora-check.sql
+# nos dois bancos.
+apps/web/supabase/migrations/20261007120100_acesso_vendedora.sql
