@@ -25,6 +25,11 @@ select json_build_object(
       and has_function_privilege('authenticated', p.oid, 'EXECUTE'))
     from (values ('app.user_tenant_ids()'), ('app.has_membership(uuid)')) as h(sig)
     left join pg_proc p on p.oid = to_regprocedure(h.sig)),
+  -- Nenhuma policy de leitura lê memberships por fora dos helpers (a de automations saiu na B).
+  'ok_sem_leitura_inline_memberships', not exists (
+    select 1 from pg_policy pol
+    where pol.polcmd in ('r', '*')
+      and coalesce(pg_get_expr(pol.polqual, pol.polrelid), '') ilike '%memberships%'),
   'helpers_def_md5', (
     select json_object_agg(h.sig, md5(pg_get_functiondef(p.oid)) order by h.sig)
     from (values ('app.user_tenant_ids()'), ('app.has_membership(uuid)')) as h(sig)

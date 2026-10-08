@@ -69,6 +69,19 @@ comment on function app.user_tenant_ids() is
 comment on function app.has_membership(uuid) is
   'True when auth.uid() holds an accepted membership in the tenant, except as seller (seller has no authenticated access; spec 2026-10-07 §1).';
 
+-- 0b) A única policy que lê memberships sem passar pelos helpers (conferido em 08/10): a de
+--     automations, viva SÓ EM PROD (ALL, membro do tenant, sem filtro de papel). A escrita de
+--     authenticated já foi revogada em 20261004120000, mas o SELECT deixaria a vendedora ler as
+--     automações da loja. Nada no app nem na engine lê automations pelo JWT: sem a policy, a
+--     tabela nega tudo para authenticated. Em dev a policy (e talvez a tabela) não existe.
+do $$
+begin
+  if to_regclass('public.automations') is not null then
+    drop policy if exists "Users manage own tenant automations" on public.automations;
+  end if;
+end
+$$;
+
 -- 1) Módulos extras da vendedora. 'vendas' é implícito para seller e não é gravado; outro papel
 --    não tem módulo nenhum (o acesso dele não passa por aqui).
 alter table public.memberships
