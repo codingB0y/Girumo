@@ -1,9 +1,11 @@
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { AdminAlertsClient } from "@/components/admin/alerts-client";
+import { requireAdmin } from "@/lib/admin-guard";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminAlertasPage() {
+  await requireAdmin();
   const supabase = getSupabaseAdmin();
 
   const { data: alerts, count } = await supabase

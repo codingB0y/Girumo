@@ -5,12 +5,14 @@ import { notFound } from "next/navigation";
 import { TenantActions } from "@/components/admin/tenant-actions";
 import { TenantInstagramInvite } from "@/components/admin/tenant-instagram-invite";
 import { TenantPlanGrant } from "@/components/admin/tenant-plan-grant";
+import { requireAdmin } from "@/lib/admin-guard";
 
 export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ id: string }> };
 
 export default async function AdminTenantDetailPage({ params }: Props) {
+  await requireAdmin();
   const { id } = await params;
   const supabase = getSupabaseAdmin();
 
