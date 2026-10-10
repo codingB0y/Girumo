@@ -125,6 +125,16 @@ test("dono, admin e operador passam em tudo, com qualquer módulo", () => {
   }
 });
 
+test("papel nulo ou desconhecido é negado (fecha por padrão)", () => {
+  for (const role of [null, undefined, "viewer", ""]) {
+    const acesso = { role, modules: [] } as unknown as Acesso;
+    assert.equal(podeAcessar(acesso, "/api/orders", "GET"), false, String(role));
+    assert.equal(podeAcessar(acesso, "/api/vendas", "GET"), false, String(role));
+    assert.equal(paginaLiberada(acesso, "/painel"), false, String(role));
+    assert.equal(paginaLiberada(acesso, "/painel/vendas"), false, String(role));
+  }
+});
+
 test("páginas: vendas sempre, postar só liberado, por prefixo de segmento", () => {
   assert.equal(paginaLiberada(SO_VENDAS, "/painel/vendas"), true);
   assert.equal(paginaLiberada(SO_VENDAS, "/painel/vendas/"), true);

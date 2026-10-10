@@ -86,12 +86,17 @@ function casa(padrao: string, caminho: readonly string[]): boolean {
   );
 }
 
+/** Papéis que o mapa não restringe. Qualquer outro (null, papel novo, lixo) cai fechado. */
+const PAPEIS_LIVRES: readonly string[] = ["owner", "admin", "operator"];
+
 /**
- * Papel ≠ seller → true. seller → rota da base ou de um módulo liberado, com o método certo.
+ * owner/admin/operator → true. seller → rota da base ou de um módulo liberado, com o método certo.
+ * Papel nulo ou desconhecido → false.
  * `pathname` vem de `URL.pathname` (sem query string); o que não for isso não casa.
  */
 export function podeAcessar(acesso: Acesso, pathname: string, method: string): boolean {
-  if (acesso.role !== "seller") return true;
+  if (PAPEIS_LIVRES.includes(acesso.role)) return true;
+  if (acesso.role !== "seller") return false;
   const caminho = segmentos(pathname);
   if (!caminho) return false;
   const verbo = method.toUpperCase();
@@ -108,7 +113,8 @@ export function podeAcessar(acesso: Acesso, pathname: string, method: string): b
  * vazios nunca passam. É só experiência — quem barra de verdade é a API.
  */
 export function paginaLiberada(acesso: Acesso, pathname: string): boolean {
-  if (acesso.role !== "seller") return true;
+  if (PAPEIS_LIVRES.includes(acesso.role)) return true;
+  if (acesso.role !== "seller") return false;
   const caminho = segmentos(pathname);
   if (!caminho || caminho.some((parte) => parte === "" || SEGMENTO_DE_PONTOS.test(parte))) return false;
   return modulosDoAcesso(acesso).some((modulo) =>
