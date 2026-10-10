@@ -1,4 +1,5 @@
 import { getSessionAccountId } from "@/lib/session";
+import { findMembershipTenantId } from "@/lib/session-tenant";
 import { generateCopy, type CopyInput } from "@/lib/agents/copy-agent";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
@@ -12,6 +13,14 @@ export async function POST(req: Request) {
   const authUserId = await getSessionAccountId();
   if (!authUserId) {
     return Response.json({ error: "Não autenticado." }, { status: 401 });
+  }
+
+  // Tenant pelo resolvedor guardado, ANTES de gerar: quem não tem esta rota
+  // liberada (a vendedora) não chega ao agente. Antes a rota lia `memberships`
+  // por conta própria, depois de gerar, sem `x-tenant-id` e sem o guard.
+  const tenantId = await findMembershipTenantId(authUserId, req);
+  if (!tenantId) {
+    return Response.json({ error: "Tenant não encontrado." }, { status: 403 });
   }
 
   let body: Partial<CopyInput>;
@@ -47,34 +56,22 @@ export async function POST(req: Request) {
 
   const result = await generateCopy(input);
 
-  // Track agent usage (resolve tenant for tracking)
-  const supabase = getSupabaseAdmin();
-  const { data: membership } = await supabase
-    .from("memberships")
-    .select("tenant_id")
-    .eq("user_id", authUserId)
-    .not("accepted_at", "is", null)
-    .limit(1)
-    .maybeSingle();
-
-  if (membership) {
-    // Increment agent execution count (non-blocking)
-    supabase
-      .from("agent_configs")
-      .upsert(
-        {
-          tenant_id: membership.tenant_id,
-          agent_id: "copy",
-          enabled: true,
-          total_executions: 1,
-          last_execution_at: new Date().toISOString(),
-        },
-        { onConflict: "tenant_id,agent_id" },
-      )
-      .then(({ error }) => {
-        if (error) console.warn("[copy-agent] Failed to track execution:", error.message);
-      });
-  }
+  // Increment agent execution count (non-blocking)
+  getSupabaseAdmin()
+    .from("agent_configs")
+    .upsert(
+      {
+        tenant_id: tenantId,
+        agent_id: "copy",
+        enabled: true,
+        total_executions: 1,
+        last_execution_at: new Date().toISOString(),
+      },
+      { onConflict: "tenant_id,agent_id" },
+    )
+    .then(({ error }) => {
+      if (error) console.warn("[copy-agent] Failed to track execution:", error.message);
+    });
 
   return Response.json(result);
 }

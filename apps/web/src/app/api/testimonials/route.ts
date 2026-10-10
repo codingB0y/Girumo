@@ -1,5 +1,6 @@
-import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { getSessionAccountId } from "@/lib/session";
+import { findMembershipTenantId } from "@/lib/session-tenant";
+import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,36 +26,32 @@ export async function POST(req: Request) {
     return Response.json({ error: "Depoimento precisa ter pelo menos 10 caracteres." }, { status: 400 });
   }
 
-  const supabase = getSupabaseAdmin();
-
-  // Resolve tenant and user info
-  const { data: membership } = await supabase
-    .from("memberships")
-    .select("tenant_id")
-    .eq("user_id", authUserId)
-    .not("accepted_at", "is", null)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  if (!membership) {
+  // Tenant pelo resolvedor guardado (`x-tenant-id` + guard de módulo). Antes a
+  // rota lia `memberships` por conta própria e pegava sempre a mais antiga.
+  const tenantId = await findMembershipTenantId(authUserId, req);
+  if (!tenantId) {
     return Response.json({ error: "Tenant não encontrado." }, { status: 403 });
   }
 
+  const supabase = getSupabaseAdmin();
+
+  // `users` tem uma linha por loja: sem o tenant, quem está em duas lojas cai
+  // no erro de mais-de-uma-linha do maybeSingle e vira "Lojista".
   const { data: user } = await supabase
     .from("users")
     .select("name")
+    .eq("tenant_id", tenantId)
     .eq("auth_user_id", authUserId)
     .maybeSingle();
 
   const { data: org } = await supabase
     .from("organizations")
     .select("name")
-    .eq("id", membership.tenant_id)
+    .eq("id", tenantId)
     .maybeSingle();
 
   const { error } = await supabase.from("testimonials").insert({
-    tenant_id: membership.tenant_id,
+    tenant_id: tenantId,
     name: user?.name ?? "Lojista",
     store: org?.name ?? "",
     quote,
