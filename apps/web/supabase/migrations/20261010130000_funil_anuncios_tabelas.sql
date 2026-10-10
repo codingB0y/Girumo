@@ -28,6 +28,12 @@ $$;
 comment on function public.phone_key(text) is
   'DDD + últimos 8 dígitos do telefone (sem 55, sem nono dígito). Chave da atribuição do funil de anúncios.';
 
+-- Função pura, usada em índice de expressão e em coluna gerada: quem grava nessas
+-- tabelas (authenticated, service_role) precisa executá-la. anon nunca; sem o revoke
+-- de public, anon herdaria EXECUTE onde o event trigger ensure_anon_revoked não existe.
+revoke execute on function public.phone_key(text) from public, anon;
+grant execute on function public.phone_key(text) to authenticated, service_role;
+
 -- Uma integração de site próprio por loja. A chave inteira nunca é guardada: só o
 -- sha256 (comparação por igualdade do hash) e os 4 últimos caracteres para a tela.
 create table if not exists public.site_integrations (
