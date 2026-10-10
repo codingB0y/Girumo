@@ -13,10 +13,12 @@ import {
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { AdminStatCard } from "@/components/admin/stat-card";
 import Link from "next/link";
+import { requireAdmin } from "@/lib/admin-guard";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
+  await requireAdmin();
   const supabase = getSupabaseAdmin();
 
   // Métricas globais da plataforma

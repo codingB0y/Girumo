@@ -9,6 +9,7 @@ import {
   XCircle,
   AlertTriangle,
 } from "lucide-react";
+import { requireAdmin } from "@/lib/admin-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,7 @@ async function fetchHealth(): Promise<HealthResponse | null> {
 }
 
 export default async function AdminSaudePage() {
+  await requireAdmin();
   const health = await fetchHealth();
 
   if (!health) {

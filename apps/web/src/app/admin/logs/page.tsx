@@ -1,6 +1,7 @@
 import { Activity } from "lucide-react";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { AdminLogsClient } from "@/components/admin/logs-client";
+import { requireAdmin } from "@/lib/admin-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,7 @@ const PER_PAGE = 50;
 type Props = { searchParams: Promise<{ page?: string; level?: string; tenant?: string }> };
 
 export default async function AdminLogsPage({ searchParams }: Props) {
+  await requireAdmin();
   const params = await searchParams;
   const page = Math.max(1, parseInt(params.page ?? "1", 10));
   const levelFilter = params.level ?? "all";

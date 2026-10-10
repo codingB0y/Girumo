@@ -1,5 +1,6 @@
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { AdminUsersClient } from "@/components/admin/users-client";
+import { requireAdmin } from "@/lib/admin-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +9,7 @@ const PER_PAGE = 25;
 type Props = { searchParams: Promise<{ page?: string; search?: string; role?: string }> };
 
 export default async function AdminUsuariosPage({ searchParams }: Props) {
+  await requireAdmin();
   const params = await searchParams;
   const page = Math.max(1, parseInt(params.page ?? "1", 10));
   const search = params.search ?? "";

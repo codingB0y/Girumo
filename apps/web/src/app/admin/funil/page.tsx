@@ -7,6 +7,7 @@ import {
   ACTIVATION_MILESTONES,
   type FunnelEvent,
 } from "@/lib/analytics/funnel-events";
+import { requireAdmin } from "@/lib/admin-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,7 @@ const FUNNEL_STEPS: { event: FunnelEvent; label: string; icon: typeof Users; col
 ];
 
 export default async function AdminFunilPage() {
+  await requireAdmin();
   const [metrics, matrix] = await Promise.all([getFunnelMetrics(), getTenantFunnelMatrix()]);
   const now = Date.now();
   const tenants = matrix

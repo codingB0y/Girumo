@@ -1,6 +1,7 @@
 import { CreateTenantForm } from "@/components/admin/create-tenant-form";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { AdminTenantsClient } from "@/components/admin/tenants-client";
+import { requireAdmin } from "@/lib/admin-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,7 @@ const PER_PAGE = 25;
 type Props = { searchParams: Promise<{ page?: string; search?: string; status?: string }> };
 
 export default async function AdminTenantsPage({ searchParams }: Props) {
+  await requireAdmin();
   const params = await searchParams;
   const page = Math.max(1, parseInt(params.page ?? "1", 10));
   const search = params.search ?? "";
