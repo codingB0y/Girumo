@@ -4,21 +4,15 @@ import { assertPlanLimit } from "@/lib/billing/entitlements";
 import { sendEmail } from "@/lib/email/send";
 import { inviteEmail } from "@/lib/email/templates";
 import { getAppUrl } from "@/lib/environment";
+import { parseInviteRole, type TenantRole } from "@/lib/permissions";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
-import { assertBillingRole, getTenantContext, type TenantRole } from "@/lib/supabase/tenant-context";
+import { assertBillingRole, getTenantContext } from "@/lib/supabase/tenant-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const INVITABLE_ROLES = new Set<TenantRole>(["admin", "operator"]);
-
 function normalizeEmail(email: unknown) {
   return String(email ?? "").trim().toLowerCase();
-}
-
-function normalizeRole(role: unknown): TenantRole {
-  const value = String(role ?? "operator").toLowerCase();
-  return INVITABLE_ROLES.has(value as TenantRole) ? (value as TenantRole) : "operator";
 }
 
 export async function GET(req: Request) {
@@ -45,12 +39,18 @@ export async function POST(req: Request) {
     const ctx = await getTenantContext(req);
     assertBillingRole(ctx);
 
-    const body = (await req.json().catch(() => ({}))) as { email?: string; role?: string };
+    const body = (await req.json().catch(() => ({}))) as { email?: string; role?: unknown };
     const invitedEmail = normalizeEmail(body.email);
-    const role = normalizeRole(body.role);
+    const role = parseInviteRole(body.role);
 
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(invitedEmail)) {
       return Response.json({ error: "E-mail invalido." }, { status: 400 });
+    }
+
+    // Papel desconhecido virava `operator` em silêncio (spec acesso-vendedora §3):
+    // a tela da vendedora chegando antes do backend criaria um operador.
+    if (!role) {
+      return Response.json({ error: "Função inválida." }, { status: 400 });
     }
 
     await assertPlanLimit(ctx.tenantId, "team_members:invite");

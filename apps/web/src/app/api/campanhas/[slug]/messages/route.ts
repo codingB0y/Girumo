@@ -6,7 +6,7 @@ import { collection } from "@/lib/json-collection";
 import { createMessage, listByCampaign, removeMessage } from "@/lib/messages-store";
 import type { CampaignMessage } from "@/lib/messages-store";
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
-import { assertPermission, type TenantRole } from "@/lib/permissions";
+import { assertPermission, type Action, type TenantRole } from "@/lib/permissions";
 import { assertPlanLimit } from "@/lib/billing/entitlements";
 import { getSession, isLive } from "@/lib/session-store";
 import { buildDispatchList, toDispatchView } from "@/lib/campaigns/dispatch-view";
@@ -30,9 +30,9 @@ async function resolveCampaignLegacy(slug: string): Promise<Campanha | null> {
  * `role` é nulo quando quem chama é a engine. Estas rotas são de painel
  * (`allowEngine: false`), então sem papel não há o que autorizar.
  */
-function assertCampaignOperator(role: TenantRole | null): asserts role is TenantRole {
+function assertCampaignOperator(role: TenantRole | null, action: Action): asserts role is TenantRole {
   if (!role) throw new Response("Sem permissão para esta ação.", { status: 403 });
-  assertPermission(role, "campaign:edit");
+  assertPermission(role, action);
 }
 
 // GET /api/campanhas/[slug]/messages — ofertas da campanha + agendamentos.
@@ -126,8 +126,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   }
 
   const ctx = await getRouteTenantContext(req, { allowEngine: false });
-  // Disparar é operar a campanha: mesma permissão de editar.
-  assertCampaignOperator(ctx.role);
+  // Postar é `message:send` (spec acesso-vendedora §1): a vendedora com o módulo
+  // `postar` dispara, mas não cria, edita nem apaga campanha.
+  assertCampaignOperator(ctx.role, "message:send");
   const tenantId = ctx.tenantId;
 
   const camp = await supaCampaigns.getCampaignGroupBySlug(tenantId, slug);
@@ -238,7 +239,7 @@ export async function DELETE(req: Request) {
   }
 
   const ctx = await getRouteTenantContext(req, { allowEngine: false });
-  assertCampaignOperator(ctx.role);
+  assertCampaignOperator(ctx.role, "campaign:edit");
 
   const broadcast = await broadcastsStore.getBroadcast(ctx.tenantId, id);
   if (!broadcast) return Response.json({ error: "Oferta não encontrada." }, { status: 404 });
