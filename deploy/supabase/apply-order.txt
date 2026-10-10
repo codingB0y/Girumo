@@ -485,3 +485,6 @@ apps/web/supabase/migrations/20261008120000_ig_receita_confirma.sql
 # site_integrations, site_captures, ad_spend, link_click_events.capture_id/whatsapp_group_id,
 # indices por phone_key em leads/orders/lp_contacts. Muda a baseline.
 apps/web/supabase/migrations/20261010130000_funil_anuncios_tabelas.sql
+# 2026-10-10 - Funil de anuncios, parte 2: attribution_report (so service_role).
+# Depende da parte 1. Muda a baseline (f|attribution_report).
+apps/web/supabase/migrations/20261010130100_funil_anuncios_relatorio.sql
