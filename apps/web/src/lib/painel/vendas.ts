@@ -12,11 +12,13 @@ export const MAX_ITENS = 50;
 export const MAX_NOME_DO_PRODUTO = 120;
 const MAX_QUANTIDADE = 9999;
 const MAX_VALOR = 999_999.99;
+const MAX_TOTAL = 9_999_999_999.99; // numeric(12,2) da venda inteira
 
 // As duas primeiras são as mesmas strings de `MESSAGES.items`/`MESSAGES.zeroTotal` da API (PR 4,
 // `lib/vendas/` — rotas devolvem `{ error }` com elas): a tela não pode dizer uma coisa e a rota outra.
 export const ERRO_LINHA_INCOMPLETA = "Preencha nome, quantidade e valor de cada produto.";
 export const ERRO_TOTAL_ZERO = "A venda precisa somar mais que zero.";
+export const ERRO_TOTAL_ALTO = "O total passou do limite de uma venda. Divida em mais de uma venda.";
 export const ERRO_MUITOS_ITENS = `No máximo ${MAX_ITENS} produtos por venda.`;
 
 /** Uma linha do formulário como a vendedora digita: tudo texto até validar. */
@@ -37,9 +39,17 @@ function valorUnitario(linha: LinhaDaVenda): number {
   return centavos(parseValorDoPedido(linha.valor)) / 100;
 }
 
+/** Inteiro de 1 a 9999 só com dígitos: "2.5", "-2", "1e3" e "0x10" não contam. */
+function quantidadeValida(texto: string): number | null {
+  const t = texto.trim();
+  if (!/^\d{1,4}$/.test(t)) return null;
+  const quantidade = Number(t);
+  return quantidade >= 1 && quantidade <= MAX_QUANTIDADE ? quantidade : null;
+}
+
 export function subtotalDaLinha(linha: LinhaDaVenda): number {
-  const quantidade = Number(linha.quantidade);
-  return Number.isFinite(quantidade) ? centavos(quantidade * valorUnitario(linha)) / 100 : 0;
+  const quantidade = quantidadeValida(linha.quantidade);
+  return quantidade === null ? 0 : centavos(quantidade * valorUnitario(linha)) / 100;
 }
 
 export function totalDasLinhas(linhas: readonly LinhaDaVenda[]): number {
@@ -47,10 +57,7 @@ export function totalDasLinhas(linhas: readonly LinhaDaVenda[]): number {
 }
 
 export function pecasDasLinhas(linhas: readonly LinhaDaVenda[]): number {
-  return linhas.reduce((soma, linha) => {
-    const quantidade = Number(linha.quantidade);
-    return Number.isInteger(quantidade) && quantidade > 0 ? soma + quantidade : soma;
-  }, 0);
+  return linhas.reduce((soma, linha) => soma + (quantidadeValida(linha.quantidade) ?? 0), 0);
 }
 
 export function rotuloDePecas(pecas: number): string {
@@ -59,10 +66,10 @@ export function rotuloDePecas(pecas: number): string {
 
 function itemDaLinha(linha: LinhaDaVenda): ItemDeVenda | null {
   const nome = linha.nome.trim();
-  const quantidade = Number(linha.quantidade);
+  const quantidade = quantidadeValida(linha.quantidade);
   const valor = parseValorDoPedido(linha.valor);
   if (nome === "" || nome.length > MAX_NOME_DO_PRODUTO) return null;
-  if (!Number.isInteger(quantidade) || quantidade < 1 || quantidade > MAX_QUANTIDADE) return null;
+  if (quantidade === null) return null;
   if (!Number.isFinite(valor) || valor < 0 || valor > MAX_VALOR) return null;
   return { nome, quantidade, valorUnitario: valorUnitario(linha) };
 }
@@ -74,7 +81,9 @@ export function validarLinhas(linhas: readonly LinhaDaVenda[]): Validacao {
   if (linhas.length > MAX_ITENS) return { ok: false, erro: ERRO_MUITOS_ITENS };
   const itens = linhas.map(itemDaLinha).filter((item): item is ItemDeVenda => item !== null);
   if (itens.length === 0 || itens.length !== linhas.length) return { ok: false, erro: ERRO_LINHA_INCOMPLETA };
-  if (totalDasLinhas(linhas) <= 0) return { ok: false, erro: ERRO_TOTAL_ZERO };
+  const total = totalDasLinhas(linhas);
+  if (total <= 0) return { ok: false, erro: ERRO_TOTAL_ZERO };
+  if (total > MAX_TOTAL) return { ok: false, erro: ERRO_TOTAL_ALTO };
   return { ok: true, itens };
 }
 

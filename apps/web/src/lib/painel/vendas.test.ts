@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   ERRO_LINHA_INCOMPLETA,
   ERRO_MUITOS_ITENS,
+  ERRO_TOTAL_ALTO,
   ERRO_TOTAL_ZERO,
   LINHA_VAZIA,
   MAX_ITENS,
@@ -139,4 +140,19 @@ test("mensagem de erro: a da API quando vem; o 403 em texto puro do guard cai no
   assert.equal(mensagemDeErro(null, "padrão"), "padrão");
   assert.equal(mensagemDeErro({ error: "" }, "padrão"), "padrão");
   assert.equal(mensagemDeErro({ message: "x" }, "padrão"), "padrão");
+});
+
+test("total acima do teto do servidor é recusado na tela", () => {
+  const caro = linha("Vestido", "9999", "999999,99");
+  assert.deepEqual(validarLinhas([caro, caro]), { ok: false, erro: ERRO_TOTAL_ALTO });
+  assert.equal(validarLinhas([caro]).ok, true);
+});
+
+test("só quantidade inteira de 1 a 9999 entra na conta da tela", () => {
+  for (const quantidade of ["2.5", "-2", "1e3", "0x10", "0", "10000", "abc"]) {
+    assert.equal(subtotalDaLinha(linha("A", quantidade, "10")), 0, quantidade);
+    assert.equal(pecasDasLinhas([linha("A", quantidade, "10")]), 0, quantidade);
+    assert.equal(validarLinhas([linha("A", quantidade, "10")]).ok, false, quantidade);
+  }
+  assert.equal(subtotalDaLinha(linha("A", " 3 ", "10")), 30);
 });
