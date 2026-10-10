@@ -15,6 +15,7 @@
 ## Global Constraints
 
 - Migração nos **dois** bancos: dev `wfjuwogxaupyadwhvoxy`, prod `nidoatbxaylrkcgbszns`; registrada em `deploy/supabase/apply-order.txt`; `deploy/supabase/schema-baseline.json` regenerado (nunca editado à mão) no mesmo PR.
+- **Depois do Postar por grupo PR 1 (#423).** Ele usa `20261010120000_postar_por_grupo.sql` e mexe em `groups`, `campaign_groups`, `broadcasts`, `group_bulk_jobs`; por isso as migrações daqui são `20261010130000`/`20261010130100` e entram **depois** dele no `apply-order.txt`. Antes de começar: #423 mergeado e aplicado em prod, e `git merge origin/main` nesta branch. Regenerar a baseline com a main em dia; senão um PR desfaz a linha do outro (memória "Baseline entre PRs").
 - `create … if not exists` / `create or replace`; toda função `security definer` com `set search_path = ''` e nomes qualificados.
 - Tabela nova com `tenant_id`: RLS ligado; leitura de `authenticated` só por `app.has_membership(tenant_id)` (já exclui a vendedora); escrita só `service_role`.
 - `attribution_report`: `revoke all … from public, anon, authenticated` e `grant execute … to service_role`.
@@ -38,8 +39,8 @@
 
 | Arquivo | Responsabilidade |
 |---|---|
-| `apps/web/supabase/migrations/20261010120000_funil_anuncios_tabelas.sql` | `phone_key`, `site_integrations`, `site_captures`, `ad_spend`, colunas do clique, índices, RLS |
-| `apps/web/supabase/migrations/20261010120100_funil_anuncios_relatorio.sql` | `attribution_report` + privilégios |
+| `apps/web/supabase/migrations/20261010130000_funil_anuncios_tabelas.sql` | `phone_key`, `site_integrations`, `site_captures`, `ad_spend`, colunas do clique, índices, RLS |
+| `apps/web/supabase/migrations/20261010130100_funil_anuncios_relatorio.sql` | `attribution_report` + privilégios |
 | `deploy/supabase/apply-order.txt` | duas entradas novas |
 | `deploy/supabase/schema-baseline.json` | regenerado depois da DDL em prod |
 | `apps/web/src/lib/resultados/relatorio-anuncios.ts` | tipo + parser zod do JSON do relatório (contrato dos PRs de tela) |
@@ -122,7 +123,7 @@ import { z } from "zod";
 
 /**
  * Contrato do JSON de `public.attribution_report` (migração
- * 20261010120100_funil_anuncios_relatorio.sql; spec 2026-10-10-funil-anuncios §2).
+ * 20261010130100_funil_anuncios_relatorio.sql; spec 2026-10-10-funil-anuncios §2).
  *
  * A tela nunca confia no formato: um campo que mudar no SQL quebra aqui, com
  * mensagem, em vez de virar zero desenhado no funil.
@@ -200,7 +201,7 @@ git commit -m "feat(resultados): typed contract for the ads attribution report"
 ### Task 2: Migração das tabelas (`phone_key`, cadastro, integração, gasto, clique)
 
 **Files:**
-- Create: `apps/web/supabase/migrations/20261010120000_funil_anuncios_tabelas.sql`
+- Create: `apps/web/supabase/migrations/20261010130000_funil_anuncios_tabelas.sql`
 - Modify: `deploy/supabase/apply-order.txt` (fim do arquivo)
 
 **Interfaces:**
@@ -215,7 +216,7 @@ git commit -m "feat(resultados): typed contract for the ads attribution report"
 - [ ] **Step 1: Escrever a migração**
 
 ```sql
--- apps/web/supabase/migrations/20261010120000_funil_anuncios_tabelas.sql
+-- apps/web/supabase/migrations/20261010130000_funil_anuncios_tabelas.sql
 -- Funil de anúncios, parte 1: tabelas (docs/superpowers/specs/2026-10-10-funil-anuncios-design.md §2).
 --
 -- Idempotente. Vai nos DOIS bancos (dev wfjuwogxaupyadwhvoxy, prod
@@ -359,7 +360,7 @@ Acrescentar ao fim de `deploy/supabase/apply-order.txt`:
 # 2026-10-10 - Funil de anuncios (spec 2026-10-10-funil-anuncios), parte 1: phone_key,
 # site_integrations, site_captures, ad_spend, link_click_events.capture_id/whatsapp_group_id,
 # indices por phone_key em leads/orders/lp_contacts. Muda a baseline.
-apps/web/supabase/migrations/20261010120000_funil_anuncios_tabelas.sql
+apps/web/supabase/migrations/20261010130000_funil_anuncios_tabelas.sql
 ```
 
 - [ ] **Step 3: Conferir a sintaxe sem aplicar**
@@ -369,7 +370,7 @@ Ler a migração de novo procurando: parêntese aberto, vírgula sobrando antes 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add apps/web/supabase/migrations/20261010120000_funil_anuncios_tabelas.sql deploy/supabase/apply-order.txt
+git add apps/web/supabase/migrations/20261010130000_funil_anuncios_tabelas.sql deploy/supabase/apply-order.txt
 git commit -m "feat(db): phone_key, site captures, site integration, ad spend tables"
 ```
 
@@ -378,7 +379,7 @@ git commit -m "feat(db): phone_key, site captures, site integration, ad spend ta
 ### Task 3: `attribution_report` + teste de integração das regras
 
 **Files:**
-- Create: `apps/web/supabase/migrations/20261010120100_funil_anuncios_relatorio.sql`
+- Create: `apps/web/supabase/migrations/20261010130100_funil_anuncios_relatorio.sql`
 - Modify: `deploy/supabase/apply-order.txt` (fim do arquivo)
 - Test: `apps/web/src/lib/resultados/relatorio-anuncios.integration.test.ts`
 
@@ -605,11 +606,11 @@ Expected: os 4 testes `skipped` com "E2E_TENANT_ID ausente". (Ele falha de verda
 - [ ] **Step 3: Escrever a função**
 
 ```sql
--- apps/web/supabase/migrations/20261010120100_funil_anuncios_relatorio.sql
+-- apps/web/supabase/migrations/20261010130100_funil_anuncios_relatorio.sql
 -- Funil de anúncios, parte 2: o relatório (spec 2026-10-10-funil-anuncios §1–§2).
 --
 -- Idempotente. Vai nos DOIS bancos e muda deploy/supabase/schema-baseline.json
--- (f|attribution_report). Depende de 20261010120000_funil_anuncios_tabelas.sql.
+-- (f|attribution_report). Depende de 20261010130000_funil_anuncios_tabelas.sql.
 --
 -- Regra única: vale o último cadastro da pessoa (phone_key) antes do evento —
 -- entrada até 7 dias antes, pedido até 90 dias antes, as duas bordas inclusivas.
@@ -856,13 +857,13 @@ Acrescentar ao fim de `deploy/supabase/apply-order.txt`:
 ```
 # 2026-10-10 - Funil de anuncios, parte 2: attribution_report (so service_role).
 # Depende da parte 1. Muda a baseline (f|attribution_report).
-apps/web/supabase/migrations/20261010120100_funil_anuncios_relatorio.sql
+apps/web/supabase/migrations/20261010130100_funil_anuncios_relatorio.sql
 ```
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/web/supabase/migrations/20261010120100_funil_anuncios_relatorio.sql deploy/supabase/apply-order.txt apps/web/src/lib/resultados/relatorio-anuncios.integration.test.ts
+git add apps/web/supabase/migrations/20261010130100_funil_anuncios_relatorio.sql deploy/supabase/apply-order.txt apps/web/src/lib/resultados/relatorio-anuncios.integration.test.ts
 git commit -m "feat(db): attribution_report for the ads funnel, with integration tests"
 ```
 
@@ -883,11 +884,11 @@ git commit -m "feat(db): attribution_report for the ads funnel, with integration
 $w = "C:\Users\Igor\sb-tmp"; New-Item -ItemType Directory -Force $w | Out-Null
 $repo = "<raiz do worktree desta branch>"
 npx supabase --workdir $w link --project-ref wfjuwogxaupyadwhvoxy --yes
-npx supabase --workdir $w db query --linked -f "$repo\apps\web\supabase\migrations\20261010120000_funil_anuncios_tabelas.sql"
-npx supabase --workdir $w db query --linked -f "$repo\apps\web\supabase\migrations\20261010120100_funil_anuncios_relatorio.sql"
+npx supabase --workdir $w db query --linked -f "$repo\apps\web\supabase\migrations\20261010130000_funil_anuncios_tabelas.sql"
+npx supabase --workdir $w db query --linked -f "$repo\apps\web\supabase\migrations\20261010130100_funil_anuncios_relatorio.sql"
 npx supabase --workdir $w link --project-ref nidoatbxaylrkcgbszns --yes
-npx supabase --workdir $w db query --linked -f "$repo\apps\web\supabase\migrations\20261010120000_funil_anuncios_tabelas.sql"
-npx supabase --workdir $w db query --linked -f "$repo\apps\web\supabase\migrations\20261010120100_funil_anuncios_relatorio.sql"
+npx supabase --workdir $w db query --linked -f "$repo\apps\web\supabase\migrations\20261010130000_funil_anuncios_tabelas.sql"
+npx supabase --workdir $w db query --linked -f "$repo\apps\web\supabase\migrations\20261010130100_funil_anuncios_relatorio.sql"
 ```
 
 - [ ] **Step 2: Regenerar a baseline** — com `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` **de produção** no ambiente, na raiz do repositório: `npm run schema:baseline`. `deploy/supabase/schema-baseline.json` muda; entra neste PR.

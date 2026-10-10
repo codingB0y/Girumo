@@ -11,7 +11,7 @@ que o pipeline está no ar antes da tela é histórico que a tela já mostra qua
 
 | PR | O quê | Depende de | Plano |
 |---|---|---|---|
-| 1 | Banco: `phone_key`, `site_integrations`, `site_captures`, `ad_spend`, colunas do clique, `attribution_report` + contrato TS | — | `2026-10-10-funil-anuncios-pr1-banco.md` |
+| 1 | Banco: `phone_key`, `site_integrations`, `site_captures`, `ad_spend`, colunas do clique, `attribution_report` + contrato TS | #423 (Postar por grupo PR 1) mergeado e em prod | `2026-10-10-funil-anuncios-pr1-banco.md` |
 | 2 | `POST /api/integracoes/cadastro` + `POST /api/integracoes/site/chave` + stores + política de acesso | 1 | `2026-10-10-funil-anuncios-pr2-cadastro.md` |
 | 4 | `/r/?cid=`: clique grava cadastro e grupo | 1, 2 | `2026-10-10-funil-anuncios-pr4-cid-no-r.md` |
 | — | **Mudança no site da loja-piloto** (fora do repo, spec §5) | 2 no ar + chave gerada | — |
