@@ -20,7 +20,7 @@ export async function resolveMediaAuth(req: Request): Promise<MediaAuth | Respon
   const authUserId = await getSessionAccountId();
   if (!authUserId) return Response.json({ error: "Nao autenticado." }, { status: 401 });
 
-  const tenantId = await findMembershipTenantId(authUserId, req.headers.get("x-tenant-id"));
+  const tenantId = await findMembershipTenantId(authUserId, req);
   if (!tenantId) return Response.json({ error: "Tenant nao encontrado." }, { status: 403 });
 
   return { authUserId, tenantId };
