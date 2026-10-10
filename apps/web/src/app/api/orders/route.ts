@@ -1,9 +1,7 @@
-import { addOrder, removeOrder, countOrders, listOrdersByTenant } from "@/lib/stores/orders";
-import { getLeadAttribution, updateLeadStatus } from "@/lib/stores/leads";
-import { listCampaignGroups } from "@/lib/stores/campaign-groups";
-import { resolveCampaignId } from "@/lib/campaign-attribution";
+import { addOrder, removeOrder, listOrdersByTenant } from "@/lib/stores/orders";
+import { getLeadAttribution } from "@/lib/stores/leads";
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
-import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
+import { recordOrder } from "@/lib/orders/registrar";
 import { parseValorDoPedido as parseOrderValue } from "@/lib/orders/valor-do-pedido";
 
 export const runtime = "nodejs";
@@ -47,48 +45,24 @@ export async function POST(req: Request) {
   }
   try {
     const leadId = b.leadId ? String(b.leadId) : undefined;
+    // O lead tem que ser desta loja: sem a conferência o pedido gravava o
+    // lead_id de outra. Id que não é uuid também não existe (o Postgres
+    // responderia 22P02 e a rota, 500). Erro do banco aqui não é engolido:
+    // sem saber de quem é o lead, o pedido não é gravado.
+    const origin = leadId && UUID_RE.test(leadId) ? await getLeadAttribution(tenantId, leadId) : null;
+    if (leadId && !origin) return Response.json({ error: "Contato não encontrado." }, { status: 400 });
 
-    let campaignId: string | undefined;
-    if (leadId) {
-      // O lead tem que ser desta loja: sem a conferência o pedido gravava o
-      // lead_id de outra. Id que não é uuid também não existe (o Postgres
-      // responderia 22P02 e a rota, 500). Erro do banco aqui não é engolido:
-      // sem saber de quem é o lead, o pedido não é gravado.
-      const lead = UUID_RE.test(leadId) ? await getLeadAttribution(tenantId, leadId) : null;
-      if (!lead) return Response.json({ error: "Contato não encontrado." }, { status: 400 });
-
-      // Atribuição de campanha: grupo de origem → campanha que o contém.
-      // Best-effort — falha aqui não deve derrubar o registro do pedido.
-      try {
-        campaignId = resolveCampaignId(lead, await listCampaignGroups(tenantId)) ?? undefined;
-      } catch (e) {
-        // sem atribuição → cai em "sem origem"
-        console.error(`[orders] atribuição de campanha falhou para ${tenantId}:`, (e as Error).message);
-      }
-    }
-
-    const order = await addOrder(tenantId, {
-      value,
-      phone: b.phone ? String(b.phone) : undefined,
-      leadId,
-      group: b.group ? String(b.group) : undefined,
-      campaignId,
-    });
-    if (leadId) {
-      // Supabase, como o pedido (o ndjson legado nunca via esse lead). Lead não
-      // encontrado não deve derrubar o pedido já criado.
-      await updateLeadStatus(tenantId, leadId, "comprou").catch(() => null);
-    }
-
-    // Marco de ativação: 1º pedido. Contagem pós-insert; ===1 = primeiro. Best-effort.
-    try {
-      if ((await countOrders(tenantId)) === 1) {
-        void trackFunnelEvent({ tenantId, userId: null, event: "first_order", onlyFirst: true, metadata: { orderId: order.id } });
-      }
-    } catch (e) {
-      console.error(`[orders] funnel tracking falhou para ${tenantId}:`, (e as Error).message);
-    }
-
+    // Valor único, sem itens: continua no addOrder. Itens e autora são da venda
+    // (/api/vendas); "Registrar pedido" do dono fica como está.
+    const order = await recordOrder(tenantId, leadId && origin ? { id: leadId, ...origin } : null, (campaignId) =>
+      addOrder(tenantId, {
+        value,
+        phone: b.phone ? String(b.phone) : undefined,
+        leadId,
+        group: b.group ? String(b.group) : undefined,
+        campaignId,
+      }),
+    );
     return Response.json(order, { status: 201 });
   } catch (e) {
     return Response.json({ error: (e as Error).message }, { status: 500 });

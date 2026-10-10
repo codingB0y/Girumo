@@ -15,12 +15,6 @@ import { ROTAS } from "./modulos";
 /** apps/web/src/app — este arquivo mora em src/lib/auth. */
 const APP = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "app");
 
-/**
- * Rotas do mapa que ainda não existem: nascem no PR 4 (`feat/vendas-api`).
- * O PR 4 esvazia esta lista — o teste falha se uma delas já existir.
- */
-const PENDENTES_DO_PR_4: ReadonlySet<string> = new Set(["/api/vendas", "/api/vendas/contato", "/api/vendas/*"]);
-
 /** Pastas que o padrão alcança. `*` desce em qualquer segmento dinâmico `[x]` (não catch-all). */
 function pastas(padrao: string): string[] {
   let atuais = [APP];
@@ -50,7 +44,6 @@ const ENTRADAS = Object.values(ROTAS).flat();
 
 test("cada padrão do mapa tem route.ts que exporta cada método liberado", () => {
   for (const { padrao, metodos } of ENTRADAS) {
-    if (PENDENTES_DO_PR_4.has(padrao)) continue;
     const arquivos = rotasDoPadrao(padrao);
     assert.ok(arquivos.length > 0, `${padrao}: nenhum route.ts em src/app${padrao}`);
     for (const metodo of metodos) {
@@ -62,13 +55,12 @@ test("cada padrão do mapa tem route.ts que exporta cada método liberado", () =
   }
 });
 
-test("pendente do PR 4 continua no mapa e ainda não existe", () => {
-  for (const padrao of PENDENTES_DO_PR_4) {
-    assert.ok(ENTRADAS.some((e) => e.padrao === padrao), `${padrao} saiu do mapa: tire de PENDENTES_DO_PR_4`);
-    assert.deepEqual(
-      rotasDoPadrao(padrao),
-      [],
-      `${padrao} já existe: tire de PENDENTES_DO_PR_4 para o teste conferir os métodos`,
-    );
+// `/api/vendas/*` (PATCH, DELETE) também casa a pasta estática `contato`, que o Next
+// serve antes do `[id]`: ela não pode exportar os métodos do curinga, senão a vendedora
+// editaria/apagaria "contato" em vez de levar 405.
+test("a pasta estática vendas/contato não exporta os métodos do curinga /api/vendas/*", () => {
+  const contato = join(APP, "api", "vendas", "contato", "route.ts");
+  for (const metodo of ["PATCH", "DELETE"]) {
+    assert.equal(exporta(contato, metodo), false, `contato/route.ts exporta ${metodo}`);
   }
 });
