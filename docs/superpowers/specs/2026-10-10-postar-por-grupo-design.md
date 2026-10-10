@@ -178,14 +178,17 @@ Funciona para todos os escritores (`apply_group_members_delta`, upserts do sync,
 
 1. Seleciona `groups g` + `campaign_groups c` (`g.whatsapp_group_id = any(c.group_ids)`, mesmo tenant)
    com `g.lotado_em is not null`, `g.aviso_lotou_em is null`, `g.is_admin`,
-   `nullif(trim(c.aviso_ao_lotar), '') is not null`, `g.lotado_em >= c.aviso_ao_lotar_desde`;
-   `for update of g skip locked`, `limit p_limit`.
+   `nullif(trim(c.aviso_ao_lotar), '') is not null`, `g.lotado_em >= c.aviso_ao_lotar_desde` e
+   `g.lotado_em >= now() - interval '1 hour'`; `for update of g skip locked`, `limit p_limit`.
+   A janela de 1 h existe porque grupo que lotou fora de uma campanha com aviso e entrou nela depois
+   não pode receber um "Lotou!" atrasado; 1 h tolera uma pane curta do worker.
 2. Para cada um: insere `broadcasts` (`campaign_group_id = c.id`, `name = 'Aviso ao lotar · ' || g.name`,
    `message = c.aviso_ao_lotar`, `group_ids = array[g.whatsapp_group_id]`, `status = 'draft'`),
    chama `app.enqueue_broadcast` e seta `g.aviso_lotou_em = now()` **qualquer que seja o resultado**.
    Falha (sem número conectado) fica visível no histórico de Disparos como qualquer disparo; não
    tenta de novo a cada 30 s.
-3. Devolve quantos enviou (só um inteiro: o worker roda a cada 30 s, cuidar do egress —
+3. Devolve quantos ficaram na fila (`app.enqueue_broadcast` devolveu `status = 'queued'`; o que falhou
+   no enfileiramento não conta) (só um inteiro: o worker roda a cada 30 s, cuidar do egress —
    memória `finding-egress-supabase-e-polling-do-worker`).
 
 ### 5.7 Backfill (na migração do PR 1)
@@ -364,6 +367,7 @@ para sempre = marca automática que nunca vem.
 | Webhook perdido | Corrigido na recontagem diária; a marca vem quando a contagem cruza. |
 | Lojista novo, primeiro sync com grupos cheios | Marcados no insert, sem aviso. |
 | Ligar o aviso com 11 grupos já lotados | Nenhum recebe (`lotado_em < aviso_ao_lotar_desde`). |
+| Grupo lotado fora de campanha e incluído depois numa campanha com aviso | Não recebe (janela de 1 h: `lotado_em < now() - interval '1 hour'`); `aviso_lotou_em` continua nulo. |
 | Auto-grow anexa grupo durante o Padronizar | `reordenar_campanha` devolve `false` → 409, prévia recarrega. |
 | Renomear falha num grupo | Job `failed`, os outros seguem; o nome no banco só muda no `done`. A ordem do link já está salva. |
 | Grupo em duas campanhas | Fica fora dos renomes até o conflito ser resolvido; o trigger impede conflito novo. |
@@ -376,7 +380,8 @@ para sempre = marca automática que nunca vem.
 - **SQL:** `infra/tests/postar-por-grupo-check.sql`, numa transação com `rollback`, rodado nos dois
   bancos: cria campanha e grupos de teste e prova cruzamento subindo/descendo, insert já cheio,
   reabrir bloqueado e liberado, prioridade do reaberto, as três regras, vazio, campanha nula, aviso uma
-  vez só, aviso não retroativo, ACL das funções novas (`has_function_privilege`).
+  vez só, aviso não retroativo (nem de grupo que lotou há mais de 1 h), retorno que não conta
+  aviso falho, ACL das funções novas (`has_function_privilege`).
 - **Integração (job e2e do CI):** `campaign-group-states.integration.test.ts` com o tenant de E2E —
   estados pela RPC, marcar/reabrir, `enqueue_broadcast` com regra gerando `engine_commands` só para os
   JIDs certos (é isso que mata o mutante que troca a regra no SQL; memória
