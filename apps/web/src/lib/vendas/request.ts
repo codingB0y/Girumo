@@ -24,6 +24,9 @@ export const MESSAGES = {
 /** Teto de `order_items.unit_price` (check do PR 2). */
 const MAX_UNIT_PRICE = 999_999.99;
 
+/** Teto do total do pedido que a RPC aceita; passar daqui lá é `itens_invalidos`, mas só depois de criar o lead. */
+const MAX_TOTAL = 9_999_999_999.99;
+
 const bodyItems = z
   .array(
     z.strictObject({
@@ -83,6 +86,7 @@ export function itemsForRpc(items: BodyItems): { items: RpcItem[] } | { error: s
     return { error: MESSAGES.items };
   }
   const total = toCents(converted.reduce((sum, item) => sum + item.quantity * item.unit_price, 0));
+  if (total > MAX_TOTAL) return { error: MESSAGES.items };
   return total > 0 ? { items: converted } : { error: MESSAGES.zeroTotal };
 }
 

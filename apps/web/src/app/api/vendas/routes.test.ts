@@ -26,6 +26,7 @@ const LEAD = "3c9e1a7b-5d2f-4a8c-b6e0-2f4a6c8e0b1d";
 const USERS: Record<string, { id: string; tenant: string; role: string }> = {
   "token-vendedora": { id: SELLER, tenant: STORE, role: "seller" },
   "token-dono": { id: OWNER, tenant: STORE, role: "owner" },
+  "token-operador": { id: "9c8b7a6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d", tenant: STORE, role: "operator" },
   "token-varredura": { id: "2b4d6f8a-0c1e-4a3b-9d5f-7e9a1c3e5b7d", tenant: STORE, role: "seller" },
   "token-outra-loja": { id: "8a7b6c5d-4e3f-4a2b-9c1d-0e9f8a7b6c5d", tenant: OTHER_STORE, role: "owner" },
 };
@@ -407,6 +408,8 @@ test("corpo ruim → 400 com a frase da tela, sem ir ao banco", async () => {
     [{ telefone: "11987654321", itens: [{ ...okItem, valorUnitario: "-5" }] }, items],
     [{ telefone: "11987654321", itens: [{ ...okItem, valorUnitario: "1000000" }] }, items],
     [{ telefone: "11987654321", itens: [{ ...okItem, valorUnitario: "0" }] }, "A venda precisa somar mais que zero."],
+    // Cada item cabe no teto, a soma passa do teto do total da RPC: 400 antes de criar o lead.
+    [{ telefone: "11912345678", itens: Array(2).fill({ nome: "Lote", quantidade: 9999, valorUnitario: "999999,99" }) }, items],
     [{ telefone: "9876-5432", itens: [okItem] }, "Digite o número com DDD."],
     [{ itens: [okItem] }, "Digite o número com DDD."],
     [{ leadId: "nao-e-uuid", itens: [okItem] }, "Contato não encontrado."],
@@ -580,4 +583,57 @@ test("dono apaga sem filtro de autora nem prazo; nada apagado → 404", async ()
   assert.equal(deleted.url.searchParams.get("tenant_id"), `eq.${STORE}`);
   assert.equal(deleted.url.searchParams.get("created_by"), null);
   assert.equal(deleted.url.searchParams.get("created_at"), null);
+});
+
+test("falha depois da gravação (status do lead e contagem) não derruba a venda: 201 com a venda", async () => {
+  database = ({ method, url }) => {
+    if (url.pathname === "/rest/v1/leads" && method === "GET") return { status: 200, body: [FERNANDA] };
+    if (url.pathname === "/rest/v1/campaign_groups") return { status: 200, body: [] };
+    if (url.pathname === "/rest/v1/rpc/create_order_with_items") return { status: 200, body: orderRow() };
+    return { status: 500, body: { message: "banco fora" } };
+  };
+
+  const res = await salesPost(call("POST", "/api/vendas", "token-vendedora", { leadId: LEAD, itens: ONE_ITEM }));
+
+  assert.equal(res.status, 201);
+  assert.equal((await res.json()).id, ORDER);
+  assert.equal(requestsTo("/rest/v1/leads").filter((request) => request.method === "PATCH").length, 1, "tentou marcar comprou");
+  assert.equal(requestsTo("/rest/v1/orders").length, 1, "tentou contar os pedidos");
+});
+
+test("leadId de contato sem telefone (@lid) → 400 Contato não encontrado., e nada é gravado", async () => {
+  database = ({ url }) => (url.pathname === "/rest/v1/leads" ? { status: 200, body: [{ ...FERNANDA, phone: null }] } : { status: 500 });
+
+  const res = await salesPost(call("POST", "/api/vendas", "token-vendedora", { leadId: LEAD, itens: ONE_ITEM }));
+
+  assert.equal(res.status, 400);
+  assert.deepEqual(await res.json(), { error: "Contato não encontrado." });
+  assert.equal(requestsTo("/rest/v1/rpc/create_order_with_items").length, 0);
+});
+
+test("correção: erro do banco → 500 genérico, sem a mensagem dele na resposta", async () => {
+  database = () => ({ status: 500, body: { code: "XX000", message: "segredo-do-banco", details: null, hint: null } });
+  const error = mock.method(console, "error", () => undefined);
+
+  const res = await salePatch(call("PATCH", `/api/vendas/${ORDER}`, "token-vendedora", { itens: ONE_ITEM }), withId(ORDER));
+  error.mock.restore();
+
+  assert.equal(res.status, 500);
+  const text = await res.text();
+  assert.deepEqual(JSON.parse(text), { error: "Não deu para concluir agora. Tente de novo." });
+  assert.ok(!text.includes("segredo-do-banco"));
+});
+
+test("operador corrige qualquer venda da loja, sem trava de autora nem de prazo", async () => {
+  database = ({ url }) => {
+    if (url.pathname === "/rest/v1/rpc/replace_order_items") return { status: 200, body: orderRow({ created_at: hoursAgo(24 * 30) }) };
+    if (url.pathname === "/rest/v1/leads") return { status: 200, body: [{ id: LEAD, name: "Fernanda Lima" }] };
+    return { status: 500 };
+  };
+
+  const res = await salePatch(call("PATCH", `/api/vendas/${ORDER}`, "token-operador", { itens: ONE_ITEM }), withId(ORDER));
+
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).editavel, true);
+  assert.equal(rpcBody("replace_order_items")?.p_only_author, null);
 });

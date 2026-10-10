@@ -67,7 +67,8 @@ async function saleContact(
 ): Promise<{ lead: SaleLead | null; phone: string } | { error: string }> {
   if (body.leadId) {
     const lead = await findLeadById(tenantId, body.leadId);
-    return lead ? { lead, phone: lead.phone ?? "" } : { error: MESSAGES.contact };
+    // Contato sem telefone (regime @lid) não tem número para gravar no pedido.
+    return lead?.phone ? { lead, phone: lead.phone } : { error: MESSAGES.contact };
   }
   const phones = variantesDoTelefone(body.telefone ?? "");
   const canonical = telefoneCanonico(body.telefone ?? "");
