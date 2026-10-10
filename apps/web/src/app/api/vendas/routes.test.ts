@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createServer, type IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
-import { after, before, beforeEach, test } from "node:test";
+import { after, before, beforeEach, mock, test } from "node:test";
 
 import { brasiliaMonth, monthRange } from "@/lib/vendas/month";
 import type { GET as ContactGet } from "./contato/route";
@@ -182,6 +182,53 @@ test("30 buscas por minuto por pessoa; a 31ª é 429", async () => {
   const res = await contactGet(call("GET", "/api/vendas/contato?telefone=1", "token-varredura"));
   assert.equal(res.status, 429);
   assert.deepEqual(await res.json(), { error: "Muitas buscas seguidas. Espere um minuto e tente de novo." });
+
+  // O balde é de cada pessoa: quem esgotou não derruba ninguém, nem de outra loja.
+  database = () => ({ status: 200, body: [] });
+  for (const token of ["token-dono", "token-outra-loja"]) {
+    const other = await contactGet(call("GET", "/api/vendas/contato?telefone=11912345678", token));
+    assert.equal(other.status, 200, token);
+  }
+});
+
+test("dono também busca contato: 200", async () => {
+  database = ({ url }) => {
+    if (url.pathname === "/rest/v1/optouts") return { status: 200, body: [] };
+    if (url.pathname === "/rest/v1/leads") return { status: 200, body: [FERNANDA] };
+    return { status: 500 };
+  };
+
+  const res = await contactGet(call("GET", "/api/vendas/contato?telefone=11987654321", "token-dono"));
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { contato: { id: LEAD, nome: "Fernanda Lima", telefone: "5511987654321" }, optout: false });
+});
+
+test("a engine não usa a busca: 403 e nada é lido", async () => {
+  const req = new Request("http://localhost/api/vendas/contato?telefone=11987654321", {
+    headers: { "x-engine-token": "qualquer-token", "x-tenant-id": STORE },
+  });
+
+  const res = await contactGet(req);
+
+  assert.equal(res.status, 403);
+  assert.equal(seen.length, 0);
+});
+
+test("erro do banco → 500 genérico, a mensagem do banco fica no log e não na resposta", async () => {
+  database = () => ({ status: 500, body: { message: "segredo-do-banco" } });
+  const log = mock.method(console, "error", () => {});
+  try {
+    const res = await contactGet(call("GET", "/api/vendas/contato?telefone=11987654321", "token-vendedora"));
+    const text = await res.text();
+
+    assert.equal(res.status, 500);
+    assert.deepEqual(JSON.parse(text), { error: "Não deu para concluir agora. Tente de novo." });
+    assert.ok(!text.includes("segredo-do-banco"));
+    assert.ok(log.mock.calls.some((c) => String(c.arguments[1]).includes("segredo-do-banco")));
+  } finally {
+    log.mock.restore();
+  }
 });
 
 const ORDER = "9d8c7b6a-5f4e-4d3c-a2b1-0f9e8d7c6b5a";
