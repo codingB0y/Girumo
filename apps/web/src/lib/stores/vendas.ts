@@ -19,6 +19,10 @@ const MONTH_LIMIT = 1000;
 /** 100 UUIDs numa URL dão ~4 KB; 1000 passariam dos ~8 KB que o servidor aceita. */
 const NAME_BATCH = 100;
 
+/** Só estes papéis mexem em qualquer venda da loja. Qualquer outro (vendedora ou papel que não existe ainda) fica restrito: falha fechado. */
+const UNRESTRICTED_ROLES: readonly string[] = ["owner", "admin", "operator"];
+export const hasSellerLimits = (role: string): boolean => !UNRESTRICTED_ROLES.includes(role);
+
 /** Quem chama a rota: a loja, a pessoa e o papel dela na loja. */
 export type SalesCaller = { tenantId: string; authUserId: string; role: TenantRole };
 /** Item no formato de `p_items` das RPCs; a ordem do array vira `position`. */
@@ -125,7 +129,7 @@ export async function replaceSaleItems(caller: SalesCaller, orderId: string, ite
     p_tenant_id: caller.tenantId,
     p_order_id: orderId,
     p_items: items,
-    p_only_author: caller.role === "seller" ? caller.authUserId : null,
+    p_only_author: hasSellerLimits(caller.role) ? caller.authUserId : null,
   });
   if (error) throw new Error(error.message);
   return data as SaleOrder;
@@ -134,7 +138,7 @@ export async function replaceSaleItems(caller: SalesCaller, orderId: string, ite
 /** Apaga a venda (os itens vão junto, `on delete cascade`). true só se uma linha saiu. */
 export async function deleteSale(caller: SalesCaller, orderId: string, now: Date): Promise<boolean> {
   let query = getSupabaseAdmin().from("orders").delete().eq("tenant_id", caller.tenantId).eq("id", orderId);
-  if (caller.role === "seller") {
+  if (hasSellerLimits(caller.role)) {
     query = query
       .eq("created_by", caller.authUserId)
       .gt("created_at", new Date(now.getTime() - SALE_EDIT_WINDOW_MS).toISOString());
@@ -170,7 +174,7 @@ export function isSaleEditable(
   sale: { created_by: string | null; created_at: string },
   now: Date,
 ): boolean {
-  if (caller.role !== "seller") return true;
+  if (!hasSellerLimits(caller.role)) return true;
   return sale.created_by === caller.authUserId && now.getTime() - Date.parse(sale.created_at) < SALE_EDIT_WINDOW_MS;
 }
 

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { deleteSale, leadNames, replaceSaleItems, saleFromOrder } from "@/lib/stores/vendas";
+import { deleteSale, hasSellerLimits, leadNames, replaceSaleItems, saleFromOrder } from "@/lib/stores/vendas";
 import { MESSAGES, bodyErrorMessage, correctionBody, getSalesCaller, handleSalesErrors, itemsForRpc } from "@/lib/vendas/request";
 
 export const runtime = "nodejs";
@@ -36,7 +36,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     if (!saleId.safeParse(id).success) return Response.json({ error: MESSAGES.notFound }, { status: 404 });
     if (await deleteSale(caller, id, new Date())) return Response.json({ ok: true });
     // Pros filtros de autora e prazo, "não existe" e "passou de 24h" dão no mesmo: não pode.
-    return caller.role === "seller"
+    return hasSellerLimits(caller.role)
       ? Response.json({ error: MESSAGES.window }, { status: 403 })
       : Response.json({ error: MESSAGES.notFound }, { status: 404 });
   });

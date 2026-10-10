@@ -284,3 +284,24 @@ test("editável: vendedora até 24h e só a própria; os outros papéis sempre",
   assert.equal(store.isSaleEditable(SELLER, sale("outra-vendedora", 1), NOW), false);
   assert.equal(store.isSaleEditable(OWNER, sale("vendedora-1", 24 * 30), NOW), true);
 });
+
+test("papel desconhecido é restrito como vendedora (falha fechado, nunca vira dono)", async () => {
+  const unknown = { tenantId: "loja-a", authUserId: "x-1", role: "estagiario" } as unknown as Store.SalesCaller;
+
+  reply = () => ({ status: 200, body: [{ id: "p1" }] });
+  await store.deleteSale(unknown, "p1", NOW);
+  assert.deepEqual(params(seen[0].url), {
+    tenant_id: "eq.loja-a",
+    id: "eq.p1",
+    created_by: "eq.x-1",
+    created_at: "gt.2026-10-06T15:00:00.000Z",
+    select: "id",
+  });
+
+  reply = () => ({ status: 200, body: { id: "p9" } });
+  await store.replaceSaleItems(unknown, "p9", ITEMS);
+  assert.equal((requestsTo("/rest/v1/rpc/replace_order_items")[0].body as { p_only_author: string }).p_only_author, "x-1");
+
+  const sale = { created_by: "outra", created_at: hoursAgo(1) };
+  assert.equal(store.isSaleEditable(unknown, sale, NOW), false);
+});
