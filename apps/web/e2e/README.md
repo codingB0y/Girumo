@@ -85,7 +85,7 @@ por falta de segredo é como o time aprende a ignorar a suíte.
 
 O relatório HTML sobe como artefato `e2e-report` (14 dias) mesmo quando a suíte
 falha — sem isso, falha no CI vira "deu vermelho" sem screenshot de nada. Antes,
-`infra/scripts/redigir-segredos-e2e.py` apaga as três senhas, inclusive do zip
+`infra/scripts/redigir-segredos-e2e.py` apaga as duas senhas (QA e admin), inclusive do zip
 em base64 que o Playwright embute no `index.html` (o título de todo `fill` é
 `Fill "<valor>"`, de teste que passa também). Se a redação falhar, nada sobe.
 
