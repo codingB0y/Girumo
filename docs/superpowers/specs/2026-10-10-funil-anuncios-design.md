@@ -398,20 +398,26 @@ return Response.redirect(destino, 303);
 - **Prova em prod** (card do quadro): depois da mudança no site da loja-piloto, um cadastro real aparece na
   integração e na aba, e o funil da loja bate com SQL direto.
 
-## 9. Medições antes do plano fechar (prod, leitura)
+## 9. Medições antes do plano (prod, leitura) — feitas em 10/10/2026
 
-1. `upsert_lead`: confirmar que `entered_at` é o da primeira entrada e não muda na volta (regra de §6).
-2. `explain analyze` de um rascunho de `attribution_report` na loja-piloto (alvo < 500 ms).
-3. Se a loja-piloto tem domínio próprio verificado (decide a origem do `redirect`).
-4. `lp_captures`: quantas lojas usam páginas `/p/` hoje (dimensiona o teste da união).
+1. `app.upsert_lead`: no conflito atualiza só `last_seen_at`, `also_in` e `updated_at`; **`entered_at` é o da
+   primeira entrada** e não muda na volta. Regra de §6 confirmada.
+2. Volume: maior loja com 2.820 contatos; 4.141 contatos e 38 pedidos no banco inteiro; 1.678 cliques. A
+   função junta milhares de linhas com índice por `phone_key`: `explain analyze` dispensado; o teste de
+   integração com 1.500 contatos cobre o teto de 1000.
+3. Loja-piloto tem domínio próprio **ativo**: `links.modakidsdosul.com.br`. O `redirect` sai nele, na raiz
+   (`/vip-atacado?cid=`); o middleware reescreve para `/r/` preservando a query.
+4. `lp_captures`: 7 cadastros no total, em 2 lojas. A união com as páginas `/p/` é barata.
+5. Policies de referência: `leads`/`orders` leem por `app.user_tenant_ids()`, que já exclui a vendedora;
+   as tabelas novas usam `app.has_membership(tenant_id)` (mesma exclusão).
 
 ## 10. PRs (um por coisa)
 
 | # | Conteúdo | Arquivos (aprox.) |
 |---|---|---|
 | 1 | Migração (§2) + `apply-order` + baseline do drift + teste de integração da função + teste de privilégio | 5 |
-| 2 | `POST /api/integracoes/cadastro` + stores `site-integrations`/`site-captures` + política de acesso + `RATE_LIMITS` + `GET/POST /api/integracoes/site` | 9 |
-| 3 | Tela Configurações › Integrações › Site próprio | 5 |
+| 2 | `POST /api/integracoes/cadastro` + stores `site-integrations`/`site-captures` + política de acesso + `RATE_LIMITS` + `POST /api/integracoes/site/chave` | 9 |
+| 3 | Tela Configurações › Integrações › Site próprio + `GET /api/integracoes/site` | 5 |
 | 4 | `/r/?cid=` em `short-link-click.ts` + `recordTrackedLinkClick` + testes | 4 |
 | 5 | `GET /api/resultados/anuncios` + aba Anúncios: faixa, funil, gráfico, por onde, fora, vazio | 9 |
 | 6 | Tabela com mini-funil A + gaveta do anúncio + cartões B no celular | 7 |
