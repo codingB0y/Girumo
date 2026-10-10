@@ -21,6 +21,15 @@ import { exigeCredenciais, semErroDeRuntime } from "./sessao-helpers";
  *   - `goal_hit` sai de um numero em `tenant_settings`, que o proprio teste
  *     baixa e repoe. E o unico gatilho reversivel.
  *
+ * POR QUE A META VOLTA PARA UM VALOR FIXO, E NAO PARA O QUE ESTAVA LA: ate
+ * 10/10/2026 o teste lia a meta "original" e a restaurava. Com dois runs no
+ * mesmo banco de dev (CI de PRs em paralelo), um lia o 1 que o outro tinha
+ * gravado e "restaurava" 1. O tenant de QA ficou com a meta batida para sempre,
+ * e o modal passou a cobrir o `/painel` em todo run seguinte — derrubando
+ * `painel-inicio-ao-vivo.spec.ts`, que nada tem a ver com isto. O tenant de QA
+ * nao tem meta de verdade; voltar sempre para `META_PADRAO` e idempotente, e a
+ * pior corrida possivel dura so a janela do teste.
+ *
  * POR QUE O POST DE CELEBRACAO E INTERCEPTADO: qualquer clique no modal marca o
  * marco como celebrado, e a marcacao e definitiva (upsert sem contrapartida).
  * Sem o intercept, o teste passaria uma vez e ficaria cego para sempre — a
@@ -31,13 +40,8 @@ import { exigeCredenciais, semErroDeRuntime } from "./sessao-helpers";
 /** Baixo o bastante pra que qualquer tenant com lead atinja a meta. */
 const META_DE_TESTE = 1;
 
-type Settings = { monthlyGoalContacts: number | null };
-
-async function lerMeta(page: Page): Promise<number | null> {
-  const res = await page.request.get("/api/settings");
-  expect(res.ok(), `GET /api/settings respondeu ${res.status()}`).toBeTruthy();
-  return ((await res.json()) as Settings).monthlyGoalContacts;
-}
+/** O estado de repouso do tenant de QA: sem meta, logo sem marco `goal_hit`. */
+const META_PADRAO = null;
 
 async function definirMeta(page: Page, valor: number | null) {
   const res = await page.request.patch("/api/settings", {
@@ -113,8 +117,6 @@ test.describe("cartao de resultado compartilhavel", () => {
       await rota.continue();
     });
 
-    const metaOriginal = await lerMeta(page);
-
     try {
       await definirMeta(page, META_DE_TESTE);
       await page.goto("/painel");
@@ -184,7 +186,7 @@ test.describe("cartao de resultado compartilhavel", () => {
 
       await semErroDeRuntime(page);
     } finally {
-      await definirMeta(page, metaOriginal);
+      await definirMeta(page, META_PADRAO);
     }
 
     // ---- controle do gatilho: sem meta batida, o cartao nao aparece
@@ -192,7 +194,7 @@ test.describe("cartao de resultado compartilhavel", () => {
     await aguardarDashboard(page);
     await expect(
       page.getByRole("heading", { name: /Meta do mês batida/ }),
-      "o cartao continuou na tela com a meta original — ele nao esta olhando o marco",
+      "o cartao continuou na tela sem meta — ele nao esta olhando o marco",
     ).toHaveCount(0);
 
     // Se o intercept nunca pegou nada, o clique nao marcou celebracao — mas
