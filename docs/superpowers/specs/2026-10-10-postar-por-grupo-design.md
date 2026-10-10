@@ -159,7 +159,7 @@ Funciona para todos os escritores (`apply_group_members_delta`, upserts do sync,
   - senão → o predicado de hoje, sem mudança (`is_admin` e `group_ids` vazio = todos os admin).
 - `app.enqueue_broadcast`: troca o `select ... into jids` (`dispatch_fanout.sql:149-157`) por
   `jids := app.alvos_do_disparo(b)`. Erro de destino vazio fica específico: com regra,
-  "Nenhum grupo nesta regra agora"; sem regra, a mensagem atual.
+  "Nenhum grupo nesta regra agora."; sem regra, a mensagem atual.
 - `app.promote_due_schedules` (versão de `20260930120000`): o bloco que **copia** o predicado para
   abrir a Oferta Relâmpago (linhas 103-110) passa a ler os JIDs do próprio run:
   `select array_agg(payload->>'jid') from engine_commands where origin_run_id = v_broadcast.run_id`.
@@ -257,8 +257,9 @@ para sempre = marca automática que nunca vem.
 ### 6.4 Estados e ações do grupo (PR 4)
 
 - `GET /api/campanhas/[slug]/grupos/estados` — tenant pela sessão (`allowEngine: false`). Resposta:
-  `{ grupos: EstadoGrupo[], enchendo: EstadoGrupo | null, contagem: { lotado, enchendo, fila, vazio, membros } }`,
-  `EstadoGrupo` = colunas da seção 5.2 em camelCase.
+  `{ grupos: EstadoGrupo[], contagem: { lotado, enchendo, fila, vazio, membros }, regras: Record<RegraDestino, number> }`
+  (o "enchendo" é o grupo com `estado === "enchendo"` dentro de `grupos`), `EstadoGrupo` = colunas da seção 5.2
+  em camelCase — formato exato no arquivo de contratos dos planos.
 - `POST /api/campanhas/[slug]/grupos/lotado` `{ groupId, acao: "marcar" | "reabrir" }` — exige
   `campaign:edit`; confere que o grupo é **desta** campanha; `ainda_cheio` → 409 com a mensagem do
   mockup ("Ainda está com X de Y (Z%)…").
@@ -284,7 +285,7 @@ para sempre = marca automática que nunca vem.
   - nada → `{ regra: "menos_enchendo" }` (o padrão seguro; antes era "todos").
   - lista vazia → 400.
 - `messages/route.ts`: usa `lerDestino`; grava `target_rule` **ou** `group_ids`. Envio "agora" com regra
-  que hoje dá zero grupos → 400 "Nenhum grupo nesta regra agora" (agendado é aceito: pode encher até lá).
+  que hoje dá zero grupos → 400 "Nenhum grupo nesta regra agora." (agendado é aceito: pode encher até lá).
   Conferir `assertPlanLimit("contacts:reach")` (linhas 147-155): se ele conta alcance por `groupIds`,
   passar os JIDs resolvidos da regra.
 - Componente `components/painel/messages/destino-grupos.tsx`: atalhos com contagem, frase da regra
@@ -358,7 +359,7 @@ para sempre = marca automática que nunca vem.
 | Reaberto chega a 95% | Trigger marca de novo, limpa `reaberto_em`; link volta à sequência; aviso **não** repete. |
 | Dois reabertos ao mesmo tempo | Enche o de menor posição primeiro. |
 | Todos lotados | Link bloqueia com `all-full` (página de lotado / lista de espera, como hoje); auto-grow cria o próximo. |
-| Regra agendada que na hora dá zero grupos | Disparo vira `failed` "Nenhum grupo nesta regra agora" (visível no histórico). |
+| Regra agendada que na hora dá zero grupos | Disparo vira `failed` "Nenhum grupo nesta regra agora." (visível no histórico). |
 | Campanha apagada com disparo de regra agendado | `campaign_group_id` vira nulo → zero alvos → `failed`. Nunca cai em "todos". |
 | Webhook perdido | Corrigido na recontagem diária; a marca vem quando a contagem cruza. |
 | Lojista novo, primeiro sync com grupos cheios | Marcados no insert, sem aviso. |
