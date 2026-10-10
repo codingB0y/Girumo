@@ -5,6 +5,7 @@ import { after, before, beforeEach, test } from "node:test";
 
 import { brasiliaMonth, monthRange } from "@/lib/vendas/month";
 import type { GET as ContactGet } from "./contato/route";
+import type { DELETE as SaleDelete, PATCH as SalePatch } from "./[id]/route";
 import type { GET as SalesGet, POST as SalesPost } from "./route";
 
 /**
@@ -82,6 +83,8 @@ const server = createServer((req, res) => {
 let contactGet: typeof ContactGet;
 let salesGet: typeof SalesGet;
 let salesPost: typeof SalesPost;
+let salePatch: typeof SalePatch;
+let saleDelete: typeof SaleDelete;
 
 before(async () => {
   await new Promise<void>((ready) => server.listen(0, "127.0.0.1", ready));
@@ -94,6 +97,7 @@ before(async () => {
   delete process.env.UPSTASH_REDIS_REST_TOKEN;
   ({ GET: contactGet } = await import("./contato/route"));
   ({ GET: salesGet, POST: salesPost } = await import("./route"));
+  ({ PATCH: salePatch, DELETE: saleDelete } = await import("./[id]/route"));
 });
 
 after(() => {
@@ -418,4 +422,115 @@ test("mês fora do formato → 400 Mês inválido.", async () => {
   assert.equal(res.status, 400);
   assert.deepEqual(await res.json(), { error: "Mês inválido." });
   assert.equal(seen.length, 0);
+});
+
+const withId = (id: string) => ({ params: Promise.resolve({ id }) });
+const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000).toISOString();
+
+test("vendedora corrige a própria venda: trava de autora na RPC, 200 com os itens novos", async () => {
+  const createdAt = hoursAgo(1);
+  database = ({ url }) => {
+    if (url.pathname === "/rest/v1/rpc/replace_order_items") return { status: 200, body: orderRow({ value: 119.8, created_at: createdAt }) };
+    if (url.pathname === "/rest/v1/leads") return { status: 200, body: [{ id: LEAD, name: "Fernanda Lima" }] };
+    return { status: 500 };
+  };
+
+  const res = await salePatch(
+    call("PATCH", `/api/vendas/${ORDER}`, "token-vendedora", { itens: [{ nome: "Vestido midi", quantidade: 2, valorUnitario: "59,90" }] }),
+    withId(ORDER),
+  );
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), {
+    id: ORDER, cliente: "Fernanda Lima", telefone: "5511987654321", total: 119.8, criadaEm: createdAt,
+    itens: [{ nome: "Vestido midi", quantidade: 2, valorUnitario: 59.9 }],
+    editavel: true,
+  });
+  assert.deepEqual(rpcBody("replace_order_items"), {
+    p_tenant_id: STORE,
+    p_order_id: ORDER,
+    p_items: [{ name: "Vestido midi", quantity: 2, unit_price: 59.9 }],
+    p_only_author: SELLER,
+  });
+  assert.equal(requestsTo("/rest/v1/leads")[0].url.searchParams.get("tenant_id"), `eq.${STORE}`);
+});
+
+test("passou de 24 horas (ou não é dela) → 403 com a frase da tela", async () => {
+  database = () => ({ status: 400, body: { code: "P0001", message: "fora_da_janela", details: null, hint: null } });
+
+  const res = await salePatch(call("PATCH", `/api/vendas/${ORDER}`, "token-vendedora", { itens: ONE_ITEM }), withId(ORDER));
+
+  assert.equal(res.status, 403);
+  assert.deepEqual(await res.json(), { error: "Passou de 24 horas: só o dono da loja corrige." });
+});
+
+test("dono corrige qualquer venda da loja, sem trava de autora nem de prazo", async () => {
+  database = ({ url }) => {
+    if (url.pathname === "/rest/v1/rpc/replace_order_items") return { status: 200, body: orderRow({ created_at: hoursAgo(24 * 30) }) };
+    if (url.pathname === "/rest/v1/leads") return { status: 200, body: [{ id: LEAD, name: "Fernanda Lima" }] };
+    return { status: 500 };
+  };
+
+  const res = await salePatch(call("PATCH", `/api/vendas/${ORDER}`, "token-dono", { itens: ONE_ITEM }), withId(ORDER));
+
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).editavel, true);
+  assert.equal(rpcBody("replace_order_items")?.p_only_author, null);
+});
+
+test("venda que não existe → 404; id que não é UUID nem chega ao banco", async () => {
+  database = () => ({ status: 400, body: { code: "P0001", message: "pedido_nao_encontrado", details: null, hint: null } });
+  const missing = await salePatch(call("PATCH", `/api/vendas/${ORDER}`, "token-dono", { itens: ONE_ITEM }), withId(ORDER));
+  assert.equal(missing.status, 404);
+  assert.deepEqual(await missing.json(), { error: "Venda não encontrada." });
+
+  seen.length = 0;
+  const patched = await salePatch(call("PATCH", "/api/vendas/123", "token-dono", { itens: ONE_ITEM }), withId("123"));
+  const deleted = await saleDelete(call("DELETE", "/api/vendas/123", "token-dono"), withId("123"));
+  assert.equal(patched.status, 404);
+  assert.equal(deleted.status, 404);
+  assert.equal(seen.length, 0);
+});
+
+test("correção com itens ruins → 400 antes da RPC", async () => {
+  const res = await salePatch(call("PATCH", `/api/vendas/${ORDER}`, "token-vendedora", { itens: [] }), withId(ORDER));
+  assert.equal(res.status, 400);
+  assert.deepEqual(await res.json(), { error: "Preencha nome, quantidade e valor de cada produto." });
+  assert.equal(seen.length, 0);
+});
+
+test("vendedora apaga a própria venda dentro das 24h", async () => {
+  database = ({ method, url }) =>
+    method === "DELETE" && url.pathname === "/rest/v1/orders" ? { status: 200, body: [{ id: ORDER }] } : { status: 500 };
+  const cutoff = Date.now() - 24 * 3_600_000;
+
+  const res = await saleDelete(call("DELETE", `/api/vendas/${ORDER}`, "token-vendedora"), withId(ORDER));
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { ok: true });
+  const [deleted] = requestsTo("/rest/v1/orders");
+  assert.equal(deleted.url.searchParams.get("tenant_id"), `eq.${STORE}`);
+  assert.equal(deleted.url.searchParams.get("created_by"), `eq.${SELLER}`);
+  const limit = Date.parse((deleted.url.searchParams.get("created_at") ?? "").replace(/^gt\./, ""));
+  assert.ok(Math.abs(limit - cutoff) < 5_000, "o corte é agora − 24h");
+});
+
+test("vendedora, nada apagado (outra autora ou mais de 24h) → 403 com a frase", async () => {
+  database = () => ({ status: 200, body: [] });
+  const res = await saleDelete(call("DELETE", `/api/vendas/${ORDER}`, "token-vendedora"), withId(ORDER));
+  assert.equal(res.status, 403);
+  assert.deepEqual(await res.json(), { error: "Passou de 24 horas: só o dono da loja corrige." });
+});
+
+test("dono apaga sem filtro de autora nem prazo; nada apagado → 404", async () => {
+  database = () => ({ status: 200, body: [] });
+
+  const res = await saleDelete(call("DELETE", `/api/vendas/${ORDER}`, "token-dono"), withId(ORDER));
+
+  assert.equal(res.status, 404);
+  assert.deepEqual(await res.json(), { error: "Venda não encontrada." });
+  const [deleted] = requestsTo("/rest/v1/orders");
+  assert.equal(deleted.url.searchParams.get("tenant_id"), `eq.${STORE}`);
+  assert.equal(deleted.url.searchParams.get("created_by"), null);
+  assert.equal(deleted.url.searchParams.get("created_at"), null);
 });
