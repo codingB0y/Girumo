@@ -358,10 +358,12 @@ begin
     raise exception 'FALHOU marcar de novo: esperava ja_lotado';
   end if;
 
-  -- Marcar o reaberto (c) limpa reaberto_em.
-  if public.marcar_grupo_lotado(v_a, v_g_c) is distinct from 'ok'
+  -- Marcar o reaberto (c) limpa reaberto_em. A leitura vai num comando separado: um select na
+  -- mesma expressão da chamada usa o snapshot de antes dela e veria o reaberto_em antigo.
+  v_r := public.marcar_grupo_lotado(v_a, v_g_c);
+  if v_r is distinct from 'ok'
      or (select reaberto_em from public.groups where tenant_id = v_a and id = v_g_c) is not null then
-    raise exception 'FALHOU marcar o reaberto: reaberto_em deveria limpar';
+    raise exception 'FALHOU marcar o reaberto: % reaberto_em deveria limpar', v_r;
   end if;
 end $$;
 
@@ -430,9 +432,11 @@ begin
   end if;
 
   -- b (posição 2) marcado e reaberto: dois reabertos, enche o de menor posição.
-  if public.marcar_grupo_lotado(v_a, v_g_b) is distinct from 'ok'
-     or public.reabrir_grupo(v_a, v_g_b) is distinct from 'ok' then
-    raise exception 'FALHOU prioridade: marcar/reabrir b';
+  if public.marcar_grupo_lotado(v_a, v_g_b) is distinct from 'ok' then
+    raise exception 'FALHOU prioridade: marcar b';
+  end if;
+  if public.reabrir_grupo(v_a, v_g_b) is distinct from 'ok' then
+    raise exception 'FALHOU prioridade: reabrir b';
   end if;
   v_got := pg_temp.estados(v_a, v_camp);
   if v_got is distinct from 'pg-a=fila,pg-b=enchendo,pg-c=fila,pg-d=vazio,pg-e=fila,pg-f=fila' then
