@@ -13,13 +13,21 @@
 /** DDD (11 a 99, nenhum termina em zero) + 8 ou 9 dígitos. */
 const NATIONAL_NUMBER = /^[1-9][1-9]\d{8,9}$/;
 
-/** DDD + número, sem o 55. null se não for número brasileiro com DDD. */
+/** Sem o 55: 12–13 dígitos começando em 55 = país + DDD + número. Com 10–11, o 55 é o DDD (RS). */
+function withoutCountry(digits: string): string {
+  return digits.startsWith("55") && (digits.length === 12 || digits.length === 13) ? digits.slice(2) : digits;
+}
+
+/**
+ * DDD + número, sem o 55. null se não for número brasileiro com DDD.
+ * Aceita o 0 de tronco ("011 98765-4321"), mas só se o resto for um número válido.
+ */
 function nationalNumber(input: string): string | null {
   const digits = input.replace(/\D/g, "");
-  // 12–13 dígitos começando em 55 = país + DDD + número. Com 10–11, o 55 é o DDD (RS).
-  const withoutCountry =
-    digits.startsWith("55") && (digits.length === 12 || digits.length === 13) ? digits.slice(2) : digits;
-  return NATIONAL_NUMBER.test(withoutCountry) ? withoutCountry : null;
+  const national = withoutCountry(digits);
+  if (NATIONAL_NUMBER.test(national)) return national;
+  const trunk = withoutCountry(digits.replace(/^0/, ""));
+  return digits.startsWith("0") && NATIONAL_NUMBER.test(trunk) ? trunk : null;
 }
 
 /** O mesmo celular com e sem o 9 da frente (o 9º dígito entrou entre 2012 e 2016). */
