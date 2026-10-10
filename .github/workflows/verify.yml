@@ -312,8 +312,12 @@ jobs:
       # input type=password. Sem este passo, teste autenticado que falha
       # publica a senha do usuario de QA num artefato que qualquer pessoa com
       # leitura no repositorio baixa, sem precisar ler segredo nenhum.
+      #
+      # O teste do script roda antes dele: se a redacao quebrar, o passo falha
+      # e o upload abaixo nao acontece.
       - if: always() && steps.credenciais.outputs.tem == 'true'
-        run: python3 infra/scripts/redigir-segredos-e2e.py
+        id: redigir
+        run: python3 infra/scripts/redigir-segredos-e2e.test.py && python3 infra/scripts/redigir-segredos-e2e.py
         env:
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
           E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
@@ -321,7 +325,10 @@ jobs:
       # O relatorio e a prova que o quadro exige para mover card a
       # `no_ar_verificado`; sem anexo, falha no CI vira "deu vermelho" sem
       # screenshot de nada.
-      - if: always() && steps.credenciais.outputs.tem == 'true'
+      #
+      # So sobe se a redacao passou: artefato com senha e pior que artefato
+      # nenhum, e ate 23/09/2026 subia com senha em todo run.
+      - if: always() && steps.redigir.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: e2e-report

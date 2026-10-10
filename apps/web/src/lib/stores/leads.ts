@@ -136,7 +136,8 @@ export async function listLeads(tenantId: string, limit?: number): Promise<Lead[
 export type AddLeadInput = {
   phone: string;
   name?: string;
-  sourceGroup: string;
+  /** Ausente quando o lead nasce de uma venda (`/api/vendas`), não da entrada num grupo. */
+  sourceGroup?: string;
   sourceGroupId?: string;
   sourceCampaign?: string;
 };
