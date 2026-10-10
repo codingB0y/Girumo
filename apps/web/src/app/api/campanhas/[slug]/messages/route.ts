@@ -6,6 +6,7 @@ import { collection } from "@/lib/json-collection";
 import { createMessage, listByCampaign, removeMessage } from "@/lib/messages-store";
 import type { CampaignMessage } from "@/lib/messages-store";
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
+import { regraDaVendedora } from "@/lib/auth/postar-vendedora";
 import { assertPermission, type Action, type TenantRole } from "@/lib/permissions";
 import { assertPlanLimit } from "@/lib/billing/entitlements";
 import { getSession, isLive } from "@/lib/session-store";
@@ -133,6 +134,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
 
   const camp = await supaCampaigns.getCampaignGroupBySlug(tenantId, slug);
   if (!camp) return Response.json({ error: "Campanha não encontrada." }, { status: 404 });
+
+  const bloqueioVendedora = regraDaVendedora({
+    role: ctx.role,
+    groupIds: body.groupIds,
+    campGroupIds: camp.group_ids,
+    recurrence: resolveRecurrence(body),
+  });
+  if (bloqueioVendedora) return Response.json({ error: bloqueioVendedora }, { status: 403 });
 
   const groupIds = Array.isArray(body.groupIds) && body.groupIds.length > 0
     ? body.groupIds.map(String)
