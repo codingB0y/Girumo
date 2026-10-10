@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import { after, before, beforeEach, test } from "node:test";
+import { after, before, beforeEach, mock, test } from "node:test";
 
 import type { recordOrder as RecordOrder } from "./registrar";
 
@@ -156,4 +156,21 @@ test("gravação falhou: o erro sobe e o lead não vira comprou", async () => {
   );
 
   assert.deepEqual(trail(), ["GET /rest/v1/campaign_groups"]);
+});
+
+test("status do lead falhou: o pedido sai e o erro fica no log, com a loja", async () => {
+  reply = ({ method, url }) => {
+    if (url.pathname === "/rest/v1/campaign_groups") return { status: 200, body: [] };
+    if (url.pathname === "/rest/v1/leads" && method === "PATCH") return { status: 500, body: { message: "banco fora" } };
+    if (url.pathname === "/rest/v1/orders" && method === "HEAD") return { status: 200, contentRange: "*/2" };
+    return { status: 500 };
+  };
+  const log = mock.method(console, "error", () => undefined);
+
+  const order = await recordOrder(TENANT, LEAD, async () => ({ id: "pedido-4" }));
+  log.mock.restore();
+
+  assert.deepEqual(order, { id: "pedido-4" });
+  assert.equal(log.mock.callCount(), 1);
+  assert.deepEqual(log.mock.calls[0].arguments.slice(0, 2), ["[orders] status do lead falhou", TENANT]);
 });

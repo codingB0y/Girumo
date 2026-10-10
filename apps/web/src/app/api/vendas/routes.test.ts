@@ -593,7 +593,10 @@ test("falha depois da gravação (status do lead e contagem) não derruba a vend
     return { status: 500, body: { message: "banco fora" } };
   };
 
+  const log = mock.method(console, "error", () => undefined);
+
   const res = await salesPost(call("POST", "/api/vendas", "token-vendedora", { leadId: LEAD, itens: ONE_ITEM }));
+  log.mock.restore();
 
   assert.equal(res.status, 201);
   assert.equal((await res.json()).id, ORDER);

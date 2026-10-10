@@ -28,7 +28,10 @@ export async function recordOrder<O extends { id: string }>(
   const order = await write(campaignId);
   if (lead) {
     // Lead apagado entre a conferência e aqui não derruba o pedido já criado.
-    await updateLeadStatus(tenantId, lead.id, "comprou").catch(() => null);
+    await updateLeadStatus(tenantId, lead.id, "comprou").catch((e) => {
+      console.error("[orders] status do lead falhou", tenantId, (e as Error).message);
+      return null;
+    });
   }
   await markFirstOrder(tenantId, order.id);
   return order;
