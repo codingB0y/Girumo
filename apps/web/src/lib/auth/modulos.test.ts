@@ -43,6 +43,20 @@ const TABELA: ReadonlyArray<readonly [string, string, boolean, boolean]> = [
   ["GET", "/api/vendasx", false, false],
   ["GET", "/api", false, false],
   ["GET", "/", false, false],
+  // fechado por padrão: nada de dot segment, escape, query, caminho sem "/" inicial ou barra dupla no fim
+  ["POST", "/api/campanhas/../messages", false, false],
+  ["POST", "/api/campanhas/./messages", false, false],
+  ["POST", "/api/campanhas/%2e%2e/messages", false, false],
+  ["POST", "/api/campanhas/x?/messages", false, false],
+  ["POST", "/api/campanhas/x#/messages", false, false],
+  ["POST", "/api/campanhas/x%2Fy/messages", false, false],
+  ["POST", "/api/campanhas/x\\y/messages", false, false],
+  ["PATCH", "/api/vendas/..", false, false],
+  ["PATCH", "/api/vendas/.", false, false],
+  ["GET", "x/api/vendas", false, false],
+  ["GET", "api/vendas", false, false],
+  ["GET", "", false, false],
+  ["GET", "/api/vendas//", false, false],
   // postar
   ["GET", "/api/campanhas", false, true],
   ["GET", "/api/groups", false, true],
@@ -74,6 +88,16 @@ test("vendedora: rota × método × módulo", () => {
     assert.equal(podeAcessar(SO_VENDAS, caminho, metodo), soVendas, `${metodo} ${caminho} (só vendas)`);
     assert.equal(podeAcessar(COM_POSTAR, caminho, metodo), comPostar, `${metodo} ${caminho} (com postar)`);
   }
+});
+
+test("módulo desconhecido em modules nega em vez de estourar", () => {
+  for (const lixo of ["constructor", "__proto__", "toString", "vendas", "POSTAR"]) {
+    const acesso = { role: "seller", modules: [lixo] } as unknown as Acesso;
+    assert.equal(podeAcessar(acesso, "/api/vendas", "GET"), true, lixo);
+    assert.equal(podeAcessar(acesso, "/api/campanhas", "GET"), false, lixo);
+    assert.equal(paginaLiberada(acesso, "/painel/disparos"), false, lixo);
+  }
+  assert.deepEqual(modulosDoAcesso({ role: "seller", modules: ["constructor"] } as unknown as Acesso), ["vendas"]);
 });
 
 test("o método chega em qualquer caixa", () => {
@@ -111,6 +135,19 @@ test("páginas: vendas sempre, postar só liberado, por prefixo de segmento", ()
   assert.equal(paginaLiberada(SO_VENDAS, "/painel/disparos"), false);
   assert.equal(paginaLiberada(COM_POSTAR, "/painel/disparos"), true);
   assert.equal(paginaLiberada(COM_POSTAR, "/painel/campanhas"), false);
+  // dot segment, escape, caminho sem "/" inicial e barra dupla não passam
+  for (const caminho of [
+    "/painel/vendas/../contatos",
+    "/painel/vendas/./x",
+    "/painel/vendas/%2e%2e/contatos",
+    "/painel/vendas//x",
+    "x/painel/vendas",
+    "painel/vendas",
+    "",
+  ]) {
+    assert.equal(paginaLiberada(SO_VENDAS, caminho), false, caminho);
+    assert.equal(paginaLiberada(COM_POSTAR, caminho), false, caminho);
+  }
 });
 
 test("modulosDoAcesso: vendas implícito para a vendedora, nada para os outros", () => {

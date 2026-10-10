@@ -57,31 +57,43 @@ export function parseModulos(raw: unknown): ModuloOpcional[] {
   return MODULOS_OPCIONAIS.filter((modulo) => raw.includes(modulo));
 }
 
-/** seller → ["vendas", ...modules]; outros papéis → []. */
+/** seller → ["vendas", ...modules]; outros papéis → []. Módulo desconhecido em `modules` é ignorado. */
 export function modulosDoAcesso(acesso: Acesso): Modulo[] {
-  return acesso.role === "seller" ? ["vendas", ...acesso.modules] : [];
+  return acesso.role === "seller" ? ["vendas", ...parseModulos(acesso.modules)] : [];
 }
 
+/** O que `*` aceita: um id ou slug. Fora disso (`.`, `..`, `%`, `?`, `#`, `\`) o mapa não casa. */
+const SEGMENTO_SEGURO = /^[A-Za-z0-9_-]+$/;
+/** `.`, `..` e os escapes deles. Páginas aceitam o resto, mas nunca isto. */
+const SEGMENTO_DE_PONTOS = /^(?:\.|%2e){1,2}$/i;
+
 /**
- * Segmentos do caminho. Só a barra do fim sai (`/api/vendas/` = `/api/vendas`);
- * barra dupla no meio vira segmento vazio, que nenhum padrão casa.
+ * Segmentos do caminho, ou `null` se não começa com "/" (nada casa). Sai no
+ * máximo UMA barra do fim (`/api/vendas/` = `/api/vendas`); barra dupla vira
+ * segmento vazio, que nenhum padrão casa.
  */
-function segmentos(caminho: string): string[] {
-  return caminho.replace(/\/+$/, "").split("/").slice(1);
+function segmentos(caminho: string): string[] | null {
+  if (!caminho.startsWith("/")) return null;
+  const semBarraFinal = caminho.endsWith("/") ? caminho.slice(0, -1) : caminho;
+  return semBarraFinal.split("/").slice(1);
 }
 
 function casa(padrao: string, caminho: readonly string[]): boolean {
-  const partes = segmentos(padrao);
+  const partes = segmentos(padrao) ?? [];
   return (
     partes.length === caminho.length &&
-    partes.every((parte, i) => (parte === "*" ? caminho[i] !== "" : parte === caminho[i]))
+    partes.every((parte, i) => (parte === "*" ? SEGMENTO_SEGURO.test(caminho[i]) : parte === caminho[i]))
   );
 }
 
-/** Papel ≠ seller → true. seller → rota da base ou de um módulo liberado, com o método certo. */
+/**
+ * Papel ≠ seller → true. seller → rota da base ou de um módulo liberado, com o método certo.
+ * `pathname` vem de `URL.pathname` (sem query string); o que não for isso não casa.
+ */
 export function podeAcessar(acesso: Acesso, pathname: string, method: string): boolean {
   if (acesso.role !== "seller") return true;
   const caminho = segmentos(pathname);
+  if (!caminho) return false;
   const verbo = method.toUpperCase();
   const liberados: ReadonlyArray<Modulo | "base"> = ["base", ...modulosDoAcesso(acesso)];
   return liberados.some((modulo) =>
@@ -92,12 +104,14 @@ export function podeAcessar(acesso: Acesso, pathname: string, method: string): b
 /**
  * Mesmo princípio para páginas do /painel, por prefixo de segmento:
  * `/painel/vendas` libera `/painel/vendas/qualquer`, não `/painel/vendasx`.
- * É só experiência — quem barra de verdade é a API.
+ * `pathname` vem de `URL.pathname` (sem query string). Dot segments e segmentos
+ * vazios nunca passam. É só experiência — quem barra de verdade é a API.
  */
 export function paginaLiberada(acesso: Acesso, pathname: string): boolean {
   if (acesso.role !== "seller") return true;
   const caminho = segmentos(pathname);
+  if (!caminho || caminho.some((parte) => parte === "" || SEGMENTO_DE_PONTOS.test(parte))) return false;
   return modulosDoAcesso(acesso).some((modulo) =>
-    PAGINAS[modulo].some((pagina) => segmentos(pagina).every((parte, i) => parte === caminho[i])),
+    PAGINAS[modulo].some((pagina) => (segmentos(pagina) ?? []).every((parte, i) => parte === caminho[i])),
   );
 }
