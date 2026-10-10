@@ -1,7 +1,8 @@
 import { Key, Globe, Database, Shield } from "lucide-react";
-import { listPlatformAdmins } from "@/lib/admin-guard";
+import { listPlatformAdmins, requireAdmin } from "@/lib/admin-guard";
 
 export default async function AdminConfiguracoesPage() {
+  await requireAdmin();
   // Mesma fonte que o `admin-guard` usa pra decidir acesso: a tabela
   // `platform_admins`. Enquanto isto vinha de uma env var, a tela podia listar um
   // admin diferente do que o guard de fato aceitava.

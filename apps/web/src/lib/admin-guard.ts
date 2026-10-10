@@ -1,6 +1,7 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 import { SESSION_COOKIE, parseSession } from "@/lib/auth";
 import { isRevoked } from "@/lib/auth/session-revocation-store";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
@@ -70,16 +71,18 @@ export async function getAdminContext(): Promise<AdminContext | null> {
 
 /**
  * Verifica acesso admin e redireciona se não autorizado.
- * Para uso em Server Components.
+ * Para uso em Server Components: o `admin/layout.tsx` E cada `page.tsx` chamam
+ * (o layout não re-renderiza na navegação). O `cache` faz as duas chamadas de
+ * um mesmo request custarem uma consulta só.
  */
-export async function requireAdmin(): Promise<AdminContext> {
+export const requireAdmin = cache(async (): Promise<AdminContext> => {
   const ctx = await getAdminContext();
   if (!ctx) {
     redirect("/login?next=/admin");
   }
   // redirect() throws so this is unreachable, but satisfies TS
   return ctx as AdminContext;
-}
+});
 
 /**
  * Os super-admins cadastrados, para leitura humana em `/admin/configuracoes`.

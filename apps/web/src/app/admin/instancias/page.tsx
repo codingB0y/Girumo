@@ -1,9 +1,11 @@
 import { AlertTriangle, Smartphone, Wifi, WifiOff } from "lucide-react";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/admin-guard";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminInstanciasPage() {
+  await requireAdmin();
   const supabase = getSupabaseAdmin();
 
   // Buscar instâncias/sessões WhatsApp
