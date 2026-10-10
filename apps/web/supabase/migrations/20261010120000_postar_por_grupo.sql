@@ -263,7 +263,7 @@ $$;
 -- 3) A marca automática (spec §5.3): o único escritor automático de lotado_em. Todo escritor de
 --    members (apply_group_members_delta, upsert do sync, insertNewGroups, registerGrownGroup) passa
 --    por ele sem saber. security definer: chama app.limiar_lotado como dono, e não como o papel que
---    escreveu o grupo (service_role não tem nem precisa de EXECUTE em app).
+--    escreveu o grupo, que pode não ter USAGE no schema app nem EXECUTE em app.limiar_lotado.
 create or replace function app.groups_marca_lotado()
 returns trigger
 language plpgsql
@@ -396,10 +396,14 @@ end;
 $$;
 
 -- Aviso ao lotar (D10). Chamado pelo worker a cada 30 s (PR 9): devolve só um inteiro (egress) —
--- quantos avisos ENVIOU. Um aviso por GRUPO: grupo em duas campanhas da loja (conflito legado de D4)
+-- quantos avisos ficaram NA FILA (broadcast com status 'queued'; o que falhou no enfileiramento não
+-- conta). Um aviso por GRUPO: grupo em duas campanhas da loja (conflito legado de D4)
 -- pega uma só, a mais antiga com aviso ligado. aviso_lotou_em é gravado qualquer que seja o
 -- resultado do enfileiramento (sem número conectado vira 'failed' no histórico de Disparos, como
 -- qualquer disparo; não tenta de novo a cada 30 s).
+-- Janela de frescor: só avisa quem lotou na última hora (g.lotado_em >= now() - interval '1 hour').
+-- Grupo que encheu fora de uma campanha com aviso e entrou nela depois não pode receber um "Lotou!"
+-- atrasado; 1 hora tolera uma pane curta do worker sem perder o aviso de quem acabou de lotar.
 -- Grupo elegível em que o número NÃO é admin: não envia (o WhatsApp recusaria), não conta no
 -- retorno, mas marca aviso_lotou_em. Sem isso ficaria pendente para sempre e, se o número virasse
 -- admin dias depois, o aviso sairia atrasado.
@@ -412,6 +416,7 @@ as $$
 declare
   r record;
   v_broadcast_id uuid;
+  v_bc public.broadcasts;
   v_enviados integer := 0;
 begin
   for r in
@@ -429,6 +434,7 @@ begin
       limit 1
     ) as c
     where g.lotado_em is not null
+      and g.lotado_em >= now() - interval '1 hour'
       and g.aviso_lotou_em is null
     order by g.lotado_em, g.id
     limit greatest(coalesce(p_limit, 20), 1)
@@ -440,8 +446,10 @@ begin
               array[r.whatsapp_group_id], 'draft')
       returning id into v_broadcast_id;
 
-      perform app.enqueue_broadcast(r.tenant_id, v_broadcast_id);
-      v_enviados := v_enviados + 1;
+      v_bc := app.enqueue_broadcast(r.tenant_id, v_broadcast_id);
+      if v_bc.status = 'queued' then
+        v_enviados := v_enviados + 1;
+      end if;
     end if;
 
     update public.groups

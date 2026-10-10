@@ -20,6 +20,11 @@
 
 begin;
 
+-- Roda em produção: promote_due_schedules(1000) e enviar_avisos_lotou travam linhas REAIS até o
+-- rollback. Se não conseguir o lock em 5 s, ou passar de 2 min, aborta em vez de segurar o worker.
+set local lock_timeout = '5s';
+set local statement_timeout = '2min';
+
 -- Lojas de teste, recriadas no começo de cada bloco (cada bloco é independente).
 create or replace function pg_temp.postar_fixture() returns void
 language plpgsql as $fx$
@@ -599,7 +604,8 @@ begin
 end $$;
 
 -- 9) Aviso ao lotar (D10): uma vez por grupo, só quem lotou depois de ligar, envio só para admin,
---    só da mesma loja; reabrir e lotar de novo não repete.
+--    só da mesma loja; reabrir e lotar de novo não repete. Todo grupo que "recebe" aqui lotou agora
+--    (dentro da janela de 1 h do bloco 12).
 do $$
 declare
   v_a constant uuid := 'c0c0c0c0-0000-4000-8000-00000000000a';
@@ -621,8 +627,8 @@ begin
   set aviso_ao_lotar = v_texto, aviso_ao_lotar_desde = now()
   where tenant_id in (v_a, v_b) and id in (v_camp, v_camp2, v_camp_b);
 
-  -- f lotou ONTEM, antes de ligar o aviso: não recebe.
-  update public.groups set lotado_em = now() - interval '1 day', lotado_por = 'manual'
+  -- f lotou 10 min ANTES de ligar o aviso (dentro da janela de 1 h: só o aviso_ao_lotar_desde barra).
+  update public.groups set lotado_em = now() - interval '10 minutes', lotado_por = 'manual'
   where tenant_id = v_a and id = v_g_f;
   -- Cruzam agora: a (em duas campanhas da loja, A e A2), b, e e (não-admin).
   update public.groups set members = 96 where tenant_id = v_a and id in (v_g_a, v_g_b, v_g_e);
@@ -728,7 +734,104 @@ begin
   end if;
 end $$;
 
--- 11) Rede de segurança: se o cliente não honrar o rollback abaixo, as lojas de teste saem aqui
+-- 11) O retorno conta só o que ficou NA FILA. Grupo elegível e admin numa loja SEM número conectado
+--     (a B não tem instância): o disparo nasce 'failed', aviso_lotou_em é gravado (não tenta de novo
+--     a cada 30 s) e o retorno não o conta. Na loja A (com número) o pg-b conta: retorno exato = 1.
+do $$
+declare
+  v_a constant uuid := 'c0c0c0c0-0000-4000-8000-00000000000a';
+  v_b constant uuid := 'c0c0c0c0-0000-4000-8000-00000000000b';
+  v_camp constant uuid := 'c0c0c0c0-0000-4000-8000-0000000000c1';
+  v_camp_b constant uuid := 'c0c0c0c0-0000-4000-8000-0000000000c3';
+  v_g_b constant uuid := 'c0c0c0c0-0000-4000-8000-0000000000ab';
+  v_g_alheio constant uuid := 'c0c0c0c0-0000-4000-8000-0000000000ba';
+  v_n integer;
+begin
+  perform pg_temp.postar_fixture();
+  -- Drena antes o que já estiver pendente no banco (dado real; desfeito pelo rollback), para o
+  -- retorno abaixo contar só o cenário deste bloco.
+  perform public.enviar_avisos_lotou(100000);
+
+  update public.campaign_groups
+  set aviso_ao_lotar = 'Lotou! Entre no próximo pelo link da campanha.', aviso_ao_lotar_desde = now()
+  where tenant_id in (v_a, v_b) and id in (v_camp, v_camp_b);
+  -- Loja A: b cruza (40 -> 96), admin, com número conectado.
+  update public.groups set members = 96 where tenant_id = v_a and id = v_g_b;
+  -- Loja B: o Alheio nasceu cheio (aviso já dado, não-admin); aqui ele vira admin e elegível.
+  update public.groups set is_admin = true, aviso_lotou_em = null
+  where tenant_id = v_b and id = v_g_alheio;
+
+  v_n := public.enviar_avisos_lotou(100000);
+  if v_n <> 1 then
+    raise exception 'FALHOU aviso contagem: retorno %, esperava 1 (só o pg-b, que ficou na fila)', v_n;
+  end if;
+  if not exists (select 1 from public.broadcasts b
+                 where b.tenant_id = v_a and b.name = 'Aviso ao lotar · Grupo B' and b.status = 'queued') then
+    raise exception 'FALHOU aviso contagem: o aviso de pg-b deveria estar queued';
+  end if;
+  if not exists (select 1 from public.broadcasts b
+                 where b.tenant_id = v_b and b.name = 'Aviso ao lotar · Alheio'
+                   and b.status = 'failed' and b.total = 0) then
+    raise exception 'FALHOU aviso contagem: sem número conectado o aviso deveria existir como failed';
+  end if;
+  if (select aviso_lotou_em from public.groups where tenant_id = v_b and id = v_g_alheio) is null then
+    raise exception 'FALHOU aviso contagem: aviso_lotou_em deveria estar preenchido mesmo com falha';
+  end if;
+
+  -- Não tenta de novo a cada 30 s.
+  v_n := public.enviar_avisos_lotou(100000);
+  if v_n <> 0
+     or (select count(*) from public.broadcasts b
+         where b.tenant_id = v_b and b.name like 'Aviso ao lotar · %') <> 1 then
+    raise exception 'FALHOU aviso contagem: repetiu o aviso que falhou (retorno %)', v_n;
+  end if;
+end $$;
+
+-- 12) Frescor (1 h): grupo que lotou há mais de 1 h não recebe "Lotou!" atrasado, mesmo com o aviso
+--     ligado antes (aviso_ao_lotar_desde de ontem, para só a janela decidir): sem envio, sem
+--     broadcast e aviso_lotou_em continua nulo. Dentro da janela (50 min) recebe.
+do $$
+declare
+  v_a constant uuid := 'c0c0c0c0-0000-4000-8000-00000000000a';
+  v_camp constant uuid := 'c0c0c0c0-0000-4000-8000-0000000000c1';
+  v_g_a constant uuid := 'c0c0c0c0-0000-4000-8000-0000000000aa';
+  v_g_b constant uuid := 'c0c0c0c0-0000-4000-8000-0000000000ab';
+  v_n integer;
+begin
+  perform pg_temp.postar_fixture();
+  -- Drena antes o que já estiver pendente no banco (dado real; desfeito pelo rollback), para o
+  -- retorno abaixo contar só o cenário deste bloco.
+  perform public.enviar_avisos_lotou(100000);
+
+  update public.campaign_groups
+  set aviso_ao_lotar = 'Lotou! Entre no próximo pelo link da campanha.',
+      aviso_ao_lotar_desde = now() - interval '1 day'
+  where tenant_id = v_a and id = v_camp;
+  -- a lotou há 2 h (fora da janela); b há 50 min (dentro). Ambos admin, ambos na campanha.
+  update public.groups set lotado_em = now() - interval '2 hours', lotado_por = 'manual'
+  where tenant_id = v_a and id = v_g_a;
+  update public.groups set lotado_em = now() - interval '50 minutes', lotado_por = 'manual'
+  where tenant_id = v_a and id = v_g_b;
+
+  v_n := public.enviar_avisos_lotou(100000);
+  if v_n <> 1 then
+    raise exception 'FALHOU frescor: retorno %, esperava 1 (só o pg-b, de 50 min)', v_n;
+  end if;
+  if exists (select 1 from public.broadcasts b
+             where b.tenant_id = v_a and b.name = 'Aviso ao lotar · Grupo A') then
+    raise exception 'FALHOU frescor: criou aviso para pg-a, que lotou há 2 h';
+  end if;
+  if (select aviso_lotou_em from public.groups where tenant_id = v_a and id = v_g_a) is not null then
+    raise exception 'FALHOU frescor: aviso_lotou_em de pg-a deveria continuar nulo';
+  end if;
+  if not exists (select 1 from public.broadcasts b
+                 where b.tenant_id = v_a and b.name = 'Aviso ao lotar · Grupo B' and b.status = 'queued')
+     or (select aviso_lotou_em from public.groups where tenant_id = v_a and id = v_g_b) is null then
+    raise exception 'FALHOU frescor: pg-b (50 min) deveria ter recebido o aviso';
+  end if;
+end $$;
+
+-- 13) Rede de segurança: se o cliente não honrar o rollback abaixo, as lojas de teste saem aqui
 --     (cascade). Com o rollback valendo, este delete também é desfeito.
 delete from public.organizations
 where id in ('c0c0c0c0-0000-4000-8000-00000000000a', 'c0c0c0c0-0000-4000-8000-00000000000b');
