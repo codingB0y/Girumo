@@ -99,19 +99,20 @@ def redigir_html(dados: bytes, segredos: list[bytes]) -> tuple[bytes, bool]:
 
 
 def main() -> int:
-    # Sao DUAS senhas desde 25/08/2026: o usuario de QA (lojista) e o admin de
-    # plataforma, que a cobertura de /admin usa. Esquecer a segunda aqui teria o
-    # efeito exato que este script existe para evitar — com o agravante de que a
-    # conta vazada seria a de super-admin.
+    # Sao TRES senhas: o usuario de QA (lojista), o admin de plataforma que a
+    # cobertura de /admin usa (25/08/2026) e o usuario proprio do sessao.spec.ts
+    # (23/09/2026). Esquecer uma delas aqui teria o efeito exato que este script
+    # existe para evitar — no caso do admin, vazando a conta de super-admin.
     candidatas = (
         os.environ.get("E2E_PASSWORD", "").strip(),
         os.environ.get("E2E_ADMIN_PASSWORD", "").strip(),
+        os.environ.get("E2E_SESSAO_PASSWORD", "").strip(),
     )
     segredos = [v for senha in candidatas if senha for v in variantes(senha)]
     if not segredos:
         # Sem senha definida nao ha o que redigir — e nao e erro: o job pode
         # ter rodado so o gate anonimo.
-        print("nada a redigir: E2E_PASSWORD e E2E_ADMIN_PASSWORD vazios")
+        print("nada a redigir: E2E_PASSWORD, E2E_ADMIN_PASSWORD e E2E_SESSAO_PASSWORD vazios")
         return 0
 
     tocados = 0

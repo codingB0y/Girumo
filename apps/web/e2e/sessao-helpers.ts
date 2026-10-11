@@ -48,11 +48,41 @@ export function exigeCredenciaisAdmin() {
 }
 
 /**
+ * Credenciais do TERCEIRO usuario, exclusivo do sessao.spec.ts.
+ *
+ * O logout revoga TODAS as sessoes do usuario (`session_revocations` e por
+ * `auth_user_id`, #116). Com a conta de E2E_EMAIL, cada run cortava com 401
+ * todo outro run de e2e no ar ao mesmo tempo — CI de outro PR ou Playwright
+ * local contra o mesmo banco de dev. Em 23/09/2026 foram 656 respostas 401 em
+ * dois runs alheios. Com uma conta so dele, o corte so alcanca quem saiu.
+ *
+ * Existe so no Supabase de DEV, como membro do tenant de QA.
+ */
+export const CREDENCIAIS_SESSAO = {
+  email: process.env.E2E_SESSAO_EMAIL ?? "",
+  senha: process.env.E2E_SESSAO_PASSWORD ?? "",
+};
+
+export const TEM_CREDENCIAIS_SESSAO = Boolean(CREDENCIAIS_SESSAO.email && CREDENCIAIS_SESSAO.senha);
+
+export function exigeCredenciaisSessao() {
+  test.skip(
+    !TEM_CREDENCIAIS_SESSAO,
+    "Defina E2E_SESSAO_EMAIL e E2E_SESSAO_PASSWORD (usuario de dev so deste spec, nunca o de " +
+      "E2E_EMAIL) para rodar o ciclo de sessao.",
+  );
+}
+
+/**
  * Login pela tela real, para os specs que precisam da sessao NASCENDO ali —
  * o de ciclo de sessao, por exemplo, que derruba a sessao no meio. Os demais
  * reusam o estado do setup e nao chamam isto.
+ *
+ * A conta e obrigatoria, sem default: quem entra aqui costuma sair depois, e
+ * sair revoga o usuario inteiro. Foi o default para o usuario compartilhado que
+ * fez o logout derrubar os outros runs.
  */
-export async function entrar(page: Page, destino = "/painel") {
+export async function entrar(page: Page, credenciais: { email: string; senha: string }, destino = "/painel") {
   await page.goto(`/login?next=${encodeURIComponent(destino)}`);
   // Por testid: a porta da Vitrine (PR 4) troca os textos dos campos.
   //
@@ -63,8 +93,8 @@ export async function entrar(page: Page, destino = "/painel") {
   if ((await campoEmail.count()) === 0) {
     await page.getByRole("button", { name: "Entrar com outra conta" }).click();
   }
-  await page.getByTestId("login-email").fill(CREDENCIAIS.email);
-  await page.getByTestId("login-senha").fill(CREDENCIAIS.senha);
+  await page.getByTestId("login-email").fill(credenciais.email);
+  await page.getByTestId("login-senha").fill(credenciais.senha);
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
 
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 30_000 });
