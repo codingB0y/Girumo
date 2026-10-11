@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useId, useState } from "react";
 import { Logo, LogoSymbol } from "@/components/brand/logo";
 import { useCasca } from "@/components/painel/casca-context";
@@ -142,7 +142,7 @@ function NavDaBarra({ relampago, acesso }: { relampago: Relampago; acesso: Acess
   );
 }
 
-const LIMITE_DA_SAIDA_MS = 3_000;
+const LIMITE_DA_SAIDA_MS = 10_000;
 const MENSAGEM_DE_SAIDA_QUE_FALHOU = "Não deu pra sair agora. Confira a internet e toque em Sair de novo.";
 
 /**
@@ -152,7 +152,7 @@ const MENSAGEM_DE_SAIDA_QUE_FALHOU = "Não deu pra sair agora. Confira a interne
  *    localStorage (`sb-*`, vale como Bearer). Não dá pra delegar a `auth.signOut()`: ele faz
  *    `POST /logout` antes de apagar e, com a rede fora, devolve `{ error }` e deixa tudo lá —
  *    o `scope: "local"` também chama o servidor nesta versão.
- * 2. Depois, com teto de 3s: `POST /api/auth/logout`, o único que apaga o cookie HttpOnly, e a
+ * 2. Depois, com teto de 10s: `POST /api/auth/logout`, o único que apaga o cookie HttpOnly, e a
  *    revogação do token no servidor (melhor-esforço, resultado ignorado).
  *
  * `true` só se o logout do cookie respondeu ok; a vendedora só vai para o /login nesse caso —
@@ -198,15 +198,16 @@ async function encerrarSessao(): Promise<boolean> {
  * a saída, ela fica na tela com o aviso e pode tentar de novo.
  */
 function SaidaDoAcessoRestrito({ vendedora }: { vendedora: boolean }) {
-  const router = useRouter();
   const [saindo, setSaindo] = useState(false);
   const [falhou, setFalhou] = useState(false);
   async function sair() {
+    if (saindo) return;
     setSaindo(true);
     setFalhou(false);
     const ok = await encerrarSessao().catch(() => false);
     if (ok) {
-      router.push("/login");
+      // replace, não push: mata o GoTrueClient e o cache do router em memória e tira a entrada do histórico.
+      window.location.replace("/login");
       return;
     }
     setSaindo(false);
@@ -217,7 +218,7 @@ function SaidaDoAcessoRestrito({ vendedora }: { vendedora: boolean }) {
       {vendedora && (
         <span className="rounded-full px-2.5 py-0.5 text-12 font-semibold text-canvas-100 ring-1 ring-inset ring-paper-0/30">Vendedora</span>
       )}
-      <button type="button" onClick={() => void sair()} disabled={saindo} className="pn-barra__item min-h-11">
+      <button type="button" onClick={() => void sair()} aria-disabled={saindo} className="pn-barra__item min-h-11">
         {saindo ? "Saindo…" : "Sair"}
       </button>
       {falhou && (
@@ -256,7 +257,7 @@ export function BarraDeCima() {
   return (
     <>
       <header data-testid="painel-barra" className="pn-barra sticky top-0 z-20">
-        <Link href="/painel" aria-label="Girumo, início" className="pn-barra__logo">
+        <Link href={restrito ? "/painel/vendas" : "/painel"} aria-label="Girumo, início" className="pn-barra__logo">
           <Logo className="hidden text-[20px] text-paper-0 lg:inline-flex" title={null} />
           <LogoSymbol className="h-[22px] w-[22px] lg:hidden" />
         </Link>
