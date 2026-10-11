@@ -96,6 +96,13 @@ test("o beacon de saída entra sem sessão e limitado por IP", () => {
   assert.equal(classifyRequest("/api/track/qualquer-outra", "POST"), "user");
 });
 
+test("cadastro do site próprio é público com teto, só no POST e só no path exato", () => {
+  assert.equal(classifyRequest("/api/integracoes/cadastro", "POST"), "public-rate-limited");
+  assert.equal(classifyRequest("/api/integracoes/cadastro", "GET"), "user");
+  assert.equal(classifyRequest("/api/integracoes/cadastro/outra", "POST"), "user");
+  assert.equal(classifyRequest("/api/integracoes/site/chave", "POST"), "user");
+});
+
 test("outros métodos no beacon de saída ficam no gate de sessão", () => {
   // Path exato + método exato. GET aqui não tem uso legítimo, e deixar o
   // prefixo largo é como DELETE /api/auth/account nasceu fail-open.
