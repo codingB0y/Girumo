@@ -2,6 +2,7 @@
 
 import { createContext, createElement, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 
+import { acessoRestrito } from "@/lib/auth/modulos";
 import type { TrialView } from "@/lib/billing/trial";
 import { useRole } from "@/components/painel/role-provider";
 import { authenticatedFetch } from "@/lib/supabase/client";
@@ -148,13 +149,13 @@ const TrialContext = createContext<EstadoDoTeste | null>(null);
  * sozinho discordava: o paywall aberto em outra rota durante o "Ativando…" não via a
  * volta do Checkout e oferecia o teste de novo.
  *
- * Espera o papel: a vendedora não vê teste nem plano, e `GET /api/billing/trial`
+ * Espera o papel: a vendedora (e papel desconhecido) não vê teste nem plano, e `GET /api/billing/trial`
  * está fora do mapa de módulos dela (403). Para ela a leitura nunca liga e `view`
  * fica nulo — nenhuma faixa, nenhum modal.
  */
 export function TrialProvider({ children }: { children: ReactNode }) {
   const { carregado, acesso } = useRole();
-  const estado = useLeituraDoTeste(carregado && acesso?.role !== "seller");
+  const estado = useLeituraDoTeste(carregado && !acessoRestrito(acesso));
   return createElement(TrialContext.Provider, { value: estado }, children);
 }
 

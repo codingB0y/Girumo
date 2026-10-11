@@ -8,11 +8,12 @@ import { useCasca } from "@/components/painel/casca-context";
 import { NotificationBell } from "@/components/painel/notification-bell";
 import { useRole } from "@/components/painel/role-provider";
 import { usePanelSession } from "@/components/painel/session-provider";
-import type { Acesso } from "@/lib/auth/modulos";
+import { acessoRestrito, type Acesso } from "@/lib/auth/modulos";
 import { iniciaisDaLoja } from "@/lib/painel/casca";
 import { numero } from "@/lib/painel/grupos";
 import { placarDaOferta, type EntradaLike } from "@/lib/painel/relampago";
 import { isNavItemActive, itensDaBarra, podePostar } from "@/lib/painel-nav";
+import { getSupabaseBrowserClient, setActiveTenantId } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { FolhaPostar } from "./folha-postar";
 import { MenuMais } from "./menu-mais";
@@ -45,7 +46,7 @@ async function lerRelampago(): Promise<Relampago> {
  * Há oferta relâmpago no ar, e quantas pessoas esperam na fila dela (spec G2, decisão 4)? Busca ao montar,
  * ao entrar ou sair de /relampago e quando a aba volta a ficar visível depois de um minuto; com oferta no
  * ar confere a cada minuto, porque ela fecha por tempo e a fila anda. O layout não remonta entre rotas.
- * `ativo` falso (modo foco, papel ainda desconhecido, vendedora) não busca nada.
+ * `ativo` falso (modo foco, papel ainda não carregado, acesso restrito) não busca nada.
  */
 function useRelampagoNaBarra(ativo: boolean): Relampago {
   const naArea = usePathname().startsWith(RELAMPAGO);
@@ -123,7 +124,7 @@ function SinalDoRelampago({ noAr, esperando }: Relampago) {
 
 /**
  * Os módulos do acesso e o Mais; só no desktop (no celular a navegação é a barra
- * inferior). A vendedora vê só os dela e não tem Mais (spec 2026-10-07 §4).
+ * inferior). O acesso restrito (vendedora, papel desconhecido) vê só os dele e não tem Mais (spec 2026-10-07 §4).
  */
 function NavDaBarra({ relampago, acesso }: { relampago: Relampago; acesso: Acesso | null }) {
   const pathname = usePathname();
@@ -136,28 +137,52 @@ function NavDaBarra({ relampago, acesso }: { relampago: Relampago; acesso: Acess
           {item.href === RELAMPAGO && <SinalDoRelampago {...relampago} />}
         </Link>
       ))}
-      {acesso?.role !== "seller" && <MenuMais />}
+      {!acessoRestrito(acesso) && <MenuMais />}
     </nav>
   );
 }
 
 /**
- * A vendedora não tem Configurações (spec 2026-10-07 §1): no lugar do avatar,
- * o papel dela e a saída. Com a rede fora o cookie fica, mas ela não pode ficar
- * presa num "Saindo…" — vai para o login de qualquer jeito.
+ * Encerra a sessão deste aparelho: o cookie (rota) e também o que o navegador guarda — a sessão do
+ * supabase-js (`sb-*`, renova sozinha e vale como Bearer) e a loja ativa. Aparelho de loja é
+ * compartilhado; sem isto a próxima pessoa seguiria com a sessão dela. Cada passo é
+ * melhor-esforço: nenhum erro impede de chegar ao /login.
  */
-function SaidaDaVendedora() {
+async function encerrarSessao() {
+  await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
+  try {
+    const { auth } = getSupabaseBrowserClient();
+    // Global revoga o refresh token no servidor; se a rede falhar, ao menos apaga o local.
+    await auth.signOut().catch(() => auth.signOut({ scope: "local" }));
+  } catch {
+    // sem cliente (variável pública ausente) ou sem rede: nada mais a limpar além do tenant
+  }
+  try {
+    setActiveTenantId(null);
+  } catch {
+    // localStorage bloqueado
+  }
+}
+
+/**
+ * O acesso restrito não tem Configurações (spec 2026-10-07 §1): no lugar do avatar,
+ * o papel (só "Vendedora" quando é mesmo seller) e a saída. Ela nunca fica presa num
+ * "Saindo…" — vai para o login de qualquer jeito.
+ */
+function SaidaDoAcessoRestrito({ vendedora }: { vendedora: boolean }) {
   const router = useRouter();
   const [saindo, setSaindo] = useState(false);
   function sair() {
     setSaindo(true);
-    void fetch("/api/auth/logout", { method: "POST" })
+    void encerrarSessao()
       .catch(() => null)
       .then(() => router.push("/login"));
   }
   return (
     <>
-      <span className="rounded-full px-2.5 py-0.5 text-12 font-semibold text-canvas-100 ring-1 ring-inset ring-paper-0/30">Vendedora</span>
+      {vendedora && (
+        <span className="rounded-full px-2.5 py-0.5 text-12 font-semibold text-canvas-100 ring-1 ring-inset ring-paper-0/30">Vendedora</span>
+      )}
       <button type="button" onClick={sair} disabled={saindo} className="pn-barra__item min-h-11">
         {saindo ? "Saindo…" : "Sair"}
       </button>
@@ -177,8 +202,9 @@ export function BarraDeCima() {
   const { tenantName, carregado, acesso } = useRole();
   const { foco } = useCasca();
   const vendedora = acesso?.role === "seller";
-  // Só depois de saber quem é: a vendedora não tem Relâmpago, e a leitura daria 403.
-  const relampago = useRelampagoNaBarra(!foco && carregado && !vendedora);
+  const restrito = acessoRestrito(acesso);
+  // Só depois de saber quem é: o acesso restrito não tem Relâmpago, e a leitura daria 403.
+  const relampago = useRelampagoNaBarra(!foco && carregado && !restrito);
   const [postar, setPostar] = useState(false);
   const idPostar = useId();
   const fechar = useCallback(() => setPostar(false), []);
@@ -205,7 +231,7 @@ export function BarraDeCima() {
         {/* Até o /api/auth/me responder, nada de módulo: com `role` nulo o menu do dono piscaria pra vendedora. */}
         {carregado && <NavDaBarra relampago={relampago} acesso={acesso} />}
         <div className="pn-barra__direita">
-          {carregado && !vendedora && (
+          {carregado && !restrito && (
             <>
               <ChipDoNumero />
               <NotificationBell />
@@ -217,8 +243,8 @@ export function BarraDeCima() {
             </button>
           )}
           {carregado &&
-            (vendedora ? (
-              <SaidaDaVendedora />
+            (restrito ? (
+              <SaidaDoAcessoRestrito vendedora={vendedora} />
             ) : (
               <Link href="/painel/configuracoes" title="Configurações" aria-label={iniciais ? `${iniciais} · Configurações da loja` : "Configurações da loja"} className="pn-barra__avatar hidden lg:grid">
                 {iniciais}

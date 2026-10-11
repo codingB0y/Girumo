@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
+import { acessoRestrito } from "@/lib/auth/modulos";
 import { useRole } from "./role-provider";
 
 /**
@@ -32,9 +33,9 @@ export function usePanelSession(): SessionState {
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<SessionState>({ session: null, loading: true });
   const { carregado, acesso } = useRole();
-  // O único leitor é o chip do número da barra, que a vendedora não tem; e a rota
-  // daria 403 para ela sem `postar`. Os outros papéis perguntam depois do /api/auth/me.
-  const pergunta = carregado && acesso?.role !== "seller";
+  // O único leitor é o chip do número da barra, que o acesso restrito (vendedora, papel desconhecido)
+  // não tem; e a rota daria 403 sem `postar`. Os outros papéis perguntam depois do /api/auth/me.
+  const pergunta = carregado && !acessoRestrito(acesso);
 
   useEffect(() => {
     if (!pergunta) return;

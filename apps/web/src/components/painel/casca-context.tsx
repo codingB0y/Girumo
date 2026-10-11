@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { acessoRestrito } from "@/lib/auth/modulos";
 import type { Liberacoes } from "@/lib/painel-nav";
 import { useRole } from "./role-provider";
 
@@ -55,9 +56,9 @@ export function CascaProvider({ children }: { children: React.ReactNode }) {
   const [versao, setVersao] = useState(0);
   const recarregarInstagram = useCallback(() => setVersao((v) => v + 1), []);
   const { carregado, acesso } = useRole();
-  // Espera saber quem é: a vendedora não tem Instagram, e a pergunta daria 403 (spec 2026-10-07 §1).
-  // Para ela `instagram` fica null — o item do menu já não aparece por não ter módulo.
-  const pergunta = carregado && acesso?.role !== "seller";
+  // Espera saber quem é: a vendedora (e papel desconhecido) não tem Instagram, e a pergunta daria 403
+  // (spec 2026-10-07 §1). Para eles `instagram` fica null — o item do menu já não aparece por não ter módulo.
+  const pergunta = carregado && !acessoRestrito(acesso);
 
   useEffect(() => {
     if (!pergunta) return;

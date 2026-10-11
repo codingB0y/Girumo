@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useId, useState } from "react";
 import { Menu } from "lucide-react";
+import { acessoRestrito } from "@/lib/auth/modulos";
 import { cn } from "@/lib/utils";
 import {
   NAV_BARRA_DIREITA,
@@ -80,7 +81,7 @@ function Item({ item, pathname }: { item: NavItem; pathname: string }) {
  * Mais. Postar é o único Acid tocável do painel e está em toda tela; em voo
  * mostra "7/13" com a barra de 3px na base.
  *
- * Vendedora (spec 2026-10-07 §4): os itens dela (Vendas; Disparos com `postar`)
+ * Acesso restrito, vendedora ou papel desconhecido (spec 2026-10-07 §4): os itens dele (Vendas; Disparos com `postar`)
  * e o Postar se liberado, sem Mais. Até o `/api/auth/me` responder a barra fica
  * vazia no lugar — sem isso o menu do dono piscaria para ela.
  */
@@ -96,11 +97,11 @@ export function BarraMobile() {
   const idMais = useId();
   if (foco) return null;
 
-  const vendedora = acesso?.role === "seller";
+  const restrito = acessoRestrito(acesso);
   const visivel = (item: NavItem) => visivelNoMenu(item, acesso, liberacoes);
-  const esquerda = !carregado ? [] : vendedora ? itensDaBarra(acesso, liberacoes) : NAV_BARRA_ESQUERDA.filter(visivel);
-  const direita = carregado && !vendedora ? NAV_BARRA_DIREITA.filter(visivel) : [];
-  const comMais = carregado && !vendedora;
+  const esquerda = !carregado ? [] : restrito ? itensDaBarra(acesso, liberacoes) : NAV_BARRA_ESQUERDA.filter(visivel);
+  const direita = carregado && !restrito ? NAV_BARRA_DIREITA.filter(visivel) : [];
+  const comMais = carregado && !restrito;
   // Dono: 2 + Postar + 1 + Mais = as 5 colunas do CSS. Vendedora: 1 ou 3.
   const colunas = esquerda.length + direita.length + Number(comPostar) + Number(comMais);
 
@@ -111,7 +112,7 @@ export function BarraMobile() {
         aria-label="Navegação"
         aria-busy={!carregado || undefined}
         className="pn-barra-mobile fixed inset-x-0 bottom-0 z-30 lg:hidden"
-        style={colunas > 0 ? { gridTemplateColumns: `repeat(${colunas}, minmax(0, 1fr))` } : undefined}
+        style={colunas > 0 ? { gridTemplateColumns: `repeat(${colunas}, 1fr)` } : undefined}
       >
         {esquerda.map((item) => (
           <Item key={item.href} item={item} pathname={pathname} />
