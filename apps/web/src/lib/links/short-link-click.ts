@@ -19,6 +19,8 @@ import { lotadoRedirect, renderBlockedPage, renderEntryPage } from "@/lib/campai
 import { isMobileUa, readCookie, rememberCookieHeader, rememberCookieName, whatsappDeepLink } from "@/lib/links/deep-link";
 import { hostnameFromHostHeader, isFirstPartyHost } from "@/lib/custom-domains/host";
 import { hostServesTenant } from "@/lib/custom-domains/serves-tenant";
+import { cidConferido } from "@/lib/links/cid";
+import { cadastroDaLoja } from "@/lib/stores/site-captures";
 import { capiEnvio, pixelDaTela } from "./decisao";
 
 // Crawlers/previews que NÃO são cliques humanos (não inflam o funil/CPL).
@@ -105,9 +107,14 @@ export async function handleShortLinkClick(req: Request, slug: string): Promise<
     // Duas gravações independentes: o contador (total) e o evento com data
     // (histórico). `allSettled` porque uma falhar não pode cancelar a outra —
     // e nenhuma das duas é caminho crítico: métrica nunca segura o visitante.
+    // O evento leva o cadastro que trouxe a pessoa (?cid= da MESMA loja, conferido
+    // no banco) e o grupo escolhido: é o degrau "foi pro grupo" do funil de anúncios.
     await Promise.allSettled([
       linksStore.incrementTrackedLinkClicks(link.id),
-      linksStore.recordTrackedLinkClick(link),
+      (async () => {
+        const captureId = await cidConferido(reqUrl, link.tenant_id, cadastroDaLoja);
+        await linksStore.recordTrackedLinkClick(link, { captureId, whatsappGroupId: target.groupId ?? null });
+      })(),
     ]);
   }
 

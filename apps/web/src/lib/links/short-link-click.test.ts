@@ -18,6 +18,8 @@ type Resposta = { status: number; corpo?: unknown };
 
 const chamadas: Chamada[] = [];
 let estados: EstadoRow[] = [];
+/** O que o `site_captures` falso devolve: [{id}] = cadastro da loja, [] = não é desta loja. */
+let cadastros: { id: string }[] = [];
 
 const LINK = {
   id: "link-1",
@@ -61,6 +63,7 @@ const postgrest = createServer((req, res) => {
       "POST /rest/v1/rpc/campaign_group_states": { status: 200, corpo: estados },
       "POST /rest/v1/rpc/increment_tracked_link_clicks": { status: 204 },
       "POST /rest/v1/link_click_events": { status: 201 },
+      "GET /rest/v1/site_captures": { status: 200, corpo: cadastros },
     };
     // Chamada que ninguém previu vira 500, para aparecer.
     const { status, corpo } = respostas[`${chamada.metodo} ${chamada.url.pathname}`] ?? {
@@ -143,4 +146,52 @@ test("sem grupo enchendo (todos lotados), mostra 'todos cheios' em vez de mandar
 
   assert.equal(res.status, 200);
   assert.match(await res.text(), /Todos os grupos desta campanha estão cheios/);
+});
+
+const CID = "0b6f3c1e-8f5a-4d6e-9a2b-3c4d5e6f7a8b";
+
+function cliqueComCid(cid: string): Request {
+  const req = clique();
+  return new Request(`https://www.girumo.com.br/r/moda-kids?cid=${cid}`, { headers: req.headers });
+}
+
+const estadosEnchendo = (): EstadoRow[] => [
+  linha({ posicao: 1, whatsapp_group_id: "g1@g.us", estado: "lotado", lotado_em: "2026-10-09T12:00:00+00:00", lotado_por: "manual" }),
+  linha({ posicao: 2, whatsapp_group_id: "g2@g.us", estado: "enchendo", members: 600 }),
+];
+
+test("?cid= de cadastro da loja: o evento do clique leva o cadastro e o grupo escolhido", async () => {
+  chamadas.length = 0;
+  estados = estadosEnchendo();
+  cadastros = [{ id: CID }];
+
+  const res = await handleShortLinkClick(cliqueComCid(CID), "moda-kids");
+
+  assert.equal(res.status, 302);
+  // Mutante: conferir o cadastro sem filtrar pela loja do link deixaria a loja B apontar para a A.
+  const conferencias = chamadas.filter((c) => c.url.pathname === "/rest/v1/site_captures");
+  assert.equal(conferencias.length, 1);
+  assert.equal(conferencias[0].url.searchParams.get("tenant_id"), "eq.loja-a");
+  assert.equal(conferencias[0].url.searchParams.get("id"), `eq.${CID}`);
+  const evento = chamadas.find((c) => c.url.pathname === "/rest/v1/link_click_events");
+  assert.ok(evento);
+  const corpo = evento.corpo as { capture_id: string | null; whatsapp_group_id: string | null };
+  assert.equal(corpo.capture_id, CID);
+  assert.equal(corpo.whatsapp_group_id, "g2@g.us");
+});
+
+test("?cid= que não é cadastro desta loja: clique gravado sem cid e o redirect segue normal", async () => {
+  chamadas.length = 0;
+  estados = estadosEnchendo();
+  cadastros = [];
+
+  const res = await handleShortLinkClick(cliqueComCid(CID), "moda-kids");
+
+  assert.equal(res.status, 302);
+  assert.equal(res.headers.get("location"), "https://chat.whatsapp.com/CONVITE2");
+  const evento = chamadas.find((c) => c.url.pathname === "/rest/v1/link_click_events");
+  assert.ok(evento);
+  const corpo = evento.corpo as { capture_id: string | null; whatsapp_group_id: string | null };
+  assert.equal(corpo.capture_id, null);
+  assert.equal(corpo.whatsapp_group_id, "g2@g.us");
 });
