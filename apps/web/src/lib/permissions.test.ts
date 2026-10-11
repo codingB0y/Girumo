@@ -37,8 +37,13 @@ test("convite aceita admin e operator, sem ligar pra caixa e espaço", () => {
   assert.equal(parseInviteRole(" Operator "), "operator");
 });
 
-test("convite recusa owner, seller (o PR 6 libera), vazio e lixo — nada vira operator calado", () => {
-  for (const lixo of ["owner", "seller", "", "gerente", null, undefined, 1, ["admin"]]) {
+test("convite aceita a vendedora, sem ligar pra caixa e espaço", () => {
+  assert.equal(parseInviteRole("seller"), "seller");
+  assert.equal(parseInviteRole(" Seller "), "seller");
+});
+
+test("convite recusa owner, vazio e lixo — nada vira operator calado", () => {
+  for (const lixo of ["owner", "", "gerente", null, undefined, 1, ["admin"]]) {
     assert.equal(parseInviteRole(lixo), null, JSON.stringify(lixo) ?? "undefined");
   }
 });
