@@ -1,17 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useState } from "react";
 import { Logo, LogoSymbol } from "@/components/brand/logo";
 import { useCasca } from "@/components/painel/casca-context";
 import { NotificationBell } from "@/components/painel/notification-bell";
 import { useRole } from "@/components/painel/role-provider";
 import { usePanelSession } from "@/components/painel/session-provider";
+import type { Acesso } from "@/lib/auth/modulos";
 import { iniciaisDaLoja } from "@/lib/painel/casca";
 import { numero } from "@/lib/painel/grupos";
 import { placarDaOferta, type EntradaLike } from "@/lib/painel/relampago";
-import { NAV_BARRA_DESKTOP, isNavItemActive, liberado } from "@/lib/painel-nav";
+import { isNavItemActive, itensDaBarra, podePostar } from "@/lib/painel-nav";
 import { cn } from "@/lib/utils";
 import { FolhaPostar } from "./folha-postar";
 import { MenuMais } from "./menu-mais";
@@ -44,7 +45,7 @@ async function lerRelampago(): Promise<Relampago> {
  * Há oferta relâmpago no ar, e quantas pessoas esperam na fila dela (spec G2, decisão 4)? Busca ao montar,
  * ao entrar ou sair de /relampago e quando a aba volta a ficar visível depois de um minuto; com oferta no
  * ar confere a cada minuto, porque ela fecha por tempo e a fila anda. O layout não remonta entre rotas.
- * `ativo` falso (modo foco) não busca nada.
+ * `ativo` falso (modo foco, papel ainda desconhecido, vendedora) não busca nada.
  */
 function useRelampagoNaBarra(ativo: boolean): Relampago {
   const naArea = usePathname().startsWith(RELAMPAGO);
@@ -120,34 +121,64 @@ function SinalDoRelampago({ noAr, esperando }: Relampago) {
   );
 }
 
-/** Os seis módulos do dia e o Mais; só no desktop (no celular a navegação é a barra inferior). */
-function NavDaBarra({ relampago }: { relampago: Relampago }) {
+/**
+ * Os módulos do acesso e o Mais; só no desktop (no celular a navegação é a barra
+ * inferior). A vendedora vê só os dela e não tem Mais (spec 2026-10-07 §4).
+ */
+function NavDaBarra({ relampago, acesso }: { relampago: Relampago; acesso: Acesso | null }) {
   const pathname = usePathname();
   const { liberacoes } = useCasca();
   return (
     <nav aria-label="Módulos" className="pn-barra__nav hidden lg:flex">
-      {NAV_BARRA_DESKTOP.filter((item) => liberado(item, liberacoes)).map((item) => (
+      {itensDaBarra(acesso, liberacoes).map((item) => (
         <Link key={item.href} href={item.href} aria-current={isNavItemActive(pathname, item.href) ? "page" : undefined} className="pn-barra__item">
           {item.curto ?? item.label}
           {item.href === RELAMPAGO && <SinalDoRelampago {...relampago} />}
         </Link>
       ))}
-      <MenuMais />
+      {acesso?.role !== "seller" && <MenuMais />}
     </nav>
   );
 }
 
 /**
+ * A vendedora não tem Configurações (spec 2026-10-07 §1): no lugar do avatar,
+ * o papel dela e a saída. Com a rede fora o cookie fica, mas ela não pode ficar
+ * presa num "Saindo…" — vai para o login de qualquer jeito.
+ */
+function SaidaDaVendedora() {
+  const router = useRouter();
+  const [saindo, setSaindo] = useState(false);
+  function sair() {
+    setSaindo(true);
+    void fetch("/api/auth/logout", { method: "POST" })
+      .catch(() => null)
+      .then(() => router.push("/login"));
+  }
+  return (
+    <>
+      <span className="rounded-full px-2.5 py-0.5 text-12 font-semibold text-canvas-100 ring-1 ring-inset ring-paper-0/30">Vendedora</span>
+      <button type="button" onClick={sair} disabled={saindo} className="pn-barra__item min-h-11">
+        {saindo ? "Saindo…" : "Sair"}
+      </button>
+    </>
+  );
+}
+
+/**
  * Barra de cima (spec G2, decisão 4): a única peça Volt da casca. Desktop:
- * logo, loja, os seis módulos do dia, Mais, estado do número, sino, Postar e
+ * logo, loja, os módulos do acesso, Mais, estado do número, sino, Postar e
  * avatar. Celular (52px): símbolo, loja, estado do número e sino — a navegação
- * fica na barra inferior (decisão 5).
+ * fica na barra inferior (decisão 5). A vendedora (spec 2026-10-07): logo,
+ * loja, os módulos dela, Postar se liberado, chip "Vendedora" e Sair.
  */
 export function BarraDeCima() {
   const pathname = usePathname();
-  const { tenantName, carregado } = useRole();
+  const { tenantName, carregado, acesso } = useRole();
   const { foco } = useCasca();
-  const relampago = useRelampagoNaBarra(!foco);
+  const vendedora = acesso?.role === "seller";
+  // Só depois de saber quem é: a vendedora não tem Relâmpago, e a leitura daria 403.
+  const relampago = useRelampagoNaBarra(!foco && carregado && !vendedora);
   const [postar, setPostar] = useState(false);
   const idPostar = useId();
   const fechar = useCallback(() => setPostar(false), []);
@@ -155,6 +186,7 @@ export function BarraDeCima() {
 
   const nomeDaLoja = carregado ? (tenantName ?? "Sua loja") : "";
   const iniciais = carregado ? iniciaisDaLoja(tenantName) : "";
+  const comPostar = carregado && podePostar(acesso);
 
   return (
     <>
@@ -170,21 +202,31 @@ export function BarraDeCima() {
         ) : (
           <span role="status" aria-label="Carregando nome da loja" className="pn-skeleton inline-block h-4 w-24 rounded-[var(--radius-chip)]" />
         )}
-        <NavDaBarra relampago={relampago} />
+        {/* Até o /api/auth/me responder, nada de módulo: com `role` nulo o menu do dono piscaria pra vendedora. */}
+        {carregado && <NavDaBarra relampago={relampago} acesso={acesso} />}
         <div className="pn-barra__direita">
-          <ChipDoNumero />
-          <NotificationBell />
-          {pathname !== DISPAROS && (
+          {carregado && !vendedora && (
+            <>
+              <ChipDoNumero />
+              <NotificationBell />
+            </>
+          )}
+          {comPostar && pathname !== DISPAROS && (
             <button type="button" data-testid="painel-postar-barra" aria-haspopup="dialog" aria-expanded={postar} aria-controls={idPostar} onClick={() => setPostar(true)} className="pn-postar pn-barra__postar hidden lg:inline-flex">
               Postar
             </button>
           )}
-          <Link href="/painel/configuracoes" title="Configurações" aria-label={iniciais ? `${iniciais} · Configurações da loja` : "Configurações da loja"} className="pn-barra__avatar hidden lg:grid">
-            {iniciais}
-          </Link>
+          {carregado &&
+            (vendedora ? (
+              <SaidaDaVendedora />
+            ) : (
+              <Link href="/painel/configuracoes" title="Configurações" aria-label={iniciais ? `${iniciais} · Configurações da loja` : "Configurações da loja"} className="pn-barra__avatar hidden lg:grid">
+                {iniciais}
+              </Link>
+            ))}
         </div>
       </header>
-      <FolhaPostar id={idPostar} aberta={postar} aoFechar={fechar} aoPostar={fechar} emQualquerLargura />
+      {comPostar && <FolhaPostar id={idPostar} aberta={postar} aoFechar={fechar} aoPostar={fechar} emQualquerLargura />}
     </>
   );
 }
