@@ -22,7 +22,9 @@ export async function cidConferido(
   if (!cid) return null;
   try {
     return (await confere(tenantId, cid)) ? cid : null;
-  } catch {
+  } catch (e) {
+    // Só o erro da consulta loga (sem cid nem tenant): cid inválido ou de outra loja é silêncio.
+    console.warn(`[short-link/cid] conferência falhou: ${e instanceof Error ? e.message : String(e)}`);
     return null;
   }
 }

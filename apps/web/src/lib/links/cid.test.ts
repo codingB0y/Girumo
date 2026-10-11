@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { mock, test } from "node:test";
 
 import { cidConferido, cidDaUrl } from "./cid";
 
@@ -36,5 +36,15 @@ test("sem cid não consulta; erro na consulta vira null (o clique segue)", async
   let chamou = false;
   assert.equal(await cidConferido(url(""), "loja-a", async () => { chamou = true; return true; }), null);
   assert.equal(chamou, false);
-  assert.equal(await cidConferido(url(`?cid=${CID}`), "loja-a", async () => { throw new Error("banco caiu"); }), null);
+
+  const aviso = mock.method(console, "warn", () => {});
+  try {
+    assert.equal(await cidConferido(url(`?cid=${CID}`), "loja-a", async () => { throw new Error("banco caiu"); }), null);
+    assert.equal(aviso.mock.callCount(), 1);
+    const mensagem = String(aviso.mock.calls[0].arguments[0]);
+    assert.match(mensagem, /banco caiu/);
+    assert.ok(!mensagem.includes(CID));
+  } finally {
+    aviso.mock.restore();
+  }
 });
