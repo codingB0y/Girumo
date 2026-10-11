@@ -73,15 +73,22 @@ export async function incrementTrackedLinkClicks(id: string): Promise<void> {
  * campanha do link mudar depois, o clique continua pertencendo à que estava
  * valendo na hora.
  */
-export async function recordTrackedLinkClick(link: {
-  id: string;
-  tenant_id: string;
-  campaign_group_id: string | null;
-}): Promise<void> {
+export async function recordTrackedLinkClick(
+  link: {
+    id: string;
+    tenant_id: string;
+    campaign_group_id: string | null;
+  },
+  // Funil de anúncios: o cadastro que trouxe o clique (?cid=, já conferido) e o
+  // grupo que o rotador escolheu. Opcional para as chamadas que não sabem disso.
+  extra: { captureId: string | null; whatsappGroupId: string | null } = { captureId: null, whatsappGroupId: null },
+): Promise<void> {
   const { error } = await getSupabaseAdmin().from("link_click_events").insert({
     tenant_id: link.tenant_id,
     tracked_link_id: link.id,
     campaign_group_id: link.campaign_group_id,
+    capture_id: extra.captureId,
+    whatsapp_group_id: extra.whatsappGroupId,
   });
   if (error) throw new Error(error.message);
 }
