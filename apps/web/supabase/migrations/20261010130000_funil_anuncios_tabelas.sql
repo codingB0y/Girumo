@@ -130,10 +130,10 @@ create policy "site_captures_tenant_read" on public.site_captures
   for select using (app.has_membership(tenant_id));
 revoke insert, update, delete, truncate on public.site_captures from authenticated;
 
-drop policy if exists "ad_spend_tenant_read" on public.ad_spend;
-create policy "ad_spend_tenant_read" on public.ad_spend
-  for select using (app.has_membership(tenant_id));
-revoke insert, update, delete, truncate on public.ad_spend from authenticated;
+-- ad_spend: SEM policy, de propósito. Gasto é dado de caixa: só owner/admin lê, pela
+-- rota com ads:manage (service-role). Operador com JWT não pode ver por PostgREST.
+-- Não "destravar" com using (true).
+revoke all on public.ad_spend from authenticated;
 
 -- O event trigger ensure_anon_revoked já tira anon de tabela e função novas; explícito
 -- para não depender dele estar aplicado no banco.

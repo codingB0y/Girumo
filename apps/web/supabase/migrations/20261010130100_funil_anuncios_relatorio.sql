@@ -185,7 +185,8 @@ begin
       from por_cadastro pc
     ),
     'linhas', coalesce((
-      select jsonb_agg(to_jsonb(l) order by l.campanha nulls last, l.conjunto nulls first, l.anuncio nulls first)
+      select jsonb_agg(to_jsonb(l) order by l.campanha nulls last, l.conjunto nulls first, l.anuncio nulls first,
+                                            case l.nivel when 'campanha' then 0 when 'conjunto' then 1 else 2 end)
         from linhas l
     ), '[]'::jsonb),
     'por_origem', coalesce((
@@ -198,15 +199,12 @@ begin
         ) o
     ), '[]'::jsonb),
     'por_dia', coalesce((
-      select jsonb_agg(jsonb_build_object('dia', d.dia, 'cadastros', d.cadastros, 'entraram', d.entraram) order by d.dia)
-        from (
-          select g.dia::date as dia,
-                 (select count(*) from por_cadastro pc
-                   where (pc.created_at at time zone fuso)::date = g.dia::date) as cadastros,
-                 (select count(*) from entrada_credito ec join coorte k on k.id = ec.cadastro_id
-                   where (ec.entered_at at time zone fuso)::date = g.dia::date) as entraram
-            from generate_series(p_de::timestamp, p_ate::timestamp, interval '1 day') as g(dia)
-        ) d
+      select jsonb_agg(jsonb_build_object('dia', g.dia::date, 'cadastros', coalesce(c.n, 0), 'entraram', coalesce(e.n, 0)) order by g.dia)
+        from generate_series(p_de::timestamp, p_ate::timestamp, interval '1 day') as g(dia)
+        left join (select (pc.created_at at time zone fuso)::date as dia, count(*) as n
+                     from por_cadastro pc group by 1) c on c.dia = g.dia::date
+        left join (select (ec.entered_at at time zone fuso)::date as dia, count(*) as n
+                     from entrada_credito ec join coorte k on k.id = ec.cadastro_id group by 1) e on e.dia = g.dia::date
     ), '[]'::jsonb),
     'fora', jsonb_build_object(
       'entradas_sem_cadastro', (
