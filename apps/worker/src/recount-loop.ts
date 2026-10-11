@@ -66,6 +66,7 @@ export async function runRecountTick(
       // Não é falha: amanhã tem outra volta.
       if (err instanceof AppRequestError && err.status === 409) {
         summary.pulados += 1;
+        log.info("recontagem: loja pulada (409)", { tenant_id: tenantId });
         continue;
       }
       summary.falhas += 1;
