@@ -69,6 +69,30 @@ test("sem rede: logout rejeitado e revogação rejeitada não estouram", async (
   assert.deepEqual([...dados.keys()], ["tema"]);
 });
 
+test("espera a revogação terminar antes de responder (a navegação não pode abortá-la)", async () => {
+  let revogou = false;
+  const { aparelho: a } = aparelho({
+    auth: () => ({
+      stopAutoRefresh: async () => undefined,
+      admin: { signOut: () => new Promise((r) => setTimeout(() => r((revogou = true)), 20)) },
+    }),
+    limiteMs: 200,
+  });
+  assert.equal(await encerrarSessaoDoAparelho(a), true);
+  assert.equal(revogou, true);
+});
+
+test("sessão regravada por um refresh em voo durante o logout também some", async () => {
+  const { aparelho: a, dados } = aparelho({
+    logout: async () => {
+      dados.set("sb-abcd-auth-token", JSON.stringify({ access_token: "renovado" }));
+      return { ok: true };
+    },
+  });
+  assert.equal(await encerrarSessaoDoAparelho(a), true);
+  assert.deepEqual([...dados.keys()], ["tema"]);
+});
+
 test("cliente supabase indisponível não impede a limpeza nem o logout", async () => {
   const { aparelho: a, dados, eventos } = aparelho({
     auth: () => {

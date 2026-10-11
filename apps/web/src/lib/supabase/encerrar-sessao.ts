@@ -59,7 +59,17 @@ export async function encerrarSessaoDoAparelho(aparelho: Aparelho = aparelhoDoNa
   } catch {
     // localStorage bloqueado
   }
-  if (auth && token) void auth.admin.signOut(token, "global").catch(() => null);
+  // Aguardada (dentro do teto): quem chama navega em seguida, e a navegação abortaria o fetch.
+  const [cliente, jwt] = [auth, token];
+  const revogacao =
+    cliente && jwt
+      ? Promise.resolve()
+          .then(() => cliente.admin.signOut(jwt, "global"))
+          .then(
+            () => undefined,
+            () => undefined,
+          )
+      : Promise.resolve();
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   const teto = new Promise<boolean>((resolve) => {
@@ -71,7 +81,13 @@ export async function encerrarSessaoDoAparelho(aparelho: Aparelho = aparelhoDoNa
       (r) => r.ok,
       () => false,
     );
-  const ok = await Promise.race([logout, teto]);
+  const ok = await Promise.race([Promise.all([logout, revogacao]).then(([r]) => r), teto]);
   clearTimeout(timer);
+  // Segunda passada: um refresh que já estava em voo no stopAutoRefresh regrava a sessão durante a rede.
+  try {
+    tirarSessaoSupabase(aparelho.armazenamento());
+  } catch {
+    // localStorage bloqueado
+  }
   return ok;
 }
