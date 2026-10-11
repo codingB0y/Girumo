@@ -13,7 +13,7 @@ import { iniciaisDaLoja } from "@/lib/painel/casca";
 import { numero } from "@/lib/painel/grupos";
 import { placarDaOferta, type EntradaLike } from "@/lib/painel/relampago";
 import { isNavItemActive, itensDaBarra, podePostar } from "@/lib/painel-nav";
-import { getSupabaseBrowserClient, setActiveTenantId } from "@/lib/supabase/client";
+import { getSupabaseBrowserClient, setActiveTenantId, tirarSessaoSupabase } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { FolhaPostar } from "./folha-postar";
 import { MenuMais } from "./menu-mais";
@@ -143,75 +143,88 @@ function NavDaBarra({ relampago, acesso }: { relampago: Relampago; acesso: Acess
 }
 
 const LIMITE_DA_SAIDA_MS = 3_000;
-
-/** Apaga a sessão do supabase-js só neste navegador: sem rede e sem revogar nada, então sempre remove. */
-function apagarSessaoLocal(): Promise<unknown> {
-  try {
-    return getSupabaseBrowserClient().auth.signOut({ scope: "local" }).catch(() => null);
-  } catch {
-    return Promise.resolve(null); // variável pública ausente
-  }
-}
+const MENSAGEM_DE_SAIDA_QUE_FALHOU = "Não deu pra sair agora. Confira a internet e toque em Sair de novo.";
 
 /**
- * Encerra a sessão deste aparelho: o cookie (rota) e também o que o navegador guarda — a sessão do
- * supabase-js (`sb-*`, renova sozinha e vale como Bearer) e a loja ativa. Aparelho de loja é
- * compartilhado; sem isto a próxima pessoa seguiria com a sessão dela. Melhor-esforço e com teto
- * de 3s (`LIMITE_DA_SAIDA_MS`): o `signOut` do supabase-js devolve `{ error }` em vez de rejeitar quando a rede
- * falha (e então não apaga nada) e espera o lock da auth sem limite; por isso o apagamento local
- * roda no fim se o caminho do servidor não terminou ou falhou. A loja ativa sai antes de tudo.
+ * Encerra a sessão deste aparelho (compartilhado na loja) e diz se o servidor confirmou.
+ *
+ * 1. Sem rede, na hora: a loja ativa, o refresh automático e a sessão do supabase-js no
+ *    localStorage (`sb-*`, vale como Bearer). Não dá pra delegar a `auth.signOut()`: ele faz
+ *    `POST /logout` antes de apagar e, com a rede fora, devolve `{ error }` e deixa tudo lá —
+ *    o `scope: "local"` também chama o servidor nesta versão.
+ * 2. Depois, com teto de 3s: `POST /api/auth/logout`, o único que apaga o cookie HttpOnly, e a
+ *    revogação do token no servidor (melhor-esforço, resultado ignorado).
+ *
+ * `true` só se o logout do cookie respondeu ok; a vendedora só vai para o /login nesse caso —
+ * com o cookie vivo, o /painel abriria na sessão dela para a próxima pessoa.
  */
-async function encerrarSessao() {
+async function encerrarSessao(): Promise<boolean> {
+  let token: string | null = null;
+  let auth: ReturnType<typeof getSupabaseBrowserClient>["auth"] | null = null;
   try {
     setActiveTenantId(null);
   } catch {
     // localStorage bloqueado
   }
-  let terminou = false;
-  const servidor = (async () => {
-    await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
-    try {
-      // Global revoga o refresh token no servidor; com erro (rede, 5xx) a sessão local ficaria.
-      const { error } = await getSupabaseBrowserClient().auth.signOut();
-      if (error) return;
-    } catch {
-      return;
-    }
-    terminou = true;
-  })();
+  try {
+    auth = getSupabaseBrowserClient().auth;
+    await auth.stopAutoRefresh();
+  } catch {
+    // variável pública ausente ou cliente sem o método: a limpeza local segue
+  }
+  try {
+    token = tirarSessaoSupabase(window.localStorage);
+  } catch {
+    // localStorage bloqueado
+  }
+  if (auth && token) void auth.admin.signOut(token, "global").catch(() => null);
+
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const teto = new Promise<void>((resolve) => {
-    timer = setTimeout(resolve, LIMITE_DA_SAIDA_MS);
+  const teto = new Promise<boolean>((resolve) => {
+    timer = setTimeout(() => resolve(false), LIMITE_DA_SAIDA_MS);
   });
-  await Promise.race([servidor, teto]);
+  const logout = fetch("/api/auth/logout", { method: "POST" }).then(
+    (r) => r.ok,
+    () => false,
+  );
+  const ok = await Promise.race([logout, teto]);
   clearTimeout(timer);
-  // Sem await: se o lock da auth estiver preso pelo caminho do servidor, isto roda quando soltar,
-  // já com ela no /login (a navegação é no cliente, a página não recarrega).
-  if (!terminou) void apagarSessaoLocal();
+  return ok;
 }
 
 /**
  * O acesso restrito não tem Configurações (spec 2026-10-07 §1): no lugar do avatar,
- * o papel (só "Vendedora" quando é mesmo seller) e a saída. Ela nunca fica presa num
- * "Saindo…" — vai para o login de qualquer jeito.
+ * o papel (só "Vendedora" quando é mesmo seller) e a saída. Se o servidor não confirmar
+ * a saída, ela fica na tela com o aviso e pode tentar de novo.
  */
 function SaidaDoAcessoRestrito({ vendedora }: { vendedora: boolean }) {
   const router = useRouter();
   const [saindo, setSaindo] = useState(false);
-  function sair() {
+  const [falhou, setFalhou] = useState(false);
+  async function sair() {
     setSaindo(true);
-    void encerrarSessao()
-      .catch(() => null)
-      .then(() => router.push("/login"));
+    setFalhou(false);
+    const ok = await encerrarSessao().catch(() => false);
+    if (ok) {
+      router.push("/login");
+      return;
+    }
+    setSaindo(false);
+    setFalhou(true);
   }
   return (
     <>
       {vendedora && (
         <span className="rounded-full px-2.5 py-0.5 text-12 font-semibold text-canvas-100 ring-1 ring-inset ring-paper-0/30">Vendedora</span>
       )}
-      <button type="button" onClick={sair} disabled={saindo} className="pn-barra__item min-h-11">
+      <button type="button" onClick={() => void sair()} disabled={saindo} className="pn-barra__item min-h-11">
         {saindo ? "Saindo…" : "Sair"}
       </button>
+      {falhou && (
+        <p role="alert" className="fixed inset-x-4 top-14 z-30 ml-auto max-w-sm rounded-[var(--radius-chip)] bg-paper-0 px-3 py-2 text-13 text-volt-950 shadow-md ring-1 ring-inset ring-line-200">
+          {MENSAGEM_DE_SAIDA_QUE_FALHOU}
+        </p>
+      )}
     </>
   );
 }
