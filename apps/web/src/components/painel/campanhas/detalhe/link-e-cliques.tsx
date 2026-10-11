@@ -6,7 +6,7 @@ import { CopyLink } from "@/components/painel/copy-link";
 import { QrLink } from "@/components/painel/campanhas/qr-link";
 import type { EntradaSettings } from "@/lib/campaigns/settings";
 import { dayBR, horaBR } from "@/lib/date-br";
-import { resolveClickTarget, type ResolvableGroup } from "@/lib/links/resolve-click-target";
+import { resolveClickTarget, withSequentialEstado, type ResolvableGroup } from "@/lib/links/resolve-click-target";
 import type { Group } from "@/lib/mock-data";
 import { barrasDaAtividade, nomeDoMes, somaDa, type Periodo } from "@/lib/painel/atividade";
 import { medindoDesde } from "@/lib/painel/atividade-texto";
@@ -53,7 +53,9 @@ export function LinkECliques({ slug, nome, linkMestre, groupIds, grupos, entrada
     const alvo = resolveClickTarget({
       link: { campaign_group_id: "campanha", target_url: "", clicks: 0, metadata: {} },
       campaign: { group_ids: groupIds },
-      groups: resolviveis,
+      // Esta aba ainda não recebe o estado do banco: aproxima o "enchendo" pela
+      // sequência antiga (ver withSequentialEstado). O PR 4 troca por /grupos/estados.
+      groups: withSequentialEstado(groupIds, resolviveis),
       entrada,
       now: agora,
     });
