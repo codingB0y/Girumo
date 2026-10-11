@@ -6,6 +6,7 @@
  */
 
 import { ENTRADA_DEFAULTS, isClosedAt, type EntradaSettings } from "@/lib/campaigns/settings";
+import type { EstadoDoGrupo, EstadoGrupo } from "@/lib/groups/estado";
 
 /** Capacidade padrão de grupo do WhatsApp (até a engine reportar o limite real). */
 export const DEFAULT_GROUP_CAPACITY = 1024;
@@ -24,6 +25,12 @@ export type ResolvableGroup = {
    * antes da coluna existir não tem o campo — e `undefined` não bloqueia.
    */
   is_admin?: boolean | null;
+  /**
+   * Estado do grupo NA campanha, calculado no banco (`campaign_group_states`).
+   * O link mestre só manda gente para o `enchendo`; grupo sem estado nunca é o
+   * alvo da rotação (o lembrado continua valendo, ver `rememberedGroup`).
+   */
+  estado?: EstadoDoGrupo;
 };
 
 export type ResolvableLink = {
@@ -77,6 +84,9 @@ export function isGroupAvailable(g: ResolvableGroup): boolean {
  * enche o 1º até ~95%, transborda pro próximo). Pula cheios e os sem convite.
  *
  * `groupIds` guarda `whatsapp_group_id` (ex.: `1203...@g.us`), não o uuid da tabela.
+ *
+ * Fora do caminho do `/r/` desde o PR 2 do "postar por grupo" — lá o alvo é o
+ * `enchendo` que o banco calcula. Sobra só para `withSequentialEstado`.
  */
 export function nextAvailableGroup(
   groupIds: readonly string[],
@@ -88,6 +98,36 @@ export function nextAvailableGroup(
     if (g && isGroupAvailable(g)) return g;
   }
   return null;
+}
+
+/** Linha de `campaign_group_states` no formato do resolvedor. Levar o `estado` junto é o que faz o link andar. */
+export function toResolvableGroup(e: EstadoGrupo): ResolvableGroup {
+  return {
+    whatsapp_group_id: e.whatsappGroupId,
+    name: e.nome,
+    members: e.membros,
+    capacity: e.capacidade,
+    invite_url: e.inviteUrl,
+    is_admin: e.isAdmin,
+    estado: e.estado,
+  };
+}
+
+/**
+ * Aproximação do estado para quem ainda não lê o banco: marca como `enchendo` o
+ * primeiro grupo disponível pela regra antiga (95%, convite, admin), sem a marca
+ * de lotado nem a prioridade do reaberto.
+ *
+ * ponytail: só a aba "Link e cliques" usa, até o PR 4 trocá-la pelo
+ * `GET /api/campanhas/[slug]/grupos/estados`. Pode divergir do `/r/` quando um
+ * grupo lotado volta para baixo de 95% — o link real pula, a aba não.
+ */
+export function withSequentialEstado(
+  groupIds: readonly string[],
+  groups: readonly ResolvableGroup[],
+): ResolvableGroup[] {
+  const enchendo = nextAvailableGroup(groupIds, groups);
+  return groups.map((g): ResolvableGroup => (g === enchendo ? { ...g, estado: "enchendo" } : g));
 }
 
 /** Teto de cliques humanos gravado em `metadata.clickCap` pela criação do link. */
@@ -147,7 +187,7 @@ export function resolveClickTarget(input: {
 }): ClickTarget {
   const { link, campaign, groups } = input;
 
-  // 1) Link MESTRE de campanha → grupo lembrado ou próximo disponível do pool.
+  // 1) Link MESTRE de campanha → grupo lembrado ou o `enchendo` da campanha.
   if (link.campaign_group_id) {
     // Campanha sumiu (ou o link ficou órfão): trata como pool vazio, nunca redireciona.
     if (!campaign) return { kind: "blocked", reason: "empty-pool" };
@@ -156,7 +196,10 @@ export function resolveClickTarget(input: {
     const remembered = entrada.um_grupo_por_pessoa
       ? rememberedGroup(input.rememberedGroupId, campaign.group_ids, groups)
       : null;
-    const target = remembered ?? nextAvailableGroup(campaign.group_ids, groups);
+    // O banco já escolheu o `enchendo` (reabertos primeiro, depois a ordem do pool;
+    // nunca um lotado). `groups` são os desta campanha, como a RPC devolve — aqui
+    // não se recalcula nada.
+    const target = remembered ?? groups.find((g) => g.estado === "enchendo") ?? null;
     if (!target) return { kind: "blocked", reason: diagnosePool(campaign.group_ids, groups) };
     return {
       kind: "redirect",
