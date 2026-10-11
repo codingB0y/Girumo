@@ -97,7 +97,15 @@ export async function entrar(page: Page, credenciais: { email: string; senha: st
   await page.getByTestId("login-senha").fill(credenciais.senha);
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
 
-  await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 30_000 });
+  // Login recusado mostra o alerta do form e fica em /login. Sem esperar por ele
+  // tambem, senha errada virava 30s de timeout de URL sem dizer o motivo
+  // (11/10/2026: o usuario do sessao.spec ainda nao existia em dev). Escopo no
+  // form: o anunciador de rota do Next tambem tem role="alert".
+  const recusa = page.locator("form").getByRole("alert");
+  await expect(recusa.or(page.getByTestId("painel-root"))).toBeVisible({ timeout: 30_000 });
+  if (await recusa.isVisible()) {
+    throw new Error(`Login de ${credenciais.email} recusado pela tela: "${await recusa.innerText()}"`);
+  }
   await expect(page.getByTestId("painel-root")).toBeVisible();
 }
 
