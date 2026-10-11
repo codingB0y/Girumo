@@ -105,6 +105,9 @@ export function BarraMobile() {
   // Dono: 2 + Postar + 1 + Mais = as 5 colunas do CSS. Vendedora: 1 ou 3.
   const colunas = esquerda.length + direita.length + Number(comPostar) + Number(comMais);
 
+  // Papel desconhecido: nada a mostrar, e <nav> vazio é landmark sem conteúdo.
+  if (carregado && colunas === 0) return null;
+
   return (
     <>
       <nav

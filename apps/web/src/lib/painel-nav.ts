@@ -15,7 +15,7 @@ import {
   ShoppingBag,
   type LucideIcon,
 } from "lucide-react";
-import { PAPEIS_LIVRES, modulosDoAcesso, paginaLiberada, type Acesso, type Modulo } from "@/lib/auth/modulos";
+import { PAPEIS_LIVRES, acessoRestrito, modulosDoAcesso, paginaLiberada, type Acesso, type Modulo } from "@/lib/auth/modulos";
 
 /**
  * Fonte única da navegação do painel.
@@ -138,8 +138,9 @@ export function liberado(item: NavItem, liberacoes: Liberacoes | null): boolean 
  * - vendedora: só item com `modulo` liberado para ela (`vendas` sempre; `postar` se o dono marcou);
  * - owner/admin/operator (`PAPEIS_LIVRES`): a regra de antes (`liberado`), e Vendas fica fora — o dono não usa a tela na v1;
  * - papel desconhecido: nada (fechado por padrão, como `paginaLiberada`);
- * - `null` (o `/api/auth/me` não respondeu): nada que dependa de módulo, para não piscar Vendas
- *   ou Disparos para quem não tem. A casca nem desenha os módulos enquanto `carregado` é falso.
+ * - `null` depois de carregado = o `/api/auth/me` falhou: não dá pra distinguir o dono da vendedora,
+ *   então nada que dependa de módulo aparece (nem Vendas, nem Disparos/Postar) — o dono recupera
+ *   Postar e Disparos na próxima carga. A casca nem desenha os módulos enquanto `carregado` é falso.
  */
 export function visivelNoMenu(item: NavItem, acesso: Acesso | null, liberacoes: Liberacoes | null): boolean {
   if (acesso === null) return item.modulo === undefined && liberado(item, liberacoes);
@@ -161,7 +162,7 @@ export function podePostar(acesso: Acesso | null): boolean {
  * dela está entre os seis do dono.
  */
 export function itensDaBarra(acesso: Acesso | null, liberacoes: Liberacoes | null): NavItem[] {
-  const base = acesso?.role === "seller" ? NAV_ALL : NAV_BARRA_DESKTOP;
+  const base = acessoRestrito(acesso) ? NAV_ALL : NAV_BARRA_DESKTOP;
   return base.filter((item) => visivelNoMenu(item, acesso, liberacoes));
 }
 

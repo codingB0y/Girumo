@@ -10,7 +10,8 @@ import { destinoDaPagina } from "@/lib/painel-nav";
 const VENDAS = "/painel/vendas";
 
 /** Mockup "Área não liberada": a vendedora numa página que o dono não liberou. */
-function AreaNaoLiberada({ loja }: { loja: string | null }) {
+/** `voltar`: só a vendedora tem pra onde voltar; papel desconhecido bloquearia de novo em Vendas. */
+function AreaNaoLiberada({ loja, voltar }: { loja: string | null; voltar: boolean }) {
   const titulo = useRef<HTMLHeadingElement>(null);
   // A tela troca a página sem navegar: leva o foco pra mensagem.
   useEffect(() => titulo.current?.focus(), []);
@@ -19,17 +20,19 @@ function AreaNaoLiberada({ loja }: { loja: string | null }) {
       <span aria-hidden="true" className="grid h-12 w-12 place-items-center rounded-xl border border-line-200 bg-paper-0 text-slate-600">
         <Lock className="h-[22px] w-[22px]" />
       </span>
-      <h1 ref={titulo} tabIndex={-1} className="font-brand text-[22px] font-extrabold tracking-[-0.02em] text-volt-950 outline-none">Essa área não foi liberada pra você</h1>
+      <h1 ref={titulo} tabIndex={-1} className="font-brand text-28 font-bold text-volt-950 outline-none">Essa área não foi liberada pra você</h1>
       <p className="text-15 text-slate-600">
         Quem escolhe o que cada pessoa da equipe acessa é o dono da {loja ?? "loja"}. Se você precisa disso pro seu
         trabalho, peça pra ele liberar em Configurações › Equipe.
       </p>
-      <Link
-        href={VENDAS}
-        className="mt-2 inline-flex h-12 items-center rounded-[var(--radius-control)] bg-cobalt-500 px-5 text-15 font-semibold text-paper-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
-      >
-        Voltar pra Vendas
-      </Link>
+      {voltar && (
+        <Link
+          href={VENDAS}
+          className="mt-2 inline-flex h-12 items-center rounded-[var(--radius-control)] bg-cobalt-500 px-5 text-15 font-semibold text-paper-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
+        >
+          Voltar pra Vendas
+        </Link>
+      )}
     </div>
   );
 }
@@ -54,7 +57,7 @@ export function GuardaDeModulo({ children }: { children: React.ReactNode }) {
   }, [destino, router]);
 
   if (destino === "mostrar") return <>{children}</>;
-  if (destino === "bloquear") return <AreaNaoLiberada loja={tenantName} />;
+  if (destino === "bloquear") return <AreaNaoLiberada loja={tenantName} voltar={acesso?.role === "seller"} />;
   return (
     <div aria-busy="true" className="space-y-4 px-4 py-5 lg:px-8 lg:py-8">
       <span className="sr-only">Carregando o painel…</span>

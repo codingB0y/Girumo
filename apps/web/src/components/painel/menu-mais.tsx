@@ -32,7 +32,8 @@ function useAssinatura(aberto: boolean): AssinaturaResumo | undefined {
 }
 
 /** Módulos que só moram no Mais: nenhum item da barra acende neles, então o botão acende. */
-const SO_NO_MAIS = NAV_ALL.filter((item) => !NAV_BARRA_DESKTOP.includes(item));
+// Vendas está em NAV_ALL por causa da vendedora, mas o dono não a vê no Mais.
+const SO_NO_MAIS = NAV_ALL.filter((item) => !NAV_BARRA_DESKTOP.includes(item) && item.modulo !== "vendas");
 
 /**
  * "Mais" da barra de cima (spec G2, decisão 4): painel ancorado ao botão com
