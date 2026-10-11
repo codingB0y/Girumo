@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-10-10T23:37:23.930Z",
+  "gerado_em": "2026-10-11T15:32:42.992Z",
   "projeto": "nidoatbxaylrkcgbszns",
   "objetos": {
     "f|advance_automation_run(target_run_id uuid, next_step integer, next_at timestamp with time zone)": "9915acbf605c133627ee5aa950df3dc4",
@@ -94,7 +94,7 @@
     "t|landing_pages": "3df948facf5fc28b3c307b3fe6a50930",
     "t|leads": "896b4e484d6cd5d5b77ba847a9b533ae",
     "t|legal_acceptances": "2b9b93232e4e509fa71d1ba1b6c601b9",
-    "t|link_click_events": "cff2ed3be51a6e2c4768416c993ede2d",
+    "t|link_click_events": "dde94006b3686a52d9d1381e1fb9de7b",
     "t|logs": "d99e62d180bb4abc4d7d841577bbacac",
     "t|lp_captures": "4c457b7da04a0c7135349defb0daa524",
     "t|lp_contacts": "317b60d221c0085ce151ec51a4a835ab",
@@ -119,6 +119,11 @@
     "t|testimonials": "fc6e295a183db5d3ef1883d41de70e64",
     "t|tracked_links": "ff7a11642db58f6c65490a3800e83549",
     "t|uploads": "ae5944edc2fdb66572ee636dfcd102ca",
-    "t|users": "dd4942e0ab6f92b45d233c867e7acc32"
+    "t|users": "dd4942e0ab6f92b45d233c867e7acc32",
+    "t|ad_spend": "0fd90ee56729b9ec48403cf47bcf1144",
+    "t|site_captures": "32c76f072e6493f3606f33a7f2f65908",
+    "t|site_integrations": "aa8623344ae409328f38213d437978be",
+    "f|phone_key(p text)": "36786136c053ca013f13b2f9f409ed63",
+    "f|attribution_report(p_tenant uuid, p_de date, p_ate date)": "e0a7baae3ff3514f0ccc15b9858746c7"
   }
 }

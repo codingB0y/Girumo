@@ -493,3 +493,10 @@ apps/web/supabase/migrations/20261008120000_ig_receita_confirma.sql
 # t|group_bulk_jobs e quatro f|). O gate nao ve schema app, CHECK, indice, trigger, ACL nem
 # corpo — conferir com infra/tests/postar-por-grupo-check.sql nos dois bancos.
 apps/web/supabase/migrations/20261010120000_postar_por_grupo.sql
+# 2026-10-10 - Funil de anuncios (spec 2026-10-10-funil-anuncios), parte 1: phone_key,
+# site_integrations, site_captures, ad_spend, link_click_events.capture_id/whatsapp_group_id,
+# indices por phone_key em leads/orders/lp_contacts. Muda a baseline.
+apps/web/supabase/migrations/20261010130000_funil_anuncios_tabelas.sql
+# 2026-10-10 - Funil de anuncios, parte 2: attribution_report (so service_role).
+# Depende da parte 1. Muda a baseline (f|attribution_report).
+apps/web/supabase/migrations/20261010130100_funil_anuncios_relatorio.sql
