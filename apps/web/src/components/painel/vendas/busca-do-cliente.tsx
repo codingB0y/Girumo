@@ -7,7 +7,8 @@ import { mensagemDeErro } from "@/lib/painel/vendas";
 import { formatPhoneBR } from "@/lib/phone";
 import { telefoneCanonico, variantesDoTelefone } from "@/lib/vendas/telefone";
 import type { BuscaDeContato } from "@/lib/vendas/tipos";
-import { CLASSE_DO_CAMPO, CLASSE_DO_ROTULO } from "./itens-da-venda";
+import { cn } from "@/lib/utils";
+import { ANEL_DE_FOCO, CLASSE_DO_CAMPO, CLASSE_DO_ROTULO } from "./itens-da-venda";
 
 /** O resultado da busca mais o número como ela digitou: é ele que vai no POST quando não há contato. */
 export type ClienteBuscado = BuscaDeContato & { telefone: string };
@@ -70,6 +71,7 @@ export function BuscaDoCliente({ aoEncontrar, focar }: { aoEncontrar: (cliente: 
           inputMode="tel"
           autoComplete="off"
           autoFocus={focar}
+          readOnly={buscando}
           maxLength={30}
           placeholder="(11) 98765-4321"
           aria-invalid={erro ? true : undefined}
@@ -79,7 +81,10 @@ export function BuscaDoCliente({ aoEncontrar, focar }: { aoEncontrar: (cliente: 
         <button
           type="submit"
           disabled={buscando}
-          className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-[var(--radius-control)] bg-volt-950 px-4 text-[14px] font-semibold text-paper-0 disabled:opacity-50"
+          className={cn(
+            "inline-flex h-11 shrink-0 items-center gap-1.5 rounded-[var(--radius-control)] bg-volt-950 px-4 text-[14px] font-semibold text-paper-0 disabled:opacity-50",
+            ANEL_DE_FOCO,
+          )}
         >
           <Search className="h-4 w-4" aria-hidden="true" />
           {buscando ? "Buscando…" : "Buscar"}
@@ -100,7 +105,7 @@ function BotaoTrocar({ aoTrocar }: { aoTrocar: () => void }) {
       type="button"
       onClick={aoTrocar}
       aria-label="Trocar cliente"
-      className="inline-flex min-h-11 shrink-0 items-center px-2 text-13 font-semibold text-cobalt-500"
+      className={cn("inline-flex min-h-11 shrink-0 items-center px-2 text-13 font-semibold text-cobalt-500", ANEL_DE_FOCO)}
     >
       Trocar
     </button>
@@ -165,6 +170,8 @@ export function ClienteDaVenda({ cliente, nome, aoMudarNome, aoTrocar }: Cliente
             value={nome}
             onChange={(e) => aoMudarNome(e.target.value)}
             autoComplete="off"
+            // Só monta logo depois de escolher um cliente novo: o próximo passo é o nome (a página anuncia o resultado).
+            autoFocus
             maxLength={80}
             placeholder="Ex.: Maria Oliveira"
             className={CLASSE_DO_CAMPO}

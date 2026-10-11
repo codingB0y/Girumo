@@ -20,9 +20,11 @@ import type { ItemDeVenda } from "@/lib/vendas/tipos";
 /** id do `<datalist>` com os nomes já usados no mês; a página o renderiza uma vez. */
 export const LISTA_DE_PRODUTOS = "vendas-produtos";
 
+/** Anel de foco do painel (mesmo de `activation-checklist.tsx`), em campos e botões da tela de vendas. */
+export const ANEL_DE_FOCO = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500";
+
 /** 16px no campo: abaixo disso o iOS dá zoom ao focar (spec §4). */
-export const CLASSE_DO_CAMPO =
-  "h-11 w-full rounded-[var(--radius-control)] border border-line-200 bg-paper-0 px-3 text-[16px] text-volt-950 placeholder:text-slate-600";
+export const CLASSE_DO_CAMPO = `h-11 w-full rounded-[var(--radius-control)] border border-line-200 bg-paper-0 px-3 text-[16px] text-volt-950 placeholder:text-slate-600 ${ANEL_DE_FOCO}`;
 export const CLASSE_DO_ROTULO = "mb-1 block text-13 font-semibold text-volt-950";
 
 /** Chave estável: com o índice, remover a 2ª de 3 linhas levaria foco e texto em composição para a linha errada. */
@@ -32,11 +34,15 @@ type Props = {
   /** Prefixo dos ids: o registro e cada correção têm o seu, senão dois "Nome do produto" dividem o mesmo id. */
   idBase: string;
   titulo: string;
+  /** h3 quando o formulário mora dentro de outra seção com h2 (a correção em "Minhas vendas"). */
+  nivelDoTitulo?: "h2" | "h3";
   linhasIniciais: readonly LinhaDaVenda[];
   /** "Registrar venda" → botão "Registrar venda · R$ 289,70". */
   verbo: string;
   /** Devolve a mensagem de erro, ou null quando deu certo. */
   aoEnviar: (itens: ItemDeVenda[]) => Promise<string | null>;
+  /** Outra ação da mesma venda em andamento (apagar): o envio espera. */
+  bloqueado?: boolean;
 };
 
 /**
@@ -46,8 +52,19 @@ type Props = {
  * API antes de enviar e desabilita o botão enquanto salva (clique duplo não
  * duplica a venda — spec §6, mesmo padrão do `RegistroDePedido`).
  */
-export function FormularioDeItens({ idBase, titulo, linhasIniciais, verbo, aoEnviar }: Props) {
+export function FormularioDeItens({
+  idBase,
+  titulo,
+  nivelDoTitulo: Titulo = "h2",
+  linhasIniciais,
+  verbo,
+  aoEnviar,
+  bloqueado = false,
+}: Props) {
   const proxima = useRef(linhasIniciais.length);
+  // O estado só desabilita o botão no próximo render: Enter duas vezes no mesmo tick passaria pelos dois.
+  const enviandoRef = useRef(false);
+  const adicionarRef = useRef<HTMLButtonElement>(null);
   const [linhas, setLinhas] = useState<LinhaNaTela[]>(() => linhasIniciais.map((linha, i) => ({ ...linha, chave: i })));
   const [focar, setFocar] = useState<number | null>(null);
   const [erro, setErro] = useState("");
@@ -68,22 +85,29 @@ export function FormularioDeItens({ idBase, titulo, linhasIniciais, verbo, aoEnv
   }
 
   function remover(chave: number) {
+    // O foco sai do botão antes de a linha sumir, senão cai no `body`: linha anterior, senão a seguinte.
+    const i = linhas.findIndex((linha) => linha.chave === chave);
+    const vizinha = linhas[i - 1] ?? linhas[i + 1];
+    const alvo = vizinha ? document.getElementById(`${idBase}-${vizinha.chave}-nome`) : adicionarRef.current;
+    alvo?.focus();
     setLinhas((atuais) => atuais.filter((linha) => linha.chave !== chave));
   }
 
   async function enviar() {
-    if (enviando) return;
+    if (enviandoRef.current || bloqueado) return;
     const validacao = validarLinhas(linhas);
     if (!validacao.ok) {
       setErro(validacao.erro);
       return;
     }
     setErro("");
+    enviandoRef.current = true;
     setEnviando(true);
     try {
       const falha = await aoEnviar(validacao.itens);
       if (falha) setErro(falha);
     } finally {
+      enviandoRef.current = false;
       setEnviando(false);
     }
   }
@@ -97,9 +121,9 @@ export function FormularioDeItens({ idBase, titulo, linhasIniciais, verbo, aoEnv
       }}
       className="flex flex-col gap-3.5 rounded-xl border border-line-200 bg-paper-0 p-4"
     >
-      <h2 id={idTitulo} className="font-brand text-15 font-bold text-volt-950">
+      <Titulo id={idTitulo} className="font-brand text-15 font-bold text-volt-950">
         {titulo}
-      </h2>
+      </Titulo>
 
       {linhas.map((linha, i) => {
         const id = `${idBase}-${linha.chave}`;
@@ -153,7 +177,10 @@ export function FormularioDeItens({ idBase, titulo, linhasIniciais, verbo, aoEnv
                 aria-label={`Remover produto ${i + 1}`}
                 disabled={linhas.length === 1}
                 onClick={() => remover(linha.chave)}
-                className="grid h-11 w-11 place-items-center rounded-[var(--radius-control)] border border-line-200 bg-paper-0 text-slate-600 disabled:opacity-40"
+                className={cn(
+                  "grid h-11 w-11 place-items-center rounded-[var(--radius-control)] border border-line-200 bg-paper-0 text-slate-600 disabled:opacity-40",
+                  ANEL_DE_FOCO,
+                )}
               >
                 <Trash2 className="h-4 w-4" aria-hidden="true" />
               </button>
@@ -166,10 +193,14 @@ export function FormularioDeItens({ idBase, titulo, linhasIniciais, verbo, aoEnv
       })}
 
       <button
+        ref={adicionarRef}
         type="button"
         onClick={adicionar}
         disabled={linhas.length >= MAX_ITENS}
-        className="inline-flex h-11 items-center gap-1.5 self-start rounded-[var(--radius-control)] border border-dashed border-line-200 px-3.5 text-[14px] font-semibold text-volt-950 disabled:opacity-40"
+        className={cn(
+          "inline-flex h-11 items-center gap-1.5 self-start rounded-[var(--radius-control)] border border-dashed border-line-200 px-3.5 text-[14px] font-semibold text-volt-950 disabled:opacity-40",
+          ANEL_DE_FOCO,
+        )}
       >
         <Plus className="h-4 w-4" aria-hidden="true" />
         Adicionar produto
@@ -190,8 +221,8 @@ export function FormularioDeItens({ idBase, titulo, linhasIniciais, verbo, aoEnv
 
       <button
         type="submit"
-        disabled={enviando}
-        className="h-12 rounded-[var(--radius-control)] bg-cobalt-500 text-15 font-semibold text-paper-0 disabled:opacity-50"
+        disabled={enviando || bloqueado}
+        className={cn("h-12 rounded-[var(--radius-control)] bg-cobalt-500 text-15 font-semibold text-paper-0 disabled:opacity-50", ANEL_DE_FOCO)}
       >
         {enviando ? "Salvando…" : `${verbo} · ${brl.format(total)}`}
       </button>

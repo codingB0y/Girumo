@@ -3,11 +3,14 @@
 import { Check } from "lucide-react";
 import { brl } from "@/components/painel/home/format";
 import { nomeDoCliente } from "@/lib/painel/vendas";
+import { cn } from "@/lib/utils";
 import type { VendaDoMes } from "@/lib/vendas/tipos";
+import { ANEL_DE_FOCO } from "./itens-da-venda";
 
 /**
- * Depois do registro (spec §4): o que foi gravado, a janela de 24h e o caminho
- * para a próxima. O anúncio para leitor de tela é o `role="status"` sempre
+ * Depois do registro (spec §4): o que foi gravado, onde corrigir e o caminho
+ * para a próxima. A regra das 24h fica na própria linha de "Minhas vendas":
+ * aqui ela estaria errada para dono, admin e operador. O anúncio para leitor de tela é o `role="status"` sempre
  * montado na página; este cartão é o que se vê. O foco vai para "Registrar
  * outra venda": o botão de envio sumiu, e sem isso o foco cairia no `body`.
  */
@@ -31,12 +34,12 @@ export function VendaRegistrada({ venda, aoNovaVenda }: { venda: VendaDoMes; aoN
           </p>
         </div>
       </div>
-      <p className="text-13 text-slate-600">Dá pra corrigir nas próximas 24 horas. Depois disso, só o dono da loja.</p>
+      <p className="text-13 text-slate-600">Dá pra corrigir em Minhas vendas.</p>
       <button
         type="button"
         onClick={aoNovaVenda}
         autoFocus
-        className="h-11 rounded-[var(--radius-control)] bg-volt-950 text-[14px] font-semibold text-paper-0"
+        className={cn("h-11 rounded-[var(--radius-control)] bg-volt-950 text-[14px] font-semibold text-paper-0", ANEL_DE_FOCO)}
       >
         Registrar outra venda
       </button>
