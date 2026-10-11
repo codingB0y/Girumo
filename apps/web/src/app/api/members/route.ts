@@ -25,15 +25,16 @@ function normalizeEmail(email: unknown) {
 const conviteSchema = z.strictObject({
   email: z.string().optional(),
   role: z.string().optional(),
-  modules: z.array(z.enum(MODULOS_OPCIONAIS)).optional(),
+  modules: z.array(z.enum(MODULOS_OPCIONAIS)).max(20).optional(),
 });
 
 const acessoSchema = z.strictObject({
   id: z.uuid(),
-  modules: z.array(z.enum(MODULOS_OPCIONAIS)),
+  modules: z.array(z.enum(MODULOS_OPCIONAIS)).max(20),
 });
 
 const SO_A_VENDEDORA = "Só a vendedora tem módulos.";
+const ERRO_AO_SALVAR = "Não foi possível salvar o acesso.";
 
 /** Mesmas frases que o PR 3 já devolve para e-mail e papel; as outras são deste PR. */
 function erroDoConvite(error: z.ZodError): string {
@@ -220,7 +221,10 @@ export async function PATCH(req: Request) {
       .eq("tenant_id", ctx.tenantId)
       .maybeSingle();
 
-    if (alvoErro) return Response.json({ error: alvoErro.message }, { status: 500 });
+    if (alvoErro) {
+      console.error("[api/members] PATCH: falha lendo o membro:", alvoErro);
+      return Response.json({ error: ERRO_AO_SALVAR }, { status: 500 });
+    }
     if (!alvo) return Response.json({ error: "Membro não encontrado." }, { status: 404 });
     if (alvo.role !== "seller") return Response.json({ error: SO_A_VENDEDORA }, { status: 400 });
 
@@ -235,7 +239,10 @@ export async function PATCH(req: Request) {
       .select("id, modules")
       .maybeSingle();
 
-    if (error) return Response.json({ error: error.message }, { status: 500 });
+    if (error) {
+      console.error("[api/members] PATCH: falha gravando o acesso:", error);
+      return Response.json({ error: ERRO_AO_SALVAR }, { status: 500 });
+    }
     if (!salvo) return Response.json({ error: "Membro não encontrado." }, { status: 404 });
 
     const quem = alvo.invited_email ?? alvo.user_id ?? id;

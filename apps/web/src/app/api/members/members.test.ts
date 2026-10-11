@@ -250,6 +250,29 @@ test("POST: módulo que não existe é 400", async () => {
   assert.equal(escritas("POST", "memberships").length, 0);
 });
 
+test("POST: lista de módulos grande demais é 400", async () => {
+  const modules = Array.from({ length: 21 }, () => "postar");
+  const res = await chamar(() => rota.POST(pedido("POST", { email: "x@loja.test", role: "seller", modules })));
+  assert.equal(res.status, 400);
+  assert.equal(escritas("POST", "memberships").length, 0);
+});
+
+/**
+ * Os dois pré-checks (convite e perfil já existentes) precisam do filtro de
+ * tenant: o cliente é service-role. Sem ele, o e-mail convidado em OUTRA loja
+ * daria 409 aqui — e revelaria que ele existe lá.
+ */
+test("POST: o mesmo e-mail convidado ou cadastrado em outra loja não bloqueia o convite", async () => {
+  banco = {
+    ...banco,
+    memberships: [...banco.memberships, membro("66666666-6666-4666-8666-666666666666", OUTRA_LOJA, "seller", { invited_email: "nova@loja.test" })],
+    users: [{ id: "77777777-7777-4777-8777-777777777777", tenant_id: OUTRA_LOJA, email: "nova@loja.test" }],
+  };
+  const res = await chamar(() => rota.POST(pedido("POST", { email: "nova@loja.test", role: "seller" })));
+  assert.equal(res.status, 201);
+  assert.equal(escritas("POST", "memberships")[0].tenant_id, LOJA);
+});
+
 /* -------------------------------------------------------------------------- */
 /* GET                                                                         */
 /* -------------------------------------------------------------------------- */
@@ -321,6 +344,14 @@ test("PATCH por operador: 403 antes de ler o alvo", async () => {
   const leituras = pedidos.filter((p) => p.tabela === "memberships" && !p.url.searchParams.has("user_id"));
   assert.equal(leituras.length, 0);
   assert.deepEqual(linhaDe(M_VENDEDORA)?.modules, []);
+});
+
+test("PATCH: lista de módulos grande demais é 400 sem tocar no banco", async () => {
+  const modules = Array.from({ length: 21 }, () => "postar");
+  const res = await chamar(() => rota.PATCH(pedido("PATCH", { id: M_VENDEDORA, modules })));
+  assert.equal(res.status, 400);
+  assert.deepEqual(await res.json(), { error: "Pedido inválido." });
+  assert.equal(pedidos.some((p) => p.metodo === "PATCH"), false);
 });
 
 test("PATCH com corpo inválido: 400 sem tocar no banco", async () => {
