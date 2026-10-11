@@ -1,15 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { brl } from "@/components/painel/home/format";
 import { BuscaDoCliente, ClienteDaVenda, type ClienteBuscado } from "@/components/painel/vendas/busca-do-cliente";
 import { FormularioDeItens, LISTA_DE_PRODUTOS } from "@/components/painel/vendas/itens-da-venda";
 import { MinhasVendas, useMinhasVendas } from "@/components/painel/vendas/minhas-vendas";
 import { VendaRegistrada } from "@/components/painel/vendas/venda-registrada";
-import { LINHA_VAZIA, mensagemDeErro, nomeDoCliente, nomesDeProdutos } from "@/lib/painel/vendas";
+import { LINHA_VAZIA, mensagemDeErro, nomeDoCliente, nomesDeProdutos, totalDosItens, vendaDaResposta } from "@/lib/painel/vendas";
+import { telefoneCanonico } from "@/lib/vendas/telefone";
 import type { ItemDeVenda, VendaDoMes } from "@/lib/vendas/tipos";
 
 const ERRO_AO_REGISTRAR = "Não deu pra registrar a venda. Tente de novo.";
+// Sem idempotência no POST: depois de rede caída ou 5xx a venda pode ter sido gravada, e "tente de novo" a duplicaria.
+const SEM_CONFIRMACAO = "Não deu pra confirmar se a venda foi registrada. Confira em Minhas vendas antes de tentar de novo.";
 
 /**
  * Registrar venda (spec 2026-10-07 §4, mockup "Registrar venda"): busca por
@@ -19,54 +22,83 @@ const ERRO_AO_REGISTRAR = "Não deu pra registrar a venda. Tente de novo.";
  * O formulário de produtos fica montado (escondido) enquanto ela troca o
  * cliente, para não perder o que já digitou. Ao registrar ele é DESMONTADO e
  * entra a confirmação: com o formulário vivo, as mesmas linhas poderiam ser
- * enviadas de novo (venda duplicada). "Registrar outra venda" o remonta vazio
- * (`rodada`).
+ * enviadas de novo (venda duplicada). "Registrar outra venda" o remonta vazio.
  */
 export default function PainelVendas() {
   const minhas = useMinhasVendas();
   const [cliente, setCliente] = useState<ClienteBuscado | null>(null);
   const [nome, setNome] = useState("");
   const [venda, setVenda] = useState<VendaDoMes | null>(null);
-  const [rodada, setRodada] = useState(0);
   const [focarBusca, setFocarBusca] = useState(false);
   const [anuncio, setAnuncio] = useState("");
   const produtos = nomesDeProdutos(minhas.dados?.vendas ?? []);
+  // O formulário de produtos já está montado (escondido): `autoFocus` não serve, o foco vai depois do commit.
+  const produtosRef = useRef<HTMLDivElement>(null);
+  const focarProdutos = useRef(false);
+
+  useEffect(() => {
+    if (!cliente || !focarProdutos.current) return;
+    focarProdutos.current = false;
+    produtosRef.current?.querySelector<HTMLInputElement>("input")?.focus();
+  }, [cliente]);
 
   async function registrar(itens: ItemDeVenda[]): Promise<string | null> {
     if (!cliente) return "Busque o cliente pelo número primeiro.";
     const clienteNovo = !cliente.contato && !cliente.optout;
+    const nomeNovo = clienteNovo ? nome.trim() || undefined : undefined;
+    let res: Response;
     try {
-      const res = await fetch("/api/vendas", {
+      res = await fetch("/api/vendas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          leadId: cliente.contato?.id,
-          telefone: cliente.telefone,
-          nome: clienteNovo ? nome.trim() || undefined : undefined,
-          itens,
-        }),
+        body: JSON.stringify({ leadId: cliente.contato?.id, telefone: cliente.telefone, nome: nomeNovo, itens }),
       });
-      // 403 do guard é texto puro: o parse falha e cai no erro padrão.
-      const corpo: unknown = await res.json().catch(() => null);
-      if (!res.ok) return mensagemDeErro(corpo, ERRO_AO_REGISTRAR);
-      const salva = corpo as VendaDoMes;
-      setVenda(salva);
-      setAnuncio(`Venda registrada: ${nomeDoCliente(salva)}, ${brl.format(salva.total)}.`);
-      void minhas.recarregar();
-      return null;
     } catch {
-      // Rede caída: a rejeição não pode escapar de `void enviar()` no formulário.
-      return ERRO_AO_REGISTRAR;
+      // Rede caída ou tempo esgotado: o pedido pode ter chegado. A lista recarregada mostra se entrou.
+      void minhas.recarregar();
+      return SEM_CONFIRMACAO;
     }
+    if (res.status >= 500) {
+      void minhas.recarregar();
+      return SEM_CONFIRMACAO;
+    }
+    // 403 do guard é texto puro: o parse falha e cai no erro padrão.
+    const corpo: unknown = await res.json().catch(() => null);
+    if (!res.ok) return mensagemDeErro(corpo, ERRO_AO_REGISTRAR);
+    const salva = vendaDaResposta(corpo, {
+      id: "",
+      cliente: cliente.contato?.nome ?? nomeNovo ?? null,
+      telefone: cliente.contato?.telefone ?? telefoneCanonico(cliente.telefone) ?? cliente.telefone,
+      total: totalDosItens(itens),
+      criadaEm: new Date().toISOString(),
+      itens,
+      editavel: true,
+    });
+    setVenda(salva);
+    setAnuncio(`Venda registrada: ${nomeDoCliente(salva)}, ${brl.format(salva.total)}.`);
+    void minhas.recarregar();
+    return null;
   }
 
   function escolher(encontrado: ClienteBuscado) {
+    const clienteNovo = !encontrado.contato && !encontrado.optout;
+    // Cliente novo: o foco vai para o nome (autoFocus de `ClienteDaVenda`); senão, para o 1º produto.
+    focarProdutos.current = !clienteNovo;
     setCliente(encontrado);
     setNome("");
+    setAnuncio(
+      encontrado.contato
+        ? `Cliente: ${encontrado.contato.nome?.trim() || "sem nome"}.`
+        : encontrado.optout
+          ? "Nenhum cliente com esse número. Ele pediu pra não receber mensagens: a venda fica fora dos contatos."
+          : "Nenhum cliente com esse número.",
+    );
   }
 
   function trocarCliente() {
     setCliente(null);
+    // Limpa para que escolher o mesmo cliente de novo volte a ser anunciado.
+    setAnuncio("");
     setFocarBusca(true);
   }
 
@@ -75,7 +107,6 @@ export default function PainelVendas() {
     setCliente(null);
     setNome("");
     setAnuncio("");
-    setRodada((r) => r + 1);
     setFocarBusca(true);
   }
 
@@ -101,9 +132,8 @@ export default function PainelVendas() {
             <BuscaDoCliente aoEncontrar={escolher} focar={focarBusca} />
           )}
 
-          <div hidden={!cliente}>
+          <div ref={produtosRef} hidden={!cliente}>
             <FormularioDeItens
-              key={rodada}
               idBase="venda"
               titulo="Produtos"
               linhasIniciais={[LINHA_VAZIA]}

@@ -157,3 +157,21 @@ export function mensagemDeErro(corpo: unknown, padrao: string): string {
   const erro = (corpo as { error?: unknown } | null)?.error;
   return typeof erro === "string" && erro.trim() ? erro : padrao;
 }
+
+/** Total do que vai no POST, em centavos como `totalDasLinhas`: a confirmação local mostra o mesmo valor da tela. */
+export function totalDosItens(itens: readonly ItemDeVenda[]): number {
+  return itens.reduce((soma, item) => soma + centavos(item.quantidade * item.valorUnitario), 0) / 100;
+}
+
+/**
+ * A venda que o 201 devolveu. Corpo ilegível ou fora do formato cai em `local`
+ * (montada na tela): o servidor já gravou, e cair no erro convidaria a
+ * registrar de novo — o POST não é idempotente, viraria venda duplicada.
+ */
+export function vendaDaResposta(corpo: unknown, local: VendaDoMes): VendaDoMes {
+  if (typeof corpo !== "object" || corpo === null) return local;
+  const { total, telefone, cliente } = corpo as Partial<Record<keyof VendaDoMes, unknown>>;
+  const legivel =
+    typeof total === "number" && Number.isFinite(total) && typeof telefone === "string" && (cliente === null || typeof cliente === "string");
+  return legivel ? (corpo as VendaDoMes) : local;
+}

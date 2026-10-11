@@ -20,9 +20,12 @@ import {
   rotuloDeVendas,
   subtotalDaLinha,
   totalDasLinhas,
+  totalDosItens,
   validarLinhas,
+  vendaDaResposta,
   type LinhaDaVenda,
 } from "./vendas";
+import type { VendaDoMes } from "@/lib/vendas/tipos";
 
 const linha = (nome: string, quantidade: string, valor: string): LinhaDaVenda => ({ nome, quantidade, valor });
 
@@ -155,4 +158,21 @@ test("só quantidade inteira de 1 a 9999 entra na conta da tela", () => {
     assert.equal(validarLinhas([linha("A", quantidade, "10")]).ok, false, quantidade);
   }
   assert.equal(subtotalDaLinha(linha("A", " 3 ", "10")), 30);
+});
+
+test("total dos itens do POST em centavos, igual ao das linhas", () => {
+  assert.equal(totalDosItens([{ nome: "A", quantidade: 3, valorUnitario: 0.1 }, { nome: "B", quantidade: 1, valorUnitario: 149.9 }]), 150.2);
+  assert.equal(totalDosItens([]), 0);
+});
+
+test("201 com corpo ilegível ainda é venda registrada: cai na venda montada na tela, sem quebrar", () => {
+  const local: VendaDoMes = {
+    id: "", cliente: "Maria", telefone: "5511987654321", total: 10, criadaEm: "2026-10-10T12:00:00Z", itens: [], editavel: true,
+  };
+  for (const corpo of [null, "ok", 42, [], {}, { total: "10" }, { total: 10, telefone: 5 }, { total: Number.NaN, telefone: "x", cliente: null }]) {
+    assert.equal(vendaDaResposta(corpo, local), local, JSON.stringify(corpo));
+  }
+  const doServidor = { ...local, id: "v1", cliente: null, total: 12.5 };
+  assert.equal(vendaDaResposta(doServidor, local), doServidor);
+  assert.doesNotThrow(() => nomeDoCliente(vendaDaResposta(null, local)));
 });
