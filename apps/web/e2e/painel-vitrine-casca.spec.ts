@@ -122,6 +122,8 @@ test.describe("casca desktop G2: barra volt em cima", () => {
   test("em Disparos a tela é o compositor: a barra não repete o Postar", async ({ page }) => {
     await page.goto("/painel/disparos", { waitUntil: "load" });
     await expect(page.getByTestId("painel-barra")).toBeVisible();
+    // O Postar só é desenhado depois do /api/auth/me: sem esperar a loja, o count 0 passaria à toa.
+    await expect(page.getByTestId("painel-barra-loja")).toBeVisible();
     await expect(page.getByTestId("painel-postar-barra")).toHaveCount(0);
   });
 

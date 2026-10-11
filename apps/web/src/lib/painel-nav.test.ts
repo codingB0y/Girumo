@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import type { Acesso } from "@/lib/auth/modulos";
 import {
   NAV_ALL,
   NAV_BARRA_DESKTOP,
@@ -11,9 +12,13 @@ import {
   NAV_GROUPS,
   NAV_GRUPOS_ORDEM,
   NAV_MOBILE_PRIMARY,
+  destinoDaPagina,
   isNavItemActive,
+  itensDaBarra,
   liberado,
+  podePostar,
   resumo,
+  visivelNoMenu,
   type NavItem,
 } from "./painel-nav";
 
@@ -152,4 +157,87 @@ test("Instagram fica em Lotar, logo depois de Campanhas, e só aparece com a lib
   assert.equal(liberado(instagram, { instagram: true }), true);
   const campanhas = NAV_ALL.find((i) => i.href === "/painel/campanhas") as NavItem;
   assert.equal(liberado(campanhas, null), true, "item sem liberação aparece sempre");
+});
+
+// --- Acesso da vendedora (spec 2026-10-07 §1, "Página") ---
+
+const DONO: Acesso = { role: "owner", modules: [] };
+const OPERADOR: Acesso = { role: "operator", modules: [] };
+const VENDEDORA: Acesso = { role: "seller", modules: [] };
+const VENDEDORA_POSTA: Acesso = { role: "seller", modules: ["postar"] };
+const COM_INSTAGRAM = { instagram: true };
+
+const item = (href: string) => NAV_ALL.find((i) => i.href === href) as NavItem;
+const visiveis = (acesso: Acesso | null) =>
+  NAV_ALL.filter((i) => visivelNoMenu(i, acesso, COM_INSTAGRAM)).map((i) => i.href);
+
+test("Vendas é item do módulo vendas, em Vender; Disparos é do módulo postar; a barra do dono não muda", () => {
+  assert.equal(item("/painel/vendas").modulo, "vendas");
+  assert.equal(item("/painel/vendas").grupo, "vender");
+  assert.equal(item("/painel/disparos").modulo, "postar");
+  assert.ok(!NAV_BARRA_DESKTOP.some((i) => i.href === "/painel/vendas"));
+});
+
+test("dono e operador veem o menu de antes, sem Vendas", () => {
+  for (const acesso of [DONO, OPERADOR]) {
+    assert.ok(!visiveis(acesso).includes("/painel/vendas"));
+    assert.deepEqual(visiveis(acesso), NAV_ALL.filter((i) => i.href !== "/painel/vendas").map((i) => i.href));
+    assert.equal(visivelNoMenu(item("/painel/instagram"), acesso, { instagram: false }), false);
+  }
+});
+
+test("a vendedora só vê os itens dos módulos dela, Vendas primeiro", () => {
+  assert.deepEqual(visiveis(VENDEDORA), ["/painel/vendas"]);
+  assert.deepEqual(visiveis(VENDEDORA_POSTA), ["/painel/vendas", "/painel/disparos"]);
+});
+
+test("sem acesso conhecido, nada que dependa de módulo aparece", () => {
+  assert.equal(visivelNoMenu(item("/painel/vendas"), null, COM_INSTAGRAM), false);
+  assert.equal(visivelNoMenu(item("/painel/disparos"), null, COM_INSTAGRAM), false);
+  assert.equal(visivelNoMenu(item("/painel/grupos"), null, COM_INSTAGRAM), true);
+  assert.equal(visivelNoMenu(item("/painel/instagram"), null, null), false);
+});
+
+test("Postar segue Disparos", () => {
+  assert.equal(podePostar(DONO), true);
+  assert.equal(podePostar(OPERADOR), true);
+  assert.equal(podePostar(VENDEDORA), false);
+  assert.equal(podePostar(VENDEDORA_POSTA), true);
+  assert.equal(podePostar(null), false);
+});
+
+test("barra de cima: o dono vê os seis do dia; a vendedora, só o que é dela", () => {
+  assert.deepEqual(itensDaBarra(DONO, COM_INSTAGRAM).map((i) => i.href), NAV_BARRA_DESKTOP.map((i) => i.href));
+  assert.deepEqual(itensDaBarra(VENDEDORA, null).map((i) => i.href), ["/painel/vendas"]);
+  assert.deepEqual(itensDaBarra(VENDEDORA_POSTA, null).map((i) => i.href), ["/painel/vendas", "/painel/disparos"]);
+});
+
+test("guarda: a Início da vendedora é Vendas; fora do acesso, bloqueio; outros papéis passam", () => {
+  assert.equal(destinoDaPagina(VENDEDORA, "/painel"), "ir-para-vendas");
+  assert.equal(destinoDaPagina(VENDEDORA, "/painel/vendas"), "mostrar");
+  assert.equal(destinoDaPagina(VENDEDORA, "/painel/contatos"), "bloquear");
+  assert.equal(destinoDaPagina(VENDEDORA, "/painel/configuracoes"), "bloquear");
+  assert.equal(destinoDaPagina(VENDEDORA, "/painel/disparos"), "bloquear");
+  assert.equal(destinoDaPagina(VENDEDORA_POSTA, "/painel/disparos"), "mostrar");
+  assert.equal(destinoDaPagina(DONO, "/painel"), "mostrar");
+  assert.equal(destinoDaPagina(DONO, "/painel/contatos"), "mostrar");
+  assert.equal(destinoDaPagina(null, "/painel/contatos"), "mostrar");
+});
+
+// Papel desconhecido (ex.: /api/auth/me devolveu algo fora dos quatro): fechado, como em modulos.ts.
+const DESCONHECIDO = { role: "gerente", modules: [] } as unknown as Acesso;
+
+test("papel desconhecido: menu vazio, sem Postar, e a guarda bloqueia", () => {
+  assert.deepEqual(visiveis(DESCONHECIDO), []);
+  assert.equal(podePostar(DESCONHECIDO), false);
+  assert.equal(destinoDaPagina(DESCONHECIDO, "/painel"), "bloquear");
+  assert.equal(destinoDaPagina(DESCONHECIDO, "/painel/vendas"), "bloquear");
+  assert.deepEqual(itensDaBarra(DESCONHECIDO, COM_INSTAGRAM), []);
+});
+
+test("sem acesso conhecido, a barra de cima não traz o que depende de módulo", () => {
+  const hrefs = itensDaBarra(null, COM_INSTAGRAM).map((i) => i.href);
+  assert.ok(!hrefs.includes("/painel/disparos"));
+  assert.ok(!hrefs.includes("/painel/vendas"));
+  assert.deepEqual(hrefs, NAV_BARRA_DESKTOP.filter((i) => i.modulo === undefined).map((i) => i.href));
 });
