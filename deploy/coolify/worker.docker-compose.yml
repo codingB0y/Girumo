@@ -52,6 +52,13 @@ services:
       # são 91 grupos de uma vez.
       WORKER_BULK_ENABLED: ${WORKER_BULK_ENABLED:-false}
       WORKER_BULK_INTERVAL_MS: ${WORKER_BULK_INTERVAL_MS:-4000}
+      # Recontagem diária dos grupos (Evolution → members/admins_*), uma loja por
+      # vez, pelo app (/api/groups/recount). Só LÊ o WhatsApp — o mesmo
+      # fetchAllGroups do botão Sincronizar. DRY-RUN por default: o loop lista as
+      # lojas e loga "DRY-RUN: recontaria"; vire "true" depois de ler esses logs.
+      # O primeiro tick roda na subida do container. Mínimo de 1 h.
+      WORKER_RECOUNT_ENABLED: ${WORKER_RECOUNT_ENABLED:-false}
+      WORKER_RECOUNT_INTERVAL_MS: ${WORKER_RECOUNT_INTERVAL_MS:-86400000}
     # Sem `ports:` de propósito: o worker não recebe tráfego, só fala com o
     # Supabase (HTTPS de saída) e com a Evolution (rede interna). /health é interno.
     healthcheck:
