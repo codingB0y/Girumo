@@ -80,6 +80,8 @@ const TABELA: ReadonlyArray<readonly [string, string, boolean, boolean]> = [
   ["GET", "/api/orders", false, false],
   ["GET", "/api/contatos", false, false],
   ["GET", "/api/members", false, false],
+  ["POST", "/api/members", false, false],
+  ["PATCH", "/api/members", false, false],
   ["GET", "/api/notifications", false, false],
   ["GET", "/api/subscription", false, false],
 ];

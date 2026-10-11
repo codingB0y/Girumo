@@ -18,6 +18,8 @@ import {
 } from "@/components/painel/configuracoes/vitrine/plano-estado";
 import { useConfirmacao } from "@/components/painel/confirmacao";
 import { useRole } from "@/components/painel/role-provider";
+import type { ModuloOpcional } from "@/lib/auth/modulos";
+import { montarConvite, type FuncaoDoConvite } from "@/lib/painel/configuracoes";
 
 type Section = "Conexão" | "Equipe" | "Notificações" | "Plano" | "Conta";
 /**
@@ -91,7 +93,13 @@ function lerPreferencias(d: Partial<Preferencias> | null): Preferencias {
 }
 
 type Session = { live?: boolean; phone?: string | null; profileName?: string | null; stats?: { warmup?: { day?: number; totalDays?: number } } };
-type Membership = { id: string; role: string; invited_email?: string | null; accepted_at?: string | null };
+type Membership = {
+  id: string;
+  role: string;
+  invited_email?: string | null;
+  accepted_at?: string | null;
+  modules?: readonly string[] | null;
+};
 type Plan = { id: string; code: string; name: string; limits?: Record<string, number | boolean | null>; stripe_price_id?: string | null };
 // Os campos que decidem o estado (`LinhaDaAssinatura`) vivem com a decisão, em
 // `plano-estado.ts`; aqui ficam só os que a tela mostra.
@@ -127,6 +135,9 @@ export default function PainelConfiguracoes() {
   const [inviteBusy, setInviteBusy] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteUpgradeUrl, setInviteUpgradeUrl] = useState<string | null>(null);
+  // "operator" é o que o convite sempre mandou; quem quer vendedora escolhe.
+  const [inviteRole, setInviteRole] = useState<FuncaoDoConvite>("operator");
+  const [inviteModules, setInviteModules] = useState<ModuloOpcional[]>([]);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [removeNotice, setRemoveNotice] = useState<string | null>(null);
   // `null` = ainda carregando (a UI mostra skeleton em vez de chutar um estado
@@ -326,14 +337,21 @@ export default function PainelConfiguracoes() {
   }
 
   async function inviteMember() {
-    if (!inviteEmail.trim()) return;
+    // E-mail que nem parece e-mail para aqui, antes de gastar uma chamada; quem
+    // valida de verdade continua sendo o servidor.
+    const convite = montarConvite(inviteEmail, inviteRole, inviteModules);
+    if (!convite.ok) {
+      setInviteError(convite.erro);
+      setInviteUpgradeUrl(null);
+      return;
+    }
     setInviteBusy(true);
     setInviteError(null);
     try {
       const res = await authenticatedFetch("/api/members", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: inviteEmail.trim(), role: "operator" }),
+        body: JSON.stringify(convite.corpo),
       });
       if (!res.ok) {
         throw await toPlanLimitError(res, "Erro ao convidar.");
@@ -341,6 +359,8 @@ export default function PainelConfiguracoes() {
       const newMember = await res.json();
       setMembers((prev) => [...prev, newMember]);
       setInviteEmail("");
+      setInviteModules([]);
+      setInviteRole("operator");
     } catch (e) {
       setInviteError(e instanceof Error ? e.message : "Erro ao convidar.");
       setInviteUpgradeUrl(upgradeUrlFrom(e));
@@ -380,6 +400,21 @@ export default function PainelConfiguracoes() {
     }
   }
 
+  /**
+   * Troca os módulos da vendedora. Lança com a frase do servidor: a ficha que
+   * chamou mostra o erro e continua aberta, com o rascunho intacto.
+   */
+  async function saveMemberModules(id: string, modules: ModuloOpcional[]) {
+    const res = await authenticatedFetch("/api/members", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, modules }),
+    });
+    const d = (await res.json().catch(() => ({}))) as { error?: string; modules?: string[] };
+    if (!res.ok) throw new Error(d.error || "Não foi possível salvar o acesso.");
+    setMembers((prev) => prev.map((x) => (x.id === id ? { ...x, modules: d.modules ?? modules } : x)));
+  }
+
   // As portas com o dado de cada uma antes do clique (Vitrine Aberta, PR 9).
   const aceitos = members.filter((m) => m.accepted_at).length;
   return (
@@ -407,6 +442,10 @@ export default function PainelConfiguracoes() {
         carga: respondeu.members,
         email: inviteEmail,
         onEmail: setInviteEmail,
+        funcao: inviteRole,
+        onFuncao: setInviteRole,
+        modulos: inviteModules,
+        onModulos: setInviteModules,
         convidando: inviteBusy,
         erro: inviteError,
         upgradeUrl: inviteUpgradeUrl,
@@ -414,6 +453,7 @@ export default function PainelConfiguracoes() {
         removendoId: removingId,
         onConvidar: () => void inviteMember(),
         onRemover: (m) => void removeMember(m),
+        onSalvarAcesso: saveMemberModules,
       }}
       avisos={{
         preferencias: prefs,

@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { iniciaisDoEmail, papelEmPortugues, resumoDasPortas } from "./configuracoes";
+import {
+  chipsDoAcesso,
+  FUNCOES_DO_CONVITE,
+  iniciaisDoEmail,
+  montarConvite,
+  papelEmPortugues,
+  resumoDasPortas,
+} from "./configuracoes";
 
 function leitura(over: Partial<Parameters<typeof resumoDasPortas>[0]> = {}) {
   return {
@@ -32,6 +39,71 @@ test("papel desconhecido não vaza o identificador cru do banco", () => {
 
 test("papel é reconhecido independente de caixa e espaço", () => {
   assert.equal(papelEmPortugues(" OWNER "), "Dono");
+});
+
+test("vendedora tem nome na tela: o identificador seller nunca aparece", () => {
+  assert.equal(papelEmPortugues("seller"), "Vendedora");
+});
+
+/* -------------------------------------------------------------------------- */
+/* Convite e acesso da vendedora (spec 2026-10-07, §4).                         */
+/* -------------------------------------------------------------------------- */
+
+test("o convite oferece as três funções na ordem do mockup, e dono não se convida", () => {
+  assert.deepEqual(
+    FUNCOES_DO_CONVITE.map((f) => [f.id, f.nome]),
+    [
+      ["admin", "Administração"],
+      ["operator", "Atendimento"],
+      ["seller", "Vendedora"],
+    ],
+  );
+});
+
+/** Quem convida "Atendimento" tem que ver "Atendimento" na ficha, não "Operador". */
+test("a função do convite tem o mesmo nome que a ficha da equipe mostra", () => {
+  for (const f of FUNCOES_DO_CONVITE) assert.equal(f.nome, papelEmPortugues(f.id), f.id);
+});
+
+test("chips da vendedora: Registrar vendas sempre, Postar só quando liberado", () => {
+  assert.deepEqual(chipsDoAcesso("seller", []), ["Registrar vendas"]);
+  assert.deepEqual(chipsDoAcesso("seller", ["postar"]), ["Registrar vendas", "Postar nos grupos"]);
+});
+
+test("chips: lixo no banco não vira chip, e os outros papéis não têm chip", () => {
+  assert.deepEqual(chipsDoAcesso("seller", null), ["Registrar vendas"]);
+  assert.deepEqual(chipsDoAcesso("seller", ["postar", "postar", "grupos"]), ["Registrar vendas", "Postar nos grupos"]);
+  assert.deepEqual(chipsDoAcesso("admin", ["postar"]), []);
+  assert.deepEqual(chipsDoAcesso("operator", []), []);
+});
+
+test("convite de vendedora leva os módulos marcados, sem repetição", () => {
+  assert.deepEqual(montarConvite(" carla@loja.com.br ", "seller", ["postar", "postar"]), {
+    ok: true,
+    corpo: { email: "carla@loja.com.br", role: "seller", modules: ["postar"] },
+  });
+  assert.deepEqual(montarConvite("carla@loja.com.br", "seller", []), {
+    ok: true,
+    corpo: { email: "carla@loja.com.br", role: "seller", modules: [] },
+  });
+});
+
+/** O servidor responde 400 a módulo fora da vendedora: a tela não deve nem tentar. */
+test("convite de administrador ou operador não manda modules", () => {
+  assert.deepEqual(montarConvite("ana@loja.com.br", "admin", ["postar"]), {
+    ok: true,
+    corpo: { email: "ana@loja.com.br", role: "admin" },
+  });
+  assert.deepEqual(montarConvite("ana@loja.com.br", "operator", []), {
+    ok: true,
+    corpo: { email: "ana@loja.com.br", role: "operator" },
+  });
+});
+
+test("e-mail que nem parece e-mail para na tela, antes de gastar uma chamada", () => {
+  for (const ruim of ["", "   ", "carla", "carla@", "carla@loja", "car la@loja.com"]) {
+    assert.deepEqual(montarConvite(ruim, "seller", []), { ok: false, erro: "Digite um e-mail válido." }, ruim);
+  }
 });
 
 /* -------------------------------------------------------------------------- */
