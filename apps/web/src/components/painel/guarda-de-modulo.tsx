@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Lock } from "lucide-react";
 import { useRole } from "@/components/painel/role-provider";
 import { destinoDaPagina } from "@/lib/painel-nav";
@@ -11,12 +11,15 @@ const VENDAS = "/painel/vendas";
 
 /** Mockup "Área não liberada": a vendedora numa página que o dono não liberou. */
 function AreaNaoLiberada({ loja }: { loja: string | null }) {
+  const titulo = useRef<HTMLHeadingElement>(null);
+  // A tela troca a página sem navegar: leva o foco pra mensagem.
+  useEffect(() => titulo.current?.focus(), []);
   return (
     <div className="mx-auto flex max-w-xl flex-col items-start gap-4 px-6 py-12">
       <span aria-hidden="true" className="grid h-12 w-12 place-items-center rounded-xl border border-line-200 bg-paper-0 text-slate-600">
         <Lock className="h-[22px] w-[22px]" />
       </span>
-      <h1 className="font-brand text-[22px] font-extrabold tracking-[-0.02em] text-volt-950">Essa área não foi liberada pra você</h1>
+      <h1 ref={titulo} tabIndex={-1} className="font-brand text-[22px] font-extrabold tracking-[-0.02em] text-volt-950 outline-none">Essa área não foi liberada pra você</h1>
       <p className="text-15 text-slate-600">
         Quem escolhe o que cada pessoa da equipe acessa é o dono da {loja ?? "loja"}. Se você precisa disso pro seu
         trabalho, peça pra ele liberar em Configurações › Equipe.
@@ -37,7 +40,8 @@ function AreaNaoLiberada({ loja }: { loja: string | null }) {
  * `/api/auth/me` não responde, não monta a página — senão a Início do dono
  * dispararia as chamadas dela (403 para a vendedora) e piscaria na tela.
  * Vendedora em `/painel` vai para Vendas; fora de `paginaLiberada`, o bloqueio.
- * Outros papéis (e papel desconhecido depois de carregar): a página de sempre.
+ * Papéis livres e `/api/auth/me` que falhou (acesso nulo): a página de sempre;
+ * papel desconhecido: o bloqueio.
  */
 export function GuardaDeModulo({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -52,9 +56,10 @@ export function GuardaDeModulo({ children }: { children: React.ReactNode }) {
   if (destino === "mostrar") return <>{children}</>;
   if (destino === "bloquear") return <AreaNaoLiberada loja={tenantName} />;
   return (
-    <div role="status" aria-label="Carregando o painel" className="space-y-4 px-4 py-5 lg:px-8 lg:py-8">
-      <div className="pn-skeleton h-9 w-48 rounded-[var(--radius-control)]" data-testid="painel-skeleton" />
-      <div className="pn-skeleton h-64 rounded-xl" data-testid="painel-skeleton" />
+    <div aria-busy="true" className="space-y-4 px-4 py-5 lg:px-8 lg:py-8">
+      <span className="sr-only">Carregando o painel…</span>
+      <div aria-hidden="true" className="pn-skeleton h-9 w-48 rounded-[var(--radius-control)]" data-testid="painel-skeleton" />
+      <div aria-hidden="true" className="pn-skeleton h-64 rounded-xl" data-testid="painel-skeleton" />
     </div>
   );
 }
