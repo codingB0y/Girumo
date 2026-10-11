@@ -48,3 +48,20 @@ test("capacidade zerada não vira divisão maluca nem folga infinita", () => {
   assert.equal(hasHeadroom(g(0, CONVITE, 0)), false);
   assert.equal(shouldEnqueueGrow([g(0, CONVITE, 0)]), true);
 });
+
+test("grupo lotado abaixo de 90% NÃO é folga — marcado à mão com 812 seguraria o próximo para sempre", () => {
+  const lotado: PoolGroup = { members: 812, capacity: 1024, inviteUrl: CONVITE, lotadoEm: "2026-10-09T12:00:00Z" };
+  assert.equal(hasHeadroom(lotado), false);
+  // Mutante: tirar o lotado do pool (ou dos roteáveis) deixaria a lista vazia — e
+  // vazio aqui é "convite faltando"/"dado quebrado" (false), não "tudo cheio".
+  assert.equal(shouldEnqueueGrow([lotado]), true);
+});
+
+test("ao lado de um lotado, um grupo aberto com folga ainda segura a fila", () => {
+  const lotado: PoolGroup = { members: 812, capacity: 1024, inviteUrl: CONVITE, lotadoEm: "2026-10-09T12:00:00Z" };
+  assert.equal(shouldEnqueueGrow([lotado, g(100, CONVITE)]), false);
+});
+
+test("sem a marca, o mesmo grupo de 812 de 1024 continua sendo folga", () => {
+  assert.equal(hasHeadroom({ members: 812, capacity: 1024, inviteUrl: CONVITE, lotadoEm: null }), true);
+});

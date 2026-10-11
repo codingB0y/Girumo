@@ -12,6 +12,11 @@ export type PoolGroup = {
   members: number;
   capacity: number;
   inviteUrl?: string;
+  /**
+   * Marca de lotado (`groups.lotado_em`). Lotado não recebe ninguém pelo link,
+   * então não é folga — nem o marcado à mão com 812 de 1024.
+   */
+  lotadoEm?: string | null;
 };
 
 /**
@@ -43,7 +48,12 @@ export function shouldEnqueueGrow(pool: PoolGroup[], declaredCount = pool.length
   return !roteaveis.some((g) => hasHeadroom(g));
 }
 
-/** Grupo roteável ainda com espaço para receber gente. */
+/**
+ * Grupo roteável ainda com espaço para receber gente. Lotado nunca tem: sem isto,
+ * um grupo marcado à mão abaixo de 90% seguraria a criação do próximo para sempre.
+ * O lotado continua no pool de propósito — pool vazio aqui quer dizer "ids órfãos"
+ * (ver `shouldEnqueueGrow`), não "tudo cheio".
+ */
 export function hasHeadroom(g: PoolGroup): boolean {
-  return g.capacity > 0 && g.members < g.capacity * GROW_AHEAD_RATIO;
+  return !g.lotadoEm && g.capacity > 0 && g.members < g.capacity * GROW_AHEAD_RATIO;
 }
