@@ -142,26 +142,52 @@ function NavDaBarra({ relampago, acesso }: { relampago: Relampago; acesso: Acess
   );
 }
 
+const LIMITE_DA_SAIDA_MS = 3_000;
+
+/** Apaga a sessão do supabase-js só neste navegador: sem rede e sem revogar nada, então sempre remove. */
+function apagarSessaoLocal(): Promise<unknown> {
+  try {
+    return getSupabaseBrowserClient().auth.signOut({ scope: "local" }).catch(() => null);
+  } catch {
+    return Promise.resolve(null); // variável pública ausente
+  }
+}
+
 /**
  * Encerra a sessão deste aparelho: o cookie (rota) e também o que o navegador guarda — a sessão do
  * supabase-js (`sb-*`, renova sozinha e vale como Bearer) e a loja ativa. Aparelho de loja é
- * compartilhado; sem isto a próxima pessoa seguiria com a sessão dela. Cada passo é
- * melhor-esforço: nenhum erro impede de chegar ao /login.
+ * compartilhado; sem isto a próxima pessoa seguiria com a sessão dela. Melhor-esforço e com teto
+ * de 3s (`LIMITE_DA_SAIDA_MS`): o `signOut` do supabase-js devolve `{ error }` em vez de rejeitar quando a rede
+ * falha (e então não apaga nada) e espera o lock da auth sem limite; por isso o apagamento local
+ * roda no fim se o caminho do servidor não terminou ou falhou. A loja ativa sai antes de tudo.
  */
 async function encerrarSessao() {
-  await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
-  try {
-    const { auth } = getSupabaseBrowserClient();
-    // Global revoga o refresh token no servidor; se a rede falhar, ao menos apaga o local.
-    await auth.signOut().catch(() => auth.signOut({ scope: "local" }));
-  } catch {
-    // sem cliente (variável pública ausente) ou sem rede: nada mais a limpar além do tenant
-  }
   try {
     setActiveTenantId(null);
   } catch {
     // localStorage bloqueado
   }
+  let terminou = false;
+  const servidor = (async () => {
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
+    try {
+      // Global revoga o refresh token no servidor; com erro (rede, 5xx) a sessão local ficaria.
+      const { error } = await getSupabaseBrowserClient().auth.signOut();
+      if (error) return;
+    } catch {
+      return;
+    }
+    terminou = true;
+  })();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const teto = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, LIMITE_DA_SAIDA_MS);
+  });
+  await Promise.race([servidor, teto]);
+  clearTimeout(timer);
+  // Sem await: se o lock da auth estiver preso pelo caminho do servidor, isto roda quando soltar,
+  // já com ela no /login (a navegação é no cliente, a página não recarrega).
+  if (!terminou) void apagarSessaoLocal();
 }
 
 /**
