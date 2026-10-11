@@ -8,10 +8,12 @@ import { useCasca } from "@/components/painel/casca-context";
 import { NotificationBell } from "@/components/painel/notification-bell";
 import { useRole } from "@/components/painel/role-provider";
 import { usePanelSession } from "@/components/painel/session-provider";
+import { acessoRestrito, type Acesso } from "@/lib/auth/modulos";
 import { iniciaisDaLoja } from "@/lib/painel/casca";
 import { numero } from "@/lib/painel/grupos";
 import { placarDaOferta, type EntradaLike } from "@/lib/painel/relampago";
-import { NAV_BARRA_DESKTOP, isNavItemActive, liberado } from "@/lib/painel-nav";
+import { isNavItemActive, itensDaBarra, podePostar } from "@/lib/painel-nav";
+import { getSupabaseBrowserClient, setActiveTenantId, tirarSessaoSupabase } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { FolhaPostar } from "./folha-postar";
 import { MenuMais } from "./menu-mais";
@@ -44,7 +46,7 @@ async function lerRelampago(): Promise<Relampago> {
  * Há oferta relâmpago no ar, e quantas pessoas esperam na fila dela (spec G2, decisão 4)? Busca ao montar,
  * ao entrar ou sair de /relampago e quando a aba volta a ficar visível depois de um minuto; com oferta no
  * ar confere a cada minuto, porque ela fecha por tempo e a fila anda. O layout não remonta entre rotas.
- * `ativo` falso (modo foco) não busca nada.
+ * `ativo` falso (modo foco, papel ainda não carregado, acesso restrito) não busca nada.
  */
 function useRelampagoNaBarra(ativo: boolean): Relampago {
   const naArea = usePathname().startsWith(RELAMPAGO);
@@ -120,34 +122,129 @@ function SinalDoRelampago({ noAr, esperando }: Relampago) {
   );
 }
 
-/** Os seis módulos do dia e o Mais; só no desktop (no celular a navegação é a barra inferior). */
-function NavDaBarra({ relampago }: { relampago: Relampago }) {
+/**
+ * Os módulos do acesso e o Mais; só no desktop (no celular a navegação é a barra
+ * inferior). O acesso restrito (vendedora, papel desconhecido) vê só os dele e não tem Mais (spec 2026-10-07 §4).
+ */
+function NavDaBarra({ relampago, acesso }: { relampago: Relampago; acesso: Acesso | null }) {
   const pathname = usePathname();
   const { liberacoes } = useCasca();
   return (
     <nav aria-label="Módulos" className="pn-barra__nav hidden lg:flex">
-      {NAV_BARRA_DESKTOP.filter((item) => liberado(item, liberacoes)).map((item) => (
+      {itensDaBarra(acesso, liberacoes).map((item) => (
         <Link key={item.href} href={item.href} aria-current={isNavItemActive(pathname, item.href) ? "page" : undefined} className="pn-barra__item">
           {item.curto ?? item.label}
           {item.href === RELAMPAGO && <SinalDoRelampago {...relampago} />}
         </Link>
       ))}
-      <MenuMais />
+      {!acessoRestrito(acesso) && <MenuMais />}
     </nav>
+  );
+}
+
+const LIMITE_DA_SAIDA_MS = 10_000;
+const MENSAGEM_DE_SAIDA_QUE_FALHOU = "Não deu pra sair agora. Confira a internet e toque em Sair de novo.";
+
+/**
+ * Encerra a sessão deste aparelho (compartilhado na loja) e diz se o servidor confirmou.
+ *
+ * 1. Sem rede, na hora: a loja ativa, o refresh automático e a sessão do supabase-js no
+ *    localStorage (`sb-*`, vale como Bearer). Não dá pra delegar a `auth.signOut()`: ele faz
+ *    `POST /logout` antes de apagar e, com a rede fora, devolve `{ error }` e deixa tudo lá —
+ *    o `scope: "local"` também chama o servidor nesta versão.
+ * 2. Depois, com teto de 10s: `POST /api/auth/logout`, o único que apaga o cookie HttpOnly, e a
+ *    revogação do token no servidor (melhor-esforço, resultado ignorado).
+ *
+ * `true` só se o logout do cookie respondeu ok; a vendedora só vai para o /login nesse caso —
+ * com o cookie vivo, o /painel abriria na sessão dela para a próxima pessoa.
+ */
+async function encerrarSessao(): Promise<boolean> {
+  let token: string | null = null;
+  let auth: ReturnType<typeof getSupabaseBrowserClient>["auth"] | null = null;
+  try {
+    setActiveTenantId(null);
+  } catch {
+    // localStorage bloqueado
+  }
+  try {
+    auth = getSupabaseBrowserClient().auth;
+    await auth.stopAutoRefresh();
+  } catch {
+    // variável pública ausente ou cliente sem o método: a limpeza local segue
+  }
+  try {
+    token = tirarSessaoSupabase(window.localStorage);
+  } catch {
+    // localStorage bloqueado
+  }
+  if (auth && token) void auth.admin.signOut(token, "global").catch(() => null);
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const teto = new Promise<boolean>((resolve) => {
+    timer = setTimeout(() => resolve(false), LIMITE_DA_SAIDA_MS);
+  });
+  const logout = fetch("/api/auth/logout", { method: "POST" }).then(
+    (r) => r.ok,
+    () => false,
+  );
+  const ok = await Promise.race([logout, teto]);
+  clearTimeout(timer);
+  return ok;
+}
+
+/**
+ * O acesso restrito não tem Configurações (spec 2026-10-07 §1): no lugar do avatar,
+ * o papel (só "Vendedora" quando é mesmo seller) e a saída. Se o servidor não confirmar
+ * a saída, ela fica na tela com o aviso e pode tentar de novo.
+ */
+function SaidaDoAcessoRestrito({ vendedora }: { vendedora: boolean }) {
+  const [saindo, setSaindo] = useState(false);
+  const [falhou, setFalhou] = useState(false);
+  async function sair() {
+    if (saindo) return;
+    setSaindo(true);
+    setFalhou(false);
+    const ok = await encerrarSessao().catch(() => false);
+    if (ok) {
+      // replace, não push: mata o GoTrueClient e o cache do router em memória e tira a entrada do histórico.
+      window.location.replace("/login");
+      return;
+    }
+    setSaindo(false);
+    setFalhou(true);
+  }
+  return (
+    <>
+      {vendedora && (
+        <span className="rounded-full px-2.5 py-0.5 text-12 font-semibold text-canvas-100 ring-1 ring-inset ring-paper-0/30">Vendedora</span>
+      )}
+      <button type="button" onClick={() => void sair()} aria-disabled={saindo} className="pn-barra__item min-h-11">
+        {saindo ? "Saindo…" : "Sair"}
+      </button>
+      {falhou && (
+        <p role="alert" className="fixed inset-x-4 top-14 z-30 ml-auto max-w-sm rounded-[var(--radius-chip)] bg-paper-0 px-3 py-2 text-13 text-volt-950 shadow-md ring-1 ring-inset ring-line-200">
+          {MENSAGEM_DE_SAIDA_QUE_FALHOU}
+        </p>
+      )}
+    </>
   );
 }
 
 /**
  * Barra de cima (spec G2, decisão 4): a única peça Volt da casca. Desktop:
- * logo, loja, os seis módulos do dia, Mais, estado do número, sino, Postar e
+ * logo, loja, os módulos do acesso, Mais, estado do número, sino, Postar e
  * avatar. Celular (52px): símbolo, loja, estado do número e sino — a navegação
- * fica na barra inferior (decisão 5).
+ * fica na barra inferior (decisão 5). A vendedora (spec 2026-10-07): logo,
+ * loja, os módulos dela, Postar se liberado, chip "Vendedora" e Sair.
  */
 export function BarraDeCima() {
   const pathname = usePathname();
-  const { tenantName, carregado } = useRole();
+  const { tenantName, carregado, acesso } = useRole();
   const { foco } = useCasca();
-  const relampago = useRelampagoNaBarra(!foco);
+  const vendedora = acesso?.role === "seller";
+  const restrito = acessoRestrito(acesso);
+  // Só depois de saber quem é: o acesso restrito não tem Relâmpago, e a leitura daria 403.
+  const relampago = useRelampagoNaBarra(!foco && carregado && !restrito);
   const [postar, setPostar] = useState(false);
   const idPostar = useId();
   const fechar = useCallback(() => setPostar(false), []);
@@ -155,11 +252,12 @@ export function BarraDeCima() {
 
   const nomeDaLoja = carregado ? (tenantName ?? "Sua loja") : "";
   const iniciais = carregado ? iniciaisDaLoja(tenantName) : "";
+  const comPostar = carregado && podePostar(acesso);
 
   return (
     <>
       <header data-testid="painel-barra" className="pn-barra sticky top-0 z-20">
-        <Link href="/painel" aria-label="Girumo, início" className="pn-barra__logo">
+        <Link href={restrito ? "/painel/vendas" : "/painel"} aria-label="Girumo, início" className="pn-barra__logo">
           <Logo className="hidden text-[20px] text-paper-0 lg:inline-flex" title={null} />
           <LogoSymbol className="h-[22px] w-[22px] lg:hidden" />
         </Link>
@@ -170,21 +268,31 @@ export function BarraDeCima() {
         ) : (
           <span role="status" aria-label="Carregando nome da loja" className="pn-skeleton inline-block h-4 w-24 rounded-[var(--radius-chip)]" />
         )}
-        <NavDaBarra relampago={relampago} />
+        {/* Até o /api/auth/me responder, nada de módulo: com `role` nulo o menu do dono piscaria pra vendedora. */}
+        {carregado && <NavDaBarra relampago={relampago} acesso={acesso} />}
         <div className="pn-barra__direita">
-          <ChipDoNumero />
-          <NotificationBell />
-          {pathname !== DISPAROS && (
+          {carregado && !restrito && (
+            <>
+              <ChipDoNumero />
+              <NotificationBell />
+            </>
+          )}
+          {comPostar && pathname !== DISPAROS && (
             <button type="button" data-testid="painel-postar-barra" aria-haspopup="dialog" aria-expanded={postar} aria-controls={idPostar} onClick={() => setPostar(true)} className="pn-postar pn-barra__postar hidden lg:inline-flex">
               Postar
             </button>
           )}
-          <Link href="/painel/configuracoes" title="Configurações" aria-label={iniciais ? `${iniciais} · Configurações da loja` : "Configurações da loja"} className="pn-barra__avatar hidden lg:grid">
-            {iniciais}
-          </Link>
+          {carregado &&
+            (restrito ? (
+              <SaidaDoAcessoRestrito vendedora={vendedora} />
+            ) : (
+              <Link href="/painel/configuracoes" title="Configurações" aria-label={iniciais ? `${iniciais} · Configurações da loja` : "Configurações da loja"} className="pn-barra__avatar hidden lg:grid">
+                {iniciais}
+              </Link>
+            ))}
         </div>
       </header>
-      <FolhaPostar id={idPostar} aberta={postar} aoFechar={fechar} aoPostar={fechar} emQualquerLargura />
+      {comPostar && <FolhaPostar id={idPostar} aberta={postar} aoFechar={fechar} aoPostar={fechar} emQualquerLargura />}
     </>
   );
 }

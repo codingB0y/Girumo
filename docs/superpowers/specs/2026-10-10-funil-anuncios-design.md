@@ -194,6 +194,9 @@ create index if not exists lp_contacts_tenant_phone_key_idx on public.lp_contact
   `service_role` (as rotas usam `getSupabaseAdmin` e filtram `.eq('tenant_id', …)`; o filtro é a proteção).
   Nenhum grant de escrita a `authenticated`.
 - `site_integrations` nem `select` para `authenticated`: o hash não tem por que sair do servidor.
+- `ad_spend` também sem `select` para `authenticated` (sem policy): gasto é dado de caixa e só owner/admin
+  lê, pela rota com `ads:manage` (§3). `has_membership` deixaria qualquer operador ler pelo PostgREST.
+  Decidido na revisão final do PR 1 (10/10).
 - `anon` fica sem nada: o event trigger `ensure_anon_revoked` cobre tabela nova; conferir depois.
 - `attribution_report`: `security definer` + `set search_path = ''`; `revoke execute … from public, anon,
   authenticated`; `grant execute … to service_role`. Função nova nasce chamável por `authenticated`
