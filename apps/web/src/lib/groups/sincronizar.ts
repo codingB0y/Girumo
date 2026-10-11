@@ -83,6 +83,8 @@ type Leitura = {
   anterior: Map<string, number>;
   rows: LinhaDoSync[];
   protegidos: number;
+  /** Os grupos contados em `protegidos`, pelo id do WhatsApp. */
+  jidsProtegidos: Set<string>;
 };
 
 const MENSAGEM_TRAVADO =
@@ -170,6 +172,7 @@ async function lerGrupos(
     anterior,
     rows: linhas.map((l) => l.linha),
     protegidos: linhas.filter((l) => l.protegido).length,
+    jidsProtegidos: new Set(linhas.filter((l) => l.protegido).map((l) => l.linha.whatsapp_group_id)),
   };
 }
 
@@ -220,8 +223,12 @@ function linhaDoGrupo(
  * ninguém pedir.
  */
 async function gravarRecontagem(l: Leitura): Promise<ResultadoDoSync> {
+  // Grupo de payload truncado fica de fora: o `members` dele não mudaria, e os
+  // `admins_*` e o `name` viriam desse payload truncado (só o "self"), o que o
+  // marcaria "sem admin reserva" por engano. O Sincronizar do painel segue
+  // gravando esses grupos como sempre.
   const contagens = l.rows
-    .filter((r) => l.anterior.has(r.whatsapp_group_id))
+    .filter((r) => l.anterior.has(r.whatsapp_group_id) && !l.jidsProtegidos.has(r.whatsapp_group_id))
     .map((r) => ({
       whatsapp_group_id: r.whatsapp_group_id,
       name: r.name,

@@ -178,7 +178,7 @@ test("recontagem regrava só membros e admins dos grupos que já estão no banco
 
   const r = await sincronizarGrupos(LOJA, { somenteContagem: true });
 
-  assert.deepEqual(r, { ok: true, synced: 2, admin: 2, semBackup: 1, ignorados: 1, removidos: 0 });
+  assert.deepEqual(r, { ok: true, synced: 1, admin: 1, semBackup: 0, ignorados: 1, removidos: 0 });
 
   const upserts = feitas("POST", "/rest/v1/groups");
   assert.equal(upserts.length, 1);
@@ -202,11 +202,9 @@ test("recontagem regrava só membros e admins dos grupos que já estão no banco
   }
   assert.deepEqual(
     linhas.map((l) => [l.whatsapp_group_id, l.name, l.members, l.admins_total, l.admins_ours]),
-    [
-      ["g1@g.us", "Moda Kids 1", 980, 2, 1],
-      // Payload truncado: a contagem gravada (500) vence o "1" da Evolution.
-      ["g2@g.us", "Moda Kids 2", 500, 1, 1],
-    ],
+    // O g2 veio truncado (só o "self"): fica fora da recontagem inteira, porque
+    // os admins e o nome dele sairiam desse payload truncado.
+    [["g1@g.us", "Moda Kids 1", 980, 2, 1]],
   );
 
   // Mutantes: herdar do Sincronizar a fila de convite, o apagar de não-admin, o
