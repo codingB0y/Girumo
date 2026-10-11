@@ -23,6 +23,7 @@ import {
   removeGroupsByWhatsappIds,
   syncGroupsFromProvider,
   updateGroupCounts,
+  type GrupoDoProvedor,
 } from "@/lib/stores/groups";
 import { espelharComunidadesNativas } from "@/lib/stores/communities";
 import { getInstance, listInstances, type Instance } from "@/lib/stores/instances";
@@ -67,7 +68,7 @@ export type ResultadoDoSync =
   | { ok: false; status: 409 | 502 | 504; error: string };
 
 /** Linha que o sync grava em `groups` (o payload de `syncGroupsFromProvider`). */
-type LinhaDoSync = Parameters<typeof syncGroupsFromProvider>[1][number];
+type LinhaDoSync = GrupoDoProvedor;
 
 /** O que os dois modos já sabem depois de ler a Evolution. */
 type Leitura = {
@@ -225,8 +226,8 @@ function linhaDoGrupo(
 async function gravarRecontagem(l: Leitura): Promise<ResultadoDoSync> {
   // Grupo de payload truncado fica de fora: o `members` dele não mudaria, e os
   // `admins_*` e o `name` viriam desse payload truncado (só o "self"), o que o
-  // marcaria "sem admin reserva" por engano. O Sincronizar do painel segue
-  // gravando esses grupos como sempre.
+  // marcaria "sem admin reserva" por engano. O Sincronizar do painel grava nome
+  // e comunidade deles, mas também deixa os `admins_*` como estão.
   const contagens = l.rows
     .filter((r) => l.anterior.has(r.whatsapp_group_id) && !l.jidsProtegidos.has(r.whatsapp_group_id))
     .map((r) => ({
@@ -258,7 +259,18 @@ async function gravarRecontagem(l: Leitura): Promise<ResultadoDoSync> {
 
 /** O Sincronizar do painel: o comportamento de sempre de `POST /api/groups/sync`. */
 async function gravarSyncCompleto(l: Leitura): Promise<ResultadoDoSync> {
-  const synced = await syncGroupsFromProvider(l.tenantId, l.rows);
+  // Grupo de payload truncado só traz o "self" na lista: a contagem de admins
+  // dele sairia 1/1 e o marcaria "sem admin reserva" (risco do número e o e-mail
+  // "N grupos dependem só do seu número"), sorteando grupos diferentes a cada
+  // sync. Vai sem os `admins_*`, e o banco segue com a última contagem boa.
+  //
+  // Os participantes dele seguem gravados: o upsert só soma (nunca apaga), então
+  // o payload truncado só regrava a linha do nosso próprio número.
+  const protegido = (r: LinhaDoSync) => l.jidsProtegidos.has(r.whatsapp_group_id);
+  const synced = await syncGroupsFromProvider(
+    l.tenantId,
+    l.rows.map((r) => (protegido(r) ? semContagemDeAdmins(r) : r)),
+  );
   gravarParticipantesDepois(l);
   const convitesEnfileirados = await enfileirarConvites(l.tenantId);
 
@@ -267,7 +279,7 @@ async function gravarSyncCompleto(l: Leitura): Promise<ResultadoDoSync> {
   // não apaga a base do lojista.
   const removidos = await removeGroupsByWhatsappIds(l.tenantId, l.descartar);
   const admin = l.rows.length;
-  const semBackup = l.rows.filter((r) => r.admins_total <= 1).length;
+  const semBackup = l.rows.filter((r) => !protegido(r) && r.admins_total <= 1).length;
   const ignorados = l.remoteGroups.length - admin;
 
   // Marco de ativação. Era a única etapa do funil do admin que nunca populava
@@ -291,6 +303,12 @@ async function gravarSyncCompleto(l: Leitura): Promise<ResultadoDoSync> {
     { count: synced, removidos, sem_backup: semBackup, convites_enfileirados: convitesEnfileirados },
   );
   return { ok: true, synced, admin, semBackup, ignorados, removidos };
+}
+
+function semContagemDeAdmins(r: LinhaDoSync): Omit<LinhaDoSync, "admins_total" | "admins_ours" | "admins_counted_at"> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { admins_total, admins_ours, admins_counted_at, ...resto } = r;
+  return resto;
 }
 
 /**
