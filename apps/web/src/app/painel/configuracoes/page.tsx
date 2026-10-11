@@ -360,6 +360,7 @@ export default function PainelConfiguracoes() {
       setMembers((prev) => [...prev, newMember]);
       setInviteEmail("");
       setInviteModules([]);
+      setInviteRole("operator");
     } catch (e) {
       setInviteError(e instanceof Error ? e.message : "Erro ao convidar.");
       setInviteUpgradeUrl(upgradeUrlFrom(e));
@@ -411,7 +412,7 @@ export default function PainelConfiguracoes() {
     });
     const d = (await res.json().catch(() => ({}))) as { error?: string; modules?: string[] };
     if (!res.ok) throw new Error(d.error || "Não foi possível salvar o acesso.");
-    setMembers((prev) => prev.map((x) => (x.id === id ? { ...x, modules: d.modules ?? [] } : x)));
+    setMembers((prev) => prev.map((x) => (x.id === id ? { ...x, modules: d.modules ?? modules } : x)));
   }
 
   // As portas com o dado de cada uma antes do clique (Vitrine Aberta, PR 9).

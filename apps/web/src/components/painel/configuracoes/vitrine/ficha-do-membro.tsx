@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2, Trash2 } from "lucide-react";
 import { canOfferRemoval, removalActionLabel } from "@/lib/auth/member-removal";
 import { parseModulos, type ModuloOpcional } from "@/lib/auth/modulos";
@@ -40,16 +40,29 @@ export function FichaDoMembro({ membro: m, removendo, onRemover, onSalvarAcesso 
   const [rascunho, setRascunho] = useState<ModuloOpcional[]>([]);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [salvo, setSalvo] = useState(false);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const devolverFoco = useRef(false);
   const vendedora = m.role === "seller";
   const chips = chipsDoAcesso(m.role, m.modules);
   const quem = m.invited_email ?? "este membro";
   const painelId = `acesso-${m.id}`;
+
+  // O painel que tinha o foco se esconde ao salvar; o foco volta para o botão
+  // que o abriu. Só depois do `salvando` cair: com o botão ainda desabilitado
+  // o `focus()` não pega.
+  useEffect(() => {
+    if (salvando || !devolverFoco.current) return;
+    devolverFoco.current = false;
+    toggleRef.current?.focus();
+  }, [salvando]);
 
   function alternar() {
     // Abre sempre do que está salvo: o rascunho de uma edição largada não pode
     // voltar como se fosse o acesso atual dela.
     setRascunho(parseModulos(m.modules));
     setErro(null);
+    setSalvo(false);
     setAberto(!aberto);
   }
 
@@ -58,6 +71,8 @@ export function FichaDoMembro({ membro: m, removendo, onRemover, onSalvarAcesso 
     setErro(null);
     try {
       await onSalvarAcesso(m.id, rascunho);
+      devolverFoco.current = true;
+      setSalvo(true);
       setAberto(false);
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Não foi possível salvar o acesso.");
@@ -92,11 +107,13 @@ export function FichaDoMembro({ membro: m, removendo, onRemover, onSalvarAcesso 
       {vendedora && (
         <button
           type="button"
+          ref={toggleRef}
           onClick={alternar}
+          disabled={salvando}
           aria-expanded={aberto}
           aria-controls={painelId}
           aria-label={`${aberto ? "Fechar" : "Editar"} acesso de ${quem}`}
-          className={`inline-flex h-11 shrink-0 items-center rounded-[var(--radius-control)] border border-line-200 bg-paper-0 px-4 text-13 font-semibold text-volt-950 ${FOCO}`}
+          className={`inline-flex h-11 shrink-0 items-center rounded-[var(--radius-control)] border border-line-200 bg-paper-0 px-4 text-13 font-semibold text-volt-950 disabled:opacity-50 ${FOCO}`}
         >
           {aberto ? "Fechar" : "Editar acesso"}
         </button>
@@ -116,6 +133,10 @@ export function FichaDoMembro({ membro: m, removendo, onRemover, onSalvarAcesso 
           )}
         </button>
       )}
+      {/* Sempre montado: região viva criada junto com a mensagem nem sempre é lida. */}
+      <p role="status" className="sr-only">
+        {salvo ? "Acesso salvo." : ""}
+      </p>
       {vendedora && (
         // Sempre no DOM (escondido) para o `aria-controls` apontar para algo real.
         <div id={painelId} hidden={!aberto} className="basis-full pb-2 sm:pl-[52px]">
