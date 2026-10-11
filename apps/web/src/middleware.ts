@@ -29,6 +29,9 @@ const RATE_LIMITS: Record<string, number> = {
   // Webhook da Zernio (Instagram): mesmo raciocínio. O gate real é a assinatura
   // HMAC no handler; isto só barra flood ingênuo.
   "/api/ig/webhook": 300,
+  // Cadastro do site próprio: o IP é o do Cloudflare do lojista, compartilhado
+  // entre muitos sites — teto folgado aqui; o de verdade é por chave, no handler.
+  "/api/integracoes/cadastro": 120,
   // Beacon de clique de saída (wa.me) na landing. Teto folgado porque é UM
   // request por clique e uma pessoa lendo a página clica poucas vezes; o
   // handler ainda aplica o seu próprio teto por IP.
