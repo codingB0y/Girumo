@@ -269,3 +269,71 @@ test("GET devolve os módulos de cada membro, só da loja do contexto", async ()
   );
   assert.ok(leitura?.url.searchParams.get("select")?.split(",").includes("modules"), "o select do GET pede modules");
 });
+
+/* -------------------------------------------------------------------------- */
+/* PATCH: Editar acesso da vendedora                                          */
+/* -------------------------------------------------------------------------- */
+
+test("PATCH: dono liga o Postar da vendedora e o evento entra no log", async () => {
+  const res = await chamar(() => rota.PATCH(pedido("PATCH", { id: M_VENDEDORA, modules: ["postar"] })));
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { id: M_VENDEDORA, modules: ["postar"] });
+
+  const escrita = pedidos.find((p) => p.metodo === "PATCH");
+  assert.deepEqual(escrita?.corpo, { modules: ["postar"] });
+  assert.equal(escrita?.url.searchParams.get("tenant_id"), `eq.${LOJA}`);
+  assert.equal(escrita?.url.searchParams.get("role"), "eq.seller");
+  assert.deepEqual(linhaDe(M_VENDEDORA)?.modules, ["postar"]);
+
+  const [log] = escritas("POST", "logs");
+  assert.equal(log.event, "membership.modules_changed");
+  assert.equal(log.tenant_id, LOJA);
+  assert.equal(log.actor_user_id, DONO);
+  assert.deepEqual(log.metadata, {
+    membership_id: M_VENDEDORA,
+    role: "seller",
+    modules_before: [],
+    modules_after: ["postar"],
+  });
+});
+
+test("PATCH em quem não é vendedora: 400 e nada gravado", async () => {
+  const res = await chamar(() => rota.PATCH(pedido("PATCH", { id: M_ADMIN, modules: ["postar"] })));
+  assert.equal(res.status, 400);
+  assert.deepEqual(await res.json(), { error: "Só a vendedora tem módulos." });
+  assert.equal(pedidos.some((p) => p.metodo === "PATCH"), false);
+  assert.equal(escritas("POST", "logs").length, 0);
+});
+
+test("PATCH na vendedora de outra loja: 404 e a linha dela fica intacta", async () => {
+  const res = await chamar(() =>
+    rota.PATCH(pedido("PATCH", { id: M_VENDEDORA_DE_OUTRA, modules: ["postar"] })),
+  );
+  assert.equal(res.status, 404);
+  assert.equal(pedidos.some((p) => p.metodo === "PATCH"), false, "não tentou escrever na outra loja");
+  assert.deepEqual(linhaDe(M_VENDEDORA_DE_OUTRA)?.modules, []);
+});
+
+test("PATCH por operador: 403 antes de ler o alvo", async () => {
+  banco = bancoInicial("operator");
+  const res = await chamar(() => rota.PATCH(pedido("PATCH", { id: M_VENDEDORA, modules: ["postar"] })));
+  assert.equal(res.status, 403);
+  const leituras = pedidos.filter((p) => p.tabela === "memberships" && !p.url.searchParams.has("user_id"));
+  assert.equal(leituras.length, 0);
+  assert.deepEqual(linhaDe(M_VENDEDORA)?.modules, []);
+});
+
+test("PATCH com corpo inválido: 400 sem tocar no banco", async () => {
+  const ruins = [
+    { id: "nao-e-uuid", modules: [] },
+    { id: M_VENDEDORA, modules: ["grupos"] },
+    { id: M_VENDEDORA, modules: [], role: "admin" },
+    { id: M_VENDEDORA },
+  ];
+  for (const corpo of ruins) {
+    const res = await chamar(() => rota.PATCH(pedido("PATCH", corpo)));
+    assert.equal(res.status, 400, JSON.stringify(corpo));
+    assert.deepEqual(await res.json(), { error: "Pedido inválido." });
+  }
+  assert.equal(pedidos.some((p) => p.metodo === "PATCH"), false);
+});
