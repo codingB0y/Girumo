@@ -481,6 +481,18 @@ apps/web/supabase/migrations/20261008110000_ig_runs_retomada.sql
 # 2026-10-08 - Receita comment_confirm_invite: so a CHECK de ig_flows.recipe muda (a baseline
 # nao enxerga CHECK). Conferir com pg_get_constraintdef nos dois bancos.
 apps/web/supabase/migrations/20261008120000_ig_receita_confirma.sql
+# 2026-10-10 - Postar por grupo, PR 1 (spec 2026-10-10-postar-por-grupo-design §5): marca de
+# lotado em groups (lotado_em/lotado_por/reaberto_em/aviso_lotou_em + trigger
+# groups_marca_lotado + backfill dos ja cheios, sem aviso), aviso ao lotar em campaign_groups,
+# broadcasts.target_rule, group_bulk_jobs.subject (+ 'set_subject' na CHECK de action), estado
+# e regras em app (limiar_lotado, grupo_na_regra, estados_da_campanha, alvos_da_regra,
+# alvos_do_disparo), RPCs campaign_group_states / marcar_grupo_lotado / reabrir_grupo /
+# enviar_avisos_lotou (execute so service_role) e create or replace de app.enqueue_broadcast
+# e app.promote_due_schedules. Trava no topo: aborta se o corpo sem comentarios de uma das duas
+# no banco diferir do repo. Muda a baseline (t|groups, t|campaign_groups, t|broadcasts,
+# t|group_bulk_jobs e quatro f|). O gate nao ve schema app, CHECK, indice, trigger, ACL nem
+# corpo — conferir com infra/tests/postar-por-grupo-check.sql nos dois bancos.
+apps/web/supabase/migrations/20261010120000_postar_por_grupo.sql
 # 2026-10-10 - Funil de anuncios (spec 2026-10-10-funil-anuncios), parte 1: phone_key,
 # site_integrations, site_captures, ad_spend, link_click_events.capture_id/whatsapp_group_id,
 # indices por phone_key em leads/orders/lp_contacts. Muda a baseline.
