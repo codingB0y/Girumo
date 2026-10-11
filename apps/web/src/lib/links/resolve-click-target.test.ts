@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
+import { estadoFromRow } from "@/lib/groups/estado";
 import {
   isGroupAvailable,
   nextAvailableGroup,
   readClickCap,
   readPixelId,
   resolveClickTarget,
+  toResolvableGroup,
+  withSequentialEstado,
   type ResolvableGroup,
 } from "./resolve-click-target";
 
@@ -44,10 +47,12 @@ assert.equal(
 // --- rotação sequencial ("lota sozinho") -----------------------------------
 
 const pool = ["a@g.us", "b@g.us", "c@g.us"];
+// `estado` é o que `campaign_group_states` devolveria para este pool: o banco
+// decide. `nextAvailableGroup` ignora o campo.
 const groups = [
-  group({ whatsapp_group_id: "a@g.us", members: 1000 }), // cheio
-  group({ whatsapp_group_id: "b@g.us", invite_url: null }), // sem convite
-  group({ whatsapp_group_id: "c@g.us", members: 10 }), // disponível
+  group({ whatsapp_group_id: "a@g.us", members: 1000, estado: "lotado" }), // cheio
+  group({ whatsapp_group_id: "b@g.us", invite_url: null, estado: "vazio" }), // sem convite
+  group({ whatsapp_group_id: "c@g.us", members: 10, estado: "enchendo" }), // disponível
 ];
 // Pula cheio e sem-convite, transborda pro próximo com vaga.
 assert.equal(nextAvailableGroup(pool, groups)?.whatsapp_group_id, "c@g.us");
@@ -83,12 +88,15 @@ assert.deepEqual(
   { kind: "redirect", url: "https://chat.whatsapp.com/AAA", groupId: "c@g.us", pixelId: undefined },
 );
 
+// `groups` é o que a RPC devolve: só os grupos DESTA campanha.
+const daCampanha = (ids: string[]) => groups.filter((g) => ids.includes(g.whatsapp_group_id));
+
 // Todos com convite porém cheios → "cheio" de verdade.
 assert.deepEqual(
   resolveClickTarget({
     link: master,
     campaign: { group_ids: ["a@g.us"] },
-    groups,
+    groups: daCampanha(["a@g.us"]),
   }),
   { kind: "blocked", reason: "all-full" },
 );
@@ -98,14 +106,14 @@ assert.deepEqual(
   resolveClickTarget({
     link: master,
     campaign: { group_ids: ["b@g.us"] },
-    groups,
+    groups: daCampanha(["b@g.us"]),
   }),
   { kind: "blocked", reason: "no-invite" },
 );
 
-// Campanha sem grupos no pool.
+// Campanha sem grupos no pool (a RPC não devolve linha nenhuma).
 assert.deepEqual(
-  resolveClickTarget({ link: master, campaign: { group_ids: [] }, groups }),
+  resolveClickTarget({ link: master, campaign: { group_ids: [] }, groups: [] }),
   { kind: "blocked", reason: "empty-pool" },
 );
 
@@ -183,7 +191,7 @@ console.log("resolve-click-target tests passed");
     campaign: { group_ids: ["x@g.us", "y@g.us"] },
     groups: [
       group({ whatsapp_group_id: "x@g.us", is_admin: false }),
-      group({ whatsapp_group_id: "y@g.us", is_admin: true, invite_url: "https://chat.whatsapp.com/BBB" }),
+      group({ whatsapp_group_id: "y@g.us", is_admin: true, invite_url: "https://chat.whatsapp.com/BBB", estado: "enchendo" }),
     ],
   });
   assert.deepEqual(alvo, {
@@ -193,3 +201,124 @@ console.log("resolve-click-target tests passed");
     pixelId: undefined,
   });
 }
+
+// --- estado vindo do banco (postar por grupo, PR 2) ------------------------
+
+const masterCg = { campaign_group_id: "cg1", target_url: "", clicks: 0, metadata: {} };
+
+// O alvo é o `enchendo` que o banco escolheu, mesmo fora da ordem do pool: é o
+// grupo reaberto, que tem prioridade sobre a sequência (D3).
+{
+  const alvo = resolveClickTarget({
+    link: masterCg,
+    campaign: { group_ids: ["a@g.us", "b@g.us", "c@g.us"] },
+    groups: [
+      group({ whatsapp_group_id: "a@g.us", members: 100, estado: "fila" }),
+      group({ whatsapp_group_id: "b@g.us", members: 300, estado: "fila" }),
+      group({ whatsapp_group_id: "c@g.us", members: 700, estado: "enchendo", invite_url: "https://chat.whatsapp.com/CCC" }),
+    ],
+  });
+  assert.deepEqual(alvo, { kind: "redirect", url: "https://chat.whatsapp.com/CCC", groupId: "c@g.us", pixelId: undefined });
+}
+
+// Lotado nunca é o alvo, por mais vaga que tenha (D1/D3): marcado à mão com 100 de 1000.
+{
+  const alvo = resolveClickTarget({
+    link: masterCg,
+    campaign: { group_ids: ["a@g.us", "c@g.us"] },
+    groups: [
+      group({ whatsapp_group_id: "a@g.us", members: 100, estado: "lotado" }),
+      group({ whatsapp_group_id: "c@g.us", members: 500, estado: "enchendo", invite_url: "https://chat.whatsapp.com/CCC" }),
+    ],
+  });
+  assert.equal(alvo.kind === "redirect" ? alvo.groupId : alvo.reason, "c@g.us");
+}
+
+// Sem `enchendo` no pool, bloqueia com o motivo do diagnóstico: todos lotados é "all-full"…
+assert.deepEqual(
+  resolveClickTarget({
+    link: masterCg,
+    campaign: { group_ids: ["a@g.us"] },
+    groups: [group({ whatsapp_group_id: "a@g.us", members: 100, estado: "lotado" })],
+  }),
+  { kind: "blocked", reason: "all-full" },
+);
+// …e um pool só de grupo alheio continua "no-admin", não "cheio".
+assert.deepEqual(
+  resolveClickTarget({
+    link: masterCg,
+    campaign: { group_ids: ["x@g.us"] },
+    groups: [group({ whatsapp_group_id: "x@g.us", is_admin: false, estado: "fila" })],
+  }),
+  { kind: "blocked", reason: "no-admin" },
+);
+// Grupo SEM estado nunca é escolhido pela rotação: quem esquece de passar o estado
+// do banco bloqueia o link — não volta escondido para a regra antiga dos 95%.
+assert.deepEqual(
+  resolveClickTarget({
+    link: masterCg,
+    campaign: { group_ids: ["c@g.us"] },
+    groups: [group({ whatsapp_group_id: "c@g.us", members: 10 })],
+  }),
+  { kind: "blocked", reason: "all-full" },
+);
+
+// A linha da RPC vira grupo resolvível COM o estado — é o que faz o link andar.
+{
+  const e = estadoFromRow({
+    posicao: 2,
+    group_id: "id-2",
+    whatsapp_group_id: "g2@g.us",
+    name: "Moda Kids 2",
+    members: 600,
+    capacity: 1024,
+    is_admin: true,
+    invite_url: "https://chat.whatsapp.com/DDD",
+    lotado_em: null,
+    lotado_por: null,
+    reaberto_em: null,
+    aviso_lotou_em: null,
+    estado: "enchendo",
+    pode_reabrir: false,
+    na_regra_menos_enchendo: false,
+    na_regra_lotados: false,
+    na_regra_com_gente: true,
+  });
+  assert.deepEqual(toResolvableGroup(e), {
+    whatsapp_group_id: "g2@g.us",
+    name: "Moda Kids 2",
+    members: 600,
+    capacity: 1024,
+    invite_url: "https://chat.whatsapp.com/DDD",
+    is_admin: true,
+    estado: "enchendo",
+  });
+  assert.deepEqual(
+    resolveClickTarget({ link: masterCg, campaign: { group_ids: ["g2@g.us"] }, groups: [toResolvableGroup(e)] }),
+    { kind: "redirect", url: "https://chat.whatsapp.com/DDD", groupId: "g2@g.us", groupName: "Moda Kids 2", pixelId: undefined },
+  );
+}
+
+// Aproximação da aba Link e cliques (sem estado do banco até o PR 4): marca o mesmo
+// grupo que a sequência antiga escolheria, e o resolvedor o devolve.
+{
+  const semEstado = [
+    group({ whatsapp_group_id: "a@g.us", members: 1000 }),
+    group({ whatsapp_group_id: "b@g.us", invite_url: null }),
+    group({ whatsapp_group_id: "c@g.us", members: 10 }),
+  ];
+  const marcados = withSequentialEstado(["a@g.us", "b@g.us", "c@g.us"], semEstado);
+  assert.deepEqual(
+    marcados.map((g) => g.estado),
+    [undefined, undefined, "enchendo"],
+  );
+  const alvo = resolveClickTarget({ link: masterCg, campaign: { group_ids: ["a@g.us", "b@g.us", "c@g.us"] }, groups: marcados });
+  assert.equal(alvo.kind === "redirect" ? alvo.groupId : alvo.reason, "c@g.us");
+  // Nada disponível: ninguém é marcado e o diagnóstico continua valendo.
+  assert.deepEqual(
+    withSequentialEstado(["a@g.us"], semEstado).map((g) => g.estado),
+    [undefined, undefined, undefined],
+  );
+}
+
+console.log("resolve-click-target estado tests passed");

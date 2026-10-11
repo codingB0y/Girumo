@@ -12,8 +12,8 @@ import { acessoRestrito, type Acesso } from "@/lib/auth/modulos";
 import { iniciaisDaLoja } from "@/lib/painel/casca";
 import { numero } from "@/lib/painel/grupos";
 import { placarDaOferta, type EntradaLike } from "@/lib/painel/relampago";
+import { MENSAGEM_DE_SAIDA_QUE_FALHOU, useSair } from "@/lib/painel/use-sair";
 import { isNavItemActive, itensDaBarra, podePostar } from "@/lib/painel-nav";
-import { getSupabaseBrowserClient, setActiveTenantId, tirarSessaoSupabase } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { FolhaPostar } from "./folha-postar";
 import { MenuMais } from "./menu-mais";
@@ -142,77 +142,13 @@ function NavDaBarra({ relampago, acesso }: { relampago: Relampago; acesso: Acess
   );
 }
 
-const LIMITE_DA_SAIDA_MS = 10_000;
-const MENSAGEM_DE_SAIDA_QUE_FALHOU = "Não deu pra sair agora. Confira a internet e toque em Sair de novo.";
-
-/**
- * Encerra a sessão deste aparelho (compartilhado na loja) e diz se o servidor confirmou.
- *
- * 1. Sem rede, na hora: a loja ativa, o refresh automático e a sessão do supabase-js no
- *    localStorage (`sb-*`, vale como Bearer). Não dá pra delegar a `auth.signOut()`: ele faz
- *    `POST /logout` antes de apagar e, com a rede fora, devolve `{ error }` e deixa tudo lá —
- *    o `scope: "local"` também chama o servidor nesta versão.
- * 2. Depois, com teto de 10s: `POST /api/auth/logout`, o único que apaga o cookie HttpOnly, e a
- *    revogação do token no servidor (melhor-esforço, resultado ignorado).
- *
- * `true` só se o logout do cookie respondeu ok; a vendedora só vai para o /login nesse caso —
- * com o cookie vivo, o /painel abriria na sessão dela para a próxima pessoa.
- */
-async function encerrarSessao(): Promise<boolean> {
-  let token: string | null = null;
-  let auth: ReturnType<typeof getSupabaseBrowserClient>["auth"] | null = null;
-  try {
-    setActiveTenantId(null);
-  } catch {
-    // localStorage bloqueado
-  }
-  try {
-    auth = getSupabaseBrowserClient().auth;
-    await auth.stopAutoRefresh();
-  } catch {
-    // variável pública ausente ou cliente sem o método: a limpeza local segue
-  }
-  try {
-    token = tirarSessaoSupabase(window.localStorage);
-  } catch {
-    // localStorage bloqueado
-  }
-  if (auth && token) void auth.admin.signOut(token, "global").catch(() => null);
-
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const teto = new Promise<boolean>((resolve) => {
-    timer = setTimeout(() => resolve(false), LIMITE_DA_SAIDA_MS);
-  });
-  const logout = fetch("/api/auth/logout", { method: "POST" }).then(
-    (r) => r.ok,
-    () => false,
-  );
-  const ok = await Promise.race([logout, teto]);
-  clearTimeout(timer);
-  return ok;
-}
-
 /**
  * O acesso restrito não tem Configurações (spec 2026-10-07 §1): no lugar do avatar,
  * o papel (só "Vendedora" quando é mesmo seller) e a saída. Se o servidor não confirmar
  * a saída, ela fica na tela com o aviso e pode tentar de novo.
  */
 function SaidaDoAcessoRestrito({ vendedora }: { vendedora: boolean }) {
-  const [saindo, setSaindo] = useState(false);
-  const [falhou, setFalhou] = useState(false);
-  async function sair() {
-    if (saindo) return;
-    setSaindo(true);
-    setFalhou(false);
-    const ok = await encerrarSessao().catch(() => false);
-    if (ok) {
-      // replace, não push: mata o GoTrueClient e o cache do router em memória e tira a entrada do histórico.
-      window.location.replace("/login");
-      return;
-    }
-    setSaindo(false);
-    setFalhou(true);
-  }
+  const { sair, saindo, falhou } = useSair();
   return (
     <>
       {vendedora && (

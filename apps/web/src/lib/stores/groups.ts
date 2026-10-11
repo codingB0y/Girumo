@@ -23,6 +23,11 @@ export type Group = {
   admins_total?: number;
   admins_ours?: number;
   admins_counted_at?: string | null;
+  /**
+   * Marca de lotado (PR 1 do "postar por grupo"): gravada pelo trigger ao cruzar
+   * 95% subindo, ou à mão. Nunca recalculada da contagem.
+   */
+  lotado_em?: string | null;
   invite_url?: string;
   /**
    * Quem pode mandar mensagem no grupo, do jeito que NÓS aplicamos pela última
@@ -102,6 +107,11 @@ export type GroupUpsert = Pick<Group, "whatsapp_group_id" | "name" | "members"> 
       // que também grava o `invite_url` do grupo recém-criado. Continua opcional
       // para que nenhum outro chamador o sobrescreva sem querer.
       | "is_admin"
+      // Idem: o auto-grow sabe a contagem de admins do grupo que acabou de criar
+      // (um, o nosso número) e grava como conferência — ver registerGrownGroup.
+      | "admins_total"
+      | "admins_ours"
+      | "admins_counted_at"
     >
   > & {
     id?: string;

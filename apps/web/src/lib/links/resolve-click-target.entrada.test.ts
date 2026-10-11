@@ -16,9 +16,10 @@ const group = (over: Partial<ResolvableGroup> & { whatsapp_group_id: string }): 
 });
 
 const masterLink = { campaign_group_id: "camp-1", target_url: "", clicks: 0, metadata: {} };
+// `estado` é o que `campaign_group_states` devolveria: o banco escolhe o enchendo.
 const pool = [
-  group({ whatsapp_group_id: "g1@g.us", name: "Saldão 1", members: 990, capacity: 1000 }), // cheio
-  group({ whatsapp_group_id: "g2@g.us", name: "Saldão 2", invite_url: "https://chat.whatsapp.com/BBB" }),
+  group({ whatsapp_group_id: "g1@g.us", name: "Saldão 1", members: 990, capacity: 1000, estado: "lotado" }), // cheio
+  group({ whatsapp_group_id: "g2@g.us", name: "Saldão 2", invite_url: "https://chat.whatsapp.com/BBB", estado: "enchendo" }),
 ];
 const campaign = { group_ids: ["g1@g.us", "g2@g.us"] };
 
@@ -40,6 +41,18 @@ const lembrado = resolveClickTarget({
 });
 assert.equal(lembrado.kind, "redirect");
 if (lembrado.kind === "redirect") assert.equal(lembrado.groupId, "g1@g.us");
+
+// Lotado À MÃO, com vaga sobrando: o lembrado continua vencendo (spec §6.1) — quem
+// clicou já está lá dentro, e mandá-lo para outro é o que fabrica duplicata.
+const lotadoAMao = resolveClickTarget({
+  link: masterLink,
+  campaign,
+  groups: [group({ whatsapp_group_id: "g1@g.us", name: "Saldão 1", members: 120, capacity: 1000, estado: "lotado" }), pool[1]],
+  entrada: ENTRADA_DEFAULTS,
+  rememberedGroupId: "g1@g.us",
+});
+assert.equal(lotadoAMao.kind, "redirect");
+if (lotadoAMao.kind === "redirect") assert.equal(lotadoAMao.groupId, "g1@g.us");
 
 // Com a opção desligada o cookie é ignorado.
 const ignorado = resolveClickTarget({
