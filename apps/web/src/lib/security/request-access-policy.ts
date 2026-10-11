@@ -25,6 +25,8 @@ const ENGINE_ONLY = new Set([
   "POST /api/groups/grow/ack",
   "POST /api/groups/bulk/pending",
   "POST /api/groups/bulk/ack",
+  // Recontagem diária dos grupos (worker, 1×/dia).
+  "POST /api/groups/recount",
 ]);
 
 /**

@@ -30,6 +30,13 @@ test("bulk group actions are engine-only — sem isso o worker leva 401 para sem
   assert.equal(classifyRequest("/api/groups/bulk/ack", "POST"), "engine-only");
 });
 
+test("a recontagem diária é engine-only — fora da lista o worker leva 401 para sempre", () => {
+  // Mesmo motivo das ações em massa: o middleware só olha o x-engine-token das
+  // rotas desta lista; fora dela a recontagem cairia no gate de sessão e o
+  // sintoma (contagem que nunca anda) apontaria para o worker.
+  assert.equal(classifyRequest("/api/groups/recount", "POST"), "engine-only");
+});
+
 test("dispatch pending is engine-only", () => {
   assert.equal(classifyRequest("/api/dispatch/pending", "POST"), "engine-only");
 });
