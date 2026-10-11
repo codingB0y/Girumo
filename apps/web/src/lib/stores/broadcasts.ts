@@ -216,6 +216,9 @@ export async function enqueueBroadcast(tenantId: string, id: string): Promise<Br
  * fan-out, a oferta também entra em 'queued', e sem este filtro o engine legado
  * claimaria a mesma linha e enviaria tudo de novo. Oferta com `run_id` é do motor
  * novo e o legado ignora — por isso os dois podem ficar vivos ao mesmo tempo.
+ *
+ * `target_rule is null` pelo mesmo motivo: disparo com regra de destino tem
+ * `group_ids` vazio, que o motor legado lê como "todos os grupos".
  */
 export async function claimPendingBroadcasts(tenantId: string, limit = 10): Promise<Broadcast[]> {
   const now = new Date().toISOString();
@@ -229,6 +232,7 @@ export async function claimPendingBroadcasts(tenantId: string, limit = 10): Prom
     .eq("tenant_id", tenantId)
     .eq("status", "queued")
     .is("run_id", null)
+    .is("target_rule", null)
     .order("created_at", { ascending: true })
     .limit(limit)
     .select("*");
