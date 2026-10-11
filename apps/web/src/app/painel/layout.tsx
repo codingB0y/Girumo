@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { BarraDeCima } from "@/components/painel/barra-de-cima";
 import { BarraMobile } from "@/components/painel/barra-mobile";
+import { GuardaDeModulo } from "@/components/painel/guarda-de-modulo";
 import { MioloDoPainel } from "@/components/painel/miolo";
 import { ToastProvider } from "@/components/toast";
 import { RoleProvider } from "@/components/painel/role-provider";
@@ -25,7 +26,9 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
               {/* Uma leitura do teste para a faixa e para todo paywall aberto nas telas. */}
               <TrialProvider>
                 <TrialBanner />
-                <MioloDoPainel>{children}</MioloDoPainel>
+                <MioloDoPainel>
+                  <GuardaDeModulo>{children}</GuardaDeModulo>
+                </MioloDoPainel>
               </TrialProvider>
               <BarraMobile />
             </div>
