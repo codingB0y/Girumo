@@ -79,3 +79,30 @@ test("APP_URL e ENGINE_TOKEN sao opcionais: sem eles o auto-grow so fica desliga
     assert.equal(env.engineToken, null);
   });
 });
+
+test("recountEnabled e false por default — a recontagem nasce em dry-run como os outros loops", () => {
+  withEnv({ WORKER_RECOUNT_ENABLED: undefined }, () => {
+    assert.equal(loadEnv().recountEnabled, false);
+  });
+  withEnv({ WORKER_RECOUNT_ENABLED: "true" }, () => {
+    assert.equal(loadEnv().recountEnabled, true);
+  });
+  withEnv({ WORKER_RECOUNT_ENABLED: "1" }, () => {
+    assert.equal(loadEnv().recountEnabled, false);
+  });
+});
+
+test("recountIntervalMs default e 24h", () => {
+  withEnv({ WORKER_RECOUNT_INTERVAL_MS: undefined }, () => {
+    assert.equal(loadEnv().recountIntervalMs, 86_400_000);
+  });
+});
+
+test("recountIntervalMs abaixo de 1h e recusado: cada volta e um fetchAllGroups por loja", () => {
+  withEnv({ WORKER_RECOUNT_INTERVAL_MS: "600000" }, () => {
+    assert.throws(() => loadEnv(), /WORKER_RECOUNT_INTERVAL_MS/);
+  });
+  withEnv({ WORKER_RECOUNT_INTERVAL_MS: "3600000" }, () => {
+    assert.equal(loadEnv().recountIntervalMs, 3_600_000);
+  });
+});
