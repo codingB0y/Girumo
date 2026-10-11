@@ -33,14 +33,23 @@ const linha = (over: Partial<EstadoRow> = {}): EstadoRow => ({
 });
 
 test("a linha da RPC vira o EstadoGrupo do contrato, campo a campo", () => {
-  assert.deepEqual(estadoFromRow(linha()), {
+  // Os cinco booleanos com valores distintos (F, T, T, F, T): trocar duas colunas
+  // de lugar — `is_admin` por `pode_reabrir`, por exemplo — muda o resultado.
+  const row = linha({
+    is_admin: false,
+    pode_reabrir: true,
+    na_regra_menos_enchendo: true,
+    na_regra_lotados: false,
+    na_regra_com_gente: true,
+  });
+  assert.deepEqual(estadoFromRow(row), {
     posicao: 3,
     groupId: "7d0c2f4e-1b2a-4c3d-8e9f-0a1b2c3d4e5f",
     whatsappGroupId: "120363000000000003@g.us",
     nome: "Moda Kids do Sul 3",
     membros: 812,
     capacidade: 1024,
-    isAdmin: true,
+    isAdmin: false,
     inviteUrl: "https://chat.whatsapp.com/KxY7bQ2mNp",
     lotadoEm: "2026-10-07T14:08:00+00:00",
     lotadoPor: "manual",
@@ -48,7 +57,7 @@ test("a linha da RPC vira o EstadoGrupo do contrato, campo a campo", () => {
     avisoLotouEm: "2026-10-07T14:08:30+00:00",
     estado: "lotado",
     podeReabrir: true,
-    naRegra: { menos_enchendo: true, lotados: true, com_gente: true },
+    naRegra: { menos_enchendo: true, lotados: false, com_gente: true },
   });
 });
 
