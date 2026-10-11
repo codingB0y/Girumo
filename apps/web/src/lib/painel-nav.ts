@@ -15,7 +15,7 @@ import {
   ShoppingBag,
   type LucideIcon,
 } from "lucide-react";
-import { modulosDoAcesso, paginaLiberada, type Acesso, type Modulo } from "@/lib/auth/modulos";
+import { PAPEIS_LIVRES, modulosDoAcesso, paginaLiberada, type Acesso, type Modulo } from "@/lib/auth/modulos";
 
 /**
  * Fonte única da navegação do painel.
@@ -136,7 +136,8 @@ export function liberado(item: NavItem, liberacoes: Liberacoes | null): boolean 
 /**
  * O item aparece no menu deste acesso (spec 2026-10-07 §1, "Página")?
  * - vendedora: só item com `modulo` liberado para ela (`vendas` sempre; `postar` se o dono marcou);
- * - outros papéis: a regra de antes (`liberado`), e Vendas fica fora — o dono não usa a tela na v1;
+ * - owner/admin/operator (`PAPEIS_LIVRES`): a regra de antes (`liberado`), e Vendas fica fora — o dono não usa a tela na v1;
+ * - papel desconhecido: nada (fechado por padrão, como `paginaLiberada`);
  * - `null` (o `/api/auth/me` não respondeu): nada que dependa de módulo, para não piscar Vendas
  *   ou Disparos para quem não tem. A casca nem desenha os módulos enquanto `carregado` é falso.
  */
@@ -145,6 +146,7 @@ export function visivelNoMenu(item: NavItem, acesso: Acesso | null, liberacoes: 
   if (acesso.role === "seller") {
     return item.modulo !== undefined && modulosDoAcesso(acesso).includes(item.modulo) && liberado(item, liberacoes);
   }
+  if (!PAPEIS_LIVRES.includes(acesso.role)) return false;
   return item.modulo !== "vendas" && liberado(item, liberacoes);
 }
 
@@ -168,10 +170,12 @@ export type DestinoDaPagina = "mostrar" | "ir-para-vendas" | "bloquear";
 /**
  * O que a guarda faz com a página (spec §1, "Página"). Só experiência: quem
  * barra é o guard das rotas de API. A Início da vendedora é Vendas; fora de
- * `paginaLiberada`, a tela de bloqueio.
+ * `paginaLiberada`, a tela de bloqueio. `null` (o `/api/auth/me` falhou) e os papéis
+ * livres veem a página; papel desconhecido é bloqueado.
  */
 export function destinoDaPagina(acesso: Acesso | null, pathname: string): DestinoDaPagina {
-  if (acesso?.role !== "seller") return "mostrar";
+  if (acesso === null || PAPEIS_LIVRES.includes(acesso.role)) return "mostrar";
+  if (acesso.role !== "seller") return "bloquear";
   if (pathname === INICIO.href) return "ir-para-vendas";
   return paginaLiberada(acesso, pathname) ? "mostrar" : "bloquear";
 }

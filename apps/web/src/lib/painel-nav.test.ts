@@ -223,3 +223,21 @@ test("guarda: a Início da vendedora é Vendas; fora do acesso, bloqueio; outros
   assert.equal(destinoDaPagina(DONO, "/painel/contatos"), "mostrar");
   assert.equal(destinoDaPagina(null, "/painel/contatos"), "mostrar");
 });
+
+// Papel desconhecido (ex.: /api/auth/me devolveu algo fora dos quatro): fechado, como em modulos.ts.
+const DESCONHECIDO = { role: "gerente", modules: [] } as unknown as Acesso;
+
+test("papel desconhecido: menu vazio, sem Postar, e a guarda bloqueia", () => {
+  assert.deepEqual(visiveis(DESCONHECIDO), []);
+  assert.equal(podePostar(DESCONHECIDO), false);
+  assert.equal(destinoDaPagina(DESCONHECIDO, "/painel"), "bloquear");
+  assert.equal(destinoDaPagina(DESCONHECIDO, "/painel/vendas"), "bloquear");
+  assert.deepEqual(itensDaBarra(DESCONHECIDO, COM_INSTAGRAM), []);
+});
+
+test("sem acesso conhecido, a barra de cima não traz o que depende de módulo", () => {
+  const hrefs = itensDaBarra(null, COM_INSTAGRAM).map((i) => i.href);
+  assert.ok(!hrefs.includes("/painel/disparos"));
+  assert.ok(!hrefs.includes("/painel/vendas"));
+  assert.deepEqual(hrefs, NAV_BARRA_DESKTOP.filter((i) => i.modulo === undefined).map((i) => i.href));
+});
