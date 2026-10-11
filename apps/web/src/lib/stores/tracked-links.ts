@@ -40,6 +40,18 @@ export async function getTrackedLinkBySlug(slug: string): Promise<TrackedLink | 
   return data;
 }
 
+/** Link da loja pelo id — sempre com o tenant (a integração do site guarda o id). */
+export async function getTrackedLinkById(tenantId: string, id: string): Promise<TrackedLink | null> {
+  const { data, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .eq("id", id)
+    .limit(1);
+  if (error) throw new Error(error.message);
+  return (data as TrackedLink[] | null)?.[0] ?? null;
+}
+
 /**
  * +1 clique, atômico no banco (read-modify-write perderia clique simultâneo).
  * Falha de contador não pode derrubar o redirect — quem chama trata isso.
