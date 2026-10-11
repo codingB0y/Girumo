@@ -12,8 +12,10 @@ import {
   BookOpen,
   Boxes,
   Camera,
+  ShoppingBag,
   type LucideIcon,
 } from "lucide-react";
+import { PAPEIS_LIVRES, acessoRestrito, modulosDoAcesso, paginaLiberada, type Acesso, type Modulo } from "@/lib/auth/modulos";
 
 /**
  * Fonte única da navegação do painel.
@@ -31,6 +33,9 @@ import {
  * /painel/disparos ENTROU: deixou de ser redirect e virou a tela própria de
  * disparo (compositor + histórico com progresso real). Sem item de menu, a
  * única porta pro envio era entrar numa campanha e achar a aba Mensagens.
+ *
+ * /painel/vendas ENTROU em 07/10 (acesso da vendedora): é a tela dela, e
+ * `visivelNoMenu` a esconde dos outros papéis na v1.
  */
 
 /**
@@ -56,6 +61,11 @@ export type NavItem = {
   requer?: Liberacao;
   /** Rótulo da barra de cima, quando o nome inteiro não cabe. */
   curto?: string;
+  /**
+   * Módulo da vendedora que libera o item (spec 2026-10-07 §1). Para `seller`
+   * só aparece item com módulo liberado; sem módulo, ela não vê.
+   */
+  modulo?: Modulo;
 };
 
 export type NavGroup = {
@@ -65,10 +75,11 @@ export type NavGroup = {
 };
 
 const INICIO: NavItem = { href: "/painel", label: "Início", icon: Sun, grupo: "loja" };
+const VENDAS: NavItem = { href: "/painel/vendas", label: "Vendas", icon: ShoppingBag, grupo: "vender", modulo: "vendas" };
 const CAMPANHAS: NavItem = { href: "/painel/campanhas", label: "Campanhas", icon: Layers, grupo: "lotar" };
 // lucide-react não tem o ícone Instagram (ver lp-piloto/ui.tsx); Camera é o substituto.
 const INSTAGRAM: NavItem = { href: "/painel/instagram", label: "Instagram", icon: Camera, grupo: "lotar", requer: "instagram" };
-const DISPAROS: NavItem = { href: "/painel/disparos", label: "Disparos", icon: Send, grupo: "vender" };
+const DISPAROS: NavItem = { href: "/painel/disparos", label: "Disparos", icon: Send, grupo: "vender", modulo: "postar" };
 const BIBLIOTECA: NavItem = { href: "/painel/biblioteca", label: "Biblioteca", icon: BookOpen, grupo: "vender" };
 const RELAMPAGO: NavItem = { href: "/painel/relampago", label: "Oferta Relâmpago", icon: Flame, grupo: "vender", curto: "Relâmpago" };
 const FUNIS: NavItem = { href: "/painel/funis", label: "Funis", icon: Zap, grupo: "vender" };
@@ -80,7 +91,7 @@ const RESULTADOS: NavItem = { href: "/painel/resultados", label: "Resultados", i
 const CONFIGURACOES: NavItem = { href: "/painel/configuracoes", label: "Configurações", icon: Settings, grupo: "loja" };
 
 export const NAV_GROUPS: NavGroup[] = [
-  { title: null, items: [INICIO, CAMPANHAS, INSTAGRAM, DISPAROS, BIBLIOTECA, RELAMPAGO, FUNIS, COMUNIDADES, GRUPOS, CONTATOS] },
+  { title: null, items: [INICIO, VENDAS, CAMPANHAS, INSTAGRAM, DISPAROS, BIBLIOTECA, RELAMPAGO, FUNIS, COMUNIDADES, GRUPOS, CONTATOS] },
   { title: "Crescimento", items: [PAGINAS, RESULTADOS] },
 ];
 
@@ -120,6 +131,54 @@ export function isNavItemActive(pathname: string, href: string): boolean {
 /** `null` = a casca ainda não sabe: esconde o que depende de liberação em vez de piscar. */
 export function liberado(item: NavItem, liberacoes: Liberacoes | null): boolean {
   return !item.requer || (liberacoes?.[item.requer] ?? false);
+}
+
+/**
+ * O item aparece no menu deste acesso (spec 2026-10-07 §1, "Página")?
+ * - vendedora: só item com `modulo` liberado para ela (`vendas` sempre; `postar` se o dono marcou);
+ * - owner/admin/operator (`PAPEIS_LIVRES`): a regra de antes (`liberado`), e Vendas fica fora — o dono não usa a tela na v1;
+ * - papel desconhecido: nada (fechado por padrão, como `paginaLiberada`);
+ * - `null` depois de carregado = o `/api/auth/me` falhou: não dá pra distinguir o dono da vendedora,
+ *   então nada que dependa de módulo aparece (nem Vendas, nem Disparos/Postar) — o dono recupera
+ *   Postar e Disparos na próxima carga. A casca nem desenha os módulos enquanto `carregado` é falso.
+ */
+export function visivelNoMenu(item: NavItem, acesso: Acesso | null, liberacoes: Liberacoes | null): boolean {
+  if (acesso === null) return item.modulo === undefined && liberado(item, liberacoes);
+  if (acesso.role === "seller") {
+    return item.modulo !== undefined && modulosDoAcesso(acesso).includes(item.modulo) && liberado(item, liberacoes);
+  }
+  if (!PAPEIS_LIVRES.includes(acesso.role)) return false;
+  return item.modulo !== "vendas" && liberado(item, liberacoes);
+}
+
+/** Postar (barra e celular) segue Disparos: quem não vê a tela de postar não ganha o atalho. */
+export function podePostar(acesso: Acesso | null): boolean {
+  return visivelNoMenu(DISPAROS, acesso, null);
+}
+
+/**
+ * Itens da barra de cima. Outros papéis: os seis do dia. Vendedora: o menu
+ * inteiro filtrado — é curto (Vendas e o que o dono liberou) e nenhum item
+ * dela está entre os seis do dono.
+ */
+export function itensDaBarra(acesso: Acesso | null, liberacoes: Liberacoes | null): NavItem[] {
+  const base = acessoRestrito(acesso) ? NAV_ALL : NAV_BARRA_DESKTOP;
+  return base.filter((item) => visivelNoMenu(item, acesso, liberacoes));
+}
+
+export type DestinoDaPagina = "mostrar" | "ir-para-vendas" | "bloquear";
+
+/**
+ * O que a guarda faz com a página (spec §1, "Página"). Só experiência: quem
+ * barra é o guard das rotas de API. A Início da vendedora é Vendas; fora de
+ * `paginaLiberada`, a tela de bloqueio. `null` (o `/api/auth/me` falhou) e os papéis
+ * livres veem a página; papel desconhecido é bloqueado.
+ */
+export function destinoDaPagina(acesso: Acesso | null, pathname: string): DestinoDaPagina {
+  if (acesso === null || PAPEIS_LIVRES.includes(acesso.role)) return "mostrar";
+  if (acesso.role !== "seller") return "bloquear";
+  if (pathname === INICIO.href) return "ir-para-vendas";
+  return paginaLiberada(acesso, pathname) ? "mostrar" : "bloquear";
 }
 
 /** Estado de cada módulo, como o "Mais" mostra antes do toque. */

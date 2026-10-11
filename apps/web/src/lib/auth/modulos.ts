@@ -87,7 +87,12 @@ function casa(padrao: string, caminho: readonly string[]): boolean {
 }
 
 /** Papéis que o mapa não restringe. Qualquer outro (null, papel novo, lixo) cai fechado. */
-const PAPEIS_LIVRES: readonly string[] = ["owner", "admin", "operator"];
+export const PAPEIS_LIVRES: readonly string[] = ["owner", "admin", "operator"];
+
+/** Acesso que não é de papel livre: a vendedora e qualquer papel desconhecido. `null` (ainda sem papel) não conta. */
+export function acessoRestrito(acesso: Acesso | null): boolean {
+  return acesso !== null && !PAPEIS_LIVRES.includes(acesso.role);
+}
 
 /**
  * owner/admin/operator → true. seller → rota da base ou de um módulo liberado, com o método certo.

@@ -6,6 +6,7 @@ import {
   MENSAGEM_BLOQUEIO,
   MODULOS_OPCIONAIS,
   ROTAS,
+  acessoRestrito,
   modulosDoAcesso,
   paginaLiberada,
   parseModulos,
@@ -189,4 +190,14 @@ test("o mapa só tem padrão de /api sem barra no fim e método em maiúsculas",
 
 test("a mensagem de bloqueio é a do contrato", () => {
   assert.equal(MENSAGEM_BLOQUEIO, "Área não liberada para o seu acesso.");
+});
+
+test("acessoRestrito: só papel livre e a ausência de acesso ficam de fora", () => {
+  for (const role of ["owner", "admin", "operator"] as const) {
+    assert.equal(acessoRestrito({ role, modules: [] }), false, role);
+  }
+  assert.equal(acessoRestrito(SO_VENDAS), true);
+  assert.equal(acessoRestrito({ role: "viewer" as TenantRole, modules: [] }), true);
+  assert.equal(acessoRestrito({ role: "" as TenantRole, modules: [] }), true);
+  assert.equal(acessoRestrito(null), false);
 });
