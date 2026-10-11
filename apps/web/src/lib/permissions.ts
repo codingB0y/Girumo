@@ -45,14 +45,14 @@ export function assertPermission(role: TenantRole, action: Action): void {
 }
 
 /** Papéis que entram por convite (POST /api/members). Dono nasce no cadastro, nunca por convite. */
-const INVITABLE_ROLES: readonly TenantRole[] = ["admin", "operator"];
+const INVITABLE_ROLES: readonly TenantRole[] = ["admin", "operator", "seller"];
 
 /**
  * Papel pedido no convite, ou `null` — a rota responde 400 "Função inválida.".
  *
  * Antes, papel desconhecido virava `operator` em silêncio: uma tela mandando
  * "seller" antes do backend aceitá-lo criaria um operador, com MAIS acesso que a
- * vendedora. O PR 6 da série acrescenta "seller" à lista.
+ * vendedora. Desde o PR 6 do acesso da vendedora, "seller" é convidável.
  */
 export function parseInviteRole(raw: unknown): TenantRole | null {
   if (typeof raw !== "string") return null;
