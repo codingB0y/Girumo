@@ -32,7 +32,7 @@ export async function POST(req: Request) {
   const kind = parseMediaKind(body.kind);
 
   try {
-    const prepared = prepareMediaUpload(mime, tenantId, kind);
+    const prepared = await prepareMediaUpload(mime, tenantId, kind);
     return Response.json(prepared, { status: 200 });
   } catch (error) {
     if (error instanceof Response) return error;

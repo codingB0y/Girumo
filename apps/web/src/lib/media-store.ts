@@ -94,27 +94,40 @@ export async function saveMedia(
  * o binário. Existe porque uma Vercel Function tem um limite fixo de 4.5MB de
  * corpo de requisição (infra, não contornável por código): vídeo/áudio reais
  * estouram isso o tempo todo, então o binário nunca pode passar por uma rota
- * desta app; só o path (JSON minúsculo) sai daqui.
+ * desta app; só o path e o token (JSON minúsculo) saem daqui.
  *
  * O tenant continua 100% resolvido no SERVIDOR (mesma auth de sempre) — o
  * client não precisa saber seu próprio tenant pra montar o path, então isto
  * funciona mesmo se o localStorage do painel estiver vazio/desatualizado.
+ *
+ * O token é de upload assinado pela service-role (`createSignedUploadUrl`): o
+ * browser sobe com `uploadToSignedUrl`, que não passa pela RLS de
+ * `storage.objects`. Desde o acesso da vendedora (spec 2026-10-07 §1, "RLS")
+ * `app.has_membership()` exclui `seller`, e a policy de INSERT barraria o upload
+ * dela no módulo postar. Vale só para ESTE caminho, e por duas horas.
  */
-export function prepareMediaUpload(
+export async function prepareMediaUpload(
   mime: string,
   tenantId: string,
   kind: MediaKind = "media",
-): { storagePath: string } {
+): Promise<{ storagePath: string; token: string }> {
   if (!isLpMediaAllowed(kind, mime)) {
     throw Response.json({ error: "Envie uma imagem (PNG, JPEG ou WebP)." }, { status: 415 });
   }
-  return { storagePath: buildMediaStoragePath(tenantId, mime) };
+  const storagePath = buildMediaStoragePath(tenantId, mime);
+  const { data, error } = await getSupabaseAdmin().storage.from(BUCKET).createSignedUploadUrl(storagePath);
+  if (error || !data?.token) {
+    // Nunca o `data`: ele carrega o token.
+    console.error("[media] createSignedUploadUrl falhou", tenantId, error?.message ?? "sem token na resposta");
+    throw Response.json({ error: "Não foi possível preparar o envio." }, { status: 500 });
+  }
+  return { storagePath, token: data.token };
 }
 
 /**
  * Registra a metadata de um arquivo que o PRÓPRIO BROWSER já subiu direto pro
- * Storage (via `getSupabaseBrowserClient()`, autorizado pela RLS de
- * `storage.objects` — ver `prepareMediaUpload`). Reaplica as MESMAS regras do
+ * Storage (via `uploadToSignedUrl`, com o token de `prepareMediaUpload` — sem
+ * passar pela RLS de `storage.objects`). Reaplica as MESMAS regras do
  * upload direto (`saveMedia`): tamanho por kind/tipo, `assertUploadLimit`, e
  * que o path pertence ao tenant do chamador.
  *
