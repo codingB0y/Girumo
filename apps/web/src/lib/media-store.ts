@@ -117,6 +117,8 @@ export async function prepareMediaUpload(
   const storagePath = buildMediaStoragePath(tenantId, mime);
   const { data, error } = await getSupabaseAdmin().storage.from(BUCKET).createSignedUploadUrl(storagePath);
   if (error || !data?.token) {
+    // Nunca o `data`: ele carrega o token.
+    console.error("[media] createSignedUploadUrl falhou", tenantId, error?.message ?? "sem token na resposta");
     throw Response.json({ error: "Não foi possível preparar o envio." }, { status: 500 });
   }
   return { storagePath, token: data.token };
