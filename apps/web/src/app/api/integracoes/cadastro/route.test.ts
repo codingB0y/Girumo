@@ -103,7 +103,9 @@ test("cadastro novo: 201 com o link do app e o cid; grava a loja da CHAVE, nunca
   assert.equal(gravado.utm_campaign, "C1");
   assert.ok(!JSON.stringify(gravado).includes("203.0.113.7"));
   assert.ok(!JSON.stringify(gravado).includes("Cloudflare-Workers"));
-  assert.equal(feitas("PATCH", "/rest/v1/site_integrations").length, 1);
+  const patches = feitas("PATCH", "/rest/v1/site_integrations");
+  assert.equal(patches.length, 1);
+  assert.equal(patches[0].url.searchParams.get("tenant_id"), "eq.loja-a");
 });
 
 test("mesmo event_id: 200 com o cadastro antigo e o link ATUAL da integração", async () => {

@@ -30,6 +30,7 @@ export async function POST(req: Request): Promise<Response> {
     tenantId = ctx.tenantId;
   } catch (e) {
     if (e instanceof Response) return e;
+    console.error(`[integracoes/site/chave] contexto: ${(e as Error).message}`);
     return resposta({ error: "erro" }, 500);
   }
 

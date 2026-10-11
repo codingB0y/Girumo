@@ -114,6 +114,7 @@ test("salvar chave faz upsert por loja com o hash, nunca a chave", async () => {
   assert.equal(corpo.key_last4, "WXYZ");
   assert.equal(corpo.tracked_link_id, "link-1");
   assert.equal(typeof corpo.rotated_at, "string");
+  assert.equal(corpo.last_used_at, null);
 });
 
 test("link por id filtra pela loja", async () => {

@@ -68,6 +68,7 @@ export async function salvarChave(
         key_last4: chave.last4,
         tracked_link_id: chave.trackedLinkId,
         rotated_at: new Date().toISOString(),
+        last_used_at: null, // chave nova nunca foi usada
       },
       { onConflict: "tenant_id" },
     );

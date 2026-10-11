@@ -37,38 +37,46 @@ export async function POST(req: Request): Promise<Response> {
     if (!integracao) return resposta({ error: "nao_autorizado" }, 401);
     const tenantId = integracao.tenantId;
 
-    if (await checkRateLimit(`site-key:${tenantId}`, TETO_POR_CHAVE, JANELA_MS)) {
-      return resposta({ error: "limite" }, 429);
-    }
-
-    const texto = await req.text();
-    if (texto.length > MAX_CORPO) return resposta({ error: "corpo" }, 413);
-    let bruto: unknown;
-    try {
-      bruto = JSON.parse(texto);
-    } catch {
-      return resposta({ error: "corpo" }, 400);
-    }
-    const lido = lerCadastro(bruto);
-    if (!lido.ok) return resposta({ error: lido.erro }, lido.erro === "numero" ? 422 : 400);
-
-    const link = await getTrackedLinkById(tenantId, integracao.trackedLinkId);
-    if (!link) return resposta({ error: "link" }, 409);
-
-    const { id, novo } = await gravarCadastro(tenantId, link.id, lido.cadastro);
-    const dominio = await getCustomDomain(tenantId);
-    const redirect = redirectDoCadastro({
-      dominioAtivo: dominio?.status === "active" ? dominio.hostname : null,
-      slug: link.slug,
-      captureId: id,
-    });
-
-    // "Último cadastro há N min" na tela de integração. Falhar aqui não derruba o cadastro.
-    await marcarUso(tenantId).catch((e: unknown) =>
+    // "Último cadastro há N min" na tela de integração. Roda em paralelo com o resto
+    // (o site só espera 2 s) e falhar aqui não derruba o cadastro. Todo retorno abaixo
+    // passa pelo `finally`, então a promessa nunca fica solta.
+    const uso = marcarUso(tenantId).catch((e: unknown) =>
       console.warn(`[integracoes/cadastro] last_used_at de ${tenantId}: ${(e as Error).message}`),
     );
 
-    return resposta({ redirect, capture_id: id }, novo ? 201 : 200);
+    try {
+      if (await checkRateLimit(`site-key:${tenantId}`, TETO_POR_CHAVE, JANELA_MS)) {
+        return resposta({ error: "limite" }, 429);
+      }
+
+      const texto = await req.text();
+      if (texto.length > MAX_CORPO) return resposta({ error: "corpo" }, 413);
+      let bruto: unknown;
+      try {
+        bruto = JSON.parse(texto);
+      } catch {
+        return resposta({ error: "corpo" }, 400);
+      }
+      const lido = lerCadastro(bruto);
+      if (!lido.ok) return resposta({ error: lido.erro }, lido.erro === "numero" ? 422 : 400);
+
+      const [link, dominio] = await Promise.all([
+        getTrackedLinkById(tenantId, integracao.trackedLinkId),
+        getCustomDomain(tenantId),
+      ]);
+      if (!link) return resposta({ error: "link" }, 409);
+
+      const { id, novo } = await gravarCadastro(tenantId, link.id, lido.cadastro);
+      const redirect = redirectDoCadastro({
+        dominioAtivo: dominio?.status === "active" ? dominio.hostname : null,
+        slug: link.slug,
+        captureId: id,
+      });
+
+      return resposta({ redirect, capture_id: id }, novo ? 201 : 200);
+    } finally {
+      await uso;
+    }
   } catch (e) {
     console.error(`[integracoes/cadastro] falha: ${(e as Error).message}`);
     return resposta({ error: "erro" }, 500);
