@@ -14,6 +14,7 @@ import {
   podeSalvarCampo,
   type CampoDaConta,
 } from "@/lib/painel/conta";
+import { MENSAGEM_DE_SAIDA_QUE_FALHOU, useSair } from "@/lib/painel/use-sair";
 
 /**
  * A porta "Conta" na paleta da Vitrine.
@@ -28,6 +29,7 @@ export function ContaVitrine() {
   const router = useRouter();
   const toast = useToast();
   const { can } = useRole();
+  const saida = useSair();
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -111,13 +113,17 @@ export function ContaVitrine() {
       <div className="border-t border-line-200 pt-5">
         <button
           type="button"
-          onClick={() => {
-            void fetch("/api/auth/logout", { method: "POST" }).then(() => router.push("/login"));
-          }}
+          onClick={() => void saida.sair()}
+          aria-disabled={saida.saindo}
           className="inline-flex min-h-11 items-center rounded-[var(--radius-control)] border border-line-200 px-4 text-15 font-semibold text-volt-950 transition-colors hover:bg-canvas-100"
         >
-          Sair da conta
+          {saida.saindo ? "Saindo…" : "Sair da conta"}
         </button>
+        {saida.falhou && (
+          <p role="alert" className="mt-2 text-13 text-danger-700">
+            {MENSAGEM_DE_SAIDA_QUE_FALHOU}
+          </p>
+        )}
       </div>
 
       {/* Gate de papel: quem não pode apagar não vê o botão. */}
