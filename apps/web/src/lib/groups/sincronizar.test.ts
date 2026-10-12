@@ -280,16 +280,37 @@ test("o Sincronizar do painel continua igual: importa o novo, apaga o de terceir
     },
   });
 
-  assert.deepEqual(r, { ok: true, synced: 3, admin: 3, semBackup: 2, ignorados: 1, removidos: 1 });
-  const [upsert] = feitas("POST", "/rest/v1/groups");
+  // O g2 (truncado, só o "self") não entra no `semBackup`: o 1/1 dele é o
+  // artefato do payload, não a falta de admin reserva. Só o g3 conta.
+  assert.deepEqual(r, { ok: true, synced: 3, admin: 3, semBackup: 1, ignorados: 1, removidos: 1 });
+  const upserts = feitas("POST", "/rest/v1/groups");
+  const linhas = upserts.flatMap((u) => u.corpo as Array<Record<string, unknown>>);
   assert.deepEqual(
-    (upsert.corpo as Array<Record<string, unknown>>).map((l) => [l.whatsapp_group_id, l.members, l.is_admin]),
+    linhas
+      .map((l) => [l.whatsapp_group_id, l.members, l.is_admin, l.name])
+      .sort((a, b) => String(a[0]).localeCompare(String(b[0]))),
     [
-      ["g1@g.us", 980, true],
-      ["g2@g.us", 500, true],
-      ["g3@g.us", 40, true],
+      ["g1@g.us", 980, true, "Moda Kids 1"],
+      ["g2@g.us", 500, true, "Moda Kids 2"],
+      ["g3@g.us", 40, true, "Grupo novo"],
     ],
   );
+  const ADMINS = ["admins_counted_at", "admins_ours", "admins_total"];
+  const linha = (jid: string) => linhas.find((l) => l.whatsapp_group_id === jid) ?? {};
+  // Mutante: gravar o 1/1 do payload truncado — o g2 viraria "sem admin reserva"
+  // (risco do número, e-mail "N grupos dependem só do seu número").
+  for (const coluna of ADMINS) assert.equal(coluna in linha("g2@g.us"), false, coluna);
+  assert.deepEqual([linha("g1@g.us").admins_total, linha("g1@g.us").admins_ours], [2, 1]);
+  assert.deepEqual([linha("g3@g.us").admins_total, linha("g3@g.us").admins_ours], [1, 1]);
+  // Mutante: g2 no mesmo upsert dos outros. O PostgREST grava a união das chaves
+  // do lote (o `columns` que o postgrest-js monta) e linha sem a chave vira NULL,
+  // o que apagaria a última contagem boa em vez de preservá-la.
+  for (const u of upserts) {
+    const temG2 = (u.corpo as Array<Record<string, unknown>>).some((l) => l.whatsapp_group_id === "g2@g.us");
+    const colunas = String(u.url.searchParams.get("columns")).split(",");
+    for (const coluna of ADMINS) assert.equal(colunas.includes(`"${coluna}"`), !temG2, `${coluna} em ${colunas}`);
+    assert.equal(u.url.searchParams.get("on_conflict"), "tenant_id,whatsapp_group_id");
+  }
   const [apagar] = chamadas.filter((c) => c.metodo === "DELETE");
   assert.equal(apagar.url.pathname, "/rest/v1/groups");
   assert.equal(apagar.url.searchParams.get("tenant_id"), `eq.${LOJA}`);
@@ -305,5 +326,8 @@ test("o Sincronizar do painel continua igual: importa o novo, apaga o de terceir
   const corpo = log.corpo as Record<string, unknown>;
   assert.equal(corpo.event, "groups.synced");
   assert.equal(corpo.actor_user_id, "usuario-1");
+  const metadata = corpo.metadata as Record<string, unknown>;
+  assert.equal(metadata.sem_backup, 1);
+  assert.equal(metadata.protegidos, 1);
   assert.deepEqual(comandosDaTrava(), ["set", "del"]);
 });

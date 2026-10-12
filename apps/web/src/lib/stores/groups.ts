@@ -140,30 +140,46 @@ export async function upsertGroupsBatch(tenantId: string, groups: GroupUpsert[])
  * O sync é a fonte da verdade da contagem: só ele vê a lista inteira de
  * participantes. O webhook `group-participants.update` apenas a mantém viva
  * entre um sync e outro, aplicando deltas.
+ *
+ * Linha sem `admins_*` (payload truncado, ver `sincronizar.ts`) mantém a
+ * contagem de admins já gravada. Ela vai num upsert à parte: o upsert em lote
+ * grava a união das chaves do lote (o `columns` que o postgrest-js monta), e a
+ * linha que não tem a chave gravaria NULL nela no ON CONFLICT.
  */
 export async function syncGroupsFromProvider(
   tenantId: string,
-  groups: Array<{
-    whatsapp_group_id: string;
-    name: string;
-    members: number;
-    is_admin: boolean;
-    admins_total: number;
-    admins_ours: number;
-    admins_counted_at: string;
-    community_jid: string | null;
-    community_role: string | null;
-  }>,
+  groups: Array<GrupoDoProvedor | Omit<GrupoDoProvedor, ColunaDeAdmins>>,
 ): Promise<number> {
-  if (groups.length === 0) return 0;
-  const rows = groups.map((g) => ({ ...g, tenant_id: tenantId }));
-  const { data, error } = await getSupabaseAdmin()
-    .from(TABLE)
-    .upsert(rows, { onConflict: "tenant_id,whatsapp_group_id" })
-    .select("id");
-  if (error) throw new Error(error.message);
-  return data?.length ?? 0;
+  const comAdmins = groups.filter((g) => "admins_total" in g);
+  const semAdmins = groups.filter((g) => !("admins_total" in g));
+  let gravados = 0;
+  for (const lote of [comAdmins, semAdmins]) {
+    if (lote.length === 0) continue;
+    const rows = lote.map((g) => ({ ...g, tenant_id: tenantId }));
+    const { data, error } = await getSupabaseAdmin()
+      .from(TABLE)
+      .upsert(rows, { onConflict: "tenant_id,whatsapp_group_id" })
+      .select("id");
+    if (error) throw new Error(error.message);
+    gravados += data?.length ?? 0;
+  }
+  return gravados;
 }
+
+/** O que o sync grava de cada grupo — só o que o WhatsApp é dono. */
+export type GrupoDoProvedor = {
+  whatsapp_group_id: string;
+  name: string;
+  members: number;
+  is_admin: boolean;
+  admins_total: number;
+  admins_ours: number;
+  admins_counted_at: string;
+  community_jid: string | null;
+  community_role: string | null;
+};
+
+type ColunaDeAdmins = "admins_total" | "admins_ours" | "admins_counted_at";
 
 /**
  * Grava só grupos que ainda não existem — porta do webhook `groups.upsert`.
@@ -174,7 +190,7 @@ export async function syncGroupsFromProvider(
  */
 export async function insertNewGroups(
   tenantId: string,
-  groups: ReadonlyArray<Parameters<typeof syncGroupsFromProvider>[1][number]>,
+  groups: ReadonlyArray<GrupoDoProvedor>,
 ): Promise<number> {
   if (groups.length === 0) return 0;
   const rows = groups.map((g) => ({ ...g, tenant_id: tenantId }));
