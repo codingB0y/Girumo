@@ -288,6 +288,10 @@ test.describe("vendedora: só o que o dono liberou", () => {
     // Sem `postar`, nem o upload pelo cookie (findMembershipTenantId com guard, PR 3).
     const preparo = await page.request.post("/api/media/prepare", { data: { mime: "image/png", kind: "media" } });
     expect(preparo.status()).toBe(403);
+    // Funil de anúncios (spec 2026-10-10 §7): rota nova, fora do mapa da vendedora.
+    const anuncios = await page.request.get("/api/resultados/anuncios");
+    expect(anuncios.status()).toBe(403);
+    expect(await anuncios.text()).toBe(MENSAGEM_BLOQUEIO);
   });
 
   test("página fora do acesso mostra o bloqueio e volta para Vendas", async () => {
