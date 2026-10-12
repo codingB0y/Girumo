@@ -11,7 +11,8 @@ export type Action =
   | "settings:connection"
   | "settings:account"
   | "account:delete"
-  | "message:send";
+  | "message:send"
+  | "ads:manage";
 
 /**
  * O que cada papel faz DENTRO de uma rota. Quais rotas a vendedora (`seller`)
@@ -32,6 +33,8 @@ const PERMISSIONS: Record<Action, TenantRole[]> = {
   "account:delete": ["owner"],
   // POST /api/campanhas/[slug]/messages: postar na campanha sem poder editá-la.
   "message:send": ["owner", "admin", "operator", "seller"],
+  // Gasto de anúncio é dado de caixa (spec 2026-10-10-funil-anuncios §3): lançar e ler.
+  "ads:manage": ["owner", "admin"],
 };
 
 export function hasPermission(role: TenantRole, action: Action): boolean {
