@@ -44,7 +44,7 @@ export function chaveDoTelefone(raw: string | null | undefined): string | null {
  */
 export function telefoneMascarado(raw: string | null | undefined): string {
   const d = numeroNacional(raw);
-  if (d.length === 11) return `(${d.slice(0, 2)}) ${d[2]}••••-${d.slice(-4)}`;
+  if (d.length === 11) return `(${d.slice(0, 2)}) ${d[2] === "9" ? "9" : "•"}••••-${d.slice(-4)}`;
   if (d.length === 10) return `(${d.slice(0, 2)}) ••••-${d.slice(-4)}`;
   return "•••";
 }

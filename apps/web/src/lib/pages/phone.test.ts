@@ -50,6 +50,8 @@ test("máscara: DDD, o 9 da frente e os 4 últimos; fixo sem o 9", () => {
   assert.equal(telefoneMascarado("(62) 99999-4821"), "(62) 9••••-4821");
   assert.equal(telefoneMascarado("556299994821"), "(62) ••••-4821");
   assert.equal(telefoneMascarado("55987654321"), "(55) 9••••-4321");
+  // Onze dígitos cujo terceiro não é 9 não é celular: o dígito não pode vazar.
+  assert.equal(telefoneMascarado("62799994821"), "(62) •••••-4821");
 });
 
 test("máscara: o que não é telefone BR não mostra dígito nenhum", () => {
