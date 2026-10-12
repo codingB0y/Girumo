@@ -16,6 +16,7 @@ const ACOES: Record<Action, true> = {
   "settings:account": true,
   "account:delete": true,
   "message:send": true,
+  "ads:manage": true,
 };
 
 test("a vendedora só tem message:send na matriz", () => {
@@ -46,4 +47,11 @@ test("convite recusa owner, vazio e lixo — nada vira operator calado", () => {
   for (const lixo of ["owner", "", "gerente", null, undefined, 1, ["admin"]]) {
     assert.equal(parseInviteRole(lixo), null, JSON.stringify(lixo) ?? "undefined");
   }
+});
+
+test("ads:manage (gasto de anúncio) só para dono e administração", () => {
+  assert.equal(hasPermission("owner", "ads:manage"), true);
+  assert.equal(hasPermission("admin", "ads:manage"), true);
+  assert.equal(hasPermission("operator", "ads:manage"), false);
+  assert.equal(hasPermission("seller", "ads:manage"), false);
 });
