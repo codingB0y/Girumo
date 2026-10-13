@@ -19,9 +19,9 @@ import {
 import { useConfirmacao } from "@/components/painel/confirmacao";
 import { useRole } from "@/components/painel/role-provider";
 import type { ModuloOpcional } from "@/lib/auth/modulos";
-import { montarConvite, type FuncaoDoConvite } from "@/lib/painel/configuracoes";
+import { montarConvite, type FuncaoDoConvite, type Porta } from "@/lib/painel/configuracoes";
 
-type Section = "Conexão" | "Equipe" | "Notificações" | "Plano" | "Conta";
+type Section = Porta;
 /**
  * Chave curta usada no `?secao=` da URL. O rodapé do e-mail semanal promete
  * "Desative em Configurações" — sem isso o link cai na página e a pessoa
@@ -29,6 +29,7 @@ type Section = "Conexão" | "Equipe" | "Notificações" | "Plano" | "Conta";
  */
 const SECAO_POR_SLUG: Record<string, Section> = {
   conexao: "Conexão",
+  integracoes: "Integrações",
   equipe: "Equipe",
   notificacoes: "Notificações",
   plano: "Plano",

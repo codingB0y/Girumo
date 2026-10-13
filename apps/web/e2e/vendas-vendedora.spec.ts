@@ -294,6 +294,24 @@ test.describe("vendedora: só o que o dono liberou", () => {
     expect(await anuncios.text()).toBe(MENSAGEM_BLOQUEIO);
   });
 
+  test("as rotas da integração do site respondem 403 para ela", async () => {
+    // Mapa de módulos fechado por padrão (lib/auth/modulos.ts): rota nova que
+    // ninguém pôs no mapa já nasce fora do acesso dela.
+    const leitura = await page.request.get("/api/integracoes/site");
+    expect(leitura.status(), "GET /api/integracoes/site").toBe(403);
+    expect(await leitura.text()).toBe(MENSAGEM_BLOQUEIO);
+    // O corpo é válido (uuid zerado) para o 403 vir do guard e não de uma validação.
+    const chave = await page.request.post("/api/integracoes/site/chave", {
+      data: { tracked_link_id: "00000000-0000-0000-0000-000000000000" },
+    });
+    expect(chave.status(), "POST /api/integracoes/site/chave").toBe(403);
+    expect(await chave.text()).toBe(MENSAGEM_BLOQUEIO);
+    // Só o status no /teste: um 403 de outra camada (CSRF, papel) também prova que ela não passa,
+    // como no `/api/media/prepare` do teste vizinho.
+    const teste = await page.request.post("/api/integracoes/site/teste");
+    expect(teste.status(), "POST /api/integracoes/site/teste").toBe(403);
+  });
+
   test("página fora do acesso mostra o bloqueio e volta para Vendas", async () => {
     await page.goto("/painel/contatos");
     await expect(page.getByRole("heading", { name: "Essa área não foi liberada pra você" })).toBeVisible();
