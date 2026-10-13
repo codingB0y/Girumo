@@ -2,6 +2,11 @@ import "server-only";
 
 import type { Periodo } from "@/lib/resultados/periodo-anuncios";
 import { lerRelatorioAnuncios, type RelatorioAnuncios } from "@/lib/resultados/relatorio-anuncios";
+import {
+  lerPessoasDoAnuncio,
+  type ChaveDoAnuncio,
+  type PessoasDoAnuncio,
+} from "@/lib/resultados/pessoas-do-anuncio";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 /**
@@ -41,4 +46,28 @@ export async function temCadastroComOrigem(tenantId: string): Promise<boolean> {
   if (site.error) throw new Error(site.error.message);
   if (pagina.error) throw new Error(pagina.error.message);
   return (site.data?.length ?? 0) > 0 || (pagina.data?.length ?? 0) > 0;
+}
+
+/**
+ * Quem veio por um anúncio no período (`public.attribution_people`, só
+ * `service_role`): a mesma regra de `relatorioDeAnuncios`, com as pessoas no
+ * lugar das contagens. O tenant vai explícito pelo mesmo motivo — é ele que
+ * isola as lojas. O telefone sai inteiro daqui: quem responde ao navegador
+ * mascara (`paraAGaveta`).
+ */
+export async function pessoasDoAnuncio(
+  tenantId: string,
+  periodo: Periodo,
+  chave: ChaveDoAnuncio,
+): Promise<PessoasDoAnuncio> {
+  const { data, error } = await getSupabaseAdmin().rpc("attribution_people", {
+    p_tenant: tenantId,
+    p_de: periodo.de,
+    p_ate: periodo.ate,
+    p_campanha: chave.campanha,
+    p_conjunto: chave.conjunto,
+    p_anuncio: chave.anuncio,
+  });
+  if (error) throw error.code === "22023" ? new PeriodoRecusado(error.message) : new Error(error.message);
+  return lerPessoasDoAnuncio(data);
 }

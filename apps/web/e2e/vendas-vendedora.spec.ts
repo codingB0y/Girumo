@@ -292,6 +292,10 @@ test.describe("vendedora: só o que o dono liberou", () => {
     const anuncios = await page.request.get("/api/resultados/anuncios");
     expect(anuncios.status()).toBe(403);
     expect(await anuncios.text()).toBe(MENSAGEM_BLOQUEIO);
+    // Gaveta "Ver quem" (spec 2026-10-10 §7): nomes e telefones de compradores, fora do mapa dela.
+    const pessoas = await page.request.get("/api/resultados/anuncios/pessoas");
+    expect(pessoas.status()).toBe(403);
+    expect(await pessoas.text()).toBe(MENSAGEM_BLOQUEIO);
   });
 
   test("as rotas da integração do site respondem 403 para ela", async () => {

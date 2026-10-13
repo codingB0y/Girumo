@@ -500,3 +500,8 @@ apps/web/supabase/migrations/20261010130000_funil_anuncios_tabelas.sql
 # 2026-10-10 - Funil de anuncios, parte 2: attribution_report (so service_role).
 # Depende da parte 1. Muda a baseline (f|attribution_report).
 apps/web/supabase/migrations/20261010130100_funil_anuncios_relatorio.sql
+# 2026-10-11 - Funil de anuncios, parte 3: attribution_people (quem veio por um anuncio; so
+# service_role). Depende da parte 2. Muda a baseline (f|attribution_people). Copia os CTEs de
+# attribution_report (o teste "espelho da regra" compara o texto): mudar a regra num exige
+# mudar no outro.
+apps/web/supabase/migrations/20261011120000_funil_anuncios_pessoas.sql

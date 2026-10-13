@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { lerPessoasDoAnuncio, type PessoasDoAnuncio } from "./pessoas-do-anuncio";
 import { lerRelatorioAnuncios, type LinhaRelatorio, type RelatorioAnuncios } from "./relatorio-anuncios";
 
 /**
@@ -29,6 +32,10 @@ const LOTE = 1500;
 
 let loja = "";
 let lojaGrande = "";
+let maria = "";
+let bia = "";
+let carla = "";
+let dora = "";
 
 function pular(): boolean {
   if (EM_PRODUCAO) {
@@ -52,6 +59,53 @@ async function relatorio(tenant: string, de: string, ate: string): Promise<Relat
   const { data, error } = await getSupabaseAdmin().rpc("attribution_report", { p_tenant: tenant, p_de: de, p_ate: ate });
   if (error) throw new Error(error.message);
   return lerRelatorioAnuncios(data);
+}
+
+async function pessoas(
+  tenant: string,
+  de: string,
+  ate: string,
+  campanha: string | null,
+  conjunto: string | null,
+  anuncio: string | null,
+): Promise<PessoasDoAnuncio> {
+  const { data, error } = await getSupabaseAdmin().rpc("attribution_people", {
+    p_tenant: tenant,
+    p_de: de,
+    p_ate: ate,
+    p_campanha: campanha,
+    p_conjunto: conjunto,
+    p_anuncio: anuncio,
+  });
+  if (error) throw new Error(error.message);
+  return lerPessoasDoAnuncio(data);
+}
+
+/**
+ * A regra copiada em attribution_people, lida da migração: de `v_ini :=` (limites da coorte) ao
+ * fim de `pedido_credito`, sem comentário e com o espaço normalizado. As duas
+ * colunas a mais de `pedidos` na gaveta são descontadas; nada mais pode diferir.
+ */
+const MIGRACOES = path.join(process.cwd(), "supabase", "migrations");
+const FIM_DA_REGRA = "order by p.id, c.created_at desc, c.id desc";
+
+function regraDe(arquivo: string): { regra: string; constantes: string[] } {
+  const sql = readFileSync(path.join(MIGRACOES, arquivo), "utf8").replace(/--[^\n]*/g, "");
+  const inicio = sql.indexOf("v_ini :=");
+  const fim = sql.indexOf(FIM_DA_REGRA, inicio);
+  assert.ok(inicio >= 0 && fim > inicio, `${arquivo}: não achei o bloco da regra`);
+  const regra = sql
+    .slice(inicio, fim + FIM_DA_REGRA.length)
+    .replace(" o.lead_id,", "")
+    .replace("coalesce(nullif(btrim(o.phone), ''), l.phone) as telefone,", "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const constantes = ["janela_entrada", "janela_venda", "fuso"].map((nome) => {
+    const achada = sql.match(new RegExp(`${nome} constant [^;]+;`));
+    assert.ok(achada, `${arquivo}: constante ${nome} sumiu`);
+    return achada[0].replace(/\s+/g, " ");
+  });
+  return { regra, constantes };
 }
 
 function linha(r: RelatorioAnuncios, nivel: LinhaRelatorio["nivel"], campanha: string | null, conjunto: string | null = null, anuncio: string | null = null): LinhaRelatorio {
@@ -99,13 +153,16 @@ before(async () => {
   // insert(...).select("id") devolve na ordem do envio: m1 é o primeiro.
   await inserir("link_click_events", [{ tenant_id: loja, tracked_link_id: link.id, capture_id: m1.id }]);
 
-  const [l1] = await inserir("leads", [
-    { tenant_id: loja, phone: "556299911111", entered_at: "2026-01-05T10:05:00-03:00" },
+  const [l1, l2] = await inserir("leads", [
+    // Nome e grupo só na Maria: a gaveta (attribution_people) devolve os dois.
+    { tenant_id: loja, phone: "556299911111", entered_at: "2026-01-05T10:05:00-03:00", name: "Maria Kids", source_group_name: "VIP 1" },
     { tenant_id: loja, phone: "5562988882222", entered_at: "2026-01-13T12:00:00-03:00" },
     { tenant_id: loja, phone: "5562977773333", entered_at: "2026-01-14T12:01:00-03:00" },
     { tenant_id: loja, phone: "5511966664444", entered_at: "2026-01-08T12:30:00-03:00" },
     { tenant_id: loja, phone: null, entered_at: "2026-01-10T12:00:00-03:00" },
   ]);
+  maria = l1.id;
+  bia = l2.id;
 
   await inserir("orders", [
     { tenant_id: loja, phone: "556299911111", lead_id: l1.id, value: 600, created_at: "2026-01-14T15:00:00-03:00" },
@@ -131,6 +188,25 @@ before(async () => {
   }
   await inserir("site_captures", capturas);
   await inserir("leads", entradas);
+
+  // Carla (loja grande, março, longe dos outros casos): entra pelo Y1 e compra pelo Y2.
+  // "Entraram e ainda não compraram" do Y1 é lista de remarketing: ela não pode estar lá.
+  await inserir("site_captures", [
+    cadastro(lojaGrande, "y1", "+5562966667777", "2026-03-02T10:00:00-03:00", { origem: "ig", campanha: "CY", conjunto: "S1", anuncio: "Y1" }),
+    cadastro(lojaGrande, "y2", "+5562966667777", "2026-03-05T10:00:00-03:00", { origem: "fb", campanha: "CY", conjunto: "S1", anuncio: "Y2" }),
+    cadastro(lojaGrande, "y3", "+5562955554444", "2026-03-10T10:00:00-03:00", { origem: "ig", campanha: "CY", conjunto: "S1", anuncio: "Y3" }),
+  ]);
+  const [lCarla, lDora] = await inserir("leads", [
+    { tenant_id: lojaGrande, phone: "5562966667777", entered_at: "2026-03-02T10:05:00-03:00" },
+    { tenant_id: lojaGrande, phone: "5562955554444", entered_at: "2026-03-10T10:05:00-03:00" },
+  ]);
+  carla = lCarla.id;
+  dora = lDora.id;
+  await inserir("orders", [
+    { tenant_id: lojaGrande, phone: "5562966667777", value: 200, created_at: "2026-03-06T10:00:00-03:00" },
+    // Dora (Y3): pedido ligado a ela por lead_id, mas com OUTRO telefone: não é remarketing.
+    { tenant_id: lojaGrande, phone: "5561988887777", lead_id: lDora.id, value: 90, created_at: "2026-03-12T10:00:00-03:00" },
+  ]);
 });
 
 after(async () => {
@@ -202,4 +278,87 @@ test("período inválido vira erro com mensagem", { skip: pular() }, async () =>
   assert.match(error?.message ?? "", /periodo invalido/);
   const longo = await getSupabaseAdmin().rpc("attribution_report", { p_tenant: loja, p_de: "2025-01-01", p_ate: "2026-04-30" });
   assert.match(longo.error?.message ?? "", /periodo invalido/);
+});
+
+test("espelho da regra (sem banco): attribution_people copia attribution_report sem desvio", () => {
+  const relatorio = regraDe("20261010130100_funil_anuncios_relatorio.sql");
+  const gaveta = regraDe("20261011120000_funil_anuncios_pessoas.sql");
+  assert.deepEqual(gaveta.constantes, relatorio.constantes);
+  assert.equal(gaveta.regra, relatorio.regra);
+});
+
+test("pessoas do A1: Maria comprou com nome e grupo; Bia entrou e não comprou", { skip: pular() }, async () => {
+  const p = await pessoas(loja, "2026-01-01", "2026-04-30", "C1", "S1", "A1");
+  assert.equal(p.compradores.length, 1);
+  const [m] = p.compradores;
+  assert.deepEqual(
+    { lead_id: m.lead_id, nome: m.nome, grupo: m.grupo, telefone: m.telefone, pedidos: m.pedidos, vendido: m.vendido },
+    { lead_id: maria, nome: "Maria Kids", grupo: "VIP 1", telefone: "556299911111", pedidos: 1, vendido: 600 },
+  );
+  assert.equal(Date.parse(m.cadastro_em), Date.parse("2026-01-05T10:00:00-03:00"));
+  assert.equal(Date.parse(m.primeira_compra), Date.parse("2026-01-14T15:00:00-03:00"));
+  assert.deepEqual(p.sem_compra, [bia]);
+  assert.deepEqual(p.por_origem, [{ origem: "ig", cadastros: 2, vendido: 600 }]);
+});
+
+test("pessoas do A2: pedido sem telefone casa pelo telefone do lead; quem já era membro não entra em 'sem compra'", { skip: pular() }, async () => {
+  const p = await pessoas(loja, "2026-01-01", "2026-04-30", "C1", "S1", "A2");
+  assert.deepEqual(p.compradores.map((c) => [c.lead_id, c.telefone, c.vendido]), [[maria, "556299911111", 400]]);
+  assert.deepEqual(p.sem_compra, []);
+  assert.deepEqual(p.por_origem, [{ origem: "fb", cadastros: 1, vendido: 400 }]);
+});
+
+test("entrou pelo Y1 e comprou pelo Y2: fora de 'sem compra' do Y1, compradora do Y2", { skip: pular() }, async () => {
+  const y1 = await pessoas(lojaGrande, "2026-03-01", "2026-03-31", "CY", "S1", "Y1");
+  assert.deepEqual([y1.compradores.length, y1.sem_compra], [0, []]);
+  const y2 = await pessoas(lojaGrande, "2026-03-01", "2026-03-31", "CY", "S1", "Y2");
+  assert.deepEqual(y2.compradores.map((c) => [c.lead_id, c.vendido]), [[carla, 200]]);
+});
+
+test("pedido ligado ao contato por lead_id com outro telefone: a Dora não está em 'sem compra' do Y3", { skip: pular() }, async () => {
+  assert.ok(dora);
+  const y3 = await pessoas(lojaGrande, "2026-03-01", "2026-03-31", "CY", "S1", "Y3");
+  assert.equal(y3.por_origem.reduce((s, o) => s + o.cadastros, 0), 1, "o cadastro da Dora tem que contar");
+  assert.deepEqual(y3.sem_compra, []);
+});
+
+test("a gaveta bate com a tabela: compradores, vendido, cadastros e 'sem compra' de cada anúncio", { skip: pular() }, async () => {
+  for (const [tenant, de, ate] of [
+    [loja, "2026-01-01", "2026-04-30"],
+    [lojaGrande, "2026-03-01", "2026-03-31"],
+  ] as const) {
+    const r = await relatorio(tenant, de, ate);
+    const anuncios = r.linhas.filter((l) => l.nivel === "anuncio");
+    assert.ok(anuncios.length >= 2, `só ${anuncios.length} anúncios no relatório`);
+    for (const a of anuncios) {
+      const p = await pessoas(tenant, de, ate, a.campanha, a.conjunto, a.anuncio);
+      const nome = `${a.campanha}/${a.conjunto}/${a.anuncio}`;
+      assert.equal(p.compradores.length, a.compradores, nome);
+      assert.equal(p.compradores.reduce((s, c) => s + c.vendido, 0), a.vendido, nome);
+      assert.equal(p.por_origem.reduce((s, o) => s + o.cadastros, 0), a.cadastros, nome);
+      assert.ok(p.sem_compra.length <= a.entraram, `${nome}: sem_compra ${p.sem_compra.length} > entraram ${a.entraram}`);
+    }
+  }
+});
+
+test("loja grande: 1.500 entraram sem comprar, sem cortar em 1000; nada de outra loja; período inválido", { skip: pular() }, async () => {
+  const grande = await pessoas(lojaGrande, "2026-02-01", "2026-02-28", "CX", null, null);
+  assert.equal(grande.sem_compra.length, LOTE);
+  assert.deepEqual(grande.compradores, []);
+
+  // A intrusa tem o telefone da Maria, mas os pedidos da Maria são da outra loja.
+  const intrusa = await pessoas(lojaGrande, "2026-01-01", "2026-01-31", "C1", null, null);
+  assert.deepEqual([intrusa.compradores.length, intrusa.sem_compra.length], [0, 0]);
+  // O cadastro casou (conta em por_origem); só os pedidos da outra loja ficaram de fora.
+  assert.equal(intrusa.por_origem.reduce((s, o) => s + o.cadastros, 0), 1);
+
+  const { error } = await getSupabaseAdmin().rpc("attribution_people", {
+    p_tenant: loja,
+    p_de: "2026-02-01",
+    p_ate: "2026-01-01",
+    p_campanha: null,
+    p_conjunto: null,
+    p_anuncio: null,
+  });
+  assert.match(error?.message ?? "", /periodo invalido/);
 });
