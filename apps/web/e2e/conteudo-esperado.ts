@@ -298,6 +298,13 @@ export const CONTEUDO_ESPERADO: Record<string, ConteudoEsperado> = {
     semLista:
       "Agrega leads/pedidos/cliques em numeros; a lista dela depende de campanha, que /painel/campanhas ja confere.",
   },
+  "/painel/resultados/anuncios": {
+    // Só existe com a resposta da rota na tela: o funil (loja com cadastro) ou a tela
+    // Vazio (loja de QA, sem cadastro). Nenhum dos dois aparece no esqueleto nem no erro.
+    ancora: /Do anúncio à venda|Ainda não chegou nenhum cadastro com origem/,
+    semLista:
+      "Agrega cadastros, entradas e pedidos em funil; quem confere o número contra o banco é o teste de integração de attribution_report.",
+  },
 
   "/painel/vendas": {
     // O <h1> e da pagina, nao do shell; o botao "Registrar venda · R$ ..." fica escondido ate
