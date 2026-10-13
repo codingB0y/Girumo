@@ -110,6 +110,15 @@ test("cadastro do site próprio é público com teto, só no POST e só no path 
   assert.equal(classifyRequest("/api/integracoes/site/chave", "POST"), "user");
 });
 
+test("retorno do OAuth do Bling entra sem sessão e com teto por IP, só no GET e só no path exato", () => {
+  assert.equal(classifyRequest("/api/integracoes/bling/retorno", "GET"), "public-rate-limited");
+  assert.equal(classifyRequest("/api/integracoes/bling/retorno", "POST"), "user");
+  assert.equal(classifyRequest("/api/integracoes/bling/retorno/outra", "GET"), "user");
+  // O resto da família é chamada do painel, com Bearer: continua no gate de sessão.
+  assert.equal(classifyRequest("/api/integracoes/bling/conectar", "POST"), "user");
+  assert.equal(classifyRequest("/api/integracoes/bling", "DELETE"), "user");
+});
+
 test("outros métodos no beacon de saída ficam no gate de sessão", () => {
   // Path exato + método exato. GET aqui não tem uso legítimo, e deixar o
   // prefixo largo é como DELETE /api/auth/account nasceu fail-open.
