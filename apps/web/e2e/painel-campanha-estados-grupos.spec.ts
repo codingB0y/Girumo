@@ -283,11 +283,14 @@ test("Reabrir fica travado com o motivo, o menu é acessível e as ações manda
   await expect(reabrir(CHEIO)).toHaveCount(0);
   await expect(gatilho(CHEIO)).toBeFocused();
 
-  // Review Focus 5: um menu por vez; clique fora fecha.
-  await gatilho(CHEIO).click();
+  // Review Focus 5: um menu por vez; clique fora fecha. A ordem importa: o painel do ⋯ abre PARA
+  // BAIXO na mesma coluna de todas as linhas, então o painel da linha de cima cobriria o ⋯ da
+  // de baixo e o clique ficaria preso em "intercepts pointer events". Abre a de baixo (COM_VAGA,
+  // posição 2) e depois a de cima (CHEIO, posição 1): o painel de baixo não cobre o ⋯ de cima.
   await gatilho(COM_VAGA).click();
+  await gatilho(CHEIO).click();
   await expect(lista.locator('button[aria-expanded="true"]')).toHaveCount(1);
-  await expect(gatilho(COM_VAGA)).toHaveAttribute("aria-expanded", "true");
+  await expect(gatilho(CHEIO)).toHaveAttribute("aria-expanded", "true");
   await page.getByRole("region", { name: "Resumo dos grupos" }).click();
   await expect(lista.locator('button[aria-expanded="true"]')).toHaveCount(0);
 
