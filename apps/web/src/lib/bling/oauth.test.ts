@@ -17,7 +17,7 @@ const CRED = { clientId: "id-do-app", clientSecret: "segredo-do-app" };
 const BASIC = `Basic ${Buffer.from("id-do-app:segredo-do-app").toString("base64")}`;
 const AGORA = Date.UTC(2026, 9, 13, 12, 0, 0);
 
-type Chamada = { url: string; metodo: string; headers: Record<string, string>; corpo: string; signal: unknown };
+type Chamada = { url: string; metodo: string; headers: Record<string, string>; corpo: string; signal: unknown; redirect: unknown };
 
 function fetchFalso(respostas: Array<Response | Error>) {
   const chamadas: Chamada[] = [];
@@ -28,6 +28,7 @@ function fetchFalso(respostas: Array<Response | Error>) {
       headers: Object.fromEntries(new Headers(init?.headers).entries()),
       corpo: String(init?.body ?? ""),
       signal: init?.signal,
+      redirect: init?.redirect,
     });
     const r = respostas.shift();
     if (r === undefined) throw new Error("fetch falso: acabaram as respostas");
@@ -62,7 +63,7 @@ test("urlDeAutorizacao: response_type=code, client_id e state, nada mais", () =>
   );
 });
 
-test("trocarCodigo: POST form com Basic, Accept 1.0 e enable-jwt; credencial nunca no corpo", async () => {
+test("trocarCodigo: POST form com Basic, Accept 1.0 e enable-jwt, sem seguir redirecionamento; credencial nunca no corpo", async () => {
   const { fetchImpl, chamadas } = fetchFalso([json(200, TOKENS_OK)]);
   const tokens = await trocarCodigo("CODE-1", CRED, { fetchImpl, agora: () => AGORA });
   assert.equal(chamadas.length, 1);
@@ -76,7 +77,16 @@ test("trocarCodigo: POST form com Basic, Accept 1.0 e enable-jwt; credencial nun
   assert.deepEqual(Object.fromEntries(new URLSearchParams(c.corpo)), { grant_type: "authorization_code", code: "CODE-1" });
   assert.ok(!c.corpo.includes("id-do-app") && !c.corpo.includes("segredo-do-app"));
   assert.ok(c.signal instanceof AbortSignal);
+  assert.equal(c.redirect, "error");
   assert.deepEqual(tokens, { accessToken: "jwt.de.acesso", refreshToken: "refresh-novo", expiraEm: new Date(AGORA + 21600 * 1000) });
+});
+
+test("validade de até 30 dias passa; o token é ASCII visível (JWT com . - _ = +/)", async () => {
+  const jwt = "eyJhbGci.eyJzdWIi-_0=.c2ln+/x";
+  const { fetchImpl } = fetchFalso([json(200, { ...TOKENS_OK, access_token: jwt, expires_in: 2_592_000 })]);
+  const tokens = await trocarCodigo("c", CRED, { fetchImpl, agora: () => AGORA });
+  assert.equal(tokens.accessToken, jwt);
+  assert.equal(tokens.expiraEm.getTime(), AGORA + 2_592_000 * 1000);
 });
 
 test("renovarToken: grant refresh_token com o refresh atual", async () => {
@@ -96,6 +106,18 @@ test("resposta 2xx sem access_token, refresh_token ou expires_in válido → out
     { ...TOKENS_OK, expires_in: undefined },
     { ...TOKENS_OK, expires_in: 0 },
     { ...TOKENS_OK, expires_in: "muito" },
+    // Validade: inteiro positivo de até 30 dias.
+    { ...TOKENS_OK, expires_in: 3600.5 },
+    { ...TOKENS_OK, expires_in: "3600.5" },
+    { ...TOKENS_OK, expires_in: -60 },
+    { ...TOKENS_OK, expires_in: 2_592_001 },
+    { ...TOKENS_OK, expires_in: true },
+    // Token vai em header: espaço, CR/LF ou fora do ASCII visível não passa.
+    { ...TOKENS_OK, access_token: "jwt com espaço" },
+    { ...TOKENS_OK, access_token: "jwt\r\nX-Injetado: 1" },
+    { ...TOKENS_OK, access_token: "jwt\t" },
+    { ...TOKENS_OK, refresh_token: "refresh\n" },
+    { ...TOKENS_OK, refresh_token: "refresh-é" },
     null,
   ];
   for (const corpo of quebradas) {
@@ -106,7 +128,7 @@ test("resposta 2xx sem access_token, refresh_token ou expires_in válido → out
   await assert.rejects(trocarCodigo("c", CRED, { fetchImpl }), (e: unknown) => e instanceof ErroOAuthBling && e.tipo === "outro");
 });
 
-test("classificação: 429, 5xx, rede, timeout, invalid_client, 400/401/403 e o resto", async () => {
+test("classificação: 429, 5xx, rede, timeout, invalid_client, concessão morta pelo código e o resto", async () => {
   const casos: Array<[Response | Error, TipoErroOAuth, number | null]> = [
     [json(429, { error: { type: "TOO_MANY_REQUESTS", message: "Limite de requisições atingido.", limit: 3, period: "second" } }), "limite", 429],
     [json(500, { error: "server_error" }), "transitorio", 500],
@@ -116,10 +138,20 @@ test("classificação: 429, 5xx, rede, timeout, invalid_client, 400/401/403 e o 
     [new DOMException("This operation was aborted", "AbortError"), "transitorio", null],
     [json(401, { error: "invalid_client", error_description: "Client authentication failed" }), "cliente_invalido", 401],
     [json(400, { error: { type: "invalid_client", message: "x" } }), "cliente_invalido", 400],
+    // Concessão morta só pelo código (sem caixa): invalid_grant, invalid_token, unauthorized_error.
     [json(400, { error: "invalid_grant", error_description: "Authorization code expired" }), "concessao_invalida", 400],
     [json(403, { error: { type: "UNAUTHORIZED_ERROR", message: "Empresa inativa" } }), "concessao_invalida", 403],
     [json(401, { error: "invalid_token" }), "concessao_invalida", 401],
-    [new Response("<html>401</html>", { status: 401 }), "concessao_invalida", 401],
+    [json(401, { error: "INVALID_GRANT" }), "concessao_invalida", 401],
+    [json(400, { error: { type: "invalid_token", message: "x" } }), "concessao_invalida", 400],
+    [json(403, { error: "unauthorized_error" }), "concessao_invalida", 403],
+    // 400/401/403 sem um desses códigos (proxy, WAF, pedido malformado) não mata a concessão.
+    [new Response("<html>401</html>", { status: 401 }), "outro", 401],
+    [new Response("<html>403 Forbidden</html>", { status: 403 }), "outro", 403],
+    [json(400, { error: "invalid_request" }), "outro", 400],
+    [json(400, { error: "unsupported_grant_type" }), "outro", 400],
+    [json(403, { error: { type: "FORBIDDEN", message: "x" } }), "outro", 403],
+    [json(401, {}), "outro", 401],
     [json(404, { error: { type: "RESOURCE_NOT_FOUND" } }), "outro", 404],
     [json(409, {}), "outro", 409],
   ];
@@ -131,6 +163,26 @@ test("classificação: 429, 5xx, rede, timeout, invalid_client, 400/401/403 e o 
       `${tipo} ${status}`,
     );
   }
+});
+
+test("corpo acima do teto (5 MB): a leitura para e vira transitorio", async () => {
+  let lidos = 0;
+  const megas = new ReadableStream<Uint8Array>({
+    pull(controle) {
+      if (lidos === 20) {
+        controle.close();
+        return;
+      }
+      lidos += 1;
+      controle.enqueue(new Uint8Array(1024 * 1024).fill(0x20));
+    },
+  });
+  const { fetchImpl } = fetchFalso([new Response(megas, { status: 200 })]);
+  await assert.rejects(
+    renovarToken("r", CRED, { fetchImpl }),
+    (e: unknown) => e instanceof ErroOAuthBling && e.tipo === "transitorio" && e.status === null,
+  );
+  assert.ok(lidos < 10, `leu ${lidos} MB`);
 });
 
 test("a mensagem do erro leva o código do Bling e nunca o token, o code ou o segredo", async () => {

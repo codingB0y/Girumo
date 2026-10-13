@@ -122,9 +122,10 @@ test("classificar: base Cancelado nunca vira venda, mesmo se a lista de venda es
 // Meio-dia em São Paulo (UTC−3, sem horário de verão) = 15:00 UTC.
 const meioDiaSP = (dia: string) => new Date(`${dia}T15:00:00.000Z`);
 
-test("hora do pedido: data nula ou malformada → agora", () => {
+test("hora do pedido: data nula, malformada ou antes de 2000 → agora", () => {
   const agora = new Date("2026-10-13T20:00:00.000Z");
-  for (const dia of [null, "", "13/10/2026", "2026-1-5", "2026-10-13T10:00:00", " 2026-10-12", "0000-00-00", "2026-13-01", "2026-02-30", "2026-02-29"]) {
+  const tortas = [null, "", "13/10/2026", "2026-1-5", "2026-10-13T10:00:00", " 2026-10-12", "0000-00-00", "2026-13-01", "2026-02-30", "2026-02-29"];
+  for (const dia of [...tortas, "0001-01-01", "1970-01-01", "1999-12-31"]) {
     assert.equal(horaDoPedido(dia, agora).getTime(), agora.getTime(), `dia ${String(dia)}`);
   }
 });
@@ -150,6 +151,7 @@ test("hora do pedido: dia passado → 12:00 de São Paulo daquele dia", () => {
   const agora = new Date("2026-10-13T20:00:00.000Z");
   assert.equal(horaDoPedido("2026-09-25", agora).toISOString(), "2026-09-25T15:00:00.000Z");
   assert.equal(horaDoPedido("2024-02-29", agora).toISOString(), "2024-02-29T15:00:00.000Z");
+  assert.equal(horaDoPedido("2000-01-01", agora).toISOString(), "2000-01-01T15:00:00.000Z");
 });
 
 test("hora do pedido: dia futuro nunca sai no futuro", () => {

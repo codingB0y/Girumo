@@ -26,6 +26,19 @@ test("o HMAC é sobre os bytes UTF-8 do corpo (acento e emoji)", () => {
   assert.equal(assinaturaBlingConfere(corpo, `sha256=${esperado}`, SEGREDO), true);
 });
 
+test("corpo em bytes: o HMAC é sobre os bytes crus, com BOM ou byte UTF-8 inválido", () => {
+  const json = new TextEncoder().encode('{"event":"order.created","data":{"id":1}}');
+  const comBom = Uint8Array.from([0xef, 0xbb, 0xbf, ...json]);
+  const comByteInvalido = Uint8Array.from([...json.subarray(0, 10), 0xff, ...json.subarray(10)]);
+  for (const bytes of [comBom, comByteInvalido, Buffer.from(comBom)]) {
+    const cabecalho = `sha256=${createHmac("sha256", SEGREDO).update(bytes).digest("hex")}`;
+    assert.equal(assinaturaBlingConfere(bytes, cabecalho, SEGREDO), true);
+    // Decodificar antes de conferir perde esses bytes (o BOM some, 0xFF vira U+FFFD): não bate mais.
+    assert.equal(assinaturaBlingConfere(new TextDecoder().decode(bytes), cabecalho, SEGREDO), false);
+    assert.equal(assinaturaBlingConfere(Uint8Array.from([...bytes, 0x20]), cabecalho, SEGREDO), false);
+  }
+});
+
 test("corpo alterado ou segredo errado: não confere", () => {
   assert.equal(assinaturaBlingConfere(`${CORPO} `, BOA, SEGREDO), false);
   assert.equal(assinaturaBlingConfere(CORPO, BOA, "outro-segredo"), false);

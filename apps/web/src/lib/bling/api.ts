@@ -27,6 +27,10 @@ export type FiltroPedidos = {
 
 /** O padrão do próprio Bling; maior que isso ele recusa. */
 const LIMITE_PADRAO = 100;
+/** Pedido de antes de 2000 é data torta ("0001-01-01", a época Unix): vira sem data. */
+const ANO_MINIMO_PEDIDO = 2000;
+/** O mesmo piso de `dados-do-cliente`: antes de 1900 não é nascimento de cliente. */
+const ANO_MINIMO_NASCIMENTO = 1900;
 
 /** Texto ou número; qualquer outra coisa vira null em vez de derrubar o objeto. */
 const escalar = z.union([z.string(), z.number()]).nullish().catch(null);
@@ -85,8 +89,11 @@ export async function listarSituacoesDeVenda(c: ClienteBling): Promise<SituacaoB
   return situacoes.length > 0 ? situacoes : null;
 }
 
-/** GET /pedidos/vendas. Item sem id, situação ou total sai da lista; o resto da página segue. */
-export async function listarPedidos(c: ClienteBling, f: FiltroPedidos): Promise<PedidoResumo[]> {
+/**
+ * GET /pedidos/vendas. Item sem id, situação ou total sai da lista; o resto da página segue.
+ * `brutos` = itens que a página trouxe antes do descarte: só `brutos === 0` prova que as páginas acabaram.
+ */
+export async function listarPedidos(c: ClienteBling, f: FiltroPedidos): Promise<{ pedidos: PedidoResumo[]; brutos: number }> {
   const caminho = "/pedidos/vendas";
   const resposta = await c.get(caminho, {
     pagina: f.pagina,
@@ -102,30 +109,32 @@ export async function listarPedidos(c: ClienteBling, f: FiltroPedidos): Promise<
     // Só a contagem: o item pode ter nome e documento da cliente.
     console.warn(`[bling/api] ${itens.length - pedidos.length} pedido(s) da página ${f.pagina} sem id, situação ou total válido`);
   }
-  return pedidos;
+  return { pedidos, brutos: itens.length };
 }
 
-/** GET /pedidos/vendas/{id}. 404 → null (apagado no Bling). Pedido sem id, situação ou total → invalido. */
+/**
+ * GET /pedidos/vendas/{id}. 404 → null (apagado no Bling). Sem situação ou total, ou com o id
+ * de outro pedido no corpo → invalido. O id devolvido é sempre o pedido.
+ */
 export async function obterPedido(c: ClienteBling, id: number): Promise<PedidoResumo | null> {
   const caminho = `/pedidos/vendas/${id}`;
   const achado = await buscarOuNada(c, caminho);
   if (!achado) return null;
-  const pedido = pedidoDe(dataDaResposta(achado.resposta, caminho));
+  const pedido = pedidoDe(dataDaResposta(achado.resposta, caminho), id);
   if (!pedido) throw invalido(caminho);
   return pedido;
 }
 
-/** GET /contatos/{id}. 404 → null (contato apagado: o pedido segue sem dados da cliente). */
+/** GET /contatos/{id}. 404 → null (contato apagado: o pedido segue sem dados da cliente). Id de outro contato → invalido. */
 export async function obterContato(c: ClienteBling, id: number): Promise<ContatoBling | null> {
   const caminho = `/contatos/${id}`;
   const achado = await buscarOuNada(c, caminho);
   if (!achado) return null;
   const cru = contatoCru.safeParse(dataDaResposta(achado.resposta, caminho));
-  if (!cru.success) throw invalido(caminho);
+  if (!cru.success || !idConfere(cru.data.id, id)) throw invalido(caminho);
   const { endereco, dadosAdicionais, pais } = cru.data;
   return {
-    // O id é o que pedimos; o do corpo só confirma.
-    id: idPositivo(cru.data.id) ?? id,
+    id,
     nome: texto(cru.data.nome),
     tipo: umDe(texto(cru.data.tipo)?.toUpperCase(), ["F", "J", "E"] as const),
     celular: texto(cru.data.celular),
@@ -136,7 +145,7 @@ export async function obterContato(c: ClienteBling, id: number): Promise<Contato
     uf: texto(endereco?.geral?.uf),
     cep: texto(endereco?.geral?.cep),
     pais: texto(pais?.nome),
-    dataNascimento: dia(dadosAdicionais?.dataNascimento),
+    dataNascimento: dia(dadosAdicionais?.dataNascimento, ANO_MINIMO_NASCIMENTO),
     sexo: umDe(texto(dadosAdicionais?.sexo)?.toUpperCase(), ["M", "F"] as const),
   };
 }
@@ -177,14 +186,23 @@ function invalido(caminho: string): ErroBling {
   return new ErroBling("invalido", null, `Bling: resposta inesperada de ${caminho}`);
 }
 
-function pedidoDe(item: unknown): PedidoResumo | null {
+/** Na lista o id vem do item; no detalhe é o `pedido` feito, e o do corpo (se veio) tem de bater. */
+function pedidoDe(item: unknown, pedido?: number): PedidoResumo | null {
   const cru = pedidoCru.safeParse(item);
   if (!cru.success) return null;
-  const id = idPositivo(cru.data.id);
+  if (pedido !== undefined && !idConfere(cru.data.id, pedido)) return null;
+  const id = pedido ?? idPositivo(cru.data.id);
   const situacaoId = idPositivo(cru.data.situacao?.id);
   const total = valor(cru.data.total);
   if (id === null || situacaoId === null || total === null) return null;
-  return { id, numero: texto(cru.data.numero), data: dia(cru.data.data), total, contatoId: idPositivo(cru.data.contato?.id), situacaoId };
+  const data = dia(cru.data.data, ANO_MINIMO_PEDIDO);
+  return { id, numero: texto(cru.data.numero), data, total, contatoId: idPositivo(cru.data.contato?.id), situacaoId };
+}
+
+/** Corpo com o id de OUTRO recurso é resposta trocada: gravar seria dar o estado de um ao outro. Sem id, confia no pedido. */
+function idConfere(doCorpo: Escalar, pedido: number): boolean {
+  const id = idPositivo(doCorpo);
+  return id === null || id === pedido;
 }
 
 type Modulo = { id: number; nome: string };
@@ -240,10 +258,10 @@ function valor(v: Escalar): number | null {
   return /^-?\d+(?:\.\d+)?$/.test(t) ? Number(t) : null;
 }
 
-/** "YYYY-MM-DD" que existe no calendário ("0000-00-00" e "2026-02-30" não); hora no fim é ignorada. */
-function dia(v: Escalar): string | null {
+/** "YYYY-MM-DD" que existe no calendário ("0000-00-00" e "2026-02-30" não), de `anoMinimo` em diante; hora no fim é ignorada. */
+function dia(v: Escalar, anoMinimo: number): string | null {
   const m = typeof v === "string" ? /^(\d{4})-(\d{2})-(\d{2})(?:[ T]|$)/.exec(v.trim()) : null;
-  if (!m) return null;
+  if (!m || Number(m[1]) < anoMinimo) return null;
   const [, ano, mes, d] = m;
   const iso = `${ano}-${mes}-${d}`;
   return new Date(Date.UTC(Number(ano), Number(mes) - 1, Number(d))).toISOString().slice(0, 10) === iso ? iso : null;

@@ -68,6 +68,8 @@ export function classificarPedido(
 // São Paulo não tem horário de verão desde 2019: UTC−3 fixo, o mesmo do "-03:00" abaixo.
 const FUSO_SAO_PAULO_MS = 3 * 60 * 60 * 1000;
 const DIA = /^\d{4}-\d{2}-\d{2}$/;
+/** Antes disso é data torta ("0001-01-01", a época Unix), não dia de pedido: vale como sem data. */
+const PRIMEIRO_DIA = "2000-01-01";
 
 function diaEmSaoPaulo(instante: Date): string {
   return new Date(instante.getTime() - FUSO_SAO_PAULO_MS).toISOString().slice(0, 10);
@@ -75,7 +77,7 @@ function diaEmSaoPaulo(instante: Date): string {
 
 /** 12:00 de São Paulo do dia, ou null se não for uma data real (o Date do JS aceita 30/02 e vira março). */
 function meioDiaEmSaoPaulo(dia: string): Date | null {
-  if (!DIA.test(dia)) return null;
+  if (!DIA.test(dia) || dia < PRIMEIRO_DIA) return null;
   const meioDia = new Date(`${dia}T12:00:00-03:00`);
   if (Number.isNaN(meioDia.getTime())) return null;
   return diaEmSaoPaulo(meioDia) === dia ? meioDia : null;
@@ -83,7 +85,7 @@ function meioDiaEmSaoPaulo(dia: string): Date | null {
 
 /**
  * A venda fica datada pelo dia do pedido, como no Bling: pedido antigo editado hoje não vira venda de hoje.
- * Hoje em São Paulo (ou data nula/inválida) → agora; outro dia → 12:00 de São Paulo dele; nunca no futuro.
+ * Hoje em São Paulo (ou data nula/inválida/antes de 2000) → agora; outro dia → 12:00 de São Paulo dele; nunca no futuro.
  */
 export function horaDoPedido(dataPedido: string | null, agora: Date): Date {
   const copiaDeAgora = new Date(agora.getTime());

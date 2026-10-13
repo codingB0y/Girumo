@@ -52,31 +52,52 @@ const ehInvalido = (e: unknown) => e instanceof ErroBling && e.tipo === "invalid
 
 test("listarPedidos: /pedidos/vendas com página, limite 100 e só os filtros dados", async () => {
   const { cliente, chamadas } = clienteFalso([{ data: [PEDIDO] }, { data: [] }]);
-  assert.deepEqual(await listarPedidos(cliente, { pagina: 1, dataAlteracaoInicial: "2026-10-13 06:00:00", dataAlteracaoFinal: "2026-10-13 10:00:00" }), [RESUMO]);
+  assert.deepEqual(
+    await listarPedidos(cliente, { pagina: 1, dataAlteracaoInicial: "2026-10-13 06:00:00", dataAlteracaoFinal: "2026-10-13 10:00:00" }),
+    { pedidos: [RESUMO], brutos: 1 },
+  );
   assert.deepEqual(chamadas[0], {
     caminho: "/pedidos/vendas",
     query: { pagina: 1, limite: 100, dataAlteracaoInicial: "2026-10-13 06:00:00", dataAlteracaoFinal: "2026-10-13 10:00:00" },
   });
-  assert.deepEqual(await listarPedidos(cliente, { pagina: 3, limite: 50, dataInicial: "2026-07-15", dataFinal: "2026-10-13" }), []);
+  assert.deepEqual(await listarPedidos(cliente, { pagina: 3, limite: 50, dataInicial: "2026-07-15", dataFinal: "2026-10-13" }), { pedidos: [], brutos: 0 });
   assert.deepEqual(chamadas[1].query, { pagina: 3, limite: 50, dataInicial: "2026-07-15", dataFinal: "2026-10-13" });
 });
 
-test("listarPedidos normaliza: número vira texto, data zerada e vazio viram null, total em texto vira número, contato 0 vira null", async () => {
+test("listarPedidos normaliza: número vira texto, data zerada, vazia ou antes de 2000 vira null, total em texto vira número, contato 0 vira null", async () => {
   const itens = [
     { ...PEDIDO, id: 1, numero: "", data: "0000-00-00", total: "99.90", contato: { id: 0 } },
     { ...PEDIDO, id: 2, numero: " 77 ", data: "", contato: undefined },
     { ...PEDIDO, id: 3, data: "2026-02-30", numero: { estranho: true } },
     { ...PEDIDO, id: "4", data: "2026-10-13 15:42:10", total: 0 },
     { ...PEDIDO, id: 5, total: -10, campoNovo: { qualquer: 1 } },
+    { ...PEDIDO, id: 6, data: "1999-12-31" },
+    { ...PEDIDO, id: 7, data: "0001-01-01" },
+    { ...PEDIDO, id: 8, data: "1970-01-01" },
+    { ...PEDIDO, id: 9, data: "2000-01-01" },
   ];
   const { cliente } = clienteFalso([{ data: itens }]);
-  assert.deepEqual(await listarPedidos(cliente, { pagina: 1 }), [
-    { id: 1, numero: null, data: null, total: 99.9, contatoId: null, situacaoId: 9 },
-    { id: 2, numero: "77", data: null, total: 150.5, contatoId: null, situacaoId: 9 },
-    { id: 3, numero: null, data: null, total: 150.5, contatoId: 987, situacaoId: 9 },
-    { id: 4, numero: "123", data: "2026-10-13", total: 0, contatoId: 987, situacaoId: 9 },
-    { id: 5, numero: "123", data: "2026-10-13", total: -10, contatoId: 987, situacaoId: 9 },
-  ]);
+  const resumo = { numero: "123", total: 150.5, contatoId: 987, situacaoId: 9 };
+  assert.deepEqual(await listarPedidos(cliente, { pagina: 1 }), {
+    pedidos: [
+      { id: 1, numero: null, data: null, total: 99.9, contatoId: null, situacaoId: 9 },
+      { id: 2, numero: "77", data: null, total: 150.5, contatoId: null, situacaoId: 9 },
+      { id: 3, numero: null, data: null, total: 150.5, contatoId: 987, situacaoId: 9 },
+      { id: 4, numero: "123", data: "2026-10-13", total: 0, contatoId: 987, situacaoId: 9 },
+      { id: 5, numero: "123", data: "2026-10-13", total: -10, contatoId: 987, situacaoId: 9 },
+      { ...resumo, id: 6, data: null },
+      { ...resumo, id: 7, data: null },
+      { ...resumo, id: 8, data: null },
+      { ...resumo, id: 9, data: "2000-01-01" },
+    ],
+    brutos: 9,
+  });
+});
+
+test("listarPedidos: página só com itens tortos tem brutos > 0 (não é o fim da paginação)", async (t) => {
+  t.mock.method(console, "warn", () => undefined);
+  const { cliente } = clienteFalso([{ data: [null, { ...PEDIDO, id: 0 }, "x"] }]);
+  assert.deepEqual(await listarPedidos(cliente, { pagina: 4 }), { pedidos: [], brutos: 3 });
 });
 
 test("listarPedidos descarta item sem id positivo, sem situação ou com total que não é número — e só ele", async (t) => {
@@ -102,7 +123,7 @@ test("listarPedidos descarta item sem id positivo, sem situação ou com total q
     PEDIDO,
   ];
   const { cliente } = clienteFalso([{ data: itens }]);
-  assert.deepEqual(await listarPedidos(cliente, { pagina: 1 }), [RESUMO]);
+  assert.deepEqual(await listarPedidos(cliente, { pagina: 1 }), { pedidos: [RESUMO], brutos: 17 });
   // O descarte não passa calado, mas o log leva só a contagem (o item tem nome e documento).
   assert.deepEqual(avisos, ["[bling/api] 16 pedido(s) da página 1 sem id, situação ou total válido"]);
 });
@@ -128,6 +149,16 @@ test("obterPedido com total que não é número, sem situação ou fora do envel
     const { cliente } = clienteFalso([ruim]);
     await assert.rejects(obterPedido(cliente, 12345678), ehInvalido, JSON.stringify(ruim));
   }
+});
+
+test("obterPedido: id do corpo diferente do pedido → invalido; sem id no corpo, vale o pedido", async () => {
+  for (const outro of [999, "999"]) {
+    const { cliente } = clienteFalso([{ data: { ...PEDIDO, id: outro } }]);
+    await assert.rejects(obterPedido(cliente, 12345678), ehInvalido, String(outro));
+  }
+  const { cliente } = clienteFalso([{ data: { ...PEDIDO, id: undefined } }, { data: { ...PEDIDO, id: "12345678" } }]);
+  assert.deepEqual(await obterPedido(cliente, 12345678), RESUMO);
+  assert.deepEqual(await obterPedido(cliente, 12345678), RESUMO);
 });
 
 const CONTATO = {
@@ -195,6 +226,23 @@ test("obterContato tolera campo faltando ou estranho: vira null, o resto fica", 
   assert.equal(terceiro?.tipo, null);
   assert.equal(terceiro?.dataNascimento, null);
   assert.equal(terceiro?.sexo, "M");
+});
+
+test("obterContato: id do corpo diferente do pedido → invalido; o id devolvido é sempre o pedido", async () => {
+  const { cliente } = clienteFalso([{ data: { ...CONTATO, id: 555 } }, { data: { ...CONTATO, id: "987" } }]);
+  await assert.rejects(obterContato(cliente, 987), ehInvalido);
+  assert.deepEqual(await obterContato(cliente, 987), CONTATO_NORMALIZADO);
+});
+
+test("nascimento do contato: de 1900 em diante (o piso de 2000 é só da data do pedido)", async () => {
+  const nascimento = async (dataNascimento: string) => {
+    const { cliente } = clienteFalso([{ data: { ...CONTATO, dadosAdicionais: { dataNascimento, sexo: "F" } } }]);
+    return (await obterContato(cliente, 987))?.dataNascimento;
+  };
+  assert.equal(await nascimento("1900-01-01"), "1900-01-01");
+  assert.equal(await nascimento("1975-03-09"), "1975-03-09");
+  assert.equal(await nascimento("1899-12-31"), null);
+  assert.equal(await nascimento("0100-01-01"), null);
 });
 
 test("obterContato: 404 → null; fora do envelope → invalido", async () => {

@@ -8,14 +8,19 @@ export const LIMITE_CORPO_AVISO = 64 * 1024;
 const PREFIXO = "sha256=";
 const HEX_64 = /^[0-9a-f]{64}$/;
 
-/** "sha256=<hex>" = HMAC-SHA256 do corpo cru com o client secret. Tempo constante. */
-export function assinaturaBlingConfere(corpoCru: string, cabecalho: string | null, segredo: string): boolean {
+/**
+ * "sha256=<hex>" = HMAC-SHA256 do corpo cru com o client secret. Tempo constante.
+ * A rota passa os BYTES (`arrayBuffer()`) e só decodifica depois de conferir: decodificar antes
+ * tira o BOM e troca byte UTF-8 inválido por U+FFFD, e a assinatura de um corpo legítimo não bate.
+ */
+export function assinaturaBlingConfere(corpo: Uint8Array | string, cabecalho: string | null, segredo: string): boolean {
   if (!cabecalho || !segredo) return false;
   const valor = cabecalho.trim().toLowerCase();
   if (!valor.startsWith(PREFIXO)) return false;
   const hex = valor.slice(PREFIXO.length);
   if (!HEX_64.test(hex)) return false;
-  const esperada = createHmac("sha256", segredo).update(corpoCru, "utf8").digest();
+  const hmac = createHmac("sha256", segredo);
+  const esperada = (typeof corpo === "string" ? hmac.update(corpo, "utf8") : hmac.update(corpo)).digest();
   const dada = Buffer.from(hex, "hex");
   return dada.length === esperada.length && timingSafeEqual(dada, esperada);
 }

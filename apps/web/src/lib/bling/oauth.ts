@@ -2,6 +2,8 @@ import "server-only";
 
 import { z } from "zod";
 
+import { lerTextoComTeto, TETO_RESPOSTA_BYTES } from "./cliente";
+
 /**
  * OAuth do Bling (API v3): URL de autorização, troca do code, renovação e revogação.
  *
@@ -16,6 +18,10 @@ export const BLING_TOKEN_URL = "https://api.bling.com.br/Api/v3/oauth/token";
 export const BLING_REVOKE_URL = "https://api.bling.com.br/Api/v3/oauth/revoke";
 
 const TIMEOUT_MS = 15_000;
+/** O Bling dá 6 h; acima de 30 dias não é resposta dele (e o `expiraEm` sairia absurdo). */
+const VALIDADE_MAXIMA_S = 30 * 24 * 60 * 60;
+/** Só esses códigos provam que a concessão morreu (renovar não resolve, só reconectar). Sem caixa. */
+const CONCESSAO_MORTA = new Set(["invalid_grant", "invalid_token", "unauthorized_error"]);
 
 export type CredenciaisBling = { clientId: string; clientSecret: string };
 
@@ -49,10 +55,16 @@ export class ErroOAuthBling extends Error {
 
 type Opcoes = { fetchImpl?: typeof fetch; agora?: () => number; timeoutMs?: number };
 
+/** Os tokens vão em header (Bearer) e em formulário: só ASCII visível, sem espaço, CR ou LF. */
+const tokenSeguro = z.string().regex(/^[\x21-\x7E]+$/);
+
 const respostaDeToken = z.object({
-  access_token: z.string().min(1),
-  refresh_token: z.string().min(1),
-  expires_in: z.coerce.number().positive(),
+  access_token: tokenSeguro,
+  refresh_token: tokenSeguro,
+  // Número ou texto de dígitos (tolerado); fração, zero ou além de 30 dias → "outro".
+  expires_in: z
+    .union([z.number(), z.string().regex(/^\d+$/).transform(Number)])
+    .pipe(z.number().int().positive().max(VALIDADE_MAXIMA_S)),
 });
 
 /** Os dois formatos de erro do Bling: `{"error":"invalid_grant"}` e `{"error":{"type":"…"}}`. */
@@ -83,7 +95,7 @@ async function pedirToken(campos: Record<string, string>, cred: CredenciaisBling
   // Conta a validade do INÍCIO do pedido: o token nasceu depois, então a estimativa erra para menos.
   const inicio = (opcoes.agora ?? Date.now)();
   const r = await postar(BLING_TOKEN_URL, campos, cred, opcoes);
-  if (!r) throw new ErroOAuthBling("transitorio", null, "Bling OAuth: sem resposta (rede ou tempo esgotado)");
+  if (!r) throw new ErroOAuthBling("transitorio", null, "Bling OAuth: sem resposta inteira (rede, tempo esgotado ou corpo grande demais)");
   if (r.status < 200 || r.status >= 300) throw new ErroOAuthBling(tipoDoErro(r), r.status, `Bling OAuth recusou: ${descricao(r)}`);
   const tokens = respostaDeToken.safeParse(r.json);
   if (!tokens.success) {
@@ -98,7 +110,10 @@ async function pedirToken(campos: Record<string, string>, cred: CredenciaisBling
 
 type Resposta = { status: number; json: unknown };
 
-/** POST form-urlencoded com Basic. null = não chegou resposta inteira (rede, timeout, corpo cortado). */
+/**
+ * POST form-urlencoded com Basic. null = não chegou resposta inteira (rede, timeout,
+ * redirecionamento, corpo cortado ou acima do teto).
+ */
 async function postar(url: string, campos: Record<string, string>, cred: CredenciaisBling, opcoes: Opcoes): Promise<Resposta | null> {
   const fetchImpl = opcoes.fetchImpl ?? fetch;
   try {
@@ -111,9 +126,12 @@ async function postar(url: string, campos: Record<string, string>, cred: Credenc
         "enable-jwt": "1",
       },
       body: new URLSearchParams(campos).toString(),
+      // Num 307/308 o fetch reenviaria o corpo (com o code ou o refresh token) para outro endereço.
+      redirect: "error",
       signal: AbortSignal.timeout(opcoes.timeoutMs ?? TIMEOUT_MS),
     });
-    return { status: res.status, json: lerJson(await res.text()) };
+    const texto = await lerTextoComTeto(res, TETO_RESPOSTA_BYTES);
+    return texto === null ? null : { status: res.status, json: lerJson(texto) };
   } catch {
     return null;
   }
@@ -130,9 +148,10 @@ function lerJson(texto: string): unknown {
 function tipoDoErro(r: Resposta): TipoErroOAuth {
   if (r.status === 429) return "limite";
   if (r.status >= 500) return "transitorio";
-  if (codigoDoErro(r)?.toLowerCase() === "invalid_client") return "cliente_invalido";
-  // invalid_grant, invalid_token, UNAUTHORIZED_ERROR ("Empresa inativa")…: a concessão não vale mais.
-  if (r.status === 400 || r.status === 401 || r.status === 403) return "concessao_invalida";
+  const codigo = codigoDoErro(r)?.toLowerCase();
+  if (codigo === "invalid_client") return "cliente_invalido";
+  // Pelo código, não pelo status: 400/401/403 de proxy, WAF ou pedido malformado não pode desligar a loja.
+  if (codigo && CONCESSAO_MORTA.has(codigo)) return "concessao_invalida";
   return "outro";
 }
 
