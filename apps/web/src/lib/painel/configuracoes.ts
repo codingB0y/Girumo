@@ -16,7 +16,7 @@ import { iniciais } from "@/lib/painel/inicio";
  * texto é o que mora aqui; a tela só desenha.
  */
 
-export type Porta = "Conexão" | "Equipe" | "Notificações" | "Plano" | "Conta";
+export type Porta = "Conexão" | "Integrações" | "Equipe" | "Notificações" | "Plano" | "Conta";
 
 const PAPEIS: Record<string, string> = {
   owner: "Dono",
@@ -126,6 +126,9 @@ export type LeituraDasPortas = {
 export function resumoDasPortas(leitura: LeituraDasPortas): Record<Porta, string | null> {
   return {
     "Conexão": leitura.conexao.ok ? (leitura.conexao.live ? "conectado" : "desconectado") : null,
+    // A integração do site carrega a própria leitura dentro da seção (só dono
+    // e administração podem lê-la): a porta não escreve o que não sabe.
+    "Integrações": null,
     Equipe: resumoDaEquipe(leitura.equipe),
     "Notificações": resumoDosAvisos(leitura.avisos),
     Plano: resumoDoPlano(leitura.plano),
