@@ -37,7 +37,7 @@ export type ManualGrantTrail = {
  * número) viraria spread silencioso e apagaria o `stripe_status` que
  * `subscriptionAccess` lê — por isso a fronteira é validada, não presumida.
  */
-function metadataBase(current: unknown): Record<string, unknown> {
+export function metadataBase(current: unknown): Record<string, unknown> {
   if (!current || typeof current !== "object" || Array.isArray(current)) return {};
   return { ...(current as Record<string, unknown>) };
 }
