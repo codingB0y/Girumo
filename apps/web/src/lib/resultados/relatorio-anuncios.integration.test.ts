@@ -205,7 +205,7 @@ before(async () => {
   await inserir("orders", [
     { tenant_id: lojaGrande, phone: "5562966667777", value: 200, created_at: "2026-03-06T10:00:00-03:00" },
     // Dora (Y3): pedido ligado a ela por lead_id, mas com OUTRO telefone: não é remarketing.
-    { tenant_id: lojaGrande, phone: "5562900000001", lead_id: lDora.id, value: 90, created_at: "2026-03-12T10:00:00-03:00" },
+    { tenant_id: lojaGrande, phone: "5561988887777", lead_id: lDora.id, value: 90, created_at: "2026-03-12T10:00:00-03:00" },
   ]);
 });
 
