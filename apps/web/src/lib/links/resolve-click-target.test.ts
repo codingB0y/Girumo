@@ -7,7 +7,6 @@ import {
   readPixelId,
   resolveClickTarget,
   toResolvableGroup,
-  withSequentialEstado,
   type ResolvableGroup,
 } from "./resolve-click-target";
 
@@ -296,28 +295,6 @@ assert.deepEqual(
   assert.deepEqual(
     resolveClickTarget({ link: masterCg, campaign: { group_ids: ["g2@g.us"] }, groups: [toResolvableGroup(e)] }),
     { kind: "redirect", url: "https://chat.whatsapp.com/DDD", groupId: "g2@g.us", groupName: "Moda Kids 2", pixelId: undefined },
-  );
-}
-
-// Aproximação da aba Link e cliques (sem estado do banco até o PR 4): marca o mesmo
-// grupo que a sequência antiga escolheria, e o resolvedor o devolve.
-{
-  const semEstado = [
-    group({ whatsapp_group_id: "a@g.us", members: 1000 }),
-    group({ whatsapp_group_id: "b@g.us", invite_url: null }),
-    group({ whatsapp_group_id: "c@g.us", members: 10 }),
-  ];
-  const marcados = withSequentialEstado(["a@g.us", "b@g.us", "c@g.us"], semEstado);
-  assert.deepEqual(
-    marcados.map((g) => g.estado),
-    [undefined, undefined, "enchendo"],
-  );
-  const alvo = resolveClickTarget({ link: masterCg, campaign: { group_ids: ["a@g.us", "b@g.us", "c@g.us"] }, groups: marcados });
-  assert.equal(alvo.kind === "redirect" ? alvo.groupId : alvo.reason, "c@g.us");
-  // Nada disponível: ninguém é marcado e o diagnóstico continua valendo.
-  assert.deepEqual(
-    withSequentialEstado(["a@g.us"], semEstado).map((g) => g.estado),
-    [undefined, undefined, undefined],
   );
 }
 

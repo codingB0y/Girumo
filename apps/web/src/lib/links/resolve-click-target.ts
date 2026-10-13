@@ -86,7 +86,8 @@ export function isGroupAvailable(g: ResolvableGroup): boolean {
  * `groupIds` guarda `whatsapp_group_id` (ex.: `1203...@g.us`), não o uuid da tabela.
  *
  * Fora do caminho do `/r/` desde o PR 2 do "postar por grupo" — lá o alvo é o
- * `enchendo` que o banco calcula. Sobra só para `withSequentialEstado`.
+ * `enchendo` que o banco calcula. Sem uso em produção desde o PR 4 (a aba Link e
+ * cliques lê o `enchendo` de /grupos/estados); fica coberta pelos testes da regra antiga.
  */
 export function nextAvailableGroup(
   groupIds: readonly string[],
@@ -111,23 +112,6 @@ export function toResolvableGroup(e: EstadoGrupo): ResolvableGroup {
     is_admin: e.isAdmin,
     estado: e.estado,
   };
-}
-
-/**
- * Aproximação do estado para quem ainda não lê o banco: marca como `enchendo` o
- * primeiro grupo disponível pela regra antiga (95%, convite, admin), sem a marca
- * de lotado nem a prioridade do reaberto.
- *
- * ponytail: só a aba "Link e cliques" usa, até o PR 4 trocá-la pelo
- * `GET /api/campanhas/[slug]/grupos/estados`. Pode divergir do `/r/` quando um
- * grupo lotado volta para baixo de 95% — o link real pula, a aba não.
- */
-export function withSequentialEstado(
-  groupIds: readonly string[],
-  groups: readonly ResolvableGroup[],
-): ResolvableGroup[] {
-  const enchendo = nextAvailableGroup(groupIds, groups);
-  return groups.map((g): ResolvableGroup => (g === enchendo ? { ...g, estado: "enchendo" } : g));
 }
 
 /** Teto de cliques humanos gravado em `metadata.clickCap` pela criação do link. */

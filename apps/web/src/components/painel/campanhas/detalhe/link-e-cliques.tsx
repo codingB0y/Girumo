@@ -1,17 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CopyLink } from "@/components/painel/copy-link";
 import { QrLink } from "@/components/painel/campanhas/qr-link";
 import type { EntradaSettings } from "@/lib/campaigns/settings";
 import { dayBR, horaBR } from "@/lib/date-br";
-import { resolveClickTarget, withSequentialEstado, type ResolvableGroup } from "@/lib/links/resolve-click-target";
+import type { EstadoGrupo } from "@/lib/groups/estado";
+import type { EstadosDaCampanha } from "@/lib/groups/resumo-estados";
 import type { Group } from "@/lib/mock-data";
 import { barrasDaAtividade, nomeDoMes, somaDa, type Periodo } from "@/lib/painel/atividade";
 import { medindoDesde } from "@/lib/painel/atividade-texto";
+import { destinoDoLink } from "@/lib/painel/destino-do-link";
 import { lotacao, numero } from "@/lib/painel/grupos";
-import { paradoDoLink } from "@/lib/painel/link-parado";
 import { cn } from "@/lib/utils";
 import { useAtividade } from "./analise";
 import { GraficoDeBarras } from "./grafico-barras";
@@ -41,29 +42,31 @@ export function LinkECliques({ slug, nome, linkMestre, groupIds, grupos, entrada
   const [periodo, setPeriodo] = useState<Periodo>("hoje");
   const { atividade, erro, tentarDeNovo } = useAtividade(slug, agora.getTime());
 
-  const destino = useMemo(() => {
-    const resolviveis: ResolvableGroup[] = grupos.map((g) => ({
-      whatsapp_group_id: g.whatsappGroupId,
-      name: g.name,
-      members: g.members,
-      capacity: g.capacity,
-      invite_url: g.inviteUrl ?? null,
-      is_admin: g.isAdmin,
-    }));
-    const alvo = resolveClickTarget({
-      link: { campaign_group_id: "campanha", target_url: "", clicks: 0, metadata: {} },
-      campaign: { group_ids: groupIds },
-      // Esta aba ainda não recebe o estado do banco: aproxima o "enchendo" pela
-      // sequência antiga (ver withSequentialEstado). O PR 4 troca por /grupos/estados.
-      groups: withSequentialEstado(groupIds, resolviveis),
-      entrada,
-      now: agora,
-    });
-    if (alvo.kind === "blocked") {
-      return { grupo: null, parado: alvo.reason === "cap-reached" ? null : paradoDoLink(alvo.reason, groupIds, grupos.length, entrada.lotado) };
-    }
-    return { grupo: grupos.find((g) => g.whatsappGroupId === alvo.groupId) ?? null, parado: null };
-  }, [grupos, groupIds, entrada, agora]);
+  // O "enchendo" vem do banco, pela mesma rota da aba Grupos: uma fonte só do estado.
+  // null = lendo; "erro" = a leitura falhou, e a aba não chuta destino.
+  const [estados, setEstados] = useState<EstadoGrupo[] | "erro" | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    fetch(`/api/campanhas/${encodeURIComponent(slug)}/grupos/estados`)
+      .then((r) => (r.ok ? (r.json() as Promise<EstadosDaCampanha>) : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((d) => {
+        if (vivo) setEstados(d.grupos);
+      })
+      .catch(() => {
+        if (vivo) setEstados("erro");
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [slug, agora]);
+
+  const destino = useMemo(
+    () =>
+      Array.isArray(estados)
+        ? destinoDoLink({ estados, groupIds, gruposNaTela: grupos.length, entrada, agora })
+        : null,
+    [estados, groupIds, grupos.length, entrada, agora],
+  );
 
   const hoje = atividade ? dayBR(new Date(atividade.geradoEm)) : dayBR(agora);
   const cliques = useMemo(() => (atividade ? barrasDaAtividade(atividade, periodo, "cliques") : null), [atividade, periodo]);
@@ -96,16 +99,23 @@ export function LinkECliques({ slug, nome, linkMestre, groupIds, grupos, entrada
               <QrLink url={linkMestre} nome={nome} />
             </div>
             <p className="mt-4 text-13 text-slate-600">Para quem clicar pela primeira vez agora, o link manda para</p>
-            {destino.grupo ? (
-              <p className="mt-1 flex flex-wrap items-baseline gap-x-2 text-sm">
-                <strong className="font-semibold text-volt-950">{destino.grupo.name}</strong>
+            {destino === null ? (
+              <p data-testid="destino-do-link" className="mt-1 text-sm text-slate-600">
+                {estados === "erro" ? "Não deu para ler o estado dos grupos agora." : "Lendo o estado dos grupos…"}
+              </p>
+            ) : destino.grupo ? (
+              <p data-testid="destino-do-link" className="mt-1 flex flex-wrap items-baseline gap-x-2 text-sm">
+                <strong className="font-semibold text-volt-950">{destino.grupo.nome}</strong>
                 <span className="tabular-nums text-slate-600">
-                  {numero(destino.grupo.members)} de {numero(destino.grupo.capacity)} ·{" "}
-                  {Math.round(lotacao(destino.grupo.members, destino.grupo.capacity) * 100)}%
+                  {numero(destino.grupo.membros)} de {numero(destino.grupo.capacidade)} ·{" "}
+                  {Math.round(lotacao(destino.grupo.membros, destino.grupo.capacidade) * 100)}%
                 </span>
               </p>
             ) : (
-              <p className={cn("mt-1 text-sm font-medium", destino.parado?.grave === false ? "text-volt-950" : "text-danger-700")}>
+              <p
+                data-testid="destino-do-link"
+                className={cn("mt-1 text-sm font-medium", destino.parado?.grave === false ? "text-volt-950" : "text-danger-700")}
+              >
                 {destino.parado?.texto ?? "Nenhum grupo agora."}
               </p>
             )}

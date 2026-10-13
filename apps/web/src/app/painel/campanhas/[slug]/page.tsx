@@ -5,11 +5,8 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
-  MessageCircle,
   MoreHorizontal,
   Users,
-  Lock,
-  Unlock,
   MousePointerClick,
   AlertTriangle,
   Pencil,
@@ -20,17 +17,14 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CopyLink } from "@/components/painel/copy-link";
-import {
-  buildCampaignGroupsOverview,
-  type CampaignGroupOverview,
-  type CampaignGroupsOverview,
-} from "@/lib/campaign-groups-overview";
+import { buildCampaignGroupsOverview, type CampaignGroupsOverview } from "@/lib/campaign-groups-overview";
 import type { Group } from "@/lib/mock-data";
 import type { DispatchView } from "@/lib/campaigns/dispatch-view";
 import { MessagesTab } from "@/components/painel/messages";
 import { FunnelResults } from "@/components/painel/campaigns/funnel-results";
 import { useConfirmacao } from "@/components/painel/confirmacao";
 import { AcoesEmMassa } from "@/components/painel/grupos/acoes-em-massa";
+import { GruposDaCampanha } from "@/components/painel/grupos/grupos-da-campanha";
 import { ConfigChips } from "@/components/painel/campanhas/config-chips";
 import { QrLink } from "@/components/painel/campanhas/qr-link";
 import { AjudaPainel } from "@/components/painel/campanhas/ajuda-painel";
@@ -41,7 +35,6 @@ import { clicksForCampaign } from "@/lib/links/click-attribution";
 import { entriesPerClick } from "@/lib/campaigns/campaign-entries";
 import { horaBR } from "@/lib/date-br";
 import type { EntradasDaCampanha } from "@/lib/painel/campanha-visao";
-import { QUASE_LOTADO } from "@/lib/painel/grupos";
 import { useLinkOrigin } from "@/lib/painel/use-link-origin";
 import { linkPublico } from "@/lib/painel/campanhas";
 
@@ -372,7 +365,17 @@ export default function CampanhaDetalhe() {
               </Link>
             </div>
           ) : (
-            <>
+            <div className="space-y-6">
+              <GruposDaCampanha
+                slug={campanha.slug ?? campanha.id}
+                origin={origin}
+                envio={Object.fromEntries(groups.map((g) => [g.whatsappGroupId, g.sendState ?? null]))}
+                atualizadoEm={atualizadoEm}
+                groupIds={campanha.groupIds}
+                gruposNaTela={groups.length}
+                entrada={campanha.settings?.entrada ?? ENTRADA_DEFAULTS}
+                aoMudarCapacidade={loadData}
+              />
               <AcoesEmMassa
                 slug={campanha.slug ?? campanha.id}
                 administrados={o.groups.filter((g) => g.group?.isAdmin).length}
@@ -390,10 +393,7 @@ export default function CampanhaDetalhe() {
                 }}
                 onLoteConcluido={loadData}
               />
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {o.groups.map((g) => <GroupCard key={g.id} g={g} live={live} origin={origin} />)}
-              </div>
-            </>
+            </div>
           )
         )}
 
@@ -488,64 +488,6 @@ export default function CampanhaDetalhe() {
   );
 }
 
-/* ---------- grupo (dados reais) ---------- */
-
-function GroupCard({ g, live, origin }: { g: CampaignGroupOverview; live: boolean | null; origin: string }) {
-  const cap = g.capacity > 0 ? (g.members / g.capacity) * 100 : 0;
-  // O mesmo limiar da tela de Grupos e da Visão geral (era 80 só aqui).
-  const quase = cap >= QUASE_LOTADO * 100;
-  const conectado = live !== false && g.status !== "missing_invite";
-  const name = g.group?.name ?? "Grupo";
-
-  return (
-    <div className={cn("pn-card rounded-xl p-5", !conectado && "border-alerta/20")}>
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#25D366] text-white"><MessageCircle className="h-5 w-5" /></span>
-          <div className="min-w-0">
-            <p className="font-display truncate text-sm font-bold text-volt-950">{name}</p>
-            <p className="font-data text-12 uppercase tracking-wider text-aco">WhatsApp</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        {g.status === "missing_invite" ? (
-          <span className="font-data inline-flex items-center gap-1.5 rounded-full bg-atencao/10 px-2.5 py-1 text-12 uppercase tracking-wider text-atencao">
-            <Lock className="h-3 w-3" /> Sem convite
-          </span>
-        ) : conectado ? (
-          <span className="font-data inline-flex items-center gap-1.5 rounded-full bg-sucesso/10 px-2.5 py-1 text-12 uppercase tracking-wider text-sucesso">
-            <Unlock className="h-3 w-3" /> {g.status === "full" ? "Cheio" : "Ativo"}
-          </span>
-        ) : (
-          <span className="font-data inline-flex items-center gap-1.5 rounded-full bg-alerta/10 px-2.5 py-1 text-12 uppercase tracking-wider text-alerta">
-            <Lock className="h-3 w-3" /> Desconectado
-          </span>
-        )}
-        <SeloEnvio estado={g.group?.sendState ?? null} />
-      </div>
-
-      <div className="mt-4">
-        <div className="flex items-center justify-between">
-          <span className="font-data text-12 uppercase tracking-wider text-aco">Capacidade</span>
-          <span className={cn("font-data text-sm font-medium tabular-nums", quase ? "text-atencao" : "text-cobalt-500")}>{Math.round(cap)}%</span>
-        </div>
-        <div className="pn-poco mt-1.5 h-2 w-full overflow-hidden rounded-full">
-          <div className="pn-fill h-full w-full rounded-full" style={{ transform: `scaleX(${Math.max(cap / 100, 0.02)})`, background: quase ? "#D99B2A" : "var(--color-cobalt-500)" }} />
-        </div>
-        <p className="font-data mt-1 text-12 tabular-nums text-aco">{g.members.toLocaleString("pt-BR")} membros · limite {g.capacity.toLocaleString("pt-BR")}</p>
-      </div>
-
-      {g.inviteUrl ? (
-        <CopyLink url={origin && !g.inviteUrl.startsWith("http") ? `${origin}${g.inviteUrl}` : g.inviteUrl} className="mt-3" />
-      ) : (
-        <p className="font-data mt-3 text-12 text-atencao">Configure o link de convite</p>
-      )}
-    </div>
-  );
-}
-
 /* ---------- helpers ---------- */
 
 function Tile({ label, value, tone }: { label: string; value: string; tone?: "cobalt" | "atencao" }) {
@@ -554,35 +496,5 @@ function Tile({ label, value, tone }: { label: string; value: string; tone?: "co
       <p className="font-data text-12 uppercase tracking-[0.08em] text-aco">{label}</p>
       <p className={cn("font-data mt-2 text-[26px] font-medium tabular-nums tracking-[-0.02em]", tone === "cobalt" ? "text-cobalt-500" : tone === "atencao" ? "text-atencao" : "text-volt-950")}>{value}</p>
     </div>
-  );
-}
-
-/**
- * Aberto / Fechado / sem informação.
- *
- * O terceiro estado é dito em voz alta de propósito: sumir com o selo quando
- * `send_state` é nulo faria "nunca aplicamos" parecer "está aberto", que é a
- * suposição errada mais cara — o lojista acharia que fechou o grupo de
- * madrugada quando não fechou.
- */
-function SeloEnvio({ estado }: { estado: "open" | "closed" | null }) {
-  if (estado === "open") {
-    return (
-      <span className="font-data inline-flex items-center gap-1.5 rounded-full bg-sucesso/10 px-2.5 py-1 text-12 uppercase tracking-wider text-sucesso">
-        <Unlock className="h-3 w-3" /> Aberto
-      </span>
-    );
-  }
-  if (estado === "closed") {
-    return (
-      <span className="font-data inline-flex items-center gap-1.5 rounded-full bg-poco px-2.5 py-1 text-12 uppercase tracking-wider text-aco">
-        <Lock className="h-3 w-3" /> Fechado
-      </span>
-    );
-  }
-  return (
-    <span className="font-data inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-12 uppercase tracking-wider text-aco">
-      Envio: sem informação
-    </span>
   );
 }
