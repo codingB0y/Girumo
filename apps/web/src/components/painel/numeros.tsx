@@ -7,11 +7,29 @@ import { variacao, type Barra } from "@/lib/painel/atividade";
 import { numero } from "@/lib/painel/grupos";
 import { cn } from "@/lib/utils";
 
-export function Celula({ rotulo, valor, className, children }: { rotulo: string; valor: string; className?: string; children: React.ReactNode }) {
+export function Celula({
+  rotulo,
+  valor,
+  className,
+  valorTestId,
+  children,
+}: {
+  rotulo: string;
+  valor: string;
+  className?: string;
+  /** Âncora do E2E no número (a aba Grupos cobra a faixa contra a API). */
+  valorTestId?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className={cn("bg-paper-0 px-5 py-4", className)}>
       <p className="text-13 text-slate-600">{rotulo}</p>
-      <p className="mt-2 font-display text-32 font-bold leading-none tracking-[-0.015em] tabular-nums text-volt-950">{valor}</p>
+      <p
+        data-testid={valorTestId}
+        className="mt-2 font-display text-32 font-bold leading-none tracking-[-0.015em] tabular-nums text-volt-950"
+      >
+        {valor}
+      </p>
       <div className="mt-2.5 text-13 text-slate-600">{children}</div>
     </div>
   );
