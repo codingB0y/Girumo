@@ -133,7 +133,7 @@ export function revogarToken(token: string, cred: CredenciaisBling, opcoes?: Opc
   campo → `ErroOAuthBling("outro")`.
 - Classificação (aceita os dois formatos de erro: `{"error":"invalid_grant"}` e
   `{"error":{"type":"…","message":"…"}}`): 429 → `limite`; 5xx, rede, timeout → `transitorio`;
-  `invalid_client` → `cliente_invalido`; 400/401/403 restantes → `concessao_invalida`; resto → `outro`.
+  `invalid_client` → `cliente_invalido`; `concessao_invalida` só para `invalid_grant`, `invalid_token`, `unauthorized_error` (sem caixa); outros 400/401/403 e o resto → `outro`. `redirect: "error"`, corpo até 5 MB, `expires_in` inteiro 1..2.592.000, tokens só ASCII visível.
   A mensagem do erro nunca contém o token nem o segredo.
 - Revogação: `token` + `token_type_hint=refresh_token`, Basic auth.
 
@@ -142,14 +142,15 @@ export function revogarToken(token: string, cred: CredenciaisBling, opcoes?: Opc
 ```ts
 export const BLING_API_BASE = "https://api.bling.com.br/Api/v3";
 export type TipoErroBling = "auth" | "escopo" | "nao_encontrado" | "limite" | "transitorio" | "invalido";
-export class ErroBling extends Error { readonly tipo: TipoErroBling; readonly status: number | null }
+export class ErroBling extends Error { readonly tipo: TipoErroBling; readonly status: number | null; readonly periodo: "segundo" | "dia" | null }
 export type Query = Record<string, string | number | ReadonlyArray<string | number> | undefined>;
 export type OpcoesCliente = {
   token: () => Promise<string>;   // access token vigente
-  renovar: () => Promise<string>; // força renovação; chamado no máximo 1x por requisição (num 401)
+  renovar: () => Promise<string>; // renovação forçada; uma só em voo por cliente (single-flight). Num 401: se o token mudou desde o envio, repete com o atual sem renovar
   fetchImpl?: typeof fetch; esperar?: (ms: number) => Promise<void>; agora?: () => number;
   intervaloMs?: number; // 350
   timeoutMs?: number;   // 15000
+  prazo?: number;       // epoch ms: espera ou tentativa que cruzaria o prazo vira transitorio "prazo"; fetch com timeout min(timeoutMs, prazo − agora)
 };
 export type ClienteBling = { get(caminho: string, query?: Query): Promise<unknown> };
 export function criarClienteBling(opcoes: OpcoesCliente): ClienteBling;
@@ -161,7 +162,7 @@ export function criarClienteBling(opcoes: OpcoesCliente): ClienteBling;
 - 429 → espera 1 s, 2 s, 4 s e tenta de novo; persistiu → `ErroBling("limite")`.
 - 5xx, erro de rede, timeout → 2 novas tentativas (1 s, 3 s); persistiu → `transitorio`.
 - 401 → `renovar()` uma vez e repete; 401 de novo → `auth`. Falha do `renovar` sobe como está.
-- 403 → `escopo`; 404 → `nao_encontrado`; outro 4xx → `invalido` (mensagem com `error.type`/`message` do
+- 403 com corpo de erro do Bling → `escopo` (corpo desconhecido, ex. WAF → `transitorio`); 429 `period:"day"` → `limite` com `periodo: "dia"` na hora; 404 → `nao_encontrado`; outro 4xx → `invalido` (mensagem com `error.type`/`message` do
   Bling, sem dados do pedido).
 - 2xx → JSON (`null` em 204 ou corpo vazio).
 
@@ -180,7 +181,7 @@ export type EmpresaBling = { id: string; nome: string | null };
 export type FiltroPedidos = { pagina: number; limite?: number; dataInicial?: string; dataFinal?: string; dataAlteracaoInicial?: string; dataAlteracaoFinal?: string };
 export function obterEmpresa(c: ClienteBling): Promise<EmpresaBling>;                 // GET /empresas/me/dados-basicos
 export function listarSituacoesDeVenda(c: ClienteBling): Promise<SituacaoBling[] | null>; // null = módulo de vendas não achado
-export function listarPedidos(c: ClienteBling, f: FiltroPedidos): Promise<PedidoResumo[]>; // GET /pedidos/vendas, limite padrão 100
+export function listarPedidos(c: ClienteBling, f: FiltroPedidos): Promise<{ pedidos: PedidoResumo[]; brutos: number }>; // GET /pedidos/vendas, limite padrão 100; brutos = itens da página antes do descarte (paginação para em brutos === 0)
 export function obterPedido(c: ClienteBling, id: number): Promise<PedidoResumo | null>;  // 404 → null
 export function obterContato(c: ClienteBling, id: number): Promise<ContatoBling | null>; // 404 → null
 /** "YYYY-MM-DD HH:MM:SS" em America/Sao_Paulo (formato dos filtros dataAlteracao*). */
@@ -204,7 +205,7 @@ export function diaDoBling(d: Date): string;
 ```ts
 export const LIMITE_CORPO_AVISO = 64 * 1024;
 /** "sha256=<hex>" = HMAC-SHA256 do corpo cru com o client secret. Tempo constante. */
-export function assinaturaBlingConfere(corpoCru: string, cabecalho: string | null, segredo: string): boolean;
+export function assinaturaBlingConfere(corpo: Uint8Array | string, cabecalho: string | null, segredo: string): boolean; // a rota passa os BYTES crus (arrayBuffer) e só decodifica depois de conferir
 export type EventoPedido = "order.created" | "order.updated" | "order.deleted";
 export type AvisoBling = { eventoId: string; evento: EventoPedido; empresaId: string; pedidoId: number };
 export function lerAviso(json: unknown): { ok: true; aviso: AvisoBling } | { ok: false; motivo: "outro_evento" | "formato" };
@@ -384,8 +385,12 @@ export function listarPendentes(tenantId: string, agora: Date, limite: number): 
 export function existePendenteVencido(tenantId: string, agora: Date): Promise<boolean>;
 export function contarPendentes(tenantId: string): Promise<number>; // head + count
 export type ResultadoProcessamento = { numero; orderDate; total; situacaoId; blingContactId; kind; orderId; saleAt; icStatus; icSentAt; purchaseStatus; purchaseSentAt; metaError; origem; origemDetalhe; snapshot: PedidoResumo | null }; // snapshot = estado usado (o SQL da varredura compara com ele)
-export function salvarProcessado(tenantId: string, id: number, r: ResultadoProcessamento, agenda: { pendente: false } | { pendente: true; tentativas: number; proxima: Date; erro: string }): Promise<void>;
-export function agendarNovaTentativa(tenantId: string, id: number, tentativas: number, proxima: Date | null, erro: string): Promise<void>; // proxima null → pending false (desistiu)
+// Concorrência com o aviso: `updatedAtLido` = o `updatedAt` que `listarPendentes` devolveu. O aviso (e a
+// varredura que achou mudança) troca `updated_at`; o processador não escreve na linha antes do fim.
+export function salvarProcessado(tenantId: string, id: number, r: ResultadoProcessamento, agenda: { pendente: false } | { pendente: true; tentativas: number; proxima: Date; erro: string }, updatedAtLido: string): Promise<boolean>; // false = mudou no meio
+/** Quando salvarProcessado devolveu false: grava SÓ os efeitos já feitos no mundo (order_id, sale_at, status e datas dos eventos, meta_error, origem) — sem pending, snapshot, kind nem updated_at —, e a linha segue pendente para o reprocesso (idempotente). */
+export function salvarEfeitos(tenantId: string, id: number, e: Pick<ResultadoProcessamento, "orderId" | "saleAt" | "icStatus" | "icSentAt" | "purchaseStatus" | "purchaseSentAt" | "metaError" | "origem" | "origemDetalhe">): Promise<void>;
+export function agendarNovaTentativa(tenantId: string, id: number, tentativas: number, proxima: Date | null, erro: string, updatedAtLido: string): Promise<boolean>; // proxima null → pending false (desistiu); false = aviso chegou no meio, não mexe
 export function reabrirDesde(tenantId: string, dia: string): Promise<number>; // pending true para order_date >= dia (ajuste mudou)
 ```
 
