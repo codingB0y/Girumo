@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import Link from "next/link";
 
+import { SecoesDoResultados } from "@/components/painel/resultados/secoes-do-resultados";
 import { cn } from "@/lib/utils";
 import {
   cenaDosResultados,
@@ -96,6 +97,10 @@ export function ResultadosVitrine({ links, grupos, leads, pedidos, campanhas, ao
         <h1 className="font-brand text-28 font-bold tracking-[-0.4px] text-volt-950">Resultados</h1>
         <p className="mt-1 text-15 text-slate-600">Do clique ao cliente — sem número inflado.</p>
       </header>
+
+      <div className="border-b border-line-200">
+        <SecoesDoResultados atual="visao-geral" />
+      </div>
 
       {cena === "erro" ? (
         <div className="pn-card rounded-[var(--radius-control)] p-6" role="alert">

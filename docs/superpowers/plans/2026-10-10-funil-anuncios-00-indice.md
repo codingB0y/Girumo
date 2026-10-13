@@ -16,7 +16,7 @@ que o pipeline está no ar antes da tela é histórico que a tela já mostra qua
 | 4 | `/r/?cid=`: clique grava cadastro e grupo | 1, 2 | `2026-10-10-funil-anuncios-pr4-cid-no-r.md` |
 | — | **Mudança no site da loja-piloto** (fora do repo, spec §5) | 2 no ar + chave gerada | — |
 | 3a | `GET /api/integracoes/site` (situação, últimos 5 com telefone mascarado), ensaio `POST /api/integracoes/site/teste`, `telefoneMascarado`/`chaveDoTelefone` em `lib/pages/phone.ts`, paridade com `public.phone_key` (integração) | 2 | `2026-10-10-funil-anuncios-pr3-integracao-tela.md` |
-| 3b | Tela Configurações › Integrações › Site próprio + 403 da vendedora no E2E | 3a, 5a | idem |
+| 3b | Tela Configurações › Integrações › Site próprio + 403 da vendedora no E2E + E2E da cadeia completa da spec §8 | 3a, 5a | idem |
 | 5a | `GET /api/resultados/anuncios` + `ads:manage` + `semGasto`/`RelatorioParaTela` (operador não vê gasto) | 1 | `2026-10-10-funil-anuncios-pr5-aba-anuncios.md` |
 | 5b | Aba Anúncios: faixa, funil, gráfico, por onde, fora, vazio, erro, regras, celular + E2E de cadeia | 5a | idem |
 | 6a | Função `attribution_people` (**DDL do Igor**) + rota da gaveta + filtro do Contatos | 3a, 5b | `2026-10-10-funil-anuncios-pr6-tabela-gaveta.md` |

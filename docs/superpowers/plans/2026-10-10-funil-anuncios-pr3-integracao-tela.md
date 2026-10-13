@@ -2267,6 +2267,100 @@ Reler `apps/web/e2e/vendas-vendedora.spec.ts` em `origin/main`. Em `0c16c328` o 
 
 O corpo só é comparado no GET: no POST um 403 de outra camada (CSRF, papel) também serve de prova de que ela não passa, e é o que o teste vizinho de `/api/media/prepare` já faz. Se o 5a tiver mudado o jeito de obter `page` ou o nome do `describe`, seguir o padrão que estiver no arquivo, sem mudar o que o teste afirma.
 
+- [ ] **Step 2b: E2E da cadeia completa da spec §8** (o 5b só prova cadastro → funil, plantando direto em `site_captures`; aqui entra a parte pública). Novo `apps/web/e2e/painel-anuncios-cadeia.spec.ts`, no molde de `e2e/painel-anuncios.spec.ts` (mesmo `bancoDeDev`, skip sem credenciais/service role, limpeza no `afterAll`). Fluxo: gerar a chave do tenant de QA pela rota → `POST /api/integracoes/cadastro` com Bearer → `GET` no `redirect` com user-agent de navegador → cobrar `foram ≥ 1` em `GET /api/resultados/anuncios`:
+
+```ts
+import { randomBytes, randomInt } from "node:crypto";
+
+import { expect, request as novoRequest, test } from "@playwright/test";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+
+import { BASE_URL, ESTADO_LOGADO } from "./caminhos";
+import { TEM_CREDENCIAIS } from "./sessao-helpers";
+
+const URL_SUPABASE = process.env.E2E_SUPABASE_URL ?? process.env.SUPABASE_URL ?? "";
+const CHAVE_SERVICE_ROLE = process.env.E2E_SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+const TEM_BANCO = Boolean(URL_SUPABASE && CHAVE_SERVICE_ROLE);
+const PREFIXO = "e2e-cadeia-";
+const NAVEGADOR =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
+
+type Funil = { relatorio: { total: { cadastros: number; foram: number } } };
+
+function bancoDeDev(): SupabaseClient {
+  return createClient(URL_SUPABASE, CHAVE_SERVICE_ROLE, { auth: { autoRefreshToken: false, persistSession: false } });
+}
+
+test.describe("cadeia da spec §8: chave → cadastro → redirect → clique → funil", () => {
+  test.skip(!TEM_CREDENCIAIS || !TEM_BANCO, "Precisa do usuário de QA e da service role de dev.");
+
+  const eventId = `${PREFIXO}${randomBytes(6).toString("hex")}`;
+  let banco: SupabaseClient | undefined;
+  let loja = "";
+  let captureId = "";
+
+  test.afterAll(async () => {
+    if (!banco || !loja) return;
+    // O clique referencia o cadastro com `on delete set null`: sai primeiro, senão fica órfão na loja de QA.
+    if (captureId) await banco.from("link_click_events").delete().eq("tenant_id", loja).eq("capture_id", captureId);
+    const { error } = await banco.from("site_captures").delete().eq("tenant_id", loja).eq("event_id", eventId);
+    if (error) throw new Error(`limpeza do cadastro ${eventId}: ${error.message}`);
+  });
+
+  test("o clique no redirect do cadastro vira 'foram' no funil", async () => {
+    banco = bancoDeDev();
+    const dono = await novoRequest.newContext({ baseURL: BASE_URL, storageState: ESTADO_LOGADO });
+    const publico = await novoRequest.newContext({ baseURL: BASE_URL, userAgent: NAVEGADOR });
+    try {
+      const me = (await (await dono.get("/api/auth/me")).json()) as { tenantId?: string | null };
+      if (!me.tenantId) throw new Error("o usuário de QA não tem loja");
+      loja = me.tenantId;
+
+      const antes = (await (await dono.get("/api/resultados/anuncios")).json()) as Funil;
+
+      // Link de destino: o primeiro que a tela de integração oferece (`links` do GET do 3a).
+      const painel = (await (await dono.get("/api/integracoes/site")).json()) as { links: Array<{ id: string }> };
+      expect(painel.links.length, "a loja de QA precisa de ao menos um link rastreado").toBeGreaterThan(0);
+      const geracao = await dono.post("/api/integracoes/site/chave", { data: { tracked_link_id: painel.links[0].id } });
+      expect(geracao.status()).toBe(201);
+      const { chave } = (await geracao.json()) as { chave: string };
+
+      const cadastro = await publico.post("/api/integracoes/cadastro", {
+        headers: { authorization: `Bearer ${chave}` },
+        data: {
+          whatsapp: `+55629${String(randomInt(10_000_000, 100_000_000))}`,
+          event_id: eventId,
+          page_url: "https://e2e.example/vip?utm_source=ig&utm_campaign=e2e-cadeia",
+        },
+      });
+      expect(cadastro.status()).toBe(201);
+      const corpo = (await cadastro.json()) as { redirect: string; capture_id: string };
+      captureId = corpo.capture_id;
+
+      // Sem seguir o 302: o clique é gravado na resposta do /r/, e o destino (WhatsApp) não é da conta do teste.
+      const destino = new URL(corpo.redirect);
+      const clique = await publico.get(`${destino.pathname}${destino.search}`, { maxRedirects: 0 });
+      expect([301, 302, 303, 307, 308]).toContain(clique.status());
+
+      await expect
+        .poll(
+          async () => {
+            const depois = (await (await dono.get("/api/resultados/anuncios")).json()) as Funil;
+            return depois.relatorio.total.foram - antes.relatorio.total.foram;
+          },
+          { timeout: 15_000 },
+        )
+        .toBeGreaterThanOrEqual(1);
+    } finally {
+      await dono.dispose();
+      await publico.dispose();
+    }
+  });
+});
+```
+
+O `redirect` pode vir com o host de um domínio próprio ativo da loja de QA; o teste usa só o caminho e a query, contra `BASE_URL`. A chave gerada fica no tenant de QA (não há rota de revogação; a próxima execução gera outra). Antes de commitar, reler `e2e/painel-anuncios.spec.ts` em `origin/main` e alinhar nomes e imports; se o 3a tiver mudado `links` ou o corpo de `POST /chave`, seguir o que estiver na rota.
+
 - [ ] **Step 3:** Os dois E2E rodam no job `e2e` do CI (banco de dev); localmente só com as variáveis de `e2e/README.md`. Não rodar contra produção. Commit:
 
 ```bash
