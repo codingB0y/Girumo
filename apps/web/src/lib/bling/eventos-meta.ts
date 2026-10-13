@@ -95,7 +95,11 @@ export function opcoesDePixel(campanhas: readonly CampanhaComMetadata[]): PixelE
   });
 }
 
-/** Escolhida válida → ela; senão um pixel único → o dele; senão o motivo para o cartão pedir a escolha. */
+/**
+ * Escolhida válida → ela; senão um pixel único → o da campanha de menor id; senão o motivo para o
+ * cartão pedir a escolha. Só a escolhida leva `test_code`: modo de teste ligado sem a loja ter
+ * escolhido a campanha mandaria as compras de verdade para "Eventos de teste".
+ */
 export function escolherPixel(
   campanhas: readonly CampanhaComMetadata[],
   escolhida: string | null,
@@ -105,6 +109,8 @@ export function escolherPixel(
   if (marcada) return { ok: true, pixel: marcada };
   if (opcoes.length === 0) return { ok: false, motivo: "sem_pixel" };
   // O mesmo pixel em várias campanhas é um pixel só: não há o que escolher.
-  if (new Set(opcoes.map((o) => o.pixelId)).size === 1) return { ok: true, pixel: opcoes[0] };
-  return { ok: false, motivo: "varios" };
+  if (new Set(opcoes.map((o) => o.pixelId)).size > 1) return { ok: false, motivo: "varios" };
+  // Menor id, não a primeira da lista: a ordem da consulta muda, e o token usado não pode mudar junto.
+  const primeira = opcoes.reduce((menor, o) => (o.campaignId < menor.campaignId ? o : menor));
+  return { ok: true, pixel: { ...primeira, testCode: null } };
 }

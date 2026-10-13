@@ -110,11 +110,12 @@ test("PJ não leva nome, nascimento nem sexo; o resto vai", () => {
   assert.ok(r.em && r.ph && r.ct && r.st && r.zp && r.country && r.external_id);
 });
 
-test("nascimento: só data real com ano entre 1900 e o ano corrente", () => {
+test("nascimento: só data real de 1900 até hoje (a data inteira, não só o ano)", () => {
   const db = (nascimento: string) => hashesDoCliente({ ...VAZIO, nascimento }, null, AGORA).db;
   assert.equal(db("1900-01-01"), h("19000101"));
   assert.equal(db("2026-01-01"), h("20260101"));
-  for (const invalida of ["1990-02-30", "1899-12-31", "2027-01-01", "0000-00-00", "07/05/1990", "1990-5-7", ""]) {
+  assert.equal(db("2026-10-13"), h("20261013"));
+  for (const invalida of ["1990-02-30", "1899-12-31", "2026-10-14", "2026-12-31", "2027-01-01", "0000-00-00", "07/05/1990", "1990-5-7", ""]) {
     assert.equal(db(invalida), undefined, invalida);
   }
 });

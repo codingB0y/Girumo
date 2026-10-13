@@ -172,6 +172,20 @@ test("escolherPixel: sem escolha válida, um pixel só (mesmo em várias campanh
   }
 });
 
+test("escolherPixel implícito: a campanha de menor id, seja qual for a ordem, e sem test_code", () => {
+  const esperado = { ok: true, pixel: { campaignId: "a", pixelId: "11111", token: TOKEN, testCode: null } };
+  for (const campanhas of [[A, E_MESMO_PIXEL], [E_MESMO_PIXEL, A], [E_MESMO_PIXEL, B_SEM_TOKEN, A]]) {
+    assert.deepEqual(escolherPixel(campanhas, null), esperado, campanhas.map((c) => c.id).join(","));
+  }
+});
+
+test("escolherPixel: test_code só vale quando a loja escolheu a campanha", () => {
+  assert.deepEqual(escolherPixel([E_MESMO_PIXEL, A], "a"), {
+    ok: true,
+    pixel: { campaignId: "a", pixelId: "11111", token: TOKEN, testCode: "TEST1" },
+  });
+});
+
 test("escolherPixel: pixels diferentes e nenhuma escolha válida → varios", () => {
   assert.deepEqual(escolherPixel([A, F_OUTRO_PIXEL], null), { ok: false, motivo: "varios" });
   assert.deepEqual(escolherPixel([A, F_OUTRO_PIXEL], "b"), { ok: false, motivo: "varios" });

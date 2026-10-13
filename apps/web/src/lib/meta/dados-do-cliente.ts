@@ -84,15 +84,15 @@ function palavrasDoNome(nome: string | null): string[] {
     .filter(Boolean);
 }
 
-/** Data que existe no calendário, com ano entre 1900 e o ano corrente. */
+/** Data que existe no calendário, de 1900 até hoje: nascimento no futuro (mesmo neste ano) é data torta. */
 function nascimentoValido(data: string | null, agora: Date): { ano: string; mes: string; dia: string } | null {
   const partes = DATA.exec((data ?? "").trim());
   if (!partes) return null;
   const [, ano, mes, dia] = partes;
   const d = new Date(Date.UTC(Number(ano), Number(mes) - 1, Number(dia)));
   const existe = d.getUTCMonth() === Number(mes) - 1 && d.getUTCDate() === Number(dia);
-  const anoOk = Number(ano) >= 1900 && Number(ano) <= agora.getUTCFullYear();
-  return existe && anoOk ? { ano, mes, dia } : null;
+  const noIntervalo = Number(ano) >= 1900 && d.getTime() <= agora.getTime();
+  return existe && noIntervalo ? { ano, mes, dia } : null;
 }
 
 /** Sem país ou Brasil → "br". Outro país fica de fora: só o código do Brasil é certo aqui. */
@@ -115,7 +115,7 @@ function semAusentes(h: HashesMeta): HashesMeta {
   return Object.fromEntries(Object.entries(h).filter(([, v]) => v !== undefined)) as HashesMeta;
 }
 
-/** `chave` = phone_key da pessoa (vira external_id). `agora` só decide o ano máximo do nascimento. */
+/** `chave` = phone_key da pessoa (vira external_id). `agora` só decide a data máxima do nascimento. */
 export function hashesDoCliente(d: DadosDoCliente, chave: string | null, agora: Date = new Date()): HashesMeta {
   const nome = d.pessoaFisica ? palavrasDoNome(d.nome) : [];
   const nasc = d.pessoaFisica ? nascimentoValido(d.nascimento, agora) : null;
