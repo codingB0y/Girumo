@@ -17,15 +17,24 @@ import { TEM_CREDENCIAIS } from "./sessao-helpers";
  *    beforeAll guarda a linha inteira e o afterAll a restaura (ou apaga a criada);
  *  - o cadastro e o clique do teste (o clique primeiro: `capture_id` é `on delete set null`);
  *  - `tracked_links.clicks` do link usado, que o /r/ incrementa.
- * `playwright.config.ts` roda com workers 1, então nenhum outro spec enxerga o estado
- * intermediário (o da tela, `painel-integracao-site.spec.ts`, aceita qualquer estado
- * e nem depende disto). Se o processo morrer antes do afterAll, a loja de QA fica com a
+ * `workers: 1` só isola dentro de uma execução: nenhum outro spec do MESMO run enxerga o estado
+ * intermediário (o da tela, `painel-integracao-site.spec.ts`, aceita qualquer estado e nem
+ * depende disto). Runs de PRs diferentes rodam em paralelo contra o mesmo tenant de QA do dev
+ * (`concurrency` por ref em `verify.yml`) e podem se atropelar na chave. No dev isso é
+ * aceitável e o retry cobre. Se o processo morrer antes do afterAll, a loja de QA fica com a
  * chave deste teste: gerar outra pela tela resolve.
+ *
+ * É o único spec que troca um segredo, então só roda contra o banco de dev e o servidor local.
  */
 
 const URL_SUPABASE = process.env.E2E_SUPABASE_URL ?? process.env.SUPABASE_URL ?? "";
 const CHAVE_SERVICE_ROLE = process.env.E2E_SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
 const TEM_BANCO = Boolean(URL_SUPABASE && CHAVE_SERVICE_ROLE);
+/** Ref do projeto Supabase de produção (CLAUDE.md): trocar a chave da integração lá derrubaria o site de um lojista. */
+const REF_DE_PRODUCAO = "nidoatbxaylrkcgbszns";
+const APONTA_PARA_PRODUCAO = URL_SUPABASE.includes(REF_DE_PRODUCAO);
+/** O CI roda `next start` em localhost; qualquer outro host é staging/prod. */
+const SERVIDOR_LOCAL = ["localhost", "127.0.0.1"].includes(new URL(BASE_URL).hostname);
 /** Só o que este spec cria começa assim: a limpeza não toca em mais nada. */
 const PREFIXO = "e2e-cadeia-";
 const UMA_HORA_MS = 3_600_000;
@@ -105,6 +114,11 @@ test.describe("cadeia da spec §8: chave → cadastro → redirect → clique �
   test.skip(
     !TEM_CREDENCIAIS || !TEM_BANCO,
     "Precisa do usuário de QA (E2E_EMAIL/E2E_PASSWORD) e da service role de dev (SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY).",
+  );
+  test.skip(APONTA_PARA_PRODUCAO, "Pulado: a URL do Supabase é a de produção. Este spec troca a chave da integração e só roda no banco de dev.");
+  test.skip(
+    !SERVIDOR_LOCAL,
+    `Pulado: E2E_BASE_URL (${BASE_URL}) não é localhost/127.0.0.1. Este spec troca a chave da integração e só roda contra servidor local.`,
   );
 
   const eventId = `${PREFIXO}${randomBytes(6).toString("hex")}`;
@@ -207,7 +221,9 @@ test.describe("cadeia da spec §8: chave → cadastro → redirect → clique �
     const dono = await novoRequest.newContext({ baseURL: BASE_URL, storageState: ESTADO_LOGADO });
     const publico = await novoRequest.newContext({ baseURL: BASE_URL, userAgent: NAVEGADOR });
     try {
-      const antes = (await (await dono.get("/api/resultados/anuncios")).json()) as Funil;
+      const leituraAntes = await dono.get("/api/resultados/anuncios");
+      expect(leituraAntes.ok(), `GET /api/resultados/anuncios (antes) respondeu ${leituraAntes.status()}`).toBe(true);
+      const antes = (await leituraAntes.json()) as Funil;
 
       integracaoMexida = true;
       const geracao = await dono.post("/api/integracoes/site/chave", { data: { tracked_link_id: link.id } });

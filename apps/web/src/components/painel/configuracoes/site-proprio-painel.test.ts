@@ -105,6 +105,20 @@ test("chave recém-gerada aparece inteira uma vez, com Copiar e o aviso", () => 
   assert.doesNotMatch(h, /gk_live_••••/);
 });
 
+test("a chave recém-gerada fica fora da região viva; só o aviso é anunciado", () => {
+  const chave = "gk_live_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ";
+  const h = html({ chaveNova: chave });
+  const status = [...h.matchAll(/<p[^>]*role="status"[^>]*>([\s\S]*?)<\/p>/g)].map((m) => m[1]);
+  assert.ok(status.some((t) => /não aparece de novo/.test(t)));
+  assert.ok(status.every((t) => !t.includes(chave)));
+  assert.doesNotMatch(h, /<div[^>]*role="status"[^>]*>(?:(?!<\/div>)[\s\S])*gk_live_abc/);
+});
+
+test("chave recém-gerada com leitura velha já oferece 'Gerar outra chave'", () => {
+  const h = html({ chaveNova: "gk_live_x" }, { ativa: false, key_last4: null, gerada_em: null, link: null, last_used_at: null });
+  assert.match(h, />Gerar outra chave</);
+});
+
 test("sem integração: Gerar chave, e o teste fica desligado", () => {
   const h = html({}, { ativa: false, key_last4: null, gerada_em: null, link: null, last_used_at: null });
   assert.match(h, />Gerar chave</);

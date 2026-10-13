@@ -191,8 +191,9 @@ function CartaoDaChave(p: PropsDoPainel) {
         Chave da integração
       </h3>
       {p.chaveNova ? (
-        <div role="status" className="pn-aviso mt-3 rounded-[var(--radius-control)] p-4">
-          <p className="text-13 text-volt-950">
+        <div className="pn-aviso mt-3 rounded-[var(--radius-control)] p-4">
+          {/* A região viva é só o aviso: a chave (43 caracteres) não pode ser lida em voz alta. */}
+          <p role="status" className="text-13 text-volt-950">
             Guarde agora: esta chave não aparece de novo. Entregue a quem programa o site; ela fica no servidor do site,
             nunca na página.
           </p>
@@ -239,7 +240,7 @@ function CartaoDaChave(p: PropsDoPainel) {
         )}
         <button type="button" onClick={p.onGerar} disabled={semLinks || p.ocupado !== null} className={PRIMARIO}>
           {p.ocupado === "chave" && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-          {leitura.ativa ? "Gerar outra chave" : "Gerar chave"}
+          {leitura.ativa || p.chaveNova ? "Gerar outra chave" : "Gerar chave"}
         </button>
       </div>
     </section>

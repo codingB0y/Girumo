@@ -80,7 +80,9 @@ export function SiteProprio() {
 
   async function gerar() {
     if (!leitura || !linkEscolhido) return;
-    if (leitura.ativa) {
+    // `chaveNova` cobre a recarga que falhou depois de gerar: `leitura` fica velha (`ativa: false`),
+    // mas há uma chave viva que o dono acabou de copiar e um segundo clique a invalidaria.
+    if (leitura.ativa || chaveNova) {
       const ok = await pedirConfirmacao({
         titulo: "Gerar outra chave",
         texto:
