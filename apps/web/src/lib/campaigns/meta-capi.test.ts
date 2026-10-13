@@ -170,6 +170,62 @@ test("sendCapiEvent: devolve o erro cru para o log, e ele não carrega o token",
   }
 });
 
+test("payload do /r/ continua byte a byte igual (a generalização dos tipos não mexe no formato)", () => {
+  // Capturado do código de antes da generalização (13/10/2026), com todos os campos ligados.
+  const todos = { ...base, fbclid: "IwAR123", fbp: "fb.1.1.2", testCode: "TEST123" };
+  assert.equal(
+    JSON.stringify(buildCapiPayload(todos)),
+    '{"data":[{"event_name":"Lead","event_time":1756000000,"event_id":"11111111-2222-3333-4444-555555555555",' +
+      '"action_source":"website","event_source_url":"https://girumo.com.br/r/grade-verao",' +
+      '"user_data":{"client_ip_address":"203.0.113.7","client_user_agent":"Mozilla/5.0 (iPhone)",' +
+      '"fbc":"fb.1.1756000000000.IwAR123","fbp":"fb.1.1.2"},' +
+      '"custom_data":{"campaign":"Grade de verão","group":"120363001@g.us"}}],"test_event_code":"TEST123"}',
+  );
+});
+
+test("temSinalDeCasamento: e-mail, telefone ou external_id em hash identificam (evento de chat)", () => {
+  assert.equal(temSinalDeCasamento({ em: ["a1b2"] }), true);
+  assert.equal(temSinalDeCasamento({ ph: ["c3d4"] }), true);
+  assert.equal(temSinalDeCasamento({ external_id: "e5f6" }), true);
+  // lista vazia não é sinal; cidade, UF e país sozinhos também não
+  assert.equal(temSinalDeCasamento({ em: [], ph: [] }), false);
+  assert.equal(temSinalDeCasamento({ ct: "x", st: "y", country: "z", fn: "w" }), false);
+});
+
+test("sendCapiEvent: evento de chat só com telefone passa a guarda e vai para a Meta", async () => {
+  const corpos: string[] = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async (_url: string | URL, init: RequestInit) => {
+    corpos.push(String(init.body));
+    return new Response(JSON.stringify({ events_received: 1 }), { status: 200 });
+  }) as unknown as typeof fetch;
+  try {
+    const r = await sendCapiEvent({
+      pixelId: "1234567890",
+      token: "EAAx",
+      payload: {
+        data: [
+          {
+            event_name: "Purchase",
+            event_time: 1_760_000_000,
+            event_id: "bling-42",
+            action_source: "chat",
+            user_data: { ph: ["f4103b541e50de3c3646c081ccd27a5b24f68e705c306824093984f96bdb7940"] },
+            custom_data: { value: 199.9, currency: "BRL", order_id: "1050" },
+          },
+        ],
+      },
+    });
+    assert.equal(r.ok, true);
+    assert.equal(corpos.length, 1, "a guarda não pode barrar o evento de chat com telefone");
+    const enviado = JSON.parse(corpos[0]);
+    assert.equal(enviado.data[0].action_source, "chat");
+    assert.equal(enviado.data[0].event_source_url, undefined);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
 test("sendCapiEvent: rede caída NÃO lança", async () => {
   const realFetch = globalThis.fetch;
   globalThis.fetch = (async () => {

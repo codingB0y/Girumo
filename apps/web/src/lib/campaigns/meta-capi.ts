@@ -7,6 +7,9 @@
  * servidor chega sempre. Os dois carregam o MESMO `event_id`, que é como a Meta
  * junta os dois num só (dedup) em vez de contar Lead dobrado.
  *
+ * As vendas do Bling saem pelo mesmo `sendCapiEvent`, como evento de `chat` com
+ * os dados do cliente em hash (`lib/bling/eventos-meta`).
+ *
  * Puro + um envio isolado: `buildCapiPayload` não toca rede, então o teste cobre
  * o formato inteiro sem mock de servidor. Sem `server-only` de propósito.
  */
@@ -30,23 +33,40 @@ export type CapiInput = {
   testCode?: string;
 };
 
-export type CapiPayload = {
-  data: Array<{
-    event_name: string;
-    event_time: number;
-    event_id: string;
-    action_source: "website";
-    event_source_url: string;
-    user_data: {
-      client_ip_address?: string;
-      client_user_agent?: string;
-      fbc?: string;
-      fbp?: string;
-    };
-    custom_data: { campaign: string; group?: string };
-  }>;
-  test_event_code?: string;
+/**
+ * IP, user agent, `fbc` e `fbp` vão crus; o resto (dado pessoal) vai em SHA-256
+ * do valor normalizado — quem monta é `lib/meta/dados-do-cliente`.
+ */
+export type CapiUserData = {
+  client_ip_address?: string;
+  client_user_agent?: string;
+  fbc?: string;
+  fbp?: string;
+  em?: string[];
+  ph?: string[];
+  fn?: string;
+  ln?: string;
+  db?: string;
+  ge?: string;
+  ct?: string;
+  st?: string;
+  zp?: string;
+  country?: string;
+  external_id?: string;
 };
+
+export type CapiEvent = {
+  event_name: string;
+  event_time: number;
+  event_id: string;
+  /** "website" = clique do /r/; "chat" = venda fechada pela vendedora no WhatsApp. */
+  action_source: "website" | "chat";
+  event_source_url?: string;
+  user_data: CapiUserData;
+  custom_data: Record<string, string | number>;
+};
+
+export type CapiPayload = { data: CapiEvent[]; test_event_code?: string };
 
 /**
  * `x-forwarded-for` é uma LISTA: o primeiro é o visitante, os seguintes são os
@@ -67,14 +87,14 @@ export function capiEndpoint(pixelId: string): string {
  * seria trocar consentimento por match quality.
  */
 export function buildCapiPayload(i: CapiInput): CapiPayload {
-  const user_data: CapiPayload["data"][0]["user_data"] = {};
+  const user_data: CapiUserData = {};
   if (i.clientIp) user_data.client_ip_address = i.clientIp;
   if (i.userAgent) user_data.client_user_agent = i.userAgent;
   // fbc SÓ com fbclid real na URL: inventar um estraga a atribuição do anúncio.
   if (i.fbclid) user_data.fbc = `fb.1.${i.eventTimeMs}.${i.fbclid}`;
   if (i.fbp) user_data.fbp = i.fbp;
 
-  const custom_data: CapiPayload["data"][0]["custom_data"] = { campaign: i.campaignName };
+  const custom_data: CapiEvent["custom_data"] = { campaign: i.campaignName };
   if (i.groupId) custom_data.group = i.groupId;
 
   const payload: CapiPayload = {
@@ -94,8 +114,6 @@ export function buildCapiPayload(i: CapiInput): CapiPayload {
   return payload;
 }
 
-type UserData = CapiPayload["data"][0]["user_data"];
-
 /**
  * O evento tem algum sinal que IDENTIFIQUE quem clicou?
  *
@@ -104,11 +122,15 @@ type UserData = CapiPayload["data"][0]["user_data"];
  * parâmetros de informações de clientes muito ampla") — foi exatamente o que o
  * botão "Enviar teste" levou em produção, por mandar `client_ip_address: null`.
  *
- * Basta UM dos três: o IP (junto do UA forma o par padrão de evento de site),
- * o `fbc` (clique de anúncio) ou o `fbp` (cookie do pixel).
+ * Basta UM: o IP (junto do UA forma o par padrão de evento de site), o `fbc`
+ * (clique de anúncio), o `fbp` (cookie do pixel) — ou, na venda por chat, que
+ * não tem navegador, o e-mail, o telefone ou o `external_id` em hash.
+ * Cidade, UF ou país sozinhos não contam: são amplos como o user agent.
  */
-export function temSinalDeCasamento(u: UserData): boolean {
-  return Boolean(u.client_ip_address || u.fbc || u.fbp);
+export function temSinalDeCasamento(u: CapiUserData): boolean {
+  return Boolean(
+    u.client_ip_address || u.fbc || u.fbp || u.external_id || u.em?.some(Boolean) || u.ph?.some(Boolean),
+  );
 }
 
 /**
