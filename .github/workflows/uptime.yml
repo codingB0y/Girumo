@@ -1,0 +1,43 @@
+name: Uptime
+
+# Em 12/10/2026 a conta da Vercel foi bloqueada e o app ficou 15h54 respondendo
+# 402 (DEPLOYMENT_DISABLED) sem ninguem perceber: site, painel, links /r/ e
+# webhooks fora do ar. Este job chama o /api/health a cada 5 min; quando falha,
+# o GitHub manda e-mail para quem fez o ultimo push deste arquivo.
+#
+# Custo: repo publico + runner padrao = minuto gratis. Se o repo voltar a ser
+# privado, sao ~8.600 min/mes (cada run conta como 1 min) e a cota de 2.000
+# acaba em uma semana, derrubando o CI — trocar por monitor externo antes.
+#
+# ponytail: o cron do GitHub atrasa ate ~15 min em hora de pico e o alerta e
+# so e-mail. Se precisar de aviso em minutos no celular, monitor externo
+# (UptimeRobot, Better Stack) apontando para o mesmo /api/health.
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: app e www respondem 200 no /api/health
+        run: |
+          set -u
+          falhou=0
+          for host in app.girumo.com.br www.girumo.com.br; do
+            # 402 com X-Vercel-Error = conta ou deploy fora; 503 = app no ar mas
+            # degradado (banco, storage ou env faltando). Tres tentativas para
+            # um soluco de rede nao virar alarme.
+            if ! curl --fail --silent --show-error --retry 2 --retry-delay 20 --retry-all-errors \
+                 --max-time 20 --output /dev/null "https://$host/api/health"; then
+              echo "::error::$host/api/health falhou"
+              curl --silent --max-time 20 --head "https://$host/api/health" | grep -iE '^(HTTP|x-vercel-error)' || true
+              falhou=1
+            fi
+          done
+          exit "$falhou"
