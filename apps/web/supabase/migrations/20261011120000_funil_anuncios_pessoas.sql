@@ -148,6 +148,10 @@ begin
      where not exists (
        select 1 from pedidos p where p.chave = e.chave and p.created_at >= e.entered_at
      )
+       -- Pedido ligado ao contato por lead_id, mesmo com outro telefone.
+       and not exists (
+         select 1 from pedidos p where p.lead_id = e.id and p.created_at >= e.entered_at
+       )
   )
   select jsonb_build_object(
     'por_origem', coalesce((
@@ -161,10 +165,10 @@ begin
     ), '[]'::jsonb),
     'compradores', coalesce((
       select jsonb_agg(jsonb_build_object(
-               'lead_id', l.id,
-               'nome', nullif(btrim(l.name), ''),
+               'lead_id', coalesce(l1.id, l2.id),
+               'nome', nullif(btrim(case when l1.id is not null then l1.name else l2.name end), ''),
                'telefone', c.telefone,
-               'grupo', nullif(btrim(l.source_group_name), ''),
+               'grupo', nullif(btrim(case when l1.id is not null then l1.source_group_name else l2.source_group_name end), ''),
                'cadastro_em', c.cadastro_em,
                'primeira_compra', c.primeira_compra,
                'pedidos', c.pedidos,
@@ -172,7 +176,8 @@ begin
              order by c.vendido desc, c.primeira_compra, c.chave)
         from compradores c
         left join lead_da_chave lc on lc.chave = c.chave
-        left join public.leads l on l.id = coalesce(c.lead_do_pedido, lc.id) and l.tenant_id = p_tenant
+        left join public.leads l1 on l1.id = c.lead_do_pedido and l1.tenant_id = p_tenant
+        left join public.leads l2 on l2.id = lc.id and l2.tenant_id = p_tenant
     ), '[]'::jsonb),
     'sem_compra', coalesce((select jsonb_agg(s.lead_id order by s.lead_id) from sem_compra s), '[]'::jsonb)
   )
