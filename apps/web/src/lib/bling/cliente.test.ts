@@ -212,7 +212,12 @@ test("429 e 5xx têm contas separadas", async () => {
   assert.deepEqual(esperas, [1000, 1000, 2000]);
 });
 
-test("timeoutMs aborta de verdade a chamada que não responde", async () => {
+test("timeoutMs aborta de verdade a chamada que não responde", async (t) => {
+  // AbortSignal.timeout usa um timer sem ref: sem outro handle vivo, o processo de teste termina
+  // antes de o timeout disparar (aconteceu no CI Linux, e cancelou o resto do arquivo). O intervalo
+  // segura o laço de eventos só durante este teste.
+  const vivo = setInterval(() => {}, 1_000);
+  t.after(() => clearInterval(vivo));
   let abortadas = 0;
   const fetchImpl = ((_url: string | URL | Request, init?: RequestInit) =>
     new Promise<Response>((_resolve, reject) => {
