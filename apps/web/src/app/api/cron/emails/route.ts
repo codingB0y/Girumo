@@ -64,8 +64,12 @@ async function buildActivationEmail(
   return activationD21Email(name, appUrl);
 }
 
-// O cron da Vercel roda em UTC (vercel.json agenda 12:00 UTC = 09:00 em São
-// Paulo, que não tem horário de verão desde 2019 — offset fixo -03:00).
+// O cron da Vercel roda em UTC. O vercel.json agenda de hora em hora entre 11:07 e
+// 23:07 UTC = 08:07 a 20:07 em São Paulo (sem horário de verão desde 2019, offset
+// fixo -03:00). A janela para antes da meia-noite UTC de propósito: o dedupe
+// "1 por dia" dos Jobs 3 e 5 corta na meia-noite UTC (21h em SP), e uma rodada
+// depois disso mandaria o segundo e-mail do mesmo dia local. Fora do horário
+// comercial nada sai — ativação e relatório de madrugada viram spam.
 // new Date().getDay() daria o dia da semana em UTC, que pode divergir do dia
 // local; por isso lemos o dia via Intl com timeZone explícito.
 function saoPauloDateParts(date: Date): { year: number; month: number; day: number; weekday: number } {
