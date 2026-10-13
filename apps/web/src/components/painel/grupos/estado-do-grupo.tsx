@@ -187,7 +187,7 @@ export function MenuDoGrupo({
             {grupo.inviteUrl ? (
               <CopyLink url={origin && !grupo.inviteUrl.startsWith("http") ? `${origin}${grupo.inviteUrl}` : grupo.inviteUrl} className="px-3 py-2" />
             ) : (
-              <p className="font-data px-3 py-2 text-12 text-atencao">Configure o link de convite</p>
+              <p className="font-data px-3 py-2 text-13 text-atencao">Configure o link de convite</p>
             )}
           </div>
           <button type="button" onClick={() => escolher(aoEditarCapacidade)} className={ITEM}>
