@@ -1,4 +1,4 @@
-export type TenantRole = "owner" | "admin" | "operator";
+export type TenantRole = "owner" | "admin" | "operator" | "seller";
 
 export type Action =
   | "billing:manage"
@@ -10,8 +10,16 @@ export type Action =
   | "campaign:edit"
   | "settings:connection"
   | "settings:account"
-  | "account:delete";
+  | "account:delete"
+  | "message:send"
+  | "ads:manage";
 
+/**
+ * O que cada papel faz DENTRO de uma rota. Quais rotas a vendedora (`seller`)
+ * alcança é decidido antes, pelo mapa de `lib/auth/modulos.ts` (spec
+ * acesso-vendedora §1, "Duas camadas"). Por isso `seller` aparece só em
+ * `message:send`.
+ */
 const PERMISSIONS: Record<Action, TenantRole[]> = {
   "billing:manage": ["owner"],
   "billing:view": ["owner", "admin"],
@@ -23,6 +31,10 @@ const PERMISSIONS: Record<Action, TenantRole[]> = {
   "settings:connection": ["owner", "admin"],
   "settings:account": ["owner", "admin", "operator"],
   "account:delete": ["owner"],
+  // POST /api/campanhas/[slug]/messages: postar na campanha sem poder editá-la.
+  "message:send": ["owner", "admin", "operator", "seller"],
+  // Gasto de anúncio é dado de caixa (spec 2026-10-10-funil-anuncios §3): lançar e ler.
+  "ads:manage": ["owner", "admin"],
 };
 
 export function hasPermission(role: TenantRole, action: Action): boolean {
@@ -33,4 +45,20 @@ export function assertPermission(role: TenantRole, action: Action): void {
   if (!hasPermission(role, action)) {
     throw new Response("Sem permissão para esta ação.", { status: 403 });
   }
+}
+
+/** Papéis que entram por convite (POST /api/members). Dono nasce no cadastro, nunca por convite. */
+const INVITABLE_ROLES: readonly TenantRole[] = ["admin", "operator", "seller"];
+
+/**
+ * Papel pedido no convite, ou `null` — a rota responde 400 "Função inválida.".
+ *
+ * Antes, papel desconhecido virava `operator` em silêncio: uma tela mandando
+ * "seller" antes do backend aceitá-lo criaria um operador, com MAIS acesso que a
+ * vendedora. Desde o PR 6 do acesso da vendedora, "seller" é convidável.
+ */
+export function parseInviteRole(raw: unknown): TenantRole | null {
+  if (typeof raw !== "string") return null;
+  const role = raw.trim().toLowerCase();
+  return INVITABLE_ROLES.find((r) => r === role) ?? null;
 }

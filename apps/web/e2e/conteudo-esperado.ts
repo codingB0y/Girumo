@@ -16,6 +16,8 @@
 
 import type { APIRequestContext } from "@playwright/test";
 
+import { formatPhoneBR } from "../src/lib/phone";
+
 /**
  * A fonte de dados da lista principal da tela.
  *
@@ -271,6 +273,12 @@ export const CONTEUDO_ESPERADO: Record<string, ConteudoEsperado> = {
     semLista: "Formulario de criacao; nao lista registro existente.",
   },
 
+  "/painel/instagram/assinar": {
+    // Subtitulo fixo da pagina: aparece em todos os estados (oferta, ja assinado, sem plano).
+    ancora: /recebe no direct o link do grupo de WhatsApp/,
+    semLista: "Oferta de assinatura do add-on; nao lista registro existente.",
+  },
+
   "/painel/pages": {
     ancora: /Páginas/,
     lista: {
@@ -289,6 +297,31 @@ export const CONTEUDO_ESPERADO: Record<string, ConteudoEsperado> = {
     ancora: /Resultados/,
     semLista:
       "Agrega leads/pedidos/cliques em numeros; a lista dela depende de campanha, que /painel/campanhas ja confere.",
+  },
+  "/painel/resultados/anuncios": {
+    // Só existe com a resposta da rota na tela: o funil (loja com cadastro) ou a tela
+    // Vazio (loja de QA, sem cadastro). Nenhum dos dois aparece no esqueleto nem no erro.
+    ancora: /Do anúncio à venda|Ainda não chegou nenhum cadastro com origem/,
+    semLista:
+      "Agrega cadastros, entradas e pedidos em funil; quem confere o número contra o banco é o teste de integração de attribution_report.",
+  },
+
+  "/painel/vendas": {
+    // O <h1> e da pagina, nao do shell; o botao "Registrar venda · R$ ..." fica escondido ate
+    // escolher o cliente, entao so o titulo casa visivel.
+    ancora: /Registrar venda/,
+    lista: {
+      // Para o usuario de QA (dono), "Minhas vendas" sao as vendas que ELE registrou: quase
+      // sempre nenhuma, e a tela tem que dizer isso em vez de travar no esqueleto.
+      api: "/api/vendas",
+      marca: (j) => {
+        const vendas = (j as { vendas?: Array<{ cliente?: unknown; telefone?: unknown }> } | null)?.vendas;
+        if (!Array.isArray(vendas) || vendas.length === 0) return null;
+        // Sem nome, a lista mostra o numero formatado (nomeDoCliente).
+        return primeiroTexto(vendas, "cliente") ?? formatPhoneBR(String(vendas[0]?.telefone ?? ""));
+      },
+      vazio: /Nenhuma venda registrada/i,
+    },
   },
 
 };

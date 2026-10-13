@@ -38,6 +38,15 @@ test("resposta pública e direct na conversa batem no caminho certo com o corpo 
   assert.deepEqual(pedidos[1].corpo, { accountId: "c1", message: "Link" });
 });
 
+test("direct com botão leva `buttons` no corpo; sem botão, o campo nem vai", async () => {
+  const { fetchImpl, pedidos } = fetchFalso([{ status: 200, body: {} }, { status: 200, body: {} }]);
+  const z = createZernioTransport({ apiKey: "k", fetchImpl });
+  await z.sendMessage({ accountId: "c1", conversationId: "v1", message: "Entra aí", buttons: [{ type: "url", title: "Entrar no grupo VIP", url: "https://x/r/vip?ig=r" }], idempotencyKey: "a" });
+  await z.sendMessage({ accountId: "c1", conversationId: "v1", message: "Oi", buttons: [], idempotencyKey: "b" });
+  assert.deepEqual(pedidos[0].corpo, { accountId: "c1", message: "Entra aí", buttons: [{ type: "url", title: "Entrar no grupo VIP", url: "https://x/r/vip?ig=r" }] });
+  assert.deepEqual(pedidos[1].corpo, { accountId: "c1", message: "Oi" });
+});
+
 test("ensureProfile devolve o _id criado ou, no 409, o perfil que já existe", async () => {
   const { fetchImpl } = fetchFalso([
     { status: 201, body: { profile: { _id: "novo" } } },

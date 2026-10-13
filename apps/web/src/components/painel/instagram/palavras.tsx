@@ -5,7 +5,7 @@ import { X } from "lucide-react";
 import { MAX_KEYWORDS, MAX_KEYWORD_LENGTH } from "@/lib/ig/flow/types";
 import { normalizeForMatch } from "@/lib/ig/match-keyword";
 
-export function Palavras({ palavras, aoMudar }: { palavras: string[]; aoMudar: (lista: string[]) => void }) {
+export function Palavras({ palavras, aoMudar, rotulo = "Adicionar palavra" }: { palavras: string[]; aoMudar: (lista: string[]) => void; rotulo?: string }) {
   const [digitando, setDigitando] = useState("");
   const cheio = palavras.length >= MAX_KEYWORDS;
   const acrescentar = () => {
@@ -27,7 +27,7 @@ export function Palavras({ palavras, aoMudar }: { palavras: string[]; aoMudar: (
         </span>
       ))}
       <input
-        aria-label="Adicionar palavra"
+        aria-label={rotulo}
         value={digitando}
         onChange={(e) => setDigitando(e.target.value)}
         onKeyDown={(e) => {

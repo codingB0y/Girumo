@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { parseModulos, type Acesso, type ModuloOpcional } from "@/lib/auth/modulos";
 import type { TenantRole, Action } from "@/lib/permissions";
 import { hasPermission } from "@/lib/permissions";
 
@@ -12,6 +13,10 @@ type RoleCtx = {
   tenantName: string | null;
   /** false até /api/auth/me responder (com sucesso ou erro): distingue "carregando" de "sem nome". */
   carregado: boolean;
+  /** Módulos opcionais que o dono liberou (só a vendedora tem). [] até carregar. */
+  modules: ModuloOpcional[];
+  /** Pronto para `paginaLiberada`/`podeAcessar`. null até /api/auth/me devolver o papel. */
+  acesso: Acesso | null;
   can: (action: Action) => boolean;
 };
 
@@ -20,6 +25,8 @@ const RoleContext = createContext<RoleCtx>({
   tenantId: null,
   tenantName: null,
   carregado: false,
+  modules: [],
+  acesso: null,
   can: () => true,
 });
 
@@ -29,6 +36,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<TenantRole | null>(null);
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [tenantName, setTenantName] = useState<string | null>(null);
+  const [modules, setModules] = useState<ModuloOpcional[]>([]);
   const [carregado, setCarregado] = useState(false);
 
   useEffect(() => {
@@ -38,10 +46,14 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         if (data?.role) setRole(data.role);
         if (data?.tenantId) setTenantId(String(data.tenantId));
         if (typeof data?.tenantName === "string") setTenantName(data.tenantName);
+        setModules(parseModulos(data?.modules));
       })
       .catch(() => {})
       .finally(() => setCarregado(true));
   }, []);
+
+  // Memo: um objeto novo a cada render faria efeito que depende de `acesso` rodar sem parar.
+  const acesso = useMemo<Acesso | null>(() => (role ? { role, modules } : null), [role, modules]);
 
   const can = (action: Action): boolean => {
     if (!role) return true;
@@ -49,7 +61,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <RoleContext.Provider value={{ role, tenantId, tenantName, carregado, can }}>
+    <RoleContext.Provider value={{ role, tenantId, tenantName, carregado, modules, acesso, can }}>
       {children}
     </RoleContext.Provider>
   );

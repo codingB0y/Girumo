@@ -124,7 +124,9 @@ async function evaluateAutoGrowSupabase(tenantId: string): Promise<void> {
     const pool: PoolGroup[] = c.group_ids
       .map((id) => byId.get(id))
       .filter((g): g is NonNullable<typeof g> => !!g)
-      .map((g) => ({ members: g.members, capacity: g.capacity, inviteUrl: g.invite_url }));
+      // `lotadoEm` vai junto: grupo marcado lotado (à mão ou pelo trigger) não é
+      // folga, mesmo abaixo de 90% — ver `hasHeadroom`. Ele NÃO sai do pool.
+      .map((g) => ({ members: g.members, capacity: g.capacity, inviteUrl: g.invite_url, lotadoEm: g.lotado_em ?? null }));
     if (!shouldEnqueueGrow(pool, c.group_ids.length)) continue;
 
     const seq = await supaJobs.nextSeq(tenantId, c.id, c.group_ids.length);
@@ -283,6 +285,14 @@ async function ackGrowSupabase(tenantId: string, input: {
 /**
  * Registra o grupo recém-criado no pool SEM apagar os demais e sem resetar o que
  * o lojista configurou — se o ack for reentregue, só atualiza nome/membros/convite.
+ *
+ * Grava também a contagem de admins como CONFERIDA, no insert e no update: o
+ * grupo acabou de ser criado por nós, então tem um admin, o nosso número. Sem o
+ * carimbo (`admins_counted_at`), `apply_group_members_delta` ignora todo delta do
+ * grupo (só soma onde ele não é nulo) e a contagem ficaria parada no 1 até um
+ * Sincronizar manual — o grupo nunca lotaria sozinho. Efeito visível, e
+ * verdadeiro: ele passa a contar como "sem admin reserva" (`/api/groups/protecao`
+ * e o e-mail `group_admin_risk`) até o lojista promover alguém.
  */
 async function registerGrownGroup(tenantId: string, g: {
   whatsappGroupId: string;
@@ -290,6 +300,11 @@ async function registerGrownGroup(tenantId: string, g: {
   members: number;
   inviteUrl: string;
 }): Promise<void> {
+  const contagemDeAdmins = {
+    admins_total: 1,
+    admins_ours: 1,
+    admins_counted_at: new Date().toISOString(),
+  };
   const existing = (await supaGroups.listGroups(tenantId)).find(
     (row) => row.whatsapp_group_id === g.whatsappGroupId,
   );
@@ -298,6 +313,7 @@ async function registerGrownGroup(tenantId: string, g: {
       name: g.name,
       members: g.members,
       invite_url: g.inviteUrl,
+      ...contagemDeAdmins,
     });
     return;
   }
@@ -316,6 +332,7 @@ async function registerGrownGroup(tenantId: string, g: {
     // A janela é curta, mas o link vai ao ar no mesmo instante: é justamente
     // quando mais gente entra.
     is_admin: true,
+    ...contagemDeAdmins,
   }]);
 }
 

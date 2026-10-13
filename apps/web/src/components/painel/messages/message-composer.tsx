@@ -59,7 +59,9 @@ export function MessageComposer({ onSend, sending, className, onBodyChange, rotu
   const [pollOptions, setPollOptions] = useState(["" , ""]);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const canSend = Boolean(body.trim() || mediaId || (showPoll && pollQuestion.trim() && pollOptions.filter(Boolean).length >= 2));
+  // Sem `!uploading`, com texto digitado o botão ficava ativo durante o upload e
+  // vídeo (upload longo) saía como post só de texto — caso "kit iniciante", 09/10.
+  const canSend = !uploading && Boolean(body.trim() || mediaId || (showPoll && pollQuestion.trim() && pollOptions.filter(Boolean).length >= 2));
 
   const handleUpload = useCallback(async (file: File, type: MidiaDoPost) => {
     setUploading(true);

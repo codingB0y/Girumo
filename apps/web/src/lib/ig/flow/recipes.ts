@@ -1,6 +1,6 @@
 import { MAX_WAIT_MINUTES, type FlowDef } from "./types";
 
-export type RecipeId = "comment_invite" | "comment_follow_invite" | "dm_invite" | "blank";
+export type RecipeId = "comment_invite" | "comment_confirm_invite" | "comment_follow_invite" | "dm_invite" | "blank";
 
 export type Recipe = {
   id: RecipeId;
@@ -21,7 +21,13 @@ export const DEFAULT_TEXTS = {
   pedeResposta: "Oi! Vi seu comentário. Me responde aqui com OK que eu te mando o link do grupo.",
   pedeSeguir: "Pra receber o link, segue a loja e me responde aqui de novo.",
   lembrete: "Oi! Ainda dá tempo de entrar no grupo. O link está aqui:",
+  confirma: "Oi! Você pediu o link para entrar no nosso grupo VIP do WhatsApp. Quer que eu te envie aqui? Responde SIM, QUERO.",
+  conviteComBotao: "Clique no botão abaixo e entre no grupo VIP.",
+  botaoConvite: "Entrar no grupo VIP",
 } as const;
+
+/** Respostas que liberam o convite na receita de confirmação. */
+export const RESPOSTAS_CONFIRMA = ["sim", "quero"];
 
 const gatilhoComentario = (keywords: string[]) =>
   ({ id: "gatilho", type: "trigger", on: "comment", keywords, postId: null, publicReply: DEFAULT_TEXTS.respostaPublica, storyReplies: false }) as const;
@@ -41,6 +47,25 @@ export const RECIPES: Record<RecipeId, Recipe> = {
       v: 1,
       nodes: [gatilhoComentario(["quero", "eu quero"]), convite(null)],
       edges: [{ from: "gatilho", out: "next", to: "convite" }],
+    }),
+  },
+  comment_confirm_invite: {
+    id: "comment_confirm_invite",
+    titulo: "Comentou, confirma e entra no grupo",
+    descricao: "Pergunta no direct se a pessoa quer o link; quando ela responde SIM, o convite chega com botão.",
+    cadeia: ["Comentário", "Direct que pergunta", "Resposta SIM", "Convite com botão"],
+    gatilho: "Comentário",
+    build: () => ({
+      v: 1,
+      nodes: [
+        gatilhoComentario(["quero", "eu quero"]),
+        { id: "pergunta", type: "message", text: DEFAULT_TEXTS.confirma, button: null, wait: { minutes: MAX_WAIT_MINUTES, keywords: [...RESPOSTAS_CONFIRMA] } },
+        { id: "convite", type: "invite", text: DEFAULT_TEXTS.conviteComBotao, campaignSlug: null, button: DEFAULT_TEXTS.botaoConvite, remindAfterMinutes: null },
+      ],
+      edges: [
+        { from: "gatilho", out: "next", to: "pergunta" },
+        { from: "pergunta", out: "replied", to: "convite" },
+      ],
     }),
   },
   comment_follow_invite: {
@@ -98,7 +123,7 @@ export const RECIPES: Record<RecipeId, Recipe> = {
   },
 };
 
-export const RECIPE_ORDER: RecipeId[] = ["comment_invite", "comment_follow_invite", "dm_invite", "blank"];
+export const RECIPE_ORDER: RecipeId[] = ["comment_invite", "comment_confirm_invite", "comment_follow_invite", "dm_invite", "blank"];
 
 export function isRecipeId(value: unknown): value is RecipeId {
   return typeof value === "string" && (RECIPE_ORDER as string[]).includes(value);

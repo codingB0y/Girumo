@@ -65,6 +65,17 @@ export type WorkerEnv = {
    * operações por tick ou baixar isto afrouxa o anti-ban.
    */
   bulkIntervalMs: number;
+  /**
+   * Recontagem real dos grupos. Default `false` (DRY-RUN): o loop lista as lojas
+   * e loga quem recontaria, sem chamar o app — a mesma postura de ligar à mão dos
+   * outros loops, e o jeito de desligar sem tirar APP_URL (que derruba grow e lote).
+   */
+  recountEnabled: boolean;
+  /**
+   * Intervalo da recontagem. Default 24 h; mínimo 1 h: cada volta é um
+   * `fetchAllGroups` de até 50 s por loja, numa Evolution que é uma só.
+   */
+  recountIntervalMs: number;
 };
 
 function required(name: string): string {
@@ -117,5 +128,8 @@ export function loadEnv(): WorkerEnv {
     bulkEnabled: boolEnv("WORKER_BULK_ENABLED"),
     // Mínimo de 1s: abaixo disso o espaçamento deixa de ser espaçamento.
     bulkIntervalMs: intEnv("WORKER_BULK_INTERVAL_MS", 4_000, 1_000),
+    recountEnabled: boolEnv("WORKER_RECOUNT_ENABLED"),
+    // Padrão 24 h, mínimo 1 h (ver o tipo).
+    recountIntervalMs: intEnv("WORKER_RECOUNT_INTERVAL_MS", 86_400_000, 3_600_000),
   };
 }

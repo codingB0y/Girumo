@@ -9,16 +9,41 @@ falhasse publicaria a credencial do usuario de QA num artefato baixavel por
 qualquer pessoa com leitura no repositorio, que e um privilegio menor do que
 ler os segredos do Actions. Falha no CI e justamente quando ha artefato.
 
+No relatorio HTML nem precisa falhar: o titulo de todo `fill` e
+`Fill "<valor>"`, de teste que passa tambem, e os dados vao num zip em base64
+DENTRO do index.html — onde troca de bytes crus nao enxerga nada. Foi por esse
+buraco que as senhas sairam em todo run ate 23/09/2026.
+
 Nao substitui rotacionar a senha se ela ja vazou: serve para o proximo run.
+
+Prova: `python3 infra/scripts/redigir-segredos-e2e.test.py`.
 """
+import base64
 import io
+import json
 import os
+import re
 import sys
 import zipfile
 from pathlib import Path
 
 MARCA = b"[REDACTED]"
 ALVOS = [Path("apps/web/e2e-report"), Path("apps/web/e2e-results")]
+
+# Formato do Playwright 1.62 (`_writeReportData` em playwright/lib/runner).
+MARCADOR_DO_RELATORIO = b"playwrightReportBase64"
+RELATORIO_EMBUTIDO = re.compile(
+    rb'(<template id="playwrightReportBase64">data:application/zip;base64,)'
+    rb"([A-Za-z0-9+/=\s]*)(</template>)"
+)
+
+
+def variantes(senha: str) -> list[bytes]:
+    """A senha crua e como ela sai dentro de JSON (trace, dados do relatorio):
+    aspas e barra invertida viram escape, e a troca crua deixaria passar."""
+    crua = senha.encode()
+    em_json = json.dumps(senha, ensure_ascii=False)[1:-1].encode()
+    return [crua] if em_json == crua else [crua, em_json]
 
 
 def redigir_bytes(dados: bytes, segredos: list[bytes]) -> tuple[bytes, bool]:
@@ -30,45 +55,64 @@ def redigir_bytes(dados: bytes, segredos: list[bytes]) -> tuple[bytes, bool]:
     return dados, mudou
 
 
-def redigir_zip(caminho: Path, segredos: list[bytes]) -> bool:
+def redigir_zip(dados: bytes, segredos: list[bytes]) -> tuple[bytes, bool]:
     """Reescreve o zip inteiro: nao da para editar uma entrada no lugar."""
     try:
-        with zipfile.ZipFile(caminho) as origem:
+        with zipfile.ZipFile(io.BytesIO(dados)) as origem:
             itens = [(i, origem.read(i.filename)) for i in origem.infolist()]
     except zipfile.BadZipFile:
-        return False
+        return dados, False
 
     limpos, mudou = [], False
-    for info, dados in itens:
-        novos, alterou = redigir_bytes(dados, segredos)
+    for info, conteudo in itens:
+        novo, alterou = redigir_bytes(conteudo, segredos)
         mudou = mudou or alterou
-        limpos.append((info, novos))
+        limpos.append((info, novo))
 
     if not mudou:
-        return False
+        return dados, False
 
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as destino:
-        for info, dados in limpos:
-            destino.writestr(info, dados)
-    caminho.write_bytes(buffer.getvalue())
-    return True
+        for info, conteudo in limpos:
+            destino.writestr(info, conteudo)
+    return buffer.getvalue(), True
+
+
+def redigir_html(dados: bytes, segredos: list[bytes]) -> tuple[bytes, bool]:
+    """O texto cru e, no index.html do relatorio, o zip embutido em base64."""
+    dados, mudou = redigir_bytes(dados, segredos)
+    if MARCADOR_DO_RELATORIO not in dados:
+        return dados, mudou
+
+    achado = RELATORIO_EMBUTIDO.search(dados)
+    if not achado:
+        # O app do relatorio ainda procura os dados, mas nao no formato que
+        # este script conhece (upgrade do Playwright?). Seguir publicaria as
+        # senhas de novo, calado; sair com erro bloqueia o upload.
+        raise SystemExit("relatorio do Playwright em formato desconhecido: redacao abortada")
+
+    zip_limpo, mudou_zip = redigir_zip(base64.b64decode(achado.group(2)), segredos)
+    if not mudou_zip:
+        return dados, mudou
+    return dados[: achado.start(2)] + base64.b64encode(zip_limpo) + dados[achado.end(2):], True
 
 
 def main() -> int:
-    # Sao DUAS senhas desde 25/08/2026: o usuario de QA (lojista) e o admin de
-    # plataforma, que a cobertura de /admin usa. Esquecer a segunda aqui teria o
-    # efeito exato que este script existe para evitar — com o agravante de que a
-    # conta vazada seria a de super-admin.
+    # Sao TRES senhas: o usuario de QA (lojista), o admin de plataforma que a
+    # cobertura de /admin usa (25/08/2026) e o usuario proprio do sessao.spec.ts
+    # (23/09/2026). Esquecer uma delas aqui teria o efeito exato que este script
+    # existe para evitar — no caso do admin, vazando a conta de super-admin.
     candidatas = (
         os.environ.get("E2E_PASSWORD", "").strip(),
         os.environ.get("E2E_ADMIN_PASSWORD", "").strip(),
+        os.environ.get("E2E_SESSAO_PASSWORD", "").strip(),
     )
-    segredos = [v.encode() for v in candidatas if v]
+    segredos = [v for senha in candidatas if senha for v in variantes(senha)]
     if not segredos:
         # Sem senha definida nao ha o que redigir — e nao e erro: o job pode
         # ter rodado so o gate anonimo.
-        print("nada a redigir: E2E_PASSWORD e E2E_ADMIN_PASSWORD vazios")
+        print("nada a redigir: E2E_PASSWORD, E2E_ADMIN_PASSWORD e E2E_SESSAO_PASSWORD vazios")
         return 0
 
     tocados = 0
@@ -78,12 +122,13 @@ def main() -> int:
         for caminho in raiz.rglob("*"):
             if not caminho.is_file():
                 continue
-            if caminho.suffix == ".zip":
-                if redigir_zip(caminho, segredos):
-                    tocados += 1
-                continue
             dados = caminho.read_bytes()
-            novos, mudou = redigir_bytes(dados, segredos)
+            if caminho.suffix == ".zip":
+                novos, mudou = redigir_zip(dados, segredos)
+            elif caminho.suffix == ".html":
+                novos, mudou = redigir_html(dados, segredos)
+            else:
+                novos, mudou = redigir_bytes(dados, segredos)
             if mudou:
                 caminho.write_bytes(novos)
                 tocados += 1

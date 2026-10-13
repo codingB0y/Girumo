@@ -19,7 +19,7 @@ export async function GET(req: Request) {
   } else {
     const authUserId = await getSessionAccountId();
     if (!authUserId) return Response.json({ error: "Nao autenticado." }, { status: 401 });
-    tenantId = await findMembershipTenantId(authUserId, req.headers.get("x-tenant-id"));
+    tenantId = await findMembershipTenantId(authUserId, req);
   }
 
   if (!tenantId) return Response.json({ error: "Tenant nao encontrado." }, { status: 403 });

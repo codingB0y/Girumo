@@ -2,6 +2,7 @@ import { CreditCard, TrendingUp, AlertTriangle, CheckCircle2, Receipt, DollarSig
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { AdminStatCard } from "@/components/admin/stat-card";
 import { getStripe } from "@/lib/billing/stripe";
+import { requireAdmin } from "@/lib/admin-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +54,7 @@ async function getStripeMetrics() {
 }
 
 export default async function AdminBillingPage() {
+  await requireAdmin();
   const supabase = getSupabaseAdmin();
 
   const { data: subs, error: subsError } = await supabase

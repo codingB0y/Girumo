@@ -25,6 +25,8 @@ const ENGINE_ONLY = new Set([
   "POST /api/groups/grow/ack",
   "POST /api/groups/bulk/pending",
   "POST /api/groups/bulk/ack",
+  // Recontagem diária dos grupos (worker, 1×/dia).
+  "POST /api/groups/recount",
 ]);
 
 /**
@@ -94,6 +96,10 @@ export function classifyRequest(pathname: string, method: string): AccessKind {
   // Path EXATO, igual ao bloco dos crons: `/api/track/` como prefixo abriria
   // qualquer rota futura da família sem gate nenhum.
   if (key === "POST /api/track/outbound") return "public-rate-limited";
+  // Cadastro do site próprio do lojista (funil de anúncios). Sem sessão por
+  // natureza: quem chama é o servidor do site, autenticado pela chave no handler,
+  // que também aplica o teto por chave. Path EXATO, pelo mesmo motivo do beacon.
+  if (key === "POST /api/integracoes/cadastro") return "public-rate-limited";
 
   return pathname.startsWith("/api/") ? "user" : "public";
 }

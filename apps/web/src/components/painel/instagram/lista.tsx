@@ -13,6 +13,7 @@ import type { Carga } from "@/lib/painel/types";
 import type { FlowSummary } from "@/lib/stores/ig-flows";
 import { ChipEstado } from "./chip-estado";
 import { ContaDoInstagram } from "./conta";
+import { OfertaInstagram } from "./oferta";
 
 type Resposta = { flows: FlowSummary[] };
 const valida = (corpo: unknown): corpo is Resposta => !!corpo && typeof corpo === "object" && Array.isArray((corpo as Resposta).flows);
@@ -45,12 +46,9 @@ export function InstagramVitrine() {
 
   if (!instagram.enabled) {
     return (
-      <section className="px-5 py-6 lg:px-8">
-        <h1 className="text-20 font-semibold text-volt-950">Instagram</h1>
-        <p className="mt-2 max-w-[52ch] text-13 text-slate-600">
-          O Instagram ainda não está liberado para esta loja. Fale com a Girumo para ligar.
-        </p>
-      </section>
+      <Suspense fallback={null}>
+        <OfertaInstagram />
+      </Suspense>
     );
   }
 

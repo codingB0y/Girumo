@@ -29,7 +29,7 @@ with t(name) as (values
   ('celebrations'), ('contacts'), ('flash_offer_claims'), ('flash_offer_entries'),
   ('flash_offer_groups'), ('flash_offers'), ('funnels'), ('group_bulk_jobs'),
   ('group_participants'), ('groups'), ('instances'), ('landing_pages'), ('logs'), ('messages'),
-  ('orders'), ('playbook_progress'), ('schedules'), ('template_folders'), ('templates'),
+  ('order_items'), ('orders'), ('playbook_progress'), ('schedules'), ('template_folders'), ('templates'),
   ('tenant_settings'), ('testimonials'), ('tracked_links'), ('uploads')
 ), r as (
   select t.name, to_regclass('public.' || t.name) as rel from t

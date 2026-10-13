@@ -11,10 +11,11 @@ async function readErrorMessage(res: Response, fallback: string): Promise<string
 }
 
 /**
- * Sobe um arquivo direto do browser pro Supabase Storage (a RLS de
- * `storage.objects` já libera INSERT pra quem é membro do tenant no path,
- * resolvido pelo SERVIDOR em `/api/media/prepare` — não pelo localStorage) e
- * só então registra a metadata via `/api/media/register`, um JSON pequeno.
+ * Sobe um arquivo direto do browser pro Supabase Storage com o token de upload
+ * assinado que `/api/media/prepare` emite (path e tenant resolvidos pelo
+ * SERVIDOR — não pelo localStorage) e só então registra a metadata via
+ * `/api/media/register`, um JSON pequeno. O token não depende da RLS de
+ * `storage.objects`, que exclui a vendedora (spec 2026-10-07 §1, "RLS").
  *
  * Existe porque uma Vercel Function tem um limite fixo de 4.5MB de corpo de
  * requisição (infra da plataforma, não contornável por código de app);
@@ -38,11 +39,11 @@ export async function uploadMediaFile(file: File, kind: MediaKind = "media"): Pr
   if (!prepareRes.ok) {
     throw new Error(await readErrorMessage(prepareRes, "Não foi possível preparar o envio."));
   }
-  const { storagePath } = (await prepareRes.json()) as { storagePath: string };
+  const { storagePath, token } = (await prepareRes.json()) as { storagePath: string; token: string };
 
   const { error: uploadError } = await getSupabaseBrowserClient()
     .storage.from(MEDIA_BUCKET)
-    .upload(storagePath, file, { contentType: file.type, upsert: false });
+    .uploadToSignedUrl(storagePath, token, file, { contentType: file.type });
   if (uploadError) {
     // Mensagem crua do SDK (RLS/rede) não é acionável pro usuário final —
     // ao contrário do erro de `/api/media/register`, que a rota já traduz.

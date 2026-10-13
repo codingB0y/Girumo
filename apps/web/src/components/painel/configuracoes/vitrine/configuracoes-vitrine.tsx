@@ -8,8 +8,9 @@ import { resumoDasPortas, type LeituraDasPortas, type Porta } from "@/lib/painel
 import { AbaEquipe, type PropsDaEquipe } from "./aba-equipe";
 import { AbaPlano, type PropsDoPlano } from "./aba-plano";
 import { DominioProprio } from "@/components/painel/configuracoes/dominio-proprio";
+import { SiteProprio } from "@/components/painel/configuracoes/site-proprio";
 
-const PORTAS: Porta[] = ["Conexão", "Equipe", "Notificações", "Plano", "Conta"];
+const PORTAS: Porta[] = ["Conexão", "Integrações", "Equipe", "Notificações", "Plano", "Conta"];
 
 export type PropsDosAvisos = {
   /** `null` enquanto a consulta não voltou: o interruptor vira esqueleto. */
@@ -99,6 +100,7 @@ export function ConfiguracoesVitrine({
               <DominioProprio />
             </div>
           )}
+          {porta === "Integrações" && <SiteProprio />}
           {porta === "Equipe" && <AbaEquipe {...equipe} />}
           {porta === "Notificações" && <AbaAvisos {...avisos} />}
           {porta === "Plano" && <AbaPlano {...plano} />}

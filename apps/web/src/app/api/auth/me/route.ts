@@ -28,6 +28,7 @@ export async function GET(req: Request) {
       tenantId: ctx.tenantId,
       tenantName: await tenantName(ctx.tenantId),
       role: ctx.role,
+      modules: ctx.modules,
     });
   } catch {
     return NextResponse.json({ error: "Não autenticado." }, { status: 401 });

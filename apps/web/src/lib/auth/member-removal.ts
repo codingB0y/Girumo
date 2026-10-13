@@ -10,7 +10,7 @@
  *  - último owner: um tenant sem owner fica sem quem gerencie cobrança e equipe.
  */
 
-export type TenantRole = "owner" | "admin" | "operator";
+import type { TenantRole } from "@/lib/permissions";
 
 export interface RemovalActor {
   role: TenantRole;

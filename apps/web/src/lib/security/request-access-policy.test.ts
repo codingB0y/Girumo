@@ -30,6 +30,13 @@ test("bulk group actions are engine-only — sem isso o worker leva 401 para sem
   assert.equal(classifyRequest("/api/groups/bulk/ack", "POST"), "engine-only");
 });
 
+test("a recontagem diária é engine-only — fora da lista o worker leva 401 para sempre", () => {
+  // Mesmo motivo das ações em massa: o middleware só olha o x-engine-token das
+  // rotas desta lista; fora dela a recontagem cairia no gate de sessão e o
+  // sintoma (contagem que nunca anda) apontaria para o worker.
+  assert.equal(classifyRequest("/api/groups/recount", "POST"), "engine-only");
+});
+
 test("dispatch pending is engine-only", () => {
   assert.equal(classifyRequest("/api/dispatch/pending", "POST"), "engine-only");
 });
@@ -94,6 +101,13 @@ test("o beacon de saída entra sem sessão e limitado por IP", () => {
   // Prefixo NÃO abre a família: uma rota futura em /api/track/ precisa entrar
   // explicitamente, senão cai no gate de usuário.
   assert.equal(classifyRequest("/api/track/qualquer-outra", "POST"), "user");
+});
+
+test("cadastro do site próprio é público com teto, só no POST e só no path exato", () => {
+  assert.equal(classifyRequest("/api/integracoes/cadastro", "POST"), "public-rate-limited");
+  assert.equal(classifyRequest("/api/integracoes/cadastro", "GET"), "user");
+  assert.equal(classifyRequest("/api/integracoes/cadastro/outra", "POST"), "user");
+  assert.equal(classifyRequest("/api/integracoes/site/chave", "POST"), "user");
 });
 
 test("outros métodos no beacon de saída ficam no gate de sessão", () => {

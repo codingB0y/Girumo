@@ -1,3 +1,11 @@
+import {
+  MODULOS_OPCIONAIS,
+  modulosDoAcesso,
+  parseModulos,
+  type Modulo,
+  type ModuloOpcional,
+} from "@/lib/auth/modulos";
+import { pareceEmail } from "@/lib/painel/auth-aparelho";
 import { iniciais } from "@/lib/painel/inicio";
 
 /**
@@ -8,18 +16,19 @@ import { iniciais } from "@/lib/painel/inicio";
  * texto é o que mora aqui; a tela só desenha.
  */
 
-export type Porta = "Conexão" | "Equipe" | "Notificações" | "Plano" | "Conta";
+export type Porta = "Conexão" | "Integrações" | "Equipe" | "Notificações" | "Plano" | "Conta";
 
 const PAPEIS: Record<string, string> = {
   owner: "Dono",
   admin: "Administração",
   operator: "Atendimento",
+  seller: "Vendedora",
 };
 
 /**
- * "owner" e "operator" nunca chegam à tela (regra da spec 12.6). Papel que não
- * conhecemos vira "Equipe" — melhor genérico do que o identificador do banco
- * vazando para quem contrata o produto.
+ * "owner", "operator" e "seller" nunca chegam à tela (regra da spec 12.6). Papel
+ * que não conhecemos vira "Equipe" — melhor genérico do que o identificador do
+ * banco vazando para quem contrata o produto.
  */
 export function papelEmPortugues(papel: string | null | undefined): string {
   return PAPEIS[(papel ?? "").trim().toLowerCase()] ?? "Equipe";
@@ -38,6 +47,64 @@ export function iniciaisDoEmail(email: string | null | undefined): string {
   // Com separador o e-mail já traz nome e sobrenome: "igor.toledo" → "IT".
   if (partes.length >= 2) return iniciais(partes.join(" "));
   return partes[0].slice(0, 2).toUpperCase();
+}
+
+/* -------------------------------------------------------------------------- */
+/* Convite e acesso da vendedora (spec 2026-10-07-acesso-vendedora, §4)       */
+/* -------------------------------------------------------------------------- */
+
+export type FuncaoDoConvite = "admin" | "operator" | "seller";
+
+/**
+ * As funções do convite, na ordem e com as descrições do mockup aprovado. O nome é
+ * o mesmo de `papelEmPortugues` (o teste cobra): convite e ficha falam a mesma
+ * língua. Dono não se convida.
+ */
+export const FUNCOES_DO_CONVITE: ReadonlyArray<{ id: FuncaoDoConvite; nome: string; descricao: string }> = [
+  { id: "admin", nome: "Administração", descricao: "Tudo, menos trocar o plano e excluir a conta." },
+  { id: "operator", nome: "Atendimento", descricao: "Campanhas, disparos, grupos e contatos." },
+  { id: "seller", nome: "Vendedora", descricao: "Só o que você marcar abaixo." },
+];
+
+/** Os módulos na ordem da tela: `vendas` (sempre da vendedora) e depois os opcionais. */
+export const MODULOS_NA_TELA: readonly Modulo[] = ["vendas", ...MODULOS_OPCIONAIS];
+
+/**
+ * `Record<Modulo, …>` de propósito: módulo novo no contrato sem rótulo aqui é
+ * erro de tipo, não um chip em branco na ficha.
+ */
+export const ROTULO_DO_MODULO: Record<Modulo, string> = {
+  vendas: "Registrar vendas",
+  postar: "Postar nos grupos",
+};
+
+export const DESCRICAO_DO_MODULO: Record<Modulo, string> = {
+  vendas: "Busca o cliente pelo número e lança os produtos. Vê só as vendas dela, nunca a lista de contatos.",
+  postar: "Envia texto, foto, vídeo e áudio pros grupos das campanhas.",
+};
+
+/** Os chips da ficha. Só a vendedora tem; o que vier torto do banco não vira chip. */
+export function chipsDoAcesso(papel: string, modules: unknown): string[] {
+  if (papel !== "seller") return [];
+  return modulosDoAcesso({ role: "seller", modules: parseModulos(modules) }).map((m) => ROTULO_DO_MODULO[m]);
+}
+
+export type CorpoDoConvite = { email: string; role: FuncaoDoConvite; modules?: ModuloOpcional[] };
+
+/**
+ * O corpo do `POST /api/members`. `modules` só vai com a vendedora: o servidor
+ * responde 400 a módulo em outro papel. O e-mail passa pela checagem frouxa do
+ * login (`pareceEmail`) — quem valida de verdade é o servidor.
+ */
+export function montarConvite(
+  email: string,
+  funcao: FuncaoDoConvite,
+  modulos: readonly ModuloOpcional[],
+): { ok: true; corpo: CorpoDoConvite } | { ok: false; erro: string } {
+  const limpo = email.trim();
+  if (!pareceEmail(limpo)) return { ok: false, erro: "Digite um e-mail válido." };
+  if (funcao !== "seller") return { ok: true, corpo: { email: limpo, role: funcao } };
+  return { ok: true, corpo: { email: limpo, role: funcao, modules: parseModulos(modulos) } };
 }
 
 /**
@@ -59,6 +126,9 @@ export type LeituraDasPortas = {
 export function resumoDasPortas(leitura: LeituraDasPortas): Record<Porta, string | null> {
   return {
     "Conexão": leitura.conexao.ok ? (leitura.conexao.live ? "conectado" : "desconectado") : null,
+    // A integração do site carrega a própria leitura dentro da seção (só dono
+    // e administração podem lê-la): a porta não escreve o que não sabe.
+    "Integrações": null,
     Equipe: resumoDaEquipe(leitura.equipe),
     "Notificações": resumoDosAvisos(leitura.avisos),
     Plano: resumoDoPlano(leitura.plano),

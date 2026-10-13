@@ -458,3 +458,50 @@ apps/web/supabase/migrations/20261005120000_custom_domains.sql
 # saem; entram ig_flows, ig_runs, ig_run_steps e tenant_settings.instagram_enabled.
 # Aplicado nos dois bancos em 05/10/2026.
 apps/web/supabase/migrations/20261003120000_ig_fluxos.sql
+# 2026-10-07 - Convite nominal do add-on Instagram (instagram_invites): tabela nova, muda a
+# baseline (t|instagram_invites). Escrita so do servidor — conferir com
+# infra/tests/tenant-tables-escrita-check.sql nos dois bancos.
+apps/web/supabase/migrations/20261007120000_instagram_invites.sql
+# 2026-10-07 - Acesso da vendedora, PR 2: member_role ganha 'seller'. Sozinha: valor novo de
+# enum nao pode ser usado na transacao em que nasce — aplicar e commitar antes da seguinte.
+apps/web/supabase/migrations/20261007120000_member_role_seller.sql
+# 2026-10-07 - Acesso da vendedora, PR 2: app.user_tenant_ids() e app.has_membership() excluem
+# seller (a vendedora nao le nada pelo caminho authenticated; corpo de dev, igual ao de prod em
+# 08/10), drop da policy de automations so de prod que lia memberships sem filtro de papel, mais
+# memberships.modules (+ memberships_modules_validos), orders.created_by, order_items (RLS;
+# leitura no padrao de orders; escrita so do servidor) e as RPCs create_order_with_items /
+# replace_order_items / order_items_total (execute so service_role). Muda a baseline
+# (t|memberships, t|orders, t|order_items e tres f|). O gate nao ve schema app, enum,
+# constraint, policy, ACL nem corpo — conferir com infra/tests/acesso-vendedora-check.sql
+# nos dois bancos.
+apps/web/supabase/migrations/20261007120100_acesso_vendedora.sql
+# 2026-10-08 - Fase 3a do Instagram: ig_runs.resumed_by (unico) + indices parciais da espera.
+# Muda a baseline (t|ig_runs).
+apps/web/supabase/migrations/20261008110000_ig_runs_retomada.sql
+# 2026-10-08 - Receita comment_confirm_invite: so a CHECK de ig_flows.recipe muda (a baseline
+# nao enxerga CHECK). Conferir com pg_get_constraintdef nos dois bancos.
+apps/web/supabase/migrations/20261008120000_ig_receita_confirma.sql
+# 2026-10-10 - Postar por grupo, PR 1 (spec 2026-10-10-postar-por-grupo-design §5): marca de
+# lotado em groups (lotado_em/lotado_por/reaberto_em/aviso_lotou_em + trigger
+# groups_marca_lotado + backfill dos ja cheios, sem aviso), aviso ao lotar em campaign_groups,
+# broadcasts.target_rule, group_bulk_jobs.subject (+ 'set_subject' na CHECK de action), estado
+# e regras em app (limiar_lotado, grupo_na_regra, estados_da_campanha, alvos_da_regra,
+# alvos_do_disparo), RPCs campaign_group_states / marcar_grupo_lotado / reabrir_grupo /
+# enviar_avisos_lotou (execute so service_role) e create or replace de app.enqueue_broadcast
+# e app.promote_due_schedules. Trava no topo: aborta se o corpo sem comentarios de uma das duas
+# no banco diferir do repo. Muda a baseline (t|groups, t|campaign_groups, t|broadcasts,
+# t|group_bulk_jobs e quatro f|). O gate nao ve schema app, CHECK, indice, trigger, ACL nem
+# corpo — conferir com infra/tests/postar-por-grupo-check.sql nos dois bancos.
+apps/web/supabase/migrations/20261010120000_postar_por_grupo.sql
+# 2026-10-10 - Funil de anuncios (spec 2026-10-10-funil-anuncios), parte 1: phone_key,
+# site_integrations, site_captures, ad_spend, link_click_events.capture_id/whatsapp_group_id,
+# indices por phone_key em leads/orders/lp_contacts. Muda a baseline.
+apps/web/supabase/migrations/20261010130000_funil_anuncios_tabelas.sql
+# 2026-10-10 - Funil de anuncios, parte 2: attribution_report (so service_role).
+# Depende da parte 1. Muda a baseline (f|attribution_report).
+apps/web/supabase/migrations/20261010130100_funil_anuncios_relatorio.sql
+# 2026-10-11 - Funil de anuncios, parte 3: attribution_people (quem veio por um anuncio; so
+# service_role). Depende da parte 2. Muda a baseline (f|attribution_people). Copia os CTEs de
+# attribution_report (o teste "espelho da regra" compara o texto): mudar a regra num exige
+# mudar no outro.
+apps/web/supabase/migrations/20261011120000_funil_anuncios_pessoas.sql

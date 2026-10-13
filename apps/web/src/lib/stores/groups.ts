@@ -23,6 +23,11 @@ export type Group = {
   admins_total?: number;
   admins_ours?: number;
   admins_counted_at?: string | null;
+  /**
+   * Marca de lotado (PR 1 do "postar por grupo"): gravada pelo trigger ao cruzar
+   * 95% subindo, ou à mão. Nunca recalculada da contagem.
+   */
+  lotado_em?: string | null;
   invite_url?: string;
   /**
    * Quem pode mandar mensagem no grupo, do jeito que NÓS aplicamos pela última
@@ -102,6 +107,11 @@ export type GroupUpsert = Pick<Group, "whatsapp_group_id" | "name" | "members"> 
       // que também grava o `invite_url` do grupo recém-criado. Continua opcional
       // para que nenhum outro chamador o sobrescreva sem querer.
       | "is_admin"
+      // Idem: o auto-grow sabe a contagem de admins do grupo que acabou de criar
+      // (um, o nosso número) e grava como conferência — ver registerGrownGroup.
+      | "admins_total"
+      | "admins_ours"
+      | "admins_counted_at"
     >
   > & {
     id?: string;
@@ -130,30 +140,46 @@ export async function upsertGroupsBatch(tenantId: string, groups: GroupUpsert[])
  * O sync é a fonte da verdade da contagem: só ele vê a lista inteira de
  * participantes. O webhook `group-participants.update` apenas a mantém viva
  * entre um sync e outro, aplicando deltas.
+ *
+ * Linha sem `admins_*` (payload truncado, ver `sincronizar.ts`) mantém a
+ * contagem de admins já gravada. Ela vai num upsert à parte: o upsert em lote
+ * grava a união das chaves do lote (o `columns` que o postgrest-js monta), e a
+ * linha que não tem a chave gravaria NULL nela no ON CONFLICT.
  */
 export async function syncGroupsFromProvider(
   tenantId: string,
-  groups: Array<{
-    whatsapp_group_id: string;
-    name: string;
-    members: number;
-    is_admin: boolean;
-    admins_total: number;
-    admins_ours: number;
-    admins_counted_at: string;
-    community_jid: string | null;
-    community_role: string | null;
-  }>,
+  groups: Array<GrupoDoProvedor | Omit<GrupoDoProvedor, ColunaDeAdmins>>,
 ): Promise<number> {
-  if (groups.length === 0) return 0;
-  const rows = groups.map((g) => ({ ...g, tenant_id: tenantId }));
-  const { data, error } = await getSupabaseAdmin()
-    .from(TABLE)
-    .upsert(rows, { onConflict: "tenant_id,whatsapp_group_id" })
-    .select("id");
-  if (error) throw new Error(error.message);
-  return data?.length ?? 0;
+  const comAdmins = groups.filter((g) => "admins_total" in g);
+  const semAdmins = groups.filter((g) => !("admins_total" in g));
+  let gravados = 0;
+  for (const lote of [comAdmins, semAdmins]) {
+    if (lote.length === 0) continue;
+    const rows = lote.map((g) => ({ ...g, tenant_id: tenantId }));
+    const { data, error } = await getSupabaseAdmin()
+      .from(TABLE)
+      .upsert(rows, { onConflict: "tenant_id,whatsapp_group_id" })
+      .select("id");
+    if (error) throw new Error(error.message);
+    gravados += data?.length ?? 0;
+  }
+  return gravados;
 }
+
+/** O que o sync grava de cada grupo — só o que o WhatsApp é dono. */
+export type GrupoDoProvedor = {
+  whatsapp_group_id: string;
+  name: string;
+  members: number;
+  is_admin: boolean;
+  admins_total: number;
+  admins_ours: number;
+  admins_counted_at: string;
+  community_jid: string | null;
+  community_role: string | null;
+};
+
+type ColunaDeAdmins = "admins_total" | "admins_ours" | "admins_counted_at";
 
 /**
  * Grava só grupos que ainda não existem — porta do webhook `groups.upsert`.
@@ -164,13 +190,46 @@ export async function syncGroupsFromProvider(
  */
 export async function insertNewGroups(
   tenantId: string,
-  groups: ReadonlyArray<Parameters<typeof syncGroupsFromProvider>[1][number]>,
+  groups: ReadonlyArray<GrupoDoProvedor>,
 ): Promise<number> {
   if (groups.length === 0) return 0;
   const rows = groups.map((g) => ({ ...g, tenant_id: tenantId }));
   const { data, error } = await getSupabaseAdmin()
     .from(TABLE)
     .upsert(rows, { onConflict: "tenant_id,whatsapp_group_id", ignoreDuplicates: true })
+    .select("id");
+  if (error) throw new Error(error.message);
+  return data?.length ?? 0;
+}
+
+/**
+ * Recontagem diária: regrava `members` e `admins_*` de grupos que JÁ existem.
+ *
+ * `name` vai junto só porque `groups.name` é NOT NULL e o Postgres confere NOT
+ * NULL na linha proposta ANTES de achar o conflito do upsert — sem ele o upsert
+ * falha inteiro. É o mesmo nome que o sync grava. Nada de `is_admin`,
+ * `invite_url` ou comunidade: quem decide isso é o Sincronizar.
+ *
+ * Quem chama filtra para grupos já gravados; um JID novo aqui viraria linha nova.
+ * O upsert passa pelo trigger `groups_marca_lotado` (PR 1 do "postar por grupo"):
+ * é assim que a contagem corrigida traz a marca de lotado.
+ */
+export async function updateGroupCounts(
+  tenantId: string,
+  groups: ReadonlyArray<{
+    whatsapp_group_id: string;
+    name: string;
+    members: number;
+    admins_total: number;
+    admins_ours: number;
+    admins_counted_at: string;
+  }>,
+): Promise<number> {
+  if (groups.length === 0) return 0;
+  const rows = groups.map((g) => ({ ...g, tenant_id: tenantId }));
+  const { data, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .upsert(rows, { onConflict: "tenant_id,whatsapp_group_id" })
     .select("id");
   if (error) throw new Error(error.message);
   return data?.length ?? 0;

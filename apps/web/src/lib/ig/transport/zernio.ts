@@ -78,7 +78,7 @@ export function createZernioTransport(deps: { apiKey: string; fetchImpl?: typeof
       await call({ method: "POST", path: `v1/inbox/comments/${seg(i.platformPostId)}`, body: { accountId: i.accountId, message: i.message, commentId: i.commentId }, idempotencyKey: i.idempotencyKey });
     },
     async sendMessage(i: ConversationMessageInput) {
-      await call({ method: "POST", path: `v1/inbox/conversations/${seg(i.conversationId)}/messages`, body: { accountId: i.accountId, message: i.message }, idempotencyKey: i.idempotencyKey });
+      await call({ method: "POST", path: `v1/inbox/conversations/${seg(i.conversationId)}/messages`, body: { accountId: i.accountId, message: i.message, ...(i.buttons?.length ? { buttons: i.buttons } : {}) }, idempotencyKey: i.idempotencyKey });
     },
   };
 }

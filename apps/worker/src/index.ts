@@ -16,7 +16,10 @@
  *    Evolution não tinha mais socket para rodar (ver grow-loop.ts). Também nasce
  *    em DRY-RUN, até WORKER_GROW_ENABLED=true;
  *  - manutenção da fila: lease vencido, progresso de broadcast e agendamento.
- *    Roda SEMPRE, inclusive sem Evolution configurada (ver housekeeping.ts).
+ *    Roda SEMPRE, inclusive sem Evolution configurada (ver housekeeping.ts);
+ *  - recontagem: 1×/dia (WORKER_RECOUNT_INTERVAL_MS), reconta os grupos de cada
+ *    loja com número conectado pelo app (/api/groups/recount). Nasce em DRY-RUN,
+ *    até WORKER_RECOUNT_ENABLED=true (ver recount-loop.ts).
  */
 
 import { createAppClient } from "./app-client.js";
@@ -34,6 +37,14 @@ import { startHealthServer, type HealthState } from "./health.js";
 import { housekeepingDidWork, runHousekeeping } from "./housekeeping.js";
 import { log } from "./log.js";
 import { startLoop } from "./loop.js";
+import {
+  RECOUNT_TIMEOUT_MS,
+  makeRecountDeps,
+  recountDidWork,
+  runRecountTick,
+  withRecountDryRun,
+  type RecountDeps,
+} from "./recount-loop.js";
 import type { SendDeps } from "./send-command.js";
 import { withDryRun } from "./send-dry-run.js";
 import { makeSendDeps, runSendTick } from "./send-loop.js";
@@ -127,6 +138,30 @@ function buildBulkDeps(env: WorkerEnv, supabase: SupabaseClient): BulkDeps | nul
   return deps;
 }
 
+/**
+ * Deps da recontagem diária, ou null sem a ponte com o app. Só precisa do app:
+ * quem fala com a Evolution é a rota, não o worker.
+ */
+function buildRecountDeps(env: WorkerEnv, supabase: SupabaseClient): RecountDeps | null {
+  if (!env.appBaseUrl || !env.engineToken) {
+    log.warn("recontagem desligada: APP_URL/ENGINE_TOKEN ausentes");
+    return null;
+  }
+  const app = createAppClient({
+    baseUrl: env.appBaseUrl,
+    engineToken: env.engineToken,
+    timeoutMs: RECOUNT_TIMEOUT_MS,
+  });
+  const deps = makeRecountDeps(supabase, app);
+
+  if (!env.recountEnabled) {
+    log.warn("recontagem em DRY-RUN: lista as lojas e não reconta (WORKER_RECOUNT_ENABLED != true)");
+    return withRecountDryRun(deps);
+  }
+  log.info("recontagem ATIVA: os grupos de cada loja conectada serão recontados");
+  return deps;
+}
+
 async function main(): Promise<void> {
   const env = loadEnv();
   const supabase = createSupabaseClient(env.supabaseUrl, env.supabaseServiceKey);
@@ -138,6 +173,7 @@ async function main(): Promise<void> {
 
   const growDeps = buildGrowDeps(env, supabase);
   const bulkDeps = buildBulkDeps(env, supabase);
+  const recountDeps = buildRecountDeps(env, supabase);
 
   const state: HealthState = { healthy: true, lastTickAt: null, lastError: null };
   const server = startHealthServer(env.healthPort, () => state);
@@ -161,6 +197,8 @@ async function main(): Promise<void> {
     grow_interval_ms: env.growIntervalMs,
     bulk: bulkDeps ? (env.bulkEnabled ? "on" : "dry-run") : "off",
     bulk_interval_ms: env.bulkIntervalMs,
+    recount: recountDeps ? (env.recountEnabled ? "on" : "dry-run") : "off",
+    recount_interval_ms: env.recountIntervalMs,
     health_port: env.healthPort,
   });
 
@@ -256,7 +294,22 @@ async function main(): Promise<void> {
       })
     : null;
 
-  await Promise.all([principal.done, envio?.done, grow?.done, lote?.done]);
+  // 5) recontagem dos grupos, 1×/dia. O primeiro tick roda na subida do container.
+  const recontagem = recountDeps
+    ? startLoop({
+        name: "recontagem",
+        intervalMs: env.recountIntervalMs,
+        isStopping,
+        onError: falhou("ciclo de recontagem"),
+        async tick() {
+          const recontados = await runRecountTick(recountDeps, isStopping);
+          state.lastTickAt = Date.now();
+          if (recountDidWork(recontados)) log.info("ciclo de recontagem", recontados);
+        },
+      })
+    : null;
+
+  await Promise.all([principal.done, envio?.done, grow?.done, lote?.done, recontagem?.done]);
   if (bulkDeps) await drainInFlight();
   log.info("worker encerrado");
 }

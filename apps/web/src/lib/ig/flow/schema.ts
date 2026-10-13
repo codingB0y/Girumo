@@ -17,12 +17,13 @@ import {
 const id = z.string().regex(/^[a-z][a-z0-9_]{0,31}$/);
 const minutes = z.number().int().min(1).max(MAX_WAIT_MINUTES);
 const texto = z.string().max(4000);
+const keywords = z.array(z.string().max(MAX_KEYWORD_LENGTH)).max(MAX_KEYWORDS);
 
 const triggerNode = z.strictObject({
   id,
   type: z.literal("trigger"),
   on: z.enum(["comment", "dm"]),
-  keywords: z.array(z.string().max(MAX_KEYWORD_LENGTH)).max(MAX_KEYWORDS),
+  keywords,
   postId: z.string().regex(/^\d{1,40}$/).nullable(),
   publicReply: z.string().max(MAX_PUBLIC_REPLY).nullable(),
   storyReplies: z.boolean(),
@@ -32,13 +33,14 @@ const messageNode = z.strictObject({
   type: z.literal("message"),
   text: texto,
   button: z.string().max(MAX_BUTTON_LABEL).nullable(),
-  wait: z.strictObject({ minutes }).nullable(),
+  wait: z.strictObject({ minutes, keywords: keywords.optional() }).nullable(),
 });
 const inviteNode = z.strictObject({
   id,
   type: z.literal("invite"),
   text: texto,
   campaignSlug: z.string().max(80).nullable(),
+  button: z.string().max(MAX_BUTTON_LABEL).nullable().optional(),
   remindAfterMinutes: minutes.nullable(),
 });
 const conditionNode = z.strictObject({ id, type: z.literal("condition"), check: z.literal("follows") });

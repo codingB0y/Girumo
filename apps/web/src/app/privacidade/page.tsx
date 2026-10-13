@@ -61,6 +61,12 @@ export default function PrivacidadePage() {
             de grupos e status da conexão.
           </li>
           <li>
+            <strong>Conexão do Instagram (add-on):</strong> identificador e nome de usuário da conta
+            conectada. A Zernio recebe os comentários e mensagens dessa conta para nos entregar;
+            guardamos só os que disparam um fluxo seu (o @ e o identificador de quem escreveu, a
+            palavra-chave e o que foi respondido), por até 90 dias.
+          </li>
+          <li>
             <strong>Uso da plataforma:</strong> registros de ações, envios, erros, data e hora, e
             endereço IP.
           </li>

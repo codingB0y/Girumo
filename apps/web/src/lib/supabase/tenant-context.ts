@@ -2,15 +2,17 @@ import "server-only";
 import { cookies } from "next/headers";
 import { getSupabaseAdmin, getSupabaseAnonForToken } from "@/lib/supabase/server";
 import { SESSION_COOKIE, parseSession } from "@/lib/auth";
+import { MENSAGEM_BLOQUEIO, parseModulos, podeAcessar, type ModuloOpcional } from "@/lib/auth/modulos";
 import { isRevoked } from "@/lib/auth/session-revocation-store";
-
-export type TenantRole = "owner" | "admin" | "operator";
+import type { TenantRole } from "@/lib/permissions";
 
 export type TenantContext = {
   authUserId: string;
   email: string | null;
   tenantId: string;
   role: TenantRole;
+  /** Módulos opcionais liberados pelo dono. Só `seller` tem; os outros papéis vêm com []. */
+  modules: ModuloOpcional[];
 };
 
 function getBearerToken(req: Request): string | null {
@@ -93,7 +95,7 @@ export async function getTenantContext(req: Request): Promise<TenantContext> {
 
   let query = supabase
     .from("memberships")
-    .select("tenant_id, role")
+    .select("tenant_id, role, modules")
     .eq("user_id", authUserId)
     .not("accepted_at", "is", null)
     .order("created_at", { ascending: true })
@@ -102,10 +104,22 @@ export async function getTenantContext(req: Request): Promise<TenantContext> {
   if (requestedTenantId) query = query.eq("tenant_id", requestedTenantId);
 
   const { data: memberships, error } = await query;
-  const membership = memberships?.[0] as { tenant_id: string; role: TenantRole } | undefined;
+  const membership = memberships?.[0] as
+    | { tenant_id: string; role: TenantRole; modules: unknown }
+    | undefined;
 
   if (error || !membership) {
     throw new Response("Tenant nao encontrado ou sem permissao.", { status: 403 });
+  }
+
+  const modules = parseModulos(membership.modules);
+
+  // Guard de módulo (spec acesso-vendedora §1). Para `seller`, rota fora do mapa
+  // de `lib/auth/modulos.ts` é 403 — inclusive a criada amanhã. Os outros papéis
+  // passam direto. `modules` é lido a cada request: o dono muda o acesso e vale
+  // na próxima chamada dela, sem cache.
+  if (!podeAcessar({ role: membership.role, modules }, new URL(req.url).pathname, req.method)) {
+    throw new Response(MENSAGEM_BLOQUEIO, { status: 403 });
   }
 
   return {
@@ -113,6 +127,7 @@ export async function getTenantContext(req: Request): Promise<TenantContext> {
     email,
     tenantId: membership.tenant_id,
     role: membership.role,
+    modules,
   };
 }
 

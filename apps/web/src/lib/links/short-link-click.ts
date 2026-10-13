@@ -1,8 +1,8 @@
 import { USE_SUPABASE } from "@/lib/stores/use-supabase";
 import * as linksStore from "@/lib/stores/tracked-links";
 import * as campaignsStore from "@/lib/stores/campaign-groups";
-import * as groupsStore from "@/lib/stores/groups";
-import { resolveClickTarget, type BlockedReason } from "@/lib/links/resolve-click-target";
+import { listCampaignGroupStates } from "@/lib/stores/campaign-group-states";
+import { resolveClickTarget, toResolvableGroup, type BlockedReason } from "@/lib/links/resolve-click-target";
 import { getLink, recordClick, clickCounts, type ClickEvent } from "@/lib/store";
 import { findCampanhaBySlug } from "@/lib/campanhas-store";
 import { listGroups as listLegacyGroups, nextAvailableGroup as legacyNextGroup } from "@/lib/groups-store";
@@ -19,6 +19,8 @@ import { lotadoRedirect, renderBlockedPage, renderEntryPage } from "@/lib/campai
 import { isMobileUa, readCookie, rememberCookieHeader, rememberCookieName, whatsappDeepLink } from "@/lib/links/deep-link";
 import { hostnameFromHostHeader, isFirstPartyHost } from "@/lib/custom-domains/host";
 import { hostServesTenant } from "@/lib/custom-domains/serves-tenant";
+import { cidConferido } from "@/lib/links/cid";
+import { cadastroDaLoja } from "@/lib/stores/site-captures";
 import { capiEnvio, pixelDaTela } from "./decisao";
 
 // Crawlers/previews que NÃO são cliques humanos (não inflam o funil/CPL).
@@ -45,8 +47,9 @@ const BLOCKED_MESSAGE: Record<BlockedReason, string> = {
  *
  * Dois tipos de link:
  *  1) link MESTRE de campanha (`campaign_group_id` preenchido) → grupo lembrado
- *     pelo cookie ou próximo grupo DISPONÍVEL do pool ("lota sozinho"), obedecendo
- *     às configurações de entrada da campanha (deep link, encerramento, lotado).
+ *     pelo cookie ou o grupo `enchendo` da campanha, que o banco escolhe
+ *     (`campaign_group_states`: nunca um lotado; o reaberto tem prioridade),
+ *     obedecendo às configurações de entrada da campanha (deep link, encerramento, lotado).
  *  2) link comum → destino fixo, respeitando clickCap ("grupo cheio").
  */
 export async function handleShortLinkClick(req: Request, slug: string): Promise<Response> {
@@ -66,12 +69,15 @@ export async function handleShortLinkClick(req: Request, slug: string): Promise<
 
   // Daqui pra baixo o tenant sai da PRÓPRIA linha do link: toda query seguinte
   // filtra por ele (service-role bypassa RLS — o filtro é que isola o tenant).
-  const [campaign, groups] = link.campaign_group_id
+  // Os grupos são só os DESTA campanha, já com o estado calculado no banco: o link
+  // não recalcula lotado/enchendo em TS (spec §4).
+  const [campaign, estados] = link.campaign_group_id
     ? await Promise.all([
         campaignsStore.getCampaignGroupById(link.tenant_id, link.campaign_group_id),
-        groupsStore.listGroups(link.tenant_id),
+        listCampaignGroupStates(link.tenant_id, link.campaign_group_id),
       ])
     : [null, []];
+  const groups = estados.map(toResolvableGroup);
 
   const entrada = campaign ? readEntrada(campaign.metadata) : ENTRADA_DEFAULTS;
   const integracoes = campaign ? readIntegracoes(campaign.metadata) : INTEGRACOES_DEFAULTS;
@@ -101,9 +107,14 @@ export async function handleShortLinkClick(req: Request, slug: string): Promise<
     // Duas gravações independentes: o contador (total) e o evento com data
     // (histórico). `allSettled` porque uma falhar não pode cancelar a outra —
     // e nenhuma das duas é caminho crítico: métrica nunca segura o visitante.
+    // O evento leva o cadastro que trouxe a pessoa (?cid= da MESMA loja, conferido
+    // no banco) e o grupo escolhido: é o degrau "foi pro grupo" do funil de anúncios.
     await Promise.allSettled([
       linksStore.incrementTrackedLinkClicks(link.id),
-      linksStore.recordTrackedLinkClick(link),
+      (async () => {
+        const captureId = await cidConferido(reqUrl, link.tenant_id, cadastroDaLoja);
+        await linksStore.recordTrackedLinkClick(link, { captureId, whatsappGroupId: target.groupId ?? null });
+      })(),
     ]);
   }
 

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { AdminStatCard } from "@/components/admin/stat-card";
+import { requireAdmin } from "@/lib/admin-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +55,7 @@ const CATEGORY_LABELS: Record<string, { label: string; icon: typeof Bot; color: 
 };
 
 export default async function AdminAgentesPage() {
+  await requireAdmin();
   const supabase = getSupabaseAdmin();
 
   // Tentar buscar configurações de agentes por tenant

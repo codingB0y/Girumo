@@ -23,6 +23,7 @@ export type IssueCode =
   | "texto_vazio"
   | "texto_longo"
   | "botao_vazio"
+  | "botao_sem_espera"
   | "sem_convite"
   | "sem_campanha"
   | "campanha_inexistente"
@@ -109,6 +110,7 @@ export function validateFlow(def: FlowDef, ctx: ValidateContext): Issue[] {
       if (node.text.trim() === "") add("texto_vazio", node.id, "Escreva a mensagem deste direct.");
       if (node.button !== null) {
         if (node.button.trim() === "") add("botao_vazio", node.id, "Escreva o texto do botão ou tire o botão.");
+        if (!node.wait) add("botao_sem_espera", node.id, "O botão só funciona num direct que espera a resposta. Tire o botão.");
         if ([...node.text].length > MAX_TEXT_WITH_BUTTON) add("texto_longo", node.id, `Com botão, a mensagem vai até ${MAX_TEXT_WITH_BUTTON} caracteres.`);
       }
       // Os dois limites valem juntos: com botão, 640 caracteres E 1000 bytes.
@@ -119,7 +121,12 @@ export function validateFlow(def: FlowDef, ctx: ValidateContext): Issue[] {
     }
     if (node.type === "invite") {
       if (node.text.trim() === "") add("texto_vazio", node.id, "Escreva o texto do convite.");
-      if (utf8Bytes(node.text) + LINK_RESERVE_BYTES > MAX_MESSAGE_BYTES) {
+      if (node.button != null) {
+        // Com botão o link vai no botão, não no texto.
+        if (node.button.trim() === "") add("botao_vazio", node.id, "Escreva o texto do botão ou tire o botão.");
+        if ([...node.text].length > MAX_TEXT_WITH_BUTTON) add("texto_longo", node.id, `Com botão, o convite vai até ${MAX_TEXT_WITH_BUTTON} caracteres.`);
+        else if (utf8Bytes(node.text) > MAX_MESSAGE_BYTES) add("texto_longo", node.id, `Convite longo demais: ${utf8Bytes(node.text)} de ${MAX_MESSAGE_BYTES} bytes.`);
+      } else if (utf8Bytes(node.text) + LINK_RESERVE_BYTES > MAX_MESSAGE_BYTES) {
         add("texto_longo", node.id, `Convite longo demais: o texto mais o link passam de ${MAX_MESSAGE_BYTES} bytes.`);
       }
       if (node.campaignSlug === null) add("sem_campanha", node.id, "Escolha a campanha do convite.");
@@ -135,7 +142,7 @@ export function validateFlow(def: FlowDef, ctx: ValidateContext): Issue[] {
   if (trigger?.on === "comment") {
     const primeiroId = targetOf(def, trigger.id, "next");
     const primeiro = primeiroId ? def.nodes.find((n) => n.id === primeiroId) : undefined;
-    if (primeiro?.type === "message" && primeiro.button !== null) {
+    if ((primeiro?.type === "message" || primeiro?.type === "invite") && primeiro.button != null) {
       add("botao_no_primeiro_direct", primeiro.id, "O primeiro direct depois de um comentário não pode ter botão: o Instagram recusa pra quem não segue a loja, e a recusa gasta o único direct do comentário.");
     }
     for (const id of alcancavelSem(def, trigger.id, "replied")) {
@@ -210,7 +217,7 @@ export type ChecklistItem = { chave: GrupoChave; rotulo: string; ok: boolean };
 
 const GRUPOS: { chave: GrupoChave; rotulo: string; codes: IssueCode[] }[] = [
   { chave: "palavras", rotulo: "Palavras que disparam", codes: ["sem_gatilho", "gatilhos_demais", "sem_palavra", "palavra_repetida", "palavra_em_uso"] },
-  { chave: "textos", rotulo: "Texto de cada direct", codes: ["texto_vazio", "texto_longo", "botao_vazio"] },
+  { chave: "textos", rotulo: "Texto de cada direct", codes: ["texto_vazio", "texto_longo", "botao_vazio", "botao_sem_espera"] },
   { chave: "campanha", rotulo: "Campanha do convite", codes: ["sem_convite", "sem_campanha", "campanha_inexistente"] },
   { chave: "regras", rotulo: "Regras do Instagram", codes: ["botao_no_primeiro_direct", "segundo_direct_sem_resposta", "condicao_cedo", "espera_longa", "fase_seguinte"] },
   { chave: "ligacoes", rotulo: "Blocos ligados", codes: ["bloco_solto", "ciclo_sem_condicao", "aresta_invalida", "id_duplicado"] },

@@ -1,28 +1,23 @@
 import "server-only";
 import { cookies } from "next/headers";
-import { SESSION_COOKIE, verifySession } from "@/lib/auth";
-import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { SESSION_COOKIE, parseSession } from "@/lib/auth";
+import { isRevoked } from "@/lib/auth/session-revocation-store";
 
 // Le o authUserId do cookie legado dentro de route handlers Node.
 // Rotas novas devem preferir Supabase Auth + tenant_id explicito.
 export async function getSessionAccountId(): Promise<string | null> {
-  const token = (await cookies()).get(SESSION_COOKIE)?.value;
-  return verifySession(token);
+  return accountIdFromSessionToken((await cookies()).get(SESSION_COOKIE)?.value);
 }
 
-export async function getSessionTenantId(): Promise<string | null> {
-  const accountId = await getSessionAccountId();
-  if (!accountId) return null;
-
-  const { data, error } = await getSupabaseAdmin()
-    .from("memberships")
-    .select("tenant_id")
-    .eq("user_id", accountId)
-    .not("accepted_at", "is", null)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  if (error || !data?.tenant_id) return null;
-  return data.tenant_id as string;
+/**
+ * Mesma regra do `getTenantContext`: assinatura + prazo e, depois, revogação.
+ * Sem esta checagem um cookie encerrado no logout continuava valendo nas rotas
+ * de caminho de cookie até os 30 dias do `iat`. Separada do `cookies()` para
+ * ser testável fora de um request do Next.
+ */
+export async function accountIdFromSessionToken(token: string | undefined | null): Promise<string | null> {
+  const claims = await parseSession(token);
+  if (!claims) return null;
+  if (await isRevoked(claims.authUserId, claims.issuedAt)) return null;
+  return claims.authUserId;
 }

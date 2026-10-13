@@ -1,6 +1,5 @@
 import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
-import { getSessionAccountId } from "@/lib/session";
 
 export type Order = {
   id: string;
@@ -13,21 +12,6 @@ export type Order = {
   tenant_id?: string;
   created_at?: string;
 };
-
-async function getTenantId(): Promise<string> {
-  const userId = await getSessionAccountId();
-  if (!userId) throw new Error("Não autenticado.");
-  const { data } = await getSupabaseAdmin()
-    .from("memberships")
-    .select("tenant_id")
-    .eq("user_id", userId)
-    .not("accepted_at", "is", null)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .single();
-  if (!data) throw new Error("Tenant não encontrado.");
-  return data.tenant_id;
-}
 
 /**
  * Pedidos do tenant, mais recentes primeiro.
@@ -57,14 +41,22 @@ export async function countOrders(tenantId: string): Promise<number> {
   return count ?? 0;
 }
 
-export async function addOrder(input: {
-  phone?: string;
-  leadId?: string;
-  group?: string;
-  campaignId?: string;
-  value: number;
-}): Promise<Order> {
-  const tenantId = await getTenantId();
+/**
+ * O tenant vem da rota (`getRouteTenantContext`), como no `listOrdersByTenant`:
+ * a versão que lia a primeira membership da sessão gravava o pedido na loja
+ * errada para quem pertence a duas — a vendedora com loja própria convidada
+ * para outra, por exemplo.
+ */
+export async function addOrder(
+  tenantId: string,
+  input: {
+    phone?: string;
+    leadId?: string;
+    group?: string;
+    campaignId?: string;
+    value: number;
+  },
+): Promise<Order> {
   const { data, error } = await getSupabaseAdmin()
     .from("orders")
     .insert({
@@ -81,12 +73,14 @@ export async function addOrder(input: {
   return data as Order;
 }
 
-export async function removeOrder(id: string): Promise<boolean> {
-  const tenantId = await getTenantId();
-  const { error } = await getSupabaseAdmin()
+/** true só se uma linha foi apagada: pedido de outra loja ou inexistente devolve false. */
+export async function removeOrder(tenantId: string, id: string): Promise<boolean> {
+  const { data, error } = await getSupabaseAdmin()
     .from("orders")
     .delete()
     .eq("id", id)
-    .eq("tenant_id", tenantId);
-  return !error;
+    .eq("tenant_id", tenantId)
+    .select("id");
+  if (error) throw new Error(error.message);
+  return (data?.length ?? 0) > 0;
 }

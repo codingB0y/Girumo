@@ -32,6 +32,37 @@ export function setActiveTenantId(tenantId: string | null | undefined) {
   else window.localStorage.removeItem(ACTIVE_TENANT_KEY);
 }
 
+/** Chaves da sessão do supabase-js: `sb-<host>-auth-token` (+ `-code-verifier`, `-user`). Ver SupabaseClient: `sb-${hostname.split(".")[0]}-auth-token`. */
+const CHAVE_DE_SESSAO = /^sb-.+-auth-token(?:-code-verifier|-user)?$/;
+
+/**
+ * Apaga do armazenamento do navegador toda a sessão do supabase-js, sem rede e sem passar pelo
+ * cliente, e devolve o access_token que estava lá (ou null). Existe porque `auth.signOut()` faz
+ * `POST /logout` antes de apagar e, se a rede falhar, deixa a sessão no aparelho.
+ */
+export function tirarSessaoSupabase(
+  storage: Pick<Storage, "length" | "key" | "getItem" | "removeItem">,
+): string | null {
+  const chaves: string[] = [];
+  for (let i = 0; i < storage.length; i++) {
+    const chave = storage.key(i);
+    if (chave && CHAVE_DE_SESSAO.test(chave)) chaves.push(chave);
+  }
+  let token: string | null = null;
+  for (const chave of chaves) {
+    if (chave.endsWith("-auth-token")) {
+      try {
+        const lido = (JSON.parse(storage.getItem(chave) ?? "null") as { access_token?: unknown } | null)?.access_token;
+        if (typeof lido === "string") token = lido;
+      } catch {
+        // valor ilegível: só apaga
+      }
+    }
+    storage.removeItem(chave);
+  }
+  return token;
+}
+
 export async function persistSupabaseSession(data: {
   accessToken?: string | null;
   refreshToken?: string | null;
