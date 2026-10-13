@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useConfirmacao } from "@/components/painel/confirmacao";
 import { useRole } from "@/components/painel/role-provider";
 import { useToast } from "@/components/toast";
@@ -24,10 +24,12 @@ type Carga = "carregando" | "ok" | "erro" | "proibido";
  * "Não deu para carregar" — que diria que algo quebrou quando nada quebrou.
  */
 export function SiteProprio() {
-  const { can } = useRole();
+  const { can, carregado } = useRole();
   const toast = useToast();
   const { pedirConfirmacao, folhaDeConfirmacao } = useConfirmacao();
-  const pode = can("settings:connection");
+  // `can()` devolve true enquanto o papel não chegou: sem `carregado`, o operador
+  // dispararia a leitura antes de saber que não pode.
+  const pode = carregado && can("settings:connection");
   const [carga, setCarga] = useState<Carga>("carregando");
   const [leitura, setLeitura] = useState<LeituraDoSite | null>(null);
   const [agora, setAgora] = useState(() => new Date());
@@ -37,29 +39,43 @@ export function SiteProprio() {
   const [ocupado, setOcupado] = useState<"chave" | "teste" | null>(null);
   const [teste, setTeste] = useState<TesteDoSite | null>(null);
 
-  const carregar = useCallback(async () => {
+  // Só a última chamada de `carregar` escreve estado; o desmonte também invalida.
+  const ultimaCarga = useRef(0);
+
+  const carregar = useCallback(async (depoisDeGerar = false) => {
+    const minha = ++ultimaCarga.current;
     // Recarga depois de gerar a chave não volta ao esqueleto: a chave nova continua na tela.
     setCarga((atual) => (atual === "ok" ? atual : "carregando"));
     try {
       const res = await authenticatedFetch("/api/integracoes/site");
+      if (minha !== ultimaCarga.current) return;
       if (res.status === 403) {
         setCarga("proibido");
         return;
       }
       if (!res.ok) throw new Error(String(res.status));
       const dados = (await res.json()) as LeituraDoSite;
+      if (minha !== ultimaCarga.current) return;
       setLeitura(dados);
       setAgora(new Date());
       setLinkEscolhido((atual) => atual || dados.link?.id || dados.links[0]?.id || "");
       setCarga("ok");
     } catch {
-      setCarga("erro");
+      if (minha !== ultimaCarga.current) return;
+      // Chave recém-gerada está na tela: trocar por "Tentar de novo" a mostraria inteira de novo.
+      if (depoisDeGerar) toast("A chave foi gerada, mas não deu para atualizar o painel.", "error");
+      else setCarga("erro");
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     setOrigem(window.location.origin);
     if (pode) void carregar();
+    return () => {
+      // É um contador, não um nó do DOM: queremos mesmo o valor de agora.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      ultimaCarga.current++;
+    };
   }, [pode, carregar]);
 
   async function gerar() {
@@ -88,7 +104,7 @@ export function SiteProprio() {
       }
       setChaveNova(corpo.chave);
       setTeste(null);
-      await carregar();
+      await carregar(true);
     } catch {
       toast("Erro de conexão.", "error");
     } finally {
@@ -113,9 +129,9 @@ export function SiteProprio() {
     }
   }
 
-  if (!pode || carga === "proibido") return <SiteSemAcesso />;
+  if (carregado && (!pode || carga === "proibido")) return <SiteSemAcesso />;
   if (carga === "erro") return <SiteComErro onTentar={() => void carregar()} />;
-  if (carga === "carregando" || !leitura) {
+  if (!carregado || carga === "carregando" || !leitura) {
     return (
       <div
         className="pn-skeleton h-40 rounded-[var(--radius-control)]"
