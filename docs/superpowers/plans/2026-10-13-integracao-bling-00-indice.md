@@ -383,7 +383,7 @@ export function enfileirarPedidos(tenantId: string, origem: "varredura" | "histo
 export function listarPendentes(tenantId: string, agora: Date, limite: number): Promise<LinhaPedidoBling[]>;
 export function existePendenteVencido(tenantId: string, agora: Date): Promise<boolean>;
 export function contarPendentes(tenantId: string): Promise<number>; // head + count
-export type ResultadoProcessamento = { numero; orderDate; total; situacaoId; blingContactId; kind; orderId; saleAt; icStatus; icSentAt; purchaseStatus; purchaseSentAt; metaError; origem; origemDetalhe };
+export type ResultadoProcessamento = { numero; orderDate; total; situacaoId; blingContactId; kind; orderId; saleAt; icStatus; icSentAt; purchaseStatus; purchaseSentAt; metaError; origem; origemDetalhe; snapshot: PedidoResumo | null }; // snapshot = estado usado (o SQL da varredura compara com ele)
 export function salvarProcessado(tenantId: string, id: number, r: ResultadoProcessamento, agenda: { pendente: false } | { pendente: true; tentativas: number; proxima: Date; erro: string }): Promise<void>;
 export function agendarNovaTentativa(tenantId: string, id: number, tentativas: number, proxima: Date | null, erro: string): Promise<void>; // proxima null → pending false (desistiu)
 export function reabrirDesde(tenantId: string, dia: string): Promise<number>; // pending true para order_date >= dia (ajuste mudou)
@@ -428,12 +428,18 @@ export function processarPedido(ctx: ContextoLoja, linha: LinhaPedidoBling): Pro
 Ordem (spec §3 "Processar um pedido"): estado (retrato ou GET) → situação desconhecida e situações com mais
 de 1 h → recarrega (`listarSituacoesDeVenda`, falha ignorada) → classifica → contato (cache 24 h ou GET →
 `hashesDoCliente` → `salvarContato`) → `lead` (`findLeadByPhones(tenant, variantesDoTelefone(phone))`) →
-`projetarPedido` → `recalcularListas(contato)` (e do contato anterior, se mudou) → origem (`ultimoCadastroDaChave`
-com utm → `anuncio` com detalhe `utm_campaign · utm_content`; senão lead → `grupo` com o nome do grupo; senão
-`sem_origem`) → Meta (spec §4: eventos ainda não `enviado`, exceto `fora_da_janela`, que é final; um envio
-com os dois eventos; `test_event_code` da campanha quando houver) → `salvarProcessado`. Venda →
-`last_sale_at` da conexão. Erro do Meta → status `erro` e `agenda` com nova tentativa (mesmos intervalos do
-Bling).
+`projetarPedido` → origem (`ultimoCadastroDaChave` com utm → `anuncio` com detalhe
+`utm_campaign · utm_content`; senão lead → `grupo` com o nome do grupo; senão `sem_origem`) → Meta (spec §4:
+eventos ainda não `enviado`, exceto `fora_da_janela`, que é final; um envio com os dois eventos;
+`test_event_code` da campanha quando houver) → `salvarProcessado` (grava **também** `snapshot` = o
+`PedidoResumo` usado, ou `null` se excluído) → **só então** `recalcularListas(contato)` e do contato anterior,
+se mudou (a função lê o `kind` gravado; recalcular antes deixaria a lista um pedido atrasada; falha aqui é
+logada e não reagenda: a rede de segurança do cron recalcula a loja). Venda → `last_sale_at` da conexão. Erro
+do Meta → status `erro` e `agenda` com nova tentativa (mesmos intervalos do Bling).
+
+Páginas (varredura e histórico): ler até página **vazia** (o `listarPedidos` descarta item malformado, então
+"menos de 100" não prova o fim). Execução de cron que processou ≥ 1 pedido termina com
+`recalcularListas(tenantId)` (loja toda), e o fim do histórico também.
 
 ### `lib/bling/sincronizar.ts`
 

@@ -197,7 +197,7 @@ create table if not exists public.bling_connections (
   token_version        integer not null default 0,
   situations           jsonb not null default '[]'::jsonb,  -- [{id, nome, base}]
   situations_at        timestamptz,
-  sale_situation_ids   integer[] not null default '{}',
+  sale_situation_ids   bigint[] not null default '{}',
   high_value           numeric(12,2) check (high_value is null or (high_value > 0 and high_value <= 10000000)),
   meta_enabled         boolean not null default true,
   meta_campaign_id     uuid references public.campaign_groups(id) on delete set null,
@@ -251,7 +251,7 @@ create table if not exists public.bling_orders (
   numero           text,
   order_date       date,
   total            numeric(12,2),
-  situacao_id      integer,
+  situacao_id      bigint,
   bling_contact_id bigint,
   kind             text check (kind in ('venda','pedido','ignorado','excluido')),
   order_id         uuid unique references public.orders(id) on delete set null,
@@ -276,13 +276,13 @@ create table if not exists public.bling_orders (
 );
 create index if not exists bling_orders_pending_idx on public.bling_orders (tenant_id, next_try_at) where pending;
 create index if not exists bling_orders_contact_idx on public.bling_orders (tenant_id, bling_contact_id);
-create index if not exists bling_orders_recent_idx  on public.bling_orders (tenant_id, first_seen_at desc);
+create index if not exists bling_orders_recent_idx  on public.bling_orders (tenant_id, order_date desc, bling_order_id desc);
 
 alter table public.orders
   add column if not exists source text not null default 'manual' check (source in ('manual','bling'));
 ```
 
-**Funções** (todas `security definer`, `set search_path = ''`, `revoke execute … from public, anon,
+**Funções** (todas `security invoker` — o tenant vem de quem chama, então definer com EXECUTE vazado seria cross-tenant —, `set search_path = ''`, `revoke execute … from public, anon,
 authenticated`, `grant execute … to service_role`, conferidas com `has_function_privilege`):
 
 - `bling_claim(p_tenant uuid, p_holder uuid, p_seconds integer) returns boolean` — pega a trava se
@@ -380,7 +380,14 @@ orçamento total 270 s; cada loja até 60 s, ou até 240 s se for a única com h
 - **Histórico:** só busca a próxima página quando a fila da loja tem menos de 300 pendentes.
 - **Contato** (tipo `venda` ou `pedido`): `bling_contacts` com `fetched_at` < 24 h → usa; senão
   `GET /contatos/{id}` → `dados-do-cliente` (§4) → upsert. 404 → segue sem dados.
-- **orders** (§1), **listas** (`bling_recompute_lists(loja, contato)`), **Meta** (§4).
+- **orders** (§1) → **Meta** (§4) → **grava** o estado processado (tipo, contato, total, situação,
+  `order_id`, `sale_at`, origem, status dos eventos, e o **retrato = o estado usado**) → **listas**
+  (`bling_recompute_lists(loja, contato)` e do contato anterior, se mudou). A lista lê o que está gravado
+  em `bling_orders`: recalcular antes de gravar deixaria a lista um pedido atrasada.
+- Rede de segurança das listas: toda execução de cron que processou algo termina com
+  `bling_recompute_lists(loja)` (loja toda), e o fim do histórico também.
+- **Páginas** (varredura e histórico): lê até vir uma página **vazia**. `listarPedidos` descarta item
+  malformado, então "menos de 100" não prova que acabou.
 - **Sucesso:** `pending = false`, `attempts = 0`, `last_error = null`, campos do estado gravados.
 - **Erro do pedido:** `attempts + 1`, `next_try_at = now() + [1 min, 5 min, 30 min, 2 h, 12 h][attempts]`;
   na 6ª falha `pending = false` com `last_error` (aparece como falha no cartão; uma alteração nova do pedido
