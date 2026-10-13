@@ -80,7 +80,7 @@ redondinho", sem bug de conexão nem lentidão.
 | "Todos os `action_source` habilitam criação de público"; público por evento retém até 180 dias | públicos pela regra do evento |
 | Lista de clientes pela API exige `ads_management` com Full access (revisão + verificação da empresa) e aceite de termos por conta | fase 2 |
 | EMQ só para eventos web | sem nota de casamento para `chat` |
-| Graph v23.0 vale até 08/10/2027; a Marketing API v23 venceu em 09/06/2026 | subir `GRAPH_API_VERSION` para v25.0 (PR 0) |
+| A CAPI segue o ciclo da Graph: v23.0 vale até 08/10/2027 (a Marketing API v23 venceu, mas não usamos endpoint dela) | `GRAPH_API_VERSION` fica; subir antes de 10/2027, fora deste trabalho |
 
 ## Abordagem
 
@@ -161,9 +161,13 @@ perdida).
   o "Registrar venda" ganha o aviso "Esta loja recebe as vendas do Bling: registre aqui só o que não passa
   pelo Bling".
 
-### Listas (por contato do Bling; cada contato em uma só)
+### Listas (por pessoa; cada pessoa em uma só)
 
-| Lista | Regra (sobre os pedidos importados do contato) |
+**Pessoa** = `phone_key` do contato; contato sem telefone é uma pessoa sozinho. Dois cadastros da mesma
+cliente no Bling (vendedora que cria contato novo em vez de buscar) contam como uma pessoa: todos os
+contatos dela recebem a mesma lista, e contagem e CSV contam pessoas.
+
+| Lista | Regra (sobre os pedidos importados de todos os contatos da pessoa) |
 |---|---|
 | `alto_valor` | tem `venda` e `high_value` definido e `max(total das vendas) ≥ high_value` |
 | `comprador` | tem `venda` (e não é alto valor) |
@@ -259,6 +263,8 @@ create table if not exists public.bling_orders (
   purchase_status  text check (purchase_status in ('enviado','fora_da_janela','sem_pixel','desligado','sem_dados','erro')),
   purchase_sent_at timestamptz,
   meta_error       text,
+  origem           text check (origem in ('anuncio','grupo','sem_origem')),
+  origem_detalhe   text,
   snapshot         jsonb,
   snapshot_at      timestamptz,
   pending          boolean not null default true,
@@ -281,10 +287,17 @@ authenticated`, `grant execute … to service_role`, conferidas com `has_functio
 
 - `bling_claim(p_tenant uuid, p_holder uuid, p_seconds integer) returns boolean` — pega a trava se
   `status = 'ativa'`, livre ou vencida (ou já do mesmo `p_holder`) e fora de `paused_until`; usa `now()` do
-  banco (sem relógio do servidor). `p_seconds` entre 10 e 300.
+  banco (sem relógio do servidor). `p_seconds` entre 10 e 600.
 - `bling_release(p_tenant uuid, p_holder uuid) returns void` — solta só se o dono for `p_holder`.
+- `bling_enqueue(p_tenant uuid, p_origin text, p_items jsonb) returns integer` — a fila num comando só:
+  `aviso` insere ou marca pendente e **apaga o retrato** (o processamento faz GET); `varredura` insere ou, se
+  situação/total/contato diferem do último processado, troca o retrato e marca pendente; `historico` só
+  insere o que não existe. `origin` só vale na criação da linha. Devolve quantas linhas mudaram.
 - `bling_recompute_lists(p_tenant uuid, p_contact bigint default null) returns integer` — aplica §1 Listas
-  (um contato ou a loja toda), atualiza `lista_changed_at` só quando muda; devolve quantos mudaram.
+  (a pessoa do contato, ou a loja toda), atualiza `lista_changed_at` só quando muda; devolve quantos mudaram.
+- `bling_resumo(p_tenant uuid) returns jsonb` — números do cartão (vendas e vendido em 30 dias, origem,
+  estado dos eventos do Meta, falhas, pendentes, pedidos lidos do histórico, pessoas por lista), tudo
+  agregado no banco.
 
 **RLS e privilégios:** as quatro tabelas com RLS ligado e **sem policy e sem grant para
 `authenticated`** (como `site_integrations`/`ad_spend`): tudo passa pelas rotas com `getSupabaseAdmin` e
@@ -295,18 +308,25 @@ coluna nova herda os grants da tabela.
 
 ### Conectar
 
-1. `GET /api/integracoes/bling/conectar` — `getRouteTenantContext`, `assertPermission("settings:connection")`
-   (owner/admin). Sem `BLING_CLIENT_ID`/`BLING_CLIENT_SECRET`/`INTEGRATIONS_ENCRYPTION_KEY` → 503.
+1. `POST /api/integracoes/bling/conectar` (chamada do painel, com o Bearer e o `x-tenant-id` de sempre) —
+   `getRouteTenantContext`, permissão `settings:connection` (owner/admin). Sem `BLING_CLIENT_ID`/
+   `BLING_CLIENT_SECRET`/`INTEGRATIONS_ENCRYPTION_KEY` → 503.
    Gera `state` (32 bytes, base64url), grava `bling_oauth_states(sha256(state), tenant, user,
-   now()+10 min)` (apaga os vencidos da loja), cookie `bling_oauth_state` (HttpOnly, Secure, SameSite=Lax,
-   `Path=/api/integracoes/bling`, 10 min) e redireciona (302) para
-   `https://www.bling.com.br/Api/v3/oauth/authorize?response_type=code&client_id=…&state=…`.
-2. `GET /api/integracoes/bling/retorno` — sessão + permissão de novo.
+   now()+10 min)` (apaga os vencidos da loja), põe o cookie `bling_oauth_state` (HttpOnly, Secure,
+   SameSite=Lax, `Path=/api/integracoes/bling`, 10 min) e responde `{ url }` com
+   `https://www.bling.com.br/Api/v3/oauth/authorize?response_type=code&client_id=…&state=…`; o painel navega
+   para lá. (POST e não link: o painel autentica por Bearer, que uma navegação não carrega, e a loja certa
+   vem do `x-tenant-id` de quem tem mais de uma.)
+2. `GET /api/integracoes/bling/retorno` — **sem sessão**: é uma navegação vinda do Bling, que não carrega o
+   Bearer do painel. Autenticado pelo par `state` (parâmetro) + cookie, como manda o OAuth: o `state` é de
+   uso único, vale 10 min e guarda a loja e o usuário que pediram (validados com permissão no passo 1).
+   Na política de acesso: `public-rate-limited`, 20/min por IP.
    - `?error=…` → volta ao cartão com `?secao=integracoes&bling=recusado`.
-   - Cookie ≠ `state` (tempo constante) → `bling=sessao`.
-   - **Consome** o state: `delete … where state_hash = $1 and tenant_id = $tenant and user_id = $user and
-     expires_at > now() returning` — só um retorno passa; o segundo (duplo clique, reload) cai em
-     `bling=sessao` **sem** trocar o `code` de novo (reusar revoga a loja no Bling).
+   - Cookie ≠ `state` (tempo constante) ou ausente → `bling=sessao`.
+   - **Consome** o state: `delete … where state_hash = $1 and expires_at > now() returning tenant_id,
+     user_id` — só um retorno passa; o segundo (duplo clique, reload) cai em `bling=sessao` **sem** trocar o
+     `code` de novo (reusar revoga a loja no Bling). Confere de novo que o usuário do state ainda é
+     owner/admin da loja do state (membership aceita).
    - Troca o `code` (`authorization_code`, `enable-jwt: 1`); `GET /empresas/me/dados-basicos` →
      `company_id`, nome.
    - `company_id` já ligado a **outra** loja → `bling=outra_loja` (não grava tokens; revoga o token recém-emitido).
@@ -340,11 +360,13 @@ coluna nova herda os grants da tabela.
 300`). Lojas `ativa` fora de `paused_until`, ordenadas por `last_scan_at nulls first`, **em sequência**;
 orçamento total 270 s; cada loja até 60 s, ou até 240 s se for a única com histórico pendente.
 
-- **Varredura** (se `last_scan_at` < agora − 4 min): `GET /pedidos/vendas?dataAlteracaoInicial=<agora − 4 h>&
-  dataAlteracaoFinal=<agora>&pagina=N&limite=100`, até 5 páginas. Cada item vira linha pendente **só se**
-  for novo ou `situacao.id`/`total`/`contato.id` diferem do gravado; guarda o item como `snapshot`. Se
-  marcou algo que o aviso não trouxe → `last_scan_change_at = now()`. A janela de 4 h cobre o fuso não
-  documentado do filtro; repetir pedido igual não custa chamada.
+- **Varredura** (se `last_scan_at` < agora − 4 min): `GET /pedidos/vendas?dataAlteracaoInicial=<início>&
+  dataAlteracaoFinal=<agora>&pagina=N&limite=100` em hora de São Paulo, até 10 páginas, com
+  `início = max(scan_cursor, agora − 72 h) − 4 h`. A sobra de 4 h cobre o fuso não documentado do filtro;
+  o teto de 72 h é o tempo que o Bling retenta o aviso. Cada item vai para `bling_enqueue('varredura')`,
+  que só marca pendente o que mudou. `scan_cursor` = hora do começo da varredura **só quando ela terminou**
+  (página vazia ou incompleta); se bateu nas 10 páginas, a próxima repete a janela. Se marcou algo →
+  `last_scan_change_at = now()`.
 - **Histórico** (se `backfill_done_at` nulo): `dataInicial=backfill_from&dataFinal=backfill_until&pagina=
   backfill_page`, até 3 páginas por execução; itens viram linhas `origin = 'historico'` com `snapshot`;
   página vazia → `backfill_done_at = now()`.
@@ -352,8 +374,10 @@ orçamento total 270 s; cada loja até 60 s, ou até 240 s se for a única com h
 
 ### Processar um pedido
 
-- **Estado:** `snapshot` com `snapshot_at` ≤ 10 min → usa; senão `GET /pedidos/vendas/{id}` (404 →
-  `excluido`).
+- **Estado:** `snapshot` presente → usa (é sempre o último retrato da lista: a varredura troca quando muda,
+  o aviso apaga); ausente → `GET /pedidos/vendas/{id}` (404 → `excluido`). Sem idade-limite para o retrato:
+  pedido do histórico na fila há 1 h não paga um GET a mais.
+- **Histórico:** só busca a próxima página quando a fila da loja tem menos de 300 pendentes.
 - **Contato** (tipo `venda` ou `pedido`): `bling_contacts` com `fetched_at` < 24 h → usa; senão
   `GET /contatos/{id}` → `dados-do-cliente` (§4) → upsert. 404 → segue sem dados.
 - **orders** (§1), **listas** (`bling_recompute_lists(loja, contato)`), **Meta** (§4).
@@ -459,8 +483,8 @@ PostgREST). Nome `girumo-<lista>-<AAAA-MM-DD>.csv`.
 
 | Rota | Quem | Faz |
 |---|---|---|
-| `GET /api/integracoes/bling/conectar` | owner/admin | state + redirect ao Bling |
-| `GET /api/integracoes/bling/retorno` | owner/admin (sessão) | troca o code, grava, volta ao cartão |
+| `POST /api/integracoes/bling/conectar` | owner/admin | state + cookie, devolve a URL do Bling |
+| `GET /api/integracoes/bling/retorno` | state + cookie (sem sessão) | troca o code, grava, volta ao cartão |
 | `POST /api/integracoes/bling/webhook` | Bling (assinatura) | marca pedido, 200, processa depois |
 | `GET /api/cron/bling` | Vercel Cron | varredura, histórico, drenagem |
 | `GET /api/integracoes/bling` | owner/admin | estado do cartão (sem token) |
@@ -578,16 +602,17 @@ PostgREST). Nome `girumo-<lista>-<AAAA-MM-DD>.csv`.
 
 | # | Conteúdo | Depende de |
 |---|---|---|
-| 0 | `GRAPH_API_VERSION` v23.0 → v25.0 | — |
-| 1 | Migração (§2) + `apply-order` + baseline + testes de integração e de privilégio | — |
-| 2 | Núcleo: `secret-box`, `bling/oauth`, `bling/cliente`, `bling/aviso`, `meta/dados-do-cliente` | — |
-| 3 | Conectar/retorno/desconectar + stores de conexão e state | 1, 2 |
-| 4 | Motor: `bling/sincronizar`, `bling/classificar`, stores de pedidos e contatos, projeção em `orders` | 1, 2 |
-| 5 | Aviso + cron + `vercel.json` + política de acesso | 4 |
-| 6 | Eventos do Meta (+ generalização de `meta-capi`) ligados ao motor | 4 |
-| 7 | Listas: contagem, CSV, e-mail de reconectar | 4 |
-| 8 | `GET/PATCH` do cartão + Vendas (selo, 409, aviso) + tela do cartão + E2E | 3, 5, 6, 7 |
+| 1 | Migração (§2) + `apply-order` + baseline + teste de integração das funções | — |
+| 2 | Núcleo Bling (puro): `secret-box`, `bling/oauth`, `bling/cliente`, `bling/api`, `bling/aviso`, `bling/classificar` | — |
+| 3 | Núcleo Meta (puro): `meta/dados-do-cliente`, generalização de `meta-capi`, `bling/eventos-meta` | — |
+| 4 | Conexão: stores de conexão e state, conectar/retorno/desconectar, política de acesso do retorno | 2 |
+| 5 | Motor: stores de pedidos e contatos, projeção em `orders`, processar, sincronizar, e-mail de reconectar | 2, 3, 4 |
+| 6 | Entrada: aviso (webhook) + cron + `vercel.json` + política de acesso | 5 |
+| 7 | API do cartão (`GET/PATCH`), CSV das listas, Vendas no servidor (`source`, 409, `blingAtivo`) | 4, 5 |
+| 8 | Tela do cartão + Vendas na tela (selo, sem Corrigir, aviso) + E2E | 7 |
 
+PRs 2–7 entram em `main` antes da DDL sem quebrar nada: sem as variáveis do Bling as rotas devolvem 503 e o
+cron não toca no banco. PR 1 e PR 8 esperam a DDL nos dois bancos (o 8 lê `orders.source` na tela de Vendas).
 A DDL do PR 1 é aplicada pelo Igor nos dois bancos.
 
 ## 11. Pendências do Igor (roteiro)
