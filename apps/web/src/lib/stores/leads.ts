@@ -133,6 +133,28 @@ export async function listLeads(tenantId: string, limit?: number): Promise<Lead[
   return (data ?? []) as Lead[];
 }
 
+/** Ids por `in.(…)`: a URL do PostgREST não aguenta centenas de uuids, e o lote fica longe das 1000 linhas. */
+const IDS_POR_CONSULTA = 100;
+
+/**
+ * Leads do tenant por id, mais recentes primeiro. Em lotes: "entraram e ainda
+ * não compraram" de um anúncio passa fácil de 100 pessoas, e `listLeads` para
+ * nas 1000 mais recentes — quem já era do grupo ficaria de fora.
+ */
+export async function listLeadsByIds(tenantId: string, ids: readonly string[]): Promise<Lead[]> {
+  const lotes: string[][] = [];
+  for (let i = 0; i < ids.length; i += IDS_POR_CONSULTA) lotes.push(ids.slice(i, i + IDS_POR_CONSULTA));
+  const respostas = await Promise.all(
+    lotes.map((lote) => getSupabaseAdmin().from(TABLE).select("*").eq("tenant_id", tenantId).in("id", lote)),
+  );
+  const leads: Lead[] = [];
+  for (const { data, error } of respostas) {
+    if (error) throw new Error(error.message);
+    leads.push(...((data ?? []) as Lead[]));
+  }
+  return leads.sort((a, b) => (a.entered_at < b.entered_at ? 1 : a.entered_at > b.entered_at ? -1 : 0));
+}
+
 export type AddLeadInput = {
   phone: string;
   name?: string;
