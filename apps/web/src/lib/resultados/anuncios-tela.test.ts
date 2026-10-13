@@ -243,7 +243,9 @@ test("marcas de gasto: traço no começo do dia; fora do período some; mesmo di
 test("aviso de período recente: até 90 dias depois do fim do período", () => {
   assert.match(avisoDePeriodoRecente("2026-10-10", "2026-10-10") ?? "", /ainda está comprando/);
   assert.match(avisoDePeriodoRecente("2026-07-13", "2026-10-10") ?? "", /ainda está comprando/);
-  assert.equal(avisoDePeriodoRecente("2026-07-12", "2026-10-10"), null);
+  // Dia ate + 90: o SQL ainda credita venda de quem se cadastrou às 23:59 de `ate`.
+  assert.match(avisoDePeriodoRecente("2026-07-12", "2026-10-10") ?? "", /ainda está comprando/);
+  assert.equal(avisoDePeriodoRecente("2026-07-11", "2026-10-10"), null);
 });
 
 test("guarda da resposta: aceita o formato da rota, recusa erro e lixo", () => {

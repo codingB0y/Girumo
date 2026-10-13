@@ -63,8 +63,6 @@ export function AbaAnuncios({
   acoesDoCabecalho,
   rodapeDoGasto,
 }: PropsDaAbaAnuncios) {
-  const vazio = carga === "ok" && resposta !== null && !resposta.tem_cadastro;
-
   return (
     <div className="mx-auto max-w-[1100px] space-y-5 px-4 py-6 sm:px-8 lg:py-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -82,7 +80,7 @@ export function AbaAnuncios({
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line-200">
         <SecoesDoResultados atual="anuncios" />
-        {!vazio && <SeletorDePeriodo atalho={atalho} onAtalho={onAtalho} />}
+        {resposta?.tem_cadastro && <SeletorDePeriodo atalho={atalho} onAtalho={onAtalho} />}
       </div>
 
       {carga === "erro" ? (

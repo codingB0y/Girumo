@@ -135,7 +135,9 @@ export function faixaDoTotal(total: RelatorioParaTela["total"]): CartaoDaFaixa[]
 
 /** Aviso amarelo: período cujo fim ainda está dentro da janela de venda continua vendendo. */
 export function avisoDePeriodoRecente(ate: string, hoje: string): string | null {
-  if (diasEntre(ate, hoje) >= JANELA_VENDA_DIAS) return null;
+  // `>`: o SQL credita a venda até cadastro + 90 dias inclusive, e o cadastro pode ser às 23:59 de `ate`;
+  // no dia ate + 90 ainda entra venda.
+  if (diasEntre(ate, hoje) > JANELA_VENDA_DIAS) return null;
   return "Quem se cadastrou neste período ainda está comprando. O “Vendido” tende a crescer: a venda conta pro anúncio até 90 dias depois do cadastro.";
 }
 

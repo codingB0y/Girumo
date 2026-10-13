@@ -43,7 +43,13 @@ test("carregando: esqueleto anunciado, nenhum número", () => {
   const h = html({ carga: "carregando", resposta: null });
   assert.match(h, /role="status" aria-label="Carregando o funil dos anúncios"/);
   assert.doesNotMatch(h, /Do anúncio à venda|R\$/);
-  assert.match(h, /aria-label="Período"/);
+  // Primeira carga: ainda não se sabe se a loja tem cadastro; o seletor sumiria na tela Vazio.
+  assert.doesNotMatch(h, /aria-label="Período"/);
+});
+
+test("trocar de período: carregando com resposta anterior mantém o seletor", () => {
+  const h = html({ carga: "carregando" });
+  assert.match(h, /role="group" aria-label="Período"/);
 });
 
 test("erro: alerta com Tentar de novo, nunca zero", () => {
