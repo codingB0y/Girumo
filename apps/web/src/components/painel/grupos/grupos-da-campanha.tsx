@@ -4,9 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import { Link2 } from "lucide-react";
 import { GroupSettings } from "@/components/painel/grupos/group-settings";
 import { Celula } from "@/components/painel/numeros";
+import type { EntradaSettings } from "@/lib/campaigns/settings";
 import type { AcaoLotado } from "@/lib/groups/acao-lotado";
 import type { EstadoDoGrupo, EstadoGrupo } from "@/lib/groups/estado";
-import { detalheDoGrupo, fraseDoLink, type EstadosDaCampanha } from "@/lib/groups/resumo-estados";
+import { avisoForaDaLista, detalheDoGrupo, fraseDoLink, type EstadosDaCampanha } from "@/lib/groups/resumo-estados";
+import { destinoDoLink } from "@/lib/painel/destino-do-link";
 import { numero } from "@/lib/painel/grupos";
 import { cn } from "@/lib/utils";
 import { ChipDeEstado, MenuDoGrupo, SeloEnvio } from "./estado-do-grupo";
@@ -43,11 +45,27 @@ type Props = {
   envio: Record<string, "open" | "closed" | null>;
   /** Muda quando a página recarrega os dados: a lista relê junto. */
   atualizadoEm: Date;
+  /**
+   * O mesmo que a aba Link e cliques recebe (`campanha.groupIds`, quantos grupos `/api/groups`
+   * leu e a entrada da campanha): parado × mandando gente sai do mesmo `destinoDoLink`.
+   */
+  groupIds: string[];
+  gruposNaTela: number;
+  entrada: EntradaSettings;
   /** Capacidade mexe na faixa da Visão geral também: a página inteira relê. */
   aoMudarCapacidade: () => void | Promise<void>;
 };
 
-export function GruposDaCampanha({ slug, origin, envio, atualizadoEm, aoMudarCapacidade }: Props) {
+export function GruposDaCampanha({
+  slug,
+  origin,
+  envio,
+  atualizadoEm,
+  groupIds,
+  gruposNaTela,
+  entrada,
+  aoMudarCapacidade,
+}: Props) {
   const [carga, setCarga] = useState<Carga>({ fase: "carregando" });
   const [menu, setMenu] = useState<string | null>(null);
   const [editando, setEditando] = useState<string | null>(null);
@@ -90,11 +108,12 @@ export function GruposDaCampanha({ slug, origin, envio, atualizadoEm, aoMudarCap
       }
     } catch {
       setAviso(FALHA_NA_ACAO);
-    } finally {
-      setOcupado(null);
     }
-    // 409 também relê: outro clique, ou o webhook, pode ter mudado o grupo.
+    // 409 também relê: outro clique, ou o webhook, pode ter mudado o grupo. O botão só solta
+    // com a linha nova na tela: solto antes, um segundo clique na linha velha voltava 409 depois
+    // de um sucesso. `carregar` não lança (falha vira aviso lá dentro).
     await carregar();
+    setOcupado(null);
   }
 
   if (carga.fase === "carregando") {
@@ -127,7 +146,18 @@ export function GruposDaCampanha({ slug, origin, envio, atualizadoEm, aoMudarCap
   const { grupos, contagem } = carga.dados;
   const agora = new Date();
   const enchendo = grupos.find((g) => g.estado === "enchendo") ?? null;
-  const frase = fraseDoLink(grupos, agora);
+  // Mesmas entradas da aba Link e cliques, `agora` incluído: as duas abas nunca discordam.
+  const destino = destinoDoLink({ estados: grupos, groupIds, gruposNaTela, entrada, agora: atualizadoEm });
+  const frase = fraseDoLink(destino, grupos, agora);
+  const foraDaLista = avisoForaDaLista(new Set(groupIds).size, grupos.length);
+
+  if (grupos.length === 0 && foraDaLista) {
+    return (
+      <p data-testid="fora-da-lista" className="pn-card rounded-xl px-5 py-8 text-center text-sm text-volt-950">
+        {foraDaLista}
+      </p>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -164,7 +194,7 @@ export function GruposDaCampanha({ slug, origin, envio, atualizadoEm, aoMudarCap
       >
         <Link2 className="mt-0.5 h-[18px] w-[18px] shrink-0 text-cobalt-500" aria-hidden="true" />
         {frase.tipo === "parado" ? (
-          <span>O link está parado: não há grupo com vaga, convite e o nosso número como admin.</span>
+          <span>{frase.texto}</span>
         ) : (
           <span>
             O link está mandando gente para <strong className="font-semibold">{frase.nome}</strong>
@@ -178,6 +208,15 @@ export function GruposDaCampanha({ slug, origin, envio, atualizadoEm, aoMudarCap
           </span>
         )}
       </p>
+
+      {foraDaLista && (
+        <p
+          data-testid="fora-da-lista"
+          className="rounded-xl border border-line-200 bg-aviso-fundo px-4 py-3 text-sm text-volt-950"
+        >
+          {foraDaLista}
+        </p>
+      )}
 
       {aviso && (
         <p role="alert" className="rounded-xl border border-line-200 bg-aviso-fundo px-4 py-3 text-sm text-volt-950">

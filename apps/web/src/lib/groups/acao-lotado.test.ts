@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { lerAcaoLotado, lotaDeNovoEm, mensagemAindaCheio, respostaDaAcao } from "./acao-lotado";
+import { lerAcaoLotado, lotaDeNovoEm, mensagemAindaCheio, notaDoReabrir, respostaDaAcao } from "./acao-lotado";
 import type { EstadoGrupo } from "./estado";
 
 const ID = "0b6f7c1e-2f43-4a51-9d3e-6a1c2b3d4e5f";
@@ -87,6 +87,29 @@ test("lota de novo sozinho no primeiro número que alcança 95%", () => {
   assert.equal(lotaDeNovoEm(100), 95);
   assert.equal(lotaDeNovoEm(0), 973);
   assert.equal(lotaDeNovoEm(1), 1);
+  // 960,45: arredonda para CIMA. Mutante ceil → round daria 960, que ainda não é 95%.
+  assert.equal(lotaDeNovoEm(1011), 961);
+});
+
+test("a nota do Reabrir só promete prioridade a quem o link pode mesmo mandar gente", () => {
+  const comVaga = { ...grupo(ID), membros: 812, podeReabrir: true };
+  const lota = "Lota de novo sozinho em 973.";
+  assert.equal(notaDoReabrir(comVaga), `Volta para o link com prioridade sobre o grupo que está enchendo. ${lota}`);
+  // Sem convite (ou convite sem esquema) e sem admin: reabre, mas vai para a fila que o link pula.
+  assert.equal(
+    notaDoReabrir({ ...comVaga, inviteUrl: null }),
+    `Reabre, mas o link pula este grupo até ele ter convite. ${lota}`,
+  );
+  assert.equal(
+    notaDoReabrir({ ...comVaga, inviteUrl: "chat.whatsapp.com/sem-esquema" }),
+    `Reabre, mas o link pula este grupo até ele ter convite. ${lota}`,
+  );
+  assert.equal(
+    notaDoReabrir({ ...comVaga, isAdmin: false }),
+    `Reabre, mas o link pula este grupo enquanto o nosso número não for admin. ${lota}`,
+  );
+  // Ainda cheio: o motivo do travado, como antes.
+  assert.equal(notaDoReabrir(grupo(ID)), mensagemAindaCheio(996, 1024));
 });
 
 test("cada resultado do banco vira o status e o motivo do contrato", () => {

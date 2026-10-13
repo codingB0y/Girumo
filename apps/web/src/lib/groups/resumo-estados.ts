@@ -1,5 +1,7 @@
 import { dayBR, dayBROf } from "@/lib/date-br";
-import type { EstadoGrupo, RegraDestino } from "@/lib/groups/estado";
+import type { EstadoDoGrupo, EstadoGrupo, RegraDestino } from "@/lib/groups/estado";
+import { isUsableInvite } from "@/lib/links/resolve-click-target";
+import type { DestinoDoLink } from "@/lib/painel/destino-do-link";
 
 /**
  * Apresentação dos estados dos grupos de uma campanha: a faixa e a lista da aba Grupos (PR 4)
@@ -7,13 +9,8 @@ import type { EstadoGrupo, RegraDestino } from "@/lib/groups/estado";
  * (`campaign_group_states`, spec §4); aqui só se conta e se escreve frase.
  */
 
-export type ContagemEstados = {
-  lotado: number;
-  enchendo: number;
-  fila: number;
-  vazio: number;
-  membros: number;
-};
+/** Um contador por estado, mais os membros: `{ lotado, enchendo, fila, vazio, membros }` (contratos §4). */
+export type ContagemEstados = Record<EstadoDoGrupo, number> & { membros: number };
 
 /** Resposta de `GET /api/campanhas/[slug]/grupos/estados` (contratos §4). */
 export type EstadosDaCampanha = {
@@ -28,7 +25,8 @@ export function resumirEstados(grupos: EstadoGrupo[]): {
 } {
   const quantos = (cumpre: (g: EstadoGrupo) => boolean) => grupos.filter(cumpre).length;
   return {
-    // Literais com todas as chaves: estado novo sem contador é erro de compilação, não NaN.
+    // `ContagemEstados` é `Record<EstadoDoGrupo, …>`: estado novo sem contador aqui é erro de
+    // compilação, não NaN.
     contagem: {
       lotado: quantos((g) => g.estado === "lotado"),
       enchendo: quantos((g) => g.estado === "enchendo"),
@@ -57,40 +55,55 @@ export function diasAtras(iso: string, agora: Date): string {
   return `há ${dias} dias`;
 }
 
-/** O mesmo teste de convite do "disponível" do SQL e de `isGroupAvailable`. */
-const CONVITE = /^https?:\/\/\S+$/;
-
 /**
  * Para quem o link vai quando o grupo que está enchendo lotar: reabertos primeiro, depois a
  * ordem do pool (a ordem de `app.estados_da_campanha`).
  *
- * ponytail: repete o "disponível" do SQL (admin + convite; fora do lotado a contagem já está
- * abaixo do limiar) só para escrever "volta para o 13" e "Pausado". O estado de cada linha
- * continua vindo do banco. Se o SQL ganhar condição nova de disponível, esta frase pode errar o
+ * ponytail: repete o "disponível" do SQL (admin + convite, pelo `isUsableInvite` do `/r/`, sem
+ * caixa como o `~*` do SQL; fora do lotado a contagem já está abaixo do limiar) só para escrever
+ * "volta para o 13" e "Pausado". O estado de cada linha continua vindo do banco. Se o SQL ganhar condição nova de disponível, esta frase pode errar o
  * número; aí subir `proximo` para `campaign_group_states`.
  */
 export function proximoDoLink(grupos: EstadoGrupo[]): EstadoGrupo | null {
   const candidatos = [...grupos]
     .sort((a, b) => a.posicao - b.posicao)
-    .filter((g) => (g.estado === "fila" || g.estado === "vazio") && g.isAdmin && CONVITE.test(g.inviteUrl ?? ""));
+    .filter((g) => (g.estado === "fila" || g.estado === "vazio") && g.isAdmin && isUsableInvite(g.inviteUrl));
   return candidatos.find((g) => g.reabertoEm !== null) ?? candidatos[0] ?? null;
 }
 
 export type FraseDoLink =
-  | { tipo: "parado" }
+  | { tipo: "parado"; texto: string }
   | { tipo: "enchendo"; nome: string; reaberto: string | null; voltaPara: number | null };
 
-/** "O link está mandando gente para X — reaberto ontem, tem prioridade. Quando ele lotar, volta para o 13." */
-export function fraseDoLink(grupos: EstadoGrupo[], agora: Date): FraseDoLink {
-  const enchendo = grupos.find((g) => g.estado === "enchendo");
-  if (!enchendo) return { tipo: "parado" };
-  if (!enchendo.reabertoEm) return { tipo: "enchendo", nome: enchendo.nome, reaberto: null, voltaPara: null };
+/**
+ * "O link está mandando gente para X — reaberto ontem, tem prioridade. Quando ele lotar, volta para o 13."
+ *
+ * Parado ou mandando gente quem decide é `destino` (`destinoDoLink`, o mesmo da aba Link e cliques
+ * e do `/r/`): campanha encerrada para o link mesmo com um `enchendo` no banco, e as duas abas não
+ * podem discordar. Parado leva o texto de lá, palavra por palavra.
+ */
+export function fraseDoLink(destino: DestinoDoLink, grupos: EstadoGrupo[], agora: Date): FraseDoLink {
+  const alvo = destino.grupo;
+  if (!alvo) return { tipo: "parado", texto: destino.parado?.texto ?? "Nenhum grupo agora." };
+  if (!alvo.reabertoEm) return { tipo: "enchendo", nome: alvo.nome, reaberto: null, voltaPara: null };
   return {
     tipo: "enchendo",
-    nome: enchendo.nome,
-    reaberto: diasAtras(enchendo.reabertoEm, agora),
+    nome: alvo.nome,
+    reaberto: diasAtras(alvo.reabertoEm, agora),
     voltaPara: proximoDoLink(grupos)?.posicao ?? null,
   };
+}
+
+/**
+ * Grupo do pool cuja linha em `groups` sumiu (o número deixou de ser admin e o sync apagou) não
+ * volta de `campaign_group_states`: a lista e a faixa o omitem, e o contador da aba o conta.
+ */
+export function avisoForaDaLista(noPool: number, naLista: number): string | null {
+  const faltam = noPool - naLista;
+  if (faltam <= 0) return null;
+  return faltam === 1
+    ? "1 grupo desta campanha não aparece aqui: não está mais na sua conta. Tire em Configurar."
+    : `${faltam.toLocaleString("pt-BR")} grupos desta campanha não aparecem aqui: não estão mais na sua conta. Tire em Configurar.`;
 }
 
 /** A coluna Detalhe do mockup. `switch` sem `return` final: estado novo é erro de `tsc`. */
@@ -107,7 +120,7 @@ export function detalheDoGrupo(g: EstadoGrupo, grupos: EstadoGrupo[], agora: Dat
     case "fila":
     case "vazio": {
       if (!g.isAdmin) return "Nosso número não é admin: o link pula este grupo";
-      if (!CONVITE.test(g.inviteUrl ?? "")) return "Sem convite: o link pula este grupo";
+      if (!isUsableInvite(g.inviteUrl)) return "Sem convite: o link pula este grupo";
       if (g.estado === "vazio") return "Só o nosso número";
       const enchendo = grupos.find((e) => e.estado === "enchendo");
       if (enchendo?.reabertoEm && g.reabertoEm === null && proximoDoLink(grupos)?.groupId === g.groupId) {

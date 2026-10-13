@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef } from "react";
 import { Lock, MoreHorizontal, Unlock } from "lucide-react";
 import { CopyLink } from "@/components/painel/copy-link";
-import { lotaDeNovoEm, mensagemAindaCheio } from "@/lib/groups/acao-lotado";
+import { notaDoReabrir } from "@/lib/groups/acao-lotado";
 import { ROTULO_ESTADO, type EstadoDoGrupo, type EstadoGrupo } from "@/lib/groups/estado";
 import { cn } from "@/lib/utils";
 
@@ -159,9 +159,7 @@ export function MenuDoGrupo({
                 Reabrir para receber gente
               </button>
               <p id={notaId} className="mx-3 mb-2 text-13 text-slate-600">
-                {grupo.podeReabrir
-                  ? `Volta para o link com prioridade sobre o grupo que está enchendo. Lota de novo sozinho em ${lotaDeNovoEm(grupo.capacidade).toLocaleString("pt-BR")}.`
-                  : mensagemAindaCheio(grupo.membros, grupo.capacidade)}
+                {notaDoReabrir(grupo)}
               </p>
             </>
           ) : (

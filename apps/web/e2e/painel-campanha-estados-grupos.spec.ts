@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { expect, test, type Page } from "@playwright/test";
 
+import { ENTRADA_DEFAULTS, isClosedAt } from "../src/lib/campaigns/settings";
 import type { EstadoGrupo } from "../src/lib/groups/estado";
 import { coletarFalhasDeApi, exigeCredenciais } from "./sessao-helpers";
 
@@ -25,7 +26,7 @@ type Campanha = {
   groupIds: string[];
   settings?: { entrada?: { encerra_em?: string | null } };
 };
-type Alvo = { slug: string; estados: Estados; encerraEm: string | null };
+type Alvo = { slug: string; groupIds: string[]; estados: Estados; encerraEm: string | null };
 type Estados = {
   grupos: EstadoGrupo[];
   contagem: { lotado: number; enchendo: number; fila: number; vazio: number; membros: number };
@@ -57,7 +58,12 @@ async function campanhaComEstados(page: Page): Promise<Alvo | null> {
     expect(r.ok(), `GET .../grupos/estados de ${campanha.slug} respondeu ${r.status()}`).toBeTruthy();
     const estados = (await r.json()) as Estados;
     if (estados.grupos.length > (melhor?.estados.grupos.length ?? 0)) {
-      melhor = { slug: campanha.slug, estados, encerraEm: campanha.settings?.entrada?.encerra_em ?? null };
+      melhor = {
+        slug: campanha.slug,
+        groupIds: campanha.groupIds,
+        estados,
+        encerraEm: campanha.settings?.entrada?.encerra_em ?? null,
+      };
     }
   }
   return melhor;
@@ -102,12 +108,30 @@ test("a faixa e o chip de cada grupo mostram o que /grupos/estados respondeu", a
   // No máximo um "Enchendo agora" (spec §3), e o botão da linha só nele.
   await expect(lista.getByRole("button", { name: "Marcar como lotado" })).toHaveCount(estados.contagem.enchendo);
 
-  // Uma fonte só do estado: a aba Link e cliques diz o mesmo grupo que enche na aba Grupos.
-  // (Campanha com data de encerramento pode estar parada por ela; aí não há o que comparar.)
+  // Grupo do pool sem linha em `groups` não volta do SQL: a aba diz quantos faltam.
+  const faltam = new Set(alvo.groupIds).size - estados.grupos.length;
+  if (faltam > 0) {
+    await expect(page.getByTestId("fora-da-lista")).toContainText(
+      `${numero(faltam)} ${faltam === 1 ? "grupo" : "grupos"} desta campanha`,
+    );
+  } else {
+    await expect(page.getByTestId("fora-da-lista")).toHaveCount(0);
+  }
+
+  // Uma fonte só: as duas abas decidem "parado × mandando gente" pelo mesmo `destinoDoLink` (o do
+  // /r/). Mandando, o mesmo grupo — nome exato, "Grupo 1" não pode passar por "Grupo 10". Parado
+  // (sem enchendo, ou campanha encerrada com um enchendo no banco), as mesmas palavras.
   const enchendo = estados.grupos.find((g) => g.estado === "enchendo");
-  if (enchendo && !alvo.encerraEm) {
+  const frase = page.getByTestId("frase-do-link");
+  if (enchendo && !isClosedAt(alvo.encerraEm, new Date())) {
+    await expect(frase.locator("strong").first()).toHaveText(enchendo.nome);
     await page.getByRole("button", { name: "Link e cliques", exact: true }).click();
-    await expect(page.getByTestId("destino-do-link")).toContainText(enchendo.nome);
+    await expect(page.getByTestId("destino-do-link").locator("strong")).toHaveText(enchendo.nome);
+  } else {
+    await expect(frase).not.toContainText("mandando gente");
+    const parado = (await frase.textContent()) ?? "";
+    await page.getByRole("button", { name: "Link e cliques", exact: true }).click();
+    await expect(page.getByTestId("destino-do-link")).toHaveText(parado);
   }
 
   // A camada HTTP do POST /grupos/lotado (auth, campanha, escopo do grupo), sem escrever nada:
@@ -212,6 +236,21 @@ test("Reabrir fica travado com o motivo, o menu é acessível e as ações manda
   test.skip(!alvo, "Nenhuma campanha com grupos neste ambiente.");
   if (!alvo) return;
   const base = `**/api/campanhas/${encodeURIComponent(alvo.slug)}/grupos`;
+
+  // A data de encerramento também é simulada: aberta, e no fim encerrada. A data real da
+  // campanha de dev não pode decidir o que a frase do link diz.
+  let encerraEm: string | null = null;
+  await page.route("**/api/campanhas", async (rota) => {
+    if (rota.request().method() !== "GET") return rota.continue();
+    const real = await rota.fetch();
+    const lista = (await real.json()) as Campanha[];
+    const comData = lista.map((c) =>
+      c.slug === alvo.slug
+        ? { ...c, settings: { ...c.settings, entrada: { ...ENTRADA_DEFAULTS, ...c.settings?.entrada, encerra_em: encerraEm } } }
+        : c,
+    );
+    return rota.fulfill({ response: real, json: comData });
+  });
 
   let leituras = 0;
   const acoes: unknown[] = [];
@@ -336,10 +375,19 @@ test("Reabrir fica travado com o motivo, o menu é acessível e as ações manda
 
   // A aba Link e cliques lê a MESMA rota (aqui, a simulada): o destino é o reaberto que enche,
   // não o primeiro com vaga da sequência antiga (withSequentialEstado escolheria outro).
-  if (!alvo.encerraEm) {
-    await page.getByRole("button", { name: "Link e cliques", exact: true }).click();
-    await expect(page.getByTestId("destino-do-link")).toContainText(ENCHENDO.nome);
-  }
+  await page.getByRole("button", { name: "Link e cliques", exact: true }).click();
+  await expect(page.getByTestId("destino-do-link").locator("strong")).toHaveText(ENCHENDO.nome);
+
+  // Campanha encerrada com o 3 ainda "enchendo" no banco: o /r/ bloqueia com `closed`, e as duas
+  // abas dizem que o link parou, com as mesmas palavras.
+  encerraEm = "2026-01-01";
+  await abrirAbaGrupos(page, alvo.slug);
+  await expect(page.getByTestId("frase-do-link")).toHaveText(
+    /^A campanha passou da data de encerramento: quem clicar agora /,
+  );
+  const parado = (await page.getByTestId("frase-do-link").textContent()) ?? "";
+  await page.getByRole("button", { name: "Link e cliques", exact: true }).click();
+  await expect(page.getByTestId("destino-do-link")).toHaveText(parado);
 
   expect(falhasDeApi, "5xx da propria app durante a navegacao").toEqual([]);
 });

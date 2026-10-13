@@ -1,4 +1,5 @@
 import type { EstadoGrupo } from "@/lib/groups/estado";
+import { isUsableInvite } from "@/lib/links/resolve-click-target";
 
 /**
  * Marcar e reabrir à mão (`POST /api/campanhas/[slug]/grupos/lotado`, contratos §4). Sem
@@ -46,6 +47,21 @@ export function mensagemAindaCheio(membros: number, capacidade: number): string 
   const cap = capacidadeReal(capacidade);
   const pct = Math.round((membros / cap) * 100);
   return `Ainda está com ${membros.toLocaleString("pt-BR")} de ${cap.toLocaleString("pt-BR")} (${pct}%). O link só manda gente abaixo de 95%: aumente a capacidade ou espere sair gente.`;
+}
+
+/**
+ * A nota do Reabrir no ⋯. Reaberto sem convite ou sem o nosso número como admin vai para a fila
+ * que o link pula ("Sem convite: o link pula este grupo"): prometer prioridade aí seria mentira.
+ * Mesma ordem de motivos do Detalhe (`detalheDoGrupo`).
+ */
+export function notaDoReabrir(
+  g: Pick<EstadoGrupo, "podeReabrir" | "membros" | "capacidade" | "isAdmin" | "inviteUrl">,
+): string {
+  if (!g.podeReabrir) return mensagemAindaCheio(g.membros, g.capacidade);
+  const lota = `Lota de novo sozinho em ${lotaDeNovoEm(g.capacidade).toLocaleString("pt-BR")}.`;
+  if (!g.isAdmin) return `Reabre, mas o link pula este grupo enquanto o nosso número não for admin. ${lota}`;
+  if (!isUsableInvite(g.inviteUrl)) return `Reabre, mas o link pula este grupo até ele ter convite. ${lota}`;
+  return `Volta para o link com prioridade sobre o grupo que está enchendo. ${lota}`;
 }
 
 export type RespostaDaAcao =

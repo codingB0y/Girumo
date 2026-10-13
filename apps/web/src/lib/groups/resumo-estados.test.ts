@@ -1,8 +1,18 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import { ENTRADA_DEFAULTS, type EntradaSettings } from "@/lib/campaigns/settings";
+import { destinoDoLink } from "@/lib/painel/destino-do-link";
+import { paradoDoLink } from "@/lib/painel/link-parado";
 import type { EstadoGrupo } from "./estado";
-import { detalheDoGrupo, diasAtras, fraseDoLink, proximoDoLink, resumirEstados } from "./resumo-estados";
+import {
+  avisoForaDaLista,
+  detalheDoGrupo,
+  diasAtras,
+  fraseDoLink,
+  proximoDoLink,
+  resumirEstados,
+} from "./resumo-estados";
 
 const TODAS = { menos_enchendo: true, lotados: true, com_gente: true };
 const NENHUMA = { menos_enchendo: false, lotados: false, com_gente: false };
@@ -26,6 +36,14 @@ function grupo(parcial: Partial<EstadoGrupo> & Pick<EstadoGrupo, "posicao" | "es
     naRegra: NENHUMA,
     ...parcial,
   };
+}
+
+const ids = (gs: EstadoGrupo[]) => gs.map((g) => g.whatsappGroupId);
+
+/** Como a aba Grupos chama: o destino é o mesmo `destinoDoLink` da aba Link e cliques. */
+function frase(grupos: EstadoGrupo[], entrada: EntradaSettings = ENTRADA_DEFAULTS) {
+  const destino = destinoDoLink({ estados: grupos, groupIds: ids(grupos), gruposNaTela: grupos.length, entrada, agora: AGORA });
+  return fraseDoLink(destino, grupos, AGORA);
 }
 
 test("resumo conta cada estado, soma membros e lê as regras de naRegra", () => {
@@ -80,7 +98,7 @@ test("reaberto enchendo: a frase do link, o pausado e para onde o link volta", (
     grupo({ posicao: 16, estado: "vazio", membros: 1 }),
   ];
 
-  assert.deepEqual(fraseDoLink(grupos, AGORA), {
+  assert.deepEqual(frase(grupos), {
     tipo: "enchendo",
     nome: "Moda Kids do Sul 12",
     reaberto: "ontem",
@@ -93,10 +111,14 @@ test("reaberto enchendo: a frase do link, o pausado e para onde o link volta", (
 });
 
 test("sem grupo enchendo o link está parado; enchendo sem reabrir não fala de prioridade", () => {
-  assert.deepEqual(fraseDoLink([grupo({ posicao: 1, estado: "lotado" })], AGORA), { tipo: "parado" });
+  const lotado = [grupo({ posicao: 1, estado: "lotado" })];
+  assert.deepEqual(frase(lotado), {
+    tipo: "parado",
+    texto: paradoDoLink("all-full", ids(lotado), 1, ENTRADA_DEFAULTS.lotado).texto,
+  });
 
   const normal = [grupo({ posicao: 1, estado: "enchendo" }), grupo({ posicao: 2, estado: "fila" })];
-  assert.deepEqual(fraseDoLink(normal, AGORA), {
+  assert.deepEqual(frase(normal), {
     tipo: "enchendo",
     nome: "Moda Kids do Sul 1",
     reaberto: null,
@@ -129,4 +151,27 @@ test("o próximo do link pula quem o link pula e põe reaberto na frente da orde
   assert.equal(proximoDoLink(grupos)?.posicao, 6, "o segundo reaberto vence a ordem");
   assert.equal(proximoDoLink(grupos.slice(0, 5))?.posicao, 5, "vazio com admin e convite também recebe");
   assert.equal(proximoDoLink(grupos.slice(0, 4)), null);
+});
+
+test("campanha encerrada com um grupo ainda enchendo: a frase diz parado, com as palavras da aba Link e cliques", () => {
+  // Bug do review final: o SQL continua devolvendo um `enchendo` depois de `encerra_em`, e a aba
+  // Grupos dizia "mandando gente para" enquanto o /r/ bloqueava com `closed`.
+  const grupos = [grupo({ posicao: 1, estado: "enchendo", reabertoEm: "2026-10-09T18:00:00Z" }), grupo({ posicao: 2, estado: "fila" })];
+  const encerrada = { ...ENTRADA_DEFAULTS, encerra_em: "2026-10-01" };
+  const texto = paradoDoLink("closed", ids(grupos), grupos.length, encerrada.lotado).texto;
+  assert.deepEqual(frase(grupos, encerrada), { tipo: "parado", texto });
+  assert.match(texto, /^A campanha passou da data de encerramento: /);
+});
+
+test("grupo do pool que saiu da conta é dito, no singular e no plural; sem falta, nada", () => {
+  assert.equal(avisoForaDaLista(3, 3), null);
+  assert.equal(avisoForaDaLista(2, 3), null);
+  assert.equal(
+    avisoForaDaLista(4, 3),
+    "1 grupo desta campanha não aparece aqui: não está mais na sua conta. Tire em Configurar.",
+  );
+  assert.equal(
+    avisoForaDaLista(5, 0),
+    "5 grupos desta campanha não aparecem aqui: não estão mais na sua conta. Tire em Configurar.",
+  );
 });

@@ -371,6 +371,9 @@ export default function CampanhaDetalhe() {
                 origin={origin}
                 envio={Object.fromEntries(groups.map((g) => [g.whatsappGroupId, g.sendState ?? null]))}
                 atualizadoEm={atualizadoEm}
+                groupIds={campanha.groupIds}
+                gruposNaTela={groups.length}
+                entrada={campanha.settings?.entrada ?? ENTRADA_DEFAULTS}
                 aoMudarCapacidade={loadData}
               />
               <AcoesEmMassa
