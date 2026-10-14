@@ -4,6 +4,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { ENTRADA_DEFAULTS, isClosedAt } from "../src/lib/campaigns/settings";
 import type { EstadoGrupo } from "../src/lib/groups/estado";
+import { isUsableInvite } from "../src/lib/links/resolve-click-target";
 import { coletarFalhasDeApi, exigeCredenciais } from "./sessao-helpers";
 
 /**
@@ -87,6 +88,33 @@ test("a faixa e o chip de cada grupo mostram o que /grupos/estados respondeu", a
   const resGrupos = await page.request.get("/api/groups");
   expect(resGrupos.ok(), `GET /api/groups respondeu ${resGrupos.status()}`).toBeTruthy();
   const envio = new Map(((await resGrupos.json()) as GrupoDaApi[]).map((g) => [g.whatsappGroupId, g.sendState]));
+
+  // T5: a Visão geral conta e nomeia como a aba Grupos — o estado do banco, não a porcentagem.
+  // A coluna Status de CADA linha da tabela diz o que a rota devolveu para aquele grupo.
+  await page.goto(`/painel/campanhas/${slug}`);
+  await expect(page.getByTestId("visao-lotado")).toHaveText(numero(estados.contagem.lotado));
+  await expect(page.getByTestId("visao-enchendo")).toHaveText(numero(estados.contagem.enchendo));
+  await expect(page.getByTestId("visao-fila")).toHaveText(numero(estados.contagem.fila));
+  await expect(page.getByTestId("visao-vazio")).toHaveText(numero(estados.contagem.vazio));
+  const tabela = page.getByRole("region", { name: "Grupos da campanha" }).locator("table");
+  const linhasNaTabela = await tabela.locator("tbody tr[data-group-id]").evaluateAll((trs) =>
+    trs.map((tr) => tr.getAttribute("data-group-id") ?? ""),
+  );
+  expect(linhasNaTabela.length, "a tabela da Visão geral mostra grupos").toBeGreaterThan(0);
+  // O SQL cruza o pool pelo JID; /api/groups dá o resto (sem estado = "—", fora dos dois = "Sumiu").
+  const porJid = new Map(estados.grupos.map((g) => [g.whatsappGroupId, g]));
+  for (const id of linhasNaTabela) {
+    const g = porJid.get(id);
+    const esperado = !g
+      ? envio.has(id)
+        ? "—"
+        : "Sumiu"
+      : (g.estado === "fila" || g.estado === "vazio") && !isUsableInvite(g.inviteUrl)
+        ? "Sem convite"
+        : ROTULO[g.estado];
+    // Grupo · Pessoas · Lotação · Entraram hoje · Status.
+    await expect(tabela.locator(`tr[data-group-id="${id}"] > td`).nth(4), `status de ${id}`).toHaveText(esperado);
+  }
 
   await abrirAbaGrupos(page, slug);
 
@@ -275,6 +303,15 @@ test("Reabrir fica travado com o motivo, o menu é acessível e as ações manda
     return rota.fulfill({ response: real, json: [...lista, ...ENVIO_SIMULADO] });
   });
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+
+  // T5: a Visão geral conta pela mesma rota (aqui, a simulada). Dois lotados, um deles a 79%:
+  // pela porcentagem antiga seriam um "Lotou" e um "Com vaga".
+  await page.goto(`/painel/campanhas/${alvo.slug}`);
+  await expect(page.getByTestId("visao-lotado")).toHaveText("2");
+  await expect(page.getByTestId("visao-enchendo")).toHaveText("1");
+  await expect(page.getByTestId("visao-fila")).toHaveText("2");
+  await expect(page.getByTestId("visao-vazio")).toHaveText("1");
+  await expect(page.getByRole("group", { name: "Filtrar grupos" }).getByRole("button", { name: "Lotados 2" })).toBeEnabled();
 
   await abrirAbaGrupos(page, alvo.slug);
   const lista = page.getByRole("region", { name: "Grupos da campanha" });

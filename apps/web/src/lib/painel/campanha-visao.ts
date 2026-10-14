@@ -1,9 +1,11 @@
 import type { CampaignGroupOverview } from "@/lib/campaign-groups-overview";
 import type { DispatchRecurrence, DispatchView } from "@/lib/campaigns/dispatch-view";
 import { dayBR, dayBRAgo, dayBROf, diaMesBR, horaBR } from "@/lib/date-br";
+import type { EstadoDoGrupo as EstadoDoBanco, EstadoGrupo } from "@/lib/groups/estado";
+import { isUsableInvite } from "@/lib/links/resolve-click-target";
 import type { GrupoAberto } from "@/lib/painel/atividade";
 import { abreviaNome } from "@/lib/painel/casca";
-import { estadoDoGrupo, type EstadoDoGrupo } from "@/lib/painel/grupos";
+import type { EstadoDoGrupo } from "@/lib/painel/grupos";
 
 /**
  * Visão geral da campanha na direção D (spec 2026-09-24, PR B): grupos, o dia
@@ -37,45 +39,55 @@ export function paraEntradaRecente(l: LeadResumo): EntradaRecente {
   return { id: l.id ?? "", nome: abreviaNome(l.name), grupo: l.sourceGroup ?? "", entrouEm: l.enteredAt ?? "" };
 }
 
+/** O estado da tela global de grupos (Início › mapa), pela porcentagem; a campanha usa o banco. */
 export type EstadoNaCampanha = EstadoDoGrupo | "sumiu";
-export type FiltroDeGrupos = "todos" | "lotados" | "quase" | "com_vaga";
 
-/** Grupo que saiu do WhatsApp (sem registro) não é "sem convite": sumiu. */
-export function estadoNaCampanha(g: CampaignGroupOverview): EstadoNaCampanha {
-  return g.group ? estadoDoGrupo(g.group) : "sumiu";
+/*
+ * A Visão geral da campanha (postar por grupo, T5): o estado de cada linha é o do banco
+ * (`GET /grupos/estados`, o mesmo da aba Grupos e do `/r/`), nunca a porcentagem. As linhas
+ * continuam sendo as de `CampaignGroupOverview`: entrega do post e entradas de hoje são
+ * indexadas pelo id que a campanha guarda em `groupIds`.
+ */
+
+/** O que o selo da linha diz: o estado do banco, ou por que não há um. */
+export type SeloDaLinha = EstadoDoBanco | "sem_convite" | "sumiu" | "sem_estado";
+export type FiltroDeGrupos = "todos" | EstadoDoBanco;
+
+/**
+ * Pelo JID, como `app.estados_da_campanha` cruza o pool (`whatsapp_group_id = jid`): entrada de
+ * `groupIds` com o uuid da linha nunca volta do SQL, e indexar o uuid só duplicaria a linha.
+ */
+export function indiceDeEstados(estados: EstadoGrupo[]): Map<string, EstadoGrupo> {
+  return new Map(estados.map((e) => [e.whatsappGroupId, e]));
 }
 
-export type FaixaDeLotacao = { lotados: number; quase: number; comVaga: number; semConvite: number; sumiram: number };
-
-export function faixaDeLotacao(grupos: CampaignGroupOverview[]): FaixaDeLotacao {
-  const faixa: FaixaDeLotacao = { lotados: 0, quase: 0, comVaga: 0, semConvite: 0, sumiram: 0 };
-  for (const g of grupos) {
-    const estado = estadoNaCampanha(g);
-    if (estado === "cheio") faixa.lotados += 1;
-    else if (estado === "quase") faixa.quase += 1;
-    else if (estado === "ativo") faixa.comVaga += 1;
-    else if (estado === "sem_convite") faixa.semConvite += 1;
-    else faixa.sumiram += 1;
+export function seloDaLinha(g: CampaignGroupOverview, estado: EstadoGrupo | undefined): SeloDaLinha {
+  // O banco decide primeiro: o pai e o Avisos da comunidade saem de /api/groups, mas o SQL os
+  // conta, e a aba Grupos mostra o estado deles.
+  if (estado) {
+    // O link pula quem não tem convite que ele aceite; lotado não recebe ninguém de qualquer jeito.
+    if ((estado.estado === "fila" || estado.estado === "vazio") && !isUsableInvite(estado.inviteUrl)) return "sem_convite";
+    return estado.estado;
   }
-  return faixa;
+  // Fora do banco e da lista: saiu do WhatsApp, não é "sem convite". Na lista e fora do banco
+  // (um sync entre as duas leituras): não chuta pela porcentagem.
+  return g.group ? "sem_estado" : "sumiu";
 }
 
-const ALVO: Record<Exclude<FiltroDeGrupos, "todos">, EstadoNaCampanha> = {
-  lotados: "cheio",
-  quase: "quase",
-  com_vaga: "ativo",
-};
-
-export function filtrarGrupos(grupos: CampaignGroupOverview[], filtro: FiltroDeGrupos): CampaignGroupOverview[] {
+/** Pelo estado do banco, como a faixa conta: a fila sem convite continua em "Na fila". */
+export function filtrarGrupos(
+  grupos: CampaignGroupOverview[],
+  filtro: FiltroDeGrupos,
+  porId: Map<string, EstadoGrupo>,
+): CampaignGroupOverview[] {
   if (filtro === "todos") return grupos;
-  return grupos.filter((g) => estadoNaCampanha(g) === ALVO[filtro]);
+  return grupos.filter((g) => porId.get(g.id)?.estado === filtro);
 }
 
-/** Mais novo primeiro (#40, #39…): é o grupo que está recebendo gente agora. */
-export function ordenarGrupos(grupos: CampaignGroupOverview[]): CampaignGroupOverview[] {
-  return [...grupos].sort((a, b) =>
-    (b.group?.name ?? "").localeCompare(a.group?.name ?? "", "pt-BR", { numeric: true }),
-  );
+/** A ordem do pool, a mesma da aba Grupos e do link; quem não tem estado vai para o fim, na ordem que veio. */
+export function ordenarGrupos(grupos: CampaignGroupOverview[], porId: Map<string, EstadoGrupo>): CampaignGroupOverview[] {
+  const posicao = (g: CampaignGroupOverview) => porId.get(g.id)?.posicao ?? Number.MAX_SAFE_INTEGER;
+  return [...grupos].sort((a, b) => posicao(a) - posicao(b));
 }
 
 function daCampanha(leads: LeadResumo[], groupIds: string[]): LeadResumo[] {
