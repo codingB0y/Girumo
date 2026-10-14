@@ -35,7 +35,7 @@ export function CartoesDeCampanha({ arvore, onVerQuem, abertosDeInicio = [] }: P
         return (
           <article key={no.chave} aria-label={c.rotulo} className="rounded-xl border border-line-200 bg-paper-0 px-4 py-3.5">
             <div className="flex items-baseline justify-between gap-2">
-              <h3 className="min-w-0 text-15 font-semibold text-volt-950">{c.rotulo}</h3>
+              <h3 className="min-w-0 text-15 font-semibold text-volt-950 [overflow-wrap:anywhere]">{c.rotulo}</h3>
               <span className="font-data whitespace-nowrap text-13 text-slate-600">{`gasto ${c.gasto}`}</span>
             </div>
             {c.aviso && <p className="mt-1 text-13 text-slate-600">{c.aviso}</p>}

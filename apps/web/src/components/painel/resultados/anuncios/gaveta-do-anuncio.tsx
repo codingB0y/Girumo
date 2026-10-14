@@ -64,7 +64,7 @@ export type PropsDoConteudo = {
 export function ConteudoDaGaveta({ linha, periodo, carga, pessoas, aoTentarDeNovo }: PropsDoConteudo) {
   return (
     <div className="flex flex-col gap-5 pb-2">
-      <p className="text-13 text-slate-600">{caminhoDaLinha(linha)}</p>
+      <p className="text-13 text-slate-600 [overflow-wrap:anywhere]">{caminhoDaLinha(linha)}</p>
       <FunilEmPe modelo={funilEmPe(linha, FUNIL_GAVETA)} rotulo="Funil do anúncio" tamanho="gaveta" />
       {carga === "erro" ? (
         <div role="alert" className="rounded-lg border border-line-200 px-4 py-3.5">

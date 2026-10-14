@@ -173,7 +173,7 @@ export type DegrauEmPe = {
   chave: string;
   valor: number;
   rotulo: string;
-  /** Só a taxa ("94%"); o primeiro degrau não tem. */
+  /** A taxa ("94%") ou, quando o degrau não tem taxa, o texto de passagem dele; o primeiro degrau não tem. */
   passagem: string;
   largura: number;
   clip: string;

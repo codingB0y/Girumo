@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -262,4 +263,15 @@ test("a aba encaixa a tabela e os cartões entre o gráfico por dia e 'fora dos 
     createElement(AbaAnuncios, { ...props, resposta: { relatorio: { ...relatorio, linhas: [] }, tem_cadastro: true } }),
   );
   assert.doesNotMatch(semLinhas, /Por campanha/);
+});
+
+test("nome longo sem ponto de quebra quebra em vez de estourar: título da folha, caminho da gaveta e título do cartão", () => {
+  const nome = "AD01_KIT10_CARROSSEL_GOIANIA_LOJISTAS";
+  const longa = { ...A1, campanha: nome, conjunto: nome, anuncio: nome };
+  assert.match(gaveta({ linha: longa }), /<p class="[^"]*\[overflow-wrap:anywhere\][^"]*">AD01_KIT10/);
+  const cartoes = html(createElement(CartoesDeCampanha, { arvore: arvoreDasLinhas(LINHAS), onVerQuem: noop }));
+  assert.match(cartoes, /<h3 class="[^"]*min-w-0[^"]*\[overflow-wrap:anywhere\][^"]*">VIP Atacado — Goiânia</);
+  // A Folha vai por portal (não renderiza estática): confere o título no fonte.
+  const folha = readFileSync(new URL("../../folha.tsx", import.meta.url), "utf8");
+  assert.match(folha, /<h2 className="min-w-0 [^"]*\[overflow-wrap:anywhere\][^"]*">\{titulo\}<\/h2>/);
 });
