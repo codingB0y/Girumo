@@ -52,8 +52,72 @@ function pular(): boolean {
   return false;
 }
 
+// Execução deste teste: `destino-<8 hex>` no nome do número, no slug, no nome do disparo e no
+// JID (`destino-<8 hex>-<nome>@g.us`). Nada de outro teste cai neste formato.
+const RUN_DO_TESTE = /^destino-([0-9a-f]{8})(?:-|$)/;
+const DEZ_MINUTOS = 10 * 60_000;
+
+type Falha = { message: string } | null;
+const registrar = (falhas: string[], rotulo: string, error: Falha) => {
+  if (error) falhas.push(`${rotulo}: ${error.message}`);
+};
+
+/**
+ * Apaga o que uma execução anterior deste teste deixou no tenant de QA (runner morto entre
+ * `before` e `after`: o verify.yml cancela PR obsoleto e o passo tem timeout). Um número
+ * `connected` esquecido quebra os e2e de "sem número" com um sintoma enganoso.
+ *
+ * A idade só vale para DESCOBRIR a execução: ela é velha se o grupo ou o número dela é de
+ * mais de 10 minutos (o passo morre em 3), então um run vivo de outro PR nunca entra. Achada
+ * a execução, tudo dela sai pela chave única (`RUN`), sem filtro de idade: `campaign_groups`
+ * nasce com `created_at` em 2020 (ver `before`), e um disparo dela pode ter menos de 10
+ * minutos mesmo com o grupo velho — filtrar por idade deixaria órfão.
+ */
+async function varrerResquicios(): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  const antes = new Date(Date.now() - DEZ_MINUTOS).toISOString();
+
+  const [grupos, instancias] = await Promise.all([
+    supabase.from("groups").select("whatsapp_group_id").eq("tenant_id", TENANT).like("whatsapp_group_id", "destino-%").lt("created_at", antes),
+    supabase.from("instances").select("name").eq("tenant_id", TENANT).like("name", "destino-%").lt("created_at", antes),
+  ]);
+  if (grupos.error) throw new Error(`varredura (groups): ${grupos.error.message}`);
+  if (instancias.error) throw new Error(`varredura (instances): ${instancias.error.message}`);
+
+  const runs = new Set<string>();
+  const nomes = [
+    ...(grupos.data ?? []).map((g) => String(g.whatsapp_group_id)),
+    ...(instancias.data ?? []).map((i) => String(i.name)),
+  ];
+  for (const nome of nomes) {
+    const run = RUN_DO_TESTE.exec(nome)?.[1];
+    if (run) runs.add(run);
+  }
+
+  const falhas: string[] = [];
+  for (const run of runs) {
+    const chave = `destino-${run}`;
+    const { data: disparos, error: erroDisparos } = await supabase
+      .from("broadcasts")
+      .select("id")
+      .eq("tenant_id", TENANT)
+      .eq("name", chave);
+    registrar(falhas, `broadcasts ${chave}`, erroDisparos);
+    const ids = (disparos ?? []).map((b) => b.id as string);
+    if (ids.length) {
+      registrar(falhas, `engine_commands ${chave}`, (await supabase.from("engine_commands").delete().eq("tenant_id", TENANT).in("origin_id", ids)).error);
+      registrar(falhas, `broadcasts ${chave}`, (await supabase.from("broadcasts").delete().eq("tenant_id", TENANT).in("id", ids)).error);
+    }
+    registrar(falhas, `instances ${chave}`, (await supabase.from("instances").delete().eq("tenant_id", TENANT).eq("name", chave)).error);
+    registrar(falhas, `campaign_groups ${chave}`, (await supabase.from("campaign_groups").delete().eq("tenant_id", TENANT).eq("slug", chave)).error);
+    registrar(falhas, `groups ${chave}`, (await supabase.from("groups").delete().eq("tenant_id", TENANT).like("whatsapp_group_id", `${chave}-%`)).error);
+  }
+  if (falhas.length) throw new Error(`varredura incompleta:\n${falhas.join("\n")}`);
+}
+
 before(async () => {
   if (pular()) return;
+  await varrerResquicios();
   const supabase = getSupabaseAdmin();
   const agora = new Date().toISOString();
 
@@ -116,14 +180,17 @@ before(async () => {
 after(async () => {
   if (!TENANT || EM_PRODUCAO) return;
   const supabase = getSupabaseAdmin();
+  // Tenta todos, mesmo que um falhe: parar no primeiro deixaria número conectado no dev.
+  const falhas: string[] = [];
   if (broadcastIds.length) {
-    await supabase.from("engine_commands").delete().eq("tenant_id", TENANT).in("origin_id", broadcastIds);
-    await supabase.from("broadcasts").delete().eq("tenant_id", TENANT).in("id", broadcastIds);
+    registrar(falhas, "engine_commands", (await supabase.from("engine_commands").delete().eq("tenant_id", TENANT).in("origin_id", broadcastIds)).error);
+    registrar(falhas, "broadcasts", (await supabase.from("broadcasts").delete().eq("tenant_id", TENANT).in("id", broadcastIds)).error);
   }
   // Comandos e estado de envio do número caem junto (on delete cascade).
-  if (instanciaId) await supabase.from("instances").delete().eq("tenant_id", TENANT).eq("id", instanciaId);
-  if (campanhaId) await supabase.from("campaign_groups").delete().eq("tenant_id", TENANT).eq("id", campanhaId);
-  await supabase.from("groups").delete().eq("tenant_id", TENANT).in("whatsapp_group_id", GRUPOS.map((g) => jid(g.nome)));
+  if (instanciaId) registrar(falhas, "instances", (await supabase.from("instances").delete().eq("tenant_id", TENANT).eq("id", instanciaId)).error);
+  if (campanhaId) registrar(falhas, "campaign_groups", (await supabase.from("campaign_groups").delete().eq("tenant_id", TENANT).eq("id", campanhaId)).error);
+  registrar(falhas, "groups", (await supabase.from("groups").delete().eq("tenant_id", TENANT).in("whatsapp_group_id", GRUPOS.map((g) => jid(g.nome)))).error);
+  if (falhas.length) throw new Error(`limpeza incompleta:\n${falhas.join("\n")}`);
 });
 
 async function jidsDoRun(runId: string): Promise<string[]> {
