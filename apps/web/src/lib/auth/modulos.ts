@@ -40,6 +40,8 @@ export const ROTAS: Readonly<
     { padrao: "/api/session", metodos: ["GET"] },
     { padrao: "/api/library", metodos: ["GET"] },
     { padrao: "/api/campanhas/*/messages", metodos: ["POST"] },
+    // Seletor "Para quais grupos" (`destino-grupos.tsx`) de Disparos e da folha: só leitura.
+    { padrao: "/api/campanhas/*/grupos/estados", metodos: ["GET"] },
     { padrao: "/api/media/prepare", metodos: ["POST"] },
     { padrao: "/api/media/register", metodos: ["POST"] },
   ],
