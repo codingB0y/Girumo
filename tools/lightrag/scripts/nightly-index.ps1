@@ -63,8 +63,12 @@ $log = Join-Path $logDir ("nightly-{0:yyyy-MM-dd}.log" -f (Get-Date))
     $env:PYTHONIOENCODING = 'utf-8'
     Push-Location $Worktree
     try {
-        & $python -m lightrag_kg.cli index --incremental
+        # --retry-failed: apaga o registro antigo dos arquivos do plano antes de inserir.
+        # Sem isso, arquivo que falhou (cota diaria do Gemini) ou que mudou fica preso
+        # no dedupe por nome do LightRAG e o retry vira no-op silencioso.
+        & $python -m lightrag_kg.cli index --incremental --retry-failed
         if ($LASTEXITCODE -ne 0) { throw "rag index saiu com $LASTEXITCODE" }
+        & $python -m lightrag_kg.cli stats
     } finally {
         Pop-Location
     }
