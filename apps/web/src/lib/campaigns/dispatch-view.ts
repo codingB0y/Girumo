@@ -8,6 +8,8 @@
  * ler broadcasts e devolver o mesmo contrato.
  */
 
+import { ROTULO_REGRA, isRegraDestino, type RegraDestino } from "@/lib/groups/estado";
+
 export type DispatchStatus = "draft" | "scheduled" | "queued" | "running" | "sent" | "failed";
 export type DispatchType = "text" | "image" | "video" | "audio" | "file" | "poll";
 export type DispatchRecurrence = "none" | "daily" | "weekly";
@@ -33,6 +35,8 @@ export type BroadcastRow = {
   created_at: string;
   funnel_template_id?: string | null;
   funnel_run_id?: string | null;
+  /** Regra de destino (postar por grupo). Null = lista fixa em `group_ids`. */
+  target_rule?: string | null;
 };
 
 export type ScheduleRow = {
@@ -70,6 +74,8 @@ export type DispatchView = {
   /** Presentes só em mensagens criadas pela sub-aba Funil. */
   funnelTemplateId?: string;
   funnelRunId?: string;
+  /** Presente só em disparo com regra de destino; ausente = lista fixa. */
+  targetRule?: RegraDestino;
 };
 
 const MEDIA_TYPES = ["image", "video", "audio", "file"] as const;
@@ -123,7 +129,18 @@ export function toDispatchView(
     scheduleId: pendingSchedule?.id,
     funnelTemplateId: broadcast.funnel_template_id ?? undefined,
     funnelRunId: broadcast.funnel_run_id ?? undefined,
+    targetRule: isRegraDestino(broadcast.target_rule) ? broadcast.target_rule : undefined,
   };
+}
+
+/**
+ * Disparo com regra que ainda não rodou: o total só existe depois que o banco
+ * refaz a lista no envio, então o histórico mostra a regra em vez de "0 / 0".
+ * Rodou, está rodando ou falhou → `null`, e vale o total real do run.
+ */
+export function regraPendente(d: Pick<DispatchView, "targetRule" | "status">): string | null {
+  if (!d.targetRule || (d.status !== "draft" && d.status !== "scheduled")) return null;
+  return `Regra: ${ROTULO_REGRA[d.targetRule]}`;
 }
 
 /** Indexa agendamentos por broadcast, mantendo o pendente mais próximo. */
