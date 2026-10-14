@@ -58,6 +58,92 @@ jobs:
       # que so existe no Windows. O script em si e cross-platform.
       - run: pwsh -File infra/scripts/verify-local.ps1
 
+  # Migracoes automaticas (14/10/2026). Antes disso cada migracao era aplicada a
+  # mao nos dois bancos, e PR com DDL parava esperando alguem rodar o SQL.
+  #
+  # `migrate-dev` roda em todo PR e em todo push em `main`: aplica em DEV o que
+  # esta em deploy/supabase/apply-order.txt e ainda nao consta em
+  # `ops.applied_migrations`. `migrate-prod` roda so no push em `main`, depois
+  # do dev — ou seja, PROD muda no merge. O que segura isso e o PR revisado com
+  # CI verde (protecao da `main`).
+  #
+  # Node puro, sem `npm ci`: o script so usa a stdlib e o Node 24 executa TS
+  # direto. Economiza o minuto de install em todo PR.
+  #
+  # Sem `cancel-in-progress` de proposito: cancelar no meio de uma migracao
+  # deixa o banco pela metade. Um run novo do mesmo ref espera o anterior.
+  migrate-dev:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: migrate-dev-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      # fetch-depth 2: o pai do commit e o estado de `main` antes deste run. So
+      # importa no bootstrap (banco sem o registro): tudo que ja estava na ordem
+      # ali e dado como aplicado.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - id: credenciais
+        env:
+          TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          REFS: ${{ vars.ADVISOR_PROJECT_REFS }}
+        run: |
+          if [ -n "$TOKEN" ] && [ -n "$REFS" ]; then
+            echo "tem=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "tem=false" >> "$GITHUB_OUTPUT"
+            echo "### Migracao pulada: faltam o segredo SUPABASE_ACCESS_TOKEN ou a variavel ADVISOR_PROJECT_REFS." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - run: node --test infra/scripts/apply-migrations.test.ts
+      - if: steps.credenciais.outputs.tem == 'true'
+        name: Aplicar migracoes pendentes em dev
+        run: |
+          git show HEAD^1:deploy/supabase/apply-order.txt > "$RUNNER_TEMP/ordem-base.txt"
+          node infra/scripts/apply-migrations.ts --alvo dev --seed-from "$RUNNER_TEMP/ordem-base.txt"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          ADVISOR_PROJECT_REFS: ${{ vars.ADVISOR_PROJECT_REFS }}
+
+  migrate-prod:
+    if: github.event_name == 'push'
+    needs: migrate-dev
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: migrate-prod
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - id: credenciais
+        env:
+          TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          REFS: ${{ vars.ADVISOR_PROJECT_REFS }}
+        run: |
+          if [ -n "$TOKEN" ] && [ -n "$REFS" ]; then
+            echo "tem=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "tem=false" >> "$GITHUB_OUTPUT"
+            echo "### Migracao de prod pulada: faltam o segredo SUPABASE_ACCESS_TOKEN ou a variavel ADVISOR_PROJECT_REFS." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - if: steps.credenciais.outputs.tem == 'true'
+        name: Aplicar migracoes pendentes em prod
+        run: |
+          git show HEAD^1:deploy/supabase/apply-order.txt > "$RUNNER_TEMP/ordem-base.txt"
+          node infra/scripts/apply-migrations.ts --alvo prod --seed-from "$RUNNER_TEMP/ordem-base.txt"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          ADVISOR_PROJECT_REFS: ${{ vars.ADVISOR_PROJECT_REFS }}
+
   # Gate de drift de schema dev x prod (D.4 da auditoria de 22/08/2026).
   #
   # Precisa existir porque o job `e2e` abaixo roda contra o Supabase de DEV:
@@ -71,7 +157,13 @@ jobs:
   #
   # Roda antes do e2e de proposito: leva segundos, e drift de schema explica a
   # maior parte das falhas do e2e.
+  #
+  # Depois do `migrate-dev`: senao compararia dev antes da migracao do PR. Com
+  # migracao no PR, a baseline tem que vir no mesmo PR — `npm run
+  # schema:baseline` apontando para DEV depois que o `migrate-dev` aplicou (dev =
+  # prod + a migracao do PR = o que prod vai ser depois do merge).
   drift:
+    needs: migrate-dev
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # Mesmo motivo do `verify`. Este job roda nos DOIS eventos, e e por isso que
