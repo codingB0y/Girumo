@@ -2,6 +2,8 @@ import { USE_SUPABASE } from "@/lib/stores/use-supabase";
 import * as broadcastsStore from "@/lib/stores/broadcasts";
 import * as schedulesStore from "@/lib/stores/schedules";
 import * as supaCampaigns from "@/lib/stores/campaign-groups";
+import { listCampaignGroupStates } from "@/lib/stores/campaign-group-states";
+import { listarComunidades } from "@/lib/stores/communities";
 import { collection } from "@/lib/json-collection";
 import { createMessage, listByCampaign, removeMessage } from "@/lib/messages-store";
 import type { CampaignMessage } from "@/lib/messages-store";
@@ -12,6 +14,7 @@ import { assertPlanLimit } from "@/lib/billing/entitlements";
 import { getSession, isLive } from "@/lib/session-store";
 import { buildDispatchList, toDispatchView } from "@/lib/campaigns/dispatch-view";
 import { resolvePostMediaType } from "@/lib/campaigns/post-media";
+import { NENHUM_GRUPO_NA_REGRA, lerDestino } from "@/lib/campaigns/destino";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import { getSessionAccountId } from "@/lib/session";
 import { parseFunnelFields } from "@/lib/funnels/api";
@@ -143,21 +146,35 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   });
   if (bloqueioVendedora) return Response.json({ error: bloqueioVendedora }, { status: 403 });
 
-  const groupIds = Array.isArray(body.groupIds) && body.groupIds.length > 0
-    ? body.groupIds.map(String)
-    : camp.group_ids;
+  // Destino conferido antes de qualquer gate. Lista fixa só com grupo desta
+  // campanha (antes não havia conferência nenhuma); sem destino, a regra padrão
+  // em vez de "todos" (D5). O Avisos da comunidade nativa é a única exceção.
+  const lido = lerDestino(body, camp, await avisosPermitidos(tenantId, camp));
+  if (!lido.ok) return Response.json({ error: lido.error }, { status: 400 });
+  const destino = lido.destino;
 
-  if (groupIds.length === 0) {
-    return Response.json(
-      { error: "Esta campanha ainda não tem grupos. Escolha os grupos antes de disparar." },
-      { status: 400 },
-    );
+  const scheduledAt = parseScheduledAt(body.scheduledAt);
+  if (body.scheduledAt && !scheduledAt) {
+    return Response.json({ error: "Data de agendamento inválida." }, { status: 400 });
+  }
+
+  // A regra é refeita pelo banco no envio (`app.alvos_do_disparo`). Enviar agora
+  // com ela vazia viraria um disparo `failed` no histórico: melhor dizer já. O
+  // estado é lido AGORA, nunca o que a tela viu ao abrir. Agendado passa: até a
+  // hora, algum grupo pode lotar.
+  if ("regra" in destino && !scheduledAt) {
+    const regra = destino.regra;
+    const estados = await listCampaignGroupStates(tenantId, camp.id);
+    if (!estados.some((g) => g.naRegra[regra])) {
+      return Response.json({ error: NENHUM_GRUPO_NA_REGRA }, { status: 400 });
+    }
   }
 
   try {
     await assertPlanLimit(tenantId, "campaigns:send");
     // Mesmo teto do outro caminho de envio (`/api/broadcasts`). Ficar so num dos
-    // dois seria um limite que o cliente contorna trocando de tela.
+    // dois seria um limite que o cliente contorna trocando de tela. Conta `leads`
+    // do tenant, nao grupos: regra ou lista fixa, o teto e o mesmo.
     await assertPlanLimit(tenantId, "contacts:reach");
   } catch (e) {
     if (e instanceof Response) return e;
@@ -178,11 +195,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   // tenant, não o usuário — e marcar como null diria "foi a engine", que é falso.
   const authUserId = await getSessionAccountId();
 
-  const scheduledAt = parseScheduledAt(body.scheduledAt);
-  if (body.scheduledAt && !scheduledAt) {
-    return Response.json({ error: "Data de agendamento inválida." }, { status: 400 });
-  }
-
   const funnel = parseFunnelFields(body);
   if (!funnel.ok) return Response.json({ error: funnel.error }, { status: 400 });
 
@@ -190,7 +202,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     campaign_group_id: camp.id,
     name: camp.name,
     message: messageBody,
-    group_ids: groupIds,
+    // Regra: `group_ids` fica vazio e quem resolve os grupos é o banco, no envio.
+    group_ids: "grupos" in destino ? destino.grupos : [],
+    target_rule: "regra" in destino ? destino.regra : null,
     media_id: body.mediaId ? String(body.mediaId) : undefined,
     media_type: mediaType,
     media_name: body.mediaName ? String(body.mediaName) : undefined,
@@ -264,6 +278,20 @@ export async function DELETE(req: Request) {
 }
 
 // --- helpers ---
+
+/**
+ * O Avisos de uma comunidade nativa nunca está em `group_ids` (`reconciliar.ts`
+ * o tira de propósito), mas é destino legítimo: é o "Enviar pelo Avisos" da aba.
+ * Campanha comum não paga a consulta.
+ */
+async function avisosPermitidos(
+  tenantId: string,
+  camp: { id: string; whatsapp_community_jid: string | null },
+): Promise<string[]> {
+  if (!camp.whatsapp_community_jid) return [];
+  const comunidade = (await listarComunidades(tenantId)).find((c) => c.id === camp.id);
+  return comunidade?.avisoGroupId ? [comunidade.avisoGroupId] : [];
+}
 
 function parsePoll(raw: unknown): { question: string; options: string[] } | undefined {
   if (!raw || typeof raw !== "object") return undefined;
