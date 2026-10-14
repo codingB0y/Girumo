@@ -16,9 +16,9 @@
 -- Idempotente.
 
 -- Trava: o corpo abaixo é o de 20261010120000 com UMA troca. Se este banco tiver outro corpo
--- (correção aplicada à mão), o create or replace a apagaria em silêncio. Mesmo md5 normalizado
--- de 20261010120000 (prosrc sem comentário de linha e com espaço reduzido a um). Reaplicar passa:
--- o corpo novo tem community_role.
+-- (correção aplicada à mão), o create or replace a apagaria em silêncio. Só passa com um dos dois
+-- corpos conhecidos, pelo md5 normalizado (prosrc sem comentário de linha e com espaço reduzido a
+-- um, como em 20261010120000): o de 20261010120000 ou o desta migração (reaplicar passa).
 do $$
 declare
   v_src text;
@@ -30,8 +30,7 @@ begin
     raise exception 'pool_sem_estrutura: app.estados_da_campanha não existe neste banco (falta 20261010120000)';
   end if;
   if md5(btrim(regexp_replace(regexp_replace(v_src, '--[^\n]*', '', 'g'), '\s+', ' ', 'g')))
-       <> '6d75e9275f3c58b23d1abe6edfe98109'
-     and position('community_role' in v_src) = 0 then
+       not in ('6d75e9275f3c58b23d1abe6edfe98109', '4320c2888105cdc7700eaab6bf98ff24') then
     raise exception 'pool_sem_estrutura: o corpo de app.estados_da_campanha neste banco difere do repo. Copie o pg_get_functiondef deste banco para a migração, refaça a troca e aplique de novo.';
   end if;
 end $$;
