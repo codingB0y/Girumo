@@ -71,7 +71,7 @@ export function Folha({ aberta, aoFechar, titulo, testId, id, emQualquerLargura,
       >
         <div className="pn-folha__alca" aria-hidden="true" />
         <div className="flex items-center justify-between pl-4 pr-1">
-          <h2 className="font-brand text-20 font-bold text-volt-950">{titulo}</h2>
+          <h2 className="min-w-0 font-brand text-20 font-bold text-volt-950 [overflow-wrap:anywhere]">{titulo}</h2>
           <button type="button" onClick={aoFechar} className="pn-folha__fechar">
             Fechar
           </button>

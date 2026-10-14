@@ -236,7 +236,7 @@ export const FUNIL_COMPUTADOR: FormaDoFunil = { piso: 30, bico: 28 };
 /** Funil grande no celular (mockup Celular): texto dentro, então o degrau não afina abaixo de 48%. */
 export const FUNIL_CELULAR: FormaDoFunil = { piso: 48, bico: 40 };
 
-const duasCasas = (n: number) => Math.round(n * 100) / 100;
+export const duasCasas = (n: number) => Math.round(n * 100) / 100;
 
 /**
  * Geometria de degraus que afinam (spec §4): largura `piso + (100 − piso) × n / topo`,
