@@ -3,6 +3,7 @@ import {
   buildDispatchList,
   buildTenantDispatchList,
   indexSchedulesByBroadcast,
+  regraPendente,
   resolveDispatchType,
   toDispatchView,
   type BroadcastRow,
@@ -187,5 +188,45 @@ assert.equal(comFunil.funnelRunId, "run-1");
 const semFunil = toDispatchView(broadcast({ id: "f2" }), "slug", null);
 assert.equal(semFunil.funnelTemplateId, undefined);
 assert.equal(semFunil.funnelRunId, undefined);
+
+// --- destino por regra (postar por grupo) ----------------------------------
+
+// Agendado com regra: o histórico mostra a regra, não "0 / 0 grupos".
+const regraAgendada = toDispatchView(
+  broadcast({ id: "r1", group_ids: [], total: 0, target_rule: "menos_enchendo" }),
+  "camp",
+  schedule({ id: "s1", broadcast_id: "r1" }),
+);
+assert.equal(regraAgendada.targetRule, "menos_enchendo");
+assert.equal(regraPendente(regraAgendada), "Regra: Todos menos o que está enchendo");
+
+// Rascunho com regra (ainda não enfileirou) também.
+assert.equal(
+  regraPendente(toDispatchView(broadcast({ id: "r2", group_ids: [], total: 0, target_rule: "lotados" }), "camp", null)),
+  "Regra: Só lotados",
+);
+
+// Depois que o banco refez a lista, vale o total real do run.
+for (const status of ["queued", "running", "sent", "failed"] as const) {
+  const rodou = toDispatchView(broadcast({ id: "r3", target_rule: "com_gente", status, sent: 12, total: 13 }), "camp", null);
+  assert.equal(regraPendente(rodou), null, status);
+  assert.equal(rodou.total, 13);
+}
+
+// Semanal depois do 1º envio: o agendamento seguinte não esconde o total real.
+assert.equal(
+  regraPendente(
+    toDispatchView(
+      broadcast({ id: "r4", target_rule: "menos_enchendo", status: "sent", sent: 13, total: 13 }),
+      "camp",
+      schedule({ id: "s4", broadcast_id: "r4", recurrence: "weekly" }),
+    ),
+  ),
+  null,
+);
+
+// Lista fixa não tem regra; valor fora do contrato não vira rótulo.
+assert.equal(regraPendente(toDispatchView(broadcast({ id: "r5" }), "camp", schedule({ id: "s5", broadcast_id: "r5" }))), null);
+assert.equal(toDispatchView(broadcast({ id: "r6", target_rule: "todos" }), "camp", null).targetRule, undefined);
 
 console.log("dispatch-view tests passed");

@@ -65,6 +65,8 @@ const TABELA: ReadonlyArray<readonly [string, string, boolean, boolean]> = [
   ["GET", "/api/session", false, true],
   ["GET", "/api/library", false, true],
   ["POST", "/api/campanhas/promo-de-verao/messages", false, true],
+  // Seletor "Para quais grupos" de Disparos e da folha Postar (postar por grupo, PR 5): só leitura.
+  ["GET", "/api/campanhas/promo-de-verao/grupos/estados", false, true],
   ["POST", "/api/media/prepare", false, true],
   ["POST", "/api/media/register", false, true],
   // postar não edita: criar/editar/apagar campanha, cancelar oferta, mexer no número
@@ -73,6 +75,10 @@ const TABELA: ReadonlyArray<readonly [string, string, boolean, boolean]> = [
   ["DELETE", "/api/campanhas/promo-de-verao/messages", false, false],
   ["GET", "/api/campanhas/promo-de-verao/messages", false, false],
   ["POST", "/api/campanhas/promo-de-verao/messages/cancel", false, false],
+  // Ler os estados não é mexer neles: marcar/reabrir lotado e abrir/fechar grupo seguem do dono.
+  ["POST", "/api/campanhas/promo-de-verao/grupos/estados", false, false],
+  ["POST", "/api/campanhas/promo-de-verao/grupos/lotado", false, false],
+  ["POST", "/api/campanhas/promo-de-verao/grupos/estado", false, false],
   ["POST", "/api/groups", false, false],
   ["POST", "/api/session", false, false],
   ["GET", "/api/media", false, false],

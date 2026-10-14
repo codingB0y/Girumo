@@ -1,4 +1,5 @@
 import "server-only";
+import type { RegraDestino } from "@/lib/groups/estado";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 type BroadcastStatus = "draft" | "queued" | "running" | "sent" | "failed";
@@ -28,6 +29,8 @@ export type Broadcast = {
   /** Roteiro e confirmação do funil que geraram este broadcast. Null fora do funil. */
   funnel_template_id: string | null;
   funnel_run_id: string | null;
+  /** Regra de destino (D8): refeita pelo banco a cada envio. Null = lista fixa em `group_ids`. */
+  target_rule: RegraDestino | null;
   created_at: string;
   updated_at: string;
 };
@@ -58,6 +61,8 @@ export async function createBroadcast(
     poll?: { question: string; options: string[] };
     funnel_template_id?: string;
     funnel_run_id?: string;
+    /** Regra de destino (D8). Com regra, `group_ids` vai vazio. */
+    target_rule?: RegraDestino | null;
   },
 ): Promise<Broadcast> {
   const { data, error } = await getSupabaseAdmin()
@@ -78,6 +83,8 @@ export async function createBroadcast(
       total: input.group_ids.length,
       funnel_template_id: input.funnel_template_id ?? null,
       funnel_run_id: input.funnel_run_id ?? null,
+      // Só com regra: sem ela o insert é o mesmo de antes do seletor de destino.
+      ...(input.target_rule ? { target_rule: input.target_rule } : {}),
     })
     .select("*")
     .single();
