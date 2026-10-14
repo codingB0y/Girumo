@@ -8,6 +8,7 @@ const lida: EstadosDaCampanha = {
   grupos: [],
   contagem: { lotado: 1, enchendo: 1, fila: 0, vazio: 0, membros: 10 },
   regras: { menos_enchendo: 1, lotados: 1, com_gente: 2 },
+  estruturaDeComunidade: 0,
 };
 const outra: EstadosDaCampanha = { ...lida, contagem: { ...lida.contagem, lotado: 2 } };
 

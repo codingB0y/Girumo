@@ -7,7 +7,7 @@ import { Celula } from "@/components/painel/numeros";
 import type { EntradaSettings } from "@/lib/campaigns/settings";
 import type { AcaoLotado } from "@/lib/groups/acao-lotado";
 import type { EstadoDoGrupo, EstadoGrupo } from "@/lib/groups/estado";
-import { avisoForaDaLista, detalheDoGrupo, fraseDoLink } from "@/lib/groups/resumo-estados";
+import { avisoEstruturaDeComunidade, avisoForaDaLista, detalheDoGrupo, fraseDoLink } from "@/lib/groups/resumo-estados";
 import { destinoDoLink } from "@/lib/painel/destino-do-link";
 import { numero } from "@/lib/painel/grupos";
 import { useEstadosDaCampanha } from "@/lib/painel/use-estados-da-campanha";
@@ -120,7 +120,7 @@ export function GruposDaCampanha({
     );
   }
 
-  const { grupos, contagem } = carga.dados;
+  const { grupos, contagem, estruturaDeComunidade } = carga.dados;
   // O aviso de uma ação (409, falha) vence o de "lista velha"; a lista velha fica na tela.
   const aviso = avisoDaAcao ?? (carga.desatualizada ? FALHA_AO_ATUALIZAR : null);
   const agora = new Date();
@@ -128,13 +128,16 @@ export function GruposDaCampanha({
   // Mesmas entradas da aba Link e cliques, `agora` incluído: as duas abas nunca discordam.
   const destino = destinoDoLink({ estados: grupos, groupIds, gruposNaTela, entrada, agora: atualizadoEm });
   const frase = fraseDoLink(destino, grupos, agora);
-  const foraDaLista = avisoForaDaLista(new Set(groupIds).size, grupos.length);
+  // Pai e Avisos de comunidade faltam de propósito: não são "grupo que saiu da conta".
+  const foraDaLista = avisoForaDaLista(new Set(groupIds).size - estruturaDeComunidade, grupos.length);
+  const estrutura = avisoEstruturaDeComunidade(estruturaDeComunidade);
 
-  if (grupos.length === 0 && foraDaLista) {
+  if (grupos.length === 0 && (foraDaLista || estrutura)) {
     return (
-      <p data-testid="fora-da-lista" className="pn-card rounded-xl px-5 py-8 text-center text-sm text-volt-950">
-        {foraDaLista}
-      </p>
+      <div className="pn-card space-y-2 rounded-xl px-5 py-8 text-center text-sm text-volt-950">
+        {foraDaLista && <p data-testid="fora-da-lista">{foraDaLista}</p>}
+        {estrutura && <p data-testid="estrutura-de-comunidade">{estrutura}</p>}
+      </div>
     );
   }
 
@@ -194,6 +197,12 @@ export function GruposDaCampanha({
           className="rounded-xl border border-line-200 bg-aviso-fundo px-4 py-3 text-sm text-volt-950"
         >
           {foraDaLista}
+        </p>
+      )}
+
+      {estrutura && (
+        <p data-testid="estrutura-de-comunidade" className="rounded-xl border border-line-200 px-4 py-3 text-sm text-volt-950">
+          {estrutura}
         </p>
       )}
 

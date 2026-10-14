@@ -242,6 +242,23 @@ export async function updateGroupCounts(
  * devolve payload truncado para ~20% dos grupos, e gravá-lo apagaria o número
  * certo sem ter de onde recuperá-lo (ver lib/groups/member-count.ts).
  */
+/**
+ * Quantos destes JIDs são estrutura de comunidade (grupo pai ou Avisos). O pool da campanha os
+ * ignora de propósito (`app.estados_da_campanha`, 20261014120000): a aba Grupos desconta estes
+ * antes de dizer que um grupo "não está mais na sua conta".
+ */
+export async function contarEstruturaDeComunidade(tenantId: string, jids: readonly string[]): Promise<number> {
+  if (jids.length === 0) return 0;
+  const { data, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .select("whatsapp_group_id")
+    .eq("tenant_id", tenantId)
+    .in("whatsapp_group_id", [...jids])
+    .in("community_role", ["parent", "announce"]);
+  if (error) throw new Error(error.message);
+  return data?.length ?? 0;
+}
+
 export async function listMemberCounts(tenantId: string): Promise<Map<string, number>> {
   const { data, error } = await getSupabaseAdmin()
     .from(TABLE)

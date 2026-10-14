@@ -31,6 +31,7 @@ type Alvo = { slug: string; groupIds: string[]; estados: Estados; encerraEm: str
 type Estados = {
   grupos: EstadoGrupo[];
   contagem: { lotado: number; enchendo: number; fila: number; vazio: number; membros: number };
+  estruturaDeComunidade: number;
 };
 
 type GrupoDaApi = { whatsappGroupId: string; sendState?: "open" | "closed" | null };
@@ -136,8 +137,14 @@ test("a faixa e o chip de cada grupo mostram o que /grupos/estados respondeu", a
   // No máximo um "Enchendo agora" (spec §3), e o botão da linha só nele.
   await expect(lista.getByRole("button", { name: "Marcar como lotado" })).toHaveCount(estados.contagem.enchendo);
 
-  // Grupo do pool sem linha em `groups` não volta do SQL: a aba diz quantos faltam.
-  const faltam = new Set(alvo.groupIds).size - estados.grupos.length;
+  // Grupo do pool sem linha em `groups` não volta do SQL: a aba diz quantos faltam. Pai e Avisos
+  // de comunidade também não voltam, de propósito, e têm frase própria.
+  const faltam = new Set(alvo.groupIds).size - estados.grupos.length - estados.estruturaDeComunidade;
+  if (estados.estruturaDeComunidade > 0) {
+    await expect(page.getByTestId("estrutura-de-comunidade")).toContainText("estrutura de comunidade");
+  } else {
+    await expect(page.getByTestId("estrutura-de-comunidade")).toHaveCount(0);
+  }
   if (faltam > 0) {
     await expect(page.getByTestId("fora-da-lista")).toContainText(
       `${numero(faltam)} ${faltam === 1 ? "grupo" : "grupos"} desta campanha`,
