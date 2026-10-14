@@ -1,15 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Link2 } from "lucide-react";
 import { GroupSettings } from "@/components/painel/grupos/group-settings";
 import { Celula } from "@/components/painel/numeros";
 import type { EntradaSettings } from "@/lib/campaigns/settings";
 import type { AcaoLotado } from "@/lib/groups/acao-lotado";
 import type { EstadoDoGrupo, EstadoGrupo } from "@/lib/groups/estado";
-import { avisoForaDaLista, detalheDoGrupo, fraseDoLink, type EstadosDaCampanha } from "@/lib/groups/resumo-estados";
+import { avisoForaDaLista, detalheDoGrupo, fraseDoLink } from "@/lib/groups/resumo-estados";
 import { destinoDoLink } from "@/lib/painel/destino-do-link";
 import { numero } from "@/lib/painel/grupos";
+import { useEstadosDaCampanha } from "@/lib/painel/use-estados-da-campanha";
 import { cn } from "@/lib/utils";
 import { ChipDeEstado, MenuDoGrupo, SeloEnvio } from "./estado-do-grupo";
 
@@ -17,12 +18,10 @@ import { ChipDeEstado, MenuDoGrupo, SeloEnvio } from "./estado-do-grupo";
  * Aba Grupos da campanha (spec postar por grupo §6.4): faixa de estados, para onde o link
  * está mandando gente e a lista na ordem do pool, com chip, detalhe, selo de envio e o menu ⋯.
  *
- * O estado vem de `GET /api/campanhas/[slug]/grupos/estados`; nada aqui decide estado. O selo
- * de envio vem de `/api/groups` pela página (`envio`), como vinha no cartão antigo. Relê depois
- * de cada ação e quando a página atualiza (`atualizadoEm`).
+ * O estado vem de `GET /api/campanhas/[slug]/grupos/estados` (`useEstadosDaCampanha`); nada aqui
+ * decide estado. O selo de envio vem de `/api/groups` pela página (`envio`), como vinha no cartão
+ * antigo. Relê depois de cada ação e quando a página atualiza (`atualizadoEm`).
  */
-
-type Carga = { fase: "carregando" } | { fase: "erro" } | { fase: "pronto"; dados: EstadosDaCampanha };
 
 /** Ordem · Grupo · Membros · Estado · Detalhe · ⋯ (mockup). No celular a linha quebra. */
 const COLUNAS = "md:grid md:grid-cols-[56px_minmax(0,1.6fr)_200px_150px_minmax(0,2fr)_48px] md:items-center md:gap-x-3";
@@ -66,36 +65,17 @@ export function GruposDaCampanha({
   entrada,
   aoMudarCapacidade,
 }: Props) {
-  const [carga, setCarga] = useState<Carga>({ fase: "carregando" });
+  const { carga, recarregar, tentarDeNovo } = useEstadosDaCampanha(slug, atualizadoEm);
   const [menu, setMenu] = useState<string | null>(null);
   const [editando, setEditando] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState<string | null>(null);
-  const [aviso, setAviso] = useState<string | null>(null);
-
-  const carregar = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/campanhas/${encodeURIComponent(slug)}/grupos/estados`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const dados = (await res.json()) as EstadosDaCampanha;
-      setCarga({ fase: "pronto", dados });
-      // A leitura voltou: o aviso de "lista velha" caduca. O de uma ação (409, falha) fica.
-      setAviso((atual) => (atual === FALHA_AO_ATUALIZAR ? null : atual));
-    } catch {
-      // Com a lista na tela ela fica, e o aviso diz que está velha; sem lista, é erro.
-      setCarga((atual) => (atual.fase === "pronto" ? atual : { fase: "erro" }));
-      setAviso((atual) => atual ?? FALHA_AO_ATUALIZAR);
-    }
-  }, [slug]);
-
-  useEffect(() => {
-    void carregar();
-  }, [carregar, atualizadoEm]);
+  const [avisoDaAcao, setAvisoDaAcao] = useState<string | null>(null);
 
   const fecharMenu = useCallback(() => setMenu(null), []);
 
   async function agir(grupo: EstadoGrupo, acao: AcaoLotado) {
     setOcupado(grupo.groupId);
-    setAviso(null);
+    setAvisoDaAcao(null);
     try {
       const res = await fetch(`/api/campanhas/${encodeURIComponent(slug)}/grupos/lotado`, {
         method: "POST",
@@ -104,15 +84,15 @@ export function GruposDaCampanha({
       });
       if (!res.ok) {
         const corpo = (await res.json().catch(() => ({}))) as { error?: string };
-        setAviso(corpo.error ?? FALHA_NA_ACAO);
+        setAvisoDaAcao(corpo.error ?? FALHA_NA_ACAO);
       }
     } catch {
-      setAviso(FALHA_NA_ACAO);
+      setAvisoDaAcao(FALHA_NA_ACAO);
     }
     // 409 também relê: outro clique, ou o webhook, pode ter mudado o grupo. O botão só solta
     // com a linha nova na tela: solto antes, um segundo clique na linha velha voltava 409 depois
-    // de um sucesso. `carregar` não lança (falha vira aviso lá dentro).
-    await carregar();
+    // de um sucesso. `recarregar` não lança (falha vira lista velha com aviso).
+    await recarregar();
     setOcupado(null);
   }
 
@@ -131,10 +111,7 @@ export function GruposDaCampanha({
         <p className="text-sm text-volt-950">Não deu para ler o estado dos grupos.</p>
         <button
           type="button"
-          onClick={() => {
-            setCarga({ fase: "carregando" });
-            void carregar();
-          }}
+          onClick={tentarDeNovo}
           className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-line-200 bg-paper-0 px-4 text-sm font-medium text-volt-950 transition-colors hover:border-slate-600"
         >
           Tentar de novo
@@ -144,6 +121,8 @@ export function GruposDaCampanha({
   }
 
   const { grupos, contagem } = carga.dados;
+  // O aviso de uma ação (409, falha) vence o de "lista velha"; a lista velha fica na tela.
+  const aviso = avisoDaAcao ?? (carga.desatualizada ? FALHA_AO_ATUALIZAR : null);
   const agora = new Date();
   const enchendo = grupos.find((g) => g.estado === "enchendo") ?? null;
   // Mesmas entradas da aba Link e cliques, `agora` incluído: as duas abas nunca discordam.

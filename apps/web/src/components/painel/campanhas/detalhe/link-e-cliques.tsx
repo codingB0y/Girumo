@@ -1,18 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { CopyLink } from "@/components/painel/copy-link";
 import { QrLink } from "@/components/painel/campanhas/qr-link";
 import type { EntradaSettings } from "@/lib/campaigns/settings";
 import { dayBR, horaBR } from "@/lib/date-br";
-import type { EstadoGrupo } from "@/lib/groups/estado";
-import type { EstadosDaCampanha } from "@/lib/groups/resumo-estados";
 import type { Group } from "@/lib/mock-data";
 import { barrasDaAtividade, nomeDoMes, somaDa, type Periodo } from "@/lib/painel/atividade";
 import { medindoDesde } from "@/lib/painel/atividade-texto";
 import { destinoDoLink } from "@/lib/painel/destino-do-link";
 import { lotacao, numero } from "@/lib/painel/grupos";
+import { estadosFrescos, useEstadosDaCampanha } from "@/lib/painel/use-estados-da-campanha";
 import { cn } from "@/lib/utils";
 import { useAtividade } from "./analise";
 import { GraficoDeBarras } from "./grafico-barras";
@@ -42,28 +41,15 @@ export function LinkECliques({ slug, nome, linkMestre, groupIds, grupos, entrada
   const [periodo, setPeriodo] = useState<Periodo>("hoje");
   const { atividade, erro, tentarDeNovo } = useAtividade(slug, agora.getTime());
 
-  // O "enchendo" vem do banco, pela mesma rota da aba Grupos: uma fonte só do estado.
-  // null = lendo; "erro" = a leitura falhou, e a aba não chuta destino.
-  const [estados, setEstados] = useState<EstadoGrupo[] | "erro" | null>(null);
-  useEffect(() => {
-    let vivo = true;
-    fetch(`/api/campanhas/${encodeURIComponent(slug)}/grupos/estados`)
-      .then((r) => (r.ok ? (r.json() as Promise<EstadosDaCampanha>) : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then((d) => {
-        if (vivo) setEstados(d.grupos);
-      })
-      .catch(() => {
-        if (vivo) setEstados("erro");
-      });
-    return () => {
-      vivo = false;
-    };
-  }, [slug, agora]);
+  // O "enchendo" vem do banco, pela mesma leitura da aba Grupos: uma fonte só do estado.
+  // null = lendo; "erro" = a leitura falhou (lista velha inclusive), e a aba não chuta destino.
+  const { carga } = useEstadosDaCampanha(slug, agora);
+  const estados = estadosFrescos(carga);
 
   const destino = useMemo(
     () =>
-      Array.isArray(estados)
-        ? destinoDoLink({ estados, groupIds, gruposNaTela: grupos.length, entrada, agora })
+      estados && estados !== "erro"
+        ? destinoDoLink({ estados: estados.grupos, groupIds, gruposNaTela: grupos.length, entrada, agora })
         : null,
     [estados, groupIds, grupos.length, entrada, agora],
   );

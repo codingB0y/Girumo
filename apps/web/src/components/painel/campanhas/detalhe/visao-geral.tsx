@@ -1,12 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ChipDeEstado } from "@/components/painel/grupos/estado-do-grupo";
 import { Celula, ContraSemanaPassada, EntrouSaiu, Faisca } from "@/components/painel/numeros";
 import type { CampaignGroupsOverview } from "@/lib/campaign-groups-overview";
 import { etaDisparo } from "@/lib/campaigns/dispatch-eta";
 import type { DispatchView } from "@/lib/campaigns/dispatch-view";
 import { dayBR, dayBROf, diaMesBR, horaBR } from "@/lib/date-br";
-import { GROUP_FULL_RATIO } from "@/lib/links/resolve-click-target";
+import type { EstadoDoGrupo as EstadoDoBanco } from "@/lib/groups/estado";
+import type { ContagemEstados } from "@/lib/groups/resumo-estados";
 import {
   barrasDaAtividade,
   diaDaSemanaPassada,
@@ -16,20 +18,21 @@ import {
   type Movimento,
 } from "@/lib/painel/atividade";
 import {
-  estadoNaCampanha,
-  faixaDeLotacao,
   filtrarGrupos,
   hojeNaCampanha,
+  indiceDeEstados,
   ordenarGrupos,
   quandoDoPost,
+  seloDaLinha,
   type EntradaRecente,
   type EstadoDoPost,
-  type EstadoNaCampanha,
   type FiltroDeGrupos,
+  type SeloDaLinha,
 } from "@/lib/painel/campanha-visao";
 import { medindoDesde, saldo } from "@/lib/painel/atividade-texto";
 import { aindaSaindo, itemAoVivo, postDaTabela, resumoDaEntrega, type ItemAoVivo } from "@/lib/painel/entrega";
 import { lotacao, numero } from "@/lib/painel/grupos";
+import { estadosFrescos, useEstadosDaCampanha } from "@/lib/painel/use-estados-da-campanha";
 import { cn } from "@/lib/utils";
 import { AnaliseDaCampanha, useAtividade } from "./analise";
 import { CelulaDaEntrega, LegendaDaEntrega, useEntrega } from "./entrega";
@@ -64,8 +67,18 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
   const [filtro, setFiltro] = useState<FiltroDeGrupos>("todos");
   const { atividade, erro, tentarDeNovo } = useAtividade(slug, agora.getTime());
 
-  const faixa = useMemo(() => faixaDeLotacao(o.groups), [o.groups]);
-  const grupos = useMemo(() => filtrarGrupos(ordenarGrupos(o.groups), filtro), [o.groups, filtro]);
+  // Estado de cada grupo: o do banco, pela mesma leitura das abas Grupos e Link e cliques. Lendo ou
+  // com falha, a contagem diz isso e o selo fica "—": voltar para a porcentagem traria de volta
+  // a Visão geral discordando da aba Grupos.
+  const { carga } = useEstadosDaCampanha(slug, agora);
+  const estados = estadosFrescos(carga);
+  const contagem = estados && estados !== "erro" ? estados.contagem : null;
+  const porId = useMemo(() => indiceDeEstados(estados && estados !== "erro" ? estados.grupos : []), [estados]);
+  const filtroAtivo: FiltroDeGrupos = contagem ? filtro : "todos";
+  const grupos = useMemo(
+    () => filtrarGrupos(ordenarGrupos(o.groups, porId), filtroAtivo, porId),
+    [o.groups, filtroAtivo, porId],
+  );
   const seteDias = useMemo(() => (atividade ? barrasDaAtividade(atividade, "7d", "entraram") : null), [atividade]);
   const hoje = useMemo(() => (atividade ? somaMedida(barrasDaAtividade(atividade, "hoje", "entraram", "sairam")) : null), [atividade]);
 
@@ -88,11 +101,10 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
 
   const novasHoje = atividade ? somaDa(atividade.porHora, "novas") : null;
   const cliquesHoje = atividade ? somaDa(atividade.porHora, "cliques") : null;
-  const filtros: [FiltroDeGrupos, string, number][] = [
+  // Os rótulos e a contagem da faixa da aba Grupos; sem estado lido, só "Todos" filtra.
+  const filtros: [FiltroDeGrupos, string, number | null][] = [
     ["todos", "Todos", o.groups.length],
-    ["lotados", "Lotados", faixa.lotados],
-    ["quase", "Quase", faixa.quase],
-    ["com_vaga", "Com vaga", faixa.comVaga],
+    ...ESTADOS.map((e): [FiltroDeGrupos, string, number | null] => [e, NA_VISAO[e].filtro, contagem?.[e] ?? null]),
   ];
 
   return (
@@ -148,12 +160,20 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
           {o.fillPct}% das {numero(o.totalCapacity)} vagas
         </Celula>
         <Celula rotulo="Grupos" valor={numero(o.groupCount)}>
-          <FaixaDeGrupos lotados={faixa.lotados} quase={faixa.quase} comVaga={faixa.comVaga} total={o.groups.length} />
-          <span className="inline-flex flex-wrap gap-x-2.5">
-            <Legenda cor="bg-acid-500">{faixa.lotados} lotados</Legenda>
-            <Legenda cor="bg-quase">{faixa.quase} quase</Legenda>
-            <Legenda cor="bg-slate-600">{faixa.comVaga} com vaga</Legenda>
-          </span>
+          {contagem ? (
+            <>
+              <FaixaDeGrupos contagem={contagem} />
+              <span className="inline-flex flex-wrap gap-x-2.5">
+                {ESTADOS.map((e) => (
+                  <Legenda key={e} estado={e} n={contagem[e]} />
+                ))}
+              </span>
+            </>
+          ) : (
+            <span data-testid="visao-estados">
+              {estados === "erro" ? "não deu para ler o estado dos grupos" : "lendo o estado dos grupos…"}
+            </span>
+          )}
         </Celula>
         <Celula rotulo="Vendas anotadas" valor={brl.format(receita)} className="sm:col-span-2 lg:col-span-1">
           {pedidos === 0 ? "nenhum pedido desta campanha" : `${numero(pedidos)} ${pedidos === 1 ? "pedido" : "pedidos"}`}
@@ -168,20 +188,21 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
             <h2 id="grupos-titulo" className="text-16 font-semibold text-volt-950">
               Grupos da campanha
             </h2>
-            <p className="text-13 text-slate-600">o link manda cada pessoa pro grupo com vaga</p>
+            <p className="text-13 text-slate-600">o link enche um grupo por vez</p>
             <div role="group" aria-label="Filtrar grupos" className="flex w-full gap-1 overflow-x-auto sm:ml-auto sm:w-auto">
               {filtros.map(([f, rotulo, n]) => (
                 <button
                   key={f}
                   type="button"
-                  aria-pressed={filtro === f}
+                  aria-pressed={filtroAtivo === f}
+                  disabled={n === null}
                   onClick={() => setFiltro(f)}
                   className={cn(
-                    "h-8 shrink-0 rounded-md border px-2.5 text-13 transition-colors",
-                    filtro === f ? "border-slate-600 bg-hover-ficha text-volt-950" : "border-line-200 text-slate-600 hover:text-volt-950",
+                    "h-8 shrink-0 rounded-md border px-2.5 text-13 transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+                    filtroAtivo === f ? "border-slate-600 bg-hover-ficha text-volt-950" : "border-line-200 text-slate-600 hover:text-volt-950",
                   )}
                 >
-                  {rotulo} <span className="tabular-nums">{n}</span>
+                  {rotulo} <span className="tabular-nums">{n === null ? "—" : n}</span>
                 </button>
               ))}
             </div>
@@ -211,10 +232,11 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
                   {grupos.slice(0, LINHAS).map((g) => {
                     const fracao = lotacao(g.members, g.capacity);
                     const movimento = atividade?.hojePorGrupo[g.id];
+                    const selo = seloDaLinha(g, porId.get(g.id));
                     return (
-                      <tr key={g.id} className="border-b border-line-200 last:border-0 hover:bg-hover-ficha">
+                      <tr key={g.id} data-group-id={g.id} className="border-b border-line-200 last:border-0 hover:bg-hover-ficha">
                         <td className="max-w-[280px] px-5 py-2.5">
-                          <span className="block truncate font-medium text-volt-950">{g.group?.name ?? "Grupo sem registro"}</span>
+                          <span className="block truncate font-medium text-volt-950">{nomeDaLinha(g, porId)}</span>
                           {abertoHojePorGrupo.has(g.id) && (
                             <span className="block text-12 text-slate-600">aberto hoje às {horaBR(abertoHojePorGrupo.get(g.id))}</span>
                           )}
@@ -222,7 +244,7 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
                         <td className="px-3 py-2.5 text-right tabular-nums text-volt-950">{numero(g.members)}</td>
                         <td className="px-3 py-2.5">
                           <span className="flex items-center gap-2">
-                            <Lotacao fracao={fracao} className="w-24" />
+                            <Lotacao fracao={fracao} lotado={selo === "lotado"} className="w-24" />
                             <span className="w-9 text-right tabular-nums text-slate-600">{Math.round(fracao * 100)}%</span>
                           </span>
                         </td>
@@ -230,7 +252,7 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
                           <MovimentoDoGrupo movimento={movimento} />
                         </td>
                         <td className={cn("py-2.5", postTabela ? "px-3" : "px-5")}>
-                          <SeloDoGrupo estado={estadoNaCampanha(g)} />
+                          <SeloDoGrupo selo={selo} />
                         </td>
                         {postTabela && (
                           <td className="px-5 py-2.5">
@@ -246,15 +268,16 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
                 {grupos.slice(0, LINHAS).map((g) => {
                   const fracao = lotacao(g.members, g.capacity);
                   const movimento = atividade?.hojePorGrupo[g.id];
+                  const selo = seloDaLinha(g, porId.get(g.id));
                   return (
-                    <li key={g.id} className="flex items-center gap-3 border-b border-line-200 px-4 py-3 last:border-0">
+                    <li key={g.id} data-group-id={g.id} className="flex items-center gap-3 border-b border-line-200 px-4 py-3 last:border-0">
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-volt-950">{g.group?.name ?? "Grupo sem registro"}</p>
+                        <p className="truncate text-sm font-medium text-volt-950">{nomeDaLinha(g, porId)}</p>
                         {abertoHojePorGrupo.has(g.id) && (
                           <p className="text-12 text-slate-600">aberto hoje às {horaBR(abertoHojePorGrupo.get(g.id))}</p>
                         )}
                         <p className="mt-1.5 flex items-center gap-2 text-12 text-slate-600">
-                          <Lotacao fracao={fracao} className="w-14 shrink-0" />
+                          <Lotacao fracao={fracao} lotado={selo === "lotado"} className="w-14 shrink-0" />
                           <span className="tabular-nums">
                             {numero(g.members)} de {numero(g.capacity)}
                           </span>
@@ -270,7 +293,7 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
                           </p>
                         )}
                       </div>
-                      <SeloDoGrupo estado={estadoNaCampanha(g)} />
+                      <SeloDoGrupo selo={selo} />
                     </li>
                   );
                 })}
@@ -375,46 +398,62 @@ function MovimentoDoGrupo({ movimento }: { movimento: Movimento | undefined }) {
   );
 }
 
-function FaixaDeGrupos({ lotados, quase, comVaga, total }: { lotados: number; quase: number; comVaga: number; total: number }) {
+/**
+ * Os estados do banco na Visão geral: barra, legenda e filtro saem daqui, na ordem do literal.
+ * `Record`: estado novo sem linha aqui é erro de `tsc`, não uma fatia que some da tela. Acid é o
+ * LOTOU do painel (o do chip); cobalt, o que enche, como na aba Grupos.
+ */
+const NA_VISAO: Record<EstadoDoBanco, { cor: string; filtro: string; um: string; varios: string }> = {
+  lotado: { cor: "bg-acid-500", filtro: "Lotados", um: "lotado", varios: "lotados" },
+  enchendo: { cor: "bg-cobalt-500", filtro: "Enchendo agora", um: "enchendo", varios: "enchendo" },
+  fila: { cor: "bg-slate-600", filtro: "Na fila", um: "na fila", varios: "na fila" },
+  vazio: { cor: "bg-slate-600/50", filtro: "Vazios", um: "vazio", varios: "vazios" },
+};
+const ESTADOS = Object.keys(NA_VISAO) as EstadoDoBanco[];
+
+/** A faixa conta só os grupos que o banco devolveu: o que sumiu da conta não tem estado. */
+function FaixaDeGrupos({ contagem }: { contagem: ContagemEstados }) {
+  const total = ESTADOS.reduce((soma, e) => soma + contagem[e], 0);
   const w = (n: number) => `${total > 0 ? (n / total) * 100 : 0}%`;
   return (
     <span className="mb-1.5 flex h-1.5 gap-px overflow-hidden rounded-full bg-line-200" aria-hidden="true">
-      <span className="bg-acid-500" style={{ width: w(lotados) }} />
-      <span className="bg-quase" style={{ width: w(quase) }} />
-      <span className="bg-slate-600" style={{ width: w(comVaga) }} />
+      {ESTADOS.map((e) => (
+        <span key={e} className={NA_VISAO[e].cor} style={{ width: w(contagem[e]) }} />
+      ))}
     </span>
   );
 }
 
-function Legenda({ cor, children }: { cor: string; children: React.ReactNode }) {
+function Legenda({ estado, n }: { estado: EstadoDoBanco; n: number }) {
+  const { cor, um, varios } = NA_VISAO[estado];
   return (
     <span className="inline-flex items-center gap-1 tabular-nums">
       <span className={cn("h-2 w-2 rounded-[2px]", cor)} aria-hidden="true" />
-      {children}
+      <span data-testid={`visao-${estado}`}>{numero(n)}</span> {n === 1 ? um : varios}
     </span>
   );
 }
 
-/** A barra do painel; a ponta acende em Acid quando o grupo lota (≥ 95%). */
-function Lotacao({ fracao, className }: { fracao: number; className?: string }) {
+/** O pai e o Avisos da comunidade não vêm de /api/groups, mas o banco sabe o nome. */
+function nomeDaLinha(g: CampaignGroupsOverview["groups"][number], porId: ReadonlyMap<string, { nome: string }>): string {
+  return g.group?.name ?? porId.get(g.id)?.nome ?? "Grupo sem registro";
+}
+
+/** A barra do painel; a ponta acende em Acid quando o banco diz que o grupo lotou. */
+function Lotacao({ fracao, lotado, className }: { fracao: number; lotado: boolean; className?: string }) {
   return (
     <span className={cn("pn-lotacao block", className)} aria-hidden="true">
-      <span className={cn("pn-lotacao__cheio", fracao >= GROUP_FULL_RATIO && "pn-lotacao__cheio--ponta")} style={{ width: `${Math.round(fracao * 100)}%` }} />
+      <span className={cn("pn-lotacao__cheio", lotado && "pn-lotacao__cheio--ponta")} style={{ width: `${Math.round(fracao * 100)}%` }} />
     </span>
   );
 }
 
-const SELO: Record<EstadoNaCampanha, { texto: string; classe: string }> = {
-  cheio: { texto: "Lotou", classe: "pn-chip--acid" },
-  quase: { texto: "Quase", classe: "bg-aviso-fundo text-warning-700" },
-  ativo: { texto: "Com vaga", classe: "" },
-  sem_convite: { texto: "Sem convite", classe: "pn-chip--risco" },
-  sumiu: { texto: "Sumiu", classe: "pn-chip--line" },
-};
-
-function SeloDoGrupo({ estado }: { estado: EstadoNaCampanha }) {
-  const selo = SELO[estado];
-  return <span className={cn("pn-chip shrink-0", selo.classe)}>{selo.texto}</span>;
+/** Os quatro estados com o chip da aba Grupos; o que não é estado do banco, com o chip do painel. */
+function SeloDoGrupo({ selo }: { selo: SeloDaLinha }) {
+  if (selo === "sem_convite") return <span className="pn-chip pn-chip--risco shrink-0">Sem convite</span>;
+  if (selo === "sumiu") return <span className="pn-chip pn-chip--line shrink-0">Sumiu</span>;
+  if (selo === "sem_estado") return <span className="shrink-0 text-slate-600">—</span>;
+  return <ChipDeEstado estado={selo} />;
 }
 
 const ROTULO_DO_ESTADO: Record<EstadoDoPost, string> = {
