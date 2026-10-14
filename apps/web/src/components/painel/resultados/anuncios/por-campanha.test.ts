@@ -4,8 +4,11 @@ import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { arvoreDasLinhas } from "@/lib/resultados/anuncios-linhas";
-import type { LinhaRelatorio } from "@/lib/resultados/relatorio-anuncios";
+import type { PessoasDaGaveta } from "@/lib/resultados/pessoas-do-anuncio";
+import type { LinhaRelatorio, RelatorioParaTela } from "@/lib/resultados/relatorio-anuncios";
+import { AbaAnuncios } from "./aba-anuncios";
 import { CartoesDeCampanha } from "./cartoes-de-campanha";
+import { ConteudoDaGaveta } from "./gaveta-do-anuncio";
 import { TabelaDeAnuncios } from "./tabela-de-anuncios";
 
 const noop = () => {};
@@ -130,4 +133,133 @@ test("cartão aberto: conjuntos e anúncios com resumo e 'Ver quem'", () => {
   assert.match(h, /<ul aria-label="Conjuntos de VIP Atacado — Goiânia"/);
   assert.match(h, />141 cadastros · 16 compraram · R\$ 7\.920</);
   assert.match(h, /aria-label="Ver quem veio por Verão Kids — vídeo 15s"/);
+});
+
+const PERIODO = { de: "2026-09-11", ate: "2026-10-10" };
+const A1 = LINHAS[10];
+
+const PESSOAS: PessoasDaGaveta = {
+  por_origem: [
+    { origem: "ig", cadastros: 90, vendido: 5000 },
+    { origem: "fb", cadastros: 51, vendido: 2920 },
+  ],
+  compradores: [
+    {
+      nome: "Bia Kids Modas",
+      telefone: "(62) 9••••-4821",
+      grupo: "Moda Kids VIP 3",
+      cadastro_em: "2026-09-14T15:00:00+00:00",
+      primeira_compra: "2026-09-16T15:00:00+00:00",
+      pedidos: 2,
+      vendido: 1480,
+      em_contatos: true,
+    },
+    {
+      nome: null,
+      telefone: "(62) 9••••-1107",
+      grupo: null,
+      cadastro_em: "2026-09-15T15:00:00+00:00",
+      primeira_compra: "2026-09-15T18:00:00+00:00",
+      pedidos: 1,
+      vendido: 960,
+      em_contatos: false,
+    },
+  ],
+  contatos_dos_compradores: 1,
+  sem_compra: 102,
+};
+
+function gaveta(over: Partial<Parameters<typeof ConteudoDaGaveta>[0]> = {}): string {
+  return html(
+    createElement(ConteudoDaGaveta, {
+      linha: A1,
+      periodo: PERIODO,
+      carga: "ok",
+      pessoas: PESSOAS,
+      aoTentarDeNovo: noop,
+      ...over,
+    }),
+  );
+}
+
+test("gaveta carregando: o funil da linha aparece na hora, as pessoas em esqueleto anunciado", () => {
+  const h = gaveta({ carga: "carregando", pessoas: null });
+  assert.match(h, />VIP Atacado — Goiânia › Lojistas de moda infantil · Goiânia 40 km</);
+  assert.match(h, /<ol aria-label="Funil do anúncio"/);
+  assert.match(h, />141<\/span><span[^>]*>cadastros</);
+  assert.match(h, />94%</);
+  assert.match(h, />21 pedidos</);
+  assert.match(h, />R\$ 7\.920</);
+  assert.match(h, /role="status" aria-label="Carregando quem veio por este anúncio"/);
+  assert.doesNotMatch(h, /Quem comprou/);
+});
+
+test("gaveta com erro: alerta com Tentar de novo, nenhuma pessoa", () => {
+  const h = gaveta({ carga: "erro", pessoas: null });
+  assert.match(h, /role="alert"/);
+  assert.match(h, /Não deu para carregar quem veio por este anúncio\./);
+  assert.match(h, />Tentar de novo</);
+  assert.doesNotMatch(h, /Quem comprou|Entraram e ainda não compraram/);
+});
+
+test("gaveta carregada: por onde, quem comprou com telefone mascarado e datas, links pro Contatos filtrado", () => {
+  const h = gaveta();
+  assert.match(h, />Por onde a pessoa viu</);
+  assert.match(h, /style="width:63\.83%"/);
+  assert.match(h, />Instagram 64%</);
+  assert.match(h, /<h3 id="quem-comprou-titulo"[^>]*>Quem comprou<\/h3>/);
+  assert.match(h, />2 pessoas</);
+  assert.match(h, />Bia Kids Modas</);
+  assert.match(h, />\(62\) 9••••-4821 · Moda Kids VIP 3</);
+  assert.match(h, />cadastro 14\/09 · 1ª compra 16\/09 · 2 pedidos</);
+  assert.match(h, />R\$ 1\.480</);
+  assert.match(h, />\(62\) 9••••-1107</);
+  assert.match(h, />não está em Contatos</);
+  assert.match(
+    h,
+    /href="\/painel\/contatos\?de=2026-09-11&amp;ate=2026-10-10&amp;campanha=VIP\+Atacado\+%E2%80%94\+Goi%C3%A2nia&amp;conjunto=[^"]*&amp;anuncio=[^"]*&amp;lista=compraram"[^>]*>Ver a pessoa em Contatos</,
+  );
+  assert.match(h, /1 pessoa comprou sem estar em Contatos/);
+  assert.match(h, /<h3 id="sem-compra-titulo"[^>]*>Entraram e ainda não compraram<\/h3>/);
+  assert.match(h, />102</);
+  assert.match(h, /lista=sem-compra"[^>]*>Ver em Contatos</);
+});
+
+test("gaveta sem comprador nem entrada: frases no lugar das listas, nenhum link pro Contatos", () => {
+  const vazio = { ...A1, entraram: 0, compradores: 0, pedidos: 0, vendido: 0 };
+  const h = gaveta({ linha: vazio, pessoas: { por_origem: [], compradores: [], contatos_dos_compradores: 0, sem_compra: 0 } });
+  assert.match(h, /Ninguém comprou por este anúncio ainda\./);
+  assert.match(h, /Ninguém entrou no grupo por este anúncio ainda\./);
+  assert.doesNotMatch(h, /painel\/contatos|Por onde a pessoa viu/);
+});
+
+test("a aba encaixa a tabela e os cartões entre o gráfico por dia e 'fora dos anúncios'; sem linhas, nada", () => {
+  const relatorio: RelatorioParaTela = {
+    periodo: PERIODO,
+    total: TOTAL,
+    linhas: LINHAS,
+    por_origem: [],
+    por_dia: [{ dia: "2026-10-10", cadastros: 1, entraram: 1 }],
+    fora: { entradas_sem_cadastro: 0, pedidos_sem_origem: 0, vendido_sem_origem: 0 },
+  };
+  const props = {
+    atalho: "30d" as const,
+    onAtalho: noop,
+    carga: "ok" as const,
+    hoje: "2026-10-10",
+    aoTentarDeNovo: noop,
+  };
+  const h = html(createElement(AbaAnuncios, { ...props, resposta: { relatorio, tem_cadastro: true } }));
+  const dia = h.indexOf("Cadastros e entradas por dia");
+  const tabela = h.indexOf("Por campanha, conjunto e anúncio");
+  const cartoes = h.indexOf('id="cartoes-titulo"');
+  const fora = h.indexOf("No mesmo período, fora dos anúncios");
+  assert.ok(dia > -1 && dia < tabela && tabela < cartoes && cartoes < fora, `${dia} ${tabela} ${cartoes} ${fora}`);
+  assert.match(h, /<section aria-labelledby="tabela-titulo" class="hidden [^"]*md:block/);
+  assert.match(h, /<div class="md:hidden"><section aria-labelledby="cartoes-titulo"/);
+
+  const semLinhas = html(
+    createElement(AbaAnuncios, { ...props, resposta: { relatorio: { ...relatorio, linhas: [] }, tem_cadastro: true } }),
+  );
+  assert.doesNotMatch(semLinhas, /Por campanha/);
 });

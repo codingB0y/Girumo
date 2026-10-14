@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { ComoContamos } from "./como-contamos";
 import { FunilGrande } from "./funil-grande";
 import { GraficoPorDia } from "./grafico-por-dia";
+import { PorCampanha } from "./por-campanha";
 
 export type PropsDaAbaAnuncios = {
   atalho: AtalhoDoPeriodo;
@@ -167,6 +168,7 @@ function Relatorio({
         <GraficoPorDia porDia={relatorio.por_dia} inicios={iniciosDeGasto} />
         {origens.length > 0 && <PorOnde origens={origens} />}
       </section>
+      <PorCampanha relatorio={relatorio} />
       <Fora fora={relatorio.fora} />
       <ComoContamos />
     </>
