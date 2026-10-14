@@ -28,6 +28,15 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { lerProjetos } from "./check-advisors.ts";
+import {
+  carregarAllowlist,
+  carregarBaseline,
+  diffAssinaturas,
+  formatarRelatorio,
+  type Assinatura,
+  type EntradaAllowlist,
+  type Resultado,
+} from "./check-schema-drift.ts";
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 export const CAMINHO_ORDEM = path.join(RAIZ, "deploy", "supabase", "apply-order.txt");
@@ -85,11 +94,29 @@ export function clienteManagementApi(ref: string, token: string): Consulta {
     });
     const corpo = await resposta.text();
     if (!resposta.ok) {
-      throw new Error(`database/query respondeu ${resposta.status}: ${corpo.slice(0, 2000)}`);
+      throw new Error(`database/query respondeu ${resposta.status}: ${mensagemDeErro(corpo)}`);
     }
     const json = corpo ? (JSON.parse(corpo) as unknown) : [];
-    return Array.isArray(json) ? (json as Array<Record<string, unknown>>) : [];
+    // 2xx que nao e lista vira erro: tratar como [] faria `existe` dar falso e
+    // o script cair de novo no bootstrap.
+    if (!Array.isArray(json)) throw new Error(`database/query devolveu formato inesperado: ${corpo.slice(0, 200)}`);
+    return json as Array<Record<string, unknown>>;
   };
+}
+
+/**
+ * So o `message` do Postgres. O log do Actions e PUBLICO (repo publico) e o
+ * corpo completo traz `detail`, que em violacao de unique cita os valores da
+ * linha — telefone de cliente, por exemplo.
+ */
+export function mensagemDeErro(corpo: string): string {
+  try {
+    const json = JSON.parse(corpo) as { message?: unknown };
+    if (typeof json.message === "string") return json.message.split("\n")[0].slice(0, 500);
+  } catch {
+    // corpo nao-JSON (proxy, 5xx): cai no generico abaixo
+  }
+  return "(corpo de erro omitido do log)";
 }
 
 export type Opcoes = {
@@ -123,6 +150,17 @@ export async function aplicar(o: Opcoes): Promise<string[]> {
   const aplicadas = existe
     ? (await o.consultar("select filename from ops.applied_migrations;")).map((r) => String(r.filename))
     : (o.semente ?? []);
+  // Registro com arquivo que saiu da ordem = quase sempre um rename. O registro e
+  // por caminho, entao seguir em frente reaplicaria o arquivo com o nome novo.
+  const naOrdem = new Set(o.ordem);
+  const orfas = aplicadas.filter((a) => !naOrdem.has(a));
+  if (orfas.length > 0) {
+    throw new Error(
+      `Registradas mas fora de apply-order.txt (renomeadas?): ${orfas.join(", ")}. ` +
+        "Corrija o registro (update ops.applied_migrations set filename = ...) antes de seguir.",
+    );
+  }
+
   const falta = pendentes(o.ordem, aplicadas);
 
   if (falta.length === 0) {
@@ -147,6 +185,22 @@ export async function aplicar(o: Opcoes): Promise<string[]> {
   return falta;
 }
 
+/**
+ * Compara o banco ao vivo com a baseline versionada. Em prod, depois de migrar:
+ * e a unica medida de prod que existe — o gate `drift` so le dev. Pega migracao
+ * semeada no bootstrap que nunca rodou de fato e baseline contaminada por outro PR.
+ */
+export async function conferirBaseline(
+  consultar: Consulta,
+  baseline: Assinatura,
+  allowlist: EntradaAllowlist[],
+): Promise<Resultado> {
+  const linhas = await consultar("select kind, nome, sig from public.schema_signature();");
+  const aoVivo: Assinatura = {};
+  for (const l of linhas) aoVivo[`${String(l.kind)}|${String(l.nome)}`] = String(l.sig);
+  return diffAssinaturas(baseline, aoVivo, allowlist);
+}
+
 function argumento(nome: string): string | undefined {
   const i = process.argv.indexOf(nome);
   return i >= 0 ? process.argv[i + 1] : undefined;
@@ -166,8 +220,9 @@ async function principal(): Promise<number> {
 
   const sementeArq = argumento("--seed-from");
   const semente = sementeArq ? lerOrdem(await fs.readFile(sementeArq, "utf8")) : null;
+  const consultar = clienteManagementApi(ref, token);
   const aplicados = await aplicar({
-    consultar: clienteManagementApi(ref, token),
+    consultar,
     ordem: lerOrdem(await fs.readFile(CAMINHO_ORDEM, "utf8")),
     semente,
     lerArquivo: (relativo) => fs.readFile(path.join(RAIZ, relativo), "utf8"),
@@ -181,6 +236,20 @@ async function principal(): Promise<number> {
       ? [`### Migracoes aplicadas em ${alvo}`, ...aplicados.map((a) => `- \`${a}\``)]
       : [`### Nenhuma migracao pendente em ${alvo}`];
     await fs.appendFile(resumo, `${linhas.join("\n")}\n`);
+  }
+
+  if (process.argv.includes("--conferir-baseline")) {
+    const [baseline, allowlist] = await Promise.all([carregarBaseline(), carregarAllowlist()]);
+    const r = await conferirBaseline(consultar, baseline.objetos, allowlist);
+    console.log(`Schema de ${alvo} x deploy/supabase/schema-baseline.json:`);
+    console.log(formatarRelatorio(r));
+    if (r.bloqueantes.length > 0) {
+      console.error(
+        `${alvo} diverge da baseline. Migracao semeada que nunca rodou, objeto criado a mao ` +
+          "ou baseline gerada com migracao de outro PR — conferir por SQL antes de seguir.",
+      );
+      return 1;
+    }
   }
   return 0;
 }

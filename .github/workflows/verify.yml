@@ -70,13 +70,14 @@ jobs:
   # Node puro, sem `npm ci`: o script so usa a stdlib e o Node 24 executa TS
   # direto. Economiza o minuto de install em todo PR.
   #
-  # Sem `cancel-in-progress` de proposito: cancelar no meio de uma migracao
-  # deixa o banco pela metade. Um run novo do mesmo ref espera o anterior.
+  # Grupo GLOBAL e sem `cancel-in-progress`: dev e um banco so, compartilhado
+  # por todos os PRs, e cancelar no meio de uma migracao deixa o banco pela
+  # metade. Runs de PRs diferentes entram em fila.
   migrate-dev:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     concurrency:
-      group: migrate-dev-${{ github.ref }}
+      group: migrate-dev
       cancel-in-progress: false
     steps:
       # fetch-depth 2: o pai do commit e o estado de `main` antes deste run. So
@@ -139,7 +140,10 @@ jobs:
         name: Aplicar migracoes pendentes em prod
         run: |
           git show HEAD^1:deploy/supabase/apply-order.txt > "$RUNNER_TEMP/ordem-base.txt"
-          node infra/scripts/apply-migrations.ts --alvo prod --seed-from "$RUNNER_TEMP/ordem-base.txt"
+          # --conferir-baseline: depois de migrar, compara prod ao vivo com
+          # schema-baseline.json. E a unica medida de prod do CI (o `drift` le
+          # dev) — pega migracao semeada no bootstrap que nunca rodou em prod.
+          node infra/scripts/apply-migrations.ts --alvo prod --seed-from "$RUNNER_TEMP/ordem-base.txt" --conferir-baseline
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           ADVISOR_PROJECT_REFS: ${{ vars.ADVISOR_PROJECT_REFS }}
@@ -164,6 +168,9 @@ jobs:
   # prod + a migracao do PR = o que prod vai ser depois do merge).
   drift:
     needs: migrate-dev
+    # Roda mesmo se a migracao falhar: em `main` este e o unico job que compara
+    # o banco com a baseline, e nao pode sumir junto.
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # Mesmo motivo do `verify`. Este job roda nos DOIS eventos, e e por isso que

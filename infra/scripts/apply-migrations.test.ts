@@ -5,7 +5,9 @@ import test from "node:test";
 import {
   CAMINHO_ORDEM,
   aplicar,
+  conferirBaseline,
   lerOrdem,
+  mensagemDeErro,
   pendentes,
   sqlRegistrar,
   type Opcoes,
@@ -89,6 +91,29 @@ test("falha no meio para e nao registra o que falhou", async () => {
   await assert.rejects(aplicar(opcoes(db.consultar)), /Falhou em b\.sql/);
   assert.deepEqual(db.registro(), ["a.sql"]);
   assert.ok(!db.executado.includes("SQL de c.sql"));
+});
+
+test("registro com arquivo fora da ordem (rename) para antes de aplicar", async () => {
+  const db = bancoFalso(["a.sql", "velho/b.sql"]);
+  await assert.rejects(aplicar(opcoes(db.consultar)), /renomeadas\?\): velho\/b\.sql/);
+  assert.ok(!db.executado.some((s) => s.startsWith("SQL de")));
+});
+
+test("mensagemDeErro nunca devolve o detail (valores de linha)", () => {
+  const corpo = JSON.stringify({
+    message: 'duplicate key value violates unique constraint "leads_phone_key"',
+    detail: "Key (phone)=(5511999990000) already exists.",
+  });
+  assert.equal(mensagemDeErro(corpo), 'duplicate key value violates unique constraint "leads_phone_key"');
+  assert.equal(mensagemDeErro("<html>502</html>"), "(corpo de erro omitido do log)");
+});
+
+test("conferirBaseline acusa objeto da baseline que nao existe no banco", async () => {
+  const consultar: Opcoes["consultar"] = async () => [{ kind: "t", nome: "public.a", sig: "1" }];
+  const r = await conferirBaseline(consultar, { "t|public.a": "1", "t|public.b": "2" }, []);
+  assert.deepEqual(r.bloqueantes.map((d) => d.objeto), ["t|public.b"]);
+  const ok = await conferirBaseline(consultar, { "t|public.a": "1" }, []);
+  assert.equal(ok.bloqueantes.length, 0);
 });
 
 test("simulacao nao escreve nada", async () => {
