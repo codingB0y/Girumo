@@ -148,8 +148,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
 
   // Destino conferido antes de qualquer gate. Lista fixa só com grupo desta
   // campanha (antes não havia conferência nenhuma); sem destino, a regra padrão
-  // em vez de "todos" (D5). O Avisos da comunidade nativa é a única exceção.
-  const lido = lerDestino(body, camp, await avisosPermitidos(tenantId, camp));
+  // em vez de "todos" (D5). O Avisos da comunidade nativa é a única exceção — e
+  // não vale para a vendedora: `groupIds` já o recusava (`regraDaVendedora`) e,
+  // sem isto, `destino.grupos` furava esse bloqueio.
+  const avisos = ctx.role === "seller" ? [] : await avisosPermitidos(tenantId, camp);
+  const lido = lerDestino(body, camp, avisos);
   if (!lido.ok) return Response.json({ error: lido.error }, { status: 400 });
   const destino = lido.destino;
 
