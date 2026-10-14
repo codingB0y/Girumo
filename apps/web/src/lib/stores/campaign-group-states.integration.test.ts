@@ -267,3 +267,57 @@ test("marcar à mão: ok, depois ja_lotado; outro tenant ou grupo inexistente é
   assert.equal(e.enche.naRegra.menos_enchendo, true, "lotado entra no atalho padrão");
   assert.equal(e.fila.estado, "enchendo");
 });
+
+test("grupo pai e Avisos de comunidade ficam fora do pool: nem estado, nem regra, nem link", async () => {
+  if (pular()) return;
+  const supabase = getSupabaseAdmin();
+  const contadoEm = new Date().toISOString();
+  const comunidade = `pg4-${RUN}-estrutura-pai@g.us`;
+  // Os dois primeiros estão na frente do pool e disponíveis: se contassem, o Avisos seria o
+  // "enchendo" (o link mandaria gente para ele) e o pai entraria nas regras como fila.
+  const linhas = [
+    { chave: "avisos", membros: 900, papel: "announce" },
+    { chave: "pai", membros: 900, papel: "parent" },
+    { chave: "comum", membros: 50, papel: null },
+  ] as const;
+  const jid = (chave: string) => (chave === "pai" ? comunidade : `pg4-${RUN}-estrutura-${chave}@g.us`);
+
+  const { error } = await supabase.from("groups").insert(
+    linhas.map((g) => ({
+      tenant_id: loja,
+      whatsapp_group_id: jid(g.chave),
+      name: `pg4 ${RUN} estrutura ${g.chave}`,
+      members: g.membros,
+      capacity: 1000,
+      is_admin: true,
+      invite_url: `https://chat.whatsapp.com/pg4${RUN}estrutura${g.chave}`,
+      admins_counted_at: contadoEm,
+      admins_ours: 1,
+      admins_total: 2,
+      community_role: g.papel,
+      community_jid: g.papel ? comunidade : null,
+    })),
+  );
+  if (error) throw new Error(error.message);
+  const { data: campanha, error: erroCampanha } = await supabase
+    .from("campaign_groups")
+    .insert({
+      tenant_id: loja,
+      name: `pg4 ${RUN} estrutura`,
+      slug: `pg4-${RUN}-estrutura`,
+      group_ids: linhas.map((g) => jid(g.chave)),
+    })
+    .select("id")
+    .single();
+  if (erroCampanha) throw new Error(erroCampanha.message);
+
+  const lista = await listCampaignGroupStates(loja, campanha!.id as string);
+
+  // O pai não recebe mensagem e o Avisos fala com a comunidade inteira: os dois só por escolha
+  // explícita ("Enviar pelo Avisos" ou lista marcada), nunca por regra nem pelo link.
+  assert.deepEqual(
+    lista.map((g) => g.whatsappGroupId),
+    [jid("comum")],
+  );
+  assert.equal(lista[0].estado, "enchendo", "o link manda para o grupo comum, não para o Avisos");
+});
