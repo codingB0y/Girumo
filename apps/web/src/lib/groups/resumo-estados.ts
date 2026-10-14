@@ -17,8 +17,8 @@ export type EstadosDaCampanha = {
   grupos: EstadoGrupo[];
   contagem: ContagemEstados;
   regras: Record<RegraDestino, number>;
-  /** Grupos do pool que são pai ou Avisos de comunidade: ficam fora dos estados de propósito. */
-  estruturaDeComunidade: number;
+  /** JIDs do pool que são pai ou Avisos de comunidade: ficam fora dos estados de propósito. */
+  estruturaDeComunidade: string[];
 };
 
 export function resumirEstados(grupos: EstadoGrupo[]): {

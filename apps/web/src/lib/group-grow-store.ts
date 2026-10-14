@@ -3,6 +3,7 @@ import { collection } from "@/lib/json-collection";
 import { campanhasColl, type Campanha } from "@/lib/campanhas-store";
 import { listGroups, upsertGroup } from "@/lib/groups-store";
 import { DEFAULT_GROUP_CAPACITY } from "@/lib/links/resolve-click-target";
+import { ehEstruturaDeComunidade } from "@/lib/communities/estrutura";
 import { shouldEnqueueGrow, type PoolGroup } from "@/lib/groups/grow-headroom";
 import { USE_SUPABASE } from "@/lib/stores/use-supabase";
 import * as supaCampaigns from "@/lib/stores/campaign-groups";
@@ -124,6 +125,9 @@ async function evaluateAutoGrowSupabase(tenantId: string): Promise<void> {
     const pool: PoolGroup[] = c.group_ids
       .map((id) => byId.get(id))
       .filter((g): g is NonNullable<typeof g> => !!g)
+      // Pai e Avisos não recebem gente pelo link (fora do pool do SQL, 20261014120000): contar a
+      // folga deles seguraria o próximo grupo com o link já sem destino.
+      .filter((g) => !ehEstruturaDeComunidade(g))
       // `lotadoEm` vai junto: grupo marcado lotado (à mão ou pelo trigger) não é
       // folga, mesmo abaixo de 90% — ver `hasHeadroom`. Ele NÃO sai do pool.
       .map((g) => ({ members: g.members, capacity: g.capacity, inviteUrl: g.invite_url, lotadoEm: g.lotado_em ?? null }));

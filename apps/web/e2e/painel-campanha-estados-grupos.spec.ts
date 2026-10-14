@@ -31,7 +31,7 @@ type Alvo = { slug: string; groupIds: string[]; estados: Estados; encerraEm: str
 type Estados = {
   grupos: EstadoGrupo[];
   contagem: { lotado: number; enchendo: number; fila: number; vazio: number; membros: number };
-  estruturaDeComunidade: number;
+  estruturaDeComunidade: string[];
 };
 
 type GrupoDaApi = { whatsappGroupId: string; sendState?: "open" | "closed" | null };
@@ -102,6 +102,8 @@ test("a faixa e o chip de cada grupo mostram o que /grupos/estados respondeu", a
     trs.map((tr) => tr.getAttribute("data-group-id") ?? ""),
   );
   expect(linhasNaTabela.length, "a tabela da Visão geral mostra grupos").toBeGreaterThan(0);
+  // Pai e Avisos de comunidade saem da tabela: nunca viram "Sumiu".
+  for (const jid of estados.estruturaDeComunidade) expect(linhasNaTabela).not.toContain(jid);
   // O SQL cruza o pool pelo JID; /api/groups dá o resto (sem estado = "—", fora dos dois = "Sumiu").
   const porJid = new Map(estados.grupos.map((g) => [g.whatsappGroupId, g]));
   for (const id of linhasNaTabela) {
@@ -139,8 +141,8 @@ test("a faixa e o chip de cada grupo mostram o que /grupos/estados respondeu", a
 
   // Grupo do pool sem linha em `groups` não volta do SQL: a aba diz quantos faltam. Pai e Avisos
   // de comunidade também não voltam, de propósito, e têm frase própria.
-  const faltam = new Set(alvo.groupIds).size - estados.grupos.length - estados.estruturaDeComunidade;
-  if (estados.estruturaDeComunidade > 0) {
+  const faltam = new Set(alvo.groupIds).size - estados.grupos.length - estados.estruturaDeComunidade.length;
+  if (estados.estruturaDeComunidade.length > 0) {
     await expect(page.getByTestId("estrutura-de-comunidade")).toContainText("estrutura de comunidade");
   } else {
     await expect(page.getByTestId("estrutura-de-comunidade")).toHaveCount(0);

@@ -236,19 +236,12 @@ export async function updateGroupCounts(
 }
 
 /**
- * `whatsapp_group_id` -> membros já gravados.
- *
- * Serve para o sync não aceitar cegamente a contagem do provedor: a Evolution
- * devolve payload truncado para ~20% dos grupos, e gravá-lo apagaria o número
- * certo sem ter de onde recuperá-lo (ver lib/groups/member-count.ts).
+ * Quais destes JIDs são estrutura de comunidade (grupo pai ou Avisos). O pool da campanha os
+ * ignora de propósito (`app.estados_da_campanha`, 20261014120000): as abas da campanha os tiram
+ * da lista em vez de dizer que o grupo "não está mais na sua conta".
  */
-/**
- * Quantos destes JIDs são estrutura de comunidade (grupo pai ou Avisos). O pool da campanha os
- * ignora de propósito (`app.estados_da_campanha`, 20261014120000): a aba Grupos desconta estes
- * antes de dizer que um grupo "não está mais na sua conta".
- */
-export async function contarEstruturaDeComunidade(tenantId: string, jids: readonly string[]): Promise<number> {
-  if (jids.length === 0) return 0;
+export async function jidsDeEstruturaDeComunidade(tenantId: string, jids: readonly string[]): Promise<string[]> {
+  if (jids.length === 0) return [];
   const { data, error } = await getSupabaseAdmin()
     .from(TABLE)
     .select("whatsapp_group_id")
@@ -256,9 +249,16 @@ export async function contarEstruturaDeComunidade(tenantId: string, jids: readon
     .in("whatsapp_group_id", [...jids])
     .in("community_role", ["parent", "announce"]);
   if (error) throw new Error(error.message);
-  return data?.length ?? 0;
+  return (data ?? []).map((g) => g.whatsapp_group_id as string);
 }
 
+/**
+ * `whatsapp_group_id` -> membros já gravados.
+ *
+ * Serve para o sync não aceitar cegamente a contagem do provedor: a Evolution
+ * devolve payload truncado para ~20% dos grupos, e gravá-lo apagaria o número
+ * certo sem ter de onde recuperá-lo (ver lib/groups/member-count.ts).
+ */
 export async function listMemberCounts(tenantId: string): Promise<Map<string, number>> {
   const { data, error } = await getSupabaseAdmin()
     .from(TABLE)

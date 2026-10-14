@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
 
-import { contarEstruturaDeComunidade, listGroups } from "./groups";
+import { jidsDeEstruturaDeComunidade, listGroups } from "./groups";
 
 /** PostgREST de mentira (o desenho de `group-grow-jobs.test.ts`) que respeita `offset`/`limit`. */
 
@@ -47,11 +47,11 @@ test("listGroups traz todos os grupos, não só a primeira página de 1000, semp
   for (const p of pedidos) assert.equal(p.searchParams.get("tenant_id"), "eq.loja-a");
 });
 
-test("contarEstruturaDeComunidade conta só pai e Avisos entre os JIDs dados, sempre na loja", async () => {
+test("jidsDeEstruturaDeComunidade devolve só pai e Avisos entre os JIDs dados, sempre na loja", async () => {
   pedidos.length = 0;
-  const n = await contarEstruturaDeComunidade("loja-a", ["avisos@g.us", "pai@g.us", "comum@g.us"]);
+  const jids = await jidsDeEstruturaDeComunidade("loja-a", ["avisos@g.us", "pai@g.us", "comum@g.us"]);
 
-  assert.equal(n, 2);
+  assert.deepEqual(jids, ["avisos@g.us", "pai@g.us"]);
   assert.equal(pedidos.length, 1);
   const [p] = pedidos;
   assert.equal(p.searchParams.get("tenant_id"), "eq.loja-a");
@@ -59,8 +59,8 @@ test("contarEstruturaDeComunidade conta só pai e Avisos entre os JIDs dados, se
   assert.match(String(p.searchParams.get("whatsapp_group_id")), /^in.(.*avisos@g.us.*pai@g.us.*comum@g.us.*)$/);
 });
 
-test("contarEstruturaDeComunidade sem JID nenhum não pergunta ao banco", async () => {
+test("jidsDeEstruturaDeComunidade sem JID nenhum não pergunta ao banco", async () => {
   pedidos.length = 0;
-  assert.equal(await contarEstruturaDeComunidade("loja-a", []), 0);
+  assert.deepEqual(await jidsDeEstruturaDeComunidade("loja-a", []), []);
   assert.equal(pedidos.length, 0);
 });

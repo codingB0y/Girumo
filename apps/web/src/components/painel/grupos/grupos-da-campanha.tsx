@@ -129,8 +129,8 @@ export function GruposDaCampanha({
   const destino = destinoDoLink({ estados: grupos, groupIds, gruposNaTela, entrada, agora: atualizadoEm });
   const frase = fraseDoLink(destino, grupos, agora);
   // Pai e Avisos de comunidade faltam de propósito: não são "grupo que saiu da conta".
-  const foraDaLista = avisoForaDaLista(new Set(groupIds).size - estruturaDeComunidade, grupos.length);
-  const estrutura = avisoEstruturaDeComunidade(estruturaDeComunidade);
+  const foraDaLista = avisoForaDaLista(new Set(groupIds).size - estruturaDeComunidade.length, grupos.length);
+  const estrutura = avisoEstruturaDeComunidade(estruturaDeComunidade.length);
 
   if (grupos.length === 0 && (foraDaLista || estrutura)) {
     return (

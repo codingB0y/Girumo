@@ -24,6 +24,7 @@ import {
   ordenarGrupos,
   quandoDoPost,
   seloDaLinha,
+  semEstruturaDeComunidade,
   type EntradaRecente,
   type EstadoDoPost,
   type FiltroDeGrupos,
@@ -74,10 +75,15 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
   const estados = estadosFrescos(carga);
   const contagem = estados && estados !== "erro" ? estados.contagem : null;
   const porId = useMemo(() => indiceDeEstados(estados && estados !== "erro" ? estados.grupos : []), [estados]);
+  // Pai e Avisos de comunidade no pool: fora do SQL e de /api/groups de propósito, saem da tabela.
+  const linhas = useMemo(
+    () => semEstruturaDeComunidade(o.groups, estados && estados !== "erro" ? estados.estruturaDeComunidade : []),
+    [o.groups, estados],
+  );
   const filtroAtivo: FiltroDeGrupos = contagem ? filtro : "todos";
   const grupos = useMemo(
-    () => filtrarGrupos(ordenarGrupos(o.groups, porId), filtroAtivo, porId),
-    [o.groups, filtroAtivo, porId],
+    () => filtrarGrupos(ordenarGrupos(linhas, porId), filtroAtivo, porId),
+    [linhas, filtroAtivo, porId],
   );
   const seteDias = useMemo(() => (atividade ? barrasDaAtividade(atividade, "7d", "entraram") : null), [atividade]);
   const hoje = useMemo(() => (atividade ? somaMedida(barrasDaAtividade(atividade, "hoje", "entraram", "sairam")) : null), [atividade]);
@@ -103,7 +109,7 @@ export function VisaoGeralCampanha({ slug, overview: o, taxaEntrada, receita, pe
   const cliquesHoje = atividade ? somaDa(atividade.porHora, "cliques") : null;
   // Os rótulos e a contagem da faixa da aba Grupos; sem estado lido, só "Todos" filtra.
   const filtros: [FiltroDeGrupos, string, number | null][] = [
-    ["todos", "Todos", o.groups.length],
+    ["todos", "Todos", linhas.length],
     ...ESTADOS.map((e): [FiltroDeGrupos, string, number | null] => [e, NA_VISAO[e].filtro, contagem?.[e] ?? null]),
   ];
 

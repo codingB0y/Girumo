@@ -2,7 +2,7 @@ import { resumirEstados, type EstadosDaCampanha } from "@/lib/groups/resumo-esta
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
 import { listCampaignGroupStates } from "@/lib/stores/campaign-group-states";
 import * as campaignGroupsStore from "@/lib/stores/campaign-groups";
-import { contarEstruturaDeComunidade } from "@/lib/stores/groups";
+import { jidsDeEstruturaDeComunidade } from "@/lib/stores/groups";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,7 +31,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
     // pergunta ao banco pelos JIDs do pool que não voltaram, o que no caso comum é nenhum.
     const voltaram = new Set(grupos.map((g) => g.whatsappGroupId));
     const faltam = [...new Set(campaign.group_ids)].filter((jid) => !voltaram.has(jid));
-    const estruturaDeComunidade = await contarEstruturaDeComunidade(tenantId, faltam);
+    // Leitura auxiliar: falhar aqui não pode apagar o estado das três abas da campanha.
+    const estruturaDeComunidade = await jidsDeEstruturaDeComunidade(tenantId, faltam).catch((erro: unknown) => {
+      console.error("[api/campanhas/grupos/estados] estrutura de comunidade não lida:", erro);
+      return [] as string[];
+    });
     const resposta: EstadosDaCampanha = { grupos, ...resumirEstados(grupos), estruturaDeComunidade };
     return Response.json(resposta);
   } catch (error) {

@@ -62,8 +62,8 @@ export function indiceDeEstados(estados: EstadoGrupo[]): Map<string, EstadoGrupo
 }
 
 export function seloDaLinha(g: CampaignGroupOverview, estado: EstadoGrupo | undefined): SeloDaLinha {
-  // O banco decide primeiro: o pai e o Avisos da comunidade saem de /api/groups, mas o SQL os
-  // conta, e a aba Grupos mostra o estado deles.
+  // O banco decide primeiro. O pai e o Avisos da comunidade não chegam aqui: saem de /api/groups e
+  // do SQL (20261014120000), e `semEstruturaDeComunidade` os tira da tabela antes.
   if (estado) {
     // O link pula quem não tem convite que ele aceite; lotado não recebe ninguém de qualquer jeito.
     if ((estado.estado === "fila" || estado.estado === "vazio") && !isUsableInvite(estado.inviteUrl)) return "sem_convite";
@@ -72,6 +72,19 @@ export function seloDaLinha(g: CampaignGroupOverview, estado: EstadoGrupo | unde
   // Fora do banco e da lista: saiu do WhatsApp, não é "sem convite". Na lista e fora do banco
   // (um sync entre as duas leituras): não chuta pela porcentagem.
   return g.group ? "sem_estado" : "sumiu";
+}
+
+/**
+ * Tira da tabela o pai e o Avisos de comunidade postos no pool: o SQL os ignora de propósito
+ * (20261014120000) e /api/groups também, então sem isto cairiam em "Sumiu".
+ */
+export function semEstruturaDeComunidade(
+  grupos: CampaignGroupOverview[],
+  estrutura: readonly string[],
+): CampaignGroupOverview[] {
+  if (estrutura.length === 0) return grupos;
+  const fora = new Set(estrutura);
+  return grupos.filter((g) => !fora.has(g.id));
 }
 
 /** Pelo estado do banco, como a faixa conta: a fila sem convite continua em "Na fila". */
