@@ -48,6 +48,8 @@ export default function PainelContatos() {
   const carregarTodos = useCallback(() => {
     const esta = ++ultima.current;
     setLoading(true);
+    // Sem limpar, a lista filtrada ficaria na tela como se fosse a loja inteira se a busca falhar.
+    setLeads([]);
     fetch("/api/leads")
       .then((r) => r.json())
       .then((l) => {
@@ -92,9 +94,16 @@ export default function PainelContatos() {
   };
 
   const filtroVazio = filtro !== null && cargaDoFiltro === "ok" && leads.length === 0;
+  // Nesses casos a Vitrine (dona do <h1>) não aparece: a página mantém o título.
+  const soFaixa = filtro !== null && (cargaDoFiltro === "erro" || filtroVazio);
 
   return (
     <>
+      {soFaixa && (
+        <div className="px-4 pt-5 lg:px-8 lg:pt-8">
+          <h1 className="font-brand text-28 font-bold tracking-[-0.4px] text-volt-950">Contatos</h1>
+        </div>
+      )}
       {filtro && (
         <FaixaDoFiltro
           titulo={tituloDoFiltro(filtro.chave, filtro.lista)}
@@ -105,7 +114,7 @@ export default function PainelContatos() {
         />
       )}
       {/* Com filtro, erro e vazio ficam só na faixa: o vazio da Vitrine fala da loja inteira. */}
-      {filtro && (cargaDoFiltro === "erro" || filtroVazio) ? null : (
+      {soFaixa ? null : (
         <ContatosVitrine
           contatos={leads}
           pedidos={pedidos}

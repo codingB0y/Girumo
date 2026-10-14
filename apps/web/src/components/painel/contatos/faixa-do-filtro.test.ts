@@ -32,9 +32,9 @@ test("título do filtro pelo anúncio; nulo vira '(sem anúncio)'", () => {
 test("vazio do filtro diz por que está vazio, nunca o vazio da lista inteira", () => {
   assert.equal(
     textoDoFiltroVazio("compraram"),
-    "Ninguém que comprou por este anúncio está em Contatos: o telefone veio só no pedido.",
+    "Ninguém deste anúncio está em Contatos com compra neste período.",
   );
-  assert.equal(textoDoFiltroVazio("sem-compra"), "Ninguém nesta lista: quem entrou por este anúncio já comprou.");
+  assert.equal(textoDoFiltroVazio("sem-compra"), "Ninguém que entrou por este anúncio está sem compra neste período.");
 });
 
 test("faixa carregada: título anunciado e o botão de voltar à lista inteira", () => {
@@ -48,7 +48,7 @@ test("faixa carregada: título anunciado e o botão de voltar à lista inteira",
 test("faixa vazia: título e o vazio do filtro", () => {
   const h = faixa({ vazio: textoDoFiltroVazio("sem-compra") });
   assert.match(h, /Quem comprou pelo anúncio “A1”/);
-  assert.match(h, /Ninguém nesta lista: quem entrou por este anúncio já comprou\./);
+  assert.match(h, /Ninguém que entrou por este anúncio está sem compra neste período\./);
 });
 
 test("faixa com erro: alerta, Tentar de novo e Ver todos; o título não aparece como se tivesse carregado", () => {

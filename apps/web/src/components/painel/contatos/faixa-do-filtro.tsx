@@ -16,8 +16,8 @@ export function tituloDoFiltro(chave: ChaveDoAnuncio, lista: ListaDePessoas): st
 /** O vazio do filtro: a lista inteira tem gente, este recorte é que não tem. */
 export function textoDoFiltroVazio(lista: ListaDePessoas): string {
   return lista === "compraram"
-    ? "Ninguém que comprou por este anúncio está em Contatos: o telefone veio só no pedido."
-    : "Ninguém nesta lista: quem entrou por este anúncio já comprou.";
+    ? "Ninguém deste anúncio está em Contatos com compra neste período."
+    : "Ninguém que entrou por este anúncio está sem compra neste período.";
 }
 
 type Props = {
