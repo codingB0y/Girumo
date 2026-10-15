@@ -139,6 +139,24 @@ leem via `getSupabaseAdmin` no servidor.
 - Migração nova: `create ... if not exists`, `security definer` **sempre** com
   `set search_path`, e RLS ligado. Depois rodar o advisor de segurança do Supabase.
 
+### Migração é aplicada pelo CI — não rodar DDL à mão
+
+Desde 14/10/2026 o `verify.yml` aplica sozinho (`infra/scripts/apply-migrations.ts`):
+job `migrate-dev` em todo PR, job `migrate-prod` no push em `main` (ou seja, **prod muda
+no merge**). O registro do que já rodou fica em `ops.applied_migrations` em cada banco.
+
+Fluxo de PR com migração:
+1. Arquivo novo em `apps/web/supabase/migrations/` + linha no fim de
+   `deploy/supabase/apply-order.txt`. Push → `migrate-dev` aplica em dev.
+2. `drift` fica vermelho até a baseline vir no PR: `npm run schema:baseline` com
+   `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` de **dev** (dev = prod + a migração do PR),
+   commit, push.
+3. CI verde → merge (auto-merge) → `migrate-prod` aplica em prod.
+
+PR com migração que for **abandonado** deixa dev com o objeto e prod sem: escrever a
+migração de reversão, não fechar e esquecer. Migração tem que ser idempotente — se o job
+morrer entre aplicar e registrar, o próximo run reaplica o arquivo.
+
 ## Workflow preferido
 
 - Antes de executar tarefas grandes, apresentar checklist com etapas
