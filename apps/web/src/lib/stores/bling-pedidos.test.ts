@@ -9,10 +9,12 @@ import {
   contarPendentes,
   enfileirarPedidos,
   existePendenteVencido,
+  lerResumo,
   listarPendentes,
   reabrirDesde,
   salvarEfeitos,
   salvarProcessado,
+  ultimasDoCartao,
   type EfeitosDoPedido,
   type ResultadoProcessamento,
 } from "./bling-pedidos";
@@ -402,4 +404,66 @@ test("erro do banco sobe com a mensagem dele, em toda leitura e gravação", asy
   for (const [nome, chamar] of chamadasDaStore) {
     await assert.rejects(chamar(), /caiu o banco/, nome);
   }
+});
+
+const RESUMO_DO_BANCO = {
+  vendas_30d: 214,
+  vendido_30d: 86420.5,
+  origem_30d: { anuncio: 61, grupo: 97, sem_origem: 56 },
+  meta_30d: { enviado: 207, fora_da_janela: 6, sem_pixel: 0, sem_dados: 1, desligado: 0, erro: 0 },
+  pendentes: 3,
+  falhas: 1,
+  historico_lidos: 1840,
+  listas: { alto_valor: 38, comprador: 412, lead: 129 },
+};
+
+test("resumo do cartão: um rpc bling_resumo da loja, conferido, e chave nova do SQL não derruba", async () => {
+  responder = () => ({ status: 200, corpo: { ...RESUMO_DO_BANCO, novo_numero: 7 } });
+
+  assert.deepEqual(await lerResumo("loja-a"), RESUMO_DO_BANCO);
+
+  const [{ metodo, url, corpo }] = chamadas;
+  assert.deepEqual([metodo, url.pathname], ["POST", "/rest/v1/rpc/bling_resumo"]);
+  assert.deepEqual(corpo, { p_tenant: "loja-a" });
+});
+
+test("resumo torto estoura em vez de virar zero no cartão", async () => {
+  const tortos = [
+    { ...RESUMO_DO_BANCO, vendas_30d: "214" },
+    { ...RESUMO_DO_BANCO, listas: undefined },
+    { ...RESUMO_DO_BANCO, meta_30d: { ...RESUMO_DO_BANCO.meta_30d, erro: -1 } },
+    null,
+  ];
+  for (const torto of tortos) {
+    responder = () => ({ status: 200, corpo: torto });
+    await assert.rejects(lerResumo("loja-a"), /bling_resumo: formato inesperado/, JSON.stringify(torto));
+  }
+});
+
+test("últimas do cartão: só venda e pedido da loja, dia do pedido mais novo primeiro (sem dia por último), depois o id", async () => {
+  const pedido = { ...LINHA_101, bling_order_id: "100", kind: "pedido", order_date: null };
+  responder = () => ({ status: 200, corpo: [{ ...LINHA_101, kind: "venda" }, pedido] });
+
+  const linhas = await ultimasDoCartao("loja-a", 8);
+
+  assert.deepEqual(filtros(chamadas[0].url), {
+    tenant_id: "eq.loja-a",
+    kind: "in.(venda,pedido)",
+    order: "order_date.desc.nullslast,bling_order_id.desc",
+    limit: "8",
+  });
+  // Mesmo mapeamento da fila: número em texto vira número, retrato conferido.
+  assert.deepEqual(
+    linhas.map((l) => [l.blingOrderId, l.kind, l.orderDate, l.total, l.snapshot]),
+    [
+      [101, "venda", "2026-10-12", 149.9, RESUMO_A],
+      [100, "pedido", null, 149.9, RESUMO_A],
+    ],
+  );
+});
+
+test("erro do banco no resumo e nas últimas sobe com a mensagem dele", async () => {
+  responder = () => ({ status: 500, corpo: { message: "caiu o banco" } });
+  await assert.rejects(lerResumo("loja-a"), /caiu o banco/);
+  await assert.rejects(ultimasDoCartao("loja-a", 8), /caiu o banco/);
 });

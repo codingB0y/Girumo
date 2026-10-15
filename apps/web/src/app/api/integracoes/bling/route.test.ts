@@ -1,61 +1,45 @@
 import assert from "node:assert/strict";
-import { createServer } from "node:http";
-import type { AddressInfo } from "node:net";
-import { after, before, beforeEach, test } from "node:test";
+import { beforeEach, test } from "node:test";
 
 import { selar } from "@/lib/security/secret-box";
 import { contextoDoToken } from "@/lib/stores/bling-conexoes";
+import {
+  bancoDoCartao,
+  CAMPANHA_A,
+  CAMPANHA_C,
+  CHAVE,
+  conectada,
+  ENV,
+  haHoras,
+  linha,
+  REFRESH,
+  servirCartao,
+  VERSAO,
+  type Chamada,
+} from "@/test/bling-cartao-falso";
 
-import { DELETE } from "./route";
+import { DELETE, GET } from "./route";
 
-/** Dono logado por Bearer contra um PostgREST de mentira; o Bling é um fetch falso. */
+/**
+ * A rota do cartão do Bling com o dono logado por Bearer contra um PostgREST de mentira, e o Bling num
+ * fetch falso (`src/test/bling-cartao-falso.ts`): desconectar (DELETE) e o cartão (GET). Os ajustes
+ * (PATCH) estão em `route-ajustes.test.ts`.
+ */
 
-type Chamada = { metodo: string; url: URL; corpo: unknown };
 const chamadas: Chamada[] = [];
 let papel = "owner";
 let conexao: Record<string, unknown> | null = null;
-
-const supabase = createServer((req, res) => {
-  let bruto = "";
-  req.on("data", (parte: Buffer) => (bruto += parte));
-  req.on("end", () => {
-    const url = new URL(req.url ?? "/", "http://supabase.falso");
-    chamadas.push({ metodo: req.method ?? "", url, corpo: bruto ? JSON.parse(bruto) : undefined });
-    let status = 500;
-    let corpo: unknown = { message: `inesperado: ${req.method} ${url.pathname}` };
-    if (url.pathname === "/auth/v1/user") [status, corpo] = [200, { id: "usuario-1", email: "dono@loja.test" }];
-    else if (url.pathname === "/rest/v1/memberships") [status, corpo] = [200, [{ tenant_id: "loja-b", role: papel, modules: [] }]];
-    else if (url.pathname === "/rest/v1/bling_connections") [status, corpo] = [200, req.method === "GET" && conexao ? [conexao] : []];
-    res.setHeader("Content-Type", "application/json");
-    res.statusCode = status;
-    res.end(JSON.stringify(corpo));
-  });
-});
-
-const ENV = {
-  BLING_CLIENT_ID: "app-girumo",
-  BLING_CLIENT_SECRET: "segredo-do-app",
-  INTEGRATIONS_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64"),
-};
-const CHAVE = Buffer.alloc(32, 7);
-const REFRESH = "refresh-da-loja-b";
-
+let banco: Record<string, unknown> = {};
 const revogacoes: string[] = [];
 let blingFora = false;
-const fetchOriginal = globalThis.fetch;
 
-before(async () => {
-  await new Promise<void>((pronto) => supabase.listen(0, "127.0.0.1", pronto));
-  const { port } = supabase.address() as AddressInfo;
-  process.env.SUPABASE_URL = `http://127.0.0.1:${port}`;
-  process.env.SUPABASE_SERVICE_ROLE_KEY = "chave-do-postgrest-falso";
-  process.env.SUPABASE_ANON_KEY = "chave-anon-falsa";
-  globalThis.fetch = (async (entrada: RequestInfo | URL, init?: RequestInit) => {
-    const url = entrada instanceof Request ? entrada.url : String(entrada);
-    if (!url.startsWith("https://api.bling.com.br/")) return fetchOriginal(entrada, init);
-    revogacoes.push(new URLSearchParams(String(init?.body ?? "")).get("token") ?? "");
-    return new Response(blingFora ? "{}" : "", { status: blingFora ? 503 : 200 });
-  }) as typeof fetch;
+const { gravacoes, doBanco } = servirCartao({
+  chamadas,
+  revogacoes,
+  papel: () => papel,
+  conexao: () => conexao,
+  banco: () => banco,
+  blingFora: () => blingFora,
 });
 beforeEach(() => {
   Object.assign(process.env, ENV);
@@ -64,23 +48,8 @@ beforeEach(() => {
   papel = "owner";
   blingFora = false;
   conexao = linha(selar(REFRESH, contextoDoToken("loja-b", "refresh"), CHAVE));
+  banco = bancoDoCartao();
 });
-after(() => {
-  globalThis.fetch = fetchOriginal;
-  supabase.close();
-});
-
-function linha(refreshTokenEnc: string): Record<string, unknown> {
-  return {
-    tenant_id: "loja-b", company_id: "empresa-1", company_name: "Moda da Ana", status: "ativa",
-    access_token_enc: selar("acesso-da-loja-b", contextoDoToken("loja-b", "access"), CHAVE), refresh_token_enc: refreshTokenEnc,
-    access_expires_at: "2026-10-13T18:00:00+00:00", token_version: 2, situations: [], situations_at: null,
-    sale_situation_ids: [9], high_value: null, meta_enabled: true, meta_campaign_id: null, backfill_from: null,
-    backfill_until: null, backfill_page: 1, backfill_done_at: null, scan_cursor: null, paused_until: null,
-    consecutive_failures: 0, last_webhook_at: null, last_scan_at: null, last_scan_change_at: null, last_sale_at: null,
-    last_error: null, last_error_at: null, reconnect_alerted_at: null, connected_at: "2026-10-13T12:00:00+00:00",
-  };
-}
 
 function pedir(): Request {
   return new Request("http://girumo.test/api/integracoes/bling", {
@@ -88,8 +57,6 @@ function pedir(): Request {
     headers: { authorization: "Bearer token-falso", "x-tenant-id": "loja-b" },
   });
 }
-
-const gravacoes = () => chamadas.filter((c) => c.url.pathname === "/rest/v1/bling_connections" && c.metodo === "PATCH");
 
 test("dono desconecta: apaga os tokens, solta a trava, revoga o refresh no Bling e responde ok", async () => {
   const resposta = await DELETE(pedir());
@@ -142,4 +109,145 @@ test("revogação que não dá certo não impede a desconexão", async () => {
   assert.equal((await DELETE(pedir())).status, 200);
   assert.deepEqual(revogacoes, []);
   assert.equal(gravacoes().length, 3);
+});
+
+// ── GET: o cartão ────────────────────────────────────────────────────────────
+
+const VAZIO = { conexao: null, historico: null, ajustes: null, numeros_30d: null, listas: null, ultimas: [] };
+
+function pedirCartao(): Request {
+  return new Request("http://girumo.test/api/integracoes/bling", {
+    headers: { authorization: "Bearer token-falso", "x-tenant-id": "loja-b" },
+  });
+}
+
+test("cartão conectado: estado, histórico, ajustes, números do banco e as últimas vendas mascaradas", async () => {
+  conexao = conectada();
+  const resposta = await GET(pedirCartao());
+  assert.equal(resposta.status, 200);
+  assert.equal(resposta.headers.get("cache-control"), "no-store");
+
+  assert.deepEqual(await resposta.json(), {
+    disponivel: true,
+    conexao: {
+      status: "ativa",
+      empresa: "Moda Kids Atacado Ltda",
+      conectada_em: "2026-10-13T12:00:00+00:00",
+      ultima_venda_em: conexao.last_sale_at,
+      ultimo_aviso_em: conexao.last_webhook_at,
+      tempo_real: "ok",
+      pausada_ate: null,
+      ultimo_erro: "Falta permissão no app do Bling",
+    },
+    historico: { lidos: 1840, concluido: false },
+    ajustes: {
+      situacoes: [
+        { id: 6, nome: "Em aberto", base: 6, conta: false, bloqueada: false },
+        { id: 9, nome: "Atendido", base: 9, conta: true, bloqueada: false },
+        { id: 12, nome: "Cancelado", base: 12, conta: false, bloqueada: true },
+        { id: 21, nome: "Em digitação", base: 21, conta: false, bloqueada: true },
+        { id: 30, nome: "Pago", base: 9, conta: false, bloqueada: false },
+      ],
+      // A versão das situações mostradas (o hash da lista): o Salvar a devolve junto com as marcadas (409 se mudou no meio).
+      situacoes_versao: VERSAO,
+      high_value: 1500,
+      meta_enabled: true,
+      pixel: {
+        escolhido: CAMPANHA_A,
+        opcoes: [
+          { campaign_id: CAMPANHA_A, campanha: "VIP Goiânia", pixel_id: "1234567890" },
+          { campaign_id: CAMPANHA_C, campanha: "Moda Sul", pixel_id: "5550001112" },
+        ],
+      },
+    },
+    numeros_30d: {
+      vendas: 214,
+      vendido: 86420.5,
+      com_origem: { anuncio: 61, grupo: 97 },
+      sem_origem: 56,
+      meta: { enviado: 207, fora_da_janela: 6, sem_pixel: 0, sem_dados: 1, desligado: 0, erro: 0 },
+      pendentes: 3,
+      falhas: 1,
+    },
+    listas: { alto_valor: 38, comprador: 412, lead: 129 },
+    ultimas: [
+      {
+        hora: "2026-10-13T17:52:00+00:00", cliente: "Ana Paula Ferreira", telefone_mascarado: "(62) 9••••-4821",
+        valor: 1840, tipo: "venda", origem: "anuncio", origem_detalhe: "Verão · Kit 10 peças", meta: "enviado", situacao: "Pago",
+      },
+      {
+        hora: "2026-10-13T16:00:00+00:00", cliente: "Regiane Costa", telefone_mascarado: null,
+        valor: 312.5, tipo: "pedido", origem: null, origem_detalhe: null, meta: "sem_pixel", situacao: "Em aberto",
+      },
+    ],
+  });
+
+  // Toda consulta é da loja do contexto; os contatos são só os das últimas.
+  for (const c of doBanco().filter((x) => x.metodo === "GET")) {
+    assert.equal(c.url.searchParams.get("tenant_id"), "eq.loja-b", c.url.pathname);
+  }
+  const resumo = chamadas.find((c) => c.url.pathname === "/rest/v1/rpc/bling_resumo");
+  assert.deepEqual(resumo?.corpo, { p_tenant: "loja-b" });
+  const contatos = chamadas.find((c) => c.url.pathname === "/rest/v1/bling_contacts");
+  assert.equal(contatos?.url.searchParams.get("bling_contact_id"), "in.(555,556)");
+  assert.equal(chamadas.find((c) => c.url.pathname === "/rest/v1/bling_orders")?.url.searchParams.get("limit"), "8");
+});
+
+test("nenhum token nem telefone inteiro sai no cartão", async () => {
+  conexao = conectada();
+  const texto = await (await GET(pedirCartao())).text();
+  const segredos = [String(conexao.access_token_enc), String(conexao.refresh_token_enc), "EAAB", "TEST123", "5562999994821"];
+  for (const segredo of segredos) assert.ok(!texto.includes(segredo), segredo);
+  assert.ok(!/token/i.test(texto));
+});
+
+test("tempo real: ok, parado (a varredura achou venda e o aviso sumiu) e sem dados", async () => {
+  const casos: [Record<string, unknown>, string][] = [
+    [{}, "ok"],
+    [{ last_webhook_at: haHoras(7), last_scan_change_at: haHoras(1) }, "parado"],
+    [{ last_webhook_at: null, last_scan_change_at: null }, "sem_dados"],
+  ];
+  for (const [over, esperado] of casos) {
+    conexao = conectada(over);
+    const corpo = await (await GET(pedirCartao())).json();
+    assert.equal(corpo.conexao.tempo_real, esperado, JSON.stringify(over));
+  }
+});
+
+test("sem as variáveis do Bling: cartão indisponível sem consulta nenhuma a dado da loja", async () => {
+  for (const faltando of ["BLING_CLIENT_ID", "BLING_CLIENT_SECRET", "INTEGRATIONS_ENCRYPTION_KEY"] as const) {
+    Object.assign(process.env, ENV);
+    delete process.env[faltando];
+    chamadas.length = 0;
+    const resposta = await GET(pedirCartao());
+    assert.equal(resposta.status, 200);
+    assert.deepEqual(await resposta.json(), { disponivel: false, ...VAZIO }, faltando);
+    assert.deepEqual(doBanco(), [], faltando);
+  }
+});
+
+test("sem conexão ou desconectada: disponível e vazio, sem ler mais nada", async () => {
+  for (const atual of [null, conectada({ status: "desconectada", company_id: null })]) {
+    conexao = atual;
+    chamadas.length = 0;
+    assert.deepEqual(await (await GET(pedirCartao())).json(), { disponivel: true, ...VAZIO });
+    assert.deepEqual(doBanco().map((c) => c.url.pathname), ["/rest/v1/bling_connections"]);
+  }
+});
+
+test("cartão: operador e vendedora 403 sem tocar em dado da loja", async () => {
+  for (const p of ["operator", "seller"]) {
+    chamadas.length = 0;
+    papel = p;
+    assert.equal((await GET(pedirCartao())).status, 403, p);
+    assert.deepEqual(doBanco(), [], p);
+  }
+});
+
+test("cartão com o banco falhando: 500 sem a mensagem do banco", async () => {
+  conexao = conectada();
+  delete banco["/rest/v1/rpc/bling_resumo"];
+  const resposta = await GET(pedirCartao());
+  assert.equal(resposta.status, 500);
+  assert.ok(!(await resposta.text()).includes("inesperado"));
 });
