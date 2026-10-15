@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { CadastroDoSite } from "@/lib/integracoes/cadastro-do-site";
+import { JANELA_VENDA_MS } from "@/lib/integracoes/situacao-do-cadastro";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 const TABLE = "site_captures";
@@ -49,6 +50,29 @@ export async function gravarCadastro(
   const id = (existente as { id: string }[] | null)?.[0]?.id;
   if (!id) throw new Error("cadastro duplicado sumiu entre o insert e a leitura");
   return { id, novo: false };
+}
+
+export type CadastroDaVenda = { utmCampaign: string | null; utmContent: string | null; fbc: string | null; fbp: string | null };
+type LinhaDoCadastro = { utm_campaign: string | null; utm_content: string | null; fbc: string | null; fbp: string | null };
+
+/**
+ * Cadastro mais recente da mesma chave até `ate`, nos 90 dias antes (bordas
+ * inclusivas, a janela de venda do funil). Dá o fbc/fbp do Purchase e a
+ * origem "anúncio" da venda do Bling.
+ */
+export async function ultimoCadastroDaChave(tenantId: string, phoneKey: string, ate: Date): Promise<CadastroDaVenda | null> {
+  const { data, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .select("utm_campaign, utm_content, fbc, fbp")
+    .eq("tenant_id", tenantId)
+    .eq("phone_key", phoneKey)
+    .gte("created_at", new Date(ate.getTime() - JANELA_VENDA_MS).toISOString())
+    .lte("created_at", ate.toISOString())
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error) throw new Error(error.message);
+  const linha = (data as LinhaDoCadastro[] | null)?.[0];
+  return linha ? { utmCampaign: linha.utm_campaign, utmContent: linha.utm_content, fbc: linha.fbc, fbp: linha.fbp } : null;
 }
 
 /** O cadastro existe E é desta loja — o /r/ só aceita `cid` que passa aqui (PR 4). */

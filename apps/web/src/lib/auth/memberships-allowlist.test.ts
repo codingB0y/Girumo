@@ -24,6 +24,7 @@ const PERMITIDOS: ReadonlyArray<{ caminho: string; motivo: string }> = [
   { caminho: "app/api/cron/emails/", motivo: "cron (CRON_SECRET): acha o dono de cada loja, sem sessão" },
   { caminho: "app/api/notifications/alerts/", motivo: "cron (CRON_SECRET): enumera as lojas, sem sessão" },
   { caminho: "app/api/integracoes/bling/retorno/", motivo: "retorno do OAuth do Bling, sem sessão: confere que o usuário do state ainda é dono/admin da loja do state" },
+  { caminho: "lib/bling/avisar-reconectar.ts", motivo: "motor do Bling (aviso/cron, sem sessão): acha os donos da loja para o e-mail de reconectar" },
   { caminho: "app/api/admin/", motivo: "admin da plataforma (getAdminContext)" },
   { caminho: "app/admin/", motivo: "páginas do admin da plataforma" },
 ];

@@ -1,7 +1,7 @@
 import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { getResend, FROM_EMAIL } from "./client";
-import { buildEmailLogRow, type EmailKind } from "./delivery-log";
+import { buildEmailLogRow, maskEmail, type EmailKind } from "./delivery-log";
 
 type SendOptions = {
   to: string;
@@ -67,7 +67,8 @@ export async function sendEmail(options: SendOptions): Promise<boolean> {
     );
 
     if (error) {
-      console.error(`[email] Failed to send to ${to}:`, error.message);
+      // O endereço da pessoa não vai inteiro para o log (o mesmo mascaramento de public.logs).
+      console.error(`[email] Failed to send to ${maskEmail(to)}:`, error.message);
       await recordDelivery(options, false, error.message);
       return false;
     }
@@ -75,7 +76,7 @@ export async function sendEmail(options: SendOptions): Promise<boolean> {
     await recordDelivery(options, true);
     return true;
   } catch (err) {
-    console.error(`[email] Exception sending to ${to}:`, err);
+    console.error(`[email] Exception sending to ${maskEmail(to)}:`, err);
     await recordDelivery(options, false, err instanceof Error ? err.message : String(err));
     return false;
   }

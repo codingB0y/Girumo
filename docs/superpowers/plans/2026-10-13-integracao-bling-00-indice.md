@@ -35,8 +35,9 @@ controlador (a sessão) commitando por tarefa. Implementador **não commita** e 
 | 4 conexão | `feat/bling-conexao` | `apps/web/src/lib/stores/bling-conexoes{,.test}.ts`, `apps/web/src/lib/stores/bling-oauth-states.ts`, `apps/web/src/app/api/integracoes/bling/conectar/route{,.test}.ts`, `apps/web/src/app/api/integracoes/bling/retorno/route{,.test}.ts`, `apps/web/src/app/api/integracoes/bling/route{,.test}.ts` (só DELETE), `apps/web/src/lib/security/request-access-policy{,.test}.ts`, `apps/web/src/middleware.ts` | 2 |
 | 5 motor | `feat/bling-motor` | `apps/web/src/lib/stores/bling-pedidos{,.test}.ts`, `apps/web/src/lib/stores/bling-contatos{,.test}.ts`, `apps/web/src/lib/stores/site-captures.ts` (+1 função), `apps/web/src/lib/bling/{pedido-girumo,processar-pedido,sincronizar}{,.test}.ts`, `apps/web/src/lib/bling/deps.ts`, `apps/web/src/lib/bling/avisar-reconectar.ts`, `apps/web/src/lib/email/templates.ts` | 2, 3, 4 |
 | 6 entrada | `feat/bling-entrada` | `apps/web/src/app/api/integracoes/bling/webhook/route{,.test}.ts`, `apps/web/src/app/api/cron/bling/route{,.test}.ts`, `apps/web/vercel.json`, `apps/web/src/lib/security/request-access-policy{,.test}.ts`, `apps/web/src/middleware.ts` | 5 |
-| 7 cartão API | `feat/bling-cartao-api` | `apps/web/src/app/api/integracoes/bling/route{,.test}.ts` (GET/PATCH), `apps/web/src/app/api/integracoes/bling/lista/route{,.test}.ts`, `apps/web/src/lib/bling/cartao.ts{,.test}` , `apps/web/src/lib/stores/vendas.ts`, `apps/web/src/lib/vendas/tipos.ts`, `apps/web/src/app/api/vendas/route.ts`, `apps/web/src/app/api/vendas/[id]/route.ts`, `apps/web/src/app/api/orders/route.ts` (+ testes existentes dessas rotas) | 4, 5 |
-| 8 tela | `feat/bling-tela` | `apps/web/src/components/painel/configuracoes/bling-painel{,.test}.tsx/.ts`, `apps/web/src/components/painel/configuracoes/bling.tsx`, `apps/web/src/components/painel/configuracoes/vitrine/configuracoes-vitrine.tsx`, `apps/web/src/components/painel/vendas/minhas-vendas.tsx` (+ onde fica o "Registrar venda"), `apps/web/e2e/painel-integracao-bling.spec.ts` | 7 |
+| 7 cartão API | `feat/bling-cartao-api` | `apps/web/src/app/api/integracoes/bling/route{,.test}.ts` (GET/PATCH), `apps/web/src/app/api/integracoes/bling/lista/route{,.test}.ts`, `apps/web/src/lib/bling/cartao{,.test}.ts`, `apps/web/src/lib/stores/bling-pedidos{,.test}.ts` (+ `lerResumo`, `ultimasDoCartao`) | 4, 5 |
+| 8 vendas | `feat/bling-vendas` | `apps/web/src/lib/stores/vendas.ts`, `apps/web/src/lib/vendas/tipos.ts`, `apps/web/src/app/api/vendas/route.ts`, `apps/web/src/app/api/vendas/[id]/route.ts`, `apps/web/src/app/api/orders/route.ts` (+ testes), `apps/web/src/components/painel/vendas/minhas-vendas.tsx` (+ onde fica o "Registrar venda") | 1 (DDL) |
+| 9 tela do cartão | `feat/bling-tela` | `apps/web/src/components/painel/configuracoes/bling-painel{,.test}.tsx/.ts`, `apps/web/src/components/painel/configuracoes/bling.tsx`, `apps/web/src/components/painel/configuracoes/vitrine/configuracoes-vitrine.tsx`, `apps/web/e2e/painel-integracao-bling.spec.ts` | 7 |
 
 **Ondas** (regra de `~/.claude/rules/parallel-subagent-driven-development.md`): W1 = PR 1 ∥ PR 2 ∥ PR 3 ·
 W2 = PR 4 ∥ tarefas 5a (stores de pedidos e contatos) · W3 = 5b (pedido-girumo, processar, sincronizar,
@@ -47,8 +48,9 @@ Nota do PR 3: `eventos-meta.ts` e `dados-do-cliente.ts` não importam nada do PR
 
 Publicação: uma branch local de integração com os commits na ordem dos PRs; cada PR vira branch própria a
 partir de `origin/main` (cherry-pick dos commits dele) quando as dependências já estiverem em `main`; senão
-empilha sobre a do PR de que depende. PRs 2–7 podem entrar antes da DDL (inertes sem as variáveis). PR 1 e
-PR 8 esperam a DDL nos dois bancos.
+empilha sobre a do PR de que depende. PRs 2–7 e 9 podem entrar antes da DDL (inertes sem as variáveis; o GET do cartão responde "indisponível" sem tocar no banco). A DDL
+do PR 1 vai pelo CI (#455): `migrate-dev` no PR, baseline lida de dev no próprio PR, `migrate-prod` no merge.
+PR 8 (Vendas lê `orders.source` ao vivo) só depois do `migrate-prod` do PR 1.
 
 ---
 
@@ -525,7 +527,7 @@ não envia; Meta desligado → `desligado`; sem pixel → `sem_pixel`; sem nenhu
 
 ---
 
-## PR 7 — API do cartão e Vendas no servidor
+## PR 7 — API do cartão e CSV (o bloco "Vendas" abaixo foi para o PR 8, que espera a DDL)
 
 - `lib/bling/cartao.ts`: monta o JSON do `GET` (spec §5) a partir de `lerConexao`, `rpc("bling_resumo")`,
   últimas 8 linhas de `bling_orders` (`kind in (venda, pedido)`, `updated_at desc`) + `lerContatosPorIds`,
@@ -547,7 +549,7 @@ não envia; Meta desligado → `desligado`; sem pixel → `sem_pixel`; sem nenhu
 
 ---
 
-## PR 8 — tela
+## PR 8 — Vendas (servidor + tela, depois da DDL) e PR 9 — tela do cartão (o GET indisponível não toca no banco)
 
 - `bling-painel.tsx` (só desenho, props = JSON do `GET` + callbacks) e `bling.tsx` (estado: carrega,
   conectar → `POST conectar` → `window.location.assign(url)`, salvar ajustes, desconectar com
@@ -568,8 +570,9 @@ não envia; Meta desligado → `desligado`; sem pixel → `sem_pixel`; sem nenhu
 ## Entrega (controlador)
 
 1. Por PR: revisor → correções → `verify` local sem build → push → PR → CI verde → merge (ou comandos).
-2. DDL do PR 1: blocos para o Igor (dev, depois prod), conferência por SQL de leitura, advisor, baseline
-   por `schema_signature()`, merge do PR 1, merge do PR 8.
+2. DDL do PR 1 pelo CI (#455, desde 15/10 — nunca à mão): push do PR 1 → `migrate-dev` aplica em dev →
+   baseline por `schema_signature()` lida de dev → commit no PR → CI verde → merge → `migrate-prod` aplica
+   em prod e confere a baseline → PR 8.
 3. Card `integracao-bling`: `no_ar_nao_verificado` com o último merge; `no_ar_verificado` só com a prova
    da spec §9 (loja piloto conectada, venda real chegando).
 4. `kg_insert_text` com a decisão (`decisao-2026-10-13-integracao-bling`).

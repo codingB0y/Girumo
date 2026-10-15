@@ -13,11 +13,10 @@ import {
   marcarAlertaReconectar,
   marcarReconectar,
   pegarTrava,
-  salvarConexao,
   salvarTokensRenovados,
   soltarTrava,
-  type DadosDaConexao,
 } from "./bling-conexoes";
+import { salvarConexao, type DadosDaConexao } from "./bling-conexoes-salvar";
 import { consumirEstadoOAuth, criarEstadoOAuth } from "./bling-oauth-states";
 
 /** O cliente real do Supabase contra um PostgREST de mentira (molde de site-captures.test.ts). */
@@ -65,7 +64,8 @@ const LINHA = {
   scan_cursor: "2026-10-13T12:00:00+00:00", paused_until: null, consecutive_failures: 2,
   last_webhook_at: null, last_scan_at: null, last_scan_change_at: null, last_sale_at: null,
   last_error: "caiu", last_error_at: "2026-10-13T11:00:00+00:00", reconnect_alerted_at: "2026-10-13T11:00:00+00:00",
-  connected_at: "2026-10-01T12:00:00+00:00",
+  connected_at: "2026-10-01T12:00:00+00:00", key_fp: "0123456789abcdef", token_retry_at: null,
+  scan_from: "2026-10-13T11:00:00+00:00", scan_slice_s: 1800, backfill_fails: 4,
 };
 
 const DADOS: DadosDaConexao = {
@@ -81,10 +81,11 @@ const DADOS: DadosDaConexao = {
   ],
   connectedBy: "usuario-1",
   hoje: "2026-10-13",
+  keyFp: "fedcba9876543210",
 };
 
 const AJUSTES_DA_LOJA = ["high_value", "meta_enabled", "meta_campaign_id", "scan_cursor"];
-const HISTORICO = ["backfill_from", "backfill_until", "backfill_page", "backfill_done_at"];
+const HISTORICO = ["backfill_from", "backfill_until", "backfill_page", "backfill_fails", "backfill_done_at"];
 
 test("o contexto da cifra separa a loja e o token", () => {
   assert.equal(contextoDoToken("loja-a", "access"), "bling:loja-a:access");
@@ -101,7 +102,21 @@ test("lerConexao filtra pela loja, converte numeric que chega como texto e desca
   assert.deepEqual(conexao?.saleSituationIds, [9, 4321]);
   assert.deepEqual(conexao?.situations, []);
   assert.equal(conexao?.metaCampaignId, "camp-1");
+  assert.deepEqual([conexao?.keyFp, conexao?.tokenRetryAt], ["0123456789abcdef", null]);
+  // A passada da varredura em andamento: de onde ela continua e o tamanho da próxima fatia. O PostgREST
+  // falso devolve a linha inteira: as colunas têm de estar no select, ou o banco de verdade não as manda.
+  const colunas = (pedidos[0].url.searchParams.get("select") ?? "").split(",").map((c) => c.trim());
+  assert.ok(colunas.includes("scan_slice_s") && colunas.includes("backfill_fails"), colunas.join(","));
+  assert.deepEqual([conexao?.scanFrom, conexao?.scanSliceS], ["2026-10-13T11:00:00+00:00", 1800]);
+  // As falhas seguidas da página atual do histórico (a 12ª pula a página).
+  assert.equal(conexao?.backfillFails, 4);
   assert.equal(await lerConexao("loja-z"), null);
+});
+
+test("lerConexao: tamanho da fatia nulo (6 h) fica nulo, e numeric em texto vira número", async () => {
+  preparar([200, [{ ...LINHA, scan_slice_s: null, backfill_fails: "11" }]]);
+  const conexao = await lerConexao("loja-a");
+  assert.deepEqual([conexao?.scanSliceS, conexao?.backfillFails], [null, 11]);
 });
 
 test("lerConexaoPorEmpresa busca só pelo id da empresa: é ela que descobre a loja", async () => {
@@ -112,7 +127,7 @@ test("lerConexaoPorEmpresa busca só pelo id da empresa: é ela que descobre a l
   assert.deepEqual(conexao?.situations, [{ id: 9, nome: "Atendido", base: 9 }]);
 });
 
-test("salvarConexao em loja nova insere com os padrões: versão 1, venda pelas situações, 90 dias de histórico", async () => {
+test("salvarConexao em loja nova insere com os padrões: versão 1, situações com hora, 90 dias de histórico", async () => {
   preparar(NENHUMA_LINHA, [201, []]);
   await salvarConexao("loja-a", DADOS);
   assert.deepEqual([pedidos[1].metodo, pedidos[1].url.pathname], ["POST", "/rest/v1/bling_connections"]);
@@ -123,14 +138,19 @@ test("salvarConexao em loja nova insere com os padrões: versão 1, venda pelas 
   assert.equal(b.access_token_enc, "v1.novo.acesso.x");
   assert.equal(b.refresh_token_enc, "v1.novo.refresh.x");
   assert.equal(b.access_expires_at, "2026-10-13T18:00:00.000Z");
-  assert.deepEqual(b.sale_situation_ids, [9, 4321]);
+  // Vazio no banco = a loja nunca escolheu: o padrão sai na hora das situações atuais (uma filha de
+  // Atendido criada depois também conta). Gravar o padrão a congelaria como pedido para sempre.
+  assert.ok(!("sale_situation_ids" in b));
   assert.deepEqual(b.situations, DADOS.situations);
+  assert.equal(typeof b.situations_at, "string");
   assert.deepEqual(
-    [b.backfill_from, b.backfill_until, b.backfill_page, b.backfill_done_at],
-    ["2026-07-15", "2026-10-13", 1, null],
+    [b.backfill_from, b.backfill_until, b.backfill_page, b.backfill_fails, b.backfill_done_at],
+    ["2026-07-15", "2026-10-13", 1, 0, null],
   );
   assert.equal(typeof b.scan_cursor, "string");
   assert.equal(b.connected_by, "usuario-1");
+  // A impressão da chave que selou os tokens: chave trocada depois não vira "reconectar" à toa.
+  assert.equal(b.key_fp, "fedcba9876543210");
 });
 
 test("reconectar troca tokens, sobe a versão e zera falhas, sem tocar nos ajustes nem no histórico terminado", async () => {
@@ -144,20 +164,52 @@ test("reconectar troca tokens, sobe a versão e zera falhas, sem tocar nos ajust
   assert.equal(b.status, "ativa");
   assert.equal(b.company_id, "empresa-1");
   assert.equal(b.access_token_enc, "v1.novo.acesso.x");
-  for (const zerado of ["paused_until", "last_error", "last_error_at", "reconnect_alerted_at", "lease_holder", "lease_until"]) {
+  for (const zerado of ["paused_until", "last_error", "last_error_at", "reconnect_alerted_at"]) {
     assert.equal(b[zerado], null, zerado);
   }
   assert.equal(b.consecutive_failures, 0);
+  assert.equal(b.key_fp, "fedcba9876543210");
+  // Par novo: o recuo de uma renovação que tinha falhado acabou.
+  assert.ok("token_retry_at" in b && b.token_retry_at === null);
+  // A trava fica: soltá-la deixaria outra execução começar junto com a que está rodando (que
+  // adota o par novo no lote seguinte).
+  for (const intocado of ["lease_holder", "lease_until"]) assert.ok(!(intocado in b), intocado);
   for (const mantido of [...AJUSTES_DA_LOJA, ...HISTORICO, "sale_situation_ids"]) assert.ok(!(mantido in b), mantido);
 });
 
-test("reconectar com histórico pela metade e sem situações de venda reabre os dois", async () => {
+test("reconectar com histórico pela metade reabre o histórico; a loja que nunca escolheu as situações de venda segue sem escolha", async () => {
   preparar([200, [{ ...LINHA, sale_situation_ids: [], backfill_done_at: null }]], UMA_LINHA);
   await salvarConexao("loja-a", DADOS);
   const b = corpo(1);
-  assert.deepEqual(b.sale_situation_ids, [9, 4321]);
-  assert.deepEqual([b.backfill_from, b.backfill_until, b.backfill_page, b.backfill_done_at], ["2026-07-15", "2026-10-13", 1, null]);
+  assert.ok(!("sale_situation_ids" in b));
+  // As falhas seguidas eram da página de antes: o histórico reaberto começa da 1 sem nenhuma.
+  assert.deepEqual(
+    [b.backfill_from, b.backfill_until, b.backfill_page, b.backfill_fails, b.backfill_done_at],
+    ["2026-07-15", "2026-10-13", 1, 0, null],
+  );
   for (const mantido of AJUSTES_DA_LOJA) assert.ok(!(mantido in b), mantido);
+});
+
+test("situações que não carregaram no retorno: lista vazia e sem hora, nunca o padrão como se fosse da conta", async () => {
+  preparar(NENHUMA_LINHA, [201, []]);
+  await salvarConexao("loja-a", { ...DADOS, situations: [] });
+  const b = corpo(1);
+  // A hora nula faz o motor recarregar na primeira execução.
+  assert.deepEqual([b.situations, b.situations_at], [[], null]);
+  assert.ok(!("sale_situation_ids" in b));
+});
+
+test("reconexão com as situações falhando: mantém a lista que a conexão já tinha e só zera a hora (prova R2-S1b)", async () => {
+  const boas = [{ id: 9, nome: "Atendido", base: 9 }, { id: 30, nome: "Pago", base: 9 }];
+  preparar([200, [{ ...LINHA, situations: boas, sale_situation_ids: [9, 30] }]], UMA_LINHA);
+  await salvarConexao("loja-a", { ...DADOS, situations: [] });
+  const b = corpo(1);
+  // Mutante (a prova): a lista ia a [] por cima da boa; o cartão mostrava só as padrão, sem "Pago", e o
+  // Salvar seguinte mandava só Atendido — 90 dias de vendas em "Pago" saíam de orders.
+  assert.ok(!("situations" in b), "a lista da conta fica");
+  // A hora nula faz o motor reler na primeira execução.
+  assert.ok("situations_at" in b && b.situations_at === null);
+  assert.ok(!("sale_situation_ids" in b));
 });
 
 test("a linha da loja nasce entre a leitura e o insert (23505 na chave da loja): relê e atualiza", async () => {
@@ -185,15 +237,17 @@ test("a versão mudou entre a leitura e a gravação: relê e tenta de novo; per
   await assert.rejects(salvarConexao("loja-a", DADOS), /mudou/);
 });
 
-test("salvarTokensRenovados grava só se a versão ainda é a lida", async () => {
-  const tokens = { accessTokenEnc: "v1.a2", refreshTokenEnc: "v1.r2", accessExpiresAt: new Date("2026-10-13T20:00:00Z") };
+test("salvarTokensRenovados grava só se a versão ainda é a lida, com a impressão da chave", async () => {
+  const tokens = { accessTokenEnc: "v1.a2", refreshTokenEnc: "v1.r2", accessExpiresAt: new Date("2026-10-13T20:00:00Z"), keyFp: "fedcba9876543210" };
   preparar(UMA_LINHA, NENHUMA_LINHA);
   assert.equal(await salvarTokensRenovados("loja-a", 4, tokens), true);
   assert.deepEqual(filtros(0), { tenant_id: "eq.loja-a", token_version: "eq.4" });
   assert.deepEqual(
-    [corpo(0).access_token_enc, corpo(0).refresh_token_enc, corpo(0).access_expires_at, corpo(0).token_version],
-    ["v1.a2", "v1.r2", "2026-10-13T20:00:00.000Z", 5],
+    [corpo(0).access_token_enc, corpo(0).refresh_token_enc, corpo(0).access_expires_at, corpo(0).token_version, corpo(0).key_fp],
+    ["v1.a2", "v1.r2", "2026-10-13T20:00:00.000Z", 5, "fedcba9876543210"],
   );
+  // O par novo encerra o recuo de uma renovação que tinha falhado.
+  assert.ok("token_retry_at" in corpo(0) && corpo(0).token_retry_at === null);
   assert.equal(await salvarTokensRenovados("loja-a", 4, tokens), false);
 });
 
@@ -227,12 +281,22 @@ test("listarConexoesParaSincronizar: ativas fora da pausa, quem varreu há mais 
 
 test("atualizarConexao grava os campos pedidos com updated_at, filtrando a loja", async () => {
   preparar(NENHUMA_LINHA);
-  await atualizarConexao("loja-a", { backfill_page: 4, last_scan_at: "2026-10-13T12:00:00.000Z" });
+  await atualizarConexao("loja-a", {
+    backfill_page: 4,
+    backfill_fails: 0,
+    last_scan_at: "2026-10-13T12:00:00.000Z",
+    scan_from: null,
+    scan_slice_s: 600,
+    token_retry_at: null,
+  });
   assert.deepEqual(filtros(0), { tenant_id: "eq.loja-a" });
   const b = corpo(0);
-  assert.deepEqual([b.backfill_page, b.last_scan_at], [4, "2026-10-13T12:00:00.000Z"]);
+  assert.deepEqual(
+    [b.backfill_page, b.backfill_fails, b.last_scan_at, b.scan_from, b.scan_slice_s, b.token_retry_at],
+    [4, 0, "2026-10-13T12:00:00.000Z", null, 600, null],
+  );
   assert.equal(typeof b.updated_at, "string");
-  assert.deepEqual(Object.keys(b).sort(), ["backfill_page", "last_scan_at", "updated_at"]);
+  assert.deepEqual(Object.keys(b).sort(), ["backfill_fails", "backfill_page", "last_scan_at", "scan_from", "scan_slice_s", "token_retry_at", "updated_at"]);
 });
 
 test("desconectar devolve a conexão anterior e apaga tokens; sem conexão, null sem gravar", async () => {

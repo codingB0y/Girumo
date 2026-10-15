@@ -90,26 +90,34 @@ export async function listarSituacoesDeVenda(c: ClienteBling): Promise<SituacaoB
 }
 
 /**
- * GET /pedidos/vendas. Item sem id, situação ou total sai da lista; o resto da página segue.
- * `brutos` = itens que a página trouxe antes do descarte: só `brutos === 0` prova que as páginas acabaram.
+ * Uma página da lista. `brutos` = itens que ela trouxe antes do descarte: só `brutos === 0` prova
+ * que as páginas acabaram. `descartados` = o id de cada item torto que tem id legível.
  */
-export async function listarPedidos(c: ClienteBling, f: FiltroPedidos): Promise<{ pedidos: PedidoResumo[]; brutos: number }> {
+export type PaginaDePedidos = { pedidos: PedidoResumo[]; brutos: number; descartados: number[] };
+
+/**
+ * GET /pedidos/vendas. Item sem id, situação ou total sai da lista; o resto da página segue. O id do
+ * torto volta em `descartados`: o motor o põe na fila pelo aviso, que busca o pedido inteiro. `prazo`
+ * vai ao cliente (o da página da varredura, menor que o da execução).
+ */
+export async function listarPedidos(c: ClienteBling, f: FiltroPedidos, prazo?: number): Promise<PaginaDePedidos> {
   const caminho = "/pedidos/vendas";
-  const resposta = await c.get(caminho, {
+  const query = {
     pagina: f.pagina,
     limite: f.limite ?? LIMITE_PADRAO,
     dataInicial: f.dataInicial,
     dataFinal: f.dataFinal,
     dataAlteracaoInicial: f.dataAlteracaoInicial,
     dataAlteracaoFinal: f.dataAlteracaoFinal,
-  });
-  const itens = listaDaResposta(resposta, caminho);
-  const pedidos = itens.flatMap((item) => pedidoDe(item) ?? []);
-  if (pedidos.length < itens.length) {
-    // Só a contagem: o item pode ter nome e documento da cliente.
-    console.warn(`[bling/api] ${itens.length - pedidos.length} pedido(s) da página ${f.pagina} sem id, situação ou total válido`);
-  }
-  return { pedidos, brutos: itens.length };
+  };
+  const resposta = await c.get(caminho, query, prazo);
+  const lidos = listaDaResposta(resposta, caminho).map((item) => ({ item, pedido: pedidoDe(item) }));
+  // O descarte não passa calado: quem chama compara `brutos` com `pedidos` e loga, com a loja.
+  return {
+    pedidos: lidos.flatMap((l) => l.pedido ?? []),
+    brutos: lidos.length,
+    descartados: lidos.flatMap((l) => (l.pedido ? [] : (idDoItem(l.item) ?? []))),
+  };
 }
 
 /**
@@ -197,6 +205,12 @@ function pedidoDe(item: unknown, pedido?: number): PedidoResumo | null {
   if (id === null || situacaoId === null || total === null) return null;
   const data = dia(cru.data.data, ANO_MINIMO_PEDIDO);
   return { id, numero: texto(cru.data.numero), data, total, contatoId: idPositivo(cru.data.contato?.id), situacaoId };
+}
+
+/** O id do item da lista, quando legível (inteiro positivo, em número ou texto de dígitos). */
+function idDoItem(item: unknown): number | null {
+  const cru = pedidoCru.safeParse(item);
+  return cru.success ? idPositivo(cru.data.id) : null;
 }
 
 /** Corpo com o id de OUTRO recurso é resposta trocada: gravar seria dar o estado de um ao outro. Sem id, confia no pedido. */

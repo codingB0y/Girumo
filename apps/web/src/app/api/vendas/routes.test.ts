@@ -261,7 +261,7 @@ test("registrar com leadId do tenant: RPC com a vendedora de autora, campanha do
       return { status: 200, body: orderRow({ campaign_id: CAMPAIGN, value: 287.7, created_at: createdAt }) };
     }
     if (url.pathname === "/rest/v1/leads" && method === "PATCH") return { status: 200, body: [{ ...FERNANDA, status: "comprou" }] };
-    if (url.pathname === "/rest/v1/orders" && method === "HEAD") return { status: 200, contentRange: "*/7" };
+    if (url.pathname === "/rest/v1/orders" && method === "GET") return { status: 200, body: [{ id: "a" }, { id: "b" }] };
     return { status: 500 };
   };
 
@@ -315,7 +315,7 @@ test("sem leadId, cliente gravado em outro formato: usa o lead achado e não cri
     if (url.pathname === "/rest/v1/campaign_groups") return { status: 200, body: [] };
     if (url.pathname === "/rest/v1/rpc/create_order_with_items") return { status: 200, body: orderRow({ phone: "11987654321" }) };
     if (url.pathname === "/rest/v1/leads" && method === "PATCH") return { status: 200, body: [FERNANDA] };
-    if (url.pathname === "/rest/v1/orders" && method === "HEAD") return { status: 200, contentRange: "*/8" };
+    if (url.pathname === "/rest/v1/orders" && method === "GET") return { status: 200, body: [{ id: "a" }, { id: "b" }] };
     return { status: 500 };
   };
 
@@ -345,7 +345,7 @@ test("sem leadId e sem cliente: cria o lead sem grupo de origem, com o nome digi
       return { status: 200, body: orderRow({ lead_id: NEW_LEAD, phone: "5511912345678", group_name: null }) };
     }
     if (url.pathname === "/rest/v1/leads" && method === "PATCH") return { status: 200, body: [{ id: NEW_LEAD }] };
-    if (url.pathname === "/rest/v1/orders" && method === "HEAD") return { status: 200, contentRange: "*/9" };
+    if (url.pathname === "/rest/v1/orders" && method === "GET") return { status: 200, body: [{ id: "a" }, { id: "b" }] };
     return { status: 500 };
   };
 
@@ -373,7 +373,7 @@ test("número em opt-out: venda sem lead e sem tocar em leads; item de R$ 0 (bri
     if (url.pathname === "/rest/v1/rpc/create_order_with_items") {
       return { status: 200, body: orderRow({ lead_id: null, phone: "5511912345678", group_name: null }) };
     }
-    if (url.pathname === "/rest/v1/orders" && method === "HEAD") return { status: 200, contentRange: "*/10" };
+    if (url.pathname === "/rest/v1/orders" && method === "GET") return { status: 200, body: [{ id: "a" }, { id: "b" }] };
     return { status: 500 };
   };
 

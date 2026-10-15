@@ -62,6 +62,8 @@ const LEAD = { id: "lead-1", source_campaign: null, source_group_id: "vip1@g.us"
 
 const requestsTo = (path: string) => seen.filter((request) => request.url.pathname === path);
 const trail = () => seen.map((request) => `${request.method} ${request.url.pathname}`);
+/** Os pedidos da loja que a leitura do marco devolve (ela pede no máximo 2). */
+const ordersOfTenant = (...ids: string[]): Reply => ({ status: 200, body: ids.map((id) => ({ id })) });
 
 /** O marco sai com `void` (não segura a resposta): chega depois. */
 async function arrived(path: string): Promise<Seen> {
@@ -85,7 +87,7 @@ test("lead de grupo: a campanha mais antiga com o grupo, lead vira comprou e o 1
       };
     }
     if (url.pathname === "/rest/v1/leads" && method === "PATCH") return { status: 200, body: [{ id: LEAD.id, status: "comprou" }] };
-    if (url.pathname === "/rest/v1/orders" && method === "HEAD") return { status: 200, contentRange: "*/1" };
+    if (url.pathname === "/rest/v1/orders" && method === "GET") return ordersOfTenant("pedido-1");
     if (url.pathname === "/rest/v1/funnel_events") return { status: 201 };
     return { status: 500 };
   };
@@ -109,13 +111,19 @@ test("lead de grupo: a campanha mais antiga com o grupo, lead vira comprou e o 1
   assert.equal(event.tenant_id, TENANT);
   assert.equal(event.event_name, "first_order");
   assert.deepEqual(event.metadata, { orderId: "pedido-1" });
+  // Mutante: contar todos os pedidos da loja a cada venda (a importação de 90 dias do Bling vira O(n²)).
+  const [read] = requestsTo("/rest/v1/orders");
+  assert.deepEqual(
+    [read.method, read.url.searchParams.get("tenant_id"), read.url.searchParams.get("limit"), read.url.searchParams.get("select")],
+    ["GET", "eq.loja-a", "2", "id"],
+  );
 });
 
 test("campanhas fora do ar não derrubam o pedido: grava sem origem", async () => {
   reply = ({ method, url }) => {
     if (url.pathname === "/rest/v1/campaign_groups") return { status: 500, body: { message: "timeout" } };
     if (url.pathname === "/rest/v1/leads" && method === "PATCH") return { status: 200, body: [{ id: LEAD.id }] };
-    if (url.pathname === "/rest/v1/orders" && method === "HEAD") return { status: 200, contentRange: "*/3" };
+    if (url.pathname === "/rest/v1/orders" && method === "GET") return ordersOfTenant("pedido-1", "pedido-2");
     return { status: 500 };
   };
   const campaigns: (string | undefined)[] = [];
@@ -131,9 +139,49 @@ test("campanhas fora do ar não derrubam o pedido: grava sem origem", async () =
   assert.equal(requestsTo("/rest/v1/funnel_events").length, 0);
 });
 
+test("campanhas fora do ar com throwOnCampaignError: o erro sobe antes de gravar (a venda não nasce sem campanha)", async (t) => {
+  t.mock.method(console, "error", () => undefined);
+  reply = ({ url }) => (url.pathname === "/rest/v1/campaign_groups" ? { status: 500, body: { message: "timeout" } } : { status: 500 });
+  let writes = 0;
+
+  await assert.rejects(
+    recordOrder(
+      TENANT,
+      LEAD,
+      async () => {
+        writes += 1;
+        return { id: "pedido-5" };
+      },
+      { throwOnCampaignError: true },
+    ),
+    /timeout/,
+  );
+
+  // Mutante: seguir sem campanha gravaria a venda sem origem para sempre (o update não mexe nela).
+  assert.equal(writes, 0);
+  assert.deepEqual(trail(), ["GET /rest/v1/campaign_groups"]);
+});
+
+test("throwOnCampaignError sem grupo que case: segue sem campanha, como sempre", async () => {
+  reply = ({ method, url }) => {
+    if (url.pathname === "/rest/v1/campaign_groups") return { status: 200, body: [] };
+    if (url.pathname === "/rest/v1/leads" && method === "PATCH") return { status: 200, body: [{ id: LEAD.id }] };
+    if (url.pathname === "/rest/v1/orders" && method === "GET") return ordersOfTenant("pedido-1", "pedido-6");
+    return { status: 500 };
+  };
+  const campaigns: (string | undefined)[] = [];
+
+  await recordOrder(TENANT, LEAD, async (campaignId) => {
+    campaigns.push(campaignId);
+    return { id: "pedido-6" };
+  }, { throwOnCampaignError: true });
+
+  assert.deepEqual(campaigns, [undefined]);
+});
+
 test("sem lead: nem campanha nem status; do 2º pedido em diante, sem marco", async () => {
   reply = ({ url, method }) =>
-    url.pathname === "/rest/v1/orders" && method === "HEAD" ? { status: 200, contentRange: "*/2" } : { status: 500 };
+    url.pathname === "/rest/v1/orders" && method === "GET" ? ordersOfTenant("pedido-1", "pedido-3") : { status: 500 };
   const campaigns: (string | undefined)[] = [];
 
   await recordOrder(TENANT, null, async (campaignId) => {
@@ -142,7 +190,8 @@ test("sem lead: nem campanha nem status; do 2º pedido em diante, sem marco", as
   });
 
   assert.deepEqual(campaigns, [undefined]);
-  assert.deepEqual(trail(), ["HEAD /rest/v1/orders"]);
+  assert.deepEqual(trail(), ["GET /rest/v1/orders"]);
+  assert.equal(requestsTo("/rest/v1/funnel_events").length, 0);
 });
 
 test("gravação falhou: o erro sobe e o lead não vira comprou", async () => {
@@ -162,7 +211,7 @@ test("status do lead falhou: o pedido sai e o erro fica no log, com a loja", asy
   reply = ({ method, url }) => {
     if (url.pathname === "/rest/v1/campaign_groups") return { status: 200, body: [] };
     if (url.pathname === "/rest/v1/leads" && method === "PATCH") return { status: 500, body: { message: "banco fora" } };
-    if (url.pathname === "/rest/v1/orders" && method === "HEAD") return { status: 200, contentRange: "*/2" };
+    if (url.pathname === "/rest/v1/orders" && method === "GET") return ordersOfTenant("pedido-1", "pedido-4");
     return { status: 500 };
   };
   const log = mock.method(console, "error", () => undefined);
