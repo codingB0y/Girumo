@@ -13,7 +13,7 @@ export type Destino = { regra: RegraDestino } | { grupos: string[] };
 const REGRA_PADRAO: RegraDestino = "menos_enchendo";
 
 /** D5: o padrão seguro. Antes do seletor, post sem lista ia para todos os grupos. */
-export const DESTINO_PADRAO: Destino = { regra: REGRA_PADRAO };
+export const DESTINO_PADRAO: Readonly<Destino> = Object.freeze({ regra: REGRA_PADRAO });
 
 export const NENHUM_GRUPO_NA_REGRA = "Nenhum grupo nesta regra agora.";
 

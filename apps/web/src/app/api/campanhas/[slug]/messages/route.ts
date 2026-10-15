@@ -150,8 +150,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   // campanha (antes não havia conferência nenhuma); sem destino, a regra padrão
   // em vez de "todos" (D5). O Avisos da comunidade nativa é a única exceção — e
   // não vale para a vendedora: `groupIds` já o recusava (`regraDaVendedora`) e,
-  // sem isto, `destino.grupos` furava esse bloqueio.
-  const avisos = ctx.role === "seller" ? [] : await avisosPermitidos(tenantId, camp);
+  // sem isto, `destino.grupos` furava esse bloqueio. Só lista fixa precisa dele:
+  // regra e padrão (o que toda tela manda) não pagam as 2 consultas, e uma falha
+  // ali não derruba um envio que nem usa o Avisos.
+  const avisos =
+    ctx.role !== "seller" && trazListaFixa(body) ? await avisosPermitidos(tenantId, camp) : [];
   const lido = lerDestino(body, camp, avisos);
   if (!lido.ok) return Response.json({ error: lido.error }, { status: 400 });
   const destino = lido.destino;
@@ -281,6 +284,19 @@ export async function DELETE(req: Request) {
 }
 
 // --- helpers ---
+
+/**
+ * O corpo traz lista fixa? Só a forma — quem valida é `lerDestino`, na mesma
+ * precedência (`destino` vence `groupIds`). Errar aqui só pode devolver `[]` de
+ * extras, o que deixa `lerDestino` mais estrito, nunca mais frouxo.
+ */
+function trazListaFixa(body: Record<string, unknown>): boolean {
+  const destino = body.destino;
+  if (destino !== undefined && destino !== null) {
+    return typeof destino === "object" && !Array.isArray(destino) && "grupos" in destino;
+  }
+  return body.groupIds !== undefined && body.groupIds !== null;
+}
 
 /**
  * O Avisos de uma comunidade nativa nunca está em `group_ids` (`reconciliar.ts`
