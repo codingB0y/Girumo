@@ -31,8 +31,14 @@ export const MIME_EXT: Record<string, string> = {
   "audio/webm": "weba",
   "application/pdf": "pdf",
   "application/zip": "zip",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  // ZIP no Chrome do Windows.
+  "application/x-zip-compressed": "zip",
+  "application/msword": "doc",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "application/vnd.ms-excel": "xls",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  "application/vnd.ms-powerpoint": "ppt",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
 };
 
 export const EXT_MIME: Record<string, string> = {
@@ -53,14 +59,31 @@ export const EXT_MIME: Record<string, string> = {
   weba: "audio/webm",
   pdf: "application/pdf",
   zip: "application/zip",
-  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  doc: "application/msword",
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls: "application/vnd.ms-excel",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ppt: "application/vnd.ms-powerpoint",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 };
 
 export const MEDIA_BUCKET = "uploads";
 
 const VIDEO_EXT = new Set(["mp4", "mov", "webm", "3gp"]);
 const AUDIO_EXT = new Set(["mp3", "ogg", "opus", "wav", "aac", "m4a", "weba"]);
+/** Documentos que saem nos grupos — o worker tem a mesma lista (`DOC_MIME` em apps/worker/src/send-command.ts). */
+const DOC_EXT = new Set(["pdf", "zip", "doc", "docx", "xls", "xlsx", "ppt", "pptx"]);
+
+/** `accept` do seletor de arquivo do composer. */
+export const DOCUMENT_ACCEPT = [...DOC_EXT].map((ext) => `.${ext}`).join(",");
+
+/**
+ * Mime de documento que sai nos grupos. Fora desta lista `extForMime` gravaria o
+ * arquivo como .jpg e ele chegaria como foto quebrada — o composer recusa antes.
+ */
+export function isDocumentMime(mime: string): boolean {
+  return DOC_EXT.has(MIME_EXT[mime] ?? "");
+}
 
 export function extForMime(mime: string): string {
   return MIME_EXT[mime] ?? "jpg";

@@ -72,13 +72,26 @@ const POLL_TYPE = "send_poll";
 /** Mesmas extensões de áudio que o app grava (`AUDIO_EXT` em apps/web/src/lib/media-mime.ts). */
 const AUDIO_EXT = new Set(["mp3", "ogg", "opus", "wav", "aac", "m4a", "weba"]);
 
+/** Documentos que o app grava (`DOC_EXT` em apps/web/src/lib/media-mime.ts), com o mimetype. */
+const DOC_MIME: Record<string, string> = {
+  pdf: "application/pdf",
+  zip: "application/zip",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls: "application/vnd.ms-excel",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ppt: "application/vnd.ms-powerpoint",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+};
+
 /**
- * Áudio é decidido pela extensão do arquivo, não pelo `mediaType` do payload: o
- * fan-out em SQL (`app.enqueue_broadcast`) reduz tudo que não é vídeo/documento a
- * "image". A extensão é escolhida pelo servidor a partir do mime real do upload.
+ * Áudio e documento são decididos pela extensão do arquivo, não pelo `mediaType`
+ * do payload: o fan-out em SQL (`app.enqueue_broadcast`) reduz tudo que não é
+ * vídeo/documento a "image". A extensão é escolhida pelo servidor a partir do
+ * mime do upload.
  */
-function isAudioPath(storagePath: string): boolean {
-  return AUDIO_EXT.has(storagePath.split(".").pop()?.toLowerCase() ?? "");
+function extOf(storagePath: string): string {
+  return storagePath.split(".").pop()?.toLowerCase() ?? "";
 }
 
 /** Tipos que passam pelo gate anti-ban (espelha o filtro de claim_send_commands). */
@@ -185,21 +198,27 @@ export async function sendFromCommand(row: EngineCommandRow, deps: SendDeps): Pr
     } else if (row.type === MEDIA_TYPE) {
       const mediaId = firstString(p.mediaId, p.media_id);
       if (!mediaId) throw new Error("send_media exige payload.mediaId");
-      const rawType = firstString(p.mediaType, p.media_type) ?? "image";
-      const mediatype: SendMediaInput["mediatype"] =
-        rawType === "video" ? "video" : rawType === "document" ? "document" : "image";
       const caption = firstString(p.caption, p.text, p.message) ?? undefined;
       // Checagem de tenant obrigatória: o mediaId é o storage path codificado,
       // não um segredo — sem isto um comando forjado leria mídia de outro tenant.
       const storagePath = resolveMediaPath(mediaId, row.tenant_id);
       if (!storagePath) throw new Error("mediaId inválido ou de outro tenant");
-      const audio = isAudioPath(storagePath);
+      const ext = extOf(storagePath);
+      const audio = AUDIO_EXT.has(ext);
+      const docMime = DOC_MIME[ext];
+      const rawType = firstString(p.mediaType, p.media_type) ?? "image";
+      const mediatype: SendMediaInput["mediatype"] = docMime ? "document" : rawType === "video" ? "video" : "image";
+      // Nome que o lojista subiu (o fan-out manda `fileName` desde 20261015120000);
+      // sem ele o grupo veria o UUID do storage.
+      const doc = docMime
+        ? { fileName: firstString(p.fileName, p.mediaName) ?? `arquivo.${ext}`, mimetype: docMime }
+        : {};
       send = async (name) => {
         // Assinada agora, não no enqueue: a fila pode ter segurado isto por horas.
         const url = await deps.signedMediaUrl(storagePath);
         if (!url) throw new Error("mídia não encontrada no storage");
         if (audio) await deps.sendAudio(name, number, { audio: url });
-        else await deps.sendMedia(name, number, { media: url, mediatype, caption, mentionAll });
+        else await deps.sendMedia(name, number, { media: url, mediatype, caption, mentionAll, ...doc });
       };
     } else {
       const text = firstString(p.text, p.message, p.body);
