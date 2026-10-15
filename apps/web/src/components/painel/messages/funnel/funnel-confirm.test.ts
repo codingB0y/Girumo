@@ -16,7 +16,7 @@ const drafts: Record<string, StepDraft> = {
   "previa-da-grade": { fields: { "peça": "vestido midi", "preço": "R$ 39,90", grade: "P ao GG", quantidade: "120" } },
   "entra-agora": { fields: { "link da live": "instagram.com/mega/live" } },
 };
-const run = { templateId: "live" as const, runId: "7d6f1e1a-0000-4000-8000-000000000001", groupIds: ["g1"] };
+const run = { templateId: "live" as const, runId: "7d6f1e1a-0000-4000-8000-000000000001", destino: { grupos: ["g1"] } };
 
 type Chamada = { url: string; body: Record<string, unknown> };
 
@@ -239,7 +239,7 @@ test("repetição: um run por dia, dias em ordem; falha num dia para os seguinte
     "grade-de-hoje": { fields: { "peça": "body", "preço": "R$ 29,90", grade: "1 ao 8", quantidade: "40" } },
   };
   const dia = (d: number) => planFunnel(grade, campos, { ...ctx, anchor: new Date(2026, 9, d) });
-  const runDo = (n: number) => ({ templateId: "grade-do-dia" as const, runId: `7d6f1e1a-0000-4000-8000-00000000000${n}`, groupIds: ["g1"] });
+  const runDo = (n: number) => ({ templateId: "grade-do-dia" as const, runId: `7d6f1e1a-0000-4000-8000-00000000000${n}`, destino: { grupos: ["g1"] } });
   // Por dia: mensagem da grade, oferta, vagas, últimas. A 7ª chamada é "vagas" do dia 11.
   const { post, chamadas } = postFalso({ 6: Response.json({ error: "limite" }, { status: 402 }) });
   const jobs = [
