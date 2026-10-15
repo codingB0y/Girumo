@@ -66,6 +66,11 @@ test.describe("Disparos na Vitrine Aberta", () => {
       await new Promise((pronto) => setTimeout(pronto, 4000));
       await rota.continue();
     });
+    // O alcance agora é o do destino: sem os estados dos grupos também não há conta.
+    await page.route("**/grupos/estados**", async (rota) => {
+      await new Promise((pronto) => setTimeout(pronto, 4000));
+      await rota.continue();
+    });
 
     await page.goto("/painel/disparos", { waitUntil: "load" });
 
@@ -91,5 +96,30 @@ test.describe("Disparos na Vitrine Aberta", () => {
     // postar nao vai acontecer — o botao nao pode gritar.
     const classes = (await page.getByRole("button", { name: /^Postar/ }).getAttribute("class")) ?? "";
     expect(classes).not.toContain("bg-acid");
+  });
+
+  test("o atalho padrão vem marcado e o aviso conta o que ele conta", async ({ page }) => {
+    await page.goto("/painel/disparos", { waitUntil: "load" });
+
+    const alcance = page.getByTestId("disparos-alcance");
+    await expect(alcance).not.toContainText("Contando");
+    const destino = page.getByTestId("destino-grupos");
+    await expect(destino).toBeVisible();
+    test.skip(
+      (await destino.getByText("Esta campanha ainda não tem grupos.").count()) > 0,
+      "a campanha escolhida não tem grupo com estado; nada a afirmar aqui",
+    );
+
+    // D5: sem escolher nada, o post vai para todos menos o que está enchendo.
+    const atalho = destino
+      .getByRole("group", { name: "Atalhos de destino" })
+      .getByRole("button", { name: /^Todos menos o que está enchendo/ });
+    await expect(atalho).toHaveAttribute("aria-pressed", "true");
+
+    const noAtalho = /([\d.]+)$/.exec((await atalho.innerText()).trim())?.[1];
+    const noAviso = /Vai pra ([\d.]+) grupos?/.exec(await alcance.innerText())?.[1] ?? "0";
+    expect(noAviso, "o aviso tem que contar os grupos do atalho escolhido").toBe(noAtalho);
+
+    await test.info().attach("disparos-destino", { body: await destino.screenshot(), contentType: "image/png" });
   });
 });
