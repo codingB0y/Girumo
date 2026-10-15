@@ -38,6 +38,7 @@ function opcoes(consultar: Opcoes["consultar"], extra: Partial<Opcoes> = {}): Op
     semente: null,
     lerArquivo: async (f) => `SQL de ${f}`,
     simular: false,
+    estrito: true,
     log: () => {},
     ...extra,
   };
@@ -97,6 +98,14 @@ test("registro com arquivo fora da ordem (rename) para antes de aplicar", async 
   const db = bancoFalso(["a.sql", "velho/b.sql"]);
   await assert.rejects(aplicar(opcoes(db.consultar)), /renomeadas\?\): velho\/b\.sql/);
   assert.ok(!db.executado.some((s) => s.startsWith("SQL de")));
+});
+
+test("em dev (nao estrito) migracao de outro PR aberto no registro so avisa e segue", async () => {
+  const db = bancoFalso(["a.sql", "outro-pr.sql"]);
+  const avisos: string[] = [];
+  const feitos = await aplicar(opcoes(db.consultar, { estrito: false, log: (l) => avisos.push(l) }));
+  assert.deepEqual(feitos, ["b.sql", "c.sql"]);
+  assert.ok(avisos.some((l) => l.includes("outro-pr.sql")));
 });
 
 test("mensagemDeErro nunca devolve o detail (valores de linha)", () => {

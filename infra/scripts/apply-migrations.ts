@@ -125,6 +125,8 @@ export type Opcoes = {
   semente: string[] | null;
   lerArquivo: (relativo: string) => Promise<string>;
   simular: boolean;
+  /** Registro fora da ordem trava o run. So prod: dev guarda migracao de PR aberto. */
+  estrito: boolean;
   log: (linha: string) => void;
 };
 
@@ -150,15 +152,20 @@ export async function aplicar(o: Opcoes): Promise<string[]> {
   const aplicadas = existe
     ? (await o.consultar("select filename from ops.applied_migrations;")).map((r) => String(r.filename))
     : (o.semente ?? []);
-  // Registro com arquivo que saiu da ordem = quase sempre um rename. O registro e
-  // por caminho, entao seguir em frente reaplicaria o arquivo com o nome novo.
+  // Registro com arquivo que saiu da ordem. Em PROD todo registro veio de `main`,
+  // entao isso e quase sempre um rename — e seguir reaplicaria o arquivo com o nome
+  // novo. Em DEV e normal: o banco e compartilhado e guarda a migracao de outro PR
+  // ainda aberto (15/10/2026: o #456 travou na de `pool_sem_estrutura_de_comunidade`).
   const naOrdem = new Set(o.ordem);
   const orfas = aplicadas.filter((a) => !naOrdem.has(a));
-  if (orfas.length > 0) {
+  if (orfas.length > 0 && o.estrito) {
     throw new Error(
       `Registradas mas fora de apply-order.txt (renomeadas?): ${orfas.join(", ")}. ` +
         "Corrija o registro (update ops.applied_migrations set filename = ...) antes de seguir.",
     );
+  }
+  if (orfas.length > 0) {
+    o.log(`Aviso: no registro mas fora desta ordem (PR aberto ou rename): ${orfas.join(", ")}`);
   }
 
   const falta = pendentes(o.ordem, aplicadas);
@@ -227,6 +234,7 @@ async function principal(): Promise<number> {
     semente,
     lerArquivo: (relativo) => fs.readFile(path.join(RAIZ, relativo), "utf8"),
     simular: process.argv.includes("--simular"),
+    estrito: alvo === "prod",
     log: (l) => console.log(l),
   });
 
