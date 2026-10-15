@@ -1,13 +1,12 @@
 {
   "mcpServers": {
     "lightrag": {
-      "command": "uv",
-      "args": [
-        "run",
-        "--project",
-        "C:/Users/Igor/Desktop/HubFlow-platform/tools/lightrag",
-        "kg-server"
-      ]
+      "command": "C:/Users/Igor/Desktop/HubFlow-platform/tools/lightrag/.venv/Scripts/python.exe",
+      "args": ["-m", "lightrag_kg.server"],
+      "env": {
+        "PYTHONPATH": "C:/Users/Igor/Desktop/HubFlow-rag/tools/lightrag",
+        "LIGHTRAG_DATA_DIR": "C:/Users/Igor/Desktop/HubFlow-platform/tools/lightrag"
+      }
     }
   }
 }

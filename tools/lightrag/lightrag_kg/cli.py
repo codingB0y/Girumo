@@ -144,7 +144,9 @@ def cmd_mcp_check(args):
     if ok_file:
         data = json_mod.loads(mcp_json_path.read_text(encoding="utf-8"))
         entry = data.get("mcpServers", {}).get("lightrag")
-        entry_ok = bool(entry and str(config.LIGHTRAG_DIR).replace("\\", "/") in " ".join(entry.get("args", [])).replace("\\", "/"))
+        # O caminho pode estar nos args (`uv run --project`) ou no env (PYTHONPATH do worktree noturno).
+        refs = " ".join([*entry.get("args", []), *entry.get("env", {}).values()]) if entry else ""
+        entry_ok = bool(entry and str(config.LIGHTRAG_DIR).replace("\\", "/") in refs.replace("\\", "/"))
     console.print(f"[{'green' if entry_ok else 'red'}]{'[OK]' if entry_ok else '[FAIL]'}[/] lightrag entry points to {config.LIGHTRAG_DIR}")
 
     import_ok = True
