@@ -57,9 +57,9 @@ export function MessagesTab({
   const [messages, setMessages] = useState<CampaignMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  // Sem grupo filho vinculado, "grupo a grupo" manda groupIds: [] e o
-  // servidor devolve 400 — o Avisos é a única opção que funciona, então
-  // começa nele em vez de num radio morto.
+  // Sem grupo filho vinculado, "grupo a grupo" manda o destino (a regra padrão)
+  // e a campanha sem grupos recebe 400 ("Esta campanha ainda não tem grupos…") —
+  // o Avisos é a única opção que funciona, então começa nele em vez de num radio morto.
   const semGruposVinculados = groupIds.length === 0 && Boolean(avisoGroupId);
   // Nenhum padrão silencioso no caso normal: o lojista escolhe o Avisos de
   // propósito — o ponto de partida é grupo a grupo, o que já acontecia antes

@@ -138,7 +138,10 @@ export function FolhaPostar({ id, aberta, aoFechar, aoPostar, emQualquerLargura 
             <span className="text-13 font-semibold text-slate-600">Campanha</span>
             <select
               value={slug}
-              onChange={(e) => setSlug(e.target.value)}
+              onChange={(e) => {
+                setSlug(e.target.value);
+                setEscolha(null); // voltar à campanha anterior não ressuscita a lista fixa dela
+              }}
               className="mt-1 h-12 w-full rounded-[var(--radius-control)] border border-line-200 bg-paper-0 px-3 text-[16px] text-volt-950"
             >
               {campanhas.map((c) => (

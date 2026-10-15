@@ -129,7 +129,7 @@ function Escolha({
         {"grupos" in value && (
           <span className="inline-flex min-h-11 items-center gap-2 rounded-full bg-volt-950 px-4 text-14 font-medium text-white">
             Lista fixa
-            <span className="font-data text-13 tabular-nums text-acid-500">{numero(marcados.size)}</span>
+            <span className="font-data text-13 tabular-nums text-white/80">{numero(marcados.size)}</span>
           </span>
         )}
       </div>

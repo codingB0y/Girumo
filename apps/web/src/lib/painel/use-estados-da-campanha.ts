@@ -23,6 +23,15 @@ export function cargaAposLeitura(atual: CargaDosEstados, lida: EstadosDaCampanha
   return atual.fase === "pronto" ? { ...atual, desatualizada: true } : { fase: "erro" };
 }
 
+/**
+ * Um 2xx só vale com `grupos` em lista: corpo sem ela (proxy, erro devolvido com 200) é leitura que
+ * falhou, não lista vazia. Sem isto, a Grupos, o seletor e a Visão geral quebrariam ao ler `grupos`.
+ */
+export function estadosValidos(corpo: unknown): EstadosDaCampanha | null {
+  if (typeof corpo !== "object" || corpo === null) return null;
+  return Array.isArray((corpo as { grupos?: unknown }).grupos) ? (corpo as EstadosDaCampanha) : null;
+}
+
 const CARREGANDO: CargaDosEstados = { fase: "carregando" };
 
 /** A carga que o hook guarda, com a campanha a que ela pertence. */
@@ -51,7 +60,7 @@ export function estadosFrescos(carga: CargaDosEstados): EstadosDaCampanha | "err
 async function lerEstados(slug: string): Promise<EstadosDaCampanha | null> {
   try {
     const res = await fetch(`/api/campanhas/${encodeURIComponent(slug)}/grupos/estados`);
-    return res.ok ? ((await res.json()) as EstadosDaCampanha) : null;
+    return res.ok ? estadosValidos(await res.json()) : null;
   } catch {
     return null;
   }

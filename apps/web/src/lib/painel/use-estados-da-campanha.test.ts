@@ -7,6 +7,7 @@ import {
   cargaAposLeitura,
   cargaDoSlug,
   estadosFrescos,
+  estadosValidos,
   type CargaDosEstados,
 } from "./use-estados-da-campanha";
 
@@ -57,6 +58,19 @@ test("no mesmo slug, a releitura que falha guarda a lista e marca velha", () => 
   const deA = aplicarLeitura(null, "a", lida);
   assert.deepEqual(cargaDoSlug(aplicarLeitura(deA, "a", null), "a"), { fase: "pronto", dados: lida, desatualizada: true });
   assert.deepEqual(cargaDoSlug(aplicarLeitura(deA, "a", outra), "a"), { fase: "pronto", dados: outra, desatualizada: false });
+});
+
+test("um 2xx sem `grupos` em lista é leitura que falhou, não lista vazia", () => {
+  assert.equal(estadosValidos(lida), lida);
+  assert.deepEqual(estadosValidos({ grupos: [] }), { grupos: [] });
+  assert.equal(estadosValidos({}), null);
+  assert.equal(estadosValidos({ grupos: "x" }), null);
+  assert.equal(estadosValidos({ grupos: null }), null);
+  assert.equal(estadosValidos({ grupos: { length: 0 } }), null);
+  assert.equal(estadosValidos(null), null);
+  assert.equal(estadosValidos(undefined), null);
+  assert.equal(estadosValidos("erro"), null);
+  assert.equal(estadosValidos([]), null);
 });
 
 test("slug vazio não tem lista: é carregando, mesmo que haja algo guardado", () => {
