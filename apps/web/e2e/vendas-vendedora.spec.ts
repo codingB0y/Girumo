@@ -296,6 +296,23 @@ test.describe("vendedora: só o que o dono liberou", () => {
     const pessoas = await page.request.get("/api/resultados/anuncios/pessoas");
     expect(pessoas.status()).toBe(403);
     expect(await pessoas.text()).toBe(MENSAGEM_BLOQUEIO);
+    // Gasto de anúncio (funil de anúncios, PR 7): dado de caixa, fora do mapa dela em todo verbo.
+    const gasto = await page.request.get("/api/anuncios/gasto");
+    expect(gasto.status()).toBe(403);
+    expect(await gasto.text()).toBe(MENSAGEM_BLOQUEIO);
+    const lancar = await page.request.post("/api/anuncios/gasto", {
+      data: { utm_campaign: "C1", amount: 100, starts_on: "2026-10-01", ends_on: "2026-10-10" },
+    });
+    expect(lancar.status()).toBe(403);
+    expect(await lancar.text()).toBe(MENSAGEM_BLOQUEIO);
+    const editar = await page.request.patch("/api/anuncios/gasto/00000000-0000-4000-8000-000000000000", {
+      data: { utm_campaign: "C1", amount: 100, starts_on: "2026-10-01", ends_on: "2026-10-10" },
+    });
+    expect(editar.status()).toBe(403);
+    expect(await editar.text()).toBe(MENSAGEM_BLOQUEIO);
+    const apagar = await page.request.delete("/api/anuncios/gasto/00000000-0000-4000-8000-000000000000");
+    expect(apagar.status()).toBe(403);
+    expect(await apagar.text()).toBe(MENSAGEM_BLOQUEIO);
   });
 
   test("as rotas da integração do site respondem 403 para ela", async () => {

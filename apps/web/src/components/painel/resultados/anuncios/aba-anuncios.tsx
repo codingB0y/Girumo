@@ -196,7 +196,7 @@ function Faixa({ total, rodapeDoGasto }: { total: RelatorioParaTela["total"]; ro
             {c.valor}
           </p>
           <p className="mt-0.5 text-13 text-slate-600">
-            {c.chave === "gasto" && rodapeDoGasto ? rodapeDoGasto : c.detalhe}
+            {c.chave === "gasto" && rodapeDoGasto && total.gasto !== null ? rodapeDoGasto : c.detalhe}
           </p>
         </div>
       ))}
