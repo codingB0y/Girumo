@@ -119,6 +119,40 @@ export function valorLido(texto: string): string | null {
   return valor === null ? null : `= ${custo(valor)}`;
 }
 
+export type OperacaoDeGasto = { tipo: "criar" } | { tipo: "editar"; id: string } | { tipo: "excluir"; id: string };
+export type PedidoDeGasto = { url: string; method: "POST" | "PATCH" | "DELETE"; body?: string };
+
+const ROTA_DO_GASTO = "/api/anuncios/gasto";
+
+/** A requisição de cada operação do diálogo (`corpo` só vale para criar e editar). */
+export function pedidoDoGasto(op: OperacaoDeGasto, corpo?: CorpoDoGasto): PedidoDeGasto {
+  if (op.tipo === "criar") return { url: ROTA_DO_GASTO, method: "POST", body: JSON.stringify(corpo) };
+  const url = `${ROTA_DO_GASTO}/${op.id}`;
+  return op.tipo === "editar" ? { url, method: "PATCH", body: JSON.stringify(corpo) } : { url, method: "DELETE" };
+}
+
+const MAX_MENSAGEM = 200;
+const PARECE_HTML = /<\/?[a-z!]/i;
+
+function mensagemCurta(texto: string): string | null {
+  const t = texto.trim();
+  return t && t.length <= MAX_MENSAGEM && !PARECE_HTML.test(t) ? t : null;
+}
+
+/**
+ * O que mostrar quando a resposta não foi ok. Nossas rotas mandam `{ error }`; o 403 do
+ * `assertPermission` da rota e o do guard de módulo são texto puro. Corpo comprido ou
+ * HTML (página de erro da hospedagem) nunca vai para a tela: cai na mensagem da operação.
+ */
+export function mensagemDeFalha(op: OperacaoDeGasto, json: unknown, texto: string): string {
+  const doJson = (json as { error?: unknown } | null)?.error;
+  if (typeof doJson === "string") {
+    const m = mensagemCurta(doJson);
+    if (m) return m;
+  }
+  return mensagemCurta(texto) ?? (op.tipo === "excluir" ? "Não deu para excluir o gasto." : "Não deu para salvar o gasto.");
+}
+
 function ehLancamento(x: unknown): x is LancamentoDeGasto {
   if (typeof x !== "object" || x === null) return false;
   const l = x as Record<string, unknown>;

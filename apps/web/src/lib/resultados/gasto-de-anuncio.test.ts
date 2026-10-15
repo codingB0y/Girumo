@@ -11,6 +11,8 @@ import {
   iniciosDosLancamentos,
   lerFormulario,
   MAX_VALOR,
+  mensagemDeFalha,
+  pedidoDoGasto,
   periodoDoLancamento,
   textoDoRodape,
   valorDigitado,
@@ -141,4 +143,41 @@ test("nome com NBSP na ponta não é aparado pelo formulário (o relatório tamb
 
 test("\"0.500\" é meio real, não quinhentos", () => {
   assert.equal(valorDigitado("0.500"), 0.5);
+});
+
+const CORPO = { utm_campaign: "Remarketing", amount: 240.5, starts_on: "2026-10-01", ends_on: "2026-10-10" };
+
+test("cada operação monta o seu pedido: criar POST, editar PATCH no id, excluir DELETE sem corpo", () => {
+  assert.deepEqual(pedidoDoGasto({ tipo: "criar" }, CORPO), {
+    url: "/api/anuncios/gasto",
+    method: "POST",
+    body: JSON.stringify(CORPO),
+  });
+  assert.deepEqual(pedidoDoGasto({ tipo: "editar", id: "l1" }, CORPO), {
+    url: "/api/anuncios/gasto/l1",
+    method: "PATCH",
+    body: JSON.stringify(CORPO),
+  });
+  assert.deepEqual(pedidoDoGasto({ tipo: "excluir", id: "l1" }), { url: "/api/anuncios/gasto/l1", method: "DELETE" });
+});
+
+test("falha: vale o `error` do JSON, depois o texto puro (403 de permissão e do guard de módulo)", () => {
+  const salvar = { tipo: "criar" } as const;
+  assert.equal(mensagemDeFalha(salvar, { error: "A data final vem antes da inicial." }, "{}"), "A data final vem antes da inicial.");
+  assert.equal(mensagemDeFalha(salvar, null, "Sem permissão para esta ação."), "Sem permissão para esta ação.");
+  assert.equal(mensagemDeFalha({ tipo: "excluir", id: "l1" }, null, " Sem permissão para esta ação. "), "Sem permissão para esta ação.");
+});
+
+test("falha sem mensagem aproveitável: texto da operação (salvar e editar x excluir)", () => {
+  assert.equal(mensagemDeFalha({ tipo: "criar" }, null, ""), "Não deu para salvar o gasto.");
+  assert.equal(mensagemDeFalha({ tipo: "editar", id: "l1" }, { error: 500 }, "  "), "Não deu para salvar o gasto.");
+  assert.equal(mensagemDeFalha({ tipo: "excluir", id: "l1" }, {}, ""), "Não deu para excluir o gasto.");
+});
+
+test("falha: HTML e corpo comprido nunca vão para a tela", () => {
+  const html = "<!DOCTYPE html><html><body>502 Bad Gateway</body></html>";
+  assert.equal(mensagemDeFalha({ tipo: "excluir", id: "l1" }, null, html), "Não deu para excluir o gasto.");
+  assert.equal(mensagemDeFalha({ tipo: "criar" }, null, "x".repeat(201)), "Não deu para salvar o gasto.");
+  assert.equal(mensagemDeFalha({ tipo: "criar" }, { error: "y".repeat(201) }, ""), "Não deu para salvar o gasto.");
+  assert.equal(mensagemDeFalha({ tipo: "criar" }, { error: "<b>x</b>" }, ""), "Não deu para salvar o gasto.");
 });

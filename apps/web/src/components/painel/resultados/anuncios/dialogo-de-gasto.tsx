@@ -1,7 +1,7 @@
 // apps/web/src/components/painel/resultados/anuncios/dialogo-de-gasto.tsx
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 import { Folha } from "@/components/painel/folha";
 import type { Carga } from "@/lib/painel/types";
@@ -10,11 +10,15 @@ import {
   formularioDe,
   formularioNovo,
   lerFormulario,
+  mensagemDeFalha,
+  pedidoDoGasto,
   periodoDoLancamento,
   textoDoRodape,
   valorLido,
+  type CorpoDoGasto,
   type FormularioDeGasto,
   type LancamentoDeGasto,
+  type OperacaoDeGasto,
   type RespostaDoGasto,
 } from "@/lib/resultados/gasto-de-anuncio";
 import type { Periodo } from "@/lib/resultados/periodo-anuncios";
@@ -30,6 +34,9 @@ const PRIMARIO =
 const SECUNDARIO =
   "min-h-11 rounded-[var(--radius-control)] border border-line-200 px-4 text-15 font-semibold text-volt-950 transition-colors hover:bg-canvas-100";
 const NA_LINHA = "min-h-9 rounded-md px-2.5 text-13 font-semibold";
+
+/** Destino do foco quando a confirmação de exclusão é cancelada. */
+const idDoExcluir = (id: string) => `gasto-excluir-${id}`;
 
 /** Cabeçalho da aba (encaixe `acoesDoCabecalho` do PR 5b). */
 export function BotaoLancarGasto({ onClick }: { onClick: () => void }) {
@@ -258,12 +265,15 @@ function Lancamentos(p: PropsDoConteudo & { lancamentos: readonly LancamentoDeGa
                       type="button"
                       aria-label={`Editar gasto de ${qual}`}
                       onClick={() => p.onEditar(l)}
-                      className={cn(NA_LINHA, "border border-line-200 text-volt-950 hover:bg-canvas-100")}
+                      // Durante o envio: um salvar que termina chama `recomecar()` e apagaria a edição começada agora.
+                      disabled={p.salvando}
+                      className={cn(NA_LINHA, "border border-line-200 text-volt-950 hover:bg-canvas-100 disabled:opacity-60")}
                     >
                       Editar
                     </button>
                     <button
                       type="button"
+                      id={idDoExcluir(l.id)}
                       aria-label={`Excluir gasto de ${qual}`}
                       onClick={() => p.onPedirExclusao(l.id)}
                       className={cn(NA_LINHA, "text-danger-700 hover:bg-canvas-100")}
@@ -313,16 +323,31 @@ export function DialogoDeGasto({ carga, resposta, periodo, aoFechar, aoTentarDeN
     setErro(null);
   }
 
-  async function enviar(url: string, init: RequestInit): Promise<boolean> {
+  // Cancelar a confirmação remove o "Manter" focado: o foco volta para o "Excluir" daquela linha.
+  const voltarFocoPara = useRef<string | null>(null);
+  useEffect(() => {
+    if (excluindo !== null || voltarFocoPara.current === null) return;
+    const alvo = document.getElementById(idDoExcluir(voltarFocoPara.current)) ?? document.getElementById("gasto-lancamentos");
+    voltarFocoPara.current = null;
+    alvo?.focus();
+  }, [excluindo]);
+
+  async function enviar(op: OperacaoDeGasto, corpo?: CorpoDoGasto): Promise<boolean> {
+    const { url, method, body } = pedidoDoGasto(op, corpo);
     setSalvando(true);
     setErro(null);
     try {
-      const r = await fetch(url, { ...init, headers: { "content-type": "application/json" } });
+      const r = await fetch(url, { method, body, headers: { "content-type": "application/json" } });
       if (r.ok) return true;
-      // Nossas rotas mandam `{ error }`; o 403 do guard de módulo é texto puro.
-      const corpo: unknown = await r.json().catch(() => null);
-      const mensagem = (corpo as { error?: unknown } | null)?.error;
-      setErro(typeof mensagem === "string" ? mensagem : "Não deu para salvar o gasto.");
+      // Corpo lido uma vez só: `{ error }` das nossas rotas, ou texto puro (403 de permissão e do guard de módulo).
+      const texto = await r.text().catch(() => "");
+      let json: unknown = null;
+      try {
+        json = JSON.parse(texto);
+      } catch {
+        // não é JSON: `mensagemDeFalha` olha o texto.
+      }
+      setErro(mensagemDeFalha(op, json, texto));
       return false;
     } catch {
       setErro(FALHA_DE_REDE);
@@ -338,17 +363,14 @@ export function DialogoDeGasto({ carga, resposta, periodo, aoFechar, aoTentarDeN
       setErro(lido.erro);
       return;
     }
-    const ok = await enviar(editando ? `/api/anuncios/gasto/${editando}` : "/api/anuncios/gasto", {
-      method: editando ? "PATCH" : "POST",
-      body: JSON.stringify(lido.corpo),
-    });
+    const ok = await enviar(editando ? { tipo: "editar", id: editando } : { tipo: "criar" }, lido.corpo);
     if (!ok) return;
     recomecar();
     aoMudar();
   }
 
   async function excluir(id: string) {
-    const ok = await enviar(`/api/anuncios/gasto/${id}`, { method: "DELETE" });
+    const ok = await enviar({ tipo: "excluir", id });
     setExcluindo(null);
     // O botão clicado some com a linha (ou com a confirmação): sem isto o foco cai no
     // <body>, fora do diálogo. Vai para o título da lista, que é onde a mudança aparece.
@@ -380,7 +402,10 @@ export function DialogoDeGasto({ carga, resposta, periodo, aoFechar, aoTentarDeN
           // O formulário fica em cima da lista: leva o foco para o valor, que é o que se corrige.
           document.getElementById("gasto-valor")?.focus();
         }}
-        onPedirExclusao={setExcluindo}
+        onPedirExclusao={(id) => {
+          if (id === null) voltarFocoPara.current = excluindo;
+          setExcluindo(id);
+        }}
         onExcluir={(id) => void excluir(id)}
         onFechar={aoFechar}
         aoTentarDeNovo={aoTentarDeNovo}

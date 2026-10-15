@@ -132,3 +132,12 @@ test("botão do cabeçalho e rodapé do cartão abrem o diálogo", () => {
   );
   assert.match(renderToStaticMarkup(createElement(RodapeDoGasto, { quantos: 0, onLancar: noop })), /^nenhum lançamento · /);
 });
+
+test("Editar fica desabilitado durante o envio, para o salvar que termina não apagar a edição nova", () => {
+  assert.doesNotMatch(html(), /<button type="button" disabled="" aria-label="Editar gasto/);
+  assert.match(html({ salvando: true }), /<button type="button" aria-label="Editar gasto de Remarketing, 01\/10 a 10\/10" disabled=""/);
+});
+
+test("cada Excluir tem id próprio: é para onde o foco volta quando a confirmação é cancelada", () => {
+  assert.match(html(), /id="gasto-excluir-l2"[^>]*aria-label="Excluir gasto de Remarketing/);
+});
