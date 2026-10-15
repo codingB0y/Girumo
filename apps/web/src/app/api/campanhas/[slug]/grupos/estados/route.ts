@@ -2,6 +2,7 @@ import { resumirEstados, type EstadosDaCampanha } from "@/lib/groups/resumo-esta
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
 import { listCampaignGroupStates } from "@/lib/stores/campaign-group-states";
 import * as campaignGroupsStore from "@/lib/stores/campaign-groups";
+import { jidsDeEstruturaDeComunidade } from "@/lib/stores/groups";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,7 +27,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
     if (!campaign) return Response.json({ error: "Campanha não encontrada." }, { status: 404 });
 
     const grupos = await listCampaignGroupStates(tenantId, campaign.id);
-    const resposta: EstadosDaCampanha = { grupos, ...resumirEstados(grupos) };
+    // Pai e Avisos de comunidade ficam fora dos estados de propósito (20261014120000). Só se
+    // pergunta ao banco pelos JIDs do pool que não voltaram, o que no caso comum é nenhum.
+    const voltaram = new Set(grupos.map((g) => g.whatsappGroupId));
+    const faltam = [...new Set(campaign.group_ids)].filter((jid) => !voltaram.has(jid));
+    // Leitura auxiliar: falhar aqui não pode apagar o estado das três abas da campanha.
+    const estruturaDeComunidade = await jidsDeEstruturaDeComunidade(tenantId, faltam).catch((erro: unknown) => {
+      console.error("[api/campanhas/grupos/estados] estrutura de comunidade não lida:", erro);
+      return [] as string[];
+    });
+    const resposta: EstadosDaCampanha = { grupos, ...resumirEstados(grupos), estruturaDeComunidade };
     return Response.json(resposta);
   } catch (error) {
     if (error instanceof Response) return error;

@@ -236,6 +236,23 @@ export async function updateGroupCounts(
 }
 
 /**
+ * Quais destes JIDs são estrutura de comunidade (grupo pai ou Avisos). O pool da campanha os
+ * ignora de propósito (`app.estados_da_campanha`, 20261014120000): as abas da campanha os tiram
+ * da lista em vez de dizer que o grupo "não está mais na sua conta".
+ */
+export async function jidsDeEstruturaDeComunidade(tenantId: string, jids: readonly string[]): Promise<string[]> {
+  if (jids.length === 0) return [];
+  const { data, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .select("whatsapp_group_id")
+    .eq("tenant_id", tenantId)
+    .in("whatsapp_group_id", [...jids])
+    .in("community_role", ["parent", "announce"]);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((g) => g.whatsapp_group_id as string);
+}
+
+/**
  * `whatsapp_group_id` -> membros já gravados.
  *
  * Serve para o sync não aceitar cegamente a contagem do provedor: a Evolution

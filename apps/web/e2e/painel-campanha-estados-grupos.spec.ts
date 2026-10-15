@@ -31,6 +31,7 @@ type Alvo = { slug: string; groupIds: string[]; estados: Estados; encerraEm: str
 type Estados = {
   grupos: EstadoGrupo[];
   contagem: { lotado: number; enchendo: number; fila: number; vazio: number; membros: number };
+  estruturaDeComunidade: string[];
 };
 
 type GrupoDaApi = { whatsappGroupId: string; sendState?: "open" | "closed" | null };
@@ -101,6 +102,8 @@ test("a faixa e o chip de cada grupo mostram o que /grupos/estados respondeu", a
     trs.map((tr) => tr.getAttribute("data-group-id") ?? ""),
   );
   expect(linhasNaTabela.length, "a tabela da Visão geral mostra grupos").toBeGreaterThan(0);
+  // Pai e Avisos de comunidade saem da tabela: nunca viram "Sumiu".
+  for (const jid of estados.estruturaDeComunidade) expect(linhasNaTabela).not.toContain(jid);
   // O SQL cruza o pool pelo JID; /api/groups dá o resto (sem estado = "—", fora dos dois = "Sumiu").
   const porJid = new Map(estados.grupos.map((g) => [g.whatsappGroupId, g]));
   for (const id of linhasNaTabela) {
@@ -136,8 +139,14 @@ test("a faixa e o chip de cada grupo mostram o que /grupos/estados respondeu", a
   // No máximo um "Enchendo agora" (spec §3), e o botão da linha só nele.
   await expect(lista.getByRole("button", { name: "Marcar como lotado" })).toHaveCount(estados.contagem.enchendo);
 
-  // Grupo do pool sem linha em `groups` não volta do SQL: a aba diz quantos faltam.
-  const faltam = new Set(alvo.groupIds).size - estados.grupos.length;
+  // Grupo do pool sem linha em `groups` não volta do SQL: a aba diz quantos faltam. Pai e Avisos
+  // de comunidade também não voltam, de propósito, e têm frase própria.
+  const faltam = new Set(alvo.groupIds).size - estados.grupos.length - estados.estruturaDeComunidade.length;
+  if (estados.estruturaDeComunidade.length > 0) {
+    await expect(page.getByTestId("estrutura-de-comunidade")).toContainText("estrutura de comunidade");
+  } else {
+    await expect(page.getByTestId("estrutura-de-comunidade")).toHaveCount(0);
+  }
   if (faltam > 0) {
     await expect(page.getByTestId("fora-da-lista")).toContainText(
       `${numero(faltam)} ${faltam === 1 ? "grupo" : "grupos"} desta campanha`,
@@ -235,6 +244,8 @@ const RESPOSTA = {
   grupos: [CHEIO, COM_VAGA, ENCHENDO, FILA, VAZIO, SEM_CONVITE],
   contagem: { lotado: 2, enchendo: 1, fila: 2, vazio: 1, membros: 3206 },
   regras: { menos_enchendo: 4, lotados: 2, com_gente: 5 },
+  // Contrato da rota (14/10): sem o campo, a Visão geral e a aba Grupos quebram ao ler `.length`.
+  estruturaDeComunidade: [],
 };
 
 /**

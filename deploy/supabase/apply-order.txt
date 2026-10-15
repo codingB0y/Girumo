@@ -505,3 +505,9 @@ apps/web/supabase/migrations/20261010130100_funil_anuncios_relatorio.sql
 # attribution_report (o teste "espelho da regra" compara o texto): mudar a regra num exige
 # mudar no outro.
 apps/web/supabase/migrations/20261011120000_funil_anuncios_pessoas.sql
+# 2026-10-14 - Postar por grupo: grupo pai e Avisos de comunidade (community_role parent/announce) saem
+# do pool de app.estados_da_campanha: nao viram estado, nao entram em regra de destino nem no link.
+# So o corpo da funcao muda (trava no topo confere o corpo de 20261010120000). Nao muda a baseline: o
+# gate nao ve corpo de funcao -- conferir com infra/tests/pool-sem-estrutura-de-comunidade-check.sql
+# nos dois bancos.
+apps/web/supabase/migrations/20261014120000_pool_sem_estrutura_de_comunidade.sql

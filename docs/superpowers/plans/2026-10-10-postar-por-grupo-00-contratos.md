@@ -150,7 +150,7 @@ export async function reabrirGrupo(tenantId: string, groupId: string): Promise<"
 | Rota | PR | Corpo / resposta |
 |---|---|---|
 | `POST /api/groups/recount` (engine-only, header `x-tenant-id`) | 3 | resposta `{ ok: true, atualizados: number }` |
-| `GET /api/campanhas/[slug]/grupos/estados` | 4 | `{ grupos: EstadoGrupo[]; contagem: { lotado: number; enchendo: number; fila: number; vazio: number; membros: number }; regras: Record<RegraDestino, number> }` |
+| `GET /api/campanhas/[slug]/grupos/estados` | 4 | `{ grupos: EstadoGrupo[]; contagem: { lotado: number; enchendo: number; fila: number; vazio: number; membros: number }; regras: Record<RegraDestino, number>; estruturaDeComunidade: string[] }` — o último (14/10) são os JIDs do pool que são pai/Avisos de comunidade, fora dos estados de propósito (20261014120000) |
 | `POST /api/campanhas/[slug]/grupos/lotado` | 4 | corpo `{ groupId: string; acao: "marcar" \| "reabrir" }` → 200 `{ ok: true }`, 404 `{ error }`, 409 `{ error, motivo: "ainda_cheio" \| "nao_lotado" \| "ja_lotado" }` |
 | `POST /api/campanhas/[slug]/messages` | 5 | corpo ganha `destino?: { regra: RegraDestino } \| { grupos: string[] }`; `groupIds` continua aceito como lista fixa |
 | `GET /api/campanhas/conflitos` | 6 | `{ conflitos: Array<{ whatsappGroupId: string; nome: string; campanhas: Array<{ id: string; name: string; slug: string; posicao: number }> }> }` |

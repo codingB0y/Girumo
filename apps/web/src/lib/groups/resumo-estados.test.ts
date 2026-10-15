@@ -6,6 +6,7 @@ import { destinoDoLink } from "@/lib/painel/destino-do-link";
 import { paradoDoLink } from "@/lib/painel/link-parado";
 import type { EstadoGrupo } from "./estado";
 import {
+  avisoEstruturaDeComunidade,
   avisoForaDaLista,
   detalheDoGrupo,
   diasAtras,
@@ -173,5 +174,17 @@ test("grupo do pool que saiu da conta é dito, no singular e no plural; sem falt
   assert.equal(
     avisoForaDaLista(5, 0),
     "5 grupos desta campanha não aparecem aqui: não estão mais na sua conta. Tire em Configurar.",
+  );
+});
+
+test("estrutura de comunidade fora da lista é dita, no singular e no plural; sem ela, nada", () => {
+  assert.equal(avisoEstruturaDeComunidade(0), null);
+  assert.equal(
+    avisoEstruturaDeComunidade(1),
+    "1 grupo desta campanha é estrutura de comunidade (Avisos ou grupo principal): fica fora desta lista e o link não manda gente para ele.",
+  );
+  assert.equal(
+    avisoEstruturaDeComunidade(3),
+    "3 grupos desta campanha são estrutura de comunidade (Avisos ou grupo principal): ficam fora desta lista e o link não manda gente para eles.",
   );
 });

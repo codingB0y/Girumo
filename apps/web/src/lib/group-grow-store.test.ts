@@ -180,6 +180,22 @@ test("pool cujo único grupo aberto foi marcado lotado (500 de 1024) enfileira o
   assert.equal((enfileirados[0].corpo as Record<string, unknown>).subject, "Moda Kids 2");
 });
 
+test("Avisos de comunidade com vaga não segura o próximo grupo: só o lotado conta", async () => {
+  chamadas.length = 0;
+  const lotado = { ...GRUPO_ABERTO, lotado_em: "2026-10-09T12:00:00+00:00" };
+  const avisos = { ...GRUPO_ABERTO, id: "row-2", whatsapp_group_id: "avisos@g.us", members: 100, community_role: "announce" };
+  tabelas = {
+    ...avaliacaoCom(lotado),
+    "GET /rest/v1/campaign_groups": () => ({ status: 200, corpo: [{ ...CAMPANHA, group_ids: ["g1@g.us", "avisos@g.us"] }] }),
+    "GET /rest/v1/groups": () => ({ status: 200, corpo: [lotado, avisos] }),
+  };
+
+  await evaluateAutoGrow("loja-a");
+
+  // Mutante: contar o Avisos (100 de 1024, com convite) como folga — nada seria enfileirado.
+  assert.equal(feitas("POST", "/rest/v1/group_grow_jobs").length, 1);
+});
+
 test("o mesmo grupo sem a marca ainda é folga: nada enfileirado", async () => {
   chamadas.length = 0;
   tabelas = avaliacaoCom(GRUPO_ABERTO);

@@ -17,6 +17,8 @@ export type EstadosDaCampanha = {
   grupos: EstadoGrupo[];
   contagem: ContagemEstados;
   regras: Record<RegraDestino, number>;
+  /** JIDs do pool que são pai ou Avisos de comunidade: ficam fora dos estados de propósito. */
+  estruturaDeComunidade: string[];
 };
 
 export function resumirEstados(grupos: EstadoGrupo[]): {
@@ -104,6 +106,14 @@ export function avisoForaDaLista(noPool: number, naLista: number): string | null
   return faltam === 1
     ? "1 grupo desta campanha não aparece aqui: não está mais na sua conta. Tire em Configurar."
     : `${faltam.toLocaleString("pt-BR")} grupos desta campanha não aparecem aqui: não estão mais na sua conta. Tire em Configurar.`;
+}
+
+/** Pai e Avisos de comunidade saem do pool de propósito: dizer por que somem da lista. */
+export function avisoEstruturaDeComunidade(quantos: number): string | null {
+  if (quantos <= 0) return null;
+  return quantos === 1
+    ? "1 grupo desta campanha é estrutura de comunidade (Avisos ou grupo principal): fica fora desta lista e o link não manda gente para ele."
+    : `${quantos.toLocaleString("pt-BR")} grupos desta campanha são estrutura de comunidade (Avisos ou grupo principal): ficam fora desta lista e o link não manda gente para eles.`;
 }
 
 /** A coluna Detalhe do mockup. `switch` sem `return` final: estado novo é erro de `tsc`. */

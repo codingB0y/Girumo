@@ -12,6 +12,7 @@ import {
   ordenarGrupos,
   paraEntradaRecente,
   seloDaLinha,
+  semEstruturaDeComunidade,
   ultimasEntradas,
 } from "./campanha-visao";
 
@@ -72,9 +73,16 @@ test("o selo da linha é o estado do banco, não a porcentagem: lotado a 89% con
   assert.equal(selo(linha("z@g.us", 1000)), "sem_estado");
 });
 
-test("o banco decide antes da lista: o Avisos da comunidade sai de /api/groups mas tem estado", () => {
+test("o banco decide antes da lista: grupo fora de /api/groups com estado mostra o estado", () => {
+  const fora: CampaignGroupOverview = { ...sumiu, id: "fora@g.us" };
+  assert.equal(seloDaLinha(fora, indiceDeEstados([estado("fora@g.us", 1, "lotado")]).get("fora@g.us")), "lotado");
+});
+
+test("pai e Avisos de comunidade saem da tabela em vez de virar \"Sumiu\"", () => {
   const avisos: CampaignGroupOverview = { ...sumiu, id: "avisos@g.us" };
-  assert.equal(seloDaLinha(avisos, indiceDeEstados([estado("avisos@g.us", 1, "lotado")]).get("avisos@g.us")), "lotado");
+  const grupos = [linha("a@g.us", 10), avisos, sumiu];
+  assert.deepEqual(semEstruturaDeComunidade(grupos, ["avisos@g.us"]).map((g) => g.id), ["a@g.us", sumiu.id]);
+  assert.equal(semEstruturaDeComunidade(grupos, []), grupos);
 });
 
 test("o índice é pelo JID, como o SQL cruza o pool: o uuid da linha não acha estado", () => {
