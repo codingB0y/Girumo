@@ -145,3 +145,12 @@ test("pontos de encaixe do PR 7: ações no cabeçalho, rodapé do gasto e anota
   assert.doesNotMatch(h, /proporcional aos dias do período/);
   assert.match(h, /21\/09 · VIP Atacado — Brasil entrou no ar/);
 });
+
+test("gasto escondido: o rodapé do gasto não aparece mesmo se a página o passar", () => {
+  const h = html({
+    resposta: { relatorio: { ...RELATORIO, total: { ...RELATORIO.total, gasto: null } }, tem_cadastro: true },
+    rodapeDoGasto: createElement("span", null, "3 lançamentos"),
+  });
+  assert.doesNotMatch(h, /3 lançamentos/);
+  assert.match(h, /só o dono e a administração veem o gasto/);
+});
