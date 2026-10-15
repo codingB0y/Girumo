@@ -244,6 +244,8 @@ const RESPOSTA = {
   grupos: [CHEIO, COM_VAGA, ENCHENDO, FILA, VAZIO, SEM_CONVITE],
   contagem: { lotado: 2, enchendo: 1, fila: 2, vazio: 1, membros: 3206 },
   regras: { menos_enchendo: 4, lotados: 2, com_gente: 5 },
+  // Contrato da rota (14/10): sem o campo, a Visão geral e a aba Grupos quebram ao ler `.length`.
+  estruturaDeComunidade: [],
 };
 
 /**
