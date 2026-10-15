@@ -28,6 +28,9 @@ export type SendMediaInput = {
   mediatype: "image" | "video" | "document";
   caption?: string;
   mentionAll?: boolean;
+  /** Só documento: nome que aparece no grupo e mimetype — sem eles a Evolution adivinha pela URL. */
+  fileName?: string;
+  mimetype?: string;
 };
 
 /**
@@ -121,6 +124,8 @@ export function createEvolutionSender(config: EvolutionSenderConfig): EvolutionS
         mediatype: input.mediatype,
         media: input.media,
         ...(input.caption ? { caption: input.caption } : {}),
+        ...(input.fileName ? { fileName: input.fileName } : {}),
+        ...(input.mimetype ? { mimetype: input.mimetype } : {}),
         ...(input.mentionAll ? { mentionsEveryOne: true } : {}),
       });
     },

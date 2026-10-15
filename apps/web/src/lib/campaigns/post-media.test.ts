@@ -23,10 +23,9 @@ test("áudio com texto é recusado — nota de voz não tem legenda e o texto su
   assert.throws(() => resolvePostMediaType({ mediaId: "m", mediaType: "audio", body: "oferta" }), /sem legenda/);
 });
 
-test("arquivo é recusado em vez de chegar quebrado no grupo", () => {
-  // O fan-out manda documento sem nome nem mimetype: um PDF saía pro grupo como
-  // "foto" que não abre.
+test("arquivo passa como file, com legenda", () => {
+  // O worker manda como documento pela extensão; "document" é o nome antigo do mesmo tipo.
   for (const tipo of ["file", "document"]) {
-    assert.throws(() => resolvePostMediaType({ mediaId: "m", mediaType: tipo }), /foto, vídeo ou áudio/, tipo);
+    assert.equal(resolvePostMediaType({ mediaId: "m", mediaType: tipo, body: "catálogo novo" }), "file", tipo);
   }
 });

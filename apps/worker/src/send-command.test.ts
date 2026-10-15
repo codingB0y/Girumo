@@ -275,6 +275,64 @@ test("send_media: arquivo de áudio sai como nota de voz, mesmo com mediaType im
   assert.deepEqual(send.args, ["gr_" + INSTANCE, "12036@g.us", { audio: "https://signed.example/x.jpg" }]);
 });
 
+test("send_media: PDF sai como documento com o nome que o lojista subiu e o mimetype", async () => {
+  const pdfPath = `${TENANT}/media/cccccccc-cccc-4ccc-8ccc-cccccccccccc.pdf`;
+  const f = fakeDeps();
+  const out = await sendFromCommand(
+    cmd(
+      {
+        jid: "12036@g.us",
+        mediaId: Buffer.from(pdfPath, "utf8").toString("base64url"),
+        mediaType: "document",
+        caption: "Catálogo novo",
+        fileName: "Catalogo Verao.pdf",
+      },
+      { type: "send_media" },
+    ),
+    f.deps,
+  );
+  assert.equal(out.status, "sent");
+  const send = f.calls.find((c) => c.m === "sendMedia")!;
+  assert.deepEqual(send.args[2], {
+    media: "https://signed.example/x.jpg",
+    mediatype: "document",
+    caption: "Catálogo novo",
+    mentionAll: false,
+    fileName: "Catalogo Verao.pdf",
+    mimetype: "application/pdf",
+  });
+});
+
+test("send_media: documento é decidido pela extensão — sem nome no payload vira arquivo.<ext>", async () => {
+  // Comando enfileirado antes de 20261015120000 não tem fileName, e o fan-out
+  // grava "image" para media_type que não é vídeo/documento.
+  const xlsxPath = `${TENANT}/media/dddddddd-dddd-4ddd-8ddd-dddddddddddd.xlsx`;
+  const f = fakeDeps();
+  await sendFromCommand(
+    cmd(
+      { jid: "12036@g.us", mediaId: Buffer.from(xlsxPath, "utf8").toString("base64url"), mediaType: "image" },
+      { type: "send_media" },
+    ),
+    f.deps,
+  );
+  const input = f.calls.find((c) => c.m === "sendMedia")!.args[2] as Record<string, unknown>;
+  assert.equal(input.mediatype, "document");
+  assert.equal(input.fileName, "arquivo.xlsx");
+  assert.equal(input.mimetype, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+});
+
+test("send_media: foto não ganha fileName nem mimetype", async () => {
+  const f = fakeDeps();
+  await sendFromCommand(
+    cmd({ jid: "12036@g.us", mediaId: MEDIA_ID, mediaType: "image", fileName: "foto.jpg" }, { type: "send_media" }),
+    f.deps,
+  );
+  const input = f.calls.find((c) => c.m === "sendMedia")!.args[2] as Record<string, unknown>;
+  assert.equal(input.mediatype, "image");
+  assert.equal("fileName" in input, false);
+  assert.equal("mimetype" in input, false);
+});
+
 // --- send_poll ---
 
 test("send_poll: envia pergunta + opções", async () => {
