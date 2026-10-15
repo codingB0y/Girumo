@@ -34,15 +34,26 @@ function limiterFor(max: number, windowMs: number): Ratelimit | null {
 // Fallback em memória (mesmo comportamento anterior do middleware).
 const memory = new Map<string, { count: number; resetAt: number }>();
 
-/** O mínimo que este módulo usa de um Ratelimit — deixa o teste exercer a queda sem rede. */
-export type RateLimiter = { limit(id: string): Promise<{ success: boolean }> };
+/**
+ * O mínimo que este módulo usa de um Ratelimit — deixa o teste exercer a queda sem rede. `reason`
+ * "timeout" = o Upstash não respondeu no timeout da lib, que então deixa passar.
+ */
+export type RateLimiter = { limit(id: string): Promise<{ success: boolean; reason?: string }> };
+
+/**
+ * `maxSeFalhar`: com o Upstash configurado e fora do ar (erro, ou o timeout que a lib solta como
+ * sucesso), o balde em memória conta com este teto em vez do normal — ele conta por instância, e o
+ * normal viraria N×. Para teto que não pode estourar, como o do /oauth/token do Bling (20 chamadas em
+ * 60 s bloqueiam o IP por 60 min), sem parar tudo. Sem Upstash configurado (dev), o teto normal.
+ */
+export type OpcoesDoLimite = { maxSeFalhar?: number };
 
 /**
  * true = bloqueado. Usa Upstash quando configurado; senão janela fixa em memória.
  * `id` deve identificar o balde (ex.: `${ip}:${rota}`).
  */
-export async function checkRateLimit(id: string, max: number, windowMs: number): Promise<boolean> {
-  return checkRateLimitWith(limiterFor(max, windowMs), id, max, windowMs);
+export async function checkRateLimit(id: string, max: number, windowMs: number, opcoes: OpcoesDoLimite = {}): Promise<boolean> {
+  return checkRateLimitWith(limiterFor(max, windowMs), id, max, windowMs, opcoes);
 }
 
 /** Núcleo de `checkRateLimit` com o limiter injetado (exportado para os testes). */
@@ -51,18 +62,29 @@ export async function checkRateLimitWith(
   id: string,
   max: number,
   windowMs: number,
+  opcoes: OpcoesDoLimite = {},
 ): Promise<boolean> {
-  if (limiter) {
-    try {
-      const { success } = await limiter.limit(id);
-      return !success;
-    } catch {
-      // Upstash fora do ar, timeout ou token expirado: degrada pro balde em
-      // memória. Propagar aqui sobe pelo middleware e devolve 500 em TODA
-      // request de /api/auth/* e /api/webhooks/evolution — login fora do ar e
-      // ingestão parada por causa de uma dependência de rate limit.
-    }
+  if (!limiter) return noBaldeEmMemoria(id, max, windowMs);
+  let resposta: { success: boolean; reason?: string };
+  try {
+    resposta = await limiter.limit(id);
+  } catch {
+    // Upstash fora do ar, timeout ou token expirado: degrada pro balde em
+    // memória. Propagar aqui sobe pelo middleware e devolve 500 em TODA
+    // request de /api/auth/* e /api/webhooks/evolution — login fora do ar e
+    // ingestão parada por causa de uma dependência de rate limit.
+    return opcoes.maxSeFalhar === undefined ? noBaldeEmMemoria(id, max, windowMs) : degradado(id, opcoes.maxSeFalhar, windowMs);
   }
+  if (opcoes.maxSeFalhar !== undefined && resposta.reason === "timeout") return degradado(id, opcoes.maxSeFalhar, windowMs);
+  return !resposta.success;
+}
+
+function degradado(id: string, maxSeFalhar: number, windowMs: number): boolean {
+  console.error(`[rate-limit] Upstash fora do ar: ${id} no balde em memória (${maxSeFalhar} por janela)`);
+  return noBaldeEmMemoria(id, maxSeFalhar, windowMs);
+}
+
+function noBaldeEmMemoria(id: string, max: number, windowMs: number): boolean {
   const now = Date.now();
   const entry = memory.get(id);
   if (!entry || now > entry.resetAt) {

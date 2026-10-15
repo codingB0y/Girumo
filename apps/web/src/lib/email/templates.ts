@@ -129,6 +129,26 @@ export function disconnectAlertEmail(name: string, appUrl: string): { subject: s
   };
 }
 
+// --- Bling recusou a renovação do acesso (integração parada até reconectar) ---
+export function blingReconectarEmail(name: string, appUrl: string): { subject: string; html: string } {
+  // O nome vem do cadastro da pessoa: escapado, como no convite.
+  const firstName = escapeHtml(name.split(" ")[0] || "lojista");
+  return {
+    subject: `O Bling desconectou da ${BRAND.name} — as vendas pararam de chegar`,
+    html: layout(`
+      <h1 style="margin:0 0 12px;font-size:22px;color:${BRAND_COLORS.volt}">O Bling desconectou</h1>
+      <p style="margin:0 0 8px;font-size:15px;color:${BRAND_COLORS.volt};line-height:1.6">
+        Oi ${firstName}! O Bling recusou o acesso da ${BRAND.name} — enquanto isso, as vendas novas do Bling
+        não chegam ao funil nem ao Meta.
+      </p>
+      <p style="margin:0 0 8px;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.6">
+        Reconectar leva 1 minuto: em Configurações, na parte de Integrações, clique em Reconectar Bling.
+      </p>
+      ${button("Reconectar Bling", `${appUrl}/painel/configuracoes?secao=integracoes`)}
+    `),
+  };
+}
+
 /**
  * Risco de desconexão por inatividade do celular (a regra dos 14 dias).
  *

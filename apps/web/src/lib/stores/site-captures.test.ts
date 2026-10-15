@@ -4,7 +4,7 @@ import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
 
 import type { CadastroDoSite } from "@/lib/integracoes/cadastro-do-site";
-import { cadastroDaLoja, gravarCadastro } from "./site-captures";
+import { cadastroDaLoja, gravarCadastro, ultimoCadastroDaChave } from "./site-captures";
 import { integracaoPelaChave, salvarChave } from "./site-integrations";
 import { getTrackedLinkById } from "./tracked-links";
 
@@ -91,6 +91,37 @@ test("cadastroDaLoja filtra pela loja e pelo id", async () => {
   assert.equal(await cadastroDaLoja("loja-a", "cad-1"), true);
   assert.equal(await cadastroDaLoja("loja-b", "cad-1"), false);
   assert.deepEqual(filtros(pedidos[0].url), { tenant_id: "eq.loja-a", id: "eq.cad-1", limit: "1" });
+});
+
+test("último cadastro da chave: na loja, nos 90 dias até a data, o mais novo, só UTM e fbc/fbp", async () => {
+  pedidos.length = 0;
+  respostas = [{ status: 200, body: [{ utm_campaign: "C1", utm_content: "A1", fbc: "fb.1.1.abc", fbp: null }] }];
+
+  const ate = new Date("2026-10-13T15:00:00.000Z");
+  assert.deepEqual(await ultimoCadastroDaChave("loja-a", "6299998888", ate), {
+    utmCampaign: "C1",
+    utmContent: "A1",
+    fbc: "fb.1.1.abc",
+    fbp: null,
+  });
+
+  const { url } = pedidos[0];
+  assert.equal(url.pathname, "/rest/v1/site_captures");
+  assert.equal(url.searchParams.get("select"), "utm_campaign,utm_content,fbc,fbp");
+  assert.equal(url.searchParams.get("tenant_id"), "eq.loja-a");
+  assert.equal(url.searchParams.get("phone_key"), "eq.6299998888");
+  // Bordas inclusivas, como a regra do funil (attribution_report): cadastro até 90 dias antes.
+  assert.deepEqual(url.searchParams.getAll("created_at"), ["gte.2026-07-15T15:00:00.000Z", "lte.2026-10-13T15:00:00.000Z"]);
+  assert.equal(url.searchParams.get("order"), "created_at.desc");
+  assert.equal(url.searchParams.get("limit"), "1");
+});
+
+test("último cadastro da chave: nenhum na janela é null; erro do banco sobe", async () => {
+  respostas = [{ status: 200, body: [] }];
+  assert.equal(await ultimoCadastroDaChave("loja-a", "6299998888", new Date("2026-10-13T15:00:00.000Z")), null);
+
+  respostas = [{ status: 500, body: { code: "XX000", message: "caiu", details: null, hint: null } }];
+  await assert.rejects(ultimoCadastroDaChave("loja-a", "6299998888", new Date()), /caiu/);
 });
 
 test("integração pela chave lê só pelo hash e não pede o hash de volta", async () => {

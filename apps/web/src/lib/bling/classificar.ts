@@ -34,10 +34,23 @@ export function baseDaSituacao(id: number, situacoes: readonly SituacaoBling[]):
   return situacoes.find((s) => s.id === id)?.base ?? id;
 }
 
-/** Padrão ao conectar: tudo que herda de Atendido, inclusive ele. Sem repetição, para passar em `idsDeVendaValidos`. */
+/** O padrão de venda: tudo que herda de Atendido, inclusive ele. Sem repetição, para passar em `idsDeVendaValidos`. */
 export function idsDeVendaPadrao(situacoes: readonly SituacaoBling[]): number[] {
   const ids = situacoes.filter((s) => s.base === SITUACAO.ATENDIDO).map((s) => s.id);
   return [...new Set(ids)].sort((a, b) => a - b);
+}
+
+/** As situações da conta; sem elas carregadas, as padrão do Bling (spec §1). */
+export function situacoesOuPadrao(situacoes: readonly SituacaoBling[]): readonly SituacaoBling[] {
+  return situacoes.length > 0 ? situacoes : SITUACOES_PADRAO;
+}
+
+/**
+ * O que conta como venda: a escolha da loja; vazia = ela nunca escolheu, e vale o padrão calculado
+ * agora sobre as situações atuais (uma filha de Atendido criada depois entra sozinha).
+ */
+export function idsDeVendaEfetivos(escolhidos: readonly number[], situacoes: readonly SituacaoBling[]): number[] {
+  return escolhidos.length > 0 ? [...escolhidos] : idsDeVendaPadrao(situacoesOuPadrao(situacoes));
 }
 
 export function idsDeVendaValidos(ids: readonly number[], situacoes: readonly SituacaoBling[]): boolean {
@@ -85,14 +98,15 @@ function meioDiaEmSaoPaulo(dia: string): Date | null {
 
 /**
  * A venda fica datada pelo dia do pedido, como no Bling: pedido antigo editado hoje não vira venda de hoje.
- * Hoje em São Paulo (ou data nula/inválida/antes de 2000) → agora; outro dia → 12:00 de São Paulo dele; nunca no futuro.
+ * A referência é `vistoEm`, quando a Girumo viu o pedido pela primeira vez (`first_seen_at`): a nova
+ * tentativa não muda a hora, e a venda, o `created_at` e o `event_time` batem. Dia de `vistoEm` em São
+ * Paulo (ou data nula/inválida/antes de 2000) → `vistoEm`; outro dia → 12:00 de São Paulo dele; nunca
+ * depois de `agora` (a data editada para hoje, de manhã, ainda não chegou ao meio-dia).
  */
-export function horaDoPedido(dataPedido: string | null, agora: Date): Date {
-  const copiaDeAgora = new Date(agora.getTime());
-  if (dataPedido === null || dataPedido === diaEmSaoPaulo(agora)) return copiaDeAgora;
-  const meioDia = meioDiaEmSaoPaulo(dataPedido);
-  if (meioDia === null || meioDia.getTime() > agora.getTime()) return copiaDeAgora;
-  return meioDia;
+export function horaDoPedido(dataPedido: string | null, vistoEm: Date, agora: Date): Date {
+  const visto = Number.isNaN(vistoEm.getTime()) ? agora : vistoEm;
+  const meioDia = dataPedido === null || dataPedido === diaEmSaoPaulo(visto) ? null : meioDiaEmSaoPaulo(dataPedido);
+  return new Date(Math.min((meioDia ?? visto).getTime(), agora.getTime()));
 }
 
 /** O Meta recusa evento com mais de 7 dias (e derruba o lote): 1 h de folga para a fila e o envio. */
