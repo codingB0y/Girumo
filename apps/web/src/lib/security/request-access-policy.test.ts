@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import test from "node:test";
-import { classifyRequest, decideEngineAccess } from "./request-access-policy";
+import { fileURLToPath } from "node:url";
+
+import { classifyRequest, decideEngineAccess, type AccessKind } from "./request-access-policy";
+
+const AQUI = dirname(fileURLToPath(import.meta.url));
 
 test("auth POST is public with rate limiting", () => {
   assert.equal(classifyRequest("/api/auth/login", "POST"), "auth-rate-limited");
@@ -61,6 +67,9 @@ test("user mutations on shared resources do not accept engine credentials", () =
 test("cron endpoints use handler-level authentication", () => {
   assert.equal(classifyRequest("/api/cron/emails", "GET"), "cron");
   assert.equal(classifyRequest("/api/notifications/alerts", "GET"), "cron");
+  assert.equal(classifyRequest("/api/cron/bling", "GET"), "cron");
+  // Path exato: um sufixo não herda a isenção do gate de sessão.
+  assert.equal(classifyRequest("/api/cron/bling/outra", "GET"), "user");
 });
 
 test("a path removed from the cron allowlist falls back to the session gate", () => {
@@ -81,6 +90,12 @@ test("the Zernio webhook is session-less, POST only, exact path only", () => {
   assert.equal(classifyRequest("/api/ig/webhook/replay", "POST"), "user");
   // O resto de /api/ig continua exigindo sessão.
   assert.equal(classifyRequest("/api/ig/flows", "POST"), "user");
+});
+
+test("o aviso do Bling entra sem sessão, só no POST e só no path exato", () => {
+  assert.equal(classifyRequest("/api/integracoes/bling/webhook", "POST"), "webhook");
+  assert.equal(classifyRequest("/api/integracoes/bling/webhook", "GET"), "user");
+  assert.equal(classifyRequest("/api/integracoes/bling/webhook/outra", "POST"), "user");
 });
 
 test("the webhook prefix is not open — only the exact provider path is", () => {
@@ -117,6 +132,42 @@ test("retorno do OAuth do Bling entra sem sessão e com teto por IP, só no GET 
   // O resto da família é chamada do painel, com Bearer: continua no gate de sessão.
   assert.equal(classifyRequest("/api/integracoes/bling/conectar", "POST"), "user");
   assert.equal(classifyRequest("/api/integracoes/bling", "DELETE"), "user");
+});
+
+// --- Estrutural: rota sem sessão com teto precisa do teto ------------------------------
+
+const METODOS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
+const COM_TETO_NO_MIDDLEWARE: ReadonlySet<AccessKind> = new Set(["public-rate-limited", "webhook"]);
+
+/** Todo literal de path da política: "POST /api/x" (nos Sets e nas chaves) ou "/api/x" (nas comparações). */
+function rotasDaPolitica(): Array<{ metodo: string; path: string }> {
+  const fonte = readFileSync(join(AQUI, "request-access-policy.ts"), "utf8");
+  return [...fonte.matchAll(/"(?:(GET|POST|PUT|PATCH|DELETE) )?(\/api\/[^"\s]*)"/g)].flatMap(([, metodo, path]) =>
+    (metodo ? [metodo] : METODOS).map((m) => ({ metodo: m, path })),
+  );
+}
+
+function chavesDeRateLimit(): Set<string> {
+  const fonte = readFileSync(join(AQUI, "..", "..", "middleware.ts"), "utf8");
+  const bloco = /const RATE_LIMITS[^=]*=\s*\{([\s\S]*?)\n\};/.exec(fonte)?.[1] ?? "";
+  return new Set([...bloco.matchAll(/"(\/api\/[^"]+)"\s*:/g)].map(([, chave]) => chave));
+}
+
+test("toda rota pública com teto e todo webhook têm entrada em RATE_LIMITS — sem ela o middleware não limita nada", () => {
+  // `isRateLimited` devolve false quando não acha o path: a rota fica sem sessão E sem teto (fail-open).
+  const expostas = [
+    ...new Set(
+      rotasDaPolitica()
+        .filter(({ metodo, path }) => COM_TETO_NO_MIDDLEWARE.has(classifyRequest(path, metodo)))
+        .map(({ path }) => path),
+    ),
+  ].sort();
+  // Se a leitura da fonte quebrar e não achar nada, o teste passaria vazio: estas têm de aparecer.
+  for (const conhecida of ["/api/track/outbound", "/api/webhooks/evolution", "/api/integracoes/bling/webhook"]) {
+    assert.ok(expostas.includes(conhecida), `a política deveria expor ${conhecida}`);
+  }
+  const chaves = chavesDeRateLimit();
+  assert.deepEqual(expostas.filter((path) => !chaves.has(path)), [], "rota sem entrada em RATE_LIMITS (middleware.ts)");
 });
 
 test("outros métodos no beacon de saída ficam no gate de sessão", () => {
