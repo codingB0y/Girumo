@@ -1,5 +1,4 @@
 // apps/web/src/lib/resultados/gasto-de-anuncio.ts
-import { parseValorDoPedido } from "@/lib/orders/valor-do-pedido";
 import { contagem, custo, diaMes, duasCasas, type InicioDeGasto } from "@/lib/resultados/anuncios-tela";
 import { dataValida, diasEntre, type Periodo } from "@/lib/resultados/periodo-anuncios";
 import type { LinhaRelatorio } from "@/lib/resultados/relatorio-anuncios";
@@ -34,20 +33,47 @@ export function aparar(s: string): string {
   return s.replace(/^ +| +$/g, "");
 }
 
-// `amount` é numeric(12, 2): o banco arredonda para centavos, e a validação olha o que vai ser gravado (`duasCasas`).
-const SO_MILHAR = /^[1-9]\d{0,2}(\.\d{3})+$/;
+const SO_MILHAR_PONTO = /^[1-9]\d{0,2}(\.\d{3})+$/;
+const SO_MILHAR_VIRGULA = /^[1-9]\d{0,2}(,\d{3})+$/;
+const SO_NUMERO = /^\d[\d.,]*$/;
 const DUAS_CASAS = { minimumFractionDigits: 2, maximumFractionDigits: 2 } as const;
 
+/** Com os dois separadores, o último é o decimal e o outro é milhar (que tem de vir em grupos de 3). */
+function comDoisSeparadores(texto: string): string | null {
+  const decimal = texto.lastIndexOf(".") > texto.lastIndexOf(",") ? "." : ",";
+  const milhar = decimal === "." ? "," : ".";
+  const partes = texto.split(decimal);
+  if (partes.length !== 2 || !/^\d+$/.test(partes[1])) return null;
+  const grupos = partes[0].split(milhar);
+  const [lider, ...resto] = grupos;
+  if (!/^[1-9]\d{0,2}$/.test(lider) || !resto.every((g) => /^\d{3}$/.test(g))) return null;
+  return `${grupos.join("")}.${partes[1]}`;
+}
+
+/** Texto digitado -> número em notação JS ("1620.5"), ou `null` se não for um valor. */
+function normalizar(texto: string): string | null {
+  const limpo = texto.replace(/R\$/gi, "").replace(/\s/g, "");
+  if (!SO_NUMERO.test(limpo)) return null;
+  if (limpo.includes(".") && limpo.includes(",")) return comDoisSeparadores(limpo);
+  if (SO_MILHAR_PONTO.test(limpo)) return limpo.replace(/\./g, "");
+  if (SO_MILHAR_VIRGULA.test(limpo)) return limpo.replace(/,/g, "");
+  return limpo.replace(",", ".");
+}
+
 /**
- * O "Valor usado" como o lojista digita. Reaproveita o parser dos pedidos, com uma
- * exceção: "1.620" (só grupos de milhar, sem vírgula) é mil seiscentos e vinte —
- * o Gerenciador mostra "R$1.620,00", e quem copia sem os centavos não quer R$ 1,62.
- * Fora do `check` da tabela (zero, negativo, mais de 10 milhões): `null`.
+ * O "Valor usado" como o lojista digita, em formato brasileiro ("R$ 1.620,00") ou
+ * americano ("R$1,620.00", Gerenciador com Facebook em inglês). Só dígitos, "." e ",":
+ * "0x10", "1e3", "+5" e "-3" são `null`. Com os dois separadores o último é o decimal.
+ * Só grupos de milhar, sem decimal, também valem: "1.620" e "1,620" são mil seiscentos
+ * e vinte (quem copia sem os centavos não quer R$ 1,62); "0.500" é meio real.
+ * Fora do `check` da tabela (zero, mais de 10 milhões): `null`.
  */
 export function valorDigitado(texto: string): number | null {
-  const limpo = texto.replace(/R\$/gi, "").replace(/\s/g, "");
-  const bruto = SO_MILHAR.test(limpo) ? Number(limpo.replace(/\./g, "")) : parseValorDoPedido(limpo);
+  const normal = normalizar(texto);
+  if (normal === null) return null;
+  const bruto = Number(normal);
   if (!Number.isFinite(bruto)) return null;
+  // `amount` é numeric(12, 2): o banco arredonda para centavos, e a validação olha o que vai ser gravado.
   const valor = duasCasas(bruto);
   return valor > 0 && valor <= MAX_VALOR ? valor : null;
 }

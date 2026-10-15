@@ -181,3 +181,25 @@ test("falha: HTML e corpo comprido nunca vão para a tela", () => {
   assert.equal(mensagemDeFalha({ tipo: "criar" }, { error: "y".repeat(201) }, ""), "Não deu para salvar o gasto.");
   assert.equal(mensagemDeFalha({ tipo: "criar" }, { error: "<b>x</b>" }, ""), "Não deu para salvar o gasto.");
 });
+
+test("valor no formato americano (Gerenciador em inglês): o último separador é o decimal", () => {
+  assert.equal(valorDigitado("R$1,620.00"), 1620);
+  assert.equal(valorDigitado("1,620.00"), 1620);
+  assert.equal(valorDigitado("1.620,00"), 1620);
+  assert.equal(valorDigitado("10,000,000.00"), MAX_VALOR);
+  assert.equal(valorDigitado("1,620.5"), 1620.5);
+});
+
+test("milhar só com vírgula é milhar; vírgula decimal comum continua valendo", () => {
+  assert.equal(valorDigitado("1,620"), 1620);
+  assert.equal(valorDigitado("10,000"), 10_000);
+  assert.equal(valorDigitado("1620,5"), 1620.5);
+  assert.equal(valorDigitado("1620,50"), 1620.5);
+  assert.equal(valorDigitado("0,5"), 0.5);
+});
+
+test("agrupamento torto ou caractere que não é número é recusado", () => {
+  for (const t of ["1.62,5", "1,62.5", "0x10", "1e3", "+5", "-3", "1.2.3", "1,2,3", "1.620,00,5"]) {
+    assert.equal(valorDigitado(t), null, t);
+  }
+});
