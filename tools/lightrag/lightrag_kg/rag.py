@@ -128,6 +128,18 @@ def _load_graph() -> "nx.Graph | None":
     return nx.read_graphml(path)
 
 
+def processed_doc_ids(ids: list[str]) -> set[str]:
+    """Dos `ids`, quais terminaram `processed` no doc_status (lido do disco, apos o insert)."""
+    doc_status_path = config.STORAGE_DIR / "kv_store_doc_status.json"
+    if not doc_status_path.exists():
+        return set()
+    import json
+
+    with open(doc_status_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    return {i for i in ids if (data.get(i) or {}).get("status") == "processed"}
+
+
 async def stats() -> dict:
     await get_rag()
     graph = _load_graph()

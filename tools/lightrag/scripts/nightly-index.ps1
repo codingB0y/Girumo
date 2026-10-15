@@ -67,8 +67,11 @@ $log = Join-Path $logDir ("nightly-{0:yyyy-MM-dd}.log" -f (Get-Date))
         # Sem isso, arquivo que falhou (cota diaria do Gemini) ou que mudou fica preso
         # no dedupe por nome do LightRAG e o retry vira no-op silencioso.
         & $python -m lightrag_kg.cli index --incremental --retry-failed
-        if ($LASTEXITCODE -ne 0) { throw "rag index saiu com $LASTEXITCODE" }
+        $codigo = $LASTEXITCODE
         & $python -m lightrag_kg.cli stats
+        # 1 = parte dos arquivos nao processou (quase sempre cota diaria do Gemini).
+        # Eles ficam fora do manifest e entram de novo na proxima noite.
+        if ($codigo -ne 0) { throw "rag index saiu com $codigo" }
     } finally {
         Pop-Location
     }
