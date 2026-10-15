@@ -344,3 +344,56 @@ async function reabrirLinhas(tenantId: string, dia: string, pendente: boolean, c
   if (error) throw new Error(error.message);
   return count ?? 0;
 }
+
+const contagem = z.number().int().nonnegative();
+// O jsonb do `bling_resumo` como o SQL monta. Chave nova passa (some no parse); faltar ou vir torta, não.
+const numerosDoCartao = z.object({
+  vendas_30d: contagem,
+  vendido_30d: z.number(),
+  origem_30d: z.object({ anuncio: contagem, grupo: contagem, sem_origem: contagem }),
+  meta_30d: z.object({
+    enviado: contagem,
+    fora_da_janela: contagem,
+    sem_pixel: contagem,
+    sem_dados: contagem,
+    desligado: contagem,
+    erro: contagem,
+  }),
+  pendentes: contagem,
+  falhas: contagem,
+  historico_lidos: contagem,
+  listas: z.object({ alto_valor: contagem, comprador: contagem, lead: contagem }),
+});
+
+/** Números do cartão em snake_case, como o SQL devolve. */
+export type ResumoBling = z.infer<typeof numerosDoCartao>;
+
+/** Somas e contagens feitas no banco (`bling_resumo`): ler as linhas pararia em 1000 sem erro. */
+export async function lerResumo(tenantId: string): Promise<ResumoBling> {
+  const { data, error } = await getSupabaseAdmin().rpc("bling_resumo", { p_tenant: tenantId });
+  if (error) throw new Error(error.message);
+  const lido = numerosDoCartao.safeParse(data);
+  // Formato errado é defeito do SQL: estoura em vez de mostrar zero vendas no cartão.
+  if (!lido.success) throw new Error("bling_resumo: formato inesperado");
+  return lido.data;
+}
+
+/**
+ * As últimas vendas e pedidos do cartão: dia do pedido mais novo primeiro (sem dia por
+ * último), e no mesmo dia o id mais alto (o Bling numera em ordem de criação).
+ * ponytail: o índice `bling_orders_recent_idx` é `order_date desc` (nulls first), então o
+ * "nulls last" ordena as linhas da loja num sort top-N; criar o índice com `nulls last` se
+ * o cartão de uma loja grande ficar lento.
+ */
+export async function ultimasDoCartao(tenantId: string, limite: number): Promise<LinhaPedidoBling[]> {
+  const { data, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .select(COLS)
+    .eq("tenant_id", tenantId)
+    .in("kind", ["venda", "pedido"])
+    .order("order_date", { ascending: false, nullsFirst: false })
+    .order("bling_order_id", { ascending: false })
+    .limit(limite);
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as unknown as Row[]).map(toLinha);
+}
