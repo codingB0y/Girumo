@@ -23,6 +23,24 @@ export function cargaAposLeitura(atual: CargaDosEstados, lida: EstadosDaCampanha
   return atual.fase === "pronto" ? { ...atual, desatualizada: true } : { fase: "erro" };
 }
 
+const CARREGANDO: CargaDosEstados = { fase: "carregando" };
+
+/** A carga que o hook guarda, com a campanha a que ela pertence. */
+export type CargaGuardada = { slug: string; carga: CargaDosEstados } | null;
+
+/**
+ * O que a tela vê para `slug`: só a carga guardada para ESTE slug. Slug novo (ou vazio) é
+ * `carregando` até a primeira leitura dele chegar, nunca a lista de outra campanha.
+ */
+export function cargaDoSlug(guardada: CargaGuardada, slug: string): CargaDosEstados {
+  return slug !== "" && guardada?.slug === slug ? guardada.carga : CARREGANDO;
+}
+
+/** `cargaAposLeitura` para o slug lido: a base é a carga DESTE slug, então a lista de outro não vira "velha". */
+export function aplicarLeitura(guardada: CargaGuardada, slug: string, lida: EstadosDaCampanha | null): CargaGuardada {
+  return { slug, carga: cargaAposLeitura(cargaDoSlug(guardada, slug), lida) };
+}
+
 /** null = lendo; "erro" = falhou, inclusive a lista velha. A aba não chuta. */
 export function estadosFrescos(carga: CargaDosEstados): EstadosDaCampanha | "erro" | null {
   if (carga.fase === "carregando") return null;
@@ -44,20 +62,29 @@ async function lerEstados(slug: string): Promise<EstadosDaCampanha | null> {
  * chega à tela: a resposta atrasada de uma anterior é descartada. `recarregar` resolve quando a
  * tela tem a leitura mais nova, mesmo que outra tenha começado no meio (o "atualizado" da página
  * durante uma ação): o botão da aba Grupos só solta com a linha nova.
+ *
+ * Slug vazio não lê nada (a folha da barra passa "" enquanto fechada) e larga a lista guardada;
+ * voltar ao mesmo slug lê de novo. A tela nunca recebe a lista de outro slug: trocar de campanha
+ * é `carregando` até a leitura da nova chegar.
  */
 export function useEstadosDaCampanha(slug: string, chave: unknown) {
-  const [carga, setCarga] = useState<CargaDosEstados>({ fase: "carregando" });
+  const [guardada, setGuardada] = useState<CargaGuardada>(null);
   const ultima = useRef<Promise<void> | null>(null);
 
   const recarregar = useCallback(async () => {
+    if (slug === "") {
+      ultima.current = null; // a leitura em voo da campanha anterior não chega mais à tela
+      setGuardada(null);
+      return;
+    }
     const minha: Promise<void> = lerEstados(slug).then((lida) => {
-      if (ultima.current === minha) setCarga((atual) => cargaAposLeitura(atual, lida));
+      if (ultima.current === minha) setGuardada((atual) => aplicarLeitura(atual, slug, lida));
     });
     ultima.current = minha;
     let esperando = minha;
     await esperando;
-    while (ultima.current !== esperando) {
-      esperando = ultima.current ?? esperando;
+    while (ultima.current && ultima.current !== esperando) {
+      esperando = ultima.current;
       await esperando;
     }
   }, [slug]);
@@ -67,9 +94,9 @@ export function useEstadosDaCampanha(slug: string, chave: unknown) {
   }, [recarregar, chave]);
 
   const tentarDeNovo = useCallback(() => {
-    setCarga({ fase: "carregando" });
+    setGuardada(null);
     void recarregar();
   }, [recarregar]);
 
-  return { carga, recarregar, tentarDeNovo };
+  return { carga: cargaDoSlug(guardada, slug), recarregar, tentarDeNovo };
 }
