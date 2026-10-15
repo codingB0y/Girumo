@@ -7,7 +7,7 @@
     "hubflow-engine"
   ],
   "scripts": {
-    "test": "npm --workspace apps/web test && npm --workspace apps/worker test && tsx --test infra/scripts/migrate-legacy-tenant-data.test.ts infra/scripts/check-schema-drift.test.ts infra/scripts/check-advisors.test.ts",
+    "test": "npm --workspace apps/web test && npm --workspace apps/worker test && tsx --test infra/scripts/migrate-legacy-tenant-data.test.ts infra/scripts/check-schema-drift.test.ts infra/scripts/check-advisors.test.ts infra/scripts/apply-migrations.test.ts",
     "engine:test": "npm --workspace hubflow-engine test",
     "web:dev": "npm --workspace apps/web run dev",
     "web:build": "npm --workspace apps/web run build",
