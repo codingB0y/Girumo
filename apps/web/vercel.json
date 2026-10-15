@@ -11,6 +11,10 @@
     {
       "path": "/api/notifications/alerts",
       "schedule": "17 11-23/3 * * *"
+    },
+    {
+      "path": "/api/cron/bling",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

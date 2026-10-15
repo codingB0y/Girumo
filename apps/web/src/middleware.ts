@@ -29,6 +29,11 @@ const RATE_LIMITS: Record<string, number> = {
   // Webhook da Zernio (Instagram): mesmo raciocínio. O gate real é a assinatura
   // HMAC no handler; isto só barra flood ingênuo.
   "/api/ig/webhook": 300,
+  // Aviso de pedido do Bling: o gate real é o HMAC no handler; isto só barra
+  // flood ingênuo. O Bling manda de poucos IPs para TODAS as lojas, então o teto
+  // é do volume somado: passou dele, o 429 só atrasa (o Bling retenta por 3 dias
+  // e a varredura do cron cobre). Subir quando as lojas conectadas crescerem.
+  "/api/integracoes/bling/webhook": 300,
   // Cadastro do site próprio: o IP é o do Cloudflare do lojista, compartilhado
   // entre muitos sites — teto folgado aqui; o de verdade é por chave, no handler.
   "/api/integracoes/cadastro": 120,

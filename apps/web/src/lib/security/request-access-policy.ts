@@ -38,7 +38,13 @@ const ENGINE_ONLY = new Set([
  * `/api/webhooks/config` (rota autenticada de tenant, removida em 20/08 por ser
  * órfã) e vale igual para a próxima que aparecer aqui.
  */
-const PROVIDER_WEBHOOKS = new Set(["POST /api/webhooks/evolution", "POST /api/ig/webhook"]);
+const PROVIDER_WEBHOOKS = new Set([
+  "POST /api/webhooks/evolution",
+  "POST /api/ig/webhook",
+  // Aviso de pedido do Bling: vem do servidor do Bling, que não tem sessão nem Bearer. O
+  // handler confere o HMAC do corpo cru (X-Bling-Signature-256) antes de tocar no banco.
+  "POST /api/integracoes/bling/webhook",
+]);
 
 const SHARED_PREFIXES = [
   "/api/session",
@@ -69,9 +75,13 @@ export function classifyRequest(pathname: string, method: string): AccessKind {
   //
   // Path EXATO, um por linha: esquecer de listar aqui deixa o cron inerte em
   // produção, com o ambiente todo configurado.
+  //
+  // /api/cron/bling: varredura, histórico e fila do Bling a cada 5 min. Fora desta
+  // lista as vendas só chegariam pelo aviso, e um aviso perdido nunca entraria.
   if (
     pathname === "/api/cron/emails" ||
-    pathname === "/api/notifications/alerts"
+    pathname === "/api/notifications/alerts" ||
+    pathname === "/api/cron/bling"
   ) {
     return "cron";
   }
