@@ -148,7 +148,7 @@ export function FolhaPostar({ id, aberta, aoFechar, aoPostar, emQualquerLargura 
               ))}
             </select>
             {campanha && estados.carga === "pronto" && (
-              <span className="font-data mt-1 block text-12 tabular-nums text-slate-600">
+              <span className="font-data mt-1 block text-13 tabular-nums text-slate-600">
                 {fraseResumo(resumoDoDestino(estados.grupos, destino))}
               </span>
             )}
