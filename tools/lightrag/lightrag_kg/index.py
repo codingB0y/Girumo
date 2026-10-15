@@ -138,6 +138,7 @@ async def run_index(
     manifest = load_manifest()
 
     texts, ids, file_paths = [], [], []
+    pending_hashes: dict[str, tuple[str, str]] = {}  # doc_id -> (rel_str, hash)
     for path in target_files:
         rel = path.relative_to(config.REPO_ROOT)
         rel_str = str(rel).replace("\\", "/")
@@ -153,7 +154,7 @@ async def run_index(
         # so plain "dir/route.ts" collides across every route.ts in the repo.
         # Flatten with a non-path separator to keep it globally unique.
         file_paths.append(rel_str.replace("/", " » "))
-        manifest[rel_str] = file_hash(path)
+        pending_hashes[ids[-1]] = (rel_str, file_hash(path))
 
     if retry_failed:
         purge_result = await rag_mod.purge_stale_records(file_paths)
@@ -165,7 +166,21 @@ async def run_index(
 
     console.print(f"Indexing {len(texts)} file(s)...")
     await rag_mod.insert_batch(texts, ids=ids, file_paths=file_paths)
+
+    # Manifest so com o que terminou `processed`. O LightRAG nao levanta erro quando
+    # a cota diaria do Gemini acaba (429): o lote termina com docs FAILED e, antes
+    # disto, o manifest marcava todos como indexados — a noite seguinte nao tentava
+    # de novo (15/10/2026: 203 arquivos, 410 docs failed, manifest gravado inteiro).
+    ok = rag_mod.processed_doc_ids(ids)
+    for doc_id in ok:
+        rel_str, digest = pending_hashes[doc_id]
+        manifest[rel_str] = digest
     save_manifest(manifest)
+
+    failed = len(ids) - len(ok)
+    if failed:
+        console.print(f"[red]{failed}/{len(ids)} file(s) not processed; left out of the manifest for the next run.[/red]")
+        raise SystemExit(1)
     console.print("[green]Done.[/green]")
 
 
