@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { useConfirmacao } from "@/components/painel/confirmacao";
 import { numero } from "@/lib/painel/grupos";
 import { DESTINO_PADRAO, type Destino } from "@/lib/campaigns/destino";
-import { MessageComposer, type ComposerPayload } from "./message-composer";
+import { ERRO_SEM_CONEXAO, MessageComposer, type ComposerPayload } from "./message-composer";
 import { ScheduleComposer, type SchedulePayload } from "./schedule-composer";
 import { MessagesAgenda } from "./messages-agenda";
 import { FunnelTab } from "./funnel/funnel-tab";
@@ -111,10 +111,15 @@ export function MessagesTab({
           ...payload,
           destino: destinoDoEnvio,
         }),
-      });
+      }).catch(() => null);
+      if (!res) {
+        setSendError(ERRO_SEM_CONEXAO);
+        return false;
+      }
       if (res.ok) {
         await fetchMessages();
         setSubTab("Agenda");
+        return true;
       } else {
         // `alert()` nativo nao aceita link, entao quem batia no gate de plano
         // aqui lia a mensagem e ficava sem saida — justamente no momento de
@@ -123,6 +128,7 @@ export function MessagesTab({
         const erro = await toPlanLimitError(res, "Erro ao enviar mensagem.");
         setSendError(erro.message);
         setSendUpgradeUrl(erro.upgradeUrl);
+        return false;
       }
     } finally {
       setSending(false);
@@ -143,14 +149,20 @@ export function MessagesTab({
           ...payload,
           destino: destinoDoEnvio,
         }),
-      });
+      }).catch(() => null);
+      if (!res) {
+        setSendError(ERRO_SEM_CONEXAO);
+        return false;
+      }
       if (res.ok) {
         await fetchMessages();
         setSubTab("Agenda");
+        return true;
       } else {
         const erro = await toPlanLimitError(res, "Erro ao agendar mensagem.");
         setSendError(erro.message);
         setSendUpgradeUrl(erro.upgradeUrl);
+        return false;
       }
     } finally {
       setSending(false);

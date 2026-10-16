@@ -19,6 +19,12 @@ type Props = {
    * ele o clique não produz nada em tela larga, sem erro e sem log.
    */
   emQualquerLargura?: boolean;
+  /**
+   * `false` deixa o fundo escuro inerte: só Esc e o "Fechar" fecham. Para folha
+   * com rascunho (postar), onde o toque fora é o gesto de baixar o teclado e
+   * desmontar a folha apagaria o que foi escrito.
+   */
+  fundoFecha?: boolean;
   children: React.ReactNode;
 };
 
@@ -26,11 +32,12 @@ const RAIZ = '[data-testid="painel-root"]';
 
 /**
  * Bottom sheet da casca mobile (spec Vitrine Aberta, 3.2): alça 32x4, Fechar em
- * texto, corpo rola até 90vh. Esc, o fundo e o Fechar fecham; o foco fica preso
- * dentro e o resto da tela vira `inert` enquanto está aberta. Vai pro body por
- * portal, porque a raiz do painel é justamente o que fica inerte.
+ * texto, corpo rola até 90vh. Esc, o fundo (salvo `fundoFecha={false}`) e o Fechar
+ * fecham; o foco fica preso dentro e o resto da tela vira `inert` enquanto está
+ * aberta. Vai pro body por portal, porque a raiz do painel é justamente o que
+ * fica inerte.
  */
-export function Folha({ aberta, aoFechar, titulo, testId, id, emQualquerLargura, children }: Props) {
+export function Folha({ aberta, aoFechar, titulo, testId, id, emQualquerLargura, fundoFecha = true, children }: Props) {
   // Antes do focus trap de propósito: a limpeza corre na ordem de declaração, e o
   // foco só consegue voltar pro botão que abriu depois de a raiz deixar de ser inerte.
   useEffect(() => {
@@ -59,7 +66,11 @@ export function Folha({ aberta, aoFechar, titulo, testId, id, emQualquerLargura,
     <div
       className={cn("font-body fixed inset-0 z-50 text-volt-950", !emQualquerLargura && "lg:hidden")}
     >
-      <button type="button" aria-label="Fechar" onClick={aoFechar} className="absolute inset-0 bg-volt-950/60" />
+      {fundoFecha ? (
+        <button type="button" aria-label="Fechar" onClick={aoFechar} className="absolute inset-0 bg-volt-950/60" />
+      ) : (
+        <div aria-hidden="true" className="absolute inset-0 bg-volt-950/60" />
+      )}
       <div
         ref={ref}
         id={id}
