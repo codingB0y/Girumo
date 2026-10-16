@@ -12,17 +12,19 @@
  * ainda está decidindo criar uma, e para o robô de verificação do Stripe.
  *
  * Rotas de autenticação (`/login`, `/signup`, …) NÃO entram aqui: elas já saem
- * antes, pelo `matcher` do middleware. O mesmo vale para `/lp3` (a home
- * anterior, guardada em 23/09/2026): o matcher exclui todo caminho que começa
- * com "lp".
+ * antes, pelo `matcher` do middleware. O mesmo vale para `/lp3` e `/lp4` (as
+ * homes anteriores, guardadas em 23/09 e 15/10/2026): o matcher exclui todo
+ * caminho que começa com "lp".
  *
  * `/automatico` e `/44eBras` são as landings de anúncio: `index: false`, mas
  * quem chega por elas nunca teve conta — fora da lista, o clique pago morre num
- * 307 para o login.
+ * 307 para o login. `/page2` é a segunda direção da home (V3, 15/10/2026), pelo
+ * mesmo motivo.
  */
 export const PUBLIC_PAGES: readonly string[] = [
   "/",
   "/home-v2",
+  "/page2",
   "/termos",
   "/privacidade",
   "/automatico",
