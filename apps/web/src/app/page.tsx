@@ -1,26 +1,26 @@
-import { CartazLanding } from "@/components/lp-cartaz/cartaz-landing";
-import { LP_FAQ } from "@/components/lp-shared/lp-data";
+import { HOME_FAQ } from "@/components/home-shared/home-data";
+import { VitrineLanding } from "@/components/home-vitrine/vitrine-landing";
 import { PLANS } from "@/components/lp3/landing-data";
 import { BRAND, getBrandAssetUrl, getPublicSiteUrl } from "@/lib/brand";
 
 /* ============================== SEO ============================== */
 
 const SITE_URL = getPublicSiteUrl();
-const PAGE_TITLE = "Girumo — Grupos de WhatsApp pra atacado de roupa";
+const PAGE_TITLE = "Girumo — Grupos de WhatsApp cheios e vendendo todo dia";
 const OG_TITLE = `${BRAND.name} | ${BRAND.tagline}`;
 const OG_DESC = BRAND.description;
 
 const JSON_LD_FAQ = {
   "@context": "https://schema.org",
   "@type": "FAQPage",
-  mainEntity: LP_FAQ.map(([q, a]) => ({
+  mainEntity: HOME_FAQ.map(([q, a]) => ({
     "@type": "Question",
     name: q,
     acceptedAnswer: { "@type": "Answer", text: a },
   })),
 };
 
-const MENSAIS = PLANS.map((p) => p.price);
+const ANUAIS = PLANS.map((p) => p.annualPrice);
 
 const JSON_LD_SOFTWARE = {
   "@context": "https://schema.org",
@@ -33,12 +33,13 @@ const JSON_LD_SOFTWARE = {
   offers: {
     "@type": "AggregateOffer",
     priceCurrency: "BRL",
-    // "197" hoje. O preço EM DESTAQUE na página é o mensal (o seletor dos planos
-    // abre em Mensal; o anual aparece só na linha menor, "ou R$ 127/mês no plano
-    // anual"). A faixa do dado estruturado acompanha o destaque — senão o snippet
-    // do Google promete um preço que a página não destaca. Sai de PLANS.
-    lowPrice: String(Math.min(...MENSAIS)),
-    highPrice: String(Math.max(...MENSAIS)),
+    // "127" hoje. Desde a Vitrine (15/10/2026) o seletor dos planos abre no
+    // Anual, então o preço EM DESTAQUE é o mensal equivalente do anual; o mensal
+    // aparece riscado ("De R$ 197 por") e na linha "No mensal" da tabela. A faixa
+    // do dado estruturado acompanha o destaque — senão o snippet do Google promete
+    // um preço que a página não destaca. Sai de PLANS.
+    lowPrice: String(Math.min(...ANUAIS)),
+    highPrice: String(Math.max(...ANUAIS)),
     // Essencial, Growth e Operação. Sem este campo o AggregateOffer fica
     // incompleto e o Google costuma descartar o bloco inteiro em vez de exibir
     // a faixa de preço.
@@ -78,7 +79,7 @@ export const metadata = {
     "agendar mensagens WhatsApp",
     "captação de leads WhatsApp",
     "landing page para grupo de WhatsApp",
-    "atacado de roupa WhatsApp",
+    "vender em grupo de WhatsApp",
     "vender no WhatsApp",
   ],
   alternates: { canonical: "/" },
@@ -112,7 +113,7 @@ export default function HomePage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD_ORGANIZATION) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD_FAQ) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD_SOFTWARE) }} />
-      <CartazLanding />
+      <VitrineLanding />
     </>
   );
 }

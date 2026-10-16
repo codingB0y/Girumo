@@ -3,13 +3,11 @@
    e o JSON-LD do FAQ é montado em app/page.tsx a partir daqui. */
 
 /**
- * Porta secundária, só no rodapé — o CTA principal da landing é o WhatsApp de
- * vendas desde 31/08/2026.
- *
- * O /signup faz router.replace("/painel") sem passar por checkout: com o FREE
- * morto, quem entra por ele ganha uma conta em BLOCKED_LIMITS que não faz nada.
- * Manter o botão principal fora dele não FECHA esse buraco; o conserto do
- * /signup é PR próprio.
+ * Cadastro. O /signup faz router.replace("/painel") sem passar por checkout, e a
+ * conta nasce em BLOCKED_LIMITS — mas desde 05/10/2026 (#363 #376) o painel abre
+ * com a oferta do teste de 7 dias com cartão (modal, faixa fixa e todo 402 abre o
+ * paywall em modo teste). Por isso a home (Vitrine, 15/10/2026) usa este link
+ * como CTA principal; as LPs de anúncio seguem com o WhatsApp de vendas.
  */
 export const SIGNUP_URL = "/signup";
 
