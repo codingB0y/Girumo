@@ -125,9 +125,10 @@ export const ROTAS_DO_ADMIN = coletarRotas("admin");
 
 /**
  * Publicas: tem que responder sem sessao nenhuma. `/automatico` e `/44eBras`
- * sao as landings de anuncio e `/lp3` e a home anterior, guardada em 23/09/2026.
+ * sao as landings de anuncio; `/lp3` e `/lp4` sao as homes anteriores (guardadas
+ * em 23/09 e 15/10/2026) e `/page2` e a segunda direcao da home atual.
  */
-export const ROTAS_PUBLICAS = ["/", "/login", "/signup", "/lp3", "/automatico", "/44eBras"];
+export const ROTAS_PUBLICAS = ["/", "/login", "/signup", "/lp3", "/lp4", "/page2", "/automatico", "/44eBras"];
 
 /**
  * Padroes dinamicos sob /painel — cobertos com fixture e sessao real.
