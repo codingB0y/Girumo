@@ -5,6 +5,7 @@ import { toPlanLimitError } from "@/lib/billing/plan-limit-client";
 import { PlanLimitAlert } from "@/components/painel/plan-limit-alert";
 import { cn } from "@/lib/utils";
 import { useConfirmacao } from "@/components/painel/confirmacao";
+import { useToast } from "@/components/toast";
 import { numero } from "@/lib/painel/grupos";
 import { DESTINO_PADRAO, type Destino } from "@/lib/campaigns/destino";
 import { MessageComposer, type ComposerPayload } from "./message-composer";
@@ -46,6 +47,7 @@ export function MessagesTab({
   abrirNoFunil = false,
 }: Props) {
   const { pedirConfirmacao, folhaDeConfirmacao } = useConfirmacao();
+  const toast = useToast();
   const comecaNoFunil = abrirNoFunil && Boolean(funil);
   const [subTab, setSubTab] = useState<SubTab>(comecaNoFunil ? "Funil" : "Enviar agora");
   // O Funil monta na 1ª visita e não desmonta mais: progresso, runId e o
@@ -157,11 +159,21 @@ export function MessagesTab({
     }
   };
 
+  // Antes só recarregava no sucesso: falha (ou rede caída) deixava o post
+  // "Agendado" sem explicação, e ele saía. A `message` da rota diz quantos
+  // grupos já tinham recebido.
   const handleCancel = async (id: string) => {
-    const res = await fetch(`/api/campanhas/${campaignSlug}/messages/cancel?id=${id}`, {
-      method: "PATCH",
-    });
-    if (res.ok) await fetchMessages();
+    try {
+      const res = await fetch(`/api/campanhas/${campaignSlug}/messages/cancel?id=${id}`, {
+        method: "PATCH",
+      });
+      const corpo = (await res.json().catch(() => ({}))) as { message?: string; error?: string };
+      if (res.ok) toast(corpo.message ?? "Disparo cancelado.");
+      else toast(corpo.error ?? "Não deu para cancelar: o post segue agendado.", "error");
+    } catch {
+      toast("Sem conexão: o post não foi cancelado e segue agendado.", "error");
+    }
+    await fetchMessages();
   };
 
   // Reusa a rota de uma mensagem (escopo por tenant + permissão já estão lá).
@@ -174,10 +186,18 @@ export function MessagesTab({
       destrutivo: true,
     });
     if (!ok) return;
+    let cancelouTudo = true;
     for (const id of ids) {
-      const res = await fetch(`/api/campanhas/${campaignSlug}/messages/cancel?id=${id}`, { method: "PATCH" });
-      if (!res.ok) break;
+      const res = await fetch(`/api/campanhas/${campaignSlug}/messages/cancel?id=${id}`, { method: "PATCH" }).catch(
+        () => null,
+      );
+      if (!res?.ok) {
+        cancelouTudo = false;
+        break;
+      }
     }
+    if (cancelouTudo) toast("Funil cancelado.");
+    else toast("Parte do funil não foi cancelada. Confira a Agenda e tente de novo.", "error");
     await fetchMessages();
   };
 
