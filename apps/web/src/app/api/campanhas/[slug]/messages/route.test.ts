@@ -286,6 +286,40 @@ test("comunidade nativa: o Avisos passa como lista fixa mesmo fora de group_ids"
   assert.equal(avisos.url.searchParams.get("community_role"), "eq.announce");
 });
 
+test("comunidade nativa: o groupIds legado também pede o Avisos, e ele passa", async () => {
+  chamadas.length = 0;
+  responder = banco({
+    "GET /rest/v1/campaign_groups": () => ({ status: 200, corpo: [campanha({ whatsapp_community_jid: COMUNIDADE })] }),
+    "GET /rest/v1/groups": () => ({
+      status: 200,
+      corpo: [{ community_jid: COMUNIDADE, whatsapp_group_id: AVISOS, members: 3000, is_admin: true }],
+    }),
+  });
+
+  // Mutante: pular a consulta quando não há `destino` — o `groupIds` ainda é lista fixa.
+  chegouAoTeto(await postar({ body: "aviso", groupIds: [AVISOS] }));
+  assert.equal(feitas("GET", "/rest/v1/groups").length, 1);
+});
+
+test("comunidade nativa: regra (ou nenhum destino) não consulta o Avisos e segue para gravar", async () => {
+  // Sem handler de `groups`: se a rota consultasse, o banco falso responderia 500.
+  // Mutante: consultar o Avisos em todo POST — o padrão de toda tela é uma regra.
+  for (const corpo of [{ body: "oferta" }, { body: "oferta", destino: { regra: "menos_enchendo" } }]) {
+    chamadas.length = 0;
+    responder = gravando({
+      "GET /rest/v1/campaign_groups": () => ({ status: 200, corpo: [campanha({ whatsapp_community_jid: COMUNIDADE })] }),
+      [`POST ${RPC}`]: () => ({ status: 200, corpo: [estado(1, G1, "enchendo", false), estado(2, G2, "fila", true)] }),
+    });
+
+    const res = await postar(corpo);
+
+    assert.equal(res.status, 201, JSON.stringify(corpo));
+    assert.equal(feitas("GET", "/rest/v1/groups").length, 0, JSON.stringify(corpo));
+    assert.equal(feitas("POST", "/rest/v1/broadcasts").length, 1, JSON.stringify(corpo));
+    await aguardarMarcoDeAtivacao();
+  }
+});
+
 test("vendedora não tem o Avisos: destino.grupos não fura o que groupIds já recusava", async () => {
   chamadas.length = 0;
   responder = banco(
@@ -350,6 +384,25 @@ test("regra (e o padrão sem destino) grava group_ids vazio e a regra: o banco r
     target_rule: "menos_enchendo",
   });
   assert.equal(feitas("POST", "/rest/v1/rpc/enqueue_broadcast").length, 1);
+  await aguardarMarcoDeAtivacao();
+});
+
+test("uma regra que não é a padrão chega ao disparo: target_rule é a escolhida, group_ids vazio", async () => {
+  chamadas.length = 0;
+  responder = gravando({
+    "GET /rest/v1/campaign_groups": () => ({ status: 200, corpo: [campanha()] }),
+    // O G1 está enchendo: só "com_gente" o inclui (menos_enchendo = false), então a regra lida importa.
+    [`POST ${RPC}`]: () => ({ status: 200, corpo: [estado(1, G1, "enchendo", false)] }),
+  });
+
+  // Mutante: gravar sempre a regra padrão, ignorando a que a tela escolheu.
+  const res = await postar({ body: "oferta", destino: { regra: "com_gente" } });
+
+  assert.equal(res.status, 201);
+  const [insert] = feitas("POST", "/rest/v1/broadcasts");
+  const corpo = insert.corpo as Record<string, unknown>;
+  assert.equal(corpo.target_rule, "com_gente");
+  assert.deepEqual(corpo.group_ids, []);
   await aguardarMarcoDeAtivacao();
 });
 

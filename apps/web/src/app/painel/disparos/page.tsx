@@ -6,6 +6,7 @@ import type { SchedulePayload } from "@/components/painel/messages/schedule-comp
 import type { TenantDispatchView } from "@/lib/campaigns/dispatch-view";
 import { DisparosVitrine } from "@/components/painel/disparos/vitrine/disparos-vitrine";
 import type { Group } from "@/lib/mock-data";
+import type { Destino } from "@/lib/campaigns/destino";
 
 type Campanha = { id: string; name: string; slug?: string; groupIds: string[] };
 
@@ -83,7 +84,7 @@ export default function PainelDisparos() {
     [campanhas, campaignSlug],
   );
 
-  async function dispatch(payload: ComposerPayload | SchedulePayload) {
+  async function dispatch(payload: ComposerPayload | SchedulePayload, destino: Destino) {
     if (!campanhaAtual) return;
     setSending(true);
     setErro(null);
@@ -91,7 +92,7 @@ export default function PainelDisparos() {
       const res = await fetch(`/api/campanhas/${campaignSlug}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...payload, groupIds: campanhaAtual.groupIds }),
+        body: JSON.stringify({ ...payload, destino }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));

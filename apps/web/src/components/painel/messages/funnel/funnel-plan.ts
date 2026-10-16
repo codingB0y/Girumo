@@ -7,6 +7,7 @@
  * chave vazia, e uma exceção no meio da confirmação deixaria mensagens já
  * agendadas.
  */
+import type { Destino } from "@/lib/campaigns/destino";
 import { ROTEIRO_OPENING, atOpening } from "@/lib/funnels/pracas";
 import { anchorValues, missingKeys, renderCopy, resolveStepDate } from "@/lib/funnels/render";
 import type { FunnelField, FunnelStep, FunnelTemplate, FunnelTemplateId } from "@/lib/funnels/templates";
@@ -57,14 +58,14 @@ export type StepPlan = {
   media?: StepMedia;
 };
 
-export type FunnelRun = { templateId: FunnelTemplateId; runId: string; groupIds: readonly string[] };
+export type FunnelRun = { templateId: FunnelTemplateId; runId: string; destino: Destino };
 
 export type MessagePayload = {
   body: string;
   mentionAll: boolean;
   scheduledAt: string;
   recurrence: "none";
-  groupIds: string[];
+  destino: Destino;
   funnelTemplateId: FunnelTemplateId;
   funnelRunId: string;
   mediaId?: string;
@@ -223,7 +224,7 @@ export function messagePayload(p: StepPlan, run: FunnelRun): MessagePayload {
     mentionAll: p.mentionAll,
     scheduledAt: p.at.toISOString(),
     recurrence: "none",
-    groupIds: [...run.groupIds],
+    destino: run.destino,
     funnelTemplateId: run.templateId,
     funnelRunId: run.runId,
     ...(p.media ? { mediaId: p.media.id, mediaType: "image" as const, mediaName: p.media.name } : {}),

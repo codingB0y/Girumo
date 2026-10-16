@@ -4,11 +4,14 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/toast";
 import { MessageComposer, type ComposerPayload } from "@/components/painel/messages/message-composer";
+import { DestinoGrupos, useCargaDosEstados } from "@/components/painel/messages/destino-grupos";
+import type { Destino } from "@/lib/campaigns/destino";
+import { destinoDaCampanha, fraseResumo, resumoDoDestino } from "@/lib/campaigns/destino-ui";
 import type { TenantDispatchView } from "@/lib/campaigns/dispatch-view";
 import { Bolha } from "./bolha";
 import { Folha } from "./folha";
 
-type Campanha = { id: string; name: string; slug?: string; groupIds?: string[] };
+type Campanha = { id: string; name: string; slug?: string };
 
 type Props = {
   id?: string;
@@ -36,11 +39,17 @@ export function FolhaPostar({ id, aberta, aoFechar, aoPostar, emQualquerLargura 
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [texto, setTexto] = useState("");
+  // O destino vale para a campanha em que foi escolhido e para esta abertura:
+  // trocar de campanha ou reabrir a folha volta ao atalho padrão.
+  const [escolha, setEscolha] = useState<{ slug: string; destino: Destino } | null>(null);
+  // Fechada, a folha não busca; reaberta, relê os estados (ela não desmonta ao fechar).
+  const estados = useCargaDosEstados(aberta ? slug : "");
 
   useEffect(() => {
     if (!aberta) {
       // A folha não desmonta ao fechar; sem isto a prévia antiga piscaria ao reabrir.
       setTexto("");
+      setEscolha(null);
       return;
     }
     let cancelado = false;
@@ -69,6 +78,7 @@ export function FolhaPostar({ id, aberta, aoFechar, aoPostar, emQualquerLargura 
   }, [aberta]);
 
   const campanha = useMemo(() => campanhas.find((c) => (c.slug ?? c.id) === slug) ?? null, [campanhas, slug]);
+  const destino = destinoDaCampanha(escolha, slug);
 
   async function postar(payload: ComposerPayload) {
     if (!campanha) return;
@@ -78,7 +88,7 @@ export function FolhaPostar({ id, aberta, aoFechar, aoPostar, emQualquerLargura 
       const res = await fetch(`/api/campanhas/${slug}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...payload, groupIds: campanha.groupIds ?? [] }),
+        body: JSON.stringify({ ...payload, destino }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -128,7 +138,10 @@ export function FolhaPostar({ id, aberta, aoFechar, aoPostar, emQualquerLargura 
             <span className="text-13 font-semibold text-slate-600">Campanha</span>
             <select
               value={slug}
-              onChange={(e) => setSlug(e.target.value)}
+              onChange={(e) => {
+                setSlug(e.target.value);
+                setEscolha(null); // voltar à campanha anterior não ressuscita a lista fixa dela
+              }}
               className="mt-1 h-12 w-full rounded-[var(--radius-control)] border border-line-200 bg-paper-0 px-3 text-[16px] text-volt-950"
             >
               {campanhas.map((c) => (
@@ -137,12 +150,19 @@ export function FolhaPostar({ id, aberta, aoFechar, aoPostar, emQualquerLargura 
                 </option>
               ))}
             </select>
-            {campanha && (
-              <span className="font-data mt-1 block text-12 tabular-nums text-slate-600">
-                {campanha.groupIds?.length ?? 0} grupos
+            {campanha && estados.carga === "pronto" && (
+              <span className="font-data mt-1 block text-13 tabular-nums text-slate-600">
+                {fraseResumo(resumoDoDestino(estados.grupos, destino))}
               </span>
             )}
           </label>
+
+          <DestinoGrupos
+            estados={estados}
+            value={destino}
+            onChange={(d) => setEscolha({ slug, destino: d })}
+            compacto
+          />
 
           <Bolha
             grupo={campanha?.name ?? "Seu grupo"}

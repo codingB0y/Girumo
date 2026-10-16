@@ -67,7 +67,7 @@ async function simularServidor(page: Page, campanha: Campanha, opts: { falharOfe
       campaignSlug: campanha.slug,
       type: "text",
       body: body.body,
-      groupIds: body.groupIds,
+      groupIds: [],
       mentionAll: body.mentionAll,
       scheduledAt: body.scheduledAt,
       recurrence: "none",
@@ -164,8 +164,10 @@ test("Live: 4 mensagens em série, oferta ligada à 3ª, chip na Agenda", async 
     expect(m.recurrence).toBe("none");
     expect(typeof m.scheduledAt).toBe("string");
     expect(String(m.body)).not.toMatch(/\{[^}]+\}/);
-    // Campanha com grupos: os alvos são os groupIds dela (disparo pro público certo).
-    expect(m.groupIds).toEqual(campanha.groupIds);
+    // D5/D8: o funil leva o destino da aba — por padrão a regra, refeita pelo banco
+    // na hora de cada mensagem, e não a lista congelada da campanha.
+    expect(m.destino).toEqual({ regra: "menos_enchendo" });
+    expect(m).not.toHaveProperty("groupIds");
   }
   const oferta = chamadas[3].body;
   expect(oferta.broadcastId).toBe("00000000-0000-4000-8000-0000000f0003");

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { PlanLimitAlert } from "@/components/painel/plan-limit-alert";
 import { useToast } from "@/components/toast";
+import type { Destino } from "@/lib/campaigns/destino";
 import { uploadMediaFile } from "@/lib/media-upload-client";
 import { PRACAS, isValidOpening, openingOf, type PracaId } from "@/lib/funnels/pracas";
 import { FUNNEL_TEMPLATES, type FunnelField, type FunnelTemplateId } from "@/lib/funnels/templates";
@@ -17,8 +18,8 @@ import { anchorFrom, blockerLabels, defaultAnchorDate, isBlocked, planFunnel, ty
 export type FunnelTabProps = {
   campaignSlug: string;
   campaignName: string;
-  /** Os mesmos alvos da aba (grupo a grupo ou Avisos). */
-  groupIds: string[];
+  /** O mesmo destino da aba: a regra ou a lista do seletor, ou o Avisos. */
+  destino: Destino;
   /** `https://<host>/r/<slug>`; vazio bloqueia as etapas de link. */
   masterUrl: string;
   groupCount: number;
@@ -169,7 +170,8 @@ export function FunnelTab(props: FunnelTabProps) {
   const bloqueios = pendentes.filter((x) => isBlocked(x.p));
   const diaBloqueado = bloqueios[0]?.day ?? anchorDate;
   const faltaNoDia = [...new Set(bloqueios.filter((x) => x.day === diaBloqueado).flatMap((x) => blockerLabels(x.p)))];
-  const semGrupos = props.groupIds.length === 0;
+  // `groupCount` é o tamanho de `group_ids` (1 no Avisos): o mesmo critério de antes.
+  const semGrupos = props.groupCount === 0;
   const podeAgendar =
     anchor !== null && aberturaOk && !semGrupos && uploading === null && pendentes.length > 0 && bloqueios.length === 0 && !confirming;
   const motivo = !anchor
@@ -320,7 +322,7 @@ export function FunnelTab(props: FunnelTabProps) {
         .map((day) => ({
           day,
           plans: planosDoDia(day, agora),
-          run: { templateId, runId: atuais[day].runId, groupIds: props.groupIds },
+          run: { templateId, runId: atuais[day].runId, destino: props.destino },
           progress: atuais[day].progress,
         }))
         .filter((j) => pendentesDe(j.day, j.plans).length > 0);

@@ -8,11 +8,14 @@ import { cn } from "@/lib/utils";
 import { Bolha } from "@/components/painel/bolha";
 import { MessageComposer, type ComposerPayload } from "@/components/painel/messages/message-composer";
 import { ScheduleComposer, type SchedulePayload } from "@/components/painel/messages/schedule-composer";
-import { alcance, fraseAlcance, quadradinhos, rotuloPostar } from "@/lib/painel/disparos";
+import { DestinoGrupos, useCargaDosEstados } from "@/components/painel/messages/destino-grupos";
+import { alcance, fraseAlcance, frasePlural, quadradinhos, rotuloPostar } from "@/lib/painel/disparos";
 import { diaHoraCurto } from "@/lib/painel/inicio";
 import { useCarimboEvento } from "@/lib/painel/use-carimbo-evento";
 import type { Group } from "@/lib/mock-data";
-import type { TenantDispatchView } from "@/lib/campaigns/dispatch-view";
+import type { Destino } from "@/lib/campaigns/destino";
+import { destinoDaCampanha, selecionados } from "@/lib/campaigns/destino-ui";
+import { regraPendente, type TenantDispatchView } from "@/lib/campaigns/dispatch-view";
 
 type Campanha = { id: string; name: string; slug?: string; groupIds: string[] };
 
@@ -29,7 +32,7 @@ type Props = {
   enviando: boolean;
   erro: string | null;
   live: boolean | null;
-  aoDisparar: (payload: ComposerPayload | SchedulePayload) => Promise<void>;
+  aoDisparar: (payload: ComposerPayload | SchedulePayload, destino: Destino) => Promise<void>;
 };
 
 const ESTADO: Record<string, { texto: string; classe: string }> = {
@@ -63,16 +66,36 @@ export function DisparosVitrine({
 }: Props) {
   const [agendando, setAgendando] = useState(false);
   const [texto, setTexto] = useState("");
+  // O destino escolhido vale só para a campanha em que foi escolhido: a lista
+  // fixa de uma, mandada para outra, seria recusada (grupo de fora da campanha).
+  const [escolha, setEscolha] = useState<{ slug: string; destino: Destino } | null>(null);
+  const destino = destinoDaCampanha(escolha, slug);
+  const estados = useCargaDosEstados(slug);
 
   // Sem memo: `agora` muda a cada render e congelaria o "há 2 dias" do histórico.
   const agora = new Date();
   const campanha = campanhas.find((c) => (c.slug ?? c.id) === slug) ?? null;
-  const alvo = alcance(grupos, campanha?.groupIds);
-  // Só depois de ter a lista de grupos a contagem pode aparecer no aviso e no
-  // botão: antes disso ela diria "os grupos sumiram" a quem só esperou meio
-  // segundo a mais pela rota de grupos.
-  const contagemPronta = gruposOk && !gruposCarregando;
+  // O alcance é o do DESTINO, não o da campanha inteira: o aviso, o botão e o
+  // atalho marcado contam a mesma coisa.
+  const doDestino = estados.carga === "pronto" ? selecionados(estados.grupos, destino) : [];
+  const alvo = alcance(grupos, doDestino);
+  // Só depois de ter a lista de grupos e os estados a contagem pode aparecer no
+  // aviso e no botão: antes disso ela diria "os grupos sumiram" a quem só
+  // esperou meio segundo a mais.
+  const contagemPronta = gruposOk && !gruposCarregando && estados.carga === "pronto";
   const semCampanha = campanhas.length === 0;
+
+  function linhaDeAlcance(): string {
+    if (gruposCarregando || estados.carga === "carregando") return "Contando quantas pessoas veem…";
+    if (estados.carga === "erro") return estados.mensagem;
+    if (estados.grupos.length > 0 && doDestino.length === 0) {
+      return "Esta escolha não tem grupos agora — troque o atalho ou marque os grupos à mão.";
+    }
+    if (!gruposOk) {
+      return `Vai pra ${frasePlural(doDestino.length, "grupo", "grupos")} · não deu pra contar as pessoas agora.`;
+    }
+    return fraseAlcance(alvo);
+  }
 
   return (
     <div className="mx-auto max-w-[1100px] space-y-6 px-4 py-6 sm:px-8 lg:py-8">
@@ -99,7 +122,10 @@ export function DisparosVitrine({
               <span className="text-13 font-semibold text-slate-600">Campanha</span>
               <select
                 value={slug}
-                onChange={(e) => aoTrocarCampanha(e.target.value)}
+                onChange={(e) => {
+                  aoTrocarCampanha(e.target.value);
+                  setEscolha(null); // voltar à campanha anterior não ressuscita a lista fixa dela
+                }}
                 aria-label="Campanha do disparo"
                 data-testid="disparos-campanha"
                 className="h-11 rounded-[var(--radius-control)] border border-line-200 bg-paper-0 px-3 text-[16px] text-volt-950"
@@ -125,14 +151,23 @@ export function DisparosVitrine({
             </button>
           </div>
 
+          <div className="mt-4">
+            <DestinoGrupos
+              estados={estados}
+              value={destino}
+              onChange={(d) => setEscolha({ slug, destino: d })}
+              compacto
+            />
+          </div>
+
           <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_340px]">
             <div className="order-2 lg:order-1" id="disparos-compositor">
               {agendando ? (
-                <ScheduleComposer onSchedule={aoDisparar} scheduling={enviando} />
+                <ScheduleComposer onSchedule={(p) => aoDisparar(p, destino)} scheduling={enviando} />
               ) : (
                 <MessageComposer
                   className="border-0 bg-transparent p-0"
-                  onSend={aoDisparar}
+                  onSend={(p) => aoDisparar(p, destino)}
                   sending={enviando}
                   onBodyChange={setTexto}
                   rotuloEnviar={contagemPronta ? rotuloPostar(alvo) : "Postar"}
@@ -159,11 +194,7 @@ export function DisparosVitrine({
                     : "text-slate-600",
                 )}
               >
-                {gruposCarregando
-                  ? "Contando quantas pessoas veem…"
-                  : gruposOk
-                    ? fraseAlcance(alvo)
-                    : `Vai pra ${campanha?.groupIds.length ?? 0} grupos · não deu pra contar as pessoas agora.`}
+                {linhaDeAlcance()}
               </p>
             </aside>
           </div>
@@ -202,6 +233,8 @@ function LinhaDoDisparo({ disparo: d, agora }: { disparo: TenantDispatchView; ag
   const acabouDeEnviar = useCarimboEvento(d.status === "sent") && d.status === "sent";
   const q = quadradinhos(d);
   const quando = d.scheduledAt ?? d.dispatchedAt ?? d.createdAt;
+  // Regra que ainda não rodou: o total só existe depois que o banco refaz a lista.
+  const regra = regraPendente(d);
 
   return (
     <li className="border-b border-dashed border-line-200 py-3 last:border-0" data-testid="disparos-linha">
@@ -216,9 +249,13 @@ function LinhaDoDisparo({ disparo: d, agora }: { disparo: TenantDispatchView; ag
         ) : (
           <span className="text-15 font-semibold text-volt-950">{d.campaignName}</span>
         )}
-        <span className="font-data ml-auto text-13 tabular-nums text-volt-950">
-          {d.sent} / {d.total} <span className="text-slate-600">grupos</span>
-        </span>
+        {regra ? (
+          <span className="ml-auto text-13 text-slate-600">{regra}</span>
+        ) : (
+          <span className="font-data ml-auto text-13 tabular-nums text-volt-950">
+            {d.sent} / {d.total} <span className="text-slate-600">grupos</span>
+          </span>
+        )}
       </div>
       <p className="mt-1 line-clamp-2 text-13 text-slate-600">{d.body || "Post com mídia, sem texto."}</p>
       {d.error && <p className="mt-1 text-13 text-alerta">{d.error}</p>}

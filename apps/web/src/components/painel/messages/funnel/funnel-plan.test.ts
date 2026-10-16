@@ -146,19 +146,21 @@ test("mentionAll vem do roteiro e o lojista pode trocar", () => {
 
 test("payload da mensagem: agendada, sem recorrência, com o par do funil", () => {
   const plans = planFunnel(live, cheio, ctx);
-  const run = { templateId: "live" as const, runId: "7d6f1e1a-0000-4000-8000-000000000001", groupIds: ["g1", "g2"] };
+  const run = { templateId: "live" as const, runId: "7d6f1e1a-0000-4000-8000-000000000001", destino: { regra: "menos_enchendo" as const } };
   const p = messagePayload(plans[2], run);
   assert.equal(p.recurrence, "none");
   assert.equal(p.scheduledAt, new Date(2026, 9, 10, 21, 30).toISOString());
   assert.equal(p.funnelTemplateId, "live");
   assert.equal(p.funnelRunId, run.runId);
-  assert.deepEqual(p.groupIds, ["g1", "g2"]);
+  // O funil leva o destino da aba; a regra é refeita pelo banco na hora de cada mensagem (D8).
+  assert.deepEqual(p.destino, { regra: "menos_enchendo" });
+  assert.equal("groupIds" in p, false);
   assert.equal("mediaId" in p, false);
 });
 
 test("payload leva a foto quando anexada", () => {
   const drafts = { ...cheio, "grade-da-live": { media: { id: "m1", name: "vestido.jpg", previewUrl: "blob:x" } } };
-  const p = messagePayload(planFunnel(live, drafts, ctx)[2], { templateId: "live", runId: "r", groupIds: ["g"] });
+  const p = messagePayload(planFunnel(live, drafts, ctx)[2], { templateId: "live", runId: "r", destino: { grupos: ["g"] } });
   assert.equal(p.mediaId, "m1");
   assert.equal(p.mediaType, "image");
   assert.equal(p.mediaName, "vestido.jpg");
@@ -166,7 +168,7 @@ test("payload leva a foto quando anexada", () => {
 
 test("payload recusa etapa incompleta em vez de mandar chave crua", () => {
   const [previa] = planFunnel(live, {}, ctx);
-  assert.throws(() => messagePayload(previa, { templateId: "live", runId: "r", groupIds: ["g"] }));
+  assert.throws(() => messagePayload(previa, { templateId: "live", runId: "r", destino: { grupos: ["g"] } }));
 });
 
 test("payload da oferta: nome da etapa, 'eu quero', slots inteiros", () => {

@@ -14,6 +14,10 @@ test("sem destino nenhum vale o padrão seguro: todos menos o que está enchendo
   assert.deepEqual(DESTINO_PADRAO, { regra: "menos_enchendo" });
 });
 
+test("o padrão é congelado: a tela o usa como estado inicial e ninguém pode mutá-lo", () => {
+  assert.equal(Object.isFrozen(DESTINO_PADRAO), true);
+});
+
 test("as três regras do contrato passam como regra", () => {
   for (const regra of ["menos_enchendo", "lotados", "com_gente"] as const) {
     assert.deepEqual(lerDestino({ destino: { regra } }, CAMPANHA), { ok: true, destino: { regra } });

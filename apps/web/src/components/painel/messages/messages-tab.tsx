@@ -6,10 +6,12 @@ import { PlanLimitAlert } from "@/components/painel/plan-limit-alert";
 import { cn } from "@/lib/utils";
 import { useConfirmacao } from "@/components/painel/confirmacao";
 import { numero } from "@/lib/painel/grupos";
+import { DESTINO_PADRAO, type Destino } from "@/lib/campaigns/destino";
 import { MessageComposer, type ComposerPayload } from "./message-composer";
 import { ScheduleComposer, type SchedulePayload } from "./schedule-composer";
 import { MessagesAgenda } from "./messages-agenda";
 import { FunnelTab } from "./funnel/funnel-tab";
+import { DestinoGrupos, useCargaDosEstados } from "./destino-grupos";
 import type { CampaignMessage } from "@/lib/messages-store";
 
 const SUB_TABS = ["Enviar agora", "Agendar", "Funil", "Agenda"] as const;
@@ -55,9 +57,9 @@ export function MessagesTab({
   const [messages, setMessages] = useState<CampaignMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  // Sem grupo filho vinculado, "grupo a grupo" manda groupIds: [] e o
-  // servidor devolve 400 — o Avisos é a única opção que funciona, então
-  // começa nele em vez de num radio morto.
+  // Sem grupo filho vinculado, "grupo a grupo" manda o destino (a regra padrão)
+  // e a campanha sem grupos recebe 400 ("Esta campanha ainda não tem grupos…") —
+  // o Avisos é a única opção que funciona, então começa nele em vez de num radio morto.
   const semGruposVinculados = groupIds.length === 0 && Boolean(avisoGroupId);
   // Nenhum padrão silencioso no caso normal: o lojista escolhe o Avisos de
   // propósito — o ponto de partida é grupo a grupo, o que já acontecia antes
@@ -68,7 +70,11 @@ export function MessagesTab({
   useEffect(() => {
     if (semGruposVinculados) setUsarAvisos(true);
   }, [semGruposVinculados]);
-  const alvos = usarAvisos && avisoGroupId ? [avisoGroupId] : groupIds;
+  // Regra por padrão (D5); mexer na lista vira lista fixa (D8). O Avisos é
+  // sempre lista fixa de um grupo só, fora do seletor.
+  const [destino, setDestino] = useState<Destino>(DESTINO_PADRAO);
+  const estados = useCargaDosEstados(campaignSlug);
+  const destinoDoEnvio: Destino = usarAvisos && avisoGroupId ? { grupos: [avisoGroupId] } : destino;
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -103,7 +109,7 @@ export function MessagesTab({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...payload,
-          groupIds: alvos,
+          destino: destinoDoEnvio,
         }),
       });
       if (res.ok) {
@@ -135,7 +141,7 @@ export function MessagesTab({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...payload,
-          groupIds: alvos,
+          destino: destinoDoEnvio,
         }),
       });
       if (res.ok) {
@@ -244,6 +250,9 @@ export function MessagesTab({
           )}
         </fieldset>
       )}
+      {!usarAvisos && subTab !== "Agenda" && (
+        <DestinoGrupos estados={estados} value={destino} onChange={setDestino} />
+      )}
       {/* Sub-tabs */}
       <div className="flex gap-1 overflow-x-auto">
         {SUB_TABS.filter((t) => t !== "Funil" || funil).map((t) => (
@@ -299,7 +308,7 @@ export function MessagesTab({
           <FunnelTab
             campaignSlug={campaignSlug}
             campaignName={funil.campaignName}
-            groupIds={alvos}
+            destino={destinoDoEnvio}
             masterUrl={funil.masterUrl}
             groupCount={usarAvisos ? 1 : funil.groupCount}
             memberCount={funil.memberCount}
