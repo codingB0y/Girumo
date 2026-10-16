@@ -2,24 +2,17 @@ import "server-only";
 
 import { z } from "zod";
 
-import { idsDeVendaPadrao } from "@/lib/bling/classificar";
 import type { SituacaoBling } from "@/lib/bling/tipos";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 /**
  * Conexão de uma loja com o Bling (spec §2 e §3). Tokens só entram e saem cifrados
- * (`lib/security/secret-box`, contexto em `contextoDoToken`) e só por `salvarConexao` e
- * `salvarTokensRenovados`. `token_version` é a trava otimista do refresh token, que
- * rotaciona: toda gravação de token confere a versão lida.
+ * (`lib/security/secret-box`, contexto em `contextoDoToken`) e só por `salvarConexao`
+ * (`bling-conexoes-salvar.ts`, o retorno do OAuth) e `salvarTokensRenovados`. `token_version`
+ * é a trava otimista do refresh token, que rotaciona: toda gravação de token confere a versão lida.
  */
 
 const TABLE = "bling_connections";
-const UNIQUE_VIOLATION = "23505";
-/** A janela de venda do funil (spec §1): o histórico importado ao conectar. */
-const DIAS_DE_HISTORICO = 90;
-const UM_DIA_MS = 86_400_000;
-/** Perder a corrida da versão três vezes seguidas não é corrida, é defeito: estoura. */
-const TENTATIVAS = 3;
 
 /** AAD dos tokens no secret-box: a cifra de uma loja, ou do outro token, não abre no lugar desta. */
 export function contextoDoToken(tenantId: string, campo: "access" | "refresh"): string {
@@ -46,11 +39,19 @@ export type ConexaoBling = {
   backfillFrom: string | null;
   backfillUntil: string | null;
   backfillPage: number;
+  /** Falhas seguidas do histórico sem a página da frente andar: a 12ª pula a página que falhou. */
+  backfillFails: number;
   backfillDoneAt: string | null;
+  /** Fim da última passada completa da varredura. */
   scanCursor: string | null;
+  /** Início do que falta da passada em andamento (o fim da última fatia lida inteira); null = nenhuma em andamento. */
+  scanFrom: string | null;
+  /** Tamanho (s) da próxima fatia da varredura; null = 6 h. Fica guardado: a execução seguinte começa dele. */
+  scanSliceS: number | null;
   pausedUntil: string | null;
   consecutiveFailures: number;
   lastWebhookAt: string | null;
+  /** O último avanço da varredura: só muda quando uma fatia é lida inteira. */
   lastScanAt: string | null;
   lastScanChangeAt: string | null;
   lastSaleAt: string | null;
@@ -58,12 +59,15 @@ export type ConexaoBling = {
   lastErrorAt: string | null;
   reconnectAlertedAt: string | null;
   connectedAt: string;
+  /** Impressão da chave de cifra que selou os tokens (`impressaoDaChave`); null = desconhecida. */
+  keyFp: string | null;
+  tokenRetryAt: string | null;
 };
 
 // As colunas do tipo, nada além: trava e quem conectou não saem daqui. Um literal só: o
 // supabase-js tipa o select pelo texto, e concatenação vira `string`.
 const COLS =
-  "tenant_id, company_id, company_name, status, access_token_enc, refresh_token_enc, access_expires_at, token_version, situations, situations_at, sale_situation_ids, high_value, meta_enabled, meta_campaign_id, backfill_from, backfill_until, backfill_page, backfill_done_at, scan_cursor, paused_until, consecutive_failures, last_webhook_at, last_scan_at, last_scan_change_at, last_sale_at, last_error, last_error_at, reconnect_alerted_at, connected_at";
+  "tenant_id, company_id, company_name, status, access_token_enc, refresh_token_enc, access_expires_at, token_version, situations, situations_at, sale_situation_ids, high_value, meta_enabled, meta_campaign_id, backfill_from, backfill_until, backfill_page, backfill_done_at, scan_cursor, paused_until, consecutive_failures, last_webhook_at, last_scan_at, last_scan_change_at, last_sale_at, last_error, last_error_at, reconnect_alerted_at, connected_at, key_fp, token_retry_at, scan_from, scan_slice_s, backfill_fails";
 
 /** numeric e bigint podem chegar como texto do PostgREST. */
 type Numero = number | string;
@@ -98,6 +102,11 @@ type Linha = {
   last_error_at: string | null;
   reconnect_alerted_at: string | null;
   connected_at: string;
+  key_fp: string | null;
+  token_retry_at: string | null;
+  scan_from: string | null;
+  scan_slice_s: Numero | null;
+  backfill_fails: Numero;
 };
 
 const situacoesSchema = z.array(z.object({ id: z.number(), nome: z.string(), base: z.number() }));
@@ -133,8 +142,11 @@ function paraConexao(l: Linha): ConexaoBling {
     backfillFrom: l.backfill_from,
     backfillUntil: l.backfill_until,
     backfillPage: Number(l.backfill_page),
+    backfillFails: Number(l.backfill_fails),
     backfillDoneAt: l.backfill_done_at,
     scanCursor: l.scan_cursor,
+    scanFrom: l.scan_from,
+    scanSliceS: numeroOuNulo(l.scan_slice_s),
     pausedUntil: l.paused_until,
     consecutiveFailures: Number(l.consecutive_failures),
     lastWebhookAt: l.last_webhook_at,
@@ -145,6 +157,8 @@ function paraConexao(l: Linha): ConexaoBling {
     lastErrorAt: l.last_error_at,
     reconnectAlertedAt: l.reconnect_alerted_at,
     connectedAt: l.connected_at,
+    keyFp: l.key_fp,
+    tokenRetryAt: l.token_retry_at,
   };
 }
 
@@ -186,114 +200,23 @@ export async function listarConexoesParaSincronizar(agora: Date): Promise<Array<
   }));
 }
 
-export type DadosDaConexao = {
-  companyId: string;
-  companyName: string | null;
-  accessTokenEnc: string;
-  refreshTokenEnc: string;
-  accessExpiresAt: Date;
-  situations: SituacaoBling[];
-  connectedBy: string;
-  /** `YYYY-MM-DD` em São Paulo: o histórico vai de hoje − 90 dias até hoje. */
-  hoje: string;
-};
+/** O par renovado já cifrado, com a impressão da chave que o selou. */
+export type TokensSelados = { accessTokenEnc: string; refreshTokenEnc: string; accessExpiresAt: Date; keyFp: string };
 
 /**
- * Nova → insere com os padrões. Existente → troca tokens e empresa, volta a `ativa`, sobe a
- * versão, zera falhas, alerta e trava; mantém os ajustes da loja (valor alto, Meta, situações
- * de venda já escolhidas) e só reabre o histórico se ele nunca terminou.
+ * false = outro processo renovou antes (a versão não é mais a lida): releia e siga com o dele. O par
+ * gravado encerra o recuo de uma renovação que tinha falhado (`token_retry_at`).
  */
-export async function salvarConexao(tenantId: string, d: DadosDaConexao): Promise<void> {
-  for (let tentativa = 0; tentativa < TENTATIVAS; tentativa += 1) {
-    const atual = await lerConexao(tenantId);
-    const gravou = atual ? await reconectar(atual, d) : await inserir(tenantId, d);
-    if (gravou) return;
-  }
-  throw new Error("bling_connections: a conexão mudou durante a gravação");
-}
-
-/** O que a conexão nova e a reconexão gravam igual: empresa, tokens, situações e tudo zerado. */
-function camposDaConexao(d: DadosDaConexao, agora: string) {
-  return {
-    company_id: d.companyId,
-    company_name: d.companyName,
-    status: "ativa",
-    access_token_enc: d.accessTokenEnc,
-    refresh_token_enc: d.refreshTokenEnc,
-    access_expires_at: d.accessExpiresAt.toISOString(),
-    situations: d.situations,
-    situations_at: agora,
-    consecutive_failures: 0,
-    paused_until: null,
-    last_error: null,
-    last_error_at: null,
-    reconnect_alerted_at: null,
-    lease_holder: null,
-    lease_until: null,
-    connected_by: d.connectedBy,
-    connected_at: agora,
-    updated_at: agora,
-  };
-}
-
-function historicoAberto(hoje: string) {
-  // Meio-dia UTC: subtrair dias inteiros nunca troca a data por causa de fuso.
-  const desde = new Date(Date.parse(`${hoje}T12:00:00Z`) - DIAS_DE_HISTORICO * UM_DIA_MS);
-  return { backfill_from: desde.toISOString().slice(0, 10), backfill_until: hoje, backfill_page: 1, backfill_done_at: null };
-}
-
-/** false = a linha da loja nasceu entre a leitura e o insert: a próxima volta atualiza. */
-async function inserir(tenantId: string, d: DadosDaConexao): Promise<boolean> {
-  const agora = new Date().toISOString();
-  const { error } = await getSupabaseAdmin()
-    .from(TABLE)
-    .insert({
-      tenant_id: tenantId,
-      ...camposDaConexao(d, agora),
-      token_version: 1,
-      sale_situation_ids: idsDeVendaPadrao(d.situations),
-      ...historicoAberto(d.hoje),
-      scan_cursor: agora,
-    });
-  if (!error) return true;
-  // Conflito no company_id não se resolve tentando de novo: a conta do Bling é de outra loja.
-  const daLoja = error.code === UNIQUE_VIOLATION && !`${error.message} ${error.details ?? ""}`.includes("company_id");
-  if (daLoja) return false;
-  throw new Error(error.message);
-}
-
-/** false = a versão mudou entre a leitura e a gravação (renovação em voo): relê e tenta de novo. */
-async function reconectar(atual: ConexaoBling, d: DadosDaConexao): Promise<boolean> {
-  const { data, error } = await getSupabaseAdmin()
-    .from(TABLE)
-    .update({
-      ...camposDaConexao(d, new Date().toISOString()),
-      token_version: atual.tokenVersion + 1,
-      // A escolha da loja vale mais que o padrão: só preenche se ela nunca escolheu.
-      ...(atual.saleSituationIds.length === 0 ? { sale_situation_ids: idsDeVendaPadrao(d.situations) } : {}),
-      // Histórico terminado não volta: reconectar não reimporta 90 dias.
-      ...(atual.backfillDoneAt === null ? historicoAberto(d.hoje) : {}),
-    })
-    .eq("tenant_id", atual.tenantId)
-    .eq("token_version", atual.tokenVersion)
-    .select("tenant_id");
-  if (error) throw new Error(error.message);
-  return (data ?? []).length === 1;
-}
-
-/** false = outro processo renovou antes (a versão não é mais a lida): releia e siga com o dele. */
-export async function salvarTokensRenovados(
-  tenantId: string,
-  versaoLida: number,
-  t: { accessTokenEnc: string; refreshTokenEnc: string; accessExpiresAt: Date },
-): Promise<boolean> {
+export async function salvarTokensRenovados(tenantId: string, versaoLida: number, t: TokensSelados): Promise<boolean> {
   const { data, error } = await getSupabaseAdmin()
     .from(TABLE)
     .update({
       access_token_enc: t.accessTokenEnc,
       refresh_token_enc: t.refreshTokenEnc,
       access_expires_at: t.accessExpiresAt.toISOString(),
+      key_fp: t.keyFp,
       token_version: versaoLida + 1,
+      token_retry_at: null,
       updated_at: new Date().toISOString(),
     })
     .eq("tenant_id", tenantId)
@@ -336,8 +259,11 @@ export type AtualizacaoConexao = Partial<{
   meta_enabled: boolean;
   meta_campaign_id: string | null;
   backfill_page: number;
+  backfill_fails: number;
   backfill_done_at: string | null;
   scan_cursor: string | null;
+  scan_from: string | null;
+  scan_slice_s: number | null;
   paused_until: string | null;
   consecutive_failures: number;
   last_webhook_at: string | null;
@@ -346,6 +272,7 @@ export type AtualizacaoConexao = Partial<{
   last_sale_at: string | null;
   last_error: string | null;
   last_error_at: string | null;
+  token_retry_at: string | null;
 }>;
 
 export async function atualizarConexao(tenantId: string, campos: AtualizacaoConexao): Promise<void> {

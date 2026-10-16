@@ -6,6 +6,7 @@ import {
   Image,
   Video,
   Mic,
+  FileText,
   AtSign,
   BarChart3,
   X,
@@ -13,14 +14,16 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/toast";
+import { DOCUMENT_ACCEPT, isDocumentMime } from "@/lib/media-mime";
 import { uploadMediaFile } from "@/lib/media-upload-client";
 import { CopyPicker } from "./copy-picker";
 
 /**
- * Foto, vídeo e áudio. O áudio chega no grupo como mensagem de voz gravada na
- * hora, sem legenda (ver `resolvePostMediaType`). Arquivo ainda não sai.
+ * Foto, vídeo, áudio e arquivo. O áudio chega no grupo como mensagem de voz
+ * gravada na hora, sem legenda; o arquivo chega como documento, com o nome que
+ * o lojista subiu (ver `resolvePostMediaType`).
  */
-type MidiaDoPost = "image" | "video" | "audio";
+type MidiaDoPost = "image" | "video" | "audio" | "file";
 
 export type ComposerPayload = {
   body: string;
@@ -64,6 +67,11 @@ export function MessageComposer({ onSend, sending, className, onBodyChange, rotu
   const canSend = !uploading && Boolean(body.trim() || mediaId || (showPoll && pollQuestion.trim() && pollOptions.filter(Boolean).length >= 2));
 
   const handleUpload = useCallback(async (file: File, type: MidiaDoPost) => {
+    // Mime fora da lista seria gravado como .jpg e chegaria como foto quebrada.
+    if (type === "file" && !isDocumentMime(file.type)) {
+      toast("Esse tipo de arquivo não sai nos grupos. Envie PDF, Word, Excel, PowerPoint ou ZIP.", "error");
+      return;
+    }
     setUploading(true);
     try {
       // `type` vem do botão que o usuário clicou, não da classificação do
@@ -131,6 +139,7 @@ export function MessageComposer({ onSend, sending, className, onBodyChange, rotu
             {mediaType === "image" && "📷"}
             {mediaType === "video" && "🎬"}
             {mediaType === "audio" && "🎤"}
+            {mediaType === "file" && "📄"}
             {" "}{mediaName ?? "Arquivo"}
           </span>
           <button
@@ -240,6 +249,12 @@ export function MessageComposer({ onSend, sending, className, onBodyChange, rotu
           icon={Mic}
           label="Áudio"
           onClick={() => pickFile("audio/*", "audio")}
+          disabled={uploading}
+        />
+        <ToolBtn
+          icon={FileText}
+          label="Arquivo"
+          onClick={() => pickFile(DOCUMENT_ACCEPT, "file")}
           disabled={uploading}
         />
         <ToolBtn

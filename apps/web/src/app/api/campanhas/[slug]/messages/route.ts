@@ -90,7 +90,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     return Response.json({ error: "Informe uma mensagem, mídia ou enquete." }, { status: 400 });
   }
 
-  let mediaType: "image" | "video" | "audio" | undefined;
+  let mediaType: "image" | "video" | "audio" | "file" | undefined;
   try {
     mediaType = resolvePostMediaType(body);
   } catch (e) {
@@ -334,7 +334,7 @@ function resolveRecurrence(body: Record<string, unknown>): string {
 }
 
 /** Tipo gravado no store JSON do dev; a mídia já vem resolvida por `resolvePostMediaType`. */
-function resolveType(body: Record<string, unknown>, mediaType: "image" | "video" | "audio" | undefined): CampaignMessage["type"] {
+function resolveType(body: Record<string, unknown>, mediaType: "image" | "video" | "audio" | "file" | undefined): CampaignMessage["type"] {
   if (body.poll) return "poll";
   return mediaType ?? "text";
 }

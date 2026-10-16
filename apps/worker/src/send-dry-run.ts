@@ -51,6 +51,7 @@ export function withDryRun(deps: SendDeps): SendDeps {
         instance_name: instanceName,
         destino: safeDestination(number),
         mediatype: input.mediatype,
+        mimetype: input.mimetype,
         tem_caption: typeof input.caption === "string" && input.caption.length > 0,
         mention_all: input.mentionAll === true,
       });

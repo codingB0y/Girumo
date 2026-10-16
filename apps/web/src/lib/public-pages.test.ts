@@ -24,6 +24,9 @@ test("os documentos legais abrem sem sessao", () => {
 test("a home continua publica", () => {
   assert.ok(isPublicPage("/"));
   assert.ok(isPublicPage("/home-v2"));
+  // A segunda direção da home (V3) fica em /page2: sem a lista, 307 pro login.
+  assert.ok(isPublicPage("/page2"));
+  readFileSync(path.join(process.cwd(), "src", "app", "page2", "page.tsx"), "utf8"); // estoura se a pasta mudar de nome
 });
 
 test("o painel NAO vaza pela allowlist", () => {

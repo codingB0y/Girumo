@@ -128,15 +128,29 @@ perdida).
 | `situacao.id ∈ sale_situation_ids` da loja | `venda` |
 | qualquer outra (em aberto, cancelado, em andamento…) | `pedido` (lead qualificado) |
 
-- `sale_situation_ids` padrão ao conectar: toda situação com `base = 9` (Atendido), inclusive a 9.
+- `sale_situation_ids` padrão: toda situação com `base = 9` (Atendido), inclusive a 9 — **calculado na hora**
+  sobre as situações atuais enquanto a loja não escolhe (vazio no banco = nunca escolheu). Gravar o padrão
+  congelaria uma situação filha criada depois (ex. "Pago") como pedido para sempre.
 - O cartão **não** deixa marcar situação com `base ∈ {12, 21}` (Cancelado, Em digitação): o PATCH recusa.
-- Situações carregadas falhando: usa os ids padrão acima com os nomes padrão.
+- Situações carregadas falhando: usa os ids padrão acima com os nomes padrão, só na memória (o motor
+  recarrega e o padrão é recalculado). Na reconexão, falhar não apaga a lista que a loja já tinha.
+- O Salvar do cartão só manda as situações quando a dona mexeu nas caixas, junto com a versão das situações que
+  ela viu (hash do conteúdo da lista, guardado com a lista quando o formulário abre — a recarga de fundo do cartão
+  não mexe no formulário aberto); se a lista mudou no meio, 409 "recarregue" — uma situação nova que chegou com o
+  formulário aberto não vira escolha por acidente. Releitura com a mesma lista não muda a versão. Situações sem a
+  versão → 400. O padrão efetivo de uma loja que nunca
+  escolheu nunca é gravado.
+- Pedido numa situação que a lista ainda não tem (criada há pouco): relê as situações uma vez por execução; ainda
+  desconhecida → o pedido volta para a fila no recuo normal, sem contar como falha da loja (classificar sem a base
+  certa poderia transformar uma venda em pedido para sempre).
 
 ### Hora da venda
 
-- **Hora de um pedido** = `now()` se `order_date` é hoje em `America/Sao_Paulo`; senão `order_date` às
-  12:00 de São Paulo. A venda fica datada pelo dia do pedido, como no próprio Bling; um pedido antigo
-  editado hoje não vira venda de hoje, e nunca sai hora no futuro.
+- **Hora de um pedido** = a hora em que a Girumo o viu pela primeira vez (`first_seen_at`) se `order_date` é
+  o dia dessa primeira vez em `America/Sao_Paulo`; senão `order_date` às 12:00 de São Paulo — e nunca depois
+  de agora. A venda fica datada pelo dia do pedido, como no próprio Bling; um pedido antigo editado hoje não
+  vira venda de hoje, e a nova tentativa de um pedido não muda a hora (a venda, o `created_at` e o
+  `event_time` batem).
 - `sale_at` = hora do pedido, gravada na primeira vez que ele é `venda` (não muda depois).
 - `orders.created_at = sale_at` (o funil conta venda pela data dela).
 - `event_time` do Purchase = `sale_at`; do InitiateCheckout = hora do pedido na primeira vez que ele é
@@ -149,11 +163,17 @@ perdida).
 
 | Tipo agora | Já existe pedido Girumo? | Ação |
 |---|---|---|
-| `venda` | não | `recordOrder(tenant, lead, write)`: lead pela `findLeadByPhones(variantesDoTelefone(tel))`; `write` insere `orders {tenant_id, phone, lead_id, group_name (lead.source_group_name), campaign_id, value = total, source 'bling', created_at = sale_at}`; o lead vira "comprou"; marco `first_order` |
+| `venda` | não | `recordOrder(tenant, lead, write)`: lead pela `findLeadByPhones(variantesDoTelefone(tel))`; `write` insere `orders {id, tenant_id, phone, lead_id, group_name (lead.source_group_name), campaign_id, value = total, source 'bling', created_at = sale_at}`; o lead vira "comprou"; marco `first_order` |
 | `venda` | sim | atualiza `value` e `phone` se mudaram (lead/campanha não mudam) |
 | `pedido`, `ignorado`, `excluido` | sim | apaga o pedido Girumo; `bling_orders.order_id = null` |
-| `pedido`, `ignorado`, `excluido` | não | nada |
+| `pedido`, `ignorado`, `excluido` | não | apaga pelo id determinístico (o órfão de uma volta que morreu antes de ligar) |
 
+- **Nunca duplica:** o `id` da venda em `orders` é determinístico — UUID v8 dos 16 primeiros bytes de
+  `sha256("bling:<loja>:<pedido>")`. A volta que morre entre criar a venda e gravar `bling_orders.order_id`
+  não cria outra: o insert seguinte dá 23505 e vira update da mesma. A ligação e o status do Meta (efeitos
+  que já aconteceram fora) são gravados na hora, com até 4 tentativas.
+- Busca de campanha que falha reagenda o pedido (`recordOrder(…, { throwOnCampaignError: true })`): a venda
+  criada sem campanha nunca mais ganharia uma. As vendas manuais seguem sem campanha nesse caso, como sempre.
 - Sem telefone no contato: a venda entra com `phone = ''` (não casa no funil; conta em "sem origem").
 - `orders.source = 'bling'`: `PATCH/DELETE /api/vendas/[id]` e `DELETE /api/orders` devolvem **409**
   `{"error":"venda_do_bling"}`; a tela não mostra Corrigir/Excluir.
@@ -195,6 +215,8 @@ create table if not exists public.bling_connections (
   refresh_token_enc    text,
   access_expires_at    timestamptz,
   token_version        integer not null default 0,
+  key_fp               text,                         -- impressão (16 hex) da chave que selou os tokens
+  token_retry_at       timestamptz,                  -- nenhuma renovação antes disso (falha não definitiva)
   situations           jsonb not null default '[]'::jsonb,  -- [{id, nome, base}]
   situations_at        timestamptz,
   sale_situation_ids   bigint[] not null default '{}',
@@ -205,13 +227,16 @@ create table if not exists public.bling_connections (
   backfill_until       date,
   backfill_page        integer not null default 1 check (backfill_page >= 1),
   backfill_done_at     timestamptz,
-  scan_cursor          timestamptz,
+  backfill_fails       integer not null default 0,   -- falhas seguidas na página do histórico (12 → pula)
+  scan_cursor          timestamptz,                  -- fim da última passada completa da varredura
+  scan_from            timestamptz,                  -- fim da última fatia lida inteira da passada em andamento
+  scan_slice_s         integer,                      -- tamanho candidato da próxima fatia (null = 6 h)
   lease_holder         uuid,
   lease_until          timestamptz,
   paused_until         timestamptz,
   consecutive_failures integer not null default 0,
   last_webhook_at      timestamptz,
-  last_scan_at         timestamptz,
+  last_scan_at         timestamptz,                  -- último avanço da varredura (fatia lida inteira)
   last_scan_change_at  timestamptz,
   last_sale_at         timestamptz,
   last_error           text,
@@ -268,13 +293,14 @@ create table if not exists public.bling_orders (
   snapshot         jsonb,
   snapshot_at      timestamptz,
   pending          boolean not null default true,
+  low_priority     boolean not null default false,     -- pendência só do histórico: vai depois da venda ao vivo
   attempts         integer not null default 0,
   next_try_at      timestamptz not null default now(),
   last_error       text,
   updated_at       timestamptz not null default now(),
   primary key (tenant_id, bling_order_id)
 );
-create index if not exists bling_orders_pending_idx on public.bling_orders (tenant_id, next_try_at) where pending;
+create index if not exists bling_orders_pending_idx on public.bling_orders (tenant_id, low_priority, next_try_at) where pending;
 create index if not exists bling_orders_contact_idx on public.bling_orders (tenant_id, bling_contact_id);
 create index if not exists bling_orders_recent_idx  on public.bling_orders (tenant_id, order_date desc, bling_order_id desc);
 
@@ -291,13 +317,15 @@ authenticated`, `grant execute … to service_role`, conferidas com `has_functio
 - `bling_release(p_tenant uuid, p_holder uuid) returns void` — solta só se o dono for `p_holder`.
 - `bling_enqueue(p_tenant uuid, p_origin text, p_items jsonb) returns integer` — a fila num comando só:
   `aviso` insere ou marca pendente e **apaga o retrato** (o processamento faz GET); `varredura` insere ou, se
-  situação/total/contato diferem do último processado, troca o retrato e marca pendente; `historico` só
-  insere o que não existe. `origin` só vale na criação da linha. Devolve quantas linhas mudaram.
+  situação/total/contato diferem do último processado, troca o retrato e marca pendente — e reabre a linha
+  `excluido` fora da fila que a lista ainda mostra (um 404 transitório a marcou); `historico` só insere o que
+  não existe, com `low_priority` (aviso e varredura que tocam a linha tiram). `origin` só vale na criação da
+  linha. Devolve quantas linhas mudaram.
 - `bling_recompute_lists(p_tenant uuid, p_contact bigint default null) returns integer` — aplica §1 Listas
   (a pessoa do contato, ou a loja toda), atualiza `lista_changed_at` só quando muda; devolve quantos mudaram.
 - `bling_resumo(p_tenant uuid) returns jsonb` — números do cartão (vendas e vendido em 30 dias, origem,
-  estado dos eventos do Meta, falhas, pendentes, pedidos lidos do histórico, pessoas por lista), tudo
-  agregado no banco.
+  estado dos eventos do Meta, falhas = pedidos com `last_error` pendentes ou não, pendentes, pedidos lidos
+  do histórico, pessoas por lista), tudo agregado no banco.
 
 **RLS e privilégios:** as quatro tabelas com RLS ligado e **sem policy e sem grant para
 `authenticated`** (como `site_integrations`/`ad_spend`): tudo passa pelas rotas com `getSupabaseAdmin` e
@@ -330,11 +358,14 @@ coluna nova herda os grants da tabela.
    - Troca o `code` (`authorization_code`, `enable-jwt: 1`); `GET /empresas/me/dados-basicos` →
      `company_id`, nome.
    - `company_id` já ligado a **outra** loja → `bling=outra_loja` (não grava tokens; revoga o token recém-emitido).
-   - Upsert de `bling_connections`: tokens cifrados, `status 'ativa'`, `token_version + 1`,
-     `backfill_from = hoje − 90`, `backfill_until = hoje`, `backfill_page = 1`, `backfill_done_at = null`,
-     `scan_cursor = now()`, falhas zeradas, `reconnect_alerted_at = null`. Reconexão mantém ajustes e
-     histórico; só reabre o histórico se nunca terminou.
-   - Carrega as situações; `sale_situation_ids` vazio → padrão (§1).
+   - Upsert de `bling_connections`: tokens cifrados com a impressão da chave (`key_fp`), `status 'ativa'`,
+     `token_version + 1`, `backfill_from = hoje − 90`, `backfill_until = hoje`, `backfill_page = 1`,
+     `backfill_done_at = null`, `scan_cursor = now()`, falhas zeradas, `reconnect_alerted_at = null`.
+     Reconexão mantém ajustes e histórico; só reabre o histórico se nunca terminou; **não solta a trava** (a
+     execução em curso adota o par novo no lote seguinte).
+   - Carrega as situações (falhou → grava `[]` sem hora; o motor recarrega na 1ª execução).
+     `sale_situation_ids` vazio = a loja nunca escolheu = **padrão calculado na hora** sobre as situações
+     atuais (§1); o padrão nunca é gravado.
    - 302 para `/painel/configuracoes?secao=integracoes&bling=conectado` e `after(sincronizar(loja,
      'conexao'))`.
    - Erro na troca/empresa → `bling=erro` (log com `error.type`, sem token). A tela mostra mensagem para cada
@@ -358,19 +389,47 @@ coluna nova herda os grants da tabela.
 
 `GET /api/cron/bling` a cada 5 min (`*/5 * * * *` no `vercel.json`, `isCronAuthorized`, `maxDuration =
 300`). Lojas `ativa` fora de `paused_until`, ordenadas por `last_scan_at nulls first`, **em sequência**;
-orçamento total 270 s; cada loja até 60 s, ou até 240 s se for a única com histórico pendente.
+orçamento total 270 s; cada loja até 60 s, ou até 150 s se tem histórico pendente. Cada loja recebe também a vida
+que resta à função (300 s menos o já gasto): chamada externa que tem efeito (Meta, `/oauth/token`) só começa se o
+timeout inteiro cabe antes disso — nunca é encurtada (abortar uma chamada que o outro lado concluiu reenviaria
+evento ou perderia o refresh rotacionado).
 
-- **Varredura** (se `last_scan_at` < agora − 4 min): `GET /pedidos/vendas?dataAlteracaoInicial=<início>&
-  dataAlteracaoFinal=<agora>&pagina=N&limite=100` em hora de São Paulo, até 10 páginas, com
-  `início = max(scan_cursor, agora − 72 h) − 4 h`. A sobra de 4 h cobre o fuso não documentado do filtro;
-  o teto de 72 h é o tempo que o Bling retenta o aviso. Cada item vai para `bling_enqueue('varredura')`,
-  que só marca pendente o que mudou. `scan_cursor` = hora do começo da varredura **só quando ela terminou**
-  (página vazia ou incompleta); se bateu nas 10 páginas, a próxima repete a janela. Se marcou algo →
-  `last_scan_change_at = now()`.
+- **Varredura** — o Bling pagina por **posição**: entre duas leituras, o pedido que muda de novo sai da janela,
+  a lista anda para trás e o primeiro da página seguinte cai numa página já lida. Por isso ela **nunca
+  pagina entre execuções**: anda em **fatias de tempo, cada uma lida inteira** (página 1 até a vazia) numa
+  execução só, e o progresso guardado é sempre o fim de uma fatia lida inteira (`scan_from`).
+  - Passada nova (sem `scan_from`, e `last_scan_at` < agora − 4 min): de `max(scan_cursor, agora − 72 h) −
+    4 h` até agora. A sobra de 4 h cobre o fuso não documentado do filtro; o teto de 72 h é o tempo que o
+    Bling retenta o aviso. Passada em andamento: continua de `scan_from` sem esperar (nunca antes de
+    agora − 76 h: um trecho que falha para sempre acaba saindo da janela).
+  - Fatias `GET /pedidos/vendas?dataAlteracaoInicial=…&dataAlteracaoFinal=…&pagina=N&limite=100` (hora de
+    São Paulo) com o tamanho candidato guardado em `scan_slice_s` (6 h no começo): inteira (veio a página vazia) →
+    grava `scan_from = fim` (ou, na última, `scan_cursor = fim` e `scan_from = null`) e o candidato dobra; 10
+    páginas cheias → metade, de novo da página 1. No piso de 1 min lê até a página vazia sem o teto de 10 páginas
+    (um lote de NF-e que mexe em 1000 pedidos num minuto não para a varredura). Fatia interrompida (falha,
+    orçamento) não grava nada, é relida inteira e o tamanho guardado volta a no máximo 6 h.
+  - Varredura e histórico só começam uma página se sobra mais que a reserva da fila (`max(30 s, metade do
+    orçamento da rodada)`), e cada página tem prazo próprio (fim − 22 s: os 20 s que uma linha da fila exige mais a
+    folga do timer e da gravação da página): página lenta para a varredura sem contar erro, e a fila sempre drena.
+  - Cada item vai para `bling_enqueue('varredura')`, que só marca pendente o que mudou; item torto com id vai
+    como `aviso`. Se marcou algo → `last_scan_change_at = now()`. `last_scan_at` = último avanço: sem avanço há
+    mais de 1 h (falha, lentidão ou piso) vira aviso no cartão, que sai sozinho quando volta a andar.
 - **Histórico** (se `backfill_done_at` nulo): `dataInicial=backfill_from&dataFinal=backfill_until&pagina=
-  backfill_page`, até 3 páginas por execução; itens viram linhas `origin = 'historico'` com `snapshot`;
-  página vazia → `backfill_done_at = now()`.
-- **Drenagem:** linhas `pending and next_try_at <= now()` em lotes de 20 por `next_try_at`.
+  backfill_page`, até 3 páginas por execução **começando uma antes** de onde a anterior parou (pedido apagado
+  no meio desloca a lista; reler não duplica); itens viram linhas `origin = 'historico'` com `snapshot` e
+  `low_priority`; página vazia → `backfill_done_at = now()`; página que falha → `last_error`. A relida que falha
+  não impede a frente. Na 12ª falha seguida da frente (`backfill_fails`) tenta a seguinte: respondeu → a da frente
+  está quebrada e é pulada com aviso (só o histórico perde aquela página); falhou também → não pula (é o Bling ou a
+  consulta, não a página) e o cartão avisa "histórico parado". Página nunca é pulada sem a seguinte provar que a
+  consulta funciona — uma queda do Bling não apaga histórico. A falha da frente só conta quando outra listagem
+  respondeu na mesma execução (varredura ou relida): uma queda total nunca arma a válvula; a parada zera a conta, e o
+  aviso sai do cartão quando a frente volta a andar.
+- **Drenagem:** linhas `pending and next_try_at <= now()` em lotes de 20 por `low_priority, next_try_at` (a
+  venda ao vivo não espera o histórico). A trava é renovada a cada lote; perdeu → para. Cada lote **lista os
+  pendentes antes de reler a conexão**, e o Salvar do cartão **grava o ajuste antes de reabrir** os pedidos (se a
+  reabertura falha, desfaz a gravação e responde 500): linha listada depois da reabertura sempre vê o ajuste novo;
+  linha listada antes tem o `updated_at` trocado pela reabertura e a gravação guardada falha — volta para a fila.
+  A reabertura inclui a linha na fila ainda sem dia (histórico importando).
 
 ### Processar um pedido
 
@@ -399,9 +458,16 @@ orçamento total 270 s; cada loja até 60 s, ou até 240 s se for a única com h
   `Accept: application/json`; timeout 15 s; **350 ms entre chamadas**.
 - 429 → espera 1 s, 2 s, 4 s; ainda 429 → `RateLimited` (para a execução da loja; volta no próximo cron).
 - 5xx, rede, timeout → até 2 novas tentativas (1 s, 3 s) → `Transient`.
-- 401 → renova o token uma vez (se não acabou de renovar) e repete; de novo 401 → `AuthLost`.
-- 403 → `MissingScope` (configuração do app; aparece no cartão).
-- 404 → `NotFound` (para quem chamou decidir).
+- 401 → renova o token uma vez (se não acabou de renovar) e repete; de novo 401 → **transitório** (a
+  renovação deu certo, então a concessão está viva: é incidente do Bling ou proxy). Uma renovação forçada por
+  execução; a segunda relê a conexão (a dona pode ter reconectado) sem chamar `/oauth/token`.
+- 403 com o erro do Bling → `MissingScope` (configuração do app; aparece no cartão); sem o corpo do Bling →
+  transitório (bloqueio de IP, WAF).
+- 404 → `NotFound` (para quem chamou decidir), com qualquer corpo. Um 404 falso (proxy) que marca uma venda como
+  excluída se cura sozinho: a varredura reabre a linha `excluido` que a lista do Bling ainda mostra. Tratar o 404
+  sem corpo como transitório deixaria a venda apagada de verdade em `orders` e alimentaria o disjuntor.
+- Prazo da execução esgotado é um campo do erro (`prazoEsgotado`), não falha: para a rodada sem gastar
+  tentativa do pedido nem passo do disjuntor.
 - Disjuntor: 5 falhas seguidas (`Transient`/`RateLimited`) na execução → `paused_until = now() + 15 min ×
   2^(n−1)` até 2 h, `consecutive_failures + 1`; sucesso zera. Mais de 20 erros numa execução → para (longe
   dos 300/10 s do bloqueio de IP).
@@ -411,11 +477,22 @@ orçamento total 270 s; cada loja até 60 s, ou até 240 s se for a única com h
 - Renova quando `access_expires_at < now() + 30 min`, sempre dentro da trava.
 - Antes de chamar `/oauth/token`: `checkRateLimit("bling:oauth-token", 10, 60_000)` (Upstash, todas as
   lojas e instâncias) → bloqueado = pula a loja nesta execução (o token ainda vale ≥ 25 min).
-- Grava com `update … where tenant_id = $1 and token_version = $lido` (+1). Zero linhas = outro processo
-  renovou: relê e segue.
-- `invalid_grant`/`invalid_token`/`UNAUTHORIZED_ERROR` na renovação: relê; se `token_version` mudou, segue
-  com o novo; senão `status = 'reconectar'`, `last_error`, e e-mail aos donos uma vez
-  (`reconnect_alerted_at`).
+- Antes de renovar, relê a conexão: `token_version` mudou → adota o par do banco sem chamar `/oauth/token`.
+- Grava com `update … where tenant_id = $1 and token_version = $lido` (+1), com até 4 tentativas. Zero
+  linhas = outro processo renovou: relê e segue. **Não gravou mesmo assim:** o refresh velho já morreu no
+  Bling, então o par novo fica em memória, é regravado a cada lote e antes de soltar a trava, e a execução
+  não abre outra rodada lendo o par velho.
+- Falha não definitiva do `/oauth/token` → `token_retry_at = agora + 5 min` (nenhuma renovação antes; o token
+  atual segue se ainda vale). Upstash fora: o limitador global cai para um balde em memória de **1 renovação por
+  minuto por instância** (nem N×10/min, que bloquearia o IP, nem zero, que pararia todas as lojas). Renovação
+  barrada com o token já sem vida → `last_error` no cartão. O aviso de renovação (barrada ou falha) sai do cartão
+  na primeira renovação que dá certo.
+- `invalid_grant`/`invalid_token`/`UNAUTHORIZED_ERROR` na renovação: relê (na hora, em 2 s e em 5 s — outro
+  processo pode estar gravando o par que acabou de rotacionar); se `token_version` mudou, segue com o novo;
+  senão `status = 'reconectar'`, `last_error`, e e-mail aos donos uma vez (`reconnect_alerted_at`; se nenhum
+  e-mail sai, o alerta volta a nulo e o cron tenta de novo).
+- Token que não abre com a chave atual: `key_fp` gravado diferente → é a chave do servidor que mudou (problema
+  da Girumo): `last_error` e a loja para, **sem** reconectar nem e-mail. Senão, reconectar.
 - O `retorno` também consome o orçamento (não espera: o `code` vence em 1 min).
 
 ### Desconectar
@@ -594,7 +671,7 @@ PostgREST). Nome `girumo-<lista>-<AAAA-MM-DD>.csv`.
     - orçamento acaba → solta a trava.
 - **Store com PostgREST falso** (técnica registrada): o aviso não muda `origin` de linha existente; o
   histórico não sobrescreve linha existente; a varredura só marca o que mudou.
-- **Integração no banco de dev** (job e2e, depois da DDL):
+- **Integração no banco de dev** (job e2e, depois de o `migrate-dev` aplicar a migração):
   - `bling_claim` concorrente (dois donos → um ganha; vencida → outro pega);
   - `bling_release` de dono errado não solta;
   - `bling_recompute_lists` nos 4 casos + troca de `high_value`;
@@ -615,12 +692,15 @@ PostgREST). Nome `girumo-<lista>-<AAAA-MM-DD>.csv`.
 | 4 | Conexão: stores de conexão e state, conectar/retorno/desconectar, política de acesso do retorno | 2 |
 | 5 | Motor: stores de pedidos e contatos, projeção em `orders`, processar, sincronizar, e-mail de reconectar | 2, 3, 4 |
 | 6 | Entrada: aviso (webhook) + cron + `vercel.json` + política de acesso | 5 |
-| 7 | API do cartão (`GET/PATCH`), CSV das listas, Vendas no servidor (`source`, 409, `blingAtivo`) | 4, 5 |
-| 8 | Tela do cartão + Vendas na tela (selo, sem Corrigir, aviso) + E2E | 7 |
+| 7 | API do cartão (`GET/PATCH`) e CSV das listas | 4, 5 |
+| 8 | Vendas: servidor (`source`, 409, `blingAtivo`) e tela (selo, sem Corrigir, aviso) | 1 (DDL) |
+| 9 | Tela do cartão em Configurações › Integrações + E2E | 7 |
 
-PRs 2–7 entram em `main` antes da DDL sem quebrar nada: sem as variáveis do Bling as rotas devolvem 503 e o
-cron não toca no banco. PR 1 e PR 8 esperam a DDL nos dois bancos (o 8 lê `orders.source` na tela de Vendas).
-A DDL do PR 1 é aplicada pelo Igor nos dois bancos.
+PRs 2–7 e 9 entram em `main` antes da DDL sem quebrar nada: sem as variáveis do Bling as rotas devolvem
+503 (o `GET` do cartão responde "indisponível" sem consultar o banco) e o cron não toca no banco. A DDL do
+PR 1 é aplicada pelo CI (#455, 15/10): o `migrate-dev` aplica em dev no próprio PR, a baseline do drift é
+regerada lendo dev depois disso e entra no PR, e o `migrate-prod` aplica em prod no merge. O PR 8 só entra
+depois de o `migrate-prod` do PR 1 terminar com sucesso (ele lê `orders.source`, que a tela de Vendas usa ao vivo).
 
 ## 11. Pendências do Igor (roteiro)
 
@@ -634,10 +714,30 @@ A DDL do PR 1 é aplicada pelo Igor nos dois bancos.
 2. **Vercel (projeto `girumo`, Production):** `BLING_CLIENT_ID`, `BLING_CLIENT_SECRET`,
    `INTEGRATIONS_ENCRYPTION_KEY` (32 bytes aleatórios em base64; gerar uma vez e nunca trocar sem migrar os
    tokens).
-3. DDL do PR 1 nos dois bancos (comandos no PR).
+3. Publicar os PRs na ordem 5, 6, 7, 9, 1, 8 (a DDL do 1 vai pelo CI, nunca à mão).
 4. Termos/privacidade: citar o envio de dados de clientes ao Meta em hash.
 5. **Homologação** antes da 11ª loja: logo, descrições, categoria, homepage sem login, manual, vídeo; teste
    técnico (roteiro no plano); revisão.
+
+## Limites conhecidos (aceitos nas revisões)
+
+- Histórico: se a página relida falha justo na execução seguinte a um pedido apagado no Bling, um pedido antigo pode
+  escorregar para a página já lida e não entrar (duas coisas raras ao mesmo tempo; o fluxo ao vivo não passa por aí).
+- Histórico: duas páginas que o Bling nunca consegue devolver, uma atrás da outra, param a importação (aviso no
+  cartão); uma página quebrada com a seguinte vazia é pulada (era a última e não pode ser lida).
+- Varredura: um único minuto com mais pedidos alterados do que cabem nas páginas de uma execução para a varredura até
+  o teto de 76 h, com aviso no cartão em 1 h (as vendas novas seguem pelo aviso).
+- Aviso (60 s): com o Bling a ~12 s por página, a última página da fatia pode não caber; vira "sem tempo" e o cron
+  pega (troca aceita para a fila sempre drenar).
+- Cartão: a versão das situações é o hash da lista na ordem em que o Bling a devolve; se um dia ele devolver a
+  mesma lista em outra ordem, o Salvar aberto naquela hora recebe 409 e basta recarregar.
+- Cartão: se a reabertura dos pedidos falha, o Salvar desfaz o ajuste e responde 500; um lote que releu a conexão
+  nesse intervalo pode ter classificado até 20 pedidos da fila com o ajuste novo (ficam assim até o próximo Salvar
+  que dê certo ou até mudarem no Bling). Se a reabertura e o desfazer falham juntos, o ajuste novo fica gravado sem
+  reabrir os 90 dias, e salvar o mesmo ajuste de novo não reabre. O desfazer também pode reverter o Salvar de outra
+  aba que caia no mesmo intervalo. Tudo pede falha do banco no meio do Salvar (revisão R5).
+- Histórico: se a falha foi na página vazia do fim, o aviso "parou" fica no cartão até vencer (24 h), com a
+  importação já concluída (revisão R5).
 
 ## Fora da v1
 

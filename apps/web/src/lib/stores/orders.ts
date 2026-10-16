@@ -42,6 +42,16 @@ export async function countOrders(tenantId: string): Promise<number> {
 }
 
 /**
+ * O tenant tem exatamente um pedido? Lê no máximo 2 ids em vez de contar: a contagem varre todos os
+ * pedidos da loja, e a cada venda criada (a importação de 90 dias do Bling) isso vira O(n²).
+ */
+export async function hasExactlyOneOrder(tenantId: string): Promise<boolean> {
+  const { data, error } = await getSupabaseAdmin().from("orders").select("id").eq("tenant_id", tenantId).limit(2);
+  if (error) throw new Error(error.message);
+  return (data ?? []).length === 1;
+}
+
+/**
  * O tenant vem da rota (`getRouteTenantContext`), como no `listOrdersByTenant`:
  * a versão que lia a primeira membership da sessão gravava o pedido na loja
  * errada para quem pertence a duas — a vendedora com loja própria convidada

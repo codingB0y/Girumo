@@ -136,7 +136,7 @@ test("POST grava na loja da rota, com o lead e a campanha dela", async () => {
     }),
     "POST /rest/v1/orders": () => ({ status: 201, corpo: linha }),
     "PATCH /rest/v1/leads": () => ({ status: 200, corpo: [] }),
-    "HEAD /rest/v1/orders": () => ({ status: 200, contentRange: "*/7" }),
+    "GET /rest/v1/orders": () => ({ status: 200, corpo: [{ id: "a" }, { id: "b" }] }),
   });
 
   const res = await POST(

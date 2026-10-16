@@ -511,3 +511,14 @@ apps/web/supabase/migrations/20261011120000_funil_anuncios_pessoas.sql
 # gate nao ve corpo de funcao -- conferir com infra/tests/pool-sem-estrutura-de-comunidade-check.sql
 # nos dois bancos.
 apps/web/supabase/migrations/20261014120000_pool_sem_estrutura_de_comunidade.sql
+# 2026-10-15 - Enviar arquivo nos grupos: app.enqueue_broadcast leva 'fileName' (broadcasts.media_name)
+# no payload de send_media. So o corpo muda (trava no topo confere o md5 de 20261010120000). Nao muda
+# a baseline.
+apps/web/supabase/migrations/20261015120000_documento_no_disparo.sql
+# 2026-10-13 - Integracao Bling (spec 2026-10-13-integracao-bling-design §2): bling_connections,
+# bling_oauth_states, bling_contacts, bling_orders (RLS ligado, sem policy, sem grant a
+# authenticated), orders.source ('manual'|'bling') e as RPCs bling_claim / bling_release /
+# bling_enqueue / bling_recompute_lists / bling_resumo (security invoker, execute so
+# service_role). Muda a baseline (t|orders e as tabelas/funcoes novas). O gate nao ve CHECK,
+# indice nem ACL: conferir por SQL nos dois bancos.
+apps/web/supabase/migrations/20261013120000_integracao_bling.sql

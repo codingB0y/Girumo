@@ -119,55 +119,78 @@ test("classificar: base Cancelado nunca vira venda, mesmo se a lista de venda es
   assert.equal(classificarPedido(pedido(40001), DA_LOJA, [9, 40001]), "pedido");
 });
 
-// Meio-dia em São Paulo (UTC−3, sem horário de verão) = 15:00 UTC.
+// Meio-dia em São Paulo (UTC−3, sem horário de verão) = 15:00 UTC. Nos casos abaixo sem `visto`, o
+// pedido foi visto agora: a regra de antes da referência pela 1ª vez.
 const meioDiaSP = (dia: string) => new Date(`${dia}T15:00:00.000Z`);
 
 test("hora do pedido: data nula, malformada ou antes de 2000 → agora", () => {
   const agora = new Date("2026-10-13T20:00:00.000Z");
   const tortas = [null, "", "13/10/2026", "2026-1-5", "2026-10-13T10:00:00", " 2026-10-12", "0000-00-00", "2026-13-01", "2026-02-30", "2026-02-29"];
   for (const dia of [...tortas, "0001-01-01", "1970-01-01", "1999-12-31"]) {
-    assert.equal(horaDoPedido(dia, agora).getTime(), agora.getTime(), `dia ${String(dia)}`);
+    assert.equal(horaDoPedido(dia, agora, agora).getTime(), agora.getTime(), `dia ${String(dia)}`);
   }
 });
 
 test("hora do pedido: hoje em São Paulo → agora, não o meio-dia", () => {
   const agora = new Date("2026-10-13T20:00:00.000Z"); // 17:00 em SP
-  assert.equal(horaDoPedido("2026-10-13", agora).getTime(), agora.getTime());
+  assert.equal(horaDoPedido("2026-10-13", agora, agora).getTime(), agora.getTime());
 });
 
 test("hora do pedido: perto da meia-noite UTC ainda é o dia anterior em São Paulo", () => {
   const agora = new Date("2026-10-14T02:30:00.000Z"); // 23:30 do dia 13 em SP
-  assert.equal(horaDoPedido("2026-10-13", agora).getTime(), agora.getTime());
-  assert.equal(horaDoPedido("2026-10-12", agora).getTime(), meioDiaSP("2026-10-12").getTime());
+  assert.equal(horaDoPedido("2026-10-13", agora, agora).getTime(), agora.getTime());
+  assert.equal(horaDoPedido("2026-10-12", agora, agora).getTime(), meioDiaSP("2026-10-12").getTime());
 });
 
 test("hora do pedido: virou o dia em São Paulo, ontem vira meio-dia de ontem", () => {
   const agora = new Date("2026-10-14T03:00:00.000Z"); // 00:00 do dia 14 em SP
-  assert.equal(horaDoPedido("2026-10-13", agora).getTime(), meioDiaSP("2026-10-13").getTime());
-  assert.equal(horaDoPedido("2026-10-14", agora).getTime(), agora.getTime());
+  assert.equal(horaDoPedido("2026-10-13", agora, agora).getTime(), meioDiaSP("2026-10-13").getTime());
+  assert.equal(horaDoPedido("2026-10-14", agora, agora).getTime(), agora.getTime());
 });
 
 test("hora do pedido: dia passado → 12:00 de São Paulo daquele dia", () => {
   const agora = new Date("2026-10-13T20:00:00.000Z");
-  assert.equal(horaDoPedido("2026-09-25", agora).toISOString(), "2026-09-25T15:00:00.000Z");
-  assert.equal(horaDoPedido("2024-02-29", agora).toISOString(), "2024-02-29T15:00:00.000Z");
-  assert.equal(horaDoPedido("2000-01-01", agora).toISOString(), "2000-01-01T15:00:00.000Z");
+  assert.equal(horaDoPedido("2026-09-25", agora, agora).toISOString(), "2026-09-25T15:00:00.000Z");
+  assert.equal(horaDoPedido("2024-02-29", agora, agora).toISOString(), "2024-02-29T15:00:00.000Z");
+  assert.equal(horaDoPedido("2000-01-01", agora, agora).toISOString(), "2000-01-01T15:00:00.000Z");
 });
 
 test("hora do pedido: dia futuro nunca sai no futuro", () => {
   const agora = new Date("2026-10-13T20:00:00.000Z");
-  assert.equal(horaDoPedido("2026-10-14", agora).getTime(), agora.getTime());
-  assert.equal(horaDoPedido("2027-01-01", agora).getTime(), agora.getTime());
+  assert.equal(horaDoPedido("2026-10-14", agora, agora).getTime(), agora.getTime());
+  assert.equal(horaDoPedido("2027-01-01", agora, agora).getTime(), agora.getTime());
 });
 
 test("hora do pedido: devolve Date novo, nunca o próprio agora", () => {
   const agora = new Date("2026-10-13T20:00:00.000Z");
   for (const dia of [null, "2026-10-13", "2026-10-20", "lixo"]) {
-    const hora = horaDoPedido(dia, agora);
+    const hora = horaDoPedido(dia, agora, agora);
     assert.notEqual(hora, agora, `dia ${String(dia)}`);
     hora.setTime(0);
     assert.equal(agora.toISOString(), "2026-10-13T20:00:00.000Z");
   }
+});
+
+test("hora do pedido: a referência é quando a Girumo o viu pela 1ª vez — a nova tentativa não muda a hora", () => {
+  const visto = new Date("2026-10-14T02:50:00.000Z"); // 23:50 do dia 13 em SP
+  const agora = new Date("2026-10-14T03:10:00.000Z"); // 00:10 do dia 14: a nova tentativa
+  // Mutante (a hora da tentativa): virava 12:00 do dia 13, e a venda, o created_at e o event_time divergiam.
+  assert.equal(horaDoPedido("2026-10-13", visto, agora).toISOString(), visto.toISOString());
+  assert.equal(horaDoPedido(null, visto, agora).toISOString(), visto.toISOString());
+});
+
+test("hora do pedido: visto semana passada e com a data editada para hoje → 12:00 de hoje, mas nunca depois de agora", () => {
+  const visto = new Date("2026-10-06T15:00:00.000Z");
+  const cedo = new Date("2026-10-13T12:00:00.000Z"); // 09:00 em SP: o meio-dia ainda não chegou
+  assert.equal(horaDoPedido("2026-10-13", visto, cedo).toISOString(), cedo.toISOString());
+  const tarde = new Date("2026-10-13T20:00:00.000Z");
+  assert.equal(horaDoPedido("2026-10-13", visto, tarde).toISOString(), "2026-10-13T15:00:00.000Z");
+});
+
+test("hora do pedido: visto à frente do relógio (o do banco adiantado) ou ilegível → nunca depois de agora", () => {
+  const agora = new Date("2026-10-13T20:00:00.000Z");
+  assert.equal(horaDoPedido("2026-10-13", new Date(agora.getTime() + 5_000), agora).getTime(), agora.getTime());
+  assert.equal(horaDoPedido(null, new Date(Number.NaN), agora).getTime(), agora.getTime());
 });
 
 test("janela do Meta: 6 dias e 23 horas", () => {

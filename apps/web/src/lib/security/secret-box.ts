@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 
 /**
  * Cofre dos segredos de integração (tokens do Bling no banco): AES-256-GCM.
@@ -28,6 +28,14 @@ export function chaveDeIntegracoes(env: NodeJS.ProcessEnv = process.env): Buffer
   // O decodificador do Node pula caractere inválido em silêncio: só a volta prova que era base64.
   const canonica = chave.toString("base64").replace(/=+$/, "") === texto.replace(/=+$/, "");
   return chave.length === BYTES_CHAVE && canonica ? chave : null;
+}
+
+/**
+ * Impressão da chave: os 16 primeiros caracteres do sha256 dela, em hex. Gravada junto dos segredos,
+ * diz se a chave que os selou é a de agora (chave trocada ≠ segredo estragado) sem revelar a chave.
+ */
+export function impressaoDaChave(chave: Buffer): string {
+  return createHash("sha256").update(chave).digest("hex").slice(0, 16);
 }
 
 /** AES-256-GCM, IV aleatório de 12 bytes; `contexto` vira AAD (ex.: `bling:<tenant>:refresh`). */

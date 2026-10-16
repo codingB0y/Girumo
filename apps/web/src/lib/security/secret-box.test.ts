@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { test } from "node:test";
 
-import { abrir, chaveDeIntegracoes, selar } from "./secret-box";
+import { abrir, chaveDeIntegracoes, impressaoDaChave, selar } from "./secret-box";
 
 const CHAVE = randomBytes(32);
 const CTX = "bling:t1:refresh";
@@ -74,4 +74,13 @@ test("chaveDeIntegracoes: base64 de exatamente 32 bytes; o resto é null", () =>
   const ruins = [undefined, "", "   ", b64(31), b64(33), b64(16), "lixo", "!".repeat(44), `${boa.slice(0, 40)}!!!=`];
   for (const ruim of ruins) assert.equal(chaveDeIntegracoes(env({ INTEGRATIONS_ENCRYPTION_KEY: ruim })), null, String(ruim));
   assert.equal(chaveDeIntegracoes(env({})), null);
+});
+
+test("impressão da chave: 16 hex do sha256, a mesma para a mesma chave e outra para outra chave", () => {
+  // sha256 de 32 bytes 0x07, os 16 primeiros caracteres: valor fixo, não a mesma conta refeita.
+  assert.equal(impressaoDaChave(Buffer.alloc(32, 7)), "4bb06f8e4e3a7715");
+  assert.equal(impressaoDaChave(Buffer.alloc(32, 8)), "2578ccf8645b2d1d");
+  assert.equal(impressaoDaChave(CHAVE), impressaoDaChave(Buffer.from(CHAVE)));
+  // Nunca a chave em si, nem um pedaço dela.
+  assert.ok(!CHAVE.toString("hex").includes(impressaoDaChave(CHAVE)));
 });

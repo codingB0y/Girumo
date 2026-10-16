@@ -14,15 +14,15 @@ import {
 } from "./api";
 import { ErroBling, type ClienteBling, type Query } from "./cliente";
 
-type Chamada = { caminho: string; query: Record<string, unknown> };
+type Chamada = { caminho: string; query: Record<string, unknown>; prazo?: number };
 
 /** Cliente falso: devolve (ou lança) o que estiver na fila, na ordem. */
 function clienteFalso(respostas: unknown[]) {
   const chamadas: Chamada[] = [];
   const cliente: ClienteBling = {
-    async get(caminho: string, query?: Query) {
+    async get(caminho: string, query?: Query, prazo?: number) {
       const definidos = Object.entries(query ?? {}).filter(([, v]) => v !== undefined);
-      chamadas.push({ caminho, query: Object.fromEntries(definidos) });
+      chamadas.push({ caminho, query: Object.fromEntries(definidos), ...(prazo === undefined ? {} : { prazo }) });
       if (respostas.length === 0) throw new Error(`cliente falso: sem resposta para ${caminho}`);
       const r = respostas.shift();
       if (r instanceof Error) throw r;
@@ -54,14 +54,20 @@ test("listarPedidos: /pedidos/vendas com página, limite 100 e só os filtros da
   const { cliente, chamadas } = clienteFalso([{ data: [PEDIDO] }, { data: [] }]);
   assert.deepEqual(
     await listarPedidos(cliente, { pagina: 1, dataAlteracaoInicial: "2026-10-13 06:00:00", dataAlteracaoFinal: "2026-10-13 10:00:00" }),
-    { pedidos: [RESUMO], brutos: 1 },
+    { pedidos: [RESUMO], brutos: 1, descartados: [] },
   );
   assert.deepEqual(chamadas[0], {
     caminho: "/pedidos/vendas",
     query: { pagina: 1, limite: 100, dataAlteracaoInicial: "2026-10-13 06:00:00", dataAlteracaoFinal: "2026-10-13 10:00:00" },
   });
-  assert.deepEqual(await listarPedidos(cliente, { pagina: 3, limite: 50, dataInicial: "2026-07-15", dataFinal: "2026-10-13" }), { pedidos: [], brutos: 0 });
+  assert.deepEqual(await listarPedidos(cliente, { pagina: 3, limite: 50, dataInicial: "2026-07-15", dataFinal: "2026-10-13" }), { pedidos: [], brutos: 0, descartados: [] });
   assert.deepEqual(chamadas[1].query, { pagina: 3, limite: 50, dataInicial: "2026-07-15", dataFinal: "2026-10-13" });
+});
+
+test("listarPedidos repassa ao cliente o prazo da página (a varredura para nele sem contar erro)", async () => {
+  const { cliente, chamadas } = clienteFalso([{ data: [] }]);
+  await listarPedidos(cliente, { pagina: 1 }, 1_234_567);
+  assert.equal(chamadas[0].prazo, 1_234_567);
 });
 
 test("listarPedidos normaliza: número vira texto, data zerada, vazia ou antes de 2000 vira null, total em texto vira número, contato 0 vira null", async () => {
@@ -91,13 +97,14 @@ test("listarPedidos normaliza: número vira texto, data zerada, vazia ou antes d
       { ...resumo, id: 9, data: "2000-01-01" },
     ],
     brutos: 9,
+    descartados: [],
   });
 });
 
 test("listarPedidos: página só com itens tortos tem brutos > 0 (não é o fim da paginação)", async (t) => {
   t.mock.method(console, "warn", () => undefined);
   const { cliente } = clienteFalso([{ data: [null, { ...PEDIDO, id: 0 }, "x"] }]);
-  assert.deepEqual(await listarPedidos(cliente, { pagina: 4 }), { pedidos: [], brutos: 3 });
+  assert.deepEqual(await listarPedidos(cliente, { pagina: 4 }), { pedidos: [], brutos: 3, descartados: [] });
 });
 
 test("listarPedidos descarta item sem id positivo, sem situação ou com total que não é número — e só ele", async (t) => {
@@ -109,23 +116,29 @@ test("listarPedidos descarta item sem id positivo, sem situação ou com total q
     { ...PEDIDO, id: -3 },
     { ...PEDIDO, id: 1.5 },
     { ...PEDIDO, id: "12a" },
-    { ...PEDIDO, situacao: undefined },
-    { ...PEDIDO, situacao: { id: 0 } },
-    { ...PEDIDO, situacao: "9" },
-    { ...PEDIDO, total: "abc" },
-    { ...PEDIDO, total: "150,50" },
-    { ...PEDIDO, total: "" },
-    { ...PEDIDO, total: undefined },
-    { ...PEDIDO, total: null },
+    { ...PEDIDO, id: 501, situacao: undefined },
+    { ...PEDIDO, id: 502, situacao: { id: 0 } },
+    { ...PEDIDO, id: 503, situacao: "9" },
+    { ...PEDIDO, id: 504, total: "abc" },
+    { ...PEDIDO, id: 505, total: "150,50" },
+    { ...PEDIDO, id: 506, total: "" },
+    { ...PEDIDO, id: 507, total: undefined },
+    { ...PEDIDO, id: " 508 ", total: null },
     null,
     "texto",
     42,
     PEDIDO,
   ];
   const { cliente } = clienteFalso([{ data: itens }]);
-  assert.deepEqual(await listarPedidos(cliente, { pagina: 1 }), { pedidos: [RESUMO], brutos: 17 });
-  // O descarte não passa calado, mas o log leva só a contagem (o item tem nome e documento).
-  assert.deepEqual(avisos, ["[bling/api] 16 pedido(s) da página 1 sem id, situação ou total válido"]);
+  // Do torto com id legível sai o id (o motor o põe na fila pelo aviso, que busca o pedido inteiro);
+  // o sem id só conta em `brutos`.
+  assert.deepEqual(await listarPedidos(cliente, { pagina: 1 }), {
+    pedidos: [RESUMO],
+    brutos: 17,
+    descartados: [501, 502, 503, 504, 505, 506, 507, 508],
+  });
+  // Quem loga é o motor, com a loja (a api não sabe de qual é).
+  assert.deepEqual(avisos, []);
 });
 
 test("listarPedidos: resposta fora do envelope { data: [...] } → invalido", async () => {

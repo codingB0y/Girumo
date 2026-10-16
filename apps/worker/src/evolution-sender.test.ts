@@ -71,6 +71,33 @@ test("sendText: erro de rede vira EvolutionSendError status 0", async () => {
   );
 });
 
+test("sendMedia: documento leva fileName e mimetype pra Evolution", async () => {
+  const captured: Captured[] = [];
+  const sender = createEvolutionSender({
+    baseUrl: "https://wa.example.com",
+    apiKey: "k",
+    fetchImpl: fakeFetch(ok(), captured),
+  });
+
+  await sender.sendMedia("gr_abc", "12036@g.us", {
+    media: "https://signed.example/c.pdf",
+    mediatype: "document",
+    caption: "Catálogo",
+    fileName: "Catalogo.pdf",
+    mimetype: "application/pdf",
+  });
+
+  assert.equal(captured[0].url, "https://wa.example.com/message/sendMedia/gr_abc");
+  assert.deepEqual(JSON.parse(captured[0].init.body as string), {
+    number: "12036@g.us",
+    mediatype: "document",
+    media: "https://signed.example/c.pdf",
+    caption: "Catálogo",
+    fileName: "Catalogo.pdf",
+    mimetype: "application/pdf",
+  });
+});
+
 test("sendAudio: POST /message/sendWhatsAppAudio/{instance} com encoding pra sair como nota de voz", async () => {
   const captured: Captured[] = [];
   const sender = createEvolutionSender({

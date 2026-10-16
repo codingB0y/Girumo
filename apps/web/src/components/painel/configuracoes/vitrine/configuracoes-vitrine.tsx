@@ -7,6 +7,7 @@ import { telefoneNaVitrine } from "@/lib/painel/conectar";
 import { resumoDasPortas, type LeituraDasPortas, type Porta } from "@/lib/painel/configuracoes";
 import { AbaEquipe, type PropsDaEquipe } from "./aba-equipe";
 import { AbaPlano, type PropsDoPlano } from "./aba-plano";
+import { Bling } from "@/components/painel/configuracoes/bling";
 import { DominioProprio } from "@/components/painel/configuracoes/dominio-proprio";
 import { SiteProprio } from "@/components/painel/configuracoes/site-proprio";
 
@@ -100,7 +101,13 @@ export function ConfiguracoesVitrine({
               <DominioProprio />
             </div>
           )}
-          {porta === "Integrações" && <SiteProprio />}
+          {porta === "Integrações" && (
+            <div className="space-y-6">
+              <SiteProprio />
+              {/* Só dono e administração: para os outros papéis o Bling se cala (o Site próprio já dá o recado). */}
+              <Bling />
+            </div>
+          )}
           {porta === "Equipe" && <AbaEquipe {...equipe} />}
           {porta === "Notificações" && <AbaAvisos {...avisos} />}
           {porta === "Plano" && <AbaPlano {...plano} />}

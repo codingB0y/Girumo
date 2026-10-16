@@ -8,7 +8,8 @@ import { z } from "zod";
  * entre o início de duas chamadas (novas tentativas contam), 429 recua 1/2/4 s (o Bling
  * não manda Retry-After) — menos o da cota do dia, que não passa recuando —, 5xx/rede/timeout
  * tentam mais 2 vezes. Quem decide parar a loja (disjuntor, pausa) é o motor, pelo `tipo`
- * do erro. Com `prazo`, nenhuma espera nem chamada passa do fim da execução.
+ * do erro. Com `prazo`, nenhuma espera nem chamada passa do fim da execução; a chamada pode
+ * trazer um prazo menor (a página da varredura), e vale o menor dos dois.
  *
  * Sem `server-only`: tudo que é de servidor (token, relógio, fetch) chega injetado.
  */
@@ -44,13 +45,24 @@ export class ErroBling extends Error {
   readonly status: number | null;
   /** Só no `limite`. "dia" = acabou a cota de 120 mil: tentar de novo antes de virar o dia só gasta erro. */
   readonly periodo: PeriodoLimite | null;
+  /**
+   * O prazo da execução acabou: antes da chamada, ou o timeout que ele encolheu abortou a chamada.
+   * É o orçamento, não o Bling (o motor para a rodada sem contar falha).
+   */
+  readonly prazoEsgotado: boolean;
 
-  constructor(tipo: TipoErroBling, status: number | null, mensagem: string, periodo: PeriodoLimite | null = null) {
+  constructor(
+    tipo: TipoErroBling,
+    status: number | null,
+    mensagem: string,
+    extra: { periodo?: PeriodoLimite; prazoEsgotado?: boolean } = {},
+  ) {
     super(mensagem);
     this.name = "ErroBling";
     this.tipo = tipo;
     this.status = status;
-    this.periodo = periodo;
+    this.periodo = extra.periodo ?? null;
+    this.prazoEsgotado = extra.prazoEsgotado === true;
   }
 }
 
@@ -66,114 +78,140 @@ export type OpcoesCliente = {
   agora?: () => number;
   intervaloMs?: number;
   timeoutMs?: number;
-  /** Fim da execução (epoch ms, no relógio de `agora`): espera ou chamada que passaria dele vira `transitorio`. */
+  /**
+   * Fim da execução (epoch ms, no relógio de `agora`): espera ou chamada que passaria dele, ou chamada
+   * abortada pelo timeout que ele encolheu, vira `transitorio` com `prazoEsgotado`.
+   */
   prazo?: number;
 };
 
-export type ClienteBling = { get(caminho: string, query?: Query): Promise<unknown> };
+/** `prazo`: o desta chamada (epoch ms, no relógio do cliente); vale o menor entre ele e o do cliente. */
+export type ClienteBling = { get(caminho: string, query?: Query, prazo?: number): Promise<unknown> };
 
 type Resposta = { status: number; corpo: string };
 
+/** Um cliente: as opções resolvidas, a próxima vez livre do ritmo e a renovação em voo. */
+type Estado = {
+  readonly opcoes: OpcoesCliente;
+  readonly fetchImpl: typeof fetch;
+  readonly esperar: (ms: number) => Promise<void>;
+  readonly agora: () => number;
+  readonly intervaloMs: number;
+  readonly timeoutMs: number;
+  /** Infinity = sem prazo. */
+  readonly prazo: number;
+  proximaVez: number;
+  renovacaoEmVoo: Promise<string> | null;
+};
+
 export function criarClienteBling(opcoes: OpcoesCliente): ClienteBling {
-  const fetchImpl = opcoes.fetchImpl ?? fetch;
-  const esperar = opcoes.esperar ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
-  const agora = opcoes.agora ?? Date.now;
-  const intervaloMs = opcoes.intervaloMs ?? INTERVALO_MS;
-  const timeoutMs = opcoes.timeoutMs ?? TIMEOUT_MS;
-  const { prazo } = opcoes;
-  let proximaVez = Number.NEGATIVE_INFINITY;
-  let renovacaoEmVoo: Promise<string> | null = null;
-
-  /** Espera que terminaria no prazo (ou depois) não deixaria tempo para a chamada. */
-  function conferirPrazo(espera: number, caminho: string): void {
-    if (prazo !== undefined && agora() + espera >= prazo) {
-      throw new ErroBling("transitorio", null, `Bling: prazo da execução esgotado antes de ${caminho}`);
-    }
-  }
-
-  /**
-   * Reserva a vez ANTES de esperar: duas chamadas em paralelo ganham vezes seguidas
-   * (0, 350, 700…). Ler o último início e esperar deixaria as duas saírem juntas.
-   */
-  async function aguardarVez(caminho: string): Promise<void> {
-    const t = agora();
-    const inicio = Math.max(t, proximaVez);
-    conferirPrazo(inicio - t, caminho);
-    proximaVez = inicio + intervaloMs;
-    if (inicio > t) await esperar(inicio - t);
-  }
-
-  async function recuar(ms: number, caminho: string): Promise<void> {
-    conferirPrazo(ms, caminho);
-    await esperar(ms);
-  }
-
-  /** O refresh token rotaciona: uma segunda renovação em paralelo usaria o refresh que a primeira acabou de trocar. */
-  function renovarUmaVez(): Promise<string> {
-    return (renovacaoEmVoo ??= opcoes.renovar().finally(() => {
-      renovacaoEmVoo = null;
-    }));
-  }
-
-  /** 401: se o token mudou desde que a chamada saiu, outra já renovou; senão renova (ou entra na que está em voo). */
-  async function tokenParaRepetir(usado: string): Promise<string> {
-    const atual = await opcoes.token();
-    return atual !== usado ? atual : renovarUmaVez();
-  }
-
-  /** Com prazo, a chamada acaba com ele; nunca abaixo do mínimo nem acima do `timeoutMs`. */
-  function tempoDaChamada(): number {
-    return prazo === undefined ? timeoutMs : Math.min(timeoutMs, Math.max(prazo - agora(), TIMEOUT_MINIMO_MS));
-  }
-
-  /** null = não chegou resposta inteira (rede, timeout, redirecionamento, corpo cortado no meio). */
-  async function buscar(url: string, token: string, caminho: string): Promise<Resposta | null> {
-    let r: { status: number; corpo: string | null };
-    try {
-      const res = await fetchImpl(url, {
-        method: "GET",
-        headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "enable-jwt": "1" },
-        // A API não redireciona: redirecionamento é proxy ou portal no caminho, e a resposta dele não é do Bling.
-        redirect: "error",
-        signal: AbortSignal.timeout(tempoDaChamada()),
-      });
-      r = { status: res.status, corpo: await lerTextoComTeto(res, TETO_RESPOSTA_BYTES) };
-    } catch {
-      // O erro do fetch fica de fora de propósito: a validação de header do undici cita o valor
-      // (o token). O tipo "transitorio" e o caminho bastam para o motor e para o log.
-      return null;
-    }
-    // Não adianta tentar de novo: viria grande outra vez.
-    if (r.corpo === null) throw new ErroBling("transitorio", null, `Bling: resposta grande demais em ${caminho}`);
-    return { status: r.status, corpo: r.corpo };
-  }
-
-  return {
-    async get(caminho, query) {
-      const url = montarUrl(caminho, query);
-      let token = await opcoes.token();
-      let trocouToken = false;
-      let limites = 0;
-      let falhas = 0;
-      for (;;) {
-        await aguardarVez(caminho);
-        const r = await buscar(url, token, caminho);
-        if (r && r.status >= 200 && r.status < 300) return lerJson(r, caminho);
-        if (r?.status === 401 && !trocouToken) {
-          trocouToken = true;
-          token = await tokenParaRepetir(token);
-        } else if (r?.status === 429 && limites < ESPERAS_LIMITE.length && periodoDoLimite(r.corpo) === "segundo") {
-          await recuar(ESPERAS_LIMITE[limites], caminho);
-          limites += 1;
-        } else if ((r === null || r.status >= 500) && falhas < ESPERAS_TRANSITORIO.length) {
-          await recuar(ESPERAS_TRANSITORIO[falhas], caminho);
-          falhas += 1;
-        } else {
-          throw erroFinal(r, caminho);
-        }
-      }
-    },
+  const estado: Estado = {
+    opcoes,
+    fetchImpl: opcoes.fetchImpl ?? fetch,
+    esperar: opcoes.esperar ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))),
+    agora: opcoes.agora ?? Date.now,
+    intervaloMs: opcoes.intervaloMs ?? INTERVALO_MS,
+    timeoutMs: opcoes.timeoutMs ?? TIMEOUT_MS,
+    prazo: opcoes.prazo ?? Number.POSITIVE_INFINITY,
+    proximaVez: Number.NEGATIVE_INFINITY,
+    renovacaoEmVoo: null,
   };
+  return { get: (caminho, query, prazo) => pedir(estado, caminho, query, Math.min(estado.prazo, prazo ?? Number.POSITIVE_INFINITY)) };
+}
+
+/**
+ * Um GET com as novas tentativas: 401 troca o token uma vez, 429 recua 1/2/4 s, 5xx e rede 1/3 s. `fim` é o
+ * prazo desta chamada (Infinity = nenhum): nenhuma espera nem chamada passa dele.
+ */
+async function pedir(e: Estado, caminho: string, query: Query | undefined, fim: number): Promise<unknown> {
+  const url = montarUrl(caminho, query);
+  let token = await e.opcoes.token();
+  let trocouToken = false;
+  let limites = 0;
+  let falhas = 0;
+  for (;;) {
+    await aguardarVez(e, fim, caminho);
+    const r = await buscar(e, fim, url, token, caminho);
+    if (r && r.status >= 200 && r.status < 300) return lerJson(r, caminho);
+    if (r?.status === 401 && !trocouToken) {
+      trocouToken = true;
+      token = await tokenParaRepetir(e, token);
+    } else if (r?.status === 429 && limites < ESPERAS_LIMITE.length && periodoDoLimite(r.corpo) === "segundo") {
+      await recuar(e, fim, ESPERAS_LIMITE[limites], caminho);
+      limites += 1;
+    } else if ((r === null || r.status >= 500) && falhas < ESPERAS_TRANSITORIO.length) {
+      await recuar(e, fim, ESPERAS_TRANSITORIO[falhas], caminho);
+      falhas += 1;
+    } else {
+      throw erroFinal(r, caminho);
+    }
+  }
+}
+
+/** Espera que terminaria no prazo (ou depois) não deixaria tempo para a chamada. */
+function conferirPrazo(e: Estado, fim: number, espera: number, caminho: string): void {
+  if (e.agora() + espera >= fim) throw prazoEsgotado(caminho);
+}
+
+/**
+ * Reserva a vez ANTES de esperar: duas chamadas em paralelo ganham vezes seguidas
+ * (0, 350, 700…). Ler o último início e esperar deixaria as duas saírem juntas.
+ */
+async function aguardarVez(e: Estado, fim: number, caminho: string): Promise<void> {
+  const t = e.agora();
+  const inicio = Math.max(t, e.proximaVez);
+  conferirPrazo(e, fim, inicio - t, caminho);
+  e.proximaVez = inicio + e.intervaloMs;
+  if (inicio > t) await e.esperar(inicio - t);
+}
+
+async function recuar(e: Estado, fim: number, ms: number, caminho: string): Promise<void> {
+  conferirPrazo(e, fim, ms, caminho);
+  await e.esperar(ms);
+}
+
+/** O refresh token rotaciona: uma segunda renovação em paralelo usaria o refresh que a primeira acabou de trocar. */
+function renovarUmaVez(e: Estado): Promise<string> {
+  return (e.renovacaoEmVoo ??= e.opcoes.renovar().finally(() => {
+    e.renovacaoEmVoo = null;
+  }));
+}
+
+/** 401: se o token mudou desde que a chamada saiu, outra já renovou; senão renova (ou entra na que está em voo). */
+async function tokenParaRepetir(e: Estado, usado: string): Promise<string> {
+  const atual = await e.opcoes.token();
+  return atual !== usado ? atual : renovarUmaVez(e);
+}
+
+/** Com prazo, a chamada acaba com ele; nunca abaixo do mínimo nem acima do `timeoutMs`. */
+function tempoDaChamada(e: Estado, fim: number): number {
+  return Math.min(e.timeoutMs, Math.max(fim - e.agora(), TIMEOUT_MINIMO_MS));
+}
+
+/** null = não chegou resposta inteira (rede, timeout, redirecionamento, corpo cortado no meio). */
+async function buscar(e: Estado, fim: number, url: string, token: string, caminho: string): Promise<Resposta | null> {
+  const tempo = tempoDaChamada(e, fim);
+  const sinal = AbortSignal.timeout(tempo);
+  let r: { status: number; corpo: string | null };
+  try {
+    const res = await e.fetchImpl(url, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "enable-jwt": "1" },
+      // A API não redireciona: redirecionamento é proxy ou portal no caminho, e a resposta dele não é do Bling.
+      redirect: "error",
+      signal: sinal,
+    });
+    r = { status: res.status, corpo: await lerTextoComTeto(res, TETO_RESPOSTA_BYTES) };
+  } catch {
+    // O timeout que o prazo encolheu disparou: a execução acabou, não adianta tentar de novo.
+    if (sinal.aborted && tempo < e.timeoutMs) throw prazoEsgotado(caminho);
+    // O erro do fetch fica de fora de propósito: a validação de header do undici cita o valor
+    // (o token). O tipo "transitorio" e o caminho bastam para o motor e para o log.
+    return null;
+  }
+  // Não adianta tentar de novo: viria grande outra vez.
+  if (r.corpo === null) throw new ErroBling("transitorio", null, `Bling: resposta grande demais em ${caminho}`);
+  return { status: r.status, corpo: r.corpo };
 }
 
 /**
@@ -225,21 +263,30 @@ function periodoDoLimite(corpo: string): PeriodoLimite {
   return erro.success && erro.data.error.period?.toLowerCase() === "day" ? "dia" : "segundo";
 }
 
+function prazoEsgotado(caminho: string): ErroBling {
+  return new ErroBling("transitorio", null, `Bling: prazo da execução esgotado antes de ${caminho}`, { prazoEsgotado: true });
+}
+
 function erroFinal(r: Resposta | null, caminho: string): ErroBling {
   if (r === null) return new ErroBling("transitorio", null, `Bling: sem resposta em ${caminho} (rede ou tempo esgotado)`);
   const { status } = r;
-  if (status === 401) return new ErroBling("auth", status, `Bling recusou o token em ${caminho} mesmo depois de renovar`);
+  // Só chega aqui depois de trocar o token: a renovação deu certo, então a concessão está viva e o
+  // 401 é incidente do Bling ou de proxy/WAF no caminho — não acesso revogado.
+  if (status === 401) return new ErroBling("transitorio", status, `Bling recusou o token em ${caminho} mesmo depois de renovar`);
   if (status === 429) {
     const periodo = periodoDoLimite(r.corpo);
     const cota = periodo === "dia" ? "cota do dia" : "limite de requisições";
-    return new ErroBling("limite", status, `Bling: ${cota} atingido em ${caminho}`, periodo);
+    return new ErroBling("limite", status, `Bling: ${cota} atingido em ${caminho}`, { periodo });
   }
   if (status >= 500) return new ErroBling("transitorio", status, `Bling: HTTP ${status} em ${caminho}`);
-  // Falta de escopo vem com o erro do Bling; HTML de WAF ou de IP bloqueado (300 erros em 10 s) passa sozinho.
+  // Falta de escopo vem com o erro do Bling; HTML de WAF, de IP bloqueado (300 erros em 10 s) ou de proxy passa sozinho.
   if (status === 403 && !erroDaApi.safeParse(jsonOuNull(r.corpo)).success) {
     return new ErroBling("transitorio", status, `Bling: HTTP 403 sem erro do Bling em ${caminho} (bloqueio ou firewall)`);
   }
   if (status === 403) return new ErroBling("escopo", status, `Bling: falta permissão no app para ${caminho}`);
+  // 404 com qualquer corpo. O falso (proxy) se cura sozinho: a varredura reabre a linha `excluido` que a lista do
+  // Bling ainda mostra. Já o 404 real sem corpo, como transitório, deixaria a venda apagada de verdade em `orders`
+  // e alimentaria o disjuntor.
   if (status === 404) return new ErroBling("nao_encontrado", status, `Bling: ${caminho} não encontrado`);
   return new ErroBling("invalido", status, `Bling recusou ${caminho}: HTTP ${status}${detalheDoErro(r.corpo)}`);
 }

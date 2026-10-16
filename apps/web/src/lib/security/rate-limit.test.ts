@@ -47,3 +47,32 @@ test("janela expirada zera o balde em memória", async () => {
   // Passada a janela de 1ms, o balde recomeça do zero.
   assert.equal(await checkRateLimitWith(null, id, 1, 1), false);
 });
+
+test("teto degradado: Upstash fora do ar cai no balde em memória com o teto próprio, nem bloqueia tudo nem libera o normal", async (t) => {
+  const erros = t.mock.method(console, "error", () => undefined);
+  // O teto normal (5) daria N× 5 (um balde por instância): no /oauth/token do Bling, IP bloqueado por 60 min.
+  // Bloquear tudo (falhar fechado) pararia todas as lojas quando o token vence. 1 por janela, por instância.
+  assert.equal(await checkRateLimitWith(upstashDown, "degradado:1", 5, WINDOW, { maxSeFalhar: 1 }), false);
+  assert.equal(await checkRateLimitWith(upstashDown, "degradado:1", 5, WINDOW, { maxSeFalhar: 1 }), true);
+  assert.equal(await checkRateLimitWith(upstashDown, "degradado:outro", 5, WINDOW, { maxSeFalhar: 1 }), false);
+  assert.match(String(erros.mock.calls[0]?.arguments[0]), /Upstash fora do ar: degradado:1 no balde em memória \(1 por janela\)/);
+});
+
+test("teto degradado: a resposta que a lib solta no timeout dela também vai para o balde; com o Upstash de pé, ele manda", async (t) => {
+  t.mock.method(console, "error", () => undefined);
+  const semResposta: RateLimiter = { limit: async () => ({ success: true, reason: "timeout" }) };
+  assert.equal(await checkRateLimitWith(semResposta, "degradado:2", 5, WINDOW, { maxSeFalhar: 1 }), false);
+  assert.equal(await checkRateLimitWith(semResposta, "degradado:2", 5, WINDOW, { maxSeFalhar: 1 }), true);
+  // Sem a opção (o middleware, o login), o de sempre: passa.
+  assert.equal(await checkRateLimitWith(semResposta, "degradado:3", 5, WINDOW), false);
+  assert.equal(await checkRateLimitWith(semResposta, "degradado:3", 5, WINDOW), false);
+  assert.equal(await checkRateLimitWith(upstashSaysAllowed, "degradado:4", 5, WINDOW, { maxSeFalhar: 1 }), false);
+  assert.equal(await checkRateLimitWith(upstashSaysAllowed, "degradado:4", 5, WINDOW, { maxSeFalhar: 1 }), false);
+  assert.equal(await checkRateLimitWith(upstashSaysBlocked, "degradado:5", 5, WINDOW, { maxSeFalhar: 1 }), true);
+});
+
+test("teto degradado sem Upstash configurado (dev): o balde em memória com o teto normal, como sempre", async () => {
+  assert.equal(await checkRateLimitWith(null, "degradado:dev", 2, WINDOW, { maxSeFalhar: 1 }), false);
+  assert.equal(await checkRateLimitWith(null, "degradado:dev", 2, WINDOW, { maxSeFalhar: 1 }), false);
+  assert.equal(await checkRateLimitWith(null, "degradado:dev", 2, WINDOW, { maxSeFalhar: 1 }), true);
+});
