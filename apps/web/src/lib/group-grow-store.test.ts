@@ -161,6 +161,8 @@ function avaliacaoCom(grupo: Record<string, unknown>): Record<string, (c: Chamad
     "GET /rest/v1/groups": () => ({ status: 200, corpo: [grupo] }),
     // Nenhum job em voo e nenhum seq anterior: o próximo é max(0, 1) + 1 = 2.
     "GET /rest/v1/group_grow_jobs": () => ({ status: 200, corpo: [] }),
+    // Nenhum job falho sem grupo com esse número para reaproveitar: segue para o INSERT.
+    "PATCH /rest/v1/group_grow_jobs": () => ({ status: 200, corpo: [] }),
     "POST /rest/v1/group_grow_jobs": (c) => ({
       status: 201,
       corpo: { ...JOB, ...(c.corpo as Record<string, unknown>), status: "queued" },
