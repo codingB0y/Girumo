@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toPlanLimitError, upgradeUrlFrom } from "@/lib/billing/plan-limit-client";
 import { ConectarVitrine } from "@/components/painel/conectar/vitrine/conectar-vitrine";
+import { useConfirmacao } from "@/components/painel/confirmacao";
 import { POLL_MS, WATCH_MS, nextPollDelay } from "@/lib/engine-poll";
 import { selectSessionRow } from "@/lib/session-select";
 import type { NumeroPerfilDeclarado } from "@/lib/instances/numero-perfil";
@@ -34,23 +35,27 @@ export default function PainelConectar() {
     pedirCodigo,
     disconnect,
     onEscolherPerfil,
+    folhaDeConfirmacao,
   } = useInstance();
 
   // PR 8 da Vitrine Aberta: o cartão do número e o código na caixinha Canvas.
   // Todo o estado acima continua aqui — só o desenho muda.
   return (
-    <ConectarVitrine
-      instancia={instance}
-      carregando={loading}
-      erro={error}
-      upgradeUrl={upgradeUrl}
-      precisaPerfil={precisaPerfil}
-      onAtualizar={() => load(true)}
-      onRefreshQr={refreshQr}
-      onPedirCodigo={pedirCodigo}
-      onDesconectar={disconnect}
-      onEscolherPerfil={onEscolherPerfil}
-    />
+    <>
+      <ConectarVitrine
+        instancia={instance}
+        carregando={loading}
+        erro={error}
+        upgradeUrl={upgradeUrl}
+        precisaPerfil={precisaPerfil}
+        onAtualizar={() => load(true)}
+        onRefreshQr={refreshQr}
+        onPedirCodigo={pedirCodigo}
+        onDesconectar={disconnect}
+        onEscolherPerfil={onEscolherPerfil}
+      />
+      {folhaDeConfirmacao}
+    </>
   );
 }
 
@@ -99,6 +104,7 @@ function useInstance() {
   // Resposta do "número é novo?" — ref, não state: `load` é um `useCallback`
   // com polling, e ler de state ali seria closure velha (sempre `null`).
   const perfilRef = useRef<NumeroPerfilDeclarado | null>(null);
+  const { pedirConfirmacao, folhaDeConfirmacao } = useConfirmacao();
 
   const load = useCallback(async (showSpinner = false) => {
     if (showSpinner) setLoading(true);
@@ -126,13 +132,23 @@ function useInstance() {
         }
         if (creating.current) return null;
         creating.current = true;
-        const created = await fetch("/api/instances", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: "WhatsApp", numero_perfil: perfilRef.current }),
-        });
-        if (!created.ok) {
-          throw await toPlanLimitError(created, "Nao foi possivel criar a instancia.");
+        let created: Response;
+        try {
+          created = await fetch("/api/instances", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: "WhatsApp", numero_perfil: perfilRef.current }),
+          });
+          if (!created.ok) {
+            throw await toPlanLimitError(created, "Nao foi possivel criar a instancia.");
+          }
+        } catch (e) {
+          // Falhou: o servidor desfez a criação (ou nem chegou nela — 402/403),
+          // então a próxima consulta pode tentar de novo. A trava presa deixava
+          // "Atualizar" e o polling em no-op até o F5. Em caso de sucesso ela
+          // fica: a instância existe e o GET seguinte já a devolve.
+          creating.current = false;
+          throw e;
         }
         // O QR chega logo em seguida pelo webhook; o próximo ciclo o pega.
         const nova = (await created.json()) as Instance;
@@ -228,11 +244,24 @@ function useInstance() {
    *
    * É a saída para trocar de número e para quando o pareamento entra em ciclo
    * (a sessão abre e cai sozinha, repetidamente).
+   *
+   * Pergunta antes: o logout tira o aparelho dos "Aparelhos conectados" e só
+   * volta repareando com o celular do número — não pode custar um toque só.
    */
   const disconnect = useCallback(async () => {
     if (!instance) return;
+    const ok = await pedirConfirmacao({
+      titulo: "Desconectar este número?",
+      texto:
+        instance.status === "connected"
+          ? "Posts agendados e campanhas param até você conectar de novo pelo celular."
+          : "A tentativa de conexão é encerrada e você recomeça pelo QR ou pelo código.",
+      rotulo: "Desconectar",
+      destrutivo: true,
+    });
+    if (!ok) return;
     await runAction(instance.id, "disconnect", "Nao foi possivel desconectar.");
-  }, [instance, runAction]);
+  }, [instance, pedirConfirmacao, runAction]);
 
   /** Resposta da pergunta do perfil: guarda na ref e libera a criação. */
   const onEscolherPerfil = useCallback(
@@ -319,5 +348,6 @@ function useInstance() {
     pedirCodigo,
     disconnect,
     onEscolherPerfil,
+    folhaDeConfirmacao,
   };
 }
