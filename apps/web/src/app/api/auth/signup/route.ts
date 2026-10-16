@@ -32,7 +32,14 @@ function toSlug(value: string): string {
 }
 
 export async function POST(req: Request) {
-  let body: { name?: string; email?: string; password?: string; legalVersion?: unknown; segment?: unknown };
+  let body: {
+    name?: string;
+    email?: string;
+    password?: string;
+    legalVersion?: unknown;
+    segment?: unknown;
+    inviteId?: unknown;
+  };
   try {
     body = await req.json();
   } catch {
@@ -42,6 +49,9 @@ export async function POST(req: Request) {
   const name = String(body.name ?? "").trim();
   const email = String(body.email ?? "").trim().toLowerCase();
   const password = String(body.password ?? "");
+  // Id do convite que o link do e-mail traz (`/signup?convite=`). É a prova de
+  // posse do e-mail: a conta abaixo nasce confirmada sem ninguém abrir a caixa.
+  const inviteId = typeof body.inviteId === "string" ? body.inviteId.trim() : "";
 
   if (!name || !email || password.length < 6) {
     return Response.json({ error: "Informe nome, e-mail e senha com no minimo 6 caracteres." }, { status: 400 });
@@ -91,8 +101,16 @@ export async function POST(req: Request) {
   // `user_id` nulo e casa só pelo `invited_email`, então precisa ser checada
   // ANTES de provisionar org nova — senão o convidado vira dono de um tenant
   // vazio e o convite fica pendurado (o mesmo "tenant fantasma" que o login
-  // social tinha). Vale para quem chega pelo link do e-mail de convite.
-  const invited = await acceptPendingInvite(supabase, authUserId, email, name);
+  // social tinha). Só vale para quem chega pelo link do e-mail de convite: sem
+  // o id dele, saber o e-mail convidado bastaria para entrar na loja de outro.
+  // Nesse caso o cadastro segue como conta nova e o convite fica intacto.
+  const invited = await acceptPendingInvite(
+    supabase,
+    authUserId,
+    email,
+    name,
+    inviteId ? { inviteId } : null,
+  );
   if (invited) {
     const acceptanceError = await recordLegalAcceptance(supabase, {
       authUserId,

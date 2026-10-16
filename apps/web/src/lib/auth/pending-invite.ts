@@ -26,24 +26,64 @@ export function normalizeInviteEmail(email: string | null | undefined): string {
 }
 
 /**
+ * Prova de que quem está entrando é dono do e-mail convidado. Sem ela, nenhum
+ * convite é aceito: o cadastro por senha cria a conta já confirmada, então
+ * "digitou o e-mail do convite" não prova nada — quem soubesse o e-mail entrava
+ * na loja com o papel do convite (até admin).
+ */
+export type InviteOwnershipProof =
+  /** Veio pelo link do e-mail de convite: só quem lê a caixa tem este id. */
+  | { inviteId: string }
+  /** O Google já verificou o e-mail (identidade google com o mesmo e-mail). */
+  | { emailVerifiedBy: "google" };
+
+/** Identidade de login como o Supabase Auth devolve em `user.identities`. */
+export interface AuthIdentity {
+  provider: string;
+  identity_data?: Record<string, unknown>;
+}
+
+/**
+ * Prova pelo Google: só vale a identidade `google` cujo e-mail é o mesmo da
+ * conta. Uma conta de senha (ou um Google de outro e-mail) não prova posse.
+ */
+export function googleOwnershipProof(
+  identities: readonly AuthIdentity[] | null | undefined,
+  email: string | null | undefined,
+): InviteOwnershipProof | null {
+  const target = normalizeInviteEmail(email);
+  if (!target) return null;
+
+  const verified = (identities ?? []).some(
+    (identity) =>
+      identity.provider === "google" &&
+      normalizeInviteEmail(String(identity.identity_data?.email ?? "")) === target,
+  );
+  return verified ? { emailVerifiedBy: "google" } : null;
+}
+
+/**
  * Escolhe qual convite pendente aceitar para um dado e-mail.
  *
- * Casa `invited_email` de forma case-insensitive e, havendo mais de um convite
- * pendente (tenants diferentes convidaram o mesmo e-mail), fica com o mais
- * antigo — mesma precedência de `members/accept`, que aceita um por vez. E-mail
- * vazio nunca casa: sem e-mail não há como atribuir o convite com segurança.
+ * Casa `invited_email` de forma case-insensitive. Pelo link do convite, aceita
+ * exatamente aquele convite (e só se for deste e-mail). Pelo Google, havendo
+ * mais de um convite pendente (tenants diferentes convidaram o mesmo e-mail),
+ * fica com o mais antigo — mesma precedência de `members/accept`, que aceita um
+ * por vez. E-mail vazio ou sem prova de posse nunca casa.
  */
 export function selectPendingInvite(
   invites: readonly PendingInvite[],
   email: string | null | undefined,
+  proof: InviteOwnershipProof | null,
 ): PendingInvite | null {
   const target = normalizeInviteEmail(email);
-  if (!target) return null;
+  if (!target || !proof) return null;
 
   const matches = invites
     .filter((invite) => normalizeInviteEmail(invite.invited_email) === target)
     .sort((a, b) => oldestFirst(a.created_at, b.created_at));
 
+  if ("inviteId" in proof) return matches.find((invite) => invite.id === proof.inviteId) ?? null;
   return matches[0] ?? null;
 }
 

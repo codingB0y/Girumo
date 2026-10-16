@@ -62,8 +62,12 @@ export function inviteEmail(
   inviterName: string,
   tenantName: string,
   appUrl: string,
+  inviteId: string,
 ): { subject: string; html: string } {
   const { subject, quem, equipe } = inviteCopy(inviterName, tenantName);
+  // O id do convite no link é a prova de posse do e-mail: o cadastro por senha
+  // só entra na equipe com ele (ver `selectPendingInvite`).
+  const link = `${appUrl}/signup?convite=${encodeURIComponent(inviteId)}`;
   return {
     subject,
     html: layout(`
@@ -76,13 +80,14 @@ export function inviteEmail(
         }
       </p>
       <p style="margin:0 0 8px;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.6">
-        Para aceitar, entre com <strong>este mesmo e-mail</strong> — é assim que
-        reconhecemos o convite e colocamos você direto na equipe.
+        Para aceitar, crie sua conta pelo botão abaixo com <strong>este mesmo
+        e-mail</strong> — é o botão que mostra que o convite é seu e coloca você
+        direto na equipe.
       </p>
-      ${button("Aceitar convite", `${appUrl}/login`)}
+      ${button("Aceitar convite", link)}
       <p style="margin:12px 0 0;font-size:13px;color:${BRAND_COLORS.volt};line-height:1.6">
-        Não esperava este convite? Pode ignorar esta mensagem — sem entrar com
-        este e-mail, nada acontece.
+        Não esperava este convite? Pode ignorar esta mensagem — sem o botão
+        deste e-mail, nada acontece.
       </p>
     `),
   };

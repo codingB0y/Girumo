@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { selectPendingInvite } from "./pending-invite";
+import { selectPendingInvite, type InviteOwnershipProof } from "./pending-invite";
 
 /**
  * Vincula o usuário recém-autenticado ao convite pendente do seu e-mail, se
@@ -10,6 +10,10 @@ import { selectPendingInvite } from "./pending-invite";
  * isso, o convidado é tratado como conta nova e ganha uma organização vazia,
  * com o convite pendurado para sempre — o "tenant fantasma".
  *
+ * Só aceita com prova de posse do e-mail (`proof`): o link do convite ou o
+ * Google. Sem ela devolve null e o chamador segue como conta nova — o convite
+ * fica intacto para a dona do e-mail.
+ *
  * Recebe o client por parâmetro e tipa com `import type` para não puxar o
  * módulo `server-only` em tempo de execução.
  */
@@ -18,7 +22,10 @@ export async function acceptPendingInvite(
   authUserId: string,
   email: string,
   displayName: string,
+  proof: InviteOwnershipProof | null,
 ): Promise<{ tenant_id: string; role: string | null } | null> {
+  if (!proof) return null;
+
   const { data: pending, error } = await supabase
     .from("memberships")
     .select("id, tenant_id, role, invited_email, created_at")
@@ -29,7 +36,7 @@ export async function acceptPendingInvite(
 
   if (error || !pending?.length) return null;
 
-  const invite = selectPendingInvite(pending, email);
+  const invite = selectPendingInvite(pending, email, proof);
   if (!invite) return null;
 
   const { data: claimed, error: claimError } = await supabase
