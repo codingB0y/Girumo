@@ -48,7 +48,7 @@ export function ProdutoFecho() {
           Conecta o número hoje.
           <br /> Amanhã o post sai sozinho.
         </h2>
-        <BotaoTeste seta className="mt-[30px] h-14 px-[30px] text-[16.5px]" />
+        <BotaoTeste seta escuro className="mt-[30px] h-14 px-[30px] text-[16.5px]" />
         <p className="mt-4 text-[14.5px] text-white/70">Você cadastra o cartão e só paga no 8º dia. Cancelou antes, não paga nada.</p>
       </div>
     </section>

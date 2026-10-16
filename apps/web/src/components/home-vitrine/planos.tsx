@@ -2,9 +2,10 @@
 
 import { useState, type ReactNode } from "react";
 import { Check, Smartphone, Users } from "lucide-react";
-import { SIGNUP_URL } from "@/components/lp3/landing-data";
+import { SIGNUP_URL, type Plan } from "@/components/lp3/landing-data";
 import { MAX_OFF } from "@/components/lp-shared/lp-data";
 import { Alternador } from "@/components/home-shared/alternador";
+import { FOCO_ESCURO } from "@/components/home-shared/estilo";
 import { economiaAnual, plano, reais, type NomePlano } from "@/components/home-shared/home-data";
 import { BOTAO, FOCO, H2, MIOLO, TOPO_CENTRO, TRILHO } from "@/components/home-vitrine/ui";
 import { IMPLANTACAO_CENTS, MENSAL_CENTS } from "@/lib/billing/instagram-preco";
@@ -22,7 +23,8 @@ interface Cartao {
   destaques: readonly string[];
 }
 
-/* Recursos conferidos em PLANS (lp3/landing-data) em 15/10/2026. */
+/* Recursos conferidos em PLANS (lp3/landing-data) em 15/10/2026; o do Growth
+   usa as palavras de lá ("Agenda semanal em 1 clique"). */
 const CARTOES: readonly Cartao[] = [
   {
     nome: "Essencial",
@@ -43,7 +45,7 @@ const CARTOES: readonly Cartao[] = [
       "Grupo lotou, o próximo nasce",
       "Página com a sua marca",
       "Contatos: quem entrou e quem saiu",
-      "Post que repete toda semana",
+      "Agenda semanal em 1 clique",
       "Venda com a origem",
     ],
   },
@@ -69,6 +71,61 @@ const PERIODOS = [
     ),
   },
 ] as const satisfies ReadonlyArray<{ valor: Periodo; texto: ReactNode }>;
+
+/** Linha de cima, preço do mês e, no anual, o total que o cartão paga de uma vez. */
+function PrecoDoPlano({ p, anual, escuro }: { p: Plan; anual: boolean; escuro: boolean }) {
+  const apoio = escuro ? "text-white/70" : "text-slate-600";
+  return (
+    <>
+      <p className={cn("mt-4 text-[13.5px]", escuro ? "text-white/60" : "text-slate-600")}>
+        {anual ? <s>De {reais(p.price)} por</s> : <>No anual, {reais(p.annualPrice)} por mês</>}
+      </p>
+      <p
+        className={cn(
+          "font-brand text-[42px] font-extrabold leading-[1.05] tracking-[-.03em]",
+          escuro ? "text-acid-500" : "text-cobalt-500",
+        )}
+      >
+        {reais(anual ? p.annualPrice : p.price)}
+        <small className={cn("font-body text-[14.5px] font-semibold tracking-normal", apoio)}> por mês</small>
+      </p>
+      {anual && <p className={cn("mt-1 text-[13px]", apoio)}>Cobrança anual de {reais(p.annualPrice * 12)}</p>}
+    </>
+  );
+}
+
+/** Celulares e grupos em destaque, e a lista do que o plano tem. */
+function RecursosDoPlano({ cartao, escuro, recomendado }: { cartao: Cartao; escuro: boolean; recomendado: boolean }) {
+  const icone = cn("size-[17px] shrink-0", escuro ? "text-acid-500" : "text-cobalt-500");
+  return (
+    <>
+      <ul
+        className={cn(
+          "mt-4 grid gap-2 rounded-xl px-3.5 py-3 text-sm font-semibold",
+          escuro ? "bg-white/[.08]" : recomendado ? "bg-white" : "bg-[#F4F7F2]",
+        )}
+      >
+        <li className="flex items-center gap-2.5">
+          <Smartphone aria-hidden className={icone} />
+          {cartao.celulares}
+        </li>
+        <li className="flex items-center gap-2.5">
+          <Users aria-hidden className={icone} />
+          {cartao.grupos}
+        </li>
+      </ul>
+      <p className={cn("mt-[18px] text-[13px] font-bold", escuro ? "text-acid-500" : "text-cobalt-700")}>Em destaque</p>
+      <ul className="mb-[22px] mt-2.5 grid gap-[9px] text-sm">
+        {cartao.destaques.map((destaque) => (
+          <li key={destaque} className="flex items-center gap-2.5">
+            <Check aria-hidden strokeWidth={2.4} className={cn("size-4 shrink-0", escuro ? "text-acid-500" : "text-[#0C7346]")} />
+            {destaque}
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
 
 function CartaoPlano({ cartao, periodo }: { cartao: Cartao; periodo: Periodo }) {
   const p = plano(cartao.nome);
@@ -102,47 +159,14 @@ function CartaoPlano({ cartao, periodo }: { cartao: Cartao; periodo: Periodo }) 
           </span>
         )}
       </header>
-      <p className={cn("mt-4 text-[13.5px]", escuro ? "text-white/60" : "text-slate-600")}>
-        {anual ? <s>De {reais(p.price)} por</s> : <>No anual, {reais(p.annualPrice)} por mês</>}
-      </p>
-      <p
-        className={cn(
-          "font-brand text-[42px] font-extrabold leading-[1.05] tracking-[-.03em]",
-          escuro ? "text-acid-500" : "text-cobalt-500",
-        )}
-      >
-        {reais(anual ? p.annualPrice : p.price)}
-        <small className={cn("font-body text-[14.5px] font-semibold tracking-normal", escuro ? "text-white/70" : "text-slate-600")}>
-          {" "}
-          por mês
-        </small>
-      </p>
+      <PrecoDoPlano p={p} anual={anual} escuro={escuro} />
       <p className={cn("mt-1.5 text-sm", escuro ? "text-white/70" : "text-slate-600")}>{cartao.publico}</p>
-      <ul
-        className={cn(
-          "mt-4 grid gap-2 rounded-xl px-3.5 py-3 text-sm font-semibold",
-          escuro ? "bg-white/[.08]" : recomendado ? "bg-white" : "bg-[#F4F7F2]",
-        )}
+      <RecursosDoPlano cartao={cartao} escuro={escuro} recomendado={recomendado} />
+      {/* No cartão escuro o anel de foco é acid: o volt sumiria no fundo. */}
+      <a
+        href={SIGNUP_URL}
+        className={cn(BOTAO, "mt-auto lg:w-full", escuro ? cn("bg-white hover:bg-white/90", FOCO_ESCURO) : FOCO)}
       >
-        <li className="flex items-center gap-2.5">
-          <Smartphone aria-hidden className={cn("size-[17px] shrink-0", escuro ? "text-acid-500" : "text-cobalt-500")} />
-          {cartao.celulares}
-        </li>
-        <li className="flex items-center gap-2.5">
-          <Users aria-hidden className={cn("size-[17px] shrink-0", escuro ? "text-acid-500" : "text-cobalt-500")} />
-          {cartao.grupos}
-        </li>
-      </ul>
-      <p className={cn("mt-[18px] text-[13px] font-bold", escuro ? "text-acid-500" : "text-cobalt-700")}>Em destaque</p>
-      <ul className="mb-[22px] mt-2.5 grid gap-[9px] text-sm">
-        {cartao.destaques.map((destaque) => (
-          <li key={destaque} className="flex items-center gap-2.5">
-            <Check aria-hidden strokeWidth={2.4} className={cn("size-4 shrink-0", escuro ? "text-acid-500" : "text-[#0C7346]")} />
-            {destaque}
-          </li>
-        ))}
-      </ul>
-      <a href={SIGNUP_URL} className={cn(BOTAO, "mt-auto lg:w-full", escuro && "bg-white hover:bg-white/90", FOCO)}>
         Quero o {cartao.nome}
       </a>
     </article>

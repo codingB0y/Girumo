@@ -28,7 +28,7 @@ export function tempoPorExtenso(minutos: number): string {
 
 /** Preço do mês dividido por 30 dias: "R$ 9,90", com espaço inseparável como em reais(). */
 export function custoPorDia(precoMensal: number): string {
-  return `R$ ${(precoMensal / 30).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `R$\u00a0${(precoMensal / 30).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 /** Valor da hora acima do qual o plano sai mais barato que postar na mão. */

@@ -60,7 +60,8 @@ export function VitrineConexoes() {
         </h2>
         <div>
           <p className={APOIO}>
-            Grupos e comunidades do WhatsApp, Instagram, pixel, site e domínio próprio: tudo entrando no mesmo painel.
+            Grupos e comunidades do WhatsApp, pixel, site e domínio próprio, e o Instagram como complemento: tudo
+            entrando no mesmo painel.
           </p>
           <BotaoTeste />
         </div>
@@ -154,6 +155,45 @@ function TextoPasso({ titulo, texto }: { titulo: string; texto: string }) {
   );
 }
 
+/** Celular desenhado com o QR Code: ilustração, o texto do passo diz o que é. */
+function IlustracaoQr() {
+  return (
+    <div aria-hidden className={ILUSTRACAO}>
+      <div className="h-[200px] w-[150px] rounded-3xl bg-[#0D1E28] p-2.5 shadow-[0_18px_40px_-20px_rgba(7,25,35,.5)]">
+        <div className="grid size-full place-items-center rounded-2xl bg-white">
+          <QrCode strokeWidth={1.4} className="size-[100px] text-volt-950" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Recorte do link da campanha com as quatro saídas dele embaixo. */
+function IlustracaoLink() {
+  return (
+    <div className={ILUSTRACAO}>
+      <Image
+        src={IMG.linkRecorte.src}
+        alt="Link da campanha, botão de QR code, 36 grupos e 4.894 pessoas"
+        width={IMG.linkRecorte.width}
+        height={IMG.linkRecorte.height}
+        sizes="(min-width: 1024px) 380px, 88vw"
+        className={cn(RECORTE, "mb-[46px]")}
+      />
+      <ul aria-hidden className="absolute inset-x-0 bottom-[22px] flex justify-center gap-1.5">
+        {TAGS.map((tag) => (
+          <li
+            key={tag}
+            className="flex h-7 items-center rounded-full border border-[#E3EADF] bg-white px-[11px] text-[12.5px] font-semibold"
+          >
+            {tag}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /** "Comece em três passos": QR Code, link e o primeiro post agendado. */
 export function VitrinePassos() {
   return (
@@ -163,13 +203,7 @@ export function VitrinePassos() {
       </h2>
       <ol className={cn(MIOLO, "mt-[26px] grid gap-3 lg:mt-11 lg:grid-cols-3 lg:gap-4")}>
         <li className={PASSO}>
-          <div aria-hidden className={ILUSTRACAO}>
-            <div className="h-[200px] w-[150px] rounded-3xl bg-[#0D1E28] p-2.5 shadow-[0_18px_40px_-20px_rgba(7,25,35,.5)]">
-              <div className="grid size-full place-items-center rounded-2xl bg-white">
-                <QrCode strokeWidth={1.4} className="size-[100px] text-volt-950" />
-              </div>
-            </div>
-          </div>
+          <IlustracaoQr />
           <RotuloPasso>Primeiro passo</RotuloPasso>
           <TextoPasso
             titulo="Conecta o número"
@@ -177,26 +211,7 @@ export function VitrinePassos() {
           />
         </li>
         <li className={PASSO}>
-          <div className={ILUSTRACAO}>
-            <Image
-              src={IMG.linkRecorte.src}
-              alt="Link da campanha, botão de QR code, 36 grupos e 4.894 pessoas"
-              width={IMG.linkRecorte.width}
-              height={IMG.linkRecorte.height}
-              sizes="(min-width: 1024px) 380px, 88vw"
-              className={cn(RECORTE, "mb-[46px]")}
-            />
-            <ul aria-hidden className="absolute inset-x-0 bottom-[22px] flex justify-center gap-1.5">
-              {TAGS.map((tag) => (
-                <li
-                  key={tag}
-                  className="flex h-7 items-center rounded-full border border-[#E3EADF] bg-white px-[11px] text-[12.5px] font-semibold"
-                >
-                  {tag}
-                </li>
-              ))}
-            </ul>
-          </div>
+          <IlustracaoLink />
           <RotuloPasso>Segundo passo</RotuloPasso>
           <TextoPasso titulo="Cola o link" texto="Um link só na bio, no anúncio e no story. O QR code vai pro balcão." />
         </li>

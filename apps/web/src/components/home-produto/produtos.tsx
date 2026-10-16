@@ -70,7 +70,8 @@ const PRODUTOS: readonly Produto[] = [
     icone: Link2,
     titulo: "Campanha com link único",
     texto: "Um link na bio, no anúncio e no story leva cada pessoa pro grupo com vaga.",
-    rotulo: "Grupos por campanha:",
+    // Total de grupos, como em PLANS ("Até 5 grupos gerenciados"), não por campanha.
+    rotulo: "Grupos:",
     ficha: [
       ["Essencial", "até 5"],
       ["Growth", "sem limite"],
@@ -99,7 +100,7 @@ const PRODUTOS: readonly Produto[] = [
       [Send, "Texto, foto e vídeo"],
       [Smartphone, "Prévia de como chega no celular"],
       [CalendarCheck, "Agenda dia e hora"],
-      [Clock, "Repete toda semana (Growth)"],
+      [Clock, "Agenda semanal em 1 clique (Growth)"],
       [ShieldCheck, "Ritmo seguro, sem configurar"],
     ],
   },
@@ -196,7 +197,7 @@ export function ProdutoNoBolso() {
               Seu painel no bolso: posta, acompanha os grupos e anota venda de onde estiver
             </h2>
             <p className="mt-3.5 text-[15px] text-white/75">Abre no navegador do celular e do computador, sem instalar nada.</p>
-            <BotaoTeste className="mt-6 h-[46px] lg:self-start" />
+            <BotaoTeste escuro className="mt-6 h-[46px] lg:self-start" />
           </div>
           <div aria-hidden className="relative mt-[26px] h-[300px] lg:mt-0 lg:h-auto lg:bg-[#16252C]">
             <Celular

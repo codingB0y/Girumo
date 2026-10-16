@@ -8,6 +8,10 @@
  * com a oferta do teste de 7 dias com cartão (modal, faixa fixa e todo 402 abre o
  * paywall em modo teste). Por isso a home (Vitrine, 15/10/2026) usa este link
  * como CTA principal; as LPs de anúncio seguem com o WhatsApp de vendas.
+ *
+ * Isso depende de BILLING_TRIAL_ENABLED (lib/billing/trial.ts), ligada em
+ * Production desde 05/10. Desligar a flag faz este CTA voltar a levar a uma conta
+ * que não faz nada, com a home prometendo 7 dias grátis.
  */
 export const SIGNUP_URL = "/signup";
 

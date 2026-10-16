@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { ChartColumn, Clock, Minus, Plus, Send, type LucideIcon } from "lucide-react";
 import { plano } from "@/components/home-shared/home-data";
 import {
@@ -38,59 +38,67 @@ const CONTADORES: readonly Contador[] = [
   { campo: "minutos", rotulo: "Minutos por post, em cada grupo", limite: [1, 10], menos: "Menos um minuto", mais: "Mais um minuto" },
 ];
 
-const BOTAO_PASSO = "grid size-[34px] place-items-center rounded-lg text-[#3B4D56] hover:bg-white disabled:opacity-40";
+interface BotaoPassoProps {
+  rotulo: string;
+  noLimite: boolean;
+  aoClicar: () => void;
+  children: ReactNode;
+}
 
-function Calculadora() {
-  const [rotina, setRotina] = useState<Rotina>(EXEMPLO);
-  const id = useId();
-  const periodo = PERIODOS.find((p) => p.dias === rotina.dias) ?? PERIODOS[2];
-  const mudar = (campo: Contador["campo"], passo: number, limite: Limite) =>
-    setRotina((atual) => ({ ...atual, [campo]: ajustar(atual[campo], passo, limite) }));
-
+/**
+ * + ou − de um contador. aria-disabled, e não disabled: o botão desabilitado
+ * perde o foco, e quem usa o teclado ficaria sem saber onde está ao chegar no
+ * limite. O clique no limite não muda nada, porque ajustar() não passa dele.
+ */
+function BotaoPasso({ rotulo, noLimite, aoClicar, children }: BotaoPassoProps) {
   return (
-    <div className="rounded-[20px] bg-white px-[18px] pb-[18px] pt-[22px] shadow-[0_30px_60px_-32px_rgba(7,25,35,.32),0_0_0_1px_#E6EBF2] lg:px-[26px] lg:pb-[22px] lg:pt-[26px]">
-      {CONTADORES.map(({ campo, rotulo, limite, menos, mais }, i) => (
-        <div key={campo} className={i > 0 ? "mt-3.5" : undefined}>
-          <p id={`${id}-${campo}`} className="mb-1.5 text-[13px] text-slate-600">
-            {rotulo}
-          </p>
-          <div role="group" aria-labelledby={`${id}-${campo}`} className="flex h-12 items-center rounded-xl bg-[#F5F7F9] pl-4 pr-2">
-            <span className="flex-1 text-base font-semibold tabular-nums">
-              {rotina[campo]}
-            </span>
-            <button
-              type="button"
-              aria-label={menos}
-              disabled={rotina[campo] <= limite[0]}
-              onClick={() => mudar(campo, -1, limite)}
-              className={cn(BOTAO_PASSO, FOCO)}
-            >
-              <Minus aria-hidden className="size-[18px]" />
-            </button>
-            <button
-              type="button"
-              aria-label={mais}
-              disabled={rotina[campo] >= limite[1]}
-              onClick={() => mudar(campo, 1, limite)}
-              className={cn(BOTAO_PASSO, FOCO)}
-            >
-              <Plus aria-hidden className="size-[18px]" />
-            </button>
-          </div>
-        </div>
-      ))}
+    <button
+      type="button"
+      aria-label={rotulo}
+      aria-disabled={noLimite}
+      onClick={aoClicar}
+      className={cn("grid size-[34px] place-items-center rounded-lg text-[#3B4D56] hover:bg-white aria-disabled:opacity-40", FOCO)}
+    >
+      {children}
+    </button>
+  );
+}
+
+function LinhaContador({ contador, valor, id, aoMudar }: { contador: Contador; valor: number; id: string; aoMudar: (passo: number) => void }) {
+  const rotuloId = `${id}-${contador.campo}`;
+  return (
+    <div>
+      <p id={rotuloId} className="mb-1.5 text-[13px] text-slate-600">
+        {contador.rotulo}
+      </p>
+      <div role="group" aria-labelledby={rotuloId} className="flex h-12 items-center rounded-xl bg-[#F5F7F9] pl-4 pr-2">
+        <span className="flex-1 text-base font-semibold tabular-nums">{valor}</span>
+        <BotaoPasso rotulo={contador.menos} noLimite={valor <= contador.limite[0]} aoClicar={() => aoMudar(-1)}>
+          <Minus aria-hidden className="size-[18px]" />
+        </BotaoPasso>
+        <BotaoPasso rotulo={contador.mais} noLimite={valor >= contador.limite[1]} aoClicar={() => aoMudar(1)}>
+          <Plus aria-hidden className="size-[18px]" />
+        </BotaoPasso>
+      </div>
+    </div>
+  );
+}
+
+function SeletorPeriodo({ id, dias, aoMudar }: { id: string; dias: number; aoMudar: (dias: number) => void }) {
+  return (
+    <>
       <p id={`${id}-periodo`} className="mb-1.5 mt-3.5 text-[13px] text-slate-600">
         Período
       </p>
       <div role="group" aria-labelledby={`${id}-periodo`} className="grid grid-cols-3 gap-1.5">
         {PERIODOS.map((p) => {
-          const ligado = p.dias === rotina.dias;
+          const ligado = p.dias === dias;
           return (
             <button
               key={p.dias}
               type="button"
               aria-pressed={ligado}
-              onClick={() => setRotina((atual) => ({ ...atual, dias: p.dias }))}
+              onClick={() => aoMudar(p.dias)}
               className={cn(
                 "grid h-11 place-items-center rounded-[10px] text-sm font-semibold",
                 ligado ? "border-2 border-cobalt-500 text-cobalt-700" : "border border-[#E1E6EA] text-slate-600",
@@ -102,15 +110,37 @@ function Calculadora() {
           );
         })}
       </div>
+    </>
+  );
+}
+
+function Calculadora() {
+  const [rotina, setRotina] = useState<Rotina>(EXEMPLO);
+  const id = useId();
+  const periodo = PERIODOS.find((p) => p.dias === rotina.dias) ?? PERIODOS[2];
+  return (
+    <div className="rounded-[20px] bg-white px-[18px] pb-[18px] pt-[22px] shadow-[0_30px_60px_-32px_rgba(7,25,35,.32),0_0_0_1px_#E6EBF2] lg:px-[26px] lg:pb-[22px] lg:pt-[26px]">
+      <div className="grid gap-3.5">
+        {CONTADORES.map((contador) => (
+          <LinhaContador
+            key={contador.campo}
+            contador={contador}
+            valor={rotina[contador.campo]}
+            id={id}
+            aoMudar={(passo) =>
+              setRotina((atual) => ({ ...atual, [contador.campo]: ajustar(atual[contador.campo], passo, contador.limite) }))
+            }
+          />
+        ))}
+      </div>
+      <SeletorPeriodo id={id} dias={rotina.dias} aoMudar={(dias) => setRotina((atual) => ({ ...atual, dias }))} />
       {/* <output> já é região viva: cada + ou − anuncia o novo total. */}
       <output className="mt-5 block border-t border-[#E2E7EA] pt-[18px]">
         <small className="block text-[13.5px] text-slate-600">Na mão, {periodo.frase}, a loja gasta</small>
         <b className="mt-1 block font-brand text-[40px] font-bold tracking-[-.02em] text-cobalt-500">
           {tempoPorExtenso(minutosNaMao(rotina))}
         </b>
-        <span className="mt-1 block text-sm text-slate-600">
-          Com a Girumo, cada post é escrito uma vez, não {rotina.grupos}.
-        </span>
+        <span className="mt-1 block text-sm text-slate-600">Com a Girumo, cada post é escrito uma vez, não {rotina.grupos}.</span>
       </output>
     </div>
   );
@@ -134,7 +164,8 @@ export function ProdutoCalculadora() {
     {
       icone: ChartColumn,
       titulo: `${custoPorDia(growth)} por dia`,
-      texto: `É quanto custa o Growth no mensal. Se a hora de quem posta vale mais de R$ ${horaQueFechaConta(growth, minutosNaMao(EXEMPLO))}, a conta fecha.`,
+      // \u00a0: espaço inseparável, pro "R$" não ficar sozinho no fim da linha.
+      texto: `É quanto custa o Growth no mensal. Se a hora de quem posta vale mais de R$\u00a0${horaQueFechaConta(growth, minutosNaMao(EXEMPLO))}, a conta fecha.`,
     },
   ];
   return (

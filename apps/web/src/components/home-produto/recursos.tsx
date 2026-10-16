@@ -98,111 +98,143 @@ function TituloPequeno({ children }: { children: ReactNode }) {
   );
 }
 
+function CartaoPequeno({ titulo, children }: { titulo: string; children: ReactNode }) {
+  return (
+    <article className={CARTAO_PEQUENO}>
+      <TituloPequeno>{titulo}</TituloPequeno>
+      {children}
+    </article>
+  );
+}
+
+const DUPLA = "mt-3.5 grid gap-3.5 lg:mt-[18px] lg:grid-cols-2 lg:gap-[18px]";
+const CELULAR_PEQUENO = "absolute right-[30px] top-[122px] w-[150px] rotate-[4deg] lg:right-11 lg:top-11 lg:w-[180px]";
+
+/** Tela dos grupos com a chave "Grupo lotou, abre outro" por cima. */
+function VisualLotou() {
+  return (
+    <div className="relative h-[340px] lg:h-auto">
+      <Celular
+        img={IMG.gruposCelular}
+        alt="Grupos da campanha: lotado, enchendo agora e na fila"
+        sizes="(min-width: 1024px) 230px, 176px"
+        className="absolute left-[22px] top-[30px] w-[176px] -rotate-[4deg] lg:left-16 lg:top-[50px] lg:w-[230px]"
+      />
+      <figure className="absolute right-3.5 top-[210px] z-[2] w-[250px] overflow-hidden rounded-[14px] shadow-[0_24px_50px_-20px_rgba(0,0,0,.6)] lg:left-[250px] lg:right-auto lg:top-[236px] lg:w-[400px]">
+        <Image
+          src={IMG.chavesRecorte.src}
+          alt="Campanha com a chave Grupo lotou, abre outro: ligada"
+          width={IMG.chavesRecorte.width}
+          height={IMG.chavesRecorte.height}
+          sizes="(min-width: 1024px) 400px, 250px"
+          className="block h-auto w-full"
+        />
+      </figure>
+    </div>
+  );
+}
+
+/** Dois modelos de página inclinados, um sobre o outro. */
+function ModelosInclinados() {
+  return (
+    <>
+      {[MODELOS[0], MODELOS[1]].map((modelo, i) => (
+        <Image
+          key={modelo.src}
+          src={modelo.src}
+          alt={`Modelo de página ${modelo.nome}`}
+          width={780}
+          height={1280}
+          sizes="(min-width: 1024px) 300px, 220px"
+          className={cn(
+            "absolute w-[220px] rounded-xl shadow-[0_20px_40px_-20px_rgba(7,25,35,.45)] lg:w-[300px]",
+            i === 0
+              ? "right-[116px] top-[150px] -rotate-[4deg] lg:right-32 lg:top-[118px]"
+              : "right-4 top-[182px] rotate-[5deg] lg:right-[26px] lg:top-[150px]",
+          )}
+        />
+      ))}
+    </>
+  );
+}
+
+/** A fila da relâmpago desenhada. Ilustração: o título do cartão já diz o que ela mostra. */
+function FilaEuQuero() {
+  return (
+    <ol aria-hidden className="absolute inset-x-[22px] top-[122px] grid gap-2.5 lg:left-auto lg:right-10 lg:top-24 lg:w-[270px]">
+      {["1º", "2º", "3º", "4º"].map((posicao, i) => (
+        <li key={posicao} className={cn("flex items-center gap-3 rounded-[14px] bg-[#F2F4F6] px-3.5 py-2.5", i === 3 && "opacity-50")}>
+          <b className="grid size-9 place-items-center rounded-full bg-acid-500 font-brand text-[13px] font-extrabold">{posicao}</b>
+          <span className="text-[15px] font-bold">EU QUERO</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function GradeDiaADia() {
+  return (
+    <>
+      <h2 id="grade-titulo" className={TITULO_GRUPO}>
+        Pra quem vende em grupo todo dia
+      </h2>
+      <article className={cn(CARTAO_GRANDE, "bg-volt-950")}>
+        <TextoGrande
+          titulo="Grupo lotou? O próximo já nasceu."
+          texto="Quando um grupo enche, a Girumo abre o próximo com o nome em sequência e o link passa a apontar pra ele. Do Growth pra cima."
+        />
+        <VisualLotou />
+      </article>
+      <div className={DUPLA}>
+        <CartaoPequeno titulo="Escreve uma vez e posta em todos os grupos">
+          <Celular img={IMG.disparosCelular} alt="Tela de Disparos com a prévia da oferta" sizes="(min-width: 1024px) 180px, 150px" className={CELULAR_PEQUENO} />
+        </CartaoPequeno>
+        <CartaoPequeno titulo="Página de captação com a sua marca">
+          <ModelosInclinados />
+        </CartaoPequeno>
+      </div>
+    </>
+  );
+}
+
+function GradeVendas() {
+  return (
+    <>
+      <h2 className={cn(TITULO_GRUPO, "mt-14 lg:mt-[88px]")}>Pra quem quer saber o que vende</h2>
+      <article className={cn(CARTAO_GRANDE, "bg-[#0B0F12]")}>
+        <TextoGrande
+          titulo="Cada venda com a origem: anúncio, story ou grupo"
+          texto="Anote a venda pelo telefone da cliente. O painel mostra o funil de cada anúncio até a compra e quanto custou cada venda. Do Growth pra cima."
+        />
+        <div className="relative h-[340px] lg:h-auto">
+          <Navegador
+            img={IMG.analiseDesktop}
+            alt="Análise da campanha: entradas e saídas por hora, cliques no link e grupos"
+            endereco="app.girumo.com.br/painel/campanhas"
+            sizes="(min-width: 1024px) 660px, 540px"
+            className="absolute left-[18px] top-7 w-[540px] lg:left-6 lg:top-14 lg:w-[660px]"
+          />
+        </div>
+      </article>
+      <div className={DUPLA}>
+        <CartaoPequeno titulo="Oferta relâmpago: quem comenta EU QUERO primeiro leva">
+          <FilaEuQuero />
+        </CartaoPequeno>
+        <CartaoPequeno titulo="Quem entrou e quem saiu, hora a hora">
+          <Celular img={IMG.entradasCelular} alt="Entradas e saídas de hoje, por hora" sizes="(min-width: 1024px) 180px, 150px" className={CELULAR_PEQUENO} />
+        </CartaoPequeno>
+      </div>
+    </>
+  );
+}
+
 /** Grade de cartões por perfil de loja (ref. InfinitePay), com as telas do painel. */
 export function ProdutoGrade() {
   return (
     <section id="pra-quem" aria-labelledby="grade-titulo" className={cn(CINZA, "scroll-mt-4 py-[60px] lg:py-24")}>
       <div className={MIOLO}>
-        <h2 id="grade-titulo" className={TITULO_GRUPO}>
-          Pra quem vende em grupo todo dia
-        </h2>
-        <article className={cn(CARTAO_GRANDE, "bg-volt-950")}>
-          <TextoGrande
-            titulo="Grupo lotou? O próximo já nasceu."
-            texto="Quando um grupo enche, a Girumo abre o próximo com o nome em sequência e o link passa a apontar pra ele. Do Growth pra cima."
-          />
-          <div className="relative h-[340px] lg:h-auto">
-            <Celular
-              img={IMG.gruposCelular}
-              alt="Grupos da campanha: lotado, enchendo agora e na fila"
-              sizes="(min-width: 1024px) 230px, 176px"
-              className="absolute left-[22px] top-[30px] w-[176px] -rotate-[4deg] lg:left-16 lg:top-[50px] lg:w-[230px]"
-            />
-            <figure className="absolute right-3.5 top-[210px] z-[2] w-[250px] overflow-hidden rounded-[14px] shadow-[0_24px_50px_-20px_rgba(0,0,0,.6)] lg:left-[250px] lg:right-auto lg:top-[236px] lg:w-[400px]">
-              <Image
-                src={IMG.chavesRecorte.src}
-                alt="Campanha com a chave Grupo lotou, abre outro: ligada"
-                width={IMG.chavesRecorte.width}
-                height={IMG.chavesRecorte.height}
-                sizes="(min-width: 1024px) 400px, 250px"
-                className="block h-auto w-full"
-              />
-            </figure>
-          </div>
-        </article>
-        <div className="mt-3.5 grid gap-3.5 lg:mt-[18px] lg:grid-cols-2 lg:gap-[18px]">
-          <article className={CARTAO_PEQUENO}>
-            <TituloPequeno>Escreve uma vez e posta em todos os grupos</TituloPequeno>
-            <Celular
-              img={IMG.disparosCelular}
-              alt="Tela de Disparos com a prévia da oferta"
-              sizes="(min-width: 1024px) 180px, 150px"
-              className="absolute right-[30px] top-[122px] w-[150px] rotate-[4deg] lg:right-11 lg:top-11 lg:w-[180px]"
-            />
-          </article>
-          <article className={CARTAO_PEQUENO}>
-            <TituloPequeno>Página de captação com a sua marca</TituloPequeno>
-            {[MODELOS[0], MODELOS[1]].map((modelo, i) => (
-              <Image
-                key={modelo.src}
-                src={modelo.src}
-                alt={`Modelo de página ${modelo.nome}`}
-                width={780}
-                height={1280}
-                sizes="(min-width: 1024px) 300px, 220px"
-                className={cn(
-                  "absolute w-[220px] rounded-xl shadow-[0_20px_40px_-20px_rgba(7,25,35,.45)] lg:w-[300px]",
-                  i === 0
-                    ? "right-[116px] top-[150px] -rotate-[4deg] lg:right-32 lg:top-[118px]"
-                    : "right-4 top-[182px] rotate-[5deg] lg:right-[26px] lg:top-[150px]",
-                )}
-              />
-            ))}
-          </article>
-        </div>
-
-        <h2 className={cn(TITULO_GRUPO, "mt-14 lg:mt-[88px]")}>Pra quem quer saber o que vende</h2>
-        <article className={cn(CARTAO_GRANDE, "bg-[#0B0F12]")}>
-          <TextoGrande
-            titulo="Cada venda com a origem: anúncio, story ou grupo"
-            texto="Anote a venda pelo telefone da cliente. O painel mostra o funil de cada anúncio até a compra e quanto custou cada venda. Do Growth pra cima."
-          />
-          <div className="relative h-[340px] lg:h-auto">
-            <Navegador
-              img={IMG.analiseDesktop}
-              alt="Análise da campanha: entradas e saídas por hora, cliques no link e grupos"
-              endereco="app.girumo.com.br/painel/campanhas"
-              sizes="(min-width: 1024px) 660px, 540px"
-              className="absolute left-[18px] top-7 w-[540px] lg:left-6 lg:top-14 lg:w-[660px]"
-            />
-          </div>
-        </article>
-        <div className="mt-3.5 grid gap-3.5 lg:mt-[18px] lg:grid-cols-2 lg:gap-[18px]">
-          <article className={CARTAO_PEQUENO}>
-            <TituloPequeno>Oferta relâmpago: quem comenta EU QUERO primeiro leva</TituloPequeno>
-            {/* Ilustração da fila: o título já diz o que ela mostra. */}
-            <ol aria-hidden className="absolute inset-x-[22px] top-[122px] grid gap-2.5 lg:left-auto lg:right-10 lg:top-24 lg:w-[270px]">
-              {["1º", "2º", "3º", "4º"].map((posicao, i) => (
-                <li
-                  key={posicao}
-                  className={cn("flex items-center gap-3 rounded-[14px] bg-[#F2F4F6] px-3.5 py-2.5", i === 3 && "opacity-50")}
-                >
-                  <b className="grid size-9 place-items-center rounded-full bg-acid-500 font-brand text-[13px] font-extrabold">{posicao}</b>
-                  <span className="text-[15px] font-bold">EU QUERO</span>
-                </li>
-              ))}
-            </ol>
-          </article>
-          <article className={CARTAO_PEQUENO}>
-            <TituloPequeno>Quem entrou e quem saiu, hora a hora</TituloPequeno>
-            <Celular
-              img={IMG.entradasCelular}
-              alt="Entradas e saídas de hoje, por hora"
-              sizes="(min-width: 1024px) 180px, 150px"
-              className="absolute right-[30px] top-[122px] w-[150px] rotate-[4deg] lg:right-11 lg:top-11 lg:w-[180px]"
-            />
-          </article>
-        </div>
+        <GradeDiaADia />
+        <GradeVendas />
       </div>
     </section>
   );

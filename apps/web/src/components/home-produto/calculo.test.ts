@@ -20,8 +20,8 @@ test("o tempo sai por extenso, com singular e sem '0 minutos'", () => {
 });
 
 test("custo por dia do plano mensal, em reais com centavos", () => {
-  assert.equal(custoPorDia(297), "R$ 9,90");
-  assert.equal(custoPorDia(197), "R$ 6,57");
+  assert.equal(custoPorDia(297), "R$\u00a09,90");
+  assert.equal(custoPorDia(197), "R$\u00a06,57");
 });
 
 test("a hora que fecha a conta arredonda pra cima", () => {

@@ -15,7 +15,7 @@ type Celula = string | boolean;
 /* Linhas da tabela, na ordem; os valores de cada coluna seguem a mesma ordem.
    Conferido em PLANS (lp3/landing-data) em 15/10/2026. */
 const RECURSOS = ["Celulares", "Grupos", "Grupo novo sozinho", "Página com a sua marca", "Venda com a origem", "Montagem junto"] as const;
-const DETALHES = ["Contatos: quem entrou e quem saiu", "Post que repete toda semana", "Revisão mensal 1:1", "Prioridade no suporte"] as const;
+const DETALHES = ["Contatos: quem entrou e quem saiu", "Agenda semanal em 1 clique", "Revisão mensal 1:1", "Prioridade no suporte"] as const;
 
 interface Coluna {
   nome: NomePlano;
@@ -54,14 +54,29 @@ function Valor({ valor }: { valor: Celula }) {
 
 const LINHA = "flex items-center justify-between gap-3 border-b border-[#EEF1F3] py-[11px] text-[14.5px] last:border-b-0";
 
-function ColunaPlano({ coluna, periodo, detalhes }: { coluna: Coluna; periodo: Periodo; detalhes: boolean }) {
-  const p = plano(coluna.nome);
+/** As linhas de preço: o período escolhido sobe pra primeira, em destaque; o total do anual fecha. */
+function PrecosDaColuna({ nome, periodo }: { nome: NomePlano; periodo: Periodo }) {
+  const p = plano(nome);
   const precos = [
-    { rotulo: "Por mês, no anual", valor: p.annualPrice, periodo: "anual" },
-    { rotulo: "No mensal", valor: p.price, periodo: "mensal" },
+    { rotulo: "Por mês, no anual", valor: p.annualPrice },
+    { rotulo: "No mensal", valor: p.price },
   ];
-  // O período escolhido sobe pra primeira linha, em destaque.
   const ordenados = periodo === "anual" ? precos : [...precos].reverse();
+  return (
+    <>
+      {[...ordenados, { rotulo: "Cobrança anual", valor: p.annualPrice * 12 }].map((preco, i) => (
+        <div key={preco.rotulo} className={LINHA}>
+          <dt className="text-slate-600">{preco.rotulo}</dt>
+          <dd className={cn("text-right font-semibold", i === 0 && "font-brand text-[22px] font-bold text-cobalt-500")}>
+            {reais(preco.valor)}
+          </dd>
+        </div>
+      ))}
+    </>
+  );
+}
+
+function ColunaPlano({ coluna, periodo, detalhes }: { coluna: Coluna; periodo: Periodo; detalhes: boolean }) {
   const linhas: ReadonlyArray<readonly [string, Celula]> = [
     ...RECURSOS.map((r, i) => [r, coluna.recursos[i]] as const),
     ...(detalhes ? DETALHES.map((d, i) => [d, coluna.detalhes[i]] as const) : []),
@@ -83,14 +98,7 @@ function ColunaPlano({ coluna, periodo, detalhes }: { coluna: Coluna; periodo: P
         <span className="mt-0.5 block font-brand text-xl font-bold">{coluna.nome}</span>
       </h3>
       <dl>
-        {ordenados.map((preco, i) => (
-          <div key={preco.periodo} className={LINHA}>
-            <dt className="text-slate-600">{preco.rotulo}</dt>
-            <dd className={cn("text-right font-semibold", i === 0 && "font-brand text-[22px] font-bold text-cobalt-500")}>
-              {reais(preco.valor)}
-            </dd>
-          </div>
-        ))}
+        <PrecosDaColuna nome={coluna.nome} periodo={periodo} />
         {linhas.map(([rotulo, valor]) => (
           <div key={rotulo} className={LINHA}>
             <dt className="text-slate-600">{rotulo}</dt>

@@ -86,16 +86,49 @@ interface Porte {
   alt: string;
 }
 
+/* O Growth já tem grupos sem limite (PLANS): o que o Operação acrescenta é a
+   gente montando junto, e é isso que o cartão dele diz. */
 const PORTES_MENORES: readonly Porte[] = [
   { titulo: "Crescendo", plano: "Growth", img: IMG.fotoMercado, alt: "Funcionário de mercado segurando uma caixa de tomates" },
-  { titulo: "Muitos grupos", plano: "Operação", img: IMG.fotoChaves, alt: "Lojista mostrando as chaves da loja" },
+  { titulo: "Com a gente junto", plano: "Operação", img: IMG.fotoChaves, alt: "Lojista mostrando as chaves da loja" },
 ];
 
-const SOMBRA_FOTO = "absolute inset-0 bg-[linear-gradient(180deg,rgba(7,25,35,0)_45%,rgba(7,25,35,.8)_100%)]";
+/* Escurece a metade de baixo da foto, onde fica o texto branco. */
+const SOMBRA_FOTO = "absolute inset-0 bg-[linear-gradient(180deg,rgba(7,25,35,0)_35%,rgba(7,25,35,.88)_100%)]";
+
+/** O porte grande: a loja começando, com o preço do Essencial. */
+function CartaoComecando() {
+  const essencial = plano("Essencial");
+  return (
+    <article className="relative col-span-2 h-[380px] overflow-hidden rounded-[22px] bg-[#C9D3C0] lg:col-span-1 lg:h-auto">
+      <Image
+        src={IMG.fotoDonaCafe.src}
+        alt="Dona de café sorrindo de braços cruzados no balcão"
+        fill
+        sizes="(min-width: 1024px) 860px, 100vw"
+        className="object-cover"
+      />
+      <div aria-hidden className={SOMBRA_FOTO} />
+      <div className="absolute inset-x-0 bottom-0 p-[18px] text-white lg:px-7 lg:py-[26px]">
+        <h3 className="font-brand text-[21px] font-bold tracking-[-.015em] lg:text-2xl">Começando</h3>
+        <p className="mt-2 max-w-[32em] text-[15.5px] leading-normal text-white/90">
+          Até 5 grupos e um celular conectado. É o plano Essencial: {reais(essencial.price)} por mês, ou{" "}
+          {reais(essencial.annualPrice)} por mês no anual.
+        </p>
+        <a
+          href="#planos"
+          className="mt-3 inline-flex items-center gap-2 rounded-sm text-[14.5px] font-bold text-acid-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acid-500"
+        >
+          Ver o Essencial
+          <ArrowRight aria-hidden className="size-[17px]" />
+        </a>
+      </div>
+    </article>
+  );
+}
 
 /** Três portes de loja em foto, cada um apontando pro plano dele. */
 export function VitrineTamanhos() {
-  const essencial = plano("Essencial");
   return (
     <section id="pra-quem" aria-labelledby="tamanhos-titulo" className={cn(TINTA, "scroll-mt-4 py-[60px] lg:py-24")}>
       <div className={MIOLO}>
@@ -103,30 +136,7 @@ export function VitrineTamanhos() {
           Pra cada tamanho de loja, um jeito de começar
         </h2>
         <div className="mt-[26px] grid grid-cols-2 gap-2.5 lg:mt-10 lg:h-[440px] lg:grid-cols-[minmax(0,1fr)_210px_210px] lg:gap-3.5">
-          <article className="relative col-span-2 h-[380px] overflow-hidden rounded-[22px] bg-[#C9D3C0] lg:col-span-1 lg:h-auto">
-            <Image
-              src={IMG.fotoDonaCafe.src}
-              alt="Dona de café sorrindo de braços cruzados no balcão"
-              fill
-              sizes="(min-width: 1024px) 860px, 100vw"
-              className="object-cover"
-            />
-            <div aria-hidden className={SOMBRA_FOTO} />
-            <div className="absolute inset-x-0 bottom-0 p-[18px] text-white lg:px-7 lg:py-[26px]">
-              <h3 className="font-brand text-[21px] font-bold tracking-[-.015em] lg:text-2xl">Começando</h3>
-              <p className="mt-2 max-w-[32em] text-[15.5px] leading-normal text-white/90">
-                Até 5 grupos e um celular conectado. É o plano Essencial: {reais(essencial.price)} por mês, ou{" "}
-                {reais(essencial.annualPrice)} no anual.
-              </p>
-              <a
-                href="#planos"
-                className="mt-3 inline-flex items-center gap-2 rounded-sm text-[14.5px] font-bold text-acid-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acid-500"
-              >
-                Ver o Essencial
-                <ArrowRight aria-hidden className="size-[17px]" />
-              </a>
-            </div>
-          </article>
+          <CartaoComecando />
           {PORTES_MENORES.map((porte) => (
             <article key={porte.titulo} className="relative h-[240px] overflow-hidden rounded-[22px] bg-[#C9D3C0] lg:h-auto">
               <Image src={porte.img.src} alt={porte.alt} fill sizes="(min-width: 1024px) 210px, 50vw" className="object-cover" />

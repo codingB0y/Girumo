@@ -1,7 +1,7 @@
 import { ArrowRight } from "lucide-react";
 import { SIGNUP_URL } from "@/components/lp3/landing-data";
 import { CTA_TESTE } from "@/components/home-shared/home-data";
-import { FOCO } from "@/components/home-shared/estilo";
+import { FOCO, FOCO_ESCURO } from "@/components/home-shared/estilo";
 import { cn } from "@/lib/utils";
 
 export { FOCO };
@@ -20,10 +20,18 @@ export const LAVANDA = "bg-[#E8EEFF]";
 export const BOTAO =
   "inline-flex h-[52px] w-full items-center justify-center gap-2.5 whitespace-nowrap rounded-full bg-acid-500 px-[26px] text-[15.5px] font-bold text-volt-950 transition-colors hover:bg-[#B8FF5C] lg:w-auto";
 
-/** "Testar 7 dias grátis" até o cadastro; com seta nos botões de destaque. */
-export function BotaoTeste({ className, seta }: { className?: string; seta?: boolean }) {
+interface BotaoTesteProps {
+  className?: string;
+  /** Seta no fim, nos botões de destaque. */
+  seta?: boolean;
+  /** Sobre fundo escuro o anel de foco é acid: o volt sumiria no fundo. */
+  escuro?: boolean;
+}
+
+/** "Testar 7 dias grátis" até o cadastro. */
+export function BotaoTeste({ className, seta, escuro }: BotaoTesteProps) {
   return (
-    <a href={SIGNUP_URL} className={cn(BOTAO, FOCO, className)}>
+    <a href={SIGNUP_URL} className={cn(BOTAO, escuro ? FOCO_ESCURO : FOCO, className)}>
       {CTA_TESTE}
       {seta && <ArrowRight aria-hidden className="size-[18px] shrink-0" />}
     </a>

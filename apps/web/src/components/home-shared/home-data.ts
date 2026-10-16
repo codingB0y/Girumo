@@ -26,7 +26,7 @@ export function economiaAnual(p: Pick<Plan, "price" | "annualPrice">): number {
  * O espaço depois do "R$" é inseparável: no fim da linha, "R$ / 297" partia o valor.
  */
 export function reais(valor: number): string {
-  return `R$ ${valor.toLocaleString("pt-BR")}`;
+  return `R$\u00a0${valor.toLocaleString("pt-BR")}`;
 }
 
 export type Pergunta = readonly [pergunta: string, resposta: string];

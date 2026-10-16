@@ -2,12 +2,15 @@ import { ArrowRight, Check } from "lucide-react";
 import { LogoSymbol } from "@/components/brand/logo";
 import { SIGNUP_URL } from "@/components/lp3/landing-data";
 import { CTA_TESTE, IMG } from "@/components/home-shared/home-data";
-import { FOCO_ESCURO } from "@/components/home-shared/estilo";
 import { Celular } from "@/components/home-shared/frames";
 import { FOCO } from "@/components/home-vitrine/ui";
 import { cn } from "@/lib/utils";
 
-/** Faixa escura de novidade logo abaixo do cabeçalho (`.news`). */
+/**
+ * Faixa escura de novidade logo abaixo do cabeçalho (`.news`). Sem o "Ver como
+ * funciona" do mockup: a página não tem seção sobre o gasto de anúncio, e o link
+ * levava a uma que não fala disso.
+ */
 export function VitrineNovidade() {
   return (
     <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1.5 bg-volt-950 px-[18px] py-2.5 text-center text-[13.5px] text-white lg:h-[46px] lg:flex-nowrap lg:gap-3 lg:py-0 lg:text-[14.5px]">
@@ -15,9 +18,6 @@ export function VitrineNovidade() {
         Novo
       </span>
       <span>Lance o gasto do anúncio e veja quanto custou cada venda.</span>
-      <a href="#como" className={cn("rounded-sm font-semibold text-acid-500 underline underline-offset-[3px]", FOCO_ESCURO)}>
-        Ver como funciona
-      </a>
     </div>
   );
 }
@@ -40,9 +40,54 @@ function Selo({ texto, className }: { texto: string; className: string }) {
 }
 
 /**
- * Herói centralizado com o leque de 5 celulares (ref. Tray). No celular ficam
- * os 3 do meio, cortados nas bordas como no mockup.
+ * Cinco celulares em leque sobre a faixa verde. No celular ficam os 3 do meio,
+ * cortados nas bordas como no mockup.
  */
+function LequeDeCelulares() {
+  return (
+    <div className="relative -mx-[18px] mt-[30px] h-[420px] overflow-hidden lg:mx-0 lg:mt-[46px] lg:h-[500px]">
+      <div aria-hidden className="absolute inset-x-0 bottom-0 h-[240px] bg-[#EEF9DC] lg:h-[300px]" />
+      <Celular
+        img={IMG.gruposCelular}
+        alt="Grupos da campanha com a lotação de cada um"
+        sizes="214px"
+        className="absolute left-[calc(50%_-_677px)] top-[104px] z-[1] hidden w-[214px] lg:block"
+      />
+      <Celular
+        img={IMG.inicioCelular}
+        alt="Início ao vivo com o mapa dos grupos"
+        sizes="(min-width: 1024px) 238px, 176px"
+        className="absolute left-[calc(50%_-_284px)] top-11 z-[2] w-[176px] lg:left-[calc(50%_-_419px)] lg:top-[52px] lg:w-[238px]"
+      />
+      <Celular
+        img={IMG.campanhaCelular}
+        alt="Campanha com o botão Postar em 36 grupos"
+        sizes="(min-width: 1024px) 272px, 206px"
+        priority
+        className="absolute left-[calc(50%_-_103px)] top-0 z-[3] w-[206px] lg:left-[calc(50%_-_136px)] lg:w-[272px]"
+      />
+      <Celular
+        img={IMG.disparosCelular}
+        alt="Disparos com a prévia de como a oferta chega no celular"
+        sizes="(min-width: 1024px) 238px, 176px"
+        className="absolute left-[calc(50%_+_108px)] top-11 z-[2] w-[176px] lg:left-[calc(50%_+_181px)] lg:top-[52px] lg:w-[238px]"
+      />
+      <Celular
+        img={IMG.hojeCelular}
+        alt="Hoje na campanha com os posts entregues"
+        sizes="214px"
+        className="absolute left-[calc(50%_+_463px)] top-[104px] z-[1] hidden w-[214px] lg:block"
+      />
+      <Selo
+        texto="Grupo lotou, abre outro: ligado"
+        className="bottom-[34px] right-3 flex text-[13px] lg:bottom-auto lg:left-[calc(50%_+_120px)] lg:right-auto lg:top-[92px] lg:text-[14.5px]"
+      />
+      <Selo texto="Postado em 36 de 36 grupos" className="hidden text-[14.5px] lg:left-[calc(50%_-_470px)] lg:top-[330px] lg:flex" />
+    </div>
+  );
+}
+
+/** Herói centralizado (ref. Tray): selo, título, os dois botões e o leque de celulares. */
 export function VitrineHeroi() {
   return (
     <section aria-labelledby="vitrine-titulo" className="px-[18px] pt-7 text-center lg:px-6 lg:pt-[46px]">
@@ -84,46 +129,7 @@ export function VitrineHeroi() {
         </a>
       </div>
       <p className="mt-3.5 text-sm text-slate-600">Cadastra o cartão e a cobrança só começa no 8º dia.</p>
-
-      <div className="relative -mx-[18px] mt-[30px] h-[420px] overflow-hidden lg:mx-0 lg:mt-[46px] lg:h-[500px]">
-        <div aria-hidden className="absolute inset-x-0 bottom-0 h-[240px] bg-[#EEF9DC] lg:h-[300px]" />
-        <Celular
-          img={IMG.gruposCelular}
-          alt="Grupos da campanha com a lotação de cada um"
-          sizes="214px"
-          className="absolute left-[calc(50%_-_677px)] top-[104px] z-[1] hidden w-[214px] lg:block"
-        />
-        <Celular
-          img={IMG.inicioCelular}
-          alt="Início ao vivo com o mapa dos grupos"
-          sizes="(min-width: 1024px) 238px, 176px"
-          className="absolute left-[calc(50%_-_284px)] top-11 z-[2] w-[176px] lg:left-[calc(50%_-_419px)] lg:top-[52px] lg:w-[238px]"
-        />
-        <Celular
-          img={IMG.campanhaCelular}
-          alt="Campanha com o botão Postar em 36 grupos"
-          sizes="(min-width: 1024px) 272px, 206px"
-          priority
-          className="absolute left-[calc(50%_-_103px)] top-0 z-[3] w-[206px] lg:left-[calc(50%_-_136px)] lg:w-[272px]"
-        />
-        <Celular
-          img={IMG.disparosCelular}
-          alt="Disparos com a prévia de como a oferta chega no celular"
-          sizes="(min-width: 1024px) 238px, 176px"
-          className="absolute left-[calc(50%_+_108px)] top-11 z-[2] w-[176px] lg:left-[calc(50%_+_181px)] lg:top-[52px] lg:w-[238px]"
-        />
-        <Celular
-          img={IMG.hojeCelular}
-          alt="Hoje na campanha com os posts entregues"
-          sizes="214px"
-          className="absolute left-[calc(50%_+_463px)] top-[104px] z-[1] hidden w-[214px] lg:block"
-        />
-        <Selo
-          texto="Grupo lotou, abre outro: ligado"
-          className="bottom-[34px] right-3 flex text-[13px] lg:bottom-auto lg:left-[calc(50%_+_120px)] lg:right-auto lg:top-[92px] lg:text-[14.5px]"
-        />
-        <Selo texto="Postado em 36 de 36 grupos" className="hidden text-[14.5px] lg:left-[calc(50%_-_470px)] lg:top-[330px] lg:flex" />
-      </div>
+      <LequeDeCelulares />
     </section>
   );
 }

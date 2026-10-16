@@ -11,7 +11,40 @@ const RECURSOS_PAGINA: ReadonlyArray<{ icone: LucideIcon; texto: string }> = [
   { icone: Target, texto: "Pixel da Meta" },
 ];
 
-/** Os três modelos de página lado a lado, o do meio maior (galeria da Tray). */
+/** Os três modelos lado a lado, o do meio maior, sobre a faixa que diz em que plano a página vem. */
+function GaleriaModelos() {
+  return (
+    <div className="relative mt-4 flex h-80 items-center justify-center gap-2.5 overflow-hidden rounded-3xl bg-[#F4FAEA] pb-16 lg:h-[440px] lg:gap-[22px] lg:pb-[50px]">
+      {MODELOS.map((modelo, i) => {
+        const maior = i === 1;
+        return (
+          <figure
+            key={modelo.src}
+            className={cn(
+              "shrink-0 rounded-[14px] bg-white px-2.5 pb-3 pt-2.5 shadow-[0_20px_40px_-24px_rgba(7,25,35,.4)]",
+              maior ? "w-[200px] lg:w-[360px]" : "w-[140px] opacity-90 lg:w-[280px]",
+            )}
+          >
+            <Image
+              src={modelo.src}
+              alt={`Modelo de página ${modelo.nome}`}
+              width={780}
+              height={1280}
+              sizes={maior ? "(min-width: 1024px) 340px, 180px" : "(min-width: 1024px) 260px, 120px"}
+              className={cn("block w-full rounded-lg object-cover object-top", maior ? "h-[210px] lg:h-[300px]" : "h-[170px] lg:h-[230px]")}
+            />
+            <figcaption className="mt-[9px] text-[12.5px] font-semibold lg:text-sm">{modelo.nome}</figcaption>
+          </figure>
+        );
+      })}
+      <p className="absolute inset-x-0 bottom-0 flex h-16 items-center justify-center bg-volt-950 px-[18px] text-center text-[13px] text-white lg:h-[50px] lg:text-[14.5px]">
+        A página é do Growth pra cima e pode ficar no seu domínio: links.sualoja.com.br
+      </p>
+    </div>
+  );
+}
+
+/** "Sua página de captação": o que dá pra pôr na página e a galeria dos modelos (ref. Tray). */
 export function VitrinePaginas() {
   return (
     <section aria-labelledby="paginas-titulo" className="py-[60px] lg:py-24">
@@ -33,36 +66,7 @@ export function VitrinePaginas() {
             </li>
           ))}
         </ul>
-        <div className="relative mt-4 flex h-80 items-center justify-center gap-2.5 overflow-hidden rounded-3xl bg-[#F4FAEA] pb-16 lg:h-[440px] lg:gap-[22px] lg:pb-[50px]">
-          {MODELOS.map((modelo, i) => {
-            const maior = i === 1;
-            return (
-              <figure
-                key={modelo.src}
-                className={cn(
-                  "shrink-0 rounded-[14px] bg-white px-2.5 pb-3 pt-2.5 shadow-[0_20px_40px_-24px_rgba(7,25,35,.4)]",
-                  maior ? "w-[200px] lg:w-[360px]" : "w-[140px] opacity-90 lg:w-[280px]",
-                )}
-              >
-                <Image
-                  src={modelo.src}
-                  alt={`Modelo de página ${modelo.nome}`}
-                  width={780}
-                  height={1280}
-                  sizes={maior ? "(min-width: 1024px) 340px, 180px" : "(min-width: 1024px) 260px, 120px"}
-                  className={cn(
-                    "block w-full rounded-lg object-cover object-top",
-                    maior ? "h-[210px] lg:h-[300px]" : "h-[170px] lg:h-[230px]",
-                  )}
-                />
-                <figcaption className="mt-[9px] text-[12.5px] font-semibold lg:text-sm">{modelo.nome}</figcaption>
-              </figure>
-            );
-          })}
-          <p className="absolute inset-x-0 bottom-0 flex h-16 items-center justify-center bg-volt-950 px-[18px] text-center text-[13px] text-white lg:h-[50px] lg:text-[14.5px]">
-            A página é do Growth pra cima e pode ficar no seu domínio: links.sualoja.com.br
-          </p>
-        </div>
+        <GaleriaModelos />
       </div>
     </section>
   );

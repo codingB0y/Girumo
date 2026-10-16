@@ -24,7 +24,7 @@ const DIFERENCAS: readonly Linha[] = [
   { recurso: "Grupo lotou, o próximo nasce", valores: [false, true, true] },
   { recurso: "Página de captação com a sua marca", valores: [false, true, true] },
   { recurso: "Contatos: quem entrou e quem saiu", valores: [false, true, true] },
-  { recurso: "Post que repete toda semana", valores: [false, true, true] },
+  { recurso: "Agenda semanal em 1 clique", valores: [false, true, true] },
   { recurso: "Venda com a origem", valores: [false, true, true] },
   { recurso: "Montagem junto com a gente", valores: [false, false, true] },
   { recurso: "Revisão mensal 1:1", valores: [false, false, true] },
@@ -42,10 +42,15 @@ const EM_TODOS: readonly Linha[] = [
   "Teste grátis de 7 dias",
 ].map((recurso) => ({ recurso, valores: [true, true, true] as const }));
 
-const MENSAL: Linha = {
-  recurso: "No mensal",
-  valores: [reais(plano("Essencial").price), reais(plano("Growth").price), reais(plano("Operação").price)],
-};
+function porPlano(valor: (nome: NomePlano) => string): Linha["valores"] {
+  return [valor("Essencial"), valor("Growth"), valor("Operação")];
+}
+
+/* Os preços fecham a tabela: o cabeçalho mostra o mês no anual; aqui, o mensal e o que o anual cobra de uma vez. */
+const PRECOS: readonly Linha[] = [
+  { recurso: "No mensal", valores: porPlano((nome) => reais(plano(nome).price)) },
+  { recurso: "Cobrança anual", valores: porPlano((nome) => reais(plano(nome).annualPrice * 12)) },
+];
 
 const MODOS = [
   { valor: "diferencas", texto: "Só as diferenças" },
@@ -69,10 +74,62 @@ function Valor({ valor }: { valor: Celula }) {
   );
 }
 
+function CabecalhoTabela() {
+  return (
+    <thead>
+      <tr>
+        <th scope="col" className="w-[38%] border-b border-[#EDF1EA] lg:w-[34%]">
+          <span className="sr-only">Recurso</span>
+        </th>
+        {COLUNAS.map((nome) => (
+          <th
+            key={nome}
+            scope="col"
+            className={cn(
+              "border-b border-[#EDF1EA] px-1.5 py-3.5 text-center font-brand text-[13.5px] font-bold lg:px-[22px] lg:py-5 lg:text-[17px]",
+              nome === "Growth" && "bg-[#EEF3FF] text-cobalt-700",
+            )}
+          >
+            {nome}
+            <small className="mt-0.5 block font-body text-[11px] font-medium text-slate-600 lg:text-[13px]">
+              {reais(plano(nome).annualPrice)}/mês no anual
+            </small>
+          </th>
+        ))}
+      </tr>
+    </thead>
+  );
+}
+
+function CorpoTabela({ linhas }: { linhas: readonly Linha[] }) {
+  return (
+    <tbody>
+      {linhas.map((linha, i) => {
+        const borda = i === linhas.length - 1 ? "" : "border-b border-[#EDF1EA]";
+        return (
+          <tr key={linha.recurso} className={i % 2 === 0 ? "bg-[#FAFCF8]" : undefined}>
+            <th scope="row" className={cn("py-2.5 pl-3 pr-1.5 text-left font-semibold text-[#2F434C] lg:px-[22px] lg:py-[15px]", borda)}>
+              {linha.recurso}
+            </th>
+            {linha.valores.map((valor, coluna) => (
+              <td
+                key={COLUNAS[coluna]}
+                className={cn("px-1.5 py-2.5 text-center lg:px-[22px] lg:py-[15px]", borda, coluna === 1 && "bg-[#F3F6FF]")}
+              >
+                <Valor valor={valor} />
+              </td>
+            ))}
+          </tr>
+        );
+      })}
+    </tbody>
+  );
+}
+
 /** Tabela dos três planos, com o seletor do mockup. Abre só nas diferenças. */
 export function VitrineComparacao() {
   const [modo, setModo] = useState<Modo>("diferencas");
-  const linhas = [...DIFERENCAS, ...(modo === "tudo" ? EM_TODOS : []), MENSAL];
+  const linhas = [...DIFERENCAS, ...(modo === "tudo" ? EM_TODOS : []), ...PRECOS];
   return (
     <section aria-labelledby="comparacao-titulo" className={cn(TINTA, "py-[60px] lg:py-24")}>
       <div className={cn(MIOLO, TOPO_CENTRO)}>
@@ -84,49 +141,8 @@ export function VitrineComparacao() {
       <div className={MIOLO}>
         <table className="mt-6 w-full border-separate border-spacing-0 overflow-hidden rounded-[20px] border border-[#E3EADF] bg-white text-[12.5px] lg:mt-9 lg:text-[14.5px]">
           <caption className="sr-only">Recursos de cada plano</caption>
-          <thead>
-            <tr>
-              <th scope="col" className="w-[38%] border-b border-[#EDF1EA] lg:w-[34%]">
-                <span className="sr-only">Recurso</span>
-              </th>
-              {COLUNAS.map((nome) => (
-                <th
-                  key={nome}
-                  scope="col"
-                  className={cn(
-                    "border-b border-[#EDF1EA] px-1.5 py-3.5 text-center font-brand text-[13.5px] font-bold lg:px-[22px] lg:py-5 lg:text-[17px]",
-                    nome === "Growth" && "bg-[#EEF3FF] text-cobalt-700",
-                  )}
-                >
-                  {nome}
-                  <small className="mt-0.5 block font-body text-[11px] font-medium text-slate-600 lg:text-[13px]">
-                    {reais(plano(nome).annualPrice)}/mês no anual
-                  </small>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {linhas.map((linha, i) => {
-              const ultima = i === linhas.length - 1;
-              const borda = ultima ? "" : "border-b border-[#EDF1EA]";
-              return (
-                <tr key={linha.recurso} className={i % 2 === 0 ? "bg-[#FAFCF8]" : undefined}>
-                  <th scope="row" className={cn("py-2.5 pl-3 pr-1.5 text-left font-semibold text-[#2F434C] lg:px-[22px] lg:py-[15px]", borda)}>
-                    {linha.recurso}
-                  </th>
-                  {linha.valores.map((valor, coluna) => (
-                    <td
-                      key={COLUNAS[coluna]}
-                      className={cn("px-1.5 py-2.5 text-center lg:px-[22px] lg:py-[15px]", borda, coluna === 1 && "bg-[#F3F6FF]")}
-                    >
-                      <Valor valor={valor} />
-                    </td>
-                  ))}
-                </tr>
-              );
-            })}
-          </tbody>
+          <CabecalhoTabela />
+          <CorpoTabela linhas={linhas} />
         </table>
       </div>
     </section>

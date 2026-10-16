@@ -13,10 +13,36 @@ const LINKS = [
   { texto: "Dúvidas", href: "#duvidas" },
 ] as const;
 
-/**
- * Cabeçalho branco das duas homes. No celular, os links vão pro menu: um
- * <details> nativo, sem JavaScript — o menu fecha ao tocar no X.
- */
+/** Menu do celular: um <details> nativo, sem JavaScript — fecha ao tocar no X. */
+function MenuCelular() {
+  return (
+    <details className="group relative lg:hidden">
+      <summary
+        aria-label="Menu"
+        className={cn("grid size-11 cursor-pointer list-none place-items-center rounded-md [&::-webkit-details-marker]:hidden", FOCO)}
+      >
+        <Menu aria-hidden className="size-6 group-open:hidden" />
+        <X aria-hidden className="hidden size-6 group-open:block" />
+      </summary>
+      <nav
+        aria-label="Menu"
+        className="absolute right-0 top-12 z-20 grid w-56 gap-0.5 rounded-2xl border border-[#E3EADF] bg-white p-2 shadow-[0_24px_48px_-20px_rgba(7,25,35,.35)]"
+      >
+        {[...LINKS, { texto: "Entrar", href: "/login" }].map((link) => (
+          <a
+            key={link.href}
+            href={link.href}
+            className={cn("flex h-11 items-center rounded-lg px-3 text-[15.5px] font-medium hover:bg-[#F4FAEA]", FOCO)}
+          >
+            {link.texto}
+          </a>
+        ))}
+      </nav>
+    </details>
+  );
+}
+
+/** Cabeçalho branco das duas homes: no desktop os links ficam à mostra; no celular, no menu. */
 export function HomeCabecalho() {
   return (
     <header className="mx-auto flex h-16 max-w-[1440px] items-center gap-1.5 pl-[18px] pr-2.5 lg:h-[76px] lg:px-16">
@@ -47,29 +73,7 @@ export function HomeCabecalho() {
         >
           {CTA_TESTE_CURTO}
         </a>
-        <details className="group relative lg:hidden">
-          <summary
-            aria-label="Menu"
-            className={cn("grid size-11 cursor-pointer list-none place-items-center rounded-md [&::-webkit-details-marker]:hidden", FOCO)}
-          >
-            <Menu aria-hidden className="size-6 group-open:hidden" />
-            <X aria-hidden className="hidden size-6 group-open:block" />
-          </summary>
-          <nav
-            aria-label="Menu"
-            className="absolute right-0 top-12 z-20 grid w-56 gap-0.5 rounded-2xl border border-[#E3EADF] bg-white p-2 shadow-[0_24px_48px_-20px_rgba(7,25,35,.35)]"
-          >
-            {[...LINKS, { texto: "Entrar", href: "/login" }].map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className={cn("flex h-11 items-center rounded-lg px-3 text-[15.5px] font-medium hover:bg-[#F4FAEA]", FOCO)}
-              >
-                {link.texto}
-              </a>
-            ))}
-          </nav>
-        </details>
+        <MenuCelular />
       </div>
     </header>
   );

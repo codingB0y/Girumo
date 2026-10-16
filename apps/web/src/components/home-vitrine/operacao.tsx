@@ -18,7 +18,8 @@ export function VitrineOperacao() {
       <div className={MIOLO}>
         <div className="grid items-center gap-[22px] overflow-hidden rounded-3xl bg-cobalt-500 px-[22px] pb-[26px] pt-7 text-white lg:grid-cols-[minmax(0,1fr)_430px_auto] lg:gap-7 lg:px-11 lg:py-10">
           <div>
-            <p className="inline-flex h-7 items-center rounded-full bg-white/20 px-3 text-[12.5px] font-bold">Plano Operação</p>
+            {/* Cobalto escuro e não branco translúcido: texto pequeno precisa de 4,5:1, e o translúcido dava 3,4:1. */}
+            <p className="inline-flex h-7 items-center rounded-full bg-cobalt-700 px-3 text-[12.5px] font-bold">Plano Operação</p>
             <h2 id="operacao-titulo" className="mt-3.5 text-balance font-brand text-2xl font-semibold leading-[1.2] tracking-[-.02em] lg:text-[30px]">
               Sua operação <em className="not-italic text-acid-500">montada junto</em> com a gente
             </h2>
