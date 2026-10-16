@@ -3,7 +3,7 @@ import { after } from "next/server";
 import { FIRST_TOUCH_COOKIE, parseFirstTouch } from "@/lib/analytics/first-touch";
 import { SESSION_COOKIE, signSession, sessionCookieOptions } from "@/lib/auth";
 import { acceptPendingInvite } from "@/lib/auth/accept-pending-invite";
-import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { createSupabaseAnonClient, getSupabaseAdmin } from "@/lib/supabase/server";
 import { provisionEntrySubscription } from "@/lib/billing/entry-subscription";
 import { INVALID_SEGMENT, parseSegmentInput } from "@/lib/settings/segment-input";
 import { updateTenantSettings } from "@/lib/stores/tenant-settings";
@@ -190,7 +190,9 @@ export async function POST(req: Request) {
     }
   }
 
-  const { data: sessionData } = await supabase.auth.signInWithPassword({ email, password });
+  // Login num cliente descartável: o cliente admin é compartilhado entre requisições e não
+  // pode guardar sessão de usuário (ver getSupabaseAdmin).
+  const { data: sessionData } = await createSupabaseAnonClient().auth.signInWithPassword({ email, password });
   const token = await signSession(authUserId);
   (await cookies()).set(SESSION_COOKIE, token, sessionCookieOptions);
 
