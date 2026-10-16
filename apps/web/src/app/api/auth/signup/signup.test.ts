@@ -14,8 +14,10 @@ import { LEGAL_VERSION } from "@/lib/legal";
  *
  * O que prova: a conta nasce com `email_confirm: true`, então digitar o e-mail
  * de um convite não prova posse dele. Sem o id do convite (que só o link do
- * e-mail traz), o cadastro segue como conta nova — com loja própria — e o
- * convite fica intacto para a dona do e-mail.
+ * e-mail traz), o cadastro de e-mail convidado é recusado ANTES de criar o
+ * usuário: nem conta, nem loja própria. Criar a conta já confirmada deixaria o
+ * convite pendurado para sempre (a dona do e-mail viraria dona de loja vazia) e
+ * daria a quem sabe o e-mail um jeito de inutilizar o convite.
  */
 
 (globalThis as { AsyncLocalStorage?: unknown }).AsyncLocalStorage = AsyncLocalStorage;
@@ -32,6 +34,8 @@ const NOVO_USUARIO = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const CONVIDADA = "convidada@loja.test";
 
 let banco: Record<string, Linha[]> = {};
+/** Liga para a leitura de `memberships` responder erro. */
+let conviteIndisponivel = false;
 const pedidos: Pedido[] = [];
 let rota: Rota;
 let chamar: (handler: () => Promise<Response>) => Promise<Response>;
@@ -80,6 +84,11 @@ const supabase = createServer(async (req, res) => {
   const tabela = url.pathname.replace("/rest/v1/", "");
   const linhas = banco[tabela] ?? [];
 
+  if (metodo === "GET" && tabela === "memberships" && conviteIndisponivel) {
+    res.statusCode = 400;
+    res.end(JSON.stringify({ code: "XX000", message: "indisponivel" }));
+    return;
+  }
   if (metodo === "GET") {
     res.end(JSON.stringify(linhas.filter((l) => casa(l, url))));
     return;
@@ -163,18 +172,28 @@ beforeEach(() => {
     ],
   };
   pedidos.length = 0;
+  conviteIndisponivel = false;
 });
 
-test("signup with an invited email but no invite link creates its own store and leaves the invite alone", async () => {
+/** Nada nasceu: nem usuário no auth, nem loja, nem escrita no convite. */
+function nadaFoiCriado(): void {
+  assert.equal(
+    pedidos.filter((p) => p.metodo === "POST" && p.caminho === "/auth/v1/admin/users").length,
+    0,
+    "nenhum usuário criado",
+  );
+  assert.equal(escritas("POST", "organizations").length, 0, "nenhuma loja criada");
+  assert.equal(escritas("PATCH", "memberships").length, 0, "nenhuma escrita na linha do convite");
+}
+
+test("signup with an invited email but no invite link is refused before creating anything", async () => {
   const res = await chamar(() => rota.POST(cadastro()));
-  assert.equal(res.status, 201);
+  assert.equal(res.status, 409);
   const corpo = (await res.json()) as Linha;
 
-  assert.equal(corpo.joinedViaInvite, undefined);
-  assert.notEqual(corpo.tenantId, LOJA);
-  assert.equal(escritas("PATCH", "memberships").length, 0, "nenhuma escrita na linha do convite");
+  assert.equal(corpo.code, "invite_link_required");
+  nadaFoiCriado();
   assert.equal(linhaDe(CONVITE)?.user_id, null);
-  assert.equal(escritas("POST", "organizations").length, 1, "a conta nasce com loja própria");
 });
 
 test("signup through the invite link joins the inviting store with the invite role", async () => {
@@ -189,13 +208,31 @@ test("signup through the invite link joins the inviting store with the invite ro
   assert.equal(escritas("POST", "organizations").length, 0, "sem loja fantasma");
 });
 
-test("signup with another invite's id does not join any store", async () => {
+test("signup with another invite's id is refused before creating anything", async () => {
   const res = await chamar(() => rota.POST(cadastro({ inviteId: CONVITE_DE_OUTRO })));
+  assert.equal(res.status, 409);
+  const corpo = (await res.json()) as Linha;
+
+  assert.equal(corpo.code, "invite_link_required");
+  nadaFoiCriado();
+  assert.equal(linhaDe(CONVITE)?.user_id, null);
+  assert.equal(linhaDe(CONVITE_DE_OUTRO)?.user_id, null);
+});
+
+test("signup is refused when the pending invites cannot be read", async () => {
+  conviteIndisponivel = true;
+  const res = await chamar(() => rota.POST(cadastro()));
+
+  assert.equal(res.status, 500);
+  nadaFoiCriado();
+});
+
+test("signup of an email nobody invited creates its own store as always", async () => {
+  const res = await chamar(() => rota.POST(cadastro({ email: "ninguem@loja.test" })));
   assert.equal(res.status, 201);
   const corpo = (await res.json()) as Linha;
 
   assert.equal(corpo.joinedViaInvite, undefined);
+  assert.equal(escritas("POST", "organizations").length, 1, "a conta nasce com loja própria");
   assert.equal(escritas("PATCH", "memberships").length, 0);
-  assert.equal(linhaDe(CONVITE)?.user_id, null);
-  assert.equal(linhaDe(CONVITE_DE_OUTRO)?.user_id, null);
 });

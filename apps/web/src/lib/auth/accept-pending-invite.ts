@@ -1,5 +1,27 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { selectPendingInvite, type InviteOwnershipProof } from "./pending-invite";
+import { selectPendingInvite, type InviteOwnershipProof, type PendingInvite } from "./pending-invite";
+
+/**
+ * Convites pendentes (sem usuário, não aceitos) para o e-mail. Devolve null se
+ * a consulta falhar — o chamador decide se isso bloqueia ou só segue sem convite.
+ *
+ * O `ilike` pode trazer linhas a mais (`_` e `%` são curinga); quem decide usa
+ * `selectPendingInvite`/`requiresInviteLink`, que casam o e-mail exato.
+ */
+export async function listPendingInvites(
+  supabase: SupabaseClient,
+  email: string,
+): Promise<PendingInvite[] | null> {
+  const { data, error } = await supabase
+    .from("memberships")
+    .select("id, tenant_id, role, invited_email, created_at")
+    .is("user_id", null)
+    .is("accepted_at", null)
+    .ilike("invited_email", email)
+    .order("created_at", { ascending: true });
+
+  return error ? null : (data ?? []);
+}
 
 /**
  * Vincula o usuário recém-autenticado ao convite pendente do seu e-mail, se
@@ -26,15 +48,8 @@ export async function acceptPendingInvite(
 ): Promise<{ tenant_id: string; role: string | null } | null> {
   if (!proof) return null;
 
-  const { data: pending, error } = await supabase
-    .from("memberships")
-    .select("id, tenant_id, role, invited_email, created_at")
-    .is("user_id", null)
-    .is("accepted_at", null)
-    .ilike("invited_email", email)
-    .order("created_at", { ascending: true });
-
-  if (error || !pending?.length) return null;
+  const pending = await listPendingInvites(supabase, email);
+  if (!pending?.length) return null;
 
   const invite = selectPendingInvite(pending, email, proof);
   if (!invite) return null;

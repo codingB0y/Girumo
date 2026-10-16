@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   googleOwnershipProof,
   normalizeInviteEmail,
+  requiresInviteLink,
   selectPendingInvite,
   type InviteOwnershipProof,
   type PendingInvite,
@@ -132,4 +133,34 @@ test("googleOwnershipProof refuses a Google identity of another email", () => {
 test("googleOwnershipProof refuses missing identities or an empty email", () => {
   assert.equal(googleOwnershipProof(undefined, "convidado@loja.com"), null);
   assert.equal(googleOwnershipProof([{ provider: "google", identity_data: {} }], ""), null);
+});
+
+/*
+ * Cadastro por senha de e-mail convidado: só passa com o link do convite. Sem
+ * ele a conta nasceria confirmada e fora da equipe, e o convite ficaria
+ * pendurado para sempre.
+ */
+
+test("requiresInviteLink is true for an invited email without the invite link", () => {
+  assert.equal(requiresInviteLink([invite({})], "Convidado@Loja.com", ""), true);
+});
+
+test("requiresInviteLink is true when the id belongs to another email's invite", () => {
+  assert.equal(
+    requiresInviteLink(
+      [invite({ id: "meu" }), invite({ id: "de-outro", invited_email: "outro@loja.com" })],
+      "convidado@loja.com",
+      "de-outro",
+    ),
+    true,
+  );
+});
+
+test("requiresInviteLink is false with the email's own invite link", () => {
+  assert.equal(requiresInviteLink([invite({ id: "meu" })], "convidado@loja.com", "meu"), false);
+});
+
+test("requiresInviteLink is false for an email nobody invited (rows from a looser ilike do not count)", () => {
+  assert.equal(requiresInviteLink([invite({ invited_email: "convidadoXloja.com" })], "convidado@loja.com", ""), false);
+  assert.equal(requiresInviteLink([], "convidado@loja.com", ""), false);
 });

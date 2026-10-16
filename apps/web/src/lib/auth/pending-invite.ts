@@ -87,6 +87,26 @@ export function selectPendingInvite(
   return matches[0] ?? null;
 }
 
+/**
+ * O cadastro por senha deste e-mail precisa do link do convite? Sim quando há
+ * convite pendente para ele e `inviteId` não é um desses convites.
+ *
+ * O chamador recusa ANTES de criar o usuário: a conta nasce confirmada, então
+ * criá-la sem o link deixaria a dona do e-mail como dona de uma loja vazia, com
+ * o convite pendurado para sempre — e daria a quem só sabe o e-mail um jeito de
+ * inutilizar o convite dela. Casa o e-mail exato (normalizado), não o `ilike`.
+ */
+export function requiresInviteLink(
+  invites: readonly PendingInvite[],
+  email: string | null | undefined,
+  inviteId: string,
+): boolean {
+  const target = normalizeInviteEmail(email);
+  const invited = invites.some((invite) => normalizeInviteEmail(invite.invited_email) === target);
+  if (!target || !invited) return false;
+  return !selectPendingInvite(invites, email, inviteId ? { inviteId } : null);
+}
+
 /** Ordena por `created_at` ascendente; nulos vão para o fim. */
 function oldestFirst(a: string | null, b: string | null): number {
   if (a === b) return 0;
