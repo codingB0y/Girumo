@@ -67,6 +67,19 @@ test("safeNextPath rejects protocol-relative paths", () => {
   assert.equal(safeNextPath("/\\evil.com"), "/painel");
 });
 
+test("safeNextPath rejects paths the URL parser turns into another host", () => {
+  // O parser do navegador apaga TAB/CR/LF antes de ler a URL: "/\t/evil.com"
+  // vira "//evil.com". Chega pelo ?next= como %09.
+  assert.equal(safeNextPath("/\t/evil.com"), "/painel");
+  assert.equal(safeNextPath("/\n/evil.com"), "/painel");
+  assert.equal(safeNextPath("/\r\n/evil.com"), "/painel");
+  assert.equal(safeNextPath("/\t\\evil.com"), "/painel");
+});
+
+test("safeNextPath keeps query and hash of internal paths", () => {
+  assert.equal(safeNextPath("/painel/grupos?aba=x#topo"), "/painel/grupos?aba=x#topo");
+});
+
 test("safeNextPath falls back to the panel when the value is missing", () => {
   assert.equal(safeNextPath(null), "/painel");
   assert.equal(safeNextPath(undefined), "/painel");
