@@ -538,3 +538,11 @@ apps/web/supabase/migrations/20261017120000_antiban_nao_cancela_disparo.sql
 # app.promote_due_schedules pula loja sem plano. So schema app e corpo de funcao (trava no topo
 # confere o md5 de 20261010120000): nao muda a baseline.
 apps/web/supabase/migrations/20261017123000_sem_plano_nao_dispara_sozinho.sql
+# 2026-10-17 - Postar por grupo, PR 6: um grupo, uma campanha. Trigger campaign_groups_grupo_exclusivo
+# (app.campaign_groups_grupo_exclusivo) recusa JID NOVO que ja esta em outra campanha da loja
+# (unique_violation 'grupo_em_outra_campanha:<jid>:<id>'); grupos_em_mais_de_uma_campanha(p_tenant)
+# lista os conflitos antigos e reordenar_campanha grava a ordem nova so se a lista nao mudou
+# (execute so service_role). Depois de 20261010120000. Muda a baseline (dois f|). O gate nao ve
+# trigger, schema app, ACL nem corpo — conferir com infra/tests/grupo-uma-campanha-check.sql nos
+# dois bancos.
+apps/web/supabase/migrations/20261017130000_grupo_uma_campanha.sql

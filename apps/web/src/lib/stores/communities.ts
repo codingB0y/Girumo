@@ -4,6 +4,7 @@ import { criarLinkMestreOuDesfazer, uniqueMasterSlug } from "@/lib/campaigns/mas
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import { comunidadesNativas } from "@/lib/communities/reconciliar";
 import type { PapelComunidade } from "@/lib/communities/papel";
+import { gruposDoEspelho } from "@/lib/campaigns/conflito-grupo";
 
 /**
  * Comunidades são `campaign_groups` vistas por outra ótica — mesma tabela que
@@ -246,16 +247,25 @@ export async function espelharComunidadesNativas(tenantId: string): Promise<numb
   // Uma leitura só, antes do laço: cada slug que este laço cria entra no
   // mesmo Set, então uma comunidade nova nunca colide com a que acabou de
   // nascer duas iterações atrás. Consultar `listarComunidades` a cada volta
-  // seria uma query por comunidade sem ganho nenhum.
-  const slugsEmUso = new Set((await listarComunidades(tid)).map((c) => c.slug));
+  // seria uma query por comunidade sem ganho nenhum. A mesma leitura traz os
+  // `group_ids` de todas as campanhas para o filtro de um grupo, uma campanha.
+  const todas = await listarComunidades(tid);
+  const slugsEmUso = new Set(todas.map((c) => c.slug));
 
   let tocadas = 0;
   for (const nativa of nativas) {
     const ja = porJid.get(nativa.communityJid);
+    // Um grupo, uma campanha: grupo que já está em outra campanha não entra
+    // na gaveta (o que ela já tinha continua). Sem isto o trigger
+    // campaign_groups_grupo_exclusivo recusaria a escrita inteira e esta
+    // comunidade pararia de espelhar a cada sync, só com log. `todas` traz a
+    // linha da própria gaveta com os `group_ids` de agora — é ela que diz o que
+    // a gaveta já tinha; sem essa linha tudo seria tratado como entrada nova.
+    const grupos = gruposDoEspelho(nativa.memberGroupIds, todas, ja?.id ?? null);
     if (ja) {
       const { error } = await getSupabaseAdmin()
         .from(TABLE)
-        .update({ name: nativa.nome, group_ids: nativa.memberGroupIds })
+        .update({ name: nativa.nome, group_ids: grupos })
         .eq("tenant_id", tid)
         .eq("id", ja.id);
       if (error) throw new Error(error.message);
@@ -271,7 +281,7 @@ export async function espelharComunidadesNativas(tenantId: string): Promise<numb
           tenant_id: tid,
           name: nativa.nome,
           slug,
-          group_ids: nativa.memberGroupIds,
+          group_ids: grupos,
           // `auto_grow: false` não é detalhe: o worker do auto-grow escreve em
           // `group_ids` pela RPC atômica, e esta função regrava o array
           // inteiro. Espelho do WhatsApp e auto-grow na mesma linha seriam

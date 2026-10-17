@@ -134,6 +134,8 @@
     "t|bling_connections": "6326c5ee799271eefdff45496e1cd190",
     "t|bling_contacts": "812445808f2ef71c53cab270e739bd88",
     "t|bling_oauth_states": "59ba573a709e98d84d18b195a2f355c5",
-    "t|bling_orders": "173481353a3c21753fdffdcffb62f9e9"
+    "t|bling_orders": "173481353a3c21753fdffdcffb62f9e9",
+    "f|grupos_em_mais_de_uma_campanha(p_tenant uuid)": "d4b914108a3146913b311ff40fea570c",
+    "f|reordenar_campanha(p_tenant uuid, p_campanha uuid, p_esperado text[], p_nova text[])": "e2129f5f932794247606386523d5715e"
   }
 }
