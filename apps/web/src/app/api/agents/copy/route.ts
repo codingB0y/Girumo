@@ -1,6 +1,6 @@
 import { getSessionAccountId } from "@/lib/session";
 import { findMembershipTenantId } from "@/lib/session-tenant";
-import { generateCopy, type CopyInput } from "@/lib/agents/copy-agent";
+import { generateCopy, isCopyRateLimited, type CopyInput } from "@/lib/agents/copy-agent";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -51,8 +51,12 @@ export async function POST(req: Request) {
     product,
     price: body.price ? String(body.price) : undefined,
     discount: body.discount ? String(body.discount) : undefined,
-    extraContext: body.extraContext ? String(body.extraContext).slice(0, 500) : undefined,
+    extraContext: body.extraContext ? String(body.extraContext) : undefined,
   };
+
+  if (await isCopyRateLimited(tenantId)) {
+    return Response.json({ error: "Muitas gerações nesta hora. Tente de novo mais tarde." }, { status: 429 });
+  }
 
   const result = await generateCopy(input);
 
