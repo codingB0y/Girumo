@@ -30,7 +30,18 @@ export function getSupabaseAdmin(): SupabaseClient {
 export function getSupabaseServerAnon(): SupabaseClient {
   if (anonClient) return anonClient;
 
-  anonClient = createClient(
+  anonClient = createSupabaseAnonClient();
+
+  return anonClient;
+}
+
+/**
+ * Cliente anon NOVO a cada chamada, para fluxo que precisa da sessão de um usuário (login por
+ * senha no cadastro). A sessão fica na memória da instância do cliente, então ela nunca deve ir
+ * para um dos singletons deste arquivo, que são compartilhados entre requisições.
+ */
+export function createSupabaseAnonClient(): SupabaseClient {
+  return createClient(
     requireEnv("SUPABASE_URL"),
     requireEnv("SUPABASE_ANON_KEY"),
     {
@@ -40,8 +51,6 @@ export function getSupabaseServerAnon(): SupabaseClient {
       },
     },
   );
-
-  return anonClient;
 }
 
 export function getSupabaseAnonForToken(accessToken: string): SupabaseClient {

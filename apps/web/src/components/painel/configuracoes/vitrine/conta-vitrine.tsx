@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Loader2, Trash2 } from "lucide-react";
 
@@ -8,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/components/toast";
 import { useRole } from "@/components/painel/role-provider";
 import {
+  exigeSenhaAtual,
   limpaDepoisDeSalvar,
   mensagemDeSucesso,
   motivoDoBloqueio,
@@ -23,7 +25,8 @@ import { MENSAGEM_DE_SAIDA_QUE_FALHOU, useSair } from "@/lib/painel/use-sair";
  * `conta` — aparecia dentro dela com a tipografia e as cores da casca antiga.
  *
  * Mesma copy e mesmos gates, com uma correção: o botão "Salvar" deixou de
- * ficar aceso com o campo vazio (ver `podeSalvarCampo`).
+ * ficar aceso com o campo vazio (ver `podeSalvarCampo`). E-mail e senha só
+ * salvam com a senha atual (ver `exigeSenhaAtual`).
  */
 export function ContaVitrine() {
   const router = useRouter();
@@ -32,7 +35,10 @@ export function ContaVitrine() {
   const saida = useSair();
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
+  const [emailSalvo, setEmailSalvo] = useState("");
   const [senha, setSenha] = useState("");
+  const [senhaAtual, setSenhaAtual] = useState("");
+  const [soGoogle, setSoGoogle] = useState(false);
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState<CampoDaConta | null>(null);
@@ -44,6 +50,8 @@ export function ContaVitrine() {
         if (dados) {
           setNome(dados.name ?? "");
           setEmail(dados.email ?? "");
+          setEmailSalvo(dados.email ?? "");
+          setSoGoogle(dados.soGoogle === true);
         }
       })
       .catch(() => {})
@@ -53,21 +61,29 @@ export function ContaVitrine() {
   async function salvar(campo: CampoDaConta) {
     const valor = campo === "name" ? nome : campo === "email" ? email : senha;
     if (!podeSalvarCampo(campo, valor)) return;
+    const comSenhaAtual = exigeSenhaAtual(campo);
+    if (comSenhaAtual && !senhaAtual) return;
 
     setSalvando(campo);
     try {
       const res = await fetch("/api/auth/account", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [campo]: valor }),
+        body: JSON.stringify(comSenhaAtual ? { [campo]: valor, currentPassword: senhaAtual } : { [campo]: valor }),
       });
+      const d = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
         toast(d.error || "Erro ao salvar.", "error");
         return;
       }
-      toast(mensagemDeSucesso(campo));
+      toast(mensagemDeSucesso(campo, d.emailPendente === true));
       if (limpaDepoisDeSalvar(campo)) setSenha("");
+      if (comSenhaAtual) setSenhaAtual("");
+      // Troca pendente: o e-mail de entrada ainda é o antigo até o link ser clicado.
+      if (campo === "email") {
+        if (d.emailPendente === true) setEmail(emailSalvo);
+        else setEmailSalvo(valor.trim().toLowerCase());
+      }
     } catch {
       toast("Erro de conexão.", "error");
     } finally {
@@ -88,7 +104,7 @@ export function ContaVitrine() {
   if (carregando) {
     return (
       <div className="space-y-3" role="status" aria-label="Carregando os dados da conta">
-        {[0, 1, 2].map((i) => (
+        {[0, 1, 2, 3].map((i) => (
           <div key={i} className="pn-skeleton h-14 rounded-[var(--radius-control)]" data-testid="painel-skeleton" />
         ))}
       </div>
@@ -98,13 +114,55 @@ export function ContaVitrine() {
   return (
     <div className="space-y-6">
       <Linha campo="name" rotulo="Nome" valor={nome} aoMudar={setNome} salvando={salvando === "name"} aoSalvar={salvar} />
-      <Linha campo="email" rotulo="E-mail" tipo="email" valor={email} aoMudar={setEmail} salvando={salvando === "email"} aoSalvar={salvar} />
+
+      <div>
+        <label className="mb-1.5 block text-13 font-semibold text-volt-950" htmlFor="conta-senha-atual">
+          Senha atual
+        </label>
+        <input
+          id="conta-senha-atual"
+          type="password"
+          value={senhaAtual}
+          onChange={(e) => setSenhaAtual(e.target.value)}
+          autoComplete="current-password"
+          aria-describedby="conta-senha-atual-dica"
+          className="min-h-11 w-full rounded-[var(--radius-control)] border border-line-200 bg-paper-0 px-4 text-15 text-volt-950 outline-none transition-colors focus:border-cobalt-500"
+        />
+        <p id="conta-senha-atual-dica" className="mt-1 text-13 text-slate-600">
+          {soGoogle ? (
+            <>
+              Sua conta entra pelo Google. Para trocar o e-mail ou a senha, você precisa de uma senha: se nunca
+              criou, crie em{" "}
+              <Link href="/forgot-password" className="text-cobalt-500 underline">
+                Esqueci a senha
+              </Link>
+              .
+            </>
+          ) : (
+            "Necessária para trocar o e-mail ou a senha."
+          )}
+        </p>
+      </div>
+
+      <Linha
+        campo="email"
+        rotulo="E-mail"
+        tipo="email"
+        autoComplete="email"
+        valor={email}
+        aoMudar={setEmail}
+        faltaSenhaAtual={!senhaAtual}
+        salvando={salvando === "email"}
+        aoSalvar={salvar}
+      />
       <Linha
         campo="password"
         rotulo="Nova senha"
         tipo="password"
+        autoComplete="new-password"
         valor={senha}
         aoMudar={setSenha}
+        faltaSenhaAtual={!senhaAtual}
         salvando={salvando === "password"}
         aoSalvar={salvar}
         dica="Mínimo 6 caracteres"
@@ -170,8 +228,10 @@ function Linha({
   campo,
   rotulo,
   tipo = "text",
+  autoComplete,
   valor,
   aoMudar,
+  faltaSenhaAtual = false,
   salvando,
   aoSalvar,
   dica,
@@ -179,13 +239,16 @@ function Linha({
   campo: CampoDaConta;
   rotulo: string;
   tipo?: string;
+  autoComplete?: string;
   valor: string;
   aoMudar: (v: string) => void;
+  /** E-mail e senha: sem a senha atual o servidor recusa, então o botão já nasce desligado. */
+  faltaSenhaAtual?: boolean;
   salvando: boolean;
   aoSalvar: (campo: CampoDaConta) => void;
   dica?: string;
 }) {
-  const pode = podeSalvarCampo(campo, valor);
+  const pode = podeSalvarCampo(campo, valor) && !faltaSenhaAtual;
   const motivo = motivoDoBloqueio(campo, valor);
   const idDoErro = `conta-erro-${campo}`;
 
@@ -198,6 +261,7 @@ function Linha({
         <input
           id={`conta-${campo}`}
           type={tipo}
+          autoComplete={autoComplete}
           value={valor}
           onChange={(e) => aoMudar(e.target.value)}
           placeholder={dica}
