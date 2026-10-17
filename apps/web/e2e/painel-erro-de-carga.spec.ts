@@ -54,7 +54,11 @@ test("editar campanha: falha não abre o formulário em branco", async ({ page }
 });
 
 test("contatos: falha vira Tentar de novo, nunca 'Ninguém entrou ainda'", async ({ page }) => {
-  await page.route("**/api/leads", foraDoAr);
+  // A lista é paginada (`/api/leads?offset=…`): o glob "**/api/leads" não casa
+  // com query string, então a rota casa pelo caminho. A contagem
+  // (`/api/leads/contagem`) fica de fora — quem falha aqui é a lista.
+  const lista = (url: URL) => url.pathname === "/api/leads";
+  await page.route(lista, foraDoAr);
   await page.goto("/painel/contatos", { waitUntil: "load" });
 
   const aviso = alerta(page, "Não deu para carregar seus contatos.");
@@ -62,7 +66,7 @@ test("contatos: falha vira Tentar de novo, nunca 'Ninguém entrou ainda'", async
   await expect(page.getByText("Ninguém entrou ainda")).toHaveCount(0);
   await expect(page.getByTestId("contatos-lista")).toHaveCount(0);
 
-  await page.unroute("**/api/leads", foraDoAr);
+  await page.unroute(lista, foraDoAr);
   await aviso.getByRole("button", { name: "Tentar de novo" }).click();
   await expect(page.getByTestId("contatos-lista")).toBeVisible();
 });
