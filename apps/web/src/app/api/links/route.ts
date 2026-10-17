@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
  * Campanha à qual o link pertence. Aceita o ID explícito (caminho novo) e, na
  * falta dele, casa pelo nome UMA única vez — no momento da criação. Depois
  * disso o vínculo é o ID, então renomear a campanha não mexe em nada.
+ * Erro do banco lança: tratá-lo como "sem campanha" criaria o link solto.
  */
 async function resolveCampaignGroupId(
   tenantId: string,
@@ -20,22 +21,24 @@ async function resolveCampaignGroupId(
 ): Promise<string | undefined> {
   const explicitId = String(rawId ?? "").trim();
   if (explicitId) {
-    const { data } = await getSupabaseAdmin()
+    const { data, error } = await getSupabaseAdmin()
       .from("campaign_groups")
       .select("id")
       .eq("tenant_id", tenantId)
       .eq("id", explicitId)
       .maybeSingle();
+    if (error) throw new Error(error.message);
     return data?.id;
   }
 
   if (!campaignName) return undefined;
-  const { data } = await getSupabaseAdmin()
+  const { data, error } = await getSupabaseAdmin()
     .from("campaign_groups")
     .select("id")
     .eq("tenant_id", tenantId)
     .ilike("name", campaignName)
     .limit(2);
+  if (error) throw new Error(error.message);
   // Dois nomes iguais = ambíguo: melhor link sem vínculo do que vínculo errado.
   return data?.length === 1 ? data[0].id : undefined;
 }
@@ -101,19 +104,17 @@ export async function POST(req: Request) {
   // o que impede o histórico de cliques de sumir num rename futuro (achado A6).
   const campaignGroupId = await resolveCampaignGroupId(tenantId, body.campaignGroupId, campaignName);
 
+  // Pixel e teto no próprio insert: num update separado, a falha dele passava
+  // calada e o 201 saía com o link sem Pixel e sem teto.
   const link = await supaStore.createTrackedLink(tenantId, {
     slug,
     target_url: destinationUrl,
     campaign_group_id: campaignGroupId,
+    metadata:
+      campaignName || targetGroupName || pixelId || clickCap
+        ? { campaignName, targetGroupName, pixelId, clickCap }
+        : undefined,
   });
-
-  // Store extra metadata
-  if (campaignName || targetGroupName || pixelId || clickCap) {
-    await getSupabaseAdmin()
-      .from("tracked_links")
-      .update({ metadata: { campaignName, targetGroupName, pixelId, clickCap } })
-      .eq("id", link.id);
-  }
 
   return Response.json({
     id: link.id,

@@ -335,6 +335,26 @@ export async function applyAdminCountDelta(
 }
 
 /**
+ * Grava se o nosso número administra o grupo, a partir do webhook
+ * (`papelDoNossoNumero`). Absoluto, então a reentrega não muda nada.
+ *
+ * Só atualiza grupo que já existe: grupo novo entra pelo `groups.upsert` ou
+ * pelo Sincronizar.
+ */
+export async function setGroupIsAdmin(
+  tenantId: string,
+  whatsappGroupId: string,
+  isAdmin: boolean,
+): Promise<void> {
+  const { error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .update({ is_admin: isAdmin })
+    .eq("tenant_id", tenantId)
+    .eq("whatsapp_group_id", whatsappGroupId);
+  if (error) throw new Error(error.message);
+}
+
+/**
  * Aplica um delta na contagem de MEMBROS de um grupo.
  *
  * Irmã de `applyAdminCountDelta`, e pela mesma razão delega à RPC: a soma tem

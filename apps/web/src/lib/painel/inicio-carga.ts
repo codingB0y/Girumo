@@ -8,6 +8,7 @@ import { listGroups as legacyListGroups } from "@/lib/groups-store";
 import { collection } from "@/lib/json-collection";
 import { listLeads as legacyListLeads } from "@/lib/leads-store";
 import type { Schedule } from "@/lib/mock-data";
+import { casaComBusca, lerBuscaDeContato } from "@/lib/painel/busca-de-contato";
 import { getSession, isLive } from "@/lib/session-store";
 import { clickCounts, listLinks as legacyListLinks } from "@/lib/store";
 import * as broadcastsStore from "@/lib/stores/broadcasts";
@@ -169,21 +170,41 @@ export async function carregarLeads(tenantId: string, limit?: number) {
 }
 
 /**
- * Quantos leads a loja tem, e quantos compraram. Contado no banco: a lista de
- * `carregarLeads` para nas 1000 linhas que o PostgREST devolve sem erro, e
+ * Uma página da tela de Contatos, com status e busca aplicados no banco (ver
+ * `leadsStore.listLeadsPage`). Mesma forma de `carregarLeads`.
+ */
+export async function carregarPaginaDeLeads(tenantId: string, pagina: leadsStore.PaginaDeLeads) {
+  if (!USE_SUPABASE) {
+    // O arquivo JSON não tem teto de linhas: filtra a lista inteira com a mesma regra da busca.
+    const busca = lerBuscaDeContato(pagina.q ?? "");
+    const lista = (await legacyListLeads(tenantId)).filter(
+      (l) => (!pagina.status || l.status === pagina.status) && casaComBusca(l, busca),
+    );
+    return lista.slice(pagina.offset, pagina.offset + pagina.limit);
+  }
+  const leads = await leadsStore.listLeadsPage(tenantId, pagina);
+  return leads.map(leadParaOPainel);
+}
+
+/**
+ * Quantos leads a loja tem, e quantos em cada status. Contado no banco: a lista
+ * de `carregarLeads` para nas 1000 linhas que o PostgREST devolve sem erro, e
  * loja grande passa disso.
  */
 export async function carregarContagemDeLeads(tenantId: string) {
   if (!USE_SUPABASE) {
     // O arquivo JSON não tem teto de linhas: a lista inteira cabe na conta.
     const lista = await legacyListLeads(tenantId);
-    return { total: lista.length, clientes: lista.filter((l) => l.status === "comprou").length };
+    const com = (status: leadsStore.LeadStatus) => lista.filter((l) => l.status === status).length;
+    return { total: lista.length, clientes: com("comprou"), novos: com("novo"), ativos: com("ativo") };
   }
-  const [total, clientes] = await Promise.all([
+  const [total, clientes, novos, ativos] = await Promise.all([
     leadsStore.countLeads(tenantId),
     leadsStore.countLeads(tenantId, "comprou"),
+    leadsStore.countLeads(tenantId, "novo"),
+    leadsStore.countLeads(tenantId, "ativo"),
   ]);
-  return { total, clientes };
+  return { total, clientes, novos, ativos };
 }
 
 const UM_DIA_MS = 86_400_000;

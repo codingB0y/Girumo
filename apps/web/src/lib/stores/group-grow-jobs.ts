@@ -48,6 +48,11 @@ export async function listInFlightCampaignIds(tenantId: string): Promise<Set<str
 /**
  * Próximo número ({n}) da campanha. Continua de onde a fila parou; na primeira
  * vez parte do tamanho do pool, para não renumerar grupos que já existem.
+ *
+ * Job `failed` sem `whatsapp_group_id` não gasta número: nada nasceu no
+ * WhatsApp (sem instância, createGroup recusado, adiado pelo ritmo). Contá-lo
+ * queimava um número por tentativa — 2447 em prod, e o 1º grupo nasceria
+ * "… 2448". O número volta a ser usado por `enqueueGrowJob`.
  */
 export async function nextSeq(tenantId: string, campaignGroupId: string, poolSize: number): Promise<number> {
   const { data, error } = await getSupabaseAdmin()
@@ -55,6 +60,7 @@ export async function nextSeq(tenantId: string, campaignGroupId: string, poolSiz
     .select("seq")
     .eq("tenant_id", tenantId)
     .eq("campaign_group_id", campaignGroupId)
+    .or("status.neq.failed,whatsapp_group_id.not.is.null")
     .order("seq", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -75,6 +81,36 @@ export async function enqueueGrowJob(
     member_add_mode: "admin_add" | "all_member_add";
   },
 ): Promise<GrowJobRow> {
+  // O número pode ser o de um job que falhou sem criar grupo (ver `nextSeq`), e o
+  // índice único (tenant, campanha, seq) recusaria outro INSERT: reaproveita a
+  // linha. Só `failed` sem JID — um job em voo ou com grupo no WhatsApp nunca
+  // volta para a fila (seria grupo duplicado). Sem linha assim, INSERT normal, e
+  // um enfileiramento concorrente continua estourando no índice.
+  const now = new Date().toISOString();
+  const reuse = await getSupabaseAdmin()
+    .from(TABLE)
+    .update({
+      ...input,
+      description: input.description ?? null,
+      media_id: input.media_id ?? null,
+      status: "queued",
+      error: null,
+      invite_url: null,
+      running_since: null,
+      last_ack_at: null,
+      created_at: now,
+      updated_at: now,
+    })
+    .eq("tenant_id", tenantId)
+    .eq("campaign_group_id", input.campaign_group_id)
+    .eq("seq", input.seq)
+    .eq("status", "failed")
+    .is("whatsapp_group_id", null)
+    .select("*")
+    .maybeSingle();
+  if (reuse.error) throw new Error(reuse.error.message);
+  if (reuse.data) return reuse.data;
+
   const { data, error } = await getSupabaseAdmin()
     .from(TABLE)
     .insert({ ...input, tenant_id: tenantId })

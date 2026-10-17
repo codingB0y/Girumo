@@ -52,6 +52,7 @@ export function contextoDaLoja(
 ): ContextoLoja {
   const { fimDaTrava = Number.POSITIVE_INFINITY, tetoDasGravacoes = fimDaTrava, podeRelerSituacoes = soNaPrimeiraVez() } = opcoes;
   let campanhas: CampanhaComMetadata[] | null = null;
+  let optouts: Set<string> | null = null;
   return {
     tenantId,
     conexao,
@@ -63,6 +64,8 @@ export function contextoDaLoja(
     agora: deps.agora,
     // Uma leitura por execução, e só se algum pedido chegar ao pixel. Falha não fica guardada.
     campanhas: async () => (campanhas ??= await deps.campanhas.comMetadata(tenantId)),
+    // Idem. Falha sobe: o pedido tenta de novo, nunca envia sem saber quem saiu.
+    optouts: async () => (optouts ??= await deps.optouts.chaves(tenantId)),
   };
 }
 

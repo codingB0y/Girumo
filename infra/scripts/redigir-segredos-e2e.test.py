@@ -9,8 +9,10 @@ import base64
 import importlib.util
 import io
 import json
+import os
 import re
 import sys
+import tempfile
 import zipfile
 from pathlib import Path
 
@@ -86,7 +88,58 @@ def main() -> None:
     # HTML que nao e o relatorio passa so pela troca crua.
     assert redigir.redigir_html(b"<p>nada</p>", SEGREDOS) == (b"<p>nada</p>", False)
 
+    # Zip que nao abre nao pode ser conferido: antes passava inteiro, calado.
+    aborta(lambda: redigir.redigir_zip(b"nao e zip", SEGREDOS), "zip ilegivel")
+    aborta(
+        lambda: redigir.redigir_html(
+            b'<template id="playwrightReportBase64">data:application/zip;base64,'
+            + base64.b64encode(b"nao e zip") + b"</template>",
+            SEGREDOS,
+        ),
+        "relatorio com zip ilegivel",
+    )
+
+    # Trace e storageState sao dump de sessao (cookie, refresh_token, Bearer).
+    # Somem antes do upload — inclusive sem senha nenhuma definida, que e o
+    # caminho em que main() sai cedo.
+    with tempfile.TemporaryDirectory() as tmp:
+        raiz = Path(tmp)
+        for relativo, conteudo in {
+            "apps/web/e2e-results/spec-x/trace.zip": zip_com("0-trace.trace", b"{}"),
+            "apps/web/e2e-report/data/4ffe0edfa6bec0ffb921.zip": zip_com("0-trace.trace", b"{}"),
+            "apps/web/e2e-results/.auth/usuario.json": b'{"refresh_token":"x"}',
+            "apps/web/e2e-results/spec-x/error-context.md": b"contexto",
+            "apps/web/e2e-report/data/tela.png": b"png",
+        }.items():
+            (raiz / relativo).parent.mkdir(parents=True, exist_ok=True)
+            (raiz / relativo).write_bytes(conteudo)
+
+        anterior = os.getcwd()
+        os.chdir(raiz)
+        try:
+            for nome in ("E2E_PASSWORD", "E2E_ADMIN_PASSWORD", "E2E_SESSAO_PASSWORD"):
+                os.environ.pop(nome, None)
+            assert redigir.main() == 0
+        finally:
+            os.chdir(anterior)
+
+        sobrou = sorted(p.relative_to(raiz).as_posix() for p in raiz.rglob("*") if p.is_file())
+        assert sobrou == [
+            "apps/web/e2e-report/data/tela.png",
+            "apps/web/e2e-results/spec-x/error-context.md",
+        ], sobrou
+        assert not (raiz / "apps/web/e2e-results/.auth").exists()
+
     print("redigir-segredos-e2e: ok")
+
+
+def aborta(chamada, caso: str) -> None:
+    try:
+        chamada()
+    except SystemExit as saida:
+        assert saida.code not in (0, None), f"{caso}: saiu com sucesso"
+    else:
+        raise AssertionError(f"{caso}: deveria abortar a redacao")
 
 
 if __name__ == "__main__":

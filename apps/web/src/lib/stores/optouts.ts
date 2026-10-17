@@ -1,5 +1,6 @@
 import "server-only";
 
+import { chaveDoTelefone } from "@/lib/pages/phone";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 /**
@@ -7,7 +8,8 @@ import { getSupabaseAdmin } from "@/lib/supabase/server";
  *
  * Bloqueia a CAPTURA do lead, não apenas o envio — regra já vigente em
  * `/api/leads`, que devolve `skipped: "opt-out"` sem gravar nada. Vale mesmo
- * sem mensagens privadas: quem pediu para sair não entra na base.
+ * sem mensagens privadas: quem pediu para sair não entra na base. Nem no que
+ * vai ao Meta: eventos de venda do Bling e CSV de público (`chavesEmOptout`).
  */
 
 export type OptOut = {
@@ -20,6 +22,8 @@ export type OptOut = {
 };
 
 const TABLE = "optouts";
+/** O teto do PostgREST: página menor que isso é a última. */
+const TAMANHO_DA_PAGINA = 1000;
 
 /** O opt-out compara só dígitos: o mesmo número pode chegar em vários formatos. */
 export function onlyDigits(value: string): string {
@@ -34,6 +38,26 @@ export async function listOptOuts(tenantId: string): Promise<OptOut[]> {
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   return (data ?? []) as OptOut[];
+}
+
+/**
+ * As chaves (`chaveDoTelefone`, o `phone_key` do banco: com ou sem 55 e o nono dígito) de quem
+ * pediu para sair. Lê tudo por chave (`phone` > último lido): o PostgREST corta em 1000 sem erro,
+ * e um corte calado mandaria ao Meta quem saiu.
+ */
+export async function chavesEmOptout(tenantId: string): Promise<Set<string>> {
+  const chaves = new Set<string>();
+  for (let depoisDe: string | null = null; ; ) {
+    const base = getSupabaseAdmin().from(TABLE).select("phone").eq("tenant_id", tenantId);
+    const { data, error } = await (depoisDe === null ? base : base.gt("phone", depoisDe))
+      .order("phone", { ascending: true })
+      .limit(TAMANHO_DA_PAGINA);
+    if (error) throw new Error(error.message);
+    const telefones: string[] = (data ?? []).map((l) => String(l.phone));
+    for (const chave of telefones.map(chaveDoTelefone)) if (chave) chaves.add(chave);
+    if (telefones.length < TAMANHO_DA_PAGINA) return chaves;
+    depoisDe = telefones[telefones.length - 1];
+  }
 }
 
 export async function addOptOut(

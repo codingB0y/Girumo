@@ -1,5 +1,7 @@
 import type Stripe from "stripe";
 
+import { hasLiveSubscription } from "./courtesy";
+import { isInstagramAddon } from "./stripe-webhook";
 import { TRIAL_DAYS, trialEligible, type TrialFacts } from "./trial";
 
 /**
@@ -80,7 +82,7 @@ export type TrialCheckoutDecision = "sem_teste" | "com_teste" | "em_teste";
  * - Flag desligada: o checkout de antes do teste — nem lê os fatos.
  * - Conta em teste (`trialing`): `em_teste`, boleto incluso. Uma segunda assinatura
  *   ao lado do teste cobraria em dobro; troca de plano no teste é pelo portal.
- *   `active`/`past_due` passam: é o "Trocar de plano" de quem já assina.
+ *   `active`/`past_due` não são assunto do teste: quem os barra é `temPlanoVivo`.
  * - Senão, `trialApplies`.
  *
  * Erro de leitura sobe: a rota responde 500, nunca um checkout no escuro.
@@ -94,4 +96,17 @@ export async function trialCheckoutDecision(i: {
   const facts = await i.readFacts();
   if (facts.subscription?.status === "trialing") return "em_teste";
   return trialApplies(i.semTeste, facts) ? "com_teste" : "sem_teste";
+}
+
+/**
+ * O Customer já tem assinatura de PLANO viva no Stripe? Então o checkout não abre.
+ *
+ * O Checkout sempre cria uma assinatura nova e o webhook nunca cancela a anterior:
+ * "Trocar de plano" (ou assinar de novo no paywall estando `past_due`) deixava as
+ * duas cobrando o mesmo cartão. Lê o Stripe, não a linha do banco, pelo mesmo
+ * motivo de `hasLiveSubscription`. O add-on do Instagram é outra assinatura de
+ * propósito e não conta.
+ */
+export function temPlanoVivo(subs: readonly Pick<Stripe.Subscription, "status" | "metadata">[]): boolean {
+  return hasLiveSubscription(subs.filter((s) => !isInstagramAddon(s.metadata)).map((s) => s.status));
 }

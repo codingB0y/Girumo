@@ -18,11 +18,6 @@ const SLUG_RE = /^[a-z0-9-]{3,60}$/;
 
 /** Público: captura de lead com consent LGPD. Devolve o destino do grupo. */
 export async function POST(req: Request) {
-  const ip = hashIp(req) ?? "unknown";
-  if (isRateLimited(`lead:${ip}`, 5)) {
-    return Response.json({ error: "Muitas tentativas. Aguarde 1 minuto." }, { status: 429 });
-  }
-
   let body: Record<string, unknown>;
   try {
     body = await req.json();
@@ -33,6 +28,10 @@ export async function POST(req: Request) {
   const slug = typeof body.slug === "string" ? body.slug : "";
   if (!SLUG_RE.test(slug)) {
     return Response.json({ error: "Página inválida." }, { status: 400 });
+  }
+
+  if (await isRateLimited("lead", req, 5, slug)) {
+    return Response.json({ error: "Muitas tentativas. Aguarde 1 minuto." }, { status: 429 });
   }
 
   // Honeypot: campo invisível preenchido = bot. Finge sucesso (sem dica).

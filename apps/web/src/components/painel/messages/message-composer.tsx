@@ -34,8 +34,15 @@ export type ComposerPayload = {
   poll?: { question: string; options: string[] };
 };
 
+/** Rede caiu no meio do POST: o servidor pode ter recebido, então não reenviar às cegas. */
+export const ERRO_SEM_CONEXAO = "Sem conexão: o post pode não ter saído. Confira em Disparos antes de postar de novo.";
+
 type Props = {
-  onSend: (payload: ComposerPayload) => Promise<void>;
+  /**
+   * `true` quando a API aceitou. Só aí o compositor limpa: recusa (409 número
+   * desconectado, 402 limite do plano) e falta de rede deixam o rascunho como está.
+   */
+  onSend: (payload: ComposerPayload) => Promise<boolean>;
   sending?: boolean;
   className?: string;
   /** Texto atual, pra quem mostra a prévia fora do compositor (folha de postar). */
@@ -116,8 +123,7 @@ export function MessageComposer({ onSend, sending, className, onBodyChange, rotu
         ? { poll: { question: pollQuestion.trim(), options: pollOptions.filter(Boolean) } }
         : {}),
     };
-    await onSend(payload);
-    // Reset
+    if (!(await onSend(payload))) return;
     setBody("");
     setMentionAll(false);
     setMediaId(null);
@@ -166,7 +172,7 @@ export function MessageComposer({ onSend, sending, className, onBodyChange, rotu
             placeholder="Pergunta..."
             value={pollQuestion}
             onChange={(e) => setPollQuestion(e.target.value)}
-            className="w-full rounded-lg border border-line-200 bg-paper-0 px-3 py-2 text-sm text-volt-950 placeholder:text-slate-600 focus:border-cobalt-500 focus:outline-none"
+            className="w-full rounded-lg border border-line-200 bg-paper-0 px-3 py-2 text-[16px] text-volt-950 placeholder:text-slate-600 focus:border-cobalt-500 focus:outline-none"
           />
           {pollOptions.map((opt, i) => (
             <div key={i} className="flex items-center gap-2">
@@ -179,7 +185,7 @@ export function MessageComposer({ onSend, sending, className, onBodyChange, rotu
                   next[i] = e.target.value;
                   setPollOptions(next);
                 }}
-                className="flex-1 rounded-lg border border-line-200 bg-paper-0 px-3 py-1.5 text-sm text-volt-950 placeholder:text-slate-600 focus:border-cobalt-500 focus:outline-none"
+                className="flex-1 rounded-lg border border-line-200 bg-paper-0 px-3 py-1.5 text-[16px] text-volt-950 placeholder:text-slate-600 focus:border-cobalt-500 focus:outline-none"
               />
               {pollOptions.length > 2 && (
                 <button
@@ -228,7 +234,7 @@ export function MessageComposer({ onSend, sending, className, onBodyChange, rotu
             : "Digite sua mensagem..."
         }
         rows={3}
-        className="w-full resize-none rounded-xl border border-line-200 bg-canvas-100 px-4 py-3 text-sm text-volt-950 placeholder:text-slate-600 focus:border-cobalt-500 focus:outline-none"
+        className="w-full resize-none rounded-xl border border-line-200 bg-canvas-100 px-4 py-3 text-[16px] text-volt-950 placeholder:text-slate-600 focus:border-cobalt-500 focus:outline-none"
       />
 
       {/* Toolbar */}

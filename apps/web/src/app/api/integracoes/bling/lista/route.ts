@@ -5,6 +5,7 @@ import { hasPermission } from "@/lib/permissions";
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
 import { lerConexao } from "@/lib/stores/bling-conexoes";
 import { paginaDaLista, type ContatoGuardado, type ListaBling } from "@/lib/stores/bling-contatos";
+import { chavesEmOptout } from "@/lib/stores/optouts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,7 +23,7 @@ function resposta(corpo: unknown, status: number): Response {
 /**
  * GET /api/integracoes/bling/lista?l=alto_valor|comprador|lead — o CSV de uma lista para o
  * público do Meta (as vendas de antes de conectar; as novas chegam pelos eventos). Uma linha
- * por pessoa, como o cartão conta; nada em texto além dos hashes.
+ * por pessoa, como o cartão conta (menos quem está no descadastro); nada em texto além dos hashes.
  */
 export async function GET(req: Request): Promise<Response> {
   let tenantId: string;
@@ -46,7 +47,11 @@ export async function GET(req: Request): Promise<Response> {
   try {
     const conexao = await lerConexao(tenantId);
     if (!conexao || conexao.status === "desconectada") return resposta({ error: "Sem conexão com o Bling." }, 404);
-    const linhas = (await pessoasDaLista(tenantId, lista)).map((c) => linhaDoCsv(c.metaHashes));
+    // Quem pediu para sair não vai ao Meta (contato sem telefone não tem como estar no descadastro).
+    const descadastro = await chavesEmOptout(tenantId);
+    const linhas = (await pessoasDaLista(tenantId, lista))
+      .filter((c) => !c.phoneKey || !descadastro.has(c.phoneKey))
+      .map((c) => linhaDoCsv(c.metaHashes));
     return new Response([CABECALHO, ...linhas].join("\r\n"), {
       status: 200,
       headers: {
