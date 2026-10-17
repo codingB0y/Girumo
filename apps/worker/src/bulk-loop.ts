@@ -39,7 +39,8 @@ export type BulkAction =
   | "open"
   | "close"
   | "check_invite"
-  | "remove_participant";
+  | "remove_participant"
+  | "set_subject";
 
 /** O que o app entrega no claim. Autocontido: o worker não consulta o banco. */
 export type BulkJobClaim = {
@@ -50,6 +51,8 @@ export type BulkJobClaim = {
   mediaId?: string;
   /** Telefone (dígitos, com DDI) a remover. Só existe em `remove_participant`. */
   targetPhone?: string;
+  /** Nome novo do grupo. Só existe em `set_subject`. */
+  subject?: string;
 };
 
 /**
@@ -90,6 +93,8 @@ export type BulkDeps = {
   /** URL assinada de TTL curto, ou null (mídia apagada / id inválido). */
   signedMediaUrl(mediaId: string, tenantId: string): Promise<string | null>;
   removeParticipant(instanceName: string, groupJid: string, participantPhone: string): Promise<void>;
+  /** Troca o nome do grupo (Padronizar). */
+  setSubject(instanceName: string, groupJid: string, subject: string): Promise<void>;
 };
 
 export type BulkTickSummary = {
@@ -172,6 +177,24 @@ async function applyJob(
       if (!job.targetPhone) throw new Error("Job de remoção sem telefone.");
       await deps.removeParticipant(instanceName, job.whatsappGroupId, job.targetPhone);
       return undefined;
+    }
+
+    case "set_subject": {
+      // Nome vazio seria 400 na Evolution (`isNotEmpty`) depois de gastar uma
+      // janela do ritmo anti-ban. Falha aqui, sem chamar ninguém.
+      const subject = job.subject ?? "";
+      if (!subject.trim()) throw new Error("Job de renomear sem nome.");
+      await deps.setSubject(instanceName, job.whatsappGroupId, subject);
+      return undefined;
+    }
+
+    default: {
+      // App mais novo que o worker manda ação que este não conhece. Sem isto o
+      // switch devolvia `undefined`, o ack saía `done` e o app gravava um
+      // resultado que nunca aconteceu no WhatsApp (o nome do grupo, no caso de
+      // `set_subject`). Falha explícita aparece no progresso do lote.
+      const desconhecida: never = job.action;
+      throw new Error(`Ação desconhecida para este worker: ${String(desconhecida)}`);
     }
   }
 }

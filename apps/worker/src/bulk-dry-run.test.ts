@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { BULK_DRY_RUN_REASON, withBulkDryRun } from "./bulk-dry-run.js";
-import { runBulkTick, type BulkAck, type BulkDeps, type BulkJobClaim } from "./bulk-loop.js";
+import { drainInFlight, runBulkTick, type BulkAck, type BulkDeps, type BulkJobClaim } from "./bulk-loop.js";
 
 function baseDeps(over: Partial<BulkDeps> = {}): BulkDeps {
   return {
@@ -14,6 +14,7 @@ function baseDeps(over: Partial<BulkDeps> = {}): BulkDeps {
     setAnnounceOnly: async () => {},
     setDescription: async () => {},
     setPicture: async () => {},
+    setSubject: async () => {},
     signedMediaUrl: async () => "https://signed.local/f.jpg",
     ...over,
   };
@@ -115,4 +116,31 @@ test("dry-run de foto ainda assina a midia — a assinatura e parte do caminho",
   await runBulkTick(deps);
 
   assert.equal(assinou, true, "mídia apagada tem de aparecer como falha já no dry-run");
+});
+
+test("dry-run nao renomeia grupo e falha o job com o motivo", async () => {
+  // Renomear é a ação mais visível da fila ("Você mudou o nome do grupo" para
+  // todos os membros). Em dry-run ela não pode escapar para a Evolution.
+  const chamou: string[] = [];
+  const acks: BulkAck[] = [];
+  const deps = withBulkDryRun(
+    baseDeps({
+      claimJobs: async () => [
+        { id: "j1", action: "set_subject", whatsappGroupId: "111@g.us", subject: "Moda Kids do Sul 1" },
+      ],
+      setSubject: async () => {
+        chamou.push("nome");
+      },
+      ack: async (_t, _j, ack) => {
+        acks.push(ack);
+      },
+    }),
+  );
+
+  await runBulkTick(deps);
+  await drainInFlight();
+
+  assert.deepEqual(chamou, [], "nada pode tocar a Evolution em dry-run");
+  assert.equal(acks[0]?.status, "failed");
+  assert.equal(acks[0]?.error, BULK_DRY_RUN_REASON);
 });

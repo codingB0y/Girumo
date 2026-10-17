@@ -20,6 +20,7 @@ type Recorded = {
   pictured: Array<{ jid: string; url: string }>;
   invitesLidos: string[];
   removidos: Array<{ jid: string; phone: string }>;
+  renomeados: Array<{ jid: string; subject: string }>;
 };
 
 /**
@@ -44,6 +45,7 @@ function makeDeps(over: Partial<BulkDeps> = {}): { deps: BulkDeps; rec: Recorded
     pictured: [],
     invitesLidos: [],
     removidos: [],
+    renomeados: [],
   };
   const deps: BulkDeps = {
     listTenants: async () => ["tenant-a"],
@@ -71,6 +73,9 @@ function makeDeps(over: Partial<BulkDeps> = {}): { deps: BulkDeps; rec: Recorded
     },
     removeParticipant: async (_i, jid, phone) => {
       rec.removidos.push({ jid, phone });
+    },
+    setSubject: async (_i, jid, subject) => {
+      rec.renomeados.push({ jid, subject });
     },
     ...over,
   };
@@ -351,4 +356,53 @@ test("acao sem dado nao poe a chave invite no ack", async () => {
   await drainInFlight();
 
   assert.deepEqual(rec.acks, [{ jobId: "abre", ack: { status: "done" } }]);
+});
+
+test("set_subject renomeia com o nome exato do job", async () => {
+  const { deps, rec } = makeDeps({
+    claimJobs: async () => [job({ id: "nome-1", action: "set_subject", subject: "Moda Kids do Sul 3" })],
+  });
+
+  const summary = await runBulkTick(deps);
+  await drainInFlight();
+
+  assert.deepEqual(rec.renomeados, [{ jid: "111@g.us", subject: "Moda Kids do Sul 3" }]);
+  // Rename não produz dado: o ack não leva a chave `invite`.
+  assert.deepEqual(rec.acks, [{ jobId: "nome-1", ack: { status: "done" } }]);
+  assert.equal(summary.done, 1);
+});
+
+test("set_subject sem nome falha o job SEM chamar a Evolution", async () => {
+  // A Evolution recusaria com 400 (isNotEmpty) — mas só depois de gastar uma
+  // janela do ritmo anti-ban para descobrir.
+  for (const subject of [undefined, "", "   "]) {
+    const { deps, rec } = makeDeps({
+      claimJobs: async () => [job({ id: "nome-2", action: "set_subject", subject })],
+    });
+
+    const summary = await runBulkTick(deps);
+    await drainInFlight();
+
+    assert.equal(rec.renomeados.length, 0, `não pode chamar updateGroupSubject com ${JSON.stringify(subject)}`);
+    assert.equal(summary.failed, 1);
+    assert.match(String(rec.acks[0]?.ack.error), /sem nome/i);
+  }
+});
+
+test("acao desconhecida falha o job em vez de virar done", async () => {
+  // App mais novo que o worker: sem o `default`, o switch devolvia undefined, o
+  // ack saía `done` e o app gravava um resultado que nunca aconteceu no WhatsApp.
+  const { deps, rec } = makeDeps({
+    claimJobs: async () => [
+      job({ id: "x-1", action: "rename_everything" as unknown as BulkJobClaim["action"] }),
+    ],
+  });
+
+  const summary = await runBulkTick(deps);
+  await drainInFlight();
+
+  assert.equal(summary.done, 0);
+  assert.equal(summary.failed, 1);
+  assert.equal(rec.acks[0]?.ack.status, "failed");
+  assert.match(String(rec.acks[0]?.ack.error), /desconhecida/i);
 });
