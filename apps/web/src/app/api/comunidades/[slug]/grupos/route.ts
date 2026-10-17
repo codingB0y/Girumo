@@ -3,6 +3,7 @@ import { assertPermission } from "@/lib/permissions";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { vincularGrupo, desvincularGrupo, listarComunidades } from "@/lib/stores/communities";
 import { COMUNIDADE_NATIVA_MENSAGEM, validarWhatsappGroupId } from "@/lib/communities/validation";
+import { respostaConflitoGrupo } from "@/lib/campaigns/conflito-grupo-409";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -75,7 +76,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
       return Response.json({ error: "Grupo não encontrado." }, { status: 404 });
     }
 
-    await vincularGrupo(ctx.tenantId, slug, lido.whatsappGroupId);
+    try {
+      await vincularGrupo(ctx.tenantId, slug, lido.whatsappGroupId);
+    } catch (e) {
+      // Um grupo, uma campanha: o append passa pelo trigger campaign_groups_grupo_exclusivo.
+      const conflito = await respostaConflitoGrupo(ctx.tenantId, e);
+      if (conflito) return conflito;
+      throw e;
+    }
     return Response.json({ ok: true });
   } catch (error) {
     if (error instanceof Response) return error;

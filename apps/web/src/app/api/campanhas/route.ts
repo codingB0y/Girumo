@@ -21,6 +21,7 @@ import {
 import { apresentaIntegracoes } from "./apresenta";
 import { listLandingPages } from "@/lib/pages/store";
 import { COMUNIDADE_NATIVA_MENSAGEM } from "@/lib/communities/validation";
+import { respostaConflitoGrupo } from "@/lib/campaigns/conflito-grupo-409";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -69,13 +70,21 @@ export async function POST(req: Request) {
   const existing = await supaStore.listCampaignGroups(tenantId);
   const slug = await uniqueMasterSlug(name, new Set(existing.map((c) => c.slug)));
 
-  const rec = await supaStore.createCampaignGroup(tenantId, {
-    name,
-    slug,
-    group_ids: Array.isArray(b.groupIds) ? b.groupIds.map(String) : [],
-    auto_grow: b.autoGrow === true,
-    grow_template: b.growTemplate as Record<string, unknown> | undefined,
-  });
+  let rec: supaStore.CampaignGroup;
+  try {
+    rec = await supaStore.createCampaignGroup(tenantId, {
+      name,
+      slug,
+      group_ids: Array.isArray(b.groupIds) ? b.groupIds.map(String) : [],
+      auto_grow: b.autoGrow === true,
+      grow_template: b.growTemplate as Record<string, unknown> | undefined,
+    });
+  } catch (e) {
+    // Um grupo, uma campanha: o trigger recusou grupo que já está em outra campanha.
+    const conflito = await respostaConflitoGrupo(tenantId, e);
+    if (conflito) return conflito;
+    throw e;
+  }
 
   // Link mestre: sem ele /r/<slug> nasce morto (ver lib/campaigns/master-link.ts).
   if (!(await criarLinkMestreOuDesfazer(tenantId, rec))) {
@@ -221,7 +230,17 @@ export async function PATCH(req: Request) {
     if (!r.ok) return Response.json({ error: r.error }, { status: r.status });
   }
 
-  const updated = await supaStore.updateCampaignGroup(tenantId, id, patch);
+  let updated: supaStore.CampaignGroup | null;
+  try {
+    updated = await supaStore.updateCampaignGroup(tenantId, id, patch);
+  } catch (e) {
+    // Um grupo, uma campanha. Se este PATCH também trocou o link (acima), a troca já valeu: o
+    // antigo vira apelido (rename-slug.ts) e repetir o PATCH é no-op no link. O seletor trava os
+    // grupos de outra campanha, então isto só acontece em corrida.
+    const conflito = await respostaConflitoGrupo(tenantId, e);
+    if (conflito) return conflito;
+    throw e;
+  }
   if (!updated) return Response.json({ error: "Campanha não encontrada." }, { status: 404 });
   return Response.json({
     id: updated.id,
