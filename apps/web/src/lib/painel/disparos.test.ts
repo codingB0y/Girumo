@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { Group } from "@/lib/mock-data";
-import { alcance, fraseAlcance, quadradinhos, rotuloPostar } from "./disparos";
+import { acompanharEnvio, alcance, fraseAlcance, quadradinhos, rotuloPostar } from "./disparos";
 
 function grupo(over: Partial<Group> & { id: string; members: number }): Group {
   return {
@@ -94,4 +94,24 @@ test("enviado acima do total não desenha caixa fantasma", () => {
 
 test("disparo sem alvo não desenha quadradinho", () => {
   assert.deepEqual(quadradinhos({ sent: 3, total: 0 }), { total: 0, entregues: 0 });
+});
+
+const agora = new Date("2026-10-16T15:00:00Z");
+const daqui = (segundos: number) => new Date(agora.getTime() + segundos * 1000).toISOString();
+
+test("acompanha o envio só com post saindo ou agendado chegando na hora", () => {
+  assert.equal(acompanharEnvio([{ status: "queued" }], agora), true);
+  assert.equal(acompanharEnvio([{ status: "running" }], agora), true);
+  // Lista parada não consulta: o histórico inteiro a cada 10 s era o custo.
+  assert.equal(acompanharEnvio([{ status: "sent" }, { status: "failed" }, { status: "draft" }], agora), false);
+  assert.equal(acompanharEnvio([], agora), false);
+});
+
+test("agendado: liga um minuto antes da hora e segue enquanto o worker não promove", () => {
+  assert.equal(acompanharEnvio([{ status: "scheduled", scheduledAt: daqui(45) }], agora), true);
+  assert.equal(acompanharEnvio([{ status: "scheduled", scheduledAt: daqui(-600) }], agora), true);
+  assert.equal(acompanharEnvio([{ status: "scheduled", scheduledAt: daqui(3600) }], agora), false);
+  // Recorrente que já saiu uma vez: status "sent", próxima rodada em `scheduledAt`.
+  assert.equal(acompanharEnvio([{ status: "sent", scheduledAt: daqui(30) }], agora), true);
+  assert.equal(acompanharEnvio([{ status: "sent", scheduledAt: daqui(86_400) }], agora), false);
 });

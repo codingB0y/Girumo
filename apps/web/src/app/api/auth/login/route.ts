@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { SESSION_COOKIE, signSession, sessionCookieOptions } from "@/lib/auth";
-import { getSupabaseAdmin, getSupabaseServerAnon } from "@/lib/supabase/server";
+import { MENSAGEM_DE_LIMITE, tipoDaFalhaDeLogin } from "@/lib/auth/erros-do-auth";
+import { createSupabaseAnonClient, getSupabaseAdmin } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,9 +21,19 @@ export async function POST(req: Request) {
     return Response.json({ error: "Informe e-mail e senha." }, { status: 400 });
   }
 
-  const auth = getSupabaseServerAnon();
+  // Cliente descartável: o singleton anon é compartilhado entre requisições e
+  // guardaria na memória a sessão deste login.
+  const auth = createSupabaseAnonClient();
   const { data, error } = await auth.auth.signInWithPassword({ email, password });
 
+  if (error) {
+    const tipo = tipoDaFalhaDeLogin(error);
+    if (tipo === "limite") return Response.json({ error: MENSAGEM_DE_LIMITE }, { status: 429 });
+    if (tipo === "indisponivel") {
+      console.error("[auth] login: Supabase Auth falhou:", error.status, error.code ?? error.message);
+      return Response.json({ error: "Não foi possível entrar agora. Tente de novo em instantes." }, { status: 503 });
+    }
+  }
   if (error || !data.user || !data.session) {
     return Response.json({ error: "E-mail ou senha incorretos." }, { status: 401 });
   }

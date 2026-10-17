@@ -1,7 +1,10 @@
 "use client";
 
+// React no escopo: o tsx do teste usa o runtime clássico de JSX (mesmo padrão de funnel-step-card.tsx).
+import React from "react";
+
 import Link from "next/link";
-import { ArrowLeft, Check, MessageCircle, Phone, UserX } from "lucide-react";
+import { ArrowLeft, Check, Copy, MessageCircle, Phone, UserX } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { claimState, deadlineOf, type ClaimState } from "@/lib/relampago/claim-state";
@@ -32,6 +35,8 @@ export type FilaEntrada = {
   message_text: string;
   commented_at: string;
   outcome: "sold" | "dropped" | null;
+  /** Convite do grupo onde comentou. Já validado no servidor. */
+  group_invite_url: string | null;
   claim: FilaClaim | null;
 };
 
@@ -57,6 +62,14 @@ const RESTANTE: Record<ClaimState, string> = {
 
 export function nomeDe(e: FilaEntrada): string {
   return e.push_name?.trim() || "sem nome";
+}
+
+async function copiar(texto: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(texto);
+  } catch {
+    // Área de transferência bloqueada não pode travar a ação.
+  }
 }
 
 /**
@@ -246,9 +259,15 @@ export function NaSuaMao({
   const estado = claimState(like, timerSeconds, agora);
   const prazo = deadlineOf(like, timerSeconds);
   const restam = prazo ? (prazo.getTime() - agora.getTime()) / 1000 : null;
-  const texto = encodeURIComponent(
-    `Oi ${nomeDe(entrada)}! Vi seu "${entrada.message_text}" no grupo — separei pra você.`,
-  );
+  const resposta = `Oi ${nomeDe(entrada)}! Vi seu "${entrada.message_text}" no grupo — separei pra você.`;
+  const texto = encodeURIComponent(resposta);
+  // Sem telefone, a vendedora responde no grupo: copia a resposta e abre o
+  // grupo pelo convite. Nunca `wa.me/<participant_jid>` — o JID é um @lid, e
+  // os dígitos dele não são número de ninguém.
+  const responderNoGrupo = () => {
+    void copiar(resposta);
+    void aoAgir(claim.id, "contacted");
+  };
 
   return (
     <section className="pn-card rounded-[var(--radius-control)] p-4 sm:p-5" data-testid="relampago-na-sua-mao">
@@ -296,24 +315,25 @@ export function NaSuaMao({
               <Phone className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
               Chamar no WhatsApp
             </a>
-          ) : (
-            <button
-              type="button"
-              onClick={async () => {
-                // Sem telefone, a vendedora responde no grupo. Abrir o grupo,
-                // nunca mandar DM.
-                try {
-                  await navigator.clipboard.writeText(decodeURIComponent(texto));
-                } catch {
-                  // Área de transferência bloqueada não pode travar a ação.
-                }
-                window.open(`https://wa.me/${entrada.participant_jid.split("@")[0]}`, "_blank");
-                void aoAgir(claim.id, "contacted");
-              }}
+          ) : entrada.group_invite_url ? (
+            <a
+              href={entrada.group_invite_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={responderNoGrupo}
               className="inline-flex h-11 items-center gap-2 rounded-[var(--radius-control)] bg-cobalt-500 px-4 text-[14px] font-semibold text-white"
             >
               <MessageCircle className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
               Responder no grupo
+            </a>
+          ) : (
+            <button
+              type="button"
+              onClick={responderNoGrupo}
+              className="inline-flex h-11 items-center gap-2 rounded-[var(--radius-control)] bg-cobalt-500 px-4 text-[14px] font-semibold text-white"
+            >
+              <Copy className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              Copiar resposta
             </button>
           ))}
 
@@ -337,6 +357,13 @@ export function NaSuaMao({
           Não respondeu
         </button>
       </div>
+      {!entrada.phone && claim.contacted_at == null && (
+        <p className="mt-2 text-13 text-slate-600">
+          {entrada.group_invite_url
+            ? "A resposta vai copiada: cole no grupo que abrir."
+            : "A resposta vai copiada: cole no grupo pelo WhatsApp."}
+        </p>
+      )}
     </section>
   );
 }

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { isCronAuthorized } from "@/lib/cron-auth";
+import { podeEnviar } from "@/lib/email/cron-recipients";
+import { campanhasParadas, gruposSemConvite } from "@/lib/notifications/alertas";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,6 +17,9 @@ export const dynamic = "force-dynamic";
  * 1. Grupo ≥ 90% capacidade → "Grupo quase cheio"
  * 2. Campanha sem cliques em 3 dias → "Campanha parada"
  * 3. Campanha sem link de convite em grupos → "Configure convites"
+ *
+ * Leitura com erro pula o aviso: não dá para afirmar "parada" ou "sem convite"
+ * sem ter lido, e aviso falso ensina o lojista a ignorar o sino.
  */
 export async function GET(req: Request) {
   if (!isCronAuthorized(req.headers.get("authorization"), process.env.CRON_SECRET ?? "")) {
@@ -47,11 +52,16 @@ async function checkTenantAlerts(
   let count = 0;
 
   // --- Alert 1: Groups almost full (≥ 90%) ---
-  const { data: groups } = await supabase
+  const { data: groups, error: groupsError } = await supabase
     .from("groups")
-    .select("id, name, members, capacity")
+    .select("id, name, members, capacity, invite_url")
     .eq("tenant_id", tenantId)
     .gt("capacity", 0);
+
+  if (groupsError) {
+    console.error(`[api/notifications/alerts] falha lendo grupos de ${tenantId}:`, groupsError.message);
+    return count;
+  }
 
   const almostFull = (groups ?? []).filter(
     (g) => g.capacity > 0 && g.members / g.capacity >= 0.9,
@@ -60,7 +70,7 @@ async function checkTenantAlerts(
   if (almostFull.length > 0) {
     // Check if we already sent this alert recently (last 24h)
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { data: existing } = await supabase
+    const dedupe = await supabase
       .from("notifications")
       .select("id")
       .eq("tenant_id", tenantId)
@@ -69,7 +79,7 @@ async function checkTenantAlerts(
       .gte("created_at", oneDayAgo)
       .limit(1);
 
-    if (!existing || existing.length === 0) {
+    if (podeEnviar(dedupe)) {
       const names = almostFull.slice(0, 3).map((g) => g.name).join(", ");
       const suffix = almostFull.length > 3 ? ` e +${almostFull.length - 3}` : "";
 
@@ -87,21 +97,29 @@ async function checkTenantAlerts(
     }
   }
 
-  // --- Alert 2: Campaign groups with no new members in 3 days ---
+  // --- Alert 2: Campaign groups with no clicks in 3 days ---
   const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
 
-  const { data: campaigns } = await supabase
+  const { data: campaigns, error: campaignsError } = await supabase
     .from("campaign_groups")
     .select("id, name, updated_at")
     .eq("tenant_id", tenantId);
 
-  const staleCampaigns = (campaigns ?? []).filter(
-    (c) => c.updated_at && c.updated_at < threeDaysAgo,
+  if (campaignsError) {
+    console.error(`[api/notifications/alerts] falha lendo campanhas de ${tenantId}:`, campaignsError.message);
+    return count;
+  }
+
+  const staleCampaigns = await semCliqueRecente(
+    supabase,
+    tenantId,
+    campanhasParadas(campaigns ?? [], threeDaysAgo),
+    threeDaysAgo,
   );
 
   if (staleCampaigns.length > 0) {
     // Dedupe: don't alert same thing within 3 days
-    const { data: existing } = await supabase
+    const dedupe = await supabase
       .from("notifications")
       .select("id")
       .eq("tenant_id", tenantId)
@@ -110,7 +128,7 @@ async function checkTenantAlerts(
       .gte("created_at", threeDaysAgo)
       .limit(1);
 
-    if (!existing || existing.length === 0) {
+    if (podeEnviar(dedupe)) {
       const name = staleCampaigns[0].name;
       const extra = staleCampaigns.length > 1 ? ` e +${staleCampaigns.length - 1}` : "";
 
@@ -129,13 +147,11 @@ async function checkTenantAlerts(
   }
 
   // --- Alert 3: Groups missing invite URL ---
-  const missingInvite = (groups ?? []).filter(
-    (g) => !(g as unknown as Record<string, unknown>).invite_url,
-  );
+  const missingInvite = gruposSemConvite(groups ?? []);
 
   // Only alert if tenant has campaigns (i.e., is actively using the product)
   if (missingInvite.length > 0 && (campaigns ?? []).length > 0) {
-    const { data: existing } = await supabase
+    const dedupe = await supabase
       .from("notifications")
       .select("id")
       .eq("tenant_id", tenantId)
@@ -144,7 +160,7 @@ async function checkTenantAlerts(
       .gte("created_at", threeDaysAgo)
       .limit(1);
 
-    if (!existing || existing.length === 0) {
+    if (podeEnviar(dedupe)) {
       const { error: insertError } = await supabase.from("notifications").insert({
         tenant_id: tenantId,
         type: "warning",
@@ -160,4 +176,34 @@ async function checkTenantAlerts(
   }
 
   return count;
+}
+
+/**
+ * Das candidatas a "parada", tira as que tiveram clique desde `desde`. Uma
+ * leitura por campanha com `limit(1)`, e não um `in(...)` só: com o teto de 1000
+ * linhas do PostgREST, a loja que mais clica teria campanha ativa cortada da
+ * resposta — e avisada como parada. Erro de leitura = não avisa nenhuma.
+ */
+async function semCliqueRecente<T extends { id: string; updated_at: string | null }>(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  tenantId: string,
+  candidatas: T[],
+  desde: string,
+): Promise<T[]> {
+  const comClique = new Set<string>();
+  for (const campanha of candidatas) {
+    const { data, error } = await supabase
+      .from("link_click_events")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("campaign_group_id", campanha.id)
+      .gte("occurred_at", desde)
+      .limit(1);
+    if (error) {
+      console.error(`[api/notifications/alerts] falha lendo cliques de ${tenantId}:`, error.message);
+      return [];
+    }
+    if ((data ?? []).length > 0) comClique.add(campanha.id);
+  }
+  return campanhasParadas(candidatas, desde, comClique);
 }

@@ -7,19 +7,18 @@ import type { Parte } from "@/lib/painel/inicio-resposta";
 import type {
   carregarAgendamentos,
   carregarCampanhas,
+  carregarContagemDeLeads,
   carregarDisparos,
   carregarGrupos,
-  carregarLeads,
   carregarLinks,
+  carregarPedidosDoMes,
   carregarSessao,
 } from "@/lib/painel/inicio-carga";
-import type { listOrdersByTenant } from "@/lib/stores/orders";
 import type { getTenantSettings } from "@/lib/stores/tenant-settings";
 import type {
   Campanha,
   DashboardData,
   Disparo,
-  Lead,
   Order,
   Schedule,
   TenantSettings,
@@ -56,8 +55,8 @@ type Carga = {
   groups: Parte<Awaited<ReturnType<typeof carregarGrupos>>>;
   campanhas: Parte<Awaited<ReturnType<typeof carregarCampanhas>>>;
   links: Parte<Awaited<ReturnType<typeof carregarLinks>>>;
-  leads: Parte<Awaited<ReturnType<typeof carregarLeads>>>;
-  orders: Parte<Awaited<ReturnType<typeof listOrdersByTenant>>>;
+  leadCount: Parte<Awaited<ReturnType<typeof carregarContagemDeLeads>>>;
+  orders: Parte<Awaited<ReturnType<typeof carregarPedidosDoMes>>>;
   schedules: Parte<Awaited<ReturnType<typeof carregarAgendamentos>>>;
   disparos: Parte<Awaited<ReturnType<typeof carregarDisparos>>>;
   session: Parte<Awaited<ReturnType<typeof carregarSessao>>>;
@@ -111,7 +110,7 @@ export function useDashboardData(): DashboardDataHandle {
     const groups = parte(carga.data.groups);
     const campanhas = parte(carga.data.campanhas);
     const links = parte(carga.data.links);
-    const leads = parte(carga.data.leads);
+    const leadCount = parte(carga.data.leadCount);
     const orders = parte(carga.data.orders);
     const schedules = parte(carga.data.schedules);
     const disparos = parte(carga.data.disparos);
@@ -132,7 +131,7 @@ export function useDashboardData(): DashboardDataHandle {
       status: "ready",
       partial:
         !links.ok ||
-        !leads.ok ||
+        !leadCount.ok ||
         !orders.ok ||
         !settings.ok ||
         !schedules.ok ||
@@ -141,7 +140,7 @@ export function useDashboardData(): DashboardDataHandle {
         groups: asArray<Group>(groups),
         campanhas: asArray<Campanha>(campanhas),
         links: asArray<TrackedLink>(links),
-        leads: asArray<Lead>(leads),
+        leadCount: leadCount.ok ? leadCount.data.total : 0,
         orders: asArray<Order>(orders),
         schedules: asArray<Schedule>(schedules),
         disparos: asArray<Disparo>(disparos),

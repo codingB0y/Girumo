@@ -41,15 +41,30 @@ export function motivoDoBloqueio(campo: CampoDaConta, valor: string): string | n
 }
 
 /**
+ * Trocar e-mail ou senha pede a senha atual (`api/auth/account` recusa sem).
+ *
+ * Sem isso, quem pegasse a sessão aberta — o celular da loja, o PC do balcão —
+ * trocava o e-mail de entrada e ficava com a conta.
+ */
+export function exigeSenhaAtual(campo: CampoDaConta): boolean {
+  return campo !== "name";
+}
+
+/**
  * O que o toast diz depois de salvar.
  *
- * O e-mail é o único que não termina o trabalho no clique: o Supabase manda
- * confirmação, e sem essa frase o lojista acha que já trocou.
+ * `emailPendente` vem da rota: com a troca segura do Supabase, o e-mail de
+ * entrada só muda depois do clique no link — dizer "atualizado" antes disso
+ * faz o lojista tentar entrar com um endereço que ainda não vale.
  */
-export function mensagemDeSucesso(campo: CampoDaConta): string {
+export function mensagemDeSucesso(campo: CampoDaConta, emailPendente = false): string {
   if (campo === "name") return "Nome atualizado.";
-  if (campo === "email") return "E-mail atualizado. Confirme na caixa de entrada.";
-  return "Senha atualizada.";
+  if (campo === "email") {
+    return emailPendente
+      ? "Enviamos um link de confirmação por e-mail. O e-mail de entrada só muda depois que você confirmar."
+      : "E-mail atualizado.";
+  }
+  return "Senha atualizada. Os outros aparelhos foram desconectados.";
 }
 
 /** O campo some da tela depois de salvo? Só a senha — não se relê senha. */

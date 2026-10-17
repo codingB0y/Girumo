@@ -21,6 +21,8 @@ import {
 import { cn } from "@/lib/utils";
 import type { CampaignMessage } from "@/lib/messages-store";
 import { indexFunnelRuns, type FunnelChip } from "@/lib/funnels/agenda";
+import { dayBR, diaMesBR, horaBR, monthBR } from "@/lib/date-br";
+import { diaDaMensagem, rotuloDoDia } from "./agenda-dias";
 
 type Props = {
   messages: CampaignMessage[];
@@ -61,7 +63,7 @@ export function MessagesAgenda({ messages, onCancel, onCancelFunnel, onDelete, c
 
     const groups: Record<string, CampaignMessage[]> = {};
     for (const m of sorted) {
-      const day = (m.scheduledAt ?? m.createdAt).slice(0, 10);
+      const day = diaDaMensagem(m);
       if (!groups[day]) groups[day] = [];
       groups[day].push(m);
     }
@@ -74,10 +76,7 @@ export function MessagesAgenda({ messages, onCancel, onCancelFunnel, onDelete, c
   const funil = useMemo(() => indexFunnelRuns(messages), [messages]);
 
   // Current month calendar
-  const [calMonth, setCalMonth] = useState(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  });
+  const [calMonth, setCalMonth] = useState(() => monthBR());
 
   const calendarDays = useMemo(() => {
     const [year, month] = calMonth.split("-").map(Number);
@@ -91,6 +90,8 @@ export function MessagesAgenda({ messages, onCancel, onCancelFunnel, onDelete, c
     }
     return { days, startDay, year, month };
   }, [calMonth, daysWithMessages]);
+
+  const hoje = dayBR();
 
   return (
     <div className={cn("space-y-4", className)}>
@@ -161,7 +162,7 @@ export function MessagesAgenda({ messages, onCancel, onCancelFunnel, onDelete, c
               <div key={`empty-${i}`} />
             ))}
             {calendarDays.days.map(({ day, date, hasMsg }) => {
-              const isToday = date === new Date().toISOString().slice(0, 10);
+              const isToday = date === hoje;
               return (
                 <div
                   key={date}
@@ -193,7 +194,7 @@ export function MessagesAgenda({ messages, onCancel, onCancelFunnel, onDelete, c
           {Object.entries(grouped).map(([day, msgs]) => (
             <div key={day}>
               <h4 className="font-data text-12 mb-2 uppercase tracking-wider text-slate-600">
-                {formatDay(day)}
+                {rotuloDoDia(day)}
               </h4>
               <div className="space-y-2">
                 {msgs.map((m) => (
@@ -248,7 +249,7 @@ function MessageRow({
           </span>
           {msg.scheduledAt && (
             <span className="font-data text-12 text-slate-600">
-              {new Date(msg.scheduledAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+              {diaMesBR(msg.scheduledAt)}, {horaBR(msg.scheduledAt)}
             </span>
           )}
           {funnel && (
@@ -314,17 +315,4 @@ function MessageRow({
       </div>
     </div>
   );
-}
-
-function formatDay(dateStr: string): string {
-  const date = new Date(dateStr + "T12:00:00");
-  const today = new Date();
-  const todayStr = today.toISOString().slice(0, 10);
-  const yesterday = new Date(today.getTime() - 86_400_000).toISOString().slice(0, 10);
-  const tomorrow = new Date(today.getTime() + 86_400_000).toISOString().slice(0, 10);
-
-  if (dateStr === todayStr) return "Hoje";
-  if (dateStr === yesterday) return "Ontem";
-  if (dateStr === tomorrow) return "Amanhã";
-  return date.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "short" });
 }

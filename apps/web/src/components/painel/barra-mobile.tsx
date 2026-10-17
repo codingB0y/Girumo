@@ -17,6 +17,7 @@ import {
 } from "@/lib/painel-nav";
 import type { TenantDispatchView } from "@/lib/campaigns/dispatch-view";
 import { useCasca } from "./casca-context";
+import { useRecarga } from "./home/ao-vivo/use-recarga";
 import { FolhaMais } from "./folha-mais";
 import { FolhaPostar } from "./folha-postar";
 import { useRole } from "./role-provider";
@@ -55,12 +56,8 @@ function useDisparoEmVoo(ativo: boolean) {
     };
   }, [ativo]);
 
-  const voando = emVoo !== null;
-  useEffect(() => {
-    if (!voando) return;
-    const t = setInterval(() => void recarregar(), 10_000);
-    return () => clearInterval(t);
-  }, [voando, recarregar]);
+  // Aba escondida não consulta: a barra está montada em toda tela do painel.
+  useRecarga(recarregar, 10_000, emVoo !== null);
 
   return { emVoo, recarregar };
 }
