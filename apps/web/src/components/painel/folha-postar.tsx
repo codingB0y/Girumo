@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/toast";
-import { MessageComposer, type ComposerPayload } from "@/components/painel/messages/message-composer";
+import { ERRO_SEM_CONEXAO, MessageComposer, type ComposerPayload } from "@/components/painel/messages/message-composer";
 import { DestinoGrupos, useCargaDosEstados } from "@/components/painel/messages/destino-grupos";
 import type { Destino } from "@/lib/campaigns/destino";
 import { destinoDaCampanha, fraseResumo, resumoDoDestino } from "@/lib/campaigns/destino-ui";
@@ -81,7 +81,7 @@ export function FolhaPostar({ id, aberta, aoFechar, aoPostar, emQualquerLargura 
   const destino = destinoDaCampanha(escolha, slug);
 
   async function postar(payload: ComposerPayload) {
-    if (!campanha) return;
+    if (!campanha) return false;
     setEnviando(true);
     setErro(null);
     try {
@@ -89,22 +89,36 @@ export function FolhaPostar({ id, aberta, aoFechar, aoPostar, emQualquerLargura 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...payload, destino }),
-      });
+      }).catch(() => null);
+      if (!res) {
+        setErro(ERRO_SEM_CONEXAO);
+        return false;
+      }
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         setErro(body?.error ?? "Não foi possível postar.");
-        return;
+        return false;
       }
       toast("Postado. Acompanhe em Disparos.", "success");
       await aoPostar();
       aoFechar();
+      return true;
     } finally {
       setEnviando(false);
     }
   }
 
   return (
-    <Folha id={id} aberta={aberta} aoFechar={aoFechar} titulo="Postar" testId="painel-folha-postar" emQualquerLargura={emQualquerLargura}>
+    <Folha
+      id={id}
+      aberta={aberta}
+      aoFechar={aoFechar}
+      titulo="Postar"
+      testId="painel-folha-postar"
+      emQualquerLargura={emQualquerLargura}
+      // Tocar no escuro acima é o gesto de baixar o teclado no celular: não pode levar o rascunho.
+      fundoFecha={false}
+    >
       {carregando ? (
         <div className="space-y-3 pb-4" role="status" aria-label="Carregando as campanhas">
           <div className="pn-skeleton h-12 rounded-[var(--radius-control)]" data-testid="painel-skeleton" />

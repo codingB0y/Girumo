@@ -250,3 +250,33 @@ export function adminCountDelta(
 
   return { total, ours: mine };
 }
+
+// ---------------------------------------------------------------------------
+// O nosso número ganhou ou perdeu a administração (mantém `is_admin` vivo)
+// ---------------------------------------------------------------------------
+
+/**
+ * O que UM evento `group-participants.update` diz sobre o nosso número neste
+ * grupo: `"perdeu"` a administração, `"ganhou"`, ou `null` (não é sobre ele).
+ *
+ * Diferente de `adminCountDelta`, `remove` conta sem o payload marcar o
+ * removido como admin: se o nosso número saiu do grupo, ele deixou de
+ * administrar seja qual for o papel que tinha — e o payload real nunca marca
+ * (prod: 0 de 14 remoções do nosso número). Sem isto, `groups.is_admin` só
+ * mudava no Sincronizar manual, e o grupo de terceiro seguia alvo de disparo e
+ * de captura de lead.
+ */
+export function papelDoNossoNumero(
+  action: string,
+  participants: ParticipantLike[] | null | undefined,
+  ourPhone: string | null | undefined,
+): "perdeu" | "ganhou" | null {
+  const normalized = String(action ?? "").toLowerCase();
+  if (normalized !== "promote" && normalized !== "demote" && normalized !== "remove") return null;
+
+  const ours = ourDigits([ourPhone]);
+  if (ours.size === 0) return null;
+  if (!(participants ?? []).some((p) => isOurs(p, ours))) return null;
+
+  return normalized === "promote" ? "ganhou" : "perdeu";
+}

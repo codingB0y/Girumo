@@ -1,7 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { SESSION_COOKIE, ENGINE_TOKEN, verifySession } from "@/lib/auth";
-import { classifyRequest, decideEngineAccess } from "@/lib/security/request-access-policy";
+import {
+  classifyRequest,
+  decideEngineAccess,
+  webhookSkipsIpLimit,
+} from "@/lib/security/request-access-policy";
 import { buildCsp, generateNonce, surfaceForPath } from "@/lib/security/csp";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { isPublicPage, publicPageCaseAlias } from "@/lib/public-pages";
@@ -12,6 +16,10 @@ import {
   skipsFirstPartyMiddleware,
 } from "@/lib/custom-domains/host";
 
+// Mesmo valor que o receiver confere (lá via `resolveSecret`, também com trim).
+// Ausente = "" e `webhookSkipsIpLimit` recusa: tudo volta para o teto por IP.
+const EVOLUTION_WEBHOOK_SECRET = process.env.EVOLUTION_WEBHOOK_SECRET?.trim() ?? "";
+
 const RATE_LIMIT_WINDOW = 60_000; // 1 minuto
 const RATE_LIMITS: Record<string, number> = {
   "/api/auth/login": 5,
@@ -20,11 +28,10 @@ const RATE_LIMITS: Record<string, number> = {
   // Fecha o login social: autentica pelo Bearer no handler, então precisa de
   // teto próprio para não virar oráculo de validação de token.
   "/api/auth/oauth-complete": 10,
-  // Webhooks de provedor: teto alto porque uma instância ativa emite rajadas
-  // legítimas (QR renova a cada ~20s, grupos grandes disparam em lote). O gate
-  // de verdade é o secret no handler; isto só barra flood ingênuo.
-  // Limitação conhecida: o contador é por instância serverless, então na Vercel
-  // o teto efetivo é maior que 300. Aceito na F2.
+  // Webhook da Evolution: o teto só pega quem NÃO manda o secret certo
+  // (`webhookSkipsIpLimit`). Com Upstash o balde é global e a Evolution manda as
+  // lojas todas de um IP, então contar o tráfego autenticado aqui fazia dos 300
+  // o teto de vazão do produto. O gate de verdade continua sendo o handler.
   "/api/webhooks/evolution": 300,
   // Webhook da Zernio (Instagram): mesmo raciocínio. O gate real é a assinatura
   // HMAC no handler; isto só barra flood ingênuo.
@@ -176,6 +183,15 @@ export async function middleware(req: NextRequest) {
   // constant-time secret compare. Rate limited here so an unauthenticated
   // flood never reaches the database.
   if (accessKind === "webhook") {
+    if (
+      webhookSkipsIpLimit(
+        pathname,
+        req.headers.get("x-evolution-webhook-secret"),
+        EVOLUTION_WEBHOOK_SECRET,
+      )
+    ) {
+      return NextResponse.next();
+    }
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
     if (await isRateLimited(ip, pathname)) {
       return NextResponse.json({ error: "rate limited" }, { status: 429 });

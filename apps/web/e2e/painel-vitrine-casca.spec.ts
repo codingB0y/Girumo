@@ -57,6 +57,33 @@ test.describe("casca mobile da Vitrine Aberta", () => {
     await expect(folha).toHaveCount(0);
   });
 
+  test("folha de postar: campos sem zoom no iPhone e toque fora nao descarta o texto", async ({ page }) => {
+    await page.goto("/painel", { waitUntil: "load" });
+    // O banner de dev fica por cima do fundo da folha e levaria o toque fora.
+    await fechaBannerDev(page);
+    await page.getByTestId("painel-postar").click();
+    const folha = page.getByTestId("painel-folha-postar");
+    await expect(folha.getByTestId("painel-skeleton")).toHaveCount(0, { timeout: 30_000 });
+    const campo = folha.getByPlaceholder("Digite sua mensagem...");
+    test.skip((await campo.count()) === 0, "tenant sem campanha: a folha nao mostra o compositor");
+
+    // Abaixo de 16px o Safari do iPhone da zoom no foco e empurra a folha pra fora.
+    // A enquete aberta entra na conta: as entradas dela tambem sao de digitar.
+    await folha.getByRole("button", { name: "Enquete" }).click();
+    const tamanhos = await folha
+      .locator('textarea, select, input:not([type="checkbox"]):not([type="file"])')
+      .evaluateAll((campos) => campos.map((c) => parseFloat(getComputedStyle(c).fontSize)));
+    expect(tamanhos.length).toBeGreaterThan(0);
+    for (const tamanho of tamanhos) expect(tamanho).toBeGreaterThanOrEqual(16);
+
+    // Tocar no escuro acima da folha (gesto de baixar o teclado) nao fecha nem
+    // apaga o que foi escrito. Esc e o "Fechar" seguem fechando.
+    await campo.fill("Chegou peca nova, 3 por 99");
+    await folha.locator("xpath=preceding-sibling::*[1]").click({ position: { x: 195, y: 20 } });
+    await expect(folha).toBeVisible();
+    await expect(campo).toHaveValue("Chegou peca nova, 3 por 99");
+  });
+
   test("Mais lista os modulos por grupo com o estado de cada um", async ({ page }) => {
     await page.goto("/painel", { waitUntil: "load" });
     await page.getByRole("button", { name: "Mais" }).click();

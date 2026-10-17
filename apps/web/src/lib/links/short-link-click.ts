@@ -51,8 +51,24 @@ const BLOCKED_MESSAGE: Record<BlockedReason, string> = {
  *     (`campaign_group_states`: nunca um lotado; o reaberto tem prioridade),
  *     obedecendo às configurações de entrada da campanha (deep link, encerramento, lotado).
  *  2) link comum → destino fixo, respeitando clickCap ("grupo cheio").
+ *
+ * Banco fora (ou soluço de rede) não vira o 500 vazio do Next: o convite mora no
+ * banco, então não há grupo para onde mandar, mas quem clicou é cliente da loja e
+ * vê uma página dizendo para tentar de novo. O erro vai para o log.
  */
 export async function handleShortLinkClick(req: Request, slug: string): Promise<Response> {
+  try {
+    return await resolveShortLinkClick(req, slug);
+  } catch (e) {
+    console.error(`[short-link] ${slug}: link não abriu`, e);
+    return html(
+      renderBlockedPage({ loja: "", title: "Link indisponível", message: "Não conseguimos abrir agora. Tente de novo em instantes." }),
+      503,
+    );
+  }
+}
+
+async function resolveShortLinkClick(req: Request, slug: string): Promise<Response> {
   const ua = req.headers.get("user-agent") ?? "";
   // Só conta clique de gente real — bot/preview/crawler redireciona mas não conta.
   const human = !BOT_UA.test(ua);
@@ -105,17 +121,23 @@ export async function handleShortLinkClick(req: Request, slug: string): Promise<
 
   if (human) {
     // Duas gravações independentes: o contador (total) e o evento com data
-    // (histórico). `allSettled` porque uma falhar não pode cancelar a outra —
-    // e nenhuma das duas é caminho crítico: métrica nunca segura o visitante.
+    // (histórico). `allSettled` porque uma falhar não pode cancelar a outra.
+    // `after()`: rodam DEPOIS da resposta — métrica nunca segura o visitante, e
+    // falha aqui não muda o redirect (mas fica no log, não some).
     // O evento leva o cadastro que trouxe a pessoa (?cid= da MESMA loja, conferido
     // no banco) e o grupo escolhido: é o degrau "foi pro grupo" do funil de anúncios.
-    await Promise.allSettled([
-      linksStore.incrementTrackedLinkClicks(link.id),
-      (async () => {
-        const captureId = await cidConferido(reqUrl, link.tenant_id, cadastroDaLoja);
-        await linksStore.recordTrackedLinkClick(link, { captureId, whatsappGroupId: target.groupId ?? null });
-      })(),
-    ]);
+    after(async () => {
+      const gravacoes = await Promise.allSettled([
+        linksStore.incrementTrackedLinkClicks(link.id),
+        (async () => {
+          const captureId = await cidConferido(reqUrl, link.tenant_id, cadastroDaLoja);
+          await linksStore.recordTrackedLinkClick(link, { captureId, whatsappGroupId: target.groupId ?? null });
+        })(),
+      ]);
+      for (const g of gravacoes) {
+        if (g.status === "rejected") console.error(`[short-link] ${slug}: clique não gravado`, g.reason);
+      }
+    });
   }
 
   const headers = new Headers();

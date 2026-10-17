@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { encerrarLoja } from "@/lib/billing/encerrar-loja";
+import { getStripe } from "@/lib/billing/stripe";
 import { getTenantContext } from "@/lib/supabase/tenant-context";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { assertPermission } from "@/lib/permissions";
@@ -85,7 +87,25 @@ export async function DELETE(req: Request) {
 
   const supabase = getSupabaseAdmin();
 
-  // Remove user from auth (cascades via FK)
+  // O dono some junto com o único login que gerencia a cobrança (`billing:manage`
+  // é só dele): antes, a loja para de cobrar e de postar. Se isso falhar, o login
+  // fica — sem ele ninguém abre o portal para cancelar.
+  if (ctx.role === "owner") {
+    const encerrada = await encerrarLoja({ supabase, stripe: getStripe, tenantId: ctx.tenantId });
+    if (encerrada.error !== null) {
+      console.error("[auth/account] encerrar loja falhou:", encerrada.error);
+      return NextResponse.json(
+        {
+          error:
+            "Não conseguimos cancelar sua assinatura agora, então a conta não foi apagada. Tente de novo em alguns minutos ou fale com o suporte.",
+        },
+        { status: 502 },
+      );
+    }
+  }
+
+  // Apaga o login; memberships e users caem junto pela FK. A organização e os
+  // dados da loja ficam.
   const { error } = await supabase.auth.admin.deleteUser(ctx.authUserId);
   if (error) {
     return NextResponse.json({ error: "Erro ao deletar conta." }, { status: 500 });
