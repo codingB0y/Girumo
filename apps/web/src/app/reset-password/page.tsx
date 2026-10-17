@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { CLASSES_DA_PORTA } from "@/lib/painel/auth-classes";
-import { linkDeRecuperacaoFalhou, mensagemDaNovaSenha } from "@/lib/auth/erros-do-auth";
+import { linkDeRecuperacaoFalhou, mensagemDaNovaSenha, sessaoDeRecuperacao } from "@/lib/auth/erros-do-auth";
 
 type EstadoDoLink = "conferindo" | "valido" | "vencido";
 
@@ -27,6 +27,8 @@ export default function ResetPasswordPage() {
   // Link vencido ou já usado (aberto antes em outro aparelho, clicado duas vezes)
   // chega com o erro na URL e sem sessão: o formulário não teria como salvar, e
   // o lojista só descobria no fim, com "Auth session missing!" em inglês.
+  // Sessão comum (login por senha ou Google) também não serve: só a aberta pelo
+  // link de recuperação, senão o aparelho com a conta aberta troca a senha sem a atual.
   useEffect(() => {
     const { hash, search } = window.location;
     if (linkDeRecuperacaoFalhou(hash) || linkDeRecuperacaoFalhou(search)) {
@@ -34,8 +36,10 @@ export default function ResetPasswordPage() {
       return;
     }
     getSupabaseBrowserClient()
-      .auth.getSession()
-      .then(({ data }) => setLink(data.session ? "valido" : "vencido"))
+      .auth.mfa.getAuthenticatorAssuranceLevel()
+      .then(({ data }) =>
+        setLink(sessaoDeRecuperacao(data?.currentAuthenticationMethods ?? [], Date.now() / 1000) ? "valido" : "vencido"),
+      )
       .catch(() => setLink("vencido"));
   }, []);
 

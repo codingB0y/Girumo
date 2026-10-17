@@ -56,3 +56,24 @@ export function linkDeRecuperacaoFalhou(trechoDaUrl: string): boolean {
   const params = new URLSearchParams(trechoDaUrl.replace(/^[#?]/, ""));
   return params.has("error") || params.has("error_code");
 }
+
+/** Método de entrada do `amr` do access token: objeto com horário, ou string (RFC 8176, só com hook de token). */
+type MetodoDeEntrada = { method: string; timestamp: number } | string;
+
+/** Quanto tempo a sessão aberta pelo link de recuperação pode definir a senha: a validade do próprio link (1 h). */
+export const JANELA_DA_RECUPERACAO_S = 60 * 60;
+
+/**
+ * A sessão do navegador foi aberta por um link de recuperação, há pouco?
+ *
+ * /reset-password é rota pública e o login por senha ou pelo Google também deixa
+ * sessão no localStorage. Aceitar qualquer sessão deixava quem pega o aparelho
+ * com a conta aberta definir uma senha nova sem saber a atual. Só a sessão que o
+ * Supabase cria ao verificar o link leva o método "recovery" no `amr`; o
+ * horário limita a sessão que ficou no aparelho depois (o refresh mantém o amr).
+ */
+export function sessaoDeRecuperacao(metodos: readonly MetodoDeEntrada[], agoraEmSegundos: number): boolean {
+  return metodos.some(
+    (m) => typeof m !== "string" && m.method === "recovery" && agoraEmSegundos - m.timestamp <= JANELA_DA_RECUPERACAO_S,
+  );
+}

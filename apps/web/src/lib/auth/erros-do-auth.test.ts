@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  JANELA_DA_RECUPERACAO_S,
   MENSAGEM_DE_LIMITE,
   linkDeRecuperacaoFalhou,
   mensagemDaNovaSenha,
   mensagemDoNovoEmail,
+  sessaoDeRecuperacao,
   tipoDaFalhaDeLogin,
 } from "./erros-do-auth";
 
@@ -47,4 +49,24 @@ test("link de recuperação vencido ou já usado é reconhecido pelo hash", () =
   assert.equal(linkDeRecuperacaoFalhou("?error=access_denied"), true);
   assert.equal(linkDeRecuperacaoFalhou("#access_token=abc&type=recovery"), false);
   assert.equal(linkDeRecuperacaoFalhou(""), false);
+});
+
+test("sessão comum do navegador não libera o formulário de nova senha", () => {
+  // Mutante: aceitar qualquer sessão (era o getSession() da tela). O login por
+  // senha e o Google deixam sessão no localStorage, e /reset-password é pública:
+  // quem pegasse o aparelho com a conta aberta definia senha nova sem a atual e
+  // com ela passava no PATCH /api/auth/account para trocar o e-mail.
+  const agora = 1_800_000_000;
+  assert.equal(sessaoDeRecuperacao([{ method: "password", timestamp: agora - 30 }], agora), false);
+  assert.equal(sessaoDeRecuperacao([{ method: "oauth", timestamp: agora - 30 }], agora), false);
+  assert.equal(sessaoDeRecuperacao([{ method: "password", timestamp: agora - 30 }, { method: "mfa/totp", timestamp: agora }], agora), false);
+  assert.equal(sessaoDeRecuperacao([], agora), false);
+
+  // Só a sessão aberta pelo link de recuperação, enquanto o link ainda valeria.
+  assert.equal(sessaoDeRecuperacao([{ method: "recovery", timestamp: agora - 60 }], agora), true);
+  assert.equal(sessaoDeRecuperacao([{ method: "recovery", timestamp: agora - JANELA_DA_RECUPERACAO_S }], agora), true);
+  // Sessão de recuperação antiga que ficou no aparelho (o refresh mantém o amr).
+  assert.equal(sessaoDeRecuperacao([{ method: "recovery", timestamp: agora - JANELA_DA_RECUPERACAO_S - 1 }], agora), false);
+  // Formato RFC 8176 (só com hook customizado de token): sem horário, não prova que é recente.
+  assert.equal(sessaoDeRecuperacao(["recovery"], agora), false);
 });
