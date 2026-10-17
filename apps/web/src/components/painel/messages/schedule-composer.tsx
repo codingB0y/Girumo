@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Calendar, Clock, Repeat, Loader2 } from "lucide-react";
+import { dayBR } from "@/lib/date-br";
 import { cn } from "@/lib/utils";
 import { MessageComposer, type ComposerPayload } from "./message-composer";
 
@@ -59,7 +60,7 @@ export function ScheduleComposer({ onSchedule, scheduling, className }: Props) {
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              min={new Date().toISOString().split("T")[0]}
+              min={dayBR()}
               className="mt-1 w-full rounded-lg border border-line-200 bg-canvas-100 px-3 py-2 text-sm text-volt-950 focus:border-cobalt-500 focus:outline-none"
             />
           </div>
