@@ -167,9 +167,14 @@ test("DELETE sem sessão é 401 e não apaga nada", async () => {
   assert.equal(feitas("DELETE", "/rest/v1/orders").length, 0);
 });
 
+/** `origemDoPedido` antes de apagar: a leitura de `orders.source` responde esta origem (null = não existe). */
+function origem(source: "manual" | "bling" | null): () => Resposta {
+  return () => ({ status: 200, corpo: source ? [{ source }] : [] });
+}
+
 test("DELETE de pedido que não é da loja (ou id que não é uuid) responde 404", async () => {
   chamadas.length = 0;
-  responder = banco({ "DELETE /rest/v1/orders": () => ({ status: 200, corpo: [] }) });
+  responder = banco({ "GET /rest/v1/orders": origem(null), "DELETE /rest/v1/orders": () => ({ status: 200, corpo: [] }) });
 
   // Mutante: o `{ ok }` antigo, que respondia 200 sem ter apagado nada.
   const res = await DELETE(doDono("DELETE", `/api/orders?id=${PEDIDO}`));
@@ -184,10 +189,25 @@ test("DELETE de pedido que não é da loja (ou id que não é uuid) responde 404
 });
 
 test("DELETE do pedido da loja responde 200", async () => {
-  responder = banco({ "DELETE /rest/v1/orders": () => ({ status: 200, corpo: [{ id: PEDIDO }] }) });
+  responder = banco({ "GET /rest/v1/orders": origem("manual"), "DELETE /rest/v1/orders": () => ({ status: 200, corpo: [{ id: PEDIDO }] }) });
 
   const res = await DELETE(doDono("DELETE", `/api/orders?id=${PEDIDO}`));
 
   assert.equal(res.status, 200);
   assert.deepEqual(await res.json(), { ok: true });
+});
+
+test("DELETE de venda do Bling responde 409 com a frase e não apaga nada", async () => {
+  chamadas.length = 0;
+  responder = banco({ "GET /rest/v1/orders": origem("bling"), "DELETE /rest/v1/orders": () => ({ status: 200, corpo: [{ id: PEDIDO }] }) });
+
+  const res = await DELETE(doDono("DELETE", `/api/orders?id=${PEDIDO}`));
+
+  assert.equal(res.status, 409);
+  assert.deepEqual(await res.json(), { error: "Venda do Bling: altere no Bling." });
+  assert.equal(feitas("DELETE", "/rest/v1/orders").length, 0);
+  // A origem é lida na loja da rota: sem o filtro, o pedido de outra loja decidiria por este.
+  const [leitura] = feitas("GET", "/rest/v1/orders");
+  assert.equal(leitura.url.searchParams.get("tenant_id"), "eq.loja-b");
+  assert.equal(leitura.url.searchParams.get("id"), `eq.${PEDIDO}`);
 });

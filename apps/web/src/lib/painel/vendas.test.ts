@@ -168,6 +168,7 @@ test("total dos itens do POST em centavos, igual ao das linhas", () => {
 test("201 com corpo ilegível ainda é venda registrada: cai na venda montada na tela, sem quebrar", () => {
   const local: VendaDoMes = {
     id: "", cliente: "Maria", telefone: "5511987654321", total: 10, criadaEm: "2026-10-10T12:00:00Z", itens: [], editavel: true,
+    origem: "manual",
   };
   for (const corpo of [null, "ok", 42, [], {}, { total: "10" }, { total: 10, telefone: 5 }, { total: Number.NaN, telefone: "x", cliente: null }]) {
     assert.equal(vendaDaResposta(corpo, local), local, JSON.stringify(corpo));

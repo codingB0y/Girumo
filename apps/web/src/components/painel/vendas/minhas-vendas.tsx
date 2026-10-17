@@ -219,9 +219,13 @@ type VendaNaListaProps = {
   avisar: (aviso: string) => void;
 };
 
-/** Uma venda: quem, o quê, quando, quanto; "Corrigir" até 24h (`editavel` vem do servidor), depois "Fechada". */
+/**
+ * Uma venda: quem, o quê, quando, quanto; "Corrigir" até 24h (`editavel` vem do servidor), depois "Fechada".
+ * A do Bling leva o selo e nunca se corrige aqui: "Altere no Bling" (ele é a fonte da verdade).
+ */
 function VendaNaLista({ venda, agora, corrigindo, aoAbrir, aoFechar, aoFocarTitulo, aoMudou, avisar }: VendaNaListaProps) {
   const cliente = nomeDoCliente(venda);
+  const doBling = venda.origem === "bling";
   const idPainel = `painel-corrigir-${venda.id}`;
   const corrigirRef = useRef<HTMLButtonElement>(null);
 
@@ -242,13 +246,25 @@ function VendaNaLista({ venda, agora, corrigindo, aoAbrir, aoFechar, aoFocarTitu
     <li className="border-b border-line-200 last:border-b-0">
       <div className="flex items-center gap-3 px-4 py-3">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[14px] font-semibold text-volt-950">{cliente}</p>
+          <p className="flex items-center gap-2 text-[14px] font-semibold text-volt-950">
+            <span className="truncate">{cliente}</span>
+            {doBling && <span className="pn-chip shrink-0">Bling</span>}
+          </p>
           <p className="mt-0.5 truncate text-12 text-slate-600">{resumoDosItens(venda.itens)}</p>
           <p className="font-data mt-0.5 text-12 text-slate-600">{quandoFoi(venda.criadaEm, agora)}</p>
         </div>
         <div className="flex flex-col items-end gap-1">
           <span className="font-data text-[14px] font-semibold tabular-nums text-volt-950">{brl.format(venda.total)}</span>
-          {venda.editavel ? (
+          {doBling ? (
+            <span
+              title="Venda importada do Bling: para corrigir, altere o pedido no Bling"
+              className="inline-flex items-center gap-1 text-12 text-slate-600"
+            >
+              <Lock className="h-3 w-3" aria-hidden="true" />
+              Altere no Bling
+              <span className="sr-only">: venda importada, o pedido se corrige no Bling</span>
+            </span>
+          ) : venda.editavel ? (
             <button
               ref={corrigirRef}
               type="button"
@@ -291,8 +307,9 @@ function VendaNaLista({ venda, agora, corrigindo, aoAbrir, aoFechar, aoFocarTitu
 /**
  * "Minhas vendas · mês" (spec §4): total vendido por ela no mês e a lista, mais
  * recentes primeiro. Só as vendas de quem chamou — o caixa da loja fica com
- * dono e admin (decisão de 07/10). `truncado`: o PostgREST corta em 1000 sem
- * erro, e a tela diz que o total é parcial (spec §3).
+ * dono e admin (decisão de 07/10) —, mais as do Bling da loja para quem não é
+ * vendedora: aí o total deixa de ser só "por você". `truncado`: o PostgREST
+ * corta em 1000 sem erro, e a tela diz que o total é parcial (spec §3).
  */
 export function MinhasVendas({ estado }: { estado: MinhasVendasEstado }) {
   const { dados, erro, recarregar } = estado;
@@ -300,6 +317,7 @@ export function MinhasVendas({ estado }: { estado: MinhasVendasEstado }) {
   const [aviso, setAviso] = useState("");
   const tituloRef = useRef<HTMLHeadingElement>(null);
   const agora = new Date();
+  const comBling = dados?.vendas.some((venda) => venda.origem === "bling") ?? false;
 
   return (
     <section aria-labelledby="minhas-vendas-titulo" className="mt-2 flex flex-col gap-2.5">
@@ -318,7 +336,7 @@ export function MinhasVendas({ estado }: { estado: MinhasVendasEstado }) {
       {dados ? (
         <>
           <div className="flex items-baseline justify-between gap-3 rounded-xl bg-volt-950 px-4 py-3.5">
-            <span className="text-13 text-canvas-100">Vendido por você no mês</span>
+            <span className="text-13 text-canvas-100">{comBling ? "Vendido no mês" : "Vendido por você no mês"}</span>
             <span data-testid="vendas-total-do-mes" className="font-data text-20 font-semibold tabular-nums text-paper-0">
               {brl.format(dados.total)}
             </span>

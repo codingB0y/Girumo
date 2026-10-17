@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import { after, before, beforeEach, test } from "node:test";
+import { after, before, beforeEach, mock, test } from "node:test";
 
 import type * as Store from "./vendas";
 
@@ -115,24 +115,33 @@ test("opt-out vale para qualquer variante do número", async () => {
 
 const MONTH_ROWS = [
   {
-    id: "p1", lead_id: "l1", phone: "5511987654321", value: 287.7, created_at: hoursAgo(2), created_by: "vendedora-1",
+    id: "p1", lead_id: "l1", phone: "5511987654321", value: 287.7, created_at: hoursAgo(2), created_by: "vendedora-1", source: "manual",
     order_items: [
       { name: "Blusa bufante", quantity: 2, unit_price: 68.9, position: 1 },
       { name: "Conjunto alfaiataria", quantity: 1, unit_price: 149.9, position: 0 },
     ],
   },
   {
-    id: "p2", lead_id: null, phone: "5511912345678", value: 534, created_at: hoursAgo(30), created_by: "vendedora-1",
+    id: "p2", lead_id: null, phone: "5511912345678", value: 534, created_at: hoursAgo(30), created_by: "vendedora-1", source: "manual",
     order_items: [{ name: "Calça wide leg", quantity: 6, unit_price: 89, position: 0 }],
   },
   // Pedido de antes dos itens: a tela mostra "Pedido sem itens".
-  { id: "p3", lead_id: "l1", phone: "5511987654321", value: 50, created_at: hoursAgo(200), created_by: "vendedora-1", order_items: [] },
+  { id: "p3", lead_id: "l1", phone: "5511987654321", value: 50, created_at: hoursAgo(200), created_by: "vendedora-1", source: "manual", order_items: [] },
 ];
 
-function monthReply(contentRange: string | undefined, rows: unknown[] = MONTH_ROWS) {
+/** Venda que o motor do Bling grava: sem autora e sem itens. */
+const BLING_ROW = {
+  id: "b1", lead_id: null, phone: "5511955554444", value: 1840, created_at: hoursAgo(1), created_by: null, source: "bling", order_items: [],
+};
+
+/** Contagem HEAD de `bling_connections`: nenhuma conexão ativa, salvo se o teste disser outra coisa. */
+const SEM_BLING: Reply = { status: 200, contentRange: "*/0" };
+
+function monthReply(contentRange: string | undefined, rows: unknown[] = MONTH_ROWS, bling: Reply = SEM_BLING) {
   return ({ url }: Seen): Reply => {
     if (url.pathname === "/rest/v1/orders") return { status: 200, body: rows, contentRange };
     if (url.pathname === "/rest/v1/leads") return { status: 200, body: [{ id: "l1", name: "Patrícia Gomes" }] };
+    if (url.pathname === "/rest/v1/bling_connections") return bling;
     return { status: 500 };
   };
 }
@@ -155,14 +164,20 @@ test("vendas do mês: só as de quem chama, na faixa de Brasília, itens em orde
           { nome: "Blusa bufante", quantidade: 2, valorUnitario: 68.9 },
         ],
         editavel: true,
+        origem: "manual",
       },
       {
         id: "p2", cliente: null, telefone: "5511912345678", total: 534, criadaEm: hoursAgo(30),
         itens: [{ nome: "Calça wide leg", quantidade: 6, valorUnitario: 89 }],
         editavel: false,
+        origem: "manual",
       },
-      { id: "p3", cliente: "Patrícia Gomes", telefone: "5511987654321", total: 50, criadaEm: hoursAgo(200), itens: [], editavel: false },
+      {
+        id: "p3", cliente: "Patrícia Gomes", telefone: "5511987654321", total: 50, criadaEm: hoursAgo(200), itens: [],
+        editavel: false, origem: "manual",
+      },
     ],
+    blingAtivo: false,
   });
 
   const [orders] = requestsTo("/rest/v1/orders");
@@ -170,12 +185,14 @@ test("vendas do mês: só as de quem chama, na faixa de Brasília, itens em orde
   assert.match(orders.prefer, /count=exact/);
   assert.equal(
     orders.url.searchParams.get("select"),
-    "id,lead_id,phone,value,created_at,created_by,order_items(name,quantity,unit_price,position)",
+    "id,lead_id,phone,value,created_at,created_by,source,order_items(name,quantity,unit_price,position)",
   );
-  // Mutantes: sem tenant (o service-role lê todas as lojas), sem autora (a vendedora
-  // veria o caixa da loja), mês em UTC (a venda das 22h do dia 31 cairia no mês seguinte).
+  // Mutantes: sem tenant (o service-role lê todas as lojas), sem autora ou com as vendas
+  // do Bling (a vendedora veria o caixa da loja), mês em UTC (a venda das 22h do dia 31
+  // cairia no mês seguinte).
   assert.equal(orders.url.searchParams.get("tenant_id"), "eq.loja-a");
   assert.equal(orders.url.searchParams.get("created_by"), "eq.vendedora-1");
+  assert.equal(orders.url.searchParams.get("or"), null);
   assert.deepEqual(orders.url.searchParams.getAll("created_at"), ["gte.2026-10-01T03:00:00.000Z", "lt.2026-11-01T03:00:00.000Z"]);
   assert.equal(orders.url.searchParams.get("order"), "created_at.desc");
   assert.equal(orders.url.searchParams.get("limit"), "1000");
@@ -184,13 +201,83 @@ test("vendas do mês: só as de quem chama, na faixa de Brasília, itens em orde
   ]);
 });
 
-test("dono: as vendas dele, todas editáveis, sem prazo", async () => {
-  reply = monthReply("0-2/3");
+test("dono: as vendas dele, editáveis sem prazo, e as do Bling da loja, que nunca são editáveis", async () => {
+  reply = monthReply("0-3/4", [BLING_ROW, ...MONTH_ROWS]);
 
   const result = await store.listMonthSales(OWNER, "2026-10", NOW);
 
-  assert.deepEqual(result.vendas.map((venda) => venda.editavel), [true, true, true]);
-  assert.equal(requestsTo("/rest/v1/orders")[0].url.searchParams.get("created_by"), "eq.dono-1");
+  assert.deepEqual(
+    result.vendas.map((venda) => [venda.id, venda.origem, venda.editavel]),
+    [["b1", "bling", false], ["p1", "manual", true], ["p2", "manual", true], ["p3", "manual", true]],
+  );
+  assert.equal(result.total, 2711.7);
+  const [orders] = requestsTo("/rest/v1/orders");
+  // A venda do Bling não tem autora (created_by null): só com o `or` ela chega à tela do dono.
+  assert.equal(orders.url.searchParams.get("or"), "(created_by.eq.dono-1,source.eq.bling)");
+  assert.equal(orders.url.searchParams.get("created_by"), null);
+  assert.equal(orders.url.searchParams.get("tenant_id"), "eq.loja-a");
+});
+
+test("venda do Bling nunca é editável, em nenhum papel, nem dentro das 24h e com autora", async () => {
+  for (const caller of [OWNER, SELLER]) {
+    reply = monthReply("0-0/1", [{ ...BLING_ROW, created_by: caller.authUserId }]);
+
+    const [venda] = (await store.listMonthSales(caller, "2026-10", NOW)).vendas;
+
+    assert.deepEqual([venda.origem, venda.editavel], ["bling", false], caller.role);
+  }
+});
+
+test("blingAtivo: conexão ativa da loja, numa contagem HEAD filtrada por tenant e status", async () => {
+  reply = monthReply("0-2/3", MONTH_ROWS, { status: 200, contentRange: "*/1" });
+
+  assert.equal((await store.listMonthSales(SELLER, "2026-10", NOW)).blingAtivo, true);
+
+  const [bling] = requestsTo("/rest/v1/bling_connections");
+  assert.equal(bling.method, "HEAD");
+  assert.match(bling.prefer, /count=exact/);
+  // Mutantes: sem tenant (qualquer loja com Bling acenderia o aviso), sem status (a desconectada também).
+  assert.equal(bling.url.searchParams.get("tenant_id"), "eq.loja-a");
+  assert.equal(bling.url.searchParams.get("status"), "eq.ativa");
+
+  reply = monthReply("0-2/3");
+  assert.equal((await store.listMonthSales(SELLER, "2026-10", NOW)).blingAtivo, false);
+  // Tabela que ainda não existe: o PostgREST responde 404 sem corpo ao HEAD.
+  reply = monthReply("0-2/3", MONTH_ROWS, { status: 404 });
+  assert.equal((await store.listMonthSales(SELLER, "2026-10", NOW)).blingAtivo, false);
+});
+
+test("conexão do Bling ilegível: blingAtivo false, a lista vem inteira e o erro vai ao log uma vez só", async () => {
+  reply = monthReply("0-2/3", MONTH_ROWS, { status: 500, body: { message: "banco fora" } });
+  const log = mock.method(console, "error", () => undefined);
+  try {
+    const first = await store.listMonthSales(OWNER, "2026-10", NOW);
+    const second = await store.listMonthSales(OWNER, "2026-10", NOW);
+
+    assert.equal(first.blingAtivo, false);
+    assert.equal(second.blingAtivo, false);
+    assert.equal(second.vendas.length, 3);
+    assert.equal(log.mock.callCount(), 1);
+  } finally {
+    log.mock.restore();
+  }
+});
+
+test("origem do pedido: só no tenant; bling, manual, ou null quando não existe ou é de outra loja", async () => {
+  reply = () => ({ status: 200, body: [{ source: "bling" }] });
+  assert.equal(await store.origemDoPedido("loja-a", "p1"), "bling");
+  assert.equal(seen[0].method, "GET");
+  assert.deepEqual(params(seen[0].url), { select: "source", tenant_id: "eq.loja-a", id: "eq.p1" });
+
+  reply = () => ({ status: 200, body: [{ source: "manual" }] });
+  assert.equal(await store.origemDoPedido("loja-a", "p1"), "manual");
+
+  reply = () => ({ status: 200, body: [] });
+  assert.equal(await store.origemDoPedido("loja-a", "pedido-de-outra-loja"), null);
+
+  // Sem saber a origem, a rota não pode decidir: o erro sobe.
+  reply = () => ({ status: 500, body: { message: "banco fora" } });
+  await assert.rejects(store.origemDoPedido("loja-a", "p1"), /banco fora/);
 });
 
 test("mais de 1000 no mês: truncado, e o total é só o das linhas que vieram", async () => {
