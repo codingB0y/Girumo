@@ -9,6 +9,10 @@ import { getSupabaseAdmin } from "@/lib/supabase/server";
  *
  * Incidente de 30/09/2026: a VPS ficou fora do ar dois dias e, ao voltar, tudo que
  * estava agendado saiu de uma vez, fora de hora.
+ *
+ * Incidente de 09/10/2026: o número bateu o teto da hora, o anti-ban o segurou ~30 min
+ * e o claim cancelou 93 envios como "servidor fora do ar". A tolerância conta do fim da
+ * retenção do anti-ban (`app.send_hold_ended_at`), não do horário do comando.
  */
 
 const TENANT = process.env.E2E_TENANT_ID ?? "";
@@ -140,11 +144,14 @@ test("agendamento dentro da tolerância segue o caminho normal", async () => {
  * cria um só para ele e apaga no fim; os comandos e envios do número vão junto
  * (on delete cascade).
  */
-async function comNumeroTemporario(usar: (instanceId: string) => Promise<void>) {
+async function comNumeroTemporario(
+  usar: (instanceId: string) => Promise<void>,
+  perfil: "novo" | "antigo" | null = null,
+) {
   const supabase = getSupabaseAdmin();
   const { data: inst, error } = await supabase
     .from("instances")
-    .insert({ tenant_id: TENANT, name: `perdeu-hora-${RUN}`, status: "disconnected" })
+    .insert({ tenant_id: TENANT, name: `perdeu-hora-${RUN}`, status: "disconnected", numero_perfil: perfil })
     .select("id")
     .single();
   if (error) throw new Error(error.message);
@@ -200,4 +207,94 @@ test("número com envio recente é fila andando sob o anti-ban: o comando antigo
     const depois = await statusDepoisDoClaim(await comandoParadoNaFila(instanceId));
     assert.notEqual(depois.status, "canceled");
   });
+});
+
+// Maior per_hour que app.instance_caps devolve (veterano: least(400, ...)). Gravar isso de
+// envios estoura o teto da hora qualquer que seja o número de grupos do QA, que outro teste
+// de integração muda em paralelo.
+const TETO_DA_HORA_MAX = 400;
+
+/** `quantos` envios do número, espalhados de `deMin` a `ateMin` minutos atrás. */
+async function enviosEntre(instanceId: string, quantos: number, deMin: number, ateMin: number) {
+  const inicio = Date.now() - deMin * MIN_MS;
+  const passo = quantos > 1 ? ((deMin - ateMin) * MIN_MS) / (quantos - 1) : 0;
+  const linhas = Array.from({ length: quantos }, (_, i) => ({
+    instance_id: instanceId,
+    sent_at: new Date(inicio + i * passo).toISOString(),
+  }));
+  const { error } = await getSupabaseAdmin().from("instance_sends").insert(linhas);
+  if (error) throw new Error(error.message);
+}
+
+async function estadoDeEnvio(instanceId: string, pausadoAte: string, falhasSeguidas: number) {
+  const { error } = await getSupabaseAdmin().from("instance_send_state").insert({
+    instance_id: instanceId,
+    tenant_id: TENANT,
+    paused_until: pausadoAte,
+    consecutive_failures: falhasSeguidas,
+  });
+  if (error) throw new Error(error.message);
+}
+
+async function tetoDoDia(instanceId: string): Promise<number> {
+  const { data, error } = await getSupabaseAdmin().rpc("instance_health", { target_tenant_id: TENANT });
+  if (error) throw new Error(error.message);
+  const linha = ((data ?? []) as { instance_id: string; daily_cap: number }[]).find(
+    (l) => l.instance_id === instanceId,
+  );
+  if (!linha) throw new Error("instance_health não devolveu o número temporário");
+  return linha.daily_cap;
+}
+
+test("número segurado pelo teto da hora não perde a fila: o comando espera a janela abrir", async () => {
+  if (pular()) return;
+  await comNumeroTemporario(async (instanceId) => {
+    // Último envio há 20 min: sem envio na tolerância, mas o teto só solta daqui a ~25 min.
+    await enviosEntre(instanceId, TETO_DA_HORA_MAX, 35, 20);
+    const depois = await statusDepoisDoClaim(await comandoParadoNaFila(instanceId));
+    assert.equal(depois.status, "queued");
+  }, "antigo");
+});
+
+test("número na pausa de 429 não perde a fila", async () => {
+  if (pular()) return;
+  await comNumeroTemporario(async (instanceId) => {
+    await estadoDeEnvio(instanceId, new Date(Date.now() + 10 * MIN_MS).toISOString(), 1);
+    const depois = await statusDepoisDoClaim(await comandoParadoNaFila(instanceId));
+    assert.equal(depois.status, "queued");
+  });
+});
+
+test("breaker (5 falhas seguidas) não é anti-ban: número falhando perde a fila", async () => {
+  if (pular()) return;
+  await comNumeroTemporario(async (instanceId) => {
+    // O breaker renova 60 s a cada falha: se contasse como retenção, número
+    // desconectado seguraria a fila para sempre.
+    await estadoDeEnvio(instanceId, new Date(Date.now() + 30_000).toISOString(), 5);
+    const depois = await statusDepoisDoClaim(await comandoParadoNaFila(instanceId));
+    assert.equal(depois.status, "canceled");
+    assert.match(depois.error ?? "", /servidor ou número fora do ar/);
+  });
+});
+
+test("teto da hora que soltou há mais que a tolerância e número parado: cancela", async () => {
+  if (pular()) return;
+  await comNumeroTemporario(async (instanceId) => {
+    // O teto soltou há 25-35 min e nada saiu desde então: é o servidor, não o anti-ban.
+    await enviosEntre(instanceId, TETO_DA_HORA_MAX, 95, 85);
+    const depois = await statusDepoisDoClaim(await comandoParadoNaFila(instanceId));
+    assert.equal(depois.status, "canceled");
+    assert.match(depois.error ?? "", /parado na fila/);
+  }, "antigo");
+});
+
+test("teto do dia não segura a fila: cancela, com o motivo certo", async () => {
+  if (pular()) return;
+  await comNumeroTemporario(async (instanceId) => {
+    // Número novo: teto do dia fixo pela rampa, independente dos grupos do QA.
+    await enviosEntre(instanceId, await tetoDoDia(instanceId), 180, 120);
+    const depois = await statusDepoisDoClaim(await comandoParadoNaFila(instanceId));
+    assert.equal(depois.status, "canceled");
+    assert.match(depois.error ?? "", /teto diário/);
+  }, "novo");
 });
