@@ -29,7 +29,7 @@ export async function POST(req: Request) {
   const ip = hashIp(req);
   // Teto por IP no próprio handler, além do teto do middleware: 20 cliques de
   // saída por minuto já é muito para uma pessoa lendo uma página.
-  if (isRateLimited(`outbound:${ip ?? "unknown"}`, 20)) {
+  if (await isRateLimited("outbound", req, 20)) {
     return new Response(null, { status: 204 });
   }
 

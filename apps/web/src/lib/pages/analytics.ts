@@ -1,11 +1,11 @@
 import "server-only";
 import { createHash } from "crypto";
 import type { LpAttribution } from "@/lib/pages/store";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 
 /**
  * Helpers server-side de tracking das LPs públicas:
- * hash de IP (LGPD — nunca IP puro), filtro de bot e rate-limit in-memory
- * (mesmo padrão do middleware de auth; escalar → Upstash, já anotado lá).
+ * hash de IP (LGPD — nunca IP puro), filtro de bot e teto por visitante.
  */
 
 const IP_SALT = process.env.LP_IP_SALT ?? "hubflow-lp-v1";
@@ -25,19 +25,21 @@ export function isBotUserAgent(ua: string | null): boolean {
   return BOT_RE.test(ua);
 }
 
-type Bucket = { count: number; resetAt: number };
-const buckets = new Map<string, Bucket>();
-
-/** true = estourou o limite. Janela fixa por chave. */
-export function isRateLimited(key: string, max: number, windowMs = 60_000): boolean {
-  const now = Date.now();
-  const bucket = buckets.get(key);
-  if (!bucket || now > bucket.resetAt) {
-    buckets.set(key, { count: 1, resetAt: now + windowMs });
-    return false;
-  }
-  bucket.count++;
-  return bucket.count > max;
+/**
+ * true = estourou `max` por minuto. Conta no `checkRateLimit` (Upstash quando configurado): o Map
+ * que morava aqui contava por instância, então na Vercel o teto virava N× o escrito — e /api/p/*
+ * fica fora do matcher do middleware, era o único limite da captura pública. Com `slug`, o balde é
+ * por IP E página. `limitar` existe para o teste.
+ */
+export function isRateLimited(
+  rota: "lead" | "track" | "outbound",
+  req: Request,
+  max: number,
+  slug?: string,
+  limitar = checkRateLimit,
+): Promise<boolean> {
+  const ip = hashIp(req) ?? "unknown";
+  return limitar(slug ? `${rota}:${ip}:${slug}` : `${rota}:${ip}`, max, 60_000);
 }
 
 const ATTRIB_KEYS = [
