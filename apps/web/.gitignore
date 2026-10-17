@@ -52,3 +52,5 @@ apps/web/supabase/.temp/
 /e2e-results/
 /playwright-report/
 /test-results/
+# storageState: sessao logada do usuario de QA e do admin
+/playwright/.auth/
