@@ -1,7 +1,9 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 
-import { checkoutSessionParams, trialApplies, trialCheckoutDecision } from "./checkout-session";
+import type Stripe from "stripe";
+
+import { checkoutSessionParams, temPlanoVivo, trialApplies, trialCheckoutDecision } from "./checkout-session";
 import type { TrialFacts } from "./trial";
 
 const BASE = {
@@ -122,7 +124,8 @@ test("flag ligada: boleto também lê os fatos (é o que deixa ver o teste em an
   assert.equal(r.chamadas.n, 1);
 });
 
-test("flag ligada: assinante ativo ou inadimplente segue pro checkout, sem 409", async () => {
+// O teste não barra quem já assina — quem barra é `temPlanoVivo`, na rota.
+test("flag ligada: assinante ativo ou inadimplente não ganha teste nem o 409 do teste", async () => {
   for (const status of ["active", "past_due"]) {
     const facts: TrialFacts = {
       trialSubscriptionId: null,
@@ -144,4 +147,28 @@ test("flag ligada: erro ao ler os fatos sobe — nada de checkout no escuro", as
     trialCheckoutDecision({ enabled: true, semTeste: true, readFacts: async () => Promise.reject(falha) }),
     falha,
   );
+});
+
+type Sub = Pick<Stripe.Subscription, "status" | "metadata">;
+const plano = (status: Stripe.Subscription.Status): Sub => ({ status, metadata: { plan_code: "GROWTH" } });
+const addon = (status: Stripe.Subscription.Status): Sub => ({ status, metadata: { addon: "instagram" } });
+
+test("assinatura de plano viva barra o checkout: outro plano viraria 2ª assinatura cobrando em dobro", () => {
+  for (const status of ["active", "past_due", "trialing", "unpaid", "incomplete", "paused"] as const) {
+    assert.equal(temPlanoVivo([plano(status)]), true, status);
+  }
+});
+
+test("plano morto não barra: canceled e incomplete_expired não cobram mais", () => {
+  assert.equal(temPlanoVivo([plano("canceled"), plano("incomplete_expired")]), false);
+  assert.equal(temPlanoVivo([]), false);
+});
+
+test("add-on do Instagram vivo não conta como plano", () => {
+  assert.equal(temPlanoVivo([addon("active"), plano("canceled")]), false);
+  assert.equal(temPlanoVivo([addon("active"), plano("active")]), true);
+});
+
+test("assinatura sem metadata (criada à mão no Dashboard) viva também barra", () => {
+  assert.equal(temPlanoVivo([{ status: "active", metadata: {} }]), true);
 });

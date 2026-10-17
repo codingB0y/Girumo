@@ -63,6 +63,7 @@ export default function SignupPage() {
     if (!valid) return;
     setLoading(true);
     setError("");
+    const inviteId = new URLSearchParams(window.location.search).get("convite");
     try {
       const response = await fetch("/api/auth/signup", {
         method: "POST",
@@ -73,6 +74,9 @@ export default function SignupPage() {
           password,
           legalVersion: LEGAL_VERSION,
           ...(segment ? { segment } : {}),
+          // Quem chega pelo botão do e-mail de convite traz o id dele na URL;
+          // é com ele que o servidor coloca a pessoa na equipe.
+          ...(inviteId ? { inviteId } : {}),
         }),
       });
 

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { lerBuscaDeContato } from "@/lib/painel/busca-de-contato";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 /**
@@ -80,6 +81,54 @@ export async function countEntriesSince(tenantId: string, groupIds: string[], si
   );
 }
 
+/** Entradas na loja com `entered_at` em [de, ate), contadas no banco (head+count). */
+export async function countEntriesBetween(tenantId: string, de: string, ate: string): Promise<number> {
+  return contagemDoHead(
+    await getSupabaseAdmin()
+      .from(TABLE)
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .gte("entered_at", de)
+      .lt("entered_at", ate),
+  );
+}
+
+/** Linhas por página. O PostgREST corta em 1000 sem avisar; a página nunca pede mais que isso. */
+const LINHAS_POR_PAGINA = 1000;
+
+/**
+ * Entradas na loja com `entered_at` em [de, ate) e quantas vieram de cada grupo.
+ * Paginado: o relatório semanal lia uma consulta só e dizia "1000 novos
+ * contatos" para semana de 1498. Agrupar no banco pede agregação no PostgREST,
+ * que não está ligada; o que desce é só o nome do grupo.
+ */
+export async function entradasEntre(
+  tenantId: string,
+  de: string,
+  ate: string,
+): Promise<{ total: number; porGrupo: Map<string, number> }> {
+  const porGrupo = new Map<string, number>();
+  let total = 0;
+  // Para na página vazia, não na incompleta: se o teto do servidor baixar,
+  // uma página curta não pode passar por "acabou".
+  for (;;) {
+    const { data, error } = await getSupabaseAdmin()
+      .from(TABLE)
+      .select("source_group_name")
+      .eq("tenant_id", tenantId)
+      .gte("entered_at", de)
+      .lt("entered_at", ate)
+      .order("id")
+      .range(total, total + LINHAS_POR_PAGINA - 1);
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) return { total, porGrupo };
+    total += data.length;
+    for (const { source_group_name: nome } of data) {
+      if (nome) porGrupo.set(nome, (porGrupo.get(nome) ?? 0) + 1);
+    }
+  }
+}
+
 /**
  * As `limit` entradas mais recentes nos grupos, filtradas aqui e não no
  * navegador: campanha quieta numa loja grande não aparecia entre as 1000 leads
@@ -129,6 +178,37 @@ export async function listLeads(tenantId: string, limit?: number): Promise<Lead[
     .order("entered_at", { ascending: false });
   if (limit) query = query.limit(limit);
   const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Lead[];
+}
+
+export type PaginaDeLeads = { q?: string; status?: LeadStatus; offset: number; limit: number };
+
+/** `%`, `_` e `\` digitados são texto, não curinga do LIKE. */
+function escaparLike(termo: string): string {
+  return termo.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
+/**
+ * Uma página da tela de Contatos, filtrada e buscada no banco. A tela filtrava
+ * no navegador a lista de `listLeads`, que para nas 1000 mais recentes: em loja
+ * grande o cliente antigo não aparecia em busca nenhuma.
+ */
+export async function listLeadsPage(
+  tenantId: string,
+  { q = "", status, offset, limit }: PaginaDeLeads,
+): Promise<Lead[]> {
+  let query = getSupabaseAdmin().from(TABLE).select("*").eq("tenant_id", tenantId);
+  if (status) query = query.eq("status", status);
+  const busca = lerBuscaDeContato(q);
+  if (busca && "nome" in busca) query = query.ilike("name", `%${escaparLike(busca.nome)}%`);
+  if (busca && "digitos" in busca) query = query.like("phone", `%${busca.digitos}%`);
+  // ponytail: offset desloca quando entra lead novo entre uma página e outra (a
+  // tela tira o repetido pelo id). Keyset por (entered_at, id) se incomodar.
+  const { data, error } = await query
+    .order("entered_at", { ascending: false })
+    .order("id")
+    .range(offset, offset + limit - 1);
   if (error) throw new Error(error.message);
   return (data ?? []) as Lead[];
 }

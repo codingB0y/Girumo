@@ -12,7 +12,8 @@ export type SchedulePayload = ComposerPayload & {
 };
 
 type Props = {
-  onSchedule: (payload: SchedulePayload) => Promise<void>;
+  /** `true` quando a API aceitou; recusado, data, hora e o post ficam onde estão. */
+  onSchedule: (payload: SchedulePayload) => Promise<boolean>;
   scheduling?: boolean;
   className?: string;
 };
@@ -23,27 +24,29 @@ export function ScheduleComposer({ onSchedule, scheduling, className }: Props) {
   const [recurrence, setRecurrence] = useState<"none" | "daily" | "weekly">("none");
   const [pendingPayload, setPendingPayload] = useState<ComposerPayload | null>(null);
 
-  const handleSend = async (payload: ComposerPayload) => {
-    if (!date || !time) {
-      setPendingPayload(payload);
-      return;
-    }
-    const scheduledAt = new Date(`${date}T${time}`).toISOString();
-    await onSchedule({ ...payload, scheduledAt, recurrence });
+  const limpar = () => {
     setDate("");
     setTime("");
     setRecurrence("none");
     setPendingPayload(null);
   };
 
+  const handleSend = async (payload: ComposerPayload) => {
+    if (!date || !time) {
+      // O compositor limpa, mas o post fica guardado aqui até o "Confirmar agendamento".
+      setPendingPayload(payload);
+      return true;
+    }
+    const scheduledAt = new Date(`${date}T${time}`).toISOString();
+    const ok = await onSchedule({ ...payload, scheduledAt, recurrence });
+    if (ok) limpar();
+    return ok;
+  };
+
   const submitPending = async () => {
     if (!pendingPayload || !date || !time) return;
     const scheduledAt = new Date(`${date}T${time}`).toISOString();
-    await onSchedule({ ...pendingPayload, scheduledAt, recurrence });
-    setDate("");
-    setTime("");
-    setRecurrence("none");
-    setPendingPayload(null);
+    if (await onSchedule({ ...pendingPayload, scheduledAt, recurrence })) limpar();
   };
 
   return (
@@ -61,7 +64,7 @@ export function ScheduleComposer({ onSchedule, scheduling, className }: Props) {
               value={date}
               onChange={(e) => setDate(e.target.value)}
               min={dayBR()}
-              className="mt-1 w-full rounded-lg border border-line-200 bg-canvas-100 px-3 py-2 text-sm text-volt-950 focus:border-cobalt-500 focus:outline-none"
+              className="mt-1 w-full rounded-lg border border-line-200 bg-canvas-100 px-3 py-2 text-[16px] text-volt-950 focus:border-cobalt-500 focus:outline-none"
             />
           </div>
           <div>
@@ -72,7 +75,7 @@ export function ScheduleComposer({ onSchedule, scheduling, className }: Props) {
                 type="time"
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
-                className="flex-1 rounded-lg border border-line-200 bg-canvas-100 px-3 py-2 text-sm text-volt-950 focus:border-cobalt-500 focus:outline-none"
+                className="flex-1 rounded-lg border border-line-200 bg-canvas-100 px-3 py-2 text-[16px] text-volt-950 focus:border-cobalt-500 focus:outline-none"
               />
             </div>
           </div>
@@ -83,7 +86,7 @@ export function ScheduleComposer({ onSchedule, scheduling, className }: Props) {
               <select
                 value={recurrence}
                 onChange={(e) => setRecurrence(e.target.value as "none" | "daily" | "weekly")}
-                className="flex-1 rounded-lg border border-line-200 bg-canvas-100 px-3 py-2 text-sm text-volt-950 focus:border-cobalt-500 focus:outline-none"
+                className="flex-1 rounded-lg border border-line-200 bg-canvas-100 px-3 py-2 text-[16px] text-volt-950 focus:border-cobalt-500 focus:outline-none"
               >
                 <option value="none">Única vez</option>
                 <option value="daily">Diário</option>

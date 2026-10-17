@@ -35,11 +35,20 @@ function button(text: string, href: string): string {
   return `<a href="${href}" style="display:inline-block;margin-top:20px;padding:12px 28px;background:${BRAND_COLORS.acid};color:${BRAND_COLORS.volt};text-decoration:none;border-radius:8px;font-weight:600;font-size:14px">${text}</a>`;
 }
 
+/**
+ * Primeiro nome do lojista em texto puro — serve ao assunto, que não é HTML
+ * (escapar ali mostraria "&#39;" na caixa de entrada). No corpo, sempre passar
+ * por escapeHtml: todo dado que vem do banco entra escapado no HTML.
+ */
+function primeiroNome(name: string): string {
+  return name.split(" ")[0] || "lojista";
+}
+
 // --- Welcome ---
 export function welcomeEmail(name: string, appUrl: string): { subject: string; html: string } {
-  const firstName = name.split(" ")[0] || "lojista";
+  const firstName = escapeHtml(primeiroNome(name));
   return {
-    subject: `Bem-vind(a) à ${BRAND.name}, ${firstName}!`,
+    subject: `Bem-vind(a) à ${BRAND.name}, ${primeiroNome(name)}!`,
     html: layout(`
       <h1 style="margin:0 0 12px;font-size:22px;color:${BRAND_COLORS.volt}">Bem-vind(a), ${firstName}!</h1>
       <p style="margin:0 0 8px;font-size:15px;color:${BRAND_COLORS.volt};line-height:1.6">
@@ -62,8 +71,12 @@ export function inviteEmail(
   inviterName: string,
   tenantName: string,
   appUrl: string,
+  inviteId: string,
 ): { subject: string; html: string } {
   const { subject, quem, equipe } = inviteCopy(inviterName, tenantName);
+  // O id do convite no link é a prova de posse do e-mail: o cadastro por senha
+  // só entra na equipe com ele (ver `selectPendingInvite`).
+  const link = `${appUrl}/signup?convite=${encodeURIComponent(inviteId)}`;
   return {
     subject,
     html: layout(`
@@ -76,13 +89,14 @@ export function inviteEmail(
         }
       </p>
       <p style="margin:0 0 8px;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.6">
-        Para aceitar, entre com <strong>este mesmo e-mail</strong> — é assim que
-        reconhecemos o convite e colocamos você direto na equipe.
+        Para aceitar, crie sua conta pelo botão abaixo com <strong>este mesmo
+        e-mail</strong> — é o botão que mostra que o convite é seu e coloca você
+        direto na equipe.
       </p>
-      ${button("Aceitar convite", `${appUrl}/login`)}
+      ${button("Aceitar convite", link)}
       <p style="margin:12px 0 0;font-size:13px;color:${BRAND_COLORS.volt};line-height:1.6">
-        Não esperava este convite? Pode ignorar esta mensagem — sem entrar com
-        este e-mail, nada acontece.
+        Não esperava este convite? Pode ignorar esta mensagem — sem o botão
+        deste e-mail, nada acontece.
       </p>
     `),
   };
@@ -90,9 +104,9 @@ export function inviteEmail(
 
 // --- 24h sem conectar WhatsApp ---
 export function nudgeConnectEmail(name: string, appUrl: string): { subject: string; html: string } {
-  const firstName = name.split(" ")[0] || "lojista";
+  const firstName = escapeHtml(primeiroNome(name));
   return {
-    subject: `${firstName}, seu WhatsApp ainda não está conectado`,
+    subject: `${primeiroNome(name)}, seu WhatsApp ainda não está conectado`,
     html: layout(`
       <h1 style="margin:0 0 12px;font-size:22px;color:${BRAND_COLORS.volt}">Conecte em 2 minutos</h1>
       <p style="margin:0 0 8px;font-size:15px;color:${BRAND_COLORS.volt};line-height:1.6">
@@ -112,7 +126,7 @@ export function nudgeConnectEmail(name: string, appUrl: string): { subject: stri
 
 // --- WhatsApp desconectado há mais de 2h ---
 export function disconnectAlertEmail(name: string, appUrl: string): { subject: string; html: string } {
-  const firstName = name.split(" ")[0] || "lojista";
+  const firstName = escapeHtml(primeiroNome(name));
   return {
     subject: "Seu WhatsApp desconectou — reconecte pra não perder a novidade de hoje",
     html: layout(`
@@ -132,7 +146,7 @@ export function disconnectAlertEmail(name: string, appUrl: string): { subject: s
 // --- Bling recusou a renovação do acesso (integração parada até reconectar) ---
 export function blingReconectarEmail(name: string, appUrl: string): { subject: string; html: string } {
   // O nome vem do cadastro da pessoa: escapado, como no convite.
-  const firstName = escapeHtml(name.split(" ")[0] || "lojista");
+  const firstName = escapeHtml(primeiroNome(name));
   return {
     subject: `O Bling desconectou da ${BRAND.name} — as vendas pararam de chegar`,
     html: layout(`
@@ -166,7 +180,7 @@ export function inactivityRiskEmail(
   appUrl: string,
   daysLeft: number,
 ): { subject: string; html: string } {
-  const firstName = name.split(" ")[0] || "lojista";
+  const firstName = escapeHtml(primeiroNome(name));
   const prazo =
     daysLeft > 0
       ? `em cerca de ${daysLeft} dia${daysLeft > 1 ? "s" : ""}`
@@ -207,7 +221,7 @@ export function groupAdminRiskEmail(
   grupos: number,
   membros: number,
 ): { subject: string; html: string } {
-  const firstName = name.split(" ")[0] || "lojista";
+  const firstName = escapeHtml(primeiroNome(name));
   const g = grupos === 1 ? "1 grupo seu depende" : `${grupos} grupos seus dependem`;
   const pessoas = membros.toLocaleString("pt-BR");
 
@@ -264,8 +278,8 @@ export function broadcastFailedEmail(
     html: layout(`
       <h1 style="margin:0 0 12px;font-size:22px;color:${BRAND_COLORS.volt}">${headline}</h1>
       <p style="margin:0 0 8px;font-size:15px;color:${BRAND_COLORS.volt};line-height:1.6">
-        Oi ${firstName}! ${plural ? "Estas mensagens não saíram" : "Esta mensagem não saiu"}
-        pros seus grupos: <strong>${lista}</strong>.
+        Oi ${escapeHtml(firstName)}! ${plural ? "Estas mensagens não saíram" : "Esta mensagem não saiu"}
+        pros seus grupos: <strong>${escapeHtml(lista)}</strong>.
       </p>
       <p style="margin:0 0 8px;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.6">
         Ninguém nos seus grupos recebeu. Abra a tela pra ver o motivo e enviar de novo.
@@ -278,11 +292,11 @@ export function broadcastFailedEmail(
 // --- Cadência de ativação: D3 (divulgar) ---
 // Se já teve cliques, celebra e pede pra repetir; se zero, tira o atrito do 1º post.
 export function activationD3Email(name: string, appUrl: string, clicks: number): { subject: string; html: string } {
-  const firstName = name.split(" ")[0] || "lojista";
+  const firstName = escapeHtml(primeiroNome(name));
   const hasClicks = clicks > 0;
   const subject = hasClicks
-    ? `${firstName}, seu link já teve ${clicks} clique${clicks > 1 ? "s" : ""} — 3 lugares pra divulgar hoje`
-    : `${firstName}, o primeiro lugar pra postar seu link hoje`;
+    ? `${primeiroNome(name)}, seu link já teve ${clicks} clique${clicks > 1 ? "s" : ""} — 3 lugares pra divulgar hoje`
+    : `${primeiroNome(name)}, o primeiro lugar pra postar seu link hoje`;
   const intro = hasClicks
     ? `Seu link de captação já recebeu <strong>${clicks} clique${clicks > 1 ? "s" : ""}</strong>. Isso é gente querendo entrar nos seus grupos — quanto mais você divulga, mais entra.`
     : `Seu link de captação ainda não recebeu cliques — e isso é normal no começo. O que destrava é aparecer: cada lugar que você posta é uma porta a mais pros seus grupos.`;
@@ -304,9 +318,9 @@ export function activationD3Email(name: string, appUrl: string, clicks: number):
 
 // --- Cadência de ativação: D7 (constância) ---
 export function activationD7Email(name: string, appUrl: string): { subject: string; html: string } {
-  const firstName = name.split(" ")[0] || "lojista";
+  const firstName = escapeHtml(primeiroNome(name));
   return {
-    subject: `${firstName}, grupos que enchem têm novidade todo dia`,
+    subject: `${primeiroNome(name)}, grupos que enchem têm novidade todo dia`,
     html: layout(`
       <h1 style="margin:0 0 12px;font-size:22px;color:${BRAND_COLORS.volt}">Poste a novidade de hoje</h1>
       <p style="margin:0 0 8px;font-size:15px;color:${BRAND_COLORS.volt};line-height:1.6">
@@ -322,9 +336,9 @@ export function activationD7Email(name: string, appUrl: string): { subject: stri
 
 // --- Cadência de ativação: D14 (registrar vendas / funil em R$) ---
 export function activationD14Email(name: string, appUrl: string): { subject: string; html: string } {
-  const firstName = name.split(" ")[0] || "lojista";
+  const firstName = escapeHtml(primeiroNome(name));
   return {
-    subject: `${firstName}, já viu suas vendas em R$?`,
+    subject: `${primeiroNome(name)}, já viu suas vendas em R$?`,
     html: layout(`
       <h1 style="margin:0 0 12px;font-size:22px;color:${BRAND_COLORS.volt}">Veja o caminho até a venda</h1>
       <p style="margin:0 0 8px;font-size:15px;color:${BRAND_COLORS.volt};line-height:1.6">
@@ -340,9 +354,9 @@ export function activationD14Email(name: string, appUrl: string): { subject: str
 
 // --- Cadência de ativação: D21 (o que os melhores fizeram) ---
 export function activationD21Email(name: string, appUrl: string): { subject: string; html: string } {
-  const firstName = name.split(" ")[0] || "lojista";
+  const firstName = escapeHtml(primeiroNome(name));
   return {
-    subject: `${firstName}, o que os melhores fizeram no primeiro mês`,
+    subject: `${primeiroNome(name)}, o que os melhores fizeram no primeiro mês`,
     html: layout(`
       <h1 style="margin:0 0 12px;font-size:22px;color:${BRAND_COLORS.volt}">Fechando o primeiro mês</h1>
       <p style="margin:0 0 8px;font-size:15px;color:${BRAND_COLORS.volt};line-height:1.6">
@@ -422,10 +436,10 @@ export function weeklyReportEmail(
   appUrl: string,
   stats: WeeklyReportStats,
 ): { subject: string; html: string } {
-  const firstName = name.split(" ")[0] || "lojista";
+  const firstName = escapeHtml(primeiroNome(name));
   const topGroupLine = stats.topGroup
     ? `<p style="margin:16px 0 0;font-size:13px;color:${BRAND_COLORS.slate}">
-        Grupo destaque da semana: <strong style="color:${BRAND_COLORS.volt}">${stats.topGroup.name}</strong>
+        Grupo destaque da semana: <strong style="color:${BRAND_COLORS.volt}">${escapeHtml(stats.topGroup.name)}</strong>
         (${stats.topGroup.count} novo${stats.topGroup.count === 1 ? "" : "s"} contato${stats.topGroup.count === 1 ? "" : "s"})
       </p>`
     : "";
