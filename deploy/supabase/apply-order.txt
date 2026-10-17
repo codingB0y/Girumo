@@ -522,3 +522,8 @@ apps/web/supabase/migrations/20261015120000_documento_no_disparo.sql
 # service_role). Muda a baseline (t|orders e as tabelas/funcoes novas). O gate nao ve CHECK,
 # indice nem ACL: conferir por SQL nos dois bancos.
 apps/web/supabase/migrations/20261013120000_integracao_bling.sql
+# 2026-10-17 - Loja sem plano nao dispara sozinha (auditoria C17): app.tenant_concede_plano (espelho
+# de subscriptionAccess.grantsPlan, travado por subscription-access-espelho.test.ts) e
+# app.promote_due_schedules pula loja sem plano. So schema app e corpo de funcao (trava no topo
+# confere o md5 de 20261010120000): nao muda a baseline.
+apps/web/supabase/migrations/20261017123000_sem_plano_nao_dispara_sozinho.sql

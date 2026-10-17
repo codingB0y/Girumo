@@ -1,5 +1,7 @@
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
+import { assertPlanLimit } from "@/lib/billing/entitlements";
 import { USE_SUPABASE } from "@/lib/stores/use-supabase";
+import { getBroadcast } from "@/lib/stores/broadcasts";
 import * as supaStore from "@/lib/stores/schedules";
 import { collection } from "@/lib/json-collection";
 import { crudRoute } from "@/lib/crud-route";
@@ -9,6 +11,9 @@ import { carregarAgendamentos } from "@/lib/painel/inicio-carga";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+// Id que não é uuid estoura 22P02 no PostgREST: vira 404, não 500.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Legacy
 const coll = collection<Schedule>("schedules.json");
@@ -37,6 +42,17 @@ export async function POST(req: Request) {
   const tenantId = await resolveSessionTenantId(req);
   if (!tenantId) return Response.json({ error: "Tenant não encontrado." }, { status: 403 });
 
+  // Mesmo teto das duas rotas de envio (`/api/broadcasts` e a aba da campanha):
+  // agendar é enviar depois. Sem isto, loja cancelada religava um diário que o
+  // painel recusaria.
+  try {
+    await assertPlanLimit(tenantId, "campaigns:send");
+    await assertPlanLimit(tenantId, "contacts:reach");
+  } catch (e) {
+    if (e instanceof Response) return e;
+    throw e;
+  }
+
   let b: Record<string, unknown>;
   try {
     b = await req.json();
@@ -48,10 +64,27 @@ export async function POST(req: Request) {
     return Response.json({ error: "campaignName e scheduledAt obrigatórios." }, { status: 400 });
   }
 
+  // String crua ia direto ao Postgres: data inválida virava 500 (22007), e data
+  // passada disparava na hora (dentro da tolerância) ou só pulava pro próximo dia.
+  const quando = Date.parse(String(b.scheduledAt));
+  if (Number.isNaN(quando)) {
+    return Response.json({ error: "Data de agendamento inválida." }, { status: 400 });
+  }
+  if (quando <= Date.now()) {
+    return Response.json({ error: "Escolha uma data no futuro para o agendamento." }, { status: 400 });
+  }
+
+  // O disparo tem que ser desta loja. A FK de `schedules.broadcast_id` não olha
+  // tenant, então o insert com o id de outra loja passava e ficava de lixo.
+  const broadcastId = b.campaignId ? String(b.campaignId) : undefined;
+  if (broadcastId && (!UUID.test(broadcastId) || !(await getBroadcast(tenantId, broadcastId)))) {
+    return Response.json({ error: "Disparo não encontrado." }, { status: 404 });
+  }
+
   const rec = await supaStore.createSchedule(tenantId, {
-    broadcast_id: b.campaignId ? String(b.campaignId) : undefined,
+    broadcast_id: broadcastId,
     name: String(b.campaignName),
-    scheduled_at: String(b.scheduledAt),
+    scheduled_at: new Date(quando).toISOString(),
     recurrence: (["none", "daily", "weekly"].includes(String(b.recurrence ?? "")) ? String(b.recurrence) : "none") as supaStore.ScheduleRecurrence,
   });
 
