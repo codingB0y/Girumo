@@ -73,10 +73,10 @@ function feitas(caminho: string): Chamada[] {
 test("a Início conta os contatos no banco em vez de baixar a lista a cada minuto", async () => {
   chamadas.length = 0;
   responder = banco({
-    "HEAD /rest/v1/leads": ({ url }) => ({
-      status: 200,
-      contentRange: url.searchParams.get("status") === "eq.comprou" ? "*/42" : "*/2923",
-    }),
+    "HEAD /rest/v1/leads": ({ url }) => {
+      const porStatus: Record<string, number> = { "eq.comprou": 42, "eq.novo": 2000, "eq.ativo": 881 };
+      return { status: 200, contentRange: `*/${porStatus[url.searchParams.get("status") ?? ""] ?? 2923}` };
+    },
     // O mutante (a lista de volta) recebe o teto de verdade do PostgREST.
     "GET /rest/v1/leads": () => ({ status: 200, corpo: [], contentRange: "0-999/*" }),
   });
@@ -86,7 +86,7 @@ test("a Início conta os contatos no banco em vez de baixar a lista a cada minut
   const corpo = (await res.json()) as Record<string, unknown>;
 
   // Acima das 1000 linhas que a lista devolvia: a meta de contatos do mês volta a poder bater.
-  assert.deepEqual(corpo.leadCount, { ok: true, data: { total: 2923, clientes: 42 } });
+  assert.deepEqual(corpo.leadCount, { ok: true, data: { total: 2923, clientes: 42, novos: 2000, ativos: 881 } });
   assert.equal(corpo.leads, undefined);
 
   const leads = feitas("/rest/v1/leads");
