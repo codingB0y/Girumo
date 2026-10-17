@@ -55,14 +55,24 @@ export function buildTenantSlug(name: string, authUserId: string): string {
   return `${base}-${authUserId.slice(0, USER_ID_SUFFIX_LENGTH)}`;
 }
 
+/** Origem fictícia só para resolver caminhos relativos e comparar a origem. */
+const SAME_ORIGIN_PROBE = "https://girumo.invalid";
+
 /**
  * Destino pos-login. Aceita somente caminho interno — qualquer coisa que o
  * browser possa ler como host externo cai no painel. Barra open redirect.
  */
 export function safeNextPath(value: string | null | undefined): string {
-  if (!value) return DEFAULT_NEXT_PATH;
-  if (!value.startsWith("/")) return DEFAULT_NEXT_PATH;
-  // `//host` e `/\host` sao protocol-relative: saem do dominio.
-  if (value.startsWith("//") || value.startsWith("/\\")) return DEFAULT_NEXT_PATH;
-  return value;
+  if (!value || !value.startsWith("/")) return DEFAULT_NEXT_PATH;
+  // Decide pelo mesmo parser que o navegador usa: ele apaga TAB/CR/LF e le `\`
+  // como `/`, entao "/\t/host" vira "//host". Comparar prefixo de string nao
+  // pega isso; comparar a origem resolvida pega.
+  let url: URL;
+  try {
+    url = new URL(value, SAME_ORIGIN_PROBE);
+  } catch {
+    return DEFAULT_NEXT_PATH;
+  }
+  if (url.origin !== SAME_ORIGIN_PROBE) return DEFAULT_NEXT_PATH;
+  return `${url.pathname}${url.search}${url.hash}`;
 }
