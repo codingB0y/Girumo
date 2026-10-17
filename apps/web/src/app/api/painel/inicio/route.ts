@@ -4,16 +4,16 @@ import {
   carregarAgendamentos,
   carregarCampanhas,
   carregarDisparos,
+  carregarContagemDeLeads,
   carregarGruposEEstrutura,
-  carregarLeads,
   carregarLinks,
+  carregarPedidosDoMes,
   carregarSessao,
 } from "@/lib/painel/inicio-carga";
 import { janelasDaAtividade } from "@/lib/painel/atividade";
 import { carregarAtividade } from "@/lib/painel/atividade-carga";
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
 import { listOfertasDaInicio, offerTotalsByBroadcastIds } from "@/lib/stores/flash-offers";
-import { listOrdersByTenant } from "@/lib/stores/orders";
 import { getTenantSettings } from "@/lib/stores/tenant-settings";
 import { USE_SUPABASE } from "@/lib/stores/use-supabase";
 
@@ -56,8 +56,9 @@ export async function GET(req: Request) {
     campanhas: async () =>
       semEstrutura<Awaited<ReturnType<typeof carregarCampanhas>>[number]>(await carregarCampanhas(tenantId), (await lidos).estrutura),
     links: () => carregarLinks(tenantId),
-    leads: () => carregarLeads(tenantId),
-    orders: () => listOrdersByTenant(tenantId),
+    // A Início recarrega a cada minuto: contagem no banco, não a lista (que ainda parava em 1000).
+    leadCount: () => carregarContagemDeLeads(tenantId),
+    orders: () => carregarPedidosDoMes(tenantId),
     schedules: () => carregarAgendamentos(tenantId),
     disparos: () => carregarDisparos(tenantId),
     session: () => carregarSessao(tenantId),

@@ -492,6 +492,7 @@ export default function CampanhaDetalhe() {
             groupIds={campanha.groupIds}
             funil={{ campaignName: campanha.name, masterUrl, groupCount: o.groupCount, memberCount: o.totalMembers }}
             abrirNoFunil={abrirNoFunil}
+            ativo={tab === "Posts"}
           />
         </div>
       )}
