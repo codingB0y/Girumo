@@ -2,7 +2,8 @@ import { cookies } from "next/headers";
 import { after } from "next/server";
 import { FIRST_TOUCH_COOKIE, parseFirstTouch } from "@/lib/analytics/first-touch";
 import { SESSION_COOKIE, signSession, sessionCookieOptions } from "@/lib/auth";
-import { acceptPendingInvite } from "@/lib/auth/accept-pending-invite";
+import { acceptPendingInvite, listPendingInvites } from "@/lib/auth/accept-pending-invite";
+import { requiresInviteLink } from "@/lib/auth/pending-invite";
 import { createSupabaseAnonClient, getSupabaseAdmin } from "@/lib/supabase/server";
 import { provisionEntrySubscription } from "@/lib/billing/entry-subscription";
 import { INVALID_SEGMENT, parseSegmentInput } from "@/lib/settings/segment-input";
@@ -32,7 +33,14 @@ function toSlug(value: string): string {
 }
 
 export async function POST(req: Request) {
-  let body: { name?: string; email?: string; password?: string; legalVersion?: unknown; segment?: unknown };
+  let body: {
+    name?: string;
+    email?: string;
+    password?: string;
+    legalVersion?: unknown;
+    segment?: unknown;
+    inviteId?: unknown;
+  };
   try {
     body = await req.json();
   } catch {
@@ -42,6 +50,9 @@ export async function POST(req: Request) {
   const name = String(body.name ?? "").trim();
   const email = String(body.email ?? "").trim().toLowerCase();
   const password = String(body.password ?? "");
+  // Id do convite que o link do e-mail traz (`/signup?convite=`). É a prova de
+  // posse do e-mail: a conta abaixo nasce confirmada sem ninguém abrir a caixa.
+  const inviteId = typeof body.inviteId === "string" ? body.inviteId.trim() : "";
 
   if (!name || !email || password.length < 6) {
     return Response.json({ error: "Informe nome, e-mail e senha com no minimo 6 caracteres." }, { status: 400 });
@@ -71,6 +82,27 @@ export async function POST(req: Request) {
   const acceptanceUserAgent = userAgentFromHeaders(req.headers);
 
   const supabase = getSupabaseAdmin();
+
+  // E-mail convidado para uma equipe só se cadastra pelo botão do e-mail do
+  // convite. Recusado ANTES do createUser: a conta nasce confirmada, então
+  // criá-la aqui sem o link deixaria a convidada dona de uma loja vazia com o
+  // convite pendurado para sempre — e quem só soubesse o e-mail inutilizaria o
+  // convite dela (e ainda herdaria o vínculo quando ela entrasse com Google).
+  // Consulta falhou: recusa, porque seguir criaria justamente essa conta.
+  const pendingInvites = await listPendingInvites(supabase, email);
+  if (!pendingInvites) {
+    return Response.json({ error: "Nao foi possivel criar usuario." }, { status: 500 });
+  }
+  if (requiresInviteLink(pendingInvites, email, inviteId)) {
+    return Response.json(
+      {
+        error: "Este e-mail foi convidado para uma equipe. Use o botão 'Aceitar convite' do e-mail.",
+        code: "invite_link_required",
+      },
+      { status: 409 },
+    );
+  }
+
   const { data: created, error: createError } = await supabase.auth.admin.createUser({
     email,
     password,
@@ -91,8 +123,15 @@ export async function POST(req: Request) {
   // `user_id` nulo e casa só pelo `invited_email`, então precisa ser checada
   // ANTES de provisionar org nova — senão o convidado vira dono de um tenant
   // vazio e o convite fica pendurado (o mesmo "tenant fantasma" que o login
-  // social tinha). Vale para quem chega pelo link do e-mail de convite.
-  const invited = await acceptPendingInvite(supabase, authUserId, email, name);
+  // social tinha). Só aceita com o id do convite que o link do e-mail traz:
+  // saber o e-mail convidado não basta (sem o link, a recusa acima já saiu).
+  const invited = await acceptPendingInvite(
+    supabase,
+    authUserId,
+    email,
+    name,
+    inviteId ? { inviteId } : null,
+  );
   if (invited) {
     const acceptanceError = await recordLegalAcceptance(supabase, {
       authUserId,
