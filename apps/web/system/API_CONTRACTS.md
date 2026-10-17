@@ -86,8 +86,11 @@ POST: `{ enabled?, message? }` → `201` config. {nome} é a única variável.
 ## Motor de disparo de BROADCAST — FEITO (motor novo: fan-out em `engine_commands`)
 
 **O que mudou na F5.** Antes, `queued` só sinalizava intenção e quem convertia isso em envio era o
-engine legado (`/api/dispatch/pending`). Agora `POST /api/dispatch` faz o **fan-out** na hora, dentro
-de uma transação: cria **1 comando por grupo** em `engine_commands`, que é o que o worker consome.
+engine legado (`/api/dispatch/pending`). Agora a RPC `enqueue_broadcast` faz o **fan-out** na hora,
+dentro de uma transação: cria **1 comando por grupo** em `engine_commands`, que é o que o worker
+consome. Quem a chama é `POST /api/campanhas/[slug]/messages`, depois de cobrar os tetos do plano.
+(`POST /api/dispatch` e `POST /api/engine/commands` faziam o mesmo sem cobrar plano e sem chamador —
+saíram em 16/10/2026.)
 
 Estados do `status`:
 `draft`/`failed`/`sent` = parado (pode ser (re)enfileirado) · `queued` = fan-out feito, nenhum comando
@@ -129,12 +132,6 @@ disparo duplo, e o rollback é trivial.
 GET → `Campaign[]`. POST cria oferta (`status:"draft"`): body exige `name` + (`message` OU `mediaId` OU
 `poll` válida {question, ≥2 options}); aceita `groupIds[]`, `mediaId`, `mediaType`, `mentionAll`. → `201 Campaign`.
 DELETE `?id=` → `{ ok:true }`.
-
-### POST /api/dispatch  (navegador, cookie)
-Lojista clicou "Enviar agora". Body `{ id }` → **fan-out** (1 comando por grupo + `runId` novo).
-→ `202 Campaign` | `400` id ausente/JSON inválido | `404` oferta não encontrada.
-Idempotente: se já `queued`/`running`, retorna a oferta sem refazer o fan-out — o `SELECT … FOR
-UPDATE` na oferta serializa o duplo-clique em vez de gerar duas filas.
 
 ### POST /api/dispatch/pending  (ENGINE, header `x-engine-token`) — LEGADO, sai na F5
 Claim do engine antigo. Filtra `run_id is null`, então **ignora** o que o motor novo enfileirou.
