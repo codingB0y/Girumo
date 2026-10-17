@@ -13,9 +13,16 @@
 
 type ParticipantLike = { id?: string | null; phoneNumber?: string | null };
 
+/**
+ * Só dígitos ou JID de telefone (`@s.whatsapp.net`). Um `@lid` tem 11–15
+ * dígitos e passaria no tamanho, mas é identificador, não número: `wa.me/<lid>`
+ * abre conversa com ninguém. Mesma regra de `soDigitos` em upsert-message.ts.
+ */
 function telefoneValido(valor: string | null | undefined): string | null {
   if (!valor) return null;
-  const digitos = valor.replace(/\D/g, "");
+  const [usuario, dominio] = valor.split("@");
+  if (dominio !== undefined && dominio !== "s.whatsapp.net") return null;
+  const digitos = usuario.replace(/\D/g, "");
   return /^\d{8,15}$/.test(digitos) ? digitos : null;
 }
 
@@ -27,7 +34,7 @@ export function lidMapFromParticipants(group: {
 
   for (const p of group.participants ?? []) {
     if (!p?.id) continue;
-    const fone = telefoneValido(p.phoneNumber) ?? telefoneValido(p.id.split("@")[0]);
+    const fone = telefoneValido(p.phoneNumber) ?? telefoneValido(p.id);
     if (fone) mapa[p.id] = fone;
   }
 
