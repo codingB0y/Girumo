@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   avisoDaCampanha,
+  ehRespostaDeConflitos,
   faltaEscolher,
   GRUPO_SAIU_DA_CAMPANHA,
   gruposDoEspelho,
@@ -49,6 +50,13 @@ test("qualquer outro erro não é conflito de grupo", () => {
   );
   assert.equal(lerConflitoGrupo("grupo_em_outra_campanha:g1@g.us:nao-e-uuid"), null);
   assert.equal(lerConflitoGrupo(""), null);
+});
+
+test("a resposta de conflitos só vale com `conflitos` em lista", () => {
+  assert.equal(ehRespostaDeConflitos({ conflitos: [] }), true);
+  assert.equal(ehRespostaDeConflitos({ conflitos: "x" }), false);
+  assert.equal(ehRespostaDeConflitos(null), false);
+  assert.equal(ehRespostaDeConflitos({ error: "Não deu pra carregar." }), false);
 });
 
 test("o corpo do 409 só vale com grupo e campanha completos", () => {

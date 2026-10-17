@@ -11,6 +11,14 @@ export type ConflitoDeGrupo = {
   campanhas: Array<{ id: string; name: string; slug: string; posicao: number }>;
 };
 
+/** Corpo de `GET /api/campanhas/conflitos`. */
+export type RespostaDeConflitos = { conflitos: ConflitoDeGrupo[] };
+
+/** Guarda do `buscar` para o corpo acima: só confere que `conflitos` é uma lista. */
+export function ehRespostaDeConflitos(corpo: unknown): corpo is RespostaDeConflitos {
+  return Array.isArray((corpo as { conflitos?: unknown } | null)?.conflitos);
+}
+
 /** O que importa do corpo do 409 de POST/PATCH /api/campanhas (contrato §4). */
 export type Conflito409 = { grupo: string; campanha: { id: string; name: string } };
 

@@ -17,6 +17,15 @@
 -- Aplicada pelo CI (migrate-dev no push do PR, migrate-prod no merge), depois de
 -- 20261010120000_postar_por_grupo.sql. Conferir nos dois bancos com
 -- infra/tests/grupo-uma-campanha-check.sql.
+--
+-- Reversão (emergência). Prod muda no merge e DDL à mão é proibido: reverter é uma migração nova,
+-- que passa pelo CI, com estas duas linhas:
+--   drop trigger if exists campaign_groups_grupo_exclusivo on public.campaign_groups;
+--   drop function if exists app.campaign_groups_grupo_exclusivo();
+-- Só reverter o app na Vercel NÃO basta: o app antigo continua com o trigger ligado (seletor sem
+-- travas, 500 ao salvar). Dropar só o trigger NÃO mexe na baseline do schema: o gate de drift não
+-- enxerga trigger nem o schema `app`. As duas RPCs públicas (grupos_em_mais_de_uma_campanha e
+-- reordenar_campanha) podem ficar — são inofensivas e são elas que mudaram a baseline.
 
 -- create trigger toma lock em campaign_groups (escrita do app no meio). Se não conseguir em 5 s,
 -- aborta em vez de segurar a fila: é só rodar de novo, a migração é idempotente.

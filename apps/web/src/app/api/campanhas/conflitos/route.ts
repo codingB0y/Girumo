@@ -27,9 +27,10 @@ export async function GET(req: Request) {
 /**
  * POST /api/campanhas/conflitos — body { jid, ficaEm } → { ok: true }
  *
- * O grupo fica em `ficaEm` e sai de toda outra campanha da loja que o tem, pela RPC atômica
- * `campaign_group_remove_group_id` (remover nunca é recusado pelo trigger). Recusa (409) quando
- * `ficaEm` não tem mais o grupo — senão ele ficaria sem campanha nenhuma.
+ * O grupo fica em `ficaEm` e sai de toda outra campanha da loja que o tem, uma remoção atômica por
+ * vez (RPC `campaign_group_remove_group_id`; remover nunca é recusado pelo trigger). Recusa (409)
+ * quando `ficaEm` não tem mais o grupo na leitura — senão ele ficaria sem campanha nenhuma. A
+ * conferência é da leitura, não das remoções: uma edição simultânea pode escapar dela.
  */
 export async function POST(req: Request) {
   try {
@@ -45,6 +46,9 @@ export async function POST(req: Request) {
     const escolha = lerEscolha(body);
     if (!escolha.ok) return Response.json({ error: escolha.error }, { status: 400 });
 
+    // ponytail: entre esta leitura e as remoções, uma edição simultânea pode tirar o grupo de `ficaEm` e
+    // deixá-lo sem campanha (janela de milissegundos). Subir o teto: RPC condicional que só remove
+    // enquanto outra campanha da loja ainda tiver o JID.
     const plano = planejarEscolha(await listCampaignGroups(ctx.tenantId), escolha);
     if (!plano.ok) return Response.json({ error: plano.error }, { status: plano.status });
 

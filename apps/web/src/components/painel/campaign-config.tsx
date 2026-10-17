@@ -564,17 +564,19 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
                     aria-pressed={sel}
                     disabled={trava}
                     onClick={() => toggle(g.id)}
-                    className={cn("flex items-center gap-3 rounded-xl border p-3 text-left transition-[border-color,background-color] duration-[160ms] ease-[var(--ease-fluxo)]", sel ? "border-cobalt-500 bg-cobalt-500/[0.05]" : "border-volt-950/[0.08] bg-papel hover:border-cobalt-500/30", trava && "cursor-not-allowed opacity-60 hover:border-volt-950/[0.08]")}
+                    className={cn("flex items-center gap-3 rounded-xl border p-3 text-left transition-[border-color,background-color] duration-[160ms] ease-[var(--ease-fluxo)]", sel ? "border-cobalt-500 bg-cobalt-500/[0.05]" : "border-volt-950/[0.08] bg-papel hover:border-cobalt-500/30", trava && "cursor-not-allowed hover:border-volt-950/[0.08]")}
                   >
-                    <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", sel ? "bg-cobalt-500 text-white" : "bg-cobalt-500/10 text-cobalt-700")}>
+                    {/* Travado esmaece só o que é do grupo: a linha do motivo ("já está em …") fica
+                        com contraste cheio, senão a razão de estar travado some. */}
+                    <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", sel ? "bg-cobalt-500 text-white" : "bg-cobalt-500/10 text-cobalt-700", trava && "opacity-60")}>
                       <Users className="h-4 w-4" strokeWidth={1.75} />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-volt-950">{g.name}</p>
-                      <p className="font-data text-12 tabular-nums text-aco">{g.members?.toLocaleString("pt-BR") ?? 0} membros{!g.inviteUrl ? " · sem convite" : ""}</p>
-                      {emOutra && <p className="truncate text-13 text-aco">já está em {emOutra}</p>}
+                      <p className={cn("truncate text-sm font-medium text-volt-950", trava && "opacity-60")}>{g.name}</p>
+                      <p className={cn("font-data text-12 tabular-nums text-aco", trava && "opacity-60")}>{g.members?.toLocaleString("pt-BR") ?? 0} membros{!g.inviteUrl ? " · sem convite" : ""}</p>
+                      {emOutra && <p title={`já está em ${emOutra}`} className="truncate text-13 text-aco">já está em {emOutra}</p>}
                     </div>
-                    <span className={cn("flex h-5 w-5 items-center justify-center rounded-md border transition", sel ? "border-cobalt-500 bg-cobalt-500 text-white" : "border-volt-950/20")}>
+                    <span className={cn("flex h-5 w-5 items-center justify-center rounded-md border transition", sel ? "border-cobalt-500 bg-cobalt-500 text-white" : "border-volt-950/20", trava && "opacity-60")}>
                       {sel && <Check className="h-3.5 w-3.5" />}
                     </span>
                   </button>

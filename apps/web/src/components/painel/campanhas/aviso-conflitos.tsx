@@ -3,14 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
-import { avisoDaCampanha, type ConflitoDeGrupo } from "@/lib/campaigns/conflito-grupo";
+import { avisoDaCampanha, ehRespostaDeConflitos, type ConflitoDeGrupo } from "@/lib/campaigns/conflito-grupo";
 import { buscar } from "@/lib/painel/carregar";
-
-type RespostaDeConflitos = { conflitos: ConflitoDeGrupo[] };
-
-function ehRespostaDeConflitos(corpo: unknown): corpo is RespostaDeConflitos {
-  return Array.isArray((corpo as { conflitos?: unknown } | null)?.conflitos);
-}
 
 /**
  * Faixa amarela da aba Grupos (mockup "Main", spec §6.6): grupos DESTA campanha que também estão

@@ -3,22 +3,25 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ErroDeCarga } from "@/components/painel/erro-de-carga";
-import { faltaEscolher, type ConflitoDeGrupo } from "@/lib/campaigns/conflito-grupo";
+import {
+  ehRespostaDeConflitos,
+  faltaEscolher,
+  GRUPO_SAIU_DA_CAMPANHA,
+  type ConflitoDeGrupo,
+} from "@/lib/campaigns/conflito-grupo";
 import type { Group } from "@/lib/mock-data";
 import { buscar, buscarLista } from "@/lib/painel/carregar";
 import type { Carga } from "@/lib/painel/types";
 import { cn } from "@/lib/utils";
 
-type RespostaDeConflitos = { conflitos: ConflitoDeGrupo[] };
-
-function ehRespostaDeConflitos(corpo: unknown): corpo is RespostaDeConflitos {
-  return Array.isArray((corpo as { conflitos?: unknown } | null)?.conflitos);
-}
-
-// Nao pode casar com a ancora do smoke (e2e/conteudo-esperado.ts): ela existe para provar que a
-// tela renderizou, nao que tentou.
+// Nenhum destes textos pode casar com a ancora do smoke (e2e/conteudo-esperado.ts): ela existe
+// para provar que a tela renderizou, nao que tentou.
 const ERRO_DE_CARGA = "Não deu pra carregar os grupos que estão em duas campanhas.";
 const ERRO_AO_SALVAR = "Não deu pra salvar as escolhas.";
+// O servidor diz "Recarregue a lista", mas a pagina ja recarregou: o texto dele nao serve aqui.
+const MUDOU_ENQUANTO_ESCOLHIA =
+  "Alguém mudou esse grupo enquanto você escolhia. A lista foi atualizada; confira e salve de novo.";
+const ESCOLHAS_SALVAS = "Escolhas salvas.";
 
 /**
  * Grupos em duas campanhas (mockup "Conflito", spec §6.6, D4). Lista a loja inteira — o
@@ -32,6 +35,7 @@ export default function ConflitosDeGrupoPage() {
   const [cargaDosGrupos, setCargaDosGrupos] = useState<Carga>("carregando");
   const [escolhas, setEscolhas] = useState<Record<string, string>>({});
   const [erroAoSalvar, setErroAoSalvar] = useState<string | null>(null);
+  const [salvou, setSalvou] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [de, setDe] = useState<string | null>(null);
 
@@ -58,6 +62,7 @@ export default function ConflitosDeGrupoPage() {
     if (!conflitos || faltaEscolher(conflitos, escolhas) > 0) return;
     setSalvando(true);
     setErroAoSalvar(null);
+    setSalvou(false);
     try {
       let falha: string | null = null;
       // Um POST por grupo, em sequência: se um falhar, os anteriores já valeram. A lista é lida
@@ -75,7 +80,8 @@ export default function ConflitosDeGrupoPage() {
         }
       }
       await carregar();
-      if (falha) setErroAoSalvar(falha);
+      if (falha) setErroAoSalvar(falha === GRUPO_SAIU_DA_CAMPANHA ? MUDOU_ENQUANTO_ESCOLHIA : falha);
+      else setSalvou(true);
     } finally {
       setSalvando(false);
     }
@@ -102,6 +108,14 @@ export default function ConflitosDeGrupoPage() {
       {erroAoSalvar && (
         <div role="alert" className="rounded-xl border border-alerta/20 bg-alerta/[0.06] px-4 py-3 text-sm text-alerta">
           {erroAoSalvar}
+        </div>
+      )}
+
+      {/* Salvou mas a releitura falhou: o erro de carga abaixo diria "nada foi apagado" e deixaria
+          o lojista sem saber que as escolhas valeram. Com a lista de volta, ela mesma prova. */}
+      {salvou && cargaDosConflitos !== "ok" && (
+        <div role="status" className="rounded-xl border border-sucesso/20 bg-sucesso/[0.06] px-4 py-3 text-sm text-sucesso">
+          {ESCOLHAS_SALVAS}
         </div>
       )}
 
@@ -161,7 +175,10 @@ export default function ConflitosDeGrupoPage() {
                             type="radio"
                             name={`fica-${c.whatsappGroupId}`}
                             checked={marcado}
-                            onChange={() => setEscolhas((e) => ({ ...e, [c.whatsappGroupId]: camp.id }))}
+                            onChange={() => {
+                              setErroAoSalvar(null);
+                              setEscolhas((e) => ({ ...e, [c.whatsappGroupId]: camp.id }));
+                            }}
                             className="h-[18px] w-[18px] accent-cobalt-500"
                           />
                           <span className="flex-1 text-sm text-volt-950">
