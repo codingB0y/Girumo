@@ -40,6 +40,8 @@ export type ContextoMeta = {
   fimDaTrava: number;
   /** Campanhas da loja, lidas uma vez por execução (e só se algum pedido chegar ao pixel). */
   campanhas: () => Promise<CampanhaComMetadata[]>;
+  /** Chaves do descadastro (`chavesEmOptout`), lidas uma vez por execução e só se algum pedido chegar ao pixel. */
+  optouts: () => Promise<Set<string>>;
 };
 
 export type EntradaMeta = {
@@ -100,7 +102,10 @@ function eventosPendentes(e: EntradaMeta, estado: PedidoResumo): Pendente[] {
   return lista;
 }
 
-/** A ordem da spec §4: desligado → fora da janela → sem pixel → sem dados de casamento. */
+/**
+ * A ordem da spec §4: desligado → fora da janela → sem pixel → sem dados de casamento. Quem está no
+ * descadastro conta como sem dados: nada dela vai ao Meta, e o status não é final (sai da lista, envia).
+ */
 async function statusDoEvento(
   e: EntradaMeta,
   quando: Date,
@@ -111,6 +116,8 @@ async function statusDoEvento(
   if (!dentroDaJanelaMeta(quando, e.ctx.agora())) return "fora_da_janela";
   // Vários pixels sem escolha também é "sem pixel": o cartão pede para a loja escolher.
   if (!(await pixel()).ok) return "sem_pixel";
+  const chave = e.contato?.phoneKey;
+  if (chave && (await e.ctx.optouts()).has(chave)) return "sem_dados";
   const c = await cadastro();
   if (!temDadosDeCasamento(e.contato?.metaHashes ?? {}, c?.fbc ?? null, c?.fbp ?? null)) return "sem_dados";
   return null;
