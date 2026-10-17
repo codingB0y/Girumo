@@ -37,6 +37,39 @@ export { CAPABILITY_LIMIT_KEY, CAPABILITY_TABLE } from "./capability-limits";
  * codigo, com instancia de WhatsApp liberada. De quebra, some uma consulta ao
  * banco de todo caminho de escrita do painel.
  */
+type LinhaDeAssinatura = { status: string | null; metadata: unknown; current_period_end: string | null };
+
+/** A regra de `subscriptionAccess` sobre a linha crua de `subscriptions`. */
+function concedePlano(linha: LinhaDeAssinatura): boolean {
+  return subscriptionAccess(
+    {
+      status: linha.status,
+      stripeStatus: (linha.metadata as { stripe_status?: string | null } | null)?.stripe_status ?? null,
+      periodEnd: linha.current_period_end,
+    },
+    new Date(),
+  ).grantsPlan;
+}
+
+/**
+ * A loja tem plano valendo agora? Para o que roda SOZINHO, sem ação do lojista
+ * no momento (auto-grow): cancelar ou ficar inadimplente tem que parar o que
+ * foi ligado enquanto o plano valia. O banco tem o espelho em
+ * `app.tenant_concede_plano`, travado por `subscription-access-espelho.test.ts`.
+ *
+ * Erro de leitura sobe: adivinhar "tem plano" num caminho que age sozinho é o
+ * defeito que isto fecha.
+ */
+export async function tenantGrantsPlan(tenantId: string): Promise<boolean> {
+  const { data, error } = await getSupabaseAdmin()
+    .from("subscriptions")
+    .select("status, metadata, current_period_end")
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (error) throw new Error(`Nao foi possivel ler a assinatura: ${error.message}`);
+  return data ? concedePlano(data) : false;
+}
+
 export async function getTenantLimits(tenantId: string): Promise<Limits> {
   const supabase = getSupabaseAdmin();
   // Sem filtro de status na query, de proposito: a decisao de quais estados
@@ -53,28 +86,16 @@ export async function getTenantLimits(tenantId: string): Promise<Limits> {
 
   if (error) throw new Response("Nao foi possivel validar limites do plano.", { status: 500 });
 
-  if (data) {
-    const acesso = subscriptionAccess(
-      {
-        status: data.status,
-        stripeStatus:
-          (data.metadata as { stripe_status?: string | null } | null)?.stripe_status ?? null,
-        periodEnd: data.current_period_end,
+  if (data && concedePlano(data)) {
+    const plan = data.plans as { limits?: Limits | null } | null;
+    // O teto efetivo e catalogo + extras da assinatura: `plans.limits` e
+    // global, entao o add-on comprado por um tenant nao pode morar la.
+    return tenantLimitsFrom({
+      subscription: {
+        limits: plan?.limits ?? null,
+        extras: extrasFromMetadata(data.metadata),
       },
-      new Date(),
-    );
-
-    if (acesso.grantsPlan) {
-      const plan = data.plans as { limits?: Limits | null } | null;
-      // O teto efetivo e catalogo + extras da assinatura: `plans.limits` e
-      // global, entao o add-on comprado por um tenant nao pode morar la.
-      return tenantLimitsFrom({
-        subscription: {
-          limits: plan?.limits ?? null,
-          extras: extrasFromMetadata(data.metadata),
-        },
-      });
-    }
+    });
   }
 
   // Sem assinatura, ou com assinatura que nao concede (cancelada, inadimplente,

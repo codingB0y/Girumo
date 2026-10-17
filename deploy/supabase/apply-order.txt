@@ -533,3 +533,8 @@ apps/web/supabase/migrations/20261017120500_engine_events_indice_instancia.sql
 # breaker continuam cancelando; o erro diz o motivo. So corpo de funcao app.* (trava no topo confere o
 # md5 de 20260930120000). Nao muda a baseline.
 apps/web/supabase/migrations/20261017120000_antiban_nao_cancela_disparo.sql
+# 2026-10-17 - Loja sem plano nao dispara sozinha (auditoria C17): app.tenant_concede_plano (espelho
+# de subscriptionAccess.grantsPlan, travado por subscription-access-espelho.test.ts) e
+# app.promote_due_schedules pula loja sem plano. So schema app e corpo de funcao (trava no topo
+# confere o md5 de 20261010120000): nao muda a baseline.
+apps/web/supabase/migrations/20261017123000_sem_plano_nao_dispara_sozinho.sql

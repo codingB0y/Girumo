@@ -25,6 +25,8 @@ const DUAS_HORAS_ATRAS = () => new Date(Date.now() - 2 * HORA_MS).toISOString();
 
 const broadcastIds: string[] = [];
 const scheduleIds: string[] = [];
+// Loja descartável dos casos de plano: a de QA tem plano ativo e os e2e contam com isso.
+let lojaDoPlano = "";
 
 after(async () => {
   if (!TENANT || EM_PRODUCAO) return;
@@ -34,6 +36,8 @@ after(async () => {
   }
   if (scheduleIds.length) await supabase.from("schedules").delete().in("id", scheduleIds);
   if (broadcastIds.length) await supabase.from("broadcasts").delete().in("id", broadcastIds);
+  // A cascata de organizations leva assinatura, agendamentos e disparos dela.
+  if (lojaDoPlano) await supabase.from("organizations").delete().eq("id", lojaDoPlano);
 });
 
 function pular(): boolean {
@@ -48,11 +52,11 @@ function pular(): boolean {
   return false;
 }
 
-async function criarAgendamento(scheduledAt: string, recurrence: "none" | "daily") {
+async function criarAgendamento(scheduledAt: string, recurrence: "none" | "daily", tenant = TENANT) {
   const supabase = getSupabaseAdmin();
   const { data: b, error: eb } = await supabase
     .from("broadcasts")
-    .insert({ tenant_id: TENANT, name: `perdeu-hora-${RUN}`, message: "teste", status: "draft" })
+    .insert({ tenant_id: tenant, name: `perdeu-hora-${RUN}`, message: "teste", status: "draft" })
     .select("id")
     .single();
   if (eb) throw new Error(eb.message);
@@ -61,7 +65,7 @@ async function criarAgendamento(scheduledAt: string, recurrence: "none" | "daily
   const { data: s, error: es } = await supabase
     .from("schedules")
     .insert({
-      tenant_id: TENANT,
+      tenant_id: tenant,
       name: `perdeu-hora-${RUN}`,
       broadcast_id: b!.id,
       scheduled_at: scheduledAt,
@@ -80,11 +84,11 @@ async function promover() {
   if (error) throw new Error(error.message);
 }
 
-async function comandosDa(broadcastId: string) {
+async function comandosDa(broadcastId: string, tenant = TENANT) {
   const { count, error } = await getSupabaseAdmin()
     .from("engine_commands")
     .select("id", { count: "exact", head: true })
-    .eq("tenant_id", TENANT)
+    .eq("tenant_id", tenant)
     .eq("origin_id", broadcastId);
   if (error) throw new Error(error.message);
   return count ?? 0;
@@ -137,6 +141,86 @@ test("agendamento dentro da tolerância segue o caminho normal", async () => {
   // 'done' mesmo que o broadcast falhe por falta de número conectado no QA: o
   // que importa aqui é que ele foi promovido, não descartado como atrasado.
   assert.equal(s!.status, "done");
+});
+
+/**
+ * C17 (auditoria 16/10/2026): cancelar ou ficar inadimplente não parava o
+ * recorrente, que voltava todo dia. A regra é `app.tenant_concede_plano`, espelho
+ * de `subscriptionAccess` — travado sem banco em subscription-access-espelho.test.ts.
+ */
+async function lojaComAssinatura(status: "canceled" | "trialing"): Promise<string> {
+  const supabase = getSupabaseAdmin();
+  if (!lojaDoPlano) {
+    const { data, error } = await supabase
+      .from("organizations")
+      .insert({ name: `sem-plano ${RUN}`, slug: `sem-plano-${RUN}` })
+      .select("id")
+      .single();
+    if (error) throw new Error(`organizations: ${error.message}`);
+    lojaDoPlano = data!.id as string;
+  }
+  const { data: plano, error: ep } = await supabase.from("plans").select("id").limit(1).single();
+  if (ep) throw new Error(`plans: ${ep.message}`);
+  const { error } = await supabase
+    .from("subscriptions")
+    .upsert({ tenant_id: lojaDoPlano, plan_id: plano!.id, status }, { onConflict: "tenant_id" });
+  if (error) throw new Error(`subscriptions: ${error.message}`);
+  return lojaDoPlano;
+}
+
+async function lerAgendamento(tenant: string, scheduleId: string, broadcastId: string) {
+  const supabase = getSupabaseAdmin();
+  const { data: s } = await supabase
+    .from("schedules").select("status, scheduled_at").eq("tenant_id", tenant).eq("id", scheduleId).single();
+  const { data: b } = await supabase
+    .from("broadcasts").select("status, error").eq("tenant_id", tenant).eq("id", broadcastId).single();
+  return { agendamento: s!, disparo: b! };
+}
+
+test("loja que cancelou: o recorrente vencido não enfileira, não toca o disparo e só avança a data", async () => {
+  if (pular()) return;
+  const loja = await lojaComAssinatura("canceled");
+  const agendadoEm = new Date(Date.now() - MIN_MS).toISOString();
+  const { broadcastId, scheduleId } = await criarAgendamento(agendadoEm, "daily", loja);
+
+  await promover();
+
+  const { agendamento, disparo } = await lerAgendamento(loja, scheduleId, broadcastId);
+  assert.equal(agendamento.status, "pending");
+  assert.equal(new Date(agendamento.scheduled_at).getTime(), new Date(agendadoEm).getTime() + 24 * HORA_MS);
+  // Mutante: chamar o enqueue mesmo assim deixa o disparo 'failed' todo dia (a
+  // loja não tem número), e o e-mail de "disparo falho" iria todo dia ao ex-cliente.
+  assert.equal(disparo.status, "draft");
+  assert.equal(disparo.error ?? null, null);
+  assert.equal(await comandosDa(broadcastId, loja), 0);
+});
+
+test("loja que cancelou: o agendamento único vira failed com o motivo da assinatura", async () => {
+  if (pular()) return;
+  const loja = await lojaComAssinatura("canceled");
+  const { broadcastId, scheduleId } = await criarAgendamento(new Date(Date.now() - MIN_MS).toISOString(), "none", loja);
+
+  await promover();
+
+  const { agendamento, disparo } = await lerAgendamento(loja, scheduleId, broadcastId);
+  assert.equal(agendamento.status, "failed");
+  assert.equal(disparo.status, "failed");
+  assert.match(disparo.error ?? "", /assinatura não está ativa/);
+  assert.equal(await comandosDa(broadcastId, loja), 0);
+});
+
+test("loja em teste grátis segue o caminho normal", async () => {
+  if (pular()) return;
+  const loja = await lojaComAssinatura("trialing");
+  const { broadcastId, scheduleId } = await criarAgendamento(new Date(Date.now() - MIN_MS).toISOString(), "none", loja);
+
+  await promover();
+
+  const { agendamento, disparo } = await lerAgendamento(loja, scheduleId, broadcastId);
+  // Promovido: o enqueue rodou (e falhou por falta de número, como no QA), não
+  // foi barrado como loja sem plano.
+  assert.equal(agendamento.status, "done");
+  assert.doesNotMatch(disparo.error ?? "", /assinatura/);
 });
 
 /**
