@@ -73,6 +73,7 @@ export default function PainelVendas() {
       criadaEm: new Date().toISOString(),
       itens,
       editavel: true,
+      origem: "manual",
     });
     setVenda(salva);
     setAnuncio(`Venda registrada: ${nomeDoCliente(salva)}, ${brl.format(salva.total)}.`);
@@ -116,6 +117,13 @@ export default function PainelVendas() {
         <h1 className="font-brand text-28 font-bold tracking-[-0.4px] text-volt-950">Registrar venda</h1>
         <p className="mt-1 text-[14px] text-slate-600">Busque o cliente pelo número do WhatsApp.</p>
       </header>
+
+      {/* Sem deduplicação na v1: a venda registrada aqui E no Bling conta duas vezes (spec 2026-10-13 §1). */}
+      {minhas.dados?.blingAtivo && (
+        <p role="note" className="rounded-xl border border-line-200 bg-paper-0 px-4 py-3 text-13 text-volt-950">
+          Esta loja recebe as vendas do Bling: registre aqui só o que não passa pelo Bling.
+        </p>
+      )}
 
       {/* Sempre montado: região viva inserida já com texto não é anunciada (trial-banner.tsx:14-15). */}
       <p role="status" className="sr-only">

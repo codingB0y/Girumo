@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic";
 const SALES_PER_MINUTE = 60;
 
 // GET /api/vendas?mes=YYYY-MM — as vendas de quem chama no mês de Brasília
-// (default: o corrente). Para qualquer papel: as de quem chamou.
+// (default: o corrente); dono, admin e operador também veem as do Bling da loja.
 export async function GET(req: Request) {
   return handleSalesErrors(async () => {
     const caller = await getSalesCaller(req);
