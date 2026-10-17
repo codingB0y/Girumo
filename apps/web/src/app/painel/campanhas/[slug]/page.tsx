@@ -23,6 +23,7 @@ import type { DispatchView } from "@/lib/campaigns/dispatch-view";
 import { MessagesTab } from "@/components/painel/messages";
 import { FunnelResults } from "@/components/painel/campaigns/funnel-results";
 import { useConfirmacao } from "@/components/painel/confirmacao";
+import { useToast } from "@/components/toast";
 import { AcoesEmMassa } from "@/components/painel/grupos/acoes-em-massa";
 import { GruposDaCampanha } from "@/components/painel/grupos/grupos-da-campanha";
 import { ConfigChips } from "@/components/painel/campanhas/config-chips";
@@ -65,6 +66,7 @@ export default function CampanhaDetalhe() {
   const params = useParams<{ slug: string }>();
   const router = useRouter();
   const { pedirConfirmacao, folhaDeConfirmacao } = useConfirmacao();
+  const toast = useToast();
   const key = params?.slug ?? "";
 
   const [campanhas, setCampanhas] = useState<Campanha[]>([]);
@@ -187,12 +189,22 @@ export default function CampanhaDetalhe() {
     if (!ok) return;
     setDeleting(true);
     setMenu(false);
+    // Antes ia para a lista sem olhar a resposta: 403 (operador não exclui) ou
+    // 500 pareciam exclusão feita, com a campanha e os posts dela ainda no ar.
     try {
-      await fetch(`/api/campanhas?id=${campanha.id}`, { method: "DELETE" });
-      router.push("/painel/campanhas");
+      const res = await fetch(`/api/campanhas?id=${campanha.id}`, { method: "DELETE" });
+      if (res.ok) {
+        router.push("/painel/campanhas");
+        return;
+      }
+      // O 403 de `assertPermission` vem em texto puro: sem JSON, cai no padrão.
+      const corpo = (await res.json().catch(() => ({}))) as { error?: string };
+      const padrao = res.status === 403 ? "Sem permissão para excluir campanhas." : "Não deu para excluir a campanha. Tente de novo.";
+      toast(corpo.error ?? padrao, "error");
     } catch {
-      setDeleting(false);
+      toast("Sem conexão: a campanha não foi excluída.", "error");
     }
+    setDeleting(false);
   }
 
   // O "Tentar de novo" volta por aqui: esqueleto, e não "não encontrada", enquanto busca.

@@ -21,7 +21,7 @@ export default function PainelResultados() {
   const [campanhas, setCampanhas] = useState<Campanha[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [links, setLinks] = useState<TrackedLink[]>([]);
-  const [contagem, setContagem] = useState<ContagemDeLeads>({ total: 0, clientes: 0 });
+  const [contagem, setContagem] = useState<ContagemDeLeads>({ total: 0, clientes: 0, novos: 0, ativos: 0 });
   const [orders, setOrders] = useState<Order[]>([]);
   const [cargaDasCampanhas, setCargaDasCampanhas] = useState<Carga>("carregando");
   const [cargaDosGrupos, setCargaDosGrupos] = useState<Carga>("carregando");

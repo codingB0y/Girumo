@@ -177,6 +177,7 @@ export async function POST(req: Request) {
         inviter?.name ?? "Um colega",
         org?.name ?? "sua equipe",
         getAppUrl(),
+        String(data.id),
       );
 
       await sendEmail({

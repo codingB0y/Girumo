@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { brl } from "@/components/painel/home/format";
@@ -10,12 +10,16 @@ import { diaHoraCurto, iniciais, marcasDaFita, rotulosDaFita } from "@/lib/paine
 import { ordersInMonth, revenueInMonth, type MonthlyOrder } from "@/lib/painel-metrics";
 import { monthBR } from "@/lib/date-br";
 import { parseValorDoPedido } from "@/lib/orders/valor-do-pedido";
+import { BUSCA_MAXIMA } from "@/lib/painel/busca-de-contato";
 import { formatPhoneBR } from "@/lib/phone";
 import type { Lead, LeadStatus } from "@/lib/painel/types";
 
 const PASSO_DA_MARCA = 5_000;
 
-type Filtro = "todos" | LeadStatus;
+export type Filtro = "todos" | LeadStatus;
+
+/** Quantos contatos há em cada filtro, contados na loja inteira (ou na lista inteira do anúncio). */
+export type Contagens = Record<Filtro, number>;
 
 const FILTROS: { valor: Filtro; rotulo: string }[] = [
   { valor: "todos", rotulo: "Todos" },
@@ -36,7 +40,18 @@ const CHIP: Record<LeadStatus, { texto: string; classe: string; ponto: boolean }
 };
 
 type Props = {
+  /** Os contatos da tela, já recortados pelo filtro e pela busca. */
   contatos: readonly Lead[];
+  /** null quando não deu para contar: o cabeçalho não inventa número. */
+  contagens: Contagens | null;
+  filtro: Filtro;
+  onFiltro: (f: Filtro) => void;
+  busca: string;
+  onBusca: (v: string) => void;
+  /** Há mais contatos no banco além dos que estão na tela. */
+  temMais: boolean;
+  carregandoMais: boolean;
+  onCarregarMais: () => void;
   pedidos: readonly MonthlyOrder[];
   meta: number | null;
   carregando: boolean;
@@ -57,6 +72,14 @@ type Props = {
  */
 export function ContatosVitrine({
   contatos,
+  contagens,
+  filtro,
+  onFiltro,
+  busca,
+  onBusca,
+  temMais,
+  carregandoMais,
+  onCarregarMais,
   pedidos,
   meta,
   carregando,
@@ -65,8 +88,6 @@ export function ContatosVitrine({
   aoTentarDeNovo,
   onPedidoRegistrado,
 }: Props) {
-  const [filtro, setFiltro] = useState<Filtro>("todos");
-  const [busca, setBusca] = useState("");
   const [registrando, setRegistrando] = useState<string | null>(null);
 
   const agora = new Date();
@@ -74,26 +95,6 @@ export function ContatosVitrine({
   const pedidosDoMes = ordersInMonth(pedidos, mes);
   // Contar todos os pedidos ao lado de um valor que é só do mês dá "R$ 0,00 · 15 pedidos".
   const faturamento = revenueInMonth(pedidos, mes);
-
-  const contagens = useMemo(() => {
-    const c: Record<string, number> = { todos: contatos.length, novo: 0, ativo: 0, comprou: 0 };
-    for (const l of contatos) c[l.status] = (c[l.status] ?? 0) + 1;
-    return c;
-  }, [contatos]);
-
-  const visiveis = useMemo(() => {
-    const termo = busca.trim().toLowerCase();
-    // O número aparece formatado (+55 11 98765-4321); quem copia dali tem que achar.
-    // Com letra no meio é busca por nome: "loja 2" não pode casar todo número com 2.
-    const digitos = /\p{L}/u.test(termo) ? "" : termo.replace(/\D/g, "");
-    return contatos.filter(
-      (l) =>
-        (filtro === "todos" || l.status === filtro) &&
-        (termo === "" ||
-          l.name?.toLowerCase().includes(termo) ||
-          (digitos !== "" && l.phone?.includes(digitos))),
-    );
-  }, [contatos, filtro, busca]);
 
   if (carregando) {
     return (
@@ -108,29 +109,31 @@ export function ContatosVitrine({
     <div className="px-4 py-5 lg:px-8 lg:py-8">
       <header data-testid="contatos-cabecalho">
         <h1 className="font-brand text-28 font-bold tracking-[-0.4px] text-volt-950">Contatos</h1>
+        {/* Lista que falhou não autoriza afirmar nada sobre a loja: o alerta abaixo fala por ela. */}
         {listaOk && (
           <p className="mt-1 text-[14px] text-slate-600">
-            {contatos.length === 0
-              ? "Ninguém entrou ainda. Quem entrar pelos seus grupos aparece aqui."
-              : `${contatos.length} ${contatos.length === 1 ? "pessoa" : "pessoas"} · ${contagens.comprou ?? 0} ${
-                  (contagens.comprou ?? 0) === 1 ? "já comprou" : "já compraram"
-                }`}
+            {contagens === null
+              ? "Não deu para contar os contatos agora."
+              : contagens.todos === 0
+                ? "Ninguém entrou ainda. Quem entrar pelos seus grupos aparece aqui."
+                : `${contagens.todos} ${contagens.todos === 1 ? "pessoa" : "pessoas"} · ${contagens.comprou} ${
+                    contagens.comprou === 1 ? "já comprou" : "já compraram"
+                  }`}
           </p>
         )}
       </header>
 
       {listaOk ? (
         <>
-          <Filtros contagens={contagens} filtro={filtro} onFiltro={setFiltro} busca={busca} onBusca={setBusca} />
-
+          <Filtros contagens={contagens} filtro={filtro} onFiltro={onFiltro} busca={busca} onBusca={onBusca} />
           <section className="mt-4" data-testid="contatos-lista">
-            {visiveis.length === 0 ? (
+            {contatos.length === 0 ? (
               <p className="py-10 text-center text-[14px] text-slate-600">
-                {contatos.length === 0 ? "A lista enche sozinha quando alguém entra num grupo seu." : "Ninguém com esse filtro."}
+                {contagens?.todos === 0 ? "A lista enche sozinha quando alguém entra num grupo seu." : "Ninguém com esse filtro."}
               </p>
             ) : (
               <ul>
-                {visiveis.map((l) => (
+                {contatos.map((l) => (
                   <li key={l.id}>
                     <FichaDoContato
                       contato={l}
@@ -143,6 +146,16 @@ export function ContatosVitrine({
                   </li>
                 ))}
               </ul>
+            )}
+            {temMais && (
+              <button
+                type="button"
+                onClick={onCarregarMais}
+                disabled={carregandoMais}
+                className="mt-4 h-10 w-full rounded-[var(--radius-control)] border border-line-200 bg-paper-0 text-[14px] text-volt-950 disabled:opacity-50"
+              >
+                {carregandoMais ? "Carregando…" : "Carregar mais"}
+              </button>
             )}
           </section>
         </>
@@ -165,7 +178,7 @@ function Filtros({
   busca,
   onBusca,
 }: {
-  contagens: Record<string, number>;
+  contagens: Contagens | null;
   filtro: Filtro;
   onFiltro: (f: Filtro) => void;
   busca: string;
@@ -188,7 +201,7 @@ function Filtros({
               )}
             >
               {f.rotulo}
-              <span className="font-data tabular-nums opacity-70">{contagens[f.valor] ?? 0}</span>
+              {contagens && <span className="font-data tabular-nums opacity-70">{contagens[f.valor]}</span>}
             </button>
           );
         })}
@@ -205,6 +218,7 @@ function Filtros({
           id="contatos-busca"
           data-testid="contatos-busca"
           value={busca}
+          maxLength={BUSCA_MAXIMA}
           onChange={(e) => onBusca(e.target.value)}
           placeholder="Buscar contato"
           className="h-10 w-[280px] max-w-full rounded-[var(--radius-control)] border border-line-200 bg-paper-0 pl-9 pr-3 text-[16px] text-volt-950 placeholder:text-slate-600"

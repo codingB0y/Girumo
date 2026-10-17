@@ -66,6 +66,8 @@ export type SubscriptionAccessInput = {
 export type SubscriptionState =
   /** Assinatura valendo. */
   | "active"
+  /** Assinatura paga cancelada no portal: concede até o fim do período e não cobra de novo. */
+  | "canceling"
   /** Boleto/Pix emitido, dinheiro a caminho. Concede o plano. */
   | "pending_payment"
   /** Pendente tempo demais: provável webhook perdido. Não concede. */
@@ -109,6 +111,9 @@ export function subscriptionAccess(
   if (status === "trialing") {
     return { grantsPlan: true, state: input.cancelAtPeriodEnd ? "trial_canceled" : "trial" };
   }
+  // Mesmo motivo para a paga: o Stripe mantém `active` até o fim do período, e
+  // "Renova em 10/11" para quem cancelou promete uma cobrança que não vem.
+  if (status === "active" && input.cancelAtPeriodEnd) return { grantsPlan: true, state: "canceling" };
   if (CONCEDE_DIRETO.has(status)) return { grantsPlan: true, state: "active" };
   if (status === "canceled") {
     return {
@@ -146,6 +151,10 @@ export function subscriptionNotice(state: SubscriptionState, periodEnd?: string 
     case "trial_canceled": {
       const fim = diaMesBR(periodEnd);
       return fim ? `Teste cancelado — termina em ${fim} sem cobrança.` : "Teste cancelado — termina sem cobrança.";
+    }
+    case "canceling": {
+      const fim = diaMesBR(periodEnd);
+      return `Assinatura cancelada — acesso até ${fim ?? "o fim do período"}, sem nova cobrança.`;
     }
     case "trial_card_reused":
       return "Esse cartão já foi usado num teste grátis. Assine direto pra continuar.";

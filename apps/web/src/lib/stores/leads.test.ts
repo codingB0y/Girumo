@@ -4,7 +4,14 @@ import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
 
 import type { carregarContagemDeLeads as CarregarContagem } from "@/lib/painel/inicio-carga";
-import { countEntriesSince, countLeads, listLatestEntries } from "./leads";
+import {
+  countEntriesBetween,
+  countEntriesSince,
+  countLeads,
+  entradasEntre,
+  listLatestEntries,
+  listLeadsPage,
+} from "./leads";
 
 /**
  * O cliente real do Supabase conversando com um PostgREST de mentira: a query
@@ -54,18 +61,16 @@ function filtros(url: URL): Record<string, string> {
   return Object.fromEntries([...url.searchParams].filter(([chave]) => chave !== "select"));
 }
 
-test("conta a loja inteira e quem comprou no banco, sem parar nas 1000 linhas", async () => {
+test("conta a loja inteira e cada status no banco, sem parar nas 1000 linhas", async () => {
   pedidos.length = 0;
-  responder = (url) => ({
-    status: 200,
-    contentRange: url.searchParams.get("status") === "eq.comprou" ? "*/42" : "*/1503",
-  });
+  const porStatus: Record<string, string> = { "eq.comprou": "*/42", "eq.novo": "*/1200", "eq.ativo": "*/261" };
+  responder = (url) => ({ status: 200, contentRange: porStatus[url.searchParams.get("status") ?? ""] ?? "*/1503" });
 
-  // Mutantes: trocar os dois campos de lugar, contar a lista (GET, que para em
+  // Mutantes: trocar os campos de lugar, contar a lista (GET, que para em
   // 1000) ou esquecer um dos filtros.
-  assert.deepEqual(await carregarContagemDeLeads("loja-a"), { total: 1503, clientes: 42 });
+  assert.deepEqual(await carregarContagemDeLeads("loja-a"), { total: 1503, clientes: 42, novos: 1200, ativos: 261 });
 
-  assert.equal(pedidos.length, 2);
+  assert.equal(pedidos.length, 4);
   for (const pedido of pedidos) {
     assert.equal(pedido.metodo, "HEAD");
     assert.equal(pedido.url.pathname, "/rest/v1/leads");
@@ -76,10 +81,15 @@ test("conta a loja inteira e quem comprou no banco, sem parar nas 1000 linhas", 
   const porQuantidadeDeFiltros = pedidos
     .map((p) => filtros(p.url))
     .sort((a, b) => Object.keys(a).length - Object.keys(b).length);
-  assert.deepEqual(porQuantidadeDeFiltros, [
-    { tenant_id: "eq.loja-a" },
-    { tenant_id: "eq.loja-a", status: "eq.comprou" },
-  ]);
+  assert.deepEqual(porQuantidadeDeFiltros.slice(0, 1), [{ tenant_id: "eq.loja-a" }]);
+  assert.deepEqual(
+    porQuantidadeDeFiltros
+      .slice(1)
+      .map((f) => f.status)
+      .sort(),
+    ["eq.ativo", "eq.comprou", "eq.novo"],
+  );
+  for (const f of porQuantidadeDeFiltros) assert.equal(f.tenant_id, "eq.loja-a");
 });
 
 test("zero medido continua zero", async () => {
@@ -128,4 +138,111 @@ test("últimas entradas: loja e grupos filtrados no banco, a mais nova primeiro,
     order: "entered_at.desc",
     limit: "5",
   });
+});
+
+test("página de contatos: loja, status, busca por nome e a fatia pedida, no banco", async () => {
+  pedidos.length = 0;
+  responder = () => ({ status: 200, corpo: [] });
+
+  await listLeadsPage("loja-a", { status: "comprou", q: " 50%_off \\ ", offset: 50, limit: 50 });
+
+  assert.equal(pedidos.length, 1);
+  const [{ metodo, url }] = pedidos;
+  assert.equal(metodo, "GET");
+  assert.equal(url.pathname, "/rest/v1/leads");
+  // Mutantes: busca no navegador (só sobre os 1000 mais recentes), `%` e `_`
+  // digitados virando curinga, ordem instável entre páginas, fatia ignorada.
+  assert.deepEqual(filtros(url), {
+    tenant_id: "eq.loja-a",
+    status: "eq.comprou",
+    name: "ilike.%50\\%\\_off \\\\%",
+    order: "entered_at.desc,id.asc",
+    offset: "50",
+    limit: "50",
+  });
+});
+
+test("página de contatos: sem letra, a busca é pelos dígitos do telefone como aparece na ficha", async () => {
+  pedidos.length = 0;
+  responder = () => ({ status: 200, corpo: [] });
+
+  await listLeadsPage("loja-a", { q: "+55 11 98765-4321", offset: 0, limit: 50 });
+  // Só pontuação não tem dígito: vale como nome, igual à busca da tela.
+  await listLeadsPage("loja-a", { q: "-", offset: 0, limit: 50 });
+  // Sem busca e sem status, só a loja.
+  await listLeadsPage("loja-a", { q: "  ", offset: 0, limit: 50 });
+
+  const [telefone, pontuacao, todos] = pedidos.map((p) => filtros(p.url));
+  assert.equal(telefone.phone, "like.%5511987654321%");
+  assert.equal(telefone.name, undefined);
+  assert.equal(pontuacao.name, "ilike.%-%");
+  assert.deepEqual(todos, { tenant_id: "eq.loja-a", order: "entered_at.desc,id.asc", offset: "0", limit: "50" });
+});
+
+test("página de contatos: erro do banco é erro, nunca uma loja vazia", async () => {
+  responder = () => ({ status: 500, corpo: { message: "caiu" } });
+  await assert.rejects(listLeadsPage("loja-a", { offset: 0, limit: 50 }), /caiu/);
+});
+
+test("entradas da semana: pagina além das 1000 linhas e conta por grupo", async () => {
+  pedidos.length = 0;
+  const linhas = [
+    ...Array.from({ length: 900 }, () => ({ source_group_name: "VIP #1" })),
+    ...Array.from({ length: 590 }, () => ({ source_group_name: "VIP #2" })),
+    ...Array.from({ length: 8 }, () => ({ source_group_name: null })),
+  ];
+  responder = (url) => {
+    const offset = Number(url.searchParams.get("offset"));
+    const limit = Number(url.searchParams.get("limit"));
+    return { status: 200, corpo: linhas.slice(offset, offset + limit) };
+  };
+
+  // Mutante: `.length` da primeira resposta, que era o "1000 novos contatos" do e-mail.
+  const { total, porGrupo } = await entradasEntre("loja-a", "2026-10-05T03:00:00.000Z", "2026-10-12T03:00:00.000Z");
+  assert.equal(total, 1498);
+  assert.deepEqual([...porGrupo].sort(), [
+    ["VIP #1", 900],
+    ["VIP #2", 590],
+  ]);
+
+  // Cada página começa onde a anterior parou; a vazia é que encerra.
+  assert.deepEqual(
+    pedidos.map((p) => p.url.searchParams.get("offset")),
+    ["0", "1000", "1498"],
+  );
+  for (const p of pedidos) {
+    assert.equal(p.url.searchParams.get("select"), "source_group_name");
+    assert.deepEqual(p.url.searchParams.getAll("entered_at"), [
+      "gte.2026-10-05T03:00:00.000Z",
+      "lt.2026-10-12T03:00:00.000Z",
+    ]);
+    assert.equal(p.url.searchParams.get("tenant_id"), "eq.loja-a");
+    // Sem ordem total, duas páginas podem repetir ou pular linhas.
+    assert.equal(p.url.searchParams.get("order"), "id.asc");
+    assert.equal(p.url.searchParams.get("limit"), "1000");
+  }
+});
+
+test("entradas da semana: erro do banco é erro, nunca zero entradas", async () => {
+  responder = () => ({ status: 500, corpo: { message: "caiu" } });
+  await assert.rejects(entradasEntre("loja-a", "2026-10-05T03:00:00.000Z", "2026-10-12T03:00:00.000Z"), /caiu/);
+});
+
+test("entradas entre duas datas contadas no banco (head+count)", async () => {
+  pedidos.length = 0;
+  responder = () => ({ status: 200, contentRange: "*/1137" });
+  assert.equal(await countEntriesBetween("loja-a", "2026-09-28T03:00:00.000Z", "2026-10-05T03:00:00.000Z"), 1137);
+  const [{ metodo, url }] = pedidos;
+  assert.equal(metodo, "HEAD");
+  assert.equal(url.searchParams.get("tenant_id"), "eq.loja-a");
+  assert.deepEqual(url.searchParams.getAll("entered_at"), [
+    "gte.2026-09-28T03:00:00.000Z",
+    "lt.2026-10-05T03:00:00.000Z",
+  ]);
+
+  responder = () => ({ status: 500 });
+  await assert.rejects(
+    countEntriesBetween("loja-a", "2026-09-28T03:00:00.000Z", "2026-10-05T03:00:00.000Z"),
+    /HTTP 500/,
+  );
 });

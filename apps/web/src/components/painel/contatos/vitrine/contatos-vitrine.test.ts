@@ -14,6 +14,14 @@ const vitrine = (over: Partial<Parameters<typeof ContatosVitrine>[0]> = {}) =>
   renderToStaticMarkup(
     createElement(ContatosVitrine, {
       contatos: [],
+      contagens: { todos: 0, novo: 0, ativo: 0, comprou: 0 },
+      filtro: "todos",
+      onFiltro: noop,
+      busca: "",
+      onBusca: noop,
+      temMais: false,
+      carregandoMais: false,
+      onCarregarMais: noop,
       pedidos: [],
       meta: null,
       carregando: false,

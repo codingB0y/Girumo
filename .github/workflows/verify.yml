@@ -417,6 +417,11 @@ jobs:
       # publica a senha do usuario de QA num artefato que qualquer pessoa com
       # leitura no repositorio baixa, sem precisar ler segredo nenhum.
       #
+      # Tambem apaga todo trace.zip e pasta .auth das duas pastas que sobem:
+      # sao dump de sessao (refresh_token, Bearer), sem senha para redigir. O
+      # Playwright ja nao grava trace no CI e o storageState mora em
+      # apps/web/playwright/.auth, fora do upload; isto pega o que escapar.
+      #
       # O teste do script roda antes dele: se a redacao quebrar, o passo falha
       # e o upload abaixo nao acontece.
       - if: always() && steps.credenciais.outputs.tem == 'true'

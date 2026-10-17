@@ -24,10 +24,10 @@ export type PropsDoPlano = {
   codigo: string | null;
   /** Cruzado com o estado da assinatura, não lido do `plan_id`. */
   vigente: boolean;
-  /** Frase do estado (`subscriptionNotice`): vale quando a assinatura não concede acesso e no teste cancelado. */
+  /** Frase do estado (`subscriptionNotice`): vale quando a assinatura não concede acesso e quando foi cancelada no portal. */
   recado: string | null;
   renovaEm: string | null;
-  /** De `subscriptionAccess`. Só o teste grátis (`trial`, `trial_canceled`) muda a tela. */
+  /** De `subscriptionAccess`. Teste grátis e cancelamento no portal mudam a tela. */
   estado: SubscriptionState | null;
   /** Preço do plano: no teste, é o valor da 1ª cobrança. */
   precoCents: number | null;
@@ -46,8 +46,8 @@ export type PropsDoPlano = {
  *
  * Teste nunca diz "Renova em" — o cliente acharia que já está pagando — e mostra
  * data e valor da 1ª cobrança, o aviso que as bandeiras exigem para teste com
- * cartão. Teste cancelado no portal termina sem cobrar: a linha é o recado, que
- * diz exatamente isso, e nunca anuncia a cobrança.
+ * cartão. Teste ou assinatura cancelados no portal terminam sem cobrar: a linha
+ * é o recado, que diz exatamente isso, e nunca anuncia a cobrança.
  */
 function linhaDoEstado(
   estado: SubscriptionState | null,
@@ -57,6 +57,7 @@ function linhaDoEstado(
   precoCents: number | null,
 ): string {
   if (estado === "trial_canceled") return recado ?? "Teste cancelado — termina sem cobrança.";
+  if (estado === "canceling") return recado ?? "Assinatura cancelada — sem nova cobrança.";
   if (estado === "trial") {
     if (!renova) return recado ?? "Teste grátis ativo.";
     // "/mês" como a faixa e o modal: "R$ 297" sozinho lê como cobrança única.
@@ -145,9 +146,9 @@ export function AbaPlano({
               {abrindoPortal && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
               Gerenciar cobrança
             </button>
-            {/* Teste já cancelado termina sozinho, sem cobrar: "cancelar" de novo
-                confunde. Quem mudar de ideia reativa pelo portal, no botão acima. */}
-            {estado !== "trial_canceled" && (
+            {/* Teste ou assinatura já cancelados terminam sozinhos, sem cobrar: "cancelar"
+                de novo confunde. Quem mudar de ideia reativa pelo portal, no botão acima. */}
+            {estado !== "trial_canceled" && estado !== "canceling" && (
               <Link href="/painel/configuracoes/cancelar" className="text-13 text-slate-600 hover:text-danger-700">
                 {estado === "trial" ? "Cancelar teste (sem cobrança)" : "Cancelar assinatura"}
               </Link>

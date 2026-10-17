@@ -4,7 +4,7 @@ import {
   isLpRenderContextStaleError,
 } from "@/lib/pages/store";
 import { deviceFromUserAgent, isCanonicalEvent } from "@/lib/pages/capture";
-import { extractAttribution, hashIp, isBotUserAgent, isRateLimited } from "@/lib/pages/analytics";
+import { extractAttribution, isBotUserAgent, isRateLimited } from "@/lib/pages/analytics";
 import {
   isRenderContextStale,
   verifyRenderContextToken,
@@ -35,9 +35,6 @@ export async function POST(req: Request) {
   const ua = req.headers.get("user-agent");
   if (isBotUserAgent(ua)) return new Response(null, { status: 204 });
 
-  const ip = hashIp(req) ?? "unknown";
-  if (isRateLimited(`track:${ip}`, 30)) return new Response(null, { status: 204 });
-
   let body: Record<string, unknown>;
   try {
     body = await req.json();
@@ -50,6 +47,7 @@ export async function POST(req: Request) {
   if (!SLUG_RE.test(slug) || !isCanonicalEvent(event) || event === "lead_created") {
     return new Response(null, { status: 204 });
   }
+  if (await isRateLimited("track", req, 30, slug)) return new Response(null, { status: 204 });
 
   const viewId = typeof body.view_id === "string" && VIEW_ID_RE.test(body.view_id)
     ? body.view_id

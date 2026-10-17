@@ -62,9 +62,8 @@ Plano aprovado em 2026-07-13 (`~/.claude/plans/quero-migrar-o-hubflow-eager-mins
         `20260730110000_retire_refresh_status.sql` cancela as linhas que já existiam.
   - [x] **Mapa do cutover levantado** (rotas engine-only, quais só perdem o POST, proxies, infra de auth
         `x-engine-token`, envs `ENGINE_*`, deploy/CI) — registrado no `NEXT.md`.
-  - 🟠 **Decisão pendente — `/api/engine/commands` fica ou sai?** Com o painel morto removido, a rota
-        está com **zero chamadores no código** (o executor de automações enfileira direto do worker,
-        sem HTTP). O `NEXT.md` a marca como "FICA (é produtor da fila)" — confirmar ou deletar junto.
+  - [x] **`/api/engine/commands` saiu** (16/10/2026, auditoria C14), junto com `POST /api/dispatch`:
+        zero chamadores e enfileiravam envio sem cobrar plano.
   - [ ] **Pré-requisito do cutover:** aplicar as migrations + smoke e2e passando. Desligar o Baileys
         antes disso para o disparo.
 - [ ] F6 — Limpeza: dual-mode JSON removido, SQL consolidado, retenção 30d, docs

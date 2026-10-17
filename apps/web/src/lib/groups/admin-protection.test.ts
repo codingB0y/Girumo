@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   adminCountDelta,
+  papelDoNossoNumero,
   protectionOf,
   summarizeProtection,
   tallyAdmins,
@@ -275,3 +276,45 @@ assert.deepEqual(adminCountDelta("promote", null, [MEU]), { total: 0, ours: 0 })
   const b = adminCountDelta("promote", mesmo, [MEU]);
   assert.equal(a.total + b.total, 2);
 }
+
+// === papelDoNossoNumero ===
+
+// O nosso número rebaixado: o grupo deixa de ser alvo de disparo e de captura.
+// O payload real traz `@lid` em `id` e o telefone em `phoneNumber`.
+assert.equal(
+  papelDoNossoNumero("demote", [{ id: "99@lid", phoneNumber: `${MEU}@s.whatsapp.net` }], MEU),
+  "perdeu",
+);
+
+// Removido do grupo: o payload NÃO marca o removido como admin (prod: 0 de 14),
+// e mesmo assim o número deixou de administrar — não pode depender do flag.
+assert.equal(
+  papelDoNossoNumero("remove", [{ id: "99@lid", phoneNumber: `${MEU}@s.whatsapp.net`, admin: null }], MEU),
+  "perdeu",
+);
+
+// Caixa da ação não importa.
+assert.equal(papelDoNossoNumero("DEMOTE", [{ id: `${MEU}@s.whatsapp.net` }], MEU), "perdeu");
+
+// Promovido de novo: volta a ser alvo.
+assert.equal(
+  papelDoNossoNumero("promote", [{ id: "99@lid", phoneNumber: `${MEU}@s.whatsapp.net` }], MEU),
+  "ganhou",
+);
+
+// Cliente saindo ou sendo rebaixado não é notícia sobre o nosso número.
+assert.equal(
+  papelDoNossoNumero("remove", [{ id: "77@lid", phoneNumber: "5511955554444@s.whatsapp.net" }], MEU),
+  null,
+);
+assert.equal(
+  papelDoNossoNumero("demote", [{ id: "77@lid", phoneNumber: "5511955554444@s.whatsapp.net" }], MEU),
+  null,
+);
+
+// Entrar no grupo não dá admin a ninguém.
+assert.equal(papelDoNossoNumero("add", [{ id: `${MEU}@s.whatsapp.net` }], MEU), null);
+
+// Sem telefone conhecido não afirmamos nada.
+assert.equal(papelDoNossoNumero("demote", [{ id: `${MEU}@s.whatsapp.net` }], null), null);
+assert.equal(papelDoNossoNumero("demote", null, MEU), null);

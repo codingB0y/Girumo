@@ -211,6 +211,8 @@ export type Estado = {
   leads: SaleLead[];
   cadastros: CadastroFalso[];
   campanhas: CampanhaComMetadata[];
+  /** Telefones no descadastro da loja, como o `optouts.phone` guarda (só dígitos, em qualquer formato). */
+  optouts: string[];
   /** `raw` = o erro cru da Graph, como o `sendCapiEvent` devolve (com o `fbtrace_id`). */
   meta: { enviados: EnvioMeta[]; resposta: { ok: boolean; error?: string; raw?: GraphError } };
   credenciais: CredenciaisBling | null;
