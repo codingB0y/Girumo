@@ -151,6 +151,28 @@ function tokenMatches(token: string, expectedToken: string): boolean {
   return diff === 0;
 }
 
+/**
+ * Webhook que provou o secret do provedor sai do teto por IP do middleware.
+ *
+ * O teto é por IP, e a Evolution manda os webhooks de TODAS as lojas de um IP
+ * só: os 300/min viravam teto de vazão do produto inteiro, e o 301º evento
+ * (entrada de membro, status de conexão) tomava 429 junto com mensagem
+ * descartável. O teto existe para barrar flood sem credencial; quem mostra o
+ * secret já passaria no handler, que confere de novo com `secretMatches`.
+ *
+ * Só a Evolution: Zernio e Bling assinam o corpo (HMAC), que o middleware não lê.
+ * Mesmo `tokenMatches` do token da engine (Edge, sem `node:crypto`), com o mesmo
+ * fail-closed: secret esperado vazio não tira ninguém do teto.
+ */
+export function webhookSkipsIpLimit(
+  pathname: string,
+  providedSecret: string | null,
+  expectedSecret: string,
+): boolean {
+  if (pathname !== "/api/webhooks/evolution" || !providedSecret) return false;
+  return tokenMatches(providedSecret, expectedSecret);
+}
+
 export function decideEngineAccess(
   kind: AccessKind,
   token: string | null,

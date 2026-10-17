@@ -4,7 +4,12 @@ import { dirname, join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { classifyRequest, decideEngineAccess, type AccessKind } from "./request-access-policy";
+import {
+  classifyRequest,
+  decideEngineAccess,
+  webhookSkipsIpLimit,
+  type AccessKind,
+} from "./request-access-policy";
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
 
@@ -90,6 +95,35 @@ test("the Zernio webhook is session-less, POST only, exact path only", () => {
   assert.equal(classifyRequest("/api/ig/webhook/replay", "POST"), "user");
   // O resto de /api/ig continua exigindo sessão.
   assert.equal(classifyRequest("/api/ig/flows", "POST"), "user");
+});
+
+test("Evolution com o secret certo sai do teto por IP — todas as lojas vêm do mesmo IP", () => {
+  // O teto de 300/min por IP somava o tráfego de TODAS as lojas (uma stack
+  // Evolution, um IP): passou dele, entrada de membro e status de conexão
+  // tomavam 429 junto com mensagem descartável.
+  assert.equal(webhookSkipsIpLimit("/api/webhooks/evolution", "segredo-certo", "segredo-certo"), true);
+});
+
+test("sem provar o secret, o webhook continua no teto por IP", () => {
+  const rota = "/api/webhooks/evolution";
+  assert.equal(webhookSkipsIpLimit(rota, null, "segredo-certo"), false);
+  assert.equal(webhookSkipsIpLimit(rota, "", "segredo-certo"), false);
+  assert.equal(webhookSkipsIpLimit(rota, "segredo-errado", "segredo-certo"), false);
+  // Prefixo, sufixo ou só o último byte diferente não passam.
+  assert.equal(webhookSkipsIpLimit(rota, "segredo", "segredo-certo"), false);
+  assert.equal(webhookSkipsIpLimit(rota, "segredo-certoX", "segredo-certo"), false);
+  assert.equal(webhookSkipsIpLimit(rota, "segredo-certA", "segredo-certo"), false);
+  // Env ausente = fail-closed: nenhum header (nem o vazio) tira do teto.
+  assert.equal(webhookSkipsIpLimit(rota, "", ""), false);
+  assert.equal(webhookSkipsIpLimit(rota, "qualquer", ""), false);
+});
+
+test("o secret da Evolution não tira do teto as outras rotas de webhook", () => {
+  // Zernio e Bling se autenticam por HMAC do corpo, que o middleware não lê:
+  // continuam no teto por IP mesmo se alguém mandar o header da Evolution.
+  assert.equal(webhookSkipsIpLimit("/api/ig/webhook", "segredo-certo", "segredo-certo"), false);
+  assert.equal(webhookSkipsIpLimit("/api/integracoes/bling/webhook", "segredo-certo", "segredo-certo"), false);
+  assert.equal(webhookSkipsIpLimit("/api/webhooks/evolution/replay", "segredo-certo", "segredo-certo"), false);
 });
 
 test("o aviso do Bling entra sem sessão, só no POST e só no path exato", () => {

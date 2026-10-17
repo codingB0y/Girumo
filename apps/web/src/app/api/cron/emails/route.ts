@@ -21,6 +21,7 @@ import { isCronAuthorized } from "@/lib/cron-auth";
 import { getInstanceHealth } from "@/lib/stores/instance-health";
 import { summarizeProtection } from "@/lib/groups/admin-protection";
 import { listGroupsForProtection } from "@/lib/stores/groups";
+import { countEntriesBetween, entradasEntre } from "@/lib/stores/leads";
 import { selectSessionRow, isConnectedStatus } from "@/lib/session-select";
 import { getAppUrl } from "@/lib/environment";
 
@@ -134,6 +135,12 @@ function pctChange(current: number, previous: number): number | null {
   return Math.round(((current - previous) / previous) * 100);
 }
 
+/** Linhas de uma consulta; erro vira exceção, nunca uma semana zerada no e-mail. */
+function linhas<T>({ data, error }: { data: T[] | null; error: { message: string } | null }): T[] {
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
 async function buildWeeklyStats(
   supabase: ReturnType<typeof getSupabaseAdmin>,
   tenantId: string,
@@ -141,19 +148,11 @@ async function buildWeeklyStats(
 ): Promise<WeeklyReportStats> {
   const { currentWeekStartIso, currentWeekEndIso, previousWeekStartIso, weekLabel } = windows;
 
+  // Entradas paginadas e contadas no banco: uma consulta só parava nas 1000
+  // linhas do PostgREST, e o e-mail dizia "1000 novos contatos" para semana de 1498.
   const [currentLeads, previousLeadsCount, currentOrders, previousOrders, links] = await Promise.all([
-    supabase
-      .from("leads")
-      .select("source_group_name")
-      .eq("tenant_id", tenantId)
-      .gte("entered_at", currentWeekStartIso)
-      .lt("entered_at", currentWeekEndIso),
-    supabase
-      .from("leads")
-      .select("id", { count: "exact", head: true })
-      .eq("tenant_id", tenantId)
-      .gte("entered_at", previousWeekStartIso)
-      .lt("entered_at", currentWeekStartIso),
+    entradasEntre(tenantId, currentWeekStartIso, currentWeekEndIso),
+    countEntriesBetween(tenantId, previousWeekStartIso, currentWeekStartIso),
     supabase
       .from("orders")
       .select("value")
@@ -169,29 +168,22 @@ async function buildWeeklyStats(
     supabase.from("tracked_links").select("clicks").eq("tenant_id", tenantId),
   ]);
 
-  const currentLeadRows = currentLeads.data ?? [];
-  const currentOrderRows = currentOrders.data ?? [];
-  const previousOrderRows = previousOrders.data ?? [];
+  const currentOrderRows = linhas(currentOrders);
+  const previousOrderRows = linhas(previousOrders);
 
   const revenue = currentOrderRows.reduce((sum, o) => sum + Number(o.value ?? 0), 0);
   const previousRevenue = previousOrderRows.reduce((sum, o) => sum + Number(o.value ?? 0), 0);
-  const clicksTotal = (links.data ?? []).reduce((sum, l) => sum + Number(l.clicks ?? 0), 0);
+  const clicksTotal = linhas(links).reduce((sum, l) => sum + Number(l.clicks ?? 0), 0);
 
-  const groupCounts = new Map<string, number>();
-  for (const lead of currentLeadRows) {
-    const name = lead.source_group_name;
-    if (!name) continue;
-    groupCounts.set(name, (groupCounts.get(name) ?? 0) + 1);
-  }
   let topGroup: { name: string; count: number } | null = null;
-  for (const [name, count] of groupCounts) {
+  for (const [name, count] of currentLeads.porGrupo) {
     if (!topGroup || count > topGroup.count) topGroup = { name, count };
   }
 
   return {
     weekLabel,
-    newContacts: currentLeadRows.length,
-    newContactsChangePct: pctChange(currentLeadRows.length, previousLeadsCount.count ?? 0),
+    newContacts: currentLeads.total,
+    newContactsChangePct: pctChange(currentLeads.total, previousLeadsCount),
     ordersCount: currentOrderRows.length,
     ordersChangePct: pctChange(currentOrderRows.length, previousOrderRows.length),
     revenue,
@@ -544,7 +536,16 @@ export async function GET(req: Request) {
 
       if (!email) continue;
 
-      const stats = await buildWeeklyStats(supabase, org.id, windows);
+      // Sem os números da semana não manda: número errado no e-mail é pior que
+      // atrasar o relatório. Sem notificação gravada, a próxima rodada tenta de novo.
+      let stats: WeeklyReportStats;
+      try {
+        stats = await buildWeeklyStats(supabase, org.id, windows);
+      } catch (e) {
+        console.error(`[cron] weekly_report: falha montando o resumo de ${org.id}:`, (e as Error).message);
+        results.errors++;
+        continue;
+      }
       const tpl = weeklyReportEmail(name, appUrl, stats);
       const sent = await sendEmail({
         to: email,

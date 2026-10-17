@@ -186,6 +186,48 @@ export async function cancelBroadcast(
   return { canceledCommands: canceled?.length ?? 0, alreadySent: broadcast.sent };
 }
 
+/**
+ * `cancelBroadcast` em lote, para todos os posts de uma campanha que vai ser
+ * excluída. O banco solta o post da campanha (`campaign_group_id` → SET NULL,
+ * guarda o histórico) e `promote_due_schedules` não olha campanha: sem isto o
+ * recorrente com lista fixa seguia saindo nos grupos, sem tela para parar.
+ *
+ * Não volta o status do post: com os comandos cancelados, o
+ * `reconcile_broadcast_progress` do worker fecha o que estava na fila.
+ *
+ * ponytail: os ids vão inteiros no `in` da URL (o máximo hoje é 45 por campanha);
+ * passando de algumas centenas o PostgREST recusa e a exclusão falha alto — virar
+ * RPC quando chegar perto.
+ */
+export async function cancelCampaignBroadcasts(tenantId: string, campaignGroupId: string): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .eq("campaign_group_id", campaignGroupId);
+  if (error) throw new Error(error.message);
+  const ids = (data ?? []).map((row: { id: string }) => row.id);
+  if (ids.length === 0) return;
+
+  const { error: scheduleError } = await supabase
+    .from("schedules")
+    .delete()
+    .eq("tenant_id", tenantId)
+    .in("broadcast_id", ids)
+    .eq("status", "pending");
+  if (scheduleError) throw new Error(scheduleError.message);
+
+  const { error: commandError } = await supabase
+    .from("engine_commands")
+    .update({ status: "canceled" })
+    .eq("tenant_id", tenantId)
+    .eq("origin_kind", "broadcast")
+    .in("origin_id", ids)
+    .eq("status", "queued");
+  if (commandError) throw new Error(commandError.message);
+}
+
 export async function deleteBroadcast(tenantId: string, id: string): Promise<void> {
   const { error } = await getSupabaseAdmin()
     .from(TABLE)

@@ -6,7 +6,8 @@ import {
 } from "@/lib/leads-store";
 import { isOptedOut as legacyIsOptedOut } from "@/lib/optout-store";
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
-import { carregarLeads, leadParaOPainel } from "@/lib/painel/inicio-carga";
+import { BUSCA_MAXIMA } from "@/lib/painel/busca-de-contato";
+import { carregarLeads, carregarPaginaDeLeads, leadParaOPainel } from "@/lib/painel/inicio-carga";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import * as supaLeads from "@/lib/stores/leads";
 import * as supaOptouts from "@/lib/stores/optouts";
@@ -32,13 +33,34 @@ function lerLimite(raw: string | null): number | undefined | null {
   return Number.isInteger(n) && n >= 1 && n <= LIMITE_MAXIMO ? n : null;
 }
 
+const POR_PAGINA = 50;
+
+/**
+ * `?q=`, `?status=` ou `?offset=`: a tela de Contatos pede uma página, filtrada e
+ * buscada no banco. Devolve o erro de validação como texto, ou nada se nenhum veio.
+ */
+function lerPagina(params: URLSearchParams, limit: number | undefined): supaLeads.PaginaDeLeads | string | undefined {
+  const [q, status, offset] = [params.get("q"), params.get("status"), params.get("offset")];
+  if (q === null && status === null && offset === null) return undefined;
+  if (q !== null && q.length > BUSCA_MAXIMA) return `q longo demais: até ${BUSCA_MAXIMA} caracteres.`;
+  if (status !== null && !VALID.includes(status as LeadStatus)) return "status inválido: novo, ativo ou comprou.";
+  const inicio = offset === null ? 0 : Number(offset);
+  if (!Number.isInteger(inicio) || inicio < 0) return "offset inválido: inteiro a partir de 0.";
+  return { q: q ?? "", status: (status as LeadStatus | null) ?? undefined, offset: inicio, limit: limit ?? POR_PAGINA };
+}
+
 // GET /api/leads — lista leads reais (capturados ao entrar no grupo), mais recentes primeiro.
+// Sem `q`/`status`/`offset` para nas 1000 linhas do PostgREST; com eles, uma página.
 export async function GET(req: Request) {
   const { tenantId } = await getRouteTenantContext(req, { allowEngine: true });
-  const limit = lerLimite(new URL(req.url).searchParams.get("limit"));
+  const params = new URL(req.url).searchParams;
+  const limit = lerLimite(params.get("limit"));
   if (limit === null) {
     return Response.json({ error: `limit inválido: inteiro de 1 a ${LIMITE_MAXIMO}.` }, { status: 400 });
   }
+  const pagina = lerPagina(params, limit);
+  if (typeof pagina === "string") return Response.json({ error: pagina }, { status: 400 });
+  if (pagina) return Response.json(await carregarPaginaDeLeads(tenantId, pagina));
   return Response.json(await carregarLeads(tenantId, limit));
 }
 

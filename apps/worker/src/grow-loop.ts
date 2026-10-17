@@ -201,6 +201,19 @@ export async function runGrowTick(deps: GrowDeps): Promise<GrowTickSummary> {
   summary.tenants = tenants.length;
 
   for (const tenantId of tenants) {
+    // A instância vem ANTES do claim: o claim (/grow/pending) é quem enfileira.
+    // Sem número, chamá-lo criava e falhava um job a cada ciclo, para sempre
+    // (2447 em prod num tenant cancelado). Sem instância, nada é escrito; o que
+    // já estava na fila espera o número voltar.
+    const instance = await deps.instanceFor(tenantId).catch((err: unknown) => {
+      log.warn("auto-grow: falha ao procurar a instância", {
+        tenant_id: tenantId,
+        error: err instanceof Error ? err.message : "erro desconhecido",
+      });
+      return null;
+    });
+    if (!instance) continue;
+
     let jobs: GrowJobClaim[];
     try {
       jobs = await deps.claimJobs(tenantId);
@@ -213,20 +226,6 @@ export async function runGrowTick(deps: GrowDeps): Promise<GrowTickSummary> {
     }
     if (jobs.length === 0) continue;
     summary.claimed += jobs.length;
-
-    // O claim do app já marcou TODOS como `running`. Se a instância sumiu entre
-    // o claim e agora, devolve todos à fila em vez de deixá-los presos 15 min.
-    const instance = await deps.instanceFor(tenantId).catch(() => null);
-    if (!instance) {
-      log.warn("auto-grow: tenant sem instância utilizável", { tenant_id: tenantId, jobs: jobs.length });
-      for (const job of jobs) {
-        summary.deferred += 1;
-        await deps
-          .ack(tenantId, job.id, { status: "failed", error: "sem instância utilizável para criar o grupo" })
-          .catch(() => undefined);
-      }
-      continue;
-    }
 
     const toRun = jobs.slice(0, MAX_CREATES_PER_TENANT_PER_TICK);
     const deferred = jobs.slice(MAX_CREATES_PER_TENANT_PER_TICK);

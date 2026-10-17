@@ -93,7 +93,9 @@ O relatório HTML sobe como artefato `e2e-report` (14 dias) mesmo quando a suít
 falha — sem isso, falha no CI vira "deu vermelho" sem screenshot de nada. Antes,
 `infra/scripts/redigir-segredos-e2e.py` apaga as três senhas (QA, admin e sessão), inclusive do zip
 em base64 que o Playwright embute no `index.html` (o título de todo `fill` é
-`Fill "<valor>"`, de teste que passa também). Se a redação falhar, nada sobe.
+`Fill "<valor>"`, de teste que passa também), e apaga trace e `.auth/` (dump da
+sessão, com refresh_token). No CI o trace nem é gravado e o `storageState` fica em
+`playwright/.auth/`, fora do artefato. Se a redação falhar, nada sobe.
 
 Antes do build, o mesmo job roda os testes de integração das stores
 (`apps/web/src/lib/stores/*.integration.test.ts`) contra o banco de dev: são os

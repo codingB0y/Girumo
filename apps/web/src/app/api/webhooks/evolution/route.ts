@@ -8,7 +8,7 @@ import {
   stripCredentials,
   type EvolutionWebhookEvent,
 } from "@/lib/evolution/webhook-schema";
-import { adminCountDelta } from "@/lib/groups/admin-protection";
+import { adminCountDelta, papelDoNossoNumero } from "@/lib/groups/admin-protection";
 import { memberCountDelta } from "@/lib/groups/member-delta";
 import { movimentoDeMembros } from "@/lib/groups/member-events";
 import { gruposNovosDoUpsert } from "@/lib/groups/upsert-novos";
@@ -18,7 +18,12 @@ import { parseUpsertMessage } from "@/lib/relampago/upsert-message";
 import { resolveSecret } from "@/lib/runtime-secrets";
 import { findOpenWindow, insertEntry } from "@/lib/stores/flash-offers";
 import { recordGroupMemberEvents } from "@/lib/stores/group-member-events";
-import { applyAdminCountDelta, applyMemberCountDelta, insertNewGroups } from "@/lib/stores/groups";
+import {
+  applyAdminCountDelta,
+  applyMemberCountDelta,
+  insertNewGroups,
+  setGroupIsAdmin,
+} from "@/lib/stores/groups";
 import {
   findByProviderInstanceId,
   listInstances,
@@ -148,6 +153,21 @@ async function applyGroupDeltas(instance: Instance, event: EvolutionWebhookEvent
         `[webhook/evolution] delta de membros falhou para o grupo ${event.data.id}:`,
         e,
       );
+    }
+  }
+
+  // O nosso número perdeu (ou recuperou) a administração: `is_admin` decide se
+  // o grupo é alvo de disparo e de captura de lead, e antes só o Sincronizar
+  // manual o mudava. Vem antes da saída abaixo porque o `remove` do nosso
+  // número chega sem o flag de admin no payload.
+  // ponytail: só o número que recebeu o webhook (`groups` não tem instance_id);
+  // com 2 números no mesmo grupo, rebaixar um marca false mesmo com o outro admin.
+  const papel = papelDoNossoNumero(event.data.action, event.data.participants, instance.phone);
+  if (papel) {
+    try {
+      await setGroupIsAdmin(instance.tenant_id, event.data.id, papel === "ganhou");
+    } catch (e) {
+      console.error(`[webhook/evolution] is_admin não gravado para o grupo ${event.data.id}:`, e);
     }
   }
 

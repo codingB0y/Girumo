@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ComposerPayload } from "@/components/painel/messages/message-composer";
+import { ERRO_SEM_CONEXAO, type ComposerPayload } from "@/components/painel/messages/message-composer";
 import type { SchedulePayload } from "@/components/painel/messages/schedule-composer";
 import type { TenantDispatchView } from "@/lib/campaigns/dispatch-view";
 import { DisparosVitrine } from "@/components/painel/disparos/vitrine/disparos-vitrine";
@@ -85,7 +85,7 @@ export default function PainelDisparos() {
   );
 
   async function dispatch(payload: ComposerPayload | SchedulePayload, destino: Destino) {
-    if (!campanhaAtual) return;
+    if (!campanhaAtual) return false;
     setSending(true);
     setErro(null);
     try {
@@ -93,13 +93,18 @@ export default function PainelDisparos() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...payload, destino }),
-      });
+      }).catch(() => null);
+      if (!res) {
+        setErro(ERRO_SEM_CONEXAO);
+        return false;
+      }
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         setErro(err.error ?? "Não foi possível disparar.");
-        return;
+        return false;
       }
       await loadDispatches();
+      return true;
     } finally {
       setSending(false);
     }

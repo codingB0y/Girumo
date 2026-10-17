@@ -13,10 +13,20 @@ function requireEnv(name: string): string {
 export function getSupabaseAdmin(): SupabaseClient {
   if (adminClient) return adminClient;
 
+  const serviceKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
   adminClient = createClient(
     requireEnv("SUPABASE_URL"),
-    requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
+    serviceKey,
     {
+      // Identidade fixa. Este cliente atravessa as requisições da instância: sem o header, o
+      // supabase-js manda no Authorization o access_token de qualquer sessão que o auth client
+      // tenha guardado (ex.: um signInWithPassword) e todas as queries "admin" seguintes rodam
+      // como aquele usuário, presas em RLS e sem grant de escrita.
+      global: {
+        headers: {
+          Authorization: `Bearer ${serviceKey}`,
+        },
+      },
       auth: {
         autoRefreshToken: false,
         persistSession: false,
@@ -30,7 +40,18 @@ export function getSupabaseAdmin(): SupabaseClient {
 export function getSupabaseServerAnon(): SupabaseClient {
   if (anonClient) return anonClient;
 
-  anonClient = createClient(
+  anonClient = createSupabaseAnonClient();
+
+  return anonClient;
+}
+
+/**
+ * Cliente anon NOVO a cada chamada, para fluxo que precisa da sessão de um usuário (login por
+ * senha no cadastro). A sessão fica na memória da instância do cliente, então ela nunca deve ir
+ * para um dos singletons deste arquivo, que são compartilhados entre requisições.
+ */
+export function createSupabaseAnonClient(): SupabaseClient {
+  return createClient(
     requireEnv("SUPABASE_URL"),
     requireEnv("SUPABASE_ANON_KEY"),
     {
@@ -40,8 +61,6 @@ export function getSupabaseServerAnon(): SupabaseClient {
       },
     },
   );
-
-  return anonClient;
 }
 
 export function getSupabaseAnonForToken(accessToken: string): SupabaseClient {

@@ -1,7 +1,7 @@
 import { getAppUrl, getStripe } from "@/lib/billing/stripe";
 import { getStripePriceId, normalizePlanCode } from "@/lib/billing/plans";
 import { resolveTenantCustomerId } from "@/lib/billing/tenant-customer";
-import { checkoutSessionParams, trialCheckoutDecision } from "@/lib/billing/checkout-session";
+import { checkoutSessionParams, temPlanoVivo, trialCheckoutDecision } from "@/lib/billing/checkout-session";
 import { trialEnabled } from "@/lib/billing/trial";
 import { readTrialFacts } from "@/lib/billing/trial-facts";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
@@ -61,6 +61,19 @@ export async function POST(req: Request) {
       email: ctx.email ?? null,
       authUserId: ctx.authUserId,
     });
+
+    // Independe da flag: com plano vivo, outro Checkout vira uma 2ª assinatura e
+    // as duas cobram. Troca de plano e pagamento atrasado são no portal.
+    const existentes = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 20 });
+    if (temPlanoVivo(existentes.data)) {
+      return Response.json(
+        {
+          error:
+            "Você já tem uma assinatura. Para trocar de plano ou regularizar o pagamento, use Gerenciar cobrança em Configurações › Plano.",
+        },
+        { status: 409 },
+      );
+    }
 
     const appUrl = getAppUrl();
     // Sem idempotencyKey de proposito: uma chave estavel por tenant+plano
