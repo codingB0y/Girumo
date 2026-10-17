@@ -630,7 +630,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
 /* ---------- helpers ---------- */
 
 const inputCls =
-  "w-full rounded-[10px] border border-volt-950/10 bg-poco px-3.5 py-2.5 text-sm text-volt-950 outline-none transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] placeholder:text-aco focus:border-cobalt-500/50 focus:bg-papel focus:shadow-[0_0_0_3px_var(--color-cobalt-soft)]";
+  "w-full rounded-[10px] border border-volt-950/10 bg-poco px-3.5 py-2.5 text-[16px] text-volt-950 outline-none transition-[border-color,box-shadow] duration-[160ms] ease-[var(--ease-fluxo)] placeholder:text-aco focus:border-cobalt-500/50 focus:bg-papel focus:shadow-[0_0_0_3px_var(--color-cobalt-soft)]";
 
 function Card({ children }: { children: React.ReactNode }) {
   return <div className="pn-card space-y-5 rounded-xl p-6 sm:p-7">{children}</div>;

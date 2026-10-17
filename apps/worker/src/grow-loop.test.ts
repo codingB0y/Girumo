@@ -193,18 +193,29 @@ test("job adiado pelo ritmo volta para a fila em vez de ficar preso em running",
   assert.match(adiado.ack.error ?? "", /ritmo anti-ban/);
 });
 
-test("tenant sem instância utilizável devolve os jobs sem criar nada", async () => {
+test("tenant sem instância não chama claimJobs nem dá ack", async () => {
+  // O claim (/grow/pending) é quem ENFILEIRA. Chamá-lo sem número conectado
+  // criava e falhava um job a cada ciclo, para sempre — 2447 em prod num tenant
+  // cancelado — e cada um queimava o {n} do próximo grupo.
+  const claimados: string[] = [];
   const { deps, rec } = makeDeps({
-    instanceFor: async () => null,
-    claimJobs: async () => [job({ id: "a" }), job({ id: "b" })],
+    listTenants: async () => ["sem-numero", "consulta-quebrou"],
+    instanceFor: async (tenantId) => {
+      if (tenantId === "consulta-quebrou") throw new Error("instanceFor: timeout");
+      return null;
+    },
+    claimJobs: async (tenantId) => {
+      claimados.push(tenantId);
+      return [job({ id: "a" })];
+    },
   });
 
   const summary = await runGrowTick(deps);
 
+  assert.deepEqual(claimados, []);
+  assert.deepEqual(rec.acks, []);
   assert.deepEqual(rec.created, []);
-  assert.equal(summary.deferred, 2);
-  assert.equal(rec.acks.length, 2);
-  assert.match(rec.acks[0]?.ack.error ?? "", /sem instância utilizável/);
+  assert.equal(summary.claimed, 0);
 });
 
 test("claim que falha num tenant não impede os demais", async () => {

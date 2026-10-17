@@ -32,7 +32,8 @@ type Props = {
   enviando: boolean;
   erro: string | null;
   live: boolean | null;
-  aoDisparar: (payload: ComposerPayload | SchedulePayload, destino: Destino) => Promise<void>;
+  /** `true` quando a API aceitou: só aí o compositor limpa. */
+  aoDisparar: (payload: ComposerPayload | SchedulePayload, destino: Destino) => Promise<boolean>;
 };
 
 const ESTADO: Record<string, { texto: string; classe: string }> = {

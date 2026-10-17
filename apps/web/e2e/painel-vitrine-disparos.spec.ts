@@ -103,6 +103,26 @@ test.describe("Disparos na Vitrine Aberta", () => {
     }
   });
 
+  test("post recusado pela API nao apaga o que foi escrito", async ({ page }) => {
+    // O POST nunca chega ao servidor: a recusa e simulada. Antes do C39 o
+    // compositor zerava texto, midia e enquete mesmo com 409 (numero
+    // desconectado) ou 402 (limite do plano), e o lojista reescrevia tudo.
+    const RECUSA = "WhatsApp desconectado. Reconecte o número para postar.";
+    await page.route("**/api/campanhas/*/messages", (rota) =>
+      rota.request().method() === "POST"
+        ? rota.fulfill({ status: 409, json: { error: RECUSA } })
+        : rota.continue(),
+    );
+    await page.goto("/painel/disparos", { waitUntil: "load" });
+
+    const campo = page.getByPlaceholder("Digite sua mensagem...");
+    await campo.fill(TEXTO);
+    await page.getByRole("button", { name: /^Postar/ }).click();
+
+    await expect(page.getByText(RECUSA)).toBeVisible();
+    await expect(campo).toHaveValue(TEXTO);
+  });
+
   test("enquanto os grupos nao chegam, a tela nao afirma que eles sumiram", async ({ page }) => {
     // /api/groups responde depois das campanhas no mundo real. Com a lista
     // ainda vazia, "nao casou nenhum grupo" e indistinguivel de "os grupos

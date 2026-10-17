@@ -55,7 +55,10 @@ export default defineConfig({
   ],
   use: {
     baseURL,
-    trace: "retain-on-failure",
+    // Trace e dump da sessao (cookie, localStorage com refresh_token, header
+    // Authorization) e o relatorio do CI sobe como artefato publico. No CI fica
+    // o screenshot e o error-context; trace so local.
+    trace: process.env.CI ? "off" : "retain-on-failure",
     screenshot: "only-on-failure",
     video: "off",
   },

@@ -11,6 +11,7 @@ import { avisarReconectar } from "@/lib/bling/avisar-reconectar";
 import { criarClienteBling, type ClienteBling } from "@/lib/bling/cliente";
 import type { DepsBling } from "@/lib/bling/deps";
 import { renovarToken } from "@/lib/bling/oauth";
+import { chaveDoTelefone } from "@/lib/pages/phone";
 import type { ConexaoBling } from "@/lib/stores/bling-conexoes";
 
 import {
@@ -168,6 +169,7 @@ function estadoInicial(): Estado {
     leads: [LEAD_MARIA],
     cadastros: [],
     campanhas: [campanha("camp-1", PIXEL)],
+    optouts: [],
     meta: { enviados: [], resposta: { ok: true } },
     credenciais: { clientId: "app-girumo", clientSecret: "segredo-do-app" },
     chave: CHAVE,
@@ -230,8 +232,8 @@ function depsFalsas(e: Estado): DepsBling {
   };
 }
 
-/** Lead, cadastro do site, campanhas, projeção em `orders` e Meta: só registram e respondem do estado. */
-function funilFalso(e: Estado): Pick<DepsBling, "leads" | "cadastros" | "campanhas" | "projetar" | "meta"> {
+/** Lead, cadastro do site, campanhas, descadastro, projeção em `orders` e Meta: só registram e respondem do estado. */
+function funilFalso(e: Estado): Pick<DepsBling, "leads" | "cadastros" | "campanhas" | "optouts" | "projetar" | "meta"> {
   return {
     leads: {
       porTelefones: async (t, telefones) => {
@@ -252,6 +254,14 @@ function funilFalso(e: Estado): Pick<DepsBling, "leads" | "cadastros" | "campanh
         daLoja(t);
         registrar(e, "campanhas.comMetadata");
         return structuredClone(e.campanhas);
+      },
+    },
+    optouts: {
+      // A mesma chave da store: o telefone em qualquer formato vira DDD + 8 últimos.
+      chaves: async (t) => {
+        daLoja(t);
+        registrar(e, "optouts.chaves");
+        return new Set(e.optouts.flatMap((tel) => chaveDoTelefone(tel) ?? []));
       },
     },
     projetar: async (t, p) => {

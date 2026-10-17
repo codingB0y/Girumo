@@ -64,6 +64,15 @@ test("teste cancelado no portal termina sem cobrança e nunca anuncia a cobranç
   assert.match(h, /Gerenciar cobrança/);
 });
 
+test("assinatura paga cancelada no portal diz até quando vale e nunca Renova em", () => {
+  const h = html({ estado: "canceling", recado: subscriptionNotice("canceling", FIM) });
+  assert.match(h, /Assinatura cancelada — acesso até 10\/10, sem nova cobrança\./);
+  assert.doesNotMatch(h, /Renova em/);
+  // Já cancelada: "Cancelar assinatura" de novo confunde. O portal desfaz, se quiser.
+  assert.doesNotMatch(h, /Cancelar assinatura/);
+  assert.match(h, /Gerenciar cobrança/);
+});
+
 test("erro do checkout chega à tela (409 de quem está no teste)", () => {
   const msg = "Você está no teste grátis. Para trocar de plano, use Gerenciar cobrança em Configurações › Plano.";
   const h = html({ estado: "trial", erro: msg });
