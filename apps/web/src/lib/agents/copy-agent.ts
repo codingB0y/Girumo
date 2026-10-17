@@ -1,4 +1,5 @@
 import "server-only";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 
 /**
  * Copy Agent — gera sugestões de texto de oferta para disparo em grupos de WhatsApp.
@@ -46,6 +47,27 @@ Regras:
 - Escreva em português brasileiro coloquial
 
 Formato de resposta: retorne EXATAMENTE 3 variações, separadas por ---\nCada variação começa com um rótulo entre colchetes: [Curta], [Média], [Completa]`;
+
+// Cada geração é uma chamada paga à Anthropic, na conta do Girumo, e a rota aceita o corpo que vier:
+// sem teto, um corpo de megabytes vira token de entrada e um script vira uma chamada atrás da outra.
+const MAX_FIELD = 200;
+const MAX_EXTRA_CONTEXT = 500;
+const COPIES_PER_HOUR = 20;
+
+function clampInput(input: CopyInput): CopyInput {
+  return {
+    ...input,
+    product: input.product.slice(0, MAX_FIELD),
+    price: input.price?.slice(0, MAX_FIELD),
+    discount: input.discount?.slice(0, MAX_FIELD),
+    extraContext: input.extraContext?.slice(0, MAX_EXTRA_CONTEXT),
+  };
+}
+
+/** true = a loja passou de `COPIES_PER_HOUR`. `limitar` existe para o teste. */
+export function isCopyRateLimited(tenantId: string, limitar = checkRateLimit): Promise<boolean> {
+  return limitar(`copy:${tenantId}`, COPIES_PER_HOUR, 60 * 60_000);
+}
 
 function buildUserPrompt(input: CopyInput): string {
   const typeLabels = {
@@ -99,7 +121,8 @@ function parseVariations(text: string): CopyVariation[] {
  * Gera sugestões de copy usando Claude API.
  * Requer ANTHROPIC_API_KEY no environment.
  */
-export async function generateCopy(input: CopyInput): Promise<CopyResult> {
+export async function generateCopy(rawInput: CopyInput): Promise<CopyResult> {
+  const input = clampInput(rawInput);
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {

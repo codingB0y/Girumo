@@ -191,9 +191,29 @@ test("teste sem cancelamento marcado continua sendo só teste", () => {
   assert.equal(r.state, "trial");
 });
 
-test("cancel_at_period_end numa assinatura paga não vira teste cancelado", () => {
+test("assinatura paga cancelada no portal concede até o fim, sem virar teste cancelado", () => {
+  // O Stripe mantém `active` com cancel_at_period_end até o período acabar.
   const r = subscriptionAccess(
     { status: "active", stripeStatus: "active", periodEnd: emDias(4), cancelAtPeriodEnd: true },
+    AGORA,
+  );
+  assert.deepEqual(r, { grantsPlan: true, state: "canceling" });
+});
+
+test("assinatura paga cancelada avisa até quando vale e que não cobra de novo", () => {
+  assert.equal(
+    subscriptionNotice("canceling", "2026-10-10T15:00:00.000Z"),
+    "Assinatura cancelada — acesso até 10/10, sem nova cobrança.",
+  );
+  assert.equal(
+    subscriptionNotice("canceling", null),
+    "Assinatura cancelada — acesso até o fim do período, sem nova cobrança.",
+  );
+});
+
+test("assinatura paga sem cancelamento marcado continua ativa", () => {
+  const r = subscriptionAccess(
+    { status: "active", stripeStatus: "active", periodEnd: emDias(4), cancelAtPeriodEnd: false },
     AGORA,
   );
   assert.deepEqual(r, { grantsPlan: true, state: "active" });

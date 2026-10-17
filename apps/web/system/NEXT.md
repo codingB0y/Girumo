@@ -45,10 +45,9 @@ Prova executável: `infra/tests/dispatch-fanout-smoke.sql` (12 blocos de asserç
 
 ### 🟠 Decisões em aberto
 
-- **`/api/engine/commands` fica ou sai?** Depois que o painel morto (`instances-panel.tsx`) saiu, a
-  rota está com **zero chamadores no código** — o executor de automações enfileira direto do worker,
-  sem HTTP. O mapa do cutover abaixo a lista como "FICA (é produtor da fila)", mas isso foi escrito
-  quando ela ainda tinha uso.
+- ~~**`/api/engine/commands` fica ou sai?**~~ **Saiu em 16/10/2026** (auditoria, C14), junto com
+  `POST /api/dispatch`: zero chamadores, e enfileiravam envio sem cobrar plano — a de commands aceitava
+  qualquer `jid`/`phone` (DM ou grupo de terceiro). No app web, o único produtor de envio é `enqueue_broadcast`.
 - **Fan-out de `campaign_messages`.** `enqueueCampaignMessage` marca `queued` e ninguém consome — nem
   o engine legado, que só claima `broadcasts`. Bug **pré-existente**, não regressão do cutover, então
   não bloqueia a F5. Deixa `messages-agenda.tsx` sem progresso real. O desenho já usa `origin_kind`,
@@ -131,7 +130,7 @@ externa ou sai junto com as outras rotas engine-only.
 - **Só tirar `allowEngine`** (rota fica): `GET /api/welcome`, `GET /api/optout`, `GET /api/media/[id]`
   (este último também serve o editor de LPs — **não deletar**).
 - **Proxies que saem inteiros:** `/api/engine/route.ts` (sem consumidor no front) e os 4
-  `admin/dev-tools/*` que batem em `ENGINE_URL`. **`/api/engine/commands` FICA** (é produtor da fila).
+  `admin/dev-tools/*` que batem em `ENGINE_URL`. ~~`/api/engine/commands` FICA~~ (saiu em 16/10/2026, C14 — ver "Decisões em aberto").
 - **Infra de auth que morre junto:** ramo `x-engine-token` em `lib/route-tenant-context.ts:17-44`,
   `lib/engine-context.ts`, `ENGINE_TOKEN` em `lib/auth.ts:8-12` (já comentado "Remove na F5"),
   `lib/security/request-access-policy.ts` + o teste, e `middleware.ts:97-111`.

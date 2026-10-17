@@ -24,6 +24,7 @@ import {
   salvarProcessado,
 } from "@/lib/stores/bling-pedidos";
 import { listCampaignGroups } from "@/lib/stores/campaign-groups";
+import { chavesEmOptout } from "@/lib/stores/optouts";
 import { ultimoCadastroDaChave } from "@/lib/stores/site-captures";
 import { findLeadByPhones, type SaleLead } from "@/lib/stores/vendas";
 
@@ -81,6 +82,7 @@ export type DepsBling = {
   leads: { porTelefones: (tenantId: string, telefones: string[]) => Promise<SaleLead | null> };
   cadastros: { ultimoDaChave: typeof ultimoCadastroDaChave };
   campanhas: { comMetadata: (tenantId: string) => Promise<CampanhaComMetadata[]> };
+  optouts: { chaves: typeof chavesEmOptout };
   projetar: typeof projetarPedido;
   meta: { enviar: typeof sendCapiEvent };
   oauth: { renovar: typeof renovarToken; credenciais: () => CredenciaisBling | null };
@@ -110,6 +112,7 @@ export function depsDeProducao(): DepsBling {
     leads: { porTelefones: findLeadByPhones },
     cadastros: { ultimoDaChave: ultimoCadastroDaChave },
     campanhas: { comMetadata: campanhasComMetadata },
+    optouts: { chaves: chavesEmOptout },
     projetar: projetarPedido,
     meta: { enviar: sendCapiEvent },
     oauth: { renovar: renovarToken, credenciais: () => credenciaisBling() },

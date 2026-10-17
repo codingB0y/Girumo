@@ -14,6 +14,12 @@ No relatorio HTML nem precisa falhar: o titulo de todo `fill` e
 DENTRO do index.html — onde troca de bytes crus nao enxerga nada. Foi por esse
 buraco que as senhas sairam em todo run ate 23/09/2026.
 
+Trace (`trace.zip` e a copia dele em `e2e-report/data/`) e storageState
+(`.auth/`) sao outra coisa: dump da SESSAO — cookie, localStorage com o
+refresh_token do Supabase, header Authorization. Esses nao tem o que redigir
+(nao se sabe o valor do token), entao sao apagados antes do upload. O config
+do Playwright ja nao grava trace no CI; isto pega o que escapar.
+
 Nao substitui rotacionar a senha se ela ja vazou: serve para o proximo run.
 
 Prova: `python3 infra/scripts/redigir-segredos-e2e.test.py`.
@@ -23,6 +29,7 @@ import io
 import json
 import os
 import re
+import shutil
 import sys
 import zipfile
 from pathlib import Path
@@ -61,7 +68,8 @@ def redigir_zip(dados: bytes, segredos: list[bytes]) -> tuple[bytes, bool]:
         with zipfile.ZipFile(io.BytesIO(dados)) as origem:
             itens = [(i, origem.read(i.filename)) for i in origem.infolist()]
     except zipfile.BadZipFile:
-        return dados, False
+        # Sem abrir nao da para conferir: subir como esta pode publicar a senha.
+        raise SystemExit("zip ilegivel: redacao abortada")
 
     limpos, mudou = [], False
     for info, conteudo in itens:
@@ -98,7 +106,25 @@ def redigir_html(dados: bytes, segredos: list[bytes]) -> tuple[bytes, bool]:
     return dados[: achado.start(2)] + base64.b64encode(zip_limpo) + dados[achado.end(2):], True
 
 
+def apagar_dumps_de_sessao(raiz: Path) -> int:
+    """Toda pasta `.auth` e todo `.zip`: com este config o unico zip que o
+    Playwright escreve e o trace, e no relatorio ele vira `data/<hash>.zip`,
+    sem o nome `trace`."""
+    apagados = 0
+    for pasta in [p for p in raiz.rglob(".auth") if p.is_dir()]:
+        shutil.rmtree(pasta)
+        apagados += 1
+    for arquivo in [p for p in raiz.rglob("*.zip") if p.is_file()]:
+        arquivo.unlink()
+        apagados += 1
+    return apagados
+
+
 def main() -> int:
+    # Antes de olhar senha: sessao vaza mesmo quando nenhuma senha esta definida.
+    apagados = sum(apagar_dumps_de_sessao(raiz) for raiz in ALVOS if raiz.exists())
+    print(f"dumps de sessao apagados: {apagados}")
+
     # Sao TRES senhas: o usuario de QA (lojista), o admin de plataforma que a
     # cobertura de /admin usa (25/08/2026) e o usuario proprio do sessao.spec.ts
     # (23/09/2026). Esquecer uma delas aqui teria o efeito exato que este script
@@ -123,9 +149,7 @@ def main() -> int:
             if not caminho.is_file():
                 continue
             dados = caminho.read_bytes()
-            if caminho.suffix == ".zip":
-                novos, mudou = redigir_zip(dados, segredos)
-            elif caminho.suffix == ".html":
+            if caminho.suffix == ".html":
                 novos, mudou = redigir_html(dados, segredos)
             else:
                 novos, mudou = redigir_bytes(dados, segredos)

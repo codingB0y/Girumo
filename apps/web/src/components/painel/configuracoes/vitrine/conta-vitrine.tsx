@@ -8,6 +8,7 @@ import { Check, Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/toast";
 import { useRole } from "@/components/painel/role-provider";
+import { LEGAL_CONTACT_EMAIL } from "@/lib/legal";
 import {
   exigeSenhaAtual,
   limpaDepoisDeSalvar,
@@ -197,8 +198,14 @@ export function ContaVitrine() {
             </button>
           ) : (
             <div className="pn-aviso rounded-[var(--radius-control)] p-4" role="alert">
+              {/* O texto diz o que a rota faz (ver DELETE /api/auth/account): prometer
+                  "todos os dados serão apagados" era falso. */}
               <p className="text-15 font-semibold text-danger-700">
-                Tem certeza? Essa ação é irreversível. Todos os dados serão apagados.
+                Tem certeza? Seu login é apagado e não dá para desfazer.
+              </p>
+              <p className="mt-1 text-13 text-volt-950">
+                A assinatura é cancelada na hora, sem cobrança nova, e os posts agendados param. Os dados da
+                loja não são apagados agora: para pedir a exclusão, escreva para {LEGAL_CONTACT_EMAIL}.
               </p>
               <div className="mt-3 flex flex-wrap gap-3">
                 <button

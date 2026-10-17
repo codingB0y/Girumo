@@ -13,10 +13,20 @@ function requireEnv(name: string): string {
 export function getSupabaseAdmin(): SupabaseClient {
   if (adminClient) return adminClient;
 
+  const serviceKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
   adminClient = createClient(
     requireEnv("SUPABASE_URL"),
-    requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
+    serviceKey,
     {
+      // Identidade fixa. Este cliente atravessa as requisições da instância: sem o header, o
+      // supabase-js manda no Authorization o access_token de qualquer sessão que o auth client
+      // tenha guardado (ex.: um signInWithPassword) e todas as queries "admin" seguintes rodam
+      // como aquele usuário, presas em RLS e sem grant de escrita.
+      global: {
+        headers: {
+          Authorization: `Bearer ${serviceKey}`,
+        },
+      },
       auth: {
         autoRefreshToken: false,
         persistSession: false,

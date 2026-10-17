@@ -3,6 +3,7 @@ import { after } from "next/server";
 import { SESSION_COOKIE, signSession, sessionCookieOptions } from "@/lib/auth";
 import { buildTenantSlug, resolveDisplayName } from "@/lib/auth/oauth-account";
 import { acceptPendingInvite } from "@/lib/auth/accept-pending-invite";
+import { googleOwnershipProof } from "@/lib/auth/pending-invite";
 import { getAppUrl } from "@/lib/environment";
 import { getSupabaseAdmin, getSupabaseServerAnon } from "@/lib/supabase/server";
 import { provisionEntrySubscription } from "@/lib/billing/entry-subscription";
@@ -109,7 +110,14 @@ export async function POST(req: Request) {
       name: typeof authUser.user_metadata?.name === "string" ? authUser.user_metadata.name : null,
       email,
     });
-    const invite = await acceptPendingInvite(supabase, authUser.id, email, invitedName);
+    // O Google prova a posse do e-mail; um token de conta por senha, não.
+    const invite = await acceptPendingInvite(
+      supabase,
+      authUser.id,
+      email,
+      invitedName,
+      googleOwnershipProof(authUser.identities, email),
+    );
     if (invite) {
       const acceptanceError = await recordLegalAcceptance(supabase, {
         authUserId: authUser.id,

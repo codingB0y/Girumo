@@ -25,6 +25,9 @@ let papel = "owner";
 let conexao: Record<string, unknown> | null = null;
 let contatos: Contato[] = [];
 let contatosQuebrados = false;
+/** `optouts` de todas as lojas: o filtro da loja é da consulta. */
+let optouts: Array<{ tenant_id: string; phone: string }> = [];
+let optoutsQuebrados = false;
 
 /** `gt` + `order asc` + `limit`, como o PostgREST faz com a página por chave. */
 function pagina(url: URL): Contato[] {
@@ -36,6 +39,17 @@ function pagina(url: URL): Contato[] {
     .slice(0, Number(url.searchParams.get("limit")));
 }
 
+/** Descadastro por chave (`phone` > último lido), como `pagina`. */
+function paginaDoOptout(url: URL): Array<{ phone: string }> {
+  const loja = url.searchParams.get("tenant_id")?.replace("eq.", "");
+  const depoisDe = url.searchParams.get("phone")?.replace("gt.", "") ?? "";
+  return optouts
+    .filter((o) => o.tenant_id === loja && o.phone > depoisDe)
+    .sort((a, b) => (a.phone < b.phone ? -1 : 1))
+    .slice(0, Number(url.searchParams.get("limit")))
+    .map(({ phone }) => ({ phone }));
+}
+
 const supabase = createServer((req, res) => {
   const url = new URL(req.url ?? "/", "http://supabase.falso");
   chamadas.push(url);
@@ -45,6 +59,7 @@ const supabase = createServer((req, res) => {
   else if (url.pathname === "/rest/v1/memberships") [status, corpo] = [200, [{ tenant_id: "loja-b", role: papel, modules: [] }]];
   else if (url.pathname === "/rest/v1/bling_connections") [status, corpo] = [200, conexao ? [conexao] : []];
   else if (url.pathname === "/rest/v1/bling_contacts" && !contatosQuebrados) [status, corpo] = [200, pagina(url)];
+  else if (url.pathname === "/rest/v1/optouts" && !optoutsQuebrados) [status, corpo] = [200, paginaDoOptout(url)];
   res.setHeader("Content-Type", "application/json");
   res.statusCode = status;
   res.end(JSON.stringify(corpo));
@@ -69,6 +84,8 @@ beforeEach(() => {
   papel = "owner";
   contatosQuebrados = false;
   contatos = [];
+  optouts = [];
+  optoutsQuebrados = false;
   conexao = {
     tenant_id: "loja-b", company_id: "empresa-1", company_name: "Moda da Ana", status: "ativa", access_token_enc: null,
     refresh_token_enc: null, access_expires_at: null, token_version: 2, situations: [], situations_at: null,
@@ -97,6 +114,7 @@ const CABECALHO = "email,email,phone,phone,phone,fn,ln,ct,st,zip,country,doby,do
 const linhas = async (resposta: Response) => (await resposta.text()).split("\r\n");
 const doBanco = () => chamadas.filter((u) => u.pathname.startsWith("/rest/v1/") && u.pathname !== "/rest/v1/memberships");
 const paginas = () => chamadas.filter((u) => u.pathname === "/rest/v1/bling_contacts");
+const paginasDoOptout = () => chamadas.filter((u) => u.pathname === "/rest/v1/optouts");
 
 test("CSV da lista: cabeçalho do Meta, cada hash na sua coluna, vazio quando falta, arquivo para baixar", async () => {
   contatos = [
@@ -154,6 +172,48 @@ test("uma linha por pessoa (a chave do telefone): fica o contato buscado por úl
       ["gt.1000", "1000", "bling_contact_id.asc"],
     ],
   );
+});
+
+test("descadastro: quem pediu para sair não vai no CSV, com ou sem 55 e o nono dígito; só o da loja conta", async () => {
+  contatos = [
+    contato(10, "1199990001", { external_id: "saiu-com-55" }),
+    contato(11, "1199990002", { external_id: "saiu-sem-o-9" }),
+    contato(12, "1199990003", { external_id: "saiu-em-outra-loja" }),
+    contato(13, null, { external_id: "sem-telefone" }),
+  ];
+  optouts = [
+    { tenant_id: "loja-b", phone: "5511999990001" },
+    { tenant_id: "loja-b", phone: "1199990002" },
+    { tenant_id: "loja-x", phone: "5511999990003" },
+  ];
+
+  const corpo = (await linhas(await GET(pedir("comprador")))).slice(1);
+  assert.deepEqual(corpo.map((l) => l.split(",").at(-1)), ["saiu-em-outra-loja", "sem-telefone"]);
+  assert.equal(paginasDoOptout()[0]?.searchParams.get("tenant_id"), "eq.loja-b");
+});
+
+test("descadastro com mais de 1000 números: lê por chave até a página incompleta (o PostgREST corta em 1000 sem erro)", async () => {
+  contatos = [contato(10, "1199990004", { external_id: "saiu-na-2a-pagina" }), contato(11, "1199990005", { external_id: "fica" })];
+  optouts = Array.from({ length: 1000 }, (_, i) => ({ tenant_id: "loja-b", phone: `55119${String(i).padStart(8, "0")}` }));
+  optouts.push({ tenant_id: "loja-b", phone: "5511999990004" });
+
+  const corpo = (await linhas(await GET(pedir("comprador")))).slice(1);
+  assert.deepEqual(corpo.map((l) => l.split(",").at(-1)), ["fica"]);
+  assert.deepEqual(
+    paginasDoOptout().map((u) => [u.searchParams.get("phone"), u.searchParams.get("limit"), u.searchParams.get("order")]),
+    [
+      [null, "1000", "phone.asc"],
+      ["gt.5511900000999", "1000", "phone.asc"],
+    ],
+  );
+});
+
+test("descadastro que não carrega: 500, e o CSV não sai sem o filtro", async () => {
+  contatos = [contato(10, "1199990001", { external_id: "x" })];
+  optoutsQuebrados = true;
+  const resposta = await GET(pedir("comprador"));
+  assert.equal(resposta.status, 500);
+  assert.ok(!(await resposta.text()).includes("inesperado"));
 });
 
 test("RFC 4180: célula com vírgula, aspas ou quebra de linha vai entre aspas, com as aspas dobradas", async () => {
