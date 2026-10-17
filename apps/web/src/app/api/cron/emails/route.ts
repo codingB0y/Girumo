@@ -15,6 +15,7 @@ import {
 } from "@/lib/email/templates";
 import { activationMarkerForAge, activationNotificationType, type ActivationMarker } from "@/lib/email/activation-cadence";
 import { canSendAlert } from "@/lib/email/alert-optout";
+import { podeEnviar, temPlano } from "@/lib/email/cron-recipients";
 import { broadcastFailedTitle } from "@/lib/email/broadcast-failed-copy";
 import { isCronAuthorized } from "@/lib/cron-auth";
 import { getInstanceHealth } from "@/lib/stores/instance-health";
@@ -209,6 +210,20 @@ export async function GET(req: Request) {
   const appUrl = getAppUrl();
   const results = { nudge_sent: 0, disconnect_sent: 0, activation_sent: 0, weekly_sent: 0, broadcast_sent: 0, inactivity_sent: 0, group_admin_sent: 0, errors: 0 };
 
+  // Toda checagem "já enviei?" (e "já conectou?") passa por aqui: erro de
+  // leitura é logado e contado, e quem decide é `podeEnviar` — erro não envia.
+  const liberado = (
+    job: string,
+    tenantId: string,
+    leitura: { data: unknown[] | null; error: { message: string } | null },
+  ): boolean => {
+    if (leitura.error) {
+      console.error(`[cron] ${job}: falha no dedupe de ${tenantId}:`, leitura.error.message);
+      results.errors++;
+    }
+    return podeEnviar(leitura);
+  };
+
   // --- Job 1: 24h sem conectar ---
   // Tenants criados há 24-48h sem nenhum heartbeat de session
   const now = new Date();
@@ -222,25 +237,34 @@ export async function GET(req: Request) {
     .lte("created_at", h24Ago);
 
   for (const org of recentOrgs ?? []) {
-    // Checa se já teve algum heartbeat (session com live=true)
-    const { data: funnelEvent } = await supabase
+    // Já conectou? Dois sinais: o marco do funil e o `connected_at` da
+    // instância, que a RPC da Evolution grava na 1ª conexão e nunca zera. O
+    // marco só passou a sair do webhook da Evolution em 16/10/2026 — sem o
+    // segundo sinal, quem conectou antes disso ainda receberia o lembrete.
+    const funnelEvent = await supabase
       .from("funnel_events")
       .select("id")
       .eq("tenant_id", org.id)
       .eq("event_name", "qr_connected")
-      .maybeSingle();
+      .limit(1);
+    if (!liberado("nudge_connect", org.id, funnelEvent)) continue;
 
-    if (funnelEvent) continue; // Já conectou, skip
+    const connected = await supabase
+      .from("instances")
+      .select("id")
+      .eq("tenant_id", org.id)
+      .not("connected_at", "is", null)
+      .limit(1);
+    if (!liberado("nudge_connect", org.id, connected)) continue;
 
     // Checa se já mandou esse email
-    const { data: alreadySent } = await supabase
+    const alreadySent = await supabase
       .from("notifications")
       .select("id")
       .eq("tenant_id", org.id)
       .eq("type", "nudge_connect")
-      .maybeSingle();
-
-    if (alreadySent) continue;
+      .limit(1);
+    if (!liberado("nudge_connect", org.id, alreadySent)) continue;
 
     // Busca owner email
     const { data: owner } = await supabase
@@ -270,13 +294,17 @@ export async function GET(req: Request) {
     if (sent) {
       results.nudge_sent++;
       // Registra como notification pra não mandar de novo
-      await supabase.from("notifications").insert({
+      const { error: notifError } = await supabase.from("notifications").insert({
         tenant_id: org.id,
         user_id: owner.user_id,
         type: "nudge_connect",
         title: "Lembrete: conectar WhatsApp",
         body: "Enviamos um email lembrando de conectar.",
       });
+      if (notifError) {
+        console.error(`[cron] nudge_connect: enviado para ${org.id} mas notification não registrada:`, notifError.message);
+        results.errors++;
+      }
     } else {
       results.errors++;
     }
@@ -301,14 +329,13 @@ export async function GET(req: Request) {
     if (!marker) continue;
 
     const notifType = activationNotificationType(marker);
-    const { data: alreadySent } = await supabase
+    const alreadySent = await supabase
       .from("notifications")
       .select("id")
       .eq("tenant_id", org.id)
       .eq("type", notifType)
-      .maybeSingle();
-
-    if (alreadySent) continue;
+      .limit(1);
+    if (!liberado(notifType, org.id, alreadySent)) continue;
 
     const { data: owner } = await supabase
       .from("memberships")
@@ -336,17 +363,47 @@ export async function GET(req: Request) {
 
     if (sent) {
       results.activation_sent++;
-      await supabase.from("notifications").insert({
+      const { error: notifError } = await supabase.from("notifications").insert({
         tenant_id: org.id,
         user_id: owner.user_id,
         type: notifType,
         title: `Dica de ativação (D${marker})`,
         body: "Enviamos uma dica por e-mail pra você aproveitar melhor a Girumo.",
       });
+      if (notifError) {
+        console.error(`[cron] ${notifType}: enviado para ${org.id} mas notification não registrada:`, notifError.message);
+        results.errors++;
+      }
     } else {
       results.errors++;
     }
   }
+
+  // --- Quem tem plano valendo (Jobs 3, 4, 6 e 7) ---
+  // Os avisos recorrentes varriam todas as organizations: quem cancelava seguia
+  // recebendo "WhatsApp desconectado" todo dia e o relatório toda segunda, para
+  // sempre. Mesma regra do 402 (`subscriptionAccess`). Jobs 1 e 2 são onboarding
+  // de conta nova e o 5 só dispara em loja que acabou de disparar: ficam de fora.
+  // Uma leitura por loja, guardada para os jobs seguintes da mesma rodada. Erro
+  // na leitura = essa loja não recebe nesta rodada; a próxima é daqui a 1 hora.
+  const planoPorLoja = new Map<string, boolean>();
+  const temPlanoValendo = async (tenantId: string): Promise<boolean> => {
+    const guardado = planoPorLoja.get(tenantId);
+    if (guardado !== undefined) return guardado;
+    // `subscriptions` tem unique(tenant_id): `maybeSingle` vale.
+    const { data, error } = await supabase
+      .from("subscriptions")
+      .select("status, metadata, current_period_end")
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+    if (error) {
+      console.error(`[cron] falha lendo a assinatura de ${tenantId} — avisos recorrentes pulados nesta rodada:`, error.message);
+      results.errors++;
+    }
+    const liberada = !error && temPlano(data, now);
+    planoPorLoja.set(tenantId, liberada);
+    return liberada;
+  };
 
   // --- Job 3: WhatsApp desconectado há mais de 2h ---
   const twoHoursAgoMs = now.getTime() - 2 * 60 * 60 * 1000;
@@ -355,6 +412,8 @@ export async function GET(req: Request) {
   const { data: disconnectOrgs } = await supabase.from("organizations").select("id, name");
 
   for (const org of disconnectOrgs ?? []) {
+    if (!(await temPlanoValendo(org.id))) continue;
+
     const { data: instanceRows } = await supabase
       .from("instances")
       .select("status, updated_at, disconnected_at")
@@ -386,14 +445,14 @@ export async function GET(req: Request) {
     if (!canSendAlert({ value: prefs?.disconnect_alert_enabled, error: prefsError })) continue;
 
     // Dedup: no máximo 1 alerta de desconexão por tenant por dia.
-    const { data: sentToday } = await supabase
+    const sentToday = await supabase
       .from("notifications")
       .select("id")
       .eq("tenant_id", org.id)
       .eq("type", "disconnect_alert")
       .gte("created_at", todayStartISO)
-      .maybeSingle();
-    if (sentToday) continue;
+      .limit(1);
+    if (!liberado("disconnect_alert", org.id, sentToday)) continue;
 
     const { data: owner } = await supabase
       .from("memberships")
@@ -419,13 +478,17 @@ export async function GET(req: Request) {
 
     if (sent) {
       results.disconnect_sent++;
-      await supabase.from("notifications").insert({
+      const { error: notifError } = await supabase.from("notifications").insert({
         tenant_id: org.id,
         user_id: owner.user_id,
         type: "disconnect_alert",
         title: "WhatsApp desconectado",
         body: "Enviamos um e-mail avisando que o WhatsApp está desconectado há mais de 2h.",
       });
+      if (notifError) {
+        console.error(`[cron] disconnect_alert: enviado para ${org.id} mas notification não registrada:`, notifError.message);
+        results.errors++;
+      }
     } else {
       results.errors++;
     }
@@ -438,6 +501,8 @@ export async function GET(req: Request) {
     const { data: allOrgs } = await supabase.from("organizations").select("id");
 
     for (const org of allOrgs ?? []) {
+      if (!(await temPlanoValendo(org.id))) continue;
+
       // Opt-out: sem linha em tenant_settings = habilitado por padrão; erro de
       // leitura = não envia. A regra vive em canSendAlert (ver alert-optout.ts).
       const { data: settings, error: settingsError } = await supabase
@@ -455,21 +520,14 @@ export async function GET(req: Request) {
       // Já enviado nesta semana? (dedupe: notification criada de hoje em diante)
       // Se a checagem falhar não dá pra saber se já foi — pula, porque reenviar
       // é pior que atrasar o relatório uma semana.
-      const { data: alreadySent, error: dedupeError } = await supabase
+      const alreadySent = await supabase
         .from("notifications")
         .select("id")
         .eq("tenant_id", org.id)
         .eq("type", "weekly_report")
         .gte("created_at", windows.currentWeekEndIso)
-        .maybeSingle();
-
-      if (dedupeError) {
-        console.error(`[cron] weekly_report: falha no dedupe de ${org.id}:`, dedupeError.message);
-        results.errors++;
-        continue;
-      }
-
-      if (alreadySent) continue;
+        .limit(1);
+      if (!liberado("weekly_report", org.id, alreadySent)) continue;
 
       const { data: owner } = await supabase
         .from("memberships")
@@ -557,14 +615,14 @@ export async function GET(req: Request) {
 
     // Dedup: no máximo 1 aviso por tenant por dia. A janela de leitura é de 24h,
     // então sem isto o mesmo disparo falho renderia e-mail em duas rodadas.
-    const { data: sentToday } = await supabase
+    const sentToday = await supabase
       .from("notifications")
       .select("id")
       .eq("tenant_id", tenantId)
       .eq("type", "broadcast_failed")
       .gte("created_at", todayStartISO)
-      .maybeSingle();
-    if (sentToday) continue;
+      .limit(1);
+    if (!liberado("broadcast_failed", tenantId, sentToday)) continue;
 
     const { data: owner } = await supabase
       .from("memberships")
@@ -626,6 +684,8 @@ export async function GET(req: Request) {
   const { data: riskOrgs } = await supabase.from("organizations").select("id, name");
 
   for (const org of riskOrgs ?? []) {
+    if (!(await temPlanoValendo(org.id))) continue;
+
     let emRisco;
     try {
       const numbers = await getInstanceHealth(org.id);
@@ -654,14 +714,14 @@ export async function GET(req: Request) {
     // Dedupe de 3 dias: a janela de aviso tem ~4 dias, então o lojista recebe
     // no máximo dois. Um alerta diário sobre o mesmo fato vira ruído e ensina a
     // ignorar justamente o e-mail que precisa ser lido.
-    const { data: avisado } = await supabase
+    const avisado = await supabase
       .from("notifications")
       .select("id")
       .eq("tenant_id", org.id)
       .eq("type", "inactivity_risk")
       .gte("created_at", inactivityDedupeISO)
-      .maybeSingle();
-    if (avisado) continue;
+      .limit(1);
+    if (!liberado("inactivity_risk", org.id, avisado)) continue;
 
     const { data: owner } = await supabase
       .from("memberships")
@@ -724,6 +784,8 @@ export async function GET(req: Request) {
   const { data: adminRiskOrgs } = await supabase.from("organizations").select("id, name");
 
   for (const org of adminRiskOrgs ?? []) {
+    if (!(await temPlanoValendo(org.id))) continue;
+
     let resumo;
     try {
       resumo = summarizeProtection(await listGroupsForProtection(org.id));
@@ -749,14 +811,14 @@ export async function GET(req: Request) {
     }
     if (!canSendAlert({ value: prefs?.disconnect_alert_enabled, error: prefsError })) continue;
 
-    const { data: avisado } = await supabase
+    const avisado = await supabase
       .from("notifications")
       .select("id")
       .eq("tenant_id", org.id)
       .eq("type", "group_admin_risk")
       .gte("created_at", adminRiskDedupeISO)
-      .maybeSingle();
-    if (avisado) continue;
+      .limit(1);
+    if (!liberado("group_admin_risk", org.id, avisado)) continue;
 
     const { data: owner } = await supabase
       .from("memberships")

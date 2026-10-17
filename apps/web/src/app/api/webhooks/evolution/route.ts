@@ -1,3 +1,4 @@
+import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import { evolutionEventId } from "@/lib/evolution/event-id";
 import { secretMatches } from "@/lib/evolution/webhook-secret";
 import {
@@ -104,6 +105,15 @@ async function applyConnectionUpdate(
     phone: phoneFromWuid(event.data.wuid),
     metadata: { lastDisconnectReason },
   });
+
+  // Marco de ativação "conectou o WhatsApp". Só existia no heartbeat da engine
+  // Baileys (`setSession`), que ninguém chama mais: com a Evolution o marco
+  // nunca era gravado, e o cron mandava "conecte seu WhatsApp" para quem já
+  // tinha conectado. `onlyFirst` guarda a data da primeira conexão — reconectar
+  // não a move. Não lança: falha vira log em trackFunnelEvent.
+  if (status === "connected") {
+    await trackFunnelEvent({ tenantId: instance.tenant_id, userId: null, event: "qr_connected", onlyFirst: true });
+  }
 }
 
 /**
