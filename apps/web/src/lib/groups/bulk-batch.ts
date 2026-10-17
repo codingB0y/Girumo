@@ -27,6 +27,10 @@
  * diferentes saem de grupos diferentes — por isso `buildBulkJobs` é chamada
  * uma vez por telefone (ver `duplicate-removal.ts`), nunca uma vez pro lote
  * inteiro.
+ *
+ * `set_subject` renomeia o grupo (Padronizar, spec 2026-10-10 §6.7). Também é
+ * carga POR GRUPO — cada um ganha um número diferente —, por isso não passa por
+ * `buildBulkJobs`: o lote sai de `buildSubjectJobs`.
  */
 export type BulkAction =
   | "set_description"
@@ -34,7 +38,8 @@ export type BulkAction =
   | "open"
   | "close"
   | "check_invite"
-  | "remove_participant";
+  | "remove_participant"
+  | "set_subject";
 
 export type BulkTargetGroup = {
   id: string;
@@ -54,6 +59,12 @@ export type BulkJobInsert = {
   media_id: string | null;
   /** Dígitos com DDI. Só preenchido em `remove_participant`. */
   target_phone: string | null;
+  /**
+   * Nome novo do grupo. Só preenchido em `set_subject`. Opcional no tipo porque
+   * há quem monte o job à mão sem conhecer a ação (o backfill de convite do
+   * sync); omitido, o banco grava `null`.
+   */
+  subject?: string | null;
 };
 
 export type BuildBulkJobsInput = {
@@ -70,6 +81,9 @@ export type BuildBulkJobsInput = {
 export function buildBulkJobs(input: BuildBulkJobsInput): BulkJobInsert[] {
   const { action } = input;
 
+  if (action === "set_subject") {
+    throw new Error("Renomear tem um nome por grupo: use buildSubjectJobs.");
+  }
   if (action === "set_description" && typeof input.description !== "string") {
     throw new Error("A descrição é obrigatória para aplicar descrição em massa.");
   }
@@ -98,7 +112,41 @@ export function buildBulkJobs(input: BuildBulkJobsInput): BulkJobInsert[] {
       description,
       media_id: mediaId,
       target_phone: targetPhone,
+      subject: null,
     }));
+}
+
+export type SubjectJobInput = {
+  tenantId: string;
+  campaignGroupId: string;
+  batchId: string;
+  /** A saída de `planejarRenomes` (lib/groups/padronizar.ts). */
+  renomes: ReadonlyArray<{ groupId: string; whatsappGroupId: string; subject: string }>;
+};
+
+/**
+ * Lote de renomes do Padronizar: um job por grupo, cada um com o SEU nome, sob
+ * um `batch_id` só (a tela acompanha "renomeando 3 de 12" pela rota de lotes).
+ *
+ * Nome vazio lança: o worker recusaria do mesmo jeito, mas só depois de gastar
+ * uma janela do ritmo anti-ban para descobrir.
+ */
+export function buildSubjectJobs(input: SubjectJobInput): BulkJobInsert[] {
+  return input.renomes.map((renome): BulkJobInsert => {
+    if (!renome.subject.trim()) throw new Error("Renomear exige um nome para cada grupo.");
+    return {
+      tenant_id: input.tenantId,
+      campaign_group_id: input.campaignGroupId,
+      batch_id: input.batchId,
+      action: "set_subject",
+      group_id: renome.groupId,
+      whatsapp_group_id: renome.whatsappGroupId,
+      description: null,
+      media_id: null,
+      target_phone: null,
+      subject: renome.subject,
+    };
+  });
 }
 
 /** Um grupo da store, como candidato a alvo do lote. */

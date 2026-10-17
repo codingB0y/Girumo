@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   buildBulkJobs,
+  buildSubjectJobs,
   mergeGrowIdentity,
   planIdentityJobs,
   selectBulkTargets,
@@ -340,4 +341,53 @@ test("remove_participant sem telefone e erro — nao ha quem remover", () => {
 test("outras acoes nao carregam target_phone", () => {
   const [job] = buildBulkJobs({ ...BASE, action: "open", groups: [GRUPOS[0]] });
   assert.equal(job.target_phone, null);
+});
+
+/* ---------- set_subject ---------- */
+
+test("buildSubjectJobs faz um job por grupo, cada um com o SEU nome, no mesmo lote", () => {
+  const jobs = buildSubjectJobs({
+    ...BASE,
+    renomes: [
+      { groupId: "g1", whatsappGroupId: "111@g.us", subject: "Moda Kids do Sul 1" },
+      { groupId: "g2", whatsappGroupId: "222@g.us", subject: "Moda Kids do Sul 2" },
+    ],
+  });
+
+  assert.deepEqual(
+    jobs.map((j) => [j.group_id, j.whatsapp_group_id, j.subject]),
+    [
+      ["g1", "111@g.us", "Moda Kids do Sul 1"],
+      ["g2", "222@g.us", "Moda Kids do Sul 2"],
+    ],
+  );
+  for (const job of jobs) {
+    assert.equal(job.action, "set_subject");
+    assert.equal(job.batch_id, "b1");
+    assert.equal(job.tenant_id, "t1");
+    assert.equal(job.campaign_group_id, "c1");
+    assert.equal(job.description, null);
+    assert.equal(job.media_id, null);
+    assert.equal(job.target_phone, null);
+  }
+});
+
+test("buildSubjectJobs com nome vazio lanca — o worker recusaria depois de gastar a janela", () => {
+  assert.throws(
+    () =>
+      buildSubjectJobs({
+        ...BASE,
+        renomes: [{ groupId: "g1", whatsappGroupId: "111@g.us", subject: "   " }],
+      }),
+    /nome/i,
+  );
+});
+
+test("buildBulkJobs recusa set_subject — renomear tem um nome por grupo", () => {
+  assert.throws(() => buildBulkJobs({ ...BASE, action: "set_subject", groups: GRUPOS }), /buildSubjectJobs/);
+});
+
+test("as outras acoes nao carregam subject", () => {
+  const [job] = buildBulkJobs({ ...BASE, action: "open", groups: [GRUPOS[0]] });
+  assert.equal(job.subject, null);
 });
