@@ -255,24 +255,21 @@ async function applyFlashOfferComment(
   // literalmente a divergência que a feature existe para evitar.
   if (msg.commentedAt < new Date(janela.openedAt)) return true;
 
-  try {
-    await insertEntry({
-      tenantId: instance.tenant_id,
-      offerId: janela.offerId,
-      groupId: janela.groupId,
-      whatsappGroupId: msg.remoteJid,
-      participantJid: msg.participantJid,
-      phone: msg.phoneHint ?? janela.lidMap[msg.participantJid] ?? null,
-      pushName: msg.pushName,
-      messageText: msg.text,
-      messageId: msg.messageId,
-      commentedAt: msg.commentedAt,
-    });
-  } catch (e) {
-    // Não derruba a resposta: 500 faria a Evolution reentregar, e a reentrega
-    // cairia no mesmo erro. Fica o log.
-    console.error(`[webhook/evolution] captura da oferta relampago falhou:`, e);
-  }
+  // Erro de banco aqui (e no findOpenWindow acima) sobe e vira 500, como o da
+  // instância: 200 diria à Evolution que o comentário foi gravado. Reentregar é
+  // seguro — o índice único da mensagem transforma a repetição em no-op.
+  await insertEntry({
+    tenantId: instance.tenant_id,
+    offerId: janela.offerId,
+    groupId: janela.groupId,
+    whatsappGroupId: msg.remoteJid,
+    participantJid: msg.participantJid,
+    phone: msg.phoneHint ?? janela.lidMap[msg.participantJid] ?? null,
+    pushName: msg.pushName,
+    messageText: msg.text,
+    messageId: msg.messageId,
+    commentedAt: msg.commentedAt,
+  });
 
   return true;
 }

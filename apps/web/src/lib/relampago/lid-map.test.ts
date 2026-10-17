@@ -42,3 +42,34 @@ test("mergeLidMaps: o primeiro argumento ganha", () => {
 test("mergeLidMaps ignora telefone malformado", () => {
   assert.deepEqual(mergeLidMaps({ "1@lid": "abc" }, { "2@lid": "" }), {});
 });
+
+test("LID de tamanho real sem phoneNumber não vira telefone", () => {
+  // Em produção o LID tem 11–15 dígitos e passa em qualquer "parece telefone".
+  // Os dígitos do id só valem como número quando o domínio é s.whatsapp.net.
+  const mapa = lidMapFromParticipants({
+    participants: [
+      { id: "100000000000001@lid", phoneNumber: null },
+      { id: "10000000001@lid" },
+      { id: "100000000000002@lid", phoneNumber: "100000000000002@lid" },
+    ],
+  });
+
+  assert.deepEqual(mapa, {});
+});
+
+test("o vivo sem telefone não encobre o telefone do histórico", () => {
+  const vivo = lidMapFromParticipants({ participants: [{ id: "100000000000001@lid" }] });
+  const historico = { "100000000000001@lid": "5511999990000" };
+
+  assert.deepEqual(mergeLidMaps(vivo, historico), { "100000000000001@lid": "5511999990000" });
+});
+
+test("mergeLidMaps aceita JID de telefone e recusa LID como valor", () => {
+  assert.deepEqual(
+    mergeLidMaps({
+      "1@lid": "5511999990000@s.whatsapp.net",
+      "2@lid": "100000000000001@lid",
+    }),
+    { "1@lid": "5511999990000" },
+  );
+});

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { normalizeInviteUrl } from "@/lib/groups/invite-url";
 import { mergeLidMaps } from "@/lib/relampago/lid-map";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
@@ -36,7 +37,10 @@ export async function findOpenWindow(
     .is("closed_at", null)
     .maybeSingle();
 
-  if (error || !data) return null;
+  // Erro sobe: "sem janela" descartaria o comentário em silêncio, e o webhook
+  // responderia 200 para algo que não gravou.
+  if (error) throw error;
+  if (!data) return null;
 
   const offer = data.flash_offers as unknown as { keyword: string; status: string };
   if (offer.status !== "open") return null;
@@ -168,6 +172,8 @@ export type QueueEntry = {
   commented_at: string;
   deprioritized_at: string | null;
   outcome: "sold" | "dropped" | null;
+  /** Convite do grupo onde comentou: por onde se responde quem não tem telefone. */
+  group_invite_url: string | null;
   claim: {
     id: string;
     seller_user_id: string;
@@ -266,7 +272,7 @@ export async function listQueue(tenantId: string, offerId: string): Promise<Queu
   const { data, error } = await getSupabaseAdmin()
     .from("flash_offer_entries")
     .select(
-      "id, participant_jid, phone, push_name, message_text, commented_at, deprioritized_at, outcome, flash_offer_claims(id, seller_user_id, claimed_at, contacted_at, released_at)",
+      "id, participant_jid, phone, push_name, message_text, commented_at, deprioritized_at, outcome, groups(invite_url), flash_offer_claims(id, seller_user_id, claimed_at, contacted_at, released_at)",
     )
     .eq("tenant_id", tenantId)
     .eq("offer_id", offerId)
@@ -284,6 +290,7 @@ export async function listQueue(tenantId: string, offerId: string): Promise<Queu
       released_at: string | null;
     }>;
     const ativo = claims.find((c) => c.released_at === null) ?? null;
+    const grupo = linha.groups as unknown as { invite_url: string | null } | null;
 
     return {
       id: linha.id as string,
@@ -294,6 +301,8 @@ export async function listQueue(tenantId: string, offerId: string): Promise<Queu
       commented_at: linha.commented_at as string,
       deprioritized_at: linha.deprioritized_at as string | null,
       outcome: linha.outcome as "sold" | "dropped" | null,
+      // Só convite de verdade vira link: o valor vai parar num href.
+      group_invite_url: normalizeInviteUrl(grupo?.invite_url ?? ""),
       claim: ativo
         ? {
             id: ativo.id,
