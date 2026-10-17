@@ -15,6 +15,7 @@ function baseDeps(over: Partial<BulkDeps> = {}): BulkDeps {
     setDescription: async () => {},
     setPicture: async () => {},
     setSubject: async () => {},
+    removeParticipant: async () => {},
     signedMediaUrl: async () => "https://signed.local/f.jpg",
     ...over,
   };
@@ -130,6 +131,33 @@ test("dry-run nao renomeia grupo e falha o job com o motivo", async () => {
       ],
       setSubject: async () => {
         chamou.push("nome");
+      },
+      ack: async (_t, _j, ack) => {
+        acks.push(ack);
+      },
+    }),
+  );
+
+  await runBulkTick(deps);
+  await drainInFlight();
+
+  assert.deepEqual(chamou, [], "nada pode tocar a Evolution em dry-run");
+  assert.equal(acks[0]?.status, "failed");
+  assert.equal(acks[0]?.error, BULK_DRY_RUN_REASON);
+});
+
+test("dry-run nao remove participante e falha o job com o motivo", async () => {
+  // Remover alguém do grupo é efeito real e visível. O telefone também não vai
+  // para o log: é dado pessoal.
+  const chamou: string[] = [];
+  const acks: BulkAck[] = [];
+  const deps = withBulkDryRun(
+    baseDeps({
+      claimJobs: async () => [
+        { id: "j1", action: "remove_participant", whatsappGroupId: "111@g.us", targetPhone: "5511999990000" },
+      ],
+      removeParticipant: async () => {
+        chamou.push("remocao");
       },
       ack: async (_t, _j, ack) => {
         acks.push(ack);
