@@ -38,6 +38,9 @@ import { horaBR } from "@/lib/date-br";
 import type { EntradasDaCampanha } from "@/lib/painel/campanha-visao";
 import { useLinkOrigin } from "@/lib/painel/use-link-origin";
 import { linkPublico } from "@/lib/painel/campanhas";
+import { buscarLista } from "@/lib/painel/carregar";
+import type { Carga } from "@/lib/painel/types";
+import { ErroDeCarga } from "@/components/painel/erro-de-carga";
 
 type Campanha = {
   id: string;
@@ -67,6 +70,8 @@ export default function CampanhaDetalhe() {
   const key = params?.slug ?? "";
 
   const [campanhas, setCampanhas] = useState<Campanha[]>([]);
+  // Erro aqui não é "Campanha não encontrada": a lista é que não veio.
+  const [cargaDasCampanhas, setCargaDasCampanhas] = useState<Carga>("carregando");
   const [groups, setGroups] = useState<Group[]>([]);
   const [clicks, setClicks] = useState(0);
   // null quando a leitura não veio: "—" na tela, nunca um 0 ou um "ninguém
@@ -114,8 +119,9 @@ export default function CampanhaDetalhe() {
 
   async function loadData() {
     try {
-      const [c, g, l, s, o, ent] = await Promise.all([
-        fetch("/api/campanhas").then((r) => r.json()).catch(() => []),
+      // Falha não apaga a campanha que já está na tela (o Atualizar no meio de um soluço da rede).
+      const [list, g, l, s, o, ent] = await Promise.all([
+        buscarLista<Campanha>("/api/campanhas", setCampanhas, setCargaDasCampanhas),
         fetch("/api/groups").then((r) => r.json()).catch(() => []),
         fetch("/api/links").then((r) => r.json()).catch(() => []),
         fetch("/api/session").then((r) => r.json()).catch(() => ({})),
@@ -124,12 +130,10 @@ export default function CampanhaDetalhe() {
           .then((r) => (r.ok ? r.json() : null))
           .catch(() => null),
       ]);
-      const list: Campanha[] = Array.isArray(c) ? c : [];
-      setCampanhas(list);
       setGroups(Array.isArray(g) ? g : []);
       setLive(Boolean(s?.live));
       setOrders(Array.isArray(o) ? o : []);
-      const camp = list.find((x) => x.slug === key || x.id === key);
+      const camp = list?.find((x) => x.slug === key || x.id === key);
       if (camp) {
         const ls: TrackedLink[] = Array.isArray(l) ? l : [];
         // Por ID: comparar o nome fazia o histórico sumir quando a campanha era renomeada.
@@ -203,13 +207,22 @@ export default function CampanhaDetalhe() {
     setDeleting(false);
   }
 
-  if (loading) {
+  // O "Tentar de novo" volta por aqui: esqueleto, e não "não encontrada", enquanto busca.
+  if (loading || (!campanha && cargaDasCampanhas === "carregando")) {
     return (
       <div className="mx-auto max-w-[1100px] space-y-4 px-4 py-8 sm:px-8" role="status" aria-label="Carregando a campanha">
         <div className="pn-skeleton h-40 rounded-xl" data-testid="painel-skeleton" />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[0, 1, 2].map((i) => <div key={i} className="pn-skeleton h-56 rounded-xl" data-testid="painel-skeleton" />)}
         </div>
+      </div>
+    );
+  }
+
+  if (!campanha && cargaDasCampanhas === "erro") {
+    return (
+      <div className="mx-auto max-w-[1100px] px-4 py-8 sm:px-8">
+        <ErroDeCarga titulo="Não deu para carregar esta campanha." aoTentarDeNovo={() => void loadData()} />
       </div>
     );
   }

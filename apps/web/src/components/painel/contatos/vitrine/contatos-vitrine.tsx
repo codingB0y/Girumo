@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { brl } from "@/components/painel/home/format";
+import { ErroDeCarga } from "@/components/painel/erro-de-carga";
 import { Odometro } from "@/components/painel/odometro";
 import { diaHoraCurto, iniciais, marcasDaFita, rotulosDaFita } from "@/lib/painel/inicio";
 import { ordersInMonth, revenueInMonth, type MonthlyOrder } from "@/lib/painel-metrics";
@@ -58,6 +59,9 @@ type Props = {
   onPedidoRegistrado: (leadId: string, valor: number) => void;
   /** false quando /api/orders ou /api/settings falhou: zero por falta de dado não é zero de verdade. */
   caixaOk: boolean;
+  /** false quando /api/leads falhou: lista vazia por falta de dado não é "ninguém entrou". */
+  listaOk: boolean;
+  aoTentarDeNovo: () => void;
 };
 
 /**
@@ -80,6 +84,8 @@ export function ContatosVitrine({
   meta,
   carregando,
   caixaOk,
+  listaOk,
+  aoTentarDeNovo,
   onPedidoRegistrado,
 }: Props) {
   const [registrando, setRegistrando] = useState<string | null>(null);
@@ -103,51 +109,61 @@ export function ContatosVitrine({
     <div className="px-4 py-5 lg:px-8 lg:py-8">
       <header data-testid="contatos-cabecalho">
         <h1 className="font-brand text-28 font-bold tracking-[-0.4px] text-volt-950">Contatos</h1>
-        <p className="mt-1 text-[14px] text-slate-600">
-          {contagens === null
-            ? "Não deu para contar os contatos agora."
-            : contagens.todos === 0
-              ? "Ninguém entrou ainda. Quem entrar pelos seus grupos aparece aqui."
-              : `${contagens.todos} ${contagens.todos === 1 ? "pessoa" : "pessoas"} · ${contagens.comprou} ${
-                  contagens.comprou === 1 ? "já comprou" : "já compraram"
-                }`}
-        </p>
+        {/* Lista que falhou não autoriza afirmar nada sobre a loja: o alerta abaixo fala por ela. */}
+        {listaOk && (
+          <p className="mt-1 text-[14px] text-slate-600">
+            {contagens === null
+              ? "Não deu para contar os contatos agora."
+              : contagens.todos === 0
+                ? "Ninguém entrou ainda. Quem entrar pelos seus grupos aparece aqui."
+                : `${contagens.todos} ${contagens.todos === 1 ? "pessoa" : "pessoas"} · ${contagens.comprou} ${
+                    contagens.comprou === 1 ? "já comprou" : "já compraram"
+                  }`}
+          </p>
+        )}
       </header>
 
-      <Filtros contagens={contagens} filtro={filtro} onFiltro={onFiltro} busca={busca} onBusca={onBusca} />
-
-      <section className="mt-4" data-testid="contatos-lista">
-        {contatos.length === 0 ? (
-          <p className="py-10 text-center text-[14px] text-slate-600">
-            {contagens?.todos === 0 ? "A lista enche sozinha quando alguém entra num grupo seu." : "Ninguém com esse filtro."}
-          </p>
-        ) : (
-          <ul>
-            {contatos.map((l) => (
-              <li key={l.id}>
-                <FichaDoContato
-                  contato={l}
-                  agora={agora}
-                  registrando={registrando === l.id}
-                  onAbrir={() => setRegistrando(registrando === l.id ? null : l.id)}
-                  onFechar={() => setRegistrando(null)}
-                  onRegistrado={onPedidoRegistrado}
-                />
-              </li>
-            ))}
-          </ul>
-        )}
-        {temMais && (
-          <button
-            type="button"
-            onClick={onCarregarMais}
-            disabled={carregandoMais}
-            className="mt-4 h-10 w-full rounded-[var(--radius-control)] border border-line-200 bg-paper-0 text-[14px] text-volt-950 disabled:opacity-50"
-          >
-            {carregandoMais ? "Carregando…" : "Carregar mais"}
-          </button>
-        )}
-      </section>
+      {listaOk ? (
+        <>
+          <Filtros contagens={contagens} filtro={filtro} onFiltro={onFiltro} busca={busca} onBusca={onBusca} />
+          <section className="mt-4" data-testid="contatos-lista">
+            {contatos.length === 0 ? (
+              <p className="py-10 text-center text-[14px] text-slate-600">
+                {contagens?.todos === 0 ? "A lista enche sozinha quando alguém entra num grupo seu." : "Ninguém com esse filtro."}
+              </p>
+            ) : (
+              <ul>
+                {contatos.map((l) => (
+                  <li key={l.id}>
+                    <FichaDoContato
+                      contato={l}
+                      agora={agora}
+                      registrando={registrando === l.id}
+                      onAbrir={() => setRegistrando(registrando === l.id ? null : l.id)}
+                      onFechar={() => setRegistrando(null)}
+                      onRegistrado={onPedidoRegistrado}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+            {temMais && (
+              <button
+                type="button"
+                onClick={onCarregarMais}
+                disabled={carregandoMais}
+                className="mt-4 h-10 w-full rounded-[var(--radius-control)] border border-line-200 bg-paper-0 text-[14px] text-volt-950 disabled:opacity-50"
+              >
+                {carregandoMais ? "Carregando…" : "Carregar mais"}
+              </button>
+            )}
+          </section>
+        </>
+      ) : (
+        <div className="mt-4">
+          <ErroDeCarga titulo="Não deu para carregar seus contatos." aoTentarDeNovo={aoTentarDeNovo} />
+        </div>
+      )}
 
       <CaixaDoRodape faturamento={faturamento} meta={meta} pedidos={pedidosDoMes.length} ok={caixaOk} />
     </div>
