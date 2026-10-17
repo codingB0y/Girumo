@@ -4,7 +4,7 @@ import type { TenantRole } from "@/lib/permissions";
 import type { Lead } from "@/lib/stores/leads";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { monthRange } from "@/lib/vendas/month";
-import type { VendaDoMes, VendasDoMes } from "@/lib/vendas/tipos";
+import type { OrigemDaVenda, VendaDoMes, VendasDoMes } from "@/lib/vendas/tipos";
 
 /**
  * Vendas registradas pela vendedora (spec 2026-10-07): pedido com itens e
@@ -40,15 +40,17 @@ export type SaleOrder = {
   value: number;
   created_at: string;
   created_by: string | null;
+  source: OrigemDaVenda;
 };
 
 type StoredItem = RpcItem & { position: number };
-type SaleRow = Pick<SaleOrder, "id" | "lead_id" | "phone" | "value" | "created_at" | "created_by"> & {
+type SaleRow = Pick<SaleOrder, "id" | "lead_id" | "phone" | "value" | "created_at" | "created_by" | "source"> & {
   order_items: StoredItem[];
 };
 
 const LEAD_COLUMNS = "id, name, phone, source_campaign, source_group_id, source_group_name";
-const SALE_COLUMNS = "id, lead_id, phone, value, created_at, created_by, order_items(name, quantity, unit_price, position)";
+const SALE_COLUMNS =
+  "id, lead_id, phone, value, created_at, created_by, source, order_items(name, quantity, unit_price, position)";
 
 /** Arredonda em centavos, como o numeric(12,2) do banco. */
 export function toCents(value: number): number {
@@ -135,6 +137,22 @@ export async function replaceSaleItems(caller: SalesCaller, orderId: string, ite
   return data as SaleOrder;
 }
 
+/**
+ * De onde veio o pedido da loja; null se não existe ou é de outra loja. As rotas
+ * leem antes de escrever: a venda do Bling não se corrige nem se apaga aqui.
+ */
+export async function origemDoPedido(tenantId: string, id: string): Promise<OrigemDaVenda | null> {
+  const { data, error } = await getSupabaseAdmin()
+    .from("orders")
+    .select("source")
+    .eq("tenant_id", tenantId)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+  return (data as { source: string }).source === "bling" ? "bling" : "manual";
+}
+
 /** Apaga a venda (os itens vão junto, `on delete cascade`). true só se uma linha saiu. */
 export async function deleteSale(caller: SalesCaller, orderId: string, now: Date): Promise<boolean> {
   let query = getSupabaseAdmin().from("orders").delete().eq("tenant_id", caller.tenantId).eq("id", orderId);
@@ -179,6 +197,8 @@ export function isSaleEditable(
 }
 
 function toVendaDoMes(row: SaleRow, client: string | null, caller: SalesCaller, now: Date): VendaDoMes {
+  // Linha sem `source` (a RPC antes da DDL) é do painel: só o motor do Bling grava "bling".
+  const origem: OrigemDaVenda = row.source === "bling" ? "bling" : "manual";
   return {
     id: row.id,
     cliente: client,
@@ -188,7 +208,9 @@ function toVendaDoMes(row: SaleRow, client: string | null, caller: SalesCaller, 
     itens: [...row.order_items]
       .sort((a, b) => a.position - b.position)
       .map((item) => ({ nome: item.name, quantidade: item.quantity, valorUnitario: item.unit_price })),
-    editavel: isSaleEditable(caller, row, now),
+    // O Bling é a fonte da verdade: a venda dele não se corrige aqui, nem pelo dono.
+    editavel: origem === "manual" && isSaleEditable(caller, row, now),
+    origem,
   };
 }
 
@@ -203,21 +225,45 @@ export function saleFromOrder(
   return toVendaDoMes({ ...order, order_items: items.map((item, position) => ({ ...item, position })) }, client, caller, now);
 }
 
+/** Um log por processo: a falha que se repete a cada GET não enche o log. */
+let blingIlegivelNoLog = false;
+
+/**
+ * A loja tem conexão ativa com o Bling? Só acende um aviso na tela, então
+ * nunca derruba a lista: falhou, é false (e vai ao log).
+ */
+async function lojaComBlingAtivo(tenantId: string): Promise<boolean> {
+  try {
+    const { count, error } = await getSupabaseAdmin()
+      .from("bling_connections")
+      .select("tenant_id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .eq("status", "ativa");
+    if (error) throw new Error(error.message);
+    return (count ?? 0) > 0;
+  } catch (e) {
+    if (!blingIlegivelNoLog) console.error("[vendas] conexão do Bling ilegível:", e instanceof Error ? e.message : e);
+    blingIlegivelNoLog = true;
+    return false;
+  }
+}
+
 /**
  * As vendas de quem chama no mês de Brasília, mais recentes primeiro. Passou
  * de 1000: `truncado`, e o total é o das linhas que vieram (a tela avisa).
+ * Dono, admin e operador também veem as vendas do Bling da loja, que não têm
+ * autora; a vendedora, nunca (o caixa da loja não é dela, decisão de 07/10).
  */
 export async function listMonthSales(caller: SalesCaller, month: string, now: Date): Promise<VendasDoMes> {
   const { start, end } = monthRange(month);
-  const { data, error, count } = await getSupabaseAdmin()
-    .from("orders")
-    .select(SALE_COLUMNS, { count: "exact" })
-    .eq("tenant_id", caller.tenantId)
-    .eq("created_by", caller.authUserId)
-    .gte("created_at", start)
-    .lt("created_at", end)
-    .order("created_at", { ascending: false })
-    .limit(MONTH_LIMIT);
+  const loja = getSupabaseAdmin().from("orders").select(SALE_COLUMNS, { count: "exact" }).eq("tenant_id", caller.tenantId);
+  const deQuem = hasSellerLimits(caller.role)
+    ? loja.eq("created_by", caller.authUserId)
+    : loja.or(`created_by.eq.${caller.authUserId},source.eq.bling`);
+  const [{ data, error, count }, blingAtivo] = await Promise.all([
+    deQuem.gte("created_at", start).lt("created_at", end).order("created_at", { ascending: false }).limit(MONTH_LIMIT),
+    lojaComBlingAtivo(caller.tenantId),
+  ]);
   if (error) throw new Error(error.message);
   // Contagem que não veio é erro, nunca um "não truncou" que ninguém mediu.
   if (count === null || !Number.isInteger(count)) throw new Error("Contagem das vendas não veio.");
@@ -232,5 +278,6 @@ export async function listMonthSales(caller: SalesCaller, month: string, now: Da
     quantidade: count,
     truncado: count > rows.length,
     vendas,
+    blingAtivo,
   };
 }

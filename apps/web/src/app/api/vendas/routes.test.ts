@@ -247,6 +247,18 @@ function orderRow(overrides: Record<string, unknown> = {}): Record<string, unkno
 
 const rpcBody = (name: string) => requestsTo(`/rest/v1/rpc/${name}`)[0]?.body as Record<string, unknown> | undefined;
 
+/**
+ * PATCH e DELETE leem `orders.source` antes de escrever (`origemDoPedido`): a
+ * leitura responde esta origem (null = pedido não existe), o resto é do teste.
+ */
+function withOrigin(source: "manual" | "bling" | null, rest: (request: Seen) => Reply = () => ({ status: 500 })) {
+  return (request: Seen): Reply =>
+    request.method === "GET" && request.url.pathname === "/rest/v1/orders"
+      ? { status: 200, body: source ? [{ source }] : [] }
+      : rest(request);
+}
+const BLING_SALE = { error: "Venda do Bling: altere no Bling." };
+
 test("registrar com leadId do tenant: RPC com a vendedora de autora, campanha do lead, lead vira comprou", async () => {
   const createdAt = new Date().toISOString();
   database = ({ method, url }) => {
@@ -283,6 +295,7 @@ test("registrar com leadId do tenant: RPC com a vendedora de autora, campanha do
       { nome: "Blusa bufante", quantidade: 2, valorUnitario: 68.9 },
     ],
     editavel: true,
+    origem: "manual",
   });
   const [lookup] = requestsTo("/rest/v1/leads");
   assert.equal(lookup.url.searchParams.get("tenant_id"), `eq.${STORE}`);
@@ -453,18 +466,25 @@ test("60 vendas por minuto por loja; a 61ª é 429", async () => {
 });
 
 test("minhas vendas: sem ?mes= é o mês corrente de Brasília, e só as de quem chama", async () => {
-  database = ({ url }) => (url.pathname === "/rest/v1/orders" ? { status: 200, body: [], contentRange: "*/0" } : { status: 500 });
+  database = ({ url }) => {
+    if (url.pathname === "/rest/v1/orders") return { status: 200, body: [], contentRange: "*/0" };
+    if (url.pathname === "/rest/v1/bling_connections") return { status: 200, contentRange: "*/1" };
+    return { status: 500 };
+  };
   const month = brasiliaMonth(new Date());
 
   const res = await salesGet(call("GET", "/api/vendas", "token-vendedora"));
 
   assert.equal(res.status, 200);
-  assert.deepEqual(await res.json(), { mes: month, total: 0, quantidade: 0, truncado: false, vendas: [] });
+  // blingAtivo também para a vendedora: é ela quem registra à mão e precisa do aviso.
+  assert.deepEqual(await res.json(), { mes: month, total: 0, quantidade: 0, truncado: false, vendas: [], blingAtivo: true });
   const [orders] = requestsTo("/rest/v1/orders");
   const { start, end } = monthRange(month);
   assert.deepEqual(orders.url.searchParams.getAll("created_at"), [`gte.${start}`, `lt.${end}`]);
   assert.equal(orders.url.searchParams.get("created_by"), `eq.${SELLER}`);
+  assert.equal(orders.url.searchParams.get("or"), null);
   assert.equal(orders.url.searchParams.get("tenant_id"), `eq.${STORE}`);
+  assert.equal(requestsTo("/rest/v1/bling_connections")[0].url.searchParams.get("tenant_id"), `eq.${STORE}`);
 });
 
 test("mês fora do formato → 400 Mês inválido.", async () => {
@@ -479,11 +499,11 @@ const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000).toI
 
 test("vendedora corrige a própria venda: trava de autora na RPC, 200 com os itens novos", async () => {
   const createdAt = hoursAgo(1);
-  database = ({ url }) => {
+  database = withOrigin("manual", ({ url }) => {
     if (url.pathname === "/rest/v1/rpc/replace_order_items") return { status: 200, body: orderRow({ value: 119.8, created_at: createdAt }) };
     if (url.pathname === "/rest/v1/leads") return { status: 200, body: [{ id: LEAD, name: "Fernanda Lima" }] };
     return { status: 500 };
-  };
+  });
 
   const res = await salePatch(
     call("PATCH", `/api/vendas/${ORDER}`, "token-vendedora", { itens: [{ nome: "Vestido midi", quantidade: 2, valorUnitario: "59,90" }] }),
@@ -495,6 +515,7 @@ test("vendedora corrige a própria venda: trava de autora na RPC, 200 com os ite
     id: ORDER, cliente: "Fernanda Lima", telefone: "5511987654321", total: 119.8, criadaEm: createdAt,
     itens: [{ nome: "Vestido midi", quantidade: 2, valorUnitario: 59.9 }],
     editavel: true,
+    origem: "manual",
   });
   assert.deepEqual(rpcBody("replace_order_items"), {
     p_tenant_id: STORE,
@@ -506,7 +527,7 @@ test("vendedora corrige a própria venda: trava de autora na RPC, 200 com os ite
 });
 
 test("passou de 24 horas (ou não é dela) → 403 com a frase da tela", async () => {
-  database = () => ({ status: 400, body: { code: "P0001", message: "fora_da_janela", details: null, hint: null } });
+  database = withOrigin("manual", () => ({ status: 400, body: { code: "P0001", message: "fora_da_janela", details: null, hint: null } }));
 
   const res = await salePatch(call("PATCH", `/api/vendas/${ORDER}`, "token-vendedora", { itens: ONE_ITEM }), withId(ORDER));
 
@@ -515,11 +536,11 @@ test("passou de 24 horas (ou não é dela) → 403 com a frase da tela", async (
 });
 
 test("dono corrige qualquer venda da loja, sem trava de autora nem de prazo", async () => {
-  database = ({ url }) => {
+  database = withOrigin("manual", ({ url }) => {
     if (url.pathname === "/rest/v1/rpc/replace_order_items") return { status: 200, body: orderRow({ created_at: hoursAgo(24 * 30) }) };
     if (url.pathname === "/rest/v1/leads") return { status: 200, body: [{ id: LEAD, name: "Fernanda Lima" }] };
     return { status: 500 };
-  };
+  });
 
   const res = await salePatch(call("PATCH", `/api/vendas/${ORDER}`, "token-dono", { itens: ONE_ITEM }), withId(ORDER));
 
@@ -529,7 +550,7 @@ test("dono corrige qualquer venda da loja, sem trava de autora nem de prazo", as
 });
 
 test("venda que não existe → 404; id que não é UUID nem chega ao banco", async () => {
-  database = () => ({ status: 400, body: { code: "P0001", message: "pedido_nao_encontrado", details: null, hint: null } });
+  database = withOrigin(null, () => ({ status: 400, body: { code: "P0001", message: "pedido_nao_encontrado", details: null, hint: null } }));
   const missing = await salePatch(call("PATCH", `/api/vendas/${ORDER}`, "token-dono", { itens: ONE_ITEM }), withId(ORDER));
   assert.equal(missing.status, 404);
   assert.deepEqual(await missing.json(), { error: "Venda não encontrada." });
@@ -549,16 +570,19 @@ test("correção com itens ruins → 400 antes da RPC", async () => {
   assert.equal(seen.length, 0);
 });
 
+const deletesOfOrders = () => requestsTo("/rest/v1/orders").filter((request) => request.method === "DELETE");
+
 test("vendedora apaga a própria venda dentro das 24h", async () => {
-  database = ({ method, url }) =>
-    method === "DELETE" && url.pathname === "/rest/v1/orders" ? { status: 200, body: [{ id: ORDER }] } : { status: 500 };
+  database = withOrigin("manual", ({ method, url }) =>
+    method === "DELETE" && url.pathname === "/rest/v1/orders" ? { status: 200, body: [{ id: ORDER }] } : { status: 500 },
+  );
   const cutoff = Date.now() - 24 * 3_600_000;
 
   const res = await saleDelete(call("DELETE", `/api/vendas/${ORDER}`, "token-vendedora"), withId(ORDER));
 
   assert.equal(res.status, 200);
   assert.deepEqual(await res.json(), { ok: true });
-  const [deleted] = requestsTo("/rest/v1/orders");
+  const [deleted] = deletesOfOrders();
   assert.equal(deleted.url.searchParams.get("tenant_id"), `eq.${STORE}`);
   assert.equal(deleted.url.searchParams.get("created_by"), `eq.${SELLER}`);
   const limit = Date.parse((deleted.url.searchParams.get("created_at") ?? "").replace(/^gt\./, ""));
@@ -579,10 +603,31 @@ test("dono apaga sem filtro de autora nem prazo; nada apagado → 404", async ()
 
   assert.equal(res.status, 404);
   assert.deepEqual(await res.json(), { error: "Venda não encontrada." });
-  const [deleted] = requestsTo("/rest/v1/orders");
+  const [deleted] = deletesOfOrders();
   assert.equal(deleted.url.searchParams.get("tenant_id"), `eq.${STORE}`);
   assert.equal(deleted.url.searchParams.get("created_by"), null);
   assert.equal(deleted.url.searchParams.get("created_at"), null);
+});
+
+test("venda do Bling: PATCH e DELETE → 409 com a frase, para dono e vendedora, sem nenhuma escrita", async () => {
+  // O resto responde 500: uma RPC ou DELETE que escapasse da trava apareceria em `seen` e no status.
+  database = withOrigin("bling");
+
+  for (const token of ["token-dono", "token-vendedora"]) {
+    seen.length = 0;
+    const patched = await salePatch(call("PATCH", `/api/vendas/${ORDER}`, token, { itens: ONE_ITEM }), withId(ORDER));
+    const deleted = await saleDelete(call("DELETE", `/api/vendas/${ORDER}`, token), withId(ORDER));
+
+    assert.equal(patched.status, 409, token);
+    assert.deepEqual(await patched.json(), BLING_SALE, token);
+    assert.equal(deleted.status, 409, token);
+    assert.deepEqual(await deleted.json(), BLING_SALE, token);
+    assert.deepEqual(seen.map((request) => `${request.method} ${request.url.pathname}`), ["GET /rest/v1/orders", "GET /rest/v1/orders"], token);
+    for (const request of seen) {
+      assert.equal(request.url.searchParams.get("tenant_id"), `eq.${STORE}`, token);
+      assert.equal(request.url.searchParams.get("id"), `eq.${ORDER}`, token);
+    }
+  }
 });
 
 test("falha depois da gravação (status do lead e contagem) não derruba a venda: 201 com a venda", async () => {
@@ -628,11 +673,11 @@ test("correção: erro do banco → 500 genérico, sem a mensagem dele na respos
 });
 
 test("operador corrige qualquer venda da loja, sem trava de autora nem de prazo", async () => {
-  database = ({ url }) => {
+  database = withOrigin("manual", ({ url }) => {
     if (url.pathname === "/rest/v1/rpc/replace_order_items") return { status: 200, body: orderRow({ created_at: hoursAgo(24 * 30) }) };
     if (url.pathname === "/rest/v1/leads") return { status: 200, body: [{ id: LEAD, name: "Fernanda Lima" }] };
     return { status: 500 };
-  };
+  });
 
   const res = await salePatch(call("PATCH", `/api/vendas/${ORDER}`, "token-operador", { itens: ONE_ITEM }), withId(ORDER));
 

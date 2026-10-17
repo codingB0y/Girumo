@@ -1,8 +1,10 @@
 import { addOrder, removeOrder, listOrdersByTenant } from "@/lib/stores/orders";
 import { getLeadAttribution } from "@/lib/stores/leads";
+import { origemDoPedido } from "@/lib/stores/vendas";
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
 import { recordOrder } from "@/lib/orders/registrar";
 import { parseValorDoPedido as parseOrderValue } from "@/lib/orders/valor-do-pedido";
+import { ERRO_VENDA_DO_BLING } from "@/lib/vendas/tipos";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -82,6 +84,10 @@ export async function DELETE(req: Request) {
   // Id que não é uuid não existe; sem isto o Postgres responde 22P02 e a rota daria 500.
   if (!UUID_RE.test(id)) return Response.json({ error: "Pedido não encontrado." }, { status: 404 });
   try {
+    // O Bling é a fonte da verdade: a venda dele só sai de `orders` pelo motor da integração.
+    if ((await origemDoPedido(tenantId, id)) === "bling") {
+      return Response.json({ error: ERRO_VENDA_DO_BLING }, { status: 409 });
+    }
     if (!(await removeOrder(tenantId, id))) {
       return Response.json({ error: "Pedido não encontrado." }, { status: 404 });
     }
