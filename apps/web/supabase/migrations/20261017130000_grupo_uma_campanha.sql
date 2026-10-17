@@ -18,6 +18,10 @@
 -- 20261010120000_postar_por_grupo.sql. Conferir nos dois bancos com
 -- infra/tests/grupo-uma-campanha-check.sql.
 
+-- create trigger toma lock em campaign_groups (escrita do app no meio). Se não conseguir em 5 s,
+-- aborta em vez de segurar a fila: é só rodar de novo, a migração é idempotente.
+set lock_timeout = '5s';
+
 -- 1) Trigger. security invoker: quem escreve em campaign_groups é service_role (bypassa RLS) ou uma
 --    RPC security definer; authenticated não tem escrita em public (20261004120000).
 create or replace function app.campaign_groups_grupo_exclusivo()

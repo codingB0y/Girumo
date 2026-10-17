@@ -64,12 +64,19 @@ begin
     ('c0c0c0c0-0000-4000-8000-0000000000ba', v_b, 'pg-a@g.us', 'Alheio',  99, 100, false, 'https://chat.whatsapp.com/PgX', 0);
 
   -- A2 repete pg-a de propósito: é o conflito legado de D4 (grupo em duas campanhas da loja).
-  -- Depois do PR 6, o trigger campaign_groups_grupo_exclusivo recusa este insert: quem rodar este
-  -- check depois dele desliga o trigger dentro da transação antes (plano do PR 6).
+  -- Desde o PR 6 o trigger campaign_groups_grupo_exclusivo recusa JID NOVO que já está noutra
+  -- campanha da loja, então A2 não entra em v_a com pg-a. Sem desligar o trigger (isso trava
+  -- campaign_groups com ACCESS EXCLUSIVE até o rollback, e isto roda em produção), mesmo truque do
+  -- bloco 6 de grupo-uma-campanha-check.sql: A2 nasce em v_b, que ainda não tem campanha, e muda
+  -- para v_a sem tocar group_ids (o trigger é `update of group_ids`, não dispara). B só entra
+  -- depois, quando A2 já saiu de v_b. Linhas finais idênticas às de antes do PR 6.
   insert into public.campaign_groups (id, tenant_id, name, slug, group_ids) values
     ('c0c0c0c0-0000-4000-8000-0000000000c1', v_a, 'Campanha A', 'check-postar-a',
-     array['pg-a@g.us', 'pg-b@g.us', 'pg-c@g.us', 'pg-d@g.us', 'pg-e@g.us', 'pg-f@g.us', 'pg-x@g.us', 'pg-c@g.us']),
-    ('c0c0c0c0-0000-4000-8000-0000000000c2', v_a, 'Campanha A2', 'check-postar-a2', array['pg-a@g.us']),
+     array['pg-a@g.us', 'pg-b@g.us', 'pg-c@g.us', 'pg-d@g.us', 'pg-e@g.us', 'pg-f@g.us', 'pg-x@g.us', 'pg-c@g.us']);
+  insert into public.campaign_groups (id, tenant_id, name, slug, group_ids) values
+    ('c0c0c0c0-0000-4000-8000-0000000000c2', v_b, 'Campanha A2', 'check-postar-a2', array['pg-a@g.us']);
+  update public.campaign_groups set tenant_id = v_a where id = 'c0c0c0c0-0000-4000-8000-0000000000c2';
+  insert into public.campaign_groups (id, tenant_id, name, slug, group_ids) values
     ('c0c0c0c0-0000-4000-8000-0000000000c3', v_b, 'Campanha B', 'check-postar-b', array['pg-a@g.us']);
 end;
 $fx$;
