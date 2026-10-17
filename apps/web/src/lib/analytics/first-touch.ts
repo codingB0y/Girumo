@@ -48,6 +48,26 @@ export function isSearchEngine(host: string): boolean {
   return SEARCH_HOSTS.test(host);
 }
 
+const OWN_DOMAIN = "girumo.com.br";
+
+/**
+ * Hosts da Girumo (www, app, o apex). O site é dividido em dois hosts e o CTA
+ * de cadastro em www redireciona para app: sem isto, a passagem www → app vira
+ * "referral www.girumo.com.br" e o cookie de www nunca chega ao cadastro.
+ */
+function isOwnHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return host === OWN_DOMAIN || host.endsWith(`.${OWN_DOMAIN}`);
+}
+
+/**
+ * Atributo `domain` do cookie: no domínio próprio ele vale para www e app; em
+ * localhost e preview da Vercel continua host-only (o domínio não casaria).
+ */
+export function firstTouchCookieDomain(hostname: string): string {
+  return isOwnHost(hostname) ? `; domain=${OWN_DOMAIN}` : "";
+}
+
 export type FirstTouchInput = {
   /** URL completa da entrada. */
   url: string;
@@ -78,7 +98,8 @@ export function buildFirstTouch({ url, referrer }: FirstTouchInput): FirstTouch 
       const parsed = new URL(referrer);
       // Referrer interno é navegação nossa, não origem. Descartar aqui é o que
       // impede "girumo.com.br" de virar o canal campeão do relatório.
-      if (parsed.origin !== entry.origin) referrerHost = parsed.host;
+      const internal = parsed.origin === entry.origin || isOwnHost(parsed.hostname);
+      if (!internal) referrerHost = parsed.host;
     } catch {
       referrerHost = null;
     }

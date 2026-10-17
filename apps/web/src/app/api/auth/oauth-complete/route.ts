@@ -6,6 +6,7 @@ import { acceptPendingInvite } from "@/lib/auth/accept-pending-invite";
 import { getAppUrl } from "@/lib/environment";
 import { getSupabaseAdmin, getSupabaseServerAnon } from "@/lib/supabase/server";
 import { provisionEntrySubscription } from "@/lib/billing/entry-subscription";
+import { FIRST_TOUCH_COOKIE, parseFirstTouch } from "@/lib/analytics/first-touch";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import { sendEmail } from "@/lib/email/send";
 import { welcomeEmail } from "@/lib/email/templates";
@@ -208,11 +209,15 @@ export async function POST(req: Request) {
   // resposta — mas dentro do `after()`, porque promise solta pode ser
   // descartada quando a invocacao fecha (perdendo evento e log de entrega).
   after(async () => {
+    // Mesma origem do cadastro por e-mail (cookie gm_ft): sem ela, o canal de
+    // quem entra pelo Google — hoje quase todo cadastro — some do relatório.
+    const firstTouch = parseFirstTouch((await cookies()).get(FIRST_TOUCH_COOKIE)?.value);
+
     await trackFunnelEvent({
       tenantId,
       userId: authUser.id,
       event: "signup",
-      metadata: { source: "google_oauth" },
+      metadata: { source: "google_oauth", ...(firstTouch ? { origin: firstTouch } : {}) },
     });
 
     if (email) {
