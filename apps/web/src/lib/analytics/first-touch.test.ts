@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   buildFirstTouch,
+  firstTouchCookieDomain,
   isSearchEngine,
   parseFirstTouch,
   serializeFirstTouch,
@@ -46,6 +47,42 @@ test("utm explícito ganha do referrer", () => {
 test("referrer interno é descartado — navegação nossa não é origem", () => {
   // Sem isto, "girumo.com.br" vira o canal campeão do relatório.
   assert.equal(buildFirstTouch({ url: HOME, referrer: "https://www.girumo.com.br/precos" }), null);
+});
+
+test("referrer de outro host da Girumo também é interno (www → app no /signup)", () => {
+  // O CTA da home é /signup em www, que redireciona para app. Sem isto, todo
+  // cadastro vindo da home virava "referral www.girumo.com.br".
+  assert.equal(
+    buildFirstTouch({ url: "https://app.girumo.com.br/signup", referrer: "https://www.girumo.com.br/" }),
+    null,
+  );
+  assert.equal(
+    buildFirstTouch({ url: "https://www.girumo.com.br/", referrer: "https://girumo.com.br/" }),
+    null,
+  );
+});
+
+test("domínio que só termina parecido com o nosso continua externo", () => {
+  const touch = buildFirstTouch({ url: HOME, referrer: "https://girumo.com.br.evil.com/" });
+  assert.equal(touch?.s, "girumo.com.br.evil.com");
+  assert.equal(touch?.m, "referral");
+
+  assert.equal(
+    buildFirstTouch({ url: HOME, referrer: "https://fakegirumo.com.br/" })?.s,
+    "fakegirumo.com.br",
+  );
+});
+
+test("cookie vale para www e app no domínio próprio; preview e localhost ficam host-only", () => {
+  // Host-only em www, o cookie não chega em app — e é em app que o cadastro lê.
+  assert.equal(firstTouchCookieDomain("www.girumo.com.br"), "; domain=girumo.com.br");
+  assert.equal(firstTouchCookieDomain("app.girumo.com.br"), "; domain=girumo.com.br");
+  assert.equal(firstTouchCookieDomain("girumo.com.br"), "; domain=girumo.com.br");
+
+  assert.equal(firstTouchCookieDomain("localhost"), "");
+  assert.equal(firstTouchCookieDomain("girumo-git-x.vercel.app"), "");
+  assert.equal(firstTouchCookieDomain("girumo.com.br.evil.com"), "");
+  assert.equal(firstTouchCookieDomain("fakegirumo.com.br"), "");
 });
 
 test("reconhece os buscadores e ignora domínio parecido", () => {

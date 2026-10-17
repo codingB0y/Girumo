@@ -99,3 +99,26 @@ export function quadradinhos(d: Pick<TenantDispatchView, "sent" | "total">): Qua
   const entregues = total === 0 ? 0 : Math.min(Math.round((bruto / Math.max(d.total, 1)) * total), total);
   return { total, entregues };
 }
+
+/** Quanto antes da hora um agendado já liga a consulta: o relógio da tela anda de 30 em 30 s. */
+const ANTECEDENCIA_DO_AGENDADO_MS = 60_000;
+
+/**
+ * Vale consultar o andamento dos posts? Só com post saindo (fila ou enviando) ou
+ * agendado chegando na hora — o progresso vem do worker, e lista parada não
+ * muda. `scheduledAt` só vem preenchido com agendamento pendente, então o
+ * recorrente que já saiu uma vez também acorda na próxima rodada. Agendado
+ * vencido segue ligando até o worker promover.
+ */
+export function acompanharEnvio(
+  posts: readonly { status: string; scheduledAt?: string }[],
+  agora: Date,
+): boolean {
+  const limite = agora.getTime() + ANTECEDENCIA_DO_AGENDADO_MS;
+  return posts.some(
+    (p) =>
+      p.status === "queued" ||
+      p.status === "running" ||
+      (p.scheduledAt !== undefined && Date.parse(p.scheduledAt) <= limite),
+  );
+}

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 
 import type { Carga } from "@/lib/painel/types";
-import { buscar } from "./carregar";
+import { buscar, cargaDeTodas } from "./carregar";
 
 type Contagem = { total: number };
 const ehContagem = (corpo: unknown): corpo is Contagem =>
@@ -45,4 +45,20 @@ test("resposta que não é a contagem vira erro, nunca número", async () => {
     assert.deepEqual(guardados, []);
     assert.deepEqual(cargas, ["carregando", "erro"]);
   }
+});
+
+test("devolve o que guardou, e null na falha, para quem ainda precisa do valor no mesmo fluxo", async () => {
+  globalThis.fetch = async () => Response.json({ total: 12 });
+  assert.deepEqual(await buscar("/api/leads/contagem", ehContagem, () => {}, () => {}), { total: 12 });
+
+  globalThis.fetch = async () => Response.json({ error: "Nao autenticado." }, { status: 401 });
+  assert.equal(await buscar("/api/leads/contagem", ehContagem, () => {}, () => {}), null);
+});
+
+test("carga de várias consultas: erro vence, depois carregando; ok só com todas ok", () => {
+  assert.equal(cargaDeTodas(["ok", "ok"]), "ok");
+  assert.equal(cargaDeTodas(["ok", "carregando"]), "carregando");
+  // Uma que falhou já basta: esperar a outra só adia o "Tentar de novo".
+  assert.equal(cargaDeTodas(["carregando", "erro", "ok"]), "erro");
+  assert.equal(cargaDeTodas([]), "ok");
 });
