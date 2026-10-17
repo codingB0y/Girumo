@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import { CelebrationModal } from "@/components/painel/celebration-modal";
 import { ActivationChecklist } from "@/components/painel/home/activation-checklist";
 import { AvisoParcial, BannerDesconectado, useAtivacaoNoInicio } from "@/components/painel/home/avisos";
-import type { Campanha, Disparo, Lead, Order, RelampagoDaInicio, Schedule, TenantSettings, TrackedLink } from "@/components/painel/home/types";
+import type { Campanha, Disparo, Order, RelampagoDaInicio, Schedule, TenantSettings, TrackedLink } from "@/components/painel/home/types";
 import type { Group } from "@/lib/mock-data";
 import type { Activation } from "@/lib/onboarding-steps";
 import type { AtividadeDaCampanha } from "@/lib/painel/atividade";
@@ -27,7 +27,7 @@ type Props = {
   groups: Group[];
   campanhas: Campanha[];
   links: TrackedLink[];
-  leads: Lead[];
+  leadCount: number;
   orders: Order[];
   disparos: Disparo[];
   schedules: Schedule[];
@@ -58,7 +58,7 @@ export function InicioAoVivo({
   groups,
   campanhas,
   links,
-  leads,
+  leadCount,
   orders,
   disparos,
   schedules,
@@ -107,7 +107,7 @@ export function InicioAoVivo({
 
   return (
     <div data-testid="inicio-ao-vivo" className="space-y-6 px-4 py-5 lg:px-8 lg:py-6">
-      <CelebrationModal groups={groups} leads={leads} monthlyGoal={settings.monthlyGoalContacts} />
+      <CelebrationModal groups={groups} contacts={leadCount} monthlyGoal={settings.monthlyGoalContacts} />
       <h1 className="sr-only">Início ao vivo</h1>
       {!isConnected && <BannerDesconectado />}
       {partial && <AvisoParcial />}

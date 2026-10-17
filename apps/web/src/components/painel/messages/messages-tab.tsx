@@ -6,6 +6,8 @@ import { PlanLimitAlert } from "@/components/painel/plan-limit-alert";
 import { cn } from "@/lib/utils";
 import { useConfirmacao } from "@/components/painel/confirmacao";
 import { numero } from "@/lib/painel/grupos";
+import { acompanharEnvio } from "@/lib/painel/disparos";
+import { useRecarga } from "@/components/painel/home/ao-vivo/use-recarga";
 import { DESTINO_PADRAO, type Destino } from "@/lib/campaigns/destino";
 import { MessageComposer, type ComposerPayload } from "./message-composer";
 import { ScheduleComposer, type SchedulePayload } from "./schedule-composer";
@@ -33,6 +35,8 @@ type Props = {
   funil?: { campaignName: string; masterUrl: string; groupCount: number; memberCount: number };
   /** Abre direto na sub-aba Funil (vindo de "Novo funil" na tela Funis). */
   abrirNoFunil?: boolean;
+  /** Falso com a aba Posts escondida (a campanha mantém montado): não consulta. */
+  ativo?: boolean;
 };
 
 export function MessagesTab({
@@ -44,6 +48,7 @@ export function MessagesTab({
   avisoIsAdmin = false,
   funil,
   abrirNoFunil = false,
+  ativo = true,
 }: Props) {
   const { pedirConfirmacao, folhaDeConfirmacao } = useConfirmacao();
   const comecaNoFunil = abrirNoFunil && Boolean(funil);
@@ -91,11 +96,16 @@ export function MessagesTab({
   }, [campaignSlug]);
 
   useEffect(() => {
-    fetchMessages();
-    // Poll a cada 10s pra atualizar status de envio
-    const interval = setInterval(fetchMessages, 10_000);
-    return () => clearInterval(interval);
-  }, [fetchMessages]);
+    if (ativo) void fetchMessages();
+  }, [fetchMessages, ativo]);
+
+  // A rota lê o histórico inteiro de posts: consultar a cada 10 s só com post
+  // saindo ou agendado chegando na hora, com a aba do navegador visível e a
+  // sub-aba Posts aberta. Lista parada não muda.
+  const acompanhar = useCallback(() => {
+    if (acompanharEnvio(messages, new Date())) void fetchMessages();
+  }, [messages, fetchMessages]);
+  useRecarga(acompanhar, 10_000, ativo);
 
   const handleSend = async (payload: ComposerPayload) => {
     setSending(true);

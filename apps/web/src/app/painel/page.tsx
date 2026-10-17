@@ -13,7 +13,7 @@ export default function PainelPage() {
   if (state.status === "error") return <LoadError onRetry={reload} />;
 
   const { data, partial } = state;
-  const { groups, campanhas, links, leads, orders, disparos, schedules, session, settings } = data;
+  const { groups, campanhas, links, leadCount, orders, disparos, schedules, session, settings } = data;
   const { settingsOk, ordersOk, linksOk, disparosOk, schedulesOk, atividade, relampago, relampagoOk } = data;
   const isConnected = session.live === true;
 
@@ -25,7 +25,7 @@ export default function PainelPage() {
     groupCount: groups.length,
     campaignCount: campanhas.length,
     totalClicks: links.reduce((a, l) => a + (l.clicks ?? 0), 0),
-    leadCount: leads.length,
+    leadCount,
   });
 
   // Início "Ao vivo" (spec 2026-10-02) é a tela padrão. `?ao-vivo` dos links antigos é ignorado.
@@ -34,7 +34,7 @@ export default function PainelPage() {
       groups={groups}
       campanhas={campanhas}
       links={links}
-      leads={leads}
+      leadCount={leadCount}
       orders={orders}
       disparos={disparos}
       schedules={schedules}

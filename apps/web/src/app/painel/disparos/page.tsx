@@ -5,6 +5,7 @@ import type { ComposerPayload } from "@/components/painel/messages/message-compo
 import type { SchedulePayload } from "@/components/painel/messages/schedule-composer";
 import type { TenantDispatchView } from "@/lib/campaigns/dispatch-view";
 import { DisparosVitrine } from "@/components/painel/disparos/vitrine/disparos-vitrine";
+import { useRecarga } from "@/components/painel/home/ao-vivo/use-recarga";
 import type { Group } from "@/lib/mock-data";
 import type { Destino } from "@/lib/campaigns/destino";
 
@@ -68,16 +69,12 @@ export default function PainelDisparos() {
   }, [loadDispatches]);
 
   // Enquanto houver disparo em voo, o progresso vem do worker — só então vale
-  // ficar consultando. Lista parada não gera tráfego.
+  // ficar consultando, e só com a aba visível. Lista parada não gera tráfego.
   const emVoo = useMemo(
     () => dispatches.some((d) => d.status === "queued" || d.status === "running"),
     [dispatches],
   );
-  useEffect(() => {
-    if (!emVoo) return;
-    const t = setInterval(loadDispatches, 10_000);
-    return () => clearInterval(t);
-  }, [emVoo, loadDispatches]);
+  useRecarga(loadDispatches, 10_000, emVoo);
 
   const campanhaAtual = useMemo(
     () => campanhas.find((c) => (c.slug ?? c.id) === campaignSlug) ?? null,
