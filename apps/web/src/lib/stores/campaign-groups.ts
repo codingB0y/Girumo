@@ -1,4 +1,5 @@
 import "server-only";
+import type { ConflitoDeGrupo } from "@/lib/campaigns/conflito-grupo";
 import { cancelCampaignBroadcasts } from "@/lib/stores/broadcasts";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
@@ -104,6 +105,62 @@ export async function appendGroupId(tenantId: string, id: string, whatsappGroupI
     p_whatsapp_group_id: whatsappGroupId,
   });
   if (error) throw new Error(error.message);
+}
+
+/** Par de `appendGroupId`: tira 1 id de `group_ids` num UPDATE só (`campaign_group_remove_group_id`). */
+export async function removeGroupId(tenantId: string, id: string, whatsappGroupId: string): Promise<void> {
+  const { error } = await getSupabaseAdmin().rpc("campaign_group_remove_group_id", {
+    p_tenant_id: tenantId,
+    p_id: id,
+    p_whatsapp_group_id: whatsappGroupId,
+  });
+  if (error) throw new Error(error.message);
+}
+
+type ConflitoRow = {
+  whatsapp_group_id: string;
+  name: string | null;
+  campanhas: Array<{ id: string; name: string; slug: string; posicao: number | string }> | null;
+};
+
+/**
+ * Grupos que estão em mais de uma campanha da loja (`grupos_em_mais_de_uma_campanha`, PR 6). São
+ * todos de antes do trigger `campaign_groups_grupo_exclusivo`, que recusa conflito novo.
+ */
+export async function listarConflitos(tenantId: string): Promise<ConflitoDeGrupo[]> {
+  const { data, error } = await getSupabaseAdmin().rpc("grupos_em_mais_de_uma_campanha", { p_tenant: tenantId });
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as ConflitoRow[]).map((r) => ({
+    whatsappGroupId: r.whatsapp_group_id,
+    nome: r.name ?? r.whatsapp_group_id,
+    campanhas: (r.campanhas ?? []).map((c) => ({
+      id: c.id,
+      name: c.name,
+      slug: c.slug,
+      posicao: Number(c.posicao),
+    })),
+  }));
+}
+
+/**
+ * Grava a ordem nova só se a lista atual tem o mesmo conjunto que `esperado` e `nova` é uma
+ * permutação dele (`reordenar_campanha`). `false` = a lista mudou no meio (o auto-grow anexou um
+ * grupo) — quem chama responde 409 (Padronizar, PR 8).
+ */
+export async function reordenarCampanha(
+  tenantId: string,
+  campaignId: string,
+  esperado: string[],
+  nova: string[],
+): Promise<boolean> {
+  const { data, error } = await getSupabaseAdmin().rpc("reordenar_campanha", {
+    p_tenant: tenantId,
+    p_campanha: campaignId,
+    p_esperado: esperado,
+    p_nova: nova,
+  });
+  if (error) throw new Error(error.message);
+  return data === true;
 }
 
 /**
