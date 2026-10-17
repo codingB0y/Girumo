@@ -4,14 +4,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { FaixaDoFiltro, textoDoFiltroVazio, tituloDoFiltro } from "@/components/painel/contatos/faixa-do-filtro";
 import { ContatosVitrine } from "@/components/painel/contatos/vitrine/contatos-vitrine";
-import { buscar } from "@/lib/painel/carregar";
+import { buscar, buscarLista } from "@/lib/painel/carregar";
 import type { Carga, Lead } from "@/lib/painel/types";
 import type { MonthlyOrder } from "@/lib/painel-metrics";
 import { ehContatosDoAnuncio, filtroDaUrl, type FiltroDoAnuncio } from "@/lib/resultados/pessoas-do-anuncio";
 
 export default function PainelContatos() {
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [loading, setLoading] = useState(true);
   const [pedidos, setPedidos] = useState<MonthlyOrder[]>([]);
   const [meta, setMeta] = useState<number | null>(null);
   // Sem isto, "R$ 0,00" por falha de rede fica igual a mês sem venda nenhuma.
@@ -19,7 +18,8 @@ export default function PainelContatos() {
   const [caixaCarregando, setCaixaCarregando] = useState(true);
   // Vindo da gaveta "Ver quem" (Resultados › Anúncios): só quem veio por um anúncio.
   const [filtro, setFiltro] = useState<FiltroDoAnuncio | null>(null);
-  const [cargaDoFiltro, setCargaDoFiltro] = useState<Carga>("carregando");
+  // Da lista que está na tela: a inteira ou a do filtro. Erro nunca vira "ninguém entrou".
+  const [cargaDaLista, setCargaDaLista] = useState<Carga>("carregando");
   // "Ver todos" com o filtro ainda carregando dispara duas buscas: só a última escreve.
   const ultima = useRef(0);
 
@@ -47,18 +47,17 @@ export default function PainelContatos() {
 
   const carregarTodos = useCallback(() => {
     const esta = ++ultima.current;
-    setLoading(true);
     // Sem limpar, a lista filtrada ficaria na tela como se fosse a loja inteira se a busca falhar.
     setLeads([]);
-    fetch("/api/leads")
-      .then((r) => r.json())
-      .then((l) => {
-        if (esta === ultima.current) setLeads(Array.isArray(l) ? l : []);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (esta === ultima.current) setLoading(false);
-      });
+    void buscarLista<Lead>(
+      "/api/leads",
+      (l) => {
+        if (esta === ultima.current) setLeads(l);
+      },
+      (c) => {
+        if (esta === ultima.current) setCargaDaLista(c);
+      },
+    );
   }, []);
 
   // Contatos do anúncio vêm da rota da gaveta (por id, em lotes): o `/api/leads`
@@ -72,9 +71,7 @@ export default function PainelContatos() {
         if (esta === ultima.current) setLeads(r.contatos);
       },
       (c) => {
-        if (esta !== ultima.current) return;
-        setCargaDoFiltro(c);
-        setLoading(c === "carregando");
+        if (esta === ultima.current) setCargaDaLista(c);
       },
     );
   }, []);
@@ -93,9 +90,9 @@ export default function PainelContatos() {
     carregarTodos();
   };
 
-  const filtroVazio = filtro !== null && cargaDoFiltro === "ok" && leads.length === 0;
+  const filtroVazio = filtro !== null && cargaDaLista === "ok" && leads.length === 0;
   // Nesses casos a Vitrine (dona do <h1>) não aparece: a página mantém o título.
-  const soFaixa = filtro !== null && (cargaDoFiltro === "erro" || filtroVazio);
+  const soFaixa = filtro !== null && (cargaDaLista === "erro" || filtroVazio);
 
   return (
     <>
@@ -107,7 +104,7 @@ export default function PainelContatos() {
       {filtro && (
         <FaixaDoFiltro
           titulo={tituloDoFiltro(filtro.chave, filtro.lista)}
-          carga={cargaDoFiltro}
+          carga={cargaDaLista}
           vazio={filtroVazio ? textoDoFiltroVazio(filtro.lista) : null}
           aoTentarDeNovo={() => carregarFiltro(filtro)}
           aoVerTodos={verTodos}
@@ -119,8 +116,10 @@ export default function PainelContatos() {
           contatos={leads}
           pedidos={pedidos}
           meta={meta}
-          carregando={loading || caixaCarregando}
+          carregando={cargaDaLista === "carregando" || caixaCarregando}
           caixaOk={caixaOk}
+          listaOk={cargaDaLista !== "erro"}
+          aoTentarDeNovo={carregarTodos}
           onPedidoRegistrado={(leadId, valor) => {
             // Soma no total na hora: o caixa do rodapé sobe sem esperar o refetch.
             setPedidos((p) => [...p, { value: valor, created_at: new Date().toISOString() }]);

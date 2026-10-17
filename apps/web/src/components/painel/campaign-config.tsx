@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ArrowLeft, ArrowRight, CheckCircle2, Users, Copy, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CopyLink } from "@/components/painel/copy-link";
+import { ErroDeCarga } from "@/components/painel/erro-de-carga";
 import type { Group } from "@/lib/mock-data";
 import { PlanLimitAlert } from "@/components/painel/plan-limit-alert";
 import { CAMPAIGN_PRESETS, getCampaignPreset, resolvePresetName, type CampaignPreset } from "@/lib/campaign-presets";
@@ -15,6 +16,8 @@ import { IntegracoesForm, type IntegracoesFormValue } from "@/components/painel/
 import type { IntegracoesPublicas } from "@/app/api/campanhas/apresenta";
 import { AjudaPainel } from "@/components/painel/campanhas/ajuda-painel";
 import { useLinkOrigin } from "@/lib/painel/use-link-origin";
+import { buscarLista, cargaDeTodas } from "@/lib/painel/carregar";
+import type { Carga } from "@/lib/painel/types";
 import { linkPublico } from "@/lib/painel/campanhas";
 import { campaignLinkPath } from "@/lib/custom-domains/host";
 
@@ -53,6 +56,7 @@ type Campanha = {
   whatsappCommunityJid?: string | null;
   settings?: { entrada: EntradaSettings; integracoes?: IntegracoesPublicas };
 };
+type PaginaDaApi = { slug: string; title?: string; status?: string };
 
 /** Forma vazia da aba Integrações — espelha `INTEGRACOES_DEFAULTS` já mascarado. */
 const INTEGRACOES_FORM_VAZIO: IntegracoesFormValue = {
@@ -85,7 +89,11 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
   const cadastroIdx = mode === "create" ? 1 : 0;
 
   const [groups, setGroups] = useState<Group[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Uma carga por rota. Falha em qualquer uma = sem formulário: a tela vazia
+  // dizia "Nenhum grupo sincronizado" e, na edição, abria o nome em branco.
+  const [cargaDosGrupos, setCargaDosGrupos] = useState<Carga>("carregando");
+  const [cargaDaCampanha, setCargaDaCampanha] = useState<Carga>("carregando");
+  const [cargaDasPaginas, setCargaDasPaginas] = useState<Carga>("carregando");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** Preenchido só quando o erro veio do gate de plano (402). */
@@ -131,53 +139,59 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
     setIdx(cadastroIdx);
   }
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const g = await fetch("/api/groups").then((r) => r.json()).catch(() => []);
-        setGroups(Array.isArray(g) ? g : []);
-        if (mode === "create") {
-          // Deep-link: ?preset=<id>&groups=<ids> (ex.: reativação vinda de Resultados).
-          const params = new URLSearchParams(window.location.search);
-          const groupsParam = params.get("groups");
-          if (groupsParam) setSelected(new Set(groupsParam.split(",").filter(Boolean)));
-          const presetId = params.get("preset");
-          const preset = presetId ? getCampaignPreset(presetId) : undefined;
-          if (preset && preset.id !== "zero") {
-            const monthName = new Date().toLocaleString("pt-BR", { month: "long" });
-            setName(resolvePresetName(preset, monthName));
-            setSuggestedMsg(preset.message);
-            setIdx(1); // já vem com objetivo escolhido — pula o passo Objetivo
-          }
-        }
-        if (mode === "edit" && slug) {
-          const list: Campanha[] = await fetch("/api/campanhas").then((r) => r.json()).catch(() => []);
-          const c = Array.isArray(list) ? list.find((x) => x.slug === slug || x.id === slug) : null;
-          if (c) {
-            setId(c.id);
-            setCreatedSlug(c.slug ?? null);
-            setSlugDraft(c.slug ?? "");
-            setName(c.name ?? "");
-            setComunidadeNativa(Boolean(c.whatsappCommunityJid));
-            setAutoGrow(c.autoGrow ?? true);
-            setGrowSubject(c.growTemplate?.subjectPattern ?? "");
-            setSelected(new Set(c.groupIds ?? []));
-            setEntrada(c.settings?.entrada ?? ENTRADA_DEFAULTS);
-            setIntegracoes(c.settings?.integracoes ?? INTEGRACOES_FORM_VAZIO);
-            setLoja(typeof c.loja === "string" ? c.loja : "");
-          }
-          const pgs: { slug: string; title?: string; status?: string }[] = await fetch("/api/pages").then((r) => r.json()).catch(() => []);
-          setPages(Array.isArray(pgs) ? pgs.filter((p) => p.status === "published").map((p) => ({ slug: p.slug, title: p.title ?? "" })) : []);
-          // ?aba=… — os chips do cabeçalho da campanha chegam direto na aba.
-          const aba = new URLSearchParams(window.location.search).get("aba");
-          if (aba === "entrada") setIdx(2);
-          if (aba === "integracoes") setIdx(3);
-        }
-      } finally {
-        setLoading(false);
-      }
-    })();
+  const carregar = useCallback(() => {
+    void buscarLista<Group>("/api/groups", setGroups, setCargaDosGrupos);
+    if (mode !== "edit") return;
+    void buscarLista<Campanha>(
+      "/api/campanhas",
+      (list) => {
+        const c = slug ? list.find((x) => x.slug === slug || x.id === slug) : undefined;
+        if (!c) return;
+        setId(c.id);
+        setCreatedSlug(c.slug ?? null);
+        setSlugDraft(c.slug ?? "");
+        setName(c.name ?? "");
+        setComunidadeNativa(Boolean(c.whatsappCommunityJid));
+        setAutoGrow(c.autoGrow ?? true);
+        setGrowSubject(c.growTemplate?.subjectPattern ?? "");
+        setSelected(new Set(c.groupIds ?? []));
+        setEntrada(c.settings?.entrada ?? ENTRADA_DEFAULTS);
+        setIntegracoes(c.settings?.integracoes ?? INTEGRACOES_FORM_VAZIO);
+        setLoja(typeof c.loja === "string" ? c.loja : "");
+      },
+      setCargaDaCampanha,
+    );
+    void buscarLista<PaginaDaApi>(
+      "/api/pages",
+      (pgs) => setPages(pgs.filter((p) => p.status === "published").map((p) => ({ slug: p.slug, title: p.title ?? "" }))),
+      setCargaDasPaginas,
+    );
   }, [mode, slug]);
+
+  useEffect(() => {
+    carregar();
+    const params = new URLSearchParams(window.location.search);
+    if (mode === "create") {
+      // Deep-link: ?preset=<id>&groups=<ids> (ex.: reativação vinda de Resultados).
+      const groupsParam = params.get("groups");
+      if (groupsParam) setSelected(new Set(groupsParam.split(",").filter(Boolean)));
+      const presetId = params.get("preset");
+      const preset = presetId ? getCampaignPreset(presetId) : undefined;
+      if (preset && preset.id !== "zero") {
+        const monthName = new Date().toLocaleString("pt-BR", { month: "long" });
+        setName(resolvePresetName(preset, monthName));
+        setSuggestedMsg(preset.message);
+        setIdx(1); // já vem com objetivo escolhido — pula o passo Objetivo
+      }
+      return;
+    }
+    // ?aba=… — os chips do cabeçalho da campanha chegam direto na aba.
+    const aba = params.get("aba");
+    if (aba === "entrada") setIdx(2);
+    if (aba === "integracoes") setIdx(3);
+  }, [mode, carregar]);
+
+  const carga = cargaDeTodas(mode === "edit" ? [cargaDosGrupos, cargaDaCampanha, cargaDasPaginas] : [cargaDosGrupos]);
 
   const backHref = mode === "edit" && (createdSlug || slug) ? `/painel/campanhas/${createdSlug ?? slug}` : "/painel/campanhas";
   const isObjetivoStep = mode === "create" && idx === 0;
@@ -300,11 +314,34 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
     );
   }
 
-  if (loading) {
+  if (carga === "carregando") {
     return (
       <div className="mx-auto max-w-[760px] space-y-4 px-4 py-10 sm:px-8" role="status" aria-label="Carregando a campanha">
         <div className="pn-skeleton h-10 w-48 rounded-lg" data-testid="painel-skeleton" />
         <div className="pn-skeleton h-72 rounded-xl" data-testid="painel-skeleton" />
+      </div>
+    );
+  }
+
+  // Sem formulário: aberto vazio, ele mentia que a campanha não tem grupo nem nome.
+  if (carga === "erro") {
+    return (
+      <div className="mx-auto max-w-[760px] px-4 py-10 sm:px-8">
+        <ErroDeCarga
+          titulo={mode === "edit" ? "Não deu para carregar esta campanha." : "Não deu para carregar seus grupos."}
+          aoTentarDeNovo={carregar}
+        />
+      </div>
+    );
+  }
+
+  if (mode === "edit" && !id) {
+    return (
+      <div className="mx-auto max-w-[760px] px-4 py-24 text-center sm:px-8">
+        <p className="text-[22px] text-volt-950">Campanha não encontrada.</p>
+        <button type="button" onClick={() => router.push("/painel/campanhas")} className="mt-4 inline-block text-sm text-cobalt-500 hover:underline">
+          ← Voltar pra campanhas
+        </button>
       </div>
     );
   }

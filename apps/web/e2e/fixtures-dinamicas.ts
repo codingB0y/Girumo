@@ -155,9 +155,10 @@ function fixtureCampanha(): FixtureDinamica {
 }
 
 /**
- * A tela de EDICAO nao tem estado de "nao encontrada" — com slug invalido ela
- * abre o formulario vazio. Por isso a marca aqui e o nome PREENCHIDO no campo:
- * e a unica diferenca observavel entre carregar a campanha e nao carregar nada.
+ * Na tela de EDICAO a marca e o nome PREENCHIDO no campo: prova que o formulario
+ * leu AQUELA campanha. Com slug invalido ela mostra "Campanha nao encontrada" e
+ * nenhum campo (ate 16/10/2026 abria o formulario vazio), entao a contagem da
+ * marca cai a zero do mesmo jeito.
  */
 function fixtureCampanhaEdicao(): FixtureDinamica {
   const base = fixtureCampanha();

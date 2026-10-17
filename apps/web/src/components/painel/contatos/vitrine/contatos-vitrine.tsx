@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { brl } from "@/components/painel/home/format";
+import { ErroDeCarga } from "@/components/painel/erro-de-carga";
 import { Odometro } from "@/components/painel/odometro";
 import { diaHoraCurto, iniciais, marcasDaFita, rotulosDaFita } from "@/lib/painel/inicio";
 import { ordersInMonth, revenueInMonth, type MonthlyOrder } from "@/lib/painel-metrics";
@@ -43,6 +44,9 @@ type Props = {
   onPedidoRegistrado: (leadId: string, valor: number) => void;
   /** false quando /api/orders ou /api/settings falhou: zero por falta de dado não é zero de verdade. */
   caixaOk: boolean;
+  /** false quando /api/leads falhou: lista vazia por falta de dado não é "ninguém entrou". */
+  listaOk: boolean;
+  aoTentarDeNovo: () => void;
 };
 
 /**
@@ -51,7 +55,16 @@ type Props = {
  * roteiro ("o caixa sobe"), e é também o que a lojista quer ver: a conta do mês
  * andando enquanto ela atende.
  */
-export function ContatosVitrine({ contatos, pedidos, meta, carregando, caixaOk, onPedidoRegistrado }: Props) {
+export function ContatosVitrine({
+  contatos,
+  pedidos,
+  meta,
+  carregando,
+  caixaOk,
+  listaOk,
+  aoTentarDeNovo,
+  onPedidoRegistrado,
+}: Props) {
   const [filtro, setFiltro] = useState<Filtro>("todos");
   const [busca, setBusca] = useState("");
   const [registrando, setRegistrando] = useState<string | null>(null);
@@ -95,39 +108,49 @@ export function ContatosVitrine({ contatos, pedidos, meta, carregando, caixaOk, 
     <div className="px-4 py-5 lg:px-8 lg:py-8">
       <header data-testid="contatos-cabecalho">
         <h1 className="font-brand text-28 font-bold tracking-[-0.4px] text-volt-950">Contatos</h1>
-        <p className="mt-1 text-[14px] text-slate-600">
-          {contatos.length === 0
-            ? "Ninguém entrou ainda. Quem entrar pelos seus grupos aparece aqui."
-            : `${contatos.length} ${contatos.length === 1 ? "pessoa" : "pessoas"} · ${contagens.comprou ?? 0} ${
-                (contagens.comprou ?? 0) === 1 ? "já comprou" : "já compraram"
-              }`}
-        </p>
+        {listaOk && (
+          <p className="mt-1 text-[14px] text-slate-600">
+            {contatos.length === 0
+              ? "Ninguém entrou ainda. Quem entrar pelos seus grupos aparece aqui."
+              : `${contatos.length} ${contatos.length === 1 ? "pessoa" : "pessoas"} · ${contagens.comprou ?? 0} ${
+                  (contagens.comprou ?? 0) === 1 ? "já comprou" : "já compraram"
+                }`}
+          </p>
+        )}
       </header>
 
-      <Filtros contagens={contagens} filtro={filtro} onFiltro={setFiltro} busca={busca} onBusca={setBusca} />
+      {listaOk ? (
+        <>
+          <Filtros contagens={contagens} filtro={filtro} onFiltro={setFiltro} busca={busca} onBusca={setBusca} />
 
-      <section className="mt-4" data-testid="contatos-lista">
-        {visiveis.length === 0 ? (
-          <p className="py-10 text-center text-[14px] text-slate-600">
-            {contatos.length === 0 ? "A lista enche sozinha quando alguém entra num grupo seu." : "Ninguém com esse filtro."}
-          </p>
-        ) : (
-          <ul>
-            {visiveis.map((l) => (
-              <li key={l.id}>
-                <FichaDoContato
-                  contato={l}
-                  agora={agora}
-                  registrando={registrando === l.id}
-                  onAbrir={() => setRegistrando(registrando === l.id ? null : l.id)}
-                  onFechar={() => setRegistrando(null)}
-                  onRegistrado={onPedidoRegistrado}
-                />
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+          <section className="mt-4" data-testid="contatos-lista">
+            {visiveis.length === 0 ? (
+              <p className="py-10 text-center text-[14px] text-slate-600">
+                {contatos.length === 0 ? "A lista enche sozinha quando alguém entra num grupo seu." : "Ninguém com esse filtro."}
+              </p>
+            ) : (
+              <ul>
+                {visiveis.map((l) => (
+                  <li key={l.id}>
+                    <FichaDoContato
+                      contato={l}
+                      agora={agora}
+                      registrando={registrando === l.id}
+                      onAbrir={() => setRegistrando(registrando === l.id ? null : l.id)}
+                      onFechar={() => setRegistrando(null)}
+                      onRegistrado={onPedidoRegistrado}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </>
+      ) : (
+        <div className="mt-4">
+          <ErroDeCarga titulo="Não deu para carregar seus contatos." aoTentarDeNovo={aoTentarDeNovo} />
+        </div>
+      )}
 
       <CaixaDoRodape faturamento={faturamento} meta={meta} pedidos={pedidosDoMes.length} ok={caixaOk} />
     </div>
