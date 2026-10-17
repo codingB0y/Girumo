@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  exigeSenhaAtual,
   limpaDepoisDeSalvar,
   mensagemDeSucesso,
   motivoDoBloqueio,
@@ -46,12 +47,23 @@ test("campo intocado não acusa erro; senha curta explica", () => {
   assert.equal(motivoDoBloqueio("name", "Ana"), null);
 });
 
-test("o e-mail avisa que o trabalho não acabou no clique", () => {
-  // Mutante: uma mensagem só para os três. O e-mail é o único que depende de
-  // confirmação na caixa de entrada — sem a frase o lojista acha que trocou.
+test("o e-mail só diz que trocou quando trocou de fato", () => {
+  // Mutante: uma frase fixa. A troca de e-mail fica pendente até o link do
+  // endereço novo ser clicado; dizer "atualizado" nesse caso faz o lojista
+  // achar que já pode entrar com o e-mail novo.
   assert.equal(mensagemDeSucesso("name"), "Nome atualizado.");
-  assert.match(mensagemDeSucesso("email"), /Confirme na caixa de entrada/);
-  assert.equal(mensagemDeSucesso("password"), "Senha atualizada.");
+  assert.match(mensagemDeSucesso("email", true), /link de confirmação/);
+  assert.match(mensagemDeSucesso("email", true), /depois que você confirmar/);
+  assert.equal(mensagemDeSucesso("email", false), "E-mail atualizado.");
+  assert.match(mensagemDeSucesso("password"), /outros aparelhos/);
+});
+
+test("e-mail e senha pedem a senha atual; o nome não", () => {
+  // Mutante: liberar o e-mail sem senha atual — era o que deixava quem pegou
+  // a sessão aberta tomar a conta trocando o e-mail de login.
+  assert.equal(exigeSenhaAtual("email"), true);
+  assert.equal(exigeSenhaAtual("password"), true);
+  assert.equal(exigeSenhaAtual("name"), false);
 });
 
 test("só a senha some do campo depois de salva", () => {

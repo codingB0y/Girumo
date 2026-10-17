@@ -31,6 +31,28 @@ export async function listOrdersByTenant(tenantId: string): Promise<Order[]> {
   return (data ?? []) as Order[];
 }
 
+/**
+ * Pedidos do tenant criados desde `desde` (ISO), mais recentes primeiro, só com
+ * o que a faixa da Início soma: valor e quando. A Início recarrega a cada
+ * minuto e lia o histórico inteiro com todas as colunas.
+ *
+ * ponytail: o PostgREST para em 1000 linhas sem erro — loja com mais de 1000
+ * pedidos no mês subconta o faturamento; somar no banco quando alguma passar.
+ */
+export async function listOrdersSince(
+  tenantId: string,
+  desde: string,
+): Promise<Pick<Order, "id" | "value" | "created_at">[]> {
+  const { data, error } = await getSupabaseAdmin()
+    .from("orders")
+    .select("id, value, created_at")
+    .eq("tenant_id", tenantId)
+    .gte("created_at", desde)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
 /** Total de pedidos do tenant. */
 export async function countOrders(tenantId: string): Promise<number> {
   const { count, error } = await getSupabaseAdmin()

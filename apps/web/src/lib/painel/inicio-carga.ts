@@ -3,6 +3,7 @@ import "server-only";
 import { buildTenantDispatchList, type CampaignRef } from "@/lib/campaigns/dispatch-view";
 import { campanhasColl, ensureSlugs } from "@/lib/campanhas-store";
 import { ehEstruturaDeComunidade, idsDeEstrutura } from "@/lib/communities/estrutura";
+import { monthBR } from "@/lib/date-br";
 import { listGroups as legacyListGroups } from "@/lib/groups-store";
 import { collection } from "@/lib/json-collection";
 import { listLeads as legacyListLeads } from "@/lib/leads-store";
@@ -14,6 +15,7 @@ import * as broadcastsStore from "@/lib/stores/broadcasts";
 import * as campaignsStore from "@/lib/stores/campaign-groups";
 import * as groupsStore from "@/lib/stores/groups";
 import * as leadsStore from "@/lib/stores/leads";
+import * as ordersStore from "@/lib/stores/orders";
 import * as schedulesStore from "@/lib/stores/schedules";
 import * as trackedLinksStore from "@/lib/stores/tracked-links";
 import { USE_SUPABASE } from "@/lib/stores/use-supabase";
@@ -203,6 +205,18 @@ export async function carregarContagemDeLeads(tenantId: string) {
     leadsStore.countLeads(tenantId, "ativo"),
   ]);
   return { total, clientes, novos, ativos };
+}
+
+const UM_DIA_MS = 86_400_000;
+
+/**
+ * Os pedidos que a faixa da Início soma (hoje e o mês, em Brasília). Um dia de
+ * folga antes do dia 1º em UTC cobre o fuso sem depender dele: quem recorta o
+ * mês é a tela, com `monthBROf`.
+ */
+export async function carregarPedidosDoMes(tenantId: string, agora = new Date()) {
+  const desde = new Date(Date.parse(`${monthBR(agora)}-01T00:00:00Z`) - UM_DIA_MS).toISOString();
+  return ordersStore.listOrdersSince(tenantId, desde);
 }
 
 export async function carregarAgendamentos(tenantId: string) {

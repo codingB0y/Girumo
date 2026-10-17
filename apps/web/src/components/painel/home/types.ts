@@ -20,15 +20,6 @@ export type TrackedLink = {
   clicks: number;
 };
 
-export type Lead = {
-  id: string;
-  status: "novo" | "ativo" | "comprou";
-  enteredAt: string;
-  /** Vazio quando o participante veio como `@lid` sem telefone resolvido. */
-  name?: string;
-  sourceGroup?: string;
-};
-
 export type Order = {
   id: string;
   value: number;
@@ -80,7 +71,8 @@ export type DashboardData = {
   groups: Group[];
   campanhas: Campanha[];
   links: TrackedLink[];
-  leads: Lead[];
+  /** Quantos contatos a loja tem, contado no banco (a lista parava nas 1000 linhas). 0 quando não carregou. */
+  leadCount: number;
   orders: Order[];
   schedules: Schedule[];
   disparos: Disparo[];

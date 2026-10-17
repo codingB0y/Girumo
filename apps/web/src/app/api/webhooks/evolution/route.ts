@@ -1,3 +1,4 @@
+import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import { evolutionEventId } from "@/lib/evolution/event-id";
 import { secretMatches } from "@/lib/evolution/webhook-secret";
 import {
@@ -109,6 +110,15 @@ async function applyConnectionUpdate(
     phone: phoneFromWuid(event.data.wuid),
     metadata: { lastDisconnectReason },
   });
+
+  // Marco de ativação "conectou o WhatsApp". Só existia no heartbeat da engine
+  // Baileys (`setSession`), que ninguém chama mais: com a Evolution o marco
+  // nunca era gravado, e o cron mandava "conecte seu WhatsApp" para quem já
+  // tinha conectado. `onlyFirst` guarda a data da primeira conexão — reconectar
+  // não a move. Não lança: falha vira log em trackFunnelEvent.
+  if (status === "connected") {
+    await trackFunnelEvent({ tenantId: instance.tenant_id, userId: null, event: "qr_connected", onlyFirst: true });
+  }
 }
 
 /**
@@ -255,24 +265,21 @@ async function applyFlashOfferComment(
   // literalmente a divergência que a feature existe para evitar.
   if (msg.commentedAt < new Date(janela.openedAt)) return true;
 
-  try {
-    await insertEntry({
-      tenantId: instance.tenant_id,
-      offerId: janela.offerId,
-      groupId: janela.groupId,
-      whatsappGroupId: msg.remoteJid,
-      participantJid: msg.participantJid,
-      phone: msg.phoneHint ?? janela.lidMap[msg.participantJid] ?? null,
-      pushName: msg.pushName,
-      messageText: msg.text,
-      messageId: msg.messageId,
-      commentedAt: msg.commentedAt,
-    });
-  } catch (e) {
-    // Não derruba a resposta: 500 faria a Evolution reentregar, e a reentrega
-    // cairia no mesmo erro. Fica o log.
-    console.error(`[webhook/evolution] captura da oferta relampago falhou:`, e);
-  }
+  // Erro de banco aqui (e no findOpenWindow acima) sobe e vira 500, como o da
+  // instância: 200 diria à Evolution que o comentário foi gravado. Reentregar é
+  // seguro — o índice único da mensagem transforma a repetição em no-op.
+  await insertEntry({
+    tenantId: instance.tenant_id,
+    offerId: janela.offerId,
+    groupId: janela.groupId,
+    whatsappGroupId: msg.remoteJid,
+    participantJid: msg.participantJid,
+    phone: msg.phoneHint ?? janela.lidMap[msg.participantJid] ?? null,
+    pushName: msg.pushName,
+    messageText: msg.text,
+    messageId: msg.messageId,
+    commentedAt: msg.commentedAt,
+  });
 
   return true;
 }

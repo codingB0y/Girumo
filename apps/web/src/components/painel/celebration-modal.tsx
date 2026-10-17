@@ -7,11 +7,12 @@ import { computeCelebrations, pendingCelebrations, type Celebration } from "@/li
 
 export function CelebrationModal({
   groups,
-  leads,
+  contacts,
   monthlyGoal,
 }: {
   groups: Group[];
-  leads: unknown[];
+  /** Contatos da loja, contados no banco (a lista parava em 1000 e a meta acima disso nunca batia). */
+  contacts: number;
   monthlyGoal: number | null;
 }) {
   const [pending, setPending] = useState<Celebration[] | null>(null);
@@ -39,7 +40,7 @@ export function CelebrationModal({
         const signals = {
           fullGroups,
           monthlyGoal,
-          contacts: leads.length,
+          contacts,
           ordersCount,
         };
 
