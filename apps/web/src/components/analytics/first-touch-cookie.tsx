@@ -5,6 +5,7 @@ import {
   buildFirstTouch,
   FIRST_TOUCH_COOKIE,
   FIRST_TOUCH_MAX_AGE_SECONDS,
+  firstTouchCookieDomain,
   serializeFirstTouch,
 } from "@/lib/analytics/first-touch";
 
@@ -42,8 +43,9 @@ export function FirstTouchCookie() {
     // top-level de outro site), e Strict o descartaria justamente nesse caso —
     // que é o caso que este componente existe para medir.
     const secure = window.location.protocol === "https:" ? "; Secure" : "";
+    const domain = firstTouchCookieDomain(window.location.hostname);
     document.cookie =
-      `${FIRST_TOUCH_COOKIE}=${value}; path=/; max-age=${FIRST_TOUCH_MAX_AGE_SECONDS}; SameSite=Lax${secure}`;
+      `${FIRST_TOUCH_COOKIE}=${value}; path=/; max-age=${FIRST_TOUCH_MAX_AGE_SECONDS}; SameSite=Lax${secure}${domain}`;
   }, []);
 
   return null;
