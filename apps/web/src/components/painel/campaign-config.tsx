@@ -20,6 +20,7 @@ import { buscarLista, cargaDeTodas } from "@/lib/painel/carregar";
 import type { Carga } from "@/lib/painel/types";
 import { linkPublico } from "@/lib/painel/campanhas";
 import { campaignLinkPath } from "@/lib/custom-domains/host";
+import { lerCorpo409, mensagemConflito, travasDoSeletor, type Conflito409 } from "@/lib/campaigns/conflito-grupo";
 
 /**
  * Erro de requisição que preserva o caminho de saída.
@@ -30,15 +31,18 @@ import { campaignLinkPath } from "@/lib/custom-domains/host";
  */
 class RequestError extends Error {
   readonly upgradeUrl: string | null;
-  constructor(message: string, upgradeUrl: string | null) {
+  /** Só no 409 de grupo que já está em outra campanha (um grupo, uma campanha). */
+  readonly conflito: Conflito409 | null;
+  constructor(message: string, upgradeUrl: string | null, conflito: Conflito409 | null = null) {
     super(message);
     this.upgradeUrl = upgradeUrl;
+    this.conflito = conflito;
   }
 }
 
 async function toRequestError(res: Response, fallback: string): Promise<RequestError> {
   const body = (await res.json().catch(() => ({}))) as { error?: string; upgradeUrl?: string };
-  return new RequestError(body?.error ?? fallback, body?.upgradeUrl ?? null);
+  return new RequestError(body?.error ?? fallback, body?.upgradeUrl ?? null, lerCorpo409(body));
 }
 
 type GrowTemplate = { subjectPattern?: string };
@@ -113,6 +117,8 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
   const [growSubject, setGrowSubject] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [groupSearch, setGroupSearch] = useState("");
+  // Um grupo, uma campanha: JID → nome da OUTRA campanha que já tem o grupo.
+  const [travas, setTravas] = useState<Map<string, string>>(() => new Map());
   // Mensagem-modelo do preset escolhido — sugestão pra postar com o link (não persiste).
   const [suggestedMsg, setSuggestedMsg] = useState<string | null>(null);
   // Comportamento do link mestre (aba Entrada) — só existe na edição.
@@ -141,12 +147,23 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
 
   const carregar = useCallback(() => {
     void buscarLista<Group>("/api/groups", setGroups, setCargaDosGrupos);
-    if (mode !== "edit") return;
+    if (mode !== "edit") {
+      // Criação: não há "esta campanha", então toda campanha trava os grupos que tem. Fora da
+      // `carga` de propósito — se falhar, a tela abre sem travas (o servidor ainda recusa com 409).
+      void buscarLista<Campanha>(
+        "/api/campanhas",
+        (list) => setTravas(travasDoSeletor(list, { id: null, groupIds: [] })),
+        () => undefined,
+      );
+      return;
+    }
     void buscarLista<Campanha>(
       "/api/campanhas",
       (list) => {
         const c = slug ? list.find((x) => x.slug === slug || x.id === slug) : undefined;
         if (!c) return;
+        // Grupo de OUTRA campanha aparece travado (o banco recusaria); o que esta já tem nunca trava.
+        setTravas(travasDoSeletor(list, { id: c.id, groupIds: c.groupIds ?? [] }));
         setId(c.id);
         setCreatedSlug(c.slug ?? null);
         setSlugDraft(c.slug ?? "");
@@ -286,7 +303,17 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
         return;
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Erro inesperado.");
+      const conflito = e instanceof RequestError ? e.conflito : null;
+      if (conflito) {
+        // Corrida: outro lugar pôs o grupo noutra campanha depois que a tela carregou. Ele passa a
+        // aparecer travado — ainda dá para desmarcar, não dá para marcar de novo.
+        setTravas((t) => new Map(t).set(conflito.grupo, conflito.campanha.name));
+        setError(
+          mensagemConflito(groups.find((g) => g.id === conflito.grupo)?.name ?? null, conflito.campanha.name),
+        );
+      } else {
+        setError(e instanceof Error ? e.message : "Erro inesperado.");
+      }
       setUpgradeUrl(e instanceof RequestError ? e.upgradeUrl : null);
       setSaving(false);
     }
@@ -466,12 +493,16 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
   const filteredGroups = groupSearch.trim()
     ? groups.filter((g) => g.name.toLowerCase().includes(groupSearch.trim().toLowerCase()))
     : groups;
-  const allFilteredSelected = filteredGroups.length > 0 && filteredGroups.every((g) => selected.has(g.id));
+  // Travado = está em outra campanha e não está marcado aqui. Marcado continua clicável: é o
+  // caminho para desmarcar depois de um 409.
+  const travado = (gid: string) => travas.has(gid) && !selected.has(gid);
+  const selecionaveis = filteredGroups.filter((g) => !travado(g.id));
+  const allFilteredSelected = selecionaveis.length > 0 && selecionaveis.every((g) => selected.has(g.id));
   const toggleSelectAllFiltered = () =>
     setSelected((s) => {
       const n = new Set(s);
-      if (allFilteredSelected) filteredGroups.forEach((g) => n.delete(g.id));
-      else filteredGroups.forEach((g) => n.add(g.id));
+      if (allFilteredSelected) selecionaveis.forEach((g) => n.delete(g.id));
+      else selecionaveis.forEach((g) => n.add(g.id));
       return n;
     });
 
@@ -503,7 +534,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
               <button
                 type="button"
                 onClick={toggleSelectAllFiltered}
-                disabled={filteredGroups.length === 0}
+                disabled={selecionaveis.length === 0}
                 className="shrink-0 whitespace-nowrap rounded-xl border border-volt-950/15 bg-papel px-3 py-2 text-sm font-medium text-volt-950 transition-colors duration-[160ms] hover:border-cobalt-500/30 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {allFilteredSelected ? "Remover todos" : "Selecionar todos"}
@@ -523,11 +554,17 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
             <div className="grid max-h-[340px] gap-2 overflow-y-auto sm:grid-cols-2">
               {filteredGroups.map((g) => {
                 const sel = selected.has(g.id);
+                const emOutra = travas.get(g.id);
+                const trava = travado(g.id);
                 return (
                   <button
                     key={g.id}
+                    type="button"
+                    data-testid={`grupo-opcao-${g.id}`}
+                    aria-pressed={sel}
+                    disabled={trava}
                     onClick={() => toggle(g.id)}
-                    className={cn("flex items-center gap-3 rounded-xl border p-3 text-left transition-[border-color,background-color] duration-[160ms] ease-[var(--ease-fluxo)]", sel ? "border-cobalt-500 bg-cobalt-500/[0.05]" : "border-volt-950/[0.08] bg-papel hover:border-cobalt-500/30")}
+                    className={cn("flex items-center gap-3 rounded-xl border p-3 text-left transition-[border-color,background-color] duration-[160ms] ease-[var(--ease-fluxo)]", sel ? "border-cobalt-500 bg-cobalt-500/[0.05]" : "border-volt-950/[0.08] bg-papel hover:border-cobalt-500/30", trava && "cursor-not-allowed opacity-60 hover:border-volt-950/[0.08]")}
                   >
                     <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", sel ? "bg-cobalt-500 text-white" : "bg-cobalt-500/10 text-cobalt-700")}>
                       <Users className="h-4 w-4" strokeWidth={1.75} />
@@ -535,6 +572,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-volt-950">{g.name}</p>
                       <p className="font-data text-12 tabular-nums text-aco">{g.members?.toLocaleString("pt-BR") ?? 0} membros{!g.inviteUrl ? " · sem convite" : ""}</p>
+                      {emOutra && <p className="truncate text-13 text-aco">já está em {emOutra}</p>}
                     </div>
                     <span className={cn("flex h-5 w-5 items-center justify-center rounded-md border transition", sel ? "border-cobalt-500 bg-cobalt-500 text-white" : "border-volt-950/20")}>
                       {sel && <Check className="h-3.5 w-3.5" />}
