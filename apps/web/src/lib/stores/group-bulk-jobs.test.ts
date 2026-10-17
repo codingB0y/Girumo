@@ -71,14 +71,23 @@ const JOB = {
   updated_at: "2026-10-10T12:00:04+00:00",
 };
 
-/** Ack devolve o job atualizado; o update de `groups` responde 204 (return=minimal). */
+/**
+ * O ack de `done` lê o job antes (GET) para conferir o eco do worker, e depois
+ * devolve a linha atualizada com o que foi ESCRITO (PATCH, como o banco faria); o
+ * update de `groups` responde 204 (return=minimal).
+ */
 function comAck(linha: Record<string, unknown>): (chamada: Chamada) => Resposta {
-  return ({ metodo, url }) => {
-    if (metodo === "PATCH" && url.pathname === "/rest/v1/group_bulk_jobs") return { status: 200, corpo: [linha] };
+  return ({ metodo, url, corpo }) => {
+    if (metodo === "GET" && url.pathname === "/rest/v1/group_bulk_jobs") return { status: 200, corpo: [linha] };
+    if (metodo === "PATCH" && url.pathname === "/rest/v1/group_bulk_jobs") {
+      return { status: 200, corpo: [{ ...linha, ...(corpo as Record<string, unknown>) }] };
+    }
     if (metodo === "PATCH" && url.pathname === "/rest/v1/groups") return { status: 204 };
     return { status: 500, corpo: { message: `inesperado: ${metodo} ${url.pathname}` } };
   };
 }
+
+const RENOME_NAO_CONFIRMADO = "Worker desatualizado: o renome não foi confirmado.";
 
 test("o claim entrega ao worker o nome do renome, e só no renome", async () => {
   chamadas.length = 0;
@@ -109,11 +118,24 @@ test("o claim entrega ao worker o nome do renome, e só no renome", async () => 
 
 test("renome concluído grava o nome novo e limpa o nome interno, só no grupo da loja", async () => {
   chamadas.length = 0;
-  responder = comAck({ ...JOB, status: "done" });
+  responder = comAck(JOB);
 
-  const job = await ackBulk("loja-a", "job-1", { status: "done" });
+  // O worker ecoa o nome que aplicou; é o que destrava a escrita em `groups`.
+  const job = await ackBulk("loja-a", "job-1", { status: "done", subject: "Moda Kids do Sul 3" });
 
   assert.equal(job?.subject, "Moda Kids do Sul 3");
+  assert.equal(job?.status, "done");
+  // O registro do job também é do tenant: sem o filtro, o service-role daria `done`
+  // ao job de outra loja com o mesmo id.
+  const [leitura] = feitas("GET", "/rest/v1/group_bulk_jobs");
+  assert.equal(leitura?.url.searchParams.get("tenant_id"), "eq.loja-a");
+  assert.equal(leitura?.url.searchParams.get("id"), "eq.job-1");
+  const [registro] = feitas("PATCH", "/rest/v1/group_bulk_jobs");
+  assert.equal(registro?.url.searchParams.get("tenant_id"), "eq.loja-a");
+  assert.equal(registro?.url.searchParams.get("id"), "eq.job-1");
+  assert.equal((registro?.corpo as { status?: string }).status, "done");
+  // Exatamente UMA escrita em `groups`: nem duas, nem em outro grupo.
+  assert.equal(feitas("PATCH", "/rest/v1/groups").length, 1);
   const [grupo] = feitas("PATCH", "/rest/v1/groups");
   assert.ok(grupo, "o nome do grupo não foi gravado");
   // Mutantes: sem o tenant, o service-role escreveria no grupo de outra loja com
@@ -135,11 +157,50 @@ test("renome que falhou não mexe no nome do grupo", async () => {
   assert.equal(feitas("PATCH", "/rest/v1/groups").length, 0);
 });
 
-test("renome concluído sem nome no job não apaga o nome do grupo", async () => {
+test("renome concluído com nome em branco no job não apaga o nome do grupo", async () => {
   chamadas.length = 0;
-  responder = comAck({ ...JOB, status: "done", subject: null });
+  // Nome em branco com eco batendo: passa a trava do eco e só o guarda de
+  // `trim()` impede de gravar "" por cima do nome do grupo.
+  responder = comAck({ ...JOB, subject: "   " });
 
-  await ackBulk("loja-a", "job-1", { status: "done" });
+  await ackBulk("loja-a", "job-1", { status: "done", subject: "   " });
 
   assert.equal(feitas("PATCH", "/rest/v1/groups").length, 0);
+});
+
+test("renome 'done' sem o eco certo do worker vira failed e não grava o nome", async () => {
+  // Worker antigo (sem `case "set_subject"`) devolve `done` sem ter renomeado nada;
+  // aceitar apagaria `display_name_base` de cada grupo do lote com o nome ainda
+  // velho no WhatsApp. O eco tem de bater EXATAMENTE (sem trim) com o que o app
+  // mandou: sem a chave, outro nome, ou o mesmo nome com espaço no fim.
+  for (const eco of [undefined, "Outro nome", "Moda Kids do Sul 3 "]) {
+    chamadas.length = 0;
+    responder = comAck(JOB);
+
+    const job = await ackBulk("loja-a", "job-1", { status: "done", subject: eco });
+
+    const rotulo = JSON.stringify(eco);
+    assert.equal(feitas("PATCH", "/rest/v1/groups").length, 0, `gravou o nome com o eco ${rotulo}`);
+    const registros = feitas("PATCH", "/rest/v1/group_bulk_jobs");
+    // Uma escrita só, já com o veredito: nunca grava `done` para desfazer depois.
+    assert.equal(registros.length, 1, `esperava uma escrita no job com o eco ${rotulo}`);
+    assert.deepEqual(
+      { status: (registros[0]?.corpo as { status?: string }).status, error: (registros[0]?.corpo as { error?: string }).error },
+      { status: "failed", error: RENOME_NAO_CONFIRMADO },
+    );
+    assert.equal(registros[0]?.url.searchParams.get("tenant_id"), "eq.loja-a");
+    assert.equal(registros[0]?.url.searchParams.get("id"), "eq.job-1");
+    assert.equal(job?.status, "failed");
+  }
+});
+
+test("a trava do eco só vale para o renome: open concluído sem eco segue como done", async () => {
+  chamadas.length = 0;
+  responder = comAck({ ...JOB, action: "open", subject: null });
+
+  const job = await ackBulk("loja-a", "job-1", { status: "done" });
+
+  assert.equal(job?.status, "done");
+  const [grupo] = feitas("PATCH", "/rest/v1/groups");
+  assert.equal((grupo?.corpo as { send_state?: string }).send_state, "open");
 });

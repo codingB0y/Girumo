@@ -218,8 +218,11 @@ test("renomear manda o nome no corpo e o groupJid na query", async () => {
 });
 
 test("renomear com erro da Evolution preserva o status e nomeia a operação", async () => {
-  // 403 = perdemos o admin daquele grupo (permanente); sem o status o lote não
-  // separaria isso de uma queda de rede.
+  // Preserva o status; admin perdido neste endpoint chega como 500 com
+  // `not-authorized` no detalhe (na 2.3.7 todo erro do Baileys vira
+  // InternalServerErrorException); 401/403/404 só vêm dos guards (apikey/instância).
+  // Sem o status o lote não separaria isso de uma queda de rede. O 403 abaixo é só
+  // um status de exemplo.
   const { groups } = makeGroups(() => new Response("not-authorized", { status: 403 }));
 
   await assert.rejects(

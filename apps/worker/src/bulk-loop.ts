@@ -73,6 +73,8 @@ export type BulkAck = {
   /** 0 = não chegou na Evolution (timeout/rede); senão o status HTTP. */
   httpStatus?: number;
   detail?: string;
+  /** `set_subject` concluído: o nome EXATO passado ao `setSubject` (eco para o app). */
+  subject?: string;
 };
 
 export type BulkDeps = {
@@ -239,6 +241,10 @@ async function executeAndAck(
       status: "done",
       // Só a revisão devolve dado; as outras não põem a chave no ack.
       ...(job.action === "check_invite" ? { invite: invite ?? null } : {}),
+      // Eco do nome que foi para o `setSubject`: o app só grava `groups.name` se
+      // ele bater. Sem isto, um worker antigo (que devolve `done` sem renomear)
+      // faria o app apagar o apelido interno de cada grupo do lote.
+      ...(job.action === "set_subject" ? { subject: job.subject } : {}),
     });
     log.info("ação em massa concluída", { job: job.id, action: job.action, status: "done" });
   } catch (error) {

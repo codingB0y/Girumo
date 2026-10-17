@@ -367,9 +367,32 @@ test("set_subject renomeia com o nome exato do job", async () => {
   await drainInFlight();
 
   assert.deepEqual(rec.renomeados, [{ jid: "111@g.us", subject: "Moda Kids do Sul 3" }]);
-  // Rename não produz dado: o ack não leva a chave `invite`.
-  assert.deepEqual(rec.acks, [{ jobId: "nome-1", ack: { status: "done" } }]);
+  // Rename não produz dado (sem `invite`), mas ECOA o nome aplicado: é o que deixa
+  // o app distinguir um worker que renomeou de um antigo que devolve `done` em
+  // branco — o app só grava `groups.name` quando o eco bate.
+  assert.deepEqual(rec.acks, [
+    { jobId: "nome-1", ack: { status: "done", subject: "Moda Kids do Sul 3" } },
+  ]);
   assert.equal(summary.done, 1);
+});
+
+test("só o set_subject ecoa o nome no ack; as outras ações não levam a chave subject", async () => {
+  // Um `subject` perdido no job de outra ação não pode vazar para o ack.
+  const jobs = [
+    job({ id: "a-1", action: "open", subject: "perdido" }),
+    job({ id: "a-2", action: "close", subject: "perdido" }),
+    job({ id: "a-3", action: "set_description", description: "texto", subject: "perdido" }),
+    job({ id: "a-4", action: "remove_participant", targetPhone: "5511999990000", subject: "perdido" }),
+  ];
+  for (const claimed of jobs) {
+    const { deps, rec } = makeDeps({ claimJobs: async () => [claimed] });
+
+    await runBulkTick(deps);
+    await drainInFlight();
+
+    assert.equal(rec.acks.length, 1);
+    assert.equal("subject" in (rec.acks[0]?.ack ?? {}), false, `${claimed.action} ecoou subject`);
+  }
 });
 
 test("set_subject sem nome falha o job SEM chamar a Evolution", async () => {

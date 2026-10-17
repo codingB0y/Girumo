@@ -20,6 +20,8 @@
  *   POST /group/updateGroupPicture/{instance}       required: groupJid, image
  *   POST /group/updateGroupSubject/{instance}       required: groupJid, subject (isNotEmpty)
  *        responde 201 { update: "success" }; os membros veem "Você mudou o nome do grupo"
+ *        erro do Baileys (ex.: perdemos o admin) vira 500 com `not-authorized` no corpo —
+ *        401/403/404 só vêm dos guards (apikey/instância)
  *   GET  /group/inviteCode/{instance}?groupJid=     (já usado no backfill)
  *   POST /group/updateParticipant/{instance}?groupJid=
  *        required: action (add|remove|promote|demote), participants (telefones com DDI)
