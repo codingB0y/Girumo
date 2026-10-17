@@ -30,6 +30,8 @@ export type BulkJobRow = {
   media_id: string | null;
   /** Dígitos com DDI. Só preenchido em `remove_participant`. */
   target_phone: string | null;
+  /** Nome novo do grupo. Só preenchido em `set_subject`. */
+  subject: string | null;
   status: BulkJobStatus;
   attempts: number;
   error: string | null;
@@ -47,6 +49,7 @@ export type BulkJobClaim = {
   description?: string;
   mediaId?: string;
   targetPhone?: string;
+  subject?: string;
 };
 
 const TABLE = "group_bulk_jobs";
@@ -152,6 +155,7 @@ export async function claimBulk(tenantId: string): Promise<BulkJobClaim[]> {
     description: row.description ?? undefined,
     mediaId: row.media_id ?? undefined,
     targetPhone: row.target_phone ?? undefined,
+    subject: row.subject ?? undefined,
   }));
 }
 
@@ -174,7 +178,8 @@ export type BulkAckInput = {
  *
  * Em `open`/`close` concluído, propaga para `groups.send_state` — é o que a tela
  * lê para mostrar aberto/fechado sem perguntar ao WhatsApp grupo a grupo. Em
- * `check_invite`, propaga o veredito da revisão pelo mesmo caminho.
+ * `check_invite`, propaga o veredito da revisão pelo mesmo caminho. Em
+ * `set_subject` concluído, propaga o nome novo para `groups.name`.
  */
 export async function ackBulk(
   tenantId: string,
@@ -205,6 +210,18 @@ export async function ackBulk(
     await propagaParaGrupo(tenantId, job.group_id, "send_state", {
       send_state: job.action === "open" ? "open" : "closed",
       send_state_at: now,
+    });
+  }
+
+  // Renome concluído: o nome do WhatsApp mudou, então o do painel muda junto — e
+  // o nome interno (`display_name_base`/`display_number`) é limpo, senão a tela
+  // continuaria mostrando o apelido antigo por cima (`group-display-name.ts`).
+  // `failed` não grava nada: no WhatsApp o grupo continua com o nome antigo.
+  if (ack.status === "done" && job.action === "set_subject" && job.subject?.trim()) {
+    await propagaParaGrupo(tenantId, job.group_id, "nome", {
+      name: job.subject,
+      display_name_base: "",
+      display_number: 0,
     });
   }
 
