@@ -1,4 +1,5 @@
 import "server-only";
+import { cancelCampaignBroadcasts } from "@/lib/stores/broadcasts";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 export type CampaignGroup = {
@@ -105,7 +106,13 @@ export async function appendGroupId(tenantId: string, id: string, whatsappGroupI
   if (error) throw new Error(error.message);
 }
 
+/**
+ * Cancela os posts agendados da campanha ANTES de apagá-la: se o delete falhar,
+ * sobra campanha com posts cancelados (o lado seguro); o contrário deixaria post
+ * saindo nos grupos sem campanha para cancelar.
+ */
 export async function deleteCampaignGroup(tenantId: string, id: string): Promise<void> {
+  await cancelCampaignBroadcasts(tenantId, id);
   const { error } = await getSupabaseAdmin()
     .from(TABLE)
     .delete()
