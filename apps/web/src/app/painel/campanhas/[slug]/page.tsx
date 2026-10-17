@@ -25,6 +25,7 @@ import { FunnelResults } from "@/components/painel/campaigns/funnel-results";
 import { useConfirmacao } from "@/components/painel/confirmacao";
 import { useToast } from "@/components/toast";
 import { AcoesEmMassa } from "@/components/painel/grupos/acoes-em-massa";
+import { AvisoConflitos } from "@/components/painel/campanhas/aviso-conflitos";
 import { GruposDaCampanha } from "@/components/painel/grupos/grupos-da-campanha";
 import { ConfigChips } from "@/components/painel/campanhas/config-chips";
 import { QrLink } from "@/components/painel/campanhas/qr-link";
@@ -377,6 +378,7 @@ export default function CampanhaDetalhe() {
       </nav>
 
       <div className="hf-enter" key={tab}>
+        {tab === "Grupos" && <AvisoConflitos campanhaId={campanha.id} slug={campanha.slug ?? campanha.id} />}
         {tab === "Grupos" && (
           o.groups.length === 0 ? (
             <div className="pn-card rounded-xl px-5 py-16 text-center">

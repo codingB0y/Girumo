@@ -161,6 +161,21 @@ export const CONTEUDO_ESPERADO: Record<string, ConteudoEsperado> = {
     semLista: "Formulario de criacao; nao lista registro existente.",
   },
 
+  "/painel/campanhas/conflitos": {
+    // O <h1> so monta depois do fetch. Casa nas tres variantes ("2 grupos estão em duas
+    // campanhas", "1 grupo está em duas campanhas" e "Nenhum grupo está em duas campanhas")
+    // e NAO no texto de erro da tela ("Não deu pra carregar os grupos que estão em duas
+    // campanhas."), que e o que /em duas campanhas/ sozinho deixaria passar com a tela quebrada.
+    // Acento importa: "está" (singular) nao casa com /estão?/ — por isso as duas formas.
+    ancora: /(grupos estão|grupo está) em duas campanhas/,
+    lista: {
+      api: "/api/campanhas/conflitos",
+      // `{ conflitos: [...] }`, nao array cru; o campo do grupo e `nome`.
+      marca: (j) => primeiroTexto((j as { conflitos?: unknown } | null)?.conflitos, "nome"),
+      vazio: /Nenhum grupo está em duas campanhas/,
+    },
+  },
+
   "/painel/comunidades": {
     // NAO "Comunidades": e o rotulo do item de menu (painel-nav.ts), entao
     // casaria em qualquer tela do painel. O subtitulo e do cabecalho desta
