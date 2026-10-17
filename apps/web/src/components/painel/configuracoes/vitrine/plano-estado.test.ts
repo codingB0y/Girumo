@@ -31,6 +31,18 @@ test("teste cancelado no portal: concede até o fim e avisa que não cobra", () 
   assert.doesNotMatch(plano?.recado ?? "", /1ª cobrança|segue sozinha/);
 });
 
+test("assinatura paga cancelada no portal: concede até o fim e nunca diz que renova", () => {
+  const plano = estadoDoPlano(
+    { status: "active", current_period_end: FIM, cancel_at_period_end: true },
+    AGORA,
+  );
+  assert.deepEqual(plano, {
+    grantsPlan: true,
+    state: "canceling",
+    recado: "Assinatura cancelada — acesso até 10/10, sem nova cobrança.",
+  });
+});
+
 test("boleto emitido: o status cru do Stripe e o fim do período chegam à decisão", () => {
   const linha = { status: "unpaid", metadata: { stripe_status: "incomplete" }, current_period_end: FIM };
   assert.equal(estadoDoPlano(linha, AGORA)?.state, "pending_payment");
