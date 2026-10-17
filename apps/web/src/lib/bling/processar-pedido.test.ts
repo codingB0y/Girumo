@@ -265,6 +265,40 @@ test("cliente sem telefone, e-mail nem cadastro: sem_dados, e a venda entra sem 
   assert.equal([...f.girumo.values()][0]?.telefone, null);
 });
 
+test("cliente no descadastro (com ou sem 55): nada vai ao Meta, sem_dados, e a venda entra em orders como sempre", async () => {
+  const f = criarBlingFalso();
+  f.optouts = ["62999998888"];
+  comPedido(f, 1001);
+  await processar(f, 1001);
+
+  assert.equal(f.meta.enviados.length, 0);
+  const linha = f.pedidos.get(1001);
+  assert.deepEqual([linha?.icStatus, linha?.purchaseStatus, linha?.origem], ["sem_dados", "sem_dados", "grupo"]);
+  assert.equal(f.girumo.size, 1);
+});
+
+test("descadastro: lido uma vez por execução, e só quando algum pedido chega ao pixel", async () => {
+  const f = criarBlingFalso();
+  f.optouts = ["5562999998888"];
+  comPedido(f, 1001);
+  comPedido(f, 1002, { situacaoId: 6 });
+  assert.ok(f.conexao);
+  const ctx = contextoDaLoja(LOJA, structuredClone(f.conexao), f.cliente(), f.deps);
+  for (const id of [1001, 1002]) {
+    const linha = f.pedidos.get(id);
+    assert.ok(linha);
+    await processarPedido(ctx, linha);
+  }
+  assert.equal(f.trilha.filter((t) => t === "optouts.chaves").length, 1);
+  assert.equal(f.meta.enviados.length, 0);
+
+  const desligado = criarBlingFalso();
+  ajustarConexao(desligado, { metaEnabled: false });
+  comPedido(desligado, 1001);
+  await processar(desligado, 1001);
+  assert.ok(!desligado.trilha.includes("optouts.chaves"));
+});
+
 test("campanha escolhida no cartão com código de teste: o código vai no envio", async () => {
   const f = criarBlingFalso();
   f.campanhas = [campanha("camp-1", PIXEL, "TEST123"), campanha("camp-2", "9876543210")];
