@@ -522,3 +522,9 @@ apps/web/supabase/migrations/20261015120000_documento_no_disparo.sql
 # service_role). Muda a baseline (t|orders e as tabelas/funcoes novas). O gate nao ve CHECK,
 # indice nem ACL: conferir por SQL nos dois bancos.
 apps/web/supabase/migrations/20261013120000_integracao_bling.sql
+# 2026-10-17 - Anti-ban nao cancela o resto do disparo (incidente 09/10, 93 envios): o bloco de
+# cancelamento de app.claim_send_commands conta a tolerancia do fim da retencao do anti-ban
+# (app.send_hold_ended_at: teto da hora + pausa por 429), nao do horario do comando. Teto do dia e
+# breaker continuam cancelando; o erro diz o motivo. So corpo de funcao app.* (trava no topo confere o
+# md5 de 20260930120000). Nao muda a baseline.
+apps/web/supabase/migrations/20261017120000_antiban_nao_cancela_disparo.sql
