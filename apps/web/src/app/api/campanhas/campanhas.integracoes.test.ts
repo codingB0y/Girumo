@@ -6,7 +6,7 @@ import { apresentaIntegracoes } from "./apresenta";
 test("GET nunca devolve o token inteiro", () => {
   const saida = apresentaIntegracoes({
     ...INTEGRACOES_DEFAULTS,
-    meta: { pixel_id: "1234567890", evento: "Lead", capi_token: "EAAabcdefgh3456", test_code: "T1" },
+    meta: { pixel_id: "1234567890", evento: "Lead", capi_token: "EAAabcdefgh3456", test_code: "T1", enviar_no_link: false },
   });
   const texto = JSON.stringify(saida);
   assert.equal(texto.includes("EAAabcdefgh"), false, "o valor do token não pode sair");
@@ -17,6 +17,8 @@ test("GET nunca devolve o token inteiro", () => {
   assert.equal(saida.meta.pixel_id, "1234567890");
   assert.equal(saida.meta.evento, "Lead");
   assert.equal(saida.meta.test_code, "T1");
+  // O formulário reabre a caixa como foi salva: sem isto, salvar de novo religaria o link.
+  assert.equal(saida.meta.enviar_no_link, false);
 });
 
 test("sem token: set=false e last4 vazio", () => {

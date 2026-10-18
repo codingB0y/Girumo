@@ -12,7 +12,14 @@ import { ESTADO_LOGADO, coletarFalhasDeApi, exigeCredenciais } from "./sessao-he
  */
 
 type IntegracoesPublicas = {
-  meta: { pixel_id: string; evento: string; test_code: string; capi_token_set: boolean; capi_token_last4: string };
+  meta: {
+    pixel_id: string;
+    evento: string;
+    test_code: string;
+    enviar_no_link: boolean;
+    capi_token_set: boolean;
+    capi_token_last4: string;
+  };
   ga4: { id: string };
   google_ads: { id: string; label: string };
 };
@@ -67,6 +74,19 @@ test.describe("integrações da campanha", () => {
       // O chip do cabeçalho reflete o SERVIDOR, não o estado local do formulário.
       const chips = page.getByRole("list", { name: "Configurações de entrada" });
       await expect(chips.getByRole("link", { name: `Pixel · …${pixelNovo.slice(-4)}`, exact: true })).toBeVisible();
+      expect(i.meta.enviar_no_link).toBe(true);
+
+      // Desligar o evento no link (o site da loja já manda o Lead): o pixel e o token ficam.
+      await page.goto(`/painel/campanhas/${chave}/editar?aba=integracoes`);
+      await page.getByLabel("Disparar o evento no clique do link").uncheck();
+      await page.getByRole("button", { name: "Salvar alterações" }).click();
+      await page.waitForURL(new RegExp(`/painel/campanhas/${chave}$`));
+      const depois = ((await (await page.request.get("/api/campanhas")).json()) as Campanha[]).find((c) => c.id === campanha.id);
+      const d = depois!.settings!.integracoes;
+      expect(d.meta.enviar_no_link).toBe(false);
+      expect(d.meta.pixel_id).toBe(pixelNovo);
+      expect(d.meta.capi_token_set).toBe(true);
+      await expect(chips.getByRole("link", { name: "Pixel · não dispara no link", exact: true })).toBeVisible();
 
       expect(falhasDeApi, "nenhuma chamada de API pode ter falhado").toEqual([]);
     } finally {

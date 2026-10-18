@@ -11,6 +11,7 @@ export type IntegracoesPublicas = {
     pixel_id: string;
     evento: string;
     test_code: string;
+    enviar_no_link: boolean;
     capi_token_set: boolean;
     capi_token_last4: string;
   };
@@ -24,6 +25,7 @@ export function apresentaIntegracoes(i: Integracoes): IntegracoesPublicas {
       pixel_id: i.meta.pixel_id,
       evento: i.meta.evento,
       test_code: i.meta.test_code,
+      enviar_no_link: i.meta.enviar_no_link,
       ...maskToken(i.meta.capi_token),
     },
     ga4: { id: i.ga4.id },

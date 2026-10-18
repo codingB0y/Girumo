@@ -121,15 +121,20 @@ export function isClosedAt(encerraEm: string | null, now: Date): boolean {
  * reenviá-lo — omitir o campo tem de significar "não mexi nisso".
  */
 
-export type MetaIntegracao = { pixel_id: string; evento: string; capi_token: string; test_code: string };
+/**
+ * `enviar_no_link` = o clique do /r/ dispara o evento (pixel e CAPI). Falso quando o site da própria loja
+ * já manda o Lead antes de levar ao link: o segundo, do link, contaria a mesma pessoa duas vezes. O pixel
+ * e o token continuam valendo para as vendas do Bling, que os leem daqui.
+ */
+export type MetaIntegracao = { pixel_id: string; evento: string; capi_token: string; test_code: string; enviar_no_link: boolean };
 export type Integracoes = {
   meta: MetaIntegracao;
   ga4: { id: string };
   google_ads: { id: string; label: string };
 };
-/** Igual a `Integracoes`, mas o token é opcional: ausente = manter, "" = apagar. */
+/** Igual a `Integracoes`, mas o token e o envio no link são opcionais: ausente = manter (token: "" = apagar). */
 export type IntegracoesPatch = {
-  meta: Omit<MetaIntegracao, "capi_token"> & { capi_token?: string };
+  meta: Omit<MetaIntegracao, "capi_token" | "enviar_no_link"> & { capi_token?: string; enviar_no_link?: boolean };
   ga4: { id: string };
   google_ads: { id: string; label: string };
 };
@@ -137,7 +142,7 @@ export type IntegracoesPatch = {
 export const EVENTOS_PADRAO = ["Lead", "Contact", "CompleteRegistration"] as const;
 
 export const INTEGRACOES_DEFAULTS: Integracoes = Object.freeze({
-  meta: Object.freeze({ pixel_id: "", evento: "Lead", capi_token: "", test_code: "" }),
+  meta: Object.freeze({ pixel_id: "", evento: "Lead", capi_token: "", test_code: "", enviar_no_link: true }),
   ga4: Object.freeze({ id: "" }),
   google_ads: Object.freeze({ id: "", label: "" }),
 }) as Integracoes;
@@ -175,6 +180,7 @@ const integracoesPatchSchema = z.strictObject({
       )
       .optional(),
     test_code: vazioOu(TEST_CODE, "código de teste inválido"),
+    enviar_no_link: z.boolean().optional(),
   }),
   ga4: z.strictObject({ id: vazioOu(GA4_ID, 'o ID do GA4 começa com "G-"') }),
   google_ads: z.strictObject({
@@ -197,6 +203,8 @@ export function readIntegracoes(metadata: Record<string, unknown> | null | undef
       evento: str(meta.evento, EVENTO, INTEGRACOES_DEFAULTS.meta.evento),
       capi_token: typeof meta.capi_token === "string" ? meta.capi_token : "",
       test_code: str(meta.test_code, TEST_CODE, ""),
+      // Só `false` gravado desliga: campanha de antes do campo continua disparando.
+      enviar_no_link: meta.enviar_no_link !== false,
     },
     ga4: { id: str(ga4.id, GA4_ID, "") },
     google_ads: { id: str(ads.id, ADS_ID, ""), label: str(ads.label, ADS_LABEL, "") },
@@ -226,6 +234,8 @@ export function mergeIntegracoes(atual: Integracoes, patch: IntegracoesPatch): I
       evento: patch.meta.evento,
       capi_token: patch.meta.capi_token === undefined ? atual.meta.capi_token : patch.meta.capi_token,
       test_code: patch.meta.test_code,
+      // Ausente mantém: a aba aberta antes deste campo existir não religa o link ao salvar.
+      enviar_no_link: patch.meta.enviar_no_link ?? atual.meta.enviar_no_link,
     },
     ga4: { id: patch.ga4.id },
     google_ads: { id: patch.google_ads.id, label: patch.google_ads.label },
@@ -248,10 +258,10 @@ export function maskToken(token: string): { capi_token_set: boolean; capi_token_
 }
 
 /**
- * Alguma integração configurada? É o que decide se o /r/ mostra o intersticial
+ * Alguma integração dispara no link? É o que decide se o /r/ mostra o intersticial
  * mesmo sem deep link. Google Ads só conta com id E rótulo: sem rótulo não há
- * `send_to` e o gtag não dispara nada.
+ * `send_to` e o gtag não dispara nada. Pixel que não dispara no link não conta.
  */
 export function hasIntegracao(i: Integracoes): boolean {
-  return Boolean(i.meta.pixel_id || i.ga4.id || (i.google_ads.id && i.google_ads.label));
+  return Boolean((i.meta.pixel_id && i.meta.enviar_no_link) || i.ga4.id || (i.google_ads.id && i.google_ads.label));
 }

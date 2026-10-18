@@ -12,6 +12,11 @@ test("chip do pixel: últimos 4 quando configurado, aviso quando não", () => {
   assert.ok(chipLabels(ENTRADA_DEFAULTS, { meta: { pixel_id: "" } }).includes("Pixel · não configurado"));
 });
 
+test("pixel que não dispara no link: o chip não promete o evento no clique", () => {
+  const chips = chipLabels(ENTRADA_DEFAULTS, { meta: { pixel_id: "1234563456", enviar_no_link: false } });
+  assert.equal(chips.at(-1), "Pixel · não dispara no link");
+});
+
 test("o chip do pixel entra por último, depois de encerramento", () => {
   const chips = chipLabels({ ...ENTRADA_DEFAULTS, encerra_em: "2026-09-30" }, { meta: { pixel_id: "1234563456" } });
   assert.equal(chips.at(-1), "Pixel · …3456");

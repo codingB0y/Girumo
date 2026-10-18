@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import { after, before, test } from "node:test";
+import { after, before, test, type TestContext } from "node:test";
 
 import type { WorkStore } from "next/dist/server/app-render/work-async-storage.external";
 
@@ -55,7 +55,7 @@ const CAMPANHA = {
   group_ids: ["g1@g.us", "g2@g.us"],
   auto_grow: false,
   grow_template: null,
-  metadata: {},
+  metadata: {} as Record<string, unknown>,
   whatsapp_community_jid: null,
   created_at: "2026-10-01T00:00:00+00:00",
   updated_at: "2026-10-01T00:00:00+00:00",
@@ -293,4 +293,63 @@ test("banco fora nos grupos da campanha: mesma página amigável, sem gravar cli
   assert.match(await res.text(), /Não conseguimos abrir agora/);
   assert.equal(tarefasDepois.length, 0);
   assert.equal(gravacoes().length, 0);
+});
+
+/** Pixel e token da campanha: os mesmos que levam as vendas do Bling ao Meta. */
+const META = { pixel_id: "2570456993268181", evento: "Lead", capi_token: `EAAV${"x".repeat(200)}`, test_code: "" };
+
+/**
+ * A campanha com estas integrações durante o teste, e o `fetch` da Graph API contado aqui (nada sai
+ * da máquina); o PostgREST falso segue recebendo o resto.
+ */
+function comMeta(t: TestContext, meta: Record<string, unknown>): string[] {
+  const antes = CAMPANHA.metadata;
+  CAMPANHA.metadata = { settings: { integracoes: { meta } } };
+  t.after(() => {
+    CAMPANHA.metadata = antes;
+  });
+  const paraMeta: string[] = [];
+  const original = globalThis.fetch;
+  t.mock.method(globalThis, "fetch", (entrada: RequestInfo | URL, init?: RequestInit) => {
+    const url = entrada instanceof Request ? entrada.url : String(entrada);
+    if (!url.startsWith("https://graph.facebook.com/")) return original(entrada, init);
+    paraMeta.push(url);
+    return Promise.resolve(Response.json({ events_received: 1 }));
+  });
+  return paraMeta;
+}
+
+/** Com o IP de quem clicou: sem ele o envio nem é tentado (a Meta recusaria), e o teste não veria nada. */
+function cliqueComIp(): Request {
+  const req = clique();
+  const headers = new Headers(req.headers);
+  headers.set("x-forwarded-for", "203.0.113.7");
+  return new Request(req.url, { headers });
+}
+
+test("campanha que dispara no link (o padrão): tela de entrada com o pixel e o evento pelo servidor", async (t) => {
+  novoTeste();
+  estados = estadosEnchendo();
+  const paraMeta = comMeta(t, META);
+
+  const res = await handleShortLinkClick(cliqueComIp(), "moda-kids");
+  await rodarDepois();
+
+  assert.equal(res.status, 200);
+  assert.match(await res.text(), /fbq\('track',"Lead"/);
+  assert.equal(paraMeta.length, 1);
+});
+
+test("campanha com o pixel só para as vendas (não dispara no link): direto para o grupo, sem pixel nem evento", async (t) => {
+  novoTeste();
+  estados = estadosEnchendo();
+  const paraMeta = comMeta(t, { ...META, enviar_no_link: false });
+
+  const res = await handleShortLinkClick(cliqueComIp(), "moda-kids");
+  await rodarDepois();
+
+  // O site da loja já mandou o Lead desta pessoa: outro, pelo link, contaria a mesma pessoa duas vezes.
+  assert.equal(res.status, 302);
+  assert.equal(res.headers.get("location"), "https://chat.whatsapp.com/CONVITE2");
+  assert.deepEqual(paraMeta, []);
 });
