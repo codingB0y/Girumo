@@ -2,7 +2,7 @@
 import "server-only";
 
 import { linksMestresDasCampanhas } from "@/lib/bio/conferir";
-import { SLUG_BIO, slugReservado, type DocumentoBio } from "@/lib/bio/documento";
+import { SLUG_BIO, slugReservado, TRECHOS_RESERVADOS, type DocumentoBio } from "@/lib/bio/documento";
 import { dayBR, dayBRAgo } from "@/lib/date-br";
 import { randomSuffix, slugify } from "@/lib/pages/slug";
 import { assertPermission } from "@/lib/permissions";
@@ -111,12 +111,13 @@ export async function campanhasDaLoja(tenantId: string): Promise<CampanhaDoPaine
 
 /**
  * Endereço sugerido e livre (spec §2): `slugify(nome)`; ocupado ou reservado, a raiz ganha sufixo
- * aleatório. Nome com "girumo"/"hubflow" fica reservado em qualquer variação, então a raiz vira
- * "loja". É só sugestão: o `criarPaginaDaLoja` ainda resolve colisão no insert.
+ * aleatório. Nome com um trecho reservado ("girumo", "whatsapp", "oficial"…) fica reservado em
+ * qualquer variação, então a raiz vira "loja". É só sugestão: o `criarPaginaDaLoja` ainda resolve
+ * colisão no insert.
  */
 export async function sugerirSlug(nome: string, tenantId: string): Promise<string> {
   const base = slugify(nome);
-  const raiz = /girumo|hubflow/.test(base) ? "loja" : base.slice(0, RAIZ_MAX).replace(/-+$/, "");
+  const raiz = TRECHOS_RESERVADOS.some((t) => base.includes(t)) ? "loja" : base.slice(0, RAIZ_MAX).replace(/-+$/, "");
   let candidato = base;
   for (let i = 0; i < TENTATIVAS_DE_SLUG; i++) {
     if (motivoDoSlug(candidato) === null && (await slugDisponivel(candidato, tenantId))) return candidato;
