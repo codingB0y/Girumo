@@ -198,3 +198,36 @@ test("a apikey nunca aparece na mensagem de erro", async () => {
   assert.ok(err instanceof Error);
   assert.doesNotMatch(err.message, /apikey-secreta/);
 });
+
+test("renomear manda o nome no corpo e o groupJid na query", async () => {
+  // Contrato lido na tag 2.3.7: groupValidate copia o groupJid da query para o
+  // corpo antes de validar, e updateGroupSubjectSchema exige `subject` não vazio.
+  // A Evolution responde 201 { update: "success" } — e 201 é sucesso.
+  const { groups, calls } = makeGroups(
+    () => new Response(JSON.stringify({ update: "success" }), { status: 201 }),
+  );
+
+  await groups.setSubject("girumo-1", "120363000000000001@g.us", "Moda Kids do Sul 3");
+
+  assert.equal(
+    calls[0]?.url,
+    "https://evo.example/group/updateGroupSubject/girumo-1?groupJid=120363000000000001%40g.us",
+  );
+  assert.equal(calls[0]?.init.method, "POST");
+  assert.deepEqual(JSON.parse(String(calls[0]?.init.body)), { subject: "Moda Kids do Sul 3" });
+});
+
+test("renomear com erro da Evolution preserva o status e nomeia a operação", async () => {
+  // Preserva o status; admin perdido neste endpoint chega como 500 com
+  // `not-authorized` no detalhe (na 2.3.7 todo erro do Baileys vira
+  // InternalServerErrorException); 401/403/404 só vêm dos guards (apikey/instância).
+  // Sem o status o lote não separaria isso de uma queda de rede. O 403 abaixo é só
+  // um status de exemplo.
+  const { groups } = makeGroups(() => new Response("not-authorized", { status: 403 }));
+
+  await assert.rejects(
+    () => groups.setSubject("girumo-1", "120363000000000001@g.us", "Moda Kids do Sul 3"),
+    (err: unknown) =>
+      err instanceof EvolutionGroupError && err.status === 403 && /updateGroupSubject/.test(err.message),
+  );
+});

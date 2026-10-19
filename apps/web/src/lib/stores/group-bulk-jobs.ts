@@ -30,6 +30,8 @@ export type BulkJobRow = {
   media_id: string | null;
   /** Dígitos com DDI. Só preenchido em `remove_participant`. */
   target_phone: string | null;
+  /** Nome novo do grupo. Só preenchido em `set_subject`. */
+  subject: string | null;
   status: BulkJobStatus;
   attempts: number;
   error: string | null;
@@ -47,6 +49,7 @@ export type BulkJobClaim = {
   description?: string;
   mediaId?: string;
   targetPhone?: string;
+  subject?: string;
 };
 
 const TABLE = "group_bulk_jobs";
@@ -152,6 +155,7 @@ export async function claimBulk(tenantId: string): Promise<BulkJobClaim[]> {
     description: row.description ?? undefined,
     mediaId: row.media_id ?? undefined,
     targetPhone: row.target_phone ?? undefined,
+    subject: row.subject ?? undefined,
   }));
 }
 
@@ -167,20 +171,66 @@ export type BulkAckInput = {
   /** `check_invite` falhado: 0 = não chegou na Evolution, senão o status HTTP. */
   httpStatus?: number;
   detail?: string | null;
+  /** `set_subject` concluído: o nome EXATO que o worker aplicou. Ver `decideAck`. */
+  subject?: string;
 };
+
+const RENAME_NOT_CONFIRMED_ERROR = "Worker desatualizado: o renome não foi confirmado.";
+
+/**
+ * Decide o status que o job vai receber, ANTES de escrevê-lo.
+ *
+ * Trava mecânica do renome: um worker anterior ao `set_subject` não tem esse
+ * `case` e devolve `done` sem ter renomeado nada. Aceitar esse `done` gravaria o
+ * nome novo em `groups.name` e apagaria `display_name_base` de cada grupo do lote
+ * com o nome ainda velho no WhatsApp — em silêncio. O worker novo ecoa o nome que
+ * passou ao `setSubject`; sem o eco idêntico (comparação estrita, sem trim — é a
+ * string armazenada que volta), o `done` vira `failed`.
+ *
+ * Só `done` custa a leitura: `failed` já é o pior caso e as demais ações não
+ * ecoam nada. `null` = job não existe (para o tenant).
+ */
+async function decideAck(
+  tenantId: string,
+  id: string,
+  ack: BulkAckInput,
+): Promise<BulkAckInput | null> {
+  if (ack.status !== "done") return ack;
+
+  const { data, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .select("action, subject")
+    .eq("tenant_id", tenantId)
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+
+  const job = data as Pick<BulkJobRow, "action" | "subject">;
+  if (job.action === "set_subject" && ack.subject !== job.subject) {
+    return { ...ack, status: "failed", error: RENAME_NOT_CONFIRMED_ERROR };
+  }
+  return ack;
+}
 
 /**
  * Registra o resultado de uma ação.
  *
  * Em `open`/`close` concluído, propaga para `groups.send_state` — é o que a tela
  * lê para mostrar aberto/fechado sem perguntar ao WhatsApp grupo a grupo. Em
- * `check_invite`, propaga o veredito da revisão pelo mesmo caminho.
+ * `check_invite`, propaga o veredito da revisão pelo mesmo caminho. Em
+ * `set_subject` concluído E confirmado pelo eco do worker (`decideAck`), propaga o
+ * nome novo para `groups.name`.
  */
 export async function ackBulk(
   tenantId: string,
   id: string,
-  ack: BulkAckInput,
+  rawAck: BulkAckInput,
 ): Promise<BulkJobRow | null> {
+  const ack = await decideAck(tenantId, id, rawAck);
+  if (!ack) return null;
+
   const now = new Date().toISOString();
 
   const { data, error } = await getSupabaseAdmin()
@@ -205,6 +255,18 @@ export async function ackBulk(
     await propagaParaGrupo(tenantId, job.group_id, "send_state", {
       send_state: job.action === "open" ? "open" : "closed",
       send_state_at: now,
+    });
+  }
+
+  // Renome concluído: o nome do WhatsApp mudou, então o do painel muda junto — e
+  // o nome interno (`display_name_base`/`display_number`) é limpo, senão a tela
+  // continuaria mostrando o apelido antigo por cima (`group-display-name.ts`).
+  // `failed` não grava nada: no WhatsApp o grupo continua com o nome antigo.
+  if (ack.status === "done" && job.action === "set_subject" && job.subject?.trim()) {
+    await propagaParaGrupo(tenantId, job.group_id, "nome", {
+      name: job.subject,
+      display_name_base: "",
+      display_number: 0,
     });
   }
 

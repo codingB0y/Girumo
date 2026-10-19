@@ -18,6 +18,10 @@
  *   POST /group/updateSetting/{instance}            required: groupJid, action
  *        action ∈ announcement | not_announcement | locked | unlocked
  *   POST /group/updateGroupPicture/{instance}       required: groupJid, image
+ *   POST /group/updateGroupSubject/{instance}       required: groupJid, subject (isNotEmpty)
+ *        responde 201 { update: "success" }; os membros veem "Você mudou o nome do grupo"
+ *        erro do Baileys (ex.: perdemos o admin) vira 500 com `not-authorized` no corpo —
+ *        401/403/404 só vêm dos guards (apikey/instância)
  *   GET  /group/inviteCode/{instance}?groupJid=     (já usado no backfill)
  *   POST /group/updateParticipant/{instance}?groupJid=
  *        required: action (add|remove|promote|demote), participants (telefones com DDI)
@@ -70,6 +74,12 @@ export interface EvolutionGroups {
    */
   createGroup(instanceName: string, subject: string, ownerPhone: string): Promise<string>;
   setDescription(instanceName: string, groupJid: string, description: string): Promise<void>;
+  /**
+   * Troca o nome do grupo. É operação VISÍVEL ("Você mudou o nome do grupo" para
+   * todos os membros), por isso só sai pela fila de ações em massa, com o ritmo
+   * anti-ban — nunca em rajada.
+   */
+  setSubject(instanceName: string, groupJid: string, subject: string): Promise<void>;
   /** Fecha o grupo: só admin envia mensagem. */
   setAnnounceOnly(instanceName: string, groupJid: string): Promise<void>;
   /** Abre o grupo: qualquer membro volta a enviar. Inverso de `setAnnounceOnly`. */
@@ -176,6 +186,13 @@ export function createEvolutionGroups(config: EvolutionGroupsConfig): EvolutionG
       await request("group/updateGroupDescription", withJid("/group/updateGroupDescription", instanceName, groupJid), {
         method: "POST",
         body: JSON.stringify({ description }),
+      });
+    },
+
+    async setSubject(instanceName, groupJid, subject) {
+      await request("group/updateGroupSubject", withJid("/group/updateGroupSubject", instanceName, groupJid), {
+        method: "POST",
+        body: JSON.stringify({ subject }),
       });
     },
 

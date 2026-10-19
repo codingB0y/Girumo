@@ -39,7 +39,8 @@ export type BulkAction =
   | "open"
   | "close"
   | "check_invite"
-  | "remove_participant";
+  | "remove_participant"
+  | "set_subject";
 
 /** O que o app entrega no claim. Autocontido: o worker não consulta o banco. */
 export type BulkJobClaim = {
@@ -50,6 +51,8 @@ export type BulkJobClaim = {
   mediaId?: string;
   /** Telefone (dígitos, com DDI) a remover. Só existe em `remove_participant`. */
   targetPhone?: string;
+  /** Nome novo do grupo. Só existe em `set_subject`. */
+  subject?: string;
 };
 
 /**
@@ -70,6 +73,8 @@ export type BulkAck = {
   /** 0 = não chegou na Evolution (timeout/rede); senão o status HTTP. */
   httpStatus?: number;
   detail?: string;
+  /** `set_subject` concluído: o nome EXATO passado ao `setSubject` (eco para o app). */
+  subject?: string;
 };
 
 export type BulkDeps = {
@@ -90,6 +95,8 @@ export type BulkDeps = {
   /** URL assinada de TTL curto, ou null (mídia apagada / id inválido). */
   signedMediaUrl(mediaId: string, tenantId: string): Promise<string | null>;
   removeParticipant(instanceName: string, groupJid: string, participantPhone: string): Promise<void>;
+  /** Troca o nome do grupo (Padronizar). */
+  setSubject(instanceName: string, groupJid: string, subject: string): Promise<void>;
 };
 
 export type BulkTickSummary = {
@@ -173,6 +180,24 @@ async function applyJob(
       await deps.removeParticipant(instanceName, job.whatsappGroupId, job.targetPhone);
       return undefined;
     }
+
+    case "set_subject": {
+      // Nome vazio seria 400 na Evolution (`isNotEmpty`) depois de gastar uma
+      // janela do ritmo anti-ban. Falha aqui, sem chamar ninguém.
+      const subject = job.subject ?? "";
+      if (!subject.trim()) throw new Error("Job de renomear sem nome.");
+      await deps.setSubject(instanceName, job.whatsappGroupId, subject);
+      return undefined;
+    }
+
+    default: {
+      // App mais novo que o worker manda ação que este não conhece. Sem isto o
+      // switch devolvia `undefined`, o ack saía `done` e o app gravava um
+      // resultado que nunca aconteceu no WhatsApp (o nome do grupo, no caso de
+      // `set_subject`). Falha explícita aparece no progresso do lote.
+      const desconhecida: never = job.action;
+      throw new Error(`Ação desconhecida para este worker: ${String(desconhecida)}`);
+    }
   }
 }
 
@@ -216,6 +241,10 @@ async function executeAndAck(
       status: "done",
       // Só a revisão devolve dado; as outras não põem a chave no ack.
       ...(job.action === "check_invite" ? { invite: invite ?? null } : {}),
+      // Eco do nome que foi para o `setSubject`: o app só grava `groups.name` se
+      // ele bater. Sem isto, um worker antigo (que devolve `done` sem renomear)
+      // faria o app apagar o apelido interno de cada grupo do lote.
+      ...(job.action === "set_subject" ? { subject: job.subject } : {}),
     });
     log.info("ação em massa concluída", { job: job.id, action: job.action, status: "done" });
   } catch (error) {

@@ -37,5 +37,10 @@ export function withBulkDryRun(deps: BulkDeps): BulkDeps {
     setDescription: async (instanceName, jid) =>
       recusar("trocaria a descrição", instanceName, jid),
     setPicture: async (instanceName, jid) => recusar("trocaria a foto", instanceName, jid),
+    // O nome novo também não vai para o log: é conteúdo do lojista.
+    setSubject: async (instanceName, jid) => recusar("renomearia o grupo", instanceName, jid),
+    // O telefone não vai para o log: é dado pessoal.
+    removeParticipant: async (instanceName, jid) =>
+      recusar("removeria o participante", instanceName, jid),
   };
 }

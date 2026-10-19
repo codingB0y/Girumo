@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST /api/groups/bulk/ack — o WORKER reporta o resultado de uma ação.
- * body { id, status: "done"|"failed", error?, invite?, httpStatus?, detail? }
+ * body { id, status: "done"|"failed", error?, invite?, httpStatus?, detail?, subject? }
  *
  * Só dois status terminais: não existe `running` intermediário como no
  * auto-grow, porque aqui a operação é UMA chamada, não uma sequência
@@ -16,6 +16,9 @@ export const dynamic = "force-dynamic";
  * que devolve DADO. O worker não classifica nada: manda o que leu, ou o erro cru
  * com o status HTTP, e quem decide `same`/`changed`/`broken` é o servidor — é
  * deste lado que o `invite_url` guardado está.
+ *
+ * `subject` só vale para `set_subject` concluído: é o nome que o worker aplicou, e
+ * o store só grava `groups.name` se ele bater com o do job (ver `ackBulk`).
  */
 export async function POST(req: Request) {
   try {
@@ -43,6 +46,9 @@ export async function POST(req: Request) {
       invite: typeof body.invite === "string" ? body.invite : body.invite === null ? null : undefined,
       httpStatus: typeof body.httpStatus === "number" ? body.httpStatus : undefined,
       detail: typeof body.detail === "string" ? body.detail : null,
+      // Eco do nome aplicado (`set_subject`). Qualquer outro tipo vira ausência,
+      // que o store trata como "renome não confirmado".
+      subject: typeof body.subject === "string" ? body.subject : undefined,
     });
     if (!job) return Response.json({ error: "Job não encontrado." }, { status: 404 });
 
