@@ -231,7 +231,7 @@ export function coresDoModelo(modelo: Modelo, paleta: string, cores: DocumentoBi
   const base =
     fundo && botao
       ? derivada(modelo, paraHex(fundo), paraHex(botao))
-      : (PALETAS_PRONTAS[modelo][paleta] ?? PALETAS_PRONTAS[modelo][PALETAS[modelo][0]]);
+      : PALETAS_PRONTAS[modelo][(PALETAS[modelo] as readonly string[]).includes(paleta) ? paleta : PALETAS[modelo][0]];
   const t: Record<string, string> = { ...base };
   for (const [texto, fundo, minimo] of PARES_DE_CONTRASTE[modelo]) t[texto] = garante(t[texto], t[fundo], minimo);
   // O foco da paleta (o dourado do Etiqueta, o carimbo do Romaneio) fica onde passa; onde não

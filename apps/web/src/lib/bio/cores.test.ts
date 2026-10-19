@@ -153,5 +153,6 @@ test("paleta que não é do modelo, ou marca sem cores válidas, cai na primeira
   const primeira = coresDoModelo("vitrine", "papel", null);
   assert.deepEqual(coresDoModelo("vitrine", "kraft", null), primeira);
   assert.deepEqual(coresDoModelo("vitrine", "marca", null), primeira);
+  for (const nome of ["toString", "constructor", "__proto__"]) assert.deepEqual(coresDoModelo("vitrine", nome, null), primeira, nome);
   assert.deepEqual(coresDoModelo("vitrine", "marca", { fundo: "azul", botao: "#000000" }), primeira);
 });

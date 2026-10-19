@@ -162,7 +162,7 @@ const url = z
     }
     let lido: URL;
     try {
-      lido = new URL(/^[a-z][a-z0-9+.-]*:/i.test(limpo) ? limpo : `https://${limpo}`);
+      lido = new URL(/^[a-z][a-z0-9+-]*:/i.test(limpo) ? limpo : `https://${limpo}`);
     } catch {
       ctx.addIssue(ENDERECO_INVALIDO);
       return z.NEVER;

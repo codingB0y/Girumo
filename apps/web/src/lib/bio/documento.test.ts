@@ -146,6 +146,11 @@ test("campo desconhecido é erro, na raiz e dentro do link", () => {
   assert.equal(primeiroErro(comExtra).campo, "links.0");
 });
 
+test("host com porta e sem esquema não é lido como esquema", () => {
+  const d = documento((x) => { (x.links[1] as { url: string }).url = "loja.com.br:8080/x"; });
+  assert.equal((valido(d).links[1] as { url: string }).url, "https://loja.com.br:8080/x");
+});
+
 test("erros apontam o campo com a frase do painel", () => {
   const casos: [string, (d: DocumentoBio) => void, string, string | RegExp][] = [
     ["nome vazio", (d) => { d.perfil.nome = "  "; }, "perfil.nome", "Escreva o nome da loja."],
