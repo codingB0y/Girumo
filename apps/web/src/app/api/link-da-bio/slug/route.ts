@@ -1,4 +1,4 @@
-import { lojaDoPainel, motivoDoSlug, resposta, type ErroDoPainelBio, type RespostaDoSlug } from "@/lib/bio/painel-api";
+import { falhou, limiteDaLoja, lojaDoPainel, motivoDoSlug, resposta, type RespostaDoSlug } from "@/lib/bio/painel-api";
 import { slugDisponivel } from "@/lib/stores/bio-pages";
 
 export const runtime = "nodejs";
@@ -12,6 +12,9 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request): Promise<Response> {
   const loja = await lojaDoPainel(req, "ler");
   if (loja instanceof Response) return loja;
+  // O painel consulta enquanto a pessoa digita (com espera); 60 por minuto segura varrer endereços.
+  const limitado = await limiteDaLoja("bio-slug", loja.tenantId, 60);
+  if (limitado) return limitado;
   const valor = new URL(req.url).searchParams.get("valor") ?? "";
   const ruim = motivoDoSlug(valor);
   if (ruim) return resposta({ disponivel: false, motivo: ruim } satisfies RespostaDoSlug, 200);
@@ -21,7 +24,6 @@ export async function GET(req: Request): Promise<Response> {
       : { disponivel: false, motivo: "em-uso" };
     return resposta(corpo, 200);
   } catch (e) {
-    console.error(`[api/link-da-bio/slug] ${loja.tenantId}: ${(e as Error).message}`);
-    return resposta({ error: "Não deu pra conferir o endereço." } satisfies ErroDoPainelBio, 500);
+    return falhou("api/link-da-bio/slug", loja.tenantId, e, "Não deu pra conferir o endereço.");
   }
 }

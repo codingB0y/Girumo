@@ -7,6 +7,7 @@ import { dayBR, dayBRAgo } from "@/lib/date-br";
 import { randomSuffix, slugify } from "@/lib/pages/slug";
 import { assertPermission } from "@/lib/permissions";
 import { getRouteTenantContext } from "@/lib/route-tenant-context";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 import { slugDisponivel, type PaginaBio } from "@/lib/stores/bio-pages";
 import { listCampaignGroups } from "@/lib/stores/campaign-groups";
 
@@ -61,6 +62,18 @@ export function periodoDoRelatorio(dias: string | null, agora: Date = new Date()
 /** JSON puro, nunca guardado em cache: o painel lê o estado de agora. */
 export function resposta(corpo: unknown, status: number): Response {
   return Response.json(corpo, { status, headers: { "cache-control": "no-store" } });
+}
+
+/** 500 com a nossa mensagem; o erro de verdade só no log, nunca no corpo. `onde` identifica a rota no log. */
+export function falhou(onde: string, tenantId: string, e: unknown, mensagem: string): Response {
+  console.error(`[${onde}] ${tenantId}: ${(e as Error).message}`);
+  return resposta({ error: mensagem } satisfies ErroDoPainelBio, 500);
+}
+
+/** 429 quando a loja passou de `max` pedidos em 60 s no balde `chave`; `null` quando pode seguir. */
+export async function limiteDaLoja(chave: string, tenantId: string, max: number): Promise<Response | null> {
+  if (!(await checkRateLimit(`${chave}:${tenantId}`, max, 60_000))) return null;
+  return resposta({ error: "Muitas tentativas. Espere um minuto." } satisfies ErroDoPainelBio, 429);
 }
 
 /**

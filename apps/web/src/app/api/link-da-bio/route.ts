@@ -6,6 +6,8 @@ import { conferirDocumentoDaLoja, estadoDosLinks } from "@/lib/bio/conferir";
 import { documentoBio, documentoPadrao } from "@/lib/bio/documento";
 import {
   campanhasDaLoja,
+  falhou,
+  limiteDaLoja,
   lojaDoPainel,
   motivoDoSlug,
   resposta,
@@ -20,11 +22,6 @@ import { getOrganizationProfile } from "@/lib/stores/organization-profile";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function falhou(acao: string, tenantId: string, e: unknown, mensagem: string): Response {
-  console.error(`[api/link-da-bio] ${acao} ${tenantId}: ${(e as Error).message}`);
-  return resposta({ error: mensagem } satisfies ErroDoPainelBio, 500);
-}
 
 /**
  * GET /api/link-da-bio — tudo que o editor precisa para abrir (spec §9): a página (ou `null`), as
@@ -55,7 +52,7 @@ export async function GET(req: Request): Promise<Response> {
     };
     return resposta(corpo, 200);
   } catch (e) {
-    return falhou("GET", tenantId, e, "Não deu pra carregar o link da bio.");
+    return falhou("api/link-da-bio GET", tenantId, e, "Não deu pra carregar o link da bio.");
   }
 }
 
@@ -79,7 +76,7 @@ export async function POST(req: Request): Promise<Response> {
     const criada = await criarPaginaDaLoja(tenantId, await sugerirSlug(perfil.storeName, tenantId), documento);
     return resposta(criada, 201);
   } catch (e) {
-    return falhou("POST", tenantId, e, "Não deu pra criar a página.");
+    return falhou("api/link-da-bio POST", tenantId, e, "Não deu pra criar a página.");
   }
 }
 
@@ -102,6 +99,19 @@ const ERRO_409 = {
   slug: "Esse endereço já está em uso. Escolha outro.",
 } as const;
 const SEM_PAGINA = "Crie a página antes de salvar.";
+/** Salvamentos por minuto por loja: o painel salva por clique, não por tecla. */
+const SALVAR_POR_MINUTO = 30;
+/** Teto do corpo do PATCH, lido como texto antes do parse: o documento válido mais gordo fica bem abaixo. */
+const CORPO_MAX = 64 * 1024;
+
+/** JSON inválido vira `undefined`: o envelope recusa com 400, como corpo fora do formato. */
+function lerJson(bruto: string): unknown {
+  try {
+    return JSON.parse(bruto);
+  } catch {
+    return undefined;
+  }
+}
 
 /** "links.2.numero"; caminho vazio vira `raiz` (ou some do corpo). */
 function campoDo(error: z.ZodError, raiz?: string): string | undefined {
@@ -134,8 +144,12 @@ export async function PATCH(req: Request): Promise<Response> {
   const loja = await lojaDoPainel(req, "editar");
   if (loja instanceof Response) return loja;
   const { tenantId } = loja;
+  const limitado = await limiteDaLoja("bio-salvar", tenantId, SALVAR_POR_MINUTO);
+  if (limitado) return limitado;
 
-  const envelope = corpoDoPatch.safeParse(await req.json().catch(() => undefined));
+  const bruto = await req.text();
+  if (bruto.length > CORPO_MAX) return recusa("Pedido grande demais.", 413);
+  const envelope = corpoDoPatch.safeParse(lerJson(bruto));
   if (!envelope.success) return recusa("Pedido inválido.", 400, { campo: campoDo(envelope.error) });
   const lido = documentoBio.safeParse(envelope.data.documento);
   if (!lido.success) {
@@ -160,6 +174,6 @@ export async function PATCH(req: Request): Promise<Response> {
     invalidar(tenantId, salvo.pagina, atual.slug);
     return resposta(salvo.pagina, 200);
   } catch (e) {
-    return falhou("PATCH", tenantId, e, "Não deu pra salvar a página.");
+    return falhou("api/link-da-bio PATCH", tenantId, e, "Não deu pra salvar a página.");
   }
 }

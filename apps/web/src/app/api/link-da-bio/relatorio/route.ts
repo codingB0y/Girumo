@@ -1,4 +1,4 @@
-import { lojaDoPainel, periodoDoRelatorio, resposta, type ErroDoPainelBio } from "@/lib/bio/painel-api";
+import { falhou, lojaDoPainel, periodoDoRelatorio, resposta, type ErroDoPainelBio } from "@/lib/bio/painel-api";
 import { relatorioBio } from "@/lib/stores/bio-pages";
 
 export const runtime = "nodejs";
@@ -17,7 +17,6 @@ export async function GET(req: Request): Promise<Response> {
   try {
     return resposta(await relatorioBio(loja.tenantId, periodo.desde, periodo.ate), 200);
   } catch (e) {
-    console.error(`[api/link-da-bio/relatorio] ${loja.tenantId}: ${(e as Error).message}`);
-    return resposta({ error: "Não deu pra carregar os números." } satisfies ErroDoPainelBio, 500);
+    return falhou("api/link-da-bio/relatorio", loja.tenantId, e, "Não deu pra carregar os números.");
   }
 }

@@ -29,6 +29,12 @@ type Rota = (req: Request) => Promise<Response>;
 
 const LOJA = "0d6f3c1e-5b2a-4c8e-9f10-2a3b4c5d6e7f";
 const OUTRA = "7a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
+/**
+ * Lojas do mesmo usuário com balde de rate limit só delas: sem Upstash o balde é em memória e dura o
+ * processo, então a RAJADA esgota o limite e a FORMATO leva os 400 em série sem gastar o da LOJA.
+ */
+const RAJADA = "e1d2c3b4-a596-4877-8695-a4b3c2d1e0f9";
+const FORMATO = "f0e1d2c3-b4a5-4968-8776-95a4b3c2d1e0";
 const PAGINA = "3c2b1a0f-9e8d-4c7b-8a69-5f4e3d2c1b0a";
 const PAGINA_DA_OUTRA = "9f8e7d6c-5b4a-4392-8170-6f5e4d3c2b1a";
 const VIP = "1f2e3d4c-5b6a-4798-8a7b-6c5d4e3f2a1b";
@@ -218,8 +224,11 @@ function responder(metodo: string, url: URL, corpo: unknown, objeto: boolean): R
   const { pathname } = url;
   if (pathname === "/auth/v1/user") return [200, { id: "usuario-1", email: "dono@loja.test" }];
   if (pathname === "/rest/v1/memberships") {
-    // Membership só na LOJA: x-tenant-id de outra loja não acha nada (403).
+    // Membership na LOJA, na RAJADA e na FORMATO: x-tenant-id de outra loja não acha nada (403).
     const pedida = url.searchParams.get("tenant_id");
+    for (const extra of [RAJADA, FORMATO]) {
+      if (pedida === `eq.${extra}`) return [200, [{ tenant_id: extra, role: papel, modules: [] }]];
+    }
     const minha = pedida === null || pedida === `eq.${LOJA}`;
     return [200, minha ? [{ tenant_id: LOJA, role: papel, modules: [] }] : []];
   }
@@ -334,6 +343,11 @@ function soDaLoja(): void {
 
 function corpoValido(extra: Partial<CorpoDoPatchBio> = {}): CorpoDoPatchBio {
   return { versao: 3, slug: "atelie-ouro-prata", publicada: true, documento: documento(), ...extra };
+}
+
+/** O corpo válido com o único link (o botão do grupo) alterado — inclusive para algo que o tipo não deixa. */
+function comLink(campos: Linha): CorpoDoPatchBio {
+  return corpoValido({ documento: documento([{ ...link(LINK_GRUPO, VIP, true), ...campos } as LinkBio]) });
 }
 
 /**
@@ -542,9 +556,16 @@ test("PATCH recusa corpo fora do formato com 400 e o campo, sem gravar", async (
     [corpoValido({ slug: "a".repeat(41) }), "slug"],
     [corpoValido({ slug: "girumo-ouro" }), "slug"],
     [corpoValido({ slug: "admin" }), "slug"],
+    // O link vai inteiro para o jsonb: NUL e metade de emoji dariam 500 no Postgres.
+    [comLink({ titulo: "VIP\u0000" }), "links.0.titulo"],
+    [comLink({ titulo: "VIP \uD83C" }), "links.0.titulo"],
+    [comLink({ id: LINK_GRUPO.toUpperCase() }), "links.0.id"],
+    [comLink({ campanhaId: "x" }), "links.0.campanhaId"],
+    [comLink({ extra: 1 }), "links.0"],
   ];
   for (const [corpo, campo] of casos) {
-    const r = await PATCH(pedir("PATCH", undefined, corpo));
+    // Recusa antes do banco: a loja da sessão não muda nada, e a FORMATO poupa o rate limit da LOJA.
+    const r = await PATCH(pedir("PATCH", undefined, corpo, { ...SESSAO, "x-tenant-id": FORMATO }));
     assert.equal(r.status, 400, JSON.stringify(corpo).slice(0, 80));
     const erro = (await r.json()) as ErroDoPainelBio;
     assert.equal(typeof erro.error, "string");
@@ -577,6 +598,31 @@ test("PATCH sem página: 404, e nada é gravado", async () => {
   assert.equal(r.status, 404);
   assert.deepEqual(await r.json(), { error: "Crie a página antes de salvar." });
   assert.equal(gravouPagina(), false);
+});
+
+test("PATCH com corpo acima de 64 KB: 413 antes de ler o banco", async () => {
+  comPagina();
+  const r = await PATCH(pedir("PATCH", undefined, { ...corpoValido(), lixo: "a".repeat(65 * 1024) }));
+  assert.equal(r.status, 413);
+  assert.deepEqual(await r.json(), { error: "Pedido grande demais." });
+  assert.equal(r.headers.get("cache-control"), "no-store");
+  assert.ok(soTocouNaSessao());
+});
+
+test("PATCH: 30 salvamentos por minuto por loja; o 31º é 429, sem tocar no banco", async () => {
+  const daRajada: Cabecalhos = { ...SESSAO, "x-tenant-id": RAJADA };
+  for (let i = 1; i <= 30; i += 1) {
+    assert.equal((await PATCH(pedir("PATCH", undefined, "não é json", daRajada))).status, 400, `salvar ${i}`);
+  }
+  chamadas.length = 0;
+  const r = await PATCH(pedir("PATCH", undefined, corpoValido(), daRajada));
+  assert.equal(r.status, 429);
+  assert.deepEqual(await r.json(), { error: "Muitas tentativas. Espere um minuto." });
+  assert.equal(r.headers.get("cache-control"), "no-store");
+  assert.ok(soTocouNaSessao());
+  // O balde é da loja: a outra loja do mesmo usuário segue salvando.
+  comPagina();
+  assert.equal((await PATCH(pedir("PATCH", undefined, corpoValido()))).status, 200);
 });
 
 test("PATCH: a página some entre a leitura e o UPDATE → 404 (\"sem-pagina\" do store)", async () => {
@@ -674,6 +720,21 @@ test("slug: livre; desta loja (atual ou antigo) está livre; de outra loja (atua
     assert.deepEqual(await r.json(), esperado, valor);
   }
   soDaLoja();
+});
+
+test("slug: 60 consultas por minuto por loja; a 61ª é 429, sem tocar no banco", async () => {
+  const daRajada: Cabecalhos = { ...SESSAO, "x-tenant-id": RAJADA };
+  for (let i = 1; i <= 60; i += 1) {
+    assert.equal((await getSlug(pedir("GET", "/api/link-da-bio/slug?valor=ab", undefined, daRajada))).status, 200, `consulta ${i}`);
+  }
+  chamadas.length = 0;
+  const r = await getSlug(pedir("GET", "/api/link-da-bio/slug?valor=atelie-novo", undefined, daRajada));
+  assert.equal(r.status, 429);
+  assert.deepEqual(await r.json(), { error: "Muitas tentativas. Espere um minuto." });
+  assert.equal(r.headers.get("cache-control"), "no-store");
+  assert.ok(soTocouNaSessao());
+  // O balde é da loja: a outra loja do mesmo usuário segue consultando.
+  assert.deepEqual(await (await getSlug(pedir("GET", "/api/link-da-bio/slug?valor=atelie-novo"))).json(), { disponivel: true });
 });
 
 // ---- relatório ----
