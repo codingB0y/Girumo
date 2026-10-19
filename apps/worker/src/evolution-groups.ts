@@ -216,7 +216,8 @@ export function createEvolutionGroups(config: EvolutionGroupsConfig): EvolutionG
     },
 
     async setPicture(instanceName, groupJid, imageUrl) {
-      // URL assinada de TTL curto: a Evolution busca a imagem no ato do POST.
+      // URL assinada (a mesma para todos os grupos, ver signed-url-cache.ts):
+      // a Evolution busca a imagem no ato do POST.
       await request("group/updateGroupPicture", withJid("/group/updateGroupPicture", instanceName, groupJid), {
         method: "POST",
         body: JSON.stringify({ image: imageUrl }),

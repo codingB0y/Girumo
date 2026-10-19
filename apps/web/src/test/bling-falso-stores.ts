@@ -22,6 +22,7 @@ const CAMPOS: { [K in keyof Required<AtualizacaoConexao>]: keyof ConexaoBling } 
   high_value: "highValue",
   meta_enabled: "metaEnabled",
   meta_campaign_id: "metaCampaignId",
+  meta_skip_store_ids: "metaSkipStoreIds",
   backfill_page: "backfillPage",
   backfill_fails: "backfillFails",
   backfill_done_at: "backfillDoneAt",

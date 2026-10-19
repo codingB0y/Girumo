@@ -159,6 +159,7 @@ test("cartão conectado: estado, histórico, ajustes, números do banco e as úl
           { campaign_id: CAMPANHA_C, campanha: "Moda Sul", pixel_id: "5550001112" },
         ],
       },
+      canais: [{ id: 200000001, pedidos: 2, exemplos: ["1532", "1531"], ultimo_pedido_em: "2026-10-13", fora_do_meta: false }],
     },
     numeros_30d: {
       vendas: 214,
@@ -190,7 +191,10 @@ test("cartão conectado: estado, histórico, ajustes, números do banco e as úl
   assert.deepEqual(resumo?.corpo, { p_tenant: "loja-b" });
   const contatos = chamadas.find((c) => c.url.pathname === "/rest/v1/bling_contacts");
   assert.equal(contatos?.url.searchParams.get("bling_contact_id"), "in.(555,556)");
-  assert.equal(chamadas.find((c) => c.url.pathname === "/rest/v1/bling_orders")?.url.searchParams.get("limit"), "8");
+  const pedidos = chamadas.filter((c) => c.url.pathname === "/rest/v1/bling_orders");
+  const comCanal = (c: Chamada) => c.url.searchParams.get("select")?.includes("snapshot->lojaId") ?? false;
+  assert.equal(pedidos.find((c) => !comCanal(c))?.url.searchParams.get("limit"), "8");
+  assert.equal(pedidos.find(comCanal)?.url.searchParams.get("limit"), "1000");
 });
 
 test("nenhum token nem telefone inteiro sai no cartão", async () => {
@@ -242,6 +246,17 @@ test("cartão: operador e vendedora 403 sem tocar em dado da loja", async () => 
     assert.equal((await GET(pedirCartao())).status, 403, p);
     assert.deepEqual(doBanco(), [], p);
   }
+});
+
+test("a lista de canais falhando não derruba o cartão: os canais fora do Meta seguem nele", async (t) => {
+  const avisos = t.mock.method(console, "warn", () => undefined);
+  conexao = conectada({ meta_skip_store_ids: ["200000001"] });
+  delete banco.canais;
+  const resposta = await GET(pedirCartao());
+  assert.equal(resposta.status, 200);
+  const cartao = (await resposta.json()) as { ajustes: { canais: unknown[] } };
+  assert.deepEqual(cartao.ajustes.canais, [{ id: 200000001, pedidos: 0, exemplos: [], ultimo_pedido_em: null, fora_do_meta: true }]);
+  assert.ok(avisos.mock.calls.some((c) => String(c.arguments[0]).includes("loja-b")));
 });
 
 test("cartão com o banco falhando: 500 sem a mensagem do banco", async () => {

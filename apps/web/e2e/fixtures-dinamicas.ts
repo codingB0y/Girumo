@@ -299,6 +299,10 @@ export const FIXTURES_DINAMICAS: Record<string, FixtureDinamica> = {
   "/painel/pages/[id]": fixturePagina,
   "/painel/campanhas/[slug]": fixtureCampanha(),
   "/painel/campanhas/[slug]/editar": fixtureCampanhaEdicao(),
+  // Campanha recém-criada não tem grupos: a tela mostra o nome no caminho
+  // ("<campanha> / Grupos") e "ainda não tem grupos"; slug inexistente mostra só
+  // "Campanha não encontrada." — é essa diferença que o contraste mede.
+  "/painel/campanhas/[slug]/padronizar": fixtureCampanha(),
   "/painel/relampago/[id]": fixtureRelampago,
   "/painel/comunidades/[slug]": fixtureComunidade,
   "/painel/instagram/[id]": fixtureFluxoInstagram,

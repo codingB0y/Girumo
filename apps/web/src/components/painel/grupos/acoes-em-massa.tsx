@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { ImagePlus, Loader2, Lock, Unlock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useConfirmacao } from "@/components/painel/confirmacao";
 import { uploadMediaFile } from "@/lib/media-upload-client";
 import { RevisarLinks } from "./revisar-links";
 import { RemoverDuplicados } from "./remover-duplicados";
+import { OPS_POR_MINUTO, useProgressoDoLote } from "./use-progresso-do-lote";
+import type { BulkAction } from "@/lib/groups/bulk-batch";
 
 /**
  * "Configurações dos grupos" — o bloco de OPERAR os grupos que já existem na
@@ -32,16 +34,6 @@ import { RemoverDuplicados } from "./remover-duplicados";
  *   flag `confirmClear` no body é a segunda, no servidor.
  */
 
-type Progresso = {
-  batchId: string;
-  actions: string[];
-  createdAt: string;
-  total: number;
-  done: number;
-  failed: number;
-  pending: number;
-};
-
 type Resultado = {
   batchId: string;
   total: number;
@@ -64,20 +56,19 @@ type Props = {
   onLoteConcluido: () => void;
 };
 
-/** Ritmo do executor: 1 operação a cada 4s ≈ 15/min. */
-const OPS_POR_MINUTO = 15;
-const POLL_MS = 3000;
-
-const ROTULO_ACAO: Record<string, string> = {
+// Record<BulkAction, …>: ação nova sem rótulo quebra o tsc, em vez de aparecer
+// crua ("set_subject") na barra de progresso.
+const ROTULO_ACAO: Record<BulkAction, string> = {
   set_description: "descrição",
   set_picture: "foto",
   open: "abertura",
   close: "fechamento",
   check_invite: "revisão dos links",
   remove_participant: "remoção de duplicado",
+  set_subject: "renomeação",
 };
 
-function descreveLote(actions: string[]): string {
+function descreveLote(actions: BulkAction[]): string {
   const nomes = actions.map((a) => ROTULO_ACAO[a] ?? a);
   if (nomes.length === 0) return "ações";
   if (nomes.length === 1) return nomes[0];
@@ -93,37 +84,8 @@ export function AcoesEmMassa({ slug, administrados, totais, estado, onLoteConclu
   const [aplicando, setAplicando] = useState<"identidade" | "open" | "close" | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
-  const [progresso, setProgresso] = useState<Progresso | null>(null);
+  const { progresso, lerProgresso } = useProgressoDoLote(slug, onLoteConcluido);
   const arquivoRef = useRef<HTMLInputElement>(null);
-  // Guarda o pendente da batida anterior: a transição >0 -> 0 é o fim do lote.
-  const pendenteAnterior = useRef<number | null>(null);
-
-  const lerProgresso = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/campanhas/${slug}/grupos/lotes`);
-      if (!res.ok) return;
-      const dado = (await res.json()) as Progresso | null;
-      setProgresso(dado);
-
-      const antes = pendenteAnterior.current;
-      pendenteAnterior.current = dado?.pending ?? null;
-      if (antes !== null && antes > 0 && dado && dado.pending === 0) onLoteConcluido();
-    } catch {
-      // Uma batida perdida não é erro de tela: a próxima corrige.
-    }
-  }, [slug, onLoteConcluido]);
-
-  // Busca no mount para reencontrar um lote em andamento depois de um F5 — com
-  // 91 grupos o lote leva ~6 min, então recarregar no meio é o caso comum.
-  useEffect(() => {
-    lerProgresso();
-  }, [lerProgresso]);
-
-  useEffect(() => {
-    if (!progresso || progresso.pending === 0) return;
-    const id = setInterval(lerProgresso, POLL_MS);
-    return () => clearInterval(id);
-  }, [progresso, lerProgresso]);
 
   const enviarFoto = useCallback(async (file: File) => {
     setEnviandoFoto(true);

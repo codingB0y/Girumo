@@ -206,3 +206,78 @@ test("o mesmo grupo sem a marca ainda é folga: nada enfileirado", async () => {
 
   assert.equal(feitas("POST", "/rest/v1/group_grow_jobs").length, 0);
 });
+
+/* ---------- PR 8: o nome do próximo grupo segue a sequência padronizada ---------- */
+
+/** Pool lotado de `avaliacaoCom`, com o molde do teste e um job antigo de seq 26 na fila. */
+function avaliacaoPadronizada(growTemplate: Record<string, unknown>): Record<string, (c: Chamada) => Resposta> {
+  return {
+    ...avaliacaoCom({ ...GRUPO_ABERTO, lotado_em: "2026-10-09T12:00:00+00:00" }),
+    "GET /rest/v1/campaign_groups": () => ({
+      status: 200,
+      corpo: [{ ...CAMPANHA, grow_template: growTemplate }],
+    }),
+    // Só a consulta do nextSeq (select=seq) acha job; a de "em voo" segue vazia.
+    "GET /rest/v1/group_grow_jobs": (c) => ({
+      status: 200,
+      corpo: c.url.searchParams.get("select") === "seq" ? [{ seq: 26 }] : [],
+    }),
+  };
+}
+
+test("campanha padronizada: o nome vira <base> N+1, e o seq do job continua único", async () => {
+  chamadas.length = 0;
+  tabelas = avaliacaoPadronizada({
+    subjectPattern: "Moda Kids do Sul {n}",
+    padronizadoEm: "2026-10-10T12:00:00.000Z",
+  });
+
+  await evaluateAutoGrow("loja-a");
+
+  const [criado] = feitas("POST", "/rest/v1/group_grow_jobs");
+  const corpo = criado?.corpo as Record<string, unknown> | undefined;
+  // Mutantes: pôr o número do nome no `seq` (21 colide com o índice único
+  // tenant+campanha+seq), ou nomear pelo seq (… 27 depois de uma sequência 1–N).
+  assert.equal(corpo?.seq, 27);
+  assert.equal(corpo?.subject, "Moda Kids do Sul 2");
+});
+
+test("sem Padronizar, ou com data que não é data, o nome continua usando o seq", async () => {
+  for (const growTemplate of [
+    { subjectPattern: "Moda Kids do Sul {n}" },
+    { subjectPattern: "Moda Kids do Sul {n}", padronizadoEm: "ontem" },
+    { subjectPattern: "Moda Kids do Sul {n}", padronizadoEm: 20261010 },
+  ]) {
+    chamadas.length = 0;
+    tabelas = avaliacaoPadronizada(growTemplate);
+
+    await evaluateAutoGrow("loja-a");
+
+    const [criado] = feitas("POST", "/rest/v1/group_grow_jobs");
+    const corpo = criado?.corpo as Record<string, unknown> | undefined;
+    assert.equal(corpo?.seq, 27);
+    assert.equal(corpo?.subject, "Moda Kids do Sul 27");
+  }
+});
+
+test("campanha padronizada com Avisos e órfão no group_ids: o nome conta só as posições numeradas", async () => {
+  chamadas.length = 0;
+  const padrao = { subjectPattern: "Moda Kids do Sul {n}", padronizadoEm: "2026-10-10T12:00:00.000Z" };
+  const lotado = { ...GRUPO_ABERTO, lotado_em: "2026-10-09T12:00:00+00:00" };
+  const avisos = { ...GRUPO_ABERTO, id: "row-2", whatsapp_group_id: "avisos@g.us", community_role: "announce" };
+  tabelas = {
+    ...avaliacaoPadronizada(padrao),
+    "GET /rest/v1/campaign_groups": () => ({
+      status: 200,
+      corpo: [{ ...CAMPANHA, group_ids: ["g1@g.us", "avisos@g.us", "orfao@g.us"], grow_template: padrao }],
+    }),
+    "GET /rest/v1/groups": () => ({ status: 200, corpo: [lotado, avisos] }),
+  };
+
+  await evaluateAutoGrow("loja-a");
+
+  const [criado] = feitas("POST", "/rest/v1/group_grow_jobs");
+  // Mutante: contar o `group_ids` cru — o Avisos e o JID sem linha em `groups` não
+  // têm número na sequência (a tela não os numera), e o próximo viraria "… 4".
+  assert.equal((criado?.corpo as Record<string, unknown> | undefined)?.subject, "Moda Kids do Sul 2");
+});

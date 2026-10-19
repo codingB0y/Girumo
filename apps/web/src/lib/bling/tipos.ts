@@ -18,6 +18,11 @@ export type PedidoResumo = {
   total: number;
   contatoId: number | null;
   situacaoId: number;
+  /**
+   * O canal de venda (`loja.id`: Yampi, Nuvemshop...). null = lançado direto no Bling (o Bling manda 0). Ausente = não
+   * se sabe (retrato de antes do canal, ou o Bling não mandou): a loja com canal fora do Meta relê o pedido.
+   */
+  lojaId?: number | null;
 };
 
 export type ContatoBling = {

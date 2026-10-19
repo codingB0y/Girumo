@@ -80,6 +80,7 @@ const CONECTADA: CartaoBling = {
     high_value: 1500,
     meta_enabled: true,
     pixel: { escolhido: null, opcoes: [] },
+    canais: [{ id: 200000001, pedidos: 42, exemplos: ["1532", "1530"], ultimo_pedido_em: "2026-10-18", fora_do_meta: false }],
   },
   numeros_30d: {
     vendas: 0,
@@ -126,6 +127,29 @@ test("Salvar dos ajustes: sem mexer nas caixas as situações não vão; mexendo
   await expect.poll(() => corpos.length).toBe(2);
   expect(corpos[1]).toEqual({ sale_situation_ids: [6, 9], situacoes_versao: VERSAO, high_value: 1500, meta_enabled: true, meta_campaign_id: null });
   await expect(bling.getByText(RECARREGUE)).toBeVisible();
+});
+
+/** O canal de venda que já manda a compra ao Meta (a Yampi): marcado, o id vai no Salvar; o resumo diz quantos ficaram fora. */
+test("canal de venda fora do Meta: marcar o canal manda o id no Salvar, e o resumo conta o canal fora", async ({ page }) => {
+  const corpos: unknown[] = [];
+  let cartao = CONECTADA;
+  await page.route("**/api/integracoes/bling", (rota) => {
+    const salvar = rota.request().method() === "PATCH";
+    if (salvar) corpos.push(rota.request().postDataJSON());
+    return rota.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(salvar ? { ok: true } : cartao) });
+  });
+  await page.goto("/painel/configuracoes?secao=integracoes", { waitUntil: "load" });
+  const bling = page.getByRole("region", { name: /^Bling/ });
+
+  await bling.getByRole("button", { name: "Ajustar" }).click({ timeout: 30_000 });
+  await expect(bling.getByText("42 pedidos · último em 18/10 · nº 1532, 1530", { exact: true })).toBeVisible();
+  cartao = { ...CONECTADA, ajustes: { ...CONECTADA.ajustes!, canais: [{ ...CONECTADA.ajustes!.canais[0], fora_do_meta: true }] } };
+  await bling.getByText("Canal 200000001", { exact: true }).click();
+  await expect(bling.getByRole("checkbox", { name: "Canal 200000001" })).toBeChecked();
+  await bling.getByRole("button", { name: "Salvar ajustes" }).click();
+  await expect.poll(() => corpos.length).toBe(1);
+  expect(corpos[0]).toEqual({ high_value: 1500, meta_enabled: true, meta_campaign_id: null, meta_skip_store_ids: [200000001] });
+  await expect(bling.getByText("ligado · sem pixel escolhido · 1 canal fora", { exact: true })).toBeVisible();
 });
 
 /** O motor releu as situações com o formulário aberto: "Pago" (filha de Atendido) chegou, marcada pelo padrão. */

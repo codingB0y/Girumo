@@ -5,15 +5,18 @@ import { test } from "node:test";
 import type { OpcaoDePixel, SituacaoDoCartao } from "@/lib/bling/cartao";
 import {
   campoDoValor,
+  canaisParaSalvar,
   chipDoBling,
   contagem,
   detalheDasFalhas,
   detalheDoMeta,
   legendaDaSituacao,
+  legendaDoCanal,
   lerValorAlto,
   linhaDaPausa,
   linhaDeEstado,
   mensagemDoRetorno,
+  nomeDoCanal,
   nomeDoCsv,
   pixelEmUso,
   reais,
@@ -179,9 +182,35 @@ test("pixel: o da campanha escolhida, o único das campanhas, ou nenhum", () => 
   assert.equal(pixelEmUso({ escolhido: null, opcoes: [...opcoes, pix("c3", "Sul", "222")] }), null);
   assert.equal(rotuloDoAutomatico(opcoes), "Automático · Pixel 111");
   assert.equal(rotuloDoAutomatico([...opcoes, pix("c3", "Sul", "222")]), "Automático: há mais de um pixel, escolha a campanha");
-  assert.equal(resumoDoMeta({ meta_enabled: true, pixel: { escolhido: null, opcoes } }), "ligado · Pixel 111");
-  assert.equal(resumoDoMeta({ meta_enabled: true, pixel: { escolhido: null, opcoes: [] } }), "ligado · sem pixel escolhido");
-  assert.equal(resumoDoMeta({ meta_enabled: false, pixel: { escolhido: "c1", opcoes } }), "desligado");
+  assert.equal(resumoDoMeta({ meta_enabled: true, pixel: { escolhido: null, opcoes }, canais: [] }), "ligado · Pixel 111");
+  assert.equal(resumoDoMeta({ meta_enabled: true, pixel: { escolhido: null, opcoes: [] }, canais: [] }), "ligado · sem pixel escolhido");
+  assert.equal(resumoDoMeta({ meta_enabled: false, pixel: { escolhido: "c1", opcoes }, canais: [] }), "desligado");
+});
+
+test("canais no Salvar: só quando a dona mexeu; a lista inteira, ordenada (outra aba que marcou um canal não é desfeita sem querer)", () => {
+  const canal = (id: number, fora: boolean) => ({ id, pedidos: 1, exemplos: [], ultimo_pedido_em: null, fora_do_meta: fora });
+  const vistos = [canal(7, true), canal(3, false), canal(5, true)];
+  assert.deepEqual(canaisParaSalvar(vistos, new Set([5, 7])), {});
+  assert.deepEqual(canaisParaSalvar(vistos, new Set([7, 5, 3])), { meta_skip_store_ids: [3, 5, 7] });
+  assert.deepEqual(canaisParaSalvar(vistos, new Set([7])), { meta_skip_store_ids: [7] });
+  assert.deepEqual(canaisParaSalvar([], new Set()), {});
+});
+
+test("canais: o resumo do Meta diz quantos ficaram de fora; a legenda tem pedidos, o dia do último (sem fuso) e os números", () => {
+  const canal = (id: number, fora: boolean) => ({ id, pedidos: 3, exemplos: ["1532"], ultimo_pedido_em: "2026-10-18", fora_do_meta: fora });
+  const pixel = { escolhido: null, opcoes: [pix("c1", "VIP", "111")] };
+  assert.equal(resumoDoMeta({ meta_enabled: true, pixel, canais: [canal(1, true), canal(2, false)] }), "ligado · Pixel 111 · 1 canal fora");
+  assert.equal(resumoDoMeta({ meta_enabled: true, pixel, canais: [canal(1, true), canal(2, true)] }), "ligado · Pixel 111 · 2 canais fora");
+  assert.equal(resumoDoMeta({ meta_enabled: false, pixel, canais: [canal(1, true)] }), "desligado");
+
+  assert.equal(nomeDoCanal(canal(200000001, false)), "Canal 200000001");
+  // "2026-10-18" é o dia do pedido no Bling: como data UTC ele viraria 17/10 em Brasília.
+  assert.equal(
+    legendaDoCanal({ pedidos: 1240, exemplos: ["1532", "1530", "1529"], ultimo_pedido_em: "2026-10-18" }),
+    "1.240 pedidos · último em 18/10 · nº 1532, 1530, 1529",
+  );
+  assert.equal(legendaDoCanal({ pedidos: 1, exemplos: [], ultimo_pedido_em: null }), "1 pedido");
+  assert.equal(legendaDoCanal({ pedidos: 0, exemplos: [], ultimo_pedido_em: null }), "sem pedido recente");
 });
 
 test("nome do CSV: o da rota, ou um com a lista", () => {

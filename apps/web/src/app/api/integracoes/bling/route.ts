@@ -71,6 +71,8 @@ const ajustesSchema = z
     meta_enabled: z.boolean(),
     // O banco devolve uuid em minúsculas: comparar e gravar assim.
     meta_campaign_id: z.uuid().transform((id) => id.toLowerCase()).nullable(),
+    // Canais de venda (`loja.id`) que já mandam o evento ao Meta: o pedido deles não manda daqui.
+    meta_skip_store_ids: z.array(z.number().int().positive()).max(50),
   })
   .partial()
   .refine((a) => (a.sale_situation_ids === undefined) === (a.situacoes_versao === undefined), { path: ["situacoes_versao"] });
@@ -85,6 +87,7 @@ const MENSAGEM_DO_CAMPO: Record<string, string> = {
   high_value: "Valor alto: maior que zero, até R$ 10.000.000,00 e com até 2 casas decimais.",
   meta_enabled: "Enviar ao Meta: escolha ligado ou desligado.",
   meta_campaign_id: "Campanha do pixel inválida.",
+  meta_skip_store_ids: "Canais de venda inválidos: marque até 50.",
 };
 const SITUACOES_MUDARAM =
   "As situações do Bling mudaram desde que você abriu os ajustes. Recarregue a página e confira quais contam como venda.";
@@ -142,12 +145,20 @@ function situacoesMudaram(c: ConexaoBling, a: Ajustes): boolean {
   return a.sale_situation_ids !== undefined && ordenados(a.sale_situation_ids).join() !== ordenados(contaHoje).join();
 }
 
-/** Quantos dias de pedidos voltam à fila; null = nenhum. A reclassificação de 90 dias já cobre a do Meta. */
+/**
+ * Quantos dias de pedidos voltam à fila; null = nenhum. A reclassificação de 90 dias já cobre a do Meta. Canal que
+ * volta ao envio reabre como o Meta religado: o evento dele estava desligado. Canal que sai não reabre: o que já foi
+ * ao Meta não volta atrás, e o que ainda não foi o motor processa com a lista nova.
+ */
 function diasParaReabrir(c: ConexaoBling, a: Ajustes): number | null {
   if (situacoesMudaram(c, a)) return DIAS_DA_RECLASSIFICACAO;
   const religouMeta = a.meta_enabled === true && !c.metaEnabled;
   const trocouPixel = a.meta_campaign_id !== undefined && a.meta_campaign_id !== c.metaCampaignId;
-  return religouMeta || trocouPixel ? DIAS_DO_META : null;
+  const fora = a.meta_skip_store_ids;
+  // Com o Meta desligado o evento do canal não sairia mesmo; religá-lo reabre por conta própria.
+  const metaLigado = a.meta_enabled ?? c.metaEnabled;
+  const canalVoltou = metaLigado && fora !== undefined && c.metaSkipStoreIds.some((id) => !fora.includes(id));
+  return religouMeta || trocouPixel || canalVoltou ? DIAS_DO_META : null;
 }
 
 /**
@@ -156,8 +167,12 @@ function diasParaReabrir(c: ConexaoBling, a: Ajustes): number | null {
  * vazio continua sendo o padrão calculado na hora.
  */
 function paraGravar(c: ConexaoBling, a: Ajustes): Ajustes {
-  const { sale_situation_ids: ids, ...resto } = a;
-  return ids && situacoesMudaram(c, a) ? { ...resto, sale_situation_ids: ordenados(ids) } : resto;
+  const { sale_situation_ids: ids, meta_skip_store_ids: fora, ...resto } = a;
+  return {
+    ...resto,
+    ...(ids && situacoesMudaram(c, a) ? { sale_situation_ids: ordenados(ids) } : {}),
+    ...(fora ? { meta_skip_store_ids: ordenados(fora) } : {}),
+  };
 }
 
 async function aplicarAjustes(tenantId: string, corpo: CorpoDosAjustes, agora: Date): Promise<Response> {
@@ -210,6 +225,7 @@ function comoEstava(c: ConexaoBling, gravado: Ajustes): Ajustes {
     high_value: c.highValue,
     meta_enabled: c.metaEnabled,
     meta_campaign_id: c.metaCampaignId,
+    meta_skip_store_ids: c.metaSkipStoreIds,
   };
   return Object.fromEntries(Object.keys(gravado).map((campo) => [campo, antes[campo as keyof Ajustes]]));
 }

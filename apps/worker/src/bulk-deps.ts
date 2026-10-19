@@ -13,10 +13,7 @@ import type { EvolutionGroups } from "./evolution-groups.js";
 import { log } from "./log.js";
 import { resolveMediaPath } from "./media-id.js";
 import { type InstanceRow, pickSendInstance } from "./pick-send-instance.js";
-
-/** Mesmo bucket e TTL do envio e do auto-grow. */
-const MEDIA_BUCKET = "uploads";
-const SIGNED_URL_TTL_SECONDS = 300;
+import { storageSignedUrls } from "./signed-url-cache.js";
 
 /**
  * Tenants com job na fila. Só esses precisam de tick.
@@ -41,6 +38,10 @@ export function makeBulkDeps(
   app: AppClient,
   groups: EvolutionGroups,
 ): BulkDeps {
+  // A mesma foto em N grupos: um link só, para o CDN servir do cache (signed-url-cache.ts).
+  const mediaUrls = storageSignedUrls(supabase, (error) =>
+    log.warn("ações em massa: falha ao assinar a imagem", { error }),
+  );
   return {
     listTenants: () => listBulkTenants(supabase),
 
@@ -100,16 +101,7 @@ export function makeBulkDeps(
         log.warn("ações em massa: mediaId inválido para o tenant", { tenant_id: tenantId });
         return null;
       }
-
-      const { data, error } = await supabase.storage
-        .from(MEDIA_BUCKET)
-        .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
-
-      if (error) {
-        log.warn("ações em massa: falha ao assinar a imagem", { error: error.message });
-        return null;
-      }
-      return data?.signedUrl ?? null;
+      return mediaUrls(storagePath);
     },
   };
 }

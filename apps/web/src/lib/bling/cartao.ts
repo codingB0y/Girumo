@@ -11,8 +11,10 @@ import { lerConexao, type ConexaoBling, type StatusConexao } from "@/lib/stores/
 import { lerContatosPorIds, type ContatoGuardado } from "@/lib/stores/bling-contatos";
 import {
   lerResumo,
+  pedidosComCanal,
   ultimasDoCartao,
   type LinhaPedidoBling,
+  type PedidoComCanal,
   type ResumoBling,
   type StatusEvento,
 } from "@/lib/stores/bling-pedidos";
@@ -25,6 +27,13 @@ import { listCampaignGroups, type CampaignGroup } from "@/lib/stores/campaign-gr
  */
 
 const ULTIMAS = 8;
+/**
+ * Os canais saem dos pedidos mais novos da loja: um canal parado há mais que isso some da lista (se não estiver fora do
+ * Meta). ponytail: a consulta anda a chave primária da loja filtrando o jsonb; índice parcial em `snapshot->'lojaId'`
+ * se o cartão de uma loja grande ficar lento.
+ */
+const PEDIDOS_DOS_CANAIS = 1000;
+const EXEMPLOS_POR_CANAL = 3;
 const HORA_MS = 3_600_000;
 /** Sem aviso há mais que isso e a varredura achando venda: o Bling parou de avisar. */
 const SILENCIO_DO_AVISO_MS = 6 * HORA_MS;
@@ -34,6 +43,19 @@ const VIDA_DO_ERRO_MS = 24 * HORA_MS;
 export type TempoReal = "ok" | "parado" | "sem_dados";
 export type SituacaoDoCartao = { id: number; nome: string; base: number; conta: boolean; bloqueada: boolean };
 export type OpcaoDePixel = { campaign_id: string; campanha: string; pixel_id: string };
+
+/**
+ * Um canal de venda do Bling (`loja.id`) visto nos pedidos. O nome (Yampi, Nuvemshop) só viria da API de canais,
+ * fora dos escopos do app: a dona reconhece o canal pelos números dos pedidos dele.
+ */
+export type CanalDoCartao = {
+  id: number;
+  pedidos: number;
+  /** Número no Bling dos pedidos mais novos do canal. */
+  exemplos: string[];
+  ultimo_pedido_em: string | null;
+  fora_do_meta: boolean;
+};
 
 export type UltimaDoCartao = {
   hora: string | null;
@@ -67,6 +89,8 @@ export type CartaoBling = {
     high_value: number | null;
     meta_enabled: boolean;
     pixel: { escolhido: string | null; opcoes: OpcaoDePixel[] };
+    /** Canais vistos nos pedidos recentes, e os tirados do Meta mesmo sem pedido recente. */
+    canais: CanalDoCartao[];
   } | null;
   numeros_30d: {
     vendas: number;
@@ -161,6 +185,26 @@ export function ultimasVendas(
   });
 }
 
+/** Um canal por `loja.id`, na ordem do pedido mais novo (os pedidos chegam assim); depois os fora do Meta sem pedido. */
+export function canaisDoCartao(pedidos: readonly PedidoComCanal[], foraDoMeta: readonly number[]): CanalDoCartao[] {
+  const canais = new Map<number, CanalDoCartao>();
+  for (const p of pedidos) {
+    const canal = canais.get(p.lojaId) ?? novoCanal(p.lojaId, foraDoMeta);
+    canais.set(p.lojaId, {
+      ...canal,
+      pedidos: canal.pedidos + 1,
+      exemplos: p.numero && canal.exemplos.length < EXEMPLOS_POR_CANAL ? [...canal.exemplos, p.numero] : canal.exemplos,
+      ultimo_pedido_em: canal.ultimo_pedido_em ?? p.orderDate,
+    });
+  }
+  const semPedido = foraDoMeta.filter((id) => !canais.has(id)).map((id) => novoCanal(id, foraDoMeta));
+  return [...canais.values(), ...semPedido];
+}
+
+function novoCanal(id: number, foraDoMeta: readonly number[]): CanalDoCartao {
+  return { id, pedidos: 0, exemplos: [], ultimo_pedido_em: null, fora_do_meta: foraDoMeta.includes(id) };
+}
+
 function numerosDoResumo(r: ResumoBling): NonNullable<CartaoBling["numeros_30d"]> {
   return {
     vendas: r.vendas_30d,
@@ -179,6 +223,7 @@ export type EntradaDoCartao = {
   linhas: readonly LinhaPedidoBling[];
   contatos: readonly ContatoGuardado[];
   campanhas: readonly CampaignGroup[];
+  canais: readonly PedidoComCanal[];
   agora: Date;
 };
 
@@ -210,6 +255,7 @@ export function cartaoConectado(e: EntradaDoCartao): CartaoBling {
         escolhido: opcoes.some((o) => o.campaign_id === c.metaCampaignId) ? c.metaCampaignId : null,
         opcoes,
       },
+      canais: canaisDoCartao(e.canais, c.metaSkipStoreIds),
     },
     numeros_30d: numerosDoResumo(r),
     listas: { ...r.listas },
@@ -227,12 +273,17 @@ export async function montarCartao(tenantId: string, agora: Date): Promise<Carta
   const conexao = await lerConexao(tenantId);
   if (!conexao || conexao.status === "desconectada") return cartaoVazio(true);
 
-  const [resumo, linhas, campanhas] = await Promise.all([
+  const [resumo, linhas, campanhas, canais] = await Promise.all([
     lerResumo(tenantId),
     ultimasDoCartao(tenantId, ULTIMAS),
     listCampaignGroups(tenantId),
+    // Falhar aqui não derruba o cartão: os canais fora do Meta seguem nele (`canaisDoCartao`), sem os sem marca.
+    pedidosComCanal(tenantId, PEDIDOS_DOS_CANAIS).catch((e: unknown) => {
+      console.warn(`[bling/cartao] ${tenantId}: canais de venda: ${(e as Error).message}`);
+      return [];
+    }),
   ]);
   const ids = [...new Set(linhas.flatMap((l) => (l.blingContactId === null ? [] : [l.blingContactId])))];
   const contatos = await lerContatosPorIds(tenantId, ids);
-  return cartaoConectado({ conexao, resumo, linhas, contatos, campanhas, agora });
+  return cartaoConectado({ conexao, resumo, linhas, contatos, campanhas, canais, agora });
 }

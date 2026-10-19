@@ -546,3 +546,7 @@ apps/web/supabase/migrations/20261017123000_sem_plano_nao_dispara_sozinho.sql
 # trigger, schema app, ACL nem corpo — conferir com infra/tests/grupo-uma-campanha-check.sql nos
 # dois bancos.
 apps/web/supabase/migrations/20261017130000_grupo_uma_campanha.sql
+# 2026-10-19 - Bling: canais de venda fora do Meta. bling_connections.meta_skip_store_ids (bigint[],
+# padrao vazio): pedido de canal marcado (Yampi, que ja manda a compra ao Meta) entra na Girumo sem
+# evento. O canal vai no retrato do pedido (snapshot.lojaId), sem coluna nova. Muda a baseline.
+apps/web/supabase/migrations/20261019160000_bling_canais_fora_do_meta.sql

@@ -242,6 +242,54 @@ test("Meta desligado no cartão: desligado, sem envio e sem ler campanha", async
   assert.ok(!f.trilha.includes("campanhas.comMetadata"));
 });
 
+test("canal de venda fora do Meta (a Yampi já manda o evento): desligado e nada enviado, mas a venda entra, com origem e lista", async () => {
+  const f = criarBlingFalso();
+  ajustarConexao(f, { metaSkipStoreIds: [200000001] });
+  comPedido(f, 1001, { lojaId: 200000001 });
+  await processar(f, 1001);
+
+  assert.equal(f.meta.enviados.length, 0);
+  const linha = f.pedidos.get(1001);
+  assert.deepEqual([linha?.kind, linha?.icStatus, linha?.purchaseStatus, linha?.origem], ["venda", "desligado", "desligado", "grupo"]);
+  assert.equal(f.girumo.size, 1);
+  assert.equal(f.contatos.get(MARIA.id)?.lista, "comprador");
+  assert.ok(!f.trilha.includes("campanhas.comMetadata"));
+
+  // Outro canal, e o pedido lançado direto no Bling (sem canal), seguem indo ao Meta.
+  for (const lojaId of [200000002, null]) {
+    const outro = criarBlingFalso();
+    ajustarConexao(outro, { metaSkipStoreIds: [200000001] });
+    comPedido(outro, 1001, { lojaId });
+    await processar(outro, 1001);
+    assert.equal(outro.meta.enviados.length, 1, String(lojaId));
+  }
+});
+
+test("retrato de antes do canal: com canal fora do Meta na loja, o pedido é relido no Bling e o canal vale; sem, segue o retrato, sem GET", async () => {
+  const antigo = { id: 1001, numero: "1050", data: "2026-10-13", total: 350, contatoId: MARIA.id, situacaoId: 9 };
+
+  const comCanal = criarBlingFalso();
+  ajustarConexao(comCanal, { metaSkipStoreIds: [200000001] });
+  comCanal.bling.pedidos.set(1001, pedidoDoBling(1001, { lojaId: 200000001 }));
+  comCanal.pedidos.set(1001, linhaPendente(1001, { origin: "varredura", snapshot: antigo }));
+  await processar(comCanal, 1001);
+  // Mutante (confiar no retrato velho): o canal sairia "lançado no Bling" e a venda da Yampi iria ao Meta.
+  assert.equal(chamadasA(comCanal, "/pedidos/vendas/1001"), 1);
+  assert.equal(comCanal.meta.enviados.length, 0);
+  const relida = comCanal.pedidos.get(1001);
+  assert.deepEqual([relida?.icStatus, relida?.purchaseStatus, relida?.snapshot?.lojaId], ["desligado", "desligado", 200000001]);
+
+  // A loja que não tirou canal nenhum não paga um GET por retrato antigo (3 req/s por conta Bling, somando os apps).
+  const semCanal = criarBlingFalso();
+  semCanal.bling.pedidos.set(1001, pedidoDoBling(1001));
+  semCanal.pedidos.set(1001, linhaPendente(1001, { origin: "varredura", snapshot: antigo }));
+  await processar(semCanal, 1001);
+  assert.equal(chamadasA(semCanal, "/pedidos/vendas/1001"), 0);
+  assert.equal(semCanal.meta.enviados.length, 1);
+  // O retrato continua sem o canal: "não se sabe" não vira "lançado no Bling" (que passaria pelo filtro depois).
+  assert.ok(!("lojaId" in (semCanal.pedidos.get(1001)?.snapshot ?? {})));
+});
+
 test("sem pixel (nenhum, ou vários sem escolha): sem_pixel e nada enviado", async () => {
   for (const campanhas of [[], [campanha("camp-1", PIXEL), campanha("camp-2", "9876543210")]]) {
     const f = criarBlingFalso();
