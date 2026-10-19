@@ -48,7 +48,7 @@ const LOJA = "11111111-1111-4111-8111-111111111111";
 const CAMPANHA = "0b9a8c7d-6e5f-4a3b-9c2d-1e0f9a8b7c6d";
 const DOC = documentoPadrao({ nome: "Loja Exemplo", campanhaId: CAMPANHA });
 const LINHA = {
-  id: "pagina-1",
+  id: "aaaaaaaa-0000-4000-8000-000000000001",
   tenant_id: LOJA,
   slug: "loja-exemplo",
   publicada: true,
@@ -61,13 +61,13 @@ const LINHA = {
 test("as tags são as do contrato (spec §6)", () => {
   assert.equal(cache.tagDoSlug("loja-exemplo"), "bio-slug:loja-exemplo");
   assert.equal(cache.tagDaLoja(LOJA), `bio-loja:${LOJA}`);
-  assert.equal(cache.tagDaPagina("pagina-1"), "bio-pagina:pagina-1");
+  assert.equal(cache.tagDaPagina("aaaaaaaa-0000-4000-8000-000000000001"), "bio-pagina:aaaaaaaa-0000-4000-8000-000000000001");
 });
 
 test("salvar invalida o slug novo e o antigo, a página e a loja — sem repetir", () => {
-  assert.deepEqual(cache.tagsParaInvalidar({ tenantId: LOJA, paginaId: "pagina-1", slugs: ["nova", "velha", "nova", ""] }), [
+  assert.deepEqual(cache.tagsParaInvalidar({ tenantId: LOJA, paginaId: "aaaaaaaa-0000-4000-8000-000000000001", slugs: ["nova", "velha", "nova", ""] }), [
     `bio-loja:${LOJA}`,
-    "bio-pagina:pagina-1",
+    "bio-pagina:aaaaaaaa-0000-4000-8000-000000000001",
     "bio-slug:nova",
     "bio-slug:velha",
   ]);
@@ -75,11 +75,11 @@ test("salvar invalida o slug novo e o antigo, a página e a loja — sem repetir
 
 test("monta o núcleo: documento, id da página e o estado dos links da loja", async () => {
   linhaDaPagina = LINHA;
-  const n = await cache.montarNucleo({ id: "pagina-1", tenantId: LOJA, slug: "loja-exemplo" });
-  assert.deepEqual(n, { documento: DOC, paginaId: "pagina-1", campanhas: { [CAMPANHA]: "vip-atacado" }, linksEscondidos: [] });
+  const n = await cache.montarNucleo({ id: "aaaaaaaa-0000-4000-8000-000000000001", tenantId: LOJA, slug: "loja-exemplo" });
+  assert.deepEqual(n, { documento: DOC, paginaId: "aaaaaaaa-0000-4000-8000-000000000001", campanhas: { [CAMPANHA]: "vip-atacado" }, linksEscondidos: [] });
   assert.deepEqual(Object.fromEntries(vistos[0].searchParams), {
     select: "id,tenant_id,slug,publicada,bloqueada_em,documento,versao,updated_at",
-    id: "eq.pagina-1",
+    id: "eq.aaaaaaaa-0000-4000-8000-000000000001",
     publicada: "eq.true",
     bloqueada_em: "is.null",
   });
@@ -89,10 +89,18 @@ test("monta o núcleo: documento, id da página e o estado dos links da loja", a
 
 test("página que saiu do ar, ou que não é mais da loja achada no passo 1: nada", async () => {
   linhaDaPagina = null;
-  assert.equal(await cache.montarNucleo({ id: "pagina-1", tenantId: LOJA, slug: "loja-exemplo" }), null);
+  assert.equal(await cache.montarNucleo({ id: "aaaaaaaa-0000-4000-8000-000000000001", tenantId: LOJA, slug: "loja-exemplo" }), null);
 
   vistos.length = 0;
   linhaDaPagina = { ...LINHA, tenant_id: "22222222-2222-4222-8222-222222222222" };
-  assert.equal(await cache.montarNucleo({ id: "pagina-1", tenantId: LOJA, slug: "loja-exemplo" }), null);
+  assert.equal(await cache.montarNucleo({ id: "aaaaaaaa-0000-4000-8000-000000000001", tenantId: LOJA, slug: "loja-exemplo" }), null);
   assert.equal(vistos.length, 1, "não lê campanha nem número de ninguém");
+});
+
+test("slug ou id fora do formato: null antes do cache e sem ir ao banco", async () => {
+  linhaDaPagina = LINHA;
+  assert.equal(await cache.paginaPublicaPorSlug("Loja Exemplo"), null);
+  assert.equal(await cache.paginaPublicaPorSlug("a"), null);
+  assert.equal(await cache.paginaPublicaPorId("pagina-1"), null);
+  assert.equal(vistos.length, 0);
 });

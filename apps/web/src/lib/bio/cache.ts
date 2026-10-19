@@ -3,7 +3,7 @@ import "server-only";
 import { revalidateTag, unstable_cache } from "next/cache";
 
 import { estadoDosLinks } from "@/lib/bio/conferir";
-import type { DadosRender } from "@/lib/bio/documento";
+import { SLUG_BIO, UUID_BIO, type DadosRender } from "@/lib/bio/documento";
 import { getPublicSiteUrl } from "@/lib/brand";
 import { lerPublicadaDaLoja, lerPublicadaPorId, lerPublicadaPorSlug, type PaginaBio } from "@/lib/stores/bio-pages";
 
@@ -62,11 +62,15 @@ function nucleo(a: PaginaAchada): Promise<NucleoBio | null> {
   })();
 }
 
-/** `/bio/<slug>`. Slug antigo da página = `mudou` (a rota responde 301 para o atual). */
+/**
+ * `/bio/<slug>`. Slug antigo da página = `mudou` (a rota responde 301 para o atual) — mas só se
+ * o passo 2 confirma que ela ainda está no ar: o passo 1 pode estar velho (despublicada, bloqueada).
+ */
 export async function paginaPublicaPorSlug(slug: string): Promise<BuscaPorSlug> {
+  if (!SLUG_BIO.test(slug)) return null;
   const a = await achar(["bio-slug", slug], tagDoSlug(slug), () => lerPublicadaPorSlug(slug));
   if (!a) return null;
-  if (a.slug !== slug) return { tipo: "mudou", slugAtual: a.slug };
+  if (a.slug !== slug) return (await nucleo(a)) ? { tipo: "mudou", slugAtual: a.slug } : null;
   const n = await nucleo(a);
   return n ? { tipo: "pagina", dados: { ...n, origem: getPublicSiteUrl(), dominioProprio: false } } : null;
 }
@@ -80,6 +84,7 @@ export async function paginaPublicaDaLoja(tenantId: string, origem: string): Pro
 
 /** Rota do toque: confere que a página está no ar e lê `linksEscondidos`. */
 export async function paginaPublicaPorId(id: string): Promise<DadosRender | null> {
+  if (!UUID_BIO.test(id)) return null;
   const a = await achar(["bio-id", id], tagDaPagina(id), () => lerPublicadaPorId(id));
   const n = a && (await nucleo(a));
   return n ? { ...n, origem: getPublicSiteUrl(), dominioProprio: false } : null;

@@ -28,7 +28,7 @@ export function numeroDoLinkWhatsapp(href: string): string | null {
   const host = url.hostname.replace(/^www\./, "");
   const numero =
     host === "wa.me"
-      ? url.pathname.split("/")[1]
+      ? url.pathname.split("/").filter((s) => /^\+?\d+$/.test(s)).pop() // wa.me/<n>, wa.me/c/<n>, wa.me/p/<produto>/<n>
       : host === "api.whatsapp.com" || host === "web.whatsapp.com" || host === "whatsapp.com"
         ? url.searchParams.get("phone")
         : null;

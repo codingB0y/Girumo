@@ -61,7 +61,7 @@ const SELECT = "id,tenant_id,slug,publicada,bloqueada_em,documento,versao,update
 const params = (url: URL) => Object.fromEntries(url.searchParams);
 const DOC = documentoPadrao({ nome: "Loja Exemplo", campanhaId: null });
 const LINHA = {
-  id: "pagina-1",
+  id: "aaaaaaaa-0000-4000-8000-000000000001",
   tenant_id: "loja-a",
   slug: "loja-exemplo",
   publicada: true,
@@ -71,7 +71,7 @@ const LINHA = {
   updated_at: "2026-10-19T12:00:00.000Z",
 };
 const PAGINA = {
-  id: "pagina-1",
+  id: "aaaaaaaa-0000-4000-8000-000000000001",
   tenantId: "loja-a",
   slug: "loja-exemplo",
   publicada: true,
@@ -186,9 +186,9 @@ test("slug disponível: nunca usado, já desta loja, de outra loja, de página a
   assert.deepEqual(params(vistos[0].url), { select: "pagina_id", slug: "eq.novo-slug" });
 
   vistos.length = 0;
-  responder = (p) => (p.url.pathname === "/rest/v1/bio_slugs" ? { status: 200, corpo: [{ pagina_id: "pagina-1" }] } : { status: 200, corpo: [{ id: "pagina-1" }] });
+  responder = (p) => (p.url.pathname === "/rest/v1/bio_slugs" ? { status: 200, corpo: [{ pagina_id: "aaaaaaaa-0000-4000-8000-000000000001" }] } : { status: 200, corpo: [{ id: "aaaaaaaa-0000-4000-8000-000000000001" }] });
   assert.equal(await store.slugDisponivel("loja-exemplo", "loja-a"), true);
-  assert.deepEqual(params(vistos[1].url), { select: "id", tenant_id: "eq.loja-a", id: "eq.pagina-1" });
+  assert.deepEqual(params(vistos[1].url), { select: "id", tenant_id: "eq.loja-a", id: "eq.aaaaaaaa-0000-4000-8000-000000000001" });
 
   responder = (p) => (p.url.pathname === "/rest/v1/bio_slugs" ? { status: 200, corpo: [{ pagina_id: "pagina-de-outra" }] } : { status: 200, corpo: [] });
   assert.equal(await store.slugDisponivel("loja-exemplo", "loja-a"), false);
@@ -198,10 +198,10 @@ test("slug disponível: nunca usado, já desta loja, de outra loja, de página a
 });
 
 test("leitura pública pelo slug (atual ou antigo) passa por bio_slugs e só devolve publicada sem bloqueio", async () => {
-  responder = (p) => (p.url.pathname === "/rest/v1/bio_slugs" ? { status: 200, corpo: [{ pagina_id: "pagina-1" }] } : { status: 200, corpo: [LINHA] });
+  responder = (p) => (p.url.pathname === "/rest/v1/bio_slugs" ? { status: 200, corpo: [{ pagina_id: "aaaaaaaa-0000-4000-8000-000000000001" }] } : { status: 200, corpo: [LINHA] });
   assert.deepEqual(await store.lerPublicadaPorSlug("slug-antigo"), PAGINA);
   assert.deepEqual(params(vistos[0].url), { select: "pagina_id", slug: "eq.slug-antigo" });
-  assert.deepEqual(params(vistos[1].url), { select: SELECT, id: "eq.pagina-1", publicada: "eq.true", bloqueada_em: "is.null" });
+  assert.deepEqual(params(vistos[1].url), { select: SELECT, id: "eq.aaaaaaaa-0000-4000-8000-000000000001", publicada: "eq.true", bloqueada_em: "is.null" });
 
   vistos.length = 0;
   responder = () => ({ status: 200, corpo: [] });
@@ -214,26 +214,26 @@ test("leitura pública pelo slug (atual ou antigo) passa por bio_slugs e só dev
 
 test("leitura pública por id e da loja: publicada = true e bloqueada_em nulo", async () => {
   responder = () => ({ status: 200, corpo: [LINHA] });
-  await store.lerPublicadaPorId("pagina-1");
-  assert.deepEqual(params(vistos[0].url), { select: SELECT, id: "eq.pagina-1", publicada: "eq.true", bloqueada_em: "is.null" });
+  await store.lerPublicadaPorId("aaaaaaaa-0000-4000-8000-000000000001");
+  assert.deepEqual(params(vistos[0].url), { select: SELECT, id: "eq.aaaaaaaa-0000-4000-8000-000000000001", publicada: "eq.true", bloqueada_em: "is.null" });
   await store.lerPublicadaDaLoja("loja-a");
   assert.deepEqual(params(vistos[1].url), { select: SELECT, tenant_id: "eq.loja-a", publicada: "eq.true", bloqueada_em: "is.null" });
 });
 
 test("contar chama bio_contar com a página e o alvo; alvo fora do formato nem chama", async () => {
   responder = () => ({ status: 204 });
-  await store.contarBio("pagina-1", "visita");
-  await store.contarBio("pagina-1", "11111111-2222-4333-8444-aaaaaaaaaaaa");
+  await store.contarBio("aaaaaaaa-0000-4000-8000-000000000001", "visita");
+  await store.contarBio("aaaaaaaa-0000-4000-8000-000000000001", "11111111-2222-4333-8444-aaaaaaaaaaaa");
   assert.deepEqual(
     vistos.map((p) => [p.metodo, p.url.pathname, p.corpo]),
     [
-      ["POST", "/rest/v1/rpc/bio_contar", { p_pagina: "pagina-1", p_alvo: "visita" }],
-      ["POST", "/rest/v1/rpc/bio_contar", { p_pagina: "pagina-1", p_alvo: "11111111-2222-4333-8444-aaaaaaaaaaaa" }],
+      ["POST", "/rest/v1/rpc/bio_contar", { p_pagina: "aaaaaaaa-0000-4000-8000-000000000001", p_alvo: "visita" }],
+      ["POST", "/rest/v1/rpc/bio_contar", { p_pagina: "aaaaaaaa-0000-4000-8000-000000000001", p_alvo: "11111111-2222-4333-8444-aaaaaaaaaaaa" }],
     ],
   );
   vistos.length = 0;
-  await assert.rejects(store.contarBio("pagina-1", "11111111-2222-4333-8444-AAAAAAAAAAAA"), /Alvo de contagem inválido/);
-  await assert.rejects(store.contarBio("pagina-1", "visitas"), /Alvo de contagem inválido/);
+  await assert.rejects(store.contarBio("aaaaaaaa-0000-4000-8000-000000000001", "11111111-2222-4333-8444-AAAAAAAAAAAA"), /Alvo de contagem inválido/);
+  await assert.rejects(store.contarBio("aaaaaaaa-0000-4000-8000-000000000001", "visitas"), /Alvo de contagem inválido/);
   assert.equal(vistos.length, 0);
 });
 
@@ -242,4 +242,31 @@ test("relatório chama bio_relatorio com a loja e as datas e devolve o JSON do b
   responder = () => ({ status: 200, corpo: relatorio });
   assert.deepEqual(await store.relatorioBio("loja-a", "2026-10-13", "2026-10-19"), relatorio);
   assert.deepEqual([vistos[0].url.pathname, vistos[0].corpo], ["/rest/v1/rpc/bio_relatorio", { p_tenant: "loja-a", p_desde: "2026-10-13", p_ate: "2026-10-19" }]);
+});
+
+test("id público fora do formato: nem consulta (sem 22P02 virando 500)", async () => {
+  responder = () => ({ status: 200, corpo: [LINHA] });
+  assert.equal(await store.lerPublicadaPorId("pagina-1"), null);
+  assert.equal(await store.lerPublicadaPorId("AAAAAAAA-0000-4000-8000-000000000001"), null);
+  await assert.rejects(store.contarBio("pagina-1", "visita"), /inválid/);
+  assert.equal(vistos.length, 0);
+});
+
+test("relatório com datas fora do formato, inexistentes, invertidas ou com mais de 366 dias nem chama", async () => {
+  responder = () => ({ status: 200, corpo: { visitas: 0, toques: 0, porLink: [], porDia: [] } });
+  for (const [desde, ate] of [
+    ["2026-10-13", "19/10/2026"],
+    ["2026-10-13T00:00", "2026-10-19"],
+    ["2026-02-30", "2026-03-01"],
+    ["2026-13-01", "2026-12-31"],
+    ["2026-10-19", "2026-10-13"],
+    ["2025-10-18", "2026-10-20"],
+  ]) {
+    await assert.rejects(store.relatorioBio("loja-a", desde, ate), /inválid|Período/, `${desde} → ${ate}`);
+  }
+  assert.equal(vistos.length, 0);
+
+  await store.relatorioBio("loja-a", "2025-10-19", "2026-10-20"); // 366 dias: passa
+  await store.relatorioBio("loja-a", "2026-10-19", "2026-10-19");
+  assert.equal(vistos.length, 2);
 });

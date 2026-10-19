@@ -203,6 +203,9 @@ test("número de um endereço do WhatsApp", () => {
   assert.equal(conferir.numeroDoLinkWhatsapp("https://wa.me/5562999990000?text=oi"), "5562999990000");
   assert.equal(conferir.numeroDoLinkWhatsapp("https://api.whatsapp.com/send?phone=%2B55%2062%2099999-0000"), "5562999990000");
   assert.equal(conferir.numeroDoLinkWhatsapp("https://wa.me/message/ABCDEF"), null);
+  assert.equal(conferir.numeroDoLinkWhatsapp("https://wa.me/c/5562999990000"), "5562999990000");
+  assert.equal(conferir.numeroDoLinkWhatsapp("https://wa.me/p/1234567890123456/5562999990000"), "5562999990000");
+  assert.equal(conferir.numeroDoLinkWhatsapp("https://wa.me/c/abc"), null);
   assert.equal(conferir.numeroDoLinkWhatsapp("https://whatsapp.com/channel/0029Va"), null);
   assert.equal(conferir.numeroDoLinkWhatsapp("https://lojaexemplo.com.br/?phone=5562999990000"), null);
   assert.equal(conferir.numeroDoLinkWhatsapp("não é url"), null);

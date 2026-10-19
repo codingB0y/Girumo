@@ -18,6 +18,8 @@ const SLUGS = "bio_slugs";
 const COLUNAS = "id, tenant_id, slug, publicada, bloqueada_em, documento, versao, updated_at";
 const UNIQUE_VIOLATION = "23505";
 const TENTATIVAS_DE_SLUG = 3;
+const DIA_MS = 86_400_000;
+const MAX_DIAS_DO_RELATORIO = 366;
 
 export type PaginaBio = {
   id: string;
@@ -168,6 +170,7 @@ export async function lerPublicadaPorSlug(slug: string): Promise<PaginaBio | nul
 }
 
 export async function lerPublicadaPorId(id: string): Promise<PaginaBio | null> {
+  if (!UUID_BIO.test(id)) return null;
   const { data, error } = await getSupabaseAdmin()
     .from(PAGINAS)
     .select(COLUNAS)
@@ -196,13 +199,25 @@ export async function lerPublicadaDaLoja(tenantId: string): Promise<PaginaBio | 
  * uuid minúsculo do link — o CHECK `bio_contagens_alvo_check` recusa o resto, então nem chama.
  */
 export async function contarBio(paginaId: string, alvo: string): Promise<void> {
+  if (!UUID_BIO.test(paginaId)) throw new Error("Página de contagem inválida.");
   if (alvo !== "visita" && !UUID_BIO.test(alvo)) throw new Error("Alvo de contagem inválido.");
   const { error } = await getSupabaseAdmin().rpc("bio_contar", { p_pagina: paginaId, p_alvo: alvo });
   if (error) throw new Error(error.message);
 }
 
+/** `AAAA-MM-DD` que existe no calendário, em ms UTC; senão `null`. */
+function diaEmMs(dia: string): number | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dia)) return null;
+  const ms = Date.parse(`${dia}T00:00:00Z`);
+  return !Number.isNaN(ms) && new Date(ms).toISOString().slice(0, 10) === dia ? ms : null;
+}
+
 /** Agregado no SQL (`bio_relatorio`), nunca no app: o PostgREST corta em 1000 linhas sem avisar. */
 export async function relatorioBio(tenantId: string, desde: string, ate: string): Promise<RelatorioBio> {
+  const inicio = diaEmMs(desde);
+  const fim = diaEmMs(ate);
+  if (inicio === null || fim === null) throw new Error("Data do relatório inválida.");
+  if (fim < inicio || (fim - inicio) / DIA_MS > MAX_DIAS_DO_RELATORIO) throw new Error("Período do relatório inválido.");
   const { data, error } = await getSupabaseAdmin().rpc("bio_relatorio", { p_tenant: tenantId, p_desde: desde, p_ate: ate });
   if (error) throw new Error(error.message);
   if (!data) throw new Error("bio_relatorio não devolveu nada.");
