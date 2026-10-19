@@ -124,16 +124,29 @@ export type SubjectJobInput = {
   renomes: ReadonlyArray<{ groupId: string; whatsappGroupId: string; subject: string }>;
 };
 
+/** Limite do assunto de um grupo do WhatsApp, em unidades UTF-16 (`String.length`). */
+export const MAX_SUBJECT_LENGTH = 100;
+
 /**
  * Lote de renomes do Padronizar: um job por grupo, cada um com o SEU nome, sob
  * um `batch_id` só (a tela acompanha "renomeando 3 de 12" pela rota de lotes).
  *
- * Nome vazio lança: o worker recusaria do mesmo jeito, mas só depois de gastar
- * uma janela do ritmo anti-ban para descobrir.
+ * Lança, em vez de deixar o worker descobrir depois de gastar uma janela do
+ * ritmo anti-ban: nome vazio, nome acima de 100 (o eco do worker confirma o que
+ * foi ENVIADO, não o que o WhatsApp guardou) e o mesmo grupo duas vezes (o upsert
+ * com `ignoreDuplicates` descartaria o segundo em silêncio). O nome vai APARADO:
+ * o worker devolve exatamente o valor guardado e `decideAck` compara a string.
  */
 export function buildSubjectJobs(input: SubjectJobInput): BulkJobInsert[] {
+  const vistos = new Set<string>();
   return input.renomes.map((renome): BulkJobInsert => {
-    if (!renome.subject.trim()) throw new Error("Renomear exige um nome para cada grupo.");
+    const subject = renome.subject.trim();
+    if (!subject) throw new Error("Renomear exige um nome para cada grupo.");
+    if (subject.length > MAX_SUBJECT_LENGTH) {
+      throw new Error(`O nome do grupo passa de ${MAX_SUBJECT_LENGTH} caracteres.`);
+    }
+    if (vistos.has(renome.groupId)) throw new Error("Um grupo não pode ser renomeado mais de uma vez no mesmo lote.");
+    vistos.add(renome.groupId);
     return {
       tenant_id: input.tenantId,
       campaign_group_id: input.campaignGroupId,
@@ -144,7 +157,7 @@ export function buildSubjectJobs(input: SubjectJobInput): BulkJobInsert[] {
       description: null,
       media_id: null,
       target_phone: null,
-      subject: renome.subject,
+      subject,
     };
   });
 }

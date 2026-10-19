@@ -280,6 +280,18 @@ test("template nulo vira objeto novo", () => {
   assert.deepEqual(mergeGrowIdentity(null, { description: "x" }), { desc: "x" });
 });
 
+test("identidade aplicada depois do Padronizar preserva o molde e o padronizadoEm", () => {
+  // Sem padronizadoEm o nextSeq volta a contar a fila de antes e o próximo
+  // grupo nasce com o número errado.
+  const merged = mergeGrowIdentity(
+    { subjectPattern: "Moda Kids do Sul {n}", padronizadoEm: "2026-10-10T12:00:00.000Z" },
+    { description: "Bazar" },
+  );
+  assert.equal(merged.subjectPattern, "Moda Kids do Sul {n}");
+  assert.equal(merged.padronizadoEm, "2026-10-10T12:00:00.000Z");
+  assert.equal(merged.desc, "Bazar");
+});
+
 test("check_invite entra sem carga e sem exigir nada", () => {
   // As duas acoes de identidade LANCAM sem carga (descricao vazia apagaria a
   // descricao de todos). check_invite le, nao escreve: nao tem carga para
@@ -381,6 +393,37 @@ test("buildSubjectJobs com nome vazio lanca — o worker recusaria depois de gas
       }),
     /nome/i,
   );
+});
+
+test("buildSubjectJobs recusa o mesmo grupo duas vezes — o upsert descartaria o segundo em silêncio", () => {
+  assert.throws(
+    () =>
+      buildSubjectJobs({
+        ...BASE,
+        renomes: [
+          { groupId: "g1", whatsappGroupId: "111@g.us", subject: "Moda Kids do Sul 1" },
+          { groupId: "g1", whatsappGroupId: "111@g.us", subject: "Moda Kids do Sul 2" },
+        ],
+      }),
+    /mais de uma vez/i,
+  );
+});
+
+test("buildSubjectJobs grava o nome aparado — o worker devolve o valor guardado e o ack compara a string exata", () => {
+  const [job] = buildSubjectJobs({
+    ...BASE,
+    renomes: [{ groupId: "g1", whatsappGroupId: "111@g.us", subject: "  Moda Kids do Sul 1  " }],
+  });
+  assert.equal(job.subject, "Moda Kids do Sul 1");
+});
+
+test("buildSubjectJobs aceita 100 unidades e recusa 101 — limite de assunto do WhatsApp", () => {
+  const renomeCom = (n: number) => ({
+    ...BASE,
+    renomes: [{ groupId: "g1", whatsappGroupId: "111@g.us", subject: "a".repeat(n) }],
+  });
+  assert.equal(buildSubjectJobs(renomeCom(100))[0].subject?.length, 100);
+  assert.throws(() => buildSubjectJobs(renomeCom(101)), /100/);
 });
 
 test("buildBulkJobs recusa set_subject — renomear tem um nome por grupo", () => {
