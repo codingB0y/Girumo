@@ -226,6 +226,37 @@ export async function readPublicLpMedia(
   };
 }
 
+/**
+ * Dos ids recebidos, os que são imagem PÚBLICA de LP (`lp-media`/`lp-logo`) desta loja — o
+ * link da bio só salva documento cuja mídia passa aqui (spec 2026-10-19-link-da-bio §4). O id é
+ * o caminho em base64url: vale só o canônico (`encode(decode(id)) === id`), dentro da pasta da
+ * loja, e com a linha da loja em `uploads`. Sem essa linha `/api/p/media/<id>` dá 404.
+ */
+export async function midiasPublicasDaLoja(tenantId: string, ids: readonly string[]): Promise<Set<string>> {
+  const idPorCaminho = new Map<string, string>();
+  for (const id of new Set(ids)) {
+    const caminho = decodeMediaId(id);
+    if (caminho && encodeMediaId(caminho) === id && mediaPathBelongsToTenant(caminho, tenantId)) {
+      idPorCaminho.set(`uploads/${caminho}`, id);
+    }
+  }
+  if (idPorCaminho.size === 0) return new Set();
+  const { data, error } = await getSupabaseAdmin()
+    .from("uploads")
+    .select("path")
+    .eq("tenant_id", tenantId)
+    .eq("bucket", BUCKET)
+    .in("kind", [...PUBLIC_LP_KINDS])
+    .in("path", [...idPorCaminho.keys()]);
+  if (error) throw new Error(error.message);
+  const daLoja = new Set<string>();
+  for (const linha of (data ?? []) as { path: string }[]) {
+    const id = idPorCaminho.get(linha.path);
+    if (id) daLoja.add(id);
+  }
+  return daLoja;
+}
+
 export async function readMedia(id: string, tenantId: string): Promise<{ buffer: Buffer; contentType: string } | null> {
   const storagePath = decodeMediaId(id);
   if (!storagePath || !mediaPathBelongsToTenant(storagePath, tenantId)) return null;
