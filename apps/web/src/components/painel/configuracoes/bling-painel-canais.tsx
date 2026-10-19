@@ -60,7 +60,10 @@ export function CanaisForaDoMeta({ canais, fora, travado, onAlternar }: Props) {
                   {/* O `after` estica o rótulo sobre o cartão inteiro (como nas situações) sem pôr a legenda no nome. */}
                   <label
                     htmlFor={`bling-canal-${c.id}`}
-                    className="font-data block cursor-pointer text-[14px] text-volt-950 after:absolute after:inset-0"
+                    className={cn(
+                      "block cursor-pointer text-[14px] text-volt-950 after:absolute after:inset-0",
+                      c.nome === null && "font-data",
+                    )}
                   >
                     {nomeDoCanal(c)}
                   </label>
@@ -72,7 +75,7 @@ export function CanaisForaDoMeta({ canais, fora, travado, onAlternar }: Props) {
             ))}
           </ul>
         )}
-        {canais.length > 0 && (
+        {canais.some((c) => c.nome === null) && (
           <p className={AJUDA}>
             Não sabe qual é qual? Abra um desses pedidos no Bling: o campo Loja diz de que canal ele veio.
           </p>

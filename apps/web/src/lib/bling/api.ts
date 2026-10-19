@@ -3,9 +3,9 @@ import { z } from "zod";
 import { dayBR, horaSegundoBR } from "@/lib/date-br";
 
 import { ErroBling, type ClienteBling } from "./cliente";
-import type { ContatoBling, EmpresaBling, PedidoResumo, SituacaoBling } from "./tipos";
+import type { CanalBling, ContatoBling, EmpresaBling, PedidoResumo, SituacaoBling } from "./tipos";
 
-export type { ContatoBling, EmpresaBling, PedidoResumo, SituacaoBling } from "./tipos";
+export type { CanalBling, ContatoBling, EmpresaBling, PedidoResumo, SituacaoBling } from "./tipos";
 
 /**
  * Os endpoints do Bling que a integração lê, já normalizados para os tipos de `tipos.ts`.
@@ -66,6 +66,10 @@ const contatoCru = z.looseObject({
 const empresaCru = z.looseObject({ id: z.string().nullish().catch(null), nome: escalar, razaoSocial: escalar, fantasia: escalar });
 const moduloCru = z.looseObject({ id: escalar, nome: escalar });
 const situacaoCru = z.looseObject({ id: escalar, nome: escalar, idHerdado: escalar });
+const canalCru = z.looseObject({ id: escalar, descricao: escalar, tipo: escalar, situacao: escalar });
+
+/** Uma conta tem poucos canais: 10 páginas de 100 é folga, e um laço que o Bling não encerra para aí. */
+const PAGINAS_DE_CANAIS = 10;
 
 /** GET /empresas/me/dados-basicos. O `id` é o `companyId` dos avisos: sem ele não há conexão. */
 export async function obterEmpresa(c: ClienteBling): Promise<EmpresaBling> {
@@ -88,6 +92,21 @@ export async function listarSituacoesDeVenda(c: ClienteBling): Promise<SituacaoB
   const caminho = `/situacoes/modulos/${vendas.id}`;
   const situacoes = listaDaResposta(await c.get(caminho), caminho).flatMap(situacaoDe);
   return situacoes.length > 0 ? situacoes : null;
+}
+
+/**
+ * GET /canais-venda, todas as páginas. Pede o escopo "Canais de venda" no app: sem ele o Bling responde 403, que
+ * sobe como `escopo` (quem chama decide; o motor segue sem os nomes). Canal sem id positivo sai da lista.
+ */
+export async function listarCanaisDeVenda(c: ClienteBling): Promise<CanalBling[]> {
+  const caminho = "/canais-venda";
+  const canais: CanalBling[] = [];
+  for (let pagina = 1; pagina <= PAGINAS_DE_CANAIS; pagina += 1) {
+    const itens = listaDaResposta(await c.get(caminho, { pagina, limite: LIMITE_PADRAO }), caminho);
+    canais.push(...itens.flatMap(canalDaConta));
+    if (itens.length < LIMITE_PADRAO) break;
+  }
+  return canais;
 }
 
 /**
@@ -242,6 +261,14 @@ function situacaoDe(item: unknown): SituacaoBling[] {
   const id = s.success ? idPositivo(s.data.id) : null;
   if (!s.success || id === null) return [];
   return [{ id, nome: texto(s.data.nome) ?? `Situação ${id}`, base: idPositivo(s.data.idHerdado) ?? id }];
+}
+
+function canalDaConta(item: unknown): CanalBling[] {
+  const c = canalCru.safeParse(item);
+  const id = c.success ? idPositivo(c.data.id) : null;
+  if (!c.success || id === null) return [];
+  const tipo = texto(c.data.tipo);
+  return [{ id, nome: texto(c.data.descricao) ?? tipo, tipo, ativo: Number(c.data.situacao) === 1 }];
 }
 
 const NOMES_DO_MODULO_DE_VENDAS = ["vendas", "pedidos de venda", "pedidos de vendas"];

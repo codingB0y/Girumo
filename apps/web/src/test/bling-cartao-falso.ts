@@ -134,6 +134,12 @@ export function conectada(over: Record<string, unknown> = {}): Record<string, un
     situations: SITUACOES,
     situations_at: "2026-10-13T12:00:00+00:00",
     sale_situation_ids: ["9"], // bigint chega em texto
+    sales_channels: [
+      { id: 200000001, nome: "Loja Yampi", tipo: "Yampi", ativo: true },
+      { id: 200000004, nome: "Loja física", tipo: "Api", ativo: true },
+      { id: 200000005, nome: "Antiga", tipo: "Api", ativo: false },
+    ],
+    sales_channels_at: "2026-10-13T12:00:00+00:00",
     high_value: "1500.00",
     meta_campaign_id: CAMPANHA_A,
     last_webhook_at: haHoras(1),

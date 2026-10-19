@@ -6,7 +6,7 @@
 import type { DepsBling } from "@/lib/bling/deps";
 import type { CampanhaComMetadata } from "@/lib/bling/eventos-meta";
 import type { CredenciaisBling } from "@/lib/bling/oauth";
-import type { ContatoBling, PedidoResumo, SituacaoBling } from "@/lib/bling/tipos";
+import type { CanalBling, ContatoBling, PedidoResumo, SituacaoBling } from "@/lib/bling/tipos";
 import type { GraphError } from "@/lib/campaigns/meta-capi";
 import { impressaoDaChave, selar } from "@/lib/security/secret-box";
 import { contextoDoToken, type AtualizacaoConexao, type ConexaoBling } from "@/lib/stores/bling-conexoes";
@@ -153,6 +153,9 @@ export function conexaoPadrao(): ConexaoBling {
     metaEnabled: true,
     metaCampaignId: null,
     metaSkipStoreIds: [],
+    // Lidos há 1 h: o motor só relê depois de 24 h (o caso dos canais está em sincronizar-canais.test.ts).
+    salesChannels: [],
+    salesChannelsAt: iso(AGORA - HORA),
     backfillFrom: "2026-07-15",
     backfillUntil: "2026-10-13",
     backfillPage: 1,
@@ -185,6 +188,8 @@ export type BlingRemoto = {
   pedidos: Map<number, PedidoResumo>;
   contatos: Map<number, ContatoBling>;
   situacoes: SituacaoBling[];
+  /** GET /canais-venda: os canais da conta; null = o app sem o escopo (403 com o erro do Bling). */
+  canais: CanalBling[] | null;
   /** GET /pedidos/vendas: a página pela query (lista vazia = acabou). */
   paginas: (query: URLSearchParams) => PedidoResumo[];
   forcadas: RespostaForcada[];

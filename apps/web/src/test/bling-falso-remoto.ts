@@ -92,6 +92,13 @@ function contatoNoFormatoDoBling(c: ContatoBling) {
   };
 }
 
+/** Todos na página 1; sem o escopo, o 403 com o erro do Bling (o cliente o lê como `escopo`). */
+function canaisDaConta(b: BlingRemoto, query: URLSearchParams): Response {
+  if (b.canais === null) return json(403, { error: { type: "FORBIDDEN", message: "Sem permissão", description: "escopo" } });
+  const pagina = query.get("pagina") === "1" ? b.canais : [];
+  return json(200, { data: pagina.map((c) => ({ id: c.id, descricao: c.nome, tipo: c.tipo, situacao: c.ativo ? 1 : 2 })) });
+}
+
 function rotaDaApi(b: BlingRemoto, caminho: string, query: URLSearchParams): Response {
   if (caminho === "/pedidos/vendas") return json(200, { data: b.paginas(query).map(pedidoNoFormatoDoBling) });
   const pedido = /^\/pedidos\/vendas\/(\d+)$/.exec(caminho);
@@ -104,6 +111,7 @@ function rotaDaApi(b: BlingRemoto, caminho: string, query: URLSearchParams): Res
     const c = b.contatos.get(Number(contato[1]));
     return c ? json(200, { data: contatoNoFormatoDoBling(c) }) : NAO_ACHOU();
   }
+  if (caminho === "/canais-venda") return canaisDaConta(b, query);
   if (caminho === "/situacoes/modulos") return json(200, { data: [{ id: 98310, nome: "Vendas" }] });
   if (caminho === "/situacoes/modulos/98310") {
     return json(200, { data: b.situacoes.map((s) => ({ id: s.id, nome: s.nome, idHerdado: s.base === s.id ? 0 : s.base })) });

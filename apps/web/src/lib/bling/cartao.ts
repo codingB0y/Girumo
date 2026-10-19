@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { BASES_BLOQUEADAS, idsDeVendaEfetivos, situacoesOuPadrao } from "@/lib/bling/classificar";
 import { blingDisponivel } from "@/lib/bling/deps";
 import { opcoesDePixel } from "@/lib/bling/eventos-meta";
-import type { SituacaoBling } from "@/lib/bling/tipos";
+import type { CanalBling, SituacaoBling } from "@/lib/bling/tipos";
 import { telefoneMascarado } from "@/lib/pages/phone";
 import { lerConexao, type ConexaoBling, type StatusConexao } from "@/lib/stores/bling-conexoes";
 import { lerContatosPorIds, type ContatoGuardado } from "@/lib/stores/bling-contatos";
@@ -45,11 +45,16 @@ export type SituacaoDoCartao = { id: number; nome: string; base: number; conta: 
 export type OpcaoDePixel = { campaign_id: string; campanha: string; pixel_id: string };
 
 /**
- * Um canal de venda do Bling (`loja.id`) visto nos pedidos. O nome (Yampi, Nuvemshop) só viria da API de canais,
- * fora dos escopos do app: a dona reconhece o canal pelos números dos pedidos dele.
+ * Um canal de venda do Bling (`loja.id`): da conta (`GET /canais-venda`, com nome) ou visto nos pedidos. Sem o escopo
+ * de canais no app, só o número: a dona reconhece o canal pelos números dos pedidos dele.
  */
 export type CanalDoCartao = {
   id: number;
+  /** A descrição que a conta deu (senão o tipo); null = sem o escopo, ou canal que a conta não lista mais. */
+  nome: string | null;
+  tipo: string | null;
+  /** false = desabilitado no Bling. Canal visto só nos pedidos conta como ativo. */
+  ativo: boolean;
   pedidos: number;
   /** Número no Bling dos pedidos mais novos do canal. */
   exemplos: string[];
@@ -185,24 +190,48 @@ export function ultimasVendas(
   });
 }
 
-/** Um canal por `loja.id`, na ordem do pedido mais novo (os pedidos chegam assim); depois os fora do Meta sem pedido. */
-export function canaisDoCartao(pedidos: readonly PedidoComCanal[], foraDoMeta: readonly number[]): CanalDoCartao[] {
-  const canais = new Map<number, CanalDoCartao>();
+type PedidosDoCanal = Pick<CanalDoCartao, "pedidos" | "exemplos" | "ultimo_pedido_em">;
+
+/**
+ * Um canal por `loja.id`. Primeiro os da conta, na ordem do Bling: os ativos sempre (a Yampi aparece antes do primeiro
+ * pedido dela, e sai do Meta antes de duplicar), o desabilitado só com pedido ou fora do Meta. Depois os vistos só nos
+ * pedidos (sem o escopo, ou apagados na conta), do pedido mais novo; por fim os fora do Meta sem nada disso, para dar
+ * para devolvê-los ao envio. `daConta` null = sem o escopo de canais.
+ */
+export function canaisDoCartao(
+  pedidos: readonly PedidoComCanal[],
+  foraDoMeta: readonly number[],
+  daConta: readonly CanalBling[] | null,
+): CanalDoCartao[] {
+  const vistos = pedidosPorCanal(pedidos);
+  const conta = new Map((daConta ?? []).map((c) => [c.id, c]));
+  const daContaQueAparecem = (daConta ?? []).filter((c) => c.ativo || vistos.has(c.id) || foraDoMeta.includes(c.id));
+  const ids = new Set([...daContaQueAparecem.map((c) => c.id), ...vistos.keys(), ...foraDoMeta]);
+  return [...ids].map((id) => {
+    const c = conta.get(id);
+    return {
+      id,
+      nome: c?.nome ?? null,
+      tipo: c?.tipo ?? null,
+      ativo: c?.ativo ?? true,
+      ...(vistos.get(id) ?? { pedidos: 0, exemplos: [], ultimo_pedido_em: null }),
+      fora_do_meta: foraDoMeta.includes(id),
+    };
+  });
+}
+
+/** Quantos pedidos, até 3 números e o dia do último, por canal, na ordem do pedido mais novo (os pedidos chegam assim). */
+function pedidosPorCanal(pedidos: readonly PedidoComCanal[]): Map<number, PedidosDoCanal> {
+  const canais = new Map<number, PedidosDoCanal>();
   for (const p of pedidos) {
-    const canal = canais.get(p.lojaId) ?? novoCanal(p.lojaId, foraDoMeta);
+    const canal = canais.get(p.lojaId) ?? { pedidos: 0, exemplos: [], ultimo_pedido_em: null };
     canais.set(p.lojaId, {
-      ...canal,
       pedidos: canal.pedidos + 1,
       exemplos: p.numero && canal.exemplos.length < EXEMPLOS_POR_CANAL ? [...canal.exemplos, p.numero] : canal.exemplos,
       ultimo_pedido_em: canal.ultimo_pedido_em ?? p.orderDate,
     });
   }
-  const semPedido = foraDoMeta.filter((id) => !canais.has(id)).map((id) => novoCanal(id, foraDoMeta));
-  return [...canais.values(), ...semPedido];
-}
-
-function novoCanal(id: number, foraDoMeta: readonly number[]): CanalDoCartao {
-  return { id, pedidos: 0, exemplos: [], ultimo_pedido_em: null, fora_do_meta: foraDoMeta.includes(id) };
+  return canais;
 }
 
 function numerosDoResumo(r: ResumoBling): NonNullable<CartaoBling["numeros_30d"]> {
@@ -255,7 +284,7 @@ export function cartaoConectado(e: EntradaDoCartao): CartaoBling {
         escolhido: opcoes.some((o) => o.campaign_id === c.metaCampaignId) ? c.metaCampaignId : null,
         opcoes,
       },
-      canais: canaisDoCartao(e.canais, c.metaSkipStoreIds),
+      canais: canaisDoCartao(e.canais, c.metaSkipStoreIds, c.salesChannels),
     },
     numeros_30d: numerosDoResumo(r),
     listas: { ...r.listas },

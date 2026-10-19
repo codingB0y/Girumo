@@ -246,18 +246,22 @@ export function canaisParaSalvar(
   return mexeu ? { meta_skip_store_ids: [...fora].sort((x, y) => x - y) } : {};
 }
 
-/** Sem o escopo de canais no app do Bling não vem o nome (Yampi, Nuvemshop): só o número, o `loja.id`. */
-export function nomeDoCanal(c: Pick<CanalDoCartao, "id">): string {
-  return `Canal ${c.id}`;
+/** O nome que a conta deu no Bling; sem o escopo de canais no app, só o número (o `loja.id`). */
+export function nomeDoCanal(c: Pick<CanalDoCartao, "id" | "nome">): string {
+  return c.nome ?? `Canal ${c.id}`;
 }
 
-/** Os números dos pedidos são o que a dona procura no Bling para saber que canal é. */
-export function legendaDoCanal(c: Pick<CanalDoCartao, "pedidos" | "exemplos" | "ultimo_pedido_em">): string {
-  if (c.pedidos === 0) return "sem pedido recente";
+/** O tipo (Yampi, Shopee) e os números dos pedidos: é por eles que a dona acha o canal no Bling. */
+export function legendaDoCanal(
+  c: Pick<CanalDoCartao, "nome" | "tipo" | "ativo" | "pedidos" | "exemplos" | "ultimo_pedido_em">,
+): string {
   // Dia do pedido no Bling ("YYYY-MM-DD"): sem passar por Date, que o leria em UTC e voltaria um dia em Brasília.
   const [, mes, dia] = c.ultimo_pedido_em?.split("-") ?? [];
+  const pedidos = c.pedidos === 0 ? "sem pedido recente" : c.pedidos === 1 ? "1 pedido" : `${contagem(c.pedidos)} pedidos`;
   return [
-    c.pedidos === 1 ? "1 pedido" : `${contagem(c.pedidos)} pedidos`,
+    c.tipo && c.tipo !== c.nome ? c.tipo : null,
+    c.ativo ? null : "desabilitado no Bling",
+    pedidos,
     dia && mes ? `último em ${dia}/${mes}` : null,
     c.exemplos.length > 0 ? `nº ${c.exemplos.join(", ")}` : null,
   ]

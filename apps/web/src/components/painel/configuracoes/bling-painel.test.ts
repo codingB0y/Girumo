@@ -33,7 +33,9 @@ const CONECTADO: CartaoBling = {
     high_value: 1500,
     meta_enabled: true,
     pixel: { escolhido: null, opcoes: [{ campaign_id: "c1", campanha: "VIP Goiânia", pixel_id: "1234567890" }] },
-    canais: [{ id: 200000001, pedidos: 42, exemplos: ["1532", "1530"], ultimo_pedido_em: "2026-10-18", fora_do_meta: true }],
+    canais: [
+      { id: 200000001, nome: "Loja Yampi", tipo: "Yampi", ativo: true, pedidos: 42, exemplos: ["1532", "1530"], ultimo_pedido_em: "2026-10-18", fora_do_meta: true },
+    ],
   },
   numeros_30d: {
     vendas: 214,

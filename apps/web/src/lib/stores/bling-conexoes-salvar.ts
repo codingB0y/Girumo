@@ -73,6 +73,8 @@ function camposDaConexao(d: DadosDaConexao, agora: string) {
     key_fp: d.keyFp,
     token_retry_at: null,
     ...situacoesLidas(d, agora),
+    // O motor relê os canais na primeira execução: a reconexão pode ter trazido o escopo deles.
+    sales_channels_at: null,
     consecutive_failures: 0,
     paused_until: null,
     last_error: null,

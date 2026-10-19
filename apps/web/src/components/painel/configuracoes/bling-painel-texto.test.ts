@@ -197,20 +197,30 @@ test("canais no Salvar: só quando a dona mexeu; a lista inteira, ordenada (outr
 });
 
 test("canais: o resumo do Meta diz quantos ficaram de fora; a legenda tem pedidos, o dia do último (sem fuso) e os números", () => {
-  const canal = (id: number, fora: boolean) => ({ id, pedidos: 3, exemplos: ["1532"], ultimo_pedido_em: "2026-10-18", fora_do_meta: fora });
+  const canal = (id: number, fora: boolean) => ({
+    id, nome: null, tipo: null, ativo: true, pedidos: 3, exemplos: ["1532"], ultimo_pedido_em: "2026-10-18", fora_do_meta: fora,
+  });
   const pixel = { escolhido: null, opcoes: [pix("c1", "VIP", "111")] };
   assert.equal(resumoDoMeta({ meta_enabled: true, pixel, canais: [canal(1, true), canal(2, false)] }), "ligado · Pixel 111 · 1 canal fora");
   assert.equal(resumoDoMeta({ meta_enabled: true, pixel, canais: [canal(1, true), canal(2, true)] }), "ligado · Pixel 111 · 2 canais fora");
   assert.equal(resumoDoMeta({ meta_enabled: false, pixel, canais: [canal(1, true)] }), "desligado");
 
+  // Sem o escopo de canais: o número. Com: o nome que a conta deu.
   assert.equal(nomeDoCanal(canal(200000001, false)), "Canal 200000001");
+  assert.equal(nomeDoCanal({ id: 200000001, nome: "Loja Yampi" }), "Loja Yampi");
+  const semNome = { nome: null, tipo: null, ativo: true };
   // "2026-10-18" é o dia do pedido no Bling: como data UTC ele viraria 17/10 em Brasília.
   assert.equal(
-    legendaDoCanal({ pedidos: 1240, exemplos: ["1532", "1530", "1529"], ultimo_pedido_em: "2026-10-18" }),
+    legendaDoCanal({ ...semNome, pedidos: 1240, exemplos: ["1532", "1530", "1529"], ultimo_pedido_em: "2026-10-18" }),
     "1.240 pedidos · último em 18/10 · nº 1532, 1530, 1529",
   );
-  assert.equal(legendaDoCanal({ pedidos: 1, exemplos: [], ultimo_pedido_em: null }), "1 pedido");
-  assert.equal(legendaDoCanal({ pedidos: 0, exemplos: [], ultimo_pedido_em: null }), "sem pedido recente");
+  assert.equal(legendaDoCanal({ ...semNome, pedidos: 1, exemplos: [], ultimo_pedido_em: null }), "1 pedido");
+  assert.equal(legendaDoCanal({ ...semNome, pedidos: 0, exemplos: [], ultimo_pedido_em: null }), "sem pedido recente");
+  // O tipo quando diz algo além do nome; o desabilitado avisa.
+  const yampi = { nome: "Loja Yampi", tipo: "Yampi", ativo: true, pedidos: 0, exemplos: [], ultimo_pedido_em: null };
+  assert.equal(legendaDoCanal(yampi), "Yampi · sem pedido recente");
+  assert.equal(legendaDoCanal({ ...yampi, nome: "Yampi" }), "sem pedido recente");
+  assert.equal(legendaDoCanal({ ...yampi, ativo: false, pedidos: 2, exemplos: ["9"] }), "Yampi · desabilitado no Bling · 2 pedidos · nº 9");
 });
 
 test("nome do CSV: o da rota, ou um com a lista", () => {

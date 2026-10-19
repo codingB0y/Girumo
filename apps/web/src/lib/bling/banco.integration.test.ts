@@ -248,6 +248,14 @@ test("store da conexão × migração: lerConexao lê todas as colunas; a passad
   await atualizarConexao(loja, { meta_skip_store_ids: [200000001, 200000002] });
   assert.deepEqual((await lerConexao(loja))?.metaSkipStoreIds, [200000001, 200000002]);
   await atualizarConexao(loja, { meta_skip_store_ids: [] });
+  // Os canais da conta: nascem null (nunca lidos), o jsonb vai e volta, e null de novo (sem o escopo).
+  assert.deepEqual([nova?.salesChannels, nova?.salesChannelsAt], [null, null]);
+  const yampi = { id: 200000001, nome: "Loja Yampi", tipo: "Yampi", ativo: true };
+  await atualizarConexao(loja, { sales_channels: [yampi], sales_channels_at: de });
+  const comCanais = await lerConexao(loja);
+  assert.deepEqual([comCanais?.salesChannels, Date.parse(comCanais?.salesChannelsAt ?? "")], [[yampi], Date.parse(de)]);
+  await atualizarConexao(loja, { sales_channels: null, sales_channels_at: null });
+  assert.equal((await lerConexao(loja))?.salesChannels, null);
 });
 
 test("pedidosComCanal × PostgREST de verdade: o `snapshot->lojaId` > 0 deixa de fora o sem canal e o retrato antigo, e só da loja", { skip: pular() }, async () => {

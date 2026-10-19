@@ -159,7 +159,11 @@ test("cartão conectado: estado, histórico, ajustes, números do banco e as úl
           { campaign_id: CAMPANHA_C, campanha: "Moda Sul", pixel_id: "5550001112" },
         ],
       },
-      canais: [{ id: 200000001, pedidos: 2, exemplos: ["1532", "1531"], ultimo_pedido_em: "2026-10-13", fora_do_meta: false }],
+      // Com o escopo de canais: o nome que a conta deu e o canal ativo sem pedido também.
+      canais: [
+        { id: 200000001, nome: "Loja Yampi", tipo: "Yampi", ativo: true, pedidos: 2, exemplos: ["1532", "1531"], ultimo_pedido_em: "2026-10-13", fora_do_meta: false },
+        { id: 200000004, nome: "Loja física", tipo: "Api", ativo: true, pedidos: 0, exemplos: [], ultimo_pedido_em: null, fora_do_meta: false },
+      ],
     },
     numeros_30d: {
       vendas: 214,
@@ -255,7 +259,10 @@ test("a lista de canais falhando não derruba o cartão: os canais fora do Meta 
   const resposta = await GET(pedirCartao());
   assert.equal(resposta.status, 200);
   const cartao = (await resposta.json()) as { ajustes: { canais: unknown[] } };
-  assert.deepEqual(cartao.ajustes.canais, [{ id: 200000001, pedidos: 0, exemplos: [], ultimo_pedido_em: null, fora_do_meta: true }]);
+  assert.deepEqual(cartao.ajustes.canais.map((c) => [(c as { id: number }).id, (c as { fora_do_meta: boolean }).fora_do_meta]), [
+    [200000001, true],
+    [200000004, false],
+  ]);
   assert.ok(avisos.mock.calls.some((c) => String(c.arguments[0]).includes("loja-b")));
 });
 

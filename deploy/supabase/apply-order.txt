@@ -550,3 +550,7 @@ apps/web/supabase/migrations/20261017130000_grupo_uma_campanha.sql
 # padrao vazio): pedido de canal marcado (Yampi, que ja manda a compra ao Meta) entra na Girumo sem
 # evento. O canal vai no retrato do pedido (snapshot.lojaId), sem coluna nova. Muda a baseline.
 apps/web/supabase/migrations/20261019160000_bling_canais_fora_do_meta.sql
+# 2026-10-19 - Bling: canais de venda da conta com nome. bling_connections.sales_channels (jsonb,
+# null = nunca lidos ou sem o escopo) e sales_channels_at: o motor rele GET /canais-venda a cada 24 h e
+# o cartao mostra a Yampi pelo nome. Muda a baseline.
+apps/web/supabase/migrations/20261019180000_bling_canais_da_conta.sql

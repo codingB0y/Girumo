@@ -2,7 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 
-import type { SituacaoBling } from "@/lib/bling/tipos";
+import type { CanalBling, SituacaoBling } from "@/lib/bling/tipos";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 /**
@@ -38,6 +38,9 @@ export type ConexaoBling = {
   metaCampaignId: string | null;
   /** Canais de venda (`loja.id`) cujos pedidos não vão ao Meta: o canal (Yampi...) já manda o evento. */
   metaSkipStoreIds: number[];
+  /** Os canais da conta (`GET /canais-venda`); null = nunca lidos, ou o app sem o escopo. */
+  salesChannels: CanalBling[] | null;
+  salesChannelsAt: string | null;
   backfillFrom: string | null;
   backfillUntil: string | null;
   backfillPage: number;
@@ -69,7 +72,7 @@ export type ConexaoBling = {
 // As colunas do tipo, nada além: trava e quem conectou não saem daqui. Um literal só: o
 // supabase-js tipa o select pelo texto, e concatenação vira `string`.
 const COLS =
-  "tenant_id, company_id, company_name, status, access_token_enc, refresh_token_enc, access_expires_at, token_version, situations, situations_at, sale_situation_ids, high_value, meta_enabled, meta_campaign_id, backfill_from, backfill_until, backfill_page, backfill_done_at, scan_cursor, paused_until, consecutive_failures, last_webhook_at, last_scan_at, last_scan_change_at, last_sale_at, last_error, last_error_at, reconnect_alerted_at, connected_at, key_fp, token_retry_at, scan_from, scan_slice_s, backfill_fails, meta_skip_store_ids";
+  "tenant_id, company_id, company_name, status, access_token_enc, refresh_token_enc, access_expires_at, token_version, situations, situations_at, sale_situation_ids, high_value, meta_enabled, meta_campaign_id, backfill_from, backfill_until, backfill_page, backfill_done_at, scan_cursor, paused_until, consecutive_failures, last_webhook_at, last_scan_at, last_scan_change_at, last_sale_at, last_error, last_error_at, reconnect_alerted_at, connected_at, key_fp, token_retry_at, scan_from, scan_slice_s, backfill_fails, meta_skip_store_ids, sales_channels, sales_channels_at";
 
 /** numeric e bigint podem chegar como texto do PostgREST. */
 type Numero = number | string;
@@ -90,6 +93,8 @@ type Linha = {
   meta_enabled: boolean;
   meta_campaign_id: string | null;
   meta_skip_store_ids: Numero[] | null;
+  sales_channels: unknown;
+  sales_channels_at: string | null;
   backfill_from: string | null;
   backfill_until: string | null;
   backfill_page: Numero;
@@ -113,6 +118,15 @@ type Linha = {
 };
 
 const situacoesSchema = z.array(z.object({ id: z.number(), nome: z.string(), base: z.number() }));
+const canaisSchema = z.array(
+  z.object({ id: z.number(), nome: z.string().nullable(), tipo: z.string().nullable(), ativo: z.boolean() }),
+);
+
+/** null fica null (nunca lidos, ou sem o escopo); torto também: o cartão cai nos ids vistos nos pedidos. */
+function lerCanais(valor: unknown): CanalBling[] | null {
+  const lidos = canaisSchema.safeParse(valor);
+  return lidos.success ? lidos.data : null;
+}
 
 /** Só nós gravamos o jsonb, mas ele não pode derrubar a leitura: torto vira lista vazia. */
 function lerSituacoes(valor: unknown): SituacaoBling[] {
@@ -143,6 +157,8 @@ function paraConexao(l: Linha): ConexaoBling {
     metaEnabled: l.meta_enabled,
     metaCampaignId: l.meta_campaign_id,
     metaSkipStoreIds: (l.meta_skip_store_ids ?? []).map(Number).filter(Number.isSafeInteger),
+    salesChannels: lerCanais(l.sales_channels),
+    salesChannelsAt: l.sales_channels_at ?? null,
     backfillFrom: l.backfill_from,
     backfillUntil: l.backfill_until,
     backfillPage: Number(l.backfill_page),
@@ -263,6 +279,8 @@ export type AtualizacaoConexao = Partial<{
   meta_enabled: boolean;
   meta_campaign_id: string | null;
   meta_skip_store_ids: number[];
+  sales_channels: CanalBling[] | null;
+  sales_channels_at: string | null;
   backfill_page: number;
   backfill_fails: number;
   backfill_done_at: string | null;
