@@ -1,14 +1,23 @@
 // apps/web/src/lib/bio/painel-api.ts
 import "server-only";
 
+import { linksMestresDasCampanhas } from "@/lib/bio/conferir";
 import { SLUG_BIO, slugReservado, type DocumentoBio } from "@/lib/bio/documento";
 import { dayBR, dayBRAgo } from "@/lib/date-br";
-import type { PaginaBio } from "@/lib/stores/bio-pages";
+import { randomSuffix, slugify } from "@/lib/pages/slug";
+import { assertPermission } from "@/lib/permissions";
+import { getRouteTenantContext } from "@/lib/route-tenant-context";
+import { slugDisponivel, type PaginaBio } from "@/lib/stores/bio-pages";
+import { listCampaignGroups } from "@/lib/stores/campaign-groups";
 
 /**
  * O que as três rotas de `app/api/link-da-bio` repartem (spec 2026-10-19-link-da-bio §8–§10).
  * O painel (PR 6a/6b) importa daqui só os tipos, com `import type`: o `server-only` não vai junto.
  */
+
+/** 40 do `SLUG_BIO` menos "-" e os 4 caracteres de `randomSuffix()`. */
+const RAIZ_MAX = 35;
+const TENTATIVAS_DE_SLUG = 5;
 
 export type CampanhaDoPainel = { id: string; nome: string; slug: string | null };
 
@@ -47,4 +56,58 @@ export function motivoDoSlug(slug: string): Exclude<MotivoDoSlug, "em-uso"> | nu
 export function periodoDoRelatorio(dias: string | null, agora: Date = new Date()): { desde: string; ate: string } | null {
   if (dias !== "7" && dias !== "30") return null;
   return { desde: dayBRAgo(Number(dias) - 1, agora), ate: dayBR(agora) };
+}
+
+/** JSON puro, nunca guardado em cache: o painel lê o estado de agora. */
+export function resposta(corpo: unknown, status: number): Response {
+  return Response.json(corpo, { status, headers: { "cache-control": "no-store" } });
+}
+
+/**
+ * Sessão (Bearer do painel ou cookie) e loja. A vendedora para antes, no guard de módulo do
+ * `getTenantContext`: `/api/link-da-bio` não está em `lib/auth/modulos.ts`, e o mapa é fechado por
+ * padrão. Ler é de quem o guard deixa passar (dono, administração, operação); escrever pede
+ * `campaign:edit`, a ação que libera editar a loja (spec §8).
+ */
+export async function lojaDoPainel(req: Request, acao: "ler" | "editar"): Promise<{ tenantId: string } | Response> {
+  try {
+    const ctx = await getRouteTenantContext(req, { allowEngine: false });
+    if (acao === "editar") {
+      // `role` só é nulo para a engine, que `allowEngine: false` já recusou.
+      if (!ctx.role) return new Response("Sem permissão para esta ação.", { status: 403 });
+      assertPermission(ctx.role, "campaign:edit");
+    }
+    return { tenantId: ctx.tenantId };
+  } catch (e) {
+    if (e instanceof Response) return e;
+    console.error(`[api/link-da-bio] sessão: ${(e as Error).message}`);
+    return resposta({ error: "Não deu pra abrir o link da bio." } satisfies ErroDoPainelBio, 500);
+  }
+}
+
+/**
+ * Campanhas da loja para o botão "Grupo VIP". `slug` só quando o link mestre existe — a regra mora
+ * no `linksMestresDasCampanhas` (PR 2), o mesmo que o `estadoDosLinks` usa para esconder o botão na
+ * página pública. Uma implementação só: o painel nunca oferece um link que a página esconderia.
+ */
+export async function campanhasDaLoja(tenantId: string): Promise<CampanhaDoPainel[]> {
+  const campanhas = await listCampaignGroups(tenantId);
+  const mestres = await linksMestresDasCampanhas(tenantId, campanhas);
+  return campanhas.map((c) => ({ id: c.id, nome: c.name, slug: mestres[c.id] ?? null }));
+}
+
+/**
+ * Endereço sugerido e livre (spec §2): `slugify(nome)`; ocupado ou reservado, a raiz ganha sufixo
+ * aleatório. Nome com "girumo"/"hubflow" fica reservado em qualquer variação, então a raiz vira
+ * "loja". É só sugestão: o `criarPaginaDaLoja` ainda resolve colisão no insert.
+ */
+export async function sugerirSlug(nome: string, tenantId: string): Promise<string> {
+  const base = slugify(nome);
+  const raiz = /girumo|hubflow/.test(base) ? "loja" : base.slice(0, RAIZ_MAX).replace(/-+$/, "");
+  let candidato = base;
+  for (let i = 0; i < TENTATIVAS_DE_SLUG; i++) {
+    if (motivoDoSlug(candidato) === null && (await slugDisponivel(candidato, tenantId))) return candidato;
+    candidato = `${raiz}-${randomSuffix()}`;
+  }
+  return candidato;
 }
