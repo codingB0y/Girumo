@@ -11,7 +11,7 @@ import { LEGAL_CONTACT_EMAIL } from "@/lib/legal";
  */
 
 export const metadata: Metadata = {
-  title: "Integração com o Bling — Girumo",
+  title: "Integração com o Bling",
   description:
     "Como conectar o Bling à Girumo: as vendas do Bling entram na Girumo em segundos, ligadas ao grupo ou ao anúncio que trouxe a cliente, e vão ao Meta Ads.",
 };
