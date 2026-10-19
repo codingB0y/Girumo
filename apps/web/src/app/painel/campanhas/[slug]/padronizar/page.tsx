@@ -37,6 +37,7 @@ type Campanha = {
   slug?: string;
   groupIds: string[];
   growTemplate?: Record<string, unknown> | null;
+  whatsappCommunityJid?: string | null;
 };
 
 type Resultado = { batchId: string; renomes: number };
@@ -210,6 +211,9 @@ export default function PadronizarNomesPage() {
 
       {naoAchou ? (
         <p className="text-sm text-slate-600">Campanha não encontrada.</p>
+      ) : campanha?.whatsappCommunityJid ? (
+        // Gaveta espelho de comunidade nativa: o sync regrava a lista e a rota recusa (409).
+        <p className="text-sm text-slate-600">{COMUNIDADE_NATIVA_MENSAGEM}</p>
       ) : estados === null ? (
         erro ? null : <p className="text-sm text-slate-600">Carregando os grupos…</p>
       ) : resultado ? (
@@ -261,7 +265,7 @@ export default function PadronizarNomesPage() {
         <p className="text-sm text-slate-600">Esta campanha ainda não tem grupos.</p>
       ) : (
         <>
-          <section aria-label="Nome base" className="pn-card flex flex-wrap items-end gap-4 rounded-xl p-5">
+          <section aria-label="Nome e ordem" className="pn-card flex flex-wrap items-end gap-4 rounded-xl p-5">
             <div className="flex min-w-0 flex-[1_1_320px] flex-col gap-1.5">
               <label htmlFor="padronizar-base" className="text-sm font-semibold text-volt-950">
                 Nome base
