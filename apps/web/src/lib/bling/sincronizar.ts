@@ -4,6 +4,7 @@ import type { ConexaoBling } from "@/lib/stores/bling-conexoes";
 import type { LinhaPedidoBling } from "@/lib/stores/bling-pedidos";
 
 import { criarClienteBling, ErroBling, type ClienteBling } from "./cliente";
+import { executarHomologacao, type RelatorioHomologacao } from "./homologacao";
 import { depsDeProducao, type DepsBling } from "./deps";
 import { contextoDaLoja, processarPedido, recarregarSituacoes, type ContextoLoja } from "./processar-pedido";
 import { atualizarCanais } from "./sincronizar-canais";
@@ -48,6 +49,8 @@ export type Resultado = {
   varredura: number;
   historico: number;
   parou?: Parada;
+  /** Só no gatilho `homologacao`, quando a trava foi pega. */
+  homologacao?: RelatorioHomologacao;
 };
 
 const RODADAS = 3;
@@ -97,8 +100,8 @@ export async function sincronizarLoja(
   await anotarErros(ex);
   await redeDasListas(ex);
   resumir(ex);
-  const { trava, processados, falhas, varredura, historico, parou } = ex;
-  return { tenantId, trava, processados, falhas, varredura, historico, ...(parou ? { parou } : {}) };
+  const { trava, processados, falhas, varredura, historico, parou, homologacao } = ex;
+  return { tenantId, trava, processados, falhas, varredura, historico, ...(parou ? { parou } : {}), ...(homologacao ? { homologacao } : {}) };
 }
 
 async function rodadas(ex: Execucao): Promise<void> {
@@ -112,8 +115,9 @@ async function rodadas(ex: Execucao): Promise<void> {
     } finally {
       await soltar(ex, dono);
     }
-    // Par renovado que o banco não aceitou: outra rodada abriria o par velho (e morto) do banco.
-    if (ex.parou || ex.parNaoGravado || resto(ex) <= FOLGA_PARA_OUTRA_RODADA_MS) return;
+    // Par renovado que o banco não aceitou: outra rodada abriria o par velho (e morto) do banco. O teste da
+    // homologação roda uma vez só.
+    if (ex.gatilho === "homologacao" || ex.parou || ex.parNaoGravado || resto(ex) <= FOLGA_PARA_OUTRA_RODADA_MS) return;
     if (!(await ex.deps.pedidos.existePendenteVencido(ex.tenantId, ex.deps.agora()))) return;
   }
 }
@@ -162,6 +166,7 @@ async function abrirRodada(ex: Execucao, dono: string): Promise<Rodada> {
 }
 
 async function passos(r: Rodada, primeira: boolean): Promise<void> {
+  if (r.ex.gatilho === "homologacao") return homologar(r);
   const cliente = clienteDaRodada(r);
   await atualizarSituacoes(r, cliente);
   await atualizarCanais(r, cliente);
@@ -171,6 +176,22 @@ async function passos(r: Rodada, primeira: boolean): Promise<void> {
     await semSegurarAFila(r, () => importarHistorico(r, cliente));
   }
   await drenar(r, cliente);
+}
+
+/**
+ * Só o teste técnico da homologação, com os tokens da loja. O 401 que o Bling dá de propósito no meio passa pela
+ * renovação do motor (uma por execução; o par novo vai para o banco conferindo a versão).
+ */
+async function homologar(r: Rodada): Promise<void> {
+  const { deps } = r.ex;
+  r.ex.homologacao = await executarHomologacao({
+    fetchImpl: deps.fetchImpl,
+    token: () => r.tokens.access,
+    renovar: async () => {
+      await renovarPor401(r);
+    },
+    agora: () => deps.agora().getTime(),
+  });
 }
 
 /** Erro da varredura ou do histórico (banco, Bling) conta, mas não segura a fila: a drenagem roda mesmo assim. */

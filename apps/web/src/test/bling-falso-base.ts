@@ -30,7 +30,7 @@ export const CHAVE_DA_MARIA = "6299998888";
  * A vida da função de cada gatilho quando a execução começa (o `maxDuration` da rota): o motor só começa
  * uma chamada com efeito (Meta, /oauth/token) que termina dentro dela.
  */
-export const VIDA = { aviso: 60_000, cron: 300_000, conexao: 300_000 } as const;
+export const VIDA = { aviso: 60_000, cron: 300_000, conexao: 300_000, homologacao: 55_000 } as const;
 
 export const iso = (ms: number): string => new Date(ms).toISOString();
 

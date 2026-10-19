@@ -10,6 +10,7 @@ import {
   lerConexao,
   lerConexaoPorEmpresa,
   listarConexoesParaSincronizar,
+  lojasComBling,
   marcarAlertaReconectar,
   marcarReconectar,
   pegarTrava,
@@ -277,6 +278,20 @@ test("marcarReconectar vale só para conexão ativa e solta a trava", async () =
   const b = corpo(0);
   assert.deepEqual([b.status, b.last_error, b.lease_holder, b.lease_until], ["reconectar", "Bling recusou a renovação do token", null, null]);
   assert.equal(typeof b.last_error_at, "string");
+});
+
+test("lojasComBling (o /admin, todas as lojas): conectadas, com o nome da loja e da empresa no Bling, sem token", async () => {
+  preparar([200, [
+    { tenant_id: "loja-a", company_name: "Empresa A", status: "ativa", organizations: { name: "Loja A" } },
+    { tenant_id: "loja-b", company_name: null, status: "reconectar", organizations: null },
+  ]]);
+  const lojas = await lojasComBling();
+  assert.deepEqual(lojas, [
+    { tenantId: "loja-a", loja: "Loja A", empresa: "Empresa A", status: "ativa" },
+    { tenantId: "loja-b", loja: null, empresa: null, status: "reconectar" },
+  ]);
+  assert.equal(pedidos[0].url.searchParams.get("select"), "tenant_id,company_name,status,organizations(name)");
+  assert.deepEqual(filtros(0), { status: "neq.desconectada", order: "connected_at.asc" });
 });
 
 test("listarConexoesParaSincronizar: ativas fora da pausa, quem varreu há mais tempo primeiro", async () => {

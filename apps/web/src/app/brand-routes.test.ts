@@ -140,6 +140,7 @@ test("anuncia no sitemap só o que queremos no índice", () => {
   assert.ok(!paths.includes("/demo"), "o /demo foi revertido em 31/08/2026 e não existe mais");
   assert.ok(paths.includes("/termos"));
   assert.ok(paths.includes("/privacidade"));
+  assert.ok(paths.includes("/integracoes/bling"), "o manual do app no Bling é página de conteúdo pública");
 
   // /login é utilitária e está marcada `index: false` no próprio layout.
   // Anunciá-la aqui seria pedir o oposto do que o metadata dela pede.

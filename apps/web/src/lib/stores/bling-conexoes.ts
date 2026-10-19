@@ -220,6 +220,28 @@ export async function listarConexoesParaSincronizar(agora: Date): Promise<Array<
   }));
 }
 
+export type LojaComBling = { tenantId: string; loja: string | null; empresa: string | null; status: StatusConexao };
+
+/**
+ * Para o /admin (o teste da homologação): todas as lojas com o Bling ligado, sem filtro de loja de propósito — quem
+ * chama é o super-admin. Só nome e status saem daqui: nada de token.
+ */
+export async function lojasComBling(): Promise<LojaComBling[]> {
+  const { data, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .select("tenant_id, company_name, status, organizations(name)")
+    .neq("status", "desconectada")
+    .order("connected_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  type Linha = { tenant_id: string; company_name: string | null; status: StatusConexao; organizations: { name: string | null } | null };
+  return ((data ?? []) as unknown as Linha[]).map((l) => ({
+    tenantId: l.tenant_id,
+    loja: l.organizations?.name ?? null,
+    empresa: l.company_name,
+    status: l.status,
+  }));
+}
+
 /** O par renovado já cifrado, com a impressão da chave que o selou. */
 export type TokensSelados = { accessTokenEnc: string; refreshTokenEnc: string; accessExpiresAt: Date; keyFp: string };
 

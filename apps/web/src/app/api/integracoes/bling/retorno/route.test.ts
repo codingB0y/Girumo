@@ -69,11 +69,18 @@ test("o mesmo retorno de novo (duplo clique, F5) cai em sessao sem trocar o code
   assert.equal(tarefasDepois.length, 1, "só a conexão que gravou agenda a sincronização");
 });
 
-test("cookie ausente, diferente ou state faltando: sessao sem chamar o Bling e sem gastar o state", async () => {
-  const { state, cookie } = await iniciar();
+test("cookie ausente ou diferente: sessao sem chamar o Bling e sem gastar o state", async () => {
+  const { state } = await iniciar();
   assert.equal(destino(await GET(retorno(`code=c&state=${state}`))), "sessao");
   assert.equal(destino(await GET(retorno(`code=c&state=${state}`, "bling_oauth_state=outro-state"))), "sessao");
-  assert.equal(destino(await GET(retorno("code=c", cookie))), "sessao");
+  assert.equal(bling.length, 0);
+  assert.equal(estados.size, 1);
+});
+
+test("sem state na URL (instalação pela Central de Extensões do Bling): comece_aqui, sem chamar o Bling nem gastar o state", async () => {
+  const { cookie } = await iniciar();
+  assert.equal(destino(await GET(retorno("code=c", cookie))), "comece_aqui");
+  assert.equal(destino(await GET(retorno("code=c"))), "comece_aqui");
   assert.equal(bling.length, 0);
   assert.equal(estados.size, 1);
 });
