@@ -12,8 +12,18 @@ import { nonceAttribute } from "@/lib/security/csp";
 import type { LotadoDestino } from "@/lib/campaigns/settings";
 import type { BlockedReason } from "@/lib/links/resolve-click-target";
 
+/**
+ * Texto de fora (nome da loja, do grupo; no link da bio, todo texto do lojista) para dentro do
+ * HTML. Escapa os cinco: com o apóstrofo também, um atributo que algum dia saia entre aspas
+ * simples continua fechado (spec 2026-10-19-link-da-bio §10).
+ */
 export function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 /** Motivos que significam "não coube" — só eles levam ao destino de lotado. */

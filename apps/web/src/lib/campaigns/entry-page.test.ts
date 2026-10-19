@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { LOTADO_REASONS, lotadoRedirect, renderBlockedPage, renderEntryPage } from "./entry-page";
+import { LOTADO_REASONS, escapeHtml, lotadoRedirect, renderBlockedPage, renderEntryPage } from "./entry-page";
 
 const base = {
   loja: "Mega <Stock>",
@@ -113,5 +113,13 @@ const previa = renderEntryPage({
 assert.equal(previa.includes("<script"), false, "prévia não pode ter script");
 assert.equal(previa.includes('http-equiv="refresh"'), false, "prévia não pode navegar nem por noscript");
 assert.match(previa, /Abrir WhatsApp/);
+
+// Os cinco caracteres perigosos, o apóstrofo inclusive (link da bio, spec §10). O & vai
+// primeiro: senão o &lt; viraria &amp;lt;.
+assert.equal(escapeHtml(`&<>"'`), "&amp;&lt;&gt;&quot;&#39;");
+assert.equal(escapeHtml("&lt;"), "&amp;lt;");
+const comApostrofo = renderBlockedPage({ loja: "D'Ávila <Moda>", title: "Grupo cheio", message: "Volte amanhã" });
+assert.match(comApostrofo, /D&#39;Ávila &lt;Moda&gt;/);
+assert.doesNotMatch(comApostrofo, /D'Ávila/);
 
 console.log("entry-page.test ok");
