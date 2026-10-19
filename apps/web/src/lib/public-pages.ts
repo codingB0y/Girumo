@@ -20,6 +20,9 @@
  * quem chega por elas nunca teve conta — fora da lista, o clique pago morre num
  * 307 para o login. `/page2` é a segunda direção da home (V3, 15/10/2026), pelo
  * mesmo motivo.
+ *
+ * `/integracoes/bling` é o manual do app da Girumo no Bling (19/10/2026): o revisor da homologação do Bling e quem
+ * acha o app na Central de Extensões abrem sem conta.
  */
 export const PUBLIC_PAGES: readonly string[] = [
   "/",
@@ -29,6 +32,7 @@ export const PUBLIC_PAGES: readonly string[] = [
   "/privacidade",
   "/automatico",
   "/44eBras",
+  "/integracoes/bling",
 ];
 
 /** Páginas legais — usadas também pelo rodapé e pelo aceite no cadastro. */

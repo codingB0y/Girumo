@@ -80,7 +80,7 @@ test("alertas: parado há quanto tempo, pausa até que horas e o texto do recone
 });
 
 test("retorno do OAuth: uma frase por motivo; o resto não vira mensagem", () => {
-  for (const motivo of ["conectado", "recusado", "sessao", "outra_loja", "erro", "indisponivel"]) {
+  for (const motivo of ["conectado", "recusado", "sessao", "comece_aqui", "outra_loja", "erro", "indisponivel"]) {
     assert.ok(mensagemDoRetorno(motivo)?.texto, motivo);
   }
   assert.equal(mensagemDoRetorno("conectado")?.tom, "ok");

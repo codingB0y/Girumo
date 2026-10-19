@@ -20,5 +20,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     // (LEGAL_VERSION), não com o produto.
     { url: `${siteUrl}/termos`, lastModified: now, changeFrequency: "yearly", priority: 0.2 },
     { url: `${siteUrl}/privacidade`, lastModified: now, changeFrequency: "yearly", priority: 0.2 },
+    // O manual do app no Bling: quem procura "Girumo Bling" chega nele.
+    { url: `${siteUrl}/integracoes/bling`, lastModified: now, changeFrequency: "monthly", priority: 0.4 },
   ];
 }

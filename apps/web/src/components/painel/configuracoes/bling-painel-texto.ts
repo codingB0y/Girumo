@@ -65,6 +65,10 @@ const RETORNOS: Record<string, { texto: string; tom: Tom }> = {
   },
   recusado: { texto: "A conexão foi cancelada na tela do Bling. Nada mudou aqui.", tom: "neutro" },
   sessao: { texto: "A autorização venceu ou começou em outro navegador. Clique em Conectar Bling de novo.", tom: "erro" },
+  comece_aqui: {
+    texto: "A conexão com o Bling começa aqui: clique em Conectar Bling e autorize na tela do Bling que abrir.",
+    tom: "neutro",
+  },
   outra_loja: {
     texto: "Esta conta do Bling já está ligada a outra loja da Girumo. Desconecte por lá antes de ligar aqui.",
     tom: "erro",

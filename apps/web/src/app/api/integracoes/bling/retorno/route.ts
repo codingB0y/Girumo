@@ -23,7 +23,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 /** Cada um vira uma mensagem no cartão (spec §6 "Retorno"). */
-type Motivo = "conectado" | "recusado" | "sessao" | "outra_loja" | "erro" | "indisponivel";
+type Motivo = "conectado" | "recusado" | "sessao" | "comece_aqui" | "outra_loja" | "erro" | "indisponivel";
 type Pedido = { tenantId: string; userId: string };
 
 /**
@@ -65,6 +65,9 @@ async function concluir(req: Request, inicio: number): Promise<Motivo> {
   const params = new URL(req.url).searchParams;
   // A loja recusou na tela do Bling (ou o Bling devolveu erro): não há code a trocar.
   if (params.has("error")) return "recusado";
+  // Sem state nenhum: não começou no Conectar Bling da Girumo (a instalação pela Central de Extensões do Bling). Não
+  // há como saber de que loja é, e o code vence em 1 min: o cartão pede para começar por aqui.
+  if (!params.get("state")) return "comece_aqui";
 
   const pedido = await consumirPedido(params.get("state"), readCookie(req.headers.get("cookie"), COOKIE_DO_ESTADO));
   if (!pedido || !(await aindaPodeConectar(pedido))) return "sessao";

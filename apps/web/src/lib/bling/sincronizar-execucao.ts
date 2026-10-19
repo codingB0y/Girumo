@@ -5,6 +5,7 @@ import type { LinhaPedidoBling } from "@/lib/stores/bling-pedidos";
 
 import { ErroBling } from "./cliente";
 import type { DepsBling } from "./deps";
+import type { RelatorioHomologacao } from "./homologacao";
 import type { CredenciaisBling } from "./oauth";
 
 /**
@@ -14,7 +15,8 @@ import type { CredenciaisBling } from "./oauth";
  * os `processar-*`: eles importam daqui (a parada, o rótulo do log, a nova tentativa).
  */
 
-export type Gatilho = "aviso" | "cron" | "conexao";
+/** `homologacao` = só o teste técnico da homologação do app (`homologacao.ts`), com a trava e os tokens da loja. */
+export type Gatilho = "aviso" | "cron" | "conexao" | "homologacao";
 export type Parada =
   | "indisponivel"
   | "inativa"
@@ -76,6 +78,8 @@ export type Execucao = {
   parNaoGravado: ParNaoGravado | null;
   /** true só na primeira vez: o pedido em situação desconhecida relê as situações uma vez por execução. */
   readonly podeRelerSituacoes: () => boolean;
+  /** O relatório do teste técnico (gatilho `homologacao`). */
+  homologacao?: RelatorioHomologacao;
 };
 
 export type TokensAbertos = { access: string; refresh: string; expiraEm: number | null; versao: number };

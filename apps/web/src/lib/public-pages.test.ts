@@ -29,6 +29,14 @@ test("a home continua publica", () => {
   readFileSync(path.join(process.cwd(), "src", "app", "page2", "page.tsx"), "utf8"); // estoura se a pasta mudar de nome
 });
 
+test("o manual do app no Bling abre sem sessao (o revisor da homologacao nao tem conta)", () => {
+  assert.ok(isPublicPage("/integracoes/bling"));
+  // So o manual: o resto de /integracoes nao vira publico por prefixo.
+  assert.equal(isPublicPage("/integracoes"), false);
+  assert.equal(isPublicPage("/integracoes/bling/admin"), false);
+  readFileSync(path.join(process.cwd(), "src", "app", "integracoes", "bling", "page.tsx"), "utf8"); // estoura se a pasta mudar
+});
+
 test("o painel NAO vaza pela allowlist", () => {
   for (const rota of ["/painel", "/painel/campanhas", "/admin", "/admin/quadro"]) {
     assert.equal(isPublicPage(rota), false, `${rota} nao pode ser publica`);
