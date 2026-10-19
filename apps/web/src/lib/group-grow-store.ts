@@ -57,7 +57,16 @@ type GrowTemplate = {
   mediaId?: string;
   announce: boolean;
   memberAddMode: "admin_add" | "all_member_add";
+  /** Quando o lojista padronizou (ISO). Depois disso o nome do próximo grupo é `<base> N+1`. */
+  padronizadoEm?: string;
 };
+
+/** ISO válido normalizado, ou `undefined` para lixo no jsonb (não-string, "ontem"…). */
+function dataIso(valor: unknown): string | undefined {
+  if (typeof valor !== "string") return undefined;
+  const ms = Date.parse(valor);
+  return Number.isNaN(ms) ? undefined : new Date(ms).toISOString();
+}
 
 /** `grow_template` é jsonb livre no banco — normaliza antes de confiar. */
 function parseGrowTemplate(raw: unknown): GrowTemplate | null {
@@ -71,6 +80,7 @@ function parseGrowTemplate(raw: unknown): GrowTemplate | null {
     mediaId: t.mediaId ? String(t.mediaId) : undefined,
     announce: t.announce !== false,
     memberAddMode: t.memberAddMode === "all_member_add" ? "all_member_add" : "admin_add",
+    padronizadoEm: dataIso(t.padronizadoEm),
   };
 }
 
@@ -134,11 +144,16 @@ async function evaluateAutoGrowSupabase(tenantId: string): Promise<void> {
     if (!shouldEnqueueGrow(pool, c.group_ids.length)) continue;
 
     const seq = await supaJobs.nextSeq(tenantId, c.id, c.group_ids.length);
+    // O número do nome não é o `seq`: o `seq` é único por campanha (índice
+    // tenant+campanha+seq) e segue a fila inteira, mesmo com jobs 21–26 de antes.
+    // Depois do Padronizar o pool é <base> 1..N em ordem, então o próximo é N+1
+    // (a mesma conta de `resumoDoPadrao.proximo`).
+    const numero = template.padronizadoEm ? c.group_ids.length + 1 : seq;
     await supaJobs.enqueueGrowJob(tenantId, {
       campaign_group_id: c.id,
       campaign_slug: c.slug ?? "",
       seq,
-      subject: resolveSubject(template.subjectPattern, seq),
+      subject: resolveSubject(template.subjectPattern, numero),
       description: template.desc,
       media_id: template.mediaId,
       announce: template.announce,
