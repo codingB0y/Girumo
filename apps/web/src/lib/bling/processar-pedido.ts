@@ -76,7 +76,7 @@ type Decidido = { estado: PedidoResumo | null; tipo: TipoPedido; projecao: Proje
 /** A conexão volta com as situações recarregadas e a última venda vista (o motor grava uma vez por rodada). */
 export async function processarPedido(ctx: ContextoLoja, linha: LinhaPedidoBling): Promise<PedidoProcessado> {
   // O retrato é sempre o último da lista (a varredura troca quando muda, o aviso apaga); sem ele, GET (404 = excluído).
-  const estado = linha.snapshot ?? (await obterPedido(ctx.cliente, linha.blingOrderId));
+  const estado = retratoQueServe(linha.snapshot, ctx.conexao) ?? (await obterPedido(ctx.cliente, linha.blingOrderId));
   const situacoes = await situacoesDoPedido(ctx, estado);
   if (situacoes.desconhecida !== null) {
     return { conexao: situacoes.conexao, adiado: `situação ${situacoes.desconhecida} ainda não está na lista do Bling` };
@@ -92,6 +92,15 @@ export async function processarPedido(ctx: ContextoLoja, linha: LinhaPedidoBling
   if (meta.enviou) await gravarEfeitos(ctx, linha.blingOrderId, efeitos(projecao, origem, meta));
   await gravar(atual, linha, { estado, tipo, projecao, origem, meta });
   return { conexao: comUltimaVenda(atual.conexao, tipo, projecao.saleAt), adiado: null };
+}
+
+/**
+ * Retrato sem o canal (de antes dele existir) só serve na loja que não tirou canal nenhum do Meta: ali o canal não
+ * muda nada. Na que tirou, o GET diz o canal; confiar no retrato mandaria ao Meta a venda de um canal tirado.
+ */
+function retratoQueServe(retrato: PedidoResumo | null, c: ConexaoBling): PedidoResumo | null {
+  if (retrato && retrato.lojaId === undefined && c.metaSkipStoreIds.length > 0) return null;
+  return retrato;
 }
 
 function tipoDoPedido(estado: PedidoResumo | null, c: ConexaoBling): TipoPedido {

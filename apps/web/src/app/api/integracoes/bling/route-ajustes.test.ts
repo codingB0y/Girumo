@@ -114,6 +114,7 @@ test("reabrir os pedidos falha: desfaz a gravação (os mesmos campos, com o val
     // A loja que nunca escolheu volta ao vazio (o padrão na hora), não ao padrão de agora congelado.
     [{ sale_situation_ids: [] }, { sale_situation_ids: [9], ...VISTA }, { sale_situation_ids: [9] }, { sale_situation_ids: [] }],
     [{ meta_enabled: false }, { meta_enabled: true, meta_campaign_id: CAMPANHA_C }, { meta_enabled: true, meta_campaign_id: CAMPANHA_C }, { meta_enabled: false, meta_campaign_id: CAMPANHA_A }],
+    [{ meta_skip_store_ids: ["7", "9"] }, { meta_skip_store_ids: [9] }, { meta_skip_store_ids: [9] }, { meta_skip_store_ids: [7, 9] }],
   ];
   for (const [antes, corpo, grava, desfaz] of casos) {
     const caso = JSON.stringify(corpo);
@@ -241,6 +242,29 @@ test("Meta religado ou outro pixel: reabre os 7 dias que o Meta ainda aceita", a
   }
 });
 
+test("canal de venda volta ao envio: reabre os 7 dias (o evento dele estava desligado); tirar um canal grava ordenado, sem repetir, e não reabre", async () => {
+  conexao = conectada({ meta_skip_store_ids: ["200000001", "200000002"] }); // bigint[] chega em texto
+  assert.equal((await PATCH(ajustar({ meta_skip_store_ids: [200000002] }))).status, 200);
+  assert.deepEqual(gravado().meta_skip_store_ids, [200000002]);
+  assert.deepEqual(reabertos(), [`gte.${diaHaDias(7)}`]);
+
+  // Com o Meta desligado o evento não sairia mesmo: devolver o canal não reabre nada (religar o Meta reabre).
+  conexao = conectada({ meta_enabled: false, meta_skip_store_ids: ["200000001"] });
+  chamadas.length = 0;
+  assert.equal((await PATCH(ajustar({ meta_skip_store_ids: [] }))).status, 200);
+  assert.equal(reaberturas().length, 0);
+  chamadas.length = 0;
+  assert.equal((await PATCH(ajustar({ meta_skip_store_ids: [], meta_enabled: true }))).status, 200);
+  assert.deepEqual(reabertos(), [`gte.${diaHaDias(7)}`]);
+
+  conexao = conectada();
+  chamadas.length = 0;
+  assert.equal((await PATCH(ajustar({ meta_skip_store_ids: [200000002, 200000001, 200000002] }))).status, 200);
+  assert.deepEqual(gravado().meta_skip_store_ids, [200000001, 200000002]);
+  // O que já foi ao Meta não volta atrás; o que ainda não foi, o motor processa com a lista nova.
+  assert.deepEqual([reaberturas().length, recalculos().length], [0, 0]);
+});
+
 test("situações e Meta juntos: uma reabertura só, a de 90 dias", async () => {
   conexao = conectada({ meta_enabled: false });
   assert.equal((await PATCH(ajustar({ sale_situation_ids: [9, 30], ...VISTA, meta_enabled: true }))).status, 200);
@@ -249,7 +273,7 @@ test("situações e Meta juntos: uma reabertura só, a de 90 dias", async () => 
 
 test("nada mudou (ou Meta desligado): grava e não reabre nem recalcula", async () => {
   const corpos = [
-    { sale_situation_ids: [9], ...VISTA, high_value: 1500, meta_enabled: true, meta_campaign_id: CAMPANHA_A },
+    { sale_situation_ids: [9], ...VISTA, high_value: 1500, meta_enabled: true, meta_campaign_id: CAMPANHA_A, meta_skip_store_ids: [] },
     { meta_campaign_id: CAMPANHA_A.toUpperCase() }, // o mesmo uuid em caixa alta
     { meta_enabled: false },
   ];
@@ -269,6 +293,7 @@ test("corpo inválido: 400 com a mensagem certa e nada é lido nem gravado", asy
   const SITUACOES = "Marque de 1 a 50 situações que contam como venda.";
   const VALOR = "Valor alto: maior que zero, até R$ 10.000.000,00 e com até 2 casas decimais.";
   const SEM_VERSAO = "Recarregue a página e confira quais contam como venda.";
+  const CANAIS = "Canais de venda inválidos: marque até 50.";
   const casos: [unknown, string][] = [
     ["{", "JSON inválido."],
     [{}, "Nada para salvar."],
@@ -292,6 +317,11 @@ test("corpo inválido: 400 com a mensagem certa e nada é lido nem gravado", asy
     [{ high_value: "1500" }, VALOR],
     [{ meta_enabled: "sim" }, "Enviar ao Meta: escolha ligado ou desligado."],
     [{ meta_campaign_id: "vip-goiania" }, "Campanha do pixel inválida."],
+    [{ meta_skip_store_ids: [0] }, CANAIS],
+    [{ meta_skip_store_ids: [1.5] }, CANAIS],
+    [{ meta_skip_store_ids: ["200000001"] }, CANAIS],
+    [{ meta_skip_store_ids: null }, CANAIS],
+    [{ meta_skip_store_ids: Array.from({ length: 51 }, (_, i) => i + 1) }, CANAIS],
   ];
   conexao = conectada();
   for (const [corpo, mensagem] of casos) {

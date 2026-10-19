@@ -11,6 +11,7 @@ import {
   existePendenteVencido,
   lerResumo,
   listarPendentes,
+  pedidosComCanal,
   reabrirDesde,
   salvarEfeitos,
   salvarProcessado,
@@ -74,8 +75,8 @@ const LIDO = "2026-10-13T14:58:00.123456+00:00";
 const GRAVOU = (): Resposta => ({ status: 200, corpo: [{ bling_order_id: 101 }] });
 const MUDOU = (): Resposta => ({ status: 200, corpo: [] });
 
-const RESUMO_A: PedidoResumo = { id: 101, numero: "77", data: "2026-10-12", total: 149.9, contatoId: 555, situacaoId: 6 };
-const RESUMO_B: PedidoResumo = { id: 102, numero: null, data: null, total: 10, contatoId: null, situacaoId: 9 };
+const RESUMO_A: PedidoResumo = { id: 101, numero: "77", data: "2026-10-12", total: 149.9, contatoId: 555, situacaoId: 6, lojaId: 200000001 };
+const RESUMO_B: PedidoResumo = { id: 102, numero: null, data: null, total: 10, contatoId: null, situacaoId: 9, lojaId: null };
 
 test("aviso: um rpc bling_enqueue com os ids, sem o mesmo pedido duas vezes, e devolve o número do banco", async () => {
   responder = () => ({ status: 200, corpo: 2 });
@@ -134,7 +135,9 @@ const LINHA_101 = {
 
 test("pendentes vencidos: só da loja, pending, next_try_at até agora; o histórico depois, e os mais antigos primeiro", async () => {
   const torta = { ...LINHA_101, bling_order_id: 102, total: null, situacao_id: null, snapshot: { id: "102", total: "dez" } };
-  responder = () => ({ status: 200, corpo: [LINHA_101, torta] });
+  const semCanal = { id: 103, numero: "77", data: "2026-10-12", total: 149.9, contatoId: 555, situacaoId: 6 };
+  const antiga = { ...LINHA_101, bling_order_id: 103, snapshot: semCanal };
+  responder = () => ({ status: 200, corpo: [LINHA_101, torta, antiga] });
 
   const linhas = await listarPendentes("loja-a", AGORA, 20);
 
@@ -176,6 +179,8 @@ test("pendentes vencidos: só da loja, pending, next_try_at até agora; o histó
   });
   // Retrato torto vira null: o processamento faz GET em vez de confiar nele.
   assert.deepEqual([linhas[1].blingOrderId, linhas[1].total, linhas[1].situacaoId, linhas[1].snapshot], [102, null, null, null]);
+  // Retrato gravado antes de o canal existir vale, sem o canal ("não se sabe": o processamento decide se relê).
+  assert.deepEqual([linhas[2].blingOrderId, linhas[2].snapshot], [103, semCanal]);
 });
 
 test("existe pendente vencido: uma linha basta, com o mesmo filtro", async () => {
@@ -466,4 +471,33 @@ test("erro do banco no resumo e nas últimas sobe com a mensagem dele", async ()
   responder = () => ({ status: 500, corpo: { message: "caiu o banco" } });
   await assert.rejects(lerResumo("loja-a"), /caiu o banco/);
   await assert.rejects(ultimasDoCartao("loja-a", 8), /caiu o banco/);
+  await assert.rejects(pedidosComCanal("loja-a", 1000), /caiu o banco/);
+});
+
+test("pedidos com canal: só da loja, só retrato com canal (> 0 no jsonb), id mais alto primeiro; o que não é número some", async () => {
+  responder = () => ({
+    status: 200,
+    corpo: [
+      { numero: "1532", data: "2026-10-18", loja: 200000001 },
+      { numero: null, data: null, loja: 200000002 },
+      { numero: "9", data: "2026-10-01", loja: "200000003" },
+      { numero: "8", data: "2026-10-01", loja: true },
+    ],
+  });
+
+  const pedidos = await pedidosComCanal("loja-a", 1000);
+
+  // Do retrato: o pedido na fila, ainda sem processar, ainda não tem número nem dia nas colunas.
+  assert.equal(chamadas[0].url.searchParams.get("select"), "numero:snapshot->>numero,data:snapshot->>data,loja:snapshot->lojaId");
+  assert.deepEqual(filtros(chamadas[0].url), {
+    tenant_id: "eq.loja-a",
+    // `->` compara jsonb: número > 0 passa; null, 0 e retrato sem a chave (antigo) ficam de fora.
+    "snapshot->lojaId": "gt.0",
+    order: "bling_order_id.desc",
+    limit: "1000",
+  });
+  assert.deepEqual(pedidos, [
+    { lojaId: 200000001, numero: "1532", orderDate: "2026-10-18" },
+    { lojaId: 200000002, numero: null, orderDate: null },
+  ]);
 });

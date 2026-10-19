@@ -43,6 +43,7 @@ const pedidoCru = z.looseObject({
   total: escalar,
   contato: referencia,
   situacao: referencia,
+  loja: referencia,
 });
 
 const contatoCru = z.looseObject({
@@ -204,7 +205,16 @@ function pedidoDe(item: unknown, pedido?: number): PedidoResumo | null {
   const total = valor(cru.data.total);
   if (id === null || situacaoId === null || total === null) return null;
   const data = dia(cru.data.data, ANO_MINIMO_PEDIDO);
-  return { id, numero: texto(cru.data.numero), data, total, contatoId: idPositivo(cru.data.contato?.id), situacaoId };
+  const resumo = { id, numero: texto(cru.data.numero), data, total, contatoId: idPositivo(cru.data.contato?.id), situacaoId };
+  const lojaId = canalDe(cru.data.loja?.id);
+  // "Não se sabe" fica fora do objeto: o retrato no jsonb também não guarda a chave.
+  return lojaId === undefined ? resumo : { ...resumo, lojaId };
+}
+
+/** 0 = lançado direto no Bling (null). Sem loja ou com id torto não se sabe (undefined): não vira "sem canal". */
+function canalDe(id: Escalar): number | null | undefined {
+  if (id === 0 || id === "0") return null;
+  return idPositivo(id) ?? undefined;
 }
 
 /** O id do item da lista, quando legível (inteiro positivo, em número ou texto de dígitos). */

@@ -6,9 +6,11 @@ import React, { useRef, useState } from "react";
 
 import { ChevronDown, Loader2, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CanaisForaDoMeta } from "./bling-painel-canais";
 import { AJUDA, ANEL, BLOCO, CAMPO, PRIMARIO, SECUNDARIO, TITULO } from "./bling-painel-estilo";
 import {
   campoDoValor,
+  canaisParaSalvar,
   legendaDaSituacao,
   lerValorAlto,
   MENSAGEM_DO_VALOR,
@@ -28,6 +30,8 @@ export type AjustesParaSalvar = SituacoesParaSalvar & {
   high_value: number | null;
   meta_enabled: boolean;
   meta_campaign_id: string | null;
+  /** Só quando a dona mexeu nos canais (`canaisParaSalvar`). */
+  meta_skip_store_ids?: number[];
 };
 
 const INTERRUPTOR =
@@ -91,25 +95,27 @@ type PropsDoFormulario = {
 export function FormularioDeAjustes({ ajustes, ocupado, erro, onSalvar, onCancelar, onDesconectar }: PropsDoFormulario) {
   // A lista de situações e a versão dela ficam as da abertura: a recarga de fundo do cartão (histórico importando) não
   // mexe no formulário aberto, e o Salvar vai com a versão vista — se a lista mudou no meio, o PATCH responde 409.
-  const [vistas] = useState(() => ({ situacoes: ajustes.situacoes, situacoes_versao: ajustes.situacoes_versao }));
+  // Os canais também: um canal que chega com o formulário aberto aparece na próxima abertura.
+  const [vistas] = useState(() => ({
+    situacoes: ajustes.situacoes,
+    situacoes_versao: ajustes.situacoes_versao,
+    canais: ajustes.canais,
+  }));
   const [marcadas, setMarcadas] = useState<ReadonlySet<number>>(
     () => new Set(vistas.situacoes.filter((s) => s.conta).map((s) => s.id)),
   );
   const [valor, setValor] = useState(() => campoDoValor(ajustes.high_value));
   const [meta, setMeta] = useState(ajustes.meta_enabled);
   const [pixel, setPixel] = useState(ajustes.pixel.escolhido ?? "");
+  const [fora, setFora] = useState<ReadonlySet<number>>(
+    () => new Set(vistas.canais.filter((c) => c.fora_do_meta).map((c) => c.id)),
+  );
   const [valorInvalido, setValorInvalido] = useState(false);
   const campoDoValorAlto = useRef<HTMLInputElement>(null);
   const travado = ocupado !== null;
 
-  function alternar(id: number) {
-    setMarcadas((atual) => {
-      const nova = new Set(atual);
-      if (nova.has(id)) nova.delete(id);
-      else nova.add(id);
-      return nova;
-    });
-  }
+  const alternar = (id: number) => setMarcadas((atual) => comOuSem(atual, id));
+  const alternarCanal = (id: number) => setFora((atual) => comOuSem(atual, id));
 
   function salvar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -124,6 +130,7 @@ export function FormularioDeAjustes({ ajustes, ocupado, erro, onSalvar, onCancel
       high_value: lido.valor,
       meta_enabled: meta,
       meta_campaign_id: pixel || null,
+      ...canaisParaSalvar(vistas.canais, fora),
     });
   }
 
@@ -255,6 +262,8 @@ export function FormularioDeAjustes({ ajustes, ocupado, erro, onSalvar, onCancel
         </div>
       </div>
 
+      <CanaisForaDoMeta canais={vistas.canais} fora={fora} travado={travado} onAlternar={alternarCanal} />
+
       {erro && (
         <p role="alert" className="mt-5 text-13 text-danger-700">
           {erro}
@@ -287,4 +296,12 @@ export function FormularioDeAjustes({ ajustes, ocupado, erro, onSalvar, onCancel
       </div>
     </form>
   );
+}
+
+/** Uma cópia do conjunto com o id trocado: marcado sai, desmarcado entra. */
+function comOuSem(atual: ReadonlySet<number>, id: number): ReadonlySet<number> {
+  const novo = new Set(atual);
+  if (novo.has(id)) novo.delete(id);
+  else novo.add(id);
+  return novo;
 }

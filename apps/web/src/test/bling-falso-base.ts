@@ -78,7 +78,7 @@ export function campanha(id: string, pixel: string, testCode = ""): CampanhaComM
 
 /** Pedido de venda de hoje, Atendido, R$ 350, da Maria. `numero` = id + 49. */
 export function pedidoDoBling(id: number, extra: Partial<PedidoResumo> = {}): PedidoResumo {
-  return { id, numero: String(id + 49), data: "2026-10-13", total: 350, contatoId: MARIA.id, situacaoId: 9, ...extra };
+  return { id, numero: String(id + 49), data: "2026-10-13", total: 350, contatoId: MARIA.id, situacaoId: 9, lojaId: null, ...extra };
 }
 
 /**
@@ -152,6 +152,7 @@ export function conexaoPadrao(): ConexaoBling {
     highValue: 500,
     metaEnabled: true,
     metaCampaignId: null,
+    metaSkipStoreIds: [],
     backfillFrom: "2026-07-15",
     backfillUntil: "2026-10-13",
     backfillPage: 1,

@@ -9,6 +9,7 @@ import type { LinhaPedidoBling, ResumoBling } from "@/lib/stores/bling-pedidos";
 import type { CampaignGroup } from "@/lib/stores/campaign-groups";
 
 import {
+  canaisDoCartao,
   cartaoConectado,
   montarCartao,
   opcoesDoPixel,
@@ -52,6 +53,7 @@ const CONEXAO: ConexaoBling = {
   highValue: 1500,
   metaEnabled: true,
   metaCampaignId: CAMPANHA_A,
+  metaSkipStoreIds: [],
   backfillFrom: "2026-07-15",
   backfillUntil: "2026-10-13",
   backfillPage: 4,
@@ -272,6 +274,7 @@ test("cartão conectado inteiro: números do banco, ajustes, pixel escolhido e n
     linhas: [pedido({})],
     contatos: [ANA],
     campanhas: CAMPANHAS,
+    canais: [{ lojaId: 200000001, numero: "1532", orderDate: "2026-10-12" }],
     agora: AGORA,
   });
 
@@ -289,6 +292,9 @@ test("cartão conectado inteiro: números do banco, ajustes, pixel escolhido e n
   assert.equal(cartao.ajustes?.high_value, 1500);
   assert.equal(cartao.ajustes?.meta_enabled, true);
   assert.equal(cartao.ajustes?.pixel.escolhido, CAMPANHA_A);
+  assert.deepEqual(cartao.ajustes?.canais, [
+    { id: 200000001, pedidos: 1, exemplos: ["1532"], ultimo_pedido_em: "2026-10-12", fora_do_meta: false },
+  ]);
   assert.equal(cartao.ajustes?.situacoes.length, SITUACOES.length);
   // A versão das situações mostradas (o PATCH confere com ela): o hash do conteúdo da lista, não a hora em que foi lida.
   assert.equal(cartao.ajustes?.situacoes_versao, createHash("sha256").update(JSON.stringify(SITUACOES)).digest("hex").slice(0, 16));
@@ -316,6 +322,7 @@ test("pausa vencida não aparece; histórico terminado; escolha de campanha que 
     linhas: [],
     contatos: [],
     campanhas: CAMPANHAS,
+    canais: [],
     agora: AGORA,
   });
   assert.equal(cartao.conexao?.pausada_ate, null);
@@ -323,6 +330,35 @@ test("pausa vencida não aparece; histórico terminado; escolha de campanha que 
   // Devolver a B faria o "Salvar ajustes" voltar 400 (ela não tem token).
   assert.equal(cartao.ajustes?.pixel.escolhido, null);
   assert.deepEqual(cartao.ultimas, []);
+});
+
+test("canais: um por loja.id, na ordem do pedido mais novo, com quantos pedidos, até 3 números e o dia do último", () => {
+  const YAMPI = 200000001;
+  const NUVEM = 200000002;
+  const canais = canaisDoCartao(
+    [
+      { lojaId: YAMPI, numero: "1532", orderDate: "2026-10-18" },
+      { lojaId: NUVEM, numero: null, orderDate: null },
+      { lojaId: YAMPI, numero: null, orderDate: "2026-10-17" },
+      { lojaId: NUVEM, numero: "880", orderDate: "2026-10-16" },
+      { lojaId: YAMPI, numero: "1530", orderDate: "2026-10-15" },
+      { lojaId: YAMPI, numero: "1529", orderDate: "2026-10-14" },
+      { lojaId: YAMPI, numero: "1528", orderDate: "2026-10-13" },
+    ],
+    [NUVEM],
+  );
+  assert.deepEqual(canais, [
+    { id: YAMPI, pedidos: 5, exemplos: ["1532", "1530", "1529"], ultimo_pedido_em: "2026-10-18", fora_do_meta: false },
+    { id: NUVEM, pedidos: 2, exemplos: ["880"], ultimo_pedido_em: "2026-10-16", fora_do_meta: true },
+  ]);
+});
+
+test("canal tirado do Meta que não aparece nos pedidos recentes continua na lista (dá para devolvê-lo ao envio)", () => {
+  assert.deepEqual(canaisDoCartao([{ lojaId: 1, numero: "10", orderDate: "2026-10-18" }], [7, 1]), [
+    { id: 1, pedidos: 1, exemplos: ["10"], ultimo_pedido_em: "2026-10-18", fora_do_meta: true },
+    { id: 7, pedidos: 0, exemplos: [], ultimo_pedido_em: null, fora_do_meta: true },
+  ]);
+  assert.deepEqual(canaisDoCartao([], []), []);
 });
 
 const VARIAVEIS = ["BLING_CLIENT_ID", "BLING_CLIENT_SECRET", "INTEGRATIONS_ENCRYPTION_KEY", "SUPABASE_URL"] as const;

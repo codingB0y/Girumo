@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
 
 import { atualizarConexao, lerConexao } from "@/lib/stores/bling-conexoes";
+import { pedidosComCanal } from "@/lib/stores/bling-pedidos";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import type { PedidoResumo } from "./tipos";
 
@@ -85,8 +86,8 @@ async function lerPedido(id: number): Promise<Pedido> {
 }
 
 /** Item da lista de pedidos do Bling, como a varredura e o histórico mandam para a fila. */
-function resumo(id: number, situacaoId = 9, total = 150.5, contatoId: number | null = 77): PedidoResumo {
-  return { id, numero: String(id), data: "2026-10-10", total, contatoId, situacaoId };
+function resumo(id: number, situacaoId = 9, total = 150.5, contatoId: number | null = 77, lojaId: number | null = null): PedidoResumo {
+  return { id, numero: String(id), data: "2026-10-10", total, contatoId, situacaoId, lojaId };
 }
 
 /**
@@ -242,6 +243,33 @@ test("store da conexão × migração: lerConexao lê todas as colunas; a passad
   await atualizarConexao(loja, { scan_from: null, scan_slice_s: null, backfill_fails: 0, token_retry_at: null });
   const limpa = await lerConexao(loja);
   assert.deepEqual([limpa?.scanFrom, limpa?.scanSliceS, limpa?.backfillFails, limpa?.tokenRetryAt], [null, null, 0, null]);
+  // Os canais fora do Meta: nascem vazios (a loja que já existia segue mandando tudo) e vão e voltam como número.
+  assert.deepEqual(nova?.metaSkipStoreIds, []);
+  await atualizarConexao(loja, { meta_skip_store_ids: [200000001, 200000002] });
+  assert.deepEqual((await lerConexao(loja))?.metaSkipStoreIds, [200000001, 200000002]);
+  await atualizarConexao(loja, { meta_skip_store_ids: [] });
+});
+
+test("pedidosComCanal × PostgREST de verdade: o `snapshot->lojaId` > 0 deixa de fora o sem canal e o retrato antigo, e só da loja", { skip: pular() }, async () => {
+  const ids = [6001, 6002, 6003, 6004];
+  try {
+    await enfileirar("historico", [resumo(6001, 9, 10, 77, 200000001), resumo(6002, 9, 10, 77, null), resumo(6003, 9, 10, 77, 200000002)]);
+    // Retrato gravado antes do canal existir (sem a chave): fica de fora, não quebra a leitura.
+    const antigo = { id: 6004, numero: "6004", data: null, total: 1, contatoId: null, situacaoId: 9 };
+    // O canal da vizinha nunca aparece: o filtro da loja é o que protege (service-role ignora o RLS).
+    await inserir("bling_orders", [
+      linhaPedido(loja, 6004, { numero: "6004", snapshot: antigo }),
+      linhaPedido(vizinha, 6005, { numero: "6005", snapshot: resumo(6005, 9, 10, 77, 200000003) }),
+    ]);
+    const canais = await pedidosComCanal(loja, 1000);
+    assert.deepEqual(canais.map((c) => [c.numero, c.lojaId]).sort(), [["6001", 200000001], ["6003", 200000002]]);
+  } finally {
+    // O caso do bling_resumo conta as linhas da vizinha, e as da loja não têm por que ficar.
+    for (const [tenant, deles] of [[loja, ids], [vizinha, [6005]]] as const) {
+      const { error } = await db().from("bling_orders").delete().eq("tenant_id", tenant).in("bling_order_id", deles);
+      if (error) throw new Error(`bling_orders: ${error.message}`);
+    }
+  }
 });
 
 test("bling_enqueue aviso: pendente sem retrato; reabre linha processada sem mudar origin", { skip: pular() }, async () => {

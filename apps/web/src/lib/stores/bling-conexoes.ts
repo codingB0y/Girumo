@@ -36,6 +36,8 @@ export type ConexaoBling = {
   highValue: number | null;
   metaEnabled: boolean;
   metaCampaignId: string | null;
+  /** Canais de venda (`loja.id`) cujos pedidos não vão ao Meta: o canal (Yampi...) já manda o evento. */
+  metaSkipStoreIds: number[];
   backfillFrom: string | null;
   backfillUntil: string | null;
   backfillPage: number;
@@ -67,7 +69,7 @@ export type ConexaoBling = {
 // As colunas do tipo, nada além: trava e quem conectou não saem daqui. Um literal só: o
 // supabase-js tipa o select pelo texto, e concatenação vira `string`.
 const COLS =
-  "tenant_id, company_id, company_name, status, access_token_enc, refresh_token_enc, access_expires_at, token_version, situations, situations_at, sale_situation_ids, high_value, meta_enabled, meta_campaign_id, backfill_from, backfill_until, backfill_page, backfill_done_at, scan_cursor, paused_until, consecutive_failures, last_webhook_at, last_scan_at, last_scan_change_at, last_sale_at, last_error, last_error_at, reconnect_alerted_at, connected_at, key_fp, token_retry_at, scan_from, scan_slice_s, backfill_fails";
+  "tenant_id, company_id, company_name, status, access_token_enc, refresh_token_enc, access_expires_at, token_version, situations, situations_at, sale_situation_ids, high_value, meta_enabled, meta_campaign_id, backfill_from, backfill_until, backfill_page, backfill_done_at, scan_cursor, paused_until, consecutive_failures, last_webhook_at, last_scan_at, last_scan_change_at, last_sale_at, last_error, last_error_at, reconnect_alerted_at, connected_at, key_fp, token_retry_at, scan_from, scan_slice_s, backfill_fails, meta_skip_store_ids";
 
 /** numeric e bigint podem chegar como texto do PostgREST. */
 type Numero = number | string;
@@ -87,6 +89,7 @@ type Linha = {
   high_value: Numero | null;
   meta_enabled: boolean;
   meta_campaign_id: string | null;
+  meta_skip_store_ids: Numero[] | null;
   backfill_from: string | null;
   backfill_until: string | null;
   backfill_page: Numero;
@@ -139,6 +142,7 @@ function paraConexao(l: Linha): ConexaoBling {
     highValue: numeroOuNulo(l.high_value),
     metaEnabled: l.meta_enabled,
     metaCampaignId: l.meta_campaign_id,
+    metaSkipStoreIds: (l.meta_skip_store_ids ?? []).map(Number).filter(Number.isSafeInteger),
     backfillFrom: l.backfill_from,
     backfillUntil: l.backfill_until,
     backfillPage: Number(l.backfill_page),
@@ -258,6 +262,7 @@ export type AtualizacaoConexao = Partial<{
   high_value: number | null;
   meta_enabled: boolean;
   meta_campaign_id: string | null;
+  meta_skip_store_ids: number[];
   backfill_page: number;
   backfill_fails: number;
   backfill_done_at: string | null;
