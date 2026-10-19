@@ -107,6 +107,25 @@ export async function listPendingCheckInviteGroupIds(tenantId: string): Promise<
 }
 
 /**
+ * A campanha tem renome (`set_subject`) na fila ou rodando? O Padronizar recusa
+ * enquanto tiver: `groups.name` só muda no ack `done`, então os grupos pendentes
+ * ainda parecem "muda" e um segundo clique os enfileiraria de novo (outro
+ * `batch_id`, a dedupe não pega) — o mesmo renome duas vezes na janela anti-ban.
+ */
+export async function hasPendingSubjectJobs(tenantId: string, campaignGroupId: string): Promise<boolean> {
+  const { data, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .eq("campaign_group_id", campaignGroupId)
+    .eq("action", "set_subject")
+    .in("status", ["queued", "running"])
+    .limit(1);
+  if (error) throw new Error(error.message);
+  return (data ?? []).length > 0;
+}
+
+/**
  * Devolve à realidade os jobs que o worker claimou e nunca reportou.
  *
  * Sem isso a fila trava: o job fica `running` para sempre e o `claim` só olha

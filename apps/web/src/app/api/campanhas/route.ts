@@ -187,7 +187,16 @@ export async function PATCH(req: Request) {
   if (Array.isArray(b.groupIds)) patch.group_ids = b.groupIds.map(String);
   if (typeof b.autoGrow === "boolean") patch.auto_grow = b.autoGrow;
   if (b.growTemplate && typeof b.growTemplate === "object") {
-    patch.grow_template = b.growTemplate as Record<string, unknown>;
+    // MERGE com o que está no banco, nunca replace. O painel (campaign-config)
+    // só manda `subjectPattern`; trocar o objeto inteiro apagava a identidade
+    // aplicada (`desc`, `mediaId`) e o `padronizadoEm` do Padronizar — e sem ele
+    // o próximo grupo do auto-grow voltava a numerar pela fila de antes.
+    const atual = current ?? (await supaStore.getCampaignGroupById(tenantId, id));
+    if (!atual) return Response.json({ error: "Campanha não encontrada." }, { status: 404 });
+    patch.grow_template = {
+      ...(atual.grow_template ?? {}),
+      ...(b.growTemplate as Record<string, unknown>),
+    };
   }
 
   if (b.settings !== undefined) {

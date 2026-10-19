@@ -14,6 +14,7 @@ import {
   Send,
   Trash2,
   Loader2,
+  ListOrdered,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CopyLink } from "@/components/painel/copy-link";
@@ -51,6 +52,7 @@ type Campanha = {
   slug?: string;
   createdAt: string;
   autoGrow?: boolean;
+  whatsappCommunityJid?: string | null;
   settings?: { entrada: EntradaSettings; integracoes?: { meta: { pixel_id: string } } };
 };
 type TrackedLink = { campaignGroupId?: string | null; campaignName?: string; clicks: number };
@@ -259,6 +261,15 @@ export default function CampanhaDetalhe() {
           <h1 className="min-w-0 break-words text-28 font-semibold tracking-[-0.01em] text-volt-950">{campanha.name}</h1>
           <div className="relative flex flex-wrap items-center gap-2">
             <AjudaPainel />
+            {/* Comunidade nativa fica fora: o sync regrava `group_ids` e a rota responde 409. */}
+            {o.groupCount > 0 && !campanha.whatsappCommunityJid && (
+              <Link
+                href={`/painel/campanhas/${encodeURIComponent(campanha.slug ?? campanha.id)}/padronizar`}
+                className="inline-flex h-10 items-center gap-2 rounded-lg border border-line-200 bg-paper-0 px-3.5 text-sm font-medium text-volt-950 transition-colors hover:border-slate-600"
+              >
+                <ListOrdered className="h-4 w-4" aria-hidden="true" /> Padronizar nomes e sequência
+              </Link>
+            )}
             {o.groupCount > 0 && (
               <button
                 type="button"
