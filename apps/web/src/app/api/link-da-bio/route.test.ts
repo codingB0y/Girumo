@@ -1,5 +1,6 @@
 // apps/web/src/app/api/link-da-bio/route.test.ts
 import assert from "node:assert/strict";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -7,6 +8,7 @@ import { after, before, beforeEach, mock, test } from "node:test";
 
 import { MENSAGEM_BLOQUEIO } from "@/lib/auth/modulos";
 import { documentoPadrao, type DocumentoBio, type LinkBio } from "@/lib/bio/documento";
+import type { CorpoDoPatchBio, ErroDoPainelBio } from "@/lib/bio/painel-api";
 import { getPublicSiteUrl } from "@/lib/brand";
 import type { PaginaBio } from "@/lib/stores/bio-pages";
 
@@ -34,6 +36,7 @@ const DA_OUTRA = "4b5c6d7e-8f90-4a1b-8c2d-3e4f5a6b7c8d";
 const SUMIDA = "5c6d7e8f-9a0b-4c1d-8e2f-3a4b5c6d7e8f";
 const LINK_GRUPO = "6d7e8f9a-0b1c-4d2e-8f3a-4b5c6d7e8f9a";
 const LINK_SUMIDO = "7f8a9b0c-1d2e-4f3a-8b4c-5d6e7f8a9b0c";
+const LINK_WHATS = "8e9f0a1b-2c3d-4e5f-9a6b-7c8d9e0f1a2b";
 const NOME = "Ateliê Ouro & Prata";
 const AGORA = "2026-10-19T12:00:00.000Z";
 /** O número com que a loja posta nos grupos (`instances.phone`), sem o nono dígito. */
@@ -56,6 +59,10 @@ let sumirNoUpdate = false;
 
 function link(id: string, campanhaId: string, destaque = false): LinkBio {
   return { id, tipo: "grupo", titulo: "Entrar no grupo VIP", sub: "", icone: "coroa", ativo: true, destaque, campanhaId };
+}
+
+function whats(id: string, numero: string): LinkBio {
+  return { id, tipo: "whatsapp", titulo: "Falar com a loja", sub: "", icone: "whatsapp", ativo: true, destaque: false, numero, mensagem: "" };
 }
 
 function documento(links: LinkBio[] = [link(LINK_GRUPO, VIP, true)]): DocumentoBio {
@@ -249,11 +256,16 @@ const supabase = createServer((req, res) => {
 
 let GET: Rota;
 let POST: Rota;
+let PATCH: Rota;
+/** O pedaço do `workAsyncStorage` do Next que o teste usa (Next 15.5). */
+type ContextoDoNext = { run<T>(store: never, fn: () => T): T };
+let contextoDoNext: ContextoDoNext;
 
 /** Cada handler da série com um pedido válido: a recusa de sessão, loja ou papel vem antes de qualquer validação. */
 const HANDLERS: Array<[nome: string, chamar: (cabecalhos: Cabecalhos) => Promise<Response>]> = [
   ["GET /api/link-da-bio", (h) => GET(pedir("GET", undefined, undefined, h))],
   ["POST /api/link-da-bio", (h) => POST(pedir("POST", undefined, undefined, h))],
+  ["PATCH /api/link-da-bio", (h) => PATCH(pedir("PATCH", undefined, corpoValido(), h))],
 ];
 
 before(async () => {
@@ -263,7 +275,11 @@ before(async () => {
   process.env.SUPABASE_SERVICE_ROLE_KEY = "chave-do-postgrest-falso";
   process.env.SUPABASE_ANON_KEY = "chave-anon-falsa";
   process.env.HUBFLOW_USE_SUPABASE = "1";
-  ({ GET, POST } = await import("./route"));
+  // O Next só usa a AsyncLocalStorage real se ela estiver no globalThis antes do primeiro import
+  // dele (a rota importa `next/cache` pelo `invalidarBio`): por isso os imports são dinâmicos.
+  (globalThis as { AsyncLocalStorage?: unknown }).AsyncLocalStorage = AsyncLocalStorage;
+  contextoDoNext = (await import("next/dist/server/app-render/work-async-storage.external")).workAsyncStorage;
+  ({ GET, POST, PATCH } = await import("./route"));
 });
 after(() => {
   supabase.close();
@@ -308,6 +324,23 @@ function soDaLoja(): void {
     }
   }
 }
+
+function corpoValido(extra: Partial<CorpoDoPatchBio> = {}): CorpoDoPatchBio {
+  return { versao: 3, slug: "atelie-ouro-prata", publicada: true, documento: documento(), ...extra };
+}
+
+/**
+ * Roda o handler como dentro de uma request do Next e devolve as tags que ele invalidou. Fora disso,
+ * o `revalidateTag` lança ("static generation store missing"). Usa interno do Next 15.5
+ * (`pendingRevalidatedTags`): numa atualização, este teste quebra alto, não calado.
+ */
+async function comCacheDoNext(fn: () => Promise<Response>): Promise<{ resposta: Response; tags: string[] }> {
+  const store: { incrementalCache: object; pendingRevalidatedTags?: string[] } = { incrementalCache: {} };
+  const resposta = await contextoDoNext.run(store as never, fn);
+  return { resposta, tags: store.pendingRevalidatedTags ?? [] };
+}
+
+const gravouPagina = () => chamadas.some((c) => c.metodo === "PATCH" && c.url.pathname === "/rest/v1/bio_pages");
 
 // ---- Transversais: valem para todo handler em HANDLERS ----
 
@@ -460,5 +493,141 @@ test("POST: dono, administração e operação criam (campaign:edit)", async () 
     papel = p;
     banco = bancoInicial();
     assert.equal((await POST(pedir("POST"))).status, 201, p);
+  }
+});
+
+// ---- PATCH ----
+
+test("PATCH salva a página inteira, sobe a versão e invalida o slug novo e o antigo", async () => {
+  comPagina();
+  const { resposta: r, tags } = await comCacheDoNext(() => PATCH(pedir("PATCH", undefined, corpoValido({ slug: "ouro-prata-atacado" }))));
+  assert.equal(r.status, 200);
+  const salva = (await r.json()) as PaginaBio;
+  assert.deepEqual([salva.id, salva.slug, salva.versao, salva.publicada], [PAGINA, "ouro-prata-atacado", 4, true]);
+  // Tags da spec §6: o antigo passa a responder 301; o novo pode ter um 404 guardado.
+  for (const tag of ["bio-slug:ouro-prata-atacado", "bio-slug:atelie-ouro-prata", `bio-loja:${LOJA}`, `bio-pagina:${PAGINA}`]) {
+    assert.ok(tags.includes(tag), `${tag} em ${JSON.stringify(tags)}`);
+  }
+  soDaLoja();
+});
+
+test("PATCH volta a um endereço que já foi da própria loja", async () => {
+  comPagina();
+  const { resposta: r } = await comCacheDoNext(() => PATCH(pedir("PATCH", undefined, corpoValido({ slug: "atelie-antigo" }))));
+  assert.equal(r.status, 200);
+  assert.equal(((await r.json()) as PaginaBio).slug, "atelie-antigo");
+});
+
+test("PATCH recusa corpo fora do formato com 400 e o campo, sem gravar", async () => {
+  comPagina();
+  const casos: Array<[corpo: unknown, campo: string | undefined]> = [
+    ["não é json", undefined],
+    [{ ...corpoValido(), tenant_id: OUTRA }, undefined],
+    [{ ...corpoValido(), versao: 0 }, "versao"],
+    [{ ...corpoValido(), versao: "3" }, "versao"],
+    [{ ...corpoValido(), publicada: "sim" }, "publicada"],
+    [{ ...corpoValido(), documento: undefined }, "documento"],
+    // Chave a mais na raiz do documento: o PR 2 aponta caminho vazio, a API responde "documento".
+    [{ ...corpoValido(), documento: { ...documento(), extra: 1 } }, "documento"],
+    [{ ...corpoValido(), documento: { ...documento(), modelo: "neon" } }, "modelo"],
+    [corpoValido({ slug: "Ouro Prata" }), "slug"],
+    [corpoValido({ slug: "ab" }), "slug"],
+    [corpoValido({ slug: "a".repeat(41) }), "slug"],
+    [corpoValido({ slug: "girumo-ouro" }), "slug"],
+    [corpoValido({ slug: "admin" }), "slug"],
+  ];
+  for (const [corpo, campo] of casos) {
+    const r = await PATCH(pedir("PATCH", undefined, corpo));
+    assert.equal(r.status, 400, JSON.stringify(corpo).slice(0, 80));
+    const erro = (await r.json()) as ErroDoPainelBio;
+    assert.equal(typeof erro.error, "string");
+    assert.equal(erro.campo, campo, JSON.stringify(corpo).slice(0, 80));
+  }
+  assert.equal(gravouPagina(), false);
+});
+
+test("PATCH: o número com que a loja posta é recusado (anti-ban), com o campo do link", async () => {
+  comPagina();
+  // O banco guarda sem o nono dígito, o link vem com: a chave do telefone casa os dois (spec §4).
+  const r = await PATCH(pedir("PATCH", undefined, corpoValido({ documento: documento([whats(LINK_WHATS, "5562988887777")]) })));
+  assert.equal(r.status, 400);
+  const erro = (await r.json()) as ErroDoPainelBio;
+  assert.equal(erro.campo, "links.0.numero");
+  assert.match(erro.error, /número que a Girumo usa para postar/);
+  assert.equal(gravouPagina(), false);
+});
+
+test("PATCH: campanha de outra loja no botão do grupo é recusada, sem gravar", async () => {
+  comPagina();
+  const r = await PATCH(pedir("PATCH", undefined, corpoValido({ documento: documento([link(LINK_GRUPO, DA_OUTRA, true)]) })));
+  assert.equal(r.status, 400);
+  assert.match(String(((await r.json()) as ErroDoPainelBio).campo), /^links\.0\./);
+  assert.equal(gravouPagina(), false);
+});
+
+test("PATCH sem página: 404, e nada é gravado", async () => {
+  const r = await PATCH(pedir("PATCH", undefined, corpoValido()));
+  assert.equal(r.status, 404);
+  assert.deepEqual(await r.json(), { error: "Crie a página antes de salvar." });
+  assert.equal(gravouPagina(), false);
+});
+
+test("PATCH: a página some entre a leitura e o UPDATE → 404 (\"sem-pagina\" do store)", async () => {
+  comPagina();
+  sumirNoUpdate = true;
+  assert.equal((await PATCH(pedir("PATCH", undefined, corpoValido()))).status, 404);
+});
+
+test("PATCH com versão velha: 409 \"versao\", nada muda e o cache não é tocado", async () => {
+  comPagina();
+  const { resposta: r, tags } = await comCacheDoNext(() => PATCH(pedir("PATCH", undefined, corpoValido({ versao: 2, slug: "ouro-prata-atacado" }))));
+  assert.equal(r.status, 409);
+  assert.deepEqual(await r.json(), { error: "Outra pessoa salvou antes. Recarregue pra ver a versão nova.", motivo: "versao" });
+  assert.deepEqual(tags, []);
+  assert.equal(banco.bio_pages.find((p) => p.id === PAGINA)?.slug, "atelie-ouro-prata");
+});
+
+test("PATCH com endereço de outra loja, atual ou antigo: 409 \"slug\"", async () => {
+  for (const slug of ["atelie-concorrente", "concorrente-antigo"]) {
+    banco = bancoInicial();
+    comPagina();
+    const r = await PATCH(pedir("PATCH", undefined, corpoValido({ slug })));
+    assert.equal(r.status, 409, slug);
+    assert.deepEqual(await r.json(), { error: "Esse endereço já está em uso. Escolha outro.", motivo: "slug" }, slug);
+  }
+});
+
+test("PATCH: se invalidar o cache falhar, o salvar vale (200)", async () => {
+  comPagina();
+  const silencio = mock.method(console, "error", () => {});
+  try {
+    // Fora do contexto de request do Next, o `revalidateTag` lança.
+    assert.equal((await PATCH(pedir("PATCH", undefined, corpoValido()))).status, 200);
+  } finally {
+    silencio.mock.restore();
+  }
+});
+
+test("PATCH: versão fora do integer do banco é 400 \"versao\", nunca um 500 do Postgres", async () => {
+  // Adição à brief (revisão do PR 2): `bio_pages.versao` é integer e o store grava `versao + 1`.
+  comPagina();
+  for (const versao of [1.5, -1, 1e20, 2147483647]) {
+    const r = await PATCH(pedir("PATCH", undefined, { ...corpoValido(), versao }));
+    assert.equal(r.status, 400, String(versao));
+    assert.equal(((await r.json()) as ErroDoPainelBio).campo, "versao", String(versao));
+  }
+  assert.equal(gravouPagina(), false);
+});
+
+test("PATCH: banco fora responde 500 genérico, sem vazar o erro", async () => {
+  comPagina();
+  falhar = true;
+  const silencio = mock.method(console, "error", () => {});
+  try {
+    const r = await PATCH(pedir("PATCH", undefined, corpoValido()));
+    assert.equal(r.status, 500);
+    assert.deepEqual(await r.json(), { error: "Não deu pra salvar a página." });
+  } finally {
+    silencio.mock.restore();
   }
 });
