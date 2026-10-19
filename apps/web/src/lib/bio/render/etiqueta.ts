@@ -5,7 +5,27 @@
  * fica no ::before (o foco do <a> não é recortado), sem opacity em texto,
  * alvos ≥ 44 px, h1 = nome da loja, nada de style=.
  */
-import { atrasos } from "./partes";
+import { escapeHtml } from "@/lib/campaigns/entry-page";
+import type { ContextoRender, FonteDoModelo, LinkVisivel, ModeloRender } from "./modelo";
+import {
+  CNPJ,
+  LARGURA_MINIATURA,
+  atrasos,
+  blocoConfere,
+  conteudoDoH1,
+  dadosDoLink,
+  destaqueHtml,
+  detalhesDoEndereco,
+  feitoComGirumo,
+  formatarCnpj,
+  hrefAttr,
+  icone,
+  imagem,
+} from "./partes";
+
+const FONTES_ETIQUETA: readonly FonteDoModelo[] = [
+  { familia: "Lexend", arquivo: "lexend/lexend-latin.woff2", peso: "100 900", estilo: "normal" },
+];
 
 const MASCARA =
   "radial-gradient(circle 5.5px at 21px 50%,#0000 96%,#000 100%),linear-gradient(135deg,#0000 15px,#000 15.5px),linear-gradient(45deg,#0000 15px,#000 15.5px)";
@@ -80,3 +100,69 @@ export const CSS_ETIQUETA = [
   "@keyframes et-assenta{0%{transform:rotate(7deg) translateY(10px)}55%{transform:rotate(-2deg)}100%{transform:none}}",
   "@keyframes et-balanca{0%{transform:rotate(-7deg)}28%{transform:rotate(4deg)}56%{transform:rotate(-1.8deg)}80%{transform:rotate(.6deg)}100%{transform:none}}",
 ].join("");
+
+const SIZES_CAPA = "(max-width: 492px) calc(100vw - 32px), 460px";
+const SIZES_CAMINHO = "(max-width: 492px) calc(100vw - 94px), 398px";
+
+function etiquetaDoLink(v: LinkVisivel, c: ContextoRender): string {
+  const l = v.link;
+  const sub = l.sub ? `<span class="et-sub">${escapeHtml(l.sub)}</span>` : "";
+  const texto = `<span class="et-txt"><span class="et-rot">${escapeHtml(l.titulo)}</span>${sub}</span>`;
+  const seta = icone("seta", "i et-seta");
+  if (l.tipo === "endereco") {
+    return detalhesDoEndereco(v, c, {
+      prefixo: "et",
+      classeDoResumo: "et-tag",
+      resumo: `<span class="et-ico">${icone(l.icone)}</span>${texto}${seta}`,
+      foto: { largura: 640, altura: 480, sizes: SIZES_CAMINHO },
+    });
+  }
+  const fotos = l.tipo === "link" ? l.fotos : [];
+  const miniaturas = fotos
+    .map((f) => imagem(f, { largura: 32, altura: 42, sizes: "32px", alt: "", carregamento: "lazy", larguras: LARGURA_MINIATURA }))
+    .join("");
+  const lado = miniaturas
+    ? `<span class="et-capas" aria-hidden="true">${miniaturas}</span>`
+    : `<span class="et-ico${l.icone === "whatsapp" ? " et-ico--zap" : ""}">${icone(l.icone)}</span>`;
+  return `<a class="et-tag${v.principal ? " et-tag--prin" : ""}"${hrefAttr(v.href, c.modo)}${dadosDoLink(v)}>${lado}${texto}${seta}</a>`;
+}
+
+function rodape(c: ContextoRender): string {
+  const doc = c.d.documento;
+  const insta = doc.perfil.instagram ? `<span>Instagram @${escapeHtml(doc.perfil.instagram)}</span>` : "";
+  const cnpj =
+    doc.confere.ativo && CNPJ.test(doc.confere.cnpj)
+      ? `<small>${escapeHtml(doc.perfil.nome)} · CNPJ ${formatarCnpj(doc.confere.cnpj)}</small>`
+      : "";
+  const feito = feitoComGirumo(c);
+  return insta || cnpj || feito ? `<footer class="et-rodape">${insta}${cnpj}${feito}</footer>` : "";
+}
+
+function corpo(c: ContextoRender): string {
+  const doc = c.d.documento;
+  const p = doc.perfil;
+  const local = p.local ? escapeHtml(p.local) : "";
+  const capa = p.capa
+    ? imagem(p.capa, { largura: 640, altura: 512, sizes: SIZES_CAPA, alt: p.capaAlt, carregamento: "prioridade" })
+    : "";
+  const onde = local ? `<figcaption class="et-onde">${icone("mapa")}<span>${local}</span></figcaption>` : "";
+  const vitrine = capa ? `<figure class="et-vitrine">${capa}${onde}</figure>` : "";
+  const localSemFoto = !capa && local ? `<p class="et-local">${icone("mapa")}<span>${local}</span></p>` : "";
+  const h1 = `<h1 class="et-nome">${conteudoDoH1(c, { classe: "et-logo", largura: 190, altura: 84, sizes: "190px" })}</h1>`;
+  const frase = p.frase ? `<p class="et-frase">${escapeHtml(p.frase)}</p>` : "";
+  const fatos = p.destaques.length
+    ? `<ul class="et-fatos">${p.destaques.map((t) => `<li>${destaqueHtml(t)}</li>`).join("")}</ul>`
+    : "";
+  const lista = c.links.length
+    ? `<ul class="et-fio" aria-label="Links da ${escapeHtml(p.nome)}">${c.links.map((v) => `<li>${etiquetaDoLink(v, c)}</li>`).join("")}</ul>`
+    : "";
+  return `<main class="et"><div class="et-col">${vitrine}<header class="et-marca">${h1}${frase}${localSemFoto}${fatos}</header>${lista}${blocoConfere(doc, "et")}${rodape(c)}</div></main>`;
+}
+
+export const etiqueta: ModeloRender = {
+  fontes: FONTES_ETIQUETA,
+  css: CSS_ETIQUETA,
+  corDoTopo: (t) => t["--fundo1"] ?? "",
+  fundoDoLogo: (t) => t["--fundo2"] ?? "",
+  corpo,
+};
