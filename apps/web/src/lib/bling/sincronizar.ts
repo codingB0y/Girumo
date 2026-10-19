@@ -277,7 +277,6 @@ async function releConexao(r: Rodada): Promise<void> {
     ...atual,
     lastSaleAt: maisRecente(atual.lastSaleAt, r.conexao.lastSaleAt),
     situationsAt: maisRecente(atual.situationsAt, r.conexao.situationsAt),
-    salesChannelsAt: maisRecente(atual.salesChannelsAt, r.conexao.salesChannelsAt),
   };
 }
 

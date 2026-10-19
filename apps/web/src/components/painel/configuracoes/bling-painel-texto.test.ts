@@ -18,6 +18,7 @@ import {
   mensagemDoRetorno,
   nomeDoCanal,
   nomeDoCsv,
+  nomesRepetidos,
   pixelEmUso,
   reais,
   reaisCurtos,
@@ -208,7 +209,7 @@ test("canais: o resumo do Meta diz quantos ficaram de fora; a legenda tem pedido
   // Sem o escopo de canais: o número. Com: o nome que a conta deu.
   assert.equal(nomeDoCanal(canal(200000001, false)), "Canal 200000001");
   assert.equal(nomeDoCanal({ id: 200000001, nome: "Loja Yampi" }), "Loja Yampi");
-  const semNome = { nome: null, tipo: null, ativo: true };
+  const semNome = { id: 200000001, nome: null, tipo: null, ativo: true };
   // "2026-10-18" é o dia do pedido no Bling: como data UTC ele viraria 17/10 em Brasília.
   assert.equal(
     legendaDoCanal({ ...semNome, pedidos: 1240, exemplos: ["1532", "1530", "1529"], ultimo_pedido_em: "2026-10-18" }),
@@ -217,10 +218,18 @@ test("canais: o resumo do Meta diz quantos ficaram de fora; a legenda tem pedido
   assert.equal(legendaDoCanal({ ...semNome, pedidos: 1, exemplos: [], ultimo_pedido_em: null }), "1 pedido");
   assert.equal(legendaDoCanal({ ...semNome, pedidos: 0, exemplos: [], ultimo_pedido_em: null }), "sem pedido recente");
   // O tipo quando diz algo além do nome; o desabilitado avisa.
-  const yampi = { nome: "Loja Yampi", tipo: "Yampi", ativo: true, pedidos: 0, exemplos: [], ultimo_pedido_em: null };
+  const yampi = { id: 200000001, nome: "Loja Yampi", tipo: "Yampi", ativo: true, pedidos: 0, exemplos: [], ultimo_pedido_em: null };
   assert.equal(legendaDoCanal(yampi), "Yampi · sem pedido recente");
   assert.equal(legendaDoCanal({ ...yampi, nome: "Yampi" }), "sem pedido recente");
   assert.equal(legendaDoCanal({ ...yampi, ativo: false, pedidos: 2, exemplos: ["9"] }), "Yampi · desabilitado no Bling · 2 pedidos · nº 9");
+});
+
+test("canais com o mesmo nome (duas contas do mesmo marketplace, sem descrição): a legenda traz o número de cada um", () => {
+  const ml = (id: number) => ({ id, nome: "Mercado Livre", tipo: "Mercado Livre", ativo: true, pedidos: 0, exemplos: [], ultimo_pedido_em: null });
+  const canais = [ml(21), ml(22), { ...ml(23), nome: "Loja Yampi" }, { ...ml(24), nome: null }];
+  assert.deepEqual([...nomesRepetidos(canais)], ["Mercado Livre"]);
+  assert.equal(legendaDoCanal(ml(21), true), "Canal 21 · sem pedido recente");
+  assert.equal(legendaDoCanal(ml(21)), "sem pedido recente");
 });
 
 test("nome do CSV: o da rota, ou um com a lista", () => {

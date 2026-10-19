@@ -379,7 +379,7 @@ test("listarCanaisDeVenda: /canais-venda paginado (100), nome = descrição (sen
   const pagina1 = [
     { id: 200000001, descricao: "Loja Yampi", tipo: "Yampi", situacao: 1 },
     { id: "200000002", descricao: " ", tipo: "Shopee", situacao: 2 },
-    { id: 200000003, descricao: null, tipo: null, situacao: 1 },
+    { id: 200000003, descricao: "\u0000\u0007", tipo: null, situacao: 1 },
     { id: 0, descricao: "sem id", tipo: "API", situacao: 1 },
     "torto",
     ...Array.from({ length: 95 }, (_, i) => ({ id: 300000000 + i, descricao: `Canal ${i}`, tipo: "API", situacao: 1 })),
@@ -399,10 +399,10 @@ test("listarCanaisDeVenda: /canais-venda paginado (100), nome = descrição (sen
   assert.deepEqual(canais.at(-1), { id: 400000001, nome: "Nuvem", tipo: "Nuvemshop", ativo: true });
 });
 
-test("listarCanaisDeVenda: página curta encerra; para em 10 páginas; 403 (sem o escopo) sobe como escopo", async () => {
-  const curta = clienteFalso([{ data: [{ id: 1, descricao: "A", tipo: "API", situacao: 1 }] }]);
-  assert.equal((await listarCanaisDeVenda(curta.cliente)).length, 1);
-  assert.equal(curta.chamadas.length, 1);
+test("listarCanaisDeVenda: página curta encerra; para em 10 páginas; 403 (sem o escopo) sobe como escopo; prazo vai ao cliente", async () => {
+  const curta = clienteFalso([{ data: [{ id: 1, descricao: "Loja\u0000 A", tipo: "API", situacao: 1 }] }]);
+  assert.deepEqual(await listarCanaisDeVenda(curta.cliente, 1_234_567), [{ id: 1, nome: "Loja A", tipo: "API", ativo: true }]);
+  assert.deepEqual([curta.chamadas.length, curta.chamadas[0].prazo], [1, 1_234_567]);
 
   const cheia = Array.from({ length: 100 }, (_, i) => ({ id: i + 1, descricao: "x", tipo: "API", situacao: 1 }));
   const sempre = clienteFalso(Array.from({ length: 12 }, () => ({ data: cheia })));

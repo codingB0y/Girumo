@@ -251,14 +251,27 @@ export function nomeDoCanal(c: Pick<CanalDoCartao, "id" | "nome">): string {
   return c.nome ?? `Canal ${c.id}`;
 }
 
-/** O tipo (Yampi, Shopee) e os números dos pedidos: é por eles que a dona acha o canal no Bling. */
+/** Nomes que aparecem em mais de um canal (duas contas do mesmo marketplace sem descrição: o nome vira o tipo). */
+export function nomesRepetidos(canais: readonly Pick<CanalDoCartao, "nome">[]): ReadonlySet<string> {
+  const vistos = new Set<string>();
+  const repetidos = new Set<string>();
+  for (const { nome } of canais) if (nome !== null) (vistos.has(nome) ? repetidos : vistos).add(nome);
+  return repetidos;
+}
+
+/**
+ * O tipo (Yampi, Shopee) e os números dos pedidos: é por eles que a dona acha o canal no Bling. `repetido` = outro canal
+ * tem o mesmo nome: o número dele entra, senão as duas linhas seriam iguais e marcar a errada duplicaria a venda no Meta.
+ */
 export function legendaDoCanal(
-  c: Pick<CanalDoCartao, "nome" | "tipo" | "ativo" | "pedidos" | "exemplos" | "ultimo_pedido_em">,
+  c: Pick<CanalDoCartao, "id" | "nome" | "tipo" | "ativo" | "pedidos" | "exemplos" | "ultimo_pedido_em">,
+  repetido = false,
 ): string {
   // Dia do pedido no Bling ("YYYY-MM-DD"): sem passar por Date, que o leria em UTC e voltaria um dia em Brasília.
   const [, mes, dia] = c.ultimo_pedido_em?.split("-") ?? [];
   const pedidos = c.pedidos === 0 ? "sem pedido recente" : c.pedidos === 1 ? "1 pedido" : `${contagem(c.pedidos)} pedidos`;
   return [
+    repetido ? `Canal ${c.id}` : null,
     c.tipo && c.tipo !== c.nome ? c.tipo : null,
     c.ativo ? null : "desabilitado no Bling",
     pedidos,

@@ -98,11 +98,11 @@ export async function listarSituacoesDeVenda(c: ClienteBling): Promise<SituacaoB
  * GET /canais-venda, todas as páginas. Pede o escopo "Canais de venda" no app: sem ele o Bling responde 403, que
  * sobe como `escopo` (quem chama decide; o motor segue sem os nomes). Canal sem id positivo sai da lista.
  */
-export async function listarCanaisDeVenda(c: ClienteBling): Promise<CanalBling[]> {
+export async function listarCanaisDeVenda(c: ClienteBling, prazo?: number): Promise<CanalBling[]> {
   const caminho = "/canais-venda";
   const canais: CanalBling[] = [];
   for (let pagina = 1; pagina <= PAGINAS_DE_CANAIS; pagina += 1) {
-    const itens = listaDaResposta(await c.get(caminho, { pagina, limite: LIMITE_PADRAO }), caminho);
+    const itens = listaDaResposta(await c.get(caminho, { pagina, limite: LIMITE_PADRAO }, prazo), caminho);
     canais.push(...itens.flatMap(canalDaConta));
     if (itens.length < LIMITE_PADRAO) break;
   }
@@ -267,8 +267,14 @@ function canalDaConta(item: unknown): CanalBling[] {
   const c = canalCru.safeParse(item);
   const id = c.success ? idPositivo(c.data.id) : null;
   if (!c.success || id === null) return [];
-  const tipo = texto(c.data.tipo);
-  return [{ id, nome: texto(c.data.descricao) ?? tipo, tipo, ativo: Number(c.data.situacao) === 1 }];
+  const tipo = semControle(texto(c.data.tipo));
+  return [{ id, nome: semControle(texto(c.data.descricao)) ?? tipo, tipo, ativo: Number(c.data.situacao) === 1 }];
+}
+
+/** O nome vai para um jsonb, que recusa \u0000: caractere de controle sai (e o que sobra vazio vira null). */
+function semControle(t: string | null): string | null {
+  const limpo = t?.replace(/[\u0000-\u001f\u007f]/g, "").trim();
+  return limpo ? limpo : null;
 }
 
 const NOMES_DO_MODULO_DE_VENDAS = ["vendas", "pedidos de venda", "pedidos de vendas"];
