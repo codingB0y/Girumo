@@ -333,6 +333,25 @@ test.describe("vendedora: só o que o dono liberou", () => {
     expect(teste.status(), "POST /api/integracoes/site/teste").toBe(403);
   });
 
+  test("as rotas do link da bio respondem 403 para ela", async () => {
+    // Mapa de módulos fechado por padrão (lib/auth/modulos.ts): /api/link-da-bio nasce fora do
+    // acesso dela (spec 2026-10-19-link-da-bio §8, "Vendedora não vê").
+    const respostas = [
+      ["GET /api/link-da-bio", await page.request.get("/api/link-da-bio")],
+      ["POST /api/link-da-bio", await page.request.post("/api/link-da-bio")],
+      // Corpo no formato do envelope: o 403 tem de vir do guard, não de uma validação.
+      ["PATCH /api/link-da-bio", await page.request.patch("/api/link-da-bio", {
+        data: { versao: 1, slug: "loja-e2e", publicada: false, documento: {} },
+      })],
+      ["GET /api/link-da-bio/slug", await page.request.get("/api/link-da-bio/slug?valor=loja-e2e")],
+      ["GET /api/link-da-bio/relatorio", await page.request.get("/api/link-da-bio/relatorio?dias=7")],
+    ] as const;
+    for (const [rota, resposta] of respostas) {
+      expect(resposta.status(), rota).toBe(403);
+      expect(await resposta.text(), rota).toBe(MENSAGEM_BLOQUEIO);
+    }
+  });
+
   test("página fora do acesso mostra o bloqueio e volta para Vendas", async () => {
     await page.goto("/painel/contatos");
     await expect(page.getByRole("heading", { name: "Essa área não foi liberada pra você" })).toBeVisible();
