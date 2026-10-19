@@ -85,6 +85,13 @@ export const CONTEUDO_ESPERADO_ADMIN: Record<string, ConteudoAdmin> = {
   },
 
   // As duas telas do B.1. Sao a razao de este arquivo existir.
+  "/admin/bling": {
+    ancora: /Bling: homologa[çc][ãa]o do app/,
+    // A lista sao as conexoes de bling_connections com status diferente de `desconectada` (`lojasComBling`): a
+    // contagem da tabela inteira conta tambem as desconectadas (e as que os testes do Bling criam e apagam), e
+    // cobraria o estado-vazio errado.
+    semLista: "Lista filtrada por status (sem as desconectadas); a contagem da tabela inteira nao corresponde.",
+  },
   "/admin/billing": {
     ancora: /Billing/,
     contagem: { tabela: "subscriptions", vazio: /Nenhuma assinatura encontrada/ },
