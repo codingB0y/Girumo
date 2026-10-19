@@ -9,18 +9,21 @@ import type { EvolutionGroups } from "./evolution-groups.js";
 import type { EvolutionSender } from "./evolution-sender.js";
 import { makeGrowDeps } from "./grow-deps.js";
 import { makeSendDeps } from "./send-loop.js";
-import { MIN_REMAINING_SECONDS, SIGNED_URL_TTL_SECONDS, createSignedUrlCache } from "./signed-url-cache.js";
+import { createSignedUrlCache } from "./signed-url-cache.js";
 
 // Ids fictícios: o repositório é público.
 const TENANT = "11111111-2222-4333-8444-555555555555";
-const VIDEO = `${TENANT}/media/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.mp4`;
+const OUTRA_LOJA = "99999999-8888-4777-8666-555555555555";
+const ARQUIVO_VIDEO = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.mp4";
+const VIDEO = `${TENANT}/media/${ARQUIVO_VIDEO}`;
 const FOTO = `${TENANT}/media/0b8c2d1e-4f5a-4b6c-8d7e-9f0a1b2c3d4e.jpg`;
+const MINUTO = 60_000;
 
 /** Cada assinatura devolve um token novo — como o Storage de verdade. */
 function assinador(resposta: (path: string) => string | null = (path) => path) {
   const chamadas: string[] = [];
-  const sign = async (path: string, ttl: number): Promise<string | null> => {
-    assert.equal(ttl, SIGNED_URL_TTL_SECONDS);
+  const sign = async (path: string, ttlSeconds: number): Promise<string | null> => {
+    assert.equal(ttlSeconds, 3600, "o link vale 1 hora");
     chamadas.push(path);
     const base = resposta(path);
     return base === null ? null : `https://cdn.test/${base}?token=${chamadas.length}`;
@@ -35,19 +38,19 @@ test("a mesma mídia reaproveita o link: o CDN só serve do cache o MESMO token"
   const signedUrl = createSignedUrlCache(sign, () => agora);
 
   const primeiro = await signedUrl(VIDEO);
-  agora += 30 * 60_000; // meia hora depois, ainda no meio da postagem
+  agora += 30 * MINUTO; // meia hora depois, ainda no meio da postagem
   assert.equal(await signedUrl(VIDEO), primeiro);
   assert.deepEqual(chamadas, [VIDEO]);
 });
 
-test("assina de novo quando falta pouco para o link vencer", async () => {
+test("reassina quando faltam menos de 10 minutos para o link vencer", async () => {
   let agora = 0;
   const { sign, chamadas } = assinador();
   const signedUrl = createSignedUrlCache(sign, () => agora);
   const primeiro = await signedUrl(VIDEO);
 
-  agora = (SIGNED_URL_TTL_SECONDS - MIN_REMAINING_SECONDS) * 1000;
-  assert.equal(await signedUrl(VIDEO), primeiro, "no limite ainda vale");
+  agora = 50 * MINUTO; // faltam exatamente 10 min
+  assert.equal(await signedUrl(VIDEO), primeiro, "com 10 min de folga ainda vale");
 
   agora += 1;
   const segundo = await signedUrl(VIDEO);
@@ -56,10 +59,12 @@ test("assina de novo quando falta pouco para o link vencer", async () => {
   assert.equal(await signedUrl(VIDEO), segundo, "o link novo passa a ser o reaproveitado");
 });
 
-test("mídias diferentes não dividem link", async () => {
+test("mídias diferentes não dividem link, nem o mesmo arquivo em lojas diferentes", async () => {
   const { sign } = assinador();
   const signedUrl = createSignedUrlCache(sign, () => 0);
-  assert.notEqual(await signedUrl(VIDEO), await signedUrl(FOTO));
+  const video = await signedUrl(VIDEO);
+  assert.notEqual(video, await signedUrl(FOTO));
+  assert.notEqual(video, await signedUrl(`${OUTRA_LOJA}/media/${ARQUIVO_VIDEO}`));
 });
 
 test("falha ao assinar não fica guardada: o próximo envio tenta de novo", async () => {
@@ -107,4 +112,17 @@ test("os três pontos que assinam mídia reaproveitam o link (envio, ações em 
   const auto = makeGrowDeps(grow.supabase, {} as AppClient, {} as EvolutionGroups);
   assert.equal(await auto.signedMediaUrl(mediaId(FOTO), TENANT), await auto.signedMediaUrl(mediaId(FOTO), TENANT));
   assert.equal(grow.assinadas.length, 1, "auto-grow");
+});
+
+test("ações em massa e auto-grow checam a loja ANTES do cache", async () => {
+  // Job forjado de outra loja com o mediaId desta: não pode levar o link que esta loja já aqueceu.
+  const massa = supabaseFalso();
+  const bulk = makeBulkDeps(massa.supabase, {} as AppClient, {} as EvolutionGroups);
+  assert.ok(await bulk.signedMediaUrl(mediaId(FOTO), TENANT));
+  assert.equal(await bulk.signedMediaUrl(mediaId(FOTO), OUTRA_LOJA), null, "ações em massa");
+
+  const grow = supabaseFalso();
+  const auto = makeGrowDeps(grow.supabase, {} as AppClient, {} as EvolutionGroups);
+  assert.ok(await auto.signedMediaUrl(mediaId(FOTO), TENANT));
+  assert.equal(await auto.signedMediaUrl(mediaId(FOTO), OUTRA_LOJA), null, "auto-grow");
 });

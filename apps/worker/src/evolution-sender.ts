@@ -23,7 +23,7 @@ export class EvolutionSendError extends Error {
 export type SendTextOptions = { mentionAll?: boolean };
 
 export type SendMediaInput = {
-  /** URL alcançável pela Evolution (assinada na hora do envio) ou base64. */
+  /** URL alcançável pela Evolution (link assinado, reaproveitado entre grupos) ou base64. */
   media: string;
   mediatype: "image" | "video" | "document";
   caption?: string;
@@ -38,7 +38,7 @@ export type SendMediaInput = {
  * forma de onda), não como arquivo anexado. Nota de voz não tem legenda.
  */
 export type SendAudioInput = {
-  /** URL alcançável pela Evolution (assinada na hora do envio) ou base64. */
+  /** URL alcançável pela Evolution (link assinado, reaproveitado entre grupos) ou base64. */
   audio: string;
 };
 
