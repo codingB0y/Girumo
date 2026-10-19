@@ -15,6 +15,9 @@ import type { EstadoDoGrupo, EstadoGrupo } from "@/lib/groups/estado";
  */
 export const MAX_BASE = 90;
 
+/** 409 da rota com renome da campanha ainda na fila; a tela compara o texto para não oferecer "Recarregar". */
+export const RENOMES_PENDENTES = "Ainda tem nome sendo trocado nesta campanha. Espere terminar para padronizar de novo.";
+
 /** Linha de `GET /api/campanhas/conflitos` (contrato §4, PR 6). */
 export type Conflito = ConflitoDeGrupo;
 
@@ -209,9 +212,10 @@ export type LinhaDoPadrao = {
 export type ResumoDoPadrao = { linhas: LinhaDoPadrao[]; mudam: number; jaCertos: number; proximo: string };
 
 /**
- * A prévia da tela. `tamanhoDoPool` é `group_ids.length` — o mesmo `poolSize` que
- * o `nextSeq` usa —, então "Próximo grupo criado sozinho" é o nome que o
- * auto-grow vai dar.
+ * A prévia da tela. `tamanhoDoPool` é quantas posições têm número — os grupos com
+ * estado, sem Pai/Avisos nem JID órfão do `group_ids` —, a mesma conta que o
+ * auto-grow faz com o `pool` (`evaluateAutoGrowSupabase`), então "Próximo grupo
+ * criado sozinho" é o nome que ele vai dar.
  */
 export function resumoDoPadrao(input: {
   ordem: readonly string[];

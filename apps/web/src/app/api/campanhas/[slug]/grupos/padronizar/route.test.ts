@@ -121,6 +121,7 @@ function banco(over: Tabelas = {}, role = "owner"): (chamada: Chamada) => Respos
   const tabelas: Tabelas = {
     "GET /rest/v1/campaign_groups": () => ({ status: 200, corpo: [CAMPANHA] }),
     "GET /rest/v1/group_grow_jobs": () => ({ status: 200, corpo: [] }),
+    "GET /rest/v1/group_bulk_jobs": () => ({ status: 200, corpo: [] }),
     "POST /rest/v1/rpc/campaign_group_states": () => ({ status: 200, corpo: ESTADOS }),
     "POST /rest/v1/rpc/grupos_em_mais_de_uma_campanha": () => ({ status: 200, corpo: CONFLITOS }),
     "POST /rest/v1/rpc/reordenar_campanha": () => ({ status: 200, corpo: true }),
@@ -242,6 +243,22 @@ test("grupo novo nascendo agora: 409 sem reordenar — ele nasceria com o nome a
   assert.equal(escritas().length, 0);
   const [voo] = feitas("GET", "/rest/v1/group_grow_jobs");
   assert.equal(voo?.url.searchParams.get("tenant_id"), "eq.loja-b");
+});
+
+test("renome desta campanha ainda na fila: 409 sem reordenar, enfileirar nem gravar o molde", async () => {
+  chamadas.length = 0;
+  // `groups.name` só muda no ack `done`: com o lote anterior pendente, os mesmos
+  // grupos ainda parecem "muda" e entrariam de novo num lote novo (outro batch_id).
+  responder = banco({ "GET /rest/v1/group_bulk_jobs": () => ({ status: 200, corpo: [{ id: "job-velho" }] }) });
+
+  const res = await padronizar({ base: "Moda Kids do Sul", ordem: ORDEM, esperado: ESPERADO });
+
+  assert.equal(res.status, 409);
+  assert.match(((await res.json()) as { error: string }).error, /nome sendo trocado/);
+  assert.equal(escritas().length, 0);
+  const [pendente] = feitas("GET", "/rest/v1/group_bulk_jobs");
+  assert.equal(pendente?.url.searchParams.get("tenant_id"), "eq.loja-b");
+  assert.equal(pendente?.url.searchParams.get("campaign_group_id"), `eq.${CAMPANHA_ID}`);
 });
 
 test("base inválida responde 400 sem tocar estado, conflito nem fila", async () => {

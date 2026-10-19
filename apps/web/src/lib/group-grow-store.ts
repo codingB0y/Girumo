@@ -146,9 +146,12 @@ async function evaluateAutoGrowSupabase(tenantId: string): Promise<void> {
     const seq = await supaJobs.nextSeq(tenantId, c.id, c.group_ids.length);
     // O número do nome não é o `seq`: o `seq` é único por campanha (índice
     // tenant+campanha+seq) e segue a fila inteira, mesmo com jobs 21–26 de antes.
-    // Depois do Padronizar o pool é <base> 1..N em ordem, então o próximo é N+1
-    // (a mesma conta de `resumoDoPadrao.proximo`).
-    const numero = template.padronizadoEm ? c.group_ids.length + 1 : seq;
+    // Depois do Padronizar o pool é <base> 1..N em ordem, então o próximo é N+1.
+    // N é o `pool` acima, não o `group_ids` cru: Pai/Avisos e JID sem linha em
+    // `groups` ficam no array mas não ganham número — são as linhas que
+    // `estados_da_campanha` deixa de fora, e a tela passa `ordem.length` para
+    // `resumoDoPadrao.proximo`, a mesma conta.
+    const numero = template.padronizadoEm ? pool.length + 1 : seq;
     await supaJobs.enqueueGrowJob(tenantId, {
       campaign_group_id: c.id,
       campaign_slug: c.slug ?? "",

@@ -11,6 +11,7 @@ import { COMUNIDADE_NATIVA_MENSAGEM } from "@/lib/communities/validation";
 import type { EstadoGrupo } from "@/lib/groups/estado";
 import {
   NOTA_DA_DECISAO,
+  RENOMES_PENDENTES,
   baseInicial,
   conflitosDaCampanha,
   mover,
@@ -127,11 +128,16 @@ export default function PadronizarNomesPage() {
         base: baseDaPrevia,
         estados: estados ?? [],
         conflitos: daCampanha.jids,
-        tamanhoDoPool: campanha?.groupIds.length ?? 0,
+        // Só as linhas numeradas: Pai/Avisos e JID órfão seguem no `groupIds` mas
+        // não têm número — o auto-grow conta o mesmo (`pool.length + 1`).
+        tamanhoDoPool: ordem.length,
       }),
-    [ordem, baseDaPrevia, estados, daCampanha, campanha],
+    [ordem, baseDaPrevia, estados, daCampanha],
   );
   const loteDesta = resultado && progresso?.batchId === resultado.batchId ? progresso : null;
+  // Renome ainda na fila (deste clique ou de um Padronizar anterior, achado no mount):
+  // padronizar de novo agora repetiria os mesmos renomes, e a rota recusa (409).
+  const renomeando = !!progresso && progresso.pending > 0 && progresso.actions.includes("set_subject");
 
   const mensagem = !resultado
     ? ""
@@ -159,8 +165,10 @@ export default function PadronizarNomesPage() {
       const texto = e instanceof Error ? e.message : "Não foi possível aplicar.";
       setErro(texto);
       // 409 de lista mudada ou de grupo nascendo se resolve recarregando; o de
-      // comunidade nativa, não — ali o botão só repetiria o mesmo erro.
-      setListaMudou(status === 409 && texto !== COMUNIDADE_NATIVA_MENSAGEM);
+      // comunidade nativa e o de renome pendente, não — ali o botão só repetiria
+      // o mesmo erro. No de renome pendente, buscar o lote trava o botão até acabar.
+      setListaMudou(status === 409 && texto !== COMUNIDADE_NATIVA_MENSAGEM && texto !== RENOMES_PENDENTES);
+      if (texto === RENOMES_PENDENTES) void lerProgresso();
     } finally {
       enviandoAgora.current = false;
       setEnviando(false);
@@ -234,7 +242,7 @@ export default function PadronizarNomesPage() {
                   }}
                 />
               </div>
-              {loteDesta.failed > 0 && (
+              {loteDesta.failed > 0 && loteDesta.pending === 0 && (
                 <p className="mt-1.5 text-13 text-atencao">
                   {loteDesta.failed} não mudaram de nome (sem admin ou o WhatsApp recusou). Padronize de novo para
                   tentar só neles.
@@ -249,16 +257,18 @@ export default function PadronizarNomesPage() {
             >
               Voltar para a campanha
             </Link>
-            <button
-              type="button"
-              onClick={() => {
-                setResultado(null);
-                void carregar();
-              }}
-              className="min-h-11 rounded-lg border border-line-200 bg-paper-0 px-4 text-sm font-medium text-volt-950 transition-colors hover:border-slate-600"
-            >
-              Padronizar de novo
-            </button>
+            {!renomeando && (
+              <button
+                type="button"
+                onClick={() => {
+                  setResultado(null);
+                  void carregar();
+                }}
+                className="min-h-11 rounded-lg border border-line-200 bg-paper-0 px-4 text-sm font-medium text-volt-950 transition-colors hover:border-slate-600"
+              >
+                Padronizar de novo
+              </button>
+            )}
           </div>
         </section>
       ) : estados.length === 0 ? (
@@ -394,7 +404,13 @@ export default function PadronizarNomesPage() {
             </table>
           </section>
 
-          <div className="flex flex-wrap justify-end gap-2.5">
+          <div className="flex flex-wrap items-center justify-end gap-2.5">
+            {renomeando && (
+              <p id="padronizar-renomeando" className="text-13 text-slate-600">
+                Ainda tem nome sendo trocado ({progresso.done + progresso.failed} de {progresso.total}). Espere
+                terminar para padronizar de novo.
+              </p>
+            )}
             <Link
               href={voltar}
               className="inline-flex min-h-11 items-center rounded-lg border border-line-200 bg-paper-0 px-4 text-sm font-medium text-volt-950 transition-colors hover:border-slate-600"
@@ -404,7 +420,8 @@ export default function PadronizarNomesPage() {
             <button
               type="button"
               onClick={() => void aplicar()}
-              disabled={!validacao.ok || enviando || ordem.length === 0}
+              disabled={!validacao.ok || enviando || ordem.length === 0 || renomeando}
+              aria-describedby={renomeando ? "padronizar-renomeando" : undefined}
               className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-cobalt-500 px-4 text-sm font-semibold text-white transition-[filter] hover:brightness-110 disabled:opacity-50"
             >
               {enviando && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}

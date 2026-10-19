@@ -259,3 +259,25 @@ test("sem Padronizar, ou com data que não é data, o nome continua usando o seq
     assert.equal(corpo?.subject, "Moda Kids do Sul 27");
   }
 });
+
+test("campanha padronizada com Avisos e órfão no group_ids: o nome conta só as posições numeradas", async () => {
+  chamadas.length = 0;
+  const padrao = { subjectPattern: "Moda Kids do Sul {n}", padronizadoEm: "2026-10-10T12:00:00.000Z" };
+  const lotado = { ...GRUPO_ABERTO, lotado_em: "2026-10-09T12:00:00+00:00" };
+  const avisos = { ...GRUPO_ABERTO, id: "row-2", whatsapp_group_id: "avisos@g.us", community_role: "announce" };
+  tabelas = {
+    ...avaliacaoPadronizada(padrao),
+    "GET /rest/v1/campaign_groups": () => ({
+      status: 200,
+      corpo: [{ ...CAMPANHA, group_ids: ["g1@g.us", "avisos@g.us", "orfao@g.us"], grow_template: padrao }],
+    }),
+    "GET /rest/v1/groups": () => ({ status: 200, corpo: [lotado, avisos] }),
+  };
+
+  await evaluateAutoGrow("loja-a");
+
+  const [criado] = feitas("POST", "/rest/v1/group_grow_jobs");
+  // Mutante: contar o `group_ids` cru — o Avisos e o JID sem linha em `groups` não
+  // têm número na sequência (a tela não os numera), e o próximo viraria "… 4".
+  assert.equal((criado?.corpo as Record<string, unknown> | undefined)?.subject, "Moda Kids do Sul 2");
+});

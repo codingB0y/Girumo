@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
 
-import { ackBulk, claimBulk } from "./group-bulk-jobs";
+import { ackBulk, claimBulk, hasPendingSubjectJobs } from "./group-bulk-jobs";
 
 /**
  * O cliente real do Supabase contra um PostgREST de mentira (desenho de
@@ -203,4 +203,26 @@ test("a trava do eco só vale para o renome: open concluído sem eco segue como 
   assert.equal(job?.status, "done");
   const [grupo] = feitas("PATCH", "/rest/v1/groups");
   assert.equal((grupo?.corpo as { send_state?: string }).send_state, "open");
+});
+
+test("renome pendente da campanha: procura só set_subject na fila ou rodando, da loja e da campanha", async () => {
+  for (const [linhas, esperado] of [
+    [[{ id: "job-1" }], true],
+    [[], false],
+  ] as const) {
+    chamadas.length = 0;
+    responder = ({ metodo, url }) =>
+      metodo === "GET" && url.pathname === "/rest/v1/group_bulk_jobs"
+        ? { status: 200, corpo: linhas }
+        : { status: 500, corpo: { message: `inesperado: ${metodo} ${url.pathname}` } };
+
+    assert.equal(await hasPendingSubjectJobs("loja-a", "camp-1"), esperado);
+
+    const [consulta] = feitas("GET", "/rest/v1/group_bulk_jobs");
+    assert.equal(consulta?.url.searchParams.get("tenant_id"), "eq.loja-a");
+    assert.equal(consulta?.url.searchParams.get("campaign_group_id"), "eq.camp-1");
+    assert.equal(consulta?.url.searchParams.get("action"), "eq.set_subject");
+    assert.equal(consulta?.url.searchParams.get("status"), "in.(queued,running)");
+    assert.equal(consulta?.url.searchParams.get("limit"), "1");
+  }
 });

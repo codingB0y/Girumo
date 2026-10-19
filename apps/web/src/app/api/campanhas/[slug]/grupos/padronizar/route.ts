@@ -1,10 +1,16 @@
 import { COMUNIDADE_NATIVA_MENSAGEM } from "@/lib/communities/validation";
 import { buildSubjectJobs } from "@/lib/groups/bulk-batch";
 import { resolveBulkCampaign } from "@/lib/groups/bulk-request";
-import { completarOrdem, padronizarGrowTemplate, planejarRenomes, validarBase } from "@/lib/groups/padronizar";
+import {
+  RENOMES_PENDENTES,
+  completarOrdem,
+  padronizarGrowTemplate,
+  planejarRenomes,
+  validarBase,
+} from "@/lib/groups/padronizar";
 import { listCampaignGroupStates } from "@/lib/stores/campaign-group-states";
 import * as campaignGroupsStore from "@/lib/stores/campaign-groups";
-import { enqueueBulkJobs } from "@/lib/stores/group-bulk-jobs";
+import { enqueueBulkJobs, hasPendingSubjectJobs } from "@/lib/stores/group-bulk-jobs";
 import { listInFlightCampaignIds } from "@/lib/stores/group-grow-jobs";
 
 export const runtime = "nodejs";
@@ -29,7 +35,8 @@ function listaDeTexto(valor: unknown): string[] | null {
  *
  * `esperado` é a lista que a tela estava vendo. Se o conjunto mudou entre o
  * carregamento e o clique (o auto-grow anexou um grupo), `reordenar_campanha`
- * devolve false e a resposta é 409 — nada enfileirado, nada gravado.
+ * devolve false e a resposta é 409 — nada enfileirado, nada gravado. Também 409,
+ * antes de qualquer escrita, se ainda há renome desta campanha na fila.
  *
  * O nome no banco (`groups.name`) só muda no ack `done` de cada renome
  * (`ackBulk`): renome que falha deixa o grupo com o nome antigo nos dois lados.
@@ -74,6 +81,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     // se o grupo for anexado nela, o próprio reordenar devolve false (409).
     if ((await listInFlightCampaignIds(tenantId)).has(campaign.id)) {
       return Response.json({ error: GRUPO_NASCENDO }, { status: 409 });
+    }
+
+    // Renome de um Padronizar anterior ainda pendente: o nome no banco só muda no
+    // ack, então esses grupos sairiam "muda" de novo e entrariam num lote novo —
+    // dois renomes do mesmo grupo (os membros veem "você mudou o nome" duas vezes).
+    // Recusar tudo, e não só pular esses grupos, mantém a contagem da tela igual à da fila.
+    if (await hasPendingSubjectJobs(tenantId, campaign.id)) {
+      return Response.json({ error: RENOMES_PENDENTES }, { status: 409 });
     }
 
     const [estados, conflitos] = await Promise.all([
