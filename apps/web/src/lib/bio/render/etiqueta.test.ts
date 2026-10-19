@@ -10,7 +10,6 @@ import { CSS_BASE, tokensValidos } from "./partes";
 /** Todo par de cor que o CSS do Etiqueta desenha: [frente, fundo, mínimo, onde]. */
 const PARES: [string, string, number, string][] = [
   ["on", "fundo2", 4.5, "frase, nome e Abrir no Google Maps"],
-  ["on", "fundo1", 3, "topo do degradê (o contraste.py do mockup aceita 3)"],
   ["on", "chip", 4.5, "destaques"],
   ["acento", "chip", 4.5, "número do destaque"],
   ["on2", "fundo3", 4.5, "rodapé"],

@@ -162,7 +162,7 @@ function corpo(c: ContextoRender): string {
 export const etiqueta: ModeloRender = {
   fontes: FONTES_ETIQUETA,
   css: CSS_ETIQUETA,
-  corDoTopo: (t) => t["--fundo1"] ?? "",
+  corDoTopo: (t) => t["--fundo2"] ?? "",
   fundoDoLogo: (t) => t["--fundo2"] ?? "",
   corpo,
 };

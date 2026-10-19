@@ -33,6 +33,9 @@ test("cabeça: idioma, título, noindex, descrição, Open Graph, cor do tema, �
   assert.match(html, /<meta property="og:title" content="Ateliê Exemplo Kids">/);
   assert.match(html, /<meta property="og:image" content="https:\/\/www\.girumo\.com\.br\/_next\/image\?url=%2Fapi%2Fp%2Fmedia%2Fcapa-falsa&amp;w=828&amp;q=75">/);
   assert.match(html, /<meta name="theme-color" content="#[0-9A-F]{6}">/);
+  const fundo2 = html.match(/--fundo2:(#[0-9A-Fa-f]{6})/)?.[1];
+  assert.ok(fundo2, "o CSS emite o token --fundo2");
+  assert.equal(html.match(/<meta name="theme-color" content="([^"]+)">/)?.[1], fundo2); // o topo do degradê é o fundo2
   assert.match(html, /<link rel="icon" href="\/_next\/image\?url=%2Fapi%2Fp%2Fmedia%2Flogo-clara-falsa&amp;w=384&amp;q=75">/);
   assert.equal(conta(html, /rel="preload"/g), 1);
   assert.match(html, /<link rel="preload" href="\/fonts\/bio\/lexend\/lexend-latin\.woff2" as="font" type="font\/woff2" crossorigin>/);
