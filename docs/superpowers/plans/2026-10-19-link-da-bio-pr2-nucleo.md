@@ -33,7 +33,7 @@ A Parte 1 pode entrar em `main` antes do PR 1 (é código puro, ninguém importa
 6. **CNPJ alfanumérico.** A Receita emite CNPJ com letras desde julho de 2026 (12 caracteres `[0-9A-Z]` + 2 dígitos verificadores; cada caractere vale o código ASCII − 48). O §9 diz "só dígitos": aqui o `cnpj` é guardado sem pontuação e em maiúsculas, numérico ou alfanumérico (`12.ABC.345/01DE-35` vale). Vazio continua valendo.
 7. **NUL e meio emoji viram 400.** O `jsonb` recusa `\u0000` e surrogate solto — seria 500 no salvar. O schema recusa com mensagem no campo; o `documentoPadrao` corta o nome da loja em 60 sem partir um emoji.
 8. **`SLUG_BIO` já tem o 3–40** (igual ao CHECK do PR 1). **`UUID_BIO` (novo)**: id de link e `campanhaId` são uuid minúsculo — o formato do CHECK `bio_contagens_alvo_check`; maiúsculo seria 23514 no `bio_contar`, então o schema recusa antes (400).
-9. **`linkBio` (novo)**: o schema de um link sozinho, para a folha do painel (PR 6a). Garantias com teste, que o 6a usa: `links` é `z.discriminatedUnion("tipo", …)` (o erro chega em `links.N.campo`), a normalização é idempotente (o painel guarda o normalizado e a API valida de novo) e o `documentoPadrao` sempre passa no schema, com e sem campanha.
+9. **Garantias que o painel usa** (PR 6a, com teste): `links` é `z.discriminatedUnion("tipo", …)` (o erro chega em `links.N.campo`), a normalização é idempotente (o painel guarda o normalizado e a API valida de novo) e o `documentoPadrao` sempre passa no schema, com e sem campanha.
 10. **Mídia da loja**: `midiasPublicasDaLoja` (nova) mora em `media-store.ts`, onde estão `encodeMediaId`/`decodeMediaId` (privados). Vale a mídia cujo id é o canônico do caminho, cujo caminho é da loja e que tem linha em `uploads` com `kind` `lp-media`/`lp-logo` — exatamente o que `/api/p/media/<id>` serve em página pública. Uma consulta para todas as mídias do documento.
 11. **Link mestre** (a mesma regra do PR 5): linha de `tracked_links` com `slug` = slug da campanha **e** `campaign_group_id` = id dela. `listTrackedLinksBySlugs` (nova) busca pelos slugs: `slug` é único no banco inteiro, então volta no máximo uma linha por slug — sem o corte calado de 1000 linhas que `listTrackedLinks` sofre numa loja grande. Lotes de 100 slugs, porque o filtro vai na URL. `linksMestresDasCampanhas` (nova) é a função que o PR 5 pode usar no seletor de campanhas, para painel e página nunca discordarem.
 12. **Número conectado**: `chaveDoTelefone` (DDD + 8 últimos; resolve o nono dígito) contra o telefone de **toda** instância da loja, conectada ou não. Vale para o botão de WhatsApp e para link `wa.me/…`, `api.whatsapp.com/send?phone=…` (e `web.whatsapp.com`, `whatsapp.com`).
@@ -65,7 +65,7 @@ A Parte 1 pode entrar em `main` antes do PR 1 (é código puro, ninguém importa
 | Arquivo | Parte | Responsabilidade |
 |---|---|---|
 | `apps/web/src/lib/campaigns/entry-page.ts` (+ `.test.ts`) | 1 | `escapeHtml` escapa também `'` |
-| `apps/web/src/lib/bio/documento.ts` (+ `.test.ts`) | 1 | tipos e listas do §9, `documentoBio`, `linkBio`, `documentoPadrao` |
+| `apps/web/src/lib/bio/documento.ts` (+ `.test.ts`) | 1 | tipos e listas do §9, `documentoBio`, `documentoPadrao` |
 | `apps/web/src/lib/bio/cores.ts` (+ `.test.ts`) | 1 | contraste, paletas prontas, derivação da marca, anéis de foco |
 | `apps/web/src/lib/stores/bio-pages.ts` (+ `.test.ts`) | 2 | o store do §9 |
 | `apps/web/src/lib/media-store.ts` | 2 | + `midiasPublicasDaLoja` |
@@ -333,7 +333,7 @@ git add apps/web/src/lib/bio/documento.ts apps/web/src/lib/bio/documento.test.ts
 git commit -m "feat(bio): link-da-bio document types and slug rules"
 ```
 
-### Task 3: `documento.ts` — schema `documentoBio`, `linkBio` e `documentoPadrao`
+### Task 3: `documento.ts` — schema `documentoBio` e `documentoPadrao`
 
 **Files:**
 - Modify: `apps/web/src/lib/bio/documento.ts` (imports no topo; o resto no fim)
@@ -341,7 +341,7 @@ git commit -m "feat(bio): link-da-bio document types and slug rules"
 
 **Interfaces:**
 - Consumes: Task 2; `normalizeWhatsappBR(raw: string): string | null` de `@/lib/pages/phone` (devolve `+55DDDNÚMERO`).
-- Produces: `documentoBio: z.ZodType<DocumentoBio>`, `linkBio: z.ZodType<LinkBio>` (novo), `documentoPadrao(i: { nome: string; campanhaId: string | null }): DocumentoBio`.
+- Produces: `documentoBio: z.ZodType<DocumentoBio>`, `documentoPadrao(i: { nome: string; campanhaId: string | null }): DocumentoBio`.
 
 - [ ] **Step 1: Write the failing test** — em `apps/web/src/lib/bio/documento.test.ts`:
 
@@ -356,7 +356,6 @@ import {
   UUID_BIO,
   documentoBio,
   documentoPadrao,
-  linkBio,
   slugReservado,
   type DocumentoBio,
   type LinkBio,
@@ -506,13 +505,6 @@ test("endereço não tem principal: dois 'Como chegar' não contam como dois des
   valido(documento((d) => { d.links.push({ ...(d.links[2] as LinkBio), id: "cccccccc-dddd-4eee-8fff-000000000000" } as LinkBio); }));
 });
 
-test("linkBio valida um link sozinho com as mesmas regras", () => {
-  const r = linkBio.safeParse({ id: L1, tipo: "link", titulo: "Site", sub: "", icone: "site", ativo: true, destaque: false, url: "lojaexemplo.com.br", fotos: [] });
-  assert.ok(r.success);
-  assert.equal(r.data.tipo === "link" && r.data.url, "https://lojaexemplo.com.br/");
-  assert.equal(linkBio.safeParse({ id: L1, tipo: "pix", titulo: "x", sub: "", icone: "link", ativo: true }).success, false);
-});
-
 test("links são uma união discriminada por tipo: o erro aponta o campo do próprio tipo", () => {
   // O painel (PR 6a) põe a mensagem no campo pelo caminho links.<n>.<campo>.
   const zap = documento((d) => {
@@ -554,7 +546,7 @@ test("normalizar duas vezes dá o mesmo documento (o painel guarda o normalizado
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `npx tsx --import ./src/test/server-only-shim.mjs --test src/lib/bio/documento.test.ts`
-Expected: FAIL — `ℹ pass 4`, `ℹ fail 10`, com `TypeError: (0 , import_documento.documentoPadrao) is not a function`.
+Expected: FAIL — `ℹ pass 4`, `ℹ fail 9`, com `TypeError: (0 , import_documento.documentoPadrao) is not a function`.
 
 - [ ] **Step 3: Implementar** — em `apps/web/src/lib/bio/documento.ts`, acrescentar no topo do arquivo (antes do comentário de cabeçalho):
 
@@ -709,9 +701,6 @@ const link = z.discriminatedUnion("tipo", [
   }),
 ]);
 
-/** Um link sozinho — a folha de edição do painel valida com ele antes de pôr na lista. */
-export const linkBio: z.ZodType<LinkBio> = link;
-
 /**
  * Fonte única da validação. `strictObject`: campo desconhecido é erro. Normaliza número
  * (`55`+dígitos), url (`href`), cnpj (sem pontuação), cores (maiúsculas) e @ do Instagram.
@@ -829,7 +818,7 @@ export function documentoPadrao(i: { nome: string; campanhaId: string | null }):
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `npx tsx --import ./src/test/server-only-shim.mjs --test src/lib/bio/documento.test.ts`
-Expected: `ℹ pass 14`, `ℹ fail 0`.
+Expected: `ℹ pass 13`, `ℹ fail 0`.
 
 - [ ] **Step 5: Commit**
 
@@ -1354,7 +1343,7 @@ Expected: `EXIT=0`. Erro `ENOSPC` (disco C: cheio) não é do código: libere es
 cat > "$TEMP/pr2a.md" <<'EOF'
 Parte 1 do PR 2 do link da bio (spec 2026-10-19-link-da-bio §3, §4, §9, §10; plano docs/superpowers/plans/2026-10-19-link-da-bio-pr2-nucleo.md).
 
-- `lib/bio/documento.ts`: tipos e listas do §9, schema zod (`documentoBio`, `linkBio`) e `documentoPadrao`.
+- `lib/bio/documento.ts`: tipos e listas do §9, schema zod (`documentoBio`) e `documentoPadrao`.
 - `lib/bio/cores.ts`: variáveis CSS de cada modelo com contraste conferido (16 paletas do mockup + cores da marca).
 - `escapeHtml` escapa também o apóstrofo (`&#39;`).
 
@@ -2681,7 +2670,7 @@ Se o `kg_insert_text` travar (já travou 30 min), entregar ao Igor em PowerShell
 
 **Parte 1**
 - `escapeHtml` escapa `& < > " '`; as suítes do `/r/` (`entry-page`, `short-link-click`, `link-parado`) seguem verdes.
-- `documento.ts` exporta os nomes do §9 com os tipos do §9, mais `UUID_BIO` e `linkBio`; nem ele nem `cores.ts` importam código de servidor.
+- `documento.ts` exporta os nomes do §9 com os tipos do §9, mais `UUID_BIO`; nem ele nem `cores.ts` importam código de servidor.
 - `documentoBio`: chave a mais é erro; `links` é união discriminada (`links.N.campo`); normalização idempotente; mensagens em português no campo; `documentoPadrao` sempre válido.
 - `coresDoModelo`: as 16 paletas saem hex por hex do `paletas.json` (menos o foco), todo par da lista passa, os 500 sorteados e os tons do meio (cinzas, `#959595`, `#4B9F1D`, `#767676`) passam em texto 4,5, ícone/seta 3 e anel 3; `--foco-fora` só no Romaneio.
 - `verify-local.ps1` e CI verdes; PR mergeado e branch apagada na mesma sessão; `blocker` reescrito.
@@ -2765,7 +2754,6 @@ export const SLUG_BIO: RegExp;                       // /^(?=.{3,40}$)[a-z0-9]+(
 export const SLUGS_RESERVADOS: ReadonlySet<string>;  // _dominio admin api bio girumo painel login ajuda suporte
 export function slugReservado(slug: string): boolean; // reservado, ou contém "girumo"/"hubflow"
 export const UUID_BIO: RegExp;                       // NOVO: /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/ (só minúsculo)
-export const linkBio: z.ZodType<LinkBio>;            // NOVO: um link sozinho, mesmas regras
 export const documentoBio: z.ZodType<DocumentoBio>;
 export function documentoPadrao(i: { nome: string; campanhaId: string | null }): DocumentoBio;
 ```
@@ -2905,5 +2893,5 @@ export async function montarNucleo(a: PaginaAchada): Promise<NucleoBio | null>; 
 | 4a | `paginaPublicaPorSlug`, `paginaPublicaDaLoja`, `BuscaPorSlug`, `invalidarBioDaLoja`, `contarBio(paginaId, "visita")`, `SLUG_BIO`, `documentoPadrao`, `DadosRender` |
 | 4b | `paginaPublicaPorId`, `contarBio(paginaId, linkId)`, `UUID_BIO` para validar o corpo |
 | 5 | `documentoBio`, `documentoPadrao`, `SLUG_BIO` (já com 3–40), `slugReservado`, `conferirDocumentoDaLoja`, `estadoDosLinks`, `linksMestresDasCampanhas`, `lerPaginaDaLoja`, `criarPaginaDaLoja`, `salvarPaginaDaLoja`, `slugDisponivel`, `relatorioBio`, `PaginaBio`, `RelatorioBio`, `invalidarBio` |
-| 6a | `documentoBio`, `linkBio`, `documentoPadrao`, `DocumentoBio`, `LinkBio`, `Icone`, `MidiaRef`, `DadosRender`, `PaginaBio` |
+| 6a | `documentoBio`, `documentoPadrao`, `DocumentoBio`, `LinkBio`, `Icone`, `MidiaRef`, `DadosRender`, `PaginaBio` |
 | 7 | `documentoBio` (rastreio já validado: Pixel 5–20 dígitos, GA4 `G-…` em maiúsculas) |
