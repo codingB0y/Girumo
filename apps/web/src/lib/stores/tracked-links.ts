@@ -52,6 +52,32 @@ export async function getTrackedLinkById(tenantId: string, id: string): Promise<
   return (data as TrackedLink[] | null)?.[0] ?? null;
 }
 
+/** Slugs por pedido: o filtro `in.(…)` vai na URL, e 100 slugs dão uns 5 KB. */
+const SLUGS_POR_PEDIDO = 100;
+
+/**
+ * Os links desta loja com esses slugs. `slug` é único no banco inteiro, então volta no máximo
+ * uma linha por slug — longe do corte calado de 1000 linhas que `listTrackedLinks` sofre numa
+ * loja grande. Sem slug, sem consulta.
+ */
+export async function listTrackedLinksBySlugs(
+  tenantId: string,
+  slugs: readonly string[],
+): Promise<Pick<TrackedLink, "slug" | "campaign_group_id">[]> {
+  const unicos = [...new Set(slugs)];
+  const lotes: string[][] = [];
+  for (let i = 0; i < unicos.length; i += SLUGS_POR_PEDIDO) lotes.push(unicos.slice(i, i + SLUGS_POR_PEDIDO));
+  const respostas = await Promise.all(
+    lotes.map((lote) =>
+      getSupabaseAdmin().from(TABLE).select("slug, campaign_group_id").eq("tenant_id", tenantId).in("slug", lote),
+    ),
+  );
+  return respostas.flatMap(({ data, error }) => {
+    if (error) throw new Error(error.message);
+    return (data ?? []) as Pick<TrackedLink, "slug" | "campaign_group_id">[];
+  });
+}
+
 /**
  * +1 clique, atômico no banco (read-modify-write perderia clique simultâneo).
  * Falha de contador não pode derrubar o redirect — quem chama trata isso.
