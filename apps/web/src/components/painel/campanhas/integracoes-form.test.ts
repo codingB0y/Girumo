@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { etiquetaMeta, type IntegracoesFormValue } from "./integracoes-form";
 
 const VAZIO: IntegracoesFormValue = {
-  meta: { pixel_id: "", evento: "Lead", test_code: "", capi_token_set: false, capi_token_last4: "" },
+  meta: { pixel_id: "", evento: "Lead", test_code: "", enviar_no_link: true, capi_token_set: false, capi_token_last4: "" },
   ga4: { id: "" },
   google_ads: { id: "", label: "" },
 };

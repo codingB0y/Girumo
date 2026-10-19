@@ -6,9 +6,11 @@ import { capiEnvio, pixelDaTela } from "./decisao";
 const semNada = INTEGRACOES_DEFAULTS;
 const comPixel: Integracoes = {
   ...INTEGRACOES_DEFAULTS,
-  meta: { pixel_id: "1234567890", evento: "Lead", capi_token: "", test_code: "" },
+  meta: { pixel_id: "1234567890", evento: "Lead", capi_token: "", test_code: "", enviar_no_link: true },
 };
 const comToken: Integracoes = { ...comPixel, meta: { ...comPixel.meta, capi_token: "EAAsegredo" } };
+/** Pixel e token só para as vendas do Bling: o site da loja já manda o Lead. */
+const naoDispara: Integracoes = { ...comToken, meta: { ...comToken.meta, enviar_no_link: false } };
 
 test("pixel da CAMPANHA ganha do pixel do link", () => {
   assert.equal(pixelDaTela(comPixel, "999999"), "1234567890");
@@ -21,4 +23,10 @@ test("CAPI só com pixel E token E gente de verdade", () => {
   assert.equal(capiEnvio(comToken, false), false, "bot não gera CAPI");
   assert.equal(capiEnvio(comPixel, true), false, "sem token não há CAPI");
   assert.equal(capiEnvio(semNada, true), false);
+});
+
+test("campanha que não dispara no link: nem o pixel dela, nem o do link, nem CAPI", () => {
+  assert.equal(pixelDaTela(naoDispara, "999999"), undefined, "o pixel antigo do link não volta pela porta dos fundos");
+  assert.equal(pixelDaTela(naoDispara, undefined), undefined);
+  assert.equal(capiEnvio(naoDispara, true), false);
 });

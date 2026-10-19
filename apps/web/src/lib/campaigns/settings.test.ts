@@ -168,7 +168,7 @@ for (const valor of [tokenPlausivel, ""]) {
 
 const comToken: Integracoes = {
   ...INTEGRACOES_DEFAULTS,
-  meta: { pixel_id: "1234567890", evento: "Lead", capi_token: "EAAsegredo", test_code: "" },
+  meta: { pixel_id: "1234567890", evento: "Lead", capi_token: "EAAsegredo", test_code: "", enviar_no_link: true },
 };
 const patchBase = { ga4: { id: "" }, google_ads: { id: "", label: "" } };
 
@@ -203,6 +203,32 @@ assert.equal(
 );
 // Google Ads sem rótulo não conta: sem `send_to` o gtag não dispara nada.
 assert.equal(hasIntegracao({ ...INTEGRACOES_DEFAULTS, google_ads: { id: "AW-1", label: "" } }), false);
+
+// --- integrações: disparar no clique do link --------------------------------
+
+// Sem o campo gravado o link dispara: toda campanha de antes continua igual.
+assert.equal(readIntegracoes({ settings: { integracoes: { meta: { pixel_id: "1234567890" } } } }).meta.enviar_no_link, true);
+// Só `false` explícito desliga; lixo não desliga.
+assert.equal(readIntegracoes({ settings: { integracoes: { meta: { enviar_no_link: false } } } }).meta.enviar_no_link, false);
+assert.equal(readIntegracoes({ settings: { integracoes: { meta: { enviar_no_link: "false" } } } }).meta.enviar_no_link, true);
+
+// O PATCH aceita o booleano e recusa qualquer outra coisa.
+const comEnvio = (v: unknown) =>
+  parseIntegracoesPatch({ meta: { pixel_id: "", evento: "Lead", test_code: "", enviar_no_link: v }, ...patchBase });
+assert.equal(comEnvio(false).ok, true);
+assert.equal(comEnvio(true).ok, true);
+assert.equal(comEnvio("nao").ok, false);
+
+// Ausente MANTÉM (a aba aberta antes do deploy não religa o link); presente troca.
+const naoDispara: Integracoes = { ...comToken, meta: { ...comToken.meta, enviar_no_link: false } };
+const semCampo = { ...patchBase, meta: { pixel_id: "1234567890", evento: "Lead", test_code: "" } };
+assert.equal(mergeIntegracoes(naoDispara, semCampo).meta.enviar_no_link, false);
+assert.equal(mergeIntegracoes(naoDispara, { ...semCampo, meta: { ...semCampo.meta, enviar_no_link: true } }).meta.enviar_no_link, true);
+assert.equal(mergeIntegracoes(comToken, { ...semCampo, meta: { ...semCampo.meta, enviar_no_link: false } }).meta.enviar_no_link, false);
+
+// Pixel que não dispara no link não abre a tela de entrada sozinho; o GA4 ainda abre.
+assert.equal(hasIntegracao(naoDispara), false);
+assert.equal(hasIntegracao({ ...naoDispara, ga4: { id: "G-X1" } }), true);
 
 // --- integrações: merge sem mutação -----------------------------------------
 

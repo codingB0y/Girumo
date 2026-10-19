@@ -2,7 +2,13 @@ import Link from "next/link";
 import type { EntradaSettings } from "@/lib/campaigns/settings";
 
 /** O que o chip do pixel precisa saber — a forma pública, sem o token. */
-type PixelResumo = { meta: { pixel_id: string } };
+type PixelResumo = { meta: { pixel_id: string; enviar_no_link?: boolean } };
+
+function chipDoPixel(i: PixelResumo): string {
+  if (!i.meta.pixel_id) return "Pixel · não configurado";
+  // O resumo é do LINK: pixel guardado só para as vendas não é evento no clique.
+  return i.meta.enviar_no_link === false ? "Pixel · não dispara no link" : `Pixel · …${i.meta.pixel_id.slice(-4)}`;
+}
 
 /** Rótulos EXATOS — a E2E casa por eles. */
 export function chipLabels(e: EntradaSettings, i?: PixelResumo): string[] {
@@ -18,7 +24,7 @@ export function chipLabels(e: EntradaSettings, i?: PixelResumo): string[] {
   }
   // O pixel entra por último: é o que o lojista confere ao subir um anúncio,
   // não o que ele olha todo dia.
-  if (i) chips.push(`Pixel · ${i.meta.pixel_id ? `…${i.meta.pixel_id.slice(-4)}` : "não configurado"}`);
+  if (i) chips.push(chipDoPixel(i));
   return chips;
 }
 

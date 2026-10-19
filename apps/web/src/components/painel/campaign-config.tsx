@@ -64,7 +64,7 @@ type PaginaDaApi = { slug: string; title?: string; status?: string };
 
 /** Forma vazia da aba Integrações — espelha `INTEGRACOES_DEFAULTS` já mascarado. */
 const INTEGRACOES_FORM_VAZIO: IntegracoesFormValue = {
-  meta: { pixel_id: "", evento: "Lead", test_code: "", capi_token_set: false, capi_token_last4: "" },
+  meta: { pixel_id: "", evento: "Lead", test_code: "", enviar_no_link: true, capi_token_set: false, capi_token_last4: "" },
   ga4: { id: "" },
   google_ads: { id: "", label: "" },
 };
@@ -251,6 +251,7 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
         pixel_id: integracoes.meta.pixel_id,
         evento: integracoes.meta.evento,
         test_code: integracoes.meta.test_code,
+        enviar_no_link: integracoes.meta.enviar_no_link,
         ...(capi_token_novo === undefined ? {} : { capi_token: capi_token_novo }),
       },
       ga4: integracoes.ga4,

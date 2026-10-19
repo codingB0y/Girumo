@@ -78,31 +78,50 @@ export function IntegracoesForm({
           <p className={DICA}>Só números. Está no Gerenciador de Eventos, ao lado do nome do pixel.</p>
         </label>
 
-        <label className="block">
-          <span className={ROTULO}>Evento de conversão</span>
-          <select
-            className={CAMPO}
-            value={personalizado ? "__outro" : value.meta.evento}
-            onChange={(e) => meta({ evento: e.target.value === "__outro" ? "" : e.target.value })}
-          >
-            {EVENTOS_PADRAO.map((ev) => (
-              <option key={ev} value={ev}>
-                {ev}
-              </option>
-            ))}
-            <option value="__outro">Outro nome…</option>
-          </select>
-          {personalizado && (
-            <input
-              className={CAMPO}
-              value={value.meta.evento}
-              placeholder="EntrouNoGrupo"
-              aria-label="Nome do evento personalizado"
-              onChange={(e) => meta({ evento: e.target.value.trim() })}
-            />
-          )}
-          <p className={DICA}>É o evento que a Meta usa para otimizar o anúncio. Na dúvida, deixe Lead.</p>
+        <label className="flex items-start gap-2">
+          <input
+            type="checkbox"
+            className="mt-0.5 size-4 shrink-0 accent-cobalt-500"
+            checked={value.meta.enviar_no_link}
+            onChange={(e) => meta({ enviar_no_link: e.target.checked })}
+          />
+          <span>
+            <span className={ROTULO}>Disparar o evento no clique do link</span>
+            <span className={`block ${DICA}`}>
+              {value.meta.enviar_no_link
+                ? "Desligue se o site da loja já manda o Lead antes de levar ao link: senão a mesma pessoa conta duas vezes."
+                : "O link não manda nada ao Meta. O pixel e o token continuam valendo para as vendas do Bling."}
+            </span>
+          </span>
         </label>
+
+        {value.meta.enviar_no_link && (
+          <label className="block">
+            <span className={ROTULO}>Evento de conversão</span>
+            <select
+              className={CAMPO}
+              value={personalizado ? "__outro" : value.meta.evento}
+              onChange={(e) => meta({ evento: e.target.value === "__outro" ? "" : e.target.value })}
+            >
+              {EVENTOS_PADRAO.map((ev) => (
+                <option key={ev} value={ev}>
+                  {ev}
+                </option>
+              ))}
+              <option value="__outro">Outro nome…</option>
+            </select>
+            {personalizado && (
+              <input
+                className={CAMPO}
+                value={value.meta.evento}
+                placeholder="EntrouNoGrupo"
+                aria-label="Nome do evento personalizado"
+                onChange={(e) => meta({ evento: e.target.value.trim() })}
+              />
+            )}
+            <p className={DICA}>É o evento que a Meta usa para otimizar o anúncio. Na dúvida, deixe Lead.</p>
+          </label>
+        )}
 
         <label className="block">
           <span className={ROTULO}>Token da API de Conversões</span>
@@ -176,9 +195,11 @@ export function IntegracoesForm({
           )}
         </div>
 
-        <p className="rounded-xl bg-poco px-3 py-2 text-xs text-aco">
-          Lead registrado mesmo com deep link — o evento sai antes de o WhatsApp abrir.
-        </p>
+        {value.meta.enviar_no_link && (
+          <p className="rounded-xl bg-poco px-3 py-2 text-xs text-aco">
+            Lead registrado mesmo com deep link — o evento sai antes de o WhatsApp abrir.
+          </p>
+        )}
       </Card>
 
       <Card titulo="Google Analytics 4" etiqueta={value.ga4.id ? "configurado" : "não configurado"}>
