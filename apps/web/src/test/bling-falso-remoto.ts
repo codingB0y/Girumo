@@ -66,7 +66,15 @@ function renovacao(b: BlingRemoto, corpo: string): Response {
 const NAO_ACHOU = (): Response => json(404, { error: { type: "RESOURCE_NOT_FOUND", message: "Não encontrado" } });
 
 function pedidoNoFormatoDoBling(p: PedidoResumo) {
-  return { id: p.id, numero: p.numero, data: p.data, total: p.total, contato: { id: p.contatoId ?? 0 }, situacao: { id: p.situacaoId, valor: 0 } };
+  return {
+    id: p.id,
+    numero: p.numero,
+    data: p.data,
+    total: p.total,
+    contato: { id: p.contatoId ?? 0 },
+    situacao: { id: p.situacaoId, valor: 0 },
+    loja: { id: p.lojaId ?? 0 },
+  };
 }
 
 function contatoNoFormatoDoBling(c: ContatoBling) {

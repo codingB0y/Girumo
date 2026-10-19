@@ -44,6 +44,10 @@ function responder(estado: EstadoDoCartao, metodo: string, url: URL): [number, u
   if (url.pathname === "/rest/v1/memberships") return [200, [{ tenant_id: "loja-b", role: estado.papel(), modules: [] }]];
   if (url.pathname === "/rest/v1/bling_connections") return [200, metodo === "GET" && conexao ? [conexao] : []];
   if (metodo === "PATCH" && url.pathname === "/rest/v1/bling_orders") return [200, []];
+  // Os pedidos com canal (os canais de venda do cartão): a mesma tabela das últimas, outro select.
+  if (url.pathname === "/rest/v1/bling_orders" && url.searchParams.get("select")?.includes("snapshot->lojaId")) {
+    return [200, banco.canais ?? []];
+  }
   if (url.pathname in banco) return [200, banco[url.pathname]];
   return [500, { message: `inesperado: ${metodo} ${url.pathname}` }];
 }
@@ -96,7 +100,7 @@ export function linha(refreshTokenEnc: string): Record<string, unknown> {
     tenant_id: "loja-b", company_id: "empresa-1", company_name: "Moda da Ana", status: "ativa",
     access_token_enc: selar("acesso-da-loja-b", contextoDoToken("loja-b", "access"), CHAVE), refresh_token_enc: refreshTokenEnc,
     access_expires_at: "2026-10-13T18:00:00+00:00", token_version: 2, situations: [], situations_at: null,
-    sale_situation_ids: [9], high_value: null, meta_enabled: true, meta_campaign_id: null, backfill_from: null,
+    sale_situation_ids: [9], high_value: null, meta_enabled: true, meta_campaign_id: null, meta_skip_store_ids: [], backfill_from: null,
     backfill_until: null, backfill_page: 1, backfill_done_at: null, scan_cursor: null, paused_until: null,
     consecutive_failures: 0, last_webhook_at: null, last_scan_at: null, last_scan_change_at: null, last_sale_at: null,
     last_error: null, last_error_at: null, reconnect_alerted_at: null, connected_at: "2026-10-13T12:00:00+00:00",
@@ -189,6 +193,10 @@ export function bancoDoCartao(): Record<string, unknown> {
   return {
     "/rest/v1/rpc/bling_resumo": RESUMO,
     "/rest/v1/bling_orders": PEDIDOS,
+    canais: [
+      { numero: "1532", data: "2026-10-13", loja: 204937216 },
+      { numero: "1531", data: "2026-10-12", loja: 204937216 },
+    ],
     "/rest/v1/bling_contacts": CONTATOS,
     "/rest/v1/campaign_groups": CAMPANHAS,
     "/rest/v1/rpc/bling_recompute_lists": 2,

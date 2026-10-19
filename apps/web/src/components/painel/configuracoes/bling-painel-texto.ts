@@ -1,5 +1,5 @@
 // apps/web/src/components/painel/configuracoes/bling-painel-texto.ts
-import type { CartaoBling, OpcaoDePixel, SituacaoDoCartao, UltimaDoCartao } from "@/lib/bling/cartao";
+import type { CanalDoCartao, CartaoBling, OpcaoDePixel, SituacaoDoCartao, UltimaDoCartao } from "@/lib/bling/cartao";
 import { SITUACAO } from "@/lib/bling/classificar";
 import { diaMesBR } from "@/lib/date-br";
 import { parseValorDoPedido } from "@/lib/orders/valor-do-pedido";
@@ -225,10 +225,31 @@ export function pixelEmUso(p: AjustesDoCartao["pixel"]): string | null {
   return pixels.size === 1 ? [...pixels][0] : null;
 }
 
-export function resumoDoMeta(a: Pick<AjustesDoCartao, "meta_enabled" | "pixel">): string {
+export function resumoDoMeta(a: Pick<AjustesDoCartao, "meta_enabled" | "pixel" | "canais">): string {
   if (!a.meta_enabled) return "desligado";
   const pixel = pixelEmUso(a.pixel);
-  return pixel ? `ligado · Pixel ${pixel}` : "ligado · sem pixel escolhido";
+  const base = pixel ? `ligado · Pixel ${pixel}` : "ligado · sem pixel escolhido";
+  const fora = a.canais.filter((c) => c.fora_do_meta).length;
+  return fora === 0 ? base : `${base} · ${fora} ${fora === 1 ? "canal" : "canais"} fora`;
+}
+
+/** Sem o escopo de canais no app do Bling não vem o nome (Yampi, Nuvemshop): só o número, o `loja.id`. */
+export function nomeDoCanal(c: Pick<CanalDoCartao, "id">): string {
+  return `Canal ${c.id}`;
+}
+
+/** Os números dos pedidos são o que a dona procura no Bling para saber que canal é. */
+export function legendaDoCanal(c: Pick<CanalDoCartao, "pedidos" | "exemplos" | "ultimo_pedido_em">): string {
+  if (c.pedidos === 0) return "sem pedido recente";
+  // Dia do pedido no Bling ("YYYY-MM-DD"): sem passar por Date, que o leria em UTC e voltaria um dia em Brasília.
+  const [, mes, dia] = c.ultimo_pedido_em?.split("-") ?? [];
+  return [
+    c.pedidos === 1 ? "1 pedido" : `${contagem(c.pedidos)} pedidos`,
+    dia && mes ? `último em ${dia}/${mes}` : null,
+    c.exemplos.length > 0 ? `nº ${c.exemplos.join(", ")}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 export function rotuloDoPixel(o: OpcaoDePixel): string {

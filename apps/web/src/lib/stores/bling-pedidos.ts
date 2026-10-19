@@ -107,6 +107,7 @@ type Row = {
 };
 
 // O retrato é jsonb escrito pela fila e pelo processamento; torto, o pedido paga um GET em vez de ser lido errado.
+// Sem `lojaId` também: é retrato de antes do canal existir, e sem o canal o filtro do Meta não valeria nele.
 const resumoGuardado = z.object({
   id: z.number(),
   numero: z.string().nullable(),
@@ -114,6 +115,7 @@ const resumoGuardado = z.object({
   total: z.number(),
   contatoId: z.number().nullable(),
   situacaoId: z.number(),
+  lojaId: z.number().nullable(),
 });
 
 const numeroOuNulo = (v: Numerico | null): number | null => (v === null ? null : Number(v));
@@ -396,4 +398,34 @@ export async function ultimasDoCartao(tenantId: string, limite: number): Promise
     .limit(limite);
   if (error) throw new Error(error.message);
   return ((data ?? []) as unknown as Row[]).map(toLinha);
+}
+
+/** Um pedido com canal de venda, para a lista de canais do cartão. */
+export type PedidoComCanal = { lojaId: number; numero: string | null; orderDate: string | null };
+
+const comCanal = z.object({
+  numero: z.string().nullable(),
+  data: z.string().nullable(),
+  // O jsonb vem número; texto de dígitos também serve. Booleano (true > 0 no jsonb) não.
+  loja: z.union([z.number(), z.string().regex(/^\d+$/)]).transform(Number).pipe(z.number().int().positive()),
+});
+
+/**
+ * Os pedidos mais novos com canal (`snapshot->lojaId` > 0: o `->` compara jsonb, então null, 0 e o retrato antigo, sem
+ * a chave, ficam de fora). Tudo do retrato, que a fila já grava (as colunas só depois de processar). Mais novo = id
+ * maior (o Bling numera em ordem de criação), pela chave primária. Até `limite`: os canais da loja nos pedidos recentes.
+ */
+export async function pedidosComCanal(tenantId: string, limite: number): Promise<PedidoComCanal[]> {
+  const { data, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .select("numero:snapshot->>numero,data:snapshot->>data,loja:snapshot->lojaId")
+    .eq("tenant_id", tenantId)
+    .gt("snapshot->lojaId", 0)
+    .order("bling_order_id", { ascending: false })
+    .limit(limite);
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as unknown[]).flatMap((linha) => {
+    const lida = comCanal.safeParse(linha);
+    return lida.success ? [{ lojaId: lida.data.loja, numero: lida.data.numero, orderDate: lida.data.data }] : [];
+  });
 }

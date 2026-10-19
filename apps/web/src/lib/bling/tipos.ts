@@ -18,6 +18,8 @@ export type PedidoResumo = {
   total: number;
   contatoId: number | null;
   situacaoId: number;
+  /** O canal de venda (`loja.id`: Yampi, Nuvemshop...); null = lançado direto no Bling (o Bling manda 0). */
+  lojaId: number | null;
 };
 
 export type ContatoBling = {

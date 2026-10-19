@@ -159,6 +159,7 @@ test("cartão conectado: estado, histórico, ajustes, números do banco e as úl
           { campaign_id: CAMPANHA_C, campanha: "Moda Sul", pixel_id: "5550001112" },
         ],
       },
+      canais: [{ id: 204937216, pedidos: 2, exemplos: ["1532", "1531"], ultimo_pedido_em: "2026-10-13", fora_do_meta: false }],
     },
     numeros_30d: {
       vendas: 214,
@@ -190,7 +191,10 @@ test("cartão conectado: estado, histórico, ajustes, números do banco e as úl
   assert.deepEqual(resumo?.corpo, { p_tenant: "loja-b" });
   const contatos = chamadas.find((c) => c.url.pathname === "/rest/v1/bling_contacts");
   assert.equal(contatos?.url.searchParams.get("bling_contact_id"), "in.(555,556)");
-  assert.equal(chamadas.find((c) => c.url.pathname === "/rest/v1/bling_orders")?.url.searchParams.get("limit"), "8");
+  const pedidos = chamadas.filter((c) => c.url.pathname === "/rest/v1/bling_orders");
+  const comCanal = (c: Chamada) => c.url.searchParams.get("select")?.includes("snapshot->lojaId") ?? false;
+  assert.equal(pedidos.find((c) => !comCanal(c))?.url.searchParams.get("limit"), "8");
+  assert.equal(pedidos.find(comCanal)?.url.searchParams.get("limit"), "1000");
 });
 
 test("nenhum token nem telefone inteiro sai no cartão", async () => {

@@ -105,6 +105,8 @@ function eventosPendentes(e: EntradaMeta, estado: PedidoResumo): Pendente[] {
 /**
  * A ordem da spec §4: desligado → fora da janela → sem pixel → sem dados de casamento. Quem está no
  * descadastro conta como sem dados: nada dela vai ao Meta, e o status não é final (sai da lista, envia).
+ * Desligado também vale para o canal de venda que a loja tirou do envio (a Yampi que já manda o evento ao
+ * Meta): a venda segue na Girumo, só o evento não sai daqui, e volta a sair se o canal voltar ao envio.
  */
 async function statusDoEvento(
   e: EntradaMeta,
@@ -112,7 +114,9 @@ async function statusDoEvento(
   pixel: () => Promise<ReturnType<typeof escolherPixel>>,
   cadastro: () => Promise<CadastroDaVenda | null>,
 ): Promise<StatusEvento | null> {
-  if (!e.ctx.conexao.metaEnabled) return "desligado";
+  const { metaEnabled, metaSkipStoreIds } = e.ctx.conexao;
+  const canal = e.estado?.lojaId ?? null;
+  if (!metaEnabled || (canal !== null && metaSkipStoreIds.includes(canal))) return "desligado";
   if (!dentroDaJanelaMeta(quando, e.ctx.agora())) return "fora_da_janela";
   // Vários pixels sem escolha também é "sem pixel": o cartão pede para a loja escolher.
   if (!(await pixel()).ok) return "sem_pixel";

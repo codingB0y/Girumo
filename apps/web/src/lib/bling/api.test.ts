@@ -46,7 +46,7 @@ const PEDIDO = {
   loja: { id: 0 },
 };
 
-const RESUMO: PedidoResumo = { id: 12345678, numero: "123", data: "2026-10-13", total: 150.5, contatoId: 987, situacaoId: 9 };
+const RESUMO: PedidoResumo = { id: 12345678, numero: "123", data: "2026-10-13", total: 150.5, contatoId: 987, situacaoId: 9, lojaId: null };
 
 const ehInvalido = (e: unknown) => e instanceof ErroBling && e.tipo === "invalido";
 
@@ -83,14 +83,14 @@ test("listarPedidos normaliza: número vira texto, data zerada, vazia ou antes d
     { ...PEDIDO, id: 9, data: "2000-01-01" },
   ];
   const { cliente } = clienteFalso([{ data: itens }]);
-  const resumo = { numero: "123", total: 150.5, contatoId: 987, situacaoId: 9 };
+  const resumo = { numero: "123", total: 150.5, contatoId: 987, situacaoId: 9, lojaId: null };
   assert.deepEqual(await listarPedidos(cliente, { pagina: 1 }), {
     pedidos: [
-      { id: 1, numero: null, data: null, total: 99.9, contatoId: null, situacaoId: 9 },
-      { id: 2, numero: "77", data: null, total: 150.5, contatoId: null, situacaoId: 9 },
-      { id: 3, numero: null, data: null, total: 150.5, contatoId: 987, situacaoId: 9 },
-      { id: 4, numero: "123", data: "2026-10-13", total: 0, contatoId: 987, situacaoId: 9 },
-      { id: 5, numero: "123", data: "2026-10-13", total: -10, contatoId: 987, situacaoId: 9 },
+      { id: 1, numero: null, data: null, total: 99.9, contatoId: null, situacaoId: 9, lojaId: null },
+      { id: 2, numero: "77", data: null, total: 150.5, contatoId: null, situacaoId: 9, lojaId: null },
+      { id: 3, numero: null, data: null, total: 150.5, contatoId: 987, situacaoId: 9, lojaId: null },
+      { id: 4, numero: "123", data: "2026-10-13", total: 0, contatoId: 987, situacaoId: 9, lojaId: null },
+      { id: 5, numero: "123", data: "2026-10-13", total: -10, contatoId: 987, situacaoId: 9, lojaId: null },
       { ...resumo, id: 6, data: null },
       { ...resumo, id: 7, data: null },
       { ...resumo, id: 8, data: null },
@@ -99,6 +99,28 @@ test("listarPedidos normaliza: número vira texto, data zerada, vazia ou antes d
     brutos: 9,
     descartados: [],
   });
+});
+
+test("listarPedidos: canal de venda = loja.id positivo (número ou texto); 0, ausente ou torto vira null", async () => {
+  const itens = [
+    { ...PEDIDO, id: 1, loja: { id: 204937216, unidadeNegocio: { id: 0 } } },
+    { ...PEDIDO, id: 2, loja: { id: "205291049" } },
+    { ...PEDIDO, id: 3, loja: { id: 0 } },
+    { ...PEDIDO, id: 4, loja: undefined },
+    { ...PEDIDO, id: 5, loja: "yampi" },
+    { ...PEDIDO, id: 6, loja: { id: -3 } },
+  ];
+  const { cliente } = clienteFalso([{ data: itens }]);
+  const { pedidos } = await listarPedidos(cliente, { pagina: 1 });
+  assert.deepEqual(
+    pedidos.map((p) => [p.id, p.lojaId]),
+    [[1, 204937216], [2, 205291049], [3, null], [4, null], [5, null], [6, null]],
+  );
+});
+
+test("obterPedido traz o canal de venda do detalhe", async () => {
+  const { cliente } = clienteFalso([{ data: { ...PEDIDO, loja: { id: 204937216 } } }]);
+  assert.deepEqual(await obterPedido(cliente, 12345678), { ...RESUMO, lojaId: 204937216 });
 });
 
 test("listarPedidos: página só com itens tortos tem brutos > 0 (não é o fim da paginação)", async (t) => {

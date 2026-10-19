@@ -242,6 +242,29 @@ test("Meta desligado no cartão: desligado, sem envio e sem ler campanha", async
   assert.ok(!f.trilha.includes("campanhas.comMetadata"));
 });
 
+test("canal de venda fora do Meta (a Yampi já manda o evento): desligado e nada enviado, mas a venda entra, com origem e lista", async () => {
+  const f = criarBlingFalso();
+  ajustarConexao(f, { metaSkipStoreIds: [204937216] });
+  comPedido(f, 1001, { lojaId: 204937216 });
+  await processar(f, 1001);
+
+  assert.equal(f.meta.enviados.length, 0);
+  const linha = f.pedidos.get(1001);
+  assert.deepEqual([linha?.kind, linha?.icStatus, linha?.purchaseStatus, linha?.origem], ["venda", "desligado", "desligado", "grupo"]);
+  assert.equal(f.girumo.size, 1);
+  assert.equal(f.contatos.get(MARIA.id)?.lista, "comprador");
+  assert.ok(!f.trilha.includes("campanhas.comMetadata"));
+
+  // Outro canal, e o pedido lançado direto no Bling (sem canal), seguem indo ao Meta.
+  for (const lojaId of [205291049, null]) {
+    const outro = criarBlingFalso();
+    ajustarConexao(outro, { metaSkipStoreIds: [204937216] });
+    comPedido(outro, 1001, { lojaId });
+    await processar(outro, 1001);
+    assert.equal(outro.meta.enviados.length, 1, String(lojaId));
+  }
+});
+
 test("sem pixel (nenhum, ou vários sem escolha): sem_pixel e nada enviado", async () => {
   for (const campanhas of [[], [campanha("camp-1", PIXEL), campanha("camp-2", "9876543210")]]) {
     const f = criarBlingFalso();

@@ -43,6 +43,7 @@ const pedidoCru = z.looseObject({
   total: escalar,
   contato: referencia,
   situacao: referencia,
+  loja: referencia,
 });
 
 const contatoCru = z.looseObject({
@@ -204,7 +205,8 @@ function pedidoDe(item: unknown, pedido?: number): PedidoResumo | null {
   const total = valor(cru.data.total);
   if (id === null || situacaoId === null || total === null) return null;
   const data = dia(cru.data.data, ANO_MINIMO_PEDIDO);
-  return { id, numero: texto(cru.data.numero), data, total, contatoId: idPositivo(cru.data.contato?.id), situacaoId };
+  const contatoId = idPositivo(cru.data.contato?.id);
+  return { id, numero: texto(cru.data.numero), data, total, contatoId, situacaoId, lojaId: idPositivo(cru.data.loja?.id) };
 }
 
 /** O id do item da lista, quando legível (inteiro positivo, em número ou texto de dígitos). */
