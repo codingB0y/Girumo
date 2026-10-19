@@ -8,8 +8,9 @@ import { after, before, beforeEach, mock, test } from "node:test";
 
 import { MENSAGEM_BLOQUEIO } from "@/lib/auth/modulos";
 import { documentoPadrao, type DocumentoBio, type LinkBio } from "@/lib/bio/documento";
-import type { CorpoDoPatchBio, ErroDoPainelBio } from "@/lib/bio/painel-api";
+import type { CorpoDoPatchBio, ErroDoPainelBio, RespostaDoSlug } from "@/lib/bio/painel-api";
 import { getPublicSiteUrl } from "@/lib/brand";
+import { dayBR, dayBRAgo } from "@/lib/date-br";
 import type { PaginaBio } from "@/lib/stores/bio-pages";
 
 /**
@@ -257,6 +258,8 @@ const supabase = createServer((req, res) => {
 let GET: Rota;
 let POST: Rota;
 let PATCH: Rota;
+let getSlug: Rota;
+let getRelatorio: Rota;
 /** O pedaço do `workAsyncStorage` do Next que o teste usa (Next 15.5). */
 type ContextoDoNext = { run<T>(store: never, fn: () => T): T };
 let contextoDoNext: ContextoDoNext;
@@ -266,6 +269,8 @@ const HANDLERS: Array<[nome: string, chamar: (cabecalhos: Cabecalhos) => Promise
   ["GET /api/link-da-bio", (h) => GET(pedir("GET", undefined, undefined, h))],
   ["POST /api/link-da-bio", (h) => POST(pedir("POST", undefined, undefined, h))],
   ["PATCH /api/link-da-bio", (h) => PATCH(pedir("PATCH", undefined, corpoValido(), h))],
+  ["GET /api/link-da-bio/slug", (h) => getSlug(pedir("GET", "/api/link-da-bio/slug?valor=atelie-novo", undefined, h))],
+  ["GET /api/link-da-bio/relatorio", (h) => getRelatorio(pedir("GET", "/api/link-da-bio/relatorio?dias=7", undefined, h))],
 ];
 
 before(async () => {
@@ -280,6 +285,8 @@ before(async () => {
   (globalThis as { AsyncLocalStorage?: unknown }).AsyncLocalStorage = AsyncLocalStorage;
   contextoDoNext = (await import("next/dist/server/app-render/work-async-storage.external")).workAsyncStorage;
   ({ GET, POST, PATCH } = await import("./route"));
+  ({ GET: getSlug } = await import("./slug/route"));
+  ({ GET: getRelatorio } = await import("./relatorio/route"));
 });
 after(() => {
   supabase.close();
@@ -630,4 +637,69 @@ test("PATCH: banco fora responde 500 genérico, sem vazar o erro", async () => {
   } finally {
     silencio.mock.restore();
   }
+});
+
+// ---- slug ----
+
+test("slug: formato e reservado respondem sem consultar o banco", async () => {
+  const casos: Array<[valor: string, motivo: "formato" | "reservado"]> = [
+    ["", "formato"],
+    ["ab", "formato"],
+    ["Minha-Loja", "formato"],
+    ["minha loja", "formato"],
+    ["a".repeat(41), "formato"],
+    ["admin", "reservado"],
+    ["girumo-moda", "reservado"],
+    ["loja-hubflow", "reservado"],
+  ];
+  for (const [valor, motivo] of casos) {
+    const r = await getSlug(pedir("GET", `/api/link-da-bio/slug?valor=${encodeURIComponent(valor)}`));
+    assert.equal(r.status, 200, valor);
+    assert.deepEqual(await r.json(), { disponivel: false, motivo }, valor);
+  }
+  assert.equal(chamadas.filter((c) => c.url.pathname.startsWith("/rest/v1/bio_")).length, 0);
+});
+
+test("slug: livre; desta loja (atual ou antigo) está livre; de outra loja (atual ou antigo) está em uso", async () => {
+  comPagina();
+  const casos: Array<[valor: string, esperado: RespostaDoSlug]> = [
+    ["atelie-novo", { disponivel: true }],
+    ["atelie-ouro-prata", { disponivel: true }],
+    ["atelie-antigo", { disponivel: true }],
+    ["atelie-concorrente", { disponivel: false, motivo: "em-uso" }],
+    ["concorrente-antigo", { disponivel: false, motivo: "em-uso" }],
+  ];
+  for (const [valor, esperado] of casos) {
+    const r = await getSlug(pedir("GET", `/api/link-da-bio/slug?valor=${valor}`));
+    assert.deepEqual(await r.json(), esperado, valor);
+  }
+  soDaLoja();
+});
+
+// ---- relatório ----
+
+test("relatório: 7 e 30 dias contando hoje, da loja da sessão, agregado no banco", async () => {
+  for (const [dias, atras] of [["7", 6], ["30", 29]] as const) {
+    chamadas.length = 0;
+    // A rota lê o relógio sozinha: perto da meia-noite de Brasília o dia pode virar no meio do teste.
+    const antes = new Date();
+    const r = await getRelatorio(pedir("GET", `/api/link-da-bio/relatorio?dias=${dias}`));
+    const depois = new Date();
+    assert.equal(r.status, 200, dias);
+    assert.deepEqual(await r.json(), RELATORIO);
+    const rpc = chamadas.find((c) => c.url.pathname === "/rest/v1/rpc/bio_relatorio");
+    const { p_desde, p_ate } = rpc?.corpo as { p_desde: string; p_ate: string };
+    assert.ok([dayBR(antes), dayBR(depois)].includes(p_ate), p_ate);
+    assert.ok([dayBRAgo(atras, antes), dayBRAgo(atras, depois)].includes(p_desde), p_desde);
+    soDaLoja();
+  }
+});
+
+test("relatório: dias fora de 7 e 30 é 400, sem consultar o banco", async () => {
+  for (const consulta of ["", "?dias=", "?dias=14", "?dias=7.0", "?dias=30d"]) {
+    const r = await getRelatorio(pedir("GET", `/api/link-da-bio/relatorio${consulta}`));
+    assert.equal(r.status, 400, consulta);
+    assert.equal(typeof ((await r.json()) as ErroDoPainelBio).error, "string");
+  }
+  assert.equal(chamadas.filter((c) => c.url.pathname.startsWith("/rest/v1/rpc/")).length, 0);
 });
