@@ -46,6 +46,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     } catch {
       return Response.json({ error: "JSON inválido." }, { status: 400 });
     }
+    // `null`, número, texto e lista são JSON válido mas não têm `.base`: sem esta
+    // guarda estouram TypeError no acesso abaixo e viram 500.
+    if (typeof body !== "object" || body === null || Array.isArray(body)) {
+      return Response.json({ error: "Envie um objeto JSON com base, ordem e esperado." }, { status: 400 });
+    }
 
     const base = validarBase(body.base);
     if (!base.ok) return Response.json({ error: base.error }, { status: 400 });

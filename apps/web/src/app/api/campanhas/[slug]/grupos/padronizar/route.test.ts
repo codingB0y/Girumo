@@ -116,8 +116,8 @@ const CONFLITOS = [
 
 type Tabelas = Record<string, (chamada: Chamada) => Resposta>;
 
-/** Dono logado por Bearer na `loja-b`; o resto responde por "MÉTODO /caminho". */
-function banco(over: Tabelas = {}): (chamada: Chamada) => Resposta {
+/** Usuário logado por Bearer na `loja-b` (dono, salvo `role`); o resto responde por "MÉTODO /caminho". */
+function banco(over: Tabelas = {}, role = "owner"): (chamada: Chamada) => Resposta {
   const tabelas: Tabelas = {
     "GET /rest/v1/campaign_groups": () => ({ status: 200, corpo: [CAMPANHA] }),
     "GET /rest/v1/group_grow_jobs": () => ({ status: 200, corpo: [] }),
@@ -134,7 +134,7 @@ function banco(over: Tabelas = {}): (chamada: Chamada) => Resposta {
   return (chamada) => {
     const { metodo, url } = chamada;
     if (url.pathname === "/auth/v1/user") return { status: 200, corpo: { id: "usuario-1", email: "dono@loja.test" } };
-    if (url.pathname === "/rest/v1/memberships") return { status: 200, corpo: [{ tenant_id: "loja-b", role: "owner", modules: [] }] };
+    if (url.pathname === "/rest/v1/memberships") return { status: 200, corpo: [{ tenant_id: "loja-b", role, modules: [] }] };
     const tabela = tabelas[`${metodo} ${url.pathname}`];
     return tabela ? tabela(chamada) : { status: 500, corpo: { message: `inesperado: ${metodo} ${url.pathname}` } };
   };
@@ -279,4 +279,42 @@ test("comunidade nativa do WhatsApp responde 409 — a ordem dela vem do sync", 
 
   assert.equal(res.status, 409);
   assert.equal(escritas().length, 0);
+});
+
+test("corpo JSON que não é objeto (null, número) responde 400 sem tocar o banco", async () => {
+  for (const corpo of [null, 42]) {
+    chamadas.length = 0;
+    responder = banco();
+
+    const res = await padronizar(corpo);
+
+    assert.equal(res.status, 400, `corpo ${JSON.stringify(corpo)}`);
+    assert.match(((await res.json()) as { error: string }).error, /objeto JSON/);
+    assert.equal(chamadas.filter((c) => c.url.pathname.startsWith("/rest/v1/rpc/")).length, 0);
+    assert.equal(escritas().length, 0);
+  }
+});
+
+test("papel sem campaign:edit (vendedora) responde 403 e nada é gravado", async () => {
+  chamadas.length = 0;
+  responder = banco({}, "seller");
+
+  const res = await padronizar({ base: "Moda Kids do Sul", ordem: ORDEM, esperado: ESPERADO });
+
+  assert.equal(res.status, 403);
+  assert.equal(chamadas.filter((c) => c.url.pathname.startsWith("/rest/v1/rpc/")).length, 0);
+  assert.equal(escritas().length, 0);
+});
+
+test("renomes do 201 é o que a fila confirmou (enqueueBulkJobs), não o tanto de jobs enviados", async () => {
+  chamadas.length = 0;
+  // Dois jobs vão (g1 e g5), a fila só devolve uma linha: a outra já existia no lote.
+  responder = banco({ "POST /rest/v1/group_bulk_jobs": () => ({ status: 201, corpo: [{ id: "job-0" }] }) });
+
+  const res = await padronizar({ base: "Moda Kids do Sul", ordem: ORDEM, esperado: ESPERADO });
+
+  assert.equal(res.status, 201);
+  const [fila] = feitas("POST", "/rest/v1/group_bulk_jobs");
+  assert.equal((fila?.corpo as unknown[]).length, 2);
+  assert.equal(((await res.json()) as { renomes: number }).renomes, 1);
 });
