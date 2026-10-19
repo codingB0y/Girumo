@@ -7,10 +7,12 @@
  * aspas duplas; URL só sai de `new URL` com protocolo da lista.
  */
 import type { TokensBio } from "@/lib/bio/cores";
-import type { DocumentoBio, MidiaRef } from "@/lib/bio/documento";
+import type { DadosRender, DocumentoBio, LinkBio, MidiaRef } from "@/lib/bio/documento";
+import { getPublicSiteUrl } from "@/lib/brand";
 import { escapeHtml } from "@/lib/campaigns/entry-page";
+import { campaignLinkPath } from "@/lib/custom-domains/host";
 import { parseHex, relativeLuminance } from "@/lib/pages/palette";
-import type { LogoDaPagina } from "./modelo";
+import type { ContextoRender, LinkVisivel, LogoDaPagina, ModoRender } from "./modelo";
 
 /** Larguras do otimizador do Next (imageSizes/deviceSizes padrão); 390 daria 400. */
 const LARGURAS_FOTO = [384, 640, 828] as const;
@@ -20,6 +22,7 @@ export const LARGURA_MINIATURA = [128] as const;
 const MAX_LINKS = 20;
 
 const ID_DE_MIDIA = /^[A-Za-z0-9_-]+$/;
+const SLUG_DE_CAMPANHA = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const NOME_DE_TOKEN = /^--[a-z][a-z0-9-]*$/;
 const COR = /^#[0-9A-Fa-f]{6}$/;
 /** CNPJ guardado sem pontuação: 12 caracteres [0-9A-Z] + 2 dígitos (o alfanumérico da Receita vale). */
@@ -174,3 +177,139 @@ export function atrasos(seletor: string, inicioMs: number, passoMs: number): str
   }
   return css;
 }
+
+/** Miolo do `<h1>`: a logo (alt = nome) ou o nome em texto. */
+export function conteudoDoH1(
+  c: ContextoRender,
+  o: { classe: string; largura: number; altura: number; sizes: string },
+): string {
+  const nome = c.d.documento.perfil.nome;
+  const img = c.logo ? imagem(c.logo.midia, { ...o, alt: nome, carregamento: "normal" }) : "";
+  if (!img) return escapeHtml(nome);
+  if (!c.logo?.placa) return img;
+  return `<span class="lk-placa${c.logo.placa === "escura" ? " lk-placa--escura" : ""}">${img}</span>`;
+}
+
+function urlSegura(bruta: string): string | null {
+  try {
+    const u = new URL(bruta);
+    const protocoloOk = u.protocol === "https:" || u.protocol === "http:";
+    return protocoloOk && u.hostname.includes(".") ? u.href : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Destino de cada tipo (spec §4); `null` = o link some da página. */
+export function hrefDoLink(l: LinkBio, d: DadosRender): string | null {
+  switch (l.tipo) {
+    case "whatsapp": {
+      if (!/^55\d{10,11}$/.test(l.numero)) return null;
+      const texto = l.mensagem ? `?text=${encodeURIComponent(l.mensagem)}` : "";
+      return urlSegura(`https://wa.me/${l.numero}${texto}`);
+    }
+    case "grupo": {
+      const slug = Object.hasOwn(d.campanhas, l.campanhaId) ? d.campanhas[l.campanhaId] : "";
+      return SLUG_DE_CAMPANHA.test(slug) ? campaignLinkPath(d.origem, slug) : null;
+    }
+    case "link":
+      return urlSegura(l.url);
+    case "endereco": {
+      const linha = l.endereco.split(/\r?\n/).map((s) => s.trim()).filter(Boolean).join(", ");
+      return linha ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(linha)}` : null;
+    }
+  }
+}
+
+/** Os links que saem, na ordem do documento; o primeiro `destaque` vira o principal. */
+export function linksVisiveis(d: DadosRender): LinkVisivel[] {
+  const escondidos = new Set(d.linksEscondidos);
+  const saida: LinkVisivel[] = [];
+  for (const link of d.documento.links) {
+    if (!link.ativo || escondidos.has(link.id)) continue;
+    const href = hrefDoLink(link, d);
+    if (!href) continue;
+    const principal = link.tipo !== "endereco" && link.destaque && !saida.some((v) => v.principal);
+    saida.push({ link, href, principal });
+  }
+  return saida;
+}
+
+/** ` href="…"` na página pública; nada na prévia (o clique não navega o iframe). */
+export function hrefAttr(href: string, modo: ModoRender): string {
+  return modo === "publica" ? ` href="${escapeHtml(href)}"` : "";
+}
+
+/** O que o JS da página lê: uuid do link e o tipo (lista fechada). */
+export function dadosDoLink(v: LinkVisivel): string {
+  return ` data-link="${escapeHtml(v.link.id)}" data-tipo="${v.link.tipo}"`;
+}
+
+/** "Como chegar": abre ali mesmo, com foto, endereço, horário e o mapa. */
+export function detalhesDoEndereco(
+  v: LinkVisivel,
+  c: ContextoRender,
+  o: {
+    prefixo: string;
+    classeDoResumo: string;
+    resumo: string;
+    foto: { largura: number; altura: number; sizes: string };
+    mapa?: string;
+  },
+): string {
+  if (v.link.tipo !== "endereco") return "";
+  const l = v.link;
+  const foto = l.foto ? imagem(l.foto, { ...o.foto, alt: "", carregamento: "lazy" }) : "";
+  const hora = l.horario ? `<p class="${o.prefixo}-hora">${escapeHtml(l.horario)}</p>` : "";
+  const mapa = o.mapa ?? `${icone("mapa-dobrado")}Abrir no Google Maps`;
+  return `<details class="${o.prefixo}-abre"><summary class="${o.classeDoResumo}"${dadosDoLink(v)}>${o.resumo}</summary><div class="${o.prefixo}-caminho">${foto}<address>${escapeHtml(l.endereco)}</address>${hora}<a class="${o.prefixo}-mapa"${hrefAttr(v.href, c.modo)}>${mapa}</a></div></details>`;
+}
+
+/** "Antes de pagar, confere": Pix com CNPJ (razão + CNPJ válido) e até 2 linhas; "" sem nada a mostrar. */
+export function blocoConfere(doc: DocumentoBio, prefixo: string): string {
+  const cf = doc.confere;
+  if (!cf.ativo) return "";
+  const itens: string[] = [];
+  if (cf.razao && CNPJ.test(cf.cnpj)) {
+    itens.push(
+      `<li>${icone("cartao")}<span>O Pix cai só no nome <b>${escapeHtml(cf.razao)}</b>.<span class="${prefixo}-cnpj"><span>CNPJ ${formatarCnpj(cf.cnpj)}</span><button type="button" class="${prefixo}-copiar" data-copiar="${cf.cnpj}">Copiar CNPJ</button></span></span></li>`,
+    );
+  }
+  for (const linha of cf.linhas) {
+    if (linha.trim()) itens.push(`<li>${icone("check")}<span>${escapeHtml(linha)}</span></li>`);
+  }
+  if (itens.length === 0) return "";
+  return `<section class="${prefixo}-confere" aria-labelledby="lk-confere"><h2 id="lk-confere">Antes de pagar, confere</h2><ul>${itens.join("")}</ul></section>`;
+}
+
+/** Selo do rodapé; leva ao site da Girumo (nunca ao domínio da página), com a origem do clique. */
+export function feitoComGirumo(c: ContextoRender): string {
+  if (!c.d.documento.feitoComGirumo) return "";
+  const url = `${getPublicSiteUrl()}/?utm_source=link-da-bio&utm_medium=rodape`;
+  return `<a class="lk-feito"${hrefAttr(url, c.modo)}>${icone("girumo")}Feito com Girumo</a>`;
+}
+
+/** CSS comum: reset do `.lk`, foco, ícones, "Feito com Girumo", placa da logo, aviso e movimento reduzido. */
+export const CSS_BASE = [
+  "body{margin:0}",
+  ".lk{position:relative;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;overflow-wrap:anywhere;-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%;text-size-adjust:100%}",
+  ".lk>main{flex:1 0 auto}",
+  ":where(.lk) *,:where(.lk) *::before,:where(.lk) *::after{box-sizing:border-box}",
+  ":where(.lk) img{max-width:100%;display:block}",
+  ":where(.lk) :is(h1,h2,p,figure){margin:0}",
+  ":where(.lk) :is(ul,ol){margin:0;padding:0;list-style:none}",
+  ":where(.lk) a{color:inherit}",
+  ":where(.lk) button{font:inherit}",
+  ".lk :focus-visible{outline:3px solid var(--foco);outline-offset:3px}",
+  ".lk-sprite{position:absolute;width:0;height:0;overflow:hidden}",
+  ".lk svg.i{width:22px;height:22px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}",
+  ".lk details>summary{list-style:none;cursor:pointer}",
+  ".lk details>summary::-webkit-details-marker{display:none}",
+  ".lk-feito{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:4px 14px;border-radius:999px;border:1px solid currentColor;font-size:12px;font-weight:600;text-decoration:none;color:inherit}",
+  ".lk-feito svg.i{width:14px;height:14px}",
+  ".lk-placa{display:inline-block;padding:8px 18px;border-radius:999px;background:#fff}",
+  ".lk-placa--escura{background:#141414}",
+  ".lk-status{position:fixed;left:50%;bottom:16px;z-index:9;max-width:calc(100% - 32px);padding:10px 16px;border-radius:999px;background:var(--tinta);color:var(--papel);font-size:14px;font-weight:600;line-height:1.3;text-align:center;transform:translateX(-50%);box-shadow:0 10px 30px -10px rgb(0 0 0 / .45)}",
+  ".lk-status:empty{padding:0;box-shadow:none}",
+  "@media (prefers-reduced-motion:reduce){.lk *,.lk *::before,.lk *::after{animation:none!important;transition:none!important}}",
+].join("");

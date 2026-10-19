@@ -1,15 +1,25 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { documentoFalso } from "@/test/bio-dados-falsos";
+import type { DadosRender, LinkBio } from "@/lib/bio/documento";
+import { IDS, dadosFalsos, documentoFalso } from "@/test/bio-dados-falsos";
+import type { ContextoRender } from "./modelo";
 import {
+  CSS_BASE,
   atrasos,
+  blocoConfere,
   classeDoFoco,
+  conteudoDoH1,
   destaqueEmPartes,
   destaqueHtml,
+  detalhesDoEndereco,
+  feitoComGirumo,
   formatarCnpj,
+  hrefAttr,
+  hrefDoLink,
   icone,
   imagem,
+  linksVisiveis,
   logoDaPagina,
   pontoDoFoco,
   regrasDoFoco,
@@ -17,6 +27,12 @@ import {
   tokensValidos,
   urlDaImagem,
 } from "./partes";
+
+const link = (id: string): LinkBio => {
+  const achado = dadosFalsos().documento.links.find((l) => l.id === id);
+  assert.ok(achado);
+  return achado;
+};
 
 test("imagem: srcset 384/640/828 pelo otimizador, src de 640, & escapado", () => {
   const html = imagem({ id: "capa-falsa", foco: null }, { largura: 640, altura: 512, sizes: "100vw", alt: "Fachada", carregamento: "prioridade" });
@@ -104,4 +120,98 @@ test("atrasos de entrada por :nth-child, até 20 links", () => {
   assert.match(css, /\.x>li:nth-child\(20\)\{animation-delay:1330ms\}/);
   assert.doesNotMatch(css, /nth-child\(21\)/);
   assert.match(atrasos(".y>li", 350, 60), /\.y>li:nth-child\(1\)\{animation-delay:350ms\}/);
+});
+
+test("WhatsApp: wa.me com a mensagem codificada; sem mensagem, sem ?text", () => {
+  const d = dadosFalsos();
+  const zap = link(IDS.whatsapp);
+  assert.equal(hrefDoLink(zap, d), "https://wa.me/5562900000000?text=Oi!%20Vim%20pelo%20Instagram%20e%20quero%20ver%20os%20kits.");
+  assert.equal(hrefDoLink({ ...zap, mensagem: "" } as LinkBio, d), "https://wa.me/5562900000000");
+  assert.equal(hrefDoLink({ ...zap, numero: "62900000000" } as LinkBio, d), null);
+  assert.equal(
+    hrefDoLink({ ...zap, mensagem: "Kit #3 & tchau 😀" } as LinkBio, d),
+    "https://wa.me/5562900000000?text=Kit%20%233%20%26%20tchau%20%F0%9F%98%80",
+  );
+});
+
+test("grupo: /r/<slug> no host Girumo, /<slug> no domínio próprio; campanha sumida some", () => {
+  const d = dadosFalsos();
+  const grupo = link(IDS.grupo);
+  assert.equal(hrefDoLink(grupo, d), "/r/vip-exemplo");
+  assert.equal(hrefDoLink(grupo, { ...d, origem: "https://links.lojaexemplo.com.br", dominioProprio: true }), "/vip-exemplo");
+  assert.equal(hrefDoLink(grupo, { ...d, campanhas: {} }), null);
+  assert.equal(hrefDoLink({ ...grupo, campanhaId: "__proto__" } as LinkBio, d), null);
+  assert.equal(hrefDoLink(grupo, { ...d, campanhas: { [IDS.campanha]: "../x" } }), null);
+});
+
+test("link: só http/https com host de verdade, emitido como url.href", () => {
+  const d = dadosFalsos();
+  const base = link(IDS.catalogo);
+  const com = (url: string) => hrefDoLink({ ...base, url } as LinkBio, d);
+  assert.equal(com("https://exemplo.com.br/a b"), "https://exemplo.com.br/a%20b");
+  assert.equal(com("javascript:alert(1)"), null);
+  assert.equal(com("data:text/html,oi"), null);
+  assert.equal(com("ftp://exemplo.com.br"), null);
+  assert.equal(com("https://localhost/x"), null);
+  assert.equal(com("não é url"), null);
+});
+
+test("endereço: Google Maps com o endereço numa linha", () => {
+  assert.equal(
+    hrefDoLink(link(IDS.endereco), dadosFalsos()),
+    "https://www.google.com/maps/search/?api=1&query=Rua%20Exemplo%2C%20100%2C%20Centro%2C%20Cidade%20Exemplo",
+  );
+});
+
+test("links visíveis: desligado, escondido e sem destino somem; um principal só, nunca o endereço", () => {
+  const d = dadosFalsos();
+  const links = d.documento.links.map((l) =>
+    l.id === IDS.canal ? { ...l, ativo: false } : l.tipo === "link" ? { ...l, destaque: true } : l,
+  );
+  const dados: DadosRender = { ...d, documento: { ...d.documento, links }, linksEscondidos: [IDS.grupo] };
+  const v = linksVisiveis(dados);
+  assert.deepEqual(v.map((x) => x.link.id), [IDS.whatsapp, IDS.catalogo, IDS.endereco]);
+  assert.deepEqual(v.map((x) => x.principal), [true, false, false]);
+  const semGrupo = linksVisiveis({ ...d, campanhas: {} });
+  assert.ok(!semGrupo.some((x) => x.link.id === IDS.grupo));
+});
+
+test("prévia não leva href; a pública escapa o destino", () => {
+  assert.equal(hrefAttr("https://a.com.br/?x=1&y=2", "previa"), "");
+  assert.equal(hrefAttr("https://a.com.br/?x=1&y=2", "publica"), ' href="https://a.com.br/?x=1&amp;y=2"');
+});
+
+test("confere: Pix com Copiar CNPJ só com razão e CNPJ; linhas com ✓; nada sem conteúdo", () => {
+  const doc = documentoFalso();
+  const html = blocoConfere(doc, "et");
+  assert.match(html, /^<section class="et-confere" aria-labelledby="lk-confere"><h2 id="lk-confere">Antes de pagar, confere<\/h2>/);
+  assert.match(html, /O Pix cai só no nome <b>Ateliê Exemplo Comércio de Roupas Ltda<\/b>\./);
+  assert.match(html, /<span>CNPJ 11\.222\.333\/0001-81<\/span><button type="button" class="et-copiar" data-copiar="11222333000181">Copiar CNPJ<\/button>/);
+  assert.equal(html.match(/#lk-i-check/g)?.length, 2);
+  assert.equal(blocoConfere({ ...doc, confere: { ...doc.confere, ativo: false } }, "et"), "");
+  assert.doesNotMatch(blocoConfere({ ...doc, confere: { ...doc.confere, razao: "" } }, "et"), /data-copiar/);
+  assert.equal(blocoConfere({ ...doc, confere: { ativo: true, razao: "", cnpj: "", linhas: [] } }, "et"), "");
+});
+
+test("h1, endereço e selo saem do contexto: logo ou nome, <details> e selo sem href na prévia", () => {
+  const d = dadosFalsos();
+  const ctx = (o: Partial<ContextoRender>): ContextoRender => ({ d, modo: "publica", tokens: {}, links: linksVisiveis(d), logo: null, ...o });
+  const tam = { classe: "et-logo", largura: 190, altura: 84, sizes: "190px" };
+  assert.equal(conteudoDoH1(ctx({}), tam), "Ateliê Exemplo Kids");
+  const logo = { midia: { id: "logo-x", foco: null }, placa: "escura" as const };
+  assert.match(conteudoDoH1(ctx({ logo }), tam), /^<span class="lk-placa lk-placa--escura"><img class="et-logo" src="[^"]*logo-x[^"]*"[^>]*alt="Ateliê Exemplo Kids" decoding="async"><\/span>$/);
+  const endereco = ctx({}).links.find((v) => v.link.tipo === "endereco");
+  assert.ok(endereco);
+  const det = detalhesDoEndereco(endereco, ctx({ modo: "previa" }), { prefixo: "x", classeDoResumo: "x-tag", resumo: "R", foto: { largura: 640, altura: 480, sizes: "100vw" }, mapa: "Mapa →" });
+  assert.match(det, /^<details class="x-abre"><summary class="x-tag" data-link="[^"]+" data-tipo="endereco">R<\/summary><div class="x-caminho"><img /);
+  assert.match(det, /<a class="x-mapa">Mapa →<\/a><\/div><\/details>$/);
+  assert.match(feitoComGirumo(ctx({ modo: "previa" })), /^<a class="lk-feito"><svg/);
+  assert.equal(feitoComGirumo(ctx({ d: { ...d, documento: { ...d.documento, feitoComGirumo: false } } })), "");
+});
+
+test("CSS base: foco visível, alvo de 44 px no selo e movimento reduzido desliga tudo", () => {
+  assert.match(CSS_BASE, /\.lk :focus-visible\{outline:3px solid var\(--foco\);outline-offset:3px\}/);
+  assert.match(CSS_BASE, /\.lk-feito\{[^}]*min-height:44px/);
+  assert.match(CSS_BASE, /@media \(prefers-reduced-motion:reduce\)\{\.lk \*,\.lk \*::before,\.lk \*::after\{animation:none!important;transition:none!important\}\}/);
+  assert.match(CSS_BASE, /\.lk-status:empty\{/);
 });
