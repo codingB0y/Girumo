@@ -416,7 +416,8 @@ API do painel (JSON puro, erro `{ error }`, sem envelope; PATCH, nunca PUT):
 
 ## 11. Desempenho e acessibilidade (critérios de aceite)
 
-- HTML ≤ 40 KB sem compressão; só as fontes do modelo escolhido (o Vitrine usa duas famílias), `preload` só delas;
+- HTML ≤ 40 KB sem compressão na página cheia (20 links, textos no máximo; é o que os testes medem, nos 4 modelos e
+  com rastreio); o pior caso artificial (URLs no limite de 500) só é acompanhado no script de conferência. Só as fontes do modelo escolhido (o Vitrine usa duas famílias), `preload` só delas;
   JS inline ≤ 3 KB; imagens com `srcset` 384/640/828; Lighthouse celular ≥ 90 em Desempenho e Acessibilidade na
   página de exemplo.
 - Página: alvo de toque ≥ 44 px; lista semântica (`<ul>` de `<a>`); `<details>` no "Como chegar"; contraste conforme

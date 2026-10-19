@@ -455,10 +455,15 @@ test("rastreio: a prévia do painel nunca leva", () => {
   assert.doesNotMatch(html, /<script|fbevents|googletagmanager/);
 });
 
-test("página cheia (20 links) com os dois rastreadores ainda cabe em 40 KB", () => {
-  const html = publica(comRastreio(dadosCheios(), { metaPixelId: "12345678901234567890", ga4Id: "G-TESTE12345" }));
-  const bytes = Buffer.byteLength(html);
-  assert.ok(bytes <= 40 * 1024, `${bytes} bytes`);
+test("página cheia (20 links) com os dois rastreadores ainda cabe em 40 KB, nos 4 modelos", () => {
+  // O Vitrine é o maior (PR 3b): a conta tem de valer em todos, não só no Etiqueta dos dados falsos.
+  const paletaDe = { etiqueta: "azul", vitrine: "papel", romaneio: "kraft", classico: "claro" } as const;
+  for (const modelo of ["etiqueta", "vitrine", "romaneio", "classico"] as const) {
+    const d = comRastreio(dadosCheios(), { metaPixelId: "12345678901234567890", ga4Id: "G-TESTE12345" });
+    const html = publica({ ...d, documento: { ...d.documento, modelo, paleta: paletaDe[modelo] } });
+    const bytes = Buffer.byteLength(html);
+    assert.ok(bytes <= 40 * 1024, `${modelo}: ${bytes} bytes`);
+  }
 });
 ```
 
