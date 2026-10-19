@@ -65,8 +65,9 @@ test("slug: 3 a 40, minúsculas, números e hífen simples", () => {
   }
 });
 
-test("slug reservado: a lista e qualquer um com girumo ou hubflow", () => {
-  for (const s of ["_dominio", "admin", "api", "bio", "girumo", "painel", "login", "ajuda", "suporte", "loja-girumo-oficial", "hubflowx"]) {
+test("slug reservado: a lista e qualquer um com girumo, hubflow ou nome de plataforma/oficial", () => {
+  for (const s of ["_dominio", "admin", "api", "bio", "girumo", "painel", "login", "ajuda", "suporte", "loja-girumo-oficial", "hubflowx",
+    "whatsapp-suporte", "loja-instagram", "meta", "facebook-kids", "atendimento-oficial", "suporte-vip"]) {
     assert.equal(slugReservado(s), true, s);
   }
   assert.equal(slugReservado("loja-exemplo"), false);

@@ -79,8 +79,10 @@ export const SLUG_BIO = /^(?=.{3,40}$)[a-z0-9]+(-[a-z0-9]+)*$/;
 export const SLUGS_RESERVADOS: ReadonlySet<string> = new Set([
   "_dominio", "admin", "api", "bio", "girumo", "painel", "login", "ajuda", "suporte",
 ]);
+/** Pedaços que não podem aparecer em lugar nenhum do slug: a marca e nomes que fingem ser canal oficial. */
+export const TRECHOS_RESERVADOS = ["girumo", "hubflow", "whatsapp", "instagram", "meta", "facebook", "oficial", "suporte"] as const;
 export function slugReservado(slug: string): boolean {
-  return SLUGS_RESERVADOS.has(slug) || slug.includes("girumo") || slug.includes("hubflow");
+  return SLUGS_RESERVADOS.has(slug) || TRECHOS_RESERVADOS.some((t) => slug.includes(t));
 }
 
 /** Uuid minúsculo: o mesmo formato do CHECK de `bio_contagens.alvo` (maiúsculo vira 23514). */

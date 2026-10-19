@@ -455,6 +455,10 @@ test("GET: nome com girumo sugere raiz \"loja\"; endereço ocupado por outra loj
   const comMarca = (await (await GET(pedir("GET"))).json()) as { sugestaoSlug: string };
   assert.match(comMarca.sugestaoSlug, /^loja-[a-hjkmnp-z2-9]{4}$/);
 
+  banco.organizations = [{ id: LOJA, name: "WhatsApp Kids Oficial", niche: null, status: "active" }];
+  const comPlataforma = (await (await GET(pedir("GET"))).json()) as { sugestaoSlug: string };
+  assert.match(comPlataforma.sugestaoSlug, /^loja-[a-hjkmnp-z2-9]{4}$/);
+
   banco.organizations = [{ id: LOJA, name: NOME, niche: null, status: "active" }];
   banco.bio_slugs.push({ slug: "atelie-ouro-prata", pagina_id: PAGINA_DA_OUTRA, criado_em: AGORA });
   const ocupado = (await (await GET(pedir("GET"))).json()) as { sugestaoSlug: string };

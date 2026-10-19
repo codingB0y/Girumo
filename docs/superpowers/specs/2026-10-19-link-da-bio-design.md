@@ -48,7 +48,7 @@ página de outro.
 - `slug`: 3–40, `^[a-z0-9]+(-[a-z0-9]+)*$`, único entre as páginas de bio (não colide com `/r/` nem
   `/p/`, são prefixos diferentes). Sugestão inicial = `slugify(nome da loja)` (`lib/pages/slug.ts`).
   Reservados: `_dominio`, `admin`, `api`, `bio`, `girumo`, `painel`, `login`, `ajuda`, `suporte` **e qualquer slug
-  que contenha `girumo` ou `hubflow`**.
+  que contenha `girumo`, `hubflow`, `whatsapp`, `instagram`, `meta`, `facebook`, `oficial` ou `suporte`** (`TRECHOS_RESERVADOS`; decisão do Igor em 19/10, contra página que finge ser canal oficial).
 - **Slug não volta para outra loja**: todo slug já usado fica em `bio_slugs` (§5). Trocar o slug: o antigo responde
   **301** para `/bio/<atual>` (QR impresso continua funcionando). A loja pode voltar a um slug que já foi dela.
 - **Bloqueio** (`bio_pages.bloqueada_em`, só admin, por SQL): a página some do público e o painel avisa.
@@ -323,7 +323,7 @@ export type DocumentoBio = {
 export const documentoBio: z.ZodType<DocumentoBio>;          // strictObject; normaliza url/cnpj/numero
 export function documentoPadrao(i: { nome: string; campanhaId: string | null }): DocumentoBio;
 export const SLUG_BIO: RegExp; export const SLUGS_RESERVADOS: ReadonlySet<string>;
-export function slugReservado(slug: string): boolean;         // SLUGS_RESERVADOS ou contém "girumo"/"hubflow"
+export function slugReservado(slug: string): boolean;         // SLUGS_RESERVADOS ou contém um TRECHOS_RESERVADOS
 // Mora aqui, e não no renderizador, porque cache e conferir (PR 2) usam antes do PR 3a existir.
 export type DadosRender = { documento: DocumentoBio; paginaId: string;
   campanhas: Record<string, string>;   // campanhaId -> slug do link mestre (só as que existem)
