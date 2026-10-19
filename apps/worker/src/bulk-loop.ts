@@ -92,7 +92,7 @@ export type BulkDeps = {
   setPicture(instanceName: string, groupJid: string, imageUrl: string): Promise<void>;
   /** Convite canônico do grupo, ou `null` se a Evolution não devolveu um válido. */
   inviteUrl(instanceName: string, groupJid: string): Promise<string | null>;
-  /** URL assinada de TTL curto, ou null (mídia apagada / id inválido). */
+  /** URL assinada, reaproveitada entre grupos (signed-url-cache.ts), ou null (mídia apagada / id inválido). */
   signedMediaUrl(mediaId: string, tenantId: string): Promise<string | null>;
   removeParticipant(instanceName: string, groupJid: string, participantPhone: string): Promise<void>;
   /** Troca o nome do grupo (Padronizar). */

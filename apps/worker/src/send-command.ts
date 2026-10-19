@@ -44,11 +44,13 @@ export interface SendDeps {
   sendAudio(instanceName: string, number: string, input: SendAudioInput): Promise<void>;
   sendPoll(instanceName: string, number: string, input: SendPollInput): Promise<void>;
   /**
-   * URL assinada da mídia, gerada NA HORA DO ENVIO.
+   * URL assinada da mídia, pedida NA HORA DO ENVIO.
    *
    * Deliberadamente não é assinada no enfileiramento: a fila anti-ban pode segurar
    * uma mensagem por horas (cap 8/min + warmup), e uma URL assinada no enqueue
-   * expiraria antes de sair. Devolve null se o objeto não existe.
+   * expiraria antes de sair. A implementação reaproveita o mesmo link entre os
+   * grupos enquanto faltam 10+ min para ele vencer (signed-url-cache.ts).
+   * Devolve null se não conseguiu assinar.
    */
   signedMediaUrl(storagePath: string): Promise<string | null>;
   /** Pós-envio OK: conta a janela + estica o gate de espaçamento + warmup. */

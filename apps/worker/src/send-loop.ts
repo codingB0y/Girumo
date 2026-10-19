@@ -11,16 +11,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { EvolutionSender } from "./evolution-sender.js";
 import { log } from "./log.js";
 import { sendFromCommand, type EngineCommandRow, type SendDeps } from "./send-command.js";
-
-/** Bucket privado onde o app guarda a mídia das ofertas (ver apps/web/src/lib/media-store.ts). */
-const MEDIA_BUCKET = "uploads";
-const SIGNED_URL_TTL_SECONDS = 300;
+import { storageSignedUrls } from "./signed-url-cache.js";
 
 /** Deps reais (Supabase + Evolution). Testes usam deps fake. */
 export function makeSendDeps(supabase: SupabaseClient, sender: EvolutionSender): SendDeps {
   // provider_instance_id é estável por instância → cacheia os não-nulos por
   // processo. Não cacheia null: instância ainda não provisionada pode passar a ser.
   const nameCache = new Map<string, string>();
+  const mediaUrls = storageSignedUrls(supabase, (error) => log.warn("falha ao assinar mídia", { error }));
 
   return {
     async instanceName(instanceId) {
@@ -53,21 +51,10 @@ export function makeSendDeps(supabase: SupabaseClient, sender: EvolutionSender):
       await sender.sendPoll(instanceName, number, input);
     },
 
-    async signedMediaUrl(storagePath) {
-      // TTL curto: a Evolution busca a mídia no ato do POST. A assinatura acontece
-      // aqui (no envio), não no enfileiramento — a fila anti-ban pode ter segurado
-      // este comando por horas e uma URL assinada antes já teria expirado.
-      const { data, error } = await supabase.storage
-        .from(MEDIA_BUCKET)
-        .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
-      if (error) {
-        // Objeto ausente é falha de payload (mídia apagada), não do número:
-        // devolve null e o send-command fecha o comando com erro claro.
-        log.warn("falha ao assinar mídia", { error: error.message });
-        return null;
-      }
-      return data?.signedUrl ?? null;
-    },
+    // Assinada no envio, não no enfileiramento: a fila anti-ban pode ter segurado
+    // este comando por horas. Entre os grupos, o link é reaproveitado
+    // (signed-url-cache.ts). Mídia apagada → null → send-command fecha com erro claro.
+    signedMediaUrl: mediaUrls,
 
     async recordSend(instanceId, tenantId) {
       const { error } = await supabase.rpc("record_send", {

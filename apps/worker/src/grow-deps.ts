@@ -15,16 +15,16 @@ import { listGrowTenants } from "./grow-tenants.js";
 import { log } from "./log.js";
 import { resolveMediaPath } from "./media-id.js";
 import { type InstanceRow, pickSendInstance } from "./pick-send-instance.js";
-
-/** Mesmo bucket e TTL do envio (ver send-loop.ts). */
-const MEDIA_BUCKET = "uploads";
-const SIGNED_URL_TTL_SECONDS = 300;
+import { storageSignedUrls } from "./signed-url-cache.js";
 
 export function makeGrowDeps(
   supabase: SupabaseClient,
   app: AppClient,
   groups: EvolutionGroups,
 ): GrowDeps {
+  const mediaUrls = storageSignedUrls(supabase, (error) =>
+    log.warn("auto-grow: falha ao assinar a foto do grupo", { error }),
+  );
   return {
     listTenants: () => listGrowTenants(supabase),
 
@@ -81,14 +81,7 @@ export function makeGrowDeps(
         log.warn("auto-grow: mediaId inválido para o tenant", { tenant_id: tenantId });
         return null;
       }
-      const { data, error } = await supabase.storage
-        .from(MEDIA_BUCKET)
-        .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
-      if (error) {
-        log.warn("auto-grow: falha ao assinar a foto do grupo", { error: error.message });
-        return null;
-      }
-      return data?.signedUrl ?? null;
+      return mediaUrls(storagePath);
     },
   };
 }
