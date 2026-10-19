@@ -66,7 +66,8 @@ menor correção (e anote no PR).
   - opus: migração (PR 1), núcleo (PR 2), renderizador e modelos (3a, 3b), rotas públicas (4a, 4b) e toda revisão.
   - sonnet: tarefas de tela e de rota do painel (5, 6a, 6b, 7) quando o plano trouxer o código pronto.
 - Banco: migração é aplicada pelo CI (migrate-dev no PR, migrate-prod no merge). NUNCA rode DDL à mão nem pelo MCP.
-  A baseline (npm run schema:baseline) roda contra o banco de DEV depois do migrate-dev, como o plano do PR 1 manda.
+  A baseline segue o plano do PR 1 (assinaturas no commit da migração, conferidas em dev pelo MCP do Supabase,
+  só leitura; o job drift do CI confirma).
 - Regras que mais mordem (CLAUDE.md e memória valem por inteiro): .eq('tenant_id') em toda query de tabela com
   tenant_id; nenhum atributo style= no HTML público (CSP com nonce); id de link e alvo de contagem em uuid
   minúsculo; /bio/* nunca servido em app.girumo.com.br; antes do push, infra/scripts/verify-local.ps1 (os dois tsc
