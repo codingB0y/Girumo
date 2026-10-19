@@ -136,6 +136,12 @@
     "t|bling_oauth_states": "59ba573a709e98d84d18b195a2f355c5",
     "t|bling_orders": "173481353a3c21753fdffdcffb62f9e9",
     "f|grupos_em_mais_de_uma_campanha(p_tenant uuid)": "d4b914108a3146913b311ff40fea570c",
-    "f|reordenar_campanha(p_tenant uuid, p_campanha uuid, p_esperado text[], p_nova text[])": "e2129f5f932794247606386523d5715e"
+    "f|reordenar_campanha(p_tenant uuid, p_campanha uuid, p_esperado text[], p_nova text[])": "e2129f5f932794247606386523d5715e",
+    "t|bio_pages": "bd259afbabda80540720fe5e78281ed7",
+    "t|bio_slugs": "c75871f8691ac0e2371ba87d9c46b5ec",
+    "t|bio_contagens": "c39da7f1605b7f185db441b3a69035b8",
+    "f|bio_registra_slug()": "e8c9208442517f72c1f64ecc6b5cfb2d",
+    "f|bio_contar(p_pagina uuid, p_alvo text)": "f2c82bbfe5a21c72a45959602a2e2c79",
+    "f|bio_relatorio(p_tenant uuid, p_desde date, p_ate date)": "a91b06bba633257f616b13e6aabcb670"
   }
 }

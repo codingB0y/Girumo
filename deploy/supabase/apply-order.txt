@@ -550,3 +550,10 @@ apps/web/supabase/migrations/20261017130000_grupo_uma_campanha.sql
 # padrao vazio): pedido de canal marcado (Yampi, que ja manda a compra ao Meta) entra na Girumo sem
 # evento. O canal vai no retrato do pedido (snapshot.lojaId), sem coluna nova. Muda a baseline.
 apps/web/supabase/migrations/20261019160000_bling_canais_fora_do_meta.sql
+# 2026-10-19 - Link da bio, PR 1 (spec 2026-10-19-link-da-bio-design §5): bio_pages (uma por loja,
+# documento jsonb, versao), bio_slugs (todo slug ja usado; o trigger bio_pages_registra_slug recusa slug
+# que ja foi de outra pagina com unique_violation citando bio_slugs), bio_contagens (contador por dia de
+# America/Sao_Paulo) e as RPCs bio_contar / bio_relatorio (security invoker, execute so service_role).
+# RLS ligado, sem policy, nada para anon/authenticated. Muda a baseline (3 t| e 3 f|). O gate nao ve
+# RLS, policy, ACL, trigger, CHECK nem corpo: conferir com infra/tests/bio-pages-check.sql nos dois bancos.
+apps/web/supabase/migrations/20261019120000_link_da_bio.sql
