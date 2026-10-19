@@ -9,6 +9,9 @@ import type { LojaComBling } from "@/lib/stores/bling-conexoes";
 
 type Estado = { tipo: "parado" } | { tipo: "rodando" } | { tipo: "relatorio"; relatorio: RelatorioHomologacao } | { tipo: "erro"; mensagem: string };
 
+/** O Bling aceita até 2 s entre as chamadas do teste: acima disso a tela destaca. */
+const LIMITE_ENTRE_CHAMADAS_MS = 2_000;
+
 const STATUS: Record<LojaComBling["status"], string> = {
   ativa: "conectada",
   reconectar: "precisa reconectar",
@@ -21,7 +24,8 @@ function nomeDaLoja(l: LojaComBling): string {
 
 /** Escolhe a loja e dispara `POST /api/admin/bling/homologacao`; mostra cada passo com o status e o tempo. */
 export function TesteDeHomologacao({ lojas }: { lojas: readonly LojaComBling[] }) {
-  const [loja, setLoja] = useState(lojas.find((l) => l.status === "ativa")?.tenantId ?? "");
+  // Nenhuma pré-escolhida: o teste mexe no acesso da loja, e a mais antiga costuma ser a de uma cliente.
+  const [loja, setLoja] = useState("");
   const [estado, setEstado] = useState<Estado>({ tipo: "parado" });
 
   async function rodar() {
@@ -67,6 +71,9 @@ export function TesteDeHomologacao({ lojas }: { lojas: readonly LojaComBling[] }
             onChange={(e) => setLoja(e.target.value)}
             className="min-h-11 w-full rounded-lg border border-aco/30 bg-white px-3 text-sm"
           >
+            <option value="" disabled>
+              Escolha a loja
+            </option>
             {lojas.map((l) => (
               <option key={l.tenantId} value={l.tenantId} disabled={l.status !== "ativa"}>
                 {nomeDaLoja(l)}
@@ -84,6 +91,10 @@ export function TesteDeHomologacao({ lojas }: { lojas: readonly LojaComBling[] }
           Rodar teste de homologação
         </button>
       </div>
+      <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+        No meio do teste o Bling invalida o acesso desta loja e a Girumo renova sozinha. Se a renovação falhar, a loja
+        precisa reconectar o Bling. Prefira uma loja da própria Girumo, ligada à conta do Bling que é dona do app.
+      </p>
       <div aria-live="polite">
         {estado.tipo === "erro" && (
           <p role="alert" className="text-sm text-red-700">
@@ -110,7 +121,8 @@ function Relatorio({ relatorio: r }: { relatorio: RelatorioHomologacao }) {
             <th scope="col" className="py-1.5">Passo</th>
             <th scope="col" className="py-1.5">HTTP</th>
             <th scope="col" className="py-1.5">Tempo</th>
-            <th scope="col" className="py-1.5">Acesso renovado</th>
+            <th scope="col" className="py-1.5">Desde a anterior</th>
+            <th scope="col" className="py-1.5">Renovação</th>
           </tr>
         </thead>
         <tbody className="font-data tabular-nums">
@@ -119,7 +131,10 @@ function Relatorio({ relatorio: r }: { relatorio: RelatorioHomologacao }) {
               <td className="py-1.5">{p.passo}</td>
               <td className="py-1.5">{p.status ?? "—"}</td>
               <td className="py-1.5">{p.ms} ms</td>
-              <td className="py-1.5">{p.renovou ? "sim" : "—"}</td>
+              <td className={p.intervaloMs > LIMITE_ENTRE_CHAMADAS_MS ? "py-1.5 font-semibold text-red-700" : "py-1.5"}>
+                {p.intervaloMs} ms
+              </td>
+              <td className="py-1.5">{p.renovacaoMs === null ? "—" : `${p.renovacaoMs} ms${p.hashNo401 ? " (o 401 trouxe hash)" : ""}`}</td>
             </tr>
           ))}
         </tbody>

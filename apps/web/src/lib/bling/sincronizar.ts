@@ -188,7 +188,14 @@ async function homologar(r: Rodada): Promise<void> {
     fetchImpl: deps.fetchImpl,
     token: () => r.tokens.access,
     renovar: async () => {
-      await renovarPor401(r);
+      try {
+        await renovarPor401(r);
+      } catch (e) {
+        // A parada da renovação (barrada, recusada → reconectar) fica no resultado, como numa execução normal.
+        const parada = comoParada(e);
+        if (parada) r.ex.parou = parada.motivo;
+        throw e;
+      }
     },
     agora: () => deps.agora().getTime(),
   });

@@ -22,7 +22,19 @@ export type EntradaHomologacao = {
 };
 
 export type NomeDoPasso = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-export type PassoHomologacao = { passo: NomeDoPasso; status: number | null; ms: number; renovou: boolean };
+export type PassoHomologacao = {
+  passo: NomeDoPasso;
+  status: number | null;
+  /** Do começo da 1ª chamada do passo até a resposta final dele (com a renovação, se houve). */
+  ms: number;
+  /** Da resposta do passo anterior até a 1ª chamada deste: o Bling aceita até 2 s entre chamadas. */
+  intervaloMs: number;
+  renovou: boolean;
+  /** Quanto a renovação levou (entre o 401 e a nova chamada); null = não renovou. */
+  renovacaoMs: number | null;
+  /** O 401 trouxe um `x-bling-homologacao` (a nova chamada usa o hash de antes dele; a doc não diz qual vale). */
+  hashNo401: boolean;
+};
 export type RelatorioHomologacao = { ok: boolean; passos: PassoHomologacao[]; totalMs: number; erro: string | null };
 
 /** O teto do Bling para o teste inteiro. */
@@ -43,19 +55,29 @@ export async function executarHomologacao(e: EntradaHomologacao): Promise<Relato
   const passos: PassoHomologacao[] = [];
   let renovou = false;
   let hash: string | null = null;
+  let fimDaAnterior: number | null = null;
 
   /** Uma chamada; o 401 renova uma vez por teste e repete o mesmo passo. */
   async function rodar(p: Passo, ultimo = false): Promise<Resposta> {
     const comeco = e.agora();
+    const intervaloMs = fimDaAnterior === null ? 0 : comeco - fimDaAnterior;
     let r = await chamar(e, p, hash);
-    let renovouAqui = false;
+    let renovacaoMs: number | null = null;
+    const hashNo401 = r.status === 401 && r.hash !== null;
     if (r.status === 401 && !renovou) {
       renovou = true;
-      renovouAqui = true;
-      await e.renovar();
+      const antes = e.agora();
+      try {
+        await e.renovar();
+      } catch (erro) {
+        passos.push({ passo: p.nome, status: 401, ms: e.agora() - comeco, intervaloMs, renovou: false, renovacaoMs: e.agora() - antes, hashNo401 });
+        throw new FalhaDoPasso(`${p.nome}: a renovação do acesso falhou: ${mensagemDe(erro)}`);
+      }
+      renovacaoMs = e.agora() - antes;
       r = await chamar(e, p, hash);
     }
-    passos.push({ passo: p.nome, status: r.status, ms: e.agora() - comeco, renovou: renovouAqui });
+    fimDaAnterior = e.agora();
+    passos.push({ passo: p.nome, status: r.status, ms: fimDaAnterior - comeco, intervaloMs, renovou: renovacaoMs !== null, renovacaoMs, hashNo401 });
     if (r.status === 401) throw new FalhaDoPasso(`${p.nome}: HTTP 401 depois de renovar o acesso`);
     if (r.status < 200 || r.status >= 300) throw new FalhaDoPasso(`${p.nome}: HTTP ${r.status}${mensagemDoBling(r.data)}`);
     if (!ultimo && !r.hash) throw new FalhaDoPasso(`${p.nome}: resposta sem ${HASH}`);

@@ -35,7 +35,7 @@ export default function ManualBlingPage() {
       <div className="mx-auto max-w-3xl px-5 py-12 sm:py-16">
         <Link
           href="/"
-          className="font-data text-xs uppercase tracking-[0.16em] text-volt-950/50 transition-colors hover:text-volt-950"
+          className="font-data text-xs uppercase tracking-[0.16em] text-volt-950/70 transition-colors hover:text-volt-950"
         >
           ← {BRAND.name}
         </Link>
@@ -50,7 +50,7 @@ export default function ManualBlingPage() {
         </p>
 
         <nav aria-label="Nesta página" className="mt-8 rounded-xl border border-volt-950/10 bg-paper-0 p-5">
-          <p className="font-data text-xs uppercase tracking-[0.14em] text-volt-950/50">Nesta página</p>
+          <p className="font-data text-xs uppercase tracking-[0.14em] text-volt-950/70">Nesta página</p>
           <ol className="mt-3 list-decimal space-y-1 pl-5 text-[15px]">
             <li><a href="#o-que-faz" className={LINK}>O que a integração faz</a></li>
             <li><a href="#requisitos" className={LINK}>Requisitos</a></li>

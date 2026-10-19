@@ -41,9 +41,11 @@ function blingDaHomologacao(opcoes: { passoQueInvalida?: number; respostas?: Rec
     if (chamada.hash !== esperado) return Response.json({ error: { message: "hash" } }, { status: 400 });
     const corpos = [PRODUTO, { ...PRODUTO, id: ID }, null, null, null];
     const status = [200, 201, 200, 200, 204][passo];
+    // O último passo não precisa devolver hash (não há seguinte): o falso não devolve.
+    const comHash: Record<string, string> = passo === 4 ? {} : { "x-bling-homologacao": `hash-${passo}` };
     const resposta = corpos[passo] === null || status === 204
-      ? new Response(null, { status, headers: { "x-bling-homologacao": `hash-${passo}` } })
-      : Response.json({ data: corpos[passo] }, { status, headers: { "x-bling-homologacao": `hash-${passo}` } });
+      ? new Response(null, { status, headers: comHash })
+      : Response.json({ data: corpos[passo] }, { status, headers: comHash });
     passo += 1;
     return resposta;
   }) as typeof fetch;
@@ -100,7 +102,49 @@ test("o Bling invalida o access token num passo: renova uma vez e repete aquele 
   const puts = chamadas.filter((c) => c.metodo === "PUT");
   assert.deepEqual(puts.map((c) => [c.hash, c.token]), [["hash-1", "Bearer access-1"], ["hash-1", "Bearer access-2"]]);
   assert.equal(chamadas.at(-1)?.token, "Bearer access-2");
-  assert.equal(r.passos.find((p) => p.passo === "PUT")?.renovou, true);
+  const put = r.passos.find((p) => p.passo === "PUT");
+  assert.equal(put?.renovou, true);
+  // O tempo da renovação e o intervalo até a chamada: os 2 s do Bling entre chamadas são o risco desse passo.
+  assert.ok((put?.renovacaoMs ?? 0) > 0);
+  assert.equal(put?.hashNo401, false);
+  assert.ok(r.passos.every((p) => typeof p.intervaloMs === "number"));
+  assert.equal(r.passos[0].intervaloMs, 0);
+});
+
+test("o 401 que trouxe hash fica registrado (a doc não diz qual hash vale depois dele)", async () => {
+  let n = 0;
+  const fetchImpl = (async () => {
+    n += 1;
+    if (n === 1) return Response.json({ data: PRODUTO }, { headers: { "x-bling-homologacao": "h0" } });
+    if (n === 2) return Response.json({ error: {} }, { status: 401, headers: { "x-bling-homologacao": "h-401" } });
+    return Response.json({ data: { ...PRODUTO, id: ID } }, { status: 201, headers: { "x-bling-homologacao": `h${n}` } });
+  }) as unknown as typeof fetch;
+  const r = await executarHomologacao(entrada(fetchImpl));
+  assert.equal(r.passos.find((p) => p.passo === "POST")?.hashNo401, true);
+});
+
+test("renova uma vez por teste: 401 no GET renova, e outro 401 depois (no PUT) para sem renovar de novo", async () => {
+  let n = 0;
+  const fetchImpl = (async () => {
+    n += 1;
+    if (n === 1) return Response.json({ error: {} }, { status: 401 });
+    if (n === 2) return Response.json({ data: PRODUTO }, { headers: { "x-bling-homologacao": "h0" } });
+    if (n === 3) return Response.json({ data: { ...PRODUTO, id: ID } }, { status: 201, headers: { "x-bling-homologacao": "h1" } });
+    return Response.json({ error: {} }, { status: 401 });
+  }) as unknown as typeof fetch;
+  const e = entrada(fetchImpl);
+  const r = await executarHomologacao(e);
+  assert.equal(r.ok, false);
+  assert.equal(e.renovacoes(), 1);
+  assert.match(r.erro ?? "", /PUT.*401/);
+});
+
+test("a renovação lançando (barrada, recusada): para naquele passo com a mensagem", async () => {
+  const { fetchImpl } = blingDaHomologacao({ passoQueInvalida: 1 });
+  const r = await executarHomologacao(entrada(fetchImpl, { renovar: async () => { throw new Error("renovação barrada"); } }));
+  assert.equal(r.ok, false);
+  assert.match(r.erro ?? "", /POST: a renovação do acesso falhou: renovação barrada/);
+  assert.deepEqual(r.passos.map((p) => [p.passo, p.status]), [["GET", 200], ["POST", 401]]);
 });
 
 test("401 de novo depois de renovar: para, sem renovar outra vez (o balde de /oauth/token é de todas as lojas)", async () => {

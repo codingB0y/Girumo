@@ -77,3 +77,16 @@ test("homologação com a loja ocupada (outra execução tem a trava): não roda
   assert.equal(r.homologacao, undefined);
   assert.equal(f.bling.chamadas.length, 0);
 });
+
+test("homologação com a renovação recusada pelo Bling: o relatório diz que falhou e o resultado traz a parada (reconectar)", async (t) => {
+  t.mock.method(console, "warn", () => undefined);
+  t.mock.method(console, "error", () => undefined);
+  const f = criarBlingFalso();
+  comHomologacao(f, 1);
+  f.bling.oauth = () => json(400, { error: "invalid_grant" });
+  const r = await rodar(f);
+
+  assert.equal(r.homologacao?.ok, false);
+  assert.match(r.homologacao?.erro ?? "", /POST: a renovação do acesso falhou/);
+  assert.equal(r.parou, "reconectar");
+});
