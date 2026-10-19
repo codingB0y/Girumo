@@ -12,7 +12,7 @@ const MASCARA =
 
 export const CSS_ETIQUETA = [
   '.lk{font-family:"Lexend","Segoe UI",system-ui,sans-serif}',
-  ".et{background:radial-gradient(120% 60% at 50% 0%,var(--fundo1) 0%,var(--fundo2) 55%,var(--fundo3) 130%);color:var(--on);font-size:16px;line-height:1.45;padding:18px 16px 28px}",
+  ".et{background:radial-gradient(120% 60% at 50% 0%,var(--fundo2) 55%,var(--fundo3) 130%);color:var(--on);font-size:16px;line-height:1.45;padding:18px 16px 28px}",
   ".et-col{max-width:460px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);gap:18px}",
   ".et-vitrine{position:relative;border-radius:22px;overflow:hidden;aspect-ratio:5/4;background:var(--fundo3);box-shadow:0 22px 50px -26px rgb(10 30 55 / .7)}",
   ".et-vitrine img{width:100%;height:100%;object-fit:cover}",

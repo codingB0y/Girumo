@@ -79,7 +79,7 @@ test("cores da marca: 500 pares aleatórios passam em todo par", () => {
 
 test("toda variável que o CSS lê existe nas 4 paletas e na marca", () => {
   const usadas = [...new Set(`${CSS_BASE}${CSS_ETIQUETA}`.match(/var\(--[a-z0-9-]+\)/g))].map((v) => v.slice(4, -1));
-  assert.ok(usadas.length >= 20);
+  assert.ok(usadas.length >= 19); // --fundo1 saiu do degradê (texto do topo a 4.5:1)
   for (const paleta of [...PALETAS.etiqueta, "marca"]) {
     const cores = paleta === "marca" ? { fundo: "#3A80BF", botao: "#F28C28" } : null;
     const t = tokensValidos(coresDoModelo("etiqueta", paleta, cores));
@@ -117,4 +117,36 @@ test("alvo de toque ≥ 44 px no que não é etiqueta", () => {
   assert.match(CSS_ETIQUETA, /\.et-copiar\{[^}]*min-height:44px/);
   assert.match(CSS_ETIQUETA, /\.et-mapa\{[^}]*min-height:48px/);
   assert.match(CSS_ETIQUETA, /\.et-tag\{[^}]*min-height:76px/);
+});
+
+/** Mistura sRGB de dois hex (o que o degradê pinta entre duas paradas). */
+function mistura(a: string, b: string, t: number): string {
+  const x = parseHex(a)!;
+  const y = parseHex(b)!;
+  return `#${(["r", "g", "b"] as const).map((k) => Math.round(x[k] + (y[k] - x[k]) * t).toString(16).padStart(2, "0")).join("")}`;
+}
+
+/** Frase e local (texto pequeno, --on) ficam sobre o degradê do .et: toda parada e todo meio-termo ≥ 4.5. */
+function falhasDoTopo(t: Record<string, string>): string[] {
+  const regra = regras(CSS_ETIQUETA).find(([s]) => s === ".et");
+  const paradas = [...(regra?.[1].match(/background:[^;]*/)?.[0] ?? "").matchAll(/var\(--([a-z0-9-]+)\)/g)].map((m) => t[`--${m[1]}`]);
+  if (paradas.length === 0 || paradas.some((c) => !c)) return ["degradê do .et sem paradas válidas"];
+  const fundos = paradas.flatMap((c, i) => (i === 0 ? [c] : [0.25, 0.5, 0.75, 1].map((p) => mistura(paradas[i - 1], c, p))));
+  return fundos.filter((f) => razao(t["--on"], f) < 4.5).map((f) => `on/${f} ${razao(t["--on"], f).toFixed(2)}`);
+}
+
+test("frase e local do topo: o fundo atrás deles dá ≥ 4.5 nas 4 paletas e em 500 cores da marca", () => {
+  for (const paleta of PALETAS.etiqueta) {
+    assert.deepEqual(falhasDoTopo(tokensValidos(coresDoModelo("etiqueta", paleta, null))), [], paleta);
+  }
+  const r = sorteio(20261019);
+  const hex = () => `#${Math.floor(r() * 0x1000000).toString(16).padStart(6, "0").toUpperCase()}`;
+  const ruins: string[] = [];
+  for (let i = 0; i < 500; i++) {
+    const cores = { fundo: hex(), botao: hex() };
+    const f = falhasDoTopo(tokensValidos(coresDoModelo("etiqueta", "marca", cores)));
+    if (f.length) ruins.push(`${cores.fundo}: ${f[0]}`);
+  }
+  assert.deepEqual(ruins.slice(0, 5), []);
+  assert.doesNotMatch(regras(CSS_ETIQUETA).filter(([s]) => [".et-marca", ".et-frase", ".et-local"].includes(s)).map(([, d]) => d).join(";"), /background|color:/);
 });
