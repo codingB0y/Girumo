@@ -54,6 +54,8 @@ const CONEXAO: ConexaoBling = {
   metaEnabled: true,
   metaCampaignId: CAMPANHA_A,
   metaSkipStoreIds: [],
+  salesChannels: null,
+  salesChannelsAt: null,
   backfillFrom: "2026-07-15",
   backfillUntil: "2026-10-13",
   backfillPage: 4,
@@ -293,7 +295,7 @@ test("cartão conectado inteiro: números do banco, ajustes, pixel escolhido e n
   assert.equal(cartao.ajustes?.meta_enabled, true);
   assert.equal(cartao.ajustes?.pixel.escolhido, CAMPANHA_A);
   assert.deepEqual(cartao.ajustes?.canais, [
-    { id: 200000001, pedidos: 1, exemplos: ["1532"], ultimo_pedido_em: "2026-10-12", fora_do_meta: false },
+    { ...SEM_NOME, id: 200000001, pedidos: 1, exemplos: ["1532"], ultimo_pedido_em: "2026-10-12", fora_do_meta: false },
   ]);
   assert.equal(cartao.ajustes?.situacoes.length, SITUACOES.length);
   // A versão das situações mostradas (o PATCH confere com ela): o hash do conteúdo da lista, não a hora em que foi lida.
@@ -332,6 +334,9 @@ test("pausa vencida não aparece; histórico terminado; escolha de campanha que 
   assert.deepEqual(cartao.ultimas, []);
 });
 
+/** Canal visto só nos pedidos (sem o escopo de canais, ou apagado na conta): sem nome, ativo até prova em contrário. */
+const SEM_NOME = { nome: null, tipo: null, ativo: true };
+
 test("canais: um por loja.id, na ordem do pedido mais novo, com quantos pedidos, até 3 números e o dia do último", () => {
   const YAMPI = 200000001;
   const NUVEM = 200000002;
@@ -346,19 +351,39 @@ test("canais: um por loja.id, na ordem do pedido mais novo, com quantos pedidos,
       { lojaId: YAMPI, numero: "1528", orderDate: "2026-10-13" },
     ],
     [NUVEM],
+    null,
   );
   assert.deepEqual(canais, [
-    { id: YAMPI, pedidos: 5, exemplos: ["1532", "1530", "1529"], ultimo_pedido_em: "2026-10-18", fora_do_meta: false },
-    { id: NUVEM, pedidos: 2, exemplos: ["880"], ultimo_pedido_em: "2026-10-16", fora_do_meta: true },
+    { ...SEM_NOME, id: YAMPI, pedidos: 5, exemplos: ["1532", "1530", "1529"], ultimo_pedido_em: "2026-10-18", fora_do_meta: false },
+    { ...SEM_NOME, id: NUVEM, pedidos: 2, exemplos: ["880"], ultimo_pedido_em: "2026-10-16", fora_do_meta: true },
   ]);
 });
 
 test("canal tirado do Meta que não aparece nos pedidos recentes continua na lista (dá para devolvê-lo ao envio)", () => {
-  assert.deepEqual(canaisDoCartao([{ lojaId: 1, numero: "10", orderDate: "2026-10-18" }], [7, 1]), [
-    { id: 1, pedidos: 1, exemplos: ["10"], ultimo_pedido_em: "2026-10-18", fora_do_meta: true },
-    { id: 7, pedidos: 0, exemplos: [], ultimo_pedido_em: null, fora_do_meta: true },
+  assert.deepEqual(canaisDoCartao([{ lojaId: 1, numero: "10", orderDate: "2026-10-18" }], [7, 1], null), [
+    { ...SEM_NOME, id: 1, pedidos: 1, exemplos: ["10"], ultimo_pedido_em: "2026-10-18", fora_do_meta: true },
+    { ...SEM_NOME, id: 7, pedidos: 0, exemplos: [], ultimo_pedido_em: null, fora_do_meta: true },
   ]);
-  assert.deepEqual(canaisDoCartao([], []), []);
+  assert.deepEqual(canaisDoCartao([], [], null), []);
+});
+
+test("canais da conta (com o escopo): todos os ativos, com nome e tipo, antes de pedido nenhum; o desabilitado só se tem pedido ou está fora", () => {
+  const conta = [
+    { id: 11, nome: "Loja Yampi", tipo: "Yampi", ativo: true },
+    { id: 12, nome: "Shopee", tipo: "Shopee", ativo: false },
+    { id: 13, nome: "Antiga", tipo: "API", ativo: false },
+    { id: 14, nome: null, tipo: null, ativo: true },
+  ];
+  const canais = canaisDoCartao([{ lojaId: 12, numero: "77", orderDate: "2026-10-01" }, { lojaId: 99, numero: "5", orderDate: null }], [13], conta);
+  assert.deepEqual(canais, [
+    // Mutante (só os vistos nos pedidos): a Yampi sem pedido ainda não aparecia, e o 1º pedido dela ia ao Meta.
+    { id: 11, nome: "Loja Yampi", tipo: "Yampi", ativo: true, pedidos: 0, exemplos: [], ultimo_pedido_em: null, fora_do_meta: false },
+    { id: 12, nome: "Shopee", tipo: "Shopee", ativo: false, pedidos: 1, exemplos: ["77"], ultimo_pedido_em: "2026-10-01", fora_do_meta: false },
+    { id: 13, nome: "Antiga", tipo: "API", ativo: false, pedidos: 0, exemplos: [], ultimo_pedido_em: null, fora_do_meta: true },
+    { id: 14, nome: null, tipo: null, ativo: true, pedidos: 0, exemplos: [], ultimo_pedido_em: null, fora_do_meta: false },
+    // Canal que a conta não lista mais (apagado no Bling), visto nos pedidos: fica, pelo número.
+    { ...SEM_NOME, id: 99, pedidos: 1, exemplos: ["5"], ultimo_pedido_em: null, fora_do_meta: false },
+  ]);
 });
 
 const VARIAVEIS = ["BLING_CLIENT_ID", "BLING_CLIENT_SECRET", "INTEGRATIONS_ENCRYPTION_KEY", "SUPABASE_URL"] as const;

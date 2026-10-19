@@ -183,6 +183,7 @@ function estadoInicial(): Estado {
       pedidos: new Map(),
       contatos: new Map([[MARIA.id, MARIA]]),
       situacoes: SITUACOES.map((s) => ({ ...s })),
+      canais: [],
       paginas: () => [],
       forcadas: [],
       aceitos: new Set(["access-1"]),

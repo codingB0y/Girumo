@@ -4,6 +4,7 @@ import { test } from "node:test";
 import {
   diaDoBling,
   horaDoBling,
+  listarCanaisDeVenda,
   listarPedidos,
   listarSituacoesDeVenda,
   obterContato,
@@ -372,6 +373,44 @@ test("listarSituacoesDeVenda: módulo sem nenhuma situação válida → null (q
 test("listarSituacoesDeVenda: resposta fora do envelope → invalido", async () => {
   const { cliente } = clienteFalso([{ data: {} }]);
   await assert.rejects(listarSituacoesDeVenda(cliente), ehInvalido);
+});
+
+test("listarCanaisDeVenda: /canais-venda paginado (100), nome = descrição (senão o tipo), ativo = situação 1, torto sai", async () => {
+  const pagina1 = [
+    { id: 200000001, descricao: "Loja Yampi", tipo: "Yampi", situacao: 1 },
+    { id: "200000002", descricao: " ", tipo: "Shopee", situacao: 2 },
+    { id: 200000003, descricao: "\u0000\u0007", tipo: null, situacao: 1 },
+    { id: 0, descricao: "sem id", tipo: "API", situacao: 1 },
+    "torto",
+    ...Array.from({ length: 95 }, (_, i) => ({ id: 300000000 + i, descricao: `Canal ${i}`, tipo: "API", situacao: 1 })),
+  ];
+  const { cliente, chamadas } = clienteFalso([{ data: pagina1 }, { data: [{ id: 400000001, descricao: "Nuvem", tipo: "Nuvemshop", situacao: 1 }] }]);
+  const canais = await listarCanaisDeVenda(cliente);
+  assert.deepEqual(chamadas.map((c) => [c.caminho, c.query]), [
+    ["/canais-venda", { pagina: 1, limite: 100 }],
+    ["/canais-venda", { pagina: 2, limite: 100 }],
+  ]);
+  assert.deepEqual(canais.slice(0, 3), [
+    { id: 200000001, nome: "Loja Yampi", tipo: "Yampi", ativo: true },
+    { id: 200000002, nome: "Shopee", tipo: "Shopee", ativo: false },
+    { id: 200000003, nome: null, tipo: null, ativo: true },
+  ]);
+  assert.equal(canais.length, 99);
+  assert.deepEqual(canais.at(-1), { id: 400000001, nome: "Nuvem", tipo: "Nuvemshop", ativo: true });
+});
+
+test("listarCanaisDeVenda: página curta encerra; para em 10 páginas; 403 (sem o escopo) sobe como escopo; prazo vai ao cliente", async () => {
+  const curta = clienteFalso([{ data: [{ id: 1, descricao: "Loja\u0000 A", tipo: "API", situacao: 1 }] }]);
+  assert.deepEqual(await listarCanaisDeVenda(curta.cliente, 1_234_567), [{ id: 1, nome: "Loja A", tipo: "API", ativo: true }]);
+  assert.deepEqual([curta.chamadas.length, curta.chamadas[0].prazo], [1, 1_234_567]);
+
+  const cheia = Array.from({ length: 100 }, (_, i) => ({ id: i + 1, descricao: "x", tipo: "API", situacao: 1 }));
+  const sempre = clienteFalso(Array.from({ length: 12 }, () => ({ data: cheia })));
+  await listarCanaisDeVenda(sempre.cliente);
+  assert.equal(sempre.chamadas.length, 10);
+
+  const escopo = new ErroBling("escopo", 403, "Bling: falta permissão no app para /canais-venda");
+  await assert.rejects(listarCanaisDeVenda(clienteFalso([escopo]).cliente), (e: unknown) => e === escopo);
 });
 
 test("horaDoBling e diaDoBling em São Paulo (UTC−3), com meia-noite em 00", () => {

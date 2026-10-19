@@ -7,7 +7,7 @@ import React from "react";
 import type { CanalDoCartao } from "@/lib/bling/cartao";
 import { cn } from "@/lib/utils";
 import { AJUDA, ANEL, BLOCO } from "./bling-painel-estilo";
-import { legendaDoCanal, nomeDoCanal } from "./bling-painel-texto";
+import { legendaDoCanal, nomeDoCanal, nomesRepetidos } from "./bling-painel-texto";
 
 type Props = {
   canais: readonly CanalDoCartao[];
@@ -22,6 +22,8 @@ type Props = {
  * entrando na Girumo (Vendas, origem, listas); só o evento não sai daqui, para o Meta não contar a compra duas vezes.
  */
 export function CanaisForaDoMeta({ canais, fora, travado, onAlternar }: Props) {
+  const repetidos = nomesRepetidos(canais);
+  const repetido = (c: CanalDoCartao) => c.nome !== null && repetidos.has(c.nome);
   return (
     // O fio do bloco fica no div: na borda do próprio fieldset a legenda sentaria em cima do fio.
     <div className={BLOCO}>
@@ -60,19 +62,22 @@ export function CanaisForaDoMeta({ canais, fora, travado, onAlternar }: Props) {
                   {/* O `after` estica o rótulo sobre o cartão inteiro (como nas situações) sem pôr a legenda no nome. */}
                   <label
                     htmlFor={`bling-canal-${c.id}`}
-                    className="font-data block cursor-pointer text-[14px] text-volt-950 after:absolute after:inset-0"
+                    className={cn(
+                      "block cursor-pointer text-[14px] text-volt-950 after:absolute after:inset-0",
+                      c.nome === null && "font-data",
+                    )}
                   >
                     {nomeDoCanal(c)}
                   </label>
                   <span id={`bling-canal-${c.id}-legenda`} className="block text-13 text-slate-600">
-                    {legendaDoCanal(c)}
+                    {legendaDoCanal(c, repetido(c))}
                   </span>
                 </span>
               </li>
             ))}
           </ul>
         )}
-        {canais.length > 0 && (
+        {canais.some((c) => c.nome === null || repetido(c)) && (
           <p className={AJUDA}>
             Não sabe qual é qual? Abra um desses pedidos no Bling: o campo Loja diz de que canal ele veio.
           </p>

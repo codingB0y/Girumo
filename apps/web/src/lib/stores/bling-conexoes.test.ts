@@ -61,6 +61,8 @@ const LINHA = {
   token_version: 4, situations: [{ id: 9, nome: "Atendido", base: 9 }], situations_at: "2026-10-13T12:00:00+00:00",
   sale_situation_ids: [9, 4321], high_value: 500, meta_enabled: false, meta_campaign_id: "camp-1",
   meta_skip_store_ids: ["200000001", 200000002],
+  sales_channels: [{ id: 200000001, nome: "Loja Yampi", tipo: "Yampi", ativo: true }],
+  sales_channels_at: "2026-10-13T12:00:00+00:00",
   backfill_from: "2026-07-15", backfill_until: "2026-10-13", backfill_page: 3, backfill_done_at: "2026-10-01T00:00:00+00:00",
   scan_cursor: "2026-10-13T12:00:00+00:00", paused_until: null, consecutive_failures: 2,
   last_webhook_at: null, last_scan_at: null, last_scan_change_at: null, last_sale_at: null,
@@ -103,6 +105,7 @@ test("lerConexao filtra pela loja, converte numeric que chega como texto e desca
   assert.deepEqual(conexao?.saleSituationIds, [9, 4321]);
   // Os canais fora do Meta: bigint[] pode chegar em texto.
   assert.deepEqual(conexao?.metaSkipStoreIds, [200000001, 200000002]);
+  assert.deepEqual(conexao?.salesChannels, [{ id: 200000001, nome: "Loja Yampi", tipo: "Yampi", ativo: true }]);
   assert.deepEqual(conexao?.situations, []);
   assert.equal(conexao?.metaCampaignId, "camp-1");
   assert.deepEqual([conexao?.keyFp, conexao?.tokenRetryAt], ["0123456789abcdef", null]);
@@ -111,6 +114,7 @@ test("lerConexao filtra pela loja, converte numeric que chega como texto e desca
   const colunas = (pedidos[0].url.searchParams.get("select") ?? "").split(",").map((c) => c.trim());
   assert.ok(colunas.includes("scan_slice_s") && colunas.includes("backfill_fails"), colunas.join(","));
   assert.ok(colunas.includes("meta_skip_store_ids"), colunas.join(","));
+  assert.ok(colunas.includes("sales_channels") && colunas.includes("sales_channels_at"), colunas.join(","));
   assert.deepEqual([conexao?.scanFrom, conexao?.scanSliceS], ["2026-10-13T11:00:00+00:00", 1800]);
   // As falhas seguidas da página atual do histórico (a 12ª pula a página).
   assert.equal(conexao?.backfillFails, 4);
@@ -155,6 +159,9 @@ test("salvarConexao em loja nova insere com os padrões: versão 1, situações 
   assert.equal(b.connected_by, "usuario-1");
   // A impressão da chave que selou os tokens: chave trocada depois não vira "reconectar" à toa.
   assert.equal(b.key_fp, "fedcba9876543210");
+  // A reconexão pode ter trazido o escopo dos canais: o motor relê na hora; a lista que havia fica até lá.
+  assert.ok("sales_channels_at" in b && b.sales_channels_at === null);
+  assert.ok(!("sales_channels" in b));
 });
 
 test("reconectar troca tokens, sobe a versão e zera falhas, sem tocar nos ajustes nem no histórico terminado", async () => {

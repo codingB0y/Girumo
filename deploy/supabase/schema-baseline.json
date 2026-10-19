@@ -131,7 +131,7 @@
     "f|bling_recompute_lists(p_tenant uuid, p_contact bigint)": "3e45f1ed1bf9e7ce0f6413cc6b371366",
     "f|bling_release(p_tenant uuid, p_holder uuid)": "f2c82bbfe5a21c72a45959602a2e2c79",
     "f|bling_resumo(p_tenant uuid)": "a91b06bba633257f616b13e6aabcb670",
-    "t|bling_connections": "7a0e551b1fc27067cdcc238a3cf60b05",
+    "t|bling_connections": "f12d1666c71ac987e54c1aefefdb595e",
     "t|bling_contacts": "812445808f2ef71c53cab270e739bd88",
     "t|bling_oauth_states": "59ba573a709e98d84d18b195a2f355c5",
     "t|bling_orders": "173481353a3c21753fdffdcffb62f9e9",

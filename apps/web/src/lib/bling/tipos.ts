@@ -45,5 +45,11 @@ export type ContatoBling = {
 
 export type EmpresaBling = { id: string; nome: string | null };
 
+/**
+ * Canal de venda da conta (`GET /canais-venda`: Yampi, Shopee, a loja virtual...). O `id` é o `loja.id` do pedido.
+ * `nome` = a descrição que a conta deu, senão o tipo; null = nenhum dos dois.
+ */
+export type CanalBling = { id: number; nome: string | null; tipo: string | null; ativo: boolean };
+
 /** Como a Girumo trata um pedido do Bling (spec §1 "Tipo do pedido"). */
 export type TipoPedido = "venda" | "pedido" | "ignorado" | "excluido";

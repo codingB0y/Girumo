@@ -6,6 +6,7 @@ import type { LinhaPedidoBling } from "@/lib/stores/bling-pedidos";
 import { criarClienteBling, ErroBling, type ClienteBling } from "./cliente";
 import { depsDeProducao, type DepsBling } from "./deps";
 import { contextoDaLoja, processarPedido, recarregarSituacoes, type ContextoLoja } from "./processar-pedido";
+import { atualizarCanais } from "./sincronizar-canais";
 import {
   agoraMs,
   comoParada,
@@ -163,6 +164,7 @@ async function abrirRodada(ex: Execucao, dono: string): Promise<Rodada> {
 async function passos(r: Rodada, primeira: boolean): Promise<void> {
   const cliente = clienteDaRodada(r);
   await atualizarSituacoes(r, cliente);
+  await atualizarCanais(r, cliente);
   // Varredura e histórico só no cron e na conexão: o aviso drena o que ele mesmo marcou.
   if (primeira && r.ex.gatilho !== "aviso") {
     await semSegurarAFila(r, () => varrer(r, cliente));
