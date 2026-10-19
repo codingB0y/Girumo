@@ -80,7 +80,7 @@ const CONECTADA: CartaoBling = {
     high_value: 1500,
     meta_enabled: true,
     pixel: { escolhido: null, opcoes: [] },
-    canais: [{ id: 204937216, pedidos: 42, exemplos: ["1532", "1530"], ultimo_pedido_em: "2026-10-18", fora_do_meta: false }],
+    canais: [{ id: 200000001, pedidos: 42, exemplos: ["1532", "1530"], ultimo_pedido_em: "2026-10-18", fora_do_meta: false }],
   },
   numeros_30d: {
     vendas: 0,
@@ -116,7 +116,7 @@ test("Salvar dos ajustes: sem mexer nas caixas as situações não vão; mexendo
   await bling.getByLabel("Valor alto em reais").fill("2.000,00");
   await bling.getByRole("button", { name: "Salvar ajustes" }).click();
   await expect.poll(() => corpos.length).toBe(1);
-  expect(corpos[0]).toEqual({ high_value: 2000, meta_enabled: true, meta_campaign_id: null, meta_skip_store_ids: [] });
+  expect(corpos[0]).toEqual({ high_value: 2000, meta_enabled: true, meta_campaign_id: null });
 
   // Mexeu nas caixas: as marcadas vão com a versão vista; a rota responde que a lista mudou.
   respostaDoSalvar = { status: 409, corpo: { error: RECARREGUE } };
@@ -125,7 +125,7 @@ test("Salvar dos ajustes: sem mexer nas caixas as situações não vão; mexendo
   await expect(bling.getByRole("checkbox", { name: "Em aberto" })).toBeChecked();
   await bling.getByRole("button", { name: "Salvar ajustes" }).click();
   await expect.poll(() => corpos.length).toBe(2);
-  expect(corpos[1]).toEqual({ sale_situation_ids: [6, 9], situacoes_versao: VERSAO, high_value: 1500, meta_enabled: true, meta_campaign_id: null, meta_skip_store_ids: [] });
+  expect(corpos[1]).toEqual({ sale_situation_ids: [6, 9], situacoes_versao: VERSAO, high_value: 1500, meta_enabled: true, meta_campaign_id: null });
   await expect(bling.getByText(RECARREGUE)).toBeVisible();
 });
 
@@ -144,11 +144,11 @@ test("canal de venda fora do Meta: marcar o canal manda o id no Salvar, e o resu
   await bling.getByRole("button", { name: "Ajustar" }).click({ timeout: 30_000 });
   await expect(bling.getByText("42 pedidos · último em 18/10 · nº 1532, 1530", { exact: true })).toBeVisible();
   cartao = { ...CONECTADA, ajustes: { ...CONECTADA.ajustes!, canais: [{ ...CONECTADA.ajustes!.canais[0], fora_do_meta: true }] } };
-  await bling.getByText("Canal 204937216", { exact: true }).click();
-  await expect(bling.getByRole("checkbox", { name: "Canal 204937216" })).toBeChecked();
+  await bling.getByText("Canal 200000001", { exact: true }).click();
+  await expect(bling.getByRole("checkbox", { name: "Canal 200000001" })).toBeChecked();
   await bling.getByRole("button", { name: "Salvar ajustes" }).click();
   await expect.poll(() => corpos.length).toBe(1);
-  expect(corpos[0]).toEqual({ high_value: 1500, meta_enabled: true, meta_campaign_id: null, meta_skip_store_ids: [204937216] });
+  expect(corpos[0]).toEqual({ high_value: 1500, meta_enabled: true, meta_campaign_id: null, meta_skip_store_ids: [200000001] });
   await expect(bling.getByText("ligado · sem pixel escolhido · 1 canal fora", { exact: true })).toBeVisible();
 });
 
@@ -201,7 +201,7 @@ test("recarga de fundo com o formulário aberto: sem mexer nas caixas, as situa�
   const { bling, corpos } = await abrirERecarregar(page, { status: 200, corpo: { ok: true } });
   await bling.getByRole("button", { name: "Salvar ajustes" }).click();
   await expect.poll(() => corpos.length).toBe(1);
-  expect(corpos[0]).toEqual({ high_value: 1500, meta_enabled: true, meta_campaign_id: null, meta_skip_store_ids: [] });
+  expect(corpos[0]).toEqual({ high_value: 1500, meta_enabled: true, meta_campaign_id: null });
 });
 
 test("recarga de fundo com o formulário aberto: mexendo, as marcadas vão com a versão vista e o 409 aparece", async ({ page }) => {
@@ -210,7 +210,7 @@ test("recarga de fundo com o formulário aberto: mexendo, as marcadas vão com a
   await expect(bling.getByRole("checkbox", { name: "Em aberto" })).toBeChecked();
   await bling.getByRole("button", { name: "Salvar ajustes" }).click();
   await expect.poll(() => corpos.length).toBe(1);
-  expect(corpos[0]).toEqual({ sale_situation_ids: [6, 9], situacoes_versao: VERSAO, high_value: 1500, meta_enabled: true, meta_campaign_id: null, meta_skip_store_ids: [] });
+  expect(corpos[0]).toEqual({ sale_situation_ids: [6, 9], situacoes_versao: VERSAO, high_value: 1500, meta_enabled: true, meta_campaign_id: null });
   await expect(bling.getByText(RECARREGUE)).toBeVisible();
 });
 

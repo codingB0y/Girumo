@@ -33,8 +33,9 @@ export function CanaisForaDoMeta({ canais, fora, travado, onAlternar }: Props) {
         </p>
         {canais.length === 0 ? (
           <p className="mt-3 rounded-[var(--radius-control)] bg-canvas-100 p-3 text-13 text-volt-950">
-            Nenhum pedido com canal de venda ainda. Cada canal aparece aqui quando chega o primeiro pedido dele; pedido
-            lançado direto no Bling não tem canal e sempre vai ao Meta.
+            Nenhum pedido com canal de venda ainda. Cada canal aparece aqui quando chega um pedido novo dele (os
+            importados antes desta opção não guardaram o canal). Pedido lançado direto no Bling não tem canal e sempre
+            vai ao Meta.
           </p>
         ) : (
           <ul className="mt-3 grid gap-2 sm:grid-cols-2 sm:gap-x-6">

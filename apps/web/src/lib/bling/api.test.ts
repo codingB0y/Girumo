@@ -101,10 +101,11 @@ test("listarPedidos normaliza: número vira texto, data zerada, vazia ou antes d
   });
 });
 
-test("listarPedidos: canal de venda = loja.id positivo (número ou texto); 0, ausente ou torto vira null", async () => {
+test("listarPedidos: canal de venda = loja.id positivo (número ou texto); 0 = lançado no Bling (null); sem loja ou torto = não se sabe (ausente)", async () => {
   const itens = [
-    { ...PEDIDO, id: 1, loja: { id: 204937216, unidadeNegocio: { id: 0 } } },
-    { ...PEDIDO, id: 2, loja: { id: "205291049" } },
+    { ...PEDIDO, id: 1, loja: { id: 200000001, unidadeNegocio: { id: 0 } } },
+    { ...PEDIDO, id: 7, loja: { id: "0" } },
+    { ...PEDIDO, id: 2, loja: { id: "200000002" } },
     { ...PEDIDO, id: 3, loja: { id: 0 } },
     { ...PEDIDO, id: 4, loja: undefined },
     { ...PEDIDO, id: 5, loja: "yampi" },
@@ -112,15 +113,17 @@ test("listarPedidos: canal de venda = loja.id positivo (número ou texto); 0, au
   ];
   const { cliente } = clienteFalso([{ data: itens }]);
   const { pedidos } = await listarPedidos(cliente, { pagina: 1 });
+  // "Não se sabe" fica fora do objeto (o retrato no jsonb também não a guarda).
+  assert.ok(!("lojaId" in pedidos[4]));
   assert.deepEqual(
     pedidos.map((p) => [p.id, p.lojaId]),
-    [[1, 204937216], [2, 205291049], [3, null], [4, null], [5, null], [6, null]],
+    [[1, 200000001], [7, null], [2, 200000002], [3, null], [4, undefined], [5, undefined], [6, undefined]],
   );
 });
 
 test("obterPedido traz o canal de venda do detalhe", async () => {
-  const { cliente } = clienteFalso([{ data: { ...PEDIDO, loja: { id: 204937216 } } }]);
-  assert.deepEqual(await obterPedido(cliente, 12345678), { ...RESUMO, lojaId: 204937216 });
+  const { cliente } = clienteFalso([{ data: { ...PEDIDO, loja: { id: 200000001 } } }]);
+  assert.deepEqual(await obterPedido(cliente, 12345678), { ...RESUMO, lojaId: 200000001 });
 });
 
 test("listarPedidos: página só com itens tortos tem brutos > 0 (não é o fim da paginação)", async (t) => {

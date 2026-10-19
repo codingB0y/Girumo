@@ -46,7 +46,7 @@ function responder(estado: EstadoDoCartao, metodo: string, url: URL): [number, u
   if (metodo === "PATCH" && url.pathname === "/rest/v1/bling_orders") return [200, []];
   // Os pedidos com canal (os canais de venda do cartão): a mesma tabela das últimas, outro select.
   if (url.pathname === "/rest/v1/bling_orders" && url.searchParams.get("select")?.includes("snapshot->lojaId")) {
-    return [200, banco.canais ?? []];
+    return "canais" in banco ? [200, banco.canais] : [500, { message: "inesperado: canais" }];
   }
   if (url.pathname in banco) return [200, banco[url.pathname]];
   return [500, { message: `inesperado: ${metodo} ${url.pathname}` }];
@@ -194,8 +194,8 @@ export function bancoDoCartao(): Record<string, unknown> {
     "/rest/v1/rpc/bling_resumo": RESUMO,
     "/rest/v1/bling_orders": PEDIDOS,
     canais: [
-      { numero: "1532", data: "2026-10-13", loja: 204937216 },
-      { numero: "1531", data: "2026-10-12", loja: 204937216 },
+      { numero: "1532", data: "2026-10-13", loja: 200000001 },
+      { numero: "1531", data: "2026-10-12", loja: 200000001 },
     ],
     "/rest/v1/bling_contacts": CONTATOS,
     "/rest/v1/campaign_groups": CAMPANHAS,

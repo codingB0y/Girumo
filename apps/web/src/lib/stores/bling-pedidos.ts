@@ -107,7 +107,7 @@ type Row = {
 };
 
 // O retrato é jsonb escrito pela fila e pelo processamento; torto, o pedido paga um GET em vez de ser lido errado.
-// Sem `lojaId` também: é retrato de antes do canal existir, e sem o canal o filtro do Meta não valeria nele.
+// Sem `lojaId` vale (retrato de antes do canal): "não se sabe", e o processamento decide se relê.
 const resumoGuardado = z.object({
   id: z.number(),
   numero: z.string().nullable(),
@@ -115,7 +115,7 @@ const resumoGuardado = z.object({
   total: z.number(),
   contatoId: z.number().nullable(),
   situacaoId: z.number(),
-  lojaId: z.number().nullable(),
+  lojaId: z.number().nullable().optional(),
 });
 
 const numeroOuNulo = (v: Numerico | null): number | null => (v === null ? null : Number(v));
@@ -406,8 +406,8 @@ export type PedidoComCanal = { lojaId: number; numero: string | null; orderDate:
 const comCanal = z.object({
   numero: z.string().nullable(),
   data: z.string().nullable(),
-  // O jsonb vem número; texto de dígitos também serve. Booleano (true > 0 no jsonb) não.
-  loja: z.union([z.number(), z.string().regex(/^\d+$/)]).transform(Number).pipe(z.number().int().positive()),
+  // O `->` devolve o jsonb: número. Booleano passa no filtro (true > 0 no jsonb) e cai aqui.
+  loja: z.number().int().positive(),
 });
 
 /**

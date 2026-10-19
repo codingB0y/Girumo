@@ -233,6 +233,19 @@ export function resumoDoMeta(a: Pick<AjustesDoCartao, "meta_enabled" | "pixel" |
   return fora === 0 ? base : `${base} · ${fora} ${fora === 1 ? "canal" : "canais"} fora`;
 }
 
+/**
+ * Os canais só vão no Salvar se a dona mexeu nas caixas: mandar sempre a lista da abertura desfaria, sem ela ver, o
+ * canal que outra aba tirou do Meta nesse meio tempo — e o canal "devolvido" reabre 7 dias de eventos ao Meta.
+ */
+export function canaisParaSalvar(
+  vistos: readonly Pick<CanalDoCartao, "id" | "fora_do_meta">[],
+  fora: ReadonlySet<number>,
+): { meta_skip_store_ids?: number[] } {
+  const antes = vistos.filter((c) => c.fora_do_meta).map((c) => c.id);
+  const mexeu = antes.length !== fora.size || antes.some((id) => !fora.has(id));
+  return mexeu ? { meta_skip_store_ids: [...fora].sort((x, y) => x - y) } : {};
+}
+
 /** Sem o escopo de canais no app do Bling não vem o nome (Yampi, Nuvemshop): só o número, o `loja.id`. */
 export function nomeDoCanal(c: Pick<CanalDoCartao, "id">): string {
   return `Canal ${c.id}`;

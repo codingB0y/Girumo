@@ -159,7 +159,7 @@ test("cartão conectado: estado, histórico, ajustes, números do banco e as úl
           { campaign_id: CAMPANHA_C, campanha: "Moda Sul", pixel_id: "5550001112" },
         ],
       },
-      canais: [{ id: 204937216, pedidos: 2, exemplos: ["1532", "1531"], ultimo_pedido_em: "2026-10-13", fora_do_meta: false }],
+      canais: [{ id: 200000001, pedidos: 2, exemplos: ["1532", "1531"], ultimo_pedido_em: "2026-10-13", fora_do_meta: false }],
     },
     numeros_30d: {
       vendas: 214,
@@ -246,6 +246,17 @@ test("cartão: operador e vendedora 403 sem tocar em dado da loja", async () => 
     assert.equal((await GET(pedirCartao())).status, 403, p);
     assert.deepEqual(doBanco(), [], p);
   }
+});
+
+test("a lista de canais falhando não derruba o cartão: os canais fora do Meta seguem nele", async (t) => {
+  const avisos = t.mock.method(console, "warn", () => undefined);
+  conexao = conectada({ meta_skip_store_ids: ["200000001"] });
+  delete banco.canais;
+  const resposta = await GET(pedirCartao());
+  assert.equal(resposta.status, 200);
+  const cartao = (await resposta.json()) as { ajustes: { canais: unknown[] } };
+  assert.deepEqual(cartao.ajustes.canais, [{ id: 200000001, pedidos: 0, exemplos: [], ultimo_pedido_em: null, fora_do_meta: true }]);
+  assert.ok(avisos.mock.calls.some((c) => String(c.arguments[0]).includes("loja-b")));
 });
 
 test("cartão com o banco falhando: 500 sem a mensagem do banco", async () => {

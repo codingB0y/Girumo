@@ -155,7 +155,9 @@ function diasParaReabrir(c: ConexaoBling, a: Ajustes): number | null {
   const religouMeta = a.meta_enabled === true && !c.metaEnabled;
   const trocouPixel = a.meta_campaign_id !== undefined && a.meta_campaign_id !== c.metaCampaignId;
   const fora = a.meta_skip_store_ids;
-  const canalVoltou = fora !== undefined && c.metaSkipStoreIds.some((id) => !fora.includes(id));
+  // Com o Meta desligado o evento do canal não sairia mesmo; religá-lo reabre por conta própria.
+  const metaLigado = a.meta_enabled ?? c.metaEnabled;
+  const canalVoltou = metaLigado && fora !== undefined && c.metaSkipStoreIds.some((id) => !fora.includes(id));
   return religouMeta || trocouPixel || canalVoltou ? DIAS_DO_META : null;
 }
 

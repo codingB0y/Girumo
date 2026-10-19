@@ -60,7 +60,7 @@ const LINHA = {
   access_token_enc: "v1.a.b.c", refresh_token_enc: "v1.d.e.f", access_expires_at: "2026-10-13T18:00:00+00:00",
   token_version: 4, situations: [{ id: 9, nome: "Atendido", base: 9 }], situations_at: "2026-10-13T12:00:00+00:00",
   sale_situation_ids: [9, 4321], high_value: 500, meta_enabled: false, meta_campaign_id: "camp-1",
-  meta_skip_store_ids: ["204937216", 205291049],
+  meta_skip_store_ids: ["200000001", 200000002],
   backfill_from: "2026-07-15", backfill_until: "2026-10-13", backfill_page: 3, backfill_done_at: "2026-10-01T00:00:00+00:00",
   scan_cursor: "2026-10-13T12:00:00+00:00", paused_until: null, consecutive_failures: 2,
   last_webhook_at: null, last_scan_at: null, last_scan_change_at: null, last_sale_at: null,
@@ -102,7 +102,7 @@ test("lerConexao filtra pela loja, converte numeric que chega como texto e desca
   assert.equal(conexao?.tokenVersion, 4);
   assert.deepEqual(conexao?.saleSituationIds, [9, 4321]);
   // Os canais fora do Meta: bigint[] pode chegar em texto.
-  assert.deepEqual(conexao?.metaSkipStoreIds, [204937216, 205291049]);
+  assert.deepEqual(conexao?.metaSkipStoreIds, [200000001, 200000002]);
   assert.deepEqual(conexao?.situations, []);
   assert.equal(conexao?.metaCampaignId, "camp-1");
   assert.deepEqual([conexao?.keyFp, conexao?.tokenRetryAt], ["0123456789abcdef", null]);

@@ -27,7 +27,11 @@ import { listCampaignGroups, type CampaignGroup } from "@/lib/stores/campaign-gr
  */
 
 const ULTIMAS = 8;
-/** Os canais saem dos pedidos mais novos da loja: um canal parado há mais que isso some da lista (se não estiver fora do Meta). */
+/**
+ * Os canais saem dos pedidos mais novos da loja: um canal parado há mais que isso some da lista (se não estiver fora do
+ * Meta). ponytail: a consulta anda a chave primária da loja filtrando o jsonb; índice parcial em `snapshot->'lojaId'`
+ * se o cartão de uma loja grande ficar lento.
+ */
 const PEDIDOS_DOS_CANAIS = 1000;
 const EXEMPLOS_POR_CANAL = 3;
 const HORA_MS = 3_600_000;
@@ -273,7 +277,11 @@ export async function montarCartao(tenantId: string, agora: Date): Promise<Carta
     lerResumo(tenantId),
     ultimasDoCartao(tenantId, ULTIMAS),
     listCampaignGroups(tenantId),
-    pedidosComCanal(tenantId, PEDIDOS_DOS_CANAIS),
+    // Falhar aqui não derruba o cartão: os canais fora do Meta seguem nele (`canaisDoCartao`), sem os sem marca.
+    pedidosComCanal(tenantId, PEDIDOS_DOS_CANAIS).catch((e: unknown) => {
+      console.warn(`[bling/cartao] ${tenantId}: canais de venda: ${(e as Error).message}`);
+      return [];
+    }),
   ]);
   const ids = [...new Set(linhas.flatMap((l) => (l.blingContactId === null ? [] : [l.blingContactId])))];
   const contatos = await lerContatosPorIds(tenantId, ids);

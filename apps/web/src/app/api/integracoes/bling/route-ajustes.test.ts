@@ -243,15 +243,24 @@ test("Meta religado ou outro pixel: reabre os 7 dias que o Meta ainda aceita", a
 });
 
 test("canal de venda volta ao envio: reabre os 7 dias (o evento dele estava desligado); tirar um canal grava ordenado, sem repetir, e não reabre", async () => {
-  conexao = conectada({ meta_skip_store_ids: ["204937216", "205291049"] }); // bigint[] chega em texto
-  assert.equal((await PATCH(ajustar({ meta_skip_store_ids: [205291049] }))).status, 200);
-  assert.deepEqual(gravado().meta_skip_store_ids, [205291049]);
+  conexao = conectada({ meta_skip_store_ids: ["200000001", "200000002"] }); // bigint[] chega em texto
+  assert.equal((await PATCH(ajustar({ meta_skip_store_ids: [200000002] }))).status, 200);
+  assert.deepEqual(gravado().meta_skip_store_ids, [200000002]);
+  assert.deepEqual(reabertos(), [`gte.${diaHaDias(7)}`]);
+
+  // Com o Meta desligado o evento não sairia mesmo: devolver o canal não reabre nada (religar o Meta reabre).
+  conexao = conectada({ meta_enabled: false, meta_skip_store_ids: ["200000001"] });
+  chamadas.length = 0;
+  assert.equal((await PATCH(ajustar({ meta_skip_store_ids: [] }))).status, 200);
+  assert.equal(reaberturas().length, 0);
+  chamadas.length = 0;
+  assert.equal((await PATCH(ajustar({ meta_skip_store_ids: [], meta_enabled: true }))).status, 200);
   assert.deepEqual(reabertos(), [`gte.${diaHaDias(7)}`]);
 
   conexao = conectada();
   chamadas.length = 0;
-  assert.equal((await PATCH(ajustar({ meta_skip_store_ids: [205291049, 204937216, 205291049] }))).status, 200);
-  assert.deepEqual(gravado().meta_skip_store_ids, [204937216, 205291049]);
+  assert.equal((await PATCH(ajustar({ meta_skip_store_ids: [200000002, 200000001, 200000002] }))).status, 200);
+  assert.deepEqual(gravado().meta_skip_store_ids, [200000001, 200000002]);
   // O que já foi ao Meta não volta atrás; o que ainda não foi, o motor processa com a lista nova.
   assert.deepEqual([reaberturas().length, recalculos().length], [0, 0]);
 });
@@ -310,7 +319,7 @@ test("corpo inválido: 400 com a mensagem certa e nada é lido nem gravado", asy
     [{ meta_campaign_id: "vip-goiania" }, "Campanha do pixel inválida."],
     [{ meta_skip_store_ids: [0] }, CANAIS],
     [{ meta_skip_store_ids: [1.5] }, CANAIS],
-    [{ meta_skip_store_ids: ["204937216"] }, CANAIS],
+    [{ meta_skip_store_ids: ["200000001"] }, CANAIS],
     [{ meta_skip_store_ids: null }, CANAIS],
     [{ meta_skip_store_ids: Array.from({ length: 51 }, (_, i) => i + 1) }, CANAIS],
   ];

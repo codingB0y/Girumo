@@ -10,6 +10,7 @@ import { CanaisForaDoMeta } from "./bling-painel-canais";
 import { AJUDA, ANEL, BLOCO, CAMPO, PRIMARIO, SECUNDARIO, TITULO } from "./bling-painel-estilo";
 import {
   campoDoValor,
+  canaisParaSalvar,
   legendaDaSituacao,
   lerValorAlto,
   MENSAGEM_DO_VALOR,
@@ -29,7 +30,8 @@ export type AjustesParaSalvar = SituacoesParaSalvar & {
   high_value: number | null;
   meta_enabled: boolean;
   meta_campaign_id: string | null;
-  meta_skip_store_ids: number[];
+  /** Só quando a dona mexeu nos canais (`canaisParaSalvar`). */
+  meta_skip_store_ids?: number[];
 };
 
 const INTERRUPTOR =
@@ -128,7 +130,7 @@ export function FormularioDeAjustes({ ajustes, ocupado, erro, onSalvar, onCancel
       high_value: lido.valor,
       meta_enabled: meta,
       meta_campaign_id: pixel || null,
-      meta_skip_store_ids: [...fora].sort((x, y) => x - y),
+      ...canaisParaSalvar(vistas.canais, fora),
     });
   }
 

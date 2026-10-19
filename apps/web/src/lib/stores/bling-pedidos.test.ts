@@ -75,7 +75,7 @@ const LIDO = "2026-10-13T14:58:00.123456+00:00";
 const GRAVOU = (): Resposta => ({ status: 200, corpo: [{ bling_order_id: 101 }] });
 const MUDOU = (): Resposta => ({ status: 200, corpo: [] });
 
-const RESUMO_A: PedidoResumo = { id: 101, numero: "77", data: "2026-10-12", total: 149.9, contatoId: 555, situacaoId: 6, lojaId: 204937216 };
+const RESUMO_A: PedidoResumo = { id: 101, numero: "77", data: "2026-10-12", total: 149.9, contatoId: 555, situacaoId: 6, lojaId: 200000001 };
 const RESUMO_B: PedidoResumo = { id: 102, numero: null, data: null, total: 10, contatoId: null, situacaoId: 9, lojaId: null };
 
 test("aviso: um rpc bling_enqueue com os ids, sem o mesmo pedido duas vezes, e devolve o número do banco", async () => {
@@ -179,8 +179,8 @@ test("pendentes vencidos: só da loja, pending, next_try_at até agora; o histó
   });
   // Retrato torto vira null: o processamento faz GET em vez de confiar nele.
   assert.deepEqual([linhas[1].blingOrderId, linhas[1].total, linhas[1].situacaoId, linhas[1].snapshot], [102, null, null, null]);
-  // Retrato gravado antes de o canal existir também: sem saber o canal, o filtro do Meta não valeria nele.
-  assert.deepEqual([linhas[2].blingOrderId, linhas[2].snapshot], [103, null]);
+  // Retrato gravado antes de o canal existir vale, sem o canal ("não se sabe": o processamento decide se relê).
+  assert.deepEqual([linhas[2].blingOrderId, linhas[2].snapshot], [103, semCanal]);
 });
 
 test("existe pendente vencido: uma linha basta, com o mesmo filtro", async () => {
@@ -474,13 +474,13 @@ test("erro do banco no resumo e nas últimas sobe com a mensagem dele", async ()
   await assert.rejects(pedidosComCanal("loja-a", 1000), /caiu o banco/);
 });
 
-test("pedidos com canal: só da loja, só retrato com canal (> 0 no jsonb), id mais alto primeiro; número em texto vira número", async () => {
+test("pedidos com canal: só da loja, só retrato com canal (> 0 no jsonb), id mais alto primeiro; o que não é número some", async () => {
   responder = () => ({
     status: 200,
     corpo: [
-      { numero: "1532", data: "2026-10-18", loja: 204937216 },
-      { numero: null, data: null, loja: "205291049" },
-      { numero: "9", data: "2026-10-01", loja: "torto" },
+      { numero: "1532", data: "2026-10-18", loja: 200000001 },
+      { numero: null, data: null, loja: 200000002 },
+      { numero: "9", data: "2026-10-01", loja: "200000003" },
       { numero: "8", data: "2026-10-01", loja: true },
     ],
   });
@@ -497,7 +497,7 @@ test("pedidos com canal: só da loja, só retrato com canal (> 0 no jsonb), id m
     limit: "1000",
   });
   assert.deepEqual(pedidos, [
-    { lojaId: 204937216, numero: "1532", orderDate: "2026-10-18" },
-    { lojaId: 205291049, numero: null, orderDate: null },
+    { lojaId: 200000001, numero: "1532", orderDate: "2026-10-18" },
+    { lojaId: 200000002, numero: null, orderDate: null },
   ]);
 });

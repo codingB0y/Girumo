@@ -274,7 +274,7 @@ test("cartão conectado inteiro: números do banco, ajustes, pixel escolhido e n
     linhas: [pedido({})],
     contatos: [ANA],
     campanhas: CAMPANHAS,
-    canais: [{ lojaId: 204937216, numero: "1532", orderDate: "2026-10-12" }],
+    canais: [{ lojaId: 200000001, numero: "1532", orderDate: "2026-10-12" }],
     agora: AGORA,
   });
 
@@ -293,7 +293,7 @@ test("cartão conectado inteiro: números do banco, ajustes, pixel escolhido e n
   assert.equal(cartao.ajustes?.meta_enabled, true);
   assert.equal(cartao.ajustes?.pixel.escolhido, CAMPANHA_A);
   assert.deepEqual(cartao.ajustes?.canais, [
-    { id: 204937216, pedidos: 1, exemplos: ["1532"], ultimo_pedido_em: "2026-10-12", fora_do_meta: false },
+    { id: 200000001, pedidos: 1, exemplos: ["1532"], ultimo_pedido_em: "2026-10-12", fora_do_meta: false },
   ]);
   assert.equal(cartao.ajustes?.situacoes.length, SITUACOES.length);
   // A versão das situações mostradas (o PATCH confere com ela): o hash do conteúdo da lista, não a hora em que foi lida.
@@ -333,8 +333,8 @@ test("pausa vencida não aparece; histórico terminado; escolha de campanha que 
 });
 
 test("canais: um por loja.id, na ordem do pedido mais novo, com quantos pedidos, até 3 números e o dia do último", () => {
-  const YAMPI = 204937216;
-  const NUVEM = 205291049;
+  const YAMPI = 200000001;
+  const NUVEM = 200000002;
   const canais = canaisDoCartao(
     [
       { lojaId: YAMPI, numero: "1532", orderDate: "2026-10-18" },
