@@ -1,30 +1,18 @@
 import assert from "node:assert/strict";
-import { isLive, STALE_CONNECTED_THRESHOLD_MS } from "./session-liveness";
+import { isLive } from "./session-liveness";
 
 const now = Date.now();
-const minutesAgo = (m: number) => new Date(now - m * 60_000).toISOString();
+const hoursAgo = (h: number) => new Date(now - h * 3_600_000).toISOString();
 
 // status disconnected nunca é live, não importa o quão recente.
-assert.equal(isLive({ status: "disconnected", updatedAt: minutesAgo(0) }), false);
+assert.equal(isLive({ status: "disconnected", updatedAt: hoursAgo(0) }), false);
 
 // connected recente → live.
-assert.equal(isLive({ status: "connected", updatedAt: minutesAgo(1) }), true);
+assert.equal(isLive({ status: "connected", updatedAt: hoursAgo(0) }), true);
 
-// BUG que motivou o fix: conexão connected estável sem transição de estado
-// há mais de 90s (ex.: 5h, como observado em produção) continua live — só
-// connection.update toca updated_at, não é heartbeat periódico.
-assert.equal(isLive({ status: "connected", updatedAt: minutesAgo(5 * 60) }), true);
-
-// ainda dentro do teto de 24h (23h59) → live.
-assert.equal(
-  isLive({ status: "connected", updatedAt: new Date(now - STALE_CONNECTED_THRESHOLD_MS + 60_000).toISOString() }),
-  true,
-);
-
-// além do teto de 24h → considerada abandonada, não live.
-assert.equal(
-  isLive({ status: "connected", updatedAt: new Date(now - STALE_CONNECTED_THRESHOLD_MS - 60_000).toISOString() }),
-  false,
-);
+// BUG de 18/10 (e de 09/09): número connected e estável, sem transição há
+// mais de 24h (1d e 3d medidos em prod), aparecia como desconectado no painel.
+assert.equal(isLive({ status: "connected", updatedAt: hoursAgo(25) }), true);
+assert.equal(isLive({ status: "connected", updatedAt: hoursAgo(3 * 24) }), true);
 
 console.log("session-liveness tests passed");

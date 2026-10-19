@@ -7,17 +7,11 @@ export type LivenessInput = {
 };
 
 // `updated_at` só é tocado em evento connection.update (transição de estado
-// via webhook Evolution), não é heartbeat periódico — uma conexão estável
-// passa horas sem gerar transição nenhuma. Um teto curto (ex.: 90s) marcava
-// "desconectado" qualquer sessão saudável parada; o teto aqui só existe pra
-// pegar instância genuinamente abandonada
-// (achado: finding-painel-heartbeat-false-disconnect na memória do projeto).
-export const STALE_CONNECTED_THRESHOLD_MS = 24 * 60 * 60 * 1000;
-
-/** "Ao vivo" = status conectado E sem ficar abandonada por mais de 24h. */
+// via webhook Evolution), não é heartbeat — uma conexão estável passa dias sem
+// transição nenhuma. Qualquer teto sobre `updated_at` (já foi 90s, depois 24h)
+// marca "desconectado" justamente o número que está funcionando bem. Por isso
+// o status é a única fonte: quem derruba a sessão é o connection.update de
+// close/disconnected (achado: isLive-teto-24h-e-proxy-de-heartbeat).
 export function isLive(info: LivenessInput): boolean {
-  return (
-    info.status === "connected" &&
-    Date.now() - new Date(info.updatedAt).getTime() < STALE_CONNECTED_THRESHOLD_MS
-  );
+  return info.status === "connected";
 }
