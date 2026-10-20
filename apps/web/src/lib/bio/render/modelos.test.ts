@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { PALETAS, documentoPadrao, type DadosRender, type Modelo } from "@/lib/bio/documento";
-import { IDS, dadosCheios, dadosFalsos } from "@/test/bio-dados-falsos";
+import { IDS, dadosCheios, dadosFalsos, dadosPiorCaso } from "@/test/bio-dados-falsos";
 import { renderPaginaBio } from "./index";
 
 /** O que vale para todo modelo (spec §10 e §11), na primeira paleta de cada um. */
@@ -96,4 +96,12 @@ for (const modelo of MODELOS_PRONTOS) {
     const bytes = Buffer.byteLength(html);
     assert.ok(bytes <= 40 * 1024, `${bytes} bytes`);
   });
+
+  for (const paleta of PALETAS[modelo]) {
+    test(`${modelo}: pior caso cabe em 40 KB (${paleta})`, () => {
+      const html = publica({ ...dadosPiorCaso(), documento: { ...dadosPiorCaso().documento, modelo, paleta } });
+      const bytes = Buffer.byteLength(html);
+      assert.ok(bytes <= 40 * 1024, `${modelo}/${paleta}: ${bytes} bytes`);
+    });
+  }
 }

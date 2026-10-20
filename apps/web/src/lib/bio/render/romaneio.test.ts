@@ -99,6 +99,7 @@ test("alvo de toque ≥ 44 px", () => {
 test("IBM Plex Mono nos 4 pesos, com preload, e nenhuma outra fonte", () => {
   const html = pagina();
   assert.equal(html.match(/rel="preload"/g)?.length, 4);
+  assert.equal(html.match(/@font-face/g)?.length, 4);
   for (const peso of ["400", "500", "600", "700"]) {
     assert.ok(html.includes(`<link rel="preload" href="/fonts/bio/ibm-plex-mono/ibm-plex-mono-latin-${peso}.woff2" as="font" type="font/woff2" crossorigin>`), peso);
     assert.ok(html.includes(`@font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:${peso};font-display:swap;`), peso);

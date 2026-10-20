@@ -105,3 +105,14 @@ export function dadosCheios(): DadosRender {
     },
   };
 }
+
+/** O pior caso do 3a: a página cheia com as URLs no limite de 500 e a mensagem do WhatsApp no de 300. */
+export function dadosPiorCaso(): DadosRender {
+  const d = dadosCheios();
+  const links = d.documento.links.map((l) => {
+    if (l.tipo === "link") return { ...l, url: `${l.url.slice(0, 60)}?x=${"a".repeat(500)}`.slice(0, 500) };
+    if (l.tipo === "whatsapp") return { ...l, mensagem: "Coleção de verão com peças à pronta-entrega e reposição toda semana ".repeat(6).slice(0, 300) };
+    return l;
+  });
+  return { ...d, documento: { ...d.documento, links } };
+}
