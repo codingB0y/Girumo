@@ -45,7 +45,7 @@ function dados(): DadosRender {
   };
 }
 
-type Opcoes = { busca?: BuscaPorSlug | Error; dono?: string | null; loja?: DadosRender | null };
+type Opcoes = { busca?: BuscaPorSlug | Error; dono?: string | null | Error; loja?: DadosRender | null | Error };
 
 function cenario(o: Opcoes = {}) {
   depois.length = 0;
@@ -61,10 +61,12 @@ function cenario(o: Opcoes = {}) {
     },
     donoDoHost: async (host: string): Promise<string | null> => {
       consultas.push(`host:${host}`);
+      if (o.dono instanceof Error) throw o.dono;
       return o.dono ?? null;
     },
     daLoja: async (tenantId: string, origem: string): Promise<DadosRender | null> => {
       consultas.push(`loja:${tenantId}:${origem}`);
+      if (o.loja instanceof Error) throw o.loja;
       return o.loja ?? null;
     },
     contar: async (paginaId: string, alvo: string): Promise<void> => {
@@ -229,11 +231,31 @@ test("_dominio no host do Girumo é 404 HTML, sem consultar nada", async () => {
 });
 
 test("domínio sem dono ativo, ou loja sem página: o 404 de texto do middleware", async () => {
-  for (const o of [{ dono: null }, { dono: "loja-a", loja: null }]) {
-    const { deps } = cenario(o);
-    const res = await responder(pedido("/bio/_dominio", { host: "links.atelie-da-ana.test" }), "_dominio", deps);
+  const host = "links.atelie-da-ana.test";
+  const casos: [Opcoes, string[]][] = [
+    [{ dono: null }, [`host:${host}`]], // sem dono, a loja nem é procurada
+    [{ dono: "loja-a", loja: null }, [`host:${host}`, `loja:loja-a:https://${host}`]],
+  ];
+  for (const [o, esperadas] of casos) {
+    const { deps, consultas } = cenario(o);
+    const res = await responder(pedido("/bio/_dominio", { host }), "_dominio", deps);
     assert.equal(res.status, 404);
     assert.equal(res.headers.get("content-type"), "text/plain; charset=utf-8");
     assert.equal(await res.text(), "Link não encontrado.");
+    assert.deepEqual(consultas, esperadas);
   }
+});
+
+test("raiz do domínio com o banco fora do ar: 503, sem cache", async (t) => {
+  const erros = t.mock.method(console, "error", () => {});
+  const casos: Opcoes[] = [{ dono: new Error("banco caiu") }, { dono: "loja-a", loja: new Error("banco caiu") }];
+  for (const o of casos) {
+    const { deps } = cenario(o);
+    const res = await responder(pedido("/bio/_dominio", { host: "links.atelie-da-ana.test" }), "_dominio", deps);
+    assert.equal(res.status, 503);
+    assert.equal(res.headers.get("content-type"), "text/plain; charset=utf-8");
+    assert.match(res.headers.get("cache-control") ?? "", /no-store/);
+    assert.match(await res.text(), /Tente de novo/);
+  }
+  assert.equal(erros.mock.callCount(), casos.length);
 });
