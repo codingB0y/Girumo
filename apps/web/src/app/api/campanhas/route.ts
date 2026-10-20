@@ -5,6 +5,7 @@ import { listLinks } from "@/lib/store";
 import { criarLinkMestreOuDesfazer, uniqueMasterSlug } from "@/lib/campaigns/master-link";
 import { renomearSlugCampanha } from "@/lib/campaigns/rename-slug";
 import { assertPlanLimit } from "@/lib/billing/entitlements";
+import { invalidarBioDaLoja } from "@/lib/bio/cache";
 import { getTenantContext } from "@/lib/supabase/tenant-context";
 import { carregarCampanhas } from "@/lib/painel/inicio-carga";
 import { assertPermission } from "@/lib/permissions";
@@ -237,6 +238,9 @@ export async function PATCH(req: Request) {
   if (typeof b.slug === "string") {
     const r = await renomearSlugCampanha(tenantId, id, b.slug);
     if (!r.ok) return Response.json({ error: r.error }, { status: r.status });
+    // O botão "Grupo VIP" do link da bio aponta para o link mestre: sem isto a
+    // página mostra o link antigo por até 5 min (spec link-da-bio §6).
+    invalidarBioDaLoja(tenantId);
   }
 
   let updated: supaStore.CampaignGroup | null;
@@ -284,5 +288,7 @@ export async function DELETE(req: Request) {
   }
 
   await supaStore.deleteCampaignGroup(tenantId, id);
+  // Campanha apagada sai do link da bio já na próxima visita (linksEscondidos).
+  invalidarBioDaLoja(tenantId);
   return Response.json({ ok: true });
 }
