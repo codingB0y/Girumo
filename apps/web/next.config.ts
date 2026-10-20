@@ -110,12 +110,12 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        // tudo, exceto /p/*, /r/* e a prévia do editor (todas com regra própria
-        // abaixo). Ficam FORA do match global pra não sair header duplicado.
-        // `p$`/`r$` cobrem os paths exatos /p e /r: `:path*` na regra dedicada
-        // casa zero segmentos, então sem eles esses dois sairiam com dois
-        // headers de CSP.
-        source: "/((?!p/|p$|r/|r$|c/|c$|editor-preview).*)",
+        // tudo, exceto /p/*, /r/*, /c/*, /bio/* e a prévia do editor (todas com
+        // regra própria abaixo). Ficam FORA do match global pra não sair header
+        // duplicado. `p$`/`r$`/`c$`/`bio$` cobrem os paths exatos: `:path*` na
+        // regra dedicada casa zero segmentos, então sem eles esses sairiam com
+        // dois headers de CSP.
+        source: "/((?!p/|p$|r/|r$|c/|c$|bio/|bio$|editor-preview).*)",
         headers: securityHeaders,
       },
       {
@@ -133,6 +133,11 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/c/:path*",
+        headers: headersWithoutCsp,
+      },
+      {
+        // Link da bio (spec link-da-bio §6): CSP com nonce, do middleware.
+        source: "/bio/:path*",
         headers: headersWithoutCsp,
       },
     ];

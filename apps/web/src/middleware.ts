@@ -265,7 +265,7 @@ export const config = {
   // públicas de lead/track — sessão 4)
   // lp = landing experimental de conversão (/lp) — pública, sem sessão
   //
-  // As duas entradas dedicadas de /p/ e /r/ existem porque a regra geral exclui
+  // As entradas dedicadas (/p/, /r/, /c/ e /bio/) existem porque a regra geral exclui
   // QUALQUER path com ponto (`.*\.`, pra não rodar em asset), e sem elas
   // `/p/foo.bar` sairia SEM CSP nenhuma — falha aberta. Entradas próprias
   // garantem que toda request dessas superfícies recebe a política, inclusive
@@ -276,6 +276,7 @@ export const config = {
     "/p/:path*",
     "/r/:path*",
     "/c/:path*",
+    "/bio/:path*",
     // Domínio próprio do lojista: o middleware roda em TODO path de host que
     // não é do Girumo — inclusive os que a primeira entrada exclui (/login,
     // /api/p/...) — para o ramo de host de lojista barrar o que não é link nem

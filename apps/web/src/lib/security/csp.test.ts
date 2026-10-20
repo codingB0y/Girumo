@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
+import { getPathMatch } from "next/dist/shared/lib/router/utils/path-match";
 import { buildCsp, generateNonce, nonceAttribute, surfaceForPath } from "./csp";
 
 /**
@@ -157,4 +159,33 @@ test("CSP do link da bio: fechada, só o nonce, nenhum terceiro (spec link-da-bi
     "frame-ancestors 'none'",
   ]);
   assert.equal(nonceSeenByNext(csp), nonce);
+});
+
+const NEXT_CONFIG = readFileSync(new URL("../../../next.config.ts", import.meta.url), "utf8");
+const MIDDLEWARE = readFileSync(new URL("../../middleware.ts", import.meta.url), "utf8");
+
+/**
+ * A regra que entrega a CSP ESTÁTICA a tudo que não tem nonce, lida do next.config
+ * (que importa @sentry/nextjs e não roda sob tsx) e casada com o matcher do próprio Next.
+ */
+function regraGlobal(): (caminho: string) => boolean {
+  const fonte = NEXT_CONFIG.match(/source:\s*"([^"]+)",\s*headers:\s*securityHeaders/)?.[1];
+  assert.ok(fonte, "regra global de headers não encontrada no next.config.ts");
+  const casa = getPathMatch(fonte, { strict: true, removeUnnamedParams: true });
+  return (caminho) => casa(caminho) !== false;
+}
+
+test("a CSP estática do next.config não casa o link da bio (na Vercel sairiam duas CSP)", () => {
+  const casa = regraGlobal();
+  for (const caminho of ["/bio", "/bio/loja-teste", "/p/x", "/r/x", "/c/x"]) {
+    assert.equal(casa(caminho), false, `${caminho} sairia com duas CSP`);
+  }
+  for (const caminho of ["/painel", "/termos", "/biografia", "/login"]) {
+    assert.equal(casa(caminho), true, `${caminho} ficou sem a CSP estática`);
+  }
+  assert.match(NEXT_CONFIG, /source:\s*"\/bio\/:path\*",\s*headers:\s*headersWithoutCsp/);
+});
+
+test("o middleware roda em toda /bio/* (entrada própria no matcher, como /p/ /r/ /c/)", () => {
+  assert.match(MIDDLEWARE, /"\/bio\/:path\*"/);
 });
