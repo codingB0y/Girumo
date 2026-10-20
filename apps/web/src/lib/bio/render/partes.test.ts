@@ -230,3 +230,12 @@ test("cnpjDaLoja: formatado só com o confere ligado e 14 dígitos", () => {
   assert.equal(cnpjDaLoja({ ...doc, confere: { ...doc.confere, ativo: false } }), "");
   assert.equal(cnpjDaLoja({ ...doc, confere: { ...doc.confere, cnpj: "" } }), "");
 });
+
+test("ícone, sprite e grupo não leem o protótipo (sem Object.hasOwn: a prévia roda no Safari < 15.4)", () => {
+  for (const nome of ["toString", "constructor", "__proto__"]) {
+    assert.match(icone(nome), /href="#lk-i-link"/, nome);
+  }
+  assert.equal(sprite('<use href="#lk-i-constructor"></use>'), "");
+  const d = dadosFalsos();
+  assert.equal(hrefDoLink({ ...link(IDS.grupo), campanhaId: "constructor" } as LinkBio, d), null);
+});

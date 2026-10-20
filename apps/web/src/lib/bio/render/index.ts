@@ -57,16 +57,18 @@ function cabeca(c: ContextoRender, m: ModeloRender, preload: string): string {
   const frase = escapeHtml(p.frase);
   const tema = m.corDoTopo(c.tokens);
   const icone = c.logo ? urlDaImagem(c.logo.midia.id, 384) : null;
-  const og = p.capa ? imagemAbsoluta(c.d.origem, p.capa.id) : null;
+  // A prévia é um iframe srcdoc que ninguém indexa nem compartilha: sem description nem Open Graph.
+  const publica = c.modo === "publica";
+  const og = publica && p.capa ? imagemAbsoluta(c.d.origem, p.capa.id) : null;
   return [
     '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width,initial-scale=1">',
     `<title>${nome}</title>`,
-    frase ? `<meta name="description" content="${frase}">` : "",
+    publica && frase ? `<meta name="description" content="${frase}">` : "",
     '<meta name="robots" content="noindex">',
-    '<meta property="og:type" content="website">',
-    `<meta property="og:title" content="${nome}">`,
-    frase ? `<meta property="og:description" content="${frase}">` : "",
+    publica ? '<meta property="og:type" content="website">' : "",
+    publica ? `<meta property="og:title" content="${nome}">` : "",
+    publica && frase ? `<meta property="og:description" content="${frase}">` : "",
     og ? `<meta property="og:image" content="${escapeHtml(og)}">` : "",
     COR.test(tema) ? `<meta name="theme-color" content="${tema}">` : "",
     `<link rel="icon" href="${icone ? escapeHtml(icone) : "data:,"}">`,

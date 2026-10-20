@@ -54,7 +54,7 @@ const SIMBOLOS: Record<string, string> = {
 
 /** `<svg>` decorativo que usa um símbolo do sprite; nome fora da lista vira "link". */
 export function icone(nome: string, classe = "i"): string {
-  const n = Object.hasOwn(SIMBOLOS, nome) ? nome : "link";
+  const n = Object.prototype.hasOwnProperty.call(SIMBOLOS, nome) ? nome : "link";
   return `<svg class="${classe}" viewBox="0 0 24 24" aria-hidden="true"><use href="#lk-i-${n}"></use></svg>`;
 }
 
@@ -62,7 +62,7 @@ export function icone(nome: string, classe = "i"): string {
 export function sprite(html: string): string {
   const usados = [...new Set(html.match(/#lk-i-[a-z-]+/g) ?? [])]
     .map((ref) => ref.slice("#lk-i-".length))
-    .filter((n) => Object.hasOwn(SIMBOLOS, n));
+    .filter((n) => Object.prototype.hasOwnProperty.call(SIMBOLOS, n));
   if (usados.length === 0) return "";
   const simbolos = usados.map((n) => `<symbol id="lk-i-${n}" viewBox="0 0 24 24">${SIMBOLOS[n]}</symbol>`).join("");
   return `<svg class="lk-sprite" aria-hidden="true" focusable="false">${simbolos}</svg>`;
@@ -210,7 +210,7 @@ export function hrefDoLink(l: LinkBio, d: DadosRender): string | null {
       return urlSegura(`https://wa.me/${l.numero}${texto}`);
     }
     case "grupo": {
-      const slug = Object.hasOwn(d.campanhas, l.campanhaId) ? d.campanhas[l.campanhaId] : "";
+      const slug = Object.prototype.hasOwnProperty.call(d.campanhas, l.campanhaId) ? d.campanhas[l.campanhaId] : "";
       return SLUG_DE_CAMPANHA.test(slug) ? campaignLinkPath(d.origem, slug) : null;
     }
     case "link":
