@@ -18,6 +18,7 @@
 
 export const PUBLIC_SITE_HOST = "www.girumo.com.br";
 export const APP_HOST = "app.girumo.com.br";
+export const APEX_HOST = "girumo.com.br";
 
 /**
  * Superfícies que LEEM ou CRIAM sessão, e por isso precisam morar num host só.
@@ -61,6 +62,21 @@ export function appDomainRedirects(): HostRedirect[] {
     source,
     has: [{ type: "host" as const, value: PUBLIC_SITE_HOST }],
     destination: `https://${APP_HOST}${source}`,
+    permanent: true as const,
+  }));
+}
+
+/**
+ * O link da bio (spec link-da-bio §2) mora só no host público. Em `app.` a
+ * página dividiria a origem com a sessão do painel — o supabase-js guarda a
+ * sessão no localStorage de `app.`. O apex já responde 308 para o www na
+ * Vercel; a regra dele aqui é a rede se isso mudar.
+ */
+export function bioDomainRedirects(): HostRedirect[] {
+  return [APP_HOST, APEX_HOST].map((host) => ({
+    source: "/bio/:path*",
+    has: [{ type: "host" as const, value: host }],
+    destination: `https://${PUBLIC_SITE_HOST}/bio/:path*`,
     permanent: true as const,
   }));
 }

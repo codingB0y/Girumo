@@ -9,15 +9,16 @@
  * request. Fora de escopo aqui: essas rotas seguem com a CSP estática do
  * next.config (com 'unsafe-inline', sem 'unsafe-eval' em produção).
  *
- * O que ENTRA: as duas superfícies públicas que já renderizam por request e que
+ * O que ENTRA: as três superfícies públicas que já renderizam por request e que
  * recebem conteúdo controlado pelo lojista — /p/:slug (headline, foto, ids de
- * pixel) e /r/:slug (intersticial com o Pixel do Meta). É onde um XSS teria de
- * onde sair, e o nonce ali custa zero em performance.
+ * pixel), /r/:slug (intersticial com o Pixel do Meta) e /bio/:slug (link da
+ * bio, HTML do route handler). É onde um XSS teria de onde sair, e o nonce ali
+ * custa zero em performance.
  */
 
 import { SENTRY_CSP_HOST } from "@/lib/observability/sentry-options";
 
-export type NonceSurface = "public-lp" | "click-redirect";
+export type NonceSurface = "public-lp" | "click-redirect" | "bio";
 
 /**
  * Só as rotas SEM pré-render entram. Antes de adicionar uma superfície aqui,
@@ -28,6 +29,7 @@ export function surfaceForPath(pathname: string): NonceSurface | null {
   if (pathname === "/p" || pathname.startsWith("/p/")) return "public-lp";
   if (pathname === "/r" || pathname.startsWith("/r/")) return "click-redirect";
   if (pathname === "/c" || pathname.startsWith("/c/")) return "click-redirect";
+  if (pathname === "/bio" || pathname.startsWith("/bio/")) return "bio";
   return null;
 }
 
@@ -70,6 +72,25 @@ function scriptSrc(nonce: string, isDev: boolean, ...hosts: string[]): string {
 }
 
 export function buildCsp(surface: NonceSurface, nonce: string, isDev: boolean): string {
+  if (surface === "bio") {
+    // Link da bio (spec link-da-bio §6): HTML montado à mão, sem React e sem
+    // terceiros — `<style>` e `<script>` só com o nonce. O PR 7 acrescenta os
+    // hosts da Meta e do GA fixos, como no click-redirect: quem monta a CSP é o
+    // middleware, que não sabe se a loja tem rastreio.
+    return [
+      "default-src 'none'",
+      scriptSrc(nonce, isDev),
+      `style-src 'self' 'nonce-${nonce}'`,
+      "img-src 'self' data:",
+      "font-src 'self'",
+      "connect-src 'self'",
+      "object-src 'none'",
+      "base-uri 'none'",
+      "form-action 'none'",
+      "frame-ancestors 'none'",
+    ].join("; ");
+  }
+
   if (surface === "click-redirect") {
     // Intersticial de clique: os scripts inline são nossos (snippet do Pixel, do
     // gtag e o location.replace) — todos nonce-ados no route handler. De

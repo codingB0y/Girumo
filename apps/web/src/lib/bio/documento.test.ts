@@ -152,6 +152,14 @@ test("host com porta e sem esquema não é lido como esquema", () => {
   assert.equal((valido(d).links[1] as { url: string }).url, "https://loja.com.br:8080/x");
 });
 
+test("endereço com usuário ou senha é recusado (loja.com.br@evil.com leva para evil.com)", () => {
+  for (const url of ["https://loja.com.br@evil.com/x", "https://a:b@evil.com", "loja.com.br@evil.com"]) {
+    const e = primeiroErro(documento((x) => { (x.links[1] as { url: string }).url = url; }), url);
+    assert.equal(e.campo, "links.1.url", url);
+    assert.match(e.mensagem, /não parece um link/, url);
+  }
+});
+
 test("erros apontam o campo com a frase do painel", () => {
   const casos: [string, (d: DocumentoBio) => void, string, string | RegExp][] = [
     ["nome vazio", (d) => { d.perfil.nome = "  "; }, "perfil.nome", "Escreva o nome da loja."],

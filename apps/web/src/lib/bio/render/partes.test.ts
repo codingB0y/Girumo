@@ -156,6 +156,13 @@ test("link: só http/https com host de verdade, emitido como url.href", () => {
   assert.equal(com("não é url"), null);
 });
 
+test("link com usuário ou senha na URL some (o host de verdade é o depois do @)", () => {
+  const d = dadosFalsos();
+  const com = (url: string) => hrefDoLink({ ...link(IDS.catalogo), url } as LinkBio, d);
+  assert.equal(com("https://loja.com.br@evil.com/x"), null);
+  assert.equal(com("https://a:b@evil.com"), null);
+});
+
 test("endereço: Google Maps com o endereço numa linha", () => {
   assert.equal(
     hrefDoLink(link(IDS.endereco), dadosFalsos()),

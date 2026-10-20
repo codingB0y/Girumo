@@ -194,7 +194,8 @@ function urlSegura(bruta: string): string | null {
   try {
     const u = new URL(bruta);
     const protocoloOk = u.protocol === "https:" || u.protocol === "http:";
-    return protocoloOk && u.hostname.includes(".") ? u.href : null;
+    const semCredencial = !u.username && !u.password; // `loja.com.br@evil.com` abre evil.com
+    return protocoloOk && semCredencial && u.hostname.includes(".") ? u.href : null;
   } catch {
     return null;
   }

@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 import { withSentryConfig } from "@sentry/nextjs";
 
-import { appDomainRedirects } from "./src/lib/domain-redirects";
+import { appDomainRedirects, bioDomainRedirects } from "./src/lib/domain-redirects";
 import { SENTRY_CSP_HOST } from "./src/lib/observability/sentry-options";
 
 /**
@@ -105,17 +105,19 @@ const nextConfig: NextConfig = {
       // e o porquê moram em `src/lib/domain-redirects.ts`, que tem teste — este
       // arquivo importa @sentry/nextjs e não roda sob `tsx --test`.
       ...appDomainRedirects(),
+      // Link da bio só no www (spec link-da-bio §2). Lista e teste em domain-redirects.ts.
+      ...bioDomainRedirects(),
     ];
   },
   async headers() {
     return [
       {
-        // tudo, exceto /p/*, /r/* e a prévia do editor (todas com regra própria
-        // abaixo). Ficam FORA do match global pra não sair header duplicado.
-        // `p$`/`r$` cobrem os paths exatos /p e /r: `:path*` na regra dedicada
-        // casa zero segmentos, então sem eles esses dois sairiam com dois
-        // headers de CSP.
-        source: "/((?!p/|p$|r/|r$|c/|c$|editor-preview).*)",
+        // tudo, exceto /p/*, /r/*, /c/*, /bio/* e a prévia do editor (todas com
+        // regra própria abaixo). Ficam FORA do match global pra não sair header
+        // duplicado. `p$`/`r$`/`c$`/`bio$` cobrem os paths exatos: `:path*` na
+        // regra dedicada casa zero segmentos, então sem eles esses sairiam com
+        // dois headers de CSP.
+        source: "/((?!p/|p$|r/|r$|c/|c$|bio/|bio$|editor-preview).*)",
         headers: securityHeaders,
       },
       {
@@ -123,7 +125,7 @@ const nextConfig: NextConfig = {
         headers: previewFrameHeaders,
       },
       {
-        // CSP destas duas vem do middleware (nonce por-request).
+        // CSP destas superfícies vem do middleware (nonce por-request).
         source: "/p/:path*",
         headers: headersWithoutCsp,
       },
@@ -133,6 +135,11 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/c/:path*",
+        headers: headersWithoutCsp,
+      },
+      {
+        // Link da bio (spec link-da-bio §6): CSP com nonce, do middleware.
+        source: "/bio/:path*",
         headers: headersWithoutCsp,
       },
     ];
