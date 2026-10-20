@@ -75,6 +75,8 @@ apps/web/.ds-entry.tsx
 .lightrag/index-manifest-business.json
 .lightrag/profile-state.json
 .lightrag/backups/
+# Grafo do graphify - gerado localmente, não versionar (como tools/lightrag/rag_storage/)
+graphify-out/
 
 # Obsidian app config (lixo, não versionar)
 .obsidian/
