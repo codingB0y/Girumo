@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 import { withSentryConfig } from "@sentry/nextjs";
 
+import { FIRST_PARTY_HOST_PATTERN } from "./src/lib/custom-domains/host";
 import { appDomainRedirects, bioDomainRedirects } from "./src/lib/domain-redirects";
 import { SENTRY_CSP_HOST } from "./src/lib/observability/sentry-options";
 
@@ -116,10 +117,16 @@ const nextConfig: NextConfig = {
         // regra própria abaixo). Ficam FORA do match global pra não sair header
         // duplicado. `p$`/`r$`/`c$`/`bio$` cobrem os paths exatos: `:path*` na
         // regra dedicada casa zero segmentos, então sem eles esses sairiam com
-        // dois headers de CSP.
-        source: "/((?!p/|p$|r/|r$|c/|c$|bio/|bio$|editor-preview).*)",
+        // dois headers de CSP. `$` tira a raiz, que se divide por host logo abaixo.
+        source: "/((?!$|p/|p$|r/|r$|c/|c$|bio/|bio$|editor-preview).*)",
         headers: securityHeaders,
       },
+      // A raiz se divide pelo host (mesmo padrão do matcher do middleware): no
+      // Girumo é a home, com a CSP estática; no domínio do lojista é o link da
+      // bio, e a CSP com nonce vem do middleware (bioRootResponse). As duas
+      // juntas sairiam como dois headers na Vercel.
+      { source: "/", has: [{ type: "host", value: FIRST_PARTY_HOST_PATTERN }], headers: securityHeaders },
+      { source: "/", missing: [{ type: "host", value: FIRST_PARTY_HOST_PATTERN }], headers: headersWithoutCsp },
       {
         source: "/editor-preview",
         headers: previewFrameHeaders,
@@ -141,6 +148,12 @@ const nextConfig: NextConfig = {
         // Link da bio (spec link-da-bio §6): CSP com nonce, do middleware.
         source: "/bio/:path*",
         headers: headersWithoutCsp,
+      },
+      {
+        // Fonte do link da bio: 30 dias. Sem `immutable` porque o nome do
+        // arquivo não tem versão — uma troca de fonte precisa chegar um dia.
+        source: "/fonts/bio/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=2592000" }],
       },
     ];
   },

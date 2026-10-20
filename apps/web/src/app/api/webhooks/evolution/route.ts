@@ -1,4 +1,5 @@
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
+import { invalidarBioDaLoja } from "@/lib/bio/cache";
 import { evolutionEventId } from "@/lib/evolution/event-id";
 import { secretMatches } from "@/lib/evolution/webhook-secret";
 import {
@@ -103,13 +104,21 @@ async function applyConnectionUpdate(
   const lastDisconnectReason =
     status === "disconnected" ? (event.data.statusReason ?? null) : null;
 
+  const phone = phoneFromWuid(event.data.wuid);
+
   await updateInstanceStatus({
     tenantId: instance.tenant_id,
     instanceId: instance.id,
     status,
-    phone: phoneFromWuid(event.data.wuid),
+    phone,
     metadata: { lastDisconnectReason },
   });
+
+  // O link da bio esconde da página os links de WhatsApp que apontam para um número
+  // da própria loja e guarda isso 5 min no cache. Número novo refaz a página na hora;
+  // o mesmo número (ou nulo, queda sem wuid) não, porque o connection.update chega em
+  // rajada e derrubaria o cache a cada evento.
+  if (phone && phone !== instance.phone) invalidarBioDaLoja(instance.tenant_id);
 
   // Marco de ativação "conectou o WhatsApp". Só existia no heartbeat da engine
   // Baileys (`setSession`), que ninguém chama mais: com a Evolution o marco

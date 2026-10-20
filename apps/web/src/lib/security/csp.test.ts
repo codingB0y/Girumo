@@ -188,6 +188,17 @@ test("a CSP estática do next.config não casa o link da bio (na Vercel sairiam 
   assert.match(NEXT_CONFIG, /source:\s*"\/bio\/:path\*",\s*headers:\s*headersWithoutCsp/);
 });
 
+test("a raiz se divide pelo host: CSP estática no Girumo, a do middleware no domínio do lojista", () => {
+  assert.equal(regraGlobal()("/"), false, "a raiz casou a regra global: no domínio do lojista sairiam duas CSP");
+  assert.match(NEXT_CONFIG, /source:\s*"\/",\s*has:\s*\[\{\s*type:\s*"host",\s*value:\s*FIRST_PARTY_HOST_PATTERN\s*\}\],\s*headers:\s*securityHeaders/);
+  assert.match(NEXT_CONFIG, /source:\s*"\/",\s*missing:\s*\[\{\s*type:\s*"host",\s*value:\s*FIRST_PARTY_HOST_PATTERN\s*\}\],\s*headers:\s*headersWithoutCsp/);
+});
+
 test("o middleware roda em toda /bio/* (entrada própria no matcher, como /p/ /r/ /c/)", () => {
   assert.match(MIDDLEWARE, /"\/bio\/:path\*"/);
+});
+
+test("a fonte do link da bio tem cache de 30 dias, sem immutable (o nome não tem versão)", () => {
+  assert.match(NEXT_CONFIG, /source:\s*"\/fonts\/bio\/:path\*",\s*headers:\s*\[\{\s*key:\s*"Cache-Control",\s*value:\s*"public, max-age=2592000"\s*\}\]/);
+  assert.doesNotMatch(NEXT_CONFIG, /fonts\/bio[\s\S]{0,200}immutable/);
 });
