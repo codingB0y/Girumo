@@ -15,7 +15,7 @@ const no = (modelo: Modelo, d: DadosRender = dadosFalsos()): DadosRender => ({
 const publica = (d: DadosRender) => renderPaginaBio(d, { modo: "publica", nonce: NONCE, animarEntrada: true });
 const conta = (html: string, re: RegExp) => html.match(re)?.length ?? 0;
 /** Os modelos com módulo próprio (os outros ainda desenham com o Etiqueta); a Parte 2 troca por `MODELOS`. */
-const MODELOS_PRONTOS: readonly Modelo[] = ["etiqueta", "vitrine"];
+const MODELOS_PRONTOS: readonly Modelo[] = ["etiqueta", "vitrine", "romaneio"];
 
 for (const modelo of MODELOS_PRONTOS) {
   test(`${modelo}: um h1 com o nome (ou a logo com alt = nome), um role=status fora da lista, decoração com aria-hidden`, () => {

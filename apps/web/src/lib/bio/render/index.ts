@@ -14,6 +14,7 @@ import { nonceAttribute } from "@/lib/security/csp";
 import { etiqueta } from "./etiqueta";
 import type { ContextoRender, FonteDoModelo, ModeloRender, ModoRender } from "./modelo";
 import { CSS_BASE, linksVisiveis, logoDaPagina, regrasDoFoco, sprite, tokensValidos, urlDaImagem } from "./partes";
+import { romaneio } from "./romaneio";
 import { scriptDaPagina } from "./script";
 import { vitrine } from "./vitrine";
 
@@ -21,7 +22,7 @@ import { vitrine } from "./vitrine";
 const MODELOS_RENDER: Record<Modelo, ModeloRender> = {
   etiqueta,
   vitrine,
-  romaneio: etiqueta,
+  romaneio,
   classico: etiqueta,
 };
 
