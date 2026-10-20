@@ -8,16 +8,15 @@
 import { escapeHtml } from "@/lib/campaigns/entry-page";
 import type { ContextoRender, FonteDoModelo, LinkVisivel, ModeloRender } from "./modelo";
 import {
-  CNPJ,
   LARGURA_MINIATURA,
   atrasos,
   blocoConfere,
+  cnpjDaLoja,
   conteudoDoH1,
   dadosDoLink,
   destaqueHtml,
   detalhesDoEndereco,
   feitoComGirumo,
-  formatarCnpj,
   hrefAttr,
   icone,
   imagem,
@@ -130,10 +129,8 @@ function etiquetaDoLink(v: LinkVisivel, c: ContextoRender): string {
 function rodape(c: ContextoRender): string {
   const doc = c.d.documento;
   const insta = doc.perfil.instagram ? `<span>Instagram @${escapeHtml(doc.perfil.instagram)}</span>` : "";
-  const cnpj =
-    doc.confere.ativo && CNPJ.test(doc.confere.cnpj)
-      ? `<small>${escapeHtml(doc.perfil.nome)} · CNPJ ${formatarCnpj(doc.confere.cnpj)}</small>`
-      : "";
+  const numero = cnpjDaLoja(doc);
+  const cnpj = numero ? `<small>${escapeHtml(doc.perfil.nome)} · CNPJ ${numero}</small>` : "";
   const feito = feitoComGirumo(c);
   return insta || cnpj || feito ? `<footer class="et-rodape">${insta}${cnpj}${feito}</footer>` : "";
 }

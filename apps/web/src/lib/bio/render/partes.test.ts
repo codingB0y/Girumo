@@ -9,6 +9,7 @@ import {
   atrasos,
   blocoConfere,
   classeDoFoco,
+  cnpjDaLoja,
   conteudoDoH1,
   destaqueEmPartes,
   destaqueHtml,
@@ -221,4 +222,11 @@ test("CSS base: foco visível, alvo de 44 px no selo e movimento reduzido deslig
   assert.match(CSS_BASE, /\.lk-feito\{[^}]*min-height:44px/);
   assert.match(CSS_BASE, /@media \(prefers-reduced-motion:reduce\)\{\.lk \*,\.lk \*::before,\.lk \*::after\{animation:none!important;transition:none!important\}\}/);
   assert.match(CSS_BASE, /\.lk-status:empty\{/);
+});
+
+test("cnpjDaLoja: formatado só com o confere ligado e 14 dígitos", () => {
+  const doc = documentoFalso();
+  assert.equal(cnpjDaLoja(doc), "11.222.333/0001-81");
+  assert.equal(cnpjDaLoja({ ...doc, confere: { ...doc.confere, ativo: false } }), "");
+  assert.equal(cnpjDaLoja({ ...doc, confere: { ...doc.confere, cnpj: "" } }), "");
 });

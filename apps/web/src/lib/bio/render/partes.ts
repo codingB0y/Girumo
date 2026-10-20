@@ -314,3 +314,8 @@ export const CSS_BASE = [
   ".lk-status:empty{padding:0;box-shadow:none}",
   "@media (prefers-reduced-motion:reduce){.lk *,.lk *::before,.lk *::after{animation:none!important;transition:none!important}}",
 ].join("");
+
+/** CNPJ do rodapé (e do confere do Romaneio): formatado com o "confere" ligado e o CNPJ válido pela `CNPJ`; senão "". */
+export function cnpjDaLoja(doc: DocumentoBio): string {
+  return doc.confere.ativo && CNPJ.test(doc.confere.cnpj) ? formatarCnpj(doc.confere.cnpj) : "";
+}
