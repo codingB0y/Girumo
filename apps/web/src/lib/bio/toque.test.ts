@@ -98,6 +98,33 @@ test("corpo sem fim: para de ler logo depois do teto e responde 204", async (t) 
   assert.deepEqual(contados, []);
 });
 
+test("corpo que para no meio: desiste em 2 s e responde 204 sem contar", { timeout: 5_000 }, async (t) => {
+  const avisos = t.mock.method(console, "warn", () => {});
+  let puxadas = 0;
+  // Manda o começo do beacon e trava: o resto nunca chega e a conexão não fecha.
+  const parado = new ReadableStream<Uint8Array>({
+    pull(controle) {
+      puxadas += 1;
+      if (puxadas > 1) return new Promise<void>(() => {});
+      controle.enqueue(new TextEncoder().encode(`{"p":"${IDS.pagina}",`));
+    },
+  });
+  const req = new Request(ROTA, {
+    method: "POST",
+    headers: { "x-forwarded-for": "203.0.113.80", "user-agent": GENTE },
+    body: parado,
+    duplex: "half",
+  } as RequestInit);
+  const { deps, buscados, contados } = cenario();
+  const inicio = Date.now();
+  const res = await responderToque(req, deps);
+  const esperou = Date.now() - inicio;
+  assert.equal(res.status, 204);
+  assert.ok(esperou >= 1_900, `desistiu em ${esperou} ms, antes do prazo`);
+  assert.deepEqual([...buscados, ...contados], []);
+  assert.equal(avisos.mock.callCount(), 1, "recusa sem log");
+});
+
 test("JSON ruim e ids fora do formato: 204 sem consultar a página nem contar, com o motivo no log", async (t) => {
   const avisos = t.mock.method(console, "warn", () => {});
   const casos = [
@@ -131,6 +158,10 @@ test("página não publicada, bloqueada ou inexistente (o cache devolve null): 2
   assert.deepEqual(buscados, [IDS.pagina]);
   assert.deepEqual(contados, []);
   assert.equal(avisos.mock.callCount(), 1, "recusa sem log");
+  assert.deepEqual(
+    avisos.mock.calls.map((c) => c.arguments[0]),
+    [`[bio/toque] ${IDS.pagina}: página não publicada, bloqueada ou inexistente`],
+  );
 });
 
 test("link que a página não mostra: escondido, desligado, sem link mestre ou de outra página", async (t) => {
@@ -153,6 +184,10 @@ test("link que a página não mostra: escondido, desligado, sem link mestre ou d
     assert.deepEqual(contados, [], link);
   }
   assert.equal(avisos.mock.callCount(), casos.length, "recusa sem log");
+  assert.deepEqual(
+    avisos.mock.calls.map((c) => c.arguments[0]),
+    casos.map(([, link]) => `[bio/toque] ${IDS.pagina}: o link ${link} não está na página publicada`),
+  );
 });
 
 test("robô (prévia de link, navegador headless, sem user agent): 204 sem ler corpo nem página", async () => {
@@ -162,6 +197,27 @@ test("robô (prévia de link, navegador headless, sem user agent): 204 sem ler c
     assert.equal(res.status, 204, String(ua));
     assert.deepEqual([...buscados, ...contados], [], String(ua));
   }
+});
+
+test("beacon de outro site (Sec-Fetch-Site cross-site ou same-site): 204 sem ler corpo nem página; same-origin e sem o header contam", async (t) => {
+  const avisos = t.mock.method(console, "warn", () => {});
+  for (const site of ["cross-site", "same-site"]) {
+    const { deps, buscados, contados } = cenario();
+    const req = pedido(beacon(IDS.pagina, IDS.whatsapp), { ip: "203.0.113.81", headers: { "sec-fetch-site": site } });
+    const res = await responderToque(req, deps);
+    assert.equal(res.status, 204, site);
+    assert.equal(req.bodyUsed, false, site);
+    assert.deepEqual([...buscados, ...contados], [], site);
+  }
+  // Sem o header: WebView antigo, que não manda Sec-Fetch-*.
+  const contam: Record<string, string>[] = [{ "sec-fetch-site": "same-origin" }, {}];
+  for (const headers of contam) {
+    const { deps, contados } = cenario();
+    const res = await responderToque(pedido(beacon(IDS.pagina, IDS.whatsapp), { ip: "203.0.113.81", headers }), deps);
+    assert.equal(res.status, 204);
+    assert.deepEqual(contados, [[IDS.pagina, IDS.whatsapp]], JSON.stringify(headers));
+  }
+  assert.equal(avisos.mock.callCount(), 0, "outro site fica calado, como o robô");
 });
 
 test("teto por IP e página: o 31º toque do minuto não conta; outro IP conta", async () => {

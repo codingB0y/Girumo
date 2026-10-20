@@ -32,15 +32,15 @@ As Tasks 1 e 2 têm arquivos disjuntos e nenhuma dependência entre si. Com dois
 |---|---|---|
 | A lógica mora em `lib/bio/toque.ts`, e o `route.ts` só delega | O `route.ts` do Next só pode exportar handlers. Cache e banco entram por parâmetro, como no `responderBio` do 4a | Nenhum |
 | Conta só o link que `linksVisiveis` devolve | É a regra do renderizador: link ativo, fora de `linksEscondidos` **e** com destino válido. Se a página não mostra o link, ninguém tocou nele | Nenhum |
-| Ordem: robô → corpo → ids → página e link → teto → conta | O mais barato vem primeiro. Id inventado não gasta chamada ao Upstash, e o balde só enche com toque que contaria. A spec lista os mesmos passos sem fixar a ordem | Nenhum |
-| Corpo lido com `lerTextoComTeto` (`lib/bling/cliente.ts`) sobre `new Response(req.body)` | Reuso do leitor que já existe e já tem teste: lê aos pedaços e para no teto. Com `req.text()`, o corpo inteiro iria para a memória antes da medição | `lib/bio` importa de `lib/bling`. O módulo só importa `zod` e não tem `server-only` |
+| Ordem: robô → outro site → corpo → ids → página e link → teto → conta | O mais barato vem primeiro. Id inventado não gasta chamada ao Upstash, e o balde só enche com toque que contaria. A spec lista os mesmos passos sem fixar a ordem | Nenhum |
+| Corpo lido com `lerTextoComTeto` (`lib/bling/cliente.ts`) sobre `req.body`, com prazo de 2 s (`pipeThrough` com `AbortSignal.timeout`) | Reuso do leitor que já existe e já tem teste: lê aos pedaços e para no teto. Com `req.text()`, o corpo inteiro iria para a memória antes da medição. O prazo impede que quem manda alguns bytes e não fecha a conexão segure a função até o timeout da plataforma | `lib/bio` importa de `lib/bling`. O módulo só importa `zod` e não tem `server-only`. Cliente que leva mais de 2 s para mandar 87 B perde o toque |
 | `Content-Type` não é conferido | Não protege nada: o corpo passa pela mesma validação de qualquer jeito. O cliente usa `text/plain` só para o navegador não fazer preflight | Nenhum |
 | Conta antes de responder, sem `after()` | O `sendBeacon` não espera a resposta, e a função leva o mesmo tempo. Fica com menos peças que o `after` da visita | Nenhum |
-| Recusa de corpo e "fora da página" vão para `console.warn`, falha para `console.error`, robô e teto não deixam log | A lição do `/api/track/outbound`: um 204 sem log escondeu uma série que tinha parado. Só entram no log o motivo e os ids que passaram pela regex, nunca o corpo | O log cresce durante uma varredura |
+| Recusa de corpo, página fora do ar e link fora da página vão para `console.warn`, cada uma com o seu aviso; falha para `console.error`; robô, outro site e teto não deixam log | A lição do `/api/track/outbound`: um 204 sem log escondeu uma série que tinha parado. Só entram no log o motivo e os ids que passaram pela regex, nunca o corpo | O log cresce durante uma varredura |
 | No `<summary>` do endereço, o beacon só sai quando o `<details>` abre | A spec diz "na abertura". No clique, o `open` ainda guarda o estado anterior, então aberto quer dizer que o toque vai fechar | Nenhum |
 | Sempre `navigator.sendBeacon(...)` | Chamada solta (`var b=navigator.sendBeacon; b(…)`), ela dá "Illegal invocation" no navegador. O teste confere o `this` | Nenhum |
 | `customHostRoute` não muda | `/api/p/` já é `"public-api"` pelo prefixo (`pathname.startsWith("/api/p/")` em `host.ts`). O teste trava isso | Nenhum |
-| Sem conferir `Sec-Fetch-Site`/`Origin` | Está fora da spec, e o WebView do Instagram pode não mandar esses headers. Ver "Riscos" | Outro site pode inflar a contagem, dentro do teto |
+| `Sec-Fetch-Site` conferido quando vem; `Origin`, não | O beacon da página é sempre same-origin (URL relativa, no www e no domínio próprio): com o header presente, só `same-origin` conta. Sem o header (WebView antigo), conta. O `Origin` não serve: o modo privado manda `null`. Ver "Riscos" | Um navegador que rotule errado um beacon same-origin perde o toque (nenhum conhecido) |
 | O e2e põe dois botões fixos (link e endereço) na loja fixa do 4a | Precisa de um botão para tocar. A mudança fica no mesmo `beforeAll` e não cria uma segunda loja, que deixaria slug preso em `bio_slugs` | Nenhum |
 
 ## Global Constraints
@@ -347,7 +347,8 @@ import { contarBio } from "@/lib/stores/bio-pages";
  * Responde 204 SEMPRE (página que não existe, link escondido, robô, teto, banco
  * fora do ar): um beacon que respondesse diferente viraria oráculo de ids. Por
  * isso toda recusa de corpo, de página e de link, e toda falha, vão pro log — a
- * lição do `/api/track/outbound`. Robô e teto são esperados e ficam calados.
+ * lição do `/api/track/outbound`. Robô, beacon de outro site e teto são esperados
+ * e ficam calados.
  *
  * Cache e banco entram por parâmetro para o teste trocá-los sem rede (o desenho
  * do `responderBio`): o `paginaPublicaPorId` usa `unstable_cache`, que só roda
@@ -358,24 +359,34 @@ export type DepsToque = typeof DEPS;
 
 /** O beacon tem 87 bytes. Medido no que foi lido: o `Content-Length` nem é olhado. */
 const TETO_DO_CORPO = 256;
+/** O beacon tem 87 B e chega de uma vez: corpo que não fecha em 2 s não segura a função. */
+const PRAZO_DO_CORPO_MS = 2_000;
 /** O teto da visita e do `/api/p/track`: por IP e página, por minuto (spec §7). */
 const TOQUES_POR_MINUTO = 30;
 
 export async function responderToque(req: Request, deps: DepsToque = DEPS): Promise<Response> {
   try {
     if (isBotUserAgent(req.headers.get("user-agent"))) return semConteudo();
+    // O beacon da página é sempre same-origin (URL relativa, no www e no domínio próprio). Sem o header
+    // (WebView antigo), conta. O `Origin` não serve: o modo privado manda `null`.
+    const site = req.headers.get("sec-fetch-site");
+    if (site !== null && site !== "same-origin") return semConteudo();
     const alvo = await lerAlvo(req);
     if (!alvo) return semConteudo();
     const dados = await deps.porId(alvo.pagina);
+    if (!dados) {
+      console.warn(`[bio/toque] ${alvo.pagina}: página não publicada, bloqueada ou inexistente`);
+      return semConteudo();
+    }
     // Só conta botão que a página mostra agora: a regra do renderizador (ativo,
     // fora de `linksEscondidos` e com destino válido).
-    if (!dados || !linksVisiveis(dados).some((v) => v.link.id === alvo.link)) {
+    if (!linksVisiveis(dados).some((v) => v.link.id === alvo.link)) {
       console.warn(`[bio/toque] ${alvo.pagina}: o link ${alvo.link} não está na página publicada`);
       return semConteudo();
     }
     // ponytail: balde por IP+página (spec §7), só depois de achar a página — id inventado nem chega ao balde:
-    // cada id novo custa um miss do cache (1 leitura no Supabase) e 1 warn, e não conta nada. Balde só por IP,
-    // antes da busca, se a varredura aparecer no log.
+    // cada id novo custa 1 leitura no Supabase e 1 null no cache (300 s), como o GET /bio/<slug>, mais 1 warn.
+    // Se a varredura aparecer no log: limite por IP no firewall da Vercel em /api/p/* e /bio/* (antes da função).
     if (await isRateLimited("bio-toque", req, TOQUES_POR_MINUTO, dados.paginaId)) return semConteudo();
     await deps.contar(dados.paginaId, alvo.link);
   } catch (e) {
@@ -386,9 +397,14 @@ export async function responderToque(req: Request, deps: DepsToque = DEPS): Prom
 
 /** `{"p":<uuid da página>,"l":<uuid do link>}` em até 256 bytes. null = recusado: o motivo vai pro log, o corpo nunca. */
 async function lerAlvo(req: Request): Promise<{ pagina: string; link: string } | null> {
-  // O leitor do cliente do Bling: lê aos pedaços e para no teto, sem esperar o resto.
-  const texto = await lerTextoComTeto(new Response(req.body), TETO_DO_CORPO).catch(() => null);
-  if (texto === null) return recusado("corpo passou de 256 bytes ou caiu no meio");
+  // O leitor do cliente do Bling: lê aos pedaços e para no teto, sem esperar o resto. O prazo aborta o
+  // pipe, e a leitura pendente rejeita.
+  const fluxo =
+    req.body?.pipeThrough(new TransformStream<Uint8Array, Uint8Array>(), {
+      signal: AbortSignal.timeout(PRAZO_DO_CORPO_MS),
+    }) ?? null;
+  const texto = await lerTextoComTeto(new Response(fluxo), TETO_DO_CORPO).catch(() => null);
+  if (texto === null) return recusado("corpo passou de 256 bytes, demorou mais de 2 s ou caiu no meio");
   let corpo: unknown;
   try {
     corpo = JSON.parse(texto);
@@ -906,8 +922,8 @@ No PR: `gh pr checks <N>`. Depois do deploy: os blocos do Step 7 da Task 4.
 ## Riscos e pontos de atenção
 
 - **CGNAT conta a menos.** O teto de 30/min por IP+página é o mesmo da visita, como pede a spec. Numa loja com muito tráfego, várias pessoas atrás do mesmo IP de operadora somam no mesmo balde e alguns toques se perdem. O erro é para menos, nunca para mais.
-- **Varredura de ids inventados.** Id de página inventado nem chega ao balde (a página é conferida antes do teto): cada id novo custa um miss do cache (uma consulta por PK no Supabase) e uma linha de `console.warn`, e não conta nada. Está marcado como `ponytail:` no código. Se aparecer no log, a saída é um balde só por IP antes da consulta.
-- **Inflação cross-site.** Outro site pode fazer o navegador dos visitantes dele mandar beacons `text/plain`, que não têm preflight, e inflar a contagem de uma loja dentro do teto por IP. A contagem é métrica, sem dinheiro nem permissão envolvidos. Se virar problema, recusar `Sec-Fetch-Site` presente e diferente de `same-origin`, depois de conferir que o WebView do Instagram manda esse header.
+- **Varredura de ids inventados.** Id de página inventado nem chega ao balde (a página é conferida antes do teto): cada id novo custa uma leitura no Supabase (consulta por PK) e uma entrada `null` no Data Cache por 300 s, como o `GET /bio/<slug>` com slug inventado, mais uma linha de `console.warn`, e não conta nada. Está marcado como `ponytail:` no código. Se a varredura aparecer no log, a saída é um limite por IP no firewall da Vercel em `/api/p/*` e `/bio/*`, que barra antes da função.
+- **Inflação cross-site.** Beacon `text/plain` não tem preflight, então outro site poderia fazer o navegador dos visitantes dele inflar a contagem de uma loja. O `Sec-Fetch-Site` presente e diferente de `same-origin` fecha isso nos navegadores que mandam o header. Sobram o script fora do navegador, que manda os headers que quiser, e o navegador antigo sem o header, os dois dentro do teto por IP+página. A contagem é métrica, sem dinheiro nem permissão envolvidos.
 - **Cache de 5 min.** Um link escondido ou uma página despublicada por SQL continua aceitando toque até o cache virar. O que é salvo pelo painel invalida na hora (`invalidarBio`).
 - **WebKit não roda no CI.** O e2e é só Chromium. A suposição de que o `open` do `<details>` ainda tem o valor antigo durante o clique vale pela especificação do HTML, e quem confere no iPhone é a prova do §13 (abrir e fechar o "Como chegar" e olhar o contador).
 - **`curl` conta toque em produção.** O `isBotUserAgent` não reconhece `curl`. Em loja de cliente, sondar sempre com `-A "facebookexternalhit/1.1"`. UA de gente, só na loja de teste.
