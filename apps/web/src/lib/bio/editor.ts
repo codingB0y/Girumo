@@ -142,8 +142,10 @@ export function mensagemDoCampo(campo: string): string {
 export function erroDoDocumento(documento: DocumentoBio): ErroDeCampo | null {
   const r = documentoBio.safeParse(documento);
   if (r.success) return null;
-  const campo = (r.error.issues[0]?.path ?? []).map(String).join(".");
-  return { campo, mensagem: mensagemDoCampo(campo) };
+  const issue = r.error.issues[0];
+  const campo = (issue?.path ?? []).map(String).join(".");
+  // `custom` = frase do superRefine, já em português; o resto usa a frase da tela (nunca a padrão do zod).
+  return { campo, mensagem: issue?.code === "custom" && issue.message ? issue.message : mensagemDoCampo(campo) };
 }
 
 /**

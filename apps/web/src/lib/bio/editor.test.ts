@@ -153,3 +153,8 @@ test("PATCH sem campo: a frase da rota, o texto puro do 403; nunca HTML nem corp
   assert.deepEqual(resultadoDoSalvar(502, null, "Bad gateway"), { tipo: "falha", mensagem: padrao });
   assert.deepEqual(resultadoDoSalvar(200, { ok: true }, ""), { tipo: "falha", mensagem: padrao });
 });
+
+test("erro de superRefine (custom) traz a frase do schema: dois links em destaque", () => {
+  const dois = documento([ZAP, { ...ZAP, id: "6f1c2b9e-0a1d-4c3e-9b2a-1d2e3f4a5b02" }]);
+  assert.deepEqual(erroDoDocumento(dois), { campo: "links.1.destaque", mensagem: "Só um link pode ser o principal." });
+});
