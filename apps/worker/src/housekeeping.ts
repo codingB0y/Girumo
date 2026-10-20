@@ -76,8 +76,9 @@ async function rpcInt(
  * Um ciclo de manutenção. As etapas são independentes; a ordem só reflete
  * causalidade: requeue devolve comandos à fila ANTES do reconciliador contar
  * pendentes (senão um lease vencido apareceria momentaneamente como "acabou").
- * O aviso ao lotar vem por último: um erro nele (que sobe, como nas outras etapas)
- * não segura a fila nem a poda.
+ * O aviso ao lotar vem depois das etapas da fila e antes da poda: um erro nele
+ * (que sobe, como nas outras etapas) não segura a fila, e pula a poda só neste ciclo
+ * — o index avança lastPruneAt apenas quando este ciclo retorna.
  */
 export async function runHousekeeping(
   supabase: SupabaseClient,
@@ -90,10 +91,10 @@ export async function runHousekeeping(
   const promoted = await rpcInt(supabase, "promote_due_schedules", {
     max_schedules: MAX_SCHEDULES_PER_TICK,
   });
+  const avisos = await rpcInt(supabase, "enviar_avisos_lotou", { p_limit: MAX_AVISOS_PER_TICK });
   const pruned = options.prune
     ? await rpcInt(supabase, "prune_instance_sends", { older_than: PRUNE_OLDER_THAN })
     : 0;
-  const avisos = await rpcInt(supabase, "enviar_avisos_lotou", { p_limit: MAX_AVISOS_PER_TICK });
 
   return { requeued, reconciled, promoted, avisos, pruned };
 }

@@ -120,7 +120,7 @@ test("aviso ao lotar: uma chamada por ciclo com p_limit 20, mesmo quando o lote 
   assert.equal(housekeepingDidWork(summary), true);
 });
 
-test("erro no aviso ao lotar sobe, mas só depois das etapas da fila e da poda", async () => {
+test("erro no aviso ao lotar sobe, mas só depois das etapas da fila, e a poda fica para o próximo ciclo", async () => {
   const calls: RpcCall[] = [];
   const supabase = fakeSupabase(
     { enviar_avisos_lotou: { error: { message: "deadlock detected", code: "40P01" } } },
@@ -133,7 +133,9 @@ test("erro no aviso ao lotar sobe, mas só depois das etapas da fila e da poda",
     ["requeue_expired_commands", "reconcile_broadcast_progress", "promote_due_schedules", "enviar_avisos_lotou"],
   );
 
-  // Com poda pedida, ela também roda antes do aviso: o erro não a segura.
+  // Com poda pedida, o erro do aviso a pula neste ciclo (como qualquer outra etapa que
+  // sobe): o index só avança lastPruneAt quando runHousekeeping retorna, então a poda
+  // roda no ciclo seguinte em que o aviso passar — não a cada 30 s por causa do erro.
   const comPoda: RpcCall[] = [];
   await assert.rejects(
     () =>
@@ -146,7 +148,7 @@ test("erro no aviso ao lotar sobe, mas só depois das etapas da fila e da poda",
       ),
     /enviar_avisos_lotou/,
   );
-  assert.ok(comPoda.some((c) => c.fn === "prune_instance_sends"));
+  assert.ok(!comPoda.some((c) => c.fn === "prune_instance_sends"));
 });
 
 test("worker novo contra banco sem a migração do aviso: etapa pulada, o resto segue", async () => {
