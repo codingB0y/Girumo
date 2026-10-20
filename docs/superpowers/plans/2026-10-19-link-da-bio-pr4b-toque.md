@@ -373,8 +373,9 @@ export async function responderToque(req: Request, deps: DepsToque = DEPS): Prom
       console.warn(`[bio/toque] ${alvo.pagina}: o link ${alvo.link} não está na página publicada`);
       return semConteudo();
     }
-    // ponytail: balde por IP+página (spec §7). Id de página inventado abre balde novo, mas só
-    // custa uma leitura do cache e não conta nada; balde só por IP se a varredura aparecer no log.
+    // ponytail: balde por IP+página (spec §7), só depois de achar a página — id inventado nem chega ao balde:
+    // cada id novo custa um miss do cache (1 leitura no Supabase) e 1 warn, e não conta nada. Balde só por IP,
+    // antes da busca, se a varredura aparecer no log.
     if (await isRateLimited("bio-toque", req, TOQUES_POR_MINUTO, dados.paginaId)) return semConteudo();
     await deps.contar(dados.paginaId, alvo.link);
   } catch (e) {
@@ -611,7 +612,7 @@ Expected: FAIL em 3 testes: os dois que esperam beacon ("toque num botão…" e 
  * O JS inline da página do link da bio, devolvido sem a tag (o `index.ts` o
  * embrulha em `<script nonce>`). Nenhum texto do lojista entra aqui: o script
  * só lê `data-*` que o renderizador emite (uuid da página e do link, tipo de
- * lista fechada, CNPJ em dígitos). PR 3a: "Abrindo…" no `#lk-status`, balanço do
+ * lista fechada, CNPJ sem pontuação, só [0-9A-Z]). PR 3a: "Abrindo…" no `#lk-status`, balanço do
  * toque e "Copiado". PR 4b: o beacon do toque (`POST /api/p/bio/toque`, corpo
  * `{"p":<página>,"l":<link>}` em text/plain, sem preflight); no `<summary>` do
  * endereço, só quando abre. PR 7: o Pixel e o GA4 a partir de `rastreio`.
@@ -731,7 +732,7 @@ const FORA = "e2eb10b0-0000-4000-8000-0000000000ff";
   });
 
   test.describe("toque no navegador", () => {
-    test.use({ userAgent: GENTE, reducedMotion: "reduce" });
+    test.use({ userAgent: GENTE, contextOptions: { reducedMotion: "reduce" } });
 
     test("o JS manda o beacon sob a CSP da página, o endereço conta só ao abrir e o link navega", async ({ page }) => {
       // O link vai pra fora: a navegação termina aqui, sem sair pra internet.
@@ -905,7 +906,7 @@ No PR: `gh pr checks <N>`. Depois do deploy: os blocos do Step 7 da Task 4.
 ## Riscos e pontos de atenção
 
 - **CGNAT conta a menos.** O teto de 30/min por IP+página é o mesmo da visita, como pede a spec. Numa loja com muito tráfego, várias pessoas atrás do mesmo IP de operadora somam no mesmo balde e alguns toques se perdem. O erro é para menos, nunca para mais.
-- **Varredura de ids inventados.** Cada id de página novo abre um balde novo: custa uma leitura de cache (miss vira consulta por PK) e uma linha de `console.warn`, e não conta nada. Está marcado como `ponytail:` no código. Se aparecer no log, a saída é um balde só por IP antes da consulta.
+- **Varredura de ids inventados.** Id de página inventado nem chega ao balde (a página é conferida antes do teto): cada id novo custa um miss do cache (uma consulta por PK no Supabase) e uma linha de `console.warn`, e não conta nada. Está marcado como `ponytail:` no código. Se aparecer no log, a saída é um balde só por IP antes da consulta.
 - **Inflação cross-site.** Outro site pode fazer o navegador dos visitantes dele mandar beacons `text/plain`, que não têm preflight, e inflar a contagem de uma loja dentro do teto por IP. A contagem é métrica, sem dinheiro nem permissão envolvidos. Se virar problema, recusar `Sec-Fetch-Site` presente e diferente de `same-origin`, depois de conferir que o WebView do Instagram manda esse header.
 - **Cache de 5 min.** Um link escondido ou uma página despublicada por SQL continua aceitando toque até o cache virar. O que é salvo pelo painel invalida na hora (`invalidarBio`).
 - **WebKit não roda no CI.** O e2e é só Chromium. A suposição de que o `open` do `<details>` ainda tem o valor antigo durante o clique vale pela especificação do HTML, e quem confere no iPhone é a prova do §13 (abrir e fechar o "Como chegar" e olhar o contador).
