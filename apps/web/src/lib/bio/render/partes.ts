@@ -5,6 +5,10 @@
  * Puro (sem server-only, Supabase, React ou node:): roda na rota pública e na
  * prévia do painel. Texto do lojista só entra por `escapeHtml`, sempre entre
  * aspas duplas; URL só sai de `new URL` com protocolo da lista.
+ *
+ * Confiança: o que entra em HTML sem `escapeHtml` (`sizes`, `classe`, `prefixo`,
+ * `classeDoResumo`, `seletor`, `resumo`, `mapa`) é constante do modelo ou HTML já
+ * escapado por quem chama — nunca texto do lojista.
  */
 import type { TokensBio } from "@/lib/bio/cores";
 import type { DadosRender, DocumentoBio, LinkBio, MidiaRef } from "@/lib/bio/documento";
@@ -88,13 +92,15 @@ export function classeDoFoco(foco: MidiaRef["foco"]): string {
 }
 
 /**
- * Uma regra por foco distinto do documento. `transform-origin` junto: o zoom do
+ * Uma regra por foco distinto do documento, só de link ligado (`ativo`; os
+ * escondidos por campanha só se sabem no `DadosRender`, e custam uma regra à toa). `transform-origin` junto: o zoom do
  * Clássico (PR 3b) cresce em volta do mesmo ponto sem regra própria.
  */
 export function regrasDoFoco(doc: DocumentoBio): string {
   const p = doc.perfil;
   const midias: (MidiaRef | null)[] = [p.capa, p.logoClara, p.logoEscura];
   for (const l of doc.links) {
+    if (!l.ativo) continue;
     if (l.tipo === "link") midias.push(...l.fotos);
     if (l.tipo === "endereco") midias.push(l.foto);
   }

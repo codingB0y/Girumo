@@ -20,6 +20,7 @@ import {
   hrefDoLink,
   icone,
   imagem,
+  LARGURA_MINIATURA,
   linksVisiveis,
   logoDaPagina,
   pontoDoFoco,
@@ -238,4 +239,36 @@ test("ícone, sprite e grupo não leem o protótipo (sem Object.hasOwn: a prévi
   assert.equal(sprite('<use href="#lk-i-constructor"></use>'), "");
   const d = dadosFalsos();
   assert.equal(hrefDoLink({ ...link(IDS.grupo), campanhaId: "constructor" } as LinkBio, d), null);
+});
+
+test("foco: link desligado não gera regra; ligado gera (as mídias do perfil sempre)", () => {
+  const doc = documentoFalso();
+  const foto = { id: "kit-x-falso", foco: { x: 0.1, y: 0.2 } };
+  const comFoto = (ativo: boolean) => ({
+    ...doc,
+    links: doc.links.map((l) => (l.tipo === "link" && l.id === IDS.catalogo ? { ...l, ativo, fotos: [foto] } : l)),
+  });
+  assert.doesNotMatch(regrasDoFoco(comFoto(false)), /lk-f-10-20/);
+  assert.match(regrasDoFoco(comFoto(true)), /\.lk-f-10-20\{/);
+  const capa = { ...doc, perfil: { ...doc.perfil, capa: { id: "capa-falsa", foco: { x: 0.9, y: 0.9 } } } };
+  assert.match(regrasDoFoco(capa), /\.lk-f-90-90\{/);
+});
+
+test("imagem: carregamento normal não leva fetchpriority nem loading", () => {
+  const html = imagem({ id: "logo-falsa", foco: null }, { largura: 190, altura: 84, sizes: "190px", alt: "Loja", carregamento: "normal" });
+  assert.doesNotMatch(html, /fetchpriority|loading=/);
+  assert.match(html, /decoding="async">$/);
+});
+
+test("imagem: LARGURA_MINIATURA como larguras gera só a largura dela", () => {
+  const html = imagem({ id: "kit", foco: null }, { largura: 32, altura: 42, sizes: "32px", alt: "", carregamento: "lazy", larguras: LARGURA_MINIATURA });
+  assert.match(html, /src="[^"]*w=128&amp;q=75"/);
+  assert.doesNotMatch(html, /w=384|w=640|w=828|srcset/);
+});
+
+test("logo: fundo que não é #RRGGBB conta como claro (usa a logoEscura, sem placa)", () => {
+  const doc = documentoFalso();
+  for (const fundo of ["azul", "#FFF", "", "rgb(0,0,0)"]) {
+    assert.deepEqual(logoDaPagina(doc, fundo), { midia: doc.perfil.logoEscura, placa: null }, fundo);
+  }
 });

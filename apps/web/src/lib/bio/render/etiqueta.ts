@@ -100,6 +100,7 @@ export const CSS_ETIQUETA = [
   "@keyframes et-balanca{0%{transform:rotate(-7deg)}28%{transform:rotate(4deg)}56%{transform:rotate(-1.8deg)}80%{transform:rotate(.6deg)}100%{transform:none}}",
 ].join("");
 
+// `SIZES_*`, `MASCARA` e as classes `et-*` são constantes do modelo; texto do lojista só passa por `escapeHtml`.
 const SIZES_CAPA = "(max-width: 492px) calc(100vw - 32px), 460px";
 const SIZES_CAMINHO = "(max-width: 492px) calc(100vw - 94px), 398px";
 
