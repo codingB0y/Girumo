@@ -144,8 +144,10 @@ export function erroDoDocumento(documento: DocumentoBio): ErroDeCampo | null {
   if (r.success) return null;
   const issue = r.error.issues[0];
   const campo = (issue?.path ?? []).map(String).join(".");
-  // `custom` = frase do superRefine, já em português; o resto usa a frase da tela (nunca a padrão do zod).
-  return { campo, mensagem: issue?.code === "custom" && issue.message ? issue.message : mensagemDoCampo(campo) };
+  // Tabela da tela primeiro; senão a frase `custom` do superRefine (já em português); nunca a padrão do zod.
+  const daTabela = MENSAGENS_DOS_CAMPOS[padraoDoCampo(campo)];
+  const mensagem = daTabela ?? (issue?.code === "custom" && issue.message ? issue.message : SEM_MENSAGEM);
+  return { campo, mensagem };
 }
 
 /**

@@ -158,3 +158,10 @@ test("erro de superRefine (custom) traz a frase do schema: dois links em destaqu
   const dois = documento([ZAP, { ...ZAP, id: "6f1c2b9e-0a1d-4c3e-9b2a-1d2e3f4a5b02" }]);
   assert.deepEqual(erroDoDocumento(dois), { campo: "links.1.destaque", mensagem: "Só um link pode ser o principal." });
 });
+
+test("erro custom de campo que está na tabela mantém a frase da tabela", () => {
+  assert.deepEqual(erroDoDocumento(documento([{ ...ZAP, numero: "123" }])), {
+    campo: "links.0.numero",
+    mensagem: "Número com DDD. Ex.: 62 99999-9999.",
+  });
+});
