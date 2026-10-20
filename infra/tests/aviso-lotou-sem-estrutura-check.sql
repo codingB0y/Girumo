@@ -50,8 +50,8 @@ end $$;
 --    Esperado: disparo só para os grupos comum e membro da A; B sem disparo, mas marcada; Avisos e
 --    pai sem disparo e sem marca.
 --    Sem número conectado nas lojas de teste: app.enqueue_broadcast devolve o disparo 'failed', mas
---    a linha em broadcasts existe — o assert é a linha, não o status (a fila já é provada no bloco 9
---    de postar-por-grupo-check.sql).
+--    a linha em broadcasts existe — o assert é a linha (e o retorno 0); a fila com 'queued' já é
+--    provada nos blocos 9 e 11 de postar-por-grupo-check.sql.
 do $$
 declare
   v_com constant uuid := 'c0c0c0c2-0000-4000-8000-00000000000a';
@@ -59,6 +59,7 @@ declare
   v_texto constant text := 'Lotou! Entre no próximo pelo link da campanha.';
   v_plano uuid;
   v_got text;
+  v_n integer;
 begin
   delete from public.organizations where id in (v_com, v_sem);
   insert into public.organizations (id, tenant_id, name, slug) values
@@ -95,6 +96,10 @@ begin
     ('c0c0c0c2-0000-4000-8000-0000000000c2', v_sem, 'Check aviso sem plano', 'check-aviso-sem-estrutura-sem',
      array['asb-comum@g.us'], v_texto, now() - interval '1 minute');
 
+  -- Drena o que já estiver pendente no banco (dado real; desfeito pelo rollback), para o retorno
+  -- abaixo contar só este cenário.
+  perform public.enviar_avisos_lotou(100000);
+
   update public.groups set members = 960 where tenant_id in (v_com, v_sem);
 
   -- O cenário é o perigoso: todos lotados agora, inclusive o Avisos, e nenhum avisado.
@@ -103,7 +108,20 @@ begin
     raise exception 'FALHOU fixture: esperava os 5 grupos lotados e sem aviso antes da varredura';
   end if;
 
-  perform public.enviar_avisos_lotou(100000);
+  -- Retorno = só o que ficou NA FILA. As lojas de teste não têm número conectado: app.enqueue_broadcast
+  -- (20261015120000) acha target_instance nulo e devolve o disparo 'failed' ("Nenhum número
+  -- conectado"), que não conta — o esperado é 0. O dreno acima tirou o pendente real; um grupo real
+  -- que lotar entre o dreno e esta chamada daria falso positivo (mesmo risco dos blocos 10 e 11 de
+  -- postar-por-grupo-check.sql): rodar de novo.
+  v_n := public.enviar_avisos_lotou(100000);
+  if v_n <> 0 then
+    raise exception 'FALHOU retorno: %, esperava 0 (lojas de teste sem número conectado)', v_n;
+  end if;
+  if exists (select 1 from public.broadcasts b
+             where b.tenant_id in (v_com, v_sem) and b.name like 'Aviso ao lotar · %'
+               and b.status is distinct from 'failed') then
+    raise exception 'FALHOU retorno: aviso de teste deveria ser failed (sem número conectado)';
+  end if;
 
   select string_agg(b.tenant_id::text || ':' || array_to_string(b.group_ids, ','), ','
                     order by b.tenant_id, array_to_string(b.group_ids, ','))
