@@ -294,6 +294,23 @@ export const CONTEUDO_ESPERADO: Record<string, ConteudoEsperado> = {
     semLista: "Oferta de assinatura do add-on; nao lista registro existente.",
   },
 
+  "/painel/link-da-bio": {
+    // So existe depois do GET: o estado vazio ("Monte o link da bio da loja") ou a contagem do
+    // cartao Links ("N links · M aparecendo na pagina"). O <h1> "Link da bio" monta antes da
+    // resposta, entao nao serve de ancora.
+    ancora: /Monte o link da bio da loja|aparecendo na página/,
+    lista: {
+      api: "/api/link-da-bio",
+      // A pagina da loja e um documento so: com pagina, a tela mostra o endereco dela (o dominio
+      // proprio, se houver; senao o slug salvo); sem pagina, o estado vazio.
+      marca: (j) => {
+        const o = (j ?? {}) as { pagina?: { slug?: string } | null; dominio?: string | null };
+        if (!o.pagina) return null;
+        return o.dominio ?? o.pagina.slug ?? null;
+      },
+      vazio: /Monte o link da bio da loja/,
+    },
+  },
   "/painel/pages": {
     ancora: /Páginas/,
     lista: {
