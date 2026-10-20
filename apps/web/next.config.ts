@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 import { withSentryConfig } from "@sentry/nextjs";
 
-import { appDomainRedirects } from "./src/lib/domain-redirects";
+import { appDomainRedirects, bioDomainRedirects } from "./src/lib/domain-redirects";
 import { SENTRY_CSP_HOST } from "./src/lib/observability/sentry-options";
 
 /**
@@ -105,6 +105,8 @@ const nextConfig: NextConfig = {
       // e o porquê moram em `src/lib/domain-redirects.ts`, que tem teste — este
       // arquivo importa @sentry/nextjs e não roda sob `tsx --test`.
       ...appDomainRedirects(),
+      // Link da bio só no www (spec link-da-bio §2). Lista e teste em domain-redirects.ts.
+      ...bioDomainRedirects(),
     ];
   },
   async headers() {
