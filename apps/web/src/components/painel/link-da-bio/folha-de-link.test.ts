@@ -123,6 +123,8 @@ test("confirmar exclusão: pergunta pelo título na própria folha, com Não e E
   const h = html({ rascunho: SITE, novo: false, confirmando: true });
   assert.match(h, /Excluir “Catálogo” da página\?/);
   assert.match(h, /<button type="button"[^>]*>Não<\/button>/);
+  assert.match(h, /<p id="bio-link-excluir-pergunta"/);
+  assert.match(h, /<button type="button"[^>]*aria-describedby="bio-link-excluir-pergunta"[^>]*>Não<\/button>/);
   assert.doesNotMatch(h, />Cancelar</);
   assert.doesNotMatch(h, /id="bio-link-excluir"/);
 });

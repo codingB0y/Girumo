@@ -238,11 +238,11 @@ function Rodape(p: PropsDoConteudoDaFolha & { rascunho: LinkBio }) {
     <div className="sticky bottom-0 -mx-4 flex flex-wrap items-center gap-2 border-t border-line-200 bg-paper-0 px-4 pb-1 pt-3">
       {p.confirmando ? (
         <>
-          <p className="min-w-0 flex-[1_1_180px] text-15 font-semibold text-danger-700">
+          <p id="bio-link-excluir-pergunta" className="min-w-0 flex-[1_1_180px] text-15 font-semibold text-danger-700">
             {`Excluir “${p.rascunho.titulo}” da página?`}
           </p>
           {/* Pedir exclusão → foco no "Não" (§8). */}
-          <button type="button" autoFocus onClick={p.aoCancelarExclusao} className={FANTASMA}>
+          <button type="button" autoFocus aria-describedby="bio-link-excluir-pergunta" onClick={p.aoCancelarExclusao} className={FANTASMA}>
             Não
           </button>
           <button type="button" onClick={p.aoExcluir} className={PERIGO_CHEIO}>
