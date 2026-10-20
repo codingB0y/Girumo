@@ -23,7 +23,12 @@ export type DepsBio = typeof DEPS;
 
 /** O teto do `/api/p/track`: por IP e página, por minuto (spec §7). */
 const VISITAS_POR_MINUTO = 30;
-const CABECALHO_HTML = { "content-type": "text/html; charset=utf-8", "x-robots-tag": "noindex" };
+const CABECALHO_HTML = {
+  "content-type": "text/html; charset=utf-8",
+  "x-robots-tag": "noindex",
+  // O HTML leva o nonce desta request: guardado num cache compartilhado, valeria para todo mundo.
+  "cache-control": "private, no-store",
+};
 const CABECALHO_TEXTO = { "content-type": "text/plain; charset=utf-8", "x-robots-tag": "noindex" };
 
 export async function responderBio(req: Request, slug: string, deps: DepsBio = DEPS): Promise<Response> {
@@ -76,6 +81,8 @@ function ehVisita(req: Request): boolean {
  * guardado no navegador viraria laço. A query vai junto (utm do anúncio, do QR).
  */
 function paraOSlugAtual(req: Request, slugAtual: string): Response {
+  // O slug vem do banco, mas vira Location: fora do formato (`//evil.com`) seria redirect aberto.
+  if (!SLUG_BIO.test(slugAtual)) return naoEncontrada(req);
   return new Response(null, {
     status: 301,
     headers: { location: `/bio/${slugAtual}${new URL(req.url).search}`, "cache-control": "no-store" },

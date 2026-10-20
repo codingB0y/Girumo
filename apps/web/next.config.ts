@@ -125,7 +125,7 @@ const nextConfig: NextConfig = {
         headers: previewFrameHeaders,
       },
       {
-        // CSP destas duas vem do middleware (nonce por-request).
+        // CSP destas superfícies vem do middleware (nonce por-request).
         source: "/p/:path*",
         headers: headersWithoutCsp,
       },

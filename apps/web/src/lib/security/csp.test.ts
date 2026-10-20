@@ -63,9 +63,11 @@ test("production script-src drops unsafe-inline and unsafe-eval", () => {
 });
 
 test("unsafe-eval comes back only in dev, where Turbopack needs it", () => {
-  const dev = buildCsp("public-lp", generateNonce(), true);
-  assert.ok(dev.includes("'unsafe-eval'"));
-  assert.ok(!dev.includes("'unsafe-inline' 'nonce-"));
+  for (const surface of ["public-lp", "click-redirect", "bio"] as const) {
+    const dev = buildCsp(surface, generateNonce(), true);
+    assert.ok(dev.includes("'unsafe-eval'"), `${surface} sem unsafe-eval em dev`);
+    assert.ok(!dev.includes("'unsafe-inline' 'nonce-"), `${surface} com unsafe-inline junto do nonce`);
+  }
 });
 
 test("public LP keeps the vendors the tracking session injects", () => {

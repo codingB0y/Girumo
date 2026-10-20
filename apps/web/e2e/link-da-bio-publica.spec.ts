@@ -16,7 +16,8 @@ import { documentoPadrao } from "../src/lib/bio/documento";
 const URL_SUPABASE = process.env.E2E_SUPABASE_URL ?? process.env.SUPABASE_URL ?? "";
 const CHAVE_SERVICE_ROLE = process.env.E2E_SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
 const TEM_BANCO = Boolean(URL_SUPABASE && CHAVE_SERVICE_ROLE);
-const EM_PRODUCAO = URL_SUPABASE.includes("nidoatbxaylrkcgbszns");
+/** Allowlist, não denylist: só o banco de dev (outro projeto qualquer também fica de fora). */
+const NO_BANCO_DE_DEV = URL_SUPABASE.includes("wfjuwogxaupyadwhvoxy");
 
 const LOJA_SLUG = "e2e-bio-fixa";
 const NOME = "Loja E2E Bio";
@@ -49,7 +50,7 @@ async function conferirNonce(res: APIResponse): Promise<string> {
 }
 
 test.describe("link da bio: página pública", () => {
-  test.skip(!TEM_BANCO || EM_PRODUCAO, "Precisa da service role do banco de DEV (SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY).");
+  test.skip(!TEM_BANCO || !NO_BANCO_DE_DEV, "Precisa da service role do banco de DEV (SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY).");
 
   let banco: SupabaseClient;
   let lojaId = "";
@@ -82,6 +83,7 @@ test.describe("link da bio: página pública", () => {
       const { error } = await banco.from("organizations").insert({ name: NOME, slug: LOJA_SLUG });
       if (error && error.code !== "23505") throw new Error(`loja do e2e: ${error.message}`);
       lojaId = await idDe("organizations", "slug", LOJA_SLUG);
+      if (!lojaId) throw new Error("loja do e2e não existe depois do insert");
     }
     paginaId = await idDe("bio_pages", "tenant_id", lojaId);
     if (!paginaId) {
@@ -91,6 +93,7 @@ test.describe("link da bio: página pública", () => {
         .insert({ tenant_id: lojaId, slug: SLUG_ANTIGO, publicada: true, documento });
       if (error && error.code !== "23505") throw new Error(`página do e2e: ${error.message}`);
       paginaId = await idDe("bio_pages", "tenant_id", lojaId);
+      if (!paginaId) throw new Error("página do e2e não existe: slug preso em bio_slugs por outra loja?");
     }
 
     // O estado que os testes esperam, a cada run (o mesmo slug de novo passa no trigger: já é desta página).

@@ -173,7 +173,8 @@ const url = z
       ctx.addIssue("Só endereços de site (que começam com http ou https).");
       return z.NEVER;
     }
-    if (!/\.[a-z]{2,}$/i.test(lido.hostname)) {
+    // `loja.com.br@evil.com` abre evil.com: usuário/senha na URL só serve para enganar.
+    if (lido.username || lido.password || !/\.[a-z]{2,}$/i.test(lido.hostname)) {
       ctx.addIssue(ENDERECO_INVALIDO);
       return z.NEVER;
     }

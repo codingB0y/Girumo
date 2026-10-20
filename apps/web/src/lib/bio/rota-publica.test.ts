@@ -91,6 +91,7 @@ test("página publicada: 200, HTML com o nonce da request, noindex", async () =>
   assert.equal(res.status, 200);
   assert.equal(res.headers.get("content-type"), "text/html; charset=utf-8");
   assert.equal(res.headers.get("x-robots-tag"), "noindex");
+  assert.equal(res.headers.get("cache-control"), "private, no-store");
   const html = await res.text();
   assert.ok(html.includes(`nonce="${NONCE}"`), "o <style>/<script> perdeu o nonce do middleware");
   assert.ok(html.includes(`data-pagina="${PAGINA}"`));
@@ -112,10 +113,20 @@ test("inexistente, não publicada ou bloqueada (o cache devolve null): 404 HTML 
   assert.equal(res.status, 404);
   assert.equal(res.headers.get("content-type"), "text/html; charset=utf-8");
   assert.equal(res.headers.get("x-robots-tag"), "noindex");
+  assert.equal(res.headers.get("cache-control"), "private, no-store");
   const html = await res.text();
   assert.match(html, /Página não encontrada/);
   assert.ok(html.includes(`nonce="${NONCE}"`));
   assert.equal(depois.length, 0);
+});
+
+test("slug atual fora do formato (dado podre no banco) não vira Location: 404", async () => {
+  for (const slugAtual of ["//evil.com", "Atelie", "a/../b", "x\r\nset-cookie: a=b"]) {
+    const { deps } = cenario({ busca: { tipo: "mudou", slugAtual } });
+    const res = await responder(pedido("/bio/atelie-velho"), "atelie-velho", deps);
+    assert.equal(res.status, 404, slugAtual);
+    assert.equal(res.headers.get("location"), null, slugAtual);
+  }
 });
 
 test("slug fora do formato nem chega no cache", async () => {
