@@ -45,12 +45,13 @@ function dados(): DadosRender {
   };
 }
 
-type Opcoes = { busca?: BuscaPorSlug | Error };
+type Opcoes = { busca?: BuscaPorSlug | Error; dono?: string | null; loja?: DadosRender | null };
 
 function cenario(o: Opcoes = {}) {
   depois.length = 0;
   const buscados: string[] = [];
   const contados: [string, string][] = [];
+  const consultas: string[] = [];
   const busca = o.busca === undefined ? { tipo: "pagina" as const, dados: dados() } : o.busca;
   const deps = {
     porSlug: async (slug: string): Promise<BuscaPorSlug> => {
@@ -58,16 +59,24 @@ function cenario(o: Opcoes = {}) {
       if (busca instanceof Error) throw busca;
       return busca;
     },
+    donoDoHost: async (host: string): Promise<string | null> => {
+      consultas.push(`host:${host}`);
+      return o.dono ?? null;
+    },
+    daLoja: async (tenantId: string, origem: string): Promise<DadosRender | null> => {
+      consultas.push(`loja:${tenantId}:${origem}`);
+      return o.loja ?? null;
+    },
     contar: async (paginaId: string, alvo: string): Promise<void> => {
       contados.push([paginaId, alvo]);
     },
   };
-  return { deps, buscados, contados };
+  return { deps, buscados, contados, consultas };
 }
 
-function pedido(caminho: string, i: { metodo?: string; ua?: string | null; ip?: string; extra?: Record<string, string> } = {}): Request {
+function pedido(caminho: string, i: { metodo?: string; ua?: string | null; ip?: string; host?: string; extra?: Record<string, string> } = {}): Request {
   const headers: Record<string, string> = {
-    host: "www.girumo.com.br",
+    host: i.host ?? "www.girumo.com.br",
     "x-nonce": NONCE,
     "x-forwarded-for": i.ip ?? "203.0.113.10",
     ...i.extra,
@@ -196,4 +205,35 @@ test("cache ou banco fora do ar: 503 de texto, sem cache, e o erro no log", asyn
   assert.equal(res.headers.get("cache-control"), "no-store");
   assert.match(await res.text(), /Tente de novo/);
   assert.equal(erros.mock.callCount(), 1);
+});
+
+test("raiz do domínio próprio: a página da loja dona do host, com a origem dele; conta visita", async () => {
+  const loja = { ...dados(), origem: "https://links.atelie-da-ana.test", dominioProprio: true };
+  const { deps, consultas, contados } = cenario({ dono: "loja-a", loja });
+  const res = await responder(pedido("/bio/_dominio", { host: "Links.Atelie-da-Ana.test:443", ip: "203.0.113.50" }), "_dominio", deps);
+  assert.equal(res.status, 200);
+  assert.ok((await res.text()).includes(`data-pagina="${PAGINA}"`));
+  assert.deepEqual(consultas, ["host:links.atelie-da-ana.test", "loja:loja-a:https://links.atelie-da-ana.test"]);
+  await rodarDepois();
+  assert.deepEqual(contados, [[PAGINA, "visita"]]);
+});
+
+test("_dominio no host do Girumo é 404 HTML, sem consultar nada", async () => {
+  for (const host of ["www.girumo.com.br", "app.girumo.com.br", "localhost:3000"]) {
+    const { deps, consultas, buscados } = cenario({ dono: "loja-a", loja: dados() });
+    const res = await responder(pedido("/bio/_dominio", { host }), "_dominio", deps);
+    assert.equal(res.status, 404, host);
+    assert.equal(res.headers.get("content-type"), "text/html; charset=utf-8", host);
+    assert.deepEqual([...consultas, ...buscados], [], host);
+  }
+});
+
+test("domínio sem dono ativo, ou loja sem página: o 404 de texto do middleware", async () => {
+  for (const o of [{ dono: null }, { dono: "loja-a", loja: null }]) {
+    const { deps } = cenario(o);
+    const res = await responder(pedido("/bio/_dominio", { host: "links.atelie-da-ana.test" }), "_dominio", deps);
+    assert.equal(res.status, 404);
+    assert.equal(res.headers.get("content-type"), "text/plain; charset=utf-8");
+    assert.equal(await res.text(), "Link não encontrado.");
+  }
 });

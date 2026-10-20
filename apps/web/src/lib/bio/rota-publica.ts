@@ -2,11 +2,13 @@
 import "server-only";
 import { after } from "next/server";
 
-import { paginaPublicaPorSlug } from "@/lib/bio/cache";
+import { paginaPublicaDaLoja, paginaPublicaPorSlug } from "@/lib/bio/cache";
 import { SLUG_BIO, type DadosRender } from "@/lib/bio/documento";
 import { renderPaginaBio, renderPaginaNaoEncontrada } from "@/lib/bio/render";
+import { BIO_DOMINIO, LINK_NAO_ENCONTRADO, hostnameFromHostHeader, isFirstPartyHost } from "@/lib/custom-domains/host";
 import { isBotUserAgent, isRateLimited } from "@/lib/pages/analytics";
 import { contarBio } from "@/lib/stores/bio-pages";
+import { getActiveDomainTenant } from "@/lib/stores/custom-domains";
 
 /**
  * `GET|HEAD /bio/<slug>` — página pública do link da bio (spec link-da-bio §6 e §7).
@@ -18,7 +20,12 @@ import { contarBio } from "@/lib/stores/bio-pages";
  * Cache e banco entram por parâmetro para o teste trocá-los sem rede (o desenho
  * de `renomearSlugCampanha`).
  */
-const DEPS = { porSlug: paginaPublicaPorSlug, contar: contarBio };
+const DEPS = {
+  porSlug: paginaPublicaPorSlug,
+  daLoja: paginaPublicaDaLoja,
+  donoDoHost: getActiveDomainTenant,
+  contar: contarBio,
+};
 export type DepsBio = typeof DEPS;
 
 /** O teto do `/api/p/track`: por IP e página, por minuto (spec §7). */
@@ -33,6 +40,7 @@ const CABECALHO_TEXTO = { "content-type": "text/plain; charset=utf-8", "x-robots
 
 export async function responderBio(req: Request, slug: string, deps: DepsBio = DEPS): Promise<Response> {
   try {
+    if (slug === BIO_DOMINIO) return await raizDoDominio(req, deps);
     // Fora do formato nem consulta: slug inventado não vira chave de cache.
     if (!SLUG_BIO.test(slug)) return naoEncontrada(req); // o SLUG_BIO do PR 2 já conta 3–40
     const busca = await deps.porSlug(slug);
@@ -46,6 +54,21 @@ export async function responderBio(req: Request, slug: string, deps: DepsBio = D
       headers: { ...CABECALHO_TEXTO, "cache-control": "no-store" },
     });
   }
+}
+
+/**
+ * Raiz do domínio do lojista: o middleware reescreve `/` para `/bio/_dominio`
+ * (spec §6). Em host do Girumo esse caminho não existe. No domínio, só a página
+ * da loja DONA do host ativo, com a origem dele; sem dono ou sem página, o mesmo
+ * 404 de texto do middleware.
+ */
+async function raizDoDominio(req: Request, deps: DepsBio): Promise<Response> {
+  const host = hostnameFromHostHeader(req.headers.get("host"));
+  if (isFirstPartyHost(host)) return naoEncontrada(req);
+  const tenantId = await deps.donoDoHost(host);
+  const dados = tenantId ? await deps.daLoja(tenantId, `https://${host}`) : null;
+  if (!dados) return new Response(LINK_NAO_ENCONTRADO, { status: 404, headers: CABECALHO_TEXTO });
+  return pagina(req, dados, deps);
 }
 
 function pagina(req: Request, dados: DadosRender, deps: DepsBio): Response {
