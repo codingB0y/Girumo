@@ -97,7 +97,10 @@ export function renderPaginaBio(
   const nonce = nonceAttribute(o.nonce);
   const f = fontes(modelo.fontes);
   const variaveis = `.lk{${Object.entries(tokens).map(([k, v]) => `${k}:${v}`).join(";")}}`;
-  const css = `${f.css}${variaveis}${CSS_BASE}${modelo.css}${regrasDoFoco(doc)}`;
+  // O elástico do scroll no iOS mostra o canvas do <html>: na cor do topo (a do theme-color), não em branco.
+  const tema = modelo.corDoTopo(tokens);
+  const fundoDoHtml = COR.test(tema) ? `html{background:${tema}}` : "";
+  const css = `${f.css}${variaveis}${CSS_BASE}${modelo.css}${regrasDoFoco(doc)}${fundoDoHtml}`;
   const entra = o.animarEntrada && doc.animar ? " lk-entra" : "";
   const script = o.modo === "publica" ? `<script${nonce}>${scriptDaPagina({ rastreio: null })}</script>` : "";
   return `<!doctype html><html lang="pt-BR"><head>${cabeca(c, modelo, f.preload)}<style${nonce}>${css}</style></head><body data-pagina="${escapeHtml(d.paginaId)}"><div class="lk${entra}">${sprite(corpo)}${corpo}<p id="lk-status" class="lk-status" role="status"></p></div>${script}</body></html>`;

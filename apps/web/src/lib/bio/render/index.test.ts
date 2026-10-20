@@ -43,6 +43,16 @@ test("cabeça: idioma, título, noindex, descrição, Open Graph, cor do tema, �
   assert.match(html, /<body data-pagina="0c8f6a2e-5b1d-4c3a-9e7f-1a2b3c4d5e6f">/);
 });
 
+test("o fundo do html é a cor do theme-color (overscroll do iOS)", () => {
+  for (const modo of ["publica", "previa"] as const) {
+    const html = renderPaginaBio(dadosFalsos(), { modo, nonce: NONCE, animarEntrada: false });
+    const tema = html.match(/<meta name="theme-color" content="(#[0-9A-F]{6})">/)?.[1];
+    assert.ok(tema, `${modo}: a página tem theme-color`);
+    const css = html.match(/<style[^>]*>([\s\S]*?)<\/style>/)?.[1] ?? "";
+    assert.ok(css.includes(`html{background:${tema}}`), `${modo}: falta html{background:${tema}} no <style>`);
+  }
+});
+
 test("sem logo e sem frase: ícone vazio, sem descrição", () => {
   const html = publica(comPerfil({ logoClara: null, logoEscura: null, frase: "" }));
   assert.match(html, /<link rel="icon" href="data:,">/);
@@ -97,6 +107,12 @@ test("endereço abre ali mesmo: <details> com foto lazy, endereço e o mapa", ()
   const html = publica(dadosFalsos());
   assert.match(html, new RegExp(`<details class="et-abre"><summary class="et-tag" data-link="${IDS.endereco}" data-tipo="endereco">`));
   assert.match(html, /<div class="et-caminho"><img src="[^"]*fachada-falsa[^"]*"[^>]*alt="" loading="lazy" decoding="async"><address>Rua Exemplo, 100\nCentro, Cidade Exemplo<\/address><p class="et-hora">Seg a sex, das 8h às 17h<\/p><a class="et-mapa" href="https:\/\/www\.google\.com\/maps\/search\/\?api=1&amp;query=Rua%20Exemplo%2C%20100%2C%20Centro%2C%20Cidade%20Exemplo">/);
+});
+
+test("o link do mapa do 'Como chegar' não tem data-link (o endereço conta só ao abrir)", () => {
+  const mapa = publica(dadosFalsos()).match(/<a class="et-mapa"[^>]*>/)?.[0];
+  assert.ok(mapa, "o 'Como chegar' tem o link do mapa");
+  assert.doesNotMatch(mapa, /data-link/);
 });
 
 test("texto do lojista nunca vira HTML", () => {

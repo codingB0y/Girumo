@@ -12,7 +12,7 @@
 
 **Depende de:** PR 4b (beacon no `script.ts`) e PR 6b (`aba-perfil.tsx`, `useErroDaAba`, `idNaTela`, `lugarDoErro`) em `main` — e, por tabela, 2, 3a, 3b, 4a, 5 e 6a. É o último PR da série.
 
-**Já rodado (no rascunho, fora do repo):** o `script.ts` da Task 1 com as linhas do 4b copiadas do plano dele — os 8 testes novos junto de dois do 3a, o "byte a byte" contra o array do 4b (1112 B sem rastreio, 2060 B com os dois ids) e o mutante sem a condição do `<summary>` derrubando o teste do "Como chegar"; o `buildCsp("bio")` da Task 3 com o `csp.test.ts` de hoje + o teste do 4a + o novo; o `bloco-avancado.tsx` da Task 4 com os 4 testes dele e o primeiro da Task 5, numa aba Perfil de mentira com o `useErroDaAba` copiado do plano do 6b e uma lista de lugares no formato do `LUGARES_DO_PERFIL`; `tsc` strict (target ES2017), o ESLint do `apps/web` e o lint do painel (`lintPainelSource`); e no Chromium: com a CSP nova o fbevents.js e o gtag.js carregam e os eventos saem (imagem no `/tr`, beacon no `/g/collect`) sem nenhuma violação; com a CSP do 4a os dois scripts são bloqueados. O que muda com o código real: a aba Perfil é a do 6b (Task 4 do plano dele: `LUGARES_DO_PERFIL`, `const erros = useErroDaAba(…)`, os quatro cartões com o `CartaoSelo` por último), não a de mentira.
+**Já rodado (no rascunho, fora do repo):** o `script.ts` da Task 1 com as linhas do 4b copiadas do `script.ts` dele — os 8 testes novos junto de dois do 3a, o "byte a byte" contra o array do 4b (1187 B sem rastreio, 2135 B com os dois ids) e o mutante sem a condição do `<summary>` derrubando o teste do "Como chegar"; o `buildCsp("bio")` da Task 3 com o `csp.test.ts` de hoje + o teste do 4a + o novo; o `bloco-avancado.tsx` da Task 4 com os 4 testes dele e o primeiro da Task 5, numa aba Perfil de mentira com o `useErroDaAba` copiado do plano do 6b e uma lista de lugares no formato do `LUGARES_DO_PERFIL`; `tsc` strict (target ES2017), o ESLint do `apps/web` e o lint do painel (`lintPainelSource`); e no Chromium: com a CSP nova o fbevents.js e o gtag.js carregam e os eventos saem (imagem no `/tr`, beacon no `/g/collect`) sem nenhuma violação; com a CSP do 4a os dois scripts são bloqueados. O que muda com o código real: a aba Perfil é a do 6b (Task 4 do plano dele: `LUGARES_DO_PERFIL`, `const erros = useErroDaAba(…)`, os quatro cartões com o `CartaoSelo` por último), não a de mentira.
 
 ## Arquivos (7 de código + 6 de teste: um PR só)
 
@@ -113,7 +113,7 @@ Expected: uma ou mais linhas em cada. Ler três arquivos inteiros e anotar:
 npx tsx -e "import { writeFileSync } from 'node:fs'; import { tmpdir } from 'node:os'; import { join } from 'node:path'; import { scriptDaPagina } from './src/lib/bio/render/script'; writeFileSync(join(tmpdir(), 'bio-js-antes.txt'), scriptDaPagina({ rastreio: null }));"
 ```
 
-Expected: sem saída; o arquivo `%TEMP%\bio-js-antes.txt` existe (1112 B, o número do plano do 4b).
+Expected: sem saída; o arquivo `%TEMP%\bio-js-antes.txt` existe (1187 B, o número do 4b).
 
 - [ ] **Step 5: Quadro ao começar** (prod `nidoatbxaylrkcgbszns`; `npx supabase --workdir <pasta vazia> link --project-ref nidoatbxaylrkcgbszns --yes` e depois `npx supabase --workdir <pasta vazia> db query --linked -f arquivo.sql`; se o classificador recusar, pedir ao Igor):
 
@@ -300,16 +300,16 @@ test("o Pixel quebrado não derruba o GA4 nem o resto da página", () => {
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `npx tsx --import ./src/test/server-only-shim.mjs --test src/lib/bio/render/script.test.ts`
-Expected: FAIL nos 7 novos que esperam Meta ou Google — "Pixel: carrega o fbevents.js…" com `carregados` vazio (`[]` ≠ `["https://connect.facebook.net/en_US/fbevents.js"]`), e os outros do mesmo jeito. O "sem rastreio…" e os 11 do 3a e do 4b já passam.
+Expected: FAIL nos 7 novos que esperam Meta ou Google — "Pixel: carrega o fbevents.js…" com `carregados` vazio (`[]` ≠ `["https://connect.facebook.net/en_US/fbevents.js"]`), e os outros do mesmo jeito. O "sem rastreio…" e os 13 do 3a e do 4b já passam.
 
-- [ ] **Step 3: Implement** — reescrever `apps/web/src/lib/bio/render/script.ts`. O `const JS = [...].join("")` vira a função `montar(toque, fim)` com **as linhas do array como estão em `main`** (as do 3a e as do 4b, abaixo como o plano do 4b as deixa) e duas mudanças: a linha do `var k=…` perde o `});` do fim (ele vira um item próprio, depois de `toque`), e entre o `addEventListener("pageshow",…)` e o `"})();"` entra `fim`. Sai o `// eslint-disable-next-line @typescript-eslint/no-unused-vars` do 3a (o `o` passa a ser usado):
+- [ ] **Step 3: Implement** — reescrever `apps/web/src/lib/bio/render/script.ts`. O `const JS = [...].join("")` vira a função `montar(toque, fim)` com **as linhas do array como estão em `main`** (as do 3a e as do 4b, abaixo como o 4b as deixa) e duas mudanças: a linha do `var k=…` perde o `});` do fim (ele vira um item próprio, depois de `toque`), e entre o `addEventListener("pageshow",…)` e o `"})();"` entra `fim`. Sai o `// eslint-disable-next-line @typescript-eslint/no-unused-vars` do 3a (o `o` passa a ser usado):
 
 ```ts
 /**
  * O JS inline da página do link da bio, devolvido sem a tag (o `index.ts` o
  * embrulha em `<script nonce>`). Nenhum texto do lojista entra aqui: o script
  * só lê `data-*` que o renderizador emite (uuid da página e do link, tipo de
- * lista fechada, CNPJ em dígitos) e, com rastreio, os dois ids que passam nas
+ * lista fechada, CNPJ sem pontuação, só [0-9A-Z]) e, com rastreio, os dois ids que passam nas
  * regras abaixo. PR 3a: "Abrindo…", balanço do toque e "Copiado"; PR 4b: o
  * beacon do toque; PR 7: Pixel da Meta (PageView, Contact, BioToque) e GA4
  * (page_view, bio_toque) — nunca Lead, que é do /r/ (spec §4, §14.8).
@@ -351,14 +351,16 @@ function noToque(pixel: string, ga4: string): string {
 function montar(toque: string, fim: string): string {
   return [
     "(function(){",
-    'var d=document,s=d.getElementById("lk-status"),t=0,',
+    'var d=document,s=d.getElementById("lk-status"),t=0,q=0,',
     'M={whatsapp:"Abrindo o WhatsApp…",grupo:"Abrindo o grupo…",link:"Abrindo…"};',
     'function diz(x){if(!s)return;s.textContent=x;clearTimeout(t);if(x)t=setTimeout(function(){s.textContent=""},3000)}',
     'd.addEventListener("click",function(e){',
     'var a=e.target&&e.target.closest?e.target.closest("[data-link],[data-copiar]"):null;if(!a)return;',
     'var c=a.getAttribute("data-copiar");',
-    "if(c!==null){var n=navigator.clipboard;if(n&&n.writeText)n.writeText(c).then(function(){",
-    'a.textContent="Copiado";diz("CNPJ copiado.");setTimeout(function(){a.textContent="Copiar CNPJ"},2200)},function(){});return}',
+    // Copiar CNPJ: `q` é o timer do "Copiado", um só (outro toque recomeça os 2,2 s); recusado ou sem a API, `f` avisa.
+    'if(c!==null){var n=navigator.clipboard,f=function(){diz("Não foi possível copiar o CNPJ.")};',
+    "if(n&&n.writeText)n.writeText(c).then(function(){",
+    'a.textContent="Copiado";diz("CNPJ copiado.");clearTimeout(q);q=setTimeout(function(){a.textContent="Copiar CNPJ"},2200)},f);else f();return}',
     'a.classList.remove("lk-toque");void a.offsetWidth;a.classList.add("lk-toque");',
     'setTimeout(function(){a.classList.remove("lk-toque")},1600);',
     // Beacon (PR 4b). No clique o `open` do <details> ainda é o de antes: aberto = este toque fecha, não conta.
@@ -387,7 +389,7 @@ Se o array em `main` não for o do plano do 4b (Task 0, Step 3), a regra é a me
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `npx tsx --import ./src/test/server-only-shim.mjs --test src/lib/bio/render/script.test.ts`
-Expected: PASS — os 11 do 3a e do 4b mais os 8 novos (19), `fail 0`.
+Expected: PASS — os 13 do 3a e do 4b mais os 8 novos (21), `fail 0`.
 
 - [ ] **Step 5: Sem rastreio, byte a byte o JS do 4b**
 
@@ -1173,7 +1175,7 @@ Se a prova do §13 inteira (passos 1–3) já estiver colhida nesta sessão, em 
 ## Critérios de aceite do PR
 
 - `scriptDaPagina` com o nome e a assinatura do §9, agora lendo `rastreio`: Pixel `PageView` ao abrir, `Contact` no WhatsApp, `BioToque {botao}` nos outros; GA4 `config` (`page_view`) e `bio_toque {botao}`; o "Como chegar" só conta ao abrir; nunca `Lead`.
-- Sem rastreio (null, vazio ou id fora da regra), o JS é o do 4b byte a byte (snapshot "IGUAL"); com os dois ids, ES5, sem `<`, ≤ 3 KB (2060 B no rascunho).
+- Sem rastreio (null, vazio ou id fora da regra), o JS é o do 4b byte a byte (snapshot "IGUAL"); com os dois ids, ES5, sem `<`, ≤ 3 KB (2135 B no rascunho).
 - `renderPaginaBio` passa `documento.rastreio` só no modo `"publica"` e só quando há id; continua um `<script>` só, com nonce; página cheia com os dois ids ≤ 40 KB.
 - CSP `"bio"` exatamente a do Global Constraints, um header só em produção (`curl.exe -sI`).
 - Painel: "Avançado" fechado no fim da aba Perfil, com "Configurado" quando há id; erro do salvar no `rastreio.*` leva à aba Perfil, abre o bloco, fica embaixo do campo certo (`aria-invalid`, `aria-describedby`), foco nele, some ao digitar; id colado com espaço ou GA4 em minúsculas salva limpo.
@@ -1203,8 +1205,8 @@ powershell -ExecutionPolicy Bypass -File infra/scripts/verify-local.ps1
 - **Evento perdido no toque rápido.** O toque não espera o fbevents.js/gtag.js: se a pessoa toca antes de eles carregarem (4G lento) e o botão navega na mesma aba (link, grupo), o evento fica na fila e se perde; o GA4 já carregado sai por beacon, a imagem da Meta pode ser cancelada pela navegação. Mesmo teto das LPs com o `GroupJoin`. Se a contagem da Meta ficar muito abaixo da nossa (`bio_contagens`), o próximo passo é a API de Conversões no servidor, não segurar a navegação.
 - **A regra do "Como chegar" mora em dois lugares.** A condição `a.tagName!=="SUMMARY"||!a.parentNode.open` está no beacon (4b) e nos eventos (PR 7), no mesmo handler. Quem mudar uma muda a outra; os testes "endereço: o beacon sai quando…" (4b) e "Como chegar: o evento sai quando…" (PR 7) acusam a diferença.
 - **`ga4Id` sem teto no §4** (`^G-[A-Z0-9]{4,}$`). O PR 2 pôs `.max(30)` no zod e o painel `maxLength` 30; o `ID_GA4` do `script.ts` segue o §4 sem teto. Um documento escrito por fora do zod com um GA4 enorme só incha o JS além de 3 KB (o conteúdo é só `G-` e alfanumérico: não abre injeção).
-- **40 KB no pior caso.** O 3a mediu o pior caso teórico (17 URLs no limite de 500 e a mensagem do WhatsApp no de 300) em 39 378 B, com o JS do 3a (906 B). O 4b soma 206 B ao JS (906 → 1112 B) e os dois rastreadores ~950 B (1112 → 2060 B): ~40 530 B, abaixo dos `40 * 1024` do teste por ~430 B. Se o 3b (CSS e marcação maiores) já tiver comido essa folga, esse pior caso passa: medir de novo como o 3a mediu. O caso realista (o teste da Task 2) fica em ~32 KB.
-- **Linhas do 4b.** O `montar` copia as linhas do plano do 4b; o snapshot (Task 0 Step 4 × Task 1 Step 5) prova que nada mais mudou, e os testes do 4b continuam rodando com `rastreio: null`.
+- **40 KB no pior caso.** O 3a mediu o pior caso teórico (17 URLs no limite de 500 e a mensagem do WhatsApp no de 300) em 39 378 B, com o JS do 3a (906 B). O 4b soma 281 B ao JS (906 → 1187 B) e 24 B de CSS (`html{background:…}`), e os dois rastreadores ~950 B (1187 → 2135 B): ~40 630 B, abaixo dos `40 * 1024` do teste por ~330 B. Se o 3b (CSS e marcação maiores) já tiver comido essa folga, esse pior caso passa: medir de novo como o 3a mediu. O caso realista (o teste da Task 2) fica em ~32 KB.
+- **Linhas do 4b.** O `montar` copia as linhas do 4b; o snapshot (Task 0 Step 4 × Task 1 Step 5) prova que nada mais mudou, e os testes do 4b continuam rodando com `rastreio: null`.
 - **Caminho e limpeza do zod no rastreio.** O bloco depende de o `documentoBio` reportar `rastreio.metaPixelId`/`rastreio.ga4Id` e de limpar o que o painel guarda como foi digitado (PR 2: `trim` nos dois, GA4 com `toUpperCase`). O teste do `editor.test.ts` (Task 4) acusa as duas coisas.
 - **Aba Perfil do 6b.** O encaixe segue o plano do 6b (`LUGARES_DO_PERFIL` constante de módulo, `erros = useErroDaAba(…)` com `erroDe`/`erroSolto`/`corrigiu`, `CartaoSelo` por último). Se a aba em `main` divergir do plano, valem os nomes de `main` (Task 0, Step 3). Os dois testes da Task 5 cobrem o encaixe e o caminho do erro no render; o foco (efeito + `requestAnimationFrame`) só o passo 3 do roteiro (Task 6) mostra — não pular.
 - **Google Signals / Tag Assistant.** A CSP segue a lista base do GA4. Propriedade com Google Signals pode ter requisições extras bloqueadas (o `page_view` e o `bio_toque` passam), e o Tag Assistant pode não conectar sob a CSP fechada; nos dois casos o console mostra. Não alargar a CSP sem decisão (a lista de hosts é fechada de propósito, como no `click-redirect`).

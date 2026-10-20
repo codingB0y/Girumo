@@ -32,7 +32,7 @@ export function isBotUserAgent(ua: string | null): boolean {
  * por IP E página. `limitar` existe para o teste.
  */
 export function isRateLimited(
-  rota: "lead" | "track" | "outbound" | "bio-visita",
+  rota: "lead" | "track" | "outbound" | "bio-visita" | "bio-toque",
   req: Request,
   max: number,
   slug?: string,
