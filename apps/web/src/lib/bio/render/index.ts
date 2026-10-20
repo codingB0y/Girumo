@@ -15,11 +15,12 @@ import { etiqueta } from "./etiqueta";
 import type { ContextoRender, FonteDoModelo, ModeloRender, ModoRender } from "./modelo";
 import { CSS_BASE, linksVisiveis, logoDaPagina, regrasDoFoco, sprite, tokensValidos, urlDaImagem } from "./partes";
 import { scriptDaPagina } from "./script";
+import { vitrine } from "./vitrine";
 
-/** O PR 3b troca as três últimas entradas pelos modelos próprios. */
+/** Os modelos ainda sem módulo próprio desenham com o Etiqueta. */
 const MODELOS_RENDER: Record<Modelo, ModeloRender> = {
   etiqueta,
-  vitrine: etiqueta,
+  vitrine,
   romaneio: etiqueta,
   classico: etiqueta,
 };
