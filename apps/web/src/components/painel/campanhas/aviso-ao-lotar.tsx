@@ -64,11 +64,15 @@ export function AvisoAoLotar({ value, onChange, slug, desde }: Props) {
           <p className="font-data text-right text-12 tabular-nums text-aco">
             {value.texto.length}/{AVISO_AO_LOTAR_MAX}
           </p>
-          <p aria-live="polite" className="text-13 text-alerta">
-            {semTexto ? "Sem mensagem, o aviso fica desligado." : ""}
-          </p>
         </div>
       )}
+
+      {/* Fora do bloco acima: a região viva já existe no DOM antes do texto aparecer, senão o leitor
+          de tela pode não anunciar. Vazia fica sr-only (fora do fluxo, sem o gap da seção); com
+          texto, -mt-2 a encosta no contador como antes. */}
+      <p aria-live="polite" className={semTexto ? "-mt-2 text-13 text-alerta" : "sr-only"}>
+        {semTexto ? "Sem mensagem, o aviso fica desligado." : ""}
+      </p>
 
       <p id="aviso-ao-lotar-ajuda" className="text-13 leading-relaxed text-aco">
         Sai no próprio grupo, uma vez, na hora em que ele ganha a marca de lotado (sozinho, ao passar de 95%,
