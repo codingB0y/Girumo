@@ -11,7 +11,7 @@ import type { PaginaBio } from "@/lib/stores/bio-pages";
 import { cn } from "@/lib/utils";
 
 import { ABAS, abaDoErro, BarraDeAbas, type IdDaAba } from "./abas";
-import { useEditorBio, type EditorBio } from "./use-editor-bio";
+import { ID_TITULO, useEditorBio, type EditorBio } from "./use-editor-bio";
 
 const FOCO = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500";
 const PRIMARIO = `inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-cobalt-500 px-4 text-15 font-semibold text-paper-0 transition-colors hover:bg-cobalt-700 disabled:cursor-not-allowed disabled:opacity-45 ${FOCO}`;
@@ -168,14 +168,20 @@ export function TelaDoEditor({
   const Conteudo = atual.Conteudo;
 
   return (
-    // pb-40 no celular: a barra de salvar (64 px) e o "Ver como fica" (80 px) ficam por cima do fim da tela.
+    // pb-40 no celular: reserva o fim da tela para a barra de salvar (64 px) e a barra de baixo (56 px) não cobrirem o último bloco.
     <div className="pn-bio mx-auto w-full max-w-[1320px] px-4 pb-40 pt-5 lg:px-8 lg:pb-14 lg:pt-7">
       <header className="flex flex-wrap items-start gap-x-6 gap-y-3">
         <div className="grid min-w-0 flex-[1_1_420px] gap-1.5">
-          <h1 className="flex flex-wrap items-center gap-2.5 font-brand text-[22px] font-bold leading-tight tracking-[-0.4px] text-volt-950 lg:text-28">
-            Link da bio
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1
+              id={ID_TITULO}
+              tabIndex={-1}
+              className="font-brand text-[22px] font-bold leading-tight tracking-[-0.4px] text-volt-950 focus:outline-none lg:text-28"
+            >
+              Link da bio
+            </h1>
             {pronto && <ChipDeEstado pagina={pronto.pagina} />}
-          </h1>
+          </div>
           <p className="hidden max-w-[64ch] text-15 text-slate-600 lg:block">
             A página que vai na bio do Instagram: o WhatsApp da loja, o grupo VIP e o que mais você quiser, num endereço
             só.

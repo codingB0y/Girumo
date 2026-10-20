@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils";
 import type { PropsDaAba } from "./abas";
 import { FolhaDeLink, type InicioDaFolha } from "./folha-de-link";
 import { QuadradoDoIcone } from "./icone-do-link";
-import { focarDepois } from "./use-editor-bio";
+import { focarDepois, ID_ADICIONAR } from "./use-editor-bio";
 
 const FOCO = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500";
 const PRIMARIO = `inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-cobalt-500 px-4 text-15 font-semibold text-paper-0 transition-colors hover:bg-cobalt-700 ${FOCO}`;
@@ -34,7 +34,7 @@ const SECUNDARIO = `inline-flex min-h-11 items-center justify-center gap-2 white
 const ORDEM = `grid h-11 w-11 flex-none place-items-center rounded-lg border border-line-200 bg-paper-0 text-volt-950 disabled:cursor-not-allowed disabled:opacity-30 ${FOCO}`;
 
 /** Destino do foco depois de excluir (a linha some junto com o botão que abriu a folha). */
-export const ID_ADICIONAR = "bio-adicionar-link";
+export { ID_ADICIONAR };
 const idDaOrdem = (id: string, botao: "subir" | "descer") => `bio-${botao}-${id}`;
 
 export type PropsDaLista = {

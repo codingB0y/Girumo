@@ -73,6 +73,7 @@ export function BarraDeAbas({
   aoEscolher: (id: IdDaAba) => void;
 }) {
   function aoTeclar(e: KeyboardEvent<HTMLButtonElement>, i: number) {
+    if (e.altKey || e.ctrlKey || e.metaKey) return; // Alt+← e Ctrl+Home são do navegador
     const destino = abaPelaTecla(i, e.key, abas.length);
     if (destino === null) return;
     e.preventDefault();

@@ -95,7 +95,7 @@ test("loja sem página: estado vazio com Criar minha página; criando trava o bo
 
 test("com página: endereço Girumo com o slug SALVO, Copiar e Abrir, Fora do ar, Salvar desligado sem mudança", () => {
   const h = html({ rascunho: { ...estadoDe(PAGINA), slug: "outro-slug" } });
-  assert.match(h, /Link da bio<span class="pn-chip">Fora do ar<\/span>/);
+  assert.match(h, /Link da bio<\/h1><span class="pn-chip">Fora do ar<\/span>/);
   assert.match(h, /https:\/\/www\.girumo\.com\.br\/bio\/loja-exemplo/);
   assert.doesNotMatch(h, /outro-slug/);
   assert.match(h, /aria-label="Copiar o endereço da página"/);
@@ -114,7 +114,9 @@ test("domínio próprio ativo: o endereço principal é a raiz dele", () => {
 });
 
 test("No ar só publicada e sem bloqueio; bloqueada avisa", () => {
-  assert.match(html({ pagina: { ...PAGINA, publicada: true } }), /Link da bio<span class="pn-chip[^"]*">No ar<\/span>/);
+  assert.match(html({ pagina: { ...PAGINA, publicada: true } }), /Link da bio<\/h1><span class="pn-chip[^"]*">No ar<\/span>/);
+  assert.doesNotMatch(html({ pagina: { ...PAGINA, publicada: true } }), /<h1[^>]*>[^<]*<span/);
+  assert.match(html(), /<h1 id="bio-titulo" tabindex="-1"/);
   const bloqueada = html({ pagina: { ...PAGINA, publicada: true, bloqueadaEm: "2026-10-19T12:00:00.000Z" } });
   assert.match(bloqueada, />Fora do ar</);
   assert.match(bloqueada, /A Girumo tirou esta página do ar/);

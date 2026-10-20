@@ -64,6 +64,19 @@ export function focarDepois(id: string): void {
   requestAnimationFrame(() => document.getElementById(id)?.focus());
 }
 
+/** Destino do foco quando o botão focado some: "Adicionar link" (ou o título, se ele não estiver na tela). */
+export const ID_ADICIONAR = "bio-adicionar-link";
+export const ID_TITULO = "bio-titulo";
+
+/** Depois de Descartar ou de um salvar 200 (o botão focado desmonta ou fica disabled): se o foco caiu no body, leva-o a um destino. */
+export function focarSeFoiPerdido(): void {
+  requestAnimationFrame(() => {
+    const a = document.activeElement;
+    if (a && a !== document.body && a.isConnected && !(a instanceof HTMLButtonElement && a.disabled)) return;
+    (document.getElementById(ID_ADICIONAR) ?? document.getElementById(ID_TITULO))?.focus();
+  });
+}
+
 /**
  * Estado do editor do link da bio (spec §8): a versão salva, o rascunho local, o contexto do GET
  * e a rodada da animação. Salvar é explícito, com trava otimista por `versao` (409 → Recarregar).
@@ -177,7 +190,8 @@ export function useEditorBio(): EditorBio {
         setRascunho((atual) => (atual && !mesmoConteudo(atual, enviado) ? atual : estadoDe(salva)));
         // O servidor recusa número conectado no salvar (§4): no que acabou de salvar não sobra link escondido por número.
         setContexto((c) => (c ? { ...c, linksEscondidos: [] } : c));
-        toast(salva.publicada ? "Salvo. A página no ar já mudou." : "Salvo. A página continua fora do ar.");
+        focarSeFoiPerdido();
+        toast(salva.publicada && !salva.bloqueadaEm ? "Salvo. A página no ar já mudou." : "Salvo. A página continua fora do ar.");
       } else if (resultado.tipo === "conflito") {
         setConflito(resultado.mensagem);
       } else if (resultado.tipo === "campo") {
@@ -199,6 +213,7 @@ export function useEditorBio(): EditorBio {
     setErro(null);
     setAviso(null);
     toast("Alterações descartadas.");
+    focarSeFoiPerdido();
   }, [pagina, toast]);
 
   const mudarDocumento = useCallback((mudar: (documento: DocumentoBio) => DocumentoBio) => {
