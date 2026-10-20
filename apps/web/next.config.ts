@@ -149,6 +149,12 @@ const nextConfig: NextConfig = {
         source: "/bio/:path*",
         headers: headersWithoutCsp,
       },
+      {
+        // Fonte do link da bio: 30 dias. Sem `immutable` porque o nome do
+        // arquivo não tem versão — uma troca de fonte precisa chegar um dia.
+        source: "/fonts/bio/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=2592000" }],
+      },
     ];
   },
 };

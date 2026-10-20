@@ -197,3 +197,8 @@ test("a raiz se divide pelo host: CSP estática no Girumo, a do middleware no do
 test("o middleware roda em toda /bio/* (entrada própria no matcher, como /p/ /r/ /c/)", () => {
   assert.match(MIDDLEWARE, /"\/bio\/:path\*"/);
 });
+
+test("a fonte do link da bio tem cache de 30 dias, sem immutable (o nome não tem versão)", () => {
+  assert.match(NEXT_CONFIG, /source:\s*"\/fonts\/bio\/:path\*",\s*headers:\s*\[\{\s*key:\s*"Cache-Control",\s*value:\s*"public, max-age=2592000"\s*\}\]/);
+  assert.doesNotMatch(NEXT_CONFIG, /fonts\/bio[\s\S]{0,200}immutable/);
+});
