@@ -83,6 +83,8 @@ export function useEditorBio(): EditorBio {
   const [rodada, setRodada] = useState(0);
   // "Tentar de novo" e "Recarregar" rápidos disparam duas buscas: só a última escreve.
   const ultima = useRef(0);
+  // Duplo clique em Salvar: `salvando` (estado) só muda no próximo render; a trava é síncrona.
+  const emVoo = useRef(false);
 
   const carregar = useCallback(() => {
     const esta = ++ultima.current;
@@ -137,7 +139,8 @@ export function useEditorBio(): EditorBio {
   }, [toast]);
 
   const salvar = useCallback(async () => {
-    if (!pagina || !rascunho || salvando) return;
+    if (carga !== "ok" || !pagina || !rascunho || emVoo.current) return;
+    setConflito(null);
     setErro(null);
     setAviso(null);
     const local = erroDoDocumento(rascunho.documento);
@@ -147,6 +150,9 @@ export function useEditorBio(): EditorBio {
     }
     const enviado = rascunho;
     const corpoDoPatch: CorpoDoPatchBio = { versao: pagina.versao, ...enviado };
+    // Recarregar durante o envio troca a base: a resposta atrasada não vale mais.
+    const rodadaDoGet = ultima.current;
+    emVoo.current = true;
     setSalvando(true);
     try {
       const r = await authenticatedFetch(URL_DA_API, {
@@ -162,6 +168,7 @@ export function useEditorBio(): EditorBio {
       } catch {
         // texto puro: `resultadoDoSalvar` olha o texto.
       }
+      if (rodadaDoGet !== ultima.current) return;
       const resultado = resultadoDoSalvar(r.status, corpo, texto);
       if (resultado.tipo === "ok") {
         const salva = resultado.pagina;
@@ -179,11 +186,12 @@ export function useEditorBio(): EditorBio {
         setAviso(resultado.mensagem);
       }
     } catch {
-      setAviso(SEM_CONEXAO);
+      if (rodadaDoGet === ultima.current) setAviso(SEM_CONEXAO);
     } finally {
+      emVoo.current = false;
       setSalvando(false);
     }
-  }, [pagina, rascunho, salvando, toast]);
+  }, [carga, pagina, rascunho, toast]);
 
   const descartar = useCallback(() => {
     if (!pagina) return;
