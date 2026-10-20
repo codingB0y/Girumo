@@ -38,7 +38,7 @@ const SIZES_CAMINHO = "(max-width: 448px) calc(100vw - 98px), 350px";
 
 export const CSS_ROMANEIO = [
   '.lk{font-family:"IBM Plex Mono",ui-monospace,monospace}',
-  ".rm{background-color:var(--fundo2);background-image:radial-gradient(circle at 18% 8%,var(--fundo1) 0,transparent 46%),radial-gradient(circle at 92% 86%,var(--fundo3) 0,transparent 52%);color:var(--on);font-size:15px;line-height:1.5;padding:26px 14px 30px}",
+  ".rm{background-color:var(--fundo2);background-image:radial-gradient(circle at 18% 8%,var(--fundo1) 0,transparent 46%),radial-gradient(circle at 92% 86%,var(--fundo3) 0,transparent 52%);color:var(--on);font-size:15px;line-height:1.5;padding:26px 14px 30px;overflow-x:clip}",
   ".rm-sombra{max-width:420px;margin:0 auto;filter:drop-shadow(0 18px 28px rgb(0 0 0 / .26))}",
   ".rm-papel{position:relative;isolation:isolate;color:var(--tinta);padding:34px 20px 40px}",
   `.rm-papel::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--papel);-webkit-mask:${SERRILHA};mask:${SERRILHA}}`,
@@ -98,7 +98,7 @@ export const CSS_ROMANEIO = [
   ".lk-entra .rm-papel{animation:rm-imprime 1.2s cubic-bezier(.3,.75,.25,1) backwards}",
   ".lk-entra .rm-itens>li{animation:rm-linha .45s cubic-bezier(.22,1,.36,1) both}",
   atrasos(".rm-itens>li", 550, 80),
-  // o carimbo da entrada vai no <li> (depois dos atrasos, que têm a mesma especificidade);
+  // o carimbo da entrada vai no <li> (0,3,1) e vence os atrasos (0,2,1) em qualquer ordem;
   // o do toque, no <a>: os dois nunca brigam pelo mesmo animation-name
   ".lk-entra .rm-itens>li.rm-li-prin{animation:rm-carimba .55s 1.15s cubic-bezier(.16,1,.3,1) both}",
   ".rm-carimbo.lk-toque{animation:rm-recarimba .5s cubic-bezier(.16,1,.3,1)}",

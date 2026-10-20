@@ -135,3 +135,7 @@ test("confere com travessão e Copiar CNPJ; a nota fecha com código de barras d
   assert.doesNotMatch(semConfere, /class="rm-confere"|CNPJ \d|class="rm-fora"/);
   assert.match(semConfere, /<footer class="rm-fim"><strong>Obrigado pela preferência<\/strong>/);
 });
+
+test("o carimbo da entrada (scale 1.7) não rola a página de lado: o .rm corta o x", () => {
+  assert.match(CSS_ROMANEIO, /\.rm\{[^}]*overflow-x:clip/);
+});

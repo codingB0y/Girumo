@@ -135,3 +135,21 @@ test("lista: o principal é a pílula (WhatsApp verde), o catálogo leva as foto
   assert.match(html, /<div class="vt-caminho"><img src="[^"]*fachada-falsa[^"]*"[^>]*sizes="\(max-width: 520px\) calc\(100vw - 44px\), 476px" width="640" height="400" alt="" loading="lazy"/);
   assert.match(html, /<footer class="vt-rodape"><span>Instagram @atelie\.exemplo<\/span><small>Ateliê Exemplo Kids · CNPJ 11\.222\.333\/0001-81<\/small><a class="lk-feito"/);
 });
+
+/** Especificidade (b, c) de um seletor simples: classes, atributos e pseudo-classes; tipos. */
+function especificidade(seletor: string): number {
+  const b = (seletor.match(/\.[\w-]+|\[[^\]]+\]|:(?!:)[\w-]+/g) ?? []).length;
+  const c = (seletor.replace(/\[[^\]]+\]|[.:#][\w-]+/g, " ").match(/[a-z][\w-]*/gi) ?? []).length;
+  return b * 100 + c;
+}
+
+test("'Como chegar' aberto: a seta girada vence o toque e o hover, que também mexem nela", () => {
+  const naSeta = regras(CSS_VITRINE)
+    .filter(([s, d]) => /svg\.vt-seta/.test(s) && /transform:/.test(d))
+    .flatMap(([s]) => s.split(","));
+  const aberta = naSeta.filter((s) => /\[open\]/.test(s));
+  const outras = naSeta.filter((s) => !/\[open\]/.test(s));
+  assert.equal(aberta.length, 1);
+  assert.ok(outras.length >= 3);
+  for (const s of outras) assert.ok(especificidade(aberta[0]) > especificidade(s), `${aberta[0]} não vence ${s}`);
+});

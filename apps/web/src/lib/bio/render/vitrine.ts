@@ -41,7 +41,7 @@ export const CSS_VITRINE = [
   ".vt-capa{position:relative;isolation:isolate;display:flex;flex-direction:column;max-width:520px;margin:0 auto;padding:14px 14px 48px;overflow:hidden;background:#151412;color:#fff}",
   ".vt-capa--foto{min-height:520px}",
   ".vt-capa>img{position:absolute;inset:0;z-index:-2;width:100%;height:100%;object-fit:cover;object-position:50% 30%}",
-  ".vt-onde{align-self:flex-start;display:flex;align-items:flex-start;gap:7px;padding:7px 11px;border-radius:12px;background:rgb(0 0 0 / .62);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);font-size:12.5px;line-height:1.3;font-weight:500}",
+  ".vt-onde{align-self:flex-start;display:flex;align-items:flex-start;gap:7px;padding:7px 11px;border-radius:12px;background:rgb(0 0 0 / .62);font-size:12.5px;line-height:1.3;font-weight:500}",
   ".vt-onde svg.i{width:15px;height:15px;margin-top:1px}",
   ".vt-marca{position:relative;margin-top:auto;padding:56px 6px 0;display:grid;justify-items:start;gap:12px}",
   '.vt-marca::before{content:"";position:absolute;inset:0 -14px -48px;z-index:-1;background:linear-gradient(180deg,rgb(0 0 0 / 0),rgb(0 0 0 / .62) 56px)}',
@@ -68,7 +68,8 @@ export const CSS_VITRINE = [
   ".vt-rot{font-size:16.5px;font-weight:600;letter-spacing:-.005em;line-height:1.25}",
   ".vt-sub{font-size:13.5px;color:var(--on2);line-height:1.35}",
   ".lk svg.vt-seta{width:20px;height:20px;color:var(--seta)}",
-  ".vt-abre[open] svg.vt-seta{transform:rotate(90deg)}",
+  // .lk na frente: o toque e o hover também mexem na seta e vêm depois, com (0,3,1)
+  ".lk .vt-abre[open] svg.vt-seta{transform:rotate(90deg)}",
   ".vt-fotos{grid-column:1 / -1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}",
   ".vt-fotos img{width:100%;height:auto;aspect-ratio:4/5;object-fit:cover;border-radius:12px}",
   ".vt-caminho{display:grid;gap:12px;padding:4px 4px 16px}",
