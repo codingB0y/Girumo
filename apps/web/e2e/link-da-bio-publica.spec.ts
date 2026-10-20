@@ -2,7 +2,7 @@
 import { expect, test, type APIResponse } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-import { documentoPadrao } from "../src/lib/bio/documento";
+import { documentoPadrao, type DocumentoBio } from "../src/lib/bio/documento";
 
 /**
  * Link da bio, página pública (spec 2026-10-19-link-da-bio §2, §6 e §7), sem sessão, contra o banco de dev.
@@ -29,6 +29,11 @@ const DOMINIO = "links.e2e-bio.test";
 const GENTE = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148";
 /** Robô de prévia de link: nunca conta. Os testes que não medem visita usam ele. */
 const ROBO = "facebookexternalhit/1.1";
+/** Botões da página fixa, alvos do toque (uuid minúsculo e fixo: o contador é por id). */
+const LINK = "e2eb10b0-0000-4000-8000-000000000001";
+const ENDERECO = "e2eb10b0-0000-4000-8000-000000000002";
+/** uuid válido que nunca é botão da página: o toque nele não pode contar. */
+const FORA = "e2eb10b0-0000-4000-8000-0000000000ff";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -64,20 +69,29 @@ test.describe("link da bio: página pública", () => {
     return (data as { id: string } | null)?.id ?? "";
   }
 
-  async function visitas(): Promise<number> {
+  /** Total de todos os dias do contador (visita ou id de um botão). Outro run em paralelo também soma: "pelo menos". */
+  async function contagem(alvo: string): Promise<number> {
     const { data, error } = await banco
       .from("bio_contagens")
       .select("total")
       .eq("tenant_id", lojaId)
       .eq("pagina_id", paginaId)
-      .eq("alvo", "visita");
-    if (error) throw new Error(`leitura das visitas: ${error.message}`);
+      .eq("alvo", alvo);
+    if (error) throw new Error(`leitura do contador ${alvo}: ${error.message}`);
     return ((data ?? []) as { total: number }[]).reduce((soma, linha) => soma + linha.total, 0);
   }
+  const visitas = () => contagem("visita");
 
   test.beforeAll(async () => {
     banco = createClient(URL_SUPABASE, CHAVE_SERVICE_ROLE, { auth: { autoRefreshToken: false, persistSession: false } });
-    const documento = documentoPadrao({ nome: NOME, campanhaId: null });
+    const documento: DocumentoBio = {
+      ...documentoPadrao({ nome: NOME, campanhaId: null }),
+      // Dois botões fixos para o toque (PR 4b): um link pra fora e o "Como chegar".
+      links: [
+        { id: LINK, tipo: "link", titulo: "Catálogo", sub: "", icone: "catalogo", ativo: true, destaque: false, url: "https://exemplo.com.br/catalogo", fotos: [] },
+        { id: ENDERECO, tipo: "endereco", titulo: "Como chegar", sub: "", icone: "mapa", ativo: true, endereco: "Rua Exemplo, 100, Centro", horario: "", foto: null },
+      ],
+    };
 
     // Primeiro run cria; 23505 = outro run criou no meio, então só lê de novo.
     lojaId = await idDe("organizations", "slug", LOJA_SLUG);
@@ -191,5 +205,60 @@ test.describe("link da bio: página pública", () => {
     expect((await request.get(`/bio/${SLUG_ATUAL}`, { headers: { "user-agent": GENTE } })).status()).toBe(200);
     // "Pelo menos": outro run em paralelo usa a mesma página. HEAD, prefetch e robô: rota-publica.test.ts.
     await expect.poll(visitas, { timeout: 15_000 }).toBeGreaterThanOrEqual(antes + 1);
+  });
+
+  test("toque: o beacon de um botão conta no www e no domínio próprio; id que não é botão, não", async ({ request }) => {
+    const antes = await contagem(LINK);
+    const foraAntes = await contagem(FORA);
+    const casos: [string, string, Record<string, string>][] = [
+      [LINK, "host do Girumo", {}],
+      [LINK, "domínio próprio", { host: DOMINIO }],
+      [FORA, "id que não é botão", {}],
+    ];
+    for (const [alvo, nome, extra] of casos) {
+      const res = await request.post("/api/p/bio/toque", {
+        headers: { "content-type": "text/plain;charset=UTF-8", "user-agent": GENTE, ...extra },
+        data: `{"p":"${paginaId}","l":"${alvo}"}`,
+      });
+      expect(res.status(), nome).toBe(204);
+    }
+    // A contagem acontece antes do 204: nada a esperar. Robô, teto e corpo ruim: toque.test.ts.
+    expect(await contagem(LINK)).toBeGreaterThanOrEqual(antes + 2);
+    expect(await contagem(FORA)).toBe(foraAntes);
+  });
+
+  test.describe("toque no navegador", () => {
+    // Playwright 1.62: `reducedMotion` só existe dentro de `contextOptions`, não como opção solta do `use`.
+    test.use({ userAgent: GENTE, contextOptions: { reducedMotion: "reduce" } });
+
+    test("o JS manda o beacon sob a CSP da página, o endereço conta só ao abrir e o link navega", async ({ page }) => {
+      // O link vai pra fora: a navegação termina aqui, sem sair pra internet.
+      await page.route("https://exemplo.com.br/**", (rota) =>
+        rota.fulfill({ status: 200, contentType: "text/plain", body: "fora" }),
+      );
+      // Anota cada beacon no próprio navegador e manda adiante (o envio de verdade segue).
+      await page.addInitScript(() => {
+        const janela = window as unknown as { __toques: string[] };
+        janela.__toques = [];
+        const enviar = navigator.sendBeacon.bind(navigator);
+        navigator.sendBeacon = (url, corpo) => {
+          janela.__toques.push(String(corpo));
+          return enviar(url, corpo);
+        };
+      });
+      const anotados = () => page.evaluate(() => (window as unknown as { __toques: string[] }).__toques);
+
+      await page.goto(`/bio/${SLUG_ATUAL}`);
+      const endereco = page.locator(`summary[data-link="${ENDERECO}"]`);
+      await endereco.click(); // abre: conta
+      await endereco.click(); // fecha: não conta
+      expect(await anotados()).toEqual([`{"p":"${paginaId}","l":"${ENDERECO}"}`]);
+
+      const antes = await contagem(LINK);
+      await page.locator(`a[data-link="${LINK}"]`).click();
+      await page.waitForURL("https://exemplo.com.br/catalogo");
+      // Chegou no contador: o connect-src 'self' deixou o beacon sair e a rota contou.
+      await expect.poll(() => contagem(LINK), { timeout: 15_000 }).toBeGreaterThanOrEqual(antes + 1);
+    });
   });
 });
