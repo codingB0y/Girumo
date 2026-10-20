@@ -124,16 +124,17 @@ test("JSON ruim e ids fora do formato: 204 sem consultar a página nem contar, c
 });
 
 test("página não publicada, bloqueada ou inexistente (o cache devolve null): 204 sem contar", async (t) => {
-  t.mock.method(console, "warn", () => {});
+  const avisos = t.mock.method(console, "warn", () => {});
   const { deps, buscados, contados } = cenario(null);
   const res = await responderToque(pedido(beacon(IDS.pagina, IDS.whatsapp), { ip: "203.0.113.74" }), deps);
   assert.equal(res.status, 204);
   assert.deepEqual(buscados, [IDS.pagina]);
   assert.deepEqual(contados, []);
+  assert.equal(avisos.mock.callCount(), 1, "recusa sem log");
 });
 
 test("link que a página não mostra: escondido, desligado, sem link mestre ou de outra página", async (t) => {
-  t.mock.method(console, "warn", () => {});
+  const avisos = t.mock.method(console, "warn", () => {});
   const d = dadosFalsos();
   const desligado: DadosRender = {
     ...d,
@@ -151,6 +152,7 @@ test("link que a página não mostra: escondido, desligado, sem link mestre ou d
     assert.equal(res.status, 204, link);
     assert.deepEqual(contados, [], link);
   }
+  assert.equal(avisos.mock.callCount(), casos.length, "recusa sem log");
 });
 
 test("robô (prévia de link, navegador headless, sem user agent): 204 sem ler corpo nem página", async () => {

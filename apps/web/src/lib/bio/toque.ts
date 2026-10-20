@@ -42,8 +42,9 @@ export async function responderToque(req: Request, deps: DepsToque = DEPS): Prom
       console.warn(`[bio/toque] ${alvo.pagina}: o link ${alvo.link} não está na página publicada`);
       return semConteudo();
     }
-    // ponytail: balde por IP+página (spec §7). Id de página inventado abre balde novo, mas só
-    // custa uma leitura do cache e não conta nada; balde só por IP se a varredura aparecer no log.
+    // ponytail: balde por IP+página (spec §7), só depois de achar a página — id inventado nem chega ao balde:
+    // cada id novo custa um miss do cache (1 leitura no Supabase) e 1 warn, e não conta nada. Balde só por IP,
+    // antes da busca, se a varredura aparecer no log.
     if (await isRateLimited("bio-toque", req, TOQUES_POR_MINUTO, dados.paginaId)) return semConteudo();
     await deps.contar(dados.paginaId, alvo.link);
   } catch (e) {
