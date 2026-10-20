@@ -1,10 +1,11 @@
 /**
  * O JS inline da página do link da bio, devolvido sem a tag (o `index.ts` o
  * embrulha em `<script nonce>`). Nenhum texto do lojista entra aqui: o script
- * só lê `data-*` que o renderizador emite (uuid do link, tipo de lista fechada,
- * CNPJ sem pontuação, só [0-9A-Z]). PR 3a: "Abrindo…" no `#lk-status`, balanço do toque e
- * "Copiado". PR 4b acrescenta o sendBeacon no ramo do `[data-link]`; PR 7, o
- * Pixel e o GA4 a partir de `rastreio`.
+ * só lê `data-*` que o renderizador emite (uuid da página e do link, tipo de
+ * lista fechada, CNPJ em dígitos). PR 3a: "Abrindo…" no `#lk-status`, balanço do
+ * toque e "Copiado". PR 4b: o beacon do toque (`POST /api/p/bio/toque`, corpo
+ * `{"p":<página>,"l":<link>}` em text/plain, sem preflight); no `<summary>` do
+ * endereço, só quando abre. PR 7: o Pixel e o GA4 a partir de `rastreio`.
  */
 const JS = [
   "(function(){",
@@ -18,6 +19,10 @@ const JS = [
   'a.textContent="Copiado";diz("CNPJ copiado.");setTimeout(function(){a.textContent="Copiar CNPJ"},2200)},function(){});return}',
   'a.classList.remove("lk-toque");void a.offsetWidth;a.classList.add("lk-toque");',
   'setTimeout(function(){a.classList.remove("lk-toque")},1600);',
+  // Beacon (PR 4b). No clique o `open` do <details> ainda é o de antes: aberto = este toque fecha, não conta.
+  // Sempre `navigator.sendBeacon(…)`: a função solta (`var b=navigator.sendBeacon`) dá "Illegal invocation".
+  'var p=d.body.getAttribute("data-pagina");',
+  'if(p&&navigator.sendBeacon&&(a.tagName!=="SUMMARY"||!a.parentNode.open))navigator.sendBeacon("/api/p/bio/toque",JSON.stringify({p:p,l:a.getAttribute("data-link")}));',
   'var k=a.getAttribute("data-tipo");if(k&&M.hasOwnProperty(k))diz(M[k])});',
   'addEventListener("pageshow",function(){diz("")})',
   "})();",
