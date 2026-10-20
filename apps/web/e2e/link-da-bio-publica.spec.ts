@@ -23,6 +23,8 @@ const LOJA_SLUG = "e2e-bio-fixa";
 const NOME = "Loja E2E Bio";
 const SLUG_ANTIGO = "e2e-bio-antigo";
 const SLUG_ATUAL = "e2e-bio-atual";
+/** TLD `.test`: nunca é host de verdade. */
+const DOMINIO = "links.e2e-bio.test";
 /** Navegador de gente: conta visita. */
 const GENTE = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148";
 /** Robô de prévia de link: nunca conta. Os testes que não medem visita usam ele. */
@@ -103,6 +105,16 @@ test.describe("link da bio: página pública", () => {
       .eq("tenant_id", lojaId)
       .eq("id", paginaId);
     if (error) throw new Error(`estado da página do e2e: ${error.message}`);
+
+    // Domínio próprio ativo da loja do e2e: a raiz dele serve a página (o host vem do header Host).
+    // Um domínio por loja (`custom_domains_tenant_unique`), então o upsert por tenant é idempotente.
+    const dominio = await banco
+      .from("custom_domains")
+      .upsert(
+        { tenant_id: lojaId, hostname: DOMINIO, verification_token: "e2e-bio", status: "active" },
+        { onConflict: "tenant_id" },
+      );
+    if (dominio.error) throw new Error(`domínio do e2e: ${dominio.error.message}`);
   });
 
   test("página publicada: 200 com a CSP da bio, o nonce dela no HTML e noindex", async ({ request }) => {
@@ -151,6 +163,26 @@ test.describe("link da bio: página pública", () => {
       });
       expect(res.status(), host).toBe(308);
       expect(res.headers()["location"], host).toBe(`https://www.girumo.com.br/bio/${SLUG_ATUAL}?utm_source=e2e`);
+    }
+  });
+
+  test("domínio próprio: a raiz mostra a página da loja dona, com a CSP da bio", async ({ request }) => {
+    const res = await request.get("/", { headers: { host: DOMINIO, "user-agent": ROBO } });
+    expect(res.status()).toBe(200);
+    expect(res.headers()["x-robots-tag"]).toBe("noindex");
+    const html = await conferirNonce(res);
+    expect(html).toContain(`data-pagina="${paginaId}"`);
+  });
+
+  test("domínio próprio: /bio/* lá é 404, e host sem dono também — o 404 de texto", async ({ request }) => {
+    const casos: [string, string][] = [
+      [DOMINIO, `/bio/${SLUG_ATUAL}`],
+      ["sem-dono.e2e-bio.test", "/"],
+    ];
+    for (const [host, caminho] of casos) {
+      const res = await request.get(caminho, { headers: { host, "user-agent": ROBO } });
+      expect(res.status(), `${host}${caminho}`).toBe(404);
+      expect(await res.text(), `${host}${caminho}`).toBe("Link não encontrado.");
     }
   });
 
