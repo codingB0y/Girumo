@@ -16,6 +16,12 @@ export type CampaignGroup = {
    * WhatsApp (ver `lib/stores/communities.ts#espelharComunidadesNativas`).
    * `group_ids` é regravado a cada sync — não é editável pelo painel. */
   whatsapp_community_jid: string | null;
+  /** Aviso ao lotar (spec 2026-10-10 D10): postado uma vez em cada grupo que ganha a
+   * marca de lotado. `null` = desligado. Escrito só por `proximoAviso`
+   * (`lib/campaigns/aviso-ao-lotar.ts`), via PATCH /api/campanhas. */
+  aviso_ao_lotar: string | null;
+  /** Quando o aviso foi ligado: só grupo que lotar depois disso recebe. */
+  aviso_ao_lotar_desde: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -77,7 +83,12 @@ export async function createCampaignGroup(
 export async function updateCampaignGroup(
   tenantId: string,
   id: string,
-  patch: Partial<Pick<CampaignGroup, "name" | "slug" | "group_ids" | "auto_grow" | "grow_template" | "metadata">>,
+  patch: Partial<
+    Pick<
+      CampaignGroup,
+      "name" | "slug" | "group_ids" | "auto_grow" | "grow_template" | "metadata" | "aviso_ao_lotar" | "aviso_ao_lotar_desde"
+    >
+  >,
 ): Promise<CampaignGroup | null> {
   const { data, error } = await getSupabaseAdmin()
     .from(TABLE)

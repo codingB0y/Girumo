@@ -4,6 +4,7 @@ import { campanhasColl, uniqueCampanhaSlug, type Campanha } from "@/lib/campanha
 import { listLinks } from "@/lib/store";
 import { criarLinkMestreOuDesfazer, uniqueMasterSlug } from "@/lib/campaigns/master-link";
 import { renomearSlugCampanha } from "@/lib/campaigns/rename-slug";
+import { lerAvisoAoLotar, proximoAviso } from "@/lib/campaigns/aviso-ao-lotar";
 import { assertPlanLimit } from "@/lib/billing/entitlements";
 import { getTenantContext } from "@/lib/supabase/tenant-context";
 import { carregarCampanhas } from "@/lib/painel/inicio-carga";
@@ -165,7 +166,12 @@ export async function PATCH(req: Request) {
     return Response.json(updated);
   }
 
-  const patch: Partial<Pick<supaStore.CampaignGroup, "name" | "slug" | "group_ids" | "auto_grow" | "grow_template" | "metadata">> = {};
+  const patch: Partial<
+    Pick<
+      supaStore.CampaignGroup,
+      "name" | "slug" | "group_ids" | "auto_grow" | "grow_template" | "metadata" | "aviso_ao_lotar" | "aviso_ao_lotar_desde"
+    >
+  > = {};
   if (typeof b.name === "string") patch.name = b.name.trim();
 
   // A gaveta espelho de comunidade nativa não é editável nisso: quem manda em
@@ -176,7 +182,7 @@ export async function PATCH(req: Request) {
   // `app/api/comunidades/[slug]/grupos/route.ts` — uma string só.
   const querMexerEmGrupos = Array.isArray(b.groupIds) || b.autoGrow === true;
   let current: supaStore.CampaignGroup | null = null;
-  if (querMexerEmGrupos || b.settings !== undefined) {
+  if (querMexerEmGrupos || b.settings !== undefined || b.avisoAoLotar !== undefined) {
     current = await supaStore.getCampaignGroupById(tenantId, id);
     if (!current) return Response.json({ error: "Campanha não encontrada." }, { status: 404 });
   }
@@ -230,6 +236,23 @@ export async function PATCH(req: Request) {
     patch.metadata = metadata;
   }
 
+  // Aviso ao lotar (spec 2026-10-10 D10): o `desde` depende do que está gravado,
+  // e só a transição de `proximoAviso` decide se ele muda. `current` foi buscado
+  // acima porque a condição inclui `avisoAoLotar` (nunca nulo aqui: o 404 já
+  // retornou). Fora do JSON legado de propósito, como `settings`.
+  if (b.avisoAoLotar !== undefined) {
+    const lido = lerAvisoAoLotar(b.avisoAoLotar);
+    if (!lido.ok) return Response.json({ error: lido.error }, { status: 400 });
+    if (!current) return Response.json({ error: "Campanha não encontrada." }, { status: 404 });
+    const aviso = proximoAviso(
+      { texto: current.aviso_ao_lotar, desde: current.aviso_ao_lotar_desde },
+      lido.texto,
+      new Date().toISOString(),
+    );
+    patch.aviso_ao_lotar = aviso.aviso_ao_lotar;
+    patch.aviso_ao_lotar_desde = aviso.aviso_ao_lotar_desde;
+  }
+
   // Trocar o link (/r/:slug) mexe em duas tabelas e guarda o antigo como
   // apelido — por isso vai por fora do `patch` (ver lib/campaigns/rename-slug.ts).
   // Depois de TODAS as validações: um 400 de outro campo não pode deixar o
@@ -259,6 +282,8 @@ export async function PATCH(req: Request) {
     slug: updated.slug,
     autoGrow: updated.auto_grow,
     growTemplate: updated.grow_template,
+    avisoAoLotar: updated.aviso_ao_lotar,
+    avisoAoLotarDesde: updated.aviso_ao_lotar_desde,
     settings: {
       entrada: readEntrada(updated.metadata as Record<string, unknown>),
       integracoes: apresentaIntegracoes(readIntegracoes(updated.metadata as Record<string, unknown>)),
