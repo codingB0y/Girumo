@@ -37,7 +37,8 @@ export async function responderToque(req: Request, deps: DepsToque = DEPS): Prom
   try {
     if (isBotUserAgent(req.headers.get("user-agent"))) return semConteudo();
     // O beacon da página é sempre same-origin (URL relativa, no www e no domínio próprio). Sem o header
-    // (WebView antigo), conta. O `Origin` não serve: o modo privado manda `null`.
+    // (WebView antigo), conta. O `Origin` não serve: o Origin pode vir null (política no-referrer,
+    // documento em sandbox).
     const site = req.headers.get("sec-fetch-site");
     if (site !== null && site !== "same-origin") return semConteudo();
     const alvo = await lerAlvo(req);

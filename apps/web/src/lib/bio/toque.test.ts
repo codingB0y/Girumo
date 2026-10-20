@@ -116,13 +116,19 @@ test("corpo que para no meio: desiste em 2 s e responde 204 sem contar", { timeo
     duplex: "half",
   } as RequestInit);
   const { deps, buscados, contados } = cenario();
-  const inicio = Date.now();
-  const res = await responderToque(req, deps);
-  const esperou = Date.now() - inicio;
-  assert.equal(res.status, 204);
-  assert.ok(esperou >= 1_900, `desistiu em ${esperou} ms, antes do prazo`);
-  assert.deepEqual([...buscados, ...contados], []);
-  assert.equal(avisos.mock.callCount(), 1, "recusa sem log");
+  // O AbortSignal.timeout usa timer unref: no servidor a conexão aberta segura o loop; aqui, este timer.
+  const segura = setTimeout(() => {}, 5_000);
+  try {
+    const inicio = Date.now();
+    const res = await responderToque(req, deps);
+    const esperou = Date.now() - inicio;
+    assert.equal(res.status, 204);
+    assert.ok(esperou >= 1_900, `desistiu em ${esperou} ms, antes do prazo`);
+    assert.deepEqual([...buscados, ...contados], []);
+    assert.equal(avisos.mock.callCount(), 1, "recusa sem log");
+  } finally {
+    clearTimeout(segura);
+  }
 });
 
 test("JSON ruim e ids fora do formato: 204 sem consultar a página nem contar, com o motivo no log", async (t) => {

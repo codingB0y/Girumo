@@ -40,7 +40,7 @@ As Tasks 1 e 2 têm arquivos disjuntos e nenhuma dependência entre si. Com dois
 | No `<summary>` do endereço, o beacon só sai quando o `<details>` abre | A spec diz "na abertura". No clique, o `open` ainda guarda o estado anterior, então aberto quer dizer que o toque vai fechar | Nenhum |
 | Sempre `navigator.sendBeacon(...)` | Chamada solta (`var b=navigator.sendBeacon; b(…)`), ela dá "Illegal invocation" no navegador. O teste confere o `this` | Nenhum |
 | `customHostRoute` não muda | `/api/p/` já é `"public-api"` pelo prefixo (`pathname.startsWith("/api/p/")` em `host.ts`). O teste trava isso | Nenhum |
-| `Sec-Fetch-Site` conferido quando vem; `Origin`, não | O beacon da página é sempre same-origin (URL relativa, no www e no domínio próprio): com o header presente, só `same-origin` conta. Sem o header (WebView antigo), conta. O `Origin` não serve: o modo privado manda `null`. Ver "Riscos" | Um navegador que rotule errado um beacon same-origin perde o toque (nenhum conhecido) |
+| `Sec-Fetch-Site` conferido quando vem; `Origin`, não | O beacon da página é sempre same-origin (URL relativa, no www e no domínio próprio): com o header presente, só `same-origin` conta. Sem o header (WebView antigo), conta. O `Origin` não serve: o Origin pode vir null (política no-referrer, documento em sandbox). Ver "Riscos" | Um navegador que rotule errado um beacon same-origin perde o toque (nenhum conhecido) |
 | O e2e põe dois botões fixos (link e endereço) na loja fixa do 4a | Precisa de um botão para tocar. A mudança fica no mesmo `beforeAll` e não cria uma segunda loja, que deixaria slug preso em `bio_slugs` | Nenhum |
 
 ## Global Constraints
@@ -368,7 +368,8 @@ export async function responderToque(req: Request, deps: DepsToque = DEPS): Prom
   try {
     if (isBotUserAgent(req.headers.get("user-agent"))) return semConteudo();
     // O beacon da página é sempre same-origin (URL relativa, no www e no domínio próprio). Sem o header
-    // (WebView antigo), conta. O `Origin` não serve: o modo privado manda `null`.
+    // (WebView antigo), conta. O `Origin` não serve: o Origin pode vir null (política no-referrer,
+    // documento em sandbox).
     const site = req.headers.get("sec-fetch-site");
     if (site !== null && site !== "same-origin") return semConteudo();
     const alvo = await lerAlvo(req);
