@@ -47,8 +47,8 @@ end $$;
 --    um grupo comum. Todos admin, capacidade 1000 (limiar 950), 900 membros, na campanha da loja com
 --    aviso ligado há 1 minuto. Sobem para 960 juntos: o trigger marca lotado_em em TODOS (inclusive
 --    o Avisos — é o caminho perigoso) com aviso_lotou_em nulo.
---    Esperado: disparo só para os grupos comum e membro da A; B sem disparo, mas marcada; Avisos e
---    pai sem disparo e sem marca.
+--    Esperado: disparo só para os grupos comum e membro da A; B, Avisos e pai sem disparo e sem
+--    marca (nunca escolhidos; saem pela janela de 1 h).
 --    Sem número conectado nas lojas de teste: app.enqueue_broadcast devolve o disparo 'failed', mas
 --    a linha em broadcasts existe — o assert é a linha (e o retorno 0); a fila com 'queued' já é
 --    provada nos blocos 9 e 11 de postar-por-grupo-check.sql.
@@ -137,12 +137,12 @@ begin
     into v_got
   from public.groups g
   where g.tenant_id in (v_com, v_sem);
-  -- Loja sem plano marcada (senão volta a cada 30 s e enche o p_limit); estrutura sem marca.
-  if v_got is distinct from 'asb-comum=true,ase-avisos=false,ase-comum=true,ase-membro=true,ase-pai=false' then
-    raise exception 'FALHOU aviso_lotou_em: %', v_got;
+  -- Loja sem plano e estrutura sem marca: nunca entram no lote (não aparecem em "Últimos avisos").
+  if v_got is distinct from 'asb-comum=false,ase-avisos=false,ase-comum=true,ase-membro=true,ase-pai=false' then
+    raise exception 'FALHOU aviso_lotou_em: %, esperava loja sem plano e estrutura sem marca', v_got;
   end if;
 
-  -- Segunda varredura: nada novo (a loja sem plano não volta; a estrutura segue de fora).
+  -- Segunda varredura: nada novo (loja sem plano e estrutura seguem de fora, sem marca).
   perform public.enviar_avisos_lotou(100000);
   if (select count(*) from public.broadcasts b
       where b.tenant_id in (v_com, v_sem) and b.name like 'Aviso ao lotar · %') <> 2 then

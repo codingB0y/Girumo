@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { setTimeout as esperar } from "node:timers/promises";
 
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { applyMemberCountDelta } from "./groups";
@@ -13,13 +14,15 @@ import { applyMemberCountDelta } from "./groups";
  * Roda numa loja descartável criada aqui e apagada no fim (cascata de `organizations`), nunca
  * nos grupos do tenant de QA: os `*.integration.test.ts` rodam em paralelo e o de ofertas
  * relâmpago pega qualquer grupo do QA. A loja tem assinatura 'active': sem plano a varredura
- * marca sem enviar (C17, 20261020120000) e o teste do admin não teria o que conferir.
+ * nem escolhe os grupos dela (C17, 20261020120000) e o teste do admin não teria o que conferir.
  *
  * A loja não tem número conectado: o disparo nasce `failed` "Nenhum número conectado". O teste
  * confere que ele EXISTE, com nome, texto e destino certos — nunca o status.
  *
  * `enviar_avisos_lotou` varre o banco inteiro (e o worker de dev, se estiver no ar, chama a
  * mesma função): o teste confere as linhas da loja dele, nunca o número que a chamada devolve.
+ * Por ser global, a varredura também posta avisos reais de outras lojas de dev com aviso ligado e
+ * grupo lotado na última hora — aceitável, é o que o worker de dev faria no ciclo seguinte.
  */
 
 // E2E_TENANT_ID só liga o teste (como nos irmãos); os dados vão para a loja descartável.
@@ -151,6 +154,20 @@ async function varrer() {
   assert.equal(typeof data, "number");
 }
 
+/**
+ * Varre até `jid` ganhar aviso_lotou_em, no máximo 5 vezes. Outra varredura (o worker de dev,
+ * outro run) pode estar com a linha presa (`for update ... skip locked`): esta passa por cima, e a
+ * marca chega quando a outra fizer commit. Só para os asserts positivos — os negativos usam uma
+ * varredura só, senão o retry esconderia o envio indevido.
+ */
+async function varrerAteMarcar(jid: string) {
+  for (let tentativa = 0; tentativa < 5; tentativa++) {
+    if (tentativa > 0) await esperar(200);
+    await varrer();
+    if ((await linhaDoGrupo(jid)).aviso_lotou_em) return;
+  }
+}
+
 async function linhaDoGrupo(jid: string): Promise<LinhaDoGrupo> {
   const { data, error } = await getSupabaseAdmin()
     .from("groups")
@@ -184,7 +201,7 @@ test("grupo que lota com o aviso ligado recebe um aviso, uma vez só", async () 
   assert.ok(marcado.lotado_em, "cruzar 95% subindo tem que gravar lotado_em (trigger do PR 1)");
   assert.equal(marcado.lotado_por, "auto");
 
-  await varrer();
+  await varrerAteMarcar(depois.jid);
   const avisos = await avisosDa(campanhaId);
   assert.equal(avisos.length, 1);
   assert.equal(avisos[0]!.name, `Aviso ao lotar · ${depois.nome}`);
@@ -225,7 +242,7 @@ test("lotado antes de ligar o aviso nunca recebe; sem admin é marcado sem receb
     "o sem-admin lotou depois de ligar",
   );
 
-  await varrer();
+  await varrerAteMarcar(semAdmin.jid);
   assert.equal((await avisosDa(campanhaId)).length, 0);
   assert.equal((await linhaDoGrupo(antes.jid)).aviso_lotou_em, null, "fora da janela do aviso: nem marcado");
   // Contrato §1: sem admin o WhatsApp recusaria — o banco marca sem enviar, para não voltar a
@@ -249,7 +266,7 @@ test("Avisos de comunidade que lota não recebe aviso nem marca; o grupo comum a
   // Pré-condição: o trigger não olha community_role, então o Avisos lota — é o caminho perigoso.
   assert.ok((await linhaDoGrupo(avisos.jid)).lotado_em, "o Avisos tem que ter lotado na janela");
 
-  await varrer();
+  await varrerAteMarcar(comum.jid);
   const disparos = await avisosDa(campanhaId);
   assert.deepEqual(
     disparos.map((d) => d.group_ids),

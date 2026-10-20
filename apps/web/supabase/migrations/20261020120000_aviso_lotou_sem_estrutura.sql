@@ -8,10 +8,12 @@
 --    20261014120000, que tirou a estrutura do pool pelo mesmo critério). Agora pai e Avisos nunca
 --    são escolhidos pela varredura; ficam com aviso_lotou_em nulo e saem sozinhos pela janela de 1 h.
 -- 2. Loja sem plano (C17, 20261017123000 cobriu promote_due_schedules e o auto-grow, não o aviso):
---    cancelou ou ficou inadimplente, o aviso automático não sai. Tratada como o grupo sem admin —
---    não cria nem enfileira o disparo, mas grava aviso_lotou_em. Sem a marca, as linhas dela
---    voltariam a cada ciclo de 30 s e podiam encher o lote do p_limit, deixando sem aviso as lojas
---    que têm plano.
+--    cancelou ou ficou inadimplente, o aviso automático não sai. Tratada como a estrutura, no where
+--    de fora: os grupos dela nunca são escolhidos — sem disparo e SEM aviso_lotou_em — e saem
+--    sozinhos pela janela de 1 h. Não ocupam o p_limit (não entram no lote), e a lista "Últimos
+--    avisos" do painel, que segue aberto para loja sem plano, não mostra aviso que não saiu.
+--    Diferente do grupo sem admin, que continua marcado sem envio. Custo: loja que reassina dentro
+--    da hora ainda recebe o aviso, com atraso.
 --
 -- Só o corpo de public.enviar_avisos_lotou muda. Assinatura, retorno, security definer e
 -- volatilidade iguais, então a baseline (deploy/supabase/schema-baseline.json) não muda e o gate de
@@ -35,13 +37,13 @@ begin
     raise exception 'aviso_lotou_sem_estrutura: public.enviar_avisos_lotou não existe neste banco (falta 20261010120000)';
   end if;
   if md5(btrim(regexp_replace(regexp_replace(v_src, '--[^\n]*', '', 'g'), '\s+', ' ', 'g')))
-       not in ('29ef01e9ebafb16f51fc13f7cabc1b2d', 'a327f82def776a8031a6a63050f45576') then
+       not in ('29ef01e9ebafb16f51fc13f7cabc1b2d', 'ecf4ff605c03e3507975fcda0be301a5') then
     raise exception 'aviso_lotou_sem_estrutura: o corpo de public.enviar_avisos_lotou neste banco difere do repo. Copie o pg_get_functiondef deste banco para a migração, refaça as trocas e aplique de novo.';
   end if;
 end $$;
 
--- Trocas: (1) o where de fora ganha o filtro de community_role; (2) o envio exige plano além de
--- admin. O resto é o corpo de 20261010120000.
+-- Trocas: o where de fora ganha (1) o filtro de community_role e (2) o de plano. O resto (o loop
+-- inclusive) é o corpo de 20261010120000.
 create or replace function public.enviar_avisos_lotou(p_limit integer default 20)
 returns integer
 language plpgsql
@@ -74,12 +76,14 @@ begin
       -- Pai não recebe mensagem e o Avisos fala com a comunidade inteira: nunca escolhidos, nem
       -- marcados (somem pela janela de 1 h).
       and coalesce(g.community_role, '') not in ('parent', 'announce')
+      -- Loja sem plano (C17): fora do lote, sem disparo e sem marca (não aparece em "Últimos
+      -- avisos"); sai pela janela de 1 h. Por estar aqui e não no loop, não ocupa o p_limit.
+      and app.tenant_concede_plano(g.tenant_id)
     order by g.lotado_em, g.id
     limit greatest(coalesce(p_limit, 20), 1)
     for update of g skip locked
   loop
-    -- Sem admin (o WhatsApp recusaria) ou loja sem plano (C17): não envia, mas marca abaixo.
-    if r.is_admin and app.tenant_concede_plano(r.tenant_id) then
+    if r.is_admin then
       insert into public.broadcasts (tenant_id, campaign_group_id, name, message, group_ids, status)
       values (r.tenant_id, r.campanha_id, 'Aviso ao lotar · ' || r.name, r.aviso_ao_lotar,
               array[r.whatsapp_group_id], 'draft')
