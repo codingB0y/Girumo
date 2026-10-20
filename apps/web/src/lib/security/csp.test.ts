@@ -50,7 +50,7 @@ test("nonce is unique per call and readable by Next", () => {
 });
 
 test("production script-src drops unsafe-inline and unsafe-eval", () => {
-  for (const surface of ["public-lp", "click-redirect"] as const) {
+  for (const surface of ["public-lp", "click-redirect", "bio"] as const) {
     const scriptSrc = buildCsp(surface, generateNonce(), false)
       .split(";")
       .map((d) => d.trim())
@@ -131,4 +131,30 @@ test("click-redirect continua sem 'unsafe-inline' e sem 'unsafe-eval' em produç
     .find((d) => d.startsWith("script-src"))!;
   assert.equal(scriptSrc.includes("'unsafe-inline'"), false);
   assert.equal(scriptSrc.includes("'unsafe-eval'"), false);
+});
+
+test("o link da bio é superfície com nonce própria; prefixo parecido não entra", () => {
+  assert.equal(surfaceForPath("/bio/loja-teste"), "bio");
+  assert.equal(surfaceForPath("/bio"), "bio");
+  for (const path of ["/biografia", "/bio-loja", "/api/p/bio/toque"]) {
+    assert.equal(surfaceForPath(path), null, path);
+  }
+});
+
+test("CSP do link da bio: fechada, só o nonce, nenhum terceiro (spec link-da-bio §6)", () => {
+  const nonce = generateNonce();
+  const csp = buildCsp("bio", nonce, false);
+  assert.deepEqual(csp.split("; "), [
+    "default-src 'none'",
+    `script-src 'self' 'nonce-${nonce}'`,
+    `style-src 'self' 'nonce-${nonce}'`,
+    "img-src 'self' data:",
+    "font-src 'self'",
+    "connect-src 'self'",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "form-action 'none'",
+    "frame-ancestors 'none'",
+  ]);
+  assert.equal(nonceSeenByNext(csp), nonce);
 });
