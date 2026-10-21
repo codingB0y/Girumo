@@ -70,11 +70,14 @@ export const ID_TITULO = "bio-titulo";
 
 /** Depois de Descartar ou de um salvar 200 (o botão focado desmonta ou fica disabled): se o foco caiu no body, leva-o a um destino. */
 export function focarSeFoiPerdido(): void {
-  requestAnimationFrame(() => {
-    const a = document.activeElement;
-    if (a && a !== document.body && a.isConnected && !(a instanceof HTMLButtonElement && a.disabled)) return;
-    (document.getElementById(ID_ADICIONAR) ?? document.getElementById(ID_TITULO))?.focus();
-  });
+  // rAF duplo: o setState do salvar vem depois de um `await`; o 1º frame pode rodar antes do commit do React.
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      const a = document.activeElement;
+      if (a && a !== document.body && a.isConnected && !(a instanceof HTMLButtonElement && a.disabled)) return;
+      (document.getElementById(ID_ADICIONAR) ?? document.getElementById(ID_TITULO))?.focus();
+    }),
+  );
 }
 
 /**

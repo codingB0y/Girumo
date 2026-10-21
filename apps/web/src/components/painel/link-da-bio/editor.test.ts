@@ -150,3 +150,12 @@ test("abas: Links selecionada, com o painel ligado a ela", () => {
   assert.match(h, /role="tabpanel" id="bio-painel-links" aria-labelledby="bio-aba-links"/);
   assert.match(h, /<section aria-label="Editar a página"/);
 });
+
+test("com página: prévia na coluna do computador e Ver como fica no celular; sem página, nenhuma das duas", () => {
+  const h = html();
+  assert.match(h, /<aside aria-label="Prévia da página"/);
+  assert.match(h, />Ver como fica</);
+  const vazio = html({ pagina: null, rascunho: null });
+  assert.doesNotMatch(vazio, /Prévia da página/);
+  assert.doesNotMatch(vazio, /Ver como fica/);
+});

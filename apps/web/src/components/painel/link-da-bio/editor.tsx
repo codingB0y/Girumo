@@ -1,16 +1,18 @@
 // apps/web/src/components/painel/link-da-bio/editor.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Copy, ExternalLink, Globe } from "lucide-react";
 
 import { ErroDeCarga } from "@/components/painel/erro-de-carga";
 import { useToast } from "@/components/toast";
-import { enderecoPrincipal } from "@/lib/bio/editor";
+import { dadosDaPrevia, enderecoPrincipal } from "@/lib/bio/editor";
 import type { PaginaBio } from "@/lib/stores/bio-pages";
 import { cn } from "@/lib/utils";
 
 import { ABAS, abaDoErro, BarraDeAbas, type IdDaAba } from "./abas";
+import { useGuardaDeSaida } from "./guarda-de-saida";
+import { PreviaNaColuna, PreviaNoCelular } from "./previa";
 import { ID_TITULO, useEditorBio, type EditorBio } from "./use-editor-bio";
 
 const FOCO = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500";
@@ -24,6 +26,8 @@ export function EditorDoLinkDaBio() {
   const editor = useEditorBio();
   const toast = useToast();
   const [aba, setAba] = useState<IdDaAba>("links");
+  // Sair com alteração não salva pergunta antes (§8).
+  const folhaDeSaida = useGuardaDeSaida(editor.sujo);
 
   // Erro de campo no salvar: a tela vai para a aba que mostra o campo (é ela que mostra e foca).
   const dona = abaDoErro(editor.erro);
@@ -40,7 +44,12 @@ export function EditorDoLinkDaBio() {
     }
   }
 
-  return <TelaDoEditor editor={editor} aba={aba} aoEscolherAba={setAba} aoCopiar={(url) => void copiar(url)} />;
+  return (
+    <>
+      <TelaDoEditor editor={editor} aba={aba} aoEscolherAba={setAba} aoCopiar={(url) => void copiar(url)} />
+      {folhaDeSaida}
+    </>
+  );
 }
 
 function ChipDeEstado({ pagina }: { pagina: PaginaBio }) {
@@ -166,6 +175,12 @@ export function TelaDoEditor({
   const dona = abaDoErro(editor.erro);
   const atual = ABAS.find((a) => a.id === aba) ?? ABAS[0];
   const Conteudo = atual.Conteudo;
+  // A prévia desenha o RASCUNHO; memo para o iframe só recarregar quando o documento mudar.
+  const documento = rascunho?.documento;
+  const dados = useMemo(
+    () => (pagina && documento && contexto ? dadosDaPrevia(pagina, documento, contexto) : null),
+    [pagina, documento, contexto],
+  );
 
   return (
     // pb-40 no celular: reserva o fim da tela para a barra de salvar (64 px) e a barra de baixo (56 px) não cobrirem o último bloco.
@@ -226,21 +241,25 @@ export function TelaDoEditor({
               {editor.erro.mensagem}
             </p>
           )}
-          <section aria-label="Editar a página" className="mt-5 min-w-0">
-            <BarraDeAbas abas={ABAS} atual={atual.id} aoEscolher={aoEscolherAba} />
-            <div role="tabpanel" id={`bio-painel-${atual.id}`} aria-labelledby={`bio-aba-${atual.id}`} className="pt-4">
-              <Conteudo
-                pagina={pronto.pagina}
-                rascunho={pronto.rascunho}
-                contexto={pronto.contexto}
-                mudarDocumento={editor.mudarDocumento}
-                mudarPagina={editor.mudarPagina}
-                reverAnimacao={editor.reverAnimacao}
-                erro={dona?.id === atual.id ? editor.erro : null}
-                limparErro={editor.limparErro}
-              />
-            </div>
-          </section>
+          <div className="mt-5 lg:grid lg:grid-cols-[minmax(0,1fr)_372px] lg:items-start lg:gap-6">
+            <section aria-label="Editar a página" className="min-w-0">
+              <BarraDeAbas abas={ABAS} atual={atual.id} aoEscolher={aoEscolherAba} />
+              <div role="tabpanel" id={`bio-painel-${atual.id}`} aria-labelledby={`bio-aba-${atual.id}`} className="pt-4">
+                <Conteudo
+                  pagina={pronto.pagina}
+                  rascunho={pronto.rascunho}
+                  contexto={pronto.contexto}
+                  mudarDocumento={editor.mudarDocumento}
+                  mudarPagina={editor.mudarPagina}
+                  reverAnimacao={editor.reverAnimacao}
+                  erro={dona?.id === atual.id ? editor.erro : null}
+                  limparErro={editor.limparErro}
+                />
+              </div>
+            </section>
+            {dados && <PreviaNaColuna dados={dados} rodada={editor.rodada} aoReverAnimacao={editor.reverAnimacao} />}
+          </div>
+          {dados && <PreviaNoCelular dados={dados} rodada={editor.rodada} aoReverAnimacao={editor.reverAnimacao} />}
           {editor.sujo && <BarraDeSalvar editor={editor} />}
         </>
       )}

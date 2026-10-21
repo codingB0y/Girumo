@@ -17,8 +17,8 @@ const SECUNDARIO = `inline-flex min-h-11 items-center justify-center gap-2 white
 
 /**
  * A página no iframe, com o MESMO renderizador da rota pública em modo "previa" (spec §8: sem
- * `<script>`, `<a>` sem href). `sandbox=""`: nada roda e nada navega; um `srcDoc` não herda a CSP
- * do painel, então o script tem de não existir no HTML — é o que o modo prévia garante.
+ * `<script>`, `<a>` sem href). `sandbox=""`: nada roda e nada navega. O `srcDoc` herda a CSP do
+ * painel; funciona porque o modo prévia não tem script e as fontes são `'self'` na origem do painel.
  *
  * A entrada só toca quando `rodada` muda (link novo, troca de modelo, "Rever a animação"); qualquer
  * outra mudança redesenha parado. `key={rodada}`: duas rodadas com o mesmo HTML ainda recarregam.
