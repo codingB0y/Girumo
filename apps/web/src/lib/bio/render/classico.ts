@@ -57,7 +57,8 @@ export const CSS_CLASSICO = [
   // o anel do pulso: uma cópia da pílula atrás dela, que cresce e some (só transform/opacity)
   '.cl-btn--prin::after{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;background:var(--prin);opacity:0;pointer-events:none}',
   ".cl-capas{display:flex;justify-self:center}",
-  ".cl-capas img{width:30px;height:30px;border-radius:50%;object-fit:cover;border:2px solid var(--cartao);margin-left:-14px}",
+  // 3 × 28 px com 18 px de recuo = 48 px: cabem na coluna do ícone
+  ".cl-capas img{width:28px;height:28px;border-radius:50%;object-fit:cover;border:2px solid var(--cartao);margin-left:-18px}",
   ".cl-capas img:first-child{margin-left:0}",
   ".cl-dir{display:grid;place-items:center;color:var(--seta)}",
   ".cl-abre[open] .cl-dir svg{transform:rotate(90deg)}",
@@ -85,9 +86,10 @@ export const CSS_CLASSICO = [
   ".cl-dir svg{transition:transform .3s cubic-bezier(.22,1,.36,1)}",
   ".lk-entra .cl-avatar{animation:cl-pop .8s cubic-bezier(.16,1,.3,1) both}",
   ".lk-entra .cl-sobe{animation:cl-sobe .6s cubic-bezier(.16,1,.3,1) both}",
-  ".lk-entra .cl-sobe:nth-child(3){animation-delay:60ms}",
-  ".lk-entra .cl-sobe:nth-child(4){animation-delay:120ms}",
-  ".lk-entra .cl-sobe:nth-child(5){animation-delay:180ms}",
+  // conta os .cl-sobe irmãos (não a posição na coluna): sem foto ou sem @ o escalonamento não escorrega
+  ".lk-entra .cl-sobe+.cl-sobe{animation-delay:60ms}",
+  ".lk-entra .cl-sobe+.cl-sobe+.cl-sobe{animation-delay:120ms}",
+  ".lk-entra .cl-sobe+.cl-sobe+.cl-sobe+.cl-sobe{animation-delay:180ms}",
   ".lk-entra .cl-lista>li{animation:cl-sobe .55s cubic-bezier(.16,1,.3,1) both}",
   atrasos(".cl-lista>li", 250, 55),
   ".lk-entra .cl-btn--prin::after{animation:cl-pulso 2.2s 1.1s ease-out 2}",

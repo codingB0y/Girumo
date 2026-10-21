@@ -144,3 +144,19 @@ test("o verde do WhatsApp vence o véu do principal: especificidade maior no íc
   const maxVerde = Math.max(...verde.map(especificidade));
   for (const s of veu) assert.ok(maxVerde > especificidade(s), `${verde.join(",")} × ${s}`);
 });
+
+test("as 3 capinhas cabem na coluna de 48 px do ícone, sem invadir o texto", () => {
+  const coluna = Number(/\.cl-btn\{[^}]*grid-template-columns:(\d+)px /.exec(CSS_CLASSICO)?.[1]);
+  const [, largura, recuo] = /\.cl-capas img\{width:(\d+)px;[^}]*margin-left:(-\d+)px\}/.exec(CSS_CLASSICO) ?? [];
+  assert.ok(coluna && largura && recuo);
+  assert.ok(3 * Number(largura) + 2 * Number(recuo) <= coluna, `${largura}px × 3 com ${recuo}px em ${coluna}px`);
+});
+
+test("o escalonamento da entrada conta só os .cl-sobe: sem foto ou sem @ não escorrega", () => {
+  assert.doesNotMatch(CSS_CLASSICO, /\.cl-sobe:nth-child/);
+  assert.match(CSS_CLASSICO, /\.lk-entra \.cl-sobe\+\.cl-sobe\{animation-delay:60ms\}/);
+  assert.match(CSS_CLASSICO, /\.lk-entra \.cl-sobe\+\.cl-sobe\+\.cl-sobe\{animation-delay:120ms\}/);
+  assert.match(CSS_CLASSICO, /\.lk-entra \.cl-sobe\+\.cl-sobe\+\.cl-sobe\+\.cl-sobe\{animation-delay:180ms\}/);
+  // os .cl-sobe vêm sempre seguidos depois do h1 (a foto, quando existe, vem antes dele)
+  assert.match(pagina({ capa: null, instagram: "" }), /<main class="cl"><div class="cl-col"><h1 class="cl-nome cl-sobe">[^<]*<\/h1><p class="cl-frase cl-sobe">/);
+});
