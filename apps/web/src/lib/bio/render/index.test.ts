@@ -156,6 +156,14 @@ test("decoração fica fora da árvore de acessibilidade", () => {
   for (const svg of html.match(/<svg class="i[^"]*"[^>]*>/g) ?? []) assert.match(svg, /aria-hidden="true"/);
 });
 
+test("prévia: sem Open Graph nem description; título e theme-color continuam", () => {
+  const html = renderPaginaBio(dadosFalsos(), { modo: "previa", nonce: null, animarEntrada: false });
+  assert.doesNotMatch(html, /og:|name="description"/);
+  assert.match(html, /<title>[^<]+<\/title>/);
+  assert.match(html, /<meta name="theme-color" content="#/);
+  assert.match(publica(dadosFalsos()), /property="og:title"/);
+});
+
 test("prévia: nenhum <script> e nenhum href", () => {
   const html = renderPaginaBio(dadosFalsos(), { modo: "previa", nonce: null, animarEntrada: false });
   assert.doesNotMatch(html, /<script/);
