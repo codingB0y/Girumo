@@ -199,6 +199,9 @@ test("o middleware roda em toda /bio/* (entrada própria no matcher, como /p/ /r
 });
 
 test("a fonte do link da bio tem cache de 30 dias, sem immutable (o nome não tem versão)", () => {
-  assert.match(NEXT_CONFIG, /source:\s*"\/fonts\/bio\/:path\*",\s*headers:\s*\[\{\s*key:\s*"Cache-Control",\s*value:\s*"public, max-age=2592000"\s*\}\]/);
+  const bloco = /source:\s*"\/fonts\/bio\/:path\*",\s*headers:\s*\[([\s\S]*?)\],\s*\}/.exec(NEXT_CONFIG)?.[1] ?? "";
+  assert.match(bloco, /key:\s*"Cache-Control",\s*value:\s*"public, max-age=2592000"\s*\}/);
+  // A prévia (iframe srcdoc sandbox="") tem origem opaca: a fonte é pedida com `Origin: null`.
+  assert.match(bloco, /key:\s*"Access-Control-Allow-Origin",\s*value:\s*"\*"\s*\}/);
   assert.doesNotMatch(NEXT_CONFIG, /fonts\/bio[\s\S]{0,200}immutable/);
 });
