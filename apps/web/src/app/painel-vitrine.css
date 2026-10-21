@@ -762,6 +762,23 @@
   overflow-y: auto;
   padding: 8px 16px 0;
 }
+/* Tela cheia (prévia do link da bio no celular): do topo ao pé, sem alça, corpo sem margem. */
+.pn-folha--tela-cheia {
+  top: 0;
+  max-height: none;
+  border-radius: 0;
+  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+}
+.pn-folha--tela-cheia .pn-folha__alca {
+  display: none;
+}
+.pn-folha--tela-cheia .pn-folha__corpo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
 .pn-folha__item {
   display: flex;
   align-items: center;
@@ -880,6 +897,24 @@
    barra de baixo, que já tem a área segura do iPhone dentro dela. */
 .pn-bio-salvar {
   bottom: calc(var(--spacing-barra-mobile) + env(safe-area-inset-bottom));
+}
+
+/* "Ver como fica" (celular): em cima da barra de baixo; sobe quando a barra de salvar aparece. */
+.pn-bio-ver {
+  bottom: calc(var(--spacing-barra-mobile) + 16px + env(safe-area-inset-bottom));
+}
+html:has(.pn-bio-salvar) .pn-bio-ver {
+  bottom: calc(var(--spacing-barra-mobile) + 80px + env(safe-area-inset-bottom));
+}
+/* WCAG 2.4.11 (§8, §11): nada focado fica atrás das barras fixas do celular.
+   80 = 16 + "Ver como fica" (48) + 16; 144 = barra de salvar (64) + 80. */
+@media (max-width: 1023.98px) {
+  html:has(.pn-bio) {
+    scroll-padding-bottom: calc(var(--spacing-barra-mobile) + 80px + env(safe-area-inset-bottom));
+  }
+  html:has(.pn-bio-salvar) {
+    scroll-padding-bottom: calc(var(--spacing-barra-mobile) + 144px + env(safe-area-inset-bottom));
+  }
 }
 
 /* Mobile: barra de 52px, só símbolo, nome, ponto e sino; interruptor 44x26. */

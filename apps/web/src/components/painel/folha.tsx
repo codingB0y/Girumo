@@ -25,6 +25,11 @@ type Props = {
    * desmontar a folha apagaria o que foi escrito.
    */
   fundoFecha?: boolean;
+  /**
+   * Ocupa a tela inteira, sem alça, e o corpo vira coluna sem margem: a prévia do link da bio no
+   * celular, onde a página tem de caber no iframe do topo ao pé.
+   */
+  telaCheia?: boolean;
   children: React.ReactNode;
 };
 
@@ -37,7 +42,7 @@ const RAIZ = '[data-testid="painel-root"]';
  * aberta. Vai pro body por portal, porque a raiz do painel é justamente o que
  * fica inerte.
  */
-export function Folha({ aberta, aoFechar, titulo, testId, id, emQualquerLargura, fundoFecha = true, children }: Props) {
+export function Folha({ aberta, aoFechar, titulo, testId, id, emQualquerLargura, fundoFecha = true, telaCheia = false, children }: Props) {
   // Antes do focus trap de propósito: a limpeza corre na ordem de declaração, e o
   // foco só consegue voltar pro botão que abriu depois de a raiz deixar de ser inerte.
   useEffect(() => {
@@ -78,7 +83,7 @@ export function Folha({ aberta, aoFechar, titulo, testId, id, emQualquerLargura,
         aria-modal="true"
         aria-label={titulo}
         data-testid={testId}
-        className={cn("pn-folha", emQualquerLargura && "pn-folha--dialogo")}
+        className={cn("pn-folha", emQualquerLargura && "pn-folha--dialogo", telaCheia && "pn-folha--tela-cheia")}
       >
         <div className="pn-folha__alca" aria-hidden="true" />
         <div className="flex items-center justify-between pl-4 pr-1">

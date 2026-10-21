@@ -153,7 +153,12 @@ const nextConfig: NextConfig = {
         // Fonte do link da bio: 30 dias. Sem `immutable` porque o nome do
         // arquivo não tem versão — uma troca de fonte precisa chegar um dia.
         source: "/fonts/bio/:path*",
-        headers: [{ key: "Cache-Control", value: "public, max-age=2592000" }],
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=2592000" },
+          // A prévia roda num iframe srcdoc sandbox="" (origem opaca): o @font-face vira pedido
+          // CORS com `Origin: null`. Fonte pública, sem credencial.
+          { key: "Access-Control-Allow-Origin", value: "*" },
+        ],
       },
     ];
   },
