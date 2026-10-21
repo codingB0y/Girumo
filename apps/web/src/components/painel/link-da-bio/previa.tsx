@@ -61,7 +61,7 @@ function ReverAnimacao({ animar, aoReverAnimacao }: { animar: boolean; aoReverAn
  */
 export function PreviaNaColuna({ dados, rodada, aoReverAnimacao }: PropsDaPrevia) {
   return (
-    <aside aria-label="Prévia da página" className="hidden lg:sticky lg:top-[72px] lg:block">
+    <aside aria-label="Prévia da página" className="hidden lg:block lg:[@media(min-height:56rem)]:sticky lg:[@media(min-height:56rem)]:top-[72px]">
       <div className="pn-card grid justify-items-center gap-3 rounded-xl p-3.5">
         <div className="flex w-full items-center justify-between gap-2">
           <span className="text-15 font-semibold text-volt-950">Prévia</span>
