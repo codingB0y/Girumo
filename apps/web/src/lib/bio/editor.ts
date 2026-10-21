@@ -56,6 +56,9 @@ export const MENSAGENS_DOS_CAMPOS: Readonly<Record<string, string>> = {
   "links.*.url": "Esse endereço não parece um link. Ex.: sualoja.com.br/catalogo",
   "links.*.endereco": "Escreva o endereço da loja, com pelo menos 5 letras.",
   "links.*.horario": "O horário vai até 120 letras.",
+  "perfil.nome": "Escreva o nome da loja.",
+  "perfil.instagram": "No @ do Instagram só vão letras, números, ponto e _.",
+  "confere.cnpj": "Confira o CNPJ: os números não batem.",
 };
 
 function ehObjeto(v: unknown): v is Record<string, unknown> {
@@ -457,4 +460,34 @@ export function destinoInterno(c: CliqueLido, aqui: { origin: string; pathname: 
   if (url.origin !== aqui.origin) return null;
   if (url.pathname === aqui.pathname && url.search === aqui.search) return null;
   return url.pathname + url.search + url.hash;
+}
+
+// ------------------------------------------------- erro nas abas do 6b (§8, §11)
+
+/** Id do elemento que mostra um campo do documento: "perfil.nome" → "bio-perfil-nome"; "slug" → "bio-slug". */
+export function idNaTela(campo: string): string {
+  return `bio-${campo.replaceAll(".", "-")}`;
+}
+
+/**
+ * O lugar da aba que mostra o erro: o mais longo da lista que é o caminho do erro ou o começo
+ * dele ("perfil.capa" mostra "perfil.capa.id"); null quando a aba não tem lugar para ele.
+ */
+export function lugarDoErro(campo: string, lugares: readonly string[]): string | null {
+  let achado: string | null = null;
+  for (const lugar of lugares) {
+    const cobre = campo === lugar || campo.startsWith(`${lugar}.`);
+    if (cobre && (achado === null || lugar.length > achado.length)) achado = lugar;
+  }
+  return achado;
+}
+
+/**
+ * A frase do erro do documento NESTE campo (caminho exato), ou null. É o mesmo `documentoBio`
+ * do salvar: o painel avisa antes (o CNPJ com 14 dígitos errados, o @ com espaço).
+ */
+export function erroNoCampo(documento: DocumentoBio, campo: string): string | null {
+  const r = documentoBio.safeParse(documento);
+  if (r.success) return null;
+  return r.error.issues.some((issue) => issue.path.map(String).join(".") === campo) ? mensagemDoCampo(campo) : null;
 }
