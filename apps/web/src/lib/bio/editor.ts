@@ -1,5 +1,13 @@
 // apps/web/src/lib/bio/editor.ts
-import { documentoBio, documentoPadrao, type DocumentoBio, type Icone, type LinkBio } from "@/lib/bio/documento";
+import {
+  documentoBio,
+  documentoPadrao,
+  type DadosRender,
+  type DocumentoBio,
+  type Icone,
+  type LinkBio,
+  type Modelo,
+} from "@/lib/bio/documento";
 import type { CampanhaDoPainel, CorpoDoPatchBio, RespostaDoPainelBio } from "@/lib/bio/painel-api";
 import { formatPhoneBR } from "@/lib/phone";
 import type { PaginaBio } from "@/lib/stores/bio-pages";
@@ -388,4 +396,65 @@ export function moverLink(links: readonly LinkBio[], id: string, passo: -1 | 1):
 /** O que o leitor de tela ouve depois de Subir/Descer (§8, `aria-live`). */
 export function anuncioDaOrdem(titulo: string, posicao: number, total: number): string {
   return `${titulo}: agora é o ${posicao}º de ${total}.`;
+}
+
+// --------------------------------------------------------- prévia e saída (§8)
+
+/** O nome de cada modelo, para o chip da prévia (e as miniaturas do 6b). */
+export const NOME_DO_MODELO: Readonly<Record<Modelo, string>> = {
+  etiqueta: "Etiqueta",
+  vitrine: "Vitrine",
+  romaneio: "Romaneio",
+  classico: "Clássico",
+};
+
+/** Os ids que não saem na página agora (§6): o `linksEscondidos` que a prévia desenha. */
+export function escondidosNaTela(links: readonly LinkBio[], c: ContextoDosAvisos): string[] {
+  return links.filter((l) => avisoDoLink(l, c) !== null).map((l) => l.id);
+}
+
+/**
+ * Os dados que a prévia passa ao `renderPaginaBio` (PR 3a): o RASCUNHO, com as campanhas e os
+ * escondidos do jeito que a página pública vai ver depois de salvar.
+ */
+export function dadosDaPrevia(pagina: PaginaBio, documento: DocumentoBio, c: ContextoDoEditor): DadosRender {
+  return {
+    documento,
+    paginaId: pagina.id,
+    campanhas: Object.fromEntries(c.campanhas.flatMap((x) => (x.slug ? [[x.id, x.slug] as const] : []))),
+    linksEscondidos: escondidosNaTela(documento.links, {
+      campanhas: c.campanhas,
+      linksEscondidos: c.linksEscondidos,
+      salvos: pagina.documento.links,
+    }),
+    origem: c.dominio ? `https://${c.dominio}` : c.origemGirumo.replace(/\/+$/, ""),
+    dominioProprio: c.dominio !== null,
+  };
+}
+
+/** O que a guarda de saída lê do clique (fase de captura). */
+export type CliqueLido = {
+  defaultPrevented: boolean;
+  button: number;
+  comModificador: boolean;
+  alvo: { href: string; target: string; download: boolean } | null;
+};
+
+/**
+ * Para onde o clique ia levar DENTRO do app, ou null quando não é navegação daqui (outra aba,
+ * download, outro site, a mesma tela, clique com modificador). Outro site fica com o
+ * `beforeunload` do navegador.
+ */
+export function destinoInterno(c: CliqueLido, aqui: { origin: string; pathname: string; search: string }): string | null {
+  if (c.defaultPrevented || c.button !== 0 || c.comModificador || !c.alvo) return null;
+  if ((c.alvo.target && c.alvo.target !== "_self") || c.alvo.download) return null;
+  let url: URL;
+  try {
+    url = new URL(c.alvo.href);
+  } catch {
+    return null;
+  }
+  if (url.origin !== aqui.origin) return null;
+  if (url.pathname === aqui.pathname && url.search === aqui.search) return null;
+  return url.pathname + url.search + url.hash;
 }
