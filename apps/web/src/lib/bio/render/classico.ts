@@ -47,7 +47,7 @@ export const CSS_CLASSICO = [
   ".cl-lista{width:100%;display:grid;gap:12px;margin-top:14px}",
   ".cl-btn{position:relative;display:grid;grid-template-columns:48px minmax(0,1fr) 48px;align-items:center;gap:6px;min-height:64px;padding:8px;border-radius:999px;background:var(--cartao);color:var(--tinta);text-decoration:none;box-shadow:0 1px 2px rgb(0 0 0 / .06),0 10px 24px -18px rgb(0 0 0 / .5);cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}",
   ".cl-ico{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:var(--icobg);color:var(--ico)}",
-  ".lk .cl-ico--zap{background:#25D366;color:#fff}",
+  ".lk .cl-ico--zap,.lk .cl-btn--prin .cl-ico--zap{background:#25D366;color:#fff}",
   ".cl-txt{display:grid;gap:1px;justify-items:center;min-width:0}",
   ".cl-rot{font-size:16px;font-weight:700;line-height:1.25}",
   ".cl-sub{font-size:12.5px;font-weight:500;color:var(--tinta2);line-height:1.3}",

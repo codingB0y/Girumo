@@ -126,3 +126,21 @@ test("botões em pílula: principal com o anel, catálogo com as capinhas e o en
   assert.match(html, /<a class="cl-mapa" href="https:\/\/www\.google\.com\/maps\/[^"]+"><svg/);
   assert.match(html, /<footer class="cl-rodape"><small>Ateliê Exemplo Kids · CNPJ 11\.222\.333\/0001-81<\/small><a class="lk-feito"/);
 });
+
+test("o verde do WhatsApp vence o véu do principal: especificidade maior no ícone zap do principal", () => {
+  /** Especificidade (ids, classes/pseudo-classes, tipos) de um seletor simples, sem :is/:where. */
+  const especificidade = (s: string): number => {
+    const ids = s.match(/#[\w-]+/g)?.length ?? 0;
+    const classes = s.match(/\.[\w-]+|:(?!:)[\w-]+/g)?.length ?? 0;
+    const tipos = s.replace(/[#.:][\w-]+|::[\w-]+/g, " ").match(/[a-z][\w-]*/gi)?.length ?? 0;
+    return ids * 10000 + classes * 100 + tipos;
+  };
+  const seletores = (pedaco: RegExp) =>
+    regras(CSS_CLASSICO).filter(([, d]) => pedaco.test(d)).flatMap(([s]) => s.split(",").map((x) => x.trim()));
+  const veu = seletores(/background:rgb\(0 0 0 \/ \.12\)/).filter((s) => /\.cl-btn--prin/.test(s) && /\.cl-ico\b/.test(s));
+  assert.ok(veu.length, "regra do véu do principal");
+  const verde = seletores(/background:#25D366/).filter((s) => /\.cl-btn--prin/.test(s) && /\.cl-ico--zap/.test(s));
+  assert.ok(verde.length, "regra do verde para o zap dentro do principal");
+  const maxVerde = Math.max(...verde.map(especificidade));
+  for (const s of veu) assert.ok(maxVerde > especificidade(s), `${verde.join(",")} × ${s}`);
+});
