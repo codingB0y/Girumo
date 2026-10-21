@@ -1,6 +1,6 @@
 "use client";
 
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { authenticatedFetch, getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { MEDIA_BUCKET, resolveUploadLimitBytes, type MediaKind } from "@/lib/media-mime";
 
 export type MediaUploadResult = { id: string; type: "image" | "video" | "audio" | "file" };
@@ -17,6 +17,11 @@ async function readErrorMessage(res: Response, fallback: string): Promise<string
  * `/api/media/register`, um JSON pequeno. O token não depende da RLS de
  * `storage.objects`, que exclui a vendedora (spec 2026-10-07 §1, "RLS").
  *
+ * As duas chamadas vão por `authenticatedFetch` (Bearer + `x-tenant-id`): quem
+ * tem duas lojas sobe o arquivo na loja que está aberta. Com `fetch` puro o
+ * servidor só via o cookie e caía na loja mais antiga — e o link da bio, que
+ * confere se a foto é da loja no salvar, recusava (spec 2026-10-19 §4).
+ *
  * Existe porque uma Vercel Function tem um limite fixo de 4.5MB de corpo de
  * requisição (infra da plataforma, não contornável por código de app);
  * mandar o binário pela function fazia todo vídeo/áudio real falhar sempre,
@@ -31,7 +36,7 @@ export async function uploadMediaFile(file: File, kind: MediaKind = "media"): Pr
     throw new Error(`Arquivo grande demais (max ${Math.round(limit / 1_000_000)}MB).`);
   }
 
-  const prepareRes = await fetch("/api/media/prepare", {
+  const prepareRes = await authenticatedFetch("/api/media/prepare", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ mime: file.type, kind }),
@@ -51,7 +56,7 @@ export async function uploadMediaFile(file: File, kind: MediaKind = "media"): Pr
   }
 
   try {
-    const registerRes = await fetch("/api/media/register", {
+    const registerRes = await authenticatedFetch("/api/media/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ storagePath, kind }),
