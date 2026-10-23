@@ -561,3 +561,5 @@ apps/web/supabase/migrations/20261019120000_link_da_bio.sql
 # null = nunca lidos ou sem o escopo) e sales_channels_at: o motor rele GET /canais-venda a cada 24 h e
 # o cartao mostra a Yampi pelo nome. Muda a baseline.
 apps/web/supabase/migrations/20261019180000_bling_canais_da_conta.sql
+# 23/10: disjuntor por saídas voluntárias (pausa 6 h, cancela a fila, notifica) e orçamento de @todos (2 posts/24 h por número) no claim. Muda a baseline.
+apps/web/supabase/migrations/20261023120000_antiban_saidas_e_todos.sql
