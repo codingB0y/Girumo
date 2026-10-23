@@ -10,6 +10,8 @@ import { buildCsp, generateNonce, surfaceForPath } from "@/lib/security/csp";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { isPublicPage, publicPageCaseAlias } from "@/lib/public-pages";
 import {
+  BIO_DOMINIO,
+  LINK_NAO_ENCONTRADO,
   customHostRoute,
   hostnameFromHostHeader,
   isFirstPartyHost,
@@ -115,9 +117,21 @@ function rootLinkResponse(req: NextRequest): NextResponse {
   return nonceResponse(req, buildCsp("click-redirect", nonce, process.env.NODE_ENV === "development"), nonce, destino);
 }
 
+/**
+ * Raiz do domínio do lojista: o link da bio da loja, sem mudar a URL do
+ * visitante (spec link-da-bio §6). Irmã de rootLinkResponse, com a CSP da
+ * superfície "bio"; quem acha a loja pelo host é o handler.
+ */
+function bioRootResponse(req: NextRequest): NextResponse {
+  const nonce = generateNonce();
+  const destino = req.nextUrl.clone();
+  destino.pathname = `/bio/${BIO_DOMINIO}`;
+  return nonceResponse(req, buildCsp("bio", nonce, process.env.NODE_ENV === "development"), nonce, destino);
+}
+
 /** 404 seco no domínio do lojista: lá não existe painel, login nem API logada. */
 function customHostNotFound(): NextResponse {
-  return new NextResponse("Link não encontrado.", {
+  return new NextResponse(LINK_NAO_ENCONTRADO, {
     status: 404,
     headers: { "content-type": "text/plain; charset=utf-8" },
   });
@@ -133,15 +147,16 @@ export async function middleware(req: NextRequest) {
   // direto, mesmo que a plataforma rode o middleware neles (ver host.ts).
   if (firstParty && skipsFirstPartyMiddleware(pathname)) return NextResponse.next();
 
-  // Domínio próprio do lojista: só links e páginas. A checagem de que o link é
-  // do DONO do domínio fica no handler, que tem acesso ao banco — aqui só se
-  // decide o que pode existir nesse endereço.
+  // Domínio próprio do lojista: só links, páginas e, na raiz, o link da bio.
+  // A checagem de que o link é do DONO do domínio fica no handler, que tem
+  // acesso ao banco — aqui só se decide o que pode existir nesse endereço.
   if (!firstParty) {
     const route = customHostRoute(pathname);
     if (route === "not-found") return customHostNotFound();
     // /api/p/* em host do Girumo nem passa pelo middleware (fora do matcher).
     if (route === "public-api") return NextResponse.next();
     if (route === "root-link") return rootLinkResponse(req);
+    if (route === "bio-root") return bioRootResponse(req);
     // "surface" (/r, /c, /p) segue o fluxo de sempre: CSP com nonce logo abaixo.
   }
 
@@ -265,7 +280,7 @@ export const config = {
   // públicas de lead/track — sessão 4)
   // lp = landing experimental de conversão (/lp) — pública, sem sessão
   //
-  // As duas entradas dedicadas de /p/ e /r/ existem porque a regra geral exclui
+  // As entradas dedicadas (/p/, /r/, /c/ e /bio/) existem porque a regra geral exclui
   // QUALQUER path com ponto (`.*\.`, pra não rodar em asset), e sem elas
   // `/p/foo.bar` sairia SEM CSP nenhuma — falha aberta. Entradas próprias
   // garantem que toda request dessas superfícies recebe a política, inclusive
@@ -276,6 +291,7 @@ export const config = {
     "/p/:path*",
     "/r/:path*",
     "/c/:path*",
+    "/bio/:path*",
     // Domínio próprio do lojista: o middleware roda em TODO path de host que
     // não é do Girumo — inclusive os que a primeira entrada exclui (/login,
     // /api/p/...) — para o ramo de host de lojista barrar o que não é link nem

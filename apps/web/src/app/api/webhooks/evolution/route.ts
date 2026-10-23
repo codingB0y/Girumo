@@ -1,4 +1,5 @@
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
+import { invalidarBioDaLoja } from "@/lib/bio/cache";
 import { evolutionEventId } from "@/lib/evolution/event-id";
 import { secretMatches } from "@/lib/evolution/webhook-secret";
 import {
@@ -10,7 +11,7 @@ import {
 } from "@/lib/evolution/webhook-schema";
 import { adminCountDelta, papelDoNossoNumero } from "@/lib/groups/admin-protection";
 import { memberCountDelta } from "@/lib/groups/member-delta";
-import { movimentoDeMembros } from "@/lib/groups/member-events";
+import { movimentoDeMembros, temSaidaVoluntaria } from "@/lib/groups/member-events";
 import { gruposNovosDoUpsert } from "@/lib/groups/upsert-novos";
 import { podeAplicarQr } from "@/lib/instance-qr-guard";
 import { matchesKeyword } from "@/lib/relampago/keyword";
@@ -18,6 +19,7 @@ import { parseUpsertMessage } from "@/lib/relampago/upsert-message";
 import { resolveSecret } from "@/lib/runtime-secrets";
 import { findOpenWindow, insertEntry } from "@/lib/stores/flash-offers";
 import { recordGroupMemberEvents } from "@/lib/stores/group-member-events";
+import { avaliarDisjuntorSaidas } from "@/lib/stores/instance-health";
 import {
   applyAdminCountDelta,
   applyMemberCountDelta,
@@ -103,13 +105,21 @@ async function applyConnectionUpdate(
   const lastDisconnectReason =
     status === "disconnected" ? (event.data.statusReason ?? null) : null;
 
+  const phone = phoneFromWuid(event.data.wuid);
+
   await updateInstanceStatus({
     tenantId: instance.tenant_id,
     instanceId: instance.id,
     status,
-    phone: phoneFromWuid(event.data.wuid),
+    phone,
     metadata: { lastDisconnectReason },
   });
+
+  // O link da bio esconde da página os links de WhatsApp que apontam para um número
+  // da própria loja e guarda isso 5 min no cache. Número novo refaz a página na hora;
+  // o mesmo número (ou nulo, queda sem wuid) não, porque o connection.update chega em
+  // rajada e derrubaria o cache a cada evento.
+  if (phone && phone !== instance.phone) invalidarBioDaLoja(instance.tenant_id);
 
   // Marco de ativação "conectou o WhatsApp". Só existia no heartbeat da engine
   // Baileys (`setSession`), que ninguém chama mais: com a Evolution o marco
@@ -224,6 +234,27 @@ async function recordMemberEvents(instance: Instance, event: EvolutionWebhookEve
     await recordGroupMemberEvents(instance.tenant_id, event.data.id, movimento);
   } catch (e) {
     console.error(`[webhook/evolution] entrada/saída não gravada para o grupo ${event.data.id}:`, e);
+  }
+}
+
+/**
+ * Disjuntor do anti-ban (incidente de 23/10/2026): cada saída voluntária faz o
+ * banco recontar as saídas das últimas 3 h e, passando do limite, pausar os
+ * posts da loja. Mesmo contrato dos deltas: só na primeira entrega, e erro não
+ * derruba a resposta.
+ */
+async function checkExitBreaker(instance: Instance, event: EvolutionWebhookEvent): Promise<void> {
+  if (event.event !== "group-participants.update") return;
+  if (!temSaidaVoluntaria(event.data.action, event.data.participants, event.data.author)) return;
+  try {
+    const r = await avaliarDisjuntorSaidas(instance.tenant_id);
+    if (r.novo) {
+      console.warn(
+        `[webhook/evolution] disjuntor de saídas aberto para ${instance.tenant_id}: ${r.saidas} saídas em 3 h (limite ${r.limite}), ${r.cancelados} envios cancelados, pausa até ${r.ate}`,
+      );
+    }
+  } catch (e) {
+    console.error(`[webhook/evolution] disjuntor de saídas não avaliado para ${instance.tenant_id}:`, e);
   }
 }
 
@@ -356,6 +387,7 @@ export async function POST(req: Request) {
   if (recorded.isNew) {
     await applyGroupDeltas(instance, event);
     await recordMemberEvents(instance, event, chegouEm);
+    await checkExitBreaker(instance, event);
   }
   await applyNewGroups(instance, event);
 

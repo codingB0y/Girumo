@@ -568,3 +568,5 @@ apps/web/supabase/migrations/20261019180000_bling_canais_da_conta.sql
 # confere o md5 de 20261010120000); ACL restabelecido. Nao muda a baseline: o gate nao ve corpo
 # nem ACL -- conferir com infra/tests/aviso-lotou-sem-estrutura-check.sql nos dois bancos.
 apps/web/supabase/migrations/20261020120000_aviso_lotou_sem_estrutura.sql
+# 23/10: disjuntor por saídas voluntárias (pausa 6 h, cancela a fila, notifica) e orçamento de @todos (2 posts/24 h por número) no claim. Muda a baseline.
+apps/web/supabase/migrations/20261023120000_antiban_saidas_e_todos.sql

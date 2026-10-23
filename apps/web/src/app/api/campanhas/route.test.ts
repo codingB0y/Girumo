@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
 
-import type { PATCH as RotaPatch, POST as RotaPost } from "./route";
+import type { WorkStore } from "next/dist/server/app-render/work-async-storage.external";
+
+import type { DELETE as RotaDelete, PATCH as RotaPatch, POST as RotaPost } from "./route";
 
 /**
  * POST/PATCH /api/campanhas contra um Supabase de mentira (desenho de `[slug]/messages/route.test.ts`).
@@ -11,6 +14,10 @@ import type { PATCH as RotaPatch, POST as RotaPost } from "./route";
  * rota responde o 409 do contrato (`{ error, grupo, campanha }`); qualquer outro erro continua
  * subindo — nunca vira 409 por engano. Só o ramo Supabase (o JSON legado está fora do escopo).
  */
+
+// O Next lê este global uma vez, quando carrega: antes do import (dinâmico, no `before`).
+// Sem ele o `revalidateTag` do link da bio não tem escopo de requisição onde registrar a tag.
+(globalThis as { AsyncLocalStorage?: unknown }).AsyncLocalStorage = AsyncLocalStorage;
 
 const OUTRA = "6a7e0000-0000-4000-8000-0000000000c1";
 const ESTA = "6a7e0000-0000-4000-8000-0000000000e1";
@@ -66,6 +73,15 @@ function responder({ metodo, url }: Chamada): Resposta {
   if (pathname === "/rest/v1/subscriptions") {
     return { status: 200, corpo: [{ status: "active", metadata: {}, current_period_end: null, plans: { limits: {} } }] };
   }
+  // Link novo da troca de slug (rename-slug): o mestre nasce antes de a campanha mudar.
+  if (pathname === "/rest/v1/tracked_links" && metodo === "POST") {
+    return {
+      status: 201,
+      corpo: { id: "link-novo", tenant_id: "loja-a", campaign_group_id: ESTA, slug: "verao-novo", target_url: "", clicks: 0, metadata: { master: true } },
+    };
+  }
+  // O DELETE cancela os disparos da campanha antes de apagar: aqui não há nenhum.
+  if (pathname === "/rest/v1/broadcasts" && metodo === "GET") return { status: 200, corpo: [] };
   if (pathname === "/rest/v1/tracked_links" && metodo === "GET") return { status: 200, corpo: [] };
   if (pathname === "/rest/v1/campaign_groups") {
     if (metodo !== "GET") return escrita;
@@ -79,6 +95,8 @@ function responder({ metodo, url }: Chamada): Resposta {
 
 let POST: typeof RotaPost;
 let PATCH: typeof RotaPatch;
+let DELETE: typeof RotaDelete;
+let naRequisicao: (escopo: WorkStore, fn: () => Promise<Response>) => Promise<Response>;
 
 before(async () => {
   await new Promise<void>((pronto) => supabase.listen(0, "127.0.0.1", pronto));
@@ -88,7 +106,9 @@ before(async () => {
   process.env.SUPABASE_ANON_KEY = "chave-anon-falsa";
   // O modo Supabase tem que valer antes de a rota carregar: `USE_SUPABASE` é lido no import.
   process.env.HUBFLOW_USE_SUPABASE = "1";
-  ({ POST, PATCH } = await import("./route"));
+  const { workAsyncStorage } = await import("next/dist/server/app-render/work-async-storage.external");
+  naRequisicao = (escopo, fn) => workAsyncStorage.run(escopo, fn);
+  ({ POST, PATCH, DELETE } = await import("./route"));
 });
 
 after(() => {
@@ -165,4 +185,52 @@ test("PATCH com erro que não é a recusa do trigger: sobe, não vira 409", asyn
   escrita = { status: 500, corpo: { code: "XX000", details: null, hint: null, message: "banco fora do ar" } };
 
   await assert.rejects(PATCH(pedir("PATCH", { id: ESTA, groupIds: [JID] })), /banco fora do ar/);
+});
+
+/** Escopo de requisição falso: o `revalidateTag` do Next só pede `incrementalCache` e registra a tag nele. */
+function novoEscopo(): WorkStore {
+  return { incrementalCache: {} } as unknown as WorkStore;
+}
+
+test("PATCH que troca o link da campanha invalida o link da bio da loja", async () => {
+  chamadas.length = 0;
+  escrita = { status: 200, corpo: [linha(ESTA, "Verao")] };
+  const escopo = novoEscopo();
+
+  const res = await naRequisicao(escopo, () => PATCH(pedir("PATCH", { id: ESTA, slug: "verao-novo" })));
+
+  assert.equal(res.status, 200);
+  assert.equal(feitas("POST", "/rest/v1/tracked_links").length, 1, "o link novo nasce antes");
+  assert.ok(escopo.pendingRevalidatedTags?.includes("bio-loja:loja-a"), `tags: ${escopo.pendingRevalidatedTags}`);
+});
+
+test("PATCH que não troca o link não mexe no cache da bio", async () => {
+  chamadas.length = 0;
+  escrita = { status: 200, corpo: [linha(ESTA, "Verao")] };
+  const escopo = novoEscopo();
+
+  const res = await naRequisicao(escopo, () => PATCH(pedir("PATCH", { id: ESTA, name: "Verao 2" })));
+
+  assert.equal(res.status, 200);
+  assert.equal(escopo.pendingRevalidatedTags, undefined);
+});
+
+test("DELETE da campanha invalida o link da bio da loja", async () => {
+  chamadas.length = 0;
+  escrita = { status: 204 };
+  const escopo = novoEscopo();
+
+  const res = await naRequisicao(escopo, () =>
+    DELETE(
+      new Request(`http://girumo.test/api/campanhas?id=${ESTA}`, {
+        method: "DELETE",
+        headers: { authorization: "Bearer token-falso", "x-tenant-id": "loja-a" },
+      }),
+    ),
+  );
+
+  assert.equal(res.status, 200);
+  const [apagou] = feitas("DELETE", "/rest/v1/campaign_groups");
+  assert.equal(apagou.url.searchParams.get("tenant_id"), "eq.loja-a");
+  assert.ok(escopo.pendingRevalidatedTags?.includes("bio-loja:loja-a"), `tags: ${escopo.pendingRevalidatedTags}`);
 });

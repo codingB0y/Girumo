@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
+import { getPathMatch } from "next/dist/shared/lib/router/utils/path-match";
 import { buildCsp, generateNonce, nonceAttribute, surfaceForPath } from "./csp";
 
 /**
@@ -50,7 +52,7 @@ test("nonce is unique per call and readable by Next", () => {
 });
 
 test("production script-src drops unsafe-inline and unsafe-eval", () => {
-  for (const surface of ["public-lp", "click-redirect"] as const) {
+  for (const surface of ["public-lp", "click-redirect", "bio"] as const) {
     const scriptSrc = buildCsp(surface, generateNonce(), false)
       .split(";")
       .map((d) => d.trim())
@@ -61,9 +63,11 @@ test("production script-src drops unsafe-inline and unsafe-eval", () => {
 });
 
 test("unsafe-eval comes back only in dev, where Turbopack needs it", () => {
-  const dev = buildCsp("public-lp", generateNonce(), true);
-  assert.ok(dev.includes("'unsafe-eval'"));
-  assert.ok(!dev.includes("'unsafe-inline' 'nonce-"));
+  for (const surface of ["public-lp", "click-redirect", "bio"] as const) {
+    const dev = buildCsp(surface, generateNonce(), true);
+    assert.ok(dev.includes("'unsafe-eval'"), `${surface} sem unsafe-eval em dev`);
+    assert.ok(!dev.includes("'unsafe-inline' 'nonce-"), `${surface} com unsafe-inline junto do nonce`);
+  }
 });
 
 test("public LP keeps the vendors the tracking session injects", () => {
@@ -131,4 +135,73 @@ test("click-redirect continua sem 'unsafe-inline' e sem 'unsafe-eval' em produç
     .find((d) => d.startsWith("script-src"))!;
   assert.equal(scriptSrc.includes("'unsafe-inline'"), false);
   assert.equal(scriptSrc.includes("'unsafe-eval'"), false);
+});
+
+test("o link da bio é superfície com nonce própria; prefixo parecido não entra", () => {
+  assert.equal(surfaceForPath("/bio/loja-teste"), "bio");
+  assert.equal(surfaceForPath("/bio"), "bio");
+  for (const path of ["/biografia", "/bio-loja", "/api/p/bio/toque"]) {
+    assert.equal(surfaceForPath(path), null, path);
+  }
+});
+
+test("CSP do link da bio: fechada, só o nonce, nenhum terceiro (spec link-da-bio §6)", () => {
+  const nonce = generateNonce();
+  const csp = buildCsp("bio", nonce, false);
+  assert.deepEqual(csp.split("; "), [
+    "default-src 'none'",
+    `script-src 'self' 'nonce-${nonce}'`,
+    `style-src 'self' 'nonce-${nonce}'`,
+    "img-src 'self' data:",
+    "font-src 'self'",
+    "connect-src 'self'",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "form-action 'none'",
+    "frame-ancestors 'none'",
+  ]);
+  assert.equal(nonceSeenByNext(csp), nonce);
+});
+
+const NEXT_CONFIG = readFileSync(new URL("../../../next.config.ts", import.meta.url), "utf8");
+const MIDDLEWARE = readFileSync(new URL("../../middleware.ts", import.meta.url), "utf8");
+
+/**
+ * A regra que entrega a CSP ESTÁTICA a tudo que não tem nonce, lida do next.config
+ * (que importa @sentry/nextjs e não roda sob tsx) e casada com o matcher do próprio Next.
+ */
+function regraGlobal(): (caminho: string) => boolean {
+  const fonte = NEXT_CONFIG.match(/source:\s*"([^"]+)",\s*headers:\s*securityHeaders/)?.[1];
+  assert.ok(fonte, "regra global de headers não encontrada no next.config.ts");
+  const casa = getPathMatch(fonte, { strict: true, removeUnnamedParams: true });
+  return (caminho) => casa(caminho) !== false;
+}
+
+test("a CSP estática do next.config não casa o link da bio (na Vercel sairiam duas CSP)", () => {
+  const casa = regraGlobal();
+  for (const caminho of ["/bio", "/bio/loja-teste", "/p/x", "/r/x", "/c/x"]) {
+    assert.equal(casa(caminho), false, `${caminho} sairia com duas CSP`);
+  }
+  for (const caminho of ["/painel", "/termos", "/biografia", "/login"]) {
+    assert.equal(casa(caminho), true, `${caminho} ficou sem a CSP estática`);
+  }
+  assert.match(NEXT_CONFIG, /source:\s*"\/bio\/:path\*",\s*headers:\s*headersWithoutCsp/);
+});
+
+test("a raiz se divide pelo host: CSP estática no Girumo, a do middleware no domínio do lojista", () => {
+  assert.equal(regraGlobal()("/"), false, "a raiz casou a regra global: no domínio do lojista sairiam duas CSP");
+  assert.match(NEXT_CONFIG, /source:\s*"\/",\s*has:\s*\[\{\s*type:\s*"host",\s*value:\s*FIRST_PARTY_HOST_PATTERN\s*\}\],\s*headers:\s*securityHeaders/);
+  assert.match(NEXT_CONFIG, /source:\s*"\/",\s*missing:\s*\[\{\s*type:\s*"host",\s*value:\s*FIRST_PARTY_HOST_PATTERN\s*\}\],\s*headers:\s*headersWithoutCsp/);
+});
+
+test("o middleware roda em toda /bio/* (entrada própria no matcher, como /p/ /r/ /c/)", () => {
+  assert.match(MIDDLEWARE, /"\/bio\/:path\*"/);
+});
+
+test("a fonte do link da bio tem cache de 30 dias, sem immutable (o nome não tem versão)", () => {
+  const bloco = /source:\s*"\/fonts\/bio\/:path\*",\s*headers:\s*\[([\s\S]*?)\],\s*\}/.exec(NEXT_CONFIG)?.[1] ?? "";
+  assert.match(bloco, /key:\s*"Cache-Control",\s*value:\s*"public, max-age=2592000"\s*\}/);
+  // A prévia (iframe srcdoc sandbox="") tem origem opaca: a fonte é pedida com `Origin: null`.
+  assert.match(bloco, /key:\s*"Access-Control-Allow-Origin",\s*value:\s*"\*"\s*\}/);
+  assert.doesNotMatch(NEXT_CONFIG, /fonts\/bio[\s\S]{0,200}immutable/);
 });

@@ -30,6 +30,23 @@ const UM_MINUTO_MS = 60_000;
  * caírem dos dois lados da virada do minuto, a pessoa conta duas vezes: raro
  * (só loja com 2+ números no grupo) e aceito.
  */
+/**
+ * A pessoa saiu por conta própria: o autor do `remove` é ela mesma. Remoção por
+ * admin (inclusive o "remover duplicados") traz outro autor. É a saída
+ * voluntária que alimenta o disjuntor do anti-ban (`avaliar_disjuntor_saidas`),
+ * porque a tela de sair do WhatsApp oferece "Sair e denunciar".
+ */
+export function temSaidaVoluntaria(
+  action: string,
+  participants: ParticipantLike[] | null | undefined,
+  author: string | null | undefined,
+): boolean {
+  if (String(action ?? "").toLowerCase() !== "remove") return false;
+  const autor = String(author ?? "").trim();
+  if (!autor) return false;
+  return (participants ?? []).some((p) => String(p?.id ?? "").trim() === autor);
+}
+
 export function movimentoDeMembros(
   action: string,
   participants: ParticipantLike[] | null | undefined,

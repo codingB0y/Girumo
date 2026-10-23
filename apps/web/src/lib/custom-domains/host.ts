@@ -41,7 +41,16 @@ export function hostnameFromHostHeader(host: string | null): string {
   return (host ?? "").split(":", 1)[0].trim().toLowerCase();
 }
 
-export type CustomHostRoute = "surface" | "public-api" | "root-link" | "not-found";
+export type CustomHostRoute = "surface" | "public-api" | "root-link" | "bio-root" | "not-found";
+
+/**
+ * Slug interno que a raiz do domínio do lojista vira (`/bio/_dominio`, spec
+ * link-da-bio §6). Fora do formato de slug: nenhuma loja tem esse.
+ */
+export const BIO_DOMINIO = "_dominio";
+
+/** O 404 seco do domínio do lojista: middleware e raiz sem página. */
+export const LINK_NAO_ENCONTRADO = "Link não encontrado.";
 
 // Um segmento só, no formato de slug de campanha (ver lib/campaigns/rename-slug).
 // Ponto nunca casa: /favicon.ico e /robots.txt seguem 404.
@@ -52,12 +61,14 @@ const ROOT_RESERVED = new Set(["/r", "/c", "/p", "/api"]);
 /**
  * O que um domínio de lojista serve: os links (/r, /c), as páginas (/p) e as
  * APIs públicas que essas páginas chamam (/api/p — lead, track e mídia).
- * Painel, login e API logada não existem nesse endereço.
+ * Painel, login e API logada não existem nesse endereço; a raiz é o link da
+ * bio da loja.
  *
  * `root-link`: `/<slug>` é o mesmo que `/r/<slug>`. Só aqui — no host do Girumo
  * a raiz é do app (/login, /painel…) e um slug `login` brigaria com a rota.
  */
 export function customHostRoute(pathname: string): CustomHostRoute {
+  if (pathname === "/") return "bio-root";
   if (/^\/[rcp]\//.test(pathname)) return "surface";
   if (pathname.startsWith("/api/p/")) return "public-api";
   if (ROOT_LINK_RE.test(pathname) && !ROOT_RESERVED.has(pathname)) return "root-link";

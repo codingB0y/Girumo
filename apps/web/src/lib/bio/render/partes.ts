@@ -5,6 +5,10 @@
  * Puro (sem server-only, Supabase, React ou node:): roda na rota pública e na
  * prévia do painel. Texto do lojista só entra por `escapeHtml`, sempre entre
  * aspas duplas; URL só sai de `new URL` com protocolo da lista.
+ *
+ * Confiança: o que entra em HTML sem `escapeHtml` (`sizes`, `classe`, `prefixo`,
+ * `classeDoResumo`, `seletor`, `resumo`, `mapa`) é constante do modelo ou HTML já
+ * escapado por quem chama — nunca texto do lojista.
  */
 import type { TokensBio } from "@/lib/bio/cores";
 import type { DadosRender, DocumentoBio, LinkBio, MidiaRef } from "@/lib/bio/documento";
@@ -54,7 +58,7 @@ const SIMBOLOS: Record<string, string> = {
 
 /** `<svg>` decorativo que usa um símbolo do sprite; nome fora da lista vira "link". */
 export function icone(nome: string, classe = "i"): string {
-  const n = Object.hasOwn(SIMBOLOS, nome) ? nome : "link";
+  const n = Object.prototype.hasOwnProperty.call(SIMBOLOS, nome) ? nome : "link";
   return `<svg class="${classe}" viewBox="0 0 24 24" aria-hidden="true"><use href="#lk-i-${n}"></use></svg>`;
 }
 
@@ -62,7 +66,7 @@ export function icone(nome: string, classe = "i"): string {
 export function sprite(html: string): string {
   const usados = [...new Set(html.match(/#lk-i-[a-z-]+/g) ?? [])]
     .map((ref) => ref.slice("#lk-i-".length))
-    .filter((n) => Object.hasOwn(SIMBOLOS, n));
+    .filter((n) => Object.prototype.hasOwnProperty.call(SIMBOLOS, n));
   if (usados.length === 0) return "";
   const simbolos = usados.map((n) => `<symbol id="lk-i-${n}" viewBox="0 0 24 24">${SIMBOLOS[n]}</symbol>`).join("");
   return `<svg class="lk-sprite" aria-hidden="true" focusable="false">${simbolos}</svg>`;
@@ -88,13 +92,15 @@ export function classeDoFoco(foco: MidiaRef["foco"]): string {
 }
 
 /**
- * Uma regra por foco distinto do documento. `transform-origin` junto: o zoom do
+ * Uma regra por foco distinto do documento, só de link ligado (`ativo`; os
+ * escondidos por campanha só se sabem no `DadosRender`, e custam uma regra à toa). `transform-origin` junto: o zoom do
  * Clássico (PR 3b) cresce em volta do mesmo ponto sem regra própria.
  */
 export function regrasDoFoco(doc: DocumentoBio): string {
   const p = doc.perfil;
   const midias: (MidiaRef | null)[] = [p.capa, p.logoClara, p.logoEscura];
   for (const l of doc.links) {
+    if (!l.ativo) continue;
     if (l.tipo === "link") midias.push(...l.fotos);
     if (l.tipo === "endereco") midias.push(l.foto);
   }
@@ -194,7 +200,8 @@ function urlSegura(bruta: string): string | null {
   try {
     const u = new URL(bruta);
     const protocoloOk = u.protocol === "https:" || u.protocol === "http:";
-    return protocoloOk && u.hostname.includes(".") ? u.href : null;
+    const semCredencial = !u.username && !u.password; // `loja.com.br@evil.com` abre evil.com
+    return protocoloOk && semCredencial && u.hostname.includes(".") ? u.href : null;
   } catch {
     return null;
   }
@@ -209,7 +216,7 @@ export function hrefDoLink(l: LinkBio, d: DadosRender): string | null {
       return urlSegura(`https://wa.me/${l.numero}${texto}`);
     }
     case "grupo": {
-      const slug = Object.hasOwn(d.campanhas, l.campanhaId) ? d.campanhas[l.campanhaId] : "";
+      const slug = Object.prototype.hasOwnProperty.call(d.campanhas, l.campanhaId) ? d.campanhas[l.campanhaId] : "";
       return SLUG_DE_CAMPANHA.test(slug) ? campaignLinkPath(d.origem, slug) : null;
     }
     case "link":
@@ -313,3 +320,8 @@ export const CSS_BASE = [
   ".lk-status:empty{padding:0;box-shadow:none}",
   "@media (prefers-reduced-motion:reduce){.lk *,.lk *::before,.lk *::after{animation:none!important;transition:none!important}}",
 ].join("");
+
+/** CNPJ do rodapé (e do confere do Romaneio): formatado com o "confere" ligado e o CNPJ válido pela `CNPJ`; senão "". */
+export function cnpjDaLoja(doc: DocumentoBio): string {
+  return doc.confere.ativo && CNPJ.test(doc.confere.cnpj) ? formatarCnpj(doc.confere.cnpj) : "";
+}

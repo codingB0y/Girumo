@@ -4,12 +4,14 @@ import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import {
+  BIO_DOMINIO,
   FIRST_MATCHER_SKIPPED,
   FIRST_PARTY_HOST_PATTERN,
   campaignLinkPath,
   customHostRoute,
   hostnameFromHostHeader,
   isFirstPartyHost,
+  LINK_NAO_ENCONTRADO,
   skipsFirstPartyMiddleware,
 } from "./host";
 
@@ -56,9 +58,17 @@ test("domínio de lojista serve só links, páginas e as APIs públicas delas", 
   assert.equal(customHostRoute("/p/minha-loja"), "surface");
   assert.equal(customHostRoute("/api/p/lead"), "public-api");
   assert.equal(customHostRoute("/api/p/media/123"), "public-api");
-  for (const path of ["/", "/painel/campanhas", "/api/dominio", "/api/auth/login", "/r", "/c", "/p", "/api", "/rr/x", "/favicon.ico", "/robots.txt", "/Varejo", "/a--b", "/-x"]) {
+  for (const path of ["/painel/campanhas", "/api/dominio", "/api/auth/login", "/r", "/c", "/p", "/api", "/rr/x", "/favicon.ico", "/robots.txt", "/Varejo", "/a--b", "/-x", "/bio/loja-x", "/bio/_dominio"]) {
     assert.equal(customHostRoute(path), "not-found", path);
   }
+});
+
+test("no domínio do lojista, a raiz é o link da bio da loja", () => {
+  assert.equal(customHostRoute("/"), "bio-root");
+  // `/bio/_dominio` é caminho interno do rewrite: digitado lá, não existe.
+  assert.equal(customHostRoute(`/bio/${BIO_DOMINIO}`), "not-found");
+  // A raiz sem página responde o mesmo texto do 404 do middleware (spec §6).
+  assert.equal(LINK_NAO_ENCONTRADO, "Link não encontrado.");
 });
 
 test("no domínio do lojista, /<slug> é o link da campanha (vira /r/<slug>)", () => {

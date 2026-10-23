@@ -1,3 +1,5 @@
+import React from "react";
+
 /** Interruptor `role="switch"` no visual `pn-interruptor` (mesmas classes de configuracoes-vitrine). */
 export function Interruptor({ ligado, aoMudar, rotulo, desabilitado = false }: { ligado: boolean; aoMudar: (ligado: boolean) => void; rotulo: string; desabilitado?: boolean }) {
   return (

@@ -11,17 +11,19 @@ import { coresDoModelo } from "@/lib/bio/cores";
 import type { DadosRender, Modelo } from "@/lib/bio/documento";
 import { escapeHtml } from "@/lib/campaigns/entry-page";
 import { nonceAttribute } from "@/lib/security/csp";
+import { classico } from "./classico";
 import { etiqueta } from "./etiqueta";
 import type { ContextoRender, FonteDoModelo, ModeloRender, ModoRender } from "./modelo";
 import { CSS_BASE, linksVisiveis, logoDaPagina, regrasDoFoco, sprite, tokensValidos, urlDaImagem } from "./partes";
+import { romaneio } from "./romaneio";
 import { scriptDaPagina } from "./script";
+import { vitrine } from "./vitrine";
 
-/** O PR 3b troca as três últimas entradas pelos modelos próprios. */
 const MODELOS_RENDER: Record<Modelo, ModeloRender> = {
   etiqueta,
-  vitrine: etiqueta,
-  romaneio: etiqueta,
-  classico: etiqueta,
+  vitrine,
+  romaneio,
+  classico,
 };
 
 const COR = /^#[0-9A-F]{6}$/;
@@ -57,16 +59,18 @@ function cabeca(c: ContextoRender, m: ModeloRender, preload: string): string {
   const frase = escapeHtml(p.frase);
   const tema = m.corDoTopo(c.tokens);
   const icone = c.logo ? urlDaImagem(c.logo.midia.id, 384) : null;
-  const og = p.capa ? imagemAbsoluta(c.d.origem, p.capa.id) : null;
+  // A prévia é um iframe srcdoc que ninguém indexa nem compartilha: sem description nem Open Graph.
+  const publica = c.modo === "publica";
+  const og = publica && p.capa ? imagemAbsoluta(c.d.origem, p.capa.id) : null;
   return [
     '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width,initial-scale=1">',
     `<title>${nome}</title>`,
-    frase ? `<meta name="description" content="${frase}">` : "",
+    publica && frase ? `<meta name="description" content="${frase}">` : "",
     '<meta name="robots" content="noindex">',
-    '<meta property="og:type" content="website">',
-    `<meta property="og:title" content="${nome}">`,
-    frase ? `<meta property="og:description" content="${frase}">` : "",
+    publica ? '<meta property="og:type" content="website">' : "",
+    publica ? `<meta property="og:title" content="${nome}">` : "",
+    publica && frase ? `<meta property="og:description" content="${frase}">` : "",
     og ? `<meta property="og:image" content="${escapeHtml(og)}">` : "",
     COR.test(tema) ? `<meta name="theme-color" content="${tema}">` : "",
     `<link rel="icon" href="${icone ? escapeHtml(icone) : "data:,"}">`,
@@ -97,7 +101,10 @@ export function renderPaginaBio(
   const nonce = nonceAttribute(o.nonce);
   const f = fontes(modelo.fontes);
   const variaveis = `.lk{${Object.entries(tokens).map(([k, v]) => `${k}:${v}`).join(";")}}`;
-  const css = `${f.css}${variaveis}${CSS_BASE}${modelo.css}${regrasDoFoco(doc)}`;
+  // O elástico do scroll no iOS mostra o canvas do <html>: na cor do topo (a do theme-color), não em branco.
+  const tema = modelo.corDoTopo(tokens);
+  const fundoDoHtml = COR.test(tema) ? `html{background:${tema}}` : "";
+  const css = `${f.css}${variaveis}${CSS_BASE}${modelo.css}${regrasDoFoco(doc)}${fundoDoHtml}`;
   const entra = o.animarEntrada && doc.animar ? " lk-entra" : "";
   const script = o.modo === "publica" ? `<script${nonce}>${scriptDaPagina({ rastreio: null })}</script>` : "";
   return `<!doctype html><html lang="pt-BR"><head>${cabeca(c, modelo, f.preload)}<style${nonce}>${css}</style></head><body data-pagina="${escapeHtml(d.paginaId)}"><div class="lk${entra}">${sprite(corpo)}${corpo}<p id="lk-status" class="lk-status" role="status"></p></div>${script}</body></html>`;
