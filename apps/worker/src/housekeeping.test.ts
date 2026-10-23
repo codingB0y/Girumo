@@ -35,9 +35,9 @@ test("housekeeping chama requeue_expired_commands — a etapa que a F4 esquecia"
 
   assert.deepEqual(
     calls.map((c) => c.fn),
-    ["requeue_expired_commands", "reconcile_broadcast_progress", "promote_due_schedules"],
+    ["requeue_expired_commands", "reconcile_broadcast_progress", "promote_due_schedules", "enviar_avisos_lotou"],
   );
-  assert.deepEqual(summary, { requeued: 3, reconciled: 2, promoted: 1, pruned: 0 });
+  assert.deepEqual(summary, { requeued: 3, reconciled: 2, promoted: 1, avisos: 0, pruned: 0 });
 });
 
 test("requeue roda ANTES do reconciliador (lease vencido não pode contar como concluído)", async () => {
@@ -96,8 +96,72 @@ test("erro real de banco sobe (o index marca o worker unhealthy)", async () => {
 });
 
 test("housekeepingDidWork só é true quando alguma etapa mexeu em algo", () => {
-  const zero: HousekeepingSummary = { requeued: 0, reconciled: 0, promoted: 0, pruned: 0 };
+  const zero: HousekeepingSummary = { requeued: 0, reconciled: 0, promoted: 0, avisos: 0, pruned: 0 };
   assert.equal(housekeepingDidWork(zero), false);
   assert.equal(housekeepingDidWork({ ...zero, reconciled: 1 }), true);
   assert.equal(housekeepingDidWork({ ...zero, pruned: 4 }), true);
+  // O index só loga o ciclo que mexeu em algo: aviso enfileirado tem que aparecer no log.
+  assert.equal(housekeepingDidWork({ ...zero, avisos: 1 }), true);
+});
+
+test("aviso ao lotar: uma chamada por ciclo com p_limit 20, mesmo quando o lote volta cheio", async () => {
+  // Sem laço de "chamar até zerar": cada aviso é um disparo na fila anti-ban do
+  // número e cada chamada a mais é egress. A função no banco só enxerga grupos que
+  // lotaram na última hora — worker parado por mais que isso perde os avisos dos
+  // grupos que lotaram antes da janela; uma chamada por ciclo com p_limit 20 só
+  // evita rajada quando ele volta.
+  const calls: RpcCall[] = [];
+  const summary = await runHousekeeping(fakeSupabase({ enviar_avisos_lotou: { data: 20 } }, calls));
+
+  const avisos = calls.filter((c) => c.fn === "enviar_avisos_lotou");
+  assert.equal(avisos.length, 1);
+  assert.deepEqual(avisos[0]?.args, { p_limit: 20 });
+  assert.equal(summary.avisos, 20);
+  assert.equal(housekeepingDidWork(summary), true);
+});
+
+test("erro no aviso ao lotar sobe, mas só depois das etapas da fila, e a poda fica para o próximo ciclo", async () => {
+  const calls: RpcCall[] = [];
+  const supabase = fakeSupabase(
+    { enviar_avisos_lotou: { error: { message: "deadlock detected", code: "40P01" } } },
+    calls,
+  );
+
+  await assert.rejects(() => runHousekeeping(supabase), /enviar_avisos_lotou: deadlock detected/);
+  assert.deepEqual(
+    calls.map((c) => c.fn),
+    ["requeue_expired_commands", "reconcile_broadcast_progress", "promote_due_schedules", "enviar_avisos_lotou"],
+  );
+
+  // Com poda pedida, o erro do aviso a pula neste ciclo (como qualquer outra etapa que
+  // sobe): o index só avança lastPruneAt quando runHousekeeping retorna, então a poda
+  // roda no ciclo seguinte em que o aviso passar — não a cada 30 s por causa do erro.
+  const comPoda: RpcCall[] = [];
+  await assert.rejects(
+    () =>
+      runHousekeeping(
+        fakeSupabase(
+          { enviar_avisos_lotou: { error: { message: "deadlock detected", code: "40P01" } } },
+          comPoda,
+        ),
+        { prune: true },
+      ),
+    /enviar_avisos_lotou/,
+  );
+  assert.ok(!comPoda.some((c) => c.fn === "prune_instance_sends"));
+});
+
+test("worker novo contra banco sem a migração do aviso: etapa pulada, o resto segue", async () => {
+  const summary = await runHousekeeping(
+    fakeSupabase(
+      {
+        promote_due_schedules: { data: 2 },
+        enviar_avisos_lotou: { error: { message: "not found", code: "PGRST202" } },
+      },
+      [],
+    ),
+  );
+
+  assert.equal(summary.avisos, 0);
+  assert.equal(summary.promoted, 2);
 });

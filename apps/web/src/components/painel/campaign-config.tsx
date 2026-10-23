@@ -15,6 +15,7 @@ import { EntradaPreview } from "@/components/painel/campanhas/entrada-preview";
 import { IntegracoesForm, type IntegracoesFormValue } from "@/components/painel/campanhas/integracoes-form";
 import type { IntegracoesPublicas } from "@/app/api/campanhas/apresenta";
 import { AjudaPainel } from "@/components/painel/campanhas/ajuda-painel";
+import { AvisoAoLotar, type AvisoAoLotarValor } from "@/components/painel/campanhas/aviso-ao-lotar";
 import { useLinkOrigin } from "@/lib/painel/use-link-origin";
 import { buscarLista, cargaDeTodas } from "@/lib/painel/carregar";
 import type { Carga } from "@/lib/painel/types";
@@ -59,6 +60,9 @@ type Campanha = {
    * sync regrava `group_ids`; ver PATCH /api/campanhas no servidor). */
   whatsappCommunityJid?: string | null;
   settings?: { entrada: EntradaSettings; integracoes?: IntegracoesPublicas };
+  /** Aviso ao lotar (spec 2026-10-10 D10). `null` = desligado. O `desde` filtra os "Últimos avisos". */
+  avisoAoLotar?: string | null;
+  avisoAoLotarDesde?: string | null;
 };
 type PaginaDaApi = { slug: string; title?: string; status?: string };
 
@@ -129,6 +133,10 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
   const [loja, setLoja] = useState("");
   // Páginas publicadas da conta, opções da lista de espera.
   const [pages, setPages] = useState<{ slug: string; title: string }[]>([]);
+  // Aviso ao lotar (aba Grupos) — só existe na edição. `avisoDesde` é o gravado:
+  // filtra os "Últimos avisos" e só muda depois de salvar (a tela sai daqui no save).
+  const [aviso, setAviso] = useState<AvisoAoLotarValor>({ ligado: false, texto: "" });
+  const [avisoDesde, setAvisoDesde] = useState<string | null>(null);
 
   const [idx, setIdx] = useState(0);
   const origin = useLinkOrigin();
@@ -175,6 +183,8 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
         setEntrada(c.settings?.entrada ?? ENTRADA_DEFAULTS);
         setIntegracoes(c.settings?.integracoes ?? INTEGRACOES_FORM_VAZIO);
         setLoja(typeof c.loja === "string" ? c.loja : "");
+        setAviso({ ligado: Boolean(c.avisoAoLotar), texto: c.avisoAoLotar ?? "" });
+        setAvisoDesde(c.avisoAoLotarDesde ?? null);
       },
       setCargaDaCampanha,
     );
@@ -294,6 +304,8 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
             // qualquer jeito.
             ...(comunidadeNativa ? {} : { groupIds, autoGrow, ...growTemplatePatch() }),
             settings: { entrada, integracoes: integracoesPatch() },
+            // Desligado manda "": o servidor zera o texto e o `desde` (só espaços também desliga, lá).
+            avisoAoLotar: aviso.ligado ? aviso.texto : "",
             ...(createdSlug && slugDraft !== createdSlug ? { slug: slugDraft } : {}),
           }),
         });
@@ -622,7 +634,17 @@ export function CampaignConfig({ mode, slug }: { mode: "create" | "edit"; slug?:
   const sections =
     mode === "create"
       ? [objetivoCard, cadastroCard, gruposCard]
-      : [cadastroCard, gruposCard, entradaCard, integracoesCard];
+      : [
+          cadastroCard,
+          <div key="grupos" className="space-y-6">
+            {gruposCard}
+            <Card>
+              <AvisoAoLotar value={aviso} onChange={setAviso} slug={createdSlug} desde={avisoDesde} />
+            </Card>
+          </div>,
+          entradaCard,
+          integracoesCard,
+        ];
 
   return (
     <div className="mx-auto max-w-[760px] px-4 py-8 sm:px-8">

@@ -89,6 +89,8 @@ function campanha(id: string, name: string, meta: Record<string, string> | null)
     grow_template: null,
     metadata: meta ? { settings: { integracoes: { meta } } } : {},
     whatsapp_community_jid: null,
+    aviso_ao_lotar: null,
+    aviso_ao_lotar_desde: null,
     created_at: "2026-10-01T12:00:00+00:00",
     updated_at: "2026-10-01T12:00:00+00:00",
   };
