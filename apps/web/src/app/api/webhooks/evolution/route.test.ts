@@ -67,7 +67,7 @@ const servidor = createServer((req, res) => {
       corpo: bruto ? JSON.parse(bruto) : undefined,
     };
     chamadas.push(chamada);
-    const { status, corpo } = respostas[`${chamada.metodo} ${chamada.url.pathname}`] ?? {
+    const { status, corpo } = respostas[`${chamada.metodo} ${chamada.url.pathname}`] ?? respostas["*"] ?? {
       status: 500,
       corpo: { message: `inesperado: ${chamada.metodo} ${chamada.url.pathname}` },
     };
@@ -222,4 +222,66 @@ test("queda sem wuid (telefone nulo) não invalida", async () => {
 
   assert.equal(res.status, 200);
   assert.equal(escopo.pendingRevalidatedTags, undefined);
+});
+
+// Disjuntor do anti-ban (23/10/2026): só a saída voluntária faz o banco recontar.
+const saida = (autor: string) =>
+  new Request("http://girumo.test/api/webhooks/evolution", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-evolution-webhook-secret": SEGREDO },
+    body: JSON.stringify({
+      event: "group-participants.update",
+      instance: "gr_inst-1",
+      date_time: "2026-10-23T10:01:00.000Z",
+      data: {
+        id: "120363000000000001@g.us",
+        action: "remove",
+        author: autor,
+        participants: [{ id: "100000000000001@lid", phoneNumber: null, admin: null }],
+      },
+    }),
+  });
+
+function cenarioSaida() {
+  chamadas.length = 0;
+  respostas = {
+    "GET /rest/v1/instances": { status: 200, corpo: [INSTANCIA] },
+    "POST /rest/v1/rpc/record_engine_event": { status: 200, corpo: [{ is_new: true }] },
+    "POST /rest/v1/rpc/avaliar_disjuntor_saidas": { status: 200, corpo: { aberto: false, saidas: 3, limite: 30 } },
+    "*": { status: 200, corpo: [] },
+  };
+}
+
+const avaliouDisjuntor = () =>
+  chamadas.filter((c) => c.metodo === "POST" && c.url.pathname === "/rest/v1/rpc/avaliar_disjuntor_saidas");
+
+test("saída voluntária faz o banco avaliar o disjuntor da loja", async () => {
+  cenarioSaida();
+
+  const res = await POST(saida("100000000000001@lid"));
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(
+    avaliouDisjuntor().map((c) => c.corpo),
+    [{ p_tenant: LOJA }],
+  );
+});
+
+test("remoção por admin não avalia o disjuntor", async () => {
+  cenarioSaida();
+
+  const res = await POST(saida("200000000000002@lid"));
+
+  assert.equal(res.status, 200);
+  assert.equal(avaliouDisjuntor().length, 0);
+});
+
+test("erro do banco no disjuntor não derruba o webhook", async () => {
+  cenarioSaida();
+  respostas["POST /rest/v1/rpc/avaliar_disjuntor_saidas"] = ERRO_DO_BANCO;
+
+  const res = await POST(saida("100000000000001@lid"));
+
+  assert.equal(res.status, 200);
+  assert.equal(avaliouDisjuntor().length, 1);
 });
