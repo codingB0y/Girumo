@@ -83,3 +83,13 @@ test("fotos do botão: miniatura e Remover de cada uma; Escolher fotos (várias)
   assert.doesNotMatch(html(3), /Escolher fotos/);
   assert.doesNotMatch(html(0), /<ul /);
 });
+
+test("fotos do botão: erro do salvar ligado ao botão; com 3 fotos o grupo recebe o foco; Remover trava no envio", () => {
+  const fotos = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `kit-${i + 1}-falso`, foco: null }));
+  const dois = renderToStaticMarkup(createElement(CampoDeFotos, { id: "bio-link-fotos", valor: fotos(2), aoMudar: noop, erro: "Foto fora da loja." }));
+  assert.match(dois, /id="bio-link-fotos" aria-describedby="bio-link-fotos-erro bio-link-fotos-ajuda"/);
+  assert.match(dois, /<p id="bio-link-fotos-erro" role="alert"[^>]*>Foto fora da loja\.<\/p>/);
+  const tres = renderToStaticMarkup(createElement(CampoDeFotos, { id: "bio-link-fotos", valor: fotos(3), aoMudar: noop, erro: "x" }));
+  assert.match(tres, /<div id="bio-link-fotos" tabindex="-1"/);
+  assert.doesNotMatch(tres, /<button type="button" id="bio-link-fotos"/);
+});

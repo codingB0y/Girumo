@@ -184,14 +184,21 @@ export function CampoDeFoto({ id, rotulo, nome, ajuda, tipo, formato, valor, aoM
   );
 }
 
-export type PropsDoCampoDeFotos = { id: string; valor: readonly MidiaRef[]; aoMudar: (fotos: MidiaRef[]) => void };
+export type PropsDoCampoDeFotos = {
+  id: string;
+  valor: readonly MidiaRef[];
+  aoMudar: (fotos: MidiaRef[]) => void;
+  /** Erro do salvar em `link.fotos`. */
+  erro?: string;
+};
 
 /** As fotos do botão (`link.fotos`, até 3, §4): miniatura com Remover e "Escolher fotos" (várias de uma vez). */
-export function CampoDeFotos({ id, valor, aoMudar }: PropsDoCampoDeFotos) {
+export function CampoDeFotos({ id, valor, aoMudar, erro }: PropsDoCampoDeFotos) {
   const entrada = useRef<HTMLInputElement>(null);
   const [enviando, setEnviando] = useState(false);
   const [falha, setFalha] = useState<string | null>(null);
   const cabem = MAX_FOTOS_DO_LINK - valor.length;
+  const mensagem = falha ?? erro;
 
   async function enviar(arquivos: File[]) {
     setFalha(null);
@@ -212,7 +219,8 @@ export function CampoDeFotos({ id, valor, aoMudar }: PropsDoCampoDeFotos) {
   }
 
   return (
-    <div className="grid gap-1.5">
+    // Com 3 fotos o botão some: o grupo recebe o foco do erro do salvar (id e tabIndex -1).
+    <div id={cabem > 0 ? undefined : id} tabIndex={cabem > 0 ? undefined : -1} className="grid gap-1.5">
       <span id={`${id}-rotulo`} className={ROTULO}>
         Fotos no botão (opcional, até 3)
       </span>
@@ -221,17 +229,23 @@ export function CampoDeFotos({ id, valor, aoMudar }: PropsDoCampoDeFotos) {
           <ul aria-labelledby={`${id}-rotulo`} className="flex gap-2">
             {valor.map((foto, i) => (
               <li key={`${foto.id}-${i}`} className="grid w-14 justify-items-center gap-0.5">
-                <img
-                  src={srcDaMiniatura(foto.id, 128)}
-                  alt=""
-                  width={48}
-                  height={56}
-                  className="h-14 w-12 rounded-lg bg-canvas-100 object-cover"
-                />
+                {urlDaImagem(foto.id, 128) && (
+                  <img
+                    src={srcDaMiniatura(foto.id, 128)}
+                    alt=""
+                    width={48}
+                    height={56}
+                    className="h-14 w-12 rounded-lg bg-canvas-100 object-cover"
+                  />
+                )}
                 <button
                   type="button"
                   aria-label={`Remover a foto ${i + 1}`}
-                  onClick={() => aoMudar(valor.filter((_, j) => j !== i))}
+                  disabled={enviando}
+                  onClick={() => {
+                    setFalha(null);
+                    aoMudar(valor.filter((_, j) => j !== i));
+                  }}
                   className={PERIGO}
                 >
                   Remover
@@ -244,7 +258,7 @@ export function CampoDeFotos({ id, valor, aoMudar }: PropsDoCampoDeFotos) {
           <button
             type="button"
             id={id}
-            aria-describedby={`${id}-ajuda`}
+            aria-describedby={[mensagem ? `${id}-erro` : null, `${id}-ajuda`].filter(Boolean).join(" ")}
             onClick={() => entrada.current?.click()}
             disabled={enviando}
             className={SECUNDARIO}
@@ -257,9 +271,9 @@ export function CampoDeFotos({ id, valor, aoMudar }: PropsDoCampoDeFotos) {
       <span id={`${id}-ajuda`} className={AJUDA}>
         Com fotos, o botão mostra as capas no lugar do ícone.
       </span>
-      {falha && (
-        <p role="alert" className={ERRO}>
-          {falha}
+      {mensagem && (
+        <p id={`${id}-erro`} role="alert" className={ERRO}>
+          {mensagem}
         </p>
       )}
       <input
