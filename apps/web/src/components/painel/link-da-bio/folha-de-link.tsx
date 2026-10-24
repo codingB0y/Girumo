@@ -6,7 +6,7 @@ import { AlertTriangle, ChevronLeft, Trash2 } from "lucide-react";
 
 import { Folha } from "@/components/painel/folha";
 import { Interruptor } from "@/components/painel/instagram/interruptor";
-import type { Icone, LinkBio } from "@/lib/bio/documento";
+import type { Icone, LinkBio, MidiaRef } from "@/lib/bio/documento";
 import {
   ATALHOS,
   ICONES_DO_SELETOR,
@@ -21,6 +21,7 @@ import {
 import type { CampanhaDoPainel } from "@/lib/bio/painel-api";
 import { cn } from "@/lib/utils";
 
+import { CampoDeFoto, CampoDeFotos } from "./campo-de-foto";
 import { IconeDoLink, QuadradoDoIcone } from "./icone-do-link";
 import { focarDepois } from "./use-editor-bio";
 
@@ -205,6 +206,9 @@ export type PropsDoConteudoDaFolha = {
   aoMudar: (campo: CampoDoLink, valor: string) => void;
   aoIcone: (icone: Icone) => void;
   aoDestaque: () => void;
+  /** Fotos do botão (`link`, até 3) e da fachada (`endereco`): 6b. */
+  aoFotos: (fotos: MidiaRef[]) => void;
+  aoFoto: (foto: MidiaRef | null) => void;
   aoAplicar: () => void;
   aoCancelar: () => void;
   aoPedirExclusao: () => void;
@@ -359,6 +363,7 @@ function Formulario(p: PropsDoConteudoDaFolha & { rascunho: LinkBio }) {
             aoMudar={p.aoMudar}
           />
           <SeletorDeIcone atual={r.icone} aoIcone={p.aoIcone} />
+          <CampoDeFotos id="bio-link-fotos" valor={r.fotos} aoMudar={p.aoFotos} />
         </>
       )}
       {r.tipo === "endereco" && (
@@ -373,6 +378,16 @@ function Formulario(p: PropsDoConteudoDaFolha & { rascunho: LinkBio }) {
             aoMudar={p.aoMudar}
           />
           <CampoDeTexto campo="horario" rotulo="Horário (opcional)" valor={r.horario} erro={e.horario} maxLength={120} aoMudar={p.aoMudar} />
+          <CampoDeFoto
+            id="bio-link-foto"
+            rotulo="Foto da fachada (opcional)"
+            nome="foto da fachada"
+            ajuda="Aparece quando a pessoa abre o Como chegar."
+            tipo="lp-media"
+            formato="foto"
+            valor={r.foto}
+            aoMudar={p.aoFoto}
+          />
           <p className={AJUDA}>Na página, o botão abre ali mesmo com o endereço, o horário e o botão do Google Maps.</p>
         </>
       )}
@@ -449,6 +464,16 @@ export function FolhaDeLink({
     });
   }
 
+  // Foto trocada: o erro geral (foto de outra loja, §4) some junto (§8, "some ao corrigir").
+  function mudarFoto(mudanca: (r: LinkBio) => LinkBio) {
+    setRascunho((r) => (r ? mudanca(r) : r));
+    setErros((atual) => {
+      const resto = { ...atual };
+      delete resto.geral;
+      return resto;
+    });
+  }
+
   function aplicar() {
     if (!rascunho) return;
     const r = validarLink(rascunho);
@@ -475,6 +500,8 @@ export function FolhaDeLink({
         aoMudar={mudar}
         aoIcone={(icone) => setRascunho((r) => (r ? { ...r, icone } : r))}
         aoDestaque={() => setRascunho((r) => (r && r.tipo !== "endereco" ? { ...r, destaque: !r.destaque } : r))}
+        aoFotos={(fotos) => mudarFoto((r) => (r.tipo === "link" ? { ...r, fotos } : r))}
+        aoFoto={(foto) => mudarFoto((r) => (r.tipo === "endereco" ? { ...r, foto } : r))}
         aoAplicar={aplicar}
         aoCancelar={aoFechar}
         aoPedirExclusao={() => setConfirmando(true)}
