@@ -150,3 +150,18 @@ test("Como chegar: foto da fachada opcional, com Escolher", () => {
   assert.match(h, /id="bio-link-foto" aria-label="Escolher foto da fachada" aria-describedby="bio-link-foto-ajuda"/);
   assert.doesNotMatch(h, /Fotos no botão/);
 });
+
+test("erro de foto do salvar aparece junto do campo de fotos e da fachada", () => {
+  const fotos = html({ rascunho: SITE, novo: false, erros: { fotos: "Essa imagem não está na sua loja." } });
+  assert.match(fotos, /<p id="bio-link-fotos-erro" role="alert"[^>]*>Essa imagem não está na sua loja\.<\/p>/);
+  const fachada = html({
+    rascunho: linkDoAtalho("endereco", { id: ID, campanhas: [] }),
+    erros: { foto: "Essa imagem não está na sua loja." },
+  });
+  assert.match(fachada, /<p id="bio-link-foto-erro" role="alert"[^>]*>Essa imagem não está na sua loja\.<\/p>/);
+});
+
+test("com uma foto subindo, Adicionar/Pronto fica desligado", () => {
+  assert.match(html({ rascunho: SITE, novo: true, enviando: true }), /<button type="submit" disabled=""[^>]*>Adicionar<\/button>/);
+  assert.doesNotMatch(html({ rascunho: SITE, novo: true }), /<button type="submit" disabled/);
+});

@@ -92,4 +92,5 @@ test("fotos do botão: erro do salvar ligado ao botão; com 3 fotos o grupo rece
   const tres = renderToStaticMarkup(createElement(CampoDeFotos, { id: "bio-link-fotos", valor: fotos(3), aoMudar: noop, erro: "x" }));
   assert.match(tres, /<div id="bio-link-fotos" tabindex="-1"/);
   assert.doesNotMatch(tres, /<button type="button" id="bio-link-fotos"/);
+  assert.match(tres, /aria-labelledby="bio-link-fotos-rotulo" aria-describedby="bio-link-fotos-erro bio-link-fotos-ajuda"/);
 });

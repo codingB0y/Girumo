@@ -56,6 +56,8 @@ export const MENSAGENS_DOS_CAMPOS: Readonly<Record<string, string>> = {
   "links.*.url": "Esse endereço não parece um link. Ex.: sualoja.com.br/catalogo",
   "links.*.endereco": "Escreva o endereço da loja, com pelo menos 5 letras.",
   "links.*.horario": "O horário vai até 120 letras.",
+  "links.*.fotos": "Confira as fotos deste botão. Envie de novo.",
+  "links.*.foto": "Confira a foto da fachada. Envie de novo.",
   "perfil.nome": "Escreva o nome da loja.",
   "perfil.instagram": "No @ do Instagram só vão letras, números, ponto e _.",
   "confere.cnpj": "Confira o CNPJ: os números não batem.",
@@ -221,7 +223,7 @@ export const ICONES_DO_SELETOR: readonly (readonly [Icone, string])[] = [
 ];
 
 /** Os campos que a folha edita, na ordem da tela: é a ordem do "primeiro campo com erro". */
-export const CAMPOS_DO_LINK = ["titulo", "sub", "numero", "mensagem", "campanhaId", "url", "endereco", "horario"] as const;
+export const CAMPOS_DO_LINK = ["titulo", "sub", "numero", "mensagem", "campanhaId", "url", "fotos", "endereco", "horario", "foto"] as const;
 export type CampoDoLink = (typeof CAMPOS_DO_LINK)[number];
 /** Erros da folha por campo; "geral" = erro do link que não é de um campo da folha (ex.: foto que não é da loja). */
 export type ErrosDoLink = Partial<Record<CampoDoLink | "geral", string>>;
@@ -311,7 +313,7 @@ export function validarLink(link: LinkBio): { ok: true; link: LinkBio } | { ok: 
   return { ok: false, erros: Object.keys(erros).length > 0 ? erros : { geral: ERRO_GERAL_DO_LINK } };
 }
 
-/** "links.2.numero" → a folha do link 2 com o erro no Número; "links.2.fotos.0" → erro geral; fora de um link → null. */
+/** "links.2.numero" → a folha do link 2 com o erro no Número; "links.2.fotos.0" → erro nas fotos do botão; fora de um link → null. */
 export function erroNoLink(erro: ErroDeCampo): { indice: number; erros: ErrosDoLink } | null {
   const [raiz, indice, campo] = erro.campo.split(".");
   if (raiz !== "links" || indice === undefined || !/^\d+$/.test(indice)) return null;

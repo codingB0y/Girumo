@@ -8,9 +8,9 @@ export const dynamic = "force-dynamic";
 /**
  * Primeiro passo do upload direto: resolve auth+tenant no servidor (igual
  * `/api/media` sempre fez) e devolve ONDE o browser deve subir o arquivo no
- * Supabase Storage. Corpo é só JSON — nunca o binário — por isso o
- * `getActiveTenantId()` do localStorage não é necessário aqui: o tenant é o
- * mesmo resolvido por cookie de sessão de qualquer outra rota do painel.
+ * Supabase Storage. Corpo é só JSON — nunca o binário. O tenant vem de
+ * `resolveMediaAuth`: Bearer + `x-tenant-id` quando o cliente manda (link da bio, loja
+ * aberta), senão o cookie de sessão; não vem do `getActiveTenantId()` do localStorage.
  */
 export async function POST(req: Request) {
   const auth = await resolveMediaAuth(req);

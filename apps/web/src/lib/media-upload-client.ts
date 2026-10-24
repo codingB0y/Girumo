@@ -17,17 +17,25 @@ async function readErrorMessage(res: Response, fallback: string): Promise<string
  * `/api/media/register`, um JSON pequeno. O token não depende da RLS de
  * `storage.objects`, que exclui a vendedora (spec 2026-10-07 §1, "RLS").
  *
- * As duas chamadas vão por `authenticatedFetch` (Bearer + `x-tenant-id`): quem
- * tem duas lojas sobe o arquivo na loja que está aberta. Com `fetch` puro o
- * servidor só via o cookie e caía na loja mais antiga — e o link da bio, que
- * confere se a foto é da loja no salvar, recusava (spec 2026-10-19 §4).
+ * Por padrão as duas chamadas vão por `fetch` puro: o servidor resolve a loja pelo
+ * cookie, como o Postar e o resto do painel. Com `{ naLojaAberta: true }` vão por
+ * `authenticatedFetch` (Bearer + `x-tenant-id`): quem tem duas lojas sobe o arquivo na loja
+ * que está aberta. O link da bio exige isso porque o salvar confere se a foto é da loja
+ * (spec 2026-10-19 §4).
+ * ponytail: o resto do painel ainda usa o cookie; alinhar o Postar inteiro (upload e POST de
+ * mensagens) à loja aberta é um follow-up.
  *
  * Existe porque uma Vercel Function tem um limite fixo de 4.5MB de corpo de
  * requisição (infra da plataforma, não contornável por código de app);
  * mandar o binário pela function fazia todo vídeo/áudio real falhar sempre,
  * "tentar de novo" incluso, porque não é uma falha transitória.
  */
-export async function uploadMediaFile(file: File, kind: MediaKind = "media"): Promise<MediaUploadResult> {
+export async function uploadMediaFile(
+  file: File,
+  kind: MediaKind = "media",
+  { naLojaAberta = false }: { naLojaAberta?: boolean } = {},
+): Promise<MediaUploadResult> {
+  const chamar = naLojaAberta ? authenticatedFetch : fetch;
   // Preflight local: barra cedo o caso comum (vídeo de celular claramente
   // grande demais) sem gastar minutos subindo um arquivo que o servidor só
   // ia rejeitar no fim de qualquer forma.
@@ -36,7 +44,7 @@ export async function uploadMediaFile(file: File, kind: MediaKind = "media"): Pr
     throw new Error(`Arquivo grande demais (max ${Math.round(limit / 1_000_000)}MB).`);
   }
 
-  const prepareRes = await authenticatedFetch("/api/media/prepare", {
+  const prepareRes = await chamar("/api/media/prepare", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ mime: file.type, kind }),
@@ -56,7 +64,7 @@ export async function uploadMediaFile(file: File, kind: MediaKind = "media"): Pr
   }
 
   try {
-    const registerRes = await authenticatedFetch("/api/media/register", {
+    const registerRes = await chamar("/api/media/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ storagePath, kind }),

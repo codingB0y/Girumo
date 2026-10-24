@@ -40,7 +40,7 @@ function mensagemDoEnvio(e: unknown): string {
 async function enviarFoto(arquivo: File, tipo: TipoDeFoto): Promise<MidiaRef> {
   const problema = problemaDaImagem(arquivo, tipo);
   if (problema) throw new Error(problema);
-  const { id } = await uploadMediaFile(arquivo, tipo);
+  const { id } = await uploadMediaFile(arquivo, tipo, { naLojaAberta: true });
   return { id, foco: null };
 }
 
@@ -105,10 +105,12 @@ export type PropsDoCampoDeFoto = {
   erro?: string;
   /** Botões a mais na linha (o "Ajustar o foco" da capa). */
   acoes?: ReactNode;
+  /** Avisa quando um envio começa (true) e termina (false): a folha segura o Adicionar/Pronto. */
+  aoEnviando?: (sim: boolean) => void;
 };
 
 /** Uma foto (capa, logo, fachada): miniatura, Escolher/Trocar e Remover. */
-export function CampoDeFoto({ id, rotulo, nome, ajuda, tipo, formato, valor, aoMudar, erro, acoes }: PropsDoCampoDeFoto) {
+export function CampoDeFoto({ id, rotulo, nome, ajuda, tipo, formato, valor, aoMudar, erro, acoes, aoEnviando }: PropsDoCampoDeFoto) {
   const entrada = useRef<HTMLInputElement>(null);
   const [enviando, setEnviando] = useState(false);
   const [falha, setFalha] = useState<string | null>(null);
@@ -120,12 +122,14 @@ export function CampoDeFoto({ id, rotulo, nome, ajuda, tipo, formato, valor, aoM
   async function enviar(arquivo: File) {
     setFalha(null);
     setEnviando(true);
+    aoEnviando?.(true);
     try {
       aoMudar(await enviarFoto(arquivo, tipo));
     } catch (e) {
       setFalha(mensagemDoEnvio(e));
     } finally {
       setEnviando(false);
+      aoEnviando?.(false);
       if (entrada.current) entrada.current.value = ""; // mandar o mesmo arquivo de novo dispara o change
     }
   }
@@ -190,10 +194,12 @@ export type PropsDoCampoDeFotos = {
   aoMudar: (fotos: MidiaRef[]) => void;
   /** Erro do salvar em `link.fotos`. */
   erro?: string;
+  /** Avisa quando um envio começa (true) e termina (false): a folha segura o Adicionar/Pronto. */
+  aoEnviando?: (sim: boolean) => void;
 };
 
 /** As fotos do botão (`link.fotos`, até 3, §4): miniatura com Remover e "Escolher fotos" (várias de uma vez). */
-export function CampoDeFotos({ id, valor, aoMudar, erro }: PropsDoCampoDeFotos) {
+export function CampoDeFotos({ id, valor, aoMudar, erro, aoEnviando }: PropsDoCampoDeFotos) {
   const entrada = useRef<HTMLInputElement>(null);
   const [enviando, setEnviando] = useState(false);
   const [falha, setFalha] = useState<string | null>(null);
@@ -203,6 +209,7 @@ export function CampoDeFotos({ id, valor, aoMudar, erro }: PropsDoCampoDeFotos) 
   async function enviar(arquivos: File[]) {
     setFalha(null);
     setEnviando(true);
+    aoEnviando?.(true);
     let lista = [...valor];
     try {
       for (const arquivo of arquivos.slice(0, cabem)) {
@@ -214,13 +221,21 @@ export function CampoDeFotos({ id, valor, aoMudar, erro }: PropsDoCampoDeFotos) 
       setFalha(mensagemDoEnvio(e));
     } finally {
       setEnviando(false);
+      aoEnviando?.(false);
       if (entrada.current) entrada.current.value = "";
     }
   }
 
   return (
     // Com 3 fotos o botão some: o grupo recebe o foco do erro do salvar (id e tabIndex -1).
-    <div id={cabem > 0 ? undefined : id} tabIndex={cabem > 0 ? undefined : -1} className="grid gap-1.5">
+    <div
+      id={cabem > 0 ? undefined : id}
+      tabIndex={cabem > 0 ? undefined : -1}
+      role={cabem > 0 ? undefined : "group"}
+      aria-labelledby={cabem > 0 ? undefined : `${id}-rotulo`}
+      aria-describedby={cabem > 0 ? undefined : [mensagem ? `${id}-erro` : null, `${id}-ajuda`].filter(Boolean).join(" ")}
+      className="grid gap-1.5"
+    >
       <span id={`${id}-rotulo`} className={ROTULO}>
         Fotos no botão (opcional, até 3)
       </span>
