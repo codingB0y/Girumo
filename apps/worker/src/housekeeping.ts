@@ -23,6 +23,8 @@ export type HousekeepingSummary = {
   reconciled: number;
   /** Agendamentos vencidos que viraram disparo. */
   promoted: number;
+  /** Avisos ao lotar enfileirados: um disparo por grupo que acabou de lotar (spec 2026-10-10 D10). */
+  avisos: number;
   /** Linhas podadas do log de envios (só quando `prune` é pedido). */
   pruned: number;
 };
@@ -34,6 +36,11 @@ export type HousekeepingOptions = {
 
 const MAX_BROADCASTS_PER_TICK = 200;
 const MAX_SCHEDULES_PER_TICK = 50;
+// Teto por ciclo de 30 s, uma chamada só (sem laço de "até zerar"): cada aviso vira um
+// disparo na fila anti-ban do número e cada chamada a mais é egress. A função no banco
+// só enxerga grupos que lotaram na última hora; worker parado por mais que isso perde
+// os avisos de quem lotou antes da janela. O teto só evita rajada quando ele volta.
+const MAX_AVISOS_PER_TICK = 20;
 const PRUNE_OLDER_THAN = "25 hours";
 
 /** Códigos de "essa função não existe (ainda)" — PostgREST e Postgres. */
@@ -66,9 +73,12 @@ async function rpcInt(
 }
 
 /**
- * Um ciclo de manutenção. As quatro etapas são independentes; a ordem só reflete
+ * Um ciclo de manutenção. As etapas são independentes; a ordem só reflete
  * causalidade: requeue devolve comandos à fila ANTES do reconciliador contar
  * pendentes (senão um lease vencido apareceria momentaneamente como "acabou").
+ * O aviso ao lotar vem depois das etapas da fila e antes da poda: um erro nele
+ * (que sobe, como nas outras etapas) não segura a fila, e pula a poda só neste ciclo
+ * — o index avança lastPruneAt apenas quando este ciclo retorna.
  */
 export async function runHousekeeping(
   supabase: SupabaseClient,
@@ -81,16 +91,21 @@ export async function runHousekeeping(
   const promoted = await rpcInt(supabase, "promote_due_schedules", {
     max_schedules: MAX_SCHEDULES_PER_TICK,
   });
+  const avisos = await rpcInt(supabase, "enviar_avisos_lotou", { p_limit: MAX_AVISOS_PER_TICK });
   const pruned = options.prune
     ? await rpcInt(supabase, "prune_instance_sends", { older_than: PRUNE_OLDER_THAN })
     : 0;
 
-  return { requeued, reconciled, promoted, pruned };
+  return { requeued, reconciled, promoted, avisos, pruned };
 }
 
 /** True se o ciclo mexeu em alguma coisa — o index só loga quando mexeu. */
 export function housekeepingDidWork(summary: HousekeepingSummary): boolean {
   return (
-    summary.requeued > 0 || summary.reconciled > 0 || summary.promoted > 0 || summary.pruned > 0
+    summary.requeued > 0 ||
+    summary.reconciled > 0 ||
+    summary.promoted > 0 ||
+    summary.avisos > 0 ||
+    summary.pruned > 0
   );
 }

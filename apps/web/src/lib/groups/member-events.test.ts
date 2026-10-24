@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
 
-import { movimentoDeMembros } from "./member-events";
+import { movimentoDeMembros, temSaidaVoluntaria } from "./member-events";
 
 const fixture = (nome: string) =>
   JSON.parse(readFileSync(path.join(process.cwd(), "src", "lib", "evolution", "__fixtures__", nome), "utf8"));
@@ -45,4 +45,23 @@ test("dois números da loja no mesmo minuto caem no mesmo horário", () => {
   const b = movimentoDeMembros("add", [{ id: "1@lid" }], new Date("2026-09-29T14:08:01.874Z"));
   assert.equal(a?.occurredAt, "2026-09-29T14:08:00.000Z");
   assert.equal(a?.occurredAt, b?.occurredAt);
+});
+
+test("saída voluntária: o autor do remove é o próprio participante", () => {
+  // Formato medido em prod (23/10/2026), com ids falsos: author = id do participante, em @lid.
+  const p = [{ id: "20100000000000009@lid", phoneNumber: "5511999990009@s.whatsapp.net", admin: null }];
+  assert.equal(temSaidaVoluntaria("remove", p, "20100000000000009@lid"), true);
+});
+
+test("remoção por admin (o aviso real da fixture) não é saída voluntária", () => {
+  const evento = fixture("group-participants-update.remove.json");
+  assert.equal(temSaidaVoluntaria(evento.data.action, evento.data.participants, evento.data.author), false);
+});
+
+test("sem autor, entrada ou promote não contam como saída voluntária", () => {
+  const p = [{ id: "1@lid" }];
+  assert.equal(temSaidaVoluntaria("remove", p, null), false);
+  assert.equal(temSaidaVoluntaria("remove", p, ""), false);
+  assert.equal(temSaidaVoluntaria("add", p, "1@lid"), false);
+  assert.equal(temSaidaVoluntaria("promote", p, "1@lid"), false);
 });

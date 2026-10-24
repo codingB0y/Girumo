@@ -39,6 +39,16 @@ begin
     (v_a, v_a, 'Check postar por grupo A', 'check-postar-por-grupo-a'),
     (v_b, v_b, 'Check postar por grupo B', 'check-postar-por-grupo-b');
 
+  -- Plano vigente nas duas: loja sem plano não dispara sozinha (agendamento, C17 em 20261017123000;
+  -- aviso ao lotar, 20261020120000). plans é catálogo global; quem concede é o status. Sai junto
+  -- com a loja (on delete cascade).
+  insert into public.subscriptions (tenant_id, plan_id, status)
+  select t.id, (select p.id from public.plans p order by p.id limit 1), 'active'
+  from (values (v_a), (v_b)) as t(id);
+  if not (app.tenant_concede_plano(v_a) and app.tenant_concede_plano(v_b)) then
+    raise exception 'FALHOU fixture: lojas de teste sem plano (public.plans vazio?)';
+  end if;
+
   insert into public.instances (id, tenant_id, name, status, provider_instance_id, connected_at)
   values ('c0c0c0c0-0000-4000-8000-0000000000a1', v_a, 'principal', 'connected',
           'check-postar-por-grupo', now());

@@ -92,6 +92,10 @@ export async function carregarCampanhas(tenantId: string) {
     slug: c.slug,
     autoGrow: c.auto_grow,
     growTemplate: c.grow_template,
+    // Aviso ao lotar (spec 2026-10-10 D10). O `desde` vai junto porque a tela
+    // filtra os "Últimos avisos" por ele (lib/campaigns/aviso-ao-lotar.ts).
+    avisoAoLotar: c.aviso_ao_lotar,
+    avisoAoLotarDesde: c.aviso_ao_lotar_desde,
     // Gaveta espelho de comunidade nativa: o painel usa isto pra desabilitar
     // edição de grupos/auto-grow (o servidor já recusa em `PATCH /api/campanhas`,
     // isto é só pra não deixar o botão clicável até chegar lá).

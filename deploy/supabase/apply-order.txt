@@ -561,3 +561,12 @@ apps/web/supabase/migrations/20261019120000_link_da_bio.sql
 # null = nunca lidos ou sem o escopo) e sales_channels_at: o motor rele GET /canais-venda a cada 24 h e
 # o cartao mostra a Yampi pelo nome. Muda a baseline.
 apps/web/supabase/migrations/20261019180000_bling_canais_da_conta.sql
+# 2026-10-20 - Postar por grupo, PR 9: public.enviar_avisos_lotou nao avisa pai nem Avisos de
+# comunidade (community_role parent/announce: nunca escolhidos nem marcados) nem loja sem plano
+# (app.tenant_concede_plano no mesmo where: nem envia nem grava aviso_lotou_em; sai pela janela de
+# 1 h). So o corpo muda (trava no topo
+# confere o md5 de 20261010120000); ACL restabelecido. Nao muda a baseline: o gate nao ve corpo
+# nem ACL -- conferir com infra/tests/aviso-lotou-sem-estrutura-check.sql nos dois bancos.
+apps/web/supabase/migrations/20261020120000_aviso_lotou_sem_estrutura.sql
+# 23/10: disjuntor por saídas voluntárias (pausa 6 h, cancela a fila, notifica) e orçamento de @todos (2 posts/24 h por número) no claim. Muda a baseline.
+apps/web/supabase/migrations/20261023120000_antiban_saidas_e_todos.sql
