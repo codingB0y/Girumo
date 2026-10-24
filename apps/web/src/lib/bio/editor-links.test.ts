@@ -157,7 +157,11 @@ test("erro do servidor num link vira a folha daquele link com o erro no campo; f
   });
   assert.deepEqual(erroNoLink({ campo: "links.1.fotos.0", mensagem: "Foto de outra loja." }), {
     indice: 1,
-    erros: { geral: "Foto de outra loja." },
+    erros: { fotos: "Foto de outra loja." },
+  });
+  assert.deepEqual(erroNoLink({ campo: "links.3.foto", mensagem: "Foto de outra loja." }), {
+    indice: 3,
+    erros: { foto: "Foto de outra loja." },
   });
   assert.deepEqual(erroNoLink({ campo: "links.0", mensagem: "Tipo inválido." }), { indice: 0, erros: { geral: "Tipo inválido." } });
   assert.equal(erroNoLink({ campo: "links", mensagem: "Máximo de 20." }), null);
@@ -173,7 +177,7 @@ test("erros do zod por campo, só do link pedido; o primeiro campo com erro segu
     { path: ["links", 0, "fotos", 0] },
     { path: ["perfil", "nome"] },
   ];
-  assert.deepEqual(errosDoLink(issues, 0), { titulo: "Escreva o texto do botão.", geral: "Confira os dados deste link." });
+  assert.deepEqual(errosDoLink(issues, 0), { titulo: "Escreva o texto do botão.", fotos: "Confira as fotos deste botão. Envie de novo." });
   assert.deepEqual(errosDoLink(issues, 1), { url: "Esse endereço não parece um link. Ex.: sualoja.com.br/catalogo" });
   assert.equal(primeiroCampoComErro({ url: "x", titulo: "y" }), "titulo");
   assert.equal(primeiroCampoComErro({ horario: "x", numero: "y" }), "numero");

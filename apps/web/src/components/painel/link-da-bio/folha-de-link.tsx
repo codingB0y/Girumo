@@ -6,7 +6,7 @@ import { AlertTriangle, ChevronLeft, Trash2 } from "lucide-react";
 
 import { Folha } from "@/components/painel/folha";
 import { Interruptor } from "@/components/painel/instagram/interruptor";
-import type { Icone, LinkBio } from "@/lib/bio/documento";
+import type { Icone, LinkBio, MidiaRef } from "@/lib/bio/documento";
 import {
   ATALHOS,
   ICONES_DO_SELETOR,
@@ -21,6 +21,7 @@ import {
 import type { CampanhaDoPainel } from "@/lib/bio/painel-api";
 import { cn } from "@/lib/utils";
 
+import { CampoDeFoto, CampoDeFotos } from "./campo-de-foto";
 import { IconeDoLink, QuadradoDoIcone } from "./icone-do-link";
 import { focarDepois } from "./use-editor-bio";
 
@@ -205,6 +206,12 @@ export type PropsDoConteudoDaFolha = {
   aoMudar: (campo: CampoDoLink, valor: string) => void;
   aoIcone: (icone: Icone) => void;
   aoDestaque: () => void;
+  /** Fotos do botão (`link`, até 3) e da fachada (`endereco`): 6b. */
+  aoFotos: (fotos: MidiaRef[]) => void;
+  aoFoto: (foto: MidiaRef | null) => void;
+  /** Uma foto está subindo: Adicionar/Pronto e o Enter esperam, senão a foto se perde. */
+  enviando?: boolean;
+  aoEnviando?: (sim: boolean) => void;
   aoAplicar: () => void;
   aoCancelar: () => void;
   aoPedirExclusao: () => void;
@@ -262,7 +269,7 @@ function Rodape(p: PropsDoConteudoDaFolha & { rascunho: LinkBio }) {
             <button type="button" onClick={p.aoCancelar} className={SECUNDARIO}>
               Cancelar
             </button>
-            <button type="submit" className={PRIMARIO}>
+            <button type="submit" disabled={p.enviando} className={cn(PRIMARIO, "disabled:cursor-wait disabled:opacity-60")}>
               {p.novo ? "Adicionar" : "Pronto"}
             </button>
           </span>
@@ -280,7 +287,7 @@ function Formulario(p: PropsDoConteudoDaFolha & { rascunho: LinkBio }) {
       noValidate
       onSubmit={(ev) => {
         ev.preventDefault();
-        p.aoAplicar();
+        if (!p.enviando) p.aoAplicar();
       }}
       className="grid gap-4"
     >
@@ -359,6 +366,7 @@ function Formulario(p: PropsDoConteudoDaFolha & { rascunho: LinkBio }) {
             aoMudar={p.aoMudar}
           />
           <SeletorDeIcone atual={r.icone} aoIcone={p.aoIcone} />
+          <CampoDeFotos id="bio-link-fotos" valor={r.fotos} aoMudar={p.aoFotos} erro={e.fotos} aoEnviando={p.aoEnviando} />
         </>
       )}
       {r.tipo === "endereco" && (
@@ -373,6 +381,18 @@ function Formulario(p: PropsDoConteudoDaFolha & { rascunho: LinkBio }) {
             aoMudar={p.aoMudar}
           />
           <CampoDeTexto campo="horario" rotulo="Horário (opcional)" valor={r.horario} erro={e.horario} maxLength={120} aoMudar={p.aoMudar} />
+          <CampoDeFoto
+            id="bio-link-foto"
+            rotulo="Foto da fachada (opcional)"
+            nome="foto da fachada"
+            ajuda="Aparece quando a pessoa abre o Como chegar."
+            tipo="lp-media"
+            formato="foto"
+            valor={r.foto}
+            aoMudar={p.aoFoto}
+            erro={e.foto}
+            aoEnviando={p.aoEnviando}
+          />
           <p className={AJUDA}>Na página, o botão abre ali mesmo com o endereço, o horário e o botão do Google Maps.</p>
         </>
       )}
@@ -418,6 +438,7 @@ export function FolhaDeLink({
   const [novo, setNovo] = useState(inicio.modo === "tipos");
   const [erros, setErros] = useState<ErrosDoLink>(inicio.modo === "editar" ? (inicio.erros ?? {}) : {});
   const [confirmando, setConfirmando] = useState(false);
+  const [enviando, setEnviando] = useState(false);
 
   // Aberta por um erro do salvar: o foco vai pro campo do erro (depois de a Folha guardar quem a abriu).
   useEffect(() => {
@@ -449,8 +470,18 @@ export function FolhaDeLink({
     });
   }
 
+  // Foto trocada: o erro da foto (de outra loja, §4) some junto (§8, "some ao corrigir").
+  function mudarFoto(campo: "fotos" | "foto", mudanca: (r: LinkBio) => LinkBio) {
+    setRascunho((r) => (r ? mudanca(r) : r));
+    setErros((atual) => {
+      const resto = { ...atual };
+      delete resto[campo];
+      return resto;
+    });
+  }
+
   function aplicar() {
-    if (!rascunho) return;
+    if (!rascunho || enviando) return;
     const r = validarLink(rascunho);
     if (r.ok) {
       aoAplicar(r.link, novo);
@@ -475,6 +506,10 @@ export function FolhaDeLink({
         aoMudar={mudar}
         aoIcone={(icone) => setRascunho((r) => (r ? { ...r, icone } : r))}
         aoDestaque={() => setRascunho((r) => (r && r.tipo !== "endereco" ? { ...r, destaque: !r.destaque } : r))}
+        aoFotos={(fotos) => mudarFoto("fotos", (r) => (r.tipo === "link" ? { ...r, fotos } : r))}
+        aoFoto={(foto) => mudarFoto("foto", (r) => (r.tipo === "endereco" ? { ...r, foto } : r))}
+        enviando={enviando}
+        aoEnviando={setEnviando}
         aoAplicar={aplicar}
         aoCancelar={aoFechar}
         aoPedirExclusao={() => setConfirmando(true)}

@@ -40,6 +40,8 @@ function html(over: Partial<PropsDoConteudoDaFolha>): string {
     aoMudar: noop,
     aoIcone: noop,
     aoDestaque: noop,
+    aoFotos: noop,
+    aoFoto: noop,
     aoAplicar: noop,
     aoCancelar: noop,
     aoPedirExclusao: noop,
@@ -132,4 +134,34 @@ test("confirmar exclusão: pergunta pelo título na própria folha, com Não e E
 test("Outro link: placeholder do site; Canal do WhatsApp: placeholder do canal", () => {
   assert.match(html({ rascunho: linkDoAtalho("outro", { id: ID, campanhas: [] }) }), /placeholder="sualoja\.com\.br\/catalogo"/);
   assert.match(html({ rascunho: linkDoAtalho("canal", { id: ID, campanhas: [] }) }), /placeholder="whatsapp\.com\/channel\/…"/);
+});
+
+test("Catálogo ou site: fotos do botão com miniatura e Remover; Escolher fotos enquanto cabe", () => {
+  const h = html({ rascunho: { ...SITE, fotos: [{ id: "kit-1-falso", foco: null }] }, novo: false });
+  assert.match(h, />Fotos no botão \(opcional, até 3\)</);
+  assert.match(h, /aria-label="Remover a foto 1"/);
+  assert.match(h, /id="bio-link-fotos"[^>]*>[\s\S]*Escolher fotos<\/button>/);
+  assert.doesNotMatch(html({ rascunho: linkDoAtalho("whatsapp", { id: ID, campanhas: CAMPANHAS }) }), /Fotos no botão|Foto da fachada/);
+});
+
+test("Como chegar: foto da fachada opcional, com Escolher", () => {
+  const h = html({ rascunho: linkDoAtalho("endereco", { id: ID, campanhas: [] }) });
+  assert.match(h, />Foto da fachada \(opcional\)</);
+  assert.match(h, /id="bio-link-foto" aria-label="Escolher foto da fachada" aria-describedby="bio-link-foto-ajuda"/);
+  assert.doesNotMatch(h, /Fotos no botão/);
+});
+
+test("erro de foto do salvar aparece junto do campo de fotos e da fachada", () => {
+  const fotos = html({ rascunho: SITE, novo: false, erros: { fotos: "Essa imagem não está na sua loja." } });
+  assert.match(fotos, /<p id="bio-link-fotos-erro" role="alert"[^>]*>Essa imagem não está na sua loja\.<\/p>/);
+  const fachada = html({
+    rascunho: linkDoAtalho("endereco", { id: ID, campanhas: [] }),
+    erros: { foto: "Essa imagem não está na sua loja." },
+  });
+  assert.match(fachada, /<p id="bio-link-foto-erro" role="alert"[^>]*>Essa imagem não está na sua loja\.<\/p>/);
+});
+
+test("com uma foto subindo, Adicionar/Pronto fica desligado", () => {
+  assert.match(html({ rascunho: SITE, novo: true, enviando: true }), /<button type="submit" disabled=""[^>]*>Adicionar<\/button>/);
+  assert.doesNotMatch(html({ rascunho: SITE, novo: true }), /<button type="submit" disabled/);
 });

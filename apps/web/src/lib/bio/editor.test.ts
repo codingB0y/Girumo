@@ -12,7 +12,10 @@ import {
   ehRespostaDoPainelBio,
   enderecoPrincipal,
   erroDoDocumento,
+  erroNoCampo,
   estadoDe,
+  idNaTela,
+  lugarDoErro,
   mensagemDoCampo,
   mesmoConteudo,
   padraoDoCampo,
@@ -164,4 +167,39 @@ test("erro custom de campo que está na tabela mantém a frase da tabela", () =>
     campo: "links.0.numero",
     mensagem: "Número com DDD. Ex.: 62 99999-9999.",
   });
+});
+
+test("id na tela e lugar do erro (abas do 6b): o caminho vira o id; o lugar é o mais longo que cobre o caminho", () => {
+  assert.equal(idNaTela("perfil.nome"), "bio-perfil-nome");
+  assert.equal(idNaTela("confere.linhas.1"), "bio-confere-linhas-1");
+  assert.equal(idNaTela("slug"), "bio-slug");
+  const lugares = ["perfil.capa", "perfil.capaAlt", "perfil.destaques", "confere", "confere.cnpj"];
+  assert.equal(lugarDoErro("perfil.capa.id", lugares), "perfil.capa");
+  assert.equal(lugarDoErro("perfil.capaAlt", lugares), "perfil.capaAlt");
+  assert.equal(lugarDoErro("perfil.destaques.2", lugares), "perfil.destaques");
+  assert.equal(lugarDoErro("confere.cnpj", lugares), "confere.cnpj");
+  // Começo de palavra não conta; o caminho mais curto que o lugar também não.
+  assert.equal(lugarDoErro("perfil.capaAltura", lugares), null);
+  assert.equal(lugarDoErro("perfil", lugares), null);
+  assert.equal(lugarDoErro("perfil.nome", []), null);
+});
+
+test("frases do Perfil e o erro de um campo só: nome vazio, @ com espaço e CNPJ que não fecha", () => {
+  const base = documentoPadrao({ nome: "Loja Exemplo", campanhaId: null });
+  const semNome: DocumentoBio = { ...base, perfil: { ...base.perfil, nome: "" } };
+  assert.deepEqual(erroDoDocumento(semNome), { campo: "perfil.nome", mensagem: "Escreva o nome da loja." });
+  const comEspaco: DocumentoBio = { ...base, perfil: { ...base.perfil, instagram: "loja exemplo" } };
+  assert.deepEqual(erroDoDocumento(comEspaco), {
+    campo: "perfil.instagram",
+    mensagem: "No @ do Instagram só vão letras, números, ponto e _.",
+  });
+  const cnpjRuim: DocumentoBio = {
+    ...base,
+    confere: { ativo: true, razao: "Loja Exemplo Ltda", cnpj: "11222333000180", linhas: [] },
+  };
+  assert.deepEqual(erroDoDocumento(cnpjRuim), { campo: "confere.cnpj", mensagem: "Confira o CNPJ: os números não batem." });
+  assert.equal(erroNoCampo(cnpjRuim, "confere.cnpj"), "Confira o CNPJ: os números não batem.");
+  assert.equal(erroNoCampo({ ...cnpjRuim, confere: { ...cnpjRuim.confere, cnpj: "11222333000181" } }, "confere.cnpj"), null);
+  // Erro em outro campo não acende este.
+  assert.equal(erroNoCampo(semNome, "confere.cnpj"), null);
 });
