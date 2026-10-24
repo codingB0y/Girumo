@@ -1,7 +1,7 @@
 // apps/web/src/components/painel/link-da-bio/previa.tsx
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Eye, Play } from "lucide-react";
 
 import { Folha } from "@/components/painel/folha";
@@ -15,25 +15,41 @@ export type PropsDaPrevia = { dados: DadosRender; rodada: number; aoReverAnimaca
 const FOCO = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500";
 const SECUNDARIO = `inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-line-200 bg-paper-0 px-4 text-15 font-semibold text-volt-950 transition-colors hover:border-slate-600 disabled:cursor-not-allowed disabled:opacity-45 ${FOCO}`;
 
+/** Quanto a prévia espera a última mudança antes de redesenhar: digitar não recarrega o iframe a cada letra. */
+const ESPERA_DA_PREVIA_MS = 300;
+
 /**
  * A página no iframe, com o MESMO renderizador da rota pública em modo "previa" (spec §8: sem
  * `<script>`, `<a>` sem href). `sandbox=""`: nada roda e nada navega. O `srcDoc` herda a CSP do
  * painel; funciona porque o modo prévia não tem script e as fontes são `'self'` na origem do painel.
  *
  * A entrada só toca quando `rodada` muda (link novo, troca de modelo, "Rever a animação"); qualquer
- * outra mudança redesenha parado. `key={rodada}`: duas rodadas com o mesmo HTML ainda recarregam.
+ * outra mudança redesenha parado.
+ * Essas mudanças esperam 300 ms paradas (o CropFocal e o seletor de cor mandam uma por movimento).
+ * `key={rodada}`: duas rodadas com o mesmo HTML ainda recarregam.
  */
 export function QuadroDaPrevia({ dados, rodada, className }: { dados: DadosRender; rodada: number; className?: string }) {
   // Guarda o documento da última rodada: é com ele, e só com ele, que a entrada toca
   // (padrão do React de guardar a prop anterior no estado).
   const [rodadaVista, setRodadaVista] = useState(rodada);
   const [documentoDaRodada, setDocumentoDaRodada] = useState<DocumentoBio | null>(null);
+  // O que o iframe mostra: os `dados` da última mudança depois de 300 ms parados.
+  const [mostrados, setMostrados] = useState(dados);
   if (rodada !== rodadaVista) {
     setRodadaVista(rodada);
     setDocumentoDaRodada(dados.documento);
+    setMostrados(dados); // a rodada passa na hora: é ela que toca a entrada
   }
-  const animarEntrada = dados.documento.animar && dados.documento === documentoDaRodada;
-  const html = useMemo(() => renderPaginaBio(dados, { modo: "previa", nonce: null, animarEntrada }), [dados, animarEntrada]);
+  useEffect(() => {
+    if (mostrados === dados) return;
+    const espera = setTimeout(() => setMostrados(dados), ESPERA_DA_PREVIA_MS);
+    return () => clearTimeout(espera);
+  }, [dados, mostrados]);
+  const animarEntrada = mostrados.documento.animar && mostrados.documento === documentoDaRodada;
+  const html = useMemo(
+    () => renderPaginaBio(mostrados, { modo: "previa", nonce: null, animarEntrada }),
+    [mostrados, animarEntrada],
+  );
   return (
     <iframe
       key={rodada}
