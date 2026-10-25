@@ -30,11 +30,11 @@ export function QuadroDosNumeros({ resumo }: { resumo: ResumoDoRelatorio }) {
   ];
   return (
     <div className="grid gap-4">
-      <dl className="grid grid-cols-3 gap-2">
+      <dl className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-3">
         {numeros.map(([rotulo, valor]) => (
           <div key={rotulo} className="grid content-start gap-0.5 rounded-lg bg-canvas-100 p-3">
             <dt className="text-13 text-slate-600">{rotulo}</dt>
-            <dd className="font-data text-28 font-bold leading-tight text-volt-950">{valor}</dd>
+            <dd className="min-w-0 break-words font-data text-28 font-bold leading-tight text-volt-950">{valor}</dd>
           </div>
         ))}
       </dl>

@@ -146,7 +146,7 @@ function CartaoModelo({ atual, miniaturas, aoTrocar }: { atual: Modelo; miniatur
       <h2 id="bio-modelo-titulo" className={TITULO}>
         Modelo
       </h2>
-      <ul aria-labelledby="bio-modelo-titulo" className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <ul aria-labelledby="bio-modelo-titulo" className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 xl:grid-cols-4">
         {miniaturas.map(({ modelo, dados }) => {
           const ativo = modelo === atual;
           return (
