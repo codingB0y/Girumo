@@ -8,6 +8,7 @@ import type { PaginaBio } from "@/lib/stores/bio-pages";
 import { cn } from "@/lib/utils";
 
 import { AbaAparencia } from "./aba-aparencia";
+import { AbaDivulgar } from "./aba-divulgar";
 import { AbaLinks } from "./aba-links";
 import { AbaPerfil } from "./aba-perfil";
 import type { EditorBio } from "./use-editor-bio";
@@ -51,6 +52,7 @@ export const ABAS: readonly AbaDoEditor[] = [
   { id: "aparencia", nome: "Aparência", dona: (campo) => /^(modelo|paleta|cores|animar)(\.|$)/.test(campo), Conteudo: AbaAparencia },
   // Sem `rastreio`: o PR 7 acrescenta junto com os campos do "Avançado" (sem eles, o erro cai no aviso da tela).
   { id: "perfil", nome: "Perfil", dona: (campo) => /^(perfil|confere|feitoComGirumo)(\.|$)/.test(campo), Conteudo: AbaPerfil },
+  { id: "divulgar", nome: "Divulgar", dona: (campo) => campo === "slug" || campo === "publicada", Conteudo: AbaDivulgar },
 ];
 
 /** A aba que mostra o campo do erro, se alguma mostra. */
