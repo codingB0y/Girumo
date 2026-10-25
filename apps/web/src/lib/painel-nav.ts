@@ -7,6 +7,7 @@ import {
   Users,
   UserPlus,
   PanelsTopLeft,
+  Link2,
   TrendingUp,
   Settings,
   BookOpen,
@@ -87,12 +88,14 @@ const COMUNIDADES: NavItem = { href: "/painel/comunidades", label: "Comunidades"
 const GRUPOS: NavItem = { href: "/painel/grupos", label: "Grupos", icon: Users, grupo: "loja" };
 const CONTATOS: NavItem = { href: "/painel/contatos", label: "Contatos", icon: UserPlus, grupo: "loja" };
 const PAGINAS: NavItem = { href: "/painel/pages", label: "Páginas", icon: PanelsTopLeft, grupo: "lotar" };
+/** Link da bio (spec 2026-10-19 §8): em Lotar, logo depois de Páginas; nunca nas barras. */
+const LINK_DA_BIO: NavItem = { href: "/painel/link-da-bio", label: "Link da bio", icon: Link2, grupo: "lotar" };
 const RESULTADOS: NavItem = { href: "/painel/resultados", label: "Resultados", icon: TrendingUp, grupo: "loja" };
 const CONFIGURACOES: NavItem = { href: "/painel/configuracoes", label: "Configurações", icon: Settings, grupo: "loja" };
 
 export const NAV_GROUPS: NavGroup[] = [
   { title: null, items: [INICIO, VENDAS, CAMPANHAS, INSTAGRAM, DISPAROS, BIBLIOTECA, RELAMPAGO, FUNIS, COMUNIDADES, GRUPOS, CONTATOS] },
-  { title: "Crescimento", items: [PAGINAS, RESULTADOS] },
+  { title: "Crescimento", items: [PAGINAS, LINK_DA_BIO, RESULTADOS] },
 ];
 
 /** Itens do rodapé da sidebar, abaixo do status de conexão. */

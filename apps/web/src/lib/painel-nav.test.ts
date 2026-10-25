@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { Link2 } from "lucide-react";
 import type { Acesso } from "@/lib/auth/modulos";
 import {
   NAV_ALL,
@@ -240,4 +241,19 @@ test("sem acesso conhecido, a barra de cima não traz o que depende de módulo",
   assert.ok(!hrefs.includes("/painel/disparos"));
   assert.ok(!hrefs.includes("/painel/vendas"));
   assert.deepEqual(hrefs, NAV_BARRA_DESKTOP.filter((i) => i.modulo === undefined).map((i) => i.href));
+});
+
+test("Link da bio fica em Lotar logo depois de Páginas, fora das barras, e a vendedora não vê", () => {
+  const lotar = NAV_ALL.filter((i) => i.grupo === "lotar").map((i) => i.href);
+  assert.equal(lotar.indexOf("/painel/link-da-bio"), lotar.indexOf("/painel/pages") + 1);
+  const bio = item("/painel/link-da-bio");
+  assert.equal(bio.label, "Link da bio");
+  assert.equal(bio.icon, Link2);
+  assert.equal(bio.modulo, undefined);
+  for (const barra of [NAV_BARRA_DESKTOP, NAV_BARRA_ESQUERDA, NAV_BARRA_DIREITA, NAV_MOBILE_PRIMARY]) {
+    assert.ok(!barra.some((i) => i.href === "/painel/link-da-bio"));
+  }
+  assert.ok(visiveis(DONO).includes("/painel/link-da-bio"));
+  assert.ok(visiveis(OPERADOR).includes("/painel/link-da-bio"));
+  assert.ok(!visiveis(VENDEDORA_POSTA).includes("/painel/link-da-bio"));
 });
