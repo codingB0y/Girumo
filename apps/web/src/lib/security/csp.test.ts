@@ -145,16 +145,16 @@ test("o link da bio é superfície com nonce própria; prefixo parecido não ent
   }
 });
 
-test("CSP do link da bio: fechada, só o nonce, nenhum terceiro (spec link-da-bio §6)", () => {
+test("CSP do link da bio: o nonce e só os hosts da Meta e do GA, fixos (spec link-da-bio §6, PR 7)", () => {
   const nonce = generateNonce();
   const csp = buildCsp("bio", nonce, false);
   assert.deepEqual(csp.split("; "), [
     "default-src 'none'",
-    `script-src 'self' 'nonce-${nonce}'`,
+    `script-src 'self' 'nonce-${nonce}' https://connect.facebook.net https://www.googletagmanager.com`,
     `style-src 'self' 'nonce-${nonce}'`,
-    "img-src 'self' data:",
+    "img-src 'self' data: https://www.facebook.com https://*.google-analytics.com https://*.googletagmanager.com",
     "font-src 'self'",
-    "connect-src 'self'",
+    "connect-src 'self' https://www.facebook.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com",
     "object-src 'none'",
     "base-uri 'none'",
     "form-action 'none'",

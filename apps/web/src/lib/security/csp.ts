@@ -12,7 +12,7 @@
  * O que ENTRA: as três superfícies públicas que já renderizam por request e que
  * recebem conteúdo controlado pelo lojista — /p/:slug (headline, foto, ids de
  * pixel), /r/:slug (intersticial com o Pixel do Meta) e /bio/:slug (link da
- * bio, HTML do route handler). É onde um XSS teria de onde sair, e o nonce ali
+ * bio, HTML do route handler, com os hosts da Meta e do GA fixos — PR 7). É onde um XSS teria de onde sair, e o nonce ali
  * custa zero em performance.
  */
 
@@ -73,17 +73,18 @@ function scriptSrc(nonce: string, isDev: boolean, ...hosts: string[]): string {
 
 export function buildCsp(surface: NonceSurface, nonce: string, isDev: boolean): string {
   if (surface === "bio") {
-    // Link da bio (spec link-da-bio §6): HTML montado à mão, sem React e sem
-    // terceiros — `<style>` e `<script>` só com o nonce. O PR 7 acrescenta os
-    // hosts da Meta e do GA fixos, como no click-redirect: quem monta a CSP é o
-    // middleware, que não sabe se a loja tem rastreio.
+    // Link da bio (spec link-da-bio §6): HTML montado à mão, sem React — `<style>` e
+    // `<script>` só com o nonce. Os hosts da Meta e do GA são FIXOS (PR 7), como no
+    // click-redirect: quem monta a CSP é o middleware, que não sabe se a loja tem rastreio.
+    // O script inline (com nonce) injeta o fbevents.js e o gtag.js, que entram pelo host;
+    // a Meta manda o evento por imagem (www.facebook.com/tr) e o GA4 por beacon/fetch.
     return [
       "default-src 'none'",
-      scriptSrc(nonce, isDev),
+      scriptSrc(nonce, isDev, "https://connect.facebook.net", "https://www.googletagmanager.com"),
       `style-src 'self' 'nonce-${nonce}'`,
-      "img-src 'self' data:",
+      "img-src 'self' data: https://www.facebook.com https://*.google-analytics.com https://*.googletagmanager.com",
       "font-src 'self'",
-      "connect-src 'self'",
+      "connect-src 'self' https://www.facebook.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com",
       "object-src 'none'",
       "base-uri 'none'",
       "form-action 'none'",
