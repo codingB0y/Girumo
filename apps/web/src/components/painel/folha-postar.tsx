@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ComponentProps } from "react";
 import { useToast } from "@/components/toast";
 import { ERRO_SEM_CONEXAO, MessageComposer, type ComposerPayload } from "@/components/painel/messages/message-composer";
 import { DestinoGrupos, useCargaDosEstados } from "@/components/painel/messages/destino-grupos";
+import { LinhaPostsHoje, usePostsHoje } from "@/components/painel/messages/linha-posts-hoje";
 import type { Destino } from "@/lib/campaigns/destino";
-import { destinoDaCampanha, fraseResumo, resumoDoDestino } from "@/lib/campaigns/destino-ui";
+import { destinoDaCampanha, fraseResumo, resumoDoDestino, selecionados } from "@/lib/campaigns/destino-ui";
 import type { TenantDispatchView } from "@/lib/campaigns/dispatch-view";
 import { Bolha } from "./bolha";
 import { Folha } from "./folha";
@@ -79,6 +80,7 @@ export function FolhaPostar({ id, aberta, aoFechar, aoPostar, emQualquerLargura 
 
   const campanha = useMemo(() => campanhas.find((c) => (c.slug ?? c.id) === slug) ?? null, [campanhas, slug]);
   const destino = destinoDaCampanha(escolha, slug);
+  const gruposDoDestino = estados.carga === "pronto" ? selecionados(estados.grupos, destino) : [];
 
   async function postar(payload: ComposerPayload) {
     if (!campanha) return false;
@@ -186,10 +188,21 @@ export function FolhaPostar({ id, aberta, aoFechar, aoPostar, emQualquerLargura 
             testId="painel-bolha-previa"
           />
 
-          <MessageComposer onSend={postar} sending={enviando} onBodyChange={setTexto} />
+          <CompositorComLinha grupos={gruposDoDestino} onSend={postar} sending={enviando} onBodyChange={setTexto} />
           {erro && <p className="text-13 text-alerta">{erro}</p>}
         </div>
       )}
     </Folha>
   );
+}
+
+/**
+ * O compositor com a linha dos posts de hoje. É um componente à parte porque a
+ * folha só renderiza o conteúdo aberta: cada abertura monta de novo e lê a
+ * contagem de novo, e a folha fechada não faz requisição nenhuma. Depois de um
+ * post aceito a folha fecha, então não há o que reler aqui.
+ */
+function CompositorComLinha({ grupos, ...props }: ComponentProps<typeof MessageComposer> & { grupos: readonly string[] }) {
+  const { dados } = usePostsHoje();
+  return <MessageComposer {...props} aviso={<LinhaPostsHoje dados={dados} grupos={grupos} />} />;
 }

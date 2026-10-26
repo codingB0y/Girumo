@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import type { EstadoGrupo } from "../src/lib/groups/estado";
 
@@ -54,6 +54,28 @@ const GRUPOS_SIMULADOS = SIMULADOS.map((g) => ({
   engagement: "medio",
   isAdmin: true,
 }));
+
+/**
+ * Os grupos simulados entram em `/grupos/estados` e em `/api/groups`, que é de onde
+ * sai a conta das pessoas: a campanha do tenant de E2E não tem grupo com estado, e
+ * um teste que pula no CI não prova nada.
+ */
+async function simularGruposDoDestino(page: Page) {
+  await page.route("**/grupos/estados", (rota) => rota.fulfill({ json: ESTADOS }));
+  await page.route("**/api/groups", async (rota) => {
+    if (rota.request().method() !== "GET") return rota.continue();
+    const real = await rota.fetch();
+    const lista = real.ok() ? ((await real.json()) as unknown[]) : [];
+    return rota.fulfill({ json: [...lista, ...GRUPOS_SIMULADOS] });
+  });
+}
+
+const jid = (posicao: number) => `e2e-destino-${posicao}@g.us`;
+
+/** `GET /api/groups/posts-hoje` com o teto do dia e os grupos que já postaram hoje. */
+async function simularPostsHoje(page: Page, grupos: Record<string, number>) {
+  await page.route("**/api/groups/posts-hoje", (rota) => rota.fulfill({ json: { teto: 4, grupos } }));
+}
 
 test.describe("Disparos na Vitrine Aberta", () => {
 
@@ -164,16 +186,7 @@ test.describe("Disparos na Vitrine Aberta", () => {
   });
 
   test("o atalho padrão vem marcado e o aviso conta o que ele conta", async ({ page }) => {
-    // Estados simulados: a campanha do tenant de E2E não tem grupo com estado, e um teste que
-    // pula no CI não prova nada. Os grupos simulados entram também em /api/groups, que é de
-    // onde sai a conta das pessoas.
-    await page.route("**/grupos/estados", (rota) => rota.fulfill({ json: ESTADOS }));
-    await page.route("**/api/groups", async (rota) => {
-      if (rota.request().method() !== "GET") return rota.continue();
-      const real = await rota.fetch();
-      const lista = real.ok() ? ((await real.json()) as unknown[]) : [];
-      return rota.fulfill({ json: [...lista, ...GRUPOS_SIMULADOS] });
-    });
+    await simularGruposDoDestino(page);
     await page.goto("/painel/disparos", { waitUntil: "load" });
 
     const alcance = page.getByTestId("disparos-alcance");
@@ -198,5 +211,58 @@ test.describe("Disparos na Vitrine Aberta", () => {
     await expect(avisoEnchendo).toContainText("E2E destino 2");
 
     await test.info().attach("disparos-destino", { body: await destino.screenshot(), contentType: "image/png" });
+  });
+
+  test("grupos no limite do dia aparecem antes de postar", async ({ page }) => {
+    // O 1 e o 2 já receberam o teto hoje. O padrão (1 e 3) só tem o 1; "Todos com gente"
+    // soma o 2: a frase acompanha o destino e o botão nunca é travado por ela.
+    await simularGruposDoDestino(page);
+    await simularPostsHoje(page, { [jid(1)]: 4, [jid(2)]: 4 });
+    await page.goto("/painel/disparos", { waitUntil: "load" });
+
+    const postar = page.getByRole("button", { name: /^Postar/ });
+    await page.getByPlaceholder("Digite sua mensagem...").fill(TEXTO);
+
+    await expect(page.getByText("1 de 2 grupos já receberam 4 posts hoje e vão ficar de fora.")).toBeVisible();
+    await expect(postar).toBeEnabled();
+
+    await page
+      .getByTestId("destino-grupos")
+      .getByRole("group", { name: "Atalhos de destino" })
+      .getByRole("button", { name: /^Todos com gente/ })
+      .click();
+    await expect(page.getByText("2 de 3 grupos já receberam 4 posts hoje e vão ficar de fora.")).toBeVisible();
+    await expect(postar).toBeEnabled();
+  });
+
+  test("todos no limite: avisa que o post não vai sair", async ({ page }) => {
+    await simularGruposDoDestino(page);
+    await simularPostsHoje(page, { [jid(1)]: 4, [jid(2)]: 4, [jid(3)]: 4, [jid(4)]: 4 });
+    await page.goto("/painel/disparos", { waitUntil: "load" });
+
+    await page.getByPlaceholder("Digite sua mensagem...").fill(TEXTO);
+
+    await expect(
+      page.getByText("Todos estes grupos já receberam 4 posts hoje. O post não vai sair; o limite volta à meia-noite."),
+    ).toBeVisible();
+    // Quem decide é o banco, no envio: o botão segue habilitado.
+    await expect(page.getByRole("button", { name: /^Postar/ })).toBeEnabled();
+  });
+
+  test("contagem fora do ar não mostra linha nem trava o botão", async ({ page }) => {
+    await simularGruposDoDestino(page);
+    await page.route("**/api/groups/posts-hoje", (rota) =>
+      rota.fulfill({ status: 500, json: { error: "Não deu para ler os posts de hoje." } }),
+    );
+    const lida = page.waitForResponse((r) => r.url().includes("/api/groups/posts-hoje"));
+    await page.goto("/painel/disparos", { waitUntil: "load" });
+    await lida;
+
+    await expect(page.getByTestId("disparos-alcance")).not.toContainText("Contando");
+    await page.getByPlaceholder("Digite sua mensagem...").fill(TEXTO);
+
+    // "posts" cobre as três frases (aviso, info, erro) e o corpo do 500; nada mais no compositor diz isso.
+    await expect(page.locator("#disparos-compositor").getByText(/posts/)).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^Postar/ })).toBeEnabled();
   });
 });

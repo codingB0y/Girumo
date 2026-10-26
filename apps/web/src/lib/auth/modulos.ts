@@ -36,6 +36,8 @@ export const ROTAS: Readonly<
   postar: [
     { padrao: "/api/campanhas", metodos: ["GET"] },
     { padrao: "/api/groups", metodos: ["GET"] },
+    // Quantos posts cada grupo já recebeu hoje, para o aviso do teto no composer: só leitura.
+    { padrao: "/api/groups/posts-hoje", metodos: ["GET"] },
     { padrao: "/api/disparos", metodos: ["GET"] },
     { padrao: "/api/session", metodos: ["GET"] },
     { padrao: "/api/library", metodos: ["GET"] },
