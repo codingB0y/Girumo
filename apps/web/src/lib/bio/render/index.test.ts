@@ -286,6 +286,14 @@ test("rastreio: id fora da regra (documento que não passou pelo zod) não entra
   assert.doesNotMatch(html, /alert\(1\)|fbevents|googletagmanager/);
 });
 
+test("rastreio: documento sem a chave rastreio (gravado à mão) renderiza como sem rastreio", () => {
+  const d = dadosFalsos();
+  const semChave: Partial<DadosRender["documento"]> = { ...d.documento };
+  delete semChave.rastreio;
+  const html = publica({ ...d, documento: semChave as DadosRender["documento"] });
+  assert.equal(html.match(JS_DA_PAGINA)?.[1], scriptDaPagina({ rastreio: null }));
+});
+
 test("rastreio: a prévia do painel nunca leva", () => {
   const html = renderPaginaBio(comRastreio(dadosFalsos(), RASTREIO), { modo: "previa", nonce: null, animarEntrada: false });
   assert.doesNotMatch(html, /<script|fbevents|googletagmanager/);

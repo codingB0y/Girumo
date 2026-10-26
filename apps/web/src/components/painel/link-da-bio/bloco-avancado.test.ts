@@ -24,7 +24,7 @@ function bloco(erroDe: (lugar: string) => string | undefined, rastreio = VAZIO):
 
 test("fechado por padrão: botão Avançado no h2 com aria-expanded=false, a dica e nenhum campo", () => {
   const h = bloco(() => undefined);
-  assert.match(h, /<h2[^>]*><button type="button" id="bio-avancado" aria-expanded="false"[^>]*><span[^>]*>Avançado<\/span>/);
+  assert.match(h, /<h2[^>]*><button type="button" id="bio-avancado" aria-expanded="false"[^>]*><span[^>]*>Avançado <\/span>/);
   assert.doesNotMatch(h, /aria-controls=/);
   assert.match(h, />Pixel da Meta e Google Analytics, se a loja já usa\.</);
   assert.doesNotMatch(h, /bio-rastreio-|Configurado/);
@@ -60,7 +60,7 @@ test("erro do salvar no GA4: o bloco já abre com a frase embaixo do campo certo
 });
 
 test("com id preenchido, o cabeçalho fechado diz Configurado", () => {
-  assert.match(conteudo({ rastreio: { metaPixelId: "1234567890", ga4Id: "" } }), /Avançado<span class="pn-chip">Configurado<\/span>/);
+  assert.match(conteudo({ rastreio: { metaPixelId: "1234567890", ga4Id: "" } }), /Avançado <span class="pn-chip">Configurado<\/span>/);
   assert.doesNotMatch(conteudo(), /Configurado/);
   assert.doesNotMatch(conteudo({ rastreio: { metaPixelId: "   ", ga4Id: "" } }), /Configurado/);
 });

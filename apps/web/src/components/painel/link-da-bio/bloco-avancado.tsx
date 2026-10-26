@@ -81,7 +81,7 @@ export function ConteudoDoAvancado({ rastreio, aberto, erros, aoAlternar, aoMuda
           className={cn("flex min-h-12 w-full items-center justify-between gap-3 rounded-xl px-4 text-left lg:px-5", FOCO)}
         >
           <span className="flex flex-wrap items-center gap-2">
-            Avançado
+            Avançado{" "}
             {configurado && <span className="pn-chip">Configurado</span>}
           </span>
           <ChevronDown

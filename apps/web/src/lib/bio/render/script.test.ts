@@ -306,17 +306,35 @@ test("sem rastreio (null, ids vazios ou fora da regra) o JS é o mesmo, sem nada
   }
 });
 
+test("Pixel: autoConfig desligado imediatamente antes do init (o SDK não lê texto nem href do botão)", () => {
+  const js = scriptDaPagina({ rastreio: { metaPixelId: PIXEL, ga4Id: "" } });
+  assert.match(js, /"autoConfig",false/);
+  assert.ok(js.indexOf('"autoConfig",false') < js.indexOf('window.fbq("init"'));
+});
+
+test("id que não é texto (array, número) não entra, mesmo que vire uma string válida", () => {
+  const rastreio = { metaPixelId: ["1234567890"], ga4Id: ["G-TESTE12345"] } as unknown as { metaPixelId: string; ga4Id: string };
+  assert.equal(scriptDaPagina({ rastreio }), JS);
+  const numero = { metaPixelId: 1234567890, ga4Id: "" } as unknown as { metaPixelId: string; ga4Id: string };
+  assert.equal(scriptDaPagina({ rastreio: numero }), JS);
+});
+
+test("GA4 com mais de 30 caracteres no total não entra no JS; com 30 entra", () => {
+  assert.equal(scriptDaPagina({ rastreio: { metaPixelId: "", ga4Id: "G-" + "A".repeat(29) } }), JS);
+  assert.match(scriptDaPagina({ rastreio: { metaPixelId: "", ga4Id: "G-" + "A".repeat(28) } }), /gtag\/js/);
+});
+
 test("Pixel: carrega o fbevents.js, init com o id e PageView ao abrir; nada do Google", () => {
   const r = rodaComRastreio({ metaPixelId: PIXEL, ga4Id: "" });
   assert.deepEqual(r.carregados, ["https://connect.facebook.net/en_US/fbevents.js"]);
-  assert.deepEqual(r.fbq(), [["init", PIXEL], ["track", "PageView"]]);
+  assert.deepEqual(r.fbq(), [["set", "autoConfig", false, PIXEL], ["init", PIXEL], ["track", "PageView"]]);
   assert.doesNotMatch(r.js, /googletagmanager|dataLayer|bio_toque/);
 });
 
 test("Pixel no toque: Contact no WhatsApp, BioToque com o tipo nos outros; nunca Lead", () => {
   const r = rodaComRastreio({ metaPixelId: PIXEL, ga4Id: "" });
   for (const tipo of ["whatsapp", "grupo", "link", "endereco"]) r.toca(tipo);
-  assert.deepEqual(r.fbq().slice(2), [
+  assert.deepEqual(r.fbq().slice(3), [
     ["track", "Contact"],
     ["trackCustom", "BioToque", { botao: "grupo" }],
     ["trackCustom", "BioToque", { botao: "link" }],
@@ -349,7 +367,7 @@ test("Como chegar: o evento sai quando o <details> abre, não quando fecha (a re
   r.ouvintes.click({ target: el }); // abre
   detalhes.open = true;
   r.ouvintes.click({ target: el }); // fecha
-  assert.deepEqual(r.fbq().slice(2), [["trackCustom", "BioToque", { botao: "endereco" }]]);
+  assert.deepEqual(r.fbq().slice(3), [["trackCustom", "BioToque", { botao: "endereco" }]]);
   assert.deepEqual(r.ga().slice(2), [["event", "bio_toque", { botao: "endereco" }]]);
 });
 

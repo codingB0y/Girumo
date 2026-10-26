@@ -10,7 +10,7 @@
 
 /** As regras do §4 de novo: o documento já passou pelo zod no salvar, mas só id que passa AQUI entra no JS (spec §10). */
 const ID_PIXEL = /^\d{5,20}$/;
-const ID_GA4 = /^G-[A-Z0-9]{4,}$/;
+const ID_GA4 = /^G-[A-Z0-9]{4,28}$/; // teto de 30 caracteres no total, o max(30) do zod
 
 /** O snippet oficial do Pixel, o mesmo do /r/ (`entry-page.ts`) e das LPs, com o `d` (document) da página. */
 const SNIPPET_DO_PIXEL =
@@ -19,7 +19,7 @@ const SNIPPET_DO_PIXEL =
 /** Ao abrir: Pixel (PageView) e GA4 (o `config` manda o page_view). Cada um no seu try: um não derruba o outro nem a página. */
 function aoAbrir(pixel: string, ga4: string): string {
   const meta = pixel
-    ? `try{${SNIPPET_DO_PIXEL}window.fbq("init",${JSON.stringify(pixel)});window.fbq("track","PageView")}catch(x){}`
+    ? `try{${SNIPPET_DO_PIXEL}window.fbq("set","autoConfig",false,${JSON.stringify(pixel)});window.fbq("init",${JSON.stringify(pixel)});window.fbq("track","PageView")}catch(x){}`
     : "";
   const google = ga4
     ? `try{var w=window,gt=function(){w.dataLayer.push(arguments)};w.dataLayer=w.dataLayer||[];gt("js",new Date());gt("config",${JSON.stringify(ga4)});var g=d.createElement("script");g.async=!0;g.src=${JSON.stringify(`https://www.googletagmanager.com/gtag/js?id=${ga4}`)};d.head.appendChild(g)}catch(x){}`
@@ -71,7 +71,8 @@ function montar(toque: string, fim: string): string {
 
 export function scriptDaPagina(o: { rastreio: { metaPixelId: string; ga4Id: string } | null }): string {
   const r = o.rastreio;
-  const pixel = r && ID_PIXEL.test(r.metaPixelId) ? r.metaPixelId : "";
-  const ga4 = r && ID_GA4.test(r.ga4Id) ? r.ga4Id : "";
+  // typeof: o RegExp.test converte array/número em string e deixaria passar um valor que não é texto.
+  const pixel = r && typeof r.metaPixelId === "string" && ID_PIXEL.test(r.metaPixelId) ? r.metaPixelId : "";
+  const ga4 = r && typeof r.ga4Id === "string" && ID_GA4.test(r.ga4Id) ? r.ga4Id : "";
   return montar(noToque(pixel, ga4), aoAbrir(pixel, ga4));
 }
