@@ -26,8 +26,8 @@
 --   3. app.promote_due_schedules: a oferta relâmpago ignora o grupo que ficou de fora e o agendado
 --      cortado inteiro avisa o lojista.
 --
--- Idempotente (create or replace, create index if not exists). Sem trava de md5 nesta seção: ela só
--- cria objetos novos.
+-- Idempotente (create or replace, create index if not exists). A seção 1 não tem trava de md5: ela só
+-- cria objetos novos. As seções 2 e 3 reescrevem corpos que já existem, e cada uma tem a sua trava.
 
 -- 1) Contagem do dia, teto, leitura para a tela e índice.
 
@@ -239,6 +239,9 @@ begin
   end if;
 
   -- Uma contagem por loja de cada vez: dois posts enfileirados juntos leriam o mesmo "3".
+  -- ponytail: o lock vale até o fim da transação de QUEM CHAMA. Os loops de várias lojas
+  -- (promote_due_schedules, enviar_avisos_lotou) podem dar deadlock com um post manual simultâneo do
+  -- mesmo disparo; o Postgres aborta um dos lados e o worker repete no próximo tick.
   perform pg_advisory_xact_lock(hashtextextended('posts_por_grupo:' || target_tenant_id::text, 0));
   select coalesce(array_agg(h.jid), '{}') into cheios
   from app.posts_hoje_por_grupo(target_tenant_id) h
@@ -327,3 +330,237 @@ $$;
 -- create or replace não preserva o ACL em todo banco (ver 20260904100000): explícito sempre.
 revoke all on function app.enqueue_broadcast(uuid, uuid) from public, anon, authenticated;
 grant execute on function app.enqueue_broadcast(uuid, uuid) to service_role;
+
+-- 3) app.promote_due_schedules: a oferta relâmpago ignora o grupo que ficou de fora e o agendado cortado
+--    inteiro avisa o lojista.
+--
+-- O corpo é o de 20261017123000 com duas trocas:
+--
+--   1. A consulta que monta v_alvos (os grupos que receberam ESTA mensagem, de onde sai a lista de
+--      grupos da oferta) ignora o comando com payload.foraDoTeto = true: esse grupo não recebeu a
+--      mensagem, então a oferta não pode escutá-lo (nem segurar o índice
+--      flash_offer_groups_um_aberto_uidx dele).
+--   2. Logo depois do enqueue_broadcast: se o post voltou failed numa rodada NOVA (v_run_antes é o
+--      run_id de antes da chamada) e essa rodada tem comando de fora, todos os grupos estavam no teto e
+--      nada saiu. Insere uma notificação (type teto_posts_grupo, com href para /painel/disparos), com o
+--      teto vindo de app.posts_por_grupo_dia(). Só a rodada nova conta: as outras falhas do enqueue
+--      (sem número, sem grupo, sem conteúdo) não trocam o run_id, e um post que falhou por um desses
+--      motivos depois de um corte de teto de outro dia ainda carrega a rodada de fora antiga.
+--
+-- Corte parcial não avisa. O recorrente que for cortado inteiro avisa de novo no dia seguinte em que
+-- isso acontecer; o agendado único não repete (vira done).
+
+-- Trava: o corpo abaixo é o de 20261017123000 com as duas trocas (mais a variável v_run_antes que a
+-- troca 2 pede). Se este banco tiver outro corpo (correção aplicada à mão), o create or replace a
+-- apagaria em silêncio. Só passa com um dos dois corpos conhecidos, pelo md5 normalizado (prosrc sem
+-- comentário de linha e com espaço reduzido a um, como em 20261017123000): o de 20261017123000 (medido
+-- em 17/10 nos dois bancos) ou o desta migração (reaplicar passa).
+do $$
+declare
+  v_src text;
+begin
+  select p.prosrc into v_src
+  from pg_proc p
+  where p.oid = to_regprocedure('app.promote_due_schedules(integer)');
+  if v_src is null then
+    raise exception 'teto_posts_por_grupo: app.promote_due_schedules não existe neste banco (falta 20261017123000)';
+  end if;
+  if md5(btrim(regexp_replace(regexp_replace(v_src, '--[^\n]*', '', 'g'), '\s+', ' ', 'g')))
+       not in ('c1469c7f4fec5085d694da1706023ca9', '0f48fb11381555e32bfe4748fdfe4896') then
+    raise exception 'teto_posts_por_grupo: o corpo de app.promote_due_schedules neste banco difere do repo. Copie o pg_get_functiondef deste banco para a migração, refaça as trocas e aplique de novo.';
+  end if;
+end $$;
+
+create or replace function app.promote_due_schedules(max_schedules integer default 50)
+returns integer
+language plpgsql
+security definer
+set search_path = public, app
+as $$
+declare
+  promoted integer := 0;
+  s record;
+  step interval;
+  next_at timestamptz;
+  v_offer_id uuid;
+  v_alvos text[];
+  v_anteriores uuid[];
+  v_broadcast public.broadcasts;
+  v_missed boolean;
+  v_sem_plano boolean;
+  v_run_antes uuid;
+begin
+  for s in
+    select sc.id, sc.tenant_id, sc.broadcast_id, sc.scheduled_at, sc.recurrence
+    from public.schedules sc
+    where sc.status = 'pending'
+      and sc.scheduled_at <= now()
+    order by sc.scheduled_at asc
+    limit greatest(max_schedules, 1)
+    for update skip locked
+  loop
+    -- Perdeu a hora (worker/VPS fora do ar): nao dispara atrasado. Mensagem de
+    -- oferta fora do horario e pior que mensagem nenhuma.
+    v_missed := now() - s.scheduled_at > app.missed_send_tolerance();
+    -- Loja sem plano (cancelou, inadimplente, boleto vencido) nao dispara
+    -- sozinha. O recorrente fica pendente e volta se ela reassinar.
+    v_sem_plano := not app.tenant_concede_plano(s.tenant_id);
+
+    if (v_missed or v_sem_plano) and s.recurrence = 'none' and s.broadcast_id is not null then
+      update public.broadcasts
+      set status = 'failed',
+          error = case
+            when v_sem_plano then 'Não enviado: a assinatura não está ativa.'
+            else 'Não enviado: perdeu o horário agendado (servidor fora do ar).'
+          end,
+          updated_at = now()
+      where id = s.broadcast_id
+        and tenant_id = s.tenant_id
+        and status in ('draft', 'sent', 'failed');
+    end if;
+
+    if not v_missed and not v_sem_plano and s.broadcast_id is not null then
+      -- A rodada do post antes do enqueue: so uma rodada NOVA com status failed e o corte do teto
+      -- (os outros failed do enqueue nao trocam o run_id).
+      select b.run_id into v_run_antes
+      from public.broadcasts b
+      where b.id = s.broadcast_id
+        and b.tenant_id = s.tenant_id;
+
+      v_broadcast := app.enqueue_broadcast(s.tenant_id, s.broadcast_id);
+      -- Contagem inalterada de proposito: "promovido" sempre quis dizer
+      -- "agendamento com broadcast que chegou na hora", nao "mensagem que saiu".
+      promoted := promoted + 1;
+
+      -- Teto de posts por grupo (20261026120000): se TODOS os grupos ja estavam no teto, o post
+      -- voltou failed numa rodada nova, so com as linhas de fora (payload.foraDoTeto). O lojista nao
+      -- estava olhando: avisa. Corte parcial nao avisa, o post saiu para os outros grupos.
+      if v_broadcast.id is not null
+         and v_broadcast.status = 'failed'
+         and v_broadcast.run_id is distinct from v_run_antes
+         and exists (
+           select 1
+           from public.engine_commands c
+           where c.tenant_id = s.tenant_id
+             and c.origin_kind = 'broadcast'
+             and c.origin_id = s.broadcast_id
+             and c.origin_run_id = v_broadcast.run_id
+             and c.payload ->> 'foraDoTeto' = 'true'
+         ) then
+        insert into public.notifications (tenant_id, type, title, body, href)
+        values (
+          s.tenant_id,
+          'teto_posts_grupo',
+          'Post agendado não saiu',
+          format(
+            'O post agendado "%s" não saiu: todos os grupos já tinham %s posts hoje. O limite volta à meia-noite.',
+            v_broadcast.name, app.posts_por_grupo_dia()),
+          '/painel/disparos');
+      end if;
+
+      -- Funil: etapa relampago. A oferta ligada abre agora, junto da mensagem.
+      --
+      -- So abre se enqueue_broadcast realmente enfileirou. Ela devolve o
+      -- broadcast e volta com status 'failed' e total 0 quando nao ha numero
+      -- conectado, nao ha grupo de destino ou o conteudo esta vazio; devolve
+      -- null quando o broadcast sumiu. Abrir a oferta nesses casos criaria uma
+      -- oferta que ninguem foi convidado a usar, e ela seguraria o indice
+      -- flash_offer_groups_um_aberto_uidx do grupo ate alguem fechar a mao.
+      v_offer_id := null;
+      if v_broadcast.id is not null
+         and v_broadcast.status = 'queued'
+         and coalesce(v_broadcast.total, 0) > 0 then
+        select fo.id into v_offer_id
+        from public.flash_offers fo
+        where fo.broadcast_id = s.broadcast_id
+          and fo.tenant_id = s.tenant_id
+          and fo.status = 'draft'
+        limit 1;
+      end if;
+
+      if v_offer_id is not null then
+        -- Os grupos que receberam ESTA mensagem: os JIDs que enqueue_broadcast
+        -- enfileirou neste run. Antes este bloco copiava o predicado de destino;
+        -- com a regra de destino (broadcasts.target_rule, 20261010120000) a copia
+        -- divergiria e a oferta escutaria grupo que nao recebeu a mensagem.
+        -- origin_id + origin_run_id vao pelo engine_commands_origin_idx.
+        select coalesce(array_agg(c.payload ->> 'jid'), '{}') into v_alvos
+        from public.engine_commands c
+        where c.tenant_id = s.tenant_id
+          and c.origin_kind = 'broadcast'
+          and c.origin_id = s.broadcast_id
+          and c.origin_run_id = v_broadcast.run_id
+          and coalesce(c.payload ->> 'foraDoTeto', '') <> 'true';
+
+        -- A oferta de funil anterior nesses grupos da lugar a esta (ver topo).
+        select coalesce(array_agg(distinct fo.id), '{}') into v_anteriores
+        from public.flash_offer_groups fog
+        join public.flash_offers fo
+          on fo.id = fog.offer_id
+         and fo.tenant_id = fog.tenant_id
+        where fog.tenant_id = s.tenant_id
+          and fog.closed_at is null
+          and fog.whatsapp_group_id = any(v_alvos)
+          and fo.broadcast_id is not null
+          and fo.status = 'open'
+          and fo.id <> v_offer_id;
+
+        if coalesce(array_length(v_anteriores, 1), 0) > 0 then
+          update public.flash_offers
+          set status = 'closed', closed_at = now(), updated_at = now()
+          where tenant_id = s.tenant_id
+            and id = any(v_anteriores);
+
+          update public.flash_offer_groups
+          set closed_at = now()
+          where tenant_id = s.tenant_id
+            and offer_id = any(v_anteriores)
+            and closed_at is null;
+        end if;
+
+        update public.flash_offers
+        set status = 'open', opened_at = now(), updated_at = now()
+        where id = v_offer_id
+          and tenant_id = s.tenant_id;
+
+        -- Grupo que ainda tem outra oferta aberta (so pode ser oferta criada a
+        -- mao) e pulado pelo indice parcial. A mensagem sai mesmo assim.
+        insert into public.flash_offer_groups
+          (tenant_id, offer_id, group_id, whatsapp_group_id, opened_at, lid_map)
+        select g.tenant_id, v_offer_id, g.id, g.whatsapp_group_id, now(),
+               app.lid_map_from_history(g.tenant_id, g.whatsapp_group_id)
+        from public.groups g
+        where g.tenant_id = s.tenant_id
+          and g.whatsapp_group_id = any(v_alvos)
+        on conflict (tenant_id, whatsapp_group_id) where closed_at is null do nothing;
+      end if;
+    end if;
+
+    if s.recurrence = 'none' then
+      update public.schedules
+      set status = case
+            when v_missed or v_sem_plano then 'failed'::public.schedule_status
+            else 'done'::public.schedule_status
+          end,
+          last_run_at = now(), updated_at = now()
+      where id = s.id;
+    else
+      step := case when s.recurrence = 'daily' then interval '1 day' else interval '7 days' end;
+      -- Avanca ate o futuro: um worker parado 3 dias nao pode gerar 3 disparos.
+      next_at := s.scheduled_at;
+      while next_at <= now() loop
+        next_at := next_at + step;
+      end loop;
+      update public.schedules
+      set scheduled_at = next_at, last_run_at = now(), updated_at = now()
+      where id = s.id;
+    end if;
+  end loop;
+
+  return promoted;
+end;
+$$;
+
+-- create or replace não preserva o ACL em todo banco (ver 20260904100000): explícito sempre.
+revoke all on function app.promote_due_schedules(integer) from public, anon, authenticated;
+grant execute on function app.promote_due_schedules(integer) to service_role;

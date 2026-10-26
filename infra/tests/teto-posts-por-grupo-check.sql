@@ -10,11 +10,15 @@
 --
 -- Blocos: 1 contrato (funções, ACL, teto, índice); 2 o que conta no dia; 3 trava e corpo de
 -- app.enqueue_broadcast; 4 o 4º post sai e o 5º fica de fora (parcial); 5 todos de fora e o
--- recorrente; 6 aviso ao lotar.
+-- recorrente; 6 aviso ao lotar; 7 oferta relâmpago agendada ignora o grupo de fora; 8 agendado cortado
+-- inteiro avisa o lojista, e o corpo de app.promote_due_schedules.
 --
--- O bloco 6 chama public.enviar_avisos_lotou, que varre TODAS as lojas: o que fizer com linhas reais
--- é desfeito pelo rollback, e os asserts olham só a loja de teste. Escreve, mesmo com rollback: em
--- prod é do Igor.
+-- Os blocos 6 a 8 chamam public.enviar_avisos_lotou e app.promote_due_schedules(50), que varrem TODAS
+-- as lojas: o que fizerem com linhas reais é desfeito pelo rollback, e os asserts olham só a loja de
+-- teste. Escreve, mesmo com rollback: em prod é do Igor. Em prod o bloco 6 (enviar_avisos_lotou)
+-- também pega os advisory locks posts_por_grupo:<loja real> de toda loja com aviso pendente até o
+-- rollback, então o check pode falhar por lock_timeout (não por FALHOU) e segurar por instantes posts
+-- reais dessas lojas: é só rodar de novo, é seguro.
 
 begin;
 
@@ -118,16 +122,19 @@ do $$
 declare
   v_oid oid := to_regprocedure('app.enqueue_broadcast(uuid,uuid)');
   v_src text;
+  v_limpo text;
 begin
   select p.prosrc into v_src from pg_proc p where p.oid = v_oid;
   if v_src is null then
     raise exception 'FALHOU: app.enqueue_broadcast(uuid,uuid) ausente';
   end if;
-  if position('pg_advisory_xact_lock' in v_src) = 0
-     or position('pg_advisory_xact_lock' in v_src) > position('posts_hoje_por_grupo' in v_src) then
+  -- Sem comentário de linha: lock e contagem só valem como código, não como texto de comentário.
+  v_limpo := regexp_replace(v_src, '--[^\n]*', '', 'g');
+  if position('pg_advisory_xact_lock' in v_limpo) = 0
+     or position('pg_advisory_xact_lock' in v_limpo) > position('posts_hoje_por_grupo' in v_limpo) then
     raise exception 'FALHOU: app.enqueue_broadcast tem que pegar pg_advisory_xact_lock antes de contar (posts_hoje_por_grupo)';
   end if;
-  if md5(btrim(regexp_replace(regexp_replace(v_src, '--[^\n]*', '', 'g'), '\s+', ' ', 'g')))
+  if md5(btrim(regexp_replace(v_limpo, '\s+', ' ', 'g')))
        <> '1f4dd5f929572998777a1fd9c4901398' then
     raise exception 'FALHOU: corpo de app.enqueue_broadcast diferente do desta migração';
   end if;
@@ -316,6 +323,125 @@ begin
   end if;
   if (select h.posts from app.posts_hoje_por_grupo(t) h where h.jid = 'teto-g3@g.us') <> 4 then
     raise exception 'FALHOU: g3 deveria seguir em 4 depois do aviso de fora';
+  end if;
+end $$;
+
+-- 7) Oferta relâmpago agendada, corte parcial. Depois do bloco 6: g1 = 4, g2 = 2, g3 = 4, e a loja tem
+--    plano (a assinatura do bloco 6). O post D para g1 e g2 tem uma oferta relâmpago em draft e um
+--    agendamento vencido há 1 minuto. promote_due_schedules(50) enfileira o D (sai só para g2: g1 ganha a
+--    linha de fora), abre a oferta e ela escuta só o g2. Corte parcial não avisa o lojista.
+do $$
+declare
+  t    constant uuid := '7e700000-0000-4000-8000-000000000001';
+  v_id uuid;
+  v_fo uuid;
+  v_got text;
+  b    public.broadcasts;
+begin
+  if not app.tenant_concede_plano(t) then
+    raise exception 'FALHOU fixture: a loja de teste deveria ter plano (o bloco 6 cria a assinatura)';
+  end if;
+
+  insert into public.broadcasts (tenant_id, name, message, group_ids, status)
+  values (t, 'Check teto D', 'oferta', array['teto-g1@g.us', 'teto-g2@g.us'], 'draft')
+  returning id into v_id;
+  insert into public.flash_offers (tenant_id, name, slots, broadcast_id)
+  values (t, 'Check teto relâmpago', 3, v_id)
+  returning id into v_fo;
+  insert into public.schedules (tenant_id, broadcast_id, name, scheduled_at, recurrence, status)
+  values (t, v_id, 'Check teto D', now() - interval '1 minute', 'none', 'pending');
+
+  perform app.promote_due_schedules(50);
+
+  select * into b from public.broadcasts x where x.id = v_id;
+  if b.status is distinct from 'queued' or b.total <> 2 then
+    raise exception 'FALHOU: o post D (parcial) deveria ficar queued com total 2: status %, total %', b.status, b.total;
+  end if;
+  if (select status from public.flash_offers where id = v_fo) is distinct from 'open' then
+    raise exception 'FALHOU: a oferta relâmpago do post D deveria abrir (corte parcial)';
+  end if;
+  select string_agg(g.whatsapp_group_id, ',' order by g.whatsapp_group_id) into v_got
+  from public.flash_offer_groups g
+  where g.tenant_id = t and g.offer_id = v_fo;
+  if v_got is distinct from 'teto-g2@g.us' then
+    raise exception 'FALHOU: a oferta deveria escutar só o g2 (o g1 ficou de fora do post), escuta: %', v_got;
+  end if;
+  if exists (select 1 from public.notifications n where n.tenant_id = t and n.type = 'teto_posts_grupo') then
+    raise exception 'FALHOU: corte parcial não deveria avisar o lojista';
+  end if;
+end $$;
+
+-- 8) Agendado cortado inteiro. Depois do bloco 7: g1 = 4. O post 'Check teto' só para g1, agendado, vira
+--    failed e o lojista ganha exatamente um aviso (rodar de novo não repete: o agendamento ficou done).
+--    Um segundo agendamento do mesmo post, que falha por outro motivo (sem número provisionado) e deixa
+--    no post a rodada de fora do teto, não avisa de novo.
+do $$
+declare
+  t       constant uuid := '7e700000-0000-4000-8000-000000000001';
+  v_corpo constant text := 'O post agendado "Check teto" não saiu: todos os grupos já tinham 4 posts hoje. O limite volta à meia-noite.';
+  v_id    uuid;
+  v_run   uuid;
+  v_oid   oid := to_regprocedure('app.promote_due_schedules(integer)');
+  v_src   text;
+  b       public.broadcasts;
+begin
+  insert into public.broadcasts (tenant_id, name, message, group_ids, status)
+  values (t, 'Check teto', 'oferta', array['teto-g1@g.us'], 'draft')
+  returning id into v_id;
+  insert into public.schedules (tenant_id, broadcast_id, name, scheduled_at, recurrence, status)
+  values (t, v_id, 'Check teto', now() - interval '1 minute', 'none', 'pending');
+
+  perform app.promote_due_schedules(50);
+
+  select * into b from public.broadcasts x where x.id = v_id;
+  if b.status is distinct from 'failed' or b.run_id is null then
+    raise exception 'FALHOU: o post agendado cortado inteiro deveria virar failed: status %', b.status;
+  end if;
+  if (select count(*) from public.notifications n where n.tenant_id = t and n.type = 'teto_posts_grupo') <> 1 then
+    raise exception 'FALHOU: o agendado cortado inteiro deveria gerar exatamente um aviso teto_posts_grupo';
+  end if;
+  if not exists (select 1 from public.notifications n
+                 where n.tenant_id = t and n.type = 'teto_posts_grupo'
+                   and n.title = 'Post agendado não saiu' and n.body = v_corpo
+                   and n.href = '/painel/disparos') then
+    raise exception 'FALHOU: o aviso do agendado cortado inteiro está com título, texto ou link errado';
+  end if;
+  if (select s.status from public.schedules s where s.broadcast_id = v_id) is distinct from 'done' then
+    raise exception 'FALHOU: o agendamento cortado deveria ficar done (foi promovido)';
+  end if;
+
+  perform app.promote_due_schedules(50);
+  if (select count(*) from public.notifications n where n.tenant_id = t and n.type = 'teto_posts_grupo') <> 1 then
+    raise exception 'FALHOU: rodar a promoção de novo não deveria repetir o aviso';
+  end if;
+
+  -- Mesmo post, outro agendamento, mas agora a falha é "sem número": o run_id continua o da rodada de
+  -- fora do teto, e isso não pode virar aviso de teto.
+  v_run := b.run_id;
+  update public.instances set provider_instance_id = null where tenant_id = t;
+  insert into public.schedules (tenant_id, broadcast_id, name, scheduled_at, recurrence, status)
+  values (t, v_id, 'Check teto 2', now() - interval '1 minute', 'none', 'pending');
+  perform app.promote_due_schedules(50);
+  select * into b from public.broadcasts x where x.id = v_id;
+  if b.error is distinct from 'Nenhum número conectado para disparar.' or b.run_id is distinct from v_run then
+    raise exception 'FALHOU fixture: o 2º agendamento deveria falhar por falta de número, na mesma rodada: error %', b.error;
+  end if;
+  if (select count(*) from public.notifications n where n.tenant_id = t and n.type = 'teto_posts_grupo') <> 1 then
+    raise exception 'FALHOU: falha por falta de número não deveria virar aviso de teto';
+  end if;
+
+  -- O corpo de app.promote_due_schedules é o desta migração (md5 normalizado, como no bloco 3) e o
+  -- execute segue só do service_role.
+  select p.prosrc into v_src from pg_proc p where p.oid = v_oid;
+  if v_src is null
+     or md5(btrim(regexp_replace(regexp_replace(v_src, '--[^\n]*', '', 'g'), '\s+', ' ', 'g')))
+          <> '0f48fb11381555e32bfe4748fdfe4896' then
+    raise exception 'FALHOU: corpo de app.promote_due_schedules diferente do desta migração';
+  end if;
+  if has_function_privilege('anon', v_oid, 'EXECUTE')
+     or has_function_privilege('authenticated', v_oid, 'EXECUTE')
+     or not has_function_privilege('service_role', v_oid, 'EXECUTE') then
+    raise exception 'FALHOU: execute de app.promote_due_schedules deveria ser só do service_role';
   end if;
 end $$;
 
