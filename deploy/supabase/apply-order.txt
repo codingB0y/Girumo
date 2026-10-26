@@ -570,3 +570,5 @@ apps/web/supabase/migrations/20261019180000_bling_canais_da_conta.sql
 apps/web/supabase/migrations/20261020120000_aviso_lotou_sem_estrutura.sql
 # 23/10: disjuntor por saídas voluntárias (pausa 6 h, cancela a fila, notifica) e orçamento de @todos (2 posts/24 h por número) no claim. Muda a baseline.
 apps/web/supabase/migrations/20261023120000_antiban_saidas_e_todos.sql
+# 26/10: teto de 4 posts por grupo por dia (enqueue_broadcast deixa de fora, promote_due_schedules ignora na oferta e notifica). Muda a baseline.
+apps/web/supabase/migrations/20261026120000_teto_posts_por_grupo.sql
