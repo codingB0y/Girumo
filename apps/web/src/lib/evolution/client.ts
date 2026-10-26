@@ -225,11 +225,23 @@ export type ConnectionStateResult = {
   state: string | null;
 };
 
-export async function connectionState(instanceName: string): Promise<ConnectionStateResult> {
+export async function connectionState(
+  instanceName: string,
+  timeoutMs?: number,
+): Promise<ConnectionStateResult> {
   const data = await request<{ instance?: { state?: string } }>(
     `/instance/connectionState/${encodeURIComponent(instanceName)}`,
+    { timeoutMs },
   );
   return { state: data?.instance?.state ?? null };
+}
+
+/** Dados da instância na Evolution (inclui `ownerJid` depois que a sessão abre). */
+export async function fetchInstance(instanceName: string, timeoutMs?: number): Promise<unknown> {
+  return request<unknown>(
+    `/instance/fetchInstances?instanceName=${encodeURIComponent(instanceName)}`,
+    { timeoutMs },
+  );
 }
 
 /** Desconecta a sessão do WhatsApp, mantendo a instância na Evolution. */
