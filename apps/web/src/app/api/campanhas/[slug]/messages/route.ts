@@ -242,6 +242,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
 
   const enqueued = await broadcastsStore.enqueueBroadcast(tenantId, broadcast.id);
 
+  // O fan-out pode voltar `failed` (ex.: todos os grupos escolhidos já no limite
+  // do dia). Responder 201 faria a tela dizer "Postado" de um post que não saiu —
+  // e não é ativação. O motivo vem do banco, pronto pra mostrar.
+  if (enqueued?.status === "failed") {
+    return Response.json({ error: enqueued.error ?? "O post não saiu." }, { status: 422 });
+  }
+
   // Marco de ativação. O evento existia, mas só era emitido por /api/dispatch —
   // a rota do motor legado. Migrado o envio pra cá, ele deixou de acontecer e o
   // funil marcava zero disparo mesmo com o lojista disparando.

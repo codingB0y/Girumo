@@ -423,3 +423,22 @@ test("lista fixa grava exatamente os grupos escolhidos e nenhuma regra", async (
   assert.equal(feitas("POST", RPC).length, 0);
   await aguardarMarcoDeAtivacao();
 });
+
+test("post que o banco devolve failed (todos no limite do dia) responde 422 com o motivo e não marca ativação", async () => {
+  chamadas.length = 0;
+  const motivo = "Nenhum grupo recebeu: todos já tinham 4 posts hoje. O limite volta à meia-noite.";
+  responder = gravando({
+    "GET /rest/v1/campaign_groups": () => ({ status: 200, corpo: [campanha()] }),
+    [`POST ${RPC}`]: () => ({ status: 200, corpo: [estado(1, G1, "fila", true)] }),
+    "POST /rest/v1/rpc/enqueue_broadcast": () => ({
+      status: 200,
+      corpo: { id: "bc-1", status: "failed", error: motivo, sent: 0, total: 1 },
+    }),
+  });
+
+  const res = await postar({ body: "oferta" });
+
+  assert.equal(res.status, 422);
+  assert.deepEqual(await res.json(), { error: motivo });
+  assert.equal(feitas("POST", "/rest/v1/funnel_events").length, 0);
+});
