@@ -137,6 +137,10 @@ grupos que o botão conta ("Postar em N grupos") e o teto que vem do servidor.
 | Alguns já em {teto} | "{k} de {n} grupos já receberam {teto} posts hoje e vão ficar de fora." (cor de aviso) |
 | Todos já em {teto} | "Todos estes grupos já receberam {teto} posts hoje. O post não vai sair; o limite volta à meia-noite." (cor de erro) |
 
+Com um grupo só (o modo Avisos é sempre assim), a frase vai para o singular e não existe o caso "alguns"
+(aprovado pelo Igor em 26/10): "Hoje: {n} de {teto} posts neste grupo." e "Este grupo já recebeu {teto}
+posts hoje. O post não vai sair; o limite volta à meia-noite."
+
 O botão continua habilitado nos quatro casos: a contagem pode estar velha, e quem decide é o banco na
 hora de enfileirar. A linha é lida quando o compositor abre e de novo depois de cada post enviado dali.
 

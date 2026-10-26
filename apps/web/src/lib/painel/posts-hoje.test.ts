@@ -36,6 +36,17 @@ test("todos no teto dizem que o post não vai sair", () => {
   });
 });
 
+test("com um grupo só a frase fica no singular", () => {
+  assert.deepEqual(linhaDosPostsHoje(dados({ a: 3, z: 4 }), ["a"]), {
+    texto: "Hoje: 3 de 4 posts neste grupo.",
+    tom: "info",
+  });
+  assert.deepEqual(linhaDosPostsHoje(dados({ a: 4 }), ["a"]), {
+    texto: "Este grupo já recebeu 4 posts hoje. O post não vai sair; o limite volta à meia-noite.",
+    tom: "erro",
+  });
+});
+
 test("o teto vem dos dados, não do código", () => {
   assert.equal(
     linhaDosPostsHoje({ teto: 2, grupos: { a: 2 } }, ["a", "b"])?.texto,
