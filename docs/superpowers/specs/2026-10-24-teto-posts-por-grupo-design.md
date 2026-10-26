@@ -87,7 +87,7 @@ O trabalho falha, mesmo funcionando, se:
 6. **Todos de fora:** nenhum comando de envio sai. Os grupos recebem as linhas `canceled` com
    `foraDoTeto` do item 5, numa rodada nova (`run_id` novo, `running_since = now()`), e o post vira `failed`
    com `total` = número de grupos de fora, `sent = 0` e o erro "Nenhum grupo recebeu: todos já tinham 4
-   posts hoje. O limite volta à meia-noite." Assim cada grupo mostra "Já tinha 4 hoje" na coluna do post,
+   posts hoje. O limite volta à meia-noite." Assim cada grupo mostra "limite do dia" na coluna do post,
    em vez de "—" ou das células da rodada de ontem de um recorrente. `reconcile_broadcast_progress` só
    olha posts `queued`/`running`, então não reescreve esse `failed`.
    - **A tela de postar mostra o erro.** Hoje a rota de postar (`POST /api/campanhas/[slug]/messages`)
@@ -114,7 +114,7 @@ O trabalho falha, mesmo funcionando, se:
 ### No histórico (PR 1)
 
 A coluna "Post das HH:MM" da tabela de grupos da campanha (`GET /api/disparos/[id]/grupos`) ganha um
-estado novo, `fora_do_teto`, com o rótulo **"Já tinha 4 hoje"**, separado de "Cancelado".
+estado novo, `fora_do_teto`, com o rótulo **"limite do dia"** (sem o número: o TypeScript não guarda o 4, item 8), separado de "Cancelado".
 `listBroadcastDeliveries` passa a ler `payload->>foraDoTeto`; `estadoDaEntrega` em `lib/painel/entrega.ts`
 recebe essa marca. O estado novo entra em todo lugar que enumera `EstadoDaEntrega` ou lê
 `resumoDaEntrega`: os registros exaustivos de `entrega.tsx`, as legendas de `postando.ts` e `abas.ts` e
