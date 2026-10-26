@@ -440,5 +440,8 @@ test("post que o banco devolve failed (todos no limite do dia) responde 422 com 
 
   assert.equal(res.status, 422);
   assert.deepEqual(await res.json(), { error: motivo });
+  // `first_dispatch` sai sem esperar e chega ao banco falso depois da resposta: sem esta
+  // janela, mover o 422 para baixo do `trackFunnelEvent` ainda passaria no "zero" abaixo.
+  await new Promise((pronto) => setTimeout(pronto, 100));
   assert.equal(feitas("POST", "/rest/v1/funnel_events").length, 0);
 });
