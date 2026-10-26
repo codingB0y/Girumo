@@ -84,8 +84,9 @@ export function MessagesTab({
   const [destino, setDestino] = useState<Destino>(DESTINO_PADRAO);
   const estados = useCargaDosEstados(campaignSlug);
   const destinoDoEnvio: Destino = usarAvisos && avisoGroupId ? { grupos: [avisoGroupId] } : destino;
+  // Lê toda vez que o compositor abre: a aba Posts escondida ou outra sub-aba desativam, e voltar relê.
+  const { dados: postsHoje } = usePostsHoje(ativo && subTab === "Enviar agora");
   // Os grupos que o post de "Enviar agora" alcança: o Avisos é um só e fica fora do seletor.
-  const { dados: postsHoje, reler: relerPostsHoje } = usePostsHoje();
   const gruposDoEnvio =
     usarAvisos && avisoGroupId
       ? [avisoGroupId]
@@ -141,7 +142,6 @@ export function MessagesTab({
       if (res.ok) {
         await fetchMessages();
         setSubTab("Agenda");
-        relerPostsHoje();
         return true;
       } else {
         // `alert()` nativo nao aceita link, entao quem batia no gate de plano

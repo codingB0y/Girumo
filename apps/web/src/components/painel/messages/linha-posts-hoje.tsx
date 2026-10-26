@@ -15,16 +15,25 @@ async function lerPostsHoje(): Promise<PostsHoje | null> {
 }
 
 /**
- * Posts de hoje por grupo (`GET /api/groups/posts-hoje`): lê ao montar e a cada
- * `reler()`. Só a leitura mais nova chega à tela: a resposta atrasada de uma
- * anterior, ou de um compositor já desmontado, é descartada. Leitura que falha
- * vira `dados = null`, e sem dados não há linha.
+ * Posts de hoje por grupo (`GET /api/groups/posts-hoje`): lê ao montar, a cada
+ * `reler()` e toda vez que `ativo` volta a ser verdadeiro. Só a leitura mais nova
+ * chega à tela: a resposta atrasada de uma anterior, ou de um compositor já
+ * desmontado, é descartada. Leitura que falha vira `dados = null`, e sem dados
+ * não há linha.
+ *
+ * `ativo` é para quem mantém o compositor montado mas escondido (a aba Posts da
+ * campanha): inativo não consulta e larga a contagem velha, para que voltar a
+ * abrir não mostre por um instante a de antes do último post.
  */
-export function usePostsHoje(): { dados: PostsHoje | null; reler: () => void } {
+export function usePostsHoje(ativo = true): { dados: PostsHoje | null; reler: () => void } {
   const [dados, setDados] = useState<PostsHoje | null>(null);
   const [leituras, setLeituras] = useState(0);
 
   useEffect(() => {
+    if (!ativo) {
+      setDados(null);
+      return;
+    }
     let descartada = false;
     void lerPostsHoje().then((lida) => {
       if (!descartada) setDados(lida);
@@ -32,7 +41,7 @@ export function usePostsHoje(): { dados: PostsHoje | null; reler: () => void } {
     return () => {
       descartada = true;
     };
-  }, [leituras]);
+  }, [leituras, ativo]);
 
   const reler = useCallback(() => setLeituras((n) => n + 1), []);
   return { dados, reler };
