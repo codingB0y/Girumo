@@ -15,10 +15,12 @@
 --
 -- Os blocos 6 a 8 chamam public.enviar_avisos_lotou e app.promote_due_schedules(50), que varrem TODAS
 -- as lojas: o que fizerem com linhas reais é desfeito pelo rollback, e os asserts olham só a loja de
--- teste. Escreve, mesmo com rollback: em prod é do Igor. Em prod o bloco 6 (enviar_avisos_lotou)
--- também pega os advisory locks posts_por_grupo:<loja real> de toda loja com aviso pendente até o
--- rollback, então o check pode falhar por lock_timeout (não por FALHOU) e segurar por instantes posts
--- reais dessas lojas: é só rodar de novo, é seguro.
+-- teste. Escreve, mesmo com rollback: em prod é do Igor. Em prod os blocos 6 a 8 também pegam os
+-- advisory locks posts_por_grupo:<loja real> (enviar_avisos_lotou no 6; promote_due_schedules(50) ->
+-- enqueue_broadcast nos 7 e 8) e o FOR UPDATE dos agendamentos reais vencidos, tudo até o rollback.
+-- Então o check pode falhar por lock_timeout (não por FALHOU) e segurar por instantes posts reais
+-- dessas lojas. Se der deadlock, a vítima pode ser o tick do worker, que se recupera no próximo ciclo
+-- (ou é o check que falha): é só rodar de novo, é seguro.
 
 begin;
 
@@ -378,7 +380,7 @@ end $$;
 do $$
 declare
   t       constant uuid := '7e700000-0000-4000-8000-000000000001';
-  v_corpo constant text := 'O post agendado "Check teto" não saiu: todos os grupos já tinham 4 posts hoje. O limite volta à meia-noite.';
+  v_corpo constant text := 'O post agendado "Check teto" não saiu: todos os grupos já tinham recebido 4 posts hoje. O limite volta à meia-noite.';
   v_id    uuid;
   v_run   uuid;
   v_oid   oid := to_regprocedure('app.promote_due_schedules(integer)');
@@ -435,7 +437,7 @@ begin
   select p.prosrc into v_src from pg_proc p where p.oid = v_oid;
   if v_src is null
      or md5(btrim(regexp_replace(regexp_replace(v_src, '--[^\n]*', '', 'g'), '\s+', ' ', 'g')))
-          <> '0f48fb11381555e32bfe4748fdfe4896' then
+          <> '4127cefa0ac99b2ecddddd416a62cdfc' then
     raise exception 'FALHOU: corpo de app.promote_due_schedules diferente do desta migração';
   end if;
   if has_function_privilege('anon', v_oid, 'EXECUTE')

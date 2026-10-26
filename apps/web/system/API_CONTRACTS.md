@@ -96,7 +96,7 @@ Estados do `status`:
 `draft`/`failed`/`sent` = parado (pode ser (re)enfileirado) · `queued` = fan-out feito, nenhum comando
 concluído ainda · `running` = ≥1 comando concluído e ainda há pendentes · `sent` = 0 pendentes e ≥1
 entregue · `failed` = 0 pendentes e nenhum entregue, ou o fan-out foi impossível (sem número
-conectado, sem grupo admin, oferta sem conteúdo).
+conectado, sem grupo admin, oferta sem conteúdo, todos os grupos de destino já no teto do dia).
 
 `total` = comandos criados; `sent` = comandos `done`. Quem escreve esses dois é
 `reconcile_broadcast_progress`, **agregando** `engine_commands` no housekeeping do worker — nunca
@@ -112,6 +112,18 @@ saudável. Quem detecta disparo morto agora é o reconciliador, por ausência de
 em grupo onde não somos admin"). Lista explícita é interseccionada com os grupos admin — o sync novo
 grava também os grupos não-admin, e disparar neles queimaria cota anti-ban com envio que o WhatsApp
 recusa, além de alimentar o breaker do número.
+
+**Teto de posts por grupo por dia.** `enqueue_broadcast` conta, por grupo, os posts do dia de Brasília
+(`app.posts_hoje_por_grupo`) contra o teto de `app.posts_por_grupo_dia()` — o número vive só nessa função,
+nunca no código. A contagem roda sob advisory lock da loja, então dois posts enfileirados juntos não leem o
+mesmo total. Grupo no teto **não sai**: a rodada ganha, para ele, uma linha em `engine_commands` já
+`canceled`, com `payload.foraDoTeto = true` e o motivo em `error`. Essa linha entra em `total` (a coluna do
+post mostra "limite do dia" naquele grupo), não conta como entregue e nunca é reivindicada pelo worker.
+Se **todos** os grupos de destino estão no teto, nenhum comando sai: o post vira `failed`, numa rodada nova
+(`run_id` novo, com as linhas de fora), com o motivo em `error`. `POST /api/campanhas/[slug]/messages`
+("postar agora") responde `422 { error }` quando o post volta `failed` — o motivo vem do banco, pronto pra
+tela; sem isso a rota diria `201` e a tela "Postado" de um post que não saiu. Post agendado cortado inteiro
+não tem tela aberta: `promote_due_schedules` grava uma notificação `teto_posts_grupo` pro lojista.
 
 **Tipo do comando**, com a precedência do legado — enquete > mídia > texto:
 - `send_message` → `{ jid, text, mentionAll }`

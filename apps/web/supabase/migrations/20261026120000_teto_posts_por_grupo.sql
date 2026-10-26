@@ -239,9 +239,10 @@ begin
   end if;
 
   -- Uma contagem por loja de cada vez: dois posts enfileirados juntos leriam o mesmo "3".
-  -- ponytail: o lock vale até o fim da transação de QUEM CHAMA. Os loops de várias lojas
-  -- (promote_due_schedules, enviar_avisos_lotou) podem dar deadlock com um post manual simultâneo do
-  -- mesmo disparo; o Postgres aborta um dos lados e o worker repete no próximo tick.
+  -- ponytail: o lock vale até o fim da transação de QUEM CHAMA. Resta deadlock entre dois loops
+  -- de várias lojas que pegam os locks em ordem diferente (duas réplicas do worker sobrepostas num
+  -- deploy, ou o check rodado em prod contra o worker); o Postgres aborta um lado e o worker repete
+  -- no próximo tick.
   perform pg_advisory_xact_lock(hashtextextended('posts_por_grupo:' || target_tenant_id::text, 0));
   select coalesce(array_agg(h.jid), '{}') into cheios
   from app.posts_hoje_por_grupo(target_tenant_id) h
@@ -366,7 +367,7 @@ begin
     raise exception 'teto_posts_por_grupo: app.promote_due_schedules não existe neste banco (falta 20261017123000)';
   end if;
   if md5(btrim(regexp_replace(regexp_replace(v_src, '--[^\n]*', '', 'g'), '\s+', ' ', 'g')))
-       not in ('c1469c7f4fec5085d694da1706023ca9', '0f48fb11381555e32bfe4748fdfe4896') then
+       not in ('c1469c7f4fec5085d694da1706023ca9', '4127cefa0ac99b2ecddddd416a62cdfc') then
     raise exception 'teto_posts_por_grupo: o corpo de app.promote_due_schedules neste banco difere do repo. Copie o pg_get_functiondef deste banco para a migração, refaça as trocas e aplique de novo.';
   end if;
 end $$;
@@ -453,7 +454,7 @@ begin
           'teto_posts_grupo',
           'Post agendado não saiu',
           format(
-            'O post agendado "%s" não saiu: todos os grupos já tinham %s posts hoje. O limite volta à meia-noite.',
+            'O post agendado "%s" não saiu: todos os grupos já tinham recebido %s posts hoje. O limite volta à meia-noite.',
             v_broadcast.name, app.posts_por_grupo_dia()),
           '/painel/disparos');
       end if;
