@@ -478,7 +478,7 @@ git commit -m "feat(painel): warn before posting when groups hit today's limit"
 ### Task 10: Fechamento do PR 2 e verificação
 
 - [ ] **Step 1:** gate local → push → `gh pr create` (título `feat(painel): today's post count in the composer (teto, PR 2)`) → CI verde → merge à mão → deploy da Vercel ok.
-- [ ] **Step 2: Prova em prod (só com dado real, nunca fabricado):** no primeiro dia em que um grupo de cliente chegar em 4, colher (a) a linha do compositor com o aviso, (b) a célula "limite do dia" na tabela do post, (c) por SQL: nenhum grupo-dia com mais de 4 comandos `done` desde o merge do PR 1 (consulta de `posts-por-grupo-dia.sql`, filtrada por `created_at >= <merge>`). Com as três, `move_card('teto-posts-por-grupo', 'no_ar_verificado', …, '<prova>')`.
+- [ ] **Step 2: Prova em prod (só com dado real, nunca fabricado):** no primeiro dia em que um grupo de cliente chegar em 4, colher (a) a linha do compositor com o aviso, (b) a célula "limite do dia" na tabela do post, (c) por SQL: nenhum grupo-dia com mais de 4 comandos `done` desde o merge do PR 1 (contagem de comandos `done` por loja, `payload->>'jid'` e dia de Brasília, com `created_at >= <merge do PR 1>`). Com as três, `move_card('teto-posts-por-grupo', 'no_ar_verificado', …, '<prova>')`.
 - [ ] **Step 3:** memória do projeto (nota da feature) e `kg_insert_text` com a decisão (teto 4, regra no banco, linha de fora `canceled` + `foraDoTeto`).
 - [ ] **Step 4:** ao encerrar, reportar "PRs que deixei abertos: …".
 
