@@ -173,6 +173,6 @@ test("barra de abas WAI-ARIA e dona do erro: tablist nomeado, painel controlado,
   assert.equal(ABAS[0].dona("links"), true);
   assert.equal(ABAS[0].dona("perfil.nome"), false);
   assert.equal(abaDoErro({ campo: "links.0.url", mensagem: "x" })?.id, "links");
-  assert.equal(abaDoErro({ campo: "slug", mensagem: "x" }), undefined);
+  assert.equal(abaDoErro({ campo: "slug", mensagem: "x" })?.id, "divulgar");
   assert.equal(abaDoErro(null), undefined);
 });

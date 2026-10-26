@@ -7,6 +7,8 @@ import type { ContextoDoEditor, ErroDeCampo, EstadoSalvavel } from "@/lib/bio/ed
 import type { PaginaBio } from "@/lib/stores/bio-pages";
 import { cn } from "@/lib/utils";
 
+import { AbaAparencia } from "./aba-aparencia";
+import { AbaDivulgar } from "./aba-divulgar";
 import { AbaLinks } from "./aba-links";
 import { AbaPerfil } from "./aba-perfil";
 import type { EditorBio } from "./use-editor-bio";
@@ -47,8 +49,10 @@ export type AbaDoEditor = {
 /** As abas do editor, na ordem da tela (§8: Links · Aparência · Perfil · Divulgar). O 6b acrescenta as três aqui. */
 export const ABAS: readonly AbaDoEditor[] = [
   { id: "links", nome: "Links", dona: (campo) => campo === "links" || campo.startsWith("links."), Conteudo: AbaLinks },
+  { id: "aparencia", nome: "Aparência", dona: (campo) => /^(modelo|paleta|cores|animar)(\.|$)/.test(campo), Conteudo: AbaAparencia },
   // Sem `rastreio`: o PR 7 acrescenta junto com os campos do "Avançado" (sem eles, o erro cai no aviso da tela).
   { id: "perfil", nome: "Perfil", dona: (campo) => /^(perfil|confere|feitoComGirumo)(\.|$)/.test(campo), Conteudo: AbaPerfil },
+  { id: "divulgar", nome: "Divulgar", dona: (campo) => campo === "slug" || campo === "publicada", Conteudo: AbaDivulgar },
 ];
 
 /** A aba que mostra o campo do erro, se alguma mostra. */

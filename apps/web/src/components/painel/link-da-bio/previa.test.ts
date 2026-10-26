@@ -62,3 +62,10 @@ test("celular: botão Ver como fica, e a folha da tela cheia só monta ao tocar"
   assert.match(h, />Ver como fica</);
   assert.doesNotMatch(h, /role="dialog"/);
 });
+
+test("miniatura do modelo: inert e escondida do leitor de tela; a prévia comum não", () => {
+  const mini = renderToStaticMarkup(createElement(QuadroDaPrevia, { dados: DADOS, rodada: 0, miniatura: true }));
+  assert.match(mini, /sandbox="" tabindex="-1" inert="" aria-hidden="true" class=/);
+  const comum = renderToStaticMarkup(createElement(QuadroDaPrevia, { dados: DADOS, rodada: 0 }));
+  assert.match(comum, /sandbox="" tabindex="-1" class=/);
+});

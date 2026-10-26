@@ -28,7 +28,18 @@ const ESPERA_DA_PREVIA_MS = 300;
  * Essas mudanças esperam 300 ms paradas (o CropFocal e o seletor de cor mandam uma por movimento).
  * `key={rodada}`: duas rodadas com o mesmo HTML ainda recarregam.
  */
-export function QuadroDaPrevia({ dados, rodada, className }: { dados: DadosRender; rodada: number; className?: string }) {
+export function QuadroDaPrevia({
+  dados,
+  rodada,
+  className,
+  miniatura = false,
+}: {
+  dados: DadosRender;
+  rodada: number;
+  className?: string;
+  /** Miniatura de modelo (aba Aparência): fora do Tab, do mouse e do leitor de tela. */
+  miniatura?: boolean;
+}) {
   // Guarda o documento da última rodada: é com ele, e só com ele, que a entrada toca
   // (padrão do React de guardar a prop anterior no estado).
   const [rodadaVista, setRodadaVista] = useState(rodada);
@@ -57,6 +68,8 @@ export function QuadroDaPrevia({ dados, rodada, className }: { dados: DadosRende
       srcDoc={html}
       sandbox=""
       tabIndex={-1}
+      inert={miniatura}
+      aria-hidden={miniatura || undefined}
       className={cn("block border-0 bg-paper-0", className)}
     />
   );

@@ -137,10 +137,12 @@ test("409 vira aviso com Recarregar; falha e erro de campo sem aba dona viram av
     /role="alert"[^>]*>[\s\S]*Outra pessoa salvou antes\. Recarregue pra ver a versão nova\.[\s\S]*>Recarregar</,
   );
   assert.match(html({ aviso: "Sem permissão para esta ação." }), /role="alert"[^>]*>Sem permissão para esta ação\.</);
+  // Campo que nenhuma aba mostra (o `v` do documento) vira aviso no topo; o `slug` é da Divulgar desde o 6b.
   assert.match(
-    html({ erro: { campo: "slug", mensagem: "Esse endereço já é de outra loja." } }),
-    /role="alert"[^>]*>Esse endereço já é de outra loja\.</,
+    html({ erro: { campo: "v", mensagem: "Esse documento é de uma versão que o painel não conhece." } }),
+    /role="alert"[^>]*>Esse documento é de uma versão que o painel não conhece\.</,
   );
+  assert.doesNotMatch(html({ erro: { campo: "slug", mensagem: "Endereço em uso." } }), /role="alert"[^>]*>Endereço em uso\./);
   assert.doesNotMatch(html({ erro: { campo: "links.0.numero", mensagem: "Número conectado." } }), /Número conectado\./);
 });
 

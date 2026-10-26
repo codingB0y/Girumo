@@ -96,6 +96,7 @@ test.describe("casca mobile da Vitrine Aberta", () => {
     await expect(folha.getByRole("link", { name: /^Campanhas · / })).toBeVisible({ timeout: 30_000 });
     await expect(folha.getByRole("link", { name: /^Disparos · / })).toBeVisible();
     await expect(folha.getByRole("link", { name: "Configurações" })).toBeVisible();
+    await expect(folha.getByRole("link", { name: "Link da bio" })).toBeVisible();
   });
 });
 
