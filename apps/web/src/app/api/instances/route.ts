@@ -7,6 +7,7 @@ import {
   setWebhook,
 } from "@/lib/evolution/client";
 import { parseNumeroPerfil } from "@/lib/instances/numero-perfil";
+import { reconciliarConexoes } from "@/lib/instances/reconciliar-conexao";
 import { resolveSecret } from "@/lib/runtime-secrets";
 import { deleteInstanceRow, listInstances, setProviderInstanceId } from "@/lib/stores/instances";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
@@ -29,7 +30,9 @@ function canManageInstances(role: string) {
 export async function GET(req: Request) {
   try {
     const ctx = await getTenantContext(req);
-    return Response.json(await listInstances(ctx.tenantId));
+    // A tela de conectar pergunta aqui "já conectou?": sem conferir na Evolution,
+    // um connection.update perdido deixava o número pareado aparecendo desconectado.
+    return Response.json(await reconciliarConexoes(await listInstances(ctx.tenantId)));
   } catch (error) {
     if (error instanceof Response) return error;
     return Response.json({ error: "Erro ao listar instancias." }, { status: 500 });

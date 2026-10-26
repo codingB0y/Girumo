@@ -8,12 +8,14 @@ import { listGroups as legacyListGroups } from "@/lib/groups-store";
 import { collection } from "@/lib/json-collection";
 import { listLeads as legacyListLeads } from "@/lib/leads-store";
 import type { Schedule } from "@/lib/mock-data";
+import { reconciliarConexoes } from "@/lib/instances/reconciliar-conexao";
 import { casaComBusca, lerBuscaDeContato } from "@/lib/painel/busca-de-contato";
 import { getSession, isLive } from "@/lib/session-store";
 import { clickCounts, listLinks as legacyListLinks } from "@/lib/store";
 import * as broadcastsStore from "@/lib/stores/broadcasts";
 import * as campaignsStore from "@/lib/stores/campaign-groups";
 import * as groupsStore from "@/lib/stores/groups";
+import { listInstances } from "@/lib/stores/instances";
 import * as leadsStore from "@/lib/stores/leads";
 import * as ordersStore from "@/lib/stores/orders";
 import * as schedulesStore from "@/lib/stores/schedules";
@@ -262,6 +264,9 @@ export async function carregarDisparos(tenantId: string) {
 }
 
 export async function carregarSessao(tenantId: string) {
+  // Mesmo motivo do GET /api/instances: a barra e a Inicio leem o status do banco,
+  // e um connection.update perdido os deixava em "desconectado" com o número pareado.
+  if (USE_SUPABASE) await reconciliarConexoes(await listInstances(tenantId)).catch(() => undefined);
   const s = await getSession(tenantId);
   return { ...s, live: isLive(s) };
 }
