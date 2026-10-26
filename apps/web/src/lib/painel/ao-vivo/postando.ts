@@ -51,7 +51,7 @@ export type SegmentoDaEntrega = { estado: EstadoDaEntrega; n: number; texto: str
 
 /**
  * Os segmentos da barra de entrega (spec G2, decisão 8): entregues sempre (é o que a lojista espera ver,
- * mesmo em zero); enviando, na fila, falhou e cancelado só quando há alguém neles.
+ * mesmo em zero); enviando, na fila, falhou, cancelado e no limite do dia só quando há alguém neles.
  */
 export function segmentosDaEntrega(r: ResumoDaEntrega): SegmentoDaEntrega[] {
   const todos: SegmentoDaEntrega[] = [
@@ -60,6 +60,7 @@ export function segmentosDaEntrega(r: ResumoDaEntrega): SegmentoDaEntrega[] {
     { estado: "na_fila", n: r.naFila, texto: "na fila" },
     { estado: "falhou", n: r.falharam, texto: r.falharam === 1 ? "falhou" : "falharam" },
     { estado: "cancelado", n: r.cancelados, texto: r.cancelados === 1 ? "cancelado" : "cancelados" },
+    { estado: "fora_do_teto", n: r.foraDoTeto, texto: "no limite do dia" },
   ];
   return todos.filter((s) => s.n > 0 || s.estado === "entregue");
 }

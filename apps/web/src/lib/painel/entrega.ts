@@ -9,7 +9,7 @@ import { quandoDoPost, type ItemDoDia } from "@/lib/painel/campanha-visao";
  * mesmo `created_at` e o worker pega por `priority, created_at, id`, então a
  * ordem entre grupos é aleatória. "12º na fila" seria um número inventado.
  */
-export type EstadoDaEntrega = "entregue" | "postando" | "na_fila" | "falhou" | "cancelado";
+export type EstadoDaEntrega = "entregue" | "postando" | "na_fila" | "falhou" | "cancelado" | "fora_do_teto";
 
 export type EntregaNoGrupo = {
   /** `whatsapp_group_id` do grupo, o mesmo id de `campaign_groups.group_ids`. */
@@ -32,6 +32,8 @@ export type ResumoDaEntrega = {
   naFila: number;
   falharam: number;
   cancelados: number;
+  /** Grupos que o banco deixou de fora por já terem chegado ao limite de posts do dia. */
+  foraDoTeto: number;
   total: number;
 };
 
@@ -43,20 +45,29 @@ const DO_COMANDO: Record<string, EstadoDaEntrega> = {
   canceled: "cancelado",
 };
 
-/** O status de `engine_commands` como a tela fala; status desconhecido fica de fora. */
-export function estadoDaEntrega(status: string): EstadoDaEntrega | null {
+/**
+ * O status de `engine_commands` como a tela fala; status desconhecido fica de fora.
+ * Comando cancelado com a marca `foraDoTeto` (o banco cortou o grupo que já tinha
+ * chegado ao limite do dia) é um estado à parte: a marca não muda os outros status.
+ */
+export function estadoDaEntrega(status: string, foraDoTeto = false): EstadoDaEntrega | null {
+  if (status === "canceled" && foraDoTeto) return "fora_do_teto";
   return DO_COMANDO[status] ?? null;
 }
 
+/** Em qual contador do resumo cada estado cai; o `Record` obriga o estado novo a escolher o seu. */
+const CONTADOR: Record<EstadoDaEntrega, Exclude<keyof ResumoDaEntrega, "total">> = {
+  entregue: "entregues",
+  postando: "postando",
+  na_fila: "naFila",
+  falhou: "falharam",
+  cancelado: "cancelados",
+  fora_do_teto: "foraDoTeto",
+};
+
 export function resumoDaEntrega(grupos: EntregaNoGrupo[]): ResumoDaEntrega {
-  const resumo: ResumoDaEntrega = { entregues: 0, postando: 0, naFila: 0, falharam: 0, cancelados: 0, total: grupos.length };
-  for (const g of grupos) {
-    if (g.estado === "entregue") resumo.entregues += 1;
-    else if (g.estado === "postando") resumo.postando += 1;
-    else if (g.estado === "na_fila") resumo.naFila += 1;
-    else if (g.estado === "falhou") resumo.falharam += 1;
-    else resumo.cancelados += 1;
-  }
+  const resumo: ResumoDaEntrega = { entregues: 0, postando: 0, naFila: 0, falharam: 0, cancelados: 0, foraDoTeto: 0, total: grupos.length };
+  for (const g of grupos) resumo[CONTADOR[g.estado]] += 1;
   return resumo;
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Ban, Check, Clock, Loader2, X } from "lucide-react";
+import { Ban, CalendarX2, Check, Clock, Loader2, X } from "lucide-react";
 import { horaBR } from "@/lib/date-br";
 import {
   aindaSaindo,
@@ -108,6 +108,7 @@ const ESTADO: Record<EstadoDaEntrega, { texto: string; classe: string; Icone: ty
   na_fila: { texto: "na fila", classe: "text-slate-600", Icone: Clock },
   falhou: { texto: "falhou", classe: "text-danger-700", Icone: X },
   cancelado: { texto: "cancelado", classe: "text-slate-600", Icone: Ban },
+  fora_do_teto: { texto: "limite do dia", classe: "text-slate-600", Icone: CalendarX2 },
 };
 
 function IconeDoEstado({ estado }: { estado: EstadoDaEntrega }) {
@@ -155,6 +156,7 @@ export function LegendaDaEntrega({ hora, resumo, desatualizada = false }: { hora
     ["na_fila", resumo.naFila, "na fila"],
     ["falhou", resumo.falharam, resumo.falharam === 1 ? "falhou" : "falharam"],
     ["cancelado", resumo.cancelados, resumo.cancelados === 1 ? "cancelado" : "cancelados"],
+    ["fora_do_teto", resumo.foraDoTeto, "no limite do dia"],
   ];
   return (
     <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-13 text-slate-600">

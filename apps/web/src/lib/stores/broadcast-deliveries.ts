@@ -4,6 +4,8 @@ import { getSupabaseAdmin } from "@/lib/supabase/server";
 export type EntregaBruta = {
   /** `payload->>jid`: o grupo de destino do comando. */
   jid: string | null;
+  /** `payload->>foraDoTeto`: "true" no comando que o banco cancelou por teto do dia; senão null. */
+  fora: string | null;
   status: string;
   completed_at: string | null;
   failed_at: string | null;
@@ -25,7 +27,7 @@ export async function listBroadcastDeliveries(
 ): Promise<EntregaBruta[]> {
   const { data, error } = await getSupabaseAdmin()
     .from("engine_commands")
-    .select("jid:payload->>jid,status,completed_at,failed_at")
+    .select("jid:payload->>jid,fora:payload->>foraDoTeto,status,completed_at,failed_at")
     .eq("tenant_id", tenantId)
     .eq("origin_kind", "broadcast")
     .eq("origin_id", broadcastId)

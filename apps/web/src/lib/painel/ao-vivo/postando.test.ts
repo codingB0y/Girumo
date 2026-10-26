@@ -13,7 +13,7 @@ import {
 } from "./postando";
 
 function resumo(p: Partial<ResumoDaEntrega>): ResumoDaEntrega {
-  return { entregues: 0, postando: 0, naFila: 0, falharam: 0, cancelados: 0, total: 0, ...p };
+  return { entregues: 0, postando: 0, naFila: 0, falharam: 0, cancelados: 0, foraDoTeto: 0, total: 0, ...p };
 }
 
 // 14:10:00 em Brasília (UTC-3).
@@ -40,6 +40,13 @@ test("segmentos da entrega: entregues sempre; enviando, na fila, falhou e cancel
     { estado: "cancelado", n: 2, texto: "cancelados" },
   ]);
   assert.deepEqual(segmentosDaEntrega(resumo({ total: 0 })), [{ estado: "entregue", n: 0, texto: "entregues" }]);
+});
+
+test("os de fora do teto viram um segmento próprio e só aparecem quando existem", () => {
+  const base: ResumoDaEntrega = { entregues: 30, postando: 0, naFila: 0, falharam: 0, cancelados: 1, foraDoTeto: 6, total: 37 };
+  assert.deepEqual(segmentosDaEntrega(base).map((s) => s.estado), ["entregue", "cancelado", "fora_do_teto"]);
+  assert.deepEqual(segmentosDaEntrega(base).at(-1), { estado: "fora_do_teto", n: 6, texto: "no limite do dia" });
+  assert.equal(segmentosDaEntrega({ ...base, foraDoTeto: 0 }).some((s) => s.estado === "fora_do_teto"), false);
 });
 
 test("proximos agendamentos: so pendentes futuros, em ordem, ate o limite", () => {

@@ -32,6 +32,7 @@ const SEGMENTO: Record<EstadoDaEntrega, string> = {
   na_fila: "bg-line-200",
   falhou: "bg-saida",
   cancelado: "bg-slate-600/40",
+  fora_do_teto: "bg-slate-600/20",
 };
 
 const OUTRA_MIDIA: Record<string, string> = { video: "com vídeo", audio: "com áudio", file: "com arquivo" };
