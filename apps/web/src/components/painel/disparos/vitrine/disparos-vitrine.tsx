@@ -9,6 +9,7 @@ import { Bolha } from "@/components/painel/bolha";
 import { MessageComposer, type ComposerPayload } from "@/components/painel/messages/message-composer";
 import { ScheduleComposer, type SchedulePayload } from "@/components/painel/messages/schedule-composer";
 import { DestinoGrupos, useCargaDosEstados } from "@/components/painel/messages/destino-grupos";
+import { LinhaPostsHoje, usePostsHoje } from "@/components/painel/messages/linha-posts-hoje";
 import { alcance, fraseAlcance, frasePlural, quadradinhos, rotuloPostar } from "@/lib/painel/disparos";
 import { diaHoraCurto } from "@/lib/painel/inicio";
 import { useCarimboEvento } from "@/lib/painel/use-carimbo-evento";
@@ -72,6 +73,7 @@ export function DisparosVitrine({
   const [escolha, setEscolha] = useState<{ slug: string; destino: Destino } | null>(null);
   const destino = destinoDaCampanha(escolha, slug);
   const estados = useCargaDosEstados(slug);
+  const { dados: postsHoje, reler: relerPostsHoje } = usePostsHoje();
 
   // Sem memo: `agora` muda a cada render e congelaria o "há 2 dias" do histórico.
   const agora = new Date();
@@ -168,9 +170,14 @@ export function DisparosVitrine({
               ) : (
                 <MessageComposer
                   className="border-0 bg-transparent p-0"
-                  onSend={(p) => aoDisparar(p, destino)}
+                  onSend={async (p) => {
+                    const aceito = await aoDisparar(p, destino);
+                    if (aceito) relerPostsHoje();
+                    return aceito;
+                  }}
                   sending={enviando}
                   onBodyChange={setTexto}
+                  aviso={<LinhaPostsHoje dados={postsHoje} grupos={doDestino} />}
                   rotuloEnviar={contagemPronta ? rotuloPostar(alvo) : "Postar"}
                   acid={contagemPronta && alvo.grupos > 0}
                 />

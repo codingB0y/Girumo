@@ -51,9 +51,11 @@ type Props = {
   rotuloEnviar?: string;
   /** Botão em Acid (regra 10: só Postar, AO VIVO e LOTOU). Padrão Cobalt. */
   acid?: boolean;
+  /** Linha logo acima do botão de enviar (hoje: os posts de hoje por grupo). Nunca desabilita o botão. */
+  aviso?: React.ReactNode;
 };
 
-export function MessageComposer({ onSend, sending, className, onBodyChange, rotuloEnviar, acid }: Props) {
+export function MessageComposer({ onSend, sending, className, onBodyChange, rotuloEnviar, acid, aviso }: Props) {
   const toast = useToast();
   const [body, setBody] = useState("");
   useEffect(() => {
@@ -236,6 +238,8 @@ export function MessageComposer({ onSend, sending, className, onBodyChange, rotu
         rows={3}
         className="w-full resize-none rounded-xl border border-line-200 bg-canvas-100 px-4 py-3 text-[16px] text-volt-950 placeholder:text-slate-600 focus:border-cobalt-500 focus:outline-none"
       />
+
+      {aviso}
 
       {/* Toolbar */}
       <div className="mt-3 flex flex-wrap items-center gap-1">

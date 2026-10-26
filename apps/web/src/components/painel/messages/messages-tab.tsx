@@ -10,11 +10,13 @@ import { numero } from "@/lib/painel/grupos";
 import { acompanharEnvio } from "@/lib/painel/disparos";
 import { useRecarga } from "@/components/painel/home/ao-vivo/use-recarga";
 import { DESTINO_PADRAO, type Destino } from "@/lib/campaigns/destino";
+import { selecionados } from "@/lib/campaigns/destino-ui";
 import { ERRO_SEM_CONEXAO, MessageComposer, type ComposerPayload } from "./message-composer";
 import { ScheduleComposer, type SchedulePayload } from "./schedule-composer";
 import { MessagesAgenda } from "./messages-agenda";
 import { FunnelTab } from "./funnel/funnel-tab";
 import { DestinoGrupos, useCargaDosEstados } from "./destino-grupos";
+import { LinhaPostsHoje, usePostsHoje } from "./linha-posts-hoje";
 import type { CampaignMessage } from "@/lib/messages-store";
 
 const SUB_TABS = ["Enviar agora", "Agendar", "Funil", "Agenda"] as const;
@@ -82,6 +84,14 @@ export function MessagesTab({
   const [destino, setDestino] = useState<Destino>(DESTINO_PADRAO);
   const estados = useCargaDosEstados(campaignSlug);
   const destinoDoEnvio: Destino = usarAvisos && avisoGroupId ? { grupos: [avisoGroupId] } : destino;
+  // Os grupos que o post de "Enviar agora" alcança: o Avisos é um só e fica fora do seletor.
+  const { dados: postsHoje, reler: relerPostsHoje } = usePostsHoje();
+  const gruposDoEnvio =
+    usarAvisos && avisoGroupId
+      ? [avisoGroupId]
+      : estados.carga === "pronto"
+        ? selecionados(estados.grupos, destino)
+        : [];
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -131,6 +141,7 @@ export function MessagesTab({
       if (res.ok) {
         await fetchMessages();
         setSubTab("Agenda");
+        relerPostsHoje();
         return true;
       } else {
         // `alert()` nativo nao aceita link, entao quem batia no gate de plano
@@ -331,7 +342,11 @@ export function MessagesTab({
       {/* Content */}
       <div className="hf-enter" key={subTab}>
         {subTab === "Enviar agora" && (
-          <MessageComposer onSend={handleSend} sending={sending} />
+          <MessageComposer
+            onSend={handleSend}
+            sending={sending}
+            aviso={<LinhaPostsHoje dados={postsHoje} grupos={gruposDoEnvio} />}
+          />
         )}
         {subTab === "Agendar" && (
           <ScheduleComposer onSchedule={handleSchedule} scheduling={sending} />

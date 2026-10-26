@@ -5,6 +5,30 @@
  */
 export type PostsHoje = { teto: number; grupos: Readonly<Record<string, number>> };
 
+function ehInteiro(valor: unknown, minimo: number): valor is number {
+  return typeof valor === "number" && Number.isInteger(valor) && valor >= minimo;
+}
+
+function ehObjeto(valor: unknown): valor is Record<string, unknown> {
+  return typeof valor === "object" && valor !== null && !Array.isArray(valor);
+}
+
+/**
+ * Confere o corpo de `posts_hoje_por_grupo` / `GET /api/groups/posts-hoje`: teto inteiro
+ * maior que zero e `grupos` com contagens inteiras não negativas. Fora do formato é
+ * `null`: a tela prefere não mostrar a linha a mostrar uma contagem que o banco não deu.
+ * Um só lugar para o servidor (que lança) e o cliente (que some com a linha).
+ */
+export function lerFormatoPostsHoje(dados: unknown): PostsHoje | null {
+  if (!ehObjeto(dados) || !ehInteiro(dados.teto, 1) || !ehObjeto(dados.grupos)) return null;
+  const grupos: Record<string, number> = {};
+  for (const [jid, quantos] of Object.entries(dados.grupos)) {
+    if (!ehInteiro(quantos, 0)) return null;
+    grupos[jid] = quantos;
+  }
+  return { teto: dados.teto, grupos };
+}
+
 export type TomDaLinha = "info" | "aviso" | "erro";
 export type LinhaDosPostsHoje = { texto: string; tom: TomDaLinha };
 
