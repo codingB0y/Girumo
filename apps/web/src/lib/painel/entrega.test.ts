@@ -27,9 +27,22 @@ test("o resumo conta cada estado e diz se ainda tem grupo esperando", () => {
     g("falhou", 40),
   ];
   const resumo = resumoDaEntrega(grupos);
-  assert.deepEqual(resumo, { entregues: 27, postando: 1, naFila: 12, falharam: 1, cancelados: 0, total: 41 });
+  assert.deepEqual(resumo, { entregues: 27, postando: 1, naFila: 12, falharam: 1, cancelados: 0, foraDoTeto: 0, total: 41 });
   assert.equal(aindaSaindo(resumo), true);
   assert.equal(aindaSaindo(resumoDaEntrega([g("entregue", 1), g("falhou", 2), g("cancelado", 3)])), false);
+});
+
+test("a marca de fora do teto só vale para comando cancelado", () => {
+  assert.equal(estadoDaEntrega("canceled", true), "fora_do_teto");
+  assert.equal(estadoDaEntrega("canceled", false), "cancelado");
+  assert.equal(estadoDaEntrega("done", true), "entregue");
+});
+
+test("o resumo conta os de fora do teto à parte dos cancelados", () => {
+  const g = (estado: EntregaNoGrupo["estado"], i: number): EntregaNoGrupo => ({ grupo: `${i}@g.us`, estado, quando: null });
+  const resumo = resumoDaEntrega([g("entregue", 0), g("fora_do_teto", 1), g("fora_do_teto", 2), g("cancelado", 3)]);
+  assert.deepEqual(resumo, { entregues: 1, postando: 0, naFila: 0, falharam: 0, cancelados: 1, foraDoTeto: 2, total: 4 });
+  assert.equal(aindaSaindo(resumo), false);
 });
 
 function post(extra: Partial<DispatchView>): DispatchView {
@@ -64,8 +77,8 @@ test("a tabela acompanha o post que está saindo; sem isso, o último que saiu h
 
 const naFila: ItemDoDia = { id: "p", hora: "14:08", estado: "na_fila", texto: "Reposição", enviados: 0, total: 40, repete: "none" };
 const resumo = (r: Partial<ResumoDaEntrega>): ResumoDaEntrega => {
-  const base = { entregues: 0, postando: 0, naFila: 0, falharam: 0, cancelados: 0, ...r };
-  return { ...base, total: base.entregues + base.postando + base.naFila + base.falharam + base.cancelados };
+  const base = { entregues: 0, postando: 0, naFila: 0, falharam: 0, cancelados: 0, foraDoTeto: 0, ...r };
+  return { ...base, total: base.entregues + base.postando + base.naFila + base.falharam + base.cancelados + base.foraDoTeto };
 };
 
 test("o post em curso passa a 'postando' assim que um grupo recebe, e conta ao vivo", () => {

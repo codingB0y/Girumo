@@ -11,7 +11,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * GET /api/disparos/[id]/grupos: como a rodada atual do post está em cada grupo
- * (entregue, postando, na fila, falhou ou cancelado). A tabela de grupos da
+ * (entregue, postando, na fila, falhou, cancelado ou fora do limite do dia). A tabela de grupos da
  * campanha mostra isso na coluna "Post das HH:MM".
  */
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -32,7 +32,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const grupos: EntregaNoGrupo[] = [];
     if (post.run_id) {
       for (const linha of await listBroadcastDeliveries(tenantId, post.id, post.run_id)) {
-        const estado = estadoDaEntrega(linha.status);
+        const estado = estadoDaEntrega(linha.status, linha.fora === "true");
         if (!estado || !linha.jid) continue;
         grupos.push({ grupo: linha.jid, estado, quando: linha.completed_at ?? linha.failed_at });
       }
