@@ -61,6 +61,8 @@ export const MENSAGENS_DOS_CAMPOS: Readonly<Record<string, string>> = {
   "perfil.nome": "Escreva o nome da loja.",
   "perfil.instagram": "No @ do Instagram só vão letras, números, ponto e _.",
   "confere.cnpj": "Confira o CNPJ: os números não batem.",
+  "rastreio.metaPixelId": "Confira o ID do pixel: só números, de 5 a 20. Está no Gerenciador de Eventos da Meta.",
+  "rastreio.ga4Id": "Confira o ID de medição: G- e pelo menos 4 letras ou números, como G-AB12CD34EF.",
 };
 
 function ehObjeto(v: unknown): v is Record<string, unknown> {
