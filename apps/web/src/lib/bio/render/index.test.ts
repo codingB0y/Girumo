@@ -10,6 +10,7 @@ import { IDS, dadosCheios, dadosFalsos } from "@/test/bio-dados-falsos";
 import { CSS_ETIQUETA } from "./etiqueta";
 import { renderPaginaBio, renderPaginaNaoEncontrada } from "./index";
 import { CSS_BASE } from "./partes";
+import { scriptDaPagina } from "./script";
 
 const NONCE = "AAAAAAAAAAAAAAAAAAAAAA==";
 const publica = (d: DadosRender, animarEntrada = true) => renderPaginaBio(d, { modo: "publica", nonce: NONCE, animarEntrada });
@@ -258,4 +259,45 @@ test("ordem: o script vem depois do #lk-status e o CSS_BASE antes do CSS do mode
   const html = publica(dadosFalsos());
   assert.ok(html.indexOf('id="lk-status"') < html.indexOf("<script"));
   assert.ok(html.indexOf(CSS_BASE) >= 0 && html.indexOf(CSS_BASE) < html.indexOf(CSS_ETIQUETA));
+});
+
+// ---------------------------------------------------------------- PR 7: rastreio
+
+const RASTREIO = { metaPixelId: "1234567890", ga4Id: "G-TESTE12345" };
+const comRastreio = (d: DadosRender, rastreio: DadosRender["documento"]["rastreio"]): DadosRender => ({
+  ...d,
+  documento: { ...d.documento, rastreio },
+});
+/** O conteúdo do único <script> da página (o JS não tem "<": o primeiro </script> é o dele). */
+const JS_DA_PAGINA = /<script nonce="AAAAAAAAAAAAAAAAAAAAAA==">([\s\S]*?)<\/script>/;
+
+test("rastreio: com id, o único <script> da página é o scriptDaPagina com o rastreio; sem id, o de sempre", () => {
+  const html = publica(comRastreio(dadosFalsos(), RASTREIO));
+  assert.equal(conta(html, /<script/g), 1);
+  assert.equal(html.match(JS_DA_PAGINA)?.[1], scriptDaPagina({ rastreio: RASTREIO }));
+  assert.match(html, /connect\.facebook\.net\/en_US\/fbevents\.js/);
+  assert.match(html, /gtag\/js\?id=G-TESTE12345/);
+  assert.equal(publica(dadosFalsos()).match(JS_DA_PAGINA)?.[1], scriptDaPagina({ rastreio: null }));
+});
+
+test("rastreio: id fora da regra (documento que não passou pelo zod) não entra na página", () => {
+  const html = publica(comRastreio(dadosFalsos(), { metaPixelId: '1";alert(1)//', ga4Id: 'G-X"</script><script>alert(1)' }));
+  assert.equal(conta(html, /<script/g), 1);
+  assert.doesNotMatch(html, /alert\(1\)|fbevents|googletagmanager/);
+});
+
+test("rastreio: a prévia do painel nunca leva", () => {
+  const html = renderPaginaBio(comRastreio(dadosFalsos(), RASTREIO), { modo: "previa", nonce: null, animarEntrada: false });
+  assert.doesNotMatch(html, /<script|fbevents|googletagmanager/);
+});
+
+test("página cheia (20 links) com os dois rastreadores ainda cabe em 40 KB, nos 4 modelos", () => {
+  // O Vitrine é o maior (PR 3b): a conta tem de valer em todos, não só no Etiqueta dos dados falsos.
+  const paletaDe = { etiqueta: "azul", vitrine: "papel", romaneio: "kraft", classico: "claro" } as const;
+  for (const modelo of ["etiqueta", "vitrine", "romaneio", "classico"] as const) {
+    const d = comRastreio(dadosCheios(), { metaPixelId: "12345678901234567890", ga4Id: "G-TESTE12345" });
+    const html = publica({ ...d, documento: { ...d.documento, modelo, paleta: paletaDe[modelo] } });
+    const bytes = Buffer.byteLength(html);
+    assert.ok(bytes <= 40 * 1024, `${modelo}: ${bytes} bytes`);
+  }
 });

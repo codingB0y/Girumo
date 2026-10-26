@@ -108,4 +108,13 @@ for (const modelo of MODELOS) {
       assert.ok(bytes <= 40 * 1024 - FOLGA_DO_RASTREIO, `${modelo}/${paleta}: ${bytes} bytes`);
     });
   }
+
+  for (const paleta of PALETAS[modelo]) {
+    test(`${modelo}: pior caso com Pixel e GA4 cabe em 40 KB (${paleta})`, () => {
+      const d = dadosPiorCaso();
+      const documento = { ...d.documento, modelo, paleta, rastreio: { metaPixelId: "1234567890", ga4Id: "G-TESTE12345" } };
+      const bytes = Buffer.byteLength(publica({ ...d, documento }));
+      assert.ok(bytes <= 40 * 1024, `${modelo}/${paleta}: ${bytes} bytes`);
+    });
+  }
 }

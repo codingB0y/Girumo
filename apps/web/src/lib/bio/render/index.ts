@@ -108,7 +108,9 @@ export function renderPaginaBio(
   const fundoDoHtml = COR.test(tema) ? `html{background:${tema}}` : "";
   const css = `${f.css}${variaveis}${CSS_BASE}${modelo.css}${regrasDoFoco(doc)}${fundoDoHtml}`;
   const entra = o.animarEntrada && doc.animar ? " lk-entra" : "";
-  const script = o.modo === "publica" ? `<script${nonce}>${scriptDaPagina({ rastreio: null })}</script>` : "";
+  // Rastreio (PR 7): o documento já passou pelo zod, e o scriptDaPagina revalida cada id antes de pô-lo no JS.
+  const rastreio = doc.rastreio.metaPixelId || doc.rastreio.ga4Id ? doc.rastreio : null;
+  const script = o.modo === "publica" ? `<script${nonce}>${scriptDaPagina({ rastreio })}</script>` : "";
   return `<!doctype html><html lang="pt-BR"><head>${cabeca(c, modelo, f.preload)}<style${nonce}>${css}</style></head><body data-pagina="${escapeHtml(d.paginaId)}"><div class="lk${entra}">${sprite(corpo)}${corpo}<p id="lk-status" class="lk-status" role="status"></p></div>${script}</body></html>`;
 }
 
