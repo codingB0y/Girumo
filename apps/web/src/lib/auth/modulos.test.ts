@@ -61,6 +61,8 @@ const TABELA: ReadonlyArray<readonly [string, string, boolean, boolean]> = [
   // postar
   ["GET", "/api/campanhas", false, true],
   ["GET", "/api/groups", false, true],
+  // Contagem de posts de hoje por grupo (teto por grupo, PR 2): o composer lê, não escreve.
+  ["GET", "/api/groups/posts-hoje", false, true],
   ["GET", "/api/disparos", false, true],
   ["GET", "/api/session", false, true],
   ["GET", "/api/library", false, true],
@@ -80,6 +82,7 @@ const TABELA: ReadonlyArray<readonly [string, string, boolean, boolean]> = [
   ["POST", "/api/campanhas/promo-de-verao/grupos/lotado", false, false],
   ["POST", "/api/campanhas/promo-de-verao/grupos/estado", false, false],
   ["POST", "/api/groups", false, false],
+  ["POST", "/api/groups/posts-hoje", false, false],
   ["POST", "/api/session", false, false],
   ["GET", "/api/media", false, false],
   // fora do mapa

@@ -362,3 +362,25 @@ catálogo → `400`; `null`/`""` limpam. `segment` alimenta os packs de conteúd
 `moda_atacado` → copies originais da biblioteca; `mercado` → pack próprio; demais/`null` → pack neutro.
 `POST /api/auth/signup` aceita `segment` opcional e grava best-effort após criar o tenant (conta > ramo).
 Tenants anteriores à migração `20260830233000` foram backfillados como `moda_atacado`.
+
+## Posts de hoje por grupo (GET /api/groups/posts-hoje) — 26/10/2026
+
+Rota de painel (`allowEngine: false`: sessão por Bearer ou cookie; a engine leva 403). Sem corpo e sem
+parâmetro: o tenant é sempre o da sessão, nunca um da query.
+
+Permissão: `message:send`, a mesma de `POST /api/campanhas/[slug]/messages` — dono, admin, operador e a
+vendedora com o módulo `postar` (a rota está no mapa `postar` de `lib/auth/modulos.ts`; sem o módulo, 403).
+
+`200` → `{ teto, grupos }`, o retorno de `public.posts_hoje_por_grupo(p_tenant)` repassado sem mexer:
+- `teto` — inteiro > 0, o limite de posts por grupo por dia de Brasília (`app.posts_por_grupo_dia()`)
+- `grupos` — `{ "<jid do grupo>": <posts de hoje> }`; grupo sem post hoje não aparece, e sem nenhum post
+  é `{}`
+
+**O teto vem do banco; a tela nunca guarda o número.** Nenhum arquivo do app repete o valor: o composer
+lê `teto` desta resposta. Resposta do RPC fora do formato (`teto` não inteiro > 0, `grupos` que não seja
+objeto de inteiros ≥ 0) é erro, não zero: a tela fica sem a linha do teto em vez de mostrar contagem errada.
+
+Erros:
+- `403` — papel sem `message:send`, vendedora sem o módulo de postar, ou chamada da engine
+- `501 { error: "A contagem de posts de hoje precisa do banco." }` — sem `USE_SUPABASE` (modo JSON não tem contagem)
+- `500 { error: "Não deu para ler os posts de hoje." }` — o RPC falhou ou devolveu formato inesperado
