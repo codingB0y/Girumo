@@ -48,6 +48,15 @@ export function linhaDosPostsHoje(
 
   const n = contagens.length;
   const k = contagens.filter((c) => c >= teto).length;
+  // Um grupo só (o modo Avisos é sempre assim): singular, e não existe o caso "alguns".
+  if (n === 1) {
+    return k === 0
+      ? { texto: `Hoje: ${max} de ${teto} posts neste grupo.`, tom: "info" }
+      : {
+          texto: `Este grupo já recebeu ${teto} posts hoje. O post não vai sair; o limite volta à meia-noite.`,
+          tom: "erro",
+        };
+  }
   if (k === 0) return { texto: `Hoje: até ${max} de ${teto} posts nestes grupos.`, tom: "info" };
   if (k < n) {
     return {
