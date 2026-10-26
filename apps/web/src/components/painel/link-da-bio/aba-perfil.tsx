@@ -20,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 
 import type { PropsDaAba } from "./abas";
+import { BlocoAvancado, LUGARES_DO_AVANCADO } from "./bloco-avancado";
 import { CampoDeFoto } from "./campo-de-foto";
 import { AvisoDaAba, useErroDaAba, type ErroDaAba } from "./erro-da-aba";
 import { focarDepois } from "./use-editor-bio";
@@ -48,6 +49,7 @@ const LUGARES_DO_PERFIL: readonly string[] = [
   "confere.razao",
   "confere.cnpj",
   "confere.linhas",
+  ...LUGARES_DO_AVANCADO, // PR 7: o erro rastreio.* fica embaixo do campo do Avançado
 ];
 
 const comPerfil =
@@ -473,9 +475,8 @@ function CartaoSelo({ documento, mudarDocumento }: PropsDoCartao) {
 
 /**
  * Aba Perfil (spec §8): foto e logos, nome e textos, "Antes de pagar, confere" e o selo. O
- * "Avançado" (Pixel da Meta e GA4) é do PR 7: entra depois do `CartaoSelo`, e os lugares dele
- * (`LUGARES_DO_AVANCADO`) vão no fim do `LUGARES_DO_PERFIL` — o erro `rastreio.*` passa pelo
- * mesmo `useErroDaAba` da aba, sem filtro.
+ * "Avançado" (Pixel da Meta e GA4, PR 7) fecha a aba, depois do `CartaoSelo`; os lugares dele
+ * estão no `LUGARES_DO_PERFIL`, então o erro `rastreio.*` passa pelo mesmo `useErroDaAba`.
  */
 export function AbaPerfil({ pagina, rascunho, mudarDocumento, erro, limparErro }: PropsDaAba) {
   const erros = useErroDaAba(erro, limparErro, LUGARES_DO_PERFIL, pagina.versao);
@@ -492,6 +493,12 @@ export function AbaPerfil({ pagina, rascunho, mudarDocumento, erro, limparErro }
       <CartaoTextos {...cartao} />
       <CartaoConfere {...cartao} />
       <CartaoSelo {...cartao} />
+      <BlocoAvancado
+        rastreio={rascunho.documento.rastreio}
+        mudarDocumento={mudarDocumento}
+        erroDe={erros.erroDe}
+        corrigiu={erros.corrigiu}
+      />
     </div>
   );
 }

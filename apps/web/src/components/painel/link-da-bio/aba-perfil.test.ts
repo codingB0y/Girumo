@@ -129,3 +129,23 @@ test("registro: Perfil depois de Links; os erros de perfil, confere e selo vão 
   assert.equal(abaDoErro({ campo: "feitoComGirumo", mensagem: "x" })?.id, "perfil");
   assert.equal(abaDoErro({ campo: "perfilado", mensagem: "x" }), undefined);
 });
+
+// ---------------------------------------------------------------- PR 7: o "Avançado" no fim da aba
+
+test("Avançado: o último bloco da aba, fechado; o erro do rastreio abre o bloco no campo, não no aviso do topo", () => {
+  const h = html();
+  const avancado = h.indexOf('id="bio-avancado"');
+  assert.ok(avancado > -1, "a aba Perfil não tem o Avançado");
+  assert.ok(avancado > h.indexOf('id="bio-selo-titulo"'), "o Avançado não é o último bloco da aba");
+  assert.match(h, /id="bio-avancado" aria-expanded="false"/);
+
+  const comErro = html(DOC, { campo: "rastreio.ga4Id", mensagem: "Confira o ID de medição." });
+  assert.match(comErro, /id="bio-avancado" aria-expanded="true"/);
+  assert.match(comErro, /<p id="bio-rastreio-ga4Id-erro"[^>]*>Confira o ID de medição\.<\/p>/);
+  assert.doesNotMatch(comErro, /id="bio-aba-aviso"/);
+});
+
+test("Avançado: o erro do salvar no rastreio é da aba Perfil (o editor troca para ela)", () => {
+  assert.equal(abaDoErro({ campo: "rastreio.ga4Id", mensagem: "x" })?.id, "perfil");
+  assert.equal(abaDoErro({ campo: "rastreio.metaPixelId", mensagem: "x" })?.id, "perfil");
+});

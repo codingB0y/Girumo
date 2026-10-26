@@ -50,8 +50,7 @@ export type AbaDoEditor = {
 export const ABAS: readonly AbaDoEditor[] = [
   { id: "links", nome: "Links", dona: (campo) => campo === "links" || campo.startsWith("links."), Conteudo: AbaLinks },
   { id: "aparencia", nome: "Aparência", dona: (campo) => /^(modelo|paleta|cores|animar)(\.|$)/.test(campo), Conteudo: AbaAparencia },
-  // Sem `rastreio`: o PR 7 acrescenta junto com os campos do "Avançado" (sem eles, o erro cai no aviso da tela).
-  { id: "perfil", nome: "Perfil", dona: (campo) => /^(perfil|confere|feitoComGirumo)(\.|$)/.test(campo), Conteudo: AbaPerfil },
+  { id: "perfil", nome: "Perfil", dona: (campo) => /^(perfil|confere|feitoComGirumo|rastreio)(\.|$)/.test(campo), Conteudo: AbaPerfil },
   { id: "divulgar", nome: "Divulgar", dona: (campo) => campo === "slug" || campo === "publicada", Conteudo: AbaDivulgar },
 ];
 
