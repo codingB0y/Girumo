@@ -56,14 +56,17 @@ const COR: Record<TomDaLinha, string> = {
 
 /**
  * A frase acima do botão de postar, contada sobre os mesmos grupos que o botão
- * conta. Nunca trava o envio: quem recusa é o banco. Sem frase, não renderiza nada.
+ * conta. Nunca trava o envio: quem recusa é o banco.
+ *
+ * O `<p role="status">` fica sempre montado: uma região viva que já nasce com texto
+ * não é anunciada de forma confiável, ela precisa existir antes de o conteúdo mudar.
+ * Vazio, não tem margem nem cor, então não ocupa espaço.
  */
 export function LinhaPostsHoje({ dados, grupos }: { dados: PostsHoje | null; grupos: readonly string[] }) {
   const linha = dados ? linhaDosPostsHoje(dados, grupos) : null;
-  if (!linha) return null;
   return (
-    <p role="status" className={cn("mt-3 text-13", COR[linha.tom])}>
-      {linha.texto}
+    <p role="status" className={cn("text-13", linha && ["mt-3", COR[linha.tom]])}>
+      {linha?.texto}
     </p>
   );
 }

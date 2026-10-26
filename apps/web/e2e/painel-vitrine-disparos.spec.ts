@@ -261,7 +261,8 @@ test.describe("Disparos na Vitrine Aberta", () => {
     await expect(page.getByTestId("disparos-alcance")).not.toContainText("Contando");
     await page.getByPlaceholder("Digite sua mensagem...").fill(TEXTO);
 
-    await expect(page.getByText(/posts hoje/)).toHaveCount(0);
+    // "posts" cobre as três frases (aviso, info, erro) e o corpo do 500; nada mais no compositor diz isso.
+    await expect(page.locator("#disparos-compositor").getByText(/posts/)).toHaveCount(0);
     await expect(page.getByRole("button", { name: /^Postar/ })).toBeEnabled();
   });
 });

@@ -105,7 +105,7 @@ test("a vendedora com o módulo de postar lê a contagem da loja dela", async ()
   assert.deepEqual(rpcsFeitos().map((c) => c.corpo), [{ p_tenant: "loja-b" }]);
 });
 
-test("papel sem permissão de postar recebe 403", async () => {
+test("vendedora sem o módulo de postar recebe 403", async () => {
   chamadas.length = 0;
   // Vendedora sem o módulo de postar: só o de vendas.
   responder = banco({ papel: "seller", modulos: [] }, { status: 200, corpo: DO_BANCO });
