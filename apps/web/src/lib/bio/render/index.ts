@@ -34,11 +34,13 @@ function fontes(lista: readonly FonteDoModelo[]): { css: string; preload: string
     css: unicas
       .map(
         (f) =>
-          `@font-face{font-family:"${f.familia}";font-style:${f.estilo};font-weight:${f.peso};font-display:swap;src:url(/fonts/bio/${f.arquivo}) format("woff2")}`,
+          // font-style:normal é o padrão do descritor (só o itálico diz); sem format("woff2") e sem
+          // type no preload: a página só serve woff2, e todo navegador que ela atende o lê
+          `@font-face{font-family:"${f.familia}";${f.estilo === "italic" ? "font-style:italic;" : ""}font-weight:${f.peso};font-display:swap;src:url(/fonts/bio/${f.arquivo})}`,
       )
       .join(""),
     preload: [...new Set(unicas.map((f) => f.arquivo))]
-      .map((a) => `<link rel="preload" href="/fonts/bio/${a}" as="font" type="font/woff2" crossorigin>`)
+      .map((a) => `<link rel="preload" href="/fonts/bio/${a}" as="font" crossorigin>`)
       .join(""),
   };
 }

@@ -14,6 +14,12 @@ const no = (modelo: Modelo, d: DadosRender = dadosFalsos()): DadosRender => ({
 });
 const publica = (d: DadosRender) => renderPaginaBio(d, { modo: "publica", nonce: NONCE, animarEntrada: true });
 const conta = (html: string, re: RegExp) => html.match(re)?.length ?? 0;
+/**
+ * O quanto o JS do Pixel + GA4 pode crescer (3072 B do teto da spec §11 − 1187 B do JS
+ * sem rastreio): o pior caso SEM rastreio tem de deixar esse espaço. A Task 2 do PR 7
+ * acrescenta o teste do pior caso com os dois rastreadores ≤ 40 KB.
+ */
+const FOLGA_DO_RASTREIO = 1885;
 
 for (const modelo of MODELOS) {
   test(`${modelo}: um h1 com o nome (ou a logo com alt = nome), um role=status fora da lista, decoração com aria-hidden`, () => {
@@ -99,7 +105,7 @@ for (const modelo of MODELOS) {
     test(`${modelo}: pior caso cabe em 40 KB (${paleta})`, () => {
       const html = publica({ ...dadosPiorCaso(), documento: { ...dadosPiorCaso().documento, modelo, paleta } });
       const bytes = Buffer.byteLength(html);
-      assert.ok(bytes <= 40 * 1024, `${modelo}/${paleta}: ${bytes} bytes`);
+      assert.ok(bytes <= 40 * 1024 - FOLGA_DO_RASTREIO, `${modelo}/${paleta}: ${bytes} bytes`);
     });
   }
 }

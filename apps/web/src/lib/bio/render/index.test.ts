@@ -38,8 +38,8 @@ test("cabeça: idioma, título, noindex, descrição, Open Graph, cor do tema, �
   assert.equal(html.match(/<meta name="theme-color" content="([^"]+)">/)?.[1], fundo2); // o topo do degradê é o fundo2
   assert.match(html, /<link rel="icon" href="\/_next\/image\?url=%2Fapi%2Fp%2Fmedia%2Flogo-clara-falsa&amp;w=384&amp;q=75">/);
   assert.equal(conta(html, /rel="preload"/g), 1);
-  assert.match(html, /<link rel="preload" href="\/fonts\/bio\/lexend\/lexend-latin\.woff2" as="font" type="font\/woff2" crossorigin>/);
-  assert.match(html, /@font-face\{font-family:"Lexend";font-style:normal;font-weight:100 900;font-display:swap;src:url\(\/fonts\/bio\/lexend\/lexend-latin\.woff2\) format\("woff2"\)\}/);
+  assert.match(html, /<link rel="preload" href="\/fonts\/bio\/lexend\/lexend-latin\.woff2" as="font" crossorigin>/);
+  assert.match(html, /@font-face\{font-family:"Lexend";font-weight:100 900;font-display:swap;src:url\(\/fonts\/bio\/lexend\/lexend-latin\.woff2\)\}/);
   assert.match(html, /<body data-pagina="0c8f6a2e-5b1d-4c3a-9e7f-1a2b3c4d5e6f">/);
 });
 
@@ -151,7 +151,7 @@ test("um único role=status, fora da lista", () => {
 
 test("decoração fica fora da árvore de acessibilidade", () => {
   const html = publica(dadosFalsos());
-  assert.match(html, /<svg class="lk-sprite" aria-hidden="true" focusable="false">/);
+  assert.match(html, /<svg class="lk-sprite" aria-hidden="true">/);
   assert.match(html, /<span class="et-capas" aria-hidden="true">/);
   for (const svg of html.match(/<svg class="i[^"]*"[^>]*>/g) ?? []) assert.match(svg, /aria-hidden="true"/);
 });
@@ -190,7 +190,7 @@ test("capa: fetchpriority alta e alt vazio sem descrição; o resto é lazy", ()
 test("sem capa, o 'onde fica' sai abaixo da frase", () => {
   const html = publica(comPerfil({ capa: null }));
   assert.doesNotMatch(html, /<figure|fetchpriority=/);
-  assert.match(html, /<p class="et-local"><svg[^>]*><use href="#lk-i-mapa"><\/use><\/svg><span>Loja na Rua Exemplo/);
+  assert.match(html, /<p class="et-local"><svg[^>]*><use href="#i-mapa"\/><\/svg><span>Loja na Rua Exemplo/);
 });
 
 test("foco da foto vira regra no <style>, nunca style=", () => {

@@ -70,14 +70,14 @@ test("foco: porcentagem inteira, classe e regra com object-position e transform-
 });
 
 test("ícone decorativo e sprite só com o que a página usa", () => {
-  assert.equal(icone("coroa"), '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><use href="#lk-i-coroa"></use></svg>');
-  assert.match(icone("nao-existe"), /#lk-i-link/);
+  assert.equal(icone("coroa"), '<svg class="i" aria-hidden="true"><use href="#i-coroa"/></svg>');
+  assert.match(icone("nao-existe"), /#i-link/);
   const s = sprite(`${icone("coroa")}${icone("seta", "i et-seta")}${icone("coroa")}`);
-  assert.match(s, /^<svg class="lk-sprite" aria-hidden="true" focusable="false">/);
+  assert.match(s, /^<svg class="lk-sprite" aria-hidden="true">/);
   assert.equal(s.match(/<symbol /g)?.length, 2);
-  assert.match(s, /id="lk-i-coroa"/);
+  assert.match(s, /id="i-coroa"/);
   assert.equal(sprite("<p>sem ícone</p>"), "");
-  assert.equal(sprite("#lk-i-constructor"), "");
+  assert.equal(sprite('<use href="#i-constructor"/>'), "");
 });
 
 test("destaque: só o primeiro número (ou R$) vai em <b>", () => {
@@ -196,7 +196,7 @@ test("confere: Pix com Copiar CNPJ só com razão e CNPJ; linhas com ✓; nada s
   assert.match(html, /^<section class="et-confere" aria-labelledby="lk-confere"><h2 id="lk-confere">Antes de pagar, confere<\/h2>/);
   assert.match(html, /O Pix cai só no nome <b>Ateliê Exemplo Comércio de Roupas Ltda<\/b>\./);
   assert.match(html, /<span>CNPJ 11\.222\.333\/0001-81<\/span><button type="button" class="et-copiar" data-copiar="11222333000181">Copiar CNPJ<\/button>/);
-  assert.equal(html.match(/#lk-i-check/g)?.length, 2);
+  assert.equal(html.match(/#i-check/g)?.length, 2);
   assert.equal(blocoConfere({ ...doc, confere: { ...doc.confere, ativo: false } }, "et"), "");
   assert.doesNotMatch(blocoConfere({ ...doc, confere: { ...doc.confere, razao: "" } }, "et"), /data-copiar/);
   assert.equal(blocoConfere({ ...doc, confere: { ativo: true, razao: "", cnpj: "", linhas: [] } }, "et"), "");
@@ -234,9 +234,9 @@ test("cnpjDaLoja: formatado só com o confere ligado e 14 dígitos", () => {
 
 test("ícone, sprite e grupo não leem o protótipo (sem Object.hasOwn: a prévia roda no Safari < 15.4)", () => {
   for (const nome of ["toString", "constructor", "__proto__"]) {
-    assert.match(icone(nome), /href="#lk-i-link"/, nome);
+    assert.match(icone(nome), /href="#i-link"/, nome);
   }
-  assert.equal(sprite('<use href="#lk-i-constructor"></use>'), "");
+  assert.equal(sprite('<use href="#i-constructor"/>'), "");
   const d = dadosFalsos();
   assert.equal(hrefDoLink({ ...link(IDS.grupo), campanhaId: "constructor" } as LinkBio, d), null);
 });

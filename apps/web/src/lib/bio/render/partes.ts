@@ -56,20 +56,25 @@ const SIMBOLOS: Record<string, string> = {
   girumo: '<path d="M12 3a9 9 0 1 0 9 9h-9"/>',
 };
 
-/** `<svg>` decorativo que usa um símbolo do sprite; nome fora da lista vira "link". */
+/**
+ * `<svg>` decorativo que usa um símbolo do sprite; nome fora da lista vira "link".
+ * Sem viewBox: o `<symbol>` já tem o seu e o `<use>` ocupa o `<svg>` inteiro (o CSS
+ * dá o tamanho), então o desenho é o mesmo; `<use/>` fecha sozinho (é SVG). ~28 B a
+ * menos por ícone (com o prefixo curto `i-`), ~1,2 KB por página cheia.
+ */
 export function icone(nome: string, classe = "i"): string {
   const n = Object.prototype.hasOwnProperty.call(SIMBOLOS, nome) ? nome : "link";
-  return `<svg class="${classe}" viewBox="0 0 24 24" aria-hidden="true"><use href="#lk-i-${n}"></use></svg>`;
+  return `<svg class="${classe}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
 }
 
-/** Sprite só com os símbolos que o HTML usa (procura `#lk-i-…`). */
+/** Sprite só com os símbolos que o HTML usa (procura `href="#i-…`, o que `icone` escreve). */
 export function sprite(html: string): string {
-  const usados = [...new Set(html.match(/#lk-i-[a-z-]+/g) ?? [])]
-    .map((ref) => ref.slice("#lk-i-".length))
+  const usados = [...new Set(html.match(/href="#i-[a-z-]+/g) ?? [])]
+    .map((ref) => ref.slice('href="#i-'.length))
     .filter((n) => Object.prototype.hasOwnProperty.call(SIMBOLOS, n));
   if (usados.length === 0) return "";
-  const simbolos = usados.map((n) => `<symbol id="lk-i-${n}" viewBox="0 0 24 24">${SIMBOLOS[n]}</symbol>`).join("");
-  return `<svg class="lk-sprite" aria-hidden="true" focusable="false">${simbolos}</svg>`;
+  const simbolos = usados.map((n) => `<symbol id="i-${n}" viewBox="0 0 24 24">${SIMBOLOS[n]}</symbol>`).join("");
+  return `<svg class="lk-sprite" aria-hidden="true">${simbolos}</svg>`;
 }
 
 /** URL do otimizador do Next para a mídia pública; `null` se o id não tem o formato. */
@@ -114,8 +119,10 @@ export function regrasDoFoco(doc: DocumentoBio): string {
 
 export type OpcoesDaImagem = {
   classe?: string;
-  largura: number; // width declarado (o tamanho do espaço no CSS)
-  altura: number; // height declarado
+  // width/height declarados (o tamanho do espaço no CSS). Sem eles, nenhum dos dois: só
+  // onde o CSS do modelo já fixa a caixa (largura e aspect-ratio), e o atributo não faz nada.
+  largura?: number;
+  altura?: number;
   sizes: string; // constante do modelo
   alt: string; // texto do lojista ou ""
   carregamento: "prioridade" | "normal" | "lazy"; // prioridade = foto do topo
@@ -132,7 +139,8 @@ export function imagem(m: MidiaRef, o: OpcoesDaImagem): string {
   const classes = [o.classe, classeDoFoco(m.foco)].filter(Boolean).join(" ");
   const carga =
     o.carregamento === "prioridade" ? ' fetchpriority="high"' : o.carregamento === "lazy" ? ' loading="lazy"' : "";
-  return `<img${classes ? ` class="${classes}"` : ""} src="${escapeHtml(src)}"${srcset} width="${o.largura}" height="${o.altura}" alt="${escapeHtml(o.alt)}"${carga} decoding="async">`;
+  const tamanho = o.largura && o.altura ? ` width="${o.largura}" height="${o.altura}"` : "";
+  return `<img${classes ? ` class="${classes}"` : ""} src="${escapeHtml(src)}"${srcset}${tamanho} alt="${escapeHtml(o.alt)}"${carga} decoding="async">`;
 }
 
 /** Destaque do perfil: o primeiro número (ou valor em R$) sai sozinho. */

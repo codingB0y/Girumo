@@ -104,16 +104,16 @@ test("duas famílias, três arquivos: Jost variável e Bodoni Moda 600 e 500 it�
   const html = pagina();
   assert.equal(html.match(/rel="preload"/g)?.length, 3);
   for (const arquivo of ["jost/jost-latin.woff2", "bodoni-moda/bodoni-moda-latin-600.woff2", "bodoni-moda/bodoni-moda-latin-500-italic.woff2"]) {
-    assert.ok(html.includes(`<link rel="preload" href="/fonts/bio/${arquivo}" as="font" type="font/woff2" crossorigin>`), arquivo);
+    assert.ok(html.includes(`<link rel="preload" href="/fonts/bio/${arquivo}" as="font" crossorigin>`), arquivo);
   }
-  assert.match(html, /@font-face\{font-family:"Bodoni Moda";font-style:italic;font-weight:500;font-display:swap;src:url\(\/fonts\/bio\/bodoni-moda\/bodoni-moda-latin-500-italic\.woff2\) format\("woff2"\)\}/);
+  assert.match(html, /@font-face\{font-family:"Bodoni Moda";font-style:italic;font-weight:500;font-display:swap;src:url\(\/fonts\/bio\/bodoni-moda\/bodoni-moda-latin-500-italic\.woff2\)\}/);
   assert.match(html, /\.lk\{font-family:"Jost"/);
 });
 
 test("topo: foto com prioridade, 'onde fica', logo clara no h1 e a frase em <p>", () => {
   const html = pagina();
   assert.match(html, /<header class="vt-capa vt-capa--foto"><img class="lk-f-50-30" src="[^"]*capa-falsa[^"]*" srcset="[^"]*384w[^"]*640w[^"]*828w" sizes="\(max-width: 520px\) 100vw, 520px" width="640" height="800" alt="Fachada da loja de exemplo" fetchpriority="high" decoding="async">/);
-  assert.match(html, /<p class="vt-onde"><svg[^>]*><use href="#lk-i-mapa"><\/use><\/svg><span>Loja na Rua Exemplo/);
+  assert.match(html, /<p class="vt-onde"><svg[^>]*><use href="#i-mapa"\/><\/svg><span>Loja na Rua Exemplo/);
   assert.match(html, /<div class="vt-marca"><h1 class="vt-nome"><img class="vt-logo" src="[^"]*logo-clara-falsa[^"]*"[^>]*alt="Ateliê Exemplo Kids" decoding="async"><\/h1><p class="vt-frase">Kits de roupa infantil/);
   assert.match(html, /<meta name="theme-color" content="#151412">/);
 });
@@ -130,7 +130,7 @@ test("lista: o principal é a pílula (WhatsApp verde), o catálogo leva as foto
   const html = pagina();
   assert.match(html, /<li class="vt-li-prin"><a class="vt-prin" href="https:\/\/wa\.me\/5562900000000\?text=[^"]+" data-link="[^"]+" data-tipo="whatsapp"><span class="vt-zap vt-zap--wa"><svg/);
   assert.match(html, new RegExp(`<a class="vt-linha" href="https://exemplo\\.com\\.br/catalogo" data-link="${IDS.catalogo}" data-tipo="link"><span class="vt-tile">`));
-  assert.match(html, /<span class="vt-fotos" aria-hidden="true"><img src="[^"]*kit-1-falso[^"]*w=384&amp;q=75" width="120" height="150" alt="" loading="lazy" decoding="async">/);
+  assert.match(html, /<span class="vt-fotos" aria-hidden="true"><img src="[^"]*kit-1-falso[^"]*w=384&amp;q=75" alt="" loading="lazy" decoding="async">/);
   assert.match(html, /<details class="vt-abre"><summary class="vt-linha" data-link="[^"]+" data-tipo="endereco"><span class="vt-tile">/);
   assert.match(html, /<div class="vt-caminho"><img src="[^"]*fachada-falsa[^"]*"[^>]*sizes="\(max-width: 520px\) calc\(100vw - 44px\), 476px" width="640" height="400" alt="" loading="lazy"/);
   assert.match(html, /<footer class="vt-rodape"><span>Instagram @atelie\.exemplo<\/span><small>Ateliê Exemplo Kids · CNPJ 11\.222\.333\/0001-81<\/small><a class="lk-feito"/);
@@ -145,7 +145,7 @@ function especificidade(seletor: string): number {
 
 test("'Como chegar' aberto: a seta girada vence o toque e o hover, que também mexem nela", () => {
   const naSeta = regras(CSS_VITRINE)
-    .filter(([s, d]) => /svg\.vt-seta/.test(s) && /transform:/.test(d))
+    .filter(([s, d]) => /\.vt-linha(:[a-z]+|\.lk-toque)?>svg/.test(s) && /transform:/.test(d))
     .flatMap(([s]) => s.split(","));
   const aberta = naSeta.filter((s) => /\[open\]/.test(s));
   const outras = naSeta.filter((s) => !/\[open\]/.test(s));
