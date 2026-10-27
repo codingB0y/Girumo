@@ -71,16 +71,30 @@ function scriptSrc(nonce: string, isDev: boolean, ...hosts: string[]): string {
   return ["script-src", ...sources, ...hosts].join(" ");
 }
 
+/**
+ * Os arquivos de rastreio que o código carrega — por CAMINHO, nunca o host solto.
+ * Host inteiro sem 'strict-dynamic' aceita sem nonce qualquer arquivo dele, inclusive
+ * um `googletagmanager.com/gtm.js?id=GTM-…` de contêiner que qualquer pessoa publica:
+ * com uma injeção de HTML, o atacante rodaria JS no nosso domínio. `signals/` é o que o
+ * fbevents.js carrega (config do pixel e plugins); `gtag/` cobre `gtag/js` e o
+ * `gtag/destination` que o gtag.js puxa com Google Ads.
+ */
+const RASTREADORES_SCRIPT = [
+  "https://connect.facebook.net/en_US/fbevents.js",
+  "https://connect.facebook.net/signals/",
+  "https://www.googletagmanager.com/gtag/",
+] as const;
+
 export function buildCsp(surface: NonceSurface, nonce: string, isDev: boolean): string {
   if (surface === "bio") {
     // Link da bio (spec link-da-bio §6): HTML montado à mão, sem React — `<style>` e
     // `<script>` só com o nonce. Os hosts da Meta e do GA são FIXOS (PR 7), como no
     // click-redirect: quem monta a CSP é o middleware, que não sabe se a loja tem rastreio.
-    // O script inline (com nonce) injeta o fbevents.js e o gtag.js, que entram pelo host;
+    // O script inline (com nonce) injeta o fbevents.js e o gtag.js, que entram pelo caminho;
     // a Meta manda o evento por imagem (www.facebook.com/tr) e o GA4 por beacon/fetch.
     return [
       "default-src 'none'",
-      scriptSrc(nonce, isDev, "https://connect.facebook.net", "https://www.googletagmanager.com"),
+      scriptSrc(nonce, isDev, ...RASTREADORES_SCRIPT),
       `style-src 'self' 'nonce-${nonce}'`,
       "img-src 'self' data: https://www.facebook.com https://*.google-analytics.com https://*.googletagmanager.com",
       "font-src 'self'",
@@ -95,12 +109,12 @@ export function buildCsp(surface: NonceSurface, nonce: string, isDev: boolean): 
   if (surface === "click-redirect") {
     // Intersticial de clique: os scripts inline são nossos (snippet do Pixel, do
     // gtag e o location.replace) — todos nonce-ados no route handler. De
-    // terceiros entram só os dois hosts de tag: fbevents.js do Meta e gtag.js do
-    // Google. A conversão do Google Ads chega como IMAGEM (googleads/doubleclick),
+    // terceiros entram só os arquivos de tag (RASTREADORES_SCRIPT): fbevents.js do
+    // Meta e gtag.js do Google. A conversão do Google Ads chega como IMAGEM (googleads/doubleclick),
     // não como fetch — sem esses dois no img-src ela morre em silêncio.
     return [
       "default-src 'self'",
-      scriptSrc(nonce, isDev, "https://connect.facebook.net", "https://www.googletagmanager.com"),
+      scriptSrc(nonce, isDev, ...RASTREADORES_SCRIPT),
       "style-src 'unsafe-inline'",
       "img-src 'self' data: https://www.facebook.com https://www.google.com https://googleads.g.doubleclick.net",
       `connect-src https://www.facebook.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com ${SENTRY_CSP_HOST}`,
@@ -118,12 +132,7 @@ export function buildCsp(surface: NonceSurface, nonce: string, isDev: boolean): 
   // que a sessão de tracking injeta (Meta Pixel e GA4).
   return [
     "default-src 'self'",
-    scriptSrc(
-      nonce,
-      isDev,
-      "https://connect.facebook.net",
-      "https://www.googletagmanager.com",
-    ),
+    scriptSrc(nonce, isDev, ...RASTREADORES_SCRIPT),
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https:",
     "font-src 'self'",
