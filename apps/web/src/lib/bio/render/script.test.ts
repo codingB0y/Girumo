@@ -245,3 +245,178 @@ test("o <script> da página tem o beacon e nenhum texto ou id do lojista: é o m
     }
   }
 });
+
+// ---------------------------------------------------------------- PR 7: Pixel da Meta e GA4
+
+const PIXEL = "1234567890";
+const GA4 = "G-TESTE12345";
+type Chamadas = ArrayLike<unknown>[];
+
+/**
+ * Roda o JS com rastreio num DOM falso que também tem o que o Pixel e o GA4 usam
+ * (createElement, head, o primeiro <script>) e o que o beacon do 4b lê (body, sendBeacon).
+ * `window` vai por parâmetro: no navegador é o global.
+ */
+function rodaComRastreio(rastreio: { metaPixelId: string; ga4Id: string }) {
+  const js = scriptDaPagina({ rastreio });
+  const janela: { fbq?: { queue: Chamadas }; dataLayer?: Chamadas } = {};
+  const carregados: string[] = [];
+  const ouvintes: Record<string, Ouvinte> = {};
+  const anexa = (t: { src: string }) => carregados.push(t.src);
+  const documento = {
+    head: { appendChild: anexa },
+    body: { getAttribute: (n: string) => (n === "data-pagina" ? "pagina-falsa" : null) },
+    getElementById: () => ({ textContent: "" }),
+    getElementsByTagName: () => [{ parentNode: { insertBefore: anexa } }],
+    createElement: () => ({ async: false, src: "" }),
+    addEventListener: (tipo: string, fn: Ouvinte) => {
+      ouvintes[tipo] = fn;
+    },
+  };
+  new Function("window", "document", "navigator", "addEventListener", "setTimeout", "clearTimeout", js)(
+    janela,
+    documento,
+    { sendBeacon: () => true },
+    () => undefined,
+    () => 0,
+    () => undefined,
+  );
+  return {
+    js,
+    carregados,
+    ouvintes,
+    /** O que o Pixel guardou na fila (o fbevents.js não carrega no teste). */
+    fbq: () => (janela.fbq?.queue ?? []).map((a) => Array.from(a)),
+    /** O que foi pro dataLayer do GA4. */
+    ga: () => (janela.dataLayer ?? []).map((a) => Array.from(a)),
+    toca: (tipo: string) => ouvintes.click({ target: elemento({ "data-link": "l1", "data-tipo": tipo }).el }),
+  };
+}
+
+test("sem rastreio (null, ids vazios ou fora da regra) o JS é o mesmo, sem nada da Meta nem do Google", () => {
+  assert.doesNotMatch(JS, /fbq|gtag|dataLayer|facebook|googletagmanager|BioToque|bio_toque/);
+  for (const rastreio of [
+    { metaPixelId: "", ga4Id: "" },
+    { metaPixelId: "1234", ga4Id: "G-ABC" },
+    { metaPixelId: "123456789012345678901", ga4Id: "g-teste12345" },
+    { metaPixelId: '1234567";alert(1);//', ga4Id: 'G-ABCD"</script><script>alert(1)' },
+    { metaPixelId: "１２３４５６", ga4Id: "G-TESTE 12345" },
+  ]) {
+    assert.equal(scriptDaPagina({ rastreio }), JS, JSON.stringify(rastreio));
+  }
+});
+
+test("Pixel: autoConfig desligado imediatamente antes do init (o SDK não lê texto nem href do botão)", () => {
+  const js = scriptDaPagina({ rastreio: { metaPixelId: PIXEL, ga4Id: "" } });
+  assert.match(js, /"autoConfig",false/);
+  assert.ok(js.indexOf('"autoConfig",false') < js.indexOf('window.fbq("init"'));
+});
+
+test("id que não é texto (array, número) não entra, mesmo que vire uma string válida", () => {
+  const rastreio = { metaPixelId: ["1234567890"], ga4Id: ["G-TESTE12345"] } as unknown as { metaPixelId: string; ga4Id: string };
+  assert.equal(scriptDaPagina({ rastreio }), JS);
+  const numero = { metaPixelId: 1234567890, ga4Id: "" } as unknown as { metaPixelId: string; ga4Id: string };
+  assert.equal(scriptDaPagina({ rastreio: numero }), JS);
+});
+
+test("GA4 com mais de 30 caracteres no total não entra no JS; com 30 entra", () => {
+  assert.equal(scriptDaPagina({ rastreio: { metaPixelId: "", ga4Id: "G-" + "A".repeat(29) } }), JS);
+  assert.match(scriptDaPagina({ rastreio: { metaPixelId: "", ga4Id: "G-" + "A".repeat(28) } }), /gtag\/js/);
+});
+
+test("Pixel: carrega o fbevents.js, init com o id e PageView ao abrir; nada do Google", () => {
+  const r = rodaComRastreio({ metaPixelId: PIXEL, ga4Id: "" });
+  assert.deepEqual(r.carregados, ["https://connect.facebook.net/en_US/fbevents.js"]);
+  assert.deepEqual(r.fbq(), [["set", "autoConfig", false, PIXEL], ["init", PIXEL], ["track", "PageView"]]);
+  assert.doesNotMatch(r.js, /googletagmanager|dataLayer|bio_toque/);
+});
+
+test("Pixel no toque: Contact no WhatsApp, BioToque com o tipo nos outros; nunca Lead", () => {
+  const r = rodaComRastreio({ metaPixelId: PIXEL, ga4Id: "" });
+  for (const tipo of ["whatsapp", "grupo", "link", "endereco"]) r.toca(tipo);
+  assert.deepEqual(r.fbq().slice(3), [
+    ["track", "Contact"],
+    ["trackCustom", "BioToque", { botao: "grupo" }],
+    ["trackCustom", "BioToque", { botao: "link" }],
+    ["trackCustom", "BioToque", { botao: "endereco" }],
+  ]);
+  assert.doesNotMatch(r.js, /Lead/);
+});
+
+test("GA4: carrega o gtag.js com o id, config (o page_view sai sozinho) e bio_toque com o tipo em todo toque", () => {
+  const r = rodaComRastreio({ metaPixelId: "", ga4Id: GA4 });
+  assert.deepEqual(r.carregados, [`https://www.googletagmanager.com/gtag/js?id=${GA4}`]);
+  const [js, config] = r.ga();
+  assert.equal(js[0], "js");
+  assert.ok(js[1] instanceof Date);
+  assert.deepEqual(config, ["config", GA4]);
+  r.toca("whatsapp");
+  r.toca("grupo");
+  assert.deepEqual(r.ga().slice(2), [
+    ["event", "bio_toque", { botao: "whatsapp" }],
+    ["event", "bio_toque", { botao: "grupo" }],
+  ]);
+  assert.doesNotMatch(r.js, /connect\.facebook\.net|fbq/);
+});
+
+test("Como chegar: o evento sai quando o <details> abre, não quando fecha (a regra do beacon do 4b)", () => {
+  const r = rodaComRastreio({ metaPixelId: PIXEL, ga4Id: GA4 });
+  // No clique o `open` ainda é o de antes: aberto = este toque fecha.
+  const detalhes = { open: false };
+  const { el } = elemento({ "data-link": "l-endereco", "data-tipo": "endereco" }, { tagName: "SUMMARY", parentNode: detalhes });
+  r.ouvintes.click({ target: el }); // abre
+  detalhes.open = true;
+  r.ouvintes.click({ target: el }); // fecha
+  assert.deepEqual(r.fbq().slice(3), [["trackCustom", "BioToque", { botao: "endereco" }]]);
+  assert.deepEqual(r.ga().slice(2), [["event", "bio_toque", { botao: "endereco" }]]);
+});
+
+test("os dois juntos: ES5, sem '<', em 3 KB; Copiar CNPJ e clique fora de botão não disparam evento", () => {
+  const r = rodaComRastreio({ metaPixelId: "12345678901234567890", ga4Id: GA4 });
+  const bytes = Buffer.byteLength(r.js);
+  assert.ok(bytes <= 3 * 1024, `${bytes} bytes`);
+  assert.doesNotMatch(r.js, /<|=>|`|\b(?:let|const|class)\b/);
+  assert.equal(r.carregados.length, 2);
+  const antes = [r.fbq().length, r.ga().length];
+  r.ouvintes.click({ target: elemento({ "data-copiar": "11222333000181" }).el });
+  r.ouvintes.click({ target: { closest: () => null } });
+  r.ouvintes.click({ target: elemento({ "data-link": "l1" }).el });
+  assert.deepEqual([r.fbq().length, r.ga().length], antes);
+});
+
+test("um id inválido não leva o outro junto", () => {
+  const soPixel = rodaComRastreio({ metaPixelId: PIXEL, ga4Id: "G-ab12" });
+  assert.deepEqual(soPixel.carregados, ["https://connect.facebook.net/en_US/fbevents.js"]);
+  const soGa = rodaComRastreio({ metaPixelId: "12a45", ga4Id: GA4 });
+  assert.deepEqual(soGa.carregados, [`https://www.googletagmanager.com/gtag/js?id=${GA4}`]);
+});
+
+test("o Pixel quebrado não derruba o GA4 nem o resto da página", () => {
+  const js = scriptDaPagina({ rastreio: { metaPixelId: PIXEL, ga4Id: GA4 } });
+  const janela: { dataLayer?: Chamadas } = {};
+  const ouvintes: Record<string, Ouvinte> = {};
+  const documento = {
+    head: { appendChild: () => undefined },
+    body: { getAttribute: () => "pagina-falsa" },
+    getElementById: () => ({ textContent: "" }),
+    getElementsByTagName: () => [], // sem <script>: o snippet do Pixel quebra no insertBefore
+    createElement: () => ({}),
+    addEventListener: (tipo: string, fn: Ouvinte) => {
+      ouvintes[tipo] = fn;
+    },
+  };
+  new Function("window", "document", "navigator", "addEventListener", "setTimeout", "clearTimeout", js)(
+    janela,
+    documento,
+    { sendBeacon: () => true },
+    (tipo: string, fn: Ouvinte) => {
+      ouvintes[`janela:${tipo}`] = fn;
+    },
+    () => 0,
+    () => undefined,
+  );
+  assert.equal(typeof ouvintes.click, "function");
+  assert.equal(typeof ouvintes["janela:pageshow"], "function");
+  ouvintes.click({ target: elemento({ "data-link": "l1", "data-tipo": "grupo" }).el });
+  assert.deepEqual((janela.dataLayer ?? []).map((a) => Array.from(a)).slice(2), [["event", "bio_toque", { botao: "grupo" }]]);
+});

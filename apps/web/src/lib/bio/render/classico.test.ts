@@ -108,8 +108,8 @@ test("alvo de toque ≥ 44 px", () => {
 test("uma fonte: Manrope variável, com preload", () => {
   const html = pagina();
   assert.equal(html.match(/rel="preload"/g)?.length, 1);
-  assert.match(html, /<link rel="preload" href="\/fonts\/bio\/manrope\/manrope-latin\.woff2" as="font" type="font\/woff2" crossorigin>/);
-  assert.match(html, /@font-face\{font-family:"Manrope";font-style:normal;font-weight:200 800;font-display:swap;/);
+  assert.match(html, /<link rel="preload" href="\/fonts\/bio\/manrope\/manrope-latin\.woff2" as="font" crossorigin>/);
+  assert.match(html, /@font-face\{font-family:"Manrope";font-weight:200 800;font-display:swap;/);
 });
 
 test("o h1 é o nome em texto (a logo não entra), com o @ e a frase em <p> logo abaixo", () => {

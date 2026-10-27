@@ -34,11 +34,13 @@ function fontes(lista: readonly FonteDoModelo[]): { css: string; preload: string
     css: unicas
       .map(
         (f) =>
-          `@font-face{font-family:"${f.familia}";font-style:${f.estilo};font-weight:${f.peso};font-display:swap;src:url(/fonts/bio/${f.arquivo}) format("woff2")}`,
+          // font-style:normal é o padrão do descritor (só o itálico diz); sem format("woff2") e sem
+          // type no preload: a página só serve woff2, e todo navegador que ela atende o lê
+          `@font-face{font-family:"${f.familia}";${f.estilo === "italic" ? "font-style:italic;" : ""}font-weight:${f.peso};font-display:swap;src:url(/fonts/bio/${f.arquivo})}`,
       )
       .join(""),
     preload: [...new Set(unicas.map((f) => f.arquivo))]
-      .map((a) => `<link rel="preload" href="/fonts/bio/${a}" as="font" type="font/woff2" crossorigin>`)
+      .map((a) => `<link rel="preload" href="/fonts/bio/${a}" as="font" crossorigin>`)
       .join(""),
   };
 }
@@ -106,7 +108,10 @@ export function renderPaginaBio(
   const fundoDoHtml = COR.test(tema) ? `html{background:${tema}}` : "";
   const css = `${f.css}${variaveis}${CSS_BASE}${modelo.css}${regrasDoFoco(doc)}${fundoDoHtml}`;
   const entra = o.animarEntrada && doc.animar ? " lk-entra" : "";
-  const script = o.modo === "publica" ? `<script${nonce}>${scriptDaPagina({ rastreio: null })}</script>` : "";
+  // Rastreio (PR 7): o documento já passou pelo zod, e o scriptDaPagina revalida cada id antes de pô-lo no JS.
+  // `?.`: documento gravado à mão pode não ter a chave `rastreio` (o banco não passa pelo zod na leitura).
+  const rastreio = doc.rastreio?.metaPixelId || doc.rastreio?.ga4Id ? doc.rastreio : null;
+  const script = o.modo === "publica" ? `<script${nonce}>${scriptDaPagina({ rastreio })}</script>` : "";
   return `<!doctype html><html lang="pt-BR"><head>${cabeca(c, modelo, f.preload)}<style${nonce}>${css}</style></head><body data-pagina="${escapeHtml(d.paginaId)}"><div class="lk${entra}">${sprite(corpo)}${corpo}<p id="lk-status" class="lk-status" role="status"></p></div>${script}</body></html>`;
 }
 

@@ -203,3 +203,18 @@ test("frases do Perfil e o erro de um campo só: nome vazio, @ com espaço e CNP
   // Erro em outro campo não acende este.
   assert.equal(erroNoCampo(semNome, "confere.cnpj"), null);
 });
+
+test("rastreio (PR 7): vazio passa; colado com espaço ou o GA4 em minúsculas também (o zod do PR 2 limpa); fora da regra, a frase do Avançado no campo", () => {
+  const com = (rastreio: DocumentoBio["rastreio"]) => erroDoDocumento({ ...documento([ZAP]), rastreio });
+  assert.equal(com({ metaPixelId: "", ga4Id: "" }), null);
+  assert.equal(com({ metaPixelId: "1234567890", ga4Id: "G-AB12CD34EF" }), null);
+  assert.equal(com({ metaPixelId: " 1234567890 ", ga4Id: " g-ab12cd34ef " }), null);
+  assert.deepEqual(com({ metaPixelId: "12a45", ga4Id: "" }), {
+    campo: "rastreio.metaPixelId",
+    mensagem: "Confira o ID do pixel: só números, de 5 a 20. Está no Gerenciador de Eventos da Meta.",
+  });
+  assert.deepEqual(com({ metaPixelId: "", ga4Id: "G-AB" }), {
+    campo: "rastreio.ga4Id",
+    mensagem: "Confira o ID de medição: G- e pelo menos 4 letras ou números, como G-AB12CD34EF.",
+  });
+});

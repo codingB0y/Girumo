@@ -10,6 +10,7 @@ import { IDS, dadosCheios, dadosFalsos } from "@/test/bio-dados-falsos";
 import { CSS_ETIQUETA } from "./etiqueta";
 import { renderPaginaBio, renderPaginaNaoEncontrada } from "./index";
 import { CSS_BASE } from "./partes";
+import { scriptDaPagina } from "./script";
 
 const NONCE = "AAAAAAAAAAAAAAAAAAAAAA==";
 const publica = (d: DadosRender, animarEntrada = true) => renderPaginaBio(d, { modo: "publica", nonce: NONCE, animarEntrada });
@@ -38,8 +39,8 @@ test("cabeça: idioma, título, noindex, descrição, Open Graph, cor do tema, �
   assert.equal(html.match(/<meta name="theme-color" content="([^"]+)">/)?.[1], fundo2); // o topo do degradê é o fundo2
   assert.match(html, /<link rel="icon" href="\/_next\/image\?url=%2Fapi%2Fp%2Fmedia%2Flogo-clara-falsa&amp;w=384&amp;q=75">/);
   assert.equal(conta(html, /rel="preload"/g), 1);
-  assert.match(html, /<link rel="preload" href="\/fonts\/bio\/lexend\/lexend-latin\.woff2" as="font" type="font\/woff2" crossorigin>/);
-  assert.match(html, /@font-face\{font-family:"Lexend";font-style:normal;font-weight:100 900;font-display:swap;src:url\(\/fonts\/bio\/lexend\/lexend-latin\.woff2\) format\("woff2"\)\}/);
+  assert.match(html, /<link rel="preload" href="\/fonts\/bio\/lexend\/lexend-latin\.woff2" as="font" crossorigin>/);
+  assert.match(html, /@font-face\{font-family:"Lexend";font-weight:100 900;font-display:swap;src:url\(\/fonts\/bio\/lexend\/lexend-latin\.woff2\)\}/);
   assert.match(html, /<body data-pagina="0c8f6a2e-5b1d-4c3a-9e7f-1a2b3c4d5e6f">/);
 });
 
@@ -151,7 +152,7 @@ test("um único role=status, fora da lista", () => {
 
 test("decoração fica fora da árvore de acessibilidade", () => {
   const html = publica(dadosFalsos());
-  assert.match(html, /<svg class="lk-sprite" aria-hidden="true" focusable="false">/);
+  assert.match(html, /<svg class="lk-sprite" aria-hidden="true">/);
   assert.match(html, /<span class="et-capas" aria-hidden="true">/);
   for (const svg of html.match(/<svg class="i[^"]*"[^>]*>/g) ?? []) assert.match(svg, /aria-hidden="true"/);
 });
@@ -190,7 +191,7 @@ test("capa: fetchpriority alta e alt vazio sem descrição; o resto é lazy", ()
 test("sem capa, o 'onde fica' sai abaixo da frase", () => {
   const html = publica(comPerfil({ capa: null }));
   assert.doesNotMatch(html, /<figure|fetchpriority=/);
-  assert.match(html, /<p class="et-local"><svg[^>]*><use href="#lk-i-mapa"><\/use><\/svg><span>Loja na Rua Exemplo/);
+  assert.match(html, /<p class="et-local"><svg[^>]*><use href="#i-mapa"\/><\/svg><span>Loja na Rua Exemplo/);
 });
 
 test("foco da foto vira regra no <style>, nunca style=", () => {
@@ -258,4 +259,53 @@ test("ordem: o script vem depois do #lk-status e o CSS_BASE antes do CSS do mode
   const html = publica(dadosFalsos());
   assert.ok(html.indexOf('id="lk-status"') < html.indexOf("<script"));
   assert.ok(html.indexOf(CSS_BASE) >= 0 && html.indexOf(CSS_BASE) < html.indexOf(CSS_ETIQUETA));
+});
+
+// ---------------------------------------------------------------- PR 7: rastreio
+
+const RASTREIO = { metaPixelId: "1234567890", ga4Id: "G-TESTE12345" };
+const comRastreio = (d: DadosRender, rastreio: DadosRender["documento"]["rastreio"]): DadosRender => ({
+  ...d,
+  documento: { ...d.documento, rastreio },
+});
+/** O conteúdo do único <script> da página (o JS não tem "<": o primeiro </script> é o dele). */
+const JS_DA_PAGINA = /<script nonce="AAAAAAAAAAAAAAAAAAAAAA==">([\s\S]*?)<\/script>/;
+
+test("rastreio: com id, o único <script> da página é o scriptDaPagina com o rastreio; sem id, o de sempre", () => {
+  const html = publica(comRastreio(dadosFalsos(), RASTREIO));
+  assert.equal(conta(html, /<script/g), 1);
+  assert.equal(html.match(JS_DA_PAGINA)?.[1], scriptDaPagina({ rastreio: RASTREIO }));
+  assert.match(html, /connect\.facebook\.net\/en_US\/fbevents\.js/);
+  assert.match(html, /gtag\/js\?id=G-TESTE12345/);
+  assert.equal(publica(dadosFalsos()).match(JS_DA_PAGINA)?.[1], scriptDaPagina({ rastreio: null }));
+});
+
+test("rastreio: id fora da regra (documento que não passou pelo zod) não entra na página", () => {
+  const html = publica(comRastreio(dadosFalsos(), { metaPixelId: '1";alert(1)//', ga4Id: 'G-X"</script><script>alert(1)' }));
+  assert.equal(conta(html, /<script/g), 1);
+  assert.doesNotMatch(html, /alert\(1\)|fbevents|googletagmanager/);
+});
+
+test("rastreio: documento sem a chave rastreio (gravado à mão) renderiza como sem rastreio", () => {
+  const d = dadosFalsos();
+  const semChave: Partial<DadosRender["documento"]> = { ...d.documento };
+  delete semChave.rastreio;
+  const html = publica({ ...d, documento: semChave as DadosRender["documento"] });
+  assert.equal(html.match(JS_DA_PAGINA)?.[1], scriptDaPagina({ rastreio: null }));
+});
+
+test("rastreio: a prévia do painel nunca leva", () => {
+  const html = renderPaginaBio(comRastreio(dadosFalsos(), RASTREIO), { modo: "previa", nonce: null, animarEntrada: false });
+  assert.doesNotMatch(html, /<script|fbevents|googletagmanager/);
+});
+
+test("página cheia (20 links) com os dois rastreadores ainda cabe em 40 KB, nos 4 modelos", () => {
+  // O Vitrine é o maior (PR 3b): a conta tem de valer em todos, não só no Etiqueta dos dados falsos.
+  const paletaDe = { etiqueta: "azul", vitrine: "papel", romaneio: "kraft", classico: "claro" } as const;
+  for (const modelo of ["etiqueta", "vitrine", "romaneio", "classico"] as const) {
+    const d = comRastreio(dadosCheios(), { metaPixelId: "12345678901234567890", ga4Id: "G-TESTE12345" });
+    const html = publica({ ...d, documento: { ...d.documento, modelo, paleta: paletaDe[modelo] } });
+    const bytes = Buffer.byteLength(html);
+    assert.ok(bytes <= 40 * 1024, `${modelo}: ${bytes} bytes`);
+  }
 });

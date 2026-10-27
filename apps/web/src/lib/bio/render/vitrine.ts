@@ -44,7 +44,7 @@ export const CSS_VITRINE = [
   ".vt-onde{align-self:flex-start;display:flex;align-items:flex-start;gap:7px;padding:7px 11px;border-radius:12px;background:rgb(0 0 0 / .62);font-size:12.5px;line-height:1.3;font-weight:500}",
   ".vt-onde svg.i{width:15px;height:15px;margin-top:1px}",
   ".vt-marca{position:relative;margin-top:auto;padding:56px 6px 0;display:grid;justify-items:start;gap:12px}",
-  '.vt-marca::before{content:"";position:absolute;inset:0 -14px -48px;z-index:-1;background:linear-gradient(180deg,rgb(0 0 0 / 0),rgb(0 0 0 / .62) 56px)}',
+  '.vt-marca::before{content:"";position:absolute;inset:0 -14px -48px;z-index:-1;background:linear-gradient(rgb(0 0 0 / 0),rgb(0 0 0 / .62) 56px)}',
   ".vt-nome{font-size:15px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;line-height:1.3}",
   ".vt-logo{width:146px;height:65px;object-fit:contain;object-position:left center;filter:drop-shadow(0 2px 10px rgb(0 0 0 / .35))}",
   ".lk-placa .vt-logo{width:118px;height:52px;object-position:center;filter:none}",
@@ -57,9 +57,9 @@ export const CSS_VITRINE = [
   ".vt-lista>li.vt-li-prin{border-bottom:0;padding-bottom:12px}",
   ".vt-prin{position:relative;overflow:hidden;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;min-height:66px;padding:10px 20px 10px 10px;border-radius:999px;background:var(--prin);color:var(--printinta);text-decoration:none;box-shadow:0 16px 30px -20px rgb(0 0 0 / .6)}",
   '.vt-prin::before,.vt-prin::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(105deg,transparent 35%,rgb(255 255 255 / .3) 50%,transparent 65%);transform:translateX(-130%)}',
-  ".vt-zap{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:rgb(255 255 255 / .14);color:var(--printinta)}",
+  ".vt-zap{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:rgb(255 255 255 / .14)}",
   ".lk .vt-zap--wa{background:#25D366;color:#fff}",
-  ".vt-prin .vt-rot{font-size:17px;font-weight:600;line-height:1.2}",
+  ".vt-prin .vt-rot{font-size:17px;line-height:1.2}",
   ".vt-prin .vt-sub{font-size:13px;line-height:1.3;color:var(--printinta)}",
   ".vt-linha{display:grid;grid-template-columns:56px minmax(0,1fr) auto;align-items:center;column-gap:14px;min-height:82px;padding:12px 4px;text-decoration:none;color:var(--on);border-radius:12px}",
   ".vt-prin,.vt-linha{cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}",
@@ -67,10 +67,11 @@ export const CSS_VITRINE = [
   ".vt-txt{display:grid;gap:2px;min-width:0}",
   ".vt-rot{font-size:16.5px;font-weight:600;letter-spacing:-.005em;line-height:1.25}",
   ".vt-sub{font-size:13.5px;color:var(--on2);line-height:1.35}",
-  ".lk svg.vt-seta{width:20px;height:20px;color:var(--seta)}",
-  // .lk na frente: o toque e o hover também mexem na seta e vêm depois, com (0,3,1)
-  ".lk .vt-abre[open] svg.vt-seta{transform:rotate(90deg)}",
-  ".vt-fotos{grid-column:1 / -1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}",
+  ".lk .vt-linha>svg{width:20px;height:20px;color:var(--seta)}",
+  // a seta é a <svg> filha direta da linha; .lk e [open] na frente: o toque e o hover
+  // também mexem nela e vêm depois, com (0,2,1)
+  ".lk .vt-abre[open] .vt-linha>svg{transform:rotate(90deg)}",
+  ".vt-fotos{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}",
   ".vt-fotos img{width:100%;height:auto;aspect-ratio:4/5;object-fit:cover;border-radius:12px}",
   ".vt-caminho{display:grid;gap:12px;padding:4px 4px 16px}",
   ".vt-caminho img{width:100%;height:auto;aspect-ratio:16/10;object-fit:cover;object-position:50% 30%;border-radius:16px}",
@@ -93,8 +94,8 @@ export const CSS_VITRINE = [
   "@media (prefers-reduced-motion:no-preference){",
   ".vt-prin{transition:transform .2s cubic-bezier(.22,1,.36,1)}",
   ".vt-prin:active{transform:scale(.98)}",
-  ".lk svg.vt-seta{transition:transform .25s cubic-bezier(.22,1,.36,1)}",
-  ".vt-linha:active svg.vt-seta,.vt-linha.lk-toque svg.vt-seta{transform:translateX(3px)}",
+  ".lk .vt-linha>svg{transition:transform .25s cubic-bezier(.22,1,.36,1)}",
+  ".vt-linha:active>svg,.vt-linha.lk-toque>svg{transform:translateX(3px)}",
   ".lk-entra .vt-capa>img{animation:vt-zoom 1.8s cubic-bezier(.16,1,.3,1) both}",
   ".lk-entra .vt-marca>*{animation:vt-ergue .9s cubic-bezier(.16,1,.3,1) both}",
   ".lk-entra .vt-marca>:nth-child(2){animation-delay:120ms}",
@@ -107,7 +108,7 @@ export const CSS_VITRINE = [
   ".vt-prin.lk-toque::before{animation:vt-brilho .9s cubic-bezier(.4,0,.2,1)}",
   "}",
   // hover só onde existe ponteiro: no celular o :hover gruda depois do toque
-  "@media (prefers-reduced-motion:no-preference) and (hover:hover){.vt-linha:hover svg.vt-seta{transform:translateX(3px)}}",
+  "@media (prefers-reduced-motion:no-preference) and (hover:hover){.vt-linha:hover>svg{transform:translateX(3px)}}",
   "@keyframes vt-zoom{from{transform:scale(1.14)}to{transform:none}}",
   "@keyframes vt-ergue{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}",
   "@keyframes vt-sobe{from{transform:translateY(64px)}to{transform:none}}",
@@ -119,7 +120,7 @@ function itemDaLista(v: LinkVisivel, c: ContextoRender): string {
   const l = v.link;
   const sub = l.sub ? `<span class="vt-sub">${escapeHtml(l.sub)}</span>` : "";
   const texto = `<span class="vt-txt"><span class="vt-rot">${escapeHtml(l.titulo)}</span>${sub}</span>`;
-  const seta = icone("seta", "i vt-seta");
+  const seta = icone("seta");
   if (l.tipo === "endereco") {
     const caminho = detalhesDoEndereco(v, c, {
       prefixo: "vt",
@@ -135,7 +136,8 @@ function itemDaLista(v: LinkVisivel, c: ContextoRender): string {
     return `<li class="vt-li-prin"><a class="vt-prin"${destino}><span class="vt-zap${zap}">${icone(l.icone)}</span>${texto}${icone("seta")}</a></li>`;
   }
   const fotos = (l.tipo === "link" ? l.fotos : [])
-    .map((f) => imagem(f, { largura: 120, altura: 150, sizes: "120px", alt: "", carregamento: "lazy", larguras: LARGURA_DAS_FOTOS }))
+    // sem width/height: o CSS já dá largura e aspect-ratio 4/5 (3 fotos por link)
+    .map((f) => imagem(f, { sizes: "120px", alt: "", carregamento: "lazy", larguras: LARGURA_DAS_FOTOS }))
     .join("");
   const vitrine = fotos ? `<span class="vt-fotos" aria-hidden="true">${fotos}</span>` : "";
   return `<li><a class="vt-linha"${destino}><span class="vt-tile">${icone(l.icone)}</span>${texto}${seta}${vitrine}</a></li>`;
