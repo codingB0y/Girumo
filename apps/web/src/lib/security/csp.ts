@@ -65,8 +65,12 @@ export function nonceAttribute(nonce: string | null | undefined): string {
  * hidratação morre em silêncio (o form vira submit GET nativo). Em produção
  * nenhuma superfície precisa dele.
  */
-function scriptSrc(nonce: string, isDev: boolean, ...hosts: string[]): string {
+function scriptSrc(nonce: string, isDev: boolean, hosts: readonly string[], estrito = false): string {
   const sources = ["'self'", `'nonce-${nonce}'`];
+  // 'strict-dynamic': só roda script com nonce ou criado por um script com nonce (o
+  // fbevents.js e o gtag.js que o nosso snippet injeta). Navegador com CSP3 ignora
+  // 'self' e a lista de hosts/caminhos; ela fica de fallback para navegador só-CSP2.
+  if (estrito) sources.push("'strict-dynamic'");
   if (isDev) sources.push("'unsafe-eval'");
   return ["script-src", ...sources, ...hosts].join(" ");
 }
@@ -75,7 +79,9 @@ function scriptSrc(nonce: string, isDev: boolean, ...hosts: string[]): string {
  * Os arquivos de rastreio que o código carrega — por CAMINHO, nunca o host solto.
  * Host inteiro sem 'strict-dynamic' aceita sem nonce qualquer arquivo dele, inclusive
  * um `googletagmanager.com/gtm.js?id=GTM-…` de contêiner que qualquer pessoa publica:
- * com uma injeção de HTML, o atacante rodaria JS no nosso domínio. `signals/` é o que o
+ * com uma injeção de HTML, o atacante rodaria JS no nosso domínio. O caminho sozinho não
+ * basta (`gtag/js?id=GTM-…` serve o mesmo contêiner); onde dá, quem fecha é o
+ * 'strict-dynamic' e esta lista é só o fallback para CSP2. `signals/` é o que o
  * fbevents.js carrega (config do pixel e plugins); `gtag/` cobre `gtag/js` e o
  * `gtag/destination` que o gtag.js puxa com Google Ads.
  */
@@ -94,7 +100,7 @@ export function buildCsp(surface: NonceSurface, nonce: string, isDev: boolean): 
     // a Meta manda o evento por imagem (www.facebook.com/tr) e o GA4 por beacon/fetch.
     return [
       "default-src 'none'",
-      scriptSrc(nonce, isDev, ...RASTREADORES_SCRIPT),
+      scriptSrc(nonce, isDev, RASTREADORES_SCRIPT, true),
       `style-src 'self' 'nonce-${nonce}'`,
       "img-src 'self' data: https://www.facebook.com https://*.google-analytics.com https://*.googletagmanager.com",
       "font-src 'self'",
@@ -114,7 +120,7 @@ export function buildCsp(surface: NonceSurface, nonce: string, isDev: boolean): 
     // não como fetch — sem esses dois no img-src ela morre em silêncio.
     return [
       "default-src 'self'",
-      scriptSrc(nonce, isDev, ...RASTREADORES_SCRIPT),
+      scriptSrc(nonce, isDev, RASTREADORES_SCRIPT, true),
       "style-src 'unsafe-inline'",
       "img-src 'self' data: https://www.facebook.com https://www.google.com https://googleads.g.doubleclick.net",
       `connect-src https://www.facebook.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com ${SENTRY_CSP_HOST}`,
@@ -132,7 +138,11 @@ export function buildCsp(surface: NonceSurface, nonce: string, isDev: boolean): 
   // que a sessão de tracking injeta (Meta Pixel e GA4).
   return [
     "default-src 'self'",
-    scriptSrc(nonce, isDev, ...RASTREADORES_SCRIPT),
+    // ponytail: sem 'strict-dynamic' aqui, então `gtag/js?id=GTM-<qualquer>` passa pelo
+    // caminho `gtag/` e serve um contêiner GTM de terceiro (a CSP não filtra query string).
+    // Ele desliga o 'self' e a hidratação do Next nesta rota não foi provada: fica para um
+    // follow-up que confira a /p/ real no browser.
+    scriptSrc(nonce, isDev, RASTREADORES_SCRIPT),
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https:",
     "font-src 'self'",

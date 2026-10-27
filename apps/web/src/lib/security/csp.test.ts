@@ -97,6 +97,24 @@ test("script-src não libera host inteiro da Meta nem do Google (gtm.js de terce
   }
 });
 
+test("'strict-dynamic' fecha /bio, /r/ e /c/: o gtag/js?id=GTM- serve o contêiner inteiro e passaria pelo caminho", () => {
+  const scriptSrc = (surface: "public-lp" | "click-redirect" | "bio", isDev = false) =>
+    buildCsp(surface, "AAAAAAAAAAAAAAAAAAAAAA==", isDev)
+      .split(";")
+      .map((d) => d.trim())
+      .find((d) => d.startsWith("script-src"))!;
+  for (const surface of ["bio", "click-redirect"] as const) {
+    for (const isDev of [false, true]) {
+      assert.ok(
+        scriptSrc(surface, isDev).startsWith("script-src 'self' 'nonce-AAAAAAAAAAAAAAAAAAAAAA==' 'strict-dynamic' "),
+        `${surface} (dev=${isDev}) sem 'strict-dynamic' logo depois do nonce`,
+      );
+    }
+  }
+  // /p/ é página Next: 'strict-dynamic' desliga o 'self' e a hidratação dela não foi provada.
+  assert.ok(!scriptSrc("public-lp").includes("'strict-dynamic'"));
+});
+
 test("nonce attribute renders only for a well-formed nonce", () => {
   const nonce = generateNonce();
   assert.equal(nonceAttribute(nonce), ` nonce="${nonce}"`);
@@ -171,7 +189,7 @@ test("CSP do link da bio: o nonce e só os hosts da Meta e do GA, fixos (spec li
   const csp = buildCsp("bio", nonce, false);
   assert.deepEqual(csp.split("; "), [
     "default-src 'none'",
-    `script-src 'self' 'nonce-${nonce}' https://connect.facebook.net/en_US/fbevents.js https://connect.facebook.net/signals/ https://www.googletagmanager.com/gtag/`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https://connect.facebook.net/en_US/fbevents.js https://connect.facebook.net/signals/ https://www.googletagmanager.com/gtag/`,
     `style-src 'self' 'nonce-${nonce}'`,
     "img-src 'self' data: https://www.facebook.com https://*.google-analytics.com https://*.googletagmanager.com",
     "font-src 'self'",
