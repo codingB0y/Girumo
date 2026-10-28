@@ -72,12 +72,47 @@ test("unsafe-eval comes back only in dev, where Turbopack needs it", () => {
 
 test("public LP keeps the vendors the tracking session injects", () => {
   const csp = buildCsp("public-lp", generateNonce(), false);
-  assert.ok(csp.includes("https://connect.facebook.net"));
-  assert.ok(csp.includes("https://www.googletagmanager.com"));
+  assert.ok(csp.includes("https://connect.facebook.net/en_US/fbevents.js"));
+  assert.ok(csp.includes("https://www.googletagmanager.com/gtag/"));
   // A foto do lojista vem de URL https arbitrária.
   assert.ok(csp.includes("img-src 'self' data: https:"));
   // O destino nunca é embutido: frame só dos provedores de vídeo do depoimento.
   assert.ok(csp.includes("frame-src https://www.youtube-nocookie.com https://player.vimeo.com"));
+});
+
+test("script-src não libera host inteiro da Meta nem do Google (gtm.js de terceiro entraria sem nonce)", () => {
+  for (const surface of ["public-lp", "click-redirect", "bio"] as const) {
+    const sources = (buildCsp(surface, generateNonce(), false)
+      .split(";")
+      .map((d) => d.trim())
+      .find((d) => d.startsWith("script-src")) ?? "")
+      .split(" ");
+    const dosRastreadores = sources.filter(
+      (s) => s.startsWith("https://connect.facebook.net") || s.startsWith("https://www.googletagmanager.com"),
+    );
+    assert.equal(dosRastreadores.length, 3, `${surface}: ${dosRastreadores.join(" ")}`);
+    for (const source of dosRastreadores) {
+      assert.ok(new URL(source).pathname.length > 1, `${surface} libera o host solto ${source}`);
+    }
+  }
+});
+
+test("'strict-dynamic' fecha /bio, /r/ e /c/: o gtag/js?id=GTM- serve o contêiner inteiro e passaria pelo caminho", () => {
+  const scriptSrc = (surface: "public-lp" | "click-redirect" | "bio", isDev = false) =>
+    buildCsp(surface, "AAAAAAAAAAAAAAAAAAAAAA==", isDev)
+      .split(";")
+      .map((d) => d.trim())
+      .find((d) => d.startsWith("script-src"))!;
+  for (const surface of ["bio", "click-redirect"] as const) {
+    for (const isDev of [false, true]) {
+      assert.ok(
+        scriptSrc(surface, isDev).startsWith("script-src 'self' 'nonce-AAAAAAAAAAAAAAAAAAAAAA==' 'strict-dynamic' "),
+        `${surface} (dev=${isDev}) sem 'strict-dynamic' logo depois do nonce`,
+      );
+    }
+  }
+  // /p/ é página Next: 'strict-dynamic' desliga o 'self' e a hidratação dela não foi provada.
+  assert.ok(!scriptSrc("public-lp").includes("'strict-dynamic'"));
 });
 
 test("nonce attribute renders only for a well-formed nonce", () => {
@@ -109,18 +144,22 @@ test("click interstitial stays closed to everything but the ad tags", () => {
   assert.ok(csp.includes("connect-src https://www.facebook.com"));
   assert.ok(csp.includes("base-uri 'self'"));
   assert.ok(csp.includes("form-action 'self'"));
-  // A allowlist de script é FECHADA: só os dois hosts de tag entram. Host novo
-  // aqui tem de ser uma decisão consciente, não um efeito colateral.
+  // A allowlist de script é FECHADA: só os arquivos de tag que carregamos entram.
+  // Source novo aqui tem de ser uma decisão consciente, não um efeito colateral.
   const hostsDeScript = (csp.split(";").map((d) => d.trim()).find((d) => d.startsWith("script-src")) ?? "")
     .split(" ")
     .filter((t) => t.startsWith("https://"));
-  assert.deepEqual(hostsDeScript.sort(), ["https://connect.facebook.net", "https://www.googletagmanager.com"]);
+  assert.deepEqual(hostsDeScript.sort(), [
+    "https://connect.facebook.net/en_US/fbevents.js",
+    "https://connect.facebook.net/signals/",
+    "https://www.googletagmanager.com/gtag/",
+  ]);
 });
 
 test("click-redirect libera o gtag: script, img e connect do Google", () => {
   const csp = buildCsp("click-redirect", generateNonce(), false);
   const dir = (nome: string) => csp.split(";").map((d) => d.trim()).find((d) => d.startsWith(nome)) ?? "";
-  assert.match(dir("script-src"), /https:\/\/www\.googletagmanager\.com/);
+  assert.match(dir("script-src"), /https:\/\/www\.googletagmanager\.com\/gtag\//);
   assert.match(dir("connect-src"), /https:\/\/\*\.google-analytics\.com/);
   assert.match(dir("connect-src"), /https:\/\/\*\.analytics\.google\.com/);
   // A conversão do Google Ads chega como PIXEL (img), não como fetch.
@@ -150,7 +189,7 @@ test("CSP do link da bio: o nonce e só os hosts da Meta e do GA, fixos (spec li
   const csp = buildCsp("bio", nonce, false);
   assert.deepEqual(csp.split("; "), [
     "default-src 'none'",
-    `script-src 'self' 'nonce-${nonce}' https://connect.facebook.net https://www.googletagmanager.com`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https://connect.facebook.net/en_US/fbevents.js https://connect.facebook.net/signals/ https://www.googletagmanager.com/gtag/`,
     `style-src 'self' 'nonce-${nonce}'`,
     "img-src 'self' data: https://www.facebook.com https://*.google-analytics.com https://*.googletagmanager.com",
     "font-src 'self'",
