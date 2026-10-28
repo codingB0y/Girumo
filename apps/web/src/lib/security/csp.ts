@@ -138,11 +138,11 @@ export function buildCsp(surface: NonceSurface, nonce: string, isDev: boolean): 
   // que a sessão de tracking injeta (Meta Pixel e GA4).
   return [
     "default-src 'self'",
-    // ponytail: sem 'strict-dynamic' aqui, então `gtag/js?id=GTM-<qualquer>` passa pelo
-    // caminho `gtag/` e serve um contêiner GTM de terceiro (a CSP não filtra query string).
-    // Ele desliga o 'self' e a hidratação do Next nesta rota não foi provada: fica para um
-    // follow-up que confira a /p/ real no browser.
-    scriptSrc(nonce, isDev, RASTREADORES_SCRIPT),
+    // 'strict-dynamic' desliga o 'self': os `<script>` do Next só rodam porque ele assina
+    // todos com o nonce do header da request (a página é force-dynamic), e os chunks que o
+    // runtime carrega depois herdam a confiança. Sem ele, `gtag/js?id=GTM-<qualquer>` passaria
+    // pelo caminho `gtag/` e serviria um contêiner GTM de terceiro.
+    scriptSrc(nonce, isDev, RASTREADORES_SCRIPT, true),
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https:",
     "font-src 'self'",
