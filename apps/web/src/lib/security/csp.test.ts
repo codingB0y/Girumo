@@ -97,13 +97,13 @@ test("script-src não libera host inteiro da Meta nem do Google (gtm.js de terce
   }
 });
 
-test("'strict-dynamic' fecha /bio, /r/ e /c/: o gtag/js?id=GTM- serve o contêiner inteiro e passaria pelo caminho", () => {
+test("'strict-dynamic' fecha /bio, /r/, /c/ e /p/: o gtag/js?id=GTM- serve o contêiner inteiro e passaria pelo caminho", () => {
   const scriptSrc = (surface: "public-lp" | "click-redirect" | "bio", isDev = false) =>
     buildCsp(surface, "AAAAAAAAAAAAAAAAAAAAAA==", isDev)
       .split(";")
       .map((d) => d.trim())
       .find((d) => d.startsWith("script-src"))!;
-  for (const surface of ["bio", "click-redirect"] as const) {
+  for (const surface of ["bio", "click-redirect", "public-lp"] as const) {
     for (const isDev of [false, true]) {
       assert.ok(
         scriptSrc(surface, isDev).startsWith("script-src 'self' 'nonce-AAAAAAAAAAAAAAAAAAAAAA==' 'strict-dynamic' "),
@@ -111,8 +111,6 @@ test("'strict-dynamic' fecha /bio, /r/ e /c/: o gtag/js?id=GTM- serve o contêin
       );
     }
   }
-  // /p/ é página Next: 'strict-dynamic' desliga o 'self' e a hidratação dela não foi provada.
-  assert.ok(!scriptSrc("public-lp").includes("'strict-dynamic'"));
 });
 
 test("nonce attribute renders only for a well-formed nonce", () => {

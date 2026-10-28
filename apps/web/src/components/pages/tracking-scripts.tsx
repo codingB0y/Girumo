@@ -79,6 +79,19 @@ export function trackBeacon(
   }
 }
 
+/**
+ * O id do GA4 vira `gtag/js?id=<id>` com o nonce da página — e esse endereço serve
+ * QUALQUER contêiner do Google, inclusive `GTM-…` (tag Custom HTML = JS do lojista no
+ * nosso domínio). Por isso só passa id de GA4 de verdade; o resto não carrega nada.
+ * Mesmo formato da bio (lib/bio/render/script.ts).
+ */
+const GA4_ID = /^G-[A-Z0-9]{4,28}$/;
+
+export function ga4TagId(raw: string | null): string | null {
+  const id = raw?.trim().toUpperCase() ?? "";
+  return GA4_ID.test(id) ? id : null;
+}
+
 const ATTRIB_PARAMS = [
   "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term",
   "fbclid", "gclid", "ttclid",
@@ -130,8 +143,8 @@ export function TrackingScripts({
     }
 
     // 4. GA4
-    if (ga4Id && !window.gtag) {
-      const safeId = ga4Id.replace(/[^A-Za-z0-9-]/g, "");
+    const safeId = ga4TagId(ga4Id);
+    if (safeId && !window.gtag) {
       const loader = document.createElement("script");
       if (nonce) loader.nonce = nonce;
       loader.async = true;
