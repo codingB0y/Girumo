@@ -479,7 +479,7 @@ Levantado pela sessão do Rastreio em 29/10. Os três primeiros itens foram conf
 | Automático | Ritmo do número, "tudo para quando", grupo de controle, as duas sequências com esperas e textos |
 | Scripts e depoimentos | Lista (automático e chat) com resultado, editor com campos, versões A/B e conferência; depoimentos com autorização |
 | Ajustes | Yampi, número do atendimento (o mesmo do Rastreio) e o horário dele, como a loja assina, números da equipe (ficam fora dos casos e recebem os testes), quem atende (atalho pra Equipe) |
-| Ativar | Preço e o que inclui; depois do pagamento, 4 passos: Yampi, número, assinatura, testar e ligar |
+| Ativar | Preço e o que inclui; depois do pagamento, 4 passos: Yampi, número (inclui "desligue a mensagem de ausência do WhatsApp Business no celular do chip"), assinatura, testar e ligar |
 
 "Testar no meu WhatsApp" manda os passos, com dados de exemplo, só pra um número da equipe cadastrado em
 Ajustes (os mesmos que ficam fora dos casos). São até 3 testes por dia, pelo mesmo caminho dos outros envios
@@ -524,7 +524,7 @@ de página, no menu e na tela de Equipe.
 | Campo vazio no script | O passo vai pra mão |
 | Add-on cancelado com casos em andamento | Param |
 | Pausa de proteção causada pelo carrinho | Vale pro número: o aviso do Rastreio também espera (o custo de um chip só). Na volta, Pix e aviso saem primeiro |
-| Mensagem de ausência do WhatsApp Business no celular do chip (a resposta automática do Rastreio) | Responde também a cliente da recuperação; entra no histórico como "pelo celular" |
+| Mensagem de ausência do WhatsApp Business no celular do chip (a resposta automática do Rastreio) | Só fica ligada em loja só com o Rastreio. O passo do número, na ativação do Recuperar, pede pra desligar; se continuar ligada, responde a cliente da recuperação e entra no histórico como "pelo celular" |
 
 ## 8. Fase 0 — provas antes de código de produto
 
