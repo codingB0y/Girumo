@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import hashlib
 import json
+import os
 import re
 from pathlib import Path
 
@@ -135,11 +136,41 @@ async def run_index(
         console.print("[yellow]No files to index (up to date).[/yellow]")
         return
 
+    # Lotes pequenos, menores primeiro, com pausa entre eles. No free tier do Gemini
+    # mandar a fila inteira de uma vez estoura o limite POR MINUTO logo no inicio e
+    # o lote todo termina FAILED: de 24 a 28/10/2026 foram 0 de ~164 arquivos por
+    # noite. Assim cada lote cabe na janela de um minuto, o manifest e gravado lote
+    # a lote, e o run para no primeiro lote que falhar (cota diaria acabou).
+    target_files = sorted(target_files, key=lambda p: p.stat().st_size)
+    total = len(target_files)
+    done = 0
+    for start in range(0, total, BATCH_SIZE):
+        if start:
+            await asyncio.sleep(BATCH_PAUSE_SECONDS)
+        batch = target_files[start:start + BATCH_SIZE]
+        ok, attempted = await _index_batch(batch, retry_failed)
+        done += ok
+        console.print(f"[{start + len(batch)}/{total}] {ok}/{attempted} processed")
+        if ok < attempted:
+            console.print(
+                f"[red]{total - done}/{total} file(s) not processed (quota?); "
+                f"left out of the manifest for the next run.[/red]"
+            )
+            raise SystemExit(1)
+    console.print("[green]Done.[/green]")
+
+
+BATCH_SIZE = int(os.environ.get("LIGHTRAG_BATCH_SIZE", "3"))
+BATCH_PAUSE_SECONDS = float(os.environ.get("LIGHTRAG_BATCH_PAUSE", "65"))
+
+
+async def _index_batch(batch: "list[Path]", retry_failed: bool) -> "tuple[int, int]":
+    """Indexa um lote e grava no manifest so o que terminou `processed`. Devolve (ok, tentados)."""
     manifest = load_manifest()
 
     texts, ids, file_paths = [], [], []
     pending_hashes: dict[str, tuple[str, str]] = {}  # doc_id -> (rel_str, hash)
-    for path in target_files:
+    for path in batch:
         rel = path.relative_to(config.REPO_ROOT)
         rel_str = str(rel).replace("\\", "/")
         lang = LANG_BY_SUFFIX.get(path.suffix, "text")
@@ -164,7 +195,8 @@ async def run_index(
             f"before retry.[/yellow]"
         )
 
-    console.print(f"Indexing {len(texts)} file(s)...")
+    if not texts:
+        return 0, 0
     await rag_mod.insert_batch(texts, ids=ids, file_paths=file_paths)
 
     # Manifest so com o que terminou `processed`. O LightRAG nao levanta erro quando
@@ -176,12 +208,7 @@ async def run_index(
         rel_str, digest = pending_hashes[doc_id]
         manifest[rel_str] = digest
     save_manifest(manifest)
-
-    failed = len(ids) - len(ok)
-    if failed:
-        console.print(f"[red]{failed}/{len(ids)} file(s) not processed; left out of the manifest for the next run.[/red]")
-        raise SystemExit(1)
-    console.print("[green]Done.[/green]")
+    return len(ok), len(ids)
 
 
 def main():
