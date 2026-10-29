@@ -1,6 +1,6 @@
 # Recuperar — carrinho e Pix da Yampi pelo WhatsApp — design
 
-**Data:** 29/10/2026 · **Status:** rascunho revisado (construtor + sessão do Rastreio), esperando aprovação do Igor
+**Data:** 29/10/2026 · **Status:** rascunho revisado (construtor + sessão do Rastreio + chip decidido), esperando aprovação do Igor
 **Mockup:** https://claude.ai/artifact/4STrnMzSBg58JodRxW3j8Z (Como funciona · o que a cliente recebe no Pix
 e no carrinho · Hoje · Conversas · Automático · Scripts e depoimentos · Ajustes · Ativar)
 **Pesquisa de mercado e custo** (repo privado, cita concorrente): `girumo-notas/docs/strategy/2026-10-29-recuperar-yampi-analise.md`
@@ -15,9 +15,9 @@ A loja que vende pela Yampi perde venda em dois pontos que hoje ninguém trata d
 
 A Yampi recupera por e-mail. WhatsApp automático ela não faz; o lojista chama na mão, quando chama.
 
-O **Recuperar** é um add-on de **R$ 127/mês**. A Yampi avisa a Girumo; um número de WhatsApp só da
-recuperação manda a mensagem no ritmo certo; quem responde cai num chat dentro da Girumo, com o pedido do lado
-e scripts prontos. Quem não quer automático usa só a fila do dia e o chat.
+O **Recuperar** é um add-on de **R$ 127/mês**. A Yampi avisa a Girumo; o número do atendimento (um WhatsApp só
+de privado, o mesmo dos avisos do Rastreio) manda a mensagem no ritmo certo; quem responde cai num chat dentro
+da Girumo, com o pedido do lado e scripts prontos. Quem não quer automático usa só a fila do dia e o chat.
 
 ## Decisões do Igor (29/10)
 
@@ -27,14 +27,15 @@ e scripts prontos. Quem não quer automático usa só a fila do dia e o chat.
 | Canal | **API não oficial (Evolution)**, num **número separado** do número dos grupos. Escolhido com a opção oficial (a do Rastreio do pedido, via Zernio) na mesa |
 | O que faz | Recuperação **automática** (Pix com o copia e cola; carrinho com cadência curta e depoimento de cliente) **e** chat embutido com scripts prontos pra quem prefere mandar na mão |
 | Cadência | Curta, por causa do risco de banimento |
-| Regra "nunca DM" de 28/07 | Exceção só aqui: só pelo número da recuperação, só pra quem passou pelo checkout da Yampi da loja |
+| Regra "nunca DM" de 28/07 | Exceção só pelo número do atendimento, só pra quem passou pelo checkout da Yampi da loja |
+| Chip | **Um chip só** pro Recuperar e pro Rastreio: um número do atendimento por loja, usado pelos dois módulos |
+| Conexão Yampi na v1 | **Token na piloto** (alias + token + chave colados), respondido na sessão do Rastreio. O pedido de Parceiro Tech corre em paralelo: OAuth da Yampi só existe pra app homologado (revisão de até 14 dias úteis por envio) |
 
 ## Escolhas minhas (dá pra mudar)
 
 | Escolha | Por quê |
 |---|---|
 | Ordem de entrega: **Pix → Conversas → Carrinho** | Pix tem mais intenção (ela já fez o pedido), base legal mais forte, menos mensagens |
-| Credencial colada na v1 (alias + token + chave) e pedido de "Parceiro Tech" da Yampi em paralelo | OAuth da Yampi só existe pra app homologado (revisão de até 14 dias úteis por envio) |
 | Carrinho **no dia seguinte às 10h**, não em 30–60 min | Experimento de campo (Li, Luo, Lu e Moriguchi, *Journal of Marketing*, 2021; ~64 mil clientes): lembrete 30–60 min depois vendeu **menos** que não mandar nada; 1–3 dias depois vendeu mais, e mais ainda em carrinho com muitas peças (o caso do atacado) |
 | **Grupo de controle de 10%** | Mostra a venda a mais, e não só quem ia pagar de qualquer jeito |
 | Automático começa **desligado** | O lojista revisa os scripts e testa no próprio WhatsApp antes de ligar |
@@ -47,6 +48,8 @@ e scripts prontos. Quem não quer automático usa só a fila do dia e o chat.
 | SAIR vai pra uma lista própria, "não falar no privado" (Recuperar e Rastreio). A `optouts` geral continua bloqueando, mas não ganha linha nova | SAIR de um lembrete não deve tirar a cliente da captura de contatos nem do sinal de venda pro Meta, que leem a `optouts` |
 | A Fase 0 decide se o automático liga | Sem ligar a resposta ao telefone de forma determinística, o caso não para quando ela responde e o SAIR não é garantido |
 | "Testar no meu WhatsApp" só pra números da equipe cadastrados em Ajustes | Não abrir exceção à regra de só falar com quem passou pelo checkout |
+| Nas telas, **"número do atendimento"** (o mockup ainda diz "número da recuperação") | É o mesmo número pro Recuperar e pro Rastreio; "da recuperação" ou "de avisos" confundiria quem tem os dois |
+| Conversas e mensagens do número são **comuns** aos dois módulos | Com um chip só, a cliente vê uma conversa só; o teto conta "conversa nova" por número; e o SAIR precisa achar o telefone mesmo em loja sem o Recuperar |
 
 ## Metas, fora de escopo e o que não pode acontecer
 
@@ -65,7 +68,7 @@ painel. Vídeo de depoimento. Atribuir conversa a uma pessoa, etiquetas, funil (
 
 **Não pode acontecer** (mesmo que "funcione")
 
-- O número dos grupos mandar mensagem no privado, ou o número da recuperação postar em grupo.
+- O número dos grupos mandar mensagem no privado, ou o número do atendimento postar em grupo.
 - Mandar pra lista de contatos ou pra quem não passou pelo checkout: só evento da Yampi abre caso.
 - "Digitando" falso, troca de aparelho, proxy, texto girado (`DECISIONS.md`).
 - Depoimento sem autorização da cliente, prazo inventado, "última chance" que não é a última.
@@ -75,7 +78,7 @@ painel. Vídeo de depoimento. Atribuir conversa a uma pessoa, etiquetas, funil (
 **Como saber que deu certo** (piloto de 30 dias)
 
 - A taxa de quem recebeu mensagem é maior que a do grupo de controle, no Pix e no carrinho.
-- Nenhuma restrição do número da recuperação, e zero efeito no número dos grupos.
+- Nenhuma restrição do número do atendimento, e zero efeito no número dos grupos.
 
 ## Restrições externas (pesquisa de 29/10)
 
@@ -125,7 +128,7 @@ Yampi ──aviso──► /api/integracoes/yampi/webhook ──► yampi_events
                                                                                          ▼
 cliente ◄── Evolution ◄── worker (claim com a política de DM) ◄── engine_commands (tipo de DM)
    │
-   └─resposta──► /api/webhooks/evolution ──► recovery_messages ──► para o caso ──► Conversas
+   └─resposta──► /api/webhooks/evolution ──► private_messages ──► para o caso ──► Conversas
 ```
 
 | Descartada | Por que não |
@@ -141,9 +144,10 @@ consumir a mesma conexão e o mesmo aviso. Quem for construído primeiro faz ess
 eventos e o seu consumidor.
 
 **O envio no privado também é da loja.** O Rastreio também vai mandar pela Evolution (decidido em 29/10). O
-número que fala no privado é uma instância com `purpose = 'privado'` e a lista de módulos que ele atende
-(`recuperar`, `rastreio`). Com um chip só ou com dois, o código é o mesmo (seção 12, pergunta 1). Na tela do
-Recuperar ele aparece como "número da recuperação". A "Base do privado" (seção 3) é comum aos dois módulos.
+número que fala no privado é uma instância com `purpose = 'privado'`, **uma por loja**, usada pelo Recuperar e
+pelo Rastreio (um chip só, decidido em 29/10). Nas telas dos dois módulos ele é o "número do atendimento". As
+conversas e mensagens desse número, o ritmo, as listas de bloqueio e a "Base do privado" (seção 3) são comuns
+aos dois módulos.
 
 ## 1. Regras
 
@@ -212,7 +216,8 @@ Abre com `cart.reminder` com celular.
 
 ### 1.5 Ritmo do número (política de mensagem no privado)
 
-- **Conversa nova** = 1ª mensagem de um caso pra um telefone que nunca escreveu pro número da recuperação.
+- **Conversa nova** = 1ª mensagem de um caso (Recuperar) ou de um pedido (Rastreio) pra um telefone que nunca
+  escreveu pro número do atendimento.
 - **Teto de conversas novas por dia:** 20 nos 3 primeiros dias do número; +10 a cada 3 dias seguidos sem pausa
   de proteção; no máximo 60. Depois de uma pausa, volta pra 20.
 - **Mensagens pra quem ainda não respondeu:** até 3× o teto de conversas novas no dia, somando automático e
@@ -220,11 +225,11 @@ Abre com `cart.reminder` com celular.
 - **Intervalo entre envios do número:** sorteado entre 40 e 120 s, como o jitter que já existe na fila. Dentro de
   um passo (texto + código, foto + legenda): 5–15 s.
 - **Horário:** 9h às 21h, horário de Brasília; ajustável entre 8h e 22h.
-- **No teto, a ordem é:** Pix antes (vence logo), depois carrinho de maior valor. O que não sai hoje fica pro
-  próximo horário se ainda vale; senão vira `perdido`.
+- **No teto, a ordem é:** Pix (vence logo), depois aviso de pedido do Rastreio, depois carrinho de maior valor.
+  O que não sai hoje fica pro próximo horário se ainda vale; senão vira `perdido`.
 - **Proibido** (vinculante): "digitando", marcar como lida pra parecer gente, girar texto pra driblar filtro.
-- Teto, intervalo e pausa são por instância de privado. Com um chip só pros dois módulos, o teto do dia é
-  dividido com prioridade Pix > aviso de pedido > carrinho.
+- Teto, intervalo, horário e pausa são do número: o Recuperar e o Rastreio dividem tudo, na ordem acima. O
+  horário muda pelos Ajustes de qualquer um dos dois.
 
 ### 1.6 Pausa de proteção
 
@@ -232,7 +237,8 @@ Abre com `cart.reminder` com celular.
   - resposta SAIR;
   - resposta de recusa: "não pedi", "quem é", "não conheço", "spam", "denunciar", "para de mandar", "engano".
     É uma lista em código, com teste.
-- **3 sinais em 24 h** pausam o automático daquele número por 24 h e avisam no sino.
+- **3 sinais em 24 h** pausam o automático daquele número por 24 h e avisam no sino. A pausa vale pro número
+  inteiro, com os avisos do Rastreio.
 - **Pausa imediata:**
   - erro de restrição no envio (ex.: 463, `rate-overlimit`);
   - taxa de entrega abaixo de 60%, contada nas últimas 20 mensagens com mais de 1 h (o `DeliveryTracker` do
@@ -290,13 +296,13 @@ Nomes sugeridos. Toda tabela tem `tenant_id`, RLS ligado e policy no padrão `au
 |---|---|---|
 | `yampi_connections` | loja (única) — **compartilhada com o Rastreio** | `alias`, `user_token` e `user_secret_key` selados, `webhook_id`, `webhook_secret` selado, `events`, `status` (`ativa` · `credencial_invalida` · `aviso_desativado` · `desconectada`), `last_event_at`, `last_check_at`, `last_error` |
 | `yampi_events` | aviso recebido | `connection_id`, `event`, `resource_id`, `dedupe_key` única, `payload` (tem dado pessoal: guardar 30 dias), `received_at`, `processed_at`, `error` |
-| `recovery_settings` | loja | `automatico` (false), `pix_ligado`, `carrinho_ligado`, esperas e opções de 1.2/1.3, `responder_com_link`, `cupom`, `horario_inicio`/`fim`, `controle` (true), `assinatura` (quem assina), `nome_loja`, `pedido_minimo_cents`, `prazo_troca`, `numeros_ignorados` |
+| `recovery_settings` | loja | `automatico` (false), `pix_ligado`, `carrinho_ligado`, esperas e opções de 1.2/1.3, `responder_com_link`, `cupom`, `controle` (true), `assinatura` (quem assina), `nome_loja`, `pedido_minimo_cents`, `prazo_troca`, `numeros_ignorados` |
 | `recovery_cases` | (loja, tipo, id na Yampi) | `kind` (`pix` · `carrinho`), `yampi_id`, `cart_token`, `order_number`, `customer_name`, `phone`, `jid`, `total_cents`, `items` (até 30), `link`, `pix_code` (nunca em log), `pix_expires_at`, `status` (ver abaixo), `stop_reason`, `control`, `step`, `next_step_at`, `conversation_id`, `recovered_at`, `recovered_cents`, `recovered_manual` |
-| `recovery_conversations` | (loja, telefone) | `instance_id`, `phone`, `jid`, `lid` (pode ser nulo; único por loja), `contact_name`, `status` (`precisa_de_voce` · `aberta` · `encerrada`), `unread`, `last_message_at`, `last_preview` (até 200), `first_outbound_at`, `last_inbound_at`, `current_case_id` |
-| `recovery_messages` | mensagem | `conversation_id`, `case_id`, `direction`, `author` (`automatico` · `pessoa` · `cliente` · `celular`), `author_user_id`, `kind` (`texto` · `imagem` · `audio` · `outro`), `text` (até 4096), `media_ref`, `step_key`, `script_id`, `variant`, `provider_message_id`, `status` (`na_fila` · `enviada` · `entregue` · `lida` · `falhou` · `cancelada`), `error` |
+| `private_conversations` | (número, telefone) — **comum com o Rastreio** | `instance_id`, `phone`, `phone_key`, `jid`, `lid` (pode ser nulo; único por número), `contact_name`, `status` (`precisa_de_voce` · `aberta` · `encerrada`), `unread`, `last_message_at`, `last_preview` (até 200), `first_outbound_at`, `last_inbound_at` |
+| `private_messages` | mensagem — **comum** | `conversation_id`, `module` (`recuperar` · `rastreio` · `teste`), `direction`, `author` (`automatico` · `pessoa` · `cliente` · `celular`), `author_user_id`, `kind` (`texto` · `imagem` · `audio` · `outro`), `text` (até 4096), `media_ref`, `command_id`, `provider_message_id`, `status` (`na_fila` · `enviada` · `entregue` · `lida` · `falhou` · `cancelada`), `error`. O Recuperar acrescenta `case_id`, `step_key`, `script_id` e `variant` (PR 1b); o Rastreio acrescenta o que for dele |
 | `recovery_scripts` | script | `key` (ex.: `pix.p1`, `carrinho.c1`, `chat.frete`), `kind`, `use` (`automatico` · `chat`), `title`, `variants` (1 a 3), `fixed_variant`, `active` |
 | `recovery_testimonials` | depoimento | `storage_path`, `caption`, `label`, `authorized_by`, `authorized_at`, `active`, `sends`, `conversions` |
-| `private_number_state` | instância de privado (comum com o Rastreio) | `instance_id`, `ramp_started_at`, `healthy_since`, `paused_until`, `pause_reason`, `next_send_at` |
+| `private_number_state` | número do atendimento (comum com o Rastreio) | `instance_id`, `horario_inicio`/`fim` (9h–21h), `ramp_started_at`, `healthy_since`, `paused_until`, `pause_reason`, `next_send_at` |
 | `private_signals` | sinal de proteção (comum) | `instance_id`, `kind`, `at`, `message_ref` |
 | `private_optouts` | telefone que pediu SAIR (comum) | `phone`, `phone_key`, `module`, `at`, `message_ref` |
 
@@ -305,17 +311,19 @@ Status do caso: `agendado` · `em_sequencia` · `respondeu` · `recuperado` · `
 
 Mudanças em tabelas que já existem:
 
-- `instances.purpose` — `grupos` (padrão) ou `privado`; `instances.private_modules` — quais módulos o número
-  de privado atende (`recuperar`, `rastreio`), vazio quando é `grupos`.
-- `engine_commands` — no comando de DM: o módulo de origem, `valid_until`, o id da mensagem na Evolution e o
-  status (enviada · entregue · lida · falhou). Coluna nova ou tabela ao lado, a critério de quem constrói; o
-  módulo lê pelo id do comando.
-- `tenant_settings.recuperar_enabled` — como `instagram_enabled`.
-- `memberships.modules` — o CHECK aceita `recuperar` além de `postar`
+- `instances.purpose` — `grupos` (padrão) ou `privado`, no máximo uma `privado` por loja (índice único
+  parcial). Quais módulos usam o número sai dos add-ons ativos, não de coluna.
+- `engine_commands` — no comando de DM: o módulo de origem, `valid_until` e o id da `private_messages`. O id
+  da mensagem na Evolution e o status (enviada · entregue · lida · falhou) ficam na `private_messages`, que os
+  dois módulos leem.
+- `tenant_settings.recuperar_enabled` e `rastreio_enabled` — como `instagram_enabled`. Os dois nascem no PR 1a
+  porque a trava de conectar o número (seção 3) lê os dois; quem liga o do Rastreio é o Rastreio.
+- `memberships.modules` — o CHECK aceita `recuperar` e `rastreio` além de `postar`
   (`20261007120100_acesso_vendedora.sql:99`).
 - `optouts` — passa a ser lida (por `phone_key()`) na barreira do envio de DM. Não ganha linhas do SAIR.
 
-**Retenção:** avisos crus 30 dias; casos e mensagens 180 dias depois de fechados; `optouts` sem prazo.
+**Retenção:** avisos crus 30 dias; casos 180 dias depois de fechados; mensagens 180 dias depois da última da
+conversa; `optouts` e `private_optouts` sem prazo.
 
 ## 3. Fluxos
 
@@ -349,8 +357,8 @@ Mudanças em tabelas que já existem:
    3. horário, pausa e teto do dia;
    4. no carrinho, que ele ainda não virou pedido.
 
-   Passou → escolhe o script e a versão, preenche os campos, grava `recovery_messages` (`na_fila`) e cria o
-   comando no `engine_commands` (tipo de DM, `instance_id` do número da recuperação, `dedupe_key` =
+   Passou → escolhe o script e a versão, preenche os campos, grava `private_messages` (`na_fila`) e cria o
+   comando no `engine_commands` (tipo de DM, `instance_id` do número do atendimento, `dedupe_key` =
    caso:passo, `available_at` espaçado pelo intervalo). Não coube hoje → próximo horário, se ainda vale.
    Comando de DM cancelado por atraso (worker fora mais de 15 min) volta pro agendador se o passo ainda vale.
 2. **Reconciliação**, numa execução sim, numa não, por loja com o add-on:
@@ -365,7 +373,7 @@ Mudanças em tabelas que já existem:
 ### Envio (worker)
 
 - Tipos novos de comando: DM de texto e DM com imagem.
-- **Trava nos dois sentidos, com teste:** DM só sai de instância `privado` que atende o módulo do comando;
+- **Trava nos dois sentidos, com teste:** DM só sai de instância `privado`, com o add-on do módulo ativo;
   comando de grupo só sai de instância `grupos`. Hoje essa trava não existe de verdade: o `safeDestination`
   do `send-dry-run.ts` só mascara o log no modo de teste. Ela passa a valer no claim e no sender.
 - **Alvo:** só o JID resolvido do caso (`<dígitos>@s.whatsapp.net`). Corrigir `jidToNumber` em
@@ -376,8 +384,8 @@ Mudanças em tabelas que já existem:
   ativo e o telefone não está bloqueado (1.1).
 - **Validade em vez da tolerância de 15 min:** o comando de DM não cai na `app.missed_send_tolerance()`. Passou
   do `valid_until` (Pix: o vencimento; carrinho: o fim do horário do dia), é cancelado e o agendador decide.
-- **Resultado:** o sender guarda o `key.id` da Evolution e o status no comando (hoje a resposta do envio é
-  descartada). Se a resposta do envio trouxer o `@lid` da cliente, grava em `recovery_conversations.lid`.
+- **Resultado:** o sender guarda o `key.id` da Evolution e o status na `private_messages` (hoje a resposta do
+  envio é descartada). Se a resposta do envio trouxer o `@lid` da cliente, grava em `private_conversations.lid`.
 - Erro de restrição → pausa imediata (1.6).
 
 ### Resposta da cliente (webhook da Evolution)
@@ -388,13 +396,15 @@ Mudanças em tabelas que já existem:
   ignorado.
 - **Casar com a conversa:**
   - `@s.whatsapp.net` → pelo telefone;
-  - `@lid` → pelo `recovery_conversations.lid` (aprendido no `whatsappNumbers` ou na resposta do envio), ou
+  - `@lid` → pelo `private_conversations.lid` (aprendido no `whatsappNumbers` ou na resposta do envio), ou
     pelo telefone que vier ao lado (`remoteJidAlt` / `senderPn`). A Fase 0 escolhe a regra;
   - não casou → conversa "número não identificado", com o nome do perfil e o botão "vincular à cliente" (a
     pessoa escolhe o caso). Um SAIR vindo dela fica em destaque até alguém vincular.
 - **Sem ligação determinística na Fase 0, o automático não liga:** sem casar a resposta, o caso não para e o
   SAIR não é garantido. Volta pro Igor com o resultado da prova.
 - `fromMe` que não saiu da Girumo (alguém respondeu pelo celular do chip) entra no histórico como "pelo celular".
+- **Loja só com o Rastreio:** a resposta atualiza `last_inbound_at`, SAIR e sinais, e não guarda o texto (não há
+  tela pra ler). Com o Recuperar, a resposta a um aviso do Rastreio entra em Conversas como qualquer outra.
 - **Resposta com caso ativo:** o caso vira `respondeu` e os passos pendentes são cancelados (comando e
   mensagem). A conversa vai pra "Precisa de você", ganha +1 não lida, e o sino avisa ("Ana respondeu").
 - **SAIR:** palavra sozinha — SAIR, PARAR, STOP, CANCELAR, DESCADASTRAR — sem diferença de caixa ou acento.
@@ -403,7 +413,7 @@ Mudanças em tabelas que já existem:
 - Resposta normal à C1 com "responder com link" ligado → 1 mensagem com o link, no ritmo do número.
 - **Mídia recebida:** guarda o tipo e o id. O painel busca na Evolution na hora (ouvir/ver) e não guarda o
   arquivo.
-- `messages.update` (entregue/lida) → status do comando pelo `key.id`. Hoje esse evento vai cru pro
+- `messages.update` (entregue/lida) → status na `private_messages` pelo `key.id`. Hoje esse evento vai cru pro
   `engine_events`, sem consumidor. É o mesmo status que o Rastreio mostra em Entregas.
 
 ### Base do privado: o que muda no código que já existe (comum com o Rastreio)
@@ -436,9 +446,11 @@ Levantado pela sessão do Rastreio em 29/10. Os três primeiros itens foram conf
 
 ### Conectar o número de privado
 
-- Mesmo fluxo de QR / código de pareamento das instâncias, com `purpose = 'privado'` e os módulos que ele
-  atende.
-- Exige um add-on que use o privado. 1 número por módulo, ou o mesmo pros dois (seção 12).
+- Mesmo fluxo de QR / código de pareamento das instâncias, com `purpose = 'privado'`.
+- Exige o Recuperar ou o Rastreio ativo (`recuperar_enabled` ou `rastreio_enabled`; o do Rastreio é ligado à
+  mão no admin na v1). Um número por loja: quem ativa o segundo add-on encontra o número já conectado. O cartão
+  do número aparece nos Ajustes dos dois módulos e abre o mesmo fluxo.
+- Vem com o add-on: não ocupa vaga de celular do plano e não tem preço à parte.
 - Recusa (desconecta e explica) se o telefone for o mesmo de uma instância `grupos` da loja.
 - Fica fora da sincronização de grupos e dos destinos de post.
 - O alerta de número caído (Job 3 do `/api/cron/emails`) tem que cobrir essa instância — conferir.
@@ -451,8 +463,9 @@ Levantado pela sessão do Rastreio em 29/10. Os três primeiros itens foram conf
 - `requireRecuperar()` em toda rota do módulo, 403 `recuperar_disabled` (como `requireInstagram` em
   `lib/ig/access.ts`).
 - Admin libera e desliga na mão, pra loja piloto.
-- **Desligou:** o automático para na hora; o número continua conectado (o lojista desconecta se quiser); as
-  telas mostram Ativar; os dados ficam pra consulta até a retenção.
+- **Desligou:** o automático para na hora; as telas mostram Ativar; os dados ficam pra consulta até a
+  retenção. Com o Rastreio ativo, o número segue com os avisos dele. Sem nenhum dos dois, nada sai pelo
+  número, que continua conectado até o lojista desconectar.
 - Na ativação, o lojista confirma que avisa no site ou na política de privacidade que pode falar com a cliente
   pelo WhatsApp sobre pedido e carrinho. O texto fica pra revisão do Igor.
 
@@ -461,11 +474,11 @@ Levantado pela sessão do Rastreio em 29/10. Os três primeiros itens foram conf
 | Tela | O que tem de essencial |
 |---|---|
 | Barra de cima | "Recuperar" com contador de "precisa de você" pra quem tem o add-on (sem rolagem lateral a 1024 px; se não couber, vai pro Mais). Sem o add-on: em Mais › Vender, abrindo Ativar |
-| Hoje | Números do mês (recuperado, taxa com × sem mensagem, precisa de você, conversas novas X de teto), fila filtrável (Todos, Precisa de você, Pix, Carrinho, Recuperados), Ritmo do número, recuperado por dia |
-| Conversas | Lista com filtros e busca · conversa · pedido e sequência do lado. Scripts preenchidos, botão de depoimento, envio que entra na fila. No celular, uma coluna por vez (lista → conversa → pedido em folha). Polling: lista a cada 30 s, conversa aberta a cada 5 s (só mensagens novas) |
+| Hoje | Números do mês (recuperado, taxa com × sem mensagem, precisa de você, conversas novas X de teto, somando os avisos do Rastreio quando a loja tem os dois), fila filtrável (Todos, Precisa de você, Pix, Carrinho, Recuperados), Ritmo do número, recuperado por dia |
+| Conversas | Tudo que chega no número do atendimento, inclusive resposta a aviso do Rastreio (com o aviso no histórico e a etiqueta do módulo). Lista com filtros e busca · conversa · pedido e sequência do lado. Scripts preenchidos, botão de depoimento, envio que entra na fila. No celular, uma coluna por vez (lista → conversa → pedido em folha). Polling: lista a cada 30 s, conversa aberta a cada 5 s (só mensagens novas) |
 | Automático | Ritmo do número, "tudo para quando", grupo de controle, as duas sequências com esperas e textos |
 | Scripts e depoimentos | Lista (automático e chat) com resultado, editor com campos, versões A/B e conferência; depoimentos com autorização |
-| Ajustes | Yampi, número da recuperação, como a loja assina, números da equipe (ficam fora dos casos e recebem os testes), quem atende (atalho pra Equipe) |
+| Ajustes | Yampi, número do atendimento (o mesmo do Rastreio) e o horário dele, como a loja assina, números da equipe (ficam fora dos casos e recebem os testes), quem atende (atalho pra Equipe) |
 | Ativar | Preço e o que inclui; depois do pagamento, 4 passos: Yampi, número, assinatura, testar e ligar |
 
 "Testar no meu WhatsApp" manda os passos, com dados de exemplo, só pra um número da equipe cadastrado em
@@ -503,18 +516,20 @@ de página, no menu e na tela de Equipe.
 | Aviso fora de ordem ou repetido | Upsert por id, dedupe; nada sai duas vezes (`dedupe_key` caso:passo) |
 | Carrinho e Pix da mesma cliente | O carrinho fecha "virou pedido", o Pix segue |
 | Pedido feito pelo lojista no admin da Yampi | Vira caso como qualquer outro (a prova 0 vê se dá pra distinguir) |
-| Número da recuperação desconectado ou VPS fora | Nada sai; o passo que perder a janela vira `perdido`; o alerta de número caído avisa |
+| Número do atendimento desconectado ou VPS fora | Nada sai, nem os avisos do Rastreio; o passo que perder a janela vira `perdido`; o alerta de número caído avisa |
 | Yampi fora ou 429 | A reconciliação tenta de novo, respeitando o limite |
 | Lojista trocou a senha da Yampi | 401 → `credencial_invalida`, aviso, a recuperação da loja para |
 | Aviso desativado na Yampi (30 falhas) | A reconciliação recria |
 | Cliente responde dias depois | A conversa volta pra "Precisa de você" |
 | Campo vazio no script | O passo vai pra mão |
 | Add-on cancelado com casos em andamento | Param |
+| Pausa de proteção causada pelo carrinho | Vale pro número: o aviso do Rastreio também espera (o custo de um chip só). Na volta, Pix e aviso saem primeiro |
+| Mensagem de ausência do WhatsApp Business no celular do chip (a resposta automática do Rastreio) | Responde também a cliente da recuperação; entra no histórico como "pelo celular" |
 
 ## 8. Fase 0 — provas antes de código de produto
 
 Precisa do Igor: a credencial Yampi da loja piloto, um Pix real pago (valor simbólico serve), um chip de
-teste, dois celulares e uma instância de teste na Evolution. Os PRs 1, 2 e 5 andam antes dela (seção 9).
+teste, dois celulares e uma instância de teste na Evolution. Os PRs 1a, 1b, 2 e 5 andam antes dela (seção 9).
 
 1. **Yampi de verdade** (loja piloto, credencial dela): capturar `cart.reminder`, `order.created` com Pix,
    `order.paid` e `order.status.updated` reais. Confirmar:
@@ -547,25 +562,26 @@ teste, dois celulares e uma instância de teste na Evolution. Os PRs 1, 2 e 5 an
 
 ## 9. Fatias (PRs)
 
-Antes do PR 1: abrir o card `recuperar-yampi` no quadro. Os PRs marcados "comum" servem também ao Rastreio:
+Antes do PR 1a: abrir o card `recuperar-yampi` no quadro. Os PRs marcados "comum" servem também ao Rastreio:
 quem chegar primeiro faz, o outro só usa.
 
 | PR | O que entrega | Depende de |
 |---|---|---|
-| 1 · Banco | Tabelas da seção 2, `instances.purpose` e `private_modules`, `tenant_settings.recuperar_enabled`, módulo no CHECK, RLS, função de limpeza | — |
-| 2 · Número de privado (comum) | Filtro `grupos` nos seletores da "Base do privado", limite do plano só com grupos, disjuntor e `instance_caps` só pra grupos, conectar o número de privado | 1 |
+| 1a · Banco comum (comum) | `yampi_connections`, `yampi_events`, `instances.purpose` (uma `privado` por loja), `private_conversations`, `private_messages`, `private_number_state`, `private_signals`, `private_optouts`, campos do DM no `engine_commands`, `tenant_settings.recuperar_enabled` e `rastreio_enabled`, CHECK dos módulos (`recuperar`, `rastreio`), RLS, limpeza dos avisos e das mensagens | — |
+| 1b · Banco do Recuperar | `recovery_settings`, `recovery_cases`, `recovery_scripts`, `recovery_testimonials`, colunas do Recuperar na `private_messages`, RLS, limpeza dos casos | 1a |
+| 2 · Número de privado (comum) | Filtro `grupos` nos seletores da "Base do privado", limite do plano só com grupos, disjuntor e `instance_caps` só pra grupos, conectar o número de privado | 1a |
 | 3 · Envio de DM (comum) | Comando com módulo e `valid_until`, trava nos dois sentidos, ritmo por instância, `whatsappNumbers`, correção do `jidToNumber`, barreira de bloqueio por `phone_key()`, `key.id` guardado | 2 e prova do WhatsApp |
 | 4 · Resposta 1:1 e status (comum) | Ramo no webhook da Evolution, casar conversa pela regra da Fase 0, "vincular à cliente", `messages.update` → status, SAIR → `private_optouts`, sinais e pausa, sino | 3 |
-| 5 · Cobrança e casca | Stripe (preço, checkout, webhook → flag), `requireRecuperar`, barra e Mais, Ativar, liberação no admin | 1 |
-| 6 · Conexão Yampi (comum) | Conectar, testar e desconectar; aviso (rota, HMAC, allowlist, `yampi_events`); reconciliação; cartão em Integrações e Ajustes | 1 e prova da Yampi |
-| 7 · Pix automático | Eventos → casos, agendador, scripts padrão do Pix, controle, Hoje, Ajustes, os 4 passos de ativação, testar no meu WhatsApp. **Piloto do Pix** (respostas no celular do chip até o PR 8) | 4, 5, 6 |
+| 5 · Cobrança e casca | Stripe (preço, checkout, webhook → flag), `requireRecuperar`, barra e Mais, Ativar, liberação no admin | 1a |
+| 6 · Conexão Yampi (comum) | Conectar, testar e desconectar; aviso (rota, HMAC, allowlist, `yampi_events`); reconciliação; cartão em Integrações e Ajustes | 1a e prova da Yampi |
+| 7 · Pix automático | Eventos → casos, agendador, scripts padrão do Pix, controle, Hoje, Ajustes, os 4 passos de ativação, testar no meu WhatsApp. **Piloto do Pix** (respostas no celular do chip até o PR 8) | 1b, 4, 5, 6 |
 | 8 · Conversas | Tela de 3 colunas e celular, envio manual, scripts no chat, mídia sob demanda, módulo da vendedora | 7 |
 | 9 · Carrinho automático | C1 a C3, link na resposta, reconferência na Yampi, depoimento na C2, Automático (carrinho), teste de balanceamento escrito antes de ligar | 7 |
 | 10 · Scripts e depoimentos | Editor com A/B e conferência, upload com redução e autorização, contadores | 9 |
 | 11 · Medição | Números com controle, gráfico, card do quadro em `no_ar_verificado` com prova | 10 |
 
-Antes da Fase 0 andam os PRs 1, 2 e 5. Depois do 1, os PRs 2, 5 e 6 mexem em arquivos separados e podem andar
-juntos.
+Antes da Fase 0 andam os PRs 1a, 1b, 2 e 5. Depois do 1a, os PRs 1b, 2, 5 e 6 podem andar juntos. O 1b e o 2
+têm migração: o segundo a mergear atualiza a branch e refaz a baseline (`npm run schema:baseline`).
 
 ## 10. Testes
 
@@ -596,11 +612,6 @@ juntos.
 
 ## 12. Perguntas em aberto
 
-1. **Mesmo chip pro Recuperar e pro Rastreio, ou um cada?** A base funciona com os dois (`private_modules`).
-   O que muda:
-   - a cobrança: com um chip só, o primeiro add-on ativo libera o número e o segundo usa o mesmo;
-   - Conversas: passa a mostrar também quem respondeu aviso de pedido;
-   - o teto do dia: dividido, com prioridade Pix > aviso de pedido > carrinho.
-
-   Recomendação: um só. A lojista mantém um chip a mais em vez de dois, e a cliente recebe tudo do pós-venda na
-   mesma conversa. Contra: uma restrição causada pelo carrinho atrasa também o aviso de quem comprou.
+Nenhuma. O chip foi decidido em 29/10: um só pros dois módulos (ver Decisões). Vieram com isso: uma instância
+`privado` por loja, conversas e mensagens comuns (seção 2), teto e pausa divididos com o Rastreio (1.5 e 1.6) e
+o número que vem com qualquer um dos dois add-ons (seção 3).
