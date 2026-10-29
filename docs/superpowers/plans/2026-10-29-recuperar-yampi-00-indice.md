@@ -41,9 +41,10 @@ bloco **Interfaces**.
 
 - Tabelas e colunas: exatamente as da seção 2 da spec (`yampi_connections`, `yampi_events`,
   `private_conversations`, `private_messages`, `private_number_state`, `private_signals`, `private_optouts`).
-- `app.phone_key(p text) returns text` — mesma regra do `chaveDoTelefone` do TypeScript (ver
-  `apps/web/src/lib/integracoes/situacao-do-cadastro.ts`), `immutable`, `set search_path`. Colunas `phone_key`
-  são preenchidas com ela.
+- `public.phone_key(p text)` **já existe**
+  (`apps/web/supabase/migrations/20261010130000_funil_anuncios_tabelas.sql:14`: `immutable`, DDD + 8 últimos
+  dígitos, espelho TS `chaveDoTelefone`). Nenhum plano cria outra. As colunas `phone_key` das tabelas novas são
+  geradas com ela (`generated always as (public.phone_key(phone)) stored`, como `site_captures`).
 - `instances.purpose text not null default 'grupos' check (purpose in ('grupos','privado'))` + índice único
   parcial `instances_one_privado_per_tenant on instances (tenant_id) where purpose = 'privado'`.
 - `tenant_settings.recuperar_enabled boolean not null default false` e
@@ -96,7 +97,7 @@ export async function cancelarDms(tenantId: string, messageIds: string[]): Promi
 Colunas que são só de um módulo (`case_id`, `step_key`… do Recuperar) o módulo grava depois, nas linhas
 devolvidas em `messageIds`.
 
-- Bloqueio (`bloqueado`): telefone em `private_optouts` ou na `optouts` da loja, comparando por `app.phone_key`.
+- Bloqueio (`bloqueado`): telefone em `private_optouts` ou na `optouts` da loja, comparando por `public.phone_key`.
 - Componente do cartão do número: `apps/web/src/components/privado/cartao-numero-do-atendimento.tsx`, exporta
   `CartaoNumeroDoAtendimento` (PR 2). Os Ajustes do Recuperar e as Configurações do Rastreio importam o mesmo.
 
