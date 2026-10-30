@@ -418,9 +418,12 @@ Provas, sem código de produto (a 1 é a mesma do Recuperar):
    Critério: **≥ 80%** com código (ou causa conhecida e consertável: ligar a sincronização do Bling ou usar o app do
    Melhor Envio da Yampi). Abaixo disso, o aviso "enviado" fica desligado até consertar; página e demais etapas valem.
 3. **Base do privado** provada pela base (chip de teste, envio, status por id, número sem WhatsApp).
-4. **"Entregue" chegando à Yampi**: nos pedidos da piloto enviados entre 15 e 45 dias atrás, quantos chegaram a
-   `delivered` (ou `delivered = true`) na Yampi. Sai do mesmo levantamento da prova 1. Critério: **abaixo de 80%** → o
-   PR 8 (Melhor Envio) entra logo depois do e-mail, se a prova 5 passar; 80% ou mais → o PR 8 fica para depois.
+4. **"Entregue" chegando à Yampi**: nos pedidos da piloto criados entre 45 e 15 dias atrás que foram enviados (têm
+   código de rastreio ou passaram por um status de envio), quantos chegaram a "entregue" (`delivered = true` ou o
+   status `delivered`, no atual ou no histórico). A janela é pela data de criação porque a lista da Yampi não traz a
+   data de envio. Medida no levantamento da Fase 0 do Recuperar (comando `entregues`): linha **Y22** de
+   `docs/superpowers/plans/_recuperar-fase-0-resultado.md`. Critério: **abaixo de 80%** → o PR 8 (Melhor Envio) entra
+   logo depois do e-mail, se a prova 5 passar; 80% ou mais → o PR 8 fica para depois.
 5. **O Melhor Envio enxerga as etiquetas da piloto**: com o app de teste da Girumo autorizado só para leitura na conta
    do Melhor Envio da piloto (no sandbox, se der para reproduzir), conferir: (a) se ele lista as etiquetas criadas
    pelo app da Yampi, pelo Bling e pelo site; (b) se acha a etiqueta pelo código que está na Yampi, e se esse código é
