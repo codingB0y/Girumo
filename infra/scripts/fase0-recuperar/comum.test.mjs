@@ -10,7 +10,10 @@ import {
   caminhoNoObjeto,
   celulares,
   contarEntregues,
+  dentroDoIntervalo,
   nomeDaInstancia,
+  pedidosDaJanela,
+  perfilDosClientes,
   prepararBruto,
   temMarcador,
   urlDoTunel,
@@ -20,28 +23,61 @@ import {
 const SEGREDO = "segredo-de-teste-da-fase-0";
 const assinar = (dados, formato = "base64") => createHmac("sha256", SEGREDO).update(dados).digest(formato);
 
-test("prova 4 do Rastreio: conta enviados e entregues só na janela de 45 a 15 dias atrás", () => {
+test("provas 4 e 2 do Rastreio: entregues e código de rastreio só na janela de 45 a 15 dias atrás", () => {
   const agora = Date.UTC(2026, 9, 30, 12); // janela: 2026-09-15 a 2026-10-15, as duas pontas dentro
   const pedidos = [
     { created_at: { date: "2026-09-20 10:00:00.000000", timezone: "America/Sao_Paulo" }, delivered: true, track_code: "AA123456789BR" },
     { created_at: "2026-10-01 08:00:00", status: { data: { alias: "on_carriage" } } },
     { created_at: { date: "2026-10-05 09:00:00.000000" }, statuses: { data: [{ alias: "paid" }, { status: { data: { alias: "delivered" } } }] } },
     { created_at: { date: "2026-10-15 23:59:00.000000" }, status: { data: { alias: "paid" } } },
+    { created_at: { date: "2026-10-08 11:00:00.000000" }, status: { data: { alias: "paid" } }, track_code: "BB987654321BR" },
     { created_at: { date: "2026-10-16 00:01:00.000000" }, delivered: true },
     { created_at: { date: "2026-09-14 09:00:00.000000" }, delivered: true },
     { status: { data: { alias: "delivered" } } },
   ];
   assert.deepEqual(contarEntregues(pedidos, agora), {
-    baixados: 7,
+    baixados: 8,
     semData: 1,
-    naJanela: 4,
-    enviados: 3,
+    naJanela: 5,
+    enviados: 4,
     entregues: 2,
+    // Y23: o pedido só com código, sem status de envio, fica fora; senão a conta seria circular
+    enviadosPorStatus: 3,
+    comCodigo: 1,
     maisAntigo: "2026-09-14",
     maisNovo: "2026-10-16",
   });
   // sem aliases de "enviado", só o código de rastreio e o "entregue" contam
-  assert.equal(contarEntregues(pedidos, agora, []).enviados, 2);
+  assert.equal(contarEntregues(pedidos, agora, []).enviados, 3);
+  assert.equal(pedidosDaJanela(pedidos, agora).length, 5);
+});
+
+test("Y24 do Rastreio: tipo de cliente e documento só em contagens, nomes de campo e rótulos curtos", () => {
+  const perfil = perfilDosClientes([
+    { customer: { data: { type: "f", cpf: "123.456.789-09", cnpj: null, email: "a@b.c" } } },
+    { customer: { data: { type: "j", cpf: "", cnpj: "12.345.678/0001-90" } } },
+    { customer: { data: { type: "f", cpf: null } } },
+    { customer: { data: { type: "Maria da Silva" } } },
+    {},
+  ]);
+  assert.deepEqual(perfil, {
+    pedidos: 5,
+    tipos: { f: 2, j: 1, "(outro)": 1, "(vazio)": 1 },
+    camposDeDocumento: { cpf: 1, cnpj: 1 },
+    semDocumento: 3,
+    campos: ["cnpj", "cpf", "email", "type"],
+  });
+  assert.doesNotMatch(JSON.stringify(perfil), /456|0001|Maria|a@b/); // nenhum valor de cliente sai
+});
+
+test("Y26 do Rastreio: conta o que a listagem devolveu dentro e fora do intervalo, pelo dia de updated_at", () => {
+  const pedidos = [
+    { updated_at: { date: "2026-10-30 23:10:00.000000" } },
+    { updated_at: "2026-10-28 08:00:00" },
+    { updated_at: { date: "2026-10-27 12:00:00.000000" } },
+    { created_at: "2026-10-30 10:00:00" },
+  ];
+  assert.deepEqual(dentroDoIntervalo(pedidos, "2026-10-28", "2026-10-30"), { dentro: 2, fora: 1, semData: 1 });
 });
 
 test("assinatura da Yampi: base64 do HMAC do corpo cru", () => {

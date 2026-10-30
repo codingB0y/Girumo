@@ -2,10 +2,10 @@
 // Chamadas à API da Yampi com a credencial do lojista da piloto (só do ambiente). Não imprime token, segredo, telefone nem e-mail.
 //   node infra/scripts/fase0-recuperar/yampi.mjs <comando>
 //   ping | credenciais-formato | erro-401 | prova-401 | webhook-criar [evento,evento] | webhook-listar [sufixo] | webhook-desativar | webhook-apagar
-//   pedido <seq> | pedidos-1 | pedidos-pix | carrinhos | entregues [alias,alias] | copiar-link <seq> <caminho.do.campo>
+//   pedido <seq> | pedidos-1 | pedidos-pix | carrinhos | entregues [alias,alias] | atualizados | copiar-link <seq> <caminho.do.campo>
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
-import { ALIASES_ENVIADO, NOME_DO_AVISO, assertAvisoNosso, caminhoNoObjeto, contarEntregues, dirBruto, dormir, gravarJson, lerEstado, lerEvento, lerJson, mesclarEstado, pedirEnv, temMarcador } from "./comum.mjs";
+import { ALIASES_ENVIADO, NOME_DO_AVISO, assertAvisoNosso, caminhoNoObjeto, contarEntregues, dentroDoIntervalo, dirBruto, dormir, gravarJson, lerEstado, lerEvento, lerJson, mesclarEstado, pedidosDaJanela, pedirEnv, perfilDosClientes, temMarcador } from "./comum.mjs";
 
 const BASE = process.env.FASE0_YAMPI_BASE ?? "https://api.dooki.com.br/v2";
 const EVENTOS = ["cart.reminder", "order.created", "order.paid", "order.status.updated", "transaction.payment.refused"];
@@ -181,10 +181,10 @@ async function pedidos1() {
   console.log(`pedidos-1 http=${r.status} ms=${r.ms} ${meu ? "gravado (o pedido mais novo é do teste)" : "NÃO gravado: o pedido mais novo não é do teste; criar outro pedido de teste e repetir"}`);
 }
 
-async function paginar(caminho, consulta) {
+async function paginar(caminho, consulta, maxPaginas = 12) {
   const itens = [];
   let total = null;
-  for (let pagina = 1; pagina <= 12; pagina++) {
+  for (let pagina = 1; pagina <= maxPaginas; pagina++) {
     const r = await api("GET", caminho, { consulta: { ...consulta, limit: 100, page: pagina } });
     if (r.status !== 200) return { status: r.status, itens, total, falha: erro(r) };
     itens.push(...dados(r));
@@ -237,12 +237,15 @@ async function carrinhos() {
   );
 }
 
-// Prova 4 do Rastreio: baixa os pedidos da janela e imprime só contagens; nenhum pedido vai para o disco.
+const porcento = (parte, todo) => (todo ? `${Math.round((100 * parte) / todo)}%` : "-");
+
+// Provas do Rastreio (Y22 a Y24): baixa os pedidos da janela e imprime só contagens e nomes de campo; nenhum pedido
+// vai para o disco.
 async function entregues(aliases) {
   const agora = new Date();
   const lista = aliases ? aliases.split(",").map((s) => s.trim()).filter(Boolean) : ALIASES_ENVIADO;
   const periodo = `created_at:${dia(new Date(agora - 45 * UM_DIA))}|${dia(new Date(agora - 15 * UM_DIA))}`;
-  const inc = { include: "status,statuses" };
+  const inc = { include: "customer,status,statuses" };
   for (const [rotulo, consulta] of [
     ["plana", { ...inc, date: periodo }],
     ["filters", { ...inc, "filters[date]": periodo }],
@@ -250,9 +253,33 @@ async function entregues(aliases) {
   ]) {
     const r = await paginar("/orders", consulta);
     const c = contarEntregues(r.itens, agora.getTime(), lista);
-    const taxa = c.enviados ? `${Math.round((100 * c.entregues) / c.enviados)}%` : "-";
-    gravarJson(join(dirBruto(), "api", `entregues-${rotulo}.json`), { http: r.status, aliasesEnviado: lista, ...c, taxa });
-    console.log(`entregues variante=${rotulo} http=${r.status} ${Object.entries(c).map(([k, v]) => `${k}=${v}`).join(" ")} taxa=${taxa}${r.falha ? ` ${r.falha}` : ""}`);
+    const perfil = perfilDosClientes(pedidosDaJanela(r.itens, agora.getTime()));
+    const [taxa, taxaCodigo] = [porcento(c.entregues, c.enviados), porcento(c.comCodigo, c.enviadosPorStatus)];
+    gravarJson(join(dirBruto(), "api", `entregues-${rotulo}.json`), { http: r.status, aliasesEnviado: lista, ...c, taxa, taxaCodigo, perfil });
+    console.log(`entregues variante=${rotulo} http=${r.status} ${Object.entries(c).map(([k, v]) => `${k}=${v}`).join(" ")} taxa=${taxa} taxaCodigo=${taxaCodigo}${r.falha ? ` ${r.falha}` : ""}`);
+    console.log(`  perfil pedidos=${perfil.pedidos} tipos=${JSON.stringify(perfil.tipos)} camposDeDocumento=${JSON.stringify(perfil.camposDeDocumento)} semDocumento=${perfil.semDocumento} campos=${perfil.campos.join(",")}`);
+  }
+}
+
+// Y26 (Rastreio): o filtro `date=updated_at:` filtra mesmo, aceita hora e inclui o dia do fim? O pedido de teste,
+// atualizado hoje, é a testemunha (`doTeste`). Dia de Brasília (UTC-3), o mesmo das datas da Yampi. Só contagens.
+async function atualizados() {
+  const diaBrasilia = (diasAtras) => dia(new Date(Date.now() - 3 * 36e5 - diasAtras * UM_DIA));
+  const [hoje, antes] = [diaBrasilia(0), diaBrasilia(2)];
+  const variantes = [["sem-filtro", {}, antes, hoje]];
+  for (const [chave, prefixo] of [["date", "plana"], ["filters[date]", "filters"]]) {
+    variantes.push(
+      [`${prefixo}-dias`, { [chave]: `updated_at:${antes}|${hoje}` }, antes, hoje],
+      [`${prefixo}-hoje`, { [chave]: `updated_at:${hoje}|${hoje}` }, hoje, hoje],
+      [`${prefixo}-hora`, { [chave]: `updated_at:${hoje} 00:00:00|${hoje} 23:59:59` }, hoje, hoje],
+    );
+  }
+  for (const [rotulo, filtro, inicio, fim] of variantes) {
+    const r = await paginar("/orders", { include: "customer", ...filtro }, 3);
+    const c = dentroDoIntervalo(r.itens, inicio, fim);
+    const doTeste = r.itens.filter((p) => temMarcador(JSON.stringify(p))).length;
+    gravarJson(join(dirBruto(), "api", `atualizados-${rotulo}.json`), { http: r.status, total: r.total, baixados: r.itens.length, inicio, fim, ...c, doTeste });
+    console.log(`atualizados variante=${rotulo} http=${r.status} total=${r.total ?? "?"} baixados=${r.itens.length} dentro=${c.dentro} fora=${c.fora} semData=${c.semData} doTeste=${doTeste}${r.falha ? ` ${r.falha}` : ""}`);
   }
 }
 
@@ -278,6 +305,7 @@ const comandos = {
   "pedidos-pix": pedidosPix,
   carrinhos,
   entregues: () => entregues(a),
+  atualizados,
   "copiar-link": () => copiarLink(a, b),
 };
 if (!comandos[comando]) {

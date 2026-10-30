@@ -115,17 +115,25 @@ export function eventosDaRota(bruto, rota) {
     .map((n) => lerJson(join(bruto, "eventos", n)));
 }
 
-// Prova 4 do Rastreio: dos pedidos criados entre 45 e 15 dias atrás que foram enviados, quantos chegaram a
-// "entregue" na Yampi. Recebe a lista crua e devolve só contagens: nenhum dado de cliente sai daqui.
-// "Enviado" = tem código de rastreio, passou por um alias de ALIASES_ENVIADO ou está entregue.
+// Provas do Rastreio (Y22 e Y23): dos pedidos criados entre 45 e 15 dias atrás, quantos foram enviados, quantos
+// chegaram a "entregue" na Yampi e quantos têm código de rastreio. Recebe a lista crua e devolve só contagens.
+// "Enviado" (Y22) = tem código de rastreio, passou por um alias de ALIASES_ENVIADO ou está entregue.
 export const ALIASES_ENVIADO = ["shipped", "sent", "on_carriage", "in_transit"];
 
 const diaDaYampi = (v) => /^(\d{4}-\d{2}-\d{2})/.exec(typeof v === "string" ? v : (v?.date ?? ""))?.[1] ?? null;
+const janelaDeEntregues = (agora) => [45, 15].map((dias) => new Date(agora - dias * 864e5).toISOString().slice(0, 10));
+
+export function pedidosDaJanela(pedidos, agora = Date.now()) {
+  const [inicio, fim] = janelaDeEntregues(agora);
+  return pedidos.filter((p) => {
+    const dia = diaDaYampi(p.created_at ?? p.date);
+    return dia !== null && dia >= inicio && dia <= fim;
+  });
+}
 
 export function contarEntregues(pedidos, agora = Date.now(), aliasesEnviado = ALIASES_ENVIADO) {
-  const diaAntes = (dias) => new Date(agora - dias * 864e5).toISOString().slice(0, 10);
-  const [inicio, fim] = [diaAntes(45), diaAntes(15)];
-  const r = { baixados: pedidos.length, semData: 0, naJanela: 0, enviados: 0, entregues: 0, maisAntigo: null, maisNovo: null };
+  const [inicio, fim] = janelaDeEntregues(agora);
+  const r = { baixados: pedidos.length, semData: 0, naJanela: 0, enviados: 0, entregues: 0, enviadosPorStatus: 0, comCodigo: 0, maisAntigo: null, maisNovo: null };
   for (const p of pedidos) {
     const dia = diaDaYampi(p.created_at ?? p.date);
     if (!dia) {
@@ -138,8 +146,44 @@ export function contarEntregues(pedidos, agora = Date.now(), aliasesEnviado = AL
     r.naJanela++;
     const aliases = [...JSON.stringify([p.status, p.statuses]).matchAll(/"alias":"([^"]+)"/g)].map((m) => m[1]);
     const entregue = p.delivered === true || aliases.includes("delivered");
-    if (entregue || Boolean(p.track_code) || aliases.some((a) => aliasesEnviado.includes(a))) r.enviados++;
+    const porStatus = entregue || aliases.some((a) => aliasesEnviado.includes(a));
+    if (porStatus || Boolean(p.track_code)) r.enviados++;
     if (entregue) r.entregues++;
+    // Y23: aqui o código de rastreio não entra no critério de "enviado", senão a conta fica circular.
+    if (porStatus) {
+      r.enviadosPorStatus++;
+      if (p.track_code) r.comCodigo++;
+    }
+  }
+  return r;
+}
+
+// Y24 (Rastreio): tipo de cliente e documento. Só contagens e nomes de campo; de `type` sai o valor, mas só quando é
+// um rótulo curto (f, j, company, 1…), nunca um texto livre.
+export function perfilDosClientes(pedidos) {
+  const r = { pedidos: pedidos.length, tipos: {}, camposDeDocumento: {}, semDocumento: 0, campos: [] };
+  const campos = new Set();
+  for (const p of pedidos) {
+    const c = p.customer?.data ?? {};
+    for (const k of Object.keys(c)) campos.add(k);
+    const tipo = c.type == null ? "(vazio)" : /^(?:[a-z_]{1,20}|\d{1,2})$/i.test(String(c.type)) ? String(c.type) : "(outro)";
+    r.tipos[tipo] = (r.tipos[tipo] ?? 0) + 1;
+    const docs = Object.keys(c).filter((k) => /cpf|cnpj|document/i.test(k) && /\d/.test(String(c[k] ?? "")));
+    for (const k of docs) r.camposDeDocumento[k] = (r.camposDeDocumento[k] ?? 0) + 1;
+    if (!docs.length) r.semDocumento++;
+  }
+  r.campos = [...campos].sort();
+  return r;
+}
+
+// Y26 (Rastreio): quantos pedidos da listagem estão dentro do intervalo pedido, pelo dia de `updated_at`.
+export function dentroDoIntervalo(pedidos, inicio, fim) {
+  const r = { dentro: 0, fora: 0, semData: 0 };
+  for (const p of pedidos) {
+    const dia = diaDaYampi(p.updated_at);
+    if (!dia) r.semData++;
+    else if (dia >= inicio && dia <= fim) r.dentro++;
+    else r.fora++;
   }
   return r;
 }
