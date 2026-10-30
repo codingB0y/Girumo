@@ -66,7 +66,10 @@ a spec. Se algo num plano não bater com o código de main, pare, diga o que nã
    docs/superpowers/plans/2026-10-29-recuperar-yampi-fase-0-provas.md): a Parte 2 do PR 2 só começa com o payload
    real da Yampi provado; a Parte 1 (núcleo puro) não espera. As provas 4 ("entregue" chegando à Yampi) e 5 (o
    Melhor Envio enxerga as etiquetas da piloto) decidem se o PR 8 entra logo depois do 4; sem o resultado delas, o
-   PR 8 não tem plano e não começa.
+   PR 8 não tem plano e não começa. As linhas da Yampi são Y22 a Y27 de
+   docs/superpowers/plans/_recuperar-fase-0-resultado.md; a prova 5 tem plano próprio
+   (docs/superpowers/plans/2026-10-30-rastreio-pedidos-fase-0-melhor-envio.md) e resultado em
+   docs/superpowers/plans/_rastreio-fase-0-resultado.md.
 6. Leia o índice e o plano do próximo PR. Responda com: o que da base e da série já está em main, o próximo PR
    (ou os que podem ir em paralelo), e o checklist das tarefas dele. Pare.
 

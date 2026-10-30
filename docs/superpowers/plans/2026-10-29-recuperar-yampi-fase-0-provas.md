@@ -114,7 +114,7 @@ Fora do repo: C:\Users\Igor\fase0-recuperar-bruto\   (bruto, apagado no fim)
 - **Segredo do aviso da Yampi:** entregue pela `yampi.mjs` a uma segunda porta do servidor de captura, só em `127.0.0.1` (o túnel leva apenas a pública), e mantido só em memória.
 - **Aviso criado na Yampi da piloto:** **apagar** ao fim da tarefa 9, antes de qualquer outra coisa. Aponta para um endereço que morre com a sessão (cada falha conta para as 30 que desativam o aviso), ocupa uma vaga do limite de avisos do plano da loja, e o PR 6 cria o dele, com a URL fixa de produção e um segredo selado, que este não consegue reaproveitar.
 - **Papéis dos celulares:** B recebe primeiro e responde (o caso do Recuperar); C escreve primeiro e depois recebe (o caso da conversa "não identificada"). Uma amostra de "desconhecido que escreve primeiro" de verdade exigiria um terceiro número; fica registrado como não provado se o Igor não tiver.
-- **Prova 4 do Rastreio (pedido da sessão do Rastreio, 30/10):** a taxa de pedidos que chegam a "entregue" na Yampi sai do mesmo levantamento da tarefa 7 (`yampi.mjs entregues`, linha Y22). Baixa os pedidos da janela, mas só as contagens saem da memória; nenhum pedido de cliente vai para o disco.
+- **Provas do Rastreio (pedidos da sessão do Rastreio, 30/10):** saem dos mesmos levantamentos, linhas Y22 a Y27. Pelo `yampi.mjs entregues` (tarefa 7): a taxa de entregue (Y22, prova 4 dele), a de código de rastreio (Y23, prova 2) e PJ e sem documento (Y24). Pelo `yampi.mjs atualizados` (tarefa 9): o filtro por `updated_at` (Y26). Lidos no pedido de teste, que o Igor marca como enviado e entregue (tarefa 9): o histórico com data (Y25) e os campos do aviso `order.*` (Y27). Os pedidos de cliente só passam pela memória: saem contagens, nomes de campo e rótulos curtos (`customer.type`), nunca valores.
 - **Sem teste de schema nesta fase:** o `node_modules` do principal está vazio, então não dá para rodar `parseEvolutionWebhook` sobre as fixtures aqui. O plano 4 faz isso na conferência do começo dele (está dito no "Impacto" do resultado).
 
 ## Contrato lido na fonte e na doc (para conferir ao vivo)
@@ -153,7 +153,7 @@ Fora do repo: C:\Users\Igor\fase0-recuperar-bruto\   (bruto, apagado no fim)
 **Interfaces:**
 - Consumes: nada.
 - Produces (as outras tarefas usam estes nomes; não renomear):
-  - `comum.mjs`: `PREFIXO_INSTANCIA`, `NOME_DO_AVISO`; `pedirEnv(nome, env?) → string` (lança se vazio); `prepararBruto(pasta) → string` e `dirBruto() → string` (recusam pasta dentro de repositório git; criam `eventos/`, `api/`, `redigido/`); `lerJson(arq, padrao?)`, `gravarJson(arq, obj)`, `lerEstado(bruto?)`, `mesclarEstado(patch, bruto?)`; `marcadores(env?) → string[]`, `temMarcador(texto, lista?) → boolean`, `celulares(env?) → Record<string, string>`; `veredictoAssinatura(corpo: Buffer, cabecalho, segredo) → "ok" | "so_hex" | "so_json_reserializado" | "invalido" | "sem_segredo" | "sem_cabecalho"`; `assertNomeDeTeste(nome)`, `nomeDaInstancia(env?)`, `assertAvisoNosso(aviso, idEsperado)`; `caminhoNoObjeto(obj, caminho)`, `lerEvento(bruto, seq)`, `eventosDaRota(bruto, "yampi" | "evo")`, `dormir(ms)`, `urlDoTunel(linha)`; `ALIASES_ENVIADO` e `contarEntregues(pedidos, agora?, aliasesEnviado?) → { baixados, semData, naJanela, enviados, entregues, maisAntigo, maisNovo }` (prova 4 do Rastreio; só contagens).
+  - `comum.mjs`: `PREFIXO_INSTANCIA`, `NOME_DO_AVISO`; `pedirEnv(nome, env?) → string` (lança se vazio); `prepararBruto(pasta) → string` e `dirBruto() → string` (recusam pasta dentro de repositório git; criam `eventos/`, `api/`, `redigido/`); `lerJson(arq, padrao?)`, `gravarJson(arq, obj)`, `lerEstado(bruto?)`, `mesclarEstado(patch, bruto?)`; `marcadores(env?) → string[]`, `temMarcador(texto, lista?) → boolean`, `celulares(env?) → Record<string, string>`; `veredictoAssinatura(corpo: Buffer, cabecalho, segredo) → "ok" | "so_hex" | "so_json_reserializado" | "invalido" | "sem_segredo" | "sem_cabecalho"`; `assertNomeDeTeste(nome)`, `nomeDaInstancia(env?)`, `assertAvisoNosso(aviso, idEsperado)`; `caminhoNoObjeto(obj, caminho)`, `lerEvento(bruto, seq)`, `eventosDaRota(bruto, "yampi" | "evo")`, `dormir(ms)`, `urlDoTunel(linha)`; `ALIASES_ENVIADO`, `contarEntregues(pedidos, agora?, aliasesEnviado?) → { baixados, semData, naJanela, enviados, entregues, enviadosPorStatus, comCodigo, maisAntigo, maisNovo }`, `pedidosDaJanela(pedidos, agora?) → pedido[]`, `perfilDosClientes(pedidos) → { pedidos, tipos, camposDeDocumento, semDocumento, campos }` e `dentroDoIntervalo(pedidos, inicio, fim) → { dentro, fora, semData }` (provas do Rastreio; só contagens, nomes de campo e rótulos curtos).
   - `captura.mjs`: `criarCaptura({ bruto, tokens, todos?, marcas?, imagem? }) → { publico, controle }` (dois `http.Server`, sem `listen`). Arquivos do bruto: `eventos/NNN-<rota>-<evento>.json` com `{ seq, rota, chegada, assinatura, cabecalhos, bodyRaw, body }`; `urls.json` (`yampi`, `evolution`, `rejeita`, `imagem`); `estado.json`; `ignorados.log`.
 
 - [ ] **Step 1: Worktree novo a partir de `origin/main`** (regra de PR do CLAUDE.md: nunca `checkout -b` no principal)
@@ -184,7 +184,10 @@ import {
   caminhoNoObjeto,
   celulares,
   contarEntregues,
+  dentroDoIntervalo,
   nomeDaInstancia,
+  pedidosDaJanela,
+  perfilDosClientes,
   prepararBruto,
   temMarcador,
   urlDoTunel,
@@ -194,28 +197,61 @@ import {
 const SEGREDO = "segredo-de-teste-da-fase-0";
 const assinar = (dados, formato = "base64") => createHmac("sha256", SEGREDO).update(dados).digest(formato);
 
-test("prova 4 do Rastreio: conta enviados e entregues só na janela de 45 a 15 dias atrás", () => {
+test("provas 4 e 2 do Rastreio: entregues e código de rastreio só na janela de 45 a 15 dias atrás", () => {
   const agora = Date.UTC(2026, 9, 30, 12); // janela: 2026-09-15 a 2026-10-15, as duas pontas dentro
   const pedidos = [
     { created_at: { date: "2026-09-20 10:00:00.000000", timezone: "America/Sao_Paulo" }, delivered: true, track_code: "AA123456789BR" },
     { created_at: "2026-10-01 08:00:00", status: { data: { alias: "on_carriage" } } },
     { created_at: { date: "2026-10-05 09:00:00.000000" }, statuses: { data: [{ alias: "paid" }, { status: { data: { alias: "delivered" } } }] } },
     { created_at: { date: "2026-10-15 23:59:00.000000" }, status: { data: { alias: "paid" } } },
+    { created_at: { date: "2026-10-08 11:00:00.000000" }, status: { data: { alias: "paid" } }, track_code: "BB987654321BR" },
     { created_at: { date: "2026-10-16 00:01:00.000000" }, delivered: true },
     { created_at: { date: "2026-09-14 09:00:00.000000" }, delivered: true },
     { status: { data: { alias: "delivered" } } },
   ];
   assert.deepEqual(contarEntregues(pedidos, agora), {
-    baixados: 7,
+    baixados: 8,
     semData: 1,
-    naJanela: 4,
-    enviados: 3,
+    naJanela: 5,
+    enviados: 4,
     entregues: 2,
+    // Y23: o pedido só com código, sem status de envio, fica fora; senão a conta seria circular
+    enviadosPorStatus: 3,
+    comCodigo: 1,
     maisAntigo: "2026-09-14",
     maisNovo: "2026-10-16",
   });
   // sem aliases de "enviado", só o código de rastreio e o "entregue" contam
-  assert.equal(contarEntregues(pedidos, agora, []).enviados, 2);
+  assert.equal(contarEntregues(pedidos, agora, []).enviados, 3);
+  assert.equal(pedidosDaJanela(pedidos, agora).length, 5);
+});
+
+test("Y24 do Rastreio: tipo de cliente e documento só em contagens, nomes de campo e rótulos curtos", () => {
+  const perfil = perfilDosClientes([
+    { customer: { data: { type: "f", cpf: "123.456.789-09", cnpj: null, email: "a@b.c" } } },
+    { customer: { data: { type: "j", cpf: "", cnpj: "12.345.678/0001-90" } } },
+    { customer: { data: { type: "f", cpf: null } } },
+    { customer: { data: { type: "Maria da Silva" } } },
+    {},
+  ]);
+  assert.deepEqual(perfil, {
+    pedidos: 5,
+    tipos: { f: 2, j: 1, "(outro)": 1, "(vazio)": 1 },
+    camposDeDocumento: { cpf: 1, cnpj: 1 },
+    semDocumento: 3,
+    campos: ["cnpj", "cpf", "email", "type"],
+  });
+  assert.doesNotMatch(JSON.stringify(perfil), /456|0001|Maria|a@b/); // nenhum valor de cliente sai
+});
+
+test("Y26 do Rastreio: conta o que a listagem devolveu dentro e fora do intervalo, pelo dia de updated_at", () => {
+  const pedidos = [
+    { updated_at: { date: "2026-10-30 23:10:00.000000" } },
+    { updated_at: "2026-10-28 08:00:00" },
+    { updated_at: { date: "2026-10-27 12:00:00.000000" } },
+    { created_at: "2026-10-30 10:00:00" },
+  ];
+  assert.deepEqual(dentroDoIntervalo(pedidos, "2026-10-28", "2026-10-30"), { dentro: 2, fora: 1, semData: 1 });
 });
 
 test("assinatura da Yampi: base64 do HMAC do corpo cru", () => {
@@ -475,17 +511,25 @@ export function eventosDaRota(bruto, rota) {
     .map((n) => lerJson(join(bruto, "eventos", n)));
 }
 
-// Prova 4 do Rastreio: dos pedidos criados entre 45 e 15 dias atrás que foram enviados, quantos chegaram a
-// "entregue" na Yampi. Recebe a lista crua e devolve só contagens: nenhum dado de cliente sai daqui.
-// "Enviado" = tem código de rastreio, passou por um alias de ALIASES_ENVIADO ou está entregue.
+// Provas do Rastreio (Y22 e Y23): dos pedidos criados entre 45 e 15 dias atrás, quantos foram enviados, quantos
+// chegaram a "entregue" na Yampi e quantos têm código de rastreio. Recebe a lista crua e devolve só contagens.
+// "Enviado" (Y22) = tem código de rastreio, passou por um alias de ALIASES_ENVIADO ou está entregue.
 export const ALIASES_ENVIADO = ["shipped", "sent", "on_carriage", "in_transit"];
 
 const diaDaYampi = (v) => /^(\d{4}-\d{2}-\d{2})/.exec(typeof v === "string" ? v : (v?.date ?? ""))?.[1] ?? null;
+const janelaDeEntregues = (agora) => [45, 15].map((dias) => new Date(agora - dias * 864e5).toISOString().slice(0, 10));
+
+export function pedidosDaJanela(pedidos, agora = Date.now()) {
+  const [inicio, fim] = janelaDeEntregues(agora);
+  return pedidos.filter((p) => {
+    const dia = diaDaYampi(p.created_at ?? p.date);
+    return dia !== null && dia >= inicio && dia <= fim;
+  });
+}
 
 export function contarEntregues(pedidos, agora = Date.now(), aliasesEnviado = ALIASES_ENVIADO) {
-  const diaAntes = (dias) => new Date(agora - dias * 864e5).toISOString().slice(0, 10);
-  const [inicio, fim] = [diaAntes(45), diaAntes(15)];
-  const r = { baixados: pedidos.length, semData: 0, naJanela: 0, enviados: 0, entregues: 0, maisAntigo: null, maisNovo: null };
+  const [inicio, fim] = janelaDeEntregues(agora);
+  const r = { baixados: pedidos.length, semData: 0, naJanela: 0, enviados: 0, entregues: 0, enviadosPorStatus: 0, comCodigo: 0, maisAntigo: null, maisNovo: null };
   for (const p of pedidos) {
     const dia = diaDaYampi(p.created_at ?? p.date);
     if (!dia) {
@@ -498,8 +542,44 @@ export function contarEntregues(pedidos, agora = Date.now(), aliasesEnviado = AL
     r.naJanela++;
     const aliases = [...JSON.stringify([p.status, p.statuses]).matchAll(/"alias":"([^"]+)"/g)].map((m) => m[1]);
     const entregue = p.delivered === true || aliases.includes("delivered");
-    if (entregue || Boolean(p.track_code) || aliases.some((a) => aliasesEnviado.includes(a))) r.enviados++;
+    const porStatus = entregue || aliases.some((a) => aliasesEnviado.includes(a));
+    if (porStatus || Boolean(p.track_code)) r.enviados++;
     if (entregue) r.entregues++;
+    // Y23: aqui o código de rastreio não entra no critério de "enviado", senão a conta fica circular.
+    if (porStatus) {
+      r.enviadosPorStatus++;
+      if (p.track_code) r.comCodigo++;
+    }
+  }
+  return r;
+}
+
+// Y24 (Rastreio): tipo de cliente e documento. Só contagens e nomes de campo; de `type` sai o valor, mas só quando é
+// um rótulo curto (f, j, company, 1…), nunca um texto livre.
+export function perfilDosClientes(pedidos) {
+  const r = { pedidos: pedidos.length, tipos: {}, camposDeDocumento: {}, semDocumento: 0, campos: [] };
+  const campos = new Set();
+  for (const p of pedidos) {
+    const c = p.customer?.data ?? {};
+    for (const k of Object.keys(c)) campos.add(k);
+    const tipo = c.type == null ? "(vazio)" : /^(?:[a-z_]{1,20}|\d{1,2})$/i.test(String(c.type)) ? String(c.type) : "(outro)";
+    r.tipos[tipo] = (r.tipos[tipo] ?? 0) + 1;
+    const docs = Object.keys(c).filter((k) => /cpf|cnpj|document/i.test(k) && /\d/.test(String(c[k] ?? "")));
+    for (const k of docs) r.camposDeDocumento[k] = (r.camposDeDocumento[k] ?? 0) + 1;
+    if (!docs.length) r.semDocumento++;
+  }
+  r.campos = [...campos].sort();
+  return r;
+}
+
+// Y26 (Rastreio): quantos pedidos da listagem estão dentro do intervalo pedido, pelo dia de `updated_at`.
+export function dentroDoIntervalo(pedidos, inicio, fim) {
+  const r = { dentro: 0, fora: 0, semData: 0 };
+  for (const p of pedidos) {
+    const dia = diaDaYampi(p.updated_at);
+    if (!dia) r.semData++;
+    else if (dia >= inicio && dia <= fim) r.dentro++;
+    else r.fora++;
   }
   return r;
 }
@@ -1223,7 +1303,7 @@ git -C $wt commit -m "chore(recuperar): phase 0 redactor with leak check" -m "Co
 **Interfaces:**
 - Consumes: de `comum.mjs`, quase tudo (`pedirEnv`, `dirBruto`, `lerEvento`, `eventosDaRota`, `temMarcador`, `celulares`, `nomeDaInstancia`, `assertAvisoNosso`, `NOME_DO_AVISO`, `lerEstado`, `mesclarEstado`, `gravarJson`, `lerJson`, `caminhoNoObjeto`, `dormir`).
 - Produces: as duas CLIs (cada comando imprime só contagens, status e classificações, nunca dado pessoal ou segredo) e os arquivos `api/*.json` que o redator e as fixtures usam.
-  - `yampi.mjs`: `ping` (`GET /checkout/statuses`: http, ms, aliases de status e cabeçalhos de limite; grava `api/limite-cabecalhos.json`); `credenciais-formato` (tamanho e classe de caracteres do token e da chave, nunca o valor; grava `api/credenciais-formato.json`); `erro-401` (chama com credencial inventada e grava `api/erro-401.json`); `prova-401` (S11 do plano 6: cria um aviso cuja URL é a rota `/rejeita` do servidor de captura, que responde 401, espera 5 s e apaga); `webhook-criar [eventos]` (`POST /webhooks {name, url, events}`; entrega o `secret_key` ao servidor de captura e **não** o grava nem imprime; grava `api/webhook-criado.json` sem a chave; se a entrega falhar, apaga o aviso que acabou de criar); `webhook-listar [sufixo]` (`GET /webhooks?include=events`; só o host da URL; marca `<- da Fase 0`; com sufixo, grava só o nosso em `api/webhooks-lista-<sufixo>.json`); `webhook-desativar` (tentativa de `PUT` com `active: false`, que a doc não lista no corpo); `webhook-apagar` (confere nome e id com `assertAvisoNosso` e só então `DELETE`); `pedido <seq>` (`GET /orders/{id}?include=customer,items,transactions,status,statuses,shipping_address` e `GET /orders/{id}/transactions`; só grava resposta com marcador); `pedidos-1` (`GET /orders?limit=1`, a leitura barata do teste de conexão do plano 6; só grava se o pedido mais novo for do teste); `pedidos-pix` (três variantes da listagem: filtros planos, `filters[...]` e sem filtro, até 12 páginas de 100; baixa tudo mas só **grava e comenta** o que é do teste); `carrinhos` (idem para `/checkout/carts`, últimos 3 dias e sem filtro, `include=customer,items,transactions,payment,search`; imprime `total_transactions`, `last_transaction_status` e se há `unauth_simulate_url`/`simulate_url` no carrinho de teste); `entregues [alias,alias]` (prova 4 do Rastreio: as três variantes de `GET /orders?include=status,statuses` para a janela de 45 a 15 dias atrás, até 12 páginas de 100; imprime e grava em `api/entregues-<variante>.json` **só as contagens** de `contarEntregues`; o argumento troca os aliases de "enviado"); `copiar-link <seq> <caminho>` (copia a URL do campo para a área de transferência sem imprimir).
+  - `yampi.mjs`: `ping` (`GET /checkout/statuses`: http, ms, aliases de status e cabeçalhos de limite; grava `api/limite-cabecalhos.json`); `credenciais-formato` (tamanho e classe de caracteres do token e da chave, nunca o valor; grava `api/credenciais-formato.json`); `erro-401` (chama com credencial inventada e grava `api/erro-401.json`); `prova-401` (S11 do plano 6: cria um aviso cuja URL é a rota `/rejeita` do servidor de captura, que responde 401, espera 5 s e apaga); `webhook-criar [eventos]` (`POST /webhooks {name, url, events}`; entrega o `secret_key` ao servidor de captura e **não** o grava nem imprime; grava `api/webhook-criado.json` sem a chave; se a entrega falhar, apaga o aviso que acabou de criar); `webhook-listar [sufixo]` (`GET /webhooks?include=events`; só o host da URL; marca `<- da Fase 0`; com sufixo, grava só o nosso em `api/webhooks-lista-<sufixo>.json`); `webhook-desativar` (tentativa de `PUT` com `active: false`, que a doc não lista no corpo); `webhook-apagar` (confere nome e id com `assertAvisoNosso` e só então `DELETE`); `pedido <seq>` (`GET /orders/{id}?include=customer,items,transactions,status,statuses,shipping_address` e `GET /orders/{id}/transactions`; só grava resposta com marcador); `pedidos-1` (`GET /orders?limit=1`, a leitura barata do teste de conexão do plano 6; só grava se o pedido mais novo for do teste); `pedidos-pix` (três variantes da listagem: filtros planos, `filters[...]` e sem filtro, até 12 páginas de 100; baixa tudo mas só **grava e comenta** o que é do teste); `carrinhos` (idem para `/checkout/carts`, últimos 3 dias e sem filtro, `include=customer,items,transactions,payment,search`; imprime `total_transactions`, `last_transaction_status` e se há `unauth_simulate_url`/`simulate_url` no carrinho de teste); `entregues [alias,alias]` (provas do Rastreio, Y22 a Y24: as três variantes de `GET /orders?include=customer,status,statuses` para a janela de 45 a 15 dias atrás, até 12 páginas de 100; imprime e grava em `api/entregues-<variante>.json` **só** as contagens de `contarEntregues` e o `perfilDosClientes` da janela; o argumento troca os aliases de "enviado"); `atualizados` (Y26: `GET /orders` com `date=updated_at:` e `filters[date]=updated_at:` em quatro formas, até hoje, até amanhã, o dia inteiro com hora e uma janela de hora estreita (00:00:00 a 00:00:01), mais a sem filtro, até 3 páginas cada; conta dentro e fora do intervalo, sem data e quantos são do teste; grava `api/atualizados-<variante>.json`); `copiar-link <seq> <caminho>` (copia a URL do campo para a área de transferência sem imprimir).
   - `evolution.mjs`: `versao` (`GET /`), `criar` (`POST /instance/create` com `number` do chip, para sair o código de pareamento; imprime o código e os ajustes padrão em booleano; **não** imprime nem grava o token da instância), `conectar` (`GET /instance/connect/{inst}?number=`), `webhook` (`POST /webhook/set/{inst}` para o túnel, eventos `QRCODE_UPDATED`, `CONNECTION_UPDATE`, `MESSAGES_UPSERT`, `MESSAGES_UPDATE`, `SEND_MESSAGE`), `estado` (conexão e `disconnectionReasonCode`), `config` (`GET /settings/find/{inst}`), `numeros <rótulo>...` (`POST /chat/whatsappNumbers/{inst}`; rótulos `B`, `C`, `B-SEM9`, `C-SEM9`, `invalido`), `texto <B|C> "<texto>" [--jid]` e `imagem <B|C> "<legenda>"` (recusam o rótulo `CHIP`, exigem 40 s desde o último envio e registram `{keyId, para, jid, em}` em `estado.json`; com `--jid`, o `number` do envio é o JID que o `whatsappNumbers` devolveu, a forma que o plano 3 pretende usar), `texto-invalido`, `midia <imagem|audio>` (`POST /chat/getBase64FromMediaMessage/{inst}` com `{message: {key: {id}}}`), `apagar` (logout + delete + confere com `fetchInstances?instanceName=`, nunca sem o nome).
   - `credenciais.ps1`: pede cada valor sem eco; `-SoCaptura` pede só os marcadores.
   - `FASE0_YAMPI_BASE` troca a base da API da Yampi **só** para testar a cola contra um servidor falso local.
@@ -1237,10 +1317,10 @@ O `.ps1` é **ASCII puro de propósito**: o PowerShell 5.1 lê `.ps1` sem BOM co
 // Chamadas à API da Yampi com a credencial do lojista da piloto (só do ambiente). Não imprime token, segredo, telefone nem e-mail.
 //   node infra/scripts/fase0-recuperar/yampi.mjs <comando>
 //   ping | credenciais-formato | erro-401 | prova-401 | webhook-criar [evento,evento] | webhook-listar [sufixo] | webhook-desativar | webhook-apagar
-//   pedido <seq> | pedidos-1 | pedidos-pix | carrinhos | entregues [alias,alias] | copiar-link <seq> <caminho.do.campo>
+//   pedido <seq> | pedidos-1 | pedidos-pix | carrinhos | entregues [alias,alias] | atualizados | copiar-link <seq> <caminho.do.campo>
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
-import { ALIASES_ENVIADO, NOME_DO_AVISO, assertAvisoNosso, caminhoNoObjeto, contarEntregues, dirBruto, dormir, gravarJson, lerEstado, lerEvento, lerJson, mesclarEstado, pedirEnv, temMarcador } from "./comum.mjs";
+import { ALIASES_ENVIADO, NOME_DO_AVISO, assertAvisoNosso, caminhoNoObjeto, contarEntregues, dentroDoIntervalo, dirBruto, dormir, gravarJson, lerEstado, lerEvento, lerJson, mesclarEstado, pedidosDaJanela, pedirEnv, perfilDosClientes, temMarcador } from "./comum.mjs";
 
 const BASE = process.env.FASE0_YAMPI_BASE ?? "https://api.dooki.com.br/v2";
 const EVENTOS = ["cart.reminder", "order.created", "order.paid", "order.status.updated", "transaction.payment.refused"];
@@ -1416,10 +1496,10 @@ async function pedidos1() {
   console.log(`pedidos-1 http=${r.status} ms=${r.ms} ${meu ? "gravado (o pedido mais novo é do teste)" : "NÃO gravado: o pedido mais novo não é do teste; criar outro pedido de teste e repetir"}`);
 }
 
-async function paginar(caminho, consulta) {
+async function paginar(caminho, consulta, maxPaginas = 12) {
   const itens = [];
   let total = null;
-  for (let pagina = 1; pagina <= 12; pagina++) {
+  for (let pagina = 1; pagina <= maxPaginas; pagina++) {
     const r = await api("GET", caminho, { consulta: { ...consulta, limit: 100, page: pagina } });
     if (r.status !== 200) return { status: r.status, itens, total, falha: erro(r) };
     itens.push(...dados(r));
@@ -1472,12 +1552,15 @@ async function carrinhos() {
   );
 }
 
-// Prova 4 do Rastreio: baixa os pedidos da janela e imprime só contagens; nenhum pedido vai para o disco.
+const porcento = (parte, todo) => (todo ? `${Math.round((100 * parte) / todo)}%` : "-");
+
+// Provas do Rastreio (Y22 a Y24): baixa os pedidos da janela e imprime só contagens e nomes de campo; nenhum pedido
+// vai para o disco.
 async function entregues(aliases) {
   const agora = new Date();
   const lista = aliases ? aliases.split(",").map((s) => s.trim()).filter(Boolean) : ALIASES_ENVIADO;
   const periodo = `created_at:${dia(new Date(agora - 45 * UM_DIA))}|${dia(new Date(agora - 15 * UM_DIA))}`;
-  const inc = { include: "status,statuses" };
+  const inc = { include: "customer,status,statuses" };
   for (const [rotulo, consulta] of [
     ["plana", { ...inc, date: periodo }],
     ["filters", { ...inc, "filters[date]": periodo }],
@@ -1485,9 +1568,35 @@ async function entregues(aliases) {
   ]) {
     const r = await paginar("/orders", consulta);
     const c = contarEntregues(r.itens, agora.getTime(), lista);
-    const taxa = c.enviados ? `${Math.round((100 * c.entregues) / c.enviados)}%` : "-";
-    gravarJson(join(dirBruto(), "api", `entregues-${rotulo}.json`), { http: r.status, aliasesEnviado: lista, ...c, taxa });
-    console.log(`entregues variante=${rotulo} http=${r.status} ${Object.entries(c).map(([k, v]) => `${k}=${v}`).join(" ")} taxa=${taxa}${r.falha ? ` ${r.falha}` : ""}`);
+    const perfil = perfilDosClientes(pedidosDaJanela(r.itens, agora.getTime()));
+    const [taxa, taxaCodigo] = [porcento(c.entregues, c.enviados), porcento(c.comCodigo, c.enviadosPorStatus)];
+    gravarJson(join(dirBruto(), "api", `entregues-${rotulo}.json`), { http: r.status, aliasesEnviado: lista, ...c, taxa, taxaCodigo, perfil });
+    console.log(`entregues variante=${rotulo} http=${r.status} ${Object.entries(c).map(([k, v]) => `${k}=${v}`).join(" ")} taxa=${taxa} taxaCodigo=${taxaCodigo}${r.falha ? ` ${r.falha}` : ""}`);
+    console.log(`  perfil pedidos=${perfil.pedidos} tipos=${JSON.stringify(perfil.tipos)} camposDeDocumento=${JSON.stringify(perfil.camposDeDocumento)} semDocumento=${perfil.semDocumento} campos=${perfil.campos.join(",")}`);
+  }
+}
+
+// Y26 (Rastreio): o filtro `date=updated_at:` filtra mesmo, aceita hora e inclui o dia do fim? O pedido de teste,
+// atualizado hoje, é a testemunha (`doTeste`). Dia de Brasília (UTC-3), o mesmo das datas da Yampi. Só contagens.
+async function atualizados() {
+  const diaBrasilia = (diasAtras) => dia(new Date(Date.now() - 3 * 36e5 - diasAtras * UM_DIA));
+  const [amanha, hoje, antes] = [diaBrasilia(-1), diaBrasilia(0), diaBrasilia(2)];
+  const variantes = [["sem-filtro", {}, antes, hoje]];
+  for (const [chave, prefixo] of [["date", "plana"], ["filters[date]", "filters"]]) {
+    variantes.push(
+      [`${prefixo}-ate-hoje`, { [chave]: `updated_at:${antes}|${hoje}` }, antes, hoje],
+      [`${prefixo}-ate-amanha`, { [chave]: `updated_at:${antes}|${amanha}` }, antes, amanha],
+      [`${prefixo}-hora-dia`, { [chave]: `updated_at:${hoje} 00:00:00|${hoje} 23:59:59` }, hoje, hoje],
+      // Deixa de fora a hora em que a testemunha foi atualizada: se ela vier mesmo assim, a hora é ignorada.
+      [`${prefixo}-hora-estreita`, { [chave]: `updated_at:${hoje} 00:00:00|${hoje} 00:00:01` }, hoje, hoje],
+    );
+  }
+  for (const [rotulo, filtro, inicio, fim] of variantes) {
+    const r = await paginar("/orders", { include: "customer", ...filtro }, 3);
+    const c = dentroDoIntervalo(r.itens, inicio, fim);
+    const doTeste = r.itens.filter((p) => temMarcador(JSON.stringify(p))).length;
+    gravarJson(join(dirBruto(), "api", `atualizados-${rotulo}.json`), { http: r.status, total: r.total, baixados: r.itens.length, inicio, fim, ...c, doTeste });
+    console.log(`atualizados variante=${rotulo} http=${r.status} total=${r.total ?? "?"} baixados=${r.itens.length} dentro=${c.dentro} fora=${c.fora} semData=${c.semData} doTeste=${doTeste}${r.falha ? ` ${r.falha}` : ""}`);
   }
 }
 
@@ -1513,6 +1622,7 @@ const comandos = {
   "pedidos-pix": pedidosPix,
   carrinhos,
   entregues: () => entregues(a),
+  atualizados,
   "copiar-link": () => copiarLink(a, b),
 };
 if (!comandos[comando]) {
@@ -1795,7 +1905,7 @@ $erros = $null
 "bytes nao-ASCII no .ps1: $(@([System.IO.File]::ReadAllBytes("$wt\infra\scripts\fase0-recuperar\credenciais.ps1") | Where-Object { $_ -gt 127 }).Count)"
 ```
 
-Esperado: os dois `--check` sem saída; `uso: yampi.mjs ping | credenciais-formato | erro-401 | prova-401 | webhook-criar | webhook-listar | webhook-desativar | webhook-apagar | pedido | pedidos-1 | pedidos-pix | carrinhos | entregues | copiar-link`; `erro: FASE0_BRUTO ausente no ambiente (rode credenciais.ps1 na janela do Igor).`; `erros de sintaxe no .ps1: 0`; `bytes nao-ASCII no .ps1: 0`.
+Esperado: os dois `--check` sem saída; `uso: yampi.mjs ping | credenciais-formato | erro-401 | prova-401 | webhook-criar | webhook-listar | webhook-desativar | webhook-apagar | pedido | pedidos-1 | pedidos-pix | carrinhos | entregues | atualizados | copiar-link`; `erro: FASE0_BRUTO ausente no ambiente (rode credenciais.ps1 na janela do Igor).`; `erros de sintaxe no .ps1: 0`; `bytes nao-ASCII no .ps1: 0`.
 
 - [ ] **Step 3: Commit**
 
@@ -2285,6 +2395,11 @@ Criar `docs/superpowers/plans/_recuperar-fase-0-resultado.md` no worktree (`$wt`
 | Y20 | Como a listagem mostra um aviso desativado; dá para desativar por API? | plano 6, S4: `active: false` ou `disabled_at` preenchido; a doc não lista `active` no corpo do `PUT` | | | 6 |
 | Y21 | Leitura barata (`GET /orders?limit=1`), resposta a credencial errada e formato das credenciais | plano 6, S5 a S8: 200 com `data` em lista; 401; token e chave em ASCII imprimível, sem `@` | | | 6 |
 | Y22 | Dos pedidos enviados há 15 a 45 dias, quantos chegaram a `delivered` na Yampi (prova 4 do spec do Rastreio, §10) | abaixo de 80% → o PR 8 do Rastreio (Melhor Envio) entra logo depois do e-mail, se a prova 5 dele passar; 80% ou mais → fica para depois | | | Rastreio 8 |
+| Y23 | Dos pedidos da janela de Y22 que passaram por status de envio ou estão entregues (o código não conta como critério), quantos têm `track_code` (prova 2 do spec do Rastreio, §10) | 80% ou mais → o aviso "enviado" do Rastreio fica ligado | | | Rastreio 2 |
+| Y24 | Dos pedidos da janela, quantos são de PJ e quantos vêm sem CPF/CNPJ; o valor de `customer.type` que marca PJ e os nomes dos campos de CPF e CNPJ no `customer` | rótulo curto em `type`; campos `cpf` e `cnpj` (a doc não garante) | | | Rastreio 2 |
+| Y25 | O histórico (`include=statuses`) traz a data de cada mudança? Nome do campo e formato | a doc não garante | | | Rastreio 2 |
+| Y26 | `GET /orders` com `date=updated_at:início|fim`: filtra mesmo? aceita hora ou só dia? o dia do fim entra? | a doc lista `updated_at` no filtro `date`; a serialização é ambígua, como em Y10 | | | Rastreio 2 |
+| Y27 | O `resource` dos avisos `order.*` traz `updated_at`, `track_code`, `track_url`, `shipment_service` e `delivered`? Nome e tipo | plano 6: envelope `{event, time, merchant, resource}`; campos do pedido a conferir | | | Rastreio 2 |
 
 ## 2. WhatsApp (Evolution)
 
@@ -2331,6 +2446,7 @@ Veredito: …  ·  Saída final do `ligacao.mjs` (só classificações): …
 - **Plano 6 (conexão Yampi)** — alimentado por Y1, Y8 a Y11, Y15, Y16 e Y18 a Y21 (as suposições S1 a S12 dele): …
 - **Plano 7 (Pix automático)** — alimentado por Y1 a Y7, Y12 a Y14, Y17 e pelo veredito: …
 - **Rastreio, PR 8 (Melhor Envio)** — alimentado por Y22: a taxa `entregues/enviados` da variante que cobriu a janela, contra o corte de 80%: …
+- **Rastreio, PR 2 (pedidos)** — alimentado por Y23 a Y27: …
 - **Outros (2, 9 a 11)**: …
 
 ## 6. Risco do chip
@@ -2485,7 +2601,9 @@ Esperado (formas): `pedido 2 http=200 … gravado status=waiting_payment` e `ped
 - **Y10:** a variante que serve é a primeira com `http=200`, `do_teste=1` **e** `total` menor que o da `sem-filtro` (prova que o servidor filtrou). Se `plana` e `filters` derem 400 ou o mesmo `total` da `sem-filtro`, a reconciliação lista sem filtro e filtra no cliente por data e status; anotar `baixados` (volume das últimas páginas) e quantas páginas de 100 foram.
 - **Y11:** idem para `tres-dias`, com `do_teste=1`.
 - **Y12:** a linha do carrinho de teste: o carrinho que acabou de virar pedido mostra `total_transactions` ≥ 1 ou `last_transaction_status` preenchido? Se sim, a API responde "virou pedido" sem depender do `cart_token`.
-- **Y22 (prova 4 do Rastreio):** três linhas `entregues variante=… http=… baixados=… semData=… naJanela=… enviados=… entregues=… maisAntigo=… maisNovo=… taxa=…`. Vale a variante com `http=200`, `semData` perto de zero e janela coberta: `maisAntigo` anterior a 45 dias atrás (ou o servidor filtrou, como em Y10). Antes de anotar, conferir na saída do `ping` (tarefa 6) os aliases de status da loja: se o de "despachado"/"em transporte" não estiver em `ALIASES_ENVIADO`, repetir com `entregues <alias,alias>`. `semData` alto quer dizer que a lista não traz `created_at`: achar o campo de data em `redigido/api-pedido-seq002*.json` e anotar isso em Y22 em vez de adivinhar. Só os números vão para o resultado.
+- **Y22 (prova 4 do Rastreio):** três linhas `entregues variante=… http=… baixados=… semData=… naJanela=… enviados=… entregues=… enviadosPorStatus=… comCodigo=… maisAntigo=… maisNovo=… taxa=… taxaCodigo=…`, cada uma seguida de uma linha `  perfil …`. Vale a variante com `http=200`, `semData` perto de zero e janela coberta: `maisAntigo` anterior a 45 dias atrás (ou o servidor filtrou, como em Y10). Antes de anotar, conferir na saída do `ping` (tarefa 6) os aliases de status da loja: se o de "despachado"/"em transporte" não estiver em `ALIASES_ENVIADO`, repetir com `entregues <alias,alias>`. `semData` alto quer dizer que a lista não traz `created_at`: achar o campo de data em `redigido/api-pedido-seq002*.json` e anotar isso em Y22 em vez de adivinhar. Só os números vão para o resultado.
+- **Y23 (prova 2 do Rastreio):** o `taxaCodigo` (`comCodigo/enviadosPorStatus`) da mesma variante. Aqui o código não conta como "enviado", senão a conta fica circular.
+- **Y24:** a linha `perfil` da mesma variante. `tipos` dá o valor literal de `customer.type` (rótulo curto; texto livre vira `(outro)`), `camposDeDocumento` dá os nomes dos campos de CPF e CNPJ, e `semDocumento` conta os que não trazem nenhum. Se `camposDeDocumento` vier vazio, procurar o campo em `campos` (só nomes) e anotar.
 - Rodar `redigir.mjs tudo` e ler `redigido/api-pedido-seq002*.json`: o código Pix também vem pela API (`achar '= 000201'` de novo)? Anotar em Y4.
 
 - [ ] **Step 8: S5 — pagar o Pix** (Igor)
@@ -2498,7 +2616,7 @@ Fazer outro pedido com Pix na loja, **sem pagar**, e anotar T_O2. A tarefa 9 med
 
 - [ ] **Step 10: Preencher o resultado**
 
-Preencher as linhas Y1 a Y7 (parte), Y9 a Y13, Y15, Y16 e Y22 do esqueleto, cada uma com Resultado e Evidência (comando e arquivo redigido). Não commitar.
+Preencher as linhas Y1 a Y7 (parte), Y9 a Y13, Y15, Y16 e Y22 a Y24 do esqueleto, cada uma com Resultado e Evidência (comando e arquivo redigido). Não commitar.
 
 ---
 
@@ -2650,6 +2768,25 @@ A máscara é igual para o mesmo original, então as linhas que sobram na compar
 
 Só se o Igor tiver um jeito seguro e sem custo de recusar um pagamento (cartão de teste do gateway). Se tiver, fazer um pedido recusado e conferir `transaction.payment.refused` com `assinatura=ok`. Se não, Y17 = `não provado: sem como recusar um pagamento sem custo`.
 
+- [ ] **Step 3b: Y25 a Y27 — pedido de teste enviado e entregue** (Igor; Aba A ligada, antes de apagar o aviso)
+
+No painel da Yampi, o Igor abre o pedido do Pix pago (tarefa 7, passo 8), marca como enviado com um código de rastreio de teste (ex.: `TESTE0000000BR`) e qualquer transportadora, e depois marca como entregue. Isso não muda o estorno do passo 5. Esperado na Aba A: um `yampi order.status.updated …` a cada mudança, com `assinatura=ok` (o pedido de teste carrega o marcador). Depois:
+
+```powershell
+node infra/scripts/fase0-recuperar/yampi.mjs pedido <seq do último order.status.updated>
+node infra/scripts/fase0-recuperar/yampi.mjs atualizados
+node infra/scripts/fase0-recuperar/redigir.mjs tudo
+```
+
+Como ler:
+
+- **Y25:** em `redigido/api-pedido-seq<seq>*.json`, cada item de `statuses.data` traz a data da mudança? Anotar o nome do campo e o formato (objeto `{date, timezone_type, timezone}` ou texto) e se a ordem dos itens é a da linha do tempo.
+- **Y27:** nos dois `order.status.updated` desta etapa (índice do `redigido/`), o `resource` traz `updated_at`, `track_code`, `track_url`, `shipment_service` e `delivered`? Anotar nome e tipo de cada um; os valores são de teste. Se marcar como entregue não gerar aviso, anotar isso também.
+- **Y26:** nove linhas `atualizados variante=… http=… total=… baixados=… dentro=… fora=… semData=… doTeste=…`. A testemunha é o pedido de teste, atualizado hoje (`doTeste`); a `sem-filtro` tem de trazê-la, senão a prova não vale. Para cada prefixo (`plana` e `filters`, como em Y10):
+  - **Filtra mesmo** = `http=200`, `total` menor que o da `sem-filtro`, `fora=0` **e** `semData=0` (sem data, `fora=0` não prova nada).
+  - **O dia do fim entra** = a `-ate-hoje` traz `doTeste` ≥ 1. Se só a `-ate-amanha` trouxer, o fim é exclusivo e a varredura do Rastreio tem de pedir até amanhã.
+  - **Aceita hora** = a `-hora-dia` traz `doTeste` ≥ 1 **e** a `-hora-estreita` traz 0. As duas trazendo = a hora é ignorada e só o dia vale; `http=400` nelas = hora recusada.
+
 - [ ] **Step 4: Y20 e o fim do aviso — listar, tentar desativar, listar de novo, apagar** (Aba B; decisão do plano: apagar)
 
 ```powershell
@@ -2668,7 +2805,7 @@ O Igor cancela no painel da Yampi os pedidos sem pagamento (o Pix vencido e o do
 
 - [ ] **Step 6: Preencher o resultado**
 
-Y7, Y14, Y17, Y20 e as observações de Y8/Y9 desta tarefa. Y19 (maior corpo de aviso) sai do `redigir.mjs tudo` ("Maior corpo de aviso: N B") rodado depois do último aviso; os planos 6 esperam menos de 1 MiB.
+Y7, Y14, Y17, Y20, Y25 a Y27 e as observações de Y8/Y9 desta tarefa. Y19 (maior corpo de aviso) sai do `redigir.mjs tudo` ("Maior corpo de aviso: N B") rodado depois do último aviso; os planos 6 esperam menos de 1 MiB.
 
 ---
 
@@ -2727,7 +2864,7 @@ Esperado: `ok: 1 arquivo(s) sem dado real.` Qualquer `VAZAMENTO`: reescrever o t
 ### Task 11: Fixtures, limpeza e PR do resultado
 
 **Files:**
-- Create: `apps/web/src/lib/yampi/__fixtures__/` (16 a 18 arquivos, conforme Y17 e Y20; diretório novo)
+- Create: `apps/web/src/lib/yampi/__fixtures__/` (17 a 20 arquivos, conforme Y17, Y20 e Y27; diretório novo)
 - Create: `apps/web/src/lib/evolution/__fixtures__/` (17 arquivos novos, junto das 7 que já existem)
 - Create: `docs/superpowers/plans/_recuperar-fase-0-resultado.md`
 - Modify (só se a prova mostrou defeito): `infra/scripts/fase0-recuperar/*`, como `fix(recuperar): …`
@@ -2759,6 +2896,11 @@ Mais as do plano 7:
 - `pedido-transacoes.json` ← `api-pedido-seqNNN-transacoes.json` do mesmo pedido.
 - `pedidos-pix-lista.json` ← `api-lista-pedidos-<variante que serve>.json` (`plana`, `filters` ou `sem-filtro`, conforme Y10).
 - `carrinhos-lista.json` ← `api-lista-carrinhos-<variante>.json` (Y11).
+
+E as do Rastreio (PR 2 dele), da tarefa 9, passo 3b:
+
+- `aviso-order-status-updated-enviado.json` ← o `order.status.updated` do pedido de teste marcado como enviado, com `track_code`.
+- `aviso-order-status-updated-entregue.json` ← o do mesmo pedido marcado como entregue, só se a Yampi emitir (Y27).
 
 Fixtures da Evolution (`apps/web/src/lib/evolution/__fixtures__/`). Achar a origem com `redigir.mjs achar '<padrão>'` (as frases de teste ficam legíveis). As cinco primeiras são as que o plano 4 abre na Task 1 dele:
 
