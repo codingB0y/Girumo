@@ -11,11 +11,13 @@ import {
   celulares,
   contarEntregues,
   dentroDoIntervalo,
+  marcadores,
   nomeDaInstancia,
   pedidosDaJanela,
   perfilDosClientes,
   prepararBruto,
   temMarcador,
+  temMarcadorDeCliente,
   urlDoTunel,
   veredictoAssinatura,
 } from "./comum.mjs";
@@ -104,6 +106,29 @@ test("marcador: e-mail sem diferença de caixa e telefone em qualquer formataç�
   assert.equal(temMarcador('{"email":"Dono@Real.com"}', ["dono@real.com"]), true);
   assert.equal(temMarcador('{"formated_number":"(21) 98765-4321"}', ["987654321"]), true);
   assert.equal(temMarcador('{"email":"outra@pessoa.com","phone":"11988887777"}', ["dono@real.com", "987654321"]), false);
+});
+
+test("marcador: só e-mail completo ou telefone de 8 a 11 dígitos; o erro não ecoa o valor", () => {
+  assert.deepEqual(marcadores({ FASE0_MARCADORES: " dono@real.com , 987654321 " }), ["dono@real.com", "987654321"]);
+  for (const ruim of ["gmail.com", "9", "1234", "123456789012", "dono@real"]) {
+    assert.throws(() => marcadores({ FASE0_MARCADORES: `dono@real.com,${ruim}` }), (e) => /2º marcador/.test(e.message) && !e.message.includes(ruim));
+  }
+});
+
+test("marcador: dígitos de campos vizinhos não se juntam", () => {
+  assert.equal(temMarcador('{"a":"98765","b":"4321"}', ["987654321"]), false);
+  assert.equal(temMarcador('{"id":91234,"total":5678}', ["912345678"]), false);
+  assert.equal(temMarcador('{"area_code":"21","number":"987654321"}', ["987654321"]), true);
+  assert.equal(temMarcador('{"full_number":"5521987654321"}', ["987654321"]), true);
+});
+
+test("marcador da cliente: só conta nos campos da cliente, não no Pix nem no contato da loja", () => {
+  const loja = { resource: { customer: { data: { email: "fulana@cliente.com" } }, transactions: { data: [{ metadata: [{ value: "00020126...0114+5521987654321" }] }] }, merchant: { phone: "21987654321" } } };
+  assert.equal(temMarcadorDeCliente(loja, ["dono@real.com", "987654321"]), false);
+  const teste = { resource: { customer: { data: { phone: { area_code: "21", number: "987654321" } } } } };
+  assert.equal(temMarcadorDeCliente(teste, ["dono@real.com", "987654321"]), true);
+  assert.equal(temMarcadorDeCliente({ data: [{ customer: { data: { email: "DONO@real.com" } } }] }, ["dono@real.com"]), true);
+  assert.equal(temMarcadorDeCliente(null, ["dono@real.com"]), false);
 });
 
 test("trava: a chave global só mexe em instância de teste", () => {

@@ -11,10 +11,10 @@ const ouvir = (servidor) => new Promise((ok) => servidor.listen(0, "127.0.0.1", 
 const SEGREDO = "segredo-de-teste-da-fase-0";
 
 // `t.after` fecha os servidores mesmo quando uma asserção falha; sem isso um teste vermelho penduraria o runner
-async function subir(t) {
+async function subir(t, marcas = ["dono@real.com"]) {
   const bruto = prepararBruto(mkdtempSync(join(tmpdir(), "fase0-")));
   writeFileSync(join(bruto, "teste.jpg"), Buffer.from([0xff, 0xd8, 0xff, 0xd9]));
-  const { publico, controle } = criarCaptura({ bruto, tokens: { caminho: "tok", imagem: "img" }, marcas: ["dono@real.com"] });
+  const { publico, controle } = criarCaptura({ bruto, tokens: { caminho: "tok", imagem: "img" }, marcas });
   const [pp, pc] = [await ouvir(publico), await ouvir(controle)];
   t.after(() => Promise.all([publico, controle].map((s) => new Promise((ok) => { s.close(ok); s.closeAllConnections(); }))));
   return { bruto, pp, pc };
@@ -55,6 +55,38 @@ test("rota /rejeita responde 401 e registra a chamada sem guardar o corpo (prova
   assert.match(log, /rejeita/);
   assert.ok(!/nao-guardar/.test(log));
   assert.deepEqual(readdirSync(join(bruto, "eventos")), []);
+});
+
+test("URL que não parseia (GET //) e corpo inválido no controle dão 400 sem derrubar a captura", async (t) => {
+  const { pp, pc } = await subir(t);
+  assert.equal((await fetch(`http://127.0.0.1:${pp}//`)).status, 400);
+  assert.equal((await fetch(`http://127.0.0.1:${pc}/segredo`, { method: "POST", body: "não é json" })).status, 400);
+  // os dois servidores continuam de pé
+  assert.equal((await fetch(`http://127.0.0.1:${pp}/yampi/errado`)).status, 404);
+  assert.equal((await fetch(`http://127.0.0.1:${pc}/estado`)).status, 200);
+});
+
+test("segredo vazio ou ausente é recusado: a assinatura sai sem_segredo, não invalido", async (t) => {
+  const { bruto, pp, pc } = await subir(t);
+  assert.equal((await fetch(`http://127.0.0.1:${pc}/segredo`, { method: "POST", body: "{}" })).status, 400);
+  assert.equal((await (await fetch(`http://127.0.0.1:${pc}/estado`)).json()).temSegredo, false);
+  const corpo = JSON.stringify({ event: "order.paid", resource: { customer: { data: { email: "dono@real.com" } } } });
+  await postar(pp, "/yampi/tok", corpo, { "x-yampi-hmac-sha256": "a".repeat(43) + "=" });
+  assert.equal(JSON.parse(readFileSync(join(bruto, "eventos", "001-yampi-order.paid.json"), "utf8")).assinatura, "sem_segredo");
+});
+
+test("pedido de cliente de verdade com o telefone B só no Pix da loja não vai para o disco; o console diz 'ignorado' sem corpo", async (t) => {
+  const { bruto, pp } = await subir(t, ["dono@real.com", "987654321"]);
+  const log = t.mock.method(console, "log", () => {});
+  const corpo = JSON.stringify({
+    event: "order.created",
+    resource: { customer: { data: { name: "Fulana Cliente", email: "fulana@cliente.com" } }, transactions: { data: [{ metadata: [{ value: "0002012658...0114+5521987654321" }] }] } },
+  });
+  assert.equal((await postar(pp, "/yampi/tok", corpo)).status, 200);
+  assert.deepEqual(readdirSync(join(bruto, "eventos")), []);
+  const linhas = log.mock.calls.map((c) => String(c.arguments[0]));
+  assert.ok(linhas.some((l) => /ignorado/.test(l) && /order\.created/.test(l)), "o operador precisa ver que o aviso chegou e foi ignorado");
+  assert.ok(!linhas.some((l) => /fulana|Fulana/.test(l)));
 });
 
 test("aviso da Evolution é sempre gravado; caminho errado dá 404; imagem exige a assinatura", async (t) => {

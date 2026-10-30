@@ -27,6 +27,26 @@ test("GO: as três formas determinísticas ligam a resposta ao telefone", () => 
   assert.equal(r.linhas[2].ackAntes, true);
 });
 
+test("status, canal e telefone de fora não entram na amostra: não viram NO-GO falso", () => {
+  const r = classificar({
+    celulares: FONES,
+    enviados: ENVIADOS,
+    eventos: [
+      update(10, 5, { keyId: "K1", remoteJid: "222222@lid", status: "DELIVERY_ACK" }),
+      upsert(11, 9, { remoteJid: "5511999990002@s.whatsapp.net" }),
+      upsert(12, 10, { remoteJid: "333333@lid", remoteJidAlt: "5511999990003@s.whatsapp.net" }),
+      upsert(13, 11, { remoteJid: "222222@lid" }),
+      upsert(14, 12, { remoteJid: "status@broadcast" }),
+      upsert(15, 13, { remoteJid: "120363000000000001@newsletter" }),
+      upsert(16, 14, { remoteJid: "5511888887777@s.whatsapp.net" }),
+    ],
+  });
+  assert.equal(r.veredito, "GO");
+  assert.equal(r.amostras, 3);
+  assert.equal(r.deFora, 1);
+  assert.deepEqual(r.linhas.map((l) => l.via), ["telefone_direto", "lid_com_telefone_ao_lado", "lid_aprendido_no_update", "de_fora"]);
+});
+
 test("NO-GO: uma resposta em @lid sem nenhuma ligação reprova o automático", () => {
   const r = classificar({
     celulares: FONES,

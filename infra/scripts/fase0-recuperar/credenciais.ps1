@@ -6,18 +6,43 @@
 #   & .\infra\scripts\fase0-recuperar\credenciais.ps1 -SoCaptura    so os marcadores (aba do servidor de captura; sem credencial)
 param([switch]$SoCaptura)
 
-function Pedir-Texto([string]$Nome, [string]$Dica, [string]$Padrao = '') {
-  $texto = Read-Host -Prompt "$Nome ($Dica)"
-  if ([string]::IsNullOrWhiteSpace($texto)) { $texto = $Padrao }
-  if ([string]::IsNullOrWhiteSpace($texto)) { throw "$Nome vazio" }
-  Set-Item -Path "Env:$Nome" -Value $texto.Trim()
+# Tudo sem eco: a sessao le as abas, e telefone, e-mail ou alias digitado com eco iria para o contexto dela.
+function Ler-SemEco([string]$Dica) {
+  $seguro = Read-Host -Prompt $Dica -AsSecureString
+  return [System.Net.NetworkCredential]::new('', $seguro).Password.Trim()
 }
 
 function Pedir-Segredo([string]$Nome, [string]$Dica) {
-  $seguro = Read-Host -Prompt "$Nome ($Dica)" -AsSecureString
-  $texto = [System.Net.NetworkCredential]::new('', $seguro).Password
+  $texto = Ler-SemEco "$Nome ($Dica)"
   if ([string]::IsNullOrWhiteSpace($texto)) { throw "$Nome vazio" }
-  Set-Item -Path "Env:$Nome" -Value $texto.Trim()
+  Set-Item -Path "Env:$Nome" -Value $texto
+}
+
+# Marcador generico ("gmail.com", "9") gravaria cliente de verdade: so e-mail completo ou telefone de 8 a 11 digitos.
+# O erro diz a posicao, nunca o valor.
+function Validar-Marcadores([string]$Texto) {
+  $itens = @($Texto -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+  if ($itens.Count -eq 0) { throw 'FASE0_MARCADORES vazio' }
+  $emails = 0
+  $telefones = 0
+  for ($i = 0; $i -lt $itens.Count; $i++) {
+    if ($itens[$i] -match '^[^\s@,]+@[^\s@,]+\.[^\s@,]+$') { $emails++ }
+    elseif ($itens[$i] -match '^\d{8,11}$') { $telefones++ }
+    else { throw "FASE0_MARCADORES: o item $($i + 1) ($($itens[$i].Length) caracteres) nao e e-mail completo nem telefone de 8 a 11 digitos" }
+  }
+  return "$emails e-mail(s), $telefones telefone(s)"
+}
+
+# Um digito errado manda mensagem para um estranho: formato conferido aqui e o valor digitado duas vezes.
+function Validar-Celulares([string]$Texto) {
+  $itens = @($Texto -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+  $rotulos = @()
+  for ($i = 0; $i -lt $itens.Count; $i++) {
+    if ($itens[$i] -notmatch '^([A-Za-z]+)=(55\d{10,11})$') { throw "FASE0_CELULARES: o item $($i + 1) nao esta no formato ROTULO=55DDDNUMERO (so digitos)" }
+    $rotulos += $Matches[1].ToUpper()
+  }
+  foreach ($obrigatorio in 'CHIP', 'B') { if ($rotulos -notcontains $obrigatorio) { throw "FASE0_CELULARES sem $obrigatorio=55..." } }
+  return ($rotulos -join ', ')
 }
 
 $env:FASE0_BRUTO = Join-Path $env:USERPROFILE 'fase0-recuperar-bruto'
@@ -30,14 +55,21 @@ $env:FASE0_INSTANCIA = (Get-Content -Path $arqInstancia -Raw).Trim()
 $env:EVOLUTION_API_URL = 'https://wa.girumo.com.br'
 $env:FASE0_FRASES = 'Ola, teste da Fase 0|Oi, recebi sim|quem e voce?|SAIR|Teste 1 da Fase 0|Teste 2 da Fase 0|Teste de imagem da Fase 0|Teste do celular do chip|Teste da Fase 0 (numero que nao existe)'
 
-Pedir-Texto 'FASE0_MARCADORES' 'e-mail dos checkouts de teste e os 9 digitos do telefone B (sem 55 nem DDD), separados por virgula'
+$resumo = @()
+$marcadores = Ler-SemEco 'FASE0_MARCADORES (e-mail dos checkouts de teste e os 9 digitos do telefone B, sem 55 nem DDD, separados por virgula; nao aparece na tela)'
+$resumo += "FASE0_MARCADORES: $(Validar-Marcadores $marcadores)"
+$env:FASE0_MARCADORES = $marcadores
 if (-not $SoCaptura) {
-  Pedir-Texto 'FASE0_CELULARES' 'CHIP=55...,B=55...,C=55...  so digitos, com 55'
-  Pedir-Texto 'FASE0_LOJA_TERMOS' 'nome da loja e do dominio, separados por virgula' 'sem-termos'
-  Pedir-Texto 'YAMPI_ALIAS' 'alias da loja piloto'
+  $celulares = Ler-SemEco 'FASE0_CELULARES (CHIP=55...,B=55...,C=55...  so digitos, com 55; nao aparece na tela)'
+  $resumo += "FASE0_CELULARES: $(Validar-Celulares $celulares)"
+  if ((Ler-SemEco 'FASE0_CELULARES de novo, para conferir') -ne $celulares) { throw 'FASE0_CELULARES: as duas digitacoes nao batem; rode o script de novo' }
+  $env:FASE0_CELULARES = $celulares
+  Pedir-Segredo 'FASE0_LOJA_TERMOS' 'nome da loja e do dominio, separados por virgula'
+  Pedir-Segredo 'YAMPI_ALIAS' 'alias da loja piloto'
   Pedir-Segredo 'YAMPI_USER_TOKEN' 'Yampi > Perfil > Credenciais de API'
   Pedir-Segredo 'YAMPI_USER_SECRET_KEY' 'idem'
   Pedir-Segredo 'EVOLUTION_API_KEY' 'AUTHENTICATION_API_KEY do recurso evolution-api no Coolify'
 }
 
+$resumo
 Get-ChildItem Env: | Where-Object { $_.Name -match '^(FASE0_|YAMPI_|EVOLUTION_)' } | ForEach-Object { '{0,-22} {1} caracteres' -f $_.Name, $_.Value.Length }

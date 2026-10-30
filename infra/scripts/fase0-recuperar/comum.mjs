@@ -36,11 +36,35 @@ export const dormir = (ms) => new Promise((ok) => setTimeout(ok, ms));
 export const urlDoTunel = (linha) => String(linha).match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/)?.[0] ?? null;
 
 /** Identifica o que é do teste: e-mail e telefone que o Igor usa nos checkouts de teste. */
-export const marcadores = (env = process.env) => (env.FASE0_MARCADORES ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+const MARCADOR_VALIDO = /^([^\s@,]+@[^\s@,]+\.[^\s@,]+|\d{8,11})$/;
+export function marcadores(env = process.env) {
+  const lista = (env.FASE0_MARCADORES ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  // marcador genérico ("gmail.com", "9") casaria com quase todo aviso e gravaria cliente de verdade; o erro não ecoa o valor
+  lista.forEach((m, i) => {
+    if (!MARCADOR_VALIDO.test(m)) throw new Error(`FASE0_MARCADORES: o ${i + 1}º marcador (${m.length} caracteres) não é e-mail completo nem telefone de 8 a 11 dígitos.`);
+  });
+  return lista;
+}
 export function temMarcador(texto, lista = marcadores()) {
   const baixo = String(texto).toLowerCase();
-  const digitos = String(texto).replace(/\D/g, "");
-  return lista.some((m) => baixo.includes(m.toLowerCase()) || (/^\d{6,}$/.test(m) && digitos.includes(m)));
+  // cada sequência de dígitos (com a pontuação de telefone no meio) vale sozinha: dígitos de campos vizinhos não se juntam
+  const sequencias = (String(texto).match(/\d[\d\s().-]*\d|\d/g) ?? []).map((s) => s.replace(/\D/g, ""));
+  return lista.some((m) => (/^\d+$/.test(m) ? sequencias.some((s) => s.includes(m)) : baixo.includes(m.toLowerCase())));
+}
+
+// Só os campos da cliente contam: o telefone B pode ser também a chave Pix ou o contato da loja, que vêm em todo pedido.
+const CHAVES_DA_CLIENTE = /^(customer|shipping_address|billing_address|address)$/i;
+export function temMarcadorDeCliente(obj, lista = marcadores()) {
+  const partes = [];
+  const andar = (x) => {
+    if (!x || typeof x !== "object") return;
+    for (const [k, v] of Object.entries(x)) {
+      if (CHAVES_DA_CLIENTE.test(k)) partes.push(JSON.stringify(v));
+      else andar(v);
+    }
+  };
+  andar(obj);
+  return partes.some((p) => temMarcador(p, lista));
 }
 
 /** FASE0_CELULARES="CHIP=55629...,B=55629...,C=55629..." (só dígitos, com 55). */
@@ -72,6 +96,12 @@ export function veredictoAssinatura(corpo, cabecalho, segredo) {
     // corpo que não é JSON: sem variante a tentar
   }
   return "invalido";
+}
+
+/** Marcador de segredo do mesmo tamanho (mínimo 8): a fixture mantém o formato que os planos conferem, nunca o valor. */
+export function tampaDeSegredo(texto) {
+  const n = Math.max(String(texto).length, 8);
+  return "REDACTED".repeat(Math.ceil(n / 8)).slice(0, n);
 }
 
 /** Trava: a chave global da Evolution só mexe em instância de teste desta fase. */

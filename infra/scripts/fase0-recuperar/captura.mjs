@@ -10,7 +10,7 @@ import { randomBytes } from "node:crypto";
 import { appendFileSync, createReadStream, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { dirBruto, gravarJson, marcadores, temMarcador, urlDoTunel, veredictoAssinatura } from "./comum.mjs";
+import { dirBruto, gravarJson, marcadores, temMarcadorDeCliente, urlDoTunel, veredictoAssinatura } from "./comum.mjs";
 
 const LIMITE_CORPO = 2 * 1024 * 1024;
 const CABECALHOS_GUARDADOS = ["content-type", "user-agent", "x-yampi-hmac-sha256"];
@@ -37,8 +37,13 @@ export function criarCaptura({ bruto, tokens, todos = false, marcas = [], imagem
   let seq = readdirSync(join(bruto, "eventos")).length;
   let ignorados = 0;
 
-  const publico = createServer(async (req, res) => {
-    const url = new URL(req.url, "http://local");
+  const atenderPublico = async (req, res) => {
+    let url;
+    try {
+      url = new URL(req.url, "http://local");
+    } catch {
+      return void res.writeHead(400).end(); // "//" e afins: sem isto o handler lançava e derrubava a captura e o túnel
+    }
     const [, rota, tok, arquivo] = url.pathname.split("/");
     if (tok !== tokens.caminho || !["yampi", "evo", "img", "rejeita"].includes(rota)) return void res.writeHead(404).end();
 
@@ -72,9 +77,10 @@ export function criarCaptura({ bruto, tokens, todos = false, marcas = [], imagem
     const assinatura = rota === "yampi" ? veredictoAssinatura(corpo, req.headers["x-yampi-hmac-sha256"], segredo) : "n/a";
     const chegada = new Date().toISOString(); // a hora do fato; o date_time da Evolution é hora de Brasília rotulada Z
 
-    if (rota === "yampi" && !todos && !temMarcador(texto, marcas)) {
+    if (rota === "yampi" && !todos && !temMarcadorDeCliente(json, marcas)) {
       ignorados++;
       appendFileSync(join(bruto, "ignorados.log"), `${chegada}\t${evento}\t${corpo.length}\t${assinatura}\n`);
+      console.log(`ignorado: aviso da Yampi sem marcador nos campos da cliente (${evento}, ${corpo.length} B)`);
     } else {
       seq++;
       const nome = `${String(seq).padStart(3, "0")}-${rota}-${evento.replace(/[^a-z0-9._-]/gi, "_")}.json`;
@@ -83,20 +89,35 @@ export function criarCaptura({ bruto, tokens, todos = false, marcas = [], imagem
       console.log(`#${String(seq).padStart(3, "0")} ${rota} ${evento} assinatura=${assinatura} ${corpo.length} B`);
     }
     res.writeHead(200, { "content-type": "application/json" }).end('{"ok":true}'); // sempre 2xx: a Yampi conta falha
-  });
+  };
 
-  const controle = createServer(async (req, res) => {
+  const atenderControle = async (req, res) => {
     if (req.method === "POST" && req.url === "/segredo") {
-      const dados = JSON.parse((await lerCorpo(req)).toString("utf8"));
-      segredo = String(dados.segredo);
+      let dados = null;
+      try {
+        dados = JSON.parse((await lerCorpo(req)).toString("utf8"));
+      } catch {
+        // corpo que não é JSON cai no 400 abaixo
+      }
+      // segredo ausente gravaria "undefined" e toda assinatura sairia invalido em vez de sem_segredo
+      if (typeof dados?.segredo !== "string" || !dados.segredo) return void res.writeHead(400).end();
+      segredo = dados.segredo;
       return void res.writeHead(204).end();
     }
     if (req.method === "GET" && req.url === "/estado") {
       return void res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ salvos: seq, ignorados, temSegredo: Boolean(segredo) }));
     }
     res.writeHead(404).end();
-  });
+  };
 
+  // erro no handler (disco cheio, por exemplo) vira 500 com a mensagem no console, nunca o corpo; o processo e o túnel seguem
+  const falhou = (res, e) => {
+    console.error(`erro ao atender: ${e.message}`);
+    if (!res.headersSent) res.writeHead(500);
+    res.end();
+  };
+  const publico = createServer((req, res) => atenderPublico(req, res).catch((e) => falhou(res, e)));
+  const controle = createServer((req, res) => atenderControle(req, res).catch((e) => falhou(res, e)));
   return { publico, controle };
 }
 

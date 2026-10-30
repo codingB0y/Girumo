@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { conhecidosDoAmbiente, criarRedator, problemas, variantesDeTelefone } from "./redigir.mjs";
+import { conhecidosDoAmbiente, criarRedator, exigirAmbienteDoRedator, problemas, variantesDeTelefone } from "./redigir.mjs";
 
 const ENV = {
   YAMPI_ALIAS: "lojinha-real",
@@ -121,7 +121,7 @@ test("JID mantém o domínio; telefone conhecido vira o falso; segredos e blobs 
   assert.equal(red.valor({ k: "5521987654321@s.whatsapp.net" }).k, "5511999990002@s.whatsapp.net");
   assert.equal(red.valor({ sender: "5521911112222:12@s.whatsapp.net" }).sender, "5511999990001:12@s.whatsapp.net");
   assert.equal(red.valor({ apikey: "abc123def456" }).apikey, "REDACTED-INSTANCE-TOKEN");
-  assert.equal(red.valor({ secret_key: "abc123def456abc123def456" }).secret_key, "REDACTED");
+  assert.equal(red.valor({ secret_key: "abc123def456abc123def456" }).secret_key, "REDACTEDREDACTEDREDACTED");
   assert.equal(red.valor(ORDEM).resource.foto, "[REDIGIDO len=400]");
 });
 
@@ -150,6 +150,59 @@ test("números: epoch desloca junto, dinheiro passa, documento numérico é masc
   assert.equal(r.quantity, 2);
   assert.notEqual(r.cpf, 12345678909);
   assert.equal(r.id, 987654);
+});
+
+test("o redator recusa rodar sem o alias, os celulares e os termos da loja (falharia aberto)", () => {
+  assert.doesNotThrow(() => exigirAmbienteDoRedator(ENV));
+  assert.throws(() => exigirAmbienteDoRedator({ ...ENV, YAMPI_ALIAS: "" }), /YAMPI_ALIAS/);
+  assert.throws(() => exigirAmbienteDoRedator({ ...ENV, FASE0_CELULARES: "" }), /FASE0_CELULARES/);
+  assert.throws(() => exigirAmbienteDoRedator({ ...ENV, FASE0_LOJA_TERMOS: "sem-termos" }), /FASE0_LOJA_TERMOS/);
+});
+
+test("host seguro mantém só o domínio e rótulos conhecidos: subdomínio da loja sai", () => {
+  const red = redator();
+  assert.match(red.valor({ u: "https://lojinhareal.yampi.io/cart/x?t=1" }).u, /^https:\/\/loja-exemplo\.yampi\.io\/cart\//);
+  assert.match(red.valor({ u: "https://x.lojinhareal.pay.yampi.com.br/r/abc" }).u, /^https:\/\/loja-exemplo\.pay\.yampi\.com\.br\/r\//);
+  assert.match(red.valor({ u: "https://api.dooki.com.br/v2/abc" }).u, /^https:\/\/api\.dooki\.com\.br\/v2\//);
+  assert.match(red.valor({ u: "https://mmg.whatsapp.net/o1/v/t62/abc" }).u, /^https:\/\/mmg\.whatsapp\.net\//);
+});
+
+test("nomes de evento, a marca lid e o nome do nosso aviso ficam legíveis em qualquer chave (contrato dos planos 3 e 6)", () => {
+  const red = redator();
+  const eventos = ["cart.reminder", "order.created", "order.paid", "order.status.updated", "transaction.payment.refused"];
+  assert.deepEqual(red.valor({ events: eventos }).events, eventos);
+  assert.equal(red.valor({ data: { name: "girumo-fase0-recuperar" } }).data.name, "girumo-fase0-recuperar");
+  assert.equal(red.valor({ lid: "lid" }).lid, "lid");
+  assert.equal(red.valor({ event: "messages.upsert" }).event, "messages.upsert");
+});
+
+test("segredo vira marcador do mesmo tamanho: a fixture continua com 16+ caracteres (S3 do plano 6)", () => {
+  const real = "k3Jx9mQ2vT8nLp0aZcYd4HfRgU6sWbEoIt1NqXvM";
+  const tampado = redator().valor({ secret_key: real }).secret_key;
+  assert.equal(tampado.length, 40);
+  assert.ok(!tampado.includes("k3Jx"));
+});
+
+test("nascimento é mascarado (não só deslocado); número, CEP, IBGE e CPF inteiros e buffer de 16 bytes também", () => {
+  const r = redator().valor({ birth_date: "1990-05-12", address: { number: 1234, zip_code: 74000000, ibge: 5208707 }, cpf: 1512345678, mediaKey: Array.from({ length: 16 }, (_, i) => i * 9), pequeno: [1, 2, 3] });
+  assert.match(r.birth_date, /^\d{4}-\d{2}-\d{2}$/);
+  assert.notEqual(r.birth_date, redator().data("1990-05-12"));
+  assert.notEqual(r.address.number, 1234);
+  assert.notEqual(r.address.zip_code, 74000000);
+  assert.notEqual(r.address.ibge, 5208707);
+  assert.notEqual(r.cpf, redator().valor({ a: 1512345678 }).a); // CPF inteiro não pode cair na regra do epoch
+  assert.equal(r.mediaKey, "[REDIGIDO bytes len=16]");
+  assert.deepEqual(r.pequeno, [1, 2, 3]);
+});
+
+test("relatório do que ficou sem máscara: só caminhos, para a sessão conferir", () => {
+  const red = redator();
+  red.valor({ a: { conta: "maria_silva82" }, lista: [{ codigo: "ABC_DEF_1" }], status: "waiting_payment", event: "order.paid" });
+  const mantidos = red.mantidos();
+  assert.ok(mantidos.includes("a.conta"));
+  assert.ok(mantidos.includes("lista[].codigo"));
+  assert.ok(!mantidos.includes("event")); // nome de evento é vocabulário conhecido
+  assert.ok(!JSON.stringify(mantidos).includes("maria"));
 });
 
 test("conferência: pega vazamento que a máscara deixaria passar", () => {

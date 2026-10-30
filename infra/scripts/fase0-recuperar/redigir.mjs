@@ -9,7 +9,7 @@ import { createHmac, randomBytes } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { celulares, dirBruto, gravarJson, lerJson, marcadores } from "./comum.mjs";
+import { NOME_DO_AVISO, celulares, dirBruto, gravarJson, lerJson, marcadores, pedirEnv, tampaDeSegredo } from "./comum.mjs";
 
 const FALSO_DA_LOJA = "loja-exemplo";
 const FALSOS_TELEFONE = { CHIP: "5511999990001", B: "5511999990002", C: "5511999990003" };
@@ -17,14 +17,23 @@ const PALAVRAS = new Set(["pix", "billet", "boleto", "paid", "authorized", "crea
 const CHAVES_DE_VOCABULARIO = /^(event|timezone|currency|type|kind|status|alias|payment_alias|last_transaction_status|messageType|mediaType|mimetype|source|state|reason|action|integration)$/i;
 const CHAVES_DE_PESSOA = /(^|_)(name|nome|pushname|street|address|neighborhood|city|complement|text|conversation|caption|title|description|notes?)$/i;
 const CHAVES_SECRETAS = /^(apikey|api_key|secret|secret_key|webhook_secret|password|senha|authorization|access_token|refresh_token|customertoken)$/i;
-const CHAVES_NUMERICAS_DE_PESSOA = /^(cpf|cnpj|zipcode|zip|cep|phone|telefone|celular|area_code|ddd)$/i;
-const HOST_SEGURO = /(^|\.)(example\.com|example|yampi\.io|yampi\.com\.br|dooki\.com\.br|whatsapp\.net|whatsapp\.com|girumo\.com\.br)$/i;
+const CHAVES_NUMERICAS_DE_PESSOA = /^(cpf|cnpj|zipcode|zip|zip_code|cep|postal_code|postcode|ibge|number|numero|phone|telefone|celular|area_code|ddd)$/i;
+const DOMINIOS_SEGUROS = ["example.com", "example", "yampi.io", "yampi.com.br", "dooki.com.br", "whatsapp.net", "whatsapp.com", "girumo.com.br"];
+// rótulos de host que não identificam a loja; qualquer outro antes de um domínio seguro vira loja-exemplo
+const ROTULOS_SEGUROS = new Set(["api", "www", "seguro", "checkout", "pay", "images", "img", "static", "cdn", "media", "mmg", "pps", "wa", "app", "web", "tunel"]);
+// vocabulário que os planos 3 e 6 conferem pelo texto: fica legível em qualquer chave (name, events[], lid)
+const SEMPRE_LEGIVEIS = new Set([
+  ...["cart.reminder", "order.created", "order.paid", "order.status.updated", "transaction.payment.refused"],
+  ...["messages.upsert", "messages.update", "send.message", "connection.update", "qrcode.updated"],
+  "lid",
+  NOME_DO_AVISO,
+]);
 const ROTAS = /^(r|c|p|api|v\d|cart|carrinho|checkout|pedido|pedidos|order|orders|recover|recuperar|simulate|unauth|pay|pix|track|rastreio|purchase)$/i;
 const RE_JID = /^([\d-]+)(:\d+)?@(lid|hosted\.lid|s\.whatsapp\.net|c\.us|g\.us|broadcast)$/;
 const RE_DATA = /^(\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?|\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2}(:\d{2})?)?)$/;
 const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PECA_INI = "";
-const PECA_FIM = "";
+const PECA_INI = "\uE000";
+const PECA_FIM = "\uE001";
 const MS_DIA = 86_400_000;
 
 /** Pares [original, falso] para cada forma de escrever um telefone (com/sem 55, com/sem o 9º dígito, só o número). */
@@ -58,6 +67,21 @@ export function conhecidosDoAmbiente(env = process.env, urls = {}, instancia = e
   }
   add(instancia, "gr_smoke-test");
   return lista.sort((a, b) => b[0].length - a[0].length);
+}
+
+/** O redator e a conferência falham FECHADOS: sem estes valores, o alias e os telefones passariam e o conferir diria "ok". */
+export function exigirAmbienteDoRedator(env = process.env) {
+  for (const nome of ["YAMPI_ALIAS", "FASE0_CELULARES", "FASE0_LOJA_TERMOS"]) pedirEnv(nome, env);
+  if (env.FASE0_LOJA_TERMOS.trim() === "sem-termos") throw new Error("FASE0_LOJA_TERMOS ainda no padrão sem-termos: rode credenciais.ps1 e digite o nome da loja e do domínio.");
+  const fones = celulares(env);
+  if (!fones.CHIP || !fones.B) throw new Error("FASE0_CELULARES precisa de CHIP=55... e B=55... (só dígitos, com 55).");
+}
+
+function hostSeguro(host) {
+  const dominio = DOMINIOS_SEGUROS.find((d) => host === d || host.endsWith(`.${d}`));
+  if (!dominio) return null;
+  const rotulos = host.slice(0, host.length - dominio.length).split(".").filter(Boolean).map((r) => (ROTULOS_SEGUROS.has(r) ? r : FALSO_DA_LOJA));
+  return [...rotulos.filter((r, i) => r !== FALSO_DA_LOJA || rotulos[i - 1] !== FALSO_DA_LOJA), dominio].join(".");
 }
 
 const escapar = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -102,7 +126,7 @@ export function criarRedator({ sal, conhecidos = [], frases = [] }) {
     }
     return { saida, pecas };
   };
-  const devolver = (texto, pecas) => texto.replace(/(.)/g, (_, c) => pecas[c.charCodeAt(0) - 0xe100]);
+  const devolver = (texto, pecas) => texto.replace(/\uE000(.)\uE001/g, (_, c) => pecas[c.charCodeAt(0) - 0xe100]);
   const mascararTexto = (texto) => {
     const { saida, pecas } = guardar(texto);
     return devolver(fpm(saida), pecas);
@@ -127,7 +151,7 @@ export function criarRedator({ sal, conhecidos = [], frases = [] }) {
     const host = devolver(saida, pecas);
     const caminho = u.pathname.split("/").map((s) => (s === "" || ROTAS.test(s) ? s : mascararTexto(s))).join("/");
     const consulta = [...u.searchParams].map(([k, v]) => `${k}=${mascararTexto(v)}`).join("&");
-    return `${u.protocol}//${HOST_SEGURO.test(host) ? host : `${FALSO_DA_LOJA}.example`}${caminho}${consulta ? `?${consulta}` : ""}`;
+    return `${u.protocol}//${hostSeguro(host.toLowerCase()) ?? `${FALSO_DA_LOJA}.example`}${caminho}${consulta ? `?${consulta}` : ""}`;
   };
 
   const ehVocabulario = (s) =>
@@ -139,14 +163,15 @@ export function criarRedator({ sal, conhecidos = [], frases = [] }) {
 
   const texto = (s, chave) => {
     if (/^apikey$/i.test(chave)) return "REDACTED-INSTANCE-TOKEN";
-    if (CHAVES_SECRETAS.test(chave)) return "REDACTED";
+    if (CHAVES_SECRETAS.test(chave)) return tampaDeSegredo(s);
     if (/^area_code$/i.test(chave)) return "11";
-    if (s.length <= 2 || frases.includes(s.trim())) return s;
+    if (SEMPRE_LEGIVEIS.has(s) || s.length <= 2 || frases.includes(s.trim())) return s;
     const jid = RE_JID.exec(s);
     if (jid) return mascararJid(jid);
     if (/^000201/.test(s)) return s.slice(0, 6) + fpm(s.slice(6)); // Pix copia e cola: mantém só o início do formato EMV
     if (s.length > 300) return `[REDIGIDO len=${s.length}]`;
     if (/^https?:\/\//i.test(s)) return mascararUrl(s) ?? mascararTexto(s);
+    if (/birth|nasc|aniver/i.test(chave)) return mascararTexto(s); // nascimento: o deslocamento comum é recuperável pela data do commit
     if (RE_DATA.test(s)) return deslocarDatas(s, dias);
     if (RE_EMAIL.test(s) && !temConhecido(s)) {
       const arroba = s.lastIndexOf("@");
@@ -157,33 +182,39 @@ export function criarRedator({ sal, conhecidos = [], frases = [] }) {
     return mantem ? s : mascararTexto(s);
   };
 
+  const mascararNumero = (n) => Number(fpm(String(Math.abs(n))).replace(/^0+/, "") || "1");
   const numero = (n, chave) => {
     if (!Number.isInteger(n)) return n; // dinheiro e fracionários passam
+    // chave de pessoa antes do epoch: um CPF inteiro entre 1.4e9 e 2.2e9 seria só deslocado, e o deslocamento é recuperável
+    if (CHAVES_NUMERICAS_DE_PESSOA.test(chave)) return mascararNumero(n);
     if (n >= 1.4e9 && n <= 2.2e9) return n - dias * 86_400; // epoch em segundos
-    if (String(Math.abs(n)).length >= 10 || CHAVES_NUMERICAS_DE_PESSOA.test(chave)) return Number(fpm(String(Math.abs(n))).replace(/^0+/, "") || "1");
+    if (String(Math.abs(n)).length >= 10) return mascararNumero(n);
     return n;
   };
 
-  // buffer serializado (miniatura da foto, chaves de mídia): array de bytes ou objeto {"0":255,"1":216,...}
+  // buffer serializado (miniatura da foto, chaves de mídia de 32 bytes): array de bytes ou objeto {"0":255,"1":216,...}
   const tamanhoDeBytes = (x) => {
     const chaves = Array.isArray(x) ? x : x && typeof x === "object" ? Object.keys(x) : [];
     const eBytes = Array.isArray(x) ? x.every((n) => Number.isInteger(n) && n >= 0 && n <= 255) : chaves.every((k) => /^\d+$/.test(k));
-    return chaves.length > 32 && eBytes ? chaves.length : 0;
+    return chaves.length >= 16 && eBytes ? chaves.length : 0;
   };
 
-  const valor = (x, chave = "") => {
+  const mantidos = new Set();
+  const valor = (x, chave = "", caminho = "") => {
     const bytesLen = tamanhoDeBytes(x);
     if (bytesLen) return `[REDIGIDO bytes len=${bytesLen}]`;
-    if (Array.isArray(x)) return x.map((v) => valor(v, chave));
-    if (x && typeof x === "object") return Object.fromEntries(Object.entries(x).map(([k, v]) => [k, valor(v, k)]));
+    if (Array.isArray(x)) return x.map((v) => valor(v, chave, `${caminho}[]`));
+    if (x && typeof x === "object") return Object.fromEntries(Object.entries(x).map(([k, v]) => [k, valor(v, k, caminho ? `${caminho}.${k}` : k)]));
     if (typeof x === "number") return numero(x, chave);
     if (typeof x !== "string") return x;
     const saida = texto(x, chave);
     if (saida !== x && x.length >= 6) originais.add(x);
+    // o que passou sem máscara e não é vocabulário fixo vai para o relatório (só o caminho), para a sessão conferir
+    if (saida === x && x.length >= 6 && !SEMPRE_LEGIVEIS.has(x) && !frases.includes(x.trim())) mantidos.add(caminho);
     return saida;
   };
 
-  return { valor, data: (iso) => deslocarDatas(String(iso), dias), originais: () => [...originais] };
+  return { valor, data: (iso) => deslocarDatas(String(iso), dias), originais: () => [...originais], mantidos: () => [...mantidos].sort() };
 }
 
 /** Procura dado real em um texto. Devolve descrições SEM o valor (só o começo e o tamanho). */
@@ -228,6 +259,7 @@ function contexto(bruto) {
 }
 
 function tudo() {
+  exigirAmbienteDoRedator();
   const bruto = dirBruto();
   const { conhecidos } = contexto(bruto);
   const frases = (process.env.FASE0_FRASES ?? "").split("|").map((s) => s.trim()).filter(Boolean);
@@ -244,8 +276,10 @@ function tudo() {
   }
   for (const nome of readdirSync(join(bruto, "api")).sort()) gravarJson(join(bruto, "redigido", `api-${nome}`), red.valor(lerJson(join(bruto, "api", nome))));
   writeFileSync(join(bruto, "redigido", "_indice.txt"), `${indice.join("\n")}\n`);
+  writeFileSync(join(bruto, "redigido", "_mantidos.txt"), `${red.mantidos().join("\n")}\n`);
   gravarJson(join(bruto, "mapa.json"), { originais: red.originais() });
   console.log(`redigidos: ${indice.length} avisos e ${readdirSync(join(bruto, "api")).length} respostas de API. Índice em redigido/_indice.txt. Maior corpo de aviso: ${maiorCorpo} B.`);
+  console.log(`sem máscara (fora o vocabulário fixo): ${red.mantidos().length} caminho(s) em redigido/_mantidos.txt, para conferir.`);
 }
 
 function achar(expressao) {
@@ -260,6 +294,7 @@ function achar(expressao) {
 }
 
 function conferir(caminhos) {
+  exigirAmbienteDoRedator();
   const bruto = dirBruto();
   const { conhecidos } = contexto(bruto);
   const originais = lerJson(join(bruto, "mapa.json"), { originais: [] }).originais;

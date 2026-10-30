@@ -24,7 +24,8 @@ export function classificar({ eventos, enviados, celulares: fones }) {
   const atualizacoes = todos.filter((x) => x.evento === "messages.update" && x.d);
   const idsEnviados = new Set(enviados.map((e) => e.keyId));
   const primeiroEnvio = enviados.map((e) => e.em).sort()[0] ?? null;
-  const upserts = todos.filter((x) => x.evento === "messages.upsert" && x.d?.key && !String(x.d.key.remoteJid).endsWith("@g.us"));
+  // grupo, status e canal nunca são resposta a envio nosso
+  const upserts = todos.filter((x) => x.evento === "messages.upsert" && x.d?.key && !/@(g\.us|broadcast|newsletter)$/.test(String(x.d.key.remoteJid)));
 
   const linhas = upserts
     .filter((x) => !x.d.key.fromMe)
@@ -52,8 +53,10 @@ export function classificar({ eventos, enviados, celulares: fones }) {
             via = "lid_aprendido_no_envio";
           } else via = "lid_orfao";
         }
-      } else via = "outro_jid";
-      const respondeAEnvio = rotulo ? enviados.some((e) => e.para === rotulo && e.em <= chegada) : primeiroEnvio !== null && primeiroEnvio <= chegada;
+      } else if (telefoneDoJid(jid)) via = "de_fora"; // telefone que não é B nem C: não é resposta a envio nosso
+      else via = "outro_jid";
+      const respondeAEnvio =
+        via !== "de_fora" && (rotulo ? enviados.some((e) => e.para === rotulo && e.em <= chegada) : primeiroEnvio !== null && primeiroEnvio <= chegada);
       return {
         seq,
         rotulo: rotulo ?? "?",
@@ -88,6 +91,7 @@ export function classificar({ eventos, enviados, celulares: fones }) {
     linhas,
     amostras: amostras.length,
     orfas: orfas.length,
+    deFora: linhas.filter((l) => l.via === "de_fora").length,
     veredito,
     ecoDoEnvio: `${proprios.filter((x) => idsEnviados.has(x.d.key.id)).length}/${enviados.length}`,
     peloCelular: proprios.filter((x) => !idsEnviados.has(x.d.key.id)).length,
@@ -108,6 +112,7 @@ function main() {
   }
   console.log(`messages.update de mensagens nossas (casados por keyId): ${r.updatesCasados}`);
   console.log(`eco do envio como messages.upsert fromMe: ${r.ecoDoEnvio} | mensagens "pelo celular": ${r.peloCelular}`);
+  console.log(`mensagens de telefone que não é B nem C (fora da amostra): ${r.deFora}`);
   console.log(`VEREDITO: ${r.veredito} (${r.amostras} respostas a envios nossos, ${r.orfas} sem ligação determinística)`);
   process.exit(r.veredito === "GO" ? 0 : 1);
 }

@@ -5,7 +5,7 @@
 //   pedido <seq> | pedidos-1 | pedidos-pix | carrinhos | entregues [alias,alias] | atualizados | copiar-link <seq> <caminho.do.campo>
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
-import { ALIASES_ENVIADO, NOME_DO_AVISO, assertAvisoNosso, caminhoNoObjeto, contarEntregues, dentroDoIntervalo, dirBruto, dormir, gravarJson, lerEstado, lerEvento, lerJson, mesclarEstado, pedidosDaJanela, pedirEnv, perfilDosClientes, temMarcador } from "./comum.mjs";
+import { ALIASES_ENVIADO, NOME_DO_AVISO, assertAvisoNosso, caminhoNoObjeto, contarEntregues, dentroDoIntervalo, dirBruto, dormir, gravarJson, lerEstado, lerEvento, lerJson, mesclarEstado, pedidosDaJanela, pedirEnv, perfilDosClientes, tampaDeSegredo, temMarcadorDeCliente } from "./comum.mjs";
 
 const BASE = process.env.FASE0_YAMPI_BASE ?? "https://api.dooki.com.br/v2";
 const EVENTOS = ["cart.reminder", "order.created", "order.paid", "order.status.updated", "transaction.payment.refused"];
@@ -117,17 +117,23 @@ async function webhookCriar(lista) {
     console.log(`webhook-criar ${erro(r)}`);
     process.exit(1);
   }
-  try {
-    await entregarSegredo(aviso.secret_key);
-  } catch (e) {
-    await api("DELETE", `/webhooks/${aviso.id}`);
-    console.log(`webhook-criar: ${e.message}. O aviso foi apagado.`);
-    process.exit(1);
+  // sem secret_key na resposta não há o que entregar: a assinatura sai sem_segredo (honesto), não invalido
+  const segredo = typeof aviso.secret_key === "string" && aviso.secret_key ? aviso.secret_key : null;
+  if (segredo) {
+    try {
+      await entregarSegredo(segredo);
+    } catch (e) {
+      await api("DELETE", `/webhooks/${aviso.id}`);
+      console.log(`webhook-criar: ${e.message}. O aviso foi apagado.`);
+      process.exit(1);
+    }
   }
-  const { secret_key: _segredo, ...semSegredo } = aviso; // a chave nunca vai para o disco
-  gravarJson(join(bruto, "api", "webhook-criado.json"), { status: r.status, data: semSegredo });
+  // a chave nunca vai para o disco: no lugar dela, um marcador do mesmo tamanho (o S3 do plano 6 confere o formato)
+  const { secret_key: _segredo, ...semSegredo } = aviso;
+  gravarJson(join(bruto, "api", "webhook-criado.json"), { status: r.status, data: segredo ? { ...semSegredo, secret_key: tampaDeSegredo(segredo) } : semSegredo });
   mesclarEstado({ yampiWebhookId: aviso.id }, bruto);
-  console.log(`webhook-criar http=${r.status} id=${aviso.id} active=${aviso.active} eventos=${eventos.length} secret_key=${String(aviso.secret_key).length} caracteres (entregue ao servidor local, não gravada)`);
+  const sobreOSegredo = segredo ? `secret_key=${segredo.length} caracteres (entregue ao servidor local, não gravada)` : "sem secret_key na resposta: nada entregue, a assinatura vai sair sem_segredo (anotar em Y9)";
+  console.log(`webhook-criar http=${r.status} id=${aviso.id} active=${aviso.active} eventos=${eventos.length} ${sobreOSegredo}`);
 }
 
 async function webhookListar(sufixo) {
@@ -167,7 +173,7 @@ async function pedido(seq) {
   const nome = String(seq).padStart(3, "0");
   for (const [sufixo, caminho, consulta] of [["", `/orders/${id}`, { include: INCLUDE_PEDIDO }], ["-transacoes", `/orders/${id}/transactions`, {}]]) {
     const r = await api("GET", caminho, { consulta });
-    const meu = r.status === 200 && temMarcador(r.texto);
+    const meu = r.status === 200 && temMarcadorDeCliente(r.json);
     if (meu) gravarJson(join(bruto, "api", `pedido-seq${nome}${sufixo}.json`), r.json);
     console.log(`pedido ${seq}${sufixo} http=${r.status} ms=${r.ms} ${meu ? `gravado status=${dados(r)[0]?.status?.data?.alias ?? "-"}` : "NÃO gravado (sem marcador)"}`);
   }
@@ -176,7 +182,7 @@ async function pedido(seq) {
 // A leitura barata do teste de conexão do plano 6 (`GET /orders?limit=1`). Só grava se o pedido mais novo for do teste.
 async function pedidos1() {
   const r = await api("GET", "/orders", { consulta: { limit: 1, include: "customer,transactions,status" } });
-  const meu = r.status === 200 && temMarcador(r.texto);
+  const meu = r.status === 200 && temMarcadorDeCliente(r.json);
   if (meu) gravarJson(join(dirBruto(), "api", "pedidos-1.json"), r.json);
   console.log(`pedidos-1 http=${r.status} ms=${r.ms} ${meu ? "gravado (o pedido mais novo é do teste)" : "NÃO gravado: o pedido mais novo não é do teste; criar outro pedido de teste e repetir"}`);
 }
@@ -199,7 +205,7 @@ async function variantes(nome, caminho, lista, resumo) {
   const bruto = dirBruto();
   for (const [rotulo, consulta] of lista) {
     const r = await paginar(caminho, consulta);
-    const meus = r.itens.filter((item) => temMarcador(JSON.stringify(item)));
+    const meus = r.itens.filter((item) => temMarcadorDeCliente(item));
     console.log(`${nome} variante=${rotulo} http=${r.status} total=${r.total ?? "?"} baixados=${r.itens.length} do_teste=${meus.length}${r.falha ? ` ${r.falha}` : ""}`);
     if (meus.length) gravarJson(join(bruto, "api", `${nome}-${rotulo}.json`), { data: meus, meta: { total: r.total, baixados: r.itens.length } });
     for (const item of meus) console.log(`  ${resumo(item)}`);
@@ -277,7 +283,7 @@ async function atualizados() {
   for (const [rotulo, filtro, inicio, fim] of variantes) {
     const r = await paginar("/orders", { include: "customer", ...filtro }, 3);
     const c = dentroDoIntervalo(r.itens, inicio, fim);
-    const doTeste = r.itens.filter((p) => temMarcador(JSON.stringify(p))).length;
+    const doTeste = r.itens.filter((p) => temMarcadorDeCliente(p)).length;
     gravarJson(join(dirBruto(), "api", `atualizados-${rotulo}.json`), { http: r.status, total: r.total, baixados: r.itens.length, inicio, fim, ...c, doTeste });
     console.log(`atualizados variante=${rotulo} http=${r.status} total=${r.total ?? "?"} baixados=${r.itens.length} dentro=${c.dentro} fora=${c.fora} semData=${c.semData} doTeste=${doTeste}${r.falha ? ` ${r.falha}` : ""}`);
   }
