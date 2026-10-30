@@ -43,7 +43,7 @@ Termina exatamente onde termina a responsabilidade do executor.
 
 - Worker (`apps/worker`) de pé. Confirmado vivo em 29/07: último evento processado
   há ~1 min, 309 eventos em 24 h. Bloco 0 do SQL confirma no momento do teste.
-- Instância conectada. Hoje: tenant `9888373f-…`, número `556298191314`, `connected`.
+- Instância conectada. Hoje: tenant `9888373f-…`, número `5562XXXXXXXX`, `connected`.
 - **Um grupo de teste onde o número conectado seja admin**, com só os seus números.
 
 > Por que admin: `lead-capture.ts` ignora de propósito grupos onde não somos admin
@@ -75,7 +75,7 @@ Termina exatamente onde termina a responsabilidade do executor.
 | # | Observação | Resultado |
 | --- | --- | --- |
 | 1 | `engine_events` | `add` em `TESTE AUTOMAÇAO`, `processed` às 18:43:33 |
-| 2 | `leads` | lead `556281980074` criado às 18:43:32 |
+| 2 | `leads` | lead `5562XXXXXXXX` criado às 18:43:32 |
 | 3 | `automation_runs` | run criado, `dedupe_key = lead:f69f0d07…:1a0d0737…` |
 | 4 | passo `wait` | `current_step 0 → 1`, `next_step_at` 18:48:34 (+5 min exatos), lease devolvida |
 | 5 | passo `message` | `current_step 1 → 2` → `done` às 18:48:40 |

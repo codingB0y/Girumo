@@ -570,43 +570,43 @@ import test from "node:test";
 import { normalizePhoneBR, validateDemoRequest } from "./request-validation";
 
 test("aceita celular com máscara e devolve só dígitos", () => {
-  assert.equal(normalizePhoneBR("(62) 99819-1314"), "62998191314");
+  assert.equal(normalizePhoneBR("(62) 9XXXX-XXXX"), "629XXXXXXXX");
 });
 
 test("aceita +55 na frente e descarta o país", () => {
-  assert.equal(normalizePhoneBR("+55 62 99819-1314"), "62998191314");
-  assert.equal(normalizePhoneBR("5562998191314"), "62998191314");
+  assert.equal(normalizePhoneBR("+55 62 9XXXX-XXXX"), "629XXXXXXXX");
+  assert.equal(normalizePhoneBR("55629XXXXXXXX"), "629XXXXXXXX");
 });
 
 test("recusa fixo — o produto manda no WhatsApp", () => {
   // 10 dígitos, sem o 9 do celular.
-  assert.equal(normalizePhoneBR("(62) 3212-1314"), null);
+  assert.equal(normalizePhoneBR("(62) 3XXX-XXXX"), null);
 });
 
 test("recusa DDD inválido e número curto", () => {
-  assert.equal(normalizePhoneBR("(00) 99819-1314"), null);
+  assert.equal(normalizePhoneBR("(00) 9XXXX-XXXX"), null);
   assert.equal(normalizePhoneBR("99819"), null);
 });
 
 test("payload válido passa e vem normalizado", () => {
-  const r = validateDemoRequest({ name: "  Igor Toledo ", phone: "+55 62 99819-1314", stepReached: 3 });
+  const r = validateDemoRequest({ name: "  Igor Toledo ", phone: "+55 62 9XXXX-XXXX", stepReached: 3 });
   assert.equal(r.ok, true);
-  assert.deepEqual(r.ok && r.value, { name: "Igor Toledo", phone: "62998191314", stepReached: 3 });
+  assert.deepEqual(r.ok && r.value, { name: "Igor Toledo", phone: "629XXXXXXXX", stepReached: 3 });
 });
 
 test("nome vazio ou só espaço é recusado com mensagem de gente", () => {
-  const r = validateDemoRequest({ name: "   ", phone: "62998191314" });
+  const r = validateDemoRequest({ name: "   ", phone: "629XXXXXXXX" });
   assert.equal(r.ok, false);
   assert.equal(r.ok === false && r.error, "Preencha seu nome.");
 });
 
 test("nome absurdamente longo é recusado", () => {
-  const r = validateDemoRequest({ name: "a".repeat(121), phone: "62998191314" });
+  const r = validateDemoRequest({ name: "a".repeat(121), phone: "629XXXXXXXX" });
   assert.equal(r.ok, false);
 });
 
 test("telefone inválido é recusado com mensagem própria", () => {
-  const r = validateDemoRequest({ name: "Igor", phone: "3212-1314" });
+  const r = validateDemoRequest({ name: "Igor", phone: "3XXX-XXXX" });
   assert.equal(r.ok, false);
   assert.equal(r.ok === false && r.error, "Informe um celular com DDD e WhatsApp.");
 });
@@ -620,9 +620,9 @@ test("body que não é objeto não derruba a rota", () => {
 });
 
 test("stepReached fora da faixa do roteiro vira null em vez de sujar o banco", () => {
-  const r = validateDemoRequest({ name: "Igor", phone: "62998191314", stepReached: 99 });
+  const r = validateDemoRequest({ name: "Igor", phone: "629XXXXXXXX", stepReached: 99 });
   assert.equal(r.ok && r.value.stepReached, null);
-  const s = validateDemoRequest({ name: "Igor", phone: "62998191314", stepReached: "dois" });
+  const s = validateDemoRequest({ name: "Igor", phone: "629XXXXXXXX", stepReached: "dois" });
   assert.equal(s.ok && s.value.stepReached, null);
 });
 ```
@@ -848,7 +848,7 @@ const PHONE_MAX = 2;
 
 const SALES_WHATSAPP_URL =
   process.env.NEXT_PUBLIC_SALES_WHATSAPP_URL ||
-  "https://wa.me/5562998191314?text=Ol%C3%A1!%20Quero%20agendar%20uma%20demonstra%C3%A7%C3%A3o.";
+  "https://wa.me/55629XXXXXXXX?text=Ol%C3%A1!%20Quero%20agendar%20uma%20demonstra%C3%A7%C3%A3o.";
 
 /**
  * POST /api/demo/request — captura do CTA "agendar demonstração" em /demo.
@@ -922,7 +922,7 @@ Expected: sem erro.
 Subir o dev server e exercitar os três desfechos — inclusive o **controle negativo**, porque 401 e 307 são iguais para rota que não existe:
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:3000/api/demo/request -H 'content-type: application/json' -d '{"name":"Teste","phone":"62998191314","stepReached":3}'
+curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:3000/api/demo/request -H 'content-type: application/json' -d '{"name":"Teste","phone":"629XXXXXXXX","stepReached":3}'
 curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:3000/api/demo/request -H 'content-type: application/json' -d '{"name":"","phone":"x"}'
 curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:3000/api/demo/rota-que-nao-existe -H 'content-type: application/json' -d '{}'
 ```
@@ -1248,7 +1248,7 @@ test("o formulário recusa telefone que não é celular", async ({ page }) => {
   for (let i = 0; i < 3; i++) await page.getByTestId("demo-advance").click();
 
   await page.getByTestId("demo-cta-name").fill("Teste E2E");
-  await page.getByTestId("demo-cta-phone").fill("(62) 3212-1314");
+  await page.getByTestId("demo-cta-phone").fill("(62) 3XXX-XXXX");
   await page.getByTestId("demo-cta-submit").click();
 
   await expect(page.getByTestId("demo-cta-error")).toBeVisible();

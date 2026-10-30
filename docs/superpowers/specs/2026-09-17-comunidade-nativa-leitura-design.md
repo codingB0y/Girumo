@@ -118,7 +118,7 @@ O dado mais valioso do mutirão não foi o vínculo, e sim o `members` de cada p
 | `120363317004683243` | **Avisos** da `#1` | **1.984** |
 | `120363314352216368` | pai da `#1` | 1 |
 | `120363047246515568` | filho (`#112`) | 59 |
-| `556284947821-1556328662` | filho (`#114`) | 61 |
+| `5562XXXXXXXX-1556328662` | filho (`#114`) | 61 |
 
 **O grupo de Avisos carrega a contagem de toda a comunidade, já deduplicada pelo
 WhatsApp.** O grupo-pai é só um contêiner (1 membro). Isso significa que o alcance
