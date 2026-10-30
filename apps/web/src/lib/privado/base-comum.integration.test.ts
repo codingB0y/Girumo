@@ -224,6 +224,11 @@ test("memberships.modules: a vendedora recebe recuperar e rastreio; módulo fora
   const mudar = (modules: string[]) =>
     db().from("memberships").update({ modules }).eq("tenant_id", loja).eq("user_id", vendedora.id);
   assert.equal((await mudar(["postar", "recuperar", "rastreio"])).error, null);
+  // Ter o módulo não abre a leitura direta: o RLS é avaliado a cada requisição, então o mesmo JWT já vale.
+  for (const tabela of TABELAS_DO_NUMERO) {
+    assert.equal(await visiveis(vendedora.token, tabela, loja), 0,
+      `a vendedora com recuperar e rastreio leu ${tabela} direto do banco`);
+  }
   recusa((await mudar(["recuperar", "vendas"])).error, "23514", "memberships_modules_validos");
   assert.equal((await mudar([])).error, null);
 });
@@ -348,14 +353,17 @@ test("limpar_dados_vencidos_comuns: aviso com mais de 30 dias e conversa parada 
   const eventoNovo = await inserir<{ id: string }>("yampi_events", evento(29, "novo"));
   const conversa = (fone: string, campos: Record<string, unknown>) =>
     inserir<{ id: string }>("private_conversations", { tenant_id: loja, instance_id: numeroLoja, phone: fone, ...campos });
-  const parada = await conversa("5562900000001", { created_at: ha(200), last_message_at: ha(181) });
+  // A limpeza é global e outros runs do CI a chamam em paralelo contra este mesmo banco: parada e respondeu
+  // nascem novas (uma limpeza alheia não as apaga antes da mensagem e do comando entrarem) e só envelhecem
+  // logo antes do rpc daqui.
+  const parada = await conversa("5562900000001", {});
   const msgParada = await inserir<{ id: string }>("private_messages", { tenant_id: loja, conversation_id: parada.id,
-    direction: "entrada", author: "cliente", text: "oi", created_at: ha(181) });
+    direction: "entrada", author: "cliente", text: "oi" });
   const comando = await inserir<{ id: string }>("engine_commands", { tenant_id: loja, instance_id: numeroLoja,
     type: "dm_text", status: "canceled", payload: {}, private_message_id: msgParada.id, dm_module: "recuperar",
     valid_until: ha(180) });
   // last_message_at ficou para trás, mas a cliente escreveu ontem.
-  const respondeu = await conversa("5562900000002", { created_at: ha(200), last_message_at: ha(181) });
+  const respondeu = await conversa("5562900000002", {});
   const msgOntem = await inserir<{ id: string }>("private_messages", { tenant_id: loja, conversation_id: respondeu.id,
     direction: "entrada", author: "cliente", text: "e aí?", created_at: ha(1) });
   // Loja só com o Rastreio: a resposta não vira mensagem, só last_inbound_at.
@@ -363,6 +371,16 @@ test("limpar_dados_vencidos_comuns: aviso com mais de 30 dias e conversa parada 
   const vaziaVelha = await conversa("5562900000004", { created_at: ha(181) });
   const vaziaNova = await conversa("5562900000005", {});
   const saiu = await inserir<{ id: string }>("private_optouts", { tenant_id: loja, phone: "5562900000001", at: ha(400) });
+
+  // Envelhece na ordem mensagem, depois conversas: uma limpeza alheia só enxerga o estado final esperado.
+  const { error: erroMsg } = await db().from("private_messages").update({ created_at: ha(181) })
+    .eq("tenant_id", loja).eq("id", msgParada.id);
+  assert.equal(erroMsg, null, `envelhecer msgParada: ${JSON.stringify(erroMsg)}`);
+  for (const id of [parada.id, respondeu.id]) {
+    const { error: erroConversa } = await db().from("private_conversations")
+      .update({ created_at: ha(200), last_message_at: ha(181) }).eq("tenant_id", loja).eq("id", id);
+    assert.equal(erroConversa, null, `envelhecer conversa ${id}: ${JSON.stringify(erroConversa)}`);
+  }
 
   const { data: apagados, error } = await db().rpc("limpar_dados_vencidos_comuns");
   assert.equal(error, null);

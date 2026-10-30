@@ -49,7 +49,8 @@ begin
     if has_table_privilege('anon', r, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER')
        or has_any_column_privilege('anon', r, 'SELECT, INSERT, UPDATE, REFERENCES')
        or has_table_privilege('authenticated', r, 'INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER')
-       or has_any_column_privilege('authenticated', r, 'INSERT, UPDATE, REFERENCES')
+       or has_any_column_privilege('authenticated', r,
+            case when v_leitura then 'INSERT, UPDATE, REFERENCES' else 'SELECT, INSERT, UPDATE, REFERENCES' end)
        or has_table_privilege('authenticated', r, 'SELECT') <> v_leitura then
       raise exception 'FALHOU: privilégio de anon ou authenticated fora do contrato em % (authenticated só lê as private_*)', t;
     end if;
@@ -209,6 +210,11 @@ begin
 end $$;
 
 reset role;
+
+-- Rede de segurança: se o cliente não honrar o rollback, nada disto fica.
+revoke insert (tenant_id, recuperar_enabled, rastreio_enabled) on public.tenant_settings from authenticated;
+delete from public.organizations
+where id in ('ab1a0000-0000-4000-8000-00000000000a', 'ab1a0000-0000-4000-8000-00000000000b');
 
 -- 5) Assinaturas para a baseline (as doze chaves do Task 2, Step 3).
 select json_object_agg(kind || '|' || nome, sig order by kind || '|' || nome collate "C") as r

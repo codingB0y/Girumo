@@ -100,7 +100,7 @@ create table if not exists public.private_conversations (
   id                uuid primary key default gen_random_uuid(),
   tenant_id         uuid not null references public.organizations(id) on delete cascade,
   instance_id       uuid not null references public.instances(id) on delete cascade,
-  phone             text check (phone ~ '^[0-9]{10,13}$'),
+  phone             text check (phone ~ '^[1-9][0-9]{9,12}$'),
   phone_key         text generated always as (public.phone_key(phone)) stored,
   jid               text,
   lid               text,
@@ -151,7 +151,7 @@ create table if not exists public.private_messages (
   priority            text check (priority in ('resposta', 'pix', 'pedido', 'carrinho')),
   dedupe_key          text,
   part_index          smallint not null default 0 check (part_index between 0 and 2),
-  phone               text check (phone ~ '^[0-9]{10,13}$'),   -- destino, só dígitos
+  phone               text check (phone ~ '^[1-9][0-9]{9,12}$'),   -- destino, só dígitos (10 a 13, sem zero à esquerda: phone_key tiraria o zero)
   created_at          timestamptz not null default now(),
   updated_at          timestamptz not null default now(),
   constraint private_messages_direcao_do_autor check ((direction = 'entrada') = (author = 'cliente')),
@@ -210,7 +210,7 @@ create index if not exists private_signals_instance_at_idx on public.private_sig
 create table if not exists public.private_optouts (
   id          uuid primary key default gen_random_uuid(),
   tenant_id   uuid not null references public.organizations(id) on delete cascade,
-  phone       text not null check (phone ~ '^[0-9]{10,13}$'),
+  phone       text not null check (phone ~ '^[1-9][0-9]{9,12}$'),
   phone_key   text generated always as (public.phone_key(phone)) stored,
   module      text check (module in ('recuperar', 'rastreio', 'teste')),
   at          timestamptz not null default now(),
