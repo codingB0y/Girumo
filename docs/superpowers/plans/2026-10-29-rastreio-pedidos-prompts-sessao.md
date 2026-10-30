@@ -20,7 +20,9 @@ parar se estiver diferente.
 Ordem (detalhe no índice; vários PRs são divididos em Partes, cada Parte um PR): **B·1a** (base) → **1** banco →
 **2** pedidos (a Parte 1 logo; a Parte 2 depois de **B·6** e **B·6b**, a conexão Yampi) → **3** página, **4** e-mail e
 **6** painel (podem ir em paralelo; a Parte 2 do 3 espera a Parte 1 do 4; o 6 usa os cartões do B·2b e do B·6c) →
-**5** WhatsApp (depois do 4, da Parte 2 do 3 e de B·3, B·4) → **7** privacidade e prova. Nenhuma loja ganha
+**5** WhatsApp (depois do 4, da Parte 2 do 3 e de B·3, B·4) → **7** privacidade e prova. O **8** (Melhor Envio:
+entregue e não entregue) vem logo depois do 4 se as provas 4 e 5 da Fase 0 pedirem; o plano dele é escrito com o
+resultado delas. Nenhuma loja ganha
 `rastreio_enabled` antes do B·2a em `main` e do redeploy do worker.
 
 ---
@@ -62,7 +64,9 @@ a spec. Se algo num plano não bater com o código de main, pare, diga o que nã
    select status, blocker from public.board_features where key = 'rastreio-pedidos' (prod).
 5. Confira a Fase 0 do spec (§10; a prova da Yampi é a mesma do Recuperar,
    docs/superpowers/plans/2026-10-29-recuperar-yampi-fase-0-provas.md): a Parte 2 do PR 2 só começa com o payload
-   real da Yampi provado; a Parte 1 (núcleo puro) não espera.
+   real da Yampi provado; a Parte 1 (núcleo puro) não espera. As provas 4 ("entregue" chegando à Yampi) e 5 (o
+   Melhor Envio enxerga as etiquetas da piloto) decidem se o PR 8 entra logo depois do 4; sem o resultado delas, o
+   PR 8 não tem plano e não começa.
 6. Leia o índice e o plano do próximo PR. Responda com: o que da base e da série já está em main, o próximo PR
    (ou os que podem ir em paralelo), e o checklist das tarefas dele. Pare.
 
