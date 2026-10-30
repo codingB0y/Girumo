@@ -22,7 +22,9 @@ dados, §3 = fluxos, §9 = PRs, §10 = Fase 0). Ler inteira antes do primeiro PR
 `C:\Users\Igor\Desktop\girumo-design-refs\rastreio-pedidos\project\` (`Pedido`, `Problema`, `Main` = busca,
 `WhatsApp`, `Email`, `Integracoes`, `Rastreio`, `Entregas`, `Estrutura` `.dc.html`).
 **Base comum:** spec do Recuperar, `docs/superpowers/specs/2026-10-29-recuperar-yampi-design.md` (§2, §3 "Conectar a
-Yampi", "Aviso da Yampi", "Envio", "Resposta", "Base do privado"; §9 PRs "comum").
+Yampi", "Aviso da Yampi", "Envio", "Resposta", "Base do privado"; §9 PRs "comum"), e os planos dela,
+`docs/superpowers/plans/2026-10-29-recuperar-yampi-*.md` (índice `-00-indice.md`, seção "Contrato comum"; commit
+7225b674 na branch `docs/recuperar-spec` até o PR de docs do Recuperar entrar em `main`).
 **Card do quadro (prod):** `rastreio-pedidos`. **Prompt para o chat de implementação:**
 `docs/superpowers/plans/2026-10-29-rastreio-pedidos-prompts-sessao.md`.
 
@@ -30,13 +32,13 @@ Yampi", "Aviso da Yampi", "Envio", "Resposta", "Base do privado"; §9 PRs "comum
 
 | PR | O quê | Depende de | Plano |
 |---|---|---|---|
-| B | Base comum, nos planos do Recuperar: 1a banco comum (com `rastreio_enabled`), 2 número do atendimento, 3 envio de DM, 4 resposta e status, 6 conexão Yampi | — | do Recuperar |
+| B | Base comum, nos planos do Recuperar: **1a** banco comum (com `rastreio_enabled`) · **2a** número do atendimento: seletores · **2b** conectar e cartão · **3** envio de DM · **4** resposta e status · **6** Yampi: aviso e processador · **6b** cliente da API, 401 e cron · **6c** cartão em Integrações | — (ordem da base: 1a → 2a → 2b → Fase 0 → (3 → 4) junto com (6 → 6b → 6c)) | `2026-10-29-recuperar-yampi-01a-banco-comum.md`, `-02-numero-do-atendimento.md`, `-03-envio-de-dm.md`, `-04-resposta-e-status.md`, `-06-conexao-yampi.md` |
 | 1 · Partes 1–2 | Banco do Rastreio (migração, conferência, baseline) · tipos, stores e `API_CONTRACTS.md` | B·1a (a flag mora lá) | `2026-10-29-rastreio-pedidos-pr1-banco.md` |
-| 2 · Partes 1–2 | Núcleo puro (etapa, documento, pedido da Yampi, avisar, link; pode ir antes da Fase 0) · loja, registro, importação, varredura, cron e gancho na base | 1, B·6 (a Parte 1 só do 1) | `…-pr2-pedidos.md` |
+| 2 · Partes 1–2 | Núcleo puro (etapa, documento, pedido da Yampi, avisar, link; pode ir antes da Fase 0) · loja, registro, importação, varredura, cron e entrada em `CONSUMIDORES` | 1; a Parte 2 também B·6 e B·6b | `…-pr2-pedidos.md` |
 | 3 · Partes 1–2 | Página no `www` e registros · domínio do lojista, "parar avisos", convite e e2e | 2; a Parte 2 também o 4·1 (`conviteDoGrupo`) | `…-pr3-pagina.md` |
 | 4 · Partes 1–3 | `fromName` e layout da loja + `conviteDoGrupo` · envio e retentativa · e-mail de problema à loja | 2 | `…-pr4-email.md` |
-| 6 · Partes 1–5 | API das Entregas · liberação · rota da configuração · Configurações › Rastreio · Entregas + bloco da Yampi | 2 (o cartão do número do atendimento espera B·2) | `…-pr6-painel.md` |
-| 5 | WhatsApp: mensagens, envio pela base, status, fallback para e-mail, cancelar no "parar" | 4, 3·2, B·2, B·3, B·4 | `…-pr5-whatsapp.md` |
+| 6 · Partes 1–5 | API das Entregas · liberação · rota da configuração · Configurações › Rastreio · Entregas + bloco da Yampi | 2; o cartão do número do atendimento espera B·2b e o bloco no cartão da Yampi, B·6c | `…-pr6-painel.md` |
+| 5 | WhatsApp: mensagens, envio pela base, status, fallback para e-mail, cancelar no "parar" | 4, 3·2, B·3, B·4 (que já vêm depois de B·2a e B·2b) | `…-pr5-whatsapp.md` |
 | 7 | `/privacidade`, prova em prod, card | 3, 4, 6 (e 5, se já estiver no ar) | `…-pr7-privacidade-prova.md` |
 
 Ondas (regra de waves: arquivos disjuntos e sem dependência): o **1** vem logo depois do B·1a. Depois do **2**, os
@@ -46,6 +48,10 @@ Parte 2 do 3 espera a Parte 1 do 4. O **5** vem depois do 4 e da Parte 2 do 3 (m
 e-mail vão ao ar antes do WhatsApp. Com a Fase 0 (spec §10) pendente, o PR 1 pode ir a `main`; o 2 espera a prova do
 payload da Yampi. Um chip só para Rastreio e Recuperar (decisão do Igor, 29/10); na tela ele se chama **"número do
 atendimento"**.
+
+**Nenhuma loja ganha `rastreio_enabled` antes do B·2a em `main` e do redeploy do worker no Coolify** (regra da base:
+o worker antigo escolheria o número do atendimento para o auto-grow e as ações em massa). Vale para a liberação do
+admin (PR 6) e para a prova (PR 7).
 
 ## Contrato entre os PRs
 
@@ -163,7 +169,8 @@ export type AvisoParaEnviar = { id: string; orderId: string; etapa: EtapaComAvis
 - `lib/rastreio/pedido-yampi.ts`: `pedidoDaYampi(payload: unknown, pepper: string): PedidoParaGravar | null` (zod;
   payload malformado → `null`).
 - `lib/rastreio/avisar.ts`: `canaisDoAviso(e: { gravado: PedidoGravado; origem: OrigemDoPedido; atualizadoNaYampi: string; agora: Date; matriz: MatrizAvisos; paradoEm: string | null; temTelefone: boolean; temEmail: boolean }): Canal[]`
-- `lib/rastreio/registrar.ts`: `registrarPedidoDaYampi(tenantId: string, payload: unknown, origem: OrigemDoPedido): Promise<{ gravado: PedidoGravado; avisos: { id: string; canal: Canal }[] } | null>`;
+- `lib/rastreio/registrar.ts`: `registrarPedidoDaYampi(tenantId: string, payload: unknown, origem: OrigemDoPedido): Promise<{ gravado: PedidoGravado; avisos: { id: string; canal: Canal }[] } | null>`
+  (`payload` = o pedido como a Yampi manda: o `e.recurso` do aviso, ou o item da API na importação e na varredura);
   `avisarLojaDoProblema(tenantId: string, pedido: { id: string; numero: string }): Promise<boolean>` (sininho
   `rastreio_problema`, dedupe por select; `true` = criou agora).
 - `lib/rastreio/loja.ts`: `type LojaDoRastreio = { tenantId: string; nome: string; publicSlug: string; dominio: string | null; corPrimaria: string | null; storeWhatsapp: string | null; vipLinkId: string | null }`;
@@ -198,42 +205,68 @@ export type AvisoParaEnviar = { id: string; orderId: string; etapa: EtapaComAvis
   `/api/rastreio/config`, `/api/rastreio/entregas`, `/api/rastreio/entregas/[id]/reenviar`, `/api/rastreio/saude`;
   `Porta` ganha `"Rastreio de pedidos"`; `Liberacao` ganha `"rastreio"`.
 
-## Contrato pedido à base (a confirmar com os planos do Recuperar)
+## Contrato da base (fixado no índice do Recuperar)
 
-O spec do Recuperar deixa os nomes finais a quem constrói (§11 dele). Estes são os que o Rastreio consome; foram
-pedidos à sessão do Recuperar em 29/10. Se o plano da base escolher outros, o executor do PR 2/5 troca aqui e no plano
-dele, no mesmo PR, e anota no PR.
+Fonte: `docs/superpowers/plans/2026-10-29-recuperar-yampi-00-indice.md`, seção "Contrato comum" (commit 7225b674).
+Abaixo, só o que o Rastreio usa. Se a base mudar um nome antes de ir a `main`, o executor do PR da vez troca aqui e
+no plano dele, no mesmo PR, e anota no PR.
 
 ```ts
-// apps/web/src/lib/yampi/ (B·6)
-export type ConexaoYampi = { id: string; tenantId: string; alias: string; status: "ativa" | "credencial_invalida" | "aviso_desativado" | "desconectada" };
-export async function conexaoYampiAtiva(tenantId: string): Promise<ConexaoYampi | null>;
-export async function yampiGet<T>(conexao: ConexaoYampi, caminho: string, query?: Record<string, string>): Promise<T>; // lança YampiErro { status }
-export async function processarEventoYampi(eventoId: string): Promise<void>; // chamado em after() e na retentativa
-// apps/web/src/lib/privado/dm.ts (B·3 e B·4). Um número `privado` por loja; os ids devolvidos são da `private_messages`
-export type ModuloPrivado = "recuperar" | "rastreio";
-export type StatusDm = "na_fila" | "enviada" | "entregue" | "lida" | "falhou" | "cancelada"; // vencido no valid_until = cancelada
-export type ParteDm = { texto: string } | { imagem: string; legenda?: string }; // 1 a 3 partes, em ordem
-export async function numeroDoAtendimento(tenantId: string): Promise<{ instanceId: string; estado: "conectado" | "aquecendo" | "pausado" | "caido" } | null>; // em lib/privado/numero.ts (B·2), reexportado por dm.ts
-export async function enfileirarDm(e: { tenantId: string; modulo: ModuloPrivado; telefone: string; partes: ParteDm[]; prioridade: "resposta" | "pix" | "pedido" | "carrinho"; validoAte: Date; dedupeKey: string; autor?: { tipo: "automatico" } | { tipo: "pessoa"; userId: string } }): Promise<{ messageIds: string[] } | { recusado: "sem_numero" | "modulo_desligado" | "bloqueado" }>;
-// dedupeKey repetida devolve os mesmos ids (idempotente). O Rastreio manda partes: [{ texto }] e guarda messageIds[0].
-export async function statusDosDms(tenantId: string, messageIds: string[]): Promise<Record<string, StatusDm>>;
-export async function cancelarDms(tenantId: string, messageIds: string[]): Promise<number>;
-// yampiGet aceita query Record<string, string | number>; YampiErro é classe (extends Error) com readonly status.
-// componente do painel (B·2): CartaoNumeroDoAtendimento em apps/web/src/components/privado/cartao-numero-do-atendimento.tsx,
-// o mesmo nos Ajustes do Recuperar e nas Configurações › Rastreio de pedidos; o PR 6 só o importa.
-// cron comum /api/cron/yampi (B·6): saúde do aviso na Yampi (recria se caiu) e retentativa de evento parado.
-// Não varre pedidos: a varredura por updated_at é do cron do Rastreio.
+// apps/web/src/lib/privado/numero.ts (B·2b; dm.ts reexporta numeroDoAtendimento e o tipo)
+export type NumeroDoAtendimento = { instanceId: string; instanceName: string; status: string; phone: string | null };
+export async function numeroDoAtendimento(tenantId: string): Promise<NumeroDoAtendimento | null>; // o Rastreio não chama
+export async function privadoLiberado(tenantId: string): Promise<boolean>;      // recuperar_enabled || rastreio_enabled
+export async function pausaDoNumero(tenantId: string, instanceId: string): Promise<string | null>; // o Rastreio não chama
+
+// apps/web/src/lib/privado/dm.ts (B·3). Um número `privado` por loja; os ids são da `private_messages`
+export type ModuloPrivado = "recuperar" | "rastreio" | "teste";
+export type PrioridadeDm = "resposta" | "pix" | "pedido" | "carrinho";     // no teto do número, nessa ordem
+export type StatusDm = "na_fila" | "enviada" | "entregue" | "lida" | "falhou" | "cancelada";
+export type ParteDm = { texto: string } | { imagem: string; legenda?: string }; // 1 a 3, em ordem
+export interface PedidoDeDm { tenantId: string; modulo: ModuloPrivado; telefone: string; partes: ParteDm[];
+  prioridade: PrioridadeDm; validoAte: Date; dedupeKey: string; autor?: { tipo: "automatico" } | { tipo: "pessoa"; userId: string } }
+export type ResultadoDm = { messageIds: string[] } | { recusado: "sem_numero" | "modulo_desligado" | "bloqueado" };
+export async function enfileirarDm(pedido: PedidoDeDm): Promise<ResultadoDm>; // pedido inválido LANÇA (dedupeKey > 200, validoAte no passado)
+export async function statusDosDms(tenantId: string, messageIds: string[]): Promise<Record<string, { status: StatusDm; erro: string | null }>>;
+export async function cancelarDms(tenantId: string, messageIds: string[]): Promise<number>; // quantas mudaram
+
+// apps/web/src/lib/yampi/ (B·6 e B·6b; sem arquivo-barril)
+// tipos.ts: StatusYampi, EventoYampi e ConexaoYampi ({ id, tenantId, alias, status, … credenciais seladas, lastEventAt… })
+// consumidores.ts (B·6) — o ponto de extensão:
+export type EventoParaConsumir = { eventoId: string; tenantId: string; conexao: ConexaoYampi; evento: EventoYampi; time: string | null; recurso: unknown; payload: unknown };
+export type ConsumidorDeEvento = { nome: string; eventos: readonly EventoYampi[]; ligado: (tenantId: string) => Promise<boolean>; consumir: (e: EventoParaConsumir) => Promise<unknown> };
+export const CONSUMIDORES: readonly ConsumidorDeEvento[]; // vazio no B·6; cada módulo acrescenta a sua entrada no próprio PR
+// cliente.ts (B·6b), reexportado por api.ts:
+export class YampiErro extends Error { readonly status: number; readonly retryAfterMs: number | null } // status 0 = sem resposta
+// api.ts (B·6b):
+export async function yampiGet<T>(conexao: ConexaoYampi, caminho: string, query?: Record<string, string | number>): Promise<T>;
+// conexao.ts (B·6b):
+export async function conexaoYampiAtiva(tenantId: string): Promise<ConexaoYampi | null>; // ativa OU aviso_desativado (a credencial vale)
 ```
 
-Adotado pela sessão do Recuperar no índice dela (`docs/superpowers/plans/2026-10-29-recuperar-yampi-00-indice.md`,
-seção "Contrato comum", branch `docs/recuperar-spec`). Planos da base: `2026-10-29-recuperar-yampi-01a-banco-comum.md`,
-`-02-numero-do-atendimento.md`, `-03-envio-de-dm.md`, `-04-resposta-e-status.md`, `-06-conexao-yampi.md`.
-
-O PR 2 liga o Rastreio no processador da base: para `order.created`, `order.paid` e `order.status.updated`, com
-`rastreioLigado(tenantId)`, chama `registrarPedidoDaYampi(tenantId, payload, "aviso")`. O processador só marca o evento
-processado depois de todos os módulos; os dois lados são idempotentes, então a retentativa (do cron comum
-`/api/cron/yampi`) roda os dois de novo. O cron do Rastreio não reprocessa a inbox.
+- **`erro` do `statusDosDms`** = `private_messages.error`, código fixo, nulo enquanto a mensagem não falhou nem foi
+  cancelada. Com `cancelada`: `vencida` (passou do `valid_until`), `cancelada` (`cancelarDms`), `bloqueado` (SAIR ou
+  `optouts` depois de enfileirar), `parte_anterior`, `trava_numero`. Com `falhou`: `sem_whatsapp`, `modulo_desligado`,
+  `trava_numero`, `payload_invalido`, `destino_invalido`, `tipo_inesperado` e, esgotadas as tentativas, `restricao`,
+  `evolution_<status http>`, `erro_de_envio`, `sem_instancia`, `imagem_indisponivel`. O aviso do Rastreio grava
+  `erro ?? status` no `error` dele.
+- **Número caído:** a DM entra na fila e vence no `validoAte` (`cancelada`/`vencida`); `sem_numero` só quando a loja
+  não tem número do atendimento.
+- **401** em `yampiGet` marca a conexão `credencial_invalida` e avisa no sino uma vez (a base); conexão já inválida
+  lança `YampiErro(401)` sem chamar a Yampi.
+- **Gancho do Rastreio (PR 2):** uma entrada em `CONSUMIDORES` —
+  `{ nome: "rastreio", eventos: ["order.created", "order.paid", "order.status.updated"], ligado: rastreioLigado,
+  consumir: (e) => registrarPedidoDaYampi(e.tenantId, e.recurso, "aviso") }`. O processador (`processarEventoYampi`,
+  B·6) chama só os consumidores ligados que assinam o evento e marca o evento processado depois de todos; a
+  retentativa é do cron comum `/api/cron/yampi` (B·6b: evento parado entre 3 min e 24 h, até 50 por execução; aviso da
+  Yampi conferido e recriado se caiu; limpeza da base às 06:00 UTC). O cron do Rastreio não reprocessa a inbox: ele
+  varre pedidos por `updated_at`.
+- **Painel:** `CartaoNumeroDoAtendimento` (`components/privado/cartao-numero-do-atendimento.tsx`, B·2b) é sem props e
+  lê `GET /api/privado/numero`; o cartão da Yampi é `Yampi({ children })`
+  (`components/painel/configuracoes/yampi.tsx`, B·6c), e os blocos de cada módulo entram como `children` (só aparecem
+  com conexão). O PR 6 só importa os dois.
+- **Fora da v1 do Rastreio:** `CONSUMIDORES_DE_RESPOSTA` (B·4; o SAIR já cancela os DMs pendentes da conversa dos dois
+  módulos) e o aviso de pausa do número no sininho (da base; em loja só com o Rastreio, chega sem link).
 
 ## Global Constraints
 
@@ -259,7 +292,10 @@ processado depois de todos os módulos; os dois lados são idempotentes, então 
   "Aviso automático de pedido · para parar, use o link acima". Sem primeiro nome, "Oi, {primeiro nome}!" vira "Olá!".
   Sem serviço, some o "({serviço})".
 - DM: módulo `rastreio`, `partes: [{ texto }]`, prioridade `pedido` (no teto: resposta > pix > pedido > carrinho),
-  validade **24 h**, `dedupeKey` `rastreio:<id do aviso>:<resends>`.
+  validade **24 h**, `dedupeKey` `rastreio:<id do aviso>:<resends>`. Status pelo `statusDosDms`: `falhou` ou
+  `cancelada` → aviso `falhou` com `error = erro ?? status` e e-mail no lugar (com o número caído, isso só acontece no
+  vencimento, em até 24 h; nas etapas com e-mail ligado na matriz o e-mail já saiu na hora).
+- Nenhuma loja ganha `rastreio_enabled` antes do B·2a em `main` e do redeploy do worker (ver "Ordem e dependências").
 - Retenção: `purge_after` = **90 dias** depois de `entregue`/`cancelado`; o purge roda uma vez por dia (06:00 UTC).
 - Segredos: `RASTREIO_DOC_PEPPER` (≥ 32 caracteres, nos dois ambientes da Vercel); e-mail selado com
   `INTEGRATIONS_ENCRYPTION_KEY` (`lib/security/secret-box.ts`). Documento nunca em texto, nem em log.

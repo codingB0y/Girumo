@@ -10,17 +10,18 @@ parar se estiver diferente.
 | O quê | Onde |
 |---|---|
 | Spec (regras no §1, dados no §2, PRs no §9, Fase 0 no §10) | `docs/superpowers/specs/2026-10-29-rastreio-pedidos-design.md` |
-| Índice (ordem, contrato entre PRs, contrato pedido à base, regras comuns) | `docs/superpowers/plans/2026-10-29-rastreio-pedidos-00-indice.md` |
+| Índice (ordem, contrato entre PRs, contrato da base, regras comuns) | `docs/superpowers/plans/2026-10-29-rastreio-pedidos-00-indice.md` |
 | Planos (um por PR) | `docs/superpowers/plans/2026-10-29-rastreio-pedidos-pr*.md` |
-| Base comum (conexão Yampi e número do atendimento) | spec e planos do Recuperar (`docs/superpowers/specs/2026-10-29-recuperar-yampi-design.md`, PRs "comum": 1a, 2, 3, 4, 6) |
+| Base comum (conexão Yampi e número do atendimento) | spec e planos do Recuperar: `docs/superpowers/specs/2026-10-29-recuperar-yampi-design.md` e `docs/superpowers/plans/2026-10-29-recuperar-yampi-*.md` (PRs "comum": 1a, 2a, 2b, 3, 4, 6, 6b; o cartão da Yampi no 6c) |
 | Mockup navegável (privado) | https://claude.ai/artifact/MWC77x1LE213aFpNFQ7Z8c |
 | Fonte do mockup (fora do repo: tem o nome da loja-piloto) | `C:\Users\Igor\Desktop\girumo-design-refs\rastreio-pedidos\project\` |
 | Card do quadro (prod) | `rastreio-pedidos` |
 
 Ordem (detalhe no índice; vários PRs são divididos em Partes, cada Parte um PR): **B·1a** (base) → **1** banco →
-**B·6** (conexão Yampi) → **2** pedidos → **3** página, **4** e-mail e **6** painel (podem ir em paralelo; a Parte 2
-do 3 espera a Parte 1 do 4) → **5** WhatsApp (depois do 4, da Parte 2 do 3 e de B·2, B·3, B·4) → **7** privacidade e
-prova.
+**2** pedidos (a Parte 1 logo; a Parte 2 depois de **B·6** e **B·6b**, a conexão Yampi) → **3** página, **4** e-mail e
+**6** painel (podem ir em paralelo; a Parte 2 do 3 espera a Parte 1 do 4; o 6 usa os cartões do B·2b e do B·6c) →
+**5** WhatsApp (depois do 4, da Parte 2 do 3 e de B·3, B·4) → **7** privacidade e prova. Nenhuma loja ganha
+`rastreio_enabled` antes do B·2a em `main` e do redeploy do worker.
 
 ---
 
@@ -38,14 +39,16 @@ a spec. Se algo num plano não bater com o código de main, pare, diga o que nã
 - Spec: docs/superpowers/specs/2026-10-29-rastreio-pedidos-design.md
 - Plano do PR da vez: docs/superpowers/plans/2026-10-29-rastreio-pedidos-pr<N>-*.md (cada um termina com
   "Interface com os outros PRs": é o contrato com os vizinhos)
-- A base comum (conexão Yampi, número do atendimento) vem dos planos do Recuperar. O índice do Rastreio lista,
-  em "Contrato pedido à base", os nomes que o Rastreio consome: confira em main que existem; se a base usou
-  outro nome, troque no plano e no código no mesmo PR e anote.
+- A base comum (conexão Yampi, número do atendimento) vem dos planos do Recuperar
+  (docs/superpowers/plans/2026-10-29-recuperar-yampi-*.md). O índice do Rastreio lista, em "Contrato da base", os
+  nomes que o Rastreio consome: confira em main que existem; se a base mudou um nome, troque no plano e no código
+  no mesmo PR e anote.
 - Mockup: https://claude.ai/artifact/MWC77x1LE213aFpNFQ7Z8c. Fonte local:
   C:\Users\Igor\Desktop\girumo-design-refs\rastreio-pedidos\project\. Tem o nome da loja-piloto: NUNCA copie
   dado de cliente para o repo (é público); testes usam dado inventado ("Loja Exemplo", CPF gerado no teste).
-- Se os documentos ainda não estiverem em main, leia da branch: git fetch origin docs/rastreio-pedidos e
-  git show origin/docs/rastreio-pedidos:<caminho>.
+- Os documentos do Rastreio estão em main (PR #537 e o ajuste do contrato da base). Os do Recuperar, se ainda não
+  estiverem, leia da branch dele: git fetch origin docs/recuperar-spec e
+  git show origin/docs/recuperar-spec:<caminho>.
 
 ## Turno 1: só conferências, depois encerre o turno
 1. mcp__ccd_connectors__session_connectors_status: só o Supabase ligado entre os conectores. Sobrou outro:
@@ -57,7 +60,9 @@ a spec. Se algo num plano não bater com o código de main, pare, diga o que nã
 4. Confira em main o que já entrou: git fetch origin main; git log origin/main --oneline --grep "rastreio";
    git log origin/main --oneline --grep "recuperar\|yampi\|privado" (base). E o card:
    select status, blocker from public.board_features where key = 'rastreio-pedidos' (prod).
-5. Confira a Fase 0 do spec (§10): o PR 2 só começa com o payload real da Yampi provado.
+5. Confira a Fase 0 do spec (§10; a prova da Yampi é a mesma do Recuperar,
+   docs/superpowers/plans/2026-10-29-recuperar-yampi-fase-0-provas.md): a Parte 2 do PR 2 só começa com o payload
+   real da Yampi provado; a Parte 1 (núcleo puro) não espera.
 6. Leia o índice e o plano do próximo PR. Responda com: o que da base e da série já está em main, o próximo PR
    (ou os que podem ir em paralelo), e o checklist das tarefas dele. Pare.
 
@@ -77,7 +82,8 @@ a spec. Se algo num plano não bater com o código de main, pare, diga o que nã
   MCP. A baseline segue o plano do PR 1; o job drift do CI confirma.
 - Regras que mais mordem (CLAUDE.md e memória valem por inteiro): .eq('tenant_id') em toda query de tabela com
   tenant_id; CPF/CNPJ nunca em texto nem em log; nenhum atributo style= no HTML público (CSP com nonce); GET de
-  página pública nunca muda nada ("parar avisos" só por POST); antes do push,
+  página pública nunca muda nada ("parar avisos" só por POST); nenhuma loja ganha rastreio_enabled (nem pelo
+  admin do PR 6) antes do B·2a em main e do redeploy do worker no Coolify; antes do push,
   infra/scripts/verify-local.ps1 (os dois tsc e o build) — lint e tsx --test não checam tipo; PowerShell 5.1
   (sem &&); conferir git diff --cached em chamada separada antes de commitar.
 - Revisão de segurança (agente Security Engineer) antes de mergear os PRs 1, 3, 4 · Parte 1 e 5.
