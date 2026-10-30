@@ -57,7 +57,11 @@ export function celulares(env = process.env) {
 export function veredictoAssinatura(corpo, cabecalho, segredo) {
   if (!segredo) return "sem_segredo";
   if (!cabecalho) return "sem_cabecalho";
-  const igual = (a, b) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
+  // compara em bytes: cabeçalho com caractere fora do ASCII tem mais bytes que caracteres, e o timingSafeEqual lançaria
+  const igual = (a, b) => {
+    const [x, y] = [Buffer.from(a), Buffer.from(b)];
+    return x.length === y.length && timingSafeEqual(x, y);
+  };
   const mac = (dados, formato) => createHmac("sha256", segredo).update(dados).digest(formato);
   if (igual(mac(corpo, "base64"), cabecalho)) return "ok";
   if (igual(mac(corpo, "hex"), cabecalho)) return "so_hex";

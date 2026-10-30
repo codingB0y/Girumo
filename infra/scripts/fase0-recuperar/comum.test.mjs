@@ -59,6 +59,11 @@ test("assinatura: diagnostica as variantes que a doc não deixa claras", () => {
   assert.equal(veredictoAssinatura(corpo, assinar(reserializado), SEGREDO), "so_json_reserializado");
 });
 
+test("assinatura: cabeçalho com byte fora do ASCII é inválido, não derruba a captura", () => {
+  // 44 caracteres como o base64 do HMAC, mas 88 bytes: timingSafeEqual lançaria e o handler async mataria o processo
+  assert.equal(veredictoAssinatura(Buffer.from('{"event":"order.paid"}'), "é".repeat(44), SEGREDO), "invalido");
+});
+
 test("marcador: e-mail sem diferença de caixa e telefone em qualquer formatação", () => {
   assert.equal(temMarcador('{"email":"Dono@Real.com"}', ["dono@real.com"]), true);
   assert.equal(temMarcador('{"formated_number":"(21) 98765-4321"}', ["987654321"]), true);
