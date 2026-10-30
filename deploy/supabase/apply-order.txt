@@ -572,3 +572,13 @@ apps/web/supabase/migrations/20261020120000_aviso_lotou_sem_estrutura.sql
 apps/web/supabase/migrations/20261023120000_antiban_saidas_e_todos.sql
 # 26/10: teto de 4 posts por grupo por dia (enqueue_broadcast deixa de fora, promote_due_schedules ignora na oferta e notifica). Muda a baseline.
 apps/web/supabase/migrations/20261026120000_teto_posts_por_grupo.sql
+# 2026-10-30 - Recuperar, PR 1a: base comum com o Rastreio (spec 2026-10-29-recuperar-yampi-design §2).
+# yampi_connections (credencial selada, CHECK do formato), yampi_events (30 dias), private_conversations,
+# private_messages, private_number_state, private_signals, private_optouts; instances.purpose (uma
+# 'privado' por loja), campos do DM em engine_commands, tenant_settings.recuperar_enabled/rastreio_enabled
+# (trava: so o servidor liga), memberships.modules aceita recuperar/rastreio, limpeza
+# public.limpar_dados_vencidos_comuns(). RLS ligado; authenticated so le as cinco private_* da loja
+# (policy app.user_tenant_ids, vendedora fora); yampi_* so service_role. Muda a
+# baseline (10 t| e 2 f|). O gate nao ve RLS, ACL, CHECK, indice, trigger nem corpo: conferir com
+# infra/tests/base-comum-yampi-privado-check.sql nos dois bancos.
+apps/web/supabase/migrations/20261030120000_base_comum_yampi_privado.sql
