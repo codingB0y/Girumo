@@ -271,13 +271,15 @@ async function entregues(aliases) {
 // atualizado hoje, é a testemunha (`doTeste`). Dia de Brasília (UTC-3), o mesmo das datas da Yampi. Só contagens.
 async function atualizados() {
   const diaBrasilia = (diasAtras) => dia(new Date(Date.now() - 3 * 36e5 - diasAtras * UM_DIA));
-  const [hoje, antes] = [diaBrasilia(0), diaBrasilia(2)];
+  const [amanha, hoje, antes] = [diaBrasilia(-1), diaBrasilia(0), diaBrasilia(2)];
   const variantes = [["sem-filtro", {}, antes, hoje]];
   for (const [chave, prefixo] of [["date", "plana"], ["filters[date]", "filters"]]) {
     variantes.push(
-      [`${prefixo}-dias`, { [chave]: `updated_at:${antes}|${hoje}` }, antes, hoje],
-      [`${prefixo}-hoje`, { [chave]: `updated_at:${hoje}|${hoje}` }, hoje, hoje],
-      [`${prefixo}-hora`, { [chave]: `updated_at:${hoje} 00:00:00|${hoje} 23:59:59` }, hoje, hoje],
+      [`${prefixo}-ate-hoje`, { [chave]: `updated_at:${antes}|${hoje}` }, antes, hoje],
+      [`${prefixo}-ate-amanha`, { [chave]: `updated_at:${antes}|${amanha}` }, antes, amanha],
+      [`${prefixo}-hora-dia`, { [chave]: `updated_at:${hoje} 00:00:00|${hoje} 23:59:59` }, hoje, hoje],
+      // Deixa de fora a hora em que a testemunha foi atualizada: se ela vier mesmo assim, a hora é ignorada.
+      [`${prefixo}-hora-estreita`, { [chave]: `updated_at:${hoje} 00:00:00|${hoje} 00:00:01` }, hoje, hoje],
     );
   }
   for (const [rotulo, filtro, inicio, fim] of variantes) {

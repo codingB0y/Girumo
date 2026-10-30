@@ -20,7 +20,8 @@ async function montar(t, responder) {
   const bruto = prepararBruto(mkdtempSync(join(tmpdir(), "fase0-")));
   const { controle } = criarCaptura({ bruto, tokens: { caminho: "tok", imagem: "img" }, marcas: ["dono@real.com"] });
   const yampi = createServer((req, res) => {
-    const r = responder(req.method, new URL(req.url, "http://x").pathname);
+    const url = new URL(req.url, "http://x");
+    const r = responder(req.method, url.pathname, url);
     res.writeHead(r.status ?? 200, { "content-type": "application/json" }).end(JSON.stringify(r.json ?? {}));
   });
   const [pc, py] = [await ouvir(controle), await ouvir(yampi)];
@@ -58,6 +59,26 @@ test("webhook-criar sem secret_key na resposta não entrega nada: a assinatura s
   assert.match(r.saida, /sem secret_key/);
   assert.equal((await estado(pc)).temSegredo, false);
   assert.equal(JSON.parse(readFileSync(join(bruto, "estado.json"), "utf8")).yampiWebhookId, 8);
+});
+
+test("atualizados (Y26): sem filtro e 4 variantes por forma, com fim hoje e amanhã e janela de hora estreita", async (t) => {
+  const filtros = [];
+  const { bruto, env } = await montar(t, (metodo, caminho, url) => {
+    if (!caminho.endsWith("/orders")) return { status: 404 };
+    filtros.push(url.searchParams.get("date") ?? url.searchParams.get("filters[date]") ?? "-");
+    return { json: { data: [], meta: { pagination: { total: 0, total_pages: 1 } } } };
+  });
+  const r = await rodar(["atualizados"], env);
+  assert.equal(r.codigo, 0, r.saida);
+  const dia = (n) => new Date(Date.now() - 3 * 36e5 - n * 864e5).toISOString().slice(0, 10); // dia de Brasília, n dias atrás
+  assert.equal(filtros.length, 9);
+  for (const esperado of [`updated_at:${dia(2)}|${dia(-1)}`, `updated_at:${dia(0)} 00:00:00|${dia(0)} 00:00:01`]) {
+    assert.equal(filtros.filter((f) => f === esperado).length, 2, esperado); // uma na forma plana, outra em filters[]
+  }
+  const arquivos = readdirSync(join(bruto, "api"));
+  for (const rotulo of ["sem-filtro", "plana-ate-hoje", "plana-ate-amanha", "plana-hora-dia", "plana-hora-estreita", "filters-ate-hoje", "filters-ate-amanha", "filters-hora-dia", "filters-hora-estreita"]) {
+    assert.ok(arquivos.includes(`atualizados-${rotulo}.json`), rotulo);
+  }
 });
 
 test("pedidos-pix baixa a lista mas só grava o pedido da cliente de teste (o telefone B no Pix da loja não conta)", async (t) => {
