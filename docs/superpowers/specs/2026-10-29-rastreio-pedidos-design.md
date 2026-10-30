@@ -413,9 +413,14 @@ ir ao ar antes do WhatsApp. O PR 1 pode sair antes da Fase 0. Implementação em
 Provas, sem código de produto (a 1 é a mesma do Recuperar):
 
 1. **Payload real da Yampi** da piloto: `customer` (cpf/cnpj, `type`, nome, e-mail, telefone), `track_code`, aliases
-   de status, `include=statuses` com data, assinatura. Contar quantos pedidos são PJ ou vêm sem documento.
-2. **Código de rastreio chegando à Yampi**: nos pedidos enviados dos últimos 30 dias, quantos têm `track_code`.
-   Critério: **≥ 80%** com código (ou causa conhecida e consertável: ligar a sincronização do Bling ou usar o app do
+   de status, `include=statuses` com data, assinatura. Medida no levantamento da Fase 0 do Recuperar
+   (`docs/superpowers/plans/_recuperar-fase-0-resultado.md`): **Y24** (`customer.type`, campos de CPF/CNPJ preenchidos
+   e quantos pedidos vêm sem documento), **Y25** (histórico de status com data, no pedido de teste), **Y26** (se a lista
+   filtra por `updated_at`, que a varredura do PR 2 usa) e **Y27** (campos do aviso `order.status.updated`, que viram
+   fixtures redigidas em `apps/web/src/lib/yampi/__fixtures__/`).
+2. **Código de rastreio chegando à Yampi**: nos pedidos da janela da prova 4 que foram enviados (passaram por um
+   status de envio ou estão entregues; o `track_code` fica fora do critério, para a conta não ser circular), quantos
+   têm `track_code`. Linha **Y23** do mesmo resultado. Critério: **≥ 80%** com código (ou causa conhecida e consertável: ligar a sincronização do Bling ou usar o app do
    Melhor Envio da Yampi). Abaixo disso, o aviso "enviado" fica desligado até consertar; página e demais etapas valem.
 3. **Base do privado** provada pela base (chip de teste, envio, status por id, número sem WhatsApp).
 4. **"Entregue" chegando à Yampi**: nos pedidos da piloto criados entre 45 e 15 dias atrás que foram enviados (têm
@@ -424,20 +429,25 @@ Provas, sem código de produto (a 1 é a mesma do Recuperar):
    data de envio. Medida no levantamento da Fase 0 do Recuperar (comando `entregues`): linha **Y22** de
    `docs/superpowers/plans/_recuperar-fase-0-resultado.md`. Critério: **abaixo de 80%** → o PR 8 (Melhor Envio) entra
    logo depois do e-mail, se a prova 5 passar; 80% ou mais → o PR 8 fica para depois.
-5. **O Melhor Envio enxerga as etiquetas da piloto**: com o app de teste da Girumo autorizado só para leitura na conta
-   do Melhor Envio da piloto (no sandbox, se der para reproduzir), conferir: (a) se ele lista as etiquetas criadas
-   pelo app da Yampi, pelo Bling e pelo site; (b) se acha a etiqueta pelo código que está na Yampi, e se esse código é
-   o `tracking` ou o `self_tracking`; (c) qual campo traz a data de cada marco; (d) o que o `paused` cobre em etiquetas
-   reais. Sem (a) ou (b), o PR 8 não anda: entregue e problema ficam com a lojista (ou com um serviço pago de rastreio,
-   fase 4).
+5. **O Melhor Envio enxerga as etiquetas da piloto**: com o app da Girumo autorizado só para leitura (`orders-read` e
+   `shipping-tracking`) na conta do Melhor Envio da piloto, conferir: (a) se ele lista as etiquetas da conta, venham do
+   app da Yampi, do Bling ou do site; (b) se acha a etiqueta pelo código que está na Yampi, e se esse código é o
+   `tracking` ou o `self_tracking`; (c) qual campo traz a data de cada marco; (d) o que o `paused` cobre em etiquetas
+   reais. Plano: `docs/superpowers/plans/2026-10-30-rastreio-pedidos-fase-0-melhor-envio.md`; resultado nas linhas M1
+   a M7 de `docs/superpowers/plans/_rastreio-fase-0-resultado.md` (só contagens). Veredito (M7): 80% ou mais dos
+   códigos da Yampi achados → passa; nenhum achado, ou nenhuma etiqueta listada → não passa; entre os dois, o Igor
+   decide. Sem (a) ou (b), o PR 8 não anda: entregue e problema ficam com a lojista (ou com um serviço pago de
+   rastreio, fase 4).
 
 Roteiro do Igor para a piloto: o chip do número do atendimento (o mesmo do Recuperar); alias, token e chave da Yampi
 (Perfil › Credenciais de API; trocar a senha da Yampi troca o token); desligar o e-mail de rastreio do Melhor Envio
 (ou deixar o nosso desligado); com o Recuperar desligado, a mensagem de ausência no WhatsApp Business do chip (§1.4);
-link da página no menu da loja Yampi e na bio; `RASTREIO_DOC_PEPPER` na Vercel (os dois ambientes). Para as provas
-4 e 5 e o PR 8: criar o app da Girumo no Melhor Envio (Integrações › Área Dev; produção exige conta PF verificada, com
-documento e selfie), pôr `MELHORENVIO_CLIENT_ID` e `MELHORENVIO_CLIENT_SECRET` na Vercel (os dois ambientes) e
-autorizar o app na conta da piloto.
+link da página no menu da loja Yampi e na bio; `RASTREIO_DOC_PEPPER` na Vercel (os dois ambientes). Para a prova 5 e
+o PR 8: criar o app da Girumo no Melhor Envio (Integrações › Área Dev; produção exige conta PF verificada, com
+documento e selfie), com o callback `https://www.girumo.com.br/api/integracoes/melhor-envio/retorno` e o e-mail técnico
+`contato@girumo.com.br`. Na prova, o Client ID e o Client Secret são digitados na janela do Igor e o acesso é removido
+no fim; para o PR 8, `MELHORENVIO_CLIENT_ID` e `MELHORENVIO_CLIENT_SECRET` vão para a Vercel (os dois ambientes) e a
+piloto autoriza de novo pelo fluxo de produção.
 
 ## Decisões tomadas por mim (conferir)
 
