@@ -7,7 +7,8 @@ Integrações › Yampi, Configurações › Rastreio de pedidos, Vendas › Ent
 **Card do quadro:** `rastreio-pedidos` (prod, `nao_existe`)
 **Pesquisa com fontes:** repo privado `girumo-notas`, `docs/superpowers/specs/2026-10-29-rastreio-pedidos-pesquisa.md`
 **Depende de:** spec do Recuperar (`docs/superpowers/specs/2026-10-29-recuperar-yampi-design.md`, branch
-`docs/recuperar-spec`, commit 6655d66d), que desenha a **base comum** — conexão com a Yampi (`yampi_connections`,
+`docs/recuperar-spec`, commit 6655d66d; planos em `docs/superpowers/plans/2026-10-29-recuperar-yampi-*.md`, com o
+contrato da base na seção "Contrato comum" do índice, commit 7225b674), que desenha a **base comum** — conexão com a Yampi (`yampi_connections`,
 `yampi_events`, webhook `?c=<id>`) e a **base do privado** (um número `instances.purpose = 'privado'` por loja, comum
 aos dois módulos — na tela, **"número do atendimento"** —, `private_conversations`, `private_messages` com módulo,
 `key.id` e status, `private_number_state` com o horário do número, `private_signals`, `private_optouts`, trava no
@@ -54,11 +55,11 @@ Regra durável afetada: [nunca DM] — a exceção vale só para o número de pr
 
 | Base (spec do Recuperar) | O Rastreio precisa |
 |---|---|
-| Webhook único da loja (`?c=<id>`) e `yampi_events` (inbox, 30 dias) | eventos `order.created`, `order.paid`, `order.status.updated` no mesmo webhook; ler da inbox por tipo de evento |
-| Reconciliação no cron | pedidos por `updated_at` (cursor por loja), porque o Rastreio vive de mudança de status; se a reconciliação da base não cobrir, o Rastreio tem cursor próprio no cron dele (§3.2) |
+| Webhook único da loja (`?c=<id>`), `yampi_events` (inbox, 30 dias) e o processador com `CONSUMIDORES` | a entrada `rastreio` em `CONSUMIDORES` assina `order.created`, `order.paid` e `order.status.updated` e chama `registrarPedidoDaYampi(e.tenantId, e.recurso, "aviso")`; a retentativa de evento parado é do cron comum `/api/cron/yampi` |
+| Cliente da API da Yampi (`yampiGet`, `YampiErro` com `retryAfterMs`, 401 marca a conexão) | a importação de 30 dias e a varredura de pedidos por `updated_at` (cursor próprio no cron do Rastreio, §3.2: a base não varre pedidos) |
 | Um número `privado` por loja; DM só sai dele e só com a flag do módulo ligada | `rastreio_enabled` (criada no banco comum) libera o módulo `rastreio`; o número segue mandando aviso se o Recuperar for desligado |
 | Comando de DM com módulo de origem, prioridade e `valid_until` | prioridade do aviso de pedido abaixo do Pix e acima do carrinho; validade de 24 h |
-| `private_messages` (módulo, texto, `key.id`, status) + `messages.update` consumido | guardar o id da `private_messages` no aviso e ler enviado/entregue/lido/falhou por ele; nenhuma coluna nova na `private_messages` (o módulo `rastreio` basta para a etiqueta em Conversas) |
+| `private_messages` (módulo, texto, `key.id`, status, código de erro) + `messages.update` consumido | guardar o id da `private_messages` no aviso e ler status e erro por ele (`statusDosDms`); nenhuma coluna nova na `private_messages` (o módulo `rastreio` basta para a etiqueta em Conversas) |
 | `whatsappNumbers` antes do 1º envio; barreira com `optouts` por `phone_key()` e `private_optouts` (SAIR, vale para os dois módulos) | igual; número sem WhatsApp devolve falha que o Rastreio converte em e-mail |
 | Teto, intervalo, horário e pausa **do número**, divididos entre os dois módulos (jitter permitido; sem texto girado nem "digitando", por `hubflow-engine/DECISIONS.md`; pausa de proteção vale para o número inteiro) | volume baixo (1 a 4 avisos por pedido); no teto, depois do Pix e antes do carrinho; "conversa nova" = 1ª mensagem do pedido para telefone que nunca escreveu |
 | Cartão do número do atendimento (estado, aquecimento, ritmo, horário, conectar) | o Rastreio mostra o mesmo cartão nas Configurações dele; o horário é do número e muda por qualquer um dos dois módulos |
@@ -104,7 +105,9 @@ Quem for construído primeiro faz a base (PR "base" no §9). O Rastreio não ree
 - Telefone em `optouts` da loja (por `phone_key()`) ou em `private_optouts` (mandou SAIR no número de privado) não
   recebe WhatsApp — a barreira é da base; e-mail continua.
 - WhatsApp que falha (número sem WhatsApp, inválido, comando vencido em 24 h) vira e-mail no lugar, se a compradora
-  tem e-mail e o e-mail daquela etapa ainda não saiu ("WhatsApp falhou · e-mail enviado" no mockup).
+  tem e-mail e o e-mail daquela etapa ainda não saiu ("WhatsApp falhou · e-mail enviado" no mockup). Com o número do
+  atendimento caído, a DM espera na fila e só vence no fim das 24 h; por isso o e-mail no lugar pode chegar até 24 h
+  depois (nas etapas com e-mail ligado na matriz, o e-mail já saiu na hora).
 
 ### 1.3 Busca
 
@@ -283,7 +286,7 @@ Contratos em `system/API_CONTRACTS.md` no PR do banco.
 |---|---|
 | Webhook duplicado ou fora de ordem | upsert + etapa que não volta; aviso único por chave |
 | Pedido sem documento, sem celular ou sem e-mail | grava; a busca não acha sem documento/celular; canal sem contato não gera aviso |
-| Número de privado caído ou restrito | os comandos falham/vencem pela base → e-mail no lugar |
+| Número do atendimento caído ou restrito | as DMs falham ou vencem pela base (em até 24 h) → e-mail no lugar |
 | Loja com Bling e Yampi | o Rastreio lê só a Yampi; `orders` (vendas do funil) segue só pelo Bling |
 | Loja desliga o Rastreio | página 404, cron pula a loja; dados ficam até o `purge_after` |
 | Pedido de PJ | busca por CNPJ; primeiro nome vem do nome do contato ou fica em branco ("Olá!") |
@@ -317,8 +320,9 @@ Contratos em `system/API_CONTRACTS.md` no PR do banco.
 0. **Base** — PRs do spec do Recuperar marcados "comum": **1a** banco comum (`yampi_connections`, `yampi_events`, o
    número `privado` por loja, `private_conversations`, `private_messages`, `private_number_state`, `private_signals`,
    `private_optouts`, campos do DM no `engine_commands`, as flags `recuperar_enabled` e `rastreio_enabled`, CHECK dos
-   módulos), **2** número de privado, **3** envio de DM, **4** resposta e status, **6** conexão Yampi. Quem chegar
-   primeiro faz.
+   módulos), **2a** número do atendimento: seletores, **2b** conectar e cartão, **3** envio de DM, **4** resposta e
+   status, **6** Yampi: aviso e processador, **6b** cliente da API, 401 e cron (o cartão da Yampi, que o painel do
+   Rastreio usa, é do **6c**). Quem chegar primeiro faz.
 1. **Banco do Rastreio** — `tracking_orders`, `tracking_notices`, `tracking_settings`, RPCs; tipos e stores;
    `API_CONTRACTS.md`; baseline; `infra/tests/rastreio-check.sql`. Depende do 1a (a flag mora lá).
 2. **Pedidos** — etapas (puro), documento, consumidor da inbox, importação de 30 dias, cron do Rastreio.
@@ -330,7 +334,9 @@ Contratos em `system/API_CONTRACTS.md` no PR do banco.
    flag e menu.
 7. **Privacidade e prova** — `/privacidade`, roteiro de prova em prod, card.
 
-Ordem: B·1a → 1 → B·6 → 2 → (3, 4, 6) → 5; o 5 espera também B·2, B·3 e B·4. Página e e-mail podem
+Ordem: B·1a → 1 → (B·6, B·6b) → 2 → (3, 4, 6) → 5; o 5 espera também B·3 e B·4; o 6 usa os cartões do B·2b e
+do B·6c. Nenhuma loja ganha `rastreio_enabled` antes do B·2a em `main` e do redeploy do worker (regra da base: o
+worker antigo escolheria o número do atendimento para o auto-grow e as ações em massa). Página e e-mail podem
 ir ao ar antes do WhatsApp. O PR 1 pode sair antes da Fase 0. Implementação em outro chat, PR a PR (índice em
 `docs/superpowers/plans/2026-10-29-rastreio-pedidos-00-indice.md`).
 

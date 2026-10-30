@@ -9,8 +9,8 @@ nova e recente cria os `tracking_notices` dos canais ligados (e o sininho do pro
 **Architecture:** Um núcleo puro traduz o pedido da Yampi (`pedidoDaYampi`: etapa, documento em HMAC, telefone
 canônico, primeiro nome, histórico) e escolhe os canais (`canaisDoAviso`). `registrarPedidoDaYampi` grava pela RPC do
 PR 1 (que segura "a etapa não volta") e só cria aviso quando a RPC diz que a etapa mudou, o pedido é recente, a loja
-tem plano e a config manda. O processador da base chama o registro no aviso da Yampi; o cron `/api/cron/rastreio`
-liga a loja nova (config + importação), varre e faz o purge diário.
+tem plano e a config manda. O processador da base chama o registro no aviso da Yampi, por uma entrada `rastreio` em
+`CONSUMIDORES`; o cron `/api/cron/rastreio` liga a loja nova (config + importação), varre e faz o purge diário.
 
 **Tech Stack:** TypeScript strict, zod 4, `node:crypto` (HMAC), route handler do Next, `tsx --test` (node:test) com
 dependências injetadas (molde `DepsBio`, `lib/bio/rota-publica.ts`) e PostgREST falso (molde
@@ -24,7 +24,7 @@ dependências injetadas (molde `DepsBio`, `lib/bio/rota-publica.ts`) e PostgREST
 | Parte | O quê | Depende de | Branch |
 |---|---|---|---|
 | 1 · Núcleo | etapas, documento, pedido da Yampi, canais, links (Tasks 1–6) | PR 1 em `main` | `feat/rastreio-pr2-pedidos-p1` |
-| 2 · Registro e cron | loja, registro, importação e varredura, cron, ligação no processador da base (Tasks 7–12) | Parte 1, B·6, prova 1 da Fase 0 | `feat/rastreio-pr2-pedidos-p2` |
+| 2 · Registro e cron | loja, registro, importação e varredura, cron, entrada em `CONSUMIDORES` (Tasks 7–12) | Parte 1, B·6 e B·6b, prova 1 da Fase 0 | `feat/rastreio-pr2-pedidos-p2` |
 
 A Parte 1 não chama banco nem base e aceita os dois formatos plausíveis do payload (include com e sem `data`, data em
 texto ou no objeto da Yampi): pode ir a `main` antes da Fase 0.
@@ -32,8 +32,8 @@ texto ou no objeto da Yampi): pode ir a `main` antes da Fase 0.
 ## Antes de começar (cada parte)
 
 1. Worktree a partir de `origin/main` (junctions: "Ambiente do worktree" do índice): `git fetch origin main; git worktree add .claude/worktrees/rastreio-pr2-p1 -b feat/rastreio-pr2-pedidos-p1 origin/main` (Parte 2: `-p2`).
-2. Em `main`: Parte 1 → `git ls-tree -r --name-only origin/main -- apps/web/src/lib/rastreio/tipos.ts apps/web/src/lib/stores/rastreio-pedidos.ts apps/web/src/lib/stores/rastreio-avisos.ts apps/web/src/lib/stores/rastreio-config.ts` lista os 4. Parte 2 → `git grep -n -E "export (async function|class) (conexaoYampiAtiva|yampiGet|YampiErro|processarEventoYampi)" origin/main -- apps/web/src/lib/yampi` mostra os 4; os imports `@/lib/yampi/…` das Tasks 9–11 usam o arquivo que ele mostrar (o contrato fixa só a pasta).
-3. Parte 2, com a prova 1 da Fase 0: conferir (a) include em `{ data }`; (b) formato de `created_at`/`updated_at` e se `updated_at` vem no `resource` do aviso (se não vier, `consumirAvisoDaYampi` passa `{ ...resource, updated_at: envelope.time }`); (c) `customer.type` da PJ; (d) `customer.phone` e `first_name`; (e) `statuses` com data; (f) se `date=updated_at:` aceita hora e se o fim é inclusivo. Divergiu → ajustar `pedido-yampi.ts` e `src/test/rastreio-dados-falsos.ts` num commit `fix(rastreio): …` antes da Task 7.
+2. Em `main`: Parte 1 → `git ls-tree -r --name-only origin/main -- apps/web/src/lib/rastreio/tipos.ts apps/web/src/lib/stores/rastreio-pedidos.ts apps/web/src/lib/stores/rastreio-avisos.ts apps/web/src/lib/stores/rastreio-config.ts` lista os 4. Parte 2 → B·6 e B·6b em `main`: `git grep -n -E "export (const CONSUMIDORES|async function processarEventoYampi|type ConexaoYampi)" origin/main -- apps/web/src/lib/yampi/consumidores.ts apps/web/src/lib/yampi/processar.ts apps/web/src/lib/yampi/tipos.ts` mostra os 3 (B·6) e `git grep -n -E "export (async function (conexaoYampiAtiva|yampiGet)|class YampiErro)" origin/main -- apps/web/src/lib/yampi/conexao.ts apps/web/src/lib/yampi/api.ts apps/web/src/lib/yampi/cliente.ts` mostra os 3 (B·6b; a `api.ts` reexporta a `YampiErro`). Não há barril `lib/yampi/index`: os imports das Tasks 9–11 vão direto a `@/lib/yampi/tipos`, `/conexao`, `/api`, `/cliente` e `/consumidores`.
+3. Parte 2, com a prova 1 da Fase 0: conferir (a) include em `{ data }`; (b) formato de `created_at`/`updated_at` e se `updated_at` vem no `resource` do aviso (se não vier, o `consumir` da entrada, Task 11, passa `{ ...e.recurso, updated_at: e.time }`); (c) `customer.type` da PJ; (d) `customer.phone` e `first_name`; (e) `statuses` com data; (f) se `date=updated_at:` aceita hora e se o fim é inclusivo. Divergiu → ajustar `pedido-yampi.ts` e `src/test/rastreio-dados-falsos.ts` num commit `fix(rastreio): …` antes da Task 7.
 
 ## Regras deste PR (além das Global Constraints)
 
@@ -45,6 +45,11 @@ texto ou no objeto da Yampi): pode ir a `main` antes da Fase 0.
 - Sem varredura antes da importação: sem a linha de base, pedido enviado há dias e mexido agora viraria aviso.
 - `pepperDoRastreio()` vem antes de tudo no registro, na importação e na varredura: sem pepper nada é lido nem gravado.
 - Log só com tenant, id do pedido na Yampi, origem e alias de status; nunca nome, telefone, e-mail ou documento.
+- Erro da Yampi (`YampiErro`: `status` e `retryAfterMs: number | null`; `status 0` = sem resposta) na importação ou na
+  varredura de uma loja sobe até o passo do cron (Task 10) e a loja para nesta execução, sem `avancarCursor` nem
+  `marcarImportado`; as outras lojas seguem. 401: o próprio `yampiGet` já marcou a conexão `credencial_invalida` e avisou
+  no sino (base): o Rastreio não avisa de novo. 429 e sem resposta: a rodada seguinte, 5 min depois, tenta de novo; o cron
+  não espera o `retryAfterMs`.
 - Todo commit: `git commit -m "<mensagem>" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"`. Um teste só
   (raiz): `npm --workspace apps/web exec -- tsx --import ./src/test/server-only-shim.mjs --test <caminho em apps/web>`.
 
@@ -56,10 +61,10 @@ Parte 1, em `apps/web/src/`: `lib/rastreio/etapas.ts` (status → etapa) · `lib
 (links) · `test/rastreio-dados-falsos.ts` (documentos com dígito calculado e o pedido de mentira; os PRs 3–5 reusam) ·
 os 5 `*.test.ts` ao lado.
 
-Parte 2: `lib/rastreio/loja.ts` (dados da loja) · `lib/rastreio/registrar.ts` (registro, sininho, consumidor do aviso) ·
+Parte 2: `lib/rastreio/loja.ts` (dados da loja) · `lib/rastreio/registrar.ts` (registro, sininho, `EVENTOS_DO_RASTREIO`) ·
 `lib/rastreio/importar.ts` (importação e varredura) · `lib/rastreio/cron.ts` + `app/api/cron/rastreio/route.ts` +
-`apps/web/vercel.json` + `lib/security/request-access-policy.ts` (e o teste) · o processador do B·6 e o teste dele (uma
-chamada) · os 4 `*.test.ts` ao lado.
+`apps/web/vercel.json` + `lib/security/request-access-policy.ts` (e o teste) · `lib/yampi/consumidores.ts` (arquivo do
+B·6: uma entrada) e o `consumidores.test.ts` · os 4 `*.test.ts` ao lado.
 
 ---
 
@@ -327,13 +332,12 @@ Produces `LojaDoRastreio` e `lojaDoRastreio(tenantId, deps?: DepsLoja)` (contrat
 
 **Files:** Create `apps/web/src/lib/rastreio/registrar.ts`, `apps/web/src/lib/rastreio/registrar.test.ts`
 
-**Interfaces:** Consumes a Parte 1, `gravarPedido`/`criarAvisos`/`lerConfig`/`rastreioLigado` (PR 1; o `PedidoGravado`
+**Interfaces:** Consumes a Parte 1, `gravarPedido`/`criarAvisos`/`lerConfig` (PR 1; o `PedidoGravado`
 traz `paradoEm`, `temTelefone` e `temEmail` da linha gravada), `tenantGrantsPlan` (`lib/billing/entitlements.ts`).
 Produces `registrarPedidoDaYampi(tenantId, payload, origem, deps?: DepsRegistrar)` e `avisarLojaDoProblema(tenantId, pedido)`
 (contrato); `DEPS = { pepper: pepperDoRastreio, gravarPedido, lerConfig, planoAtivo: tenantGrantsPlan, criarAvisos, avisarLoja: avisarLojaDoProblema, agora: () => new Date() }`;
-`EVENTOS_DO_RASTREIO = ["order.created", "order.paid", "order.status.updated"] as const`;
-`consumirAvisoDaYampi(tenantId: string, evento: string, envelope: unknown, deps?: DepsAvisoYampi): Promise<void>`,
-`DepsAvisoYampi = { rastreioLigado, registrar: registrarPedidoDaYampi }`.
+`EVENTOS_DO_RASTREIO = ["order.created", "order.paid", "order.status.updated"] as const` (o `eventos` da entrada em
+`CONSUMIDORES`, Task 11).
 
 - [ ] **Step 1: Escrever os testes que falham** — fakes: `GRAVADO = { id: "ped-1", etapa: "enviado", etapaAnterior: "separando", mudou: true, linkToken: "0".repeat(32), paradoEm: null, temTelefone: true, temEmail: true }`;
   `CONFIG` da Task 7; `agora` 2026-10-29T15:00:00Z; `montar(extra)` conta `gravar`/`config` e guarda as chamadas de
@@ -364,8 +368,6 @@ test("loja sem plano: grava o pedido e não cria aviso nem sininho", async () =>
 | contato e "parar avisos" vêm do `gravado`, não do payload | `pedidoYampi({ customer: undefined })` com o `GRAVADO`; `gravarPedido` → `{ ...GRAVADO, temEmail: false }`; → `{ ...GRAVADO, paradoEm: "2026-10-29T14:00:00Z" }` | canais `["whatsapp", "email"]`; `["whatsapp"]`; `log.criar` vazio |
 | problema sempre avisa a loja no sininho (o "me avisar" é só do e-mail, PR 4) | `gravarPedido` → `{ ...GRAVADO, etapa: "problema" }`; depois também `lerConfig` → `{ ...CONFIG, notifyStoreOnProblem: false }` | `log.loja = [["loja-a", { id: "ped-1", numero: "1042" }]]` nas duas rodadas |
 | payload fora do formato | `{}` | `null` e `log.gravar === 0` |
-| aviso de pedido com o Rastreio ligado registra o `resource` | `consumirAvisoDaYampi("loja-a", e, { event: e, resource: pedido })` para os 3 eventos | registro 3× com `("loja-a", pedido, "aviso")` |
-| carrinho ou Rastreio desligado não registram | `"cart.reminder"`; `"order.paid"` com `rastreioLigado` → `false` | registro não chamado |
 
 Sininho, com PostgREST falso (molde `broadcast-deliveries.test.ts`; `GET /rest/v1/notifications` responde `[]` ou
 `[{ id: "n1" }]` conforme `jaTem`, `POST` responde 201 vazio):
@@ -398,20 +400,22 @@ test("o sininho do problema nasce uma vez por pedido, apontando para Entregas", 
   fica certa. Subir para "avisos criados na RPC" se aparecer na prova.
   `avisarLojaDoProblema`: select `.eq("tenant_id").eq("type", "rastreio_problema").eq("href", href).limit(1)`; achou →
   `false`; senão insert com os textos do teste e `true`; erro do Supabase → `throw new Error(error.message)`.
-  `consumirAvisoDaYampi`: evento fora de `EVENTOS_DO_RASTREIO` ou `!rastreioLigado(tenantId)` → volta; senão
-  `registrar(tenantId, (envelope as { resource?: unknown } | null)?.resource, "aviso")`, sem capturar erro. A flag
-  fica com quem chama o registro (aqui e, no cron, `lojasComRastreio`): a RPC não a lê.
+  A flag fica com quem chama o registro (a entrada de `CONSUMIDORES`, pelo `ligado: rastreioLigado`, Task 11; e, no
+  cron, `lojasComRastreio`): a RPC não a lê. O filtro de evento (carrinho não registra pedido) é o `eventos` da entrada.
 - [ ] **Step 4: Rodar e ver passar.** · **Step 5: Commit** — `feat(rastreio): record Yampi orders and create stage notices`
 
 ### Task 9: Importação de 30 dias e varredura por `updated_at`
 
 **Files:** Create `apps/web/src/lib/rastreio/importar.ts`, `apps/web/src/lib/rastreio/importar.test.ts`
 
-**Interfaces:** Consumes `conexaoYampiAtiva`, `yampiGet` (B·6; caminho relativo ao alias), `registrarPedidoDaYampi`,
+**Interfaces:** Consumes `ConexaoYampi` (`@/lib/yampi/tipos`, B·6), `conexaoYampiAtiva` (`@/lib/yampi/conexao`, B·6b: a
+conexão `ativa` ou `aviso_desativado`, porque a credencial vale e a importação e a varredura rodam nas duas; `null` no
+resto), `yampiGet` (`@/lib/yampi/api`, B·6b; caminho relativo ao alias), `YampiErro` (`@/lib/yampi/cliente`, só no teste;
+a `api.ts` a reexporta), `registrarPedidoDaYampi`,
 `dataDaYampi`, `pepperDoRastreio`, `lerConfig`/`avancarCursor` (PR 1), `dayBR`. Produces `importarPedidos(tenantId, desde, deps?)`
 e `varrerPedidos(tenantId, agora, deps?)` (contrato); `DEPS = { conexao: conexaoYampiAtiva, get: yampiGet, registrar: registrarPedidoDaYampi, lerConfig, avancarCursor, pepper: pepperDoRastreio, agora: () => new Date() }`.
 
-- [ ] **Step 1: Escrever o teste que falha** — `CONEXAO = { id: "cx-1", tenantId: "loja-a", alias: "loja-teste", status: "ativa" }`;
+- [ ] **Step 1: Escrever o teste que falha** — `CONEXAO: ConexaoYampi = { id: "cx-1", tenantId: "loja-a", alias: "loja-teste", status: "ativa", userTokenSelado: null, userSecretKeySelado: null, webhookId: null, webhookSecretSelado: null, lastEventAt: null, lastCheckAt: null, lastError: null }` (o tipo da base; credencial nula, porque o `get` é falso);
   `get` falso (cast `as DepsImportar["get"]`) guarda cada `query` e devolve `{ data: paginas[page - 1] ?? [] }`;
   `registrar` falso guarda `(tenantId, payload, origem)` e devolve `{ gravado: GRAVADO, avisos: [] }`; `agora` 2026-10-29T15:00:00Z.
 
@@ -424,6 +428,8 @@ e `varrerPedidos(tenantId, agora, deps?)` (contrato); `DEPS = { conexao: conexao
 | varredura: cursor − 5 min até agora, só o que mudou, cursor anda | `sweepCursor: "2026-10-29T14:00:00.000Z"`; `updated_at` `"2026-10-29 10:50:00"` (id 1), `"10:56:00"` (id 2), `"11:04:00"` (id 3); `varrerPedidos("loja-a", new Date("2026-10-29T14:05:00Z"))` | 2; `date: "updated_at:2026-10-29\|2026-10-30"`; ids 2 e 3 com `"varredura"`; `avancarCursor("loja-a", "2026-10-29T14:05:00.000Z")` |
 | varredura sem conexão não consulta nem anda o cursor | `conexao` → `null` | 0, nenhuma consulta, nenhum `avancarCursor` |
 | varredura no teto anda o cursor mesmo assim | toda página com 100 | 10 consultas, um `avancarCursor`, `console.warn` com `"varredura parou no teto de 10 páginas"` |
+| conexão com o aviso desativado lê do mesmo jeito | `conexao` → `{ ...CONEXAO, status: "aviso_desativado" }`; `varrerPedidos` com um pedido novo | a consulta é feita e o pedido é registrado como em `ativa` (a varredura é o que cobre o pedido que o aviso não traz; nenhum filtro por `status` aqui) |
+| erro da Yampi sobe, e o cursor fica | `get` lança `new YampiErro(401, …)`, `new YampiErro(429, "limite", 30_000)` e `new YampiErro(0, "sem resposta")`, cada um na página 2 (a página 1 vem cheia, com 100 pedidos), em `importarPedidos` e em `varrerPedidos` | `rejects` com o mesmo erro (`status` e `retryAfterMs` intactos; nada é capturado aqui); `avancarCursor` nunca chamado; os pedidos da página 1 já registrados ficam (o registro é idempotente) |
 
 - [ ] **Step 2: Rodar e ver falhar** — Expected: FAIL, `ERR_MODULE_NOT_FOUND` (`importar`).
 - [ ] **Step 3: Implementar** — `import "server-only"`; o laço comum:
@@ -449,7 +455,9 @@ async function lerPaginas(tenantId: string, conexao: ConexaoYampi, de: Date, ate
   `importarPedidos`: `deps.pepper()`; sem conexão → `throw new Error("[rastreio] importação sem conexão ativa com a Yampi")`;
   `lerPaginas(…, desde, deps.agora(), 20, "importacao", null)`. `varrerPedidos`: `deps.pepper()`; sem conexão ou
   config → `0` (o cursor fica: a conexão de volta recupera a janela); `inicio = Date.parse(config.sweepCursor ?? agora.toISOString()) - 5 * 60_000`;
-  `lerPaginas(…, new Date(inicio), agora, 10, "varredura", inicio)`; `avancarCursor(tenantId, agora.toISOString())`.
+  `lerPaginas(…, new Date(inicio), agora, 10, "varredura", inicio)`; `avancarCursor(tenantId, agora.toISOString())`. O
+  `YampiErro` de `deps.get` não é capturado em lugar nenhum daqui: sobe até o `passo` da Task 10, e o cursor só anda
+  depois do laço.
 - [ ] **Step 4: Rodar e ver passar.** · **Step 5: Commit** — `feat(rastreio): import 30 days of Yampi orders and sweep by updated_at`
 
 ### Task 10: Cron, rota, `vercel.json` e a política de acesso
@@ -458,16 +466,17 @@ async function lerPaginas(tenantId: string, conexao: ConexaoYampi, de: Date, ate
 Modify `apps/web/vercel.json`, `apps/web/src/lib/security/request-access-policy.ts`, `apps/web/src/lib/security/request-access-policy.test.ts`
 
 **Interfaces:** Consumes `lojasComRastreio`, `lerConfig`, `garantirConfig`, `marcarImportado`, `avancarCursor`,
-`purgarVencidos` (PR 1, `lib/stores/rastreio-pedidos.ts`; nada de RPC direta), `conexaoYampiAtiva` e `YampiErro`
-(B·6), Task 9, `isCronAuthorized`. Produces
+`purgarVencidos` (PR 1, `lib/stores/rastreio-pedidos.ts`; nada de RPC direta), `conexaoYampiAtiva`
+(`@/lib/yampi/conexao`) e `YampiErro` (`@/lib/yampi/cliente`) (B·6b), Task 9, `isCronAuthorized`. Produces
 `rodarCronRastreio(agora: Date, deps?: DepsCron): Promise<{ lojas: number; falhas: number; purgados: number | null }>`
 (`purgados` acrescentado: o contrato da rota no PR 1 o devolve); `DEPS = { lojas: lojasComRastreio, lerConfig, garantirConfig, conexao: conexaoYampiAtiva, importar: importarPedidos, avancarCursor, marcarImportado, varrer: varrerPedidos, purgar: purgarVencidos }`;
 `GET /api/cron/rastreio` → `200 { ok: true, lojas, falhas, purgados }` · `401 { error: "Unauthorized" }` · `500 { error: "falhou" }`.
 
 - [ ] **Step 1: Escrever o teste que falha** — `montar(extra)` com os nove fakes (padrão: lojas `["loja-a", "loja-b"]`,
   `lerConfig` → `CONFIG_IMPORTADA` (`{ ...CONFIG, importedAt: "2026-10-01T00:00:00.000Z" }`), `garantirConfig` →
-  `CONFIG` (`importedAt: null`), conexão `CONEXAO`, `purgar` → 3) guardando as chamadas; `AGORA = new Date("2026-10-29T15:00:00Z")`; `ERRO_401` = um `YampiErro` com
-  `status` 401, montado pelo construtor do B·6.
+  `CONFIG` (`importedAt: null`), conexão `CONEXAO` (a da Task 9), `purgar` → 3) guardando as chamadas; `AGORA = new Date("2026-10-29T15:00:00Z")`;
+  os erros da Yampi saem do construtor do B·6b, `new YampiErro(status, mensagem, retryAfterMs?)`: `ERRO_401`, `ERRO_429`
+  (`retryAfterMs` `30_000`) e `ERRO_SEM_RESPOSTA` (`status` 0).
 
 ```ts
 test("loja nova: config, 30 dias importados, cursor no começo da importação e marcada", async () => {
@@ -476,30 +485,40 @@ test("loja nova: config, 30 dias importados, cursor no começo da importação e
   assert.deepEqual([log.garantir, log.importar, log.cursor, log.importado, log.varrer],
     [["loja-a"], [["loja-a", new Date("2026-09-29T15:00:00Z")]], [["loja-a", "2026-10-29T15:00:00.000Z"]], [["loja-a", AGORA]], ["loja-a"]]);
 });
-test("token da Yampi trocado numa loja não para as outras", async (t) => { // Review Focus 5
-  const erros: string[] = [];
-  t.mock.method(console, "error", (m: unknown) => erros.push(String(m)));
-  const { deps, log } = montar({ varrer: async (id) => { log.varrer.push(id); if (id === "loja-a") throw ERRO_401; return 0; } });
-  assert.deepEqual(await rodarCronRastreio(AGORA, deps), { lojas: 2, falhas: 1, purgados: null });
-  assert.deepEqual([log.varrer, erros], [["loja-a", "loja-b"], ["[rastreio/cron] varrer loja-a: a Yampi recusou a credencial (401)"]]);
+const DA_YAMPI: Array<[erro: YampiErro, motivo: string]> = [
+  [ERRO_401, "a Yampi recusou a credencial (401)"], [ERRO_429, "a Yampi limitou as chamadas (429)"], [ERRO_SEM_RESPOSTA, "a Yampi não respondeu"],
+];
+test("erro da Yampi numa loja (401, 429, sem resposta) não para as outras", async (t) => { // Review Focus 5
+  for (const [erro, motivo] of DA_YAMPI) await t.test(motivo, async (t) => {
+    const erros: string[] = [];
+    t.mock.method(console, "error", (m: unknown) => erros.push(String(m)));
+    const { deps, log } = montar({ varrer: async (id) => { log.varrer.push(id); if (id === "loja-a") throw erro; return 0; } });
+    assert.deepEqual(await rodarCronRastreio(AGORA, deps), { lojas: 2, falhas: 1, purgados: null });
+    assert.deepEqual([log.varrer, erros], [["loja-a", "loja-b"], [`[rastreio/cron] varrer loja-a: ${motivo}`]]);
+  });
 });
 ```
 
   E: `"loja já importada só varre"` (nenhuma importação, `varrer` nas duas); `"sem Yampi conectada não importa nem
   varre, e não é falha"` (`lerConfig` → `null`, `conexao` → `null`: `importar` e `varrer` vazios, `falhas: 0`);
+  `"importação que falha tenta de novo na rodada seguinte"` (`lerConfig` → `null`, `importar` lançando `ERRO_429`:
+  `falhas: 1`, `log.cursor`, `log.importado` e `log.varrer` vazios; sem `marcarImportado`, a loja volta a importar);
   `"purge uma vez por dia, na execução das 06:00 UTC"` (`2026-10-30T06:02:00Z` → `purgados: 3` e 1 chamada; `06:07` e
   `18:02` → `null` e nenhuma); `"sem a lista de lojas a execução lança"` (`lojas` lançando → `rejects`).
 - [ ] **Step 2: Rodar e ver falhar** — Expected: FAIL, `ERR_MODULE_NOT_FOUND` (`cron`).
 - [ ] **Step 3: Implementar** — `cron.ts` (`import "server-only"`):
 
 ```ts
+const MOTIVO_DA_YAMPI: Record<number, string> = { 401: "a Yampi recusou a credencial (401)", 429: "a Yampi limitou as chamadas (429)", 0: "a Yampi não respondeu" };
+
 export async function rodarCronRastreio(agora: Date, deps: DepsCron = DEPS): Promise<{ lojas: number; falhas: number; purgados: number | null }> {
   let falhas = 0;
   async function passo<T>(nome: string, alvo: string, f: () => Promise<T>): Promise<T | null> {
     try { return await f(); } catch (e) {
       falhas++;
-      // 401 = token trocado junto com a senha; quem marca a conexão é o /api/cron/yampi (B·6). A mensagem do erro fica fora do log.
-      const motivo = e instanceof YampiErro && e.status === 401 ? "a Yampi recusou a credencial (401)" : e instanceof Error ? e.message : String(e);
+      // YampiErro: a loja para nesta rodada (o cursor só anda depois do laço) e a seguinte, 5 min depois, tenta de novo; o cron não espera o retryAfterMs.
+      // 401 = token trocado: o yampiGet (B·6b) já marcou a conexão credencial_invalida e avisou no sino, então aqui é só o log. A mensagem do erro fica fora do log.
+      const motivo = (e instanceof YampiErro && MOTIVO_DA_YAMPI[e.status]) || (e instanceof Error ? e.message : String(e));
       console.error(`[rastreio/cron] ${nome} ${alvo}: ${motivo}`);
       return null;
     }
@@ -528,17 +547,39 @@ export async function rodarCronRastreio(agora: Date, deps: DepsCron = DEPS): Pro
   `classifyRequest("/api/cron/rastreio", "GET") === "cron"` e `("/api/cron/rastreio/outra", "GET") === "user"`.
 - [ ] **Step 4: Rodar os testes e os dois `tsc`** · Expected: verde. · **Step 5: Commit** — `feat(rastreio): tracking cron every 5 minutes with daily purge`
 
-### Task 11: Ligar o Rastreio no processador da base
+### Task 11: Entrada do Rastreio em `CONSUMIDORES`
 
-**Files:** Modify o arquivo de `processarEventoYampi` (o `git grep` do "Antes de começar") e o teste dele.
+**Files:** Modify `apps/web/src/lib/yampi/consumidores.ts` (arquivo do B·6, que nasce com `CONSUMIDORES = []`; este PR só acrescenta a entrada e não toca `processar.ts`) · Create `apps/web/src/lib/yampi/consumidores.test.ts` (se o B·6 ou o Recuperar já o criou em `main`, acrescentar os casos).
 
-**Interfaces:** Consumes `consumirAvisoDaYampi` (Task 8). Produces: para todo evento, antes de marcar `processed_at`,
-`await consumirAvisoDaYampi(tenantId, evento.event, evento.payload)` com o envelope inteiro (o filtro de evento e o
-`rastreioLigado` moram no consumidor).
+**Interfaces:** Consumes `ConsumidorDeEvento` e `EventoParaConsumir` (o mesmo arquivo), `EVENTOS_DO_RASTREIO` e
+`registrarPedidoDaYampi` (Task 8), `rastreioLigado` (PR 1, `lib/stores/rastreio-config.ts`). Produces, e só isto, uma entrada no array:
 
-- [ ] **Step 1: Escrever o teste que falha**, no harness do teste do processador: `"aviso de pedido chama o consumidor do Rastreio com o envelope"` (`order.paid` → o consumidor falso recebe `("loja-a", "order.paid", <envelope>)`) e `"erro do Rastreio deixa o evento sem processed_at"` (consumidor lança → nenhum update de `processed_at`).
-- [ ] **Step 2: Rodar e ver falhar** · **Step 3: Implementar** — pela injeção que o processador já usa para os módulos (`rastreio: consumirAvisoDaYampi`); sem injeção, este PR acrescenta `deps` no molde de `DepsBio` só para os consumidores. Sem `try/catch` em volta: a retentativa é do `/api/cron/yampi`.
-- [ ] **Step 4: Rodar e ver passar.** · **Step 5: Commit** — `feat(rastreio): record orders from the Yampi webhook processor`
+```ts
+{ nome: "rastreio", eventos: EVENTOS_DO_RASTREIO, ligado: rastreioLigado, consumir: (e) => registrarPedidoDaYampi(e.tenantId, e.recurso, "aviso") }
+```
+
+`e.recurso` já é o `resource` do envelope (o envelope inteiro fica em `e.payload`). O processador do B·6 chama só o
+consumidor ligado que assina o evento e só marca `processed_at` depois de todos; se o `consumir` lança, o evento fica
+com `error` e volta pelo `/api/cron/yampi` (parado entre 3 min e 24 h, até 50 por execução). Sem `try/catch` na
+entrada. `consumir` é idempotente, como o contrato exige: a RPC do PR 1 segura "a etapa não volta" e `criarAvisos` é
+`on conflict do nothing`. O Recuperar acrescenta a entrada dele no PR 7 dele, no mesmo array: quem mergear depois
+reconcilia (conflito trivial).
+
+- [ ] **Step 1: Escrever os testes que falham** (`consumidores.test.ts`; `RASTREIO_DOC_PEPPER` de 32 caracteres antes dos testes):
+  - `"a entrada rastreio assina só os três eventos de pedido e liga pela flag do módulo"` —
+    `CONSUMIDORES.filter((c) => c.nome === "rastreio")` tem uma entrada; `eventos` `deepEqual`
+    `["order.created", "order.paid", "order.status.updated"]` (sem `cart.reminder` nem `transaction.payment.refused`: o
+    carrinho não registra pedido); `ligado === rastreioLigado`.
+  - `"consumir passa a loja, o recurso (não o envelope) e a origem aviso"` — evento
+    `{ eventoId: "e1", tenantId: "loja-a", conexao: {} as ConexaoYampi, evento: "order.paid", time: "2026-10-29 10:00:00", recurso: {}, payload: pedidoYampi() }`
+    e `console.warn` espiado ⇒ `consumir` resolve `null` e o log é `"[rastreio] loja-a: pedido da Yampi fora do formato (aviso)"`.
+    Mutante: `e.payload` no lugar de `e.recurso` levaria o pedido válido ao banco, sem credencial no teste, e o caso falha
+    (o `payload` é de propósito um pedido válido e o `recurso`, não: é o que distingue os dois campos).
+- [ ] **Step 2: Rodar e ver falhar** — Expected: FAIL, nenhuma entrada `rastreio` em `CONSUMIDORES`.
+- [ ] **Step 3: Implementar** — a entrada acima no array, com os imports direto dos arquivos (`@/lib/rastreio/registrar`,
+  `@/lib/stores/rastreio-config`; a base não tem barril, e o registro importa os módulos).
+- [ ] **Step 4: Rodar e ver passar** — o arquivo, o `processar.test.ts` do B·6 e os dois `tsc`.
+- [ ] **Step 5: Commit** — `feat(rastreio): record orders from the Yampi webhook through CONSUMIDORES`
 
 ### Task 12: Fechamento da Parte 2
 
@@ -556,7 +597,7 @@ export async function rodarCronRastreio(agora: Date, deps: DepsCron = DEPS): Pro
 - **PR 3:** `normalizarDocumento`, `docHmac`, `pepperDoRastreio`, `ultimos4`, `lojaDoRastreio`, `linkDoPedido`, `linkDaBusca`. O CNPJ alfanumérico tem letra: o campo da busca não pode ser só numérico. Sem pepper, a busca é erro do servidor, nunca "não achei".
 - **PR 4 e PR 5:** os ganchos entram em `registrarPedidoDaYampi` depois do `criarAvisos` (o `agora` do passo 2 já existe) e, no cron, como `passo(...)` fora do `if (importada)`. `avisarLojaDoProblema` não tem `deps` (teste com PostgREST falso): o PR 4 acrescenta `deps?` com `emailDoProblema`, sem mudar o retorno. Os envios reconferem `noticesStoppedAt`: o "parar avisos" pode chegar depois de o aviso nascer.
 - **PR 6:** `/painel/vendas/entregas?pedido=<id>` é o `href` do sininho; o reenvio usa `reabrirAvisos` (PR 1), não o registro.
-- **B·6:** `yampiGet(conexao, "/orders", query)`, caminho relativo ao alias, `query` com número; o `YampiErro` (`readonly status`) sobe da varredura até o passo do cron; `conexaoYampiAtiva` devolve `null` fora de `ativa` (é o que cala a varredura da loja com token trocado depois que o `/api/cron/yampi` marca a conexão); o processador chama `consumirAvisoDaYampi` antes de marcar `processed_at` e não marca quando ele lança; a retentativa do evento é do `/api/cron/yampi`.
+- **B·6 e B·6b (base):** `yampiGet(conexao, "/orders", query)` (`@/lib/yampi/api`), caminho relativo ao alias, `query` com número; o `YampiErro` (`@/lib/yampi/cliente`; `status`, `retryAfterMs`; `status 0` = sem resposta) sobe da varredura até o passo do cron, que para a loja nesta execução; no 401 o próprio `yampiGet` marca a conexão `credencial_invalida` e avisa no sino uma vez; `conexaoYampiAtiva` (`@/lib/yampi/conexao`) devolve a conexão `ativa` ou `aviso_desativado` (a credencial vale) e `null` fora disso, e é o `null` que cala a varredura da loja com token trocado; o processador (`processarEventoYampi`) chama a entrada `rastreio` de `CONSUMIDORES` (só com `rastreioLigado` e um dos três eventos) e só marca `processed_at` depois de todos os consumidores; a retentativa do evento é do `/api/cron/yampi`, que o Rastreio não reprocessa.
 
 ## Divergências com o código (e decisões deste plano)
 
@@ -567,5 +608,5 @@ export async function rodarCronRastreio(agora: Date, deps: DepsCron = DEPS): Pro
 5. A bio não tem "cor primária" nem nome de loja separado: cor = botão em destaque (`coresDaMarca(documento).botao`) e nome = `perfil.nome` da página publicada; sem bio, `humanizeName` do nome da organização (pedido dos PRs 4 e 5).
 6. `notifications` não tem helper nem restrição de `type` (o teto gravou `teto_posts_grupo` assim); dedupe por `tenant_id` + `type` + `href`, que leva o id do pedido.
 7. Loja sem plano não ganha nem o sininho do problema ("nenhum aviso" do índice).
-8. O processador recebe o envelope `{ event, time, merchant, resource }`; `consumirAvisoDaYampi` tira o `resource`, com o formato do item de `GET /orders`.
+8. O envelope da Yampi é `{ event, time, merchant, resource }`; o `EventoParaConsumir` da base já traz o `resource` em `e.recurso` (o envelope inteiro fica em `e.payload`, e o `time` em `e.time`), com o formato do item de `GET /orders`. A entrada do Rastreio passa `e.recurso`.
 9. `rodarCronRastreio` devolve também `purgados` (a resposta da rota no contrato da API do PR 1).

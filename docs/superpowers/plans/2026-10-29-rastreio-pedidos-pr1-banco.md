@@ -500,8 +500,8 @@ cada linha; RPC prova `p_tenant`. Rodar `npm --workspace apps/web test` (FAIL an
 - [ ] **Step 2:** push → `gh pr create --base main --title "feat(rastreio): types and stores (rastreio PR 1, part 2)"` →
   revisão de segurança (filtro de loja em toda query, e-mail selado, nada da compradora fora das colunas públicas) → CI
   verde → `gh pr merge <N> --squash --delete-branch`.
-- [ ] **Step 3:** card: `update public.board_features set blocker = 'PR 1 no ar (banco, tipos e stores); o PR 2 espera o
-  B·6 e a Fase 0' where key = 'rastreio-pedidos';`; `kg_insert_text` com a decisão (etapa decidida na RPC sob trava de
+- [ ] **Step 3:** card: `update public.board_features set blocker = 'PR 1 no ar (banco, tipos e stores); a Parte 2 do PR 2
+  espera o B·6, o B·6b e a Fase 0' where key = 'rastreio-pedidos';`; `kg_insert_text` com a decisão (etapa decidida na RPC sob trava de
   linha; aviso único por `unique`; FK composta de loja nos avisos). Ao encerrar: "PRs que deixei abertos: …".
 
 ## Interface com os outros PRs

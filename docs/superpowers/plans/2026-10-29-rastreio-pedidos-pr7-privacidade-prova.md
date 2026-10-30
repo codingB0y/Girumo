@@ -94,7 +94,8 @@ Sem código. Cada passo grava a evidência no texto do `move_card` (nunca CPF, t
 pedido de teste pode). Roteiro feito pelo Igor na loja-piloto, com um pedido de teste dele mesmo.
 
 - [ ] **Step 1: Pré-condições (Igor)** — `RASTREIO_DOC_PEPPER` nos dois ambientes da Vercel; Yampi conectada;
-  `rastreio_enabled` ligado pelo admin; a loja confirma que a política de privacidade dela menciona aviso de pedido
+  B·2a em `main` e o worker reimplantado no Coolify **antes** de ligar a flag (regra da base); `rastreio_enabled`
+  ligado pelo admin; a loja confirma que a política de privacidade dela menciona aviso de pedido
   por e-mail e WhatsApp (ela é a controladora); se o PR 5 estiver no ar, o número do atendimento conectado e, sem o
   Recuperar, a mensagem de ausência ligada (spec §1.4).
 - [ ] **Step 2: Página e registros**
@@ -128,7 +129,7 @@ select public.move_card('rastreio-pedidos', 'no_ar_verificado',
   'PRs #<n1>…#<n7>; pedido de teste <nº>; tracking_notices <ids>; <data>');
 ```
 
-Sem o WhatsApp no ar: `no_ar_nao_verificado` com `blocker` = "WhatsApp espera a base do privado (B·2–B·4)". A prova
+Sem o WhatsApp no ar: `no_ar_nao_verificado` com `blocker` = "WhatsApp espera a base do privado (B·2a–B·4)". A prova
 vence em 30 dias.
 
 ## Interface com os outros PRs

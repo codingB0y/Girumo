@@ -23,7 +23,7 @@ Recuperar (`git show 6655d66d:docs/superpowers/specs/2026-10-29-recuperar-yampi-
 
 - Branch `feat/rastreio-pr5-whatsapp`, worktree novo a partir de `origin/main` (junctions do "Ambiente do worktree"
   do índice). Mais de ~20 commits atrás → atualizar antes de escrever código.
-- Em `main`: PRs 1, 2, 3 e 4 (as três partes) do Rastreio, B·2, B·3 e B·4 da base e, pela ordem do índice, o 6.
+- Em `main`: PRs 1, 2, 3 e 4 (as três partes) do Rastreio, B·3 e B·4 da base (que já vêm depois de B·2a e B·2b) e, pela ordem do índice, o 6.
   Conferir (raiz do repo):
 
   ```powershell
@@ -35,11 +35,15 @@ Recuperar (`git show 6655d66d:docs/superpowers/specs/2026-10-29-recuperar-yampi-
   Expected: as três funções, `ParteDm` e `StatusDm` em `lib/privado/dm.ts`; os 13 nomes do Rastreio. Faltou um dos
   12 primeiros → o PR 5 não começa. Faltou só `previaDoWhatsapp` (o PR 6 ainda não entrou) → a parte de `previas.ts`
   da Task 1 sai daqui: o PR 6 encontra `mensagens.ts` em `main` e chama direto (o plano dele prevê os dois casos).
-- Contrato da base: conferir em `main`, ou no plano `docs/superpowers/plans/2026-10-29-recuperar-yampi-03-envio-de-dm.md`
+- Contrato da base (índice do Recuperar, "Contrato comum"): conferir em `main`, ou no plano `docs/superpowers/plans/2026-10-29-recuperar-yampi-03-envio-de-dm.md`
   (branch `docs/recuperar-spec`), que `enfileirarDm` recebe `partes: ParteDm[]` e devolve `{ messageIds: string[] }`
-  ou `{ recusado: "sem_numero" | "modulo_desligado" | "bloqueado" }`, com os mesmos ids para a mesma `dedupeKey`; que
-  `statusDosDms` devolve `Record<string, StatusDm>` (só o status; o DM vencido vira `cancelada`) e `cancelarDms`, um
-  `number`. Nome ou forma diferente → trocar neste plano e no código, no mesmo PR, e anotar no PR.
+  ou `{ recusado: "sem_numero" | "modulo_desligado" | "bloqueado" }`, com os mesmos ids para a mesma `dedupeKey`, e
+  **lança** em pedido inválido (`validarPedidoDeDm`: `dedupeKey` acima de 200 caracteres, `validoAte` no passado), em vez
+  de devolver `recusado`; que `statusDosDms` devolve `Record<string, { status: StatusDm; erro: string | null }>` (`erro` =
+  `private_messages.error`, um código fixo, nulo enquanto a mensagem não falhou nem foi cancelada; o DM vencido vira
+  `cancelada` com `erro: "vencida"`) e `cancelarDms`, um `number`; e que `ModuloPrivado` é
+  `"recuperar" | "rastreio" | "teste"` (o `"teste"` é só informativo: este PR usa `"rastreio"`). Nome ou forma diferente
+  → trocar neste plano e no código, no mesmo PR, e anotar no PR.
 - Teste de um arquivo (raiz): `npm --workspace apps/web exec tsx -- --import ./src/test/server-only-shim.mjs --test <arquivo>`.
 
 ## Arquivos
@@ -140,8 +144,9 @@ git commit -m "feat(rastreio): fixed WhatsApp text per order stage" -m "Co-Autho
     — quantos entraram na fila. `LOTE = 50`, `VALIDADE_MS = 24 * 60 * 60 * 1000`, `RETENTATIVA_MS = 5 * 60 * 1000`,
     `TENTATIVAS = 3`.
   - Códigos em `tracking_notices.error`: `pulado` com `parado`, `sem_codigo`, `sem_loja`; `falhou` com `sem_telefone`,
-    `erro_na_fila`, a recusa da base como veio (`sem_numero`, `modulo_desligado`, `bloqueado`) e, pela Task 3, o
-    status da base como veio (`falhou`, `cancelada`) ou `sem_status`; `pendente` com `erro_na_fila` na retentativa.
+    `erro_na_fila`, a recusa da base como veio (`sem_numero`, `modulo_desligado`, `bloqueado`) e, pela Task 3, o `erro`
+    da base como veio (`vencida`, `bloqueado`, `sem_whatsapp`, `restricao`…; sem `erro`, o status: `falhou` ou
+    `cancelada`) ou `sem_status`; `pendente` com `erro_na_fila` na retentativa.
 
 - [ ] **Step 1: Escrever os testes que falham**
 
@@ -167,7 +172,8 @@ git commit -m "feat(rastreio): fixed WhatsApp text per order stage" -m "Co-Autho
 - `"pulado sem chamar a base: pedido parado, enviado sem código, loja sem config"` — `noticesStoppedAt` preenchido ⇒
   `{ status: "pulado", error: "parado" }`; `trackingCode: null` ⇒ `"sem_codigo"`; `lojaDoRastreio` → `null` ⇒
   `"sem_loja"`; `filas` e `criados` vazios nos três.
-- `"erro ao enfileirar volta pendente em 5 min; com 3 tentativas vira e-mail"` — `enfileirarDm` rejeitando ⇒
+- `"erro ao enfileirar volta pendente em 5 min; com 3 tentativas vira e-mail"` — `enfileirarDm` rejeitando (erro de
+  rede e também `new Error("pedido de DM inválido: validoAte")`, o que `validarPedidoDeDm` lança) ⇒
   `{ status: "pendente", error: "erro_na_fila", somarTentativa: true, nextTryAt: "2026-11-02T13:05:00.000Z" }`; aviso
   com `attempts: 3` ⇒ `filas` vazio, `{ status: "falhou", error: "erro_na_fila" }`, `emails` `["email-1"]`.
 
@@ -186,6 +192,9 @@ git commit -m "feat(rastreio): fixed WhatsApp text per order stage" -m "Co-Autho
 
   `catch`: `console.error` só com o id do aviso e `e.message` (telefone, e-mail e texto nunca no log) e
   `marcarAviso({ status: "pendente", error: "erro_na_fila", somarTentativa: true, nextTryAt: agora + RETENTATIVA_MS })`.
+  A base **lança** em pedido inválido (`validarPedidoDeDm`) em vez de devolver `recusado`; aqui a `dedupeKey` tem uns 50
+  caracteres e o `validoAte` é daqui a 24 h, então o que chega ao `catch` é falha da RPC ou da rede, e toda exceção
+  segue o mesmo caminho: retentativa em 5 min e, na 3ª, e-mail no lugar.
 
 ```ts
 /** E-mail no lugar (spec §1.2): o mesmo aviso em outro canal. Pedido parado vira `pulado`, sem e-mail. */
@@ -212,13 +221,17 @@ async function falhar(tenantId: string, aviso: AvisoParaEnviar, pedido: PedidoIn
 - Produces: `atualizarStatusWhatsapp(tenantId: string, agora: Date, deps: DepsWhatsapp = DEPS): Promise<number>` —
   quantos avisos mudaram. `DEPS` ganha `avisosEnviando` e `statusDosDms`.
 
-- [ ] **Step 1: Escrever os testes que falham** (o `cenario()` ganha as deps novas)
+- [ ] **Step 1: Escrever os testes que falham** (o `cenario()` ganha as deps novas; o fake de `statusDosDms` devolve `{ status, erro }` por id)
   - `"status da base mapeado no aviso"` — oito avisos `enviando`: `aviso-1`…`aviso-7` com `dm-1`…`dm-7` e `aviso-8`
-    com `messageId: null`; `statusDosDms` → `{ "dm-1": "na_fila", "dm-2": "enviada", "dm-3": "entregue", "dm-4": "lida", "dm-5": "falhou", "dm-6": "cancelada" }`
+    com `messageId: null`; `statusDosDms` → `{ "dm-1": { status: "na_fila", erro: null }, "dm-2": { status: "enviada", erro: null }, "dm-3": { status: "entregue", erro: null }, "dm-4": { status: "lida", erro: null }, "dm-5": { status: "falhou", erro: "sem_whatsapp" }, "dm-6": { status: "cancelada", erro: "vencida" } }`
     (o `dm-7` a base não conhece) ⇒ uma chamada, com `["dm-1", …, "dm-7"]`; `aviso-1` sem marca; `aviso-2`, `-3`,
     `-4` ⇒ `{ status: "enviado" | "entregue" | "lido", sentAt: "2026-11-02T13:00:00.000Z" }`; `aviso-5`, `-6` ⇒
-    `{ status: "falhou", error: "falhou" | "cancelada" }`; `aviso-7`, `-8` ⇒ `{ status: "falhou", error: "sem_status" }`;
+    `{ status: "falhou", error: "sem_whatsapp" | "vencida" }`; `aviso-7`, `-8` ⇒ `{ status: "falhou", error: "sem_status" }`;
     `criados` com quatro `["email"]`; retorno 7.
+  - `"SAIR depois de enfileirar e falha sem código viram e-mail no lugar"` — `{ status: "cancelada", erro: "bloqueado" }`
+    (a base cancela os DMs pendentes da conversa quando a cliente manda SAIR) ⇒ `{ status: "falhou", error: "bloqueado" }`;
+    `{ status: "falhou", erro: null }` ⇒ `error: "falhou"` (`erro ?? status`); nos dois, `criados` com `["email"]` (decisão do
+    spec: o SAIR é do WhatsApp, "e-mail continua").
   - `"DM cancelado de pedido parado vira pulado, sem e-mail"` (o "parar" chegou entre a leitura dos avisos e a do
     status) — `cancelada` com `noticesStoppedAt` preenchido ⇒ `{ status: "pulado", error: "parado" }`, `criados` vazio.
 - [ ] **Step 2: Rodar e ver falhar** — Expected: FAIL, `… atualizarStatusWhatsapp) is not a function`.
@@ -231,11 +244,18 @@ const DO_DM: Record<StatusDm, "enviado" | "entregue" | "lido" | "falha" | null> 
 };
 ```
 
-  `avisosEnviando(tenantId, "whatsapp", LOTE)`; vazio → 0. Um `statusDosDms` com os `messageId` não nulos (`doDm`).
-  Por aviso: `dm = aviso.messageId ? doDm[aviso.messageId] : undefined` e `r = dm ? DO_DM[dm] : "falha"` (sem id, ou
-  id que a base não conhece: não há o que esperar); `null` → nada; `"falha"` → `lerPedido` (nulo → nada) e
-  `falhar(…, dm ?? "sem_status")` (o `error` guarda o status como veio); senão
-  `marcarAviso({ status: r, sentAt: agora.toISOString() })`. Cada aviso
+  O `erro` que a base devolve é de uma lista fechada. Com `cancelada`: `vencida` (passou do `validoAte`, o caso do número
+  caído), `cancelada` (`cancelarDms`), `bloqueado` (SAIR ou `optouts` depois de enfileirar), `parte_anterior`,
+  `trava_numero`. Com `falhou`: `sem_whatsapp`, `modulo_desligado`, `trava_numero`, `payload_invalido`,
+  `destino_invalido`, `tipo_inesperado` e, esgotadas as tentativas, `restricao`, `evolution_<status http>`,
+  `erro_de_envio`, `sem_instancia`, `imagem_indisponivel`. O Rastreio só repassa: toda `cancelada` e toda `falhou` viram
+  e-mail no lugar (menos pedido parado).
+
+  `avisosEnviando(tenantId, "whatsapp", LOTE)`; vazio → 0. Um `statusDosDms` com os `messageId` não nulos (`doDm`,
+  `Record<string, { status: StatusDm; erro: string | null }>`). Por aviso: `dm = aviso.messageId ? doDm[aviso.messageId] : undefined`
+  e `r = dm ? DO_DM[dm.status] : "falha"` (sem id, ou id que a base não conhece: não há o que esperar); `null` → nada;
+  `"falha"` → `lerPedido` (nulo → nada) e `falhar(…, dm ? (dm.erro ?? dm.status) : "sem_status")` (o `error` guarda o código da
+  base e, se ela não mandou, o status); senão `marcarAviso({ status: r, sentAt: agora.toISOString() })`. Cada aviso
   no seu `try/catch` (log só com o id; o aviso segue `enviando` e a próxima rodada lê de novo). No topo da função:
   `// ponytail: o aviso sai da leitura no primeiro estado depois da fila; "lido" que chega depois de "enviado" não sobe. Ler "enviado" por mais 24 h quando Entregas pedir.`
 - [ ] **Step 4: Rodar e ver passar** — o arquivo e os dois `tsc`.
@@ -331,14 +351,21 @@ Onde: no `responderParar` do PR 3, chamando a função deste PR — só `enviar-
 
 - **E-mail no lugar respeita "parar avisos"** (parado → `pulado`, sem e-mail; o PR 4 ainda reconfere, com loja
   ligada e plano) e **não reaplica a janela de 3 dias**: ela decide se o aviso nasce (`canaisDoAviso`); o e-mail no
-  lugar é o mesmo aviso em outro canal, no máximo 24 h + 5 min depois. Vale também para `bloqueado`: o SAIR é do
-  WhatsApp, o aviso de pedido é execução do contrato e o spec diz "e-mail continua".
+  lugar é o mesmo aviso em outro canal, no máximo 24 h + 5 min depois. Vale também para `bloqueado`, que chega de duas
+  formas: recusa do `enfileirarDm` (telefone já bloqueado) ou `cancelada` com `erro: "bloqueado"` (a cliente mandou SAIR
+  depois de enfileirar, e a base cancela os DMs pendentes da conversa). O SAIR é do WhatsApp, o aviso de pedido é
+  execução do contrato e o spec diz "e-mail continua": quem mandou SAIR recebe o aviso por e-mail.
 - **Cancelar no "parar" mora no `responderParar` do PR 3**, chamando `cancelarWhatsappsDoPedido`: só um arquivo do
   Rastreio importa a base, e a store `pararAvisos` não muda. O aviso vira `pulado` antes de cancelar.
-- **Sem número do atendimento = recusa `sem_numero`** do `enfileirarDm`; `numeroDoAtendimento` não é chamado aqui (é do
-  cartão do PR 6). Número caído ou pausado enfileira assim mesmo: o DM espera até 24 h, vira `cancelada` e só então
-  e-mail (spec §6).
+- **Sem número do atendimento = recusa `sem_numero`** do `enfileirarDm`, e só quando a loja não tem número nenhum.
+  `numeroDoAtendimento` (`{ instanceId, instanceName, status, phone } | null`) não é chamado aqui: o cartão do número é da
+  base (`CartaoNumeroDoAtendimento`, B·2b) e o PR 6 só o renderiza.
+- **Limite conhecido: número caído ou pausado.** O DM entra na fila assim mesmo, espera até o `validoAte` de 24 h e vence
+  (`cancelada`, `erro: "vencida"`); só então o e-mail sai no lugar (spec §6). Nas etapas com e-mail ligado na matriz
+  (padrão: enviado, retirada e problema) o e-mail já saiu na hora, então o limite pesa só em `entregue` (WhatsApp sozinho
+  no padrão) e em loja que desligou o e-mail.
 - **Erro ao enfileirar** volta `pendente` em 5 min e vira e-mail na 3ª vez: sem teto, um aviso preso sairia dias depois.
+  O pedido inválido, que a base lança em vez de recusar, segue o mesmo caminho.
 - **`{número da loja}`** sai com `formatPhoneBR` (`+55 11 91234-5678`, o formato do painel); o rodapé vem depois de uma
   linha em branco.
 
@@ -354,7 +381,10 @@ Onde: no `responderParar` do PR 3, chamando a função deste PR — só `enviar-
   `whatsapp`, que sai no próximo cron (≤ 5 min), sem gancho na rota. O "Ver mensagem" passa a usar `mensagemWhatsapp`
   (Task 1, `previas.ts`), como o PR 6 reservou.
 - **PR 7:** a prova do passo 4 confere o texto exato e o aviso em `enviado`/`entregue`/`lido`.
-- **Base:** `enfileirarDm`, `statusDosDms`, `cancelarDms`, `ParteDm`, `StatusDm` de `@/lib/privado/dm`.
+- **Base:** `enfileirarDm`, `statusDosDms`, `cancelarDms`, `ParteDm`, `StatusDm` de `@/lib/privado/dm`; `modulo: "rastreio"`
+  (a união `ModuloPrivado` também tem `"teste"`, só informativo).
+- **`CONSUMIDORES_DE_RESPOSTA` (B·4):** o Rastreio não acrescenta entrada na v1; o SAIR é da base (cancela os DMs pendentes
+  da conversa), e o aviso cancelado vira e-mail pelo status da Task 3.
 - **Nomes novos** (acréscimo ao índice): `DepsWhatsapp`, `cancelarWhatsappsDoPedido`, `pularWhatsappsDoPedido`, o
   parâmetro `deps` no fim de `enviarWhatsappsPendentes` e `atualizarStatusWhatsapp`, `enviarWhatsapps` em
   `DepsRegistrar` e `DepsCron`, `atualizarWhatsapps` em `DepsCron` e `cancelarWhatsapps` em `DepsRastreio`.
@@ -363,7 +393,8 @@ Onde: no `responderParar` do PR 3, chamando a função deste PR — só `enviar-
 
 - **PR 4:** diz que o e-mail no lugar "cria (ou reabre)" o aviso de e-mail; aqui só cria (spec §1.2: o e-mail da etapa
   que já existe — saiu, falhou ou foi pulado — não volta). O PR 4 grava frase em `error` ("avisos parados pela
-  compradora"); aqui vai código, com o status da base como veio, porque ela não manda o motivo.
+  compradora"); aqui vai código: o `erro` da base como veio (`vencida`, `bloqueado`, `sem_whatsapp`…) e, se ela não
+  mandou, o status.
 - **Mockup × índice:** o mockup quebra o "enviado" em parágrafos e diz "pelos Correios (SEDEX)"; o "entregue" diz "foi
   entregue hoje", traz o número da loja noutro formato e leva o rodapé "Aviso automático de pedido". Vale o índice
   (spec §1.4, posterior ao mockup): texto corrido, rodapé só nos modelos com link.
