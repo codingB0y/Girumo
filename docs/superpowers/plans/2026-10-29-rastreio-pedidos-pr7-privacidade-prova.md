@@ -19,7 +19,8 @@ Focus valem aqui.
 - Branch `feat/rastreio-pr7-privacidade`, worktree a partir de `origin/main` (`git fetch origin main` antes).
 - A Task 1 só depende do PR 1 (o que é guardado). A Task 2 (prova) exige em `main` e em produção os PRs 3, 4 e 6;
   o WhatsApp entra na prova se o PR 5 já estiver no ar (senão a prova cobre página + e-mail e o card fica com
-  `blocker` "WhatsApp espera a base do privado"). Conferir:
+  `blocker` "WhatsApp espera a base do privado"); o "entregue" automático entra se o PR 8 (Melhor Envio) estiver no
+  ar. Conferir:
   `git log origin/main --oneline --grep "rastreio"`.
 
 ## Arquivos
@@ -66,7 +67,8 @@ Expected: FAIL em `Rastreio do pedido`.
 §3 "O que coletamos", item novo depois do Instagram (texto exato):
 
 > **Rastreio do pedido (quando a loja liga):** número, etapas, transportadora e código de rastreio dos pedidos da
-> loja, lidos da Yampi da loja, e da compradora o primeiro nome, o celular e o e-mail (o e-mail guardado cifrado). O
+> loja, lidos da Yampi da loja (e, se a loja conectar, do Melhor Envio dela, só o andamento da entrega), e da
+> compradora o primeiro nome, o celular e o e-mail (o e-mail guardado cifrado). O
 > CPF ou CNPJ nunca fica em texto: guardamos só um código irreversível, que serve para a busca na página de
 > rastreio. Usamos esses dados apenas para mostrar o andamento do pedido e mandar os avisos de entrega por e-mail e
 > WhatsApp.
@@ -119,6 +121,9 @@ Expected: `200`, `x-robots-tag: noindex`, `cache-control: private, no-store`, CS
   mesmo minuto → "Muitas tentativas, tente daqui a pouco".
 - [ ] **Step 6: Parar avisos** — no link do aviso, "Não quero mais receber avisos"; a loja marca "Entregue" → nenhum
   aviso novo (`tracking_notices` da etapa `entregue` inexistente ou `pulado`).
+- [ ] **Step 6b: Entregue automático (só com o PR 8 no ar)** — num pedido de teste com etiqueta do Melhor Envio, a
+  lojista **não** mexe na Yampi: quando a transportadora entrega, em até 30 min o pedido vira `entregue` e o aviso sai
+  (WhatsApp, pela matriz padrão), e o `status_raw` mostra que o marco veio do Melhor Envio (formato no plano do PR 8).
 - [ ] **Step 7: Painel** — Vendas › Entregas mostra o pedido com as etapas e os canais; Configurações › Rastreio de
   pedidos mostra o número do atendimento e a matriz; o cartão da Yampi mostra a saúde do código.
 - [ ] **Step 8: Card** — em prod:

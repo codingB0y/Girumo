@@ -1,7 +1,8 @@
 # Rastreio do pedido — página por CPF e avisos automáticos — design
 
 **Data:** 29/10/2026 · **Status:** escrito depois do mockup aprovado pelo Igor (29/10), revisado pela checagem de
-construtor; conexão da Yampi decidida (token na piloto); cobrança em aberto, sem travar a v1 (ligada pelo admin)
+construtor; conexão da Yampi decidida (token na piloto); Melhor Envio logo depois do e-mail, para entregue e não
+entregue, se a Fase 0 pedir (30/10); cobrança em aberto, sem travar a v1 (ligada pelo admin)
 **Mockup:** https://claude.ai/artifact/MWC77x1LE213aFpNFQ7Z8c (busca, pedido, problema, WhatsApp, e-mail,
 Integrações › Yampi, Configurações › Rastreio de pedidos, Vendas › Entregas, como funciona)
 **Card do quadro:** `rastreio-pedidos` (prod, `nao_existe`)
@@ -28,7 +29,8 @@ no site.
 
 | Pergunta | Decisão |
 |---|---|
-| De onde vem o pedido | **Yampi** como base; Melhor Envio só complementa depois (recomendação da pesquisa; mockup aprovado) |
+| De onde vem o pedido | **Yampi** como base; Melhor Envio só complementa (recomendação da pesquisa; mockup aprovado) |
+| Melhor Envio (30/10) | **Logo depois do e-mail (PR 8), só para os marcos entregue, não entregue e pausado**, se as provas 4 e 5 da Fase 0 pedirem (§10). Antes estava na fase 3; o Igor perguntou por que não direto no Melhor Envio, e a resposta foi: base continua a Yampi, mas sem o Melhor Envio os avisos de entregue e problema dependem da lojista atualizar a Yampi à mão |
 | WhatsApp ao comprador | **API não oficial (Evolution)** — "USAR API NAO OFICIAL". Antes ele tinha escolhido a oficial via Zernio; trocou no mesmo dia |
 | Número | **Número de privado separado** do número dos grupos (premissa dita a ele) e **um chip só para Rastreio e Recuperar** (decidido pelo Igor na sessão do Recuperar, 29/10). Na tela: "número do atendimento" |
 | Telas | Mockup aprovado em 29/10 e ajustado à troca de API (sem botões, um link por mensagem, "parar avisos" na página) |
@@ -41,8 +43,13 @@ Regra durável afetada: [nunca DM] — a exceção vale só para o número de pr
 1. **A Yampi é o ponto onde tudo se encontra.** O webhook dela já traz CPF/CNPJ, e-mail, celular, status e o código de
    rastreio, venha a etiqueta de onde vier: o app do Melhor Envio da Yampi devolve o código quando a etiqueta vira
    "Postado"; o Bling devolve se "Sincronizar rastreamento automaticamente" estiver ligado; o lojista pode digitar.
-2. **O Melhor Envio não serve de base.** O webhook dele não dispara para etiqueta criada pelo site ou por outro app
-   (Yampi, Bling), mesmo na mesma conta; só daria marcos, e não conhece pedido nem pagamento. Fica para a fase 3.
+2. **O Melhor Envio não serve de base, mas é o único caminho automático para "entregue".** Ele só conhece o que saiu
+   com etiqueta dele, e só a partir da etiqueta (não sabe de pagamento, separação, cancelamento nem retirada na loja);
+   o webhook dele não dispara para etiqueta criada pelo site ou por outro app (Yampi, Bling), mesmo na mesma conta; e
+   só dá marcos (postado, entregue, não entregue, pausado). Em compensação, na pesquisa não apareceu nenhum caminho que
+   marque "entregue" na Yampi sozinho: sem o Melhor Envio, os avisos de entregue e problema dependem de a lojista
+   atualizar o status à mão. Por isso ele entra logo depois do e-mail, só para esses marcos (PR 8, §3.6), se as provas
+   4 e 5 da Fase 0 pedirem.
 3. **"Saiu para entrega" não existe em fonte oficial.** Correios só liberam o rastreio ao dono do contrato. Até a
    fase 4, a página leva ao histórico completo da transportadora.
 4. **E-mail já existe três vezes** (Yampi a cada status, Melhor Envio a cada movimentação, Bling com logística). O
@@ -92,12 +99,31 @@ Quem for construído primeiro faz a base (PR "base" no §9). O Rastreio não ree
   histórico de status da Yampi (`include=statuses`) se trouxer data (Fase 0 confere); senão mostra só a etapa atual,
   sem datas inventadas.
 
+**Marcos do Melhor Envio (PR 8, só com o Melhor Envio conectado):**
+
+| Status da etiqueta no Melhor Envio | Etapa |
+|---|---|
+| `delivered` | `entregue` |
+| `undelivered` | `problema` |
+| `paused` ("exige ação do destinatário") | `problema` |
+| os outros (`generated`, `posted`, …) | não mexem: o "enviado" vem da Yampi, com o código |
+
+- A etiqueta é casada com o pedido pelo **código de rastreio** que a Yampi já gravou (`tracking_code`); a Fase 0 (prova
+  5) confere se esse código é o `tracking` ou o `self_tracking` do Melhor Envio. Pedido sem código não é consultado.
+- O marco grava pelo mesmo caminho do pedido da Yampi: a etapa não volta (um `paused` depois de `entregue` não muda
+  nada) e o aviso é um por etapa e canal. Se a Yampi também marcar `delivered`, a etapa já é `entregue` e nada se repete.
+- A Fase 0 confere em etiquetas reais o que o `paused` cobre; se for "aguardando retirada na agência", ele continua
+  `problema` (a compradora precisa agir e a loja é avisada), nunca `retirada` (que é retirada na loja).
+
 ### 1.2 Quando avisar
 
 - Só etapa nova vista **com o Rastreio ligado** (`rastreio_enabled`), em pedido atualizado nos últimos 3 dias e em
   loja com plano ativo (`tenantGrantsPlan`). A importação inicial (30 dias) enche a página e o painel sem aviso. A
   varredura do cron avisa como o aviso da Yampi (ela existe para cobrir aviso perdido; a janela de 3 dias segura
   pedido velho). Loja com Yampi conectada só para o Recuperar: o Rastreio não grava nada.
+- Marco do Melhor Envio avisa como o da Yampi, com a janela de 3 dias contada da data do marco na etiqueta (a Fase 0
+  confere o campo; `delivered_at` no entregue). A primeira passada depois de conectar o Melhor Envio só grava, sem
+  aviso, como a importação.
 - Um aviso por pedido × etapa × canal: `unique (order_id, etapa, channel)` em `tracking_notices`.
 - A matriz da loja decide os canais por etapa; o padrão é a coluna acima.
 - Pedido com "parar avisos" (`notices_stopped_at`) não recebe mais nada. "Parar avisos" é por pedido e **não** grava
@@ -156,6 +182,7 @@ Quem for construído primeiro faz a base (PR "base" no §9). O Rastreio não ree
 | Tipo | Quando | Também por e-mail |
 |---|---|---|
 | `rastreio_problema` | etapa `problema`, sempre (o texto à compradora diz "A loja já foi avisada") | só com "Me avisar por e-mail quando houver problema" ligado (padrão) |
+| `rastreio_melhor_envio` | o Melhor Envio recusou a renovação da conexão (PR 8): "Reconecte o Melhor Envio para os avisos de entrega" | não |
 
 Reconexão da Yampi e queda do número de privado são avisos da base. Dedupe por select antes do insert, como os outros
 alertas (`notifications` não tem helper; insert direto).
@@ -198,6 +225,14 @@ grupos; vazio = botão "Falar com a loja" escondido), `imported_at` (nulo = impo
 Flag: `tenant_settings.rastreio_enabled` nasce no **banco comum** (B·1a do Recuperar, junto com `recuperar_enabled`,
 porque a trava do número lê as duas), com trigger de guarda igual ao `instagram_enabled` (só o servidor escreve). O
 Rastreio acrescenta `Liberacao = "rastreio"` em `painel-nav.ts`.
+
+### 2.4 `melhorenvio_connections` (PR 8, migração própria)
+
+Uma linha por loja (`tenant_id` único): `access_token` e `refresh_token` selados (secret-box, AAD
+`melhorenvio:<tenant>:<campo>`), `expires_at`, `refresh_expires_at`, `status` (`ativa` · `reautorizar` ·
+`desconectada`), `first_pass_at` (nulo = primeira passada, sem aviso, ainda não feita), `last_check_at`, `last_error`,
+`created_at`, `updated_at`. Mesmo molde de `bling_connections`. Em `tracking_orders`, a coluna `carrier_checked_at`
+(última consulta do pedido no Melhor Envio) espalha as consultas.
 
 ## 3. Fluxos
 
@@ -252,11 +287,29 @@ pela base: enviado/entregue/lido → atualiza; falhou ou vencido → `falhou` + 
   Pedido purgado = "Pedido não encontrado" com a busca.
 - Cor da loja: a do link da bio, se existir; senão neutra.
 
+### 3.6 Marcos do Melhor Envio (PR 8)
+
+- **Conectar:** a lojista autoriza o app da Girumo na conta dela do Melhor Envio (OAuth, escopos só de leitura
+  `orders-read` e `shipping-tracking`), no molde da conexão do Bling (`/api/integracoes/bling/conectar` e `/retorno`,
+  `lib/bling/oauth.ts`). `User-Agent` com o e-mail técnico, como a API exige.
+- **Consultar:** no cron do Rastreio, a cada 30 min, por loja com o Melhor Envio `ativa`: os pedidos em `enviado` ou
+  `problema`, com código, enviados há menos de 30 dias e não consultados há 30 min (`carrier_checked_at`) → busca a
+  etiqueta pelo código → marco do §1.1 → grava pelo mesmo caminho do pedido (RPC do PR 1) → avisos do §1.2. Sem
+  webhook: ele não dispara para etiqueta criada pelo app da Yampi, pelo Bling ou pelo site. A forma de busca (por
+  código ou listando por status) a Fase 0 decide.
+- **Volume:** baixo (dezenas de pedidos a caminho por loja), dentro de 250 requisições por minuto por conta. Se crescer
+  acima do normal, avisar o Melhor Envio (termo 17.3).
+- **Chave:** o acesso vale 30 dias e a renovação 45; o cron renova antes de vencer. Renovação recusada → `reautorizar`,
+  sininho `rastreio_melhor_envio` uma vez, e a loja segue só com a Yampi.
+- **E-mail repetido:** o Melhor Envio manda e-mail a cada movimentação (ligado por padrão); a tela do Rastreio já
+  avisa para desligar (Gerenciar › Configurações no Melhor Envio).
+
 ## 4. API (resumo)
 
 | Rota | Quem | Faz |
 |---|---|---|
-| `GET /api/cron/rastreio` | cron | consome inbox, varredura se preciso, e-mails, fallback, purge |
+| `GET /api/cron/rastreio` | cron | liga loja nova, varredura por `updated_at`, e-mails, fallback, purge; com o PR 8, os marcos do Melhor Envio |
+| `GET /api/integracoes/melhor-envio/conectar` · `GET …/retorno` · `POST …/desconectar` (PR 8) | `settings:connection` | OAuth do Melhor Envio (com `state`), troca do código pela chave, desconectar |
 | `GET/PATCH /api/rastreio/config` | `settings:connection` | matriz, convite, slug, número da loja |
 | `GET/POST /api/rastreio/entregas` | `settings:connection` | lista + números do topo, filtros; busca por nº/nome/documento só por `POST` (CPF fora da query string e do log) |
 | `POST /api/rastreio/entregas/[id]/reenviar` | `settings:connection` | recria o aviso da etapa atual nos canais ligados |
@@ -273,7 +326,11 @@ Contratos em `system/API_CONTRACTS.md` no PR do banco.
 - **Configurações › Rastreio de pedidos** (porta nova em `lib/painel/configuracoes.ts` / `PORTAS`): o cartão do
   número do atendimento (da base: estado, aquecimento, ritmo, horário do número, conectar); avisos automáticos (matriz
   etapa × canal, "Ver mensagem", alerta de e-mail repetido, "Me avisar por e-mail quando houver problema"); página de rastreio
-  (link, copiar, abrir, número da loja, convite do VIP + link de campanha).
+  (link, copiar, abrir, número da loja, convite do VIP + link de campanha). Com o PR 8 no ar e o Melhor Envio
+  desconectado, uma linha junto da matriz: "Para avisar 'entregue' e 'não entregue' sozinho, conecte o Melhor Envio".
+- **Integrações › Melhor Envio** (PR 8): cartão no molde do cartão do Bling (conectar, estado, reconectar, desconectar) com
+  "X entregas confirmadas pelo Melhor Envio em 7 dias". Sem tela nova no mockup: repete o padrão dos cartões que já
+  existem.
 - **Vendas › Entregas**: a página Vendas não tem abas hoje; ganha a barra "Registrar venda | Entregas". Números do topo,
   filtros, busca, tabela densa. **Só dono e admin na v1** (a vendedora tem promessa de "nunca a lista de contatos").
 - **Página da compradora**: busca (CPF ou CNPJ + celular), lista quando há mais de um, pedido, problema, "não quero
@@ -290,6 +347,8 @@ Contratos em `system/API_CONTRACTS.md` no PR do banco.
 | Loja com Bling e Yampi | o Rastreio lê só a Yampi; `orders` (vendas do funil) segue só pelo Bling |
 | Loja desliga o Rastreio | página 404, cron pula a loja; dados ficam até o `purge_after` |
 | Pedido de PJ | busca por CNPJ; primeiro nome vem do nome do contato ou fica em branco ("Olá!") |
+| Etiqueta não achada no Melhor Envio (comprada fora dele ou em outra conta) | nada muda; o pedido segue só pela Yampi |
+| Melhor Envio recusa a renovação da chave | conexão `reautorizar`, sininho uma vez; a loja segue só com a Yampi |
 
 ## 7. Segurança e LGPD
 
@@ -303,6 +362,8 @@ Contratos em `system/API_CONTRACTS.md` no PR do banco.
 - Base legal: execução do contrato de compra (LGPD art. 7º V); a loja é controladora, a Girumo operadora. Atualizar
   `/privacidade` (dados do pedido para aviso de entrega; Yampi como fonte).
 - "Falar com a loja" nunca aponta para o número que posta nos grupos (`conferir.ts`).
+- Melhor Envio (PR 8): chaves seladas (secret-box), `state` no OAuth contra CSRF, escopos só de leitura; a Girumo nunca
+  compra nem altera etiqueta (o termo 22.4 proíbe revender etiqueta).
 
 ## 8. Testes
 
@@ -314,6 +375,9 @@ Contratos em `system/API_CONTRACTS.md` no PR do banco.
 - E2E: busca → lista → pedido → parar avisos, com loja QA e pedido semeado; registros de rota (CSP com nonce, robots).
 - Mutantes que os testes têm de matar: aviso duplicado no reenvio; etapa voltando; busca que diferencia "não achei" de
   "não confere"; página por token listando outros pedidos; "parar avisos" gravando em `optouts`.
+- Melhor Envio (PR 8): marco → etapa (tabela inteira do §1.1), casamento pelo código, primeira passada sem aviso,
+  janela de 3 dias pela data do marco, renovação e `reautorizar`. Mutantes: etiqueta de outro pedido (código
+  diferente) mudando a etapa; `paused` depois de `entregue` voltando a etapa.
 
 ## 9. PRs (um por coisa, ≤ ~10 arquivos)
 
@@ -333,9 +397,13 @@ Contratos em `system/API_CONTRACTS.md` no PR do banco.
 6. **Painel** — Configurações › Rastreio de pedidos, Vendas › Entregas, bloco de saúde no cartão da Yampi, sininho,
    flag e menu.
 7. **Privacidade e prova** — `/privacidade`, roteiro de prova em prod, card.
+8. **Melhor Envio** — conexão (OAuth no molde do Bling), consulta dos marcos no cron do Rastreio (§3.6), entregue, não
+   entregue e pausado, cartão em Integrações, sininho de reconexão. Só com as provas 4 e 5 da Fase 0; o plano dele é
+   escrito com o resultado delas.
 
 Ordem: B·1a → 1 → (B·6, B·6b) → 2 → (3, 4, 6) → 5; o 5 espera também B·3 e B·4; o 6 usa os cartões do B·2b e
-do B·6c. Nenhuma loja ganha `rastreio_enabled` antes do B·2a em `main` e do redeploy do worker (regra da base: o
+do B·6c. O **8 vem logo depois do 4** (e-mail), se a Fase 0 pedir; ele e o 5 mexem no `cron.ts` do Rastreio, então
+um de cada vez. Nenhuma loja ganha `rastreio_enabled` antes do B·2a em `main` e do redeploy do worker (regra da base: o
 worker antigo escolheria o número do atendimento para o auto-grow e as ações em massa). Página e e-mail podem
 ir ao ar antes do WhatsApp. O PR 1 pode sair antes da Fase 0. Implementação em outro chat, PR a PR (índice em
 `docs/superpowers/plans/2026-10-29-rastreio-pedidos-00-indice.md`).
@@ -350,11 +418,26 @@ Provas, sem código de produto (a 1 é a mesma do Recuperar):
    Critério: **≥ 80%** com código (ou causa conhecida e consertável: ligar a sincronização do Bling ou usar o app do
    Melhor Envio da Yampi). Abaixo disso, o aviso "enviado" fica desligado até consertar; página e demais etapas valem.
 3. **Base do privado** provada pela base (chip de teste, envio, status por id, número sem WhatsApp).
+4. **"Entregue" chegando à Yampi**: nos pedidos da piloto criados entre 45 e 15 dias atrás que foram enviados (têm
+   código de rastreio ou passaram por um status de envio), quantos chegaram a "entregue" (`delivered = true` ou o
+   status `delivered`, no atual ou no histórico). A janela é pela data de criação porque a lista da Yampi não traz a
+   data de envio. Medida no levantamento da Fase 0 do Recuperar (comando `entregues`): linha **Y22** de
+   `docs/superpowers/plans/_recuperar-fase-0-resultado.md`. Critério: **abaixo de 80%** → o PR 8 (Melhor Envio) entra
+   logo depois do e-mail, se a prova 5 passar; 80% ou mais → o PR 8 fica para depois.
+5. **O Melhor Envio enxerga as etiquetas da piloto**: com o app de teste da Girumo autorizado só para leitura na conta
+   do Melhor Envio da piloto (no sandbox, se der para reproduzir), conferir: (a) se ele lista as etiquetas criadas
+   pelo app da Yampi, pelo Bling e pelo site; (b) se acha a etiqueta pelo código que está na Yampi, e se esse código é
+   o `tracking` ou o `self_tracking`; (c) qual campo traz a data de cada marco; (d) o que o `paused` cobre em etiquetas
+   reais. Sem (a) ou (b), o PR 8 não anda: entregue e problema ficam com a lojista (ou com um serviço pago de rastreio,
+   fase 4).
 
 Roteiro do Igor para a piloto: o chip do número do atendimento (o mesmo do Recuperar); alias, token e chave da Yampi
 (Perfil › Credenciais de API; trocar a senha da Yampi troca o token); desligar o e-mail de rastreio do Melhor Envio
 (ou deixar o nosso desligado); com o Recuperar desligado, a mensagem de ausência no WhatsApp Business do chip (§1.4);
-link da página no menu da loja Yampi e na bio; `RASTREIO_DOC_PEPPER` na Vercel (os dois ambientes).
+link da página no menu da loja Yampi e na bio; `RASTREIO_DOC_PEPPER` na Vercel (os dois ambientes). Para as provas
+4 e 5 e o PR 8: criar o app da Girumo no Melhor Envio (Integrações › Área Dev; produção exige conta PF verificada, com
+documento e selfie), pôr `MELHORENVIO_CLIENT_ID` e `MELHORENVIO_CLIENT_SECRET` na Vercel (os dois ambientes) e
+autorizar o app na conta da piloto.
 
 ## Decisões tomadas por mim (conferir)
 
@@ -373,6 +456,9 @@ link da página no menu da loja Yampi e na bio; `RASTREIO_DOC_PEPPER` na Vercel 
   dados); o sininho do problema sai sempre e o "me avisar" vale só para o e-mail à loja; a varredura avisa dentro dos
   3 dias; pedido importado sem histórico datado não ganha data inventada; quem mandou SAIR (ou está em `optouts`)
   recebe o aviso por e-mail no lugar do WhatsApp; a busca de Entregas vai por `POST`.
+- Melhor Envio (30/10): `paused` vira `problema`; a etiqueta casa com o pedido pelo código de rastreio; consulta a
+  cada 30 min, só de pedidos a caminho; a primeira passada depois de conectar não avisa; critério de 80% de "entregue"
+  na Yampi para decidir se o PR 8 entra; cartão no padrão dos que já existem, sem tela nova no mockup.
 
 ## Pendências do Igor
 
@@ -382,6 +468,7 @@ link da página no menu da loja Yampi e na bio; `RASTREIO_DOC_PEPPER` na Vercel 
 
 ## Fora da v1
 
-Melhor Envio (fase 3), "saiu para entrega" e "aguardando retirada" por serviço pago de rastreio (fase 4), Bling como
+Do Melhor Envio, tudo além dos marcos do PR 8 (a API não dá o histórico completo); "saiu para entrega" e "aguardando
+retirada" por serviço pago de rastreio (fase 4), Bling como
 fonte para loja sem Yampi (fase 5), app oficial da Yampi (OAuth), vendedora em Entregas, Yampi alimentando `orders`
 (vendas do funil), escrever o rastreio de volta na Yampi (`POST /orders/{id}/tracking`).

@@ -39,12 +39,14 @@ Yampi", "Aviso da Yampi", "Envio", "Resposta", "Base do privado"; §9 PRs "comum
 | 4 · Partes 1–3 | `fromName` e layout da loja + `conviteDoGrupo` · envio e retentativa · e-mail de problema à loja | 2 | `…-pr4-email.md` |
 | 6 · Partes 1–5 | API das Entregas · liberação · rota da configuração · Configurações › Rastreio · Entregas + bloco da Yampi | 2; o cartão do número do atendimento espera B·2b e o bloco no cartão da Yampi, B·6c | `…-pr6-painel.md` |
 | 5 | WhatsApp: mensagens, envio pela base, status, fallback para e-mail, cancelar no "parar" | 4, 3·2, B·3, B·4 (que já vêm depois de B·2a e B·2b) | `…-pr5-whatsapp.md` |
-| 7 | `/privacidade`, prova em prod, card | 3, 4, 6 (e 5, se já estiver no ar) | `…-pr7-privacidade-prova.md` |
+| 7 | `/privacidade`, prova em prod, card | 3, 4, 6 (e 5 e 8, se já estiverem no ar) | `…-pr7-privacidade-prova.md` |
+| 8 | Melhor Envio: conexão OAuth e os marcos entregue, não entregue e pausado (spec §3.6) | 4 e 2; provas 4 e 5 da Fase 0 | a escrever com o resultado das provas 4 e 5 |
 
 Ondas (regra de waves: arquivos disjuntos e sem dependência): o **1** vem logo depois do B·1a. Depois do **2**, os
 PRs **3, 4 e 6** podem andar em paralelo; os arquivos de cada um estão listados nos planos e não se cruzam, e só a
 Parte 2 do 3 espera a Parte 1 do 4. O **5** vem depois do 4 e da Parte 2 do 3 (mexe em `lib/rastreio/registrar.ts`,
-`lib/rastreio/cron.ts` e na rota de "parar avisos") e da base do privado. Página e
+`lib/rastreio/cron.ts` e na rota de "parar avisos") e da base do privado. O **8** (Melhor Envio) vem logo depois do
+4, se a Fase 0 pedir (provas 4 e 5); ele e o 5 mexem no `cron.ts`, então um de cada vez. Página e
 e-mail vão ao ar antes do WhatsApp. Com a Fase 0 (spec §10) pendente, o PR 1 pode ir a `main`; o 2 espera a prova do
 payload da Yampi. Um chip só para Rastreio e Recuperar (decisão do Igor, 29/10); na tela ele se chama **"número do
 atendimento"**.
@@ -182,7 +184,7 @@ export type AvisoParaEnviar = { id: string; orderId: string; etapa: EtapaComAvis
   `varrerPedidos(tenantId: string, agora: Date): Promise<number>`.
 - `lib/rastreio/cron.ts`: `rodarCronRastreio(agora: Date): Promise<{ lojas: number; falhas: number }>` — por loja de
   `lojasComRastreio()`, cada passo num `try/catch` próprio (uma loja com erro não para as outras). O PR 4 acrescenta
-  o passo de e-mail; o PR 5, os de WhatsApp. Rota: `apps/web/src/app/api/cron/rastreio/route.ts` (`GET`,
+  o passo de e-mail; o PR 5, os de WhatsApp; o PR 8, o dos marcos do Melhor Envio (nomes no plano dele). Rota: `apps/web/src/app/api/cron/rastreio/route.ts` (`GET`,
   `isCronAuthorized`).
 - Rotas do painel citadas por outros PRs (o PR 6 cria): Vendas › Entregas em `/painel/vendas/entregas`; o sininho do
   problema aponta para `/painel/vendas/entregas?pedido=<id>`.
