@@ -146,8 +146,8 @@ test("marcarAviso grava só o que veio e soma a tentativa lida", async () => {
   chamadas.length = 0;
   await marcarAviso("loja-a", "n-1", { status: "enviado", messageId: "m-1", sentAt: "2026-10-29T15:00:00.000Z" });
   assert.deepEqual(chamadas.map((c) => c.metodo), ["PATCH"]);
-  const { updated_at: _carimbo, ...corpo } = chamadas[0].corpo as Record<string, unknown>;
-  assert.deepEqual(corpo, { status: "enviado", message_id: "m-1", sent_at: "2026-10-29T15:00:00.000Z" });
+  const corpo = { ...(chamadas[0].corpo as Record<string, unknown>), updated_at: undefined };
+  assert.deepEqual(JSON.parse(JSON.stringify(corpo)), { status: "enviado", message_id: "m-1", sent_at: "2026-10-29T15:00:00.000Z" });
 
   responder = () => ({ status: 200, corpo: [] });
   await assert.rejects(marcarAviso("loja-a", "n-1", { status: "pulado" }), /aviso não encontrado/);
