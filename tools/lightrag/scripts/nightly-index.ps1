@@ -57,6 +57,16 @@ $log = Join-Path $logDir ("nightly-{0:yyyy-MM-dd}.log" -f (Get-Date))
     if ($LASTEXITCODE -ne 0) { throw "checkout de origin/main falhou ($LASTEXITCODE)" }
     "commit: $(git -C $Worktree log --oneline -1)"
 
+    # Indexador de rodada anterior ainda vivo gasta a cota do dia antes desta rodada e
+    # escreve nos mesmos JSON. Matar o PowerShell (limite de 3h da tarefa, TaskStop) nao
+    # mata o python filho: em 31/10/2026 havia um vivo desde 29/10 e a noite parou no 1o lote.
+    Get-CimInstance Win32_Process -Filter "Name = 'python.exe'" |
+        Where-Object { $_.CommandLine -match 'lightrag_kg\.cli index' } |
+        ForEach-Object {
+            "matando indexador orfao pid $($_.ProcessId) (desde $($_.CreationDate))"
+            Stop-Process -Id $_.ProcessId -Force
+        }
+
     $env:PYTHONPATH = Join-Path $Worktree 'tools\lightrag'
     $env:LIGHTRAG_DATA_DIR = $dados
     $env:LIGHTRAG_PROFILE = 'tech'
