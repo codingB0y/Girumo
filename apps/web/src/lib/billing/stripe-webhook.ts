@@ -89,15 +89,18 @@ export interface WebhookStore {
   sendTrialEndingEmail(subscription: Stripe.Subscription): Promise<StoreResult>;
   /**
    * Estado ATUAL do add-on, lido no Stripe (não do evento, que pode chegar fora de
-   * ordem ou reenviado). `live` = alguma assinatura do add-on desta loja ativa;
+   * ordem ou reenviado). `live` = alguma assinatura DESTE add-on na loja ativa;
    * `customerOk` = o customer do evento é o da loja (`organizations.stripe_customer_id`).
    */
-  instagramAddonState(input: { tenantId: string; customerId: string }): Promise<{ live: boolean; customerOk: boolean; vivas: number } & StoreResult>;
-  /** Liga/desliga `tenant_settings.instagram_enabled`. Desligar também pausa os fluxos e para os atendimentos. */
-  setInstagramEnabled(input: { tenantId: string; enabled: boolean }): Promise<StoreResult>;
+  addonState(input: { addon: AddonId; tenantId: string; customerId: string }): Promise<{ live: boolean; customerOk: boolean; vivas: number } & StoreResult>;
+  /**
+   * Liga/desliga a flag do add-on em `tenant_settings`. Desligar o Instagram também
+   * pausa os fluxos e para os atendimentos.
+   */
+  setAddonEnabled(input: { addon: AddonId; tenantId: string; enabled: boolean }): Promise<StoreResult>;
   /** O convite nominal desta assinatura foi usado (só se ainda aberto e da loja). */
   markInstagramInviteUsed(input: { tenantId: string; inviteId: string; subscriptionId: string }): Promise<StoreResult>;
-  /** Cancela as assinaturas do add-on Instagram do customer, se ele não tiver outro plano vivo. */
+  /** Cancela as assinaturas de add-on (qualquer um) do customer, se ele não tiver outro plano vivo. */
   cancelAddonSubscriptions(customerId: string): Promise<StoreResult>;
 }
 
@@ -151,30 +154,45 @@ export function mapStripeStatus(status: Stripe.Subscription.Status): string {
   return "past_due";
 }
 
-/** Assinatura do add-on Instagram: separada da do plano, nunca vai para `subscriptions`. */
-export const isInstagramAddon = (metadata: Stripe.Metadata | null | undefined): boolean => metadata?.addon === "instagram";
+/** Add-ons que a loja contrata além do plano; cada um é uma assinatura própria no Stripe. */
+export type AddonId = "instagram" | "recuperar";
+
+const ADDON_NOME: Record<AddonId, string> = { instagram: "Instagram", recuperar: "Recuperar" };
 
 /**
- * O add-on Instagram liga e desliga a loja. A decisão NÃO usa o status do evento:
+ * Qual add-on é esta assinatura (`metadata.addon`), ou `null` se for plano. Valor
+ * desconhecido também é `null`: só o que a gente cria é tratado como add-on.
+ */
+export function addonDe(metadata: Stripe.Metadata | null | undefined): AddonId | null {
+  const addon = metadata?.addon;
+  return addon === "instagram" || addon === "recuperar" ? addon : null;
+}
+
+/** Assinatura de add-on: separada da do plano, nunca vai para `subscriptions`. */
+export const isAddon = (metadata: Stripe.Metadata | null | undefined): boolean => addonDe(metadata) !== null;
+
+/**
+ * Um add-on liga e desliga a flag da loja. A decisão NÃO usa o status do evento:
  * o Stripe não garante ordem, e um `updated` antigo com `active` chegando depois
- * do `deleted` religaria de graça. Lê o estado atual (qualquer add-on da loja
- * ativo ou em teste = ligado; `past_due` conta como desligado só quando não há
+ * do `deleted` religaria de graça. Lê o estado atual (qualquer assinatura DESTE
+ * add-on na loja ativa ou em teste = ligado; `past_due` conta como desligado só quando não há
  * outro vivo, e quem decide é o store). Reenvio e assinatura duplicada caem no
  * mesmo resultado.
  */
-async function handleInstagramAddon(subscription: Stripe.Subscription, store: WebhookStore): Promise<StoreResult> {
+async function handleAddon(addon: AddonId, subscription: Stripe.Subscription, store: WebhookStore): Promise<StoreResult> {
+  const nome = ADDON_NOME[addon];
   const tenantId = subscription.metadata.tenant_id;
   if (!tenantId) {
     await store.insertLog({
       tenant_id: SYSTEM_TENANT_ID,
       level: "warn",
       event: "stripe.addon.missing_metadata",
-      message: "Assinatura do add-on Instagram sem tenant_id.",
+      message: `Assinatura do add-on ${nome} sem tenant_id.`,
       metadata: { stripe_subscription_id: subscription.id },
     });
     return { error: null };
   }
-  const estado = await store.instagramAddonState({ tenantId, customerId: String(subscription.customer) });
+  const estado = await store.addonState({ addon, tenantId, customerId: String(subscription.customer) });
   if (estado.error) return { error: estado.error };
   if (!estado.customerOk) {
     // tenant_id do metadata não bate com o customer da loja: não liga nada em loja alheia.
@@ -182,7 +200,7 @@ async function handleInstagramAddon(subscription: Stripe.Subscription, store: We
       tenant_id: tenantId,
       level: "warn",
       event: "stripe.addon.customer_mismatch",
-      message: "Assinatura do add-on Instagram com customer diferente do da loja; ignorada.",
+      message: `Assinatura do add-on ${nome} com customer diferente do da loja; ignorada.`,
       metadata: { stripe_subscription_id: subscription.id, customer: String(subscription.customer) },
     });
     return { error: null };
@@ -195,25 +213,25 @@ async function handleInstagramAddon(subscription: Stripe.Subscription, store: We
       tenant_id: tenantId,
       level: "error",
       event: "stripe.addon.duplicado",
-      message: `Loja com ${estado.vivas} assinaturas do add-on Instagram vivas: cancelar e estornar a extra.`,
+      message: `Loja com ${estado.vivas} assinaturas do add-on ${nome} vivas: cancelar e estornar a extra.`,
       metadata: { stripe_subscription_id: subscription.id, customer: String(subscription.customer) },
     });
   }
 
-  const r = await store.setInstagramEnabled({ tenantId, enabled });
+  const r = await store.setAddonEnabled({ addon, tenantId, enabled });
   if (r.error) return r;
-  // Pago (não no clique): pagamento recusado não gasta o convite.
+  // Convite nominal é só do Instagram. Pago (não no clique): pagamento recusado não gasta o convite.
   const inviteId = subscription.metadata.invite_id;
   // Id torto viraria erro de uuid no banco e reenvio eterno do Stripe.
-  if (inviteId && subscription.status === "active" && /^[0-9a-f-]{36}$/i.test(inviteId)) {
+  if (addon === "instagram" && inviteId && subscription.status === "active" && /^[0-9a-f-]{36}$/i.test(inviteId)) {
     const usado = await store.markInstagramInviteUsed({ tenantId, inviteId, subscriptionId: subscription.id });
     if (usado.error) return usado;
   }
   await store.insertLog({
     tenant_id: tenantId,
     level: "info",
-    event: "stripe.addon.instagram",
-    message: enabled ? "Add-on Instagram ativo: Instagram liberado." : "Sem add-on Instagram ativo: Instagram desligado.",
+    event: `stripe.addon.${addon}`,
+    message: enabled ? `Add-on ${nome} ativo: ${nome} liberado.` : `Sem add-on ${nome} ativo: ${nome} desligado.`,
     metadata: { stripe_subscription_id: subscription.id, status: subscription.status },
   });
   return { error: null };
@@ -455,8 +473,9 @@ async function handleCheckoutSession(
   if (!session.subscription) return { error: null };
 
   const subscription = await store.retrieveSubscription(String(session.subscription));
-  // Add-on não é venda de plano: só liga o Instagram.
-  if (isInstagramAddon(subscription.metadata)) return handleInstagramAddon(subscription, store);
+  // Add-on não é venda de plano: só liga a flag dele.
+  const addon = addonDe(subscription.metadata);
+  if (addon) return handleAddon(addon, subscription, store);
   const processed = await upsertSubscription(subscription, eventCreatedAt, store);
   if (processed.error) return processed;
 
@@ -552,7 +571,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice, store: WebhookStore): 
 
   const meta = invoice.parent?.subscription_details?.metadata ?? null;
   // A fatura do add-on não é a primeira venda do plano.
-  if (isInstagramAddon(meta)) return { error: null };
+  if (isAddon(meta)) return { error: null };
   const tenantId = meta?.tenant_id;
   if (!tenantId) return { error: null };
 
@@ -597,7 +616,7 @@ async function handleTrialWillEnd(
   store: WebhookStore,
 ): Promise<StoreResult> {
   // O add-on não tem teste nem as travas do teste do plano.
-  if (isInstagramAddon(snapshot.metadata)) return { error: null };
+  if (isAddon(snapshot.metadata)) return { error: null };
   const subscription = await store.retrieveSubscription(snapshot.id);
   const tenantId = subscription.metadata.tenant_id;
   if (!tenantId || subscription.status !== "trialing") return { error: null };
@@ -650,8 +669,9 @@ export async function handleStripeEvent(
     event.type === "customer.subscription.deleted"
   ) {
     const subscription = event.data.object as Stripe.Subscription;
-    processed = isInstagramAddon(subscription.metadata)
-      ? await handleInstagramAddon(subscription, store)
+    const addon = addonDe(subscription.metadata);
+    processed = addon
+      ? await handleAddon(addon, subscription, store)
       : await upsertSubscription(subscription, eventCreatedAt, store);
   }
 
