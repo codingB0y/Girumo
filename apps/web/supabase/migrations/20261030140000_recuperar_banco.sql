@@ -55,11 +55,14 @@ create table if not exists public.recovery_settings (
     and (prazo_troca is null or char_length(btrim(prazo_troca)) between 1 and 60)
   ),
   constraint recovery_settings_pedido_minimo_check check (pedido_minimo_cents is null or pedido_minimo_cents > 0),
-  -- Só dígitos (DDI e DDD incluídos), como o telefone do caso: formatação ("(85) 9…") é recusada.
+  -- Só dígitos (DDI e DDD incluídos, 10 a 13 como o telefone do 1a): formatação ("(85) 9…"), elemento vazio
+  -- e elemento com vírgula são recusados (o segundo cardinality pega o que a regex sobre a lista junta não vê).
   constraint recovery_settings_numeros_check check (
         cardinality(numeros_ignorados) <= 50
     and array_position(numeros_ignorados, null) is null
-    and array_to_string(numeros_ignorados, ',') ~ '^([1-9][0-9]{9,14}(,[1-9][0-9]{9,14})*)?$'
+    and (cardinality(numeros_ignorados) = 0
+         or (array_to_string(numeros_ignorados, ',') ~ '^[1-9][0-9]{9,12}(,[1-9][0-9]{9,12})*$'
+             and cardinality(string_to_array(array_to_string(numeros_ignorados, ','), ',')) = cardinality(numeros_ignorados)))
   )
 );
 
@@ -107,10 +110,11 @@ create table if not exists public.recovery_cases (
     and (customer_name is null or char_length(customer_name) <= 120)
     and (pix_code is null or char_length(pix_code) <= 2048)
   ),
-  -- Sem zero à esquerda: public.phone_key o descartaria e o caso ficaria sem chave.
-  constraint recovery_cases_phone_check check (phone ~ '^[1-9][0-9]{9,14}$'),
+  -- 10 a 13 dígitos, como private_conversations/private_messages do 1a (um caso mais largo não abriria
+  -- conversa). Sem zero à esquerda: public.phone_key o descartaria e o caso ficaria sem chave.
+  constraint recovery_cases_phone_check check (phone ~ '^[1-9][0-9]{9,12}$'),
   -- Só o JID resolvido (<dígitos>@s.whatsapp.net): nunca @lid nem @g.us.
-  constraint recovery_cases_jid_check check (jid is null or jid ~ '^[1-9][0-9]{9,14}@s\.whatsapp\.net$'),
+  constraint recovery_cases_jid_check check (jid is null or jid ~ '^[1-9][0-9]{9,12}@s\.whatsapp\.net$'),
   constraint recovery_cases_total_check check (total_cents > 0),
   constraint recovery_cases_items_check check (
     case when jsonb_typeof(items) = 'array' then jsonb_array_length(items) <= 30 else false end
@@ -210,14 +214,23 @@ comment on table public.recovery_testimonials is
 
 -- 5) Colunas do Recuperar na private_messages (PR 1a). FKs on delete set null: apagar caso ou script não
 --    derruba o histórico; sem CHECK ligando script_id a variant (a ação da FK deixaria variant sozinho).
+--    As FKs entram nomeadas e checadas por nome no bloco abaixo (idempotente mesmo se a coluna já existir).
 alter table public.private_messages
-  add column if not exists case_id uuid references public.recovery_cases(id) on delete set null,
+  add column if not exists case_id uuid,
   add column if not exists step_key text,
-  add column if not exists script_id uuid references public.recovery_scripts(id) on delete set null,
+  add column if not exists script_id uuid,
   add column if not exists variant smallint;
 
 do $$
 begin
+  if not exists (select 1 from pg_constraint where conrelid = 'public.private_messages'::regclass and conname = 'private_messages_case_id_fkey') then
+    alter table public.private_messages add constraint private_messages_case_id_fkey
+      foreign key (case_id) references public.recovery_cases(id) on delete set null;
+  end if;
+  if not exists (select 1 from pg_constraint where conrelid = 'public.private_messages'::regclass and conname = 'private_messages_script_id_fkey') then
+    alter table public.private_messages add constraint private_messages_script_id_fkey
+      foreign key (script_id) references public.recovery_scripts(id) on delete set null;
+  end if;
   if not exists (select 1 from pg_constraint where conrelid = 'public.private_messages'::regclass and conname = 'private_messages_step_key_check') then
     alter table public.private_messages
       add constraint private_messages_step_key_check check (step_key is null or step_key ~ '^[a-z0-9_]{1,30}$');
@@ -237,9 +250,14 @@ create index if not exists private_messages_script_idx on public.private_message
 drop trigger if exists set_updated_at_recovery_settings on public.recovery_settings;
 create trigger set_updated_at_recovery_settings before update on public.recovery_settings
   for each row execute function app.set_updated_at();
+-- O relógio da retenção não pode zerar sozinho: apagar a conversa dispara a FK conversation_id ... set null,
+-- que é um update no caso; sem o WHEN, um caso fechado há 181 dias ganharia updated_at = agora e escaparia
+-- da limpeza (e do limite de 180 dias da spec). O WHEN só pula o update "conversation_id some".
 drop trigger if exists set_updated_at_recovery_cases on public.recovery_cases;
 create trigger set_updated_at_recovery_cases before update on public.recovery_cases
-  for each row execute function app.set_updated_at();
+  for each row
+  when (old.conversation_id is null or new.conversation_id is not null)
+  execute function app.set_updated_at();
 drop trigger if exists set_updated_at_recovery_scripts on public.recovery_scripts;
 create trigger set_updated_at_recovery_scripts before update on public.recovery_scripts
   for each row execute function app.set_updated_at();

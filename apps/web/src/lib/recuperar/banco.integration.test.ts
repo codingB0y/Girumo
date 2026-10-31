@@ -38,6 +38,7 @@ const usuarios: string[] = []; // ids de auth criados; apagados no after()
 const objetos: string[] = []; // caminhos no bucket; apagados no after()
 let loja = "";
 let vizinha = "";
+let numeroDaLoja = ""; // instância `privado` da loja, criada na primeira novaConversa
 let conversaDaLoja = ""; // criada na primeira mensagemDoCaso
 let dona: Pessoa = { id: "", token: "" };
 let vendedora: Pessoa = { id: "", token: "" };
@@ -92,20 +93,27 @@ const depoimento = (extra: Linha = {}): Linha => ({
 });
 
 /**
- * Fixture mínima da 1a: uma `instances` (`purpose: "privado"`), uma `private_conversations` e uma
- * `private_messages` de saída do Recuperar ligada ao caso e ao script, com `variant: 2`. As colunas que a
- * migração do PR 1a exige em mensagem de `automatico` (module, priority, status, phone) vão preenchidas.
- * Devolve o id da mensagem.
+ * Fixture mínima da 1a: uma `instances` (`purpose: "privado"`, no máximo uma por loja, por isso guardada) e
+ * uma `private_conversations` nova por telefone. Devolve o id da conversa.
  */
-async function mensagemDoCaso(casoId: string, scriptId: string): Promise<string> {
-  if (!conversaDaLoja) {
+async function novaConversa(phone: string): Promise<string> {
+  if (!numeroDaLoja) {
     const numero = await inserir("instances", { tenant_id: loja, name: `recuptest privado ${RUN}`, purpose: "privado" });
     if (numero.error) throw new Error(`instances: ${numero.error.message}`);
-    const conversa = await inserir("private_conversations",
-      { tenant_id: loja, instance_id: numero.data?.id, phone: "5511900000002" });
-    if (conversa.error) throw new Error(`private_conversations: ${conversa.error.message}`);
-    conversaDaLoja = String(conversa.data?.id);
+    numeroDaLoja = String(numero.data?.id);
   }
+  const conversa = await inserir("private_conversations", { tenant_id: loja, instance_id: numeroDaLoja, phone });
+  if (conversa.error) throw new Error(`private_conversations: ${conversa.error.message}`);
+  return String(conversa.data?.id);
+}
+
+/**
+ * Uma `private_messages` de saída do Recuperar ligada ao caso e ao script, com `variant: 2`, numa conversa da
+ * fixture acima. As colunas que a migração do PR 1a exige em mensagem de `automatico` (module, priority,
+ * status, phone) vão preenchidas. Devolve o id da mensagem.
+ */
+async function mensagemDoCaso(casoId: string, scriptId: string): Promise<string> {
+  if (!conversaDaLoja) conversaDaLoja = await novaConversa("5511900000002");
   const mensagem = await inserir("private_messages", {
     tenant_id: loja, conversation_id: conversaDaLoja, module: "recuperar", direction: "saida", author: "automatico",
     priority: "pix", status: "na_fila", phone: "5511900000002", text: "oi",
@@ -260,6 +268,9 @@ test("CHECKs: o banco recusa o que a spec proíbe, com o code e a constraint que
     ["recovery_cases", caso({ kind: "boleto" }), "23514", "recovery_cases_kind_check"],
     ["recovery_cases", caso({ status: "pago" }), "23514", "recovery_cases_status_check"],
     ["recovery_cases", caso({ phone: "(11) 90000-0001" }), "23514", "recovery_cases_phone_check"],
+    // 14 dígitos: o 1a só aceita 10 a 13 em private_conversations/private_messages; um caso mais largo não abriria conversa.
+    ["recovery_cases", caso({ phone: "55119000000011" }), "23514", "recovery_cases_phone_check"],
+    ["recovery_cases", caso({ jid: "55119000000011@s.whatsapp.net" }), "23514", "recovery_cases_jid_check"],
     ["recovery_cases", caso({ jid: "123456789012345@lid" }), "23514", "recovery_cases_jid_check"],
     ["recovery_cases", caso({ jid: "120363000000000000@g.us" }), "23514", "recovery_cases_jid_check"],
     ["recovery_cases", caso({ total_cents: 0 }), "23514", "recovery_cases_total_check"],
@@ -301,6 +312,9 @@ test("CHECKs: o banco recusa o que a spec proíbe, com o code e a constraint que
     [{ cupom: "" }, "recovery_settings_textos_check"],
     [{ pedido_minimo_cents: 0 }, "recovery_settings_pedido_minimo_check"],
     [{ numeros_ignorados: ["(85) 99999-0000"] }, "recovery_settings_numeros_check"],
+    [{ numeros_ignorados: [""] }, "recovery_settings_numeros_check"], // elemento vazio
+    [{ numeros_ignorados: ["5511900000001,5511900000002"] }, "recovery_settings_numeros_check"], // duas pessoas num elemento
+    [{ numeros_ignorados: ["55119000000011"] }, "recovery_settings_numeros_check"], // 14 dígitos
   ];
   for (const [campos, constraint] of ajustes) {
     recusado((await db().from("recovery_settings").update(campos).eq("tenant_id", loja)).error, "23514", constraint);
@@ -356,6 +370,21 @@ test("limpeza: apaga fechado e `respondeu` parados há mais de 180 dias e guarda
   assert.deepEqual(await lida(), { case_id: null, script_id: usado?.id, variant: 2 });
   assert.equal((await db().from("recovery_scripts").delete().eq("id", String(usado?.id))).error, null); // script usado: set null, não falha
   assert.deepEqual(await lida(), { case_id: null, script_id: null, variant: 2 });
+
+  // Apagar a conversa dispara a FK conversation_id ... set null, que é um update no caso: o relógio de 180
+  // dias não pode zerar (trigger com WHEN), ou o caso fechado escaparia da limpeza para sempre.
+  const conversa = await novaConversa("5511900000003");
+  const preso = await inserir("recovery_cases",
+    caso({ yampi_id: "cv-1", status: "perdido", updated_at: velho(181), conversation_id: conversa }));
+  assert.equal(preso.error, null);
+  const idPreso = String(preso.data?.id);
+  assert.equal((await db().from("private_conversations").delete().eq("id", conversa)).error, null);
+  const { data: solto } = await db().from("recovery_cases").select("conversation_id, updated_at").eq("id", idPreso).single();
+  assert.equal(solto?.conversation_id, null, "a FK não soltou a conversa do caso");
+  assert.ok(new Date(String(solto?.updated_at)).getTime() < Date.now() - 180 * DIA, "apagar a conversa zerou o updated_at do caso");
+  assert.equal((await db().rpc("limpar_dados_vencidos_recuperar")).error, null);
+  const { data: sobrou } = await db().from("recovery_cases").select("id").eq("tenant_id", loja).eq("id", idPreso).maybeSingle();
+  assert.equal(sobrou, null, "o caso fechado há 181 dias sobreviveu à limpeza depois de a conversa ser apagada");
 });
 
 test("bucket recuperar-depoimentos: privado, 512 KiB, só jpeg/png/webp; a dona não lista, não baixa e não assina", { skip: pular() }, async () => {

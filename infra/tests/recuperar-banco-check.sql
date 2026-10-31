@@ -59,6 +59,14 @@ begin
       raise exception 'FALHOU: % sem o trigger set_updated_at_% (before update, app.set_updated_at)', t, t;
     end if;
   end loop;
+  -- O relógio da retenção dos casos não pode zerar quando a FK conversation_id ... set null dispara (apagar a
+  -- conversa é um update no caso): o trigger de recovery_cases tem um WHEN que olha conversation_id.
+  if not exists (select 1 from pg_trigger g
+                  where g.tgrelid = 'public.recovery_cases'::regclass
+                    and g.tgname = 'set_updated_at_recovery_cases'
+                    and pg_get_triggerdef(g.oid) like '% WHEN %conversation_id%') then
+    raise exception 'FALHOU: set_updated_at_recovery_cases sem o WHEN sobre conversation_id (apagar a conversa zeraria updated_at e a retenção)';
+  end if;
 end $$;
 
 -- 2) As duas funções de limpeza: app. invoker, public. definer (o PostgREST só enxerga public); as duas
@@ -253,6 +261,13 @@ select pg_temp.recusa($q$ update public.recovery_settings set pix_espera_p1_min 
   where tenant_id = '0ec00000-0000-4000-8000-00000000000a' $q$, 'recovery_settings_pix_p1_check');
 select pg_temp.recusa($q$ update public.recovery_settings set numeros_ignorados = array['(85) 99999-0000']
   where tenant_id = '0ec00000-0000-4000-8000-00000000000a' $q$, 'recovery_settings_numeros_check');
+-- Elemento vazio, elemento com vírgula (duas pessoas num só) e 14 dígitos (o 1a só aceita 10 a 13).
+select pg_temp.recusa($q$ update public.recovery_settings set numeros_ignorados = array['']
+  where tenant_id = '0ec00000-0000-4000-8000-00000000000a' $q$, 'recovery_settings_numeros_check');
+select pg_temp.recusa($q$ update public.recovery_settings set numeros_ignorados = array['5511900000001,5511900000002']
+  where tenant_id = '0ec00000-0000-4000-8000-00000000000a' $q$, 'recovery_settings_numeros_check');
+select pg_temp.recusa($q$ update public.recovery_settings set numeros_ignorados = array['55119000000011']
+  where tenant_id = '0ec00000-0000-4000-8000-00000000000a' $q$, 'recovery_settings_numeros_check');
 
 -- 7) Casos. phone_key igual para o mesmo celular com e sem o 55 e o 9º dígito; o que o banco recusa (link
 --    com o login da cliente, JID @lid, valor zero, agendado sem horário); a unicidade por (loja, tipo, id da
@@ -282,6 +297,10 @@ select pg_temp.recusa($q$ insert into public.recovery_cases (tenant_id, kind, ya
 select pg_temp.recusa($q$ insert into public.recovery_cases (tenant_id, kind, yampi_id, phone, total_cents, status)
   values ('0ec00000-0000-4000-8000-00000000000a', 'pix', 'x-zero', '5511900000001', 0, 'em_sequencia') $q$,
   'recovery_cases_total_check');
+-- 14 dígitos: o 1a só aceita 10 a 13 em private_conversations/private_messages, e um caso mais largo não abriria conversa.
+select pg_temp.recusa($q$ insert into public.recovery_cases (tenant_id, kind, yampi_id, phone, total_cents, status)
+  values ('0ec00000-0000-4000-8000-00000000000a', 'pix', 'x-14', '55119000000011', 15000, 'em_sequencia') $q$,
+  'recovery_cases_phone_check');
 select pg_temp.recusa($q$ insert into public.recovery_cases (tenant_id, kind, yampi_id, phone, total_cents, status)
   values ('0ec00000-0000-4000-8000-00000000000a', 'pix', 'x-agendado', '5511900000001', 15000, 'agendado') $q$,
   'recovery_cases_agendado_check');
