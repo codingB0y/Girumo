@@ -178,9 +178,11 @@ before(async () => {
   vendedora = await criarPessoa("vendedora");
   vendedoraComModulo = await criarPessoa("vendedora-modulo");
   const aceito = new Date().toISOString();
+  // `modules` explícito em toda linha: o insert em lote do PostgREST usa a união das chaves, e a linha sem
+  // `modules` iria como NULL (coluna not null) em vez do padrão.
   const { error: erroMembros } = await db().from("memberships").insert([
-    { tenant_id: loja, user_id: dona.id, role: "owner", accepted_at: aceito },
-    { tenant_id: loja, user_id: vendedora.id, role: "seller", accepted_at: aceito },
+    { tenant_id: loja, user_id: dona.id, role: "owner", modules: [], accepted_at: aceito },
+    { tenant_id: loja, user_id: vendedora.id, role: "seller", modules: [], accepted_at: aceito },
     // O CHECK de memberships.modules aceitar `recuperar` é do PR 1a.
     { tenant_id: loja, user_id: vendedoraComModulo.id, role: "seller", modules: ["recuperar"], accepted_at: aceito },
   ]);
