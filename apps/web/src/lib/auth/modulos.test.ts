@@ -230,3 +230,19 @@ test("recuperar: entra em modulosDoAcesso e parseModulos na ordem do contrato; r
   assert.deepEqual(modulosDoAcesso({ role: "seller", modules: ["recuperar", "postar"] }), ["vendas", "postar", "recuperar"]);
   assert.deepEqual(parseModulos(["recuperar", "postar", "recuperar", "rastreio"]), ["postar", "recuperar"]);
 });
+
+test("recuperar: a vendedora com o módulo só lê o status; cobrança, admin e o resto da API nunca", () => {
+  assert.equal(podeAcessar(COM_RECUPERAR, "/api/recuperar/status", "GET"), true);
+  assert.equal(podeAcessar(SO_VENDAS, "/api/recuperar/status", "GET"), false);
+  assert.equal(podeAcessar(COM_POSTAR, "/api/recuperar/status", "GET"), false);
+  assert.equal(podeAcessar(COM_RECUPERAR, "/api/recuperar/status", "POST"), false);
+  for (const fechada of [
+    "/api/recuperar",
+    "/api/recuperar/status/x",
+    "/api/billing/recuperar/checkout",
+    "/api/billing/recuperar/oferta",
+    "/api/admin/tenants/x/recuperar",
+  ]) {
+    for (const metodo of ["GET", "POST"]) assert.equal(podeAcessar(COM_RECUPERAR, fechada, metodo), false, `${metodo} ${fechada}`);
+  }
+});

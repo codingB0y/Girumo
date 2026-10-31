@@ -47,9 +47,9 @@ export const ROTAS: Readonly<
     { padrao: "/api/media/prepare", metodos: ["POST"] },
     { padrao: "/api/media/register", metodos: ["POST"] },
   ],
-  // Rotas da vendedora entram junto da rota real (route.ts); cobrança,
-  // Automático, Scripts e Ajustes nunca.
-  recuperar: [],
+  // Hoje e Conversas entram aqui nos PRs 7 e 8, junto da rota real (route.ts);
+  // cobrança, Automático, Scripts e Ajustes nunca.
+  recuperar: [{ padrao: "/api/recuperar/status", metodos: ["GET"] }],
 };
 
 /** Páginas do /painel. Cada entrada libera a página e o que estiver embaixo dela. */
