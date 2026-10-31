@@ -413,8 +413,9 @@ responde como o GET.
 
 ### Entregas
 
-`GET /api/rastreio/entregas` (PR 6) — query: `filtro` (`todos` · `a_caminho` · `sem_codigo` · `problema` · `entregues`),
-`q` (nº do pedido, nome ou CPF/CNPJ via `doc_hmac`), `pagina`. Pedidos dos últimos 30 dias.
+`POST /api/rastreio/entregas` (PR 6; leitura, mas por `POST` — CPF na query string iria para o log da Vercel) — corpo:
+`filtro` (`todos` · `a_caminho` · `sem_codigo` · `problema` · `entregues`), `q` (nº do pedido, nome ou CPF/CNPJ via
+`doc_hmac`), `pagina`. Pedidos dos últimos 30 dias.
 
 `200` → `{ numeros, pedidos, proximaPagina }`:
 - `numeros` — `{ aCaminho, semCodigo, problema, entregues7d, mediaDiasAteEntregar, avisosHoje: { whatsapp, email } }`

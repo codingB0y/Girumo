@@ -88,17 +88,19 @@ const contextoDoEmail = (tenantId: string, externalId: string) => `rastreio:${te
  * aqui; com e-mail e sem chave de cifra, lança antes de ir ao banco.
  */
 export async function gravarPedido(tenantId: string, pedido: PedidoParaGravar, origem: OrigemDoPedido): Promise<PedidoGravado> {
+  // A RPC grava o id com btrim; o contexto do selo tem de ser o mesmo id, senão o e-mail nunca mais abre.
+  const externalId = pedido.externalId.trim();
   let emailSelado: string | null = null;
   if (pedido.buyerEmail) {
     const chave = chaveDeIntegracoes();
     if (!chave) throw new Error("rastreio: INTEGRATIONS_ENCRYPTION_KEY ausente ou inválida");
-    emailSelado = selar(pedido.buyerEmail, contextoDoEmail(tenantId, pedido.externalId), chave);
+    emailSelado = selar(pedido.buyerEmail, contextoDoEmail(tenantId, externalId), chave);
   }
 
   const { data, error } = await getSupabaseAdmin().rpc("rastreio_gravar_pedido", {
     p_tenant: tenantId,
     p_pedido: {
-      external_id: pedido.externalId,
+      external_id: externalId,
       numero: pedido.numero,
       order_created_at: pedido.orderCreatedAt,
       status_raw: pedido.statusRaw,

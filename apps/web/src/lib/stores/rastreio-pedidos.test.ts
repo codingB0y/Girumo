@@ -158,6 +158,14 @@ test("importação não carimba data", async () => {
   assert.equal(pedido.carimbar, false);
 });
 
+test("id com espaço nas pontas sela e grava o mesmo id que a RPC guarda (btrim)", async () => {
+  responder = () => ({ status: 200, corpo: RETORNO_DA_RPC });
+  await gravarPedido("loja-a", { ...PEDIDO, externalId: " Y-1001 " }, "aviso");
+  const { p_pedido: pedido } = chamadas[0].corpo as { p_pedido: { external_id: string; buyer_email_enc: string } };
+  assert.equal(pedido.external_id, "Y-1001");
+  assert.equal(abrir(pedido.buyer_email_enc, "rastreio:loja-a:yampi:Y-1001:email", CHAVE), "ana@exemplo.com");
+});
+
 test("sem chave de cifra, pedido com e-mail não vai ao banco", async () => {
   delete process.env.INTEGRATIONS_ENCRYPTION_KEY;
   await assert.rejects(gravarPedido("loja-a", PEDIDO, "aviso"), /INTEGRATIONS_ENCRYPTION_KEY/);
