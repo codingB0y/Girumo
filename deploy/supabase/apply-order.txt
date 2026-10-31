@@ -582,3 +582,9 @@ apps/web/supabase/migrations/20261026120000_teto_posts_por_grupo.sql
 # baseline (10 t| e 2 f|). O gate nao ve RLS, ACL, CHECK, indice, trigger nem corpo: conferir com
 # infra/tests/base-comum-yampi-privado-check.sql nos dois bancos.
 apps/web/supabase/migrations/20261030120000_base_comum_yampi_privado.sql
+# 29/10: número do atendimento (Recuperar PR 2, comum com o Rastreio). app.enqueue_broadcast só dispara pelo
+# número dos grupos (instances.purpose = 'grupos'); app.instance_caps devolve zero linhas para o número do
+# atendimento (fica fora do claim de post e da saúde); public.avaliar_disjuntor_saidas só conta envio do número
+# dos grupos. Só corpo, com trava de md5: não muda a baseline. Depende de instances.purpose (PR 1a). Conferir
+# com infra/tests/numero-do-atendimento-check.sql nos dois bancos.
+apps/web/supabase/migrations/20261029160000_numero_do_atendimento.sql
