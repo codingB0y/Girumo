@@ -22,6 +22,9 @@ const maior = (a, b) => (a === null || b > a ? b : a);
 const preenchido = (v) => v !== null && v !== undefined && v !== "";
 // O status vira chave da saída: só aceita o formato dos status do Melhor Envio, nunca texto livre.
 const statusDe = (e) => (typeof e?.status === "string" && /^[a-z_]{1,30}$/.test(e.status) ? e.status : "outro");
+// Idem para o nome de campo: se a API um dia indexar por valor (código, documento), ele não sai como "chave".
+// Os campos do Melhor Envio são snake_case minúsculo: código (maiúsculo) e documento (só dígitos) não passam.
+const nomeDe = (chave) => (/^[a-z][a-z0-9_]{0,39}$/.test(chave) ? chave : "outro");
 
 export function codigosEnviadosNaJanela(pedidos, agora) {
   const inicio = diaAntes(agora, 45);
@@ -85,7 +88,8 @@ export function resumirEtiquetas(etiquetas) {
     const status = statusDe(e);
     porStatus[status] = (porStatus[status] ?? 0) + 1;
     const datas = (datasPorStatus[status] ??= {});
-    for (const [chave, valor] of Object.entries(e)) {
+    for (const [bruta, valor] of Object.entries(e)) {
+      const chave = nomeDe(bruta);
       chaves.add(chave);
       if (!preenchido(valor)) continue;
       if (chave.endsWith("_at")) datas[chave] = (datas[chave] ?? 0) + 1;

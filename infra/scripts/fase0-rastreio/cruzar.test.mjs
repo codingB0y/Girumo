@@ -51,6 +51,13 @@ test("o resumo das etiquetas só tem contagens e nomes de campo, nunca valores",
   for (const valor of ["Fulana", "Beltrana", "11144477735", "AA111111111BR", "Destinatario"]) assert.ok(!texto.includes(valor), valor);
 });
 
+test("nome de campo fora do formato de chave vira `outro`, para um valor nunca sair como chave", () => {
+  const r = resumirEtiquetas([{ status: "paused", "AA555555555BR": true, "Rua das Flores 10": 1 }]);
+  const texto = JSON.stringify(r);
+  for (const valor of ["AA555555555BR", "Rua das Flores"]) assert.ok(!texto.includes(valor), valor);
+  assert.ok(r.chaves.includes("outro"));
+});
+
 test("veredito: 80% ou mais passa; nenhuma achada não passa; entre os dois, o Igor decide", () => {
   assert.equal(veredito({ codigos: 10, achadas: 8, listadas: 50 }), "PASSA");
   assert.equal(veredito({ codigos: 10, achadas: 7, listadas: 50 }), "DECIDIR");
