@@ -582,5 +582,14 @@ apps/web/supabase/migrations/20261026120000_teto_posts_por_grupo.sql
 # baseline (10 t| e 2 f|). O gate nao ve RLS, ACL, CHECK, indice, trigger nem corpo: conferir com
 # infra/tests/base-comum-yampi-privado-check.sql nos dois bancos.
 apps/web/supabase/migrations/20261030120000_base_comum_yampi_privado.sql
+# 2026-10-30 - Recuperar (Yampi), PR 1b (spec 2026-10-29-recuperar-yampi-design secao 2): recovery_settings,
+# recovery_cases (phone_key gerada com public.phone_key), recovery_scripts, recovery_testimonials, as colunas
+# case_id / step_key / script_id / variant na private_messages, app.limpar_dados_vencidos_recuperar() e o
+# wrapper public.limpar_dados_vencidos_recuperar() (execute so service_role) e o bucket privado
+# recuperar-depoimentos. RLS ligado: authenticated so le (policy app.user_tenant_ids); escrita so servidor.
+# Depende da migracao do PR 1a. Muda a baseline (4 t| novas, t|private_messages, 1 f|). O gate nao ve RLS,
+# policy, ACL, trigger, CHECK, bucket nem funcao de app: conferir com infra/tests/recuperar-banco-check.sql
+# nos dois bancos.
+apps/web/supabase/migrations/20261030140000_recuperar_banco.sql
 # 31/10/2026: Rastreio do pedido, PR 1 — tabelas tracking_* (só service_role), regra da etapa, rastreio_gravar_pedido e rastreio_purgar. Depois do B·1a. Muda a baseline; conferir com infra/tests/rastreio-check.sql.
 apps/web/supabase/migrations/20261031120000_rastreio_pedidos.sql
