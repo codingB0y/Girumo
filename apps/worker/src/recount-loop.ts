@@ -84,9 +84,16 @@ export function recountDidWork(summary: RecountTickSummary): boolean {
   return summary.tenants > 0;
 }
 
-/** Lojas distintas com ao menos uma instância `connected`. */
+/**
+ * Lojas distintas com ao menos um número dos grupos `connected`. O número do atendimento
+ * (`purpose = 'privado'`) não conta: não lê grupo, então loja só com ele não tem o que recontar.
+ */
 export async function listRecountTenants(supabase: SupabaseClient): Promise<string[]> {
-  const { data, error } = await supabase.from("instances").select("tenant_id").eq("status", "connected");
+  const { data, error } = await supabase
+    .from("instances")
+    .select("tenant_id")
+    .eq("status", "connected")
+    .eq("purpose", "grupos");
   if (error) throw new Error(`listRecountTenants: ${error.message}`);
   return distinctTenantIds(data ?? []);
 }
