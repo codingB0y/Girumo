@@ -8,6 +8,7 @@ function inst(over: Partial<InstanceRow> = {}): InstanceRow {
     status: "connected",
     provider_instance_id: "girumo-i-1",
     created_at: "2026-08-01T00:00:00.000Z",
+    purpose: "grupos",
     ...over,
   };
 }
@@ -56,6 +57,23 @@ test("desempata pela mais antiga, para a escolha ser estavel entre ciclos", () =
 test("mesma data desempata pelo id, sem depender da ordem do banco", () => {
   const rows = [inst({ id: "b" }), inst({ id: "a" })];
   assert.equal(pickSendInstance(rows), "a");
+});
+
+// Auto-grow e acoes em massa criam e mexem em grupo: pelo numero do atendimento, nunca.
+test("o numero do atendimento nunca e escolhido, nem sendo o unico", () => {
+  assert.equal(pickSendInstance([inst({ id: "atendimento", purpose: "privado" })]), null);
+});
+
+test("o numero dos grupos caido vence o do atendimento conectado", () => {
+  const escolhida = pickSendInstance([
+    inst({ id: "atendimento", purpose: "privado", status: "connected", created_at: "2026-07-01T00:00:00.000Z" }),
+    inst({ id: "grupos", purpose: "grupos", status: "disconnected", created_at: "2026-08-01T00:00:00.000Z" }),
+  ]);
+  assert.equal(escolhida, "grupos");
+});
+
+test("linha sem purpose (o select esqueceu a coluna) nao serve", () => {
+  assert.equal(pickSendInstance([inst({ purpose: undefined })]), null);
 });
 
 test("nao muta o array recebido", () => {
