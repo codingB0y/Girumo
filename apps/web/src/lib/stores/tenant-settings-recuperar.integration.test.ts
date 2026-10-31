@@ -10,10 +10,14 @@ import { getTenantSettings, setRecuperarEnabled } from "@/lib/stores/tenant-sett
  * (organização + dona com login de verdade). E2E_TENANT_ID é só a chave de
  * ligar — o CI o define no passo de integração.
  *
- * 1. O guard de `recuperar_enabled` (trigger da migração 20261030120000): a dona
- *    tem o JWT no browser e a anon key é pública, então o PostgREST com o token
- *    dela não pode ligar o add-on pago por conta própria. Tirar o trigger (ou o
- *    `current_user in ('authenticated', 'anon')` dele) derruba o primeiro teste.
+ * 1. Um membro da loja não liga `recuperar_enabled` pelo PostgREST: a dona tem o
+ *    JWT no browser e a anon key é pública, então o token dela não pode ligar o
+ *    add-on pago por conta própria. A recusa vem da revogação de escrita
+ *    (migração 20261004120000: `authenticated` não tem INSERT/UPDATE/DELETE em
+ *    `public`), que barra o update com 42501 antes de o trigger rodar. O trigger
+ *    `tenant_settings_guard_recuperar_rastreio_flags` (migração 20261030120000)
+ *    fica como defesa em profundidade, caso um grant por coluna volte a existir;
+ *    este teste não o isola.
  * 2. O caminho do servidor (`setRecuperarEnabled`, service-role) liga e desliga, e
  *    `getTenantSettings` devolve o valor — o contrato que o webhook do Stripe e o
  *    guard de acesso consomem.
@@ -115,6 +119,8 @@ test("membro da loja não liga recuperar_enabled pelo PostgREST: o guard do banc
     .from("tenant_settings")
     .update({ recuperar_enabled: true })
     .eq("tenant_id", loja);
+  // `error === null` é aceito porque o PostgREST pode filtrar o update (RLS) sem
+  // devolver erro. Quem segura o resultado é a asserção seguinte: a flag segue falsa.
   assert.ok(error === null || error.code === "42501", `erro inesperado: ${error?.message}`);
   assert.equal((await getTenantSettings(loja)).recuperarEnabled, false);
 });
