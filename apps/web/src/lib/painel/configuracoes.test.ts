@@ -3,11 +3,14 @@ import { test } from "node:test";
 
 import {
   chipsDoAcesso,
+  DESCRICAO_DO_MODULO,
   FUNCOES_DO_CONVITE,
   iniciaisDoEmail,
+  MODULOS_NA_TELA,
   montarConvite,
   papelEmPortugues,
   resumoDasPortas,
+  ROTULO_DO_MODULO,
 } from "./configuracoes";
 
 function leitura(over: Partial<Parameters<typeof resumoDasPortas>[0]> = {}) {
@@ -75,6 +78,13 @@ test("chips: lixo no banco não vira chip, e os outros papéis não têm chip", 
   assert.deepEqual(chipsDoAcesso("seller", ["postar", "postar", "grupos"]), ["Registrar vendas", "Postar nos grupos"]);
   assert.deepEqual(chipsDoAcesso("admin", ["postar"]), []);
   assert.deepEqual(chipsDoAcesso("operator", []), []);
+});
+
+test("Equipe: o módulo recuperar tem rótulo, descrição e chip", () => {
+  assert.deepEqual(MODULOS_NA_TELA, ["vendas", "postar", "recuperar"]);
+  assert.equal(ROTULO_DO_MODULO.recuperar, "Atender no Recuperar");
+  assert.equal(DESCRICAO_DO_MODULO.recuperar, "Vê quem respondeu e conversa com as clientes pelo WhatsApp do atendimento, com os scripts prontos. Só funciona com o Recuperar ativo na loja.");
+  assert.deepEqual(chipsDoAcesso("seller", ["recuperar", "postar"]), ["Registrar vendas", "Postar nos grupos", "Atender no Recuperar"]);
 });
 
 test("convite de vendedora leva os módulos marcados, sem repetição", () => {

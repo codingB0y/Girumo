@@ -13,7 +13,7 @@ import type { TenantRole } from "@/lib/permissions";
  * Sem `server-only`: o painel usa o mesmo mapa no menu e na guarda de página.
  */
 
-export const MODULOS_OPCIONAIS = ["postar"] as const;
+export const MODULOS_OPCIONAIS = ["postar", "recuperar"] as const;
 export type ModuloOpcional = (typeof MODULOS_OPCIONAIS)[number];
 /** `vendas` é implícito para `seller` e nunca é gravado em `memberships.modules`. */
 export type Modulo = "vendas" | ModuloOpcional;
@@ -47,12 +47,22 @@ export const ROTAS: Readonly<
     { padrao: "/api/media/prepare", metodos: ["POST"] },
     { padrao: "/api/media/register", metodos: ["POST"] },
   ],
+  // Rotas da vendedora entram junto da rota real (route.ts); cobrança,
+  // Automático, Scripts e Ajustes nunca.
+  recuperar: [],
 };
 
 /** Páginas do /painel. Cada entrada libera a página e o que estiver embaixo dela. */
 export const PAGINAS: Readonly<Record<Modulo, readonly string[]>> = {
   vendas: ["/painel/vendas"],
   postar: ["/painel/disparos"],
+  // Só Conversas: a raiz do módulo vai em PAGINAS_EXATAS, o resto (Automático, Scripts, Ajustes) fica fechado.
+  recuperar: ["/painel/recuperar/conversas"],
+};
+
+/** Caminho exato: libera a página e NADA embaixo dela (a raiz que só redireciona, sem abrir as irmãs). */
+export const PAGINAS_EXATAS: Readonly<Partial<Record<Modulo, readonly string[]>>> = {
+  recuperar: ["/painel/recuperar"],
 };
 
 /** Filtra para os módulos opcionais conhecidos, sem repetição. Lixo vira []. */
@@ -118,6 +128,7 @@ export function podeAcessar(acesso: Acesso, pathname: string, method: string): b
 /**
  * Mesmo princípio para páginas do /painel, por prefixo de segmento:
  * `/painel/vendas` libera `/painel/vendas/qualquer`, não `/painel/vendasx`.
+ * `PAGINAS_EXATAS` libera só o caminho igual, sem o que estiver embaixo.
  * `pathname` vem de `URL.pathname` (sem query string). Dot segments e segmentos
  * vazios nunca passam. É só experiência — quem barra de verdade é a API.
  */
@@ -126,7 +137,9 @@ export function paginaLiberada(acesso: Acesso, pathname: string): boolean {
   if (acesso.role !== "seller") return false;
   const caminho = segmentos(pathname);
   if (!caminho || caminho.some((parte) => parte === "" || SEGMENTO_DE_PONTOS.test(parte))) return false;
-  return modulosDoAcesso(acesso).some((modulo) =>
-    PAGINAS[modulo].some((pagina) => (segmentos(pagina) ?? []).every((parte, i) => parte === caminho[i])),
+  return modulosDoAcesso(acesso).some(
+    (modulo) =>
+      PAGINAS[modulo].some((pagina) => (segmentos(pagina) ?? []).every((parte, i) => parte === caminho[i])) ||
+      (PAGINAS_EXATAS[modulo] ?? []).some((pagina) => casa(pagina, caminho)),
   );
 }

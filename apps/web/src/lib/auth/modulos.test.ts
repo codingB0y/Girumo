@@ -212,3 +212,21 @@ test("acessoRestrito: só papel livre e a ausência de acesso ficam de fora", ()
   assert.equal(acessoRestrito({ role: "" as TenantRole, modules: [] }), true);
   assert.equal(acessoRestrito(null), false);
 });
+
+const COM_RECUPERAR: Acesso = { role: "seller", modules: ["recuperar"] };
+
+test("recuperar: a raiz e Conversas são da vendedora; o resto do módulo, inclusive página nova, fica fechado", () => {
+  for (const aberta of ["/painel/recuperar", "/painel/recuperar/", "/painel/recuperar/conversas", "/painel/recuperar/conversas/abc"]) {
+    assert.equal(paginaLiberada(COM_RECUPERAR, aberta), true, aberta);
+  }
+  for (const fechada of ["/painel/recuperar/automatico", "/painel/recuperar/scripts", "/painel/recuperar/ajustes", "/painel/recuperar/pagina-nova", "/painel/recuperarx", "/painel/recuperar/../contatos", "/painel/recuperar//conversas"]) {
+    assert.equal(paginaLiberada(COM_RECUPERAR, fechada), false, fechada);
+  }
+  for (const sem of [SO_VENDAS, COM_POSTAR]) assert.equal(paginaLiberada(sem, "/painel/recuperar"), false);
+  assert.equal(paginaLiberada({ role: "operator", modules: [] }, "/painel/recuperar/ajustes"), true);
+});
+
+test("recuperar: entra em modulosDoAcesso e parseModulos na ordem do contrato; rastreio ainda não é opcional aqui", () => {
+  assert.deepEqual(modulosDoAcesso({ role: "seller", modules: ["recuperar", "postar"] }), ["vendas", "postar", "recuperar"]);
+  assert.deepEqual(parseModulos(["recuperar", "postar", "recuperar", "rastreio"]), ["postar", "recuperar"]);
+});
