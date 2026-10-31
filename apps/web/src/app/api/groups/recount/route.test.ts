@@ -29,6 +29,7 @@ const RESPOSTAS: Record<string, Resposta> = {
         tenant_id: LOJA,
         name: "Número 1",
         phone: "5511999990000",
+        purpose: "grupos",
         status: "connected",
         qr_code: null,
         provider: "evolution",
