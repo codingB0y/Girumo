@@ -113,3 +113,28 @@ revoke all on public.tracking_orders, public.tracking_notices, public.tracking_s
   from public, anon, authenticated;
 grant select, insert, update, delete on public.tracking_orders, public.tracking_notices, public.tracking_settings
   to service_role;
+
+-- 2) A regra da etapa. immutable: as duas só olham os argumentos.
+create or replace function app.rastreio_etapa_ordem(p_etapa text)
+returns integer language sql immutable set search_path to 'public', 'app'
+as $$
+  select case p_etapa
+    when 'aguardando_pagamento' then 1 when 'confirmado' then 2 when 'separando' then 3 when 'enviado' then 4
+    when 'retirada' then 5 when 'problema' then 5 when 'entregue' then 6 when 'cancelado' then 7 end
+$$;
+
+-- Aviso atrasado não leva a etapa para trás; cancelado vale sempre e não sai; retirada e problema voltam a enviado.
+create or replace function app.rastreio_etapa_pode_mudar(p_atual text, p_nova text)
+returns boolean language sql immutable set search_path to 'public', 'app'
+as $$
+  select coalesce(p_atual is null
+    or (p_nova <> p_atual and p_atual <> 'cancelado'
+        and (p_nova = 'cancelado'
+             or (p_nova = 'enviado' and p_atual in ('retirada', 'problema'))
+             or app.rastreio_etapa_ordem(p_nova) >= app.rastreio_etapa_ordem(p_atual))), false)
+$$;
+
+revoke all on function app.rastreio_etapa_ordem(text) from public, anon, authenticated;
+grant execute on function app.rastreio_etapa_ordem(text) to service_role;
+revoke all on function app.rastreio_etapa_pode_mudar(text, text) from public, anon, authenticated;
+grant execute on function app.rastreio_etapa_pode_mudar(text, text) to service_role;

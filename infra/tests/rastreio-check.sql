@@ -237,6 +237,51 @@ begin
   end;
 end $$;
 
+-- 3) A regra da etapa: ordem das 8 etapas (retirada e problema empatam) e quem pode mudar para quem.
+do $$
+declare
+  v_ruins text;
+  v_ordem text;
+begin
+  select string_agg(f.sig, ', ') into v_ruins
+    from (values ('app.rastreio_etapa_ordem(text)'), ('app.rastreio_etapa_pode_mudar(text,text)')) as f(sig)
+    left join pg_proc p on p.oid = to_regprocedure(f.sig)
+   where p.oid is null
+      or p.provolatile <> 'i'
+      or not exists (select 1 from unnest(p.proconfig) as c(cfg) where c.cfg like 'search_path=%')
+      or has_function_privilege('anon', p.oid, 'EXECUTE')
+      or has_function_privilege('authenticated', p.oid, 'EXECUTE')
+      or not has_function_privilege('service_role', p.oid, 'EXECUTE');
+  if v_ruins is not null then
+    raise exception 'FALHOU: fora do contrato (existe, immutable, search_path fixo, EXECUTE só do service_role): %', v_ruins;
+  end if;
+
+  select string_agg(e || '=' || app.rastreio_etapa_ordem(e), ',' order by n) into v_ordem
+    from unnest(array['aguardando_pagamento', 'confirmado', 'separando', 'enviado', 'retirada', 'problema',
+                      'entregue', 'cancelado']) with ordinality as x(e, n);
+  if v_ordem is distinct from
+     'aguardando_pagamento=1,confirmado=2,separando=3,enviado=4,retirada=5,problema=5,entregue=6,cancelado=7' then
+    raise exception 'FALHOU: ordem das etapas = %', v_ordem;
+  end if;
+  if app.rastreio_etapa_ordem('xyz') is not null then
+    raise exception 'FALHOU: etapa xyz tem ordem';
+  end if;
+
+  select string_agg(coalesce(r.atual, 'null') || '->' || coalesce(r.nova, 'null') || ' devia ser ' || r.esperado, '; ')
+    into v_ruins
+    from (values (null, 'confirmado', true), ('confirmado', 'confirmado', false), ('separando', 'enviado', true),
+                 ('enviado', 'separando', false), ('entregue', 'enviado', false), ('problema', 'enviado', true),
+                 ('retirada', 'enviado', true), ('enviado', 'retirada', true), ('retirada', 'problema', true),
+                 ('problema', 'retirada', true), ('problema', 'entregue', true), ('entregue', 'problema', false),
+                 ('entregue', 'cancelado', true), ('aguardando_pagamento', 'cancelado', true),
+                 ('cancelado', 'entregue', false), ('cancelado', 'aguardando_pagamento', false),
+                 ('confirmado', 'aguardando_pagamento', false), ('enviado', null, false)) as r(atual, nova, esperado)
+   where app.rastreio_etapa_pode_mudar(r.atual, r.nova) is distinct from r.esperado;
+  if v_ruins is not null then
+    raise exception 'FALHOU: regra da etapa diverge: %', v_ruins;
+  end if;
+end $$;
+
 -- Assinaturas para a baseline (dentro da transação, para aparecer também no dry-run).
 select json_object_agg(kind || '|' || nome, sig order by kind || '|' || nome collate "C") as r
   from public.schema_signature() where nome like 'tracking\_%' or nome like 'rastreio\_%';
