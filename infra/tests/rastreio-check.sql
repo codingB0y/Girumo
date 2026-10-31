@@ -282,6 +282,275 @@ begin
   end if;
 end $$;
 
+-- 4) rastreio_gravar_pedido: contrato, prova da corrida pela ordem no corpo, pedido novo e repetido.
+--    A conferência é uma sessão só; a prova da corrida é a ordem no corpo mais a semântica do Postgres: o
+--    insert … on conflict do nothing espera a transação concorrente e, em READ COMMITTED, o for update relê
+--    a versão que ela gravou — então a regra da etapa precisa vir depois do for update.
+do $$
+declare
+  ta constant uuid := '7a5c0000-0000-4000-8000-00000000000a';
+  tb constant uuid := '7a5c0000-0000-4000-8000-00000000000b';
+  v_hist constant jsonb := '[{"etapa": "confirmado", "at": "2026-10-20T13:00:00Z"}, {"etapa": "separando", "at": "2026-10-21T09:00:00Z"}]';
+  v_base jsonb := jsonb_build_object('numero', '1001', 'order_created_at', '2026-10-20T12:00:00Z',
+                    'buyer_first_name', 'Ana', 'buyer_phone', '5511987654321', 'doc_hmac', repeat('a', 64),
+                    'historico', '[]'::jsonb);
+  v_ruins text;
+  v_src text;
+  r jsonb;
+  r1 jsonb;
+  v_o public.tracking_orders;
+  v_msg text;
+  v_qtd integer;
+begin
+  select string_agg(f.sig, ', ') into v_ruins
+    from (values ('public.rastreio_gravar_pedido(uuid,jsonb)')) as f(sig)
+    left join pg_proc p on p.oid = to_regprocedure(f.sig)
+   where p.oid is null
+      or not p.prosecdef
+      or not exists (select 1 from unnest(p.proconfig) as c(cfg) where c.cfg like 'search_path=%')
+      or has_function_privilege('anon', p.oid, 'EXECUTE')
+      or has_function_privilege('authenticated', p.oid, 'EXECUTE')
+      or not has_function_privilege('service_role', p.oid, 'EXECUTE');
+  if v_ruins is not null then
+    raise exception 'FALHOU: fora do contrato (existe, security definer, search_path fixo, EXECUTE só do service_role): %', v_ruins;
+  end if;
+
+  select regexp_replace(lower(p.prosrc), '--[^\n]*', '', 'g') into v_src
+    from pg_proc p where p.oid = 'public.rastreio_gravar_pedido(uuid,jsonb)'::regprocedure;
+  if not (0 < position('do nothing' in v_src)
+          and position('do nothing' in v_src) < position('for update' in v_src)
+          and position('for update' in v_src) < position('rastreio_etapa_pode_mudar' in v_src)
+          and position('rastreio_etapa_pode_mudar' in v_src) < position('update public.tracking_orders' in v_src)) then
+    raise exception 'FALHOU: a regra da etapa precisa vir depois do for update';
+  end if;
+
+  -- chk-1 novo
+  r1 := public.rastreio_gravar_pedido(ta, v_base || jsonb_build_object('external_id', 'chk-1', 'etapa', 'confirmado',
+          'status_raw', 'paid', 'tracking_code', null));
+  if (r1->>'mudou')::boolean is not true or r1->>'etapa_anterior' is not null or r1->>'etapa' <> 'confirmado'
+     or r1->>'link_token' !~ '^[0-9a-f]{32}$' then
+    raise exception 'FALHOU: chk-1 novo devolveu %', r1;
+  end if;
+  select * into v_o from public.tracking_orders where tenant_id = ta and external_id = 'chk-1';
+  if v_o.events is distinct from jsonb_build_array(jsonb_build_object('etapa', 'confirmado', 'at', now()))
+     or v_o.etapa_at is distinct from now() or v_o.purge_after is not null then
+    raise exception 'FALHOU: linha de chk-1 novo = %', row_to_json(v_o);
+  end if;
+
+  -- chk-1 igual (a varredura repetindo o aviso)
+  r := public.rastreio_gravar_pedido(ta, v_base || jsonb_build_object('external_id', 'chk-1', 'etapa', 'confirmado',
+         'status_raw', 'paid', 'tracking_code', null));
+  if (r->>'mudou')::boolean is not false or r->>'etapa_anterior' is distinct from 'confirmado'
+     or r->>'id' <> r1->>'id' or r->>'link_token' <> r1->>'link_token' then
+    raise exception 'FALHOU: chk-1 repetido devolveu %', r;
+  end if;
+  select count(*) into v_qtd from public.tracking_orders where tenant_id = ta and external_id = 'chk-1';
+  select * into v_o from public.tracking_orders where tenant_id = ta and external_id = 'chk-1';
+  if v_qtd <> 1 or jsonb_array_length(v_o.events) <> 1 then
+    raise exception 'FALHOU: chk-1 repetido deixou % linhas e events %', v_qtd, v_o.events;
+  end if;
+
+  -- chk-1 na TB
+  r := public.rastreio_gravar_pedido(tb, v_base || jsonb_build_object('external_id', 'chk-1', 'etapa', 'enviado',
+         'status_raw', 'on_carriage', 'tracking_code', null));
+  if (r->>'mudou')::boolean is not true or r->>'id' = r1->>'id' then
+    raise exception 'FALHOU: chk-1 na TB devolveu %', r;
+  end if;
+  select * into v_o from public.tracking_orders where tenant_id = ta and external_id = 'chk-1';
+  if v_o.etapa <> 'confirmado' or jsonb_array_length(v_o.events) <> 1 then
+    raise exception 'FALHOU: chk-1 da TB mexeu no de TA: %', row_to_json(v_o);
+  end if;
+
+  -- chk-4 com etapa nula
+  r := public.rastreio_gravar_pedido(ta, v_base || jsonb_build_object('external_id', 'chk-4', 'etapa', null,
+         'status_raw', 'alias_novo', 'tracking_code', null));
+  select * into v_o from public.tracking_orders where tenant_id = ta and external_id = 'chk-4';
+  if r->>'etapa' is distinct from 'aguardando_pagamento' or (r->>'mudou')::boolean is not true
+     or v_o.events is distinct from jsonb_build_array(jsonb_build_object('etapa', 'aguardando_pagamento', 'at', now())) then
+    raise exception 'FALHOU: chk-4 devolveu % e gravou %', r, row_to_json(v_o);
+  end if;
+
+  -- chk-5 separando com histórico datado da etapa atual
+  r := public.rastreio_gravar_pedido(ta, v_base || jsonb_build_object('external_id', 'chk-5', 'etapa', 'separando',
+         'status_raw', 'invoiced', 'tracking_code', null, 'historico', v_hist));
+  select * into v_o from public.tracking_orders where tenant_id = ta and external_id = 'chk-5';
+  if (r->>'mudou')::boolean is not true or v_o.events is distinct from v_hist
+     or v_o.etapa_at is distinct from '2026-10-21T09:00:00Z'::timestamptz then
+    raise exception 'FALHOU: chk-5 devolveu % e gravou %', r, row_to_json(v_o);
+  end if;
+
+  -- chk-6 enviado com o mesmo histórico: carimba enviado agora
+  r := public.rastreio_gravar_pedido(ta, v_base || jsonb_build_object('external_id', 'chk-6', 'etapa', 'enviado',
+         'status_raw', 'on_carriage', 'tracking_code', null, 'historico', v_hist));
+  select * into v_o from public.tracking_orders where tenant_id = ta and external_id = 'chk-6';
+  if (r->>'mudou')::boolean is not true
+     or v_o.events is distinct from v_hist || jsonb_build_array(jsonb_build_object('etapa', 'enviado', 'at', now()))
+     or v_o.etapa_at is distinct from now() then
+    raise exception 'FALHOU: chk-6 devolveu % e gravou %', r, row_to_json(v_o);
+  end if;
+
+  -- chk-7 importação sem histórico: sem data inventada
+  r := public.rastreio_gravar_pedido(ta, v_base || jsonb_build_object('external_id', 'chk-7', 'etapa', 'separando',
+         'status_raw', 'invoiced', 'tracking_code', null, 'carimbar', false));
+  select * into v_o from public.tracking_orders where tenant_id = ta and external_id = 'chk-7';
+  if (r->>'mudou')::boolean is not true or v_o.events is distinct from '[]'::jsonb
+     or v_o.etapa_at is distinct from '2026-10-20T12:00:00Z'::timestamptz then
+    raise exception 'FALHOU: chk-7 devolveu % e gravou %', r, row_to_json(v_o);
+  end if;
+
+  -- Recusas: nada gravado
+  begin
+    perform public.rastreio_gravar_pedido(ta, v_base || jsonb_build_object('external_id', '', 'etapa', 'confirmado',
+              'status_raw', 'paid'));
+    v_msg := null;
+  exception when raise_exception then
+    get stacked diagnostics v_msg = message_text;
+  end;
+  if v_msg is null or v_msg not like '%obrigatórios%' then
+    raise exception 'FALHOU: external_id vazio aceito ou recusado com outra mensagem: %', v_msg;
+  end if;
+  begin
+    perform public.rastreio_gravar_pedido(ta, v_base || jsonb_build_object('external_id', 'chk-8', 'etapa', 'xyz',
+              'status_raw', 'paid'));
+    v_msg := null;
+  exception when raise_exception then
+    get stacked diagnostics v_msg = message_text;
+  end;
+  if v_msg is null or v_msg not like '%etapa desconhecida%' then
+    raise exception 'FALHOU: etapa xyz aceita ou recusada com outra mensagem: %', v_msg;
+  end if;
+  begin
+    perform public.rastreio_gravar_pedido(ta, v_base || jsonb_build_object('external_id', 'chk-9', 'etapa', 'confirmado',
+              'status_raw', 'paid', 'buyer_phone', '11987654321'));
+    raise exception 'FALHOU: telefone sem 55 aceito por rastreio_gravar_pedido';
+  exception when check_violation then
+    null;
+  end;
+  if exists (select 1 from public.tracking_orders
+              where tenant_id = ta and external_id in ('', 'chk-8', 'chk-9')) then
+    raise exception 'FALHOU: chamada recusada deixou pedido gravado';
+  end if;
+end $$;
+
+-- 5) "Não volta": aviso atrasado não leva a etapa para trás; retirada e problema voltam a enviado; cancelado
+--    não sai. Os três campos novos do retorno (notices_stopped_at, tem_telefone, tem_email) na criação e na
+--    atualização.
+do $$
+declare
+  ta constant uuid := '7a5c0000-0000-4000-8000-00000000000a';
+  v_base jsonb := jsonb_build_object('numero', '1001', 'order_created_at', '2026-10-20T12:00:00Z',
+                    'buyer_first_name', 'Ana', 'buyer_phone', '5511987654321', 'doc_hmac', repeat('a', 64),
+                    'historico', '[]'::jsonb);
+  r jsonb;
+  v_o public.tracking_orders;
+  v_passo record;
+  v_purge timestamptz;
+begin
+  -- chk-1 de TA (confirmado, do bloco 4)
+  -- a) enviado com código
+  r := public.rastreio_gravar_pedido(ta, v_base || jsonb_build_object('external_id', 'chk-1', 'etapa', 'enviado',
+         'status_raw', 'on_carriage', 'tracking_code', 'AA123456789BR'));
+  select * into v_o from public.tracking_orders where tenant_id = ta and external_id = 'chk-1';
+  if r->>'etapa' <> 'enviado' or (r->>'mudou')::boolean is not true or r->>'etapa_anterior' <> 'confirmado'
+     or jsonb_array_length(v_o.events) <> 2 or v_o.tracking_code is distinct from 'AA123456789BR'
+     or r->>'notices_stopped_at' is not null or (r->>'tem_telefone')::boolean is not true
+     or (r->>'tem_email')::boolean is not false then
+    raise exception 'FALHOU: chk-1 (a) devolveu % e gravou %', r, row_to_json(v_o);
+  end if;
+
+  -- b) entregue sem código: purge_after em 90 dias, código fica
+  r := public.rastreio_gravar_pedido(ta, v_base || jsonb_build_object('external_id', 'chk-1', 'etapa', 'entregue',
+         'status_raw', 'delivered', 'tracking_code', null));
+  select * into v_o from public.tracking_orders where tenant_id = ta and external_id = 'chk-1';
+  if r->>'etapa' <> 'entregue' or (r->>'mudou')::boolean is not true or r->>'etapa_anterior' <> 'enviado'
+     or jsonb_array_length(v_o.events) <> 3 or v_o.purge_after is distinct from now() + interval '90 days'
+     or v_o.tracking_code is distinct from 'AA123456789BR' then
+    raise exception 'FALHOU: chk-1 (b) devolveu % e gravou %', r, row_to_json(v_o);
+  end if;
+  v_purge := v_o.purge_after;
+
+  -- c) enviado atrasado
+  r := public.rastreio_gravar_pedido(ta, v_base || jsonb_build_object('external_id', 'chk-1', 'etapa', 'enviado',
+         'status_raw', 'on_carriage', 'tracking_code', 'AA123456789BR'));
+  select * into v_o from public.tracking_orders where tenant_id = ta and external_id = 'chk-1';
+  if r->>'etapa' <> 'entregue' or (r->>'mudou')::boolean is not false or r->>'etapa_anterior' <> 'entregue'
+     or jsonb_array_length(v_o.events) <> 3 or v_o.status_raw <> 'delivered'
+     or v_o.purge_after is distinct from v_purge then
+    raise exception 'FALHOU: chk-1 (c) devolveu % e gravou %', r, row_to_json(v_o);
+  end if;
+
+  -- d) alias desconhecido
+  r := public.rastreio_gravar_pedido(ta, v_base || jsonb_build_object('external_id', 'chk-1', 'etapa', null,
+         'status_raw', 'alias_novo', 'tracking_code', null));
+  select * into v_o from public.tracking_orders where tenant_id = ta and external_id = 'chk-1';
+  if r->>'etapa' <> 'entregue' or (r->>'mudou')::boolean is not false or r->>'etapa_anterior' <> 'entregue'
+     or jsonb_array_length(v_o.events) <> 3 or v_o.status_raw <> 'delivered' then
+    raise exception 'FALHOU: chk-1 (d) devolveu % e gravou %', r, row_to_json(v_o);
+  end if;
+
+  -- chk-2: separando → separando (status_raw novo) → enviado → problema → enviado → retirada → problema → retirada
+  for v_passo in
+    select * from (values (1, 'separando', 'invoiced', true), (2, 'separando', 'on_carriage', false),
+                          (3, 'enviado', 'on_carriage', true), (4, 'problema', 'exception', true),
+                          (5, 'enviado', 'on_carriage', true), (6, 'retirada', 'waiting_pickup', true),
+                          (7, 'problema', 'exception', true), (8, 'retirada', 'waiting_pickup', true))
+                  as p(n, etapa, status_raw, mudou)
+     order by n
+  loop
+    if v_passo.n = 8 then
+      update public.tracking_orders set notices_stopped_at = now() where tenant_id = ta and external_id = 'chk-2';
+    end if;
+    r := public.rastreio_gravar_pedido(ta, v_base || jsonb_build_object('external_id', 'chk-2', 'etapa', v_passo.etapa,
+           'status_raw', v_passo.status_raw, 'tracking_code', null));
+    if (r->>'mudou')::boolean is distinct from v_passo.mudou then
+      raise exception 'FALHOU: chk-2 passo % (%) devolveu %', v_passo.n, v_passo.etapa, r;
+    end if;
+    if v_passo.n = 1 and (r->>'notices_stopped_at' is not null or (r->>'tem_telefone')::boolean is not true
+                          or (r->>'tem_email')::boolean is not false) then
+      raise exception 'FALHOU: chk-2 criado devolveu %', r;
+    end if;
+    if v_passo.n = 2 then
+      select * into v_o from public.tracking_orders where tenant_id = ta and external_id = 'chk-2';
+      if v_o.status_raw <> 'on_carriage' then
+        raise exception 'FALHOU: chk-2 na mesma etapa não gravou o status_raw novo: %', row_to_json(v_o);
+      end if;
+    end if;
+    if v_passo.n = 8 and r->'notices_stopped_at' is distinct from to_jsonb(now()) then
+      raise exception 'FALHOU: chk-2 não devolveu o notices_stopped_at gravado: %', r;
+    end if;
+  end loop;
+  select * into v_o from public.tracking_orders where tenant_id = ta and external_id = 'chk-2';
+  if v_o.etapa <> 'retirada' or jsonb_array_length(v_o.events) <> 7 or v_o.purge_after is not null then
+    raise exception 'FALHOU: chk-2 terminou em %', row_to_json(v_o);
+  end if;
+
+  -- chk-3: confirmado → cancelado → (enviado, entregue, confirmado não mudam). Sem telefone, com e-mail.
+  r := public.rastreio_gravar_pedido(ta, v_base || jsonb_build_object('external_id', 'chk-3', 'etapa', 'confirmado',
+         'status_raw', 'paid', 'buyer_phone', null, 'buyer_email_enc', 'selado-de-teste'));
+  if (r->>'mudou')::boolean is not true or (r->>'tem_telefone')::boolean is not false
+     or (r->>'tem_email')::boolean is not true then
+    raise exception 'FALHOU: chk-3 criado devolveu %', r;
+  end if;
+  r := public.rastreio_gravar_pedido(ta, v_base || jsonb_build_object('external_id', 'chk-3', 'etapa', 'cancelado',
+         'status_raw', 'cancelled', 'buyer_phone', null));
+  select * into v_o from public.tracking_orders where tenant_id = ta and external_id = 'chk-3';
+  if (r->>'mudou')::boolean is not true or v_o.purge_after is distinct from now() + interval '90 days'
+     or (r->>'tem_telefone')::boolean is not false or (r->>'tem_email')::boolean is not true then
+    raise exception 'FALHOU: chk-3 cancelado devolveu % e gravou %', r, row_to_json(v_o);
+  end if;
+  for v_passo in select * from (values (1, 'enviado'), (2, 'entregue'), (3, 'confirmado')) as p(n, etapa) order by n loop
+    r := public.rastreio_gravar_pedido(ta, v_base || jsonb_build_object('external_id', 'chk-3', 'etapa', v_passo.etapa,
+           'status_raw', 'x', 'buyer_phone', null));
+    if (r->>'mudou')::boolean is not false or r->>'etapa' <> 'cancelado' then
+      raise exception 'FALHOU: chk-3 saiu de cancelado com %: %', v_passo.etapa, r;
+    end if;
+  end loop;
+  select * into v_o from public.tracking_orders where tenant_id = ta and external_id = 'chk-3';
+  if v_o.etapa <> 'cancelado' or jsonb_array_length(v_o.events) <> 2 then
+    raise exception 'FALHOU: chk-3 terminou em %', row_to_json(v_o);
+  end if;
+end $$;
+
 -- Assinaturas para a baseline (dentro da transação, para aparecer também no dry-run).
 select json_object_agg(kind || '|' || nome, sig order by kind || '|' || nome collate "C") as r
   from public.schema_signature() where nome like 'tracking\_%' or nome like 'rastreio\_%';

@@ -138,3 +138,83 @@ revoke all on function app.rastreio_etapa_ordem(text) from public, anon, authent
 grant execute on function app.rastreio_etapa_ordem(text) to service_role;
 revoke all on function app.rastreio_etapa_pode_mudar(text, text) from public, anon, authenticated;
 grant execute on function app.rastreio_etapa_pode_mudar(text, text) to service_role;
+
+-- 3) Gravar um pedido (aviso, varredura ou importação). Cria ou atualiza sob trava de linha; a etapa nunca
+--    volta (app.rastreio_etapa_pode_mudar). Devolve {id, etapa, etapa_anterior, mudou, link_token,
+--    notices_stopped_at, tem_telefone, tem_email}; criação = mudou true e etapa_anterior null.
+create or replace function public.rastreio_gravar_pedido(p_tenant uuid, p_pedido jsonb)
+returns jsonb language plpgsql volatile security definer set search_path to 'public', 'app'
+as $$
+declare
+  v_ext   text  := nullif(btrim(p_pedido->>'external_id'), '');
+  v_etapa text  := p_pedido->>'etapa';                         -- null = alias desconhecido
+  v_hist  jsonb := coalesce(p_pedido->'historico', '[]'::jsonb);
+  v_nova  text  := coalesce(v_etapa, 'aguardando_pagamento');
+  v_carimbar boolean := coalesce((p_pedido->>'carimbar')::boolean, true);  -- false = importação
+  v_linha public.tracking_orders;
+  v_mudou boolean;
+  v_em    timestamptz;
+begin
+  if p_tenant is null or v_ext is null then raise exception 'rastreio_gravar_pedido: loja e external_id obrigatórios'; end if;
+  if v_etapa is not null and app.rastreio_etapa_ordem(v_etapa) is null then
+    raise exception 'rastreio_gravar_pedido: etapa desconhecida %', v_etapa; end if;
+  if jsonb_typeof(v_hist) <> 'array' then raise exception 'rastreio_gravar_pedido: historico precisa ser uma lista'; end if;
+  -- Criação: pedido ao vivo carimba a etapa com a hora em que a Girumo viu. Importado sem histórico datado da
+  -- etapa atual não ganha data inventada (spec §1.1): events fica como veio e etapa_at = criação do pedido.
+  if v_carimbar and (v_hist -> -1) ->> 'etapa' is distinct from v_nova then
+    v_hist := v_hist || jsonb_build_array(jsonb_build_object('etapa', v_nova, 'at', now())); end if;
+  v_em := case when (v_hist -> -1) ->> 'etapa' = v_nova then ((v_hist -> -1) ->> 'at')::timestamptz
+               else coalesce((p_pedido->>'order_created_at')::timestamptz, now()) end;
+
+  loop
+    insert into public.tracking_orders (tenant_id, source, external_id, numero, order_created_at, status_raw, etapa,
+      etapa_at, events, shipment_service, tracking_code, tracking_url, buyer_first_name, buyer_phone, buyer_email_enc,
+      doc_hmac, purge_after)
+    values (p_tenant, 'yampi', v_ext, p_pedido->>'numero', (p_pedido->>'order_created_at')::timestamptz,
+      p_pedido->>'status_raw', v_nova, v_em, v_hist, p_pedido->>'shipment_service', p_pedido->>'tracking_code',
+      p_pedido->>'tracking_url', p_pedido->>'buyer_first_name', p_pedido->>'buyer_phone', p_pedido->>'buyer_email_enc',
+      p_pedido->>'doc_hmac', case when v_nova in ('entregue', 'cancelado') then v_em + interval '90 days' end)
+    on conflict (tenant_id, source, external_id) do nothing
+    returning * into v_linha;
+    if found then return jsonb_build_object('id', v_linha.id, 'etapa', v_linha.etapa, 'etapa_anterior', null,
+                                            'mudou', true, 'link_token', v_linha.link_token,
+                                            'notices_stopped_at', v_linha.notices_stopped_at,
+                                            'tem_telefone', v_linha.buyer_phone is not null,
+                                            'tem_email', v_linha.buyer_email_enc is not null); end if;
+    -- Já existe, ou outra transação acabou de criar (o insert esperou por ela). A trava vem ANTES da regra:
+    -- quem chega depois espera aqui e lê a etapa que o outro gravou.
+    select * into v_linha from public.tracking_orders t
+     where t.tenant_id = p_tenant and t.source = 'yampi' and t.external_id = v_ext for update;
+    exit when found;  -- o purge apagou entre os dois comandos: cria de novo
+  end loop;
+
+  v_mudou := v_etapa is not null and app.rastreio_etapa_pode_mudar(v_linha.etapa, v_etapa);
+  v_nova  := case when v_mudou then v_etapa else v_linha.etapa end;
+  v_em    := case when v_mudou then now() else v_linha.etapa_at end;
+
+  update public.tracking_orders t set
+    etapa = v_nova, etapa_at = v_em, updated_at = now(),
+    events = case when v_mudou then t.events || jsonb_build_array(jsonb_build_object('etapa', v_nova, 'at', v_em))
+                  else t.events end,
+    status_raw = case when v_mudou or v_etapa = v_linha.etapa then p_pedido->>'status_raw' else t.status_raw end,
+    purge_after = case when v_nova in ('entregue', 'cancelado') then v_em + interval '90 days' end,
+    -- Nulo não apaga: o aviso atrasado sem código não tira o código do pedido entregue.
+    shipment_service = coalesce(p_pedido->>'shipment_service', t.shipment_service),
+    tracking_code = coalesce(p_pedido->>'tracking_code', t.tracking_code),
+    tracking_url = coalesce(p_pedido->>'tracking_url', t.tracking_url),
+    buyer_first_name = coalesce(p_pedido->>'buyer_first_name', t.buyer_first_name),
+    buyer_phone = coalesce(p_pedido->>'buyer_phone', t.buyer_phone),
+    buyer_email_enc = coalesce(p_pedido->>'buyer_email_enc', t.buyer_email_enc),
+    doc_hmac = coalesce(p_pedido->>'doc_hmac', t.doc_hmac)
+  where t.id = v_linha.id;
+
+  return jsonb_build_object('id', v_linha.id, 'etapa', v_nova, 'etapa_anterior', v_linha.etapa,
+                            'mudou', v_mudou, 'link_token', v_linha.link_token,
+                            'notices_stopped_at', v_linha.notices_stopped_at,
+                            'tem_telefone', coalesce(p_pedido->>'buyer_phone', v_linha.buyer_phone) is not null,
+                            'tem_email', coalesce(p_pedido->>'buyer_email_enc', v_linha.buyer_email_enc) is not null);
+end;
+$$;
+
+revoke all on function public.rastreio_gravar_pedido(uuid, jsonb) from public, anon, authenticated;
+grant execute on function public.rastreio_gravar_pedido(uuid, jsonb) to service_role;
