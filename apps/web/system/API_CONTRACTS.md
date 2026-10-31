@@ -384,3 +384,56 @@ Erros:
 - `403` — papel sem `message:send`, vendedora sem o módulo de postar, ou chamada da engine
 - `501 { error: "A contagem de posts de hoje precisa do banco." }` — sem `USE_SUPABASE` (modo JSON não tem contagem)
 - `500 { error: "Não deu para ler os posts de hoje." }` — o RPC falhou ou devolveu formato inesperado
+
+## Rastreio do pedido — 31/10/2026
+
+Contrato das rotas do Rastreio; cada uma diz o PR que a cria. Nenhuma existe ainda: a Parte 2 do PR 1 só publica
+os tipos (`lib/rastreio/tipos.ts`) e as stores (`lib/stores/rastreio-*.ts`).
+
+**Rotas de painel** (`/api/rastreio/*`): `allowEngine: false`, o tenant é sempre o da sessão (nunca da query ou do
+corpo), permissão `settings:connection` (a vendedora leva 403). Loja sem `rastreio_enabled` leva
+`403 { error: "O Rastreio de pedidos não está liberado para esta loja.", code: "rastreio_disabled" }` (molde de
+`lib/ig/access.ts`). Nada da compradora sai além do primeiro nome.
+
+### Cron
+
+`GET /api/cron/rastreio` (PR 2, a cada 5 min, `isCronAuthorized`) → `200 { ok: true, lojas, falhas, purgados }`.
+`purgados` é `number` só na execução das 06:00 UTC (`purgarVencidos()`); nas outras é `null`.
+
+### Configuração
+
+`GET /api/rastreio/config` (PR 6) → `{ config, linkDaBusca }`, com `config: Omit<RastreioConfig, "tenantId" | "sweepCursor">`.
+Cria a config na primeira leitura (`garantirConfig`).
+
+`PATCH /api/rastreio/config` (PR 6) — qualquer parte de `{ publicSlug, matrix, notifyStoreOnProblem, vipLinkId, storeWhatsapp }`;
+responde como o GET.
+- `400 { error, campo }` — slug fora do formato ou reservado, matriz incompleta, número inválido (ou o dos grupos,
+  por `lib/bio/conferir.ts`), link de outra loja
+- `409 { error, campo: "publicSlug" }` — `SlugEmUso`
+
+### Entregas
+
+`POST /api/rastreio/entregas` (PR 6; leitura, mas por `POST` — CPF na query string iria para o log da Vercel) — corpo:
+`filtro` (`todos` · `a_caminho` · `sem_codigo` · `problema` · `entregues`), `q` (nº do pedido, nome ou CPF/CNPJ via
+`doc_hmac`), `pagina`. Pedidos dos últimos 30 dias.
+
+`200` → `{ numeros, pedidos, proximaPagina }`:
+- `numeros` — `{ aCaminho, semCodigo, problema, entregues7d, mediaDiasAteEntregar, avisosHoje: { whatsapp, email } }`
+- `pedidos` — `{ id, numero, compradora, etapa, etapaAt, trackingCode, avisos: { etapa, canal, status }[] }[]`
+
+`POST /api/rastreio/entregas/[id]/reenviar` (PR 6; `reabrirAvisos` da etapa atual) → `200 { reabertos }`.
+- `404` — pedido que não é da loja
+- `409 { error: "etapa_sem_aviso" | "avisos_parados" }`
+
+`GET /api/rastreio/saude` (PR 6) → `{ enviados, comCodigo, maisAntigoSemCodigo: { id, numero, desde } | null }`,
+sobre os pedidos postados nos últimos 7 dias.
+
+### Página pública (PR 3)
+
+`GET/POST /rastreio/[slug]` (busca), `GET /rastreio/[slug]/[token]` (um pedido) e
+`POST /rastreio/[slug]/[token]/parar` — no domínio do lojista, sem o `[slug]`.
+- HTML com `x-robots-tag: noindex`, `cache-control: private, no-store` e CSP com nonce
+- loja sem o Rastreio ligado → `404`
+- textos fixos do índice; `429` acima de 5/min ou 20/h por IP + loja
+- o token mostra um pedido só; token desconhecido → `404` com a busca
+- parar avisos só por `POST` (`303`); `GET` no `/parar` → `405` sem gravar; nunca escreve em `optouts`
