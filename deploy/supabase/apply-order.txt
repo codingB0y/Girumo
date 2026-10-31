@@ -587,4 +587,4 @@ apps/web/supabase/migrations/20261030120000_base_comum_yampi_privado.sql
 # atendimento (fica fora do claim de post e da saúde); public.avaliar_disjuntor_saidas só conta envio do número
 # dos grupos. Só corpo, com trava de md5: não muda a baseline. Depende de instances.purpose (PR 1a). Conferir
 # com infra/tests/numero-do-atendimento-check.sql nos dois bancos.
-apps/web/supabase/migrations/20261029160000_numero_do_atendimento.sql
+apps/web/supabase/migrations/20261030160000_numero_do_atendimento.sql

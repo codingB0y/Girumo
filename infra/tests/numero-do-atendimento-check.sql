@@ -1,4 +1,4 @@
--- Conferência da migração 20261029160000_numero_do_atendimento.sql (o número do atendimento fica fora
+-- Conferência da migração 20261030160000_numero_do_atendimento.sql (o número do atendimento fica fora
 -- de todo seletor de post no banco), nos DOIS bancos. Rodar de apps\web:
 --   npx supabase link --project-ref <ref> --yes      # dev wfjuwogxaupyadwhvoxy / prod nidoatbxaylrkcgbszns
 --   npx supabase db query --linked -o json -f ../../infra/tests/numero-do-atendimento-check.sql
@@ -173,7 +173,7 @@ begin
      where p.oid is null
         or md5(btrim(regexp_replace(regexp_replace(p.prosrc, '--[^\n]*', '', 'g'), '\s+', ' ', 'g'))) <> f.md5
   ) then
-    raise exception 'FALHOU: corpo de função diferente do da migração 20261029160000';
+    raise exception 'FALHOU: corpo de função diferente do da migração 20261030160000';
   end if;
 
   if exists (
