@@ -26,7 +26,7 @@ import {
   type GrupoDoProvedor,
 } from "@/lib/stores/groups";
 import { espelharComunidadesNativas } from "@/lib/stores/communities";
-import { getInstance, listInstances, type Instance } from "@/lib/stores/instances";
+import { getInstance, listGroupInstances, listInstances, type Instance } from "@/lib/stores/instances";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 /**
@@ -99,8 +99,12 @@ export async function sincronizarGrupos(tenantId: string, opts: OpcoesDoSync): P
   try {
     const instance = opts.instanceId
       ? await getInstance(tenantId, opts.instanceId)
-      : ((await listInstances(tenantId)).find((i) => i.status === "connected") ?? null);
+      : ((await listGroupInstances(tenantId)).find((i) => i.status === "connected") ?? null);
     if (!instance) return { ok: false, status: 409, error: "Nenhuma instancia conectada." };
+    // O número do atendimento não lê nem muda grupo. Fecha também para valor de purpose desconhecido.
+    if (instance.purpose !== "grupos") {
+      return { ok: false, status: 409, error: "Esse é o número do atendimento: ele não sincroniza grupos." };
+    }
     if (instance.status !== "connected") {
       return { ok: false, status: 409, error: "A instancia precisa estar conectada para sincronizar grupos." };
     }
@@ -150,6 +154,7 @@ async function lerGrupos(
   // Proteção do ativo (R1): "nosso" é qualquer número do tenant, não só o que
   // está sincronizando. Quando houver uma segunda instância, é ela que faz o
   // grupo deixar de depender de um único admin — e o sync precisa enxergá-la.
+  // Inclui o número do atendimento (listInstances, não listGroupInstances): é nosso.
   const ourPhones = (await listInstances(base.tenantId)).map((i) => i.phone);
   const countedAt = new Date().toISOString();
 

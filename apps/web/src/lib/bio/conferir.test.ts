@@ -21,6 +21,8 @@ let banco: {
   campanhas: { id: string; slug: string }[];
   links: { slug: string; campaign_group_id: string }[];
   telefones: (string | null)[];
+  /** Telefones de número do atendimento (`purpose = 'privado'`); os de `telefones` são dos grupos. */
+  privados: string[];
 };
 
 const postgrest = createServer((req, res) => {
@@ -31,7 +33,14 @@ const postgrest = createServer((req, res) => {
   if (url.pathname === "/rest/v1/uploads") corpo = banco.uploads.filter((p) => lista("path").includes(p)).map((path) => ({ path }));
   if (url.pathname === "/rest/v1/campaign_groups") corpo = banco.campanhas.map((c) => ({ ...c, tenant_id: LOJA, name: c.slug, group_ids: [], metadata: {} }));
   if (url.pathname === "/rest/v1/tracked_links") corpo = banco.links.filter((l) => lista("slug").includes(l.slug));
-  if (url.pathname === "/rest/v1/instances") corpo = banco.telefones.map((phone, i) => ({ id: `inst-${i}`, tenant_id: LOJA, phone, status: "connected" }));
+  if (url.pathname === "/rest/v1/instances") {
+    const linhas = [
+      ...banco.telefones.map((phone, i) => ({ id: `inst-${i}`, tenant_id: LOJA, phone, status: "connected", purpose: "grupos" })),
+      ...banco.privados.map((phone, i) => ({ id: `priv-${i}`, tenant_id: LOJA, phone, status: "connected", purpose: "privado" })),
+    ];
+    const purpose = url.searchParams.get("purpose"); // como o PostgREST: `purpose=eq.X` recorta
+    corpo = purpose === null ? linhas : linhas.filter((l) => purpose === `eq.${l.purpose}`);
+  }
   res.setHeader("Content-Type", "application/json");
   res.end(JSON.stringify(corpo));
 });
@@ -52,7 +61,7 @@ after(() => {
 
 beforeEach(() => {
   vistos.length = 0;
-  banco = { uploads: [], campanhas: [], links: [], telefones: [] };
+  banco = { uploads: [], campanhas: [], links: [], telefones: [], privados: [] };
 });
 
 const LOJA = "11111111-1111-4111-8111-111111111111";
@@ -150,6 +159,18 @@ test("número que a Girumo usa para postar: recusado no WhatsApp e no wa.me, com
     assert.equal(filtros("/rest/v1/instances").tenant_id, `eq.${LOJA}`);
   }
   assert.deepEqual(await conferir.conferirDocumentoDaLoja(LOJA, documento([link("whatsapp", { numero: "5562988887777", mensagem: "" })])), { ok: true });
+});
+
+test("o número do atendimento pode ir na bio; o dos grupos continua recusado", async () => {
+  banco.telefones = [`55${ZAP}`];
+  banco.privados = ["5562988887777"];
+  const atendimento = link("whatsapp", { numero: "5562988887777", mensagem: "" });
+  assert.deepEqual(await conferir.conferirDocumentoDaLoja(LOJA, documento([atendimento])), { ok: true });
+  // Mutante: listInstances no lugar de listGroupInstances — o atendimento viraria "o número que posta".
+  assert.equal(filtros("/rest/v1/instances").purpose, "eq.grupos");
+  vistos.length = 0;
+  const grupos = link("whatsapp", { numero: `55${ZAP}`, mensagem: "" });
+  assert.equal((await conferir.conferirDocumentoDaLoja(LOJA, documento([grupos]))).ok, false);
 });
 
 test("estado dos links: slug do link mestre, e some o que não pode sair", async () => {
