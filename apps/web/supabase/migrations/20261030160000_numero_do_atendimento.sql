@@ -1,4 +1,4 @@
--- 2026-10-29 - Número do atendimento (Recuperar PR 2, comum com o Rastreio): no banco, quem escolhe
+-- 2026-10-30 - Número do atendimento (Recuperar PR 2, comum com o Rastreio): no banco, quem escolhe
 -- "o número da loja" passa a ver só o número dos grupos.
 --
 -- A loja ganha um segundo número, o do atendimento (instances.purpose = 'privado', PR 1a), que só fala

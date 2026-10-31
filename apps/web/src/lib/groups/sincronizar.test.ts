@@ -356,7 +356,7 @@ test("o Sincronizar sem número escolhido usa o dos grupos, nunca o do atendimen
   const r = await sincronizarGrupos(LOJA, { somenteContagem: true });
 
   assert.equal(r.ok, true);
-  // Mutante: listInstances no lugar de listGroupInstances — o atendimento vem primeiro e sincroniza.
+  // Mutante: listInstances no lugar de listGroupInstances — o atendimento vem primeiro: o Sincronizar falha (409) ou usa o número errado.
   assert.equal(feitas("GET", "/group/fetchAllGroups/gr_inst-p").length, 0);
   assert.equal(feitas("GET", "/group/fetchAllGroups/gr_inst-1").length, 1);
 });
