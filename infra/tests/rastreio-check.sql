@@ -551,6 +551,50 @@ begin
   end if;
 end $$;
 
+-- 6) rastreio_purgar: global (varre TODAS as lojas e apaga; o rollback desfaz — em prod é do Igor). Apaga
+--    o pedido vencido com os avisos dele; o que vence amanhã e o sem data ficam.
+do $$
+declare
+  ta constant uuid := '7a5c0000-0000-4000-8000-00000000000a';
+  v_ruins text;
+  v_p1 uuid;
+  v_qtd integer;
+begin
+  select string_agg(f.sig, ', ') into v_ruins
+    from (values ('public.rastreio_purgar()')) as f(sig)
+    left join pg_proc p on p.oid = to_regprocedure(f.sig)
+   where p.oid is null
+      or not p.prosecdef
+      or not exists (select 1 from unnest(p.proconfig) as c(cfg) where c.cfg like 'search_path=%')
+      or has_function_privilege('anon', p.oid, 'EXECUTE')
+      or has_function_privilege('authenticated', p.oid, 'EXECUTE')
+      or not has_function_privilege('service_role', p.oid, 'EXECUTE');
+  if v_ruins is not null then
+    raise exception 'FALHOU: fora do contrato (existe, security definer, search_path fixo, EXECUTE só do service_role): %', v_ruins;
+  end if;
+
+  insert into public.tracking_orders (tenant_id, external_id, numero, order_created_at, status_raw, etapa, purge_after)
+  values (ta, 'chk-p1', '3001', now(), 'delivered', 'entregue', now() - interval '1 minute')
+  returning id into v_p1;
+  insert into public.tracking_notices (tenant_id, order_id, etapa, channel) values (ta, v_p1, 'entregue', 'whatsapp');
+  insert into public.tracking_orders (tenant_id, external_id, numero, order_created_at, status_raw, etapa, purge_after)
+  values (ta, 'chk-p2', '3002', now(), 'delivered', 'entregue', now() + interval '1 day'),
+         (ta, 'chk-p3', '3003', now(), 'on_carriage', 'enviado', null);
+
+  v_qtd := public.rastreio_purgar();
+  if v_qtd is null or v_qtd < 1 then
+    raise exception 'FALHOU: rastreio_purgar devolveu %', v_qtd;
+  end if;
+  if exists (select 1 from public.tracking_orders where id = v_p1)
+     or exists (select 1 from public.tracking_notices where order_id = v_p1) then
+    raise exception 'FALHOU: P1 (vencido) ou o aviso dele ficou';
+  end if;
+  select count(*) into v_qtd from public.tracking_orders where tenant_id = ta and external_id in ('chk-p2', 'chk-p3');
+  if v_qtd <> 2 then
+    raise exception 'FALHOU: rastreio_purgar apagou P2 ou P3 (ficaram %)', v_qtd;
+  end if;
+end $$;
+
 -- Assinaturas para a baseline (dentro da transação, para aparecer também no dry-run).
 select json_object_agg(kind || '|' || nome, sig order by kind || '|' || nome collate "C") as r
   from public.schema_signature() where nome like 'tracking\_%' or nome like 'rastreio\_%';

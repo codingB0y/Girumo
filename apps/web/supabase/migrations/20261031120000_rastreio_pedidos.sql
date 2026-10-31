@@ -218,3 +218,15 @@ $$;
 
 revoke all on function public.rastreio_gravar_pedido(uuid, jsonb) from public, anon, authenticated;
 grant execute on function public.rastreio_gravar_pedido(uuid, jsonb) to service_role;
+
+-- 4) Limpeza: apaga os pedidos 90 dias depois de entregue/cancelado (os avisos vão junto, on delete cascade).
+--    Global por desenho — a outra exceção ao filtro por loja. Devolve quantos pedidos apagou.
+create or replace function public.rastreio_purgar()
+returns integer language sql volatile security definer set search_path to 'public', 'app'
+as $$
+  with apagados as (delete from public.tracking_orders t where t.purge_after < now() returning 1)
+  select count(*)::integer from apagados
+$$;
+
+revoke all on function public.rastreio_purgar() from public, anon, authenticated;
+grant execute on function public.rastreio_purgar() to service_role;
