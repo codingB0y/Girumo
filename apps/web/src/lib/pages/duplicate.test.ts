@@ -82,6 +82,14 @@ test("campos opcionais ausentes viram null, não undefined", () => {
   assert.equal(payload.ga4_id, null);
 });
 
+test("id de rastreio gravado fora do formato vai como null — a duplicação não pode levar 400", () => {
+  // Gravados antes de POST/PATCH /api/pages validarem (o PATCH só fazia trim).
+  const payload = buildDuplicatePayload({ ...ORIGINAL, meta_pixel_id: "abc", ga4_id: "GTM-WJTQSV4" });
+
+  assert.equal(payload.meta_pixel_id, null);
+  assert.equal(payload.ga4_id, null);
+});
+
 test("o conteúdo é repassado por referência de valor, sem perder campos do v2", () => {
   const v2 = {
     ...ORIGINAL,

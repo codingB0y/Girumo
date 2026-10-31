@@ -290,7 +290,7 @@ export function EditorFormV2({
       </Group>
 
       <Group title="Rastreamento" hint="opcional — pixels">
-        <Field label="Meta Pixel ID">
+        <Field label="Meta Pixel ID" error={errors.meta_pixel_id}>
           <input
             type="text"
             inputMode="numeric"
@@ -301,7 +301,7 @@ export function EditorFormV2({
             className="font-data w-full rounded-xl border border-volt-950/15 px-3.5 py-2.5 text-sm text-volt-950 placeholder:text-aco focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cobalt-500"
           />
         </Field>
-        <Field label="Google Analytics 4 ID">
+        <Field label="Google Analytics 4 ID" error={errors.ga4_id}>
           <input
             type="text"
             value={values.ga4_id}

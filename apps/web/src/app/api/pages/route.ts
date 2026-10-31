@@ -1,6 +1,7 @@
 import { getTenantContext } from "@/lib/supabase/tenant-context";
 import { createLandingPage, getLpTemplateById, listLandingPages } from "@/lib/pages/store";
 import { contentDimensions, parseContentInput, validateTargetGroupUrl } from "@/lib/pages/schema";
+import { parseLpTrackingIds } from "@/lib/pages/tracking-input";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -57,6 +58,11 @@ export async function POST(req: Request) {
     );
   }
 
+  const tracking = parseLpTrackingIds(body);
+  if (!tracking.ok) {
+    return Response.json({ error: tracking.details.join(" "), details: tracking.details }, { status: 400 });
+  }
+
   try {
     const template = await getLpTemplateById(templateId);
     if (!template) {
@@ -74,8 +80,8 @@ export async function POST(req: Request) {
         : {}),
       campaign_slug: campaignSlug,
       target_group_url: targetGroupUrl,
-      meta_pixel_id: typeof body.meta_pixel_id === "string" ? body.meta_pixel_id : null,
-      ga4_id: typeof body.ga4_id === "string" ? body.ga4_id : null,
+      meta_pixel_id: tracking.patch.meta_pixel_id ?? null,
+      ga4_id: tracking.patch.ga4_id ?? null,
     });
     return Response.json(page, { status: 201 });
   } catch (e) {

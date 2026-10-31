@@ -1,3 +1,4 @@
+import { ga4TagId, metaPixelId } from "@/lib/tracking-ids";
 import type { LandingPage } from "./schema";
 
 /**
@@ -13,6 +14,9 @@ import type { LandingPage } from "./schema";
  *   ruído. A cópia nasce sem campanha e o editor pede uma nova.
  * - **Não leva** slug (o servidor gera), métricas, capturas nem
  *   `published_version`. E nasce como rascunho: publicar é decisão consciente.
+ *
+ * Id de rastreio fora do formato (gravado antes de a rota validar) vai como null:
+ * a cópia nasce sem ele em vez de o POST recusar a duplicação inteira.
  *
  * `tiktok_pixel_id` fica de fora porque `POST /api/pages` não lê esse campo —
  * mandar aqui seria descartado em silêncio. Se a rota passar a aceitar, incluir.
@@ -30,7 +34,7 @@ export function buildDuplicatePayload(page: LandingPage): DuplicatePayload {
     template_id: page.template_id,
     content: page.content,
     target_group_url: page.target_group_url ?? null,
-    meta_pixel_id: page.meta_pixel_id ?? null,
-    ga4_id: page.ga4_id ?? null,
+    meta_pixel_id: metaPixelId(page.meta_pixel_id),
+    ga4_id: ga4TagId(page.ga4_id),
   };
 }
