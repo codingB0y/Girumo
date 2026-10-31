@@ -108,6 +108,7 @@ const INSTANCIA = {
   tenant_id: LOJA,
   name: "Número 1",
   phone: "5511999990000",
+  purpose: "grupos",
   status: "connected",
   qr_code: null,
   provider: "evolution",
@@ -149,7 +150,16 @@ const GRUPOS_DO_BANCO = [
 
 function bancoDaLoja(instancias: unknown[] = [INSTANCIA]): Record<string, (c: Chamada) => Resposta> {
   return {
-    "GET /rest/v1/instances": () => ({ status: 200, corpo: instancias }),
+    // Como o PostgREST: `purpose=eq.X` e `id=eq.X` recortam as linhas quando vêm na consulta.
+    "GET /rest/v1/instances": (c) => ({
+      status: 200,
+      corpo: (instancias as Array<Record<string, unknown>>).filter((linha) =>
+        (["purpose", "id"] as const).every((coluna) => {
+          const filtro = c.url.searchParams.get(coluna);
+          return filtro === null || filtro === `eq.${linha[coluna]}`;
+        }),
+      ),
+    }),
     "GET /rest/v1/groups": (c) =>
       c.url.searchParams.get("select") === "whatsapp_group_id,members"
         ? { status: 200, corpo: CONTAGENS }
@@ -330,4 +340,33 @@ test("o Sincronizar do painel continua igual: importa o novo, apaga o de terceir
   assert.equal(metadata.sem_backup, 1);
   assert.equal(metadata.protegidos, 1);
   assert.deepEqual(comandosDaTrava(), ["set", "del"]);
+});
+
+const ATENDIMENTO = {
+  ...INSTANCIA,
+  id: "inst-p",
+  phone: "5511977770000",
+  provider_instance_id: "gr_inst-p",
+  purpose: "privado",
+};
+
+test("o Sincronizar sem número escolhido usa o dos grupos, nunca o do atendimento", async () => {
+  prepara({ instancias: [ATENDIMENTO, INSTANCIA] });
+
+  const r = await sincronizarGrupos(LOJA, { somenteContagem: true });
+
+  assert.equal(r.ok, true);
+  // Mutante: listInstances no lugar de listGroupInstances — o atendimento vem primeiro e sincroniza.
+  assert.equal(feitas("GET", "/group/fetchAllGroups/gr_inst-p").length, 0);
+  assert.equal(feitas("GET", "/group/fetchAllGroups/gr_inst-1").length, 1);
+});
+
+test("pedir o Sincronizar com o id do número do atendimento é 409, sem trava nem Evolution", async () => {
+  prepara({ instancias: [ATENDIMENTO, INSTANCIA] });
+
+  const r = await sincronizarGrupos(LOJA, { somenteContagem: false, instanceId: "inst-p" });
+
+  assert.deepEqual(r, { ok: false, status: 409, error: "Esse é o número do atendimento: ele não sincroniza grupos." });
+  assert.deepEqual(comandosDaTrava(), []);
+  assert.equal(chamadas.filter((c) => c.url.pathname.startsWith("/group/")).length, 0);
 });
