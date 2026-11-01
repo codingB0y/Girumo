@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { APEX_HOST, APP_HOST, APP_ONLY_PATHS, PUBLIC_SITE_HOST, appDomainRedirects, bioDomainRedirects } from "./domain-redirects";
+import { APEX_HOST, APP_HOST, APP_ONLY_PATHS, PUBLIC_SITE_HOST, appDomainRedirects, bioDomainRedirects, rastreioDomainRedirects } from "./domain-redirects";
 
 test("manda para o app só quem chega pelo host público", () => {
   const redirects = appDomainRedirects();
@@ -51,7 +51,7 @@ test("deixa o site público onde ele está", () => {
 
   // Estas são o ativo de SEO e vivem em www: a home é a canônica, /p/, /r/ e
   // /c/ são as superfícies públicas dos lojistas.
-  for (const publicPath of ["/", "/p/:path*", "/r/:path*", "/c/:path*", "/termos", "/privacidade", "/bio/:path*"]) {
+  for (const publicPath of ["/", "/p/:path*", "/r/:path*", "/c/:path*", "/termos", "/privacidade", "/bio/:path*", "/rastreio/:path*"]) {
     assert.ok(!sources.includes(publicPath), `${publicPath} não pode sair de www`);
   }
 });
@@ -67,4 +67,15 @@ test("o link da bio sai de app. e do apex para o www, com 308 (spec link-da-bio 
     assert.equal(r.permanent, true, "308 preserva a query (utm do anúncio)");
   }
   assert.equal(APEX_HOST, "girumo.com.br");
+});
+
+test("o rastreio sai de app. e do apex para o www com 308 (spec rastreio §3.5)", () => {
+  const regras = rastreioDomainRedirects();
+  assert.deepEqual(regras.map((r) => r.has[0].value).sort(), [APEX_HOST, APP_HOST].sort());
+  for (const r of regras) {
+    assert.equal(r.has.length, 1);
+    assert.equal(r.source, "/rastreio/:path*");
+    assert.equal(r.destination, `https://${PUBLIC_SITE_HOST}/rastreio/:path*`);
+    assert.equal(r.permanent, true, "308 mantém o POST da busca");
+  }
 });

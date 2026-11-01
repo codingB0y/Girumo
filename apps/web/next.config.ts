@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
 import { FIRST_PARTY_HOST_PATTERN } from "./src/lib/custom-domains/host";
-import { appDomainRedirects, bioDomainRedirects } from "./src/lib/domain-redirects";
+import { appDomainRedirects, bioDomainRedirects, rastreioDomainRedirects } from "./src/lib/domain-redirects";
 import { SENTRY_CSP_HOST } from "./src/lib/observability/sentry-options";
 
 /**
@@ -108,17 +108,19 @@ const nextConfig: NextConfig = {
       ...appDomainRedirects(),
       // Link da bio só no www (spec link-da-bio §2). Lista e teste em domain-redirects.ts.
       ...bioDomainRedirects(),
+      // Rastreio do pedido só no www (spec rastreio-pedidos §3.5); o 308 mantém o POST da busca.
+      ...rastreioDomainRedirects(),
     ];
   },
   async headers() {
     return [
       {
-        // tudo, exceto /p/*, /r/*, /c/*, /bio/* e a prévia do editor (todas com
+        // tudo, exceto /p/*, /r/*, /c/*, /bio/*, /rastreio/* e a prévia do editor (todas com
         // regra própria abaixo). Ficam FORA do match global pra não sair header
-        // duplicado. `p$`/`r$`/`c$`/`bio$` cobrem os paths exatos: `:path*` na
+        // duplicado. `p$`/`r$`/`c$`/`bio$`/`rastreio$` cobrem os paths exatos: `:path*` na
         // regra dedicada casa zero segmentos, então sem eles esses sairiam com
         // dois headers de CSP. `$` tira a raiz, que se divide por host logo abaixo.
-        source: "/((?!$|p/|p$|r/|r$|c/|c$|bio/|bio$|editor-preview).*)",
+        source: "/((?!$|p/|p$|r/|r$|c/|c$|bio/|bio$|rastreio/|rastreio$|editor-preview).*)",
         headers: securityHeaders,
       },
       // A raiz se divide pelo host (mesmo padrão do matcher do middleware): no
@@ -147,6 +149,11 @@ const nextConfig: NextConfig = {
       {
         // Link da bio (spec link-da-bio §6): CSP com nonce, do middleware.
         source: "/bio/:path*",
+        headers: headersWithoutCsp,
+      },
+      {
+        // Rastreio do pedido: CSP com nonce, do middleware.
+        source: "/rastreio/:path*",
         headers: headersWithoutCsp,
       },
       {

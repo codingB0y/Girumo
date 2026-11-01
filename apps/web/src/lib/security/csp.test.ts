@@ -52,7 +52,7 @@ test("nonce is unique per call and readable by Next", () => {
 });
 
 test("production script-src drops unsafe-inline and unsafe-eval", () => {
-  for (const surface of ["public-lp", "click-redirect", "bio"] as const) {
+  for (const surface of ["public-lp", "click-redirect", "bio", "rastreio"] as const) {
     const scriptSrc = buildCsp(surface, generateNonce(), false)
       .split(";")
       .map((d) => d.trim())
@@ -63,7 +63,7 @@ test("production script-src drops unsafe-inline and unsafe-eval", () => {
 });
 
 test("unsafe-eval comes back only in dev, where Turbopack needs it", () => {
-  for (const surface of ["public-lp", "click-redirect", "bio"] as const) {
+  for (const surface of ["public-lp", "click-redirect", "bio", "rastreio"] as const) {
     const dev = buildCsp(surface, generateNonce(), true);
     assert.ok(dev.includes("'unsafe-eval'"), `${surface} sem unsafe-eval em dev`);
     assert.ok(!dev.includes("'unsafe-inline' 'nonce-"), `${surface} com unsafe-inline junto do nonce`);
@@ -241,4 +241,37 @@ test("a fonte do link da bio tem cache de 30 dias, sem immutable (o nome não te
   // A prévia (iframe srcdoc sandbox="") tem origem opaca: a fonte é pedida com `Origin: null`.
   assert.match(bloco, /key:\s*"Access-Control-Allow-Origin",\s*value:\s*"\*"\s*\}/);
   assert.doesNotMatch(NEXT_CONFIG, /fonts\/bio[\s\S]{0,200}immutable/);
+});
+
+const CAMINHOS = ["/rastreio", "/rastreio/loja-exemplo", "/rastreio/loja-exemplo/0123456789abcdef0123456789abcdef/parar"];
+
+test("rastreio: superfície com nonce própria; prefixo parecido não entra", () => {
+  for (const p of CAMINHOS) assert.equal(surfaceForPath(p), "rastreio", p);
+  for (const p of ["/rastreios", "/rastreio-x", "/api/rastreio/config"]) assert.equal(surfaceForPath(p), null, p);
+});
+
+test("CSP do rastreio: só o nonce, nenhum terceiro, formulário só para a mesma origem", () => {
+  const nonce = generateNonce();
+  const csp = buildCsp("rastreio", nonce, false);
+  assert.deepEqual(csp.split("; "), [
+    "default-src 'none'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    `style-src 'self' 'nonce-${nonce}'`,
+    "img-src 'self' data:",
+    "font-src 'self'",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+  ]);
+  assert.equal(nonceSeenByNext(csp), nonce);
+});
+
+test("o rastreio sai da CSP estática, roda no middleware e fica só no www", () => {
+  const casa = regraGlobal();
+  for (const p of CAMINHOS) assert.equal(casa(p), false, `${p} sairia com duas CSP`);
+  assert.equal(casa("/rastreios"), true);
+  assert.match(NEXT_CONFIG, /source:\s*"\/rastreio\/:path\*",\s*headers:\s*headersWithoutCsp/);
+  assert.match(NEXT_CONFIG, /\.\.\.rastreioDomainRedirects\(\)/);
+  assert.match(MIDDLEWARE, /"\/rastreio\/:path\*"/);
 });
