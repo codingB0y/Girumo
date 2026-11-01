@@ -67,10 +67,10 @@ export function EditorFormV3({
       </Group>
 
       <Group title="Rastreamento" hint="opcional — pixels">
-        <Field label="Meta Pixel ID">
+        <Field label="Meta Pixel ID" error={errors.meta_pixel_id}>
           <input type="text" inputMode="numeric" value={state.meta_pixel_id} disabled={disabled} placeholder="Ex.: 123456789012345" onChange={(e) => setField({ meta_pixel_id: e.target.value })} className={`font-data ${INPUT}`} />
         </Field>
-        <Field label="Google Analytics 4 ID">
+        <Field label="Google Analytics 4 ID" error={errors.ga4_id}>
           <input type="text" value={state.ga4_id} disabled={disabled} placeholder="Ex.: G-XXXXXXXXXX" onChange={(e) => setField({ ga4_id: e.target.value })} className={`font-data ${INPUT}`} />
         </Field>
       </Group>
