@@ -162,7 +162,7 @@ function telaPedido(ctx: ContextoDaPagina, p: PedidoPublico, convite: string | n
   const linkConvite = urlHttp(convite);
   const vip =
     linkConvite && !problema && p.etapa !== "cancelado"
-      ? `<section class="cartao vip"><h2>As novidades saem primeiro no grupo VIP</h2><p>Lançamentos e reposições aparecem lá antes do site.</p><a class="botao" href="${escapeHtml(linkConvite)}">Entrar no grupo VIP</a></section>`
+      ? `<section class="cartao vip"><h2>As novidades saem primeiro no grupo VIP</h2><p>Lançamentos e reposições aparecem lá antes do site.</p><a class="botao" href="${escapeHtml(linkConvite)}" rel="noopener noreferrer">Entrar no grupo VIP</a></section>`
       : "";
   return `<main class="coluna">
 <a class="voltar" href="${escapeHtml(ctx.base)}">Buscar outro pedido</a>

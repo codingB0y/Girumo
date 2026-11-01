@@ -29,6 +29,7 @@ export type DepsRastreio = typeof DEPS;
 
 export const TOKEN_RASTREIO = /^[0-9a-f]{32}$/;
 
+const TAMANHO_MAX_CORPO = 2_048;
 const JANELA_DA_BUSCA_MS = 90 * 86_400_000;
 const CABECALHO_HTML = {
   "content-type": "text/html; charset=utf-8",
@@ -75,9 +76,14 @@ async function paginaDaLoja(req: Request, slug: string, deps: DepsRastreio): Pro
 
 async function buscar(req: Request, { loja, base }: PaginaDaLoja, deps: DepsRastreio): Promise<Response> {
   // Um id por janela: o balde em memória usa só o id como chave. IP puro não entra em chave.
+  // Com o Upstash fora do ar o balde em memória conta com o teto de `maxSeFalhar`, não com o normal.
   const quem = `${hashIp(req) ?? "sem-ip"}:${loja.tenantId}`;
-  if ((await deps.limitar(`rastreio-busca-min:${quem}`, 5, 60_000)) || (await deps.limitar(`rastreio-busca-h:${quem}`, 20, 3_600_000))) {
-    return html(429, tela(req, { loja, base }, { tipo: "busca", aviso: MUITAS_TENTATIVAS }));
+  const bloqueado = (await deps.limitar(`rastreio-busca-min:${quem}`, 5, 60_000, { maxSeFalhar: 5 })) || (await deps.limitar(`rastreio-busca-h:${quem}`, 20, 3_600_000, { maxSeFalhar: 20 }));
+  if (bloqueado) return html(429, tela(req, { loja, base }, { tipo: "busca", aviso: MUITAS_TENTATIVAS }));
+  // Formulário legítimo tem ~100 bytes: corpo sem tamanho válido ou grande nem é lido.
+  const tamanho = Number(req.headers.get("content-length") ?? "0");
+  if (!Number.isFinite(tamanho) || tamanho > TAMANHO_MAX_CORPO) {
+    return html(413, tela(req, { loja, base }, { tipo: "busca", aviso: NAO_ENCONTRADO }));
   }
   const campos = new URLSearchParams(await req.text());
   const documento = (campos.get("documento") ?? "").slice(0, 40);
@@ -87,7 +93,12 @@ async function buscar(req: Request, { loja, base }: PaginaDaLoja, deps: DepsRast
   // a resposta não diz se o documento existe.
   const chave = normalizarDocumento(documento)?.digitos ?? documento.replace(/[^0-9A-Za-z]/g, "").toUpperCase();
   const desde = new Date(deps.agora().getTime() - JANELA_DA_BUSCA_MS);
-  const achados = await deps.buscar(loja.tenantId, docHmac(chave, pepper), ultimos4(celular), desde);
+  const hmac = docHmac(chave, pepper);
+  // Teto por documento, de qualquer IP: trocar de IP não ressuscita os 10⁴ palpites dos 4 dígitos. Só o HMAC na chave.
+  if (await deps.limitar(`rastreio-busca-doc:${loja.tenantId}:${hmac}`, 10, 3_600_000, { maxSeFalhar: 10 })) {
+    return html(429, tela(req, { loja, base }, { tipo: "busca", aviso: MUITAS_TENTATIVAS }));
+  }
+  const achados = await deps.buscar(loja.tenantId, hmac, ultimos4(celular), desde);
   if (achados.length === 1) {
     return new Response(null, { status: 303, headers: { location: `${base}/${achados[0].linkToken}`, "cache-control": "no-store" } });
   }

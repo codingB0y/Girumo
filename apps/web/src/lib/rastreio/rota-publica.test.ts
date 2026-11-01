@@ -230,7 +230,7 @@ test("o limite é por IP (com hash) e loja, um balde por janela, e o da hora tam
     },
   });
   await responderBusca(postar({ documento: CPF_DIGITADO, celular: "4321" }), "loja-exemplo", deps);
-  assert.equal(gravados.length, 2);
+  assert.equal(gravados.length, 3);
   const [[id1, max1, j1], [id2, max2, j2]] = gravados;
   assert.match(id1, /^rastreio-busca-min:[0-9a-f]{32}:loja-a$/);
   assert.match(id2, /^rastreio-busca-h:[0-9a-f]{32}:loja-a$/);
@@ -241,6 +241,49 @@ test("o limite é por IP (com hash) e loja, um balde por janela, e o da hora tam
   const res = await responderBusca(postar({ documento: CPF_DIGITADO, celular: "4321" }), "loja-exemplo", daHora.deps);
   assert.equal(res.status, 429);
   assert.equal(daHora.buscas.length, 0);
+});
+
+test("teto por documento: a 11ª busca com o mesmo CPF, de IPs diferentes, é 429 e não consulta", async () => {
+  const conta: Record<string, number> = {};
+  const { deps, buscas } = cenario({ limitar: async (id, max) => (conta[id] = (conta[id] ?? 0) + 1) > max });
+  const status: number[] = [];
+  for (let i = 0; i < 11; i++) {
+    const res = await responderBusca(postar({ documento: CPF_DIGITADO, celular: "4321" }, { ip: `198.51.100.${i + 1}` }), "loja-exemplo", deps);
+    status.push(res.status);
+  }
+  assert.deepEqual(status, [...Array<number>(10).fill(200), 429]);
+  assert.equal(buscas.length, 10);
+  const chaves = Object.keys(conta).filter((k) => k.startsWith("rastreio-busca-doc:"));
+  assert.deepEqual(chaves, [`rastreio-busca-doc:loja-a:${docHmac(CPF, PEPPER)}`]);
+  assert.ok(!chaves[0].includes(CPF));
+});
+
+test("os três baldes falham fechado (maxSeFalhar)", async () => {
+  const opcoes: Record<string, unknown> = {};
+  const { deps } = cenario({
+    limitar: async (id, _max, _janela, o) => {
+      opcoes[id.split(":")[0]] = o;
+      return false;
+    },
+  });
+  await responderBusca(postar({ documento: CPF_DIGITADO, celular: "4321" }), "loja-exemplo", deps);
+  assert.deepEqual(opcoes, {
+    "rastreio-busca-min": { maxSeFalhar: 5 },
+    "rastreio-busca-h": { maxSeFalhar: 20 },
+    "rastreio-busca-doc": { maxSeFalhar: 10 },
+  });
+});
+
+test("corpo grande ou sem tamanho válido: 413 com a busca, sem ler nem consultar", async () => {
+  for (const cl of ["2049", "abc"]) {
+    const { deps, buscas } = cenario();
+    const req = postar({ documento: CPF_DIGITADO, celular: "4321" });
+    req.headers.set("content-length", cl);
+    const res = await responderBusca(req, "loja-exemplo", deps);
+    assert.equal(res.status, 413, cl);
+    assert.ok((await res.text()).includes('name="documento"'));
+    assert.equal(buscas.length, 0);
+  }
 });
 
 test("sem o pepper a busca não roda", async () => {

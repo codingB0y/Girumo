@@ -151,7 +151,7 @@ test("problema: alerta com a data e sem convite do VIP", () => {
   assert.ok(!html.includes("grupo VIP"));
 
   const enviado = renderPagina(CTX, { tipo: "pedido", pedido: pedido(), convite });
-  assert.ok(enviado.includes(`href="${convite}"`));
+  assert.ok(enviado.includes(`href="${convite}" rel="noopener noreferrer"`));
   assert.ok(enviado.includes("Entrar no grupo VIP"));
 });
 
