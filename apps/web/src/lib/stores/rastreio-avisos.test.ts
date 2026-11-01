@@ -165,7 +165,7 @@ test("reabrirAvisos reabre uma vez o que existe e cria o que falta", async () =>
 
   const [leitura, reabertura, criacao] = chamadas;
   assert.deepEqual(filtros(leitura.url), { tenant_id: "eq.loja-a", order_id: "eq.o-1", etapa: "eq.enviado", channel: "in.(whatsapp,email)" });
-  assert.deepEqual(filtros(reabertura.url), { tenant_id: "eq.loja-a", id: "eq.n-1", resends: "eq.0" });
+  assert.deepEqual(filtros(reabertura.url), { tenant_id: "eq.loja-a", id: "eq.n-1", resends: "eq.0", status: "not.in.(pendente,enviando)" });
   const { updated_at: carimbo, ...resto } = reabertura.corpo as Record<string, unknown>;
   assert.deepEqual(resto, { status: "pendente", resends: 1, attempts: 0, message_id: null, error: null, next_try_at: null, sent_at: null });
   assert.match(carimbo as string, ISO);

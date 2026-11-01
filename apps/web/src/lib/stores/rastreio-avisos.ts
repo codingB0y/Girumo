@@ -126,7 +126,8 @@ export async function marcarAviso(
 
 /**
  * Reenvio: o que existe volta a `pendente` com `resends + 1`; o que falta é criado. O PATCH exige o
- * `resends` lido, então o segundo clique concorrente não acha a linha e não conta. Devolve quantos
+ * `resends` lido, então o segundo clique concorrente não acha a linha e não conta; aviso `pendente` ou
+ * `enviando` não é reaberto nem contado (e também não é recriado). Devolve quantos
  * avisos ficaram para sair agora.
  */
 export async function reabrirAvisos(tenantId: string, orderId: string, etapa: EtapaComAviso, canais: Canal[]): Promise<number> {
@@ -159,6 +160,8 @@ export async function reabrirAvisos(tenantId: string, orderId: string, etapa: Et
       .eq("tenant_id", tenantId)
       .eq("id", aviso.id)
       .eq("resends", aviso.resends)
+      // O worker pode estar no meio do envio: reabrir zeraria o message_id e mandaria em dobro.
+      .not("status", "in", "(pendente,enviando)")
       .select("id");
     if (erroDoPatch) throw new Error(erroDoPatch.message);
     if (voltou?.length) reabertos += 1;
