@@ -156,3 +156,38 @@ test("pedido que não é uuid", async () => {
   assert.equal(aoRastreio().length, 0);
   assert.equal((await GET(ler("pedido=abc"))).status, 400);
 });
+
+test("pedido vazio conta como ausente", async () => {
+  assert.equal((await GET(ler("pedido="))).status, 200);
+  assert.equal((await POST(postar({ pedido: "" }))).status, 200);
+});
+
+test("dados da loja fora do ar: a lista sai sem link, não em 500", async () => {
+  tabelas = { ...tabelas, "GET /rest/v1/tracking_settings": () => ({ status: 500, corpo: { message: "fora do ar" } }) };
+  const logs: string[] = [];
+  const original = console.error;
+  console.error = (...args: unknown[]) => void logs.push(args.map(String).join(" "));
+  try {
+    const r = await POST(postar({}));
+    assert.equal(r.status, 200);
+    const corpo = await r.json();
+    assert.equal(corpo.linhas[0].link, null);
+  } finally {
+    console.error = original;
+  }
+  assert.ok(logs.some((l) => l.includes("fora do ar")), logs.join("\n"));
+});
+
+test("61ª listagem no minuto da mesma loja: 429 sem tocar no banco", async () => {
+  const rajada = () =>
+    POST(new Request("http://girumo.test/api/rastreio/entregas", {
+      method: "POST",
+      headers: { ...HEADERS, "x-tenant-id": "loja-rajada", "content-type": "application/json" },
+      body: JSON.stringify({ pedido: "1050" }),
+    }));
+  for (let i = 1; i <= 60; i += 1) assert.equal((await rajada()).status, 400, `listagem ${i}`);
+  chamadas.length = 0;
+  const r = await rajada();
+  assert.equal(r.status, 429);
+  assert.equal(aoRastreio().length, 0);
+});

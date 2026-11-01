@@ -30,6 +30,12 @@ let config: Record<string, unknown> | null = CONFIG;
 
 const { doBanco, escritas } = servirRastreio({ chamadas, papel: () => papel, tabelas: () => tabelas });
 
+/**
+ * O balde de rate limit (10 por minuto por loja) é em memória e dura o arquivo: os testes da "loja-b" juntos
+ * não passam de 10 reenvios que chegam ao limitador (o 400 de id e os 403 do guard não contam). Teste novo
+ * que reenvia pela "loja-b" além disso usa outra loja no `x-tenant-id`.
+ */
+
 beforeEach(() => {
   chamadas.length = 0;
   papel = "owner";
@@ -156,4 +162,29 @@ test("módulo desligado: 403", async () => {
   assert.equal(r.status, 403);
   assert.deepEqual(await r.json(), RASTREIO_DISABLED);
   assert.equal(escritas().length, 0);
+});
+
+test("aviso do único canal já pendente: 200 com reabertos 0 e nada inserido", async () => {
+  config = { ...CONFIG, matrix: { enviado: { whatsapp: true, email: false } } };
+  tabelas = {
+    ...tabelas,
+    "GET /rest/v1/tracking_notices": [{ id: "n-1", channel: "whatsapp", resends: 0 }],
+    "PATCH /rest/v1/tracking_notices": [],
+  };
+  const r = await reenviar();
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { reabertos: 0, canais: ["whatsapp"] });
+  assert.equal(escritas().filter((c) => c.metodo === "POST").length, 0);
+});
+
+test("11º reenvio no minuto da mesma loja: 429 sem tocar no banco", async () => {
+  const daRajada = { "x-tenant-id": "loja-rajada" };
+  for (let i = 1; i <= 10; i += 1) assert.equal((await reenviar(ID, daRajada)).status, 404, `reenvio ${i}`);
+  chamadas.length = 0;
+  const r = await reenviar(ID, daRajada);
+  assert.equal(r.status, 429);
+  assert.deepEqual(await r.json(), { error: "Muitas tentativas. Espere um minuto." });
+  assert.equal(doBanco().filter((c) => c.url.pathname.startsWith("/rest/v1/tracking_")).length, 0);
+  // O balde é da loja: outra loja segue passando pelo limitador (404: o pedido não é dela).
+  assert.equal((await reenviar(ID, { "x-tenant-id": "loja-c" })).status, 404);
 });

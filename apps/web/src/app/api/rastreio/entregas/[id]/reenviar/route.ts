@@ -1,4 +1,4 @@
-import { falhou, resposta } from "@/lib/bio/painel-api";
+import { falhou, limiteDaLoja, resposta } from "@/lib/bio/painel-api";
 import { lojaDoRastreioNoPainel } from "@/lib/rastreio/rota-painel";
 import { ETAPAS_COM_AVISO, type Canal, type EtapaComAviso } from "@/lib/rastreio/tipos";
 import { lerConfig } from "@/lib/stores/rastreio-config";
@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CANAIS: Canal[] = ["whatsapp", "email"];
+const POR_MINUTO = 10;
 
 const recusa = (error: string, code: string) => resposta({ error, code }, 409);
 
@@ -19,6 +20,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (loja instanceof Response) return loja;
   const { id } = await ctx.params;
   if (!UUID.test(id)) return resposta({ error: "Pedido inválido." }, 400);
+  // Depois do formato (o 400 não gasta o balde), antes de qualquer leitura.
+  const limitado = await limiteDaLoja("rastreio-reenviar", loja.tenantId, POR_MINUTO);
+  if (limitado) return limitado;
   try {
     const pedido = await lerPedido(loja.tenantId, id);
     if (!pedido) return resposta({ error: "Pedido não encontrado." }, 404);

@@ -23,7 +23,9 @@ export type EstadoDoRastreio = {
 function responder(estado: EstadoDoRastreio, c: Chamada): { status: number; corpo?: unknown; contentRange?: string } {
   if (c.url.pathname === "/auth/v1/user") return { status: 200, corpo: { id: "usuario-1", email: "dono@loja.test" } };
   if (c.url.pathname === "/rest/v1/memberships") {
-    return { status: 200, corpo: [{ tenant_id: "loja-b", role: estado.papel(), modules: [] }] };
+    // Ecoa a loja do `x-tenant-id` (padrão "loja-b"): o teste de 429 usa uma loja só dele, com balde próprio.
+    const loja = c.url.searchParams.get("tenant_id")?.replace(/^eq\./, "") ?? "loja-b";
+    return { status: 200, corpo: [{ tenant_id: loja, role: estado.papel(), modules: [] }] };
   }
   const chave = `${c.metodo} ${c.url.pathname}`;
   const tabelas = estado.tabelas();
