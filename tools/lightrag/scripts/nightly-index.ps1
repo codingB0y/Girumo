@@ -9,7 +9,7 @@
 # no checkout principal (LIGHTRAG_DATA_DIR) — nada de venv novo no C: quase cheio.
 # O incremental compara hash de conteudo, entao so o que mudou gasta cota do Gemini.
 #
-# Uso unico (cria o worktree e agenda as 03h17):
+# Uso unico (cria o worktree e agenda as 05h47):
 #   powershell -ExecutionPolicy Bypass -File tools\lightrag\scripts\nightly-index.ps1 -Instalar
 # Run manual:
 #   powershell -ExecutionPolicy Bypass -File C:\Users\Igor\Desktop\HubFlow-rag\tools\lightrag\scripts\nightly-index.ps1
@@ -39,12 +39,15 @@ if ($Instalar) {
     $script = Join-Path $Worktree 'tools\lightrag\scripts\nightly-index.ps1'
     $acao = New-ScheduledTaskAction -Execute 'powershell.exe' `
         -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$script`""
-    $quando = New-ScheduledTaskTrigger -Daily -At 3:17am
-    # StartWhenAvailable: PC desligado as 03h17 roda quando ligar.
+    # 05h47, nao madrugada: a cota diaria do Gemini zera a meia-noite do Pacifico (04h00 de
+    # Brasilia no horario de verao dos EUA, 05h00 fora dele). As 03h17 o run pegava a sobra
+    # do dia anterior: em 01/11/2026 o 1o lote deu 429 com "retry in 36m".
+    $quando = New-ScheduledTaskTrigger -Daily -At 5:47am
+    # StartWhenAvailable: PC desligado as 05h47 roda quando ligar.
     $opcoes = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 3)
     Register-ScheduledTask -TaskName 'Girumo RAG noturno' -Action $acao -Trigger $quando `
         -Settings $opcoes -Force | Out-Null
-    Write-Output "Agendado: 'Girumo RAG noturno' todo dia as 03h17. Logs em $logDir"
+    Write-Output "Agendado: 'Girumo RAG noturno' todo dia as 05h47. Logs em $logDir"
     return
 }
 
