@@ -152,7 +152,7 @@ test("busca: documento, número ou primeiro nome", async () => {
 
 test("documento digitado errado e nome de 1 letra não vão ao banco", async () => {
   responder = () => ({ status: 200, contentRange: "*/0", corpo: [] });
-  for (const busca of ["11144477736", "111.444.777-36", "11.222.333/0001-80", "A"]) {
+  for (const busca of ["11144477736", "111.444.777-36", "11.222.333/0001-80", "111,444,777-36", "111_444_777_36", "111.444.777-36 Ana", "A"]) {
     pedidos.length = 0;
     const r = await store.listarEntregas("loja-a", consulta("todos", { busca }));
     assert.deepEqual(r, { pedidos: [], avisos: [], total: 0 }, busca);

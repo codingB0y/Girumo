@@ -95,10 +95,16 @@ function escaparLike(t: string): string {
 
 type Busca = { campo: "doc_hmac" | "numero" | "buyer_first_name"; valor: string; like: boolean };
 
-/** Tem cara de CPF (11 dígitos) ou de CNPJ (12 alfanuméricos + 2 dígitos), com ou sem `.`, `-`, `/` e espaços. */
+/**
+ * Tem cara de CPF (11 dígitos) ou de CNPJ (12 alfanuméricos + 2 dígitos) com qualquer pontuação (a mesma limpeza de
+ * `normalizarDocumento`), na busca inteira ou no primeiro pedaço ("111.444.777-36 Ana").
+ */
 function temCaraDeDocumento(t: string): boolean {
-  const limpo = t.replace(/[.\-/\s]/g, "").toUpperCase();
-  return /^\d{11}$/.test(limpo) || /^[0-9A-Z]{12}\d{2}$/.test(limpo);
+  const cara = (s: string) => {
+    const limpo = s.replace(/[^0-9A-Za-z]/g, "").toUpperCase();
+    return /^\d{11}$/.test(limpo) || /^[0-9A-Z]{12}\d{2}$/.test(limpo);
+  };
+  return cara(t) || cara(t.split(/\s+/)[0]);
 }
 
 /**
