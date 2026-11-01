@@ -76,7 +76,13 @@ function escopo<Q extends Filtravel<Q>>(q: Q, filtro: FiltroDeEntregas, agora: D
   }
 }
 
-const SELECT_COM_AVISO = "id, tracking_notices!inner(id)";
+const JUNCAO_AVISOS = "tracking_notices!inner(id)";
+const DIAS_RECENTES = 7;
+
+/** Pedidos com aviso de WhatsApp que falhou: o mesmo filtro da lista e do chip. */
+function comWhatsappFalho<Q extends Filtravel<Q>>(q: Q, tenantId: string): Q {
+  return q.eq("tracking_notices.channel", "whatsapp").eq("tracking_notices.status", "falhou").eq("tracking_notices.tenant_id", tenantId);
+}
 
 /** Início do dia de Brasília em UTC. */
 // ponytail: UTC−3 fixo desde 2019 (sem horário de verão); se voltar, usar Intl.
@@ -121,22 +127,23 @@ export async function listarEntregas(
   const comAviso = !c.pedidoId && c.filtro === "whatsapp_falhou";
   let q = db
     .from(ORDERS)
-    .select(comAviso ? `${COLUNAS}, tracking_notices!inner(id)` : COLUNAS, { count: "exact" })
+    .select(comAviso ? `${COLUNAS}, ${JUNCAO_AVISOS}` : COLUNAS, { count: "exact" })
     .eq("tenant_id", tenantId);
   if (c.pedidoId) {
     q = q.eq("id", c.pedidoId);
   } else {
     q = escopo(q, c.filtro, c.agora);
     if (comAviso) {
-      q = q.eq("tracking_notices.channel", "whatsapp").eq("tracking_notices.status", "falhou").eq("tracking_notices.tenant_id", tenantId);
+      q = comWhatsappFalho(q, tenantId);
     }
     if (busca) q = busca.like ? q.ilike(busca.campo, busca.valor) : q.eq(busca.campo, busca.valor);
   }
   const de = (Math.max(1, c.pagina) - 1) * POR_PAGINA;
-  const { data, error, count } = await q.order("etapa_at", { ascending: false }).range(de, de + POR_PAGINA - 1);
-  if (error) throw new Error(error.message);
+  const resposta = await q.order("etapa_at", { ascending: false }).range(de, de + POR_PAGINA - 1);
+  const total = contagemDoHead(resposta); // sem Content-Range é erro, nunca zero
+  const { data } = resposta;
   const pedidos = ((data ?? []) as unknown as LinhaDoPedido[]).map(pedidoDaLinha);
-  return { pedidos, avisos: await avisosDosPedidos(tenantId, pedidos.map((p) => p.id)), total: count ?? 0 };
+  return { pedidos, avisos: await avisosDosPedidos(tenantId, pedidos.map((p) => p.id)), total };
 }
 
 /** Uma consulta para a página inteira: no máximo 10 avisos por pedido (5 etapas × 2 canais), cabem nas 1000 linhas. */
@@ -169,17 +176,14 @@ function headDeAvisos(tenantId: string, canal: Canal, agora: Date) {
 
 export async function numerosDasEntregas(tenantId: string, agora: Date): Promise<NumerosDasEntregas> {
   const chip = (f: FiltroDeEntregas) => escopo(headDePedidos(tenantId), f, agora);
-  const whatsappFalhou = escopo(headDePedidos(tenantId, SELECT_COM_AVISO), "whatsapp_falhou", agora)
-    .eq("tracking_notices.channel", "whatsapp")
-    .eq("tracking_notices.status", "falhou")
-    .eq("tracking_notices.tenant_id", tenantId);
+  const whatsappFalhou = comWhatsappFalho(escopo(headDePedidos(tenantId, `id, ${JUNCAO_AVISOS}`), "whatsapp_falhou", agora), tenantId);
   const r = await Promise.all([
     chip("todos"),
     chip("a_caminho"),
     chip("sem_codigo"),
     chip("problema"),
     whatsappFalhou,
-    headDePedidos(tenantId).eq("etapa", "entregue").gte("etapa_at", antes(agora, 7)),
+    headDePedidos(tenantId).eq("etapa", "entregue").gte("etapa_at", antes(agora, DIAS_RECENTES)),
     headDeAvisos(tenantId, "whatsapp", agora),
     headDeAvisos(tenantId, "email", agora),
   ]);
@@ -195,11 +199,12 @@ export async function saudeDoCodigo(tenantId: string, agora: Date): Promise<Saud
   const base = () =>
     headDePedidos(tenantId)
       .or(`etapa.in.(${ETAPAS}),and(etapa.eq.separando,status_raw.eq.on_carriage)`)
-      .gte("etapa_at", antes(agora, 7));
+      .gte("etapa_at", antes(agora, DIAS_RECENTES));
   const [enviados, comCodigo, antigo] = await Promise.all([
     base(),
     base().not("tracking_code", "is", null),
-    escopo(getSupabaseAdmin().from(ORDERS).select("id, numero, etapa_at" as string).eq("tenant_id", tenantId), "sem_codigo", agora)
+    escopo(getSupabaseAdmin().from(ORDERS).select("id, numero, etapa_at" as string) // `as string`: o literal estoura o parser de tipos (TS2589)
+      .eq("tenant_id", tenantId), "sem_codigo", agora)
       .order("etapa_at", { ascending: true })
       .limit(1),
   ]);

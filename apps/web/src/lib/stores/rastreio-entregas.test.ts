@@ -252,3 +252,8 @@ test("saúde do código", async () => {
   responder = (url) => (url.searchParams.get("order") ? { status: 200, corpo: [] } : { status: 200, contentRange: "*/0" });
   assert.equal((await store.saudeDoCodigo("loja-a", AGORA)).maisAntigoSemCodigo, null);
 });
+
+test("lista sem Content-Range é erro, nunca total zero", async () => {
+  responder = () => ({ status: 200, corpo: [] });
+  await assert.rejects(store.listarEntregas("loja-a", consulta("todos")), /sem contagem/);
+});
