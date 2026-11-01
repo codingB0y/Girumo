@@ -16,6 +16,7 @@ import {
   ShoppingBag,
   type LucideIcon,
 } from "lucide-react";
+import { hasPermission, type Action } from "@/lib/permissions";
 import { PAPEIS_LIVRES, acessoRestrito, modulosDoAcesso, paginaLiberada, type Acesso, type Modulo } from "@/lib/auth/modulos";
 
 /**
@@ -48,7 +49,7 @@ import { PAPEIS_LIVRES, acessoRestrito, modulosDoAcesso, paginaLiberada, type Ac
 export type NavGrupo = "vender" | "lotar" | "loja";
 
 /** Add-ons: o item só aparece pra loja com a liberação ligada. */
-export type Liberacao = "instagram";
+export type Liberacao = "instagram" | "rastreio";
 export type Liberacoes = Record<Liberacao, boolean>;
 
 export const NAV_GRUPOS_ORDEM: NavGrupo[] = ["vender", "lotar", "loja"];
@@ -67,6 +68,8 @@ export type NavItem = {
    * só aparece item com módulo liberado; sem módulo, ela não vê.
    */
   modulo?: Modulo;
+  /** Permissão que o papel precisa ter para ver o item (ex.: `settings:connection`); sem acesso conhecido, nunca aparece. */
+  permissao?: Action;
 };
 
 export type NavGroup = {
@@ -146,11 +149,12 @@ export function liberado(item: NavItem, liberacoes: Liberacoes | null): boolean 
  *   Postar e Disparos na próxima carga. A casca nem desenha os módulos enquanto `carregado` é falso.
  */
 export function visivelNoMenu(item: NavItem, acesso: Acesso | null, liberacoes: Liberacoes | null): boolean {
-  if (acesso === null) return item.modulo === undefined && liberado(item, liberacoes);
+  if (acesso === null) return item.modulo === undefined && item.permissao === undefined && liberado(item, liberacoes);
   if (acesso.role === "seller") {
     return item.modulo !== undefined && modulosDoAcesso(acesso).includes(item.modulo) && liberado(item, liberacoes);
   }
   if (!PAPEIS_LIVRES.includes(acesso.role)) return false;
+  if (item.permissao && !hasPermission(acesso.role, item.permissao)) return false;
   return item.modulo !== "vendas" && liberado(item, liberacoes);
 }
 

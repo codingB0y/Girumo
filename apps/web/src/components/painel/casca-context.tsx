@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { acessoRestrito } from "@/lib/auth/modulos";
+import { hasPermission } from "@/lib/permissions";
 import type { Liberacoes } from "@/lib/painel-nav";
 import { useRole } from "./role-provider";
 
@@ -53,12 +54,32 @@ const DESLIGADO: StatusInstagram = { enabled: false, account: null, live: 0, sta
 export function CascaProvider({ children }: { children: React.ReactNode }) {
   const [foco, definirFoco] = useState(false);
   const [instagram, setInstagram] = useState<StatusInstagram | null>(null);
+  const [rastreio, setRastreio] = useState(false);
   const [versao, setVersao] = useState(0);
   const recarregarInstagram = useCallback(() => setVersao((v) => v + 1), []);
   const { carregado, acesso } = useRole();
   // Espera saber quem é: a vendedora (e papel desconhecido) não tem Instagram, e a pergunta daria 403
   // (spec 2026-10-07 §1). Para eles `instagram` fica null — o item do menu já não aparece por não ter módulo.
   const pergunta = carregado && !acessoRestrito(acesso);
+
+  // Só dono e admin perguntam: operador e vendedora tomariam 403 (rota é settings:connection).
+  const perguntaRastreio = carregado && acesso !== null && hasPermission(acesso.role, "settings:connection");
+
+  useEffect(() => {
+    if (!perguntaRastreio) return;
+    let cancelado = false;
+    fetch("/api/rastreio/status", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((raw: { enabled?: unknown } | null) => {
+        if (!cancelado) setRastreio(raw?.enabled === true);
+      })
+      .catch(() => {
+        if (!cancelado) setRastreio(false);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [perguntaRastreio]);
 
   useEffect(() => {
     if (!pergunta) return;
@@ -82,10 +103,10 @@ export function CascaProvider({ children }: { children: React.ReactNode }) {
       foco,
       definirFoco,
       instagram,
-      liberacoes: instagram ? { instagram: instagram.enabled } : null,
+      liberacoes: instagram ? { instagram: instagram.enabled, rastreio } : null,
       recarregarInstagram,
     }),
-    [foco, instagram, recarregarInstagram],
+    [foco, instagram, rastreio, recarregarInstagram],
   );
   return <CascaContext.Provider value={valor}>{children}</CascaContext.Provider>;
 }
