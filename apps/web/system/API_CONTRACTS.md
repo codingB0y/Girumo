@@ -413,17 +413,23 @@ responde como o GET.
 
 ### Entregas
 
-`POST /api/rastreio/entregas` (PR 6; leitura, mas por `POST` — CPF na query string iria para o log da Vercel) — corpo:
-`filtro` (`todos` · `a_caminho` · `sem_codigo` · `problema` · `entregues`), `q` (nº do pedido, nome ou CPF/CNPJ via
-`doc_hmac`), `pagina`. Pedidos dos últimos 30 dias.
+Todas exigem `settings:connection` (dono e admin; a vendedora leva o 403 do mapa) e `rastreio_enabled`; desligado →
+`403 { error, code: "rastreio_disabled" }`. Resposta sempre com `Cache-Control: no-store`.
 
-`200` → `{ numeros, pedidos, proximaPagina }`:
-- `numeros` — `{ aCaminho, semCodigo, problema, entregues7d, mediaDiasAteEntregar, avisosHoje: { whatsapp, email } }`
-- `pedidos` — `{ id, numero, compradora, etapa, etapaAt, trackingCode, avisos: { etapa, canal, status }[] }[]`
+`GET|POST /api/rastreio/entregas` (PR 6) — corpo do `POST`: `{ filtro?, busca?, pagina?, pedido? }`. `filtro` (`todos` ·
+`a_caminho` · `sem_codigo` · `problema` · `whatsapp_falhou` · `entregues`), `busca` (nº do pedido, nome ou CPF/CNPJ via
+`doc_hmac`), `pagina` (1-400), `pedido` (uuid, abre um pedido). O `GET` lê `filtro`, `pagina` e `pedido` da query e
+**ignora `busca`**: o documento nunca vai em URL nem em log. `400 { error }` se `pedido` não for uuid.
 
-`POST /api/rastreio/entregas/[id]/reenviar` (PR 6; `reabrirAvisos` da etapa atual) → `200 { reabertos }`.
-- `404` — pedido que não é da loja
-- `409 { error: "etapa_sem_aviso" | "avisos_parados" }`
+`200` → `RespostaDeEntregas`: `{ numeros, filtro, pagina, porPagina, total, linhas, atualizadoEm }`
+- `numeros` — `{ todos, aCaminho, semCodigo, problema, whatsappFalhou, entreguesEm7Dias, avisosHoje: { whatsapp, email } }`
+- `linhas` — uma por pedido; só o primeiro nome da compradora; `telefone` só na linha `problema` (para "Chamar
+  compradora"), nunca e-mail, documento ou endereço.
+
+`POST /api/rastreio/entregas/[id]/reenviar` (PR 6; `reabrirAvisos` da etapa atual) → `200 { reabertos, canais }`.
+Avisos em `pendente`/`enviando` não são reabertos; quem envia é o cron (até 5 min), a rota não envia.
+- `400` — `id` que não é uuid · `404` — pedido que não é da loja
+- `409 { error, code }` com `code`: `avisos_parados` (compradora pediu para parar) · `etapa_sem_aviso` · `sem_canal`
 
 `GET /api/rastreio/saude` (PR 6) → `{ enviados, comCodigo, maisAntigoSemCodigo: { id, numero, desde } | null }`,
 sobre os pedidos postados nos últimos 7 dias.
