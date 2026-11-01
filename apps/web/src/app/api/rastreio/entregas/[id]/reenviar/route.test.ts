@@ -38,13 +38,13 @@ beforeEach(() => {
   tabelas = {
     "GET /rest/v1/tenant_settings": [{ rastreio_enabled: true }],
     // Só devolve o pedido a quem filtra pelo tenant dele: o de outra loja volta vazio.
-    "GET /rest/v1/tracking_orders": (c) => ({
+    "GET /rest/v1/tracking_orders": (c: Chamada) => ({
       status: 200,
       corpo: c.url.searchParams.get("tenant_id") === `eq.${pedido.tenant_id}` ? [pedido] : [],
     }),
     "GET /rest/v1/tracking_settings": () => ({ status: 200, corpo: config ? [config] : [] }),
     "GET /rest/v1/tracking_notices": [],
-    "POST /rest/v1/tracking_notices": (c) => ({
+    "POST /rest/v1/tracking_notices": (c: Chamada) => ({
       status: 201,
       corpo: (c.corpo as { channel: string }[]).map((l, i) => ({ id: `n-${i}`, channel: l.channel })),
     }),
