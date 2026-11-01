@@ -88,22 +88,34 @@ function comWhatsappFalho<Q extends Filtravel<Q>>(q: Q, tenantId: string): Q {
 // ponytail: UTC−3 fixo desde 2019 (sem horário de verão); se voltar, usar Intl.
 const inicioDoDia = (agora: Date) => `${dayBR(agora)}T03:00:00.000Z`;
 
+/** `*` também: o PostgREST o lê como curinga no `like`. */
 function escaparLike(t: string): string {
-  return t.replace(/[\\%_]/g, (c) => `\\${c}`);
+  return t.replace(/[\\%_*]/g, (c) => `\\${c}`);
 }
 
 type Busca = { campo: "doc_hmac" | "numero" | "buyer_first_name"; valor: string; like: boolean };
 
-/** documento → HMAC (exige o pepper antes de qualquer consulta); só dígitos → número; senão primeiro nome. */
-function classificarBusca(busca: string | null): Busca | null {
+/** Tem cara de CPF (11 dígitos) ou de CNPJ (12 alfanuméricos + 2 dígitos), com ou sem `.`, `-`, `/` e espaços. */
+function temCaraDeDocumento(t: string): boolean {
+  const limpo = t.replace(/[.\-/\s]/g, "").toUpperCase();
+  return /^\d{11}$/.test(limpo) || /^[0-9A-Z]{12}\d{2}$/.test(limpo);
+}
+
+/**
+ * documento → HMAC (exige o pepper antes de qualquer consulta); só dígitos → número; senão primeiro nome.
+ * `"nenhum"`: a busca não casa com nada e não vai ao banco — documento digitado errado (nunca cai na busca por
+ * número ou nome, para o documento não andar na URL do PostgREST) ou nome de 1 letra (não lista a loja inteira).
+ */
+function classificarBusca(busca: string | null): Busca | "nenhum" | null {
   const t = busca?.trim() ?? "";
   if (!t) return null;
   const doc = normalizarDocumento(t);
   if (doc) return { campo: "doc_hmac", valor: docHmac(doc.digitos, pepperDoRastreio()), like: false };
+  if (temCaraDeDocumento(t)) return "nenhum";
   const digitos = t.replace(/^#/, "");
   if (/^\d+$/.test(digitos)) return { campo: "numero", valor: `${escaparLike(digitos)}%`, like: true };
   const nome = t.split(/\s+/)[0];
-  return nome.length >= 2 ? { campo: "buyer_first_name", valor: `${escaparLike(nome)}%`, like: true } : null;
+  return nome.length >= 2 ? { campo: "buyer_first_name", valor: `${escaparLike(nome)}%`, like: true } : "nenhum";
 }
 
 type LinhaDoPedido = {
@@ -123,26 +135,26 @@ export async function listarEntregas(
   c: ConsultaDeEntregas,
 ): Promise<{ pedidos: PedidoDaLista[]; avisos: AvisoDoPedido[]; total: number }> {
   const busca = c.pedidoId ? null : classificarBusca(c.busca); // pepper ausente falha aqui, antes do banco
-  const db = getSupabaseAdmin();
+  if (busca === "nenhum") return { pedidos: [], avisos: [], total: 0 };
   const comAviso = !c.pedidoId && c.filtro === "whatsapp_falhou";
-  let q = db
-    .from(ORDERS)
-    .select(comAviso ? `${COLUNAS}, ${JUNCAO_AVISOS}` : COLUNAS, { count: "exact" })
-    .eq("tenant_id", tenantId);
-  if (c.pedidoId) {
-    q = q.eq("id", c.pedidoId);
-  } else {
+  const select = comAviso ? `${COLUNAS}, ${JUNCAO_AVISOS}` : COLUNAS;
+  /** A lista e o HEAD de depois do fim passam pelos mesmos filtros. */
+  const filtrada = (head: boolean) => {
+    let q = getSupabaseAdmin().from(ORDERS).select(select, { count: "exact", head }).eq("tenant_id", tenantId);
+    if (c.pedidoId) return q.eq("id", c.pedidoId);
     q = escopo(q, c.filtro, c.agora);
-    if (comAviso) {
-      q = comWhatsappFalho(q, tenantId);
-    }
+    if (comAviso) q = comWhatsappFalho(q, tenantId);
     if (busca) q = busca.like ? q.ilike(busca.campo, busca.valor) : q.eq(busca.campo, busca.valor);
+    return q;
+  };
+  const de = c.pedidoId ? 0 : (Math.max(1, c.pagina) - 1) * POR_PAGINA; // o sininho ignora a página
+  const resposta = await filtrada(false).order("etapa_at", { ascending: false }).range(de, de + POR_PAGINA - 1);
+  // Página depois do fim: o PostgREST responde 416 (PGRST103) sem contagem; o total vem de um HEAD do mesmo escopo.
+  if (resposta.status === 416 || resposta.error?.code === "PGRST103") {
+    return { pedidos: [], avisos: [], total: contagemDoHead(await filtrada(true)) };
   }
-  const de = (Math.max(1, c.pagina) - 1) * POR_PAGINA;
-  const resposta = await q.order("etapa_at", { ascending: false }).range(de, de + POR_PAGINA - 1);
   const total = contagemDoHead(resposta); // sem Content-Range é erro, nunca zero
-  const { data } = resposta;
-  const pedidos = ((data ?? []) as unknown as LinhaDoPedido[]).map(pedidoDaLinha);
+  const pedidos = ((resposta.data ?? []) as unknown as LinhaDoPedido[]).map(pedidoDaLinha);
   return { pedidos, avisos: await avisosDosPedidos(tenantId, pedidos.map((p) => p.id)), total };
 }
 

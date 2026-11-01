@@ -15,12 +15,12 @@ type Resposta = { status: number; contentRange?: string; corpo?: unknown };
 const PEPPER = "p".repeat(32);
 const AGORA = new Date("2026-10-29T15:00:00.000Z");
 const pedidos: Pedido[] = [];
-let responder: (url: URL) => Resposta = () => ({ status: 500 });
+let responder: (url: URL, metodo: string) => Resposta = () => ({ status: 500 });
 
 const postgrest = createServer((req, res) => {
   const url = new URL(req.url ?? "/", "http://postgrest.falso");
   pedidos.push({ metodo: req.method ?? "", url, prefer: String(req.headers.prefer ?? "") });
-  const { status, contentRange, corpo } = responder(url);
+  const { status, contentRange, corpo } = responder(url, req.method ?? "");
   if (contentRange) res.setHeader("Content-Range", contentRange);
   if (corpo !== undefined) res.setHeader("Content-Type", "application/json");
   res.statusCode = status;
@@ -145,6 +145,19 @@ test("busca: documento, número ou primeiro nome", async () => {
   assert.deepEqual(valores(await buscar("#1541"), "numero"), ["ilike.1541%"]);
   assert.deepEqual(valores(await buscar("Ana Paula"), "buyer_first_name"), ["ilike.Ana%"]);
   assert.deepEqual(valores(await buscar("50%_x"), "buyer_first_name"), ["ilike.50\\%\\_x%"]);
+  assert.deepEqual(valores(await buscar("An*a"), "buyer_first_name"), ["ilike.An\\*a%"]);
+  assert.deepEqual(valores(await buscar("1234"), "numero"), ["ilike.1234%"]);
+  assert.deepEqual(valores(await buscar("1234567890"), "numero"), ["ilike.1234567890%"]);
+});
+
+test("documento digitado errado e nome de 1 letra não vão ao banco", async () => {
+  responder = () => ({ status: 200, contentRange: "*/0", corpo: [] });
+  for (const busca of ["11144477736", "111.444.777-36", "11.222.333/0001-80", "A"]) {
+    pedidos.length = 0;
+    const r = await store.listarEntregas("loja-a", consulta("todos", { busca }));
+    assert.deepEqual(r, { pedidos: [], avisos: [], total: 0 }, busca);
+    assert.equal(pedidos.length, 0, busca);
+  }
 });
 
 test("documento sem pepper falha sem consultar o banco", async () => {
@@ -166,6 +179,9 @@ test("pedido do sininho: só loja e id, sem janela", async () => {
   await store.listarEntregas("loja-a", consulta("entregues", { pedidoId: id, busca: "Ana" }));
   const f = filtros(pedidos[0].url);
   assert.deepEqual(f, [["tenant_id", "eq.loja-a"], ["id", `eq.${id}`]]);
+  pedidos.length = 0;
+  await store.listarEntregas("loja-a", consulta("todos", { pedidoId: id, pagina: 3 }));
+  assert.equal(pedidos[0].url.searchParams.get("offset"), "0"); // página ignorada
 });
 
 test("avisos da página numa consulta só", async () => {
@@ -256,4 +272,21 @@ test("saúde do código", async () => {
 test("lista sem Content-Range é erro, nunca total zero", async () => {
   responder = () => ({ status: 200, corpo: [] });
   await assert.rejects(store.listarEntregas("loja-a", consulta("todos")), /sem contagem/);
+});
+
+test("página depois do fim: lista vazia e o total de um HEAD do mesmo escopo", async () => {
+  pedidos.length = 0;
+  responder = (_url, metodo) =>
+    metodo === "HEAD"
+      ? { status: 200, contentRange: "*/30" }
+      : { status: 416, corpo: { code: "PGRST103", message: "Requested range not satisfiable" } };
+  const r = await store.listarEntregas("loja-a", consulta("a_caminho", { pagina: 5 }));
+  assert.deepEqual(r, { pedidos: [], avisos: [], total: 30 });
+  assert.equal(pedidos.length, 2);
+  const [lista, head] = pedidos;
+  assert.equal(head.metodo, "HEAD");
+  assert.deepEqual(filtros(head.url), filtros(lista.url));
+
+  responder = (_url, metodo) => (metodo === "HEAD" ? { status: 200 } : { status: 416, corpo: { code: "PGRST103", message: "x" } });
+  await assert.rejects(store.listarEntregas("loja-a", consulta("a_caminho", { pagina: 5 })), /sem contagem/);
 });
