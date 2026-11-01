@@ -209,9 +209,6 @@ input:focus{outline:2px solid var(--cor);outline-offset:1px}
 .dica{border:1px dashed #B9C2CA;border-radius:16px;padding:14px 16px}
 .dica p{margin:0}
 .voltar{display:inline-flex;align-items:center;min-height:44px;color:#14181C}
-.lista-pedidos{list-style:none;margin:16px 0;padding:0;display:flex;flex-direction:column;gap:10px}
-.lista-pedidos a{display:flex;flex-direction:column;min-height:44px;background:#FFFFFF;border:1px solid #E3E7EB;border-radius:16px;padding:16px;color:#14181C;text-decoration:none}
-.lista-pedidos a span+span{color:#4F5A64;font-size:14px}
 .pedido-cab{margin:8px 0 16px}
 .etiqueta{display:inline-block;background:var(--cor);color:var(--sobre-cor);border-radius:999px;padding:4px 12px;font-weight:700;font-size:14px}
 .alerta{background:#FDECE3;color:#6E2706;border-radius:10px;padding:12px 14px;margin-top:12px}
@@ -231,6 +228,12 @@ input:focus{outline:2px solid var(--cor);outline-offset:1px}
 .externo{display:inline-flex;align-items:center;min-height:44px;color:#14181C}
 `;
 
+// Só na tela da lista: a classe não aparece no HTML das outras.
+const CSS_LISTA = `.lista-pedidos{list-style:none;margin:16px 0;padding:0;display:flex;flex-direction:column;gap:10px}
+.lista-pedidos a{display:flex;flex-direction:column;min-height:44px;background:#FFFFFF;border:1px solid #E3E7EB;border-radius:16px;padding:16px;color:#14181C;text-decoration:none}
+.lista-pedidos a span+span{color:#4F5A64;font-size:14px}
+`;
+
 function corDaLoja(cor: string | null): string {
   return cor && /^#[0-9a-fA-F]{6}$/.test(cor) ? cor : COR_PADRAO;
 }
@@ -247,7 +250,7 @@ export function renderPagina(ctx: ContextoDaPagina, tela: Tela): string {
 <meta name="robots" content="noindex">
 <title>Acompanhe seu pedido · ${nome}</title>
 <link rel="icon" href="data:,">
-<style${nonceAttribute(ctx.nonce)}>${CSS}:root{--cor:${cor};--sobre-cor:${garante("#FFFFFF", cor, 4.5)}}</style>
+<style${nonceAttribute(ctx.nonce)}>${CSS}${tela.tipo === "lista" ? CSS_LISTA : ""}:root{--cor:${cor};--sobre-cor:${garante("#FFFFFF", cor, 4.5)}}</style>
 </head><body>
 <header class="topo"><span class="selo-loja" aria-hidden="true">${escapeHtml(iniciais(ctx.loja.nome))}</span><span class="nome-loja">${nome}</span></header>
 ${corpo}
