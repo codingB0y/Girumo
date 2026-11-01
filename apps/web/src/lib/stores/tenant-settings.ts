@@ -164,3 +164,14 @@ export async function setInstagramEnabled(tenantId: string, enabled: boolean): P
     .upsert({ tenant_id: tenantId, instagram_enabled: enabled, updated_at: new Date().toISOString() }, { onConflict: "tenant_id" });
   if (error) throw new Error(error.message);
 }
+
+/**
+ * Liberação do Rastreio de pedidos. Só o servidor chama: o trigger da migração B·1a impede
+ * `authenticated` de mexer na coluna.
+ */
+export async function setRastreioEnabled(tenantId: string, enabled: boolean): Promise<void> {
+  const { error } = await getSupabaseAdmin()
+    .from("tenant_settings")
+    .upsert({ tenant_id: tenantId, rastreio_enabled: enabled, updated_at: new Date().toISOString() }, { onConflict: "tenant_id" });
+  if (error) throw new Error(error.message);
+}
