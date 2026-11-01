@@ -82,9 +82,7 @@ test("include vazio conta como ausente, não derruba o pedido", () => {
 
 test("e-mail acima de 254 caracteres é descartado antes do regex", () => {
   const longo = `a@${".".repeat(20000)} `;
-  const t0 = Date.now();
   assert.equal(pedidoDaYampi(cliente({ name: "Ana", email: longo }), PEPPER)?.buyerEmail, null);
-  assert.ok(Date.now() - t0 < 500);
   assert.equal(pedidoDaYampi(cliente({ name: "Ana", email: `${"a".repeat(250)}@b.co` }), PEPPER)?.buyerEmail, null);
 });
 

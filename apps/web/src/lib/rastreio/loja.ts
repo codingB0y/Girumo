@@ -17,7 +17,7 @@ export type LojaDoRastreio = {
   vipLinkId: string | null;
 };
 
-const DEPS = { lerConfig, dominio: getCustomDomain, perfil: getOrganizationProfile, bio: lerPublicadaDaLoja };
+export const DEPS = { lerConfig, dominio: getCustomDomain, perfil: getOrganizationProfile, bio: lerPublicadaDaLoja };
 export type DepsLoja = typeof DEPS;
 
 /**
