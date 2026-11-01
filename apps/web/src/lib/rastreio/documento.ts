@@ -6,6 +6,7 @@ import { cnpjValido } from "@/lib/bio/documento";
 export type DocumentoNormalizado = { tipo: "cpf" | "cnpj"; digitos: string };
 
 const PEPPER_MIN = 32;
+const PEPPER_ERRO = "RASTREIO_DOC_PEPPER ausente ou com menos de 32 caracteres";
 
 function cpfValido(cpf: string): boolean {
   if (!/^\d{11}$/.test(cpf) || /^(\d)\1{10}$/.test(cpf)) return false;
@@ -25,13 +26,14 @@ export function normalizarDocumento(entrada: string): DocumentoNormalizado | nul
 }
 
 export function docHmac(digitos: string, pepper: string): string {
+  if (pepper.length < PEPPER_MIN) throw new Error(PEPPER_ERRO);
   return createHmac("sha256", pepper).update(digitos).digest("hex");
 }
 
 /** Falha alto sem o pepper: sem ele nada é lido nem gravado. O valor nunca entra no erro. */
 export function pepperDoRastreio(): string {
   const pepper = (process.env.RASTREIO_DOC_PEPPER ?? "").trim();
-  if (pepper.length < PEPPER_MIN) throw new Error("RASTREIO_DOC_PEPPER ausente ou com menos de 32 caracteres");
+  if (pepper.length < PEPPER_MIN) throw new Error(PEPPER_ERRO);
   return pepper;
 }
 

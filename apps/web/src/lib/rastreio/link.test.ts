@@ -11,3 +11,10 @@ test("sem domínio próprio, o www da Girumo com o slug; com domínio ativo, o c
   assert.equal(linkDoPedido(propria, TOKEN), `https://loja.exemplo.com.br/rastreio/${TOKEN}`);
   assert.equal(linkDaBusca(propria), "https://loja.exemplo.com.br/rastreio");
 });
+test("domínio que não é só um hostname cai no link do www, sem vazar o token", () => {
+  for (const dominio of ["evil.com/x?", "a@b.com", "evil.com:8080", "a b.com", "evil.com#"]) {
+    const loja = { dominio, publicSlug: "loja-teste" };
+    assert.equal(linkDoPedido(loja, TOKEN), `https://www.girumo.com.br/rastreio/loja-teste/${TOKEN}`, dominio);
+    assert.equal(linkDaBusca(loja), "https://www.girumo.com.br/rastreio/loja-teste", dominio);
+  }
+});

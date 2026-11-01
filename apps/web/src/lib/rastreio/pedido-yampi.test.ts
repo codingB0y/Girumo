@@ -73,3 +73,26 @@ test("dataDaYampi", () => {
     assert.equal(dataDaYampi(v), ISO, JSON.stringify(v));
   for (const v of ["29/10/2026", null, 42]) assert.equal(dataDaYampi(v), null);
 });
+
+test("include vazio conta como ausente, não derruba o pedido", () => {
+  const p = pedidoDaYampi(pedidoYampi({ customer: { data: [] } }), PEPPER);
+  assert.ok(p);
+  assert.deepEqual([p.buyerFirstName, p.buyerPhone, p.buyerEmail, p.docHmac], [null, null, null, null]);
+});
+
+test("e-mail acima de 254 caracteres é descartado antes do regex", () => {
+  const longo = `a@${".".repeat(20000)} `;
+  const t0 = Date.now();
+  assert.equal(pedidoDaYampi(cliente({ name: "Ana", email: longo }), PEPPER)?.buyerEmail, null);
+  assert.ok(Date.now() - t0 < 500);
+  assert.equal(pedidoDaYampi(cliente({ name: "Ana", email: `${"a".repeat(250)}@b.co` }), PEPPER)?.buyerEmail, null);
+});
+
+test("código de rastreio e serviço de envio têm teto e perdem caracteres de controle", () => {
+  const p = (extra: Record<string, unknown>) => pedidoDaYampi(pedidoYampi(extra), PEPPER);
+  assert.equal(p({ track_code: "A".repeat(81) })?.trackingCode, null);
+  assert.equal(p({ track_code: "A".repeat(80) })?.trackingCode, "A".repeat(80));
+  assert.equal(p({ track_code: "QA12\n34BR" })?.trackingCode, "QA1234BR");
+  assert.equal(p({ shipment_service: "S".repeat(200) })?.shipmentService, "S".repeat(80));
+  assert.equal(p({ shipment_service: "PA\r\nC" })?.shipmentService, "PAC");
+});

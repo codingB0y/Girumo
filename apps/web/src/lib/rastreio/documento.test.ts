@@ -20,8 +20,8 @@ test("dígito errado, tamanho errado ou tudo igual não é documento", () => {
     assert.equal(normalizarDocumento(e), null, e);
 });
 test("docHmac é HMAC-SHA256 em hex com o pepper como chave", () => {
-  // RFC 4231, caso 2: prende algoritmo, ordem chave/mensagem e formato.
-  assert.equal(docHmac("what do ya want for nothing?", "Jefe"), "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843");
+  // Valor de referência calculado à parte (Python hmac), chave de 32 caracteres: prende algoritmo, ordem chave/mensagem e formato.
+  assert.equal(docHmac("what do ya want for nothing?", "k".repeat(32)), "4f63351605b85f42e803b30e42c1905fed065a563ff4295a47982e43f228e097");
   assert.notEqual(docHmac(cpf, "a".repeat(32)), docHmac(cpf, "b".repeat(32)));
 });
 test("pepper: 32 caracteres no mínimo, aparado, e o valor nunca no erro", () => {
@@ -33,3 +33,7 @@ test("pepper: 32 caracteres no mínimo, aparado, e o valor nunca no erro", () =>
   assert.equal(pepperDoRastreio(), "p".repeat(32));
 });
 test("ultimos4 do telefone canônico", () => assert.equal(ultimos4("5511987654321"), "4321"));
+test("docHmac falha fechado com pepper curto, sem pôr o pepper nem o documento no erro", () => {
+  for (const pepper of ["", "curto-demais-segredo-de-teste"])
+    assert.throws(() => docHmac(cpf, pepper), (e: Error) => /RASTREIO_DOC_PEPPER/.test(e.message) && !e.message.includes(cpf) && (!pepper || !e.message.includes(pepper)));
+});

@@ -27,3 +27,11 @@ test("status desconhecido devolve null e o log leva só o alias", (t) => {
     assert.equal(etapaDaYampi({ statusAlias, trackCode: COD, delivered: false }), null);
   assert.deepEqual(avisos, ["em_disputa", "constructor", "null"].map((a) => `[rastreio] status da Yampi desconhecido: ${a}`));
 });
+test("alias desconhecido sai do log sem quebra de linha e com teto de tamanho", (t) => {
+  const avisos: string[] = [];
+  t.mock.method(console, "warn", (...a: unknown[]) => avisos.push(a.map(String).join(" ")));
+  etapaDaYampi({ statusAlias: "x\r\n[rastreio] forjado\u0007" + "y".repeat(200), trackCode: null, delivered: false });
+  assert.equal(avisos.length, 1);
+  assert.doesNotMatch(avisos[0], /[\u0000-\u001f\u007f]/);
+  assert.ok(avisos[0].length <= "[rastreio] status da Yampi desconhecido: ".length + 60);
+});

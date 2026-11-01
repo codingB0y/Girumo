@@ -31,12 +31,27 @@ export function dataDaYampi(v: unknown): string | null {
 }
 
 const desembrulha = (v: unknown): unknown => (v && typeof v === "object" && "data" in v ? (v as { data: unknown }).data : v);
-const incluido = z.preprocess(desembrulha, z.record(z.string(), z.unknown()).nullish());
+// `{ data: [] }` é o include vazio da Yampi (array, não objeto): vale como ausente, não derruba o pedido.
+const incluido = z.preprocess((v) => {
+  const d = desembrulha(v);
+  return Array.isArray(d) && d.length === 0 ? null : d;
+}, z.record(z.string(), z.unknown()).nullish());
 
 const texto = (v: unknown): string | null => {
   if (typeof v !== "string" && typeof v !== "number") return null;
   return String(v).trim() || null;
 };
+
+const SEM_CONTROLE = /[\u0000-\u001f\u007f-\u009f]/g;
+const MAX_TEXTO = 80;
+const EMAIL_MAX = 254; // RFC 5321; também evita o regex quadrático em texto gigante
+// Vão literais no WhatsApp. Código acima do teto não é código de rastreio de verdade → null;
+// serviço de envio é só rótulo → trunca.
+const codigoDeRastreio = (v: unknown): string | null => {
+  const t = texto(v)?.replace(SEM_CONTROLE, "").trim();
+  return t && t.length <= MAX_TEXTO ? t : null;
+};
+const servicoDeEnvio = (v: unknown): string | null => texto(v)?.replace(SEM_CONTROLE, "").trim().slice(0, MAX_TEXTO) || null;
 
 const schema = z.object({
   id: z.unknown().transform(texto).pipe(z.string()),
@@ -44,10 +59,10 @@ const schema = z.object({
   created_at: z.unknown().transform(dataDaYampi).pipe(z.string()),
   updated_at: z.unknown().transform(dataDaYampi).pipe(z.string()),
   status: incluido.pipe(z.object({ alias: z.unknown().transform(texto).pipe(z.string()) })),
-  track_code: z.unknown().transform(texto),
+  track_code: z.unknown().transform(codigoDeRastreio),
   track_url: z.unknown().transform(texto),
   delivered: z.unknown(),
-  shipment_service: z.unknown().transform(texto),
+  shipment_service: z.unknown().transform(servicoDeEnvio),
   customer: incluido,
   statuses: z.preprocess(desembrulha, z.array(z.unknown()).nullish()),
 });
@@ -115,7 +130,7 @@ export function pedidoDaYampi(payload: unknown, pepper: string): PedidoParaGrava
     shipmentService: p.shipment_service,
     buyerFirstName: NOME.test(primeira) ? primeira : null,
     buyerPhone: telefoneDe(c.phone),
-    buyerEmail: email && EMAIL.test(email) ? email : null,
+    buyerEmail: email && email.length <= EMAIL_MAX && EMAIL.test(email) ? email : null,
     docHmac: doc ? docHmac(doc.digitos, pepper) : null,
     historico: historicoDe(p.statuses ?? [], etapa, p.updated_at),
     atualizadoNaYampi: p.updated_at,
