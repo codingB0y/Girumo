@@ -441,6 +441,9 @@ quer dizer que o aviso já está a caminho (nada a reabrir), não erro.
 `GET /api/rastreio/saude` (PR 6) → `{ enviados, comCodigo, maisAntigoSemCodigo: { id, numero, desde } | null }`,
 sobre os pedidos postados nos últimos 7 dias.
 
+`GET /api/rastreio/status` (PR 6) → `200 { enabled: boolean }`. A única rota do painel que não exige o módulo ligado
+(`settings:connection` continua valendo): é por ela que a tela decide entre o painel e o aviso de "não liberado".
+
 ### Página pública (PR 3)
 
 `GET/POST /rastreio/[slug]` (busca), `GET /rastreio/[slug]/[token]` (um pedido) e

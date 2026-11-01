@@ -154,8 +154,8 @@ test("Instagram fica em Lotar, logo depois de Campanhas, e só aparece com a lib
   const instagram = NAV_ALL.find((i) => i.href === "/painel/instagram") as NavItem;
   assert.equal(instagram.requer, "instagram");
   assert.equal(liberado(instagram, null), false, "sem resposta ainda, esconde em vez de piscar");
-  assert.equal(liberado(instagram, { instagram: false }), false);
-  assert.equal(liberado(instagram, { instagram: true }), true);
+  assert.equal(liberado(instagram, { instagram: false, rastreio: false }), false);
+  assert.equal(liberado(instagram, { instagram: true, rastreio: false }), true);
   const campanhas = NAV_ALL.find((i) => i.href === "/painel/campanhas") as NavItem;
   assert.equal(liberado(campanhas, null), true, "item sem liberação aparece sempre");
 });
@@ -166,7 +166,7 @@ const DONO: Acesso = { role: "owner", modules: [] };
 const OPERADOR: Acesso = { role: "operator", modules: [] };
 const VENDEDORA: Acesso = { role: "seller", modules: [] };
 const VENDEDORA_POSTA: Acesso = { role: "seller", modules: ["postar"] };
-const COM_INSTAGRAM = { instagram: true };
+const COM_INSTAGRAM = { instagram: true, rastreio: false };
 
 const item = (href: string) => NAV_ALL.find((i) => i.href === href) as NavItem;
 const visiveis = (acesso: Acesso | null) =>
@@ -183,7 +183,7 @@ test("dono e operador veem o menu de antes, sem Vendas", () => {
   for (const acesso of [DONO, OPERADOR]) {
     assert.ok(!visiveis(acesso).includes("/painel/vendas"));
     assert.deepEqual(visiveis(acesso), NAV_ALL.filter((i) => i.href !== "/painel/vendas").map((i) => i.href));
-    assert.equal(visivelNoMenu(item("/painel/instagram"), acesso, { instagram: false }), false);
+    assert.equal(visivelNoMenu(item("/painel/instagram"), acesso, { instagram: false, rastreio: false }), false);
   }
 });
 
@@ -256,4 +256,18 @@ test("Link da bio fica em Lotar logo depois de Páginas, fora das barras, e a ve
   assert.ok(visiveis(DONO).includes("/painel/link-da-bio"));
   assert.ok(visiveis(OPERADOR).includes("/painel/link-da-bio"));
   assert.ok(!visiveis(VENDEDORA_POSTA).includes("/painel/link-da-bio"));
+});
+
+test("item com permissao: só papel que a tem, e só com a liberação ligada", () => {
+  const entregas: NavItem = { href: "/x", label: "X", icon: Link2, grupo: "vender", requer: "rastreio", permissao: "settings:connection" };
+  const ligado = { instagram: false, rastreio: true };
+  const admin: Acesso = { role: "admin", modules: [] };
+  assert.equal(visivelNoMenu(entregas, DONO, ligado), true);
+  assert.equal(visivelNoMenu(entregas, admin, ligado), true);
+  assert.equal(visivelNoMenu(entregas, DONO, { instagram: false, rastreio: false }), false);
+  assert.equal(visivelNoMenu(entregas, OPERADOR, ligado), false);
+  assert.equal(visivelNoMenu(entregas, VENDEDORA, ligado), false);
+  assert.equal(visivelNoMenu(entregas, VENDEDORA_POSTA, ligado), false);
+  assert.equal(visivelNoMenu(entregas, null, ligado), false);
+  assert.equal(visivelNoMenu(entregas, DONO, null), false);
 });
