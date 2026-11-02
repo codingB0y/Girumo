@@ -4,6 +4,7 @@ import {
   CAPABILITY_LIMIT_KEY,
   CAPABILITY_TABLE,
   BLOCKED_LIMITS,
+  countFilter,
   hasReachedLimit,
   mirrorExclusionColumn,
   resolveLimitCheck,
@@ -122,6 +123,11 @@ test("as demais tabelas contadas nao tem exclusao de espelho", () => {
   for (const table of ["leads", "instances", "memberships", "funnels"]) {
     assert.equal(mirrorExclusionColumn(table), null, `${table} nao deveria ter coluna de exclusao`);
   }
+});
+
+test("vaga de celular conta só os números dos grupos: o do atendimento vem com o add-on", () => {
+  assert.deepEqual(countFilter("instances"), { column: "purpose", equals: "grupos" });
+  for (const table of ["leads", "campaign_groups", "memberships", "funnels"]) assert.equal(countFilter(table), null, table);
 });
 
 // ── Teto de quem nao tem assinatura ──────────────────────────────────────────

@@ -399,7 +399,7 @@ type ModoDePareamento = "qr" | "codigo";
  * O modo "código no celular" é para quem está conectando pelo próprio
  * aparelho: não dá para escanear a tela em que se está.
  */
-function PainelDoCodigo({
+export function PainelDoCodigo({
   instancia,
   carregando,
   erro,
@@ -570,7 +570,7 @@ const TOM: Record<TomDaEtiqueta, string> = {
   indefinido: "text-slate-600",
 };
 
-function Etiqueta({ texto, tom }: { texto: string; tom: TomDaEtiqueta }) {
+export function Etiqueta({ texto, tom }: { texto: string; tom: TomDaEtiqueta }) {
   return (
     <span className={cn("pn-chip", TOM[tom])} data-testid="conectar-etiqueta">
       {texto}

@@ -73,6 +73,12 @@ type Mundo = {
   jaConectaram?: string[];
   /** Resposta do dedupe em `notifications`. */
   dedupe?: Resposta;
+  /** Linhas de `instances` lidas pelo Job 3, por loja. Padrão: o número dos grupos caído há 3 h. */
+  numeros?: Record<string, object[]>;
+  /** Lojas com o Recuperar ligado (`recuperar_enabled`). */
+  addons?: string[];
+  /** `notifications.type` que já têm aviso hoje (dedupe por tipo); vale se `dedupe` não vier. */
+  jaAvisados?: string[];
 };
 
 function filtro(url: URL, coluna: string): string | null {
@@ -106,10 +112,25 @@ function mundo(m: Mundo): (chamada: Chamada) => Resposta {
       if (url.searchParams.has("connected_at")) {
         return { status: 200, corpo: (m.jaConectaram ?? []).includes(tenant) ? [{ id: `inst-${tenant}` }] : [] };
       }
-      return { status: 200, corpo: [{ status: "disconnected", updated_at: desconectadoHa3h, disconnected_at: desconectadoHa3h }] };
+      return {
+        status: 200,
+        corpo: m.numeros?.[tenant] ?? [
+          { status: "disconnected", updated_at: desconectadoHa3h, disconnected_at: desconectadoHa3h, purpose: "grupos" },
+        ],
+      };
     }
-    if (rota === "GET /rest/v1/tenant_settings") return { status: 200, corpo: [] };
-    if (rota === "GET /rest/v1/notifications") return m.dedupe ?? { status: 200, corpo: [] };
+    if (rota === "GET /rest/v1/tenant_settings") {
+      const tenant = filtro(url, "tenant_id") ?? "";
+      const comAddon = (m.addons ?? []).includes(tenant);
+      return {
+        status: 200,
+        corpo: comAddon ? [{ disconnect_alert_enabled: true, recuperar_enabled: true, rastreio_enabled: false }] : [],
+      };
+    }
+    if (rota === "GET /rest/v1/notifications") {
+      const tipo = filtro(url, "type") ?? "";
+      return m.dedupe ?? { status: 200, corpo: (m.jaAvisados ?? []).includes(tipo) ? [{ id: "n1" }] : [] };
+    }
     if (rota === "GET /rest/v1/memberships") return { status: 200, corpo: [{ user_id: DONO }] };
     if (metodo === "GET" && url.pathname.startsWith("/auth/v1/admin/users/")) {
       return { status: 200, corpo: { id: url.pathname.split("/").pop(), email: "dono@loja.test", user_metadata: { name: "Ana" } } };
@@ -176,4 +197,59 @@ test("Job 3: duas linhas no dedupe não viram mais um envio", async () => {
     dedupe: { status: 200, corpo: [{ id: "n1" }, { id: "n2" }] },
   });
   assert.deepEqual(tentativas("disconnect"), []);
+});
+
+test("Job 3: número dos grupos caído com o do atendimento conectado ainda avisa", async () => {
+  const agora = new Date().toISOString();
+  const ha3h = new Date(Date.now() - 3 * H).toISOString();
+  await rodarCron({
+    lojas: ["pagante"],
+    assinaturas: [{ tenant_id: "pagante", status: "active" }],
+    numeros: {
+      pagante: [
+        { status: "connected", updated_at: agora, disconnected_at: null, purpose: "privado" },
+        { status: "disconnected", updated_at: ha3h, disconnected_at: ha3h, purpose: "grupos" },
+      ],
+    },
+  });
+  assert.deepEqual(tentativas("disconnect"), ["pagante"]);
+  assert.deepEqual(tentativas("disconnect_privado"), []);
+});
+
+test("Job 3: número do atendimento caído avisa à parte, só com o Recuperar ou o Rastreio ligado", async () => {
+  const agora = new Date().toISOString();
+  const ha3h = new Date(Date.now() - 3 * H).toISOString();
+  const linhas = [
+    { status: "connected", updated_at: agora, disconnected_at: null, purpose: "grupos" },
+    { status: "disconnected", updated_at: ha3h, disconnected_at: ha3h, purpose: "privado" },
+  ];
+  await rodarCron({
+    lojas: ["com-addon", "sem-addon"],
+    assinaturas: [
+      { tenant_id: "com-addon", status: "active" },
+      { tenant_id: "sem-addon", status: "active" },
+    ],
+    numeros: { "com-addon": linhas, "sem-addon": linhas },
+    addons: ["com-addon"],
+  });
+  assert.deepEqual(tentativas("disconnect_privado"), ["com-addon"]);
+  assert.deepEqual(tentativas("disconnect"), []);
+});
+
+test("Job 3: o aviso de hoje do número dos grupos não segura o do atendimento", async () => {
+  const ha3h = new Date(Date.now() - 3 * H).toISOString();
+  await rodarCron({
+    lojas: ["com-addon"],
+    assinaturas: [{ tenant_id: "com-addon", status: "active" }],
+    numeros: {
+      "com-addon": [
+        { status: "disconnected", updated_at: ha3h, disconnected_at: ha3h, purpose: "grupos" },
+        { status: "disconnected", updated_at: ha3h, disconnected_at: ha3h, purpose: "privado" },
+      ],
+    },
+    addons: ["com-addon"],
+    jaAvisados: ["disconnect_alert"],
+  });
+  assert.deepEqual(tentativas("disconnect"), []);
+  assert.deepEqual(tentativas("disconnect_privado"), ["com-addon"]);
 });

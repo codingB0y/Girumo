@@ -119,6 +119,17 @@ export function mirrorExclusionColumn(table: string): string | null {
 }
 
 /**
+ * Igualdade que restringe a contagem de `table` ao que o plano cobra.
+ *
+ * Só `instances`: a vaga de celular é dos números dos grupos (`purpose = 'grupos'`). O número do
+ * atendimento do Recuperar/Rastreio vem com o add-on, não ocupa vaga e não tem preço à parte —
+ * contá-lo faria um plano de 1 celular recusar o número dos grupos (402) só porque o atendimento existe.
+ */
+export function countFilter(table: string): { column: string; equals: string } | null {
+  return table === "instances" ? { column: "purpose", equals: "grupos" } : null;
+}
+
+/**
  * Teto de quem não tem assinatura: zero em tudo.
  *
  * Aqui morava `FREE_FALLBACK_LIMITS`, que espelhava o plano FREE de produção.

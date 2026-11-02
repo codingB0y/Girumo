@@ -13,6 +13,7 @@ export type EmailKind =
   | "nudge_connect"
   | "activation"
   | "disconnect"
+  | "disconnect_privado"
   | "weekly"
   | "broadcast_failed"
   | "inactivity_risk"

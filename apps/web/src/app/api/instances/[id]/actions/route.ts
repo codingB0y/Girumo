@@ -5,6 +5,7 @@ import {
   providerInstanceId,
 } from "@/lib/evolution/client";
 import { normalizarTelefonePareamento } from "@/lib/instances/pairing-phone";
+import { PRIVADO_SEM_ADDON, privadoLiberado } from "@/lib/privado/numero";
 import { getInstance, updateInstanceStatus } from "@/lib/stores/instances";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { getTenantContext } from "@/lib/supabase/tenant-context";
@@ -79,6 +80,13 @@ export async function POST(req: Request, { params }: Params) {
     // que a instância existe.
     const instance = await getInstance(ctx.tenantId, id);
     if (!instance) return Response.json({ error: "Instancia nao encontrada." }, { status: 404 });
+
+    // O número do atendimento vem com o add-on: sem ele não pareia (antes de qualquer chamada à
+    // Evolution). Desconectar sempre vale, e o número dos grupos nem consulta o add-on. Erro de leitura
+    // sobe para o catch: na dúvida, o pareamento não acontece.
+    if (instance.purpose === "privado" && action !== "disconnect" && !(await privadoLiberado(ctx.tenantId))) {
+      return Response.json({ error: PRIVADO_SEM_ADDON, code: "privado_sem_addon" }, { status: 403 });
+    }
 
     if (!instance.provider_instance_id) {
       return Response.json(

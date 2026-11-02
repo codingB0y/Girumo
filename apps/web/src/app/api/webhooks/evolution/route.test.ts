@@ -34,6 +34,7 @@ const INSTANCIA = {
   tenant_id: LOJA,
   name: "Número 1",
   phone: "5511999990000",
+  purpose: "grupos",
   status: "connected",
   qr_code: null,
   provider: "evolution",
@@ -43,6 +44,15 @@ const INSTANCIA = {
   metadata: {},
   created_at: "2026-09-01T00:00:00+00:00",
   updated_at: "2026-09-01T00:00:00+00:00",
+};
+
+/** O número do atendimento da mesma loja, com o MESMO chip do `INSTANCIA`. */
+const ATENDIMENTO = {
+  ...INSTANCIA,
+  id: "inst-p",
+  provider_instance_id: "gr_inst-p",
+  purpose: "privado",
+  phone: "5511999990000",
 };
 
 const JANELA = {
@@ -55,7 +65,7 @@ const JANELA = {
 
 const ERRO_DO_BANCO: Resposta = { status: 500, corpo: { code: "XX000", message: "banco fora" } };
 
-let respostas: Record<string, Resposta> = {};
+let respostas: Record<string, Resposta | ((c: Chamada) => Resposta)> = {};
 
 const servidor = createServer((req, res) => {
   let bruto = "";
@@ -67,10 +77,11 @@ const servidor = createServer((req, res) => {
       corpo: bruto ? JSON.parse(bruto) : undefined,
     };
     chamadas.push(chamada);
-    const { status, corpo } = respostas[`${chamada.metodo} ${chamada.url.pathname}`] ?? respostas["*"] ?? {
+    const resposta = respostas[`${chamada.metodo} ${chamada.url.pathname}`] ?? respostas["*"] ?? {
       status: 500,
       corpo: { message: `inesperado: ${chamada.metodo} ${chamada.url.pathname}` },
     };
+    const { status, corpo } = typeof resposta === "function" ? resposta(chamada) : resposta;
     if (corpo !== undefined) res.setHeader("Content-Type", "application/json");
     res.statusCode = status;
     res.end(corpo === undefined ? undefined : JSON.stringify(corpo));
@@ -85,6 +96,9 @@ before(async () => {
   const { port } = servidor.address() as AddressInfo;
   process.env.SUPABASE_URL = `http://127.0.0.1:${port}`;
   process.env.SUPABASE_SERVICE_ROLE_KEY = "chave-do-postgrest-falso";
+  // A conferência do número do atendimento pode chamar a Evolution (logout): o mesmo servidor responde.
+  process.env.EVOLUTION_API_URL = `http://127.0.0.1:${port}`;
+  process.env.EVOLUTION_API_KEY = "chave-da-evolution-falsa";
   process.env.EVOLUTION_WEBHOOK_SECRET = SEGREDO;
   const { workAsyncStorage } = await import("next/dist/server/app-render/work-async-storage.external");
   naRequisicao = (escopo, fn) => workAsyncStorage.run(escopo, fn);
@@ -168,13 +182,13 @@ test("erro do banco ao procurar a janela não vira 'sem oferta aberta'", async (
 });
 
 /** `connection.update` como a Evolution manda; `wuid` só vem quando a conexão abre. */
-const conexao = (state: string, wuid?: string) =>
+const conexao = (state: string, wuid?: string, instancia = "gr_inst-1") =>
   new Request("http://girumo.test/api/webhooks/evolution", {
     method: "POST",
     headers: { "content-type": "application/json", "x-evolution-webhook-secret": SEGREDO },
     body: JSON.stringify({
       event: "connection.update",
-      instance: "gr_inst-1",
+      instance: instancia,
       date_time: "2026-10-20T09:01:00.000Z",
       data: { state, ...(wuid ? { wuid } : {}) },
     }),
@@ -284,4 +298,92 @@ test("erro do banco no disjuntor não derruba o webhook", async () => {
 
   assert.equal(res.status, 200);
   assert.equal(avaliouDisjuntor().length, 1);
+});
+
+// Número do atendimento (`purpose = 'privado'`): fora da sincronização de grupos, e nunca com o chip dos grupos.
+const webhook = (corpo: unknown) =>
+  new Request("http://girumo.test/api/webhooks/evolution", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-evolution-webhook-secret": SEGREDO },
+    body: JSON.stringify(corpo),
+  });
+
+const feitas = (metodo: string, caminho: string) =>
+  chamadas.filter((c) => c.metodo === metodo && c.url.pathname === caminho);
+
+/** Com `provider_instance_id=eq.X` a lista devolve só aquela; sem, são os dois números da loja. */
+const listaDeInstancias = (c: Chamada): Resposta => {
+  const alvo = c.url.searchParams.get("provider_instance_id");
+  const todas = [ATENDIMENTO, INSTANCIA];
+  return { status: 200, corpo: alvo ? todas.filter((i) => alvo === `eq.${i.provider_instance_id}`) : todas };
+};
+
+function cenarioDoisNumeros() {
+  cenarioConexao();
+  respostas["GET /rest/v1/instances"] = listaDeInstancias;
+  respostas["POST /rest/v1/notifications"] = { status: 201 };
+  respostas["DELETE /instance/logout/gr_inst-p"] = { status: 200, corpo: {} };
+}
+
+test("evento de grupo no número do atendimento é ignorado: não grava, não importa grupo, não conta saída", async () => {
+  for (const evento of [
+    { event: "groups.upsert", data: [{ id: "120363000000000009@g.us", subject: "Grupo do atendimento" }] },
+    { event: "group-participants.update", data: { id: "120363000000000001@g.us", action: "remove", author: "1@lid", participants: [{ id: "1@lid" }] } },
+  ]) {
+    chamadas.length = 0;
+    respostas = { "GET /rest/v1/instances": { status: 200, corpo: [ATENDIMENTO] } };
+    const res = await POST(webhook({ ...evento, instance: "gr_inst-p", date_time: "2026-10-30T10:00:00.000Z" }));
+    assert.equal(res.status, 200, evento.event);
+    assert.deepEqual(await res.json(), { received: true, ignored: true });
+    // Mutante: sem o ramo, o evento vira engine_events (lead no worker), grupo importado e disjuntor avaliado.
+    assert.deepEqual(chamadas.map((c) => `${c.metodo} ${c.url.pathname}`), ["GET /rest/v1/instances"], evento.event);
+  }
+});
+
+test("o número do atendimento conectando com o chip dos grupos é recusado na hora", async () => {
+  cenarioDoisNumeros();
+  const res = await POST(conexao("open", "5511999990000@s.whatsapp.net", "gr_inst-p"));
+  assert.equal(res.status, 200);
+  const rpc = feitas("POST", "/rest/v1/rpc/update_instance_status").map((c) => c.corpo as Record<string, unknown>);
+  assert.deepEqual(rpc.map((r) => [r.target_instance_id, r.target_status]), [["inst-p", "connected"], ["inst-p", "disconnected"]]);
+  assert.equal(feitas("DELETE", "/instance/logout/gr_inst-p").length, 1);
+});
+
+test("o número dos grupos conectando com o chip do atendimento derruba o do atendimento, nunca o dos grupos", async () => {
+  cenarioDoisNumeros();
+  const res = await POST(conexao("open", "5511999990000@s.whatsapp.net", "gr_inst-1"));
+  assert.equal(res.status, 200);
+  const rpc = feitas("POST", "/rest/v1/rpc/update_instance_status").map((c) => c.corpo as Record<string, unknown>);
+  assert.deepEqual(rpc.map((r) => [r.target_instance_id, r.target_status]), [["inst-1", "connected"], ["inst-p", "disconnected"]]);
+  assert.equal(feitas("DELETE", "/instance/logout/gr_inst-p").length, 1);
+  assert.equal(feitas("DELETE", "/instance/logout/gr_inst-1").length, 0);
+});
+
+test("o marco qr_connected é só do número dos grupos: o do atendimento conectando não ativa a loja", async () => {
+  // Cada número com o seu chip (sem recusa) e o mesmo telefone do banco (sem invalidar a bio): sobra só o marco.
+  const proprio = { ...ATENDIMENTO, phone: "5511977776666" };
+  const doisNumeros = () => {
+    cenarioDoisNumeros();
+    respostas["GET /rest/v1/instances"] = (c) => {
+      const alvo = c.url.searchParams.get("provider_instance_id");
+      const todas = [proprio, INSTANCIA];
+      return { status: 200, corpo: alvo ? todas.filter((i) => alvo === `eq.${i.provider_instance_id}`) : todas };
+    };
+    respostas["POST /rest/v1/private_number_state"] = { status: 201 };
+  };
+
+  doisNumeros();
+  const res = await POST(conexao("open", "5511977776666@s.whatsapp.net", "gr_inst-p"));
+  assert.equal(res.status, 200);
+  assert.equal(feitas("POST", "/rest/v1/rpc/update_instance_status").length, 1);
+  // Mutante: sem o guarda `purpose === "grupos"` o upsert sai e a loja que só pareou o atendimento vira "ativada".
+  assert.equal(feitas("POST", "/rest/v1/funnel_events").length, 0);
+
+  // Contraprova: o mesmo evento no número dos grupos grava o marco (upsert que preserva a 1a vez).
+  doisNumeros();
+  assert.equal((await POST(conexao("open", "5511999990000@s.whatsapp.net", "gr_inst-1"))).status, 200);
+  const [marco] = feitas("POST", "/rest/v1/funnel_events");
+  const linha = marco.corpo as Record<string, unknown>;
+  assert.deepEqual([linha.tenant_id, linha.event_name], [LOJA, "qr_connected"]);
+  assert.match(marco.url.search, /on_conflict=tenant_id%2Cevent_name/);
 });

@@ -3,6 +3,7 @@ import "server-only";
 import { trackFunnelEvent } from "@/lib/analytics/funnel-events";
 import { connectionState, fetchInstance } from "@/lib/evolution/client";
 import { precisaConferirConexao, telefoneDoFetchInstances } from "@/lib/instances/reconciliacao";
+import { conferirNumeroDoAtendimento } from "@/lib/privado/numero";
 import { updateInstanceStatus, type Instance } from "@/lib/stores/instances";
 
 /**
@@ -42,7 +43,14 @@ export async function reconciliarConexoes(instances: Instance[]): Promise<Instan
         console.warn(
           `[instances/reconciliar] ${instance.id} estava "${instance.status}" com a sessão aberta na Evolution — connection.update perdido`,
         );
-        await trackFunnelEvent({ tenantId: instance.tenant_id, userId: null, event: "qr_connected", onlyFirst: true });
+        // Marco de ativação só do número dos grupos: pareou apenas o do atendimento = loja não ativada.
+        if (instance.purpose === "grupos") {
+          await trackFunnelEvent({ tenantId: instance.tenant_id, userId: null, event: "qr_connected", onlyFirst: true });
+        }
+        // Promover sem `connection.update` também pode trazer o chip repetido do atendimento: confere na
+        // mesma volta. A lista devolvida abaixo pode mostrar `connected` por um ciclo de polling se a
+        // conferência recusou.
+        await conferirNumeroDoAtendimento(instance.tenant_id);
 
         const agora = new Date().toISOString();
         return {
