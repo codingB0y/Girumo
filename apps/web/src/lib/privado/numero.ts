@@ -76,13 +76,15 @@ export async function conferirNumeroDoAtendimento(tenantId: string): Promise<Con
       status: "disconnected",
       metadata: { privado_recusado: CHIP_DOS_GRUPOS },
     });
-    if (!jaRecusado) await avisarRecusa(tenantId);
+    // Logout antes do aviso: se o insert do sino falhar, a reentrega já vê o atendimento
+    // `disconnected` (nada_a_fazer) e não derrubaria mais a sessão do chip repetido.
     try {
       await logoutInstance(privado.provider_instance_id ?? providerInstanceId(privado.id));
     } catch {
       // Telefone nunca vai para log; o id da instância basta para achar o caso.
       console.warn("[privado] logout do número do atendimento falhou", privado.id);
     }
+    if (!jaRecusado) await avisarRecusa(tenantId);
     return "recusado";
   }
 

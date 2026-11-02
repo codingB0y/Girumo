@@ -205,6 +205,14 @@ test("Evolution fora no logout não desfaz a recusa, e o log não leva o telefon
   assert.doesNotMatch(texto, /99990001/);
 });
 
+test("aviso no sino falhando não deixa a sessão do chip repetido aberta na Evolution", async () => {
+  prepara({ instancias: [MESMO_CHIP, GRUPOS] });
+  banco["POST /rest/v1/notifications"] = { status: 500, corpo: { message: "fora" } };
+  await assert.rejects(conferirNumeroDoAtendimento(LOJA));
+  assert.equal(feitas("POST", "/rest/v1/rpc/update_instance_status").length, 1);
+  assert.equal(feitas("DELETE", "/instance/logout/gr_inst-p").length, 1);
+});
+
 test("chip próprio: cria o estado do número sem reiniciar a rampa de quem já tinha", async () => {
   prepara({ instancias: [ATENDIMENTO, GRUPOS] });
   assert.equal(await conferirNumeroDoAtendimento(LOJA), "ok");
