@@ -81,6 +81,26 @@ test("atualizados (Y26): sem filtro e 4 variantes por forma, com fim hoje e aman
   }
 });
 
+test("entregues aceita a janela em dias (DE-ATE): filtra e conta nela, e grava com a janela no nome", async (t) => {
+  const diaUtc = (n) => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10); // a mesma conta da ferramenta
+  const filtros = [];
+  const pedidos = [{ created_at: { date: `${diaUtc(3)} 10:00:00.000000` }, status: { data: { alias: "on_carriage" } }, customer: { data: { type: "f" } } }];
+  const { bruto, env } = await montar(t, (metodo, caminho, url) => {
+    if (!caminho.endsWith("/orders")) return { status: 404 };
+    filtros.push(url.searchParams.get("date") ?? url.searchParams.get("filters[date]") ?? "-");
+    return { json: { data: pedidos, meta: { pagination: { total: 1, total_pages: 1 } } } };
+  });
+  const r = await rodar(["entregues", "14-0"], env);
+  assert.equal(r.codigo, 0, r.saida);
+  const periodo = `created_at:${diaUtc(14)}|${diaUtc(0)}`;
+  assert.deepEqual(filtros, [periodo, periodo, "-"]); // plana, filters e sem-filtro
+  const salvo = JSON.parse(readFileSync(join(bruto, "api", "entregues-sem-filtro-14-0.json"), "utf8"));
+  assert.deepEqual([salvo.janela, salvo.naJanela, salvo.enviados], ["14-0", 1, 1]);
+  const ruim = await rodar(["entregues", "15-45"], env);
+  assert.equal(ruim.codigo, 1);
+  assert.match(ruim.saida, /janela inválida/);
+});
+
 test("pedidos-pix baixa a lista mas só grava o pedido da cliente de teste (o telefone B no Pix da loja não conta)", async (t) => {
   const pedidos = [
     { id: 1, customer: { data: { email: "fulana@cliente.com" } }, transactions: { data: [{ metadata: [{ value: "000201...0114+5521987654321" }] }] } },

@@ -2,10 +2,10 @@
 // Chamadas à API da Yampi com a credencial do lojista da piloto (só do ambiente). Não imprime token, segredo, telefone nem e-mail.
 //   node infra/scripts/fase0-recuperar/yampi.mjs <comando>
 //   ping | credenciais-formato | erro-401 | prova-401 | webhook-criar [evento,evento] | webhook-listar [sufixo] | webhook-desativar | webhook-apagar
-//   pedido <seq> | pedidos-1 | pedidos-pix | carrinhos | entregues [alias,alias] | atualizados | copiar-link <seq> <caminho.do.campo>
+//   pedido <seq> | pedidos-1 | pedidos-pix | carrinhos | entregues [DE-ATE] [alias,alias] | atualizados | copiar-link <seq> <caminho.do.campo>
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
-import { ALIASES_ENVIADO, NOME_DO_AVISO, assertAvisoNosso, caminhoNoObjeto, contarEntregues, dentroDoIntervalo, dirBruto, dormir, gravarJson, lerEstado, lerEvento, lerJson, mesclarEstado, pedidosDaJanela, pedirEnv, perfilDosClientes, tampaDeSegredo, temMarcadorDeCliente } from "./comum.mjs";
+import { ALIASES_ENVIADO, JANELA_PADRAO, NOME_DO_AVISO, assertAvisoNosso, caminhoNoObjeto, contarEntregues, dentroDoIntervalo, dirBruto, dormir, gravarJson, janelaDeEntregues, lerEstado, lerEvento, lerJanela, lerJson, mesclarEstado, pedidosDaJanela, pedirEnv, perfilDosClientes, tampaDeSegredo, temMarcadorDeCliente } from "./comum.mjs";
 
 const BASE = process.env.FASE0_YAMPI_BASE ?? "https://api.dooki.com.br/v2";
 const EVENTOS = ["cart.reminder", "order.created", "order.paid", "order.status.updated", "transaction.payment.refused"];
@@ -246,11 +246,17 @@ async function carrinhos() {
 const porcento = (parte, todo) => (todo ? `${Math.round((100 * parte) / todo)}%` : "-");
 
 // Provas do Rastreio (Y22 a Y24): baixa os pedidos da janela e imprime só contagens e nomes de campo; nenhum pedido
-// vai para o disco.
-async function entregues(aliases) {
+// vai para o disco. Argumentos em qualquer ordem: a janela DE-ATE em dias atrás (padrão 45-15; loja nova usa a que tem
+// pedido, como 45-7, no formato da prova 5 do Rastreio) e os aliases de "enviado".
+async function entregues(args) {
   const agora = new Date();
+  const textoJanela = args.find((x) => /^[0-9-]+$/.test(x ?? "")); // só dígitos e hífen: é a janela, e o lerJanela valida
+  const janela = textoJanela ? lerJanela(textoJanela) : JANELA_PADRAO;
+  const aliases = args.find((x) => x && x !== textoJanela);
   const lista = aliases ? aliases.split(",").map((s) => s.trim()).filter(Boolean) : ALIASES_ENVIADO;
-  const periodo = `created_at:${dia(new Date(agora - 45 * UM_DIA))}|${dia(new Date(agora - 15 * UM_DIA))}`;
+  const [inicio, fim] = janelaDeEntregues(agora.getTime(), janela);
+  const periodo = `created_at:${inicio}|${fim}`;
+  const nomeJanela = janela.join("-");
   const inc = { include: "customer,status,statuses" };
   for (const [rotulo, consulta] of [
     ["plana", { ...inc, date: periodo }],
@@ -258,11 +264,11 @@ async function entregues(aliases) {
     ["sem-filtro", inc],
   ]) {
     const r = await paginar("/orders", consulta);
-    const c = contarEntregues(r.itens, agora.getTime(), lista);
-    const perfil = perfilDosClientes(pedidosDaJanela(r.itens, agora.getTime()));
+    const c = contarEntregues(r.itens, agora.getTime(), lista, janela);
+    const perfil = perfilDosClientes(pedidosDaJanela(r.itens, agora.getTime(), janela));
     const [taxa, taxaCodigo] = [porcento(c.entregues, c.enviados), porcento(c.comCodigo, c.enviadosPorStatus)];
-    gravarJson(join(dirBruto(), "api", `entregues-${rotulo}.json`), { http: r.status, aliasesEnviado: lista, ...c, taxa, taxaCodigo, perfil });
-    console.log(`entregues variante=${rotulo} http=${r.status} ${Object.entries(c).map(([k, v]) => `${k}=${v}`).join(" ")} taxa=${taxa} taxaCodigo=${taxaCodigo}${r.falha ? ` ${r.falha}` : ""}`);
+    gravarJson(join(dirBruto(), "api", `entregues-${rotulo}-${nomeJanela}.json`), { http: r.status, janela: nomeJanela, inicio, fim, aliasesEnviado: lista, ...c, taxa, taxaCodigo, perfil });
+    console.log(`entregues variante=${rotulo} janela=${nomeJanela} (${inicio} a ${fim}) http=${r.status} ${Object.entries(c).map(([k, v]) => `${k}=${v}`).join(" ")} taxa=${taxa} taxaCodigo=${taxaCodigo}${r.falha ? ` ${r.falha}` : ""}`);
     console.log(`  perfil pedidos=${perfil.pedidos} tipos=${JSON.stringify(perfil.tipos)} camposDeDocumento=${JSON.stringify(perfil.camposDeDocumento)} semDocumento=${perfil.semDocumento} campos=${perfil.campos.join(",")}`);
   }
 }
@@ -312,7 +318,7 @@ const comandos = {
   "pedidos-1": pedidos1,
   "pedidos-pix": pedidosPix,
   carrinhos,
-  entregues: () => entregues(a),
+  entregues: () => entregues([a, b]),
   atualizados,
   "copiar-link": () => copiarLink(a, b),
 };
