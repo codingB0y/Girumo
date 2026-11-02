@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useCasca } from "@/components/painel/casca-context";
+import { useRecarga } from "@/components/painel/home/ao-vivo/use-recarga";
 import { useToast } from "@/components/toast";
 import { RECUPERAR_MENSAL_CENTS } from "@/lib/billing/recuperar-addon";
 import { formatarReais } from "@/lib/billing/instagram-preco";
@@ -15,6 +16,8 @@ type Oferta = { bloqueio: "sem_plano" | "ja_assinado" | null; configurado: boole
 type Resposta = { url?: unknown; error?: unknown; code?: unknown };
 
 const ESPERA_MS = 3_000;
+/** Depois disso, a espera pelo webhook ganha o aviso de que está demorando (a busca continua). */
+const ESPERA_LONGA_MS = 90_000;
 const PENDENTE_PADRAO = "A assinatura do Recuperar está com pagamento em aberto. Regularize em Gerenciar cobrança.";
 const BOTAO =
   "flex min-h-11 w-full items-center justify-center rounded-[var(--radius-control)] bg-cobalt-500 px-4 text-sm font-semibold text-paper-0 transition-colors hover:bg-cobalt-700 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500";
@@ -29,8 +32,9 @@ function lerOferta(raw: unknown): Oferta | null {
 
 /**
  * Loja sem o Recuperar. O conteúdo é fixo e aparece já; só o bloco de ação espera a
- * oferta. Logo depois de pagar (`?assinado=1`), o webhook do Stripe pode levar alguns
- * segundos para liberar: a tela pergunta o status de novo até ligar.
+ * oferta. Logo depois de pagar (`?assinado=1`, ou o checkout respondendo "já assinado"
+ * porque outra aba pagou), o webhook do Stripe pode levar alguns segundos para liberar:
+ * a tela pergunta o status de novo até ligar.
  */
 export function AtivarRecuperar() {
   const assinado = useSearchParams().get("assinado") === "1";
@@ -42,7 +46,13 @@ export function AtivarRecuperar() {
   const [erro, setErro] = useState(false);
   const [aceite, setAceite] = useState(false);
   const [pendente, setPendente] = useState<string | null>(null);
+  const [jaAssinado, setJaAssinado] = useState(false);
+  const [demorando, setDemorando] = useState(false);
   const [ocupado, setOcupado] = useState(false);
+  // O bloco de ação troca de conteúdo depois do clique e o botão focado some: sem levar o
+  // foco, ele cai no <body> e o leitor de tela não anuncia a troca.
+  const avisoDeEspera = useRef<HTMLDivElement>(null);
+  const botaoCobranca = useRef<HTMLButtonElement>(null);
   // Dois cliques chegam antes do re-render que desabilita o botão: sem a trava, duas sessões no Stripe.
   const trava = useRef(false);
 
@@ -59,12 +69,23 @@ export function AtivarRecuperar() {
     void carregar();
   }, [carregar]);
 
-  const esperando = assinado || oferta?.bloqueio === "ja_assinado";
+  const esperando = assinado || jaAssinado || oferta?.bloqueio === "ja_assinado";
+  useRecarga(recarregarRecuperar, ESPERA_MS, esperando);
   useEffect(() => {
     if (!esperando) return;
-    const t = setInterval(recarregarRecuperar, ESPERA_MS);
-    return () => clearInterval(t);
-  }, [esperando, recarregarRecuperar]);
+    const t = setTimeout(() => setDemorando(true), ESPERA_LONGA_MS);
+    return () => {
+      clearTimeout(t);
+      setDemorando(false);
+    };
+  }, [esperando]);
+
+  useEffect(() => {
+    if (jaAssinado) avisoDeEspera.current?.focus();
+  }, [jaAssinado]);
+  useEffect(() => {
+    if (pendente) botaoCobranca.current?.focus();
+  }, [pendente]);
 
   // Voltar do Stripe pelo botão Voltar restaura a página do bfcache com o estado de
   // antes da navegação: sem isto o botão ficaria em "Abrindo…", travado, para sempre.
@@ -97,6 +118,11 @@ export function AtivarRecuperar() {
         return;
       }
       const mensagem = typeof j?.error === "string" ? j.error : null;
+      // Outra aba já pagou: o webhook vai ligar. Espera como na volta do Stripe, sem toast.
+      if (r.status === 409 && j?.code === "ja_assinado") {
+        setJaAssinado(true);
+        return;
+      }
       // Assinatura em `unpaid`: "já assinado, aguarde" nunca se resolveria. Vai para a cobrança, não para o toast.
       if (r.status === 409 && j?.code === "cobranca_pendente") {
         setPendente(mensagem ?? PENDENTE_PADRAO);
@@ -115,7 +141,14 @@ export function AtivarRecuperar() {
 
   function blocoDeAcao() {
     if (esperando) {
-      return <p role="status" className="text-sm font-medium text-volt-950">Pagamento recebido. Liberando o Recuperar da loja…</p>;
+      // O aviso de demora entra dentro da mesma região viva: um role="status" novo, já com
+      // texto, não seria anunciado.
+      return (
+        <div ref={avisoDeEspera} tabIndex={-1} role="status" className="space-y-1 text-sm text-volt-950">
+          <p className="font-medium">Pagamento recebido. Liberando o Recuperar da loja…</p>
+          {demorando && <p>Está demorando mais que o normal. Se você pagou, fale com a Girumo.</p>}
+        </div>
+      );
     }
     if (erro) {
       return (
@@ -149,6 +182,7 @@ export function AtivarRecuperar() {
         <div className="space-y-2">
           <p role="status" className="text-sm text-volt-950">{pendente}</p>
           <button
+            ref={botaoCobranca}
             type="button"
             onClick={() => void abrir("/api/billing/portal", undefined, "Não deu pra abrir a cobrança. Tente de novo.")}
             disabled={ocupado}

@@ -27,7 +27,7 @@ export async function POST(req: Request) {
 
     const c = await contextoDoRecuperar(ctx.tenantId);
     if (c.bloqueio === "sem_plano") return Response.json({ error: "Assine um plano primeiro." }, { status: 409 });
-    if (c.bloqueio === "ja_assinado") return Response.json({ error: "O Recuperar já está ativo nesta loja." }, { status: 409 });
+    if (c.bloqueio === "ja_assinado") return Response.json({ error: "O Recuperar já está ativo nesta loja.", code: "ja_assinado" }, { status: 409 });
     if (!c.precoId) return Response.json({ error: "Assinatura do Recuperar indisponível no momento." }, { status: 503 });
 
     const supabase = getSupabaseAdmin();
@@ -50,7 +50,10 @@ export async function POST(req: Request) {
         { status: 409 },
       );
     }
-    if (existente.viva) return Response.json({ error: "O Recuperar já está assinado. Pode levar alguns segundos para liberar." }, { status: 409 });
+    // `code` faz a tela esperar o webhook em vez de mostrar um toast (outra aba já pagou).
+    if (existente.viva) {
+      return Response.json({ error: "O Recuperar já está assinado. Pode levar alguns segundos para liberar.", code: "ja_assinado" }, { status: 409 });
+    }
     // Tentativa anterior recusada ou pedindo 3D Secure: a fatura dela aceita outro cartão.
     if (existente.faturaPendente) return Response.json({ url: existente.faturaPendente });
 

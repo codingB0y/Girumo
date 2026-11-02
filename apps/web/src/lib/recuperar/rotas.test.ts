@@ -235,7 +235,7 @@ test("checkout: já ativo → 409", async () => {
   ligado = true;
   const res = await checkout(chamar("POST", CHECKOUT, "token-dono", { avisoConfirmado: true }));
   assert.equal(res.status, 409);
-  assert.deepEqual(await res.json(), { error: "O Recuperar já está ativo nesta loja." });
+  assert.deepEqual(await res.json(), { error: "O Recuperar já está ativo nesta loja.", code: "ja_assinado" });
   semRegistroDeAviso();
 });
 

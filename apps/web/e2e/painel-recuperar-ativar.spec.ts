@@ -64,6 +64,23 @@ test("pagamento em aberto: manda para Gerenciar cobrança, não para o toast de 
   await expect(page).toHaveURL(/\/painel\/configuracoes\?billing=portal/);
 });
 
+test("já assinado em outra aba: espera o webhook em vez do toast", async ({ page }) => {
+  const estado = { status: { enabled: false, precisaDeVoce: 0 }, oferta: OFERTA_NORMAL } as EstadoMock;
+  await moca(page, estado);
+  await page.route("**/api/billing/recuperar/checkout", (r) =>
+    r.fulfill({
+      status: 409,
+      json: { error: "O Recuperar já está assinado. Pode levar alguns segundos para liberar.", code: "ja_assinado" },
+    }),
+  );
+  await page.goto("/painel/recuperar", { waitUntil: "load" });
+  await page.getByLabel(AVISO_DE_PRIVACIDADE.texto).check();
+  await page.getByRole("button", { name: "Ativar Recuperar" }).click();
+  await expect(page.getByText("Pagamento recebido. Liberando o Recuperar da loja…")).toBeVisible();
+  estado.status = { enabled: true, precisaDeVoce: 0 };
+  await expect(page.getByText("Liberado para a sua loja. Falta configurar.")).toBeVisible({ timeout: 15_000 });
+});
+
 test("quem não cobra, sem plano e preço fechado veem o motivo e nenhum botão de ativar", async ({ page }) => {
   const estado = { status: { enabled: false, precisaDeVoce: 0 }, oferta: { ...OFERTA_NORMAL, podeCobrar: false } } as EstadoMock;
   await moca(page, estado);
