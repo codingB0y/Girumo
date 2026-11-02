@@ -8,8 +8,14 @@ import {
 } from "@/lib/evolution/client";
 import { parseNumeroPerfil } from "@/lib/instances/numero-perfil";
 import { reconciliarConexoes } from "@/lib/instances/reconciliar-conexao";
+import { PRIVADO_SEM_ADDON, privadoLiberado } from "@/lib/privado/numero";
 import { resolveSecret } from "@/lib/runtime-secrets";
-import { deleteInstanceRow, listInstances, setProviderInstanceId } from "@/lib/stores/instances";
+import {
+  deleteInstanceRow,
+  listGroupInstances,
+  setProviderInstanceId,
+  type InstancePurpose,
+} from "@/lib/stores/instances";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { getTenantContext } from "@/lib/supabase/tenant-context";
 
@@ -27,12 +33,18 @@ function canManageInstances(role: string) {
   return role === "owner" || role === "admin";
 }
 
+const NOME_PADRAO: Record<InstancePurpose, string> = { grupos: "WhatsApp", privado: "Atendimento" };
+
+/** Código do Postgres para unique_violation (o PostgREST o repassa em `error.code`). */
+const UNIQUE_VIOLATION = "23505";
+
 export async function GET(req: Request) {
   try {
     const ctx = await getTenantContext(req);
     // A tela de conectar pergunta aqui "já conectou?": sem conferir na Evolution,
     // um connection.update perdido deixava o número pareado aparecendo desconectado.
-    return Response.json(await reconciliarConexoes(await listInstances(ctx.tenantId)));
+    // Só os números dos grupos: o do atendimento tem tela e rota próprias, e a tela Conectar nunca o lista.
+    return Response.json(await reconciliarConexoes(await listGroupInstances(ctx.tenantId)));
   } catch (error) {
     if (error instanceof Response) return error;
     return Response.json({ error: "Erro ao listar instancias." }, { status: 500 });
@@ -53,17 +65,33 @@ export async function POST(req: Request) {
       return Response.json({ error: "Sem permissao para criar instancia." }, { status: 403 });
     }
 
-    await assertPlanLimit(ctx.tenantId, "instances:create");
-
     const body = (await req.json().catch(() => ({}))) as {
       name?: string;
       phone?: string;
       numero_perfil?: unknown;
+      purpose?: unknown;
     };
-    const name = String(body.name ?? "WhatsApp").trim().slice(0, 80) || "WhatsApp";
+    const purpose = body.purpose === undefined ? "grupos" : body.purpose;
+    if (purpose !== "grupos" && purpose !== "privado") {
+      return Response.json({ error: "Tipo de número inválido." }, { status: 400 });
+    }
+
+    if (purpose === "privado") {
+      // Vem com o add-on: não ocupa vaga do plano, então não passa por `assertPlanLimit`. Erro de
+      // leitura sobe para o 500 do catch — na dúvida o número não é criado.
+      if (!(await privadoLiberado(ctx.tenantId))) {
+        return Response.json({ error: PRIVADO_SEM_ADDON, code: "privado_sem_addon" }, { status: 403 });
+      }
+    } else {
+      await assertPlanLimit(ctx.tenantId, "instances:create");
+    }
+
+    const padrao = NOME_PADRAO[purpose];
+    const name = String(body.name ?? padrao).trim().slice(0, 80) || padrao;
     const phone = String(body.phone ?? "").trim() || null;
 
-    const perfil = parseNumeroPerfil(body.numero_perfil);
+    // O perfil (novo/antigo) é pergunta do aquecimento dos grupos; o atendimento não tem.
+    const perfil = purpose === "privado" ? { ok: true as const, value: null } : parseNumeroPerfil(body.numero_perfil);
     if (!perfil.ok) return Response.json({ error: perfil.error }, { status: 400 });
 
     const supabase = getSupabaseAdmin();
@@ -73,6 +101,7 @@ export async function POST(req: Request) {
         tenant_id: ctx.tenantId,
         name,
         phone,
+        purpose,
         status: "pending",
         provider: "evolution",
         metadata: {},
@@ -81,6 +110,11 @@ export async function POST(req: Request) {
       .select("id, name, phone, status, created_at")
       .single();
 
+    // Clique duplo: o índice único `instances_one_privado_per_tenant` barra o segundo antes de existir
+    // instância na Evolution (o insert vem primeiro).
+    if (purpose === "privado" && error?.code === UNIQUE_VIOLATION) {
+      return Response.json({ error: "Esta loja já tem um número do atendimento." }, { status: 409 });
+    }
     if (error) return Response.json({ error: error.message }, { status: 500 });
 
     // O id da linha é a fonte do nome na Evolution — por isso a linha vem

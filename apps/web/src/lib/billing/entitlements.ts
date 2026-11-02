@@ -1,6 +1,7 @@
 import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import {
+  countFilter,
   hasReachedLimit,
   mirrorExclusionColumn,
   resolveLimitCheck,
@@ -122,6 +123,9 @@ export async function assertPlanLimit(tenantId: string, capability: PlanCapabili
   // campanha criada pelo lojista — nao pode contar pro teto do plano.
   const mirrorColumn = mirrorExclusionColumn(check.table);
   if (mirrorColumn) query = query.is(mirrorColumn, null);
+  // So o que o plano cobra: o numero do atendimento nao ocupa vaga de celular.
+  const filtro = countFilter(check.table);
+  if (filtro) query = query.eq(filtro.column, filtro.equals);
   const { count, error } = await query;
 
   if (error) throw new Response("Nao foi possivel validar limites do plano.", { status: 500 });
