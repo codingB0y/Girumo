@@ -38,6 +38,13 @@ test("incomplete devolve a fatura aberta; com unpaid junto, vence o semPagamento
   assert.deepEqual(situacao([incompleta, sub("unpaid")]), { viva: true, faturaPendente: null, semPagamento: true });
 });
 
+test("incomplete com fatura sem URL não esconde a fatura de outro incomplete; ativa vence", () => {
+  const semUrl = sub("incomplete", { latest_invoice: { hosted_invoice_url: null } });
+  const comUrl = sub("incomplete", { latest_invoice: { hosted_invoice_url: "https://pay/y" } });
+  assert.deepEqual(situacao([semUrl, comUrl]), { viva: false, faturaPendente: "https://pay/y", semPagamento: false });
+  assert.deepEqual(situacao([comUrl, sub("active")]), { viva: true, faturaPendente: null, semPagamento: false });
+});
+
 test("ignora outra loja, outro add-on, canceladas e lista vazia", () => {
   assert.deepEqual(situacao([sub("unpaid", { tenant_id: "loja-b" })]), NADA);
   assert.deepEqual(situacao([sub("unpaid", { addon: "instagram" })]), NADA);

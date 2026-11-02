@@ -68,14 +68,13 @@ export function situacaoDoAddon(
 ): AddonNoStripe {
   let unpaid = false;
   let faturaPendente: string | null = null;
-  let achouFatura = false;
   for (const s of subs) {
     if (s.metadata.addon !== addon || s.metadata.tenant_id !== tenantId) continue;
     // `unpaid` não decide sozinha: uma ativa, em qualquer ordem, vence.
     if (s.status === "active" || s.status === "trialing" || s.status === "past_due") return { viva: true, faturaPendente: null, semPagamento: false };
     if (s.status === "unpaid") unpaid = true;
-    else if (s.status === "incomplete" && !achouFatura && s.latest_invoice && typeof s.latest_invoice === "object") {
-      achouFatura = true;
+    // A primeira `incomplete` com URL: uma fatura sem URL não esconde a de outra.
+    else if (s.status === "incomplete" && faturaPendente === null && s.latest_invoice && typeof s.latest_invoice === "object") {
       faturaPendente = s.latest_invoice.hosted_invoice_url ?? null;
     }
   }
