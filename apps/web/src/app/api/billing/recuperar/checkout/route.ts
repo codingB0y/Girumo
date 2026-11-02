@@ -15,8 +15,9 @@ export const dynamic = "force-dynamic";
 const corpoSchema = z.strictObject({ avisoConfirmado: z.literal(true) });
 
 // POST /api/billing/recuperar/checkout { avisoConfirmado: true } — Checkout hospedado do
-// Stripe. Devolve { url }. A confirmação do aviso de privacidade é registrada antes de
-// qualquer chamada ao Stripe, e só quando a cobrança vai de fato seguir.
+// Stripe. Devolve { url }. A confirmação do aviso de privacidade é registrada depois das
+// checagens do contexto e antes de qualquer chamada ao Stripe (grava também quando o
+// Stripe responde "já assinado" ou devolve a fatura pendente).
 export async function POST(req: Request) {
   try {
     const ctx = await getTenantContext(req);
