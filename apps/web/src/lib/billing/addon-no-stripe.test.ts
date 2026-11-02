@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { situacaoDoAddon } from "./instagram-contexto";
+import { recusaDoInstagramExistente, situacaoDoAddon } from "./instagram-contexto";
 
 type Sub = Parameters<typeof situacaoDoAddon>[0] extends Iterable<infer S> ? S : never;
 
@@ -50,4 +50,23 @@ test("ignora outra loja, outro add-on, canceladas e lista vazia", () => {
   assert.deepEqual(situacao([sub("unpaid", { addon: "instagram" })]), NADA);
   assert.deepEqual(situacao([sub("canceled")]), NADA);
   assert.deepEqual(situacao([]), NADA);
+});
+
+test("rotas do Instagram: unpaid recebe 409 cobranca_pendente, nunca o \"já assinado\"", async () => {
+  const r = recusaDoInstagramExistente(situacaoDoAddon([sub("unpaid", { addon: "instagram" })], "loja-a", "instagram"));
+  assert.equal(r?.status, 409);
+  const corpo = (await r?.json()) as { error: string; code: string };
+  assert.equal(corpo.code, "cobranca_pendente");
+  assert.doesNotMatch(corpo.error, /já está assinado/);
+});
+
+test("rotas do Instagram: viva sem pendência segue com o 409 de já assinado; nada no Stripe, segue", async () => {
+  const r = recusaDoInstagramExistente({ viva: true, faturaPendente: null, semPagamento: false });
+  assert.equal(r?.status, 409);
+  const corpo = (await r?.json()) as { error: string; code?: string };
+  assert.match(corpo.error, /já está assinado/);
+  assert.equal(corpo.code, undefined);
+  assert.equal(recusaDoInstagramExistente(NADA), null);
+  // Fatura `incomplete` em aberto não é recusa: a rota devolve a fatura para outro cartão.
+  assert.equal(recusaDoInstagramExistente({ viva: false, faturaPendente: "https://pay/x", semPagamento: false }), null);
 });

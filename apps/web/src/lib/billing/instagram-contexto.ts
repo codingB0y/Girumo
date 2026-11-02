@@ -94,6 +94,23 @@ export async function addonNoStripe(customerId: string, tenantId: string, addon:
   return situacaoDoAddon(subs, tenantId, addon);
 }
 
+/**
+ * O 409 das duas rotas de assinar o Instagram quando o add-on já existe no Stripe, ou
+ * `null` para seguir. `unpaid` vem antes: o webhook deixa o Instagram desligado nesse
+ * estado, então "já assinado, aguarde" nunca se resolveria; o `code` leva a tela para
+ * Gerenciar cobrança.
+ */
+export function recusaDoInstagramExistente(existente: AddonNoStripe): Response | null {
+  if (existente.semPagamento) {
+    return Response.json(
+      { error: "A assinatura do Instagram está com pagamento em aberto. Regularize em Gerenciar cobrança.", code: "cobranca_pendente" },
+      { status: 409 },
+    );
+  }
+  if (existente.viva) return Response.json({ error: "O Instagram já está assinado. Pode levar alguns segundos para liberar." }, { status: 409 });
+  return null;
+}
+
 /** O customer da loja, se já existir (a página não cria customer só por abrir). */
 export async function customerDaLoja(tenantId: string): Promise<string | null> {
   const { data, error } = await getSupabaseAdmin().from("organizations").select("stripe_customer_id").eq("id", tenantId).maybeSingle();
