@@ -27,6 +27,22 @@ test("só códigos de pedidos criados na janela de 45 a 15 dias, sem repetir", (
   assert.deepEqual([r.maisAntigo, r.maisNovo], ["2026-10-05", "2026-11-06"]);
 });
 
+test("janela própria conta serviço, formato do código e status, sem nunca mostrar o código", () => {
+  const r = codigosEnviadosNaJanela([
+    { ...pedido("2026-11-10", "AA111111111BR"), shipment_service: "PAC", status: { alias: "shipped" } },
+    { ...pedido("2026-11-19", "ME2400ABC"), shipment_service: "Jadlog (.Package)", status: { data: { alias: "delivered" } } },
+    { ...pedido("2026-11-19", null), shipment_service: "J&T Express* | entrega em até 7 dias úteis!!", status: { alias: "Pago!" } },
+    { ...pedido("2026-11-19", null), shipment_service: { name: "Loggi" } },
+    { ...pedido("2026-11-01", "AA222222222BR"), shipment_service: "SEDEX" }, // fora da janela de 14 a 0
+  ], AGORA, { de: 14, ate: 0 });
+  assert.deepEqual([r.inicio, r.fim], ["2026-11-06", "2026-11-20"]);
+  assert.deepEqual(r.porServico, { PAC: 1, "Jadlog (.Package)": 1, "J&T Express  entrega em até 7 dias úteis": 1, "tipo:object": 1 });
+  assert.deepEqual(r.porFormato, { correios: 1, LL9999LLL: 1 });
+  assert.deepEqual(r.porStatusYampi, { shipped: 1, delivered: 1, outro: 2 });
+  const texto = JSON.stringify({ ...r, codigos: [] });
+  for (const valor of ["AA111111111BR", "ME2400ABC", "Pago!", "*", "|"]) assert.ok(!texto.includes(valor), valor);
+});
+
 test("acha pelo tracking e pelo self_tracking; o resto fica faltando", () => {
   const indice = indexar([
     { tracking: "AA111111111BR", self_tracking: null },

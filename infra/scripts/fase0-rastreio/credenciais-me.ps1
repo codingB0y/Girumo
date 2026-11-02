@@ -9,20 +9,25 @@ $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Web
 $retorno = 'https://www.girumo.com.br/api/integracoes/melhor-envio/retorno'
 
+# Resposta vazia pergunta de novo: um Enter sobrando (de um valor colado com quebra de linha) nao derruba o script.
 function Ler-Texto([string]$Pergunta) {
-  $texto = Read-Host -Prompt $Pergunta
-  if ([string]::IsNullOrWhiteSpace($texto)) { throw 'vazio' }
-  return $texto.Trim()
+  do { $texto = (Read-Host -Prompt $Pergunta).Trim() } until ($texto)
+  return $texto
 }
 function Ler-Segredo([string]$Pergunta) {
-  $seguro = Read-Host -Prompt $Pergunta -AsSecureString
-  $texto = [System.Net.NetworkCredential]::new('', $seguro).Password
-  if ([string]::IsNullOrWhiteSpace($texto)) { throw 'vazio' }
-  return $texto.Trim()
+  do {
+    $seguro = Read-Host -Prompt $Pergunta -AsSecureString
+    $texto = [System.Net.NetworkCredential]::new('', $seguro).Password.Trim()
+  } until ($texto)
+  return $texto
 }
 
 if (-not $env:YAMPI_ALIAS) {
-  $env:YAMPI_ALIAS = Ler-Texto 'YAMPI_ALIAS (alias da loja piloto)'
+  # O alias aparece na tela: um token colado aqui por engano vira segredo exposto. So minusculas, digitos e hifen.
+  do {
+    $env:YAMPI_ALIAS = Ler-Texto 'YAMPI_ALIAS (alias da loja piloto, ex.: minha-loja)'
+    if ($env:YAMPI_ALIAS -cnotmatch '^[a-z0-9][a-z0-9-]*$') { 'Isso nao parece um alias: so minusculas, digitos e hifen.' }
+  } until ($env:YAMPI_ALIAS -cmatch '^[a-z0-9][a-z0-9-]*$')
   $env:YAMPI_USER_TOKEN = Ler-Segredo 'YAMPI_USER_TOKEN (Yampi > Perfil > Credenciais de API)'
   $env:YAMPI_USER_SECRET_KEY = Ler-Segredo 'YAMPI_USER_SECRET_KEY (idem)'
 }
@@ -33,12 +38,19 @@ if (-not $env:MELHORENVIO_USER_AGENT) { $env:MELHORENVIO_USER_AGENT = 'Girumo (c
 $estado = [guid]::NewGuid().ToString('N')
 $autorizar = 'https://melhorenvio.com.br/oauth/authorize?client_id=' + [uri]::EscapeDataString($env:MELHORENVIO_CLIENT_ID) +
   '&redirect_uri=' + [uri]::EscapeDataString($retorno) + '&response_type=code&state=' + $estado +
-  '&scope=' + [uri]::EscapeDataString('orders-read shipping-tracking')
-'Abrindo o navegador. Entre com a conta do Melhor Envio DA LOJA PILOTO e autorize o app Girumo.'
-'Depois a pagina da Girumo mostra um erro: e normal. Copie o endereco inteiro da barra do navegador.'
+  '&scope=' + [uri]::EscapeDataString('orders-read shipping-tracking users-read')
+'Abrindo o navegador. Entre com a conta do Melhor Envio DA LOJA PILOTO e clique em Autorizar.'
+'So depois que aparecer a pagina de erro da Girumo, copie o endereco inteiro da barra do navegador.'
 Start-Process $autorizar
 
-$colado = Ler-Segredo 'Cole o endereco da barra do navegador'
+# Espera um endereco com code=. O endereco da propria autorizacao, copiado cedo demais, pede de novo.
+do {
+  $colado = Ler-Segredo 'Cole o endereco da pagina de erro da Girumo (tem code= no meio)'
+  if ($colado -match '[?&]error=') { throw 'o Melhor Envio recusou a autorizacao: rode o script de novo' }
+  if ($colado -notmatch '[?&]code=') {
+    'Esse endereco ainda nao tem code=: termine a autorizacao no navegador e copie de novo.'
+  }
+} until ($colado -match '[?&]code=')
 try { $volta = [uri]$colado } catch { throw 'endereco invalido: rode o script de novo' }
 $q = [System.Web.HttpUtility]::ParseQueryString($volta.Query)
 if ($q['state'] -ne $estado) { throw 'state nao confere: rode o script de novo' }

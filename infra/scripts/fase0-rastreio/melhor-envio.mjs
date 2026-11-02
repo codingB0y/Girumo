@@ -1,10 +1,11 @@
 // infra/scripts/fase0-rastreio/melhor-envio.mjs
 // Prova 5 do Rastreio: o app da Girumo enxerga as etiquetas da piloto no Melhor Envio e acha os códigos da Yampi?
 // Credenciais só do ambiente (credenciais-me.ps1). Imprime só contagens e nomes de campo; nada vai para o disco.
-//   node infra/scripts/fase0-rastreio/melhor-envio.mjs ping | medir [plana|filters|sem-filtro]
+//   node infra/scripts/fase0-rastreio/melhor-envio.mjs ping | quem | sondar | medir [plana|filters|sem-filtro] [DE-ATE]
 import { codigosEnviadosNaJanela, cruzar, indexar, linhasDoResultado, resumirEtiquetas, veredito } from "./cruzar.mjs";
 
-const USO = "uso: melhor-envio.mjs ping | medir [plana|filters|sem-filtro]";
+const USO = "uso: melhor-envio.mjs ping | quem | sondar | medir [plana|filters|sem-filtro] [DE-ATE dias atrás, padrão 45-15]";
+const JANELA_PADRAO = "45-15";
 const YAMPI = "https://api.dooki.com.br/v2";
 const ME = "https://melhorenvio.com.br/api/v2/me";
 const UM_DIA = 864e5;
@@ -59,8 +60,8 @@ const cabecalhosMe = () => ({
 const chamarMe = (caminho) => chamar(`${ME}${caminho}`, cabecalhosMe(), 300); // ~200/min; o limite é 250/min
 
 // Pedidos criados na janela, sem `include`: só `created_at` e `track_code` interessam.
-async function pedidosDaYampi(variante, agora) {
-  const periodo = `created_at:${dia(agora - 45 * UM_DIA)}|${dia(agora - 15 * UM_DIA)}`;
+async function pedidosDaYampi(variante, agora, janela) {
+  const periodo = `created_at:${dia(agora - janela.de * UM_DIA)}|${dia(agora - janela.ate * UM_DIA)}`;
   const filtro = { plana: { date: periodo }, filters: { "filters[date]": periodo }, "sem-filtro": {} }[variante];
   const pedidos = [];
   for (let pagina = 1; pagina <= MAX_PAGINAS_YAMPI; pagina++) {
@@ -82,6 +83,7 @@ async function etiquetasDoMelhorEnvio(agora) {
   while (pagina < MAX_PAGINAS_ME) {
     pagina++;
     const r = await chamarMe(`/orders?page=${pagina}`);
+    if (r.status === 204) break; // lista vazia: a doc diz 200 com data=[], a API real devolve 204
     if (r.status !== 200) throw falha("Melhor Envio", r.status);
     const desta = Array.isArray(r.json?.data) ? r.json.data : [];
     etiquetas.push(...desta);
@@ -96,7 +98,7 @@ async function buscar(codigos) {
   let achadas = 0;
   for (const codigo of codigos) {
     const r = await chamarMe(`/orders/search?q=${encodeURIComponent(codigo)}`);
-    if (r.status === 400) continue; // "Not Found"
+    if (r.status === 400 || r.status === 204) continue; // "Not Found" ou lista vazia
     if (r.status !== 200) throw falha("Melhor Envio", r.status);
     const lista = Array.isArray(r.json) ? r.json : Array.isArray(r.json?.data) ? r.json.data : [];
     if (lista.length) achadas++;
@@ -106,17 +108,36 @@ async function buscar(codigos) {
 
 async function ping() {
   const r = await chamarMe("/orders?page=1");
+  if (r.status === 204) return console.log("ping http=204 lista vazia: o token vale, mas a conta autorizada não tem etiqueta listada");
   if (r.status !== 200) throw falha("Melhor Envio", r.status);
   const desta = Array.isArray(r.json?.data) ? r.json.data : [];
   const num = (v) => (Number.isFinite(v) ? v : "?");
   console.log(`ping http=200 total=${num(r.json?.total)} per_page=${num(r.json?.per_page)} last_page=${num(r.json?.last_page)} nesta_pagina=${desta.length} chaves=[${resumirEtiquetas(desta).chaves.join(",")}]`);
 }
 
-async function medir(variante = "plana") {
+// De quem é o token: nome e e-mail mascarados, só o bastante para o Igor reconhecer a conta.
+async function quem() {
+  const r = await chamar("https://melhorenvio.com.br/api/v2/me", cabecalhosMe(), 300);
+  if (r.status !== 200) throw falha("Melhor Envio", r.status);
+  const mascara = (v) => (typeof v === "string" && v ? `${v.slice(0, 2)}***` : "—");
+  const [local, dominio] = String(r.json?.email ?? "").split("@");
+  console.log(`quem nome=${mascara(r.json?.firstname)} email=${mascara(local)}@${dominio || "—"} criada=${String(r.json?.created_at ?? "—").slice(0, 10)}`);
+}
+
+// Lista vazia sem filtro: confere se algum status filtrado devolve etiqueta. Só status e total.
+async function sondar() {
+  for (const status of ["", "pending", "released", "posted", "delivered", "canceled", "undelivered"]) {
+    const r = await chamarMe(`/orders?page=1${status && `&status=${status}`}`);
+    console.log(`sondar status=${status || "(nenhum)"} http=${r.status} total=${r.json?.total ?? "?"}`);
+  }
+}
+
+async function medir(variante = "plana", dias = JANELA_PADRAO) {
   for (const nome of ["YAMPI_ALIAS", "YAMPI_USER_TOKEN", "YAMPI_USER_SECRET_KEY", "MELHORENVIO_TOKEN"]) pedirEnv(nome);
   const agora = Date.now();
-  const pedidos = await pedidosDaYampi(variante, agora);
-  const janela = codigosEnviadosNaJanela(pedidos, agora);
+  const [de, ate] = dias.split("-").map(Number);
+  const pedidos = await pedidosDaYampi(variante, agora, { de, ate });
+  const janela = codigosEnviadosNaJanela(pedidos, agora, { de, ate });
   pedidos.length = 0;
   const { etiquetas, paginas } = await etiquetasDoMelhorEnvio(agora);
   const resumo = resumirEtiquetas(etiquetas);
@@ -141,9 +162,15 @@ async function medir(variante = "plana") {
   );
 }
 
-const [comando, a] = process.argv.slice(2);
-const comandos = { ping, medir: () => medir(a) };
-if (!comandos[comando] || (comando === "medir" && a !== undefined && !VARIANTES.includes(a))) {
+// Janela "DE-ATE" em dias atrás, com DE > ATE (ex.: 14-0 para uma loja que começou a vender há duas semanas).
+const janelaValida = (j) => /^\d{1,3}-\d{1,3}$/.test(j) && Number(j.split("-")[0]) > Number(j.split("-")[1]);
+const [comando, a, b] = process.argv.slice(2);
+const comandos = { ping, quem, sondar, medir: () => medir(a, b) };
+if (
+  !comandos[comando] ||
+  (comando === "medir" && a !== undefined && !VARIANTES.includes(a)) ||
+  (comando === "medir" && b !== undefined && !janelaValida(b))
+) {
   console.error(USO);
   process.exit(2);
 }

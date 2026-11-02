@@ -26,15 +26,37 @@ const statusDe = (e) => (typeof e?.status === "string" && /^[a-z_]{1,30}$/.test(
 // Os campos do Melhor Envio são snake_case minúsculo: código (maiúsculo) e documento (só dígitos) não passam.
 const nomeDe = (chave) => (/^[a-z][a-z0-9_]{0,39}$/.test(chave) ? chave : "outro");
 
-export function codigosEnviadosNaJanela(pedidos, agora) {
-  const inicio = diaAntes(agora, 45);
-  const fim = diaAntes(agora, 15);
+// Nome de serviço de envio (PAC, SEDEX, Jadlog...) e status da Yampi viram chave da saída: só formato curto, nunca texto livre.
+// Nome do serviço é texto da loja, não do cliente: tira o que não for letra, dígito ou pontuação simples e corta em 40.
+// Valor que não é texto vira `tipo:<tipo>`, para a medição dizer o que veio no lugar.
+const servicoDe = (v) => {
+  if (v === null || v === undefined || v === "") return "nenhum";
+  if (typeof v !== "string") return `tipo:${Array.isArray(v) ? "lista" : typeof v}`;
+  return v.replace(/[^\p{L}\p{N} .,()/:+&\-–]/gu, "").trim().slice(0, 40) || "outro";
+};
+// A API REST da Yampi embrulha relação em `{ data }`; o webhook não.
+const statusYampiDe = (p) => {
+  const alias = p?.status?.data?.alias ?? p?.status?.alias;
+  return typeof alias === "string" && /^[a-z_-]{1,30}$/.test(alias) ? alias : "outro";
+};
+// Diz de onde vem o código sem mostrá-lo: o formato dos Correios, ou o desenho (L = letra, 9 = dígito) e o tamanho.
+const formatoDe = (codigo) =>
+  /^[A-Z]{2}\d{9}[A-Z]{2}$/.test(codigo) ? "correios" : `${codigo.replace(/[A-Z]/g, "L").replace(/\d/g, "9").replace(/[^L9]/g, "?").slice(0, 30)}`;
+const somar = (obj, chave) => ({ ...obj, [chave]: (obj[chave] ?? 0) + 1 });
+
+// `janela`: dias atrás do começo (`de`) e do fim (`ate`). O padrão pega pedidos que já tiveram tempo de ser entregues.
+export function codigosEnviadosNaJanela(pedidos, agora, janela = { de: 45, ate: 15 }) {
+  const inicio = diaAntes(agora, janela.de);
+  const fim = diaAntes(agora, janela.ate);
   const codigos = new Set();
   let semData = 0;
   let naJanela = 0;
   let comCodigo = 0;
   let maisAntigo = null;
   let maisNovo = null;
+  let porServico = {};
+  let porFormato = {};
+  let porStatusYampi = {};
   for (const p of pedidos) {
     const dia = diaDe(p?.created_at);
     if (!dia) {
@@ -45,12 +67,15 @@ export function codigosEnviadosNaJanela(pedidos, agora) {
     maisNovo = maior(maisNovo, dia);
     if (dia < inicio || dia > fim) continue;
     naJanela++;
+    porServico = somar(porServico, servicoDe(p.shipment_service));
+    porStatusYampi = somar(porStatusYampi, statusYampiDe(p));
     const codigo = normalizarCodigo(p.track_code);
     if (!codigo) continue;
     comCodigo++;
+    porFormato = somar(porFormato, formatoDe(codigo));
     codigos.add(codigo);
   }
-  return { codigos: [...codigos], inicio, fim, baixados: pedidos.length, semData, naJanela, comCodigo, maisAntigo, maisNovo };
+  return { codigos: [...codigos], inicio, fim, baixados: pedidos.length, semData, naJanela, comCodigo, maisAntigo, maisNovo, porServico, porFormato, porStatusYampi };
 }
 
 export function indexar(etiquetas) {
@@ -116,7 +141,7 @@ export function linhasDoResultado(m) {
   const pct = m.codigos ? Math.round((100 * achadas) / m.codigos) : 0;
   const datas = Object.entries(m.datasPorStatus ?? {}).map(([status, campos]) => `${status}: ${contagens(campos)}`).join("; ") || "—";
   return [
-    `| M1 | Pedidos da Yampi criados de ${m.inicio} a ${m.fim} (variante ${m.variante}) | ${m.naJanela} na janela, ${m.comCodigo} com código, ${m.codigos} códigos únicos; ${m.baixados} baixados, de ${ou(m.maisAntigo)} a ${ou(m.maisNovo)}; ${m.semData} sem data |`,
+    `| M1 | Pedidos da Yampi criados de ${m.inicio} a ${m.fim} (variante ${m.variante}) | ${m.naJanela} na janela, ${m.comCodigo} com código, ${m.codigos} códigos únicos; ${m.baixados} baixados, de ${ou(m.maisAntigo)} a ${ou(m.maisNovo)}; ${m.semData} sem data; serviço: ${contagens(m.porServico)}; formato do código: ${contagens(m.porFormato)}; status na Yampi: ${contagens(m.porStatusYampi)} |`,
     `| M2 | Etiquetas que o app da Girumo lista na conta da piloto | ${m.listadas} em ${m.paginas} página(s); a mais antiga de ${ou(m.maisAntiga)} |`,
     `| M3 | Códigos da Yampi achados no Melhor Envio | ${achadas} de ${m.codigos} (${pct}%): ${m.achadasTracking} pelo \`tracking\`, ${m.achadasSelf} pelo \`self_tracking\`, ${m.achadasNaBusca} só pela busca (${m.buscados} buscados) |`,
     `| M4 | Status das etiquetas listadas | ${contagens(m.porStatus)} |`,
