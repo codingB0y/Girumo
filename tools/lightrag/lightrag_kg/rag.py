@@ -1,4 +1,6 @@
 import asyncio
+import re
+from contextlib import asynccontextmanager
 
 import networkx as nx
 
@@ -7,6 +9,11 @@ from .llm import embedding_func, llm_model_func
 
 _rag_instance = None
 _init_lock = asyncio.Lock()
+_insert_lock = asyncio.Lock()
+
+# Id que o LightRAG gera sozinho (md5 do nome da fonte): os `rag insert` e
+# `kg_insert_text`. Arquivo do indice tem id de 12 hex (index.doc_id_for).
+_INSERT_DOC_ID = re.compile(r"doc-[0-9a-f]{32}")
 
 
 async def get_rag():
@@ -54,9 +61,38 @@ async def get_rag():
         return _rag_instance
 
 
+@asynccontextmanager
+async def _only_docs(rag, ids):
+    """O pipeline do LightRAG processa so `ids` e os inserts ainda nao processados.
+
+    Por padrao todo `ainsert` processa TODO doc failed/pending/processing do storage,
+    e reprocessar doc ja extraido reconstroi as entidades compartilhadas (LLM +
+    embedding). Com fila grande, cada insert queimava a cota diaria: em 01/11/2026
+    eram 116 arquivos failed (4,5M chars) e nenhuma decisao nova entrava.
+    Arquivo failed de outro lote volta pelo proprio lote (fica fora do manifest);
+    insert failed e pequeno e so volta assim, entao continua indo junto.
+    So o processamento consulta `get_docs_by_statuses`: o dedupe do enqueue nao.
+    """
+    keep = set(ids)
+    original = rag.doc_status.get_docs_by_statuses
+
+    async def scoped(statuses):
+        docs = await original(statuses)
+        return {k: v for k, v in docs.items() if k in keep or _INSERT_DOC_ID.fullmatch(k)}
+
+    # Um insert por vez no processo: dois filtros trocados no mesmo objeto se perdem.
+    async with _insert_lock:
+        rag.doc_status.get_docs_by_statuses = scoped
+        try:
+            yield
+        finally:
+            rag.doc_status.get_docs_by_statuses = original
+
+
 async def insert_batch(texts: list[str], ids: list[str], file_paths: list[str]):
     rag = await get_rag()
-    await rag.ainsert(texts, ids=ids, file_paths=file_paths)
+    async with _only_docs(rag, ids):
+        await rag.ainsert(texts, ids=ids, file_paths=file_paths)
 
 
 async def purge_stale_records(file_paths: list[str]) -> dict[str, int]:
@@ -107,7 +143,8 @@ async def purge_stale_records(file_paths: list[str]) -> dict[str, int]:
 
 async def insert_text(text: str, source: str):
     rag = await get_rag()
-    await rag.ainsert(text, file_paths=[source])
+    async with _only_docs(rag, ()):
+        await rag.ainsert(text, file_paths=[source])
 
 
 async def query(question: str, mode: str = "hybrid") -> str:
