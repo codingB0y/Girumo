@@ -247,6 +247,36 @@ test("checkout: sem STRIPE_PRICE_RECUPERAR → 503", async () => {
   semRegistroDeAviso();
 });
 
+test("checkout: falha ao registrar o aviso → 500 do registro, antes de qualquer chamada ao Stripe", async () => {
+  plano = "active";
+  process.env.STRIPE_PRICE_RECUPERAR = "price_rc";
+  const original = banco;
+  banco = (p) => (p.url.pathname === "/rest/v1/logs" ? { status: 500, body: { message: "falha" } } : original(p));
+  const res = await checkout(chamar("POST", CHECKOUT, "token-dono", { avisoConfirmado: true }));
+  assert.equal(res.status, 500);
+  assert.deepEqual(await res.json(), { error: "Não deu pra registrar a confirmação. Tente de novo." });
+});
+
+test("checkout: o aviso é gravado uma vez, com origem checkout, antes de o Stripe ser chamado", async () => {
+  plano = "active";
+  process.env.STRIPE_PRICE_RECUPERAR = "price_rc";
+  const chaveAntes = process.env.STRIPE_SECRET_KEY;
+  delete process.env.STRIPE_SECRET_KEY;
+  try {
+    const res = await checkout(chamar("POST", CHECKOUT, "token-dono", { avisoConfirmado: true }));
+    assert.equal(res.status, 500);
+    assert.deepEqual(await res.json(), { error: "Não deu pra abrir o pagamento. Tente de novo." });
+  } finally {
+    if (chaveAntes !== undefined) process.env.STRIPE_SECRET_KEY = chaveAntes;
+  }
+  const avisos = pedidosA("/rest/v1/logs");
+  assert.equal(avisos.length, 1);
+  const [aviso] = avisos;
+  assert.equal(aviso.method, "POST");
+  assert.equal((aviso.body as { tenant_id: string }).tenant_id, LOJA);
+  assert.equal((aviso.body as { metadata: { origem: string } }).metadata.origem, "checkout");
+});
+
 test("status: sem login → 401, e nada é lido", async () => {
   const res = await statusGet(chamar("GET", "/api/recuperar/status", null));
   assert.equal(res.status, 401);
@@ -276,6 +306,14 @@ test("status: loja com o add-on conta só as conversas dela que precisam de resp
 test("status: erro na contagem é 500, nunca enabled false", async () => {
   ligado = true;
   contagemFalha = true;
+  const res = await statusGet(chamar("GET", "/api/recuperar/status", "token-dono"));
+  assert.equal(res.status, 500);
+  assert.deepEqual(await res.json(), { error: "Não deu pra ler o Recuperar." });
+});
+
+test("status: erro ao ler o tenant_settings é 500, nunca enabled false", async () => {
+  const original = banco;
+  banco = (p) => (p.url.pathname === "/rest/v1/tenant_settings" ? { status: 500, body: { message: "falha" } } : original(p));
   const res = await statusGet(chamar("GET", "/api/recuperar/status", "token-dono"));
   assert.equal(res.status, 500);
   assert.deepEqual(await res.json(), { error: "Não deu pra ler o Recuperar." });
