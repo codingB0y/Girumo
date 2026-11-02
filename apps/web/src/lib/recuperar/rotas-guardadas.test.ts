@@ -6,8 +6,9 @@ import { fileURLToPath } from "node:url";
 
 /**
  * Estrutural do Recuperar (mesmo padrão de `lib/auth/memberships-allowlist.test.ts`):
- * toda rota do módulo exige o add-on. Sem `requireRecuperar(req)`, a loja que não
- * assinou (ou que cancelou) continua lendo e escrevendo no módulo.
+ * toda rota do módulo exige o add-on, em cada handler exportado (`export function`;
+ * `export const GET =` é recusado). Sem `await requireRecuperar(req)`, a loja que não
+ * assinou (ou que cancelou) continua lendo e escrevendo no módulo. Comentário não conta.
  */
 
 /** apps/web/src/app/api/recuperar — este arquivo mora em src/lib/recuperar. */
@@ -25,12 +26,23 @@ const rotas = existsSync(RAIZ)
 
 const fonte = (rota: string) => readFileSync(join(RAIZ, rota), "utf8");
 
-test("toda rota do módulo exige o add-on, menos o status", () => {
-  const sem = rotas.filter((r) => !SEM_GUARDA.has(r) && !fonte(r).includes("requireRecuperar("));
-  assert.deepEqual(sem, [], "rota do Recuperar sem requireRecuperar(req): sem isso a loja desligada continua usando o módulo");
+const semComentario = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
+const HANDLER = /\bexport\s+(?:async\s+)?function\s+(?:GET|POST|PUT|PATCH|DELETE)\b/g;
+const HANDLER_CONST = /\bexport\s+const\s+(?:GET|POST|PUT|PATCH|DELETE)\b/;
+const GUARDA = /\bawait\s+requireRecuperar\(\s*req\b/g;
+const contar = (codigo: string, re: RegExp) => (codigo.match(re) ?? []).length;
+
+test("toda rota do módulo exige o add-on em cada handler, menos o status", () => {
+  const sem = rotas.filter((r) => {
+    if (SEM_GUARDA.has(r)) return false;
+    const codigo = semComentario(fonte(r));
+    const handlers = contar(codigo, HANDLER);
+    return HANDLER_CONST.test(codigo) || handlers === 0 || contar(codigo, GUARDA) < handlers;
+  });
+  assert.deepEqual(sem, [], "rota do Recuperar com handler sem `await requireRecuperar(req)`");
 });
 
 test("o status responde à loja sem o add-on: não chama requireRecuperar e existe", () => {
   assert.ok(rotas.includes("status/route.ts"));
-  assert.equal(fonte("status/route.ts").includes("requireRecuperar("), false);
+  assert.equal(contar(semComentario(fonte("status/route.ts")), GUARDA), 0);
 });
