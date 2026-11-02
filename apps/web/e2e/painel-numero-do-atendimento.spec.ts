@@ -15,7 +15,7 @@ import { confirmarNaFolha } from "./confirmacao";
 const CONECTADA = {
   id: "inst-e2e",
   name: "WhatsApp",
-  phone: "556298191314",
+  phone: "5511900000001",
   status: "connected",
   qr_code: null,
   connected_at: "2026-06-02T12:00:00Z",
