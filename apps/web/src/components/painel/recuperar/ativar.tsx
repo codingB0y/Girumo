@@ -66,6 +66,18 @@ export function AtivarRecuperar() {
     return () => clearInterval(t);
   }, [esperando, recarregarRecuperar]);
 
+  // Voltar do Stripe pelo botão Voltar restaura a página do bfcache com o estado de
+  // antes da navegação: sem isto o botão ficaria em "Abrindo…", travado, para sempre.
+  useEffect(() => {
+    const aoVoltar = (e: PageTransitionEvent) => {
+      if (!e.persisted) return;
+      trava.current = false;
+      setOcupado(false);
+    };
+    window.addEventListener("pageshow", aoVoltar);
+    return () => window.removeEventListener("pageshow", aoVoltar);
+  }, []);
+
   /** POST que devolve `{ url }` do Stripe. Com a url, segue ocupado até a navegação; só destrava em erro. */
   async function abrir(rota: string, corpo: object | undefined, erroPadrao: string) {
     if (trava.current) return;
