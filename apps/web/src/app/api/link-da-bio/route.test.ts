@@ -113,7 +113,7 @@ function bancoInicial(): Record<string, Linha[]> {
     ],
     tracked_links: [linkMestre(VIP, "vip-atacado"), linkMestre(DA_OUTRA, "vip-da-outra", OUTRA)],
     instances: [
-      { id: randomUUID(), tenant_id: LOJA, name: "Loja", phone: CONECTADO, status: "connected", provider: "evolution", metadata: {}, created_at: AGORA, updated_at: AGORA },
+      { id: randomUUID(), tenant_id: LOJA, name: "Loja", phone: CONECTADO, purpose: "grupos", status: "connected", provider: "evolution", metadata: {}, created_at: AGORA, updated_at: AGORA },
     ],
     custom_domains: [
       { tenant_id: LOJA, hostname: "links.atelie-ficticio.test", verification_token: "t", status: "active", last_error: null, checked_at: AGORA, verified_at: AGORA },

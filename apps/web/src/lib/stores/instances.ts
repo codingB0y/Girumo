@@ -20,11 +20,18 @@ export type InstanceStatus =
   | "blocked"
   | "error";
 
+/**
+ * Para que o número serve. `grupos` posta e administra os grupos da loja; `privado` é o número do
+ * atendimento do Recuperar e do Rastreio (no máximo um por loja) e nunca entra em grupo.
+ */
+export type InstancePurpose = "grupos" | "privado";
+
 export type Instance = {
   id: string;
   tenant_id: string;
   name: string;
   phone: string | null;
+  purpose: InstancePurpose;
   status: InstanceStatus;
   qr_code: string | null;
   provider: string;
@@ -40,10 +47,14 @@ const TABLE = "instances";
 
 /** Colunas seguras para devolver ao painel. `qr_code` só sai em `getInstance`. */
 const LIST_COLUMNS =
-  "id, tenant_id, name, phone, status, provider, provider_instance_id, last_seen_at, connected_at, metadata, created_at, updated_at";
+  "id, tenant_id, name, phone, purpose, status, provider, provider_instance_id, last_seen_at, connected_at, metadata, created_at, updated_at";
 
 const FULL_COLUMNS = `${LIST_COLUMNS}, qr_code`;
 
+/**
+ * Todos os números da loja, inclusive o do atendimento. Serve para "esse telefone é nosso?".
+ * Para escolher o número que posta, `listGroupInstances`.
+ */
 export async function listInstances(tenantId: string): Promise<Instance[]> {
   const { data, error } = await getSupabaseAdmin()
     .from(TABLE)
@@ -52,6 +63,30 @@ export async function listInstances(tenantId: string): Promise<Instance[]> {
     .order("created_at", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []) as unknown as Instance[];
+}
+
+/** Os números que postam. Todo seletor de "número da loja" usa esta, não `listInstances`. */
+export async function listGroupInstances(tenantId: string): Promise<Instance[]> {
+  const { data, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .select(FULL_COLUMNS)
+    .eq("tenant_id", tenantId)
+    .eq("purpose", "grupos")
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as unknown as Instance[];
+}
+
+/** O número do atendimento da loja: no máximo um (índice único parcial `instances_one_privado_per_tenant`). */
+export async function getPrivadoInstance(tenantId: string): Promise<Instance | null> {
+  const { data, error } = await getSupabaseAdmin()
+    .from(TABLE)
+    .select(FULL_COLUMNS)
+    .eq("tenant_id", tenantId)
+    .eq("purpose", "privado")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data as unknown as Instance) ?? null;
 }
 
 export async function getInstance(tenantId: string, id: string): Promise<Instance | null> {

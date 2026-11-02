@@ -1,6 +1,9 @@
 import argparse
 import asyncio
 import json as json_mod
+import os
+import sys
+import traceback
 
 from rich.console import Console
 from rich.markdown import Markdown
@@ -212,8 +215,21 @@ def main():
 
     if getattr(args, "sync", False):
         args.func(args)
-    else:
-        asyncio.run(args.func(args))
+        return
+    # Sem asyncio.run: depois de um lote que falha, a limpeza dele (ou os workers do
+    # LightRAG) deixava o processo vivo. Em 01/11/2026 o index das 03h17 imprimiu o
+    # resumo e ficou 6h parado, ate o run seguinte mata-lo como orfao.
+    code = 0
+    try:
+        asyncio.new_event_loop().run_until_complete(args.func(args))
+    except SystemExit as exc:
+        code = exc.code if isinstance(exc.code, int) else 1
+    except BaseException:
+        traceback.print_exc()
+        code = 1
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(code)
 
 
 if __name__ == "__main__":

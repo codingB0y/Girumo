@@ -384,3 +384,69 @@ Erros:
 - `403` — papel sem `message:send`, vendedora sem o módulo de postar, ou chamada da engine
 - `501 { error: "A contagem de posts de hoje precisa do banco." }` — sem `USE_SUPABASE` (modo JSON não tem contagem)
 - `500 { error: "Não deu para ler os posts de hoje." }` — o RPC falhou ou devolveu formato inesperado
+
+## Rastreio do pedido — 31/10/2026
+
+Contrato das rotas do Rastreio; cada uma diz o PR que a cria. Nenhuma existe ainda: a Parte 2 do PR 1 só publica
+os tipos (`lib/rastreio/tipos.ts`) e as stores (`lib/stores/rastreio-*.ts`).
+
+**Rotas de painel** (`/api/rastreio/*`): `allowEngine: false`, o tenant é sempre o da sessão (nunca da query ou do
+corpo), permissão `settings:connection` (a vendedora leva 403). Loja sem `rastreio_enabled` leva
+`403 { error: "O Rastreio de pedidos não está liberado para esta loja.", code: "rastreio_disabled" }` (molde de
+`lib/ig/access.ts`). Nada da compradora sai além do primeiro nome.
+
+### Cron
+
+`GET /api/cron/rastreio` (PR 2, a cada 5 min, `isCronAuthorized`) → `200 { ok: true, lojas, falhas, purgados }`.
+`purgados` é `number` só na execução das 06:00 UTC (`purgarVencidos()`); nas outras é `null`.
+
+### Configuração
+
+`GET /api/rastreio/config` (PR 6) → `{ config, linkDaBusca }`, com `config: Omit<RastreioConfig, "tenantId" | "sweepCursor">`.
+Cria a config na primeira leitura (`garantirConfig`).
+
+`PATCH /api/rastreio/config` (PR 6) — qualquer parte de `{ publicSlug, matrix, notifyStoreOnProblem, vipLinkId, storeWhatsapp }`;
+responde como o GET.
+- `400 { error, campo }` — slug fora do formato ou reservado, matriz incompleta, número inválido (ou o dos grupos,
+  por `lib/bio/conferir.ts`), link de outra loja
+- `409 { error, campo: "publicSlug" }` — `SlugEmUso`
+
+### Entregas
+
+Todas exigem `settings:connection` (dono e admin; a vendedora leva o 403 do mapa) e `rastreio_enabled`; desligado →
+`403 { error, code: "rastreio_disabled" }`. Resposta sempre com `Cache-Control: no-store`.
+
+`GET|POST /api/rastreio/entregas` (PR 6) — corpo do `POST`: `{ filtro?, busca?, pagina?, pedido? }`. `filtro` (`todos` ·
+`a_caminho` · `sem_codigo` · `problema` · `whatsapp_falhou` · `entregues`), `busca` (nº do pedido, nome ou CPF/CNPJ via
+`doc_hmac`), `pagina` (1-400), `pedido` (uuid, abre um pedido). O `GET` lê `filtro`, `pagina` e `pedido` da query e
+**ignora `busca`**: o documento nunca vai em URL nem em log. `400 { error }` se `pedido` não for uuid (`pedido` vazio
+conta como ausente). Com `pedido`, `pagina` é ignorada. Busca com cara de CPF/CNPJ que não valida (documento digitado
+errado) ou nome de 1 letra → lista vazia (`total: 0`), sem consultar o banco. Página depois do fim → `linhas: []` com o
+`total` certo. `429 { error }` acima de 60 consultas por minuto por loja.
+
+`200` → `RespostaDeEntregas`: `{ numeros, filtro, pagina, porPagina, total, linhas, atualizadoEm }`
+- `numeros` — `{ todos, aCaminho, semCodigo, problema, whatsappFalhou, entreguesEm7Dias, avisosHoje: { whatsapp, email } }`
+- `linhas` — uma por pedido: `{ id, numero, primeiroNome, etapa, etapaAt, semCodigoHaDias, trackingCode,
+  avisos: [{ texto, falhou }], link, telefone, podeReenviar }`. Só o primeiro nome da compradora; `telefone` só na
+  linha `problema` (para "Chamar compradora", `null` nas outras); `link` é `null` quando os dados da loja não vêm;
+  nunca e-mail, documento ou endereço.
+
+`POST /api/rastreio/entregas/[id]/reenviar` (PR 6; `reabrirAvisos` da etapa atual) → `200 { reabertos, canais }`.
+Avisos em `pendente`/`enviando` não são reabertos; quem envia é o cron (até 5 min), a rota não envia. `reabertos: 0`
+quer dizer que o aviso já está a caminho (nada a reabrir), não erro.
+- `400` — `id` que não é uuid · `404` — pedido que não é da loja
+- `409 { error, code }` com `code`: `avisos_parados` (compradora pediu para parar) · `etapa_sem_aviso` · `sem_canal`
+- `429 { error }` — acima de 10 reenvios por minuto por loja
+
+`GET /api/rastreio/saude` (PR 6) → `{ enviados, comCodigo, maisAntigoSemCodigo: { id, numero, desde } | null }`,
+sobre os pedidos postados nos últimos 7 dias.
+
+### Página pública (PR 3)
+
+`GET/POST /rastreio/[slug]` (busca), `GET /rastreio/[slug]/[token]` (um pedido) e
+`POST /rastreio/[slug]/[token]/parar` — no domínio do lojista, sem o `[slug]`.
+- HTML com `x-robots-tag: noindex`, `cache-control: private, no-store` e CSP com nonce
+- loja sem o Rastreio ligado → `404`
+- textos fixos do índice; `429` acima de 5/min ou 20/h por IP + loja
+- o token mostra um pedido só; token desconhecido → `404` com a busca
+- parar avisos só por `POST` (`303`); `GET` no `/parar` → `405` sem gravar; nunca escreve em `optouts`

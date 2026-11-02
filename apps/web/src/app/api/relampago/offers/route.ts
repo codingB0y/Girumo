@@ -3,7 +3,7 @@ import { isDraftMode, validateOfferBody, type OfferBody } from "@/lib/funnels/dr
 import { normalizeKeyword } from "@/lib/relampago/keyword";
 import { lidMapFromParticipants, mergeLidMaps } from "@/lib/relampago/lid-map";
 import { lidMapFromHistory, listOffers } from "@/lib/stores/flash-offers";
-import { listInstances } from "@/lib/stores/instances";
+import { listGroupInstances } from "@/lib/stores/instances";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { getTenantContext } from "@/lib/supabase/tenant-context";
 
@@ -149,7 +149,8 @@ export async function POST(req: Request) {
   // bonita e inútil.
   let participantesPorGrupo: Record<string, Record<string, string>> = {};
   try {
-    const instancias = await listInstances(ctx.tenantId);
+    // Só o número dos grupos lê os participantes: o do atendimento não está nos grupos da loja.
+    const instancias = await listGroupInstances(ctx.tenantId);
     const conectada = instancias.find((i) => i.status === "connected");
     if (conectada) {
       const todos = await fetchAllGroups(providerInstanceId(conectada.id));

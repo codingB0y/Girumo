@@ -11,10 +11,9 @@ _client = None
 _resolved_llm_model = None
 _resolved_embedding_model = None
 
-# Tier pago (creditos pre-pagos no AI Studio desde 02/10/2026): sem intervalo
-# entre chamadas — o teto vem da concorrencia em rag.py e o 429 do backoff abaixo.
-# Se o projeto voltar ao free tier, LIGHTRAG_MIN_CALL_INTERVAL=4.5 restaura a trava.
-_MIN_CALL_INTERVAL_SECONDS = float(os.environ.get("LIGHTRAG_MIN_CALL_INTERVAL", "0"))
+# Free tier (decisao de 29/10/2026, sem creditos): 4,5s entre chamadas mantem o LLM
+# abaixo de 15 req/min. No tier pago, LIGHTRAG_MIN_CALL_INTERVAL=0 tira a trava.
+_MIN_CALL_INTERVAL_SECONDS = float(os.environ.get("LIGHTRAG_MIN_CALL_INTERVAL", "4.5"))
 _throttle_lock = asyncio.Lock()
 _last_call_ts = 0.0
 
@@ -40,6 +39,10 @@ def get_client():
 
 def _is_retryable(exc: BaseException) -> bool:
     message = str(exc).upper()
+    # Cota diaria (quotaId ...PerDay...) so volta na meia-noite do Pacifico: repetir
+    # so atrasa a falha. Em 01/11/2026 um lote levou 40+ min tentando antes de desistir.
+    if "PERDAY" in message:
+        return False
     return any(
         code in message
         for code in ("429", "500", "503", "504", "UNAVAILABLE", "RESOURCE_EXHAUSTED")

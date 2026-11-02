@@ -88,7 +88,7 @@ Fora da lista da spec e decididos aqui: 3, 4, 8, 11, 13 (já citado como "quem u
 
 | Arquivo | Responsabilidade | Tarefa |
 |---|---|---|
-| `apps/web/supabase/migrations/20261029160000_numero_do_atendimento.sql` | os três corpos com `purpose` | 1 |
+| `apps/web/supabase/migrations/20261030160000_numero_do_atendimento.sql` | os três corpos com `purpose` | 1 |
 | `infra/tests/numero-do-atendimento-check.sql` | RED/GREEN da migração nos dois bancos | 1 |
 | `apps/worker/src/pick-send-instance.ts`, `grow-deps.ts`, `bulk-deps.ts`, `recount-loop.ts` | o worker só usa o número dos grupos | 2 |
 | `apps/web/src/lib/stores/instances.ts` | `purpose`, `listGroupInstances`, `getPrivadoInstance` | 3 |
@@ -119,7 +119,7 @@ A Tarefa 11 fecha cada um. **2a:** Steps 1–5, 7 e 8 (migração e check em dev
 
 **Files:**
 - Create: `infra/tests/numero-do-atendimento-check.sql`
-- Create: `apps/web/supabase/migrations/20261029160000_numero_do_atendimento.sql` (nome entre o do PR 1b, `20261029140000`, e o do PR 3, `20261030120000`, que depende deste; a ordem que vale é a do `apply-order.txt`)
+- Create: `apps/web/supabase/migrations/20261030160000_numero_do_atendimento.sql` (nome entre o do PR 1b, `20261029140000`, e o do PR 3, `20261030120000`, que depende deste; a ordem que vale é a do `apply-order.txt`)
 - Modify: `deploy/supabase/apply-order.txt` (fim do arquivo)
 
 **Interfaces:**
@@ -143,7 +143,7 @@ Expected nos dois: `app.enqueue_broadcast(uuid,uuid)` → `1f4dd5f929572998777a1
 - [ ] **Step 2: Escrever o check** em `infra/tests/numero-do-atendimento-check.sql`, exatamente:
 
 ```sql
--- Conferência da migração 20261029160000_numero_do_atendimento.sql (o número do atendimento fica fora
+-- Conferência da migração 20261030160000_numero_do_atendimento.sql (o número do atendimento fica fora
 -- de todo seletor de post no banco), nos DOIS bancos. Rodar de apps\web:
 --   npx supabase link --project-ref <ref> --yes      # dev wfjuwogxaupyadwhvoxy / prod nidoatbxaylrkcgbszns
 --   npx supabase db query --linked -o json -f ../../infra/tests/numero-do-atendimento-check.sql
@@ -318,7 +318,7 @@ begin
      where p.oid is null
         or md5(btrim(regexp_replace(regexp_replace(p.prosrc, '--[^\n]*', '', 'g'), '\s+', ' ', 'g'))) <> f.md5
   ) then
-    raise exception 'FALHOU: corpo de função diferente do da migração 20261029160000';
+    raise exception 'FALHOU: corpo de função diferente do da migração 20261030160000';
   end if;
 
   if exists (
@@ -352,7 +352,7 @@ npx supabase db query --linked -o json -f ../../infra/tests/numero-do-atendiment
 
 Expected: erro com `FALHOU: o post saiu pelo número do atendimento`.
 
-- [ ] **Step 4: Escrever a migração** `apps/web/supabase/migrations/20261029160000_numero_do_atendimento.sql`, exatamente (os corpos são os de hoje com uma troca cada; os comentários dentro do corpo não entram no md5):
+- [ ] **Step 4: Escrever a migração** `apps/web/supabase/migrations/20261030160000_numero_do_atendimento.sql`, exatamente (os corpos são os de hoje com uma troca cada; os comentários dentro do corpo não entram no md5):
 
 ```sql
 -- 2026-10-29 - Número do atendimento (Recuperar PR 2, comum com o Rastreio): no banco, quem escolhe
@@ -832,7 +832,7 @@ grant execute on function public.avaliar_disjuntor_saidas(uuid) to service_role;
 # atendimento (fica fora do claim de post e da saúde); public.avaliar_disjuntor_saidas só conta envio do número
 # dos grupos. Só corpo, com trava de md5: não muda a baseline. Depende de instances.purpose (PR 1a). Conferir
 # com infra/tests/numero-do-atendimento-check.sql nos dois bancos.
-apps/web/supabase/migrations/20261029160000_numero_do_atendimento.sql
+apps/web/supabase/migrations/20261030160000_numero_do_atendimento.sql
 ```
 
 - [ ] **Step 6: Recalcular do repo os md5 da trava** (prova que o corpo copiado é o de hoje com só a troca):
@@ -844,7 +844,7 @@ const { createHash } = require("crypto");
 const md5n = (s) => createHash("md5").update(s.replace(/--[^\n]*/g, "").replace(/\s+/g, " ").trim(), "utf8").digest("hex");
 const corpo = (t, cab) => { const i = t.indexOf(cab); if (i < 0) throw new Error(cab); const s = t.indexOf("as $$", i) + 5; return t.slice(s, t.indexOf("$$;", s)); };
 const M = "apps/web/supabase/migrations/";
-const nova = fs.readFileSync(M + "20261029160000_numero_do_atendimento.sql", "utf8");
+const nova = fs.readFileSync(M + "20261030160000_numero_do_atendimento.sql", "utf8");
 for (const [nome, antiga, cab] of [
   ["app.enqueue_broadcast", "20261026120000_teto_posts_por_grupo.sql", "create or replace function app.enqueue_broadcast("],
   ["app.instance_caps", "20260904100000_perfil_do_numero_e_caps.sql", "create or replace function app.instance_caps("],
@@ -868,7 +868,7 @@ public.avaliar_disjuntor_saidas 13246a4fb89d8de0375c2d78fea3934a 448edbce30d6ac7
 - [ ] **Step 7: Commit.** O GREEN do check roda na Tarefa 11, depois que o `migrate-dev` aplicar.
 
 ```bash
-git add infra/tests/numero-do-atendimento-check.sql apps/web/supabase/migrations/20261029160000_numero_do_atendimento.sql deploy/supabase/apply-order.txt
+git add infra/tests/numero-do-atendimento-check.sql apps/web/supabase/migrations/20261030160000_numero_do_atendimento.sql deploy/supabase/apply-order.txt
 git commit -m "feat(db): keep the attendance number out of every post selector" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 

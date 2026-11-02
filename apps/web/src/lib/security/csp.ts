@@ -13,12 +13,13 @@
  * recebem conteúdo controlado pelo lojista — /p/:slug (headline, foto, ids de
  * pixel), /r/:slug (intersticial com o Pixel do Meta) e /bio/:slug (link da
  * bio, HTML do route handler, com os hosts da Meta e do GA fixos — PR 7). É onde um XSS teria de onde sair, e o nonce ali
- * custa zero em performance.
+ * custa zero em performance. A quarta é /rastreio/:slug (rastreio do pedido, HTML do route
+ * handler, sem terceiros).
  */
 
 import { SENTRY_CSP_HOST } from "@/lib/observability/sentry-options";
 
-export type NonceSurface = "public-lp" | "click-redirect" | "bio";
+export type NonceSurface = "public-lp" | "click-redirect" | "bio" | "rastreio";
 
 /**
  * Só as rotas SEM pré-render entram. Antes de adicionar uma superfície aqui,
@@ -30,6 +31,7 @@ export function surfaceForPath(pathname: string): NonceSurface | null {
   if (pathname === "/r" || pathname.startsWith("/r/")) return "click-redirect";
   if (pathname === "/c" || pathname.startsWith("/c/")) return "click-redirect";
   if (pathname === "/bio" || pathname.startsWith("/bio/")) return "bio";
+  if (pathname === "/rastreio" || pathname.startsWith("/rastreio/")) return "rastreio";
   return null;
 }
 
@@ -92,6 +94,22 @@ const RASTREADORES_SCRIPT = [
 ] as const;
 
 export function buildCsp(surface: NonceSurface, nonce: string, isDev: boolean): string {
+  if (surface === "rastreio") {
+    // Rastreio do pedido (spec rastreio-pedidos §3.5): HTML do route handler, sem terceiros.
+    // Um script só (o "Copiar"), com nonce; a busca e o "parar avisos" postam na própria origem.
+    return [
+      "default-src 'none'",
+      scriptSrc(nonce, isDev, [], true),
+      `style-src 'self' 'nonce-${nonce}'`,
+      "img-src 'self' data:",
+      "font-src 'self'",
+      "object-src 'none'",
+      "base-uri 'none'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+    ].join("; ");
+  }
+
   if (surface === "bio") {
     // Link da bio (spec link-da-bio §6): HTML montado à mão, sem React — `<style>` e
     // `<script>` só com o nonce. Os hosts da Meta e do GA são FIXOS (PR 7), como no

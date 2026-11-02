@@ -11,6 +11,7 @@
  * Sem `server-only`: o módulo é puro e roda em `tsx --test` e no cliente.
  */
 import { z } from "zod";
+import { GA4_ID, PIXEL_ID } from "@/lib/tracking-ids";
 
 export type LotadoDestino =
   | { modo: "aviso" }
@@ -147,8 +148,6 @@ export const INTEGRACOES_DEFAULTS: Integracoes = Object.freeze({
   google_ads: Object.freeze({ id: "", label: "" }),
 }) as Integracoes;
 
-const PIXEL_ID = /^\d{5,20}$/;
-const GA4_ID = /^G-[A-Z0-9]+$/;
 const ADS_ID = /^AW-\d+$/;
 const ADS_LABEL = /^[A-Za-z0-9_-]+$/;
 const EVENTO = /^[A-Za-z][A-Za-z0-9_]{0,39}$/;

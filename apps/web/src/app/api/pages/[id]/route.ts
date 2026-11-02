@@ -13,6 +13,7 @@ import {
   type LpStatus,
 } from "@/lib/pages/schema";
 import { updateLandingPageWithCas } from "@/lib/pages/page-update";
+import { parseLpTrackingIds } from "@/lib/pages/tracking-input";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -61,11 +62,16 @@ export async function PATCH(req: Request, { params }: RouteProps) {
     return Response.json({ error: "JSON inválido." }, { status: 400 });
   }
 
+  const tracking = parseLpTrackingIds(body);
+  if (!tracking.ok) {
+    return Response.json({ error: tracking.details.join(" "), details: tracking.details }, { status: 400 });
+  }
+
   try {
     const existing = await getLandingPageById(ctx.tenantId, id);
     if (!existing) return Response.json({ error: "Página não encontrada." }, { status: 404 });
 
-    const patch: LpUpdatePatch = {};
+    const patch: LpUpdatePatch = { ...tracking.patch };
 
     if (body.content !== undefined) {
       const parsed = parseContentInput(body.content);
@@ -91,20 +97,6 @@ export async function PATCH(req: Request, { params }: RouteProps) {
     if (body.campaign_slug !== undefined) {
       const slug = typeof body.campaign_slug === "string" ? body.campaign_slug.trim() : "";
       patch.campaign_slug = slug || null;
-    }
-
-    if (body.meta_pixel_id !== undefined) {
-      patch.meta_pixel_id =
-        typeof body.meta_pixel_id === "string" && body.meta_pixel_id.trim()
-          ? body.meta_pixel_id.trim().slice(0, 40)
-          : null;
-    }
-
-    if (body.ga4_id !== undefined) {
-      patch.ga4_id =
-        typeof body.ga4_id === "string" && body.ga4_id.trim()
-          ? body.ga4_id.trim().slice(0, 40)
-          : null;
     }
 
     if (body.status !== undefined) {

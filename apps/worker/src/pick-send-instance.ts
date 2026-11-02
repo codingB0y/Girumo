@@ -16,6 +16,11 @@ export type InstanceRow = {
   /** Nome na Evolution. Sem ele o envio falha lá na frente, então não serve. */
   provider_instance_id: string | null;
   created_at: string;
+  /**
+   * 'grupos' posta; 'privado' é o número do atendimento (Recuperar/Rastreio) e nunca é escolhido aqui.
+   * Opcional só para o select que esquecer a coluna: linha sem `purpose` não serve (falha fechado).
+   */
+  purpose?: string | null;
 };
 
 /** Estados em que a instância está apta a receber comando de envio. */
@@ -26,6 +31,10 @@ const PREFERRED_STATUS = "connected";
  * utilizável.
  *
  * Regras, nesta ordem:
+ *  0. Só o número dos grupos (`purpose === "grupos"`): auto-grow e ações em
+ *     massa criam e mexem em grupo, e o número do atendimento nunca faz isso.
+ *     Vale antes de tudo: o do atendimento conectado não vence o dos grupos
+ *     caído, e a loja só com ele não tem número (null).
  *  1. Descarta quem não tem `provider_instance_id` — não está provisionada na
  *     Evolution, e o envio falharia em `instanceName()` de qualquer jeito.
  *  2. Prefere `connected`.
@@ -37,7 +46,7 @@ const PREFERRED_STATUS = "connected";
  *     por números diferentes.
  */
 export function pickSendInstance(rows: readonly InstanceRow[]): string | null {
-  const usable = rows.filter((row) => Boolean(row.provider_instance_id));
+  const usable = rows.filter((row) => row.purpose === "grupos" && Boolean(row.provider_instance_id));
   if (usable.length === 0) return null;
 
   const connected = usable.filter((row) => row.status === PREFERRED_STATUS);

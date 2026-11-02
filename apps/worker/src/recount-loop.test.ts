@@ -32,21 +32,25 @@ function makeDeps(over: Partial<RecountDeps> = {}): { deps: RecountDeps; chamado
   return { deps, chamados, maxEmVoo: () => maximo };
 }
 
-/** Supabase de mentira para `from("instances").select(...).eq(...)`. */
+/** Supabase de mentira para `from("instances").select(...).eq(...).eq(...)`; anota cada filtro. */
 function supabaseFalso(linhas: Array<{ tenant_id: string }>) {
-  const consulta: { tabela?: string; colunas?: string; filtro?: [string, string] } = {};
+  const consulta: { tabela?: string; colunas?: string; filtros: Array<[string, string]> } = { filtros: [] };
   const client = {
     from(tabela: string) {
       consulta.tabela = tabela;
       return {
         select(colunas: string) {
           consulta.colunas = colunas;
-          return {
-            async eq(coluna: string, valor: string) {
-              consulta.filtro = [coluna, valor];
-              return { data: linhas, error: null };
+          const cadeia = {
+            eq(coluna: string, valor: string) {
+              consulta.filtros.push([coluna, valor]);
+              return cadeia;
+            },
+            then(pronto: (r: { data: typeof linhas; error: null }) => unknown) {
+              return Promise.resolve({ data: linhas, error: null }).then(pronto);
             },
           };
+          return cadeia;
         },
       };
     },
@@ -127,11 +131,16 @@ test("a recontagem chama a rota engine do app com a loja e lê os atualizados", 
   assert.deepEqual(posts, [{ tenantId: "t-a", path: "/api/groups/recount", body: undefined }]);
 });
 
-test("lojas = quem tem número conectado, cada uma uma vez, em ordem estável", async () => {
+test("lojas = quem tem número dos grupos conectado, cada uma uma vez, em ordem estável", async () => {
   const s = supabaseFalso([{ tenant_id: "t-b" }, { tenant_id: "t-a" }, { tenant_id: "t-b" }]);
 
   assert.deepEqual(await listRecountTenants(s.client), ["t-a", "t-b"]);
-  assert.deepEqual(s.consulta, { tabela: "instances", colunas: "tenant_id", filtro: ["status", "connected"] });
+  // Mutante: sem o filtro de purpose, a loja só com o número do atendimento entraria na recontagem de grupos.
+  assert.deepEqual(s.consulta, {
+    tabela: "instances",
+    colunas: "tenant_id",
+    filtros: [["status", "connected"], ["purpose", "grupos"]],
+  });
 });
 
 test("o teto do worker passa do maxDuration da rota (60 s)", () => {

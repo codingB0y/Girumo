@@ -73,10 +73,22 @@ export function appDomainRedirects(): HostRedirect[] {
  * Vercel; a regra dele aqui é a rede se isso mudar.
  */
 export function bioDomainRedirects(): HostRedirect[] {
+  return soNoWww("/bio");
+}
+
+/**
+ * Rastreio do pedido (spec rastreio-pedidos §3.5): só no www, pelo mesmo motivo; o 308
+ * mantém o POST da busca.
+ */
+export function rastreioDomainRedirects(): HostRedirect[] {
+  return soNoWww("/rastreio");
+}
+
+function soNoWww(prefixo: "/bio" | "/rastreio"): HostRedirect[] {
   return [APP_HOST, APEX_HOST].map((host) => ({
-    source: "/bio/:path*",
+    source: `${prefixo}/:path*`,
     has: [{ type: "host" as const, value: host }],
-    destination: `https://${PUBLIC_SITE_HOST}/bio/:path*`,
+    destination: `https://${PUBLIC_SITE_HOST}${prefixo}/:path*`,
     permanent: true as const,
   }));
 }

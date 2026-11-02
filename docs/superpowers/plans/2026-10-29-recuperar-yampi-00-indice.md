@@ -56,7 +56,7 @@ Pix e a regra que liga a resposta ao telefone mudam o código deles, e um "não"
 |---|---|---|
 | 1a | `20261029120000_base_comum_yampi_privado.sql` | 3 `t|` mudam; 7 `t|` e 2 `f|` entram |
 | 1b | `20261029140000_recuperar_banco.sql` | 4 `t|` novas, `t|private_messages` e 1 `f|` |
-| 2a | `20261029160000_numero_do_atendimento.sql` | não muda (só corpo, com trava de md5) |
+| 2a | `20261030160000_numero_do_atendimento.sql` | não muda (só corpo, com trava de md5) |
 | 3 | `20261030120000_envio_de_dm.sql` | `t|private_messages` e 6 `f|` |
 | 4 | `20261030140000_privado_resposta.sql` | `t|private_conversations` e 3 `f|` |
 

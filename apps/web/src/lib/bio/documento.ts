@@ -120,8 +120,8 @@ function corta(v: string, max: number): string {
   return /[\uD800-\uDBFF]$/.test(cortado) ? cortado.slice(0, -1) : cortado;
 }
 
-/** Dígitos verificadores do CNPJ, numérico ou alfanumérico (cada caractere vale o código ASCII − 48). */
-function cnpjValido(cnpj: string): boolean {
+/** Dígitos verificadores do CNPJ, numérico ou alfanumérico (cada caractere vale o código ASCII − 48). O Rastreio também usa. */
+export function cnpjValido(cnpj: string): boolean {
   if (!/^[0-9A-Z]{12}\d{2}$/.test(cnpj) || /^(.)\1{13}$/.test(cnpj)) return false;
   const dv = (base: string) => {
     const soma = [...base].reduce((s, c, i) => s + (c.charCodeAt(0) - 48) * ((base.length - 1 - i) % 8 + 2), 0);

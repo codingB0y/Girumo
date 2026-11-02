@@ -52,6 +52,8 @@ const DEFAULT: SessionInfo = {
  * Busca o status da sessão da engine.
  * Múltiplas linhas podem coexistir em `instances` pro mesmo tenant; prioriza a
  * CONECTADA mais recente (não só "a mais recente") — ver `selectSessionRow`.
+ * A sessão é a do número dos grupos (`purpose = 'grupos'`); o número do atendimento
+ * tem o cartão dele e nunca acende o "conectado" de quem decide postar.
  */
 export async function getSession(tenantId: string): Promise<SessionInfo> {
   try {
@@ -60,6 +62,7 @@ export async function getSession(tenantId: string): Promise<SessionInfo> {
       .from("instances")
       .select("id, phone, status, connected_at, last_seen_at, metadata, updated_at")
       .eq("tenant_id", tenantId)
+      .eq("purpose", "grupos")
       .order("updated_at", { ascending: false })
       .limit(20);
 
@@ -83,7 +86,7 @@ export async function getSession(tenantId: string): Promise<SessionInfo> {
 
 /**
  * Atualiza o status da sessão (chamado pela engine via heartbeat POST).
- * Atualiza a instância mais recente; se nenhuma existir, retorna default.
+ * Atualiza a instância mais recente do número dos grupos; se nenhuma existir, retorna default.
  */
 export async function setSession(tenantId: string, info: Partial<SessionInfo>): Promise<SessionInfo> {
   const supabase = getSupabaseAdmin();
@@ -94,6 +97,7 @@ export async function setSession(tenantId: string, info: Partial<SessionInfo>): 
     .from("instances")
     .select("id, tenant_id, metadata, connected_at")
     .eq("tenant_id", tenantId)
+    .eq("purpose", "grupos")
     .order("updated_at", { ascending: false })
     .limit(1)
     .maybeSingle();

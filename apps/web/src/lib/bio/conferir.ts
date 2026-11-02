@@ -4,7 +4,7 @@ import type { DadosRender, DocumentoBio, LinkBio } from "@/lib/bio/documento";
 import { midiasPublicasDaLoja } from "@/lib/media-store";
 import { chaveDoTelefone } from "@/lib/pages/phone";
 import { listCampaignGroups, type CampaignGroup } from "@/lib/stores/campaign-groups";
-import { listInstances } from "@/lib/stores/instances";
+import { listGroupInstances } from "@/lib/stores/instances";
 import { listTrackedLinksBySlugs } from "@/lib/stores/tracked-links";
 
 /**
@@ -42,9 +42,12 @@ function numeroDoLink(link: LinkBio): string | null {
   return null;
 }
 
-/** Chaves (DDD + 8 últimos) de toda instância da loja, conectada ou não. */
+/**
+ * Chaves (DDD + 8 últimos) de todo número dos grupos da loja, conectado ou não. O número do
+ * atendimento fica de fora de propósito: ele pode ir na bio, como NUMERO_CONECTADO sugere.
+ */
 async function chavesDasInstancias(tenantId: string): Promise<Set<string>> {
-  const instancias = await listInstances(tenantId);
+  const instancias = await listGroupInstances(tenantId);
   return new Set(instancias.map((i) => chaveDoTelefone(i.phone)).filter((c): c is string => c !== null));
 }
 

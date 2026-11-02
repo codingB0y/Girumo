@@ -60,7 +60,7 @@ export function makeBulkDeps(
       // reinicialização do worker.
       const { data, error } = await supabase
         .from("instances")
-        .select("id, status, provider_instance_id, created_at")
+        .select("id, status, provider_instance_id, created_at, purpose")
         .eq("tenant_id", tenantId);
 
       if (error) throw new Error(`instanceFor: ${error.message}`);

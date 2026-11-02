@@ -9,7 +9,7 @@
 # no checkout principal (LIGHTRAG_DATA_DIR) — nada de venv novo no C: quase cheio.
 # O incremental compara hash de conteudo, entao so o que mudou gasta cota do Gemini.
 #
-# Uso unico (cria o worktree e agenda as 03h17):
+# Uso unico (cria o worktree e agenda as 05h47):
 #   powershell -ExecutionPolicy Bypass -File tools\lightrag\scripts\nightly-index.ps1 -Instalar
 # Run manual:
 #   powershell -ExecutionPolicy Bypass -File C:\Users\Igor\Desktop\HubFlow-rag\tools\lightrag\scripts\nightly-index.ps1
@@ -39,12 +39,15 @@ if ($Instalar) {
     $script = Join-Path $Worktree 'tools\lightrag\scripts\nightly-index.ps1'
     $acao = New-ScheduledTaskAction -Execute 'powershell.exe' `
         -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$script`""
-    $quando = New-ScheduledTaskTrigger -Daily -At 3:17am
-    # StartWhenAvailable: PC desligado as 03h17 roda quando ligar.
+    # 05h47, nao madrugada: a cota diaria do Gemini zera a meia-noite do Pacifico (04h00 de
+    # Brasilia no horario de verao dos EUA, 05h00 fora dele). As 03h17 o run pegava a sobra
+    # do dia anterior: em 01/11/2026 o 1o lote deu 429 com "retry in 36m".
+    $quando = New-ScheduledTaskTrigger -Daily -At 5:47am
+    # StartWhenAvailable: PC desligado as 05h47 roda quando ligar.
     $opcoes = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 3)
     Register-ScheduledTask -TaskName 'Girumo RAG noturno' -Action $acao -Trigger $quando `
         -Settings $opcoes -Force | Out-Null
-    Write-Output "Agendado: 'Girumo RAG noturno' todo dia as 03h17. Logs em $logDir"
+    Write-Output "Agendado: 'Girumo RAG noturno' todo dia as 05h47. Logs em $logDir"
     return
 }
 
@@ -56,6 +59,16 @@ $log = Join-Path $logDir ("nightly-{0:yyyy-MM-dd}.log" -f (Get-Date))
     git -C $Worktree checkout --force --detach origin/main
     if ($LASTEXITCODE -ne 0) { throw "checkout de origin/main falhou ($LASTEXITCODE)" }
     "commit: $(git -C $Worktree log --oneline -1)"
+
+    # Indexador de rodada anterior ainda vivo gasta a cota do dia antes desta rodada e
+    # escreve nos mesmos JSON. Matar o PowerShell (limite de 3h da tarefa, TaskStop) nao
+    # mata o python filho: em 31/10/2026 havia um vivo desde 29/10 e a noite parou no 1o lote.
+    Get-CimInstance Win32_Process -Filter "Name = 'python.exe'" |
+        Where-Object { $_.CommandLine -match 'lightrag_kg\.cli index' } |
+        ForEach-Object {
+            "matando indexador orfao pid $($_.ProcessId) (desde $($_.CreationDate))"
+            Stop-Process -Id $_.ProcessId -Force
+        }
 
     $env:PYTHONPATH = Join-Path $Worktree 'tools\lightrag'
     $env:LIGHTRAG_DATA_DIR = $dados

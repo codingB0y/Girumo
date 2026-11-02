@@ -45,7 +45,7 @@ export function makeGrowDeps(
       // seguinte, não na próxima reinicialização do worker.
       const { data, error } = await supabase
         .from("instances")
-        .select("id, status, provider_instance_id, created_at, phone")
+        .select("id, status, provider_instance_id, created_at, phone, purpose")
         .eq("tenant_id", tenantId);
       if (error) throw new Error(`instanceFor: ${error.message}`);
 
