@@ -22,30 +22,36 @@ function Ler-Segredo([string]$Pergunta) {
   return $texto
 }
 
-if (-not $env:YAMPI_ALIAS) {
-  # O alias aparece na tela: um token colado aqui por engano vira segredo exposto. So minusculas, digitos e hifen.
-  do {
-    $env:YAMPI_ALIAS = Ler-Texto 'YAMPI_ALIAS (alias da loja piloto, ex.: minha-loja)'
-    if ($env:YAMPI_ALIAS -cnotmatch '^[a-z0-9][a-z0-9-]*$') { 'Isso nao parece um alias: so minusculas, digitos e hifen.' }
-  } until ($env:YAMPI_ALIAS -cmatch '^[a-z0-9][a-z0-9-]*$')
-  $env:YAMPI_USER_TOKEN = Ler-Segredo 'YAMPI_USER_TOKEN (Yampi > Perfil > Credenciais de API)'
-  $env:YAMPI_USER_SECRET_KEY = Ler-Segredo 'YAMPI_USER_SECRET_KEY (idem)'
-}
-$env:MELHORENVIO_CLIENT_ID = Ler-Texto 'MELHORENVIO_CLIENT_ID (Melhor Envio > Integracoes > Area Dev > app Girumo)'
-$segredo = Ler-Segredo 'MELHORENVIO_CLIENT_SECRET (idem)'
+# Sempre as mesmas 6 perguntas, na mesma ordem, em qualquer aba: nada depende do que a aba guardou antes.
+# O alias aparece na tela: um token ou um numero colado aqui por engano e recusado. Precisa de uma letra.
+$formatoAlias = '^(?=.*[a-z])[a-z0-9][a-z0-9-]*$'
+do {
+  $env:YAMPI_ALIAS = Ler-Texto '[1/6] Alias da loja na Yampi (ex.: minha-loja)'
+  if ($env:YAMPI_ALIAS -cnotmatch $formatoAlias) { 'Isso nao parece um alias: letras minusculas, digitos e hifen.' }
+} until ($env:YAMPI_ALIAS -cmatch $formatoAlias)
+$env:YAMPI_USER_TOKEN = Ler-Segredo '[2/6] Token da Yampi (Yampi > Perfil > Credenciais de API)'
+$env:YAMPI_USER_SECRET_KEY = Ler-Segredo '[3/6] Chave secreta da Yampi (mesma tela)'
+do {
+  $env:MELHORENVIO_CLIENT_ID = Ler-Texto '[4/6] Client ID do app Girumo no Melhor Envio (so numeros)'
+  if ($env:MELHORENVIO_CLIENT_ID -notmatch '^\d+$') { 'O Client ID tem so numeros.' }
+} until ($env:MELHORENVIO_CLIENT_ID -match '^\d+$')
+$segredo = Ler-Segredo '[5/6] Client Secret do app Girumo no Melhor Envio'
 if (-not $env:MELHORENVIO_USER_AGENT) { $env:MELHORENVIO_USER_AGENT = 'Girumo (contato@girumo.com.br)' }
 
 $estado = [guid]::NewGuid().ToString('N')
 $autorizar = 'https://melhorenvio.com.br/oauth/authorize?client_id=' + [uri]::EscapeDataString($env:MELHORENVIO_CLIENT_ID) +
   '&redirect_uri=' + [uri]::EscapeDataString($retorno) + '&response_type=code&state=' + $estado +
   '&scope=' + [uri]::EscapeDataString('orders-read shipping-tracking users-read')
-'Abrindo o navegador. Entre com a conta do Melhor Envio DA LOJA PILOTO e clique em Autorizar.'
-'So depois que aparecer a pagina de erro da Girumo, copie o endereco inteiro da barra do navegador.'
-Start-Process $autorizar
+# Janela InPrivate: sem ela, o navegador reaproveita a conta ja logada no Melhor Envio e autoriza a conta errada
+# sem perguntar nada.
+'Abrindo uma janela InPrivate do Edge, sem nenhuma conta logada.'
+'Entre com o e-mail e a senha do Melhor Envio DA LOJA PILOTO e clique em Autorizar.'
+'So depois que aparecer a pagina de erro da Girumo, copie o endereco inteiro da barra dessa janela.'
+try { Start-Process msedge -ArgumentList '--inprivate', $autorizar } catch { Start-Process $autorizar }
 
 # Espera um endereco com code=. O endereco da propria autorizacao, copiado cedo demais, pede de novo.
 do {
-  $colado = Ler-Segredo 'Cole o endereco da pagina de erro da Girumo (tem code= no meio)'
+  $colado = Ler-Segredo '[6/6] Cole o endereco da pagina de erro da Girumo (tem code= no meio)'
   if ($colado -match '[?&]error=') { throw 'o Melhor Envio recusou a autorizacao: rode o script de novo' }
   if ($colado -notmatch '[?&]code=') {
     'Esse endereco ainda nao tem code=: termine a autorizacao no navegador e copie de novo.'
