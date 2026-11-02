@@ -1,4 +1,5 @@
 import { diaMesBR } from "@/lib/date-br";
+import type { Liberacoes } from "@/lib/painel-nav";
 
 /**
  * Regras puras da casca da Vitrine Aberta (spec 2026-09-07, 3.1 e 3.5):
@@ -47,4 +48,42 @@ export function romaneioDoPlano(sub: AssinaturaResumo): string {
   if (sub?.status === "trialing") return `${plano} · teste até ${data}`;
   if (sub?.cancel_at_period_end) return `${plano} · até ${data}`;
   return `${plano} · renova ${data}`;
+}
+
+/** O que a casca guarda de `GET /api/recuperar/status`. */
+export type RecuperarNaCasca = { enabled: boolean; precisaDeVoce: number };
+
+/**
+ * Lê o corpo da rota. Sem `enabled` booleano não há resposta (null); a contagem é
+ * inteira, nunca negativa, e zero com o add-on desligado.
+ */
+export function lerStatusDoRecuperar(raw: unknown): RecuperarNaCasca | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const { enabled, precisaDeVoce } = raw as { enabled?: unknown; precisaDeVoce?: unknown };
+  if (typeof enabled !== "boolean") return null;
+  const n = Math.trunc(Number(precisaDeVoce));
+  return { enabled, precisaDeVoce: enabled && Number.isFinite(n) && n > 0 ? n : 0 };
+}
+
+export type LeituraDaCasca = {
+  perguntouInstagram: boolean;
+  instagram: { enabled: boolean } | null;
+  perguntouRecuperar: boolean;
+  recuperar: RecuperarNaCasca | null;
+  /** A última pergunta do Recuperar falhou. Não apaga `recuperar`: falha não é "desligado". */
+  recuperarFalhou: boolean;
+  /** Rastreio de pedidos: só dono e admin perguntam; não segura o menu (fica falso até responder). */
+  rastreio: boolean;
+};
+
+/**
+ * As liberações do menu. `null` até chegar toda resposta que o acesso pediu (não
+ * pisca item). Recuperar que falhou conta como respondido, para não prender o
+ * Instagram; sem estado conhecido ele fica fechado.
+ */
+export function liberacoesDaCasca(i: LeituraDaCasca): Liberacoes | null {
+  if (!i.perguntouInstagram && !i.perguntouRecuperar) return null;
+  if (i.perguntouInstagram && !i.instagram) return null;
+  if (i.perguntouRecuperar && !i.recuperar && !i.recuperarFalhou) return null;
+  return { instagram: i.instagram?.enabled ?? false, recuperar: i.recuperar?.enabled ?? false, rastreio: i.rastreio };
 }

@@ -20,6 +20,7 @@ import { MenuMais } from "./menu-mais";
 
 const DISPAROS = "/painel/disparos";
 const RELAMPAGO = "/painel/relampago";
+const RECUPERAR = "/painel/recuperar";
 const CONECTAR = "/painel/conectar";
 const REFRESCO_MS = 60_000;
 
@@ -122,22 +123,42 @@ function SinalDoRelampago({ noAr, esperando }: Relampago) {
   );
 }
 
+/** Recuperar ligado: quantas conversas esperam o lojista; ninguém esperando, nada (o nome do item já basta). */
+function SinalDoRecuperar({ precisaDeVoce }: { precisaDeVoce: number }) {
+  if (precisaDeVoce <= 0) return null;
+  return (
+    <span className="pn-barra__contador">
+      {numero(precisaDeVoce)}
+      <span className="sr-only">{precisaDeVoce === 1 ? " precisa de você" : " precisam de você"}</span>
+    </span>
+  );
+}
+
 /**
  * Os módulos do acesso e o Mais; só no desktop (no celular a navegação é a barra
  * inferior). O acesso restrito (vendedora, papel desconhecido) vê só os dele e não tem Mais (spec 2026-10-07 §4).
+ * O Recuperar só entra na barra a partir de 1280 px (`xl`); abaixo disso mora no Mais, que ganha um ponto.
+ * A vendedora não tem Mais para acolhê-lo, então nela o item fica em toda largura.
  */
 function NavDaBarra({ relampago, acesso }: { relampago: Relampago; acesso: Acesso | null }) {
   const pathname = usePathname();
-  const { liberacoes } = useCasca();
+  const { liberacoes, recuperar } = useCasca();
+  const restrito = acessoRestrito(acesso);
   return (
     <nav aria-label="Módulos" className="pn-barra__nav hidden lg:flex">
       {itensDaBarra(acesso, liberacoes).map((item) => (
-        <Link key={item.href} href={item.href} aria-current={isNavItemActive(pathname, item.href) ? "page" : undefined} className="pn-barra__item">
+        <Link
+          key={item.href}
+          href={item.href}
+          aria-current={isNavItemActive(pathname, item.href) ? "page" : undefined}
+          className={cn("pn-barra__item", item.href === RECUPERAR && !restrito && "max-xl:hidden")}
+        >
           {item.curto ?? item.label}
           {item.href === RELAMPAGO && <SinalDoRelampago {...relampago} />}
+          {item.href === RECUPERAR && recuperar && <SinalDoRecuperar precisaDeVoce={recuperar.precisaDeVoce} />}
         </Link>
       ))}
-      {!acessoRestrito(acesso) && <MenuMais />}
+      {!restrito && <MenuMais />}
     </nav>
   );
 }

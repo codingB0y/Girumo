@@ -88,6 +88,36 @@ Limites conhecidos:
 - Cancelar o plano cancela o add-on Instagram no Stripe, e o Instagram desliga
   quando o add-on cai. Instagram ligado a mao (sem add-on) NAO desliga com o
   plano: desligar a mao.
+- Cancelar o plano cancela tambem o add-on Recuperar no Stripe, e o Recuperar desliga
+  quando o add-on cai. Recuperar liberado a mao pelo admin (sem assinatura) NAO desliga
+  com o plano: desligar a mao em `/admin/tenants/[id]`.
+
+## Add-on Recuperar
+
+Assinatura separada do plano (`metadata.addon=recuperar`), R$ 127/mes, so por Checkout.
+Criar o preco uma vez por modo (os precos de teste e live sao separados):
+
+```txt
+$env:STRIPE_SECRET_KEY = "sk_test_..."   # ou a chave live, no modo live
+node infra/scripts/stripe-recuperar-preco.mjs
+```
+
+O script imprime `Modo: test` ou `Modo: LIVE` e a linha
+`STRIPE_PRICE_RECUPERAR=price_...`. Rodar de novo nao duplica: o preco tem
+`lookup_key` `recuperar_mensal` e e reaproveitado (a linha sai como `existia`).
+
+Copiar o `price_...` do modo certo para a Vercel (Production e Preview) e para o
+`apps/web/.env.local`:
+
+```txt
+STRIPE_PRICE_RECUPERAR=price_...
+```
+
+Sem a variavel a venda fica fechada: a oferta aparece como indisponivel e o checkout
+responde 503.
+
+Webhook: os eventos sao os mesmos 8 da lista acima, nada a acrescentar. Segue valendo
+o `STRIPE_WEBHOOK_SECRET` do endpoint existente.
 
 ## Validacao
 
