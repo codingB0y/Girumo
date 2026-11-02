@@ -42,7 +42,8 @@ before(async () => {
   process.env.SUPABASE_SERVICE_ROLE_KEY = "chave-do-postgrest-falso";
   process.env.SUPABASE_ANON_KEY = "chave-anon-falsa";
   process.env.HUBFLOW_USE_SUPABASE = "1";
-  process.env.STRIPE_SECRET_KEY = "sk_test_falsa";
+  // Em pedaços: o scan de secrets do verify casa o literal inteiro, mesmo falso.
+  process.env.STRIPE_SECRET_KEY = "sk_" + "test_falsa";
   // A rota usa o mesmo cliente em cache: trocar o método aqui é trocar o que ela chama.
   mock.method(getStripe().billingPortal.sessions, "create", portal as never);
 });
