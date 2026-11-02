@@ -48,7 +48,7 @@ import { PAPEIS_LIVRES, acessoRestrito, modulosDoAcesso, paginaLiberada, type Ac
 export type NavGrupo = "vender" | "lotar" | "loja";
 
 /** Add-ons: o item só aparece pra loja com a liberação ligada. */
-export type Liberacao = "instagram";
+export type Liberacao = "instagram" | "recuperar";
 export type Liberacoes = Record<Liberacao, boolean>;
 
 export const NAV_GRUPOS_ORDEM: NavGrupo[] = ["vender", "lotar", "loja"];

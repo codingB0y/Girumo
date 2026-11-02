@@ -1,8 +1,10 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { acessoRestrito } from "@/lib/auth/modulos";
+import { acessoRestrito, podeAcessar } from "@/lib/auth/modulos";
+import { lerStatusDoRecuperar, liberacoesDaCasca, type RecuperarNaCasca } from "@/lib/painel/casca";
 import type { Liberacoes } from "@/lib/painel-nav";
+import { useRecarga } from "./home/ao-vivo/use-recarga";
 import { useRole } from "./role-provider";
 
 /** O que `GET /api/ig/status` devolve. */
@@ -20,16 +22,24 @@ type CascaCtx = {
   definirFoco: (ligado: boolean) => void;
   /** null enquanto a casca não perguntou; com a API fora vira `enabled: false`. */
   instagram: StatusInstagram | null;
+  /** null enquanto a casca não perguntou; falha na rede NÃO vira `enabled: false` (ver `recuperarFalhou`). */
+  recuperar: RecuperarNaCasca | null;
+  /** A última pergunta do Recuperar falhou. `recuperar` guarda o estado anterior. */
+  recuperarFalhou: boolean;
   liberacoes: Liberacoes | null;
   recarregarInstagram: () => void;
+  recarregarRecuperar: () => void;
 };
 
 const CascaContext = createContext<CascaCtx>({
   foco: false,
   definirFoco: () => {},
   instagram: null,
+  recuperar: null,
+  recuperarFalhou: false,
   liberacoes: null,
   recarregarInstagram: () => {},
+  recarregarRecuperar: () => {},
 });
 
 export const useCasca = () => useContext(CascaContext);
@@ -45,6 +55,9 @@ export function useFoco() {
 
 const DESLIGADO: StatusInstagram = { enabled: false, account: null, live: 0, startedLastHour: 0 };
 
+/** O Recuperar atualiza o contador "precisa de você" no menu enquanto a aba está visível. */
+const RECUPERAR_RECARGA_MS = 30_000;
+
 /**
  * O layout não remonta entre rotas, então o valor sobrevive à navegação: o
  * status do Instagram é uma pergunta por sessão do painel, e o item do menu
@@ -53,12 +66,16 @@ const DESLIGADO: StatusInstagram = { enabled: false, account: null, live: 0, sta
 export function CascaProvider({ children }: { children: React.ReactNode }) {
   const [foco, definirFoco] = useState(false);
   const [instagram, setInstagram] = useState<StatusInstagram | null>(null);
+  const [recuperar, setRecuperar] = useState<RecuperarNaCasca | null>(null);
+  const [recuperarFalhou, setRecuperarFalhou] = useState(false);
   const [versao, setVersao] = useState(0);
   const recarregarInstagram = useCallback(() => setVersao((v) => v + 1), []);
   const { carregado, acesso } = useRole();
   // Espera saber quem é: a vendedora (e papel desconhecido) não tem Instagram, e a pergunta daria 403
   // (spec 2026-10-07 §1). Para eles `instagram` fica null — o item do menu já não aparece por não ter módulo.
   const pergunta = carregado && !acessoRestrito(acesso);
+  // Recuperar: dono, admin e operador sempre; vendedora só com o módulo; papel desconhecido nunca.
+  const perguntaRecuperar = carregado && acesso !== null && podeAcessar(acesso, "/api/recuperar/status", "GET");
 
   useEffect(() => {
     if (!pergunta) return;
@@ -77,15 +94,47 @@ export function CascaProvider({ children }: { children: React.ReactNode }) {
     };
   }, [versao, pergunta]);
 
+  // Resposta válida grava o estado; qualquer outra coisa (rede, não-2xx, corpo inválido) só marca a falha
+  // e deixa o estado anterior: "não consegui perguntar" não é "desligado".
+  const buscarRecuperar = useCallback(() => {
+    fetch("/api/recuperar/status", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((raw: unknown) => {
+        const lido = lerStatusDoRecuperar(raw);
+        if (!lido) return setRecuperarFalhou(true);
+        // Mesmo valor, mesma referência: a recarga de 30 s não re-renderiza quem consome o contexto.
+        setRecuperar((atual) =>
+          atual && atual.enabled === lido.enabled && atual.precisaDeVoce === lido.precisaDeVoce ? atual : lido,
+        );
+        setRecuperarFalhou(false);
+      })
+      .catch(() => setRecuperarFalhou(true));
+  }, []);
+
+  useEffect(() => {
+    if (perguntaRecuperar) buscarRecuperar();
+  }, [perguntaRecuperar, buscarRecuperar]);
+
+  useRecarga(buscarRecuperar, RECUPERAR_RECARGA_MS, perguntaRecuperar && recuperar?.enabled === true);
+
   const valor = useMemo<CascaCtx>(
     () => ({
       foco,
       definirFoco,
       instagram,
-      liberacoes: instagram ? { instagram: instagram.enabled } : null,
+      recuperar,
+      recuperarFalhou,
+      liberacoes: liberacoesDaCasca({
+        perguntouInstagram: pergunta,
+        instagram,
+        perguntouRecuperar: perguntaRecuperar,
+        recuperar,
+        recuperarFalhou,
+      }),
       recarregarInstagram,
+      recarregarRecuperar: buscarRecuperar,
     }),
-    [foco, instagram, recarregarInstagram],
+    [foco, instagram, recuperar, recuperarFalhou, pergunta, perguntaRecuperar, recarregarInstagram, buscarRecuperar],
   );
   return <CascaContext.Provider value={valor}>{children}</CascaContext.Provider>;
 }

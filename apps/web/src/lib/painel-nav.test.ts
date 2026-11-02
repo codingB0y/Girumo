@@ -154,8 +154,8 @@ test("Instagram fica em Lotar, logo depois de Campanhas, e só aparece com a lib
   const instagram = NAV_ALL.find((i) => i.href === "/painel/instagram") as NavItem;
   assert.equal(instagram.requer, "instagram");
   assert.equal(liberado(instagram, null), false, "sem resposta ainda, esconde em vez de piscar");
-  assert.equal(liberado(instagram, { instagram: false }), false);
-  assert.equal(liberado(instagram, { instagram: true }), true);
+  assert.equal(liberado(instagram, { instagram: false, recuperar: false }), false);
+  assert.equal(liberado(instagram, { instagram: true, recuperar: false }), true);
   const campanhas = NAV_ALL.find((i) => i.href === "/painel/campanhas") as NavItem;
   assert.equal(liberado(campanhas, null), true, "item sem liberação aparece sempre");
 });
@@ -166,7 +166,7 @@ const DONO: Acesso = { role: "owner", modules: [] };
 const OPERADOR: Acesso = { role: "operator", modules: [] };
 const VENDEDORA: Acesso = { role: "seller", modules: [] };
 const VENDEDORA_POSTA: Acesso = { role: "seller", modules: ["postar"] };
-const COM_INSTAGRAM = { instagram: true };
+const COM_INSTAGRAM = { instagram: true, recuperar: false };
 
 const item = (href: string) => NAV_ALL.find((i) => i.href === href) as NavItem;
 const visiveis = (acesso: Acesso | null) =>
@@ -183,7 +183,7 @@ test("dono e operador veem o menu de antes, sem Vendas", () => {
   for (const acesso of [DONO, OPERADOR]) {
     assert.ok(!visiveis(acesso).includes("/painel/vendas"));
     assert.deepEqual(visiveis(acesso), NAV_ALL.filter((i) => i.href !== "/painel/vendas").map((i) => i.href));
-    assert.equal(visivelNoMenu(item("/painel/instagram"), acesso, { instagram: false }), false);
+    assert.equal(visivelNoMenu(item("/painel/instagram"), acesso, { instagram: false, recuperar: false }), false);
   }
 });
 
