@@ -47,7 +47,7 @@ const supabase = createServer((req, res) => {
 function responder({ metodo, url }: Chamada): Resposta {
   const rota = `${metodo} ${url.pathname}`;
   if (rota === "GET /rest/v1/instances") {
-    return { status: 200, corpo: [{ id: "inst-1", tenant_id: LOJA, status: "qr", phone: null }] };
+    return { status: 200, corpo: [{ id: "inst-1", tenant_id: LOJA, status: "qr", phone: null, purpose: "grupos" }] };
   }
   if (rota === "POST /rest/v1/rpc/update_instance_status") return { status: 200, corpo: {} };
   if (rota === "POST /rest/v1/funnel_events") return { status: 201 };

@@ -126,9 +126,12 @@ async function applyConnectionUpdate(
   // Baileys (`setSession`), que ninguém chama mais: com a Evolution o marco
   // nunca era gravado, e o cron mandava "conecte seu WhatsApp" para quem já
   // tinha conectado. `onlyFirst` guarda a data da primeira conexão — reconectar
-  // não a move. Não lança: falha vira log em trackFunnelEvent.
+  // não a move. Não lança: falha vira log em trackFunnelEvent. Só o número dos grupos: a loja que
+  // pareou apenas o do atendimento não está ativada (distorceria o funil e calaria o Job 1).
   if (status === "connected") {
-    await trackFunnelEvent({ tenantId: instance.tenant_id, userId: null, event: "qr_connected", onlyFirst: true });
+    if (instance.purpose === "grupos") {
+      await trackFunnelEvent({ tenantId: instance.tenant_id, userId: null, event: "qr_connected", onlyFirst: true });
+    }
     // Qualquer número da loja que abre sessão pode repetir o chip do outro: o dos grupos conectando
     // depois do atendimento derruba o do atendimento, e o inverso também. Por último de propósito: se o
     // banco falhar aqui, o 5xx faz a Evolution reentregar (o evento só é gravado depois) e a rodada

@@ -77,6 +77,7 @@ function responder({ metodo, url }: Chamada): { status: number; corpo?: unknown 
   if (rota === "POST /rest/v1/rpc/update_instance_status") return { status: 200, corpo: null };
   if (rota === "POST /rest/v1/funnel_events") return { status: 201 };
   if (rota === "POST /rest/v1/notifications") return { status: 201 };
+  if (rota === "POST /rest/v1/private_number_state") return { status: 201 };
   if (rota === "GET /rest/v1/instances") return { status: 200, corpo: lista };
   return { status: 500, corpo: { message: `inesperado: ${rota}` } };
 }
@@ -127,4 +128,18 @@ test("promover o número dos grupos numa loja sem número do atendimento não me
   await reconciliarConexoes([{ ...GRUPOS, status: "qr" }]);
   assert.equal(feitas("POST", "/rest/v1/rpc/update_instance_status").length, 1);
   assert.equal(chamadas.filter((c) => c.metodo === "DELETE").length, 0);
+});
+
+test("o marco qr_connected é só do número dos grupos: promover o do atendimento não ativa a loja", async () => {
+  // Chip próprio no atendimento: a conferência não recusa, sobra só a promoção.
+  prepara({ lista: [{ ...ATENDIMENTO, status: "connected", phone: "5511977776666" }, GRUPOS] });
+  await reconciliarConexoes([{ ...ATENDIMENTO, status: "qr", phone: null }]);
+  assert.equal(feitas("POST", "/rest/v1/rpc/update_instance_status").length, 1);
+  // Mutante: sem o guarda `purpose === "grupos"` o upsert sai e a loja que só pareou o atendimento vira "ativada".
+  assert.equal(feitas("POST", "/rest/v1/funnel_events").length, 0);
+
+  // Contraprova: promover o número dos grupos grava o marco.
+  prepara({ lista: [{ ...GRUPOS, status: "connected" }] });
+  await reconciliarConexoes([{ ...GRUPOS, status: "qr" }]);
+  assert.equal(feitas("POST", "/rest/v1/funnel_events").length, 1);
 });

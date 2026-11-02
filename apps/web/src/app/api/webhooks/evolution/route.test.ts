@@ -358,3 +358,32 @@ test("o número dos grupos conectando com o chip do atendimento derruba o do ate
   assert.equal(feitas("DELETE", "/instance/logout/gr_inst-p").length, 1);
   assert.equal(feitas("DELETE", "/instance/logout/gr_inst-1").length, 0);
 });
+
+test("o marco qr_connected é só do número dos grupos: o do atendimento conectando não ativa a loja", async () => {
+  // Cada número com o seu chip (sem recusa) e o mesmo telefone do banco (sem invalidar a bio): sobra só o marco.
+  const proprio = { ...ATENDIMENTO, phone: "5511977776666" };
+  const doisNumeros = () => {
+    cenarioDoisNumeros();
+    respostas["GET /rest/v1/instances"] = (c) => {
+      const alvo = c.url.searchParams.get("provider_instance_id");
+      const todas = [proprio, INSTANCIA];
+      return { status: 200, corpo: alvo ? todas.filter((i) => alvo === `eq.${i.provider_instance_id}`) : todas };
+    };
+    respostas["POST /rest/v1/private_number_state"] = { status: 201 };
+  };
+
+  doisNumeros();
+  const res = await POST(conexao("open", "5511977776666@s.whatsapp.net", "gr_inst-p"));
+  assert.equal(res.status, 200);
+  assert.equal(feitas("POST", "/rest/v1/rpc/update_instance_status").length, 1);
+  // Mutante: sem o guarda `purpose === "grupos"` o upsert sai e a loja que só pareou o atendimento vira "ativada".
+  assert.equal(feitas("POST", "/rest/v1/funnel_events").length, 0);
+
+  // Contraprova: o mesmo evento no número dos grupos grava o marco (upsert que preserva a 1a vez).
+  doisNumeros();
+  assert.equal((await POST(conexao("open", "5511999990000@s.whatsapp.net", "gr_inst-1"))).status, 200);
+  const [marco] = feitas("POST", "/rest/v1/funnel_events");
+  const linha = marco.corpo as Record<string, unknown>;
+  assert.deepEqual([linha.tenant_id, linha.event_name], [LOJA, "qr_connected"]);
+  assert.match(marco.url.search, /on_conflict=tenant_id%2Cevent_name/);
+});
