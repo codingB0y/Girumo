@@ -10,7 +10,7 @@ import { stopActiveRuns } from "@/lib/stores/ig-runs";
 import { markInviteUsed } from "@/lib/stores/instagram-invites";
 import { setInstagramEnabled, setRecuperarEnabled } from "@/lib/stores/tenant-settings";
 import {
-  addonDe,
+  assinaturaVivaDoAddon,
   handleStripeEvent,
   isAddon,
   type DefaultCard,
@@ -171,7 +171,7 @@ function createStore(): WebhookStore {
         if (!org || org.stripe_customer_id !== customerId) return { live: false, customerOk: false, vivas: 0, error: null };
         let vivas = 0;
         for await (const s of getStripe().subscriptions.list({ customer: customerId, status: "all", limit: 100 })) {
-          if (addonDe(s.metadata) === addon && s.metadata.tenant_id === tenantId && (s.status === "active" || s.status === "trialing" || s.status === "past_due")) vivas += 1;
+          if (assinaturaVivaDoAddon(s, addon, tenantId)) vivas += 1;
         }
         return { live: vivas > 0, customerOk: true, vivas, error: null };
       } catch (err) {

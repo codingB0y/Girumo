@@ -171,13 +171,23 @@ export function addonDe(metadata: Stripe.Metadata | null | undefined): AddonId |
 /** Assinatura de add-on: separada da do plano, nunca vai para `subscriptions`. */
 export const isAddon = (metadata: Stripe.Metadata | null | undefined): boolean => addonDe(metadata) !== null;
 
+/** Assinatura viva DESTE add-on desta loja (o que liga a flag). */
+export function assinaturaVivaDoAddon(
+  s: Pick<Stripe.Subscription, "status" | "metadata">,
+  addon: AddonId,
+  tenantId: string,
+): boolean {
+  return addonDe(s.metadata) === addon && s.metadata.tenant_id === tenantId &&
+    (s.status === "active" || s.status === "trialing" || s.status === "past_due");
+}
+
 /**
  * Um add-on liga e desliga a flag da loja. A decisão NÃO usa o status do evento:
  * o Stripe não garante ordem, e um `updated` antigo com `active` chegando depois
  * do `deleted` religaria de graça. Lê o estado atual (qualquer assinatura DESTE
- * add-on na loja ativa ou em teste = ligado; `past_due` conta como desligado só quando não há
- * outro vivo, e quem decide é o store). Reenvio e assinatura duplicada caem no
- * mesmo resultado.
+ * add-on na loja viva = ligado): `active`, `trialing` e `past_due` (o Stripe ainda
+ * tenta cobrar) contam como vivas e ligam; `unpaid`, `canceled` e `incomplete*`
+ * não. Reenvio e assinatura duplicada caem no mesmo resultado.
  */
 async function handleAddon(addon: AddonId, subscription: Stripe.Subscription, store: WebhookStore): Promise<StoreResult> {
   const nome = ADDON_NOME[addon];
