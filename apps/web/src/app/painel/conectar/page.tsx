@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toPlanLimitError, upgradeUrlFrom } from "@/lib/billing/plan-limit-client";
 import { ConectarVitrine } from "@/components/painel/conectar/vitrine/conectar-vitrine";
 import { useConfirmacao } from "@/components/painel/confirmacao";
+import { CartaoNumeroDoAtendimento } from "@/components/privado/cartao-numero-do-atendimento";
 import { POLL_MS, WATCH_MS, nextPollDelay } from "@/lib/engine-poll";
 import { selectSessionRow } from "@/lib/session-select";
 import type { NumeroPerfilDeclarado } from "@/lib/instances/numero-perfil";
@@ -54,6 +55,11 @@ export default function PainelConectar() {
         onDesconectar={disconnect}
         onEscolherPerfil={onEscolherPerfil}
       />
+      {/* O número do atendimento (Recuperar e Rastreio): outro chip, outra instância. O cartão devolve
+          null sem o add-on e sem número, e `empty:hidden` leva o espaço junto. */}
+      <div className="mx-auto max-w-[1000px] px-4 pb-8 empty:hidden lg:px-8">
+        <CartaoNumeroDoAtendimento />
+      </div>
       {folhaDeConfirmacao}
     </>
   );
