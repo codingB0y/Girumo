@@ -115,7 +115,14 @@ export function CascaProvider({ children }: { children: React.ReactNode }) {
     if (perguntaRecuperar) buscarRecuperar();
   }, [perguntaRecuperar, buscarRecuperar]);
 
-  useRecarga(buscarRecuperar, RECUPERAR_RECARGA_MS, perguntaRecuperar && recuperar?.enabled === true);
+  // Recarrega enquanto o add-on está ligado e também enquanto a primeira leitura não deu certo
+  // (sem estado e com falha): um erro não pode esconder o módulo de uma loja que paga, então a
+  // casca se cura sozinha a cada 30 s em vez de esperar um reload.
+  useRecarga(
+    buscarRecuperar,
+    RECUPERAR_RECARGA_MS,
+    perguntaRecuperar && (recuperar?.enabled === true || (recuperar === null && recuperarFalhou)),
+  );
 
   const valor = useMemo<CascaCtx>(
     () => ({
