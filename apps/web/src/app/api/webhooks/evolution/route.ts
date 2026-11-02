@@ -14,6 +14,7 @@ import { memberCountDelta } from "@/lib/groups/member-delta";
 import { movimentoDeMembros, temSaidaVoluntaria } from "@/lib/groups/member-events";
 import { gruposNovosDoUpsert } from "@/lib/groups/upsert-novos";
 import { podeAplicarQr } from "@/lib/instance-qr-guard";
+import { conferirNumeroDoAtendimento } from "@/lib/privado/numero";
 import { matchesKeyword } from "@/lib/relampago/keyword";
 import { parseUpsertMessage } from "@/lib/relampago/upsert-message";
 import { resolveSecret } from "@/lib/runtime-secrets";
@@ -128,6 +129,11 @@ async function applyConnectionUpdate(
   // não a move. Não lança: falha vira log em trackFunnelEvent.
   if (status === "connected") {
     await trackFunnelEvent({ tenantId: instance.tenant_id, userId: null, event: "qr_connected", onlyFirst: true });
+    // Qualquer número da loja que abre sessão pode repetir o chip do outro: o dos grupos conectando
+    // depois do atendimento derruba o do atendimento, e o inverso também. Por último de propósito: se o
+    // banco falhar aqui, o 5xx faz a Evolution reentregar (o evento só é gravado depois) e a rodada
+    // seguinte já não veria o telefone novo como novo — a invalidação da bio acima não pode ficar para trás.
+    await conferirNumeroDoAtendimento(instance.tenant_id);
   }
 }
 
@@ -351,6 +357,15 @@ export async function POST(req: Request) {
     // transformaria o endpoint num oráculo de enumeração. A Evolution também
     // não deve reentregar um evento que nunca teremos como associar.
     return Response.json({ received: true, ignored: true }, { status: 202 });
+  }
+
+  // O número do atendimento nunca entra na sincronização de grupos (spec §3): evento de grupo dele não
+  // importa grupo, não mexe em contagem nem no disjuntor, não vira lead e não fica gravado.
+  if (
+    instance.purpose === "privado" &&
+    (event.event === "groups.upsert" || event.event === "group-participants.update")
+  ) {
+    return Response.json({ received: true, ignored: true });
   }
 
   if (event.event === "qrcode.updated") {
