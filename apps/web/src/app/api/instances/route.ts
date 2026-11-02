@@ -88,7 +88,9 @@ export async function POST(req: Request) {
 
     const padrao = NOME_PADRAO[purpose];
     const name = String(body.name ?? padrao).trim().slice(0, 80) || padrao;
-    const phone = String(body.phone ?? "").trim() || null;
+    // O telefone do atendimento vem do pareamento: um valor do cliente enfraqueceria a recusa do
+    // chip repetido quando o `open` chega sem `wuid`.
+    const phone = purpose === "privado" ? null : String(body.phone ?? "").trim() || null;
 
     // O perfil (novo/antigo) é pergunta do aquecimento dos grupos; o atendimento não tem.
     const perfil = purpose === "privado" ? { ok: true as const, value: null } : parseNumeroPerfil(body.numero_perfil);

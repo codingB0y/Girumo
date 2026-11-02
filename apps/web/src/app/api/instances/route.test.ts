@@ -206,6 +206,16 @@ test("POST do número do atendimento com o add-on: cria privado sem olhar o plan
   assert.equal(feitas("POST", "/instance/create").length, 1);
 });
 
+test("o telefone do corpo não entra na linha do número do atendimento (vem do pareamento); no dos grupos, entra", async () => {
+  prepara({ settings: [{ recuperar_enabled: true, rastreio_enabled: false }], limites: null });
+  assert.equal((await POST(pedir("POST", { purpose: "privado", phone: "5511900000009" }))).status, 201);
+  assert.equal((feitas("POST", "/rest/v1/instances")[0].corpo as Record<string, unknown>).phone, null);
+
+  prepara({ limites: {} });
+  assert.equal((await POST(pedir("POST", { phone: "5511900000009", numero_perfil: "antigo" }))).status, 201);
+  assert.equal((feitas("POST", "/rest/v1/instances")[0].corpo as Record<string, unknown>).phone, "5511900000009");
+});
+
 test("segundo número do atendimento (clique duplo): 409 e nenhuma instância nova na Evolution", async () => {
   prepara({
     settings: [{ recuperar_enabled: true, rastreio_enabled: false }],
