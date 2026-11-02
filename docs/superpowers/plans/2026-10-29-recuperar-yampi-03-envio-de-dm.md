@@ -28,6 +28,12 @@ duplicada).
 - Depende de: PR 1a, PR 2a e PR 2b em `main` (aplicados em dev) e da prova 2 da Fase 0 (mensagem no privado de
   verdade), com os fixtures em `apps/web/src/lib/evolution/__fixtures__/` e o resultado escrito em
   `docs/superpowers/plans/_recuperar-fase-0-resultado.md`. A Task 1 confere tudo; faltando um, pare.
+- **Herdado do 2b (revisão final):** o chip repetido pode ficar no ar numa falha dupla — `reconciliarConexoes`
+  engole um throw de `conferirNumeroDoAtendimento` depois de promover (o banco fica `connected` e nada reconfere), e
+  quando o `open` chega sem `wuid` ou o `fetchInstance` falha o telefone fica `null`/o do chip anterior e a
+  conferência não compara o chip novo. Até este PR o número do atendimento não envia nada; a partir dele, a trava
+  de envio tem de conferir o chip (telefone atual do número do atendimento ≠ chave de qualquer número dos grupos)
+  antes de mandar a DM, ou o cartão reconfere um atendimento conectado.
 - Worktree novo a partir de `origin/main`, branch `feat/recuperar-pr3-envio-dm`. Defasagem antes de codar:
   `git fetch origin main && git log HEAD..origin/main --oneline | wc -l` menor que 20.
 - Bash do executor: o cwd reseta entre chamadas; todo comando começa com `WT=$(git rev-parse --show-toplevel)`. Blocos
