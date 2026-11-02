@@ -143,6 +143,25 @@ export function disconnectAlertEmail(name: string, appUrl: string): { subject: s
   };
 }
 
+// --- Número do atendimento (add-on do Recuperar/Rastreio) desconectado há mais de 2h ---
+export function disconnectAlertPrivadoEmail(name: string, appUrl: string): { subject: string; html: string } {
+  const firstName = escapeHtml(primeiroNome(name));
+  return {
+    subject: "O número do atendimento desconectou — reconecte para as mensagens voltarem a sair",
+    html: layout(`
+      <h1 style="margin:0 0 12px;font-size:22px;color:${BRAND_COLORS.volt}">O número do atendimento caiu</h1>
+      <p style="margin:0 0 8px;font-size:15px;color:${BRAND_COLORS.volt};line-height:1.6">
+        Oi ${firstName}! O número do atendimento está desconectado há mais de 2 horas — enquanto isso,
+        nenhuma mensagem sai por ele no privado.
+      </p>
+      <p style="margin:0 0 8px;font-size:14px;color:${BRAND_COLORS.volt};line-height:1.6">
+        Reconectar leva 2 minutos: escaneie o QR Code com o celular do chip do atendimento.
+      </p>
+      ${button("Reconectar agora", `${appUrl}/painel/conectar`)}
+    `),
+  };
+}
+
 // --- Bling recusou a renovação do acesso (integração parada até reconectar) ---
 export function blingReconectarEmail(name: string, appUrl: string): { subject: string; html: string } {
   // O nome vem do cadastro da pessoa: escapado, como no convite.

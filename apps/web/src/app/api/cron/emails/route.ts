@@ -3,6 +3,7 @@ import { sendEmail } from "@/lib/email/send";
 import {
   nudgeConnectEmail,
   disconnectAlertEmail,
+  disconnectAlertPrivadoEmail,
   weeklyReportEmail,
   activationD3Email,
   activationD7Email,
@@ -22,7 +23,7 @@ import { getInstanceHealth } from "@/lib/stores/instance-health";
 import { summarizeProtection } from "@/lib/groups/admin-protection";
 import { listGroupsForProtection } from "@/lib/stores/groups";
 import { countEntriesBetween, entradasEntre } from "@/lib/stores/leads";
-import { selectSessionRow, isConnectedStatus } from "@/lib/session-select";
+import { ALERTA_DO_NUMERO, numerosCaidos, type NumeroDaLoja } from "@/lib/email/numero-caido";
 import { getAppUrl } from "@/lib/environment";
 
 export const runtime = "nodejs";
@@ -38,7 +39,7 @@ const SP_TZ = "America/Sao_Paulo";
  * Jobs:
  * 1. Nudge: 24h sem conectar WhatsApp → envia email
  * 2. Cadência de ativação: por idade da conta (D3/D7/D14/D21) → envia email
- * 3. Disconnect alert: WhatsApp desconectado há mais de 2h → envia email
+ * 3. Disconnect alert: número dos grupos ou do atendimento desconectado há mais de 2h → envia email
  * 4. Relatório semanal: só às segundas (America/Sao_Paulo) → envia resumo da semana anterior
  * 5. Disparo falho: broadcast que virou `failed` nas últimas 24h → envia email
  * 6. Risco dos 14 dias: sessão conectada mas em silêncio → avisa antes do corte
@@ -397,8 +398,7 @@ export async function GET(req: Request) {
     return liberada;
   };
 
-  // --- Job 3: WhatsApp desconectado há mais de 2h ---
-  const twoHoursAgoMs = now.getTime() - 2 * 60 * 60 * 1000;
+  // --- Job 3: número desconectado há mais de 2h (o dos grupos e o do atendimento) ---
   const todayStartISO = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
 
   const { data: disconnectOrgs } = await supabase.from("organizations").select("id, name");
@@ -408,23 +408,20 @@ export async function GET(req: Request) {
 
     const { data: instanceRows } = await supabase
       .from("instances")
-      .select("status, updated_at, disconnected_at")
+      .select("status, updated_at, disconnected_at, purpose")
       .eq("tenant_id", org.id)
       .order("updated_at", { ascending: false })
       .limit(20);
 
-    const row = selectSessionRow(instanceRows ?? []);
-    // Sem linha nenhuma = nunca conectou (onboarding, não desconexão) — pula.
-    if (!row || isConnectedStatus(row.status)) continue;
-
-    const disconnectedAtMs = row.disconnected_at ? new Date(row.disconnected_at).getTime() : NaN;
-    if (!Number.isFinite(disconnectedAtMs) || disconnectedAtMs > twoHoursAgoMs) continue;
+    // Sem linha nenhuma (ou nunca desconectou) = onboarding, não desconexão — pula.
+    let caidos = numerosCaidos(instanceRows ?? [], now.getTime());
+    if (caidos.length === 0) continue;
 
     // Opt-out do lojista. Lido antes do dedupe e da busca do dono: quem desligou
     // não precisa custar mais três queries por dia.
     const { data: prefs, error: prefsError } = await supabase
       .from("tenant_settings")
-      .select("disconnect_alert_enabled")
+      .select("disconnect_alert_enabled, recuperar_enabled, rastreio_enabled")
       .eq("tenant_id", org.id)
       .maybeSingle();
 
@@ -436,15 +433,24 @@ export async function GET(req: Request) {
     }
     if (!canSendAlert({ value: prefs?.disconnect_alert_enabled, error: prefsError })) continue;
 
-    // Dedup: no máximo 1 alerta de desconexão por tenant por dia.
-    const sentToday = await supabase
-      .from("notifications")
-      .select("id")
-      .eq("tenant_id", org.id)
-      .eq("type", "disconnect_alert")
-      .gte("created_at", todayStartISO)
-      .limit(1);
-    if (!liberado("disconnect_alert", org.id, sentToday)) continue;
+    // O número do atendimento só existe com o add-on (Recuperar ou Rastreio).
+    if (prefs?.recuperar_enabled !== true && prefs?.rastreio_enabled !== true) {
+      caidos = caidos.filter((numero) => numero !== "privado");
+    }
+
+    // Dedup: no máximo 1 alerta de desconexão por tipo, por tenant, por dia.
+    const pendentes: NumeroDaLoja[] = [];
+    for (const numero of caidos) {
+      const sentToday = await supabase
+        .from("notifications")
+        .select("id")
+        .eq("tenant_id", org.id)
+        .eq("type", ALERTA_DO_NUMERO[numero].type)
+        .gte("created_at", todayStartISO)
+        .limit(1);
+      if (liberado(ALERTA_DO_NUMERO[numero].type, org.id, sentToday)) pendentes.push(numero);
+    }
+    if (pendentes.length === 0) continue;
 
     const { data: owner } = await supabase
       .from("memberships")
@@ -459,30 +465,34 @@ export async function GET(req: Request) {
     const name = userData.user?.user_metadata?.name || "lojista";
     if (!email) continue;
 
-    const tpl = disconnectAlertEmail(name, appUrl);
-    const sent = await sendEmail({
-      to: email,
-      subject: tpl.subject,
-      html: tpl.html,
-      tenantId: org.id,
-      kind: "disconnect",
-    });
-
-    if (sent) {
-      results.disconnect_sent++;
-      const { error: notifError } = await supabase.from("notifications").insert({
-        tenant_id: org.id,
-        user_id: owner.user_id,
-        type: "disconnect_alert",
-        title: "WhatsApp desconectado",
-        body: "Enviamos um e-mail avisando que o WhatsApp está desconectado há mais de 2h.",
+    for (const numero of pendentes) {
+      const alerta = ALERTA_DO_NUMERO[numero];
+      const tpl = numero === "grupos" ? disconnectAlertEmail(name, appUrl) : disconnectAlertPrivadoEmail(name, appUrl);
+      const sent = await sendEmail({
+        to: email,
+        subject: tpl.subject,
+        html: tpl.html,
+        tenantId: org.id,
+        kind: alerta.kind,
       });
-      if (notifError) {
-        console.error(`[cron] disconnect_alert: enviado para ${org.id} mas notification não registrada:`, notifError.message);
+
+      if (sent) {
+        results.disconnect_sent++;
+        const { error: notifError } = await supabase.from("notifications").insert({
+          tenant_id: org.id,
+          user_id: owner.user_id,
+          type: alerta.type,
+          title: alerta.title,
+          body: alerta.body,
+          ...(alerta.href ? { href: alerta.href } : {}),
+        });
+        if (notifError) {
+          console.error(`[cron] ${alerta.type}: enviado para ${org.id} mas notification não registrada:`, notifError.message);
+          results.errors++;
+        }
+      } else {
         results.errors++;
       }
-    } else {
-      results.errors++;
     }
   }
 
