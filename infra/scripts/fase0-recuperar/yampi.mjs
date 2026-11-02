@@ -246,14 +246,24 @@ async function carrinhos() {
 const porcento = (parte, todo) => (todo ? `${Math.round((100 * parte) / todo)}%` : "-");
 
 // Provas do Rastreio (Y22 a Y24): baixa os pedidos da janela e imprime só contagens e nomes de campo; nenhum pedido
-// vai para o disco. Argumentos em qualquer ordem: a janela DE-ATE em dias atrás (padrão 45-15; loja nova usa a que tem
-// pedido, como 45-7, no formato da prova 5 do Rastreio) e os aliases de "enviado".
+// vai para o disco. Argumentos em qualquer ordem, no máximo um de cada: a janela DE-ATE em dias atrás (padrão 45-15;
+// loja nova usa a que tem pedido, como 45-7, no formato da prova 5 do Rastreio) e a lista de aliases de "enviado".
+// Argumento que não é nenhum dos dois para com erro antes de medir: um alias trocado daria uma taxa errada sem aviso.
+const RE_ALIASES = /^[a-z][a-z_-]*(,[a-z][a-z_-]*)*$/i;
 async function entregues(args) {
   const agora = new Date();
-  const textoJanela = args.find((x) => /^[0-9-]+$/.test(x ?? "")); // só dígitos e hífen: é a janela, e o lerJanela valida
-  const janela = textoJanela ? lerJanela(textoJanela) : JANELA_PADRAO;
-  const aliases = args.find((x) => x && x !== textoJanela);
-  const lista = aliases ? aliases.split(",").map((s) => s.trim()).filter(Boolean) : ALIASES_ENVIADO;
+  let [janela, lista] = [null, null];
+  for (const arg of args) {
+    if (RE_ALIASES.test(arg)) {
+      if (lista) throw new Error("mais de uma lista de aliases: use uma só, separada por vírgula");
+      lista = arg.split(",");
+    } else {
+      if (janela) throw new Error("mais de uma janela: rode o comando uma vez por janela");
+      janela = lerJanela(arg);
+    }
+  }
+  janela ??= JANELA_PADRAO;
+  lista ??= ALIASES_ENVIADO;
   const [inicio, fim] = janelaDeEntregues(agora.getTime(), janela);
   const periodo = `created_at:${inicio}|${fim}`;
   const nomeJanela = janela.join("-");
@@ -267,8 +277,8 @@ async function entregues(args) {
     const c = contarEntregues(r.itens, agora.getTime(), lista, janela);
     const perfil = perfilDosClientes(pedidosDaJanela(r.itens, agora.getTime(), janela));
     const [taxa, taxaCodigo] = [porcento(c.entregues, c.enviados), porcento(c.comCodigo, c.enviadosPorStatus)];
-    gravarJson(join(dirBruto(), "api", `entregues-${rotulo}-${nomeJanela}.json`), { http: r.status, janela: nomeJanela, inicio, fim, aliasesEnviado: lista, ...c, taxa, taxaCodigo, perfil });
-    console.log(`entregues variante=${rotulo} janela=${nomeJanela} (${inicio} a ${fim}) http=${r.status} ${Object.entries(c).map(([k, v]) => `${k}=${v}`).join(" ")} taxa=${taxa} taxaCodigo=${taxaCodigo}${r.falha ? ` ${r.falha}` : ""}`);
+    gravarJson(join(dirBruto(), "api", `entregues-${rotulo}-${nomeJanela}.json`), { http: r.status, total: r.total, janela: nomeJanela, inicio, fim, aliasesEnviado: lista, ...c, taxa, taxaCodigo, perfil });
+    console.log(`entregues variante=${rotulo} janela=${nomeJanela} (${inicio} a ${fim}) http=${r.status} total=${r.total ?? "?"} ${Object.entries(c).map(([k, v]) => `${k}=${v}`).join(" ")} taxa=${taxa} taxaCodigo=${taxaCodigo} aliases=${lista.join(",")}${r.falha ? ` ${r.falha}` : ""}`);
     console.log(`  perfil pedidos=${perfil.pedidos} tipos=${JSON.stringify(perfil.tipos)} camposDeDocumento=${JSON.stringify(perfil.camposDeDocumento)} semDocumento=${perfil.semDocumento} campos=${perfil.campos.join(",")}`);
   }
 }
@@ -318,7 +328,7 @@ const comandos = {
   "pedidos-1": pedidos1,
   "pedidos-pix": pedidosPix,
   carrinhos,
-  entregues: () => entregues([a, b]),
+  entregues: () => entregues(process.argv.slice(3)),
   atualizados,
   "copiar-link": () => copiarLink(a, b),
 };

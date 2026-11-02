@@ -101,6 +101,27 @@ test("entregues aceita a janela em dias (DE-ATE): filtra e conta nela, e grava c
   assert.match(ruim.saida, /janela inválida/);
 });
 
+test("entregues: janela e aliases em qualquer ordem, um de cada; argumento errado para antes de medir", async (t) => {
+  const diaUtc = (n) => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10);
+  const cliente = { name: "Fulana Cliente", email: "fulana@cliente.com", cpf: "123.456.789-09", type: "f" };
+  const pedidos = [{ created_at: { date: `${diaUtc(10)} 10:00:00.000000` }, status: { data: { alias: "on_carriage" } }, customer: { data: cliente } }];
+  const { bruto, env } = await montar(t, (metodo, caminho) =>
+    caminho.endsWith("/orders") ? { json: { data: pedidos, meta: { pagination: { total: 1, total_pages: 1 } } } } : { status: 404 },
+  );
+  const r = await rodar(["entregues", "shipped,on_carriage", "45-7"], env);
+  assert.equal(r.codigo, 0, r.saida);
+  assert.match(r.saida, /variante=sem-filtro janela=45-7 .*total=1 .*aliases=shipped,on_carriage/);
+  const salvo = JSON.parse(readFileSync(join(bruto, "api", "entregues-sem-filtro-45-7.json"), "utf8"));
+  assert.deepEqual([salvo.total, salvo.enviados, salvo.aliasesEnviado], [1, 1, ["shipped", "on_carriage"]]);
+  const disco = readdirSync(join(bruto, "api")).map((n) => readFileSync(join(bruto, "api", n), "utf8")).join("\n");
+  for (const real of ["Fulana", "fulana@", "123.456"]) assert.ok(!r.saida.includes(real) && !disco.includes(real), `vazou: ${real}`);
+  for (const ruins of [["45-7", "45-0"], ["45:7"], ["45–7"], ["shipped", "on_carriage"], ["45-7", "shipped", "sent"]]) {
+    const e = await rodar(["entregues", ...ruins], env);
+    assert.equal(e.codigo, 1, ruins.join(" "));
+    assert.match(e.saida, /janela inválida|mais de uma/, ruins.join(" "));
+  }
+});
+
 test("pedidos-pix baixa a lista mas só grava o pedido da cliente de teste (o telefone B no Pix da loja não conta)", async (t) => {
   const pedidos = [
     { id: 1, customer: { data: { email: "fulana@cliente.com" } }, transactions: { data: [{ metadata: [{ value: "000201...0114+5521987654321" }] }] } },
