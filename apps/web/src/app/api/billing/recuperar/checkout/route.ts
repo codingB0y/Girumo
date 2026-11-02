@@ -42,6 +42,14 @@ export async function POST(req: Request) {
     const stripe = getStripe();
     const customerId = await resolveTenantCustomerId({ supabase, stripe, tenantId: ctx.tenantId, email: ctx.email ?? null, authUserId: ctx.authUserId });
     const existente = await addonNoStripe(customerId, ctx.tenantId, "recuperar");
+    // `unpaid`: o webhook deixa o Recuperar desligado, então "já assinado, aguarde"
+    // nunca se resolveria. O lojista tem que regularizar a cobrança no portal.
+    if (existente.semPagamento) {
+      return Response.json(
+        { error: "A assinatura do Recuperar está com pagamento em aberto. Regularize em Gerenciar cobrança.", code: "cobranca_pendente" },
+        { status: 409 },
+      );
+    }
     if (existente.viva) return Response.json({ error: "O Recuperar já está assinado. Pode levar alguns segundos para liberar." }, { status: 409 });
     // Tentativa anterior recusada ou pedindo 3D Secure: a fatura dela aceita outro cartão.
     if (existente.faturaPendente) return Response.json({ url: existente.faturaPendente });
