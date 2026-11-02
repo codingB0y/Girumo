@@ -79,7 +79,7 @@ export function TenantRecuperar({ tenantId, ligado, avisoEm }: Props) {
         </button>
       ) : (
         <div className="space-y-2">
-          <blockquote className="rounded-xl border-l-2 border-cobalt-500/40 bg-white px-3 py-2 text-xs text-volt-950">{AVISO_DE_PRIVACIDADE.texto}</blockquote>
+          <blockquote className="rounded-lg border border-volt-950/[0.06] px-3 py-2 text-xs text-volt-950">{AVISO_DE_PRIVACIDADE.texto}</blockquote>
           <label className="flex items-center gap-2 text-xs text-aco/70">
             <input type="checkbox" checked={confirmado} onChange={(e) => setConfirmado(e.target.checked)} disabled={loading !== null} />
             O lojista confirmou o texto acima.
