@@ -13,6 +13,8 @@ export type TenantSettings = {
   segment: string | null;
   /** Add-on Instagram liberado (fase 1: à mão; fase 4: pelo Stripe). Só leitura pela API. */
   instagramEnabled: boolean;
+  /** Add-on Recuperar liberado (pelo Stripe, PR 5a). Só leitura pela API. */
+  recuperarEnabled: boolean;
   onboardingDismissedAt: string | null;
   onboardingCompletedAt: string | null;
   updatedAt?: string;
@@ -34,7 +36,10 @@ const LEGACY_ALL_COLUMNS = `${BASE_COLUMNS}, ${ONBOARDING_COLUMNS}, ${PREFERENCE
 const INSTAGRAM_COLUMNS = "instagram_enabled";
 /** Sem a coluna `instagram_enabled` (banco anterior à migração 20261003120000). */
 const PRE_INSTAGRAM_COLUMNS = `${LEGACY_ALL_COLUMNS}, ${SEGMENT_COLUMNS}`;
-const ALL_COLUMNS = `${PRE_INSTAGRAM_COLUMNS}, ${INSTAGRAM_COLUMNS}`;
+const RECUPERAR_COLUMNS = "recuperar_enabled";
+/** Sem a coluna `recuperar_enabled` (banco anterior à migração 20261030120000). */
+const PRE_RECUPERAR_COLUMNS = `${PRE_INSTAGRAM_COLUMNS}, ${INSTAGRAM_COLUMNS}`;
+const ALL_COLUMNS = `${PRE_RECUPERAR_COLUMNS}, ${RECUPERAR_COLUMNS}`;
 
 /**
  * `42703` = coluna inexistente. Os dois bancos (dev e prod) recebem as migrações
@@ -56,6 +61,7 @@ type SettingsRow = {
   monthly_goal_revenue?: number | null;
   segment?: string | null;
   instagram_enabled?: boolean | null;
+  recuperar_enabled?: boolean | null;
   onboarding_dismissed_at?: string | null;
   onboarding_completed_at?: string | null;
   updated_at?: string;
@@ -71,6 +77,7 @@ function toSettings(tenantId: string, row: SettingsRow | null): TenantSettings {
     monthlyGoalRevenue: row?.monthly_goal_revenue ?? null,
     segment: row?.segment ?? null,
     instagramEnabled: row?.instagram_enabled ?? false,
+    recuperarEnabled: row?.recuperar_enabled ?? false,
     onboardingDismissedAt: row?.onboarding_dismissed_at ?? null,
     onboardingCompletedAt: row?.onboarding_completed_at ?? null,
     updatedAt: row?.updated_at,
@@ -86,6 +93,7 @@ export async function getTenantSettings(tenantId: string): Promise<TenantSetting
       .maybeSingle();
 
   let { data, error } = await read(ALL_COLUMNS);
+  if (isMissingColumn(error)) ({ data, error } = await read(PRE_RECUPERAR_COLUMNS));
   if (isMissingColumn(error)) ({ data, error } = await read(PRE_INSTAGRAM_COLUMNS));
   if (isMissingColumn(error)) ({ data, error } = await read(LEGACY_ALL_COLUMNS));
   if (isMissingColumn(error)) ({ data, error } = await read(BASE_COLUMNS));
@@ -139,6 +147,12 @@ export async function updateTenantSettings(
   if (isMissingColumn(error)) {
     ({ data, error } = await write(
       { ...base, ...onboarding, ...preferences, ...segmento },
+      PRE_RECUPERAR_COLUMNS,
+    ));
+  }
+  if (isMissingColumn(error)) {
+    ({ data, error } = await write(
+      { ...base, ...onboarding, ...preferences, ...segmento },
       PRE_INSTAGRAM_COLUMNS,
     ));
   }
@@ -173,5 +187,17 @@ export async function setRastreioEnabled(tenantId: string, enabled: boolean): Pr
   const { error } = await getSupabaseAdmin()
     .from("tenant_settings")
     .upsert({ tenant_id: tenantId, rastreio_enabled: enabled, updated_at: new Date().toISOString() }, { onConflict: "tenant_id" });
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * Liberação do add-on Recuperar. Só o servidor (webhook do Stripe) chama: o
+ * trigger `tenant_settings_guard_recuperar_rastreio_flags` (migração
+ * 20261030120000) impede `authenticated` de mexer na coluna.
+ */
+export async function setRecuperarEnabled(tenantId: string, enabled: boolean): Promise<void> {
+  const { error } = await getSupabaseAdmin()
+    .from("tenant_settings")
+    .upsert({ tenant_id: tenantId, recuperar_enabled: enabled, updated_at: new Date().toISOString() }, { onConflict: "tenant_id" });
   if (error) throw new Error(error.message);
 }
