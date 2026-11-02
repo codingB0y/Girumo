@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { abreviaNome, iniciaisDaLoja, romaneioDoPlano } from "./casca";
+import { abreviaNome, iniciaisDaLoja, lerStatusDoRecuperar, liberacoesDaCasca, romaneioDoPlano } from "./casca";
 
 test("iniciaisDaLoja pega as duas primeiras palavras, em maiúscula", () => {
   assert.equal(iniciaisDaLoja("Mega Stock Atacado"), "MS");
@@ -57,4 +57,43 @@ test("romaneio: assinatura cancelada não renova nem concede plano", () => {
     romaneioDoPlano({ status: "canceled", current_period_end: null, plans: { name: "Growth" } }),
     "SEM PLANO · escolher",
   );
+});
+
+// --- Estado do Recuperar na casca ---
+
+const LIGADO = { enabled: true, precisaDeVoce: 4 };
+const base = {
+  perguntouInstagram: true,
+  instagram: { enabled: true },
+  perguntouRecuperar: true,
+  recuperar: LIGADO,
+  recuperarFalhou: false,
+};
+
+test("lerStatusDoRecuperar aceita o corpo da rota e descarta lixo", () => {
+  assert.deepEqual(lerStatusDoRecuperar({ enabled: true, precisaDeVoce: 4 }), LIGADO);
+  assert.deepEqual(lerStatusDoRecuperar({ enabled: false, precisaDeVoce: 9 }), { enabled: false, precisaDeVoce: 0 });
+  assert.deepEqual(lerStatusDoRecuperar({ enabled: true }), { enabled: true, precisaDeVoce: 0 });
+  assert.deepEqual(lerStatusDoRecuperar({ enabled: true, precisaDeVoce: -3 }), { enabled: true, precisaDeVoce: 0 });
+  assert.deepEqual(lerStatusDoRecuperar({ enabled: true, precisaDeVoce: 2.9 }), { enabled: true, precisaDeVoce: 2 });
+  for (const lixo of [null, undefined, "sim", 3, [], { enabled: "sim" }, { precisaDeVoce: 2 }]) {
+    assert.equal(lerStatusDoRecuperar(lixo), null, JSON.stringify(lixo));
+  }
+});
+
+test("liberacoesDaCasca espera as respostas que o acesso precisa antes de decidir", () => {
+  assert.equal(liberacoesDaCasca({ ...base, recuperar: null }), null);
+  assert.equal(liberacoesDaCasca({ ...base, instagram: null }), null);
+  assert.deepEqual(liberacoesDaCasca(base), { instagram: true, recuperar: true });
+});
+
+test("liberacoesDaCasca: Recuperar que falhou não trava o Instagram; falha depois de um estado conhecido mantém o estado", () => {
+  assert.deepEqual(liberacoesDaCasca({ ...base, recuperar: null, recuperarFalhou: true }), { instagram: true, recuperar: false });
+  assert.deepEqual(liberacoesDaCasca({ ...base, recuperarFalhou: true }), { instagram: true, recuperar: true });
+});
+
+test("liberacoesDaCasca: a vendedora só pergunta o que o acesso dela alcança", () => {
+  const vendedora = { ...base, perguntouInstagram: false, instagram: null };
+  assert.deepEqual(liberacoesDaCasca(vendedora), { instagram: false, recuperar: true });
+  assert.equal(liberacoesDaCasca({ ...vendedora, perguntouRecuperar: false, recuperar: null }), null);
 });

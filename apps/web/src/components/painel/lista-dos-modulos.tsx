@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { NAV_ALL, NAV_GRUPOS_ORDEM, NAV_GRUPO_TITULO, isNavItemActive, resumo, visivelNoMenu, type ResumoDados } from "@/lib/painel-nav";
+import { NAV_ALL, NAV_GRUPOS_ORDEM, NAV_GRUPO_TITULO, isNavItemActive, linhaDoRecuperar, resumo, visivelNoMenu, type ResumoDados } from "@/lib/painel-nav";
 import { useCasca } from "./casca-context";
 import { useRole } from "./role-provider";
 
@@ -21,9 +21,9 @@ type Props = {
  */
 export function ListaDosModulos({ dados, aoEscolher, classeDoGrupo, classeDoItem }: Props) {
   const pathname = usePathname();
-  const { liberacoes } = useCasca();
+  const { liberacoes, recuperar } = useCasca();
   const { acesso } = useRole();
-  const linhas = dados ? resumo(dados) : {};
+  const linhas = { ...(dados ? resumo(dados) : {}), ...linhaDoRecuperar(recuperar) };
   return (
     <>
       {NAV_GRUPOS_ORDEM.map((grupo) => (

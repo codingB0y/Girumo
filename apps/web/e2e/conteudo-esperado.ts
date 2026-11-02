@@ -294,6 +294,12 @@ export const CONTEUDO_ESPERADO: Record<string, ConteudoEsperado> = {
     semLista: "Oferta de assinatura do add-on; nao lista registro existente.",
   },
 
+  "/painel/recuperar": {
+    // Desligado (a loja de QA) mostra a oferta; ligado, "falta configurar". O <h1> "Recuperar" monta antes do GET do status, então não serve de âncora.
+    ancora: /Recupere o carrinho e o Pix que ficaram pra trás|Falta configurar/,
+    semLista: "Casca do módulo: oferta de ativar ou o estado de configuração; ainda não há lista.",
+  },
+
   "/painel/link-da-bio": {
     // So existe depois do GET: o estado vazio ("Monte o link da bio da loja") ou a contagem do
     // cartao Links ("N links · M aparecendo na pagina"). O <h1> "Link da bio" monta antes da

@@ -99,7 +99,7 @@ export function BarraMobile() {
   const esquerda = !carregado ? [] : restrito ? itensDaBarra(acesso, liberacoes) : NAV_BARRA_ESQUERDA.filter(visivel);
   const direita = carregado && !restrito ? NAV_BARRA_DIREITA.filter(visivel) : [];
   const comMais = carregado && !restrito;
-  // Dono: 2 + Postar + 1 + Mais = as 5 colunas do CSS. Vendedora: 1 ou 3.
+  // Dono: 2 + Postar + 1 + Mais = as 5 colunas do CSS. Vendedora: de 1 a 4, conforme os módulos dela.
   const colunas = esquerda.length + direita.length + Number(comPostar) + Number(comMais);
 
   // Papel desconhecido: nada a mostrar, e <nav> vazio é landmark sem conteúdo.

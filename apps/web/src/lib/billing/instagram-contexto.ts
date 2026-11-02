@@ -53,7 +53,34 @@ export async function cartaoSalvo(customerId: string): Promise<Cartao | null> {
   return pm?.card ? { id: pm.id, brand: pm.card.brand, last4: pm.card.last4 } : null;
 }
 
-export type AddonNoStripe = { viva: boolean; faturaPendente: string | null };
+/**
+ * `viva` inclui `unpaid` (não cria outra assinatura por cima). `semPagamento` é o
+ * recorte de `unpaid`: o webhook deixa o add-on desligado nesse estado, então
+ * "já assinado, aguarde" nunca se resolve; o lojista precisa regularizar a cobrança.
+ */
+export type AddonNoStripe = { viva: boolean; faturaPendente: string | null; semPagamento: boolean };
+
+/** Pura: decide a situação do add-on desta loja a partir das assinaturas do customer. */
+export function situacaoDoAddon(
+  subs: Iterable<Pick<Stripe.Subscription, "status" | "metadata" | "latest_invoice">>,
+  tenantId: string,
+  addon: AddonId,
+): AddonNoStripe {
+  let unpaid = false;
+  let faturaPendente: string | null = null;
+  for (const s of subs) {
+    if (s.metadata.addon !== addon || s.metadata.tenant_id !== tenantId) continue;
+    // `unpaid` não decide sozinha: uma ativa, em qualquer ordem, vence.
+    if (s.status === "active" || s.status === "trialing" || s.status === "past_due") return { viva: true, faturaPendente: null, semPagamento: false };
+    if (s.status === "unpaid") unpaid = true;
+    // A primeira `incomplete` com URL: uma fatura sem URL não esconde a de outra.
+    else if (s.status === "incomplete" && faturaPendente === null && s.latest_invoice && typeof s.latest_invoice === "object") {
+      faturaPendente = s.latest_invoice.hosted_invoice_url ?? null;
+    }
+  }
+  if (unpaid) return { viva: true, faturaPendente: null, semPagamento: true };
+  return { viva: false, faturaPendente, semPagamento: false };
+}
 
 /**
  * O que já existe do add-on no Stripe para esta loja, ANTES de criar outro.
@@ -62,16 +89,9 @@ export type AddonNoStripe = { viva: boolean; faturaPendente: string | null };
  * Viva = não cria; `incomplete` = devolve a fatura aberta dela em vez de criar outra.
  */
 export async function addonNoStripe(customerId: string, tenantId: string, addon: AddonId = "instagram"): Promise<AddonNoStripe> {
-  let faturaPendente: string | null = null;
-  for await (const s of getStripe().subscriptions.list({ customer: customerId, status: "all", limit: 100, expand: ["data.latest_invoice"] })) {
-    if (s.metadata.addon !== addon || s.metadata.tenant_id !== tenantId) continue;
-    if (s.status === "active" || s.status === "trialing" || s.status === "past_due" || s.status === "unpaid") return { viva: true, faturaPendente: null };
-    if (s.status === "incomplete" && !faturaPendente) {
-      const f = s.latest_invoice;
-      faturaPendente = f && typeof f === "object" ? (f.hosted_invoice_url ?? null) : null;
-    }
-  }
-  return { viva: false, faturaPendente };
+  const subs: Stripe.Subscription[] = [];
+  for await (const s of getStripe().subscriptions.list({ customer: customerId, status: "all", limit: 100, expand: ["data.latest_invoice"] })) subs.push(s);
+  return situacaoDoAddon(subs, tenantId, addon);
 }
 
 /** O customer da loja, se já existir (a página não cria customer só por abrir). */
