@@ -111,6 +111,17 @@ test("promover o número do atendimento com o chip dos grupos recusa na mesma vo
   assert.equal(feitas("DELETE", "/instance/logout/gr_inst-p").length, 1);
 });
 
+test("promover o número dos grupos com o número do atendimento já no ar com o mesmo chip derruba o do atendimento", async () => {
+  // O caminho real de hoje: o Conectar e o Início só reconciliam os números dos grupos.
+  prepara({ lista: [{ ...ATENDIMENTO, status: "connected" }, { ...GRUPOS, status: "connected" }] });
+  await reconciliarConexoes([{ ...GRUPOS, status: "qr" }]);
+  const rpc = feitas("POST", "/rest/v1/rpc/update_instance_status").map((c) => c.corpo as Record<string, unknown>);
+  // Mutante: conferir só quando o promovido é o do atendimento deixa este caminho sem checagem nenhuma.
+  assert.deepEqual(rpc.map((r) => [r.target_instance_id, r.target_status]), [["inst-g", "connected"], ["inst-p", "disconnected"]]);
+  assert.equal(feitas("DELETE", "/instance/logout/gr_inst-p").length, 1);
+  assert.equal(feitas("DELETE", "/instance/logout/gr_inst-g").length, 0);
+});
+
 test("promover o número dos grupos numa loja sem número do atendimento não mexe em mais nada", async () => {
   prepara({ lista: [{ ...GRUPOS, status: "connected" }] });
   await reconciliarConexoes([{ ...GRUPOS, status: "qr" }]);
