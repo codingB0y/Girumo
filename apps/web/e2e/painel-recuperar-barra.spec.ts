@@ -27,7 +27,11 @@ for (const largura of [1024, 1280]) {
     await page.setViewportSize({ width: largura, height: 800 });
     await moca(page, { status: LIGADO, oferta: OFERTA_NORMAL });
     await page.goto("/painel/grupos", { waitUntil: "load" });
-    await expect(page.getByTestId("painel-barra")).toBeVisible();
+    // O <header> vem do servidor antes dos itens: mede só depois do estado final da barra
+    // (NavDaBarra monta depois do /api/auth/me; o item do Recuperar, depois do status).
+    const barra = page.getByTestId("painel-barra");
+    if (largura >= 1280) await expect(barra.getByRole("link", { name: /^Recuperar/ })).toBeVisible();
+    else await expect(barra.getByRole("button", { name: /precisam de você no Recuperar/ })).toBeAttached();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(largura);
   });
 }
@@ -38,7 +42,10 @@ test("1024 px: o item vai pro Mais, que ganha o ponto e a linha com a contagem",
   await page.goto("/painel/grupos", { waitUntil: "load" });
   await fechaBannerDev(page);
   const barra = page.getByTestId("painel-barra");
-  await expect(barra.getByRole("link", { name: /^Recuperar/ })).toBeHidden();
+  // Por papel, um link com display:none nem aparece: o toBeHidden passaria sem link nenhum.
+  const link = page.locator('[data-testid="painel-barra"] a[href="/painel/recuperar"]');
+  await expect(link).toHaveCount(1);
+  await expect(link).toBeHidden();
   const mais = barra.getByRole("button", { name: /^Mais.*12 precisam de você no Recuperar/ });
   await mais.click();
   await expect(page.getByTestId("painel-menu-mais").getByRole("link", { name: /Recuperar · 12 precisam de você/ })).toBeVisible();
