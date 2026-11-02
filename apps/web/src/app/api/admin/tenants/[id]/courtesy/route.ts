@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getAdminContext } from "@/lib/admin-guard";
+import { temPlanoVivo } from "@/lib/billing/checkout-session";
 import {
   COURTESY_MAX_MONTHS,
   courtesyCouponParams,
@@ -10,7 +11,6 @@ import {
   courtesyMetadata,
   courtesyResumesAt,
   courtesyUpdateParams,
-  hasLiveSubscription,
   parseCourtesyMonths,
 } from "@/lib/billing/courtesy";
 import { getStripePriceId, normalizePlanCode } from "@/lib/billing/plans";
@@ -175,7 +175,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       });
 
       const existentes = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 20 });
-      if (hasLiveSubscription(existentes.data.map((s) => s.status))) {
+      if (temPlanoVivo(existentes.data)) {
         return NextResponse.json(
           {
             error:

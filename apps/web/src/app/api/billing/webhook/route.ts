@@ -8,10 +8,11 @@ import { claimCardFingerprint, claimTrial } from "@/lib/billing/trial-claims";
 import { pauseLiveFlows } from "@/lib/stores/ig-flows";
 import { stopActiveRuns } from "@/lib/stores/ig-runs";
 import { markInviteUsed } from "@/lib/stores/instagram-invites";
-import { setInstagramEnabled } from "@/lib/stores/tenant-settings";
+import { setInstagramEnabled, setRecuperarEnabled } from "@/lib/stores/tenant-settings";
 import {
+  assinaturaVivaDoAddon,
   handleStripeEvent,
-  isInstagramAddon,
+  isAddon,
   type DefaultCard,
   type WebhookStore,
 } from "@/lib/billing/stripe-webhook";
@@ -163,14 +164,14 @@ function createStore(): WebhookStore {
       }
     },
 
-    async instagramAddonState({ tenantId, customerId }) {
+    async addonState({ addon, tenantId, customerId }) {
       try {
         const { data: org, error } = await supabase.from("organizations").select("stripe_customer_id").eq("id", tenantId).maybeSingle();
         if (error) return { live: false, customerOk: false, vivas: 0, error: error.message };
         if (!org || org.stripe_customer_id !== customerId) return { live: false, customerOk: false, vivas: 0, error: null };
         let vivas = 0;
         for await (const s of getStripe().subscriptions.list({ customer: customerId, status: "all", limit: 100 })) {
-          if (isInstagramAddon(s.metadata) && s.metadata.tenant_id === tenantId && (s.status === "active" || s.status === "trialing" || s.status === "past_due")) vivas += 1;
+          if (assinaturaVivaDoAddon(s, addon, tenantId)) vivas += 1;
         }
         return { live: vivas > 0, customerOk: true, vivas, error: null };
       } catch (err) {
@@ -178,8 +179,12 @@ function createStore(): WebhookStore {
       }
     },
 
-    async setInstagramEnabled({ tenantId, enabled }) {
+    async setAddonEnabled({ addon, tenantId, enabled }) {
       try {
+        if (addon === "recuperar") {
+          await setRecuperarEnabled(tenantId, enabled);
+          return { error: null };
+        }
         await setInstagramEnabled(tenantId, enabled);
         // Sem o add-on, nada fica no ar respondendo em nome da loja.
         if (!enabled) {
@@ -209,9 +214,9 @@ function createStore(): WebhookStore {
           if (s.status === "active" || s.status === "trialing" || s.status === "past_due") vivas.push(s);
         }
         // Ainda há plano vivo (ex.: reentrega do cancelamento de uma assinatura antiga): o add-on fica.
-        if (vivas.some((s) => !isInstagramAddon(s.metadata))) return { error: null };
+        if (vivas.some((s) => !isAddon(s.metadata))) return { error: null };
         for (const s of vivas) {
-          if (isInstagramAddon(s.metadata)) await stripe.subscriptions.cancel(s.id);
+          if (isAddon(s.metadata)) await stripe.subscriptions.cancel(s.id);
         }
         return { error: null };
       } catch (err) {

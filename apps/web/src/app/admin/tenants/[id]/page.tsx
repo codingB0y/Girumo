@@ -5,7 +5,10 @@ import { notFound } from "next/navigation";
 import { TenantActions } from "@/components/admin/tenant-actions";
 import { TenantInstagramInvite } from "@/components/admin/tenant-instagram-invite";
 import { TenantPlanGrant } from "@/components/admin/tenant-plan-grant";
+import { TenantRecuperar } from "@/components/admin/tenant-recuperar";
 import { requireAdmin } from "@/lib/admin-guard";
+import { avisoConfirmadoEm } from "@/lib/recuperar/aviso";
+import { getTenantSettings } from "@/lib/stores/tenant-settings";
 
 export const dynamic = "force-dynamic";
 
@@ -96,12 +99,24 @@ export default async function AdminTenantDetailPage({ params }: Props) {
     console.error(`[admin/tenants/${id}] falha ao carregar instances:`, instancesError.message);
   }
 
+  // Recuperar: `null` = não consegui ler. Desenhar "Desligado." sem ter lido levaria o
+  // admin a liberar de novo uma loja que já está liberada.
+  let recuperar: { ligado: boolean; avisoEm: string | null } | null = null;
+  try {
+    const [settings, aviso] = await Promise.all([getTenantSettings(id), avisoConfirmadoEm(supabase, id)]);
+    if (aviso.error) throw new Error(aviso.error);
+    recuperar = { ligado: settings.recuperarEnabled, avisoEm: aviso.em };
+  } catch (error) {
+    console.error(`[admin/tenants/${id}] falha ao carregar o Recuperar:`, error instanceof Error ? error.message : error);
+  }
+
   // Cada seção sinaliza a própria falha em vez de renderizar como se estivesse
   // vazia: "sem membros" e "não consegui ler os membros" são coisas diferentes.
   const falhas = [
     membershipsError || usersError ? "membros" : null,
     subsError || plansError ? "assinatura" : null,
     instancesError ? "instâncias" : null,
+    recuperar ? null : "Recuperar",
   ].filter((v): v is string => v !== null);
 
   const isSuspended = org.status === "suspended";
@@ -237,6 +252,7 @@ export default async function AdminTenantDetailPage({ params }: Props) {
             />
           )}
           <TenantInstagramInvite tenantId={org.id} />
+          {recuperar && <TenantRecuperar tenantId={org.id} ligado={recuperar.ligado} avisoEm={recuperar.avisoEm} />}
         </section>
 
         {/* Instâncias WhatsApp */}

@@ -4,6 +4,7 @@ import type Stripe from "stripe";
 import { hashToken, precoInstagram } from "@/lib/billing/instagram-addon";
 import { bloqueioDaOferta, cotacao, type Bloqueio, type Cotacao, type Precos } from "@/lib/billing/instagram-oferta";
 import { getStripe } from "@/lib/billing/stripe";
+import type { AddonId } from "@/lib/billing/stripe-webhook";
 import { getOpenInviteByHash, type InstagramInvite } from "@/lib/stores/instagram-invites";
 import { getTenantSettings } from "@/lib/stores/tenant-settings";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
@@ -60,10 +61,10 @@ export type AddonNoStripe = { viva: boolean; faturaPendente: string | null };
  * uma recusa seguida de "outro cartão") criavam duas assinaturas cobráveis.
  * Viva = não cria; `incomplete` = devolve a fatura aberta dela em vez de criar outra.
  */
-export async function addonNoStripe(customerId: string, tenantId: string): Promise<AddonNoStripe> {
+export async function addonNoStripe(customerId: string, tenantId: string, addon: AddonId = "instagram"): Promise<AddonNoStripe> {
   let faturaPendente: string | null = null;
   for await (const s of getStripe().subscriptions.list({ customer: customerId, status: "all", limit: 100, expand: ["data.latest_invoice"] })) {
-    if (s.metadata.addon !== "instagram" || s.metadata.tenant_id !== tenantId) continue;
+    if (s.metadata.addon !== addon || s.metadata.tenant_id !== tenantId) continue;
     if (s.status === "active" || s.status === "trialing" || s.status === "past_due" || s.status === "unpaid") return { viva: true, faturaPendente: null };
     if (s.status === "incomplete" && !faturaPendente) {
       const f = s.latest_invoice;

@@ -152,6 +152,7 @@ test("flag ligada: erro ao ler os fatos sobe — nada de checkout no escuro", as
 type Sub = Pick<Stripe.Subscription, "status" | "metadata">;
 const plano = (status: Stripe.Subscription.Status): Sub => ({ status, metadata: { plan_code: "GROWTH" } });
 const addon = (status: Stripe.Subscription.Status): Sub => ({ status, metadata: { addon: "instagram" } });
+const recuperarSub = (status: Stripe.Subscription.Status): Sub => ({ status, metadata: { addon: "recuperar" } });
 
 test("assinatura de plano viva barra o checkout: outro plano viraria 2ª assinatura cobrando em dobro", () => {
   for (const status of ["active", "past_due", "trialing", "unpaid", "incomplete", "paused"] as const) {
@@ -167,6 +168,8 @@ test("plano morto não barra: canceled e incomplete_expired não cobram mais", (
 test("add-on do Instagram vivo não conta como plano", () => {
   assert.equal(temPlanoVivo([addon("active"), plano("canceled")]), false);
   assert.equal(temPlanoVivo([addon("active"), plano("active")]), true);
+  assert.equal(temPlanoVivo([recuperarSub("active"), plano("canceled")]), false);
+  assert.equal(temPlanoVivo([recuperarSub("active"), plano("active")]), true);
 });
 
 test("assinatura sem metadata (criada à mão no Dashboard) viva também barra", () => {

@@ -2,8 +2,12 @@ import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import type Stripe from "stripe";
 import {
+  addonDe,
+  assinaturaVivaDoAddon,
   handleStripeEvent,
+  isAddon,
   mapStripeStatus,
+  type AddonId,
   type FunnelInput,
   type LogRow,
   type StoreResult,
@@ -61,8 +65,8 @@ type FakeOptions = {
   claimError?: string | null;
   /** Falha do Stripe ao cancelar a assinatura de teste. */
   cancelError?: string | null;
-  /** Falha ao ligar/desligar o Instagram da loja. */
-  instagramError?: string | null;
+  /** Falha ao ligar/desligar um add-on da loja. */
+  addonError?: string | null;
   /** Estado atual do add-on no Stripe (padrão: vivo e customer da loja). */
   addonLive?: boolean;
   addonCustomerOk?: boolean;
@@ -85,7 +89,9 @@ function makeStore(options: FakeOptions = {}) {
   const cancels: { id: string; reason: string }[] = [];
   const emails: string[] = [];
   const instagram: { tenantId: string; enabled: boolean }[] = [];
+  const recuperar: { tenantId: string; enabled: boolean }[] = [];
   const addonCancels: string[] = [];
+  const addonStateCalls: AddonId[] = [];
   const invitesUsed: string[] = [];
   let upsertError = options.upsertError ?? null;
   let trialHolder = options.trialHolder ?? null;
@@ -146,13 +152,14 @@ function makeStore(options: FakeOptions = {}) {
       emails.push(subscription.id);
       return { error: options.emailError ?? null };
     },
-    async instagramAddonState() {
+    async addonState({ addon }) {
+      addonStateCalls.push(addon);
       const live = options.addonLive ?? true;
       return { live, customerOk: options.addonCustomerOk ?? true, vivas: options.addonVivas ?? (live ? 1 : 0), error: null };
     },
-    async setInstagramEnabled(input) {
-      if (options.instagramError) return { error: options.instagramError };
-      instagram.push(input);
+    async setAddonEnabled({ addon, tenantId, enabled }) {
+      if (options.addonError) return { error: options.addonError };
+      (addon === "instagram" ? instagram : recuperar).push({ tenantId, enabled });
       return { error: null };
     },
     async markInstagramInviteUsed({ inviteId, subscriptionId }) {
@@ -173,7 +180,9 @@ function makeStore(options: FakeOptions = {}) {
     cancels,
     emails,
     instagram,
+    recuperar,
     addonCancels,
+    addonStateCalls,
     invitesUsed,
     processedEvents,
     recuperaBanco: () => {
@@ -915,7 +924,7 @@ test("aviso de fim de teste de um add-on nao passa pelas travas nem manda e-mail
 });
 
 test("falha ao ligar o Instagram devolve 5xx para o Stripe reenviar", async () => {
-  const f = makeStore({ instagramError: "banco fora" });
+  const f = makeStore({ addonError: "banco fora" });
   const res = await handleStripeEvent(makeEvent({ data: { object: addon() } } as Partial<Stripe.Event>), f.store);
   assert.equal(res.status, 500);
   assert.equal(f.processedEvents.size, 0);
@@ -925,6 +934,7 @@ test("checkout do add-on liga o Instagram e nao conta venda do plano", async () 
   const f = makeStore({ subscription: addon() });
   await handleStripeEvent(makeCheckoutEvent("paid"), f.store);
   assert.deepEqual(f.instagram, [{ tenantId: TENANT, enabled: true }]);
+  assert.deepEqual(f.addonStateCalls, ["instagram"]);
   assert.equal(f.upserts.length, 0);
   assert.equal(f.funnelEvents.length, 0);
 });
@@ -966,4 +976,89 @@ test("duas assinaturas vivas do add-on: liga e grita no log para estornar", asyn
   await handleStripeEvent(makeEvent({ data: { object: addon() } } as Partial<Stripe.Event>), f.store);
   assert.deepEqual(f.instagram, [{ tenantId: TENANT, enabled: true }]);
   assert.ok(f.logs.some((l) => l.event === "stripe.addon.duplicado" && l.level === "error"));
+});
+
+// ---------------------------------------------------------------------------
+// Add-on Recuperar: mesma mecânica do Instagram, metadata.addon = "recuperar".
+
+const recuperarSub = (over: Partial<Stripe.Subscription> = {}) =>
+  makeSubscription({ id: "sub_rc", metadata: { tenant_id: TENANT, addon: "recuperar" }, ...over });
+
+test("add-on Recuperar ativo liga o Recuperar, não toca o Instagram nem a linha do plano", async () => {
+  const f = makeStore();
+  const res = await handleStripeEvent(makeEvent({ data: { object: recuperarSub() } } as Partial<Stripe.Event>), f.store);
+  assert.equal(res.status, 200);
+  assert.deepEqual(f.recuperar, [{ tenantId: TENANT, enabled: true }]);
+  assert.deepEqual(f.instagram, []);
+  assert.deepEqual(f.addonStateCalls, ["recuperar"]);
+  assert.equal(f.upserts.length, 0);
+});
+
+test("Recuperar decide pelo estado atual no Stripe: active atrasado depois do fim desliga; deleted de duplicada com outra viva mantém", async () => {
+  const atrasado = makeStore({ addonLive: false });
+  await handleStripeEvent(makeEvent({ type: "customer.subscription.updated", data: { object: recuperarSub({ status: "active" }) } } as Partial<Stripe.Event>), atrasado.store);
+  assert.deepEqual(atrasado.recuperar, [{ tenantId: TENANT, enabled: false }]);
+  const duplicada = makeStore({ addonLive: true });
+  await handleStripeEvent(makeEvent({ type: "customer.subscription.deleted", data: { object: recuperarSub({ status: "canceled" }) } } as Partial<Stripe.Event>), duplicada.store);
+  assert.deepEqual(duplicada.recuperar, [{ tenantId: TENANT, enabled: true }]);
+});
+
+test("Recuperar com customer de outra loja, ou sem tenant_id, não liga nada", async () => {
+  const outro = makeStore({ addonCustomerOk: false });
+  await handleStripeEvent(makeEvent({ data: { object: recuperarSub() } } as Partial<Stripe.Event>), outro.store);
+  assert.deepEqual(outro.recuperar, []);
+  assert.ok(outro.logs.some((l) => l.event === "stripe.addon.customer_mismatch"));
+  const sem = makeStore();
+  await handleStripeEvent(makeEvent({ data: { object: recuperarSub({ metadata: { addon: "recuperar" } }) } } as Partial<Stripe.Event>), sem.store);
+  assert.deepEqual(sem.recuperar, []);
+  assert.ok(sem.logs.some((l) => l.event === "stripe.addon.missing_metadata"));
+});
+
+test("Recuperar nunca é plano: checkout, fatura e fim de teste não entram no funil nem no e-mail do plano", async () => {
+  const checkout = makeStore({ subscription: recuperarSub() });
+  await handleStripeEvent(makeCheckoutEvent("paid"), checkout.store);
+  assert.deepEqual(checkout.recuperar, [{ tenantId: TENANT, enabled: true }]);
+  assert.deepEqual([checkout.upserts.length, checkout.funnelEvents.length], [0, 0]);
+  const fatura = makeStore();
+  const invoice = { id: "in_rc", amount_paid: 12700, billing_reason: "subscription_create", parent: { subscription_details: { metadata: { tenant_id: TENANT, addon: "recuperar" } } } };
+  await handleStripeEvent({ id: "evt_inv_rc", type: "invoice.paid", created: 1_700_000_000, data: { object: invoice } } as unknown as Stripe.Event, fatura.store);
+  assert.equal(fatura.funnelEvents.length, 0);
+  const teste = makeStore({ subscription: recuperarSub({ status: "trialing" }) });
+  const ev = { id: "evt_tw_rc", type: "customer.subscription.trial_will_end", created: 1_700_000_000, data: { object: recuperarSub({ status: "trialing" }) } } as unknown as Stripe.Event;
+  assert.equal((await handleStripeEvent(ev, teste.store)).status, 200);
+  assert.deepEqual([teste.cancels.length, teste.emails.length, teste.upserts.length], [0, 0, 0]);
+});
+
+test("convite do Instagram só vale para o Instagram; falha ao ligar o Recuperar devolve 5xx sem marcador; duplicada grita no log", async () => {
+  const convite = makeStore();
+  await handleStripeEvent(makeEvent({ data: { object: recuperarSub({ metadata: { tenant_id: TENANT, addon: "recuperar", invite_id: "0b8e4f2a-1c3d-4e5f-8a9b-0c1d2e3f4a5b" } }) } } as Partial<Stripe.Event>), convite.store);
+  assert.deepEqual(convite.invitesUsed, []);
+  const falha = makeStore({ addonError: "banco fora" });
+  assert.equal((await handleStripeEvent(makeEvent({ data: { object: recuperarSub() } } as Partial<Stripe.Event>), falha.store)).status, 500);
+  assert.equal(falha.processedEvents.size, 0);
+  const dupla = makeStore({ addonVivas: 2 });
+  await handleStripeEvent(makeEvent({ data: { object: recuperarSub() } } as Partial<Stripe.Event>), dupla.store);
+  assert.ok(dupla.logs.some((l) => l.event === "stripe.addon.duplicado" && l.level === "error"));
+});
+
+test("assinaturaVivaDoAddon: só vale o add-on pedido, da loja, em status vivo", () => {
+  const sub = (status: Stripe.Subscription.Status, metadata: Stripe.Metadata) => ({ status, metadata });
+  const doRecuperar = { tenant_id: TENANT, addon: "recuperar" };
+  assert.equal(assinaturaVivaDoAddon(sub("active", { tenant_id: TENANT, addon: "instagram" }), "recuperar", TENANT), false);
+  assert.equal(assinaturaVivaDoAddon(sub("active", { tenant_id: "outra-loja", addon: "recuperar" }), "recuperar", TENANT), false);
+  assert.equal(assinaturaVivaDoAddon(sub("active", { tenant_id: TENANT }), "recuperar", TENANT), false);
+  for (const morto of ["unpaid", "canceled", "incomplete", "incomplete_expired", "paused"] as const) {
+    assert.equal(assinaturaVivaDoAddon(sub(morto, doRecuperar), "recuperar", TENANT), false, morto);
+  }
+  for (const vivo of ["active", "trialing", "past_due"] as const) {
+    assert.equal(assinaturaVivaDoAddon(sub(vivo, doRecuperar), "recuperar", TENANT), true, vivo);
+  }
+});
+
+test("addonDe reconhece só os add-ons conhecidos", () => {
+  assert.equal(addonDe({ addon: "recuperar" }), "recuperar");
+  assert.equal(addonDe({ addon: "instagram" }), "instagram");
+  const desconhecidos: (Stripe.Metadata | null | undefined)[] = [{ addon: "outro" }, {}, null, undefined];
+  for (const nao of desconhecidos) assert.equal(addonDe(nao), null);
+  assert.equal(isAddon({ addon: "recuperar" }), true);
 });

@@ -1,7 +1,7 @@
 import type Stripe from "stripe";
 
 import { hasLiveSubscription } from "./courtesy";
-import { isInstagramAddon } from "./stripe-webhook";
+import { isAddon } from "./stripe-webhook";
 import { TRIAL_DAYS, trialEligible, type TrialFacts } from "./trial";
 
 /**
@@ -104,9 +104,9 @@ export async function trialCheckoutDecision(i: {
  * O Checkout sempre cria uma assinatura nova e o webhook nunca cancela a anterior:
  * "Trocar de plano" (ou assinar de novo no paywall estando `past_due`) deixava as
  * duas cobrando o mesmo cartão. Lê o Stripe, não a linha do banco, pelo mesmo
- * motivo de `hasLiveSubscription`. O add-on do Instagram é outra assinatura de
- * propósito e não conta.
+ * motivo de `hasLiveSubscription`. Os add-ons (Instagram, Recuperar) são outra
+ * assinatura de propósito e não contam.
  */
 export function temPlanoVivo(subs: readonly Pick<Stripe.Subscription, "status" | "metadata">[]): boolean {
-  return hasLiveSubscription(subs.filter((s) => !isInstagramAddon(s.metadata)).map((s) => s.status));
+  return hasLiveSubscription(subs.filter((s) => !isAddon(s.metadata)).map((s) => s.status));
 }

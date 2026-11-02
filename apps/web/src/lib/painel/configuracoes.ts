@@ -76,11 +76,14 @@ export const MODULOS_NA_TELA: readonly Modulo[] = ["vendas", ...MODULOS_OPCIONAI
 export const ROTULO_DO_MODULO: Record<Modulo, string> = {
   vendas: "Registrar vendas",
   postar: "Postar nos grupos",
+  recuperar: "Atender no Recuperar",
 };
 
 export const DESCRICAO_DO_MODULO: Record<Modulo, string> = {
   vendas: "Busca o cliente pelo número e lança os produtos. Vê só as vendas dela, nunca a lista de contatos.",
   postar: "Envia texto, foto, vídeo e áudio pros grupos das campanhas.",
+  recuperar:
+    "Vê quem respondeu e conversa com as clientes pelo WhatsApp do atendimento, com os scripts prontos. Só funciona com o Recuperar ativo na loja.",
 };
 
 /** Os chips da ficha. Só a vendedora tem; o que vier torto do banco não vira chip. */
