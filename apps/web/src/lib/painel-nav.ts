@@ -14,9 +14,12 @@ import {
   Boxes,
   Camera,
   ShoppingBag,
+  ShoppingCart,
   type LucideIcon,
 } from "lucide-react";
 import { PAPEIS_LIVRES, acessoRestrito, modulosDoAcesso, paginaLiberada, type Acesso, type Modulo } from "@/lib/auth/modulos";
+import { numero } from "@/lib/painel/grupos";
+import type { RecuperarNaCasca } from "@/lib/painel/casca";
 
 /**
  * Fonte única da navegação do painel.
@@ -48,7 +51,7 @@ import { PAPEIS_LIVRES, acessoRestrito, modulosDoAcesso, paginaLiberada, type Ac
 export type NavGrupo = "vender" | "lotar" | "loja";
 
 /** Add-ons: o item só aparece pra loja com a liberação ligada. */
-export type Liberacao = "instagram";
+export type Liberacao = "instagram" | "recuperar";
 export type Liberacoes = Record<Liberacao, boolean>;
 
 export const NAV_GRUPOS_ORDEM: NavGrupo[] = ["vender", "lotar", "loja"];
@@ -67,6 +70,11 @@ export type NavItem = {
    * só aparece item com módulo liberado; sem módulo, ela não vê.
    */
   modulo?: Modulo;
+  /**
+   * Add-on com oferta: dono, admin e operador veem o item no Mais mesmo desligado, e ele abre a
+   * oferta; a vendedora só com o add-on ligado. Diferente de `requer`, que esconde de todos.
+   */
+  comOferta?: Liberacao;
 };
 
 export type NavGroup = {
@@ -84,6 +92,7 @@ const DISPAROS: NavItem = { href: "/painel/disparos", label: "Disparos", icon: S
 const BIBLIOTECA: NavItem = { href: "/painel/biblioteca", label: "Biblioteca", icon: BookOpen, grupo: "vender" };
 const RELAMPAGO: NavItem = { href: "/painel/relampago", label: "Oferta Relâmpago", icon: Flame, grupo: "vender", curto: "Relâmpago" };
 const FUNIS: NavItem = { href: "/painel/funis", label: "Funis", icon: Zap, grupo: "vender" };
+const RECUPERAR: NavItem = { href: "/painel/recuperar", label: "Recuperar", icon: ShoppingCart, grupo: "vender", modulo: "recuperar", comOferta: "recuperar" };
 const COMUNIDADES: NavItem = { href: "/painel/comunidades", label: "Comunidades", icon: Boxes, grupo: "loja" };
 const GRUPOS: NavItem = { href: "/painel/grupos", label: "Grupos", icon: Users, grupo: "loja" };
 const CONTATOS: NavItem = { href: "/painel/contatos", label: "Contatos", icon: UserPlus, grupo: "loja" };
@@ -94,7 +103,7 @@ const RESULTADOS: NavItem = { href: "/painel/resultados", label: "Resultados", i
 const CONFIGURACOES: NavItem = { href: "/painel/configuracoes", label: "Configurações", icon: Settings, grupo: "loja" };
 
 export const NAV_GROUPS: NavGroup[] = [
-  { title: null, items: [INICIO, VENDAS, CAMPANHAS, INSTAGRAM, DISPAROS, BIBLIOTECA, RELAMPAGO, FUNIS, COMUNIDADES, GRUPOS, CONTATOS] },
+  { title: null, items: [INICIO, VENDAS, CAMPANHAS, INSTAGRAM, DISPAROS, BIBLIOTECA, RELAMPAGO, FUNIS, RECUPERAR, COMUNIDADES, GRUPOS, CONTATOS] },
   { title: "Crescimento", items: [PAGINAS, LINK_DA_BIO, RESULTADOS] },
 ];
 
@@ -121,6 +130,9 @@ export const NAV_BARRA_DIREITA: NavItem[] = [CONTATOS];
 /** Barra de cima (spec G2, decisão 4): os seis módulos do dia; o resto fica no "Mais". */
 export const NAV_BARRA_DESKTOP: NavItem[] = [INICIO, CAMPANHAS, DISPAROS, RELAMPAGO, GRUPOS, CONTATOS];
 
+/** A mesma barra com o Recuperar ligado: sete itens, o novo logo depois do Relâmpago. */
+export const NAV_BARRA_COM_RECUPERAR: NavItem[] = [INICIO, CAMPANHAS, DISPAROS, RELAMPAGO, RECUPERAR, GRUPOS, CONTATOS];
+
 /** Tudo, achatado — para o drawer do mobile e a command palette. */
 export const NAV_ALL: NavItem[] = [
   ...NAV_GROUPS.flatMap((g) => g.items),
@@ -138,7 +150,8 @@ export function liberado(item: NavItem, liberacoes: Liberacoes | null): boolean 
 
 /**
  * O item aparece no menu deste acesso (spec 2026-10-07 §1, "Página")?
- * - vendedora: só item com `modulo` liberado para ela (`vendas` sempre; `postar` se o dono marcou);
+ * - vendedora: só item com `modulo` liberado para ela (`vendas` sempre; `postar` se o dono marcou), e item
+ *   `comOferta` só com o add-on ligado (sem ele ela não tem o que fazer na oferta);
  * - owner/admin/operator (`PAPEIS_LIVRES`): a regra de antes (`liberado`), e Vendas fica fora — o dono não usa a tela na v1;
  * - papel desconhecido: nada (fechado por padrão, como `paginaLiberada`);
  * - `null` depois de carregado = o `/api/auth/me` falhou: não dá pra distinguir o dono da vendedora,
@@ -148,7 +161,12 @@ export function liberado(item: NavItem, liberacoes: Liberacoes | null): boolean 
 export function visivelNoMenu(item: NavItem, acesso: Acesso | null, liberacoes: Liberacoes | null): boolean {
   if (acesso === null) return item.modulo === undefined && liberado(item, liberacoes);
   if (acesso.role === "seller") {
-    return item.modulo !== undefined && modulosDoAcesso(acesso).includes(item.modulo) && liberado(item, liberacoes);
+    return (
+      item.modulo !== undefined &&
+      modulosDoAcesso(acesso).includes(item.modulo) &&
+      liberado(item, liberacoes) &&
+      (!item.comOferta || liberacoes?.[item.comOferta] === true)
+    );
   }
   if (!PAPEIS_LIVRES.includes(acesso.role)) return false;
   return item.modulo !== "vendas" && liberado(item, liberacoes);
@@ -160,12 +178,12 @@ export function podePostar(acesso: Acesso | null): boolean {
 }
 
 /**
- * Itens da barra de cima. Outros papéis: os seis do dia. Vendedora: o menu
+ * Itens da barra de cima. Outros papéis: os seis do dia, e sete com o Recuperar ligado. Vendedora: o menu
  * inteiro filtrado — é curto (Vendas e o que o dono liberou) e nenhum item
  * dela está entre os seis do dono.
  */
 export function itensDaBarra(acesso: Acesso | null, liberacoes: Liberacoes | null): NavItem[] {
-  const base = acessoRestrito(acesso) ? NAV_ALL : NAV_BARRA_DESKTOP;
+  const base = acessoRestrito(acesso) ? NAV_ALL : liberacoes?.recuperar ? NAV_BARRA_COM_RECUPERAR : NAV_BARRA_DESKTOP;
   return base.filter((item) => visivelNoMenu(item, acesso, liberacoes));
 }
 
@@ -214,4 +232,15 @@ export function resumo(dados: ResumoDados): Record<string, string> {
     [FUNIS.href]: `Funis · ${dados.funisAgendados === 0 ? "nenhum agendado" : `${dados.funisAgendados} agendado${dados.funisAgendados === 1 ? "" : "s"}`}`,
     [PAGINAS.href]: `Páginas · ${dados.paginasNoAr === 0 ? "nenhuma no ar" : `${dados.paginasNoAr} no ar`}`,
   };
+}
+
+/**
+ * A linha do Recuperar no Mais: quantas conversas esperam o lojista. Desligado (ou sem leitura) não diz
+ * nada, e o item cai no rótulo "Recuperar", que abre a oferta.
+ */
+export function linhaDoRecuperar(recuperar: RecuperarNaCasca | null): Record<string, string> {
+  if (!recuperar?.enabled) return {};
+  const n = recuperar.precisaDeVoce;
+  const estado = n <= 0 ? "ninguém esperando" : n === 1 ? "1 precisa de você" : `${numero(n)} precisam de você`;
+  return { [RECUPERAR.href]: `Recuperar · ${estado}` };
 }
