@@ -1,6 +1,6 @@
 import Stripe from "stripe";
 import { z } from "zod";
-import { addonNoStripe, cartaoSalvo, contextoDaAssinatura } from "@/lib/billing/instagram-contexto";
+import { addonNoStripe, cartaoSalvo, contextoDaAssinatura, recusaDoInstagramExistente } from "@/lib/billing/instagram-contexto";
 import { subscriptionInstagramParams } from "@/lib/billing/instagram-oferta";
 import { getStripe } from "@/lib/billing/stripe";
 import { resolveTenantCustomerId } from "@/lib/billing/tenant-customer";
@@ -33,7 +33,8 @@ export async function POST(req: Request) {
     const stripe = getStripe();
     const customerId = await resolveTenantCustomerId({ supabase, stripe, tenantId: ctx.tenantId, email: ctx.email ?? null, authUserId: ctx.authUserId });
     const existente = await addonNoStripe(customerId, ctx.tenantId);
-    if (existente.viva) return Response.json({ error: "O Instagram já está assinado. Pode levar alguns segundos para liberar." }, { status: 409 });
+    const recusa = recusaDoInstagramExistente(existente);
+    if (recusa) return recusa;
     if (existente.faturaPendente) return Response.json({ redirect: existente.faturaPendente });
     const cartao = await cartaoSalvo(customerId);
     if (!cartao) return Response.json({ error: "Nenhum cartão salvo. Use outro cartão." }, { status: 409 });

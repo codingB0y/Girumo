@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/toast";
 import type { Cotacao } from "@/lib/billing/instagram-oferta";
 import { formatarReais } from "@/lib/billing/instagram-preco";
@@ -17,6 +17,7 @@ type Oferta = {
 };
 
 const BANDEIRA: Record<string, string> = { visa: "Visa", mastercard: "Mastercard", amex: "Amex", elo: "Elo", hipercard: "Hipercard" };
+const PENDENTE_PADRAO = "A assinatura do Instagram está com pagamento em aberto. Regularize em Gerenciar cobrança.";
 
 /** Assinar o add-on Instagram: valores do servidor, cartão salvo com "Autorizar cobrança", ou Checkout do Stripe. */
 export function AssinarInstagram() {
@@ -24,7 +25,10 @@ export function AssinarInstagram() {
   const toast = useToast();
   const [oferta, setOferta] = useState<Oferta | null>(null);
   const [erro, setErro] = useState(false);
-  const [ocupado, setOcupado] = useState<"cartao" | "checkout" | null>(null);
+  const [ocupado, setOcupado] = useState<"cartao" | "checkout" | "portal" | null>(null);
+  const [pendente, setPendente] = useState<string | null>(null);
+  // Os botões de pagar somem na troca: sem levar o foco, ele cai no <body> e o leitor de tela não anuncia.
+  const botaoCobranca = useRef<HTMLButtonElement>(null);
 
   const carregar = useCallback(async () => {
     setErro(false);
@@ -41,13 +45,18 @@ export function AssinarInstagram() {
     void carregar();
   }, [carregar]);
 
+  useEffect(() => {
+    if (pendente) botaoCobranca.current?.focus();
+  }, [pendente]);
+
   const corpo = JSON.stringify(convite ? { convite } : {});
 
   async function autorizar() {
     setOcupado("cartao");
     try {
       const r = await fetch("/api/billing/instagram/assinar", { method: "POST", headers: { "Content-Type": "application/json" }, body: corpo });
-      const j = (await r.json().catch(() => null)) as { status?: string; redirect?: string; error?: string } | null;
+      const j = (await r.json().catch(() => null)) as { status?: string; redirect?: string; error?: string; code?: string } | null;
+      if (emAberto(r, j)) return;
       if (j?.status === "paid") {
         window.location.assign("/painel/instagram?assinado=1");
         return;
@@ -64,11 +73,36 @@ export function AssinarInstagram() {
     }
   }
 
+  /** Assinatura em `unpaid`: "já assinado, aguarde" nunca se resolveria. Vai para a cobrança, não para o toast. */
+  function emAberto(r: Response, j: { error?: string; code?: string } | null): boolean {
+    if (r.status !== 409 || j?.code !== "cobranca_pendente") return false;
+    setPendente(j.error ?? PENDENTE_PADRAO);
+    return true;
+  }
+
+  async function gerenciarCobranca() {
+    setOcupado("portal");
+    try {
+      const r = await fetch("/api/billing/portal", { method: "POST" });
+      const j = (await r.json().catch(() => null)) as { url?: string; error?: string } | null;
+      if (r.ok && j?.url) {
+        window.location.assign(j.url);
+        return;
+      }
+      toast(j?.error ?? "Não deu pra abrir a cobrança. Tente de novo.", "error");
+    } catch {
+      toast("Sem conexão. Tente de novo.", "error");
+    } finally {
+      setOcupado(null);
+    }
+  }
+
   async function outroCartao() {
     setOcupado("checkout");
     try {
       const r = await fetch("/api/billing/instagram/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: corpo });
-      const j = (await r.json().catch(() => null)) as { url?: string; error?: string } | null;
+      const j = (await r.json().catch(() => null)) as { url?: string; error?: string; code?: string } | null;
+      if (emAberto(r, j)) return;
       if (r.ok && j?.url) {
         window.location.assign(j.url);
         return;
@@ -145,7 +179,21 @@ export function AssinarInstagram() {
       <div className="space-y-2 border-t border-line-200 px-5 py-4">
         {!oferta.configurado && <p className="text-13 text-volt-950">A assinatura do Instagram está indisponível no momento. Fale com a Girumo.</p>}
         {oferta.configurado && !oferta.podeCobrar && <p className="text-13 text-volt-950">Só o dono ou um admin da loja pode assinar.</p>}
-        {oferta.configurado && oferta.podeCobrar && (
+        {oferta.configurado && oferta.podeCobrar && pendente && (
+          <>
+            <p role="status" className="text-13 text-volt-950">{pendente}</p>
+            <button
+              ref={botaoCobranca}
+              type="button"
+              onClick={() => void gerenciarCobranca()}
+              disabled={ocupado !== null}
+              className="flex h-10 w-full items-center justify-center rounded-[var(--radius-control)] bg-volt-950 px-3 text-13 font-medium text-canvas-100 disabled:opacity-50"
+            >
+              {ocupado === "portal" ? "Abrindo a cobrança…" : "Gerenciar cobrança"}
+            </button>
+          </>
+        )}
+        {oferta.configurado && oferta.podeCobrar && !pendente && (
           <>
             {oferta.cartao && (
               <button

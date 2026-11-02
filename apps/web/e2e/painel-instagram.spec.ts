@@ -62,6 +62,39 @@ test.describe("Fluxos do Instagram", () => {
     await semErroDeRuntime(page);
   });
 
+  // Add-on em `unpaid`: o webhook deixa o Instagram desligado, então a oferta volta e
+  // "já assinado, aguarde" nunca se resolveria. Oferta, cobrança e portal simulados.
+  for (const caso of [
+    { nome: "cartão salvo", rota: "assinar", cartao: { brand: "visa", last4: "4242" }, botao: /^Autorizar cobrança/ },
+    { nome: "outro cartão", rota: "checkout", cartao: null, botao: /^Pagar .* com cartão$/ },
+  ]) {
+    test(`pagamento em aberto (${caso.nome}): manda para Gerenciar cobrança, não para o toast de já assinado`, async ({ page }) => {
+      const aberto = "A assinatura do Instagram está com pagamento em aberto. Regularize em Gerenciar cobrança.";
+      await page.route("**/api/billing/instagram/oferta", (r) =>
+        r.fulfill({
+          json: {
+            bloqueio: null,
+            conviteInvalido: false,
+            cotacao: { descontoPercent: 0, implantacaoCheiaCents: 49700, implantacaoCents: 49700, mensalCents: 19700, totalHojeCents: 69400 },
+            cartao: caso.cartao,
+            configurado: true,
+            podeCobrar: true,
+          },
+        }),
+      );
+      await page.route(`**/api/billing/instagram/${caso.rota}`, (r) => r.fulfill({ status: 409, json: { error: aberto, code: "cobranca_pendente" } }));
+      await page.goto("/painel/instagram/assinar", { waitUntil: "load" });
+      await page.getByRole("button", { name: caso.botao }).click();
+      await expect(page.getByText(aberto)).toBeVisible();
+      const gerenciar = page.getByRole("button", { name: "Gerenciar cobrança" });
+      await expect(gerenciar).toBeFocused();
+      await expect(page.getByRole("button", { name: caso.botao })).toHaveCount(0);
+      await page.route("**/api/billing/portal", (r) => r.fulfill({ json: { url: "/painel/configuracoes?billing=portal" } }));
+      await gerenciar.click();
+      await expect(page).toHaveURL(/\/painel\/configuracoes\?billing=portal/);
+    });
+  }
+
   test("a lista mostra o estado da conta e o botão de conectar ou desconectar", async ({ page }) => {
     const status = await page.request.get("/api/ig/status");
     const liberado = status.ok() && ((await status.json()) as { enabled?: boolean }).enabled === true;
