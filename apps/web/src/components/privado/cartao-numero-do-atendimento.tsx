@@ -43,6 +43,9 @@ export function CartaoNumeroDoAtendimento() {
   }, []);
 
   const cena = cenaDoCartao(cartao);
+  // Antes da primeira resposta `cartao` é null e a cena também é "oculto": só uma resposta que
+  // DEU "oculto" (sem add-on e sem número) encerra o vigia.
+  const respondeuOculto = cartao !== null && cena === "oculto";
 
   useEffect(() => {
     void carregar();
@@ -50,8 +53,10 @@ export function CartaoNumeroDoAtendimento() {
 
   // Pareando acompanha de perto (o QR chega por webhook e troca a cada ciclo); o resto só vigia. Mudar
   // de cena reinicia o relógio, então "Conectar" passa para o ritmo curto na hora. Aba oculta não
-  // consulta, e voltar a ela consulta na hora.
+  // consulta, e voltar a ela consulta na hora. Loja sem add-on e sem número (cartão oculto) não vigia:
+  // a rota lê o banco a cada ciclo, e entrar de novo na tela lê outra vez.
   useEffect(() => {
+    if (respondeuOculto) return;
     const espera = cena === "pareando" ? POLL_MS : WATCH_MS;
     let cancelado = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -75,7 +80,7 @@ export function CartaoNumeroDoAtendimento() {
       if (timer) clearTimeout(timer);
       document.removeEventListener("visibilitychange", aoVoltar);
     };
-  }, [carregar, cena]);
+  }, [carregar, cena, respondeuOculto]);
 
   /** POST na API; mostra o `error` dela e recarrega de qualquer jeito (um 409 ou 403 muda a cena). */
   const enviar = useCallback(
