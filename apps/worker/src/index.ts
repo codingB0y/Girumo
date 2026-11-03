@@ -18,8 +18,10 @@
  *  - manutenção da fila: lease vencido, progresso de broadcast e agendamento.
  *    Roda SEMPRE, inclusive sem Evolution configurada (ver housekeeping.ts);
  *  - recontagem: 1×/dia (WORKER_RECOUNT_INTERVAL_MS), reconta os grupos de cada
- *    loja com número conectado pelo app (/api/groups/recount). Nasce em DRY-RUN,
- *    até WORKER_RECOUNT_ENABLED=true (ver recount-loop.ts).
+ *    loja com número conectado pelo app (/api/groups/recount). Pula loja com
+ *    contagem fresca (menos de 20 h, lida de `logs`): o boot do container não
+ *    vira varredura dos grupos. Nasce em DRY-RUN, até WORKER_RECOUNT_ENABLED=true
+ *    (ver recount-loop.ts).
  */
 
 import { createAppClient } from "./app-client.js";
@@ -294,7 +296,9 @@ async function main(): Promise<void> {
       })
     : null;
 
-  // 5) recontagem dos grupos, 1×/dia. O primeiro tick roda na subida do container.
+  // 5) recontagem dos grupos, 1×/dia. O primeiro tick roda na subida do container,
+  //    mas só reconta loja sem contagem nas últimas 20 h — um redeploy (o Coolify
+  //    sobe o worker a cada push na main) não pode virar um fetchAllGroups.
   const recontagem = recountDeps
     ? startLoop({
         name: "recontagem",
