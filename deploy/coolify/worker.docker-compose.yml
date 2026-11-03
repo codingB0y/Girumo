@@ -56,7 +56,8 @@ services:
       # vez, pelo app (/api/groups/recount). Só LÊ o WhatsApp — o mesmo
       # fetchAllGroups do botão Sincronizar. DRY-RUN por default: o loop lista as
       # lojas e loga "DRY-RUN: recontaria"; vire "true" depois de ler esses logs.
-      # O primeiro tick roda na subida do container. Mínimo de 1 h.
+      # O primeiro tick roda na subida do container, mas pula loja com contagem de
+      # menos de 20 h (lida de `logs`): redeploy não vira varredura. Mínimo de 1 h.
       WORKER_RECOUNT_ENABLED: ${WORKER_RECOUNT_ENABLED:-false}
       WORKER_RECOUNT_INTERVAL_MS: ${WORKER_RECOUNT_INTERVAL_MS:-86400000}
     # Sem `ports:` de propósito: o worker não recebe tráfego, só fala com o
