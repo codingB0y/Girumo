@@ -1,5 +1,6 @@
 -- Conferência da migração 20261023120000_antiban_saidas_e_todos.sql (disjuntor por saídas e orçamento
--- de @todos), nos DOIS bancos, depois de aplicar. Rodar de apps\web:
+-- de @todos) e de 20261103120000_mention_all_budget_zero.sql (orçamento 2 → 0), nos DOIS bancos, depois
+-- de aplicar. Rodar de apps\web:
 --   supabase link --project-ref <ref> --yes      # dev wfjuwogxaupyadwhvoxy / prod nidoatbxaylrkcgbszns
 --   supabase db query --linked -o json -f ..\..\infra\tests\antiban-saidas-e-todos-check.sql
 --
@@ -51,8 +52,8 @@ begin
     raise exception 'FALHOU: app.exit_breaker ausente ou legível por anon/authenticated';
   end if;
 
-  if app.mention_all_daily_budget() <> 2 then
-    raise exception 'FALHOU: orçamento de @todos diferente de 2';
+  if app.mention_all_daily_budget() <> 0 then
+    raise exception 'FALHOU: orçamento de @todos diferente de 0 (20261103120000)';
   end if;
 
   if (select md5(btrim(regexp_replace(regexp_replace(p.prosrc, '--[^\n]*', '', 'g'), '\s+', ' ', 'g')))
@@ -216,8 +217,9 @@ select pg_temp.check_claim('O1 outro grupo',        '7a0b0000-0000-4000-8000-000
 select pg_temp.check_claim('O1 recorrente (run 2)', '7a0b0000-0000-4000-8000-0000000000b1', '7a0b0000-0000-4000-8000-0000000000f4', true);
 select pg_temp.check_claim('O5 sem @todos',         '7a0b0000-0000-4000-8000-0000000000b5', '7a0b0000-0000-4000-8000-0000000000f5', false);
 
--- Passadas 24 h, o orçamento libera: O3 recorrente (run novo) volta a marcar, mesmo com o run
--- anterior cortado.
+-- Com orçamento 0, passadas 24 h NADA libera: O3 recorrente (run novo) continua sem marcar. O único
+-- @todos que passa é o do post que já tinha saído marcando antes do corte (O1 outro grupo), regra do
+-- claim, não do orçamento. Antes de 20261103120000 (orçamento 2) este passo saía true/-.
 update public.engine_commands set claimed_at = now() - interval '25 hours'
  where tenant_id = '7a0b0000-0000-4000-8000-000000000001' and claimed_at is not null;
 
@@ -228,8 +230,8 @@ declare got text;
 begin
   select string_agg(passo || '=' || mention || '/' || coalesce(cortado, '-'), '; ' order by ordem) into got from check_claims;
   if got is distinct from
-     'O2 (2º post)=true/-; O3 (3º post)=false/true; O3 outro grupo=false/true; O1 outro grupo=true/-; '
-     'O1 recorrente (run 2)=false/true; O5 sem @todos=false/-; O3 recorrente no dia seguinte=true/-' then
+     'O2 (2º post)=false/true; O3 (3º post)=false/true; O3 outro grupo=false/true; O1 outro grupo=true/-; '
+     'O1 recorrente (run 2)=false/true; O5 sem @todos=false/-; O3 recorrente no dia seguinte=false/true' then
     raise exception 'FALHOU: orçamento de @todos: %', got;
   end if;
 end $$;

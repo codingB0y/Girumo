@@ -599,3 +599,7 @@ apps/web/supabase/migrations/20261031120000_rastreio_pedidos.sql
 # dos grupos. Só corpo, com trava de md5: não muda a baseline. Depende de instances.purpose (PR 1a). Conferir
 # com infra/tests/numero-do-atendimento-check.sql nos dois bancos.
 apps/web/supabase/migrations/20261030160000_numero_do_atendimento.sql
+# 03/11: orçamento de @todos 2 → 0 (restrições de 23/10 e 03/11 na loja piloto; 79% das msgs de 30 dias marcavam todos).
+# Só o corpo de app.mention_all_daily_budget, com trava de md5: não muda a baseline. Conferir com
+# infra/tests/antiban-saidas-e-todos-check.sql nos dois bancos (expectativas do orçamento atualizadas).
+apps/web/supabase/migrations/20261103120000_mention_all_budget_zero.sql
