@@ -186,7 +186,7 @@ export default function Entregas() {
           }}
         />
       ) : !resposta ? (
-        <div className="pn-skeleton h-64 w-full" aria-busy="true" />
+        <div className="pn-skeleton h-64 w-full" role="status" aria-busy="true" aria-label="Carregando entregas" />
       ) : (
         <>
           {pedido && (
