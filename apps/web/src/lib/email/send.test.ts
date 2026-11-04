@@ -68,7 +68,7 @@ test("remetenteComNome troca só o nome de exibição e não deixa < > \" \ @ ne
   );
   assert.equal(remetenteComNome(BASE, '<>"\r\n'), BASE);
   assert.equal(remetenteComNome(BASE, undefined), BASE);
-  assert.equal(remetenteComNome(BASE, "Loja\u0085X‮abc"), '"Loja X abc" <noreply@girumo.com.br>');
+  assert.equal(remetenteComNome(BASE, "Loja\u0085X\u202Eabc"), '"Loja X abc" <noreply@girumo.com.br>');
   assert.equal(remetenteComNome(BASE, "😀".repeat(70)), `"${"😀".repeat(60)}" <noreply@girumo.com.br>`);
 });
 
